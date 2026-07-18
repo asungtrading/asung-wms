@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Asung WMS · 직원 관리</title>
+<style>
+  :root{
+    --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
+    --paper:#f7f8fa; --card:#ffffff; --mut:#6b7686; --mut-2:#9aa4b2;
+    --accent:#2f6df6; --accent-ink:#1b4fd6;
+    --tor:#2f6df6; --edm:#12996b; --both:#7a5af0;
+    --admin:#7a5af0; --manager:#d9820a; --worker:#5a6674;
+    --ok:#16a34a; --danger:#dc2626; --danger-bg:#fef2f2;
+    --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
+    --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+  a{color:inherit}
+
+  /* header */
+  header{position:sticky;top:0;z-index:20;background:rgba(247,248,250,.85);
+    backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
+  .bar{max-width:960px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+  .logo{font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.02em;
+    display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+  .logo b{font-weight:800}
+  .logo span{color:var(--mut);font-weight:600;font-size:11px}
+  .conn{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);
+    font-family:var(--mono)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--mut-2);flex:none}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+  .dot.err{background:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+
+  main{max-width:960px;margin:0 auto;padding:22px 20px 80px}
+
+  /* toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  .seg{display:inline-flex;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+  .seg button{border:0;background:transparent;font:inherit;font-size:13px;font-weight:600;
+    color:var(--mut);padding:7px 13px;border-radius:7px;cursor:pointer;transition:.12s}
+  .seg button.active{background:var(--ink);color:#fff}
+  .seg button:not(.active):hover{color:var(--ink)}
+  .search{flex:1;min-width:180px;position:relative}
+  .search input{width:100%;border:1px solid var(--line);background:var(--card);
+    border-radius:10px;padding:9px 12px 9px 34px;font:inherit;font-size:14px;box-shadow:var(--shadow)}
+  .search input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--mut-2)}
+  .count{font-family:var(--mono);font-size:12px;color:var(--mut);white-space:nowrap}
+
+  /* table card */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--mut);text-align:left;font-weight:600;padding:12px 16px;
+    border-bottom:1px solid var(--line);background:var(--card)}
+  tbody td{padding:11px 16px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.off{background:#fbfcfd}
+  tbody tr.off .name{color:var(--mut-2)}
+  .name{font-weight:600;font-size:14.5px}
+  .name .id{font-family:var(--mono);font-size:11px;color:var(--mut-2);font-weight:500;margin-left:2px}
+
+  /* inline selects */
+  select.pill{font:inherit;font-size:13px;font-weight:600;border-radius:8px;
+    padding:6px 26px 6px 11px;border:1px solid var(--line);cursor:pointer;
+    -webkit-appearance:none;appearance:none;background-repeat:no-repeat;
+    background-position:right 8px center;background-size:11px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa4b2' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    transition:.12s}
+  select.pill:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .wh-toronto{color:var(--tor);background-color:#eef3ff;border-color:#dbe6ff}
+  .wh-edmonton{color:var(--edm);background-color:#e9f7f1;border-color:#cdeede}
+  .wh-both{color:var(--both);background-color:#f2effe;border-color:#e2dbfb}
+  .rl-admin{color:var(--admin);background-color:#f2effe;border-color:#e2dbfb}
+  .rl-manager{color:var(--manager);background-color:#fdf3e6;border-color:#f8e2c2}
+  .rl-worker{color:var(--worker);background-color:#f1f3f6;border-color:#e3e7ed}
+
+  /* active toggle */
+  .toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+  .track{width:38px;height:22px;border-radius:12px;background:#d3d9e2;position:relative;transition:.16s;flex:none}
+  .track::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.16s}
+  .toggle.on .track{background:var(--ok)}
+  .toggle.on .track::after{left:18px}
+  .toggle small{font-family:var(--mono);font-size:11px;color:var(--mut);width:44px}
+
+  /* add row */
+  .addwrap{margin-top:16px;background:var(--card);border:1px dashed var(--line);
+    border-radius:var(--radius);padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .addwrap input{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font:inherit;font-size:14px;
+    flex:1;min-width:160px}
+  .addwrap input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .addwrap select{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);
+    border-radius:9px;padding:9px 12px;background:var(--card);cursor:pointer}
+  .btn{border:0;border-radius:9px;padding:9px 16px;font:inherit;font-size:13.5px;font-weight:700;
+    cursor:pointer;transition:.12s;white-space:nowrap}
+  .btn.primary{background:var(--ink);color:#fff}
+  .btn.primary:hover{background:var(--ink-2)}
+  .btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
+  .btn.ghost:hover{color:var(--danger);border-color:#f3c4c4;background:var(--danger-bg)}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  .rowbtn{border:1px solid var(--line);background:var(--card);color:var(--mut);
+    border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:.12s}
+  .rowbtn:hover{color:var(--danger);border-color:#f3c4c4;background:var(--danger-bg)}
+
+  /* states */
+  .empty,.loading{padding:48px 20px;text-align:center;color:var(--mut)}
+  .loading .spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;margin:0 auto 12px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
+    box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:90vw}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.bad{background:var(--danger)}
+
+  /* setup gate */
+  .gate{max-width:440px;margin:12vh auto;padding:28px;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;box-shadow:var(--shadow)}
+  .gate h2{margin:0 0 6px;font-size:18px}
+  .gate p{margin:0 0 18px;color:var(--mut);font-size:13.5px;line-height:1.6}
+  .gate label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);
+    text-transform:uppercase;letter-spacing:.04em;margin:0 0 5px}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;
+    font-size:13px;margin-bottom:14px;font-family:var(--mono)}
+  .gate input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+
+  @media(max-width:640px){
+    thead{display:none}
+    tbody td{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;
+      border-bottom:1px solid var(--line-2)}
+    tbody td::before{content:attr(data-l);font-family:var(--mono);font-size:11px;color:var(--mut);
+      text-transform:uppercase;letter-spacing:.04em}
+    tbody tr{display:block;border-bottom:8px solid var(--paper)}
+    .name{font-size:15px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="logo"><b>ASUNG WMS</b><span>직원 관리</span></div>
+    <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">연결 중…</span></div>
+  </div>
+</header>
+
+<!-- setup gate (anon key 없을 때) -->
+<div id="gate" class="gate" style="display:none">
+  <h2>연결 설정</h2>
+  <p>이 기기에서 처음 여는 경우, Supabase <b>anon key</b>를 한 번 입력하세요.
+     이 값은 브라우저(세션)에만 저장되고 파일에는 기록되지 않습니다.<br>
+     대시보드 → Settings → API Keys → <code>anon public</code>.</p>
+  <label>Supabase anon key</label>
+  <input id="gateKey" type="password" placeholder="eyJhbGciOi…" autocomplete="off">
+  <button class="btn primary" id="gateGo" style="width:100%">연결</button>
+</div>
+
+<main id="app" style="display:none">
+  <div class="toolbar">
+    <div class="seg" id="whFilter">
+      <button data-w="all" class="active">전체</button>
+      <button data-w="toronto">토론토</button>
+      <button data-w="edmonton">에드먼턴</button>
+    </div>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/></svg>
+      <input id="q" placeholder="이름 검색…" autocomplete="off">
+    </div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>이름</th><th>창고 접근</th><th>권한</th><th>상태</th><th></th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="loading" id="loading"><div class="spin"></div>불러오는 중…</div>
+    <div class="empty" id="empty" style="display:none">해당하는 직원이 없습니다.</div>
+  </div>
+
+  <div class="addwrap">
+    <input id="newName" placeholder="새 직원 이름" autocomplete="off">
+    <select id="newWh">
+      <option value="toronto">토론토</option>
+      <option value="edmonton">에드먼턴</option>
+      <option value="both">양쪽</option>
+    </select>
+    <select id="newRole">
+      <option value="worker">작업자</option>
+      <option value="manager">매니저</option>
+      <option value="admin">관리자</option>
+    </select>
+    <button class="btn primary" id="addBtn">직원 추가</button>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://gftpcnkxbdjzzfvzwcfl.supabase.co";
+const WH_LABEL = {toronto:"토론토", edmonton:"에드먼턴", both:"양쪽"};
+const RL_LABEL = {worker:"작업자", manager:"매니저", admin:"관리자"};
+
+let sb = null;
+let all = [];          // 전체 직원
+let filterWh = "all";
+let query = "";
+
+// ---- 연결 부트스트랩 ----
+function boot(){
+  const key = sessionStorage.getItem("wms_anon");
+  if(!key){ document.getElementById("gate").style.display="block"; return; }
+  connect(key);
+}
+function connect(key){
+  sb = supabase.createClient(SUPABASE_URL, key);
+  document.getElementById("gate").style.display="none";
+  document.getElementById("app").style.display="block";
+  load();
+}
+document.getElementById("gateGo").onclick = ()=>{
+  const k = document.getElementById("gateKey").value.trim();
+  if(!k) return;
+  sessionStorage.setItem("wms_anon", k);
+  connect(k);
+};
+document.getElementById("gateKey").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("gateGo").click(); });
+
+function setConn(state){
+  const dot=document.getElementById("dot"), t=document.getElementById("connTxt");
+  dot.className="dot "+(state==="ok"?"on":state==="err"?"err":"");
+  t.textContent = state==="ok"?"연결됨":state==="err"?"연결 오류":"연결 중…";
+}
+function toast(msg,bad){
+  const el=document.getElementById("toast");
+  el.textContent=msg; el.className="show"+(bad?" bad":"");
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className="",1900);
+}
+
+// ---- 데이터 로드 ----
+async function load(){
+  document.getElementById("loading").style.display="block";
+  const {data,error} = await sb.from("wms_staff").select("*").order("name");
+  document.getElementById("loading").style.display="none";
+  if(error){ setConn("err"); toast("불러오기 실패: "+error.message,true); return; }
+  setConn("ok");
+  all = data||[];
+  render();
+}
+
+// ---- 렌더 ----
+function render(){
+  const tbody=document.getElementById("rows");
+  const list = all.filter(s=>{
+    if(filterWh!=="all"){
+      // 'both'는 어느 창고 필터에서도 보이게
+      if(s.warehouse_access!=="both" && s.warehouse_access!==filterWh) return false;
+    }
+    if(query && !s.name.toLowerCase().includes(query)) return false;
+    return true;
+  });
+  document.getElementById("count").textContent = list.length+" / "+all.length+" 명";
+  document.getElementById("empty").style.display = list.length? "none":"block";
+
+  tbody.innerHTML = list.map(s=>rowHtml(s)).join("");
+  // 이벤트 바인딩
+  tbody.querySelectorAll("[data-wh]").forEach(el=>el.onchange=e=>update(+el.dataset.wh_id,{warehouse_access:e.target.value},el));
+  tbody.querySelectorAll("[data-rl]").forEach(el=>el.onchange=e=>update(+el.dataset.rl_id,{role:e.target.value},el));
+  tbody.querySelectorAll("[data-tg]").forEach(el=>el.onclick=()=>{
+    const id=+el.dataset.tg, cur=el.classList.contains("on");
+    update(id,{active:!cur});
+  });
+  tbody.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>del(+el.dataset.del, el.dataset.name));
+}
+
+function rowHtml(s){
+  const whSel = `<select class="pill wh-${s.warehouse_access}" data-wh data-wh_id="${s.id}">`+
+    ["toronto","edmonton","both"].map(w=>`<option value="${w}" ${w===s.warehouse_access?"selected":""}>${WH_LABEL[w]}</option>`).join("")+`</select>`;
+  const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}">`+
+    ["worker","manager","admin"].map(r=>`<option value="${r}" ${r===s.role?"selected":""}>${RL_LABEL[r]}</option>`).join("")+`</select>`;
+  const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"활성":"비활성"}</small></div>`;
+  return `<tr class="${s.active?"":"off"}">
+    <td data-l="이름"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span></td>
+    <td data-l="창고">${whSel}</td>
+    <td data-l="권한">${rlSel}</td>
+    <td data-l="상태">${tg}</td>
+    <td data-l=""><button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">삭제</button></td>
+  </tr>`;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+// ---- 변경 (낙관적 업데이트) ----
+async function update(id, patch, selEl){
+  const s = all.find(x=>x.id===id); if(!s) return;
+  const prev = {...s};
+  Object.assign(s, patch);          // 화면 먼저
+  // 즉시 시각 반영
+  if(patch.warehouse_access && selEl){ selEl.className="pill wh-"+patch.warehouse_access; }
+  if(patch.role && selEl){ selEl.className="pill rl-"+patch.role; }
+  if("active" in patch) render();
+
+  const {error} = await sb.from("wms_staff").update({...patch, updated_at:new Date().toISOString()}).eq("id",id);
+  if(error){
+    Object.assign(s, prev); render();          // 롤백
+    toast("저장 실패: "+error.message, true);
+  }else{
+    toast(s.name+" 저장됨");
+  }
+}
+
+// ---- 삭제 ----
+async function del(id, name){
+  if(!confirm(`${name} 직원을 목록에서 완전히 삭제할까요?\n(작업 기록 보존을 원하면 대신 '비활성'을 쓰세요)`)) return;
+  const {error} = await sb.from("wms_staff").delete().eq("id",id);
+  if(error){ toast("삭제 실패: "+error.message,true); return; }
+  all = all.filter(x=>x.id!==id); render(); toast(name+" 삭제됨");
+}
+
+// ---- 추가 ----
+document.getElementById("addBtn").onclick = async ()=>{
+  const name=document.getElementById("newName").value.trim();
+  if(!name){ toast("이름을 입력하세요",true); return; }
+  const wh=document.getElementById("newWh").value;
+  const role=document.getElementById("newRole").value;
+  const btn=document.getElementById("addBtn"); btn.disabled=true;
+  const {data,error} = await sb.from("wms_staff").insert({name,warehouse_access:wh,role}).select();
+  btn.disabled=false;
+  if(error){ toast("추가 실패: "+error.message,true); return; }
+  all.push(data[0]); all.sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById("newName").value="";
+  render(); toast(name+" 추가됨");
+};
+document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addBtn").click(); });
+
+// ---- 필터/검색 ----
+document.getElementById("whFilter").onclick=e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  filterWh=b.dataset.w;
+  [...document.querySelectorAll("#whFilter button")].forEach(x=>x.classList.toggle("active",x===b));
+  render();
+};
+document.getElementById("q").oninput=e=>{ query=e.target.value.trim().toLowerCase(); render(); };
+
+boot();
+</script>
+</body>
+</html>
