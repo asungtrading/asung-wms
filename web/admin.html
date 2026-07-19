@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Asung WMS · 관리자</title>
+<style>
+  :root{
+    --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
+    --paper:#f7f8fa; --card:#ffffff; --mut:#6b7686; --mut-2:#9aa4b2;
+    --accent:#2f6df6; --accent-ink:#1b4fd6;
+    --tor:#2f6df6; --edm:#12996b;
+    --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --warn-bg:#fdf6ec; --danger:#dc2626; --danger-bg:#fdecec;
+    --violet:#7a5af0;
+    --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
+    --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(247,248,250,.9);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
+  .bar{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
+  .logo{font-family:var(--mono);font-weight:800;font-size:14px;white-space:nowrap}
+  .logo span{color:var(--mut);font-weight:600;font-size:11px;margin-left:6px}
+  .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .who{font-size:12.5px;color:var(--mut);font-family:var(--mono)}
+  .who b{color:var(--ink)}
+  .conn{width:8px;height:8px;border-radius:50%;background:var(--mut-2)}
+  .conn.on{background:var(--ok)} .conn.err{background:var(--danger)}
+
+  /* tabs */
+  .tabs{max-width:1120px;margin:0 auto;padding:0 20px;display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+  .tabs button{border:0;background:transparent;font:inherit;font-size:13.5px;font-weight:700;color:var(--mut);padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+  .tabs button.active{color:var(--ink);border-bottom-color:var(--ink)}
+  .tabs .badge{display:inline-block;min-width:18px;padding:0 5px;height:18px;line-height:18px;text-align:center;font-family:var(--mono);font-size:11px;font-weight:800;color:#fff;background:var(--danger);border-radius:9px;margin-left:6px}
+
+  main{max-width:1120px;margin:0 auto;padding:20px}
+  .view{display:none} .view.active{display:block}
+
+  /* stat cards */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+  .stat .k{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  .stat .v{font-family:var(--mono);font-weight:800;font-size:28px;margin-top:4px}
+  .stat.warn .v{color:var(--warn)} .stat.bad .v{color:var(--danger)} .stat.ok .v{color:var(--ok)}
+  .stat.link{cursor:pointer;transition:.1s} .stat.link:hover{border-color:#c9d4e6}
+
+  .sect-h{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:22px 2px 10px}
+
+  /* period filter */
+  .period{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px}
+  .period .seg{display:inline-flex;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+  .period .seg button{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:600;color:var(--mut);padding:7px 11px;border-radius:7px;cursor:pointer;white-space:nowrap}
+  .period .seg button.active{background:var(--ink);color:#fff}
+  .period .cal{display:flex;align-items:center;gap:6px;margin-left:4px}
+  .period .cal input{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;font-size:12.5px;font-family:var(--mono)}
+  .period .cal button{border:0;background:var(--accent);color:#fff;border-radius:8px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .rangelabel{font-family:var(--mono);font-size:11.5px;color:var(--mut-2);margin-left:auto}
+
+  /* table */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--mut);text-align:left;font-weight:600;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--line-2);font-size:13.5px;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  td.num,th.num{text-align:right;font-family:var(--mono)}
+  .tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  .r-short_pick{color:var(--warn);background:var(--warn-bg)}
+  .r-short_after_pack{color:#fff;background:var(--danger)}
+  .r-over_pick{color:#fff;background:var(--violet)}
+  .r-resolved_pack_recovery,.r-resolved{color:var(--ok);background:var(--ok-bg)}
+  .st-pending{color:var(--mut);background:var(--line-2)}
+  .st-picking{color:var(--tor);background:#eef3ff}
+  .st-packing{color:var(--violet);background:#f2effe}
+  .st-ready_to_close{color:var(--ok);background:var(--ok-bg)}
+  .st-closed{color:var(--mut-2);background:var(--line-2)}
+  .st-voided{color:var(--danger);background:var(--danger-bg)}
+  .wh-toronto{color:var(--tor);background:#eef3ff} .wh-edmonton{color:var(--edm);background:#e9f7f1}
+  .btnsm{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 11px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .btnsm.ok{background:var(--ok);color:#fff;border-color:transparent}
+  .btnsm:hover{border-color:#c9d4e6}
+  .empty,.loading{padding:44px 20px;text-align:center;color:var(--mut)}
+  .loading .spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 12px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* launch cards */
+  .launch{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .lc{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;transition:.1s}
+  .lc:hover{border-color:#c9d4e6;transform:translateY(-1px)}
+  .lc .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-family:var(--mono);font-size:16px;margin-bottom:10px}
+  .lc .t{font-weight:700;font-size:15px}
+  .lc .d{font-size:12.5px;color:var(--mut);margin-top:3px}
+  .lc.locked{opacity:.5;pointer-events:none}
+
+  .bar-row{display:flex;align-items:center;gap:8px;margin:3px 0}
+  .bar-row .nm{width:110px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar-row .track{flex:1;height:16px;background:var(--line-2);border-radius:5px;overflow:hidden}
+  .bar-row .fill{height:100%;background:var(--accent);border-radius:5px}
+  .bar-row .fill.pack{background:var(--violet)}
+  .bar-row .val{width:44px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:700}
+
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)} #toast.bad{background:var(--danger)}
+
+  .gate{max-width:440px;margin:11vh auto;padding:28px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .gate h2{margin:0 0 6px;font-size:18px}
+  .gate p{margin:0 0 16px;color:var(--mut);font-size:13.5px;line-height:1.6}
+  .gate label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);text-transform:uppercase;margin:12px 0 5px}
+  .gate input,.gate select{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;font-size:13px;font-family:var(--mono)}
+  .gate button{width:100%;margin-top:16px;border:0;background:var(--ink);color:#fff;border-radius:9px;padding:11px;font:inherit;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="app" style="display:none">
+  <header>
+    <div class="bar">
+      <div class="logo">ASUNG WMS<span>관리자</span></div>
+      <div class="right">
+        <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
+        <button id="logoutBtn" title="로그아웃" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">로그아웃</button>
+        <span class="conn" id="conn"></span>
+      </div>
+    </div>
+    <div class="tabs" id="tabs">
+      <button data-t="overview" class="active">현황</button>
+      <button data-t="disc">불일치 <span class="badge" id="discBadge" style="display:none">0</span></button>
+      <button data-t="stats">통계</button>
+      <button data-t="launch">작업 화면</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 현황 -->
+    <div class="view active" id="v-overview">
+      <div class="sect-h">오더 현황</div>
+      <div class="grid" id="orderStats"></div>
+      <div class="sect-h">작업 배치</div>
+      <div class="grid" id="batchStats"></div>
+      <div class="sect-h">진행 중 오더</div>
+      <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>불러오는 중…</div></div></div>
+    </div>
+
+    <!-- 불일치 -->
+    <div class="view" id="v-disc">
+      <div class="period" id="discPeriod"></div>
+      <div class="sect-h">미해결 불일치 <span id="discOpenCnt" style="color:var(--danger)"></span></div>
+      <div class="card"><div id="discOpen"><div class="loading"><div class="spin"></div>불러오는 중…</div></div></div>
+      <div class="sect-h">최근 처리됨</div>
+      <div class="card"><div id="discDone"></div></div>
+    </div>
+
+    <!-- 통계 -->
+    <div class="view" id="v-stats">
+      <div class="period" id="statsPeriod"></div>
+      <div class="sect-h">작업자별 처리량</div>
+      <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
+      <div class="sect-h">작업자별 실수 (불일치 책임)</div>
+      <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
+    </div>
+
+    <!-- 작업 화면 바로가기 -->
+    <div class="view" id="v-launch">
+      <div class="sect-h">작업 화면 열기</div>
+      <div class="launch" id="launchCards"></div>
+      <p style="color:var(--mut);font-size:12.5px;margin-top:14px">같은 폴더의 파일을 엽니다. 배포 후에는 실제 URL로 연결됩니다.</p>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="wms-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wms-auth.js"></script>
+<script>
+const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
+let sb=null, me=null, staff=[];
+let discPeriodKey="week", statsPeriodKey="week";
+let discRange=null, statsRange=null;
+let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
+
+const REASON_LABEL={short_pick:"픽 부족", short_after_pack:"팩 후 부족", over_pick:"과다 픽", resolved_pack_recovery:"팩 회수 해소", pack_mismatch:"팩 불일치"};
+const STATUS_LABEL={pending:"대기", picking:"픽 중", packing:"팩 중", ready_to_close:"마감 준비", closed:"마감", voided:"취소"};
+
+/* ---------- 부트/로그인 ---------- */
+function boot(){
+  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+    sb=client; me=staffMe;
+    document.getElementById("app").style.display="block";
+    document.getElementById("whoName").textContent=me.name;
+    document.getElementById("whoRole").textContent=me.role==="admin"?"관리자":"매니저";
+    document.getElementById("conn").className="conn on";
+    start();
+  });
+}
+document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1900);}
+
+/* ---------- 기간 계산 ---------- */
+function rangeFor(key,custom){
+  const now=new Date(); const to=new Date(now); let from=new Date(now);
+  const startOfDay=d=>{d.setHours(0,0,0,0);return d;};
+  if(key==="today"){ from=startOfDay(new Date(now)); }
+  else if(key==="week"){ const d=startOfDay(new Date(now)); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); from=d; } // 월요일 시작
+  else if(key==="month"){ from=new Date(now.getFullYear(),now.getMonth(),1); }
+  else if(key==="q"){ from=new Date(now); from.setMonth(from.getMonth()-3); }
+  else if(key==="h"){ from=new Date(now); from.setMonth(from.getMonth()-6); }
+  else if(key==="y"){ from=new Date(now); from.setFullYear(from.getFullYear()-1); }
+  else if(key==="custom"){
+    from=custom.from?new Date(custom.from+"T00:00:00"):new Date(0);
+    return {fromISO:from.toISOString(), toISO:(custom.to?new Date(custom.to+"T23:59:59"):now).toISOString(), label:(custom.from||"…")+" ~ "+(custom.to||"…")};
+  }
+  else if(key==="all"){ return {fromISO:new Date(0).toISOString(), toISO:now.toISOString(), label:"전체"}; }
+  const labels={today:"오늘",week:"이번 주",month:"이번 달",q:"최근 3개월",h:"최근 6개월",y:"최근 1년"};
+  return {fromISO:from.toISOString(), toISO:to.toISOString(), label:labels[key]||key};
+}
+function periodBar(containerId, curKey, custom, onChange){
+  const opts=[["today","오늘"],["week","이번 주"],["month","이번 달"],["q","3개월"],["h","6개월"],["y","1년"],["all","전체"]];
+  const el=document.getElementById(containerId);
+  el.innerHTML=`<div class="seg">${opts.map(([k,l])=>`<button data-k="${k}" class="${k===curKey?"active":""}">${l}</button>`).join("")}
+      <button data-k="custom" class="${curKey==="custom"?"active":""}">달력</button></div>
+    <div class="cal" id="${containerId}-cal" style="${curKey==="custom"?"":"display:none"}">
+      <input type="date" id="${containerId}-from" value="${custom.from||""}"> ~
+      <input type="date" id="${containerId}-to" value="${custom.to||""}">
+      <button id="${containerId}-apply">적용</button>
+    </div>
+    <span class="rangelabel" id="${containerId}-lbl"></span>`;
+  el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.k;
+    el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("active",x===b));
+    document.getElementById(containerId+"-cal").style.display=(k==="custom")?"flex":"none";
+    if(k!=="custom") onChange(k,custom);
+  });
+  const applyBtn=document.getElementById(containerId+"-apply");
+  if(applyBtn) applyBtn.onclick=()=>{
+    custom.from=document.getElementById(containerId+"-from").value||null;
+    custom.to=document.getElementById(containerId+"-to").value||null;
+    onChange("custom",custom);
+  };
+}
+function setRangeLabel(containerId,label){ const el=document.getElementById(containerId+"-lbl"); if(el)el.textContent=label; }
+
+/* ---------- 시작 ---------- */
+function start(){
+  // 탭
+  document.getElementById("tabs").onclick=e=>{
+    const b=e.target.closest("button[data-t]"); if(!b)return;
+    const t=b.dataset.t;
+    [...document.querySelectorAll("#tabs button[data-t]")].forEach(x=>x.classList.toggle("active",x===b));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    document.getElementById("v-"+t).classList.add("active");
+    if(t==="overview")loadOverview();
+    if(t==="disc")loadDisc();
+    if(t==="stats")loadStats();
+  };
+  renderLaunch();
+  periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
+  periodBar("statsPeriod",statsPeriodKey,statsCustom,(k,c)=>{statsPeriodKey=k;loadStats();});
+  loadOverview();
+  refreshDiscBadge();
+}
+
+/* ---------- 현황 ---------- */
+async function loadOverview(){
+  const [orders, picks, packs]=await Promise.all([
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),
+    sb.from("wms_pick_tasks").select("status"),
+    sb.from("wms_pack_tasks").select("status"),
+  ]);
+  const os=orders.data||[];
+  const cnt=s=>os.filter(o=>o.status===s).length;
+  document.getElementById("orderStats").innerHTML=[
+    ["대기","pending",cnt("pending"),""],
+    ["픽 중","picking",cnt("picking"),""],
+    ["팩 중","packing",cnt("packing"),""],
+    ["마감 준비","ready_to_close",cnt("ready_to_close"),"ok"],
+  ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  const pk=picks.data||[], pc=packs.data||[];
+  const pkc=s=>pk.filter(x=>x.status===s).length, pcc=s=>pc.filter(x=>x.status===s).length;
+  document.getElementById("batchStats").innerHTML=[
+    ["픽 대기",pkc("pending"),""],["픽 진행",pkc("in_progress"),""],
+    ["팩 대기",pcc("pending")+"",""],["팩 진행",pcc("in_progress"),""],
+  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  // 진행 중 오더 테이블
+  const el=document.getElementById("activeOrders");
+  if(!os.length){ el.innerHTML=`<div class="empty">진행 중인 오더가 없습니다.</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>오더</th><th>고객</th><th>창고</th><th>상태</th><th class="num">라인</th><th class="num">낱개</th></tr></thead><tbody>${
+    os.map(o=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">확인</span>':""}</td>
+      <td>${esc(o.customer_name||"—")}</td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"에드먼턴":"토론토"}</span></td>
+      <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span></td>
+      <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
+}
+
+/* ---------- 불일치 ---------- */
+async function refreshDiscBadge(){
+  const {count}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true}).is("resolved_at",null).eq("cin7_corrected",false);
+  const b=document.getElementById("discBadge");
+  if(count&&count>0){ b.style.display="inline-block"; b.textContent=count; } else { b.style.display="none"; }
+}
+async function loadDisc(){
+  const r=rangeFor(discPeriodKey,discCustom); discRange=r; setRangeLabel("discPeriod",r.label);
+  // 미해결(전체, 기간 무관) + 최근 처리(기간 적용)
+  const [open, done]=await Promise.all([
+    sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).order("created_at",{ascending:false}),
+    sb.from("wms_discrepancies").select("*").or("resolved_at.not.is.null,cin7_corrected.eq.true").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(100),
+  ]);
+  const openD=open.data||[];
+  document.getElementById("discOpenCnt").textContent=openD.length?`(${openD.length}건)`:"(0건)";
+  renderDiscTable("discOpen", openD, true);
+  renderDiscTable("discDone", done.data||[], false);
+  refreshDiscBadge();
+}
+function discRow(d,actionable){
+  const rl=REASON_LABEL[d.reason]||d.reason;
+  const act=actionable
+    ? `<td><button class="btnsm ok" data-fix="${d.id}">Cin7 수정완료</button></td>`
+    : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"수정됨"}</td>`;
+  return `<tr>
+    <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}</td>
+    <td style="font-family:var(--mono)">${esc(d.sku||"")}</td>
+    <td><span class="tag r-${d.reason}">${rl}</span></td>
+    <td class="num">${d.ordered_base??"—"}</td>
+    <td class="num">${d.actual_base??"—"}</td>
+    <td>${esc(d.responsible||"—")}</td>
+    <td style="color:var(--mut);font-size:12px">${d.created_at?new Date(d.created_at).toLocaleDateString():""}</td>
+    ${act}
+  </tr>`;
+}
+function renderDiscTable(id, rows, actionable){
+  const el=document.getElementById(id);
+  if(!rows.length){ el.innerHTML=`<div class="empty">${actionable?"미해결 불일치가 없습니다. 👍":"해당 기간 처리 내역이 없습니다."}</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>오더</th><th>SKU</th><th>유형</th><th class="num">주문</th><th class="num">실제</th><th>책임</th><th>일자</th><th></th></tr></thead>
+    <tbody>${rows.map(d=>discRow(d,actionable)).join("")}</tbody></table>`;
+  if(actionable){
+    el.querySelectorAll("[data-fix]").forEach(b=>b.onclick=()=>fixDisc(+b.dataset.fix));
+  }
+}
+async function fixDisc(id){
+  if(!confirm("이 불일치를 Cin7에서 수정 완료 처리할까요?\n(재고 조정을 Cin7 backend에서 먼저 하신 뒤 눌러주세요)")) return;
+  const {error}=await sb.from("wms_discrepancies").update({cin7_corrected:true, resolved_by:me.name, resolved_at:new Date().toISOString()}).eq("id",id);
+  if(error){ toast("처리 실패: "+error.message,true); return; }
+  toast("처리 완료"); loadDisc();
+}
+
+/* ---------- 통계 ---------- */
+async function loadStats(){
+  const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
+  // 처리량: 완료된 픽/팩 배치 (완료시각 기준)
+  const [picks, packs, disc]=await Promise.all([
+    sb.from("wms_pick_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pack_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
+  ]);
+  // 처리량 집계
+  const prod={};
+  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pick++; });
+  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pack++; });
+  renderProd(prod);
+  // 실수 집계 (책임자 기준, 해소된 것 제외 안 함 — 발생 자체를 카운트, resolved_pack_recovery는 제외)
+  const mistakes={};
+  (disc.data||[]).forEach(d=>{ if(!d.responsible)return; if(d.reason==="resolved_pack_recovery")return;
+    const m=mistakes[d.responsible]=mistakes[d.responsible]||{short_after_pack:0,over_pick:0,short_pick:0,total:0};
+    if(m[d.reason]!=null)m[d.reason]++; m.total++; });
+  renderMistakes(mistakes);
+}
+function renderProd(prod){
+  const rows=Object.entries(prod).sort((a,b)=>(b[1].pick+b[1].pack)-(a[1].pick+a[1].pack));
+  const el=document.getElementById("prodTable");
+  if(!rows.length){ el.innerHTML=`<div class="empty">해당 기간 완료된 작업이 없습니다.</div>`; return; }
+  const max=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
+  el.innerHTML=rows.map(([nm,v])=>`
+    <div style="margin:10px 0">
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· 픽 ${v.pick} · 팩 ${v.pack}</span></div>
+      <div class="bar-row"><span class="nm" style="color:var(--tor)">픽 배치</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/max*100)}%"></div></div><span class="val">${v.pick}</span></div>
+      <div class="bar-row"><span class="nm" style="color:var(--violet)">팩 배치</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/max*100)}%"></div></div><span class="val">${v.pack}</span></div>
+    </div>`).join("");
+}
+function renderMistakes(m){
+  const rows=Object.entries(m).sort((a,b)=>b[1].total-a[1].total);
+  const el=document.getElementById("mistakeTable");
+  if(!rows.length){ el.innerHTML=`<div class="empty">해당 기간 기록된 실수가 없습니다. 👍</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>작업자</th><th class="num">총 실수</th><th class="num">팩후 부족</th><th class="num">과다 픽</th></tr></thead>
+    <tbody>${rows.map(([nm,v])=>`<tr>
+      <td style="font-weight:600">${esc(nm)}</td>
+      <td class="num" style="font-weight:800;color:var(--danger)">${v.total}</td>
+      <td class="num">${v.short_after_pack}</td>
+      <td class="num">${v.over_pick}</td>
+    </tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------- 작업 화면 바로가기 ---------- */
+function renderLaunch(){
+  const cards=[
+    ["manager.html","M","오더 분할","대기 오더를 배치로 분할","#d9820a",true],
+    ["picker.html","P","픽킹","배치 픽 작업","#2f6df6",false],
+    ["packer.html","K","패킹","전량 재스캔 검수","#7a5af0",false],
+    ["staff-admin.html","S","직원 관리","권한·창고 접근 설정","#12996b",true],
+  ];
+  const isMgr=me.role==="admin"||me.role==="manager";
+  document.getElementById("launchCards").innerHTML=cards.map(([href,ic,t,d,color,mgrOnly])=>{
+    const locked=mgrOnly&&!isMgr;
+    return `<a class="lc ${locked?"locked":""}" href="${locked?"#":href}" ${locked?"":'target="_blank"'}>
+      <div class="ic" style="background:${color}">${ic}</div>
+      <div class="t">${t}</div><div class="d">${d}</div>
+    </a>`;
+  }).join("");
+}
+
+boot();
+</script>
+</body>
+</html>

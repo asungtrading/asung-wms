@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Asung WMS · 패킹</title>
+<style>
+  :root{
+    --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
+    --paper:#f7f8fa; --card:#ffffff; --mut:#6b7686; --mut-2:#9aa4b2;
+    --accent:#7a5af0; --accent-ink:#5a3fd0;
+    --tor:#2f6df6; --edm:#12996b;
+    --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --danger:#dc2626; --danger-bg:#fdecec;
+    --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
+    --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.45;overscroll-behavior:none}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(247,248,250,.9);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
+  .bar{max-width:760px;margin:0 auto;padding:11px 16px;display:flex;align-items:center;gap:12px}
+  .logo{font-family:var(--mono);font-weight:800;font-size:13px;white-space:nowrap}
+  .logo span{color:var(--mut);font-weight:600;font-size:11px;margin-left:6px}
+  .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .right select{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--card)}
+  .conn{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);font-family:var(--mono)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--mut-2)}
+  .dot.on{background:var(--ok)} .dot.err{background:var(--danger)}
+
+  main{max-width:760px;margin:0 auto;padding:16px}
+  .lead{font-size:13px;color:var(--mut);margin:2px 2px 12px}
+  .sect{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:6px 2px 2px}
+  .sect:first-child{margin-top:0}
+  .blist{display:flex;flex-direction:column;gap:10px}
+  .bcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:.1s}
+  .bcard:hover{border-color:#cdc2f2}
+  .bcard.resume{border-color:#cdc2f2;background:#f7f5ff}
+  .bcard.short{border-color:#f3c4c4;background:var(--danger-bg)}
+  .bcard .bl{font-family:var(--mono);font-weight:800;font-size:16px}
+  .bcard .sub{font-size:12.5px;color:var(--mut);margin-top:2px}
+  .bcard .go{margin-left:auto;background:var(--ink);color:#fff;border:0;border-radius:9px;padding:10px 16px;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer}
+  .bcard .go.resumebtn{background:var(--accent)}
+  .tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px}
+  .tag.wh-toronto{color:var(--tor);background:#eef3ff} .tag.wh-edmonton{color:var(--edm);background:#e9f7f1}
+  .tag.short{color:#fff;background:var(--danger);margin-left:6px}
+  .empty,.loading{padding:52px 20px;text-align:center;color:var(--mut)}
+  .loading .spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 12px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .pwrap{display:none}
+  .ptop{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .btn{border:0;border-radius:9px;padding:9px 14px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:.1s;white-space:nowrap}
+  .btn.dark{background:var(--ink);color:#fff} .btn.dark:hover{background:var(--ink-2)}
+  .btn.ghost{background:var(--card);color:var(--mut);border:1px solid var(--line)}
+  .btn.ok{background:var(--ok);color:#fff}
+  .btn.hold{background:#fff;color:var(--warn);border:1px solid #f0d9ae}
+  .btn:disabled{opacity:.5;cursor:default}
+  .ptitle{font-family:var(--mono);font-weight:800;font-size:17px}
+  .pmeta{font-size:12px;color:var(--mut)}
+
+  .prog{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:2px 0 12px}
+  .prog i{display:block;height:100%;background:var(--ok);width:0;transition:width .2s}
+
+  /* 미완성 강한 경고 배너 */
+  .shortalert{background:var(--danger);color:#fff;border-radius:12px;padding:13px 15px;margin-bottom:12px;box-shadow:0 6px 20px rgba(220,38,38,.28)}
+  .shortalert .t{font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px}
+  .shortalert ul{margin:8px 0 0;padding-left:2px;list-style:none;font-family:var(--mono);font-size:12.5px}
+  .shortalert li{padding:2px 0}
+  /* 초과 스캔 감지 배너 (부드러운 주의 — 기록 아님) */
+  .overalert{background:var(--warn-bg);color:#8a5a06;border-radius:12px;padding:12px 15px;margin-bottom:12px;border:1px solid #f5dcae}
+  .overalert .t{font-weight:800;font-size:13.5px}
+  .overalert ul{margin:7px 0 0;padding-left:2px;list-style:none;font-family:var(--mono);font-size:12px}
+  .overalert li{padding:2px 0}
+  .overchip{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--warn);background:var(--warn-bg);border:1px solid #f5dcae;border-radius:5px;padding:1px 5px;margin-left:6px}
+
+  .scanbar{position:sticky;top:56px;z-index:10;background:var(--paper);padding:6px 0 12px}
+  .scanin{width:100%;border:2px solid var(--accent);border-radius:12px;padding:14px 16px;font:inherit;font-size:16px;font-family:var(--mono);background:#fff}
+  .scanin:focus{outline:none;box-shadow:0 0 0 4px rgba(122,90,240,.15)}
+  .scanhint{font-size:11px;color:var(--mut-2);font-family:var(--mono);margin:5px 2px 0;display:flex;align-items:center;gap:6px}
+  .scanhint .live{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  #flash{position:fixed;left:0;right:0;top:0;z-index:60;padding:16px;text-align:center;font-weight:800;font-size:17px;color:#fff;transform:translateY(-100%);transition:transform .12s;font-family:var(--mono)}
+  #flash.show{transform:translateY(0)}
+  #flash.ok{background:var(--ok)} #flash.bad{background:var(--danger)}
+
+  .list{display:flex;flex-direction:column;gap:8px}
+  .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
+  .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
+  .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
+  .lrow.miss{background:var(--danger-bg);border-color:#f3c4c4}
+  .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line)}
+  .lrow .li{flex:1;min-width:0}
+  .lrow .li .s{font-family:var(--mono);font-weight:700;font-size:13px}
+  .lrow .li .n{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
+  .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap;text-align:right}
+  .lrow.done .q{color:var(--ok)}
+  .shortchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--danger);border-radius:5px;padding:1px 5px;margin-left:6px}
+  .recchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--ok);border-radius:5px;padding:1px 5px;margin-left:6px}
+  .picknote{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--warn);background:#fdf6ec;border-radius:5px;padding:1px 5px;margin-left:4px}
+  .rmover{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--mut);background:#fff;border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin-left:6px;cursor:pointer}
+  .rmover:hover{color:var(--danger);border-color:#f3c4c4}
+  .stepmini{display:flex;gap:5px;margin-top:4px;justify-content:flex-end}
+  .stepmini button{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:#fff;font-size:16px;font-weight:700;cursor:pointer;color:var(--ink)}
+
+  .foot{position:sticky;bottom:0;background:rgba(247,248,250,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);margin:16px -16px -16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+  .foot .row{display:flex;gap:10px}
+  .foot .row .btn{flex:1;padding:13px}
+
+  #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.bad{background:var(--danger)}
+
+  .gate{max-width:440px;margin:12vh auto;padding:28px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .gate h2{margin:0 0 6px;font-size:18px}
+  .gate p{margin:0 0 18px;color:var(--mut);font-size:13.5px;line-height:1.6}
+  .gate label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);text-transform:uppercase;margin:0 0 5px}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;font-size:13px;margin-bottom:14px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<header>
+  <div class="bar">
+    <div class="logo">ASUNG WMS<span>패킹</span></div>
+    <div class="right">
+      <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
+      <button id="logoutBtn" title="로그아웃" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">로그아웃</button>
+      <div class="conn"><span class="dot" id="dot"></span></div>
+    </div>
+  </div>
+</header>
+
+<main id="app" style="display:none">
+
+  <!-- 배치 선택 -->
+  <div id="listView">
+    <div class="lead">픽 완료된 배치를 골라 전량 재스캔으로 검수하세요.</div>
+    <div class="blist" id="blist"></div>
+    <div class="loading" id="bloading"><div class="spin"></div>불러오는 중…</div>
+    <div class="empty" id="bempty" style="display:none">팩 대기 배치가 없습니다.</div>
+  </div>
+
+  <!-- 팩 검수 -->
+  <div class="pwrap" id="packView">
+    <div class="ptop">
+      <button class="btn ghost" id="backBtn">← 목록</button>
+      <div>
+        <div class="ptitle" id="pTitle"></div>
+        <div class="pmeta" id="pMeta"></div>
+      </div>
+    </div>
+
+    <div class="shortalert" id="shortAlert" style="display:none">
+      <div class="t">⚠ 픽 미완성 — 아래 수량을 다른 위치에서 찾아 채우세요</div>
+      <ul id="shortList"></ul>
+    </div>
+
+    <div class="overalert" id="overAlert" style="display:none">
+      <div class="t">초과 스캔 감지 — 완료 시 '실제 여분'인지 확인합니다 (스캔 실수면 무시)</div>
+      <ul id="overList"></ul>
+    </div>
+
+    <div class="prog"><i id="progBar"></i></div>
+
+    <div class="scanbar">
+      <input class="scanin" id="scan" inputmode="none" autocomplete="off" placeholder="검수: 바코드를 스캔하세요…">
+      <div class="scanhint"><span class="live"></span><span>전량 재스캔 · 목표=주문 수량 · 부족분은 다른 위치서 채움</span></div>
+    </div>
+
+    <div class="list" id="list"></div>
+
+    <div class="foot">
+      <div class="row">
+        <button class="btn hold" id="holdBtn">홀드(나중에)</button>
+        <button class="btn ok" id="doneBtn">팩 완료</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script src="wms-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wms-auth.js"></script>
+<script>
+const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
+let sb=null, staff=[], me=null;
+let pool=[], mine=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0;
+let actx=null;
+
+/* 부트/로그인 */
+function boot(){
+  wmsAuth.start({requireManager:false}, (client, staffMe)=>{
+    sb=client; me=staffMe;
+    document.getElementById("app").style.display="block";
+    document.getElementById("meName").textContent=me.name;
+    init();
+  });
+}
+document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
+function setConn(s){const d=document.getElementById("dot");d.className="dot "+(s==="ok"?"on":s==="err"?"err":"");}
+function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1900);}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* 사운드/진동/플래시 */
+function initAudio(){if(!actx){try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}}
+function beep(kind){
+  if(!actx)return; const t=actx.currentTime;
+  if(kind==="ok"){const o=actx.createOscillator(),g=actx.createGain();o.type="sine";o.frequency.setValueAtTime(1050,t);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.14,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);}
+  else{[0,0.16].forEach(off=>{const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.setValueAtTime(180,t+off);
+    g.gain.setValueAtTime(0.0001,t+off);g.gain.exponentialRampToValueAtTime(0.18,t+off+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+off+0.13);
+    o.connect(g);g.connect(actx.destination);o.start(t+off);o.stop(t+off+0.14);});}
+}
+function vibe(kind){try{navigator.vibrate&&navigator.vibrate(kind==="ok"?25:[90,60,90]);}catch(e){}}
+function flash(kind,msg){const el=document.getElementById("flash");el.className="show "+kind;el.textContent=msg;clearTimeout(el._t);el._t=setTimeout(()=>el.className=kind,700);beep(kind==="ok"?"ok":"bad");vibe(kind==="ok"?"ok":"bad");}
+
+/* 초기 로드 */
+async function init(){
+  setConn("ok");
+  loadQueue();
+}
+
+/* 팩 대기 목록:
+   - 내 진행 중  = pack_tasks (in_progress, assigned_to=me)
+   - 팩 대기     = 홀드된 pack_tasks(pending) + pack_task 없는 완료 pick_tasks(신규)
+*/
+let packLookup={}, shortByPick={};
+async function loadQueue(){
+  document.getElementById("bempty").style.display="none";
+  if(!me){document.getElementById("blist").innerHTML="";document.getElementById("bloading").style.display="none";const be=document.getElementById("bempty");be.style.display="block";be.textContent="작업자를 먼저 선택하세요.";return;}
+  document.getElementById("bloading").style.display="block";
+  const acc=me.warehouse_access;
+  const [donePick, allPack]=await Promise.all([
+    sb.from("wms_pick_tasks").select("id,batch_label,order_id, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at"),
+    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to, wms_orders(order_number,warehouse,customer_name)"),
+  ]);
+  document.getElementById("bloading").style.display="none";
+  if(donePick.error||allPack.error){toast("목록 로드 실패",true);return;}
+  const inWh=o=>{const wh=o?.warehouse;return acc==="both"||wh===acc;};
+  const packs=(allPack.data||[]);
+  const claimedPickIds=new Set(packs.filter(p=>p.status==="in_progress"||p.status==="completed").map(p=>p.pick_task_id));
+  mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&inWh(p.wms_orders));
+  held=packs.filter(p=>p.status==="pending"&&inWh(p.wms_orders));
+  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders));
+  // 이어서 검수용 조회 캐시
+  packLookup={}; [...mine,...held].forEach(p=>packLookup[p.id]=p);
+  // short 여부 사전 조사
+  const pickIds=[...poolNew.map(p=>p.id), ...mine.map(p=>p.pick_task_id), ...held.map(p=>p.pick_task_id)];
+  shortByPick={};
+  if(pickIds.length){
+    const {data}=await sb.from("wms_pick_task_lines").select("pick_task_id,assigned_base,picked_base").in("pick_task_id",pickIds);
+    (data||[]).forEach(l=>{ if(Number(l.picked_base)<Number(l.assigned_base)) shortByPick[l.pick_task_id]=(shortByPick[l.pick_task_id]||0)+1; });
+  }
+  renderQueue();
+}
+let held=[], poolNew=[];
+function qcard(o,label,btnTxt,attr,resume,shortCnt){
+  return `<div class="bcard ${resume?"resume":""} ${shortCnt?"short":""}" ${attr}>
+    <div>
+      <div class="bl">${esc(label)}</div>
+      <div class="sub">${esc(o.customer_name||"—")}
+        <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"에드먼턴":"토론토"}</span>
+        ${shortCnt?`<span class="tag short">미완성 ${shortCnt}</span>`:""}</div>
+    </div>
+    <button class="go ${resume?"resumebtn":""}">${btnTxt}</button>
+  </div>`;
+}
+function renderQueue(){
+  const be=document.getElementById("bempty");
+  const has=(poolNew.length+mine.length+held.length)>0; be.style.display=has?"none":"block"; be.textContent="팩 대기 배치가 없습니다.";
+  let html="";
+  if(mine.length){ html+=`<div class="sect">내 진행 중</div>`+mine.map(p=>qcard(p.wms_orders||{},p.batch_label,"이어서 검수",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
+  if(poolNew.length||held.length){
+    html+=`<div class="sect">팩 대기</div>`;
+    html+=held.map(p=>qcard(p.wms_orders||{},p.batch_label,"이어서 검수",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join("");
+    html+=poolNew.map(p=>qcard(p.wms_orders||{},p.batch_label,"검수 시작",`data-pickid="${p.id}"`,false,shortByPick[p.id]||0)).join("");
+  }
+  document.getElementById("blist").innerHTML=html;
+  document.querySelectorAll("#blist .bcard").forEach(el=>{
+    el.onclick=()=> el.dataset.packid ? resumePack(+el.dataset.packid) : startPack(+el.dataset.pickid);
+  });
+}
+
+/* 검수 시작: pack_task + pack_task_lines 생성 */
+async function startPack(pickId){
+  initAudio();
+  const pt=poolNew.find(x=>x.id===pickId); if(!pt){loadQueue();return;}
+  // 픽 라인 로드
+  const {data:pl,error}=await sb.from("wms_pick_task_lines")
+    .select("order_line_id,assigned_base,picked_base, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)")
+    .eq("pick_task_id",pickId);
+  if(error){toast("픽 라인 로드 실패",true);return;}
+  // pack_task 생성 (유니크 제약으로 중복 방지)
+  const ins=await sb.from("wms_pack_tasks").insert({
+    order_id:pt.order_id, pick_task_id:pickId, batch_label:pt.batch_label,
+    assigned_to:me.name, status:"in_progress", started_at:new Date().toISOString()
+  }).select();
+  if(ins.error){ toast(ins.error.message.includes("uq_packtasks_pick")?"이미 다른 작업자가 검수 중입니다":("시작 실패: "+ins.error.message),true); loadQueue(); return; }
+  packTask=ins.data[0]; order=pt.wms_orders||{};
+  // pack_task_lines 생성 (expected = 픽이 뽑은 수량)
+  const rows=(pl||[]).map(l=>({
+    pack_task_id:packTask.id, order_line_id:l.order_line_id,
+    expected_base:Number(l.picked_base||0), verified_base:0, status:"pending"
+  }));
+  if(rows.length){ const {error:le}=await sb.from("wms_pack_task_lines").insert(rows); if(le){ await sb.from("wms_pack_tasks").delete().eq("id",packTask.id); toast("라인 생성 실패",true); return; } }
+  buildLines(pl); enterPack();
+}
+
+/* 이어서 검수: 기존 pack_task_lines + 픽라인(required용) 로드 */
+async function resumePack(packId){
+  initAudio();
+  const pk=packLookup[packId]; if(!pk){loadQueue();return;}
+  // 홀드(pending) 배치면 내 것으로 claim (동시성: pending일 때만)
+  if(pk.status==="pending"){
+    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:new Date().toISOString()})
+      .eq("id",packId).eq("status","pending").select();
+    if(cl.error||!cl.data||!cl.data.length){ toast("이미 다른 작업자가 가져갔습니다",true); loadQueue(); return; }
+  }
+  const [ptl, pl]=await Promise.all([
+    sb.from("wms_pack_task_lines").select("id,order_line_id,expected_base,verified_base,status, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)").eq("pack_task_id",packId),
+    sb.from("wms_pick_task_lines").select("order_line_id,assigned_base,picked_base").eq("pick_task_id",pk.pick_task_id),
+  ]);
+  if(ptl.error){toast("라인 로드 실패",true);return;}
+  packTask={id:packId, order_id:pk.order_id, pick_task_id:pk.pick_task_id, batch_label:pk.batch_label}; order=pk.wms_orders||{};
+  const reqMap={}; (pl.data||[]).forEach(l=>reqMap[l.order_line_id]=Number(l.assigned_base||0));
+  lines=(ptl.data||[]).map(r=>{
+    const ol=r.wms_order_lines||{};
+    return {
+      packline_id:r.id, order_line_id:r.order_line_id,
+      order_sku:ol.order_sku, base_sku:ol.base_sku, product_name:ol.product_name, image_url:ol.image_url,
+      bin:ol.bin_location, zone:ol.zone||"", barcodes:ol.scannable_barcodes||[],
+      required:reqMap[r.order_line_id]??Number(r.expected_base||0),
+      expected:Number(r.expected_base||0), verified:Number(r.verified_base||0),
+      overage:0, vmethod:null,
+    };
+  });
+  finishBuild(); enterPack();
+}
+
+/* 시작 경로용: 픽라인 데이터로 메모리 라인 구성 */
+function buildLines(pl){
+  lines=(pl||[]).map(l=>{
+    const ol=l.wms_order_lines||{};
+    return {
+      packline_id:null, order_line_id:l.order_line_id,
+      order_sku:ol.order_sku, base_sku:ol.base_sku, product_name:ol.product_name, image_url:ol.image_url,
+      bin:ol.bin_location, zone:ol.zone||"", barcodes:ol.scannable_barcodes||[],
+      required:Number(l.assigned_base||0), expected:Number(l.picked_base||0), verified:0, overage:0, vmethod:null,
+    };
+  });
+  finishBuild();
+}
+function finishBuild(){
+  // 정렬(SKU) + 바코드맵 + packline_id 채우기(시작 경로는 재조회)
+  bcMap={};
+  lines.forEach((l,idx)=>{ (l.barcodes||[]).forEach(b=>{ const c=String(b.barcode||"").trim(); if(!c)return; (bcMap[c]=bcMap[c]||[]).push({idx,factor:Number(b.factor)||1}); }); });
+}
+
+async function enterPack(){
+  // 시작 경로에서 packline_id 없으면 재조회로 채움
+  if(lines.some(l=>l.packline_id==null)){
+    const {data}=await sb.from("wms_pack_task_lines").select("id,order_line_id").eq("pack_task_id",packTask.id);
+    const m={}; (data||[]).forEach(r=>m[r.order_line_id]=r.id);
+    lines.forEach(l=>{ if(l.packline_id==null) l.packline_id=m[l.order_line_id]||null; });
+  }
+  // 픽커 이름(실수 책임자 추적용)
+  try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
+  curIdx=lines.findIndex(l=>l.verified<l.required); if(curIdx<0)curIdx=0;
+  // 픽 미완성 경고 (팩에서 채워야 할 부족분)
+  const shorts=lines.filter(l=>l.verified<l.required && l.expected<l.required);
+  const al=document.getElementById("shortAlert");
+  if(shorts.length){
+    al.style.display="block";
+    document.getElementById("shortList").innerHTML=shorts.map(l=>`<li>· ${esc(l.order_sku)} — 픽 ${l.expected} / 주문 ${l.required} (다른 위치에서 ${l.required-l.expected}개 더 찾기)</li>`).join("");
+  }else{ al.style.display="none"; }
+  document.getElementById("listView").style.display="none";
+  document.getElementById("packView").style.display="block";
+  document.getElementById("pTitle").textContent=packTask.batch_label;
+  document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"에드먼턴":"토론토")+" · "+esc(order.customer_name||"");
+  renderList(); focusScan();
+}
+
+/* 렌더 */
+function totTarget(){return lines.reduce((s,l)=>s+l.required,0);}
+function totVer(){return lines.reduce((s,l)=>s+Math.min(l.verified,l.required),0);}
+function imgStyle(l){return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:"";}
+function renderList(){
+  const tot=totTarget(), v=totVer();
+  document.getElementById("progBar").style.width=(tot?Math.round(v/tot*100):0)+"%";
+  // 초과 스캔 감지 안내 (기록 아님 — 완료 시 확인)
+  const overs=lines.filter(l=>(l.overScans||0)>0);
+  const ov=document.getElementById("overAlert");
+  if(overs.length){
+    ov.style.display="block";
+    document.getElementById("overList").innerHTML=overs.map(l=>`<li>· ${esc(l.order_sku)} — 주문 ${l.required}개 충족 후 ${l.overScans}회 더 스캔됨</li>`).join("");
+  }else{ ov.style.display="none"; }
+  const el=document.getElementById("list");
+  el.innerHTML=lines.map((l,idx)=>{
+    const done=l.verified>=l.required;
+    const cls=done?"done":(idx===curIdx?"cur":"");
+    let chip="";
+    if(l.expected<l.required){
+      if(l.verified>=l.required) chip=`<span class="recchip">팩 보충 +${l.verified-l.expected}</span>`;
+      else chip=`<span class="shortchip">부족 ${l.required-l.verified}</span>`;
+    }
+    if((l.overScans||0)>0) chip+=`<span class="overchip">초과 스캔 ${l.overScans}</span>`;
+    const pickNote=l.expected<l.required?`<span class="picknote">픽 ${l.expected}</span>`:"";
+    const overBtn=(l.overScans||0)>0?`<button class="rmover" data-rmover="${idx}">초과 지우기</button>`:"";
+    return `<div class="lrow ${cls}" data-idx="${idx}">
+      <div class="thumb" ${imgStyle(l)}></div>
+      <div class="li"><div class="s">${esc(l.order_sku)}${chip}</div><div class="n">${esc(l.product_name)}</div><div class="b">${esc(l.bin||"—")} ${pickNote}${overBtn}</div></div>
+      <div>
+        <div class="q">${l.verified} / ${l.required}</div>
+        <div class="stepmini"><button data-step="-1" data-i="${idx}">−</button><button data-step="1" data-i="${idx}">+</button></div>
+      </div>
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".lrow").forEach(r=>r.onclick=e=>{ if(e.target.dataset.step||e.target.dataset.rmover)return; curIdx=+r.dataset.idx; focusScan(); });
+  el.querySelectorAll("[data-step]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); manualAdjust(+b.dataset.i,+b.dataset.step); });
+  el.querySelectorAll("[data-rmover]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); lines[+b.dataset.rmover].overScans=0; renderList(); focusScan(); });
+  const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
+}
+
+/* 스캔 */
+const scanEl=document.getElementById("scan");
+scanEl.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();const v=scanEl.value.trim();scanEl.value="";if(v)processScan(v);} });
+function processScan(code){
+  const cands=bcMap[code];
+  if(!cands||!cands.length){ flash("bad","✕ 이 배치에 없는 바코드"); return; }
+  // 아직 주문 수량 안 찬 라인 우선, 없으면 이미 다 찬(=초과 감지) 라인
+  let hit=cands.find(c=>lines[c.idx].verified<lines[c.idx].required) || cands[0];
+  const l=lines[hit.idx], f=hit.factor; curIdx=hit.idx;
+  const room=l.required-l.verified;
+  if(room<=0){
+    // 이미 주문 수량 충족 → 초과 스캔. 기록하지 않고 가벼운 경고만(더블스캔 오탐 방지).
+    // 팩커가 완료 시 '진짜 여분'인지 판단하게 함.
+    l.overScans=(l.overScans||0)+f;   // 초과 스캔 감지 표시(기록 아님)
+    flash("bad",`⚠ 이미 ${l.required}개 충족 — 추가 스캔 무시됨 (${l.order_sku})`);
+    renderList(); focusScan(); return;
+  }
+  if(f>room){
+    // 변형 스캔 등으로 주문 수량 초과 → 필요분만 채우고 나머지는 초과 스캔으로만 표시(기록 아님)
+    l.verified=l.required; l.overScans=(l.overScans||0)+(f-room); l.vmethod=f>1?"scanned_variant":"scanned_base";
+    flash("bad",`⚠ ${l.order_sku} ${l.required}개 충족 — 초과분 ${f-room}개 무시됨`);
+    saveLine(l); renderList(); focusScan(); return;
+  }
+  // 정상 검수
+  l.verified+=f; l.vmethod=f>1?"scanned_variant":"scanned_base";
+  const rec=(l.verified>l.expected)?" · 팩보충":"";
+  flash("ok",`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}`);
+  saveLine(l);
+  if(l.verified>=l.required) autoAdvance();
+  renderList(); focusScan();
+}
+function autoAdvance(){ const n=lines.findIndex((l,i)=>i>curIdx&&l.verified<l.required); const a=lines.findIndex(l=>l.verified<l.required); curIdx=n>=0?n:(a>=0?a:curIdx); }
+
+function manualAdjust(idx,d){ const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return; l.verified=nv; l.vmethod="manual"; saveLine(l); renderList(); focusScan(); }
+
+async function saveLine(l){
+  if(!l.packline_id)return;
+  const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending");
+  await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id);
+}
+
+/* 완료 */
+document.getElementById("doneBtn").onclick=async ()=>{
+  const miss=lines.filter(l=>l.verified<l.required);          // 주문 수량 미달
+  const recovered=lines.filter(l=>l.expected<l.required && l.verified>=l.required); // 팩에서 채운 것
+  const overScanLines=lines.filter(l=>(l.overScans||0)>0);    // 초과 스캔 감지된 라인
+  let realOvers=[];                                            // 팩커가 '실제 여분'으로 확정한 라인
+
+  // 1) 초과 스캔이 있으면 — 실제 여분인지 스캔 실수인지 팩커에게 확인 (기본은 실수로 간주)
+  if(overScanLines.length){
+    const od=overScanLines.map(l=>`· ${l.order_sku}: 주문 ${l.required} 충족 후 ${l.overScans}회 더 스캔`).join("\n");
+    const real=confirm(`초과 스캔이 있었습니다:\n${od}\n\n실제로 주문보다 많은 물건을 가져오셨나요?\n\n[확인] = 실제 여분 있음 → 원위치 반납 + 픽커 실수로 기록\n[취소] = 스캔 실수였음 → 무시하고 정상 완료`);
+    if(real){
+      realOvers=overScanLines;
+      const rd=realOvers.map(l=>`· ${l.order_sku}: 여분 ${l.overScans}개 → ${l.bin||"?"} 반납`).join("\n");
+      if(!confirm(`여분을 원위치에 반납하셨나요?\n${rd}\n\n픽커(${packTask.picker||"미상"})의 과다 픽으로 기록됩니다.`)) { focusScan(); return; }
+    }
+  }
+  // 2) 미달 확인
+  if(miss.length){
+    const detail=miss.map(l=>`· ${l.order_sku}: ${l.verified}/${l.required}`).join("\n");
+    if(!confirm(`주문 수량을 못 채운 라인이 있습니다:\n${detail}\n\n다른 위치에서도 못 찾았다면 부족으로 완료됩니다.\n(불일치 큐 → 백엔드가 Cin7 수정)\n\n계속할까요?`)) { focusScan(); return; }
+  } else if(!overScanLines.length) {
+    const msg=recovered.length?`${packTask.batch_label} 팩 완료할까요?\n(팩에서 ${recovered.length}개 라인 부족분 회수)`:`${packTask.batch_label} 팩 완료할까요?`;
+    if(!confirm(msg)) { focusScan(); return; }
+  }
+  const btn=document.getElementById("doneBtn"); btn.disabled=true;
+  try{
+    for(const l of lines){
+      const st=l.verified>=l.required?"verified":"mismatch";
+      await sb.from("wms_pack_task_lines").update({verified_base:l.verified,status:st,verification_method:l.vmethod,verified_at:new Date().toISOString()}).eq("id",l.packline_id);
+    }
+    // 주문 수량 미달 → 불일치 큐 (책임: 픽커)
+    if(miss.length){
+      const rows=miss.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.verified, reason:"short_after_pack", responsible:packTask.picker||null, cin7_corrected:false}));
+      await sb.from("wms_discrepancies").insert(rows);
+    }
+    // 실제 여분으로 확정된 것만 → 과다 픽 기록 (책임: 픽커)
+    if(realOvers.length){
+      const rows=realOvers.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required+l.overScans, reason:"over_pick", responsible:packTask.picker||null, cin7_corrected:false}));
+      await sb.from("wms_discrepancies").insert(rows);
+    }
+    // 팩에서 회수 완료된 라인 → 픽 단계의 short_pick 불일치 해소
+    if(recovered.length){
+      for(const l of recovered){
+        await sb.from("wms_discrepancies")
+          .update({resolved_by:me.name, resolved_at:new Date().toISOString(), reason:"resolved_pack_recovery"})
+          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","short_pick").is("resolved_at",null);
+      }
+    }
+    await sb.from("wms_pack_tasks").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",packTask.id);
+
+    const ready=await checkOrderReady(packTask.order_id);
+    if(ready){ alert(`✅ ${order.order_number} — 이 오더의 모든 배치 팩 완료!\n\nCin7에서 pack authorize를 눌러 마감(3.Finalized)하세요.`); }
+    const extra=[]; if(miss.length)extra.push(`부족 ${miss.length}`); if(realOvers.length)extra.push(`과다 ${realOvers.length}`); if(!miss.length&&recovered.length)extra.push(`회수 ${recovered.length}`);
+    toast(packTask.batch_label+" 팩 완료"+(extra.length?` (${extra.join(", ")})`:""));
+    packTask=null;order=null;lines=[];bcMap={};
+    document.getElementById("packView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadQueue();
+  }catch(e){ toast("완료 실패: "+(e.message||e),true); }
+  finally{ btn.disabled=false; }
+};
+
+async function checkOrderReady(orderId){
+  const [pk, pack]=await Promise.all([
+    sb.from("wms_pick_tasks").select("id").eq("order_id",orderId),
+    sb.from("wms_pack_tasks").select("pick_task_id,status").eq("order_id",orderId).eq("status","completed"),
+  ]);
+  if(pk.error||pack.error)return false;
+  const total=(pk.data||[]).length;
+  const done=new Set((pack.data||[]).map(p=>p.pick_task_id)).size;
+  if(total>0 && done>=total){
+    await sb.from("wms_orders").update({status:"ready_to_close",notified_at:new Date().toISOString()}).eq("id",orderId);
+    return true;
+  }
+  return false;
+}
+
+/* 홀드 */
+document.getElementById("holdBtn").onclick=async ()=>{
+  if(!packTask)return;
+  if(!confirm("이 검수를 홀드할까요?\n진행 상황은 저장되고, 배치는 팩 대기 목록으로 돌아가\n나중에 나 또는 다른 작업자가 이어받을 수 있습니다.")) return;
+  const btn=document.getElementById("holdBtn"); btn.disabled=true;
+  try{
+    for(const l of lines){ const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending"); await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id); }
+    // pack_task 삭제 → 픽 배치가 다시 팩 대기 pool로 (라인 진행은 사라짐: 재시작 시 새 검수)
+    // 진행 보존을 위해선 pack_task를 pending으로 두는 방식이 필요하나, pool 판정이 "pack_task 없음"이라
+    // 홀드는 pack_task를 pending 상태로 유지 + assigned_to 비움 → '내 진행중'에서 빠지고 아무나 이어받게.
+    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null}).eq("id",packTask.id);
+    toast(packTask.batch_label+" 홀드됨");
+    packTask=null;order=null;lines=[];bcMap={};
+    document.getElementById("packView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadQueue();
+  }catch(e){ toast("홀드 실패: "+(e.message||e),true); }
+  finally{ btn.disabled=false; }
+};
+
+/* 뒤로 (내 진행 중 유지) */
+document.getElementById("backBtn").onclick=()=>{ packTask=null;order=null;lines=[];bcMap={};document.getElementById("packView").style.display="none";document.getElementById("listView").style.display="block";loadQueue(); };
+
+/* 스캔 focus 유지 */
+function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); if(document.activeElement!==s)s.focus();} }
+document.getElementById("scan").addEventListener("blur",()=>{setTimeout(focusScan,60);});
+document.addEventListener("click",e=>{ if(document.getElementById("packView").style.display==="none")return; if(e.target.tagName==="SELECT"||e.target.tagName==="OPTION")return; setTimeout(focusScan,0); });
+
+boot();
+</script>
+</body>
+</html>
