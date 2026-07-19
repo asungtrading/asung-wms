@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Asung WMS</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#14171c; --card-h:#1b1f26; --line:#232830;
+    --ink:#f4f6f8; --mut:#8b95a3; --mut-2:#5b6472;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:56px 18px 40px}
+  .brand{text-align:center;margin-bottom:38px}
+  .brand .logo{font-family:var(--mono);font-weight:800;letter-spacing:.5em;font-size:26px;padding-left:.5em}
+  .brand .sub{margin-top:10px;font-family:var(--mono);font-size:11px;letter-spacing:.42em;color:var(--mut);padding-left:.42em}
+  .grid{width:100%;max-width:460px;display:flex;flex-direction:column;gap:12px}
+  .sect{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut-2);margin:14px 4px 2px}
+  .card{display:flex;align-items:center;gap:15px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:16px 18px;text-decoration:none;color:inherit;transition:.14s}
+  .card:hover{background:var(--card-h);transform:translateY(-1px)}
+  .ic{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
+  .c-pick{background:#12352a} .c-pack{background:#0e2f3a} .c-split{background:#33240e}
+  .c-ful{background:#2a1338} .c-adm{background:#1a2740} .c-staff{background:#3a1020}
+  .tx{flex:1;min-width:0}
+  .tx .t{font-size:15.5px;font-weight:700}
+  .tx .d{font-size:12px;color:var(--mut);margin-top:2px}
+  .tag{font-family:var(--mono);font-size:9.5px;font-weight:700;color:var(--mut-2);border:1px solid var(--line);
+    border-radius:6px;padding:2px 6px;flex:0 0 auto}
+  .chev{color:var(--mut-2);font-size:17px;flex:0 0 auto}
+  .foot{margin-top:34px;font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--mut-2)}
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div class="logo">ASUNG</div>
+    <div class="sub">WMS · WAREHOUSE</div>
+  </div>
+
+  <div class="grid">
+    <div class="sect">작업자</div>
+
+    <a class="card" href="picker.html">
+      <div class="ic c-pick">📥</div>
+      <div class="tx"><div class="t">픽킹</div><div class="d">배치별 제품 집기 · 스캔 검수</div></div>
+      <span class="chev">›</span>
+    </a>
+
+    <a class="card" href="packer.html">
+      <div class="ic c-pack">📦</div>
+      <div class="tx"><div class="t">패킹</div><div class="d">전량 재스캔 검수 · 부족 보충</div></div>
+      <span class="chev">›</span>
+    </a>
+
+    <div class="sect">매니저 · 관리자</div>
+
+    <a class="card" href="manager.html">
+      <div class="ic c-split">🗂️</div>
+      <div class="tx"><div class="t">오더 분할</div><div class="d">대기 오더를 배치로 나눠 분배</div></div>
+      <span class="tag">MGR</span>
+      <span class="chev">›</span>
+    </a>
+
+    <a class="card" href="fulfillment.html">
+      <div class="ic c-ful">🚚</div>
+      <div class="tx"><div class="t">출고 구성</div><div class="d">팔렛·박스 구성 · 팩킹 리스트</div></div>
+      <span class="tag">MGR</span>
+      <span class="chev">›</span>
+    </a>
+
+    <a class="card" href="admin.html">
+      <div class="ic c-adm">📊</div>
+      <div class="tx"><div class="t">관리자 대시보드</div><div class="d">현황 · 불일치 · 작업자 통계</div></div>
+      <span class="tag">MGR</span>
+      <span class="chev">›</span>
+    </a>
+
+    <a class="card" href="staff-admin.html">
+      <div class="ic c-staff">👥</div>
+      <div class="tx"><div class="t">직원 관리</div><div class="d">직원 · 역할 · 창고 접근 설정</div></div>
+      <span class="tag">MGR</span>
+      <span class="chev">›</span>
+    </a>
+  </div>
+
+  <div class="foot">ASUNG TRADING INC.</div>
+</body>
+</html>
