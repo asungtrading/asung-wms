@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Asung WMS · 직원 관리</title>
+<title>Asung WMS · Staff Management</title>
 <style>
   :root{
     --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
@@ -150,32 +150,27 @@
 
 <header>
   <div class="bar">
-    <div class="logo"><b>ASUNG WMS</b><span>직원 관리</span></div>
-    <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">연결 중…</span></div>
+    <div class="logo"><b>ASUNG WMS</b><span>Staff Management</span></div>
+    <div class="conn" style="display:flex;align-items:center;gap:10px">
+      <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
+      <button id="logoutBtn" title="Sign out" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">Sign out</button>
+      <span class="dot" id="dot"></span><span id="connTxt">Connecting…</span>
+    </div>
   </div>
 </header>
 
-<!-- setup gate (anon key 없을 때) -->
-<div id="gate" class="gate" style="display:none">
-  <h2>연결 설정</h2>
-  <p>이 기기에서 처음 여는 경우, Supabase <b>anon key</b>를 한 번 입력하세요.
-     이 값은 브라우저(세션)에만 저장되고 파일에는 기록되지 않습니다.<br>
-     대시보드 → Settings → API Keys → <code>anon public</code>.</p>
-  <label>Supabase anon key</label>
-  <input id="gateKey" type="password" placeholder="eyJhbGciOi…" autocomplete="off">
-  <button class="btn primary" id="gateGo" style="width:100%">연결</button>
-</div>
+<!-- setup gate removed (uses shared login) -->
 
 <main id="app" style="display:none">
   <div class="toolbar">
     <div class="seg" id="whFilter">
-      <button data-w="all" class="active">전체</button>
-      <button data-w="toronto">토론토</button>
-      <button data-w="edmonton">에드먼턴</button>
+      <button data-w="all" class="active">All</button>
+      <button data-w="toronto">Toronto</button>
+      <button data-w="edmonton">Edmonton</button>
     </div>
     <div class="search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/></svg>
-      <input id="q" placeholder="이름 검색…" autocomplete="off">
+      <input id="q" placeholder="Search name…" autocomplete="off">
     </div>
     <span class="count" id="count"></span>
   </div>
@@ -183,67 +178,60 @@
   <div class="card">
     <table>
       <thead>
-        <tr><th>이름</th><th>창고 접근</th><th>권한</th><th>상태</th><th></th></tr>
+        <tr><th>Name</th><th>Warehouse access</th><th>Role</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
-    <div class="loading" id="loading"><div class="spin"></div>불러오는 중…</div>
-    <div class="empty" id="empty" style="display:none">해당하는 직원이 없습니다.</div>
+    <div class="loading" id="loading"><div class="spin"></div>Loading…</div>
+    <div class="empty" id="empty" style="display:none">No matching staff..</div>
   </div>
 
   <div class="addwrap">
-    <input id="newName" placeholder="새 직원 이름" autocomplete="off">
+    <input id="newName" placeholder="New staff name" autocomplete="off">
     <select id="newWh">
-      <option value="toronto">토론토</option>
-      <option value="edmonton">에드먼턴</option>
-      <option value="both">양쪽</option>
+      <option value="toronto">Toronto</option>
+      <option value="edmonton">Edmonton</option>
+      <option value="both">Both</option>
     </select>
     <select id="newRole">
-      <option value="worker">작업자</option>
-      <option value="manager">매니저</option>
-      <option value="admin">관리자</option>
+      <option value="worker">Worker</option>
+      <option value="manager">Manager</option>
+      <option value="admin">Admin</option>
     </select>
-    <button class="btn primary" id="addBtn">직원 추가</button>
+    <button class="btn primary" id="addBtn">Add staff</button>
   </div>
 </main>
 
 <div id="toast"></div>
 
+<script src="wms-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wms-auth.js"></script>
 <script>
 const SUPABASE_URL = "https://gftpcnkxbdjzzfvzwcfl.supabase.co";
-const WH_LABEL = {toronto:"토론토", edmonton:"에드먼턴", both:"양쪽"};
-const RL_LABEL = {worker:"작업자", manager:"매니저", admin:"관리자"};
+const WH_LABEL = {toronto:"Toronto", edmonton:"Edmonton", both:"Both"};
+const RL_LABEL = {worker:"Worker", manager:"Manager", admin:"Admin"};
 
-let sb = null;
-let all = [];          // 전체 직원
+let sb = null, me = null;
+let all = [];          // All staff
 let filterWh = "all";
 let query = "";
 
-// ---- 연결 부트스트랩 ----
+// ---- login bootstrap ----
 function boot(){
-  const key = sessionStorage.getItem("wms_anon");
-  if(!key){ document.getElementById("gate").style.display="block"; return; }
-  connect(key);
+  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+    sb=client; me=staffMe;
+    document.getElementById("app").style.display="block";
+    document.getElementById("meName").textContent=me.name;
+    load();
+  });
 }
-function connect(key){
-  sb = supabase.createClient(SUPABASE_URL, key);
-  document.getElementById("gate").style.display="none";
-  document.getElementById("app").style.display="block";
-  load();
-}
-document.getElementById("gateGo").onclick = ()=>{
-  const k = document.getElementById("gateKey").value.trim();
-  if(!k) return;
-  sessionStorage.setItem("wms_anon", k);
-  connect(k);
-};
-document.getElementById("gateKey").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("gateGo").click(); });
+document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
 
 function setConn(state){
   const dot=document.getElementById("dot"), t=document.getElementById("connTxt");
   dot.className="dot "+(state==="ok"?"on":state==="err"?"err":"");
-  t.textContent = state==="ok"?"연결됨":state==="err"?"연결 오류":"연결 중…";
+  t.textContent = state==="ok"?"Connected":state==="err"?"Connection error":"Connecting…";
 }
 function toast(msg,bad){
   const el=document.getElementById("toast");
@@ -251,33 +239,33 @@ function toast(msg,bad){
   clearTimeout(el._t); el._t=setTimeout(()=>el.className="",1900);
 }
 
-// ---- 데이터 로드 ----
+// ---- data load ----
 async function load(){
   document.getElementById("loading").style.display="block";
   const {data,error} = await sb.from("wms_staff").select("*").order("name");
   document.getElementById("loading").style.display="none";
-  if(error){ setConn("err"); toast("불러오기 실패: "+error.message,true); return; }
+  if(error){ setConn("err"); toast("Failed to load: "+error.message,true); return; }
   setConn("ok");
   all = data||[];
   render();
 }
 
-// ---- 렌더 ----
+// ---- render ----
 function render(){
   const tbody=document.getElementById("rows");
   const list = all.filter(s=>{
     if(filterWh!=="all"){
-      // 'both'는 어느 창고 필터에서도 보이게
+      // 'both'visible under any warehouse filter
       if(s.warehouse_access!=="both" && s.warehouse_access!==filterWh) return false;
     }
     if(query && !s.name.toLowerCase().includes(query)) return false;
     return true;
   });
-  document.getElementById("count").textContent = list.length+" / "+all.length+" 명";
+  document.getElementById("count").textContent = list.length+" / "+all.length+" ";
   document.getElementById("empty").style.display = list.length? "none":"block";
 
   tbody.innerHTML = list.map(s=>rowHtml(s)).join("");
-  // 이벤트 바인딩
+  // event binding
   tbody.querySelectorAll("[data-wh]").forEach(el=>el.onchange=e=>update(+el.dataset.wh_id,{warehouse_access:e.target.value},el));
   tbody.querySelectorAll("[data-rl]").forEach(el=>el.onchange=e=>update(+el.dataset.rl_id,{role:e.target.value},el));
   tbody.querySelectorAll("[data-tg]").forEach(el=>el.onclick=()=>{
@@ -292,61 +280,61 @@ function rowHtml(s){
     ["toronto","edmonton","both"].map(w=>`<option value="${w}" ${w===s.warehouse_access?"selected":""}>${WH_LABEL[w]}</option>`).join("")+`</select>`;
   const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}">`+
     ["worker","manager","admin"].map(r=>`<option value="${r}" ${r===s.role?"selected":""}>${RL_LABEL[r]}</option>`).join("")+`</select>`;
-  const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"활성":"비활성"}</small></div>`;
+  const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"Active":"Inactive"}</small></div>`;
   return `<tr class="${s.active?"":"off"}">
-    <td data-l="이름"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span></td>
-    <td data-l="창고">${whSel}</td>
-    <td data-l="권한">${rlSel}</td>
-    <td data-l="상태">${tg}</td>
-    <td data-l=""><button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">삭제</button></td>
+    <td data-l="Name"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span></td>
+    <td data-l="Warehouse">${whSel}</td>
+    <td data-l="Role">${rlSel}</td>
+    <td data-l="Status">${tg}</td>
+    <td data-l=""><button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">Delete</button></td>
   </tr>`;
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
-// ---- 변경 (낙관적 업데이트) ----
+// ---- change (optimistic update) ----
 async function update(id, patch, selEl){
   const s = all.find(x=>x.id===id); if(!s) return;
   const prev = {...s};
-  Object.assign(s, patch);          // 화면 먼저
-  // 즉시 시각 반영
+  Object.assign(s, patch);          // screen first
+  // instant visual update
   if(patch.warehouse_access && selEl){ selEl.className="pill wh-"+patch.warehouse_access; }
   if(patch.role && selEl){ selEl.className="pill rl-"+patch.role; }
   if("active" in patch) render();
 
   const {error} = await sb.from("wms_staff").update({...patch, updated_at:new Date().toISOString()}).eq("id",id);
   if(error){
-    Object.assign(s, prev); render();          // 롤백
-    toast("저장 실패: "+error.message, true);
+    Object.assign(s, prev); render();          // rollback
+    toast("Save failed: "+error.message, true);
   }else{
-    toast(s.name+" 저장됨");
+    toast(s.name+" Saved");
   }
 }
 
-// ---- 삭제 ----
+// ---- Delete ----
 async function del(id, name){
-  if(!confirm(`${name} 직원을 목록에서 완전히 삭제할까요?\n(작업 기록 보존을 원하면 대신 '비활성'을 쓰세요)`)) return;
+  if(!confirm(`${name} Delete this staff member from the list entirely?\n(to keep work history, set 'Inactive' instead)`)) return;
   const {error} = await sb.from("wms_staff").delete().eq("id",id);
-  if(error){ toast("삭제 실패: "+error.message,true); return; }
-  all = all.filter(x=>x.id!==id); render(); toast(name+" 삭제됨");
+  if(error){ toast("Delete failed: "+error.message,true); return; }
+  all = all.filter(x=>x.id!==id); render(); toast(name+" Deleted");
 }
 
-// ---- 추가 ----
+// ---- Add ----
 document.getElementById("addBtn").onclick = async ()=>{
   const name=document.getElementById("newName").value.trim();
-  if(!name){ toast("이름을 입력하세요",true); return; }
+  if(!name){ toast("Enter a name",true); return; }
   const wh=document.getElementById("newWh").value;
   const role=document.getElementById("newRole").value;
   const btn=document.getElementById("addBtn"); btn.disabled=true;
   const {data,error} = await sb.from("wms_staff").insert({name,warehouse_access:wh,role}).select();
   btn.disabled=false;
-  if(error){ toast("추가 실패: "+error.message,true); return; }
+  if(error){ toast("Add failed: "+error.message,true); return; }
   all.push(data[0]); all.sort((a,b)=>a.name.localeCompare(b.name));
   document.getElementById("newName").value="";
-  render(); toast(name+" 추가됨");
+  render(); toast(name+" Added");
 };
 document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addBtn").click(); });
 
-// ---- 필터/검색 ----
+// ---- filter / search ----
 document.getElementById("whFilter").onclick=e=>{
   const b=e.target.closest("button"); if(!b) return;
   filterWh=b.dataset.w;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Asung WMS · 출고 구성</title>
+<title>Asung WMS · Fulfillment</title>
 <style>
   :root{
     --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
@@ -172,40 +172,40 @@
 
 <div id="app" style="display:none">
   <header><div class="bar">
-    <div class="logo">ASUNG WMS<span>출고 구성</span></div>
-    <div class="right"><span id="whoName" style="font-size:12.5px;color:var(--mut);font-family:var(--mono)"></span><button id="logoutBtn" title="로그아웃" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">로그아웃</button><span class="conn" id="conn"></span></div>
+    <div class="logo">ASUNG WMS<span>Fulfillment</span></div>
+    <div class="right"><span id="whoName" style="font-size:12.5px;color:var(--mut);font-family:var(--mono)"></span><button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button><span class="conn" id="conn"></span></div>
   </div></header>
 
   <main>
     <div class="orderbar">
-      <button class="btn ghost" id="pickBtn">오더 선택 ▾</button>
-      <span class="ordinfo" id="ordInfo">함께 출고할 오더를 선택하세요.</span>
+      <button class="btn ghost" id="pickBtn">Select orders ▾</button>
+      <span class="ordinfo" id="ordInfo">Select the orders to ship together.</span>
     </div>
 
-    <!-- 오더 선택 패널 -->
+    <!-- order select panel -->
     <div id="orderPicker" class="panel" style="display:none;margin-bottom:14px;max-width:520px">
-      <div class="phead"><h2>함께 출고할 오더</h2><span style="margin-left:auto;font-size:11px;color:var(--mut-2)">여러 개 선택 가능</span></div>
+      <div class="phead"><h2>Orders to ship together</h2><span style="margin-left:auto;font-size:11px;color:var(--mut-2)">select multiple</span></div>
       <div id="orderList" style="max-height:340px;overflow:auto;padding:6px"></div>
       <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)">
-        <button class="btn dark" id="startBtn" style="background:var(--ink);color:#fff">선택한 오더 작업 시작</button>
-        <button class="btn ghost" id="pickCancel">닫기</button>
+        <button class="btn dark" id="startBtn" style="background:var(--ink);color:#fff">Start working selected orders</button>
+        <button class="btn ghost" id="pickCancel">Close</button>
       </div>
     </div>
 
     <div id="storeBar" class="storebar" style="display:none"></div>
 
     <div class="layout" id="workspace" style="display:none">
-      <!-- 미배정 풀 -->
+      <!-- unassigned pool -->
       <div class="panel">
-        <div class="phead"><h2>미배정 제품</h2></div>
+        <div class="phead"><h2>Unassigned products</h2></div>
         <div class="pool" id="pool"></div>
       </div>
-      <!-- 유닛 영역 -->
+      <!-- unit area -->
       <div>
         <div class="unitbar">
-          <button class="btn pallet" id="addPallet">+ 팔렛</button>
-          <button class="btn box" id="addBox">+ 박스</button>
-          <span style="font-size:12px;color:var(--mut-2);align-self:center">제품·배치를 팔렛/박스로 드래그하세요. 박스를 팔렛 위로 드래그하면 팔렛에 담깁니다.</span>
+          <button class="btn pallet" id="addPallet">+ Pallet</button>
+          <button class="btn box" id="addBox">+ Box</button>
+          <span style="font-size:12px;color:var(--mut-2);align-self:center">Drag products/batches onto a pallet or box. Drag a box onto a pallet to nest it.</span>
         </div>
         <div class="units" id="units"></div>
       </div>
@@ -214,9 +214,9 @@
 </div>
 
 <div class="modal" id="qtyModal"><div class="box2">
-  <h3 id="qmTitle">수량</h3><p id="qmSub"></p>
+  <h3 id="qmTitle">Qty</h3><p id="qmSub"></p>
   <input id="qmInput" type="number" min="1">
-  <div class="row"><button class="cancel" id="qmCancel">취소</button><button class="ok" id="qmOk">확인</button></div>
+  <div class="row"><button class="cancel" id="qmCancel">Cancel</button><button class="ok" id="qmOk">OK</button></div>
 </div></div>
 
 <div id="printArea"></div>
@@ -229,10 +229,10 @@
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
 let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
-let availOrders=[];            // 선택 가능한 오더 목록
+let availOrders=[];            // selectable order list
 let drag=null; // {kind, ...}
 
-/* ---------- 로그인 ---------- */
+/* ---------- login ---------- */
 function boot(){
   wmsAuth.start({requireManager:false}, (client, staffMe)=>{
     sb=client; me=staffMe;
@@ -246,12 +246,12 @@ document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1800);}
 
-/* ---------- 오더 목록 (완료된 팩이 있는 오더) — 체크리스트 ---------- */
+/* ---------- order list (orders with completed packs) — checklist ---------- */
 async function loadOrders(){
   const {data:packs}=await sb.from("wms_pack_tasks").select("order_id").eq("status","completed");
   const ids=[...new Set((packs||[]).map(p=>p.order_id))];
   const box=document.getElementById("orderList");
-  if(!ids.length){ box.innerHTML='<div style="padding:20px;color:var(--mut);font-size:13px">검수 완료된 오더가 없습니다.</div>'; return; }
+  if(!ids.length){ box.innerHTML='<div style="padding:20px;color:var(--mut);font-size:13px">No verified orders.</div>'; return; }
   const {data:ords}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status").in("id",ids).neq("status","closed").order("customer_name").order("order_number");
   const acc=me.warehouse_access;
   availOrders=(ords||[]).filter(o=>acc==="both"||o.warehouse===acc);
@@ -259,7 +259,7 @@ async function loadOrders(){
 }
 function renderOrderList(){
   const box=document.getElementById("orderList");
-  // 고객별 그룹
+  // group by customer
   const byCust={}; availOrders.forEach(o=>{ const c=o.customer_name||"—"; (byCust[c]=byCust[c]||[]).push(o); });
   box.innerHTML=Object.entries(byCust).map(([cust,list])=>`
     <div class="ocust">${esc(cust)}</div>
@@ -275,24 +275,24 @@ document.getElementById("pickBtn").onclick=()=>{ const p=document.getElementById
 document.getElementById("pickCancel").onclick=()=>{ document.getElementById("orderPicker").style.display="none"; };
 document.getElementById("startBtn").onclick=()=>{
   const checked=[...document.querySelectorAll("#orderList input:checked")].map(c=>+c.value);
-  if(!checked.length){ toast("오더를 하나 이상 선택하세요",true); return; }
+  if(!checked.length){ toast("Select at least one order",true); return; }
   orderIds=checked;
   document.getElementById("orderPicker").style.display="none";
   loadWorkspace();
 };
 
-/* ---------- 복수 오더 워크스페이스 로드 ---------- */
+/* ---------- load multi-order workspace ---------- */
 async function loadWorkspace(){
   const {data:ods}=await sb.from("wms_orders").select("*").in("id",orderIds);
   orders=ods||[]; orderById={}; orders.forEach(o=>orderById[o.id]=o);
-  // 헤더 정보
+  // header info
   const custs=[...new Set(orders.map(o=>o.customer_name||"—"))];
   document.getElementById("ordInfo").innerHTML=
-    `<b>${orders.map(o=>esc(o.order_number)).join(", ")}</b> · 고객 <b>${custs.map(esc).join(" / ")}</b>`
-    +(custs.length>1?` <span class="otag" style="color:var(--warn);background:var(--warn-bg)">고객 ${custs.length}명 혼합</span>`:"");
-  document.getElementById("pickBtn").textContent=`오더 ${orderIds.length}개 ▾`;
+    `<b>${orders.map(o=>esc(o.order_number)).join(", ")}</b> · Customer <b>${custs.map(esc).join(" / ")}</b>`
+    +(custs.length>1?` <span class="otag" style="color:var(--warn);background:var(--warn-bg)">${custs.length} customers mixed</span>`:"");
+  document.getElementById("pickBtn").textContent=`${orderIds.length} orders ▾`;
 
-  // 정적 풀: 선택된 모든 오더의 완료 팩 라인
+  // static pool: completed pack lines of all selected orders
   const [packTasks, pickTasks]=await Promise.all([
     sb.from("wms_pack_tasks").select("id,pick_task_id,batch_label,order_id").in("order_id",orderIds).eq("status","completed"),
     sb.from("wms_pick_tasks").select("id,batch_label").in("order_id",orderIds),
@@ -318,16 +318,16 @@ async function loadWorkspace(){
   await refresh();
 }
 
-/* ---------- 유닛/항목 갱신 (선택 오더 관련 유닛 전부) ---------- */
+/* ---------- refresh units/items (all units related to selected orders) ---------- */
 async function refresh(){
-  // 1) 선택 오더가 홈인 유닛 + 2) 선택 오더의 항목을 가진 유닛 → union
+  // 1) units homed to selected orders + 2) units containing selected-order items → union
   const [byHome, byItems]=await Promise.all([
     sb.from("wms_pallets").select("*").in("order_id",orderIds),
     sb.from("wms_pallet_items").select("pallet_id").in("order_id",orderIds),
   ]);
   const unitIds=new Set((byHome.data||[]).map(u=>u.id));
   (byItems.data||[]).forEach(i=>unitIds.add(i.pallet_id));
-  // 자식 박스도 포함 (부모가 위 유닛인 박스)
+  // include child boxes (boxes whose parent is the above unit)
   let allUnits=[];
   if(unitIds.size){
     const {data:u2}=await sb.from("wms_pallets").select("*").or(
@@ -344,18 +344,18 @@ async function refresh(){
 function assignedFor(olid){ return items.filter(i=>i.order_line_id===olid).reduce((s,i)=>s+Number(i.qty_base||0),0); }
 function remainingFor(pl){ return pl.packed - assignedFor(pl.order_line_id); }
 
-/* ---------- 풀 렌더 ---------- */
+/* ---------- pool render ---------- */
 function renderPool(){
   const el=document.getElementById("pool");
   const avail=poolLines.map(pl=>({...pl, rem:remainingFor(pl)})).filter(pl=>pl.rem>0);
-  if(!avail.length){ el.innerHTML=`<div class="poolempty">모든 제품이 배정되었습니다. 👍<br>각 유닛에서 팩킹 리스트를 인쇄하세요.</div>`; return; }
-  // 오더 → 배치 2단 그룹
+  if(!avail.length){ el.innerHTML=`<div class="poolempty">All products assigned. 👍<br>Print a packing list from each unit.</div>`; return; }
+  // order → batch two-level group
   const byOrder={};
   avail.forEach(pl=>{ (byOrder[pl.order_number]=byOrder[pl.order_number]||[]).push(pl); });
   el.innerHTML=Object.entries(byOrder).map(([onum,olines])=>{
     const oTotQ=olines.reduce((s,l)=>s+l.rem,0);
     const oOlids=olines.map(l=>l.order_line_id).join(",");
-    // 배치 하위 그룹
+    // batch sub-group
     const byBatch={}; olines.forEach(l=>{ const b=(l.batch||"?"); (byBatch[b]=byBatch[b]||[]).push(l); });
     const batchBlocks=Object.entries(byBatch).map(([b,lines])=>{
       const bTotQ=lines.reduce((s,l)=>s+l.rem,0);
@@ -366,11 +366,11 @@ function renderPool(){
           <span class="q">${l.rem}</span>
         </div>`).join("");
       return `<div class="batchgrp">
-        <div class="batch-h" draggable="true" data-many="${bOlids}"><span class="drag">⠿</span>${esc(b)}<span class="cnt">${bTotQ}개</span></div>
+        <div class="batch-h" draggable="true" data-many="${bOlids}"><span class="drag">⠿</span>${esc(b)}<span class="cnt">${bTotQ}</span></div>
         ${cards}</div>`;
     }).join("");
     return `<div class="grp">
-      <div class="grp-h order-h" draggable="true" data-many="${oOlids}"><span class="drag">⠿</span>${esc(onum)}<span class="cnt">${olines.length}종 · ${oTotQ}개</span></div>
+      <div class="grp-h order-h" draggable="true" data-many="${oOlids}"><span class="drag">⠿</span>${esc(onum)}<span class="cnt">${olines.length} SKUs · ${oTotQ} units</span></div>
       ${batchBlocks}</div>`;
   }).join("");
   el.querySelectorAll("[data-pl]").forEach(c=>c.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"poolLine",olid:+c.dataset.pl}; e.dataTransfer.effectAllowed="move"; }));
@@ -378,9 +378,9 @@ function renderPool(){
   el.ondragover=e=>{ if(drag&&drag.kind==="item"){e.preventDefault();} };
   el.ondrop=e=>{ if(drag&&drag.kind==="item"){ e.preventDefault(); removeItem(drag.itemId); } };
 }
-/* (드롭존별 토글 제거됨 — 배치별 그룹만) */
+/* (per-dropzone toggle removed — group by batch only) */
 
-/* ---------- 유닛 렌더 ---------- */
+/* ---------- unit render ---------- */
 function unitTot(unitId){ return items.filter(i=>i.pallet_id===unitId).reduce((s,i)=>s+Number(i.qty_base||0),0); }
 function boxesIn(palletId){ return units.filter(u=>u.unit_type==="box"&&u.parent_id===palletId); }
 function itemsIn(unitId){ return items.filter(i=>i.pallet_id===unitId); }
@@ -394,34 +394,34 @@ function boxBlock(b){
   const its=itemsIn(b.id);
   const tot=its.reduce((s,i)=>s+Number(i.qty_base||0),0);
   return `<div class="nested" data-unit="${b.id}" data-type="box">
-    <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}<span class="tot">${tot}개</span>
+    <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}<span class="tot">${tot}</span>
       <span class="x" data-delunit="${b.id}" style="cursor:pointer;margin-left:6px">✕</span></div>
-    <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">여기로 드래그</div>'}
-      <button class="mini print" data-print="${b.id}" style="margin-top:4px">🖨 박스 리스트</button></div>
+    <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag here</div>'}
+      <button class="mini print" data-print="${b.id}" style="margin-top:4px">🖨 Box list</button></div>
   </div>`;
 }
 function renderUnits(){
   const el=document.getElementById("units");
   const top=units.filter(u=>!u.parent_id);
-  if(!top.length){ el.innerHTML=`<div class="unitsempty">팔렛 또는 박스를 추가하고<br>왼쪽 제품을 드래그해 담으세요.</div>`; return; }
+  if(!top.length){ el.innerHTML=`<div class="unitsempty">Add a pallet or box and<br>Drag products from the left to fill it.</div>`; return; }
   el.innerHTML=top.map(u=>{
     if(u.unit_type==="pallet"){
       const direct=itemsIn(u.id); const boxes=boxesIn(u.id);
       const tot=unitTot(u.id)+boxes.reduce((s,b)=>s+unitTot(b.id),0);
       const body=(boxes.map(boxBlock).join("")) + (direct.length?direct.map(itemChip).join(""):"") +
-        (!boxes.length&&!direct.length?'<div class="ubody empty-hint">여기로 드래그</div>':"");
+        (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag here</div>':"");
       return `<div class="unit pallet" data-unit="${u.id}" data-type="pallet">
-        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${tot}개</span></div>
+        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${tot}</span></div>
         <div class="ubody">${body}</div>
-        <div class="notes"><input placeholder="높이 메모" value="${esc(u.height_note||"")}" data-note="height" data-uid="${u.id}"><input placeholder="무게 메모" value="${esc(u.weight_note||"")}" data-note="weight" data-uid="${u.id}"></div>
-        <div class="ufoot"><button class="mini" data-addbox="${u.id}">+ 박스 담기</button><button class="mini print" data-print="${u.id}">🖨 팔렛 리스트</button><button class="mini" data-delunit="${u.id}">삭제</button></div>
+        <div class="notes"><input placeholder="Height note" value="${esc(u.height_note||"")}" data-note="height" data-uid="${u.id}"><input placeholder="Weight note" value="${esc(u.weight_note||"")}" data-note="weight" data-uid="${u.id}"></div>
+        <div class="ufoot"><button class="mini" data-addbox="${u.id}">+ Nest box</button><button class="mini print" data-print="${u.id}">🖨 Pallet list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
     } else {
       const its=itemsIn(u.id);
       return `<div class="unit box" data-unit="${u.id}" data-type="box">
-        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span><span class="tot">${unitTot(u.id)}개</span></div>
-        <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">여기로 드래그</div>'}</div>
-        <div class="ufoot"><button class="mini print" data-print="${u.id}">🖨 박스 리스트</button><button class="mini" data-delunit="${u.id}">삭제</button></div>
+        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span><span class="tot">${unitTot(u.id)}</span></div>
+        <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag here</div>'}</div>
+        <div class="ufoot"><button class="mini print" data-print="${u.id}">🖨 Box list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
     }
   }).join("");
@@ -461,19 +461,19 @@ function wireUnitEvents(){
   }));
 }
 
-/* ---------- 드롭 처리 ---------- */
+/* ---------- drop handler ---------- */
 async function onDropToUnit(uid,utype){
   const d=drag; drag=null;
-  if(d.kind==="box"){ // 박스를 팔렛에 담기 (utype는 pallet 보장)
+  if(d.kind==="box"){ // nest box into pallet (utype guaranteed pallet)
     if(d.boxId===uid) return;
     await sb.from("wms_pallets").update({parent_id:uid}).eq("id",d.boxId);
-    await refresh(); toast("박스를 팔렛에 담았습니다"); return;
+    await refresh(); toast("Box nested into pallet"); return;
   }
-  if(d.kind==="unit"){ return; } // 팔렛을 다른 데로: 미지원
+  if(d.kind==="unit"){ return; } // moving a pallet elsewhere: unsupported
   if(d.kind==="item"){
     const it=items.find(i=>i.id===d.itemId); if(!it||it.pallet_id===uid){await refresh();return;}
     if(Number(it.qty_base)>1){
-      const q=await askQty("이동 수량", `${it.order_sku} · 최대 ${it.qty_base}`, it.qty_base, it.qty_base);
+      const q=await askQty("move qty", `${it.order_sku} · max ${it.qty_base}`, it.qty_base, it.qty_base);
       if(q==null){await refresh();return;}
       if(q>=it.qty_base){ await sb.from("wms_pallet_items").update({pallet_id:uid}).eq("id",it.id); }
       else { await sb.from("wms_pallet_items").update({qty_base:it.qty_base-q}).eq("id",it.id);
@@ -484,7 +484,7 @@ async function onDropToUnit(uid,utype){
   if(d.kind==="poolLine"){
     const pl=poolLines.find(p=>p.order_line_id===d.olid); const rem=remainingFor(pl); if(rem<=0){await refresh();return;}
     let q=rem;
-    if(rem>1){ q=await askQty("담을 수량", `${pl.sku} · 최대 ${rem}`, rem, rem); if(q==null){await refresh();return;} }
+    if(rem>1){ q=await askQty("qty to place", `${pl.sku} · max ${rem}`, rem, rem); if(q==null){await refresh();return;} }
     await mergeOrInsert(uid, pl.order_id, pl.order_line_id, pl.sku, pl.name, q, null);
     await refresh(); return;
   }
@@ -492,7 +492,7 @@ async function onDropToUnit(uid,utype){
     const set=new Set(d.olids);
     const avail=poolLines.map(p=>({...p,rem:remainingFor(p)})).filter(p=>p.rem>0 && set.has(p.order_line_id));
     for(const p of avail){ await mergeOrInsert(uid, p.order_id, p.order_line_id, p.sku, p.name, p.rem, null); }
-    await refresh(); toast(`${avail.length}종 담김`); return;
+    await refresh(); toast(`${avail.length} SKUs placed`); return;
   }
 }
 async function mergeOrInsert(uid, orderId, olid, sku, name, qty, fromDrop){
@@ -502,14 +502,14 @@ async function mergeOrInsert(uid, orderId, olid, sku, name, qty, fromDrop){
 }
 async function removeItem(itemId){ await sb.from("wms_pallet_items").delete().eq("id",itemId); await refresh(); }
 
-/* ---------- 유닛 추가/삭제 ---------- */
+/* ---------- add/remove unit ---------- */
 async function addUnit(type, parentId=null){
   const n=units.filter(u=>u.unit_type===type).length+1;
   const primary=orders.find(o=>o.id===orderIds[0])||orders[0];
   const prefix=(orderIds.length>1? (primary?.order_number||"SHIP")+"+" : (primary?.order_number||"SO"));
   const label=prefix+(type==="pallet"?"-P":"-B")+n;
   const {error}=await sb.from("wms_pallets").insert({order_id:orderIds[0], unit_type:type, label, parent_id:parentId, status:"building", created_by:me.name});
-  if(error){toast("추가 실패: "+error.message,true);return;}
+  if(error){toast("Add failed: "+error.message,true);return;}
   await refresh();
 }
 document.getElementById("addPallet").onclick=()=>addUnit("pallet");
@@ -518,15 +518,15 @@ async function delUnit(uid){
   const u=units.find(x=>x.id===uid);
   const childBoxes=boxesIn(uid);
   const hasItems=itemsIn(uid).length||childBoxes.some(b=>itemsIn(b.id).length);
-  if(hasItems){ if(!confirm("이 유닛(및 안의 항목)을 삭제할까요? 담긴 제품은 미배정으로 돌아갑니다.")) return; }
-  // 자식 박스의 항목/박스도 정리
+  if(hasItems){ if(!confirm("Delete this unit (and its items)? Its products return to unassigned.")) return; }
+  // also organize child boxes' items/boxes
   for(const b of childBoxes){ await sb.from("wms_pallet_items").delete().eq("pallet_id",b.id); await sb.from("wms_pallets").delete().eq("id",b.id); }
   await sb.from("wms_pallet_items").delete().eq("pallet_id",uid);
   await sb.from("wms_pallets").delete().eq("id",uid);
   await refresh();
 }
 
-/* ---------- 수량 모달 ---------- */
+/* ---------- qty modal ---------- */
 let qmResolve=null;
 function askQty(title,sub,def,max){
   return new Promise(res=>{ qmResolve=res;
@@ -540,20 +540,20 @@ document.getElementById("qmOk").onclick=()=>{ const inp=document.getElementById(
 document.getElementById("qmCancel").onclick=()=>{ document.getElementById("qtyModal").classList.remove("show"); if(qmResolve){qmResolve(null);qmResolve=null;} };
 document.getElementById("qmInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("qmOk").click();});
 
-/* ---------- 팩킹 리스트 인쇄 ---------- */
+/* ---------- print packing list ---------- */
 function orderNumOf(oid){ return orderById[oid]?.order_number || "?"; }
 function tableFor(unitId){
   const its=itemsIn(unitId);
   if(!its.length) return {html:"", tot:0};
-  // 오더별 그룹
+  // group by order
   const byOrder={}; its.forEach(i=>{ (byOrder[i.order_id]=byOrder[i.order_id]||[]).push(i); });
   const multi=Object.keys(byOrder).length>1;
   let html=""; let tot=0;
   Object.entries(byOrder).forEach(([oid,list])=>{
     const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); tot+=sub;
     const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-    const cap=multi?`<tr><td colspan="3" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(소계 ${sub})</span></td></tr>`:"";
-    html+=`<table class="pl"><thead><tr><th>SKU</th><th>제품명</th><th class="n">수량</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
+    const cap=multi?`<tr><td colspan="3" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(subtotal ${sub})</span></td></tr>`:"";
+    html+=`<table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
   });
   return {html, tot};
 }
@@ -564,14 +564,14 @@ function printUnit(uid){
   if(isPallet){
     const boxes=boxesIn(uid);
     boxes.forEach(b=>{ const t=tableFor(b.id); grand+=t.tot;
-      body+=`<div class="pl-unit">📦 ${esc(b.label)} <span style="font-size:12px;color:#555">(박스 소계 ${t.tot})</span></div>${t.html||'<div class="pl-note">비어 있음</div>'}`; });
+      body+=`<div class="pl-unit">📦 ${esc(b.label)} <span style="font-size:12px;color:#555">(box subtotal ${t.tot})</span></div>${t.html||'<div class="pl-note">empty</div>'}`; });
     const dt=tableFor(uid); grand+=dt.tot;
-    if(dt.tot) body+=`<div class="pl-unit">낱개 (팔렛 직접)</div>${dt.html}`;
-    if(u.height_note||u.weight_note) body+=`<div class="pl-note">높이: ${esc(u.height_note||"—")} · 무게: ${esc(u.weight_note||"—")}</div>`;
+    if(dt.tot) body+=`<div class="pl-unit">Loose (direct to pallet)</div>${dt.html}`;
+    if(u.height_note||u.weight_note) body+=`<div class="pl-note">H: ${esc(u.height_note||"—")} · W: ${esc(u.weight_note||"—")}</div>`;
   } else {
-    const t=tableFor(uid); grand=t.tot; body=t.html||'<div class="pl-note">비어 있음</div>';
+    const t=tableFor(uid); grand=t.tot; body=t.html||'<div class="pl-note">empty</div>';
   }
-  // 이 유닛에 포함된 오더들
+  // orders included in this unit
   const unitOids=[...new Set(itemsIn(uid).concat(boxesIn(uid).flatMap(b=>itemsIn(b.id))).map(i=>i.order_id))];
   const orderStr=unitOids.map(orderNumOf).join(", ")||orders.map(o=>o.order_number).join(", ");
   const custs=[...new Set(orders.map(o=>o.customer_name||"—"))];
@@ -579,26 +579,26 @@ function printUnit(uid){
   const pa=document.getElementById("printArea");
   pa.innerHTML=`
     <div class="pl-h"><div class="brand">ASUNG TRADING</div><div class="doc">PACKING LIST<br>${new Date().toLocaleDateString()}</div></div>
-    <div class="pl-meta"><div>오더 <b>${esc(orderStr)}</b></div><div>고객 <b>${custs.map(esc).join(" / ")}</b></div><div>창고 <b>${wh}</b></div></div>
+    <div class="pl-meta"><div>Order <b>${esc(orderStr)}</b></div><div>Customer <b>${custs.map(esc).join(" / ")}</b></div><div>Warehouse <b>${wh}</b></div></div>
     <div class="pl-unit">${isPallet?"🟩":"📦"} ${esc(u.label)} · ${isPallet?"PALLET":"BOX"}</div>
     ${body}
-    <div class="pl-total">총 수량: ${grand}</div>`;
+    <div class="pl-total">Total qty: ${grand}</div>`;
   window.print();
 }
 
-/* ---------- 스토어(오더)별 종합 팩킹 리스트 ---------- */
+/* ---------- consolidated packing list per store (order) ---------- */
 function renderStoreBar(){
   const bar=document.getElementById("storeBar");
   if(!orders.length){ bar.style.display="none"; return; }
   bar.style.display="flex";
-  bar.innerHTML=`<span class="lab">스토어별 종합 리스트</span>`
-    + orders.map(o=>`<span class="schip"><b>${esc(o.order_number)}</b> <span style="color:var(--mut)">${esc(o.customer_name||"")}</span><button data-store="${o.id}">🖨 리스트</button></span>`).join("")
-    + (orders.length>1?`<button class="allbtn" id="allStoresBtn">🖨 전체 스토어 (한 번에)</button>`:"");
+  bar.innerHTML=`<span class="lab">Consolidated list per store</span>`
+    + orders.map(o=>`<span class="schip"><b>${esc(o.order_number)}</b> <span style="color:var(--mut)">${esc(o.customer_name||"")}</span><button data-store="${o.id}">🖨 List</button></span>`).join("")
+    + (orders.length>1?`<button class="allbtn" id="allStoresBtn">🖨 All stores (at once)</button>`:"");
   bar.querySelectorAll("[data-store]").forEach(b=>b.onclick=()=>printStores([+b.dataset.store]));
   const all=document.getElementById("allStoresBtn"); if(all) all.onclick=()=>printStores(orders.map(o=>o.id));
 }
 
-// 한 오더의 종합 본문 생성: 이 오더 물건이 어느 유닛(팔렛/박스)에 얼마나 담겼는지
+// build one order's consolidated body: which unit (pallet/box) holds how much of this order
 function buildStoreBody(oid){
   const o=orderById[oid];
   const its=items.filter(i=>i.order_id===oid);
@@ -609,21 +609,21 @@ function buildStoreBody(oid){
     const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); grand+=sub;
     const parent=u.parent_id?units.find(p=>p.id===u.parent_id):null;
     const where=u.unit_type==="box"
-      ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(🟩 ${esc(parent.label)} 안)</span>`:""}`
+      ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${esc(parent.label)})</span>`:""}`
       : `🟩 ${esc(u.label)}`;
     const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-    body+=`<div class="pl-unit">${where} <span style="font-size:12px;color:#555">(소계 ${sub})</span></div>
-      <table class="pl"><thead><tr><th>SKU</th><th>제품명</th><th class="n">수량</th></tr></thead><tbody>${rows}</tbody></table>`;
+    body+=`<div class="pl-unit">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
+      <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
   });
-  // 아직 안 담긴 것(완결 체크)
+  // not yet placed (completeness check)
   const rem=poolLines.filter(p=>p.order_id===oid).map(p=>({...p,r:remainingFor(p)})).filter(p=>p.r>0);
   if(rem.length){
     const rows=rem.map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.name||"")}</td><td class="n">${p.r}</td></tr>`).join("");
-    body+=`<div class="pl-unit" style="color:#b40000">⚠ 미배정 (아직 팔렛/박스에 안 담김)</div>
-      <table class="pl"><thead><tr><th>SKU</th><th>제품명</th><th class="n">수량</th></tr></thead><tbody>${rows}</tbody></table>
-      <div class="pl-warn">이 스토어는 아직 포장이 끝나지 않았습니다.</div>`;
+    body+=`<div class="pl-unit" style="color:#b40000">⚠ Unassigned (not yet in a pallet/box)</div>
+      <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="pl-warn">This store is not fully packed yet.</div>`;
   }
-  if(!body) body=`<div class="pl-note">담긴 제품이 없습니다.</div>`;
+  if(!body) body=`<div class="pl-note">No products placed.</div>`;
   return {o, body, grand, packedUnits:Object.keys(byUnit).length};
 }
 
@@ -635,9 +635,9 @@ function printStores(oids){
     return `<div class="${idx>0?"pagebreak":""}">
       <div class="pl-h"><div class="brand">ASUNG TRADING</div><div class="doc">STORE PACKING LIST<br>${dt}</div></div>
       <div class="pl-store-h">${esc(o.order_number)} · ${esc(o.customer_name||"—")}</div>
-      <div class="pl-meta"><div>창고 <b>${wh}</b></div><div>총 수량 <b>${grand}</b></div></div>
+      <div class="pl-meta"><div>Warehouse <b>${wh}</b></div><div>Total qty <b>${grand}</b></div></div>
       ${body}
-      <div class="pl-total">총 수량: ${grand}</div>
+      <div class="pl-total">Total qty: ${grand}</div>
     </div>`;
   }).join("");
   document.getElementById("printArea").innerHTML=sections;

@@ -1,12 +1,12 @@
-/* Asung WMS 공통 로그인 모듈
+/* Asung WMS shared login module
    ─────────────────────────────────────────────
-   사용법 (각 화면 스크립트 최상단):
+   Usage (at the top of each screen script):
      wmsAuth.start({ requireManager:false }, (sb, me) => { ... });
-   requireManager:true 로 주면 manager/admin 만 통과(작업자는 접근 거부).
-   - 세션은 Supabase가 브라우저에 자동 유지 → 한 번 로그인하면 계속 유지됨.
-   - 로그아웃: wmsAuth.signOut()
-   - 로그인 후 화면의 #logoutBtn 옆에 "비번 변경" 버튼이 자동으로 붙습니다.
-   - 로그인 화면의 "비밀번호를 잊으셨나요?" → 이메일로 재설정 링크 발송.
+   Pass requireManager:true to allow only manager/admin (workers denied).
+   - Session is kept automatically by Supabase in the browser → stays logged in after one login.
+   - Sign out: wmsAuth.signOut()
+   - After login a "Change Password" button is auto-inserted next to #logoutBtn.
+   - Login screen "Forgot your password?" → sends a reset link by email.
 */
 (function(){
   const cfg = window.WMS_CONFIG || {};
@@ -48,7 +48,7 @@
     document.head.appendChild(s);
   }
 
-  /* 로그인 화면 */
+  /* login screen */
   function showLogin(prefillMsg){
     injectStyles();
     let el=document.getElementById("wmsLogin");
@@ -56,16 +56,16 @@
       el=document.createElement("div"); el.id="wmsLogin";
       el.innerHTML=`<div class="card">
         <div class="brand">ASUNG WMS</div>
-        <h2>로그인</h2>
-        <p class="sub">회사 이메일과 비밀번호로 로그인하세요.</p>
-        <label>이메일</label>
+        <h2>Sign In</h2>
+        <p class="sub">Sign in with your company email and password.</p>
+        <label>Email</label>
         <input id="wmsEmail" type="email" autocomplete="username" placeholder="you@asung.ca">
-        <label>비밀번호</label>
+        <label>Password</label>
         <input id="wmsPw" type="password" autocomplete="current-password" placeholder="XXXXXXXX">
-        <button class="main" id="wmsLoginBtn">로그인</button>
+        <button class="main" id="wmsLoginBtn">Sign In</button>
         <div class="err" id="wmsErr"></div>
         <div class="ok" id="wmsOk"></div>
-        <div class="linkrow"><button class="link" id="wmsForgot">비밀번호를 잊으셨나요?</button></div>
+        <div class="linkrow"><button class="link" id="wmsForgot">Forgot your password?</button></div>
       </div>`;
       document.body.appendChild(el);
       document.getElementById("wmsLoginBtn").onclick=doLogin;
@@ -85,46 +85,46 @@
     loginErr("");
     const email=document.getElementById("wmsEmail").value.trim();
     const pw=document.getElementById("wmsPw").value;
-    if(!email||!pw){ loginErr("이메일과 비밀번호를 입력하세요."); return; }
-    const btn=document.getElementById("wmsLoginBtn"); btn.disabled=true; btn.textContent="로그인 중…";
+    if(!email||!pw){ loginErr("Enter your email and password."); return; }
+    const btn=document.getElementById("wmsLoginBtn"); btn.disabled=true; btn.textContent="Signing in…";
     try{
       const {error}=await sb.auth.signInWithPassword({email,password:pw});
-      if(error){ loginErr("로그인 실패: 이메일 또는 비밀번호를 확인하세요."); btn.disabled=false; btn.textContent="로그인"; return; }
+      if(error){ loginErr("Sign-in failed: check your email or password."); btn.disabled=false; btn.textContent="Sign In"; return; }
       const ok=await resolveIdentity();
-      if(!ok){ btn.disabled=false; btn.textContent="로그인"; return; }
-      hideLogin(); btn.disabled=false; btn.textContent="로그인";
+      if(!ok){ btn.disabled=false; btn.textContent="Sign In"; return; }
+      hideLogin(); btn.disabled=false; btn.textContent="Sign In";
       attachAccountControls();
       onReady(sb, me);
-    }catch(e){ loginErr("오류: "+(e.message||e)); btn.disabled=false; btn.textContent="로그인"; }
+    }catch(e){ loginErr("Error: "+(e.message||e)); btn.disabled=false; btn.textContent="Sign In"; }
   }
 
-  /* 비밀번호 찾기 (이메일 링크) */
+  /* forgot password (email link) */
   async function doForgot(){
     const email=document.getElementById("wmsEmail").value.trim();
-    if(!email){ loginErr("먼저 이메일을 입력한 뒤 눌러주세요."); return; }
+    if(!email){ loginErr("Enter your email first, then click this."); return; }
     loginErr("");
     try{
       const redirectTo=location.origin+location.pathname;
       const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
-      if(error){ loginErr("발송 실패: "+error.message); return; }
-      loginOk("재설정 링크를 이메일로 보냈습니다. 메일함을 확인하세요.");
-    }catch(e){ loginErr("오류: "+(e.message||e)); }
+      if(error){ loginErr("Send failed: "+error.message); return; }
+      loginOk("A reset link has been sent to your email. Please check your inbox.");
+    }catch(e){ loginErr("Error: "+(e.message||e)); }
   }
 
-  /* 비번 변경 모달 */
+  /* change-password modal */
   function ensurePwModal(){
     injectStyles();
     let m=document.getElementById("wmsPwModal");
     if(m) return m;
     m=document.createElement("div"); m.id="wmsPwModal";
     m.innerHTML=`<div class="card">
-      <h3>비밀번호 변경</h3>
-      <p>새 비밀번호를 입력하세요. (최소 6자)</p>
-      <label>새 비밀번호</label>
+      <h3>Change Password</h3>
+      <p>Enter a new password (at least 6 characters).</p>
+      <label>New password</label>
       <input id="wmsNewPw" type="password" autocomplete="new-password" placeholder="XXXXXXXX">
-      <label>새 비밀번호 확인</label>
+      <label>Confirm new password</label>
       <input id="wmsNewPw2" type="password" autocomplete="new-password" placeholder="XXXXXXXX">
-      <div class="row"><button class="cancel" id="wmsPwCancel">취소</button><button class="save" id="wmsPwSave">변경</button></div>
+      <div class="row"><button class="cancel" id="wmsPwCancel">Cancel</button><button class="save" id="wmsPwSave">Change</button></div>
       <div class="msg" id="wmsPwMsg"></div>
     </div>`;
     document.body.appendChild(m);
@@ -137,23 +137,23 @@
   async function savePw(){
     const msg=document.getElementById("wmsPwMsg"); msg.className="msg";
     const p1=document.getElementById("wmsNewPw").value, p2=document.getElementById("wmsNewPw2").value;
-    if(p1.length<6){ msg.className="msg err"; msg.textContent="6자 이상이어야 합니다."; return; }
-    if(p1!==p2){ msg.className="msg err"; msg.textContent="두 비밀번호가 일치하지 않습니다."; return; }
-    const btn=document.getElementById("wmsPwSave"); btn.disabled=true; btn.textContent="변경 중…";
+    if(p1.length<6){ msg.className="msg err"; msg.textContent="Must be at least 6 characters."; return; }
+    if(p1!==p2){ msg.className="msg err"; msg.textContent="Passwords do not match."; return; }
+    const btn=document.getElementById("wmsPwSave"); btn.disabled=true; btn.textContent="Changing…";
     try{
       const {error}=await sb.auth.updateUser({password:p1});
-      if(error){ msg.className="msg err"; msg.textContent="변경 실패: "+error.message; btn.disabled=false; btn.textContent="변경"; return; }
-      msg.className="msg ok"; msg.textContent="비밀번호가 변경되었습니다.";
-      setTimeout(()=>{ const mm=document.getElementById("wmsPwModal"); if(mm)mm.classList.remove("show"); btn.disabled=false; btn.textContent="변경"; },1200);
-    }catch(e){ msg.className="msg err"; msg.textContent="오류: "+(e.message||e); btn.disabled=false; btn.textContent="변경"; }
+      if(error){ msg.className="msg err"; msg.textContent="Change failed: "+error.message; btn.disabled=false; btn.textContent="Change"; return; }
+      msg.className="msg ok"; msg.textContent="Password changed successfully.";
+      setTimeout(()=>{ const mm=document.getElementById("wmsPwModal"); if(mm)mm.classList.remove("show"); btn.disabled=false; btn.textContent="Change"; },1200);
+    }catch(e){ msg.className="msg err"; msg.textContent="Error: "+(e.message||e); btn.disabled=false; btn.textContent="Change"; }
   }
 
-  /* 로그인 후: #logoutBtn 옆에 "비번 변경" 버튼 자동 삽입 */
+  /* after login: auto-insert "Change Password" button next to #logoutBtn */
   function attachAccountControls(){
     const lo=document.getElementById("logoutBtn");
     if(!lo || document.getElementById("wmsPwBtn")) return;
     const b=document.createElement("button");
-    b.id="wmsPwBtn"; b.type="button"; b.textContent="비번 변경"; b.title="비밀번호 변경";
+    b.id="wmsPwBtn"; b.type="button"; b.textContent="Change Password"; b.title="Change password";
     b.className=lo.className;
     if(lo.getAttribute("style")) b.setAttribute("style", lo.getAttribute("style"));
     b.onclick=showChangePw;
@@ -162,13 +162,13 @@
 
   async function resolveIdentity(){
     const {data:{user}}=await sb.auth.getUser();
-    if(!user){ loginErr("세션을 확인할 수 없습니다."); return false; }
+    if(!user){ loginErr("Could not verify session."); return false; }
     const {data,error}=await sb.from("wms_staff").select("*").eq("email",user.email).maybeSingle();
-    if(error){ loginErr("직원 조회 실패: "+error.message); return false; }
-    if(!data){ loginErr("등록되지 않은 계정입니다. 관리자에게 문의하세요."); await sb.auth.signOut(); return false; }
-    if(data.active===false){ loginErr("비활성 계정입니다."); await sb.auth.signOut(); return false; }
+    if(error){ loginErr("Staff lookup failed: "+error.message); return false; }
+    if(!data){ loginErr("This account is not registered. Please contact your administrator."); await sb.auth.signOut(); return false; }
+    if(data.active===false){ loginErr("This account is inactive."); await sb.auth.signOut(); return false; }
     if(opts.requireManager && !(data.role==="manager"||data.role==="admin")){
-      loginErr("이 화면은 매니저·관리자만 접근할 수 있습니다."); await sb.auth.signOut(); return false;
+      loginErr("This screen is for managers and admins only."); await sb.auth.signOut(); return false;
     }
     me=data; return true;
   }
@@ -178,7 +178,7 @@
       if(typeof options==="function"){ cb=options; options={}; }
       opts=options||{}; onReady=cb;
       if(!cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_ANON_KEY.includes("PASTE_")){
-        injectStyles(); showLogin(""); loginErr("설정 필요: wms-config.js 에 anon key를 넣으세요.");
+        injectStyles(); showLogin(""); loginErr("Setup needed: add the anon key to wms-config.js.");
         return;
       }
       sb=supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);

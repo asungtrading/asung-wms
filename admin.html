@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Asung WMS · 관리자</title>
+<title>Asung WMS · Admin</title>
 <style>
   :root{
     --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
@@ -117,55 +117,55 @@
 <div id="app" style="display:none">
   <header>
     <div class="bar">
-      <div class="logo">ASUNG WMS<span>관리자</span></div>
+      <div class="logo">ASUNG WMS<span>Admin</span></div>
       <div class="right">
         <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
-        <button id="logoutBtn" title="로그아웃" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">로그아웃</button>
+        <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
         <span class="conn" id="conn"></span>
       </div>
     </div>
     <div class="tabs" id="tabs">
-      <button data-t="overview" class="active">현황</button>
-      <button data-t="disc">불일치 <span class="badge" id="discBadge" style="display:none">0</span></button>
-      <button data-t="stats">통계</button>
-      <button data-t="launch">작업 화면</button>
+      <button data-t="overview" class="active">Status</button>
+      <button data-t="disc">Discrepancy <span class="badge" id="discBadge" style="display:none">0</span></button>
+      <button data-t="stats">Stats</button>
+      <button data-t="launch">Work Screens</button>
     </div>
   </header>
 
   <main>
-    <!-- 현황 -->
+    <!-- Status -->
     <div class="view active" id="v-overview">
-      <div class="sect-h">오더 현황</div>
+      <div class="sect-h">Order Status</div>
       <div class="grid" id="orderStats"></div>
-      <div class="sect-h">작업 배치</div>
+      <div class="sect-h">work batches</div>
       <div class="grid" id="batchStats"></div>
-      <div class="sect-h">진행 중 오더</div>
-      <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>불러오는 중…</div></div></div>
+      <div class="sect-h">In-Progress Orders</div>
+      <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
     </div>
 
-    <!-- 불일치 -->
+    <!-- Discrepancy -->
     <div class="view" id="v-disc">
       <div class="period" id="discPeriod"></div>
-      <div class="sect-h">미해결 불일치 <span id="discOpenCnt" style="color:var(--danger)"></span></div>
-      <div class="card"><div id="discOpen"><div class="loading"><div class="spin"></div>불러오는 중…</div></div></div>
-      <div class="sect-h">최근 처리됨</div>
+      <div class="sect-h">Open Discrepancies <span id="discOpenCnt" style="color:var(--danger)"></span></div>
+      <div class="card"><div id="discOpen"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">Recently resolved</div>
       <div class="card"><div id="discDone"></div></div>
     </div>
 
-    <!-- 통계 -->
+    <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">작업자별 처리량</div>
+      <div class="sect-h">Throughput by worker</div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
-      <div class="sect-h">작업자별 실수 (불일치 책임)</div>
+      <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
     </div>
 
-    <!-- 작업 화면 바로가기 -->
+    <!-- work screen shortcuts -->
     <div class="view" id="v-launch">
-      <div class="sect-h">작업 화면 열기</div>
+      <div class="sect-h">Open work screen</div>
       <div class="launch" id="launchCards"></div>
-      <p style="color:var(--mut);font-size:12.5px;margin-top:14px">같은 폴더의 파일을 엽니다. 배포 후에는 실제 URL로 연결됩니다.</p>
+      <p style="color:var(--mut);font-size:12.5px;margin-top:14px">Opens files in the same folder. After deployment these link to the real URLs.</p>
     </div>
   </main>
 </div>
@@ -182,16 +182,16 @@ let discPeriodKey="week", statsPeriodKey="week";
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
-const REASON_LABEL={short_pick:"픽 부족", short_after_pack:"팩 후 부족", over_pick:"과다 픽", resolved_pack_recovery:"팩 회수 해소", pack_mismatch:"팩 불일치"};
-const STATUS_LABEL={pending:"대기", picking:"픽 중", packing:"팩 중", ready_to_close:"마감 준비", closed:"마감", voided:"취소"};
+const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy"};
+const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"closed", voided:"voided"};
 
-/* ---------- 부트/로그인 ---------- */
+/* ---------- boot / login ---------- */
 function boot(){
   wmsAuth.start({requireManager:true}, (client, staffMe)=>{
     sb=client; me=staffMe;
     document.getElementById("app").style.display="block";
     document.getElementById("whoName").textContent=me.name;
-    document.getElementById("whoRole").textContent=me.role==="admin"?"관리자":"매니저";
+    document.getElementById("whoRole").textContent=me.role==="admin"?"Admin":"Manager";
     document.getElementById("conn").className="conn on";
     start();
   });
@@ -200,12 +200,12 @@ document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1900);}
 
-/* ---------- 기간 계산 ---------- */
+/* ---------- period calc ---------- */
 function rangeFor(key,custom){
   const now=new Date(); const to=new Date(now); let from=new Date(now);
   const startOfDay=d=>{d.setHours(0,0,0,0);return d;};
   if(key==="today"){ from=startOfDay(new Date(now)); }
-  else if(key==="week"){ const d=startOfDay(new Date(now)); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); from=d; } // 월요일 시작
+  else if(key==="week"){ const d=startOfDay(new Date(now)); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); from=d; } // week starts Monday
   else if(key==="month"){ from=new Date(now.getFullYear(),now.getMonth(),1); }
   else if(key==="q"){ from=new Date(now); from.setMonth(from.getMonth()-3); }
   else if(key==="h"){ from=new Date(now); from.setMonth(from.getMonth()-6); }
@@ -214,19 +214,19 @@ function rangeFor(key,custom){
     from=custom.from?new Date(custom.from+"T00:00:00"):new Date(0);
     return {fromISO:from.toISOString(), toISO:(custom.to?new Date(custom.to+"T23:59:59"):now).toISOString(), label:(custom.from||"…")+" ~ "+(custom.to||"…")};
   }
-  else if(key==="all"){ return {fromISO:new Date(0).toISOString(), toISO:now.toISOString(), label:"전체"}; }
-  const labels={today:"오늘",week:"이번 주",month:"이번 달",q:"최근 3개월",h:"최근 6개월",y:"최근 1년"};
+  else if(key==="all"){ return {fromISO:new Date(0).toISOString(), toISO:now.toISOString(), label:"All"}; }
+  const labels={today:"Today",week:"This week",month:"This month",q:"Last 3 months",h:"Last 6 months",y:"Last year"};
   return {fromISO:from.toISOString(), toISO:to.toISOString(), label:labels[key]||key};
 }
 function periodBar(containerId, curKey, custom, onChange){
-  const opts=[["today","오늘"],["week","이번 주"],["month","이번 달"],["q","3개월"],["h","6개월"],["y","1년"],["all","전체"]];
+  const opts=[["today","Today"],["week","This week"],["month","This month"],["q","3 months"],["h","6 months"],["y","1 year"],["all","All"]];
   const el=document.getElementById(containerId);
   el.innerHTML=`<div class="seg">${opts.map(([k,l])=>`<button data-k="${k}" class="${k===curKey?"active":""}">${l}</button>`).join("")}
-      <button data-k="custom" class="${curKey==="custom"?"active":""}">달력</button></div>
+      <button data-k="custom" class="${curKey==="custom"?"active":""}">Calendar</button></div>
     <div class="cal" id="${containerId}-cal" style="${curKey==="custom"?"":"display:none"}">
       <input type="date" id="${containerId}-from" value="${custom.from||""}"> ~
       <input type="date" id="${containerId}-to" value="${custom.to||""}">
-      <button id="${containerId}-apply">적용</button>
+      <button id="${containerId}-apply">Apply</button>
     </div>
     <span class="rangelabel" id="${containerId}-lbl"></span>`;
   el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
@@ -244,9 +244,9 @@ function periodBar(containerId, curKey, custom, onChange){
 }
 function setRangeLabel(containerId,label){ const el=document.getElementById(containerId+"-lbl"); if(el)el.textContent=label; }
 
-/* ---------- 시작 ---------- */
+/* ---------- start ---------- */
 function start(){
-  // 탭
+  // tab
   document.getElementById("tabs").onclick=e=>{
     const b=e.target.closest("button[data-t]"); if(!b)return;
     const t=b.dataset.t;
@@ -264,7 +264,7 @@ function start(){
   refreshDiscBadge();
 }
 
-/* ---------- 현황 ---------- */
+/* ---------- Status ---------- */
 async function loadOverview(){
   const [orders, picks, packs]=await Promise.all([
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),
@@ -274,34 +274,34 @@ async function loadOverview(){
   const os=orders.data||[];
   const cnt=s=>os.filter(o=>o.status===s).length;
   document.getElementById("orderStats").innerHTML=[
-    ["대기","pending",cnt("pending"),""],
-    ["픽 중","picking",cnt("picking"),""],
-    ["팩 중","packing",cnt("packing"),""],
-    ["마감 준비","ready_to_close",cnt("ready_to_close"),"ok"],
+    ["pending","pending",cnt("pending"),""],
+    ["Picking","picking",cnt("picking"),""],
+    ["Packing","packing",cnt("packing"),""],
+    ["Ready to close","ready_to_close",cnt("ready_to_close"),"ok"],
   ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
   const pk=picks.data||[], pc=packs.data||[];
   const pkc=s=>pk.filter(x=>x.status===s).length, pcc=s=>pc.filter(x=>x.status===s).length;
   document.getElementById("batchStats").innerHTML=[
-    ["픽 대기",pkc("pending"),""],["픽 진행",pkc("in_progress"),""],
-    ["팩 대기",pcc("pending")+"",""],["팩 진행",pcc("in_progress"),""],
+    ["Pick pending",pkc("pending"),""],["Pick in progress",pkc("in_progress"),""],
+    ["Pack pending",pcc("pending")+"",""],["Pack in progress",pcc("in_progress"),""],
   ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
-  // 진행 중 오더 테이블
+  // in-progress orders table
   const el=document.getElementById("activeOrders");
-  if(!os.length){ el.innerHTML=`<div class="empty">진행 중인 오더가 없습니다.</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>오더</th><th>고객</th><th>창고</th><th>상태</th><th class="num">라인</th><th class="num">낱개</th></tr></thead><tbody>${
+  if(!os.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="num">Lines</th><th class="num">units</th></tr></thead><tbody>${
     os.map(o=>`<tr>
-      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">확인</span>':""}</td>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">OK</span>':""}</td>
       <td>${esc(o.customer_name||"—")}</td>
-      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"에드먼턴":"토론토"}</span></td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span></td>
       <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
     </tr>`).join("")
   }</tbody></table>`;
 }
 
-/* ---------- 불일치 ---------- */
+/* ---------- Discrepancy ---------- */
 async function refreshDiscBadge(){
   const {count}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true}).is("resolved_at",null).eq("cin7_corrected",false);
   const b=document.getElementById("discBadge");
@@ -309,13 +309,13 @@ async function refreshDiscBadge(){
 }
 async function loadDisc(){
   const r=rangeFor(discPeriodKey,discCustom); discRange=r; setRangeLabel("discPeriod",r.label);
-  // 미해결(전체, 기간 무관) + 최근 처리(기간 적용)
+  // open (all, any period) + recently resolved (period applied)
   const [open, done]=await Promise.all([
     sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).order("created_at",{ascending:false}),
     sb.from("wms_discrepancies").select("*").or("resolved_at.not.is.null,cin7_corrected.eq.true").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(100),
   ]);
   const openD=open.data||[];
-  document.getElementById("discOpenCnt").textContent=openD.length?`(${openD.length}건)`:"(0건)";
+  document.getElementById("discOpenCnt").textContent=openD.length?`(${openD.length})`:"(0)";
   renderDiscTable("discOpen", openD, true);
   renderDiscTable("discDone", done.data||[], false);
   refreshDiscBadge();
@@ -323,8 +323,8 @@ async function loadDisc(){
 function discRow(d,actionable){
   const rl=REASON_LABEL[d.reason]||d.reason;
   const act=actionable
-    ? `<td><button class="btnsm ok" data-fix="${d.id}">Cin7 수정완료</button></td>`
-    : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"수정됨"}</td>`;
+    ? `<td><button class="btnsm ok" data-fix="${d.id}">Cin7 Fixed</button></td>`
+    : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}</td>`;
   return `<tr>
     <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}</td>
     <td style="font-family:var(--mono)">${esc(d.sku||"")}</td>
@@ -338,35 +338,35 @@ function discRow(d,actionable){
 }
 function renderDiscTable(id, rows, actionable){
   const el=document.getElementById(id);
-  if(!rows.length){ el.innerHTML=`<div class="empty">${actionable?"미해결 불일치가 없습니다. 👍":"해당 기간 처리 내역이 없습니다."}</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>오더</th><th>SKU</th><th>유형</th><th class="num">주문</th><th class="num">실제</th><th>책임</th><th>일자</th><th></th></tr></thead>
+  if(!rows.length){ el.innerHTML=`<div class="empty">${actionable?"No open discrepancies. 👍":"No activity in this period."}</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Orders</th><th>SKU</th><th>Type</th><th class="num">Ordered</th><th class="num">Actual</th><th>Responsible</th><th>Date</th><th></th></tr></thead>
     <tbody>${rows.map(d=>discRow(d,actionable)).join("")}</tbody></table>`;
   if(actionable){
     el.querySelectorAll("[data-fix]").forEach(b=>b.onclick=()=>fixDisc(+b.dataset.fix));
   }
 }
 async function fixDisc(id){
-  if(!confirm("이 불일치를 Cin7에서 수정 완료 처리할까요?\n(재고 조정을 Cin7 backend에서 먼저 하신 뒤 눌러주세요)")) return;
+  if(!confirm("Mark this discrepancy as fixed in Cin7?\n(Please make the stock adjustment in the Cin7 backend first, then press this)")) return;
   const {error}=await sb.from("wms_discrepancies").update({cin7_corrected:true, resolved_by:me.name, resolved_at:new Date().toISOString()}).eq("id",id);
-  if(error){ toast("처리 실패: "+error.message,true); return; }
-  toast("처리 완료"); loadDisc();
+  if(error){ toast("Action failed: "+error.message,true); return; }
+  toast("Done"); loadDisc();
 }
 
-/* ---------- 통계 ---------- */
+/* ---------- Stats ---------- */
 async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
-  // 처리량: 완료된 픽/팩 배치 (완료시각 기준)
+  // throughput: completed pick/pack batches (by completion time)
   const [picks, packs, disc]=await Promise.all([
     sb.from("wms_pick_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_pack_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
-  // 처리량 집계
+  // throughput tally
   const prod={};
   (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pick++; });
   (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pack++; });
   renderProd(prod);
-  // 실수 집계 (책임자 기준, 해소된 것 제외 안 함 — 발생 자체를 카운트, resolved_pack_recovery는 제외)
+  // mistake tally (by responsible person, resolved not excluded — count occurrences themselves, resolved_pack_recovery excluded)
   const mistakes={};
   (disc.data||[]).forEach(d=>{ if(!d.responsible)return; if(d.reason==="resolved_pack_recovery")return;
     const m=mistakes[d.responsible]=mistakes[d.responsible]||{short_after_pack:0,over_pick:0,short_pick:0,total:0};
@@ -376,20 +376,20 @@ async function loadStats(){
 function renderProd(prod){
   const rows=Object.entries(prod).sort((a,b)=>(b[1].pick+b[1].pack)-(a[1].pick+a[1].pack));
   const el=document.getElementById("prodTable");
-  if(!rows.length){ el.innerHTML=`<div class="empty">해당 기간 완료된 작업이 없습니다.</div>`; return; }
+  if(!rows.length){ el.innerHTML=`<div class="empty">No work completed in this period.</div>`; return; }
   const max=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
   el.innerHTML=rows.map(([nm,v])=>`
     <div style="margin:10px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· 픽 ${v.pick} · 팩 ${v.pack}</span></div>
-      <div class="bar-row"><span class="nm" style="color:var(--tor)">픽 배치</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/max*100)}%"></div></div><span class="val">${v.pick}</span></div>
-      <div class="bar-row"><span class="nm" style="color:var(--violet)">팩 배치</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/max*100)}%"></div></div><span class="val">${v.pack}</span></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick} · Pack ${v.pack}</span></div>
+      <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/max*100)}%"></div></div><span class="val">${v.pick}</span></div>
+      <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/max*100)}%"></div></div><span class="val">${v.pack}</span></div>
     </div>`).join("");
 }
 function renderMistakes(m){
   const rows=Object.entries(m).sort((a,b)=>b[1].total-a[1].total);
   const el=document.getElementById("mistakeTable");
-  if(!rows.length){ el.innerHTML=`<div class="empty">해당 기간 기록된 실수가 없습니다. 👍</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>작업자</th><th class="num">총 실수</th><th class="num">팩후 부족</th><th class="num">과다 픽</th></tr></thead>
+  if(!rows.length){ el.innerHTML=`<div class="empty">No mistakes recorded in this period. 👍</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Worker</th><th class="num">Total mistakes</th><th class="num">short after pack</th><th class="num">Over-pick</th></tr></thead>
     <tbody>${rows.map(([nm,v])=>`<tr>
       <td style="font-weight:600">${esc(nm)}</td>
       <td class="num" style="font-weight:800;color:var(--danger)">${v.total}</td>
@@ -398,13 +398,13 @@ function renderMistakes(m){
     </tr>`).join("")}</tbody></table>`;
 }
 
-/* ---------- 작업 화면 바로가기 ---------- */
+/* ---------- work screen shortcuts ---------- */
 function renderLaunch(){
   const cards=[
-    ["manager.html","M","오더 분할","대기 오더를 배치로 분할","#d9820a",true],
-    ["picker.html","P","픽킹","배치 픽 작업","#2f6df6",false],
-    ["packer.html","K","패킹","전량 재스캔 검수","#7a5af0",false],
-    ["staff-admin.html","S","직원 관리","권한·창고 접근 설정","#12996b",true],
+    ["manager.html","M","Order Splitting","split pending orders into batches","#d9820a",true],
+    ["picker.html","P","Picking","batch pick work","#2f6df6",false],
+    ["packer.html","K","Packing","full re-scan verify","#7a5af0",false],
+    ["staff-admin.html","S","Staff Management","roles & warehouse access","#12996b",true],
   ];
   const isMgr=me.role==="admin"||me.role==="manager";
   document.getElementById("launchCards").innerHTML=cards.map(([href,ic,t,d,color,mgrOnly])=>{

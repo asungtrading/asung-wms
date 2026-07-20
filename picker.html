@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>Asung WMS · 픽킹</title>
+<title>Asung WMS · Picking</title>
 <style>
   :root{
     --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
@@ -145,10 +145,10 @@
 
 <header>
   <div class="bar">
-    <div class="logo">ASUNG WMS<span>픽킹</span></div>
+    <div class="logo">ASUNG WMS<span>Picking</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button id="logoutBtn" title="로그아웃" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">로그아웃</button>
+      <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
       <div class="conn"><span class="dot" id="dot"></span></div>
     </div>
   </div>
@@ -156,44 +156,44 @@
 
 <main id="app" style="display:none">
 
-  <!-- 배치 선택 -->
+  <!-- Select batch -->
   <div id="listView">
-    <div class="lead">내 창고의 대기 배치를 골라 시작하세요.</div>
+    <div class="lead">Pick a waiting batch from your warehouse to start.</div>
     <div class="blist" id="blist"></div>
-    <div class="loading" id="bloading"><div class="spin"></div>불러오는 중…</div>
-    <div class="empty" id="bempty" style="display:none">대기 중인 배치가 없습니다.</div>
+    <div class="loading" id="bloading"><div class="spin"></div>Loading…</div>
+    <div class="empty" id="bempty" style="display:none">No waiting batches..</div>
   </div>
 
-  <!-- 픽 진행 -->
+  <!-- Pick progress -->
   <div class="pwrap" id="pickView">
     <div class="ptop">
-      <button class="btn ghost" id="backBtn">← 목록</button>
+      <button class="btn ghost" id="backBtn">← List</button>
       <div>
         <div class="ptitle" id="pTitle"></div>
         <div class="pmeta" id="pMeta"></div>
       </div>
       <div class="seg" id="viewSeg">
-        <button data-v="single" class="active">한줄</button>
-        <button data-v="list">목록</button>
+        <button data-v="single" class="active">Single</button>
+        <button data-v="list">List</button>
       </div>
     </div>
     <div class="prog"><i id="progBar"></i></div>
 
     <div class="scanbar">
-      <input class="scanin" id="scan" inputmode="none" autocomplete="off" placeholder="바코드를 스캔하세요…">
-      <div class="scanhint"><span class="live"></span><span id="scanHint">스캔 대기 중 · 1회 스캔 = 바코드 단위 수량</span></div>
+      <input class="scanin" id="scan" inputmode="none" autocomplete="off" placeholder="Scan a barcode…">
+      <div class="scanhint"><span class="live"></span><span id="scanHint">Waiting for scan &middot; single scan = barcode-unit quantity</span></div>
     </div>
 
-    <!-- 한줄 뷰 -->
+    <!-- Single view -->
     <div class="single" id="single"></div>
-    <!-- 목록 뷰 -->
+    <!-- List view -->
     <div class="list" id="list"></div>
 
     <div class="foot">
       <div class="row">
-        <button class="btn hold" id="holdBtn">홀드(나중에)</button>
-        <button class="btn warn" id="shortBtn">미완성으로 완료</button>
-        <button class="btn ok" id="doneBtn">픽 완료</button>
+        <button class="btn hold" id="holdBtn">Hold (later)</button>
+        <button class="btn warn" id="shortBtn">Complete as incomplete</button>
+        <button class="btn ok" id="doneBtn">Pick complete</button>
       </div>
     </div>
   </div>
@@ -211,7 +211,7 @@ let sb=null, staff=[], me=null, zoneSeq={};
 let batches=[], myBatches=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single";
 let actx=null;
 
-/* ---------- 부트/로그인 ---------- */
+/* ---------- boot / login ---------- */
 function boot(){
   wmsAuth.start({requireManager:false}, (client, staffMe)=>{
     sb=client; me=staffMe;
@@ -225,7 +225,7 @@ function setConn(s){const d=document.getElementById("dot");d.className="dot "+(s
 function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1800);}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
-/* ---------- 사운드/진동/플래시 ---------- */
+/* ---------- sound / vibrate / flash ---------- */
 function initAudio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
 function beep(kind){
   if(!actx) return;
@@ -235,7 +235,7 @@ function beep(kind){
     o.type="sine";o.frequency.setValueAtTime(1050,t);
     g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.14,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);
-  }else{ // error: 낮고 거친 2연타
+  }else{ // error: low harsh double beep
     [0,0.16].forEach(off=>{
       const o=actx.createOscillator(),g=actx.createGain();
       o.type="square";o.frequency.setValueAtTime(180,t+off);
@@ -252,29 +252,29 @@ function flash(kind,msg){
   beep(kind==="ok"?"ok":"bad"); vibe(kind==="ok"?"ok":"bad");
 }
 
-/* ---------- 초기 로드 ---------- */
+/* ---------- initial load ---------- */
 async function init(){
   const zs=await sb.from("wms_zone_sequence").select("*");
-  if(zs.error){setConn("err");toast("초기 로드 실패",true);return;}
+  if(zs.error){setConn("err");toast("Initial load failed",true);return;}
   setConn("ok");
   (zs.data||[]).forEach(z=>zoneSeq[z.warehouse+"|"+z.zone]=z.sequence_order);
   loadBatches();
 }
 
-/* ---------- 배치 목록 ---------- */
+/* ---------- batch list ---------- */
 async function loadBatches(){
   document.getElementById("bempty").style.display="none";
-  if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="작업자를 먼저 선택하세요."; return; }
+  if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
   const sel="id,batch_label,status,assigned_to,started_at,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  // 내가 진행중인 배치 + 대기 pool 을 함께
+  // my in-progress batches + waiting pool together
   const [mine, pool]=await Promise.all([
     sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).order("started_at"),
     sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).order("batch_label"),
   ]);
   document.getElementById("bloading").style.display="none";
-  if(mine.error||pool.error){toast("배치 로드 실패",true);return;}
+  if(mine.error||pool.error){toast("Failed to load batches",true);return;}
   const inWh=b=>{ const wh=b.wms_orders?.warehouse; return acc==="both"||wh===acc; };
   myBatches=(mine.data||[]).filter(inWh);
   batches=(pool.data||[]).filter(inWh);
@@ -285,24 +285,24 @@ function batchCardHtml(b,resume){
   return `<div class="bcard ${resume?"resume":""}" data-id="${b.id}" data-resume="${resume?1:0}">
     <div>
       <div class="bl">${esc(b.batch_label)}</div>
-      <div class="sub">${esc(o.customer_name||"—")} · ${cnt}라인
-        <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"에드먼턴":"토론토"}</span>
-        ${o.needs_review?'<span class="tag rev">확인필요</span>':""}</div>
+      <div class="sub">${esc(o.customer_name||"—")} · ${cnt} lines
+        <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
+        ${o.needs_review?'<span class="tag rev">Needs review</span>':""}</div>
     </div>
-    <button class="go ${resume?"resumebtn":""}">${resume?"이어서 픽":"시작"}</button>
+    <button class="go ${resume?"resumebtn":""}">${resume?"Resume":"Start"}</button>
   </div>`;
 }
 function renderBatches(){
   const be=document.getElementById("bempty");
   const has=(myBatches.length+batches.length)>0;
   be.style.display=has?"none":"block";
-  be.textContent="대기 중인 배치가 없습니다.";
+  be.textContent="No waiting batches..";
   let html="";
   if(myBatches.length){
-    html+=`<div class="sect">내 진행 중</div>`+myBatches.map(b=>batchCardHtml(b,true)).join("");
+    html+=`<div class="sect">My In Progress</div>`+myBatches.map(b=>batchCardHtml(b,true)).join("");
   }
   if(batches.length){
-    html+=`<div class="sect">대기 배치</div>`+batches.map(b=>batchCardHtml(b,false)).join("");
+    html+=`<div class="sect">Waiting Batches</div>`+batches.map(b=>batchCardHtml(b,false)).join("");
   }
   document.getElementById("blist").innerHTML=html;
   document.querySelectorAll("#blist .bcard").forEach(el=>{
@@ -310,28 +310,28 @@ function renderBatches(){
   });
 }
 
-/* ---------- 배치 시작 (낙관적 잠금) ---------- */
+/* ---------- start batch (optimistic lock) ---------- */
 async function startBatch(id){
-  initAudio(); // 사용자 제스처에서 오디오 잠금 해제
+  initAudio(); // unlock audio on user gesture
   const b=batches.find(x=>x.id===id);
   const {data,error}=await sb.from("wms_pick_tasks")
     .update({assigned_to:me.name,status:"in_progress",started_at:new Date().toISOString()})
-    .eq("id",id).is("assigned_to",null).select();  // 이미 잡힌 배치면 0행
-  if(error){toast("시작 실패: "+error.message,true);return;}
-  if(!data||!data.length){ toast("이미 다른 작업자가 시작했습니다",true); loadBatches(); return; }
+    .eq("id",id).is("assigned_to",null).select();  // 0 rows if batch already taken
+  if(error){toast("Start failed: "+error.message,true);return;}
+  if(!data||!data.length){ toast("Another worker has already started this.",true); loadBatches(); return; }
   task=data[0]; order=b.wms_orders||{};
   await loadLines();
 }
 
-/* ---------- 진행중 배치 이어서 ---------- */
+/* ---------- resume in-progress batch ---------- */
 async function resumeBatch(id){
   initAudio();
   const b=myBatches.find(x=>x.id===id); if(!b) { loadBatches(); return; }
-  // 최신 상태 재확인 (여전히 내 것 & 진행중인지)
+  // re-check latest state (still mine & in progress)
   const {data,error}=await sb.from("wms_pick_tasks").select("*").eq("id",id).single();
-  if(error||!data){ toast("배치를 찾을 수 없습니다",true); loadBatches(); return; }
+  if(error||!data){ toast("Batch not found.",true); loadBatches(); return; }
   if(data.status!=="in_progress" || data.assigned_to!==me.name){
-    toast("이 배치는 더 이상 내 진행 중 상태가 아닙니다",true); loadBatches(); return;
+    toast("This batch is no longer in My In Progress",true); loadBatches(); return;
   }
   task=data; order=b.wms_orders||{};
   await loadLines();
@@ -340,7 +340,7 @@ async function loadLines(){
   const {data,error}=await sb.from("wms_pick_task_lines")
     .select("id,assigned_base,picked_base,status,verification_method,order_line_id, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)")
     .eq("pick_task_id",task.id);
-  if(error){toast("라인 로드 실패",true);return;}
+  if(error){toast("Failed to load lines",true);return;}
   const wh=order.warehouse;
   lines=(data||[]).map(r=>{
     const ol=r.wms_order_lines||{};
@@ -353,14 +353,14 @@ async function loadLines(){
       vmethod:r.verification_method||null, _sync:true,
     };
   });
-  // zone 동선순 정렬
+  // zone sort by pick path
   lines.sort((a,b)=>{
     const za=zoneSeq[wh+"|"+a.zone]??9999, zb=zoneSeq[wh+"|"+b.zone]??9999;
     if(za!==zb)return za-zb;
     if(a.bin!==b.bin)return (a.bin||"")<(b.bin||"")?-1:1;
     return (a.order_sku||"")<(b.order_sku||"")?-1:1;
   });
-  // 바코드 맵: code -> [{idx,factor}]
+  // barcode map: code -> [{idx,factor}]
   bcMap={};
   lines.forEach((l,idx)=>{
     (l.barcodes||[]).forEach(b=>{
@@ -368,7 +368,7 @@ async function loadLines(){
       (bcMap[code]=bcMap[code]||[]).push({idx,factor:Number(b.factor)||1});
     });
   });
-  // 가용재고: base_sku 기준 창고별 available 합산 (마스터 동기화 기준, 참고용)
+  // available stock: base_sku sum available by warehouse (per master sync, for reference)
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
   if(baseSkus.length){
     const {data:bins}=await sb.from("wms_sku_bins")
@@ -381,13 +381,13 @@ async function loadLines(){
   document.getElementById("listView").style.display="none";
   document.getElementById("pickView").style.display="block";
   document.getElementById("pTitle").textContent=task.batch_label;
-  document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"에드먼턴":"토론토")+" · "+esc(order.customer_name||"");
+  document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
   document.getElementById("drop").value="";
   renderPick(); focusScan();
 }
 function firstIncomplete(){ const i=lines.findIndex(l=>l.picked<l.assigned); return i<0?0:i; }
 
-/* ---------- 렌더 ---------- */
+/* ---------- render ---------- */
 function totalReq(){return lines.reduce((s,l)=>s+l.assigned,0);}
 function totalPicked(){return lines.reduce((s,l)=>s+Math.min(l.picked,l.assigned),0);}
 function renderPick(){
@@ -397,9 +397,9 @@ function renderPick(){
 }
 function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
 function availChip(l){
-  if(l.available==null) return `<span class="avail na">가용 ?</span>`;
+  if(l.available==null) return `<span class="avail na">Avail ?</span>`;
   const low=l.available<l.assigned;
-  return `<span class="avail ${low?"low":""}">가용 ${l.available}</span>`;
+  return `<span class="avail ${low?"low":""}">Avail ${l.available}</span>`;
 }
 function renderSingle(){
   document.getElementById("single").style.display="block";
@@ -420,10 +420,10 @@ function renderSingle(){
           <button data-step="1">+</button>
         </div>
       </div>
-      <button class="manual" data-manual>수량 직접 입력</button>
+      <button class="manual" data-manual>Enter quantity</button>
       <div class="navrow">
-        <button class="btn ghost" data-nav="-1">← 이전</button>
-        <button class="btn dark" data-nav="1">다음 →</button>
+        <button class="btn ghost" data-nav="-1">← Prev</button>
+        <button class="btn dark" data-nav="1">Next →</button>
       </div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
     </div>`;
@@ -449,7 +449,7 @@ function renderList(){
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
 }
 
-/* ---------- 뷰 토글 ---------- */
+/* ---------- Toggle view ---------- */
 document.getElementById("viewSeg").onclick=e=>{
   const b=e.target.closest("button");if(!b)return;
   view=b.dataset.v;
@@ -457,19 +457,19 @@ document.getElementById("viewSeg").onclick=e=>{
   renderPick(); focusScan();
 };
 
-/* ---------- 스캔 처리 ---------- */
+/* ---------- scan handler ---------- */
 const scanEl=document.getElementById("scan");
 scanEl.addEventListener("keydown",e=>{
   if(e.key==="Enter"){ e.preventDefault(); const v=scanEl.value.trim(); scanEl.value=""; if(v)processScan(v); }
 });
 function processScan(code){
   const cands=bcMap[code];
-  if(!cands||!cands.length){ flash("bad","✕ 이 배치에 없는 바코드"); return; }
-  // 아직 안 찬 라인 우선
+  if(!cands||!cands.length){ flash("bad","✕ Barcode not in this batch"); return; }
+  // unfilled lines first
   let hit=cands.find(c=>lines[c.idx].picked<lines[c.idx].assigned);
-  if(!hit){ const l=lines[cands[0].idx]; flash("bad","✕ 이미 수량 충족: "+l.order_sku); return; }
+  if(!hit){ const l=lines[cands[0].idx]; flash("bad","✕ Quantity already met: "+l.order_sku); return; }
   const l=lines[hit.idx], f=hit.factor;
-  if(l.picked+f>l.assigned){ flash("bad",`✕ 수량 초과 (${l.picked}+${f} > ${l.assigned})`); return; }
+  if(l.picked+f>l.assigned){ flash("bad",`✕ Quantity exceeded (${l.picked}+${f} > ${l.assigned})`); return; }
   l.picked+=f;
   l.vmethod=f>1?"scanned_variant":"scanned_base";
   curIdx=hit.idx;
@@ -484,7 +484,7 @@ function autoAdvance(){
   curIdx = next>=0?next : (alt>=0?alt:curIdx);
 }
 
-/* ---------- 수동 조정 ---------- */
+/* ---------- manual adjust ---------- */
 function manualAdjust(idx,delta){
   const l=lines[idx]; const nv=Math.max(0,Math.min(l.assigned,l.picked+delta));
   if(nv===l.picked)return;
@@ -492,50 +492,50 @@ function manualAdjust(idx,delta){
 }
 function manualSet(idx){
   const l=lines[idx];
-  const v=prompt(`${l.order_sku} 수량 직접 입력 (0 ~ ${l.assigned})`, l.picked);
+  const v=prompt(`${l.order_sku} Enter quantity (0 ~ ${l.assigned})`, l.picked);
   if(v===null){focusScan();return;}
   let n=parseInt(v,10); if(isNaN(n))n=0; n=Math.max(0,Math.min(l.assigned,n));
   l.picked=n; l.vmethod="manual"; saveLine(l); renderPick(); focusScan();
 }
 function move(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderPick(); focusScan(); }
 
-/* ---------- 저장 (백그라운드) ---------- */
+/* ---------- save (background) ---------- */
 async function saveLine(l){
   l._sync=false;
   const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
   const {error}=await sb.from("wms_pick_task_lines")
     .update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
   l._sync=!error;
-  if(error){ toast("저장 지연 — 완료 시 재시도",true); }
+  if(error){ toast("Save delayed — will retry on completion",true); }
 }
 
-/* ---------- 완료 ---------- */
+/* ---------- Done ---------- */
 document.getElementById("doneBtn").onclick=()=>finish(false);
 document.getElementById("shortBtn").onclick=()=>finish(true);
 
 async function finish(allowShort){
   const shorts=lines.filter(l=>l.picked<l.assigned);
   if(shorts.length && !allowShort){
-    toast("부족한 라인이 있습니다. '미완성으로 완료'를 누르세요.",true); return;
+    toast("There are short lines. Press 'Complete as incomplete'.",true); return;
   }
   if(shorts.length && allowShort){
     const detail=shorts.map(l=>`· ${l.order_sku}: ${l.picked}/${l.assigned}`).join("\n");
-    if(!confirm(`미완성으로 완료합니다.\n부족 ${shorts.length}건:\n${detail}\n\n부족분은 팩킹 단계에 경고로 표시되고 불일치 큐에 기록됩니다. 계속할까요?`)) return;
+    if(!confirm(`Completing as incomplete.\nShort ${shorts.length}:\n${detail}\n\nThe shortfall will be flagged at packing and recorded in the discrepancy queue. Continue?`)) return;
   } else {
-    if(!confirm(`${task.batch_label} 픽 완료 처리할까요?`)) return;
+    if(!confirm(`${task.batch_label} Mark pick as complete??`)) return;
   }
 
   const btnD=document.getElementById("doneBtn"), btnS=document.getElementById("shortBtn");
   btnD.disabled=btnS.disabled=true;
   try{
-    // 1) 라인 최종 저장 (권위적)
+    // 1) final line save (authoritative)
     for(const l of lines){
       const st=l.picked>=l.assigned?"picked":"short";
       const {error}=await sb.from("wms_pick_task_lines")
         .update({picked_base:l.picked,status:st,verification_method:l.vmethod}).eq("id",l.id);
       if(error) throw error;
     }
-    // 2) 부족분 → 불일치 큐 기록
+    // 2) shortfall → discrepancy queue record
     if(shorts.length){
       const rows=shorts.map(l=>({
         order_id:task.order_id, order_number:order.order_number, sku:l.order_sku,
@@ -544,67 +544,67 @@ async function finish(allowShort){
       const {error:de}=await sb.from("wms_discrepancies").insert(rows);
       if(de) throw de;
     }
-    // 3) 배치 완료
+    // 3) Batch complete
     const {error:te}=await sb.from("wms_pick_tasks")
       .update({status:"completed",completed_at:new Date().toISOString()}).eq("id",task.id);
     if(te) throw te;
 
-    toast(task.batch_label+(shorts.length?` 미완성 완료 (부족 ${shorts.length})`:" 픽 완료"));
-    // 목록으로
+    toast(task.batch_label+(shorts.length?` Completed incomplete (short ${shorts.length})`:" Pick complete"));
+    // to list
     task=null;order=null;lines=[];bcMap={};
     document.getElementById("pickView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadBatches();
   }catch(e){
-    toast("완료 실패: "+(e.message||e),true);
+    toast("Completion failed: "+(e.message||e),true);
   }finally{ btnD.disabled=btnS.disabled=false; }
 }
 
-/* ---------- 뒤로 (내 진행 중으로 보관) ---------- */
+/* ---------- Back (keep in My In Progress) ---------- */
 document.getElementById("backBtn").onclick=async ()=>{
-  // 진행 수량은 저장돼 있고, 배치는 '내 진행 중'에 남아 이어서 픽 가능
+  // progress is saved and the batch stays in 'My In Progress'so you can keep picking
   task=null;order=null;lines=[];bcMap={};
   document.getElementById("pickView").style.display="none";
   document.getElementById("listView").style.display="block";
   loadBatches();
 };
 
-/* ---------- 홀드 (pool로 반납, 진행 수량 보존) ---------- */
+/* ---------- Hold (return to pool, keep progress) ---------- */
 document.getElementById("holdBtn").onclick=async ()=>{
   if(!task) return;
-  if(!confirm("이 배치를 홀드할까요?\n진행한 수량은 저장되고, 배치는 대기 목록으로 돌아가\n나중에 나 또는 다른 작업자가 이어받을 수 있습니다.")) return;
+  if(!confirm("Hold this batch?\nYour progress is saved and the batch returns to the waiting list.\nYou or another worker can resume it later.")) return;
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
   try{
-    // 현재 라인 수량 저장
+    // save current line quantity
     for(const l of lines){
       const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
       await sb.from("wms_pick_task_lines").update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
     }
-    // 배치를 pending + 미배정으로 (progress는 라인에 보존됨)
+    // set batch to pending + unassigned (progress preserved on lines)
     const {error}=await sb.from("wms_pick_tasks")
       .update({status:"pending",assigned_to:null}).eq("id",task.id);
     if(error) throw error;
-    toast(task.batch_label+" 홀드됨 (대기 목록으로)");
+    toast(task.batch_label+" Held (returned to waiting list)");
     task=null;order=null;lines=[];bcMap={};
     document.getElementById("pickView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadBatches();
-  }catch(e){ toast("홀드 실패: "+(e.message||e),true); }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); }
   finally{ btn.disabled=false; }
 };
 
-/* ---------- 스캔 focus 유지 (스캔이 기본) ---------- */
+/* ---------- keep scan focus (scan is default) ---------- */
 function focusScan(){
   if(document.getElementById("pickView").style.display==="none") return;
   const s=document.getElementById("scan");
   const a=document.activeElement;
   if(a===s) return;
-  // 사용자가 다른 입력칸(드롭 위치 등)에 타이핑 중이면 focus를 뺏지 않음
+  // Don't steal focus if the user is typing in another input
   if(a && (a.tagName==="INPUT"||a.tagName==="SELECT"||a.tagName==="TEXTAREA") && a!==s) return;
   s.focus();
 }
 document.getElementById("scan").addEventListener("blur",()=>{ setTimeout(focusScan,60); });
-document.addEventListener("click",e=>{ // 입력/선택 요소가 아니면 스캔으로 복귀
+document.addEventListener("click",e=>{ // return to scan if not an input/select element
   if(document.getElementById("pickView").style.display==="none")return;
   const t=e.target;
   if(t.id==="drop"||t.tagName==="INPUT"||t.tagName==="SELECT"||t.tagName==="OPTION")return;

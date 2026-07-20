@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,18 +14,22 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:"Inter",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
-    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:56px 18px 40px}
-  .brand{text-align:center;margin-bottom:38px}
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 18px 40px}
+  #app{width:100%;max-width:460px;display:none;flex-direction:column;align-items:center}
+  .topbar{width:100%;display:flex;justify-content:flex-end;align-items:center;gap:9px;margin-bottom:8px;min-height:30px}
+  .topbar #meName{margin-right:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--mut)}
+  .topbar button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)}
+  .brand{text-align:center;margin:14px 0 30px}
   .brand .logo{font-family:var(--mono);font-weight:800;letter-spacing:.5em;font-size:26px;padding-left:.5em}
   .brand .sub{margin-top:10px;font-family:var(--mono);font-size:11px;letter-spacing:.42em;color:var(--mut);padding-left:.42em}
-  .grid{width:100%;max-width:460px;display:flex;flex-direction:column;gap:12px}
+  .grid{width:100%;display:flex;flex-direction:column;gap:12px}
   .sect{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut-2);margin:14px 4px 2px}
   .card{display:flex;align-items:center;gap:15px;background:var(--card);border:1px solid var(--line);
     border-radius:14px;padding:16px 18px;text-decoration:none;color:inherit;transition:.14s}
   .card:hover{background:var(--card-h);transform:translateY(-1px)}
   .ic{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
-  .c-pick{background:#12352a} .c-pack{background:#0e2f3a} .c-split{background:#33240e}
-  .c-ful{background:#2a1338} .c-adm{background:#1a2740} .c-staff{background:#3a1020}
+  .c-pick{background:#12352a} .c-pack{background:#0e2f3a} .c-ful{background:#2a1338}
+  .c-split{background:#33240e} .c-adm{background:#1a2740} .c-staff{background:#3a1020}
   .tx{flex:1;min-width:0}
   .tx .t{font-size:15.5px;font-weight:700}
   .tx .d{font-size:12px;color:var(--mut);margin-top:2px}
@@ -33,59 +37,84 @@
     border-radius:6px;padding:2px 6px;flex:0 0 auto}
   .chev{color:var(--mut-2);font-size:17px;flex:0 0 auto}
   .foot{margin-top:34px;font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--mut-2)}
+  .mgr-only{display:none}
 </style>
 </head>
 <body>
-  <div class="brand">
-    <div class="logo">ASUNG</div>
-    <div class="sub">WMS · WAREHOUSE</div>
+  <div id="app">
+    <div class="topbar">
+      <span id="meName"></span>
+      <button id="logoutBtn" title="Sign out">Sign out</button>
+    </div>
+
+    <div class="brand">
+      <div class="logo">ASUNG</div>
+      <div class="sub">WMS &middot; WAREHOUSE</div>
+    </div>
+
+    <div class="grid">
+      <div class="sect">Workers</div>
+
+      <a class="card" href="picker.html">
+        <div class="ic c-pick">&#128229;</div>
+        <div class="tx"><div class="t">Picking</div><div class="d">Pick items by batch &middot; scan to verify</div></div>
+        <span class="chev">&rsaquo;</span>
+      </a>
+
+      <a class="card" href="packer.html">
+        <div class="ic c-pack">&#128230;</div>
+        <div class="tx"><div class="t">Packing</div><div class="d">Full re-scan verification &middot; fill shortfalls</div></div>
+        <span class="chev">&rsaquo;</span>
+      </a>
+
+      <a class="card" href="fulfillment.html">
+        <div class="ic c-ful">&#128666;</div>
+        <div class="tx"><div class="t">Fulfillment</div><div class="d">Build pallets &amp; boxes &middot; packing lists</div></div>
+        <span class="chev">&rsaquo;</span>
+      </a>
+
+      <div class="sect mgr-only">Managers &middot; Admin</div>
+
+      <a class="card mgr-only" href="manager.html">
+        <div class="ic c-split">&#128451;&#65039;</div>
+        <div class="tx"><div class="t">Order Splitting</div><div class="d">Split pending orders into batches</div></div>
+        <span class="tag">MGR</span>
+        <span class="chev">&rsaquo;</span>
+      </a>
+
+      <a class="card mgr-only" href="admin.html">
+        <div class="ic c-adm">&#128202;</div>
+        <div class="tx"><div class="t">Admin Dashboard</div><div class="d">Status &middot; discrepancies &middot; worker stats</div></div>
+        <span class="tag">MGR</span>
+        <span class="chev">&rsaquo;</span>
+      </a>
+
+      <a class="card mgr-only" href="staff-admin.html">
+        <div class="ic c-staff">&#128101;</div>
+        <div class="tx"><div class="t">Staff Management</div><div class="d">Staff &middot; roles &middot; warehouse access</div></div>
+        <span class="tag">MGR</span>
+        <span class="chev">&rsaquo;</span>
+      </a>
+    </div>
+
+    <div class="foot">ASUNG TRADING INC.</div>
   </div>
 
-  <div class="grid">
-    <div class="sect">작업자</div>
-
-    <a class="card" href="picker.html">
-      <div class="ic c-pick">📥</div>
-      <div class="tx"><div class="t">픽킹</div><div class="d">배치별 제품 집기 · 스캔 검수</div></div>
-      <span class="chev">›</span>
-    </a>
-
-    <a class="card" href="packer.html">
-      <div class="ic c-pack">📦</div>
-      <div class="tx"><div class="t">패킹</div><div class="d">전량 재스캔 검수 · 부족 보충</div></div>
-      <span class="chev">›</span>
-    </a>
-
-    <a class="card" href="fulfillment.html">
-      <div class="ic c-ful">🚚</div>
-      <div class="tx"><div class="t">출고 구성</div><div class="d">팔렛·박스 구성 · 팩킹 리스트</div></div>
-      <span class="chev">›</span>
-    </a>
-
-    <div class="sect">매니저 · 관리자</div>
-
-    <a class="card" href="manager.html">
-      <div class="ic c-split">🗂️</div>
-      <div class="tx"><div class="t">오더 분할</div><div class="d">대기 오더를 배치로 나눠 분배</div></div>
-      <span class="tag">MGR</span>
-      <span class="chev">›</span>
-    </a>
-
-    <a class="card" href="admin.html">
-      <div class="ic c-adm">📊</div>
-      <div class="tx"><div class="t">관리자 대시보드</div><div class="d">현황 · 불일치 · 작업자 통계</div></div>
-      <span class="tag">MGR</span>
-      <span class="chev">›</span>
-    </a>
-
-    <a class="card" href="staff-admin.html">
-      <div class="ic c-staff">👥</div>
-      <div class="tx"><div class="t">직원 관리</div><div class="d">직원 · 역할 · 창고 접근 설정</div></div>
-      <span class="tag">MGR</span>
-      <span class="chev">›</span>
-    </a>
-  </div>
-
-  <div class="foot">ASUNG TRADING INC.</div>
+<script src="wms-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wms-auth.js"></script>
+<script>
+  function boot(){
+    wmsAuth.start({requireManager:false}, (sb, me)=>{
+      document.getElementById("app").style.display="flex";
+      document.getElementById("meName").textContent="\u{1F464} "+me.name;
+      // Show manager-only items only for managers/admins
+      const isMgr = (me.role==="manager"||me.role==="admin");
+      if(isMgr){ document.querySelectorAll(".mgr-only").forEach(el=>el.style.display=""); }
+    });
+  }
+  document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
+  boot();
+</script>
 </body>
 </html>
