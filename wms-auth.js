@@ -17,7 +17,7 @@
     const s=document.createElement("style"); s.id="wmsAuthStyle";
     s.textContent=`
       #wmsLogin{position:fixed;inset:0;z-index:9999;background:#f7f8fa;display:flex;align-items:center;justify-content:center;font-family:"Inter",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
-      #wmsLogin .card{width:360px;max-width:92vw;background:#fff;border:1px solid #e5e9ef;border-radius:16px;box-shadow:0 4px 24px rgba(16,22,30,.08);padding:30px 28px}
+      #wmsLogin .wcard{width:360px;max-width:92vw;background:#fff;border:1px solid #e5e9ef;border-radius:16px;box-shadow:0 4px 24px rgba(16,22,30,.08);padding:30px 28px}
       #wmsLogin h2{margin:0 0 4px;font-size:19px;color:#12161c}
       #wmsLogin .sub{margin:0 0 20px;color:#6b7686;font-size:13px}
       #wmsLogin label{display:block;font-size:11px;font-family:ui-monospace,Menlo,monospace;color:#6b7686;text-transform:uppercase;letter-spacing:.04em;margin:12px 0 5px}
@@ -32,7 +32,7 @@
       #wmsLogin .link{background:none;border:0;color:#2f6df6;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:4px;width:auto;margin:0}
       #wmsPwModal{position:fixed;inset:0;z-index:10000;background:rgba(16,22,30,.45);display:none;align-items:center;justify-content:center;font-family:"Inter",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
       #wmsPwModal.show{display:flex}
-      #wmsPwModal .card{width:340px;max-width:92vw;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:26px 24px}
+      #wmsPwModal .wcard{width:340px;max-width:92vw;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.3);padding:26px 24px}
       #wmsPwModal h3{margin:0 0 4px;font-size:17px;color:#12161c}
       #wmsPwModal p{margin:0 0 16px;color:#6b7686;font-size:12.5px}
       #wmsPwModal label{display:block;font-size:11px;font-family:ui-monospace,Menlo,monospace;color:#6b7686;text-transform:uppercase;margin:10px 0 5px}
@@ -54,7 +54,7 @@
     let el=document.getElementById("wmsLogin");
     if(!el){
       el=document.createElement("div"); el.id="wmsLogin";
-      el.innerHTML=`<div class="card">
+      el.innerHTML=`<div class="wcard">
         <div class="brand">ASUNG WMS</div>
         <h2>Sign In</h2>
         <p class="sub">Sign in with your company email and password.</p>
@@ -117,7 +117,7 @@
     let m=document.getElementById("wmsPwModal");
     if(m) return m;
     m=document.createElement("div"); m.id="wmsPwModal";
-    m.innerHTML=`<div class="card">
+    m.innerHTML=`<div class="wcard">
       <h3>Change Password</h3>
       <p>Enter a new password (at least 6 characters).</p>
       <label>New password</label>
