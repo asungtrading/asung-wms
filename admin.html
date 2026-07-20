@@ -172,6 +172,8 @@
       <div class="sect-h">Rollback a stage <span style="font-weight:400;color:var(--mut);font-size:12.5px">— manager only · one step at a time</span></div>
       <p style="color:var(--mut);font-size:12.5px;margin:0 0 12px">Each order can be reverted only to its immediately previous stage. To go further back, undo the deeper stage first. Related discrepancies are never auto-deleted — review them in the Discrepancy tab.</p>
       <div class="card"><div id="rollbackList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">Recent rollbacks</div>
+      <div class="card"><div id="rollbackLog"></div></div>
     </div>
 
     <!-- work screen shortcuts -->
@@ -360,6 +362,25 @@ async function loadRollback(){
     </tr>`).join("")
   }</tbody></table>`;
   el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on));
+  loadRollbackLog();
+}
+
+async function loadRollbackLog(){
+  const el=document.getElementById("rollbackLog");
+  if(!el) return;
+  const {data,error}=await sb.from("wms_rollback_log").select("*").order("created_at",{ascending:false}).limit(30);
+  if(error){ el.innerHTML=`<div class="empty" style="font-size:12px">Log table not found. Run wms_rollback_log.sql to enable history.</div>`; return; }
+  if(!data||!data.length){ el.innerHTML=`<div class="empty" style="font-size:12px">No rollbacks yet.</div>`; return; }
+  const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split"};
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Action</th><th>Stage</th><th>By</th><th>When</th></tr></thead><tbody>${
+    data.map(r=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"—")}</td>
+      <td>${esc(AL[r.action]||r.action)}</td>
+      <td style="font-size:12px;color:var(--mut)">${esc(r.from_stage||"")} → ${esc(r.to_stage||"")}</td>
+      <td>${esc(r.performed_by||"—")}</td>
+      <td style="font-size:12px;color:var(--mut)">${r.created_at?new Date(r.created_at).toLocaleString():""}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
 }
 
 const RB_CONFIRM={
@@ -409,6 +430,12 @@ async function doRollback(oid, action, onum){
       }
       await sb.from("wms_orders").update({status:"pending",updated_at:now}).eq("id",oid);
     }
+    // audit log (separate table — keeps discrepancy queue clean)
+    const STAGE={fulfillment:["fulfilled","pack_complete"],pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"],split:["split","unsplit"]};
+    await sb.from("wms_rollback_log").insert({
+      order_id:oid, order_number:onum, action,
+      from_stage:STAGE[action][0], to_stage:STAGE[action][1], performed_by:me.name
+    });
     toast("Rollback done");
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
