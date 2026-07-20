@@ -85,9 +85,11 @@
 
   /* single-line card */
   .single{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
-  .single .img{width:100%;height:190px;background:#f1f3f6 center/contain no-repeat;border-bottom:1px solid var(--line)}
   .single .body{padding:16px}
-  .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .single .head{display:flex;gap:14px;margin-bottom:6px}
+  .single .img{width:104px;height:104px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat}
+  .single .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .zbadge{font-family:var(--mono);font-weight:800;font-size:15px;color:#fff;background:var(--mut);min-width:34px;height:34px;border-radius:9px;display:grid;place-items:center;padding:0 8px}
   .binbig{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.01em}
   .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
@@ -140,7 +142,7 @@
 
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
-  .logo .logo-img{height:22px;width:auto;display:block}
+  .logo .logo-img{height:28px;width:auto;display:block}
   .logo span{margin-left:0}
 </style>
 </head>
@@ -153,7 +155,7 @@
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Picking</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button title="Main menu" onclick="if(confirm('Return to main menu? Your in-progress work is saved and you can resume it later.'))location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
+      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
       <div class="conn"><span class="dot" id="dot"></span></div>
     </div>
   </div>
@@ -413,11 +415,15 @@ function renderSingle(){
   if(curIdx>=lines.length)curIdx=lines.length-1;
   const l=lines[curIdx]; const done=l.picked>=l.assigned;
   document.getElementById("single").innerHTML=`
-    <div class="img" ${imgStyle(l)}></div>
     <div class="body">
-      <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span></div>
-      <div class="nm">${esc(l.product_name)}</div>
-      <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` · base ${esc(l.base_sku)}`:""} ${availChip(l)}</div>
+      <div class="head">
+        <div class="img" ${imgStyle(l)}></div>
+        <div class="info">
+          <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span></div>
+          <div class="nm">${esc(l.product_name)}</div>
+          <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` · base ${esc(l.base_sku)}`:""} ${availChip(l)}</div>
+        </div>
+      </div>
       <div class="qtybox ${done?"done":""}">
         <div class="qtybig">${l.picked}<span class="of"> / ${l.assigned}</span></div>
         <div class="stepper">
