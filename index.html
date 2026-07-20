@@ -110,7 +110,7 @@
       document.getElementById("meName").textContent="\u{1F464} "+me.name;
       // Show manager-only items only for managers/admins
       const isMgr = (me.role==="manager"||me.role==="admin");
-      if(isMgr){ document.querySelectorAll(".mgr-only").forEach(el=>el.style.display=""); }
+      if(isMgr){ document.querySelectorAll(".mgr-only").forEach(el=>el.classList.remove("mgr-only")); }
     });
   }
   document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
