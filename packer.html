@@ -471,6 +471,14 @@ async function enterPack(){
       const sibMap={};
       (sibs||[]).forEach(r=>{ const bs=r.base_sku; if(!bs)return; (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1,barcode:String(r.barcode||"").trim()}); });
       lines.forEach(l=>{ l.barcodeRows=sibMap[l.base_sku]||[]; });
+      // merge sibling barcodes (e.g. -12 box) into the scan map so box scans count ×factor
+      lines.forEach((l,idx)=>{
+        (l.barcodeRows||[]).forEach(r=>{
+          const code=String(r.barcode||"").trim(); if(!code)return;
+          const arr=(bcMap[code]=bcMap[code]||[]);
+          if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(r.factor)||1});
+        });
+      });
       renderPack();
     }
   }catch(e){ /* barcode display optional */ }

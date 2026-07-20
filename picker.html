@@ -417,7 +417,6 @@ async function loadLines(){
   document.getElementById("pickView").style.display="block";
   document.getElementById("pTitle").textContent=task.batch_label;
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
-  document.getElementById("drop").value="";
   renderPick(); focusScan();
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
   // enrich availability (independent — a failure here must not block barcodes)
@@ -442,6 +441,14 @@ async function loadLines(){
         (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()});
       });
       lines.forEach(l=>{ l.barcodeRows = sibMap[l.base_sku] || []; });
+      // merge sibling barcodes (e.g. -12 box) into the scan map so box scans count ×factor
+      lines.forEach((l,idx)=>{
+        (l.barcodeRows||[]).forEach(r=>{
+          const code=String(r.barcode||"").trim(); if(!code)return;
+          const arr=(bcMap[code]=bcMap[code]||[]);
+          if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(r.factor)||1});
+        });
+      });
       renderPick();
     }catch(e){ toast("Barcode lookup failed",true); }
   }
