@@ -234,7 +234,7 @@ let drag=null; // {kind, ...}
 
 /* ---------- 로그인 ---------- */
 function boot(){
-  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+  wmsAuth.start({requireManager:false}, (client, staffMe)=>{
     sb=client; me=staffMe;
     document.getElementById("app").style.display="block";
     document.getElementById("whoName").textContent="👤 "+me.name;
