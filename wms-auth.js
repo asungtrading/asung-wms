@@ -27,7 +27,8 @@
       #wmsLogin button.main:disabled{opacity:.6;cursor:default}
       #wmsLogin .err{margin-top:12px;color:#dc2626;font-size:12.5px;min-height:16px;font-weight:600}
       #wmsLogin .ok{margin-top:6px;color:#16a34a;font-size:12.5px;min-height:16px;font-weight:600}
-      #wmsLogin .brand{font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:13px;color:#12161c;margin-bottom:14px}
+      #wmsLogin .brand{font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:13px;color:#12161c;margin-bottom:18px;text-align:center}
+      #wmsLogin .brand img{height:30px;width:auto;display:inline-block}
       #wmsLogin .linkrow{margin-top:14px;text-align:center}
       #wmsLogin .link{background:none;border:0;color:#2f6df6;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:4px;width:auto;margin:0}
       #wmsPwModal{position:fixed;inset:0;z-index:10000;background:rgba(16,22,30,.45);display:none;align-items:center;justify-content:center;font-family:"Inter",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
@@ -55,7 +56,7 @@
     if(!el){
       el=document.createElement("div"); el.id="wmsLogin";
       el.innerHTML=`<div class="wcard">
-        <div class="brand">ASUNG WMS</div>
+        <div class="brand"><img src="asung-logo-dark.png" alt="ASUNG WMS"></div>
         <h2>Sign In</h2>
         <p class="sub">Sign in with your company email and password.</p>
         <label>Email</label>
