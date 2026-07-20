@@ -47,6 +47,8 @@
   .qcard{padding:13px 16px;border-bottom:1px solid var(--line-2);cursor:pointer;transition:.1s;position:relative}
   .qcard:hover{background:#fafbfc}
   .qcard.sel{background:#eef3ff;box-shadow:inset 3px 0 0 var(--accent)}
+  .splitnote{margin:8px 0 2px;padding:8px 11px;background:var(--paper);border:1px solid var(--line);border-radius:9px;font-size:11.5px;line-height:1.55;color:var(--mut)}
+  .splitnote b{color:var(--ink)}
   .qcard.sel .ono::after{content:" ✓ selected";color:var(--accent);font-size:11px;font-weight:800;font-family:inherit}
   .qcard .ono{font-weight:700;font-size:14.5px;font-family:var(--mono)}
   .qcard .cust{font-size:12.5px;color:var(--mut);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -183,6 +185,7 @@
         <span class="hint" id="splitHint"></span>
         <button class="btn primary" id="createBtn" style="margin-left:auto" disabled>Create batches</button>
       </div>
+      <div class="splitnote">Both values are ceilings applied together — a batch is cut when adding the next line would exceed <b>either</b> limit (whichever hits first; no priority). Every batch stays within both limits. Exception: a single line larger than max units becomes its own batch, since one line is never split.</div>
       <div class="batches" id="batches"></div>
     </div>
   </div>
