@@ -110,6 +110,11 @@
   .gate label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);text-transform:uppercase;margin:12px 0 5px}
   .gate input,.gate select{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;font-size:13px;font-family:var(--mono)}
   .gate button{width:100%;margin-top:16px;border:0;background:var(--ink);color:#fff;border-radius:9px;padding:11px;font:inherit;font-weight:700;cursor:pointer}
+
+  /* header logo */
+  .logo{display:flex;align-items:center;gap:7px}
+  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo span{margin-left:0}
 </style>
 </head>
 <body>
@@ -117,7 +122,7 @@
 <div id="app" style="display:none">
   <header>
     <div class="bar">
-      <div class="logo">ASUNG WMS<span>Admin</span></div>
+      <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Admin</span></div>
       <div class="right">
         <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
         <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>

@@ -166,13 +166,18 @@
   .pl-store-h{font-family:var(--mono);font-weight:800;font-size:17px;margin:0 0 4px;padding-bottom:6px;border-bottom:1.5px solid #111}
   .pagebreak{page-break-before:always}
   .pl-warn{color:#b40000;font-weight:700;font-size:12.5px;margin-top:6px}
+
+  /* header logo */
+  .logo{display:flex;align-items:center;gap:7px}
+  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo span{margin-left:0}
 </style>
 </head>
 <body>
 
 <div id="app" style="display:none">
   <header><div class="bar">
-    <div class="logo">ASUNG WMS<span>Fulfillment</span></div>
+    <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Fulfillment</span></div>
     <div class="right"><span id="whoName" style="font-size:12.5px;color:var(--mut);font-family:var(--mono)"></span><button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button><span class="conn" id="conn"></span></div>
   </div></header>
 

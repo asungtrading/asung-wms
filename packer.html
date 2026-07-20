@@ -119,6 +119,11 @@
   .gate p{margin:0 0 18px;color:var(--mut);font-size:13.5px;line-height:1.6}
   .gate label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);text-transform:uppercase;margin:0 0 5px}
   .gate input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;font-size:13px;margin-bottom:14px;font-family:var(--mono)}
+
+  /* header logo */
+  .logo{display:flex;align-items:center;gap:7px}
+  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo span{margin-left:0}
 </style>
 </head>
 <body>
@@ -127,7 +132,7 @@
 
 <header>
   <div class="bar">
-    <div class="logo">ASUNG WMS<span>Packing</span></div>
+    <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Packing</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
       <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>

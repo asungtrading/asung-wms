@@ -144,13 +144,18 @@
     tbody tr{display:block;border-bottom:8px solid var(--paper)}
     .name{font-size:15px}
   }
+
+  /* header logo */
+  .logo{display:flex;align-items:center;gap:7px}
+  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo span{margin-left:0}
 </style>
 </head>
 <body>
 
 <header>
   <div class="bar">
-    <div class="logo"><b>ASUNG WMS</b><span>Staff Management</span></div>
+    <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Staff Management</span></div>
     <div class="conn" style="display:flex;align-items:center;gap:10px">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
       <button id="logoutBtn" title="Sign out" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">Sign out</button>
