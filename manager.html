@@ -47,6 +47,7 @@
   .qcard{padding:13px 16px;border-bottom:1px solid var(--line-2);cursor:pointer;transition:.1s;position:relative}
   .qcard:hover{background:#fafbfc}
   .qcard.sel{background:#eef3ff;box-shadow:inset 3px 0 0 var(--accent)}
+  .qcard.sel .ono::after{content:" ✓ selected";color:var(--accent);font-size:11px;font-weight:800;font-family:inherit}
   .qcard .ono{font-weight:700;font-size:14.5px;font-family:var(--mono)}
   .qcard .cust{font-size:12.5px;color:var(--mut);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .qcard .meta{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap}
@@ -262,6 +263,10 @@ async function selectOrder(id){
   renderQueue();
   document.getElementById("wsEmpty").style.display="none";
   document.getElementById("ws").style.display="block";
+  // mobile (stacked layout): bring the split workspace into view so selection is visible
+  if(window.matchMedia("(max-width:820px)").matches){
+    setTimeout(()=>{ document.getElementById("ws").scrollIntoView({behavior:"smooth",block:"start"}); },80);
+  }
   document.getElementById("wsOno").textContent=selected.order_number;
   document.getElementById("wsSum").textContent=
     (selected.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+selected.total_lines+"lines · "+selected.total_required_base+"units";
@@ -454,6 +459,7 @@ document.getElementById("createBtn").onclick=async ()=>{
     document.getElementById("ws").style.display="none";
     document.getElementById("wsEmpty").style.display="block";
     renderQueue();
+    if(window.matchMedia("(max-width:820px)").matches){ window.scrollTo({top:0,behavior:"smooth"}); }
   }catch(e){
     if(printWin){ try{printWin.close();}catch(_){} }
     toast("Failed to create batches: "+(e.message||e),true);
