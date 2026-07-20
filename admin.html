@@ -134,6 +134,7 @@
       <button data-t="disc">Discrepancy <span class="badge" id="discBadge" style="display:none">0</span></button>
       <button data-t="stats">Stats</button>
       <button data-t="rollback">Rollback</button>
+      <button data-t="packing">Packing Lists</button>
       <button data-t="launch">Work Screens</button>
     </div>
   </header>
@@ -176,6 +177,12 @@
       <div class="card"><div id="rollbackLog"></div></div>
     </div>
 
+    <!-- Packing Lists -->
+    <div class="view" id="v-packing">
+      <div class="sect-h">Packing lists <span style="font-weight:400;color:var(--mut);font-size:12.5px">— reprint the consolidated packing list for any order that has pallets/boxes</span></div>
+      <div class="card"><div id="packingList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+    </div>
+
     <!-- work screen shortcuts -->
     <div class="view" id="v-launch">
       <div class="sect-h">Open work screen</div>
@@ -198,7 +205,7 @@ let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
 const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy"};
-const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"closed", voided:"voided"};
+const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
 
 /* ---------- boot / login ---------- */
 function boot(){
@@ -272,6 +279,7 @@ function start(){
     if(t==="disc")loadDisc();
     if(t==="stats")loadStats();
     if(t==="rollback")loadRollback();
+    if(t==="packing")loadPacking();
   };
   renderLaunch();
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
@@ -439,6 +447,82 @@ async function doRollback(oid, action, onum){
     toast("Rollback done");
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
+}
+
+/* ---------- Packing lists (reprint from admin) ---------- */
+async function loadPacking(){
+  const el=document.getElementById("packingList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
+  const {data:its}=await sb.from("wms_pallet_items").select("order_id,qty_base");
+  const ids=[...new Set((its||[]).map(i=>i.order_id).filter(v=>v!=null))];
+  if(!ids.length){ el.innerHTML=`<div class="empty">No orders have pallets/boxes yet.</div>`; return; }
+  const qtyBy={}; (its||[]).forEach(i=>{ if(i.order_id!=null) qtyBy[i.order_id]=(qtyBy[i.order_id]||0)+Number(i.qty_base||0); });
+  const {data:ords}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status").in("id",ids).order("order_number");
+  const rows=(ords||[]).map(o=>`<tr>
+    <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+    <td>${esc(o.customer_name||"—")}</td>
+    <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+    <td>${STATUS_LABEL[o.status]||esc(o.status)}</td>
+    <td class="c">${qtyBy[o.id]||0}</td>
+    <td style="text-align:right"><button data-print="${o.id}"
+      style="border:1px solid var(--line);background:#fff;color:var(--accent);border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">🖨 Packing list</button></td>
+  </tr>`).join("");
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="c">Packed qty</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printOrderPackingList(+b.dataset.print));
+}
+async function printOrderPackingList(oid){
+  const win=window.open("","_blank");   // open within click gesture
+  try{
+    const {data:ord}=await sb.from("wms_orders").select("order_number,customer_name,warehouse").eq("id",oid).single();
+    const {data:items}=await sb.from("wms_pallet_items").select("*").eq("order_id",oid);
+    const palletIds=[...new Set((items||[]).map(i=>i.pallet_id))];
+    let units=[];
+    if(palletIds.length){
+      const {data:u}=await sb.from("wms_pallets").select("*").in("id",palletIds); units=u||[];
+      const parentIds=[...new Set(units.map(x=>x.parent_id).filter(Boolean))];
+      if(parentIds.length){ const {data:pu}=await sb.from("wms_pallets").select("*").in("id",parentIds); (pu||[]).forEach(p=>{ if(!units.some(x=>x.id===p.id)) units.push(p); }); }
+    }
+    const unitById={}; units.forEach(u=>unitById[u.id]=u);
+    const byUnit={}; (items||[]).forEach(i=>{ (byUnit[i.pallet_id]=byUnit[i.pallet_id]||[]).push(i); });
+    const e=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    let body=""; let grand=0;
+    Object.keys(byUnit).forEach(pid=>{
+      const u=unitById[pid]||{label:"(unit)",unit_type:"pallet"};
+      const list=byUnit[pid]; const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); grand+=sub;
+      const parent=u.parent_id?unitById[u.parent_id]:null;
+      const where=u.unit_type==="box"
+        ? `📦 ${e(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${e(parent.label)})</span>`:""}`
+        : `🟩 ${e(u.label||"")}`;
+      const trs=list.map(i=>`<tr><td>${e(i.order_sku)}</td><td>${e(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
+      body+=`<div class="u">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
+        <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${trs}</tbody></table>`;
+    });
+    if(!body) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
+    const wh=ord.warehouse==="edmonton"?"Edmonton":"Toronto";
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>PACKING LIST ${e(ord.order_number)}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
+      .h{display:flex;justify-content:space-between;border-bottom:2px solid #12161c;padding-bottom:10px}
+      .brand{font-weight:800;letter-spacing:.28em} .doc{text-align:right;font-weight:700}
+      .meta{display:flex;gap:36px;margin:14px 0} .meta b{color:#555}
+      .u{font-weight:800;margin:14px 0 4px}
+      table.pl{width:100%;border-collapse:collapse;margin-bottom:6px}
+      table.pl th,table.pl td{border-bottom:1px solid #d5dae2;padding:6px 6px;text-align:left;font-size:12.5px}
+      table.pl th{border-bottom:2px solid #12161c;font-size:11px;text-transform:uppercase;color:#555}
+      table.pl td.n,table.pl th.n{text-align:right;width:70px}
+      .total{margin-top:10px;font-weight:800;font-size:15px;text-align:right}
+      .note{color:#666;margin:14px 0}
+      @media print{body{margin:14mm}}
+    </style></head><body>
+      <div class="h"><div><div class="brand">ASUNG TRADING</div><div>PACKING LIST</div></div>
+        <div class="doc">${e(ord.order_number)}<br>${new Date().toLocaleDateString()}</div></div>
+      <div class="meta"><div><b>Order</b> ${e(ord.order_number)}</div><div><b>Customer</b> ${e(ord.customer_name||"—")}</div><div><b>Warehouse</b> ${wh}</div></div>
+      ${body}
+      <div class="total">Total qty: ${grand}</div>
+      <script>window.addEventListener("load",()=>{setTimeout(()=>{try{window.print();}catch(e){}},250);});<\/script>
+    </body></html>`);
+    win.document.close();
+  }catch(e){ if(win){try{win.close();}catch(_){}} toast("Print failed: "+(e.message||e),true); }
 }
 
 /* ---------- Discrepancy ---------- */

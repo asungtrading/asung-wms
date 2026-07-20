@@ -34,6 +34,9 @@
   .sect{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:6px 2px 2px}
   .sect:first-child{margin-top:0}
   .blist{display:flex;flex-direction:column;gap:10px}
+  .filterbar{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;margin-bottom:2px}
+  .filterbar b{font-family:var(--mono)}
+  .filterbar button{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer}
   .bcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:.1s}
   .bcard:hover{border-color:#cdc2f2}
   .bcard.resume{border-color:#cdc2f2;background:#f7f5ff}
@@ -86,7 +89,40 @@
   #flash.show{transform:translateY(0)}
   #flash.ok{background:var(--ok)} #flash.bad{background:var(--danger)}
 
-  .list{display:flex;flex-direction:column;gap:8px}
+  /* view toggle */
+  .seg{margin-left:auto;display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);padding:6px 11px;border-radius:6px;cursor:pointer}
+  .seg button.active{background:var(--ink);color:#fff}
+
+  /* single-line card (mirror of picker) */
+  .single{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:none}
+  .single .body{padding:16px}
+  .single .head{display:flex;gap:14px;margin-bottom:6px}
+  .single .img{width:150px;height:150px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat}
+  .single .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .single .barcodes{margin:2px 0 4px;padding:9px 11px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
+  .single .barcodes .bc{display:flex;align-items:center;gap:10px;padding:2px 0;font-family:var(--mono);font-size:13px}
+  .single .barcodes .bl{color:var(--mut);min-width:58px;font-weight:700;font-size:11.5px}
+  .single .barcodes .bv{font-weight:700;letter-spacing:.02em}
+  .single .barcodes .bv.empty{color:var(--mut-2);font-weight:400;font-style:italic}
+  .zbadge{font-family:var(--mono);font-weight:800;font-size:15px;color:#fff;background:var(--mut);min-width:34px;height:34px;border-radius:9px;display:grid;place-items:center;padding:0 8px}
+  .binbig{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.01em}
+  .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
+  .single .sku{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .single .chips{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
+  .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
+  .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
+  .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
+  .qtybox.done .qtybig{color:var(--ok)}
+  .stepper{margin-left:auto;display:flex;gap:8px}
+  .stepper button{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:#fff;font-size:22px;font-weight:700;color:var(--ink);cursor:pointer}
+  .stepper button:active{background:var(--paper)}
+  .navrow{display:flex;gap:10px;margin-top:14px}
+  .navrow .btn{flex:1}
+  .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
+
+  .list{display:none;flex-direction:column;gap:8px}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
@@ -146,6 +182,10 @@
   <!-- Select batch -->
   <div id="listView">
     <div class="lead">Pick a completed pick batch and verify by full re-scan..</div>
+    <div class="scanbar" style="position:static;padding:0 0 12px">
+      <input class="scanin" id="orderScan" inputmode="none" autocomplete="off" placeholder="Scan a pick list to find its order…">
+      <div class="scanhint"><span class="live"></span><span>Scan the pick-list barcode to jump to that order</span></div>
+    </div>
     <div class="blist" id="blist"></div>
     <div class="loading" id="bloading"><div class="spin"></div>Loading…</div>
     <div class="empty" id="bempty" style="display:none">No batches waiting to pack..</div>
@@ -158,6 +198,10 @@
       <div>
         <div class="ptitle" id="pTitle"></div>
         <div class="pmeta" id="pMeta"></div>
+      </div>
+      <div class="seg" id="viewSeg">
+        <button data-v="single">Single</button>
+        <button data-v="list" class="active">List</button>
       </div>
     </div>
 
@@ -178,6 +222,7 @@
       <div class="scanhint"><span class="live"></span><span>Full re-scan &middot; target = ordered qty &middot; fill shortfalls from other locations</span></div>
     </div>
 
+    <div class="single" id="single"></div>
     <div class="list" id="list"></div>
 
     <div class="foot">
@@ -198,7 +243,7 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null;
-let pool=[], mine=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0;
+let pool=[], mine=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0, view="list";
 let actx=null;
 
 /* boot / login */
@@ -280,21 +325,43 @@ function qcard(o,label,btnTxt,attr,resume,shortCnt){
     <button class="go ${resume?"resumebtn":""}">${btnTxt}</button>
   </div>`;
 }
+let queueFilter="";
 function renderQueue(){
   const be=document.getElementById("bempty");
-  const has=(poolNew.length+mine.length+held.length)>0; be.style.display=has?"none":"block"; be.textContent="No batches waiting to pack..";
+  const f=queueFilter.trim().toUpperCase();
+  const match=p=>{ if(!f)return true; const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
+  const mineF=mine.filter(match), heldF=held.filter(match), poolF=poolNew.filter(match);
+  const has=(poolF.length+mineF.length+heldF.length)>0;
+  be.style.display=has?"none":"block"; be.textContent=f?("No pack batch for "+queueFilter):"No batches waiting to pack..";
   let html="";
-  if(mine.length){ html+=`<div class="sect">My In Progress</div>`+mine.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
-  if(poolNew.length||held.length){
+  if(f){ html+=`<div class="filterbar">Showing <b>${esc(queueFilter)}</b><button id="clrFilter">Clear</button></div>`; }
+  if(mineF.length){ html+=`<div class="sect">My In Progress</div>`+mineF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
+  if(poolF.length||heldF.length){
     html+=`<div class="sect">Pack Queue</div>`;
-    html+=held.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join("");
-    html+=poolNew.map(p=>qcard(p.wms_orders||{},p.batch_label,"Start verify",`data-pickid="${p.id}"`,false,shortByPick[p.id]||0)).join("");
+    html+=heldF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join("");
+    html+=poolF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Start verify",`data-pickid="${p.id}"`,false,shortByPick[p.id]||0)).join("");
   }
   document.getElementById("blist").innerHTML=html;
+  const clr=document.getElementById("clrFilter");
+  if(clr) clr.onclick=()=>{ queueFilter=""; const os=document.getElementById("orderScan"); if(os)os.value=""; renderQueue(); };
   document.querySelectorAll("#blist .bcard").forEach(el=>{
     el.onclick=()=> el.dataset.packid ? resumePack(+el.dataset.packid) : startPack(+el.dataset.pickid);
   });
+  if(me && document.getElementById("listView").style.display!=="none"){
+    const os=document.getElementById("orderScan"); if(os && document.activeElement!==os) os.focus();
+  }
 }
+document.getElementById("orderScan").addEventListener("keydown",e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  const v=document.getElementById("orderScan").value.trim();
+  document.getElementById("orderScan").value="";
+  if(!v) return;
+  queueFilter=v; renderQueue();
+  const f=v.toUpperCase();
+  const any=[...mine,...held,...poolNew].some(p=>((p.wms_orders?.order_number||"").toUpperCase()===f)||((p.batch_label||"").toUpperCase().startsWith(f+"-")));
+  if(!any) toast("No pack batch for "+v,true);
+});
 
 /* start verify: pack_task + pack_task_lines create */
 async function startPack(pickId){
@@ -380,6 +447,16 @@ async function enterPack(){
   }
   // picker name (for mistake attribution)
   try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
+  // sibling barcodes: base(factor 1) + variants(factor>1, e.g. -12) from snapshot by base_sku
+  try{
+    const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+    if(baseSkus.length){
+      const {data:sibs}=await sb.from("wms_sku_snapshot").select("base_sku,factor,barcode").in("base_sku",baseSkus);
+      const sibMap={};
+      (sibs||[]).forEach(r=>{ const bs=r.base_sku; if(!bs)return; (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1,barcode:String(r.barcode||"").trim()}); });
+      lines.forEach(l=>{ l.barcodeRows=sibMap[l.base_sku]||[]; });
+    }
+  }catch(e){ /* barcode display optional */ }
   curIdx=lines.findIndex(l=>l.verified<l.required); if(curIdx<0)curIdx=0;
   // pick-incomplete warning (shortfall to fill during packing)
   const shorts=lines.filter(l=>l.verified<l.required && l.expected<l.required);
@@ -392,14 +469,93 @@ async function enterPack(){
   document.getElementById("packView").style.display="block";
   document.getElementById("pTitle").textContent=packTask.batch_label;
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
-  renderList(); focusScan();
+  renderPack(); focusScan();
 }
 
 /* render */
 function totTarget(){return lines.reduce((s,l)=>s+l.required,0);}
 function totVer(){return lines.reduce((s,l)=>s+Math.min(l.verified,l.required),0);}
 function imgStyle(l){return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:"";}
+// base barcode(factor 1) + variant barcodes(factor>1, e.g. -12). Blank shown if variant exists w/o barcode.
+function barcodeBlock(l){
+  const rows=l.barcodeRows||[];
+  const base=rows.find(r=>r.factor===1);
+  const variants=rows.filter(r=>r.factor>1).sort((a,b)=>a.factor-b.factor);
+  const bcLine=(label,code)=>`<div class="bc"><span class="bl">${label}</span><span class="bv${code?"":" empty"}">${code?esc(code):"(no barcode)"}</span></div>`;
+  let html=bcLine("Barcode", base?base.barcode:"");
+  variants.forEach(v=>{ html+=bcLine("\u00d7"+v.factor, v.barcode); });
+  return `<div class="barcodes">${html}</div>`;
+}
+function renderPack(){
+  // common: progress bar + over-scan alert (both views)
+  const tot=totTarget(), v=totVer();
+  document.getElementById("progBar").style.width=(tot?Math.round(v/tot*100):0)+"%";
+  const overs=lines.filter(l=>(l.overScans||0)>0);
+  const ov=document.getElementById("overAlert");
+  if(overs.length){ ov.style.display="block"; document.getElementById("overList").innerHTML=overs.map(l=>`<li>\u00b7 ${esc(l.order_sku)} \u2014 ordered ${l.required} met, then ${l.overScans} more scans</li>`).join(""); }
+  else{ ov.style.display="none"; }
+  if(view==="single") renderSingle(); else renderList();
+}
+function renderSingle(){
+  document.getElementById("list").style.display="none";
+  const host=document.getElementById("single"); host.style.display="block";
+  if(!lines.length){ host.innerHTML=""; return; }
+  if(curIdx>=lines.length)curIdx=lines.length-1;
+  const l=lines[curIdx]; const done=l.verified>=l.required;
+  let chips="";
+  if(l.expected<l.required){
+    if(l.verified>=l.required) chips+=`<span class="recchip">Pack fill +${l.verified-l.expected}</span>`;
+    else chips+=`<span class="shortchip">Short ${l.required-l.verified}</span>`;
+  }
+  if((l.overScans||0)>0) chips+=`<span class="overchip">Over-scan ${l.overScans}</span>`;
+  const pickNote=l.expected<l.required?`<span class="picknote">Pick ${l.expected}</span>`:"";
+  host.innerHTML=`
+    <div class="body">
+      <div class="head">
+        <div class="img" ${imgStyle(l)}></div>
+        <div class="info">
+          <div class="zbin"><span class="zbadge">${esc(l.zone||"\u00b7")}</span><span class="binbig">${esc(l.bin||"\u2014")}</span></div>
+          <div class="nm">${esc(l.product_name)}</div>
+          <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` \u00b7 base ${esc(l.base_sku)}`:""}</div>
+          ${(chips||pickNote)?`<div class="chips">${chips}${pickNote}</div>`:""}
+        </div>
+      </div>
+      ${barcodeBlock(l)}
+      <div class="qtybox ${done?"done":""}">
+        <div class="qtybig">${l.verified}<span class="of"> / ${l.required}</span></div>
+        <div class="stepper">
+          <button data-step="-1">\u2212</button>
+          <button data-step="1">+</button>
+        </div>
+      </div>
+      <button class="manual" data-manual>Enter quantity</button>
+      <div class="navrow">
+        <button class="btn ghost" data-nav="-1">\u2190 Prev</button>
+        <button class="btn dark" data-nav="1">Next \u2192</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+    </div>`;
+  host.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
+  host.querySelector("[data-manual]").onclick=()=>manualSetPack(curIdx);
+  host.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{movePack(+b.dataset.nav);});
+}
+function manualSetPack(idx){
+  const l=lines[idx];
+  const v=prompt(`${l.order_sku} Enter verified quantity (0 ~ ${l.required})`, l.verified);
+  if(v===null){focusScan();return;}
+  let n=parseInt(v,10); if(isNaN(n))n=0; n=Math.max(0,Math.min(l.required,n));
+  l.verified=n; l.vmethod="manual"; saveLine(l); renderPack(); focusScan();
+}
+function movePack(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderPack(); focusScan(); }
+document.getElementById("viewSeg").onclick=e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  view=b.dataset.v;
+  [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x===b));
+  renderPack(); focusScan();
+};
 function renderList(){
+  document.getElementById("single").style.display="none";
+  document.getElementById("list").style.display="flex";
   const tot=totTarget(), v=totVer();
   document.getElementById("progBar").style.width=(tot?Math.round(v/tot*100):0)+"%";
   // over-scan detection notice (not recorded — confirm at completion)
@@ -432,7 +588,7 @@ function renderList(){
   }).join("");
   el.querySelectorAll(".lrow").forEach(r=>r.onclick=e=>{ if(e.target.dataset.step||e.target.dataset.rmover)return; curIdx=+r.dataset.idx; focusScan(); });
   el.querySelectorAll("[data-step]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); manualAdjust(+b.dataset.i,+b.dataset.step); });
-  el.querySelectorAll("[data-rmover]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); lines[+b.dataset.rmover].overScans=0; renderList(); focusScan(); });
+  el.querySelectorAll("[data-rmover]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); lines[+b.dataset.rmover].overScans=0; renderPack(); focusScan(); });
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
 }
 
@@ -451,25 +607,32 @@ function processScan(code){
     // let packer decide at completion whether it's a 'real extra'.
     l.overScans=(l.overScans||0)+f;   // over-scan detection mark (not recorded)
     flash("bad",`⚠ already ${l.required} met — extra scans ignored (${l.order_sku})`);
-    renderList(); focusScan(); return;
+    renderPack(); focusScan(); return;
   }
   if(f>room){
     // variant scan etc. exceeded ordered qty → fill only what's needed, mark rest as over-scan only (not recorded)
     l.verified=l.required; l.overScans=(l.overScans||0)+(f-room); l.vmethod=f>1?"scanned_variant":"scanned_base";
     flash("bad",`⚠ ${l.order_sku} ${l.required} met — excess ${f-room} ignored`);
-    saveLine(l); renderList(); focusScan(); return;
+    saveLine(l); renderPack(); focusScan(); return;
   }
   // normal verify
+  // Pick was incomplete (expected < required): crossing the picker's picked qty needs confirmation (reduce mistakes)
+  if(l.expected < l.required && !l.fillConfirmed && (l.verified + f) > l.expected){
+    const need = l.required - l.expected;
+    const msg = `${l.order_sku}\n\nPicker pulled ${l.expected}, ordered ${l.required}.\nYou are scanning beyond what the picker pulled.\n\nDid you find the remaining ${need} from another location?\nConfirm to continue filling this item.`;
+    if(!confirm(msg)){ focusScan(); return; }   // not confirmed → nothing added
+    l.fillConfirmed = true;                      // confirmed once → no repeat for this line
+  }
   l.verified+=f; l.vmethod=f>1?"scanned_variant":"scanned_base";
   const rec=(l.verified>l.expected)?" · pack fill":"";
   flash("ok",`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}`);
   saveLine(l);
   if(l.verified>=l.required) autoAdvance();
-  renderList(); focusScan();
+  renderPack(); focusScan();
 }
 function autoAdvance(){ const n=lines.findIndex((l,i)=>i>curIdx&&l.verified<l.required); const a=lines.findIndex(l=>l.verified<l.required); curIdx=n>=0?n:(a>=0?a:curIdx); }
 
-function manualAdjust(idx,d){ const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return; l.verified=nv; l.vmethod="manual"; saveLine(l); renderList(); focusScan(); }
+function manualAdjust(idx,d){ const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return; l.verified=nv; l.vmethod="manual"; saveLine(l); renderPack(); focusScan(); }
 
 async function saveLine(l){
   if(!l.packline_id)return;

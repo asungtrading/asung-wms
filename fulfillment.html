@@ -184,7 +184,10 @@
   <main>
     <div class="orderbar">
       <button class="btn ghost" id="pickBtn">Select orders ▾</button>
+      <input id="orderScan" inputmode="none" autocomplete="off" placeholder="Scan a pick list…"
+        style="border:2px solid var(--accent);border-radius:10px;padding:8px 12px;font:inherit;font-family:var(--mono);font-size:14px;background:#fff;min-width:210px">
       <span class="ordinfo" id="ordInfo">Select the orders to ship together.</span>
+      <button id="completeBtn" style="margin-left:auto;display:none;border:0;background:var(--ok,#16a34a);color:#fff;border-radius:10px;padding:9px 16px;font:inherit;font-size:13px;font-weight:800;cursor:pointer">✓ Finalize order(s)</button>
     </div>
 
     <!-- order select panel -->
@@ -285,6 +288,57 @@ document.getElementById("startBtn").onclick=()=>{
   document.getElementById("orderPicker").style.display="none";
   loadWorkspace();
 };
+/* scan a pick-list barcode → select that order and load it (accumulates for ship-together) */
+async function scanLoadOrder(v){
+  v=(v||"").trim(); if(!v) return;
+  if(!availOrders||!availOrders.length) await loadOrders();
+  const f=v.toUpperCase();
+  const o=(availOrders||[]).find(x=>(x.order_number||"").toUpperCase()===f);
+  if(!o){ toast("No order ready to ship for "+v,true); return; }
+  if(!orderIds.includes(o.id)) orderIds=[...orderIds,o.id];
+  document.getElementById("orderPicker").style.display="none";
+  await loadWorkspace();
+  toast(o.order_number+" loaded");
+}
+document.getElementById("orderScan").addEventListener("keydown",e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  const el=document.getElementById("orderScan"); const v=el.value.trim(); el.value=""; scanLoadOrder(v);
+});
+
+/* ---------- complete & close (works with or without pallets/boxes) ---------- */
+document.getElementById("completeBtn").onclick=async ()=>{
+  if(!orders.length) return;
+  const info=orders.map(o=>{
+    const placed=items.some(i=>i.order_id===o.id);
+    const unplaced=poolLines.filter(p=>p.order_id===o.id).reduce((s,p)=>s+Math.max(0,remainingFor(p)),0);
+    return {o, placed, unplaced};
+  });
+  const direct=info.filter(x=>!x.placed);                 // no pallet/box → pickup / immediate ship
+  const partial=info.filter(x=>x.placed && x.unplaced>0); // has units but items still unplaced
+  let msg=`Finalize ${orders.length} order(s)?\n\n`+orders.map(o=>"· "+o.order_number).join("\n");
+  if(direct.length) msg+=`\n\nDirect pack — no pallet/box (pickup / immediate ship):\n`+direct.map(x=>"· "+x.o.order_number).join("\n");
+  if(partial.length) msg+=`\n\n\u26a0 Still has unplaced items (will finalize anyway):\n`+partial.map(x=>`· ${x.o.order_number} (${x.unplaced} units)`).join("\n");
+  msg+=`\n\nFinalized orders leave the fulfillment board.`;
+  if(!confirm(msg)) return;
+  const btn=document.getElementById("completeBtn"); btn.disabled=true;
+  try{
+    const {error}=await sb.from("wms_orders").update({status:"closed", updated_at:new Date().toISOString()}).in("id",orderIds);
+    if(error) throw error;
+    toast(orders.length+" order(s) finalized");
+    // reset workspace
+    orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[];
+    document.getElementById("ordInfo").textContent="Select the orders to ship together.";
+    document.getElementById("pickBtn").textContent="Select orders ▾";
+    document.getElementById("workspace").style.display="none";
+    document.getElementById("storeBar").style.display="none";
+    document.getElementById("pool").innerHTML="";
+    document.getElementById("units").innerHTML="";
+    btn.style.display="none";
+    loadOrders();
+  }catch(e){ toast("Complete failed: "+(e.message||e),true); }
+  finally{ btn.disabled=false; }
+};
 
 /* ---------- load multi-order workspace ---------- */
 async function loadWorkspace(){
@@ -319,6 +373,7 @@ async function loadWorkspace(){
     });
   }
   document.getElementById("workspace").style.display="grid";
+  document.getElementById("completeBtn").style.display=orders.length?"inline-block":"none";
   renderStoreBar();
   await refresh();
 }
@@ -650,6 +705,75 @@ function printStores(oids){
 }
 
 boot();
+
+/* ---------- touch drag-and-drop shim (mobile/tablet) ----------
+   Native HTML5 DnD doesn't fire on touch. This synthesizes the same
+   dragstart/dragover/drop/dragend events so existing handlers work as-is. */
+(function(){
+  if(!("ontouchstart" in window) && !(navigator.maxTouchPoints>0)) return;
+  var src=null, clone=null, dragging=false, sx=0, sy=0, cx=0, cy=0, startedOn=null;
+  var DT={ data:{}, effectAllowed:"move", dropEffect:"move",
+    setData:function(k,v){this.data[k]=String(v);}, getData:function(k){return this.data[k]||"";},
+    setDragImage:function(){}, clearData:function(){this.data={};} };
+  function fire(el,type){
+    if(!el) return true;
+    var ev=new Event(type,{bubbles:true,cancelable:true});
+    ev.dataTransfer=DT; ev.clientX=cx; ev.clientY=cy;
+    return el.dispatchEvent(ev);
+  }
+  function clearHi(){ document.querySelectorAll(".drop-hi").forEach(function(e){e.classList.remove("drop-hi");}); }
+  function underFinger(){
+    if(clone) clone.style.display="none";
+    var el=document.elementFromPoint(cx,cy);
+    if(clone) clone.style.display="";
+    return el;
+  }
+  document.addEventListener("touchstart",function(e){
+    var t=e.target.closest('[draggable="true"]');
+    if(!t) return;
+    startedOn=t; src=t; dragging=false;
+    var to=e.touches[0]; sx=to.clientX; sy=to.clientY; cx=sx; cy=sy;
+  },{passive:true});
+  document.addEventListener("touchmove",function(e){
+    if(!src) return;
+    var to=e.touches[0]; cx=to.clientX; cy=to.clientY;
+    if(!dragging){
+      if(Math.abs(cx-sx)<8 && Math.abs(cy-sy)<8) return; // let small moves scroll/tap
+      dragging=true;
+      DT.data={};
+      fire(src,"dragstart");
+      // floating clone follows the finger
+      clone=src.cloneNode(true);
+      var r=src.getBoundingClientRect();
+      clone.style.cssText="position:fixed;left:0;top:0;z-index:9999;pointer-events:none;opacity:.85;"+
+        "width:"+r.width+"px;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:10px;background:#fff;transform:translate("+cx+"px,"+cy+"px)";
+      document.body.appendChild(clone);
+      document.body.style.userSelect="none";
+    }
+    e.preventDefault(); // stop scrolling while dragging
+    if(clone) clone.style.transform="translate("+(cx- clone.offsetWidth/2)+"px,"+(cy-18)+"px)";
+    clearHi();
+    var el=underFinger();
+    if(el) fire(el,"dragover"); // bubbles to the dropzone → adds .drop-hi if valid
+  },{passive:false});
+  document.addEventListener("touchend",function(e){
+    if(!src){ return; }
+    if(dragging){
+      var el=underFinger();
+      clearHi();
+      if(el) fire(el,"drop");   // bubbles to dropzone → onDropToUnit / removeItem
+      fire(src,"dragend");
+      if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
+      document.body.style.userSelect="";
+    }
+    src=null; clone=null; dragging=false; startedOn=null;
+  });
+  document.addEventListener("touchcancel",function(){
+    if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
+    clearHi(); document.body.style.userSelect="";
+    src=null; clone=null; dragging=false; startedOn=null;
+  });
+})();
 </script>
 </body>
 </html>

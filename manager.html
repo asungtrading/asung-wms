@@ -342,11 +342,78 @@ document.getElementById("previewBtn").onclick=buildPreview;
   });
 })();
 
+// ---- printable pick list (posted on board; barcode scanned by picker to load the order) ----
+function printPickList(win, ord, batches){
+  if(!win) return;
+  const totalLines=batches.reduce((s,b)=>s+b.length,0);
+  const totalUnits=batches.reduce((s,b)=>s+b.reduce((a,l)=>a+Number(l.required_base||0),0),0);
+  const wh=ord.warehouse==="edmonton"?"Edmonton":"Toronto";
+  const today=new Date().toLocaleDateString();
+  const esc2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const rows=batches.map((b,i)=>{
+    const zones=[...new Set(b.map(l=>l.zone||"·"))].join(", ");
+    const units=b.reduce((a,l)=>a+Number(l.required_base||0),0);
+    return `<tr><td class="bn">${esc2(ord.order_number)}-${i+1}</td><td>${esc2(zones)}</td><td class="c">${b.length}</td><td class="c">${units}</td><td class="pb"></td></tr>`;
+  }).join("");
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>PICK LIST ${esc2(ord.order_number)}</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+  <style>
+    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #12161c;padding-bottom:12px}
+    .brand{font-weight:800;letter-spacing:.32em;font-size:15px}
+    h1{font-size:30px;margin:2px 0 0;letter-spacing:.02em}
+    .bc{text-align:right}
+    .info{display:flex;gap:40px;margin:16px 0 8px}
+    .info div{line-height:1.5} .info b{display:inline-block;min-width:120px;color:#555}
+    .totals{margin:6px 0 14px;font-weight:700}
+    .pk{margin:6px 0 14px;font-weight:800;font-size:15px}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th,td{border-bottom:1px solid #cfd5dd;padding:8px 6px;text-align:left;font-size:12.5px}
+    th{border-bottom:2px solid #12161c;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#555}
+    td.bn{font-family:monospace;font-weight:700} td.c{text-align:center;width:70px} td.pb{width:180px}
+    @media print{body{margin:14mm} .noprint{display:none}}
+    .hint{margin-top:8px;color:#888;font-size:11px}
+  </style></head>
+  <body>
+    <div class="top">
+      <div><div class="brand">ASUNG TRADING INC</div><h1>PICK LIST</h1></div>
+      <div class="bc"><svg id="barcode"></svg></div>
+    </div>
+    <div class="info">
+      <div>
+        <div><b>Sale Order No.</b>${esc2(ord.order_number)}</div>
+        <div><b>Printed</b>${today}</div>
+        <div><b>Warehouse</b>${wh}</div>
+      </div>
+      <div>
+        <div><b>Customer</b>${esc2(ord.customer_name||"—")}</div>
+        <div><b>Total Item Lines</b>${totalLines}</div>
+        <div><b>Total Item Qty</b>${totalUnits}</div>
+      </div>
+    </div>
+    <div class="pk">Solo Picking [ &nbsp; ] &nbsp;&nbsp;&nbsp; Multi Picking [ &nbsp; ]</div>
+    <table>
+      <thead><tr><th>Batch</th><th>Zones</th><th>Lines</th><th>Units</th><th>Picked By</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="hint noprint">Scan the barcode in the Picking app to open this order. Use your browser's Print (Ctrl/Cmd+P) if the dialog didn't open.</div>
+    <script>
+      try{ JsBarcode("#barcode", ${JSON.stringify(ord.order_number)}, {format:"CODE128",displayValue:true,fontSize:15,height:52,margin:0}); }catch(e){}
+      window.addEventListener("load",()=>{ setTimeout(()=>{ try{window.print();}catch(e){} }, 350); });
+    <\/script>
+  </body></html>`);
+  win.document.close();
+}
+
 // ---- create batches (wms_pick_tasks + wms_pick_task_lines) ----
 document.getElementById("createBtn").onclick=async ()=>{
   buildPreview();                       // recompute with current inputs (preview = create match)
   if(!preview||!preview.length) return;
   if(!confirm(`${selected.order_number} · ${preview.length} batches will be created (total ${selLines.length} lines). Continue?`)) return;
+  // capture for pick list before state is cleared; open print window now (within user gesture → avoids popup block)
+  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse};
+  const pickBatches=preview.map(b=>b.slice());
+  const printWin=window.open("","_blank");
   const createdBy=me?me.name:null;
   const btn=document.getElementById("createBtn"); btn.disabled=true; btn.textContent="Creating…";
   try{
@@ -372,6 +439,7 @@ document.getElementById("createBtn").onclick=async ()=>{
     // order status picking
     await sb.from("wms_orders").update({status:"picking",updated_at:new Date().toISOString()}).eq("id",selected.id);
     toast(selected.order_number+" → "+preview.length+"batches created");
+    printPickList(printWin, pickOrd, pickBatches);   // generate the printable pick list
     // remove from queue
     orders=orders.filter(o=>o.id!==selected.id);
     selected=null; preview=null;
@@ -379,6 +447,7 @@ document.getElementById("createBtn").onclick=async ()=>{
     document.getElementById("wsEmpty").style.display="block";
     renderQueue();
   }catch(e){
+    if(printWin){ try{printWin.close();}catch(_){} }
     toast("Failed to create batches: "+(e.message||e),true);
   }finally{
     btn.textContent="Create batches"; btn.disabled=false;
