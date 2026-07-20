@@ -419,27 +419,32 @@ async function loadLines(){
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
   document.getElementById("drop").value="";
   renderPick(); focusScan();
-  // enrich availability + sibling barcodes, then re-render (optional; lines already visible)
-  try{
-    const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
-    if(baseSkus.length){
-      const {data:bins}=await sb.from("wms_sku_bins")
+  const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+  // enrich availability (independent — a failure here must not block barcodes)
+  if(baseSkus.length){
+    try{
+      const {data:bins,error}=await sb.from("wms_sku_bins")
         .select("sku,available").in("sku",baseSkus).eq("warehouse",wh).eq("is_current",true);
+      if(error) throw error;
       const av={};
       (bins||[]).forEach(b=>{ av[b.sku]=(av[b.sku]||0)+(Number(b.available)||0); });
       lines.forEach(l=>{ l.available = (l.base_sku in av)?av[l.base_sku]:null; });
-      // sibling barcodes: base(factor 1) + variants(factor>1, e.g. -12) from snapshot by base_sku
-      const {data:sibs}=await sb.from("wms_sku_snapshot")
+      renderPick();
+    }catch(e){ toast("Stock lookup failed (avail hidden)",true); }
+    // enrich sibling barcodes (independent): base(factor 1) + variants(factor>1, e.g. -12)
+    try{
+      const {data:sibs,error}=await sb.from("wms_sku_snapshot")
         .select("base_sku,factor,barcode,is_variant").in("base_sku",baseSkus);
+      if(error) throw error;
       const sibMap={};
       (sibs||[]).forEach(r=>{
         const bs=r.base_sku; if(!bs)return;
         (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()});
       });
       lines.forEach(l=>{ l.barcodeRows = sibMap[l.base_sku] || []; });
-      renderPick();  // update avail chips + barcodes
-    }
-  }catch(e){ /* enrichment optional — lines are already shown */ }
+      renderPick();
+    }catch(e){ toast("Barcode lookup failed",true); }
+  }
 }
 function firstIncomplete(){ const i=lines.findIndex(l=>l.picked<l.assigned); return i<0?0:i; }
 

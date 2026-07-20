@@ -149,6 +149,8 @@
       <div class="grid" id="batchStats"></div>
       <div class="sect-h">In-Progress Orders</div>
       <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">Finalized <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recently completed (last 40)</span></div>
+      <div class="card"><div id="finalizedOrders"></div></div>
     </div>
 
     <!-- Discrepancy -->
@@ -299,18 +301,21 @@ function start(){
 
 /* ---------- Status ---------- */
 async function loadOverview(){
-  const [orders, picks, packs]=await Promise.all([
+  const [orders, picks, packs, finalized]=await Promise.all([
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),
     sb.from("wms_pick_tasks").select("status"),
     sb.from("wms_pack_tasks").select("status"),
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
   ]);
   const os=orders.data||[];
+  const fin=finalized.data||[];
   const cnt=s=>os.filter(o=>o.status===s).length;
   document.getElementById("orderStats").innerHTML=[
     ["pending","pending",cnt("pending"),""],
     ["Picking","picking",cnt("picking"),""],
     ["Packing","packing",cnt("packing"),""],
     ["Ready to close","ready_to_close",cnt("ready_to_close"),"ok"],
+    ["Finalized","closed",fin.length,""],
   ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
   const pk=picks.data||[], pc=packs.data||[];
@@ -322,14 +327,27 @@ async function loadOverview(){
 
   // in-progress orders table
   const el=document.getElementById("activeOrders");
-  if(!os.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="num">Lines</th><th class="num">units</th></tr></thead><tbody>${
+  if(!os.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; }
+  else el.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="num">Lines</th><th class="num">units</th></tr></thead><tbody>${
     os.map(o=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">OK</span>':""}</td>
       <td>${esc(o.customer_name||"—")}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span></td>
       <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
+
+  // finalized (recently completed) table
+  const fe=document.getElementById("finalizedOrders");
+  if(!fin.length){ fe.innerHTML=`<div class="empty">No finalized orders yet.</div>`; }
+  else fe.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th class="num">Lines</th><th class="num">units</th><th>Finalized</th></tr></thead><tbody>${
+    fin.map(o=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+      <td>${esc(o.customer_name||"—")}</td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
+      <td style="color:var(--mut);font-size:12px">${o.updated_at?new Date(o.updated_at).toLocaleString():""}</td>
     </tr>`).join("")
   }</tbody></table>`;
 }
