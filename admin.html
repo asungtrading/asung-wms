@@ -132,6 +132,7 @@
     <div class="tabs" id="tabs">
       <button data-t="overview" class="active">Status</button>
       <button data-t="disc">Discrepancy <span class="badge" id="discBadge" style="display:none">0</span></button>
+      <button data-t="reports">Reports <span class="badge" id="reportBadge" style="display:none">0</span></button>
       <button data-t="stats">Stats</button>
       <button data-t="rollback">Rollback</button>
       <button data-t="packing">Packing Lists</button>
@@ -177,6 +178,12 @@
       <div class="card"><div id="rollbackLog"></div></div>
     </div>
 
+    <!-- Reports (data-quality: wrong location / barcode changed) -->
+    <div class="view" id="v-reports">
+      <div class="sect-h">Worker reports <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode changed (from picking/packing)</span></div>
+      <div class="card"><div id="reportsList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+    </div>
+
     <!-- Packing Lists -->
     <div class="view" id="v-packing">
       <div class="sect-h">Packing lists <span style="font-weight:400;color:var(--mut);font-size:12.5px">— reprint the consolidated packing list for any order that has pallets/boxes</span></div>
@@ -204,7 +211,7 @@ let discPeriodKey="week", statsPeriodKey="week";
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
-const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy"};
+const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed"};
 const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
 
 /* ---------- boot / login ---------- */
@@ -279,6 +286,7 @@ function start(){
     if(t==="disc")loadDisc();
     if(t==="stats")loadStats();
     if(t==="rollback")loadRollback();
+    if(t==="reports")loadReports();
     if(t==="packing")loadPacking();
   };
   renderLaunch();
@@ -286,6 +294,7 @@ function start(){
   periodBar("statsPeriod",statsPeriodKey,statsCustom,(k,c)=>{statsPeriodKey=k;loadStats();});
   loadOverview();
   refreshDiscBadge();
+  refreshReportBadge();
 }
 
 /* ---------- Status ---------- */
@@ -449,6 +458,50 @@ async function doRollback(oid, action, onum){
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
 }
 
+/* ---------- Reports (data-quality) ---------- */
+const REPORT_KIND={wrong_location:"Wrong location", barcode_mismatch:"Barcode changed"};
+async function refreshReportBadge(){
+  try{
+    const {count}=await sb.from("wms_reports").select("id",{count:"exact",head:true}).is("resolved_at",null);
+    const b=document.getElementById("reportBadge");
+    if(count&&count>0){ b.style.display="inline-block"; b.textContent=count; } else { b.style.display="none"; }
+  }catch(e){ /* table may not exist yet */ }
+}
+async function loadReports(){
+  const el=document.getElementById("reportsList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
+  const [open,done]=await Promise.all([
+    sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}),
+    sb.from("wms_reports").select("*").not("resolved_at","is",null).order("created_at",{ascending:false}).limit(50),
+  ]);
+  if(open.error){ el.innerHTML=`<div class="empty" style="font-size:12px">Reports table not found. Run wms_reports.sql to enable.</div>`; return; }
+  const row=(r,actionable)=>`<tr>
+    <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"")}</td>
+    <td style="font-family:var(--mono)">${esc(r.sku||"")}</td>
+    <td><span class="tag">${esc(REPORT_KIND[r.kind]||r.kind)}</span></td>
+    <td style="font-size:12px;color:var(--mut)">${esc(r.note||"")}</td>
+    <td>${esc(r.reported_by||"—")}${r.source?` <span style="color:var(--mut-2);font-size:11px">(${esc(r.source)})</span>`:""}</td>
+    <td style="color:var(--mut);font-size:12px">${r.created_at?new Date(r.created_at).toLocaleDateString():""}</td>
+    ${actionable
+      ? `<td><button class="btnsm ok" data-resolve="${r.id}">Mark resolved</button></td>`
+      : `<td style="color:var(--mut);font-size:12px">${r.resolved_by?esc(r.resolved_by)+" · ":""}${r.resolved_at?new Date(r.resolved_at).toLocaleDateString():""}</td>`}
+  </tr>`;
+  const openR=open.data||[], doneR=done.data||[];
+  const head=`<thead><tr><th>Order</th><th>SKU</th><th>Type</th><th>Detail</th><th>Reported by</th><th>Date</th><th></th></tr></thead>`;
+  el.innerHTML=`
+    <div class="sect-h" style="margin-top:0">Open ${openR.length?`(${openR.length})`:"(0)"}</div>
+    <table>${head}<tbody>${openR.length?openR.map(r=>row(r,true)).join(""):`<tr><td colspan="7" style="color:var(--mut);padding:14px">No open reports.</td></tr>`}</tbody></table>
+    <div class="sect-h">Resolved (recent)</div>
+    <table>${head}<tbody>${doneR.length?doneR.map(r=>row(r,false)).join(""):`<tr><td colspan="7" style="color:var(--mut);padding:14px">None.</td></tr>`}</tbody></table>`;
+  el.querySelectorAll("[data-resolve]").forEach(b=>b.onclick=()=>resolveReport(+b.dataset.resolve));
+  refreshReportBadge();
+}
+async function resolveReport(id){
+  const {error}=await sb.from("wms_reports").update({resolved_by:me.name, resolved_at:new Date().toISOString()}).eq("id",id);
+  if(error){ toast("Failed: "+error.message,true); return; }
+  toast("Resolved"); loadReports();
+}
+
 /* ---------- Packing lists (reprint from admin) ---------- */
 async function loadPacking(){
   const el=document.getElementById("packingList");
@@ -499,12 +552,14 @@ async function printOrderPackingList(oid){
     });
     if(!body) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
     const wh=ord.warehouse==="edmonton"?"Edmonton":"Toronto";
+    const logo=location.origin+"/asung-logo-dark.png";
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>PACKING LIST ${e(ord.order_number)}</title>
     <style>
       body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
-      .h{display:flex;justify-content:space-between;border-bottom:2px solid #12161c;padding-bottom:10px}
-      .brand{font-weight:800;letter-spacing:.28em} .doc{text-align:right;font-weight:700}
-      .meta{display:flex;gap:36px;margin:14px 0} .meta b{color:#555}
+      .h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #12161c;padding-bottom:12px}
+      .brandwrap{display:flex;flex-direction:column;gap:8px} .brandwrap img{height:38px;width:auto;display:block}
+      .doc{text-align:right;font-weight:800;font-size:20px}
+      .meta{display:flex;gap:36px;margin:16px 0} .meta b{color:#555}
       .u{font-weight:800;margin:14px 0 4px}
       table.pl{width:100%;border-collapse:collapse;margin-bottom:6px}
       table.pl th,table.pl td{border-bottom:1px solid #d5dae2;padding:6px 6px;text-align:left;font-size:12.5px}
@@ -514,8 +569,8 @@ async function printOrderPackingList(oid){
       .note{color:#666;margin:14px 0}
       @media print{body{margin:14mm}}
     </style></head><body>
-      <div class="h"><div><div class="brand">ASUNG TRADING</div><div>PACKING LIST</div></div>
-        <div class="doc">${e(ord.order_number)}<br>${new Date().toLocaleDateString()}</div></div>
+      <div class="h"><div class="brandwrap"><img src="${logo}" alt="ASUNG"><div style="font-weight:800;font-size:16px">PACKING LIST</div></div>
+        <div class="doc">${e(ord.order_number)}<br><span style="font-weight:400;font-size:12px;color:#666">${new Date().toLocaleDateString()}</span></div></div>
       <div class="meta"><div><b>Order</b> ${e(ord.order_number)}</div><div><b>Customer</b> ${e(ord.customer_name||"—")}</div><div><b>Warehouse</b> ${wh}</div></div>
       ${body}
       <div class="total">Total qty: ${grand}</div>
@@ -551,7 +606,7 @@ function discRow(d,actionable){
     : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}</td>`;
   return `<tr>
     <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}</td>
-    <td style="font-family:var(--mono)">${esc(d.sku||"")}</td>
+    <td style="font-family:var(--mono)">${esc(d.sku||"")}${d.note?`<div style="font-family:inherit;font-weight:400;font-size:11px;color:var(--mut);margin-top:2px">${esc(d.note)}</div>`:""}</td>
     <td><span class="tag r-${d.reason}">${rl}</span></td>
     <td class="num">${d.ordered_base??"—"}</td>
     <td class="num">${d.actual_base??"—"}</td>

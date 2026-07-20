@@ -152,6 +152,7 @@
   }
   .pl-h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px}
   .pl-h .brand{font-family:var(--mono);font-weight:800;font-size:18px}
+  .pl-h .brand img{height:34px;width:auto;display:block}
   .pl-h .doc{font-size:13px;color:#444;text-align:right}
   .pl-meta{display:flex;gap:24px;font-size:13px;margin-bottom:14px}
   .pl-meta b{font-family:var(--mono)}
@@ -638,7 +639,7 @@ function printUnit(uid){
   const wh=orders[0]?.warehouse==="edmonton"?"Edmonton":"Toronto";
   const pa=document.getElementById("printArea");
   pa.innerHTML=`
-    <div class="pl-h"><div class="brand">ASUNG TRADING</div><div class="doc">PACKING LIST<br>${new Date().toLocaleDateString()}</div></div>
+    <div class="pl-h"><div class="brand"><img src="${location.origin+'/asung-logo-dark.png'}" alt="ASUNG"></div><div class="doc">PACKING LIST<br>${new Date().toLocaleDateString()}</div></div>
     <div class="pl-meta"><div>Order <b>${esc(orderStr)}</b></div><div>Customer <b>${custs.map(esc).join(" / ")}</b></div><div>Warehouse <b>${wh}</b></div></div>
     <div class="pl-unit">${isPallet?"🟩":"📦"} ${esc(u.label)} · ${isPallet?"PALLET":"BOX"}</div>
     ${body}
@@ -693,7 +694,7 @@ function printStores(oids){
   const sections=oids.map((oid,idx)=>{
     const {o,body,grand}=buildStoreBody(oid);
     return `<div class="${idx>0?"pagebreak":""}">
-      <div class="pl-h"><div class="brand">ASUNG TRADING</div><div class="doc">STORE PACKING LIST<br>${dt}</div></div>
+      <div class="pl-h"><div class="brand"><img src="${location.origin+'/asung-logo-dark.png'}" alt="ASUNG"></div><div class="doc">STORE PACKING LIST<br>${dt}</div></div>
       <div class="pl-store-h">${esc(o.order_number)} · ${esc(o.customer_name||"—")}</div>
       <div class="pl-meta"><div>Warehouse <b>${wh}</b></div><div>Total qty <b>${grand}</b></div></div>
       ${body}

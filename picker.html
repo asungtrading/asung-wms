@@ -112,6 +112,9 @@
   .navrow{display:flex;gap:10px;margin-top:14px}
   .navrow .btn{flex:1}
   .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
+  .reportrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .reportrow .rep{flex:1;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .reportrow .rep:active{background:#fdf3df}
 
   /* list view */
   .list{display:none;flex-direction:column;gap:8px}
@@ -346,7 +349,7 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   batchFilter=v; renderBatches();
   const f=v.toUpperCase();
-  const any=[...myBatches,...batches].some(b=>((b.wms_orders?.order_number||"").toUpperCase()===f)||((b.batch_label||"").toUpperCase().startsWith(f+"-")));
+  const any=[...myBatches,...batches].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
   if(!any) toast("No waiting batch for "+v,true);
 });
 
@@ -408,24 +411,7 @@ async function loadLines(){
       (bcMap[code]=bcMap[code]||[]).push({idx,factor:Number(b.factor)||1});
     });
   });
-  // available stock: base_sku sum available by warehouse (per master sync, for reference)
-  const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
-  if(baseSkus.length){
-    const {data:bins}=await sb.from("wms_sku_bins")
-      .select("sku,available").in("sku",baseSkus).eq("warehouse",wh).eq("is_current",true);
-    const av={};
-    (bins||[]).forEach(b=>{ av[b.sku]=(av[b.sku]||0)+(Number(b.available)||0); });
-    lines.forEach(l=>{ l.available = (l.base_sku in av)?av[l.base_sku]:null; });
-    // sibling barcodes: base(factor 1) + variants(factor>1, e.g. -12) from snapshot by base_sku
-    const {data:sibs}=await sb.from("wms_sku_snapshot")
-      .select("base_sku,factor,barcode,is_variant").in("base_sku",baseSkus);
-    const sibMap={};
-    (sibs||[]).forEach(r=>{
-      const bs=r.base_sku; if(!bs)return;
-      (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()});
-    });
-    lines.forEach(l=>{ l.barcodeRows = sibMap[l.base_sku] || []; });
-  }
+  // show the lines immediately (don't wait for enrichment queries)
   curIdx=firstIncomplete();
   document.getElementById("listView").style.display="none";
   document.getElementById("pickView").style.display="block";
@@ -433,6 +419,27 @@ async function loadLines(){
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
   document.getElementById("drop").value="";
   renderPick(); focusScan();
+  // enrich availability + sibling barcodes, then re-render (optional; lines already visible)
+  try{
+    const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+    if(baseSkus.length){
+      const {data:bins}=await sb.from("wms_sku_bins")
+        .select("sku,available").in("sku",baseSkus).eq("warehouse",wh).eq("is_current",true);
+      const av={};
+      (bins||[]).forEach(b=>{ av[b.sku]=(av[b.sku]||0)+(Number(b.available)||0); });
+      lines.forEach(l=>{ l.available = (l.base_sku in av)?av[l.base_sku]:null; });
+      // sibling barcodes: base(factor 1) + variants(factor>1, e.g. -12) from snapshot by base_sku
+      const {data:sibs}=await sb.from("wms_sku_snapshot")
+        .select("base_sku,factor,barcode,is_variant").in("base_sku",baseSkus);
+      const sibMap={};
+      (sibs||[]).forEach(r=>{
+        const bs=r.base_sku; if(!bs)return;
+        (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()});
+      });
+      lines.forEach(l=>{ l.barcodeRows = sibMap[l.base_sku] || []; });
+      renderPick();  // update avail chips + barcodes
+    }
+  }catch(e){ /* enrichment optional — lines are already shown */ }
 }
 function firstIncomplete(){ const i=lines.findIndex(l=>l.picked<l.assigned); return i<0?0:i; }
 
@@ -445,14 +452,18 @@ function renderPick(){
   if(view==="single") renderSingle(); else renderList();
 }
 function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
-// base barcode (factor 1) + variant barcodes (factor>1, e.g. -12). Blank shown if variant exists w/o barcode.
+// base barcode (factor 1) + variant barcodes (factor>1, e.g. -12) + ALT-UPC aliases.
 function barcodeBlock(l){
   const rows=l.barcodeRows||[];
   const base=rows.find(r=>r.factor===1);
   const variants=rows.filter(r=>r.factor>1).sort((a,b)=>a.factor-b.factor);
-  const bcLine=(label,code)=>`<div class="bc"><span class="bl">${label}</span><span class="bv${code?"":" empty"}">${code?esc(code):"(no barcode)"}</span></div>`;
+  const shown=new Set();
+  const bcLine=(label,code)=>{ const c=(code||"").trim(); if(c)shown.add(c); return `<div class="bc"><span class="bl">${label}</span><span class="bv${c?"":" empty"}">${c?esc(c):"(no barcode)"}</span></div>`; };
   let html=bcLine("Barcode", base?base.barcode:"");
   variants.forEach(v=>{ html+=bcLine("×"+v.factor, v.barcode); });
+  // ALT-UPC aliases from this line's scannable_barcodes (type=alt)
+  const alts=[...new Set((l.barcodes||[]).filter(b=>b&&b.type==="alt").map(b=>String(b.barcode||"").trim()).filter(Boolean))].filter(c=>!shown.has(c));
+  alts.forEach(c=>{ html+=bcLine("ALT-UPC", c); });
   return `<div class="barcodes">${html}</div>`;
 }
 function availChip(l){
@@ -490,11 +501,16 @@ function renderSingle(){
         <button class="btn dark" data-nav="1">Next →</button>
       </div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+      <div class="reportrow">
+        <button class="rep" data-rep="loc">⚑ Wrong location</button>
+        <button class="rep" data-rep="bc">⚑ Barcode changed</button>
+      </div>
     </div>`;
   const s=document.getElementById("single");
   s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
+  s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssue(b.dataset.rep, curIdx));
 }
 function renderList(){
   document.getElementById("single").style.display="none";
@@ -552,16 +568,46 @@ function autoAdvance(){
 function manualAdjust(idx,delta){
   const l=lines[idx]; const nv=Math.max(0,Math.min(l.assigned,l.picked+delta));
   if(nv===l.picked)return;
-  l.picked=nv; l.vmethod="manual"; saveLine(l); renderPick(); focusScan();
+  l.picked=nv; l.vmethod="manual"; saveLine(l);
+  if(l.picked>=l.assigned) autoAdvance();   // reach target → jump to next item (same as scan)
+  renderPick(); focusScan();
 }
 function manualSet(idx){
   const l=lines[idx];
   const v=prompt(`${l.order_sku} Enter quantity (0 ~ ${l.assigned})`, l.picked);
   if(v===null){focusScan();return;}
   let n=parseInt(v,10); if(isNaN(n))n=0; n=Math.max(0,Math.min(l.assigned,n));
-  l.picked=n; l.vmethod="manual"; saveLine(l); renderPick(); focusScan();
+  l.picked=n; l.vmethod="manual"; saveLine(l);
+  if(l.picked>=l.assigned) autoAdvance();
+  renderPick(); focusScan();
 }
 function move(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderPick(); focusScan(); }
+
+/* ---------- picker issue reports (wrong location / barcode changed) → wms_reports ---------- */
+async function reportIssue(kind, idx){
+  const l=lines[idx]; if(!l) return;
+  let note;
+  if(kind==="loc"){
+    const found=prompt(`Wrong location for ${l.order_sku}\nListed bin: ${l.bin||"—"}\n\nWhere did you actually find it? (optional)`, "");
+    if(found===null) { focusScan(); return; }
+    note=`Listed bin ${l.bin||"—"}${found.trim()?` · found at ${found.trim()}`:""}`;
+  }else{
+    const listed=[...new Set((l.barcodes||[]).map(b=>String(b.barcode||"").trim()).filter(Boolean))].join(", ")||"—";
+    const got=prompt(`Barcode changed for ${l.order_sku}\nListed: ${listed}\n\nScan or type the new barcode (optional)`, "");
+    if(got===null) { focusScan(); return; }
+    note=`Listed ${listed}${got.trim()?` · new ${got.trim()}`:""}`;
+  }
+  try{
+    const {error}=await sb.from("wms_reports").insert({
+      order_id:task.order_id, order_number:order.order_number, sku:l.order_sku,
+      kind: kind==="loc"?"wrong_location":"barcode_mismatch",
+      note, reported_by:me.name, source:"picker"
+    });
+    if(error) throw error;
+    toast((kind==="loc"?"Location":"Barcode")+" issue reported");
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  focusScan();
+}
 
 /* ---------- save (background) ---------- */
 async function saveLine(l){

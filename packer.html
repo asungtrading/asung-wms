@@ -121,6 +121,9 @@
   .navrow{display:flex;gap:10px;margin-top:14px}
   .navrow .btn{flex:1}
   .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
+  .reportrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .reportrow .rep{flex:1;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .reportrow .rep:active{background:#fdf3df}
 
   .list{display:none;flex-direction:column;gap:8px}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
@@ -359,7 +362,7 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   queueFilter=v; renderQueue();
   const f=v.toUpperCase();
-  const any=[...mine,...held,...poolNew].some(p=>((p.wms_orders?.order_number||"").toUpperCase()===f)||((p.batch_label||"").toUpperCase().startsWith(f+"-")));
+  const any=[...mine,...held,...poolNew].some(p=>{const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
   if(!any) toast("No pack batch for "+v,true);
 });
 
@@ -439,24 +442,12 @@ function finishBuild(){
 }
 
 async function enterPack(){
-  // in start path, packline_id if missing, fill via re-query
+  // in start path, packline_id if missing, fill via re-query (needed for saving)
   if(lines.some(l=>l.packline_id==null)){
     const {data}=await sb.from("wms_pack_task_lines").select("id,order_line_id").eq("pack_task_id",packTask.id);
     const m={}; (data||[]).forEach(r=>m[r.order_line_id]=r.id);
     lines.forEach(l=>{ if(l.packline_id==null) l.packline_id=m[l.order_line_id]||null; });
   }
-  // picker name (for mistake attribution)
-  try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
-  // sibling barcodes: base(factor 1) + variants(factor>1, e.g. -12) from snapshot by base_sku
-  try{
-    const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
-    if(baseSkus.length){
-      const {data:sibs}=await sb.from("wms_sku_snapshot").select("base_sku,factor,barcode").in("base_sku",baseSkus);
-      const sibMap={};
-      (sibs||[]).forEach(r=>{ const bs=r.base_sku; if(!bs)return; (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1,barcode:String(r.barcode||"").trim()}); });
-      lines.forEach(l=>{ l.barcodeRows=sibMap[l.base_sku]||[]; });
-    }
-  }catch(e){ /* barcode display optional */ }
   curIdx=lines.findIndex(l=>l.verified<l.required); if(curIdx<0)curIdx=0;
   // pick-incomplete warning (shortfall to fill during packing)
   const shorts=lines.filter(l=>l.verified<l.required && l.expected<l.required);
@@ -465,11 +456,24 @@ async function enterPack(){
     al.style.display="block";
     document.getElementById("shortList").innerHTML=shorts.map(l=>`<li>· ${esc(l.order_sku)} — Pick ${l.expected} / ordered ${l.required} (from other locations ${l.required-l.expected} more to find)</li>`).join("");
   }else{ al.style.display="none"; }
+  // show the lines immediately (don't wait for enrichment queries)
   document.getElementById("listView").style.display="none";
   document.getElementById("packView").style.display="block";
   document.getElementById("pTitle").textContent=packTask.batch_label;
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
   renderPack(); focusScan();
+  // enrich: picker name (attribution) + sibling barcodes, then re-render
+  try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
+  try{
+    const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+    if(baseSkus.length){
+      const {data:sibs}=await sb.from("wms_sku_snapshot").select("base_sku,factor,barcode").in("base_sku",baseSkus);
+      const sibMap={};
+      (sibs||[]).forEach(r=>{ const bs=r.base_sku; if(!bs)return; (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1,barcode:String(r.barcode||"").trim()}); });
+      lines.forEach(l=>{ l.barcodeRows=sibMap[l.base_sku]||[]; });
+      renderPack();
+    }
+  }catch(e){ /* barcode display optional */ }
 }
 
 /* render */
@@ -534,16 +538,35 @@ function renderSingle(){
         <button class="btn dark" data-nav="1">Next \u2192</button>
       </div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+      <div class="reportrow"><button class="rep" data-rep="bc">⚑ Barcode changed</button></div>
     </div>`;
   host.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   host.querySelector("[data-manual]").onclick=()=>manualSetPack(curIdx);
   host.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{movePack(+b.dataset.nav);});
+  host.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssuePack(b.dataset.rep, curIdx));
+}
+async function reportIssuePack(kind, idx){
+  const l=lines[idx]; if(!l) return;
+  const listed=[...new Set((l.barcodes||[]).map(b=>String(b.barcode||"").trim()).filter(Boolean))].join(", ")||"—";
+  const got=prompt(`Barcode changed for ${l.order_sku}\nListed: ${listed}\n\nScan or type the new barcode (optional)`, "");
+  if(got===null){ focusScan(); return; }
+  try{
+    const {error}=await sb.from("wms_reports").insert({
+      order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku,
+      kind:"barcode_mismatch", note:`Listed ${listed}${got.trim()?` · new ${got.trim()}`:""}`,
+      reported_by:me.name, source:"packer"
+    });
+    if(error) throw error;
+    toast("Barcode issue reported");
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  focusScan();
 }
 function manualSetPack(idx){
   const l=lines[idx];
   const v=prompt(`${l.order_sku} Enter verified quantity (0 ~ ${l.required})`, l.verified);
   if(v===null){focusScan();return;}
   let n=parseInt(v,10); if(isNaN(n))n=0; n=Math.max(0,Math.min(l.required,n));
+  if(n>l.verified && !confirmFillIfNeeded(l, n)){ focusScan(); return; }
   l.verified=n; l.vmethod="manual"; saveLine(l); renderPack(); focusScan();
 }
 function movePack(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderPack(); focusScan(); }
@@ -616,13 +639,7 @@ function processScan(code){
     saveLine(l); renderPack(); focusScan(); return;
   }
   // normal verify
-  // Pick was incomplete (expected < required): crossing the picker's picked qty needs confirmation (reduce mistakes)
-  if(l.expected < l.required && !l.fillConfirmed && (l.verified + f) > l.expected){
-    const need = l.required - l.expected;
-    const msg = `${l.order_sku}\n\nPicker pulled ${l.expected}, ordered ${l.required}.\nYou are scanning beyond what the picker pulled.\n\nDid you find the remaining ${need} from another location?\nConfirm to continue filling this item.`;
-    if(!confirm(msg)){ focusScan(); return; }   // not confirmed → nothing added
-    l.fillConfirmed = true;                      // confirmed once → no repeat for this line
-  }
+  if(!confirmFillIfNeeded(l, l.verified + f)){ focusScan(); return; }
   l.verified+=f; l.vmethod=f>1?"scanned_variant":"scanned_base";
   const rec=(l.verified>l.expected)?" · pack fill":"";
   flash("ok",`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}`);
@@ -632,7 +649,23 @@ function processScan(code){
 }
 function autoAdvance(){ const n=lines.findIndex((l,i)=>i>curIdx&&l.verified<l.required); const a=lines.findIndex(l=>l.verified<l.required); curIdx=n>=0?n:(a>=0?a:curIdx); }
 
-function manualAdjust(idx,d){ const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return; l.verified=nv; l.vmethod="manual"; saveLine(l); renderPack(); focusScan(); }
+// Pick was incomplete (expected < required): crossing the picker's picked qty needs confirmation.
+// Fires an audible beep + red flash + vibrate so it's noticeable, then asks to confirm. Used by scan AND manual +.
+function confirmFillIfNeeded(l, newVerified){
+  if(l.expected < l.required && !l.fillConfirmed && newVerified > l.expected){
+    flash("bad", `⚠ ${esc(l.order_sku)} — beyond picker's ${l.expected}`);   // sound + flash + vibrate
+    const need = l.required - l.expected;
+    const msg = `${l.order_sku}\n\nPicker pulled ${l.expected}, ordered ${l.required}.\nYou are going beyond what the picker pulled.\n\nDid you find the remaining ${need} from another location?\n\nOK = yes, add it.   Cancel = stop.`;
+    if(!confirm(msg)) return false;   // not confirmed → nothing added
+    l.fillConfirmed = true;           // confirmed once → no repeat for this line
+  }
+  return true;
+}
+function manualAdjust(idx,d){
+  const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return;
+  if(d>0 && !confirmFillIfNeeded(l, nv)){ focusScan(); return; }   // clicking + beyond picker qty → same alert+confirm
+  l.verified=nv; l.vmethod="manual"; saveLine(l); renderPack(); focusScan();
+}
 
 async function saveLine(l){
   if(!l.packline_id)return;
