@@ -171,6 +171,14 @@
     if(opts.requireManager && !(data.role==="manager"||data.role==="admin")){
       loginErr("This screen is for managers and admins only."); await sb.auth.signOut(); return false;
     }
+    // per-screen permission for managers (admin always passes): "split" | "admin" | "staff"
+    if(opts.requirePerm && data.role==="manager"){
+      const perms=Array.isArray(data.perms)?data.perms:["split","admin","staff"];
+      if(!perms.includes(opts.requirePerm)){
+        loginErr("You don't have access to this screen. Please contact your administrator.");
+        await sb.auth.signOut(); return false;
+      }
+    }
     me=data; return true;
   }
 

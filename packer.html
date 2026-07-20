@@ -126,6 +126,10 @@
   .reportrow .rep:active{background:#fdf3df}
 
   .list{display:none;flex-direction:column;gap:8px}
+  .searchbar{display:flex;gap:8px;margin:0 0 10px}
+  .searchbar input{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:13.5px;background:#fff}
+  .searchbar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
+  .searchbar button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
@@ -226,6 +230,10 @@
     </div>
 
     <div class="single" id="single"></div>
+    <div class="searchbar">
+      <input id="skuSearch" autocomplete="off" placeholder="Search SKU / product…">
+      <button id="skuClear" style="display:none">Clear</button>
+    </div>
     <div class="list" id="list"></div>
 
     <div class="foot">
@@ -328,7 +336,7 @@ function qcard(o,label,btnTxt,attr,resume,shortCnt){
     <button class="go ${resume?"resumebtn":""}">${btnTxt}</button>
   </div>`;
 }
-let queueFilter="";
+let queueFilter="", skuFilter="";
 function renderQueue(){
   const be=document.getElementById("bempty");
   const f=queueFilter.trim().toUpperCase();
@@ -457,6 +465,7 @@ async function enterPack(){
     document.getElementById("shortList").innerHTML=shorts.map(l=>`<li>· ${esc(l.order_sku)} — Pick ${l.expected} / ordered ${l.required} (from other locations ${l.required-l.expected} more to find)</li>`).join("");
   }else{ al.style.display="none"; }
   // show the lines immediately (don't wait for enrichment queries)
+  skuFilter=""; const _se=document.getElementById("skuSearch"); if(_se)_se.value="";
   document.getElementById("listView").style.display="none";
   document.getElementById("packView").style.display="block";
   document.getElementById("pTitle").textContent=packTask.batch_label;
@@ -584,6 +593,17 @@ document.getElementById("viewSeg").onclick=e=>{
   [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x===b));
   renderPack(); focusScan();
 };
+/* SKU search within the batch being verified */
+const skuEl=document.getElementById("skuSearch");
+skuEl.addEventListener("input",()=>{ skuFilter=skuEl.value; if(view==="list") renderPack(); });
+skuEl.addEventListener("keydown",e=>{
+  if(e.key!=="Enter")return; e.preventDefault();
+  const sf=skuEl.value.trim().toLowerCase(); if(!sf)return;
+  const i=lines.findIndex(l=>(l.order_sku||"").toLowerCase().includes(sf)||(l.base_sku||"").toLowerCase().includes(sf)||(l.product_name||"").toLowerCase().includes(sf));
+  if(i>=0){ curIdx=i; renderPack(); }
+  else toast("No item matches "+skuEl.value,true);
+});
+document.getElementById("skuClear").onclick=()=>{ skuFilter=""; skuEl.value=""; renderPack(); focusScan(); };
 function renderList(){
   document.getElementById("single").style.display="none";
   document.getElementById("list").style.display="flex";
@@ -597,7 +617,13 @@ function renderList(){
     document.getElementById("overList").innerHTML=overs.map(l=>`<li>· ${esc(l.order_sku)} — ordered ${l.required} met, then ${l.overScans} more scans</li>`).join("");
   }else{ ov.style.display="none"; }
   const el=document.getElementById("list");
-  el.innerHTML=lines.map((l,idx)=>{
+  const sf=skuFilter.trim().toLowerCase();
+  const match=l=>!sf || (l.order_sku||"").toLowerCase().includes(sf) || (l.base_sku||"").toLowerCase().includes(sf) || (l.product_name||"").toLowerCase().includes(sf);
+  const visible=lines.map((l,idx)=>({l,idx})).filter(x=>match(x.l));
+  const cb=document.getElementById("skuClear");
+  cb.style.display=sf?"inline-block":"none";
+  if(sf && !visible.length){ el.innerHTML=`<div style="padding:18px;color:var(--mut);font-size:13px;text-align:center">No item matches "${esc(skuFilter)}" in this batch.</div>`; return; }
+  el.innerHTML=visible.map(({l,idx})=>{
     const done=l.verified>=l.required;
     const cls=done?"done":(idx===curIdx?"cur":"");
     let chip="";
@@ -783,7 +809,7 @@ document.getElementById("holdBtn").onclick=async ()=>{
 document.getElementById("backBtn").onclick=()=>{ packTask=null;order=null;lines=[];bcMap={};document.getElementById("packView").style.display="none";document.getElementById("listView").style.display="block";loadQueue(); };
 
 /* keep scan focus */
-function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); if(document.activeElement!==s)s.focus();} }
+function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); const a=document.activeElement; if(a===s)return; if(a&&(a.tagName==="INPUT"||a.tagName==="SELECT"||a.tagName==="TEXTAREA")&&a!==s)return; s.focus();} }
 document.getElementById("scan").addEventListener("blur",()=>{setTimeout(focusScan,60);});
 document.addEventListener("click",e=>{ if(document.getElementById("packView").style.display==="none")return; if(e.target.tagName==="SELECT"||e.target.tagName==="OPTION")return; setTimeout(focusScan,0); });
 

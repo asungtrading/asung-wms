@@ -46,6 +46,11 @@
     color:var(--mut);padding:7px 13px;border-radius:7px;cursor:pointer;transition:.12s}
   .seg button.active{background:var(--ink);color:#fff}
   .seg button:not(.active):hover{color:var(--ink)}
+  .permbox{display:inline-flex;gap:10px;flex-wrap:wrap}
+  .perm{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .perm input{accent-color:var(--ink);width:14px;height:14px;cursor:pointer}
+  .permall{font-size:12px;font-weight:700;color:var(--ok,#16a34a)}
+  .permna{color:var(--mut-2)}
   .search{flex:1;min-width:180px;position:relative}
   .search input{width:100%;border:1px solid var(--line);background:var(--card);
     border-radius:10px;padding:9px 12px 9px 34px;font:inherit;font-size:14px;box-shadow:var(--shadow)}
@@ -183,7 +188,7 @@
   <div class="card">
     <table>
       <thead>
-        <tr><th>Name</th><th>Warehouse access</th><th>Role</th><th>Status</th><th></th></tr>
+        <tr><th>Name</th><th>Warehouse access</th><th>Role</th><th>Access</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
@@ -224,7 +229,7 @@ let query = "";
 
 // ---- login bootstrap ----
 function boot(){
-  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+  wmsAuth.start({requireManager:true, requirePerm:"staff"}, (client, staffMe)=>{
     sb=client; me=staffMe;
     document.getElementById("app").style.display="block";
     document.getElementById("meName").textContent=me.name;
@@ -272,7 +277,14 @@ function render(){
   tbody.innerHTML = list.map(s=>rowHtml(s)).join("");
   // event binding
   tbody.querySelectorAll("[data-wh]").forEach(el=>el.onchange=e=>update(+el.dataset.wh_id,{warehouse_access:e.target.value},el));
-  tbody.querySelectorAll("[data-rl]").forEach(el=>el.onchange=e=>update(+el.dataset.rl_id,{role:e.target.value},el));
+  tbody.querySelectorAll("[data-rl]").forEach(el=>el.onchange=async e=>{ await update(+el.dataset.rl_id,{role:e.target.value},el); render(); });
+  tbody.querySelectorAll("[data-permrow]").forEach(box=>{
+    box.querySelectorAll("input[data-perm]").forEach(cb=>cb.onchange=()=>{
+      const id=+box.dataset.permrow;
+      const perms=[...box.querySelectorAll("input[data-perm]:checked")].map(c=>c.dataset.perm);
+      update(id,{perms});
+    });
+  });
   tbody.querySelectorAll("[data-tg]").forEach(el=>el.onclick=()=>{
     const id=+el.dataset.tg, cur=el.classList.contains("on");
     update(id,{active:!cur});
@@ -286,10 +298,19 @@ function rowHtml(s){
   const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}">`+
     ["worker","manager","admin"].map(r=>`<option value="${r}" ${r===s.role?"selected":""}>${RL_LABEL[r]}</option>`).join("")+`</select>`;
   const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"Active":"Inactive"}</small></div>`;
+  const PERMS=[["split","Split"],["admin","Admin"],["staff","Staff"]];
+  let permCell;
+  if(s.role==="admin"){ permCell=`<span class="permall">All access</span>`; }
+  else if(s.role==="manager"){
+    const cur=Array.isArray(s.perms)?s.perms:["split","admin","staff"];
+    permCell=`<span class="permbox" data-permrow="${s.id}">`+PERMS.map(([v,lb])=>
+      `<label class="perm"><input type="checkbox" data-perm="${v}" ${cur.includes(v)?"checked":""}>${lb}</label>`).join("")+`</span>`;
+  }else{ permCell=`<span class="permna">—</span>`; }
   return `<tr class="${s.active?"":"off"}">
     <td data-l="Name"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span></td>
     <td data-l="Warehouse">${whSel}</td>
     <td data-l="Role">${rlSel}</td>
+    <td data-l="Access">${permCell}</td>
     <td data-l="Status">${tg}</td>
     <td data-l=""><button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">Delete</button></td>
   </tr>`;

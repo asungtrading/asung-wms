@@ -76,21 +76,21 @@
 
       <div class="sect mgr-only">Managers &middot; Admin</div>
 
-      <a class="card mgr-only" href="manager.html">
+      <a class="card mgr-only" data-perm="split" href="manager.html">
         <div class="ic c-split">&#128451;&#65039;</div>
         <div class="tx"><div class="t">Order Splitting</div><div class="d">Split pending orders into batches</div></div>
         <span class="tag">MGR</span>
         <span class="chev">&rsaquo;</span>
       </a>
 
-      <a class="card mgr-only" href="admin.html">
+      <a class="card mgr-only" data-perm="admin" href="admin.html">
         <div class="ic c-adm">&#128202;</div>
         <div class="tx"><div class="t">Admin Dashboard</div><div class="d">Status &middot; discrepancies &middot; worker stats</div></div>
         <span class="tag">MGR</span>
         <span class="chev">&rsaquo;</span>
       </a>
 
-      <a class="card mgr-only" href="staff-admin.html">
+      <a class="card mgr-only" data-perm="staff" href="staff-admin.html">
         <div class="ic c-staff">&#128101;</div>
         <div class="tx"><div class="t">Staff Management</div><div class="d">Staff &middot; roles &middot; warehouse access</div></div>
         <span class="tag">MGR</span>
@@ -109,9 +109,15 @@
     wmsAuth.start({requireManager:false}, (sb, me)=>{
       document.getElementById("app").style.display="flex";
       document.getElementById("meName").textContent="\u{1F464} "+me.name;
-      // Show manager-only items only for managers/admins
-      const isMgr = (me.role==="manager"||me.role==="admin");
-      if(isMgr){ document.querySelectorAll(".mgr-only").forEach(el=>el.classList.remove("mgr-only")); }
+      // Show manager-only items per role + per-screen perms (admin = all)
+      const isAdmin=(me.role==="admin"), isMgr=(me.role==="manager");
+      const perms=Array.isArray(me.perms)?me.perms:["split","admin","staff"];
+      const anyMgr=isAdmin||(isMgr&&perms.length>0);
+      document.querySelectorAll(".mgr-only").forEach(el=>{
+        const p=el.dataset.perm;
+        const show = p ? (isAdmin||(isMgr&&perms.includes(p))) : anyMgr;  // no data-perm = section header
+        if(show) el.classList.remove("mgr-only");
+      });
     });
   }
   document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();

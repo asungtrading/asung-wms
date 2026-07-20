@@ -218,7 +218,7 @@ const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", rea
 
 /* ---------- boot / login ---------- */
 function boot(){
-  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+  wmsAuth.start({requireManager:true, requirePerm:"admin"}, (client, staffMe)=>{
     sb=client; me=staffMe;
     document.getElementById("app").style.display="block";
     document.getElementById("whoName").textContent=me.name;
