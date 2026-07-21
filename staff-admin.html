@@ -324,9 +324,13 @@ function render(){
 }
 
 function rowHtml(s){
+  const iAmAdmin = me.role==="admin";
+  // managers may adjust, but only admins can delete managers/admins or change an admin's role
+  const canDelete = iAmAdmin || s.role==="worker";
+  const lockRole  = !iAmAdmin && s.role==="admin";
   const whSel = `<select class="pill wh-${s.warehouse_access}" data-wh data-wh_id="${s.id}">`+
     ["toronto","edmonton","both"].map(w=>`<option value="${w}" ${w===s.warehouse_access?"selected":""}>${WH_LABEL[w]}</option>`).join("")+`</select>`;
-  const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}">`+
+  const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}" ${lockRole?'disabled title="Only an admin can change an admin\'s role"':""}>`+
     ["worker","manager","admin"].map(r=>`<option value="${r}" ${r===s.role?"selected":""}>${RL_LABEL[r]}</option>`).join("")+`</select>`;
   const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"Active":"Inactive"}</small></div>`;
   const PERMS=[["split","Split"],["admin","Admin"],["staff","Staff"]];
@@ -347,7 +351,9 @@ function rowHtml(s){
     <td data-l="Role">${rlSel}</td>
     <td data-l="Access">${permCell}</td>
     <td data-l="Status">${tg}</td>
-    <td data-l=""><button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">Delete</button></td>
+    <td data-l="">${canDelete
+      ?`<button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">Delete</button>`
+      :`<span style="font-size:11px;color:#9aa4b2" title="Managers can delete workers only — use Inactive, or ask an admin">Admin only</span>`}</td>
   </tr>`;
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
