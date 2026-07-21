@@ -101,7 +101,7 @@
   .zbadge{font-family:var(--mono);font-weight:800;font-size:15px;color:#fff;background:var(--mut);min-width:34px;height:34px;border-radius:9px;display:grid;place-items:center;padding:0 8px}
   .binbig{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.01em}
   .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
-  .single .sku{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .single .sku{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--ink);letter-spacing:.01em}
   .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
   .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
   .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
@@ -124,7 +124,7 @@
   .lrow.short{background:var(--danger-bg);border-color:#f3c4c4}
   .lrow .zn{font-family:var(--mono);font-weight:800;font-size:12px;color:#fff;background:var(--mut-2);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
   .lrow .li{flex:1;min-width:0}
-  .lrow .li .s{font-family:var(--mono);font-weight:700;font-size:13px}
+  .lrow .li .s{font-family:var(--mono);font-weight:800;font-size:15.5px;color:var(--ink)}
   .lrow .li .n{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
   .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap}
@@ -206,8 +206,8 @@
         <div class="pmeta" id="pMeta"></div>
       </div>
       <div class="seg" id="viewSeg">
-        <button data-v="single">Single</button>
-        <button data-v="list" class="active">List</button>
+        <button data-v="single" class="active">Single</button>
+        <button data-v="list">List</button>
       </div>
     </div>
     <div class="prog"><i id="progBar"></i></div>
@@ -241,7 +241,7 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
-let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="list", batchFilter="";
+let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single", batchFilter="";
 let actx=null;
 
 /* ---------- lease / heartbeat / presence ---------- */
