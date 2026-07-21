@@ -418,6 +418,7 @@ async function loadOverview(){
 /* ---------- Batch activity (who holds what, live/idle, release) ---------- */
 function fresh(t){ const h=t.heartbeat_at||t.started_at; return h && (Date.now()-new Date(h).getTime())<=STALE_S*1000; }
 function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+let baRows=[], baSort={key:"batch",dir:1}, baWh="all";
 async function loadBatchActivity(activeOrders){
   const el=document.getElementById("batchActivity"); if(!el) return;
   const ids=(activeOrders||[]).map(o=>o.id);
@@ -441,7 +442,7 @@ async function loadBatchActivity(activeOrders){
   (kls.data||[]).forEach(l=>{ const s=packSum[l.pack_task_id]=packSum[l.pack_task_id]||{e:0,v:0}; s.e+=Number(l.expected_base||0); s.v+=Number(l.verified_base||0); });
 
   // one row per pick batch: current phase = pack task if it exists, else pick task
-  const rows=picks.map(p=>{
+  baRows=picks.map(p=>{
     const pack=packByPick[p.id]||null;
     const ps=pickSum[p.id]||{a:0,p:0};
     const ks=pack?(packSum[pack.id]||{e:0,v:0}):null;
@@ -467,24 +468,51 @@ async function loadBatchActivity(activeOrders){
     const prog = pack ? `${(ks&&ks.v)||0}/${(ks&&ks.e)||0} verified` : `${ps.p}/${ps.a} picked`;
     return {p,o,phase,holder,chip,rel,prog,label:p.batch_label};
   });
-
-  if(!rows.length){ el.innerHTML=`<div class="empty">No batches yet (orders not split).</div>`; return; }
-  let lastOid=null;
-  el.innerHTML=`<table><thead><tr><th>Batch</th><th>Customer</th><th>Phase</th><th>Worker</th><th class="num">Progress</th><th>State</th><th></th></tr></thead><tbody>${
-    rows.map(r=>{
-      const sep=(lastOid!==null && lastOid!==r.p.order_id)?' style="border-top:2px solid var(--line)"':""; lastOid=r.p.order_id;
-      return `<tr${sep}>
-      <td style="font-family:var(--mono);font-weight:700">${esc(r.label)}
-        <span data-livebatch="${esc(r.label)}" style="display:none" title="Open on a worker's screen right now">👁</span></td>
-      <td>${esc(r.o.customer_name||"—")} <span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
-      <td>${r.phase}</td>
-      <td>${esc(r.holder||"—")}</td>
-      <td class="num" style="font-family:var(--mono)">${r.prog}</td>
-      <td>${r.chip}</td>
-      <td style="text-align:right">${r.rel?`<button data-reltable="${r.rel.table}" data-relid="${r.rel.id}" data-rellabel="${esc(r.label)}"
-        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Release</button>`:""}</td>
-    </tr>`;}).join("")
-  }</tbody></table>`;
+  renderBatchActivity();
+}
+function baCmp(a,b){
+  const k=baSort.key, d=baSort.dir;
+  if(k==="batch"){
+    const pa=/^SO-(\d+)-(\d+)/.exec(a.label||"")||[], pb=/^SO-(\d+)-(\d+)/.exec(b.label||"")||[];
+    const x=(Number(pa[1])||0)-(Number(pb[1])||0); if(x) return x*d;
+    const y=(Number(pa[2])||0)-(Number(pb[2])||0); if(y) return y*d;
+    return (a.label||"")<(b.label||"")?-d:(a.label||"")>(b.label||"")?d:0;
+  }
+  let va="",vb="";
+  if(k==="customer"){va=a.o.customer_name||"";vb=b.o.customer_name||"";}
+  else if(k==="worker"){va=a.holder||"";vb=b.holder||"";}
+  return va<vb?-d:va>vb?d:0;
+}
+function renderBatchActivity(){
+  const el=document.getElementById("batchActivity"); if(!el) return;
+  let rows=baRows.slice();
+  if(baWh!=="all") rows=rows.filter(r=>r.o.warehouse===baWh);
+  rows.sort(baCmp);
+  const arrow=k=>baSort.key===k?(baSort.dir>0?" ▲":" ▼"):"";
+  const th=(k,l)=>`<th data-bas="${k}" style="cursor:pointer;user-select:none">${l}${arrow(k)}</th>`;
+  const whBtn=(v,l)=>`<button data-bawh="${v}" style="border:1px solid var(--line);background:${baWh===v?"#eef4ff":"#fff"};color:${baWh===v?"#2456d6":"var(--mut)"};border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px">${l}</button>`;
+  const bar=`<div style="padding:10px 12px 4px">${whBtn("all","All")}${whBtn("toronto","Toronto")}${whBtn("edmonton","Edmonton")}</div>`;
+  if(!rows.length){ el.innerHTML=bar+`<div class="empty">No batches for this warehouse.</div>`; }
+  else{
+    let lastOid=null;
+    el.innerHTML=bar+`<table><thead><tr>${th("batch","Batch")}${th("customer","Customer")}<th>Phase</th>${th("worker","Worker")}<th class="num">Progress</th><th>State</th><th></th></tr></thead><tbody>${
+      rows.map(r=>{
+        const sep=(baSort.key==="batch"&&lastOid!==null&&lastOid!==r.p.order_id)?' style="border-top:2px solid var(--line)"':""; lastOid=r.p.order_id;
+        return `<tr${sep}>
+        <td style="font-family:var(--mono);font-weight:700">${esc(r.label)}
+          <span data-livebatch="${esc(r.label)}" style="display:none" title="Open on a worker's screen right now">👁</span></td>
+        <td>${esc(r.o.customer_name||"—")} <span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+        <td>${r.phase}</td>
+        <td>${esc(r.holder||"—")}</td>
+        <td class="num" style="font-family:var(--mono)">${r.prog}</td>
+        <td>${r.chip}</td>
+        <td style="text-align:right">${r.rel?`<button data-reltable="${r.rel.table}" data-relid="${r.rel.id}" data-rellabel="${esc(r.label)}"
+          style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Release</button>`:""}</td>
+      </tr>`;}).join("")
+    }</tbody></table>`;
+  }
+  el.querySelectorAll("[data-bas]").forEach(h=>h.onclick=()=>{ const k=h.dataset.bas; if(baSort.key===k) baSort.dir*=-1; else baSort={key:k,dir:1}; renderBatchActivity(); });
+  el.querySelectorAll("[data-bawh]").forEach(b=>b.onclick=()=>{ baWh=b.dataset.bawh; renderBatchActivity(); });
   el.querySelectorAll("[data-reltable]").forEach(b=>b.onclick=()=>releaseClaim(b.dataset.reltable,+b.dataset.relid,b.dataset.rellabel));
   markLiveRows();
 }
