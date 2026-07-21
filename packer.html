@@ -115,6 +115,12 @@
   .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
   .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
   .qtybox.done .qtybig{color:var(--ok)}
+  .lastscan{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 13px;border-radius:11px;background:var(--ok-bg);border:1.5px solid #bfe6cd;font-family:var(--mono);font-weight:800;font-size:15px;color:#15803d}
+  .lastscan .fbig{font-size:22px;white-space:nowrap}
+  .lastscan.boxscan{background:#fff4e0;border-color:#f0d9ae;color:#a86400}
+  .lastscan .sub{font-weight:600;font-size:11px;opacity:.7;margin-left:auto;font-family:var(--sans);white-space:nowrap}
+  @keyframes qtypop{0%{transform:scale(1)}35%{transform:scale(1.28)}100%{transform:scale(1)}}
+  .qtybig.pop{animation:qtypop .5s ease}
   .stepper{margin-left:auto;display:flex;gap:8px}
   .stepper button{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:#fff;font-size:22px;font-weight:700;color:var(--ink);cursor:pointer}
   .stepper button:active{background:var(--paper)}
@@ -330,6 +336,12 @@ function beep(kind){
   if(kind==="ok"){const o=actx.createOscillator(),g=actx.createGain();o.type="sine";o.frequency.setValueAtTime(1050,t);
     g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.14,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);}
+  else if(kind==="okbox"){ // box scan (factor>1): rising triple tone so ears confirm a multi-unit add
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1100,t+0.09);o.frequency.setValueAtTime(1320,t+0.18);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.16,t+0.01);
+    g.gain.setValueAtTime(0.16,t+0.26);g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.33);}
 else{ // error: LOUD two-tone siren (high freqs carry on small speakers), full volume
     try{ if(actx.state==="suspended") actx.resume(); }catch(e){}
     const o=actx.createOscillator(),g=actx.createGain();
@@ -343,7 +355,7 @@ else{ // error: LOUD two-tone siren (high freqs carry on small speakers), full v
   }
 }
 function vibe(kind){try{navigator.vibrate&&navigator.vibrate(kind==="ok"?25:[160,80,160,80,220]);}catch(e){}}
-function flash(kind,msg){const el=document.getElementById("flash");el.className="show "+kind;el.textContent=msg;clearTimeout(el._t);el._t=setTimeout(()=>el.className=kind,700);beep(kind==="ok"?"ok":"bad");vibe(kind==="ok"?"ok":"bad");}
+function flash(kind,msg){const el=document.getElementById("flash");const cls=kind==="okbox"?"ok":kind;el.className="show "+cls;el.textContent=msg;clearTimeout(el._t);el._t=setTimeout(()=>el.className=cls,kind==="okbox"?1200:700);beep(kind==="bad"?"bad":kind);vibe(kind==="bad"?"bad":"ok");}
 
 /* initial load */
 async function init(){
@@ -399,7 +411,7 @@ function qcard(o,label,btnTxt,attr,resume,shortCnt){
     <button class="go ${resume?"resumebtn":""}">${btnTxt}</button>
   </div>`;
 }
-let queueFilter="", skuFilter="";
+let queueFilter="", skuFilter="", lastScan=null, advTimer=null;
 function renderQueue(){
   const be=document.getElementById("bempty");
   const f=queueFilter.trim().toUpperCase();
@@ -562,7 +574,7 @@ async function enterPack(){
     document.getElementById("shortList").innerHTML=shorts.map(l=>`<li>· ${esc(l.order_sku)} — Pick ${l.expected} / ordered ${l.required} (from other locations ${l.required-l.expected} more to find)</li>`).join("");
   }else{ al.style.display="none"; }
   // show the lines immediately (don't wait for enrichment queries)
-  skuFilter=""; const _se=document.getElementById("skuSearch"); if(_se)_se.value="";
+  skuFilter=""; lastScan=null; clearTimeout(advTimer); const _se=document.getElementById("skuSearch"); if(_se)_se.value="";
   document.getElementById("listView").style.display="none";
   document.getElementById("packView").style.display="block";
   document.getElementById("pTitle").textContent=packTask.batch_label;
@@ -614,6 +626,15 @@ function renderPack(){
   else{ ov.style.display="none"; }
   if(view==="single") renderSingle(); else renderList();
 }
+function lastScanHtml(){
+  if(!lastScan) return "";
+  const s=lastScan;
+  return `<div class="lastscan ${s.box?"boxscan":""}">
+    <span class="fbig">${s.box?"📦":"✓"} +${s.f}</span>
+    <span>${esc(s.sku)} → ${s.verified}/${s.required}${s.ignored?` · ignored ${s.ignored}`:""}</span>
+    <span class="sub">LAST SCAN</span>
+  </div>`;
+}
 function renderSingle(){
   document.getElementById("list").style.display="none";
   const host=document.getElementById("single"); host.style.display="block";
@@ -646,6 +667,7 @@ function renderSingle(){
           <button data-step="1">+</button>
         </div>
       </div>
+      ${lastScanHtml()}
       <button class="manual" data-manual>Enter quantity</button>
       <div class="navrow">
         <button class="btn ghost" data-nav="-1">\u2190 Prev</button>
@@ -658,6 +680,7 @@ function renderSingle(){
   host.querySelector("[data-manual]").onclick=()=>manualSetPack(curIdx);
   host.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{movePack(+b.dataset.nav);});
   host.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssuePack(b.dataset.rep, curIdx));
+  if(lastScan && Date.now()-lastScan.at<1200){ const qb=host.querySelector(".qtybig"); if(qb) qb.classList.add("pop"); }
 }
 async function reportIssuePack(kind, idx){
   const l=lines[idx]; if(!l) return;
@@ -752,6 +775,7 @@ scanEl.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();co
 function processScan(code){
   const cands=bcMap[code];
   if(!cands||!cands.length){ flash("bad","✕ Barcode not in this batch"); return; }
+  clearTimeout(advTimer);
   // prefer lines not yet at ordered qty, else already-full (=over detect) lines
   let hit=cands.find(c=>lines[c.idx].verified<lines[c.idx].required) || cands[0];
   const l=lines[hit.idx], f=hit.factor; curIdx=hit.idx;
@@ -760,12 +784,14 @@ function processScan(code){
     // ordered qty already met → over-scan. not recorded, soft warning only (avoid double-scan false positive).
     // let packer decide at completion whether it's a 'real extra'.
     l.overScans=(l.overScans||0)+f;   // over-scan detection mark (not recorded)
+    lastScan={sku:l.order_sku, f:0, ignored:f, verified:l.verified, required:l.required, box:f>1, at:Date.now()};
     flash("bad",`⚠ already ${l.required} met — extra scans ignored (${l.order_sku})`);
     renderPack(); focusScan(); return;
   }
   if(f>room){
     // variant scan etc. exceeded ordered qty → fill only what's needed, mark rest as over-scan only (not recorded)
     l.verified=l.required; l.overScans=(l.overScans||0)+(f-room); l.vmethod=f>1?"scanned_variant":"scanned_base";
+    lastScan={sku:l.order_sku, f:room, ignored:f-room, verified:l.verified, required:l.required, box:f>1, at:Date.now()};
     flash("bad",`⚠ ${l.order_sku} ${l.required} met — excess ${f-room} ignored`);
     saveLine(l); renderPack(); focusScan(); return;
   }
@@ -773,9 +799,15 @@ function processScan(code){
   if(!confirmFillIfNeeded(l, l.verified + f)){ focusScan(); return; }
   l.verified+=f; l.vmethod=f>1?"scanned_variant":"scanned_base";
   const rec=(l.verified>l.expected)?" · pack fill":"";
-  flash("ok",`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}`);
+  lastScan={sku:l.order_sku, f, verified:l.verified, required:l.required, box:f>1, at:Date.now()};
+  flash(f>1?"okbox":"ok",`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}`);
   saveLine(l);
-  if(l.verified>=l.required) autoAdvance();
+  if(l.verified>=l.required){
+    // let the worker SEE the line reach its target before the view moves on
+    renderPack(); focusScan();
+    advTimer=setTimeout(()=>{ if(lines[curIdx]&&lines[curIdx].verified>=lines[curIdx].required){ autoAdvance(); renderPack(); focusScan(); } },900);
+    return;
+  }
   renderPack(); focusScan();
 }
 function autoAdvance(){ const n=lines.findIndex((l,i)=>i>curIdx&&l.verified<l.required); const a=lines.findIndex(l=>l.verified<l.required); curIdx=n>=0?n:(a>=0?a:curIdx); }
