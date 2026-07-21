@@ -180,7 +180,10 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Throughput by worker</div>
+      <div class="sect-h">Fulfillment <span style="font-weight:400;color:var(--mut);font-size:12.5px">— packing list vs direct pack (finalized in period)</span></div>
+      <div class="grid" id="fulfillStats"></div>
+      <div class="card" style="margin-top:10px"><div id="directList"></div></div>
+      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches completed + avg time per batch</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
@@ -668,15 +671,19 @@ async function fixDisc(id){
 async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
   // throughput: completed pick/pack batches (by completion time)
-  const [picks, packs, disc]=await Promise.all([
-    sb.from("wms_pick_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_pack_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+  const [picks, packs, disc, fin]=await Promise.all([
+    sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
+    sb.from("wms_orders").select("order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at").not("finalized_at","is",null).gte("finalized_at",r.fromISO).lte("finalized_at",r.toISO).order("finalized_at",{ascending:false}),
   ]);
-  // throughput tally
+  renderFulfillStats(fin.data||[]);
+  // throughput + avg duration tally
   const prod={};
-  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pick++; });
-  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pack++; });
+  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0});
+  const dur=t=>{ if(!t.started_at||!t.completed_at)return null; const m=(new Date(t.completed_at)-new Date(t.started_at))/60000; return (m>=0&&m<24*60)?m:null; };
+  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;} });
+  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;} });
   renderProd(prod);
   // mistake tally (by responsible person, resolved not excluded — count occurrences themselves, resolved_pack_recovery excluded)
   const mistakes={};
@@ -685,6 +692,30 @@ async function loadStats(){
     if(m[d.reason]!=null)m[d.reason]++; m.total++; });
   renderMistakes(mistakes);
 }
+function renderFulfillStats(fin){
+  const total=fin.length;
+  const pk=fin.filter(o=>o.fulfillment_type==="packing_list").length;
+  const dr=fin.filter(o=>o.fulfillment_type==="direct").length;
+  const pct=total?Math.round(pk/total*100):0;
+  document.getElementById("fulfillStats").innerHTML=[
+    ["Finalized",total,""],
+    ["With packing list",pk,"ok"],
+    ["Direct pack",dr,dr>0?"warn":""],
+    ["Packing-list rate",pct+"%",pct>=80?"ok":(total?"warn":"")],
+  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  const el=document.getElementById("directList");
+  const drs=fin.filter(o=>o.fulfillment_type==="direct");
+  if(!drs.length){ el.innerHTML=`<div class="empty" style="font-size:12.5px">No direct-pack (no packing list) orders in this period.</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Direct-pack order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th></tr></thead><tbody>${
+    drs.map(o=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+      <td>${esc(o.customer_name||"—")}</td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td>${esc(o.finalized_by||"—")}</td>
+      <td style="color:var(--mut);font-size:12px">${o.finalized_at?new Date(o.finalized_at).toLocaleString():""}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
+}
 function renderProd(prod){
   const rows=Object.entries(prod).sort((a,b)=>(b[1].pick+b[1].pack)-(a[1].pick+a[1].pack));
   const el=document.getElementById("prodTable");
@@ -692,7 +723,7 @@ function renderProd(prod){
   const max=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
   el.innerHTML=rows.map(([nm,v])=>`
     <div style="margin:10px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick} · Pack ${v.pack}</span></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""} · Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}</span></div>
       <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/max*100)}%"></div></div><span class="val">${v.pick}</span></div>
       <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/max*100)}%"></div></div><span class="val">${v.pack}</span></div>
     </div>`).join("");

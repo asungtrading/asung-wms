@@ -334,8 +334,20 @@ document.getElementById("completeBtn").onclick=async ()=>{
   if(!confirm(msg)) return;
   const btn=document.getElementById("completeBtn"); btn.disabled=true;
   try{
-    const {error}=await sb.from("wms_orders").update({status:"closed", updated_at:new Date().toISOString()}).in("id",orderIds);
-    if(error) throw error;
+    const now=new Date().toISOString();
+    const packedIds=info.filter(x=>x.placed).map(x=>x.o.id);
+    const directIds=info.filter(x=>!x.placed).map(x=>x.o.id);
+    // record fulfillment_type / finalized_by / finalized_at for stats; fall back to status-only if columns not added yet
+    const doUpd=async(ids,ftype)=>{
+      if(!ids.length) return;
+      let {error}=await sb.from("wms_orders").update({status:"closed", fulfillment_type:ftype, finalized_by:me.name, finalized_at:now, updated_at:now}).in("id",ids);
+      if(error && /column|fulfillment_type|finalized/i.test(error.message||"")){
+        ({error}=await sb.from("wms_orders").update({status:"closed", updated_at:now}).in("id",ids));
+      }
+      if(error) throw error;
+    };
+    await doUpd(packedIds,"packing_list");
+    await doUpd(directIds,"direct");
     toast(orders.length+" order(s) finalized");
     // reset workspace
     orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[];
