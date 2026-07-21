@@ -310,20 +310,20 @@ function beep(kind){
   if(kind==="ok"){
     const o=actx.createOscillator(),g=actx.createGain();
     o.type="sine";o.frequency.setValueAtTime(1050,t);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.14,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);
   }else if(kind==="done"){ // line complete: cheerful rising major arpeggio (clearly different from ok/okbox)
     const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
     o.frequency.setValueAtTime(1046.5,t);o.frequency.setValueAtTime(1318.5,t+0.09);
     o.frequency.setValueAtTime(1568,t+0.18);o.frequency.setValueAtTime(2093,t+0.27);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.17,t+0.01);
-    g.gain.setValueAtTime(0.17,t+0.34);g.gain.exponentialRampToValueAtTime(0.0001,t+0.52);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.55,t+0.01);
+    g.gain.setValueAtTime(0.55,t+0.34);g.gain.exponentialRampToValueAtTime(0.0001,t+0.52);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.53);
   }else if(kind==="okbox"){ // box scan (factor>1): rising triple tone so ears confirm a multi-unit add
     const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
     o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1100,t+0.09);o.frequency.setValueAtTime(1320,t+0.18);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.16,t+0.01);
-    g.gain.setValueAtTime(0.16,t+0.26);g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);
+    g.gain.setValueAtTime(0.5,t+0.26);g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.33);
   }else{ // error: LOUD two-tone siren (high freqs carry on small speakers), full volume
     try{ if(actx.state==="suspended") actx.resume(); }catch(e){}
