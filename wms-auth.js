@@ -183,19 +183,23 @@
   }
 
 
+  /* ---- bfcache fix: pages restored from back-forward cache resume with dead
+     in-flight requests (spinners hang forever). Force a clean reload on restore. ---- */
+  window.addEventListener("pageshow", function(e){ if(e.persisted) location.reload(); });
+
   /* ---- shared nav dropdown (☰ Menu on every screen) ---- */
   function setupNavMenu(meData){
     const btn=document.querySelector('button[title="Main menu"]');
     if(!btn || btn._wmsNav) return;
     btn._wmsNav=true;
     const items=[
-      ["Home","index.html",null],
+      ["Admin","admin.html","admin"],
+      ["Order Splitting","manager.html","split"],
       ["Picking","picker.html",null],
       ["Packing","packer.html",null],
       ["Fulfillment","fulfillment.html",null],
-      ["Order Splitting","manager.html","split"],
-      ["Admin","admin.html","admin"],
       ["Staff","staff-admin.html","staff"],
+      ["Home","index.html",null],
     ];
     const isAdmin=meData.role==="admin", isMgr=meData.role==="manager";
     const perms=Array.isArray(meData.perms)?meData.perms:["split","admin","staff"];
