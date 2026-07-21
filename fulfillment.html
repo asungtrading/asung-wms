@@ -115,6 +115,19 @@
   .notes input{flex:1;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font:inherit;font-size:11.5px}
 
   .unitsempty{grid-column:1/-1;padding:44px;text-align:center;color:var(--mut-2);border:2px dashed var(--line);border-radius:12px}
+
+  /* ---- tap-to-place (mobile) ---- */
+  .armed-src{outline:3px solid var(--accent) !important;outline-offset:1px;border-radius:10px;background:#eef4ff !important}
+  @keyframes placepulse{0%,100%{box-shadow:0 0 0 3px rgba(47,109,246,.18)}50%{box-shadow:0 0 0 6px rgba(47,109,246,.32)}}
+  .place-ready{border-color:var(--accent) !important;animation:placepulse 1.2s ease infinite}
+  #placeBar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:none;align-items:center;gap:10px;
+    background:var(--ink);color:#fff;padding:13px 14px calc(13px + env(safe-area-inset-bottom));
+    font-size:13.5px;font-weight:700;box-shadow:0 -8px 30px rgba(0,0,0,.28)}
+  #placeBar .pl-lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+  #placeBar .pl-hint{font-weight:600;font-size:11.5px;opacity:.75;display:block;font-family:var(--sans)}
+  #placeBar button{border:0;border-radius:9px;padding:10px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+  #placeBar #plPool{background:#fff;color:var(--ink)}
+  #placeBar #plCancel{background:rgba(255,255,255,.16);color:#fff}
   .storebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
   .storebar .lab{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
   .storebar .schip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;background:var(--paper)}
@@ -239,6 +252,11 @@
 </div></div>
 
 <div id="printArea"></div>
+<div id="placeBar">
+  <span class="pl-lbl" id="plLbl"></span>
+  <button id="plPool" style="display:none">↩ To pool</button>
+  <button id="plCancel">✕ Cancel</button>
+</div>
 <div id="toast"></div>
 
 <script src="wms-config.js"></script>
@@ -251,6 +269,44 @@ let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
 let bcBySku={};   // sku -> its own barcode (for packing lists)
 let availOrders=[];            // selectable order list
 let drag=null; // {kind, ...}
+
+/* ---------- tap-to-place (mobile-friendly alternative to drag) ----------
+   Tap a product/batch/order/item/box to select it, then tap a pallet/box to
+   place it. Reuses the exact same onDropToUnit logic as drag-and-drop. */
+const TOUCH=("ontouchstart" in window)||navigator.maxTouchPoints>0;
+let armed=null; // {kind,...same as drag, label, _el}
+function arm(payload,label,el){
+  if(armed && armed._el===el){ disarm(); return; }   // tap again = cancel
+  disarm();
+  armed=Object.assign({},payload,{label,_el:el});
+  el.classList.add("armed-src");
+  // highlight valid targets: box → pallets only, everything else → any unit
+  document.querySelectorAll("#units [data-unit]").forEach(z=>{
+    if(payload.kind==="box"){ if(z.dataset.type==="pallet") z.classList.add("place-ready"); }
+    else z.classList.add("place-ready");
+  });
+  document.getElementById("plLbl").innerHTML=`${esc(label)}<span class="pl-hint">Tap a pallet or box to place it</span>`;
+  document.getElementById("plPool").style.display=(payload.kind==="item")?"":"none";
+  document.getElementById("placeBar").style.display="flex";
+}
+function disarm(){
+  if(!armed) return;
+  try{ armed._el.classList.remove("armed-src"); }catch(e){}
+  document.querySelectorAll(".place-ready").forEach(z=>z.classList.remove("place-ready"));
+  document.getElementById("placeBar").style.display="none";
+  armed=null;
+}
+function placeTo(uid,utype){
+  if(!armed) return;
+  if(armed.kind==="box" && utype!=="pallet"){ toast("A box can only go on a pallet",true); return; }
+  if(armed.kind==="box" && armed.boxId===uid){ disarm(); return; }
+  const payload=armed; disarm();
+  drag=payload;                 // hand over to the shared drop logic
+  onDropToUnit(uid,utype);
+}
+const recentDrag=()=>Date.now()-(window.__justDragged||0)<350; // ignore ghost taps right after a drag
+document.getElementById("plCancel").onclick=()=>disarm();
+document.getElementById("plPool").onclick=()=>{ if(armed&&armed.kind==="item"){ const id=armed.itemId; disarm(); removeItem(id); } };
 
 /* ---------- login ---------- */
 function boot(){
@@ -413,6 +469,7 @@ async function loadWorkspace(){
 
 /* ---------- refresh units/items (all units related to selected orders) ---------- */
 async function refresh(){
+  disarm(); // DOM is rebuilt below — a stale selection would point at dead elements
   // 1) units homed to selected orders + 2) units containing selected-order items → union
   const [byHome, byItems]=await Promise.all([
     sb.from("wms_pallets").select("*").in("order_id",orderIds),
@@ -468,6 +525,18 @@ function renderPool(){
   }).join("");
   el.querySelectorAll("[data-pl]").forEach(c=>c.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"poolLine",olid:+c.dataset.pl}; e.dataTransfer.effectAllowed="move"; }));
   el.querySelectorAll("[data-many]").forEach(h=>h.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"poolMany",olids:h.dataset.many.split(",").map(Number)}; e.dataTransfer.effectAllowed="move"; }));
+  if(TOUCH){
+    el.querySelectorAll("[data-pl]").forEach(c=>c.addEventListener("click",e=>{
+      if(recentDrag())return; e.stopPropagation();
+      const pl=poolLines.find(p=>p.order_line_id===+c.dataset.pl); if(!pl)return;
+      arm({kind:"poolLine",olid:+c.dataset.pl}, `${pl.sku} · ${remainingFor(pl)}`, c);
+    }));
+    el.querySelectorAll("[data-many]").forEach(h=>h.addEventListener("click",e=>{
+      if(recentDrag())return; e.stopPropagation();
+      const olids=h.dataset.many.split(",").map(Number);
+      arm({kind:"poolMany",olids}, h.textContent.trim(), h);
+    }));
+  }
   el.ondragover=e=>{ if(drag&&drag.kind==="item"){e.preventDefault();} };
   el.ondrop=e=>{ if(drag&&drag.kind==="item"){ e.preventDefault(); removeItem(drag.itemId); } };
 }
@@ -489,20 +558,20 @@ function boxBlock(b){
   return `<div class="nested" data-unit="${b.id}" data-type="box">
     <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}<span class="tot">${tot}</span>
       <span class="x" data-delunit="${b.id}" style="cursor:pointer;margin-left:6px">✕</span></div>
-    <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag here</div>'}
+    <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag or tap here</div>'}
       <button class="mini print" data-print="${b.id}" style="margin-top:4px">🖨 Box list</button></div>
   </div>`;
 }
 function renderUnits(){
   const el=document.getElementById("units");
   const top=units.filter(u=>!u.parent_id);
-  if(!top.length){ el.innerHTML=`<div class="unitsempty">Add a pallet or box and<br>Drag products from the left to fill it.</div>`; return; }
+  if(!top.length){ el.innerHTML=`<div class="unitsempty">Add a pallet or box and<br>Drag or tap products from the left to fill it.</div>`; return; }
   el.innerHTML=top.map(u=>{
     if(u.unit_type==="pallet"){
       const direct=itemsIn(u.id); const boxes=boxesIn(u.id);
       const tot=unitTot(u.id)+boxes.reduce((s,b)=>s+unitTot(b.id),0);
       const body=(boxes.map(boxBlock).join("")) + (direct.length?direct.map(itemChip).join(""):"") +
-        (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag here</div>':"");
+        (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag or tap here</div>':"");
       return `<div class="unit pallet" data-unit="${u.id}" data-type="pallet">
         <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${tot}</span></div>
         <div class="ubody">${body}</div>
@@ -513,7 +582,7 @@ function renderUnits(){
       const its=itemsIn(u.id);
       return `<div class="unit box" data-unit="${u.id}" data-type="box">
         <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span><span class="tot">${unitTot(u.id)}</span></div>
-        <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag here</div>'}</div>
+        <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag or tap here</div>'}</div>
         <div class="ufoot"><button class="mini print" data-print="${u.id}">🖨 Box list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
     }
@@ -528,6 +597,35 @@ function wireUnitEvents(){
   // box drag (nested header) -> move box into pallet / out
   el.querySelectorAll("[data-box]").forEach(h=>h.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"box",boxId:+h.dataset.box}; }));
   el.querySelectorAll("[data-move-unit]").forEach(h=>h.addEventListener("dragstart",e=>{ e.stopPropagation(); const id=+h.dataset.moveUnit; const u=units.find(x=>x.id===id); drag={kind:u.unit_type==="box"?"box":"unit", boxId:id}; }));
+  if(TOUCH){
+    // tap a chip / box header / grip to select it
+    el.querySelectorAll("[data-item]").forEach(c=>c.addEventListener("click",e=>{
+      if(recentDrag())return;
+      if(e.target.closest("[data-x]"))return;      // ✕ keeps its remove behavior
+      e.stopPropagation();
+      const it=items.find(i=>i.id===+c.dataset.item); if(!it)return;
+      arm({kind:"item",itemId:it.id}, `${it.order_sku} · ${it.qty_base}`, c);
+    }));
+    el.querySelectorAll("[data-box]").forEach(h=>h.addEventListener("click",e=>{
+      if(recentDrag())return;
+      if(e.target.closest("[data-delunit]"))return;
+      e.stopPropagation();
+      const u=units.find(x=>x.id===+h.dataset.box); if(!u)return;
+      arm({kind:"box",boxId:u.id}, `📦 ${u.label}`, h);
+    }));
+    el.querySelectorAll("[data-move-unit]").forEach(h=>h.addEventListener("click",e=>{
+      if(recentDrag())return; e.stopPropagation();
+      const u=units.find(x=>x.id===+h.dataset.moveUnit); if(!u||u.unit_type!=="box")return; // pallets don't move
+      arm({kind:"box",boxId:u.id}, `📦 ${u.label}`, h.closest(".unit")||h);
+    }));
+    // tap a unit to place the armed selection (delegated; innermost unit wins)
+    el.addEventListener("click",e=>{
+      if(!armed||recentDrag())return;
+      if(e.target.closest("button,input,[data-x],[data-delunit],[data-addbox],[data-print],[data-note]"))return;
+      const zone=e.target.closest("[data-unit]"); if(!zone)return;
+      placeTo(+zone.dataset.unit, zone.dataset.type);
+    });
+  }
   // drop targets: every unit (pallet or box)
   el.querySelectorAll("[data-unit]").forEach(zone=>{
     const uid=+zone.dataset.unit; const utype=zone.dataset.type;
@@ -792,6 +890,7 @@ boot();
   document.addEventListener("touchend",function(e){
     if(!src){ return; }
     if(dragging){
+      window.__justDragged=Date.now(); // suppress the ghost click that may follow a touch drag
       var el=underFinger();
       clearHi();
       if(el) fire(el,"drop");   // bubbles to dropzone → onDropToUnit / removeItem
