@@ -130,6 +130,7 @@
     table{min-width:560px}
     .grid{grid-template-columns:repeat(2,1fr)}
   }
+  .plbtn{border:1px solid var(--line);background:#fff;color:var(--accent);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -150,7 +151,7 @@
       <button data-t="reports">Reports <span class="badge" id="reportBadge" style="display:none">0</span></button>
       <button data-t="stats">Stats</button>
       <button data-t="rollback">Rollback</button>
-      <button data-t="packing">Packing Lists</button>
+      <button data-t="packing">Finalized</button>
       <button data-t="launch">Work Screens</button>
     </div>
   </header>
@@ -180,9 +181,6 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Fulfillment <span style="font-weight:400;color:var(--mut);font-size:12.5px">— packing list vs direct pack (finalized in period)</span></div>
-      <div class="grid" id="fulfillStats"></div>
-      <div class="card" style="margin-top:10px"><div id="directList"></div></div>
       <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches completed + avg time per batch</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
@@ -204,9 +202,12 @@
       <div class="card"><div id="reportsList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
     </div>
 
-    <!-- Packing Lists -->
+    <!-- Finalized -->
     <div class="view" id="v-packing">
-      <div class="sect-h">Packing lists <span style="font-weight:400;color:var(--mut);font-size:12.5px">— reprint the consolidated packing list for any order that has pallets/boxes</span></div>
+      <div class="period" id="finPeriod"></div>
+      <div class="sect-h">Fulfillment mix <span style="font-weight:400;color:var(--mut);font-size:12.5px">— packing list vs direct pack</span></div>
+      <div class="grid" id="fulfillStats"></div>
+      <div class="sect-h">Finalized orders <span style="font-weight:400;color:var(--mut);font-size:12.5px">— print or download the packing list; direct-pack orders have none</span></div>
       <div class="card"><div id="packingList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
     </div>
 
@@ -227,7 +228,7 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
-let discPeriodKey="week", statsPeriodKey="week";
+let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom=null;
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
@@ -312,6 +313,7 @@ function start(){
   renderLaunch();
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
   periodBar("statsPeriod",statsPeriodKey,statsCustom,(k,c)=>{statsPeriodKey=k;loadStats();});
+  periodBar("finPeriod",finPeriodKey,finCustom,(k,c)=>{finPeriodKey=k;finCustom=c;loadPacking();});
   loadOverview();
   refreshDiscBadge();
   refreshReportBadge();
@@ -348,7 +350,7 @@ async function loadOverview(){
   if(!os.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; }
   else el.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="num">Lines</th><th class="num">units</th></tr></thead><tbody>${
     os.map(o=>`<tr>
-      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">OK</span>':""}</td>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">Review</span>':""}</td>
       <td>${esc(o.customer_name||"—")}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span></td>
@@ -540,79 +542,187 @@ async function resolveReport(id){
 
 /* ---------- Packing lists (reprint from admin) ---------- */
 async function loadPacking(){
+  const r=rangeFor(finPeriodKey,finCustom); setRangeLabel("finPeriod",r.label);
   const el=document.getElementById("packingList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
-  const {data:its}=await sb.from("wms_pallet_items").select("order_id,qty_base");
-  const ids=[...new Set((its||[]).map(i=>i.order_id).filter(v=>v!=null))];
-  if(!ids.length){ el.innerHTML=`<div class="empty">No orders have pallets/boxes yet.</div>`; return; }
-  const qtyBy={}; (its||[]).forEach(i=>{ if(i.order_id!=null) qtyBy[i.order_id]=(qtyBy[i.order_id]||0)+Number(i.qty_base||0); });
-  const {data:ords}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status").in("id",ids).order("order_number");
-  const rows=(ords||[]).map(o=>`<tr>
-    <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
-    <td>${esc(o.customer_name||"—")}</td>
-    <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
-    <td>${STATUS_LABEL[o.status]||esc(o.status)}</td>
-    <td class="c">${qtyBy[o.id]||0}</td>
-    <td style="text-align:right"><button data-print="${o.id}"
-      style="border:1px solid var(--line);background:#fff;color:var(--accent);border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">🖨 Packing list</button></td>
-  </tr>`).join("");
-  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="c">Packed qty</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const [{data:ords},{data:its}]=await Promise.all([
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300),
+    sb.from("wms_pallet_items").select("order_id"),
+  ]);
+  const hasPallet=new Set((its||[]).map(i=>i.order_id));
+  const inRange=o=>{ const t=new Date(o.finalized_at||o.updated_at).getTime(); return t>=new Date(r.fromISO).getTime() && t<=new Date(r.toISO).getTime(); };
+  const fin=(ords||[]).filter(inRange).map(o=>({ ...o, ftype: o.fulfillment_type || (hasPallet.has(o.id)?"packing_list":"direct") }));
+  renderFulfillStats(fin.map(o=>({fulfillment_type:o.ftype})));
+  if(!fin.length){ el.innerHTML=`<div class="empty">No finalized orders in this period.</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
+    fin.map(o=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+      <td>${esc(o.customer_name||"—")}</td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td>${esc(o.finalized_by||"—")}</td>
+      <td style="color:var(--mut);font-size:12px">${(o.finalized_at||o.updated_at)?new Date(o.finalized_at||o.updated_at).toLocaleString():""}</td>
+      <td>${o.ftype==="packing_list"
+        ? `<button class="plbtn" data-print="${o.id}">🖨 Print</button> <button class="plbtn" data-pdf="${o.id}" data-onum="${esc(o.order_number)}">⬇ PDF</button> <button class="plbtn" data-csv="${o.id}" data-onum="${esc(o.order_number)}">⬇ CSV</button>`
+        : `<span class="tag" style="color:#c2410c;border-color:#f2c9ae;background:#fff7f2">Direct pack</span>`}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
   el.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printOrderPackingList(+b.dataset.print));
+  el.querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>downloadPackingPDF(+b.dataset.pdf, b.dataset.onum));
+  el.querySelectorAll("[data-csv]").forEach(b=>b.onclick=()=>downloadPackingCSV(+b.dataset.csv, b.dataset.onum));
+}
+async function getPackingData(oid){
+  const {data:ord}=await sb.from("wms_orders").select("order_number,customer_name,warehouse").eq("id",oid).single();
+  const {data:items}=await sb.from("wms_pallet_items").select("*").eq("order_id",oid);
+  const palletIds=[...new Set((items||[]).map(i=>i.pallet_id))];
+  let units=[];
+  if(palletIds.length){
+    const {data:u}=await sb.from("wms_pallets").select("*").in("id",palletIds); units=u||[];
+    const parentIds=[...new Set(units.map(x=>x.parent_id).filter(Boolean))];
+    if(parentIds.length){ const {data:pu}=await sb.from("wms_pallets").select("*").in("id",parentIds); (pu||[]).forEach(p=>{ if(!units.some(x=>x.id===p.id)) units.push(p); }); }
+  }
+  const skus=[...new Set((items||[]).map(i=>i.order_sku).filter(Boolean))];
+  const bc={};
+  if(skus.length){
+    const {data:sn}=await sb.from("wms_sku_snapshot").select("sku,barcode").in("sku",skus);
+    (sn||[]).forEach(r=>{ bc[r.sku]=String(r.barcode||"").trim(); });
+  }
+  const unitById={}; units.forEach(u=>unitById[u.id]=u);
+  const byUnit={}; (items||[]).forEach(i=>{ (byUnit[i.pallet_id]=byUnit[i.pallet_id]||[]).push(i); });
+  const sections=[]; let grand=0;
+  Object.keys(byUnit).forEach(pid=>{
+    const u=unitById[pid]||{label:"(unit)",unit_type:"pallet"};
+    const list=byUnit[pid]; const sub=list.reduce((s2,i)=>s2+Number(i.qty_base||0),0); grand+=sub;
+    const parent=u.parent_id?unitById[u.parent_id]:null;
+    sections.push({ unitType:u.unit_type, label:u.label||"", parentLabel:parent?(parent.label||""):null, sub,
+      rows:list.map(i=>({sku:i.order_sku||"", barcode:bc[i.order_sku]||"", name:i.product_name||"", qty:Number(i.qty_base||0)})) });
+  });
+  return {ord, wh: ord.warehouse==="edmonton"?"Edmonton":"Toronto", sections, grand};
+}
+async function buildPackingListHTML(oid, autoprint){
+  const d=await getPackingData(oid);
+  const e=s2=>String(s2==null?"":s2).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  let body="";
+  d.sections.forEach(sec=>{
+    const where=sec.unitType==="box"
+      ? `📦 ${e(sec.label)}${sec.parentLabel?` <span style="font-weight:400;color:#666">(in 🟩 ${e(sec.parentLabel)})</span>`:""}`
+      : `🟩 ${e(sec.label)}`;
+    const trs=sec.rows.map(r=>`<tr><td>${e(r.sku)}</td><td class="bcd">${e(r.barcode)}</td><td>${e(r.name)}</td><td class="n">${r.qty}</td></tr>`).join("");
+    body+=`<div class="u">${where} <span style="font-size:12px;color:#555">(subtotal ${sec.sub})</span></div>
+      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${trs}</tbody></table>`;
+  });
+  if(!body) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
+  const logo=location.origin+"/asung-logo-dark.png";
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>PACKING LIST ${e(d.ord.order_number)}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
+    .h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #12161c;padding-bottom:12px}
+    .brandwrap{display:flex;flex-direction:column;gap:8px} .brandwrap img{height:38px;width:auto;display:block}
+    .doc{text-align:right;font-weight:800;font-size:20px}
+    .meta{display:flex;gap:36px;margin:16px 0} .meta b{color:#555}
+    .u{font-weight:800;margin:14px 0 4px}
+    table.pl{width:100%;border-collapse:collapse;margin-bottom:6px}
+    table.pl th,table.pl td{border-bottom:1px solid #d5dae2;padding:6px 6px;text-align:left;font-size:12.5px}
+    table.pl th{border-bottom:2px solid #12161c;font-size:11px;text-transform:uppercase;color:#555}
+    table.pl td.n,table.pl th.n{text-align:right;width:60px}
+    table.pl td.bcd{font-family:monospace;font-size:11.5px;width:130px}
+    .total{margin-top:10px;font-weight:800;font-size:15px;text-align:right}
+    .note{color:#666;margin:14px 0}
+    @media print{body{margin:14mm}}
+  </style></head><body>
+    <div class="h"><div class="brandwrap"><img src="${logo}" alt="ASUNG"><div style="font-weight:800;font-size:16px">PACKING LIST</div></div>
+      <div class="doc">${e(d.ord.order_number)}<br><span style="font-weight:400;font-size:12px;color:#666">${new Date().toLocaleDateString()}</span></div></div>
+    <div class="meta"><div><b>Order</b> ${e(d.ord.order_number)}</div><div><b>Customer</b> ${e(d.ord.customer_name||"—")}</div><div><b>Warehouse</b> ${d.wh}</div></div>
+    ${body}
+    <div class="total">Total qty: ${d.grand}</div>
+    ${autoprint?`<script>window.addEventListener("load",()=>{setTimeout(()=>{try{window.print();}catch(e){}},250);});<\/script>`:""}
+  </body></html>`;
+  return {html, onum: d.ord.order_number};
+}
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector(`script[src="${src}"]`)) return res();
+    const sc=document.createElement("script"); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error("script load failed"));
+    document.head.appendChild(sc);
+  });
+}
+async function ensureJsPDF(){
+  await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+  await loadScript("https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js");
+}
+async function logoDataURL(){
+  try{
+    const img=new Image(); img.src=location.origin+"/asung-logo-dark.png";
+    await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; });
+    const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    c.getContext("2d").drawImage(img,0,0);
+    return {url:c.toDataURL("image/png"), ratio:img.naturalWidth/img.naturalHeight};
+  }catch(e){ return null; }
+}
+async function downloadPackingPDF(oid, onum){
+  try{
+    await ensureJsPDF();
+    const d=await getPackingData(oid);
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:"mm",format:"a4"});
+    let y=14;
+    const logo=await logoDataURL();
+    if(logo){ const h=9, w=Math.min(70,h*logo.ratio); doc.addImage(logo.url,"PNG",14,y,w,h); y+=h+5; }
+    else{ doc.setFontSize(12); doc.setFont(undefined,"bold"); doc.text("ASUNG TRADING INC",14,y+4); y+=9; }
+    doc.setFontSize(16); doc.setFont(undefined,"bold"); doc.text("PACKING LIST",14,y+3);
+    doc.setFontSize(10); doc.setFont(undefined,"normal");
+    doc.text(String(d.ord.order_number),196,14,{align:"right"});
+    doc.text(new Date().toLocaleDateString(),196,19,{align:"right"});
+    y+=10;
+    doc.text(`Customer: ${d.ord.customer_name||"—"}     Warehouse: ${d.wh}`,14,y); y+=5;
+    d.sections.forEach(sec=>{
+      const title=(sec.unitType==="box"?`BOX ${sec.label}`:`PALLET ${sec.label}`)+(sec.parentLabel?` (in PALLET ${sec.parentLabel})`:"");
+      if(y>265){ doc.addPage(); y=16; }
+      doc.setFontSize(11); doc.setFont(undefined,"bold"); doc.text(title,14,y+4);
+      doc.autoTable({
+        startY:y+6,
+        head:[["SKU","Barcode","Product","Qty"]],
+        body:sec.rows.map(r=>[r.sku, r.barcode, r.name, String(r.qty)]),
+        styles:{fontSize:8.5,cellPadding:1.6},
+        headStyles:{fillColor:[18,22,28]},
+        columnStyles:{0:{cellWidth:30},1:{cellWidth:36,font:"courier"},3:{halign:"right",cellWidth:14}},
+        margin:{left:14,right:14},
+      });
+      y=doc.lastAutoTable.finalY;
+      doc.setFontSize(9); doc.setFont(undefined,"normal");
+      doc.text(`Subtotal: ${sec.sub}`,196,y+4,{align:"right"}); y+=9;
+    });
+    if(y>272){ doc.addPage(); y=16; }
+    doc.setFontSize(11); doc.setFont(undefined,"bold");
+    doc.text(`Total qty: ${d.grand}`,196,y+4,{align:"right"});
+    doc.save(`PACKING-LIST_${onum||d.ord.order_number}.pdf`);
+  }catch(e){ toast("PDF failed: "+(e.message||e),true); }
+}
+async function downloadPackingCSV(oid, onum){
+  try{
+    const d=await getPackingData(oid);
+    const q=v=>{ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
+    const rows=[
+      ["Order",d.ord.order_number],["Customer",d.ord.customer_name||""],["Warehouse",d.wh],["Printed",new Date().toLocaleString()],[],
+      ["Unit","SKU","Barcode","Product","Qty"],
+    ];
+    d.sections.forEach(sec=>{
+      const title=(sec.unitType==="box"?`BOX ${sec.label}`:`PALLET ${sec.label}`)+(sec.parentLabel?` (in PALLET ${sec.parentLabel})`:"");
+      sec.rows.forEach(r=>rows.push([title,r.sku,r.barcode,r.name,r.qty]));
+    });
+    rows.push([]); rows.push(["Total","","","",d.grand]);
+    const csv="\uFEFF"+rows.map(r=>r.map(q).join(",")).join("\r\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=`PACKING-LIST_${onum||oid}.csv`;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+  }catch(e){ toast("CSV failed: "+(e.message||e),true); }
 }
 async function printOrderPackingList(oid){
   const win=window.open("","_blank");   // open within click gesture
   try{
-    const {data:ord}=await sb.from("wms_orders").select("order_number,customer_name,warehouse").eq("id",oid).single();
-    const {data:items}=await sb.from("wms_pallet_items").select("*").eq("order_id",oid);
-    const palletIds=[...new Set((items||[]).map(i=>i.pallet_id))];
-    let units=[];
-    if(palletIds.length){
-      const {data:u}=await sb.from("wms_pallets").select("*").in("id",palletIds); units=u||[];
-      const parentIds=[...new Set(units.map(x=>x.parent_id).filter(Boolean))];
-      if(parentIds.length){ const {data:pu}=await sb.from("wms_pallets").select("*").in("id",parentIds); (pu||[]).forEach(p=>{ if(!units.some(x=>x.id===p.id)) units.push(p); }); }
-    }
-    const unitById={}; units.forEach(u=>unitById[u.id]=u);
-    const byUnit={}; (items||[]).forEach(i=>{ (byUnit[i.pallet_id]=byUnit[i.pallet_id]||[]).push(i); });
-    const e=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-    let body=""; let grand=0;
-    Object.keys(byUnit).forEach(pid=>{
-      const u=unitById[pid]||{label:"(unit)",unit_type:"pallet"};
-      const list=byUnit[pid]; const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); grand+=sub;
-      const parent=u.parent_id?unitById[u.parent_id]:null;
-      const where=u.unit_type==="box"
-        ? `📦 ${e(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${e(parent.label)})</span>`:""}`
-        : `🟩 ${e(u.label||"")}`;
-      const trs=list.map(i=>`<tr><td>${e(i.order_sku)}</td><td>${e(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-      body+=`<div class="u">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
-        <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${trs}</tbody></table>`;
-    });
-    if(!body) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
-    const wh=ord.warehouse==="edmonton"?"Edmonton":"Toronto";
-    const logo=location.origin+"/asung-logo-dark.png";
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>PACKING LIST ${e(ord.order_number)}</title>
-    <style>
-      body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
-      .h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #12161c;padding-bottom:12px}
-      .brandwrap{display:flex;flex-direction:column;gap:8px} .brandwrap img{height:38px;width:auto;display:block}
-      .doc{text-align:right;font-weight:800;font-size:20px}
-      .meta{display:flex;gap:36px;margin:16px 0} .meta b{color:#555}
-      .u{font-weight:800;margin:14px 0 4px}
-      table.pl{width:100%;border-collapse:collapse;margin-bottom:6px}
-      table.pl th,table.pl td{border-bottom:1px solid #d5dae2;padding:6px 6px;text-align:left;font-size:12.5px}
-      table.pl th{border-bottom:2px solid #12161c;font-size:11px;text-transform:uppercase;color:#555}
-      table.pl td.n,table.pl th.n{text-align:right;width:70px}
-      .total{margin-top:10px;font-weight:800;font-size:15px;text-align:right}
-      .note{color:#666;margin:14px 0}
-      @media print{body{margin:14mm}}
-    </style></head><body>
-      <div class="h"><div class="brandwrap"><img src="${logo}" alt="ASUNG"><div style="font-weight:800;font-size:16px">PACKING LIST</div></div>
-        <div class="doc">${e(ord.order_number)}<br><span style="font-weight:400;font-size:12px;color:#666">${new Date().toLocaleDateString()}</span></div></div>
-      <div class="meta"><div><b>Order</b> ${e(ord.order_number)}</div><div><b>Customer</b> ${e(ord.customer_name||"—")}</div><div><b>Warehouse</b> ${wh}</div></div>
-      ${body}
-      <div class="total">Total qty: ${grand}</div>
-      <script>window.addEventListener("load",()=>{setTimeout(()=>{try{window.print();}catch(e){}},250);});<\/script>
-    </body></html>`);
-    win.document.close();
+    const {html}=await buildPackingListHTML(oid,true);
+    win.document.write(html); win.document.close();
   }catch(e){ if(win){try{win.close();}catch(_){}} toast("Print failed: "+(e.message||e),true); }
 }
 
@@ -671,13 +781,11 @@ async function fixDisc(id){
 async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
   // throughput: completed pick/pack batches (by completion time)
-  const [picks, packs, disc, fin]=await Promise.all([
+  const [picks, packs, disc]=await Promise.all([
     sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
-    sb.from("wms_orders").select("order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at").not("finalized_at","is",null).gte("finalized_at",r.fromISO).lte("finalized_at",r.toISO).order("finalized_at",{ascending:false}),
   ]);
-  renderFulfillStats(fin.data||[]);
   // throughput + avg duration tally
   const prod={};
   const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0});
@@ -703,18 +811,6 @@ function renderFulfillStats(fin){
     ["Direct pack",dr,dr>0?"warn":""],
     ["Packing-list rate",pct+"%",pct>=80?"ok":(total?"warn":"")],
   ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
-  const el=document.getElementById("directList");
-  const drs=fin.filter(o=>o.fulfillment_type==="direct");
-  if(!drs.length){ el.innerHTML=`<div class="empty" style="font-size:12.5px">No direct-pack (no packing list) orders in this period.</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Direct-pack order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th></tr></thead><tbody>${
-    drs.map(o=>`<tr>
-      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
-      <td>${esc(o.customer_name||"—")}</td>
-      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
-      <td>${esc(o.finalized_by||"—")}</td>
-      <td style="color:var(--mut);font-size:12px">${o.finalized_at?new Date(o.finalized_at).toLocaleString():""}</td>
-    </tr>`).join("")
-  }</tbody></table>`;
 }
 function renderProd(prod){
   const rows=Object.entries(prod).sort((a,b)=>(b[1].pick+b[1].pack)-(a[1].pick+a[1].pack));

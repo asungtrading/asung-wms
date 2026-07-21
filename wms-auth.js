@@ -182,10 +182,51 @@
     me=data; return true;
   }
 
+
+  /* ---- shared nav dropdown (☰ Menu on every screen) ---- */
+  function setupNavMenu(meData){
+    const btn=document.querySelector('button[title="Main menu"]');
+    if(!btn || btn._wmsNav) return;
+    btn._wmsNav=true;
+    const items=[
+      ["Home","index.html",null],
+      ["Picking","picker.html",null],
+      ["Packing","packer.html",null],
+      ["Fulfillment","fulfillment.html",null],
+      ["Order Splitting","manager.html","split"],
+      ["Admin","admin.html","admin"],
+      ["Staff","staff-admin.html","staff"],
+    ];
+    const isAdmin=meData.role==="admin", isMgr=meData.role==="manager";
+    const perms=Array.isArray(meData.perms)?meData.perms:["split","admin","staff"];
+    const vis=items.filter(it=>!it[2] || isAdmin || (isMgr&&perms.includes(it[2])));
+    if(!document.getElementById("wmsNavCss")){
+      const st=document.createElement("style"); st.id="wmsNavCss";
+      st.textContent='.wms-nav{position:absolute;z-index:2000;background:#fff;border:1px solid #e3e6eb;border-radius:12px;box-shadow:0 12px 32px rgba(15,20,30,.16);padding:6px;min-width:180px;display:none}'
+        +'.wms-nav a{display:block;padding:10px 13px;border-radius:8px;font-size:13.5px;font-weight:600;color:#1e2430;text-decoration:none}'
+        +'.wms-nav a:hover{background:#f2f4f8}'
+        +'.wms-nav a.cur{background:#eef3ff;color:#3b5bdb;pointer-events:none}';
+      document.head.appendChild(st);
+    }
+    const dd=document.createElement("div"); dd.className="wms-nav";
+    const here=(location.pathname.split("/").pop()||"index.html").toLowerCase();
+    dd.innerHTML=vis.map(it=>`<a href="${it[1]}" class="${it[1]===here?"cur":""}">${it[0]}</a>`).join("");
+    document.body.appendChild(dd);
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const open=dd.style.display==="block";
+      if(open){ dd.style.display="none"; return; }
+      dd.style.display="block";
+      const r=btn.getBoundingClientRect(), w=dd.offsetWidth;
+      dd.style.top=(r.bottom+6+window.scrollY)+"px";
+      dd.style.left=Math.max(8, Math.min(window.innerWidth-w-8, r.right-w+window.scrollX))+"px";
+    };
+    document.addEventListener("click",(e)=>{ if(dd.style.display==="block" && !dd.contains(e.target) && e.target!==btn) dd.style.display="none"; });
+  }
   const wmsAuth={
     async start(options, cb){
       if(typeof options==="function"){ cb=options; options={}; }
-      opts=options||{}; onReady=cb;
+      opts=options||{}; onReady=(a,b)=>{ try{setupNavMenu(b);}catch(e){} cb(a,b); };
       if(!cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_ANON_KEY.includes("PASTE_")){
         injectStyles(); showLogin(""); loginErr("Setup needed: add the anon key to wms-config.js.");
         return;

@@ -248,6 +248,7 @@
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
 let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
+let bcBySku={};   // sku -> its own barcode (for packing lists)
 let availOrders=[];            // selectable order list
 let drag=null; // {kind, ...}
 
@@ -397,6 +398,15 @@ async function loadWorkspace(){
   }
   document.getElementById("workspace").style.display="grid";
   document.getElementById("completeBtn").style.display=orders.length?"inline-block":"none";
+  // barcodes for packing lists
+  try{
+    const skus=[...new Set(poolLines.map(p=>p.sku).filter(Boolean))];
+    bcBySku={};
+    if(skus.length){
+      const {data:sn}=await sb.from("wms_sku_snapshot").select("sku,barcode").in("sku",skus);
+      (sn||[]).forEach(r=>{ bcBySku[r.sku]=String(r.barcode||"").trim(); });
+    }
+  }catch(e){ bcBySku={}; }
   renderStoreBar();
   await refresh();
 }
@@ -634,9 +644,9 @@ function tableFor(unitId){
   let html=""; let tot=0;
   Object.entries(byOrder).forEach(([oid,list])=>{
     const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); tot+=sub;
-    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-    const cap=multi?`<tr><td colspan="3" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(subtotal ${sub})</span></td></tr>`:"";
-    html+=`<table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
+    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
+    const cap=multi?`<tr><td colspan="4" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(subtotal ${sub})</span></td></tr>`:"";
+    html+=`<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
   });
   return {html, tot};
 }
@@ -694,16 +704,16 @@ function buildStoreBody(oid){
     const where=u.unit_type==="box"
       ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${esc(parent.label)})</span>`:""}`
       : `🟩 ${esc(u.label)}`;
-    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
+    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
     body+=`<div class="pl-unit">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
-      <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
   });
   // not yet placed (completeness check)
   const rem=poolLines.filter(p=>p.order_id===oid).map(p=>({...p,r:remainingFor(p)})).filter(p=>p.r>0);
   if(rem.length){
-    const rows=rem.map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.name||"")}</td><td class="n">${p.r}</td></tr>`).join("");
+    const rows=rem.map(p=>`<tr><td>${esc(p.sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[p.sku]||"")}</td><td>${esc(p.name||"")}</td><td class="n">${p.r}</td></tr>`).join("");
     body+=`<div class="pl-unit" style="color:#b40000">⚠ Unassigned (not yet in a pallet/box)</div>
-      <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="pl-warn">This store is not fully packed yet.</div>`;
   }
   if(!body) body=`<div class="pl-note">No products placed.</div>`;
