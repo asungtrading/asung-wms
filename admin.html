@@ -228,7 +228,7 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
-let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom=null;
+let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom={from:null,to:null};
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
@@ -269,6 +269,7 @@ function rangeFor(key,custom){
   return {fromISO:from.toISOString(), toISO:to.toISOString(), label:labels[key]||key};
 }
 function periodBar(containerId, curKey, custom, onChange){
+  custom=custom||{from:null,to:null};
   const opts=[["today","Today"],["week","This week"],["month","This month"],["q","3 months"],["h","6 months"],["y","1 year"],["all","All"]];
   const el=document.getElementById(containerId);
   el.innerHTML=`<div class="seg">${opts.map(([k,l])=>`<button data-k="${k}" class="${k===curKey?"active":""}">${l}</button>`).join("")}
