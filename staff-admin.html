@@ -206,6 +206,7 @@
 
   <div class="addwrap">
     <input id="newName" placeholder="New staff name" autocomplete="off">
+    <input id="newEmail" placeholder="Login email" autocomplete="off" style="min-width:210px">
     <select id="newWh">
       <option value="toronto">Toronto</option>
       <option value="edmonton">Edmonton</option>
@@ -217,6 +218,18 @@
       <option value="admin">Admin</option>
     </select>
     <button class="btn primary" id="addBtn">Add staff</button>
+  </div>
+  <div id="credBox" style="display:none;margin-top:12px;padding:14px 16px;border:1.5px solid #bfe6cd;background:#e7f7ed;border-radius:12px">
+    <div style="font-weight:800;font-size:14px;color:#15803d">✓ Account created — hand this over once</div>
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:14px;margin-top:8px">
+      <div>Email: <b id="credEmail"></b></div>
+      <div>Temp password: <b id="credPw"></b></div>
+    </div>
+    <div style="font-size:12px;color:#4b5563;margin-top:8px">The password is shown only here, only now. The staff member signs in with it and changes it via "Change Password". </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn" id="credCopy" style="border:1px solid #bfe6cd;background:#fff;cursor:pointer">📋 Copy</button>
+      <button class="btn" id="credClose" style="border:1px solid #bfe6cd;background:#fff;cursor:pointer">Done</button>
+    </div>
   </div>
 </main>
 
@@ -298,6 +311,16 @@ function render(){
     update(id,{active:!cur});
   });
   tbody.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>del(+el.dataset.del, el.dataset.name));
+  tbody.querySelectorAll("[data-em]").forEach(el=>el.onclick=()=>{
+    const s=all.find(x=>x.id===+el.dataset.em); if(!s)return;
+    const v=prompt(
+      `Login email for ${s.name}\n\nThis only changes the LINK to the Auth account — it does not rename the Auth account itself. Use it to fix a typo or to link an existing account.`,
+      s.email||"");
+    if(v===null)return;
+    const em=v.trim().toLowerCase();
+    if(em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ toast("Invalid email",true); return; }
+    update(s.id,{email:em||null}); render();
+  });
 }
 
 function rowHtml(s){
@@ -315,7 +338,11 @@ function rowHtml(s){
       `<label class="perm"><input type="checkbox" data-perm="${v}" ${cur.includes(v)?"checked":""}>${lb}</label>`).join("")+`</span>`;
   }else{ permCell=`<span class="permna">—</span>`; }
   return `<tr class="${s.active?"":"off"}">
-    <td data-l="Name"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span></td>
+    <td data-l="Name"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span>
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#6b7686;margin-top:2px">
+        ${s.email?esc(s.email):'<span style="color:#dc2626;font-weight:700">⚠ No login email</span>'}
+        <button data-em="${s.id}" title="Edit login email" style="border:0;background:none;cursor:pointer;font-size:11px;padding:0 3px">✎</button>
+      </div></td>
     <td data-l="Warehouse">${whSel}</td>
     <td data-l="Role">${rlSel}</td>
     <td data-l="Access">${permCell}</td>
@@ -352,20 +379,46 @@ async function del(id, name){
   all = all.filter(x=>x.id!==id); render(); toast(name+" Deleted");
 }
 
-// ---- Add ----
+// ---- Add (via staff-create Edge Function: creates Auth account + staff row) ----
 document.getElementById("addBtn").onclick = async ()=>{
   const name=document.getElementById("newName").value.trim();
+  const email=document.getElementById("newEmail").value.trim().toLowerCase();
   if(!name){ toast("Enter a name",true); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast("Enter a valid login email",true); return; }
   const wh=document.getElementById("newWh").value;
   const role=document.getElementById("newRole").value;
-  const btn=document.getElementById("addBtn"); btn.disabled=true;
-  const {data,error} = await sb.from("wms_staff").insert({name,warehouse_access:wh,role}).select();
-  btn.disabled=false;
-  if(error){ toast("Add failed: "+error.message,true); return; }
-  all.push(data[0]); all.sort((a,b)=>a.name.localeCompare(b.name));
-  document.getElementById("newName").value="";
-  render(); toast(name+" Added");
+  const btn=document.getElementById("addBtn"); btn.disabled=true; btn.textContent="Creating…";
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){ toast("Session expired — sign in again",true); return; }
+    const resp=await fetch(SUPABASE_URL+"/functions/v1/staff-create",{
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer "+session.access_token,
+        "apikey":(window.WMS_CONFIG&&window.WMS_CONFIG.SUPABASE_ANON_KEY)||"",
+        "Content-Type":"application/json",
+      },
+      body:JSON.stringify({name,email,role,warehouse_access:wh}),
+    });
+    const out=await resp.json().catch(()=>({}));
+    if(!resp.ok||!out.ok){ toast("Add failed: "+(out.error||("HTTP "+resp.status)),true); return; }
+    all.push(out.staff); all.sort((a,b)=>a.name.localeCompare(b.name));
+    document.getElementById("newName").value=""; document.getElementById("newEmail").value="";
+    render(); toast(name+" Added");
+    // show the temp password ONCE for hand-over
+    document.getElementById("credEmail").textContent=email;
+    document.getElementById("credPw").textContent=out.temp_password;
+    document.getElementById("credBox").style.display="block";
+    document.getElementById("credBox").scrollIntoView({block:"nearest"});
+  }catch(e){ toast("Add failed: "+(e.message||e),true); }
+  finally{ btn.disabled=false; btn.textContent="Add staff"; }
 };
+document.getElementById("credCopy").onclick=async ()=>{
+  const txt=`WMS login\nEmail: ${document.getElementById("credEmail").textContent}\nTemp password: ${document.getElementById("credPw").textContent}\nSign in at https://wms.asung.ca and change the password.`;
+  try{ await navigator.clipboard.writeText(txt); toast("Copied"); }catch(e){ toast("Copy failed — select and copy manually",true); }
+};
+document.getElementById("credClose").onclick=()=>{ document.getElementById("credBox").style.display="none"; };
+document.getElementById("newEmail").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addBtn").click(); });
 document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addBtn").click(); });
 
 // ---- filter / search ----
