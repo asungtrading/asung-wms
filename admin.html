@@ -163,6 +163,10 @@
       <div class="grid" id="orderStats"></div>
       <div class="sect-h">work batches</div>
       <div class="grid" id="batchStats"></div>
+      <div class="sect-h">Live now <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches open on a worker's screen this second</span></div>
+      <div class="card" style="padding:10px 14px"><div id="liveStrip"><span style="color:var(--mut);font-size:12.5px">Connecting…</span></div></div>
+      <div class="sect-h">Batch activity <span style="font-weight:400;color:var(--mut);font-size:12.5px">— who holds what · 🟢 active · 🟡 idle (holder away) · release returns it to the pool with progress kept</span></div>
+      <div class="card"><div id="batchActivity"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <div class="sect-h">In-Progress Orders</div>
       <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <div class="sect-h">Finalized <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recently completed (last 40)</span></div>
@@ -315,9 +319,46 @@ function start(){
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
   periodBar("statsPeriod",statsPeriodKey,statsCustom,(k,c)=>{statsPeriodKey=k;loadStats();});
   periodBar("finPeriod",finPeriodKey,finCustom,(k,c)=>{finPeriodKey=k;finCustom=c;loadPacking();});
+  subscribePresence();
   loadOverview();
   refreshDiscBadge();
   refreshReportBadge();
+  // keep freshness chips honest while Status tab is open
+  setInterval(()=>{ if(document.getElementById("v-overview").classList.contains("active")) loadOverview(); }, 60000);
+}
+
+/* ---------- live presence (who has a batch open RIGHT NOW) ---------- */
+const STALE_S=75; // no heartbeat for this long = holder considered away
+let presence={};  // key -> [{name,screen,batch,order,at}]
+function subscribePresence(){
+  try{
+    const ch=sb.channel("wms-presence",{config:{presence:{key:"admin|"+me.name}}});
+    ch.on("presence",{event:"sync"},()=>{ presence=ch.presenceState()||{}; renderLiveStrip(); markLiveRows(); })
+      .subscribe();
+  }catch(e){}
+}
+function liveList(){
+  const out=[];
+  Object.keys(presence).forEach(k=>{
+    if(k.startsWith("admin|")) return; // observers don't count as workers
+    (presence[k]||[]).forEach(m=>{ if(m&&m.batch) out.push(m); });
+  });
+  return out;
+}
+function liveBatchSet(){ return new Set(liveList().map(m=>m.batch)); }
+function renderLiveStrip(){
+  const el=document.getElementById("liveStrip"); if(!el) return;
+  const ls=liveList();
+  if(!ls.length){ el.innerHTML=`<span style="color:var(--mut);font-size:12.5px">No one has a batch open right now.</span>`; return; }
+  el.innerHTML=ls.map(m=>
+    `<span class="tag" style="background:#e8f7ee;color:#1e7d43;border:1px solid #bfe8cd;margin:2px 6px 2px 0">
+      🟢 ${esc(m.name)} · ${m.screen==="packer"?"Packing":"Picking"} · ${esc(m.batch)}</span>`).join("");
+}
+function markLiveRows(){
+  const live=liveBatchSet();
+  document.querySelectorAll("[data-livebatch]").forEach(el=>{
+    el.style.display=live.has(el.dataset.livebatch)?"":"none";
+  });
 }
 
 /* ---------- Status ---------- */
@@ -328,6 +369,7 @@ async function loadOverview(){
     sb.from("wms_pack_tasks").select("status"),
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
   ]);
+  loadBatchActivity(orders.data||[]);
   const os=orders.data||[];
   const fin=finalized.data||[];
   const cnt=s=>os.filter(o=>o.status===s).length;
@@ -373,6 +415,90 @@ async function loadOverview(){
   }</tbody></table>`;
 }
 
+/* ---------- Batch activity (who holds what, live/idle, release) ---------- */
+function fresh(t){ const h=t.heartbeat_at||t.started_at; return h && (Date.now()-new Date(h).getTime())<=STALE_S*1000; }
+function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+async function loadBatchActivity(activeOrders){
+  const el=document.getElementById("batchActivity"); if(!el) return;
+  const ids=(activeOrders||[]).map(o=>o.id);
+  if(!ids.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; return; }
+  const oById={}; (activeOrders||[]).forEach(o=>oById[o.id]=o);
+  const [pt, pk]=await Promise.all([
+    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started").in("order_id",ids).order("batch_label"),
+    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started").in("order_id",ids),
+  ]);
+  if(pt.error){ el.innerHTML=`<div class="empty">Failed to load batches. Run wms_lease_presence.sql if columns are missing.</div>`; return; }
+  const picks=pt.data||[], packs=pk.data||[];
+  const packByPick={}; packs.forEach(p=>packByPick[p.pick_task_id]=p);
+  // line sums for progress
+  const pickIds=picks.map(p=>p.id), packIds=packs.map(p=>p.id);
+  const [pls, kls]=await Promise.all([
+    pickIds.length?sb.from("wms_pick_task_lines").select("pick_task_id,assigned_base,picked_base").in("pick_task_id",pickIds):{data:[]},
+    packIds.length?sb.from("wms_pack_task_lines").select("pack_task_id,expected_base,verified_base").in("pack_task_id",packIds):{data:[]},
+  ]);
+  const pickSum={}, packSum={};
+  (pls.data||[]).forEach(l=>{ const s=pickSum[l.pick_task_id]=pickSum[l.pick_task_id]||{a:0,p:0}; s.a+=Number(l.assigned_base||0); s.p+=Number(l.picked_base||0); });
+  (kls.data||[]).forEach(l=>{ const s=packSum[l.pack_task_id]=packSum[l.pack_task_id]||{e:0,v:0}; s.e+=Number(l.expected_base||0); s.v+=Number(l.verified_base||0); });
+
+  // one row per pick batch: current phase = pack task if it exists, else pick task
+  const rows=picks.map(p=>{
+    const pack=packByPick[p.id]||null;
+    const ps=pickSum[p.id]||{a:0,p:0};
+    const ks=pack?(packSum[pack.id]||{e:0,v:0}):null;
+    let phase="", holder="", chip="", rel=null; // rel={table,id}
+    if(pack && pack.status!=="completed"){
+      phase="Packing"; holder=pack.assigned_to||"";
+      if(pack.status==="pending") chip=(ks&&ks.v>0)?`<span class="tag" style="background:#fff4e0;color:#a86400">🟠 Held</span>`:`<span class="tag">⚪ Waiting</span>`;
+      else if(fresh(pack)) chip=`<span class="tag" style="background:#e8f7ee;color:#1e7d43">🟢 Active</span>`;
+      else { const im=idleMin(pack); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Idle${im?" "+im+"m":""}</span>`; rel={table:"wms_pack_tasks",id:pack.id}; }
+    } else if(pack && pack.status==="completed"){
+      phase="Packed"; holder=pack.assigned_to||""; chip=`<span class="tag" style="background:#eef1f6;color:#5b6472">✓ Packed</span>`;
+    } else if(p.status==="completed"){
+      phase="Pick done"; holder=p.assigned_to||""; chip=`<span class="tag" style="background:#eef1f6;color:#5b6472">✓ Pick done</span>`;
+    } else if(p.status==="in_progress"){
+      phase="Picking"; holder=p.assigned_to||"";
+      if(fresh(p)) chip=`<span class="tag" style="background:#e8f7ee;color:#1e7d43">🟢 Active</span>`;
+      else { const im=idleMin(p); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Idle${im?" "+im+"m":""}</span>`; rel={table:"wms_pick_tasks",id:p.id}; }
+    } else { // pending pick
+      phase="Waiting"; holder="";
+      chip=(ps.p>0)?`<span class="tag" style="background:#fff4e0;color:#a86400">🟠 Held</span>`:`<span class="tag">⚪ Waiting</span>`;
+    }
+    const o=oById[p.order_id]||{};
+    const prog = pack ? `${(ks&&ks.v)||0}/${(ks&&ks.e)||0} verified` : `${ps.p}/${ps.a} picked`;
+    return {p,o,phase,holder,chip,rel,prog,label:p.batch_label};
+  });
+
+  if(!rows.length){ el.innerHTML=`<div class="empty">No batches yet (orders not split).</div>`; return; }
+  let lastOid=null;
+  el.innerHTML=`<table><thead><tr><th>Batch</th><th>Customer</th><th>Phase</th><th>Worker</th><th class="num">Progress</th><th>State</th><th></th></tr></thead><tbody>${
+    rows.map(r=>{
+      const sep=(lastOid!==null && lastOid!==r.p.order_id)?' style="border-top:2px solid var(--line)"':""; lastOid=r.p.order_id;
+      return `<tr${sep}>
+      <td style="font-family:var(--mono);font-weight:700">${esc(r.label)}
+        <span data-livebatch="${esc(r.label)}" style="display:none" title="Open on a worker's screen right now">👁</span></td>
+      <td>${esc(r.o.customer_name||"—")} <span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td>${r.phase}</td>
+      <td>${esc(r.holder||"—")}</td>
+      <td class="num" style="font-family:var(--mono)">${r.prog}</td>
+      <td>${r.chip}</td>
+      <td style="text-align:right">${r.rel?`<button data-reltable="${r.rel.table}" data-relid="${r.rel.id}" data-rellabel="${esc(r.label)}"
+        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Release</button>`:""}</td>
+    </tr>`;}).join("")
+  }</tbody></table>`;
+  el.querySelectorAll("[data-reltable]").forEach(b=>b.onclick=()=>releaseClaim(b.dataset.reltable,+b.dataset.relid,b.dataset.rellabel));
+  markLiveRows();
+}
+async function releaseClaim(table,id,label){
+  if(!confirm(`Release ${label}?\n\nThe holder is away. The batch returns to the waiting pool with all progress kept, so anyone can pick it up.`)) return;
+  const {data,error}=await sb.from(table)
+    .update({status:"pending",assigned_to:null,heartbeat_at:null})
+    .eq("id",id).eq("status","in_progress").select("id");
+  if(error){ toast("Release failed: "+error.message,true); return; }
+  if(!data||!data.length){ toast("Already released or completed",true); }
+  else toast(label+" released to the pool");
+  loadOverview();
+}
+
 /* ---------- Rollback (manager only, one step at a time) ---------- */
 // Stage detection per order → only the DEEPEST current stage is offered, so
 // intermediate stages can never be skipped.
@@ -386,11 +512,20 @@ async function loadRollback(){
   if(!orders.length){ el.innerHTML=`<div class="empty">No orders past the split stage.</div>`; return; }
   const ids=orders.map(o=>o.id);
   const [picks,packs,pitems]=await Promise.all([
-    sb.from("wms_pick_tasks").select("order_id,status").in("order_id",ids),
-    sb.from("wms_pack_tasks").select("order_id").in("order_id",ids),
-    sb.from("wms_pallet_items").select("order_id").in("order_id",ids),
+    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to").in("order_id",ids).order("batch_label"),
+    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,status").in("order_id",ids),
+    sb.from("wms_pallet_items").select("order_id,pack_task_id").in("order_id",ids),
   ]);
   const pk=picks.data||[], pc=packs.data||[], pi=pitems.data||[];
+  // picked progress per batch (a held/pending batch with progress is still resettable)
+  const pkIds=pk.map(t=>t.id); let progByPick={};
+  if(pkIds.length){
+    const {data:pls}=await sb.from("wms_pick_task_lines").select("pick_task_id,picked_base").in("pick_task_id",pkIds);
+    (pls||[]).forEach(l=>{ progByPick[l.pick_task_id]=(progByPick[l.pick_task_id]||0)+Number(l.picked_base||0); });
+  }
+  const packByPick={}; pc.forEach(p=>packByPick[p.pick_task_id]=p);
+  const palletPackIds=new Set(pi.map(x=>x.pack_task_id).filter(Boolean));
+
   const rows=orders.map(o=>{
     const myPicks=pk.filter(x=>x.order_id===o.id);
     const hasSplit=myPicks.length>0;
@@ -404,21 +539,94 @@ async function loadRollback(){
     else if(pickStarted){ stage="Pick in progress / done"; action="pick"; btn="↩ Reset Pick"; }
     else if(hasSplit){ stage="Split (picking)"; action="split"; btn="↩ Undo Split"; }
     else { stage="—"; }
-    return {o,stage,action,btn};
+    return {o,stage,action,btn,myPicks,hasFulfill};
   }).filter(r=>r.action); // only orders with something to undo
   if(!rows.length){ el.innerHTML=`<div class="empty">Nothing to roll back.</div>`; return; }
+
+  // per-batch sub-table (batch-level rollback for split orders)
+  const batchRows=r=>r.myPicks.map(t=>{
+    const pack=packByPick[t.id]||null;
+    const prog=progByPick[t.id]||0;
+    let stage="", act="";
+    if(pack){
+      stage=pack.status==="completed"?"Pack complete":"Pack in progress";
+      if(r.hasFulfill || palletPackIds.has(pack.id))
+        act=`<span style="color:var(--mut);font-size:11.5px">On a pallet — Undo Fulfillment first</span>`;
+      else
+        act=`<button data-brb="pack" data-pickid="${t.id}" data-packid="${pack.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
+          style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Undo Pack</button>`;
+    } else if(t.status==="in_progress"||t.status==="completed"||prog>0){
+      stage=t.status==="completed"?"Pick done":(t.status==="in_progress"?"Picking":"Held (progress)");
+      act=`<button data-brb="pick" data-pickid="${t.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
+        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Reset Pick</button>`;
+    } else { stage="Waiting (no progress)"; act=`<span style="color:var(--mut)">—</span>`; }
+    return `<tr>
+      <td style="font-family:var(--mono);font-weight:700;padding-left:22px">${esc(t.batch_label)}</td>
+      <td style="font-size:12px">${esc(t.assigned_to||"—")}</td>
+      <td style="font-size:12px">${stage}${prog?` · ${prog} picked`:""}</td>
+      <td style="text-align:right">${act}</td>
+    </tr>`;
+  }).join("");
+
   el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th></th></tr></thead><tbody>${
     rows.map(r=>`<tr>
-      <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}</td>
+      <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}
+        ${r.myPicks.length>1?`<button data-bt="${r.o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${r.myPicks.length} batches</button>`:""}</td>
       <td>${esc(r.o.customer_name||"—")}</td>
       <td><span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td>${esc(r.stage)}</td>
       <td style="text-align:right"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}"
         style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button></td>
-    </tr>`).join("")
+    </tr>
+    ${r.myPicks.length>1?`<tr class="batchsub" data-bsub="${r.o.id}" style="display:none"><td colspan="5" style="background:#fafbfd;padding:6px 10px">
+      <table style="width:100%"><thead><tr><th style="font-size:11px">Batch</th><th style="font-size:11px">Worker</th><th style="font-size:11px">Batch stage</th><th></th></tr></thead>
+      <tbody>${batchRows(r)}</tbody></table></td></tr>`:""}`).join("")
   }</tbody></table>`;
   el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on));
+  el.querySelectorAll("[data-bt]").forEach(b=>b.onclick=()=>{
+    const sub=el.querySelector(`[data-bsub="${b.dataset.bt}"]`); if(!sub)return;
+    const open=sub.style.display!=="none";
+    sub.style.display=open?"none":"";
+    b.textContent=(open?"▸ ":"▾ ")+b.textContent.slice(2);
+  });
+  el.querySelectorAll("[data-brb]").forEach(b=>b.onclick=()=>doBatchRollback(
+    b.dataset.brb, +b.dataset.pickid, b.dataset.packid?+b.dataset.packid:null,
+    +b.dataset.oid, b.dataset.on, b.dataset.bl));
   loadRollbackLog();
+}
+
+/* batch-level rollback: one batch of a split order, one step at a time */
+async function doBatchRollback(kind, pickId, packId, oid, onum, label){
+  const msg = kind==="pack"
+    ? `Undo packing for batch ${label}?\n\n• Deletes pack verification for THIS batch only\n• Other batches of ${onum} are untouched\n• Related discrepancies are NOT removed\n\nProceed?`
+    : `Reset picking for batch ${label}?\n\n• This batch's picked quantities go back to 0\n• The batch returns to the waiting pool (unassigned)\n• Other batches of ${onum} are untouched\n\nProceed?`;
+  if(!confirm(msg)) return;
+  const now=new Date().toISOString();
+  try{
+    if(kind==="pack"){
+      // safety re-check: block if this pack's items are already on a pallet
+      const {count}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pack_task_id",packId);
+      if(count){ toast("Blocked: this batch is on a pallet. Undo Fulfillment first.",true); return; }
+      await sb.from("wms_pack_task_lines").delete().eq("pack_task_id",packId);
+      await sb.from("wms_pack_tasks").delete().eq("id",packId);
+      // order can no longer be ready_to_close with a pack missing
+      await sb.from("wms_orders").update({status:"packing",updated_at:now}).eq("id",oid).eq("status","ready_to_close");
+    } else { // pick
+      // safety re-check: block if a pack task exists for this batch (undo pack first)
+      const {count}=await sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("pick_task_id",pickId);
+      if(count){ toast("Blocked: this batch already has packing. Undo Pack first.",true); return; }
+      await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).eq("pick_task_id",pickId);
+      await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("id",pickId);
+    }
+    // audit log (batch_label column from wms_lease_presence.sql; fall back without it)
+    const STAGE={pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"]};
+    const row={order_id:oid, order_number:onum, action:kind,
+      from_stage:STAGE[kind][0], to_stage:STAGE[kind][1], performed_by:me.name, batch_label:label};
+    const ins=await sb.from("wms_rollback_log").insert(row);
+    if(ins.error){ delete row.batch_label; await sb.from("wms_rollback_log").insert(row); }
+    toast(label+" rolled back");
+    loadRollback();
+  }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
 }
 
 async function loadRollbackLog(){
@@ -428,9 +636,10 @@ async function loadRollbackLog(){
   if(error){ el.innerHTML=`<div class="empty" style="font-size:12px">Log table not found. Run wms_rollback_log.sql to enable history.</div>`; return; }
   if(!data||!data.length){ el.innerHTML=`<div class="empty" style="font-size:12px">No rollbacks yet.</div>`; return; }
   const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split"};
-  el.innerHTML=`<table><thead><tr><th>Order</th><th>Action</th><th>Stage</th><th>By</th><th>When</th></tr></thead><tbody>${
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Batch</th><th>Action</th><th>Stage</th><th>By</th><th>When</th></tr></thead><tbody>${
     data.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"—")}</td>
+      <td style="font-family:var(--mono);font-size:12px">${esc(r.batch_label||"—")}</td>
       <td>${esc(AL[r.action]||r.action)}</td>
       <td style="font-size:12px;color:var(--mut)">${esc(r.from_stage||"")} → ${esc(r.to_stage||"")}</td>
       <td>${esc(r.performed_by||"—")}</td>
@@ -473,7 +682,7 @@ async function doRollback(oid, action, onum){
       const tids=(pt||[]).map(p=>p.id);
       if(tids.length){
         await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).in("pick_task_id",tids);
-        await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null}).eq("order_id",oid);
+        await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("order_id",oid);
       }
       await sb.from("wms_orders").update({status:"picking",updated_at:now}).eq("id",oid);
     }

@@ -241,8 +241,52 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
-let batches=[], myBatches=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="list", batchFilter="";
+let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="list", batchFilter="";
 let actx=null;
+
+/* ---------- lease / heartbeat / presence ---------- */
+const HB_MS=20000;          // heartbeat write interval while a batch is open
+const STALE_S=75;           // no heartbeat for this long = holder considered gone
+let hbTimer=null, presCh=null;
+const staleISO=()=>new Date(Date.now()-STALE_S*1000).toISOString();
+const isStale=t=>{ const h=t.heartbeat_at||t.started_at; return !h || (Date.now()-new Date(h).getTime())>STALE_S*1000; };
+function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
+function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
+async function beatOnce(){
+  if(!task) return;
+  const {data,error}=await sb.from("wms_pick_tasks")
+    .update({heartbeat_at:new Date().toISOString()})
+    .eq("id",task.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+  if(!error && (!data||!data.length)){
+    // claim lost: taken over by another worker or released by admin
+    stopHeartbeat(); presenceLeave();
+    toast("This batch was taken over or released",true);
+    task=null;order=null;lines=[];bcMap={};
+    document.getElementById("pickView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadBatches();
+  }
+}
+function presenceJoin(){
+  presenceLeave();
+  try{
+    presCh=sb.channel("wms-presence",{config:{presence:{key:me.name+"|picker"}}});
+    presCh.subscribe(st=>{
+      if(st==="SUBSCRIBED" && task) presCh.track({
+        name:me.name, screen:"picker",
+        batch:task.batch_label, order:(order&&order.order_number)||"",
+        at:new Date().toISOString()
+      });
+    });
+  }catch(e){}
+}
+function presenceLeave(){ if(presCh){ try{presCh.untrack(); sb.removeChannel(presCh);}catch(e){} presCh=null; } }
+function markWorkStarted(){
+  if(!task || task.work_started) return;
+  task.work_started=true;
+  sb.from("wms_pick_tasks").update({work_started:true}).eq("id",task.id).then(()=>{});
+}
 
 /* ---------- boot / login ---------- */
 function boot(){
@@ -303,52 +347,70 @@ async function loadBatches(){
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  const sel="id,batch_label,status,assigned_to,started_at,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  // my in-progress batches + waiting pool together
-  const [mine, pool]=await Promise.all([
+  const sel="id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
+  // my in-progress + waiting pool + abandoned claims (in_progress but holder gone)
+  const [mine, pool, stale]=await Promise.all([
     sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).order("started_at"),
     sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).order("batch_label"),
+    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress")
+      .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`).order("batch_label"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(mine.error||pool.error){toast("Failed to load batches",true);return;}
   const inWh=b=>{ const wh=b.wms_orders?.warehouse; return acc==="both"||wh===acc; };
   myBatches=(mine.data||[]).filter(inWh);
   batches=(pool.data||[]).filter(inWh);
+  // take-over candidates: someone else's claim with a dead heartbeat
+  stalePool=((stale.data)||[]).filter(b=>inWh(b) && b.assigned_to!==me.name && isStale(b));
   renderBatches();
 }
-function batchCardHtml(b,resume){
+function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover"
   const o=b.wms_orders||{}; const cnt=(b.wms_pick_task_lines&&b.wms_pick_task_lines[0]?.count)||0;
-  return `<div class="bcard ${resume?"resume":""}" data-id="${b.id}" data-resume="${resume?1:0}">
+  const resume=mode==="resume", take=mode==="takeover";
+  const im=take?idleMin(b):null;
+  return `<div class="bcard ${resume||take?"resume":""}" data-id="${b.id}" data-mode="${mode}">
     <div>
       <div class="bl">${esc(b.batch_label)}</div>
       <div class="sub">${esc(o.customer_name||"—")} · ${cnt} lines
         <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
-        ${o.needs_review?'<span class="tag rev">Needs review</span>':""}</div>
+        ${o.needs_review?'<span class="tag rev">Needs review</span>':""}
+        ${take?`<span class="tag rev">${esc(b.assigned_to||"?")} · idle ${im?im+"m":"?"}</span>`:""}</div>
     </div>
-    <button class="go ${resume?"resumebtn":""}">${resume?"Resume":"Start"}</button>
+    <button class="go ${resume||take?"resumebtn":""}">${take?"Take over":resume?"Resume":"Start"}</button>
   </div>`;
 }
 function renderBatches(){
   const be=document.getElementById("bempty");
   const f=batchFilter.trim().toUpperCase();
   const match=b=>{ if(!f)return true; const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
-  const my=myBatches.filter(match), pool=batches.filter(match);
-  const has=(my.length+pool.length)>0;
+  // resume list = only claims where actual work happened (no-work claims are not "resumable")
+  const my=myBatches.filter(match).filter(b=>b.work_started),
+        pool=batches.filter(match),
+        stale=stalePool.filter(match);
+  const has=(my.length+pool.length+stale.length)>0;
   be.style.display=has?"none":"block";
   be.textContent=f?("No waiting batch for "+batchFilter):"No waiting batches..";
   let html="";
   if(f){ html+=`<div class="filterbar">Showing <b>${esc(batchFilter)}</b><button id="clrFilter">Clear</button></div>`; }
   if(my.length){
-    html+=`<div class="sect">My In Progress</div>`+my.map(b=>batchCardHtml(b,true)).join("");
+    html+=`<div class="sect">My In Progress</div>`+my.map(b=>batchCardHtml(b,"resume")).join("");
   }
   if(pool.length){
-    html+=`<div class="sect">Waiting Batches</div>`+pool.map(b=>batchCardHtml(b,false)).join("");
+    html+=`<div class="sect">Waiting Batches</div>`+pool.map(b=>batchCardHtml(b,"start")).join("");
+  }
+  if(stale.length){
+    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`+stale.map(b=>batchCardHtml(b,"takeover")).join("");
   }
   document.getElementById("blist").innerHTML=html;
   const clr=document.getElementById("clrFilter");
   if(clr) clr.onclick=()=>{ batchFilter=""; const os=document.getElementById("orderScan"); if(os)os.value=""; renderBatches(); };
   document.querySelectorAll("#blist .bcard").forEach(el=>{
-    el.onclick=()=> el.dataset.resume==="1" ? resumeBatch(+el.dataset.id) : startBatch(+el.dataset.id);
+    el.onclick=()=>{
+      const m=el.dataset.mode;
+      if(m==="resume") resumeBatch(+el.dataset.id);
+      else if(m==="takeover") takeoverBatch(+el.dataset.id);
+      else startBatch(+el.dataset.id);
+    };
   });
   // keep the order-scan focused so the HID scanner reaches it on the list screen
   if(me && document.getElementById("listView").style.display!=="none"){
@@ -363,7 +425,7 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   batchFilter=v; renderBatches();
   const f=v.toUpperCase();
-  const any=[...myBatches,...batches].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
+  const any=[...myBatches,...batches,...stalePool].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
   if(!any) toast("No waiting batch for "+v,true);
 });
 
@@ -371,12 +433,32 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
 async function startBatch(id){
   initAudio(); // unlock audio on user gesture
   const b=batches.find(x=>x.id===id);
+  const now=new Date().toISOString();
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",started_at:new Date().toISOString()})
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false})
     .eq("id",id).is("assigned_to",null).select();  // 0 rows if batch already taken
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this.",true); loadBatches(); return; }
   task=data[0]; order=b.wms_orders||{};
+  startHeartbeat(); presenceJoin();
+  await loadLines();
+}
+
+/* ---------- take over an abandoned claim (holder gone, progress kept) ---------- */
+async function takeoverBatch(id){
+  initAudio();
+  const b=stalePool.find(x=>x.id===id); if(!b){ loadBatches(); return; }
+  if(!confirm(`Take over ${b.batch_label}?\nCurrent holder: ${b.assigned_to||"?"} (away).\nTheir picked quantities are kept — you continue from where they stopped.`)) return;
+  const now=new Date().toISOString();
+  const {data,error}=await sb.from("wms_pick_tasks")
+    .update({assigned_to:me.name,heartbeat_at:now})
+    .eq("id",id).eq("status","in_progress")
+    .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
+    .select();
+  if(error){toast("Take over failed: "+error.message,true);return;}
+  if(!data||!data.length){ toast("Could not take over — the holder is back or it was released.",true); loadBatches(); return; }
+  task=data[0]; order=b.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   await loadLines();
 }
 
@@ -391,6 +473,7 @@ async function resumeBatch(id){
     toast("This batch is no longer in My In Progress",true); loadBatches(); return;
   }
   task=data; order=b.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   await loadLines();
 }
 async function loadLines(){
@@ -638,6 +721,7 @@ async function reportIssue(kind, idx){
 /* ---------- save (background) ---------- */
 async function saveLine(l){
   l._sync=false;
+  if(l.picked>0) markWorkStarted(); // first real pick = this claim is genuine work
   const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
   const {error}=await sb.from("wms_pick_task_lines")
     .update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
@@ -663,6 +747,7 @@ async function finish(allowShort){
 
   const btnD=document.getElementById("doneBtn"), btnS=document.getElementById("shortBtn");
   btnD.disabled=btnS.disabled=true;
+  stopHeartbeat(); presenceLeave();
   try{
     // 1) final line save (authoritative)
     for(const l of lines){
@@ -693,12 +778,22 @@ async function finish(allowShort){
     loadBatches();
   }catch(e){
     toast("Completion failed: "+(e.message||e),true);
+    if(task){ startHeartbeat(); presenceJoin(); } // still holding the batch
   }finally{ btnD.disabled=btnS.disabled=false; }
 }
 
-/* ---------- Back (keep in My In Progress) ---------- */
+/* ---------- Back ---------- */
 document.getElementById("backBtn").onclick=async ()=>{
-  // progress is saved and the batch stays in 'My In Progress'so you can keep picking
+  stopHeartbeat(); presenceLeave();
+  // If nothing was picked, leaving is not "work in progress" — release the
+  // claim right away so the batch goes straight back to the waiting pool.
+  const didWork=(task&&task.work_started)||lines.some(l=>l.picked>0);
+  if(task && !didWork){
+    await sb.from("wms_pick_tasks")
+      .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null})
+      .eq("id",task.id).eq("assigned_to",me.name);
+  }
+  // otherwise progress is saved and the batch stays in 'My In Progress'
   task=null;order=null;lines=[];bcMap={};
   document.getElementById("pickView").style.display="none";
   document.getElementById("listView").style.display="block";
@@ -717,15 +812,16 @@ document.getElementById("holdBtn").onclick=async ()=>{
       await sb.from("wms_pick_task_lines").update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
     }
     // set batch to pending + unassigned (progress preserved on lines)
+    stopHeartbeat(); presenceLeave();
     const {error}=await sb.from("wms_pick_tasks")
-      .update({status:"pending",assigned_to:null}).eq("id",task.id);
+      .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",task.id);
     if(error) throw error;
     toast(task.batch_label+" Held (returned to waiting list)");
     task=null;order=null;lines=[];bcMap={};
     document.getElementById("pickView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadBatches();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(task){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 

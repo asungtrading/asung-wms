@@ -264,8 +264,50 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null;
-let pool=[], mine=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0, view="list";
+let pool=[], mine=[], stalePacks=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0, view="list";
 let actx=null;
+
+/* ---------- lease / heartbeat / presence ---------- */
+const HB_MS=20000, STALE_S=75;
+let hbTimer=null, presCh=null;
+const staleISO=()=>new Date(Date.now()-STALE_S*1000).toISOString();
+const isStale=t=>{ const h=t.heartbeat_at||t.started_at; return !h || (Date.now()-new Date(h).getTime())>STALE_S*1000; };
+function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
+function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
+async function beatOnce(){
+  if(!packTask) return;
+  const {data,error}=await sb.from("wms_pack_tasks")
+    .update({heartbeat_at:new Date().toISOString()})
+    .eq("id",packTask.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+  if(!error && (!data||!data.length)){
+    stopHeartbeat(); presenceLeave();
+    toast("This batch was taken over or released",true);
+    packTask=null;order=null;lines=[];bcMap={};
+    document.getElementById("packView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadQueue();
+  }
+}
+function presenceJoin(){
+  presenceLeave();
+  try{
+    presCh=sb.channel("wms-presence",{config:{presence:{key:me.name+"|packer"}}});
+    presCh.subscribe(st=>{
+      if(st==="SUBSCRIBED" && packTask) presCh.track({
+        name:me.name, screen:"packer",
+        batch:packTask.batch_label, order:(order&&order.order_number)||"",
+        at:new Date().toISOString()
+      });
+    });
+  }catch(e){}
+}
+function presenceLeave(){ if(presCh){ try{presCh.untrack(); sb.removeChannel(presCh);}catch(e){} presCh=null; } }
+function markWorkStarted(){
+  if(!packTask || packTask.work_started) return;
+  packTask.work_started=true;
+  sb.from("wms_pack_tasks").update({work_started:true}).eq("id",packTask.id).then(()=>{});
+}
 
 /* boot / login */
 function boot(){
@@ -321,20 +363,23 @@ async function loadQueue(){
   const acc=me.warehouse_access;
   const [donePick, allPack]=await Promise.all([
     sb.from("wms_pick_tasks").select("id,batch_label,order_id, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at"),
-    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to, wms_orders(order_number,warehouse,customer_name)"),
+    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started, wms_orders(order_number,warehouse,customer_name)"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(donePick.error||allPack.error){toast("Failed to load list",true);return;}
   const inWh=o=>{const wh=o?.warehouse;return acc==="both"||wh===acc;};
   const packs=(allPack.data||[]);
   const claimedPickIds=new Set(packs.filter(p=>p.status==="in_progress"||p.status==="completed").map(p=>p.pick_task_id));
-  mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&inWh(p.wms_orders));
+  // resume list = only claims with actual work (no-work claims get reaped/auto-released)
+  mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&p.work_started&&inWh(p.wms_orders));
   held=packs.filter(p=>p.status==="pending"&&inWh(p.wms_orders));
+  // abandoned claims by others (heartbeat dead) → take over, progress kept
+  stalePacks=packs.filter(p=>p.status==="in_progress"&&p.assigned_to!==me.name&&isStale(p)&&inWh(p.wms_orders));
   poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders));
   // lookup cache for resume verify
-  packLookup={}; [...mine,...held].forEach(p=>packLookup[p.id]=p);
+  packLookup={}; [...mine,...held,...stalePacks].forEach(p=>packLookup[p.id]=p);
   // short pre-check presence
-  const pickIds=[...poolNew.map(p=>p.id), ...mine.map(p=>p.pick_task_id), ...held.map(p=>p.pick_task_id)];
+  const pickIds=[...poolNew.map(p=>p.id), ...mine.map(p=>p.pick_task_id), ...held.map(p=>p.pick_task_id), ...stalePacks.map(p=>p.pick_task_id)];
   shortByPick={};
   if(pickIds.length){
     const {data}=await sb.from("wms_pick_task_lines").select("pick_task_id,assigned_base,picked_base").in("pick_task_id",pickIds);
@@ -359,8 +404,8 @@ function renderQueue(){
   const be=document.getElementById("bempty");
   const f=queueFilter.trim().toUpperCase();
   const match=p=>{ if(!f)return true; const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
-  const mineF=mine.filter(match), heldF=held.filter(match), poolF=poolNew.filter(match);
-  const has=(poolF.length+mineF.length+heldF.length)>0;
+  const mineF=mine.filter(match), heldF=held.filter(match), poolF=poolNew.filter(match), staleF=stalePacks.filter(match);
+  const has=(poolF.length+mineF.length+heldF.length+staleF.length)>0;
   be.style.display=has?"none":"block"; be.textContent=f?("No pack batch for "+queueFilter):"No batches waiting to pack..";
   let html="";
   if(f){ html+=`<div class="filterbar">Showing <b>${esc(queueFilter)}</b><button id="clrFilter">Clear</button></div>`; }
@@ -370,11 +415,24 @@ function renderQueue(){
     html+=heldF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join("");
     html+=poolF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Start verify",`data-pickid="${p.id}"`,false,shortByPick[p.id]||0)).join("");
   }
+  if(staleF.length){
+    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`;
+    html+=staleF.map(p=>{
+      const im=idleMin(p);
+      const o=Object.assign({},p.wms_orders||{});
+      o.customer_name=(o.customer_name||"—")+` · ${p.assigned_to||"?"} · idle ${im?im+"m":"?"}`;
+      return qcard(o,p.batch_label,"Take over",`data-takeid="${p.id}"`,true,shortByPick[p.pick_task_id]||0);
+    }).join("");
+  }
   document.getElementById("blist").innerHTML=html;
   const clr=document.getElementById("clrFilter");
   if(clr) clr.onclick=()=>{ queueFilter=""; const os=document.getElementById("orderScan"); if(os)os.value=""; renderQueue(); };
   document.querySelectorAll("#blist .bcard").forEach(el=>{
-    el.onclick=()=> el.dataset.packid ? resumePack(+el.dataset.packid) : startPack(+el.dataset.pickid);
+    el.onclick=()=>{
+      if(el.dataset.takeid) takeoverPack(+el.dataset.takeid);
+      else if(el.dataset.packid) resumePack(+el.dataset.packid);
+      else startPack(+el.dataset.pickid);
+    };
   });
   if(me && document.getElementById("listView").style.display!=="none"){
     const os=document.getElementById("orderScan"); if(os && document.activeElement!==os) os.focus();
@@ -388,7 +446,7 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   queueFilter=v; renderQueue();
   const f=v.toUpperCase();
-  const any=[...mine,...held,...poolNew].some(p=>{const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
+  const any=[...mine,...held,...poolNew,...stalePacks].some(p=>{const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
   if(!any) toast("No pack batch for "+v,true);
 });
 
@@ -402,12 +460,14 @@ async function startPack(pickId){
     .eq("pick_task_id",pickId);
   if(error){toast("Failed to load pick lines",true);return;}
   // pack_task create (unique constraint prevents duplicates)
+  const now=new Date().toISOString();
   const ins=await sb.from("wms_pack_tasks").insert({
     order_id:pt.order_id, pick_task_id:pickId, batch_label:pt.batch_label,
-    assigned_to:me.name, status:"in_progress", started_at:new Date().toISOString()
+    assigned_to:me.name, status:"in_progress", started_at:now, heartbeat_at:now, work_started:false
   }).select();
   if(ins.error){ toast(ins.error.message.includes("uq_packtasks_pick")?"Another worker is already verifying this":("Start failed: "+ins.error.message),true); loadQueue(); return; }
   packTask=ins.data[0]; order=pt.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   // pack_task_lines create (expected = qty the pick produced)
   const rows=(pl||[]).map(l=>({
     pack_task_id:packTask.id, order_line_id:l.order_line_id,
@@ -423,16 +483,19 @@ async function resumePack(packId){
   const pk=packLookup[packId]; if(!pk){loadQueue();return;}
   // if held(pending) batch, claim it as mine (concurrency: only when pending)
   if(pk.status==="pending"){
-    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:new Date().toISOString()})
+    const now=new Date().toISOString();
+    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now})
       .eq("id",packId).eq("status","pending").select();
     if(cl.error||!cl.data||!cl.data.length){ toast("Another worker already took this",true); loadQueue(); return; }
+    pk.work_started=cl.data[0].work_started;
   }
   const [ptl, pl]=await Promise.all([
     sb.from("wms_pack_task_lines").select("id,order_line_id,expected_base,verified_base,status, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)").eq("pack_task_id",packId),
     sb.from("wms_pick_task_lines").select("order_line_id,assigned_base,picked_base").eq("pick_task_id",pk.pick_task_id),
   ]);
   if(ptl.error){toast("Failed to load lines",true);return;}
-  packTask={id:packId, order_id:pk.order_id, pick_task_id:pk.pick_task_id, batch_label:pk.batch_label}; order=pk.wms_orders||{};
+  packTask={id:packId, order_id:pk.order_id, pick_task_id:pk.pick_task_id, batch_label:pk.batch_label, work_started:!!pk.work_started}; order=pk.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   const reqMap={}; (pl.data||[]).forEach(l=>reqMap[l.order_line_id]=Number(l.assigned_base||0));
   lines=(ptl.data||[]).map(r=>{
     const ol=r.wms_order_lines||{};
@@ -446,6 +509,22 @@ async function resumePack(packId){
     };
   });
   finishBuild(); enterPack();
+}
+
+/* take over an abandoned pack claim (holder gone, verified progress kept) */
+async function takeoverPack(packId){
+  initAudio();
+  const pk=packLookup[packId]; if(!pk){loadQueue();return;}
+  if(!confirm(`Take over ${pk.batch_label}?\nCurrent holder: ${pk.assigned_to||"?"} (away).\nTheir verified quantities are kept — you continue from where they stopped.`)) return;
+  const now=new Date().toISOString();
+  const cl=await sb.from("wms_pack_tasks")
+    .update({assigned_to:me.name,heartbeat_at:now})
+    .eq("id",packId).eq("status","in_progress")
+    .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
+    .select();
+  if(cl.error||!cl.data||!cl.data.length){ toast("Could not take over — the holder is back or it was released.",true); loadQueue(); return; }
+  pk.status="in_progress"; pk.work_started=cl.data[0].work_started;
+  await resumePack(packId);
 }
 
 /* for start path: build in-memory lines from pick-line data */
@@ -721,6 +800,7 @@ function manualAdjust(idx,d){
 
 async function saveLine(l){
   if(!l.packline_id)return;
+  if(l.verified>0) markWorkStarted(); // first real verify = this claim is genuine work
   const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending");
   await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id);
 }
@@ -751,6 +831,7 @@ document.getElementById("doneBtn").onclick=async ()=>{
     if(!confirm(msg)) { focusScan(); return; }
   }
   const btn=document.getElementById("doneBtn"); btn.disabled=true;
+  stopHeartbeat(); presenceLeave();
   try{
     for(const l of lines){
       const st=l.verified>=l.required?"verified":"mismatch";
@@ -784,7 +865,7 @@ document.getElementById("doneBtn").onclick=async ()=>{
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){ toast("Completion failed: "+(e.message||e),true); }
+  }catch(e){ toast("Completion failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 
@@ -813,18 +894,30 @@ document.getElementById("holdBtn").onclick=async ()=>{
     // pack_task delete → pick batch returns to pack queue (line progress lost: fresh verify on restart)
     // to preserve progress, pack_taskwould need to keep as pending, but pool logic is "pack_task none"is
     // hold keeps pack_task as pending + clears assigned_to → drops from 'My In Progress' so anyone can resume.
-    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null}).eq("id",packTask.id);
+    stopHeartbeat(); presenceLeave();
+    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",packTask.id);
     toast(packTask.batch_label+" held");
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 
 /* Back (keep My In Progress) */
-document.getElementById("backBtn").onclick=()=>{ packTask=null;order=null;lines=[];bcMap={};document.getElementById("packView").style.display="none";document.getElementById("listView").style.display="block";loadQueue(); };
+document.getElementById("backBtn").onclick=async ()=>{
+  stopHeartbeat(); presenceLeave();
+  // No verification done → leaving is not "work in progress": release the claim
+  // (set to pending/unassigned) so the batch goes straight back to the pack queue.
+  const didWork=(packTask&&packTask.work_started)||lines.some(l=>l.verified>0);
+  if(packTask && !didWork){
+    await sb.from("wms_pack_tasks")
+      .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null})
+      .eq("id",packTask.id).eq("assigned_to",me.name);
+  }
+  packTask=null;order=null;lines=[];bcMap={};document.getElementById("packView").style.display="none";document.getElementById("listView").style.display="block";loadQueue();
+};
 
 /* keep scan focus */
 function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); const a=document.activeElement; if(a===s)return; if(a&&(a.tagName==="INPUT"||a.tagName==="SELECT"||a.tagName==="TEXTAREA")&&a!==s)return; s.focus();} }
