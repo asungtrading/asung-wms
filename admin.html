@@ -151,6 +151,7 @@
       <button data-t="reports">Reports <span class="badge" id="reportBadge" style="display:none">0</span></button>
       <button data-t="stats">Stats</button>
       <button data-t="rollback">Rollback</button>
+      <button data-t="health">Health <span class="badge" id="healthBadge" style="display:none">0</span></button>
       <button data-t="packing">Finalized</button>
       <button data-t="launch">Work Screens</button>
     </div>
@@ -213,6 +214,12 @@
       <div class="grid" id="fulfillStats"></div>
       <div class="sect-h">Finalized orders <span style="font-weight:400;color:var(--mut);font-size:12.5px">— print or download the packing list; direct-pack orders have none</span></div>
       <div class="card"><div id="packingList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+    </div>
+
+    <!-- Health (invariant checks) -->
+    <div class="view" id="v-health">
+      <div class="sect-h">System health <span style="font-weight:400;color:var(--mut);font-size:12.5px">— invariants that must always hold · a red card means the rule broke and needs review</span></div>
+      <div id="healthList"><div class="loading"><div class="spin"></div>Running checks…</div></div>
     </div>
 
     <!-- work screen shortcuts -->
@@ -314,6 +321,7 @@ function start(){
     if(t==="rollback")loadRollback();
     if(t==="reports")loadReports();
     if(t==="packing")loadPacking();
+    if(t==="health")loadHealth();
   };
   renderLaunch();
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
@@ -323,6 +331,7 @@ function start(){
   loadOverview();
   refreshDiscBadge();
   refreshReportBadge();
+  refreshHealthBadge();
   // keep freshness chips honest while Status tab is open
   setInterval(()=>{ if(document.getElementById("v-overview").classList.contains("active")) loadOverview(); }, 60000);
 }
@@ -525,6 +534,78 @@ async function releaseClaim(table,id,label){
   if(!data||!data.length){ toast("Already released or completed",true); }
   else toast(label+" released to the pool");
   loadOverview();
+}
+
+/* ---------- Health (invariant checks via wms_health_check RPC) ---------- */
+async function loadHealth(){
+  const el=document.getElementById("healthList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Running checks…</div>`;
+  const {data,error}=await sb.rpc("wms_health_check");
+  if(error){
+    el.innerHTML=`<div class="empty">Health checks are not installed yet.<br>
+      Run <b>wms_healthcheck.sql</b> in the Supabase SQL editor, then reload this page.<br>
+      <span style="color:var(--mut-2);font-size:12px">(${esc(error.message)})</span></div>`;
+    return;
+  }
+  const rows=data||[];
+  const crit=rows.filter(r=>r.category==="critical"&&r.fail_count>0).length;
+  const warn=rows.filter(r=>r.category==="warn"&&r.fail_count>0).length;
+  updateHealthBadge(crit);
+  let summary;
+  if(crit) summary=`<span style="color:var(--danger);font-weight:800">${crit} critical</span>`
+      +(warn?` · <span style="color:var(--warn);font-weight:700">${warn} warning${warn>1?"s":""}</span>`:"")+` to review`;
+  else if(warn) summary=`<span style="color:var(--warn);font-weight:700">${warn} warning${warn>1?"s":""}</span> · no critical issues`;
+  else summary=`<span style="color:var(--ok);font-weight:800">All clear</span> — every invariant holds`;
+  el.innerHTML=`<div style="margin:0 2px 14px;font-size:13.5px">${summary}
+      <button class="btnsm" style="margin-left:10px" onclick="loadHealth()">↻ Re-run</button></div>
+    <div>${rows.map(healthCard).join("")}</div>`;
+}
+function healthCard(r){
+  const info=r.category==="info";
+  const bad=!info && Number(r.fail_count)>0;
+  const color=info?"var(--mut-2)":bad?(r.category==="critical"?"var(--danger)":"var(--warn)"):"var(--ok)";
+  const bg=info?"var(--line-2)":bad?(r.category==="critical"?"var(--danger-bg)":"var(--warn-bg)"):"var(--ok-bg)";
+  const dot=info?"·":(bad?"✕":"✓");
+  const pill=info?healthInfoValue(r.sample):(bad?`${r.fail_count} row${Number(r.fail_count)>1?"s":""}`:"OK");
+  let body=`<div style="font-size:12.5px;color:var(--mut);margin-top:6px;line-height:1.5">${esc(r.hint)}</div>`;
+  if(bad && r.sample) body+=`<details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--accent)">Show sample (up to 8)</summary>
+      ${sampleTable(r.sample)}</details>`;
+  return `<div class="card" style="padding:14px 16px;margin-bottom:10px;border-left:3px solid ${color}">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-weight:700;font-size:14.5px">${esc(r.title)}</span>
+      <span class="tag" style="color:${color};background:${bg};margin-left:auto">${dot} ${esc(String(pill))}</span>
+    </div>${body}</div>`;
+}
+function healthInfoValue(s){
+  if(s && s.minutes_ago!=null){
+    const m=Number(s.minutes_ago);
+    return m<60?`${m}m ago`:m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`;
+  }
+  return "—";
+}
+function fmtHealthVal(v){ return v==null?"—":typeof v==="object"?JSON.stringify(v):String(v); }
+function sampleTable(sample){
+  if(!Array.isArray(sample))
+    return `<pre style="margin:8px 0 0;overflow-x:auto;font-family:var(--mono);font-size:12px;background:var(--line-2);padding:10px;border-radius:8px">${esc(JSON.stringify(sample,null,2))}</pre>`;
+  if(!sample.length) return "";
+  const keys=Object.keys(sample[0]);
+  return `<div style="overflow-x:auto;margin-top:8px"><table><thead><tr>${
+      keys.map(k=>`<th>${esc(k)}</th>`).join("")
+    }</tr></thead><tbody>${
+      sample.map(row=>`<tr>${keys.map(k=>`<td style="font-family:var(--mono);font-size:12px">${esc(fmtHealthVal(row[k]))}</td>`).join("")}</tr>`).join("")
+    }</tbody></table></div>`;
+}
+function updateHealthBadge(crit){
+  const b=document.getElementById("healthBadge"); if(!b) return;
+  if(crit>0){ b.textContent=crit; b.style.display="inline-block"; }
+  else b.style.display="none";
+}
+async function refreshHealthBadge(){
+  try{
+    const {data,error}=await sb.rpc("wms_health_check"); if(error) return;
+    updateHealthBadge((data||[]).filter(r=>r.category==="critical"&&Number(r.fail_count)>0).length);
+  }catch(e){}
 }
 
 /* ---------- Rollback (manager only, one step at a time) ---------- */
