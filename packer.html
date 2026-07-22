@@ -34,6 +34,9 @@
   .sect{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:6px 2px 2px}
   .sect:first-child{margin-top:0}
   .blist{display:flex;flex-direction:column;gap:10px}
+  .filterbar{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;margin-bottom:2px}
+  .filterbar b{font-family:var(--mono)}
+  .filterbar button{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer}
   .bcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:.1s}
   .bcard:hover{border-color:#cdc2f2}
   .bcard.resume{border-color:#cdc2f2;background:#f7f5ff}
@@ -86,14 +89,60 @@
   #flash.show{transform:translateY(0)}
   #flash.ok{background:var(--ok)} #flash.bad{background:var(--danger)}
 
-  .list{display:flex;flex-direction:column;gap:8px}
+  /* view toggle */
+  .seg{margin-left:auto;display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);padding:6px 11px;border-radius:6px;cursor:pointer}
+  .seg button.active{background:var(--ink);color:#fff}
+
+  /* single-line card (mirror of picker) */
+  .single{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:none}
+  .single .body{padding:16px}
+  .single .head{display:flex;gap:14px;margin-bottom:6px}
+  .single .img{width:150px;height:150px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat}
+  .single .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .single .barcodes{margin:2px 0 4px;padding:9px 11px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
+  .single .barcodes .bc{display:flex;align-items:center;gap:10px;padding:2px 0;font-family:var(--mono);font-size:13px}
+  .single .barcodes .bl{color:var(--mut);min-width:58px;font-weight:700;font-size:11.5px}
+  .single .barcodes .bv{font-weight:700;letter-spacing:.02em}
+  .single .barcodes .bv.empty{color:var(--mut-2);font-weight:400;font-style:italic}
+  .zbadge{font-family:var(--mono);font-weight:800;font-size:15px;color:#fff;background:var(--mut);min-width:34px;height:34px;border-radius:9px;display:grid;place-items:center;padding:0 8px}
+  .binbig{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.01em}
+  .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
+  .single .sku{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--ink);letter-spacing:.01em}
+  .single .chips{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
+  .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
+  .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
+  .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
+  .qtybox.done .qtybig{color:var(--ok)}
+  .lastscan{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 13px;border-radius:11px;background:var(--ok-bg);border:1.5px solid #bfe6cd;font-family:var(--mono);font-weight:800;font-size:15px;color:#15803d}
+  .lastscan .fbig{font-size:22px;white-space:nowrap}
+  .lastscan.boxscan{background:#fff4e0;border-color:#f0d9ae;color:#a86400}
+  .lastscan .sub{font-weight:600;font-size:11px;opacity:.7;margin-left:auto;font-family:var(--sans);white-space:nowrap}
+  @keyframes qtypop{0%{transform:scale(1)}35%{transform:scale(1.28)}100%{transform:scale(1)}}
+  .qtybig.pop{animation:qtypop .5s ease}
+  .stepper{margin-left:auto;display:flex;gap:8px}
+  .stepper button{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:#fff;font-size:22px;font-weight:700;color:var(--ink);cursor:pointer}
+  .stepper button:active{background:var(--paper)}
+  .navrow{display:flex;gap:10px;margin-top:14px}
+  .navrow .btn{flex:1}
+  .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
+  .reportrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .reportrow .rep{flex:1;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .reportrow .rep:active{background:#fdf3df}
+
+  .list{display:none;flex-direction:column;gap:8px}
+  .searchbar{display:flex;gap:8px;margin:0 0 10px}
+  .searchbar input{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;font-size:13.5px;background:#fff}
+  .searchbar input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
+  .searchbar button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
   .lrow.miss{background:var(--danger-bg);border-color:#f3c4c4}
   .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line)}
   .lrow .li{flex:1;min-width:0}
-  .lrow .li .s{font-family:var(--mono);font-weight:700;font-size:13px}
+  .lrow .li .s{font-family:var(--mono);font-weight:800;font-size:15.5px;color:var(--ink)}
   .lrow .li .n{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
   .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap;text-align:right}
@@ -122,8 +171,18 @@
 
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
-  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo .logo-img{height:28px;width:auto;display:block}
   .logo span{margin-left:0}
+
+  /* ---- mobile ---- */
+  @media(max-width:480px){
+    .bar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    .right{flex-wrap:wrap;row-gap:6px}
+    header button{font-size:12px;padding:6px 9px}
+    main{padding:12px}
+    .single .img{width:112px;height:112px}
+    .qtybig{font-size:34px}
+  }
 </style>
 </head>
 <body>
@@ -135,7 +194,7 @@
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Packing</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
+      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
       <div class="conn"><span class="dot" id="dot"></span></div>
     </div>
   </div>
@@ -146,6 +205,10 @@
   <!-- Select batch -->
   <div id="listView">
     <div class="lead">Pick a completed pick batch and verify by full re-scan..</div>
+    <div class="scanbar" style="position:static;padding:0 0 12px">
+      <input class="scanin" id="orderScan" inputmode="none" autocomplete="off" placeholder="Scan a pick list to find its order…">
+      <div class="scanhint"><span class="live"></span><span>Scan the pick-list barcode to jump to that order</span></div>
+    </div>
     <div class="blist" id="blist"></div>
     <div class="loading" id="bloading"><div class="spin"></div>Loading…</div>
     <div class="empty" id="bempty" style="display:none">No batches waiting to pack..</div>
@@ -158,6 +221,10 @@
       <div>
         <div class="ptitle" id="pTitle"></div>
         <div class="pmeta" id="pMeta"></div>
+      </div>
+      <div class="seg" id="viewSeg">
+        <button data-v="single">Single</button>
+        <button data-v="list" class="active">List</button>
       </div>
     </div>
 
@@ -178,6 +245,11 @@
       <div class="scanhint"><span class="live"></span><span>Full re-scan &middot; target = ordered qty &middot; fill shortfalls from other locations</span></div>
     </div>
 
+    <div class="single" id="single"></div>
+    <div class="searchbar">
+      <input id="skuSearch" autocomplete="off" placeholder="Search SKU / product…">
+      <button id="skuClear" style="display:none">Clear</button>
+    </div>
     <div class="list" id="list"></div>
 
     <div class="foot">
@@ -198,8 +270,50 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null;
-let pool=[], mine=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0;
+let pool=[], mine=[], stalePacks=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0, view="list";
 let actx=null;
+
+/* ---------- lease / heartbeat / presence ---------- */
+const HB_MS=20000, STALE_S=75;
+let hbTimer=null, presCh=null;
+const staleISO=()=>new Date(Date.now()-STALE_S*1000).toISOString();
+const isStale=t=>{ const h=t.heartbeat_at||t.started_at; return !h || (Date.now()-new Date(h).getTime())>STALE_S*1000; };
+function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
+function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
+async function beatOnce(){
+  if(!packTask) return;
+  const {data,error}=await sb.from("wms_pack_tasks")
+    .update({heartbeat_at:new Date().toISOString()})
+    .eq("id",packTask.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+  if(!error && (!data||!data.length)){
+    stopHeartbeat(); presenceLeave();
+    toast("This batch was taken over or released",true);
+    packTask=null;order=null;lines=[];bcMap={};
+    document.getElementById("packView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadQueue();
+  }
+}
+function presenceJoin(){
+  presenceLeave();
+  try{
+    presCh=sb.channel("wms-presence",{config:{presence:{key:me.name+"|packer"}}});
+    presCh.subscribe(st=>{
+      if(st==="SUBSCRIBED" && packTask) presCh.track({
+        name:me.name, screen:"packer",
+        batch:packTask.batch_label, order:(order&&order.order_number)||"",
+        at:new Date().toISOString()
+      });
+    });
+  }catch(e){}
+}
+function presenceLeave(){ if(presCh){ try{presCh.untrack(); sb.removeChannel(presCh);}catch(e){} presCh=null; } }
+function markWorkStarted(){
+  if(!packTask || packTask.work_started) return;
+  packTask.work_started=true;
+  sb.from("wms_pack_tasks").update({work_started:true}).eq("id",packTask.id).then(()=>{});
+}
 
 /* boot / login */
 function boot(){
@@ -220,14 +334,35 @@ function initAudio(){if(!actx){try{actx=new (window.AudioContext||window.webkitA
 function beep(kind){
   if(!actx)return; const t=actx.currentTime;
   if(kind==="ok"){const o=actx.createOscillator(),g=actx.createGain();o.type="sine";o.frequency.setValueAtTime(1050,t);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.14,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);}
-  else{[0,0.16].forEach(off=>{const o=actx.createOscillator(),g=actx.createGain();o.type="square";o.frequency.setValueAtTime(180,t+off);
-    g.gain.setValueAtTime(0.0001,t+off);g.gain.exponentialRampToValueAtTime(0.18,t+off+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+off+0.13);
-    o.connect(g);g.connect(actx.destination);o.start(t+off);o.stop(t+off+0.14);});}
+  else if(kind==="done"){ // line complete: cheerful rising major arpeggio (clearly different from ok/okbox)
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(1046.5,t);o.frequency.setValueAtTime(1318.5,t+0.09);
+    o.frequency.setValueAtTime(1568,t+0.18);o.frequency.setValueAtTime(2093,t+0.27);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.55,t+0.01);
+    g.gain.setValueAtTime(0.55,t+0.34);g.gain.exponentialRampToValueAtTime(0.0001,t+0.52);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.53);}
+  else if(kind==="okbox"){ // box scan (factor>1): rising triple tone so ears confirm a multi-unit add
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1100,t+0.09);o.frequency.setValueAtTime(1320,t+0.18);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);
+    g.gain.setValueAtTime(0.5,t+0.26);g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.33);}
+else{ // error: LOUD two-tone siren (high freqs carry on small speakers), full volume
+    try{ if(actx.state==="suspended") actx.resume(); }catch(e){}
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type="square";
+    for(let i=0;i<6;i++) o.frequency.setValueAtTime(i%2?1600:2400, t+i*0.12);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(1.0,t+0.015);
+    g.gain.setValueAtTime(1.0,t+0.66);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.72);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.73);
+  }
 }
-function vibe(kind){try{navigator.vibrate&&navigator.vibrate(kind==="ok"?25:[90,60,90]);}catch(e){}}
-function flash(kind,msg){const el=document.getElementById("flash");el.className="show "+kind;el.textContent=msg;clearTimeout(el._t);el._t=setTimeout(()=>el.className=kind,700);beep(kind==="ok"?"ok":"bad");vibe(kind==="ok"?"ok":"bad");}
+function vibe(kind){try{navigator.vibrate&&navigator.vibrate(kind==="ok"?25:[160,80,160,80,220]);}catch(e){}}
+function flash(kind,msg){const el=document.getElementById("flash");const cls=(kind==="okbox"||kind==="done")?"ok":kind;el.className="show "+cls;el.textContent=msg;clearTimeout(el._t);el._t=setTimeout(()=>el.className=cls,(kind==="okbox"||kind==="done")?1200:700);beep(kind==="bad"?"bad":kind);vibe(kind==="bad"?"bad":"ok");}
 
 /* initial load */
 async function init(){
@@ -247,20 +382,23 @@ async function loadQueue(){
   const acc=me.warehouse_access;
   const [donePick, allPack]=await Promise.all([
     sb.from("wms_pick_tasks").select("id,batch_label,order_id, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at"),
-    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to, wms_orders(order_number,warehouse,customer_name)"),
+    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started, wms_orders(order_number,warehouse,customer_name)"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(donePick.error||allPack.error){toast("Failed to load list",true);return;}
   const inWh=o=>{const wh=o?.warehouse;return acc==="both"||wh===acc;};
   const packs=(allPack.data||[]);
   const claimedPickIds=new Set(packs.filter(p=>p.status==="in_progress"||p.status==="completed").map(p=>p.pick_task_id));
-  mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&inWh(p.wms_orders));
+  // resume list = only claims with actual work (no-work claims get reaped/auto-released)
+  mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&p.work_started&&inWh(p.wms_orders));
   held=packs.filter(p=>p.status==="pending"&&inWh(p.wms_orders));
+  // abandoned claims by others (heartbeat dead) → take over, progress kept
+  stalePacks=packs.filter(p=>p.status==="in_progress"&&p.assigned_to!==me.name&&isStale(p)&&inWh(p.wms_orders));
   poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders));
   // lookup cache for resume verify
-  packLookup={}; [...mine,...held].forEach(p=>packLookup[p.id]=p);
+  packLookup={}; [...mine,...held,...stalePacks].forEach(p=>packLookup[p.id]=p);
   // short pre-check presence
-  const pickIds=[...poolNew.map(p=>p.id), ...mine.map(p=>p.pick_task_id), ...held.map(p=>p.pick_task_id)];
+  const pickIds=[...poolNew.map(p=>p.id), ...mine.map(p=>p.pick_task_id), ...held.map(p=>p.pick_task_id), ...stalePacks.map(p=>p.pick_task_id)];
   shortByPick={};
   if(pickIds.length){
     const {data}=await sb.from("wms_pick_task_lines").select("pick_task_id,assigned_base,picked_base").in("pick_task_id",pickIds);
@@ -280,21 +418,56 @@ function qcard(o,label,btnTxt,attr,resume,shortCnt){
     <button class="go ${resume?"resumebtn":""}">${btnTxt}</button>
   </div>`;
 }
+let queueFilter="", skuFilter="", lastScan=null, advTimer=null;
 function renderQueue(){
   const be=document.getElementById("bempty");
-  const has=(poolNew.length+mine.length+held.length)>0; be.style.display=has?"none":"block"; be.textContent="No batches waiting to pack..";
+  const f=queueFilter.trim().toUpperCase();
+  const match=p=>{ if(!f)return true; const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
+  const mineF=mine.filter(match), heldF=held.filter(match), poolF=poolNew.filter(match), staleF=stalePacks.filter(match);
+  const has=(poolF.length+mineF.length+heldF.length+staleF.length)>0;
+  be.style.display=has?"none":"block"; be.textContent=f?("No pack batch for "+queueFilter):"No batches waiting to pack..";
   let html="";
-  if(mine.length){ html+=`<div class="sect">My In Progress</div>`+mine.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
-  if(poolNew.length||held.length){
+  if(f){ html+=`<div class="filterbar">Showing <b>${esc(queueFilter)}</b><button id="clrFilter">Clear</button></div>`; }
+  if(mineF.length){ html+=`<div class="sect">My In Progress</div>`+mineF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
+  if(poolF.length||heldF.length){
     html+=`<div class="sect">Pack Queue</div>`;
-    html+=held.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join("");
-    html+=poolNew.map(p=>qcard(p.wms_orders||{},p.batch_label,"Start verify",`data-pickid="${p.id}"`,false,shortByPick[p.id]||0)).join("");
+    html+=heldF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join("");
+    html+=poolF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Start verify",`data-pickid="${p.id}"`,false,shortByPick[p.id]||0)).join("");
+  }
+  if(staleF.length){
+    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`;
+    html+=staleF.map(p=>{
+      const im=idleMin(p);
+      const o=Object.assign({},p.wms_orders||{});
+      o.customer_name=(o.customer_name||"—")+` · ${p.assigned_to||"?"} · idle ${im?im+"m":"?"}`;
+      return qcard(o,p.batch_label,"Take over",`data-takeid="${p.id}"`,true,shortByPick[p.pick_task_id]||0);
+    }).join("");
   }
   document.getElementById("blist").innerHTML=html;
+  const clr=document.getElementById("clrFilter");
+  if(clr) clr.onclick=()=>{ queueFilter=""; const os=document.getElementById("orderScan"); if(os)os.value=""; renderQueue(); };
   document.querySelectorAll("#blist .bcard").forEach(el=>{
-    el.onclick=()=> el.dataset.packid ? resumePack(+el.dataset.packid) : startPack(+el.dataset.pickid);
+    el.onclick=()=>{
+      if(el.dataset.takeid) takeoverPack(+el.dataset.takeid);
+      else if(el.dataset.packid) resumePack(+el.dataset.packid);
+      else startPack(+el.dataset.pickid);
+    };
   });
+  if(me && document.getElementById("listView").style.display!=="none"){
+    const os=document.getElementById("orderScan"); if(os && document.activeElement!==os) os.focus();
+  }
 }
+document.getElementById("orderScan").addEventListener("keydown",e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  const v=document.getElementById("orderScan").value.trim();
+  document.getElementById("orderScan").value="";
+  if(!v) return;
+  queueFilter=v; renderQueue();
+  const f=v.toUpperCase();
+  const any=[...mine,...held,...poolNew,...stalePacks].some(p=>{const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
+  if(!any) toast("No pack batch for "+v,true);
+});
 
 /* start verify: pack_task + pack_task_lines create */
 async function startPack(pickId){
@@ -306,12 +479,14 @@ async function startPack(pickId){
     .eq("pick_task_id",pickId);
   if(error){toast("Failed to load pick lines",true);return;}
   // pack_task create (unique constraint prevents duplicates)
+  const now=new Date().toISOString();
   const ins=await sb.from("wms_pack_tasks").insert({
     order_id:pt.order_id, pick_task_id:pickId, batch_label:pt.batch_label,
-    assigned_to:me.name, status:"in_progress", started_at:new Date().toISOString()
+    assigned_to:me.name, status:"in_progress", started_at:now, heartbeat_at:now, work_started:false
   }).select();
   if(ins.error){ toast(ins.error.message.includes("uq_packtasks_pick")?"Another worker is already verifying this":("Start failed: "+ins.error.message),true); loadQueue(); return; }
   packTask=ins.data[0]; order=pt.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   // pack_task_lines create (expected = qty the pick produced)
   const rows=(pl||[]).map(l=>({
     pack_task_id:packTask.id, order_line_id:l.order_line_id,
@@ -327,16 +502,19 @@ async function resumePack(packId){
   const pk=packLookup[packId]; if(!pk){loadQueue();return;}
   // if held(pending) batch, claim it as mine (concurrency: only when pending)
   if(pk.status==="pending"){
-    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:new Date().toISOString()})
+    const now=new Date().toISOString();
+    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now})
       .eq("id",packId).eq("status","pending").select();
     if(cl.error||!cl.data||!cl.data.length){ toast("Another worker already took this",true); loadQueue(); return; }
+    pk.work_started=cl.data[0].work_started;
   }
   const [ptl, pl]=await Promise.all([
     sb.from("wms_pack_task_lines").select("id,order_line_id,expected_base,verified_base,status, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)").eq("pack_task_id",packId),
     sb.from("wms_pick_task_lines").select("order_line_id,assigned_base,picked_base").eq("pick_task_id",pk.pick_task_id),
   ]);
   if(ptl.error){toast("Failed to load lines",true);return;}
-  packTask={id:packId, order_id:pk.order_id, pick_task_id:pk.pick_task_id, batch_label:pk.batch_label}; order=pk.wms_orders||{};
+  packTask={id:packId, order_id:pk.order_id, pick_task_id:pk.pick_task_id, batch_label:pk.batch_label, work_started:!!pk.work_started}; order=pk.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   const reqMap={}; (pl.data||[]).forEach(l=>reqMap[l.order_line_id]=Number(l.assigned_base||0));
   lines=(ptl.data||[]).map(r=>{
     const ol=r.wms_order_lines||{};
@@ -350,6 +528,22 @@ async function resumePack(packId){
     };
   });
   finishBuild(); enterPack();
+}
+
+/* take over an abandoned pack claim (holder gone, verified progress kept) */
+async function takeoverPack(packId){
+  initAudio();
+  const pk=packLookup[packId]; if(!pk){loadQueue();return;}
+  if(!confirm(`Take over ${pk.batch_label}?\nCurrent holder: ${pk.assigned_to||"?"} (away).\nTheir verified quantities are kept — you continue from where they stopped.`)) return;
+  const now=new Date().toISOString();
+  const cl=await sb.from("wms_pack_tasks")
+    .update({assigned_to:me.name,heartbeat_at:now})
+    .eq("id",packId).eq("status","in_progress")
+    .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
+    .select();
+  if(cl.error||!cl.data||!cl.data.length){ toast("Could not take over — the holder is back or it was released.",true); loadQueue(); return; }
+  pk.status="in_progress"; pk.work_started=cl.data[0].work_started;
+  await resumePack(packId);
 }
 
 /* for start path: build in-memory lines from pick-line data */
@@ -372,14 +566,12 @@ function finishBuild(){
 }
 
 async function enterPack(){
-  // in start path, packline_id if missing, fill via re-query
+  // in start path, packline_id if missing, fill via re-query (needed for saving)
   if(lines.some(l=>l.packline_id==null)){
     const {data}=await sb.from("wms_pack_task_lines").select("id,order_line_id").eq("pack_task_id",packTask.id);
     const m={}; (data||[]).forEach(r=>m[r.order_line_id]=r.id);
     lines.forEach(l=>{ if(l.packline_id==null) l.packline_id=m[l.order_line_id]||null; });
   }
-  // picker name (for mistake attribution)
-  try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
   curIdx=lines.findIndex(l=>l.verified<l.required); if(curIdx<0)curIdx=0;
   // pick-incomplete warning (shortfall to fill during packing)
   const shorts=lines.filter(l=>l.verified<l.required && l.expected<l.required);
@@ -388,18 +580,160 @@ async function enterPack(){
     al.style.display="block";
     document.getElementById("shortList").innerHTML=shorts.map(l=>`<li>· ${esc(l.order_sku)} — Pick ${l.expected} / ordered ${l.required} (from other locations ${l.required-l.expected} more to find)</li>`).join("");
   }else{ al.style.display="none"; }
+  // show the lines immediately (don't wait for enrichment queries)
+  skuFilter=""; lastScan=null; clearTimeout(advTimer); const _se=document.getElementById("skuSearch"); if(_se)_se.value="";
   document.getElementById("listView").style.display="none";
   document.getElementById("packView").style.display="block";
   document.getElementById("pTitle").textContent=packTask.batch_label;
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
-  renderList(); focusScan();
+  renderPack(); focusScan();
+  // enrich: picker name (attribution) + sibling barcodes, then re-render
+  try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
+  try{
+    const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+    if(baseSkus.length){
+      const {data:sibs}=await sb.from("wms_sku_snapshot").select("base_sku,factor,barcode").in("base_sku",baseSkus);
+      const sibMap={};
+      (sibs||[]).forEach(r=>{ const bs=r.base_sku; if(!bs)return; (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1,barcode:String(r.barcode||"").trim()}); });
+      lines.forEach(l=>{ l.barcodeRows=sibMap[l.base_sku]||[]; });
+      // merge sibling barcodes (e.g. -12 box) into the scan map so box scans count ×factor
+      lines.forEach((l,idx)=>{
+        (l.barcodeRows||[]).forEach(r=>{
+          const code=String(r.barcode||"").trim(); if(!code)return;
+          const arr=(bcMap[code]=bcMap[code]||[]);
+          if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(r.factor)||1});
+        });
+      });
+      renderPack();
+    }
+  }catch(e){ /* barcode display optional */ }
 }
 
 /* render */
 function totTarget(){return lines.reduce((s,l)=>s+l.required,0);}
 function totVer(){return lines.reduce((s,l)=>s+Math.min(l.verified,l.required),0);}
 function imgStyle(l){return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:"";}
+// base barcode(factor 1) + variant barcodes(factor>1, e.g. -12). Blank shown if variant exists w/o barcode.
+function barcodeBlock(l){
+  const rows=l.barcodeRows||[];
+  const base=rows.find(r=>r.factor===1);
+  const variants=rows.filter(r=>r.factor>1).sort((a,b)=>a.factor-b.factor);
+  const bcLine=(label,code)=>`<div class="bc"><span class="bl">${label}</span><span class="bv${code?"":" empty"}">${code?esc(code):"(no barcode)"}</span></div>`;
+  let html=bcLine("Barcode", base?base.barcode:"");
+  variants.forEach(v=>{ html+=bcLine("\u00d7"+v.factor, v.barcode); });
+  return `<div class="barcodes">${html}</div>`;
+}
+function renderPack(){
+  // common: progress bar + over-scan alert (both views)
+  const tot=totTarget(), v=totVer();
+  document.getElementById("progBar").style.width=(tot?Math.round(v/tot*100):0)+"%";
+  const overs=lines.filter(l=>(l.overScans||0)>0);
+  const ov=document.getElementById("overAlert");
+  if(overs.length){ ov.style.display="block"; document.getElementById("overList").innerHTML=overs.map(l=>`<li>\u00b7 ${esc(l.order_sku)} \u2014 ordered ${l.required} met, then ${l.overScans} more scans</li>`).join(""); }
+  else{ ov.style.display="none"; }
+  if(view==="single") renderSingle(); else renderList();
+}
+function lastScanHtml(){
+  if(!lastScan) return "";
+  const s=lastScan;
+  return `<div class="lastscan ${s.box?"boxscan":""}">
+    <span class="fbig">${s.box?"📦":"✓"} +${s.f}</span>
+    <span>${esc(s.sku)} → ${s.verified}/${s.required}${s.ignored?` · ignored ${s.ignored}`:""}</span>
+    <span class="sub">LAST SCAN</span>
+  </div>`;
+}
+function renderSingle(){
+  document.getElementById("list").style.display="none";
+  const host=document.getElementById("single"); host.style.display="block";
+  if(!lines.length){ host.innerHTML=""; return; }
+  if(curIdx>=lines.length)curIdx=lines.length-1;
+  const l=lines[curIdx]; const done=l.verified>=l.required;
+  let chips="";
+  if(l.expected<l.required){
+    if(l.verified>=l.required) chips+=`<span class="recchip">Pack fill +${l.verified-l.expected}</span>`;
+    else chips+=`<span class="shortchip">Short ${l.required-l.verified}</span>`;
+  }
+  if((l.overScans||0)>0) chips+=`<span class="overchip">Over-scan ${l.overScans}</span>`;
+  const pickNote=l.expected<l.required?`<span class="picknote">Pick ${l.expected}</span>`:"";
+  host.innerHTML=`
+    <div class="body">
+      <div class="head">
+        <div class="img" ${imgStyle(l)}></div>
+        <div class="info">
+          <div class="zbin"><span class="zbadge">${esc(l.zone||"\u00b7")}</span><span class="binbig">${esc(l.bin||"\u2014")}</span></div>
+          <div class="nm">${esc(l.product_name)}</div>
+          <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` \u00b7 base ${esc(l.base_sku)}`:""}</div>
+          ${(chips||pickNote)?`<div class="chips">${chips}${pickNote}</div>`:""}
+        </div>
+      </div>
+      ${barcodeBlock(l)}
+      <div class="qtybox ${done?"done":""}">
+        <div class="qtybig">${l.verified}<span class="of"> / ${l.required}</span></div>
+        <div class="stepper">
+          <button data-step="-1">\u2212</button>
+          <button data-step="1">+</button>
+        </div>
+      </div>
+      ${lastScanHtml()}
+      <button class="manual" data-manual>Enter quantity</button>
+      <div class="navrow">
+        <button class="btn ghost" data-nav="-1">\u2190 Prev</button>
+        <button class="btn dark" data-nav="1">Next \u2192</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+      <div class="reportrow"><button class="rep" data-rep="bc">⚑ Barcode changed</button></div>
+    </div>`;
+  host.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
+  host.querySelector("[data-manual]").onclick=()=>manualSetPack(curIdx);
+  host.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{movePack(+b.dataset.nav);});
+  host.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssuePack(b.dataset.rep, curIdx));
+  if(lastScan && Date.now()-lastScan.at<1200){ const qb=host.querySelector(".qtybig"); if(qb) qb.classList.add("pop"); }
+}
+async function reportIssuePack(kind, idx){
+  const l=lines[idx]; if(!l) return;
+  const listed=[...new Set((l.barcodes||[]).map(b=>String(b.barcode||"").trim()).filter(Boolean))].join(", ")||"—";
+  const got=prompt(`Barcode changed for ${l.order_sku}\nListed: ${listed}\n\nScan or type the new barcode (optional)`, "");
+  if(got===null){ focusScan(); return; }
+  try{
+    const {error}=await sb.from("wms_reports").insert({
+      order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku,
+      kind:"barcode_mismatch", note:`Listed ${listed}${got.trim()?` · new ${got.trim()}`:""}`,
+      reported_by:me.name, source:"packer"
+    });
+    if(error) throw error;
+    toast("Barcode issue reported");
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  focusScan();
+}
+function manualSetPack(idx){
+  const l=lines[idx];
+  const v=prompt(`${l.order_sku} Enter verified quantity (0 ~ ${l.required})`, l.verified);
+  if(v===null){focusScan();return;}
+  let n=parseInt(v,10); if(isNaN(n))n=0; n=Math.max(0,Math.min(l.required,n));
+  if(n>l.verified && !confirmFillIfNeeded(l, n)){ focusScan(); return; }
+  l.verified=n; l.vmethod="manual"; saveLine(l); renderPack(); focusScan();
+}
+function movePack(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderPack(); focusScan(); }
+document.getElementById("viewSeg").onclick=e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  view=b.dataset.v;
+  [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x===b));
+  renderPack(); focusScan();
+};
+/* SKU search within the batch being verified */
+const skuEl=document.getElementById("skuSearch");
+skuEl.addEventListener("input",()=>{ skuFilter=skuEl.value; if(view==="list") renderPack(); });
+skuEl.addEventListener("keydown",e=>{
+  if(e.key!=="Enter")return; e.preventDefault();
+  const sf=skuEl.value.trim().toLowerCase(); if(!sf)return;
+  const i=lines.findIndex(l=>(l.order_sku||"").toLowerCase().includes(sf)||(l.base_sku||"").toLowerCase().includes(sf)||(l.product_name||"").toLowerCase().includes(sf));
+  if(i>=0){ curIdx=i; renderPack(); }
+  else toast("No item matches "+skuEl.value,true);
+});
+document.getElementById("skuClear").onclick=()=>{ skuFilter=""; skuEl.value=""; renderPack(); focusScan(); };
 function renderList(){
+  document.getElementById("single").style.display="none";
+  document.getElementById("list").style.display="flex";
   const tot=totTarget(), v=totVer();
   document.getElementById("progBar").style.width=(tot?Math.round(v/tot*100):0)+"%";
   // over-scan detection notice (not recorded — confirm at completion)
@@ -410,7 +744,13 @@ function renderList(){
     document.getElementById("overList").innerHTML=overs.map(l=>`<li>· ${esc(l.order_sku)} — ordered ${l.required} met, then ${l.overScans} more scans</li>`).join("");
   }else{ ov.style.display="none"; }
   const el=document.getElementById("list");
-  el.innerHTML=lines.map((l,idx)=>{
+  const sf=skuFilter.trim().toLowerCase();
+  const match=l=>!sf || (l.order_sku||"").toLowerCase().includes(sf) || (l.base_sku||"").toLowerCase().includes(sf) || (l.product_name||"").toLowerCase().includes(sf);
+  const visible=lines.map((l,idx)=>({l,idx})).filter(x=>match(x.l));
+  const cb=document.getElementById("skuClear");
+  cb.style.display=sf?"inline-block":"none";
+  if(sf && !visible.length){ el.innerHTML=`<div style="padding:18px;color:var(--mut);font-size:13px;text-align:center">No item matches "${esc(skuFilter)}" in this batch.</div>`; return; }
+  el.innerHTML=visible.map(({l,idx})=>{
     const done=l.verified>=l.required;
     const cls=done?"done":(idx===curIdx?"cur":"");
     let chip="";
@@ -432,7 +772,7 @@ function renderList(){
   }).join("");
   el.querySelectorAll(".lrow").forEach(r=>r.onclick=e=>{ if(e.target.dataset.step||e.target.dataset.rmover)return; curIdx=+r.dataset.idx; focusScan(); });
   el.querySelectorAll("[data-step]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); manualAdjust(+b.dataset.i,+b.dataset.step); });
-  el.querySelectorAll("[data-rmover]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); lines[+b.dataset.rmover].overScans=0; renderList(); focusScan(); });
+  el.querySelectorAll("[data-rmover]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); lines[+b.dataset.rmover].overScans=0; renderPack(); focusScan(); });
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
 }
 
@@ -442,6 +782,7 @@ scanEl.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();co
 function processScan(code){
   const cands=bcMap[code];
   if(!cands||!cands.length){ flash("bad","✕ Barcode not in this batch"); return; }
+  clearTimeout(advTimer);
   // prefer lines not yet at ordered qty, else already-full (=over detect) lines
   let hit=cands.find(c=>lines[c.idx].verified<lines[c.idx].required) || cands[0];
   const l=lines[hit.idx], f=hit.factor; curIdx=hit.idx;
@@ -450,29 +791,56 @@ function processScan(code){
     // ordered qty already met → over-scan. not recorded, soft warning only (avoid double-scan false positive).
     // let packer decide at completion whether it's a 'real extra'.
     l.overScans=(l.overScans||0)+f;   // over-scan detection mark (not recorded)
+    lastScan={sku:l.order_sku, f:0, ignored:f, verified:l.verified, required:l.required, box:f>1, at:Date.now()};
     flash("bad",`⚠ already ${l.required} met — extra scans ignored (${l.order_sku})`);
-    renderList(); focusScan(); return;
+    renderPack(); focusScan(); return;
   }
   if(f>room){
     // variant scan etc. exceeded ordered qty → fill only what's needed, mark rest as over-scan only (not recorded)
     l.verified=l.required; l.overScans=(l.overScans||0)+(f-room); l.vmethod=f>1?"scanned_variant":"scanned_base";
+    lastScan={sku:l.order_sku, f:room, ignored:f-room, verified:l.verified, required:l.required, box:f>1, at:Date.now()};
     flash("bad",`⚠ ${l.order_sku} ${l.required} met — excess ${f-room} ignored`);
-    saveLine(l); renderList(); focusScan(); return;
+    saveLine(l); renderPack(); focusScan(); return;
   }
   // normal verify
+  if(!confirmFillIfNeeded(l, l.verified + f)){ focusScan(); return; }
   l.verified+=f; l.vmethod=f>1?"scanned_variant":"scanned_base";
   const rec=(l.verified>l.expected)?" · pack fill":"";
-  flash("ok",`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}`);
+  lastScan={sku:l.order_sku, f, verified:l.verified, required:l.required, box:f>1, at:Date.now()};
+  const lineDone=l.verified>=l.required;
+  flash(lineDone?"done":(f>1?"okbox":"ok"),`✓ ${l.order_sku}  +${f}  (${l.verified}/${l.required})${rec}${lineDone?" · COMPLETE":""}`);
   saveLine(l);
-  if(l.verified>=l.required) autoAdvance();
-  renderList(); focusScan();
+  if(l.verified>=l.required){
+    // let the worker SEE the line reach its target before the view moves on
+    renderPack(); focusScan();
+    advTimer=setTimeout(()=>{ if(lines[curIdx]&&lines[curIdx].verified>=lines[curIdx].required){ autoAdvance(); renderPack(); focusScan(); } },900);
+    return;
+  }
+  renderPack(); focusScan();
 }
 function autoAdvance(){ const n=lines.findIndex((l,i)=>i>curIdx&&l.verified<l.required); const a=lines.findIndex(l=>l.verified<l.required); curIdx=n>=0?n:(a>=0?a:curIdx); }
 
-function manualAdjust(idx,d){ const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return; l.verified=nv; l.vmethod="manual"; saveLine(l); renderList(); focusScan(); }
+// Pick was incomplete (expected < required): crossing the picker's picked qty needs confirmation.
+// Fires an audible beep + red flash + vibrate so it's noticeable, then asks to confirm. Used by scan AND manual +.
+function confirmFillIfNeeded(l, newVerified){
+  if(l.expected < l.required && !l.fillConfirmed && newVerified > l.expected){
+    flash("bad", `⚠ ${esc(l.order_sku)} — beyond picker's ${l.expected}`);   // sound + flash + vibrate
+    const need = l.required - l.expected;
+    const msg = `${l.order_sku}\n\nPicker pulled ${l.expected}, ordered ${l.required}.\nYou are going beyond what the picker pulled.\n\nDid you find the remaining ${need} from another location?\n\nOK = yes, add it.   Cancel = stop.`;
+    if(!confirm(msg)) return false;   // not confirmed → nothing added
+    l.fillConfirmed = true;           // confirmed once → no repeat for this line
+  }
+  return true;
+}
+function manualAdjust(idx,d){
+  const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return;
+  if(d>0 && !confirmFillIfNeeded(l, nv)){ focusScan(); return; }   // clicking + beyond picker qty → same alert+confirm
+  l.verified=nv; l.vmethod="manual"; saveLine(l); renderPack(); focusScan();
+}
 
 async function saveLine(l){
   if(!l.packline_id)return;
+  if(l.verified>0) markWorkStarted(); // first real verify = this claim is genuine work
   const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending");
   await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id);
 }
@@ -503,6 +871,7 @@ document.getElementById("doneBtn").onclick=async ()=>{
     if(!confirm(msg)) { focusScan(); return; }
   }
   const btn=document.getElementById("doneBtn"); btn.disabled=true;
+  stopHeartbeat(); presenceLeave();
   try{
     for(const l of lines){
       const st=l.verified>=l.required?"verified":"mismatch";
@@ -536,7 +905,7 @@ document.getElementById("doneBtn").onclick=async ()=>{
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){ toast("Completion failed: "+(e.message||e),true); }
+  }catch(e){ toast("Completion failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 
@@ -565,21 +934,33 @@ document.getElementById("holdBtn").onclick=async ()=>{
     // pack_task delete → pick batch returns to pack queue (line progress lost: fresh verify on restart)
     // to preserve progress, pack_taskwould need to keep as pending, but pool logic is "pack_task none"is
     // hold keeps pack_task as pending + clears assigned_to → drops from 'My In Progress' so anyone can resume.
-    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null}).eq("id",packTask.id);
+    stopHeartbeat(); presenceLeave();
+    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",packTask.id);
     toast(packTask.batch_label+" held");
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 
 /* Back (keep My In Progress) */
-document.getElementById("backBtn").onclick=()=>{ packTask=null;order=null;lines=[];bcMap={};document.getElementById("packView").style.display="none";document.getElementById("listView").style.display="block";loadQueue(); };
+document.getElementById("backBtn").onclick=async ()=>{
+  stopHeartbeat(); presenceLeave();
+  // No verification done → leaving is not "work in progress": release the claim
+  // (set to pending/unassigned) so the batch goes straight back to the pack queue.
+  const didWork=(packTask&&packTask.work_started)||lines.some(l=>l.verified>0);
+  if(packTask && !didWork){
+    await sb.from("wms_pack_tasks")
+      .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null})
+      .eq("id",packTask.id).eq("assigned_to",me.name);
+  }
+  packTask=null;order=null;lines=[];bcMap={};document.getElementById("packView").style.display="none";document.getElementById("listView").style.display="block";loadQueue();
+};
 
 /* keep scan focus */
-function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); if(document.activeElement!==s)s.focus();} }
+function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); const a=document.activeElement; if(a===s)return; if(a&&(a.tagName==="INPUT"||a.tagName==="SELECT"||a.tagName==="TEXTAREA")&&a!==s)return; s.focus();} }
 document.getElementById("scan").addEventListener("blur",()=>{setTimeout(focusScan,60);});
 document.addEventListener("click",e=>{ if(document.getElementById("packView").style.display==="none")return; if(e.target.tagName==="SELECT"||e.target.tagName==="OPTION")return; setTimeout(focusScan,0); });
 

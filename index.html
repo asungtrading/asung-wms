@@ -20,6 +20,7 @@
   .topbar #meName{margin-right:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--mut)}
   .topbar button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)}
   .brand{text-align:center;margin:14px 0 30px}
+  .brand .logo-img{height:48px;width:auto;display:inline-block}
   .brand .logo{font-family:var(--mono);font-weight:800;letter-spacing:.5em;font-size:26px;padding-left:.5em}
   .brand .sub{margin-top:10px;font-family:var(--mono);font-size:11px;letter-spacing:.42em;color:var(--mut);padding-left:.42em}
   .grid{width:100%;display:flex;flex-direction:column;gap:12px}
@@ -38,6 +39,12 @@
   .chev{color:var(--mut-2);font-size:17px;flex:0 0 auto}
   .foot{margin-top:34px;font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--mut-2)}
   .mgr-only{display:none}
+
+  /* ---- mobile ---- */
+  @media(max-width:420px){
+    .wrap{padding:14px}
+    .brand .logo-img{height:40px}
+  }
 </style>
 </head>
 <body>
@@ -48,7 +55,7 @@
     </div>
 
     <div class="brand">
-      <div class="logo">ASUNG</div>
+      <img class="logo-img" src="asung-logo-white.png" alt="ASUNG">
       <div class="sub">WMS &middot; WAREHOUSE</div>
     </div>
 
@@ -75,21 +82,21 @@
 
       <div class="sect mgr-only">Managers &middot; Admin</div>
 
-      <a class="card mgr-only" href="manager.html">
+      <a class="card mgr-only" data-perm="split" href="manager.html">
         <div class="ic c-split">&#128451;&#65039;</div>
         <div class="tx"><div class="t">Order Splitting</div><div class="d">Split pending orders into batches</div></div>
         <span class="tag">MGR</span>
         <span class="chev">&rsaquo;</span>
       </a>
 
-      <a class="card mgr-only" href="admin.html">
+      <a class="card mgr-only" data-perm="admin" href="admin.html">
         <div class="ic c-adm">&#128202;</div>
         <div class="tx"><div class="t">Admin Dashboard</div><div class="d">Status &middot; discrepancies &middot; worker stats</div></div>
         <span class="tag">MGR</span>
         <span class="chev">&rsaquo;</span>
       </a>
 
-      <a class="card mgr-only" href="staff-admin.html">
+      <a class="card mgr-only" data-perm="staff" href="staff-admin.html">
         <div class="ic c-staff">&#128101;</div>
         <div class="tx"><div class="t">Staff Management</div><div class="d">Staff &middot; roles &middot; warehouse access</div></div>
         <span class="tag">MGR</span>
@@ -108,9 +115,15 @@
     wmsAuth.start({requireManager:false}, (sb, me)=>{
       document.getElementById("app").style.display="flex";
       document.getElementById("meName").textContent="\u{1F464} "+me.name;
-      // Show manager-only items only for managers/admins
-      const isMgr = (me.role==="manager"||me.role==="admin");
-      if(isMgr){ document.querySelectorAll(".mgr-only").forEach(el=>el.style.display=""); }
+      // Show manager-only items per role + per-screen perms (admin = all)
+      const isAdmin=(me.role==="admin"), isMgr=(me.role==="manager");
+      const perms=Array.isArray(me.perms)?me.perms:["split","admin","staff"];
+      const anyMgr=isAdmin||(isMgr&&perms.length>0);
+      document.querySelectorAll(".mgr-only").forEach(el=>{
+        const p=el.dataset.perm;
+        const show = p ? (isAdmin||(isMgr&&perms.includes(p))) : anyMgr;  // no data-perm = section header
+        if(show) el.classList.remove("mgr-only");
+      });
     });
   }
   document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();

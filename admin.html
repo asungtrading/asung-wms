@@ -113,8 +113,24 @@
 
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
-  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo .logo-img{height:28px;width:auto;display:block}
   .logo span{margin-left:0}
+
+  /* ---- mobile ---- */
+  .card>div{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tabs{-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  @media(max-width:700px){
+    .bar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    .right{flex-wrap:wrap;row-gap:6px}
+    header button{font-size:12px;padding:6px 9px}
+    .who{font-size:11.5px}
+    .tabs{padding:0 12px;gap:0}
+    .tabs button{padding:11px 10px;font-size:12.5px}
+    main{padding:12px}
+    table{min-width:560px}
+    .grid{grid-template-columns:repeat(2,1fr)}
+  }
+  .plbtn{border:1px solid var(--line);background:#fff;color:var(--accent);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -125,14 +141,18 @@
       <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Admin</span></div>
       <div class="right">
         <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
-        <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
+        <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
         <span class="conn" id="conn"></span>
       </div>
     </div>
     <div class="tabs" id="tabs">
       <button data-t="overview" class="active">Status</button>
       <button data-t="disc">Discrepancy <span class="badge" id="discBadge" style="display:none">0</span></button>
+      <button data-t="reports">Reports <span class="badge" id="reportBadge" style="display:none">0</span></button>
       <button data-t="stats">Stats</button>
+      <button data-t="rollback">Rollback</button>
+      <button data-t="health">Health <span class="badge" id="healthBadge" style="display:none">0</span></button>
+      <button data-t="packing">Finalized</button>
       <button data-t="launch">Work Screens</button>
     </div>
   </header>
@@ -144,8 +164,14 @@
       <div class="grid" id="orderStats"></div>
       <div class="sect-h">work batches</div>
       <div class="grid" id="batchStats"></div>
+      <div class="sect-h">Live now <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches open on a worker's screen this second</span></div>
+      <div class="card" style="padding:10px 14px"><div id="liveStrip"><span style="color:var(--mut);font-size:12.5px">Connecting…</span></div></div>
+      <div class="sect-h">Batch activity <span style="font-weight:400;color:var(--mut);font-size:12.5px">— who holds what · 🟢 active · 🟡 idle (holder away) · release returns it to the pool with progress kept</span></div>
+      <div class="card"><div id="batchActivity"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <div class="sect-h">In-Progress Orders</div>
       <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">Finalized <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recently completed (last 40)</span></div>
+      <div class="card"><div id="finalizedOrders"></div></div>
     </div>
 
     <!-- Discrepancy -->
@@ -160,10 +186,40 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Throughput by worker</div>
+      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches completed + avg time per batch</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
+    </div>
+
+    <!-- Rollback -->
+    <div class="view" id="v-rollback">
+      <div class="sect-h">Rollback a stage <span style="font-weight:400;color:var(--mut);font-size:12.5px">— manager only · one step at a time</span></div>
+      <p style="color:var(--mut);font-size:12.5px;margin:0 0 12px">Each order can be reverted only to its immediately previous stage. To go further back, undo the deeper stage first. Related discrepancies are never auto-deleted — review them in the Discrepancy tab.</p>
+      <div class="card"><div id="rollbackList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">Recent rollbacks</div>
+      <div class="card"><div id="rollbackLog"></div></div>
+    </div>
+
+    <!-- Reports (data-quality: wrong location / barcode changed) -->
+    <div class="view" id="v-reports">
+      <div class="sect-h">Worker reports <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode changed (from picking/packing)</span></div>
+      <div class="card"><div id="reportsList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+    </div>
+
+    <!-- Finalized -->
+    <div class="view" id="v-packing">
+      <div class="period" id="finPeriod"></div>
+      <div class="sect-h">Fulfillment mix <span style="font-weight:400;color:var(--mut);font-size:12.5px">— packing list vs direct pack</span></div>
+      <div class="grid" id="fulfillStats"></div>
+      <div class="sect-h">Finalized orders <span style="font-weight:400;color:var(--mut);font-size:12.5px">— print or download the packing list; direct-pack orders have none</span></div>
+      <div class="card"><div id="packingList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+    </div>
+
+    <!-- Health (invariant checks) -->
+    <div class="view" id="v-health">
+      <div class="sect-h">System health <span style="font-weight:400;color:var(--mut);font-size:12.5px">— invariants that must always hold · a red card means the rule broke and needs review</span></div>
+      <div id="healthList"><div class="loading"><div class="spin"></div>Running checks…</div></div>
     </div>
 
     <!-- work screen shortcuts -->
@@ -183,16 +239,16 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
-let discPeriodKey="week", statsPeriodKey="week";
+let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom={from:null,to:null};
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
-const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy"};
-const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"closed", voided:"voided"};
+const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed"};
+const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
 
 /* ---------- boot / login ---------- */
 function boot(){
-  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+  wmsAuth.start({requireManager:true, requirePerm:"admin"}, (client, staffMe)=>{
     sb=client; me=staffMe;
     document.getElementById("app").style.display="block";
     document.getElementById("whoName").textContent=me.name;
@@ -224,6 +280,7 @@ function rangeFor(key,custom){
   return {fromISO:from.toISOString(), toISO:to.toISOString(), label:labels[key]||key};
 }
 function periodBar(containerId, curKey, custom, onChange){
+  custom=custom||{from:null,to:null};
   const opts=[["today","Today"],["week","This week"],["month","This month"],["q","3 months"],["h","6 months"],["y","1 year"],["all","All"]];
   const el=document.getElementById(containerId);
   el.innerHTML=`<div class="seg">${opts.map(([k,l])=>`<button data-k="${k}" class="${k===curKey?"active":""}">${l}</button>`).join("")}
@@ -261,28 +318,76 @@ function start(){
     if(t==="overview")loadOverview();
     if(t==="disc")loadDisc();
     if(t==="stats")loadStats();
+    if(t==="rollback")loadRollback();
+    if(t==="reports")loadReports();
+    if(t==="packing")loadPacking();
+    if(t==="health")loadHealth();
   };
   renderLaunch();
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
   periodBar("statsPeriod",statsPeriodKey,statsCustom,(k,c)=>{statsPeriodKey=k;loadStats();});
+  periodBar("finPeriod",finPeriodKey,finCustom,(k,c)=>{finPeriodKey=k;finCustom=c;loadPacking();});
+  subscribePresence();
   loadOverview();
   refreshDiscBadge();
+  refreshReportBadge();
+  refreshHealthBadge();
+  // keep freshness chips honest while Status tab is open
+  setInterval(()=>{ if(document.getElementById("v-overview").classList.contains("active")) loadOverview(); }, 60000);
+}
+
+/* ---------- live presence (who has a batch open RIGHT NOW) ---------- */
+const STALE_S=75; // no heartbeat for this long = holder considered away
+let presence={};  // key -> [{name,screen,batch,order,at}]
+function subscribePresence(){
+  try{
+    const ch=sb.channel("wms-presence",{config:{presence:{key:"admin|"+me.name}}});
+    ch.on("presence",{event:"sync"},()=>{ presence=ch.presenceState()||{}; renderLiveStrip(); markLiveRows(); })
+      .subscribe();
+  }catch(e){}
+}
+function liveList(){
+  const out=[];
+  Object.keys(presence).forEach(k=>{
+    if(k.startsWith("admin|")) return; // observers don't count as workers
+    (presence[k]||[]).forEach(m=>{ if(m&&m.batch) out.push(m); });
+  });
+  return out;
+}
+function liveBatchSet(){ return new Set(liveList().map(m=>m.batch)); }
+function renderLiveStrip(){
+  const el=document.getElementById("liveStrip"); if(!el) return;
+  const ls=liveList();
+  if(!ls.length){ el.innerHTML=`<span style="color:var(--mut);font-size:12.5px">No one has a batch open right now.</span>`; return; }
+  el.innerHTML=ls.map(m=>
+    `<span class="tag" style="background:#e8f7ee;color:#1e7d43;border:1px solid #bfe8cd;margin:2px 6px 2px 0">
+      🟢 ${esc(m.name)} · ${m.screen==="packer"?"Packing":"Picking"} · ${esc(m.batch)}</span>`).join("");
+}
+function markLiveRows(){
+  const live=liveBatchSet();
+  document.querySelectorAll("[data-livebatch]").forEach(el=>{
+    el.style.display=live.has(el.dataset.livebatch)?"":"none";
+  });
 }
 
 /* ---------- Status ---------- */
 async function loadOverview(){
-  const [orders, picks, packs]=await Promise.all([
+  const [orders, picks, packs, finalized]=await Promise.all([
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),
     sb.from("wms_pick_tasks").select("status"),
     sb.from("wms_pack_tasks").select("status"),
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
   ]);
+  loadBatchActivity(orders.data||[]);
   const os=orders.data||[];
+  const fin=finalized.data||[];
   const cnt=s=>os.filter(o=>o.status===s).length;
   document.getElementById("orderStats").innerHTML=[
     ["pending","pending",cnt("pending"),""],
     ["Picking","picking",cnt("picking"),""],
     ["Packing","packing",cnt("packing"),""],
     ["Ready to close","ready_to_close",cnt("ready_to_close"),"ok"],
+    ["Finalized","closed",fin.length,""],
   ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
   const pk=picks.data||[], pc=packs.data||[];
@@ -294,16 +399,650 @@ async function loadOverview(){
 
   // in-progress orders table
   const el=document.getElementById("activeOrders");
-  if(!os.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="num">Lines</th><th class="num">units</th></tr></thead><tbody>${
+  if(!os.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; }
+  else el.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th>Status</th><th class="num">Lines</th><th class="num">units</th></tr></thead><tbody>${
     os.map(o=>`<tr>
-      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">OK</span>':""}</td>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">Review</span>':""}</td>
       <td>${esc(o.customer_name||"—")}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span></td>
       <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
     </tr>`).join("")
   }</tbody></table>`;
+
+  // finalized (recently completed) table
+  const fe=document.getElementById("finalizedOrders");
+  if(!fin.length){ fe.innerHTML=`<div class="empty">No finalized orders yet.</div>`; }
+  else fe.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th class="num">Lines</th><th class="num">units</th><th>Finalized</th></tr></thead><tbody>${
+    fin.map(o=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+      <td>${esc(o.customer_name||"—")}</td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
+      <td style="color:var(--mut);font-size:12px">${o.updated_at?new Date(o.updated_at).toLocaleString():""}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
+}
+
+/* ---------- Batch activity (who holds what, live/idle, release) ---------- */
+function fresh(t){ const h=t.heartbeat_at||t.started_at; return h && (Date.now()-new Date(h).getTime())<=STALE_S*1000; }
+function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+let baRows=[], baSort={key:"batch",dir:1}, baWh="all";
+async function loadBatchActivity(activeOrders){
+  const el=document.getElementById("batchActivity"); if(!el) return;
+  const ids=(activeOrders||[]).map(o=>o.id);
+  if(!ids.length){ el.innerHTML=`<div class="empty">No orders in progress.</div>`; return; }
+  const oById={}; (activeOrders||[]).forEach(o=>oById[o.id]=o);
+  const [pt, pk]=await Promise.all([
+    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started").in("order_id",ids).order("batch_label"),
+    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started").in("order_id",ids),
+  ]);
+  if(pt.error){ el.innerHTML=`<div class="empty">Failed to load batches. Run wms_lease_presence.sql if columns are missing.</div>`; return; }
+  const picks=pt.data||[], packs=pk.data||[];
+  const packByPick={}; packs.forEach(p=>packByPick[p.pick_task_id]=p);
+  // line sums for progress
+  const pickIds=picks.map(p=>p.id), packIds=packs.map(p=>p.id);
+  const [pls, kls]=await Promise.all([
+    pickIds.length?sb.from("wms_pick_task_lines").select("pick_task_id,assigned_base,picked_base").in("pick_task_id",pickIds):{data:[]},
+    packIds.length?sb.from("wms_pack_task_lines").select("pack_task_id,expected_base,verified_base").in("pack_task_id",packIds):{data:[]},
+  ]);
+  const pickSum={}, packSum={};
+  (pls.data||[]).forEach(l=>{ const s=pickSum[l.pick_task_id]=pickSum[l.pick_task_id]||{a:0,p:0}; s.a+=Number(l.assigned_base||0); s.p+=Number(l.picked_base||0); });
+  (kls.data||[]).forEach(l=>{ const s=packSum[l.pack_task_id]=packSum[l.pack_task_id]||{e:0,v:0}; s.e+=Number(l.expected_base||0); s.v+=Number(l.verified_base||0); });
+
+  // one row per pick batch: current phase = pack task if it exists, else pick task
+  baRows=picks.map(p=>{
+    const pack=packByPick[p.id]||null;
+    const ps=pickSum[p.id]||{a:0,p:0};
+    const ks=pack?(packSum[pack.id]||{e:0,v:0}):null;
+    let phase="", holder="", chip="", rel=null; // rel={table,id}
+    if(pack && pack.status!=="completed"){
+      phase="Packing"; holder=pack.assigned_to||"";
+      if(pack.status==="pending") chip=(ks&&ks.v>0)?`<span class="tag" style="background:#fff4e0;color:#a86400">🟠 Held</span>`:`<span class="tag">⚪ Waiting</span>`;
+      else if(fresh(pack)) chip=`<span class="tag" style="background:#e8f7ee;color:#1e7d43">🟢 Active</span>`;
+      else { const im=idleMin(pack); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Idle${im?" "+im+"m":""}</span>`; rel={table:"wms_pack_tasks",id:pack.id}; }
+    } else if(pack && pack.status==="completed"){
+      phase="Packed"; holder=pack.assigned_to||""; chip=`<span class="tag" style="background:#eef1f6;color:#5b6472">✓ Packed</span>`;
+    } else if(p.status==="completed"){
+      phase="Pick done"; holder=p.assigned_to||""; chip=`<span class="tag" style="background:#eef1f6;color:#5b6472">✓ Pick done</span>`;
+    } else if(p.status==="in_progress"){
+      phase="Picking"; holder=p.assigned_to||"";
+      if(fresh(p)) chip=`<span class="tag" style="background:#e8f7ee;color:#1e7d43">🟢 Active</span>`;
+      else { const im=idleMin(p); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Idle${im?" "+im+"m":""}</span>`; rel={table:"wms_pick_tasks",id:p.id}; }
+    } else { // pending pick
+      phase="Waiting"; holder="";
+      chip=(ps.p>0)?`<span class="tag" style="background:#fff4e0;color:#a86400">🟠 Held</span>`:`<span class="tag">⚪ Waiting</span>`;
+    }
+    const o=oById[p.order_id]||{};
+    const prog = pack ? `${(ks&&ks.v)||0}/${(ks&&ks.e)||0} verified` : `${ps.p}/${ps.a} picked`;
+    return {p,o,phase,holder,chip,rel,prog,label:p.batch_label};
+  });
+  renderBatchActivity();
+}
+function baCmp(a,b){
+  const k=baSort.key, d=baSort.dir;
+  if(k==="batch"){
+    const pa=/^SO-(\d+)-(\d+)/.exec(a.label||"")||[], pb=/^SO-(\d+)-(\d+)/.exec(b.label||"")||[];
+    const x=(Number(pa[1])||0)-(Number(pb[1])||0); if(x) return x*d;
+    const y=(Number(pa[2])||0)-(Number(pb[2])||0); if(y) return y*d;
+    return (a.label||"")<(b.label||"")?-d:(a.label||"")>(b.label||"")?d:0;
+  }
+  let va="",vb="";
+  if(k==="customer"){va=a.o.customer_name||"";vb=b.o.customer_name||"";}
+  else if(k==="worker"){va=a.holder||"";vb=b.holder||"";}
+  return va<vb?-d:va>vb?d:0;
+}
+function renderBatchActivity(){
+  const el=document.getElementById("batchActivity"); if(!el) return;
+  let rows=baRows.slice();
+  if(baWh!=="all") rows=rows.filter(r=>r.o.warehouse===baWh);
+  rows.sort(baCmp);
+  const arrow=k=>baSort.key===k?(baSort.dir>0?" ▲":" ▼"):"";
+  const th=(k,l)=>`<th data-bas="${k}" style="cursor:pointer;user-select:none">${l}${arrow(k)}</th>`;
+  const whBtn=(v,l)=>`<button data-bawh="${v}" style="border:1px solid var(--line);background:${baWh===v?"#eef4ff":"#fff"};color:${baWh===v?"#2456d6":"var(--mut)"};border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px">${l}</button>`;
+  const bar=`<div style="padding:10px 12px 4px">${whBtn("all","All")}${whBtn("toronto","Toronto")}${whBtn("edmonton","Edmonton")}</div>`;
+  if(!rows.length){ el.innerHTML=bar+`<div class="empty">No batches for this warehouse.</div>`; }
+  else{
+    let lastOid=null;
+    el.innerHTML=bar+`<table><thead><tr>${th("batch","Batch")}${th("customer","Customer")}<th>Phase</th>${th("worker","Worker")}<th class="num">Progress</th><th>State</th><th></th></tr></thead><tbody>${
+      rows.map(r=>{
+        const sep=(baSort.key==="batch"&&lastOid!==null&&lastOid!==r.p.order_id)?' style="border-top:2px solid var(--line)"':""; lastOid=r.p.order_id;
+        return `<tr${sep}>
+        <td style="font-family:var(--mono);font-weight:700">${esc(r.label)}
+          <span data-livebatch="${esc(r.label)}" style="display:none" title="Open on a worker's screen right now">👁</span></td>
+        <td>${esc(r.o.customer_name||"—")} <span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+        <td>${r.phase}</td>
+        <td>${esc(r.holder||"—")}</td>
+        <td class="num" style="font-family:var(--mono)">${r.prog}</td>
+        <td>${r.chip}</td>
+        <td style="text-align:right">${r.rel?`<button data-reltable="${r.rel.table}" data-relid="${r.rel.id}" data-rellabel="${esc(r.label)}"
+          style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Release</button>`:""}</td>
+      </tr>`;}).join("")
+    }</tbody></table>`;
+  }
+  el.querySelectorAll("[data-bas]").forEach(h=>h.onclick=()=>{ const k=h.dataset.bas; if(baSort.key===k) baSort.dir*=-1; else baSort={key:k,dir:1}; renderBatchActivity(); });
+  el.querySelectorAll("[data-bawh]").forEach(b=>b.onclick=()=>{ baWh=b.dataset.bawh; renderBatchActivity(); });
+  el.querySelectorAll("[data-reltable]").forEach(b=>b.onclick=()=>releaseClaim(b.dataset.reltable,+b.dataset.relid,b.dataset.rellabel));
+  markLiveRows();
+}
+async function releaseClaim(table,id,label){
+  if(!confirm(`Release ${label}?\n\nThe holder is away. The batch returns to the waiting pool with all progress kept, so anyone can pick it up.`)) return;
+  const {data,error}=await sb.from(table)
+    .update({status:"pending",assigned_to:null,heartbeat_at:null})
+    .eq("id",id).eq("status","in_progress").select("id");
+  if(error){ toast("Release failed: "+error.message,true); return; }
+  if(!data||!data.length){ toast("Already released or completed",true); }
+  else toast(label+" released to the pool");
+  loadOverview();
+}
+
+/* ---------- Health (invariant checks via wms_health_check RPC) ---------- */
+async function loadHealth(){
+  const el=document.getElementById("healthList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Running checks…</div>`;
+  const {data,error}=await sb.rpc("wms_health_check");
+  if(error){
+    el.innerHTML=`<div class="empty">Health checks are not installed yet.<br>
+      Run <b>wms_healthcheck.sql</b> in the Supabase SQL editor, then reload this page.<br>
+      <span style="color:var(--mut-2);font-size:12px">(${esc(error.message)})</span></div>`;
+    return;
+  }
+  const rows=data||[];
+  const crit=rows.filter(r=>r.category==="critical"&&r.fail_count>0).length;
+  const warn=rows.filter(r=>r.category==="warn"&&r.fail_count>0).length;
+  updateHealthBadge(crit);
+  let summary;
+  if(crit) summary=`<span style="color:var(--danger);font-weight:800">${crit} critical</span>`
+      +(warn?` · <span style="color:var(--warn);font-weight:700">${warn} warning${warn>1?"s":""}</span>`:"")+` to review`;
+  else if(warn) summary=`<span style="color:var(--warn);font-weight:700">${warn} warning${warn>1?"s":""}</span> · no critical issues`;
+  else summary=`<span style="color:var(--ok);font-weight:800">All clear</span> — every invariant holds`;
+  el.innerHTML=`<div style="margin:0 2px 14px;font-size:13.5px">${summary}
+      <button class="btnsm" style="margin-left:10px" onclick="loadHealth()">↻ Re-run</button></div>
+    <div>${rows.map(healthCard).join("")}</div>`;
+}
+function healthCard(r){
+  const info=r.category==="info";
+  const bad=!info && Number(r.fail_count)>0;
+  const color=info?"var(--mut-2)":bad?(r.category==="critical"?"var(--danger)":"var(--warn)"):"var(--ok)";
+  const bg=info?"var(--line-2)":bad?(r.category==="critical"?"var(--danger-bg)":"var(--warn-bg)"):"var(--ok-bg)";
+  const dot=info?"·":(bad?"✕":"✓");
+  const pill=info?healthInfoValue(r.sample):(bad?`${r.fail_count} row${Number(r.fail_count)>1?"s":""}`:"OK");
+  let body=`<div style="font-size:12.5px;color:var(--mut);margin-top:6px;line-height:1.5">${esc(r.hint)}</div>`;
+  if(bad && r.sample) body+=`<details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--accent)">Show sample (up to 8)</summary>
+      ${sampleTable(r.sample)}</details>`;
+  return `<div class="card" style="padding:14px 16px;margin-bottom:10px;border-left:3px solid ${color}">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-weight:700;font-size:14.5px">${esc(r.title)}</span>
+      <span class="tag" style="color:${color};background:${bg};margin-left:auto">${dot} ${esc(String(pill))}</span>
+    </div>${body}</div>`;
+}
+function healthInfoValue(s){
+  if(s && s.minutes_ago!=null){
+    const m=Number(s.minutes_ago);
+    return m<60?`${m}m ago`:m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`;
+  }
+  return "—";
+}
+function fmtHealthVal(v){ return v==null?"—":typeof v==="object"?JSON.stringify(v):String(v); }
+function sampleTable(sample){
+  if(!Array.isArray(sample))
+    return `<pre style="margin:8px 0 0;overflow-x:auto;font-family:var(--mono);font-size:12px;background:var(--line-2);padding:10px;border-radius:8px">${esc(JSON.stringify(sample,null,2))}</pre>`;
+  if(!sample.length) return "";
+  const keys=Object.keys(sample[0]);
+  return `<div style="overflow-x:auto;margin-top:8px"><table><thead><tr>${
+      keys.map(k=>`<th>${esc(k)}</th>`).join("")
+    }</tr></thead><tbody>${
+      sample.map(row=>`<tr>${keys.map(k=>`<td style="font-family:var(--mono);font-size:12px">${esc(fmtHealthVal(row[k]))}</td>`).join("")}</tr>`).join("")
+    }</tbody></table></div>`;
+}
+function updateHealthBadge(crit){
+  const b=document.getElementById("healthBadge"); if(!b) return;
+  if(crit>0){ b.textContent=crit; b.style.display="inline-block"; }
+  else b.style.display="none";
+}
+async function refreshHealthBadge(){
+  try{
+    const {data,error}=await sb.rpc("wms_health_check"); if(error) return;
+    updateHealthBadge((data||[]).filter(r=>r.category==="critical"&&Number(r.fail_count)>0).length);
+  }catch(e){}
+}
+
+/* ---------- Rollback (manager only, one step at a time) ---------- */
+// Stage detection per order → only the DEEPEST current stage is offered, so
+// intermediate stages can never be skipped.
+async function loadRollback(){
+  const el=document.getElementById("rollbackList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
+  const {data:ords}=await sb.from("wms_orders")
+    .select("id,order_number,customer_name,warehouse,status")
+    .in("status",["picking","packing","ready_to_close","closed"]).order("order_number");
+  const orders=ords||[];
+  if(!orders.length){ el.innerHTML=`<div class="empty">No orders past the split stage.</div>`; return; }
+  const ids=orders.map(o=>o.id);
+  const [picks,packs,pitems]=await Promise.all([
+    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to").in("order_id",ids).order("batch_label"),
+    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,status").in("order_id",ids),
+    sb.from("wms_pallet_items").select("order_id,pack_task_id").in("order_id",ids),
+  ]);
+  const pk=picks.data||[], pc=packs.data||[], pi=pitems.data||[];
+  // picked progress per batch (a held/pending batch with progress is still resettable)
+  const pkIds=pk.map(t=>t.id); let progByPick={};
+  if(pkIds.length){
+    const {data:pls}=await sb.from("wms_pick_task_lines").select("pick_task_id,picked_base").in("pick_task_id",pkIds);
+    (pls||[]).forEach(l=>{ progByPick[l.pick_task_id]=(progByPick[l.pick_task_id]||0)+Number(l.picked_base||0); });
+  }
+  const packByPick={}; pc.forEach(p=>packByPick[p.pick_task_id]=p);
+  const palletPackIds=new Set(pi.map(x=>x.pack_task_id).filter(Boolean));
+
+  const rows=orders.map(o=>{
+    const myPicks=pk.filter(x=>x.order_id===o.id);
+    const hasSplit=myPicks.length>0;
+    const pickStarted=myPicks.some(x=>x.status==="in_progress"||x.status==="completed");
+    const hasPack=pc.some(x=>x.order_id===o.id);
+    const hasFulfill=pi.some(x=>x.order_id===o.id);
+    // deepest stage → single action
+    let stage="", action="", btn="";
+    if(hasFulfill){ stage="Fulfilled"; action="fulfillment"; btn="↩ Undo Fulfillment"; }
+    else if(hasPack){ stage="Pack complete"; action="pack"; btn="↩ Undo Pack"; }
+    else if(pickStarted){ stage="Pick in progress / done"; action="pick"; btn="↩ Reset Pick"; }
+    else if(hasSplit){ stage="Split (picking)"; action="split"; btn="↩ Undo Split"; }
+    else { stage="—"; }
+    return {o,stage,action,btn,myPicks,hasFulfill};
+  }).filter(r=>r.action); // only orders with something to undo
+  if(!rows.length){ el.innerHTML=`<div class="empty">Nothing to roll back.</div>`; return; }
+
+  // per-batch sub-table (batch-level rollback for split orders)
+  const batchRows=r=>r.myPicks.map(t=>{
+    const pack=packByPick[t.id]||null;
+    const prog=progByPick[t.id]||0;
+    let stage="", act="";
+    if(pack){
+      stage=pack.status==="completed"?"Pack complete":"Pack in progress";
+      if(r.hasFulfill || palletPackIds.has(pack.id))
+        act=`<span style="color:var(--mut);font-size:11.5px">On a pallet — Undo Fulfillment first</span>`;
+      else
+        act=`<button data-brb="pack" data-pickid="${t.id}" data-packid="${pack.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
+          style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Undo Pack</button>`;
+    } else if(t.status==="in_progress"||t.status==="completed"||prog>0){
+      stage=t.status==="completed"?"Pick done":(t.status==="in_progress"?"Picking":"Held (progress)");
+      act=`<button data-brb="pick" data-pickid="${t.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
+        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Reset Pick</button>`;
+    } else { stage="Waiting (no progress)"; act=`<span style="color:var(--mut)">—</span>`; }
+    return `<tr>
+      <td style="font-family:var(--mono);font-weight:700;padding-left:22px">${esc(t.batch_label)}</td>
+      <td style="font-size:12px">${esc(t.assigned_to||"—")}</td>
+      <td style="font-size:12px">${stage}${prog?` · ${prog} picked`:""}</td>
+      <td style="text-align:right">${act}</td>
+    </tr>`;
+  }).join("");
+
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th></th></tr></thead><tbody>${
+    rows.map(r=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}
+        ${r.myPicks.length>1?`<button data-bt="${r.o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${r.myPicks.length} batches</button>`:""}</td>
+      <td>${esc(r.o.customer_name||"—")}</td>
+      <td><span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td>${esc(r.stage)}</td>
+      <td style="text-align:right"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}"
+        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button></td>
+    </tr>
+    ${r.myPicks.length>1?`<tr class="batchsub" data-bsub="${r.o.id}" style="display:none"><td colspan="5" style="background:#fafbfd;padding:6px 10px">
+      <table style="width:100%"><thead><tr><th style="font-size:11px">Batch</th><th style="font-size:11px">Worker</th><th style="font-size:11px">Batch stage</th><th></th></tr></thead>
+      <tbody>${batchRows(r)}</tbody></table></td></tr>`:""}`).join("")
+  }</tbody></table>`;
+  el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on));
+  el.querySelectorAll("[data-bt]").forEach(b=>b.onclick=()=>{
+    const sub=el.querySelector(`[data-bsub="${b.dataset.bt}"]`); if(!sub)return;
+    const open=sub.style.display!=="none";
+    sub.style.display=open?"none":"";
+    b.textContent=(open?"▸ ":"▾ ")+b.textContent.slice(2);
+  });
+  el.querySelectorAll("[data-brb]").forEach(b=>b.onclick=()=>doBatchRollback(
+    b.dataset.brb, +b.dataset.pickid, b.dataset.packid?+b.dataset.packid:null,
+    +b.dataset.oid, b.dataset.on, b.dataset.bl));
+  loadRollbackLog();
+}
+
+/* batch-level rollback: one batch of a split order, one step at a time */
+async function doBatchRollback(kind, pickId, packId, oid, onum, label){
+  const msg = kind==="pack"
+    ? `Undo packing for batch ${label}?\n\n• Deletes pack verification for THIS batch only\n• Other batches of ${onum} are untouched\n• Related discrepancies are NOT removed\n\nProceed?`
+    : `Reset picking for batch ${label}?\n\n• This batch's picked quantities go back to 0\n• The batch returns to the waiting pool (unassigned)\n• Other batches of ${onum} are untouched\n\nProceed?`;
+  if(!confirm(msg)) return;
+  const now=new Date().toISOString();
+  try{
+    if(kind==="pack"){
+      // safety re-check: block if this pack's items are already on a pallet
+      const {count}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pack_task_id",packId);
+      if(count){ toast("Blocked: this batch is on a pallet. Undo Fulfillment first.",true); return; }
+      await sb.from("wms_pack_task_lines").delete().eq("pack_task_id",packId);
+      await sb.from("wms_pack_tasks").delete().eq("id",packId);
+      // order can no longer be ready_to_close with a pack missing
+      await sb.from("wms_orders").update({status:"packing",updated_at:now}).eq("id",oid).eq("status","ready_to_close");
+    } else { // pick
+      // safety re-check: block if a pack task exists for this batch (undo pack first)
+      const {count}=await sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("pick_task_id",pickId);
+      if(count){ toast("Blocked: this batch already has packing. Undo Pack first.",true); return; }
+      await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).eq("pick_task_id",pickId);
+      await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("id",pickId);
+    }
+    // audit log (batch_label column from wms_lease_presence.sql; fall back without it)
+    const STAGE={pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"]};
+    const row={order_id:oid, order_number:onum, action:kind,
+      from_stage:STAGE[kind][0], to_stage:STAGE[kind][1], performed_by:me.name, batch_label:label};
+    const ins=await sb.from("wms_rollback_log").insert(row);
+    if(ins.error){ delete row.batch_label; await sb.from("wms_rollback_log").insert(row); }
+    toast(label+" rolled back");
+    loadRollback();
+  }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
+}
+
+async function loadRollbackLog(){
+  const el=document.getElementById("rollbackLog");
+  if(!el) return;
+  const {data,error}=await sb.from("wms_rollback_log").select("*").order("created_at",{ascending:false}).limit(30);
+  if(error){ el.innerHTML=`<div class="empty" style="font-size:12px">Log table not found. Run wms_rollback_log.sql to enable history.</div>`; return; }
+  if(!data||!data.length){ el.innerHTML=`<div class="empty" style="font-size:12px">No rollbacks yet.</div>`; return; }
+  const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split"};
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Batch</th><th>Action</th><th>Stage</th><th>By</th><th>When</th></tr></thead><tbody>${
+    data.map(r=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"—")}</td>
+      <td style="font-family:var(--mono);font-size:12px">${esc(r.batch_label||"—")}</td>
+      <td>${esc(AL[r.action]||r.action)}</td>
+      <td style="font-size:12px;color:var(--mut)">${esc(r.from_stage||"")} → ${esc(r.to_stage||"")}</td>
+      <td>${esc(r.performed_by||"—")}</td>
+      <td style="font-size:12px;color:var(--mut)">${r.created_at?new Date(r.created_at).toLocaleString():""}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
+}
+
+const RB_CONFIRM={
+  fulfillment:o=>`Undo fulfillment for ${o}?\n\n• Deletes this order's pallet/box assignments\n• Returns it to the Pack-complete stage\n• Shared pallets still holding other orders' items are kept\n\nProceed?`,
+  pack:o=>`Undo packing for ${o}?\n\n• Deletes ALL pack verification for this order\n• Returns it to the Pick-complete stage\n• Related discrepancies are NOT removed (review separately)\n\nProceed?`,
+  pick:o=>`Reset picking for ${o}?\n\n• All picked quantities go back to 0\n• Batches return to unstarted (batches are kept)\n• Related discrepancies are NOT removed\n\nProceed?`,
+  split:o=>`Undo split for ${o}?\n\n• Deletes ALL batches for this order\n• Returns it to the waiting-to-split stage so it can be split again\n\nProceed?`,
+};
+async function doRollback(oid, action, onum){
+  if(!confirm(RB_CONFIRM[action](onum))) return;
+  const now=new Date().toISOString();
+  try{
+    if(action==="fulfillment"){
+      await sb.from("wms_pallet_items").delete().eq("order_id",oid);
+      const {data:units}=await sb.from("wms_pallets").select("id").eq("order_id",oid);
+      for(const u of (units||[])){
+        const {count:itemCnt}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pallet_id",u.id);
+        const {count:childCnt}=await sb.from("wms_pallets").select("id",{count:"exact",head:true}).eq("parent_id",u.id);
+        if(!itemCnt && !childCnt) await sb.from("wms_pallets").delete().eq("id",u.id);
+      }
+      // order stays ready_to_close
+    }
+    else if(action==="pack"){
+      const {data:packs}=await sb.from("wms_pack_tasks").select("id").eq("order_id",oid);
+      const pids=(packs||[]).map(p=>p.id);
+      if(pids.length){
+        await sb.from("wms_pack_task_lines").delete().in("pack_task_id",pids);
+        await sb.from("wms_pack_tasks").delete().eq("order_id",oid);
+      }
+      await sb.from("wms_orders").update({status:"picking",updated_at:now}).eq("id",oid);
+    }
+    else if(action==="pick"){
+      const {data:pt}=await sb.from("wms_pick_tasks").select("id").eq("order_id",oid);
+      const tids=(pt||[]).map(p=>p.id);
+      if(tids.length){
+        await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).in("pick_task_id",tids);
+        await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("order_id",oid);
+      }
+      await sb.from("wms_orders").update({status:"picking",updated_at:now}).eq("id",oid);
+    }
+    else if(action==="split"){
+      const {data:pt}=await sb.from("wms_pick_tasks").select("id").eq("order_id",oid);
+      const tids=(pt||[]).map(p=>p.id);
+      if(tids.length){
+        await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids);
+        await sb.from("wms_pick_tasks").delete().eq("order_id",oid);
+      }
+      await sb.from("wms_orders").update({status:"pending",updated_at:now}).eq("id",oid);
+    }
+    // audit log (separate table — keeps discrepancy queue clean)
+    const STAGE={fulfillment:["fulfilled","pack_complete"],pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"],split:["split","unsplit"]};
+    await sb.from("wms_rollback_log").insert({
+      order_id:oid, order_number:onum, action,
+      from_stage:STAGE[action][0], to_stage:STAGE[action][1], performed_by:me.name
+    });
+    toast("Rollback done");
+    loadRollback();
+  }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
+}
+
+/* ---------- Reports (data-quality) ---------- */
+const REPORT_KIND={wrong_location:"Wrong location", barcode_mismatch:"Barcode changed"};
+async function refreshReportBadge(){
+  try{
+    const {count}=await sb.from("wms_reports").select("id",{count:"exact",head:true}).is("resolved_at",null);
+    const b=document.getElementById("reportBadge");
+    if(count&&count>0){ b.style.display="inline-block"; b.textContent=count; } else { b.style.display="none"; }
+  }catch(e){ /* table may not exist yet */ }
+}
+async function loadReports(){
+  const el=document.getElementById("reportsList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
+  const [open,done]=await Promise.all([
+    sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}),
+    sb.from("wms_reports").select("*").not("resolved_at","is",null).order("created_at",{ascending:false}).limit(50),
+  ]);
+  if(open.error){ el.innerHTML=`<div class="empty" style="font-size:12px">Reports table not found. Run wms_reports.sql to enable.</div>`; return; }
+  const row=(r,actionable)=>`<tr>
+    <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"")}</td>
+    <td style="font-family:var(--mono)">${esc(r.sku||"")}</td>
+    <td><span class="tag">${esc(REPORT_KIND[r.kind]||r.kind)}</span></td>
+    <td style="font-size:12px;color:var(--mut)">${esc(r.note||"")}</td>
+    <td>${esc(r.reported_by||"—")}${r.source?` <span style="color:var(--mut-2);font-size:11px">(${esc(r.source)})</span>`:""}</td>
+    <td style="color:var(--mut);font-size:12px">${r.created_at?new Date(r.created_at).toLocaleDateString():""}</td>
+    ${actionable
+      ? `<td><button class="btnsm ok" data-resolve="${r.id}">Mark resolved</button></td>`
+      : `<td style="color:var(--mut);font-size:12px">${r.resolved_by?esc(r.resolved_by)+" · ":""}${r.resolved_at?new Date(r.resolved_at).toLocaleDateString():""}</td>`}
+  </tr>`;
+  const openR=open.data||[], doneR=done.data||[];
+  const head=`<thead><tr><th>Order</th><th>SKU</th><th>Type</th><th>Detail</th><th>Reported by</th><th>Date</th><th></th></tr></thead>`;
+  el.innerHTML=`
+    <div class="sect-h" style="margin-top:0">Open ${openR.length?`(${openR.length})`:"(0)"}</div>
+    <table>${head}<tbody>${openR.length?openR.map(r=>row(r,true)).join(""):`<tr><td colspan="7" style="color:var(--mut);padding:14px">No open reports.</td></tr>`}</tbody></table>
+    <div class="sect-h">Resolved (recent)</div>
+    <table>${head}<tbody>${doneR.length?doneR.map(r=>row(r,false)).join(""):`<tr><td colspan="7" style="color:var(--mut);padding:14px">None.</td></tr>`}</tbody></table>`;
+  el.querySelectorAll("[data-resolve]").forEach(b=>b.onclick=()=>resolveReport(+b.dataset.resolve));
+  refreshReportBadge();
+}
+async function resolveReport(id){
+  const {error}=await sb.from("wms_reports").update({resolved_by:me.name, resolved_at:new Date().toISOString()}).eq("id",id);
+  if(error){ toast("Failed: "+error.message,true); return; }
+  toast("Resolved"); loadReports();
+}
+
+/* ---------- Packing lists (reprint from admin) ---------- */
+async function loadPacking(){
+  const r=rangeFor(finPeriodKey,finCustom); setRangeLabel("finPeriod",r.label);
+  const el=document.getElementById("packingList");
+  el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
+  const [{data:ords},{data:its}]=await Promise.all([
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300),
+    sb.from("wms_pallet_items").select("order_id"),
+  ]);
+  const hasPallet=new Set((its||[]).map(i=>i.order_id));
+  const inRange=o=>{ const t=new Date(o.finalized_at||o.updated_at).getTime(); return t>=new Date(r.fromISO).getTime() && t<=new Date(r.toISO).getTime(); };
+  const fin=(ords||[]).filter(inRange).map(o=>({ ...o, ftype: o.fulfillment_type || (hasPallet.has(o.id)?"packing_list":"direct") }));
+  renderFulfillStats(fin.map(o=>({fulfillment_type:o.ftype})));
+  if(!fin.length){ el.innerHTML=`<div class="empty">No finalized orders in this period.</div>`; return; }
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
+    fin.map(o=>`<tr>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+      <td>${esc(o.customer_name||"—")}</td>
+      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td>${esc(o.finalized_by||"—")}</td>
+      <td style="color:var(--mut);font-size:12px">${(o.finalized_at||o.updated_at)?new Date(o.finalized_at||o.updated_at).toLocaleString():""}</td>
+      <td>${o.ftype==="packing_list"
+        ? `<button class="plbtn" data-print="${o.id}">🖨 Print</button> <button class="plbtn" data-pdf="${o.id}" data-onum="${esc(o.order_number)}">⬇ PDF</button> <button class="plbtn" data-csv="${o.id}" data-onum="${esc(o.order_number)}">⬇ CSV</button>`
+        : `<span class="tag" style="color:#c2410c;border-color:#f2c9ae;background:#fff7f2">Direct pack</span>`}</td>
+    </tr>`).join("")
+  }</tbody></table>`;
+  el.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printOrderPackingList(+b.dataset.print));
+  el.querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>downloadPackingPDF(+b.dataset.pdf, b.dataset.onum));
+  el.querySelectorAll("[data-csv]").forEach(b=>b.onclick=()=>downloadPackingCSV(+b.dataset.csv, b.dataset.onum));
+}
+async function getPackingData(oid){
+  const {data:ord}=await sb.from("wms_orders").select("order_number,customer_name,warehouse").eq("id",oid).single();
+  const {data:items}=await sb.from("wms_pallet_items").select("*").eq("order_id",oid);
+  const palletIds=[...new Set((items||[]).map(i=>i.pallet_id))];
+  let units=[];
+  if(palletIds.length){
+    const {data:u}=await sb.from("wms_pallets").select("*").in("id",palletIds); units=u||[];
+    const parentIds=[...new Set(units.map(x=>x.parent_id).filter(Boolean))];
+    if(parentIds.length){ const {data:pu}=await sb.from("wms_pallets").select("*").in("id",parentIds); (pu||[]).forEach(p=>{ if(!units.some(x=>x.id===p.id)) units.push(p); }); }
+  }
+  const skus=[...new Set((items||[]).map(i=>i.order_sku).filter(Boolean))];
+  const bc={};
+  if(skus.length){
+    const {data:sn}=await sb.from("wms_sku_snapshot").select("sku,barcode").in("sku",skus);
+    (sn||[]).forEach(r=>{ bc[r.sku]=String(r.barcode||"").trim(); });
+  }
+  const unitById={}; units.forEach(u=>unitById[u.id]=u);
+  const byUnit={}; (items||[]).forEach(i=>{ (byUnit[i.pallet_id]=byUnit[i.pallet_id]||[]).push(i); });
+  const sections=[]; let grand=0;
+  Object.keys(byUnit).forEach(pid=>{
+    const u=unitById[pid]||{label:"(unit)",unit_type:"pallet"};
+    const list=byUnit[pid]; const sub=list.reduce((s2,i)=>s2+Number(i.qty_base||0),0); grand+=sub;
+    const parent=u.parent_id?unitById[u.parent_id]:null;
+    sections.push({ unitType:u.unit_type, label:u.label||"", parentLabel:parent?(parent.label||""):null, sub,
+      rows:list.map(i=>({sku:i.order_sku||"", barcode:bc[i.order_sku]||"", name:i.product_name||"", qty:Number(i.qty_base||0)})) });
+  });
+  return {ord, wh: ord.warehouse==="edmonton"?"Edmonton":"Toronto", sections, grand};
+}
+async function buildPackingListHTML(oid, autoprint){
+  const d=await getPackingData(oid);
+  const e=s2=>String(s2==null?"":s2).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  let body="";
+  d.sections.forEach(sec=>{
+    const where=sec.unitType==="box"
+      ? `📦 ${e(sec.label)}${sec.parentLabel?` <span style="font-weight:400;color:#666">(in 🟩 ${e(sec.parentLabel)})</span>`:""}`
+      : `🟩 ${e(sec.label)}`;
+    const trs=sec.rows.map(r=>`<tr><td>${e(r.sku)}</td><td class="bcd">${e(r.barcode)}</td><td>${e(r.name)}</td><td class="n">${r.qty}</td></tr>`).join("");
+    body+=`<div class="u">${where} <span style="font-size:12px;color:#555">(subtotal ${sec.sub})</span></div>
+      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${trs}</tbody></table>`;
+  });
+  if(!body) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
+  const logo=location.origin+"/asung-logo-dark.png";
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>PACKING LIST ${e(d.ord.order_number)}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
+    .h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #12161c;padding-bottom:12px}
+    .brandwrap{display:flex;flex-direction:column;gap:8px} .brandwrap img{height:38px;width:auto;display:block}
+    .doc{text-align:right;font-weight:800;font-size:20px}
+    .meta{display:flex;gap:36px;margin:16px 0} .meta b{color:#555}
+    .u{font-weight:800;margin:14px 0 4px}
+    table.pl{width:100%;border-collapse:collapse;margin-bottom:6px}
+    table.pl th,table.pl td{border-bottom:1px solid #d5dae2;padding:6px 6px;text-align:left;font-size:12.5px}
+    table.pl th{border-bottom:2px solid #12161c;font-size:11px;text-transform:uppercase;color:#555}
+    table.pl td.n,table.pl th.n{text-align:right;width:60px}
+    table.pl td.bcd{font-family:monospace;font-size:11.5px;width:130px}
+    .total{margin-top:10px;font-weight:800;font-size:15px;text-align:right}
+    .note{color:#666;margin:14px 0}
+    @media print{body{margin:14mm}}
+  </style></head><body>
+    <div class="h"><div class="brandwrap"><img src="${logo}" alt="ASUNG"><div style="font-weight:800;font-size:16px">PACKING LIST</div></div>
+      <div class="doc">${e(d.ord.order_number)}<br><span style="font-weight:400;font-size:12px;color:#666">${new Date().toLocaleDateString()}</span></div></div>
+    <div class="meta"><div><b>Order</b> ${e(d.ord.order_number)}</div><div><b>Customer</b> ${e(d.ord.customer_name||"—")}</div><div><b>Warehouse</b> ${d.wh}</div></div>
+    ${body}
+    <div class="total">Total qty: ${d.grand}</div>
+    ${autoprint?`<script>window.addEventListener("load",()=>{setTimeout(()=>{try{window.print();}catch(e){}},250);});<\/script>`:""}
+  </body></html>`;
+  return {html, onum: d.ord.order_number};
+}
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector(`script[src="${src}"]`)) return res();
+    const sc=document.createElement("script"); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error("script load failed"));
+    document.head.appendChild(sc);
+  });
+}
+async function ensureJsPDF(){
+  await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+  await loadScript("https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js");
+}
+async function logoDataURL(){
+  try{
+    const img=new Image(); img.src=location.origin+"/asung-logo-dark.png";
+    await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; });
+    const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    c.getContext("2d").drawImage(img,0,0);
+    return {url:c.toDataURL("image/png"), ratio:img.naturalWidth/img.naturalHeight};
+  }catch(e){ return null; }
+}
+async function downloadPackingPDF(oid, onum){
+  try{
+    await ensureJsPDF();
+    const d=await getPackingData(oid);
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:"mm",format:"a4"});
+    let y=14;
+    const logo=await logoDataURL();
+    if(logo){ const h=9, w=Math.min(70,h*logo.ratio); doc.addImage(logo.url,"PNG",14,y,w,h); y+=h+5; }
+    else{ doc.setFontSize(12); doc.setFont(undefined,"bold"); doc.text("ASUNG TRADING INC",14,y+4); y+=9; }
+    doc.setFontSize(16); doc.setFont(undefined,"bold"); doc.text("PACKING LIST",14,y+3);
+    doc.setFontSize(10); doc.setFont(undefined,"normal");
+    doc.text(String(d.ord.order_number),196,14,{align:"right"});
+    doc.text(new Date().toLocaleDateString(),196,19,{align:"right"});
+    y+=10;
+    doc.text(`Customer: ${d.ord.customer_name||"—"}     Warehouse: ${d.wh}`,14,y); y+=5;
+    d.sections.forEach(sec=>{
+      const title=(sec.unitType==="box"?`BOX ${sec.label}`:`PALLET ${sec.label}`)+(sec.parentLabel?` (in PALLET ${sec.parentLabel})`:"");
+      if(y>265){ doc.addPage(); y=16; }
+      doc.setFontSize(11); doc.setFont(undefined,"bold"); doc.text(title,14,y+4);
+      doc.autoTable({
+        startY:y+6,
+        head:[["SKU","Barcode","Product","Qty"]],
+        body:sec.rows.map(r=>[r.sku, r.barcode, r.name, String(r.qty)]),
+        styles:{fontSize:8.5,cellPadding:1.6},
+        headStyles:{fillColor:[18,22,28]},
+        columnStyles:{0:{cellWidth:30},1:{cellWidth:36,font:"courier"},3:{halign:"right",cellWidth:14}},
+        margin:{left:14,right:14},
+      });
+      y=doc.lastAutoTable.finalY;
+      doc.setFontSize(9); doc.setFont(undefined,"normal");
+      doc.text(`Subtotal: ${sec.sub}`,196,y+4,{align:"right"}); y+=9;
+    });
+    if(y>272){ doc.addPage(); y=16; }
+    doc.setFontSize(11); doc.setFont(undefined,"bold");
+    doc.text(`Total qty: ${d.grand}`,196,y+4,{align:"right"});
+    doc.save(`PACKING-LIST_${onum||d.ord.order_number}.pdf`);
+  }catch(e){ toast("PDF failed: "+(e.message||e),true); }
+}
+async function downloadPackingCSV(oid, onum){
+  try{
+    const d=await getPackingData(oid);
+    const q=v=>{ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
+    const rows=[
+      ["Order",d.ord.order_number],["Customer",d.ord.customer_name||""],["Warehouse",d.wh],["Printed",new Date().toLocaleString()],[],
+      ["Unit","SKU","Barcode","Product","Qty"],
+    ];
+    d.sections.forEach(sec=>{
+      const title=(sec.unitType==="box"?`BOX ${sec.label}`:`PALLET ${sec.label}`)+(sec.parentLabel?` (in PALLET ${sec.parentLabel})`:"");
+      sec.rows.forEach(r=>rows.push([title,r.sku,r.barcode,r.name,r.qty]));
+    });
+    rows.push([]); rows.push(["Total","","","",d.grand]);
+    const csv="\uFEFF"+rows.map(r=>r.map(q).join(",")).join("\r\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=`PACKING-LIST_${onum||oid}.csv`;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+  }catch(e){ toast("CSV failed: "+(e.message||e),true); }
+}
+async function printOrderPackingList(oid){
+  const win=window.open("","_blank");   // open within click gesture
+  try{
+    const {html}=await buildPackingListHTML(oid,true);
+    win.document.write(html); win.document.close();
+  }catch(e){ if(win){try{win.close();}catch(_){}} toast("Print failed: "+(e.message||e),true); }
 }
 
 /* ---------- Discrepancy ---------- */
@@ -332,7 +1071,7 @@ function discRow(d,actionable){
     : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}</td>`;
   return `<tr>
     <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}</td>
-    <td style="font-family:var(--mono)">${esc(d.sku||"")}</td>
+    <td style="font-family:var(--mono)">${esc(d.sku||"")}${d.note?`<div style="font-family:inherit;font-weight:400;font-size:11px;color:var(--mut);margin-top:2px">${esc(d.note)}</div>`:""}</td>
     <td><span class="tag r-${d.reason}">${rl}</span></td>
     <td class="num">${d.ordered_base??"—"}</td>
     <td class="num">${d.actual_base??"—"}</td>
@@ -362,14 +1101,16 @@ async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
   // throughput: completed pick/pack batches (by completion time)
   const [picks, packs, disc]=await Promise.all([
-    sb.from("wms_pick_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_pack_tasks").select("assigned_to,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
-  // throughput tally
+  // throughput + avg duration tally
   const prod={};
-  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pick++; });
-  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; (prod[p.assigned_to]=prod[p.assigned_to]||{pick:0,pack:0}).pack++; });
+  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0});
+  const dur=t=>{ if(!t.started_at||!t.completed_at)return null; const m=(new Date(t.completed_at)-new Date(t.started_at))/60000; return (m>=0&&m<24*60)?m:null; };
+  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;} });
+  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;} });
   renderProd(prod);
   // mistake tally (by responsible person, resolved not excluded — count occurrences themselves, resolved_pack_recovery excluded)
   const mistakes={};
@@ -378,6 +1119,18 @@ async function loadStats(){
     if(m[d.reason]!=null)m[d.reason]++; m.total++; });
   renderMistakes(mistakes);
 }
+function renderFulfillStats(fin){
+  const total=fin.length;
+  const pk=fin.filter(o=>o.fulfillment_type==="packing_list").length;
+  const dr=fin.filter(o=>o.fulfillment_type==="direct").length;
+  const pct=total?Math.round(pk/total*100):0;
+  document.getElementById("fulfillStats").innerHTML=[
+    ["Finalized",total,""],
+    ["With packing list",pk,"ok"],
+    ["Direct pack",dr,dr>0?"warn":""],
+    ["Packing-list rate",pct+"%",pct>=80?"ok":(total?"warn":"")],
+  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
 function renderProd(prod){
   const rows=Object.entries(prod).sort((a,b)=>(b[1].pick+b[1].pack)-(a[1].pick+a[1].pack));
   const el=document.getElementById("prodTable");
@@ -385,7 +1138,7 @@ function renderProd(prod){
   const max=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
   el.innerHTML=rows.map(([nm,v])=>`
     <div style="margin:10px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick} · Pack ${v.pack}</span></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""} · Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}</span></div>
       <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/max*100)}%"></div></div><span class="val">${v.pick}</span></div>
       <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/max*100)}%"></div></div><span class="val">${v.pack}</span></div>
     </div>`).join("");

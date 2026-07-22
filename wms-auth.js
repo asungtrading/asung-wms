@@ -27,7 +27,8 @@
       #wmsLogin button.main:disabled{opacity:.6;cursor:default}
       #wmsLogin .err{margin-top:12px;color:#dc2626;font-size:12.5px;min-height:16px;font-weight:600}
       #wmsLogin .ok{margin-top:6px;color:#16a34a;font-size:12.5px;min-height:16px;font-weight:600}
-      #wmsLogin .brand{font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:13px;color:#12161c;margin-bottom:14px}
+      #wmsLogin .brand{font-family:ui-monospace,Menlo,monospace;font-weight:800;font-size:13px;color:#12161c;margin-bottom:18px;text-align:center}
+      #wmsLogin .brand img{height:36px;width:auto;display:inline-block}
       #wmsLogin .linkrow{margin-top:14px;text-align:center}
       #wmsLogin .link{background:none;border:0;color:#2f6df6;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:4px;width:auto;margin:0}
       #wmsPwModal{position:fixed;inset:0;z-index:10000;background:rgba(16,22,30,.45);display:none;align-items:center;justify-content:center;font-family:"Inter",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
@@ -55,7 +56,7 @@
     if(!el){
       el=document.createElement("div"); el.id="wmsLogin";
       el.innerHTML=`<div class="wcard">
-        <div class="brand">ASUNG WMS</div>
+        <div class="brand"><img src="asung-logo-dark.png" alt="ASUNG WMS"></div>
         <h2>Sign In</h2>
         <p class="sub">Sign in with your company email and password.</p>
         <label>Email</label>
@@ -170,13 +171,66 @@
     if(opts.requireManager && !(data.role==="manager"||data.role==="admin")){
       loginErr("This screen is for managers and admins only."); await sb.auth.signOut(); return false;
     }
+    // per-screen permission for managers (admin always passes): "split" | "admin" | "staff"
+    if(opts.requirePerm && data.role==="manager"){
+      const perms=Array.isArray(data.perms)?data.perms:["split","admin","staff"];
+      if(!perms.includes(opts.requirePerm)){
+        loginErr("You don't have access to this screen. Please contact your administrator.");
+        await sb.auth.signOut(); return false;
+      }
+    }
     me=data; return true;
   }
 
+
+  /* ---- bfcache fix: pages restored from back-forward cache resume with dead
+     in-flight requests (spinners hang forever). Force a clean reload on restore. ---- */
+  window.addEventListener("pageshow", function(e){ if(e.persisted) location.reload(); });
+
+  /* ---- shared nav dropdown (☰ Menu on every screen) ---- */
+  function setupNavMenu(meData){
+    const btn=document.querySelector('button[title="Main menu"]');
+    if(!btn || btn._wmsNav) return;
+    btn._wmsNav=true;
+    const items=[
+      ["Admin","admin.html","admin"],
+      ["Order Splitting","manager.html","split"],
+      ["Picking","picker.html",null],
+      ["Packing","packer.html",null],
+      ["Fulfillment","fulfillment.html",null],
+      ["Staff","staff-admin.html","staff"],
+      ["Home","index.html",null],
+    ];
+    const isAdmin=meData.role==="admin", isMgr=meData.role==="manager";
+    const perms=Array.isArray(meData.perms)?meData.perms:["split","admin","staff"];
+    const vis=items.filter(it=>!it[2] || isAdmin || (isMgr&&perms.includes(it[2])));
+    if(!document.getElementById("wmsNavCss")){
+      const st=document.createElement("style"); st.id="wmsNavCss";
+      st.textContent='.wms-nav{position:absolute;z-index:2000;background:#fff;border:1px solid #e3e6eb;border-radius:12px;box-shadow:0 12px 32px rgba(15,20,30,.16);padding:6px;min-width:180px;display:none}'
+        +'.wms-nav a{display:block;padding:10px 13px;border-radius:8px;font-size:13.5px;font-weight:600;color:#1e2430;text-decoration:none}'
+        +'.wms-nav a:hover{background:#f2f4f8}'
+        +'.wms-nav a.cur{background:#eef3ff;color:#3b5bdb;pointer-events:none}';
+      document.head.appendChild(st);
+    }
+    const dd=document.createElement("div"); dd.className="wms-nav";
+    const here=(location.pathname.split("/").pop()||"index.html").toLowerCase();
+    dd.innerHTML=vis.map(it=>`<a href="${it[1]}" class="${it[1]===here?"cur":""}">${it[0]}</a>`).join("");
+    document.body.appendChild(dd);
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const open=dd.style.display==="block";
+      if(open){ dd.style.display="none"; return; }
+      dd.style.display="block";
+      const r=btn.getBoundingClientRect(), w=dd.offsetWidth;
+      dd.style.top=(r.bottom+6+window.scrollY)+"px";
+      dd.style.left=Math.max(8, Math.min(window.innerWidth-w-8, r.right-w+window.scrollX))+"px";
+    };
+    document.addEventListener("click",(e)=>{ if(dd.style.display==="block" && !dd.contains(e.target) && e.target!==btn) dd.style.display="none"; });
+  }
   const wmsAuth={
     async start(options, cb){
       if(typeof options==="function"){ cb=options; options={}; }
-      opts=options||{}; onReady=cb;
+      opts=options||{}; onReady=(a,b)=>{ try{setupNavMenu(b);}catch(e){} cb(a,b); };
       if(!cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_ANON_KEY.includes("PASTE_")){
         injectStyles(); showLogin(""); loginErr("Setup needed: add the anon key to wms-config.js.");
         return;

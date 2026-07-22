@@ -115,6 +115,19 @@
   .notes input{flex:1;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font:inherit;font-size:11.5px}
 
   .unitsempty{grid-column:1/-1;padding:44px;text-align:center;color:var(--mut-2);border:2px dashed var(--line);border-radius:12px}
+
+  /* ---- tap-to-place (mobile) ---- */
+  .armed-src{outline:3px solid var(--accent) !important;outline-offset:1px;border-radius:10px;background:#eef4ff !important}
+  @keyframes placepulse{0%,100%{box-shadow:0 0 0 3px rgba(47,109,246,.18)}50%{box-shadow:0 0 0 6px rgba(47,109,246,.32)}}
+  .place-ready{border-color:var(--accent) !important;animation:placepulse 1.2s ease infinite}
+  #placeBar{position:fixed;left:0;right:0;bottom:0;z-index:70;display:none;align-items:center;gap:10px;
+    background:var(--ink);color:#fff;padding:13px 14px calc(13px + env(safe-area-inset-bottom));
+    font-size:13.5px;font-weight:700;box-shadow:0 -8px 30px rgba(0,0,0,.28)}
+  #placeBar .pl-lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+  #placeBar .pl-hint{font-weight:600;font-size:11.5px;opacity:.75;display:block;font-family:var(--sans)}
+  #placeBar button{border:0;border-radius:9px;padding:10px 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap}
+  #placeBar #plPool{background:#fff;color:var(--ink)}
+  #placeBar #plCancel{background:rgba(255,255,255,.16);color:#fff}
   .storebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
   .storebar .lab{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
   .storebar .schip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;background:var(--paper)}
@@ -152,6 +165,7 @@
   }
   .pl-h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px}
   .pl-h .brand{font-family:var(--mono);font-weight:800;font-size:18px}
+  .pl-h .brand img{height:34px;width:auto;display:block}
   .pl-h .doc{font-size:13px;color:#444;text-align:right}
   .pl-meta{display:flex;gap:24px;font-size:13px;margin-bottom:14px}
   .pl-meta b{font-family:var(--mono)}
@@ -169,8 +183,18 @@
 
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
-  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo .logo-img{height:28px;width:auto;display:block}
   .logo span{margin-left:0}
+
+  /* ---- mobile ---- */
+  @media(max-width:640px){
+    .bar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    .right{flex-wrap:wrap;row-gap:6px}
+    header button{font-size:12px;padding:6px 9px}
+    main{padding:12px}
+    #orderScan{min-width:0;flex:1}
+    #completeBtn{width:100%;margin-left:0}
+  }
 </style>
 </head>
 <body>
@@ -178,13 +202,16 @@
 <div id="app" style="display:none">
   <header><div class="bar">
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Fulfillment</span></div>
-    <div class="right"><span id="whoName" style="font-size:12.5px;color:var(--mut);font-family:var(--mono)"></span><button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button><span class="conn" id="conn"></span></div>
+    <div class="right"><span id="whoName" style="font-size:12.5px;color:var(--mut);font-family:var(--mono)"></span><button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button><span class="conn" id="conn"></span></div>
   </div></header>
 
   <main>
     <div class="orderbar">
       <button class="btn ghost" id="pickBtn">Select orders ▾</button>
+      <input id="orderScan" inputmode="none" autocomplete="off" placeholder="Scan a pick list…"
+        style="border:2px solid var(--accent);border-radius:10px;padding:8px 12px;font:inherit;font-family:var(--mono);font-size:14px;background:#fff;min-width:210px">
       <span class="ordinfo" id="ordInfo">Select the orders to ship together.</span>
+      <button id="completeBtn" style="margin-left:auto;display:none;border:0;background:var(--ok,#16a34a);color:#fff;border-radius:10px;padding:9px 16px;font:inherit;font-size:13px;font-weight:800;cursor:pointer">✓ Finalize order(s)</button>
     </div>
 
     <!-- order select panel -->
@@ -225,6 +252,11 @@
 </div></div>
 
 <div id="printArea"></div>
+<div id="placeBar">
+  <span class="pl-lbl" id="plLbl"></span>
+  <button id="plPool" style="display:none">↩ To pool</button>
+  <button id="plCancel">✕ Cancel</button>
+</div>
 <div id="toast"></div>
 
 <script src="wms-config.js"></script>
@@ -234,8 +266,47 @@
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
 let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
+let bcBySku={};   // sku -> its own barcode (for packing lists)
 let availOrders=[];            // selectable order list
 let drag=null; // {kind, ...}
+
+/* ---------- tap-to-place (mobile-friendly alternative to drag) ----------
+   Tap a product/batch/order/item/box to select it, then tap a pallet/box to
+   place it. Reuses the exact same onDropToUnit logic as drag-and-drop. */
+const TOUCH=("ontouchstart" in window)||navigator.maxTouchPoints>0;
+let armed=null; // {kind,...same as drag, label, _el}
+function arm(payload,label,el){
+  if(armed && armed._el===el){ disarm(); return; }   // tap again = cancel
+  disarm();
+  armed=Object.assign({},payload,{label,_el:el});
+  el.classList.add("armed-src");
+  // highlight valid targets: box → pallets only, everything else → any unit
+  document.querySelectorAll("#units [data-unit]").forEach(z=>{
+    if(payload.kind==="box"){ if(z.dataset.type==="pallet") z.classList.add("place-ready"); }
+    else z.classList.add("place-ready");
+  });
+  document.getElementById("plLbl").innerHTML=`${esc(label)}<span class="pl-hint">Tap a pallet or box to place it</span>`;
+  document.getElementById("plPool").style.display=(payload.kind==="item")?"":"none";
+  document.getElementById("placeBar").style.display="flex";
+}
+function disarm(){
+  if(!armed) return;
+  try{ armed._el.classList.remove("armed-src"); }catch(e){}
+  document.querySelectorAll(".place-ready").forEach(z=>z.classList.remove("place-ready"));
+  document.getElementById("placeBar").style.display="none";
+  armed=null;
+}
+function placeTo(uid,utype){
+  if(!armed) return;
+  if(armed.kind==="box" && utype!=="pallet"){ toast("A box can only go on a pallet",true); return; }
+  if(armed.kind==="box" && armed.boxId===uid){ disarm(); return; }
+  const payload=armed; disarm();
+  drag=payload;                 // hand over to the shared drop logic
+  onDropToUnit(uid,utype);
+}
+const recentDrag=()=>Date.now()-(window.__justDragged||0)<350; // ignore ghost taps right after a drag
+document.getElementById("plCancel").onclick=()=>disarm();
+document.getElementById("plPool").onclick=()=>{ if(armed&&armed.kind==="item"){ const id=armed.itemId; disarm(); removeItem(id); } };
 
 /* ---------- login ---------- */
 function boot(){
@@ -285,6 +356,69 @@ document.getElementById("startBtn").onclick=()=>{
   document.getElementById("orderPicker").style.display="none";
   loadWorkspace();
 };
+/* scan a pick-list barcode → select that order and load it (accumulates for ship-together) */
+async function scanLoadOrder(v){
+  v=(v||"").trim(); if(!v) return;
+  if(!availOrders||!availOrders.length) await loadOrders();
+  const f=v.toUpperCase();
+  const o=(availOrders||[]).find(x=>(x.order_number||"").toUpperCase()===f);
+  if(!o){ toast("No order ready to ship for "+v,true); return; }
+  if(!orderIds.includes(o.id)) orderIds=[...orderIds,o.id];
+  document.getElementById("orderPicker").style.display="none";
+  await loadWorkspace();
+  toast(o.order_number+" loaded");
+}
+document.getElementById("orderScan").addEventListener("keydown",e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  const el=document.getElementById("orderScan"); const v=el.value.trim(); el.value=""; scanLoadOrder(v);
+});
+
+/* ---------- complete & close (works with or without pallets/boxes) ---------- */
+document.getElementById("completeBtn").onclick=async ()=>{
+  if(!orders.length) return;
+  const info=orders.map(o=>{
+    const placed=items.some(i=>i.order_id===o.id);
+    const unplaced=poolLines.filter(p=>p.order_id===o.id).reduce((s,p)=>s+Math.max(0,remainingFor(p)),0);
+    return {o, placed, unplaced};
+  });
+  const direct=info.filter(x=>!x.placed);                 // no pallet/box → pickup / immediate ship
+  const partial=info.filter(x=>x.placed && x.unplaced>0); // has units but items still unplaced
+  let msg=`Finalize ${orders.length} order(s)?\n\n`+orders.map(o=>"· "+o.order_number).join("\n");
+  if(direct.length) msg+=`\n\nDirect pack — no pallet/box (pickup / immediate ship):\n`+direct.map(x=>"· "+x.o.order_number).join("\n");
+  if(partial.length) msg+=`\n\n\u26a0 Still has unplaced items (will finalize anyway):\n`+partial.map(x=>`· ${x.o.order_number} (${x.unplaced} units)`).join("\n");
+  msg+=`\n\nFinalized orders leave the fulfillment board.`;
+  if(!confirm(msg)) return;
+  const btn=document.getElementById("completeBtn"); btn.disabled=true;
+  try{
+    const now=new Date().toISOString();
+    const packedIds=info.filter(x=>x.placed).map(x=>x.o.id);
+    const directIds=info.filter(x=>!x.placed).map(x=>x.o.id);
+    // record fulfillment_type / finalized_by / finalized_at for stats; fall back to status-only if columns not added yet
+    const doUpd=async(ids,ftype)=>{
+      if(!ids.length) return;
+      let {error}=await sb.from("wms_orders").update({status:"closed", fulfillment_type:ftype, finalized_by:me.name, finalized_at:now, updated_at:now}).in("id",ids);
+      if(error && /column|fulfillment_type|finalized/i.test(error.message||"")){
+        ({error}=await sb.from("wms_orders").update({status:"closed", updated_at:now}).in("id",ids));
+      }
+      if(error) throw error;
+    };
+    await doUpd(packedIds,"packing_list");
+    await doUpd(directIds,"direct");
+    toast(orders.length+" order(s) finalized");
+    // reset workspace
+    orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[];
+    document.getElementById("ordInfo").textContent="Select the orders to ship together.";
+    document.getElementById("pickBtn").textContent="Select orders ▾";
+    document.getElementById("workspace").style.display="none";
+    document.getElementById("storeBar").style.display="none";
+    document.getElementById("pool").innerHTML="";
+    document.getElementById("units").innerHTML="";
+    btn.style.display="none";
+    loadOrders();
+  }catch(e){ toast("Complete failed: "+(e.message||e),true); }
+  finally{ btn.disabled=false; }
+};
 
 /* ---------- load multi-order workspace ---------- */
 async function loadWorkspace(){
@@ -319,12 +453,23 @@ async function loadWorkspace(){
     });
   }
   document.getElementById("workspace").style.display="grid";
+  document.getElementById("completeBtn").style.display=orders.length?"inline-block":"none";
+  // barcodes for packing lists
+  try{
+    const skus=[...new Set(poolLines.map(p=>p.sku).filter(Boolean))];
+    bcBySku={};
+    if(skus.length){
+      const {data:sn}=await sb.from("wms_sku_snapshot").select("sku,barcode").in("sku",skus);
+      (sn||[]).forEach(r=>{ bcBySku[r.sku]=String(r.barcode||"").trim(); });
+    }
+  }catch(e){ bcBySku={}; }
   renderStoreBar();
   await refresh();
 }
 
 /* ---------- refresh units/items (all units related to selected orders) ---------- */
 async function refresh(){
+  disarm(); // DOM is rebuilt below — a stale selection would point at dead elements
   // 1) units homed to selected orders + 2) units containing selected-order items → union
   const [byHome, byItems]=await Promise.all([
     sb.from("wms_pallets").select("*").in("order_id",orderIds),
@@ -380,6 +525,18 @@ function renderPool(){
   }).join("");
   el.querySelectorAll("[data-pl]").forEach(c=>c.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"poolLine",olid:+c.dataset.pl}; e.dataTransfer.effectAllowed="move"; }));
   el.querySelectorAll("[data-many]").forEach(h=>h.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"poolMany",olids:h.dataset.many.split(",").map(Number)}; e.dataTransfer.effectAllowed="move"; }));
+  if(TOUCH){
+    el.querySelectorAll("[data-pl]").forEach(c=>c.addEventListener("click",e=>{
+      if(recentDrag())return; e.stopPropagation();
+      const pl=poolLines.find(p=>p.order_line_id===+c.dataset.pl); if(!pl)return;
+      arm({kind:"poolLine",olid:+c.dataset.pl}, `${pl.sku} · ${remainingFor(pl)}`, c);
+    }));
+    el.querySelectorAll("[data-many]").forEach(h=>h.addEventListener("click",e=>{
+      if(recentDrag())return; e.stopPropagation();
+      const olids=h.dataset.many.split(",").map(Number);
+      arm({kind:"poolMany",olids}, h.textContent.trim(), h);
+    }));
+  }
   el.ondragover=e=>{ if(drag&&drag.kind==="item"){e.preventDefault();} };
   el.ondrop=e=>{ if(drag&&drag.kind==="item"){ e.preventDefault(); removeItem(drag.itemId); } };
 }
@@ -401,20 +558,20 @@ function boxBlock(b){
   return `<div class="nested" data-unit="${b.id}" data-type="box">
     <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}<span class="tot">${tot}</span>
       <span class="x" data-delunit="${b.id}" style="cursor:pointer;margin-left:6px">✕</span></div>
-    <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag here</div>'}
+    <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag or tap here</div>'}
       <button class="mini print" data-print="${b.id}" style="margin-top:4px">🖨 Box list</button></div>
   </div>`;
 }
 function renderUnits(){
   const el=document.getElementById("units");
   const top=units.filter(u=>!u.parent_id);
-  if(!top.length){ el.innerHTML=`<div class="unitsempty">Add a pallet or box and<br>Drag products from the left to fill it.</div>`; return; }
+  if(!top.length){ el.innerHTML=`<div class="unitsempty">Add a pallet or box and<br>Drag or tap products from the left to fill it.</div>`; return; }
   el.innerHTML=top.map(u=>{
     if(u.unit_type==="pallet"){
       const direct=itemsIn(u.id); const boxes=boxesIn(u.id);
       const tot=unitTot(u.id)+boxes.reduce((s,b)=>s+unitTot(b.id),0);
       const body=(boxes.map(boxBlock).join("")) + (direct.length?direct.map(itemChip).join(""):"") +
-        (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag here</div>':"");
+        (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag or tap here</div>':"");
       return `<div class="unit pallet" data-unit="${u.id}" data-type="pallet">
         <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${tot}</span></div>
         <div class="ubody">${body}</div>
@@ -425,7 +582,7 @@ function renderUnits(){
       const its=itemsIn(u.id);
       return `<div class="unit box" data-unit="${u.id}" data-type="box">
         <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span><span class="tot">${unitTot(u.id)}</span></div>
-        <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag here</div>'}</div>
+        <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag or tap here</div>'}</div>
         <div class="ufoot"><button class="mini print" data-print="${u.id}">🖨 Box list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
     }
@@ -440,6 +597,35 @@ function wireUnitEvents(){
   // box drag (nested header) -> move box into pallet / out
   el.querySelectorAll("[data-box]").forEach(h=>h.addEventListener("dragstart",e=>{ e.stopPropagation(); drag={kind:"box",boxId:+h.dataset.box}; }));
   el.querySelectorAll("[data-move-unit]").forEach(h=>h.addEventListener("dragstart",e=>{ e.stopPropagation(); const id=+h.dataset.moveUnit; const u=units.find(x=>x.id===id); drag={kind:u.unit_type==="box"?"box":"unit", boxId:id}; }));
+  if(TOUCH){
+    // tap a chip / box header / grip to select it
+    el.querySelectorAll("[data-item]").forEach(c=>c.addEventListener("click",e=>{
+      if(recentDrag())return;
+      if(e.target.closest("[data-x]"))return;      // ✕ keeps its remove behavior
+      e.stopPropagation();
+      const it=items.find(i=>i.id===+c.dataset.item); if(!it)return;
+      arm({kind:"item",itemId:it.id}, `${it.order_sku} · ${it.qty_base}`, c);
+    }));
+    el.querySelectorAll("[data-box]").forEach(h=>h.addEventListener("click",e=>{
+      if(recentDrag())return;
+      if(e.target.closest("[data-delunit]"))return;
+      e.stopPropagation();
+      const u=units.find(x=>x.id===+h.dataset.box); if(!u)return;
+      arm({kind:"box",boxId:u.id}, `📦 ${u.label}`, h);
+    }));
+    el.querySelectorAll("[data-move-unit]").forEach(h=>h.addEventListener("click",e=>{
+      if(recentDrag())return; e.stopPropagation();
+      const u=units.find(x=>x.id===+h.dataset.moveUnit); if(!u||u.unit_type!=="box")return; // pallets don't move
+      arm({kind:"box",boxId:u.id}, `📦 ${u.label}`, h.closest(".unit")||h);
+    }));
+    // tap a unit to place the armed selection (delegated; innermost unit wins)
+    el.addEventListener("click",e=>{
+      if(!armed||recentDrag())return;
+      if(e.target.closest("button,input,[data-x],[data-delunit],[data-addbox],[data-print],[data-note]"))return;
+      const zone=e.target.closest("[data-unit]"); if(!zone)return;
+      placeTo(+zone.dataset.unit, zone.dataset.type);
+    });
+  }
   // drop targets: every unit (pallet or box)
   el.querySelectorAll("[data-unit]").forEach(zone=>{
     const uid=+zone.dataset.unit; const utype=zone.dataset.type;
@@ -556,9 +742,9 @@ function tableFor(unitId){
   let html=""; let tot=0;
   Object.entries(byOrder).forEach(([oid,list])=>{
     const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); tot+=sub;
-    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-    const cap=multi?`<tr><td colspan="3" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(subtotal ${sub})</span></td></tr>`:"";
-    html+=`<table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
+    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
+    const cap=multi?`<tr><td colspan="4" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(subtotal ${sub})</span></td></tr>`:"";
+    html+=`<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
   });
   return {html, tot};
 }
@@ -583,7 +769,7 @@ function printUnit(uid){
   const wh=orders[0]?.warehouse==="edmonton"?"Edmonton":"Toronto";
   const pa=document.getElementById("printArea");
   pa.innerHTML=`
-    <div class="pl-h"><div class="brand">ASUNG TRADING</div><div class="doc">PACKING LIST<br>${new Date().toLocaleDateString()}</div></div>
+    <div class="pl-h"><div class="brand"><img src="${location.origin+'/asung-logo-dark.png'}" alt="ASUNG"></div><div class="doc">PACKING LIST<br>${new Date().toLocaleDateString()}</div></div>
     <div class="pl-meta"><div>Order <b>${esc(orderStr)}</b></div><div>Customer <b>${custs.map(esc).join(" / ")}</b></div><div>Warehouse <b>${wh}</b></div></div>
     <div class="pl-unit">${isPallet?"🟩":"📦"} ${esc(u.label)} · ${isPallet?"PALLET":"BOX"}</div>
     ${body}
@@ -616,16 +802,16 @@ function buildStoreBody(oid){
     const where=u.unit_type==="box"
       ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${esc(parent.label)})</span>`:""}`
       : `🟩 ${esc(u.label)}`;
-    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
+    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
     body+=`<div class="pl-unit">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
-      <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
   });
   // not yet placed (completeness check)
   const rem=poolLines.filter(p=>p.order_id===oid).map(p=>({...p,r:remainingFor(p)})).filter(p=>p.r>0);
   if(rem.length){
-    const rows=rem.map(p=>`<tr><td>${esc(p.sku)}</td><td>${esc(p.name||"")}</td><td class="n">${p.r}</td></tr>`).join("");
+    const rows=rem.map(p=>`<tr><td>${esc(p.sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[p.sku]||"")}</td><td>${esc(p.name||"")}</td><td class="n">${p.r}</td></tr>`).join("");
     body+=`<div class="pl-unit" style="color:#b40000">⚠ Unassigned (not yet in a pallet/box)</div>
-      <table class="pl"><thead><tr><th>SKU</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="pl-warn">This store is not fully packed yet.</div>`;
   }
   if(!body) body=`<div class="pl-note">No products placed.</div>`;
@@ -638,7 +824,7 @@ function printStores(oids){
   const sections=oids.map((oid,idx)=>{
     const {o,body,grand}=buildStoreBody(oid);
     return `<div class="${idx>0?"pagebreak":""}">
-      <div class="pl-h"><div class="brand">ASUNG TRADING</div><div class="doc">STORE PACKING LIST<br>${dt}</div></div>
+      <div class="pl-h"><div class="brand"><img src="${location.origin+'/asung-logo-dark.png'}" alt="ASUNG"></div><div class="doc">STORE PACKING LIST<br>${dt}</div></div>
       <div class="pl-store-h">${esc(o.order_number)} · ${esc(o.customer_name||"—")}</div>
       <div class="pl-meta"><div>Warehouse <b>${wh}</b></div><div>Total qty <b>${grand}</b></div></div>
       ${body}
@@ -650,6 +836,76 @@ function printStores(oids){
 }
 
 boot();
+
+/* ---------- touch drag-and-drop shim (mobile/tablet) ----------
+   Native HTML5 DnD doesn't fire on touch. This synthesizes the same
+   dragstart/dragover/drop/dragend events so existing handlers work as-is. */
+(function(){
+  if(!("ontouchstart" in window) && !(navigator.maxTouchPoints>0)) return;
+  var src=null, clone=null, dragging=false, sx=0, sy=0, cx=0, cy=0, startedOn=null;
+  var DT={ data:{}, effectAllowed:"move", dropEffect:"move",
+    setData:function(k,v){this.data[k]=String(v);}, getData:function(k){return this.data[k]||"";},
+    setDragImage:function(){}, clearData:function(){this.data={};} };
+  function fire(el,type){
+    if(!el) return true;
+    var ev=new Event(type,{bubbles:true,cancelable:true});
+    ev.dataTransfer=DT; ev.clientX=cx; ev.clientY=cy;
+    return el.dispatchEvent(ev);
+  }
+  function clearHi(){ document.querySelectorAll(".drop-hi").forEach(function(e){e.classList.remove("drop-hi");}); }
+  function underFinger(){
+    if(clone) clone.style.display="none";
+    var el=document.elementFromPoint(cx,cy);
+    if(clone) clone.style.display="";
+    return el;
+  }
+  document.addEventListener("touchstart",function(e){
+    var t=e.target.closest('[draggable="true"]');
+    if(!t) return;
+    startedOn=t; src=t; dragging=false;
+    var to=e.touches[0]; sx=to.clientX; sy=to.clientY; cx=sx; cy=sy;
+  },{passive:true});
+  document.addEventListener("touchmove",function(e){
+    if(!src) return;
+    var to=e.touches[0]; cx=to.clientX; cy=to.clientY;
+    if(!dragging){
+      if(Math.abs(cx-sx)<8 && Math.abs(cy-sy)<8) return; // let small moves scroll/tap
+      dragging=true;
+      DT.data={};
+      fire(src,"dragstart");
+      // floating clone follows the finger
+      clone=src.cloneNode(true);
+      var r=src.getBoundingClientRect();
+      clone.style.cssText="position:fixed;left:0;top:0;z-index:9999;pointer-events:none;opacity:.85;"+
+        "width:"+r.width+"px;box-shadow:0 8px 24px rgba(0,0,0,.25);border-radius:10px;background:#fff;transform:translate("+cx+"px,"+cy+"px)";
+      document.body.appendChild(clone);
+      document.body.style.userSelect="none";
+    }
+    e.preventDefault(); // stop scrolling while dragging
+    if(clone) clone.style.transform="translate("+(cx- clone.offsetWidth/2)+"px,"+(cy-18)+"px)";
+    clearHi();
+    var el=underFinger();
+    if(el) fire(el,"dragover"); // bubbles to the dropzone → adds .drop-hi if valid
+  },{passive:false});
+  document.addEventListener("touchend",function(e){
+    if(!src){ return; }
+    if(dragging){
+      window.__justDragged=Date.now(); // suppress the ghost click that may follow a touch drag
+      var el=underFinger();
+      clearHi();
+      if(el) fire(el,"drop");   // bubbles to dropzone → onDropToUnit / removeItem
+      fire(src,"dragend");
+      if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
+      document.body.style.userSelect="";
+    }
+    src=null; clone=null; dragging=false; startedOn=null;
+  });
+  document.addEventListener("touchcancel",function(){
+    if(clone && clone.parentNode) clone.parentNode.removeChild(clone);
+    clearHi(); document.body.style.userSelect="";
+    src=null; clone=null; dragging=false; startedOn=null;
+  });
+})();
 </script>
 </body>
 </html>

@@ -34,6 +34,9 @@
   /* batch list */
   .lead{font-size:13px;color:var(--mut);margin:2px 2px 12px}
   .blist{display:flex;flex-direction:column;gap:10px}
+  .filterbar{display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;margin-bottom:2px}
+  .filterbar b{font-family:var(--mono)}
+  .filterbar button{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font:inherit;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer}
   .bcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:.1s}
   .bcard:hover{border-color:#c9d4e6}
   .bcard .bl{font-family:var(--mono);font-weight:800;font-size:16px}
@@ -85,13 +88,20 @@
 
   /* single-line card */
   .single{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
-  .single .img{width:100%;height:190px;background:#f1f3f6 center/contain no-repeat;border-bottom:1px solid var(--line)}
   .single .body{padding:16px}
-  .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .single .head{display:flex;gap:14px;margin-bottom:6px}
+  .single .img{width:150px;height:150px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat}
+  .single .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .single .barcodes{margin:2px 0 4px;padding:9px 11px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
+  .single .barcodes .bc{display:flex;align-items:center;gap:10px;padding:2px 0;font-family:var(--mono);font-size:13px}
+  .single .barcodes .bl{color:var(--mut);min-width:58px;font-weight:700;font-size:11.5px}
+  .single .barcodes .bv{font-weight:700;letter-spacing:.02em}
+  .single .barcodes .bv.empty{color:var(--mut-2);font-weight:400;font-style:italic}
   .zbadge{font-family:var(--mono);font-weight:800;font-size:15px;color:#fff;background:var(--mut);min-width:34px;height:34px;border-radius:9px;display:grid;place-items:center;padding:0 8px}
   .binbig{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.01em}
   .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
-  .single .sku{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+  .single .sku{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--ink);letter-spacing:.01em}
   .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
   .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
   .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
@@ -102,6 +112,9 @@
   .navrow{display:flex;gap:10px;margin-top:14px}
   .navrow .btn{flex:1}
   .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
+  .reportrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .reportrow .rep{flex:1;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .reportrow .rep:active{background:#fdf3df}
 
   /* list view */
   .list{display:none;flex-direction:column;gap:8px}
@@ -111,7 +124,7 @@
   .lrow.short{background:var(--danger-bg);border-color:#f3c4c4}
   .lrow .zn{font-family:var(--mono);font-weight:800;font-size:12px;color:#fff;background:var(--mut-2);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
   .lrow .li{flex:1;min-width:0}
-  .lrow .li .s{font-family:var(--mono);font-weight:700;font-size:13px}
+  .lrow .li .s{font-family:var(--mono);font-weight:800;font-size:15.5px;color:var(--ink)}
   .lrow .li .n{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
   .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap}
@@ -140,8 +153,19 @@
 
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
-  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo .logo-img{height:28px;width:auto;display:block}
   .logo span{margin-left:0}
+
+  /* ---- mobile ---- */
+  @media(max-width:480px){
+    .bar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    .right{flex-wrap:wrap;row-gap:6px}
+    header button{font-size:12px;padding:6px 9px}
+    main{padding:12px}
+    .single .img{width:112px;height:112px}
+    .qtybig{font-size:34px}
+    .reportrow .rep{font-size:11px}
+  }
 </style>
 </head>
 <body>
@@ -153,7 +177,7 @@
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Picking</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
+      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
       <div class="conn"><span class="dot" id="dot"></span></div>
     </div>
   </div>
@@ -164,6 +188,10 @@
   <!-- Select batch -->
   <div id="listView">
     <div class="lead">Pick a waiting batch from your warehouse to start.</div>
+    <div class="scanbar" style="position:static;padding:0 0 12px">
+      <input class="scanin" id="orderScan" inputmode="none" autocomplete="off" placeholder="Scan a pick list to find its order…">
+      <div class="scanhint"><span class="live"></span><span>Scan the pick-list barcode to jump to that order</span></div>
+    </div>
     <div class="blist" id="blist"></div>
     <div class="loading" id="bloading"><div class="spin"></div>Loading…</div>
     <div class="empty" id="bempty" style="display:none">No waiting batches..</div>
@@ -213,8 +241,52 @@
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
-let batches=[], myBatches=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single";
+let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single", batchFilter="";
 let actx=null;
+
+/* ---------- lease / heartbeat / presence ---------- */
+const HB_MS=20000;          // heartbeat write interval while a batch is open
+const STALE_S=75;           // no heartbeat for this long = holder considered gone
+let hbTimer=null, presCh=null;
+const staleISO=()=>new Date(Date.now()-STALE_S*1000).toISOString();
+const isStale=t=>{ const h=t.heartbeat_at||t.started_at; return !h || (Date.now()-new Date(h).getTime())>STALE_S*1000; };
+function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
+function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
+async function beatOnce(){
+  if(!task) return;
+  const {data,error}=await sb.from("wms_pick_tasks")
+    .update({heartbeat_at:new Date().toISOString()})
+    .eq("id",task.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+  if(!error && (!data||!data.length)){
+    // claim lost: taken over by another worker or released by admin
+    stopHeartbeat(); presenceLeave();
+    toast("This batch was taken over or released",true);
+    task=null;order=null;lines=[];bcMap={};
+    document.getElementById("pickView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadBatches();
+  }
+}
+function presenceJoin(){
+  presenceLeave();
+  try{
+    presCh=sb.channel("wms-presence",{config:{presence:{key:me.name+"|picker"}}});
+    presCh.subscribe(st=>{
+      if(st==="SUBSCRIBED" && task) presCh.track({
+        name:me.name, screen:"picker",
+        batch:task.batch_label, order:(order&&order.order_number)||"",
+        at:new Date().toISOString()
+      });
+    });
+  }catch(e){}
+}
+function presenceLeave(){ if(presCh){ try{presCh.untrack(); sb.removeChannel(presCh);}catch(e){} presCh=null; } }
+function markWorkStarted(){
+  if(!task || task.work_started) return;
+  task.work_started=true;
+  sb.from("wms_pick_tasks").update({work_started:true}).eq("id",task.id).then(()=>{});
+}
 
 /* ---------- boot / login ---------- */
 function boot(){
@@ -238,23 +310,40 @@ function beep(kind){
   if(kind==="ok"){
     const o=actx.createOscillator(),g=actx.createGain();
     o.type="sine";o.frequency.setValueAtTime(1050,t);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.14,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
     o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);
-  }else{ // error: low harsh double beep
-    [0,0.16].forEach(off=>{
-      const o=actx.createOscillator(),g=actx.createGain();
-      o.type="square";o.frequency.setValueAtTime(180,t+off);
-      g.gain.setValueAtTime(0.0001,t+off);g.gain.exponentialRampToValueAtTime(0.18,t+off+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+off+0.13);
-      o.connect(g);g.connect(actx.destination);o.start(t+off);o.stop(t+off+0.14);
-    });
+  }else if(kind==="done"){ // line complete: cheerful rising major arpeggio (clearly different from ok/okbox)
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(1046.5,t);o.frequency.setValueAtTime(1318.5,t+0.09);
+    o.frequency.setValueAtTime(1568,t+0.18);o.frequency.setValueAtTime(2093,t+0.27);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.55,t+0.01);
+    g.gain.setValueAtTime(0.55,t+0.34);g.gain.exponentialRampToValueAtTime(0.0001,t+0.52);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.53);
+  }else if(kind==="okbox"){ // box scan (factor>1): rising triple tone so ears confirm a multi-unit add
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1100,t+0.09);o.frequency.setValueAtTime(1320,t+0.18);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);
+    g.gain.setValueAtTime(0.5,t+0.26);g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.33);
+  }else{ // error: LOUD two-tone siren (high freqs carry on small speakers), full volume
+    try{ if(actx.state==="suspended") actx.resume(); }catch(e){}
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type="square";
+    for(let i=0;i<6;i++) o.frequency.setValueAtTime(i%2?1600:2400, t+i*0.12);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(1.0,t+0.015);
+    g.gain.setValueAtTime(1.0,t+0.66);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.72);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.73);
   }
 }
-function vibe(kind){ try{ navigator.vibrate && navigator.vibrate(kind==="ok"?25:[90,60,90]); }catch(e){} }
+function vibe(kind){ try{ navigator.vibrate && navigator.vibrate(kind==="ok"?25:[160,80,160,80,220]); }catch(e){} }
 function flash(kind,msg){
   const el=document.getElementById("flash");
-  el.className="show "+kind; el.textContent=msg;
-  clearTimeout(el._t); el._t=setTimeout(()=>el.className=kind,700);
-  beep(kind==="ok"?"ok":"bad"); vibe(kind==="ok"?"ok":"bad");
+  const cls=(kind==="okbox"||kind==="done")?"ok":kind;
+  el.className="show "+cls; el.textContent=msg;
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className=cls,(kind==="okbox"||kind==="done")?1200:700);
+  beep(kind==="bad"?"bad":kind); vibe(kind==="bad"?"bad":"ok");
 }
 
 /* ---------- initial load ---------- */
@@ -272,59 +361,118 @@ async function loadBatches(){
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  const sel="id,batch_label,status,assigned_to,started_at,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  // my in-progress batches + waiting pool together
-  const [mine, pool]=await Promise.all([
+  const sel="id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
+  // my in-progress + waiting pool + abandoned claims (in_progress but holder gone)
+  const [mine, pool, stale]=await Promise.all([
     sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).order("started_at"),
     sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).order("batch_label"),
+    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress")
+      .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`).order("batch_label"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(mine.error||pool.error){toast("Failed to load batches",true);return;}
   const inWh=b=>{ const wh=b.wms_orders?.warehouse; return acc==="both"||wh===acc; };
   myBatches=(mine.data||[]).filter(inWh);
   batches=(pool.data||[]).filter(inWh);
+  // take-over candidates: someone else's claim with a dead heartbeat
+  stalePool=((stale.data)||[]).filter(b=>inWh(b) && b.assigned_to!==me.name && isStale(b));
   renderBatches();
 }
-function batchCardHtml(b,resume){
+function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover"
   const o=b.wms_orders||{}; const cnt=(b.wms_pick_task_lines&&b.wms_pick_task_lines[0]?.count)||0;
-  return `<div class="bcard ${resume?"resume":""}" data-id="${b.id}" data-resume="${resume?1:0}">
+  const resume=mode==="resume", take=mode==="takeover";
+  const im=take?idleMin(b):null;
+  return `<div class="bcard ${resume||take?"resume":""}" data-id="${b.id}" data-mode="${mode}">
     <div>
       <div class="bl">${esc(b.batch_label)}</div>
       <div class="sub">${esc(o.customer_name||"—")} · ${cnt} lines
         <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
-        ${o.needs_review?'<span class="tag rev">Needs review</span>':""}</div>
+        ${o.needs_review?'<span class="tag rev">Needs review</span>':""}
+        ${take?`<span class="tag rev">${esc(b.assigned_to||"?")} · idle ${im?im+"m":"?"}</span>`:""}</div>
     </div>
-    <button class="go ${resume?"resumebtn":""}">${resume?"Resume":"Start"}</button>
+    <button class="go ${resume||take?"resumebtn":""}">${take?"Take over":resume?"Resume":"Start"}</button>
   </div>`;
 }
 function renderBatches(){
   const be=document.getElementById("bempty");
-  const has=(myBatches.length+batches.length)>0;
+  const f=batchFilter.trim().toUpperCase();
+  const match=b=>{ if(!f)return true; const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
+  // resume list = only claims where actual work happened (no-work claims are not "resumable")
+  const my=myBatches.filter(match).filter(b=>b.work_started),
+        pool=batches.filter(match),
+        stale=stalePool.filter(match);
+  const has=(my.length+pool.length+stale.length)>0;
   be.style.display=has?"none":"block";
-  be.textContent="No waiting batches..";
+  be.textContent=f?("No waiting batch for "+batchFilter):"No waiting batches..";
   let html="";
-  if(myBatches.length){
-    html+=`<div class="sect">My In Progress</div>`+myBatches.map(b=>batchCardHtml(b,true)).join("");
+  if(f){ html+=`<div class="filterbar">Showing <b>${esc(batchFilter)}</b><button id="clrFilter">Clear</button></div>`; }
+  if(my.length){
+    html+=`<div class="sect">My In Progress</div>`+my.map(b=>batchCardHtml(b,"resume")).join("");
   }
-  if(batches.length){
-    html+=`<div class="sect">Waiting Batches</div>`+batches.map(b=>batchCardHtml(b,false)).join("");
+  if(pool.length){
+    html+=`<div class="sect">Waiting Batches</div>`+pool.map(b=>batchCardHtml(b,"start")).join("");
+  }
+  if(stale.length){
+    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`+stale.map(b=>batchCardHtml(b,"takeover")).join("");
   }
   document.getElementById("blist").innerHTML=html;
+  const clr=document.getElementById("clrFilter");
+  if(clr) clr.onclick=()=>{ batchFilter=""; const os=document.getElementById("orderScan"); if(os)os.value=""; renderBatches(); };
   document.querySelectorAll("#blist .bcard").forEach(el=>{
-    el.onclick=()=> el.dataset.resume==="1" ? resumeBatch(+el.dataset.id) : startBatch(+el.dataset.id);
+    el.onclick=()=>{
+      const m=el.dataset.mode;
+      if(m==="resume") resumeBatch(+el.dataset.id);
+      else if(m==="takeover") takeoverBatch(+el.dataset.id);
+      else startBatch(+el.dataset.id);
+    };
   });
+  // keep the order-scan focused so the HID scanner reaches it on the list screen
+  if(me && document.getElementById("listView").style.display!=="none"){
+    const os=document.getElementById("orderScan"); if(os && document.activeElement!==os) os.focus();
+  }
 }
+document.getElementById("orderScan").addEventListener("keydown",e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  const v=document.getElementById("orderScan").value.trim();
+  document.getElementById("orderScan").value="";
+  if(!v) return;
+  batchFilter=v; renderBatches();
+  const f=v.toUpperCase();
+  const any=[...myBatches,...batches,...stalePool].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
+  if(!any) toast("No waiting batch for "+v,true);
+});
 
 /* ---------- start batch (optimistic lock) ---------- */
 async function startBatch(id){
   initAudio(); // unlock audio on user gesture
   const b=batches.find(x=>x.id===id);
+  const now=new Date().toISOString();
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",started_at:new Date().toISOString()})
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false})
     .eq("id",id).is("assigned_to",null).select();  // 0 rows if batch already taken
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this.",true); loadBatches(); return; }
   task=data[0]; order=b.wms_orders||{};
+  startHeartbeat(); presenceJoin();
+  await loadLines();
+}
+
+/* ---------- take over an abandoned claim (holder gone, progress kept) ---------- */
+async function takeoverBatch(id){
+  initAudio();
+  const b=stalePool.find(x=>x.id===id); if(!b){ loadBatches(); return; }
+  if(!confirm(`Take over ${b.batch_label}?\nCurrent holder: ${b.assigned_to||"?"} (away).\nTheir picked quantities are kept — you continue from where they stopped.`)) return;
+  const now=new Date().toISOString();
+  const {data,error}=await sb.from("wms_pick_tasks")
+    .update({assigned_to:me.name,heartbeat_at:now})
+    .eq("id",id).eq("status","in_progress")
+    .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
+    .select();
+  if(error){toast("Take over failed: "+error.message,true);return;}
+  if(!data||!data.length){ toast("Could not take over — the holder is back or it was released.",true); loadBatches(); return; }
+  task=data[0]; order=b.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   await loadLines();
 }
 
@@ -339,6 +487,7 @@ async function resumeBatch(id){
     toast("This batch is no longer in My In Progress",true); loadBatches(); return;
   }
   task=data; order=b.wms_orders||{};
+  startHeartbeat(); presenceJoin();
   await loadLines();
 }
 async function loadLines(){
@@ -373,22 +522,47 @@ async function loadLines(){
       (bcMap[code]=bcMap[code]||[]).push({idx,factor:Number(b.factor)||1});
     });
   });
-  // available stock: base_sku sum available by warehouse (per master sync, for reference)
-  const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
-  if(baseSkus.length){
-    const {data:bins}=await sb.from("wms_sku_bins")
-      .select("sku,available").in("sku",baseSkus).eq("warehouse",wh).eq("is_current",true);
-    const av={};
-    (bins||[]).forEach(b=>{ av[b.sku]=(av[b.sku]||0)+(Number(b.available)||0); });
-    lines.forEach(l=>{ l.available = (l.base_sku in av)?av[l.base_sku]:null; });
-  }
+  // show the lines immediately (don't wait for enrichment queries)
   curIdx=firstIncomplete();
   document.getElementById("listView").style.display="none";
   document.getElementById("pickView").style.display="block";
   document.getElementById("pTitle").textContent=task.batch_label;
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
-  document.getElementById("drop").value="";
   renderPick(); focusScan();
+  const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+  // enrich availability (independent — a failure here must not block barcodes)
+  if(baseSkus.length){
+    try{
+      const {data:bins,error}=await sb.from("wms_sku_bins")
+        .select("sku,available").in("sku",baseSkus).eq("warehouse",wh).eq("is_current",true);
+      if(error) throw error;
+      const av={};
+      (bins||[]).forEach(b=>{ av[b.sku]=(av[b.sku]||0)+(Number(b.available)||0); });
+      lines.forEach(l=>{ l.available = (l.base_sku in av)?av[l.base_sku]:null; });
+      renderPick();
+    }catch(e){ toast("Stock lookup failed (avail hidden)",true); }
+    // enrich sibling barcodes (independent): base(factor 1) + variants(factor>1, e.g. -12)
+    try{
+      const {data:sibs,error}=await sb.from("wms_sku_snapshot")
+        .select("base_sku,factor,barcode,is_variant").in("base_sku",baseSkus);
+      if(error) throw error;
+      const sibMap={};
+      (sibs||[]).forEach(r=>{
+        const bs=r.base_sku; if(!bs)return;
+        (sibMap[bs]=sibMap[bs]||[]).push({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()});
+      });
+      lines.forEach(l=>{ l.barcodeRows = sibMap[l.base_sku] || []; });
+      // merge sibling barcodes (e.g. -12 box) into the scan map so box scans count ×factor
+      lines.forEach((l,idx)=>{
+        (l.barcodeRows||[]).forEach(r=>{
+          const code=String(r.barcode||"").trim(); if(!code)return;
+          const arr=(bcMap[code]=bcMap[code]||[]);
+          if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(r.factor)||1});
+        });
+      });
+      renderPick();
+    }catch(e){ toast("Barcode lookup failed",true); }
+  }
 }
 function firstIncomplete(){ const i=lines.findIndex(l=>l.picked<l.assigned); return i<0?0:i; }
 
@@ -401,6 +575,20 @@ function renderPick(){
   if(view==="single") renderSingle(); else renderList();
 }
 function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
+// base barcode (factor 1) + variant barcodes (factor>1, e.g. -12) + ALT-UPC aliases.
+function barcodeBlock(l){
+  const rows=l.barcodeRows||[];
+  const base=rows.find(r=>r.factor===1);
+  const variants=rows.filter(r=>r.factor>1).sort((a,b)=>a.factor-b.factor);
+  const shown=new Set();
+  const bcLine=(label,code)=>{ const c=(code||"").trim(); if(c)shown.add(c); return `<div class="bc"><span class="bl">${label}</span><span class="bv${c?"":" empty"}">${c?esc(c):"(no barcode)"}</span></div>`; };
+  let html=bcLine("Barcode", base?base.barcode:"");
+  variants.forEach(v=>{ html+=bcLine("×"+v.factor, v.barcode); });
+  // ALT-UPC aliases from this line's scannable_barcodes (type=alt)
+  const alts=[...new Set((l.barcodes||[]).filter(b=>b&&b.type==="alt").map(b=>String(b.barcode||"").trim()).filter(Boolean))].filter(c=>!shown.has(c));
+  alts.forEach(c=>{ html+=bcLine("ALT-UPC", c); });
+  return `<div class="barcodes">${html}</div>`;
+}
 function availChip(l){
   if(l.available==null) return `<span class="avail na">Avail ?</span>`;
   const low=l.available<l.assigned;
@@ -413,11 +601,16 @@ function renderSingle(){
   if(curIdx>=lines.length)curIdx=lines.length-1;
   const l=lines[curIdx]; const done=l.picked>=l.assigned;
   document.getElementById("single").innerHTML=`
-    <div class="img" ${imgStyle(l)}></div>
     <div class="body">
-      <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span></div>
-      <div class="nm">${esc(l.product_name)}</div>
-      <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` · base ${esc(l.base_sku)}`:""} ${availChip(l)}</div>
+      <div class="head">
+        <div class="img" ${imgStyle(l)}></div>
+        <div class="info">
+          <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span></div>
+          <div class="nm">${esc(l.product_name)}</div>
+          <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` · base ${esc(l.base_sku)}`:""} ${availChip(l)}</div>
+        </div>
+      </div>
+      ${barcodeBlock(l)}
       <div class="qtybox ${done?"done":""}">
         <div class="qtybig">${l.picked}<span class="of"> / ${l.assigned}</span></div>
         <div class="stepper">
@@ -431,11 +624,16 @@ function renderSingle(){
         <button class="btn dark" data-nav="1">Next →</button>
       </div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+      <div class="reportrow">
+        <button class="rep" data-rep="loc">⚑ Wrong location</button>
+        <button class="rep" data-rep="bc">⚑ Barcode changed</button>
+      </div>
     </div>`;
   const s=document.getElementById("single");
   s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
+  s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssue(b.dataset.rep, curIdx));
 }
 function renderList(){
   document.getElementById("single").style.display="none";
@@ -478,7 +676,8 @@ function processScan(code){
   l.picked+=f;
   l.vmethod=f>1?"scanned_variant":"scanned_base";
   curIdx=hit.idx;
-  flash("ok",`✓ ${l.order_sku}  +${f}  (${l.picked}/${l.assigned})`);
+  const lineDone=l.picked>=l.assigned;
+  flash(lineDone?"done":(f>1?"okbox":"ok"),`✓ ${l.order_sku}  +${f}  (${l.picked}/${l.assigned})${lineDone?" · DONE":""}`);
   saveLine(l);
   if(l.picked>=l.assigned) autoAdvance();
   renderPick(); focusScan();
@@ -493,20 +692,51 @@ function autoAdvance(){
 function manualAdjust(idx,delta){
   const l=lines[idx]; const nv=Math.max(0,Math.min(l.assigned,l.picked+delta));
   if(nv===l.picked)return;
-  l.picked=nv; l.vmethod="manual"; saveLine(l); renderPick(); focusScan();
+  l.picked=nv; l.vmethod="manual"; saveLine(l);
+  if(l.picked>=l.assigned) autoAdvance();   // reach target → jump to next item (same as scan)
+  renderPick(); focusScan();
 }
 function manualSet(idx){
   const l=lines[idx];
   const v=prompt(`${l.order_sku} Enter quantity (0 ~ ${l.assigned})`, l.picked);
   if(v===null){focusScan();return;}
   let n=parseInt(v,10); if(isNaN(n))n=0; n=Math.max(0,Math.min(l.assigned,n));
-  l.picked=n; l.vmethod="manual"; saveLine(l); renderPick(); focusScan();
+  l.picked=n; l.vmethod="manual"; saveLine(l);
+  if(l.picked>=l.assigned) autoAdvance();
+  renderPick(); focusScan();
 }
 function move(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderPick(); focusScan(); }
+
+/* ---------- picker issue reports (wrong location / barcode changed) → wms_reports ---------- */
+async function reportIssue(kind, idx){
+  const l=lines[idx]; if(!l) return;
+  let note;
+  if(kind==="loc"){
+    const found=prompt(`Wrong location for ${l.order_sku}\nListed bin: ${l.bin||"—"}\n\nWhere did you actually find it? (optional)`, "");
+    if(found===null) { focusScan(); return; }
+    note=`Listed bin ${l.bin||"—"}${found.trim()?` · found at ${found.trim()}`:""}`;
+  }else{
+    const listed=[...new Set((l.barcodes||[]).map(b=>String(b.barcode||"").trim()).filter(Boolean))].join(", ")||"—";
+    const got=prompt(`Barcode changed for ${l.order_sku}\nListed: ${listed}\n\nScan or type the new barcode (optional)`, "");
+    if(got===null) { focusScan(); return; }
+    note=`Listed ${listed}${got.trim()?` · new ${got.trim()}`:""}`;
+  }
+  try{
+    const {error}=await sb.from("wms_reports").insert({
+      order_id:task.order_id, order_number:order.order_number, sku:l.order_sku,
+      kind: kind==="loc"?"wrong_location":"barcode_mismatch",
+      note, reported_by:me.name, source:"picker"
+    });
+    if(error) throw error;
+    toast((kind==="loc"?"Location":"Barcode")+" issue reported");
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  focusScan();
+}
 
 /* ---------- save (background) ---------- */
 async function saveLine(l){
   l._sync=false;
+  if(l.picked>0) markWorkStarted(); // first real pick = this claim is genuine work
   const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
   const {error}=await sb.from("wms_pick_task_lines")
     .update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
@@ -532,6 +762,7 @@ async function finish(allowShort){
 
   const btnD=document.getElementById("doneBtn"), btnS=document.getElementById("shortBtn");
   btnD.disabled=btnS.disabled=true;
+  stopHeartbeat(); presenceLeave();
   try{
     // 1) final line save (authoritative)
     for(const l of lines){
@@ -562,12 +793,22 @@ async function finish(allowShort){
     loadBatches();
   }catch(e){
     toast("Completion failed: "+(e.message||e),true);
+    if(task){ startHeartbeat(); presenceJoin(); } // still holding the batch
   }finally{ btnD.disabled=btnS.disabled=false; }
 }
 
-/* ---------- Back (keep in My In Progress) ---------- */
+/* ---------- Back ---------- */
 document.getElementById("backBtn").onclick=async ()=>{
-  // progress is saved and the batch stays in 'My In Progress'so you can keep picking
+  stopHeartbeat(); presenceLeave();
+  // If nothing was picked, leaving is not "work in progress" — release the
+  // claim right away so the batch goes straight back to the waiting pool.
+  const didWork=(task&&task.work_started)||lines.some(l=>l.picked>0);
+  if(task && !didWork){
+    await sb.from("wms_pick_tasks")
+      .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null})
+      .eq("id",task.id).eq("assigned_to",me.name);
+  }
+  // otherwise progress is saved and the batch stays in 'My In Progress'
   task=null;order=null;lines=[];bcMap={};
   document.getElementById("pickView").style.display="none";
   document.getElementById("listView").style.display="block";
@@ -586,15 +827,16 @@ document.getElementById("holdBtn").onclick=async ()=>{
       await sb.from("wms_pick_task_lines").update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
     }
     // set batch to pending + unassigned (progress preserved on lines)
+    stopHeartbeat(); presenceLeave();
     const {error}=await sb.from("wms_pick_tasks")
-      .update({status:"pending",assigned_to:null}).eq("id",task.id);
+      .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",task.id);
     if(error) throw error;
     toast(task.batch_label+" Held (returned to waiting list)");
     task=null;order=null;lines=[];bcMap={};
     document.getElementById("pickView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadBatches();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(task){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 

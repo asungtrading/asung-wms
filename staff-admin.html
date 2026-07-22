@@ -46,6 +46,11 @@
     color:var(--mut);padding:7px 13px;border-radius:7px;cursor:pointer;transition:.12s}
   .seg button.active{background:var(--ink);color:#fff}
   .seg button:not(.active):hover{color:var(--ink)}
+  .permbox{display:inline-flex;gap:10px;flex-wrap:wrap}
+  .perm{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .perm input{accent-color:var(--ink);width:14px;height:14px;cursor:pointer}
+  .permall{font-size:12px;font-weight:700;color:var(--ok,#16a34a)}
+  .permna{color:var(--mut-2)}
   .search{flex:1;min-width:180px;position:relative}
   .search input{width:100%;border:1px solid var(--line);background:var(--card);
     border-radius:10px;padding:9px 12px 9px 34px;font:inherit;font-size:14px;box-shadow:var(--shadow)}
@@ -147,8 +152,16 @@
 
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
-  .logo .logo-img{height:15px;width:auto;display:block}
+  .logo .logo-img{height:28px;width:auto;display:block}
   .logo span{margin-left:0}
+
+  /* ---- mobile ---- */
+  @media(max-width:640px){
+    .bar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    header button{font-size:12px;padding:6px 9px}
+    .permbox{gap:12px}
+    .perm input{width:17px;height:17px}
+  }
 </style>
 </head>
 <body>
@@ -158,7 +171,7 @@
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Staff Management</span></div>
     <div class="conn" style="display:flex;align-items:center;gap:10px">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button id="logoutBtn" title="Sign out" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">Sign out</button>
+      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">Sign out</button>
       <span class="dot" id="dot"></span><span id="connTxt">Connecting…</span>
     </div>
   </div>
@@ -183,7 +196,7 @@
   <div class="card">
     <table>
       <thead>
-        <tr><th>Name</th><th>Warehouse access</th><th>Role</th><th>Status</th><th></th></tr>
+        <tr><th>Name</th><th>Warehouse access</th><th>Role</th><th>Access</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
@@ -193,6 +206,7 @@
 
   <div class="addwrap">
     <input id="newName" placeholder="New staff name" autocomplete="off">
+    <input id="newEmail" placeholder="Login email" autocomplete="off" style="min-width:210px">
     <select id="newWh">
       <option value="toronto">Toronto</option>
       <option value="edmonton">Edmonton</option>
@@ -204,6 +218,18 @@
       <option value="admin">Admin</option>
     </select>
     <button class="btn primary" id="addBtn">Add staff</button>
+  </div>
+  <div id="credBox" style="display:none;margin-top:12px;padding:14px 16px;border:1.5px solid #bfe6cd;background:#e7f7ed;border-radius:12px">
+    <div style="font-weight:800;font-size:14px;color:#15803d">✓ Account created — hand this over once</div>
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:14px;margin-top:8px">
+      <div>Email: <b id="credEmail"></b></div>
+      <div>Temp password: <b id="credPw"></b></div>
+    </div>
+    <div style="font-size:12px;color:#4b5563;margin-top:8px">The password is shown only here, only now. The staff member signs in with it and changes it via "Change Password". </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn" id="credCopy" style="border:1px solid #bfe6cd;background:#fff;cursor:pointer">📋 Copy</button>
+      <button class="btn" id="credClose" style="border:1px solid #bfe6cd;background:#fff;cursor:pointer">Done</button>
+    </div>
   </div>
 </main>
 
@@ -224,7 +250,7 @@ let query = "";
 
 // ---- login bootstrap ----
 function boot(){
-  wmsAuth.start({requireManager:true}, (client, staffMe)=>{
+  wmsAuth.start({requireManager:true, requirePerm:"staff"}, (client, staffMe)=>{
     sb=client; me=staffMe;
     document.getElementById("app").style.display="block";
     document.getElementById("meName").textContent=me.name;
@@ -272,26 +298,62 @@ function render(){
   tbody.innerHTML = list.map(s=>rowHtml(s)).join("");
   // event binding
   tbody.querySelectorAll("[data-wh]").forEach(el=>el.onchange=e=>update(+el.dataset.wh_id,{warehouse_access:e.target.value},el));
-  tbody.querySelectorAll("[data-rl]").forEach(el=>el.onchange=e=>update(+el.dataset.rl_id,{role:e.target.value},el));
+  tbody.querySelectorAll("[data-rl]").forEach(el=>el.onchange=async e=>{ await update(+el.dataset.rl_id,{role:e.target.value},el); render(); });
+  tbody.querySelectorAll("[data-permrow]").forEach(box=>{
+    box.querySelectorAll("input[data-perm]").forEach(cb=>cb.onchange=()=>{
+      const id=+box.dataset.permrow;
+      const perms=[...box.querySelectorAll("input[data-perm]:checked")].map(c=>c.dataset.perm);
+      update(id,{perms});
+    });
+  });
   tbody.querySelectorAll("[data-tg]").forEach(el=>el.onclick=()=>{
     const id=+el.dataset.tg, cur=el.classList.contains("on");
     update(id,{active:!cur});
   });
   tbody.querySelectorAll("[data-del]").forEach(el=>el.onclick=()=>del(+el.dataset.del, el.dataset.name));
+  tbody.querySelectorAll("[data-em]").forEach(el=>el.onclick=()=>{
+    const s=all.find(x=>x.id===+el.dataset.em); if(!s)return;
+    const v=prompt(
+      `Login email for ${s.name}\n\nThis only changes the LINK to the Auth account — it does not rename the Auth account itself. Use it to fix a typo or to link an existing account.`,
+      s.email||"");
+    if(v===null)return;
+    const em=v.trim().toLowerCase();
+    if(em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ toast("Invalid email",true); return; }
+    update(s.id,{email:em||null}); render();
+  });
 }
 
 function rowHtml(s){
+  const iAmAdmin = me.role==="admin";
+  // managers may adjust, but only admins can delete managers/admins or change an admin's role
+  const canDelete = iAmAdmin || s.role==="worker";
+  const lockRole  = !iAmAdmin && s.role==="admin";
   const whSel = `<select class="pill wh-${s.warehouse_access}" data-wh data-wh_id="${s.id}">`+
     ["toronto","edmonton","both"].map(w=>`<option value="${w}" ${w===s.warehouse_access?"selected":""}>${WH_LABEL[w]}</option>`).join("")+`</select>`;
-  const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}">`+
+  const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}" ${lockRole?'disabled title="Only an admin can change an admin\'s role"':""}>`+
     ["worker","manager","admin"].map(r=>`<option value="${r}" ${r===s.role?"selected":""}>${RL_LABEL[r]}</option>`).join("")+`</select>`;
   const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"Active":"Inactive"}</small></div>`;
+  const PERMS=[["split","Split"],["admin","Admin"],["staff","Staff"]];
+  let permCell;
+  if(s.role==="admin"){ permCell=`<span class="permall">All access</span>`; }
+  else if(s.role==="manager"){
+    const cur=Array.isArray(s.perms)?s.perms:["split","admin","staff"];
+    permCell=`<span class="permbox" data-permrow="${s.id}">`+PERMS.map(([v,lb])=>
+      `<label class="perm"><input type="checkbox" data-perm="${v}" ${cur.includes(v)?"checked":""}>${lb}</label>`).join("")+`</span>`;
+  }else{ permCell=`<span class="permna">—</span>`; }
   return `<tr class="${s.active?"":"off"}">
-    <td data-l="Name"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span></td>
+    <td data-l="Name"><span class="name">${esc(s.name)}<span class="id"> #${s.id}</span></span>
+      <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#6b7686;margin-top:2px">
+        ${s.email?esc(s.email):'<span style="color:#dc2626;font-weight:700">⚠ No login email</span>'}
+        <button data-em="${s.id}" title="Edit login email" style="border:0;background:none;cursor:pointer;font-size:11px;padding:0 3px">✎</button>
+      </div></td>
     <td data-l="Warehouse">${whSel}</td>
     <td data-l="Role">${rlSel}</td>
+    <td data-l="Access">${permCell}</td>
     <td data-l="Status">${tg}</td>
-    <td data-l=""><button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">Delete</button></td>
+    <td data-l="">${canDelete
+      ?`<button class="rowbtn" data-del="${s.id}" data-name="${esc(s.name)}">Delete</button>`
+      :`<span style="font-size:11px;color:#9aa4b2" title="Managers can delete workers only — use Inactive, or ask an admin">Admin only</span>`}</td>
   </tr>`;
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -323,20 +385,46 @@ async function del(id, name){
   all = all.filter(x=>x.id!==id); render(); toast(name+" Deleted");
 }
 
-// ---- Add ----
+// ---- Add (via staff-create Edge Function: creates Auth account + staff row) ----
 document.getElementById("addBtn").onclick = async ()=>{
   const name=document.getElementById("newName").value.trim();
+  const email=document.getElementById("newEmail").value.trim().toLowerCase();
   if(!name){ toast("Enter a name",true); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast("Enter a valid login email",true); return; }
   const wh=document.getElementById("newWh").value;
   const role=document.getElementById("newRole").value;
-  const btn=document.getElementById("addBtn"); btn.disabled=true;
-  const {data,error} = await sb.from("wms_staff").insert({name,warehouse_access:wh,role}).select();
-  btn.disabled=false;
-  if(error){ toast("Add failed: "+error.message,true); return; }
-  all.push(data[0]); all.sort((a,b)=>a.name.localeCompare(b.name));
-  document.getElementById("newName").value="";
-  render(); toast(name+" Added");
+  const btn=document.getElementById("addBtn"); btn.disabled=true; btn.textContent="Creating…";
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){ toast("Session expired — sign in again",true); return; }
+    const resp=await fetch(SUPABASE_URL+"/functions/v1/staff-create",{
+      method:"POST",
+      headers:{
+        "Authorization":"Bearer "+session.access_token,
+        "apikey":(window.WMS_CONFIG&&window.WMS_CONFIG.SUPABASE_ANON_KEY)||"",
+        "Content-Type":"application/json",
+      },
+      body:JSON.stringify({name,email,role,warehouse_access:wh}),
+    });
+    const out=await resp.json().catch(()=>({}));
+    if(!resp.ok||!out.ok){ toast("Add failed: "+(out.error||("HTTP "+resp.status)),true); return; }
+    all.push(out.staff); all.sort((a,b)=>a.name.localeCompare(b.name));
+    document.getElementById("newName").value=""; document.getElementById("newEmail").value="";
+    render(); toast(name+" Added");
+    // show the temp password ONCE for hand-over
+    document.getElementById("credEmail").textContent=email;
+    document.getElementById("credPw").textContent=out.temp_password;
+    document.getElementById("credBox").style.display="block";
+    document.getElementById("credBox").scrollIntoView({block:"nearest"});
+  }catch(e){ toast("Add failed: "+(e.message||e),true); }
+  finally{ btn.disabled=false; btn.textContent="Add staff"; }
 };
+document.getElementById("credCopy").onclick=async ()=>{
+  const txt=`WMS login\nEmail: ${document.getElementById("credEmail").textContent}\nTemp password: ${document.getElementById("credPw").textContent}\nSign in at https://wms.asung.ca and change the password.`;
+  try{ await navigator.clipboard.writeText(txt); toast("Copied"); }catch(e){ toast("Copy failed — select and copy manually",true); }
+};
+document.getElementById("credClose").onclick=()=>{ document.getElementById("credBox").style.display="none"; };
+document.getElementById("newEmail").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addBtn").click(); });
 document.getElementById("newName").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addBtn").click(); });
 
 // ---- filter / search ----
