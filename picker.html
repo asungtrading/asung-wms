@@ -45,6 +45,11 @@
   .bcard .tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px}
   .tag.wh-toronto{color:var(--tor);background:#eef3ff} .tag.wh-edmonton{color:var(--edm);background:#e9f7f1}
   .tag.rev{color:var(--warn);background:#fdf6ec;margin-left:6px}
+  .tag.wv{color:#7a5af0;background:#f2effe}
+  .totebar{display:flex;align-items:center;gap:10px;background:#f2effe;border:1px solid #ddd3fb;border-radius:12px;padding:10px 13px;margin-bottom:10px}
+  .totebar .tn{font-family:var(--mono);font-weight:800;font-size:19px;color:#fff;background:#7a5af0;border-radius:9px;padding:5px 12px;white-space:nowrap}
+  .totebar .tc{font-size:13px;font-weight:700;color:#4a3d86;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lrow .tt{font-family:var(--mono);font-weight:800;font-size:11px;color:#7a5af0;background:#f2effe;border-radius:6px;padding:1px 6px;flex:none}
   .empty,.loading{padding:52px 20px;text-align:center;color:var(--mut)}
   .loading .spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 12px;animation:sp .7s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -242,6 +247,8 @@
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
 let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single", batchFilter="";
+let waves=[], myWaves=[], staleWaves=[], wave=null, tasks=[];   // wave mode (grouped small orders, sort-to-tote)
+let curWh="", pickTitle="", pickMeta="";                        // shared pick-view context (single batch or wave)
 let actx=null;
 
 /* ---------- lease / heartbeat / presence ---------- */
@@ -254,18 +261,28 @@ function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; r
 function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
 function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
 async function beatOnce(){
+  const now=new Date().toISOString();
+  if(wave){
+    const {data,error}=await sb.from("wms_waves")
+      .update({heartbeat_at:now})
+      .eq("id",wave.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+    if(!error && (!data||!data.length)){
+      toast("This wave was taken over or released",true);
+      resetToList();
+      return;
+    }
+    // keep member batches visibly alive for the admin screen (best effort)
+    sb.from("wms_pick_tasks").update({heartbeat_at:now}).in("id",tasks.map(t=>t.id)).then(()=>{});
+    return;
+  }
   if(!task) return;
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({heartbeat_at:new Date().toISOString()})
+    .update({heartbeat_at:now})
     .eq("id",task.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
   if(!error && (!data||!data.length)){
     // claim lost: taken over by another worker or released by admin
-    stopHeartbeat(); presenceLeave();
     toast("This batch was taken over or released",true);
-    task=null;order=null;lines=[];bcMap={};
-    document.getElementById("pickView").style.display="none";
-    document.getElementById("listView").style.display="block";
-    loadBatches();
+    resetToList();
   }
 }
 function presenceJoin(){
@@ -273,9 +290,10 @@ function presenceJoin(){
   try{
     presCh=sb.channel("wms-presence",{config:{presence:{key:me.name+"|picker"}}});
     presCh.subscribe(st=>{
-      if(st==="SUBSCRIBED" && task) presCh.track({
+      if(st==="SUBSCRIBED" && (task||wave)) presCh.track({
         name:me.name, screen:"picker",
-        batch:task.batch_label, order:(order&&order.order_number)||"",
+        batch:wave?wave.label:task.batch_label,
+        order:wave?(tasks.length+" orders"):((order&&order.order_number)||""),
         at:new Date().toISOString()
       });
     });
@@ -283,9 +301,21 @@ function presenceJoin(){
 }
 function presenceLeave(){ if(presCh){ try{presCh.untrack(); sb.removeChannel(presCh);}catch(e){} presCh=null; } }
 function markWorkStarted(){
+  if(wave){
+    if(wave._workStarted) return; wave._workStarted=true;
+    sb.from("wms_pick_tasks").update({work_started:true}).in("id",tasks.map(t=>t.id)).then(()=>{});
+    return;
+  }
   if(!task || task.work_started) return;
   task.work_started=true;
   sb.from("wms_pick_tasks").update({work_started:true}).eq("id",task.id).then(()=>{});
+}
+function resetToList(){
+  stopHeartbeat(); presenceLeave();
+  task=null; order=null; wave=null; tasks=[]; lines=[]; bcMap={};
+  document.getElementById("pickView").style.display="none";
+  document.getElementById("listView").style.display="block";
+  loadBatches();
 }
 
 /* ---------- boot / login ---------- */
@@ -362,20 +392,30 @@ async function loadBatches(){
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
   const sel="id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  // my in-progress + waiting pool + abandoned claims (in_progress but holder gone)
-  const [mine, pool, stale]=await Promise.all([
-    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).order("started_at"),
-    sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).order("batch_label"),
-    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress")
+  const wsel="id,label,warehouse,status,assigned_to,started_at,heartbeat_at, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review), wms_pick_task_lines(count))";
+  // wave member batches are hidden from the individual pool (picked only as a whole wave)
+  // my in-progress + waiting pool + abandoned claims (in_progress but holder gone) + waves
+  const [mine, pool, stale, wmine, wpool, wstale]=await Promise.all([
+    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).is("wave_id",null).order("started_at"),
+    sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).is("wave_id",null).order("batch_label"),
+    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").is("wave_id",null)
       .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`).order("batch_label"),
+    sb.from("wms_waves").select(wsel).eq("status","in_progress").eq("assigned_to",me.name).order("label"),
+    sb.from("wms_waves").select(wsel).eq("status","pending").is("assigned_to",null).order("label"),
+    sb.from("wms_waves").select(wsel).eq("status","in_progress")
+      .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`).order("label"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(mine.error||pool.error){toast("Failed to load batches",true);return;}
   const inWh=b=>{ const wh=b.wms_orders?.warehouse; return acc==="both"||wh===acc; };
+  const wInWh=w=>acc==="both"||w.warehouse===acc;
   myBatches=(mine.data||[]).filter(inWh);
   batches=(pool.data||[]).filter(inWh);
   // take-over candidates: someone else's claim with a dead heartbeat
   stalePool=((stale.data)||[]).filter(b=>inWh(b) && b.assigned_to!==me.name && isStale(b));
+  myWaves=((wmine&&wmine.data)||[]).filter(wInWh);
+  waves=((wpool&&wpool.data)||[]).filter(wInWh);
+  staleWaves=((wstale&&wstale.data)||[]).filter(w=>wInWh(w) && w.assigned_to!==me.name && isStale(w));
   renderBatches();
 }
 function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover"
@@ -393,27 +433,55 @@ function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover"
     <button class="go ${resume||take?"resumebtn":""}">${take?"Take over":resume?"Resume":"Start"}</button>
   </div>`;
 }
+function waveCardHtml(w,mode){
+  const ts=(w.wms_pick_tasks||[]).slice().sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
+  const cnt=ts.reduce((s,t)=>s+((t.wms_pick_task_lines&&t.wms_pick_task_lines[0]?.count)||0),0);
+  const resume=mode==="resume", take=mode==="takeover";
+  const im=take?idleMin(w):null;
+  const names=ts.map(t=>t.wms_orders?.order_number).filter(Boolean).join(" · ");
+  return `<div class="bcard ${resume||take?"resume":""}" data-id="${w.id}" data-kind="wave" data-mode="${mode}">
+    <div>
+      <div class="bl">${esc(w.label)} <span class="tag wv">WAVE · ${ts.length} totes</span></div>
+      <div class="sub">${esc(names||"—")} · ${cnt} lines
+        <span class="tag wh-${w.warehouse}">${w.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
+        ${take?`<span class="tag rev">${esc(w.assigned_to||"?")} · idle ${im?im+"m":"?"}</span>`:""}</div>
+    </div>
+    <button class="go ${resume||take?"resumebtn":""}">${take?"Take over":resume?"Resume":"Start"}</button>
+  </div>`;
+}
 function renderBatches(){
   const be=document.getElementById("bempty");
   const f=batchFilter.trim().toUpperCase();
   const match=b=>{ if(!f)return true; const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
+  const wmatch=w=>{ if(!f)return true; if((w.label||"").toUpperCase()===f) return true;
+    return (w.wms_pick_tasks||[]).some(t=>{ const on=(t.wms_orders?.order_number||"").toUpperCase(); const bl=(t.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; }); };
   // resume list = only claims where actual work happened (no-work claims are not "resumable")
   const my=myBatches.filter(match).filter(b=>b.work_started),
         pool=batches.filter(match),
-        stale=stalePool.filter(match);
-  const has=(my.length+pool.length+stale.length)>0;
+        stale=stalePool.filter(match),
+        wmy=myWaves.filter(wmatch),
+        wpool=waves.filter(wmatch),
+        wstale=staleWaves.filter(wmatch);
+  const has=(my.length+pool.length+stale.length+wmy.length+wpool.length+wstale.length)>0;
   be.style.display=has?"none":"block";
   be.textContent=f?("No waiting batch for "+batchFilter):"No waiting batches..";
   let html="";
   if(f){ html+=`<div class="filterbar">Showing <b>${esc(batchFilter)}</b><button id="clrFilter">Clear</button></div>`; }
-  if(my.length){
-    html+=`<div class="sect">My In Progress</div>`+my.map(b=>batchCardHtml(b,"resume")).join("");
+  if(my.length||wmy.length){
+    html+=`<div class="sect">My In Progress</div>`
+      +wmy.map(w=>waveCardHtml(w,"resume")).join("")
+      +my.map(b=>batchCardHtml(b,"resume")).join("");
+  }
+  if(wpool.length){
+    html+=`<div class="sect">Waiting Waves — one route, sort into totes</div>`+wpool.map(w=>waveCardHtml(w,"start")).join("");
   }
   if(pool.length){
     html+=`<div class="sect">Waiting Batches</div>`+pool.map(b=>batchCardHtml(b,"start")).join("");
   }
-  if(stale.length){
-    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`+stale.map(b=>batchCardHtml(b,"takeover")).join("");
+  if(stale.length||wstale.length){
+    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`
+      +wstale.map(w=>waveCardHtml(w,"takeover")).join("")
+      +stale.map(b=>batchCardHtml(b,"takeover")).join("");
   }
   document.getElementById("blist").innerHTML=html;
   const clr=document.getElementById("clrFilter");
@@ -421,6 +489,12 @@ function renderBatches(){
   document.querySelectorAll("#blist .bcard").forEach(el=>{
     el.onclick=()=>{
       const m=el.dataset.mode;
+      if(el.dataset.kind==="wave"){
+        if(m==="resume") resumeWave(+el.dataset.id);
+        else if(m==="takeover") takeoverWave(+el.dataset.id);
+        else startWave(+el.dataset.id);
+        return;
+      }
       if(m==="resume") resumeBatch(+el.dataset.id);
       else if(m==="takeover") takeoverBatch(+el.dataset.id);
       else startBatch(+el.dataset.id);
@@ -439,7 +513,9 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   batchFilter=v; renderBatches();
   const f=v.toUpperCase();
-  const any=[...myBatches,...batches,...stalePool].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
+  const any=[...myBatches,...batches,...stalePool].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;})
+    || [...myWaves,...waves,...staleWaves].some(w=>(w.label||"").toUpperCase()===f
+        || (w.wms_pick_tasks||[]).some(t=>{const on=(t.wms_orders?.order_number||"").toUpperCase(); const bl=(t.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;}));
   if(!any) toast("No waiting batch for "+v,true);
 });
 
@@ -507,14 +583,25 @@ async function loadLines(){
       vmethod:r.verification_method||null, _sync:true,
     };
   });
-  // zone sort by pick path
+  curWh=order.warehouse;
+  pickTitle=task.batch_label;
+  pickMeta=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+(order.customer_name||"");
+  await enterPickView();
+}
+
+/* shared pick-view entry: sort lines by route, build the scan map, show, then enrich.
+   Used by both a single batch (loadLines) and a wave (loadWaveLines). */
+async function enterPickView(){
+  const wh=curWh;
+  // zone sort by pick path (tote is only a tiebreaker so the route stays optimal)
   lines.sort((a,b)=>{
     const za=zoneSeq[wh+"|"+a.zone]??9999, zb=zoneSeq[wh+"|"+b.zone]??9999;
     if(za!==zb)return za-zb;
     if(a.bin!==b.bin)return (a.bin||"")<(b.bin||"")?-1:1;
-    return (a.order_sku||"")<(b.order_sku||"")?-1:1;
+    if((a.order_sku||"")!==(b.order_sku||"")) return (a.order_sku||"")<(b.order_sku||"")?-1:1;
+    return (a._tote||0)-(b._tote||0);
   });
-  // barcode map: code -> [{idx,factor}]
+  // barcode map: code -> [{idx,factor}] (in route order, so scans fill totes sequentially)
   bcMap={};
   lines.forEach((l,idx)=>{
     (l.barcodes||[]).forEach(b=>{
@@ -526,8 +613,8 @@ async function loadLines(){
   curIdx=firstIncomplete();
   document.getElementById("listView").style.display="none";
   document.getElementById("pickView").style.display="block";
-  document.getElementById("pTitle").textContent=task.batch_label;
-  document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
+  document.getElementById("pTitle").textContent=pickTitle;
+  document.getElementById("pMeta").textContent=pickMeta;
   renderPick(); focusScan();
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
   // enrich availability (independent — a failure here must not block barcodes)
@@ -563,6 +650,88 @@ async function loadLines(){
       renderPick();
     }catch(e){ toast("Barcode lookup failed",true); }
   }
+}
+
+/* ---------- waves: grouped small orders, one route, sort-to-tote ---------- */
+async function startWave(id){
+  initAudio();
+  const w=waves.find(x=>x.id===id); if(!w){ loadBatches(); return; }
+  const now=new Date().toISOString();
+  const {data,error}=await sb.from("wms_waves")
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now})
+    .eq("id",id).is("assigned_to",null).eq("status","pending").select();
+  if(error){toast("Start failed: "+error.message,true);return;}
+  if(!data||!data.length){ toast("Another worker has already started this wave.",true); loadBatches(); return; }
+  wave=data[0]; wave._workStarted=false;
+  const {data:ts,error:te}=await sb.from("wms_pick_tasks")
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false})
+    .eq("wave_id",id)
+    .select("*, wms_orders(order_number,customer_name,warehouse)");
+  if(te||!ts||!ts.length){ toast("Failed to open wave batches",true); resetToList(); return; }
+  tasks=ts.sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
+  startHeartbeat(); presenceJoin();
+  await loadWaveLines();
+}
+async function resumeWave(id){
+  initAudio();
+  const {data:w,error}=await sb.from("wms_waves").select("*").eq("id",id).single();
+  if(error||!w){ toast("Wave not found.",true); loadBatches(); return; }
+  if(w.status!=="in_progress" || w.assigned_to!==me.name){
+    toast("This wave is no longer in My In Progress",true); loadBatches(); return;
+  }
+  wave=w; wave._workStarted=true;
+  const {data:ts,error:te}=await sb.from("wms_pick_tasks")
+    .select("*, wms_orders(order_number,customer_name,warehouse)").eq("wave_id",id);
+  if(te||!ts||!ts.length){ toast("Failed to load wave batches",true); resetToList(); return; }
+  tasks=ts.sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
+  startHeartbeat(); presenceJoin();
+  await loadWaveLines();
+}
+async function takeoverWave(id){
+  initAudio();
+  const w=staleWaves.find(x=>x.id===id); if(!w){ loadBatches(); return; }
+  if(!confirm(`Take over ${w.label}?\nCurrent holder: ${w.assigned_to||"?"} (away).\nPicked quantities are kept — you continue from where they stopped.`)) return;
+  const now=new Date().toISOString();
+  const {data,error}=await sb.from("wms_waves")
+    .update({assigned_to:me.name,heartbeat_at:now})
+    .eq("id",id).eq("status","in_progress")
+    .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
+    .select();
+  if(error){toast("Take over failed: "+error.message,true);return;}
+  if(!data||!data.length){ toast("Could not take over — the holder is back or it was released.",true); loadBatches(); return; }
+  wave=data[0]; wave._workStarted=true;
+  const {data:ts}=await sb.from("wms_pick_tasks")
+    .update({assigned_to:me.name,heartbeat_at:now}).eq("wave_id",id)
+    .select("*, wms_orders(order_number,customer_name,warehouse)");
+  if(!ts||!ts.length){ toast("Failed to open wave batches",true); resetToList(); return; }
+  tasks=ts.sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
+  startHeartbeat(); presenceJoin();
+  await loadWaveLines();
+}
+async function loadWaveLines(){
+  const ids=tasks.map(t=>t.id);
+  const {data,error}=await sb.from("wms_pick_task_lines")
+    .select("id,assigned_base,picked_base,status,verification_method,order_line_id,pick_task_id, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)")
+    .in("pick_task_id",ids);
+  if(error){toast("Failed to load lines",true);return;}
+  const byTask={}; tasks.forEach(t=>byTask[t.id]=t);
+  lines=(data||[]).map(r=>{
+    const ol=r.wms_order_lines||{}; const t=byTask[r.pick_task_id]||{}; const o=t.wms_orders||{};
+    return {
+      id:r.id, order_line_id:r.order_line_id,
+      order_sku:ol.order_sku, base_sku:ol.base_sku, product_name:ol.product_name,
+      image_url:ol.image_url, bin:ol.bin_location, zone:ol.zone||"",
+      barcodes:ol.scannable_barcodes||[],
+      assigned:Number(r.assigned_base||0), picked:Number(r.picked_base||0),
+      vmethod:r.verification_method||null, _sync:true,
+      _taskId:r.pick_task_id, _tote:t.tote_no||0,
+      _orderId:t.order_id, _orderNumber:o.order_number||"", _customer:o.customer_name||"",
+    };
+  });
+  curWh=wave.warehouse;
+  pickTitle=wave.label;
+  pickMeta=(wave.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+tasks.length+" orders — sort each scan into its tote";
+  await enterPickView();
 }
 function firstIncomplete(){ const i=lines.findIndex(l=>l.picked<l.assigned); return i<0?0:i; }
 
@@ -602,6 +771,7 @@ function renderSingle(){
   const l=lines[curIdx]; const done=l.picked>=l.assigned;
   document.getElementById("single").innerHTML=`
     <div class="body">
+      ${l._tote?`<div class="totebar"><span class="tn">TOTE ${l._tote}</span><span class="tc">${esc(l._customer||"")}${l._orderNumber?" · "+esc(l._orderNumber):""}</span></div>`:""}
       <div class="head">
         <div class="img" ${imgStyle(l)}></div>
         <div class="info">
@@ -642,7 +812,7 @@ function renderList(){
     const done=l.picked>=l.assigned; const short=l.picked<l.assigned&&l.picked>0;
     const cls=done?"done":(idx===curIdx?"cur":"");
     return `<div class="lrow ${cls}" data-idx="${idx}">
-      <span class="zn">${esc(l.zone||"·")}</span>
+      <span class="zn">${esc(l.zone||"·")}</span>${l._tote?`<span class="tt">T${l._tote}</span>`:""}
       <div class="thumb" ${imgStyle(l)}></div>
       <div class="li"><div class="s">${esc(l.order_sku)}</div><div class="n">${esc(l.product_name)}</div><div class="b">${esc(l.bin||"—")}${availChip(l)}</div></div>
       <div class="q">${l.picked} / ${l.assigned}</div>
@@ -667,8 +837,8 @@ scanEl.addEventListener("keydown",e=>{
 });
 function processScan(code){
   const cands=bcMap[code];
-  if(!cands||!cands.length){ flash("bad","✕ Barcode not in this batch"); return; }
-  // unfilled lines first
+  if(!cands||!cands.length){ flash("bad","✕ Barcode not in this "+(wave?"wave":"batch")); return; }
+  // unfilled lines first (route order — in a wave the same SKU fills tote by tote)
   let hit=cands.find(c=>lines[c.idx].picked<lines[c.idx].assigned);
   if(!hit){ const l=lines[cands[0].idx]; flash("bad","✕ Quantity already met: "+l.order_sku); return; }
   const l=lines[hit.idx], f=hit.factor;
@@ -677,7 +847,8 @@ function processScan(code){
   l.vmethod=f>1?"scanned_variant":"scanned_base";
   curIdx=hit.idx;
   const lineDone=l.picked>=l.assigned;
-  flash(lineDone?"done":(f>1?"okbox":"ok"),`✓ ${l.order_sku}  +${f}  (${l.picked}/${l.assigned})${lineDone?" · DONE":""}`);
+  const tote=l._tote?`TOTE ${l._tote} · `:"";
+  flash(lineDone?"done":(f>1?"okbox":"ok"),`✓ ${tote}${l.order_sku}  +${f}  (${l.picked}/${l.assigned})${lineDone?" · DONE":""}`);
   saveLine(l);
   if(l.picked>=l.assigned) autoAdvance();
   renderPick(); focusScan();
@@ -749,15 +920,16 @@ document.getElementById("doneBtn").onclick=()=>finish(false);
 document.getElementById("shortBtn").onclick=()=>finish(true);
 
 async function finish(allowShort){
+  const label=wave?wave.label:task.batch_label;
   const shorts=lines.filter(l=>l.picked<l.assigned);
   if(shorts.length && !allowShort){
     toast("There are short lines. Press 'Complete as incomplete'.",true); return;
   }
   if(shorts.length && allowShort){
-    const detail=shorts.map(l=>`· ${l.order_sku}: ${l.picked}/${l.assigned}`).join("\n");
+    const detail=shorts.map(l=>`· ${l.order_sku}${l._tote?` (Tote ${l._tote})`:""}: ${l.picked}/${l.assigned}`).join("\n");
     if(!confirm(`Completing as incomplete.\nShort ${shorts.length}:\n${detail}\n\nThe shortfall will be flagged at packing and recorded in the discrepancy queue. Continue?`)) return;
   } else {
-    if(!confirm(`${task.batch_label} Mark pick as complete??`)) return;
+    if(!confirm(`${label} Mark pick as complete??`)) return;
   }
 
   const btnD=document.getElementById("doneBtn"), btnS=document.getElementById("shortBtn");
@@ -771,29 +943,37 @@ async function finish(allowShort){
         .update({picked_base:l.picked,status:st,verification_method:l.vmethod}).eq("id",l.id);
       if(error) throw error;
     }
-    // 2) shortfall → discrepancy queue record
+    // 2) shortfall → discrepancy queue record (in a wave each short belongs to ITS order)
     if(shorts.length){
       const rows=shorts.map(l=>({
-        order_id:task.order_id, order_number:order.order_number, sku:l.order_sku,
+        order_id: wave? l._orderId : task.order_id,
+        order_number: wave? l._orderNumber : order.order_number,
+        sku:l.order_sku,
         ordered_base:l.assigned, actual_base:l.picked, reason:"short_pick", cin7_corrected:false,
       }));
       const {error:de}=await sb.from("wms_discrepancies").insert(rows);
       if(de) throw de;
     }
-    // 3) Batch complete
-    const {error:te}=await sb.from("wms_pick_tasks")
-      .update({status:"completed",completed_at:new Date().toISOString()}).eq("id",task.id);
-    if(te) throw te;
+    // 3) complete: all member batches + the wave, or the single batch
+    if(wave){
+      const now=new Date().toISOString();
+      const {error:te}=await sb.from("wms_pick_tasks")
+        .update({status:"completed",completed_at:now}).in("id",tasks.map(t=>t.id));
+      if(te) throw te;
+      const {error:we}=await sb.from("wms_waves")
+        .update({status:"completed",completed_at:now}).eq("id",wave.id);
+      if(we) throw we;
+    }else{
+      const {error:te}=await sb.from("wms_pick_tasks")
+        .update({status:"completed",completed_at:new Date().toISOString()}).eq("id",task.id);
+      if(te) throw te;
+    }
 
-    toast(task.batch_label+(shorts.length?` Completed incomplete (short ${shorts.length})`:" Pick complete"));
-    // to list
-    task=null;order=null;lines=[];bcMap={};
-    document.getElementById("pickView").style.display="none";
-    document.getElementById("listView").style.display="block";
-    loadBatches();
+    toast(label+(shorts.length?` Completed incomplete (short ${shorts.length})`:" Pick complete"));
+    resetToList();
   }catch(e){
     toast("Completion failed: "+(e.message||e),true);
-    if(task){ startHeartbeat(); presenceJoin(); } // still holding the batch
+    if(task||wave){ startHeartbeat(); presenceJoin(); } // still holding the claim
   }finally{ btnD.disabled=btnS.disabled=false; }
 }
 
@@ -801,24 +981,31 @@ async function finish(allowShort){
 document.getElementById("backBtn").onclick=async ()=>{
   stopHeartbeat(); presenceLeave();
   // If nothing was picked, leaving is not "work in progress" — release the
-  // claim right away so the batch goes straight back to the waiting pool.
-  const didWork=(task&&task.work_started)||lines.some(l=>l.picked>0);
-  if(task && !didWork){
+  // claim right away so the batch/wave goes straight back to the waiting pool.
+  const didWork=(wave?wave._workStarted:(task&&task.work_started))||lines.some(l=>l.picked>0);
+  if(wave && !didWork){
+    await sb.from("wms_pick_tasks")
+      .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null,work_started:false})
+      .in("id",tasks.map(t=>t.id)).eq("assigned_to",me.name);
+    await sb.from("wms_waves")
+      .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null})
+      .eq("id",wave.id).eq("assigned_to",me.name);
+  } else if(task && !didWork){
     await sb.from("wms_pick_tasks")
       .update({status:"pending",assigned_to:null,started_at:null,heartbeat_at:null})
       .eq("id",task.id).eq("assigned_to",me.name);
   }
-  // otherwise progress is saved and the batch stays in 'My In Progress'
-  task=null;order=null;lines=[];bcMap={};
-  document.getElementById("pickView").style.display="none";
-  document.getElementById("listView").style.display="block";
-  loadBatches();
+  // otherwise progress is saved and the batch/wave stays in 'My In Progress'
+  resetToList();
 };
 
 /* ---------- Hold (return to pool, keep progress) ---------- */
 document.getElementById("holdBtn").onclick=async ()=>{
-  if(!task) return;
-  if(!confirm("Hold this batch?\nYour progress is saved and the batch returns to the waiting list.\nYou or another worker can resume it later.")) return;
+  if(!task && !wave) return;
+  const label=wave?wave.label:task.batch_label;
+  if(!confirm(wave
+    ? "Hold this wave?\nYour progress is saved and the whole wave returns to the waiting list.\nYou or another worker can resume it later."
+    : "Hold this batch?\nYour progress is saved and the batch returns to the waiting list.\nYou or another worker can resume it later.")) return;
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
   try{
     // save current line quantity
@@ -826,17 +1013,23 @@ document.getElementById("holdBtn").onclick=async ()=>{
       const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
       await sb.from("wms_pick_task_lines").update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
     }
-    // set batch to pending + unassigned (progress preserved on lines)
+    // set to pending + unassigned (progress preserved on lines)
     stopHeartbeat(); presenceLeave();
-    const {error}=await sb.from("wms_pick_tasks")
-      .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",task.id);
-    if(error) throw error;
-    toast(task.batch_label+" Held (returned to waiting list)");
-    task=null;order=null;lines=[];bcMap={};
-    document.getElementById("pickView").style.display="none";
-    document.getElementById("listView").style.display="block";
-    loadBatches();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(task){ startHeartbeat(); presenceJoin(); } }
+    if(wave){
+      const {error:te}=await sb.from("wms_pick_tasks")
+        .update({status:"pending",assigned_to:null,heartbeat_at:null}).in("id",tasks.map(t=>t.id));
+      if(te) throw te;
+      const {error:we}=await sb.from("wms_waves")
+        .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",wave.id);
+      if(we) throw we;
+    }else{
+      const {error}=await sb.from("wms_pick_tasks")
+        .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",task.id);
+      if(error) throw error;
+    }
+    toast(label+" Held (returned to waiting list)");
+    resetToList();
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(task||wave){ startHeartbeat(); presenceJoin(); } }
   finally{ btn.disabled=false; }
 };
 
