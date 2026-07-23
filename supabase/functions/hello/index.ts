@@ -32,6 +32,17 @@ function cin7Headers(): HeadersInit {
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
+// Cin7 sale 상세의 사용자 코멘트 추출.
+// ⚠️ 실측 확정(SO-13560, 2026-07-23): 화면의 "Comments" 필드 = API의 `Note`.
+//    (화면 "Shipping notes"=ShippingNotes, "Reference"=CustomerReference 로 별개)
+// Note 를 우선 쓰되, 만약을 위한 폴백 유지. 값 없으면 null → 픽리스트에 코멘트 박스 안 뜸.
+function extractComments(d: any): string | null {
+  const cands = [d?.Note, d?.Notes, d?.Comments, d?.Comment, d?.InternalNote, d?.InternalComments];
+  for (const c of cands) {
+    if (c != null && String(c).trim() !== "") return String(c).trim();
+  }
+  return null;
+}
 
 // ── Supabase REST 헬퍼 ──
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
@@ -163,6 +174,9 @@ Deno.serve(async (req) => {
       const progress = d.AdditionalAttributes?.AdditionalAttribute1 ?? "";
       if (progress !== "2.Release to WMS") continue; // 우리 큐만
 
+      const comments = extractComments(d);  // Cin7 sale 코멘트 → 픽리스트 표시용
+      const priceTier = (d.PriceTier ?? "").trim() || null;  // 실측 확정(SO-13560): 최상위 PriceTier
+
       // 5) 라인 정규화
       const warehouse = normWarehouse(d.Location);
       const lines = d.Order?.Lines ?? [];
@@ -178,6 +192,8 @@ Deno.serve(async (req) => {
         wouldInsert.push({
           order: c.OrderNumber, warehouse, line_count: assembled.length,
           total_required_base: totalReq, needs_review: needsReview,
+          comments: comments,  // dry-run에서 어느 오더에 코멘트가 들어오는지 확인
+          price_tier: priceTier,
           flagged: assembled.filter((l) => l.flags.length).map((l) => ({ sku: l.order_sku, flags: l.flags })),
         });
         continue;
@@ -194,6 +210,8 @@ Deno.serve(async (req) => {
           ship_by: (d.ShipBy || c.ShipBy || "").slice(0, 10) || null,
           order_progress: progress,
           cin7_status: d.Status ?? null,
+          comments: comments,
+          price_tier: priceTier,
           status: "pending",
           needs_review: needsReview,
           total_lines: assembled.length,
