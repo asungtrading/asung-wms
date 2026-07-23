@@ -611,35 +611,21 @@ function renderWaveWorkbench(){
   });
 })();
 
-// ---- printable wave pick list (wave barcode + tote table; picker scans it to open the wave) ----
-function printWaveList(win,label,sel){
+// ---- printable wave documents (ONE window: summary page + one page per order) ----
+// Single window avoids popup blockers (two window.open calls after awaits get the 2nd blocked).
+// Page 1 = wave summary (wave barcode + tote table). Pages 2..N = per-order pick lists (own barcode + comments).
+function printWaveAll(win, label, sel, linesByOrder){
   if(!win) return;
-  const wh=sel[0].warehouse==="edmonton"?"Edmonton":"Toronto";
   const today=new Date().toLocaleDateString();
   const logo=location.origin+"/asung-logo-dark.png";
+  const wh=sel[0].warehouse==="edmonton"?"Edmonton":"Toronto";
   const esc2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  // --- summary page (tote assignment) ---
   const totalL=sel.reduce((s,o)=>s+Number(o.total_lines||0),0);
   const totalU=sel.reduce((s,o)=>s+Number(o.total_required_base||0),0);
-  const rows=sel.map((o,i)=>`<tr><td class="tn">TOTE ${i+1}</td><td>${esc2(o.order_number)}</td><td>${esc2(o.customer_name||"—")}</td><td class="num">${o.total_lines}</td><td class="num">${o.total_required_base}</td></tr>`).join("");
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>WAVE PICK LIST ${esc2(label)}</title>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
-  <style>
-    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
-    .top{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #12161c;padding-bottom:14px}
-    .brandwrap{display:flex;flex-direction:column;gap:8px}
-    .brandwrap .logo{height:40px;width:auto;display:block}
-    .doc{font-size:26px;font-weight:800;letter-spacing:.02em}
-    .bc{text-align:right}
-    .info{display:flex;gap:48px;margin:20px 0 14px}
-    .info div{line-height:1.7} .info b{display:inline-block;min-width:104px;color:#555}
-    table{width:100%;border-collapse:collapse;margin-top:6px}
-    th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#555;text-align:left;padding:8px 10px;border-bottom:2px solid #12161c}
-    td{padding:9px 10px;border-bottom:1px solid #ddd;font-size:14px}
-    td.tn{font-weight:800;white-space:nowrap} td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-    .note{margin-top:16px;color:#555;font-size:12px}
-    @media print{body{margin:14mm}}
-  </style></head>
-  <body>
+  const sumRows=sel.map((o,i)=>`<tr><td class="tn">TOTE ${i+1}</td><td>${esc2(o.order_number)}</td><td>${esc2(o.customer_name||"—")}</td><td class="num">${o.total_lines}</td><td class="num">${o.total_required_base}</td></tr>`).join("");
+  const summaryPage=`<section class="page">
     <div class="top">
       <div class="brandwrap"><img src="${logo}" class="logo" alt="ASUNG"><div class="doc">WAVE PICK LIST</div></div>
       <div class="bc"><svg class="bcsvg" data-code="${esc2(label)}"></svg></div>
@@ -658,31 +644,19 @@ function printWaveList(win,label,sel){
       </div>
     </div>
     <table><thead><tr><th>Tote</th><th>Order</th><th>Customer</th><th class="num">Lines</th><th class="num">Units</th></tr></thead>
-    <tbody>${rows}</tbody></table>
+    <tbody>${sumRows}</tbody></table>
     <div class="note">One route, sort into totes — the picking screen directs every scan to its tote. Scan the wave barcode above to open it.</div>
-    <script>
-      try{ document.querySelectorAll(".bcsvg").forEach(function(el){ JsBarcode(el, el.getAttribute("data-code"), {format:"CODE128",displayValue:true,fontSize:15,height:50,margin:0}); }); }catch(e){}
-      window.addEventListener("load",function(){ setTimeout(function(){ try{window.print();}catch(e){} }, 450); });
-    <\/script>
-  </body></html>`);
-  win.document.close();
-}
+  </section>`;
 
-// ---- per-order pick lists for a wave (one document, one page per order/tote, each with its own barcode) ----
-// mirrors printPickList but batches many orders into a single print window (avoids popup-blocking of N windows).
-function printWaveOrderLists(win, label, sel, linesByOrder){
-  if(!win) return;
-  const today=new Date().toLocaleDateString();
-  const logo=location.origin+"/asung-logo-dark.png";
-  const esc2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  const pages=sel.map((o,i)=>{
-    const wh=o.warehouse==="edmonton"?"Edmonton":"Toronto";
+  // --- one page per order (own batch barcode + comments) ---
+  const orderPages=sel.map((o,i)=>{
+    const owh=o.warehouse==="edmonton"?"Edmonton":"Toronto";
     const ls=linesByOrder[o.id]||[];
     const batchLabel=o.order_number+"-1";               // wave member batch is always -1
     const units=ls.reduce((a,l)=>a+Number(l.required_base||0),0);
     const zones=[...new Set(ls.map(l=>(l.zone||"·")))].sort().join(", ");
     const cmt=(o.comments||"").trim();
-    return `<section class="page${i>0?" pb":""}">
+    return `<section class="page pb">
       <div class="top">
         <div class="brandwrap"><img src="${logo}" class="logo" alt="ASUNG"><div class="doc">PICK LIST</div></div>
         <div class="bc"><svg class="bcsvg" data-code="${esc2(batchLabel)}"></svg></div>
@@ -691,7 +665,7 @@ function printWaveOrderLists(win, label, sel, linesByOrder){
         <div>
           <div><b>Batch</b>${esc2(batchLabel)}</div>
           <div><b>Order</b>${esc2(o.order_number)}</div>
-          <div><b>Warehouse</b>${wh}</div>
+          <div><b>Warehouse</b>${owh}</div>
           <div><b>Printed</b>${today}</div>
         </div>
         <div>
@@ -706,7 +680,8 @@ function printWaveOrderLists(win, label, sel, linesByOrder){
       <div class="pk">Tote ${i+1} of ${sel.length} · Picked By ________________</div>
     </section>`;
   }).join("");
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>PICK LISTS ${esc2(label)}</title>
+
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>WAVE ${esc2(label)}</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
   <style>
     *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
@@ -715,15 +690,21 @@ function printWaveOrderLists(win, label, sel, linesByOrder){
     .brandwrap .logo{height:40px;width:auto;display:block}
     .doc{font-size:26px;font-weight:800;letter-spacing:.02em}
     .bc{text-align:right}
-    .info{display:flex;gap:48px;margin:20px 0 10px}
+    .info{display:flex;gap:48px;margin:20px 0 12px}
     .info div{line-height:1.7} .info b{display:inline-block;min-width:104px;color:#555}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#555;text-align:left;padding:8px 10px;border-bottom:2px solid #12161c}
+    td{padding:9px 10px;border-bottom:1px solid #ddd;font-size:14px}
+    td.tn{font-weight:800;white-space:nowrap} td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+    .note{margin-top:16px;color:#555;font-size:12px}
     .pk{margin:10px 0;font-weight:800;font-size:15px}
     .zones{margin:10px 0 2px;font-size:14px} .zones b{color:#555;margin-right:8px}
     .cmt{margin:10px 0 2px;font-size:14px;padding:9px 12px;background:#fdf6ec;border:1px solid #f5dcae;border-radius:8px;color:#8a5a06} .cmt b{color:#8a5a06;margin-right:8px}
     @media print{body{margin:14mm} .pb{page-break-before:always}}
   </style></head>
   <body>
-    ${pages}
+    ${summaryPage}
+    ${orderPages}
     <script>
       try{ document.querySelectorAll(".bcsvg").forEach(function(el){ JsBarcode(el, el.getAttribute("data-code"), {format:"CODE128",displayValue:true,fontSize:15,height:50,margin:0}); }); }catch(e){}
       window.addEventListener("load",function(){ setTimeout(function(){ try{window.print();}catch(e){} }, 450); });
@@ -739,9 +720,8 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
   const wh=sel[0].warehouse;
   if(sel.some(o=>o.warehouse!==wh)){ toast("All orders in a wave must be from one warehouse",true); return; }
   if(!confirm(`Create a wave with ${sel.length} orders (${sel.length} totes)?\n${sel.map((o,i)=>`Tote ${i+1}: ${o.order_number}`).join("\n")}`)) return;
-  // open both print windows within the click gesture (popup blockers only allow this synchronously)
-  const printWin=window.open("","_blank");          // wave summary (tote assignment sheet)
-  const orderWin=window.open("","_blank");           // per-order pick lists (one page each, own barcode)
+  // one print window (summary page + a page per order) — single window avoids popup blocking
+  const printWin=window.open("","_blank");
   const btn=document.getElementById("createWaveBtn"); btn.disabled=true; btn.textContent="Creating…";
   const selIds=waveSel.slice();
   let waveRow=null, createdTasks=[];
@@ -777,8 +757,7 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
       .update({status:"picking",updated_at:new Date().toISOString()}).in("id",selIds);
     if(oe) throw oe;
     toast(label+" created — "+sel.length+" totes");
-    printWaveList(printWin,label,sel);                     // 1) wave summary / tote assignment
-    printWaveOrderLists(orderWin,label,sel,byOrder);       // 2) per-order pick lists (barcode each)
+    printWaveAll(printWin,label,sel,byOrder);              // summary + per-order pick lists in one window
     orders=orders.filter(o=>!selIds.includes(o.id));
     waveSel=[];
     document.getElementById("wsWave").style.display="none";
@@ -786,7 +765,6 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
     renderQueue();
   }catch(e){
     if(printWin){ try{printWin.close();}catch(_){} }
-    if(orderWin){ try{orderWin.close();}catch(_){} }
     // best-effort cleanup so a half-made wave doesn't linger
     try{
       if(createdTasks.length){
