@@ -152,6 +152,7 @@
       <button data-t="stats">Stats</button>
       <button data-t="rollback">Rollback</button>
       <button data-t="health">Health <span class="badge" id="healthBadge" style="display:none">0</span></button>
+      <button data-t="recv">Receiving <span class="badge" id="recvBadge" style="display:none">0</span></button>
       <button data-t="packing">Finalized</button>
       <button data-t="launch">Work Screens</button>
     </div>
@@ -208,6 +209,16 @@
     </div>
 
     <!-- Finalized -->
+    <!-- Receiving -->
+    <div class="view" id="v-recv">
+      <div class="sect-h">Off-PO approvals <span style="font-weight:400;color:var(--mut);font-size:12.5px">— items scanned at the dock that are not on the PO · putaway is blocked until approved</span></div>
+      <div class="card"><div id="recvApprovals"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">CSV export <span style="font-weight:400;color:var(--mut);font-size:12.5px">— exports only quantities not yet exported (received − exported) · upload the file to Cin7, then use ⟳ Stock to pull it back</span></div>
+      <div class="card"><div id="recvExports"></div></div>
+      <div class="sect-h">Receiving history <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recent receipts</span></div>
+      <div class="card"><div id="recvHistory"></div></div>
+    </div>
+
     <div class="view" id="v-packing">
       <div class="period" id="finPeriod"></div>
       <div class="sect-h">Fulfillment mix <span style="font-weight:400;color:var(--mut);font-size:12.5px">— packing list vs direct pack</span></div>
@@ -352,6 +363,7 @@ function start(){
     if(t==="reports")loadReports();
     if(t==="packing")loadPacking();
     if(t==="health")loadHealth();
+    if(t==="recv")loadRecv();
   };
   renderLaunch();
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
@@ -362,6 +374,7 @@ function start(){
   refreshDiscBadge();
   refreshReportBadge();
   refreshHealthBadge();
+  refreshRecvBadge();
   // keep freshness chips honest while Status tab is open
   setInterval(()=>{ if(document.getElementById("v-overview").classList.contains("active")) loadOverview(); }, 60000);
 }
@@ -1244,6 +1257,120 @@ async function downloadPackingCSV(oid, onum){
     document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
   }catch(e){ toast("CSV failed: "+(e.message||e),true); }
+}
+
+/* ---------- Receiving tab: off-PO approvals + incremental CSV ---------- */
+const RECV_ST_LABEL={in_progress:"In progress",held:"Held",partial:"Partial (PO open)",completed:"Completed"};
+async function refreshRecvBadge(){
+  try{
+    const {count}=await sb.from("wms_receipt_lines")
+      .select("id",{count:"exact",head:true}).eq("needs_approval",true);
+    const b=document.getElementById("recvBadge");
+    if(count>0){ b.textContent=count; b.style.display=""; } else b.style.display="none";
+  }catch(e){}
+}
+async function loadRecv(){
+  const ap=document.getElementById("recvApprovals");
+  ap.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
+  const [pend,rcpts]=await Promise.all([
+    sb.from("wms_receipt_lines").select("*, wms_receipts(po_number,supplier_name,warehouse)")
+      .eq("needs_approval",true).order("created_at",{ascending:false}),
+    sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base)")
+      .order("updated_at",{ascending:false}).limit(60),
+  ]);
+  if(pend.error){ ap.innerHTML=`<div class="empty" style="font-size:12px">Receiving tables not found. Run wms_receipts.sql to enable.</div>`;
+    document.getElementById("recvExports").innerHTML=""; document.getElementById("recvHistory").innerHTML=""; return; }
+
+  // ── off-PO approvals ──
+  const pd=pend.data||[];
+  const aphead=`<thead><tr><th>PO</th><th>SKU</th><th>Product</th><th class="num">Received</th><th>Warehouse</th><th>Date</th><th></th></tr></thead>`;
+  const aprow=l=>{ const r=l.wms_receipts||{}; return `<tr>
+    <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number||"")}</td>
+    <td style="font-family:var(--mono)">${esc(l.order_sku||"")}</td>
+    <td style="font-size:12px;color:var(--mut)">${esc(l.product_name||"")}</td>
+    <td class="num" style="font-family:var(--mono);font-weight:700">${Number(l.received_base||0)}</td>
+    <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
+    <td style="color:var(--mut);font-size:12px">${l.created_at?new Date(l.created_at).toLocaleDateString():""}</td>
+    <td style="white-space:nowrap"><button class="btnsm ok" data-appr="${l.id}">Approve</button>
+        <button class="btnsm" style="color:var(--danger)" data-rej="${l.id}" data-sku="${esc(l.order_sku||"")}">Reject</button></td>
+  </tr>`; };
+  ap.innerHTML=pd.length
+    ? `<table>${aphead}<tbody>${pd.map(aprow).join("")}</tbody></table>`
+    : `<div style="color:var(--mut);padding:14px;font-size:13px">No off-PO items awaiting approval.</div>`;
+  ap.querySelectorAll("[data-appr]").forEach(b=>b.onclick=()=>approveOffPo(+b.dataset.appr));
+  ap.querySelectorAll("[data-rej]").forEach(b=>b.onclick=()=>rejectOffPo(+b.dataset.rej,b.dataset.sku));
+
+  // ── incremental CSV export + history ──
+  const rs=(rcpts.data||[]);
+  const incOf=r=>(r.wms_receipt_lines||[]).reduce((s,l)=>s+Math.max(0,Number(l.received_base||0)-Number(l.exported_base||0)),0);
+  const exportable=rs.filter(r=>(r.status==="partial"||r.status==="completed")&&incOf(r)>0);
+  const ex=document.getElementById("recvExports");
+  ex.innerHTML=exportable.length
+    ? `<table><thead><tr><th>PO</th><th>Supplier</th><th>Warehouse</th><th>Status</th><th class="num">Units to export</th><th></th></tr></thead><tbody>${
+        exportable.map(r=>`<tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
+          <td>${esc(r.supplier_name||"—")}</td>
+          <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
+          <td>${RECV_ST_LABEL[r.status]||r.status}</td>
+          <td class="num" style="font-family:var(--mono);font-weight:700">${incOf(r)}</td>
+          <td><button class="btnsm ok" data-exp="${r.id}" data-po="${esc(r.po_number)}">⬇ CSV</button></td>
+        </tr>`).join("")}</tbody></table>`
+    : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to export — quantities appear here after a receipt is partially or fully completed.</div>`;
+  ex.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>exportRecvCSV(+b.dataset.exp,b.dataset.po));
+
+  const hist=document.getElementById("recvHistory");
+  hist.innerHTML=rs.length
+    ? `<table><thead><tr><th>PO</th><th>Supplier</th><th>Warehouse</th><th>Status</th><th>Received by</th><th>Updated</th></tr></thead><tbody>${
+        rs.slice(0,40).map(r=>`<tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
+          <td>${esc(r.supplier_name||"—")}</td>
+          <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
+          <td>${RECV_ST_LABEL[r.status]||r.status}</td>
+          <td>${esc(r.received_by||"—")}</td>
+          <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
+        </tr>`).join("")}</tbody></table>`
+    : `<div style="color:var(--mut);padding:14px;font-size:13px">No receipts yet.</div>`;
+  refreshRecvBadge();
+}
+async function approveOffPo(id){
+  const {error}=await sb.from("wms_receipt_lines")
+    .update({needs_approval:false,approved_by:me.name,approved_at:new Date().toISOString()}).eq("id",id);
+  if(error){ toast("Failed: "+error.message,true); return; }
+  toast("Approved — putaway unblocked"); loadRecv();
+}
+async function rejectOffPo(id,sku){
+  if(!confirm(`Reject off-PO item ${sku}?\nThe line is removed from this receipt — set the physical item aside for return to the supplier.`)) return;
+  const {error}=await sb.from("wms_receipt_lines").delete().eq("id",id).eq("needs_approval",true);
+  if(error){ toast("Failed: "+error.message,true); return; }
+  toast("Rejected — line removed"); loadRecv();
+}
+async function exportRecvCSV(rid,po){
+  try{
+    const {data:ls,error}=await sb.from("wms_receipt_lines").select("*").eq("receipt_id",rid);
+    if(error) throw error;
+    const {data:rh}=await sb.from("wms_receipts").select("*").eq("id",rid).single();
+    const inc=(ls||[]).map(l=>({l,qty:Math.max(0,Number(l.received_base||0)-Number(l.exported_base||0))}))
+      .filter(x=>x.qty>0 && !x.l.needs_approval);   // 승인 안 된 오프-PO는 제외 (승인 후 다음 export에 포함)
+    if(!inc.length){ toast("Nothing to export (pending approvals are excluded)",true); return; }
+    const skipped=(ls||[]).filter(l=>l.needs_approval && Number(l.received_base||0)>Number(l.exported_base||0)).length;
+    const q=v=>{ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
+    const rows=[["PO","SKU","BaseSKU","Qty(base units)","Bin","Warehouse","ReceivedBy","ExportedAt"]];
+    inc.forEach(x=>rows.push([rh.po_number,x.l.order_sku,x.l.base_sku,x.qty,x.l.putaway_bin||"",
+      rh.warehouse==="edmonton"?"Edmonton":"Toronto",rh.received_by||"",new Date().toISOString().slice(0,10)]));
+    const csv="\uFEFF"+rows.map(r=>r.map(q).join(",")).join("\r\n");
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=`RECEIVING_${po||rid}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+    // 내보낸 수량 확정 (exported_base = received_base) — 다음 export는 증분만
+    for(const x of inc){
+      const {error:ue}=await sb.from("wms_receipt_lines").update({exported_base:x.l.received_base}).eq("id",x.l.id);
+      if(ue) throw ue;
+    }
+    toast(`Exported ${inc.length} line(s)${skipped?` · ${skipped} awaiting approval skipped`:""} — upload to Cin7, then ⟳ Stock`);
+    loadRecv();
+  }catch(e){ toast("Export failed: "+(e.message||e),true); }
 }
 async function printOrderPackingList(oid){
   const win=window.open("","_blank");   // open within click gesture
