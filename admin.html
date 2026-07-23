@@ -614,11 +614,51 @@ async function refreshHealthBadge(){
 async function loadRollback(){
   const el=document.getElementById("rollbackList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
-  const {data:ords}=await sb.from("wms_orders")
-    .select("id,order_number,customer_name,warehouse,status")
-    .in("status",["picking","packing","ready_to_close","closed"]).order("order_number");
-  const orders=ords||[];
-  if(!orders.length){ el.innerHTML=`<div class="empty">No orders past the split stage.</div>`; return; }
+  const [ordsQ,wvsQ]=await Promise.all([
+    sb.from("wms_orders")
+      .select("id,order_number,customer_name,warehouse,status")
+      .in("status",["picking","packing","ready_to_close","closed"]).order("order_number"),
+    sb.from("wms_waves")
+      .select("id,label,warehouse,status,assigned_to, wms_pick_tasks(id,order_id, wms_orders(order_number))")
+      .neq("status","completed").order("label"),
+  ]);
+  const orders=ordsQ.data||[];
+  const wavesRb=(wvsQ&&wvsQ.data)||[];
+
+  // void-by-number box (works at ANY stage incl. waiting-to-split, which isn't listed below)
+  const voidBox=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfcfd">
+    <b style="font-size:12.5px">⊘ Void an order</b>
+    <input id="voidNum" placeholder="SO-12345" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;font-family:var(--mono);width:130px">
+    <button id="voidGo" style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Void</button>
+    <span style="font-size:11.5px;color:var(--mut)">Cancelled in Cin7? Void wipes every stage (batches · packing · pallets) and marks the order VOIDED. Any stage, incl. waiting-to-split.</span>
+  </div>`;
+
+  // active waves — undo whole wave (orders back to waiting) / delete empty leftovers
+  let waveHtml="";
+  if(wavesRb.length){
+    waveHtml=`<div style="margin-bottom:14px">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:2px 0 6px">Active waves</div>
+      <table><thead><tr><th>Wave</th><th>Warehouse</th><th>Status</th><th>Picker</th><th>Orders</th><th></th></tr></thead><tbody>
+      ${wavesRb.map(w=>{
+        const ts=w.wms_pick_tasks||[];
+        const names=ts.map(t=>t.wms_orders?.order_number).filter(Boolean).join(" · ");
+        return `<tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(w.label)}</td>
+          <td><span class="tag wh-${w.warehouse}">${w.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+          <td style="font-size:12px">${esc(w.status)}</td>
+          <td style="font-size:12px">${esc(w.assigned_to||"—")}</td>
+          <td style="font-size:12px">${ts.length?`${ts.length} · ${esc(names)}`:'<span style="color:#c0392b;font-weight:700">EMPTY</span>'}</td>
+          <td style="text-align:right"><button data-uw="${w.id}" data-wl="${esc(w.label)}" data-n="${ts.length}"
+            style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${ts.length?"↩ Undo Wave":"✕ Delete empty wave"}</button></td>
+        </tr>`;
+      }).join("")}
+      </tbody></table></div>`;
+  }
+
+  if(!orders.length){
+    el.innerHTML=voidBox+waveHtml+`<div class="empty">No orders past the split stage.</div>`;
+    wireRollbackCommon(el); loadRollbackLog(); return;
+  }
   const ids=orders.map(o=>o.id);
   const [picks,packs,pitems]=await Promise.all([
     sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to,created_by").in("order_id",ids).order("batch_label"),
@@ -663,7 +703,10 @@ async function loadRollback(){
     else { stage="—"; }
     return {o,stage,action,btn,myPicks,hasFulfill,worker};
   }).filter(r=>r.action); // only orders with something to undo
-  if(!rows.length){ el.innerHTML=`<div class="empty">Nothing to roll back.</div>`; return; }
+  if(!rows.length){
+    el.innerHTML=voidBox+waveHtml+`<div class="empty">Nothing to roll back.</div>`;
+    wireRollbackCommon(el); loadRollbackLog(); return;
+  }
 
   // per-batch sub-table (batch-level rollback for split orders)
   const batchRows=r=>r.myPicks.map(t=>{
@@ -690,7 +733,7 @@ async function loadRollback(){
     </tr>`;
   }).join("");
 
-  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
+  el.innerHTML=voidBox+waveHtml+`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
     rows.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}
         ${r.myPicks.length>1?`<button data-bt="${r.o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${r.myPicks.length} batches</button>`:""}</td>
@@ -698,14 +741,18 @@ async function loadRollback(){
       <td><span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td>${esc(r.stage)}</td>
       <td style="font-size:12px">${esc(r.worker||"—")}</td>
-      <td style="text-align:right"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-worker="${esc(r.worker||"")}"
-        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button></td>
+      <td style="text-align:right;white-space:nowrap"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-worker="${esc(r.worker||"")}"
+        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button>
+        <button data-vd="${r.o.id}" data-on="${esc(r.o.order_number)}" data-st="${esc(r.o.status)}" data-worker="${esc(r.worker||"")}" title="Order cancelled in Cin7 — wipe every stage and mark VOIDED"
+        style="border:1px solid #c0392b;background:#c0392b;color:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">⊘ Void</button></td>
     </tr>
     ${r.myPicks.length>1?`<tr class="batchsub" data-bsub="${r.o.id}" style="display:none"><td colspan="6" style="background:#fafbfd;padding:6px 10px">
       <table style="width:100%"><thead><tr><th style="font-size:11px">Batch</th><th style="font-size:11px">Worker</th><th style="font-size:11px">Batch stage</th><th></th></tr></thead>
       <tbody>${batchRows(r)}</tbody></table></td></tr>`:""}`).join("")
   }</tbody></table>`;
   el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on, b.dataset.worker));
+  el.querySelectorAll("[data-vd]").forEach(b=>b.onclick=()=>doVoid(+b.dataset.vd, b.dataset.on, b.dataset.st, b.dataset.worker));
+  wireRollbackCommon(el);
   el.querySelectorAll("[data-bt]").forEach(b=>b.onclick=()=>{
     const sub=el.querySelector(`[data-bsub="${b.dataset.bt}"]`); if(!sub)return;
     const open=sub.style.display!=="none";
@@ -772,7 +819,7 @@ async function loadRollbackLog(){
   const {data,error}=await sb.from("wms_rollback_log").select("*").order("created_at",{ascending:false}).limit(30);
   if(error){ el.innerHTML=`<div class="empty" style="font-size:12px">Log table not found. Run wms_rollback_log.sql to enable history.</div>`; return; }
   if(!data||!data.length){ el.innerHTML=`<div class="empty" style="font-size:12px">No rollbacks yet.</div>`; return; }
-  const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split"};
+  const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split",void:"⊘ Void",unwave:"Undo Wave"};
   el.innerHTML=`<table><thead><tr><th>Order</th><th>Batch</th><th>Action</th><th>Stage</th><th>Original worker</th><th>Undone by</th><th>When</th></tr></thead><tbody>${
     data.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"—")}</td>
@@ -845,6 +892,105 @@ async function doRollback(oid, action, onum, worker){
     toast("Rollback done");
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
+}
+
+/* ---------- common wiring for void box + wave buttons (used by all loadRollback exit paths) ---------- */
+function wireRollbackCommon(el){
+  const vg=el.querySelector("#voidGo");
+  if(vg) vg.onclick=async ()=>{
+    const num=(el.querySelector("#voidNum").value||"").trim().toUpperCase();
+    if(!num) return;
+    const {data,error}=await sb.from("wms_orders").select("id,order_number,status").eq("order_number",num).limit(1);
+    const o=(data||[])[0];
+    if(error||!o){ toast("Order not found: "+num,true); return; }
+    if(o.status==="voided"){ toast(num+" is already voided",true); return; }
+    doVoid(o.id,o.order_number,o.status,null);
+  };
+  el.querySelectorAll("[data-uw]").forEach(b=>b.onclick=()=>doUndoWave(+b.dataset.uw,b.dataset.wl,+b.dataset.n));
+}
+
+/* ---------- VOID: order cancelled in Cin7 — wipe EVERY stage, mark voided ----------
+   Unlike rollback (one step), void clears fulfillment+pack+pick in one go, at any stage.
+   Waves left empty by this void are removed automatically. Order row is kept (status
+   'voided') so polling dedup still blocks re-import and records stay auditable. */
+async function doVoid(oid,onum,fromStage,worker){
+  if(!confirm(`VOID ${onum}?\n\nThis wipes EVERY stage for this order:\n• pallet/box assignments removed\n• pack verification deleted\n• all pick batches deleted (empty waves cleaned up)\n• order marked VOIDED — hidden from work screens, kept for records\n\nUse when the order was cancelled in Cin7. Proceed?`)) return;
+  const now=new Date().toISOString();
+  try{
+    // fulfillment layer (same as Undo Fulfillment)
+    await sb.from("wms_pallet_items").delete().eq("order_id",oid);
+    const {data:units}=await sb.from("wms_pallets").select("id").eq("order_id",oid);
+    for(const u of (units||[])){
+      const {count:itemCnt}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pallet_id",u.id);
+      const {count:childCnt}=await sb.from("wms_pallets").select("id",{count:"exact",head:true}).eq("parent_id",u.id);
+      if(!itemCnt && !childCnt) await sb.from("wms_pallets").delete().eq("id",u.id);
+    }
+    // pack layer
+    const {data:packs}=await sb.from("wms_pack_tasks").select("id").eq("order_id",oid);
+    const pids=(packs||[]).map(p=>p.id);
+    if(pids.length){
+      await sb.from("wms_pack_task_lines").delete().in("pack_task_id",pids);
+      await sb.from("wms_pack_tasks").delete().eq("order_id",oid);
+    }
+    // pick layer — remember wave membership BEFORE deleting
+    const {data:pt}=await sb.from("wms_pick_tasks").select("id,wave_id").eq("order_id",oid);
+    const tids=(pt||[]).map(p=>p.id);
+    const waveIds=[...new Set((pt||[]).map(p=>p.wave_id).filter(Boolean))];
+    if(tids.length){
+      await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids);
+      await sb.from("wms_pick_tasks").delete().eq("order_id",oid);
+    }
+    // waves this void left empty → remove them
+    for(const wid of waveIds){
+      const {count}=await sb.from("wms_pick_tasks").select("id",{count:"exact",head:true}).eq("wave_id",wid);
+      if(!count) await sb.from("wms_waves").delete().eq("id",wid);
+    }
+    // order → voided (kept as a record; dedup still blocks re-import)
+    await sb.from("wms_orders").update({status:"voided",updated_at:now}).eq("id",oid);
+    // audit log
+    const logRow={order_id:oid,order_number:onum,action:"void",
+      from_stage:fromStage||"?",to_stage:"voided",performed_by:me.name,
+      original_worker:(worker||null)};
+    const ins=await sb.from("wms_rollback_log").insert(logRow);
+    if(ins.error){ delete logRow.original_worker; await sb.from("wms_rollback_log").insert(logRow); }
+    toast(onum+" voided");
+    loadRollback();
+  }catch(e){ toast("Void failed: "+(e.message||e), true); }
+}
+
+/* ---------- UNDO WAVE: dissolve the group in one go ----------
+   Member batches are deleted, their orders return to the waiting-to-split list
+   (kept open — NOT voided), and the wave row is removed. Also deletes empty
+   leftover waves (members already rolled back one by one). */
+async function doUndoWave(wid,label,memberCnt){
+  if(memberCnt>0){
+    if(!confirm(`Undo ${label}?\n\n• All ${memberCnt} member batches are deleted\n• Their orders return to the waiting-to-split list (kept open)\n• The wave is removed\n\nPicked progress in this wave is lost. Proceed?`)) return;
+  } else {
+    if(!confirm(`Delete empty wave ${label}? It has no member batches left.`)) return;
+  }
+  try{
+    const {data:ts}=await sb.from("wms_pick_tasks").select("id,order_id, wms_orders(order_number)").eq("wave_id",wid);
+    const tids=(ts||[]).map(t=>t.id);
+    const oids=[...new Set((ts||[]).map(t=>t.order_id).filter(Boolean))];
+    if(tids.length){
+      await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids);
+      await sb.from("wms_pick_tasks").delete().in("id",tids);
+    }
+    if(oids.length){
+      await sb.from("wms_orders").update({status:"pending",updated_at:new Date().toISOString()}).in("id",oids);
+    }
+    const {error:we}=await sb.from("wms_waves").delete().eq("id",wid);
+    if(we) throw we;
+    // audit: one row per member order
+    for(const t of (ts||[])){
+      const row={order_id:t.order_id,order_number:t.wms_orders?.order_number||null,action:"unwave",
+        from_stage:"wave",to_stage:"unsplit",performed_by:me.name,batch_label:label};
+      const ins=await sb.from("wms_rollback_log").insert(row);
+      if(ins.error){ delete row.batch_label; await sb.from("wms_rollback_log").insert(row); }
+    }
+    toast(label+(tids.length?" undone — orders back to waiting":" (empty) deleted"));
+    loadRollback();
+  }catch(e){ toast("Undo wave failed: "+(e.message||e), true); }
 }
 
 /* ---------- Reports (data-quality) ---------- */

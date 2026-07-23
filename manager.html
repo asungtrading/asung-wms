@@ -60,6 +60,9 @@
   .tag.wv{color:#7a5af0;background:#f2effe;border-color:#ddd3fb}
   .qcard .tno{font-family:var(--mono);font-size:11px;color:#7a5af0;font-weight:800;margin-left:8px}
   .tag.tier{color:#0a7d6e;background:#e6f6f2;border-color:#c2ebe2}
+  .tag.void{color:#c0392b;background:#fdecec;border-color:#f0c4c4}
+  .qcard.voided{opacity:.55;cursor:default}
+  .qcard.voided:hover{background:transparent}
   .qcard.wave.sel .ono::after{content:""}
 
   /* workspace */
@@ -161,6 +164,7 @@
       <select id="tierFilter" title="Price tier" style="font:inherit;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:var(--card);cursor:pointer;color:var(--ink)">
         <option value="all">All tiers</option>
       </select>
+      <button id="voidToggle" title="Show/hide voided (cancelled) orders" style="font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:var(--card);cursor:pointer;color:var(--mut);display:none">⊘ 0</button>
       <span class="cnt" id="qcount"></span>
     </div>
     <div id="waveFilterBar" style="display:none;padding:10px 16px;border-bottom:1px solid var(--line);background:#fbfcfd;align-items:center;gap:8px;flex-wrap:wrap">
@@ -232,7 +236,7 @@
 <script src="wms-auth.js"></script>
 <script>
 const SUPABASE_URL = "https://gftpcnkxbdjzzfvzwcfl.supabase.co";
-let sb=null, me=null, staff=[], orders=[], zoneSeq={}, filterWh="all", filterTier="all";
+let sb=null, me=null, staff=[], orders=[], zoneSeq={}, filterWh="all", filterTier="all", showVoided=false;
 let selected=null, selLines=[], preview=null;
 
 function boot(){
@@ -260,7 +264,7 @@ async function init(){
 
 async function loadOrders(){
   document.getElementById("qloading").style.display="block";
-  const {data,error}=await sb.from("wms_orders").select("*").eq("status","pending").order("imported_at");
+  const {data,error}=await sb.from("wms_orders").select("*").in("status",["pending","voided"]).order("imported_at");
   document.getElementById("qloading").style.display="none";
   if(error){ toast("Failed to load order: "+error.message,true); return; }
   orders=data||[]; populateTierFilter(); renderQueue();
@@ -279,18 +283,28 @@ function populateTierFilter(){
 }
 
 function renderQueue(){
+  // voided toggle (visible only when there are voided orders)
+  const vc=orders.filter(o=>o.status==="voided").length;
+  const vt=document.getElementById("voidToggle");
+  vt.style.display=vc?"inline-block":"none";
+  vt.textContent=(showVoided?"⊘ Hide voided ":"⊘ Voided ")+vc;
+  vt.style.color=showVoided?"#c0392b":"var(--mut)";
   if(mode==="wave"){ renderWaveQueue(); return; }
-  const list=orders.filter(o=>(filterWh==="all"||o.warehouse===filterWh)
+  const list=orders.filter(o=>(o.status!=="voided"||showVoided)
+    && (filterWh==="all"||o.warehouse===filterWh)
     && (filterTier==="all"||(o.price_tier||"")===filterTier));
   document.getElementById("qcount").textContent=list.length+"";
   document.getElementById("qempty").style.display=list.length?"none":"block";
   document.getElementById("qlist").innerHTML=list.map(o=>{
-    const rev=o.needs_review?`<span class="tag rev">Needs review</span>`:"";
+    const voided=o.status==="voided";
+    const rev=o.needs_review&&!voided?`<span class="tag rev">Needs review</span>`:"";
     const tier=o.price_tier?`<span class="tag tier">${esc(o.price_tier)}</span>`:"";
-    return `<div class="qcard ${selected&&selected.id===o.id?"sel":""}" data-id="${o.id}">
+    const vd=voided?`<span class="tag void">VOID</span>`:"";
+    return `<div class="qcard ${voided?"voided":""} ${!voided&&selected&&selected.id===o.id?"sel":""}" data-id="${o.id}">
       <div class="ono">${esc(o.order_number)}</div>
       <div class="cust">${esc(o.customer_name||"—")}</div>
       <div class="meta">
+        ${vd}
         <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
         <span class="tag">${o.total_lines}lines</span>
         <span class="tag">${o.total_required_base}units</span>
@@ -300,9 +314,15 @@ function renderQueue(){
     </div>`;
   }).join("");
   document.getElementById("qlist").querySelectorAll(".qcard").forEach(el=>{
-    el.onclick=()=>selectOrder(+el.dataset.id);
+    el.onclick=()=>{
+      const o=orders.find(x=>x.id===+el.dataset.id);
+      if(o&&o.status==="voided"){ toast("Voided order — display only",true); return; }
+      selectOrder(+el.dataset.id);
+    };
   });
 }
+
+document.getElementById("voidToggle").onclick=()=>{ showVoided=!showVoided; renderQueue(); };
 
 document.getElementById("tierFilter").onchange=e=>{
   filterTier=e.target.value;
@@ -562,7 +582,8 @@ function waveCandidates(){
   const {ml,mu}=waveLimits();
   const selWh=waveSel.length?(orders.find(o=>o.id===waveSel[0])||{}).warehouse:null;
   return orders.filter(o=>
-    (filterWh==="all"||o.warehouse===filterWh)
+    o.status==="pending"
+    && (filterWh==="all"||o.warehouse===filterWh)
     && (filterTier==="all"||(o.price_tier||"")===filterTier)
     && Number(o.total_lines)<=ml && Number(o.total_required_base)<=mu
     && (!selWh || o.warehouse===selWh));   // a wave stays in one warehouse
@@ -571,7 +592,7 @@ function renderWaveQueue(){
   const {ml,mu}=waveLimits();
   // drop selections that no longer pass the filters
   waveSel=waveSel.filter(id=>{ const o=orders.find(x=>x.id===id);
-    return o && Number(o.total_lines)<=ml && Number(o.total_required_base)<=mu
+    return o && o.status==="pending" && Number(o.total_lines)<=ml && Number(o.total_required_base)<=mu
       && (filterWh==="all"||o.warehouse===filterWh)
       && (filterTier==="all"||(o.price_tier||"")===filterTier); });
   const list=waveCandidates();
