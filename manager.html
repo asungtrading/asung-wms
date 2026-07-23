@@ -400,6 +400,7 @@ function printPickList(win, ord, batches){
   const logo=location.origin+"/asung-logo-dark.png";
   const esc2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   // one page per batch — batch-label barcode + totals only (no item list)
+  const cmt=(ord.comments||"").trim();
   const pages=batches.map((b,i)=>{
     const label=`${ord.order_number}-${i+1}`;
     const units=b.reduce((a,l)=>a+Number(l.required_base||0),0);
@@ -424,6 +425,7 @@ function printPickList(win, ord, batches){
         </div>
       </div>
       <div class="zones"><b>Zones</b> ${esc2(zones)}</div>
+      ${cmt?`<div class="cmt"><b>Comments</b> ${esc2(cmt)}</div>`:""}
       <div class="pk">Batch ${i+1} of ${batches.length}</div>
     </section>`;
   }).join("");
@@ -440,6 +442,7 @@ function printPickList(win, ord, batches){
     .info div{line-height:1.7} .info b{display:inline-block;min-width:104px;color:#555}
     .pk{margin:10px 0;font-weight:800;font-size:15px}
     .zones{margin:10px 0 2px;font-size:14px} .zones b{color:#555;margin-right:8px}
+    .cmt{margin:10px 0 2px;font-size:14px;padding:9px 12px;background:#fdf6ec;border:1px solid #f5dcae;border-radius:8px;color:#8a5a06} .cmt b{color:#8a5a06;margin-right:8px}
     @media print{body{margin:14mm} .pb{page-break-before:always}}
   </style></head>
   <body>
@@ -458,7 +461,7 @@ document.getElementById("createBtn").onclick=async ()=>{
   if(!preview||!preview.length) return;
   if(!confirm(`${selected.order_number} · ${preview.length} batches will be created (total ${selLines.length} lines). Continue?`)) return;
   // capture for pick list before state is cleared; open print window now (within user gesture → avoids popup block)
-  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse};
+  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments};
   const pickBatches=preview.map(b=>b.slice());
   const printWin=window.open("","_blank");
   const createdBy=me?me.name:null;
@@ -665,6 +668,70 @@ function printWaveList(win,label,sel){
   win.document.close();
 }
 
+// ---- per-order pick lists for a wave (one document, one page per order/tote, each with its own barcode) ----
+// mirrors printPickList but batches many orders into a single print window (avoids popup-blocking of N windows).
+function printWaveOrderLists(win, label, sel, linesByOrder){
+  if(!win) return;
+  const today=new Date().toLocaleDateString();
+  const logo=location.origin+"/asung-logo-dark.png";
+  const esc2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const pages=sel.map((o,i)=>{
+    const wh=o.warehouse==="edmonton"?"Edmonton":"Toronto";
+    const ls=linesByOrder[o.id]||[];
+    const batchLabel=o.order_number+"-1";               // wave member batch is always -1
+    const units=ls.reduce((a,l)=>a+Number(l.required_base||0),0);
+    const zones=[...new Set(ls.map(l=>(l.zone||"·")))].sort().join(", ");
+    const cmt=(o.comments||"").trim();
+    return `<section class="page${i>0?" pb":""}">
+      <div class="top">
+        <div class="brandwrap"><img src="${logo}" class="logo" alt="ASUNG"><div class="doc">PICK LIST</div></div>
+        <div class="bc"><svg class="bcsvg" data-code="${esc2(batchLabel)}"></svg></div>
+      </div>
+      <div class="info">
+        <div>
+          <div><b>Batch</b>${esc2(batchLabel)}</div>
+          <div><b>Order</b>${esc2(o.order_number)}</div>
+          <div><b>Warehouse</b>${wh}</div>
+          <div><b>Printed</b>${today}</div>
+        </div>
+        <div>
+          <div><b>Wave</b>${esc2(label)} · Tote ${i+1}</div>
+          <div><b>Customer</b>${esc2(o.customer_name||"—")}</div>
+          <div><b>Total Lines</b>${ls.length}</div>
+          <div><b>Total Units</b>${units}</div>
+        </div>
+      </div>
+      <div class="zones"><b>Zones</b> ${esc2(zones)}</div>
+      ${cmt?`<div class="cmt"><b>Comments</b> ${esc2(cmt)}</div>`:""}
+      <div class="pk">Tote ${i+1} of ${sel.length} · Picked By ________________</div>
+    </section>`;
+  }).join("");
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>PICK LISTS ${esc2(label)}</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+  <style>
+    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:13px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #12161c;padding-bottom:14px}
+    .brandwrap{display:flex;flex-direction:column;gap:8px}
+    .brandwrap .logo{height:40px;width:auto;display:block}
+    .doc{font-size:26px;font-weight:800;letter-spacing:.02em}
+    .bc{text-align:right}
+    .info{display:flex;gap:48px;margin:20px 0 10px}
+    .info div{line-height:1.7} .info b{display:inline-block;min-width:104px;color:#555}
+    .pk{margin:10px 0;font-weight:800;font-size:15px}
+    .zones{margin:10px 0 2px;font-size:14px} .zones b{color:#555;margin-right:8px}
+    .cmt{margin:10px 0 2px;font-size:14px;padding:9px 12px;background:#fdf6ec;border:1px solid #f5dcae;border-radius:8px;color:#8a5a06} .cmt b{color:#8a5a06;margin-right:8px}
+    @media print{body{margin:14mm} .pb{page-break-before:always}}
+  </style></head>
+  <body>
+    ${pages}
+    <script>
+      try{ document.querySelectorAll(".bcsvg").forEach(function(el){ JsBarcode(el, el.getAttribute("data-code"), {format:"CODE128",displayValue:true,fontSize:15,height:50,margin:0}); }); }catch(e){}
+      window.addEventListener("load",function(){ setTimeout(function(){ try{window.print();}catch(e){} }, 450); });
+    <\/script>
+  </body></html>`);
+  win.document.close();
+}
+
 // ---- create wave (wms_waves + one ordinary pick batch per order, tagged wave_id/tote_no) ----
 document.getElementById("createWaveBtn").onclick=async ()=>{
   if(waveSel.length<2){ toast("Select at least 2 orders",true); return; }
@@ -672,7 +739,9 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
   const wh=sel[0].warehouse;
   if(sel.some(o=>o.warehouse!==wh)){ toast("All orders in a wave must be from one warehouse",true); return; }
   if(!confirm(`Create a wave with ${sel.length} orders (${sel.length} totes)?\n${sel.map((o,i)=>`Tote ${i+1}: ${o.order_number}`).join("\n")}`)) return;
-  const printWin=window.open("","_blank");   // open within the click gesture (popup blockers)
+  // open both print windows within the click gesture (popup blockers only allow this synchronously)
+  const printWin=window.open("","_blank");          // wave summary (tote assignment sheet)
+  const orderWin=window.open("","_blank");           // per-order pick lists (one page each, own barcode)
   const btn=document.getElementById("createWaveBtn"); btn.disabled=true; btn.textContent="Creating…";
   const selIds=waveSel.slice();
   let waveRow=null, createdTasks=[];
@@ -708,7 +777,8 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
       .update({status:"picking",updated_at:new Date().toISOString()}).in("id",selIds);
     if(oe) throw oe;
     toast(label+" created — "+sel.length+" totes");
-    printWaveList(printWin,label,sel);
+    printWaveList(printWin,label,sel);                     // 1) wave summary / tote assignment
+    printWaveOrderLists(orderWin,label,sel,byOrder);       // 2) per-order pick lists (barcode each)
     orders=orders.filter(o=>!selIds.includes(o.id));
     waveSel=[];
     document.getElementById("wsWave").style.display="none";
@@ -716,6 +786,7 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
     renderQueue();
   }catch(e){
     if(printWin){ try{printWin.close();}catch(_){} }
+    if(orderWin){ try{orderWin.close();}catch(_){} }
     // best-effort cleanup so a half-made wave doesn't linger
     try{
       if(createdTasks.length){
