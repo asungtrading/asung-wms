@@ -118,7 +118,7 @@
 <script src="wms-auth.js"></script>
 <script>
   function boot(){
-    wmsAuth.start({requireManager:false}, (sb, me)=>{
+    wmsAuth.start({requireManager:false, changePw:true}, (sb, me)=>{
       document.getElementById("app").style.display="flex";
       document.getElementById("meName").textContent="\u{1F464} "+me.name;
       // Show manager-only items per role + per-screen perms (admin = all)

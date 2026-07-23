@@ -5,7 +5,8 @@
    Pass requireManager:true to allow only manager/admin (workers denied).
    - Session is kept automatically by Supabase in the browser → stays logged in after one login.
    - Sign out: wmsAuth.signOut()
-   - After login a "Change Password" button is auto-inserted next to #logoutBtn.
+   - "Change Password" button is inserted next to #logoutBtn only when the page
+     passes {changePw:true} (the index launcher). Module screens stay clean.
    - Login screen "Forgot your password?" → sends a reset link by email.
 */
 (function(){
@@ -149,8 +150,10 @@
     }catch(e){ msg.className="msg err"; msg.textContent="Error: "+(e.message||e); btn.disabled=false; btn.textContent="Change"; }
   }
 
-  /* after login: auto-insert "Change Password" button next to #logoutBtn */
+  /* after login: insert "Change Password" next to #logoutBtn — ONLY when the page
+     opts in with {changePw:true} (index launcher). Module screens stay clean. */
   function attachAccountControls(){
+    if(!opts.changePw) return;
     const lo=document.getElementById("logoutBtn");
     if(!lo || document.getElementById("wmsPwBtn")) return;
     const b=document.createElement("button");
