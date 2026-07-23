@@ -59,6 +59,7 @@
   .tag.rev{color:var(--warn);background:var(--warn-bg);border-color:#f5dcae}
   .tag.wv{color:#7a5af0;background:#f2effe;border-color:#ddd3fb}
   .qcard .tno{font-family:var(--mono);font-size:11px;color:#7a5af0;font-weight:800;margin-left:8px}
+  .tag.tier{color:#0a7d6e;background:#e6f6f2;border-color:#c2ebe2}
   .qcard.wave.sel .ono::after{content:""}
 
   /* workspace */
@@ -157,6 +158,9 @@
         <button data-w="toronto">TOR</button>
         <button data-w="edmonton">EDM</button>
       </div>
+      <select id="tierFilter" title="Price tier" style="font:inherit;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:var(--card);cursor:pointer;color:var(--ink)">
+        <option value="all">All tiers</option>
+      </select>
       <span class="cnt" id="qcount"></span>
     </div>
     <div id="waveFilterBar" style="display:none;padding:10px 16px;border-bottom:1px solid var(--line);background:#fbfcfd;align-items:center;gap:8px;flex-wrap:wrap">
@@ -228,7 +232,7 @@
 <script src="wms-auth.js"></script>
 <script>
 const SUPABASE_URL = "https://gftpcnkxbdjzzfvzwcfl.supabase.co";
-let sb=null, me=null, staff=[], orders=[], zoneSeq={}, filterWh="all";
+let sb=null, me=null, staff=[], orders=[], zoneSeq={}, filterWh="all", filterTier="all";
 let selected=null, selLines=[], preview=null;
 
 function boot(){
@@ -259,16 +263,30 @@ async function loadOrders(){
   const {data,error}=await sb.from("wms_orders").select("*").eq("status","pending").order("imported_at");
   document.getElementById("qloading").style.display="none";
   if(error){ toast("Failed to load order: "+error.message,true); return; }
-  orders=data||[]; renderQueue();
+  orders=data||[]; populateTierFilter(); renderQueue();
+}
+
+// price_tier 값들을 모아 드롭다운 옵션 구성(데이터에 있는 tier만). 현재 선택은 유지.
+function populateTierFilter(){
+  const sel=document.getElementById("tierFilter"); if(!sel) return;
+  const tiers=[...new Set(orders.map(o=>(o.price_tier||"").trim()).filter(Boolean))].sort();
+  const cur=filterTier;
+  sel.innerHTML=`<option value="all">All tiers</option>`+
+    tiers.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  // 선택값이 사라졌으면 all로
+  if(cur!=="all" && !tiers.includes(cur)){ filterTier="all"; }
+  sel.value=filterTier;
 }
 
 function renderQueue(){
   if(mode==="wave"){ renderWaveQueue(); return; }
-  const list=orders.filter(o=>filterWh==="all"||o.warehouse===filterWh);
+  const list=orders.filter(o=>(filterWh==="all"||o.warehouse===filterWh)
+    && (filterTier==="all"||(o.price_tier||"")===filterTier));
   document.getElementById("qcount").textContent=list.length+"";
   document.getElementById("qempty").style.display=list.length?"none":"block";
   document.getElementById("qlist").innerHTML=list.map(o=>{
     const rev=o.needs_review?`<span class="tag rev">Needs review</span>`:"";
+    const tier=o.price_tier?`<span class="tag tier">${esc(o.price_tier)}</span>`:"";
     return `<div class="qcard ${selected&&selected.id===o.id?"sel":""}" data-id="${o.id}">
       <div class="ono">${esc(o.order_number)}</div>
       <div class="cust">${esc(o.customer_name||"—")}</div>
@@ -276,6 +294,7 @@ function renderQueue(){
         <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
         <span class="tag">${o.total_lines}lines</span>
         <span class="tag">${o.total_required_base}units</span>
+        ${tier}
         ${rev}
       </div>
     </div>`;
@@ -284,6 +303,11 @@ function renderQueue(){
     el.onclick=()=>selectOrder(+el.dataset.id);
   });
 }
+
+document.getElementById("tierFilter").onchange=e=>{
+  filterTier=e.target.value;
+  renderQueue();
+};
 
 document.getElementById("whFilter").onclick=e=>{
   const b=e.target.closest("button"); if(!b)return;
@@ -415,7 +439,8 @@ function printPickList(win, ord, batches){
           <div><b>Batch</b>${esc2(label)}</div>
           <div><b>Order</b>${esc2(ord.order_number)}</div>
           <div><b>Warehouse</b>${wh}</div>
-          <div><b>Printed</b>${today}</div>
+          ${ord.price_tier?`<div><b>Price Tier</b>${esc2(ord.price_tier)}</div>`:""}
+          <div><b>Printed</b>${today}${ord.created_by?" · by "+esc2(ord.created_by):""}</div>
         </div>
         <div>
           <div><b>Customer</b>${esc2(ord.customer_name||"—")}</div>
@@ -461,7 +486,7 @@ document.getElementById("createBtn").onclick=async ()=>{
   if(!preview||!preview.length) return;
   if(!confirm(`${selected.order_number} · ${preview.length} batches will be created (total ${selLines.length} lines). Continue?`)) return;
   // capture for pick list before state is cleared; open print window now (within user gesture → avoids popup block)
-  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments};
+  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments, price_tier:selected.price_tier, created_by:(me?me.name:null)};
   const pickBatches=preview.map(b=>b.slice());
   const printWin=window.open("","_blank");
   const createdBy=me?me.name:null;
@@ -538,6 +563,7 @@ function waveCandidates(){
   const selWh=waveSel.length?(orders.find(o=>o.id===waveSel[0])||{}).warehouse:null;
   return orders.filter(o=>
     (filterWh==="all"||o.warehouse===filterWh)
+    && (filterTier==="all"||(o.price_tier||"")===filterTier)
     && Number(o.total_lines)<=ml && Number(o.total_required_base)<=mu
     && (!selWh || o.warehouse===selWh));   // a wave stays in one warehouse
 }
@@ -546,13 +572,15 @@ function renderWaveQueue(){
   // drop selections that no longer pass the filters
   waveSel=waveSel.filter(id=>{ const o=orders.find(x=>x.id===id);
     return o && Number(o.total_lines)<=ml && Number(o.total_required_base)<=mu
-      && (filterWh==="all"||o.warehouse===filterWh); });
+      && (filterWh==="all"||o.warehouse===filterWh)
+      && (filterTier==="all"||(o.price_tier||"")===filterTier); });
   const list=waveCandidates();
   document.getElementById("qcount").textContent=list.length+"";
   document.getElementById("qempty").style.display=list.length?"none":"block";
   document.getElementById("qlist").innerHTML=list.map(o=>{
     const i=waveSel.indexOf(o.id);
     const rev=o.needs_review?`<span class="tag rev">Needs review</span>`:"";
+    const tier=o.price_tier?`<span class="tag tier">${esc(o.price_tier)}</span>`:"";
     return `<div class="qcard wave ${i>=0?"sel":""}" data-id="${o.id}">
       <div class="ono">${esc(o.order_number)}${i>=0?`<span class="tno">TOTE ${i+1}</span>`:""}</div>
       <div class="cust">${esc(o.customer_name||"—")}</div>
@@ -560,6 +588,7 @@ function renderWaveQueue(){
         <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
         <span class="tag">${o.total_lines}lines</span>
         <span class="tag">${o.total_required_base}units</span>
+        ${tier}
         ${rev}
       </div>
     </div>`;
@@ -614,7 +643,7 @@ function renderWaveWorkbench(){
 // ---- printable wave documents (ONE window: summary page + one page per order) ----
 // Single window avoids popup blockers (two window.open calls after awaits get the 2nd blocked).
 // Page 1 = wave summary (wave barcode + tote table). Pages 2..N = per-order pick lists (own barcode + comments).
-function printWaveAll(win, label, sel, linesByOrder){
+function printWaveAll(win, label, sel, linesByOrder, createdBy){
   if(!win) return;
   const today=new Date().toLocaleDateString();
   const logo=location.origin+"/asung-logo-dark.png";
@@ -634,7 +663,7 @@ function printWaveAll(win, label, sel, linesByOrder){
       <div>
         <div><b>Wave</b>${esc2(label)}</div>
         <div><b>Warehouse</b>${wh}</div>
-        <div><b>Printed</b>${today}</div>
+        <div><b>Printed</b>${today}${createdBy?" · by "+esc2(createdBy):""}</div>
       </div>
       <div>
         <div><b>Orders / Totes</b>${sel.length}</div>
@@ -656,6 +685,7 @@ function printWaveAll(win, label, sel, linesByOrder){
     const units=ls.reduce((a,l)=>a+Number(l.required_base||0),0);
     const zones=[...new Set(ls.map(l=>(l.zone||"·")))].sort().join(", ");
     const cmt=(o.comments||"").trim();
+    const tier=(o.price_tier||"").trim();
     return `<section class="page pb">
       <div class="top">
         <div class="brandwrap"><img src="${logo}" class="logo" alt="ASUNG"><div class="doc">PICK LIST</div></div>
@@ -666,7 +696,8 @@ function printWaveAll(win, label, sel, linesByOrder){
           <div><b>Batch</b>${esc2(batchLabel)}</div>
           <div><b>Order</b>${esc2(o.order_number)}</div>
           <div><b>Warehouse</b>${owh}</div>
-          <div><b>Printed</b>${today}</div>
+          ${tier?`<div><b>Price Tier</b>${esc2(tier)}</div>`:""}
+          <div><b>Printed</b>${today}${createdBy?" · by "+esc2(createdBy):""}</div>
         </div>
         <div>
           <div><b>Wave</b>${esc2(label)} · Tote ${i+1}</div>
@@ -757,7 +788,7 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
       .update({status:"picking",updated_at:new Date().toISOString()}).in("id",selIds);
     if(oe) throw oe;
     toast(label+" created — "+sel.length+" totes");
-    printWaveAll(printWin,label,sel,byOrder);              // summary + per-order pick lists in one window
+    printWaveAll(printWin,label,sel,byOrder,(me?me.name:null));   // summary + per-order pick lists in one window
     orders=orders.filter(o=>!selIds.includes(o.id));
     waveSel=[];
     document.getElementById("wsWave").style.display="none";
