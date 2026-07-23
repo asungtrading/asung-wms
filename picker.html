@@ -105,6 +105,8 @@
   .single .barcodes .bv.empty{color:var(--mut-2);font-weight:400;font-style:italic}
   .zbadge{font-family:var(--mono);font-weight:800;font-size:15px;color:#fff;background:var(--mut);min-width:34px;height:34px;border-radius:9px;display:grid;place-items:center;padding:0 8px}
   .binbig{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.01em}
+  .mapchip{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 8px;font-size:15px;cursor:pointer;line-height:1}
+  .mapchip:active{background:var(--paper)}
   .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
   .single .sku{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--ink);letter-spacing:.01em}
   .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
@@ -182,7 +184,7 @@
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Picking</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
+      <button title="Warehouse map" onclick="window.open('https://tools.asung.ca/warehousemap.html','_blank')" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">🗺 Map</button> <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
       <div class="conn"><span class="dot" id="dot"></span></div>
     </div>
   </div>
@@ -775,7 +777,7 @@ function renderSingle(){
       <div class="head">
         <div class="img" ${imgStyle(l)}></div>
         <div class="info">
-          <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span></div>
+          <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span>${l.bin?`<button class="mapchip" data-map="${esc(l.bin)}" title="Find this bin on the warehouse map">🗺</button>`:""}</div>
           <div class="nm">${esc(l.product_name)}</div>
           <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` · base ${esc(l.base_sku)}`:""} ${availChip(l)}</div>
         </div>
@@ -804,6 +806,8 @@ function renderSingle(){
   s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
   s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssue(b.dataset.rep, curIdx));
+  const mc=s.querySelector("[data-map]");
+  if(mc) mc.onclick=()=>window.open("https://tools.asung.ca/warehousemap.html?loc="+encodeURIComponent(mc.dataset.map),"_blank");
 }
 function renderList(){
   document.getElementById("single").style.display="none";
