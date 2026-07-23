@@ -621,8 +621,8 @@ async function loadRollback(){
   if(!orders.length){ el.innerHTML=`<div class="empty">No orders past the split stage.</div>`; return; }
   const ids=orders.map(o=>o.id);
   const [picks,packs,pitems]=await Promise.all([
-    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to").in("order_id",ids).order("batch_label"),
-    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,status").in("order_id",ids),
+    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to,created_by").in("order_id",ids).order("batch_label"),
+    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,status,assigned_to").in("order_id",ids),
     sb.from("wms_pallet_items").select("order_id,pack_task_id").in("order_id",ids),
   ]);
   const pk=picks.data||[], pc=packs.data||[], pi=pitems.data||[];
@@ -642,13 +642,26 @@ async function loadRollback(){
     const hasPack=pc.some(x=>x.order_id===o.id);
     const hasFulfill=pi.some(x=>x.order_id===o.id);
     // deepest stage → single action
-    let stage="", action="", btn="";
-    if(hasFulfill){ stage="Fulfilled"; action="fulfillment"; btn="↩ Undo Fulfillment"; }
-    else if(hasPack){ stage="Pack complete"; action="pack"; btn="↩ Undo Pack"; }
-    else if(pickStarted){ stage="Pick in progress / done"; action="pick"; btn="↩ Reset Pick"; }
-    else if(hasSplit){ stage="Split (picking)"; action="split"; btn="↩ Undo Split"; }
+    let stage="", action="", btn="", worker="";
+    if(hasFulfill){ stage="Fulfilled"; action="fulfillment"; btn="↩ Undo Fulfillment";
+      // 대표 팩커(팔렛에 올라간 배치들의 팩 작업자, 중복 제거)
+      const packerNames=[...new Set(pc.filter(x=>x.order_id===o.id).map(x=>x.assigned_to).filter(Boolean))];
+      worker=packerNames.join(", ");
+    }
+    else if(hasPack){ stage="Pack complete"; action="pack"; btn="↩ Undo Pack";
+      const packerNames=[...new Set(pc.filter(x=>x.order_id===o.id).map(x=>x.assigned_to).filter(Boolean))];
+      worker=packerNames.join(", ");
+    }
+    else if(pickStarted){ stage="Pick in progress / done"; action="pick"; btn="↩ Reset Pick";
+      const pickerNames=[...new Set(myPicks.map(x=>x.assigned_to).filter(Boolean))];
+      worker=pickerNames.join(", ");
+    }
+    else if(hasSplit){ stage="Split (picking)"; action="split"; btn="↩ Undo Split";
+      const splitter=[...new Set(myPicks.map(x=>x.created_by).filter(Boolean))];
+      worker=splitter.join(", ");
+    }
     else { stage="—"; }
-    return {o,stage,action,btn,myPicks,hasFulfill};
+    return {o,stage,action,btn,myPicks,hasFulfill,worker};
   }).filter(r=>r.action); // only orders with something to undo
   if(!rows.length){ el.innerHTML=`<div class="empty">Nothing to roll back.</div>`; return; }
 
@@ -677,21 +690,22 @@ async function loadRollback(){
     </tr>`;
   }).join("");
 
-  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th></th></tr></thead><tbody>${
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
     rows.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}
         ${r.myPicks.length>1?`<button data-bt="${r.o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${r.myPicks.length} batches</button>`:""}</td>
       <td>${esc(r.o.customer_name||"—")}</td>
       <td><span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td>${esc(r.stage)}</td>
-      <td style="text-align:right"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}"
+      <td style="font-size:12px">${esc(r.worker||"—")}</td>
+      <td style="text-align:right"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-worker="${esc(r.worker||"")}"
         style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button></td>
     </tr>
-    ${r.myPicks.length>1?`<tr class="batchsub" data-bsub="${r.o.id}" style="display:none"><td colspan="5" style="background:#fafbfd;padding:6px 10px">
+    ${r.myPicks.length>1?`<tr class="batchsub" data-bsub="${r.o.id}" style="display:none"><td colspan="6" style="background:#fafbfd;padding:6px 10px">
       <table style="width:100%"><thead><tr><th style="font-size:11px">Batch</th><th style="font-size:11px">Worker</th><th style="font-size:11px">Batch stage</th><th></th></tr></thead>
       <tbody>${batchRows(r)}</tbody></table></td></tr>`:""}`).join("")
   }</tbody></table>`;
-  el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on));
+  el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on, b.dataset.worker));
   el.querySelectorAll("[data-bt]").forEach(b=>b.onclick=()=>{
     const sub=el.querySelector(`[data-bsub="${b.dataset.bt}"]`); if(!sub)return;
     const open=sub.style.display!=="none";
@@ -712,6 +726,15 @@ async function doBatchRollback(kind, pickId, packId, oid, onum, label){
   if(!confirm(msg)) return;
   const now=new Date().toISOString();
   try{
+    // capture the original worker BEFORE deleting (pack packer / pick picker)
+    let origWorker=null;
+    if(kind==="pack" && packId){
+      const {data:pkt}=await sb.from("wms_pack_tasks").select("assigned_to").eq("id",packId).maybeSingle();
+      origWorker=pkt?.assigned_to||null;
+    } else {
+      const {data:pit}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",pickId).maybeSingle();
+      origWorker=pit?.assigned_to||null;
+    }
     if(kind==="pack"){
       // safety re-check: block if this pack's items are already on a pallet
       const {count}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pack_task_id",packId);
@@ -727,12 +750,17 @@ async function doBatchRollback(kind, pickId, packId, oid, onum, label){
       await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).eq("pick_task_id",pickId);
       await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("id",pickId);
     }
-    // audit log (batch_label column from wms_lease_presence.sql; fall back without it)
+    // audit log (batch_label + original_worker columns optional; fall back without them)
     const STAGE={pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"]};
     const row={order_id:oid, order_number:onum, action:kind,
-      from_stage:STAGE[kind][0], to_stage:STAGE[kind][1], performed_by:me.name, batch_label:label};
-    const ins=await sb.from("wms_rollback_log").insert(row);
-    if(ins.error){ delete row.batch_label; await sb.from("wms_rollback_log").insert(row); }
+      from_stage:STAGE[kind][0], to_stage:STAGE[kind][1], performed_by:me.name,
+      batch_label:label, original_worker:origWorker};
+    let ins=await sb.from("wms_rollback_log").insert(row);
+    if(ins.error){ // original_worker 없을 수도, batch_label 없을 수도 → 하나씩 제거하며 재시도
+      const row2={...row}; delete row2.original_worker;
+      ins=await sb.from("wms_rollback_log").insert(row2);
+      if(ins.error){ delete row2.batch_label; await sb.from("wms_rollback_log").insert(row2); }
+    }
     toast(label+" rolled back");
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
@@ -745,12 +773,13 @@ async function loadRollbackLog(){
   if(error){ el.innerHTML=`<div class="empty" style="font-size:12px">Log table not found. Run wms_rollback_log.sql to enable history.</div>`; return; }
   if(!data||!data.length){ el.innerHTML=`<div class="empty" style="font-size:12px">No rollbacks yet.</div>`; return; }
   const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split"};
-  el.innerHTML=`<table><thead><tr><th>Order</th><th>Batch</th><th>Action</th><th>Stage</th><th>By</th><th>When</th></tr></thead><tbody>${
+  el.innerHTML=`<table><thead><tr><th>Order</th><th>Batch</th><th>Action</th><th>Stage</th><th>Original worker</th><th>Undone by</th><th>When</th></tr></thead><tbody>${
     data.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"—")}</td>
       <td style="font-family:var(--mono);font-size:12px">${esc(r.batch_label||"—")}</td>
       <td>${esc(AL[r.action]||r.action)}</td>
       <td style="font-size:12px;color:var(--mut)">${esc(r.from_stage||"")} → ${esc(r.to_stage||"")}</td>
+      <td style="font-size:12px">${esc(r.original_worker||"—")}</td>
       <td>${esc(r.performed_by||"—")}</td>
       <td style="font-size:12px;color:var(--mut)">${r.created_at?new Date(r.created_at).toLocaleString():""}</td>
     </tr>`).join("")
@@ -763,7 +792,7 @@ const RB_CONFIRM={
   pick:o=>`Reset picking for ${o}?\n\n• All picked quantities go back to 0\n• Batches return to unstarted (batches are kept)\n• Related discrepancies are NOT removed\n\nProceed?`,
   split:o=>`Undo split for ${o}?\n\n• Deletes ALL batches for this order\n• Returns it to the waiting-to-split stage so it can be split again\n\nProceed?`,
 };
-async function doRollback(oid, action, onum){
+async function doRollback(oid, action, onum, worker){
   if(!confirm(RB_CONFIRM[action](onum))) return;
   const now=new Date().toISOString();
   try{
@@ -806,10 +835,13 @@ async function doRollback(oid, action, onum){
     }
     // audit log (separate table — keeps discrepancy queue clean)
     const STAGE={fulfillment:["fulfilled","pack_complete"],pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"],split:["split","unsplit"]};
-    await sb.from("wms_rollback_log").insert({
+    const logRow={
       order_id:oid, order_number:onum, action,
-      from_stage:STAGE[action][0], to_stage:STAGE[action][1], performed_by:me.name
-    });
+      from_stage:STAGE[action][0], to_stage:STAGE[action][1], performed_by:me.name,
+      original_worker:(worker||null)   // 되돌린 그 단계를 원래 한 사람
+    };
+    const ins=await sb.from("wms_rollback_log").insert(logRow);
+    if(ins.error){ delete logRow.original_worker; await sb.from("wms_rollback_log").insert(logRow); } // 컬럼 없으면 폴백
     toast("Rollback done");
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
