@@ -60,7 +60,10 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* scan bar */
-  .scanbar{position:sticky;top:56px;z-index:10;background:var(--paper);padding:6px 0 12px}
+  .scanbar{background:var(--paper);padding:6px 0 12px}
+  .recv-controls,.put-controls{position:sticky;top:55px;z-index:15;background:var(--paper)}
+  .put-controls{padding:2px 0 6px}
+  .recv-controls .zjump,.put-controls .zjump{margin-bottom:6px}
   .scanin{width:100%;border:2px solid var(--accent);border-radius:12px;padding:14px 16px;font:inherit;font-size:16px;font-family:var(--mono);letter-spacing:.02em;background:#fff}
   .scanin:focus{outline:none;box-shadow:0 0 0 4px rgba(47,109,246,.15)}
   .scanhint{font-size:11px;color:var(--mut-2);font-family:var(--mono);margin:5px 2px 0;display:flex;align-items:center;gap:6px}
@@ -269,24 +272,25 @@
     </div>
     <div class="prog"><i id="progBar"></i></div>
 
-    <div class="scanbar">
-      <input class="scanin" id="scan" inputmode="none" autocomplete="off" placeholder="Scan a barcode…">
-      <div class="scanhint"><span class="live"></span><span>Waiting for scan · box scan = ×factor units · unknown item → off-PO</span></div>
-    </div>
-
-    <div style="display:flex;align-items:center;gap:8px;margin:0 2px 8px">
-      <span style="font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut-2)">Sort</span>
-      <select id="sortSel" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:12.5px;background:#fff;color:var(--ink);cursor:pointer">
-        <option value="po">PO order</option>
-        <option value="zone">Zone / Last bin</option>
-        <option value="product">Product (A–Z)</option>
-        <option value="sku">SKU (A–Z)</option>
-      </select>
+    <div class="recv-controls">
+      <div class="scanbar">
+        <input class="scanin" id="scan" inputmode="none" autocomplete="off" placeholder="Scan a barcode…">
+        <div class="scanhint"><span class="live"></span><span>Waiting for scan · box scan = ×factor units · unknown item → off-PO</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin:0 2px 8px">
+        <span style="font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut-2)">Sort</span>
+        <select id="sortSel" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:12.5px;background:#fff;color:var(--ink);cursor:pointer">
+          <option value="po">PO order</option>
+          <option value="zone">Zone / Last bin</option>
+          <option value="product">Product (A–Z)</option>
+          <option value="sku">SKU (A–Z)</option>
+        </select>
+      </div>
+      <div class="zjump" id="rZjump" style="display:none"></div>
+      <div class="zjump" id="rZjumpBay" style="display:none"></div>
     </div>
 
     <div class="single" id="rSingle"></div>
-    <div class="zjump" id="rZjump" style="display:none"></div>
-    <div class="zjump" id="rZjumpBay" style="display:none"></div>
     <div class="list" id="rList"></div>
 
     <div class="foot">
@@ -306,8 +310,10 @@
       </div>
     </div>
     <div class="lead">Walk the route below and place items at each bin. Tap <b>Placed</b> as you go.</div>
-    <div class="zjump" id="putZjump"></div>
-    <div class="zjump" id="putZjumpBay" style="display:none"></div>
+    <div class="put-controls">
+      <div class="zjump" id="putZjump"></div>
+      <div class="zjump" id="putZjumpBay" style="display:none"></div>
+    </div>
     <div id="putGroups"></div>
 
     <div class="foot">
