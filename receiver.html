@@ -159,6 +159,34 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   #toast.bad{background:var(--danger)}
 
+  /* bin assign modal */
+  .modal-ov{position:fixed;inset:0;background:rgba(16,22,30,.5);backdrop-filter:blur(2px);z-index:70;display:flex;align-items:flex-end;justify-content:center}
+  @media(min-width:560px){.modal-ov{align-items:center}}
+  .modal{background:var(--card);width:100%;max-width:520px;border-radius:16px 16px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.3);max-height:88vh;display:flex;flex-direction:column}
+  @media(min-width:560px){.modal{border-radius:16px}}
+  .modal .mh{padding:16px 18px 10px}
+  .modal .mh .t{font-family:var(--mono);font-weight:800;font-size:16px}
+  .modal .mh .s{font-size:12.5px;color:var(--mut);margin-top:2px}
+  .modal .mscan{margin:0 18px 6px}
+  .modal .mscan input{width:100%;border:2px solid var(--accent);border-radius:11px;padding:13px 15px;font:inherit;font-size:16px;font-family:var(--mono);letter-spacing:.02em;background:#fff}
+  .modal .mscan input:focus{outline:none;box-shadow:0 0 0 4px rgba(47,109,246,.15)}
+  .modal .mscan .h{font-size:11px;color:var(--mut-2);font-family:var(--mono);margin:5px 2px 0;display:flex;align-items:center;gap:6px}
+  .modal .mscan .h .live{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.4s infinite}
+  .modal .ord{display:flex;align-items:center;gap:8px;padding:2px 18px 8px;font-size:11.5px;color:var(--mut)}
+  .modal .ord::before,.modal .ord::after{content:"";flex:1;height:1px;background:var(--line)}
+  .modal .mfilter{margin:0 18px 8px}
+  .modal .mfilter input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font:inherit;font-size:13px}
+  .modal .blist2{overflow-y:auto;padding:0 10px 6px;flex:1}
+  .modal .bzone{font-family:var(--mono);font-size:10px;font-weight:800;text-transform:uppercase;color:var(--mut);padding:8px 8px 4px}
+  .modal .bitem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;border-radius:9px;padding:10px 10px;font:inherit;cursor:pointer}
+  .modal .bitem:hover,.modal .bitem:focus{background:var(--paper)}
+  .modal .bitem .zn{font-family:var(--mono);font-weight:800;font-size:12px;color:#fff;background:var(--mut);min-width:26px;height:26px;border-radius:7px;display:grid;place-items:center;padding:0 6px;flex:none}
+  .modal .bitem .bc{font-family:var(--mono);font-weight:700;font-size:15px}
+  .modal .bitem .st{margin-left:auto;font-size:11px;color:var(--mut-2)}
+  .modal .mfoot{padding:10px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:10px}
+  .modal .mfoot .btn{flex:1;padding:12px}
+  .modal .mmap{display:block;text-align:center;padding:8px;font-size:12.5px;color:var(--accent);font-weight:700;text-decoration:none}
+
   .gate{max-width:440px;margin:12vh auto;padding:28px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
   .gate h2{margin:0 0 6px;font-size:18px}
   .gate p{margin:0 0 18px;color:var(--mut);font-size:13.5px;line-height:1.6}
@@ -184,7 +212,7 @@
     <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Receiving</span></div>
     <div class="right">
       <span id="meName" style="font-size:13px;font-weight:600;font-family:ui-monospace,Menlo,monospace"></span>
-      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
+      <button title="Warehouse map" onclick="window.open('https://tools.asung.ca/warehousemap.html','_blank','noopener')" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">🗺 Map</button> <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)">Sign out</button>
       <div class="conn"><span class="dot" id="dot"></span></div>
     </div>
   </div>
@@ -273,6 +301,7 @@ const EF_RECEIVING = (window.WMS_CONFIG ? WMS_CONFIG.SUPABASE_URL : "") + "/func
 let sb=null, me=null, zoneSeq={};
 let myReceipts=[], openPos=[];
 let receipt=null, lines=[], bcMap={}, actx=null, view="single", curIdx=0;
+let allBins=[];   // 현재 receipt 창고의 bin 목록 (빈 지정 드롭다운용)
 
 /* ---------- boot ---------- */
 function boot(){
@@ -517,6 +546,26 @@ async function openReceipt(rid){
   renderRecv(); focusScan();
   await buildBcMap();   // 바코드 맵 + 이미지 enrich (독립)
   renderRecv(); focusScan();
+  loadBins();           // 창고 bin 목록 (빈 지정용, 독립)
+}
+
+/* ---------- 창고 bin 목록 로드 (빈 지정 드롭다운) ---------- */
+async function loadBins(){
+  try{
+    const {data,error}=await sb.from("wms_sku_bins")
+      .select("bin,zone").eq("warehouse",receipt.warehouse);
+    if(error) throw error;
+    const seen={};
+    (data||[]).forEach(r=>{
+      const b=(r.bin||"").trim(); if(!b||seen[b])return;
+      seen[b]={bin:b,zone:(r.zone||zoneOfBin(b))};
+    });
+    allBins=Object.values(seen).sort((a,b)=>{
+      const za=zOrder(a.zone), zb=zOrder(b.zone);
+      if(za!==zb)return za-zb;
+      return a.bin<b.bin?-1:1;
+    });
+  }catch(e){ allBins=[]; }  // 실패해도 스캔/타이핑은 됨
 }
 
 /* ---------- bcMap: 스냅샷 형제 바코드 병합 (picker 패턴) ---------- */
@@ -930,15 +979,72 @@ async function togglePlaced(lineId){
   renderPutaway();
 }
 
-async function assignBin(lineId){
+/* 빈 지정: 스캔(1순위) + 드롭다운 검색(폴백) 모달 */
+function assignBin(lineId){
   const l=lines.find(x=>x.id===lineId); if(!l)return;
-  const v=prompt(`Assign a bin for ${l.order_sku}\nScan or type the bin code:`,"");
-  if(v===null)return;
-  const bin=v.trim().toUpperCase(); if(!bin)return;
+  openBinModal(l);
+}
+function closeBinModal(){
+  const ov=document.getElementById("binModal"); if(ov)ov.remove();
+}
+function renderBinOptions(filter){
+  const f=(filter||"").trim().toUpperCase();
+  const rows=allBins.filter(b=>!f||b.bin.toUpperCase().includes(f)||(b.zone||"").toUpperCase()===f);
+  const box=document.getElementById("binOpts");
+  if(!allBins.length){ box.innerHTML=`<div style="padding:14px;color:var(--mut);font-size:12.5px">Bin list unavailable — scan or type the bin above.</div>`; return; }
+  if(!rows.length){ box.innerHTML=`<div style="padding:14px;color:var(--mut);font-size:12.5px">No bin matches "${esc(filter)}". You can still scan/type it above.</div>`; return; }
+  let html="", curZone=null;
+  rows.slice(0,300).forEach(b=>{
+    if(b.zone!==curZone){ curZone=b.zone; html+=`<div class="bzone">Zone ${esc(curZone||"·")}</div>`; }
+    html+=`<button class="bitem" data-bin="${esc(b.bin)}"><span class="zn">${esc(b.zone||"·")}</span><span class="bc">${esc(b.bin)}</span></button>`;
+  });
+  if(rows.length>300) html+=`<div style="padding:10px;color:var(--mut-2);font-size:11px">…${rows.length-300} more — type to filter</div>`;
+  box.innerHTML=html;
+  box.querySelectorAll("[data-bin]").forEach(btn=>btn.onclick=()=>commitBin(btn.dataset.bin));
+}
+function openBinModal(l){
+  closeBinModal();
+  const ov=document.createElement("div");
+  ov.className="modal-ov"; ov.id="binModal";
+  ov.innerHTML=`
+    <div class="modal" role="dialog" aria-label="Assign bin">
+      <div class="mh"><div class="t">Assign bin</div>
+        <div class="s">${esc(l.order_sku)} · ${esc(l.product_name||"")} · qty ${l.received}</div></div>
+      <div class="mscan">
+        <input id="binScan" inputmode="none" autocomplete="off" placeholder="Scan a bin barcode…">
+        <div class="h"><span class="live"></span><span>Scan the bin barcode — or pick from the list below</span></div>
+      </div>
+      <div class="ord">or choose</div>
+      <div class="mfilter"><input id="binFilter" autocomplete="off" placeholder="Filter bins (code or zone)…"></div>
+      <div class="blist2" id="binOpts"></div>
+      <a class="mmap" href="https://tools.asung.ca/warehousemap.html" target="_blank" rel="noopener">🗺 Open warehouse map</a>
+      <div class="mfoot"><button class="btn ghost" id="binCancel">Cancel</button></div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.dataset.lineId=l.id;
+  ov.addEventListener("mousedown",e=>{ if(e.target===ov) closeBinModal(); });
+  document.getElementById("binCancel").onclick=closeBinModal;
+  renderBinOptions("");
+  const scan=document.getElementById("binScan");
+  scan.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){ e.preventDefault(); const v=scan.value.trim(); scan.value=""; if(v)commitBin(v); }
+  });
+  const filt=document.getElementById("binFilter");
+  filt.addEventListener("input",()=>renderBinOptions(filt.value));
+  setTimeout(()=>scan.focus(),50);   // 스캐너 포커스
+}
+async function commitBin(raw){
+  const ov=document.getElementById("binModal"); if(!ov)return;
+  const l=lines.find(x=>x.id===+ov.dataset.lineId); if(!l)return;
+  const bin=String(raw).trim().toUpperCase(); if(!bin)return;
+  // 알려진 bin 인지 확인 — 아니면 확인 후 진행(신규 bin 허용)
+  const known=allBins.some(b=>b.bin.toUpperCase()===bin);
+  if(!known && allBins.length && !confirm(`"${bin}" is not a known bin in ${receipt.warehouse}. Use it anyway?`)) return;
   l.putaway_bin=bin; l.zone=zoneOfBin(bin);
+  beep("ok");
   const {error}=await sb.from("wms_receipt_lines").update({putaway_bin:bin,zone:l.zone}).eq("id",l.id);
-  if(error){ l.putaway_bin=null; toast("Save failed",true); }
-  renderPutaway();
+  if(error){ l.putaway_bin=null; toast("Save failed",true); return; }
+  closeBinModal(); renderPutaway();
 }
 
 /* ---------- 완료 (부분 / 최종) ---------- */
