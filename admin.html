@@ -1319,6 +1319,7 @@ async function loadRecv(){
 
   // ── Apply to Cin7: 완료됐고 아직 미반영인 receipt ──
   const rs=(rcpts.data||[]);
+  const canApply=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");  // Apply to Cin7 권한
   const applicable=rs.filter(r=>r.status==="completed"&&!r.applied_at);
   const pending=rs.filter(r=>(r.status==="partial"||r.status==="held"||r.status==="in_progress"));
   const ex=document.getElementById("recvExports");
@@ -1329,7 +1330,9 @@ async function loadRecv(){
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
-          <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">Apply to Cin7</button></td>
+          <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> ${canApply
+            ? `<button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">Apply to Cin7</button>`
+            : `<span style="font-size:11.5px;color:var(--mut-2)" title="Requires 'Apply to Cin7' permission">Apply — no permission</span>`}</td>
         </tr>`).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to apply — receipts appear here once completed. Cin7 is only written when you click Apply and confirm the plan.</div>`)
     +(pending.length?`<div style="color:var(--mut-2);padding:8px 14px;font-size:12px;border-top:1px solid var(--line)">${pending.length} receipt(s) still receiving/held — finish them to apply.</div>`:"");
@@ -1416,12 +1419,13 @@ async function reviewReceipt(rid){
       <table style="width:100%"><tbody>${noBin.map(lineRow).join("")}</tbody></table>`;
     if(!body) body=`<div style="color:var(--mut);padding:12px">No received lines.</div>`;
 
+    const canApply=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");
     const foot=applied
       ? `<div style="color:var(--mut);font-size:12.5px;padding:4px 2px">✓ Already applied to Cin7${rh.applied_at?" · "+new Date(rh.applied_at).toLocaleString():""} — read-only. Corrections must be made in Cin7.</div>
          <button class="btnsm" id="rvClose">Close</button>`
       : `<button class="btnsm" id="rvReopen" style="color:var(--warn,#d9820a)">Reopen for edit</button>
          <button class="btnsm" id="rvClose">Close</button>
-         <button class="btnsm ok" id="rvApply">Apply to Cin7 →</button>`;
+         ${canApply?`<button class="btnsm ok" id="rvApply">Apply to Cin7 →</button>`:`<span style="font-size:12px;color:var(--mut-2)">Apply needs permission</span>`}`;
 
     const ov=document.createElement("div"); ov.id="rvModal";
     ov.style.cssText="position:fixed;inset:0;background:rgba(16,22,30,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px";
@@ -1449,7 +1453,10 @@ async function reviewReceipt(rid){
     };
   }catch(e){ toast("Review failed: "+(e.message||e),true); }
 }
-async function applyToCin7(rid,po,btn){  const EF=(window.WMS_CONFIG?WMS_CONFIG.SUPABASE_URL:"")+"/functions/v1/receiving";
+async function applyToCin7(rid,po,btn){
+  if(!((me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply"))){
+    toast("You don't have permission to Apply to Cin7",true); return; }
+  const EF=(window.WMS_CONFIG?WMS_CONFIG.SUPABASE_URL:"")+"/functions/v1/receiving";
   const hdrs=async()=>{
     const {data:{session}}=await sb.auth.getSession();
     const tk=(session&&session.access_token)||WMS_CONFIG.SUPABASE_ANON_KEY;

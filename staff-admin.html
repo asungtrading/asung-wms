@@ -333,7 +333,7 @@ function rowHtml(s){
   const rlSel = `<select class="pill rl-${s.role}" data-rl data-rl_id="${s.id}" ${lockRole?'disabled title="Only an admin can change an admin\'s role"':""}>`+
     ["worker","manager","admin"].map(r=>`<option value="${r}" ${r===s.role?"selected":""}>${RL_LABEL[r]}</option>`).join("")+`</select>`;
   const tg = `<div class="toggle ${s.active?"on":""}" data-tg="${s.id}"><span class="track"></span><small>${s.active?"Active":"Inactive"}</small></div>`;
-  const PERMS=[["split","Split"],["admin","Admin"],["staff","Staff"],["stock","Stock"]];
+  const PERMS=[["split","Split"],["admin","Admin"],["staff","Staff"],["stock","Stock"],["apply","Apply→Cin7"]];
   let permCell;
   if(s.role==="admin"){ permCell=`<span class="permall">All access</span>`; }
   else if(s.role==="manager"){
