@@ -113,6 +113,19 @@
   .navrow .btn{flex:1}
   .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
+  .zdiv{display:flex;align-items:center;gap:8px;padding:10px 4px 2px}
+  .zdiv .zn{font-family:var(--mono);font-weight:800;font-size:12px;color:#fff;background:var(--mut);min-width:26px;height:26px;border-radius:7px;display:grid;place-items:center;padding:0 7px}
+  .zdiv .zl{font-family:var(--mono);font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+  .zdiv .zc{margin-left:auto;font-size:11px;color:var(--mut-2);font-family:var(--mono)}
+  .zdiv.nobin .zn{background:var(--warn,#d9820a)}
+  /* zone 점프 칩 바 */
+  .zjump{display:flex;flex-wrap:wrap;gap:6px;margin:0 2px 10px}
+  .zjump .zchip{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 11px;font:inherit;font-family:var(--mono);font-size:12.5px;font-weight:800;color:var(--ink);cursor:pointer}
+  .zjump .zchip:hover{border-color:var(--accent);color:var(--accent)}
+  .zjump .zchip .c{color:var(--mut-2);font-weight:600;font-size:10px;margin-left:3px}
+  .zjump .zchip.nobin{color:var(--warn,#d9820a);border-color:#f0d9ae}
+  .zjump .zchip.alldone{opacity:.5}
+  .zjump .zchip.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,109,246,.12)}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
   .lrow.over{background:var(--warn-bg);border-color:#f0d9ae}
@@ -272,6 +285,8 @@
     </div>
 
     <div class="single" id="rSingle"></div>
+    <div class="zjump" id="rZjump" style="display:none"></div>
+    <div class="zjump" id="rZjumpBay" style="display:none"></div>
     <div class="list" id="rList"></div>
 
     <div class="foot">
@@ -291,6 +306,8 @@
       </div>
     </div>
     <div class="lead">Walk the route below and place items at each bin. Tap <b>Placed</b> as you go.</div>
+    <div class="zjump" id="putZjump"></div>
+    <div class="zjump" id="putZjumpBay" style="display:none"></div>
     <div id="putGroups"></div>
 
     <div class="foot">
@@ -725,12 +742,26 @@ function renderRList(){
   document.getElementById("rSingle").style.display="none";
   const el=document.getElementById("rList");
   el.style.display="flex";
-  el.innerHTML=orderedIdx().map(idx=>{
+  const ord=orderedIdx();
+  // zone 정렬이면 zone 별 개수 미리 집계 (헤더 카운트용)
+  const zoneCount={};
+  if(sortMode==="zone") ord.forEach(i=>{ const l=lines[i]; const z=l.lastBin?zoneOfBin(l.lastBin):"__none"; zoneCount[z]=(zoneCount[z]||0)+1; });
+  let curZone=null, html="";
+  ord.forEach(idx=>{
     const l=lines[idx];
+    if(sortMode==="zone"){
+      const z=l.lastBin?zoneOfBin(l.lastBin):"__none";
+      if(z!==curZone){
+        curZone=z;
+        html+= z==="__none"
+          ? `<div class="zdiv nobin" data-zone="__none"><span class="zn">?</span><span class="zl">No last bin</span><span class="zc">${zoneCount[z]}</span></div>`
+          : `<div class="zdiv" data-zone="${esc(z)}"><span class="zn">${esc(z||"·")}</span><span class="zl">Zone ${esc(z||"·")}</span><span class="zc">${zoneCount[z]}</span></div>`;
+      }
+    }
     const done=l.expected>0&&l.received>=l.expected&&l.received<=l.expected;
     const over=l.received>l.expected;
     const cls=(l.is_off_po?"offpo":(over?"over":(done?"done":"")))+(idx===curIdx?" cur":"");
-    return `<div class="lrow ${cls}" data-idx="${idx}">
+    html+=`<div class="lrow ${cls}" data-idx="${idx}" data-bay="${l.lastBin?esc(bayOfBin(l.lastBin)):"__none"}">
       <div class="thumb" ${imgStyle(l)}></div>
       <div class="li"><div class="s">${esc(l.order_sku)}${lineChips(l)}</div>
         <div class="n">${esc(l.product_name)}</div>
@@ -741,10 +772,37 @@ function renderRList(){
         <button data-step="1" data-i="${idx}">+</button>
       </div>
     </div>`;
-  }).join("");
+  });
+  el.innerHTML=html;
   el.querySelectorAll("[data-step]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();manualAdjust(+b.dataset.i,+b.dataset.step);});
   el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{curIdx=+r.dataset.idx;renderRecv();focusScan();});
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
+  // zone 점프 칩 바 (Zone 정렬일 때만) — Zone 클릭 시 그 zone 의 Bay 칩 펼침
+  const zj=document.getElementById("rZjump"), zjb=document.getElementById("rZjumpBay");
+  if(sortMode==="zone" && Object.keys(zoneCount).length){
+    const zones=Object.keys(zoneCount).sort((a,b)=>{ if(a==="__none")return 1; if(b==="__none")return -1; const d=zOrder(a)-zOrder(b); return d||(a<b?-1:1); });
+    zj.innerHTML=zones.map(z=>z==="__none"
+      ? `<button class="zchip nobin" data-zj="__none">?<span class="c">${zoneCount[z]}</span></button>`
+      : `<button class="zchip" data-zj="${esc(z)}">${esc(z)}<span class="c">${zoneCount[z]}</span></button>`).join("");
+    zj.style.display="flex"; zjb.style.display="none"; zjb.innerHTML="";
+    zj.querySelectorAll("[data-zj]").forEach(c=>c.onclick=()=>{
+      const z=c.dataset.zj;
+      const hd=el.querySelector(`.zdiv[data-zone="${z==="__none"?"__none":CSS.escape(z)}"]`);
+      if(hd) hd.scrollIntoView({behavior:"smooth",block:"start"});
+      // 그 zone 의 bay 칩 펼치기 (__none 은 bay 없음)
+      zj.querySelectorAll(".zchip").forEach(x=>x.classList.toggle("sel",x===c));
+      if(z==="__none"){ zjb.style.display="none"; zjb.innerHTML=""; return; }
+      const bays={};
+      ord.forEach(i=>{ const li=lines[i]; if(li.lastBin&&zoneOfBin(li.lastBin)===z){ const b=bayOfBin(li.lastBin); bays[b]=(bays[b]||0)+1; } });
+      const bk=Object.keys(bays).sort();
+      zjb.innerHTML=bk.map(b=>`<button class="zchip" data-bay="${esc(b)}">${esc(b)}<span class="c">${bays[b]}</span></button>`).join("");
+      zjb.style.display=bk.length?"flex":"none";
+      zjb.querySelectorAll("[data-bay]").forEach(bc=>bc.onclick=()=>{
+        const row=el.querySelector(`.lrow[data-bay="${CSS.escape(bc.dataset.bay)}"]`);
+        if(row) row.scrollIntoView({behavior:"smooth",block:"center"});
+      });
+    });
+  }else{ zj.style.display="none"; zj.innerHTML=""; zjb.style.display="none"; zjb.innerHTML=""; }
 }
 function move(dir){
   const ord=orderedIdx();
@@ -932,6 +990,20 @@ function zoneOfBin(bin){
   if(receipt.warehouse==="edmonton") return /^E[A-Z]/.test(bin)?bin.charAt(1):bin.charAt(0);
   return bin.charAt(0);
 }
+/* 구조: [E?] Zone Rack(숫자2) Bay Shelf.
+   - 랙 뒤가 숫자 4자리+ (0101 등): 베이(2)+셸프(2) → bay = 존+랙+베이2  (EZ010101→EZ0101)
+   - 랙 뒤에 문자 섞임 (Pallet05, HAIR 등): 나머지 전부가 베이, 셸프 없음 → bay = bin 통째 (EZ01Pallet05→EZ01Pallet05)
+   토론토는 E 없음(C020303→C0203), 에드먼튼은 E 포함 표시(EZ0101). */
+function bayOfBin(bin){
+  if(!bin)return "";
+  const pre=(receipt.warehouse==="edmonton"&&/^E/i.test(bin))?bin.slice(0,2):bin.slice(0,1); // E+Zone 또는 Zone
+  const rest=bin.slice(pre.length);
+  const m=rest.match(/^(\d{2})(.*)$/);          // 랙(숫자2) + 그 뒤
+  if(!m) return bin;                             // 랙이 숫자2 아니면 비정형 → 통째
+  const rack=m[1], after=m[2];
+  if(/^\d{4}/.test(after)) return pre+rack+after.slice(0,2);  // 숫자형: 베이2 잘라냄 (셸프 제거)
+  return bin;                                    // 팔레트/문자형: 나머지 전부가 베이 = bin 통째
+}
 function zOrder(z){ const k=receipt.warehouse+"|"+(z||""); return zoneSeq[k]!=null?zoneSeq[k]:9999; }
 
 function showPutaway(){
@@ -974,7 +1046,7 @@ function renderPutaway(){
         <button class="pk" data-place="${l.id}">${l.putaway_done?"✓ Placed":"Placed"}</button>
       </div>`).join("");
     const z=zoneOfBin(bin);
-    return `<div class="bin-group ${allDone?"donegrp":""}">
+    return `<div class="bin-group ${allDone?"donegrp":""}" data-zone="${esc(z||"·")}" data-bay="${esc(bayOfBin(bin))}" data-bin="${esc(bin)}">
       <div class="bh"><span class="zn">${esc(z||"·")}</span><span class="binbig">${esc(bin)}</span>
         <span class="bmeta">${grp.length} item${grp.length>1?"s":""}</span></div>
       ${rows}
@@ -1009,6 +1081,36 @@ function renderPutaway(){
   pg.innerHTML=html;
   pg.querySelectorAll("[data-place]").forEach(b=>b.onclick=()=>togglePlaced(+b.dataset.place));
   pg.querySelectorAll("[data-assign]").forEach(b=>b.onclick=()=>assignBin(+b.dataset.assign));
+  // zone 점프 칩 바 — Zone 클릭 시 그 zone 의 Bay 칩 펼침
+  const zj=document.getElementById("putZjump"), zjb=document.getElementById("putZjumpBay");
+  const zoneStat={};
+  binKeys.forEach(bin=>{ const z=zoneOfBin(bin)||"·"; const g=withBin[bin]; (zoneStat[z]=zoneStat[z]||{n:0,done:0}); zoneStat[z].n+=g.length; zoneStat[z].done+=g.filter(l=>l.putaway_done).length; });
+  const zones=Object.keys(zoneStat).sort((a,b)=>{ const d=zOrder(a)-zOrder(b); return d||(a<b?-1:1); });
+  let chips=zones.map(z=>{
+    const done=zoneStat[z].done>=zoneStat[z].n;
+    return `<button class="zchip ${done?"alldone":""}" data-zj="${esc(z)}">${esc(z)}<span class="c">${zoneStat[z].done}/${zoneStat[z].n}</span></button>`;
+  });
+  if(needBin.length) chips.push(`<button class="zchip nobin" data-zj="__needbin">?<span class="c">${needBin.length}</span></button>`);
+  if(zones.length>1||needBin.length){
+    zj.innerHTML=chips.join(""); zj.style.display="flex"; zjb.style.display="none"; zjb.innerHTML="";
+    zj.querySelectorAll("[data-zj]").forEach(c=>c.onclick=()=>{
+      const z=c.dataset.zj;
+      let target = z==="__needbin" ? pg.querySelector(".bin-group.needbin") : pg.querySelector(`.bin-group[data-zone="${CSS.escape(z)}"]`);
+      if(target) target.scrollIntoView({behavior:"smooth",block:"start"});
+      zj.querySelectorAll(".zchip").forEach(x=>x.classList.toggle("sel",x===c));
+      if(z==="__needbin"){ zjb.style.display="none"; zjb.innerHTML=""; return; }
+      // 그 zone 의 bay 칩 (bay 별 진행률)
+      const bayStat={};
+      binKeys.filter(bin=>zoneOfBin(bin)===z).forEach(bin=>{ const b=bayOfBin(bin); const g=withBin[bin]; (bayStat[b]=bayStat[b]||{n:0,done:0}); bayStat[b].n+=g.length; bayStat[b].done+=g.filter(l=>l.putaway_done).length; });
+      const bk=Object.keys(bayStat).sort();
+      zjb.innerHTML=bk.map(b=>{ const d=bayStat[b].done>=bayStat[b].n; return `<button class="zchip ${d?"alldone":""}" data-bay="${esc(b)}">${esc(b)}<span class="c">${bayStat[b].done}/${bayStat[b].n}</span></button>`; }).join("");
+      zjb.style.display=bk.length>1?"flex":"none";  // bay 하나뿐이면 굳이 안 펼침
+      zjb.querySelectorAll("[data-bay]").forEach(bc=>bc.onclick=()=>{
+        const g2=pg.querySelector(`.bin-group[data-bay="${CSS.escape(bc.dataset.bay)}"]`);
+        if(g2) g2.scrollIntoView({behavior:"smooth",block:"start"});
+      });
+    });
+  }else{ zj.style.display="none"; zj.innerHTML=""; zjb.style.display="none"; zjb.innerHTML=""; }
 }
 
 async function togglePlaced(lineId){
