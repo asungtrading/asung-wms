@@ -253,40 +253,14 @@ let waves=[], myWaves=[], staleWaves=[], wave=null, tasks=[];   // wave mode (gr
 let curWh="", pickTitle="", pickMeta="";                        // shared pick-view context (single batch or wave)
 let actx=null;
 
-/* ---------- lease / heartbeat / presence ---------- */
-const HB_MS=20000;          // heartbeat write interval while a batch is open
-const STALE_S=75;           // no heartbeat for this long = holder considered gone
-let hbTimer=null, presCh=null;
-const staleISO=()=>new Date(Date.now()-STALE_S*1000).toISOString();
-const isStale=t=>{ const h=t.heartbeat_at||t.started_at; return !h || (Date.now()-new Date(h).getTime())>STALE_S*1000; };
-function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
-function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
-function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
-async function beatOnce(){
-  const now=new Date().toISOString();
-  if(wave){
-    const {data,error}=await sb.from("wms_waves")
-      .update({heartbeat_at:now})
-      .eq("id",wave.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
-    if(!error && (!data||!data.length)){
-      toast("This wave was taken over or released",true);
-      resetToList();
-      return;
-    }
-    // keep member batches visibly alive for the admin screen (best effort)
-    sb.from("wms_pick_tasks").update({heartbeat_at:now}).in("id",tasks.map(t=>t.id)).then(()=>{});
-    return;
-  }
-  if(!task) return;
-  const {data,error}=await sb.from("wms_pick_tasks")
-    .update({heartbeat_at:now})
-    .eq("id",task.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
-  if(!error && (!data||!data.length)){
-    // claim lost: taken over by another worker or released by admin
-    toast("This batch was taken over or released",true);
-    resetToList();
-  }
-}
+/* ---------- lease / presence (heartbeat 제거 — 스캔 시 이어받기로 대체) ---------- */
+/* 픽리스트 종이가 소유권을 보증하므로 상시 heartbeat 불필요. 배터리 절감.
+   방치된 클레임은 다른 워커가 그 오더를 "스캔"할 때 이어받기로 해결한다. */
+let presCh=null;
+function idleMin(){ return null; }              // 호환 스텁 (stale 목록 제거됨)
+function staleISO(){ return new Date(0).toISOString(); }  // 호환 스텁 (takeover 조건절용 — 항상 통과)
+function startHeartbeat(){}   // no-op (호환용 — 호출부 남아있어도 안전)
+function stopHeartbeat(){}
 function presenceJoin(){
   presenceLeave();
   try{
@@ -393,19 +367,15 @@ async function loadBatches(){
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  const sel="id,batch_label,status,assigned_to,started_at,heartbeat_at,work_started,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  const wsel="id,label,warehouse,status,assigned_to,started_at,heartbeat_at, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review), wms_pick_task_lines(count))";
+  const sel="id,batch_label,status,assigned_to,started_at,work_started,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
+  const wsel="id,label,warehouse,status,assigned_to,started_at, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review), wms_pick_task_lines(count))";
   // wave member batches are hidden from the individual pool (picked only as a whole wave)
-  // my in-progress + waiting pool + abandoned claims (in_progress but holder gone) + waves
-  const [mine, pool, stale, wmine, wpool, wstale]=await Promise.all([
+  // my in-progress + waiting pool (heartbeat/stale 제거 — 방치분은 스캔 이어받기로 처리)
+  const [mine, pool, wmine, wpool]=await Promise.all([
     sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).is("wave_id",null).order("started_at"),
     sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).is("wave_id",null).order("batch_label"),
-    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").is("wave_id",null)
-      .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`).order("batch_label"),
     sb.from("wms_waves").select(wsel).eq("status","in_progress").eq("assigned_to",me.name).order("label"),
     sb.from("wms_waves").select(wsel).eq("status","pending").is("assigned_to",null).order("label"),
-    sb.from("wms_waves").select(wsel).eq("status","in_progress")
-      .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`).order("label"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(mine.error||pool.error){toast("Failed to load batches",true);return;}
@@ -413,11 +383,10 @@ async function loadBatches(){
   const wInWh=w=>acc==="both"||w.warehouse===acc;
   myBatches=(mine.data||[]).filter(inWh);
   batches=(pool.data||[]).filter(inWh);
-  // take-over candidates: someone else's claim with a dead heartbeat
-  stalePool=((stale.data)||[]).filter(b=>inWh(b) && b.assigned_to!==me.name && isStale(b));
+  stalePool=[];   // 더 이상 시간 기반 abandoned 목록 없음 (스캔 이어받기로 대체)
   myWaves=((wmine&&wmine.data)||[]).filter(wInWh);
   waves=((wpool&&wpool.data)||[]).filter(wInWh);
-  staleWaves=((wstale&&wstale.data)||[]).filter(w=>wInWh(w) && w.assigned_to!==me.name && isStale(w));
+  staleWaves=[];
   renderBatches();
 }
 function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover"
@@ -507,7 +476,7 @@ function renderBatches(){
     const os=document.getElementById("orderScan"); if(os && document.activeElement!==os) os.focus();
   }
 }
-document.getElementById("orderScan").addEventListener("keydown",e=>{
+document.getElementById("orderScan").addEventListener("keydown",async e=>{
   if(e.key!=="Enter") return;
   e.preventDefault();
   const v=document.getElementById("orderScan").value.trim();
@@ -515,11 +484,46 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   batchFilter=v; renderBatches();
   const f=v.toUpperCase();
-  const any=[...myBatches,...batches,...stalePool].some(b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;})
-    || [...myWaves,...waves,...staleWaves].some(w=>(w.label||"").toUpperCase()===f
-        || (w.wms_pick_tasks||[]).some(t=>{const on=(t.wms_orders?.order_number||"").toUpperCase(); const bl=(t.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;}));
-  if(!any) toast("No waiting batch for "+v,true);
+  const matchB=b=>{const on=(b.wms_orders?.order_number||"").toUpperCase(); const bl=(b.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;};
+  const matchW=w=>(w.label||"").toUpperCase()===f || (w.wms_pick_tasks||[]).some(t=>{const on=(t.wms_orders?.order_number||"").toUpperCase(); const bl=(t.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
+  // 1) 대기목록/내 진행분에 있으면 그대로 (필터로 보임)
+  if([...myBatches,...batches].some(matchB) || [...myWaves,...waves].some(matchW)) return;
+  // 2) 안 보이면 — 이미 누군가 잡은 오더일 수 있음. DB 에서 실제 상태 조회 → 이어받기
+  await scanTakeover(v.toUpperCase());
 });
+
+/* 스캔한 오더가 이미 in_progress(남이 열어둠)면 누가 열었는지 알려주고 이어받기 */
+async function scanTakeover(f){
+  // batch_label 또는 order_number 로 in_progress task 찾기
+  const {data:tasksIP}=await sb.from("wms_pick_tasks")
+    .select("id,batch_label,status,assigned_to,wave_id,order_id, wms_orders(order_number,warehouse,customer_name)")
+    .eq("status","in_progress");
+  const acc=me.warehouse_access;
+  const hit=(tasksIP||[]).find(t=>{
+    const wh=t.wms_orders?.warehouse; if(!(acc==="both"||wh===acc)) return false;
+    const on=(t.wms_orders?.order_number||"").toUpperCase(); const bl=(t.batch_label||"").toUpperCase();
+    return on===f||bl.startsWith(f+"-")||bl===f;
+  });
+  if(!hit){ toast("No batch found for "+f,true); return; }
+
+  // wave 소속이면 wave 단위로 안내 (개별 이어받기 대신)
+  if(hit.wave_id){
+    toast("This order is part of a wave held by "+(hit.assigned_to||"someone")+". Ask them or use the wave.",true);
+    return;
+  }
+  if(hit.assigned_to===me.name){
+    // 내가 이미 잡은 것 → 바로 이어서
+    task=hit; order=hit.wms_orders||{}; presenceJoin(); await loadLines(); return;
+  }
+  // 남이 잡음 → 이어받기 확인
+  if(!confirm(`${hit.batch_label} is already open by ${hit.assigned_to||"another worker"}.\n\nYou have the pick list — take it over and continue? Their picked quantities are kept.`)) return;
+  const {data,error}=await sb.from("wms_pick_tasks")
+    .update({assigned_to:me.name, started_at:new Date().toISOString()})
+    .eq("id",hit.id).eq("status","in_progress").select();
+  if(error){ toast("Take over failed: "+error.message,true); return; }
+  if(!data||!data.length){ toast("Could not take over — try again.",true); loadBatches(); return; }
+  task=data[0]; order=hit.wms_orders||{}; presenceJoin(); await loadLines();
+}
 
 /* ---------- start batch (optimistic lock) ---------- */
 async function startBatch(id){

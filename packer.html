@@ -273,28 +273,12 @@ let sb=null, staff=[], me=null;
 let pool=[], mine=[], stalePacks=[], packTask=null, order=null, lines=[], bcMap={}, curIdx=0, view="list";
 let actx=null;
 
-/* ---------- lease / heartbeat / presence ---------- */
-const HB_MS=20000, STALE_S=75;
-let hbTimer=null, presCh=null;
-const staleISO=()=>new Date(Date.now()-STALE_S*1000).toISOString();
-const isStale=t=>{ const h=t.heartbeat_at||t.started_at; return !h || (Date.now()-new Date(h).getTime())>STALE_S*1000; };
-function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
-function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(beatOnce,HB_MS); }
-function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer);hbTimer=null;} }
-async function beatOnce(){
-  if(!packTask) return;
-  const {data,error}=await sb.from("wms_pack_tasks")
-    .update({heartbeat_at:new Date().toISOString()})
-    .eq("id",packTask.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
-  if(!error && (!data||!data.length)){
-    stopHeartbeat(); presenceLeave();
-    toast("This batch was taken over or released",true);
-    packTask=null;order=null;lines=[];bcMap={};
-    document.getElementById("packView").style.display="none";
-    document.getElementById("listView").style.display="block";
-    loadQueue();
-  }
-}
+/* ---------- lease / presence (heartbeat 제거 — 스캔 시 이어받기로 대체) ---------- */
+let presCh=null;
+function idleMin(){ return null; }
+function staleISO(){ return new Date(0).toISOString(); }
+function startHeartbeat(){}   // no-op
+function stopHeartbeat(){}
 function presenceJoin(){
   presenceLeave();
   try{
@@ -392,8 +376,7 @@ async function loadQueue(){
   // resume list = only claims with actual work (no-work claims get reaped/auto-released)
   mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&p.work_started&&inWh(p.wms_orders));
   held=packs.filter(p=>p.status==="pending"&&inWh(p.wms_orders));
-  // abandoned claims by others (heartbeat dead) → take over, progress kept
-  stalePacks=packs.filter(p=>p.status==="in_progress"&&p.assigned_to!==me.name&&isStale(p)&&inWh(p.wms_orders));
+  stalePacks=[];   // 시간 기반 abandoned 제거 — 스캔 이어받기로 처리
   poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders));
   // lookup cache for resume verify
   packLookup={}; [...mine,...held,...stalePacks].forEach(p=>packLookup[p.id]=p);
@@ -457,7 +440,7 @@ function renderQueue(){
     const os=document.getElementById("orderScan"); if(os && document.activeElement!==os) os.focus();
   }
 }
-document.getElementById("orderScan").addEventListener("keydown",e=>{
+document.getElementById("orderScan").addEventListener("keydown",async e=>{
   if(e.key!=="Enter") return;
   e.preventDefault();
   const v=document.getElementById("orderScan").value.trim();
@@ -465,9 +448,32 @@ document.getElementById("orderScan").addEventListener("keydown",e=>{
   if(!v) return;
   queueFilter=v; renderQueue();
   const f=v.toUpperCase();
-  const any=[...mine,...held,...poolNew,...stalePacks].some(p=>{const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;});
-  if(!any) toast("No pack batch for "+v,true);
+  const match=p=>{const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f;};
+  if([...mine,...held,...poolNew].some(match)) return;
+  await scanTakeoverPack(f);
 });
+
+/* 스캔한 배치가 이미 in_progress(남이 열어둠)면 이어받기 */
+async function scanTakeoverPack(f){
+  const acc=me.warehouse_access;
+  const {data:ip}=await sb.from("wms_pack_tasks")
+    .select("id,batch_label,status,assigned_to,pick_task_id,order_id, wms_orders(order_number,warehouse,customer_name)")
+    .eq("status","in_progress");
+  const hit=(ip||[]).find(p=>{
+    const wh=p.wms_orders?.warehouse; if(!(acc==="both"||wh===acc)) return false;
+    const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase();
+    return on===f||bl.startsWith(f+"-")||bl===f;
+  });
+  if(!hit){ toast("No pack batch found for "+f,true); return; }
+  if(hit.assigned_to===me.name){ resumePack(hit.id); return; }
+  if(!confirm(`${hit.batch_label} is already open by ${hit.assigned_to||"another worker"}.\n\nYou have the pack list — take it over and continue? Their progress is kept.`)) return;
+  const {data,error}=await sb.from("wms_pack_tasks")
+    .update({assigned_to:me.name, started_at:new Date().toISOString()})
+    .eq("id",hit.id).eq("status","in_progress").select();
+  if(error){ toast("Take over failed: "+error.message,true); return; }
+  if(!data||!data.length){ toast("Could not take over — try again.",true); loadQueue(); return; }
+  resumePack(hit.id);
+}
 
 /* start verify: pack_task + pack_task_lines create */
 async function startPack(pickId){

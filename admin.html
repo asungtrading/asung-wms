@@ -380,7 +380,7 @@ function start(){
 }
 
 /* ---------- live presence (who has a batch open RIGHT NOW) ---------- */
-const STALE_S=75; // no heartbeat for this long = holder considered away
+const STALE_S=150; // no heartbeat for this long = holder considered away (picker/packer HB_MS=60s 와 일치)
 let presence={};  // key -> [{name,screen,batch,order,at}]
 function subscribePresence(){
   try{
@@ -468,8 +468,10 @@ async function loadOverview(){
 }
 
 /* ---------- Batch activity (who holds what, live/idle, release) ---------- */
-function fresh(t){ const h=t.heartbeat_at||t.started_at; return h && (Date.now()-new Date(h).getTime())<=STALE_S*1000; }
-function idleMin(t){ const h=t.heartbeat_at||t.started_at; if(!h) return null; return Math.max(1,Math.round((Date.now()-new Date(h).getTime())/60000)); }
+/* 🟢Active/🟡Idle 판정을 heartbeat 시간이 아니라 presence(지금 화면에 열려있나)로 판정.
+   heartbeat 제거 후에도 LIVE NOW 와 동일 소스라 실시간·정확. */
+function fresh(t){ return t && t.batch_label && liveBatchSet().has(t.batch_label); }
+function idleMin(t){ return null; }   // presence 기반이라 "몇 분 유휴" 수치는 없음 (열림/닫힘만)
 let baRows=[], baSort={key:"batch",dir:1}, baWh="all";
 async function loadBatchActivity(activeOrders){
   const el=document.getElementById("batchActivity"); if(!el) return;
@@ -503,7 +505,7 @@ async function loadBatchActivity(activeOrders){
       phase="Packing"; holder=pack.assigned_to||"";
       if(pack.status==="pending") chip=(ks&&ks.v>0)?`<span class="tag" style="background:#fff4e0;color:#a86400">🟠 Held</span>`:`<span class="tag">⚪ Waiting</span>`;
       else if(fresh(pack)) chip=`<span class="tag" style="background:#e8f7ee;color:#1e7d43">🟢 Active</span>`;
-      else { const im=idleMin(pack); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Idle${im?" "+im+"m":""}</span>`; rel={table:"wms_pack_tasks",id:pack.id}; }
+      else { const im=idleMin(pack); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Away (screen closed)</span>`; rel={table:"wms_pack_tasks",id:pack.id}; }
     } else if(pack && pack.status==="completed"){
       phase="Packed"; holder=pack.assigned_to||""; chip=`<span class="tag" style="background:#eef1f6;color:#5b6472">✓ Packed</span>`;
     } else if(p.status==="completed"){
@@ -511,7 +513,7 @@ async function loadBatchActivity(activeOrders){
     } else if(p.status==="in_progress"){
       phase="Picking"; holder=p.assigned_to||"";
       if(fresh(p)) chip=`<span class="tag" style="background:#e8f7ee;color:#1e7d43">🟢 Active</span>`;
-      else { const im=idleMin(p); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Idle${im?" "+im+"m":""}</span>`; rel={table:"wms_pick_tasks",id:p.id}; }
+      else { const im=idleMin(p); chip=`<span class="tag" style="background:#fdecec;color:#c0392b">🟡 Away (screen closed)</span>`; rel={table:"wms_pick_tasks",id:p.id}; }
     } else { // pending pick
       phase="Waiting"; holder="";
       chip=(ps.p>0)?`<span class="tag" style="background:#fff4e0;color:#a86400">🟠 Held</span>`:`<span class="tag">⚪ Waiting</span>`;
