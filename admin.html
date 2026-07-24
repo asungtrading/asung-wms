@@ -213,7 +213,7 @@
     <div class="view" id="v-recv">
       <div class="sect-h">Off-PO approvals <span style="font-weight:400;color:var(--mut);font-size:12.5px">— items scanned at the dock that are not on the PO · putaway is blocked until approved</span></div>
       <div class="card"><div id="recvApprovals"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
-      <div class="sect-h">CSV export <span style="font-weight:400;color:var(--mut);font-size:12.5px">— exports only quantities not yet exported (received − exported) · upload the file to Cin7, then use ⟳ Stock to pull it back</span></div>
+      <div class="sect-h">Apply to Cin7 <span style="font-weight:400;color:var(--mut);font-size:12.5px">— writes completed receipts into Cin7 (PO stock received to bins / transfer completion + bin moves) · shows a plan first, nothing is written until you confirm</span></div>
       <div class="card"><div id="recvExports"></div></div>
       <div class="sect-h">Receiving history <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recent receipts</span></div>
       <div class="card"><div id="recvHistory"></div></div>
@@ -1300,37 +1300,54 @@ async function loadRecv(){
   ap.querySelectorAll("[data-appr]").forEach(b=>b.onclick=()=>approveOffPo(+b.dataset.appr));
   ap.querySelectorAll("[data-rej]").forEach(b=>b.onclick=()=>rejectOffPo(+b.dataset.rej,b.dataset.sku));
 
-  // ── incremental CSV export + history ──
+  // ── Apply to Cin7: 완료됐고 아직 미반영인 receipt ──
   const rs=(rcpts.data||[]);
-  const incOf=r=>(r.wms_receipt_lines||[]).reduce((s,l)=>s+Math.max(0,Number(l.received_base||0)-Number(l.exported_base||0)),0);
-  const exportable=rs.filter(r=>(r.status==="partial"||r.status==="completed")&&incOf(r)>0);
+  const applicable=rs.filter(r=>r.status==="completed"&&!r.applied_at);
+  const pending=rs.filter(r=>(r.status==="partial"||r.status==="held"||r.status==="in_progress"));
   const ex=document.getElementById("recvExports");
-  ex.innerHTML=exportable.length
-    ? `<table><thead><tr><th>PO</th><th>Supplier</th><th>Warehouse</th><th>Status</th><th class="num">Units to export</th><th></th></tr></thead><tbody>${
-        exportable.map(r=>`<tr>
+  ex.innerHTML=(applicable.length
+    ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th></th></tr></thead><tbody>${
+        applicable.map(r=>`<tr>
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
+          <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
-          <td>${RECV_ST_LABEL[r.status]||r.status}</td>
-          <td class="num" style="font-family:var(--mono);font-weight:700">${incOf(r)}</td>
-          <td><button class="btnsm ok" data-exp="${r.id}" data-po="${esc(r.po_number)}">⬇ CSV</button></td>
+          <td><button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">Apply to Cin7</button></td>
         </tr>`).join("")}</tbody></table>`
-    : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to export — quantities appear here after a receipt is partially or fully completed.</div>`;
-  ex.querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>exportRecvCSV(+b.dataset.exp,b.dataset.po));
+    : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to apply — receipts appear here once completed. Cin7 is only written when you click Apply and confirm the plan.</div>`)
+    +(pending.length?`<div style="color:var(--mut-2);padding:8px 14px;font-size:12px;border-top:1px solid var(--line)">${pending.length} receipt(s) still receiving/held — finish them to apply.</div>`:"");
+  ex.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>applyToCin7(+b.dataset.apply,b.dataset.po,b));
 
   const hist=document.getElementById("recvHistory");
   hist.innerHTML=rs.length
-    ? `<table><thead><tr><th>PO</th><th>Supplier</th><th>Warehouse</th><th>Status</th><th>Received by</th><th>Updated</th></tr></thead><tbody>${
-        rs.slice(0,40).map(r=>`<tr>
+    ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th>Status</th><th>Cin7</th><th>Received by</th><th>Updated</th><th></th></tr></thead><tbody>${
+        rs.slice(0,40).map(r=>{
+          const applied=!!r.applied_at;
+          return `<tr>
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
+          <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TR</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
           <td>${RECV_ST_LABEL[r.status]||r.status}</td>
+          <td>${applied?`<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`:'<span style="color:var(--mut-2);font-size:12px">—</span>'}</td>
           <td>${esc(r.received_by||"—")}</td>
           <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
-        </tr>`).join("")}</tbody></table>`
+          <td><button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}">Delete</button></td>
+        </tr>`;}).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">No receipts yet.</div>`;
+  hist.querySelectorAll("[data-delrcpt]").forEach(b=>b.onclick=()=>deleteReceipt(+b.dataset.delrcpt,b.dataset.po,b.dataset.exp==="1"));
   refreshRecvBadge();
+}
+async function deleteReceipt(rid,po,exported){
+  const warn=exported
+    ? `\n\n⚠ This receipt was already APPLIED to Cin7. Deleting here does NOT undo Cin7 — correct Cin7 manually (unstock / reverse transfer).`
+    : "";
+  const typed=prompt(`Delete receipt ${po}?\nAll receiving progress and lines for this receipt are removed (WMS only — Cin7 is untouched).${warn}\n\nType the PO number to confirm:`,"");
+  if(typed===null) return;
+  if(typed.trim().toUpperCase()!==String(po).toUpperCase()){ toast("PO number mismatch — cancelled",true); return; }
+  const {error}=await sb.from("wms_receipts").delete().eq("id",rid);
+  if(error){ toast("Delete failed: "+error.message,true); return; }
+  toast(po+" receipt deleted"); loadRecv();
 }
 async function approveOffPo(id){
   const {error}=await sb.from("wms_receipt_lines")
@@ -1344,33 +1361,33 @@ async function rejectOffPo(id,sku){
   if(error){ toast("Failed: "+error.message,true); return; }
   toast("Rejected — line removed"); loadRecv();
 }
-async function exportRecvCSV(rid,po){
+async function applyToCin7(rid,po,btn){
+  const EF=(window.WMS_CONFIG?WMS_CONFIG.SUPABASE_URL:"")+"/functions/v1/receiving";
+  const hdrs=async()=>{
+    const {data:{session}}=await sb.auth.getSession();
+    const tk=(session&&session.access_token)||WMS_CONFIG.SUPABASE_ANON_KEY;
+    return {Authorization:"Bearer "+tk, apikey:WMS_CONFIG.SUPABASE_ANON_KEY};
+  };
+  if(btn)btn.disabled=true;
   try{
-    const {data:ls,error}=await sb.from("wms_receipt_lines").select("*").eq("receipt_id",rid);
-    if(error) throw error;
-    const {data:rh}=await sb.from("wms_receipts").select("*").eq("id",rid).single();
-    const inc=(ls||[]).map(l=>({l,qty:Math.max(0,Number(l.received_base||0)-Number(l.exported_base||0))}))
-      .filter(x=>x.qty>0 && !x.l.needs_approval);   // 승인 안 된 오프-PO는 제외 (승인 후 다음 export에 포함)
-    if(!inc.length){ toast("Nothing to export (pending approvals are excluded)",true); return; }
-    const skipped=(ls||[]).filter(l=>l.needs_approval && Number(l.received_base||0)>Number(l.exported_base||0)).length;
-    const q=v=>{ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
-    const rows=[["PO","SKU","BaseSKU","Qty(base units)","Bin","Warehouse","ReceivedBy","ExportedAt"]];
-    inc.forEach(x=>rows.push([rh.po_number,x.l.order_sku,x.l.base_sku,x.qty,x.l.putaway_bin||"",
-      rh.warehouse==="edmonton"?"Edmonton":"Toronto",rh.received_by||"",new Date().toISOString().slice(0,10)]));
-    const csv="\uFEFF"+rows.map(r=>r.map(q).join(",")).join("\r\n");
-    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob); a.download=`RECEIVING_${po||rid}_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
-    // 내보낸 수량 확정 (exported_base = received_base) — 다음 export는 증분만
-    for(const x of inc){
-      const {error:ue}=await sb.from("wms_receipt_lines").update({exported_base:x.l.received_base}).eq("id",x.l.id);
-      if(ue) throw ue;
-    }
-    toast(`Exported ${inc.length} line(s)${skipped?` · ${skipped} awaiting approval skipped`:""} — upload to Cin7, then ⟳ Stock`);
+    // 1) dry-run 계획 (아무것도 안 씀)
+    let r=await fetch(EF+"?action=apply&receipt_id="+rid,{headers:await hdrs()});
+    let j=await r.json();
+    if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
+    const p=j.plan;
+    const lineTxt=p.lines.map(l=>`· ${l.order_sku} ×${l.qty_units}${l.qty_units!==l.qty_base?` (${l.qty_base} units)`:""} → ${l.bin}`).join("\n");
+    const skipTxt=p.skipped&&p.skipped.length?`\n\nSkipped:\n${p.skipped.map(s=>`· ${s.sku} ×${s.qty} — ${s.reason}`).join("\n")}`:"";
+    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
+    // 2) commit
+    r=await fetch(EF+"?action=apply&receipt_id="+rid+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
+    j=await r.json();
+    if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
+    const warn=(j.log||[]).some(s=>String(s).indexOf("WARN")===0);
+    alert("Applied to Cin7:\n\n"+(j.log||[]).join("\n")+(warn?"\n\n⚠ Check the warning above.":""));
+    toast(po+" applied to Cin7"+(warn?" (with warning)":""));
     loadRecv();
-  }catch(e){ toast("Export failed: "+(e.message||e),true); }
+  }catch(e){ alert("Apply failed — nothing may have been written, check Cin7.\n\n"+(e.message||e)); toast("Apply failed",true); }
+  finally{ if(btn)btn.disabled=false; }
 }
 async function printOrderPackingList(oid){
   const win=window.open("","_blank");   // open within click gesture
