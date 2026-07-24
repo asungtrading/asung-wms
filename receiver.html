@@ -79,7 +79,39 @@
   .prog{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:2px 0 14px}
   .prog i{display:block;height:100%;background:var(--ok);width:0;transition:width .2s}
 
-  .list{display:flex;flex-direction:column;gap:8px}
+  .list{display:none;flex-direction:column;gap:8px}
+
+  /* segmented view toggle (picker와 동일) */
+  .seg{margin-left:auto;display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);padding:6px 11px;border-radius:6px;cursor:pointer}
+  .seg button.active{background:var(--ink);color:#fff}
+
+  /* single view (picker 이식) */
+  .single{display:none;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .single .body{padding:16px}
+  .single .head{display:flex;gap:14px;margin-bottom:6px}
+  .single .img{width:150px;height:150px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat}
+  .single .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .single .nm{font-size:15px;font-weight:600;margin:2px 0 2px}
+  .single .sku{font-family:var(--mono);font-size:17px;font-weight:800;color:var(--ink);letter-spacing:.01em}
+  .single .barcodes{margin:2px 0 4px;padding:9px 11px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
+  .single .barcodes .bc{display:flex;align-items:center;gap:10px;padding:2px 0;font-family:var(--mono);font-size:13px}
+  .single .barcodes .bl{color:var(--mut);min-width:58px;font-weight:700;font-size:11.5px}
+  .single .barcodes .bv{font-weight:700;letter-spacing:.02em}
+  .single .barcodes .bv.empty{color:var(--mut-2);font-weight:400;font-style:italic}
+  .lastbin{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);background:#eef3ff;border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+  .lastbin.none{color:var(--mut-2);background:#f1f3f6}
+  .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
+  .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
+  .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
+  .qtybox.done .qtybig{color:var(--ok)}
+  .qtybox.overq .qtybig{color:var(--warn)}
+  .single .stepper{margin-left:auto;display:flex;gap:8px}
+  .single .stepper button{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:#fff;font-size:22px;font-weight:700;color:var(--ink);cursor:pointer}
+  .single .stepper button:active{background:var(--paper)}
+  .navrow{display:flex;gap:10px;margin-top:14px}
+  .navrow .btn{flex:1}
+  .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,109,246,.12)}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
@@ -168,8 +200,10 @@
       <div class="scanhint"><span class="live"></span><span>Scan the PO barcode to find and open it</span></div>
     </div>
     <div id="myList" class="blist"></div>
-    <div class="sect" style="display:flex;align-items:center;gap:10px">Open POs (Cin7)
-      <button class="btn ghost" id="loadPosBtn" style="margin-left:auto;padding:6px 12px;font-size:12px">↻ Load open POs</button>
+    <div class="sect" style="display:flex;align-items:center;gap:10px">Ready to receive (Cin7)
+      <span style="font-weight:400;text-transform:none;letter-spacing:0">— POs shown only when the invoice is authorised</span>
+      <button class="btn ghost" id="loadPosBtn" style="margin-left:auto;padding:6px 12px;font-size:12px">↻ POs</button>
+      <button class="btn ghost" id="loadTrBtn" style="padding:6px 12px;font-size:12px">↻ Transfers</button>
     </div>
     <div id="poList" class="blist"></div>
     <div class="loading" id="lLoading" style="display:none"><div class="spin"></div>Loading…</div>
@@ -184,7 +218,11 @@
         <div class="ptitle" id="rTitle"></div>
         <div class="pmeta" id="rMeta"></div>
       </div>
-      <button class="btn go" id="toPutawayBtn" style="margin-left:auto">Putaway →</button>
+      <div class="seg" id="viewSeg">
+        <button data-v="single" class="active">Single</button>
+        <button data-v="list">List</button>
+      </div>
+      <button class="btn go" id="toPutawayBtn">Putaway →</button>
     </div>
     <div class="prog"><i id="progBar"></i></div>
 
@@ -193,6 +231,7 @@
       <div class="scanhint"><span class="live"></span><span>Waiting for scan · box scan = ×factor units · unknown item → off-PO</span></div>
     </div>
 
+    <div class="single" id="rSingle"></div>
     <div class="list" id="rList"></div>
 
     <div class="foot">
@@ -233,7 +272,7 @@
 const EF_RECEIVING = (window.WMS_CONFIG ? WMS_CONFIG.SUPABASE_URL : "") + "/functions/v1/receiving";
 let sb=null, me=null, zoneSeq={};
 let myReceipts=[], openPos=[];
-let receipt=null, lines=[], bcMap={}, actx=null;
+let receipt=null, lines=[], bcMap={}, actx=null, view="single", curIdx=0;
 
 /* ---------- boot ---------- */
 function boot(){
@@ -340,10 +379,12 @@ function renderList(){
   const pl=document.getElementById("poList");
   pl.innerHTML=openPos.map((p,i)=>{
     const existing=myReceipts.find(r=>r.cin7_purchase_id===p.id);
+    const tr=p.source==="transfer";
     return `<div class="bcard ${existing?"resume":""}" data-pi="${i}">
       <div>
-        <div class="bl">${esc(p.po_number)}</div>
-        <div class="sub">${esc(p.supplier||"—")} · ${esc(p.status)}${p.order_date?" · "+esc(String(p.order_date).slice(0,10)):""}</div>
+        <div class="bl">${esc(p.po_number)}${tr?' <span class="tag st" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':""}</div>
+        <div class="sub">${esc(p.supplier||"—")} · ${esc(p.status)}${p.order_date?" · "+esc(String(p.order_date).slice(0,10)):""}
+          ${tr?`<span class="tag wh-${p.warehouse}">${p.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>`:""}</div>
       </div>
       <button class="go ${existing?"resumebtn":""}">${existing?"Resume":"Start"}</button>
     </div>`;
@@ -356,18 +397,32 @@ function renderList(){
   }
 }
 
-/* ---------- open PO 로드 (온디맨드) ---------- */
+/* ---------- open PO / 트랜스퍼 로드 (온디맨드) ---------- */
 document.getElementById("loadPosBtn").onclick=()=>loadOpenPos("");
+document.getElementById("loadTrBtn").onclick=()=>loadTransfers();
 async function loadOpenPos(search){
   document.getElementById("lLoading").style.display="block";
   document.getElementById("lEmpty").style.display="none";
   try{
     const j=await efGet("action=pos"+(search?"&search="+encodeURIComponent(search):""));
-    openPos=j.pos||[];
+    // 기존 트랜스퍼 카드는 유지하고 PO 만 교체
+    openPos=[...(j.pos||[]),...openPos.filter(p=>p.source==="transfer")];
     renderList();
-    if(search&&!openPos.length&&!myReceipts.some(r=>r.po_number.toUpperCase()===search.toUpperCase()))
-      toast("No open PO for "+search,true);
+    if(search&&!(j.pos||[]).length&&!myReceipts.some(r=>r.po_number.toUpperCase()===search.toUpperCase()))
+      toast("No invoice-authorised PO for "+search,true);
   }catch(e){ toast("PO load failed: "+(e.message||e),true); }
+  finally{ document.getElementById("lLoading").style.display="none"; }
+}
+async function loadTransfers(){
+  document.getElementById("lLoading").style.display="block";
+  try{
+    const j=await efGet("action=transfers");
+    const acc=me.warehouse_access;
+    const trs=(j.transfers||[]).filter(t=>acc==="both"||t.warehouse===acc);
+    openPos=[...openPos.filter(p=>p.source!=="transfer"),...trs];
+    renderList();
+    if(!trs.length) toast("No transfers in transit");
+  }catch(e){ toast("Transfer load failed: "+(e.message||e),true); }
   finally{ document.getElementById("lLoading").style.display="none"; }
 }
 
@@ -387,7 +442,7 @@ document.getElementById("poScan").addEventListener("keydown",async e=>{
   if(hit>=0) startPo(hit);
 });
 
-/* ---------- PO 시작 (receipt 생성 or 재개) ---------- */
+/* ---------- PO/트랜스퍼 시작 (receipt 생성 or 재개) ---------- */
 async function startPo(i){
   initAudio();
   const p=openPos[i]; if(!p)return;
@@ -398,12 +453,16 @@ async function startPo(i){
 
   document.getElementById("lLoading").style.display="block";
   try{
-    const j=await efGet("action=po&id="+encodeURIComponent(p.id)+"&type="+encodeURIComponent(p.type||""));
+    const isTr=p.source==="transfer";
+    const j=await efGet(isTr
+      ? "action=transfer&id="+encodeURIComponent(p.id)
+      : "action=po&id="+encodeURIComponent(p.id)+"&type="+encodeURIComponent(p.type||""));
     const po=j.po;
     // receipt 헤더
     const {data:rh,error:re}=await sb.from("wms_receipts").insert({
       po_number:po.po_number, cin7_purchase_id:po.id, supplier_name:po.supplier,
       warehouse:po.warehouse||"toronto", status:"in_progress", received_by:me.name,
+      source_type:isTr?"transfer":"po",
     }).select();
     if(re) throw re;
     const rid=rh[0].id;
@@ -448,6 +507,8 @@ async function openReceipt(rid){
     vmethod:r.verification_method||null, image_url:"", barcodeInfo:[],
   }));
   // 즉시 화면 전환 + 렌더 (규칙 17: enrich는 뒤에 독립으로)
+  const fi=lines.findIndex(l=>l.expected>0&&l.received<l.expected);
+  curIdx=fi<0?0:fi;
   document.getElementById("listView").style.display="none";
   document.getElementById("putView").style.display="none";
   document.getElementById("recvView").style.display="block";
@@ -484,11 +545,32 @@ async function buildBcMap(){
         const arr=(bcMap[code]=bcMap[code]||[]);
         if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(r.factor)||1});
       });
+      // 싱글뷰 바코드 블록용: base(1) + 변형(×factor) 행 + ALT 별칭
+      l.barcodeRows=(byBase[l.base_sku]||[]).map(r=>({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()}));
+      l.altCodes=[...new Set((own&&own.scannable_barcodes||[]).filter(b=>b&&b.type==="alt").map(b=>String(b.barcode||"").trim()).filter(Boolean))];
       // SKU 직접 타이핑 대응
       const sk=String(l.order_sku||"").trim();
       if(sk){ const arr=(bcMap[sk]=bcMap[sk]||[]); if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:1}); }
     });
   }catch(e){ toast("Barcode lookup failed",true); }
+  // 라스트빈 참고 칩 (독립 enrich — 실패해도 스캔은 동작)
+  try{
+    const {data:bins,error}=await sb.from("wms_sku_bins")
+      .select("sku,bin,is_current,last_seen,available").in("sku",baseSkus).eq("warehouse",receipt.warehouse);
+    if(error) throw error;
+    const bm={};
+    (bins||[]).forEach(b=>{ (bm[b.sku]=bm[b.sku]||[]).push(b); });
+    lines.forEach(l=>{
+      const cand=(bm[l.base_sku]||[]).slice().sort((a,b)=>{
+        if(a.is_current!==b.is_current) return a.is_current?-1:1;
+        const la=a.last_seen||"", lb=b.last_seen||"";
+        if(la!==lb) return la>lb?-1:1;
+        return (Number(b.available)||0)-(Number(a.available)||0);
+      });
+      l.lastBin=cand.length?cand[0].bin:null;
+      l.lastBinCur=cand.length?!!cand[0].is_current:false;
+    });
+  }catch(e){}
 }
 
 /* ---------- receiving 렌더 ---------- */
@@ -498,17 +580,80 @@ function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.i
 function renderRecv(){
   const tot=totalExp(), rc=totalRecv();
   document.getElementById("progBar").style.width=(tot?Math.round(Math.min(rc,tot)/tot*100):0)+"%";
+  if(view==="single") renderSingle(); else renderRList();
+}
+function lineChips(l){
+  return (l.is_off_po?`<span class="chip appr">${l.needs_approval?"OFF-PO · approval pending":"OFF-PO · approved"}</span>`:"")+
+         (!l.is_off_po&&!l.barcodeRows?"":"")+
+         (!l.is_off_po&&!l.base_sku?`<span class="chip newsku">NO SNAPSHOT</span>`:"");
+}
+function lastBinChip(l){
+  if(l.lastBin===undefined) return "";
+  return l.lastBin?`<span class="lastbin${l.lastBinCur?"":" "}">Last bin ${esc(l.lastBin)}</span>`
+                  :`<span class="lastbin none">no last bin</span>`;
+}
+function barcodeBlock(l){
+  const rows=l.barcodeRows||[];
+  const base=rows.find(r=>r.factor===1);
+  const variants=rows.filter(r=>r.factor>1).sort((a,b)=>a.factor-b.factor);
+  const shown=new Set();
+  const bcLine=(label,code)=>{ const c=(code||"").trim(); if(c)shown.add(c); return `<div class="bc"><span class="bl">${label}</span><span class="bv${c?"":" empty"}">${c?esc(c):"(no barcode)"}</span></div>`; };
+  let html=bcLine("Barcode", base?base.barcode:"");
+  variants.forEach(v=>{ html+=bcLine("×"+v.factor, v.barcode); });
+  (l.altCodes||[]).filter(c=>!shown.has(c)).forEach(c=>{ html+=bcLine("ALT-UPC", c); });
+  return `<div class="barcodes">${html}</div>`;
+}
+function renderSingle(){
+  document.getElementById("rSingle").style.display="block";
+  document.getElementById("rList").style.display="none";
+  if(!lines.length){document.getElementById("rSingle").innerHTML="";return;}
+  if(curIdx>=lines.length)curIdx=lines.length-1;
+  const l=lines[curIdx];
+  const done=l.expected>0&&l.received>=l.expected&&l.received<=l.expected;
+  const over=l.received>l.expected;
+  document.getElementById("rSingle").innerHTML=`
+    <div class="body">
+      <div class="head">
+        <div class="img" ${imgStyle(l)}></div>
+        <div class="info">
+          <div class="nm">${esc(l.product_name)}</div>
+          <div class="sku">${esc(l.order_sku)}${l.base_sku&&l.order_sku!==l.base_sku?` · base ${esc(l.base_sku)}`:""} ${lastBinChip(l)}</div>
+          <div style="margin-top:4px">${lineChips(l)}</div>
+        </div>
+      </div>
+      ${barcodeBlock(l)}
+      <div class="qtybox ${done?"done":""} ${over?"overq":""}">
+        <div class="qtybig">${l.received}<span class="of"> / ${l.expected}</span></div>
+        <div class="stepper">
+          <button data-step="-1">−</button>
+          <button data-step="1">+</button>
+        </div>
+      </div>
+      <button class="manual" data-manual>Enter quantity</button>
+      <div class="navrow">
+        <button class="btn ghost" data-nav="-1">← Prev</button>
+        <button class="btn dark" data-nav="1">Next →</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+    </div>`;
+  const s=document.getElementById("rSingle");
+  s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
+  s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
+  s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
+}
+function renderRList(){
+  document.getElementById("rSingle").style.display="none";
   const el=document.getElementById("rList");
+  el.style.display="flex";
   el.innerHTML=lines.map((l,idx)=>{
     const done=l.expected>0&&l.received>=l.expected&&l.received<=l.expected;
     const over=l.received>l.expected;
-    const cls=l.is_off_po?"offpo":(over?"over":(done?"done":""));
-    const chips=(l.is_off_po?`<span class="chip appr">${l.needs_approval?"OFF-PO · approval pending":"OFF-PO · approved"}</span>`:"")+
-                (!l.is_off_po&&!l.base_sku?`<span class="chip newsku">NO SNAPSHOT</span>`:"");
+    const cls=(l.is_off_po?"offpo":(over?"over":(done?"done":"")))+(idx===curIdx?" cur":"");
     return `<div class="lrow ${cls}" data-idx="${idx}">
       <div class="thumb" ${imgStyle(l)}></div>
-      <div class="li"><div class="s">${esc(l.order_sku)}${chips}</div>
-        <div class="n">${esc(l.product_name)}</div></div>
+      <div class="li"><div class="s">${esc(l.order_sku)}${lineChips(l)}</div>
+        <div class="n">${esc(l.product_name)}</div>
+        <div class="b">${lastBinChip(l)}</div></div>
       <div class="q">${l.received} / ${l.expected}</div>
       <div class="stepper">
         <button data-step="-1" data-i="${idx}">−</button>
@@ -517,7 +662,33 @@ function renderRecv(){
     </div>`;
   }).join("");
   el.querySelectorAll("[data-step]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();manualAdjust(+b.dataset.i,+b.dataset.step);});
+  el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{curIdx=+r.dataset.idx;renderRecv();focusScan();});
+  const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
 }
+function move(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderRecv(); focusScan(); }
+function autoAdvance(){
+  const next=lines.findIndex((l,i)=>i>curIdx&&l.expected>0&&l.received<l.expected);
+  const alt=lines.findIndex(l=>l.expected>0&&l.received<l.expected);
+  curIdx = next>=0?next : (alt>=0?alt:curIdx);
+}
+function manualSet(idx){
+  const l=lines[idx];
+  const v=prompt(`${l.order_sku} Enter quantity received:`, l.received);
+  if(v===null){focusScan();return;}
+  let n=parseInt(v,10); if(isNaN(n)||n<0)n=0;
+  if(n>l.expected&&!l.is_off_po){
+    if(!confirm(`${l.order_sku} — exceeds PO quantity (${n} > ${l.expected}). Continue?`)){focusScan();return;}
+  }
+  l.received=n; l.vmethod="manual"; saveLine(l);
+  if(l.expected>0&&l.received>=l.expected) autoAdvance();
+  renderRecv(); focusScan();
+}
+document.getElementById("viewSeg").onclick=e=>{
+  const b=e.target.closest("button");if(!b)return;
+  view=b.dataset.v;
+  [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x===b));
+  renderRecv(); focusScan();
+};
 
 /* ---------- 스캔 ---------- */
 const scanEl=document.getElementById("scan");
@@ -537,12 +708,14 @@ async function processScan(code){
   }
   const l=lines[hit.idx], f=hit.factor;
   l.received+=f;
-  l.vmethod=f>1?"scanned":"scanned";
+  l.vmethod="scanned";
+  curIdx=hit.idx;
   const lineDone=l.expected>0&&l.received===l.expected;
   const over=l.received>l.expected;
   flash(lineDone?"done":(over?"bad":(f>1?"okbox":"ok")),
     over?`⚠ OVER ${l.order_sku}  ${l.received}/${l.expected}`:`✓ ${l.order_sku}  +${f}  (${l.received}/${l.expected})${lineDone?" · DONE":""}`);
   saveLine(l);
+  if(lineDone) autoAdvance();
   renderRecv(); focusScan();
 }
 
@@ -589,6 +762,7 @@ function manualAdjust(idx,delta){
   }
   if(nv===l.received)return;
   l.received=nv; l.vmethod="manual"; saveLine(l);
+  if(l.expected>0&&l.received>=l.expected&&delta>0) autoAdvance();
   renderRecv(); focusScan();
 }
 

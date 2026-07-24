@@ -201,6 +201,7 @@
       ["Picking","picker.html",null],
       ["Packing","packer.html",null],
       ["Fulfillment","fulfillment.html",null],
+      ["Receiving","receiver.html",null],
       ["Staff","staff-admin.html","staff"],
       ["Home","index.html",null],
     ];
