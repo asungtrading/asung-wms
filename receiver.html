@@ -154,6 +154,8 @@
   .prow .pk{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 12px;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);cursor:pointer;flex:none}
   .prow.pdone .pk{background:var(--ok);color:#fff;border-color:var(--ok)}
   .prow .assign{border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;flex:none}
+  .prow .chgbin{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 10px;font:inherit;font-size:11.5px;font-weight:700;color:var(--mut);cursor:pointer;flex:none}
+  .prow .chgbin:hover{border-color:#c9d4e6;color:var(--accent)}
 
   #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:90vw}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -259,6 +261,16 @@
       <div class="scanhint"><span class="live"></span><span>Waiting for scan · box scan = ×factor units · unknown item → off-PO</span></div>
     </div>
 
+    <div style="display:flex;align-items:center;gap:8px;margin:0 2px 8px">
+      <span style="font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--mut-2)">Sort</span>
+      <select id="sortSel" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:12.5px;background:#fff;color:var(--ink);cursor:pointer">
+        <option value="po">PO order</option>
+        <option value="zone">Zone / Last bin</option>
+        <option value="product">Product (A–Z)</option>
+        <option value="sku">SKU (A–Z)</option>
+      </select>
+    </div>
+
     <div class="single" id="rSingle"></div>
     <div class="list" id="rList"></div>
 
@@ -302,6 +314,7 @@ let sb=null, me=null, zoneSeq={};
 let myReceipts=[], openPos=[];
 let receipt=null, lines=[], bcMap={}, actx=null, view="single", curIdx=0;
 let allBins=[];   // 현재 receipt 창고의 bin 목록 (빈 지정 드롭다운용)
+let sortMode="po";   // 검수 리스트/싱글 표시 순서: po|zone|product|sku
 
 /* ---------- boot ---------- */
 function boot(){
@@ -628,6 +641,19 @@ async function buildBcMap(){
 }
 
 /* ---------- receiving 렌더 ---------- */
+/* 표시 순서: lines 는 고정(bcMap 인덱스 보존), 순서만 인덱스 배열로 */
+function orderedIdx(){
+  const idx=lines.map((_,i)=>i);
+  if(sortMode==="po") return idx;
+  const key=i=>{
+    const l=lines[i];
+    if(sortMode==="zone"){ const z=l.lastBin?zoneOfBin(l.lastBin):null; return [z==null?1:0, zOrder(z), l.lastBin||"~", i]; }
+    if(sortMode==="product") return [(l.product_name||"~").toUpperCase(), i];
+    if(sortMode==="sku") return [(l.order_sku||"~").toUpperCase(), i];
+    return [i];
+  };
+  return idx.sort((a,b)=>{ const ka=key(a),kb=key(b); for(let j=0;j<ka.length;j++){ if(ka[j]<kb[j])return -1; if(ka[j]>kb[j])return 1; } return 0; });
+}
 function totalExp(){return lines.reduce((s,l)=>s+l.expected,0);}
 function totalRecv(){return lines.reduce((s,l)=>s+Math.min(l.received,l.expected||l.received),0);}
 function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
@@ -688,7 +714,7 @@ function renderSingle(){
         <button class="btn ghost" data-nav="-1">← Prev</button>
         <button class="btn dark" data-nav="1">Next →</button>
       </div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${curIdx+1} / ${lines.length}</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${(orderedIdx().indexOf(curIdx)+1)} / ${lines.length}</div>
     </div>`;
   const s=document.getElementById("rSingle");
   s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
@@ -699,7 +725,8 @@ function renderRList(){
   document.getElementById("rSingle").style.display="none";
   const el=document.getElementById("rList");
   el.style.display="flex";
-  el.innerHTML=lines.map((l,idx)=>{
+  el.innerHTML=orderedIdx().map(idx=>{
+    const l=lines[idx];
     const done=l.expected>0&&l.received>=l.expected&&l.received<=l.expected;
     const over=l.received>l.expected;
     const cls=(l.is_off_po?"offpo":(over?"over":(done?"done":"")))+(idx===curIdx?" cur":"");
@@ -719,12 +746,20 @@ function renderRList(){
   el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{curIdx=+r.dataset.idx;renderRecv();focusScan();});
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
 }
-function move(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); renderRecv(); focusScan(); }
-function autoAdvance(){
-  const next=lines.findIndex((l,i)=>i>curIdx&&l.expected>0&&l.received<l.expected);
-  const alt=lines.findIndex(l=>l.expected>0&&l.received<l.expected);
-  curIdx = next>=0?next : (alt>=0?alt:curIdx);
+function move(dir){
+  const ord=orderedIdx();
+  const pos=ord.indexOf(curIdx);
+  const np=Math.max(0,Math.min(ord.length-1,pos+dir));
+  curIdx=ord[np]; renderRecv(); focusScan();
 }
+function autoAdvance(){
+  const ord=orderedIdx();
+  const pos=ord.indexOf(curIdx);
+  // 표시 순서로 현재 다음부터 미충족 라인 탐색 → 없으면 처음부터
+  for(let k=pos+1;k<ord.length;k++){ const l=lines[ord[k]]; if(l.expected>0&&l.received<l.expected){ curIdx=ord[k]; return; } }
+  for(let k=0;k<ord.length;k++){ const l=lines[ord[k]]; if(l.expected>0&&l.received<l.expected){ curIdx=ord[k]; return; } }
+}
+document.getElementById("sortSel").onchange=e=>{ sortMode=e.target.value; renderRecv(); focusScan(); };
 function manualSet(idx){
   const l=lines[idx];
   const v=prompt(`${l.order_sku} Enter quantity received:`, l.received);
@@ -935,6 +970,7 @@ function renderPutaway(){
         <div class="thumb" ${imgStyle(l)}></div>
         <div class="li"><div class="s">${esc(l.order_sku)}</div><div class="n">${esc(l.product_name)}</div></div>
         <div class="q">${l.received}</div>
+        <button class="chgbin" data-assign="${l.id}" title="Change bin">Change</button>
         <button class="pk" data-place="${l.id}">${l.putaway_done?"✓ Placed":"Placed"}</button>
       </div>`).join("");
     const z=zoneOfBin(bin);
@@ -1013,8 +1049,8 @@ function openBinModal(l){
   ov.className="modal-ov"; ov.id="binModal";
   ov.innerHTML=`
     <div class="modal" role="dialog" aria-label="Assign bin">
-      <div class="mh"><div class="t">Assign bin</div>
-        <div class="s">${esc(l.order_sku)} · ${esc(l.product_name||"")} · qty ${l.received}</div></div>
+      <div class="mh"><div class="t">${l.putaway_bin?"Change bin":"Assign bin"}</div>
+        <div class="s">${esc(l.order_sku)} · ${esc(l.product_name||"")} · qty ${l.received}${l.putaway_bin?` · now: <b>${esc(l.putaway_bin)}</b>`:""}</div></div>
       <div class="mscan">
         <input id="binScan" inputmode="none" autocomplete="off" placeholder="Scan a bin barcode…">
         <div class="h"><span class="live"></span><span>Scan the bin barcode — or pick from the list below</span></div>
@@ -1045,10 +1081,15 @@ async function commitBin(raw){
   // 알려진 bin 인지 확인 — 아니면 확인 후 진행(신규 bin 허용)
   const known=allBins.some(b=>b.bin.toUpperCase()===bin);
   if(!known && allBins.length && !confirm(`"${bin}" is not a known bin in ${receipt.warehouse}. Use it anyway?`)) return;
+  const prevBin=l.putaway_bin, prevDone=l.putaway_done;
+  const changed=prevBin && prevBin!==bin;
   l.putaway_bin=bin; l.zone=zoneOfBin(bin);
+  if(changed) l.putaway_done=false;   // 다른 자리로 바뀌면 재배치 필요 — placed 해제
   beep("ok");
-  const {error}=await sb.from("wms_receipt_lines").update({putaway_bin:bin,zone:l.zone}).eq("id",l.id);
-  if(error){ l.putaway_bin=null; toast("Save failed",true); return; }
+  const upd={putaway_bin:bin,zone:l.zone};
+  if(changed) upd.putaway_done=false;
+  const {error}=await sb.from("wms_receipt_lines").update(upd).eq("id",l.id);
+  if(error){ l.putaway_bin=prevBin; l.putaway_done=prevDone; toast("Save failed",true); return; }
   closeBinModal(); renderPutaway();
 }
 
