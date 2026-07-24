@@ -1086,7 +1086,7 @@ async function loadPacking(){
   const el=document.getElementById("packingList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
   const [{data:ords},{data:its}]=await Promise.all([
-    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300),
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300),
     sb.from("wms_pallet_items").select("order_id"),
   ]);
   const hasPallet=new Set((its||[]).map(i=>i.order_id));
@@ -1094,8 +1094,13 @@ async function loadPacking(){
   const fin=(ords||[]).filter(inRange).map(o=>({ ...o, ftype: o.fulfillment_type || (hasPallet.has(o.id)?"packing_list":"direct") }));
   renderFulfillStats(fin.map(o=>({fulfillment_type:o.ftype})));
   if(!fin.length){ el.innerHTML=`<div class="empty">No finalized orders in this period.</div>`; return; }
-  el.innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
-    fin.map(o=>`<tr>
+  const unrev=fin.filter(o=>!o.mgr_reviewed).length;
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);cursor:pointer"><input type="checkbox" id="finHideRev"> Hide reviewed</label>
+      <span style="font-size:12px;color:var(--mut-2)">${unrev} of ${fin.length} not yet reviewed</span></div>
+    <table><thead><tr><th style="width:32px">✓</th><th>Order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
+    fin.map(o=>`<tr data-rev="${o.mgr_reviewed?1:0}" style="${o.mgr_reviewed?"opacity:.55":""}">
+      <td><input type="checkbox" class="mgrchk" data-oid="${o.id}" ${o.mgr_reviewed?"checked":""} title="${o.mgr_reviewed?("Reviewed by "+esc(o.mgr_reviewed_by||"")+(o.mgr_reviewed_at?" · "+new Date(o.mgr_reviewed_at).toLocaleDateString():"")):"Mark as reviewed"}"></td>
       <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
       <td>${esc(o.customer_name||"—")}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
@@ -1109,6 +1114,18 @@ async function loadPacking(){
   el.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printOrderPackingList(+b.dataset.print));
   el.querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>downloadPackingPDF(+b.dataset.pdf, b.dataset.onum));
   el.querySelectorAll("[data-csv]").forEach(b=>b.onclick=()=>downloadPackingCSV(+b.dataset.csv, b.dataset.onum));
+  el.querySelectorAll(".mgrchk").forEach(c=>c.onchange=()=>toggleMgrReviewed(+c.dataset.oid,c.checked,c));
+  const hide=document.getElementById("finHideRev");
+  if(hide) hide.onchange=()=>{ el.querySelectorAll("tbody tr").forEach(tr=>{ tr.style.display=(hide.checked&&tr.dataset.rev==="1")?"none":""; }); };
+}
+async function toggleMgrReviewed(oid,checked,chk){
+  const patch=checked
+    ? {mgr_reviewed:true, mgr_reviewed_by:me.name, mgr_reviewed_at:new Date().toISOString()}
+    : {mgr_reviewed:false, mgr_reviewed_by:null, mgr_reviewed_at:null};
+  const {error}=await sb.from("wms_orders").update(patch).eq("id",oid);
+  if(error){ if(chk)chk.checked=!checked; toast("Save failed: "+error.message,true); return; }
+  const tr=chk&&chk.closest("tr");
+  if(tr){ tr.dataset.rev=checked?"1":"0"; tr.style.opacity=checked?".55":""; }
 }
 async function getPackingData(oid){
   const {data:ord}=await sb.from("wms_orders").select("order_number,customer_name,warehouse").eq("id",oid).single();
@@ -1312,11 +1329,12 @@ async function loadRecv(){
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
-          <td><button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">Apply to Cin7</button></td>
+          <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">Apply to Cin7</button></td>
         </tr>`).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to apply — receipts appear here once completed. Cin7 is only written when you click Apply and confirm the plan.</div>`)
     +(pending.length?`<div style="color:var(--mut-2);padding:8px 14px;font-size:12px;border-top:1px solid var(--line)">${pending.length} receipt(s) still receiving/held — finish them to apply.</div>`:"");
   ex.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>applyToCin7(+b.dataset.apply,b.dataset.po,b));
+  ex.querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>reviewReceipt(+b.dataset.review));
 
   const hist=document.getElementById("recvHistory");
   hist.innerHTML=rs.length
@@ -1332,10 +1350,11 @@ async function loadRecv(){
           <td>${applied?`<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`:'<span style="color:var(--mut-2);font-size:12px">—</span>'}</td>
           <td>${esc(r.received_by||"—")}</td>
           <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
-          <td><button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}">Delete</button></td>
+          <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}">Delete</button></td>
         </tr>`;}).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">No receipts yet.</div>`;
   hist.querySelectorAll("[data-delrcpt]").forEach(b=>b.onclick=()=>deleteReceipt(+b.dataset.delrcpt,b.dataset.po,b.dataset.exp==="1"));
+  hist.querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>reviewReceipt(+b.dataset.review));
   refreshRecvBadge();
 }
 async function deleteReceipt(rid,po,exported){
@@ -1361,8 +1380,76 @@ async function rejectOffPo(id,sku){
   if(error){ toast("Failed: "+error.message,true); return; }
   toast("Rejected — line removed"); loadRecv();
 }
-async function applyToCin7(rid,po,btn){
-  const EF=(window.WMS_CONFIG?WMS_CONFIG.SUPABASE_URL:"")+"/functions/v1/receiving";
+async function reviewReceipt(rid){
+  try{
+    const {data:rh}=await sb.from("wms_receipts").select("*").eq("id",rid).single();
+    if(!rh){ toast("Receipt not found",true); return; }
+    const {data:ls}=await sb.from("wms_receipt_lines").select("*").eq("receipt_id",rid).order("zone").order("putaway_bin");
+    const applied=!!rh.applied_at;
+    const isTr=rh.source_type==="transfer";
+    // 라인을 bin 별로 그룹핑 (풋어웨이 결과 뷰)
+    const withBin={}, noBin=[];
+    (ls||[]).filter(l=>Number(l.received_base||0)>0).forEach(l=>{
+      if(l.putaway_bin) (withBin[l.putaway_bin]=withBin[l.putaway_bin]||[]).push(l);
+      else noBin.push(l);
+    });
+    const lineRow=l=>{
+      const over=!l.is_off_po&&Number(l.received_base)>Number(l.expected_base);
+      const short=!l.is_off_po&&Number(l.received_base)<Number(l.expected_base);
+      const flags=[l.is_off_po?`<span class="badge" style="background:#f3ebff;color:#7c3aed">OFF-PO${l.needs_approval?" ⏳":" ✓"}</span>`:"",
+        over?`<span class="badge" style="background:var(--warn-bg,#fdf6ec);color:var(--warn,#d9820a)">OVER</span>`:"",
+        short?`<span class="badge" style="background:#fdecec;color:var(--danger)">SHORT</span>`:"",
+        l.putaway_done?`<span style="color:var(--ok)">✓ placed</span>`:`<span style="color:var(--mut-2)">not placed</span>`].filter(Boolean).join(" ");
+      return `<tr>
+        <td style="font-family:var(--mono);font-weight:700">${esc(l.order_sku)}</td>
+        <td style="font-size:12px;color:var(--mut);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.product_name||"")}</td>
+        <td class="num" style="font-family:var(--mono);font-weight:700">${Number(l.received_base||0)}${!l.is_off_po?` / ${Number(l.expected_base||0)}`:""}</td>
+        <td style="font-size:12px">${flags}</td></tr>`;
+    };
+    let body="";
+    Object.keys(withBin).forEach(bin=>{
+      const g=withBin[bin];
+      body+=`<div style="margin:10px 0 4px;font-family:var(--mono);font-weight:800;font-size:13px">📍 ${esc(bin)} <span style="color:var(--mut);font-weight:400;font-size:12px">· ${g.length} item(s)</span></div>
+        <table style="width:100%"><tbody>${g.map(lineRow).join("")}</tbody></table>`;
+    });
+    if(noBin.length) body+=`<div style="margin:10px 0 4px;font-family:var(--mono);font-weight:800;font-size:13px;color:var(--warn,#d9820a)">⚠ No bin assigned</div>
+      <table style="width:100%"><tbody>${noBin.map(lineRow).join("")}</tbody></table>`;
+    if(!body) body=`<div style="color:var(--mut);padding:12px">No received lines.</div>`;
+
+    const foot=applied
+      ? `<div style="color:var(--mut);font-size:12.5px;padding:4px 2px">✓ Already applied to Cin7${rh.applied_at?" · "+new Date(rh.applied_at).toLocaleString():""} — read-only. Corrections must be made in Cin7.</div>
+         <button class="btnsm" id="rvClose">Close</button>`
+      : `<button class="btnsm" id="rvReopen" style="color:var(--warn,#d9820a)">Reopen for edit</button>
+         <button class="btnsm" id="rvClose">Close</button>
+         <button class="btnsm ok" id="rvApply">Apply to Cin7 →</button>`;
+
+    const ov=document.createElement("div"); ov.id="rvModal";
+    ov.style.cssText="position:fixed;inset:0;background:rgba(16,22,30,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px";
+    ov.innerHTML=`<div style="background:var(--card);border-radius:14px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,.3)">
+      <div style="padding:16px 18px 8px;border-bottom:1px solid var(--line)">
+        <div style="font-family:var(--mono);font-weight:800;font-size:16px">${esc(rh.po_number)} ${isTr?'<span class="badge" style="background:#f3ebff;color:#7c3aed">TRANSFER</span>':"<span class='badge'>PO</span>"} <span class="badge">${RECV_ST_LABEL[rh.status]||rh.status}</span></div>
+        <div style="font-size:12.5px;color:var(--mut);margin-top:3px">${esc(rh.supplier_name||"—")} · ${rh.warehouse==="edmonton"?"Edmonton":"Toronto"} · received by ${esc(rh.received_by||"—")}</div>
+        <div style="font-size:11.5px;color:var(--mut-2);margin-top:2px">Review the putaway result below before writing to Cin7.</div>
+      </div>
+      <div style="overflow-y:auto;padding:8px 18px 12px;flex:1">${body}</div>
+      <div style="padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;align-items:center">${foot}</div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener("mousedown",e=>{ if(e.target===ov) ov.remove(); });
+    document.getElementById("rvClose").onclick=()=>ov.remove();
+    const applyBtn=document.getElementById("rvApply");
+    if(applyBtn) applyBtn.onclick=()=>{ ov.remove(); applyToCin7(rid,rh.po_number,null); };
+    const reopenBtn=document.getElementById("rvReopen");
+    if(reopenBtn) reopenBtn.onclick=async()=>{
+      if(rh.applied_at){ toast("Already applied — cannot reopen",true); return; }
+      if(!confirm(`Reopen ${rh.po_number} for edit?\nStatus returns to In progress and opens in the Receiving screen. Re-complete it afterwards.`)) return;
+      const {error}=await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid).is("applied_at",null);
+      if(error){ toast("Reopen failed: "+error.message,true); return; }
+      location.href="receiver.html?receipt="+rid;
+    };
+  }catch(e){ toast("Review failed: "+(e.message||e),true); }
+}
+async function applyToCin7(rid,po,btn){  const EF=(window.WMS_CONFIG?WMS_CONFIG.SUPABASE_URL:"")+"/functions/v1/receiving";
   const hdrs=async()=>{
     const {data:{session}}=await sb.auth.getSession();
     const tk=(session&&session.access_token)||WMS_CONFIG.SUPABASE_ANON_KEY;

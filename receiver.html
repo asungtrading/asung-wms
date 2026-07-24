@@ -367,6 +367,8 @@ async function init(){
   if(zs.error){setConn("err");toast("Initial load failed",true);return;}
   setConn("ok");
   (zs.data||[]).forEach(z=>zoneSeq[z.warehouse+"|"+z.zone]=z.sequence_order);
+  const rid=new URLSearchParams(location.search).get("receipt");
+  if(rid){ openReceipt(+rid); return; }   // admin Reopen 딥링크
   loadMyReceipts();
 }
 
@@ -550,22 +552,25 @@ async function openReceipt(rid){
 }
 
 /* ---------- 창고 bin 목록 로드 (빈 지정 드롭다운) ---------- */
+/* 1순위: Cin7 location 전체(빈 자리 포함) via EF. 폴백: wms_sku_bins(재고 있던 자리만) */
 async function loadBins(){
   try{
-    const {data,error}=await sb.from("wms_sku_bins")
-      .select("bin,zone").eq("warehouse",receipt.warehouse);
-    if(error) throw error;
-    const seen={};
-    (data||[]).forEach(r=>{
-      const b=(r.bin||"").trim(); if(!b||seen[b])return;
-      seen[b]={bin:b,zone:(r.zone||zoneOfBin(b))};
-    });
-    allBins=Object.values(seen).sort((a,b)=>{
-      const za=zOrder(a.zone), zb=zOrder(b.zone);
-      if(za!==zb)return za-zb;
-      return a.bin<b.bin?-1:1;
-    });
-  }catch(e){ allBins=[]; }  // 실패해도 스캔/타이핑은 됨
+    const j=await efGet("action=bins&warehouse="+encodeURIComponent(receipt.warehouse));
+    const bins=(j.bins||[]).map(b=>({bin:String(b.bin).trim(),zone:zoneOfBin(String(b.bin).trim())}))
+      .filter(b=>b.bin);
+    if(bins.length){ allBins=sortBins(bins); return; }
+    throw new Error("empty");
+  }catch(e){
+    try{
+      const {data}=await sb.from("wms_sku_bins").select("bin,zone").eq("warehouse",receipt.warehouse);
+      const seen={};
+      (data||[]).forEach(r=>{ const b=(r.bin||"").trim(); if(b&&!seen[b])seen[b]={bin:b,zone:(r.zone||zoneOfBin(b))}; });
+      allBins=sortBins(Object.values(seen));
+    }catch(e2){ allBins=[]; }  // 실패해도 스캔/타이핑은 됨
+  }
+}
+function sortBins(arr){
+  return arr.sort((a,b)=>{ const za=zOrder(a.zone),zb=zOrder(b.zone); if(za!==zb)return za-zb; return a.bin<b.bin?-1:1; });
 }
 
 /* ---------- bcMap: 스냅샷 형제 바코드 병합 (picker 패턴) ---------- */
