@@ -421,7 +421,7 @@ async function efGet(params){
 /* ---------- 내 진행중/보류/부분완료 receipt ---------- */
 async function loadMyReceipts(){
   const {data,error}=await sb.from("wms_receipts")
-    .select("*").in("status",["in_progress","held","partial"]).order("updated_at",{ascending:false});
+    .select("*").in("status",["in_progress","held","partial"]).is("applied_at",null).order("updated_at",{ascending:false});
   if(error){toast("Failed to load receipts",true);return;}
   const acc=me.warehouse_access;
   myReceipts=(data||[]).filter(r=>acc==="both"||r.warehouse===acc);
