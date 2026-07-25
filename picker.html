@@ -367,8 +367,8 @@ async function loadBatches(){
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  const sel="id,batch_label,status,assigned_to,started_at,work_started,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  const wsel="id,label,warehouse,status,assigned_to,started_at, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review), wms_pick_task_lines(count))";
+  const sel="id,batch_label,status,assigned_to,started_at,work_started,held_by,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
+  const wsel="id,label,warehouse,status,assigned_to,started_at,held_by, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review), wms_pick_task_lines(count))";
   // wave member batches are hidden from the individual pool (picked only as a whole wave)
   // my in-progress + waiting pool (heartbeat/stale 제거 — 방치분은 스캔 이어받기로 처리)
   const [mine, pool, wmine, wpool]=await Promise.all([
@@ -389,35 +389,37 @@ async function loadBatches(){
   staleWaves=[];
   renderBatches();
 }
-function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover"
+function batchCardHtml(b,mode){ // mode: "start" | "resume" | "takeover" | "held"
   const o=b.wms_orders||{}; const cnt=(b.wms_pick_task_lines&&b.wms_pick_task_lines[0]?.count)||0;
-  const resume=mode==="resume", take=mode==="takeover";
+  const resume=mode==="resume", take=mode==="takeover", held=mode==="held";
   const im=take?idleMin(b):null;
-  return `<div class="bcard ${resume||take?"resume":""}" data-id="${b.id}" data-mode="${mode}">
+  return `<div class="bcard ${resume||take||held?"resume":""}" data-id="${b.id}" data-mode="${mode}">
     <div>
       <div class="bl">${esc(b.batch_label)}</div>
       <div class="sub">${esc(o.customer_name||"—")} · ${cnt} lines
         <span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
         ${o.needs_review?'<span class="tag rev">Needs review</span>':""}
+        ${held?'<span class="tag" style="background:#fff4e0;color:#a86400">⏸ you held this</span>':""}
         ${take?`<span class="tag rev">${esc(b.assigned_to||"?")} · idle ${im?im+"m":"?"}</span>`:""}</div>
     </div>
-    <button class="go ${resume||take?"resumebtn":""}">${take?"Take over":resume?"Resume":"Start"}</button>
+    <button class="go ${resume||take||held?"resumebtn":""}">${take?"Take over":resume||held?"Resume":"Start"}</button>
   </div>`;
 }
 function waveCardHtml(w,mode){
   const ts=(w.wms_pick_tasks||[]).slice().sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
   const cnt=ts.reduce((s,t)=>s+((t.wms_pick_task_lines&&t.wms_pick_task_lines[0]?.count)||0),0);
-  const resume=mode==="resume", take=mode==="takeover";
+  const resume=mode==="resume", take=mode==="takeover", held=mode==="held";
   const im=take?idleMin(w):null;
   const names=ts.map(t=>t.wms_orders?.order_number).filter(Boolean).join(" · ");
-  return `<div class="bcard ${resume||take?"resume":""}" data-id="${w.id}" data-kind="wave" data-mode="${mode}">
+  return `<div class="bcard ${resume||take||held?"resume":""}" data-id="${w.id}" data-kind="wave" data-mode="${mode}">
     <div>
       <div class="bl">${esc(w.label)} <span class="tag wv">WAVE · ${ts.length} totes</span></div>
       <div class="sub">${esc(names||"—")} · ${cnt} lines
         <span class="tag wh-${w.warehouse}">${w.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>
+        ${held?'<span class="tag" style="background:#fff4e0;color:#a86400">⏸ you held this</span>':""}
         ${take?`<span class="tag rev">${esc(w.assigned_to||"?")} · idle ${im?im+"m":"?"}</span>`:""}</div>
     </div>
-    <button class="go ${resume||take?"resumebtn":""}">${take?"Take over":resume?"Resume":"Start"}</button>
+    <button class="go ${resume||take||held?"resumebtn":""}">${take?"Take over":resume||held?"Resume":"Start"}</button>
   </div>`;
 }
 function renderBatches(){
@@ -428,16 +430,24 @@ function renderBatches(){
     return (w.wms_pick_tasks||[]).some(t=>{ const on=(t.wms_orders?.order_number||"").toUpperCase(); const bl=(t.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; }); };
   // resume list = only claims where actual work happened (no-work claims are not "resumable")
   const my=myBatches.filter(match).filter(b=>b.work_started),
-        pool=batches.filter(match),
-        stale=stalePool.filter(match),
+        poolAll=batches.filter(match),
         wmy=myWaves.filter(wmatch),
-        wpool=waves.filter(wmatch),
-        wstale=staleWaves.filter(wmatch);
-  const has=(my.length+pool.length+stale.length+wmy.length+wpool.length+wstale.length)>0;
+        wpoolAll=waves.filter(wmatch);
+  // 내가 홀드한 것(held_by=나) 은 대기 풀에서 맨 위 "Resume your held" 로 끌어올림
+  const myHeld=poolAll.filter(b=>b.held_by===me.name),
+        pool=poolAll.filter(b=>b.held_by!==me.name),
+        wmyHeld=wpoolAll.filter(w=>w.held_by===me.name),
+        wpool=wpoolAll.filter(w=>w.held_by!==me.name);
+  const has=(my.length+pool.length+myHeld.length+wmy.length+wpool.length+wmyHeld.length)>0;
   be.style.display=has?"none":"block";
   be.textContent=f?("No waiting batch for "+batchFilter):"No waiting batches..";
   let html="";
   if(f){ html+=`<div class="filterbar">Showing <b>${esc(batchFilter)}</b><button id="clrFilter">Clear</button></div>`; }
+  if(myHeld.length||wmyHeld.length){
+    html+=`<div class="sect" style="color:var(--accent)">⏸ Resume your held ${myHeld.length+wmyHeld.length>1?"batches":"batch"}</div>`
+      +wmyHeld.map(w=>waveCardHtml(w,"held")).join("")
+      +myHeld.map(b=>batchCardHtml(b,"held")).join("");
+  }
   if(my.length||wmy.length){
     html+=`<div class="sect">My In Progress</div>`
       +wmy.map(w=>waveCardHtml(w,"resume")).join("")
@@ -448,11 +458,6 @@ function renderBatches(){
   }
   if(pool.length){
     html+=`<div class="sect">Waiting Batches</div>`+pool.map(b=>batchCardHtml(b,"start")).join("");
-  }
-  if(stale.length||wstale.length){
-    html+=`<div class="sect">Abandoned — holder away (take over, progress kept)</div>`
-      +wstale.map(w=>waveCardHtml(w,"takeover")).join("")
-      +stale.map(b=>batchCardHtml(b,"takeover")).join("");
   }
   document.getElementById("blist").innerHTML=html;
   const clr=document.getElementById("clrFilter");
@@ -531,7 +536,7 @@ async function startBatch(id){
   const b=batches.find(x=>x.id===id);
   const now=new Date().toISOString();
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false})
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false,held_by:null})
     .eq("id",id).is("assigned_to",null).select();  // 0 rows if batch already taken
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this.",true); loadBatches(); return; }
@@ -670,7 +675,7 @@ async function startWave(id){
   if(!data||!data.length){ toast("Another worker has already started this wave.",true); loadBatches(); return; }
   wave=data[0]; wave._workStarted=false;
   const {data:ts,error:te}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false})
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false,held_by:null})
     .eq("wave_id",id)
     .select("*, wms_orders(order_number,customer_name,warehouse)");
   if(te||!ts||!ts.length){ toast("Failed to open wave batches",true); resetToList(); return; }
@@ -1025,14 +1030,14 @@ document.getElementById("holdBtn").onclick=async ()=>{
     stopHeartbeat(); presenceLeave();
     if(wave){
       const {error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"pending",assigned_to:null,heartbeat_at:null}).in("id",tasks.map(t=>t.id));
+        .update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).in("id",tasks.map(t=>t.id));
       if(te) throw te;
       const {error:we}=await sb.from("wms_waves")
-        .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",wave.id);
+        .update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",wave.id);
       if(we) throw we;
     }else{
       const {error}=await sb.from("wms_pick_tasks")
-        .update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",task.id);
+        .update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",task.id);
       if(error) throw error;
     }
     toast(label+" Held (returned to waiting list)");

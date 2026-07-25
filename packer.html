@@ -366,7 +366,7 @@ async function loadQueue(){
   const acc=me.warehouse_access;
   const [donePick, allPack]=await Promise.all([
     sb.from("wms_pick_tasks").select("id,batch_label,order_id, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at"),
-    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started, wms_orders(order_number,warehouse,customer_name)"),
+    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders(order_number,warehouse,customer_name)"),
   ]);
   document.getElementById("bloading").style.display="none";
   if(donePick.error||allPack.error){toast("Failed to load list",true);return;}
@@ -406,11 +406,13 @@ function renderQueue(){
   const be=document.getElementById("bempty");
   const f=queueFilter.trim().toUpperCase();
   const match=p=>{ if(!f)return true; const on=(p.wms_orders?.order_number||"").toUpperCase(); const bl=(p.batch_label||"").toUpperCase(); return on===f||bl.startsWith(f+"-")||bl===f; };
-  const mineF=mine.filter(match), heldF=held.filter(match), poolF=poolNew.filter(match), staleF=stalePacks.filter(match);
-  const has=(poolF.length+mineF.length+heldF.length+staleF.length)>0;
+  const mineF=mine.filter(match), heldAll=held.filter(match), poolF=poolNew.filter(match), staleF=stalePacks.filter(match);
+  const myHeldF=heldAll.filter(p=>p.held_by===me.name), heldF=heldAll.filter(p=>p.held_by!==me.name);
+  const has=(poolF.length+mineF.length+heldAll.length+staleF.length)>0;
   be.style.display=has?"none":"block"; be.textContent=f?("No pack batch for "+queueFilter):"No batches waiting to pack..";
   let html="";
   if(f){ html+=`<div class="filterbar">Showing <b>${esc(queueFilter)}</b><button id="clrFilter">Clear</button></div>`; }
+  if(myHeldF.length){ html+=`<div class="sect" style="color:var(--accent)">⏸ Resume your held ${myHeldF.length>1?"batches":"batch"}</div>`+myHeldF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
   if(mineF.length){ html+=`<div class="sect">My In Progress</div>`+mineF.map(p=>qcard(p.wms_orders||{},p.batch_label,"Resume verify",`data-packid="${p.id}"`,true,shortByPick[p.pick_task_id]||0)).join(""); }
   if(poolF.length||heldF.length){
     html+=`<div class="sect">Pack Queue</div>`;
@@ -509,7 +511,7 @@ async function resumePack(packId){
   // if held(pending) batch, claim it as mine (concurrency: only when pending)
   if(pk.status==="pending"){
     const now=new Date().toISOString();
-    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now})
+    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,held_by:null})
       .eq("id",packId).eq("status","pending").select();
     if(cl.error||!cl.data||!cl.data.length){ toast("Another worker already took this",true); loadQueue(); return; }
     pk.work_started=cl.data[0].work_started;
@@ -941,7 +943,7 @@ document.getElementById("holdBtn").onclick=async ()=>{
     // to preserve progress, pack_taskwould need to keep as pending, but pool logic is "pack_task none"is
     // hold keeps pack_task as pending + clears assigned_to → drops from 'My In Progress' so anyone can resume.
     stopHeartbeat(); presenceLeave();
-    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null}).eq("id",packTask.id);
+    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",packTask.id);
     toast(packTask.batch_label+" held");
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";
