@@ -47,7 +47,8 @@ async function cin7(method: string, path: string, body?: unknown): Promise<any> 
     });
     if (resp.status === 429) { await sleep(1500); continue; }
     const text = await resp.text();
-    if (!resp.ok) throw new Error("Cin7 " + method + " " + path.split("?")[0] + " -> " + resp.status + ": " + text.slice(0, 400));
+    if (!resp.ok) throw new Error("Cin7 " + method + " " + path.split("?")[0] + " -> " + resp.status + ": " + text.slice(0, 400) +
+      (method !== "GET" && body !== undefined ? " | SENT: " + JSON.stringify(body).slice(0, 600) : ""));
     return text ? JSON.parse(text) : {};
   }
   throw new Error("Cin7 429 rate limit (retries exhausted)");
@@ -211,7 +212,15 @@ async function buildApplyPlan(receiptId: number) {
   if (!target.length) throw new Error("nothing applicable (all lines skipped)");
 
   const sm = await snapMap(target.map((l) => l.order_sku));
-  const planLines = target.map((l) => {
+  // 같은 (SKU + bin) 은 Cin7 stock received 에서 중복 불가 → 미리 수량 합산해 하나로 병합
+  const merged: Record<string, any> = {};
+  for (const l of target) {
+    const key = String(l.order_sku).toUpperCase() + "|" + String(l.putaway_bin).toUpperCase();
+    if (merged[key]) merged[key].received_base = Number(merged[key].received_base) + Number(l.received_base);
+    else merged[key] = { order_sku: l.order_sku, base_sku: l.base_sku, putaway_bin: l.putaway_bin, received_base: Number(l.received_base) };
+  }
+  const mergedLines = Object.values(merged);
+  const planLines = mergedLines.map((l: any) => {
     const s = sm[String(l.order_sku).toUpperCase()];
     const factor = (s && Number(s.factor) > 0) ? Number(s.factor) : 1;
     const units = Number(l.received_base) / factor;
@@ -268,16 +277,27 @@ async function applyCommit(planWrap: any, appliedBy: string) {
     } catch (e) {
       throw new Error("Invoice not authorised - authorize the invoice in Cin7 first (Invoice First). Detail: " + String((e as Error).message));
     }
-    const now = new Date().toISOString();
-    const bodyLines = [];
+    const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식
+    // ⚠️ Cin7 stock received 는 한 문서(POST)에 bin(location) 1개만 허용 (실측: 다른 bin 섞으면 400 'Lines is invalid').
+    //    → putaway_bin 으로 그룹핑해 bin 마다 별도 POST /purchase/stock (DRAFT). 전부 성공 후 한 번 authorize.
+    const byBin: Record<string, any[]> = {};
     for (const p of plan.lines) {
-      bodyLines.push({
-        Date: now, SKU: p.order_sku, Quantity: p.qty_units,
-        LocationID: await binGuid(whName, p.bin), Received: false,
-      });
+      const b = String(p.bin);
+      (byBin[b] = byBin[b] || []).push(p);
     }
-    await cin7("POST", "/purchase/stock", { TaskID: rcpt.cin7_purchase_id, Status: "DRAFT", Lines: bodyLines });
-    log.push("stock received DRAFT created: " + plan.lines.length + " line(s)");
+    const binNames = Object.keys(byBin);
+    for (let bi = 0; bi < binNames.length; bi++) {
+      const bin = binNames[bi];
+      const guid = await binGuid(whName, bin);
+      const bodyLines = byBin[bin].map((p) => ({
+        Date: now, SKU: p.order_sku, Quantity: Math.round(Number(p.qty_units)),
+        LocationID: guid, Received: false,
+      }));
+      await cin7("POST", "/purchase/stock", { TaskID: rcpt.cin7_purchase_id, Status: "DRAFT", Lines: bodyLines });
+      log.push("stock received DRAFT — bin " + bin + ": " + bodyLines.length + " line(s)");
+      if (bi < binNames.length - 1) await sleep(400);
+    }
+    log.push("total " + plan.lines.length + " line(s) across " + binNames.length + " bin(s)");
     try {
       await cin7("POST", "/purchase/stock", { TaskID: rcpt.cin7_purchase_id, Status: "AUTHORISED", Lines: [] });
       log.push("stock received AUTHORISED");
@@ -316,7 +336,7 @@ async function applyCommit(planWrap: any, appliedBy: string) {
   }
 
   await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, {
-    applied_at: new Date().toISOString(), applied_by: appliedBy || null, apply_note: log.join(" | "),
+    status: "completed", applied_at: new Date().toISOString(), applied_by: appliedBy || null, apply_note: log.join(" | "),
   });
   return log;
 }
@@ -336,6 +356,21 @@ Deno.serve(async (req: Request) => {
       const id = url.searchParams.get("id") || "";
       if (!id) return json({ ok: false, error: "id required" }, 400);
       return json({ ok: true, po: await poDetail(id, url.searchParams.get("type") || "Simple Purchase") });
+    }
+    if (action === "bins") {
+      const wh = (url.searchParams.get("warehouse") || "toronto").toLowerCase();
+      const whName = WH_NAME[wh] || WH_NAME.toronto;
+      const list = await locations();
+      const parent = list.find((l) => (l.Name || "").trim() === whName.trim());
+      const bins: any[] = [];
+      if (parent) {
+        (parent.Bins || []).forEach((b: any) => { if (b.Name) bins.push({ bin: String(b.Name).trim(), id: b.ID }); });
+        list.filter((l) => l.ParentID === parent.ID).forEach((l) => {
+          const nm = String(l.Name || "").replace(whName + ": ", "").trim();
+          if (nm && !bins.some((x) => x.bin === nm)) bins.push({ bin: nm, id: l.ID });
+        });
+      }
+      return json({ ok: true, warehouse: wh, bins });
     }
     if (action === "transfers") {
       return json({ ok: true, transfers: await listTransfers() });
