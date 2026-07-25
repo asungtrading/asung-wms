@@ -254,7 +254,7 @@ let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom=
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
-const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed"};
+const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
 const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
 
 /* ---------- boot / login ---------- */
@@ -1518,7 +1518,7 @@ function discRow(d,actionable){
     ? `<td><button class="btnsm ok" data-fix="${d.id}">Cin7 Fixed</button></td>`
     : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}</td>`;
   return `<tr>
-    <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}</td>
+    <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}${d.source==="receiving"?' <span class="tag" style="background:#eaf2ff;color:#2456d6;font-family:var(--sans)">Receiving</span>':""}</td>
     <td style="font-family:var(--mono)">${esc(d.sku||"")}${d.note?`<div style="font-family:inherit;font-weight:400;font-size:11px;color:var(--mut);margin-top:2px">${esc(d.note)}</div>`:""}</td>
     <td><span class="tag r-${d.reason}">${rl}</span></td>
     <td class="num">${d.ordered_base??"—"}</td>

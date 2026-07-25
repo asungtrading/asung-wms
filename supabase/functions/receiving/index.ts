@@ -55,12 +55,12 @@ async function cin7(method: string, path: string, body?: unknown): Promise<any> 
 }
 const cin7Get = (path: string) => cin7("GET", path);
 
-async function sb(method: string, path: string, body?: unknown): Promise<any> {
+async function sb(method: string, path: string, body?: unknown, prefer?: string): Promise<any> {
   const url = (Deno.env.get("SUPABASE_URL") ?? "") + "/rest/v1/" + path;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const resp = await fetch(url, {
     method,
-    headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json", Prefer: "return=representation" },
+    headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json", Prefer: prefer || "return=representation" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!resp.ok) throw new Error("Supabase " + resp.status + ": " + (await resp.text()).slice(0, 300));
@@ -228,6 +228,30 @@ async function buildApplyPlan(receiptId: number) {
     return { order_sku: l.order_sku, base_sku: l.base_sku, qty_units: units, qty_base: Number(l.received_base), bin: l.putaway_bin };
   });
 
+  // ── 리시빙 차이(초과/부족/오프-PO) 를 SKU 단위로 집계 → discrepancy 큐용 ──
+  // 정책: Cin7 엔 received 그대로 쓰고, 기대치(expected)와의 차이는 매니저가 Cin7 에서 수동 adjustment.
+  const bySku: Record<string, any> = {};
+  for (const l of lines) {
+    const rb = Number(l.received_base || 0);
+    if (rb <= 0 && !l.is_off_po) continue;
+    const k = String(l.order_sku).toUpperCase();
+    if (!bySku[k]) bySku[k] = { order_sku: l.order_sku, received: 0, expected: 0, off_po: !!l.is_off_po, needs_approval: !!l.needs_approval };
+    bySku[k].received += rb;
+    bySku[k].expected += Number(l.expected_base || 0);
+    if (l.is_off_po) bySku[k].off_po = true;
+  }
+  const discrepancies: any[] = [];
+  for (const k in bySku) {
+    const r = bySku[k];
+    if (r.off_po) {
+      if (r.received > 0 && !r.needs_approval) discrepancies.push({ sku: r.order_sku, ordered_base: 0, actual_base: r.received, reason: "recv_off_po" });
+    } else if (r.received > r.expected) {
+      discrepancies.push({ sku: r.order_sku, ordered_base: r.expected, actual_base: r.received, reason: "recv_over" });
+    } else if (r.received < r.expected) {
+      discrepancies.push({ sku: r.order_sku, ordered_base: r.expected, actual_base: r.received, reason: "recv_short" });
+    }
+  }
+
   if (src === "po") {
     return {
       receipt: rcpt, source: "po",
@@ -238,7 +262,7 @@ async function buildApplyPlan(receiptId: number) {
           "2) POST /purchase/stock - DRAFT with " + planLines.length + " line(s), each to its bin",
           "3) Authorize stock received (empty-lines request; if it fails, authorize in Cin7 UI)",
         ],
-        lines: planLines, skipped,
+        lines: planLines, skipped, discrepancies,
       },
     };
   }
@@ -246,18 +270,25 @@ async function buildApplyPlan(receiptId: number) {
   if (String(det.status).toUpperCase() !== "IN TRANSIT") throw new Error("transfer is " + det.status + " (expected IN TRANSIT)");
   const groups: Record<string, any[]> = {};
   planLines.forEach((p) => { (groups[p.bin] = groups[p.bin] || []).push(p); });
-  const defaultBin = (det.to_location_raw.split(":")[1] || "").trim();
-  const moves = Object.keys(groups).filter((b) => b !== defaultBin);
+  // ⚠️ 실측(2026-07-25): 완료 시 재고 착지 지점은 트랜스퍼 헤더 To 에 따라 두 가지.
+  //   (a) To = 창고 GUID        → bin 없이 창고에 떠 있음 (TR-03259 형)
+  //   (b) To = 특정 bin GUID    → 그 bin 에 전량 (예 EZ010101 임시 집결 — 실제 보관자리 아님)
+  //   두 경우 모두 From = det.to_guid 로 꺼내면 Cin7 이 알아서 처리(실측 200).
+  //   landingBin 은 (b)에서 "이미 제자리" 스킵 판단용. to_location_raw 예: "Asung - Edmonton: EZ010101"
+  const landingBin = (det.to_location_raw.split(":")[1] || "").trim();   // 창고만이면 ""
+  const moves = Object.keys(groups).filter((b) => !landingBin || b !== landingBin);
   return {
     receipt: rcpt, source: "transfer",
     plan: {
       action: "Transfer completion + bin placement",
       steps: [
-        "1) PUT " + det.po_number + " -> COMPLETED (all stock lands in default bin " + (defaultBin || "?") + ")",
-        "2) " + moves.length + " mini transfer(s) from " + defaultBin + " to actual bins (" + moves.join(", ") + ")",
+        "1) PUT " + det.po_number + " -> COMPLETED with received quantities (stock lands " +
+          (landingBin ? ("in " + landingBin) : "in the warehouse with no bin") + ")",
+        "2) " + moves.length + " bin move(s) to the actual bins (" + (moves.join(", ") || "none") + ")" +
+          (landingBin && moves.length < Object.keys(groups).length ? " · already-in-place groups skipped" : ""),
       ],
-      transfer: { number: det.po_number, to_default_bin: defaultBin, to_guid: det.to_guid },
-      lines: planLines, groups: Object.keys(groups).map((b) => ({ bin: b, lines: groups[b] })), skipped,
+      transfer: { number: det.po_number, landing_bin: landingBin || null, to_guid: det.to_guid },
+      lines: planLines, groups: Object.keys(groups).map((b) => ({ bin: b, lines: groups[b] })), skipped, discrepancies,
     },
   };
 }
@@ -306,27 +337,49 @@ async function applyCommit(planWrap: any, appliedBy: string) {
     }
   } else {
     const det = await cin7Get("/stockTransfer?TaskID=" + encodeURIComponent(rcpt.cin7_purchase_id));
-    const now = new Date().toISOString();
+    const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";
+    // ── 1) 실물 수량으로 COMPLETED ──
+    // 정책: 초과/부족 모두 "들어온 대로" 쓴다(실측 2026-07-25: 원래 수량보다 많게 완료해도 200).
+    //       차이는 아래 discrepancy 로 남겨 매니저가 Cin7 에서 adjustment.
+    const recvBySku: Record<string, number> = {};
+    for (const p of plan.lines) {
+      const k = String(p.base_sku || p.order_sku).toUpperCase();
+      recvBySku[k] = (recvBySku[k] || 0) + Number(p.qty_base || 0);
+    }
+    const putLines = (det.Lines || []).map((l: any) => {
+      const k = String(l.SKU || "").trim().toUpperCase();
+      const got = recvBySku[k];
+      return got === undefined ? l : Object.assign({}, l, { TransferQuantity: got });
+    });
+    const changed = (det.Lines || []).filter((l: any) => {
+      const got = recvBySku[String(l.SKU || "").trim().toUpperCase()];
+      return got !== undefined && Number(got) !== Number(l.TransferQuantity);
+    }).length;
     const putBody = {
       TaskID: det.TaskID, Status: "COMPLETED",
       From: det.From, To: det.To,
       CostDistributionType: det.CostDistributionType || "Cost",
       InTransitAccount: det.InTransitAccount || undefined,
       DepartureDate: det.DepartureDate || now, CompletionDate: now,
-      Reference: det.Reference || "", Lines: det.Lines, SkipOrder: true,
+      Reference: det.Reference || "", Lines: putLines, SkipOrder: true,
     };
     await cin7("PUT", "/stockTransfer", putBody);
-    log.push("transfer " + det.Number + " COMPLETED (landed in default bin)");
+    const landing = plan.transfer.landing_bin;
+    log.push("transfer " + det.Number + " COMPLETED with received qty" + (changed ? " (" + changed + " line(s) differ from sent qty)" : "") +
+      " - landed " + (landing ? ("in " + landing) : "in warehouse with no bin"));
+
+    // ── 2) 착지 지점 → 실제 bin 으로 이동 ──
+    // From = det.To (창고 GUID 면 bin 없는 재고, 집결 bin GUID 면 그 bin) — 두 경우 다 실측 200.
     const fromGuid = det.To;
     for (const g of plan.groups) {
-      if (g.bin === plan.transfer.to_default_bin) { log.push("group " + g.bin + ": already default bin - skip"); continue; }
+      if (landing && g.bin === landing) { log.push("bin " + g.bin + ": already in place - skip"); continue; }
       const toGuid = await binGuid(whName, g.bin);
       const mini = {
         Status: "COMPLETED", From: fromGuid, To: toGuid,
         CostDistributionType: "Cost",
         DepartureDate: now, CompletionDate: now,
         Reference: "WMS putaway " + rcpt.po_number,
-        Lines: g.lines.map((p: any) => ({ SKU: p.base_sku, TransferQuantity: p.qty_base })),
+        Lines: g.lines.map((p: any) => ({ SKU: p.base_sku, TransferQuantity: Math.round(Number(p.qty_base)) })),
         SkipOrder: true,
       };
       const res = await cin7("POST", "/stockTransfer", mini);
@@ -338,6 +391,25 @@ async function applyCommit(planWrap: any, appliedBy: string) {
   await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, {
     status: "completed", applied_at: new Date().toISOString(), applied_by: appliedBy || null, apply_note: log.join(" | "),
   });
+
+  // ── 리시빙 차이 → discrepancy 큐 (매니저가 보고 Cin7 에서 수동 adjustment) ──
+  // Cin7 엔 위에서 이미 received 그대로 기록됨. 여기선 기대치와의 차이만 남긴다.
+  const disc = (plan.discrepancies || []) as any[];
+  if (disc.length) {
+    const rows = disc.map((d) => ({
+      order_id: null, order_number: rcpt.po_number, po_number: rcpt.po_number,
+      receipt_id: rcpt.id, source: "receiving",
+      sku: d.sku, ordered_base: d.ordered_base, actual_base: d.actual_base,
+      reason: d.reason, responsible: rcpt.received_by || null, cin7_corrected: false,
+    }));
+    // receipt_id+sku 유니크(부분 인덱스)라 재적용해도 중복 안 쌓임 → on_conflict 무시
+    try {
+      await sb("POST", "wms_discrepancies?on_conflict=receipt_id,sku", rows, "resolution=ignore-duplicates,return=minimal");
+      log.push(disc.length + " discrepancy(ies) logged for manager review");
+    } catch (e) {
+      log.push("WARN discrepancy log failed: " + String((e as Error).message).slice(0, 120));
+    }
+  }
   return log;
 }
 
