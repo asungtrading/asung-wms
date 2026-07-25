@@ -513,10 +513,19 @@ document.getElementById("poScan").addEventListener("keydown",async e=>{
 async function startPo(i){
   initAudio();
   const p=openPos[i]; if(!p)return;
-  // 이미 열린 receipt 있으면 재개 (PO 1개 = receipt 1개)
-  const {data:ex}=await sb.from("wms_receipts").select("id")
-    .eq("cin7_purchase_id",p.id).neq("status","completed").limit(1);
-  if(ex&&ex.length){ resumeReceipt(ex[0].id); return; }
+  // 이 PO/트랜스퍼의 기존 receipt 확인 (PO 1개 = receipt 1개)
+  const {data:exAll}=await sb.from("wms_receipts").select("id,status,applied_at")
+    .eq("cin7_purchase_id",p.id).order("id",{ascending:false});
+  if(exAll&&exAll.length){
+    // 이미 Cin7 반영(applied)된 게 있으면 새로 받지 못하게 차단
+    const applied=exAll.find(r=>r.applied_at);
+    if(applied){ toast("This "+(p.source==="transfer"?"transfer":"PO")+" is already applied to Cin7 — cannot receive again.",true); return; }
+    // 미완료(진행중/held/partial) receipt 있으면 이어받기
+    const open=exAll.find(r=>r.status!=="completed");
+    if(open){ resumeReceipt(open.id); return; }
+    // completed 지만 미적용 → 그것 재개(리뷰/적용 대기 상태)
+    resumeReceipt(exAll[0].id); return;
+  }
 
   document.getElementById("lLoading").style.display="block";
   try{
@@ -558,6 +567,7 @@ async function resumeReceipt(rid){
 async function openReceipt(rid){
   const {data:rh,error:re}=await sb.from("wms_receipts").select("*").eq("id",rid).single();
   if(re||!rh){toast("Receipt not found",true);loadMyReceipts();return;}
+  if(rh.applied_at){ toast("Already applied to Cin7 — this receipt is closed.",true); loadMyReceipts(); return; }
   receipt=rh;
   if(receipt.status!=="in_progress"){ // held/partial → 재개 시 진행중으로
     await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid);
