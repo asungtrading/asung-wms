@@ -1,0 +1,108 @@
+# WMS Supabase 스키마 (14개 테이블 + 함수 1)
+
+운영 테이블 12개(2026-07-22 `wms_waves` 추가) + 복제 2 + `wms_staff` + 불변식 함수 `wms_health_check()`. RLS ON(2026-07-19, `auth_all`). 복제 2테이블은 GAS·Edge Function만 접근하는 내부 마스터.
+
+## 운영 테이블 11개
+
+### wms_zone_sequence — 동선 순서 + 좌표
+`id`, `warehouse`(toronto/edmonton), `zone`, `sequence_order`(작을수록 먼저, UPDATE로 조정), `center_x`/`center_y`(numeric, WarehouseMap 좌표, 경로최적화 확장용), `active`, unique(warehouse,zone). 초기값 23행 적재됨(toronto 13 + edmonton 10).
+
+### wms_drop_locations — 픽 후 드롭장소 마스터 (⚠️ 아직 비어있음)
+`id`, `location_code`(unique), `name`, `warehouse`, `active`, `created_at`.
+
+### wms_orders — 오더 헤더
+`id`, `cin7_sale_id`(unique, 폴링 dedup 키), `order_number`, `customer_name`, `warehouse`, `location`(Cin7 원문), `ship_by`, `order_progress`, `cin7_status`, `status`(enum: pending/picking/packing/ready_to_close/closed/voided), `completion_type`(clean/flagged), `total_lines`, `total_required_base`, `cin7_updated`, `imported_at`, `last_polled_at`, `notified_at`, `updated_at`.
+⚠️ 3단계에서 **needs_review 컬럼 신설 권장**(현재 completion_type=완료용이라 유입시점 확인필요와 별개).
+
+### wms_order_lines — 오더 라인 (base 정규화 + import 시점 스냅샷)
+`id`, `order_id`(FK→wms_orders), `cin7_line_id`, `order_sku`, `base_sku`, `factor`(변형=unit, base=1), `ordered_qty`, `required_base`(=qty×factor), 스냅샷: `product_name`/`image_url`/`bin_location`/`zone`/`is_selling`/`scannable_barcodes`(jsonb)/`line_flag`, `created_at`.
+
+### wms_pick_tasks — 픽 배치 (오더 분할 단위 + wave 멤버)
+`id`, `order_id`(FK), `batch_label`(예 SO-12345-1), `assigned_to`, `drop_location`(FK→wms_drop_locations.location_code), `status`(pending/in_progress/completed), `created_at`/`started_at`/`completed_at`, `heartbeat_at`, `work_started`(bool). **wave 컬럼(2026-07-22, `wms_waves.sql`)**: `wave_id`(FK→wms_waves, NULL=평범한 split 배치), `tote_no`(int, wave 내 물리 토트 슬롯 1..10). 인덱스 `idx_picktasks_wave`(부분, wave_id not null).
+
+### wms_pick_task_lines — 픽 배치 라인
+`id`, `pick_task_id`(FK), `order_line_id`(FK→wms_order_lines), `assigned_base`, `picked_base`(스캔 누적), `status`(pending/in_progress/picked/short), `verification_method`(scanned_variant/scanned_base/manual), `created_at`/`picked_at`.
+
+### wms_pack_tasks — 팩 배치 (픽 배치 1:1 파생)
+`id`, `order_id`(FK), `pick_task_id`(FK, 1:1), `batch_label`, `assigned_to`, `status`(pending/in_progress/completed), `created_at`/`started_at`/`completed_at`.
+
+### wms_pack_task_lines — 팩 배치 라인 (팩커 재스캔 검수)
+`id`, `pack_task_id`(FK), `order_line_id`(FK), `expected_base`, `verified_base`(재스캔 누적), `status`(pending/in_progress/verified/mismatch), `verification_method`, `created_at`/`verified_at`.
+
+### wms_pallets — 팔렛
+`id`, `pallet_label`, `warehouse`, `status`(building/completed), `weight_note`, `height_note`, `created_at`/`completed_at`.
+
+### wms_pallet_items — 팔렛 항목 (항목단위 배정)
+`id`, `pallet_id`(FK), `pack_task_id`(FK), `order_id`(FK), `drop_location`, `label`, `note`, `created_at`. 재배치=pallet_id만 변경, 부분이동=item split.
+
+### wms_discrepancies — ⚠️ 불일치 미해결 큐 (가장 중요)
+`id`, `order_id`(FK), `order_number`, `sku`, `ordered_base`, `actual_base`, `reason`(short_pick/damaged/not_found), `cin7_corrected`(bool, backend가 Cin7 수정 완료 체크), `resolved_by`, `resolved_at`, `created_at`. 부분인덱스 `where cin7_corrected=false`(미해결만 빠른 조회).
+
+## 복제 테이블 2개 (BQ→Supabase, 길 A)
+
+### wms_sku_snapshot — SKU 1줄
+`sku`(PK, 오더SKU 기준 조회), `base_sku`, `is_variant`(bool), `factor`(int), `product_name`, `barcode`, `is_selling`(bool), `image_url`, `scannable_barcodes`(jsonb `[{barcode,factor,type}]`), `synced_at`. 인덱스 `idx_snapshot_base`.
+
+### wms_sku_bins — SKU × bin (SKU당 여러 행)
+`id`(PK), `sku`, `warehouse`(정규화 toronto/edmonton), `warehouse_raw`(Cin7 원문), `bin`, `zone`(bin에서 파싱), `on_hand`, `available`, `is_current`(sticky: 과거자리 false), `synced_at`. 인덱스 `idx_skubins_sku`, `idx_skubins_wh_zone`.
+
+두 복제테이블은 FK로 안 묶고 `sku` 문자열로 느슨하게 연결(truncate+재적재 순서 자유).
+
+## wms_staff — 직원/권한 (인증의 진실, 2026-07-19 추가)
+`id`(PK), `name`, `email`(unique, Auth 이메일과 매칭), `role`(worker/manager/admin), `warehouse_access`(toronto/edmonton/both), `active`(bool), **`perms`(jsonb, `wms_staff_perms.sql`, 기본 `["split","admin","staff"]`)**, `created_at`, `updated_at`. 20행. 로그인=Auth 이메일→이 행 조회→role/warehouse_access/perms 사용. Edmonton: Jan Ko/Joon Kwon/Jeff Shim. admin=Caleb. manager: Ho Kang/Ted Shin/Changmo Ku/Jan Ko.
+- **`perms`** = 매니저 화면권한(split=Order Splitting, admin=Admin, staff=Staff Management). admin 역할=항상 전부, worker=무관. wms-auth `requirePerm`이 화면별로 게이트.
+
+## wms_orders — Finalize 통계 컬럼 (2026-07-21 추가, `wms_fulfillment_stats.sql`)
+기존 컬럼에 더해: **`fulfillment_type`**(packing_list=팔렛/박스 구성 후 완료 / direct=직접출고·픽업, 팩킹리스트 없음), **`finalized_by`**(완료 작업자), **`finalized_at`**(완료 시각, 통계 기준). ⚠️ Finalize 시 status는 `closed`로 저장하고 화면에서만 "Finalized"로 표시(status enum 제약 회피). 인덱스 `idx_orders_finalized`(부분).
+
+## wms_reports — 워커 데이터품질 리포트 (2026-07-21 추가, `wms_reports.sql`)
+`id`(PK), `order_id`(FK), `order_number`, `sku`, `kind`(`wrong_location`/`barcode_mismatch`), `note`(상세 예 "Listed bin A1-02 · found at B3-04"), `reported_by`(작업자), `source`(picker/packer), `resolved_by`, `resolved_at`, `created_at`. **discrepancy(재고수량) 큐와 분리.** picker=wrong_location+barcode_mismatch, packer=barcode_mismatch. admin Reports 탭에서 리뷰/resolve. 인덱스 `idx_reports_open`(부분)·`idx_reports_order`. RLS auth_all.
+
+## wms_rollback_log — 롤백 감사 (2026-07-21, `wms_rollback_log.sql`)
+`id`(PK), `order_id`, `order_number`, `action`, `from_stage`, `to_stage`, `performed_by`, `note`, `created_at`. admin Rollback 탭이 단계 되돌릴 때 기록. 한 단계씩 최심단계만(Undo Fulfillment→Undo Pack→Reset Pick→Undo Split). discrepancy는 자동삭제 안 함.
+
+## wms_discrepancies — note 컬럼
+`wms_discrepancy_note.sql`로 `note` 추가했으나 리포트가 wms_reports로 분리되어 **현재 미사용/무해**. discRow는 `d.note` 있으면 표시(없어도 안전).
+
+## wms_waves — 소량 오더 그룹 (2026-07-22, `wms_waves.sql`)
+`id`(PK), `label`(unique, `W-MMDD-n`), `warehouse`(toronto/edmonton, wave당 한 창고), `status`(pending/in_progress/completed), `assigned_to`(wave 잡은 픽커), `created_by`, `created_at`/`started_at`/`heartbeat_at`/`completed_at`. RLS auth_all. 인덱스 `idx_waves_status`.
+- **그룹핑 레이어일 뿐** — 각 소량 오더는 여전히 자기 `wms_pick_tasks` 행(batch_label=`{order_number}-1`)을 갖고 `wave_id`+`tote_no`로 이 wave에 소속. wave 완료 = 멤버 pick_tasks 전부 completed + wave 행 completed 동시. 하류(pack/fulfillment/rollback)는 평범한 pick 배치로 취급(규칙 18). 픽커 heartbeat는 wave 행 + 멤버 태스크 동시 갱신.
+
+## wms_health_check() — 불변식 검증 함수 (2026-07-22, `wms_healthcheck.sql`)
+테이블 아님(함수). `returns table(sort,check_key,category,title,hint,fail_count,sample jsonb)`, `security definer`+`set search_path=public`, authenticated grant, 읽기 전용, `create or replace`. admin Health 탭이 `sb.rpc("wms_health_check")`로 호출. 검사 12개(각 CTE: bad_math/factor_drift/split_bad/short_no_disc/pick_over/progress_leak/dup_sale/finalize_recon/orphan_pick/orphan_pack/wave_state)+info 1(last_import). fail_count=0이 건강, sample=위반 최대 8행. ⚠️ orphan_pack은 pack의 짝 pick(`pick_task_id`)이 completed 아닐 때만(배치 병렬 정상케이스 오탐 방지). 규칙 19.
+
+## RLS (2026-07-19 ON)
+wms_ 테이블 전부(신규 wms_reports·wms_rollback_log·wms_waves 포함) `rowsecurity=true` + 정책 `auth_all`(`for all to authenticated using(true) with check(true)`). anon 거부, authenticated 전체허용. service_role 우회(GAS 동기화·Edge Function). `wms_health_check()`는 `security definer`라 RLS 강화돼도 전 테이블 읽음. 세분화(매니저만 쓰기)는 백로그.
+
+## 인덱스 (운영)
+idx_orders_status, idx_orders_progress, idx_lines_order, idx_lines_base_sku, idx_lines_zone, idx_picktasks_order, idx_picktasks_assignee, idx_pticklines_task, idx_pticklines_orderline, idx_packtasks_order, idx_packtasks_pick, idx_packlines_task, idx_palletitems_pallet, idx_disc_unresolved(부분).
+
+## 참고 — asung_product_master 스키마 (BQ, 복제 소스)
+sku, product_name, brand, supplier_name, supplier_sku, cost_price(FLOAT), category, is_active(BOOL=Status Active), is_selling(BOOL=Sellable, ≠is_active), barcode, unit(STRING=factor 소스), weight(FLOAT), product_attribute, registered_on(DATE), synced_at(TIMESTAMP). ProductMasterSync.gs(=Productmaster.gs)가 관리.
+
+## 리시빙 테이블 (2026-07-23, wms_receipts.sql + wms_receipts_apply.sql)
+
+**wms_receipts** — PO/트랜스퍼 단위 리시빙 세션. "PO 1개 = receipt 1개"(분할 배송도 한 행에 누적).
+id BIGINT PK · po_number TEXT NOT NULL (PO-xxxxx / TR-xxxxx) · cin7_purchase_id TEXT (PO GUID/TR TaskID — 안정 키, 열린 receipt dedup) · supplier_name TEXT · warehouse TEXT NOT NULL default 'toronto' CHECK(toronto/edmonton) · status TEXT CHECK(in_progress/held/partial/completed) · **source_type TEXT default 'po' CHECK(po/transfer)** · received_by TEXT · note TEXT · **applied_at TIMESTAMPTZ / applied_by TEXT / apply_note TEXT** (Apply to Cin7 성공 기록 = 이중 반영 방지 키) · created_at/updated_at/completed_at.
+인덱스: idx_receipts_status(status, created_at desc), idx_receipts_po(po_number).
+status 의미: held=중단(진행 저장, PO 열림) / partial=이번 배송분 끝(PO 열림, 분할배송) / completed=최종(Apply 대상).
+
+**wms_receipt_lines** — 라인별 예상 vs 실제 + 풋어웨이 + 승인.
+id BIGINT PK · receipt_id FK cascade · cin7_po_line_id TEXT · order_sku/base_sku/product_name · expected_base NUMERIC (PO 예상 낱개, 오프-PO=0) · received_base NUMERIC (받은 누적 낱개) · exported_base NUMERIC (구 CSV 증분용 — **폐기, 미사용**) · putaway_bin TEXT (자동확정/수동 bin) · zone TEXT (가이드 동선 정렬) · putaway_done BOOL · is_off_po BOOL · needs_approval BOOL (승인 전 풋어웨이·Apply 차단) · approved_by/approved_at · verification_method(scanned/manual) · status(pending/received).
+인덱스: idx_receipt_lines_receipt, idx_receipt_lines_base, idx_receipt_lines_export(부분 — 미사용).
+RLS: 다른 wms_ 테이블 동일(auth_all).
+
+**wms_sku_bins.last_seen DATE** (2026-07-23 추가) — 추천 빈 타이브레이커. BQ asung_bin_stock.last_seen 복제(WmsSync wms_buildBins_ 에 CAST(last_seen AS STRING) 추가). sticky MERGE 가 sold-out 행의 last_seen 을 갱신 안 함 = "마지막 재고 있던 날" 고정. 보조 인덱스 idx_sku_bins_recommend(sku, warehouse, is_current desc, last_seen desc).
+
+## 리시빙 관련 2026-07-24 노트
+
+- **wms_receipts.applied_at 이 마스터 게이트**: 있으면 = Cin7 반영 완료. Resume 목록·열기·재개·재Apply 모두 이걸로 차단. Apply 성공 시 status='completed' 도 같이 세팅(applied 인데 in_progress 로 꼬임 방지).
+- **한 PO = receipt 1개**: 앱 레벨 방지(startPo 가 cin7_purchase_id 로 기존 전체 조회). 완벽한 동시성 방지는 부분 유니크 인덱스가 필요하나 실무엔 앱 레벨로 충분(밀리초 동시진입만 이론적 예외).
+- **asung_bin_stock (BQ, sticky) first_seen 시작 = 2026-07-06**. 그 전 0-된 bin 은 소급 불가(Cin7 productavailability 가 0-bin 안 줌). "no last bin" 다수의 원인. bin 단위 과거이력은 Cin7 movements 에만.
+- **Cin7 stock received 제약(실측)**: 문서당 bin 1개 / 같은 SKU+bin 중복 불가 / authorize 는 POST. (상세 SKILL 규칙 21)
+
+## 2026-07-25 추가 컬럼
+
+- `wms_pick_tasks.held_by` / `wms_pack_tasks.held_by` / `wms_waves.held_by` (text) — Hold 한 사람. `wms_held_by.sql`
+- `wms_discrepancies`: `order_id` **NULL 허용으로 변경**(리시빙 차이는 sales order 없음) + `source`(pick/pack/receiving) + `po_number` + `receipt_id`(bigint) + 부분 유니크 `uq_disc_receipt_sku(receipt_id,sku) where receipt_id is not null`. `wms_disc_receiving.sql`
+- `wms_orders.reference` (text) — Cin7 화면 Reference(=API CustomerReference), 픽리스트 인쇄용. `wms_order_reference.sql`

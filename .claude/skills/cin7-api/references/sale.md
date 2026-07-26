@@ -1,0 +1,137 @@
+# Sale 엔드포인트 레퍼런스
+
+## Sale List — GET /saleList
+
+빠른 판매 목록 조회. 라인 아이템 없음.
+
+### 파라미터
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| `Page` | number | 기본값 1 |
+| `Limit` | number | 기본값 100, 최대 100 |
+| `Search` | string | OrderNumber, Customer, InvoiceNumber 등에서 검색 |
+| `CreatedSince` | DateTime | 이 날짜 이후 생성된 건 (ISO 8601) |
+| `UpdatedSince` | DateTime | 이 날짜 이후 수정된 건 (ISO 8601) |
+| `UpdatedUntil` | DateTime | 이 날짜 이전 수정된 건 |
+| `ShipBy` | DateTime | Ship By 날짜가 이 날짜 이전인 건 |
+| `QuoteStatus` | string | DRAFT, AUTHORISED, VOIDED, NOT AVAILABLE |
+| `OrderStatus` | string | DRAFT, AUTHORISED, VOIDED, NOT AVAILABLE, AUTH_NO_ALLOC, FULFILLED, CLOSED |
+| `CombinedInvoiceStatus` | string | VOIDED, DRAFT, AUTHORISED, NOT AVAILABLE, PAID |
+| `CombinedShippingStatus` | string | VOIDED, NOT AVAILABLE, SHIPPED, SHIPPING, NOT SHIPPED, PARTIALLY SHIPPED |
+| `Status` | string | 전체 Sale 상태 (아래 상태 목록 참고) |
+| `ExternalID` | string | 외부 커스텀 ID로 검색 |
+| `OrderLocationID` | Guid | 특정 Location의 오더만 |
+
+### Sale 상태 목록
+`DRAFT`, `VOIDED`, `ESTIMATING`, `ESTIMATED`, `ORDERING`, `ORDERED`, `BACKORDERED`, `PICKING`, `PICKED`, `PACKING`, `PACKED`, `SHIPPING`, `INVOICING`, `INVOICED`, `CREDITED`, `COMPLETED`
+
+### 응답 구조
+```json
+{
+  "Total": 100,
+  "Page": 1,
+  "SaleList": [
+    {
+      "SaleID": "guid",
+      "OrderNumber": "SO-00092",
+      "Status": "COMPLETED",
+      "OrderDate": "2024-01-15T00:00:00",
+      "InvoiceDate": "2024-01-15T00:00:00",
+      "Customer": "고객명",
+      "CustomerID": "guid",
+      "InvoiceNumber": "INV-00001",
+      "CustomerReference": "고객PO번호",
+      "InvoiceAmount": 1000.00,
+      "PaidAmount": 1000.00,
+      "Updated": "2024-01-15T03:00:00Z",
+      "OrderStatus": "AUTHORISED",
+      "CombinedInvoiceStatus": "PAID",
+      "CombinedShippingStatus": "SHIPPED",
+      "Type": "Simple Sale",
+      "SourceChannel": null
+    }
+  ]
+}
+```
+
+---
+
+## Sale 상세 — GET /sale
+
+라인 아이템, 배송 정보 포함 전체 상세.
+
+### 파라미터
+| 파라미터 | 타입 | 설명 |
+|---------|------|------|
+| `ID` | Guid | **필수** — SaleList에서 얻은 SaleID |
+| `CombineAdditionalCharges` | bool | AdditionalCharges를 Lines에 포함 여부 |
+| `IncludeProductInfo` | bool | 제품 상세 정보 포함 여부 |
+
+### 응답 구조 (핵심 필드)
+```json
+{
+  "ID": "guid",
+  "Customer": "고객명",
+  "CustomerID": "guid",
+  "Email": "email@example.com",
+  "Status": "COMPLETED",
+  "OrderDate": "2024-01-15T00:00:00",
+  "Lines": [
+    {
+      "ProductID": "guid",
+      "SKU": "PROD-001",
+      "Name": "제품명",
+      "Quantity": 10,
+      "Price": 25.00,
+      "Discount": 0,
+      "Tax": 0,
+      "Total": 250.00,
+      "AverageCost": 12.00
+    }
+  ],
+  "AdditionalCharges": [],
+  "Invoice": {
+    "InvoiceNumber": "INV-00001",
+    "Date": "2024-01-15T00:00:00",
+    "TotalAmount": 250.00
+  }
+}
+```
+
+---
+
+## Apps Script 예시 — 고객별 구매 이력 추출
+
+```javascript
+function getCustomerSaleHistory(customerName, daysSince) {
+  const since = new Date(Date.now() - daysSince * 86400000).toISOString();
+  
+  // 1단계: SaleList로 해당 고객 판매 목록 가져오기
+  const saleList = fetchAllPages('saleList', {
+    Search: customerName,
+    UpdatedSince: since,
+    CombinedInvoiceStatus: 'AUTHORISED'
+  });
+  
+  // 2단계: 각 Sale 상세에서 라인 아이템 추출
+  const skuHistory = {};
+  
+  for (const sale of saleList) {
+    if (sale.Customer !== customerName) continue; // Search는 부분 일치이므로 정확히 필터
+    
+    Utilities.sleep(200);
+    const detail = cin7Get('sale', { ID: sale.SaleID });
+    
+    for (const line of (detail.Lines || [])) {
+      if (!skuHistory[line.SKU]) skuHistory[line.SKU] = [];
+      skuHistory[line.SKU].push({
+        date: sale.OrderDate,
+        qty: line.Quantity,
+        orderNo: sale.OrderNumber
+      });
+    }
+  }
+  
+  return skuHistory;
+}
+```
