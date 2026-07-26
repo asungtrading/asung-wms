@@ -268,6 +268,7 @@
         <button data-v="single" class="active">Single</button>
         <button data-v="list">List</button>
       </div>
+      <button class="btn ghost" id="printBtn" title="Print this receiving list">🖨 Print</button>
       <button class="btn go" id="toPutawayBtn">Putaway →</button>
     </div>
     <div class="prog"><i id="progBar"></i></div>
@@ -1260,6 +1261,91 @@ async function finishReceipt(status){
     exitToList();
   }catch(e){ toast("Completion failed: "+(e.message||e),true); }
   finally{ bD.disabled=bP.disabled=false; }
+}
+
+/* ---------- 리시빙 리스트 프린트 (문서번호 바코드 + 라인 · 픽리스트와 동일 형식) ---------- */
+document.getElementById("printBtn").onclick=()=>{
+  if(!receipt||!lines.length){ toast("Nothing to print",true); return; }
+  const win=window.open("","_blank");           // 사용자 클릭 안에서 열어야 팝업차단 회피
+  if(!win){ toast("Popup blocked - allow popups for this site",true); return; }
+  printReceivingList(win);
+};
+function printReceivingList(win){
+  const isTr=receipt.source==="transfer";
+  const wh=receipt.warehouse==="edmonton"?"Edmonton":"Toronto";
+  const today=new Date().toLocaleDateString();
+  const logo=location.origin+"/asung-logo-dark.png";
+  const esc2=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  // 라스트빈(존) 순 → 창고 동선대로 걷기 좋게
+  const ordIdx=lines.map((_,i)=>i).sort((a,b)=>{
+    const la=lines[a], lb=lines[b];
+    const za=la.lastBin?zoneOfBin(la.lastBin):null, zb=lb.lastBin?zoneOfBin(lb.lastBin):null;
+    const ka=[za==null?1:0, zOrder(za), la.lastBin||"~", a], kb=[zb==null?1:0, zOrder(zb), lb.lastBin||"~", b];
+    for(let i=0;i<ka.length;i++){ if(ka[i]<kb[i])return -1; if(ka[i]>kb[i])return 1; }
+    return 0;
+  });
+  const units=lines.reduce((s,l)=>s+Number(l.expected||0),0);
+  const rows=ordIdx.map(i=>{
+    const l=lines[i];
+    return `<tr>
+      <td class="bin">${l.lastBin?esc2(l.lastBin):'<span class="nb">no bin</span>'}</td>
+      <td class="sku">${esc2(l.order_sku)}${l.base_sku&&l.base_sku!==l.order_sku?`<div class="sub">base ${esc2(l.base_sku)}</div>`:""}</td>
+      <td>${esc2(l.product_name||"")}</td>
+      <td class="num">${l.expected||0}</td>
+      <td class="chk"></td>
+    </tr>`;
+  }).join("");
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${isTr?"TRANSFER":"PO"} ${esc2(receipt.po_number)}</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\\/script>
+  <style>
+    *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#12161c;margin:28px;font-size:12.5px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #12161c;padding-bottom:14px}
+    .brandwrap{display:flex;flex-direction:column;gap:8px}
+    .brandwrap .logo{height:40px;width:auto;display:block}
+    .doc{font-size:24px;font-weight:800;letter-spacing:.02em}
+    .bc{text-align:right}
+    .info{display:flex;gap:48px;margin:18px 0 12px}
+    .info div{line-height:1.7} .info b{display:inline-block;min-width:104px;color:#555}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{border-bottom:1px solid #e3e7ee;padding:7px 8px;text-align:left;vertical-align:top}
+    th{background:#f4f6f9;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#555}
+    td.bin{font-family:"Courier New",monospace;font-weight:700;white-space:nowrap}
+    td.sku{font-family:"Courier New",monospace;white-space:nowrap}
+    td.sub{font-size:10.5px;color:#777}
+    .sub{font-size:10.5px;color:#777;font-weight:400}
+    .nb{color:#b26a00;font-weight:700;font-family:Arial}
+    td.num{text-align:right;font-weight:700;white-space:nowrap}
+    td.chk{width:64px} td.chk:after{content:"";display:block;width:16px;height:16px;border:1.5px solid #9aa5b4;border-radius:3px;margin:1px auto}
+    @media print{body{margin:12mm} thead{display:table-header-group} tr{page-break-inside:avoid}}
+  </style></head>
+  <body>
+    <div class="top">
+      <div class="brandwrap"><img src="${logo}" class="logo" alt="ASUNG"><div class="doc">${isTr?"TRANSFER RECEIVING":"PO RECEIVING"}</div></div>
+      <div class="bc"><svg id="bcsvg" data-code="${esc2(receipt.po_number)}"></svg></div>
+    </div>
+    <div class="info">
+      <div>
+        <div><b>${isTr?"Transfer":"PO"}</b>${esc2(receipt.po_number)}</div>
+        <div><b>${isTr?"Route":"Supplier"}</b>${esc2(receipt.supplier_name||"—")}</div>
+        <div><b>Warehouse</b>${wh}</div>
+      </div>
+      <div>
+        <div><b>Total Lines</b>${lines.length}</div>
+        <div><b>Total Units</b>${units}</div>
+        <div><b>Printed</b>${today}</div>
+        <div><b>Received By</b>________________</div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Last bin</th><th>SKU</th><th>Product</th><th style="text-align:right">Qty</th><th>✓</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <script>
+      try{ JsBarcode(document.getElementById("bcsvg"), "${esc2(receipt.po_number)}", {format:"CODE128",displayValue:true,fontSize:15,height:50,margin:0}); }catch(e){}
+      window.addEventListener("load",function(){ setTimeout(function(){ try{window.print();}catch(e){} }, 450); });
+    <\\/script>
+  </body></html>`);
+  win.document.close();
 }
 
 /* ---------- 스캔 포커스 유지 (picker와 동일) ---------- */

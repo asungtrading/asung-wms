@@ -458,6 +458,7 @@ function printPickList(win, ord, batches){
         <div>
           <div><b>Batch</b>${esc2(label)}</div>
           <div><b>Order</b>${esc2(ord.order_number)}</div>
+          ${ord.reference?`<div><b>Reference</b>${esc2(ord.reference)}</div>`:""}
           <div><b>Warehouse</b>${wh}</div>
           ${ord.price_tier?`<div><b>Price Tier</b>${esc2(ord.price_tier)}</div>`:""}
           <div><b>Printed</b>${today}${ord.created_by?" · by "+esc2(ord.created_by):""}</div>
@@ -506,7 +507,7 @@ document.getElementById("createBtn").onclick=async ()=>{
   if(!preview||!preview.length) return;
   if(!confirm(`${selected.order_number} · ${preview.length} batches will be created (total ${selLines.length} lines). Continue?`)) return;
   // capture for pick list before state is cleared; open print window now (within user gesture → avoids popup block)
-  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments, price_tier:selected.price_tier, created_by:(me?me.name:null)};
+  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments, price_tier:selected.price_tier, reference:selected.reference, created_by:(me?me.name:null)};
   const pickBatches=preview.map(b=>b.slice());
   const printWin=window.open("","_blank");
   const createdBy=me?me.name:null;
@@ -716,6 +717,7 @@ function printWaveAll(win, label, sel, linesByOrder, createdBy){
         <div>
           <div><b>Batch</b>${esc2(batchLabel)}</div>
           <div><b>Order</b>${esc2(o.order_number)}</div>
+          ${o.reference?`<div><b>Reference</b>${esc2(o.reference)}</div>`:""}
           <div><b>Warehouse</b>${owh}</div>
           ${tier?`<div><b>Price Tier</b>${esc2(tier)}</div>`:""}
           <div><b>Printed</b>${today}${createdBy?" · by "+esc2(createdBy):""}</div>

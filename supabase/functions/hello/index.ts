@@ -11,7 +11,6 @@
 //   5) assembleLine() 정규화 → needs_review 계산
 //   6) ?commit=1 이면 wms_orders + wms_order_lines 저장, 아니면 dry-run(보고만)
 // ============================================================
-
 const CIN7_BASE = "https://inventory.dearsystems.com/ExternalApi/v2";
 const POLL_LIMIT = 100;       // saleList 페이지 크기 (Cin7 최대 100)
 const POLL_MAX_PAGES = 3;     // 최대 순회 페이지 (100 x 3 = 최근 AUTHORISED 300건 스캔)
@@ -29,15 +28,27 @@ function cin7Headers(): HeadersInit {
     "Content-Type": "application/json",
   };
 }
+
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
+
 // Cin7 sale 상세의 사용자 코멘트 추출.
 // ⚠️ 실측 확정(SO-13560, 2026-07-23): 화면의 "Comments" 필드 = API의 `Note`.
 //    (화면 "Shipping notes"=ShippingNotes, "Reference"=CustomerReference 로 별개)
 // Note 를 우선 쓰되, 만약을 위한 폴백 유지. 값 없으면 null → 픽리스트에 코멘트 박스 안 뜸.
 function extractComments(d: any): string | null {
   const cands = [d?.Note, d?.Notes, d?.Comments, d?.Comment, d?.InternalNote, d?.InternalComments];
+  for (const c of cands) {
+    if (c != null && String(c).trim() !== "") return String(c).trim();
+  }
+  return null;
+}
+
+// Cin7 sale 상세의 Reference 추출 (화면 "Reference" 필드 = API CustomerReference — 위 실측 주석 참고).
+// 픽리스트 상단에 인쇄해 현장에서 고객 발주번호를 대조한다. 값 없으면 null → 인쇄에서 그 줄 생략.
+function extractReference(d: any): string | null {
+  const cands = [d?.CustomerReference, d?.Reference];
   for (const c of cands) {
     if (c != null && String(c).trim() !== "") return String(c).trim();
   }
@@ -163,7 +174,6 @@ Deno.serve(async (req) => {
     // 4) 남은 후보만 상세조회
     for (const c of fresh) {
       if (detailFetched >= MAX_DETAIL) { detailCapped = true; break; }
-
       await sleep(DETAIL_DELAY_MS);
       const detResp = await fetch(CIN7_BASE + "/sale?ID=" + c.SaleID, { headers: cin7Headers() });
       if (detResp.status === 429) { await sleep(60000); continue; } // rate limit
@@ -176,6 +186,7 @@ Deno.serve(async (req) => {
 
       const comments = extractComments(d);  // Cin7 sale 코멘트 → 픽리스트 표시용
       const priceTier = (d.PriceTier ?? "").trim() || null;  // 실측 확정(SO-13560): 최상위 PriceTier
+      const reference = extractReference(d);  // 화면 Reference(=CustomerReference) → 픽리스트 표시용
 
       // 5) 라인 정규화
       const warehouse = normWarehouse(d.Location);
@@ -194,6 +205,7 @@ Deno.serve(async (req) => {
           total_required_base: totalReq, needs_review: needsReview,
           comments: comments,  // dry-run에서 어느 오더에 코멘트가 들어오는지 확인
           price_tier: priceTier,
+          reference: reference,  // dry-run 에서 Reference 유입 확인
           flagged: assembled.filter((l) => l.flags.length).map((l) => ({ sku: l.order_sku, flags: l.flags })),
         });
         continue;
@@ -212,6 +224,7 @@ Deno.serve(async (req) => {
           cin7_status: d.Status ?? null,
           comments: comments,
           price_tier: priceTier,
+          reference: reference,
           status: "pending",
           needs_review: needsReview,
           total_lines: assembled.length,
