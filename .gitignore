@@ -1,0 +1,14 @@
+# Supabase CLI 로컬 상태 (커밋 금지)
+supabase/.temp/
+supabase/.branches/
+
+# 환경변수 / 비밀값
+.env
+.env.*
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+
+# Claude Code 로컬 설정 (권한 승인 목록 등 — 컴퓨터마다 다름)
+.claude/settings.local.json
