@@ -1572,7 +1572,7 @@ document.getElementById("printBtn").onclick=()=>{
   printReceivingList(win);
 };
 function printReceivingList(win){
-  const isTr=receipt.source==="transfer";
+  const isTr=receipt.source_type==="transfer";   // wms_receipts 컬럼명은 source_type (source 는 EF 목록 필드)
   const wh=receipt.warehouse==="edmonton"?"Edmonton":"Toronto";
   const today=new Date().toLocaleDateString();
   const logo=location.origin+"/asung-logo-dark.png";
