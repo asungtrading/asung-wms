@@ -11,12 +11,15 @@ description: >
   "Health 탭", "불변식", "리시빙", "receiving", "receiver.html", "풋어웨이", "putaway",
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼 리시빙", "Invoice First", "배터리", "스캔 이어받기",
-  "Lines is invalid", "authorize", "held_by", "프린트", "Reference", "트랜스퍼 완료" 등이 나오면 추측하지 말고 이 스킬의 아키텍처·스키마·정규화·
-  인증·프론트엔드·배포·리시빙(규칙 20·21·22)을 먼저 확인하세요.
+  "Lines is invalid", "authorize", "held_by", "프린트", "Reference", "트랜스퍼 완료",
+  "동시 작업", "나눠 받기", "unconfirmed", "writeChain", "presence", "also here",
+  "serverChecks", "bcMap", "정렬", "autoAdvance", "last-writer-wins", "CAS" 등이 나오면 추측하지 말고 이 스킬의 아키텍처·스키마·정규화·
+  인증·프론트엔드·배포·리시빙(규칙 20·21·22)·동시 작업(규칙 24~27)을 먼저 확인하세요.
   특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유), ⚠️bin은 base_sku 기준,
   ⚠️Cin7 쓰기 bin은 GUID(이름은 400), ⚠️PO는 인보이스 선승인(Invoice First),
   ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어, ⚠️stock received는 문서당 bin
-  1개·authorize는 POST — 어기면 재고·픽 수량·Cin7 반영이 틀어지거나 배포가 조용히 깨집니다.
+  1개·authorize는 POST, ⚠️리시빙 저장은 라인 단위(전체 배열 덮어쓰기 금지)·성공 판정은
+  .select() 1행 — 어기면 재고·픽 수량·Cin7 반영이 틀어지거나 남의 작업이 사라집니다.
 ---
 
 # Asung Trading WMS 스킬
@@ -241,6 +244,17 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **⚠️ discrepancy 오더별 귀속**: wave에서 short 나면 그 라인의 `_orderId`/`_orderNumber`(loadWaveLines가 태스크→오더 매핑으로 채움)로 discrepancy insert. task.order_id 쓰면 안 됨(전부 한 오더로 잘못 귀속).
 - **⚠️ v1 한계**: admin Batch activity에서 wave 멤버 배치를 **개별** Release하면 wave 행은 남는 엣지(픽커엔 안 뜨니 실해 없음, wave 해제 필요 시 멤버 전부 Release). wave 카드 라인수는 3단 중첩 쿼리(wms_waves→pick_tasks→task_lines count)라 0으로 뜨면 표시만의 문제(픽킹 무관).
 
+## 규칙 19 — 불변식 자동검증: `wms_health_check()` & admin Health 탭 (⚠️ 2026-07-22)
+
+**규칙 3의 불변식(factor·required_base·분할 합계 등)을 사람이 눈으로 지키는 대신 DB 함수가 상시 검증한다.** 병행 운영·wave·리시빙처럼 경로가 늘어날 때 조용히 새는 것을 잡는 안전망.
+
+- **`wms_health_check()` DB 함수**(`wms_healthcheck.sql`, `security definer`+authenticated grant, 읽기 전용, `create or replace`라 재실행 안전). admin.html **Health 탭**이 `sb.rpc("wms_health_check")`로 호출, 검사당 카드 하나. **0행=건강**(fail_count>0이면 깨진 것, sample은 위반 최대 8행 jsonb).
+- **검사 항목**(sort 순): factor_math(critical, required_base=qty×factor)·factor_drift(warn, 라인 factor vs 스냅샷)·split_sum(critical, 분할 배치 assigned 합=required_base)·short_no_disc(critical, short인데 discrepancy 없음)·pick_over(warn)·progress_leak(warn, order_progress≠`2.Release to WMS`)·dup_sale(critical, cin7_sale_id 중복)·finalize_recon(critical, clean-closed인데 picked≠required)·orphan_pick(warn)·orphan_pack(warn)·**wave_state(warn, 규칙 18)**·last_import(info). **critical 하나라도 깨지면 탭에 빨강 배지**(discBadge와 동일 패턴).
+- **⚠️ orphan_pack은 반드시 배치 기준**: "오더가 picking인데 pack task 있음"으로 짜면 **오탐**(분할 오더는 일부 배치가 이미 팩 단계인 게 정상 — 이 WMS의 존재 이유). 올바른 조건 = **pack 배치의 짝 pick 배치(`pick_task_id`)가 completed 아닐 때만** 플래그. SO-13443(8배치 중 -1~-4 Packed·-5~-8 Waiting) 같은 정상 병렬을 안 걸러야 함. (2026-07-22 실데이터로 오탐 확인 후 수정한 교훈.)
+- **⚠️ short_no_disc 매칭 키 = `order_id + order_sku`**: 실제 `wms_discrepancies.sku`에 order_sku가 아닌 base_sku가 저장되고 있으면 이 검사가 전건 오탐. 처음 돌렸을 때 잔뜩 뜨면 매칭 키 문제이니 SQL 한 줄 수정.
+- **Health가 wave의 안전망**: wave 추가로 "픽 준비됐다"의 정의가 넓어져도, split_sum·orphan_pack·wave_state가 데이터 구조 정합성을 상시 검증 → 병행 운영 중 조용히 새는 걸 잡음.
+- ⚠️ **리시빙 검사는 아직 없다**(`wms_receipts`·`wms_receipt_lines` 무검증). 규칙 27 의 R3(중복 receipt)·R4(이중 Apply)는 지금은 Health 로 안 잡힌다 — 검사 추가는 백로그.
+
 ## 규칙 20 — 리시빙 모듈: PO/트랜스퍼 입고 + 라스트 로케이션 풋어웨이 (⚠️ 2026-07-23)
 
 **핵심 목적: Cin7 다이나믹 로케이션의 두 빈틈 — (1)sold-out 시 라스트 로케이션 망각 (2)매번 수동 풋어웨이 강제 — 를 메운다.** 우리 sticky bin 데이터(`asung_bin_stock` → `wms_sku_bins`)가 라스트 로케이션을 이미 보존하므로, 리시빙 시 자동으로 그 자리로 풋어웨이한다.
@@ -250,7 +264,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **추천 빈 규칙** (base_sku × warehouse): ①`is_current=TRUE` 우선 ②없으면 `last_seen` 최신(=sold-out 자리 중 마지막) ③available 많은 곳. ⚠️ `wms_sku_bins.last_seen` 은 2026-07-23 추가(ALTER + `wms_buildBins_` SELECT/map 각 1줄) — sticky MERGE 가 last_seen 을 갱신 안 하고 얼려두므로 "마지막 재고 있던 날"이 됨. 초기엔 전부 같은 날짜(소급 불가)라 시간이 지나야 갈림.
 - ⚠️ **라스트빈 "no last bin" 근본 한계 (2026-07-24 규명)**: sticky 이력이 **2026-07-06 first_seen 부터** 시작(BQ `min(first_seen)`). 그 전에 이미 0 이 된 과거 bin 은 Cin7 productavailability 가 0-재고 bin 을 아예 안 줘서 sticky 가 **본 적이 없음 → 보존 불가**. 예: CAN01545 는 2/19 트랜스퍼로 에드먼튼 EC010303 에 있었다가 팔려 0 → 7/6 시작 땐 이미 0 → no last bin. **버그 아님, 데이터 시작점 한계.** 복구책: (가)Cin7 movements API 백필 or (나)지금부터 축적+수동지정(권장, 한 번 지정하면 재고 앉을 때 sticky 가 기억). bin 단위 과거이력은 movements 에만 있음(BQ asung_stock_daily 는 warehouse 레벨).
 - **빈 지정 UI (2026-07-24)**: 라스트빈 없거나 바꿀 때 — **스캔(1순위)+드롭다운 검색(폴백) 모달**. 드롭다운 소스 = EF `action=bins&warehouse=`(Cin7 `/ref/location` 전체 bin, **빈 자리 포함** — 신제품 새 자리 지정 가능), 실패 시 wms_sku_bins 폴백. 알려진 bin 아니면 confirm(신규 bin 허용). bin 있는 라인엔 **"Change" 버튼**(다른 자리로 바꾸면 putaway_done 자동 해제).
-- **검수 정렬 4종 (2026-07-24)**: Sort 드롭다운 = PO순 / Zone·Last bin순 / Product(A-Z, 브랜드가 앞이라 자연 브랜드정렬) / SKU순. ⚠️ **`lines` 배열은 안 건드리고 표시 인덱스만 정렬**(bcMap·스캔 무결성 보존). 싱글뷰 Prev/Next·autoAdvance 도 정렬 순서 따름.
+- **검수 정렬 4종 (2026-07-24)**: Sort 드롭다운 = PO순 / Zone·Last bin순 / Product(A-Z, 브랜드가 앞이라 자연 브랜드정렬) / SKU순. ⚠️ **`lines` 배열은 안 건드리고 표시 인덱스만 정렬**(bcMap·스캔 무결성 보존). 싱글뷰 Prev/Next 는 표시 순서를 따름. ⚠️ **2026-07-27 갱신 — 여기에 "채운 라인 아래로" 1차 키가 추가되고 `autoAdvance` 는 표시 순서를 쓰지 않게 바뀜: 규칙 26 참조.**
 - **Zone→Bay 점프 (2026-07-24)**: 검수(Zone정렬시)·풋어웨이에 **sticky 칩 바**(스캔+정렬+칩 한 묶음 sticky top:55px). Zone 칩 클릭 → 그 zone 의 Bay 칩 펼침 → Bay 클릭 시 스크롤. 풋어웨이는 진행률(3/8)도 표시. **bayOfBin 규칙**: [E?]Zone Rack(숫자2) 뒤가 숫자4+면 베이(2)+셸프(2)→bay=존+랙+베이2, 문자 섞이면(Pallet05·HAIR) 나머지 전부가 베이=bin 통째. 토론토 C020303→C0203, 에드먼튼 EZ010101→EZ0101(E 포함 표시), EZ01Pallet05→통째.
 - **모바일(태블릿 세로) 최적화**: 칩·스테퍼·Placed/Change/Assign 버튼 터치 ≥40px. HID 블루투스 스캐너(=키보드 입력, focusScan 이 처리). `receiver-preview.html`(실제 CSS+샘플, 정적)로 태블릿 실물 확인 가능.
 - **흐름**: PO/TR 선택 → PO-guided 스캔 검수(초과=confirm 후 허용+over 플래그, 홀드 가능) → **오프-PO 는 매니저 승인 대기**(needs_approval, 승인 전 풋어웨이·Apply 차단) → **Putaway→ 버튼이 빈 자동확정** → 풋어웨이 가이드(빈별 그룹, zone 동선순, Placed 체크; 신규 SKU=빈 지정 필요 그룹에서 스캔/입력) → 부분완료(PO 열림) / 최종완료.
@@ -300,14 +314,6 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **pg_cron reaper `wms_reap_stale_claims()`**: 느슨한 백업만(work_started=false 인 유령만 해제). heartbeat 없으니 interval 넉넉히(현재 2분 → 권장 3~10분). 스캔 이어받기가 주 해결책이라 사실상 보조.
 - `heartbeat_at` 컬럼은 DB 에 잔존(안 읽고 안 씀) — 나중에 drop 가능.
 
-
-
-- **`wms_health_check()` DB 함수**(`wms_healthcheck.sql`, `security definer`+authenticated grant, 읽기 전용, `create or replace`라 재실행 안전). admin.html **Health 탭**이 `sb.rpc("wms_health_check")`로 호출, 검사당 카드 하나. **0행=건강**(fail_count>0이면 깨진 것, sample은 위반 최대 8행 jsonb).
-- **검사 항목**(sort 순): factor_math(critical, required_base=qty×factor)·factor_drift(warn, 라인 factor vs 스냅샷)·split_sum(critical, 분할 배치 assigned 합=required_base)·short_no_disc(critical, short인데 discrepancy 없음)·pick_over(warn)·progress_leak(warn, order_progress≠`2.Release to WMS`)·dup_sale(critical, cin7_sale_id 중복)·finalize_recon(critical, clean-closed인데 picked≠required)·orphan_pick(warn)·orphan_pack(warn)·**wave_state(warn, 규칙 18)**·last_import(info). **critical 하나라도 깨지면 탭에 빨강 배지**(discBadge와 동일 패턴).
-- **⚠️ orphan_pack은 반드시 배치 기준**: "오더가 picking인데 pack task 있음"으로 짜면 **오탐**(분할 오더는 일부 배치가 이미 팩 단계인 게 정상 — 이 WMS의 존재 이유). 올바른 조건 = **pack 배치의 짝 pick 배치(`pick_task_id`)가 completed 아닐 때만** 플래그. SO-13443(8배치 중 -1~-4 Packed·-5~-8 Waiting) 같은 정상 병렬을 안 걸러야 함. (2026-07-22 실데이터로 오탐 확인 후 수정한 교훈.)
-- **⚠️ short_no_disc 매칭 키 = `order_id + order_sku`**: 실제 `wms_discrepancies.sku`에 order_sku가 아닌 base_sku가 저장되고 있으면 이 검사가 전건 오탐. 처음 돌렸을 때 잔뜩 뜨면 매칭 키 문제이니 SQL 한 줄 수정.
-- **Health가 wave의 안전망**: wave 추가로 "픽 준비됐다"의 정의가 넓어져도, split_sum·orphan_pack·wave_state가 데이터 구조 정합성을 상시 검증 → 병행 운영 중 조용히 새는 걸 잡음.
-
 ---
 
 ## 규칙 23 — Hold 이어가기(held_by) · 픽리스트 Reference (2026-07-25)
@@ -315,9 +321,60 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **held_by (Hold 한 사람에게 우선 노출)**: Hold 는 `assigned_to=null, status=pending` 으로 풀어 **누구나 이어받게** 두되 **`held_by=me.name`** 을 남긴다. picker/packer 목록 맨 위에 **"⏸ Resume your held batch"** 강조 섹션(held_by=나 인 pending). claim 시 `held_by=null` 로 정리. **서버 저장이라 화면 닫거나 다른 태블릿에서 로그인해도 보임**(브라우저 로컬은 복귀 시나리오에 부적합 — 아티팩트 localStorage 금지도 있음). 여전히 대기 풀에 있으므로 급하면 남도 집을 수 있음(= "내 것 잠금" 아님, 종이 픽리스트가 소유권). SQL `wms_held_by.sql`(pick_tasks/pack_tasks/waves 에 held_by).
 - **픽리스트 Reference**: 화면 Cin7 "Reference"(예 `WDC-20260723`, 고객 발주번호) = **API `CustomerReference`** (기존 실측 주석 확정: Comments=`Note`, Shipping notes=`ShippingNotes`, Reference=`CustomerReference`). 폴링 EF(`hello`)가 `extractReference(d)` 로 `wms_orders.reference` 저장 → manager 픽리스트·**wave 픽리스트 둘 다** Order 줄 아래 인쇄(값 없으면 줄 생략). SQL `wms_order_reference.sql`. ⚠️ 컬럼 추가를 EF 배포보다 먼저(없으면 insert 실패). 기존 오더는 null → 신규 유입분부터 인쇄됨.
 
-## 현재 진행 상태 (2026-07-25 기준)
+## 규칙 24 — 리시빙 동시 작업: 한 PO 를 여러 명이 나눠 받는다 (⚠️ 2026-07-27)
 
-**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 실측·코드 완료(⬜첫 실전만 남음). 배터리 최적화 완료.**
+**배경**: 이 기능은 설계된 게 아니라 **의도치 않게 가능했고 현장에서 정착됐다**(큰 컨테이너를 두 사람이 SKU 나눠 스캔). 안전성 감사 후 아래 4개를 고쳐 **정상 기능으로 승격**했다. 되돌리면 남의 작업이 조용히 사라진다.
+
+- **저장 모델 = 라인 단위 (`unconfirmed` Map + `writeChain`)**:
+  - `unconfirmed`(line.id → {kind:qty|putaway|all})는 **"쓰려 했지만 1행 반영을 확인받지 못한 라인"만** 담는다. ⚠️ "건드린 전부(touched)"를 담으면 안 된다 — 이미 저장된 라인을 Hold/완료 때 다시 써서 그 사이 남이 바꾼 값을 스테일 스냅샷으로 되돌린다. 정상 경로에선 이 집합이 **비어 있다**.
+  - **성공 판정 = `.select()` 반환 1행 확인.** ⚠️⚠️ PostgREST 는 **0행 매치도 `error=null`/204** 로 돌려준다. 그걸 성공으로 오판하면 라인이 `unconfirmed` 에서 잘못 빠져 **안전망이 사라진다**. 0행이면 `lineGone(id)` 로 갈라 판정: 삭제됨(매니저 off-PO reject) → 로컬에서도 `dropLine` / 그 외 → conflict 로 남겨 재시도.
+  - **`writeChain` = 라인별 PATCH 직렬화.** 같은 라인의 쓰기가 서로 추월하면 늦게 도착한 옛 값이 DB 에 남고, 전체 배열 덮어쓰기를 없앤 뒤에는 그걸 뒤늦게 바로잡아 줄 코드가 없다. **라인별**이라 느린 라인이 다른 라인을 막지 않는다. 보낼 필드(`patchFor`)는 **호출 시점의 라인 값**에서 만들어 큐에 밀린 쓰기가 자동으로 최신값이 되게 한다.
+- **⚠️ Hold / finishReceipt 는 `lines` 전체 배열을 덮어쓰지 않는다.** `flushUnconfirmed()`(실패분만 재시도) + `wms_receipts` **헤더 patch** 만. 예전의 "최종 라인 저장(authoritative)" 전체 루프가 **같은 receipt 를 함께 받던 사람의 수량·bin·placed 를 전부 되돌리던 원인**이었다. **이 루프를 되살리면 안 된다.**
+- **완료 요약은 반드시 서버 재조회(`serverChecks()`)**. 메모리 스냅샷으로 계산하면 **남이 받은 물량이 전부 short 로 표시된다**(분할 수령에서 기존 동작은 이미 틀렸다). 순서도 고정: `preFinish()` = ①내 미확인분 flush ②서버 재조회 ③확인 다이얼로그. Apply 계획도 DB 를 읽으므로(EF `buildApplyPlan`) **진실은 DB 쪽**. `mergeServerRows` 는 `unconfirmed` 걸린 라인은 건너뛴다(내 값이 더 최신) + **값만 갱신하고 배열은 안 건드린다**.
+- **presence = 기존 `wms-presence` 채널 재사용**, key = `me.name+"|receiver:"+receipt.id`. 헤더에 "🟢 also here: X" 배지. ⚠️ **track 페이로드에 `batch` 필드를 넣지 말 것** — admin `liveList()` 가 batch 있는 멤버만 워커로 집계하고 screen 을 Picking/Packing 으로만 표시해서, receiver 가 섞이면 **Picking 으로 오표시**된다. 구분 필드는 `screen:"receiver"` + `receipt`/`po`.
+- **⚠️ 타이머 폴링 금지** — 규칙 22(배터리). presence 는 이벤트 기반이라 OK. `wms_receipts.updated_at` 갱신은 `bumpReceipt()` 로 debounce(스캔당 요청 2개 → 1개).
+- **Complete 는 누가 눌러도 데이터가 안전**하다(전체 덮어쓰기 제거 + 서버 요약). 단 **모두 끝난 뒤 눌러야 한다** — 아래 R5 참조.
+
+## 규칙 25 — 라인 식별은 id 기반이 컨벤션 (⚠️ 2026-07-27)
+
+`bcMap`·수량 핸들러·커서는 **배열 인덱스가 아니라 `line.id`** 로 라인을 찾는다.
+
+- `bcMap[code] = [{id, factor}]`, 스캔은 `lineById(id)` 로 해석(죽은 id 는 자연히 걸러짐). 스테퍼·수동입력·autoAdvance 커서도 동일.
+- **⚠️ 인덱스 기반이면**: `dropLine` 이 `lines.splice()` 한 뒤 `buildBcMap()` 재조립을 끝내기까지의 **왕복 창에서 스캔이 엉뚱한 SKU 에 수량을 넣는다.** id 기반이면 splice 후 재조립 자체가 불필요.
+- 풋어웨이 뷰는 원래 id 기반이었고 **리시빙 검수만 인덱스**였다 — 2026-07-27 통일.
+- ⚠️ **`picker.html`·`packer.html` 은 아직 인덱스 기반.** 지금은 안전(그 화면들은 `lines` 를 splice 하지 않는다). **lines 를 splice 하는 기능을 추가하면 같은 함정** → 백로그.
+
+## 규칙 26 — 검수 표시 순서: 채운 라인만 아래로 (⚠️ 2026-07-27)
+
+- **`isFilled(l) = l.expected>0 && l.received===l.expected`**(주문 수량을 정확히 채움) 인 라인만 리스트 아래로 내린다. **short 는 아직 할 일, over 는 매니저 확인 필요, 오프-PO(expected=0)는 승인 대기** → **전부 위에 유지**(isFilled 가 expected>0 을 요구하므로 오프-PO 는 자동). 완료된 라인끼리는 원래 순서를 지킨다(방금 스캔한 게 위로 튀면 "아까 뭘 찍었지"가 어려워짐).
+- **정렬은 렌더 시점에만** — `orderedIdx()`/`sortedIdx()` 가 표시 인덱스만 만든다. ⚠️ **`lines` 배열 재정렬 금지**(bcMap·커서·스캔 무결성). 규칙 20 의 정렬 4종과 같은 원칙, 1차 키만 추가된 것.
+- ⚠️⚠️ **`autoAdvance` 는 표시 순서가 아니라 `sortedIdx(false)`(완료 그룹화 없는 순수 sortMode 순서)로 걸어야 한다.** 표시 순서로 다음을 찾으면 방금 채운 라인이 맨 아래로 내려간 탓에 뒤가 비어 **매번 리스트 맨 위 미충족 라인으로 되돌아간다** — 존 순서로 걷던 작업자가 이미 지나온 존으로 끌려간다. `orderedIdx()=sortedIdx(true)`, `autoAdvance`/걷기 = `sortedIdx(false)`.
+- 비교는 **base 단위**(expected/received = expected_base/received_base, 스캔은 이미 factor 곱함 — 규칙 3).
+
+## 규칙 27 — 리시빙 동시 작업: 알려진 위험 (⚠️ 미해결 — 2026-07-27 감사)
+
+규칙 24 로 "남의 작업이 사라지는" 급은 없앴지만 **아래는 그대로 남아 있다.** 리시빙을 건드릴 때 이 목록을 먼저 볼 것.
+
+- **R1 — 같은 라인 동시 스캔 = last-writer-wins.** 두 사람이 같은 SKU 를 찍으면 한쪽 수량이 조용히 덮인다. 현재는 **팀 규칙으로 SKU 분담**(사람마다 다른 SKU) 중. 해결책 = **PostgREST 조건부 UPDATE(CAS)** — `.eq("received_base", 읽은값)` 로 보내고 0행이면 재조회 후 재시도. `writeChain`(라인별 직렬화)과 `.select()` 1행 판정이 **CAS 의 전제조건**이라 규칙 24 가 이미 절반을 깔아뒀다.
+- **R3 — `wms_receipts.cin7_purchase_id` 에 유니크 없음.** (`wms_orders.cin7_sale_id` 는 유니크 있음 — baseline `wms_orders_cin7_sale_id_key`.) 밀리초 동시 진입이면 **중복 receipt 가능**. 현재 **중복 데이터 0건 확인**. 분할 입고는 새 PO 로 처리하므로 **유니크 제약을 걸어도 됨**(새 마이그레이션으로).
+- **R4 — Apply 중복 실행.** `applied_at` 가드가 **read-then-check**(EF 진입 시 1회 확인)이고, EF 최종 PATCH 에 **`applied_at=is.null` 필터가 없다.** Cin7 쓰기가 수십 초라 그 창에서 두 번째 Apply 가 통과하면 Cin7 에 이중 반영. 해결 = 최종 PATCH 에 `applied_at is null` 조건 + 1행 확인(규칙 24 와 같은 패턴).
+- **R5 — Complete 후 Apply 진행 중 스캔되면 그 수량은 영구 미적용.** Apply 는 Complete 시점의 DB 를 읽고, 끝나면 `applied_at` 이 찍혀 재적용이 막힌다. → **모두 끝난 뒤 Complete 를 누를 것**(데이터는 안전하나 반영은 못 됨).
+- **R10 — bin 루프가 비트랜잭션.** bin 별 분할 POST(규칙 21) 중간에 실패하면 **Cin7 에 DRAFT 가 남고 WMS 는 미적용** → 재시도 시 중복 POST. 현재는 EF 로그(WARN)로 사람이 판단.
+- **RLS** — `wms_receipts`·`wms_receipt_lines` 정책이 `using(true)`(auth_all). **창고 스코프는 클라이언트 필터뿐** — 로그인한 직원이면 다른 창고 receipt 도 API 로 읽고 쓸 수 있다.
+- **EF 권한** — `receiving` EF 에 **호출자 검증이 없다**(anon Bearer 면 통과). Apply 권한(perms `apply`)은 **admin.html 클라이언트 사이드 3중 게이트뿐**이고, `applied_by` 는 쿼리스트링 `&by=<name>` 이라 **위조 가능**. 서버측 검증(JWT → wms_staff perms 확인)은 미구현.
+
+## 현재 진행 상태 (2026-07-27 기준)
+
+**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 실측·코드 완료(⬜첫 실전만 남음). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원.**
+
+**리시빙 동시 작업 (2026-07-27 세션 — 규칙 24~27) · 커밋 4개**
+- ✅ **L1 라인 단위 저장**(`unconfirmed`+`writeChain`, `.select()` 1행 판정) / **Hold·finish 의 전체 배열 덮어쓰기 제거** — 함께 받던 사람 작업이 되돌아가던 근본 원인 해결
+- ✅ **L3 완료 요약 서버 재조회**(`serverChecks`/`preFinish`/`mergeServerRows`) — 남이 받은 물량이 short 로 뜨던 오표시 해결
+- ✅ **L4 presence 배지**("🟢 also here", `wms-presence` 재사용, batch 필드 없음 — admin 오표시 방지). 타이머 0 유지(규칙 22)
+- ✅ **bcMap·수량 핸들러 id 기반화**(규칙 25) — dropLine 왕복 창의 엉뚱한 SKU 가산 제거
+- ✅ **채운 라인 아래로 정렬**(규칙 26, `isFilled`/`sortedIdx`) — autoAdvance 는 `sortedIdx(false)` 로 동선 유지
+- ✅ `printReceivingList` 오타 수정 — `receipt.source` → **`source_type`**(트랜스퍼가 PO 로 인쇄되던 문제)
+- ⬜ **미해결 위험 R1·R3·R4·R5·R10 + RLS/EF 권한 — 규칙 27 참조.** R1 은 현재 팀 규칙(SKU 분담)으로 운영 중
 
 **리시빙 (2026-07-24 세션 — PO 경로 완결)**
 - ✅ **Cin7 stock received 3대 제약 실측 확정 & EF 반영**: 문서당 bin 1개(bin별 분할 POST) / 같은 SKU+bin 중복 병합 / **authorize=POST(PUT 405)**. 오래 헤맨 "Lines is invalid" 원인 = 여러 bin 한번에 → 해결. (규칙 21)
@@ -355,7 +412,8 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **트랜스퍼 첫 실전 Apply (최우선)**: 실측·코드 완료. 실제 IN TRANSIT(TR-03259 등) 하나를 receiver 로 받아 풋어웨이 → admin Review 로 계획 확인 → Apply. 로그에 "COMPLETED with received qty → bin move -> XXX" 단계별로 찍힘. 정리 필요: 테스트로 만든 TR-03260(3개씩 완료됨)·TR-03261 재고 조정.
 - **리시빙 PO**: partial 상태 Cin7 draft 누적(현재 최종완료 때 일괄). Apply 자동 실행 전환(매니저 게이트→작업자 완료 시, 신뢰 쌓이면). Advanced Purchase 상세 라인 실측. 라스트빈 movements 백필(선택).
 - **유령 bin 정리**: 숫자만/오타 bin 은 Cin7 삭제 후 sync 로 자연 소멸.
-- **동시성**: 한 PO=receipt 1개는 앱 레벨 방지(밀리초 동시진입만 이론적 예외). 필요 시 부분 유니크 인덱스.
+- **리시빙 동시 작업 미해결분 — 규칙 27 이 목록**: R1 CAS(조건부 UPDATE) · **R3 `wms_receipts.cin7_purchase_id` 유니크**(중복 0건 확인, 분할 입고는 새 PO 라 걸어도 안전 — 새 마이그레이션) · R4 Apply 최종 PATCH 에 `applied_at is null` · R5 Complete↔Apply 창 · R10 bin 루프 비트랜잭션 · RLS 창고 스코프 · EF 호출자/perms 서버 검증.
+- **인덱스 기반 bcMap 잔존**: picker.html·packer.html(규칙 25). 지금은 splice 를 안 해 안전 — 라인 삭제 기능 추가 시 반드시 id 기반으로 먼저 전환.
 - **Cin7 병행 케이스 C 자동감지**: 유입 후 Cin7 상태 변경 감지.
 - **GAS scannable_barcodes 근본수정**: base 라인에 형제변형(-12) 바코드 포함(현재 bcMap 병합 우회).
 - 진단 로그(EF SENT) 유지 중 — 안정화 후 제거 가능.
@@ -387,4 +445,4 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - `references/schema.md` — 14개 테이블(+`wms_waves`) + `wms_staff` 전체 컬럼·enum·인덱스, 복제 2테이블, `wms_health_check()` 함수, RLS
 - `references/edge-function.md` — Edge Function 1~3단계 코드 구조, assembleLine 로직, 폴링/dedup/저장
 - `references/sync-gas.md` — WmsSync.gs 구조, BQ 소스 쿼리, warehouse/zone 정규화 함수
-- `references/frontend.md` — 7화면 구조(manager Split/Group·admin Health 탭·picker wave 모드), wms-auth.js 로그인 모듈, RLS, 배포, 영어화·로고, 개발 워크플로우
+- `references/frontend.md` — 8화면 구조(manager Split/Group·admin Health/Receiving 탭·picker wave 모드·**receiver 동시 작업 구현 지도**), wms-auth.js 로그인 모듈, RLS, 배포, 영어화·로고, 개발 워크플로우

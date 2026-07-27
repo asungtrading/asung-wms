@@ -10,6 +10,7 @@ manager.html        오더 분할 + wave 그룹핑 (매니저, Split|Group 토�
 admin.html          관리자 대시보드 8탭 (매니저, Health 탭 포함)
 staff-admin.html    직원 관리 (매니저) ← 여기서 role 지정
 fulfillment.html    출고 구성 (팔렛/박스 + 팩킹리스트, 작업자)
+receiver.html       리시빙/풋어웨이 (작업자, 한 PO 를 여러 명이 나눠 받기 — 규칙 24~27)
 wms-config.js       window.WMS_CONFIG = {SUPABASE_URL, SUPABASE_ANON_KEY}
 wms-auth.js         공유 로그인 모듈
 asung-logo-white.png  런처용 (어두운 배경)
@@ -57,6 +58,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 | picker | false |
 | packer | false |
 | fulfillment | **false (작업자 화면)** |
+| receiver | **false (작업자 화면)** |
 | manager | true |
 | admin | true |
 | staff-admin | true |
@@ -135,7 +137,7 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 - **리스트**: PO 바코드 스캔 진입(진행중 receipt 우선 → Cin7 검색 정확일치 시 바로 시작) + "Ready to receive" 섹션 ↻POs / ↻Transfers 온디맨드 버튼. Resume 섹션(in_progress/held/partial). 트랜스퍼 카드 = TRANSFER 태그 + 창고 태그, warehouse_access 필터.
 - **검수**: Single(기본)|List 세그 토글 — 픽커 이식(큰 이미지·바코드 블록 base/×factor/ALT-UPC·큰 수량·스테퍼·Enter quantity·Prev/Next·autoAdvance). **Last bin 칩**(추천 빈 미리 표시 — buildBcMap 뒤 wms_sku_bins 독립 enrich). 스캔=bcMap(형제 -12 병합, 픽커 패턴), 초과=confirm 후 허용(over), 미지 바코드=스냅샷 조회(barcode/sku eq → scannable_barcodes contains) → 오프-PO confirm → needs_approval 라인 insert. 홀드=진행 저장.
 - **풋어웨이**: Putaway→ 가 추천 빈 자동확정(is_current desc → last_seen desc → available desc, base_sku×warehouse 배치 조회) → 가이드: 빈별 그룹 zone 동선순(zoneSeq), Placed 토글, "Bin needed"(신규 SKU — prompt 스캔/입력), "Off-PO awaiting manager"(차단 표시).
-- **완료**: Partial complete(PO 열림) / Complete PO — short/over/미배치/승인대기 요약 confirm. 저장 후 exitToList.
+- **완료**: Partial complete(PO 열림) / Complete PO — short/over/미배치/승인대기 요약 confirm. 저장 후 exitToList. ⚠️ **2026-07-27 갱신**: 요약은 메모리가 아니라 `serverChecks()` 서버 재조회, 저장은 `flushUnconfirmed()`+헤더 patch — 아래 「동시 작업」 절.
 - startPo 가 source 분기(action=po vs action=transfer), receipt insert 에 source_type. ⚠️ wms_receipts_apply.sql 미실행이면 insert 실패.
 
 ## admin.html Receiving 탭 (9탭째, Health 와 Finalized 사이)
@@ -149,7 +151,7 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 
 - **헤더 순서 규칙**: 유저이름 → ☰ Menu → 🗺 Map → Sign out. **☰ Menu 는 항상 유저이름 바로 옆**(Map/Stock 등보다 먼저). 전 WMS 화면 공통.
 - **빈 지정 모달**(assignBin→openBinModal): 스캔(autofocus, Enter 확정)+검색 드롭다운(zone순, 필터). 소스=EF action=bins(빈자리 포함)→wms_sku_bins 폴백. 신규 bin confirm. commitBin: 다른 bin 으로 바뀌면 putaway_done=false. bin 있는 라인엔 "Change" 버튼.
-- **정렬**(sortMode: po|zone|product|sku): `orderedIdx()` 가 lines 인덱스만 정렬(배열 불변→bcMap 보존). renderRList/renderSingle/move/autoAdvance 모두 표시순 따름. Product=product_name A-Z(브랜드 앞이라 자연 브랜드정렬).
+- **정렬**(sortMode: po|zone|product|sku): `orderedIdx()` 가 lines 인덱스만 정렬(배열 불변→bcMap 보존). renderRList/renderSingle/move 는 표시순 따름. Product=product_name A-Z(브랜드 앞이라 자연 브랜드정렬). ⚠️ **2026-07-27 갱신 — `orderedIdx()=sortedIdx(true)` 로 바뀌고 autoAdvance 는 `sortedIdx(false)`**: 아래 「채운 라인 정렬」 절.
 - **Zone→Bay 점프**: `.recv-controls`/`.put-controls` 로 스캔+정렬+칩 한 묶음 sticky(top:55px). rZjump/rZjumpBay(검수, Zone정렬시), putZjump/putZjumpBay(풋어웨이, 진행률 포함). zdiv 에 data-zone, lrow 에 data-bay, bin-group 에 data-zone/data-bay 앵커. `bayOfBin()` 규칙은 SKILL 규칙 20 참고.
 - **터치 크기**(태블릿 세로): zchip/스테퍼/pk/assign/chgbin ≥40px.
 - **딥링크** `?receipt=N`: admin Reopen 진입(init 에서 openReceipt 바로).
@@ -169,8 +171,46 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 
 ## 2026-07-25 추가
 
-**receiver.html — 리시빙 리스트 프린트**: 헤더 `#printBtn` → `printReceivingList(win)`. ⚠️ `window.open` 은 **클릭 핸들러 안에서** 먼저 호출(팝업차단 회피 — 규칙: await 뒤 open 은 차단됨). 라스트빈(존) 순 정렬은 `zoneOfBin`/`zOrder` 재사용. jsbarcode CDN 으로 CODE128(문서번호). no-bin 라인은 주황 "no bin".
+**receiver.html — 리시빙 리스트 프린트**: 헤더 `#printBtn` → `printReceivingList(win)`. ⚠️ `window.open` 은 **클릭 핸들러 안에서** 먼저 호출(팝업차단 회피 — 규칙: await 뒤 open 은 차단됨). 라스트빈(존) 순 정렬은 `zoneOfBin`/`zOrder` 재사용. jsbarcode CDN 으로 CODE128(문서번호). no-bin 라인은 주황 "no bin". ⚠️ **소스 판정은 `receipt.source_type==="transfer"`** — `wms_receipts` 컬럼명은 `source_type` 이고 `source` 는 **EF 목록 응답 필드**다. 헷갈려 `receipt.source` 를 쓰면 undefined 라 **트랜스퍼가 조용히 "PO" 로 인쇄된다**(2026-07-27 수정).
 
 **manager.html — 픽리스트 Reference**: `pickOrd` 에 `reference:selected.reference` 전달(오더는 `select("*")` 라 컬럼만 있으면 자동), `printPickList` 의 Order 줄 아래 `${ord.reference?...:""}`. **wave 픽리스트(printWaveAll)의 per-order 페이지에도 동일 추가**(`o.reference`). ⚠️ manager.html 은 **CRLF** 줄바꿈 — 파이썬으로 편집할 때 `newline=''` 로 열고 `\r\n` 유지.
 
 **picker.html / packer.html — held_by**: Hold 시 `held_by:me.name` 함께 저장(picker 는 wave/단일 both, wms_waves 도), 목록 select 에 `held_by` 포함, 렌더에서 pool 을 `myHeld`(held_by===me.name, 맨 위 "⏸ Resume your held" 섹션, mode `"held"`) / 나머지로 분리. `batchCardHtml`/`waveCardHtml` 에 `held` 모드(파란 카드 + "⏸ you held this" 태그 + "Resume" 버튼), 클릭은 `else startBatch/startWave` 로 자동 라우팅(pending claim + 보존된 진행분 로드). claim 시 `held_by:null`.
+
+## 2026-07-27 — receiver.html 동시 작업 (규칙 24~27)
+
+한 PO 를 여러 명이 나눠 받는다. **SKILL 규칙 24(저장)·25(id)·26(정렬)·27(미해결 위험)이 근거이고 여기는 구현 지도.**
+
+### 상태 & 저장 엔진 (L1)
+```js
+const unconfirmed=new Map();  // line.id -> {kind:"qty"|"putaway"|"all"}  미확인 쓰기만
+const writeChain =new Map();  // line.id -> Promise  같은 라인 PATCH 추월 방지
+let bumpT=null;               // wms_receipts.updated_at debounce (4s)
+```
+- `markUnconfirmed(l,kind)` / `mergeKind(a,b)`(다른 kind 합쳐지면 `"all"`) / `patchFor(l,kind)` — **패치는 호출 시점 라인 값에서 생성**(큐에 밀린 쓰기가 자동 최신값).
+- `writeLine(l,kind)`: `update(patchFor).eq("id",l.id).select("id")` → **`data.length!==1` 은 성공 아님.** 0행이면 `lineGone(id)` 로 분기 → 삭제됨(`dropLine`+토스트) / conflict(unconfirmed 유지). ⚠️ PostgREST 0행 = `error null`/204 이므로 `.select()` 없이는 구분 불가.
+- `queueWrite(l,kind)` = `writeChain` 에 라인별 체인. `saveLine(l)`(수량, **await 금지 — 스캔 피드백 앞을 막으면 작업자가 재스캔해 과다 계상**) / `savePutaway(l)`(await, 실패해도 로컬 값 유지) 가 진입점.
+- `flushUnconfirmed()` → `{failed,deleted,ok}`. **Hold·partial·complete 세 경로 전부 이걸 쓴다.** ⚠️ 예전의 `for(l of lines) update(...)` 전체 루프는 **삭제됨 — 되살리지 말 것**(함께 받던 사람 작업이 스테일 스냅샷으로 되돌아감).
+- `dropLine(id)`: splice + unconfirmed/writeChain 정리 + **커서를 id 로 되짚음**(인덱스로 두면 삭제 라인 위쪽일 때 한 칸 밀림).
+- `bumpReceipt()`: 헤더 updated_at debounce(스캔당 요청 2개→1개).
+
+### 완료 요약 (L3)
+- `serverChecks()` — `wms_receipt_lines` 를 `receipt_id` 로 재조회 → `{rows,targets,notPlaced,shorts,overs,pendingAppr,unknown}`. `unknown` = 내 `lines` 에 없는 행(남이 추가한 오프-PO).
+- `mergeServerRows(rows)` — 서버 값을 화면에 반영. ⚠️ `unconfirmed.has(r.id)` 인 라인은 **건너뜀**(내 값이 더 최신). **값만 갱신, 배열 추가/삭제·재정렬 안 함**(라인 변경은 `offPoScan`/`dropLine` 만).
+- `preFinish()` = flush → serverChecks → renderPutaway. `partialBtn`/`completeBtn` 이 이걸 거친 뒤 `summaryText(c)` confirm → `finishReceipt(status)`(flush + 헤더 patch 만). `finishing` 플래그로 이중 클릭 차단.
+
+### presence (L4)
+- `presenceKey()` = `me.name+"|receiver:"+receipt.id`, `presenceJoin/presenceLeave/readPresence/othersLabel/renderAlsoHere`. 채널은 picker/packer 와 같은 **`wms-presence`**.
+- track 페이로드 = `{name, screen:"receiver", receipt, po, at}`. ⚠️ **`batch` 넣지 말 것** — admin `liveList()` 가 batch 있는 멤버만 워커로 집계하고 Picking/Packing 으로만 표시 → receiver 오표시.
+- 배지 = 헤더 `#alsoHere`("🟢 also here: 이름", title 에 설명). `openReceipt` 에서 join, `exitToList` 에서 leave + `unconfirmed/writeChain.clear()`.
+- ⚠️ **타이머 없음**(규칙 22). presence sync 이벤트로만 갱신.
+
+### 라인 식별 (규칙 25)
+- `lineById(id)` — 스캔·스테퍼·수동입력 전부 id 로 조회. `bcMap[code]=[{id,factor}]`(`buildBcMap` 이 id 로 담고 `!arr.some(c=>c.id===l.id)` 로 중복 방지), `processScan` 은 `bcMap[code].map(c=>lineById(c.id)).filter(...)`.
+- ⚠️ **picker.html·packer.html 은 아직 인덱스 기반** — lines 를 splice 하는 기능 추가 전엔 안전, 추가하면 먼저 id 화.
+
+### 채운 라인 정렬 (규칙 26)
+- `isFilled(l)= l.expected>0 && l.received===l.expected` — 정렬·색·비프가 같은 기준.
+- `sortedIdx(groupFilled)`: 1차 키 `g=(groupFilled&&isFilled(l))?1:0`, 그 뒤 sortMode 키, 마지막 tiebreak `i`(완료 라인끼리 원래 순서 유지).
+- `orderedIdx()=sortedIdx(true)` → renderRList(그룹 구분선 `grpOf`)·renderSingle·`move()`·프린트 카운터.
+- ⚠️ **`autoAdvance()` 는 `sortedIdx(false)`** — 표시 순서로 걷으면 방금 채운 라인이 내려가 뒤가 비고 매번 리스트 맨 위로 끌려간다(존 동선 파괴).
