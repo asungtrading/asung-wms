@@ -680,6 +680,9 @@ function sortBins(arr){
 }
 
 /* ---------- bcMap: 스냅샷 형제 바코드 병합 (picker 패턴) ---------- */
+/* ⚠️ 담는 것은 line.id 다 — 배열 인덱스가 아니다.
+      인덱스로 담으면 splice(dropLine) 뒤 재조립을 끝낼 때까지 스캔이 엉뚱한 라인에
+      수량을 넣는다. 그 재조립은 네트워크 왕복이라 창이 넓다. id 는 그 창이 없다. */
 async function buildBcMap(){
   bcMap={};
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
@@ -690,27 +693,27 @@ async function buildBcMap(){
     if(error) throw error;
     const byBase={}, bySku={};
     (sibs||[]).forEach(r=>{ (byBase[r.base_sku]=byBase[r.base_sku]||[]).push(r); bySku[String(r.sku).toUpperCase()]=r; });
-    lines.forEach((l,idx)=>{
+    lines.forEach(l=>{
       const own=bySku[String(l.order_sku).toUpperCase()];
       if(own){
         l.image_url=own.image_url||"";
         (own.scannable_barcodes||[]).forEach(b=>{
           const code=String(b.barcode||"").trim(); if(!code)return;
           const arr=(bcMap[code]=bcMap[code]||[]);
-          if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(b.factor)||1});
+          if(!arr.some(c=>c.id===l.id)) arr.push({id:l.id,factor:Number(b.factor)||1});
         });
       }
       (byBase[l.base_sku]||[]).forEach(r=>{
         const code=String(r.barcode||"").trim(); if(!code)return;
         const arr=(bcMap[code]=bcMap[code]||[]);
-        if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:Number(r.factor)||1});
+        if(!arr.some(c=>c.id===l.id)) arr.push({id:l.id,factor:Number(r.factor)||1});
       });
       // 싱글뷰 바코드 블록용: base(1) + 변형(×factor) 행 + ALT 별칭
       l.barcodeRows=(byBase[l.base_sku]||[]).map(r=>({factor:Number(r.factor)||1, barcode:String(r.barcode||"").trim()}));
       l.altCodes=[...new Set((own&&own.scannable_barcodes||[]).filter(b=>b&&b.type==="alt").map(b=>String(b.barcode||"").trim()).filter(Boolean))];
       // SKU 직접 타이핑 대응
       const sk=String(l.order_sku||"").trim();
-      if(sk){ const arr=(bcMap[sk]=bcMap[sk]||[]); if(!arr.some(c=>c.idx===idx)) arr.push({idx,factor:1}); }
+      if(sk){ const arr=(bcMap[sk]=bcMap[sk]||[]); if(!arr.some(c=>c.id===l.id)) arr.push({id:l.id,factor:1}); }
     });
   }catch(e){ toast("Barcode lookup failed",true); }
   // 라스트빈 참고 칩 (독립 enrich — 실패해도 스캔은 동작)
@@ -733,8 +736,15 @@ async function buildBcMap(){
   }catch(e){}
 }
 
+/* ---------- 라인 조회 · 상태 판정 (한 군데서만) ---------- */
+/* 수량을 쓰는 모든 경로(스캔·스테퍼·수동입력)는 인덱스가 아니라 id 로 라인을 찾는다.
+   렌더와 클릭 사이에 배열이 바뀌어도(남이 지운 오프-PO 라인 등) 옆 라인에 쓰지 않는다. */
+function lineById(id){ return lines.find(x=>x.id===id); }
+/* "주문 수량을 정확히 채웠다" — 부족도 초과도 아닌 상태. 정렬·색·비프가 같은 기준을 쓴다. */
+function isFilled(l){ return l.expected>0 && l.received===l.expected; }
+
 /* ---------- receiving 렌더 ---------- */
-/* 표시 순서: lines 는 고정(bcMap 인덱스 보존), 순서만 인덱스 배열로 */
+/* 표시 순서: lines 는 고정, 순서만 인덱스 배열로 */
 function orderedIdx(){
   const idx=lines.map((_,i)=>i);
   if(sortMode==="po") return idx;
@@ -782,7 +792,7 @@ function renderSingle(){
   if(!lines.length){document.getElementById("rSingle").innerHTML="";return;}
   if(curIdx>=lines.length)curIdx=lines.length-1;
   const l=lines[curIdx];
-  const done=l.expected>0&&l.received>=l.expected&&l.received<=l.expected;
+  const done=isFilled(l);
   const over=l.received>l.expected;
   document.getElementById("rSingle").innerHTML=`
     <div class="body">
@@ -810,8 +820,8 @@ function renderSingle(){
       <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${(orderedIdx().indexOf(curIdx)+1)} / ${lines.length}</div>
     </div>`;
   const s=document.getElementById("rSingle");
-  s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
-  s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
+  s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(l.id,+b.dataset.step);});
+  s.querySelector("[data-manual]").onclick=()=>manualSet(l.id);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
 }
 function renderRList(){
@@ -834,24 +844,27 @@ function renderRList(){
           : `<div class="zdiv" data-zone="${esc(z)}"><span class="zn">${esc(z||"·")}</span><span class="zl">Zone ${esc(z||"·")}</span><span class="zc">${zoneCount[z]}</span></div>`;
       }
     }
-    const done=l.expected>0&&l.received>=l.expected&&l.received<=l.expected;
+    const done=isFilled(l);
     const over=l.received>l.expected;
     const cls=(l.is_off_po?"offpo":(over?"over":(done?"done":"")))+(idx===curIdx?" cur":"");
-    html+=`<div class="lrow ${cls}" data-idx="${idx}" data-bay="${l.lastBin?esc(bayOfBin(l.lastBin)):"__none"}">
+    html+=`<div class="lrow ${cls}" data-id="${l.id}" data-bay="${l.lastBin?esc(bayOfBin(l.lastBin)):"__none"}">
       <div class="thumb" ${imgStyle(l)}></div>
       <div class="li"><div class="s">${esc(l.order_sku)}${lineChips(l)}</div>
         <div class="n">${esc(l.product_name)}</div>
         <div class="b">${lastBinChip(l)}</div></div>
       <div class="q">${l.received} / ${l.expected}</div>
       <div class="stepper">
-        <button data-step="-1" data-i="${idx}">−</button>
-        <button data-step="1" data-i="${idx}">+</button>
+        <button data-step="-1" data-i="${l.id}">−</button>
+        <button data-step="1" data-i="${l.id}">+</button>
       </div>
     </div>`;
   });
   el.innerHTML=html;
   el.querySelectorAll("[data-step]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();manualAdjust(+b.dataset.i,+b.dataset.step);});
-  el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{curIdx=+r.dataset.idx;renderRecv();focusScan();});
+  el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{
+    const i=lines.findIndex(x=>x.id===+r.dataset.id); if(i<0) return;
+    curIdx=i; renderRecv(); focusScan();
+  });
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
   // zone 점프 칩 바 (Zone 정렬일 때만) — Zone 클릭 시 그 zone 의 Bay 칩 펼침
   const zj=document.getElementById("rZjump"), zjb=document.getElementById("rZjumpBay");
@@ -930,8 +943,8 @@ function askQtyConflict(l,theirs,mine){
     ov.addEventListener("mousedown",e=>{ if(e.target===ov) done(null); });
   });
 }
-async function manualSet(idx){
-  const l=lines[idx];
+async function manualSet(id){
+  const l=lineById(id); if(!l){ focusScan(); return; }
   const before=l.received;                       // 프롬프트를 열 때 내가 알고 있던 값
   const v=prompt(`${l.order_sku} Enter quantity received:`, l.received);
   if(v===null){focusScan();return;}
@@ -943,7 +956,7 @@ async function manualSet(idx){
   if(srv!=null && srv!==before){
     const choice=await askQtyConflict(l,srv,n);
     if(choice==="theirs"){ l.received=srv; renderRecv(); focusScan(); return; }
-    if(choice==="recount"){ l.received=srv; renderRecv(); return manualSet(idx); }
+    if(choice==="recount"){ l.received=srv; renderRecv(); return manualSet(id); }
     if(choice!=="mine"){ focusScan(); return; }   // 바깥 탭 = 취소
   }
   l.received=n; l.vmethod="manual"; saveLine(l);
@@ -963,21 +976,22 @@ scanEl.addEventListener("keydown",e=>{
   if(e.key==="Enter"){ e.preventDefault(); const v=scanEl.value.trim(); scanEl.value=""; if(v)processScan(v); }
 });
 async function processScan(code){
-  const cands=bcMap[code];
-  if(!cands||!cands.length){ await offPoScan(code); return; }
+  // bcMap 은 id 를 담으므로 지금 살아있는 라인으로 해석한다 (삭제된 라인은 자연히 빠진다)
+  const cands=(bcMap[code]||[]).map(c=>({l:lineById(c.id),factor:c.factor})).filter(c=>c.l);
+  if(!cands.length){ await offPoScan(code); return; }
   // 미충족 라인 우선
-  let hit=cands.find(c=>{const l=lines[c.idx];return l.received<l.expected;});
+  let hit=cands.find(c=>c.l.received<c.l.expected);
   if(!hit){
     // 전 라인 충족 → 초과 입고 확인 (실물이 더 온 케이스)
     hit=cands[0];
-    const l=lines[hit.idx];
+    const l=hit.l;
     if(!confirm(`${l.order_sku} — PO quantity already met (${l.received}/${l.expected}).\nReceive ${hit.factor} more anyway? (over-receipt is flagged)`)){ focusScan(); return; }
   }
-  const l=lines[hit.idx], f=hit.factor;
+  const l=hit.l, f=hit.factor;
   l.received+=f;
   l.vmethod="scanned";
-  curIdx=hit.idx;
-  const lineDone=l.expected>0&&l.received===l.expected;
+  curIdx=lines.indexOf(l);
+  const lineDone=isFilled(l);
   const over=l.received>l.expected;
   flash(lineDone?"done":(over?"bad":(f>1?"okbox":"ok")),
     over?`⚠ OVER ${l.order_sku}  ${l.received}/${l.expected}`:`✓ ${l.order_sku}  +${f}  (${l.received}/${l.expected})${lineDone?" · DONE":""}`);
@@ -1021,8 +1035,8 @@ async function offPoScan(code){
 }
 
 /* ---------- 수동 조정 ---------- */
-function manualAdjust(idx,delta){
-  const l=lines[idx];
+function manualAdjust(id,delta){
+  const l=lineById(id); if(!l) return;
   const nv=Math.max(0,l.received+delta);
   if(nv>l.expected&&delta>0&&!l.is_off_po){
     if(!confirm(`${l.order_sku} — exceeds PO quantity (${nv} > ${l.expected}). Continue?`)) return;
@@ -1092,15 +1106,16 @@ function queueWrite(l,kind){
   return next;
 }
 /* 라인이 서버에서 사라진 경우 — 로컬에서도 제거.
-   ⚠️ bcMap 은 lines 의 인덱스를 담으므로 splice 후 반드시 재구성한다.
-      안 하면 스캔이 엉뚱한 라인에 수량을 넣는다. */
+   bcMap 이 id 를 담으므로 splice 후 재구성이 필요 없다 (죽은 id 는 스캔 때 걸러진다).
+   커서만 id 로 되짚어 준다 — 인덱스로 두면 지워진 라인 위쪽이면 한 칸 밀린다. */
 async function dropLine(id){
   const i=lines.findIndex(x=>x.id===id);
   if(i<0) return;
+  const curId=lines[curIdx]?lines[curIdx].id:null;
   lines.splice(i,1);
   unconfirmed.delete(id); writeChain.delete(id);
-  if(curIdx>=lines.length) curIdx=Math.max(0,lines.length-1);
-  await buildBcMap();
+  const ci=curId==null?-1:lines.findIndex(x=>x.id===curId);
+  curIdx=ci>=0?ci:Math.min(i,Math.max(0,lines.length-1));
 }
 /* 미확인 쓰기 재시도 — "will retry on completion" 약속을 실제로 이행하는 곳.
    전체 배열이 아니라 실패분만 다시 쓰므로 남의 작업을 건드리지 않는다. */
