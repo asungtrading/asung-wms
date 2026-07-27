@@ -118,8 +118,10 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 - 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고).
 
 ## 개발 워크플로우
-- Edge Function 배포: `cd ~\asung-wms && supabase functions deploy hello` (Docker 불필요).
-- 함수 호출(PowerShell): `Invoke-RestMethod -Headers @{Authorization="Bearer $anon"}` (curl은 -H 안 먹음). 중첩배열 `ConvertTo-Json -Depth 10`.
+- 환경: WSL2 Ubuntu + bash, 개발 경로 `~/asung/asung-wms` (⚠️ `/mnt/c/...` 금지 — I/O 느림).
+- Edge Function 배포: `cd ~/asung/asung-wms && supabase functions deploy hello` (Docker 불필요).
+- 함수 호출: `curl -s "$BASE/hello" -H "Authorization: Bearer $ANON" | jq .` — POST 바디는 `--data @file.json`.
+- DB 스키마 변경: 마이그레이션만 (`supabase migration new` → `db reset` 검증 → `db push` 는 사람이). SQL Editor 금지 — SKILL.md 「DB 스키마 변경 절차」 참조.
 - 집·회사 동등개발: 각 컴퓨터 Supabase CLI + `git clone`. **작업 후 `git push`.** Supabase 클라우드(테이블·데이터·secrets·배포함수)는 어디서든 접근, 로컬 코드만 git 동기화.
 - 화면 수정: `/home/claude/<file>` 편집 → 마지막 `<script>` `node -e`로 문법검사 → outputs 복사 → present.
 - 영어화 검증: `re.findall(r'[가-힣]+')`로 0 확인(grep -o는 로케일 오탐). ${...} 템플릿 플레이스홀더는 유지.

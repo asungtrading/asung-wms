@@ -82,13 +82,18 @@ import 파이프라인 완성. 흐름: saleList AUTHORISED 50건 폴링 → `SKI
 - ⚠️ **net._http_response가 null로 남을 수 있음**(pg_net 타임아웃 ~5초 초과, 상세조회 여럿 돌 때). **저장은 됐을 수 있으니 진실은 `wms_orders.imported_at`으로 확인.**
 - ⚠️ **Cin7 병행운영**: 유입 전 상태변경→유입안됨(정상), Cin7에서 PICKED→SKIP_PICKED 제외("안 들어온다" 최빈원인), **유입 후 변경→WMS 모름**(dedup, 재조회 안 함 — 병행 테스트 위험, 자동감지 백로그).
 
-## PowerShell 호출 (테스트)
-```powershell
-$anon = "<anon public key>"
-Invoke-RestMethod -Uri "https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/hello" -Headers @{ Authorization = "Bearer $anon" } | ConvertTo-Json -Depth 10
-# 저장까지: ?commit=1 붙이기
+## 호출 (테스트) — bash + curl
+```bash
+ANON="<anon public key>"
+BASE="https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1"
+
+# dry-run (저장 안 함)
+curl -s "$BASE/hello" -H "Authorization: Bearer $ANON" | jq .
+
+# 저장까지: ?commit=1
+curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 ```
-⚠️ PowerShell `curl`은 Invoke-WebRequest 별칭이라 `-H` 안 먹음 → Invoke-RestMethod 필수.
+⚠️ 이전 기록의 PowerShell 예시(`Invoke-RestMethod`)는 낡았다 — 개발환경은 WSL2 Ubuntu + bash. 여기선 진짜 curl 이라 `-H` 정상 동작.
 
 ## Edge Function `receiving` (2026-07-23, hello 와 별개 함수)
 

@@ -54,7 +54,7 @@ Cin7 Core ──(폴링)──> Supabase Edge Function ──> Supabase Postgres
 | Supabase URL | `https://gftpcnkxbdjzzfvzwcfl.supabase.co` |
 | project-ref | `gftpcnkxbdjzzfvzwcfl` |
 | region | `ca-central-1` (캐나다) |
-| 로컬 개발폴더 | `C:\Users\yoonh\asung-wms` (집), 회사도 동일 세팅 |
+| 로컬 개발폴더 | `~/asung/asung-wms` (WSL2 Ubuntu). 집·회사 동일 세팅. ⚠️ `/mnt/c/...` 아래에서 작업 금지 — WSL 파일 I/O가 크게 느려짐 |
 | GitHub | `asungtrading/asung-wms` — ⚠️ **PUBLIC** (Pages 무료 배포 위해 전환) |
 | 배포 URL | `https://wms.asung.ca` (커스텀 도메인, DNS CNAME→asungtrading.github.io) |
 | BQ Project | `geometric-rock-487814-k4` |
@@ -65,7 +65,7 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 **⚠️ 비밀값 규칙 (매우 중요):**
 - **anon(publishable) key = 커밋/공개 OK.** RLS + 로그인이 데이터를 보호하므로 `wms-config.js`에 넣어 public repo에 올려도 안전. 브라우저에 어차피 노출되는 값.
 - **service_role key = 절대 금지.** GAS Script Property + Supabase Edge Function 자동주입에만 존재. 코드·커밋·스킬·스크린샷에 절대 안 넣음.
-- Cin7 키를 `supabase secrets set`으로 넣을 때 PowerShell 화면에 값 노출되므로, 민감 시 rotate 권장(그럼 GAS+Supabase 양쪽 갱신).
+- Cin7 키를 `supabase secrets set`으로 넣을 때 터미널 화면·셸 히스토리에 값이 남으므로, 민감 시 rotate 권장(그럼 GAS+Supabase 양쪽 갱신).
 
 **저장소에 있어야 하는 파일 (루트, 모두 같은 폴더):**
 7개 화면 + 공유 2개 + 로고 2개 + 배포 파일.
@@ -74,6 +74,28 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 - 로고: `asung-logo-white.png`(런처=어두운 테마용) `asung-logo-dark.png`(6화면=밝은 헤더용, 흰로고 RGB를 잉크색으로 recolor해 생성)
 - 배포: `CNAME`(내용 `wms.asung.ca`, 건드리지 말 것) `.nojekyll`(Jekyll 빌드 스킵 — supabase/·.vscode/ 폴더 때문에 필수)
 - ⚠️ `tools.asung.ca`(customer-portal, 별도 repo `asungtrading/tools`)는 반드시 PUBLIC 유지(private면 무료 Pages 죽음).
+
+## DB 스키마 변경 절차 (⚠️ 2026-07-26 확립 — 이 문서 전체에 우선)
+
+**베이스라인 = `supabase/migrations/20260101000000_baseline.sql`** (테이블 20 · 정책 22). 원격 히스토리와 정렬됨(`migration repair` 완료). **이 파일은 수정하지 말 것** — 변경은 항상 새 마이그레이션으로.
+
+허용된 절차:
+1. `supabase migration new <name>`
+2. 생성된 파일에 SQL 작성
+3. `supabase db reset` — 로컬에서 처음부터 재생해 검증
+4. `supabase db push` — ⚠️ **사람이 직접만 실행. Claude 는 명령만 제시한다.**
+
+금지:
+- **대시보드 SQL Editor 로 스키마 변경** — 로컬과 원격이 어긋나 이 체계가 무의미해진다. 급히 했다면 즉시 `supabase db dump --linked` 로 되받아 반영.
+- `supabase db push` 자동 실행
+- `supabase stop --no-backup` (로컬 볼륨 삭제)
+- `db pull` 의존 — 이 프로젝트에서 diff 단계가 조용히 실패한 이력이 있다. `db dump --linked` 를 쓴다.
+
+드리프트 확인 `supabase db diff --linked` · 작업 후 `supabase stop`(개발 머신 RAM 8GB 상한).
+
+⚠️ **dump 에 안 잡히는 것** — pg_cron 스케줄(`supabase/ops/cron.sql` 에 기록만, 마이그레이션 아님) · Edge Function secrets · Auth 설정(Site URL / Redirect) · Storage 버킷 설정.
+
+⚠️ **이 문서 곳곳의 `wms_*.sql` 파일 이름은 역사적 기록**(`wms_waves.sql`·`wms_receipts.sql`·`wms_healthcheck.sql` 등). 그 파일들은 repo 에 더 이상 없고 내용은 전부 baseline 에 흡수됐다. **다시 실행하지 말 것** — 스키마 계보를 볼 땐 baseline 을 읽는다.
 
 ---
 
@@ -120,8 +142,8 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 `WmsSync.gs`(System_Automation)의 `runWmsMasterSync()`가 BQ 3테이블을 조인→Supabase 2테이블 **truncate + 재적재**(PostgREST delete-all + 500개씩 배치 insert). 트리거 `setupWmsSyncTrigger()`=매일 6:30.
 
-- **길 A 이유**: PostgREST는 행 삽입만 되고 DDL(CREATE TABLE) 불가. 그래서 테이블은 SQL Editor에서 미리 고정 생성, GAS는 데이터만 교체. "BQ가 진실, Supabase는 최신 복사본"은 그대로 달성.
-- **스키마 드리프트 대응**: WMS 스냅샷은 master에서 4개만 씀(product_name·barcode·unit=factor·is_selling). BQ에 무관한 컬럼이 생겨도 **아무것도 안 함**. WMS에서 쓰고 싶을 때만 의식적 3줄(Supabase ALTER + GAS SELECT + 프론트).
+- **길 A 이유**: PostgREST는 행 삽입만 되고 DDL(CREATE TABLE) 불가. 그래서 테이블 구조는 **마이그레이션으로 미리 고정 생성**(baseline 에 포함됨), GAS는 데이터만 교체. "BQ가 진실, Supabase는 최신 복사본"은 그대로 달성. ⚠️ 여기서 "미리 생성"은 **SQL Editor 가 아니라 마이그레이션** — 위 「DB 스키마 변경 절차」 참조.
+- **스키마 드리프트 대응**: WMS 스냅샷은 master에서 4개만 씀(product_name·barcode·unit=factor·is_selling). BQ에 무관한 컬럼이 생겨도 **아무것도 안 함**. WMS에서 쓰고 싶을 때만 의식적 3줄(**새 마이그레이션의 ALTER** + GAS SELECT + 프론트).
 - **복제 소스 3개**: (1)`Cin7_Master_Data.asung_product_master` (2)`Cin7_Master_Data.asung_bin_stock`(grain sku×wh×bin, sticky=재고0도 is_current=FALSE 자리보존, Binstockdata.gs 관리) (3)`Cin7_Sales_Data.asung_product_images`(sku→image_url, customer-portal·warehousemap 동일소스).
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)
@@ -320,8 +342,13 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 **프론트엔드 — 완료 (7화면 + 리시빙 receiver.html)**
 - ✅ 기본 7화면 + 영어화 + 로고 + Health 탭 + wave 모드. ✅ receiver.html(규칙 20). ✅ **헤더 규칙: ☰ Menu 는 유저이름 바로 옆**(전 화면).
 
-**필수 SQL — 대부분 실행 완료**
-`wms_rollback_log`·`wms_reports`·`wms_schedule_polling`·`wms_staff_perms`·`wms_fulfillment_stats`·`wms_waves`·`wms_healthcheck`·**`wms_receipts`+`wms_receipts_apply`**·**`wms_orders_review`**. **2026-07-25 신규(실행 필요)**: **`wms_held_by.sql`**(held_by) · **`wms_disc_receiving.sql`**(리시빙 차이→discrepancy) · **`wms_order_reference.sql`**(픽리스트 Reference). ⚠️ 순서 의존: `wms_waves.sql`→`wms_healthcheck.sql`. 나머지 무관.
+**스키마 SQL — 전부 baseline 에 포함됨 (2026-07-26)**
+예전에 하나씩 실행하던 `.sql` 파일들 — `wms_rollback_log`·`wms_reports`·`wms_schedule_polling`·`wms_staff_perms`·`wms_fulfillment_stats`·`wms_waves`·`wms_healthcheck`·`wms_receipts`+`wms_receipts_apply`·`wms_orders_review`·`wms_held_by`·`wms_disc_receiving`·`wms_order_reference` — 은 **모두 `supabase/migrations/20260101000000_baseline.sql` 에 흡수됐고 repo 에서 삭제됐다.**
+
+- ✅ **실행할 것 없음.** 위 목록은 이력용. 다시 실행하지 말 것.
+- 확인됨: `held_by`(pick/pack/waves) · `wms_orders.reference` · 리시빙 discrepancy 컬럼(`receipt_id` 등) 전부 baseline 에 존재.
+- 예전의 "순서 의존"(`wms_waves.sql`→`wms_healthcheck.sql`) 도 baseline 안에서 이미 해결 — 신경 쓸 필요 없음.
+- **앞으로의 스키마 변경은 새 마이그레이션만** — 위 「DB 스키마 변경 절차」. pg_cron 스케줄은 예외로 `supabase/ops/cron.sql` 에 기록(마이그레이션 아님).
 
 ## 백로그 / 미해결
 
@@ -340,8 +367,17 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 ## 개발 워크플로우 노트
 
-- Edge Function 배포: `cd ~\asung-wms && supabase functions deploy hello` (Docker 불필요, "Docker not running" 경고 무시).
-- 함수 호출(PowerShell): `curl`은 Invoke-WebRequest 별칭이라 `-H` 안 먹음 → **`Invoke-RestMethod -Headers @{Authorization="Bearer $anon"}`** 사용. 중첩배열은 `ConvertTo-Json -Depth 10`.
+- **환경 = WSL2 Ubuntu + bash.** 이전 기록의 PowerShell 예시(`Invoke-RestMethod`, `cd ~\asung-wms`)는 낡았다.
+- Edge Function 배포: `cd ~/asung/asung-wms && supabase functions deploy hello` (Docker 불필요, "Docker not running" 경고 무시).
+- 함수 호출(bash + 진짜 curl):
+  ```bash
+  curl -s "https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/hello?commit=1" \
+    -H "Authorization: Bearer $ANON" | jq .
+  # POST 바디는 파일로 넘기면 이스케이프 사고 없음
+  curl -s -X POST ".../functions/v1/receiving" \
+    -H "Authorization: Bearer $ANON" -H "Content-Type: application/json" \
+    --data @/tmp/body.json | jq .
+  ```
 - anon key로 호출(Authorization Bearer). service_role은 Edge Function 내부에서만(자동주입).
 - 현재 함수명은 연습 함수 `hello`를 재활용 중(나중에 제대로 된 이름으로 새 함수 분리 가능).
 - 집·회사 동등개발: 각 컴퓨터 CLI 설치 + `git clone`. **작업 후 `git push` 습관.** Supabase 클라우드(테이블·데이터·secrets·배포함수)는 어디서든 접근, 로컬 코드만 git 동기화 필요.
