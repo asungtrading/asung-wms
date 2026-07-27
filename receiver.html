@@ -121,6 +121,10 @@
   .zdiv .zl{font-family:var(--mono);font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
   .zdiv .zc{margin-left:auto;font-size:11px;color:var(--mut-2);font-family:var(--mono)}
   .zdiv.nobin .zn{background:var(--warn,#d9820a)}
+  /* 완료 라인 구역 구분선 (주문 수량을 정확히 채운 라인은 아래로 내려간다) */
+  .gdiv{display:flex;align-items:center;gap:8px;margin:12px 0 2px;padding:11px 4px 3px;border-top:1px dashed var(--line)}
+  .gdiv .gl{font-family:var(--mono);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ok)}
+  .gdiv .gc{margin-left:auto;font-size:11px;color:var(--mut-2);font-family:var(--mono)}
   /* zone 점프 칩 바 */
   .zjump{display:flex;flex-wrap:wrap;gap:8px;margin:0 2px 10px}
   .zjump .zchip{display:inline-flex;align-items:center;gap:2px;min-height:40px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 15px;font:inherit;font-family:var(--mono);font-size:14px;font-weight:800;color:var(--ink);cursor:pointer}
@@ -744,16 +748,27 @@ function lineById(id){ return lines.find(x=>x.id===id); }
 function isFilled(l){ return l.expected>0 && l.received===l.expected; }
 
 /* ---------- receiving 렌더 ---------- */
-/* 표시 순서: lines 는 고정, 순서만 인덱스 배열로 */
-function orderedIdx(){
+/* 표시 순서: lines 는 고정, 순서만 인덱스 배열로.
+   1차 키는 항상 "주문 수량을 정확히 채웠는가" — 채운 라인만 아래로 내린다.
+   ⚠️ short 는 아직 할 일이고, over 는 매니저 확인이 필요하다. 둘 다 위에 남긴다.
+      오프-PO(expected=0)도 승인 대기라 위에 남는다 — isFilled 가 expected>0 을 요구하므로 자동.
+   ⚠️ 완료된 라인끼리는 원래 순서(i)를 지킨다. 방금 스캔한 게 위로 튀어오르면
+      "아까 뭘 찍었지" 확인이 어려워진다.
+   비교는 base 단위 — expected/received 는 expected_base/received_base 이고
+   스캔은 이미 factor 를 곱해 더한다 (규칙 3). */
+function orderedIdx(){ return sortedIdx(true); }
+/* groupFilled=false → 완료 라인을 내리지 않은 "순수" sortMode 순서.
+   ⚠️ autoAdvance 가 이걸 쓴다. 표시 순서로 다음을 찾으면 방금 채운 라인이 맨 아래로
+      내려간 탓에 뒤가 비어, 매번 리스트 맨 위 미충족 라인으로 되돌아간다 —
+      존 순서로 걷던 작업자가 이미 지나온 존으로 끌려간다. */
+function sortedIdx(groupFilled){
   const idx=lines.map((_,i)=>i);
-  if(sortMode==="po") return idx;
   const key=i=>{
-    const l=lines[i];
-    if(sortMode==="zone"){ const z=l.lastBin?zoneOfBin(l.lastBin):null; return [z==null?1:0, zOrder(z), l.lastBin||"~", i]; }
-    if(sortMode==="product") return [(l.product_name||"~").toUpperCase(), i];
-    if(sortMode==="sku") return [(l.order_sku||"~").toUpperCase(), i];
-    return [i];
+    const l=lines[i], g=(groupFilled&&isFilled(l))?1:0;
+    if(sortMode==="zone"){ const z=l.lastBin?zoneOfBin(l.lastBin):null; return [g, z==null?1:0, zOrder(z), l.lastBin||"~", i]; }
+    if(sortMode==="product") return [g, (l.product_name||"~").toUpperCase(), i];
+    if(sortMode==="sku") return [g, (l.order_sku||"~").toUpperCase(), i];
+    return [g, i];
   };
   return idx.sort((a,b)=>{ const ka=key(a),kb=key(b); for(let j=0;j<ka.length;j++){ if(ka[j]<kb[j])return -1; if(ka[j]>kb[j])return 1; } return 0; });
 }
@@ -829,19 +844,31 @@ function renderRList(){
   const el=document.getElementById("rList");
   el.style.display="flex";
   const ord=orderedIdx();
-  // zone 정렬이면 zone 별 개수 미리 집계 (헤더 카운트용)
-  const zoneCount={};
-  if(sortMode==="zone") ord.forEach(i=>{ const l=lines[i]; const z=l.lastBin?zoneOfBin(l.lastBin):"__none"; zoneCount[z]=(zoneCount[z]||0)+1; });
-  let curZone=null, html="";
+  // 완료 라인은 아래로 내려가므로 zone 헤더 카운트도 그룹별로 세야 한다.
+  // 그렇지 않으면 위쪽 "Zone C 8" 아래에 3줄만 붙고 나머지는 완료 구역에 있어 오해를 준다.
+  const zoneOf=l=>l.lastBin?zoneOfBin(l.lastBin):"__none";
+  const grpOf=i=>isFilled(lines[i])?1:0;
+  const zoneCount={}, zoneGrp={}, doneCount=ord.filter(i=>grpOf(i)===1).length;
+  if(sortMode==="zone") ord.forEach(i=>{
+    const z=zoneOf(lines[i]);
+    zoneCount[z]=(zoneCount[z]||0)+1;                                  // 칩 바용 (전체)
+    const k=grpOf(i)+"|"+z; zoneGrp[k]=(zoneGrp[k]||0)+1;              // 구분선용 (그룹별)
+  });
+  let curZone=null, curGrp=null, html="";
   ord.forEach(idx=>{
-    const l=lines[idx];
+    const l=lines[idx], g=grpOf(idx);
+    if(g!==curGrp){
+      curGrp=g; curZone=null;   // 그룹이 바뀌면 zone 헤더도 다시 시작
+      if(g===1) html+=`<div class="gdiv"><span class="gl">Received in full</span><span class="gc">${doneCount}</span></div>`;
+    }
     if(sortMode==="zone"){
-      const z=l.lastBin?zoneOfBin(l.lastBin):"__none";
+      const z=zoneOf(l);
       if(z!==curZone){
         curZone=z;
+        const n=zoneGrp[g+"|"+z];
         html+= z==="__none"
-          ? `<div class="zdiv nobin" data-zone="__none"><span class="zn">?</span><span class="zl">No last bin</span><span class="zc">${zoneCount[z]}</span></div>`
-          : `<div class="zdiv" data-zone="${esc(z)}"><span class="zn">${esc(z||"·")}</span><span class="zl">Zone ${esc(z||"·")}</span><span class="zc">${zoneCount[z]}</span></div>`;
+          ? `<div class="zdiv nobin" data-zone="__none"><span class="zn">?</span><span class="zl">No last bin</span><span class="zc">${n}</span></div>`
+          : `<div class="zdiv" data-zone="${esc(z)}"><span class="zn">${esc(z||"·")}</span><span class="zl">Zone ${esc(z||"·")}</span><span class="zc">${n}</span></div>`;
       }
     }
     const done=isFilled(l);
@@ -870,9 +897,11 @@ function renderRList(){
   const zj=document.getElementById("rZjump"), zjb=document.getElementById("rZjumpBay");
   if(sortMode==="zone" && Object.keys(zoneCount).length){
     const zones=Object.keys(zoneCount).sort((a,b)=>{ if(a==="__none")return 1; if(b==="__none")return -1; const d=zOrder(a)-zOrder(b); return d||(a<b?-1:1); });
+    // 남은 라인이 없는 zone 은 흐리게 — 아래로 내려간 완료분까지 세어 헷갈리지 않게
+    const dim=z=>((zoneCount[z]-(zoneGrp["1|"+z]||0))===0?" alldone":"");
     zj.innerHTML=zones.map(z=>z==="__none"
-      ? `<button class="zchip nobin" data-zj="__none">?<span class="c">${zoneCount[z]}</span></button>`
-      : `<button class="zchip" data-zj="${esc(z)}">${esc(z)}<span class="c">${zoneCount[z]}</span></button>`).join("");
+      ? `<button class="zchip nobin${dim(z)}" data-zj="__none">?<span class="c">${zoneCount[z]}</span></button>`
+      : `<button class="zchip${dim(z)}" data-zj="${esc(z)}">${esc(z)}<span class="c">${zoneCount[z]}</span></button>`).join("");
     zj.style.display="flex"; zjb.style.display="none"; zjb.innerHTML="";
     zj.querySelectorAll("[data-zj]").forEach(c=>c.onclick=()=>{
       const z=c.dataset.zj;
@@ -900,7 +929,7 @@ function move(dir){
   curIdx=ord[np]; renderRecv(); focusScan();
 }
 function autoAdvance(){
-  const ord=orderedIdx();
+  const ord=sortedIdx(false);   // 걷는 순서는 완료 그룹화와 무관하게 유지
   const pos=ord.indexOf(curIdx);
   // 표시 순서로 현재 다음부터 미충족 라인 탐색 → 없으면 처음부터
   for(let k=pos+1;k<ord.length;k++){ const l=lines[ord[k]]; if(l.expected>0&&l.received<l.expected){ curIdx=ord[k]; return; } }
@@ -1467,7 +1496,8 @@ async function serverChecks(){
   };
 }
 /* 서버 값을 내 화면에 반영 — 미확인 쓰기가 걸린 라인은 건드리지 않는다(내 값이 더 최신).
-   ⚠️ lines 를 재정렬하거나 splice 하지 않는다. bcMap 이 lines 인덱스를 담고 있다. */
+   값만 갱신하고 lines 자체는 건드리지 않는다. 라인 추가/삭제는 offPoScan/dropLine 만.
+   표시 순서는 orderedIdx 가 만드므로 배열을 재정렬할 이유가 없다. */
 function mergeServerRows(rows){
   rows.forEach(r=>{
     if(unconfirmed.has(r.id)) return;
