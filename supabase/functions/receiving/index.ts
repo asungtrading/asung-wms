@@ -122,32 +122,63 @@ function normLine(l: any, s: any) {
   };
 }
 
-// ── PO 목록: 인보이스 AUTHORISED 만 (Invoice First) ──────────
-async function listOpenPOs(search: string): Promise<any[]> {
-  const out: any[] = [];
-  let page = 1;
-  while (page <= 3) {
-    const q = "/purchaseList?Page=" + page + "&Limit=100&InvoiceStatus=AUTHORISED" +
-      (search ? "&Search=" + encodeURIComponent(search) : "");
-    const data = await cin7Get(q);
-    const items = data.PurchaseList || [];
-    for (const p of items) {
-      const st = String(p.Status || "").toUpperCase();
-      if (st.includes("VOID") || st.includes("COMPLETED") || st.includes("CREDITED")) continue; // 끝난/취소 PO (복합상태 포함)
-      if (st.includes("RECEIVED") && !st.includes("RECEIVING")) continue;                       // 이미 받은 PO (RECEIVING=부분입고 진행중은 유지)
-      if (/service/i.test(String(p.Type || ""))) continue;                                     // Service 주문(운송·관세 등) 제외 — 물건 없음
-      if (String(p.StockReceivedStatus || "").toUpperCase() === "AUTHORISED") continue;
-      out.push({
-        id: p.ID, po_number: p.OrderNumber || "", supplier: p.Supplier || "",
-        status: p.Status || "", invoice_status: p.InvoiceStatus || "",
-        type: p.Type || "Simple Purchase", order_date: p.OrderDate || null, source: "po",
-      });
+// ── PO 목록: 인보이스 AUTHORISED + PAID (Invoice First) ──────
+// PAID 를 포함하는 이유: Invoice First 는 "인보이스가 승인됐는가"의 문제이고 PAID 는 그 승인 이후 단계(지불 완료)라 리시빙 자격을 잃지 않는다.
+// (실측 2026-07-28 PO-01081: Status=INVOICED / InvoiceStatus=PAID → AUTHORISED 단일 조회에서 Total 0 으로 통째로 누락됐다.)
+// 서버 파라미터는 유지한다 — 제거하면 DRAFT/NOT AVAILABLE/VOIDED 까지 긁어와 스캔량이 커지고 Invoice First 게이트가 느슨해진다.
+const PO_INVOICE_STATUSES = ["AUTHORISED", "PAID"];
+
+// ⚠️ 페이지 크기 — 조기 종료 조건(`items.length < PO_PAGE_LIMIT`)과 **반드시 같은 상수**를 써야 한다.
+// 둘이 어긋나면(예: Limit=1000 인데 종료 조건이 100) 첫 페이지에서 무조건 루프가 끊긴다.
+// ⚠️ 실측 2026-07-28 (purchaseList, InvoiceStatus=PAID, Total 825):
+//  · **정렬은 PO 번호 오름차순.** page1 = PO-00004~ 이고 최신 PO 는 마지막 페이지(Page=9 에서 PO-01081 확인).
+//    → 기존 `Limit=100` + `page <= 3`(=상태별 300건) 상한이 최신 PO 를 통째로 못 읽던 진짜 원인.
+//  · **Limit=1000 이 동작한다**: page1 에 825건 전부(PO-00004~PO-01081), page2 는 0건. 상태당 호출 1번으로 끝난다.
+//  · **UpdatedSince 는 쓰지 않는다** — 동작은 하지만(30일 124건/60일 249건/90일 331건) 60일 창의 page1 도
+//    PO-00004 부터 시작한다. 지불 처리로 옛 PO 가 계속 갱신되므로 날짜 창이 PO 번호의 최신성을 보장하지 못한다.
+//  · **RestockReceivedStatus 는 무시된다** — NOT AVAILABLE·DRAFT 모두 Total 825(무필터와 동일). 서버 필터로 못 좁히니
+//    StockReceivedStatus 제외는 아래 루프에서 클라이언트 측으로 계속 처리한다.
+// ⚠️ PO 총건수가 2000건을 넘기 시작하면 이 상한(PO_PAGE_LIMIT × PO_MAX_PAGES)을 다시 봐야 한다.
+const PO_PAGE_LIMIT = 1000;
+const PO_MAX_PAGES = 3;
+
+async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Record<string, number>; truncated: boolean }> {
+  const byId = new Map<string, any>(); // dedup — PurchaseList 의 ID 기준 (두 조회에 같은 PO 가 들어올 수 있음)
+  const scanned: Record<string, number> = {}; // 진단 — 상태별로 실제 가져온 행 수 (필터 전)
+  let truncated = false;                      // 진단 — 페이지 상한에 걸려 더 있는데 못 읽은 상태가 있으면 true
+  for (let si = 0; si < PO_INVOICE_STATUSES.length; si++) {
+    if (si > 0) await sleep(250); // 조회 사이 간격 (Cin7 rate limit)
+    const st0 = PO_INVOICE_STATUSES[si];
+    scanned[st0] = 0;
+    let page = 1;
+    while (page <= PO_MAX_PAGES) {
+      const q = "/purchaseList?Page=" + page + "&Limit=" + PO_PAGE_LIMIT + "&InvoiceStatus=" + st0 +
+        (search ? "&Search=" + encodeURIComponent(search) : "");
+      const data = await cin7Get(q);
+      const items = data.PurchaseList || [];
+      scanned[st0] += items.length;
+      for (const p of items) {
+        const st = String(p.Status || "").toUpperCase();
+        if (st.includes("VOID") || st.includes("COMPLETED") || st.includes("CREDITED")) continue; // 끝난/취소 PO (복합상태 포함)
+        if (st.includes("RECEIVED") && !st.includes("RECEIVING")) continue;                       // 이미 받은 PO (RECEIVING=부분입고 진행중은 유지)
+        if (/service/i.test(String(p.Type || ""))) continue;                                     // Service 주문(운송·관세 등) 제외 — 물건 없음
+        if (String(p.StockReceivedStatus || "").toUpperCase() === "AUTHORISED") continue;
+        const key = String(p.ID || "");
+        if (byId.has(key)) continue;
+        byId.set(key, {
+          id: p.ID, po_number: p.OrderNumber || "", supplier: p.Supplier || "",
+          status: p.Status || "", invoice_status: p.InvoiceStatus || "",
+          type: p.Type || "Simple Purchase", order_date: p.OrderDate || null, source: "po",
+        });
+      }
+      if (items.length < PO_PAGE_LIMIT) break;              // 마지막 페이지 (실측: PAID 는 page1 825건 → 여기서 끝)
+      if (page === PO_MAX_PAGES) { truncated = true; break; } // 꽉 찬 페이지인데 상한 도달 → 아직 더 남았다
+      page++; await sleep(300);
     }
-    if (items.length < 100) break;
-    page++; await sleep(300);
   }
+  const out = [...byId.values()];
   out.sort((a, b) => String(b.order_date || "").localeCompare(String(a.order_date || "")));
-  return out;
+  return { pos: out, scanned, truncated };
 }
 
 // ── PO 상세 ─────────────────────────────────────────────────
@@ -422,7 +453,8 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "pos";
     if (action === "pos") {
-      return json({ ok: true, pos: await listOpenPOs((url.searchParams.get("search") || "").trim()) });
+      // pos 배열은 그대로, scanned/truncated 는 최상위 진단 필드로만 추가 (receiver.html 은 pos 만 읽는다)
+      return json({ ok: true, ...(await listOpenPOs((url.searchParams.get("search") || "").trim())) });
     }
     if (action === "po") {
       const id = url.searchParams.get("id") || "";

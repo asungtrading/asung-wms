@@ -78,3 +78,40 @@ Edge Function secrets, Auth 설정(Site URL / Redirect), Storage 버킷 설정�
   ⚠️ 집·회사 두 대에서 개발하며 오래된 로컬 사본으로 덮어써 기능을 날린 이력이 있다.
 - 데이터·숫자는 검증 후 진행. 추정치로 넘어가지 말 것.
 - 정리 대기: `web/staff-admin.html`은 루트 버전과 중복된 낡은 사본 -> 삭제 대상.
+
+## 7. 스킬 description은 1024자 이하 (2026-07-27 — 업로드 거부 반복)
+
+claude.ai 스킬 업로드는 `SKILL.md` frontmatter의 `description`을 **1024 문자**로 제한한다.
+넘으면 `field 'description' in SKILL.md must be at most 1024 characters`로 거부된다.
+바이트가 아니라 문자 수로 세는 것으로 보인다(1201자 / 1782바이트에서 "1024 characters" 거부).
+확증은 없으니 검사 스크립트가 둘 다 출력한다.
+
+- 여러 줄 `>` 블록은 줄바꿈이 공백으로 접히고 끝 줄바꿈 1개가 남는다 -> 원문 길이 ≠ 실제 길이.
+  눈으로 세지 말고 스크립트로 잴 것.
+- 줄일 때 트리거 키워드를 먼저 버리지 말 것. description은 스킬이 **언제 로드될지**를 정한다.
+  키워드를 자르면 필요할 때 스킬이 안 뜬다. 순서: 일반어·중복어(영/한 같은 뜻 쌍) -> 문구 압축 -> 그 다음 키워드.
+- ⚠️ 불변식 문구(factor는 unit 컬럼, bin은 base_sku, Cin7 bin은 GUID, Invoice First,
+  service_role 금지, UI 영어, stock received는 문서당 bin 1개, authorize는 POST)는 마지막까지 유지.
+- 현재 여유: `asung-wms` 998자(26자) — 여기에 키워드를 더할 땐 반드시 같은 양을 덜어낼 것.
+
+검사:
+```bash
+scripts/check-skill-desc.sh            # 전체 (초과 시 exit 1)
+scripts/check-skill-desc.sh --staged   # 스테이징된 것만 — hook이 쓰는 모드
+```
+
+### hook 설치 — 클론한 머신마다 1회
+
+`.git/hooks`는 커밋되지 않으므로, hook 본체는 `scripts/hooks/`에 커밋해 두고 git이 그쪽을 보게 한다:
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+집·회사 두 대 모두에서 한 번씩 실행할 것. 안 하면 아무 경고 없이 검사가 통째로 빠진다.
+확인: `git config core.hooksPath` -> `scripts/hooks`
+
+- hook은 이번 커밋이 건드린 `SKILL.md`가 초과하면 커밋을 **막고**, 무관한 스킬이 이미 초과면
+  경고만 한다(무관한 커밋을 붙잡지 않는다).
+- `git commit --no-verify`로 우회 가능하지만 업로드는 여전히 거부된다.
+- PyYAML이 있으면 그걸로 파싱하고, 없으면 stdlib 폴백 파서를 쓴다(`>`/`|`/단일행 모두 동일 결과 검증됨).

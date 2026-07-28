@@ -1,25 +1,23 @@
 ---
 name: asung-wms
 description: >
-  Asung Trading의 커스텀 WMS(장기 IMS 첫 모듈)를 다룰 때 반드시 먼저 읽으세요.
-  Supabase(Postgres+Edge Function) 기반, Cin7 Core multi-packing 한계를 넘어 대형오더
-  분할 동시 픽/팩 + 리시빙/풋어웨이를 처리합니다.
+  Asung Trading 커스텀 WMS(IMS 첫 모듈)를 다룰 때 반드시 먼저 읽으세요.
+  Supabase(Postgres+Edge Function) 기반, Cin7 Core multi-packing 한계를 넘어
+  대형오더 분할 동시 픽/팩 + 리시빙/풋어웨이를 처리합니다.
   "WMS", "픽킹", "패킹", "Supabase", "Edge Function", "wms_orders",
-  "Release to WMS", "오더 분할", "discrepancy",
-  "asung-wms", "base 정규화", "factor", "wms-auth", "perms",
-  "wms.asung.ca", "배포", "Finalize", "바코드", "wave", "토트",
-  "Health 탭", "불변식", "리시빙", "receiving", "receiver.html", "풋어웨이", "putaway",
-  "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
-  "bin transfer", "트랜스퍼 리시빙", "Invoice First", "배터리", "스캔 이어받기",
-  "Lines is invalid", "authorize", "held_by", "프린트", "Reference", "트랜스퍼 완료",
-  "동시 작업", "나눠 받기", "unconfirmed", "writeChain", "presence", "also here",
-  "serverChecks", "bcMap", "정렬", "autoAdvance", "last-writer-wins", "CAS" 등이 나오면 추측하지 말고 이 스킬의 아키텍처·스키마·정규화·
-  인증·프론트엔드·배포·리시빙(규칙 20·21·22)·동시 작업(규칙 24~27)을 먼저 확인하세요.
-  특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유), ⚠️bin은 base_sku 기준,
-  ⚠️Cin7 쓰기 bin은 GUID(이름은 400), ⚠️PO는 인보이스 선승인(Invoice First),
-  ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어, ⚠️stock received는 문서당 bin
-  1개·authorize는 POST, ⚠️리시빙 저장은 라인 단위(전체 배열 덮어쓰기 금지)·성공 판정은
-  .select() 1행 — 어기면 재고·픽 수량·Cin7 반영이 틀어지거나 남의 작업이 사라집니다.
+  "Release to WMS", "오더 분할", "discrepancy", "base 정규화", "factor",
+  "wms-auth", "perms", "wms.asung.ca", "Finalize", "Health 탭", "리시빙",
+  "receiver.html", "풋어웨이", "라스트 로케이션", "wms_receipts", "Apply to Cin7",
+  "stock received", "bin transfer", "트랜스퍼", "Invoice First", "스캔 이어받기",
+  "Lines is invalid", "authorize", "held_by", "동시 작업", "unconfirmed",
+  "writeChain", "presence", "serverChecks", "bcMap", "CAS" 등이 나오면 추측하지 말고
+  이 스킬의 아키텍처·스키마·인증·배포·리시빙(규칙 20~22)·동시 작업(규칙 24~27)을
+  먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
+  ⚠️bin은 base_sku 기준, ⚠️Cin7 쓰기 bin은 GUID(이름은 400),
+  ⚠️PO는 Invoice First 선승인, ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어,
+  ⚠️stock received는 문서당 bin 1개·authorize는 POST,
+  ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
+  어기면 재고·픽 수량·Cin7 반영이 틀어지거나 남의 작업이 사라집니다.
 ---
 
 # Asung Trading WMS 스킬
@@ -260,7 +258,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 **핵심 목적: Cin7 다이나믹 로케이션의 두 빈틈 — (1)sold-out 시 라스트 로케이션 망각 (2)매번 수동 풋어웨이 강제 — 를 메운다.** 우리 sticky bin 데이터(`asung_bin_stock` → `wms_sku_bins`)가 라스트 로케이션을 이미 보존하므로, 리시빙 시 자동으로 그 자리로 풋어웨이한다.
 
 - **화면 = `receiver.html`** (requireManager:false, 픽커 톤·bcMap·factor·사운드 재사용, Single|List 뷰 + Last bin 칩). **Edge Function = `receiving`** (hello 와 별개 함수).
-- **유입은 온디맨드** (버튼/PO 바코드 스캔, 폴링 없음). ⚠️ **PO 는 `InvoiceStatus=AUTHORISED` 만** — Asung 은 무조건 **Invoice First**(인보이스 받아 Cin7 PO 와 일치·승인 후 리시빙). 추가 제외: Type 에 Service 포함(운송·관세 — 물건 없음), Status 에 RECEIVED 포함(단 RECEIVING=부분입고 진행중은 유지), VOID/COMPLETED/CREDITED, StockReceivedStatus=AUTHORISED. **트랜스퍼는 Status='IN TRANSIT'**, 창고는 ToLocation 정규화 — 리시버 warehouse_access 필터.
+- **유입은 온디맨드** (버튼/PO 바코드 스캔, 폴링 없음). ⚠️ **PO 는 `InvoiceStatus` AUTHORISED + PAID(2회 호출 병합, ID 기준 dedup)** — Asung 은 무조건 **Invoice First**(인보이스 받아 Cin7 PO 와 일치·승인 후 리시빙)이고, PAID 는 그 승인 **이후** 단계라 자격을 잃지 않는다. ⚠️ 실측 2026-07-28: PO-01081(InvoiceStatus=**PAID**, 입고 전)이 AUTHORISED 단일 조회에서 Total 0 으로 누락돼 목록에 안 뜨던 버그 → 2회 호출로 수정. ⚠️ **`Limit=1000`(`PO_PAGE_LIMIT`) 로 상태별 전량 1페이지 조회** — 2회 병합을 배포해도 PO-01081 이 무검색 목록에 안 뜬 진짜 원인은 **페이지 상한**이었다(실측 2026-07-28, InvoiceStatus=PAID Total 825): ① **정렬은 PO 번호 오름차순** — page1=PO-00004~, 최신 PO 는 마지막 페이지(Page=9 에서 PO-01081) → 기존 `Limit=100`+`page<=3`(=300건) 이 최신 PO 를 통째로 못 읽고, 읽은 300건은 거의 다 StockReceivedStatus=AUTHORISED 로 걸러져 목록에 한 건도 안 남았다. ② **Limit=1000 이 동작한다** — page1 에 825건 전부(PO-00004~PO-01081), page2 는 0건. ③ **UpdatedSince 는 부적합**(동작은 함: 30일 124/60일 249/90일 331건) — 60일 창의 page1 도 PO-00004 부터라 지불 갱신 때문에 날짜 창이 PO 번호 최신성을 보장하지 못한다. 그래서 180일 창(`PO_PAID_LOOKBACK_DAYS`) 방식은 **폐기**. ④ **RestockReceivedStatus 필터는 무시된다**(NOT AVAILABLE·DRAFT 모두 Total 825 = 무필터와 동일) → StockReceivedStatus 제외는 계속 클라이언트 측에서 한다. ⚠️ 조기 종료 조건도 같은 상수(`items.length < PO_PAGE_LIMIT`) — 100 으로 남으면 첫 페이지에서 루프가 끊긴다. 페이지 상한은 `page <= PO_MAX_PAGES`(3) 유지. **📌 PO 총건수가 2000 을 넘으면 이 상한을 다시 볼 것.** 응답에 진단 필드 **`scanned`**(상태별 가져온 행 수 예 `{AUTHORISED:n, PAID:825}`) + **`truncated`**(상한에 걸려 더 있는데 못 읽었으면 true) — 규칙 12 dry-run 진단과 같은 취지(상한에 걸린 사실이 응답에 안 보여 원인 파악에 왕복이 여러 번 걸렸다). `pos` 배열 구조·필드명은 불변(receiver.html 이 소비). 추가 제외: Type 에 Service 포함(운송·관세 — 물건 없음), Status 에 RECEIVED 포함(단 RECEIVING=부분입고 진행중은 유지), VOID/COMPLETED/CREDITED, StockReceivedStatus=AUTHORISED. **트랜스퍼는 Status='IN TRANSIT'**, 창고는 ToLocation 정규화 — 리시버 warehouse_access 필터.
 - **추천 빈 규칙** (base_sku × warehouse): ①`is_current=TRUE` 우선 ②없으면 `last_seen` 최신(=sold-out 자리 중 마지막) ③available 많은 곳. ⚠️ `wms_sku_bins.last_seen` 은 2026-07-23 추가(ALTER + `wms_buildBins_` SELECT/map 각 1줄) — sticky MERGE 가 last_seen 을 갱신 안 하고 얼려두므로 "마지막 재고 있던 날"이 됨. 초기엔 전부 같은 날짜(소급 불가)라 시간이 지나야 갈림.
 - ⚠️ **라스트빈 "no last bin" 근본 한계 (2026-07-24 규명)**: sticky 이력이 **2026-07-06 first_seen 부터** 시작(BQ `min(first_seen)`). 그 전에 이미 0 이 된 과거 bin 은 Cin7 productavailability 가 0-재고 bin 을 아예 안 줘서 sticky 가 **본 적이 없음 → 보존 불가**. 예: CAN01545 는 2/19 트랜스퍼로 에드먼튼 EC010303 에 있었다가 팔려 0 → 7/6 시작 땐 이미 0 → no last bin. **버그 아님, 데이터 시작점 한계.** 복구책: (가)Cin7 movements API 백필 or (나)지금부터 축적+수동지정(권장, 한 번 지정하면 재고 앉을 때 sticky 가 기억). bin 단위 과거이력은 movements 에만 있음(BQ asung_stock_daily 는 warehouse 레벨).
 - **빈 지정 UI (2026-07-24)**: 라스트빈 없거나 바꿀 때 — **스캔(1순위)+드롭다운 검색(폴백) 모달**. 드롭다운 소스 = EF `action=bins&warehouse=`(Cin7 `/ref/location` 전체 bin, **빈 자리 포함** — 신제품 새 자리 지정 가능), 실패 시 wms_sku_bins 폴백. 알려진 bin 아니면 confirm(신규 bin 허용). bin 있는 라인엔 **"Change" 버튼**(다른 자리로 바꾸면 putaway_done 자동 해제).
