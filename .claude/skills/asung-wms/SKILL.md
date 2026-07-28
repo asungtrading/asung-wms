@@ -11,7 +11,7 @@ description: >
   "stock received", "bin transfer", "트랜스퍼", "Invoice First", "스캔 이어받기",
   "Lines is invalid", "authorize", "held_by", "동시 작업", "unconfirmed",
   "writeChain", "presence", "serverChecks", "bcMap", "CAS" 등이 나오면 추측하지 말고
-  이 스킬의 아키텍처·스키마·인증·배포·리시빙(규칙 20~22)·동시 작업(규칙 24~27)을
+  이 스킬의 아키텍처·스키마·인증·배포·리시빙(규칙 20~22)·동시 작업(규칙 24~28)을
   먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
   ⚠️bin은 base_sku 기준, ⚠️Cin7 쓰기 bin은 GUID(이름은 400),
   ⚠️PO는 Invoice First 선승인, ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어,
@@ -311,12 +311,13 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **admin BATCH ACTIVITY active/idle → presence 기반** (`fresh(t)=liveBatchSet().has(t.batch_label)`). heartbeat_at 시간 판정 폐기. 🟢 active(open on screen) / 🟡 away(screen closed). **LIVE NOW 스트립은 원래 presence 라 무관 — 그대로 유지.** 범례도 idle→away 로.
 - **pg_cron reaper `wms_reap_stale_claims()`**: 느슨한 백업만(work_started=false 인 유령만 해제). heartbeat 없으니 interval 넉넉히(현재 2분 → 권장 3~10분). 스캔 이어받기가 주 해결책이라 사실상 보조.
 - `heartbeat_at` 컬럼은 DB 에 잔존(안 읽고 안 씀) — 나중에 drop 가능.
+- ⚠️ **"종이가 소유권을 보증한다" 전제가 깨지는 경우와 그 가드는 규칙 28** 참조(종이는 보드로 돌아갔는데 화면은 열려 있는 상태).
 
 ---
 
 ## 규칙 23 — Hold 이어가기(held_by) · 픽리스트 Reference (2026-07-25)
 
-- **held_by (Hold 한 사람에게 우선 노출)**: Hold 는 `assigned_to=null, status=pending` 으로 풀어 **누구나 이어받게** 두되 **`held_by=me.name`** 을 남긴다. picker/packer 목록 맨 위에 **"⏸ Resume your held batch"** 강조 섹션(held_by=나 인 pending). claim 시 `held_by=null` 로 정리. **서버 저장이라 화면 닫거나 다른 태블릿에서 로그인해도 보임**(브라우저 로컬은 복귀 시나리오에 부적합 — 아티팩트 localStorage 금지도 있음). 여전히 대기 풀에 있으므로 급하면 남도 집을 수 있음(= "내 것 잠금" 아님, 종이 픽리스트가 소유권). SQL `wms_held_by.sql`(pick_tasks/pack_tasks/waves 에 held_by).
+- **held_by (Hold 한 사람에게 우선 노출)**: Hold 는 `assigned_to=null, status=pending` 으로 풀어 **누구나 이어받게** 두되 **`held_by=me.name`** 을 남긴다. picker/packer 목록 맨 위에 **"⏸ Resume your held batch"** 강조 섹션(held_by=나 인 pending). claim 시 `held_by=null` 로 정리. **서버 저장이라 화면 닫거나 다른 태블릿에서 로그인해도 보임**(브라우저 로컬은 복귀 시나리오에 부적합 — 아티팩트 localStorage 금지도 있음). 여전히 대기 풀에 있으므로 급하면 남도 집을 수 있음(= "내 것 잠금" 아님, 종이 픽리스트가 소유권). SQL `wms_held_by.sql`(pick_tasks/pack_tasks/waves 에 held_by). ⚠️ **Hold 를 눌러도 그 사람의 화면은 계속 열려 있고 계속 쓸 수 있다 — 소유권 가드는 규칙 28**(`assigned_to=null` 도 프리즈 대상).
 - **픽리스트 Reference**: 화면 Cin7 "Reference"(예 `WDC-20260723`, 고객 발주번호) = **API `CustomerReference`** (기존 실측 주석 확정: Comments=`Note`, Shipping notes=`ShippingNotes`, Reference=`CustomerReference`). 폴링 EF(`hello`)가 `extractReference(d)` 로 `wms_orders.reference` 저장 → manager 픽리스트·**wave 픽리스트 둘 다** Order 줄 아래 인쇄(값 없으면 줄 생략). SQL `wms_order_reference.sql`. ⚠️ 컬럼 추가를 EF 배포보다 먼저(없으면 insert 실패). 기존 오더는 null → 신규 유입분부터 인쇄됨.
 
 ## 규칙 24 — 리시빙 동시 작업: 한 PO 를 여러 명이 나눠 받는다 (⚠️ 2026-07-27)
@@ -361,9 +362,38 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **RLS** — `wms_receipts`·`wms_receipt_lines` 정책이 `using(true)`(auth_all). **창고 스코프는 클라이언트 필터뿐** — 로그인한 직원이면 다른 창고 receipt 도 API 로 읽고 쓸 수 있다.
 - **EF 권한** — `receiving` EF 에 **호출자 검증이 없다**(anon Bearer 면 통과). Apply 권한(perms `apply`)은 **admin.html 클라이언트 사이드 3중 게이트뿐**이고, `applied_by` 는 쿼리스트링 `&by=<name>` 이라 **위조 가능**. 서버측 검증(JWT → wms_staff perms 확인)은 미구현.
 
+## 규칙 28 — 픽 소유권 가드: 종이와 클레임이 갈라질 때 (⚠️ 2026-07-28 실사고)
+
+**사고 경위 5단계**
+1. 픽커 A 가 보드에서 오더 001 픽리스트를 떼어 태블릿에 로드했다.
+2. 매니저가 홀드 지시 → A 는 픽리스트를 **보드에 다시 붙였고 WMS 화면은 그대로 뒀다**.
+3. 픽커 B 가 그 픽리스트를 떼어 스캔 → `scanTakeover` 로 클레임이 B 에게 넘어갔다(**여기까지 WMS 정상 동작**).
+4. A 도 "픽해도 된다"는 말을 듣고 **이미 로드된 화면에서 그대로** 픽을 시작했다. A 는 재스캔이 필요 없었으니 이어받기 프롬프트를 볼 일이 없었다.
+5. A·B 가 같은 오더를 동시에 픽하고 **같은 `wms_pick_task_lines` 에 수량을 썼다.**
+
+**규칙 22 전제가 깨지는 조건.** 규칙 22 는 heartbeat 를 없애며 "소유권은 **종이 픽리스트**가 보증한다"를 전제했다. 이 전제는 **종이와 클레임이 항상 함께 움직일 때만** 성립한다. 종이가 보드로 돌아가고 **클레임(=열린 화면)만 남으면** 물리 상태와 디지털 상태가 갈라지고, 그때 이미 열린 화면은 아무 확인 없이 계속 쓴다. ⚠️ **팀 규칙으로 못 막는다** — A 가 Hold 를 눌렀어도(규칙 23: `assigned_to=null`, `held_by=A`) A 의 화면은 여전히 열려 있고 여전히 쓸 수 있다.
+
+**가드 = 쓰기 직전 + 복귀 시점의 소유권 재확인** (picker/packer 각각 `checkOwner`/`ensureMine`/`freezeScreen`/`guardOnReturn`)
+- **쓰기 직전**: picked/verified 수량·상태를 쓰는 모든 경로에서 `pick_tasks`(packer 는 `pack_tasks`) `assigned_to` 를 **단일 컬럼 select** 로 재조회해 `me.name` 과 비교. 관문은 **`saveLine`**(스캔 가산·스테퍼·수동 입력이 전부 여기로 모인다) + **Hold** + **Complete / Complete as incomplete**(packer 는 Pack fill·Over-scan 확인을 **끝낸 뒤**).
+- **복귀 시점 감지가 실질적으로 가장 중요**: `visibilitychange`(hidden→visible) + `focus` 에서 같은 확인. 태블릿을 두고 나갔다 몇 분 뒤 돌아오는 게 실제 시나리오라 **첫 스캔 전에 잡히는 게 이상적**이다.
+- ⚠️ **타이머·폴링 금지**(규칙 22 배터리). **이벤트 기반만. heartbeat 를 되살리지 마라.** 이벤트가 연속으로 튈 때 중복 조회만 `lastOwnerCheck` 타임스탬프(3초)로 억제 — setInterval 아님.
+- **wave 는 소유권이 wave 단위**(규칙 18)라 `wms_waves` 행의 `assigned_to` 를 본다. **멤버 task 개별 확인은 하지 않는다**(wave 행 하나로 충분, 쿼리만 늘어난다).
+
+**프리즈 동작**
+- 스캔 입력 `disabled` + 수량 조작 버튼 전부 비활성. **렌더 우회로를 남기지 말 것** — 핸들러 `if(frozen) return` 만으로는 부족하고 `renderSingle`/`renderList` 의 스테퍼·수동입력에 `disabled` 를 함께 넣어야 한다(`focusScan` 도 프리즈면 즉시 반환).
+- 모달(UI 영어 — 규칙 11): 다른 사람 → `This batch is now assigned to {name}. Your screen is out of date.` / `assigned_to` 가 **null** → `This batch was released and is waiting to be claimed.` **버튼은 리로드 하나만 — 계속 진행하는 선택지를 주지 않는다.**
+- ⚠️⚠️ **프리즈 시 로컬 수량을 flush 하지 마라.** 내 메모리 값은 스테일이고, 쓰면 **이어받은 사람의 작업을 덮는다.** 규칙 24 에서 "Hold/finish 의 전체 배열 덮어쓰기"를 제거한 것과 **같은 이유** — 로컬 상태는 버리고 **서버를 진실로** 둔다.
+- ⚠️ **null(Hold 로 풀림)도 프리즈 대상이다.** 대기 풀로 돌아간 상태이므로 그때 내 화면이 계속 쓰면 남이 이어받은 뒤 충돌한다.
+- 정당하게 이어받고 싶으면 **픽리스트 재스캔(`scanTakeover`)** 경로를 쓴다 — 이미 검증된 진입로다. 가드는 그 경로를 건드리지 않는다.
+
+**실패 처리 & 한계.** 확인 select 가 네트워크 오류로 실패하면 **프리즈하지 말고 쓰기를 진행한다**(창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실). 콘솔 warn 만. 즉 이 가드는 **best-effort** 이고 원자적이지 않다 — 확인과 UPDATE 사이의 밀리초 창에서 넘어가면 통과한다. **후속: claim_seq(클레임 시퀀스) 로 원자화** — 클레임마다 증가하는 정수를 task 행에 두고 UPDATE 를 `.eq("claim_seq", 진입 시 읽은 값)` 조건부로 보내 0행이면 프리즈. 규칙 27 R1 의 CAS 와 같은 패턴이라 함께 처리.
+
 ## 현재 진행 상태 (2026-07-27 기준)
 
 **전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 실측·코드 완료(⬜첫 실전만 남음). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원.**
+
+**픽 소유권 가드 (2026-07-28 세션 — 규칙 28)**
+- ✅ picker.html·packer.html: 쓰기 직전(`saveLine`/Complete/Hold) + `visibilitychange`·`focus` 에서 `assigned_to` 재확인 → 아니면 **프리즈**(입력·버튼 비활성 + 리로드 전용 모달, **로컬 수량 flush 안 함**). 타이머 0 유지(규칙 22). wave 는 `wms_waves` 행 기준. ⬜ 원자화(claim_seq)는 백로그.
 
 **리시빙 동시 작업 (2026-07-27 세션 — 규칙 24~27) · 커밋 4개**
 - ✅ **L1 라인 단위 저장**(`unconfirmed`+`writeChain`, `.select()` 1행 판정) / **Hold·finish 의 전체 배열 덮어쓰기 제거** — 함께 받던 사람 작업이 되돌아가던 근본 원인 해결
@@ -411,6 +441,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **리시빙 PO**: partial 상태 Cin7 draft 누적(현재 최종완료 때 일괄). Apply 자동 실행 전환(매니저 게이트→작업자 완료 시, 신뢰 쌓이면). Advanced Purchase 상세 라인 실측. 라스트빈 movements 백필(선택).
 - **유령 bin 정리**: 숫자만/오타 bin 은 Cin7 삭제 후 sync 로 자연 소멸.
 - **리시빙 동시 작업 미해결분 — 규칙 27 이 목록**: R1 CAS(조건부 UPDATE) · **R3 `wms_receipts.cin7_purchase_id` 유니크**(중복 0건 확인, 분할 입고는 새 PO 라 걸어도 안전 — 새 마이그레이션) · R4 Apply 최종 PATCH 에 `applied_at is null` · R5 Complete↔Apply 창 · R10 bin 루프 비트랜잭션 · RLS 창고 스코프 · EF 호출자/perms 서버 검증.
+- **픽 소유권 원자화(claim_seq) — 규칙 28 후속**: 현재 가드는 best-effort(확인→UPDATE 사이 밀리초 창 통과 가능). task 행에 클레임마다 증가하는 `claim_seq` 를 두고 수량 UPDATE 를 `.eq("claim_seq", 진입 시 값)` 조건부로 → 0행이면 프리즈. 규칙 27 R1 CAS 와 같은 패턴이라 함께 처리.
 - **인덱스 기반 bcMap 잔존**: picker.html·packer.html(규칙 25). 지금은 splice 를 안 해 안전 — 라인 삭제 기능 추가 시 반드시 id 기반으로 먼저 전환.
 - **Cin7 병행 케이스 C 자동감지**: 유입 후 Cin7 상태 변경 감지.
 - **GAS scannable_barcodes 근본수정**: base 라인에 형제변형(-12) 바코드 포함(현재 bcMap 병합 우회).

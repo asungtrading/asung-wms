@@ -214,3 +214,34 @@ let bumpT=null;               // wms_receipts.updated_at debounce (4s)
 - `sortedIdx(groupFilled)`: 1차 키 `g=(groupFilled&&isFilled(l))?1:0`, 그 뒤 sortMode 키, 마지막 tiebreak `i`(완료 라인끼리 원래 순서 유지).
 - `orderedIdx()=sortedIdx(true)` → renderRList(그룹 구분선 `grpOf`)·renderSingle·`move()`·프린트 카운터.
 - ⚠️ **`autoAdvance()` 는 `sortedIdx(false)`** — 표시 순서로 걷으면 방금 채운 라인이 내려가 뒤가 비고 매번 리스트 맨 위로 끌려간다(존 동선 파괴).
+
+## 2026-07-28 — picker.html / packer.html 소유권 가드 (규칙 28)
+
+종이 픽리스트가 보드로 돌아갔는데 화면은 열려 있으면 두 사람이 같은 라인에 쓴다. **SKILL 규칙 28 이 근거이고 여기는 구현 지도.** `scanTakeover`/`scanTakeoverPack` 은 **건드리지 않았다**(정당한 이어받기 진입로).
+
+### 가드 엔진 (picker/packer 동형, 각 파일 `markWorkStarted` 바로 뒤)
+```js
+let frozen=false, lastOwnerCheck=0;
+async function checkOwner(){}  // {s:"ok"} | {s:"lost",who} | {s:"unknown"}
+async function ensureMine(){}  // true=계속 / false=프리즈됨, 쓰지 말 것
+function freezeScreen(who){}   // 입력·버튼 비활성 + 모달 + presenceLeave
+async function guardOnReturn(){}
+```
+- `checkOwner()` = **단일 컬럼 select**. picker 는 `wave ? wms_waves(id=wave.id) : wms_pick_tasks(id=task.id)`, packer 는 `wms_pack_tasks(id=packTask.id)`. `.maybeSingle()`. `who===me.name` 아니면(**null 포함**) lost.
+- ⚠️ **catch = `{s:"unknown"}` → 쓰기 진행 + `console.warn` 만.** 네트워크 실패로 작업을 멈추지 않는다(규칙 28 best-effort). **여기서 프리즈로 바꾸지 말 것.**
+- `lastOwnerCheck` = 3초 중복조회 억제용 타임스탬프. ⚠️ **setInterval 아님**(규칙 22).
+- 이벤트 등록: `document.addEventListener("visibilitychange", …visible → guardOnReturn)` + `window.addEventListener("focus", guardOnReturn)`. 실사고 시나리오(태블릿 두고 나갔다 복귀)를 **첫 스캔 전에** 잡는 경로라 가장 중요.
+
+### 가드가 들어간 지점
+| 경로 | picker | packer |
+|------|--------|--------|
+| 스캔 가산·스테퍼·수동입력 | `saveLine()` 선두 (공통 관문) | `saveLine()` 선두 (공통 관문) |
+| Complete | `finish(allowShort)` — confirm 뒤, 라인 루프 앞 | `doneBtn` — Pack fill·Over-scan·short confirm **전부 끝난 뒤**, 라인 루프 앞 |
+| Hold | `holdBtn` — confirm 뒤, 라인 루프 앞 | `holdBtn` — confirm 뒤, 라인 루프 앞 |
+| 진입 방어 | `processScan`/`manualAdjust`/`manualSet`/`finish`/`holdBtn` 선두 `if(frozen) return` | `processScan`/`manualAdjust`/`manualSetPack`/`doneBtn`/`holdBtn` 선두 |
+
+### 프리즈 (렌더 우회로 없음)
+- `#scan.disabled=true` + `blur()`, `holdBtn`/`shortBtn`/`doneBtn` disabled, `focusScan()` 선두 `if(frozen) return`(포커스 되돌리기 정지).
+- ⚠️ **핸들러 가드만으로는 부족** — `renderSingle` 의 `[data-step]`·`[data-manual]`, packer `renderList` 의 `.stepmini` 버튼·`Clear over` 에 `${frozen?"disabled":""}`. `freezeScreen` 이 `renderPick()`/`renderPack()` 을 한 번 더 호출해 반영한다.
+- 모달 = `#freeze`(`.fz`/`.fzbox` CSS) + `#fzMsg` + `#fzReload`(=`location.reload()`) **버튼 하나만**. 문구: 다른 사람 `This {batch|wave} is now assigned to {who}. Your screen is out of date.` / null `This {batch|wave} was released and is waiting to be claimed.` (picker 는 `ownerUnit()` 이 wave/batch 선택)
+- ⚠️⚠️ **`freezeScreen` 에서 로컬 수량을 저장하지 않는다** — 스테일 값이라 이어받은 사람 작업을 덮는다(규칙 24 의 전체배열 덮어쓰기 제거와 같은 이유). 로컬은 버리고 리로드.

@@ -169,6 +169,14 @@
   .gate label{display:block;font-family:var(--mono);font-size:11px;color:var(--mut);text-transform:uppercase;margin:0 0 5px}
   .gate input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;font-size:13px;margin-bottom:14px;font-family:var(--mono)}
 
+  /* ownership-lost freeze (규칙 28) */
+  .fz{position:fixed;inset:0;z-index:70;background:rgba(16,22,30,.62);display:grid;place-items:center;padding:20px}
+  .fzbox{max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:24px}
+  .fzbox .t{font-size:17px;font-weight:800;color:var(--danger);margin-bottom:10px}
+  .fzbox p{margin:0 0 12px;font-size:14px;line-height:1.55}
+  .fzbox .sub{font-size:12.5px;color:var(--mut)}
+  .fzbox button{width:100%;padding:13px}
+
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
   .logo .logo-img{height:28px;width:auto;display:block}
@@ -262,6 +270,16 @@
 
 </main>
 
+<!-- Ownership lost: the claim moved to someone else (or was released) while this screen stayed open -->
+<div class="fz" id="freeze" style="display:none">
+  <div class="fzbox">
+    <div class="t">⚠ Ownership changed</div>
+    <p id="fzMsg"></p>
+    <p class="sub">Quantities you entered after that were not saved. To keep working on it, reload and scan the pack list again to take it over.</p>
+    <button class="btn dark" id="fzReload">Reload</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="wms-config.js"></script>
@@ -298,6 +316,63 @@ function markWorkStarted(){
   packTask.work_started=true;
   sb.from("wms_pack_tasks").update({work_started:true}).eq("id",packTask.id).then(()=>{});
 }
+
+/* ---------- ownership guard (규칙 28) ----------
+   heartbeat 제거(규칙 22) 후 소유권은 "종이 픽/팩 리스트"가 보증한다는 전제였다. 종이가
+   보드로 돌아가고 클레임만 남으면 물리 상태와 디지털 상태가 갈라져 두 사람이 같은
+   pack_task_lines 에 쓴다 → 쓰기 직전 + 복귀 시점에 assigned_to 를 재확인한다.
+   ⚠️ 타이머·폴링 금지(규칙 22 배터리). 이벤트 기반만. */
+let frozen=false, lastOwnerCheck=0;
+/* {s:"ok"} | {s:"lost",who} | {s:"unknown"}  — unknown = 조회 실패(네트워크). 쓰기는 진행한다. */
+async function checkOwner(){
+  if(!packTask) return {s:"unknown"};
+  try{
+    const q=await sb.from("wms_pack_tasks").select("assigned_to").eq("id",packTask.id).maybeSingle();
+    if(q.error) throw q.error;
+    lastOwnerCheck=Date.now();
+    if(!q.data) return {s:"unknown"};                 // row gone — not this guard's call
+    const who=q.data.assigned_to||null;               // null = Hold 로 풀려 팩 큐에 있음
+    return who===me.name ? {s:"ok"} : {s:"lost",who};
+  }catch(e){
+    // best-effort: 창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실 (규칙 28)
+    console.warn("Ownership check failed — proceeding with the write (best effort):", (e&&e.message)||e);
+    return {s:"unknown"};
+  }
+}
+/* true = 계속 진행(내 것이거나 확인 실패) / false = 프리즈됨, 호출자는 쓰지 말 것 */
+async function ensureMine(){
+  if(frozen) return false;
+  const r=await checkOwner();
+  if(r.s==="lost"){ freezeScreen(r.who); return false; }
+  return true;
+}
+/* ⚠️ 프리즈 시 로컬 수량을 flush 하지 않는다 — 내 메모리 값은 스테일이고 쓰면
+   이어받은 사람의 작업을 덮는다. 로컬 상태는 버리고 서버를 진실로 둔다. */
+function freezeScreen(who){
+  if(frozen) return;
+  frozen=true;
+  stopHeartbeat(); presenceLeave();
+  clearTimeout(advTimer);
+  const scan=document.getElementById("scan"); if(scan){ scan.disabled=true; scan.blur(); }
+  ["holdBtn","doneBtn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.disabled=true; });
+  renderPack();   // re-render so steppers / manual entry come back disabled (no render bypass)
+  document.getElementById("fzMsg").textContent = who
+    ? `This batch is now assigned to ${who}. Your screen is out of date.`
+    : "This batch was released and is waiting to be claimed.";
+  document.getElementById("freeze").style.display="grid";
+  try{ beep("bad"); vibe("bad"); }catch(e){}
+}
+document.getElementById("fzReload").onclick=()=>location.reload();
+/* 복귀 감지: 태블릿을 두고 나갔다 돌아오는 게 실제 시나리오라 첫 스캔 전에 잡는다 */
+async function guardOnReturn(){
+  if(frozen || !packTask) return;
+  if(document.getElementById("packView").style.display==="none") return;
+  if(Date.now()-lastOwnerCheck<3000) return;   // 이벤트 연속 발생 시 중복 조회만 억제 (타이머 아님)
+  const r=await checkOwner();
+  if(r.s==="lost") freezeScreen(r.who);
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") guardOnReturn(); });
+window.addEventListener("focus",guardOnReturn);
 
 /* boot / login */
 function boot(){
@@ -678,12 +753,12 @@ function renderSingle(){
       <div class="qtybox ${done?"done":""}">
         <div class="qtybig">${l.verified}<span class="of"> / ${l.required}</span></div>
         <div class="stepper">
-          <button data-step="-1">\u2212</button>
-          <button data-step="1">+</button>
+          <button data-step="-1" ${frozen?"disabled":""}>\u2212</button>
+          <button data-step="1" ${frozen?"disabled":""}>+</button>
         </div>
       </div>
       ${lastScanHtml()}
-      <button class="manual" data-manual>Enter quantity</button>
+      <button class="manual" data-manual ${frozen?"disabled":""}>Enter quantity</button>
       <div class="navrow">
         <button class="btn ghost" data-nav="-1">\u2190 Prev</button>
         <button class="btn dark" data-nav="1">Next \u2192</button>
@@ -714,6 +789,7 @@ async function reportIssuePack(kind, idx){
   focusScan();
 }
 function manualSetPack(idx){
+  if(frozen) return;
   const l=lines[idx];
   const v=prompt(`${l.order_sku} Enter verified quantity (0 ~ ${l.required})`, l.verified);
   if(v===null){focusScan();return;}
@@ -768,13 +844,13 @@ function renderList(){
     }
     if((l.overScans||0)>0) chip+=`<span class="overchip">Over-scan ${l.overScans}</span>`;
     const pickNote=l.expected<l.required?`<span class="picknote">Pick ${l.expected}</span>`:"";
-    const overBtn=(l.overScans||0)>0?`<button class="rmover" data-rmover="${idx}">Clear over</button>`:"";
+    const overBtn=(l.overScans||0)>0?`<button class="rmover" data-rmover="${idx}" ${frozen?"disabled":""}>Clear over</button>`:"";
     return `<div class="lrow ${cls}" data-idx="${idx}">
       <div class="thumb" ${imgStyle(l)}></div>
       <div class="li"><div class="s">${esc(l.order_sku)}${chip}</div><div class="n">${esc(l.product_name)}</div><div class="b">${esc(l.bin||"—")} ${pickNote}${overBtn}</div></div>
       <div>
         <div class="q">${l.verified} / ${l.required}</div>
-        <div class="stepmini"><button data-step="-1" data-i="${idx}">−</button><button data-step="1" data-i="${idx}">+</button></div>
+        <div class="stepmini"><button data-step="-1" data-i="${idx}" ${frozen?"disabled":""}>−</button><button data-step="1" data-i="${idx}" ${frozen?"disabled":""}>+</button></div>
       </div>
     </div>`;
   }).join("");
@@ -788,6 +864,7 @@ function renderList(){
 const scanEl=document.getElementById("scan");
 scanEl.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();const v=scanEl.value.trim();scanEl.value="";if(v)processScan(v);} });
 function processScan(code){
+  if(frozen) return;
   const cands=bcMap[code];
   if(!cands||!cands.length){ flash("bad","✕ Barcode not in this batch"); return; }
   clearTimeout(advTimer);
@@ -841,6 +918,7 @@ function confirmFillIfNeeded(l, newVerified){
   return true;
 }
 function manualAdjust(idx,d){
+  if(frozen) return;
   const l=lines[idx]; const nv=Math.max(0,Math.min(l.required,l.verified+d)); if(nv===l.verified)return;
   if(d>0 && !confirmFillIfNeeded(l, nv)){ focusScan(); return; }   // clicking + beyond picker qty → same alert+confirm
   l.verified=nv; l.vmethod="manual"; saveLine(l); renderPack(); focusScan();
@@ -848,6 +926,7 @@ function manualAdjust(idx,d){
 
 async function saveLine(l){
   if(!l.packline_id)return;
+  if(!await ensureMine()) return;      // 규칙 28 — 쓰기 직전 소유권 재확인 (scan · stepper · manual 공통 관문)
   if(l.verified>0) markWorkStarted(); // first real verify = this claim is genuine work
   const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending");
   await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id);
@@ -855,6 +934,7 @@ async function saveLine(l){
 
 /* Done */
 document.getElementById("doneBtn").onclick=async ()=>{
+  if(frozen) return;
   const miss=lines.filter(l=>l.verified<l.required);          // below ordered qty
   const recovered=lines.filter(l=>l.expected<l.required && l.verified>=l.required); // filled during packing
   const overScanLines=lines.filter(l=>(l.overScans||0)>0);    // over-scan detected lines
@@ -878,6 +958,8 @@ document.getElementById("doneBtn").onclick=async ()=>{
     const msg=recovered.length?`${packTask.batch_label} Complete pack?\n(in packing, ${recovered.length} lines' shortfall recovered)`:`${packTask.batch_label} Complete pack?`;
     if(!confirm(msg)) { focusScan(); return; }
   }
+  // 규칙 28 — Pack fill·Over-scan 확인까지 끝난 뒤, 라인·discrepancy·완료를 쓰기 직전에 재확인
+  if(!await ensureMine()) return;
   const btn=document.getElementById("doneBtn"); btn.disabled=true;
   stopHeartbeat(); presenceLeave();
   try{
@@ -934,8 +1016,10 @@ async function checkOrderReady(orderId){
 
 /* Hold */
 document.getElementById("holdBtn").onclick=async ()=>{
+  if(frozen) return;
   if(!packTask)return;
   if(!confirm("Hold this verification?\nYour progress is saved and the batch returns to the pack queue\nYou or another worker can resume it later..")) return;
+  if(!await ensureMine()) return;   // 규칙 28 — 이미 남의 것이면 내 스테일 수량으로 덮지 않는다
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
   try{
     for(const l of lines){ const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending"); await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id); }
@@ -968,7 +1052,7 @@ document.getElementById("backBtn").onclick=async ()=>{
 };
 
 /* keep scan focus */
-function focusScan(){ if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); const a=document.activeElement; if(a===s)return; if(a&&(a.tagName==="INPUT"||a.tagName==="SELECT"||a.tagName==="TEXTAREA")&&a!==s)return; s.focus();} }
+function focusScan(){ if(frozen) return; if(document.getElementById("packView").style.display!=="none"){const s=document.getElementById("scan"); const a=document.activeElement; if(a===s)return; if(a&&(a.tagName==="INPUT"||a.tagName==="SELECT"||a.tagName==="TEXTAREA")&&a!==s)return; s.focus();} }
 document.getElementById("scan").addEventListener("blur",()=>{setTimeout(focusScan,60);});
 document.addEventListener("click",e=>{ if(document.getElementById("packView").style.display==="none")return; if(e.target.tagName==="SELECT"||e.target.tagName==="OPTION")return; setTimeout(focusScan,0); });
 
