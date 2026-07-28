@@ -1392,6 +1392,17 @@ async function reviewReceipt(rid){
     const {data:ls}=await sb.from("wms_receipt_lines").select("*").eq("receipt_id",rid).order("zone").order("putaway_bin");
     const applied=!!rh.applied_at;
     const isTr=rh.source_type==="transfer";
+    // ── 트랜스퍼 착지 지점 (규칙 21 (a)/(b)) ──
+    // supplier_name 은 "FromLocation -> ToLocation" **원문**이라 여기서 (a)/(b) 를 구분할 수 있다.
+    //   (b) "Asung - Edmonton: EZ010101" → 집결 bin 이름 / (a) "Asung - Edmonton" → 창고 + " (no bin)"
+    // ⚠️ 잔량이 남는 지점을 매니저가 Cin7 에서 찾아 제거해야 하므로 표기가 틀리면 못 찾는다.
+    let landingLabel="";
+    if(isTr){
+      const toRaw=String(rh.supplier_name||"").split("->").pop().trim();
+      const ci=toRaw.indexOf(":");
+      const lbin=ci>=0?toRaw.slice(ci+1).trim():"";
+      landingLabel=lbin||((toRaw||(rh.warehouse==="edmonton"?"Asung - Edmonton":"Asung Trading Inc."))+" (no bin)");
+    }
     // 라인을 bin 별로 그룹핑 (풋어웨이 결과 뷰)
     const withBin={}, noBin=[];
     (ls||[]).filter(l=>Number(l.received_base||0)>0).forEach(l=>{
@@ -1421,6 +1432,30 @@ async function reviewReceipt(rid){
       <table style="width:100%"><tbody>${noBin.map(lineRow).join("")}</tbody></table>`;
     if(!body) body=`<div style="color:var(--mut);padding:12px">No received lines.</div>`;
 
+    // ── 트랜스퍼 정책 배너 + 착지 지점 잔량 안내 (규칙 20 트랜스퍼 예외) ──
+    // Cin7 은 트랜스퍼 완료 PUT 의 수량 변경을 무시한다 → 완료 수량 = 보낸 수량. bin 이동은 min(received, expected) 로 캡되고
+    // 옮기지 못한 몫은 착지 지점에 남는다(의도된 동작). EF buildApplyPlan 의 캡 계산과 같은 규칙으로 여기서도 미리 보여준다.
+    let banner="";
+    if(isTr){
+      const exp={},mov={},label={};
+      (ls||[]).forEach(l=>{ const k=String(l.order_sku||"").toUpperCase();
+        exp[k]=(exp[k]||0)+Number(l.expected_base||0); if(!label[k])label[k]=l.order_sku||""; });
+      const budget=Object.assign({},exp);
+      (ls||[]).filter(l=>Number(l.received_base||0)>0&&!l.needs_approval&&l.putaway_bin).forEach(l=>{
+        const k=String(l.order_sku||"").toUpperCase();
+        const move=Math.min(Number(l.received_base||0),Math.max(0,Number(budget[k]||0)));
+        budget[k]=Math.max(0,Number(budget[k]||0))-move; mov[k]=(mov[k]||0)+move; });
+      const leftover=Object.keys(exp).map(k=>({sku:label[k],qty:Number(exp[k])-Number(mov[k]||0)})).filter(x=>x.qty>0);
+      banner=`<div style="margin:2px 0 6px;padding:9px 11px;background:#f3ebff;border-radius:8px;font-size:12px;color:#5b21b6;line-height:1.5">
+        <b>Transfer policy:</b> Cin7 receives the sent quantities — it ignores quantity changes on transfer completion.
+        Differences are logged to the discrepancy queue for manual adjustment.
+        Bin moves are capped at the sent quantity, so an OVER line moves only what Cin7 actually holds.
+        ${leftover.length?`<div style="margin-top:5px">Not moved — stays in <b>${esc(landingLabel)}</b> and must be removed there in Cin7:
+          ${leftover.map(x=>`${esc(x.sku)} ×${x.qty}`).join(" · ")}</div>`
+          :`<div style="margin-top:5px">Nothing is left behind — every sent unit moves to its bin.</div>`}
+      </div>`;
+    }
+
     const canApply=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");
     const foot=applied
       ? `<div style="color:var(--mut);font-size:12.5px;padding:4px 2px">✓ Already applied to Cin7${rh.applied_at?" · "+new Date(rh.applied_at).toLocaleString():""} — read-only. Corrections must be made in Cin7.</div>
@@ -1437,7 +1472,7 @@ async function reviewReceipt(rid){
         <div style="font-size:12.5px;color:var(--mut);margin-top:3px">${esc(rh.supplier_name||"—")} · ${rh.warehouse==="edmonton"?"Edmonton":"Toronto"} · received by ${esc(rh.received_by||"—")}</div>
         <div style="font-size:11.5px;color:var(--mut-2);margin-top:2px">Review the putaway result below before writing to Cin7.</div>
       </div>
-      <div style="overflow-y:auto;padding:8px 18px 12px;flex:1">${body}</div>
+      <div style="overflow-y:auto;padding:8px 18px 12px;flex:1">${banner}${body}</div>
       <div style="padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;align-items:center">${foot}</div>
     </div>`;
     document.body.appendChild(ov);
@@ -1471,9 +1506,18 @@ async function applyToCin7(rid,po,btn){
     let j=await r.json();
     if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
     const p=j.plan;
-    const lineTxt=p.lines.map(l=>`· ${l.order_sku} ×${l.qty_units}${l.qty_units!==l.qty_base?` (${l.qty_base} units)`:""} → ${l.bin}`).join("\n");
+    // ⚠️ 트랜스퍼는 bin 이동 수량이 min(received, expected) 로 캡되므로 received 와 실제 이동량이 다를 수 있다 → 둘 다 보여준다.
+    const lineTxt=p.lines.map(l=>{
+      const cap=(l.move_base!==undefined&&Number(l.move_base)!==Number(l.qty_base))?` [moves ${l.move_base} — capped at sent qty]`:"";
+      return `· ${l.order_sku} ×${l.qty_units}${l.qty_units!==l.qty_base?` (${l.qty_base} units)`:""} → ${l.bin}${cap}`;
+    }).join("\n");
     const skipTxt=p.skipped&&p.skipped.length?`\n\nSkipped:\n${p.skipped.map(s=>`· ${s.sku} ×${s.qty} — ${s.reason}`).join("\n")}`:"";
-    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
+    const exTxt=p.excluded_from_move&&p.excluded_from_move.length
+      ? `\n\nNot moved (Cin7 holds none of it):\n${p.excluded_from_move.map(s=>`· ${s.sku} ${s.not_moved} of ${s.received} — ${s.reason}`).join("\n")}`:"";
+    const loTxt=p.leftover_at_landing&&p.leftover_at_landing.length
+      ? `\n\nLeftover — stays in ${p.leftover_at_landing[0].where} (remove in Cin7 manually):\n${p.leftover_at_landing.map(s=>`· ${s.sku} ×${s.qty}`).join("\n")}`:"";
+    const modeTxt=p.mode?`\nMode: ${p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
+    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${exTxt}${loTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
     // 2) commit
     r=await fetch(EF+"?action=apply&receipt_id="+rid+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
     j=await r.json();

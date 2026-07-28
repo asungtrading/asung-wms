@@ -118,14 +118,24 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 **Apply commit 흐름**:
 - 공통 가드: `applied_at` 있으면 거부(이중 방지), status=completed 만.
 - **PO**: ①`/purchase/invoice` 로 인보이스 AUTHORISED/PAID 확인(아니면 에러 — Invoice First) ②POST /purchase/stock DRAFT — 라인마다 {Date(필수), SKU:order_sku, Quantity:received_base÷factor, LocationID:binGuid(창고,putaway_bin), Received:false} ③Authorize = {TaskID, Status:'AUTHORISED', Lines:[]} 재요청 — **미실측 단계**, 실패 시 WARN 로그만(DRAFT 남음 → Cin7 수동 Authorize).
-- **트랜스퍼**: ①GET 원 TR ②PUT 전체 객체 그대로 + Status:'COMPLETED' + CompletionDate (전량 기본 To bin 착지) ③putaway_bin 그룹별 POST 미니 트랜스퍼 {From:원TR.To(GUID), To:binGuid(그룹bin), Lines:[{SKU:base_sku, TransferQuantity:qty_base}], Status:'COMPLETED', SkipOrder:true} — 기본 bin 그룹은 스킵. 콜 간 sleep 300.
+- **트랜스퍼**: → **아래 "트랜스퍼 경로 (2026-07-28 전면 개정)" 절을 볼 것.** 요약: ⓪discrepancy 선기록 → ①PUT COMPLETED(**원본 수량 그대로**, resume 이면 스킵) → ②`min(received,expected)` 캡된 bin 이동 + `exported_base` 체크포인트 → ③receipt PATCH.
 - 성공 시 wms_receipts PATCH: applied_at/by/apply_note(로그 조인).
 
-**binGuid(창고이름, bin이름)**: /ref/location Limit=500 → 창고 행의 Bins[] 또는 ParentID=창고 인 child-location 에서 이름 매칭 → GUID. 요청 내 캐시(_locCache). ⚠️ Cin7 쓰기 API 는 이름("창고: bin") 거부 — 반드시 GUID.
+**binGuid(창고, bin이름)** — ⚠️ **2026-07-28 전면 교체 (TR-02935 실사고)**: `/ref/location` 은 **Total 2678 인데 Limit 500 에서 잘린다.** 반환 500행 = 최상위 창고 2행 + **토론토 child-location 498행뿐, 에드먼튼 child 는 0행**(전부 뒤 페이지) → 에드먼튼 bin GUID 조회가 **첫 호출부터 throw** 했다. 토론토도 안전하지 않았다(Bins[] 2047 개인데 child 498행만 들어옴 — PO-01066·PO-00965 가 성공한 건 그 bin 이 우연히 앞 페이지에 있었기 때문).
+- ✅ **GUID 출처는 최상위 창고 행(`ParentID` 없음)의 `Bins[]` 하나뿐. 페이지네이션 불필요** — Bins[] 에 전량 들어있다(실측: `Asung - Edmonton` 628개 / `Asung Trading Inc.` 2047개). 원소 = `{"ID","Name","IsDeprecated","IsStaging"}`. 실측 EZ010101 → `b997fb39-…` · EG030102 → `07f87571-…`. 최상위 2행은 응답 앞머리라 `Limit=500` 한 번으로 충분(잘림은 child 행에서만).
+- ❌ **child-location 이름 매칭 경로 제거.** child 의 `Name` 은 bin 이름이 아니다(실측 예 `"071164313169"` — 바코드류) → 처음부터 매칭될 수 없는 죽은 폴백이었다. 되살리지 말 것.
+- **`binMap(창고)`**: 창고 키 → `Map<대문자 bin, {id, name}>`, 요청 내 캐시(`_binMaps` + `_locCache`). 창고 매칭은 `WH_NAME[normWarehouse(입력)]` 정확일치 → 폴백으로 최상위 행 이름의 `normWarehouse` 비교(그래서 `'edmonton'` 과 `"Asung - Edmonton"` 둘 다 받는다). 비교는 `trim().toUpperCase()`, `IsDeprecated` 는 제외. ⚠️ **`name` 은 Cin7 원본 대소문자 보존** — `EZ01Pallet05` 같은 혼합표기가 있고 putaway_bin·`to_location_raw` 비교(이미 제자리 스킵)·프린트가 이 표기를 쓴다. 대문자는 조회 key 로만.
+- **`tryBinGuid()` = throw 안 하는 버전.** Apply 는 GUID 못 찾은 bin 의 **라인만 스킵**하고 나머지를 계속 쓴다(아래).
+- ⚠️ Cin7 쓰기 API 는 이름("창고: bin") 거부 — 반드시 GUID.
+
+**부분 스킵 (2026-07-28)**: TR-02935 의 피해가 커진 직접 원인은 "bin 한 건 실패 → **전체 throw** → 원 TR 은 COMPLETED 인데 receipt PATCH(`applied_at`)·discrepancy 까지 유실" 이었다.
+- **PO**: bin GUID 를 **쓰기 전에 전부 해석** → 못 찾은 bin 은 라인 스킵. **하나도 해석 안 되면 throw**(아직 아무것도 안 썼으므로 receipt 을 큐에 남겨 bin 고쳐 재Apply 하는 게 맞다). ⚠️ **스킵이 하나라도 있으면 auto-authorize 를 건너뛴다** — authorize 는 되돌릴 수 없고 Simple PO 는 1회뿐이라 DRAFT 로 남겨 매니저가 Cin7 에서 빠진 라인을 채우고 직접 authorize 하게 한다(WARN 로그로 안내).
+- **트랜스퍼**: PUT COMPLETED 이후 구간은 **절대 throw 하지 않는다**(Cin7 이 이미 되돌릴 수 없게 바뀜) → 스킵하고 남은 bin 계속 이동, receipt PATCH·discrepancy 까지 반드시 도달.
+- 노출: Apply 응답 최상위 **`skipped_bins: [{sku, bin, reason}]`** + `log` 의 `WARN` 줄(admin alert 이 이미 `WARN` 접두를 감지) + `apply_note` 에 `skipped_bins: [...]` 한 줄(JSON, 800자 컷).
 
 ## receiving EF — 2026-07-24 실측 반영 업데이트
 
-**action=bins** (신규): `?action=bins&warehouse=` → Cin7 `/ref/location` 에서 그 창고 전체 bin(빈 자리 포함) `[{bin,id}]`. 빈 지정 드롭다운 소스(신제품 새 자리). 창고 하위 Bins[] + ParentID=창고 child-location 둘 다 수집.
+**action=bins** (신규): `?action=bins&warehouse=` → Cin7 `/ref/location` 에서 그 창고 전체 bin(빈 자리 포함) `[{bin,id}]`. 빈 지정 드롭다운 소스(신제품 새 자리). ⚠️ **2026-07-28: `binMap()` 과 같은 소스(최상위 창고 행의 `Bins[]`)로 통일** — 예전 "Bins[] + child-location 둘 다 수집" 방식은 같은 Limit 잘림에 걸려 **에드먼튼 bin 이 통째로 빠져 있었다**. 정렬 없이 반환(receiver.html `sortBins` 가 정렬), 원본 대소문자 유지.
 
 **applyCommit PO 경로 — 실측 확정 형태**:
 - Date = `YYYY-MM-DDT00:00:00Z` (자정, 밀리초 없이).
@@ -137,19 +147,40 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 
 **진단 팁**: cin7() 실패 throw 에 `| SENT: {body}` 포함(디버깅용, 유지). Cin7 "Lines is invalid" 는 대개 (a)여러 bin 섞임 (b)같은 SKU+bin 중복 (c)PO 에 없는 SKU — SENT 로 격리. GAS `WmsPoStockWriteTest.gs` 의 `psMultiLineTest`(bin별 분할 검증)·`psAuthorizeTest`(PUT/POST 판별) 패턴 재사용.
 
-**트랜스퍼(창고간) 미완**: applyCommit transfer 경로는 아직 같은창고 bin↔bin 기준. 실제 IN TRANSIT(TR-03259 등)은 warehouse→warehouse 라 워크플로 재설계 필요(규칙 21 참고).
+**트랜스퍼(창고간)** — 이 시점 기록은 "같은창고 bin↔bin 기준, 재설계 필요" 였다. **해소됨**: 2026-07-25 창고간 실측 → 2026-07-28 전면 개정(아래 절). 히스토리로만 남긴다.
 
-## receiving EF — 트랜스퍼 경로 실측 반영 (2026-07-25)
+## receiving EF — 트랜스퍼 경로 (2026-07-28 전면 개정, 이전 2026-07-25 판을 대체)
 
-**applyCommit transfer 경로 (확정형)**:
-1. `GET /stockTransfer?TaskID=` 로 원본 확보 (Status 는 IN TRANSIT 이어야 함 — plan 단계에서 검증)
-2. **실물 수량으로 덮어쓰기**: plan.lines 를 base_sku 기준 합산(`recvBySku`) → 원본 Lines 의 `TransferQuantity` 를 received 로 교체(없는 SKU 는 원본 유지). 몇 줄이 달랐는지 로그(`changed`).
-3. `PUT /stockTransfer {TaskID, Status:'COMPLETED', From, To, CostDistributionType, InTransitAccount, DepartureDate, CompletionDate, Reference, Lines: putLines, SkipOrder:true}` — Date 는 `YYYY-MM-DDT00:00:00Z`.
-4. **bin 이동**: `landingBin = to_location_raw.split(":")[1]` (창고만이면 "") → plan.groups 순회, `landing && g.bin===landing` 이면 스킵(이미 제자리), 나머지는 `POST /stockTransfer {Status:'COMPLETED', From: det.To, To: binGuid(wh,g.bin), Lines:[{SKU:base_sku, TransferQuantity:qty_base}], SkipOrder:true}` (sleep 300).
+⚠️⚠️ **폐기된 이전 판**: "실물 수량으로 덮어쓰기(`recvBySku` → `TransferQuantity` 교체) + `changed` 로그" 는 **제거됐다.**
+**Cin7 은 트랜스퍼 완료 PUT 의 `TransferQuantity` 변경을 조용히 무시한다** (실측 2026-07-28, 신규 IN TRANSIT **TR-03267**): SENT 에 변경값이 정확히 실려 나가고 PUT 200 이 떨어지지만 **되읽으면 원본 그대로**다 — `AS93113` 원본 2 → 요청 4 → **저장 2** / `AS92700` 원본 4 → 요청 2 → **저장 4**. **증가·감소 양방향 모두 무시**(API 제약, 코드 버그 아님). 되살리지 말 것. **PO stock received 의 초과 허용은 별개이고 사실이다 — PO 경로는 손대지 않는다.**
+
+**buildApplyPlan transfer 절**
+- `transferDetail()` 로 원본 조회. **Status 는 `IN TRANSIT`(신규) 또는 `COMPLETED`(재개) 만 통과** → `plan.mode = "new" | "resume"`. 그 외는 throw. ⚠️ 예전엔 IN TRANSIT 만 허용해 **TR-02935 가 영구히 큐에 갇혔다**(원 TR 은 COMPLETED 인데 bin 이동 미완).
+- **착지 지점 (규칙 21 (a)/(b))** — `to_location_raw` 예 `"Asung - Edmonton: EZ010101"`:
+  ```ts
+  const landingRaw = String(det.to_location_raw || "").trim();
+  const ci = landingRaw.indexOf(":");
+  const landingBin = ci >= 0 ? landingRaw.slice(ci + 1).trim() : "";   // (a) 창고만이면 ""
+  const landingLabel = landingBin || ((landingRaw || WH_NAME[rcpt.warehouse]) + " (no bin)");
+  ```
+  ⚠️ **trim + undefined 방어 필수.** (a) 는 콜론이 없어 `split(":")[1]` 이 undefined 이고, 앞 공백이 남으면 "이미 제자리" 스킵 판정이 어긋나 **From==To 이동을 쏴서 400** 이 난다. 스킵 비교는 대문자로 (`g.bin.toUpperCase() === landingBin.toUpperCase()`).
+- **⚠️⚠️ bin 이동 수량 캡 `min(received_base, expected_base)`** — 완료 후 착지 지점에 앉는 건 **보낸 수량**이므로 초과분은 Cin7 에 존재하지 않는다(옮기려 하면 400). SKU 단위 budget(=expected 합)을 planLines 순서대로 소진:
+  - `p.move_base` = 캡된 이동량 · `p.pending_base` = `move_base − exported_already`(재개 시 남은 몫)
+  - **초과 라인** → expected 만큼만 이동(예 APR15412 expected 24 / received 48 → 24 만) · **부족 라인** → received 만 이동, `expected − received` 는 착지 지점에 남는다(**의도된 동작**) · **off-transfer SKU** → expected 0 → 캡 0 → 이동 제외, `recv_off_po` discrepancy 로만.
+- **plan 노출 필드**: `mode` · `transfer{number,status,landing_bin,landing_label,to_location_raw,to_guid}` · `lines[]`(`move_base`/`pending_base`/`parts` 포함) · `groups[]`(**`pending_base>0` 인 라인만**) · **`leftover_at_landing:[{sku,qty,where}]`**(`where`=`landing_label`) · **`excluded_from_move:[{sku,bin,received,moved,not_moved,reason}]`** · `skipped` · `discrepancies`.
+- **`parts`**: merge 는 (order_sku + putaway_bin) 기준이라 여러 receipt 라인이 한 planLine 이 된다 → `parts:[{id,received_base,exported_base}]` 를 실어 `exported_base` 체크포인트를 쓸 수 있게 한다.
+
+**applyCommit 실행 순서 (⚠️ 이 순서가 핵심 — 규칙 27 R12)**
+1. **⓪ discrepancy 선기록** — `POST wms_discrepancies?on_conflict=receipt_id,sku` + Prefer `resolution=ignore-duplicates,return=minimal`. **Cin7 을 건드리기 전**이고 **실패하면 throw 로 중단**한다(아래 참조). PO·트랜스퍼 공통.
+2. **① PUT 완료** — `plan.mode==="resume"` 면 **건너뛰고** 로그만 남긴다. 신규면 `PUT /stockTransfer {TaskID, Status:'COMPLETED', From, To, CostDistributionType, InTransitAccount, DepartureDate, CompletionDate, Reference, Lines: det.Lines, SkipOrder:true}` — **`Lines` 는 원본 그대로**(수량 변경은 무시된다). Date 는 `YYYY-MM-DDT00:00:00Z`.
+3. **② 캡된 bin 이동 + `exported_base` 체크포인트** — `plan.groups` 순회. 착지 bin 이면 스킵, GUID 못 찾으면 그 그룹만 스킵(WARN, `skipped_bins`), `pending_base>0` 인 라인만 `POST /stockTransfer {Status:'COMPLETED', From: det.To, To: binGuid(wh,g.bin), Lines:[{SKU:base_sku, TransferQuantity: pending_base}], SkipOrder:true}` (sleep 300).
    - ⚠️ **From 은 항상 `det.To`**. 창고 GUID면 "bin 없는 재고"를, 집결 bin GUID면 그 bin 을 꺼냄 — 둘 다 실측 200.
-5. receipt PATCH(status/applied_at/…) 후 **discrepancy 기록**(아래).
+   - 성공 직후 `markExported(p)` → `PATCH wms_receipt_lines?id=eq.<part.id> {exported_base}` (`move_base` 를 parts 순서대로 각 라인 `received_base` 한도까지 배분, **절대값이라 재실행 idempotent**). ⚠️ 되돌릴 수 없는 쓰기 뒤이므로 **PATCH 실패에도 throw 금지 — WARN 만**(빠지면 재Apply 가 같은 bin 을 두 번 옮긴다).
+   - 재Apply 시 `exported_base` 가 찬 라인은 `pending_base=0` → 그룹째 스킵.
+4. **잔량·미이동 로그** — `LEFTOVER stays in <landing_label> (remove in Cin7 with a manual stock adjustment): SKU xN` + `not moved (Cin7 holds none of it): …`. ⚠️ **위치 표현이 (a)/(b) 로 다르다** — (b) bin 이름 / (a) `"Asung - Edmonton (no bin)"`. 매니저가 Cin7 에서 찾아 제거하는 지점이라 틀리면 못 찾는다.
+5. **③ receipt PATCH** — `status='completed'` + `applied_at`/`applied_by`/`apply_note`(로그 조인, 위 LEFTOVER·skipped_bins 줄 포함).
 
-**discrepancy 기록 (PO·트랜스퍼 공통)**: buildApplyPlan 이 SKU 단위로 received vs expected 비교해 `plan.discrepancies[]`(reason `recv_over`/`recv_short`/`recv_off_po`) 생성 → applyCommit 마지막에 `POST wms_discrepancies?on_conflict=receipt_id,sku` + Prefer `resolution=ignore-duplicates,return=minimal`. `sb()` 헬퍼에 4번째 인자 `prefer` 추가함. 실패해도 Apply 는 성공(WARN 로그).
+**discrepancy 기록 (PO·트랜스퍼 공통) — ⚠️ 2026-07-28 순서·실패정책 역전**: buildApplyPlan 이 SKU 단위로 received vs expected 를 비교해 `plan.discrepancies[]`(reason `recv_over`/`recv_short`/`recv_off_po`) 생성. 예전엔 applyCommit **맨 마지막**이라 bin 이동이 throw 하면 기록이 통째로 유실됐다(TR-02935 실사고). 지금은 **맨 처음**이고 **실패 시 Apply 중단**(`"discrepancy log failed - NOTHING was written to Cin7"`) — 새 정책에서 이 큐는 **유일한 보정 지시서**라 기록 없이 재고를 옮기면 차이를 되찾을 수 없다. `sb()` 헬퍼 4번째 인자 `prefer` 사용.
 
 ## 폴링 EF `hello` — Reference 저장 (2026-07-25)
 
