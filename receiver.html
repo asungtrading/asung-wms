@@ -253,6 +253,7 @@
     <div id="myList" class="blist"></div>
     <div class="sect" style="display:flex;align-items:center;gap:10px">Ready to receive (Cin7)
       <span style="font-weight:400;text-transform:none;letter-spacing:0">— POs shown only when the invoice is authorised</span>
+      <span id="poHidden" style="font-weight:400;text-transform:none;letter-spacing:0;display:none"></span>
       <button class="btn ghost" id="loadPosBtn" style="margin-left:auto;padding:6px 12px;font-size:12px">↻ POs</button>
       <button class="btn ghost" id="loadTrBtn" style="padding:6px 12px;font-size:12px">↻ Transfers</button>
     </div>
@@ -506,7 +507,16 @@ function renderList(){
   my.querySelectorAll(".bcard").forEach(el=>{ el.onclick=()=>resumeReceipt(+el.dataset.rid); });
 
   const pl=document.getElementById("poList");
-  pl.innerHTML=openPos.map((p,i)=>{
+  // 규칙 24 — 위 Resume 섹션에 이미 카드로 떠 있는 문서만 Cin7 목록에서 숨긴다(키=po_number).
+  // ⚠️ 기준은 "화면에 렌더된 myReceipts" 뿐이다. receipt 존재 여부로 숨기면 안 된다 —
+  //    Resume 에 안 뜨는 건(창고 접근 밖 등)은 Cin7 목록에 남아야 스캔 이어받기가 가능하다.
+  const shownDocs=new Set(myReceipts.map(r=>String(r.po_number||"").toUpperCase()));
+  const visPos=openPos.map((p,i)=>({p,i})).filter(({p})=>!shownDocs.has(String(p.po_number||"").toUpperCase()));
+  const hidden=openPos.length-visPos.length;
+  const ph=document.getElementById("poHidden");
+  ph.textContent=hidden?`— ${hidden} already open above`:"";
+  ph.style.display=hidden?"":"none";
+  pl.innerHTML=visPos.map(({p,i})=>{
     const existing=myReceipts.find(r=>r.cin7_purchase_id===p.id);
     const tr=p.source==="transfer";
     return `<div class="bcard ${existing?"resume":""}" data-pi="${i}">
@@ -519,7 +529,7 @@ function renderList(){
     </div>`;
   }).join("");
   pl.querySelectorAll(".bcard").forEach(el=>{ el.onclick=()=>startPo(+el.dataset.pi); });
-  document.getElementById("lEmpty").style.display=(myReceipts.length||openPos.length)?"none":"block";
+  document.getElementById("lEmpty").style.display=(myReceipts.length||visPos.length)?"none":"block";
   // HID 스캐너 포커스
   if(document.getElementById("listView").style.display!=="none"){
     const os=document.getElementById("poScan"); if(os&&document.activeElement!==os) os.focus();
