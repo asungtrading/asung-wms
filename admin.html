@@ -1322,20 +1322,24 @@ async function loadRecv(){
   // ── Apply to Cin7: 완료됐고 아직 미반영인 receipt ──
   const rs=(rcpts.data||[]);
   const canApply=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");  // Apply to Cin7 권한
-  const applicable=rs.filter(r=>r.status==="completed"&&!r.applied_at);
+  // ⚠️ 부분 성공(일부 bin 이동이 Cin7 에서 거부됨)은 applied_at 이 찍혀도 **다시 Apply 할 수 있어야 한다** —
+  //    실패한 bin 은 exported_base 가 안 찍혀 있어 EF 가 그 그룹만 재시도한다. 표식 = apply_note 의 `failed_moves(N)`.
+  //    포맷은 EF applyCommit 과 한 쌍이다(한쪽만 바꾸지 말 것).
+  const failedBins=r=>{ const m=/failed_moves\((\d+)\)/.exec(r.apply_note||""); return m?Number(m[1]):0; };
+  const applicable=rs.filter(r=>r.status==="completed"&&(!r.applied_at||failedBins(r)>0));
   const pending=rs.filter(r=>(r.status==="partial"||r.status==="held"||r.status==="in_progress"));
   const ex=document.getElementById("recvExports");
   ex.innerHTML=(applicable.length
     ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th></th></tr></thead><tbody>${
-        applicable.map(r=>`<tr>
-          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
+        applicable.map(r=>{ const fb=failedBins(r); return `<tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}${fb?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${fb} bin${fb>1?"s":""} failed — retry</span>`:""}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
           <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> ${canApply
-            ? `<button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">Apply to Cin7</button>`
+            ? `<button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">${fb?"Retry failed bins":"Apply to Cin7"}</button>`
             : `<span style="font-size:11.5px;color:var(--mut-2)" title="Requires 'Apply to Cin7' permission">Apply — no permission</span>`}</td>
-        </tr>`).join("")}</tbody></table>`
+        </tr>`;}).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to apply — receipts appear here once completed. Cin7 is only written when you click Apply and confirm the plan.</div>`)
     +(pending.length?`<div style="color:var(--mut-2);padding:8px 14px;font-size:12px;border-top:1px solid var(--line)">${pending.length} receipt(s) still receiving/held — finish them to apply.</div>`:"");
   ex.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>applyToCin7(+b.dataset.apply,b.dataset.po,b));
@@ -1345,14 +1349,18 @@ async function loadRecv(){
   hist.innerHTML=rs.length
     ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th>Status</th><th>Cin7</th><th>Received by</th><th>Updated</th><th></th></tr></thead><tbody>${
         rs.slice(0,40).map(r=>{
-          const applied=!!r.applied_at;
+          const applied=!!r.applied_at, fb=applied?failedBins(r):0;
           return `<tr>
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TR</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
           <td>${RECV_ST_LABEL[r.status]||r.status}</td>
-          <td>${applied?`<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`:'<span style="color:var(--mut-2);font-size:12px">—</span>'}</td>
+          <td>${applied
+            ? (fb
+              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ Applied (${fb} bin${fb>1?"s":""} failed)</span>`
+              : `<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`)
+            : '<span style="color:var(--mut-2);font-size:12px">—</span>'}</td>
           <td>${esc(r.received_by||"—")}</td>
           <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
           <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}">Delete</button></td>
@@ -1516,15 +1524,29 @@ async function applyToCin7(rid,po,btn){
       ? `\n\nNot moved (Cin7 holds none of it):\n${p.excluded_from_move.map(s=>`· ${s.sku} ${s.not_moved} of ${s.received} — ${s.reason}`).join("\n")}`:"";
     const loTxt=p.leftover_at_landing&&p.leftover_at_landing.length
       ? `\n\nLeftover — stays in ${p.leftover_at_landing[0].where} (remove in Cin7 manually):\n${p.leftover_at_landing.map(s=>`· ${s.sku} ×${s.qty}`).join("\n")}`:"";
-    const modeTxt=p.mode?`\nMode: ${p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
+    const modeTxt=p.mode?`\nMode: ${p.retry?"RETRY (re-running only the bin moves that failed last time)":p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
     if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${exTxt}${loTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
     // 2) commit
     r=await fetch(EF+"?action=apply&receipt_id="+rid+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
     j=await r.json();
     if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
     const warn=(j.log||[]).some(s=>String(s).indexOf("WARN")===0);
-    alert("Applied to Cin7:\n\n"+(j.log||[]).join("\n")+(warn?"\n\n⚠ Check the warning above.":""));
-    toast(po+" applied to Cin7"+(warn?" (with warning)":""));
+    // ⚠️ 부분 성공: 일부 bin 이동만 Cin7 이 거부한 경우다(대개 "Available quantity … is 0" — 리시빙 완료와 Apply
+    //    사이에 그 재고가 이미 움직였다). ok:true 지만 "Applied" 로만 알리면 실패가 묻힌다 → 판정은 failed_moves 길이.
+    const fails=j.failed_moves||[];
+    if(fails.length){
+      const failTxt=fails.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}\n   HTTP ${f.http_status||"?"}: ${f.cin7_error||"(no detail)"}`).join("\n");
+      alert(`⚠ ${po} applied PARTIALLY.\n\n`
+        +`${j.moved_bins||0} bin group(s) moved · ${fails.length} failed.\n\n`
+        +`Failed bin moves:\n${failTxt}\n\n`
+        +`That stock is still at the landing point in Cin7 — nothing was double-moved.\n`
+        +`Fix the stock in Cin7, then Apply again — only the failed bins will be retried.\n\n`
+        +`Full log:\n${(j.log||[]).join("\n")}`);
+      toast(`${po} partially applied — ${fails.length} bin(s) failed`,true);
+    }else{
+      alert("Applied to Cin7:\n\n"+(j.log||[]).join("\n")+(warn?"\n\n⚠ Check the warning above.":""));
+      toast(po+" applied to Cin7"+(warn?" (with warning)":""));
+    }
     loadRecv();
   }catch(e){ alert("Apply failed — nothing may have been written, check Cin7.\n\n"+(e.message||e)); toast("Apply failed",true); }
   finally{ if(btn)btn.disabled=false; }

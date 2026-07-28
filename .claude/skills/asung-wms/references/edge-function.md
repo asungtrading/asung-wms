@@ -116,7 +116,7 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 - `?action=apply&receipt_id=N&commit=1&by=이름` — 실제 쓰기 (아래).
 
 **Apply commit 흐름**:
-- 공통 가드: `applied_at` 있으면 거부(이중 방지), status=completed 만.
+- 공통 가드: `applied_at` 있으면 거부(이중 방지), status=completed 만. ⚠️ **예외 = 트랜스퍼의 실패 bin 재시도**(`apply_note` 에 `failed_moves(N)` N>0 + 남은 그룹 있음) — 아래 참조.
 - **PO**: ①`/purchase/invoice` 로 인보이스 AUTHORISED/PAID 확인(아니면 에러 — Invoice First) ②POST /purchase/stock DRAFT — 라인마다 {Date(필수), SKU:order_sku, Quantity:received_base÷factor, LocationID:binGuid(창고,putaway_bin), Received:false} ③Authorize = {TaskID, Status:'AUTHORISED', Lines:[]} 재요청 — **미실측 단계**, 실패 시 WARN 로그만(DRAFT 남음 → Cin7 수동 Authorize).
 - **트랜스퍼**: → **아래 "트랜스퍼 경로 (2026-07-28 전면 개정)" 절을 볼 것.** 요약: ⓪discrepancy 선기록 → ①PUT COMPLETED(**원본 수량 그대로**, resume 이면 스킵) → ②`min(received,expected)` 캡된 bin 이동 + `exported_base` 체크포인트 → ③receipt PATCH.
 - 성공 시 wms_receipts PATCH: applied_at/by/apply_note(로그 조인).
@@ -156,6 +156,15 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 
 **buildApplyPlan transfer 절**
 - `transferDetail()` 로 원본 조회. **Status 는 `IN TRANSIT`(신규) 또는 `COMPLETED`(재개) 만 통과** → `plan.mode = "new" | "resume"`. 그 외는 throw. ⚠️ 예전엔 IN TRANSIT 만 허용해 **TR-02935 가 영구히 큐에 갇혔다**(원 TR 은 COMPLETED 인데 bin 이동 미완).
+- **⚠️ `applied_at` 게이트의 예외 = 실패한 bin 이동 재시도 (2026-07-28)**: 부분 성공에서도 receipt PATCH 까지 도달하므로 `applied_at` 만으로 막으면 실패한 bin 을 영영 못 옮긴다. **두 겹 게이트**를 통과하면 `applied_at` 이 있어도 재개한다:
+  ```ts
+  const failedNote = /failed_moves\((\d+)\)/.exec(String(rcpt.apply_note || ""));
+  const retryFailed = src0 === "transfer" && !!failedNote && Number(failedNote[1]) > 0;   // ① 표식
+  if (rcpt.applied_at && !retryFailed) throw new Error(... " already applied at " ...);
+  // … 트랜스퍼 절 끝: ② 실제로 옮길 그룹이 남아 있는가
+  if (rcpt.applied_at && retryFailed && !moves.length) throw new Error("… nothing left to retry …");
+  ```
+  → `plan.mode="resume"`(PUT SKIP) · **`plan.retry=true`** · `action` 에 `(RETRY — …)`. 실패 그룹은 `exported_base` 가 안 찍혀 있어 `pending_base>0` 로 자동 재대상. discrepancy 선기록은 `ignore-duplicates` 라 재실행 안전(확인만). ⚠️ **`failed_moves(N)` 포맷은 EF 정규식·admin.html 이 공유하는 계약이다 — 한쪽만 바꾸지 말 것.**
 - **착지 지점 (규칙 21 (a)/(b))** — `to_location_raw` 예 `"Asung - Edmonton: EZ010101"`:
   ```ts
   const landingRaw = String(det.to_location_raw || "").trim();
@@ -175,10 +184,26 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 2. **① PUT 완료** — `plan.mode==="resume"` 면 **건너뛰고** 로그만 남긴다. 신규면 `PUT /stockTransfer {TaskID, Status:'COMPLETED', From, To, CostDistributionType, InTransitAccount, DepartureDate, CompletionDate, Reference, Lines: det.Lines, SkipOrder:true}` — **`Lines` 는 원본 그대로**(수량 변경은 무시된다). Date 는 `YYYY-MM-DDT00:00:00Z`.
 3. **② 캡된 bin 이동 + `exported_base` 체크포인트** — `plan.groups` 순회. 착지 bin 이면 스킵, GUID 못 찾으면 그 그룹만 스킵(WARN, `skipped_bins`), `pending_base>0` 인 라인만 `POST /stockTransfer {Status:'COMPLETED', From: det.To, To: binGuid(wh,g.bin), Lines:[{SKU:base_sku, TransferQuantity: pending_base}], SkipOrder:true}` (sleep 300).
    - ⚠️ **From 은 항상 `det.To`**. 창고 GUID면 "bin 없는 재고"를, 집결 bin GUID면 그 bin 을 꺼냄 — 둘 다 실측 200.
+   - ⚠️⚠️ **POST 가 실패해도 throw 하지 않는다 — 그 그룹만 기록하고 다음으로 (2026-07-28, TR-02935 재개 Apply)**. 실측: 첫 그룹이 400 `"Available quantity for product (SKU: AS97745 …) is 0.0000000000, cannot transfer 2"`(From = 집결 bin `b997fb39-…` EZ010101) 를 내며 **344 라인 중 1 건이 나머지 143 개 bin 이동을 전부 막았다.** 원인은 **리시빙 완료와 Apply 사이의 시차 동안 재고가 이미 움직인 것** — 버그가 아니라 정상 상황이다.
+     ```ts
+     let res; try { res = await cin7("POST", "/stockTransfer", mini); }
+     catch (e) { const info = cin7ErrInfo(e);
+       failedMoves.push({ bin: g.bin, skus: […base_sku], qty: Σpending_base, ...info });
+       log.push("WARN bin move -> … FAILED (HTTP …): " + info.cin7_error + " …");
+       await sleep(300); continue; }          // ⚠️ throw 금지 — 되돌릴 수 없는 구간(R12)
+     movedBins++;
+     ```
+   - **`cin7ErrInfo(e)`** — `cin7()` 이 Error 에 실어 보낸 `status`/`body` 에서 `{http_status, cin7_error}` 를 뽑는다. `cin7_error` = Cin7 응답의 **`Exception` 원문**(배열 응답도 처리, JSON 아니면 원문 300자 컷). 메시지 문자열 파싱이 아니라 구조화된 필드를 쓴다.
    - 성공 직후 `markExported(p)` → `PATCH wms_receipt_lines?id=eq.<part.id> {exported_base}` (`move_base` 를 parts 순서대로 각 라인 `received_base` 한도까지 배분, **절대값이라 재실행 idempotent**). ⚠️ 되돌릴 수 없는 쓰기 뒤이므로 **PATCH 실패에도 throw 금지 — WARN 만**(빠지면 재Apply 가 같은 bin 을 두 번 옮긴다).
    - 재Apply 시 `exported_base` 가 찬 라인은 `pending_base=0` → 그룹째 스킵.
 4. **잔량·미이동 로그** — `LEFTOVER stays in <landing_label> (remove in Cin7 with a manual stock adjustment): SKU xN` + `not moved (Cin7 holds none of it): …`. ⚠️ **위치 표현이 (a)/(b) 로 다르다** — (b) bin 이름 / (a) `"Asung - Edmonton (no bin)"`. 매니저가 Cin7 에서 찾아 제거하는 지점이라 틀리면 못 찾는다.
-5. **③ receipt PATCH** — `status='completed'` + `applied_at`/`applied_by`/`apply_note`(로그 조인, 위 LEFTOVER·skipped_bins 줄 포함).
+5. **③ receipt PATCH** — `status='completed'` + `applied_at`/`applied_by`/`apply_note`(로그 조인, 위 LEFTOVER·skipped_bins 줄 포함). ⚠️ **bin 이동이 전부 실패해도 여기까지 온다** — 안 그러면 receipt 이 큐에 갇히고 discrepancy 만 남는다(TR-02935).
+
+**부분 성공 판정 & 노출 (2026-07-28)** — 트랜스퍼 경로. **판정 기준은 `failed_moves.length > 0`** 하나다(log 의 WARN 문자열 아님):
+- **EF 응답 최상위**: `failed_moves: [{bin, skus:[…], qty, http_status, cin7_error}]` + `moved_bins`(성공한 그룹 수). `ok:true` 지만 부분 성공이다.
+- **`apply_note`**: `failed_moves(N): [ …JSON 900자 컷… ]` 한 줄 + `PARTIAL — N moved, M failed …` 안내 줄. ⚠️ **`failed_moves(<정수>):` 포맷은 계약이다** — buildApplyPlan 의 재시도 게이트 정규식과 admin.html 의 CIN7 열 표시가 같은 패턴을 읽는다.
+- **admin.html**: History CIN7 열 = `✓ Applied` 대신 **`⚠ Applied (N bins failed)`**(warn 색, title 에 apply_note 전문) · Apply 목록에 **그대로 남고** 버튼이 `Retry failed bins` · Apply 후 알림에 "N moved / M failed" + bin·SKU·Cin7 에러 요약 + *"Fix the stock in Cin7, then Apply again — only the failed bins will be retried."* · dry-run confirm 의 Mode 줄에 `RETRY`.
+- **⚠️ PO 경로에는 아직 없다** — bin 별 `POST /purchase/stock` 중 하나가 실패하면 여전히 전체 throw 이고 앞서 성공한 DRAFT 는 Cin7 에 남는다(체크포인트도 없음). 같은 원칙이 필요하다 — 규칙 27 R10 백로그.
 
 **discrepancy 기록 (PO·트랜스퍼 공통) — ⚠️ 2026-07-28 순서·실패정책 역전**: buildApplyPlan 이 SKU 단위로 received vs expected 를 비교해 `plan.discrepancies[]`(reason `recv_over`/`recv_short`/`recv_off_po`) 생성. 예전엔 applyCommit **맨 마지막**이라 bin 이동이 throw 하면 기록이 통째로 유실됐다(TR-02935 실사고). 지금은 **맨 처음**이고 **실패 시 Apply 중단**(`"discrepancy log failed - NOTHING was written to Cin7"`) — 새 정책에서 이 큐는 **유일한 보정 지시서**라 기록 없이 재고를 옮기면 차이를 되찾을 수 없다. `sb()` 헬퍼 4번째 인자 `prefer` 사용.
 
