@@ -117,7 +117,24 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 - 멀티오더: "N orders ▾" 체크리스트(고객별 그룹) → 여러 오더 동시 작업. 프랜차이즈=여러 고객 혼합 허용("N customers mixed" 경고만, 차단 아님).
 - 오더→배치 2단 그룹 드래그. 제품/배치를 팔렛·박스로. 박스→팔렛 위로 드래그=중첩. 부분수량 모달.
 - 혼합 팔렛: 각 item이 order_id 가짐(오더별 추적). 유닛 로드=선택오더 홈 유닛 ∪ 선택오더 item 가진 유닛 + 자식박스.
-- 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고).
+- 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고). **스토어별 종합에서 혼합 박스는 `⚠ MIXED BOX — holds N orders, re-sort at destination` 로 강조**(2026-07-29).
+
+### 스캔 배정 (2026-07-29 추가 — 세 번째 입력 수단, DnD·탭은 그대로)
+
+parcel(박스) 출고는 담으면서 맞추는 작업이라 집는 순간 스캔으로 배정되는 흐름이 필요했다. 전제: **프랜차이즈 손님은 여러 스토어(=여러 오더)의 물건을 한 번에 받아 스토어별로 재분배**한다 → **팔렛은 섞여도 되고(박스를 얹는 그릇), 박스는 오더 하나가 원칙**(섞이면 받는 쪽이 풀어서 재분배해야 함).
+
+- **타깃 = 화면 탭**: 유닛 카드(중첩 박스 포함) 탭 → 스캔 타깃(보라 테두리 `.scan-target` + 스캔바 배너 "Scanning into: 📦 BOX-3", 같은 카드 재탭=해제). 유닛 라벨 바코드 방식은 의도적으로 안 만듦(라벨 부착 작업 증가). 타깃 미선택 스캔 → "Select a box or pallet first". ⚠️ **타깃 선택 리스너는 스크립트 최상위에서 1회 등록**(`#units` delegated) — `wireUnitEvents` 안에 넣으면 렌더마다 중첩 등록돼 토글이 깨진다. `armed` 상태면 반환해 기존 tap-to-place 에 양보(등록 순서가 먼저라 안전).
+- **입력 = `#prodScan`** (`#orderScan` 과 별개 — 오더 로드용은 그대로). 스캔바는 sticky(top:58px). blur 시 재포커스는 타깃 있고 모달 없고 다른 input 미사용일 때만.
+- **모드 2종**(`scanMode`, 화면에 크게 표시 — Move all 은 주황 배너+테두리): **Scan qty**(기본, base=+1·케이스=+factor, bcMap 3단과 형제 -12 병합은 picker 패턴 재사용) / **Move all**(스캔 SKU 의 미배정 잔량 일괄 — 단 **대상 유닛에 담긴 오더 것만**, 오더 경계를 안 넘는다. 빈 유닛이면 오더 확정 모달 먼저).
+- **bcMap 은 `order_line_id`(olid) 기반**(규칙 25): `bcMap[code]=[{olid,factor}]`. `buildScanMap()`(wms_order_lines.scannable_barcodes) + `mergeSiblingBarcodes()`(wms_sku_snapshot by base_sku, 독립 enrich try). ⚠️ 분할 오더는 같은 olid 가 배치별로 poolLines 에 중복 — 잔량은 `remainingOl(olid)=packedTotal-assignedFor` 집계로 계산(개별 entry 의 `remainingFor` 아님).
+- **오더 귀속 3단**: ①그 SKU 잔량 있는 오더 1개 → 자동 ②여러 개인데 **대상 유닛에 담긴 오더**(팔렛은 자식 박스 포함, 박스는 자기 것만)가 그중 하나 → 자동 ③그 외 → 오더 선택 모달(조용히 추측 금지 — 잘못 귀속되면 스토어별 리스트가 틀어짐).
+- **박스 혼합 가드**(`guardBoxMix`, 팔렛은 스킵): 박스에 이미 다른 오더가 담겨 있으면 모달 — 주 버튼 **`New box for SO-456`**(같은 부모 팔렛에 새 박스 insert 후 타깃 전환, 올바른 동작이 가장 쉬워야 한다) / `Add to this box anyway`(차단 안 함 — "N customers mixed" 와 같은 방침) / Cancel. 박스 카드엔 오더 배지(단일=`SO-123 · Store X`, 혼합=`⚠ N orders mixed`), 팔렛은 배지 없음.
+- **초과/거부**: 잔량 초과 케이스 스캔 → 잔량까지만 + warn 토스트("only N remained — added N"). 잔량 0 → 거부 "Already fully assigned". 오더에 없는 바코드 → 거부 "Not on the selected order(s)". **거부는 성공과 다른 소리**(2400/1600Hz 사이렌)+빨간 풀폭 플래시.
+- **낙관적 렌더 + 뒤 저장**: 스캔 즉시 로컬 `items` 반영 → 렌더(타깃 카드에 행 추가/수량 증가+1.5초 하이라이트 `.just`, 헤더 `N lines · M units` 실시간, 풀 잔량 동시 감소) + `scrollIntoView` + 삐/플래시/토스트 `BOX-3 ← APR15412 ×12`. **피드백을 await 로 막지 않는다**(규칙 24).
+- **저장 엔진**: `assignState`("uid:olid"→{id,confirmed}) + `writeChain`(같은 행 추월 방지) + `pendingWrites`. `syncAssign` 이 flush 시점 로컬 수량으로 행을 동기화(insert 는 `.select().single()`, update 는 `.select("id")` **1행 판정** — 규칙 24; 0행=행 소실→재insert). **실패 시 `rollbackKey`**: confirmed 값으로 되돌리고 "Not saved — … removed from BOX-3, scan again" 빨간 경고, 해당 행 undo 로그 무효화. `refresh()` 는 재조회 **전에 pendingWrites 를 await**(안 하면 in-flight 쓰기를 재읽기가 덮음) 후 `assignState.clear()`.
+- **Undo**: `scanLog`(세션 메모리, 테이블 없음) — "↩ Undo last scan" + Recent ▾ 최근 5건 개별 취소. 취소는 수량 차감(0 이면 행 삭제), 같은 큐로 저장. 스캔 후 드래그로 옮겨진 항목은 취소 불가 안내.
+- **동시 작업 주의**: 서로 다른 박스=다른 행이라 안전. **같은 유닛×같은 라인 동시 스캔은 last-writer-wins**(규칙 27 R1 계열, 절대값 update — 기존 DnD 와 동일 수준).
+- 백로그: 박스=오더 하나가 정착되면 **박스 라벨에 스토어명 인쇄** → 프랜차이즈 창고에서 안 열고 재분배 가능.
 
 ## 개발 워크플로우
 - 환경: WSL2 Ubuntu + bash, 개발 경로 `~/asung/asung-wms` (⚠️ `/mnt/c/...` 금지 — I/O 느림).

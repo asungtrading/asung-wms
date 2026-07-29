@@ -181,6 +181,39 @@
   .pagebreak{page-break-before:always}
   .pl-warn{color:#b40000;font-weight:700;font-size:12.5px;margin-top:6px}
 
+  /* ---- scan-based assignment ---- */
+  :root{--scan:#7c3aed;--scan-bg:#f3eefe;--warn:#b45309;--warn-bg:#fdf4e6}
+  .scanbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:9px 10px;background:var(--card);border:2px solid var(--scan);border-radius:12px;box-shadow:var(--shadow);position:sticky;top:58px;z-index:15}
+  .scanbar.moveall{border-color:var(--warn);background:var(--warn-bg)}
+  .scanbar .tchip{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--mut);background:var(--paper);border:1px dashed var(--line);border-radius:8px;padding:7px 10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .scanbar .tchip.on{color:#fff;background:var(--scan);border:1px solid var(--scan)}
+  .scanbar .tchip #scanTargetClear{cursor:pointer;opacity:.85;margin-left:7px;font-weight:800}
+  .scanbar input{flex:1;min-width:150px;border:2px solid var(--scan);border-radius:9px;padding:8px 11px;font:inherit;font-family:var(--mono);font-size:14px;background:#fff}
+  .scanbar.moveall input{border-color:var(--warn)}
+  .scanbar .sbtn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 11px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:var(--mut)}
+  .scanbar .sbtn:disabled{opacity:.45;cursor:default}
+  #scanModeSeg button[data-mode="all"].active{background:var(--warn);color:#fff}
+  #moveAllNote{font-size:12px;font-weight:800;color:var(--warn)}
+  #recentPanel .rc-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;padding:5px 0;border-top:1px dashed var(--line)}
+  #recentPanel .rc-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #recentPanel .rc-row button{border:1px solid var(--line);background:var(--card);border-radius:7px;padding:4px 9px;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
+  #recentPanel .rc-empty{font-size:12px;color:var(--mut-2);padding:5px 0;border-top:1px dashed var(--line)}
+  .unit.scan-target{outline:3px solid var(--scan);outline-offset:2px;border-color:var(--scan) !important}
+  .nested.scan-target{outline:3px solid var(--scan);outline-offset:1px;border-color:var(--scan) !important}
+  .obadge{font-family:var(--mono);font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:4px;color:var(--mut);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .obadge.mixed{color:#b40000;border-color:#f2c4c4;background:#fdecec}
+  .ichip.just{animation:justhi 1.5s ease}
+  @keyframes justhi{0%,70%{background:var(--scan-bg);border-color:var(--scan)}100%{background:var(--card);border-color:var(--line)}}
+  #scanFlash{position:fixed;left:0;right:0;top:0;z-index:80;display:none;padding:15px 12px;text-align:center;font-weight:800;font-size:15.5px;font-family:var(--mono);color:#fff;pointer-events:none}
+  #scanFlash.show{display:block}
+  #scanFlash.ok{background:rgba(22,163,74,.95)}
+  #scanFlash.bad{background:rgba(220,38,38,.97)}
+  #toast.warn{background:var(--warn)}
+  .colbtns{display:flex;flex-direction:column;gap:8px}
+  .scopt{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:11px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
+  .scopt.primary{background:var(--scan);border-color:var(--scan);color:#fff}
+  .scopt.cancel{background:var(--line-2);border:0;text-align:center;color:var(--mut)}
+
   /* header logo */
   .logo{display:flex;align-items:center;gap:7px}
   .logo .logo-img{height:28px;width:auto;display:block}
@@ -237,7 +270,19 @@
         <div class="unitbar">
           <button class="btn pallet" id="addPallet">+ Pallet</button>
           <button class="btn box" id="addBox">+ Box</button>
-          <span style="font-size:12px;color:var(--mut-2);align-self:center">Drag products/batches onto a pallet or box. Drag a box onto a pallet to nest it.</span>
+          <span style="font-size:12px;color:var(--mut-2);align-self:center">Drag, tap, or scan products into a pallet or box. Drag a box onto a pallet to nest it.</span>
+        </div>
+        <div class="scanbar" id="scanBar">
+          <span class="tchip" id="scanTargetChip">No target — tap a pallet or box card</span>
+          <input id="prodScan" inputmode="none" autocomplete="off" placeholder="Scan a product…">
+          <div class="seg" id="scanModeSeg" style="margin-left:0">
+            <button data-mode="qty" class="active">Scan qty</button>
+            <button data-mode="all">Move all</button>
+          </div>
+          <button class="sbtn" id="undoLastBtn" disabled>↩ Undo last scan</button>
+          <button class="sbtn" id="recentBtn">Recent ▾</button>
+          <div id="moveAllNote" style="display:none;flex-basis:100%">⚠ MOVE ALL — one scan moves the SKU's entire unassigned qty (target unit's orders only)</div>
+          <div id="recentPanel" style="display:none;flex-basis:100%"></div>
         </div>
         <div class="units" id="units"></div>
       </div>
@@ -250,6 +295,12 @@
   <input id="qmInput" type="number" min="1">
   <div class="row"><button class="cancel" id="qmCancel">Cancel</button><button class="ok" id="qmOk">OK</button></div>
 </div></div>
+
+<div class="modal" id="scanChoice"><div class="box2" style="width:340px">
+  <h3 id="scTitle"></h3><p id="scMsg"></p>
+  <div class="colbtns" id="scBtns"></div>
+</div></div>
+<div id="scanFlash"></div>
 
 <div id="printArea"></div>
 <div id="placeBar">
@@ -320,7 +371,7 @@ function boot(){
 }
 document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1800);}
+function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad===true?" bad":bad==="warn"?" warn":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",bad?2600:1800);}
 
 /* ---------- order list (orders with completed packs) — checklist ---------- */
 async function loadOrders(){
@@ -408,6 +459,8 @@ document.getElementById("completeBtn").onclick=async ()=>{
     toast(orders.length+" order(s) finalized");
     // reset workspace
     orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[];
+    scanTarget=null; scanLog=[]; bcMap={}; assignState.clear(); writeChain.clear();
+    renderScanBar(); renderRecent();
     document.getElementById("ordInfo").textContent="Select the orders to ship together.";
     document.getElementById("pickBtn").textContent="Select orders ▾";
     document.getElementById("workspace").style.display="none";
@@ -442,16 +495,18 @@ async function loadWorkspace(){
   poolLines=[];
   if(ptIds.length){
     const {data:pl}=await sb.from("wms_pack_task_lines")
-      .select("order_line_id,verified_base,pack_task_id, wms_order_lines(order_sku,product_name,image_url)")
+      .select("order_line_id,verified_base,pack_task_id, wms_order_lines(order_sku,base_sku,product_name,image_url,scannable_barcodes)")
       .in("pack_task_id",ptIds).gt("verified_base",0);
     (pl||[]).forEach(r=>{
       const pt=ptById[r.pack_task_id]; const ol=r.wms_order_lines||{};
       const oid=pt?.order_id; const onum=orderById[oid]?.order_number||"?";
       poolLines.push({ order_line_id:r.order_line_id, order_id:oid, order_number:onum,
-        sku:ol.order_sku, name:ol.product_name, image:ol.image_url,
+        sku:ol.order_sku, base_sku:ol.base_sku, name:ol.product_name, image:ol.image_url,
+        barcodes:ol.scannable_barcodes||[],
         packed:Number(r.verified_base||0), batch:pt?.batch_label||"?" });
     });
   }
+  buildScanMap();
   document.getElementById("workspace").style.display="grid";
   document.getElementById("completeBtn").style.display=orders.length?"inline-block":"none";
   // barcodes for packing lists
@@ -463,6 +518,15 @@ async function loadWorkspace(){
       (sn||[]).forEach(r=>{ bcBySku[r.sku]=String(r.barcode||"").trim(); });
     }
   }catch(e){ bcBySku={}; }
+  // sibling barcodes (e.g. -12 case codes) merged into the scan map so case scans count ×factor
+  // (independent enrich — a failure here must not block the workspace; same pattern as picker)
+  try{
+    const bases=[...new Set(poolLines.map(p=>p.base_sku).filter(Boolean))];
+    if(bases.length){
+      const {data:sibs}=await sb.from("wms_sku_snapshot").select("base_sku,factor,barcode").in("base_sku",bases);
+      mergeSiblingBarcodes(sibs||[]);
+    }
+  }catch(e){}
   renderStoreBar();
   await refresh();
 }
@@ -470,6 +534,8 @@ async function loadWorkspace(){
 /* ---------- refresh units/items (all units related to selected orders) ---------- */
 async function refresh(){
   disarm(); // DOM is rebuilt below — a stale selection would point at dead elements
+  // let in-flight scan saves land first, so the re-read below doesn't clobber them
+  if(pendingWrites.size) await Promise.allSettled([...pendingWrites]);
   // 1) units homed to selected orders + 2) units containing selected-order items → union
   const [byHome, byItems]=await Promise.all([
     sb.from("wms_pallets").select("*").in("order_id",orderIds),
@@ -489,7 +555,9 @@ async function refresh(){
   const uIds=units.map(x=>x.id);
   items=[];
   if(uIds.length){ const {data:it}=await sb.from("wms_pallet_items").select("*").in("pallet_id",uIds); items=it||[]; }
-  renderPool(); renderUnits();
+  assignState.clear();                       // DB re-read is the new confirmed baseline
+  if(scanTarget && !units.find(u=>u.id===scanTarget)) scanTarget=null;
+  renderPool(); renderUnits(); renderScanBar();
 }
 function assignedFor(olid){ return items.filter(i=>i.order_line_id===olid).reduce((s,i)=>s+Number(i.qty_base||0),0); }
 function remainingFor(pl){ return pl.packed - assignedFor(pl.order_line_id); }
@@ -552,11 +620,20 @@ function itemChip(i){
     <span class="s">${esc(i.order_sku)}</span><span class="n">${esc(i.product_name||"")}</span>
     <span class="q">${i.qty_base}</span><span class="x" data-x="${i.id}">✕</span></div>`;
 }
+function orderBadge(uid){
+  const ords=[...new Set(itemsIn(uid).map(i=>i.order_id))];
+  if(!ords.length) return "";
+  if(ords.length===1){
+    const o=orderById[ords[0]];
+    return `<span class="obadge">${esc(o?.order_number||orderNumOf(ords[0]))}${o?.customer_name?" · "+esc(o.customer_name):""}</span>`;
+  }
+  return `<span class="obadge mixed">⚠ ${ords.length} orders mixed</span>`;
+}
 function boxBlock(b){
   const its=itemsIn(b.id);
   const tot=its.reduce((s,i)=>s+Number(i.qty_base||0),0);
-  return `<div class="nested" data-unit="${b.id}" data-type="box">
-    <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}<span class="tot">${tot}</span>
+  return `<div class="nested${scanTarget===b.id?" scan-target":""}" data-unit="${b.id}" data-type="box">
+    <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}${orderBadge(b.id)}<span class="tot">${its.length} lines · ${tot} units</span>
       <span class="x" data-delunit="${b.id}" style="cursor:pointer;margin-left:6px">✕</span></div>
     <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag or tap here</div>'}
       <button class="mini print" data-print="${b.id}" style="margin-top:4px">🖨 Box list</button></div>
@@ -570,18 +647,19 @@ function renderUnits(){
     if(u.unit_type==="pallet"){
       const direct=itemsIn(u.id); const boxes=boxesIn(u.id);
       const tot=unitTot(u.id)+boxes.reduce((s,b)=>s+unitTot(b.id),0);
+      const lineCnt=direct.length+boxes.reduce((s,b)=>s+itemsIn(b.id).length,0);
       const body=(boxes.map(boxBlock).join("")) + (direct.length?direct.map(itemChip).join(""):"") +
         (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag or tap here</div>':"");
-      return `<div class="unit pallet" data-unit="${u.id}" data-type="pallet">
-        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${tot}</span></div>
+      return `<div class="unit pallet${scanTarget===u.id?" scan-target":""}" data-unit="${u.id}" data-type="pallet">
+        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${lineCnt} lines · ${tot} units</span></div>
         <div class="ubody">${body}</div>
         <div class="notes"><input placeholder="Height note" value="${esc(u.height_note||"")}" data-note="height" data-uid="${u.id}"><input placeholder="Weight note" value="${esc(u.weight_note||"")}" data-note="weight" data-uid="${u.id}"></div>
         <div class="ufoot"><button class="mini" data-addbox="${u.id}">+ Nest box</button><button class="mini print" data-print="${u.id}">🖨 Pallet list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
     } else {
       const its=itemsIn(u.id);
-      return `<div class="unit box" data-unit="${u.id}" data-type="box">
-        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span><span class="tot">${unitTot(u.id)}</span></div>
+      return `<div class="unit box${scanTarget===u.id?" scan-target":""}" data-unit="${u.id}" data-type="box">
+        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span>${orderBadge(u.id)}<span class="tot">${its.length} lines · ${unitTot(u.id)} units</span></div>
         <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag or tap here</div>'}</div>
         <div class="ufoot"><button class="mini print" data-print="${u.id}">🖨 Box list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
@@ -731,6 +809,405 @@ document.getElementById("qmOk").onclick=()=>{ const inp=document.getElementById(
 document.getElementById("qmCancel").onclick=()=>{ document.getElementById("qtyModal").classList.remove("show"); if(qmResolve){qmResolve(null);qmResolve=null;} };
 document.getElementById("qmInput").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("qmOk").click();});
 
+/* ==================== scan-based assignment (third input method) ====================
+   Tap a pallet/box card to make it the scan target, then scan product barcodes to
+   assign into it. Drag&drop / tap-to-place stay untouched — this only adds a path.
+   Saves reuse the same wms_pallet_items row shape (merge by pallet+order_line),
+   but optimistic-first: the UI updates instantly, the write runs behind (queued per
+   pallet+line, .select() single-row verified), and is rolled back LOUDLY on failure. */
+let scanTarget=null;              // pallet/box id scans go into (null = none)
+let scanMode="qty";               // "qty" = barcode factor | "all" = move SKU remainder
+let bcMap={};                     // barcode -> [{olid, factor}]  (order_line_id based)
+let scanLog=[];                   // newest first: {label, parts:[{uid,olid,qty}]}
+let scanBusy=false;               // a confirm modal is open — ignore scans meanwhile
+let tempSeq=-1;                   // negative temp ids for optimistic new rows
+const assignState=new Map();      // "uid:olid" -> {id: db row id|null, confirmed: qty known in DB}
+const writeChain=new Map();       // "uid:olid" -> promise chain (no same-row write overtaking)
+const pendingWrites=new Set();    // all in-flight writes (refresh awaits these)
+
+/* ---- sound / vibrate / flash (picker-compatible) ---- */
+let actx=null;
+function initAudio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+document.addEventListener("pointerdown",()=>initAudio(),{passive:true});
+function beep(kind){
+  if(!actx) return;
+  const t=actx.currentTime;
+  if(kind==="ok"){
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type="sine";o.frequency.setValueAtTime(1050,t);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.13);
+  }else if(kind==="done"){ // line fully assigned: rising major arpeggio
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(1046.5,t);o.frequency.setValueAtTime(1318.5,t+0.09);
+    o.frequency.setValueAtTime(1568,t+0.18);o.frequency.setValueAtTime(2093,t+0.27);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.55,t+0.01);
+    g.gain.setValueAtTime(0.55,t+0.34);g.gain.exponentialRampToValueAtTime(0.0001,t+0.52);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.53);
+  }else if(kind==="okbox"){ // multi-unit add (case barcode / move-all): rising triple tone
+    const o=actx.createOscillator(),g=actx.createGain();o.type="sine";
+    o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(1100,t+0.09);o.frequency.setValueAtTime(1320,t+0.18);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.01);
+    g.gain.setValueAtTime(0.5,t+0.26);g.gain.exponentialRampToValueAtTime(0.0001,t+0.32);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.33);
+  }else{ // error: LOUD two-tone siren (must sound different from success)
+    try{ if(actx.state==="suspended") actx.resume(); }catch(e){}
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.type="square";
+    for(let i=0;i<6;i++) o.frequency.setValueAtTime(i%2?1600:2400, t+i*0.12);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(1.0,t+0.015);
+    g.gain.setValueAtTime(1.0,t+0.66);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.72);
+    o.connect(g);g.connect(actx.destination);o.start(t);o.stop(t+0.73);
+  }
+}
+function vibe(kind){ try{ navigator.vibrate && navigator.vibrate(kind==="ok"?25:[160,80,160,80,220]); }catch(e){} }
+function scanFlash(kind,msg){ // kind: ok|okbox|done|bad
+  const el=document.getElementById("scanFlash");
+  el.textContent=msg; el.className="show "+(kind==="bad"?"bad":"ok");
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className="", kind==="bad"?1600:1100);
+  beep(kind); vibe(kind==="bad"?"bad":"ok");
+}
+
+/* ---- lookups ---- */
+function unitById(id){ return units.find(u=>u.id===id); }
+function olInfo(olid){ return poolLines.find(p=>p.order_line_id===olid)||null; }
+// an order line split across batches appears once per batch in poolLines — aggregate here
+function packedTotal(olid){ return poolLines.filter(p=>p.order_line_id===olid).reduce((s,p)=>s+Number(p.packed||0),0); }
+function remainingOl(olid){ return packedTotal(olid)-assignedFor(olid); }
+function unitOrders(uid, withChildren){
+  const set=new Set(itemsIn(uid).map(i=>i.order_id));
+  if(withChildren) boxesIn(uid).forEach(b=>itemsIn(b.id).forEach(i=>set.add(i.order_id)));
+  return set;
+}
+
+/* ---- barcode map (order_line_id based — rule 25) ---- */
+function buildScanMap(){
+  bcMap={};
+  const seen=new Set();
+  poolLines.forEach(pl=>{
+    if(seen.has(pl.order_line_id)) return; seen.add(pl.order_line_id);
+    (pl.barcodes||[]).forEach(b=>{
+      const code=String(b.barcode||"").trim(); if(!code) return;
+      const arr=(bcMap[code]=bcMap[code]||[]);
+      if(!arr.some(c=>c.olid===pl.order_line_id)) arr.push({olid:pl.order_line_id, factor:Number(b.factor)||1});
+    });
+  });
+}
+function mergeSiblingBarcodes(rows){ // wms_sku_snapshot rows keyed by base_sku
+  const byBase={}; rows.forEach(r=>{ if(!r.base_sku)return; (byBase[r.base_sku]=byBase[r.base_sku]||[]).push(r); });
+  const seen=new Set();
+  poolLines.forEach(pl=>{
+    if(!pl.base_sku||seen.has(pl.order_line_id))return; seen.add(pl.order_line_id);
+    (byBase[pl.base_sku]||[]).forEach(r=>{
+      const code=String(r.barcode||"").trim(); if(!code)return;
+      const arr=(bcMap[code]=bcMap[code]||[]);
+      if(!arr.some(c=>c.olid===pl.order_line_id)) arr.push({olid:pl.order_line_id, factor:Number(r.factor)||1});
+    });
+  });
+}
+
+/* ---- target selection & scan bar ---- */
+function setScanTarget(uid){ scanTarget=uid; renderScanBar(); renderUnits(); focusProdScan(); }
+function clearScanTarget(){ scanTarget=null; renderScanBar(); renderUnits(); }
+function targetLabel(){ const u=unitById(scanTarget); return u?(u.unit_type==="pallet"?"🟩 ":"📦 ")+u.label:""; }
+function renderScanBar(){
+  const bar=document.getElementById("scanBar"); if(!bar) return;
+  const chip=document.getElementById("scanTargetChip");
+  if(scanTarget&&unitById(scanTarget)){
+    chip.className="tchip on";
+    chip.innerHTML=`Scanning into: <b>${esc(targetLabel())}</b><span id="scanTargetClear" title="Clear target">✕</span>`;
+    document.getElementById("scanTargetClear").onclick=e=>{e.stopPropagation();clearScanTarget();};
+  }else{
+    chip.className="tchip";
+    chip.textContent="No target — tap a pallet or box card";
+  }
+  bar.classList.toggle("moveall",scanMode==="all");
+  document.getElementById("moveAllNote").style.display=scanMode==="all"?"block":"none";
+  bar.querySelectorAll("#scanModeSeg button").forEach(b=>b.classList.toggle("active",b.dataset.mode===scanMode));
+  document.getElementById("undoLastBtn").disabled=!scanLog.length;
+}
+// registered ONCE (before wireUnitEvents adds the tap-to-place handler) so it runs
+// first and yields to placement when something is armed
+document.getElementById("units").addEventListener("click",e=>{
+  if(armed||recentDrag())return;   // armed tap = tap-to-place, handled elsewhere
+  if(e.target.closest("button,input,select,[data-x],[data-delunit],[data-addbox],[data-print],[data-note],[data-item],[data-box],[data-move-unit]"))return;
+  const zone=e.target.closest("[data-unit]"); if(!zone)return;
+  const uid=+zone.dataset.unit;
+  if(scanTarget===uid) clearScanTarget(); else setScanTarget(uid);
+});
+document.querySelectorAll("#scanModeSeg button").forEach(b=>b.onclick=()=>{ scanMode=b.dataset.mode; renderScanBar(); focusProdScan(); });
+const prodScanEl=document.getElementById("prodScan");
+prodScanEl.addEventListener("keydown",e=>{
+  if(e.key!=="Enter")return; e.preventDefault(); initAudio();
+  const v=prodScanEl.value.trim(); prodScanEl.value=""; if(v)handleProdScan(v);
+});
+prodScanEl.addEventListener("blur",()=>setTimeout(focusProdScan,80));
+function focusProdScan(){
+  if(!scanTarget) return;
+  if(document.querySelector(".modal.show")) return;
+  const a=document.activeElement;
+  if(a&&a!==prodScanEl&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"))return;
+  try{prodScanEl.focus({preventScroll:true});}catch(e){prodScanEl.focus();}
+}
+
+/* ---- choice modal (order attribution / box mixing) ---- */
+function askChoice(title,msgHtml,options){
+  return new Promise(res=>{
+    document.getElementById("scTitle").textContent=title;
+    document.getElementById("scMsg").innerHTML=msgHtml;
+    const bx=document.getElementById("scBtns");
+    bx.innerHTML=options.map((o,i)=>`<button class="scopt ${o.primary?"primary":""}" data-v="${i}">${esc(o.label)}</button>`).join("")
+      +`<button class="scopt cancel" data-v="-1">Cancel</button>`;
+    bx.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      document.getElementById("scanChoice").classList.remove("show");
+      const v=+b.dataset.v; res(v<0?null:options[v].value);
+    });
+    document.getElementById("scanChoice").classList.add("show");
+  });
+}
+function askOrderChoice(live,ordSet){
+  const sku=live[0].sku;
+  const opts=ordSet.map(oid=>{
+    const o=orderById[oid];
+    const rem=live.filter(e=>e.order_id===oid).reduce((s,e)=>s+e.rem,0);
+    return {label:`${o?.order_number||orderNumOf(oid)} · ${o?.customer_name||"—"} (${rem} left)`, value:oid};
+  });
+  return askChoice("Which order?",
+    `<b>${esc(sku)}</b> has unassigned quantity on ${ordSet.length} orders. Choose where this scan belongs — a wrong pick breaks the per-store packing lists.`, opts);
+}
+
+/* ---- scan entry point ---- */
+function rejectScan(msg){ scanFlash("bad","✕ "+msg); toast(msg,true); focusProdScan(); }
+async function handleProdScan(code){
+  if(scanBusy) return;               // a confirm dialog is open
+  if(!orders.length){ rejectScan("Load orders first"); return; }
+  if(!scanTarget||!unitById(scanTarget)){ rejectScan("Select a box or pallet first"); return; }
+  const cands=bcMap[code]||[];
+  if(!cands.length){ rejectScan("Not on the selected order(s): "+code); return; }
+  const live=[];
+  cands.forEach(c=>{
+    const rem=remainingOl(c.olid); if(rem<=0)return;
+    const info=olInfo(c.olid); if(!info)return;
+    live.push({olid:c.olid, factor:c.factor, rem, order_id:info.order_id, sku:info.sku, name:info.name});
+  });
+  if(!live.length){
+    const info=olInfo(cands[0].olid);
+    rejectScan("Already fully assigned: "+(info?info.sku:code)); return;
+  }
+  try{
+    scanBusy=true;
+    if(scanMode==="all") await moveAllScan(live);
+    else await qtyScan(live);
+  }finally{ scanBusy=false; focusProdScan(); }
+}
+
+/* ---- order attribution (rules: 1 order → auto / order already in unit → auto / else ask) ---- */
+async function qtyScan(live){
+  const ordSet=[...new Set(live.map(e=>e.order_id))];
+  let chosen=null;
+  if(ordSet.length===1) chosen=ordSet[0];
+  else{
+    const inUnit=[...unitOrders(scanTarget,true)].filter(o=>ordSet.includes(o));
+    if(inUnit.length===1) chosen=inUnit[0];
+    else{ chosen=await askOrderChoice(live,ordSet); if(chosen==null) return; }
+  }
+  const entry=live.find(e=>e.order_id===chosen);
+  const uid=await guardBoxMix(chosen,entry); if(uid==null) return;
+  const qty=Math.min(entry.factor,entry.rem);
+  applyAssign(uid,[{...entry,qty}], qty<entry.factor?`only ${entry.rem} remained — added ${qty}`:null);
+}
+
+/* Move all: only orders already held by the target unit cross in one scan (no
+   sweeping across order boundaries — per-order tracking must survive on pallets too) */
+async function moveAllScan(live){
+  const t=unitById(scanTarget);
+  let uid=scanTarget;
+  const held=[...unitOrders(t.id, t.unit_type==="pallet")];
+  let targets=held.length?live.filter(e=>held.includes(e.order_id)):[];
+  if(!targets.length){
+    const ordSet=[...new Set(live.map(e=>e.order_id))];
+    let chosen= ordSet.length===1?ordSet[0]:await askOrderChoice(live,ordSet);
+    if(chosen==null) return;
+    uid=await guardBoxMix(chosen,live.find(e=>e.order_id===chosen)); if(uid==null) return;
+    targets=live.filter(e=>e.order_id===chosen);
+  }
+  applyAssign(uid, targets.map(e=>({...e,qty:e.rem})), null);
+}
+
+/* ---- box mixing guard: a box should hold one order (franchise re-sorts by store) ---- */
+async function guardBoxMix(chosenOrderId,entry){
+  const t=unitById(scanTarget);
+  if(!t||t.unit_type!=="box") return scanTarget;      // pallets mix by design
+  const held=[...unitOrders(t.id,false)];
+  if(!held.length||held.includes(chosenOrderId)) return scanTarget;
+  const o=orderById[chosenOrderId];
+  const heldStr=held.map(x=>orderNumOf(x)).join(", ");
+  const heldCust=held.length===1?(orderById[held[0]]?.customer_name||""):"";
+  const msg=`This box holds <b>${esc(heldStr)}</b>${heldCust?` (${esc(heldCust)})`:held.length>1?` (${held.length} orders)`:""}.<br>`
+    +`<b>${esc(entry.sku)}</b> belongs to <b>${esc(o?.order_number||"?")}</b>${o?.customer_name?` (${esc(o.customer_name)})`:""}.`;
+  const act=await askChoice("Different order for this box",msg,[
+    {label:`New box for ${o?.order_number||"this order"}`, value:"new", primary:true},
+    {label:"Add to this box anyway", value:"anyway"},
+  ]);
+  if(act==null) return null;
+  if(act==="anyway") return scanTarget;
+  const nb=await createBoxFor(chosenOrderId,t);
+  if(!nb){ rejectScan("Could not create a new box"); return null; }
+  setScanTarget(nb.id);
+  toast(`New box ${nb.label} created — now scanning into it`);
+  return nb.id;
+}
+async function createBoxFor(orderId,likeBox){
+  // same label scheme as addUnit; stays on the same parent pallet as the current box
+  const n=units.filter(u=>u.unit_type==="box").length+1;
+  const primary=orders.find(o=>o.id===orderIds[0])||orders[0];
+  const prefix=(orderIds.length>1?(primary?.order_number||"SHIP")+"+":(primary?.order_number||"SO"));
+  const {data,error}=await sb.from("wms_pallets")
+    .insert({order_id:orderId, unit_type:"box", label:prefix+"-B"+n, parent_id:likeBox?.parent_id||null, status:"building", created_by:me.name})
+    .select().single();
+  if(error||!data) return null;
+  units.push(data); renderUnits();
+  return data;
+}
+
+/* ---- optimistic assign + queued save ---- */
+function applyAssign(uid,entries,warnNote){
+  const u=unitById(uid); if(!u) return;
+  const parts=[]; let total=0, lineDone=false, multi=false; const hiIds=[];
+  entries.forEach(en=>{
+    const qty=Math.min(en.qty,remainingOl(en.olid));   // never exceed the live remainder
+    if(qty<=0) return;
+    ensureState(uid,en.olid);                          // snapshot DB truth BEFORE mutating
+    let it=items.find(i=>i.pallet_id===uid&&i.order_line_id===en.olid);
+    if(it){ it.qty_base=Number(it.qty_base)+qty; }
+    else{
+      it={id:tempSeq--, pallet_id:uid, order_id:en.order_id, order_line_id:en.olid,
+          order_sku:en.sku, product_name:en.name, qty_base:qty, from_drop:null};
+      items.push(it);
+    }
+    parts.push({uid, olid:en.olid, qty});
+    total+=qty; hiIds.push(it.id);
+    if(remainingOl(en.olid)<=0) lineDone=true;
+    if(qty>1) multi=true;
+    queueAssign(uid,en.olid);                          // save behind — never block feedback
+  });
+  if(!parts.length) return;
+  const label=`${u.label} ← ${entries.length===1?entries[0].sku:entries.length+" SKUs"} ×${total}`;
+  scanLog.unshift({label,parts}); if(scanLog.length>30)scanLog.length=30;
+  renderPool(); renderUnits(); renderScanBar(); renderRecent();
+  scanFlash(lineDone?"done":(multi?"okbox":"ok"),`✓ ${label}${lineDone?" · DONE":""}`);
+  toast(warnNote?`${label} — ${warnNote}`:label, warnNote?"warn":false);
+  // make the result visible: scroll to the target and highlight the touched rows
+  const zone=document.querySelector(`#units [data-unit="${uid}"]`);
+  if(zone) zone.scrollIntoView({behavior:"smooth",block:"nearest"});
+  hiIds.forEach(id=>{
+    const chip=document.querySelector(`#units [data-item="${id}"]`);
+    if(chip){ chip.classList.add("just"); setTimeout(()=>chip.classList.remove("just"),1500); }
+  });
+}
+function ensureState(uid,olid){
+  const key=uid+":"+olid;
+  if(assignState.has(key)) return assignState.get(key);
+  const it=items.find(i=>i.pallet_id===uid&&i.order_line_id===olid);
+  const st={id:(it&&it.id>0)?it.id:null, confirmed:it?Number(it.qty_base||0):0};
+  assignState.set(key,st); return st;
+}
+function queueAssign(uid,olid){
+  const key=uid+":"+olid;
+  const prev=writeChain.get(key)||Promise.resolve();
+  const p=prev.then(()=>syncAssign(uid,olid)).catch(err=>rollbackKey(uid,olid,err));
+  writeChain.set(key,p);
+  pendingWrites.add(p); p.finally(()=>pendingWrites.delete(p));
+}
+// sync the (unit, line) row to the current local qty. Queued calls collapse safely
+// because the desired value is read at flush time. Success = .select() row check.
+async function syncAssign(uid,olid){
+  const key=uid+":"+olid, st=assignState.get(key); if(!st) return;
+  const it=items.find(i=>i.pallet_id===uid&&i.order_line_id===olid);
+  const desired=it?Number(it.qty_base||0):0;
+  if(desired===st.confirmed) return;
+  if(st.id){
+    if(desired>0){
+      const {data,error}=await sb.from("wms_pallet_items").update({qty_base:desired}).eq("id",st.id).select("id");
+      if(error) throw error;
+      if(!data||data.length!==1){ st.id=null; st.confirmed=0; return syncAssign(uid,olid); } // row vanished — recreate
+      st.confirmed=desired;
+    }else{
+      const {error}=await sb.from("wms_pallet_items").delete().eq("id",st.id);
+      if(error) throw error;
+      st.id=null; st.confirmed=0;
+    }
+  }else if(desired>0){
+    const info=olInfo(olid);
+    const {data,error}=await sb.from("wms_pallet_items")
+      .insert({pallet_id:uid, order_id:info?.order_id, order_line_id:olid, order_sku:info?.sku, product_name:info?.name, qty_base:desired, from_drop:null})
+      .select("id").single();
+    if(error||!data) throw error||new Error("insert failed");
+    st.id=data.id; st.confirmed=desired;
+    if(it&&it.id<0) it.id=data.id;   // temp id → real id
+  }
+}
+// save failed → revert the optimistic render to the last DB-confirmed qty and say so
+function rollbackKey(uid,olid,err){
+  console.warn("scan save failed",err);
+  const key=uid+":"+olid, st=assignState.get(key)||{id:null,confirmed:0};
+  const it=items.find(i=>i.pallet_id===uid&&i.order_line_id===olid);
+  const local=it?Number(it.qty_base||0):0;
+  const diff=local-st.confirmed;
+  if(diff===0) return;
+  const info=olInfo(olid), u=unitById(uid);
+  if(it){
+    if(st.confirmed>0) it.qty_base=st.confirmed;
+    else items.splice(items.indexOf(it),1);
+  }else if(st.confirmed>0){
+    items.push({id:st.id||tempSeq--, pallet_id:uid, order_id:info?.order_id, order_line_id:olid,
+      order_sku:info?.sku, product_name:info?.name, qty_base:st.confirmed, from_drop:null});
+  }
+  scanLog=scanLog.filter(en=>!en.parts.some(p=>p.uid===uid&&p.olid===olid)); // their undo is void now
+  renderPool(); renderUnits(); renderScanBar(); renderRecent();
+  const msg=diff>0
+    ?`Not saved — ${info?.sku||"item"} ×${diff} removed from ${u?.label||"unit"}, scan again`
+    :`Undo not saved — ${info?.sku||"item"} restored on ${u?.label||"unit"}`;
+  scanFlash("bad",msg); toast(msg,true);
+}
+
+/* ---- undo (session memory only) ---- */
+function undoEntry(idx){
+  const en=scanLog[idx]; if(!en) return;
+  scanLog.splice(idx,1);
+  let undone=0;
+  en.parts.forEach(p=>{
+    const it=items.find(i=>i.pallet_id===p.uid&&i.order_line_id===p.olid);
+    const dec=Math.min(p.qty, it?Number(it.qty_base||0):0);
+    if(dec<=0) return;                       // item was moved/removed since — skip
+    ensureState(p.uid,p.olid);
+    it.qty_base=Number(it.qty_base)-dec;
+    if(it.qty_base<=0) items.splice(items.indexOf(it),1);
+    queueAssign(p.uid,p.olid);
+    undone+=dec;
+  });
+  renderPool(); renderUnits(); renderScanBar(); renderRecent();
+  if(undone>0) toast(`↩ Undone: ${en.label}`);
+  else toast("Nothing to undo — the item was moved or removed",true);
+  focusProdScan();
+}
+document.getElementById("undoLastBtn").onclick=()=>{ if(scanLog.length) undoEntry(0); };
+document.getElementById("recentBtn").onclick=()=>{
+  const p=document.getElementById("recentPanel");
+  p.style.display=p.style.display==="none"?"block":"none";
+  renderRecent();
+};
+function renderRecent(){
+  const p=document.getElementById("recentPanel");
+  if(!p||p.style.display==="none")return;
+  if(!scanLog.length){ p.innerHTML='<div class="rc-empty">No scans yet.</div>'; return; }
+  p.innerHTML=scanLog.slice(0,5).map((en,i)=>`<div class="rc-row"><span>${esc(en.label)}</span><button data-undo="${i}">↩ Undo</button></div>`).join("");
+  p.querySelectorAll("[data-undo]").forEach(b=>b.onclick=()=>undoEntry(+b.dataset.undo));
+}
+/* ==================== end scan-based assignment ==================== */
+
 /* ---------- print packing list ---------- */
 function orderNumOf(oid){ return orderById[oid]?.order_number || "?"; }
 function tableFor(unitId){
@@ -799,8 +1276,11 @@ function buildStoreBody(oid){
     const list=byUnit[u.id]; if(!list||!list.length) return;
     const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); grand+=sub;
     const parent=u.parent_id?units.find(p=>p.id===u.parent_id):null;
+    // a mixed box must be re-sorted at the destination — flag it loudly (pallets mix by design)
+    const boxOrds=u.unit_type==="box"?[...new Set(itemsIn(u.id).map(i=>i.order_id))]:[];
+    const mixTag=boxOrds.length>1?` <span style="color:#b40000;font-weight:800">⚠ MIXED BOX — holds ${boxOrds.length} orders, re-sort at destination</span>`:"";
     const where=u.unit_type==="box"
-      ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${esc(parent.label)})</span>`:""}`
+      ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${esc(parent.label)})</span>`:""}${mixTag}`
       : `🟩 ${esc(u.label)}`;
     const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
     body+=`<div class="pl-unit">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
