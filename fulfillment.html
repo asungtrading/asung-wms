@@ -183,7 +183,10 @@
 
   /* ---- scan-based assignment ---- */
   :root{--scan:#7c3aed;--scan-bg:#f3eefe;--warn:#b45309;--warn-bg:#fdf4e6}
-  .scanbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:9px 10px;background:var(--card);border:2px solid var(--scan);border-radius:12px;box-shadow:var(--shadow);position:sticky;top:58px;z-index:15}
+  /* --hdr / --stickyclr are measured at runtime (setStickyOffsets) — the header wraps
+     to two rows on small screens, so a fixed 58px would tuck the scanbar under it */
+  .scanbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:9px 10px;background:var(--card);border:2px solid var(--scan);border-radius:12px;box-shadow:var(--shadow);position:sticky;top:calc(var(--hdr,58px) + 4px);z-index:15}
+  .unit,.nested{scroll-margin-top:var(--stickyclr,150px)} /* scrollIntoView clearance under header+scanbar */
   .scanbar.moveall{border-color:var(--warn);background:var(--warn-bg)}
   .scanbar .tchip{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--mut);background:var(--paper);border:1px dashed var(--line);border-radius:8px;padding:7px 10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .scanbar .tchip.on{color:#fff;background:var(--scan);border:1px solid var(--scan)}
@@ -366,6 +369,7 @@ function boot(){
     document.getElementById("app").style.display="block";
     document.getElementById("whoName").textContent="👤 "+me.name;
     document.getElementById("conn").className="conn on";
+    setStickyOffsets();
     loadOrders();
   });
 }
@@ -413,7 +417,20 @@ async function scanLoadOrder(v){
   if(!availOrders||!availOrders.length) await loadOrders();
   const f=v.toUpperCase();
   const o=(availOrders||[]).find(x=>(x.order_number||"").toUpperCase()===f);
-  if(!o){ toast("No order ready to ship for "+v,true); return; }
+  if(!o){
+    // a product barcode landed in the order-scan field — don't fail silently
+    if(bcMap[v]){
+      if(scanTarget&&unitById(scanTarget)){        // target known → just process it as a product scan
+        await handleProdScan(v);
+        focusProdScan(true);
+        return;
+      }
+      toast("Looks like a product barcode — scan it in the scan bar",true);
+      focusProdScan(true);
+      return;
+    }
+    toast("No order ready to ship for "+v,true); return;
+  }
   if(!orderIds.includes(o.id)) orderIds=[...orderIds,o.id];
   document.getElementById("orderPicker").style.display="none";
   await loadWorkspace();
@@ -529,6 +546,7 @@ async function loadWorkspace(){
   }catch(e){}
   renderStoreBar();
   await refresh();
+  focusProdScan(true);   // orders are in — product scanning is now the default job
 }
 
 /* ---------- refresh units/items (all units related to selected orders) ---------- */
@@ -910,7 +928,7 @@ function mergeSiblingBarcodes(rows){ // wms_sku_snapshot rows keyed by base_sku
 
 /* ---- target selection & scan bar ---- */
 function setScanTarget(uid){ scanTarget=uid; renderScanBar(); renderUnits(); focusProdScan(); }
-function clearScanTarget(){ scanTarget=null; renderScanBar(); renderUnits(); }
+function clearScanTarget(){ scanTarget=null; renderScanBar(); renderUnits(); focusProdScan(); }
 function targetLabel(){ const u=unitById(scanTarget); return u?(u.unit_type==="pallet"?"🟩 ":"📦 ")+u.label:""; }
 function renderScanBar(){
   const bar=document.getElementById("scanBar"); if(!bar) return;
@@ -927,6 +945,7 @@ function renderScanBar(){
   document.getElementById("moveAllNote").style.display=scanMode==="all"?"block":"none";
   bar.querySelectorAll("#scanModeSeg button").forEach(b=>b.classList.toggle("active",b.dataset.mode===scanMode));
   document.getElementById("undoLastBtn").disabled=!scanLog.length;
+  setStickyOffsets(); // bar height changes with the Move-all note / recent panel
 }
 // registered ONCE (before wireUnitEvents adds the tap-to-place handler) so it runs
 // first and yields to placement when something is armed
@@ -943,14 +962,29 @@ prodScanEl.addEventListener("keydown",e=>{
   if(e.key!=="Enter")return; e.preventDefault(); initAudio();
   const v=prodScanEl.value.trim(); prodScanEl.value=""; if(v)handleProdScan(v);
 });
-prodScanEl.addEventListener("blur",()=>setTimeout(focusProdScan,80));
-function focusProdScan(){
-  if(!scanTarget) return;
-  if(document.querySelector(".modal.show")) return;
+prodScanEl.addEventListener("blur",()=>setTimeout(()=>focusProdScan(),80));
+/* Focus policy (2026-07-29): once orders are loaded, #prodScan is the DEFAULT focus —
+   product scanning is the main job, and an HID scanner types into whatever is focused,
+   so a stray focus makes scans fail silently. `force` bypasses the other-input guard
+   for explicit moments (order just loaded / a scan was forwarded from #orderScan);
+   normal refocus never steals from an input the user is editing (qty, notes, #orderScan). */
+function focusProdScan(force){
+  if(!orders.length) return;                          // workspace not loaded yet
+  if(document.querySelector(".modal.show")) return;   // let modals keep their focus
   const a=document.activeElement;
-  if(a&&a!==prodScanEl&&(a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT"))return;
+  if(!force && a && a!==prodScanEl && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT")) return;
   try{prodScanEl.focus({preventScroll:true});}catch(e){prodScanEl.focus();}
 }
+/* measure header + scanbar so the sticky offset and scrollIntoView clearance are real,
+   not a guessed 58px (the header wraps on tablets; the scanbar grows in Move-all mode) */
+function setStickyOffsets(){
+  const h=document.querySelector("header")?.offsetHeight||58;
+  document.documentElement.style.setProperty("--hdr",h+"px");
+  const sb=document.getElementById("scanBar");
+  const sh=(sb&&sb.offsetParent)?sb.offsetHeight:0;
+  document.documentElement.style.setProperty("--stickyclr",(h+sh+18)+"px");
+}
+window.addEventListener("resize",setStickyOffsets);
 
 /* ---- choice modal (order attribution / box mixing) ---- */
 function askChoice(title,msgHtml,options){
@@ -985,7 +1019,16 @@ async function handleProdScan(code){
   if(!orders.length){ rejectScan("Load orders first"); return; }
   if(!scanTarget||!unitById(scanTarget)){ rejectScan("Select a box or pallet first"); return; }
   const cands=bcMap[code]||[];
-  if(!cands.length){ rejectScan("Not on the selected order(s): "+code); return; }
+  if(!cands.length){
+    // an order / pick-list barcode landed here — say so instead of a generic reject
+    const f=code.toUpperCase();
+    const looksOrder=(availOrders||[]).concat(orders).some(x=>{
+      const on=(x.order_number||"").toUpperCase();
+      return on&&(on===f||f.startsWith(on+"-"));
+    });
+    if(looksOrder){ rejectScan("Looks like an order barcode — use the order scan field (top left)"); return; }
+    rejectScan("Not on the selected order(s): "+code); return;
+  }
   const live=[];
   cands.forEach(c=>{
     const rem=remainingOl(c.olid); if(rem<=0)return;
