@@ -2,6 +2,13 @@
 
 운영 테이블 12개(2026-07-22 `wms_waves` 추가) + 복제 2 + `wms_staff` + 불변식 함수 `wms_health_check()`. RLS ON(2026-07-19, `auth_all`). 복제 2테이블은 GAS·Edge Function만 접근하는 내부 마스터.
 
+> ⚠️⚠️ **이 문서는 요약이고 진실은 실물 DB 다 (2026-07-29 — 규칙 29).** "적용됨"으로 적힌 인덱스가 실제와 달라 리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않은 사고가 있었다. 인덱스·제약을 근거로 코드를 쓸 때는 먼저 확인할 것:
+> ```sql
+> select indexname, indexdef from pg_indexes where tablename='<table>';
+> select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid='public.<table>'::regclass;
+> ```
+> 그리고 **부분(partial) 유니크 인덱스는 PostgREST `on_conflict` 로 추론되지 않는다** — upsert 키에는 WHERE 절 없는 전체 유니크를 건다.
+
 ## 운영 테이블 11개
 
 ### wms_zone_sequence — 동선 순서 + 좌표
@@ -88,8 +95,8 @@ id BIGINT PK · po_number TEXT NOT NULL (PO-xxxxx / TR-xxxxx) · cin7_purchase_i
 status 의미: held=중단(진행 저장, PO 열림) / partial=이번 배송분 끝(PO 열림, 분할배송) / completed=최종(Apply 대상).
 
 **wms_receipt_lines** — 라인별 예상 vs 실제 + 풋어웨이 + 승인.
-id BIGINT PK · receipt_id FK cascade · cin7_po_line_id TEXT · order_sku/base_sku/product_name · expected_base NUMERIC (PO 예상 낱개, 오프-PO=0) · received_base NUMERIC (받은 누적 낱개) · exported_base NUMERIC (구 CSV 증분용 — **폐기, 미사용**) · putaway_bin TEXT (자동확정/수동 bin) · zone TEXT (가이드 동선 정렬) · putaway_done BOOL · is_off_po BOOL · needs_approval BOOL (승인 전 풋어웨이·Apply 차단) · approved_by/approved_at · verification_method(scanned/manual) · status(pending/received).
-인덱스: idx_receipt_lines_receipt, idx_receipt_lines_base, idx_receipt_lines_export(부분 — 미사용).
+id BIGINT PK · receipt_id FK cascade · cin7_po_line_id TEXT · order_sku/base_sku/product_name · expected_base NUMERIC (PO 예상 낱개, 오프-PO=0) · received_base NUMERIC (받은 누적 낱개) · exported_base NUMERIC (**2026-07-28 부터 트랜스퍼 bin 이동 체크포인트** — 이미 Cin7 에 옮긴 낱개. 재Apply 때 이 라인을 건너뛰는 유일한 근거이므로 ⚠️ **사람이 수동 UPDATE 하지 말 것**(규칙 30-4). PO 경로는 아직 미사용) · putaway_bin TEXT (자동확정/수동 bin) · zone TEXT (가이드 동선 정렬) · putaway_done BOOL · is_off_po BOOL · needs_approval BOOL (승인 전 풋어웨이·Apply 차단) · approved_by/approved_at · verification_method(scanned/manual) · status(pending/received).
+인덱스: idx_receipt_lines_receipt, idx_receipt_lines_base, idx_receipt_lines_export(부분 — 구 CSV 용, 현재 미사용).
 RLS: 다른 wms_ 테이블 동일(auth_all).
 
 **wms_sku_bins.last_seen DATE** (2026-07-23 추가) — 추천 빈 타이브레이커. BQ asung_bin_stock.last_seen 복제(WmsSync wms_buildBins_ 에 CAST(last_seen AS STRING) 추가). sticky MERGE 가 sold-out 행의 last_seen 을 갱신 안 함 = "마지막 재고 있던 날" 고정. 보조 인덱스 idx_sku_bins_recommend(sku, warehouse, is_current desc, last_seen desc).
@@ -104,5 +111,6 @@ RLS: 다른 wms_ 테이블 동일(auth_all).
 ## 2026-07-25 추가 컬럼
 
 - `wms_pick_tasks.held_by` / `wms_pack_tasks.held_by` / `wms_waves.held_by` (text) — Hold 한 사람. `wms_held_by.sql`
-- `wms_discrepancies`: `order_id` **NULL 허용으로 변경**(리시빙 차이는 sales order 없음) + `source`(pick/pack/receiving) + `po_number` + `receipt_id`(bigint) + 부분 유니크 `uq_disc_receipt_sku(receipt_id,sku) where receipt_id is not null`. `wms_disc_receiving.sql`
+- `wms_discrepancies`: `order_id` **NULL 허용으로 변경**(리시빙 차이는 sales order 없음) + `source`(pick/pack/receiving) + `po_number` + `receipt_id`(bigint) + 유니크 `uq_disc_receipt_sku(receipt_id, sku)`. `wms_disc_receiving.sql`
+  - ⚠️⚠️ **2026-07-29 정정 (규칙 29)** — 원래 이 인덱스는 `WHERE receipt_id IS NOT NULL` **부분** 유니크였고, **PostgREST `on_conflict` 는 부분 인덱스를 추론하지 못한다** → EF 의 `POST wms_discrepancies?on_conflict=receipt_id,sku` 가 **400 `42P10 there is no unique or exclusion constraint matching the ON CONFLICT specification`** 으로 실패했고, 그래서 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았다.** **WHERE 절 없는 전체 유니크로 교체**했다(pick/pack 행은 `receipt_id` 가 NULL 이고 유니크는 기본 **NULLS DISTINCT** 라 무영향). SQL = `supabase/wms_disc_uq_fix.sql` (⚠️ 마이그레이션 아님 — 같은 내용을 새 마이그레이션으로 담아야 로컬·원격이 정렬된다).
 - `wms_orders.reference` (text) — Cin7 화면 Reference(=API CustomerReference), 픽리스트 인쇄용. `wms_order_reference.sql`

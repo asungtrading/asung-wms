@@ -7,7 +7,10 @@ description: >
   "ProductAvailability", "SaleList", "PurchaseList", "StockAdjustment", "StockTransfer",
   "PO 생성", "발주 생성", "DRAFT 발주", "드래프트 오더", "Cin7에 쓰기", "purchase POST",
   "Fixed Price", "고정 단가", "product-suppliers", "빈 트랜스퍼", "bin GUID",
-  "stock received 쓰기", "purchase/stock", "리시빙 반영", "Invoice First" 등의
+  "stock received 쓰기", "purchase/stock", "리시빙 반영", "Invoice First",
+  "ref/location", "Bins", "purchaseList 필터", "InvoiceStatus", "PAID",
+  "재평가", "Stock Revaluation", "Stock Level Report", "bin 재고 리포트",
+  "Movement Details" 등의
   키워드가 나오면 반드시 이 스킬을 먼저 읽고 코드를 작성하세요. 엔드포인트 URL, 파라미터 이름, 
   응답 구조가 정확히 문서화되어 있으므로 추측으로 코드를 작성하지 마세요.
 ---
@@ -94,7 +97,8 @@ function fetchAllPages(endpoint, params) {
 | 발주 목록 / 상세 | `GET /purchaseList`, `GET /purchase` | `references/purchase.md` |
 | **DRAFT 발주 생성 (쓰기)** | `POST /purchase` → `POST /purchase/order` (2단계 필수) | `references/purchase-write.md` |
 | **공급사 단가(Fixed Price) 갱신 (쓰기)** | `PUT /product-suppliers` (읽기는 `GET /product?IncludeSuppliers=true`) | `references/product-suppliers-write.md` |
-| **트랜스퍼/입고 쓰기 (bin GUID 필수)** | `POST /stockTransfer`, `POST /purchase/stock` | `references/stock-write.md` |
+| **트랜스퍼/입고 쓰기 (bin GUID 필수)** | `POST /stockTransfer`, `POST /purchase/stock`, `PUT /stockTransfer`(완료 — ⚠️수량 변경 무시) | `references/stock-write.md` |
+| **bin GUID 조회** | `GET /ref/location` → 창고 행 `Bins[]` | `references/stock-write.md` 5절 |
 | 고객 목록 / 상세 | `GET /customer` | `references/customer.md` |
 | 공급업체 목록 / 상세 | `GET /supplier` | `references/supplier.md` |
 | 제품 마스터 | `GET /product` | `references/product-master.md` |
@@ -148,8 +152,12 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 ## 주의사항
 
 0. **쓰기(POST) 작업**: Purchase/Sale 등 데이터를 생성·수정하는 코드는 반드시 `references/purchase-write.md`를, **재고 이동/입고(트랜스퍼·stock received)는 `references/stock-write.md`를(bin은 GUID만·Invoice First 게이트·Date 필수 등 실측 확정)** 먼저 읽을 것. 공식 문서와 실제 동작이 다른 부분(2단계 생성, 환율 자동 물림)이 실측으로 정리되어 있음. 새 write 코드는 항상 DRY_RUN 게이트를 거치고, Status는 DRAFT만 사용 (Authorize는 사람 몫).
+   - ⚠️⚠️ **쓰기 검증은 HTTP 200 이 아니라 GET 으로 되읽은 값으로 한다 (2026-07-28 원칙).** Cin7 은 요청을 **200 으로 받고 조용히 무시**하는 경우가 있다 — 창고간 트랜스퍼 완료 PUT 의 `TransferQuantity` 변경이 그렇다(TR-03267: 요청 4 → 저장 2, 요청 2 → 저장 4, 양방향 무시). 이 때문에 "수량 초과 완료 허용"이라는 **틀린 기록**이 한동안 남아 있었다 — 정정 내용은 `references/stock-write.md` 2절.
 1. **List vs Detail 패턴**: `*List` 엔드포인트는 요약 정보만 반환. 라인 아이템이 필요하면 TaskID/SaleID로 상세 엔드포인트를 별도 호출해야 함.
 2. **응답 배열 키 이름**: 엔드포인트마다 다름. `SaleList`, `PurchaseList`, `StockAdjustmentList`, `StockTransferList`, `ProductAvailabilityList`, `CustomerList` 등.
 3. **Rate Limit**: 루프에서 `Utilities.sleep(300)` 추가 권장.
 4. **날짜 필터**: `UpdatedSince`, `CreatedSince` 등은 UTC 기준 ISO 8601.
 5. **Simple vs Advanced**: Sale/Purchase 모두 Simple/Advanced 타입 존재. Advanced는 여러 Invoice/Fulfilment 가질 수 있음.
+6. **bin GUID 는 `/ref/location` 최상위 창고 행의 `Bins[]` 에서** — 응답은 Total 2678 에 `Limit 500` 으로 잘리지만 `Bins[]` 는 창고 행 하나에 전부 들어있다(에드먼튼 628 · 토론토 2047). ⚠️ child-location 행의 `Name` 은 bin 이름이 아니다(바코드류). `references/stock-write.md` 5절.
+7. **`purchaseList` 필터는 직관과 다르다** — `InvoiceStatus` 는 단일 값(AUTHORISED/PAID **2회 병합** 필요) · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순이라 최신 PO 가 마지막 페이지** · `UpdatedSince` 는 최신성 보장 못함 · `RestockReceivedStatus` 는 무시됨. 실측 표는 `references/purchase.md`.
+8. **화면으로만 되는 작업**(재고 재평가·bin 재고 리포트)은 `references/stock.md` 하단 「Cin7 UI 실측 노트」. ⚠️ **원가 0 재고 재평가는 방법 미확정**(Non-zero 0 + Zero stock 재입력은 상계되지 않고 재고가 2배가 된다).

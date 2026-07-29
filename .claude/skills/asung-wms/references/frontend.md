@@ -245,3 +245,23 @@ async function guardOnReturn(){}
 - ⚠️ **핸들러 가드만으로는 부족** — `renderSingle` 의 `[data-step]`·`[data-manual]`, packer `renderList` 의 `.stepmini` 버튼·`Clear over` 에 `${frozen?"disabled":""}`. `freezeScreen` 이 `renderPick()`/`renderPack()` 을 한 번 더 호출해 반영한다.
 - 모달 = `#freeze`(`.fz`/`.fzbox` CSS) + `#fzMsg` + `#fzReload`(=`location.reload()`) **버튼 하나만**. 문구: 다른 사람 `This {batch|wave} is now assigned to {who}. Your screen is out of date.` / null `This {batch|wave} was released and is waiting to be claimed.` (picker 는 `ownerUnit()` 이 wave/batch 선택)
 - ⚠️⚠️ **`freezeScreen` 에서 로컬 수량을 저장하지 않는다** — 스테일 값이라 이어받은 사람 작업을 덮는다(규칙 24 의 전체배열 덮어쓰기 제거와 같은 이유). 로컬은 버리고 리로드.
+
+## 2026-07-28 — receiver.html 리스트: Resume 중복 카드 숨김
+
+Resume 섹션에 이미 떠 있는 문서가 아래 "Ready to receive (Cin7)" 목록에도 그대로 보여 같은 문서를 두 카드로 눌렀다.
+
+```js
+// renderList() — 규칙 24
+const shownDocs = new Set(myReceipts.map(r=>String(r.po_number||"").toUpperCase()));
+const visPos = openPos.map((p,i)=>({p,i})).filter(({p}) => !shownDocs.has(String(p.po_number||"").toUpperCase()));
+```
+- 키는 **`po_number` 대문자 비교**(`cin7_purchase_id` 가 아니라 — 트랜스퍼/PO 둘 다 문서번호가 안정적인 표시 키다). 인덱스는 `{p,i}` 로 감싸 **원래 `openPos` 인덱스를 보존**해야 한다(`startPo(+el.dataset.pi)` 가 그 인덱스를 쓴다 — filter 후 재번호를 매기면 엉뚱한 문서로 들어간다).
+- 헤더에 `#poHidden` → `— N already open above`(0 이면 숨김).
+- 빈 목록 판정도 `visPos` 기준: `lEmpty.style.display=(myReceipts.length||visPos.length)?"none":"block"`.
+- ⚠️ **기준은 "화면에 렌더된 `myReceipts`" 뿐이다.** "receipt 행이 존재하면 숨김"으로 바꾸면 창고 접근 밖 등으로 Resume 에 안 뜨는 문서까지 사라져 **스캔 이어받기 진입로가 막힌다.**
+
+## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
+
+- **Apply 대기 항목에 경고 문구** (규칙 30-3): *"Do not move this stock in Cin7 until Apply finishes."* TR-02935 실패의 상당수가 `Available quantity … is 0` = 사람이 이미 옮긴 재고였다. 규칙 28(픽 중복)과 같은 종류이고 상대가 WMS 자신이다.
+- **`groups_remaining` 배너** (규칙 30-2): "N groups remaining, press Apply again". ⚠️ 지금 배너는 **EF 의 캡 규칙을 JS 로 중복 계산**한다 — EF 응답 필드를 그대로 표시하도록 바꿀 것(드리프트 위험).
+- **`failed_moves(N):` 정규식 파싱** — EF 와 admin.html 이 같은 포맷을 각자 파싱한다. `wms_receipts` 컬럼(예 `failed_move_count`)으로 승격하는 게 맞다 — 백로그.

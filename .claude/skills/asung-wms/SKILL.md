@@ -2,17 +2,17 @@
 name: asung-wms
 description: >
   Asung Trading 커스텀 WMS(IMS 첫 모듈)를 다룰 때 반드시 먼저 읽으세요.
-  Supabase(Postgres+Edge Function) 기반, Cin7 Core multi-packing 한계를 넘어
-  대형오더 분할 동시 픽/팩 + 리시빙/풋어웨이를 처리합니다.
+  Supabase(Postgres+Edge Function) 기반, Cin7 multi-packing 한계를 넘는
+  대형오더 분할 동시 픽/팩 + 리시빙/풋어웨이.
   "WMS", "픽킹", "패킹", "Supabase", "Edge Function", "wms_orders",
   "Release to WMS", "오더 분할", "discrepancy", "base 정규화", "factor",
   "wms-auth", "perms", "wms.asung.ca", "Finalize", "Health 탭", "리시빙",
   "receiver.html", "풋어웨이", "라스트 로케이션", "wms_receipts", "Apply to Cin7",
   "stock received", "bin transfer", "트랜스퍼", "Invoice First", "스캔 이어받기",
   "Lines is invalid", "authorize", "held_by", "동시 작업", "unconfirmed",
-  "writeChain", "presence", "serverChecks", "bcMap", "CAS" 등이 나오면 추측하지 말고
-  이 스킬의 아키텍처·스키마·인증·배포·리시빙(규칙 20~22)·동시 작업(규칙 24~28)을
-  먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
+  "writeChain", "presence", "serverChecks", "bcMap", "CAS", "on_conflict",
+  "exported_base", "재평가" 등이 나오면 추측하지 말고
+  이 스킬의 아키텍처·스키마·인증·배포·규칙 20~33 을 먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
   ⚠️bin은 base_sku 기준, ⚠️Cin7 쓰기 bin은 GUID(이름은 400),
   ⚠️PO는 Invoice First 선승인, ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어,
   ⚠️stock received는 문서당 bin 1개·authorize는 POST,
@@ -252,6 +252,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **⚠️ short_no_disc 매칭 키 = `order_id + order_sku`**: 실제 `wms_discrepancies.sku`에 order_sku가 아닌 base_sku가 저장되고 있으면 이 검사가 전건 오탐. 처음 돌렸을 때 잔뜩 뜨면 매칭 키 문제이니 SQL 한 줄 수정.
 - **Health가 wave의 안전망**: wave 추가로 "픽 준비됐다"의 정의가 넓어져도, split_sum·orphan_pack·wave_state가 데이터 구조 정합성을 상시 검증 → 병행 운영 중 조용히 새는 걸 잡음.
 - ⚠️ **리시빙 검사는 아직 없다**(`wms_receipts`·`wms_receipt_lines` 무검증). 규칙 27 의 R3(중복 receipt)·R4(이중 Apply)는 지금은 Health 로 안 잡힌다 — 검사 추가는 백로그.
+- ⚠️ **`short_no_disc` 는 픽킹 전용이다** — `wms_pick_task_lines` 기준이라 **리시빙 discrepancy 가 한 건도 안 들어가고 있던 것을 못 잡았다**(규칙 29). 추가할 검사 2개: ①리시빙용 short/over ↔ `wms_discrepancies(source='receiving')` 대조 ②`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조(규칙 32) — 둘 다 백로그.
 
 ## 규칙 20 — 리시빙 모듈: PO/트랜스퍼 입고 + 라스트 로케이션 풋어웨이 (⚠️ 2026-07-23)
 
@@ -271,8 +272,9 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - **Review 버튼 (2026-07-24)**: Apply 옆·History 에. 읽기전용 요약 모달(bin 별 그룹핑된 풋어웨이 결과·수량·OVER/SHORT/OFF-PO·Placed). 하단: Apply→Cin7 / **Reopen for edit**(status→in_progress + `receiver.html?receipt=N` 딥링크로 이동해 기존 화면에서 수정 — 새 수정 UI 안 만들고 검증된 화면 재활용). applied 된 건 Reopen 잠금.
   - **Apply 권한 (2026-07-24)**: perms 에 `apply` 키 추가(staff-admin PERMS 배열). admin 역할 항상 통과. 권한 없으면 Apply 버튼→"no permission", 함수 진입도 차단(3중 게이트). ⚠️ 기존 매니저에 apply 기본 없음 — 신뢰하는 소수만 체크.
 - **Resume/열기 필터 (2026-07-24)**: `loadMyReceipts` 는 `applied_at IS NULL` 만(반영된 건 목록에서 제외). openReceipt 도 applied 면 차단.
+  - **중복 카드 숨김 (2026-07-28)**: Resume 섹션에 **이미 카드로 떠 있는 문서**는 아래 "Ready to receive (Cin7)" 목록에서 감춘다(키 = `po_number` 대문자 비교, 헤더에 "— N already open above" 표시). ⚠️ **기준은 "화면에 렌더된 `myReceipts`" 뿐이다** — "receipt 행이 존재하면 숨김"으로 짜면 안 된다: 창고 접근 밖 등으로 Resume 에 안 뜨는 문서까지 사라져 **스캔 이어받기 진입로가 막힌다**. 빈 목록 판정도 `openPos` 가 아니라 `visPos` 기준(전부 숨겨졌는데 "없음"이 안 뜨던 문제).
 - **리시빙 리스트 프린트 (2026-07-25)**: receiver 검수 헤더 **🖨 Print** → 픽리스트와 동일 형식 새 창(팝업차단 회피: 클릭 핸들러 안에서 `window.open`). 로고 + "PO/TRANSFER RECEIVING" + **문서번호 CODE128 바코드**(인쇄물 스캔으로 재진입) + 공급사/루트·창고·총라인/수량·Received By 서명란 + 라인표(**Last bin** · SKU · 제품명 · Qty · ✓체크박스). **라스트빈(존) 순 정렬**(창고 동선), no-bin 은 주황 "no bin" 으로 눈에 띄게. `zoneOfBin`/`zOrder` 재사용.
-- **차이(불일치) 처리 정책 (2026-07-25 사용자 결정 · 중요 / 2026-07-28 트랜스퍼 예외 추가)**: ① Cin7 에는 **초과/부족 무관 "들어온 대로"**(received) 쓴다 — **PO stock received 는 초과 허용이 실측 사실**(⚠️ 트랜스퍼는 아니다, 아래 예외). ② 기대치와의 차이는 **`wms_discrepancies` 큐에 자동 기록**(`source='receiving'`, reason `recv_over`/`recv_short`/`recv_off_po`, `po_number`/`receipt_id`, responsible=received_by). ③ 매니저가 admin Discrepancy 탭에서 보고 **Cin7 backend 에서 수동 stock adjustment** → "Cin7 Fixed" 버튼으로 정리. **자동 adjustment 는 하지 않음**(사람 판단 유지 = 안전). `receipt_id+sku` 부분 유니크로 재적용 중복 방지. SQL `wms_disc_receiving.sql`(order_id NULL 허용 + source/po_number/receipt_id + 유니크 인덱스).
+- **차이(불일치) 처리 정책 (2026-07-25 사용자 결정 · 중요 / 2026-07-28 트랜스퍼 예외 추가)**: ① Cin7 에는 **초과/부족 무관 "들어온 대로"**(received) 쓴다 — **PO stock received 는 초과 허용이 실측 사실**(⚠️ 트랜스퍼는 아니다, 아래 예외). ② 기대치와의 차이는 **`wms_discrepancies` 큐에 자동 기록**(`source='receiving'`, reason `recv_over`/`recv_short`/`recv_off_po`, `po_number`/`receipt_id`, responsible=received_by). ③ 매니저가 admin Discrepancy 탭에서 보고 **Cin7 backend 에서 수동 stock adjustment** → "Cin7 Fixed" 버튼으로 정리. **자동 adjustment 는 하지 않음**(사람 판단 유지 = 안전). `receipt_id+sku` **전체 유니크**로 재적용 중복 방지. SQL `wms_disc_receiving.sql`(order_id NULL 허용 + source/po_number/receipt_id + 유니크 인덱스). ⚠️⚠️ **2026-07-29 정정 — 원래 이 인덱스는 `WHERE receipt_id IS NOT NULL` 부분 유니크였고, 그 때문에 PostgREST `on_conflict` 가 깨져 리시빙 discrepancy 가 구현 이후 한 건도 기록되지 않았다: 규칙 29.**
   - ⚠️ **기록 시점 = Cin7 쓰기 "앞"** (2026-07-28 역전). 예전엔 applyCommit **맨 마지막**이라 bin 이동이 throw 하면 차이 기록이 통째로 유실됐다(TR-02935 실사고). 이 큐가 **유일한 보정 지시서**이므로 **insert 실패 = Apply 중단**(Cin7 을 건드리지 않는다) — 여기서만 "실패해도 Apply 성공(WARN)" 방침을 의도적으로 뒤집는다. 자세한 원칙은 규칙 27 **R12**.
 - **⚠️⚠️ 트랜스퍼 예외 (2026-07-28 사용자 결정 — API 제약 때문)**: 트랜스퍼는 "Cin7 에 received 를 쓴다"가 **API 레벨에서 불가능**하다(완료 PUT 의 `TransferQuantity` 변경은 무시된다 — 규칙 21 정정 항목).
   - ① **완료 수량 = 보낸 수량(주문 수량) 그대로 확정.** 실물 수량 덮어쓰기 로직은 제거했다.
@@ -321,6 +323,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **이중 반영 방지 (2026-07-24 강화)**: `wms_receipts.applied_at` 있으면 Apply·열기·재개 모두 거부. **한 PO = receipt 1개 강제**: startPo 가 그 PO 의 기존 receipt 전체 조회 → applied 있으면 "이미 받음" 차단, 미완료 있으면 이어받기(새로 안 만듦). 예전엔 `neq status completed` 만 봐서 applied 된 PO 에 새 receipt 이 중복 생성되던 버그. factor 로 안 나눠떨어지는 수량은 에러 차단. Apply 성공 시 status='completed' 명시(applied 인데 in_progress 로 꼬이는 것 방지).
 - **자동 실행 강도**: 현재 = 매니저 admin 게이트(dry-run 계획 confirm → commit). 신뢰 쌓이면 작업자 완료 시 자동으로 전환 예정(EF 호출 위치만 이동).
 - 쓰기 검증 도구: `WmsTransferWriteTest.gs`·`WmsPoStockWriteTest.gs` (System_Automation, DRY_RUN 게이트 패턴 — 새 쓰기 검증 시 재사용).
+- 📌 **TR-02935 착지·수량 실측치와 Apply 운영 규칙(실행시간 예산·수동 이동 충돌·체크포인트 불가침)은 규칙 30** · **bin↔bin 이동 화면 설계는 규칙 33** · **재고 대조 리포트는 규칙 32**.
 
 ## 규칙 22 — 배터리 최적화: heartbeat 제거 → 스캔 이어받기 (⚠️ 2026-07-24)
 
@@ -388,6 +391,9 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - 사례 **TR-02935**(첫 에드먼튼 트랜스퍼 Apply): discrepancy 기록이 applyCommit **맨 마지막**에 있어서 ①원 TR 은 COMPLETED 됐고 ②bin 이동이 `/ref/location` Limit 잘림으로 첫 건부터 throw → ③receipt PATCH 미실행(`applied_at` null → 큐에 남고 Applied 배지 없음) ④**discrepancy 기록 통째로 유실**(차이를 되찾을 방법이 사라졌다) ⑤plan 검증이 "IN TRANSIT 이어야 함" 이라 재Apply 도 막혀 영구히 갇힘.
   - → discrepancy 는 **Cin7 쓰기 앞**으로 이동(실패 시 throw), 재개 경로는 COMPLETED 허용, 체크포인트는 `exported_base`. **이 세 개가 한 세트다.**
   - ⚠️ 반대 방향(되돌릴 수 없는 쓰기 **뒤**의 Supabase 기록 — receipt PATCH·`exported_base`)은 여전히 **throw 금지**다. 이미 Cin7 이 바뀐 뒤이므로 중단하면 상태만 더 갈라진다(규칙 21).
+- **R14 — Apply 1회가 EF 실행 시간 한도를 넘는다(대형 트랜스퍼).** 144 bin 그룹 = 1회에 안 끝나고, 타임아웃으로 죽으면 `applied_at`·`apply_note` 가 **둘 다 null** 이라 실패 목록조차 안 남는다 → **규칙 30**(회차당 처리 그룹 상한이 필요).
+- **R15 — Apply 대기 중 사람이 Cin7 에서 수동 이동하면 충돌한다.** 규칙 28(픽 중복)과 같은 종류이고 상대가 WMS 자신이다 → **규칙 30**.
+- **R16 — 스키마 기록(“적용됨”)이 실물 DB 와 다를 수 있다.** 부분 유니크 인덱스가 `on_conflict` 를 깨뜨려 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았다** → **규칙 29**.
 - **R13 — Discrepancy 큐가 방치되면 재고가 계속 틀린 상태로 남는다 (⚠️ 미해결 · 새 정책의 구조적 대가).** 조정은 **사람이 Cin7 에서 수동**으로 하고(자동 adjustment·보정 트랜스퍼 모두 의도적으로 채택 안 함), 트랜스퍼는 완료 수량이 **보낸 수량으로 고정**되므로 **큐를 처리하지 않으면 Cin7 재고가 실물과 계속 어긋난다.** 게다가 캡 때문에 남은 잔량은 착지 지점(집결 bin 또는 창고 no-bin)에 그대로 앉아 있다. 현재 안전장치는 admin Discrepancy 탭 배지(미해결 건수)뿐 — **경과일 알림·에이징 리포트는 없다.**
 - **RLS** — `wms_receipts`·`wms_receipt_lines` 정책이 `using(true)`(auth_all). **창고 스코프는 클라이언트 필터뿐** — 로그인한 직원이면 다른 창고 receipt 도 API 로 읽고 쓸 수 있다.
 - **EF 권한** — `receiving` EF 에 **호출자 검증이 없다**(anon Bearer 면 통과). Apply 권한(perms `apply`)은 **admin.html 클라이언트 사이드 3중 게이트뿐**이고, `applied_by` 는 쿼리스트링 `&by=<name>` 이라 **위조 가능**. 서버측 검증(JWT → wms_staff perms 확인)은 미구현.
@@ -418,9 +424,107 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 **실패 처리 & 한계.** 확인 select 가 네트워크 오류로 실패하면 **프리즈하지 말고 쓰기를 진행한다**(창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실). 콘솔 warn 만. 즉 이 가드는 **best-effort** 이고 원자적이지 않다 — 확인과 UPDATE 사이의 밀리초 창에서 넘어가면 통과한다. **후속: claim_seq(클레임 시퀀스) 로 원자화** — 클레임마다 증가하는 정수를 task 행에 두고 UPDATE 를 `.eq("claim_seq", 진입 시 읽은 값)` 조건부로 보내 0행이면 프리즈. 규칙 27 R1 의 CAS 와 같은 패턴이라 함께 처리.
 
-## 현재 진행 상태 (2026-07-27 기준)
+## 규칙 29 — 스키마 기록의 진실은 실물 DB 다: 부분 유니크 인덱스가 `on_conflict` 를 깨뜨렸다 (⚠️ 2026-07-29 실사고)
 
-**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 = 첫 실전(TR-02935, 2026-07-28) 실패 후 재설계 배포 대기(⬜(a) 케이스 dry-run 부터). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원.**
+**증상.** 리시빙 Apply 시 Supabase 가 **400 / `42P10 there is no unique or exclusion constraint matching the ON CONFLICT specification`**. EF 는 `POST wms_discrepancies?on_conflict=receipt_id,sku` 로 선기록(규칙 27 R12)하므로 **discrepancy 기록 실패 = Apply 중단**이 되어 Cin7 을 아예 못 건드렸다.
+
+**원인.** baseline 의 인덱스가 **부분(partial) 유니크**였다:
+```sql
+CREATE UNIQUE INDEX uq_disc_receipt_sku ON wms_discrepancies (receipt_id, sku)
+  WHERE (receipt_id IS NOT NULL);   -- ← 이 WHERE 가 문제
+```
+**PostgREST 의 `on_conflict` 는 부분 인덱스를 추론하지 못한다**(Postgres 의 `ON CONFLICT (cols)` 추론이 predicate 를 요구하는 것과 같은 이유). 인덱스는 존재하는데 upsert 대상으로 지목할 수 없다.
+
+**조치 = WHERE 절 없는 전체 유니크로 교체.** `receipt_id` 가 NULL 인 pick/pack 행은 유니크의 **NULLS DISTINCT**(Postgres 기본) 때문에 서로 충돌하지 않으므로 영향이 없다 — 부분 인덱스로 얻으려던 것을 기본 동작이 이미 해준다.
+```sql
+DROP INDEX IF EXISTS uq_disc_receipt_sku;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_disc_receipt_sku ON public.wms_discrepancies (receipt_id, sku);
+```
+SQL 은 **`supabase/wms_disc_uq_fix.sql`** 에 남겼다. ⚠️ 이 파일은 **기록/응급용이고 마이그레이션이 아니다** — 「DB 스키마 변경 절차」대로 `supabase migration new disc_uq_fix` 로 같은 내용을 새 마이그레이션에 담아야 로컬·원격이 다시 정렬된다(위 SQL 은 멱등이라 이미 원격에 적용됐어도 안전).
+
+**⚠️⚠️ 파급 — 리시빙 discrepancy 는 구현 이후 한 번도 기록된 적이 없었다.** 즉 규칙 20 의 차이 처리 정책(“차이는 큐에 남기고 매니저가 Cin7 에서 수동 조정”)이 **문서상으로만 동작**하고 있었다. 트랜스퍼는 완료 수량이 보낸 수량으로 고정되므로(규칙 20 트랜스퍼 예외) **이 큐가 유일한 보정 근거**인데 그게 비어 있었다는 뜻이다. Health 의 `short_no_disc` 는 **픽킹 전용**이라 이걸 못 잡았다(규칙 19).
+
+**⚠️ 교훈 — 스킬에 "적용됨"으로 적힌 스키마를 신뢰하지 말고 실물 DB 로 확인한다.**
+```sql
+select indexname, indexdef from pg_indexes where tablename='wms_discrepancies';
+select conname, pg_get_constraintdef(oid) from pg_constraint
+ where conrelid='public.wms_discrepancies'::regclass;
+```
+- 이 규칙은 **스키마 관련 서술 전부에 적용된다**(references/schema.md 포함). 문서가 아니라 `pg_indexes`/`information_schema` 가 근거다.
+- 함께 볼 것: 규칙 27 **R11**(쓰기 실측은 200 이 아니라 되읽은 값) — 같은 종류의 "성공했다고 믿었는데 아니었다" 계열이다.
+- **부분 인덱스는 upsert 키로 쓰지 말 것.** PostgREST `on_conflict` 를 쓸 컬럼 조합에는 반드시 **전체** 유니크를 건다.
+
+## 규칙 30 — Apply 는 한 번에 끝나지 않는다: 실행시간 예산 · 수동 이동 충돌 · 체크포인트 불가침 (⚠️ 2026-07-28~29, TR-02935 사후분석)
+
+TR-02935(토론토→에드먼튼, **344 라인 / 144 bin 그룹**)를 실제로 닫으면서 나온 네 가지. 대형 트랜스퍼를 Apply 할 때 반드시 먼저 읽을 것.
+
+### 30-1. 착지·수량 실측 (movement 리포트로 재확인)
+- TR-02935 는 **(b) 케이스**: 헤더 `To` = **집결 bin EZ010101 의 GUID**, **344 라인 전량이 그 bin 에 착지**했다.
+- **Cin7 이 받은 수량 = 보낸 수량**(실물과 다름): APR15412 **24**(실물 48) · APR16104 **6**(12) · APR48208 **12**(24) · AJA66008 **6**(12) · WOC40103 **12**(실물 6). → 규칙 20 트랜스퍼 예외 B 정책("완료 수량 = 보낸 수량 확정")의 **직접 근거**이고, `min(received, expected)` bin 이동 캡의 근거다.
+- 초과/부족 보정은 **ST-00794 / ST-00795(재고 조정)로 사람이 처리**했다 — 자동 보정은 없다(규칙 27 R13).
+
+### 30-2. ⚠️ EF 실행 시간 한도 → 회차당 처리 그룹 상한이 필요 (미구현 · 백로그)
+- 실측: 144 bin 그룹 중 **1회차에 81 라인 이동 후 무응답 종료**. 이후 Apply 를 **3번 더 눌러 +43 라인**만 전진.
+- ⚠️ **실패한 그룹이 매 회차 앞에서 다시 시도되어 시간 예산을 먹는다** → 회차당 전진량이 **81 → 약 14/회**로 급감한다(재시도 경로 자체는 의도된 동작 — 규칙 21 — 이지만 순서가 앞이라 뒤쪽 미처리 그룹에 시간이 안 남는다).
+- ⚠️ **타임아웃으로 죽으면 `applied_at`·`apply_note` 가 둘 다 null 로 남아 실패 목록조차 안 남는다.** 남는 것은 성공 그룹의 `exported_base` 뿐 → 진행률을 사람이 역산해야 한다.
+- **필요한 것**: 1회 Apply 당 **처리 그룹 상한(예 30~40)** + 응답·admin 배너에 **"N groups remaining, press Apply again"**. 상한은 EF 안에서 세고(규칙 21 `failed_moves` 와 같은 방식으로 응답 최상위에 노출), 미처리 그룹은 `exported_base` 가 안 찍혀 자연히 다음 회차로 넘어간다.
+
+### 30-3. ⚠️ Apply 대기 중 Cin7 에서 수동 이동하면 충돌한다 (운영 규칙)
+- TR-02935 실패의 **상당 부분이 `Available quantity … is 0`** — 사람이 이미 옮긴 재고를 WMS 가 집결 bin EZ010101 에서 꺼내려 한 것이다.
+- **규칙 28(픽 중복)과 같은 종류의 사고이고, 상대가 WMS 자신이었다.** 물리 상태를 사람이 먼저 바꾸면 디지털 계획이 스테일이 된다.
+- **조치**: ①admin Receiving 의 **Apply 대기 항목에 경고 문구**("Do not move this stock in Cin7 until Apply finishes") ②**운영 규칙으로 명문화** — Apply 대기 중인 문서의 재고는 Cin7 에서 손대지 않는다. ③Apply 는 **리시빙 완료 직후**에 돌린다(시차가 벌어질수록 충돌 확률이 올라간다 — 규칙 27 R10 운영 주의).
+
+### 30-4. ⚠️⚠️ 체크포인트 컬럼을 수동으로 채워 receipt 을 닫지 마라
+- TR-02935 를 닫으려고 `exported_base = least(received_base, expected_base)` 를 **344행 전체에 UPDATE** 했다. 그 순간 **"WMS 가 실제로 옮긴 것(124 라인)"과 "사람이 수동 처리한 것"을 구분할 신호가 사라졌다** → 남은 이동 목록을 **Cin7 movement 리포트에서 역산**해야 했다(규칙 32).
+- **규칙: 강제 종료는 별도 마커로 한다** — `wms_receipts.closed_manually`(신규 컬럼 후보) 또는 `apply_note` 에 사유를 남기고, **`exported_base` 는 절대 손대지 않는다.**
+- 이유: `exported_base` 는 **"Cin7 에 실제로 반영된 양"이라는 사실 기록**이고 재Apply 의 유일한 근거다(규칙 21). 여기에 추정치를 쓰면 그 뒤로는 어떤 재개도 신뢰할 수 없다. 규칙 28 의 "로컬 스테일 값을 flush 하지 마라"·규칙 24 의 "전체 배열 덮어쓰기 금지"와 **같은 원칙**: 사실 기록에는 추정을 쓰지 않는다.
+
+## 규칙 31 — Cin7 원가 0 재고의 재평가 (⚠️ 미해결 — 2026-07-29 실측)
+
+**목표**: 원가가 0 으로 들어간 재고 카드를 정상 원가로 재평가한다. **결론: 방법 미확정. 아래 실측만 확정.**
+
+- Cin7 UI 의 재평가(Stock Revaluation) 화면은 **Non-zero stock** 탭과 **Zero stock** 탭 두 섹션이 있고, 문서상 "두 섹션을 함께 사용"한다고 되어 있다.
+- ⚠️⚠️ **실측(1 SKU) — 두 섹션은 상계되지 않았다. 재고가 2배로 늘었다.** Non-zero 쪽에 0 을 넣어도 기존 수량이 **차감되지 않고**, Zero stock 쪽 입력이 **그대로 가산**됐다.
+- **Non-zero 탭에는 unit cost 입력란이 없고, Zero stock 탭에만 있다** → "수량은 그대로 두고 원가만 고친다"를 한 화면에서 할 수 없다.
+- **후보 (둘 다 미검증)**: ①**Zero stock 으로 정상 원가 재고를 추가한 뒤 별도 재고 조정으로 같은 수량을 감소**시켜 FIFO 가 0원 카드를 빼내게 하는 2단계 — ⚠️ 중간에 **재고가 2배인 구간**이 생기고(그 사이 판매가 잡히면 원가가 섞인다), `CostingMethod` 가 **FIFO-Batch/Serial** 이면 배치 지정 때문에 동작이 다르다. ②**원인 문서(0원으로 들어온 입고/조정)를 void 후 재작성.**
+- 📌 **다음 단계**: 저가·저회전 1 SKU 로 ①을 **끝까지** 실측하고 movement 리포트로 카드별 원가를 되읽어 확인할 것(규칙 27 R11 — 200 이 아니라 되읽은 값이 근거).
+
+## 규칙 32 — bin 재고 대조는 어느 Cin7 리포트를 쓰나 (⚠️ 2026-07-29 실측)
+
+WMS 의 `putaway_bin` 기록과 Cin7 의 실제 bin 위치를 맞춰볼 때 **리포트 선택이 결과를 좌우한다.**
+
+- ✅ **Inventory Products Stock Level Report 에 `Bin` 컬럼을 붙일 수 있다.** 컬럼: Location / SKU / Product / Brand / **Bin** / Unit / Qty on hand / Allocated / Unit cost / Stock on hand …  → **현재 bin 별 재고 스냅샷이 필요하면 이 리포트를 쓴다**(WMS `putaway_bin` 대조의 기본 도구).
+- ⚠️ **Inventory Movement Details 는 `Reference` 필터를 걸면 유입만 보인다**(그 문서로 들어온 것만). **현재 위치를 알려면 필터 없이 뽑아 `(SKU, Bin)` 별 In − Out 을 넷아웃**해야 한다. TR-02935 의 남은 이동 목록을 이렇게 역산했다(규칙 30-4).
+- ⚠️ **InventoryList CSV 의 `StockLocator`/`PickZones` 는 bin 수량이 아니다** — 제품 마스터의 참고 문자열이므로 재고 대조에 쓰면 틀린다.
+- 📌 Health 검사 후보: `wms_receipt_lines.putaway_bin` vs **`asung_bin_stock`(BQ, 매일 6:30 스냅샷)** 대조 → "풋어웨이 기록과 Cin7 위치 불일치". ⚠️ **하루 지연이므로 실시간 용도는 아니다**(어제 이후의 이동은 못 본다). 백로그.
+
+## 규칙 33 — Cin7 bin-to-bin 이동 화면 (설계만 — 백로그, 2026-07-29)
+
+리시빙 풋어웨이와 별개로, **창고에서 자리를 옮길 때 쓰는 독립 화면**. API 근거는 전부 실측됨(규칙 21 · TR-03236).
+
+```
+POST /stockTransfer
+{ Status:'COMPLETED', From:<bin GUID>, To:<bin GUID>,
+  Lines:[{SKU, TransferQuantity}], SkipOrder:true }
+```
+- **같은 창고 bin↔bin 은 `InTransitAccount` 불필요**(TR-03236 실측). 수량은 델타라 절대값 사고가 없다.
+- ⚠️ **트랜스퍼는 `From`/`To` 가 문서 레벨이라 한 문서에 여러 SKU 를 담을 수 있다** — `purchase/stock` 의 "문서당 bin 1개" 제약(규칙 21)과 **다르다**. 단 **bin 조합(From,To) 마다 문서 1개**로 쪼개야 한다.
+- **단계**: **A 자유 이동**(SKU·수량·From·To 를 사람이 지정) → **B 풋어웨이 큐 소진**(receipt 의 `putaway_bin` 을 목록으로 띄워 소진). **A 를 먼저** — B 는 receipt 상태와 얽혀 Apply 경로와 충돌 여지가 있다.
+- ⚠️ **`wms_sku_bins` 에 쓰지 말 것** — 매일 6:30 truncate + 재적재(규칙 6)라 조용히 사라진다. 위치의 진실은 Cin7 이고, 우리 기록은 **감사용 신규 테이블 `wms_bin_moves`**(sku·qty·from_bin·to_bin·warehouse·cin7_tr_number·moved_by·moved_at)에 남긴다.
+- **미정**: 권한 범위(매니저 전용 vs 창고 직원 전체). 되돌릴 수 없는 Cin7 쓰기라 최소한 perms 키 하나(`binmove` 등)를 새로 두는 쪽이 안전하다.
+
+## 현재 진행 상태 (2026-07-29 기준)
+
+**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 = 첫 실전(TR-02935, 2026-07-28)이 실패해 재설계 배포 + 수동 마무리로 종료. 배터리 최적화 완료. 리시빙 동시 작업 정식 지원.**
+
+**2026-07-28~29 세션 (규칙 29~33)**
+- ✅ **discrepancy 유니크 인덱스 수정**(부분 → 전체) — `on_conflict` 42P10 으로 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았음**을 발견·해소. SQL `supabase/wms_disc_uq_fix.sql`. ⬜ **같은 내용을 새 마이그레이션으로 담아 로컬·원격 정렬**(사람이 `db push`). — 규칙 29
+- ✅ **TR-02935 종료** — 4회 Apply(124 라인 이동) + 나머지는 Cin7 수동 처리, 초과/부족은 ST-00794/00795 재고 조정. 착지·수량 실측은 규칙 30-1.
+- ⬜ **Apply 회차당 그룹 상한 미구현** — 144 그룹은 1회에 안 끝나고 타임아웃 시 `applied_at`·`apply_note` 가 둘 다 null. 규칙 30-2 (최우선 백로그)
+- ⬜ **Apply 대기 중 수동 이동 경고 문구**(admin) 미구현 — 규칙 30-3
+- ⚠️ **`exported_base` 수동 UPDATE 로 receipt 을 닫은 이력이 있다**(TR-02935) — 다시 하지 말 것. 규칙 30-4
+- ⚠️ **원가 0 재고 재평가 = 미해결**(Non-zero 0 + Zero stock 재입력은 상계되지 않고 재고가 2배가 된다) — 규칙 31
+- 📌 bin 재고 대조 리포트 확정(Stock Level Report + Bin 컬럼) — 규칙 32 · ⬜ bin↔bin 이동 화면은 설계만 — 규칙 33
 
 **픽 소유권 가드 (2026-07-28 세션 — 규칙 28)**
 - ✅ picker.html·packer.html: 쓰기 직전(`saveLine`/Complete/Hold) + `visibilitychange`·`focus` 에서 `assigned_to` 재확인 → 아니면 **프리즈**(입력·버튼 비활성 + 리로드 전용 모달, **로컬 수량 flush 안 함**). 타이머 0 유지(규칙 22). wave 는 `wms_waves` 행 기준. ⬜ 원자화(claim_seq)는 백로그.
@@ -440,7 +544,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ✅ 빈 지정 스캔+드롭다운(빈자리 포함, EF action=bins) / 정렬 4종 / Zone→Bay sticky 점프 / Change 버튼 / 모바일 터치 / bayOfBin 파서 (규칙 20)
 - ✅ admin **Review 버튼**(읽기요약+Reopen) / **Apply 권한**(perms `apply`, staff-admin 체크박스) / Resume-applied 필터 / **중복 receipt 방지**(한 PO=receipt 1개)
 - ✅ 라스트빈 "no last bin" 근본 규명(sticky first_seen=7/6 한계, 버그 아님)
-- ✅ **트랜스퍼 창고간 실측 완료 + EF 반영** (규칙 21): 완료=PUT COMPLETED·**수량 초과 허용**·착지는 (a)bin 없이 창고 or (b)집결 bin 두 경우 → **From=det.To 로 통일**해 bin 이동. 워크플로는 **PO 와 동일**(받기→풋어웨이→Apply)로 확정. ⬜ **첫 실전 Apply 만 남음**(복귀 후 진행 예정)
+- ✅ **트랜스퍼 창고간 실측 완료 + EF 반영** (규칙 21): 완료=PUT COMPLETED·~~수량 초과 허용~~(⚠️ **2026-07-28 정정: 틀린 기록 — `TransferQuantity` 변경은 무시된다.** 규칙 21 정정 항목)·착지는 (a)bin 없이 창고 or (b)집결 bin 두 경우 → **From=det.To 로 통일**해 bin 이동. 워크플로는 **PO 와 동일**(받기→풋어웨이→Apply)로 확정.
 - ✅ **차이 처리 정책 확립 + 구현**: 실물대로 Cin7 → 차이는 discrepancy 큐 → 매니저가 Cin7 수동 adjustment (규칙 20)
 - ✅ **리시빙 리스트 프린트**(문서 바코드·라스트빈 정렬·체크박스) / **held_by Hold 이어가기** / **픽리스트 Reference**(규칙 23)
 
@@ -467,11 +571,36 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 ## 백로그 / 미해결
 
-- **트랜스퍼 (a) 케이스 첫 실전 Apply (최우선)**: 첫 실전은 **TR-02935**(2026-07-28, (b) 집결 bin)였고 실패했다 → 원인·수정은 규칙 20 트랜스퍼 예외 + 규칙 27 R12. ⚠️ **지금까지 실측한 트랜스퍼는 전부 (b)** 이고 **(a)(창고 GUID, bin 없이 착지)의 완료 후 bin 이동은 실전 경험이 없다** → 다음 확인은 **TR-03259((a) 케이스 — 목록에 "Asung - Edmonton" 만 표시)** 로 먼저 dry-run 할 것. 정리 필요: TR-02935 데이터(수동 처리) · 테스트로 만든 TR-03260(3개씩 완료됨)·TR-03261·TR-03267(수량 실측용) 재고 조정.
+### 리시빙 Apply — 최우선 (2026-07-29 갱신)
+
+1. **Apply 회차당 처리 그룹 상한 (규칙 30-2)** — 예 30~40 그룹 + 응답·배너에 "N groups remaining, press Apply again". 지금은 대형 트랜스퍼가 EF 실행시간 한도에 걸려 **타임아웃으로 죽으면 `applied_at`·`apply_note` 가 둘 다 null**(실패 목록조차 안 남는다).
+2. **트랜스퍼 (a) 케이스 첫 실전 Apply** — 첫 실전은 **TR-02935**((b) 집결 bin)였고 실패했다(규칙 20 트랜스퍼 예외 + 규칙 27 R12, 사후분석 규칙 30). ⚠️ **지금까지 실측한 트랜스퍼는 전부 (b)** 이고 **(a)(창고 GUID, bin 없이 착지)의 완료 후 bin 이동은 실전 경험이 없다** → **TR-03259 로 먼저 dry-run**.
+3. **Apply 대기 중 수동 이동 경고 (규칙 30-3)** — admin Receiving 의 Apply 대기 항목에 경고 문구 + 운영 규칙 명문화.
+4. **`apply_note` 정규식(`failed_moves(N):`) 파싱을 컬럼으로** — 지금 EF 와 admin.html **양쪽이 같은 포맷을 파싱**한다(드리프트 위험). `wms_receipts.failed_move_count`(또는 jsonb `failed_moves`) 컬럼으로 승격.
+5. **admin.html 배너가 EF 캡 규칙을 JS 로 중복 계산** — 같은 판정을 두 곳에서 하지 말고 EF 응답 필드를 그대로 표시하도록.
+6. **PO 경로에는 체크포인트가 없다** — bin 별 `POST /purchase/stock` 중 하나가 실패하면 **전체 throw**(앞서 성공한 DRAFT 는 Cin7 에 남고 재시도 시 중복 POST). 트랜스퍼와 같은 원칙(수집 후 계속 + `exported_base` 체크포인트) 필요 — 규칙 27 R10.
+7. **discrepancy 유니크 인덱스 수정을 마이그레이션으로** — `supabase/wms_disc_uq_fix.sql` 내용을 새 마이그레이션에 담아 로컬·원격 정렬(규칙 29).
+8. **리시빙 discrepancy Health 검사** — `short_no_disc` 는 픽킹 전용이라 규칙 29 의 사고를 못 잡았다(규칙 19).
+9. **`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조 Health 검사** — 하루 지연 스냅샷이라 실시간 용도는 아님(규칙 32).
+10. **R13 Discrepancy 큐 방치 시 재고 불일치가 계속 남는다** — 에이징 알림·리포트 없음(규칙 27 R13). ⚠️ 규칙 29 로 **큐 자체가 비어 있던 기간**이 있었으므로 과거분은 큐로 복원되지 않는다.
+11. **R10 bin 루프 비트랜잭션** — 트랜스퍼는 부분 실패 수집 + 재Apply 로 운영 가능하지만 원자성은 아니다(체크포인트 PATCH 실패 구멍).
+
+### 동시 작업 원자화
+- **같은 SKU 다중 픽커 / 같은 라인 동시 스캔 (R1)** — PostgREST 조건부 UPDATE(CAS) 또는 RPC 증분.
+- **`claim_seq`(A→B→A 스테일 화면) — 규칙 28 후속.** 현재 가드는 best-effort. R1 CAS 와 같은 패턴이라 함께 처리.
+
+### 신규 기능
+- **Cin7 bin↔bin 이동 화면 — 규칙 33**(A 자유 이동 → B 풋어웨이 큐. `wms_bin_moves` 감사 테이블 필요, `wms_sku_bins` 에 쓰지 말 것).
+- **원가 0 재고 재평가 방법 확정 — 규칙 31**(미해결. 1 SKU 로 2단계 후보를 끝까지 실측).
+
+### 정리 필요 (데이터)
+- TR-02935(수동 처리분) · 테스트로 만든 TR-03260(3개씩 완료됨)·TR-03261·TR-03267(수량 실측용) 재고 조정.
+
+### 그 외 (기존)
+
 - **리시빙 PO**: partial 상태 Cin7 draft 누적(현재 최종완료 때 일괄). Apply 자동 실행 전환(매니저 게이트→작업자 완료 시, 신뢰 쌓이면). Advanced Purchase 상세 라인 실측. 라스트빈 movements 백필(선택).
 - **유령 bin 정리**: 숫자만/오타 bin 은 Cin7 삭제 후 sync 로 자연 소멸.
-- **리시빙 동시 작업 미해결분 — 규칙 27 이 목록**: R1 CAS(조건부 UPDATE) · **R3 `wms_receipts.cin7_purchase_id` 유니크**(중복 0건 확인, 분할 입고는 새 PO 라 걸어도 안전 — 새 마이그레이션) · R4 Apply 최종 PATCH 에 `applied_at is null` · R5 Complete↔Apply 창 · **R10 bin 루프 비트랜잭션 — 트랜스퍼는 부분 실패 수집(`failed_moves`)+`exported_base` 체크포인트+재Apply 로 운영 가능해졌지만 원자성은 아니다(체크포인트 PATCH 실패 구멍) · **PO 경로는 여전히 전체 throw · 체크포인트 없음 → 같은 원칙 적용 필요**)** · **R13 Discrepancy 큐 방치 = 재고가 계속 틀린 채로 남는다**(조정은 사람이 Cin7 에서 수동. 배지뿐이고 에이징 알림 없음) · RLS 창고 스코프 · EF 호출자/perms 서버 검증.
-- **픽 소유권 원자화(claim_seq) — 규칙 28 후속**: 현재 가드는 best-effort(확인→UPDATE 사이 밀리초 창 통과 가능). task 행에 클레임마다 증가하는 `claim_seq` 를 두고 수량 UPDATE 를 `.eq("claim_seq", 진입 시 값)` 조건부로 → 0행이면 프리즈. 규칙 27 R1 CAS 와 같은 패턴이라 함께 처리.
+- **리시빙 동시 작업 미해결분 — 규칙 27 이 전체 목록** (위 「리시빙 Apply」·「동시 작업 원자화」에 안 담긴 것): **R3 `wms_receipts.cin7_purchase_id` 유니크**(중복 0건 확인, 분할 입고는 새 PO 라 걸어도 안전 — 새 마이그레이션) · R4 Apply 최종 PATCH 에 `applied_at is null` · R5 Complete↔Apply 창 · RLS 창고 스코프 · EF 호출자/perms 서버 검증.
 - **인덱스 기반 bcMap 잔존**: picker.html·packer.html(규칙 25). 지금은 splice 를 안 해 안전 — 라인 삭제 기능 추가 시 반드시 id 기반으로 먼저 전환.
 - **Cin7 병행 케이스 C 자동감지**: 유입 후 Cin7 상태 변경 감지.
 - **GAS scannable_barcodes 근본수정**: base 라인에 형제변형(-12) 바코드 포함(현재 bcMap 병합 우회).

@@ -4,13 +4,19 @@
 새 write 코드는 항상 DRY_RUN 게이트를 거칠 것. 검증 도구: System_Automation 의
 `WmsTransferWriteTest.gs` / `WmsPoStockWriteTest.gs`.
 
+> ⚠️⚠️ **원칙 (2026-07-28) — 쓰기 실측의 근거는 HTTP 200 이 아니라 GET 으로 되읽은 값이다.**
+> Cin7 은 요청을 **200 으로 받고 조용히 무시**하는 경우가 있다(트랜스퍼 완료의 `TransferQuantity`
+> — 아래 정정 항목). 되돌릴 수 없는 쓰기를 새로 실측할 때는 **반드시 되읽어 확인하고 그 값을 기록**할 것.
+
 ## 공통 — bin 은 GUID 로만 (⚠️ 가장 중요)
 
 - 쓰기 API 의 `From`/`To`/`LocationID` 에 **bin 이름("Asung - Edmonton: EZ010101")을 넣으면
   400 "Location ... was not found in Locations reference book"**. apib 예시("Main Warehouse: Bin 1")는
   실동작과 다름 — 반드시 GUID.
-- **bin GUID 조회**: `GET /ref/location?Limit=500` → 창고 행의 `Bins[]` 배열, 또는
-  `ParentID`=창고 GUID 인 별도 location 행(bin 이 독립 location 개체로도 존재).
+- **bin GUID 조회**: `GET /ref/location` → **최상위 창고 행(`ParentID` 없음)의 `Bins[]` 배열**.
+  ⚠️ **응답은 Total 2678 에 Limit 500 으로 잘리지만 `Bins[]` 는 창고 행 하나에 전부 들어있다**
+  (에드먼튼 628 · 토론토 2047 — 페이지네이션 불필요). ⚠️ **child-location 행의 `Name` 은
+  bin 이름이 아니다**(바코드류) — 그 폴백은 죽은 경로였다. 상세는 아래 5절.
 - Asung location 이름: 토론토 `Asung Trading Inc.` / 에드먼튼 `Asung - Edmonton`.
 
 ## Stock Transfer 쓰기 — POST /stockTransfer (TR-03236 실측)
@@ -22,6 +28,8 @@
 - 되돌리기 = 반대 방향 트랜스퍼 POST (상쇄). DELETE 는 Void 용.
 - 트랜스퍼 **라인에는 bin 필드가 없음** (Line Model: SKU/TransferQuantity/BatchSN...) —
   목적지는 헤더 To(bin GUID) 하나뿐. 라인별 다른 bin = 트랜스퍼 여러 개로 분해.
+- ⚠️ **`From`/`To` 가 문서 레벨이라 한 문서에 여러 SKU 를 담을 수 있다** — `POST /purchase/stock` 의
+  "문서당 bin 1개" 제약(아래)과 **다르다**. 쪼개는 단위는 SKU 가 아니라 **(From, To) 조합**이다.
 
 ```json
 POST /stockTransfer
@@ -72,7 +80,9 @@ POST /purchase/stock
 
 ## purchaseList 필터 실무 노트
 
-- `InvoiceStatus=AUTHORISED` 서버 파라미터 지원 — Invoice First 워크플로의 "리시빙 준비" 필터.
+📌 **필터·페이징 실측 전체는 `purchase.md` 「필터·페이징 실측」 표** — `InvoiceStatus` 는 단일 값이라 AUTHORISED/PAID 2회 병합 · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순**(최신 PO 는 마지막 페이지) · `UpdatedSince` 는 최신성 보장 못함 · `RestockReceivedStatus` 무시됨.
+
+- `InvoiceStatus=AUTHORISED` 서버 파라미터 지원 — Invoice First 워크플로의 "리시빙 준비" 필터. ⚠️ **AUTHORISED 만 조회하면 PAID 로 넘어간 PO 가 누락된다**(실측 PO-01081).
 - Status 는 **복합 문자열**("RECEIVED / CREDITED") 가능 — 정확 일치 말고 includes 로 검사.
 - Type 에 "Service"(운송·관세 주문 — 물건 없음) 존재 — 리시빙 목록에서 제외 필요.
 
@@ -122,8 +132,22 @@ PUT /stockTransfer
 ```
 → 200, Status: COMPLETED.
 
-## 2. 수량 초과 완료 허용
-원본 `TransferQuantity:1` 짜리 라인을 **3으로 바꿔 완료해도 200**. → 실물이 보낸 수량보다 많아도 **"들어온 대로"** 쓸 수 있다(PO stock received 와 동일). 억지로 원래 수량에 맞출 필요 없음. 차이는 별도 discrepancy 로 관리.
+## 2. ~~수량 초과 완료 허용~~ → ⚠️⚠️ **틀린 기록이었다 (2026-07-28 정정)**
+
+**폐기된 기록**: *"원본 `TransferQuantity:1` 짜리 라인을 3으로 바꿔 완료해도 200 → 실물이 보낸 수량보다 많아도 '들어온 대로' 쓸 수 있다(PO stock received 와 동일)."*
+
+**정정 — 완료 PUT 의 `TransferQuantity` 변경은 무시된다.** 신규 IN TRANSIT **TR-03267** 로 재실측(2026-07-28):
+
+| SKU | 원본 | 요청 | 저장(되읽음) |
+|-----|------|------|--------------|
+| `AS93113` | 2 | **4** | **2** ❌ |
+| `AS92700` | 4 | **2** | **4** ❌ |
+
+- **증가·감소 양방향 모두 무시**. 보낸 body(SENT)에 변경값이 정확히 실려 나가고 **PUT 은 200** 을 준다. 코드 버그가 아니라 **API 제약**이다(추정: 창고간 트랜스퍼는 발송 시점에 재고가 in-transit 계정으로 넘어가므로 거기 없는 수량을 완료로 받을 수 없다).
+- **왜 틀린 기록이 남았나**: **HTTP 200 만 보고 저장값을 되읽지 않았고**, PO stock received 의 초과 허용(이쪽은 **사실**)과 혼동됐다.
+- 📌 **원칙 — 쓰기 API 는 200 이 아니라 GET 으로 되읽은 값으로 검증한다.** 되돌릴 수 없는 쓰기를 새로 실측할 때는 반드시 되읽어 확인하고, **그 값**을 근거로 기록한다.
+- → 창고간 트랜스퍼 **완료 수량 = 보낸 수량 확정**. 실물 차이는 별도 재고 조정/discrepancy 로 처리한다. **PO stock received 경로는 그대로 — received 그대로 쓸 수 있다.**
+- 실측 뒷받침(**TR-02935**, 344 라인): Cin7 이 받은 수량 = 보낸 수량. APR15412 **24**(실물 48) · APR16104 **6**(12) · APR48208 **12**(24) · AJA66008 **6**(12) · WOC40103 **12**(실물 6).
 
 ## 3. 완료 시 bin 지정 불가 → 착지 지점 2가지
 트랜스퍼 **라인에 bin/location 필드가 없다**(ProductID, SKU, ProductName, QuantityOnHand, QuantityAvailable, TransferQuantity, BatchSN, ExpiryDate, Comments, 치수/가격/Barcode…). 그래서 헤더 `To` 하나로만 착지:
@@ -142,7 +166,15 @@ POST /stockTransfer
 ## 5. bin GUID 조회 (`/ref/location`)
 응답 행 키: `ID, Name, IsDefault, IsDeprecated, ParentID, Bins, FixedAssetsLocation, Address*, PickZones, IsCoMan, IsShopFloor, IsStaging`. ⚠️ `Location`/`Bin` 필드는 **없다**.
 - 창고: `Name === "Asung - Edmonton"` (ParentID 없음). 그 창고의 **`Bins[]`** 배열에서 `Name === bin코드` → `.ID` (에드먼튼 Bins 628개 확인)
-- 폴백: `ParentID === 창고ID` 인 child location 중 `Name` 이 `"창고명: bin"` 또는 `": bin"` 으로 끝나거나 `bin` 과 같은 것
+- ~~폴백: `ParentID === 창고ID` 인 child location…~~ → ⚠️ **2026-07-28 정정: 죽은 경로였다. 제거할 것** (아래).
+
+### ⚠️⚠️ 2026-07-28 실측 — `/ref/location` 은 잘린다. **`Bins[]` 만 써라**
+
+- **`Total` 2678 인데 `Limit=500` 으로 잘린다.** 잘린 500행 안에 **에드먼튼 child 가 0행**이었다 → child 폴백에 의존한 bin GUID 조회가 **첫 호출부터 실패**. (토론토는 우연히 앞 페이지에 있었을 뿐 안전하지 않았다.)
+- ✅ **최상위 창고 행(`ParentID` 없음)의 `Bins[]` 에 그 창고 bin 이 전부 들어있다** — 에드먼튼 **628** · 토론토 **2047**. **페이지네이션 불필요.** 원소 = `{ ID(GUID), Name, IsDeprecated, IsStaging }`.
+- ⚠️ **child-location 행의 `Name` 은 bin 이름이 아니다** — 예 `"071164313169"` 같은 바코드류다. 이름 매칭이 애초에 성립하지 않았다.
+- 이름 비교는 `trim().toUpperCase()`, `IsDeprecated` 는 제외.
+- 실사고(**TR-02935**, 2026-07-28): 이 때문에 bin 이동이 **한 건도 실행되지 않고** 전 품목(344 라인)이 집결 bin EZ010101 에 남았다.
 
 # 참고 — Sale 필드 매핑 (실측 확정)
 화면 **Comments** = API `Note` · 화면 **Shipping notes** = `ShippingNotes` · 화면 **Reference** = **`CustomerReference`** · **PriceTier** 는 최상위.
