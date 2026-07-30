@@ -198,6 +198,20 @@
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
+
+      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7</span></div>
+      <div class="grid" id="recvStatGrid"></div>
+      <div class="card" style="padding:14px 16px;margin-top:12px"><div id="recvTypeTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <div class="sect-h">Receiving by worker &amp; warehouse</div>
+      <div class="card" style="padding:14px 16px"><div id="recvByTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+
+      <div class="sect-h">Putaway <span style="font-weight:400;color:var(--mut);font-size:12.5px">— lines received in this period</span></div>
+      <div class="grid" id="putawayStatGrid"></div>
+      <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ "Moved in Cin7" counts transfer lines with exported_base &gt; 0. exported_base is only an <b>approximation</b> of what the WMS actually moved — it can be polluted by manual updates (2026-07-28: 344 rows of TR-02935 were backfilled by hand).</p>
+
+      <div class="sect-h">Receiving discrepancies <span style="font-weight:400;color:var(--mut);font-size:12.5px">— over / short / off-PO recorded at the dock</span></div>
+      <div class="grid" id="recvDiscGrid"></div>
+      <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ Receiving discrepancies were <b>never recorded before 2026-07-28</b> (unique-index bug) — periods before that date show no data even though differences did happen.</p>
     </div>
 
     <!-- Rollback -->
@@ -1723,6 +1737,7 @@ async function fixDisc(id){
 /* ---------- Stats ---------- */
 async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
+  loadRecvStats(r); // receiving/putaway stats fill in independently — never blocks pick/pack render (rule 34)
   // throughput: completed pick/pack batches (by completion time)
   const [picks, packs, disc]=await Promise.all([
     sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
@@ -1778,6 +1793,106 @@ function renderMistakes(m){
       <td class="num">${v.short_after_pack}</td>
       <td class="num">${v.over_pick}</td>
     </tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------- Stats: receiving / transfer / putaway (shares the stats period bar) ---------- */
+async function loadRecvStats(r){
+  // one round-trip batch: receipts + embedded lines / receiving discrepancies (rule 34 — no per-line queries)
+  const [rec,disc]=await Promise.all([
+    sb.from("wms_receipts")
+      .select("id,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done)")
+      .gte("created_at",r.fromISO).lte("created_at",r.toISO),
+    sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")
+      .gte("created_at",r.fromISO).lte("created_at",r.toISO),
+  ]);
+  if(statsRange!==r) return; // period changed while loading — the newer call renders
+  const err=rec.error||disc.error;
+  if(err){
+    const msg=`<div class="empty">Failed to load: ${esc(err.message||err)}</div>`;
+    document.getElementById("recvTypeTable").innerHTML=msg;
+    document.getElementById("recvByTable").innerHTML=msg;
+    return;
+  }
+  const nf=n=>Math.round(Number(n)||0).toLocaleString("en-CA");
+  const fmtRDur=m=>m<90?m.toFixed(0)+" min":(m<48*60?(m/60).toFixed(1)+" h":(m/1440).toFixed(1)+" d");
+  const durMin=(a,b)=>{ if(!a||!b)return null; const m=(new Date(b)-new Date(a))/60000; return (m>=0&&m<60*24*60)?m:null; };
+  const failedBins=s=>{ const m=/failed_moves\((\d+)\)/.exec(s||""); return m?Number(m[1]):0; };
+
+  const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0});
+  const T={po:mkT(),transfer:mkT()};
+  const byWorker={}, byWh={};
+  let applied=0, appliedPartial=0, notApplied=0;
+  let pLines=0,pDone=0,backLines=0,backUnits=0,trLines=0,trMoved=0;
+  (rec.data||[]).forEach(rc=>{
+    const t=T[rc.source_type==="transfer"?"transfer":"po"];
+    const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0};
+    const wh=byWh[rc.warehouse||"?"]=byWh[rc.warehouse||"?"]||{n:0,lines:0,units:0};
+    t.n++; w.n++; wh.n++;
+    const rm=durMin(rc.created_at,rc.completed_at);
+    if(rm!=null){ t.rMin+=rm;t.rN++; w.rMin+=rm;w.rN++; }
+    const am=durMin(rc.completed_at,rc.applied_at);
+    if(am!=null){ t.aMin+=am;t.aN++; }
+    if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
+    else if(rc.status==="completed") notApplied++;
+    (rc.wms_receipt_lines||[]).forEach(l=>{
+      const q=Number(l.received_base)||0;
+      if(q<=0)return; // untouched expected lines are not throughput
+      t.lines++; t.units+=q; w.lines++; w.units+=q; wh.lines++; wh.units+=q;
+      pLines++;
+      if(l.putaway_done)pDone++; else{ backLines++; backUnits+=q; }
+      if(rc.source_type==="transfer"){ trLines++; if((Number(l.exported_base)||0)>0)trMoved++; }
+    });
+  });
+
+  document.getElementById("recvStatGrid").innerHTML=[
+    ["PO receipts",T.po.n,""],
+    ["Transfer receipts",T.transfer.n,""],
+    ["Units received (base)",nf(T.po.units+T.transfer.units),""],
+    ["Applied to Cin7",applied,applied>0?"ok":""],
+    ["Applied, bins failed",appliedPartial,appliedPartial>0?"warn":""],
+    ["Completed, not applied",notApplied,notApplied>0?"warn":""],
+  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  const typeRow=(label,t)=>`<tr><td style="font-weight:600">${label}</td>
+    <td class="num">${t.n}</td><td class="num">${nf(t.lines)}</td><td class="num">${nf(t.units)}</td>
+    <td class="num">${t.rN?fmtRDur(t.rMin/t.rN):"—"}</td><td class="num">${t.aN?fmtRDur(t.aMin/t.aN):"—"}</td></tr>`;
+  document.getElementById("recvTypeTable").innerHTML=(T.po.n+T.transfer.n===0)
+    ? `<div class="empty">No receiving in this period.</div>`
+    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive</th><th class="num">Avg complete → apply</th></tr></thead>
+       <tbody>${typeRow("PO",T.po)}${typeRow("Transfer",T.transfer)}</tbody></table>`;
+
+  const wRows=Object.entries(byWorker).sort((a,b)=>b[1].units-a[1].units);
+  const whRows=Object.entries(byWh).sort((a,b)=>b[1].units-a[1].units);
+  document.getElementById("recvByTable").innerHTML=!wRows.length
+    ? `<div class="empty">No receiving in this period.</div>`
+    : `<table><thead><tr><th>Worker</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive</th></tr></thead>
+       <tbody>${wRows.map(([nm,v])=>`<tr><td style="font-weight:600">${esc(nm)}</td>
+         <td class="num">${v.n}</td><td class="num">${nf(v.lines)}</td><td class="num">${nf(v.units)}</td>
+         <td class="num">${v.rN?fmtRDur(v.rMin/v.rN):"—"}</td></tr>`).join("")}</tbody></table>
+       <table style="margin-top:14px"><thead><tr><th>Warehouse</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th></tr></thead>
+       <tbody>${whRows.map(([wh,v])=>`<tr><td style="font-weight:600">${esc(wh==="toronto"?"Toronto":wh==="edmonton"?"Edmonton":wh)}</td>
+         <td class="num">${v.n}</td><td class="num">${nf(v.lines)}</td><td class="num">${nf(v.units)}</td></tr>`).join("")}</tbody></table>`;
+
+  const donePct=pLines?Math.round(pDone/pLines*100):0;
+  const movedPct=trLines?Math.round(trMoved/trLines*100):0;
+  document.getElementById("putawayStatGrid").innerHTML=[
+    ["Putaway done",pLines?donePct+"%":"—",pLines?(donePct>=90?"ok":"warn"):""],
+    ["Backlog lines (not put away)",backLines,backLines>0?"warn":(pLines?"ok":"")],
+    ["Backlog units (base)",nf(backUnits),backLines>0?"warn":""],
+    ["Transfer lines moved in Cin7",trLines?movedPct+"%":"—",""],
+  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  let dOver=0,dShort=0,dOff=0,dOpen=0;
+  (disc.data||[]).forEach(d=>{
+    if(d.reason==="recv_over")dOver++; else if(d.reason==="recv_short")dShort++; else if(d.reason==="recv_off_po")dOff++;
+    if(d.cin7_corrected===false)dOpen++;
+  });
+  document.getElementById("recvDiscGrid").innerHTML=[
+    ["Over (got more)",dOver,dOver>0?"warn":""],
+    ["Short (got less)",dShort,dShort>0?"warn":""],
+    ["Off-PO",dOff,dOff>0?"warn":""],
+    ["Unresolved in Cin7",dOpen,dOpen>0?"bad":"ok"],
+  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 }
 
 /* ---------- work screen shortcuts ---------- */
