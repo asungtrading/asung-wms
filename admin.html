@@ -11,7 +11,7 @@
     --accent:#2f6df6; --accent-ink:#1b4fd6;
     --tor:#2f6df6; --edm:#12996b;
     --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --warn-bg:#fdf6ec; --danger:#dc2626; --danger-bg:#fdecec;
-    --violet:#7a5af0;
+    --violet:#7a5af0; --recv:#0d9488;
     --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
     --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
     --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
@@ -106,6 +106,7 @@
   .bar-row .track{flex:1;height:16px;background:var(--line-2);border-radius:5px;overflow:hidden}
   .bar-row .fill{height:100%;background:var(--accent);border-radius:5px}
   .bar-row .fill.pack{background:var(--violet)}
+  .bar-row .fill.recv{background:var(--recv)}
   .bar-row .val{width:44px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:700}
 
   #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50}
@@ -194,7 +195,7 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches completed + avg time per batch</span></div>
+      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
@@ -202,7 +203,7 @@
       <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7</span></div>
       <div class="grid" id="recvStatGrid"></div>
       <div class="card" style="padding:14px 16px;margin-top:12px"><div id="recvTypeTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
-      <div class="sect-h">Receiving by worker &amp; warehouse</div>
+      <div class="sect-h">Receiving by warehouse</div>
       <div class="card" style="padding:14px 16px"><div id="recvByTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
 
       <div class="sect-h">Putaway <span style="font-weight:400;color:var(--mut);font-size:12.5px">— lines received in this period</span></div>
@@ -275,6 +276,9 @@ let sb=null, me=null, staff=[];
 let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom={from:null,to:null};
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
+// Throughput by worker 병합 상태 — pick/pack(loadStats)과 receiving(loadRecvStats)이
+// 각자 도착하는 대로 renderProd()가 합쳐 그린다 (규칙 17: 렌더를 서로 막지 않음)
+let prodPP=null, prodRecv=null;
 
 const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
 const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
@@ -322,6 +326,9 @@ document.getElementById("stockRefreshBtn").onclick=async ()=>{
   }
 };
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+const nf=n=>Math.round(Number(n)||0).toLocaleString("en-CA");
+const fmtRDur=m=>m<90?m.toFixed(0)+" min":(m<48*60?(m/60).toFixed(1)+" h":(m/1440).toFixed(1)+" d");
+const durMin=(a,b)=>{ if(!a||!b)return null; const m=(new Date(b)-new Date(a))/60000; return (m>=0&&m<60*24*60)?m:null; };
 function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1900);}
 
 /* ---------- period calc ---------- */
@@ -1737,6 +1744,7 @@ async function fixDisc(id){
 /* ---------- Stats ---------- */
 async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
+  prodPP=null; prodRecv=null; // new period — both halves refill, renderProd merges whatever has arrived
   loadRecvStats(r); // receiving/putaway stats fill in independently — never blocks pick/pack render (rule 34)
   // throughput: completed pick/pack batches (by completion time)
   const [picks, packs, disc]=await Promise.all([
@@ -1744,13 +1752,14 @@ async function loadStats(){
     sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
+  if(statsRange!==r) return; // period changed while loading — the newer call renders
   // throughput + avg duration tally
   const prod={};
   const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0});
   const dur=t=>{ if(!t.started_at||!t.completed_at)return null; const m=(new Date(t.completed_at)-new Date(t.started_at))/60000; return (m>=0&&m<24*60)?m:null; };
   (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;} });
   (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;} });
-  renderProd(prod);
+  prodPP=prod; renderProd();
   // mistake tally (by responsible person, resolved not excluded — count occurrences themselves, resolved_pack_recovery excluded)
   const mistakes={};
   (disc.data||[]).forEach(d=>{ if(!d.responsible)return; if(d.reason==="resolved_pack_recovery")return;
@@ -1770,17 +1779,28 @@ function renderFulfillStats(fin){
     ["Packing-list rate",pct+"%",pct>=80?"ok":(total?"warn":"")],
   ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 }
-function renderProd(prod){
-  const rows=Object.entries(prod).sort((a,b)=>(b[1].pick+b[1].pack)-(a[1].pick+a[1].pack));
+function renderProd(){
+  // one row per worker = pick/pack (prodPP) ∪ receiving (prodRecv) — 두 조회가 도착하는 대로 병합 재렌더
   const el=document.getElementById("prodTable");
-  if(!rows.length){ el.innerHTML=`<div class="empty">No work completed in this period.</div>`; return; }
-  const max=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
-  el.innerHTML=rows.map(([nm,v])=>`
+  const pp=prodPP||{}, rv=prodRecv||{};
+  const names=[...new Set([...Object.keys(pp),...Object.keys(rv)])];
+  if(!names.length){ el.innerHTML=`<div class="empty">No work completed in this period.</div>`; return; }
+  const P0={pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0};
+  const rows=names.map(nm=>[nm,pp[nm]||P0,rv[nm]||null])
+    .sort((a,b)=>((b[1].pick+b[1].pack)-(a[1].pick+a[1].pack))||((b[2]?b[2].lines:0)-(a[2]?a[2].lines:0)));
+  const batchMax=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
+  // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
+  const lineMax=Math.max(...rows.map(([,,rc])=>rc?rc.lines:0),1);
+  el.innerHTML=rows.map(([nm,v,rc])=>{
+    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtRDur(rc.rMin/rc.rN)})`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
+    const recvBar=rc?`
+      <div class="bar-row"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
+    return `
     <div style="margin:10px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""} · Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}</span></div>
-      <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/max*100)}%"></div></div><span class="val">${v.pick}</span></div>
-      <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/max*100)}%"></div></div><span class="val">${v.pack}</span></div>
-    </div>`).join("");
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""} · Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}${recvTxt}</span></div>
+      <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/batchMax*100)}%"></div></div><span class="val">${v.pick}</span></div>
+      <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/batchMax*100)}%"></div></div><span class="val">${v.pack}</span></div>${recvBar}
+    </div>`;}).join("");
 }
 function renderMistakes(m){
   const rows=Object.entries(m).sort((a,b)=>b[1].total-a[1].total);
@@ -1813,9 +1833,6 @@ async function loadRecvStats(r){
     document.getElementById("recvByTable").innerHTML=msg;
     return;
   }
-  const nf=n=>Math.round(Number(n)||0).toLocaleString("en-CA");
-  const fmtRDur=m=>m<90?m.toFixed(0)+" min":(m<48*60?(m/60).toFixed(1)+" h":(m/1440).toFixed(1)+" d");
-  const durMin=(a,b)=>{ if(!a||!b)return null; const m=(new Date(b)-new Date(a))/60000; return (m>=0&&m<60*24*60)?m:null; };
   const failedBins=s=>{ const m=/failed_moves\((\d+)\)/.exec(s||""); return m?Number(m[1]):0; };
 
   const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0});
@@ -1825,7 +1842,7 @@ async function loadRecvStats(r){
   let pLines=0,pDone=0,backLines=0,backUnits=0,trLines=0,trMoved=0;
   (rec.data||[]).forEach(rc=>{
     const t=T[rc.source_type==="transfer"?"transfer":"po"];
-    const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0};
+    const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0};
     const wh=byWh[rc.warehouse||"?"]=byWh[rc.warehouse||"?"]||{n:0,lines:0,units:0};
     t.n++; w.n++; wh.n++;
     const rm=durMin(rc.created_at,rc.completed_at);
@@ -1839,7 +1856,7 @@ async function loadRecvStats(r){
       if(q<=0)return; // untouched expected lines are not throughput
       t.lines++; t.units+=q; w.lines++; w.units+=q; wh.lines++; wh.units+=q;
       pLines++;
-      if(l.putaway_done)pDone++; else{ backLines++; backUnits+=q; }
+      if(l.putaway_done){ pDone++; w.pDone++; } else{ backLines++; backUnits+=q; }
       if(rc.source_type==="transfer"){ trLines++; if((Number(l.exported_base)||0)>0)trMoved++; }
     });
   });
@@ -1861,15 +1878,13 @@ async function loadRecvStats(r){
     : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive</th><th class="num">Avg complete → apply</th></tr></thead>
        <tbody>${typeRow("PO",T.po)}${typeRow("Transfer",T.transfer)}</tbody></table>`;
 
-  const wRows=Object.entries(byWorker).sort((a,b)=>b[1].units-a[1].units);
+  // per-worker receiving merges into "Throughput by worker" (renderProd) — no separate worker table (중복 제거)
+  prodRecv=byWorker; renderProd();
+
   const whRows=Object.entries(byWh).sort((a,b)=>b[1].units-a[1].units);
-  document.getElementById("recvByTable").innerHTML=!wRows.length
+  document.getElementById("recvByTable").innerHTML=!whRows.length
     ? `<div class="empty">No receiving in this period.</div>`
-    : `<table><thead><tr><th>Worker</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive</th></tr></thead>
-       <tbody>${wRows.map(([nm,v])=>`<tr><td style="font-weight:600">${esc(nm)}</td>
-         <td class="num">${v.n}</td><td class="num">${nf(v.lines)}</td><td class="num">${nf(v.units)}</td>
-         <td class="num">${v.rN?fmtRDur(v.rMin/v.rN):"—"}</td></tr>`).join("")}</tbody></table>
-       <table style="margin-top:14px"><thead><tr><th>Warehouse</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th></tr></thead>
+    : `<table><thead><tr><th>Warehouse</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th></tr></thead>
        <tbody>${whRows.map(([wh,v])=>`<tr><td style="font-weight:600">${esc(wh==="toronto"?"Toronto":wh==="edmonton"?"Edmonton":wh)}</td>
          <td class="num">${v.n}</td><td class="num">${nf(v.lines)}</td><td class="num">${nf(v.units)}</td></tr>`).join("")}</tbody></table>`;
 
