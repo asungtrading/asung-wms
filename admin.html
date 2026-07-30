@@ -81,6 +81,13 @@
   .btnsm{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 11px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
   .btnsm.ok{background:var(--ok);color:#fff;border-color:transparent}
   .btnsm:hover{border-color:#c9d4e6}
+  /* Apply to Cin7 button states (waiting / running / done / partial / failed) */
+  .btnsm.busy{background:var(--mut-2);color:#fff;border-color:transparent}
+  .btnsm.warn{background:var(--warn);color:#fff;border-color:transparent}
+  .btnsm.bad{background:var(--danger);color:#fff;border-color:transparent}
+  .btnsm:disabled{opacity:.72;cursor:progress}
+  .btnsm:disabled:hover{border-color:var(--line)}
+  .btnsm .bspin{display:inline-block;width:9px;height:9px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;margin-right:6px;vertical-align:0;animation:sp .7s linear infinite}
   .empty,.loading{padding:44px 20px;text-align:center;color:var(--mut)}
   .loading .spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 12px;animation:sp .7s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -214,6 +221,7 @@
       <div class="sect-h">Off-PO approvals <span style="font-weight:400;color:var(--mut);font-size:12.5px">— items scanned at the dock that are not on the PO · putaway is blocked until approved</span></div>
       <div class="card"><div id="recvApprovals"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <div class="sect-h">Apply to Cin7 <span style="font-weight:400;color:var(--mut);font-size:12.5px">— writes completed receipts into Cin7 (PO stock received to bins / transfer completion + bin moves) · shows a plan first, nothing is written until you confirm</span></div>
+      <div id="applyBanner" style="display:none;margin:0 0 8px;padding:10px 12px;border-radius:10px;background:var(--warn-bg);border:1px solid #f0dcc0;color:#8a5a08;font-size:12.5px;line-height:1.5"></div>
       <div class="card"><div id="recvExports"></div></div>
       <div class="sect-h">Receiving history <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recent receipts</span></div>
       <div class="card"><div id="recvHistory"></div></div>
@@ -1344,6 +1352,7 @@ async function loadRecv(){
     +(pending.length?`<div style="color:var(--mut-2);padding:8px 14px;font-size:12px;border-top:1px solid var(--line)">${pending.length} receipt(s) still receiving/held — finish them to apply.</div>`:"");
   ex.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>applyToCin7(+b.dataset.apply,b.dataset.po,b));
   ex.querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>reviewReceipt(+b.dataset.review));
+  syncApplyBusyUI();   // 탭 전환 등으로 재렌더돼도 진행 중 상태(비활성 + 배너)를 유지
 
   const hist=document.getElementById("recvHistory");
   hist.innerHTML=rs.length
@@ -1481,13 +1490,19 @@ async function reviewReceipt(rid){
         <div style="font-size:11.5px;color:var(--mut-2);margin-top:2px">Review the putaway result below before writing to Cin7.</div>
       </div>
       <div style="overflow-y:auto;padding:8px 18px 12px;flex:1">${banner}${body}</div>
-      <div style="padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;align-items:center">${foot}</div>
+      <div style="padding:12px 18px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:center">
+        <div id="rvApplyNote" style="display:none;width:100%;padding:8px 10px;border-radius:8px;background:var(--warn-bg);border:1px solid #f0dcc0;color:#8a5a08;font-size:12px;line-height:1.45"></div>
+        ${foot}</div>
     </div>`;
     document.body.appendChild(ov);
-    ov.addEventListener("mousedown",e=>{ if(e.target===ov) ov.remove(); });
-    document.getElementById("rvClose").onclick=()=>ov.remove();
+    // ⚠️ Apply 진행 중에는 모달을 닫지 않는다 — 진행 표시를 잃으면 작업자가 다시 누른다.
+    ov.addEventListener("mousedown",e=>{ if(e.target===ov&&applyBusy===null) ov.remove(); });
+    document.getElementById("rvClose").onclick=()=>{
+      if(applyBusy!==null){ toast("Apply is running — please wait",true); return; }
+      ov.remove(); };
     const applyBtn=document.getElementById("rvApply");
-    if(applyBtn) applyBtn.onclick=()=>{ ov.remove(); applyToCin7(rid,rh.po_number,null); };
+    // 모달을 열어둔 채 적용한다(버튼이 Applying…→✓ 로 바뀌는 걸 보여주고, 성공 시 applyToCin7 이 닫는다).
+    if(applyBtn) applyBtn.onclick=()=>applyToCin7(rid,rh.po_number,applyBtn,ov);
     const reopenBtn=document.getElementById("rvReopen");
     if(reopenBtn) reopenBtn.onclick=async()=>{
       if(rh.applied_at){ toast("Already applied — cannot reopen",true); return; }
@@ -1498,16 +1513,71 @@ async function reviewReceipt(rid){
     };
   }catch(e){ toast("Review failed: "+(e.message||e),true); }
 }
-async function applyToCin7(rid,po,btn){
+// ── Apply 진행 상태 (⚠️ 중복 실행은 재고를 두 번 옮길 수 있다 — 규칙 27 R4) ──
+// EF 는 Cin7 에 bin 그룹마다 POST 하므로 대형 receipt(TR-02935 = 144 그룹)은 수십 초~수 분 걸린다.
+// 버튼이 안 변하면 작업자가 "안 눌렸다"고 판단해 다시 누른다 → 플래그 하나로 화면 전체의 Apply 를 막는다.
+let applyBusy=null;        // 진행 중인 receipt id (null = 유휴)
+let applyWriting=false;    // commit 구간(= Cin7 에 실제로 쓰는 중)에만 true
+let applyBtnRef=null;      // 진행 중인 버튼 노드(재렌더로 갈릴 수 있어 비교용)
+const APPLY_WAIT_MSG="Writing to Cin7 — this can take a few minutes for large receipts. Do not close this tab or press Apply again.";
+function applyUnloadGuard(e){ e.preventDefault(); e.returnValue=APPLY_WAIT_MSG; return APPLY_WAIT_MSG; }
+// alert() 는 렌더를 막으므로 상태 변경 뒤 한 프레임 양보해 버튼이 먼저 그려지게 한다.
+// ⚠️ 탭이 백그라운드면 rAF 가 안 돌아 영구 대기(=버튼이 busy 로 굳음)가 되므로 타임아웃으로 반드시 풀어준다.
+function paintFrame(){ return new Promise(r=>{
+  let done=false; const fin=()=>{ if(!done){ done=true; r(); } };
+  requestAnimationFrame(()=>requestAnimationFrame(fin)); setTimeout(fin,150); }); }
+// 버튼 상태: wait(초록 대기) / busy(회색+스피너·비활성) / ok(초록 ✓) / partial(주황 ⚠) / fail(빨강·다시 누를 수 있음)
+function setApplyBtn(btn,state,label){
+  if(!btn) return;
+  btn.classList.remove("ok","busy","warn","bad");
+  btn.classList.add(state==="busy"?"busy":state==="partial"?"warn":state==="fail"?"bad":"ok");
+  btn.disabled=(state==="busy"||state==="ok"||state==="partial");
+  btn.innerHTML=(state==="busy"?'<span class="bspin"></span>':"")+esc(label);
+}
+// 진행 중에는 목록의 다른 receipt Apply 도 비활성 + 안내 배너 표시. loadRecv 재렌더 후에도 다시 불러 상태를 복원한다.
+function syncApplyBusyUI(){
+  const busy=applyBusy!==null;
+  document.querySelectorAll("#recvExports [data-apply]").forEach(b=>{
+    if(+b.dataset.apply===applyBusy){
+      // 진행 중인 버튼은 setApplyBtn 이 관리한다. 단 탭 전환 등으로 새로 렌더된 노드라면 여기서 busy 로 되칠한다.
+      if(b!==applyBtnRef) setApplyBtn(b,"busy",applyWriting?"Applying…":"Checking…");
+      return; }
+    b.disabled=busy;
+    b.title=busy?"Another receipt is being applied — wait for it to finish":"";
+  });
+  // 목록 위 배너 + Review 모달 안의 같은 안내(모달이 배너를 덮으므로 양쪽에 둔다)
+  ["applyBanner","rvApplyNote"].forEach(id=>{
+    const bn=document.getElementById(id); if(!bn) return;
+    bn.style.display=applyWriting?"block":"none";
+    if(applyWriting) bn.textContent="⏳ "+APPLY_WAIT_MSG;
+  });
+}
+function setApplyWriting(on){
+  applyWriting=on;
+  if(on) window.addEventListener("beforeunload",applyUnloadGuard);
+  else window.removeEventListener("beforeunload",applyUnloadGuard);
+  syncApplyBusyUI();
+}
+async function applyToCin7(rid,po,btn,ov){
   if(!((me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply"))){
     toast("You don't have permission to Apply to Cin7",true); return; }
+  // ⚠️ 재진입 차단 — 같은 receipt 이든 다른 receipt 이든 진행 중에는 두 번째 Apply 를 받지 않는다.
+  if(applyBusy!==null){
+    toast(applyBusy===rid?"Apply is already running for this receipt — please wait"
+                         :"Another receipt is being applied — wait for it to finish",true);
+    return; }
   const EF=(window.WMS_CONFIG?WMS_CONFIG.SUPABASE_URL:"")+"/functions/v1/receiving";
   const hdrs=async()=>{
     const {data:{session}}=await sb.auth.getSession();
     const tk=(session&&session.access_token)||WMS_CONFIG.SUPABASE_ANON_KEY;
     return {Authorization:"Bearer "+tk, apikey:WMS_CONFIG.SUPABASE_ANON_KEY};
   };
-  if(btn)btn.disabled=true;
+  const waitLabel=(btn?btn.textContent.trim():"")||"Apply to Cin7";   // "Apply to Cin7" / "Retry failed bins" / "Apply to Cin7 →"
+  const lock=ov?Array.from(ov.querySelectorAll("button")).filter(b=>b!==btn):[];  // 모달에서 시작했으면 Close/Reopen 도 잠근다
+  applyBusy=rid; applyBtnRef=btn||null;
+  setApplyBtn(btn,"busy","Checking…");
+  lock.forEach(b=>b.disabled=true);
+  syncApplyBusyUI();
   try{
     // 1) dry-run 계획 (아무것도 안 씀)
     let r=await fetch(EF+"?action=apply&receipt_id="+rid,{headers:await hdrs()});
@@ -1526,7 +1596,10 @@ async function applyToCin7(rid,po,btn){
       ? `\n\nLeftover — stays in ${p.leftover_at_landing[0].where} (remove in Cin7 manually):\n${p.leftover_at_landing.map(s=>`· ${s.sku} ×${s.qty}`).join("\n")}`:"";
     const modeTxt=p.mode?`\nMode: ${p.retry?"RETRY (re-running only the bin moves that failed last time)":p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
     if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${exTxt}${loTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
-    // 2) commit
+    // 2) commit — 여기서부터 되돌릴 수 없다. 진행 표시 + 안내 배너 + 탭 닫기 경고.
+    setApplyBtn(btn,"busy","Applying…");
+    setApplyWriting(true);
+    await paintFrame();
     r=await fetch(EF+"?action=apply&receipt_id="+rid+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
     j=await r.json();
     if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
@@ -1534,6 +1607,10 @@ async function applyToCin7(rid,po,btn){
     // ⚠️ 부분 성공: 일부 bin 이동만 Cin7 이 거부한 경우다(대개 "Available quantity … is 0" — 리시빙 완료와 Apply
     //    사이에 그 재고가 이미 움직였다). ok:true 지만 "Applied" 로만 알리면 실패가 묻힌다 → 판정은 failed_moves 길이.
     const fails=j.failed_moves||[];
+    // 쓰기가 끝났으므로 탭 닫기 경고·배너를 먼저 내리고, 결과 상태를 alert 앞에서 그린다.
+    setApplyWriting(false);
+    setApplyBtn(btn,fails.length?"partial":"ok",fails.length?"⚠ Partial":"✓ Applied");
+    await paintFrame();
     if(fails.length){
       const failTxt=fails.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}\n   HTTP ${f.http_status||"?"}: ${f.cin7_error||"(no detail)"}`).join("\n");
       alert(`⚠ ${po} applied PARTIALLY.\n\n`
@@ -1547,9 +1624,27 @@ async function applyToCin7(rid,po,btn){
       alert("Applied to Cin7:\n\n"+(j.log||[]).join("\n")+(warn?"\n\n⚠ Check the warning above.":""));
       toast(po+" applied to Cin7"+(warn?" (with warning)":""));
     }
-    loadRecv();
-  }catch(e){ alert("Apply failed — nothing may have been written, check Cin7.\n\n"+(e.message||e)); toast("Apply failed",true); }
-  finally{ if(btn)btn.disabled=false; }
+    await new Promise(rs=>setTimeout(rs,900));   // ✓/⚠ 를 잠깐 보여주고 목록 새로고침
+    if(ov) ov.remove();
+    applyBusy=null; applyBtnRef=null;
+    // ⚠️ 새로고침 실패를 Apply 실패로 표시하면 안 된다(Cin7 은 이미 반영됐다) → catch 에 넘기지 않는다.
+    //    실패하면 ✓ 버튼을 비활성 그대로 남긴다 — 재클릭 유도가 이중 반영보다 위험하다.
+    await loadRecv().catch(()=>toast("Applied — reload the page to refresh the list",true));
+  }catch(e){
+    setApplyWriting(false);
+    setApplyBtn(btn,"fail","Apply failed");      // 실패는 다시 누를 수 있어야 하므로 활성 상태로 남긴다
+    await paintFrame();
+    alert("Apply failed — nothing may have been written, check Cin7.\n\n"+(e.message||e)); toast("Apply failed",true);
+    setTimeout(()=>{ if(applyBusy===null&&btn&&btn.classList.contains("bad")) setApplyBtn(btn,"wait",waitLabel); },5000);
+  }
+  // ⚠️ 어떤 경로(성공·부분성공·실패·취소·예외)로 빠져나가도 버튼이 영구 비활성으로 남으면 안 된다.
+  finally{
+    applyBusy=null; applyBtnRef=null;
+    setApplyWriting(false);
+    lock.forEach(b=>b.disabled=false);
+    if(btn&&btn.classList.contains("busy")) setApplyBtn(btn,"wait",waitLabel);   // dry-run 취소 경로
+    syncApplyBusyUI();
+  }
 }
 async function printOrderPackingList(oid){
   const win=window.open("","_blank");   // open within click gesture
