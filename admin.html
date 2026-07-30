@@ -67,6 +67,8 @@
   tbody tr:last-child td{border-bottom:0}
   td.num,th.num{text-align:right;font-family:var(--mono)}
   .tag{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  /* LIVE NOW 칩 — 어떤 페이로드가 와도 스트립이 안 깨지게: 한 줄 고정 + 넘치면 … (전체는 title 툴팁) */
+  #liveStrip .tag{display:inline-block;max-width:340px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
   .r-short_pick{color:var(--warn);background:var(--warn-bg)}
   .r-short_after_pack{color:#fff;background:var(--danger)}
   .r-over_pick{color:#fff;background:var(--violet)}
@@ -173,7 +175,7 @@
       <div class="grid" id="orderStats"></div>
       <div class="sect-h">work batches</div>
       <div class="grid" id="batchStats"></div>
-      <div class="sect-h">Live now <span style="font-weight:400;color:var(--mut);font-size:12.5px">— batches open on a worker's screen this second</span></div>
+      <div class="sect-h">Live now <span style="font-weight:400;color:var(--mut);font-size:12.5px">— screens open this second · Picking/Packing (batch) · Receiving/Transfer (stage · document) · Fulfillment (orders)</span></div>
       <div class="card" style="padding:10px 14px"><div id="liveStrip"><span style="color:var(--mut);font-size:12.5px">Connecting…</span></div></div>
       <div class="sect-h">Batch activity <span style="font-weight:400;color:var(--mut);font-size:12.5px">— who holds what · 🟢 active (open on screen) · 🟡 away (screen closed) · release returns it to the pool with progress kept</span></div>
       <div class="card"><div id="batchActivity"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
@@ -452,18 +454,41 @@ function liveList(){
   const out=[];
   Object.keys(presence).forEach(k=>{
     if(k.startsWith("admin|")) return; // observers don't count as workers
-    (presence[k]||[]).forEach(m=>{ if(m&&m.batch) out.push(m); });
+    (presence[k]||[]).forEach(m=>{ if(m&&m.name) out.push(m); });
   });
   return out;
 }
-function liveBatchSet(){ return new Set(liveList().map(m=>m.batch)); }
+/* pick/pack 배치 라벨만 — batch 필드는 picker/packer 전용 페이로드 (BATCH ACTIVITY fresh() 판정 소스) */
+function liveBatchSet(){ return new Set(liveList().filter(m=>m.batch).map(m=>m.batch)); }
+/* screen 값으로 표시 분기. ⚠️ 미상 screen 은 Picking 으로 폴백하지 않는다(오표시 방지 — 규칙 24) → "Other"
+   full=true → 축약 없는 전체 라벨 (칩 title 툴팁용) */
+function liveLabel(m,full){
+  if(m.screen==="picker")  return "Picking · "+esc(m.batch||"—");
+  if(m.screen==="packer")  return "Packing · "+esc(m.batch||"—");
+  if(m.screen==="receiver"){
+    const doc=m.po?String(m.po):(m.receipt!=null?"receipt #"+m.receipt:"—");
+    const kind=/^TR-/i.test(doc)?"Transfer":"Receiving"; // 페이로드에 source_type 없음 → 문서번호 접두사로 판정
+    const stage=(m.stage==="putaway"||m.stage==="receiving")?" · "+m.stage:"";
+    return kind+stage+" · "+esc(doc);
+  }
+  if(m.screen==="fulfillment") return "Fulfillment · "+esc(full?(m.order||"—"):fulfillShort(m));
+  return "Other";
+}
+/* fulfillment 는 오더번호가 누적된다(멀티오더) — 2개까지 전부, 넘으면 "첫번째 +N more".
+   전체 목록은 칩 title(hover)로. 페이로드는 안 건드린다(표시만 축약). */
+function fulfillShort(m){
+  const all=String(m.order||"").split(/,\s*/).filter(Boolean);
+  if(!all.length) return "—";
+  if(all.length<=2) return all.join(", ");
+  return all[0]+" +"+(all.length-1)+" more";
+}
 function renderLiveStrip(){
   const el=document.getElementById("liveStrip"); if(!el) return;
   const ls=liveList();
-  if(!ls.length){ el.innerHTML=`<span style="color:var(--mut);font-size:12.5px">No one has a batch open right now.</span>`; return; }
+  if(!ls.length){ el.innerHTML=`<span style="color:var(--mut);font-size:12.5px">No one is working on a WMS screen right now.</span>`; return; }
   el.innerHTML=ls.map(m=>
-    `<span class="tag" style="background:#e8f7ee;color:#1e7d43;border:1px solid #bfe8cd;margin:2px 6px 2px 0">
-      🟢 ${esc(m.name)} · ${m.screen==="packer"?"Packing":"Picking"} · ${esc(m.batch)}</span>`).join("");
+    `<span class="tag" style="background:#e8f7ee;color:#1e7d43;border:1px solid #bfe8cd;margin:2px 6px 2px 0" title="${esc(m.name)} · ${liveLabel(m,true)}">
+      🟢 ${esc(m.name)} · ${liveLabel(m)}</span>`).join("");
 }
 function markLiveRows(){
   const live=liveBatchSet();

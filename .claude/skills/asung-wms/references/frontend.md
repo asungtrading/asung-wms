@@ -225,7 +225,7 @@ let bumpT=null;               // wms_receipts.updated_at debounce (4s)
 
 ### presence (L4)
 - `presenceKey()` = `me.name+"|receiver:"+receipt.id`, `presenceJoin/presenceLeave/readPresence/othersLabel/renderAlsoHere`. 채널은 picker/packer 와 같은 **`wms-presence`**.
-- track 페이로드 = `{name, screen:"receiver", receipt, po, at}`. ⚠️ **`batch` 넣지 말 것** — admin `liveList()` 가 batch 있는 멤버만 워커로 집계하고 Picking/Packing 으로만 표시 → receiver 오표시.
+- track 페이로드 = `{name, screen:"receiver", receipt, po, stage, at}`. **`stage`="receiving"|"putaway"** (2026-07-30) — admin LIVE NOW 의 단계 표시용. `presenceJoin` 이 "receiving" 으로 초기화, `showPutaway()`/`putBackBtn` 이 `presenceStage()` 로 재-track(**화면 전환 시 1회만** — 타이머 금지, 규칙 22). ⚠️ **`batch` 넣지 말 것** — batch 는 picker/packer 배치 라벨 전용으로 admin `liveBatchSet()`(BATCH ACTIVITY 판정)이 소비한다. LIVE NOW 분기는 아래 「admin LIVE NOW 전 화면 확장」.
 - 배지 = 헤더 `#alsoHere`("🟢 also here: 이름", title 에 설명). `openReceipt` 에서 join, `exitToList` 에서 leave + `unconfirmed/writeChain.clear()`.
 - ⚠️ **타이머 없음**(규칙 22). presence sync 이벤트로만 갱신.
 
@@ -292,6 +292,17 @@ const visPos = openPos.map((p,i)=>({p,i})).filter(({p}) => !shownDocs.has(String
 - `savePutawayAssigns(list)`: 동시 8개 워커 풀로 `queueWrite(l,"putaway")` 소진. 저장 엔진(규칙 24)은 무변경 — 같은 라인 후속 쓰기는 writeChain 이 줄 세움, 실패는 unconfirmed → 완료 flush.
 - 계측 `?debug=perf`: `PERF` 플래그 + `perfLog()` — putaway entry / putaway bg saves / renderPutaway / renderRecv 소요와 DOM 노드 수를 콘솔 `[perf]` 로. 평상시 no-op.
 - ⚠️ bin 목록은 무혐의(모달 300개 캡, 라인마다 안 그림 — 규칙 34). 앞으로도 라인마다 bin 전체 목록을 그리지 말 것.
+
+## 2026-07-30 — admin LIVE NOW 전 화면 확장 (리시빙·트랜스퍼·풋어웨이·fulfillment)
+
+`liveList()` 의 `batch` 필수 조건을 제거하고 **`screen` 값으로 분기**(`liveLabel(m)`).
+
+- `picker`→`Picking · 배치` / `packer`→`Packing · 배치` / `receiver`→`Receiving|Transfer · stage · 문서번호` / `fulfillment`→`Fulfillment · 오더번호`.
+- **트랜스퍼 판정 = 문서번호 `TR-` 접두사** (`/^TR-/i.test(m.po)`) — receiver 페이로드에 source_type 이 없다. 풋어웨이는 별도 항목이 아니라 receiver 의 `stage`("receiving"/"putaway")로 표시.
+- ⚠️ **screen 이 없거나 미상인 멤버를 Picking 으로 폴백하지 말 것** — `Other` 로 표시(과거 오표시의 재발 방지 — 규칙 24). `admin|` 키는 계속 제외.
+- **`liveBatchSet()` 은 분리됨**: `liveList().filter(m=>m.batch)` — BATCH ACTIVITY 의 `fresh()` 판정은 픽/팩 배치 전용이라 무영향. active/away 판정·채널명·키 형식 무변경.
+- **fulfillment.html presence 신규**: key = `me.name+"|fulfillment"`, 페이로드 `{name, screen:"fulfillment", order:오더번호들, at}` (⚠️ batch 없음·타이머 없음). `loadWorkspace()` 에서 join/재-track(오더 추가 시 갱신), Finalize 리셋에서 leave. 창 닫힘은 웹소켓 종료로 자동 제거.
+- **fulfillment 칩 축약**(`fulfillShort`): 오더 3개+ 면 `SO-13849 +9 more`(1~2개는 전부 표시), 전체 목록은 칩 `title` 툴팁(`liveLabel(m,true)`). 칩은 `#liveStrip .tag` CSS 로 `max-width:340px`+ellipsis 한 줄 고정 — 페이로드는 축약하지 않는다(표시만).
 
 ## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
 

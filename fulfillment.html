@@ -377,6 +377,31 @@ document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad===true?" bad":bad==="warn"?" warn":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",bad?2600:1800);}
 
+/* ---------- presence: admin LIVE NOW 표시용 (receiver L4 패턴 이식) ---------- */
+/* picker/packer/receiver 와 같은 "wms-presence" 채널. 이벤트 기반 — 타이머·폴링 없음(규칙 22, 배터리).
+   ⚠️ batch 필드를 넣지 않는다 — admin 의 liveBatchSet()/BATCH ACTIVITY 판정이 batch 를
+      picker/packer 배치 라벨로 해석한다. 구분은 screen:"fulfillment" + 오더번호(order). */
+let presCh=null;
+function presenceKey(){ return me.name+"|fulfillment"; }
+function presenceTrack(){
+  if(!presCh) return;
+  try{
+    if(!orders.length){ presCh.untrack(); return; }
+    presCh.track({ name:me.name, screen:"fulfillment",
+      order:orders.map(o=>o.order_number).join(", "), at:new Date().toISOString() });
+  }catch(e){}
+}
+function presenceJoin(){
+  if(presCh){ presenceTrack(); return; }   // 워크스페이스 오더 변경 시 페이로드만 갱신
+  try{
+    presCh=sb.channel("wms-presence",{config:{presence:{key:presenceKey()}}});
+    presCh.subscribe(st=>{ if(st==="SUBSCRIBED") presenceTrack(); });
+  }catch(e){}
+}
+function presenceLeave(){
+  if(presCh){ try{ presCh.untrack(); sb.removeChannel(presCh); }catch(e){} presCh=null; }
+}
+
 /* ---------- order list (orders with completed packs) — checklist ---------- */
 async function loadOrders(){
   const {data:packs}=await sb.from("wms_pack_tasks").select("order_id").eq("status","completed");
@@ -476,6 +501,7 @@ document.getElementById("completeBtn").onclick=async ()=>{
     toast(orders.length+" order(s) finalized");
     // reset workspace
     orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[];
+    presenceLeave();   // 워크스페이스 비움 — LIVE NOW 에서 제거
     scanTarget=null; scanLog=[]; bcMap={}; assignState.clear(); writeChain.clear();
     renderScanBar(); renderRecent();
     document.getElementById("ordInfo").textContent="Select the orders to ship together.";
@@ -494,6 +520,7 @@ document.getElementById("completeBtn").onclick=async ()=>{
 async function loadWorkspace(){
   const {data:ods}=await sb.from("wms_orders").select("*").in("id",orderIds);
   orders=ods||[]; orderById={}; orders.forEach(o=>orderById[o.id]=o);
+  presenceJoin();   // admin LIVE NOW — 현재 열린 오더번호로 track (오더 추가 시 갱신)
   // header info
   const custs=[...new Set(orders.map(o=>o.customer_name||"—"))];
   document.getElementById("ordInfo").innerHTML=

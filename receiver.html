@@ -420,20 +420,29 @@ function flash(kind,msg){
 
 /* ---------- presence: 같은 receipt 를 누가 함께 받고 있는지 ---------- */
 /* picker/packer 와 같은 "wms-presence" 채널. 이벤트 기반이라 서버 폴링·타이머가 없다(규칙 22, 배터리).
-   ⚠️ batch 필드를 넣지 않는다 — admin 의 liveList() 는 batch 있는 멤버만 워커로 집계하고
-      screen 을 Picking/Packing 으로만 표시하므로, receiver 가 섞이면 잘못 표시된다. */
+   ⚠️ batch 필드를 넣지 않는다 — admin 의 liveBatchSet()/BATCH ACTIVITY 판정이 batch 를
+      picker/packer 배치 라벨로 해석하므로, receiver 가 넣으면 배치 활동이 잘못 표시된다.
+   stage = "receiving"|"putaway" — admin LIVE NOW 가 검수/풋어웨이 단계를 표시하는 데 쓴다.
+   화면 전환 시점에 한 번씩만 재-track (타이머 금지 — 규칙 22). */
 function presenceKey(){ return me.name+"|receiver:"+(receipt?receipt.id:""); }
+let presStage="receiving";
+function presencePayload(){
+  return { name:me.name, screen:"receiver", receipt:receipt.id,
+           po:receipt.po_number, stage:presStage, at:new Date().toISOString() };
+}
+function presenceStage(stage){
+  presStage=stage;
+  if(presCh&&receipt){ try{ presCh.track(presencePayload()); }catch(e){} }
+}
 function presenceJoin(){
   presenceLeave();
   if(!receipt) return;
+  presStage="receiving";   // 열면 항상 검수 화면부터
   try{
     presCh=sb.channel("wms-presence",{config:{presence:{key:presenceKey()}}});
     presCh.on("presence",{event:"sync"},()=>{ readPresence(); renderAlsoHere(); })
       .subscribe(st=>{
-        if(st==="SUBSCRIBED"&&receipt) presCh.track({
-          name:me.name, screen:"receiver", receipt:receipt.id,
-          po:receipt.po_number, at:new Date().toISOString()
-        });
+        if(st==="SUBSCRIBED"&&receipt) presCh.track(presencePayload());
       });
   }catch(e){}
 }
@@ -1336,11 +1345,13 @@ function showPutaway(){
   document.getElementById("pTitle").textContent=receipt.po_number+" · Putaway";
   document.getElementById("pMeta").textContent=(receipt.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(receipt.supplier_name||"");
   renderPutaway();
+  presenceStage("putaway");
 }
 document.getElementById("putBackBtn").onclick=()=>{
   document.getElementById("putView").style.display="none";
   document.getElementById("recvView").style.display="block";
   renderRecv(); focusScan();
+  presenceStage("receiving");
 };
 
 function renderPutaway(){
