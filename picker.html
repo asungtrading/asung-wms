@@ -119,9 +119,11 @@
   .navrow{display:flex;gap:10px;margin-top:14px}
   .navrow .btn{flex:1}
   .manual{margin-top:10px;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer;font-weight:700;padding:4px}
-  .reportrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
-  .reportrow .rep{flex:1;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .reportrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .reportrow .rep{flex:1 1 30%;min-width:104px;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
   .reportrow .rep:active{background:#fdf3df}
+  .reportrow .rep.on{background:#a86e12;border-color:#a86e12;color:#fff}
+  .reportrow .rep:disabled{opacity:.55;cursor:default}
 
   /* list view */
   .list{display:none;flex-direction:column;gap:8px}
@@ -269,6 +271,7 @@ let sb=null, staff=[], me=null, zoneSeq={};
 let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single", batchFilter="";
 let waves=[], myWaves=[], staleWaves=[], wave=null, tasks=[];   // wave mode (grouped small orders, sort-to-tote)
 let curWh="", pickTitle="", pickMeta="";                        // shared pick-view context (single batch or wave)
+let imgFlags=new Set(), imgBusy=false;                          // open image_mismatch reports: "orderId|sku"
 let actx=null;
 
 /* ---------- lease / presence (heartbeat 제거 — 스캔 시 이어받기로 대체) ---------- */
@@ -705,6 +708,7 @@ async function enterPickView(){
   document.getElementById("pTitle").textContent=pickTitle;
   document.getElementById("pMeta").textContent=pickMeta;
   renderPick(); focusScan();
+  loadImageFlags();   // independent — restores the pressed state of ⚑ Image differs
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
   // enrich availability (independent — a failure here must not block barcodes)
   if(baseSkus.length){
@@ -886,13 +890,16 @@ function renderSingle(){
       <div class="reportrow">
         <button class="rep" data-rep="loc">⚑ Wrong location</button>
         <button class="rep" data-rep="bc">⚑ Barcode changed</button>
+        <button class="rep ${imgFlagged(l)?"on":""}" data-rep="img" ${imgBusy?"disabled":""}>${imgFlagged(l)?"✓":"⚑"} Image differs</button>
       </div>
     </div>`;
   const s=document.getElementById("single");
   s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
-  s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>reportIssue(b.dataset.rep, curIdx));
+  s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.rep==="img") toggleImageReport(curIdx); else reportIssue(b.dataset.rep, curIdx);
+  });
   const mc=s.querySelector("[data-map]");
   if(mc) mc.onclick=()=>window.open("https://tools.asung.ca/warehousemap.html?loc="+encodeURIComponent(mc.dataset.map),"_blank");
 }
@@ -996,6 +1003,55 @@ async function reportIssue(kind, idx){
     toast((kind==="loc"?"Location":"Barcode")+" issue reported");
   }catch(e){ toast("Report failed: "+(e.message||e),true); }
   focusScan();
+}
+
+/* ---------- image mismatch report (toggle, no detail prompt) → wms_reports ----------
+   One open report per order+sku+kind: press to report, press again to cancel.
+   In a wave the order is per line (l._orderId) — the same rule finish() uses.        */
+const IMG_NOTE="Image does not match the physical product";
+function lineOrder(l){
+  return wave ? {id:l._orderId, num:l._orderNumber||""}
+              : {id:task?task.order_id:null, num:order?order.order_number:""};
+}
+function imgKey(l){ const o=lineOrder(l); return o.id?o.id+"|"+(l.order_sku||""):""; }
+function imgFlagged(l){ const k=imgKey(l); return !!k && imgFlags.has(k); }
+async function loadImageFlags(){
+  imgFlags=new Set();
+  try{
+    const oids=[...new Set(lines.map(l=>lineOrder(l).id).filter(Boolean))];
+    const skus=[...new Set(lines.map(l=>l.order_sku).filter(Boolean))];
+    if(!oids.length||!skus.length) return;
+    const {data,error}=await sb.from("wms_reports")
+      .select("order_id,sku").eq("kind","image_mismatch").is("resolved_at",null)
+      .in("order_id",oids).in("sku",skus);
+    if(error) throw error;
+    (data||[]).forEach(r=>imgFlags.add(r.order_id+"|"+(r.sku||"")));
+    renderPick();
+  }catch(e){ /* pressed state is cosmetic — never block the pick view */ }
+}
+async function toggleImageReport(idx){
+  const l=lines[idx]; if(!l||imgBusy) return;
+  const o=lineOrder(l);
+  if(!o.id){ toast("Cannot report — order unknown",true); focusScan(); return; }
+  const key=o.id+"|"+(l.order_sku||""), on=imgFlags.has(key);
+  imgBusy=true; renderPick();
+  try{
+    if(on){
+      // cancel: only the still-open report — resolved history is never deleted
+      const {error}=await sb.from("wms_reports").delete()
+        .eq("order_id",o.id).eq("sku",l.order_sku).eq("kind","image_mismatch").is("resolved_at",null);
+      if(error) throw error;
+      imgFlags.delete(key); toast("Image report cancelled");
+    }else{
+      const {error}=await sb.from("wms_reports").insert({
+        order_id:o.id, order_number:o.num, sku:l.order_sku,
+        kind:"image_mismatch", note:IMG_NOTE, reported_by:me.name, source:"picker"
+      });
+      if(error) throw error;
+      imgFlags.add(key); toast("Image issue reported");
+    }
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  imgBusy=false; renderPick(); focusScan();
 }
 
 /* ---------- save (background) ---------- */

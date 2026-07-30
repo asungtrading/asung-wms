@@ -63,7 +63,9 @@
 기존 컬럼에 더해: **`fulfillment_type`**(packing_list=팔렛/박스 구성 후 완료 / direct=직접출고·픽업, 팩킹리스트 없음), **`finalized_by`**(완료 작업자), **`finalized_at`**(완료 시각, 통계 기준). ⚠️ Finalize 시 status는 `closed`로 저장하고 화면에서만 "Finalized"로 표시(status enum 제약 회피). 인덱스 `idx_orders_finalized`(부분).
 
 ## wms_reports — 워커 데이터품질 리포트 (2026-07-21 추가, `wms_reports.sql`)
-`id`(PK), `order_id`(FK), `order_number`, `sku`, `kind`(`wrong_location`/`barcode_mismatch`), `note`(상세 예 "Listed bin A1-02 · found at B3-04"), `reported_by`(작업자), `source`(picker/packer), `resolved_by`, `resolved_at`, `created_at`. **discrepancy(재고수량) 큐와 분리.** picker=wrong_location+barcode_mismatch, packer=barcode_mismatch. admin Reports 탭에서 리뷰/resolve. 인덱스 `idx_reports_open`(부분)·`idx_reports_order`. RLS auth_all.
+`id`(PK), `order_id`(FK), `order_number`, `sku`, `kind`(`wrong_location`/`barcode_mismatch`/`image_mismatch`), `note`(상세 예 "Listed bin A1-02 · found at B3-04"), `reported_by`(작업자), `source`(picker/packer), `resolved_by`, `resolved_at`, `created_at`. **discrepancy(재고수량) 큐와 분리.** picker=wrong_location+barcode_mismatch+image_mismatch, packer=barcode_mismatch+image_mismatch. admin Reports 탭에서 리뷰/resolve(kind 필터). 인덱스 `idx_reports_open`(부분)·`idx_reports_order`. RLS auth_all.
+- ⚠️ **`kind` 는 `text NOT NULL` — CHECK 제약이 없다**(baseline 710~723 확인). 새 kind 추가는 앱 코드만으로 되고 마이그레이션이 필요 없다. 규칙 29 대로 실물 확인 후 판단할 것: `supabase/wms_reports_image_mismatch.sql` STEP 1(제약이 있으면 STEP 2 가 값 목록을 실데이터에서 뽑아 재생성).
+- **`image_mismatch`(2026-07-30)** — 화면 이미지 ≠ 실물. 토글형: note 는 코드가 `Image does not match the physical product` 고정 생성, 다시 누르면 **미해결 행 delete**. 불변식 = **order_id+sku+kind 당 미해결 1행**(⚠️ DB 제약 아님, 앱 레벨 — 밀리초 동시진입은 이론적 예외). picker wave 는 라인별 `_orderId` 로 귀속.
 
 ## wms_rollback_log — 롤백 감사 (2026-07-21, `wms_rollback_log.sql`)
 `id`(PK), `order_id`, `order_number`, `action`, `from_stage`, `to_stage`, `performed_by`, `note`, `created_at`. admin Rollback 탭이 단계 되돌릴 때 기록. 한 단계씩 최심단계만(Undo Fulfillment→Undo Pack→Reset Pick→Undo Split). discrepancy는 자동삭제 안 함.

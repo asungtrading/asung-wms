@@ -209,9 +209,9 @@
       <div class="card"><div id="rollbackLog"></div></div>
     </div>
 
-    <!-- Reports (data-quality: wrong location / barcode changed) -->
+    <!-- Reports (data-quality: wrong location / barcode changed / image differs) -->
     <div class="view" id="v-reports">
-      <div class="sect-h">Worker reports <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode changed (from picking/packing)</span></div>
+      <div class="sect-h">Worker reports <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode changed · image differs (from picking/packing)</span></div>
       <div class="card"><div id="reportsList"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
     </div>
 
@@ -262,7 +262,7 @@ let discPeriodKey="week", statsPeriodKey="week", finPeriodKey="week", finCustom=
 let discRange=null, statsRange=null;
 let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 
-const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
+const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
 const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
 
 /* ---------- boot / login ---------- */
@@ -1047,7 +1047,8 @@ async function doUndoWave(wid,label,memberCnt){
 }
 
 /* ---------- Reports (data-quality) ---------- */
-const REPORT_KIND={wrong_location:"Wrong location", barcode_mismatch:"Barcode changed"};
+const REPORT_KIND={wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs"};
+let repOpen=[], repDone=[], repKind="all";   // kind filter is client-side over the loaded rows
 async function refreshReportBadge(){
   try{
     const {count}=await sb.from("wms_reports").select("id",{count:"exact",head:true}).is("resolved_at",null);
@@ -1063,6 +1064,11 @@ async function loadReports(){
     sb.from("wms_reports").select("*").not("resolved_at","is",null).order("created_at",{ascending:false}).limit(50),
   ]);
   if(open.error){ el.innerHTML=`<div class="empty" style="font-size:12px">Reports table not found. Run wms_reports.sql to enable.</div>`; return; }
+  repOpen=open.data||[]; repDone=done.data||[];
+  renderReports();
+}
+function renderReports(){
+  const el=document.getElementById("reportsList");
   const row=(r,actionable)=>`<tr>
     <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"")}</td>
     <td style="font-family:var(--mono)">${esc(r.sku||"")}</td>
@@ -1074,14 +1080,23 @@ async function loadReports(){
       ? `<td><button class="btnsm ok" data-resolve="${r.id}">Mark resolved</button></td>`
       : `<td style="color:var(--mut);font-size:12px">${r.resolved_by?esc(r.resolved_by)+" · ":""}${r.resolved_at?new Date(r.resolved_at).toLocaleDateString():""}</td>`}
   </tr>`;
-  const openR=open.data||[], doneR=done.data||[];
+  const keep=r=>repKind==="all"||r.kind===repKind;
+  const openR=repOpen.filter(keep), doneR=repDone.filter(keep);
+  // kind filter — counts are of OPEN reports so a manager sees where the work is
+  const kindBtn=(v,l)=>{
+    const n=v==="all"?repOpen.length:repOpen.filter(r=>r.kind===v).length;
+    return `<button data-repkind="${v}" style="border:1px solid var(--line);background:${repKind===v?"#eef4ff":"#fff"};color:${repKind===v?"#2456d6":"var(--mut)"};border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px">${l}${n?` (${n})`:""}</button>`;
+  };
+  const filterBar=`<div style="margin:0 0 10px">${kindBtn("all","All")}${Object.entries(REPORT_KIND).map(([k,l])=>kindBtn(k,l)).join("")}</div>`;
   const head=`<thead><tr><th>Order</th><th>SKU</th><th>Type</th><th>Detail</th><th>Reported by</th><th>Date</th><th></th></tr></thead>`;
   el.innerHTML=`
+    ${filterBar}
     <div class="sect-h" style="margin-top:0">Open ${openR.length?`(${openR.length})`:"(0)"}</div>
     <table>${head}<tbody>${openR.length?openR.map(r=>row(r,true)).join(""):`<tr><td colspan="7" style="color:var(--mut);padding:14px">No open reports.</td></tr>`}</tbody></table>
     <div class="sect-h">Resolved (recent)</div>
     <table>${head}<tbody>${doneR.length?doneR.map(r=>row(r,false)).join(""):`<tr><td colspan="7" style="color:var(--mut);padding:14px">None.</td></tr>`}</tbody></table>`;
   el.querySelectorAll("[data-resolve]").forEach(b=>b.onclick=()=>resolveReport(+b.dataset.resolve));
+  el.querySelectorAll("[data-repkind]").forEach(b=>b.onclick=()=>{ repKind=b.dataset.repkind; renderReports(); });
   refreshReportBadge();
 }
 async function resolveReport(id){

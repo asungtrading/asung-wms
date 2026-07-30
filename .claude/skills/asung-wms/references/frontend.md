@@ -46,7 +46,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 - **packer 싱글모드**: picker처럼 Single/List 토글(기본 List). 이미지/zone-bin/이름/sku/barcodeBlock/칩(Short/Pack fill/Over-scan).
 - **싱글뷰 barcodeBlock**: base(factor1) + 변형(factor>1, ×12 등) + ALT-UPC(scannable_barcodes type='alt'). picker·packer 공통.
 - **⚠️ -12 박스 스캔**: 형제 스냅샷 바코드를 bcMap에 병합해야 base 라인에서도 박스 바코드 스캔됨(picker/packer loadLines/enterPack).
-- **리포트 버튼**: picker ⚑Wrong location/⚑Barcode changed, packer ⚑Barcode changed → `wms_reports` insert.
+- **리포트 버튼**: picker ⚑Wrong location/⚑Barcode changed, packer ⚑Barcode changed → `wms_reports` insert. **⚑Image differs**(2026-07-30, 양쪽 싱글뷰)는 프롬프트 없는 **토글** — `.rep.on`(amber 채움 + ✓)으로 눌린 상태, 재클릭 시 미해결 행 delete. `.reportrow`는 `flex-wrap`+`min-width:104px`(버튼 3개 좁은 태블릿 대응). 진입 시 `loadImageFlags()`가 독립 try 로 상태 복원(실패해도 픽/팩 뷰는 뜬다).
 - **진입 즉시 렌더 후 enrich**: 라인 로드 후 즉시 렌더, 재고/바코드는 독립 try로 뒤이어. ⚠️ 존재않는 DOM id 참조 금지(렌더 죽음).
 - **자동이동**: 스캔+수동(+/−·입력) 목표도달 시 autoAdvance(picker). packer 초과 시 confirmFillIfNeeded(소리+플래시+확인).
 - **⚠️ 스캔 오류음**: 2400/1600Hz 교차 사이렌, 볼륨 1.0, 0.72초(작은 스피커 대응). 성공음 유지.
@@ -69,7 +69,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 - 구현: 매니저 카드에 class `mgr-only`(CSS `display:none`) + `data-perm`, 로그인 후 admin이거나 매니저 perms 포함 카드만 `classList.remove("mgr-only")`. ⚠️ `style.display=""`는 CSS 때문에 안 먹음 → classList.remove.
 
 ## admin 탭 (8탭, 2026-07-22)
-Status(카드+In-Progress+**Finalized 섹션**) / Discrepancy / **Reports**(wms_reports 리뷰·resolve, 배지) / Stats(작업자 처리량+**평균 소요시간**+실수) / Rollback(단계 되돌리기+로그) / **Finalized**(옛 Packing Lists — 완료오더 기간목록, Fulfillment mix 카드, 🖨Print·⬇PDF·⬇CSV / direct는 "Direct pack" 태그) / Work Screens / **Health**(Rollback 뒤 위치).
+Status(카드+In-Progress+**Finalized 섹션**) / Discrepancy / **Reports**(wms_reports 리뷰·resolve, kind 필터 All/Wrong location/Barcode changed/Image differs + open 건수, 배지=kind 무관 전체 미해결) / Stats(작업자 처리량+**평균 소요시간**+실수) / Rollback(단계 되돌리기+로그) / **Finalized**(옛 Packing Lists — 완료오더 기간목록, Fulfillment mix 카드, 🖨Print·⬇PDF·⬇CSV / direct는 "Direct pack" 태그) / Work Screens / **Health**(Rollback 뒤 위치).
 - ⚠️ 탭 전환 핸들러가 각 loadXxx 호출. periodBar `custom` 인자는 반드시 객체 `{from,to}`(null이면 TypeError로 boot 중단).
 - **팩킹리스트 PDF/CSV**: `getPackingData(oid)` 공용 → HTML(print)·jsPDF+autotable(PDF, CDN lazy-load, 로고=canvas dataURL)·CSV(BOM+CRLF). 컬럼 SKU·Barcode·Product·Qty.
 - **Health 탭(2026-07-22, 규칙 19)**: `loadHealth`가 `sb.rpc("wms_health_check")` → healthCard 렌더(critical=빨강/warn=주황/info=회색 좌측 보더, fail_count·Show sample 접이식 테이블). `updateHealthBadge`/`refreshHealthBadge`로 critical>0이면 탭에 빨강 숫자 배지. 함수 미설치 시 "not installed yet" 안내. 함수: loadHealth/healthCard/healthInfoValue/fmtHealthVal/sampleTable/updateHealthBadge/refreshHealthBadge.

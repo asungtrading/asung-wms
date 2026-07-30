@@ -201,7 +201,10 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 ## 규칙 14 — 워커 리포트 & 롤백 (⚠️ 2026-07-21)
 
-- **`wms_reports`**(별도 테이블, `wms_reports.sql`): 데이터품질 리포트 전용 — discrepancy(재고수량) 큐와 분리. kind=`wrong_location`(picker만)/`barcode_mismatch`(picker+packer). picker 싱글뷰 ⚑Wrong location/⚑Barcode changed, packer 싱글뷰 ⚑Barcode changed. admin **Reports 탭**에서 리뷰/resolve, 미해결 배지.
+- **`wms_reports`**(별도 테이블, `wms_reports.sql`): 데이터품질 리포트 전용 — discrepancy(재고수량) 큐와 분리. kind=`wrong_location`(picker만)/`barcode_mismatch`(picker+packer)/**`image_mismatch`(picker+packer, 2026-07-30)**. picker 싱글뷰 ⚑Wrong location/⚑Barcode changed/⚑Image differs, packer 싱글뷰 ⚑Barcode changed/⚑Image differs. admin **Reports 탭**에서 리뷰/resolve(kind 필터 + open 건수), 미해결 배지(kind 무관 전체 집계).
+- **`image_mismatch` 는 토글**(2026-07-30): 상세 프롬프트 없이 체크만 — note 는 코드가 고정 문구(`Image does not match the physical product`)로 생성. 같은 **order_id+sku+kind 의 미해결(resolved_at is null) 행 1개**가 불변식이고, 다시 누르면 그 행을 **delete**(⚠️ `.is("resolved_at",null)` 조건 필수 — 해소된 감사기록은 지우지 않는다). 진입 시 `loadImageFlags()` 가 미해결 행을 읽어 눌린 상태를 복원한다(⚠️ 상태를 localStorage 에 두지 말 것 — 규칙 5, 태블릿 교체 시나리오). 쓰기 중 `imgBusy` 로 버튼 비활성 = 연타 중복 insert 방지.
+  - ⚠️ **wave 모드의 귀속**: picker 는 `wave? l._orderId : task.order_id` — finish() discrepancy 와 같은 규칙(규칙 18). 기존 두 kind 는 `task.order_id` 고정이라 wave 에서 부정확하지만 **동작 변경 금지 대상이라 그대로 뒀다**(백로그).
+  - ⚠️ `kind` 는 baseline 에서 CHECK 없는 `text` → **스키마 변경 불필요**. 실물 확인은 `supabase/wms_reports_image_mismatch.sql` STEP 1(규칙 29 — 문서 말고 DB 를 믿는다).
 - **롤백**(admin Rollback 탭, `wms_rollback_log.sql`): 매니저 전용, 한 단계씩 최심단계만(Undo Fulfillment→Undo Pack→Reset Pick→Undo Split), `wms_rollback_log`에 감사기록. discrepancy는 자동삭제 안 함. closed 오더도 롤백 대상.
 
 ## 규칙 15 — 프린트/다운로드 (⚠️ 2026-07-21)
