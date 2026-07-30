@@ -169,7 +169,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 4. **manager.html** — 오더 분할 + wave. **Split | Group 토글**. Split=하이브리드 분할(라인 한도 or 낱개 한도 먼저 걸리는 쪽, 동선순 정렬, 1라인=1배치 최소보장, 미리보기=생성 일치). Group=소량 오더 wave 그룹핑(규칙 18).
 5. **admin.html** — 매니저 허브 **8탭**(Status/Discrepancy/Reports/Stats/Rollback/Finalized/Work Screens + **Health**), 기간필터+달력. 불일치 "Fixed in Cin7" 처리(사람이 Cin7 backend 수정 후). Health=불변식 검증 탭(규칙 19).
 6. **staff-admin.html** — 20명 직원 목록, 인라인 창고/역할 드롭다운(변경즉시저장), active토글, 추가/삭제. **여기서 4명(Ho Kang·Ted Shin·Changmo Ku·Jan Ko)을 manager로 설정** → 그래야 그들에게 매니저 메뉴 보임.
-7. **fulfillment.html** — 팔레타이징+팩킹리스트. **멀티오더**(고객별 그룹 체크리스트→여러 오더 동시), 오더→배치 2단 그룹 드래그, 부분수량 모달, 박스→팔렛 중첩, 혼합 팔렛 오더별 추적. **프랜차이즈**(여러 고객 혼합 허용, "N customers mixed" 경고만). **팩킹리스트 2종**: 유닛별 / **스토어별 종합**(각 스토어 1페이지, 그 스토어 물건이 어느 팔렛·박스에 있는지 + ⚠️미배정 경고). requireManager=false. **스캔 배정**(2026-07-29, 세 번째 입력 수단): 유닛 탭=타깃 → 상품 스캔 배정 — Scan qty|Move all 토글, 오더 귀속 3단(1오더 자동/유닛 내 오더 자동/모달), 박스=오더 하나 원칙(혼합 가드 `New box for …` + `⚠ N orders mixed` 배지), Undo 5건, 낙관적 렌더+저장 실패 롤백 — 상세는 `references/frontend.md` 「스캔 배정」.
+7. **fulfillment.html** — 팔레타이징+팩킹리스트. **멀티오더**(고객별 그룹 체크리스트→여러 오더 동시), 오더→배치 2단 그룹 드래그, 부분수량 모달, 박스→팔렛 중첩, 혼합 팔렛 오더별 추적. **프랜차이즈**(여러 고객 혼합 허용, "N customers mixed" 경고만). **팩킹리스트 2종**: 유닛별 / **스토어별 종합**(각 스토어 1페이지, 그 스토어 물건이 어느 팔렛·박스에 있는지 + ⚠️미배정 경고). requireManager=false. **스캔 배정**(2026-07-29, 세 번째 입력 수단): 유닛 탭=타깃 → 상품 스캔 배정 — Scan qty|Move all 토글, 오더 귀속 3단(1오더 자동/유닛 내 오더 자동/모달), 박스=오더 하나 원칙(혼합 가드 `New box for …` + `⚠ N orders mixed` 배지), Undo 5건, 낙관적 렌더+저장 실패 롤백 — **규칙 36**(⚠️ 실전 미검증) · 상세는 `references/frontend.md` 「스캔 배정」.
 
 ## 규칙 10 — GitHub Pages 배포
 
@@ -203,7 +203,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 - **`wms_reports`**(별도 테이블, `wms_reports.sql`): 데이터품질 리포트 전용 — discrepancy(재고수량) 큐와 분리. kind=`wrong_location`(picker만)/`barcode_mismatch`(picker+packer)/**`image_mismatch`(picker+packer, 2026-07-30)**. picker 싱글뷰 ⚑Wrong location/⚑Barcode changed/⚑Image differs, packer 싱글뷰 ⚑Barcode changed/⚑Image differs. admin **Reports 탭**에서 리뷰/resolve(kind 필터 + open 건수), 미해결 배지(kind 무관 전체 집계).
 - **`image_mismatch` 는 토글**(2026-07-30): 상세 프롬프트 없이 체크만 — note 는 코드가 고정 문구(`Image does not match the physical product`)로 생성. 같은 **order_id+sku+kind 의 미해결(resolved_at is null) 행 1개**가 불변식이고, 다시 누르면 그 행을 **delete**(⚠️ `.is("resolved_at",null)` 조건 필수 — 해소된 감사기록은 지우지 않는다). 진입 시 `loadImageFlags()` 가 미해결 행을 읽어 눌린 상태를 복원한다(⚠️ 상태를 localStorage 에 두지 말 것 — 규칙 5, 태블릿 교체 시나리오). 쓰기 중 `imgBusy` 로 버튼 비활성 = 연타 중복 insert 방지.
-  - ⚠️ **wave 모드의 귀속**: picker 는 `wave? l._orderId : task.order_id` — finish() discrepancy 와 같은 규칙(규칙 18). 기존 두 kind 는 `task.order_id` 고정이라 wave 에서 부정확하지만 **동작 변경 금지 대상이라 그대로 뒀다**(백로그).
+  - ⚠️⚠️ **wave 모드의 귀속 — 기존 두 kind 는 버그다**: picker 의 `image_mismatch` 만 `wave? l._orderId : task.order_id` 로 **라인별 귀속**이라 옳고(finish() discrepancy 와 같은 규칙 — 규칙 18), **기존 `wrong_location`·`barcode_mismatch` 는 `task.order_id` 고정이라 wave 에서 엉뚱한 오더에 귀속된다.** 이번 세션(2026-07-30)에 새 kind 를 넣으며 발견했고 동작 변경 범위 밖이라 그대로 뒀다 → **백로그(우선순위를 낮추지 말 것 — 리포트가 잘못된 오더에 붙으면 매니저가 엉뚱한 라인을 확인한다).**
   - ⚠️ `kind` 는 baseline 에서 CHECK 없는 `text` → **스키마 변경 불필요**. 실물 확인은 `supabase/wms_reports_image_mismatch.sql` STEP 1(규칙 29 — 문서 말고 DB 를 믿는다).
 - **롤백**(admin Rollback 탭, `wms_rollback_log.sql`): 매니저 전용, 한 단계씩 최심단계만(Undo Fulfillment→Undo Pack→Reset Pick→Undo Split), `wms_rollback_log`에 감사기록. discrepancy는 자동삭제 안 함. closed 오더도 롤백 대상.
 
@@ -383,7 +383,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 - **R1 — 같은 라인 동시 스캔 = last-writer-wins.** 두 사람이 같은 SKU 를 찍으면 한쪽 수량이 조용히 덮인다. 현재는 **팀 규칙으로 SKU 분담**(사람마다 다른 SKU) 중. 해결책 = **PostgREST 조건부 UPDATE(CAS)** — `.eq("received_base", 읽은값)` 로 보내고 0행이면 재조회 후 재시도. `writeChain`(라인별 직렬화)과 `.select()` 1행 판정이 **CAS 의 전제조건**이라 규칙 24 가 이미 절반을 깔아뒀다.
 - **R3 — `wms_receipts.cin7_purchase_id` 에 유니크 없음.** (`wms_orders.cin7_sale_id` 는 유니크 있음 — baseline `wms_orders_cin7_sale_id_key`.) 밀리초 동시 진입이면 **중복 receipt 가능**. 현재 **중복 데이터 0건 확인**. 분할 입고는 새 PO 로 처리하므로 **유니크 제약을 걸어도 됨**(새 마이그레이션으로).
-- **R4 — Apply 중복 실행.** `applied_at` 가드가 **read-then-check**(EF 진입 시 1회 확인)이고, EF 최종 PATCH 에 **`applied_at=is.null` 필터가 없다.** Cin7 쓰기가 수십 초라 그 창에서 두 번째 Apply 가 통과하면 Cin7 에 이중 반영. 해결 = 최종 PATCH 에 `applied_at is null` 조건 + 1행 확인(규칙 24 와 같은 패턴).
+- **R4 — Apply 중복 실행.** `applied_at` 가드가 **read-then-check**(EF 진입 시 1회 확인)이고, EF 최종 PATCH 에 **`applied_at=is.null` 필터가 없다.** Cin7 쓰기가 수십 초라 그 창에서 두 번째 Apply 가 통과하면 Cin7 에 이중 반영. 해결 = 최종 PATCH 에 `applied_at is null` 조건 + 1행 확인(규칙 24 와 같은 패턴). ⚠️ **2026-07-30 부분 완화**: admin 버튼 상태 머신(규칙 35)이 **같은 브라우저의** 재클릭은 막지만 **매니저 2명이 다른 기기에서 동시에 누르는 것은 못 막는다** — 서버 가드가 여전히 필요하다.
 - **R5 — Complete 후 Apply 진행 중 스캔되면 그 수량은 영구 미적용.** Apply 는 Complete 시점의 DB 를 읽고, 끝나면 `applied_at` 이 찍혀 재적용이 막힌다. → **모두 끝난 뒤 Complete 를 누를 것**(데이터는 안전하나 반영은 못 됨).
 - **R10 — bin 루프가 비트랜잭션 (⚠️ 비원자성은 여전 · 다만 2026-07-28 부터 부분 실패가 기록되고 재시도 가능하다).** bin 별 분할 POST(규칙 21) 중간에 실패하면 **Cin7 에 DRAFT/부분 이동이 남는다**. 원자성은 없고 앞으로도 없을 것이다(Cin7 에 트랜잭션이 없다) — 대신 **부분 실패를 정상 상태로 다루는 쪽**으로 바꿨다:
   - **트랜스퍼**: 그룹 실패는 `failed_moves[{bin,skus,qty,http_status,cin7_error}]` 로 **수집만 하고 루프를 계속**한다(throw 금지 — R12 의 "쓰기 뒤" 방향). 성공 그룹은 `exported_base` 체크포인트를 찍고, 실패 그룹은 안 찍으므로 **재Apply 하면 실패분만 재시도**된다(`applied_at` 이 있어도 `failed_moves(N)` + 남은 그룹이 있으면 재개 허용). `applied_at` 은 부분 성공에서도 찍히되 admin 이 **`⚠ Applied (N bins failed)`** 로 구분 표시한다. 남는 구멍: 체크포인트 PATCH 자체가 실패하면 WARN 만 남고 재Apply 가 그 bin 을 두 번 옮긴다.
@@ -525,10 +525,59 @@ POST /stockTransfer
 - **원칙**: 사용자 액션(화면 전환·스캔 피드백) 앞에 **왕복 1회 초과를 두지 말 것.** 라인 수에 비례하는 네트워크 대기는 전부 백그라운드 큐로 — `saveLine`(규칙 24)·`togglePlaced` 낙관 렌더와 같은 패턴.
 - **혐의 벗은 것 (측정 근거 — 재수사 방지)**: ① **bin 선택 목록은 원인 아님** — 풋어웨이는 라인마다 목록을 그리지 않는다(빈 지정은 모달 1개, `renderBinOptions` 가 **최대 300개**만 렌더). 창고 bin 은 토론토 2047·에드먼튼 628 — **앞으로도 라인마다 전체 목록(select/datalist)을 그리지 말 것**. `action=bins` 는 0.5초/128KB(토론토)로 `loadBins()` 비동기 독립 로드라 진입을 막지 않음(07-28 bins 소스 변경은 이 건과 무관). ② **DOM 아님** — 풋어웨이 요소 노드는 50라인 ≈ 520, 344라인 ≈ 3.5k(썸네일은 40px 고정 background). ③ 렌더/정렬 아님 — 전체 재렌더는 수~수십 ms.
 - **계측**: `receiver.html?debug=perf` → 콘솔 `[perf]` (putaway entry ms · bg saves ms · renderPutaway/renderRecv ms · DOM 노드 수). 평상시 no-op.
+- 📌 같은 원칙의 적용 사례: **규칙 37**(Stats 리시빙 지표를 fire-and-forget + 왕복 2회로 묶어 픽/팩 렌더를 막지 않음).
 
-## 현재 진행 상태 (2026-07-29 기준)
+## 규칙 35 — 되돌릴 수 없는 작업의 버튼 상태 머신 (admin Apply, ⚠️ 2026-07-30)
 
-**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 = 첫 실전(TR-02935, 2026-07-28)이 실패해 재설계 배포 + 수동 마무리로 종료. 배터리 최적화 완료. 리시빙 동시 작업 정식 지원.**
+**배경**: Apply 는 Cin7 에 되돌릴 수 없이 쓰는데(규칙 21) 버튼은 눌러도 아무 변화가 없어 **"안 눌렸나?" 하고 다시 누르는** 경로가 열려 있었다(규칙 27 R4 의 사람쪽 원인). 화면 상태를 진행에 맞춰 바꾸는 것이 첫 방어선이다.
+
+- **플래그 3개** (admin.html 모듈 스코프): `applyBusy`(진행 중 receipt id) · `applyWriting`(commit 구간인지) · `applyBtnRef`(버튼 노드). 라벨 전이 = `Apply to Cin7` → **`Checking…`**(dry-run) → **`Applying…`**(commit) → **`✓ Applied`** / **`⚠ Partial`** / **`Apply failed`**(5초 뒤 원래 라벨 복구). 진행 중엔 목록의 **다른 Apply 버튼도 비활성**.
+- ⚠️ **배너·`beforeunload` 경고는 commit 직전에만 켠다.** dry-run 구간은 아무것도 안 쓰므로 거기서 "나가면 위험" 경고를 띄우면 **늑대소년**이 되어 진짜 위험한 구간의 경고가 무시된다.
+- ⚠️⚠️ **재진입 차단은 버튼 `disabled` 가 아니라 플래그로 한다.** Review 모달 경로·재렌더로 새로 만들어진 버튼 노드는 이전 `disabled` 를 물려받지 않아 **우회된다**. 판정은 항상 함수 진입부에서 `applyBusy` 를 본다(규칙 20 의 Apply 권한 3중 게이트와 같은 발상 — 게이트는 렌더 결과가 아니라 상태에 건다).
+- ⚠️ **rAF 리페인트에는 150ms 타임아웃을 반드시 건다.** `alert` 전에 버튼을 그리려고 `requestAnimationFrame` 을 기다리는데 **백그라운드 탭에서는 rAF 가 아예 안 돈다** → 버튼이 busy 로 영구히 굳는다. 복구는 전부 **try/finally**(사용자 취소·예외 포함).
+- ⚠️ **성공 후 목록 새로고침(`loadRecv()`)은 try 밖에서 `.catch()`.** 새로고침 실패가 `Apply failed` 로 보이면 **이미 Cin7 에 반영된 receipt 을 다시 누르게 유도**한다 — 되돌릴 수 없는 쓰기에서 최악의 오표시다.
+- **남은 구멍**: 플래그는 **브라우저 단위**라 매니저 두 명이 다른 기기에서 동시에 Apply 하는 것은 못 막는다. 최종 방어선은 **서버의 `applied_at` 가드**인데 그것도 read-then-check 라 창이 있다(규칙 27 **R4** — 최종 PATCH 에 `applied_at is null` 필터 필요) → 백로그.
+- 구현 지도는 `references/frontend.md` 「admin.html Receiving 탭 · Apply 버튼 진행 상태」.
+
+## 규칙 36 — fulfillment 스캔 배정: 박스는 오더 하나 (⚠️ 2026-07-29 · **실전 미검증**)
+
+DnD·탭에 더한 **세 번째 입력 수단**. parcel 출고는 담으면서 맞추는 작업이라 집는 순간 스캔으로 배정되는 흐름이 필요했다.
+
+- **⚠️⚠️ 아직 실물 테스트가 끝나지 않았다 (2026-07-30 기준).** 미확인: `Move all` 기본값이 현장에 맞는지 · 포커스 정책이 HID 스캐너에서 안 어긋나는지 · 오프라인/순단 시 롤백 표시 · **기존 DnD·탭 경로 회귀** · 태블릿에서 sticky 오프셋. **현장 검증 전에는 "동작한다"고 적지 말 것.**
+- **프랜차이즈 전제(설계의 근거)**: 손님이 자기 창고에서 **스토어별로 재분배**한다 → **팔렛은 섞여도 되지만(박스를 얹는 그릇) 박스는 오더 하나**가 원칙. 섞이면 받는 쪽이 박스를 풀어서 다시 나눠야 한다. 그래서 혼합 가드의 **주 버튼이 `New box for SO-…`**(올바른 동작이 가장 쉬워야 한다)이고, 차단은 하지 않는다("N customers mixed" 경고와 같은 방침).
+- **모드 2종**: `Scan qty`(기본, base=+1·케이스=+factor) / `Move all`(그 SKU 미배정 잔량 일괄 — 단 **대상 유닛에 담긴 오더 것만**, 오더 경계를 안 넘는다).
+- **오더 귀속 3단**: ①그 SKU 잔량이 있는 오더가 1개 → 자동 ②여러 개인데 대상 유닛에 담긴 오더가 그중 하나 → 자동 ③그 외 → **모달**. 조용히 추측하지 않는다(잘못 귀속되면 스토어별 팩킹리스트가 틀어진다).
+- **함정 3개 (반복하지 말 것)**:
+  - ⚠️ **`wireUnitEvents` 안에서 타깃 선택 리스너를 등록하면 렌더마다 중첩 등록**되어 토글이 깨진다 → **스크립트 최상위에서 delegated 1회**(`#units`).
+  - ⚠️ **분할 오더는 같은 `order_line_id`(olid)가 배치별로 `poolLines` 에 중복**된다 → 잔량은 개별 entry 가 아니라 **`remainingOl(olid)` 집계**로 계산.
+  - ⚠️ **sticky 오프셋은 실측값**(`setStickyOffsets()`) — 헤더가 태블릿에서 두 줄로 접히고 `Move all` 배너로 바 높이가 변해 고정 58px 은 겹친다.
+- **포커스 정책**: 오더 로드 후 기본 포커스는 `#prodScan`(HID 스캐너는 포커스된 곳에 타이핑하므로 어긋나면 **조용히 실패**한다). 단 **다른 input/textarea 편집 중엔 뺏지 않는다.** 오입력은 **양방향 감지**(`#orderScan` 에 상품 바코드 / `#prodScan` 에 오더 바코드).
+- **낙관적 렌더 + 실패 롤백**: 스캔 즉시 로컬 반영·렌더·소리(규칙 24 — 피드백을 await 로 막지 않는다), 저장 실패 시 confirmed 값으로 되돌리고 빨간 경고 + 그 건의 undo 로그 무효화. Undo 최근 5건.
+- **동시 작업**: 서로 다른 박스 = 다른 행이라 안전. **같은 유닛×같은 라인 동시 스캔은 last-writer-wins**(규칙 27 R1 계열, 기존 DnD 와 동일 수준).
+- 상세 구현은 `references/frontend.md` 「스캔 배정」. 후속(박스 라벨에 스토어명 인쇄)은 백로그.
+
+## 규칙 37 — admin Stats: 리시빙 지표와 근무시간 소요 (⚠️ 2026-07-30)
+
+Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리시빙 discrepancy(`source='receiving'`)** 를 추가했다. 기존 픽/팩과 **같은 기간 필터**를 쓰고, 조회는 `Promise.all` **2회 왕복**으로 묶어 fire-and-forget(규칙 34 — 픽/팩 렌더를 막지 않는다). 기간 연타 스테일은 `statsRange!==r` 로 버린다.
+
+- **작업자 통계는 별도 표가 아니라 「Throughput by worker」에 통합**한다(같은 사람이 픽·팩·리시빙을 다 하므로 표가 갈라지면 비교가 안 된다). 픽/팩 집계와 리시빙 집계를 **도착 순서 무관하게 이름 합집합으로** 합쳐 그린다.
+- ⚠️⚠️ **receipt 건수를 배치 건수와 같은 스케일의 막대로 그리지 마라.** receipt 하나가 5~344 라인이라(TR-02935) 막대가 사실상 안 보이거나 왜곡된다 → **라인 수 기준 + 자체 스케일(`lineMax`)**.
+- ⚠️⚠️ **소요 시간은 근무시간(work hrs) 기준**. 달력 경과로 계산하면 퇴근 후 밤·주말이 들어가 **26.7h 같은 쓸모없는 값**이 나온다(실제로 그랬다). 상수 `WORK_HOURS`(09–17)·`WORK_DAYS`(월–금)·`WH_TZ`, 창고별 타임존(`America/Toronto` / `America/Edmonton`, 미매핑=토론토 폴백). **`workMinutes(a,b,warehouse)` 하나를 타입 표와 작업자 행이 공유**한다 — 두 곳이 다르게 계산하면 안 된다. 0(전 구간 근무시간 밖)은 `< 1 min`(=`—` 데이터 없음과 구분). **공휴일 미반영**(백로그).
+  - ⚠️ **한계 — hands-on time 이 아니다.** 이 값은 "시작~완료까지의 근무시간 경과"라 **receipt 을 열어둔 채 다른 일 한 시간이 그대로 포함**된다. 순수 작업시간은 스캔 타임스탬프 집계가 필요(백로그).
+- **기간 귀속은 `created_at`** — 미완료·미적용 receipt 도 지표에 잡혀야 한다(완료 기준으로 하면 문제 있는 문서가 통계에서 사라진다).
+- ⚠️ **`exported_base` 비율은 트랜스퍼 라인만** 낸다 — PO 경로는 이 컬럼을 쓰지 않으므로(규칙 20) 섞으면 PO 가 전부 0% 로 보인다.
+- **화면 각주 2개는 필수 유지**: ①`exported_base` 는 **수동 UPDATE 로 오염될 수 있다**(TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전 데이터가 없다**. 숫자를 그대로 믿게 두면 안 되는 지표라 각주를 지우지 말 것.
+
+## 현재 진행 상태 (2026-07-30 기준)
+
+**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 = 첫 실전(TR-02935, 2026-07-28)이 실패해 재설계 배포 + 수동 마무리로 종료. 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36).**
+
+**2026-07-30 세션 (규칙 35~37)**
+- ✅ **풋어웨이 진입 프리즈 수정**(직렬 await 제거 → 백그라운드 큐) — 규칙 34
+- ✅ **admin Apply 버튼 상태 머신**(Checking…/Applying…/✓ Applied/⚠ Partial/Apply failed, 배너·beforeunload 는 commit 구간만, 플래그 기반 재진입 차단, rAF 150ms 타임아웃) — 규칙 35. ⬜ **매니저 2명 동시 Apply 는 여전히 못 막는다**(규칙 27 R4)
+- ✅ **`image_mismatch` 리포트**(picker·packer 싱글뷰 ⚑Image differs 토글, `wms_reports.kind` 세 번째 값 — CHECK 제약 없음 실물 확인) — 규칙 14. ⚠️ **발견: 기존 두 kind 는 wave 모드에서 오더 귀속이 틀린다**(`task.order_id` 고정) → 백로그
+- ✅ **admin Stats 확장**(리시빙·트랜스퍼·풋어웨이·discrepancy, Throughput by worker 통합, 근무시간 기준 소요) — 규칙 37
+- ⚠️ **fulfillment 스캔 배정(2026-07-29 배포) 실전 검증 미완** — 규칙 36
 
 **2026-07-28~29 세션 (규칙 29~33)**
 - ✅ **discrepancy 유니크 인덱스 수정**(부분 → 전체) — `on_conflict` 42P10 으로 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았음**을 발견·해소. SQL `supabase/wms_disc_uq_fix.sql`. ⬜ **같은 내용을 새 마이그레이션으로 담아 로컬·원격 정렬**(사람이 `db push`). — 규칙 29
@@ -584,7 +633,9 @@ POST /stockTransfer
 
 ## 백로그 / 미해결
 
-### 리시빙 Apply — 최우선 (2026-07-29 갱신)
+📌 **여기가 백로그의 단일 목록이다** — 규칙 본문에 "백로그" 라고만 적고 여기에 안 올리면 잊힌다. 새 항목은 규칙 번호를 달아 아래 분류 중 하나에 넣을 것.
+
+### 리시빙 Apply — 최우선 (2026-07-30 갱신)
 
 1. **Apply 회차당 처리 그룹 상한 (규칙 30-2)** — 예 30~40 그룹 + 응답·배너에 "N groups remaining, press Apply again". 지금은 대형 트랜스퍼가 EF 실행시간 한도에 걸려 **타임아웃으로 죽으면 `applied_at`·`apply_note` 가 둘 다 null**(실패 목록조차 안 남는다).
 2. **트랜스퍼 (a) 케이스 첫 실전 Apply** — 첫 실전은 **TR-02935**((b) 집결 bin)였고 실패했다(규칙 20 트랜스퍼 예외 + 규칙 27 R12, 사후분석 규칙 30). ⚠️ **지금까지 실측한 트랜스퍼는 전부 (b)** 이고 **(a)(창고 GUID, bin 없이 착지)의 완료 후 bin 이동은 실전 경험이 없다** → **TR-03259 로 먼저 dry-run**.
@@ -597,10 +648,20 @@ POST /stockTransfer
 9. **`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조 Health 검사** — 하루 지연 스냅샷이라 실시간 용도는 아님(규칙 32).
 10. **R13 Discrepancy 큐 방치 시 재고 불일치가 계속 남는다** — 에이징 알림·리포트 없음(규칙 27 R13). ⚠️ 규칙 29 로 **큐 자체가 비어 있던 기간**이 있었으므로 과거분은 큐로 복원되지 않는다.
 11. **R10 bin 루프 비트랜잭션** — 트랜스퍼는 부분 실패 수집 + 재Apply 로 운영 가능하지만 원자성은 아니다(체크포인트 PATCH 실패 구멍).
+12. **매니저 2명 동시 Apply (규칙 27 R4 · 규칙 35)** — 버튼 상태 머신은 **브라우저 단위**라 다른 기기의 동시 클릭을 못 막는다. 최종 PATCH 에 `applied_at is null` + 1행 확인이 서버측 방어선.
 
 ### 동시 작업 원자화
 - **같은 SKU 다중 픽커 / 같은 라인 동시 스캔 (R1)** — PostgREST 조건부 UPDATE(CAS) 또는 RPC 증분.
 - **`claim_seq`(A→B→A 스테일 화면) — 규칙 28 후속.** 현재 가드는 best-effort. R1 CAS 와 같은 패턴이라 함께 처리.
+
+### 리포트·통계
+- ⚠️ **wave 모드 리포트 오더 귀속 버그 (규칙 14)** — `wrong_location`·`barcode_mismatch` 가 `task.order_id` 고정이라 wave 에서 **엉뚱한 오더에 붙는다**. `image_mismatch` 처럼 라인별 `_orderId` 로 바꿀 것. **우선순위를 낮추지 말 것**(매니저가 엉뚱한 라인을 확인하게 된다).
+- **스캔 타임스탬프 기반 순수 작업시간 (규칙 37)** — 현재 소요시간은 근무시간 경과라 "열어두고 다른 일 한 시간"이 포함된다. 스캔 이벤트 타임스탬프 집계가 필요.
+- **근무시간 계산에 공휴일 미반영 (규칙 37)** — `WORK_DAYS`(월–금)만 본다.
+
+### 검증 대기 (배포됐으나 실전 미확인)
+- ⚠️ **fulfillment 스캔 배정 (규칙 36)** — `Move all` 기본값 · 포커스 정책 · 오프라인 롤백 · **기존 DnD/탭 경로 회귀** · 태블릿 sticky 오프셋. 현장 검증 전에는 "동작한다"고 기록하지 말 것.
+- ⚠️ **트랜스퍼 (a) 케이스**(창고 착지·bin 없음) — 위 「리시빙 Apply」 2번과 같은 항목. TR-03259 로 dry-run 부터.
 
 ### 신규 기능
 - **Cin7 bin↔bin 이동 화면 — 규칙 33**(A 자유 이동 → B 풋어웨이 큐. `wms_bin_moves` 감사 테이블 필요, `wms_sku_bins` 에 쓰지 말 것).
