@@ -346,6 +346,10 @@ let receipt=null, lines=[], bcMap={}, actx=null, view="single", curIdx=0;
 let allBins=[];   // 현재 receipt 창고의 bin 목록 (빈 지정 드롭다운용)
 let sortMode="po";   // 검수 리스트/싱글 표시 순서: po|zone|product|sku
 
+/* ?debug=perf — 진입/렌더 소요와 DOM 노드 수를 콘솔에 남긴다 (평상시 no-op) */
+const PERF=new URLSearchParams(location.search).get("debug")==="perf";
+function perfLog(){ if(PERF) console.log.apply(console,["[perf]"].concat([].slice.call(arguments))); }
+
 /* ---------- 동시 작업 상태 (한 PO 를 여러 명이 나눠 받는다) ---------- */
 /* unconfirmed: 이 세션이 쓰려 했지만 아직 "1행 반영"을 확인받지 못한 라인만 담는다.
    ⚠️ "건드린 전부(touched)"를 담으면 안 된다 — 이미 저장 성공한 라인을 Hold/완료 때
@@ -786,9 +790,12 @@ function totalExp(){return lines.reduce((s,l)=>s+l.expected,0);}
 function totalRecv(){return lines.reduce((s,l)=>s+Math.min(l.received,l.expected||l.received),0);}
 function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
 function renderRecv(){
+  const rt0=PERF?performance.now():0;
   const tot=totalExp(), rc=totalRecv();
   document.getElementById("progBar").style.width=(tot?Math.round(Math.min(rc,tot)/tot*100):0)+"%";
   if(view==="single") renderSingle(); else renderRList();
+  if(PERF) perfLog("renderRecv("+view+")",Math.round(performance.now()-rt0)+"ms",
+    "doc nodes="+document.querySelectorAll("*").length);
 }
 function lineChips(l){
   return (l.is_off_po?`<span class="chip appr">${l.needs_approval?"OFF-PO · approval pending":"OFF-PO · approved"}</span>`:"")+
@@ -1239,39 +1246,68 @@ function exitToList(){
 }
 
 /* ---------- Putaway: 빈 자동확정 → 가이드 ---------- */
+/* ⚠️ 배정 저장을 라인마다 직렬 await 하지 말 것 (규칙 34) — 진입이 라인 수 × DB 왕복만큼
+   멈춘다 (344라인 TR-02935 급에서 수십 초). 로컬 배정 → 즉시 렌더가 원칙이고, 저장은
+   saveLine 과 같은 백그라운드 큐다(규칙 24 — 실패는 unconfirmed 에 남아 완료 때 flush). */
+let putawayPrep=false;   // 재진입 차단 (준비 중 재클릭 시 중복 배정 루프 방지)
 document.getElementById("toPutawayBtn").onclick=async ()=>{
+  if(putawayPrep) return;
   const targets=lines.filter(l=>l.received>0);
   if(!targets.length){ toast("Nothing received yet",true); return; }
-  // 승인 안 된 오프-PO는 풋어웨이 차단 (자리는 가이드에 '승인 대기'로 표시)
-  const assignable=targets.filter(l=>!l.putaway_bin&&!(l.is_off_po&&l.needs_approval));
-  if(assignable.length){
-    // 추천 빈 배치 조회 (base_sku 기준 — 규칙 3)
-    const bases=[...new Set(assignable.map(l=>l.base_sku).filter(Boolean))];
-    const binMap={};
-    if(bases.length){
-      const {data:bins,error}=await sb.from("wms_sku_bins")
-        .select("sku,bin,zone,is_current,last_seen,available")
-        .in("sku",bases).eq("warehouse",receipt.warehouse);
-      if(error){ toast("Bin lookup failed",true); return; }
-      (bins||[]).forEach(b=>{ (binMap[b.sku]=binMap[b.sku]||[]).push(b); });
-    }
-    for(const l of assignable){
-      const cand=(binMap[l.base_sku]||[]).slice().sort((a,b)=>{
-        // 1) is_current=TRUE 우선  2) last_seen 최신  3) available 많은 곳
-        if(a.is_current!==b.is_current) return a.is_current?-1:1;
-        const la=a.last_seen||"", lb=b.last_seen||"";
-        if(la!==lb) return la>lb?-1:1;
-        return (Number(b.available)||0)-(Number(a.available)||0);
-      });
-      if(cand.length){
-        l.putaway_bin=cand[0].bin; l.zone=cand[0].zone||zoneOfBin(cand[0].bin);
-        await queueWrite(l,"putaway");   // 실패 시 unconfirmed 에 남아 완료 때 재시도
+  const btn=document.getElementById("toPutawayBtn");
+  const label=btn.textContent;
+  putawayPrep=true; btn.disabled=true; btn.textContent="Preparing…";
+  const t0=performance.now();
+  try{
+    // 승인 안 된 오프-PO는 풋어웨이 차단 (자리는 가이드에 '승인 대기'로 표시)
+    const assignable=targets.filter(l=>!l.putaway_bin&&!(l.is_off_po&&l.needs_approval));
+    if(assignable.length){
+      // 추천 빈 배치 조회 (base_sku 기준 — 규칙 3) — 왕복은 이 한 번뿐
+      const bases=[...new Set(assignable.map(l=>l.base_sku).filter(Boolean))];
+      const binMap={};
+      if(bases.length){
+        const {data:bins,error}=await sb.from("wms_sku_bins")
+          .select("sku,bin,zone,is_current,last_seen,available")
+          .in("sku",bases).eq("warehouse",receipt.warehouse);
+        if(error){ toast("Bin lookup failed",true); return; }
+        (bins||[]).forEach(b=>{ (binMap[b.sku]=binMap[b.sku]||[]).push(b); });
       }
-      // 없으면 신규 SKU → 가이드에서 수동 지정
+      const toSave=[];
+      for(const l of assignable){
+        const cand=(binMap[l.base_sku]||[]).slice().sort((a,b)=>{
+          // 1) is_current=TRUE 우선  2) last_seen 최신  3) available 많은 곳
+          if(a.is_current!==b.is_current) return a.is_current?-1:1;
+          const la=a.last_seen||"", lb=b.last_seen||"";
+          if(la!==lb) return la>lb?-1:1;
+          return (Number(b.available)||0)-(Number(a.available)||0);
+        });
+        if(cand.length){
+          l.putaway_bin=cand[0].bin; l.zone=cand[0].zone||zoneOfBin(cand[0].bin);
+          toSave.push(l);
+        }
+        // 없으면 신규 SKU → 가이드에서 수동 지정
+      }
+      savePutawayAssigns(toSave);   // 백그라운드 — 화면 전환을 막지 않는다
     }
+    showPutaway();
+    perfLog("putaway entry",Math.round(performance.now()-t0)+"ms","lines="+targets.length);
+  }finally{
+    putawayPrep=false; btn.disabled=false; btn.textContent=label;
   }
-  showPutaway();
 };
+/* 자동배정분 백그라운드 저장 — queueWrite(라인별 직렬화·unconfirmed 안전망)는 그대로 쓰되,
+   태블릿 Wi-Fi 를 배려해 동시 8개로만 흘린다. 같은 라인의 후속 쓰기(Change/Placed)는
+   writeChain 이 이 쓰기 뒤에 줄 세우므로 추월 걱정 없음. */
+function savePutawayAssigns(list){
+  if(!list.length) return;
+  const q=list.slice();
+  const t0=performance.now();
+  let pending=Math.min(8,q.length);
+  for(let w=0;w<pending;w++)(async()=>{
+    while(q.length){ const l=q.shift(); await queueWrite(l,"putaway"); }
+    if(--pending===0) perfLog("putaway bg saves",Math.round(performance.now()-t0)+"ms","n="+list.length);
+  })();
+}
 
 function zoneOfBin(bin){
   if(!bin)return "";
@@ -1308,6 +1344,7 @@ document.getElementById("putBackBtn").onclick=()=>{
 };
 
 function renderPutaway(){
+  const pt0=PERF?performance.now():0;
   const targets=lines.filter(l=>l.received>0);
   // 그룹: bin 있는 것 (zone 동선순) / 승인 대기 / 빈 지정 필요
   const withBin={}, pendingAppr=[], needBin=[];
@@ -1399,6 +1436,9 @@ function renderPutaway(){
       });
     });
   }else{ zj.style.display="none"; zj.innerHTML=""; zjb.style.display="none"; zjb.innerHTML=""; }
+  if(PERF) perfLog("renderPutaway",Math.round(performance.now()-pt0)+"ms",
+    "putGroups nodes="+pg.querySelectorAll("*").length,
+    "doc nodes="+document.querySelectorAll("*").length);
 }
 
 async function togglePlaced(lineId){

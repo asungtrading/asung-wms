@@ -12,7 +12,7 @@ description: >
   "Lines is invalid", "authorize", "held_by", "동시 작업", "unconfirmed",
   "writeChain", "presence", "serverChecks", "bcMap", "CAS", "on_conflict",
   "exported_base", "재평가" 등이 나오면 추측하지 말고
-  이 스킬의 아키텍처·스키마·인증·배포·규칙 20~33 을 먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
+  이 스킬의 아키텍처·스키마·인증·배포·규칙 20~34 를 먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
   ⚠️bin은 base_sku 기준, ⚠️Cin7 쓰기 bin은 GUID(이름은 400),
   ⚠️PO는 Invoice First 선승인, ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어,
   ⚠️stock received는 문서당 bin 1개·authorize는 POST,
@@ -515,6 +515,16 @@ POST /stockTransfer
 - **단계**: **A 자유 이동**(SKU·수량·From·To 를 사람이 지정) → **B 풋어웨이 큐 소진**(receipt 의 `putaway_bin` 을 목록으로 띄워 소진). **A 를 먼저** — B 는 receipt 상태와 얽혀 Apply 경로와 충돌 여지가 있다.
 - ⚠️ **`wms_sku_bins` 에 쓰지 말 것** — 매일 6:30 truncate + 재적재(규칙 6)라 조용히 사라진다. 위치의 진실은 Cin7 이고, 우리 기록은 **감사용 신규 테이블 `wms_bin_moves`**(sku·qty·from_bin·to_bin·warehouse·cin7_tr_number·moved_by·moved_at)에 남긴다.
 - **미정**: 권한 범위(매니저 전용 vs 창고 직원 전체). 되돌릴 수 없는 Cin7 쓰기라 최소한 perms 키 하나(`binmove` 등)를 새로 두는 쪽이 안전하다.
+
+## 규칙 34 — 화면 전환 앞에 N 왕복을 두지 마라: 풋어웨이 진입 프리즈 (⚠️ 2026-07-30 진단·수정)
+
+**증상**: 리시빙/트랜스퍼에서 "Putaway →" 를 누르면 화면이 수 초~수십 초 멈춤(50라인 PO 에서도). 픽킹·팩킹은 정상.
+
+- **원인 = 진입 핸들러의 라인별 직렬 `await`.** `toPutawayBtn` 이 자동배정 라인마다 `await queueWrite(l,"putaway")` 를 돌려 **진입 시간 = 라인 수 × DB 왕복(RTT)** 이었다. 실측 PATCH RTT 유선 55~62ms(태블릿 Wi-Fi 는 150~400ms 급) → 50라인 3~15초, 344라인(TR-02935 급) 21~100초+. 버튼 피드백도 없어 "죽었다"로 보임. 07-23 첫 버전(`await sb...update` per line)부터 존재, 07-27 queueWrite 전환 후에도 직렬 유지.
+- **수정 (receiver.html)**: 로컬 배정 → **즉시 `showPutaway()`**, 저장은 `savePutawayAssigns()` 백그라운드 큐(**동시 8개 풀**)로. `queueWrite`/`unconfirmed`/`writeChain`(규칙 24) 은 그대로 — 실패는 unconfirmed 에 남아 Hold/완료 flush 가 재시도하고, 진입 직후 사용자의 Change/Placed 쓰기는 writeChain 이 배정 쓰기 뒤에 줄 세워 추월이 없다(node 모의로 순서 보존 검증). 진입 전 대기는 추천 빈 **배치 조회 1회**뿐. `putawayPrep` 플래그 + "Preparing…" 라벨로 재클릭 차단.
+- **원칙**: 사용자 액션(화면 전환·스캔 피드백) 앞에 **왕복 1회 초과를 두지 말 것.** 라인 수에 비례하는 네트워크 대기는 전부 백그라운드 큐로 — `saveLine`(규칙 24)·`togglePlaced` 낙관 렌더와 같은 패턴.
+- **혐의 벗은 것 (측정 근거 — 재수사 방지)**: ① **bin 선택 목록은 원인 아님** — 풋어웨이는 라인마다 목록을 그리지 않는다(빈 지정은 모달 1개, `renderBinOptions` 가 **최대 300개**만 렌더). 창고 bin 은 토론토 2047·에드먼튼 628 — **앞으로도 라인마다 전체 목록(select/datalist)을 그리지 말 것**. `action=bins` 는 0.5초/128KB(토론토)로 `loadBins()` 비동기 독립 로드라 진입을 막지 않음(07-28 bins 소스 변경은 이 건과 무관). ② **DOM 아님** — 풋어웨이 요소 노드는 50라인 ≈ 520, 344라인 ≈ 3.5k(썸네일은 40px 고정 background). ③ 렌더/정렬 아님 — 전체 재렌더는 수~수십 ms.
+- **계측**: `receiver.html?debug=perf` → 콘솔 `[perf]` (putaway entry ms · bg saves ms · renderPutaway/renderRecv ms · DOM 노드 수). 평상시 no-op.
 
 ## 현재 진행 상태 (2026-07-29 기준)
 

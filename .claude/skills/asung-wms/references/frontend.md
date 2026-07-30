@@ -278,6 +278,15 @@ const visPos = openPos.map((p,i)=>({p,i})).filter(({p}) => !shownDocs.has(String
 - 빈 목록 판정도 `visPos` 기준: `lEmpty.style.display=(myReceipts.length||visPos.length)?"none":"block"`.
 - ⚠️ **기준은 "화면에 렌더된 `myReceipts`" 뿐이다.** "receipt 행이 존재하면 숨김"으로 바꾸면 창고 접근 밖 등으로 Resume 에 안 뜨는 문서까지 사라져 **스캔 이어받기 진입로가 막힌다.**
 
+## 2026-07-30 — receiver.html 풋어웨이 진입 성능 (규칙 34)
+
+"Putaway →" 가 라인마다 `await queueWrite` 를 직렬로 기다려 **진입 = 라인 수 × RTT** 로 멈추던 것 수정.
+
+- `toPutawayBtn`: 추천 빈 **배치 조회 1회**(유일한 진입 전 await) → 로컬 배정 → **즉시 showPutaway()** → `savePutawayAssigns(toSave)` 백그라운드 저장. `putawayPrep` 재진입 가드 + "Preparing…" 라벨(try/finally 복구).
+- `savePutawayAssigns(list)`: 동시 8개 워커 풀로 `queueWrite(l,"putaway")` 소진. 저장 엔진(규칙 24)은 무변경 — 같은 라인 후속 쓰기는 writeChain 이 줄 세움, 실패는 unconfirmed → 완료 flush.
+- 계측 `?debug=perf`: `PERF` 플래그 + `perfLog()` — putaway entry / putaway bg saves / renderPutaway / renderRecv 소요와 DOM 노드 수를 콘솔 `[perf]` 로. 평상시 no-op.
+- ⚠️ bin 목록은 무혐의(모달 300개 캡, 라인마다 안 그림 — 규칙 34). 앞으로도 라인마다 bin 전체 목록을 그리지 말 것.
+
 ## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
 
 - **Apply 대기 항목에 경고 문구** (규칙 30-3): *"Do not move this stock in Cin7 until Apply finishes."* TR-02935 실패의 상당수가 `Available quantity … is 0` = 사람이 이미 옮긴 재고였다. 규칙 28(픽 중복)과 같은 종류이고 상대가 WMS 자신이다.
