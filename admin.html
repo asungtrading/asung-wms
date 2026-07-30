@@ -1822,7 +1822,7 @@ function renderProd(){
   // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
   const lineMax=Math.max(...rows.map(([,,rc])=>rc?rc.lines:0),1);
   el.innerHTML=rows.map(([nm,v,rc])=>{
-    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work hrs)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
+    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work time)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
     const recvBar=rc?`
       <div class="bar-row"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
     return `
