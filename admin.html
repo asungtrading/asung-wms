@@ -200,9 +200,10 @@
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
 
-      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7</span></div>
+      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7 · durations in work hours</span></div>
       <div class="grid" id="recvStatGrid"></div>
       <div class="card" style="padding:14px 16px;margin-top:12px"><div id="recvTypeTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
+      <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ Durations count <b>work hours only</b> (Mon–Fri 09:00–17:00, warehouse-local time; statutory holidays not excluded). This is elapsed work time from start to completion — <b>not</b> hands-on time: a receipt left open while doing other work still counts. "&lt; 1 min" means the whole span fell outside work hours.</p>
       <div class="sect-h">Receiving by warehouse</div>
       <div class="card" style="padding:14px 16px"><div id="recvByTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
 
@@ -327,8 +328,37 @@ document.getElementById("stockRefreshBtn").onclick=async ()=>{
 };
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 const nf=n=>Math.round(Number(n)||0).toLocaleString("en-CA");
-const fmtRDur=m=>m<90?m.toFixed(0)+" min":(m<48*60?(m/60).toFixed(1)+" h":(m/1440).toFixed(1)+" d");
-const durMin=(a,b)=>{ if(!a||!b)return null; const m=(new Date(b)-new Date(a))/60000; return (m>=0&&m<60*24*60)?m:null; };
+
+/* ---------- 리시빙 소요시간 = 근무시간 기준 경과 ----------
+   밤·주말을 빼고 센다. ⚠️ 공휴일 미반영(이번 범위 밖 — 필요해지면 여기 상수 옆에 목록 추가).
+   주의: 이 값은 "순수 작업 시간"이 아니다 — receipt 를 열어두고 다른 일을 한 시간도 포함된다.
+   순수 작업 시간은 스캔 타임스탬프 기반 집계가 필요(백로그). */
+const WORK_HOURS={start:9,end:17};                                   // 09:00–17:00 warehouse-local
+const WORK_DAYS=[1,2,3,4,5];                                         // Mon–Fri (0=Sun)
+const WH_TZ={toronto:"America/Toronto",edmonton:"America/Edmonton"}; // 매핑에 없으면 toronto 폴백
+
+const _tzFmt={};
+// UTC instant → 해당 타임존의 벽시계 시각을 UTC ms 축에 그대로 옮긴 값 (DST 전환 시각 주변 ±1h 오차 허용)
+function tzWall(iso,tz){
+  const f=_tzFmt[tz]||(_tzFmt[tz]=new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}));
+  const p={}; f.formatToParts(new Date(iso)).forEach(x=>p[x.type]=x.value);
+  return Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);
+}
+// a→b 사이의 근무 분(minute). null = 데이터 없음/음수/60일 초과, 0 = 전 구간이 근무시간 밖(표시는 "< 1 min")
+function workMinutes(aISO,bISO,warehouse){
+  if(!aISO||!bISO)return null;
+  const tz=WH_TZ[warehouse]||WH_TZ.toronto;
+  const a=tzWall(aISO,tz), b=tzWall(bISO,tz);
+  if(!(b>=a)||(b-a)>60*86400000)return null;
+  let total=0;
+  for(let d=Math.floor(a/86400000)*86400000; d<=b; d+=86400000){
+    if(!WORK_DAYS.includes(new Date(d).getUTCDay()))continue;
+    const s=Math.max(a,d+WORK_HOURS.start*3600000), e=Math.min(b,d+WORK_HOURS.end*3600000);
+    if(e>s)total+=(e-s)/60000;
+  }
+  return total;
+}
+const fmtWorkDur=m=>m<1?"< 1 min":(m<90?m.toFixed(0)+" min":(m/60).toFixed(1)+" h");
 function toast(m,bad){const el=document.getElementById("toast");el.textContent=m;el.className="show"+(bad?" bad":"");clearTimeout(el._t);el._t=setTimeout(()=>el.className="",1900);}
 
 /* ---------- period calc ---------- */
@@ -1792,7 +1822,7 @@ function renderProd(){
   // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
   const lineMax=Math.max(...rows.map(([,,rc])=>rc?rc.lines:0),1);
   el.innerHTML=rows.map(([nm,v,rc])=>{
-    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtRDur(rc.rMin/rc.rN)})`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
+    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work hrs)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
     const recvBar=rc?`
       <div class="bar-row"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
     return `
@@ -1845,9 +1875,9 @@ async function loadRecvStats(r){
     const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0};
     const wh=byWh[rc.warehouse||"?"]=byWh[rc.warehouse||"?"]||{n:0,lines:0,units:0};
     t.n++; w.n++; wh.n++;
-    const rm=durMin(rc.created_at,rc.completed_at);
+    const rm=workMinutes(rc.created_at,rc.completed_at,rc.warehouse);
     if(rm!=null){ t.rMin+=rm;t.rN++; w.rMin+=rm;w.rN++; }
-    const am=durMin(rc.completed_at,rc.applied_at);
+    const am=workMinutes(rc.completed_at,rc.applied_at,rc.warehouse);
     if(am!=null){ t.aMin+=am;t.aN++; }
     if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
     else if(rc.status==="completed") notApplied++;
@@ -1872,10 +1902,10 @@ async function loadRecvStats(r){
 
   const typeRow=(label,t)=>`<tr><td style="font-weight:600">${label}</td>
     <td class="num">${t.n}</td><td class="num">${nf(t.lines)}</td><td class="num">${nf(t.units)}</td>
-    <td class="num">${t.rN?fmtRDur(t.rMin/t.rN):"—"}</td><td class="num">${t.aN?fmtRDur(t.aMin/t.aN):"—"}</td></tr>`;
+    <td class="num">${t.rN?fmtWorkDur(t.rMin/t.rN):"—"}</td><td class="num">${t.aN?fmtWorkDur(t.aMin/t.aN):"—"}</td></tr>`;
   document.getElementById("recvTypeTable").innerHTML=(T.po.n+T.transfer.n===0)
     ? `<div class="empty">No receiving in this period.</div>`
-    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive</th><th class="num">Avg complete → apply</th></tr></thead>
+    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive (work hrs)</th><th class="num">Avg complete → apply (work hrs)</th></tr></thead>
        <tbody>${typeRow("PO",T.po)}${typeRow("Transfer",T.transfer)}</tbody></table>`;
 
   // per-worker receiving merges into "Throughput by worker" (renderProd) — no separate worker table (중복 제거)
