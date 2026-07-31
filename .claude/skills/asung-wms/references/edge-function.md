@@ -117,7 +117,7 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 
 **Apply commit 흐름**:
 - 공통 가드: `applied_at` 있으면 거부(이중 방지), status=completed 만. ⚠️ **예외 = 트랜스퍼의 실패 bin 재시도**(`apply_note` 에 `failed_moves(N)` N>0 + 남은 그룹 있음) — 아래 참조.
-- **PO**: ①`/purchase/invoice` 로 인보이스 AUTHORISED/PAID 확인(아니면 에러 — Invoice First) ②POST /purchase/stock DRAFT — 라인마다 {Date(필수), SKU:order_sku, Quantity:received_base÷factor, LocationID:binGuid(창고,putaway_bin), Received:false} ③Authorize = {TaskID, Status:'AUTHORISED', Lines:[]} 재요청 — **미실측 단계**, 실패 시 WARN 로그만(DRAFT 남음 → Cin7 수동 Authorize).
+- **PO**: → **아래 "applyCommit PO 경로 (2026-07-31 전면 개정 — 트랜스퍼 보호 장치 이식)" 절을 볼 것.** 요약: ⓪discrepancy 선기록 → ①인보이스 AUTHORISED/PAID 확인(Invoice First) → ②pending bin 그룹을 청크로 POST /purchase/stock DRAFT(+`exported_base` 체크포인트 — PO 의미 = "문서에 실은 양") → ③**authorize 게이트**: 모든 bin 이 문서에 실린 마지막 회차에만 1회 authorize(미완이면 DRAFT 유지) → ④receipt PATCH.
 - **트랜스퍼**: → **아래 "트랜스퍼 경로 (2026-07-28 전면 개정)" 절을 볼 것.** 요약: ⓪discrepancy 선기록 → ①PUT COMPLETED(**원본 수량 그대로**, resume 이면 스킵) → ②`min(received,expected)` 캡된 bin 이동 + `exported_base` 체크포인트 → ③receipt PATCH.
 - 성공 시 wms_receipts PATCH: applied_at/by/apply_note(로그 조인).
 
@@ -128,8 +128,8 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 - **`tryBinGuid()` = throw 안 하는 버전.** Apply 는 GUID 못 찾은 bin 의 **라인만 스킵**하고 나머지를 계속 쓴다(아래).
 - ⚠️ Cin7 쓰기 API 는 이름("창고: bin") 거부 — 반드시 GUID.
 
-**부분 스킵 (2026-07-28)**: TR-02935 의 피해가 커진 직접 원인은 "bin 한 건 실패 → **전체 throw** → 원 TR 은 COMPLETED 인데 receipt PATCH(`applied_at`)·discrepancy 까지 유실" 이었다.
-- **PO**: bin GUID 를 **쓰기 전에 전부 해석** → 못 찾은 bin 은 라인 스킵. **하나도 해석 안 되면 throw**(아직 아무것도 안 썼으므로 receipt 을 큐에 남겨 bin 고쳐 재Apply 하는 게 맞다). ⚠️ **스킵이 하나라도 있으면 auto-authorize 를 건너뛴다** — authorize 는 되돌릴 수 없고 Simple PO 는 1회뿐이라 DRAFT 로 남겨 매니저가 Cin7 에서 빠진 라인을 채우고 직접 authorize 하게 한다(WARN 로그로 안내).
+**부분 스킵 (2026-07-28 · PO 는 2026-07-31 개정)**: TR-02935 의 피해가 커진 직접 원인은 "bin 한 건 실패 → **전체 throw** → 원 TR 은 COMPLETED 인데 receipt PATCH(`applied_at`)·discrepancy 까지 유실" 이었다.
+- **PO**: GUID 못 찾은 bin 은 그룹째 스킵(그룹 루프 안에서 판정). **"하나도 해석 안 되면 throw" 는 "이번 회차가 GUID 스킵 말고 아무것도 안 했고 이전 회차 진행(lines_exported)도 0" 일 때만** — 청크 도입 후에는 이전 회차의 DRAFT 가 Cin7 에 있을 수 있어, 진행이 있으면 절대 throw 하지 않는다(기록이 끊긴다). ⚠️ **스킵이 하나라도 있으면 authorize 보류(DRAFT 유지)** — 2026-07-31 부터 이 방침이 미처리·실패·격리까지 확장됐다(아래 authorize 게이트).
 - **트랜스퍼**: PUT COMPLETED 이후 구간은 **절대 throw 하지 않는다**(Cin7 이 이미 되돌릴 수 없게 바뀜) → 스킵하고 남은 bin 계속 이동, receipt PATCH·discrepancy 까지 반드시 도달.
 - 노출: Apply 응답 최상위 **`skipped_bins: [{sku, bin, reason}]`** + `log` 의 `WARN` 줄(admin alert 이 이미 `WARN` 접두를 감지) + `apply_note` 에 `skipped_bins: [...]` 한 줄(JSON, 800자 컷).
 
@@ -137,13 +137,16 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 
 **action=bins** (신규): `?action=bins&warehouse=` → Cin7 `/ref/location` 에서 그 창고 전체 bin(빈 자리 포함) `[{bin,id}]`. 빈 지정 드롭다운 소스(신제품 새 자리). ⚠️ **2026-07-28: `binMap()` 과 같은 소스(최상위 창고 행의 `Bins[]`)로 통일** — 예전 "Bins[] + child-location 둘 다 수집" 방식은 같은 Limit 잘림에 걸려 **에드먼튼 bin 이 통째로 빠져 있었다**. 정렬 없이 반환(receiver.html `sortBins` 가 정렬), 원본 대소문자 유지.
 
-**applyCommit PO 경로 — 실측 확정 형태**:
-- Date = `YYYY-MM-DDT00:00:00Z` (자정, 밀리초 없이).
-- ⚠️ **bin 별 분할 POST**: plan.lines 를 putaway_bin 으로 그룹핑 → bin 마다 별도 `POST /purchase/stock {Status:DRAFT, Lines:[...그 bin 라인만...]}` (콜 간 sleep 400). **한 문서에 여러 bin 섞으면 400 "Lines is invalid"** (실측 PO-00965).
-- buildApplyPlan 이 같은 (SKU+bin) 라인 수량 합산 병합(중복 라인 400 방지).
-- **Authorize = `POST` "/purchase/stock" {Status:'AUTHORISED', Lines:[]}** (PUT 은 405 — 실측). 실패 시 WARN(DRAFT 는 남음).
-- 성공 시 wms_receipts PATCH: **status='completed'** + applied_at/by/apply_note.
-- Invoice First: `/purchase/invoice` 로 AUTHORISED/PAID 선확인.
+**applyCommit PO 경로 (2026-07-31 전면 개정 — 트랜스퍼 보호 장치 이식. 이전 "전량 일괄 POST → 무조건 authorize" 판을 대체)**:
+
+Cin7 형태(실측 확정 — 불변): Date = `YYYY-MM-DDT00:00:00Z` · **문서당 bin 1개**(bin 별 분할 POST, 콜 간 sleep 400 — 섞으면 400 "Lines is invalid") · 같은 (SKU+bin) 병합 · **Authorize = POST {Status:'AUTHORISED', Lines:[]}**(PUT 405) · Invoice First 선확인(`/purchase/invoice` AUTHORISED/PAID).
+
+1. **buildApplyPlan po 절**: planLines 에 `move_base`(=qty_base, 캡 없음 — received 그대로)·`pending_base` 를 계산해 **`pending_base>0` 만 bin 그룹으로** 묶고 트랜스퍼 v3 처럼 "미시도 먼저, 실패 이력 뒤로" 정렬. ⚠️ **라인 all-or-nothing**: `exported_already < qty_base` 면(체크포인트 PATCH 일부 실패 잔재) 전량 pending — 부분 수량은 factor 로 안 나눠떨어질 수 있고, 중복 재전송은 Cin7 이 400 으로 거부한다(아래). plan 에 `groups`/`fail_counts`/`quarantined_bins`/`chunk_size`/`time_budget_ms`/`progress` 노출(트랜스퍼와 동일 계약). 재개 게이트 `retryFailed` 는 **2026-07-31 부터 소스 무관**(`failed_moves(N)`/`groups_remaining(N)`/`permanently_failed(N)` 마커).
+2. **그룹 루프 (트랜스퍼와 같은 구조)**: 격리 판정(연속 3회+) → **공용 `chunkGuard()`**(그룹 12/시간 20초/429/실패 6초 — 트랜스퍼와 같은 상수·판정, Cin7 POST **앞**) → GUID 미해석 스킵 → `POST /purchase/stock DRAFT` → 실패는 **수집만 하고 계속**(전체 throw 제거 — 429 는 failed_moves 에 안 넣고 회차 조기 종료, 400 재시도 없음) → 성공 시 `markExported` 체크포인트. ⚠️ **PO 의 `exported_base` = "Cin7 stock received 문서에 실은 양"**(트랜스퍼의 "bin 으로 옮긴 양"과 다름 — authorize 여부와 무관).
+3. **⚠️⚠️ authorize 게이트 (PO 고유 — 1회 제약)**: authorize 는 **그룹 루프 밖**에서, `groups_remaining + failed_moves + permanently_failed + skipped_bins(고유 bin) === 0` 인 회차에만 **딱 한 번** 시도한다. 하나라도 남으면 apply_note 에 `"Cin7 document left as DRAFT - N bin(s) pending (...)"` 을 남기고 보류 — 회차마다 시도하면 Simple PO 의 1회 제약을 위반하고, 부분 문서를 authorize 하면 빠진 수량을 API 로 채울 수 없다. 응답 `authorized: true|false|null`(false=시도 실패 → 기존 방침대로 WARN+DRAFT+Cin7 수동, null=보류/트랜스퍼).
+4. **receipt PATCH**: apply_note 매 회차 갱신 + `applied_at` 은 done:true 회차에만(트랜스퍼와 동일). 미완 receipt 은 admin 에 `Continue apply`/`Retry failed bins` + **`Cin7 DRAFT — N bin(s) pending` 배지**로 남는다.
+- **되읽기 회복(checkpoint repair)은 PO 미적용** — "POST 성공 후 체크포인트 누락" 잔여물의 재전송은 **400 `Cannot add duplicate value`** 로 거부된다(실측, stock-write.md — 같은 Product+Location 이 이미 stock received 에 있으면 발생): 조용한 이중 계상 없음, 이 에러 = 그 라인은 이미 DRAFT 에 있음(Cin7 화면 확인 후 마무리 — WARN·admin 알림에 안내). 필요성이 실측되면 별도 검토(백로그 6번).
+- 잔여 엣지: authorize 성공 직후 receipt PATCH 전에 EF 가 죽으면 다음 회차의 authorize 재시도가 400 (WARN "may already be AUTHORISED") — 문서는 이미 AUTHORISED, Cin7 에서 상태만 확인.
 
 **진단 팁**: cin7() 실패 throw 에 `| SENT: {body}` 포함(디버깅용, 유지). Cin7 "Lines is invalid" 는 대개 (a)여러 bin 섞임 (b)같은 SKU+bin 중복 (c)PO 에 없는 SKU — SENT 로 격리. GAS `WmsPoStockWriteTest.gs` 의 `psMultiLineTest`(bin별 분할 검증)·`psAuthorizeTest`(PUT/POST 판별) 패턴 재사용.
 
@@ -203,7 +206,7 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 - **EF 응답 최상위**: `failed_moves: [{bin, skus:[…], qty, http_status, cin7_error}]` + `moved_bins`(성공한 그룹 수). `ok:true` 지만 부분 성공이다.
 - **`apply_note`**: `failed_moves(N): [ …JSON 900자 컷… ]` 한 줄 + `PARTIAL — N moved, M failed …` 안내 줄. ⚠️ **`failed_moves(<정수>):` 포맷은 계약이다** — buildApplyPlan 의 재시도 게이트 정규식과 admin.html 의 CIN7 열 표시가 같은 패턴을 읽는다.
 - **admin.html**: History CIN7 열 = `✓ Applied` 대신 **`⚠ Applied (N bins failed)`**(warn 색, title 에 apply_note 전문) · Apply 목록에 **그대로 남고** 버튼이 `Retry failed bins` · Apply 후 알림에 "N moved / M failed" + bin·SKU·Cin7 에러 요약 + *"Fix the stock in Cin7, then Apply again — only the failed bins will be retried."* · dry-run confirm 의 Mode 줄에 `RETRY`.
-- **⚠️ PO 경로에는 아직 없다** — bin 별 `POST /purchase/stock` 중 하나가 실패하면 여전히 전체 throw 이고 앞서 성공한 DRAFT 는 Cin7 에 남는다(체크포인트도 없음). 같은 원칙이 필요하다 — 규칙 27 R10 백로그.
+- ✅ **PO 경로에도 2026-07-31 이식** — 같은 판정(`failed_moves.length > 0`)·같은 마커·같은 admin 기계장치를 쓰되, 후속 안내가 다르다: "착지 지점의 재고" 가 아니라 **"authorize 안 된 DRAFT 문서"**(위 applyCommit PO 경로 절 — authorize 게이트).
 
 **discrepancy 기록 (PO·트랜스퍼 공통) — ⚠️ 2026-07-28 순서·실패정책 역전**: buildApplyPlan 이 SKU 단위로 received vs expected 를 비교해 `plan.discrepancies[]`(reason `recv_over`/`recv_short`/`recv_off_po`) 생성. 예전엔 applyCommit **맨 마지막**이라 bin 이동이 throw 하면 기록이 통째로 유실됐다(TR-02935 실사고). 지금은 **맨 처음**이고 **실패 시 Apply 중단**(`"discrepancy log failed - NOTHING was written to Cin7"`) — 새 정책에서 이 큐는 **유일한 보정 지시서**라 기록 없이 재고를 옮기면 차이를 되찾을 수 없다. `sb()` 헬퍼 4번째 인자 `prefer` 사용.
 
@@ -215,12 +218,12 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 - **상한 카운트 = 이번 회차에 Cin7 POST 를 실제로 시도한 그룹 수(성공+실패)** — 실패도 왕복 1회를 먹는다. 착지 bin 스킵·already-exported 스킵·GUID 미해석 스킵은 상한에 안 센다. 가드 도달 이후 그룹은 **아무것도 하지 않고** `groups_remaining` 으로만 센다.
 - **종료부(apply_note PATCH + 응답 반환)는 회차의 가장 값싼 마지막 동작** — Cin7 호출·무거운 재조회 금지. `lines_moved` 는 DB 재조회 없이 plan.progress.lines_exported + 이번 회차 markExported 수. **receipt PATCH 가 실패해도 응답은 반환한다**(log 에 WARN + 응답 `note_saved:false`; done 회차였다면 applied_at 도 미기록 → 다음 Apply 가 DB 재조회로 수렴해 PATCH 만 재시도, 이중 이동 없음).
 - **청크 경계에서 이중 이동 없음**: 성공 그룹은 POST 직후 `markExported` 로 `exported_base` 가 찍히고, 미처리 그룹은 안 찍힌다. commit 은 매 호출 `buildApplyPlan` 이 DB 를 다시 읽으므로 다음 회차의 `pending_base>0` 필터가 미처리 그룹만 다시 집는다 — 기존 재시도 경로와 같은 메커니즘. (남는 구멍은 종전과 동일: `exported_base` PATCH 자체가 실패하면 WARN 만 남고 재이동 위험 — R10.)
-- **commit 응답 추가 필드**: `done`(잔여 0 이면 true — PO 경로는 항상 true) · `groups_total`(이번 회차 후보 = 시도+잔여) · `groups_moved` · `groups_remaining` · `lines_moved`/`lines_total`(receipt 라인 기준 **누적** — plan.progress.lines_exported + 이번 회차 0→양수 전환 수) · `rate_limited` · `stopped_by:"groups"|"time"|null` · `note_saved`. 기존 `failed_moves`/`moved_bins`/`skipped_bins`/`log` 유지. dry-run plan 에는 `chunk_size`+`time_budget_ms`.
+- **commit 응답 추가 필드**: `done`(잔여 0 이면 true) · `groups_total`(이번 회차 후보 = 시도+잔여) · `groups_moved` · `groups_remaining` · `lines_moved`/`lines_total`(receipt 라인 기준 **누적** — plan.progress.lines_exported + 이번 회차 0→양수 전환 수) · `rate_limited` · `stopped_by:"groups"|"time"|"fail_budget"|null` · `note_saved` · `source`("po"|"transfer" — admin 문구 분기용) · `authorized`(PO 전용 — 위 authorize 게이트). 기존 `failed_moves`/`moved_bins`/`skipped_bins`/`log` 유지. dry-run plan 에는 `chunk_size`+`time_budget_ms`. **2026-07-31 부터 PO·트랜스퍼 공통**(청크 판정·마커·진행률 전부).
 - **`applied_at` 은 done:true 회차에만.** 중간 회차는 `apply_note` 만 매 회차 갱신(정상 종료에서 항상 기록이 남는다 — R14 의 반대 방향 보증): 진행 줄 `CHUNK - N group(s) moved this round · x/y lines exported` + 계약 표식 **`groups_remaining(N):`** 한 줄. ⚠️ `failed_moves(N):` 처럼 **EF 정규식(buildApplyPlan 재개 게이트)과 admin.html(Continue apply 버튼·History `⏸ N groups left` 표시)이 공유하는 계약 포맷** — 한쪽만 바꾸지 말 것.
 - **재개 게이트 확장**: `retryFailed = transfer && (failed_moves(N)>0 || groups_remaining(N)>0)` — applied_at 이 이미 찍힌 부분실패 receipt 의 재시도 회차가 다시 청크에 걸려도(done:false 인데 applied_at 은 과거 값) 다음 Apply 가 막히지 않는다.
 - **429**: `cin7()` 이 백오프(1.5s→3s, **상한 2회**) 후에도 429 면 `status=429` 를 실어 throw → 그룹 루프가 **`failed_moves` 에 넣지 않고**(재시도 대상 표식이 어긋난다) `rate_limited=true` 로 회차를 조기 종료, 잔여는 다음 회차. 그룹 간 sleep 은 **300→150ms**.
 - **admin 자동 반복 (admin.html applyToCin7)**: `done:false` 면 commit 을 재호출(회차 사이 dry-run 없음). 진행률은 EF 응답 필드 그대로: 버튼 `Applying… 210/327` + 배너 `Applying… 210 / 327 lines · 58 bin groups left`. **Stop 버튼**(배너·모달 노트 양쪽) = 회차 경계에서 멈춤 — exported_base 체크포인트까지 안전, receipt 은 큐에 남아 `Continue apply` 로 재개. **무한 루프 가드** = 한 회차 `groups_moved===0`(남은 그룹 전부 실패·429 지속)이면 중단 + 실패 목록 alert / 회차 상한 `APPLY_MAX_ROUNDS=20`. `beforeunload` 경고·재진입 차단(applyBusy)·rAF 150ms 타임아웃·`loadRecv().catch()` 격리는 자동 반복 전체 구간 유지.
-- ⚠️ **PO 경로 미적용** — 청크도 체크포인트도 없다(bin 하나 실패 = 전체 throw). 규칙 27 R10 백로그.
+- ✅ **PO 경로 이식 완료 (2026-07-31)** — 청크·체크포인트·실패 격리 전부 + PO 고유 **authorize 게이트**(위 applyCommit PO 경로 절). 가드 판정은 공용 `chunkGuard()` 로 추출(트랜스퍼 동작 불변 — 같은 상수·같은 순서의 판정을 헬퍼로 옮긴 것뿐).
 
 ## 폴링 EF `hello` — Reference 저장 (2026-07-25)
 

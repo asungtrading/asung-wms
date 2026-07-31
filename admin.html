@@ -211,7 +211,7 @@
 
       <div class="sect-h">Putaway <span style="font-weight:400;color:var(--mut);font-size:12.5px">— lines received in this period</span></div>
       <div class="grid" id="putawayStatGrid"></div>
-      <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ "Moved in Cin7" counts transfer lines with exported_base &gt; 0. exported_base is only an <b>approximation</b> of what the WMS actually moved — it can be polluted by manual updates (2026-07-28: 344 rows of TR-02935 were backfilled by hand).</p>
+      <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ "Moved in Cin7" counts transfer lines with exported_base &gt; 0. exported_base is only an <b>approximation</b> of what the WMS actually moved — it can be polluted by manual updates (2026-07-28: 344 rows of TR-02935 were backfilled by hand). Since 2026-07-31 PO lines also record exported_base (there it means "put on the Cin7 stock received document"), but they are <b>not counted here</b> — this metric stays transfer-only.</p>
 
       <div class="sect-h">Receiving discrepancies <span style="font-weight:400;color:var(--mut);font-size:12.5px">— over / short / off-PO recorded at the dock</span></div>
       <div class="grid" id="recvDiscGrid"></div>
@@ -1439,8 +1439,12 @@ async function loadRecv(){
   //   연속 실패 카운트를 리셋하고 격리된 bin 도 다시 시도한다(사람이 Cin7 재고를 고친 뒤의 명시적 경로).
   ex.innerHTML=(applicable.length
     ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th></th></tr></thead><tbody>${
-        applicable.map(r=>{ const fb=failedBins(r), rg=remainGroups(r), pf=permBins(r), fix=fb+pf; return `<tr>
-          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}${rg?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left — continue</span>`:""}${(!rg&&fix)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${fix} bin${fix>1?"s":""} need manual fixing — retry</span>`:(rg&&pf)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${pf} bin${pf>1?"s":""} need manual fixing</span>`:""}</td>
+        applicable.map(r=>{ const fb=failedBins(r), rg=remainGroups(r), pf=permBins(r), fix=fb+pf;
+          // PO 는 미완이면 Cin7 stock received 문서가 authorize 안 된 DRAFT 로 남아 있다(EF authorize 게이트 —
+          // 모든 bin 이 실린 마지막 회차에만 1회 authorize). 사람이 Cin7 에서 문서를 찾을 수 있게 배지로 밝힌다.
+          const poDraft=(r.source_type!=="transfer"&&(rg+fix)>0)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="The Cin7 stock received document is saved but NOT authorised — it is authorised automatically once every bin is on it. Do not authorize the partial document in Cin7.">Cin7 DRAFT — ${rg+fix} bin${(rg+fix)>1?"s":""} pending</span>`:"";
+          return `<tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}${rg?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left — continue</span>`:""}${(!rg&&fix)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${fix} bin${fix>1?"s":""} need manual fixing — retry</span>`:(rg&&pf)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${pf} bin${pf>1?"s":""} need manual fixing</span>`:""}${poDraft}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
@@ -1459,6 +1463,8 @@ async function loadRecv(){
     ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th>Status</th><th>Cin7</th><th>Received by</th><th>Updated</th><th></th></tr></thead><tbody>${
         rs.slice(0,40).map(r=>{
           const applied=!!r.applied_at, fb=applied?failedBins(r):0, rg=remainGroups(r), pf=permBins(r), fix=fb+pf;
+          // PO 미완(rg/fix)은 Cin7 문서가 authorize 안 된 DRAFT 라는 뜻 — 트랜스퍼("이동 실패")와 문구를 구분한다.
+          const isTr=r.source_type==="transfer";
           return `<tr>
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TR</span>':"PO"}</td>
@@ -1467,12 +1473,12 @@ async function loadRecv(){
           <td>${RECV_ST_LABEL[r.status]||r.status}</td>
           <td>${applied
             ? (fix
-              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ Applied (${fix} bin${fix>1?"s":""} need manual fixing)</span>`
+              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ Applied (${isTr?`${fix} bin${fix>1?"s":""} need manual fixing`:`Cin7 DRAFT — ${fix} bin${fix>1?"s":""} pending`})</span>`
               : rg
-              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ Applied (${rg} group${rg>1?"s":""} left)</span>`
+              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ Applied (${rg} group${rg>1?"s":""} left${isTr?"":" — Cin7 DRAFT"})</span>`
               : `<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`)
             : (rg
-              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left</span>`
+              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left${isTr?"":" — Cin7 DRAFT"}</span>`
               : '<span style="color:var(--mut-2);font-size:12px">—</span>')}</td>
           <td>${esc(r.received_by||"—")}</td>
           <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
@@ -1702,6 +1708,8 @@ async function applyToCin7(rid,po,btn,ov,retryFailed){
     let j=await r.json();
     if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
     const p=j.plan;
+    // PO 미완/부분 실패의 후속 안내는 트랜스퍼와 다르다("착지 지점의 재고" 가 아니라 "authorize 안 된 DRAFT 문서").
+    const isPo=j.source!=="transfer";
     // ⚠️ 트랜스퍼는 bin 이동 수량이 min(received, expected) 로 캡되므로 received 와 실제 이동량이 다를 수 있다 → 둘 다 보여준다.
     const lineTxt=p.lines.map(l=>{
       const cap=(l.move_base!==undefined&&Number(l.move_base)!==Number(l.qty_base))?` [moves ${l.move_base} — capped at sent qty]`:"";
@@ -1736,7 +1744,7 @@ async function applyToCin7(rid,po,btn,ov,retryFailed){
       r=await fetch(EF+"?action=apply&receipt_id="+rid+(rounds===1?qsRetry:"")+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
       j=await r.json();
       if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
-      if(j.lines_total){   // 진행률은 EF 응답 필드를 그대로 표시한다 (PO 경로는 이 필드가 없어 한 번에 끝난다)
+      if(j.lines_total){   // 진행률은 EF 응답 필드를 그대로 표시한다 (2026-07-31 부터 PO·트랜스퍼 공통)
         applyProgressMsg=`Applying… ${j.lines_moved} / ${j.lines_total} lines · ${j.groups_remaining} bin group${j.groups_remaining===1?"":"s"} left`;
         setApplyBtn(btn,"busy",`Applying… ${j.lines_moved}/${j.lines_total}`);
         syncApplyBusyUI();
@@ -1773,9 +1781,11 @@ async function applyToCin7(rid,po,btn,ov,retryFailed){
           ? `⏸ ${po} apply stopped by request.`
           : `⚠ ${po} apply halted — ${stuckWhy||"no progress"}.`)
         +`\n\nProgress so far: ${j.lines_moved||0} / ${j.lines_total||"?"} lines · ${j.groups_remaining||0} bin group(s) left.`
-        +`\nEverything moved so far is checkpointed — nothing is half-moved, and re-applying will not double-move.`
+        +(isPo
+          ?`\nEverything posted so far is checkpointed — the Cin7 stock received document stays DRAFT and is NOT authorised until every bin is on it. Do not authorize the partial document in Cin7.`
+          :`\nEverything moved so far is checkpointed — nothing is half-moved, and re-applying will not double-move.`)
         +failTxt+permTxt
-        +`\n\n${fails.length||perm.length?"Fix the stock in Cin7, then press":"Press"} Apply again later to continue from where it stopped.`);
+        +`\n\n${fails.length||perm.length?(isPo?"Fix the cause, then press":"Fix the stock in Cin7, then press"):"Press"} Apply again later to continue from where it stopped.`);
       toast(`${po} apply ${stopped?"stopped":"halted"} — ${j.groups_remaining||0} group(s) left`,true);
     }else if(fails.length||perm.length){
       // 부분 성공 — 마지막 회차의 실패(fails) + 격리(perm). done:true 라 applied_at 은 찍혔고,
@@ -1783,12 +1793,16 @@ async function applyToCin7(rid,po,btn,ov,retryFailed){
       setApplyBtn(btn,"partial","⚠ Partial");
       await paintFrame();
       const failTxt=fails.length?`Failed bin moves:\n${fails.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}\n   HTTP ${f.http_status||"?"}: ${f.cin7_error||"(no detail)"}`).join("\n")}\n\n`:"";
-      alert(`⚠ ${po} applied — ${fails.length+perm.length} bin(s) need manual fixing in Cin7.\n\n`
-        +`${j.moved_bins||0} bin group(s) moved this round · ${fails.length} failed${perm.length?` · ${perm.length} quarantined`:""}.\n\n`
+      alert(`⚠ ${po} applied — ${fails.length+perm.length} bin(s) need manual fixing${isPo?"":" in Cin7"}.\n\n`
+        +`${j.moved_bins||0} bin group(s) ${isPo?"posted":"moved"} this round · ${fails.length} failed${perm.length?` · ${perm.length} quarantined`:""}.\n\n`
         +failTxt
         +(permTxt?permTxt.replace(/^\n+/,"")+"\n\n":"")
-        +`That stock is still at the landing point in Cin7 — nothing was double-moved.\n`
-        +`Fix the stock in Cin7, then press 'Retry failed bins' — only the failed bins will be retried.\n\n`
+        +(isPo
+          ?`The Cin7 stock received document is left as DRAFT — it was NOT authorised (authorize is one-shot on a Simple PO).\n`
+           +`Fix the cause, then press 'Retry failed bins' — the document is authorised automatically once every bin is on it.\n`
+           +`If a failure says "Cannot add duplicate value", that line is already on the DRAFT — verify in Cin7 and finish there.\n\n`
+          :`That stock is still at the landing point in Cin7 — nothing was double-moved.\n`
+           +`Fix the stock in Cin7, then press 'Retry failed bins' — only the failed bins will be retried.\n\n`)
         +`Full log:\n${(j.log||[]).join("\n")}`);
       toast(`${po} applied — ${fails.length+perm.length} bin(s) need manual fixing`,true);
     }else{

@@ -14,6 +14,8 @@
 //   [PO]  POST /purchase/stock — TaskID + Lines[{Date,SKU,Quantity,LocationID(bin GUID),Received}]
 //         DRAFT 생성 확인. ⚠️ 선행조건: 인보이스 authorize (아니면 400 'Invoice First').
 //         Authorize = 빈 Lines 재요청 (⚠️ 이 단계만 미실측 — 실패 시 DRAFT 는 남음, Cin7 화면 수동 Authorize 안내).
+//         2026-07-31: 트랜스퍼 보호 장치 이식 — 청크 이중 가드·exported_base 체크포인트(의미: "문서에 실은 양")·
+//         실패 수집/격리. ⚠️⚠️ authorize 는 1회뿐 → **모든 bin 그룹이 문서에 실린 회차에만 한 번** 시도(게이트).
 //   [TR]  POST /stockTransfer — From/To 는 bin GUID (이름은 400), 즉시 COMPLETED 가능,
 //         같은 창고 bin↔bin 은 InTransitAccount 불필요. (TR-03236 실측)
 //         트랜스퍼 완료 = PUT 원 TR COMPLETED (기본 To bin 착지) → bin 그룹별 미니 트랜스퍼로 재배치.
@@ -80,6 +82,31 @@ function cin7ErrInfo(e: any): { http_status: number | null; cin7_error: string }
   return { http_status: status, cin7_error: msg.slice(0, 300) };
 }
 
+// ── 목적지 bin 의 SKU 보유량 되읽기 (checkpoint repair 판정용, 2026-07-31 — TR-03144) ──
+// GET /ref/productavailability 는 (SKU × Location × Bin) 행 단위로 OnHand 를 준다 (cin7-api 스킬 product.md).
+// · **OnHand 로 판정한다 (Available 아님)** — Available 은 판매 배정(Allocated) 차감값이라, 이미 도착한 재고가
+//   그 사이 오더에 배정되면 "도착했는데 미도착" 으로 오판한다. 물리 도착의 근거는 OnHand.
+// · Sku 파라미터의 일치 방식(정확/전방)이 미확정이라 **응답 행을 클라이언트 측에서 정확 일치로 다시 거른다**
+//   (SKU 정확 일치 + 창고 normWarehouse 일치 + Bin trim/대문자 정확 일치) — 다른 SKU·다른 bin 오염 방지.
+// · 반환 null = **판정 불가** (조회 실패·응답 잘림) — 호출부는 실패로 남긴다(오판이 미이동보다 나쁘다).
+async function binOnHand(warehouse: string, binName: string, sku: string): Promise<number | null> {
+  try {
+    const d = await cin7Get("/ref/productavailability?Sku=" + encodeURIComponent(sku) + "&Limit=1000");
+    const rows = (d.ProductAvailabilityList || []) as any[];
+    if (Number(d.Total || 0) > rows.length) return null;   // 잘림 — 전체를 못 봤으면 판정하지 않는다
+    const binKey = String(binName || "").trim().toUpperCase();
+    const skuKey = String(sku || "").trim().toUpperCase();
+    let sum = 0;
+    for (const r of rows) {
+      if (String(r.SKU || "").trim().toUpperCase() !== skuKey) continue;
+      if (normWarehouse(String(r.Location || "")) !== normWarehouse(warehouse)) continue;
+      if (String(r.Bin || "").trim().toUpperCase() !== binKey) continue;
+      sum += Number(r.OnHand || 0);
+    }
+    return sum;
+  } catch { return null; }
+}
+
 async function sb(method: string, path: string, body?: unknown, prefer?: string): Promise<any> {
   const url = (Deno.env.get("SUPABASE_URL") ?? "") + "/rest/v1/" + path;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -131,8 +158,24 @@ const APPLY_TIME_BUDGET_MS = 20000;
 //  연속 실패 카운트는 apply_note 의 `fail_counts:{"BIN":n}` 마커로 회차 간 이월한다(새 컬럼·테이블 없음 —
 //  근거는 buildApplyPlan 의 파싱 주석). ⚠️ 400(재고 부족)은 재시도 가치가 없다 — cin7() 의 백오프 재시도는
 //  429 전용이라 400 은 애초에 재시도되지 않는다(그대로 유지할 것).
+//  ④ 목적지 되읽기 회복(checkpoint repair): "Available quantity … is 0" 400 에 한해 목적지 bin 을 되읽어
+//     이미 도착해 있으면 완료로 간주한다 — 그룹 루프 catch 안의 주석 참조(TR-03144 실측 근거 포함).
 const APPLY_FAIL_BUDGET_MS = 6000;
 const APPLY_QUARANTINE_FAILS = 3;
+
+// ── 청크 가드 공용 판정 (2026-07-31 — PO 경로 이식하며 트랜스퍼와 상수·판정을 한 곳으로) ──
+// 반환 = 걸린 가드("groups"|"time"|"rate"|"fail_budget") 또는 null(계속 진행).
+// ⚠️ 반드시 Cin7 POST **앞**(그룹 루프 머리)에서 호출한다 — 반쯤 쓴 그룹/문서를 만들지 않는다.
+// 판정 순서는 기존 트랜스퍼 코드와 동일: (그룹 상한 ‖ 429 ‖ 시간 예산) → 실패 이력 그룹 시간 상한.
+// "rate" 는 stopped_by 에 기록하지 않는다(응답의 rate_limited 필드가 따로 밝힌다) — 호출부가 거른다.
+function chunkGuard(groupsAttempted: number, rateLimited: boolean, t0: number,
+  prevFails: number, failSpentMs: number): "groups" | "time" | "rate" | "fail_budget" | null {
+  if (groupsAttempted >= APPLY_MAX_GROUPS) return "groups";
+  if (rateLimited) return "rate";
+  if (Date.now() - t0 > APPLY_TIME_BUDGET_MS) return "time";
+  if (prevFails > 0 && failSpentMs > APPLY_FAIL_BUDGET_MS) return "fail_budget";
+  return null;
+}
 
 // ── bin 이름 → GUID (실측 검증: Cin7 쓰기 API 는 이름 거부, GUID 만 받음) ─────────
 // ⚠️⚠️ 실사고 2026-07-28 (TR-02935, 첫 에드먼튼 Apply): `/ref/location` 은 **Total 2678 인데 Limit 500 에서 잘린다.**
@@ -347,7 +390,9 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
   const failedNote = /failed_moves\((\d+)\)/.exec(noteStr);
   const remainNote = /groups_remaining\((\d+)\)/.exec(noteStr);
   const permNote = /permanently_failed\((\d+)\)/.exec(noteStr);
-  const retryFailed = src0 === "transfer" &&
+  // 2026-07-31: PO 경로에도 청크·실패 격리를 이식하면서 `src0 === "transfer"` 제한을 풀었다 —
+  // PO 도 부분 실패/청크 미완이면 같은 마커로 재개한다(실패 라인은 exported_base 미기록 → pending 재대상).
+  const retryFailed =
     ((!!failedNote && Number(failedNote[1]) > 0) || (!!remainNote && Number(remainNote[1]) > 0) ||
      (!!permNote && Number(permNote[1]) > 0));
   // ── bin 별 연속 실패 카운트 — apply_note 의 `fail_counts:{"BIN":n}` 마커 (2026-07-31 v3) ──
@@ -426,16 +471,66 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
   }
 
   if (src === "po") {
+    // ── PO 청크·재개 준비 (2026-07-31 — 트랜스퍼 보호 장치 이식, 규칙 21·27 R10) ──
+    // ⚠️ exported_base 의 의미가 트랜스퍼와 다르다: 트랜스퍼 = "목적지 bin 으로 옮긴 양" /
+    //    **PO = "Cin7 stock received 문서(DRAFT)에 실은 양"** — authorize 여부와 무관한 "문서에 올라갔다" 기록.
+    // ⚠️ 라인 단위 all-or-nothing: exported_already 가 qty_base 에 못 미치면(체크포인트 PATCH 일부 실패 잔재)
+    //    **전량**을 pending 으로 되돌린다 — 부분 수량 재전송은 factor 로 안 나눠떨어질 수 있고, PO stock received 는
+    //    같은 (SKU+bin) 재전송을 400 "Cannot add duplicate value" 로 거부하므로(실측, cin7-api 스킬) 전량 재전송이
+    //    조용히 이중 계상되는 일은 없다 — 중복이면 시끄럽게 실패해 사람이 본다.
+    for (const p of planLines as any[]) {
+      p.move_base = Number(p.qty_base);   // markExported 재사용용 — PO 는 캡 없음(received 그대로)
+      p.pending_base = Number(p.exported_already || 0) >= Number(p.qty_base) ? 0 : Number(p.qty_base);
+    }
+    const groups: Record<string, any[]> = {};
+    (planLines as any[]).filter((p) => Number(p.pending_base) > 0).forEach((p) => { (groups[p.bin] = groups[p.bin] || []).push(p); });
+    const bins = Object.keys(groups);
+    const failsOf = (b: string) => Number(failCounts[String(b).toUpperCase()] || 0);
+    const quarantinedBins = bins.filter((b) => failsOf(b) >= APPLY_QUARANTINE_FAILS);
+    const binsActive = bins.filter((b) => failsOf(b) < APPLY_QUARANTINE_FAILS);
+    const alreadyExported = (planLines as any[]).filter((p) => Number(p.pending_base) <= 0).length;
+    // 재시도 게이트 ② (트랜스퍼와 동일) — 마커는 남았는데 실제로 실을 그룹이 없으면 재개할 이유가 없다.
+    if (rcpt.applied_at && retryFailed && !bins.length) {
+      throw new Error(rcpt.po_number + " already applied at " + rcpt.applied_at +
+        " - nothing left to retry (every line is already on the Cin7 stock received document)");
+    }
     return {
       receipt: rcpt, source: "po",
       plan: {
-        action: "PO stock received",
+        action: "PO stock received" + (retryFailed ? (resetFails
+            ? " (RETRY — fail history cleared, previously failed bins are attempted again)"
+            : " (RESUME — untried groups go first, previously failed bins last)") : ""),
+        retry: retryFailed, retry_reset: resetFails,
         steps: [
           "1) Check invoice is AUTHORISED (Invoice First)",
-          "2) POST /purchase/stock - DRAFT with " + planLines.length + " line(s), each to its bin",
-          "3) Authorize stock received (empty-lines request; if it fails, authorize in Cin7 UI)",
+          "2) POST /purchase/stock - one DRAFT document per bin: " + binsActive.length + " bin group(s)" +
+            (alreadyExported ? " · " + alreadyExported + " line(s) already on the document, skipped" : "") +
+            " · untried groups go first, previously failed bins last" +
+            (binsActive.length > APPLY_MAX_GROUPS
+              ? " · processed up to " + APPLY_MAX_GROUPS + " group(s) or ~" + (APPLY_TIME_BUDGET_MS / 1000) +
+                "s per round, whichever comes first — the admin screen repeats Apply automatically (Stop is safe between rounds)"
+              : ""),
+          ...(quarantinedBins.length
+            ? ["2b) EXCLUDED — " + quarantinedBins.length + " bin(s) failed " + APPLY_QUARANTINE_FAILS +
+               "+ consecutive rounds and need manual fixing: " + quarantinedBins.join(", ") +
+               " — fix the cause, then use 'Retry failed bins' to include them"]
+            : []),
+          "3) Authorize ONCE, only on the round where EVERY bin group is on the document — " +
+            "if anything is pending, failed or skipped, the document stays DRAFT " +
+            "(authorize is one-shot on a Simple PO; never authorize a partial document)",
         ],
-        lines: planLines, skipped, discrepancies,
+        lines: planLines,
+        // 그룹 순서 = 미시도 먼저, 실패 이력(연속 실패 수 오름차순) 뒤로 — 트랜스퍼 v3 와 동일한 근거.
+        // 순서는 시도 순서일 뿐: "무엇을 실을지"는 매 회차 DB 재조회(pending_base>0)가 정한다(이중 전송 없음).
+        groups: bins.map((b) => ({ bin: b, prev_fails: failsOf(b), lines: groups[b] }))
+          .sort((a, b) => a.prev_fails - b.prev_fails),
+        fail_counts: failCounts, quarantined_bins: quarantinedBins, quarantine_fails: APPLY_QUARANTINE_FAILS,
+        skipped, discrepancies,
+        chunk_size: APPLY_MAX_GROUPS, time_budget_ms: APPLY_TIME_BUDGET_MS,
+        progress: {
+          lines_total: lines.length,
+          lines_exported: lines.filter((l: any) => Number(l.exported_base || 0) > 0).length,
+        },
       },
     };
   }
@@ -583,7 +678,7 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   const log: string[] = [];
   // bin GUID 를 못 찾은 라인 — 전체를 중단시키지 않고 여기 모아 응답·apply_note 로 노출한다 (TR-02935 교훈).
   const skippedBins: { sku: string; bin: string; reason: string }[] = [];
-  // Cin7 이 거부한 bin 이동(트랜스퍼 경로) — 그룹 단위로 수집만 하고 다음 그룹을 계속 진행한다. 아래 루프 주석 참조.
+  // Cin7 이 거부한 bin 그룹(트랜스퍼 = bin 이동 / PO = stock received POST) — 수집만 하고 다음 그룹을 계속 진행한다.
   const failedMoves: { bin: string; skus: string[]; qty: number; http_status: number | null; cin7_error: string; fails: number }[] = [];
   // 연속 실패 카운트(bin 대문자 → n) — plan.fail_counts(직전 회차 apply_note 마커)에서 시작해 이번 회차 결과로 갱신,
   // 회차 끝에 fail_counts 마커로 되쓴다. 성공 = 삭제(연속 리셋) / 실패(429 제외) = +1 / 미시도 = 그대로 이월.
@@ -593,6 +688,13 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   const permanentlyFailed: { bin: string; skus: string[]; qty: number; fails: number }[] = [];
   let failSpentMs = 0;      // 이번 회차에 실패 이력 그룹 시도에 쓴 시간 합 (APPLY_FAIL_BUDGET_MS 상한)
   let movedBins = 0;        // 실제로 성공한 bin 그룹 수 (admin 알림의 "N moved / M failed")
+  // 목적지 되읽기로 "이미 도착" 이 확인돼 exported_base 만 기록한 receipt 라인 수 (checkpoint repair — R10 측정용).
+  // 청크 v3(회차 완주 보장) 이후에도 이 값이 계속 나오면 타임아웃 외의 다른 원인이 있다는 신호다.
+  let checkpointRepaired = 0;
+  // PO 전용 — 이번 회차의 authorize 결과: true=성공 / false=시도했으나 실패(WARN·DRAFT 유지) / null=시도 안 함
+  // (미처리·실패·격리·스킵이 남아 보류했거나, 트랜스퍼 경로). ⚠️ authorize 는 Simple PO 에서 1회뿐이라
+  // **모든 bin 그룹이 문서에 실린 회차에만, 회차당 한 번만** 시도한다 — 청크/실패가 남은 회차는 DRAFT 로 둔다.
+  let authorized: boolean | null = null;
   // ── 청크 카운터 (APPLY_MAX_GROUPS — 규칙 30-2 해소) ──
   let groupsAttempted = 0;  // 이번 회차에 Cin7 POST 를 시도한 그룹 수(성공+실패) — 상한 판정 기준
   let groupsRemaining = 0;  // 상한/시간 예산/429 로 이번 회차에 손대지 않은 그룹 수 — done:false 판정 기준
@@ -605,7 +707,7 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   //    (직전 부분 성공에서 이미 옮긴 그룹은 pending_base=0 이라 plan.groups 에 아예 없어 로그에 안 남는다).
   if (plan.retry) {
     log.push("RETRY of a partial apply from " + (rcpt.applied_at || "?") +
-      " - re-attempting only the bin move(s) that failed then; groups already exported are skipped");
+      " - re-attempting only the bin group(s) that failed then; groups already exported are skipped");
   }
 
   // ── ⓪ 리시빙 차이 → discrepancy 큐 (⚠️⚠️ Cin7 을 건드리기 **전에** 기록한다) ──
@@ -643,55 +745,127 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       throw new Error("Invoice not authorised - authorize the invoice in Cin7 first (Invoice First). Detail: " + String((e as Error).message));
     }
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식
-    // ⚠️ Cin7 stock received 는 한 문서(POST)에 bin(location) 1개만 허용 (실측: 다른 bin 섞으면 400 'Lines is invalid').
-    //    → putaway_bin 으로 그룹핑해 bin 마다 별도 POST /purchase/stock (DRAFT). 전부 성공 후 한 번 authorize.
-    const byBin: Record<string, any[]> = {};
-    for (const p of plan.lines) {
-      const b = String(p.bin);
-      (byBin[b] = byBin[b] || []).push(p);
-    }
-    // bin GUID 는 **쓰기 전에 전부 해석**한다 — 못 찾은 bin 은 그 라인만 스킵하고 나머지는 계속 쓴다.
-    // PO 경로는 아직 아무것도 안 쓴 상태이므로, 하나도 해석되지 않으면 throw 해서 receipt 을 큐에 남기는 게 맞다
-    // (그래야 bin 을 고쳐 다시 Apply 할 수 있다). 트랜스퍼 경로는 이미 PUT COMPLETED 가 나갔으므로 절대 throw 하지 않는다.
-    const resolved: { bin: string; guid: string; lines: any[] }[] = [];
-    for (const bin of Object.keys(byBin)) {
-      const r = await tryBinGuid(whName, bin);
-      if (!r.guid) {
-        byBin[bin].forEach((p) => skippedBins.push({ sku: p.order_sku, bin, reason: r.reason }));
-        log.push("WARN bin " + bin + " skipped (" + byBin[bin].length + " line(s)): " + r.reason);
+    // ── bin 그룹 루프 (2026-07-31 — 트랜스퍼 보호 장치 이식: 청크 이중 가드·실패 수집·격리·체크포인트) ──
+    // ⚠️ Cin7 stock received 는 한 문서(POST)에 bin 1개만(실측: 섞으면 400 'Lines is invalid') — 그대로.
+    //    plan.groups 는 buildApplyPlan 이 pending 라인만 모아 "미시도 먼저, 실패 이력 뒤로" 정렬해 놓았다.
+    // ⚠️ 예전의 "POST 하나 실패 = 전체 throw" 는 제거했다 — 청크 도입 후에는 이전 회차의 DRAFT 가 이미 Cin7 에
+    //    있을 수 있어, throw 하면 기록(apply_note)이 끊기고 재개 근거가 사라진다(규칙 27 R10·R12 트랜스퍼와 동일).
+    for (const g of (plan.groups || []) as any[]) {
+      const postLines = g.lines.filter((p: any) => Number(p.pending_base) > 0);
+      if (!postLines.length) { log.push("bin " + g.bin + ": already on the document - skip"); continue; }
+      const binKey = String(g.bin).toUpperCase();
+      const prevFails = Number(failCounts[binKey] || 0);
+      // 격리 (트랜스퍼 v3 와 동일) — groups_remaining 에 세지 않으므로 격리만 남으면 done:true 로 닫힌다.
+      // ⚠️ 영구 제외가 아니다 — 'Retry failed bins'(retry_failed=1)가 카운트를 리셋해 다시 시도한다.
+      if (prevFails >= APPLY_QUARANTINE_FAILS) {
+        permanentlyFailed.push({
+          bin: g.bin, skus: postLines.map((p: any) => String(p.order_sku)),
+          qty: postLines.reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
+          fails: prevFails,
+        });
+        log.push("bin " + g.bin + ": QUARANTINED after " + prevFails + " consecutive failed round(s) - not auto-retried;" +
+          " fix the cause and press 'Retry failed bins'");
         continue;
       }
-      resolved.push({ bin, guid: r.guid, lines: byBin[bin] });
+      // 청크 이중 가드 — 공용 판정 chunkGuard(그룹 12 / 시간 20초 / 429 / 실패 6초, 트랜스퍼와 같은 상수·판정).
+      // ⚠️ 반드시 Cin7 POST 앞 — 반쯤 쓴 문서를 만들지 않는다. 가드 도달 = 정상 종료(done:false 로 다음 회차).
+      const guard = chunkGuard(groupsAttempted, rateLimited, t0, prevFails, failSpentMs);
+      if (guard) {
+        if (!stoppedBy && !rateLimited && guard !== "rate") stoppedBy = guard;
+        groupsRemaining++; continue;
+      }
+      // bin GUID — 못 찾으면 그 그룹만 스킵(수량·시간 상한에 안 센다). 스킵이 있으면 아래에서 authorize 를 보류한다.
+      const rg = await tryBinGuid(whName, g.bin);
+      if (!rg.guid) {
+        postLines.forEach((p: any) => skippedBins.push({ sku: p.order_sku, bin: g.bin, reason: rg.reason }));
+        log.push("WARN bin " + g.bin + " skipped (" + postLines.length + " line(s)): " + rg.reason);
+        continue;
+      }
+      const bodyLines = postLines.map((p: any) => ({
+        Date: now, SKU: p.order_sku, Quantity: Math.round(Number(p.qty_units)),
+        LocationID: rg.guid, Received: false,
+      }));
+      groupsAttempted++;   // 성공·실패 무관 — POST 시도 자체가 시간 예산을 먹는다(트랜스퍼와 동일)
+      const tAttempt = Date.now();
+      try {
+        await cin7("POST", "/purchase/stock", { TaskID: rcpt.cin7_purchase_id, Status: "DRAFT", Lines: bodyLines });
+      } catch (e) {
+        if (prevFails > 0) failSpentMs += Date.now() - tAttempt;
+        const info = cin7ErrInfo(e);
+        // 429 는 실패가 아니라 "이번 회차는 여기까지" — failed_moves·실패 카운트에 넣지 않는다(트랜스퍼와 동일).
+        if (info.http_status === 429) {
+          rateLimited = true; groupsRemaining++;
+          log.push("Cin7 rate limit (429) persisted after backoff retries - ending this round early; bin " +
+            g.bin + " and the remaining group(s) will be retried next round");
+          continue;
+        }
+        // ⚠️ 목적지 되읽기 회복(checkpoint repair)은 PO 에 이식하지 않는다 — PO 는 "bin 이동"이 아니라
+        //    "입고 문서 작성"이라 되읽기의 의미가 다르다(백로그). 다만 그 잔여물(POST 성공 후 체크포인트 누락)의
+        //    재전송은 400 "Cannot add duplicate value" 로 시끄럽게 거부되므로(실측) 조용한 이중 계상은 없다 —
+        //    이 에러가 보이면 그 라인은 이미 DRAFT 에 있다는 뜻: Cin7 화면에서 확인 후 거기서 마무리한다.
+        failCounts[binKey] = prevFails + 1;
+        failedMoves.push({
+          bin: g.bin,
+          skus: postLines.map((p: any) => String(p.order_sku)),
+          qty: postLines.reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
+          http_status: info.http_status, cin7_error: info.cin7_error, fails: prevFails + 1,
+        });
+        log.push("WARN stock received POST -> bin " + g.bin + " FAILED (HTTP " + (info.http_status || "?") + "): " +
+          info.cin7_error + " - " + postLines.map((p: any) => p.order_sku + " x" + Math.round(Number(p.qty_units))).join(", ") +
+          " not on the document" +
+          (/cannot add duplicate value/i.test(info.cin7_error)
+            ? " (duplicate = this line is ALREADY on the DRAFT from an earlier round that died before checkpointing - verify in Cin7 and finish there)"
+            : "; fix the cause and Apply again to retry this bin only"));
+        await sleep(400);
+        continue;   // ⚠️ throw 금지 — 남은 그룹을 계속 싣고 receipt PATCH 까지 반드시 도달한다.
+      }
+      if (prevFails > 0) { failSpentMs += Date.now() - tAttempt; delete failCounts[binKey]; }  // 성공 — 연속 실패 리셋
+      movedBins++;
+      log.push("stock received DRAFT — bin " + g.bin + ": " + bodyLines.length + " line(s)");
+      // ── exported_base 체크포인트 — ⚠️ PO 에서의 의미 = "Cin7 stock received 문서에 실은 양" ──
+      // (트랜스퍼의 "목적지 bin 으로 옮긴 양"과 다르다.) 재개 시 이 라인들은 pending 에서 빠져 재전송되지 않는다.
+      // PATCH 실패는 트랜스퍼와 같이 WARN 만 — 재전송돼도 Cin7 이 duplicate 400 으로 거부한다(위 주석).
+      for (const p of postLines) linesMovedNew += await markExported(p, log);
+      await sleep(400);   // PO stock received 콜 간격은 300~400ms (규칙 21 — 트랜스퍼의 150ms 와 다름, 그대로 유지)
     }
-    if (!resolved.length) {
+    // 예전 "하나도 해석 안 되면 throw" 유지 — 단 "이번 회차가 GUID 스킵 말고 아무것도 안 했고, 이전 회차 진행도
+    // 없는" 경우에만. Cin7 에 아무것도 없으니 throw 로 receipt 을 깨끗하게 큐에 남기는 게 맞다(bin 고쳐 재Apply).
+    // 진행이 있었다면 절대 throw 하지 않는다 — 기록(apply_note)이 끊기면 재개 근거가 사라진다.
+    if (!groupsAttempted && !groupsRemaining && !permanentlyFailed.length && skippedBins.length &&
+        Number((plan.progress || {}).lines_exported || 0) === 0) {
       throw new Error("no bin GUID could be resolved - nothing was written to Cin7. " +
         skippedBins.map((s) => s.bin + ": " + s.reason).join(" | "));
     }
-    for (let bi = 0; bi < resolved.length; bi++) {
-      const { bin, guid, lines: binLines } = resolved[bi];
-      const bodyLines = binLines.map((p) => ({
-        Date: now, SKU: p.order_sku, Quantity: Math.round(Number(p.qty_units)),
-        LocationID: guid, Received: false,
-      }));
-      await cin7("POST", "/purchase/stock", { TaskID: rcpt.cin7_purchase_id, Status: "DRAFT", Lines: bodyLines });
-      log.push("stock received DRAFT — bin " + bin + ": " + bodyLines.length + " line(s)");
-      if (bi < resolved.length - 1) await sleep(400);
-    }
-    log.push("total " + resolved.reduce((n, r) => n + r.lines.length, 0) + " line(s) across " + resolved.length + " bin(s)" +
+    log.push("this round: " + movedBins + " bin document(s) posted" +
       (skippedBins.length ? " · " + skippedBins.length + " line(s) skipped (no bin GUID)" : ""));
-    if (skippedBins.length) {
-      // 스킵된 라인이 있으면 **자동 authorize 하지 않는다** — authorize 는 되돌릴 수 없고 Simple PO 는 한 번만 가능하므로,
-      // DRAFT 로 남겨 매니저가 Cin7 화면에서 빠진 라인을 채운 뒤 직접 authorize 할 수 있게 한다.
-      log.push("WARN auto-authorize SKIPPED because " + skippedBins.length + " line(s) had no bin GUID - " +
-        "DRAFT is saved; add the missing line(s) in Cin7 and authorize there. Skipped: " +
-        skippedBins.map((s) => s.sku + "@" + s.bin).join(", "));
-    } else {
+    // ── ⚠️⚠️ authorize 게이트 (PO 고유 — 가장 중요) ──
+    // authorize 는 Simple PO 에서 **한 번뿐**이고 되돌릴 수 없다. 일부 bin 이 빠진 채 authorize 하면 빠진 수량을
+    // Cin7 에서 API 로 채울 방법이 사라진다 → **모든 bin 그룹이 문서에 실렸을 때만, 마지막 회차에서 한 번만** 시도한다.
+    // (기존 "스킵된 라인이 있으면 DRAFT 유지" 방침을 청크 경계·실패·격리까지 확장한 것.)
+    // ⚠️ 회차마다 authorize 를 시도하지 않는다 — 이 게이트가 그 보증이다(미처리/실패/격리/스킵이 하나라도 있으면 보류).
+    const skippedBinCount = new Set(skippedBins.map((s) => String(s.bin).toUpperCase())).size;
+    const draftPendingBins = groupsRemaining + failedMoves.length + permanentlyFailed.length + skippedBinCount;
+    if (draftPendingBins === 0) {
       try {
         await cin7("POST", "/purchase/stock", { TaskID: rcpt.cin7_purchase_id, Status: "AUTHORISED", Lines: [] });
+        authorized = true;
         log.push("stock received AUTHORISED");
       } catch (e) {
-        log.push("WARN auto-authorize failed - DRAFT is saved; authorize in Cin7 UI. (" + String((e as Error).message).slice(0, 200) + ")");
+        // authorize 실패 시 기존 방침 그대로: DRAFT 유지 + WARN(사람이 Cin7 화면에서 authorize).
+        // 잔여 엣지: 직전 회차가 authorize 후 receipt PATCH 전에 죽었으면 여기서 재시도가 400 이 난다 —
+        // 그 경우 문서는 이미 AUTHORISED 이므로 Cin7 에서 상태만 확인하면 된다.
+        authorized = false;
+        log.push("WARN auto-authorize failed - the document may already be AUTHORISED (check Cin7); " +
+          "if it is still DRAFT, authorize in Cin7 UI. (" + String((e as Error).message).slice(0, 200) + ")");
       }
+    } else {
+      log.push("Cin7 document left as DRAFT - " + draftPendingBins + " bin(s) pending (" +
+        [groupsRemaining ? groupsRemaining + " not yet processed" : "",
+         failedMoves.length ? failedMoves.length + " failed" : "",
+         permanentlyFailed.length ? permanentlyFailed.length + " quarantined" : "",
+         skippedBinCount ? skippedBinCount + " no bin GUID" : ""].filter(Boolean).join(", ") +
+        ") - NOT authorised; authorize runs automatically, exactly once, on the round where every bin is on the document." +
+        " Do NOT authorize the partial document in Cin7 (authorize is one-shot on a Simple PO).");
     }
   } else {
     const det = await cin7Get("/stockTransfer?TaskID=" + encodeURIComponent(rcpt.cin7_purchase_id));
@@ -755,19 +929,15 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
           " fix the stock in Cin7 and press 'Retry failed bins'");
         continue;
       }
-      // ── 청크 이중 가드: 그룹 수 상한 / 시간 예산 / 429 — 먼저 걸리는 쪽에서 끊는다 (예외가 아니라 정상 종료) ──
+      // ── 청크 이중 가드: 그룹 수 상한 / 시간 예산 / 429 / 실패 시간 상한(v3) — 공용 판정 chunkGuard ──
       // ⚠️ 판정은 Cin7 POST **앞**(그룹 시작 전)에서만 — 반쯤 옮긴 그룹을 만들지 않는다.
       // 가드에 걸린 뒤의 그룹은 **아무것도 하지 않고** 남은 개수만 센다. exported_base 가 안 찍혀 있으므로
       // 다음 회차의 buildApplyPlan 이 DB 재조회로 자동으로 다시 집는다(재시도 경로와 같은 메커니즘 → 이중 이동 없음).
-      if (groupsAttempted >= APPLY_MAX_GROUPS || rateLimited || Date.now() - t0 > APPLY_TIME_BUDGET_MS) {
-        // 429 는 rate_limited 필드가 따로 밝히므로 stopped_by 는 그룹 수/시간 두 가드만 기록한다(먼저 걸린 쪽 1회).
-        if (!stoppedBy && !rateLimited) stoppedBy = groupsAttempted >= APPLY_MAX_GROUPS ? "groups" : "time";
-        groupsRemaining++; continue;
-      }
-      // ── 실패 그룹 전용 시간 상한 (v3): 실패 이력 그룹(Cin7 400 응답이 느리다)이 회차 예산을 다 먹지 않게 ──
-      // 정렬상 실패 이력 그룹은 맨 뒤이므로, 여기 걸리면 뒤에 남은 그룹도 전부 실패 이력 → 다음 회차로 넘긴다.
-      if (prevFails > 0 && failSpentMs > APPLY_FAIL_BUDGET_MS) {
-        if (!stoppedBy && !rateLimited) stoppedBy = "fail_budget";
+      // 429 는 rate_limited 필드가 따로 밝히므로 stopped_by 에는 넣지 않는다(guard === "rate" 제외).
+      // 실패 시간 상한: 정렬상 실패 이력 그룹은 맨 뒤이므로, 걸리면 뒤에 남은 그룹도 전부 실패 이력 → 다음 회차로.
+      const guard = chunkGuard(groupsAttempted, rateLimited, t0, prevFails, failSpentMs);
+      if (guard) {
+        if (!stoppedBy && !rateLimited && guard !== "rate") stoppedBy = guard;
         groupsRemaining++; continue;
       }
       const rg = await tryBinGuid(whName, g.bin);
@@ -812,17 +982,64 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
             g.bin + " and the remaining group(s) will be retried next round");
           continue;
         }
+        // ── 목적지 되읽기 → 완료 간주 (checkpoint repair, 2026-07-31 — TR-03144 실측) ──
+        // "Available quantity … is 0" 는 두 가지다: ① 진짜 재고 이탈(판매 픽킹 등 — 사람이 Cin7 에서 고칠 일)
+        // ② **이전 회차가 Cin7 POST 와 markExported PATCH 사이에서 죽은 잔여물** — Cin7 에는 이미 옮겨졌는데
+        //    체크포인트만 빠져, 다음 회차가 "안 옮긴 것" 으로 재시도 → 재고 없음 400 → 3회 뒤 격리됐다.
+        //    (TR-03144 실측: 격리 10 bin/25 라인 **전부** 목표 bin 에 정확히 도착해 있었다. 죽은 회차 수와
+        //     격리 bin 수가 거의 일치 — 청크 v3 로 근본 해소, 이 경로는 잔여물 정리 + 드문 엣지 대응이다.)
+        // ② 는 목적지 bin 을 되읽어(규칙 27 R11 — 근거는 200 이 아니라 되읽은 값) ① 과 구분할 수 있다.
+        // ⚠️ 조회는 이 400 패턴에만 — "Lines is invalid" 류는 성격이 달라 조회가 무의미하고 시간만 쓴다.
+        // ⚠️ 오판이 미이동보다 나쁘다(잘못 완료 처리하면 사람이 알 수 없게 된다): 판정은 SKU 단위 ·
+        //    이 트랜스퍼가 옮기려던 수량(pending_base) **이상** 비교(기존 재고가 있던 bin 은 더 많을 수 있다) ·
+        //    조회 실패/응답 잘림/수량 부족이면 실패로 남긴다. 그룹 내 일부 라인만 확인되면 그 라인만
+        //    exported_base 를 기록하고 그룹은 실패로 남긴다(전 라인 확인 = 그룹 완료).
+        // ⚠️ 회차 완주가 최우선 — 이 조회도 Cin7 왕복이므로 시간 예산(20초/실패 6초) 안에서만 하고,
+        //    부족하면 건너뛴다(그 라인은 실패로 남아 다음 회차에 자연히 재시도된다).
+        let remaining = moveLines;
+        if (/available quantity .*? is 0(?:\.0+)?\s*,/i.test(info.cin7_error)) {
+          const tVerify = Date.now();
+          const still: any[] = [];
+          for (const p of moveLines) {
+            if (Date.now() - t0 > APPLY_TIME_BUDGET_MS ||
+                (prevFails > 0 && failSpentMs + (Date.now() - tVerify) > APPLY_FAIL_BUDGET_MS)) {
+              still.push(p); continue;   // 예산 소진 — 판정하지 않고 실패로 (다음 회차로)
+            }
+            const need = Math.round(Number(p.pending_base));
+            const onHand = await binOnHand(rcpt.warehouse, g.bin, p.base_sku);
+            if (onHand !== null && onHand >= need) {
+              log.push("bin " + g.bin + ": " + p.base_sku + " x" + need + " already at " + g.bin + " (" + onHand +
+                " on hand) - treated as done, checkpoint repaired");
+              const n = await markExported(p, log);   // 사실 기록 — 재고는 실제로 그 bin 에 있다(되읽음 확인)
+              linesMovedNew += n; checkpointRepaired += n;
+            } else {
+              still.push(p);
+            }
+            await sleep(150);
+          }
+          if (prevFails > 0) failSpentMs += Date.now() - tVerify;
+          remaining = still;
+        }
+        if (!remaining.length) {
+          // 그룹 전 라인이 이미 목적지에 있다 — 실패가 아니라 완료다. 연속 실패 카운트도 리셋한다.
+          delete failCounts[binKey];
+          log.push("bin " + g.bin + ": all line(s) already at destination - group treated as done (no failure recorded)");
+          await sleep(150);
+          continue;
+        }
         // 연속 실패 +1 — APPLY_QUARANTINE_FAILS 에 도달하면 다음 회차부터 격리된다. 429 는 위에서 이미 빠졌다
         // (429 를 세면 rate limit 가 실패로 둔갑해 멀쩡한 bin 이 격리된다).
+        // failed_moves 는 **미확인 라인(remaining)만** 싣는다 — 확인된 라인은 exported_base 가 찍혀
+        // 다음 회차 pending 에서 빠지므로, 여기 실으면 admin 표시·재시도 수량이 실제보다 부풀려진다.
         failCounts[binKey] = prevFails + 1;
         failedMoves.push({
           bin: g.bin,
-          skus: moveLines.map((p: any) => String(p.base_sku)),
-          qty: moveLines.reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
+          skus: remaining.map((p: any) => String(p.base_sku)),
+          qty: remaining.reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
           http_status: info.http_status, cin7_error: info.cin7_error, fails: prevFails + 1,
         });
         log.push("WARN bin move -> " + g.bin + " FAILED (HTTP " + (info.http_status || "?") + "): " + info.cin7_error +
-          " - " + moveLines.map((p: any) => p.base_sku + " x" + Math.round(Number(p.pending_base))).join(", ") +
+          " - " + remaining.map((p: any) => p.base_sku + " x" + Math.round(Number(p.pending_base))).join(", ") +
           " stays in " + landingLabel + "; fix the stock in Cin7 and Apply again to retry this bin only");
         await sleep(150);
         continue;   // ⚠️ throw 금지 — 남은 그룹을 계속 옮기고 receipt PATCH 까지 반드시 도달한다.
@@ -861,8 +1078,9 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   //   포맷(`failed_moves(<정수>):`)을 바꾸려면 EF 의 정규식과 admin.html 양쪽을 같이 고칠 것.
   if (failedMoves.length) {
     log.push("failed_moves(" + failedMoves.length + "): " + JSON.stringify(failedMoves).slice(0, 900));
-    log.push("PARTIAL — " + movedBins + " bin group(s) moved, " + failedMoves.length +
-      " failed. Fix the stock in Cin7, then Apply again: only the failed bins are retried.");
+    log.push("PARTIAL — " + movedBins + " bin group(s) " + (source === "po" ? "posted" : "moved") + ", " +
+      failedMoves.length + " failed. Fix the " + (source === "po" ? "cause" : "stock in Cin7") +
+      ", then Apply again: only the failed bins are retried.");
   }
   // ⚠️ `permanently_failed(N):` 도 계약 마커다 — buildApplyPlan 재시도 게이트 + admin.html 이 같은 정규식을 읽는다.
   //   격리는 이 회차에 시도되지 않아 failed_moves 에 안 실리므로, 여기 따로 남겨야 재시도 진입로가 유지된다.
@@ -871,16 +1089,23 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       " - " + permanentlyFailed.length + " bin(s) need manual fixing in Cin7 (each failed " + APPLY_QUARANTINE_FAILS +
       "+ consecutive rounds, excluded from auto-retry). Fix the stock in Cin7, then press 'Retry failed bins'.");
   }
+  // 회복 건수 표시 — 측정용이지 계약 마커가 아니다(EF·admin 어느 쪽도 파싱하지 않는다). R10 이 실제로 얼마나
+  // 발생하는지의 자료: 청크 v3(회차 완주 보장) 이후에도 계속 나오면 타임아웃 외의 다른 원인이 있다는 신호다.
+  if (checkpointRepaired) {
+    log.push("checkpoint_repaired: " + checkpointRepaired + " line(s) - the stock was already at its destination bin " +
+      "(an earlier round likely died between the Cin7 POST and the exported_base PATCH); exported_base recorded, nothing moved");
+  }
   // 연속 실패 카운트 이월 — 다음 회차의 buildApplyPlan 이 이 마커로 정렬(실패 뒤로)·격리(3회+)를 판정한다.
   if (Object.keys(failCounts).length) log.push("fail_counts:" + JSON.stringify(failCounts));
 
-  // ── 청크 판정 + 진행률 (2026-07-31) — PO 경로는 groupsRemaining=0 이라 항상 done:true ──
+  // ── 청크 판정 + 진행률 (2026-07-31 · PO 도 청크를 돈다 — 2026-07-31 이식 후 양쪽 공통) ──
   const done = groupsRemaining === 0;
   const prog = (plan.progress || {}) as any;
   const linesTotal = Number(prog.lines_total || 0);
   const linesMoved = Number(prog.lines_exported || 0) + linesMovedNew;   // 누적 (이전 회차 + 이번 회차)
-  if (source === "transfer") {
-    log.push((done ? "ALL GROUPS DONE" : "CHUNK") + " - " + movedBins + " group(s) moved this round" +
+  {
+    const verb = source === "po" ? "posted" : "moved";
+    log.push((done ? "ALL GROUPS DONE" : "CHUNK") + " - " + movedBins + " group(s) " + verb + " this round" +
       (failedMoves.length ? ", " + failedMoves.length + " failed" : "") +
       (permanentlyFailed.length ? " · " + permanentlyFailed.length + " bin(s) quarantined (need manual fixing)" : "") +
       (linesTotal ? " · " + linesMoved + "/" + linesTotal + " lines exported" : "") +
@@ -892,7 +1117,7 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       log.push("groups_remaining(" + groupsRemaining + "): stopped_by=" +
         (stoppedBy || (rateLimited ? "rate_limit" : "?")) +
         " (caps: " + APPLY_MAX_GROUPS + " group(s) / " + (APPLY_TIME_BUDGET_MS / 1000) + "s per round)" +
-        " - press Apply again (the admin screen auto-continues) to move the rest");
+        " - press Apply again (the admin screen auto-continues) to " + (source === "po" ? "post" : "move") + " the rest");
     }
   }
 
@@ -925,6 +1150,10 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
     //   "이동 0 && 시도 0"(429 벽 등)일 때만 멈추도록 이 값을 본다 — 시도가 있었다면 실패 카운트가 전진해
     //   격리(연속 3회)로 반드시 수렴하므로 반복을 계속해도 된다.
     groups_tried: groupsAttempted, permanently_failed: permanentlyFailed, fail_counts: failCounts,
+    checkpoint_repaired: checkpointRepaired,
+    // PO 전용 — authorize 결과 (true 성공 / false 시도 실패 / null 보류·해당 없음). null+done:true 인 PO 응답은
+    // "문서가 DRAFT 로 남았다"는 뜻이다(admin 이 안내 문구에 쓴다).
+    authorized,
   };
 }
 
@@ -1003,18 +1232,23 @@ Deno.serve(async (req: Request) => {
       //   admin 이 `failed_moves.length > 0` 으로 판정해 다르게 표시하고, 재Apply 하면 실패분만 재시도된다.
       // done:false = 청크 이중 가드(그룹 수 APPLY_MAX_GROUPS / 시간 APPLY_TIME_BUDGET_MS — stopped_by 가 어느 쪽인지)
       //   또는 429 로 이번 회차에 못 옮긴 그룹이 남았다 — admin 이 자동으로 재호출한다.
-      //   lines_moved/lines_total 은 receipt 라인 기준 누적 진행률(트랜스퍼만 — PO 는 0).
+      //   lines_moved/lines_total 은 receipt 라인 기준 누적 진행률(2026-07-31 부터 PO·트랜스퍼 공통).
       // note_saved:false = 종료부의 receipt PATCH(apply_note/applied_at) 실패 — 응답은 그래도 반환한다.
       // permanently_failed = 연속 3회+ 실패로 이번 회차 시도에서 제외(격리)된 bin 그룹 — "N bin(s) need manual
       //   fixing in Cin7". done 판정에 안 들어가므로 격리만 남으면 done:true 로 닫힌다(재시도는 retry_failed=1).
       // groups_tried = 이번 회차 Cin7 POST 시도 수(성공+실패) — admin 무한루프 가드용.
+      // checkpoint_repaired = "Available quantity … is 0" 실패 그룹을 목적지 되읽기로 확인해 완료로 간주한
+      //   receipt 라인 수 (이미 도착 — exported_base 만 기록, 재고는 안 옮김). R10 발생 빈도의 측정 자료.
+      // authorized (PO 전용) = 이번 회차 authorize 결과: true 성공 / false 시도 실패(DRAFT 유지, WARN) /
+      //   null 보류(미처리·실패·격리·스킵이 남아 authorize 를 안 함 — 문서는 DRAFT) 또는 트랜스퍼.
       return json({
-        ok: true, dry_run: false, log: res.log, skipped_bins: res.skipped_bins,
+        ok: true, dry_run: false, source: planWrap.source, log: res.log, skipped_bins: res.skipped_bins,
         failed_moves: res.failed_moves, moved_bins: res.moved_bins,
         done: res.done, groups_total: res.groups_total, groups_moved: res.groups_moved,
         groups_remaining: res.groups_remaining, lines_moved: res.lines_moved, lines_total: res.lines_total,
         rate_limited: res.rate_limited, stopped_by: res.stopped_by, note_saved: res.note_saved,
         groups_tried: res.groups_tried, permanently_failed: res.permanently_failed, fail_counts: res.fail_counts,
+        checkpoint_repaired: res.checkpoint_repaired, authorized: res.authorized,
       });
     }
     return json({ ok: false, error: "unknown action" }, 400);
