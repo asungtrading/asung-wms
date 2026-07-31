@@ -298,7 +298,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - ⚠️ **`/ref/location` 은 Total 2678 인데 Limit 500 로 잘린다. bin GUID 는 최상위 창고 행(`ParentID` 없음)의 `Bins[]` 에서 뽑아라**(에드먼튼 628·토론토 2047 전부 포함 — 페이지네이션 불필요). **child-location 의 `Name` 은 bin 이름이 아니다**(예 "071164313169" 바코드류 — 매칭 불가한 죽은 경로였고 제거했다). 실측 2026-07-28 **TR-02935**: 잘린 500행에 에드먼튼 child 가 0행이어서 bin GUID 조회가 첫 호출부터 throw → Apply 의 bin 이동이 **한 건도 실행되지 않고** 전 품목이 집결 bin EZ010101 에 남았다. 토론토도 우연히 앞 페이지였을 뿐 안전하지 않았다. 이름 비교는 `trim().toUpperCase()`, `IsDeprecated` 제외. `?action=bins` 도 같은 소스.
   - ⚠️ **GUID 를 못 찾으면 그 라인만 스킵**(전체 throw 금지) → 응답 `skipped_bins:[{sku,bin,reason}]` + `apply_note`. 트랜스퍼는 PUT COMPLETED 이후 절대 throw 안 함(Cin7 은 이미 바뀌었는데 `applied_at` 이 null 로 남아 큐에 갇히고 discrepancy 까지 유실된 게 TR-02935 의 2차 피해). PO 는 하나도 못 찾으면 throw(아직 안 썼으므로 재Apply 가 맞다) · **스킵이 있으면 auto-authorize 생략**(DRAFT 유지 → Cin7 에서 수동 보정).
 - **트랜스퍼 (TR-03236 실측)**: `POST /stockTransfer` 로 **즉시 Status=COMPLETED 생성 가능**(DRAFT 불필요). **같은 창고 bin↔bin 은 InTransitAccount 불필요.** 수량은 델타(TransferQuantity)라 절대값 위험 없음 — stock adjustment(절대값)보다 안전해 bin 이동의 표준 수단. 되돌리기 = 반대 방향 트랜스퍼(상쇄).
-- **트랜스퍼 리시빙 완료** = PUT 원 TR→COMPLETED(전량 헤더 기본 To bin 착지 — 트랜스퍼 라인엔 bin 없음, 문서 구조상 불가) → **bin 그룹별 미니 트랜스퍼**(기본 bin→목적지 bin)로 재배치. Cin7 WMS 앱의 라인별 무한 풋어웨이 반복을 API 콜 몇 개로 대체.
+- **트랜스퍼 리시빙 완료** = PUT 원 TR→COMPLETED(전량 헤더 기본 To bin 착지 — 트랜스퍼 라인엔 bin 없음, 문서 구조상 불가) → **bin 그룹별 미니 트랜스퍼**(기본 bin→목적지 bin)로 재배치. Cin7 WMS 앱의 라인별 무한 풋어웨이 반복을 API 콜 몇 개로 대체. (UI 의 라인별 `Put away` 는 v2 API 에 없다 — 탐색 종결, 규칙 38.)
 - **PO stock received (PO-01084·PO-00965 실측)**: `POST /purchase/stock` — `{TaskID: PO GUID, Status:'DRAFT', Lines:[{Date, SKU, Quantity(라인 단위 — received_base÷factor), LocationID(bin GUID), Received:false}]}`. **입고 시점에 bin 직접 지정.**
   - ⚠️⚠️ **문서당 bin 1개만! (2026-07-24 실측 — 가장 중요)**: 한 `POST /purchase/stock` Lines 에 **서로 다른 bin(LocationID)을 섞으면 400 "Lines is invalid"**. 같은 bin 여러 SKU 는 OK. → **putaway_bin 으로 그룹핑해 bin 마다 별도 POST** (콜 간 sleep 300~400). 이게 오랫동안 "Lines is invalid" 로 헤맨 진짜 원인. (트랜스퍼 bin↔bin 은 되는데 stock received 는 안 됨 — API 마다 다름)
   - ⚠️ **같은 (SKU+bin) 중복 라인 금지**: 400 "Cannot add duplicate value". EF 가 plan 만들 때 같은 SKU+bin 은 수량 합산 병합.
@@ -312,7 +312,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
     - 정정 근거(신규 IN TRANSIT TR-03267): SENT 에 변경값이 정확히 실려 나가고 PUT 200 이 떨어지지만 **되읽으면 원본 그대로다.** `AS93113` 원본 2 → 요청 4 → **저장 2** ❌ / `AS92700` 원본 4 → 요청 2 → **저장 4** ❌ → **증가·감소 양방향 모두 무시.** 코드 버그가 아니라 API 제약이다(추정: 창고간 트랜스퍼는 발송 시점에 재고가 in-transit 계정으로 넘어가므로 거기 없는 수량을 완료로 받을 수 없다).
     - 왜 틀린 기록이 남았나 — **HTTP 200 만 보고 저장값을 되읽지 않았고**, PO stock received 의 초과 허용(이쪽은 **사실**)과 혼동됐다. 📌 **교훈: 쓰기 실측은 200 이 아니라 GET 으로 되읽은 값이 근거다.** (규칙 27 R11)
     - → **트랜스퍼 완료 수량 = 보낸 수량 확정.** 실물 차이 처리는 규칙 20 의 트랜스퍼 예외 참조. **PO 경로는 그대로 — received 그대로 쓴다.**
-  - ⚠️ **완료 시 bin 지정 불가 → 착지 지점 2가지** (트랜스퍼 헤더 To 에 따라): (a) To=**창고 GUID** → **bin 없이** 창고에 재고가 뜸(Cin7 재고화면 BIN 칸 공백). PO 같은 "received 화면에서 bin 지정" 단계가 **없음**. (b) To=**특정 bin GUID** → 그 bin 에 전량(예 에드먼튼 EZ010101 — 과거 수동 워크플로의 **임시 집결지**, 실제 보관자리 아님. Cin7 WMS 가 느려 한 곳에 몰아 받고 나중에 풋어웨이하던 편법).
+  - ⚠️ **완료 시 bin 지정 불가 → 착지 지점 2가지** (트랜스퍼 헤더 To 에 따라): (a) To=**창고 GUID** → **bin 없이** 창고에 재고가 뜸(Cin7 재고화면 BIN 칸 공백). PO 같은 "received 화면에서 bin 지정" 단계가 **없음**. (b) To=**특정 bin GUID** → 그 bin 에 전량(예 에드먼튼 EZ010101 — 과거 수동 워크플로의 **임시 집결지**, 실제 보관자리 아님. Cin7 WMS 가 느려 한 곳에 몰아 받고 나중에 풋어웨이하던 편법). ⚠️ **착지 정책은 2026-07-31 부로 (a) 창고만 지정으로 변경 — 규칙 40**(집결 bin 폐기).
   - **풋어웨이 = `POST /stockTransfer` `{Status:'COMPLETED', From: <트랜스퍼의 To GUID>, To: <실제 bin GUID>, Lines:[{SKU, TransferQuantity}], SkipOrder:true}`** → 200. **From 을 창고 GUID 로 주면 "bin 없는 재고"를 꺼내 옮겨줌**(실측: bin 없던 1개 → EB010204, 재고 0/23→24 확인). (b) 케이스는 From=집결 bin GUID. 즉 **From 은 항상 `det.To`** 로 두면 두 경우 다 동작.
 - **트랜스퍼 리시빙 워크플로 = PO 와 동일 (2026-07-25 사용자 결정)**: 받기→풋어웨이(bin 지정)→Apply. "즉시 완료로 재고 먼저 노출"(편법)은 **채택하지 않음** — 이유: 흐름 일관성, 풋어웨이를 뒤로 미루는 나쁜 습관 방지, "보이는데 어디 있는지 모르는" 재고 구간 제거. Apply 가 뒤에서 ⓪discrepancy 선기록 →①**보낸 수량 그대로** COMPLETED →②**캡된** bin 이동(+`exported_base` 체크포인트) →③receipt PATCH 를 순차 수행 (2026-07-28 개정 — 규칙 20 트랜스퍼 예외).
   - ⚠️ **bin 이동 수량은 `min(received_base, expected_base)` 로 캡한다 — 안 하면 400.** 완료 후 착지 지점에 실제로 앉는 건 **보낸 수량**이므로 초과분은 Cin7 에 존재하지 않는다(예 APR15412 expected 24 / received 48 → 24 만 이동). off-transfer SKU 는 Cin7 보유 0 → **bin 이동 제외**, `recv_off_po` discrepancy 로만 남긴다.
@@ -331,7 +331,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - **청크 경계에서 이중 이동 없음**: 성공 그룹만 `exported_base` 가 찍히고, 미처리 그룹은 다음 회차 buildApplyPlan 의 DB 재조회(`pending_base>0`)가 다시 집는다 — 재시도 경로와 같은 메커니즘. `exported_base` 체크포인트·min 캡·discrepancy 선기록·COMPLETED 재개·(a)/(b) 착지 분기는 청크 경계와 무관하게 그대로.
   - **admin 자동 반복**: `done:false` 면 스스로 재호출(회차 사이 dry-run 없음), 진행률은 EF 응답 필드 그대로(`Applying… 210 / 327 lines · 58 bin groups left`) + **Stop 버튼**(회차 경계에서 멈춤 — 체크포인트까지 안전, 재개 가능). `beforeunload`·재진입 차단(applyBusy)은 반복 전체 구간 유지. **무한 루프 가드는 v3 에서 정교화** — 아래 참조(예전 `groups_moved===0` 판정은 실패 그룹이 진행을 가로막는 실측 사고의 공범이었다).
   - **429 는 failed_moves 에 넣지 않는다** — `cin7()` 백오프 재시도(1.5s→3s, 상한 2회) 소진 시 그 회차만 조기 종료(`rate_limited`), 잔여는 다음 회차. 그룹 간 sleep 300→**150ms**(FREE 티어 대시보드 `Failed to fetch` 완화 겸). ⚠️ 429 는 **연속 실패 카운트(아래 v3)에도 넣지 않는다** — 넣으면 rate limit 가 실패로 둔갑해 멀쩡한 bin 이 격리된다.
-  - ⚠️⚠️ **실패 그룹이 미처리 그룹을 가로막지 않는다 (2026-07-31 v3 — TR-03144 실측)**: 청크 v2 배포 후에도 진행이 멈췄다 — **실패 그룹 3건만으로 20초 예산을 전부 소진**(Cin7 400 응답이 느리고 한 그룹에 SKU 5~7개, 예 EU060503)했고, 실패 그룹이 plan.groups 앞쪽이라 **매 회차 그것들을 먼저 시도하고 끝나** 남은 46개 미처리 그룹이 영구히 진행되지 못했다(`groups_moved===0` → admin 무한루프 가드가 자동 반복도 중단). 실패 사유는 전부 `Available quantity … is 0` — **사람이 Cin7 재고를 고치기 전엔 재시도해도 영원히 실패한다.** 조치 3개:
+  - ⚠️⚠️ **실패 그룹이 미처리 그룹을 가로막지 않는다 (2026-07-31 v3 — TR-03144 실측)**: 청크 v2 배포 후에도 진행이 멈췄다 — 실측 apply_note `CHUNK - 0 group(s) moved, 3 failed · stopped_by=time`: **실패 그룹 3건만으로 20초 예산을 전부 소진**(Cin7 400 응답이 느리고 한 그룹에 SKU 5~7개, 예 EU060503)했고, 실패 그룹이 plan.groups 앞쪽이라 **매 회차 그것들을 먼저 시도하고 끝나** 남은 46개 미처리 그룹이 영구히 진행되지 못했다(`groups_moved===0` → admin 무한루프 가드가 자동 반복도 중단). 실패 사유는 전부 `Available quantity … is 0` — **사람이 Cin7 재고를 고치기 전엔 재시도해도 영원히 실패한다.** 조치 3개:
     - **① 순서** — buildApplyPlan 이 그룹을 **미시도 먼저, 실패 이력(연속 실패 수 오름차순) 뒤로** 정렬 → 매 회차 실제 전진(`groups_moved>0`)이 생긴다. 순서 변경은 이중 이동과 무관: "무엇을 옮길지"는 매 회차 DB 재조회(`pending_base>0`)가 정하고 성공 그룹만 `exported_base` 가 찍힌다 — 순서는 시도 순서일 뿐.
     - **② 격리** — 같은 bin **연속 `APPLY_QUARANTINE_FAILS`(3)회 실패** 시 자동 재시도에서 제외하고 `permanently_failed` 로 분류("N bin(s) need manual fixing in Cin7"). **`groups_remaining` 에 세지 않으므로** 격리만 남으면 `done:true` 로 정상 종료(applied_at 찍힘). ⚠️ **영구 제외가 아니다** — admin `Retry failed bins`(`&retry_failed=1`, dry-run + **첫 commit 회차에만** 부착)가 카운트를 리셋해 다시 시도한다(자동 회차마다 붙이면 격리에 영영 도달하지 못한다).
     - **③ 실패 시간 상한** — 회차당 실패 이력 그룹 시도에 `APPLY_FAIL_BUDGET_MS`(6초)만 허용, 초과분은 다음 회차로(정렬상 실패 그룹은 맨 뒤라 여기 걸리면 남은 것도 전부 실패 이력). 400 은 재시도 없음 — `cin7()` 백오프는 429 전용(그대로 유지할 것).
@@ -590,23 +590,63 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 - ⚠️ **`exported_base` 비율("Moved in Cin7")은 트랜스퍼 라인만** 낸다(`source_type==="transfer"` 필터). 이유가 2026-07-31 에 바뀌었다: 예전엔 "PO 는 이 컬럼을 안 씀"이었지만 이제 **PO 도 쓴다 — 단 의미가 다르다**("문서에 실은 양", 규칙 21 PO 이식 절). 섞으면 "옮겼다"와 "문서에 실었다"가 한 지표에 합쳐져 뜻이 없어지므로 필터는 유지하고, 각주에 PO 제외를 명시했다.
 - **화면 각주 2개는 필수 유지**: ①`exported_base` 는 **수동 UPDATE 로 오염될 수 있다**(TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전 데이터가 없다**. 숫자를 그대로 믿게 두면 안 되는 지표라 각주를 지우지 말 것.
 
-## 현재 진행 상태 (2026-07-30 기준)
+## 규칙 38 — 트랜스퍼 Put away 는 v2 API 에 없다 (⚠️⚠️ 탐색 종결 — 2026-07-31 실측 · 같은 탐색 반복 금지)
 
-**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 = 첫 실전(TR-02935, 2026-07-28)이 실패해 재설계 배포 + 수동 마무리로 종료. 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36).**
+Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인별 `LOCATION` 컬럼이 생긴다. "이걸 API 로 쓰면 bin 별 미니 트랜스퍼가 필요 없지 않을까"는 **이미 끝까지 탐색했고 답은 없다** (2026-07-31, TR-03259 실측):
 
-**2026-07-31 세션 (Apply 청크 — 규칙 30-2 해소)**
+- `/stockTransfer/putaway`·`putAway`·`put-away`·`pick`·`stock`·`received`·`receive` → **전부 HTML "Page not found"**
+- `/stockTransfer/order` → 정상 JSON 이지만 **라인에 위치 필드 없음**
+- 본 문서 응답 헤더에 **`PutAway` 플래그조차 없다** — UI 에서 체크하고 저장해도 API 응답에 반영되지 않는다
+- Put away 탭에는 **CSV Import 버튼도 없다** — 수동 대량 입력 우회도 불가
+
+→ **결론: 헤더 `To` 착지 + bin 별 별도 트랜스퍼 문서(규칙 21)가 유일한 API 경로다.** 현재 구조는 우회가 아니라 제약에 맞춘 정공법이다. **같은 탐색을 반복하지 마라.** (cin7-api 스킬 `references/stock-write.md` 에 동일 기록.)
+
+## 규칙 39 — 대형 TR 분할은 효과가 없다 (2026-07-31 실측 계산 — 채택 안 함)
+
+"트랜스퍼를 여러 개로 나눠 보내면 Apply 가 가벼워지지 않을까"에 대한 답. TR-02935(344 라인 / 고유 bin 144 / bin 당 평균 2.4 라인)를 3분할했을 때 총 bin 그룹 수(=Cin7 호출 수):
+
+| 분할 방식 | 총 bin 그룹 수 |
+|-----------|---------------|
+| 안 나눔 | **144** |
+| bin 정렬 3분할 | 146 |
+| 브랜드 3분할 | 154 |
+| 무작위 3분할 | **217** |
+
+- **한 bin 에 여러 SKU 가 들어가므로, 나누면 bin 그룹이 쪼개져 호출이 오히려 늘어난다.**
+- 나눌 거면 **반드시 브랜드 단위**(창고가 브랜드별로 정리돼 bin 이 뭉친다 — 그나마 +10). 그러나 리시빙 때 "이 물건이 어느 TR 것인지" 문제가 새로 생긴다(트럭은 하나, 팔레트는 토론토 픽 순서로 실린다).
+- → **청크 자동 반복(규칙 21)이 있으므로 분할 이득 없음. 채택하지 않는다.**
+
+## 규칙 40 — 트랜스퍼 착지는 창고만 지정한다 (⚠️ 2026-07-31 사용자 결정 — 집결 bin 폐기)
+
+앞으로 창고간 트랜스퍼의 `To` 는 집결 bin(EZ010101)이 아니라 **창고(`Asung - Edmonton`)만 지정**한다 — 규칙 21 착지 지점의 **(a) 케이스가 표준**이 된다.
+
+- **이유 ①**: 집결 bin 에 재고가 쌓이면 `asung_bin_stock` → `wms_sku_bins` 스냅샷을 오염시킨다(라스트 로케이션이 집결 bin 으로 기록되는 경로가 사라짐).
+- **이유 ②**: "집결 bin 에 남은 게 미이동분인지 원래 둘 물건인지" 헷갈리는 문제가 사라진다. (a) 는 잔량이 **"bin 없는 재고"** 로 남아 그 자체가 미정리 신호다(규칙 20 트랜스퍼 예외 ⑤와 합치).
+- ⚠️ **(a) 케이스의 완료 후 bin 이동은 실전 미검증** — API 실측(규칙 21: From=창고 GUID 로 "bin 없는 재고"를 꺼냄, TR-03260 1건)은 됐지만 **실전 Apply 경험은 전부 (b)였다. 다음 트랜스퍼가 첫 검증이다 — dry-run 을 먼저 확인할 것**(백로그 「검증 대기」).
+- **풋어웨이 마무리 방식**: 라스트 로케이션이 **없으면 지정하고, 있으면 그대로 둔다.**
+
+## 현재 진행 상태 (2026-07-31 기준)
+
+**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증).**
+
+**2026-07-31 세션 (Apply 청크 v1→v3 — 규칙 30-2·R10 해소 + 규칙 38~40)**
 - ✅ **EF Apply 청크 처리**: 상한 도달 시 정상 종료(`done:false, groups_remaining, lines_moved/lines_total`) + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식 — buildApplyPlan 재개 게이트·admin 공유) + `applied_at` 은 done:true 회차에만. 429 는 백오프 재시도(상한 2회) 후 회차 조기 종료(failed_moves 제외), 그룹 간 sleep 300→150ms — 규칙 21 청크 절
 - ✅ **청크 v2 — 이중 가드로 재조정**: 1차(`APPLY_MAX_GROUPS=30`)는 배포 후에도 **첫 회차조차 완주 실패**(TR-03144 실측 — `exported_base` 210→225→250 전진, `apply_note` 는 null 지속) → **12 로 인하 + `APPLY_TIME_BUDGET_MS=20000`**(요청 시작 t0 기준·Cin7 POST 앞 판정·먼저 걸리는 쪽) + `stopped_by:"groups"|"time"` 기록 + **종료부 불사**(receipt PATCH 실패에도 응답 반환, `note_saved:false`). 원칙: **회차는 반드시 완주해야 한다 — 완주하지 못하면 기록이 안 남아 원인 추적이 불가능하다.**
 - ✅ **admin 자동 반복**: done:false → 자동 재호출(회차 사이 dry-run 없음), 진행률 배너/버튼(EF 응답 필드 그대로), Stop 버튼(회차 경계 중단 — 체크포인트까지 안전·`Continue apply` 로 재개), 무한루프 가드(`groups_moved===0` 중단 + 회차 상한 20), beforeunload·재진입 차단 반복 전체 유지
-- ✅ **청크 v3 — 실패 그룹이 미처리 그룹을 가로막지 않게 (배포 대기)**: v2 배포 후 TR-03144 실측 — 실패 3그룹(400 응답 느림)이 plan 앞자리에서 매 회차 20초를 소진해 46개 미처리 그룹이 영구 정지 + `groups_moved===0` 가드가 자동 반복도 중단. → **①미시도 우선 정렬 ②연속 3회 실패 bin 격리(`permanently_failed`, `Retry failed bins`+`retry_failed=1` 로 해제) ③실패 시도 시간 상한 6초** + 계약 마커 2개 추가(`permanently_failed(N):`·`fail_counts:{...}`) + admin 버튼 우선순위(`Continue apply` > `Retry failed bins`)·가드 정교화(`groups_tried===0` 2연속만 중단, 상한 30) — 규칙 21 청크 절 v3 항목
-- ⬜ **실전 검증 대기 — TR-03144(현재 210/327 미완)로**: ①자동 반복 ②진행률 일치 ③중간 회차 apply_note 기록 ④Stop/재개 ⑤최종 회차 applied_at + 큐 제거
+- ✅ **청크 v3 — 실패 그룹이 미처리 그룹을 가로막지 않게 (배포 완료)**: v2 배포 후 TR-03144 실측 `CHUNK - 0 group(s) moved, 3 failed · stopped_by=time` — 실패 3그룹(400 응답 느림)이 plan 앞자리에서 매 회차 20초를 소진해 46개 미처리 그룹이 영구 정지 + `groups_moved===0` 가드가 자동 반복도 중단. → **①미시도 우선 정렬 ②연속 3회 실패 bin 격리(`permanently_failed`, `Retry failed bins`+`retry_failed=1` 로 해제) ③실패 시도 시간 상한 6초** + 계약 마커 2개 추가(`permanently_failed(N):`·`fail_counts:{...}`) + admin 버튼 우선순위(`Continue apply` > `Retry failed bins`)·가드 정교화(`groups_tried===0` 2연속만 중단, 상한 30) — 규칙 21 청크 절 v3 항목
+- ✅ **checkpoint repair(목적지 되읽기 회복) + R10 실측 확인**: TR-03144 격리 10 bin/25 라인 수동 확인 결과 **전부 목표 bin 에 이미 도착** — 원인은 타임아웃이 Cin7 POST 와 markExported PATCH 사이를 끊은 것(죽은 회차 수와 격리 bin 수 거의 일치). `Available quantity … is 0` 400 패턴에만 `/ref/productavailability` **OnHand** 되읽기로 `exported_base` 자동 회복(`checkpoint_repaired: N`) — 규칙 21 ④·규칙 27 R10 실측 확인 항목. **근본 원인은 v3 완주 보장으로 해소, 이 경로는 잔여물 정리용.**
+- ✅ **TR-03144 완주로 트랜스퍼 청크 실전 검증 종료**(자동 반복·격리·checkpoint repair 동작 확인)
 - ✅ **PO 경로 이식 (2026-07-31 후반)**: 청크·체크포인트(⚠️ 의미 = "문서에 실은 양")·실패 수집/격리 + **authorize 게이트**(1회 제약 — 모든 bin 이 실린 마지막 회차에만, 미완이면 DRAFT 유지 + admin `Cin7 DRAFT` 배지) + 공용 `chunkGuard()` 추출(트랜스퍼 동작 불변). ⬜ 실전 검증: **작은 PO 로 commit 먼저**, PO-01070 은 dry-run — 백로그 6번
+- ✅ **Put away API 탐색 종결(규칙 38)** — TR-03259 실측: v2 API 는 UI 의 라인별 Put away 를 노출하지 않는다. bin 별 별도 트랜스퍼가 유일한 경로 — 같은 탐색 반복 금지. cin7-api `stock-write.md` 에도 기록.
+- ✅ **TR 분할 무익 확정(규칙 39)** — TR-02935 3분할 계산: 144 → 146/154/217 그룹으로 오히려 증가. 채택 안 함.
+- ✅ **트랜스퍼 착지 정책 변경(규칙 40, 사용자 결정)** — 집결 bin(EZ010101) 폐기, 창고만 지정. ⬜ (a) 케이스 실전 검증은 다음 트랜스퍼(dry-run 먼저).
 
 **2026-07-30 세션 (규칙 35~37)**
 - ✅ **풋어웨이 진입 프리즈 수정**(직렬 await 제거 → 백그라운드 큐) — 규칙 34
 - ✅ **admin Apply 버튼 상태 머신**(Checking…/Applying…/✓ Applied/⚠ Partial/Apply failed, 배너·beforeunload 는 commit 구간만, 플래그 기반 재진입 차단, rAF 150ms 타임아웃) — 규칙 35. ⬜ **매니저 2명 동시 Apply 는 여전히 못 막는다**(규칙 27 R4)
 - ✅ **`image_mismatch` 리포트**(picker·packer 싱글뷰 ⚑Image differs 토글, `wms_reports.kind` 세 번째 값 — CHECK 제약 없음 실물 확인) — 규칙 14. ⚠️ **발견: 기존 두 kind 는 wave 모드에서 오더 귀속이 틀린다**(`task.order_id` 고정) → 백로그
 - ✅ **admin Stats 확장**(리시빙·트랜스퍼·풋어웨이·discrepancy, Throughput by worker 통합, 근무시간 기준 소요) — 규칙 37
+- ✅ **admin LIVE NOW 전 화면 확장**(리시빙 `stage:"receiving"|"putaway"` 재-track·트랜스퍼·풋어웨이·fulfillment presence 합류, 미상 screen 은 Picking 폴백 금지 → `Other`) — 규칙 24 · `references/frontend.md` 「admin LIVE NOW 전 화면 확장」
 - ⚠️ **fulfillment 스캔 배정(2026-07-29 배포) 실전 검증 미완** — 규칙 36
 
 **2026-07-28~29 세션 (규칙 29~33)**
@@ -667,8 +707,8 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 
 ### 리시빙 Apply — 최우선 (2026-07-31 갱신)
 
-1. ~~Apply 회차당 처리 그룹 상한 (규칙 30-2)~~ — ✅ **2026-07-31 v2 구현** (규칙 21 청크 절): 1차(상한 30 만)는 실측 실패(첫 회차 미완주·apply_note null) → **그룹 12 + 시간 예산 20초 이중 가드**(t0 기준·POST 앞 판정) + `done:false`/`groups_remaining`/`stopped_by` 응답 + **매 회차 apply_note 갱신** + 종료부 불사(`note_saved`) + admin 자동 반복·진행률·Stop·무한루프 가드. ⚠️ **트랜스퍼만** — PO 경로는 아래 6번. ⬜ 실전 검증 대기: TR-03144(250/327 미완 상태)로 ①중간 회차 apply_note 의 CHUNK 기록(핵심) ②자동 반복 ③Stop 즉시 반응 ④진행률 일치 ⑤최종 applied_at 확인. **v3 추가 검증**(규칙 21 청크 절 v3): ⑥매 회차 `groups_moved>0` 으로 실제 전진 ⑦자동 반복이 46그룹 소진 ⑧실패 3건이 마지막에 `permanently_failed`("manual fixing") 분류 ⑨`Retry failed bins` 로 격리 해제·재시도.
-2. **트랜스퍼 (a) 케이스 첫 실전 Apply** — 첫 실전은 **TR-02935**((b) 집결 bin)였고 실패했다(규칙 20 트랜스퍼 예외 + 규칙 27 R12, 사후분석 규칙 30). ⚠️ **지금까지 실측한 트랜스퍼는 전부 (b)** 이고 **(a)(창고 GUID, bin 없이 착지)의 완료 후 bin 이동은 실전 경험이 없다** → **TR-03259 로 먼저 dry-run**.
+1. ~~Apply 회차당 처리 그룹 상한 (규칙 30-2)~~ — ✅ **2026-07-31 v2 구현 → v3 배포 → TR-03144 로 실전 검증 완료**: v1(상한 30 만)은 첫 회차 미완주(apply_note null), v2(그룹 12 + 시간 20초)는 실패 그룹이 예산을 선점(`CHUNK - 0 group(s) moved, 3 failed`), **v3(미시도 우선·격리 3회·실패 6초)로 완주** — 규칙 21 청크 절. 격리 10 bin/25 라인은 수동 확인 결과 전부 이미 목표 bin 도착(POST↔PATCH 사이 타임아웃 잔여물) → **checkpoint repair 로 자동 회복 추가**(규칙 21 ④·규칙 27 R10).
+2. **트랜스퍼 (a) 케이스 첫 실전 Apply** — ⚠️ **2026-07-31 부터 (a) 가 표준 착지다(규칙 40 — 집결 bin 폐기).** 지금까지 실전 Apply 는 전부 (b)(TR-02935·TR-03144 — 집결 bin)였고 **(a)(창고 GUID, bin 없이 착지)의 완료 후 bin 이동은 실전 경험이 없다** → **다음 트랜스퍼가 첫 검증. dry-run 을 먼저 확인할 것.**
 3. **Apply 대기 중 수동 이동 경고 (규칙 30-3)** — admin Receiving 의 Apply 대기 항목에 경고 문구 + 운영 규칙 명문화.
 4. **`apply_note` 정규식 파싱을 컬럼으로** — 지금 EF 와 admin.html **양쪽이 같은 포맷을 파싱**한다(드리프트 위험). 계약 표식이 **4개로 늘었다**(2026-07-31 v3): `failed_moves(N):` + `groups_remaining(N):`(청크 미완) + `permanently_failed(N):`(격리) + `fail_counts:{...}`(연속 실패 카운트). `wms_receipts.failed_move_count`/`groups_remaining`/`fail_counts`(또는 jsonb 하나) 컬럼으로 승격.
 5. **admin.html 배너가 EF 캡 규칙을 JS 로 중복 계산** — 같은 판정을 두 곳에서 하지 말고 EF 응답 필드를 그대로 표시하도록.
@@ -677,8 +717,9 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 8. **리시빙 discrepancy Health 검사** — `short_no_disc` 는 픽킹 전용이라 규칙 29 의 사고를 못 잡았다(규칙 19).
 9. **`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조 Health 검사** — 하루 지연 스냅샷이라 실시간 용도는 아님(규칙 32).
 10. **R13 Discrepancy 큐 방치 시 재고 불일치가 계속 남는다** — 에이징 알림·리포트 없음(규칙 27 R13). ⚠️ 규칙 29 로 **큐 자체가 비어 있던 기간**이 있었으므로 과거분은 큐로 복원되지 않는다.
-11. **R10 bin 루프 비트랜잭션** — 트랜스퍼는 부분 실패 수집 + 재Apply 로 운영 가능하지만 원자성은 아니다(체크포인트 PATCH 실패 구멍).
+11. **R10 bin 루프 비트랜잭션** — 트랜스퍼는 부분 실패 수집 + 재Apply 로 운영 가능하지만 원자성은 아니다. ✅ **"POST↔PATCH 사이" 잔여물은 checkpoint repair 가 자동 회복**(2026-07-31, 규칙 21 ④) — 단 v3 이후에도 `checkpoint_repaired` 가 계속 나오면 다른 원인 신호(규칙 27 R10).
 12. **매니저 2명 동시 Apply (규칙 27 R4 · 규칙 35)** — 버튼 상태 머신은 **브라우저 단위**라 다른 기기의 동시 클릭을 못 막는다. 최종 PATCH 에 `applied_at is null` + 1행 확인이 서버측 방어선.
+13. **Apply 병렬화 / bin 배치 분리** — 회차 시간을 줄일 후보(같은 SKU 가 여러 그룹에 있으면 동시 이동 충돌 → **같은 SKU 그룹 분리 필요**). ⚠️ **측정 후 판단** — v3 완주 보장으로 시급성이 내려갔다. TR 분할은 대안이 아니다(규칙 39 — 그룹 수가 오히려 는다).
 
 ### 동시 작업 원자화
 - **같은 SKU 다중 픽커 / 같은 라인 동시 스캔 (R1)** — PostgREST 조건부 UPDATE(CAS) 또는 RPC 증분.
@@ -688,10 +729,12 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 - ⚠️ **wave 모드 리포트 오더 귀속 버그 (규칙 14)** — `wrong_location`·`barcode_mismatch` 가 `task.order_id` 고정이라 wave 에서 **엉뚱한 오더에 붙는다**. `image_mismatch` 처럼 라인별 `_orderId` 로 바꿀 것. **우선순위를 낮추지 말 것**(매니저가 엉뚱한 라인을 확인하게 된다).
 - **스캔 타임스탬프 기반 순수 작업시간 (규칙 37)** — 현재 소요시간은 근무시간 경과라 "열어두고 다른 일 한 시간"이 포함된다. 스캔 이벤트 타임스탬프 집계가 필요.
 - **근무시간 계산에 공휴일 미반영 (규칙 37)** — `WORK_DAYS`(월–금)만 본다.
+- **근무시간 상수가 실제와 맞는지 확인 (규칙 37)** — `WORK_HOURS`(09–17)·`WORK_DAYS`(월–금)는 추정 상수다. 두 창고의 실제 근무시간과 대조 후 조정할 것.
 
 ### 검증 대기 (배포됐으나 실전 미확인)
 - ⚠️ **fulfillment 스캔 배정 (규칙 36)** — `Move all` 기본값 · 포커스 정책 · 오프라인 롤백 · **기존 DnD/탭 경로 회귀** · 태블릿 sticky 오프셋. 현장 검증 전에는 "동작한다"고 기록하지 말 것.
-- ⚠️ **트랜스퍼 (a) 케이스**(창고 착지·bin 없음) — 위 「리시빙 Apply」 2번과 같은 항목. TR-03259 로 dry-run 부터.
+- ⚠️ **트랜스퍼 (a) 케이스**(창고 착지·bin 없음) — 위 「리시빙 Apply」 2번과 같은 항목. **이제 표준 착지(규칙 40)라 다음 트랜스퍼가 곧 첫 검증** — dry-run 부터.
+- ⚠️ **풋어웨이 진입 성능 태블릿 실물 확인 (규칙 34)** — 직렬 await 제거 수정은 유선에서만 확인했다. 태블릿 Wi-Fi(RTT 150~400ms)에서 진입 즉시 전환·백그라운드 저장 완료를 실물로 확인할 것(`?debug=perf`).
 
 ### 신규 기능
 - **Cin7 bin↔bin 이동 화면 — 규칙 33**(A 자유 이동 → B 풋어웨이 큐. `wms_bin_moves` 감사 테이블 필요, `wms_sku_bins` 에 쓰지 말 것).

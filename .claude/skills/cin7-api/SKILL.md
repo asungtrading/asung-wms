@@ -161,3 +161,5 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 6. **bin GUID 는 `/ref/location` 최상위 창고 행의 `Bins[]` 에서** — 응답은 Total 2678 에 `Limit 500` 으로 잘리지만 `Bins[]` 는 창고 행 하나에 전부 들어있다(에드먼튼 628 · 토론토 2047). ⚠️ child-location 행의 `Name` 은 bin 이름이 아니다(바코드류). `references/stock-write.md` 5절.
 7. **`purchaseList` 필터는 직관과 다르다** — `InvoiceStatus` 는 단일 값(AUTHORISED/PAID **2회 병합** 필요) · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순이라 최신 PO 가 마지막 페이지** · `UpdatedSince` 는 최신성 보장 못함 · `RestockReceivedStatus` 는 무시됨. 실측 표는 `references/purchase.md`.
 8. **화면으로만 되는 작업**(재고 재평가·bin 재고 리포트)은 `references/stock.md` 하단 「Cin7 UI 실측 노트」. ⚠️ **원가 0 재고 재평가는 방법 미확정**(Non-zero 0 + Zero stock 재입력은 상계되지 않고 재고가 2배가 된다).
+9. ⚠️⚠️ **트랜스퍼 Put away 는 v2 API 에 없다 (2026-07-31 TR-03259 실측 — 탐색 종결).** UI 의 라인별 Put away/LOCATION 은 API 로 노출되지 않는다(`/stockTransfer/putaway` 등 전부 404, 본 문서에 `PutAway` 플래그도 없음, CSV Import 도 없음) → **헤더 `To` 착지 + bin 별 별도 트랜스퍼가 유일한 경로. 같은 탐색을 반복하지 말 것.** `references/stock-write.md` 「Put away」절.
+10. **쓰기 되읽기 검증·bin 단위 재고 확인은 `/ref/productavailability`** — 판정은 **OnHand**(Available 은 판매 배정 차감이라 오판) · SKU/창고/Bin 정확 일치 · `Total > 반환 행수` 면 미확인 처리. `references/stock-write.md`.

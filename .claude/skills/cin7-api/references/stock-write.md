@@ -102,6 +102,7 @@ POST /purchase/stock
 - 400 "Cannot add duplicate value in stock received lines. (Product:..., Location:...)".
 - 이미 그 조합이 stock received 에 있거나, 한 POST 안에 같은 SKU+bin 이 두 번이면 발생.
 - 재시도 시 이전 DRAFT 가 남아있으면 중복됨 → 재실험 전 Cin7 stock received 비우기.
+- ⚠️ **이 400 은 안전장치이기도 하다 (2026-07-31)**: "POST 는 성공했는데 호출측 체크포인트 기록 전에 프로세스가 죽은" 잔여물을 재전송하면 이 에러로 **시끄럽게 거부**된다 → **조용한 이중 계상이 구조적으로 없다.** 이 에러를 받으면 = 그 라인은 이미 DRAFT 문서에 있다는 뜻 — Cin7 화면에서 확인 후 거기서 마무리하면 된다(WMS Apply PO 경로가 되읽기 회복 없이 안전한 근거).
 
 ## 3. Authorize 는 POST (PUT 아님)
 - `POST /purchase/stock {TaskID, Status:'AUTHORISED', Lines:[]}` → 200.
@@ -175,6 +176,25 @@ POST /stockTransfer
 - ⚠️ **child-location 행의 `Name` 은 bin 이름이 아니다** — 예 `"071164313169"` 같은 바코드류다. 이름 매칭이 애초에 성립하지 않았다.
 - 이름 비교는 `trim().toUpperCase()`, `IsDeprecated` 는 제외.
 - 실사고(**TR-02935**, 2026-07-28): 이 때문에 bin 이동이 **한 건도 실행되지 않고** 전 품목(344 라인)이 집결 bin EZ010101 에 남았다.
+
+# ⚠️⚠️ 2026-07-31 실측 — 트랜스퍼 Put away 는 v2 API 에 없다 (탐색 종결 — 같은 탐색 반복 금지)
+
+Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인별 `LOCATION` 컬럼이 생긴다. "이걸 API 로 쓰면 bin 별 미니 트랜스퍼가 필요 없지 않을까"는 **이미 끝까지 탐색했고 답은 없다** (TR-03259 실측):
+
+- `/stockTransfer/putaway`·`putAway`·`put-away`·`pick`·`stock`·`received`·`receive` → **전부 HTML "Page not found"**
+- `/stockTransfer/order` → 정상 JSON 이지만 **라인에 위치 필드 없음**
+- 본 문서(`/stockTransfer?TaskID=`) 응답 헤더에 **`PutAway` 플래그조차 없다** — UI 에서 체크·저장해도 API 응답에 반영되지 않는다
+- Put away 탭에는 **CSV Import 버튼도 없다** — 수동 대량 입력 우회도 불가
+
+→ **결론: 헤더 `To` 착지 + bin 별 별도 트랜스퍼 문서가 유일한 API 경로다.** (asung-wms 스킬 규칙 38 과 동일 기록.)
+
+# `/ref/productavailability` 로 bin 단위 재고 확인 (2026-07-31 — 쓰기 되읽기 검증의 표준 도구)
+
+쓰기 후 검증(위 원칙 — 200 이 아니라 되읽은 값)과 bin 단위 재고 확인은 `GET /ref/productavailability?Sku=<SKU>` 로 한다. 응답 행 = SKU × Location × Bin 단위(`OnHand`/`Available`/`OnOrder`/`InTransit`…).
+
+- ⚠️ **판정은 `OnHand` 로** — `Available` 은 판매 주문 배정(allocation)이 차감된 값이라 "물리적으로 도착했는가" 판정에 쓰면 **오판한다**(도착했는데 배정 때문에 0 으로 보임).
+- 매칭은 **SKU 정확 일치 + 창고 + Bin 정확 일치**. 같은 SKU 가 여러 행(창고×bin)으로 오므로 대상 bin 행들의 **OnHand 합**으로 본다.
+- ⚠️ **응답 잘림 방어**: `Total > 반환 행 수` 면 그 조회로 단정하지 말 것(미확인 처리). 애매하면 "확인 실패" 로 유지 — 잘린 응답을 근거로 완료 판정하면 안 된다.
 
 # 참고 — Sale 필드 매핑 (실측 확정)
 화면 **Comments** = API `Note` · 화면 **Shipping notes** = `ShippingNotes` · 화면 **Reference** = **`CustomerReference`** · **PriceTier** 는 최상위.
