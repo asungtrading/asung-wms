@@ -176,7 +176,7 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 - **⚠️⚠️ bin 이동 수량 캡 `min(received_base, expected_base)`** — 완료 후 착지 지점에 앉는 건 **보낸 수량**이므로 초과분은 Cin7 에 존재하지 않는다(옮기려 하면 400). SKU 단위 budget(=expected 합)을 planLines 순서대로 소진:
   - `p.move_base` = 캡된 이동량 · `p.pending_base` = `move_base − exported_already`(재개 시 남은 몫)
   - **초과 라인** → expected 만큼만 이동(예 APR15412 expected 24 / received 48 → 24 만) · **부족 라인** → received 만 이동, `expected − received` 는 착지 지점에 남는다(**의도된 동작**) · **off-transfer SKU** → expected 0 → 캡 0 → 이동 제외, `recv_off_po` discrepancy 로만.
-- **plan 노출 필드**: `mode` · `transfer{number,status,landing_bin,landing_label,to_location_raw,to_guid}` · `lines[]`(`move_base`/`pending_base`/`parts` 포함) · `groups[]`(**`pending_base>0` 인 라인만**) · **`leftover_at_landing:[{sku,qty,where}]`**(`where`=`landing_label`) · **`excluded_from_move:[{sku,bin,received,moved,not_moved,reason}]`** · `skipped` · `discrepancies`.
+- **plan 노출 필드**: `mode` · `transfer{number,status,landing_bin,landing_label,to_location_raw,to_guid}` · `lines[]`(`move_base`/`pending_base`/`parts` 포함) · `groups[]`(**`pending_base>0` 인 라인만**) · **`leftover_at_landing:[{sku,qty,where}]`**(`where`=`landing_label`) · **`excluded_from_move:[{sku,bin,received,moved,not_moved,reason}]`** · `skipped` · `discrepancies` · **`chunk_size`**(=`APPLY_MAX_GROUPS`) · **`progress{lines_total, lines_exported}`**(청크 진행률의 시작값 — admin 이 캡 규칙을 JS 로 재계산하지 않고 이 값+commit 응답 필드를 그대로 표시).
 - **`parts`**: merge 는 (order_sku + putaway_bin) 기준이라 여러 receipt 라인이 한 planLine 이 된다 → `parts:[{id,received_base,exported_base}]` 를 실어 `exported_base` 체크포인트를 쓸 수 있게 한다.
 
 **applyCommit 실행 순서 (⚠️ 이 순서가 핵심 — 규칙 27 R12)**
@@ -209,10 +209,16 @@ curl -s "$BASE/hello?commit=1" -H "Authorization: Bearer $ANON" | jq .
 
 - ⚠️⚠️ **2026-07-29 — 이 선기록이 실제로는 전부 400 이었다 (규칙 29).** `on_conflict=receipt_id,sku` 가 가리키는 `uq_disc_receipt_sku` 가 **부분(partial) 유니크**(`WHERE receipt_id IS NOT NULL`)여서 PostgREST 가 추론하지 못했다 → **`42P10 there is no unique or exclusion constraint matching the ON CONFLICT specification`**. 새 정책에서는 이 실패가 곧 Apply 중단이라 Cin7 쓰기 자체가 막혔고, 그 전(선기록 이전 판)에는 **리시빙 discrepancy 가 조용히 한 건도 안 들어가고 있었다.** 인덱스를 WHERE 절 없는 전체 유니크로 교체해 해소 — `supabase/wms_disc_uq_fix.sql`. **EF 코드는 그대로**(`on_conflict` 조합을 바꾸는 게 아니라 인덱스를 고치는 것이 맞다). 📌 앞으로 `on_conflict` 를 쓸 컬럼 조합은 **`pg_indexes` 로 전체 유니크인지 먼저 확인**한다.
 
-**⬜ 미구현 — 회차당 처리 그룹 상한 (규칙 30-2)**
-- 실측 **TR-02935 = 144 bin 그룹**: 1회차에 **81 라인 이동 후 무응답 종료**(EF 실행 시간 한도), 이후 3회 더 눌러 **+43** 뿐. ⚠️ **실패 그룹이 매 회차 앞에서 재시도되며 시간 예산을 먹어** 회차당 전진량이 **81 → 약 14/회**로 떨어진다.
-- ⚠️ **타임아웃으로 죽으면 `applied_at`·`apply_note` 가 둘 다 null** 이라 `failed_moves` 도 안 남는다 — 진행 상황을 알려주는 건 `exported_base` 뿐이다.
-- 필요한 모양: `groups` 순회에 **회차 상한(예 `MAX_GROUPS_PER_APPLY = 30~40`)** + 응답 최상위 `groups_remaining`/`groups_capped:true` + `apply_note` 와 admin 배너에 **"N groups remaining, press Apply again"**. 미처리 그룹은 `exported_base` 가 안 찍혀 자연히 다음 회차 대상이 된다(재시도 경로와 같은 메커니즘). ⚠️ 상한 판정을 **admin.html 에서 JS 로 다시 계산하지 말고** EF 응답 필드를 그대로 표시할 것(현재 배너가 캡 규칙을 중복 계산 — 백로그).
+**청크 처리 — 회차당 그룹 상한 (✅ 2026-07-31 구현, 규칙 30-2 해소)**
+- **`APPLY_MAX_GROUPS = 30`** — 실측 근거: TR-02935(144 그룹, 1회차 81 라인 후 무응답)·TR-03144(327 라인/100+ 그룹, Apply 8~10회 필요·매 회차 30~40 그룹 부근 타임아웃으로 `applied_at`·`apply_note` 둘 다 null). 30 이 안전 마진.
+- **상한 카운트 = 이번 회차에 Cin7 POST 를 실제로 시도한 그룹 수(성공+실패)** — 실패도 왕복 1회를 먹는다. 착지 bin 스킵·already-exported 스킵·GUID 미해석 스킵은 상한에 안 센다. 상한 도달 이후 그룹은 **아무것도 하지 않고** `groups_remaining` 으로만 센다.
+- **청크 경계에서 이중 이동 없음**: 성공 그룹은 POST 직후 `markExported` 로 `exported_base` 가 찍히고, 미처리 그룹은 안 찍힌다. commit 은 매 호출 `buildApplyPlan` 이 DB 를 다시 읽으므로 다음 회차의 `pending_base>0` 필터가 미처리 그룹만 다시 집는다 — 기존 재시도 경로와 같은 메커니즘. (남는 구멍은 종전과 동일: `exported_base` PATCH 자체가 실패하면 WARN 만 남고 재이동 위험 — R10.)
+- **commit 응답 추가 필드**: `done`(잔여 0 이면 true — PO 경로는 항상 true) · `groups_total`(이번 회차 후보 = 시도+잔여) · `groups_moved` · `groups_remaining` · `lines_moved`/`lines_total`(receipt 라인 기준 **누적** — plan.progress.lines_exported + 이번 회차 0→양수 전환 수) · `rate_limited`. 기존 `failed_moves`/`moved_bins`/`skipped_bins`/`log` 유지.
+- **`applied_at` 은 done:true 회차에만.** 중간 회차는 `apply_note` 만 매 회차 갱신(정상 종료에서 항상 기록이 남는다 — R14 의 반대 방향 보증): 진행 줄 `CHUNK - N group(s) moved this round · x/y lines exported` + 계약 표식 **`groups_remaining(N):`** 한 줄. ⚠️ `failed_moves(N):` 처럼 **EF 정규식(buildApplyPlan 재개 게이트)과 admin.html(Continue apply 버튼·History `⏸ N groups left` 표시)이 공유하는 계약 포맷** — 한쪽만 바꾸지 말 것.
+- **재개 게이트 확장**: `retryFailed = transfer && (failed_moves(N)>0 || groups_remaining(N)>0)` — applied_at 이 이미 찍힌 부분실패 receipt 의 재시도 회차가 다시 청크에 걸려도(done:false 인데 applied_at 은 과거 값) 다음 Apply 가 막히지 않는다.
+- **429**: `cin7()` 이 백오프(1.5s→3s, **상한 2회**) 후에도 429 면 `status=429` 를 실어 throw → 그룹 루프가 **`failed_moves` 에 넣지 않고**(재시도 대상 표식이 어긋난다) `rate_limited=true` 로 회차를 조기 종료, 잔여는 다음 회차. 그룹 간 sleep 은 **300→150ms**.
+- **admin 자동 반복 (admin.html applyToCin7)**: `done:false` 면 commit 을 재호출(회차 사이 dry-run 없음). 진행률은 EF 응답 필드 그대로: 버튼 `Applying… 210/327` + 배너 `Applying… 210 / 327 lines · 58 bin groups left`. **Stop 버튼**(배너·모달 노트 양쪽) = 회차 경계에서 멈춤 — exported_base 체크포인트까지 안전, receipt 은 큐에 남아 `Continue apply` 로 재개. **무한 루프 가드** = 한 회차 `groups_moved===0`(남은 그룹 전부 실패·429 지속)이면 중단 + 실패 목록 alert / 회차 상한 `APPLY_MAX_ROUNDS=20`. `beforeunload` 경고·재진입 차단(applyBusy)·rAF 150ms 타임아웃·`loadRecv().catch()` 격리는 자동 반복 전체 구간 유지.
+- ⚠️ **PO 경로 미적용** — 청크도 체크포인트도 없다(bin 하나 실패 = 전체 throw). 규칙 27 R10 백로그.
 
 ## 폴링 EF `hello` — Reference 저장 (2026-07-25)
 
