@@ -116,6 +116,24 @@ const APPLY_MAX_GROUPS = 12;
 // ⚠️ 판정은 반드시 Cin7 POST **앞**(그룹 루프 머리)에서 — 반쯤 옮긴 그룹이 생기면 안 된다.
 const APPLY_TIME_BUDGET_MS = 20000;
 
+// ── 실패 그룹 처리 규칙 (2026-07-31 v3 — TR-03144 실측) ──
+// 청크 v2 배포 후에도 진행이 멈췄다: 실패 그룹 **3건만으로 20초 예산을 전부 소진**했다(Cin7 400 응답이 느리고
+// 한 그룹에 SKU 5~7개). 실패 그룹이 plan.groups 앞쪽에 있어 매 회차 그것들을 먼저 시도하고 끝났고,
+// 남은 46개 미처리 그룹은 영구히 진행되지 못했다(groups_moved=0 → admin 무한루프 가드가 자동 반복도 중단).
+// 실패 사유는 전부 "Available quantity … is 0" — 사람이 Cin7 재고를 고치기 전엔 재시도해도 영원히 실패한다.
+//  ① 순서: 아직 시도하지 않은 그룹 먼저, 실패 이력 그룹은 뒤로(buildApplyPlan 이 fail_counts 로 정렬)
+//     → 매 회차 실제 전진(groups_moved > 0)이 생겨 admin 자동 반복이 계속된다.
+//  ② 격리: 같은 bin 이 연속 APPLY_QUARANTINE_FAILS 회 이상 실패하면 자동 재시도 대상에서 제외하고
+//     permanently_failed 로 분류한다("N bin(s) need manual fixing in Cin7"). ⚠️ 영구 제외가 아니다 —
+//     사람이 재고를 고친 뒤 admin 'Retry failed bins'(?retry_failed=1)를 누르면 카운트가 리셋돼 다시 시도한다.
+//  ③ 실패 시간 상한: 한 회차에서 실패 이력 그룹 시도에 쓰는 시간 합을 APPLY_FAIL_BUDGET_MS 로 막는다
+//     (전체 예산 20초의 일부만 실패에 허용 — 초과분은 다음 회차로).
+//  연속 실패 카운트는 apply_note 의 `fail_counts:{"BIN":n}` 마커로 회차 간 이월한다(새 컬럼·테이블 없음 —
+//  근거는 buildApplyPlan 의 파싱 주석). ⚠️ 400(재고 부족)은 재시도 가치가 없다 — cin7() 의 백오프 재시도는
+//  429 전용이라 400 은 애초에 재시도되지 않는다(그대로 유지할 것).
+const APPLY_FAIL_BUDGET_MS = 6000;
+const APPLY_QUARANTINE_FAILS = 3;
+
 // ── bin 이름 → GUID (실측 검증: Cin7 쓰기 API 는 이름 거부, GUID 만 받음) ─────────
 // ⚠️⚠️ 실사고 2026-07-28 (TR-02935, 첫 에드먼튼 Apply): `/ref/location` 은 **Total 2678 인데 Limit 500 에서 잘린다.**
 //   반환된 500행의 내용 = 최상위 창고 2행 + **토론토 child-location 498행뿐, 에드먼튼 child 는 0행**(전부 뒤 페이지).
@@ -307,7 +325,9 @@ async function transferDetail(id: string): Promise<any> {
 }
 
 // ── Apply to Cin7 — 계획 수립 (dry-run 공용) ─────────────────
-async function buildApplyPlan(receiptId: number) {
+// resetFails = true (?retry_failed=1, admin 'Retry failed bins'): 연속 실패 카운트를 리셋하고
+// 격리(permanently_failed)된 bin 도 다시 시도 대상에 넣는다 — 사람이 Cin7 재고를 고친 뒤의 명시적 재시도 경로.
+async function buildApplyPlan(receiptId: number, resetFails = false) {
   const rcpts = await sbSelect("wms_receipts?id=eq." + receiptId);
   if (!rcpts.length) throw new Error("receipt not found: " + receiptId);
   const rcpt = rcpts[0];
@@ -318,14 +338,30 @@ async function buildApplyPlan(receiptId: number) {
   // 안 찍혀 있어 아래 `pending_base` 계산에서 자동으로 재시도 대상이 된다.
   // 게이트는 두 겹: ① apply_note 에 `failed_moves(N)` N>0 **또는 `groups_remaining(N)` N>0**(청크 미완 —
   //   applied_at 이 이미 찍힌 부분실패 receipt 의 재시도 회차가 다시 청크 상한에 걸린 corner case 를 막지 않기 위함)
+  //   **또는 `permanently_failed(N)` N>0**(격리된 bin 만 남아 done:true 로 닫힌 receipt 의 명시적 재시도 진입로)
   //   ② 실제로 옮길 그룹이 남아 있음(트랜스퍼 절 끝에서 확인).
-  // 둘 다 없으면 종전대로 "already applied" 로 거부한다(이중 반영 방지 — 규칙 21).
-  // ⚠️ 두 표식(`failed_moves(N):`·`groups_remaining(N):`)은 admin.html 과 공유하는 계약 포맷이다 — 한쪽만 바꾸지 말 것.
+  // 없으면 종전대로 "already applied" 로 거부한다(이중 반영 방지 — 규칙 21).
+  // ⚠️ 세 표식(`failed_moves(N):`·`groups_remaining(N):`·`permanently_failed(N):`)은 admin.html 과 공유하는
+  //   계약 포맷이다 — 한쪽만 바꾸지 말 것.
   const noteStr = String(rcpt.apply_note || "");
   const failedNote = /failed_moves\((\d+)\)/.exec(noteStr);
   const remainNote = /groups_remaining\((\d+)\)/.exec(noteStr);
+  const permNote = /permanently_failed\((\d+)\)/.exec(noteStr);
   const retryFailed = src0 === "transfer" &&
-    ((!!failedNote && Number(failedNote[1]) > 0) || (!!remainNote && Number(remainNote[1]) > 0));
+    ((!!failedNote && Number(failedNote[1]) > 0) || (!!remainNote && Number(remainNote[1]) > 0) ||
+     (!!permNote && Number(permNote[1]) > 0));
+  // ── bin 별 연속 실패 카운트 — apply_note 의 `fail_counts:{"BIN":n}` 마커 (2026-07-31 v3) ──
+  // 새 컬럼을 두지 않는 이유: ① wms_receipt_lines 에 쓸 만한 기존 컬럼이 없다 — exported_base 는
+  //   "Cin7 에 실제 반영된 양"이라는 사실 기록이라 불가침(규칙 30-4)이고 putaway_* 는 작업자 화면이 소유한다.
+  //   ② 실패 이력의 단위가 receipt×bin 이라 apply_note(receipt 단위)와 맞고, 계약 마커 패턴이 이미 있다.
+  // ⚠️ `failed_moves(N):` 뒤의 JSON 은 900자에서 **잘려** 파싱이 깨질 수 있다 — bin 목록의 근거로 쓰지 말 것.
+  //   (이 컴팩트 마커가 따로 존재하는 이유다.) 마커가 손상돼도 빈 카운트로 폴백 — 순서 최적화만 잃고 동작은 안전.
+  // resetFails(명시적 재시도)면 카운트를 비워 시작한다 — 전 그룹이 다시 "미시도" 취급.
+  let failCounts: Record<string, number> = {};
+  if (!resetFails) {
+    const fc = /fail_counts:(\{[^{}]*\})/.exec(noteStr);
+    if (fc) { try { failCounts = JSON.parse(fc[1]) || {}; } catch { failCounts = {}; } }
+  }
   if (rcpt.applied_at && !retryFailed) throw new Error(rcpt.po_number + " already applied at " + rcpt.applied_at);
   if (rcpt.status !== "completed") throw new Error("receipt must be completed first (current: " + rcpt.status + ")");
   const lines = await sbSelect("wms_receipt_lines?receipt_id=eq." + receiptId + "&order=id");
@@ -472,6 +508,10 @@ async function buildApplyPlan(receiptId: number) {
   (planLines as any[]).filter((p) => Number(p.pending_base) > 0).forEach((p) => { (groups[p.bin] = groups[p.bin] || []).push(p); });
   const moves = Object.keys(groups).filter((b) => !landingBin || b.toUpperCase() !== landingBin.toUpperCase());
   const alreadyExported = (planLines as any[]).filter((p) => Number(p.move_base) > 0 && Number(p.pending_base) <= 0).length;
+  // ── 실패 이력 분류 (v3) — 정렬·격리의 근거. resetFails 면 failCounts 가 비어 전부 "미시도" 가 된다 ──
+  const failsOf = (b: string) => Number(failCounts[String(b).toUpperCase()] || 0);
+  const quarantinedBins = moves.filter((b) => failsOf(b) >= APPLY_QUARANTINE_FAILS);   // 자동 재시도 격리 대상
+  const movesActive = moves.filter((b) => failsOf(b) < APPLY_QUARANTINE_FAILS);        // 이번 회차 실제 시도 대상
 
   // 재시도 게이트 ② — `failed_moves` 는 남아 있는데 실제로 옮길 게 없으면(전부 exported 됐거나 착지 bin 뿐)
   // 재개할 이유가 없다 → 종전 "already applied" 거부로 되돌린다.
@@ -484,20 +524,28 @@ async function buildApplyPlan(receiptId: number) {
     receipt: rcpt, source: "transfer",
     plan: {
       action: "Transfer completion + bin placement" +
-        (retryFailed ? " (RETRY — re-running the bin moves that failed on the last Apply)"
-                     : mode === "resume" ? " (RESUME — transfer already COMPLETED)" : ""),
-      mode, retry: retryFailed,
+        (retryFailed ? (resetFails
+            ? " (RETRY — fail history cleared, previously failed bins are attempted again)"
+            : " (RESUME — untried groups go first, previously failed bins last)")
+          : mode === "resume" ? " (RESUME — transfer already COMPLETED)" : ""),
+      mode, retry: retryFailed, retry_reset: resetFails,
       steps: [
         mode === "resume"
           ? "1) SKIP — " + det.po_number + " is already COMPLETED in Cin7 (resuming bin moves only)"
           : "1) PUT " + det.po_number + " -> COMPLETED with the ORIGINAL sent quantities (Cin7 ignores quantity edits) — stock lands in " + landingLabel,
-        "2) " + moves.length + " bin move(s), quantity capped at the sent qty (" + (moves.join(", ") || "none") + ")" +
+        "2) " + movesActive.length + " bin move(s), quantity capped at the sent qty (" + (movesActive.join(", ") || "none") + ")" +
           (landingBin && moves.length < Object.keys(groups).length ? " · already-in-place groups skipped" : "") +
           (alreadyExported ? " · " + alreadyExported + " line(s) already exported, skipped" : "") +
-          (moves.length > APPLY_MAX_GROUPS
+          " · untried groups go first, previously failed bins last" +
+          (movesActive.length > APPLY_MAX_GROUPS
             ? " · processed up to " + APPLY_MAX_GROUPS + " group(s) or ~" + (APPLY_TIME_BUDGET_MS / 1000) +
               "s per round, whichever comes first — the admin screen repeats Apply automatically and shows progress (Stop is safe between rounds)"
             : ""),
+        ...(quarantinedBins.length
+          ? ["2b) EXCLUDED — " + quarantinedBins.length + " bin(s) failed " + APPLY_QUARANTINE_FAILS +
+             "+ consecutive rounds and need manual fixing in Cin7: " + quarantinedBins.join(", ") +
+             " — fix the stock, then use 'Retry failed bins' to include them"]
+          : []),
         "3) " + leftoverAtLanding.length + " leftover line(s) stay in " + landingLabel +
           " — remove them in Cin7 with a manual stock adjustment (see the discrepancy queue)",
       ],
@@ -505,7 +553,16 @@ async function buildApplyPlan(receiptId: number) {
         number: det.po_number, status: det.status, landing_bin: landingBin || null,
         landing_label: landingLabel, to_location_raw: landingRaw, to_guid: det.to_guid,
       },
-      lines: planLines, groups: Object.keys(groups).map((b) => ({ bin: b, lines: groups[b] })),
+      // ⚠️ 그룹 순서 = **미시도 먼저, 실패 이력(연속 실패 수 오름차순) 뒤로** (v3 핵심 — TR-03144 에서 실패 그룹이
+      //   앞자리를 차지해 매 회차 20초를 소진, 46개 미처리 그룹이 영구히 진행되지 못했다). 안정 정렬이라
+      //   같은 카운트끼리는 원래 순서 유지. 격리(3회+) bin 은 자연히 맨 뒤 — applyCommit 이 카운트로 제외한다.
+      //   순서 변경은 이중 이동과 무관: "무엇을 옮길지"는 매 회차 DB 재조회(pending_base>0)가 정하고,
+      //   성공 그룹만 exported_base 체크포인트가 찍혀 다음 회차에서 빠진다 — 순서는 시도 순서일 뿐이다.
+      lines: planLines,
+      groups: Object.keys(groups)
+        .map((b) => ({ bin: b, prev_fails: failsOf(b), lines: groups[b] }))
+        .sort((a, b) => a.prev_fails - b.prev_fails),
+      fail_counts: failCounts, quarantined_bins: quarantinedBins, quarantine_fails: APPLY_QUARANTINE_FAILS,
       leftover_at_landing: leftoverAtLanding, excluded_from_move: excludedFromMove,
       skipped, discrepancies,
       // 청크 진행률 소스 — admin 은 캡 규칙을 JS 로 재계산하지 않고 이 값(+commit 응답 필드)을 그대로 표시한다.
@@ -527,7 +584,14 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   // bin GUID 를 못 찾은 라인 — 전체를 중단시키지 않고 여기 모아 응답·apply_note 로 노출한다 (TR-02935 교훈).
   const skippedBins: { sku: string; bin: string; reason: string }[] = [];
   // Cin7 이 거부한 bin 이동(트랜스퍼 경로) — 그룹 단위로 수집만 하고 다음 그룹을 계속 진행한다. 아래 루프 주석 참조.
-  const failedMoves: { bin: string; skus: string[]; qty: number; http_status: number | null; cin7_error: string }[] = [];
+  const failedMoves: { bin: string; skus: string[]; qty: number; http_status: number | null; cin7_error: string; fails: number }[] = [];
+  // 연속 실패 카운트(bin 대문자 → n) — plan.fail_counts(직전 회차 apply_note 마커)에서 시작해 이번 회차 결과로 갱신,
+  // 회차 끝에 fail_counts 마커로 되쓴다. 성공 = 삭제(연속 리셋) / 실패(429 제외) = +1 / 미시도 = 그대로 이월.
+  const failCounts: Record<string, number> = Object.assign({}, (plan.fail_counts || {}) as Record<string, number>);
+  // 연속 APPLY_QUARANTINE_FAILS 회 이상 실패해 이번 회차 시도에서 제외한 그룹 — 자동 재시도 격리(⚠️ 영구 제외 아님,
+  // 'Retry failed bins'(retry_failed=1)가 카운트를 리셋해 다시 시도한다).
+  const permanentlyFailed: { bin: string; skus: string[]; qty: number; fails: number }[] = [];
+  let failSpentMs = 0;      // 이번 회차에 실패 이력 그룹 시도에 쓴 시간 합 (APPLY_FAIL_BUDGET_MS 상한)
   let movedBins = 0;        // 실제로 성공한 bin 그룹 수 (admin 알림의 "N moved / M failed")
   // ── 청크 카운터 (APPLY_MAX_GROUPS — 규칙 30-2 해소) ──
   let groupsAttempted = 0;  // 이번 회차에 Cin7 POST 를 시도한 그룹 수(성공+실패) — 상한 판정 기준
@@ -535,7 +599,7 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   let linesMovedNew = 0;    // 이번 회차에 exported_base 가 0 → 양수 로 바뀐 receipt 라인 수 (진행률용)
   let rateLimited = false;  // 429 백오프 재시도(상한 2회)까지 소진 — 회차 조기 종료, 잔여는 다음 회차
   // 이번 회차를 끊은 가드 — apply_note·응답에 남긴다(다음에 상한을 조정할 때 어느 쪽이 걸렸는지가 근거).
-  let stoppedBy: "groups" | "time" | null = null;
+  let stoppedBy: "groups" | "time" | "fail_budget" | null = null;
 
   // ⚠️ apply_note 는 이번 실행 로그로 **덮어써진다** → 재시도 실행임을 note 스스로 밝히게 한다
   //    (직전 부분 성공에서 이미 옮긴 그룹은 pending_base=0 이라 plan.groups 에 아예 없어 로그에 안 남는다).
@@ -675,6 +739,22 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       }
       const moveLines = g.lines.filter((p: any) => Number(p.pending_base) > 0);
       if (!moveLines.length) { log.push("bin " + g.bin + ": already exported - skip"); continue; }
+      const binKey = String(g.bin).toUpperCase();
+      const prevFails = Number(failCounts[binKey] || 0);
+      // ── 격리 (v3): 연속 실패 상한에 도달한 bin 은 이번 회차 시도에서 제외한다 ──
+      // ⚠️ groups_remaining 에 세지 않는다 — 세면 done:false 로 남아 admin 자동 반복이 영원히 안 끝난다.
+      //   격리만 남으면 done:true 로 정상 종료(applied_at 찍힘)하고 admin 이 "N bin(s) need manual fixing" +
+      //   'Retry failed bins' 를 보여준다. 격리 판정은 청크 가드보다 앞 — 가드에 걸린 회차에도 분류는 완결된다.
+      if (prevFails >= APPLY_QUARANTINE_FAILS) {
+        permanentlyFailed.push({
+          bin: g.bin, skus: moveLines.map((p: any) => String(p.base_sku)),
+          qty: moveLines.reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
+          fails: prevFails,
+        });
+        log.push("bin " + g.bin + ": QUARANTINED after " + prevFails + " consecutive failed round(s) - not auto-retried;" +
+          " fix the stock in Cin7 and press 'Retry failed bins'");
+        continue;
+      }
       // ── 청크 이중 가드: 그룹 수 상한 / 시간 예산 / 429 — 먼저 걸리는 쪽에서 끊는다 (예외가 아니라 정상 종료) ──
       // ⚠️ 판정은 Cin7 POST **앞**(그룹 시작 전)에서만 — 반쯤 옮긴 그룹을 만들지 않는다.
       // 가드에 걸린 뒤의 그룹은 **아무것도 하지 않고** 남은 개수만 센다. exported_base 가 안 찍혀 있으므로
@@ -682,6 +762,12 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       if (groupsAttempted >= APPLY_MAX_GROUPS || rateLimited || Date.now() - t0 > APPLY_TIME_BUDGET_MS) {
         // 429 는 rate_limited 필드가 따로 밝히므로 stopped_by 는 그룹 수/시간 두 가드만 기록한다(먼저 걸린 쪽 1회).
         if (!stoppedBy && !rateLimited) stoppedBy = groupsAttempted >= APPLY_MAX_GROUPS ? "groups" : "time";
+        groupsRemaining++; continue;
+      }
+      // ── 실패 그룹 전용 시간 상한 (v3): 실패 이력 그룹(Cin7 400 응답이 느리다)이 회차 예산을 다 먹지 않게 ──
+      // 정렬상 실패 이력 그룹은 맨 뒤이므로, 여기 걸리면 뒤에 남은 그룹도 전부 실패 이력 → 다음 회차로 넘긴다.
+      if (prevFails > 0 && failSpentMs > APPLY_FAIL_BUDGET_MS) {
+        if (!stoppedBy && !rateLimited) stoppedBy = "fail_budget";
         groupsRemaining++; continue;
       }
       const rg = await tryBinGuid(whName, g.bin);
@@ -710,10 +796,12 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       //   **실패분만** 재시도된다(buildApplyPlan 의 retryFailed 게이트 + pending_base).
       // ⚠️ 자동 보정은 하지 않는다 — 재고 조정은 사람 판단(규칙 27 R13).
       groupsAttempted++;   // 성공·실패 무관 — Cin7 POST 시도 자체가 시간 예산을 먹는다(실패도 왕복 1회)
+      const tAttempt = Date.now();   // 실패 이력 그룹의 시도 시간을 failSpentMs 에 적산 (APPLY_FAIL_BUDGET_MS)
       let res: any;
       try {
         res = await cin7("POST", "/stockTransfer", mini);
       } catch (e) {
+        if (prevFails > 0) failSpentMs += Date.now() - tAttempt;
         const info = cin7ErrInfo(e);
         // ⚠️ 429 는 실패가 아니라 "이번 회차는 여기까지" 다 — cin7() 의 백오프 재시도(상한 2회)까지 소진된 상태이므로
         //    이 그룹을 포함한 잔여를 다음 회차로 넘긴다. **failed_moves 에 넣지 않는다**(넣으면 부분실패 표식·재시도
@@ -724,11 +812,14 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
             g.bin + " and the remaining group(s) will be retried next round");
           continue;
         }
+        // 연속 실패 +1 — APPLY_QUARANTINE_FAILS 에 도달하면 다음 회차부터 격리된다. 429 는 위에서 이미 빠졌다
+        // (429 를 세면 rate limit 가 실패로 둔갑해 멀쩡한 bin 이 격리된다).
+        failCounts[binKey] = prevFails + 1;
         failedMoves.push({
           bin: g.bin,
           skus: moveLines.map((p: any) => String(p.base_sku)),
           qty: moveLines.reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
-          http_status: info.http_status, cin7_error: info.cin7_error,
+          http_status: info.http_status, cin7_error: info.cin7_error, fails: prevFails + 1,
         });
         log.push("WARN bin move -> " + g.bin + " FAILED (HTTP " + (info.http_status || "?") + "): " + info.cin7_error +
           " - " + moveLines.map((p: any) => p.base_sku + " x" + Math.round(Number(p.pending_base))).join(", ") +
@@ -736,6 +827,7 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
         await sleep(150);
         continue;   // ⚠️ throw 금지 — 남은 그룹을 계속 옮기고 receipt PATCH 까지 반드시 도달한다.
       }
+      if (prevFails > 0) { failSpentMs += Date.now() - tAttempt; delete failCounts[binKey]; }  // 성공 — 연속 실패 리셋
       movedBins++;
       log.push("bin move -> " + g.bin + ": " + (res.Number || "ok") + " (" +
         moveLines.map((p: any) => p.base_sku + " x" + Math.round(Number(p.pending_base)) +
@@ -772,6 +864,15 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
     log.push("PARTIAL — " + movedBins + " bin group(s) moved, " + failedMoves.length +
       " failed. Fix the stock in Cin7, then Apply again: only the failed bins are retried.");
   }
+  // ⚠️ `permanently_failed(N):` 도 계약 마커다 — buildApplyPlan 재시도 게이트 + admin.html 이 같은 정규식을 읽는다.
+  //   격리는 이 회차에 시도되지 않아 failed_moves 에 안 실리므로, 여기 따로 남겨야 재시도 진입로가 유지된다.
+  if (permanentlyFailed.length) {
+    log.push("permanently_failed(" + permanentlyFailed.length + "): " + permanentlyFailed.map((f) => f.bin).join(", ") +
+      " - " + permanentlyFailed.length + " bin(s) need manual fixing in Cin7 (each failed " + APPLY_QUARANTINE_FAILS +
+      "+ consecutive rounds, excluded from auto-retry). Fix the stock in Cin7, then press 'Retry failed bins'.");
+  }
+  // 연속 실패 카운트 이월 — 다음 회차의 buildApplyPlan 이 이 마커로 정렬(실패 뒤로)·격리(3회+)를 판정한다.
+  if (Object.keys(failCounts).length) log.push("fail_counts:" + JSON.stringify(failCounts));
 
   // ── 청크 판정 + 진행률 (2026-07-31) — PO 경로는 groupsRemaining=0 이라 항상 done:true ──
   const done = groupsRemaining === 0;
@@ -781,6 +882,7 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   if (source === "transfer") {
     log.push((done ? "ALL GROUPS DONE" : "CHUNK") + " - " + movedBins + " group(s) moved this round" +
       (failedMoves.length ? ", " + failedMoves.length + " failed" : "") +
+      (permanentlyFailed.length ? " · " + permanentlyFailed.length + " bin(s) quarantined (need manual fixing)" : "") +
       (linesTotal ? " · " + linesMoved + "/" + linesTotal + " lines exported" : "") +
       (rateLimited ? " · ended early on Cin7 rate limit (429)" : ""));
     if (!done) {
@@ -819,6 +921,10 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
     done, groups_total: groupsAttempted + groupsRemaining, groups_moved: movedBins,
     groups_remaining: groupsRemaining, lines_moved: linesMoved, lines_total: linesTotal,
     rate_limited: rateLimited, stopped_by: stoppedBy, note_saved: noteSaved,
+    // v3 — groups_tried: 이번 회차에 Cin7 POST 를 시도한 그룹 수(성공+실패). admin 무한루프 가드가
+    //   "이동 0 && 시도 0"(429 벽 등)일 때만 멈추도록 이 값을 본다 — 시도가 있었다면 실패 카운트가 전진해
+    //   격리(연속 3회)로 반드시 수렴하므로 반복을 계속해도 된다.
+    groups_tried: groupsAttempted, permanently_failed: permanentlyFailed, fail_counts: failCounts,
   };
 }
 
@@ -883,7 +989,10 @@ Deno.serve(async (req: Request) => {
       const t0 = Date.now();
       const rid = Number(url.searchParams.get("receipt_id") || 0);
       if (!rid) return json({ ok: false, error: "receipt_id required" }, 400);
-      const planWrap = await buildApplyPlan(rid);
+      // retry_failed=1 (admin 'Retry failed bins') — 연속 실패 카운트 리셋 + 격리 해제 (v3, dry-run·commit 공통).
+      // admin 은 이 플래그를 **첫 commit 회차에만** 붙인다 — 자동 반복 회차마다 붙이면 격리에 영영 도달하지 못한다.
+      const resetFails = url.searchParams.get("retry_failed") === "1";
+      const planWrap = await buildApplyPlan(rid, resetFails);
       if (url.searchParams.get("commit") !== "1") {
         return json({ ok: true, dry_run: true, source: planWrap.source, plan: planWrap.plan });
       }
@@ -896,12 +1005,16 @@ Deno.serve(async (req: Request) => {
       //   또는 429 로 이번 회차에 못 옮긴 그룹이 남았다 — admin 이 자동으로 재호출한다.
       //   lines_moved/lines_total 은 receipt 라인 기준 누적 진행률(트랜스퍼만 — PO 는 0).
       // note_saved:false = 종료부의 receipt PATCH(apply_note/applied_at) 실패 — 응답은 그래도 반환한다.
+      // permanently_failed = 연속 3회+ 실패로 이번 회차 시도에서 제외(격리)된 bin 그룹 — "N bin(s) need manual
+      //   fixing in Cin7". done 판정에 안 들어가므로 격리만 남으면 done:true 로 닫힌다(재시도는 retry_failed=1).
+      // groups_tried = 이번 회차 Cin7 POST 시도 수(성공+실패) — admin 무한루프 가드용.
       return json({
         ok: true, dry_run: false, log: res.log, skipped_bins: res.skipped_bins,
         failed_moves: res.failed_moves, moved_bins: res.moved_bins,
         done: res.done, groups_total: res.groups_total, groups_moved: res.groups_moved,
         groups_remaining: res.groups_remaining, lines_moved: res.lines_moved, lines_total: res.lines_total,
         rate_limited: res.rate_limited, stopped_by: res.stopped_by, note_saved: res.note_saved,
+        groups_tried: res.groups_tried, permanently_failed: res.permanently_failed, fail_counts: res.fail_counts,
       });
     }
     return json({ ok: false, error: "unknown action" }, 400);

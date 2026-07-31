@@ -1428,23 +1428,29 @@ async function loadRecv(){
   // ⚠️ `groups_remaining(N)` = 청크 미완 표식(EF 가 회차당 그룹 상한으로 정상 종료한 상태 — 규칙 30-2).
   //    failed_moves(N) 처럼 EF buildApplyPlan 의 재개 게이트와 공유하는 계약 포맷이다 — 한쪽만 바꾸지 말 것.
   const remainGroups=r=>{ const m=/groups_remaining\((\d+)\)/.exec(r.apply_note||""); return m?Number(m[1]):0; };
-  const applicable=rs.filter(r=>r.status==="completed"&&(!r.applied_at||failedBins(r)>0||remainGroups(r)>0));
+  // ⚠️ `permanently_failed(N)` = 연속 3회+ 실패로 자동 재시도에서 격리된 bin(수동 수정 필요 — v3). 세 번째 계약 마커.
+  const permBins=r=>{ const m=/permanently_failed\((\d+)\)/.exec(r.apply_note||""); return m?Number(m[1]):0; };
+  const applicable=rs.filter(r=>r.status==="completed"&&(!r.applied_at||failedBins(r)>0||remainGroups(r)>0||permBins(r)>0));
   const pending=rs.filter(r=>(r.status==="partial"||r.status==="held"||r.status==="in_progress"));
   const ex=document.getElementById("recvExports");
+  // ── 버튼 우선순위 (v3): 남은 그룹 진행이 실패 재시도보다 우선 ──
+  //   미처리 그룹이 있으면(rg>0) `Continue apply` — 실패분도 정렬 뒤쪽에서 함께 진행된다(격리분 제외).
+  //   미처리 0 이고 실패만 남으면 `Retry failed bins` + data-retry=1 → EF 에 retry_failed=1 을 보내
+  //   연속 실패 카운트를 리셋하고 격리된 bin 도 다시 시도한다(사람이 Cin7 재고를 고친 뒤의 명시적 경로).
   ex.innerHTML=(applicable.length
     ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th></th></tr></thead><tbody>${
-        applicable.map(r=>{ const fb=failedBins(r), rg=remainGroups(r); return `<tr>
-          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}${fb?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${fb} bin${fb>1?"s":""} failed — retry</span>`:""}${rg?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left — continue</span>`:""}</td>
+        applicable.map(r=>{ const fb=failedBins(r), rg=remainGroups(r), pf=permBins(r), fix=fb+pf; return `<tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}${rg?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left — continue</span>`:""}${(!rg&&fix)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${fix} bin${fix>1?"s":""} need manual fixing — retry</span>`:(rg&&pf)?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ ${pf} bin${pf>1?"s":""} need manual fixing</span>`:""}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
           <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> ${canApply
-            ? `<button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}">${fb?"Retry failed bins":rg?"Continue apply":"Apply to Cin7"}</button>`
+            ? `<button class="btnsm ok" data-apply="${r.id}" data-po="${esc(r.po_number)}"${(!rg&&fix)?' data-retry="1"':""}>${rg?"Continue apply":fix?"Retry failed bins":"Apply to Cin7"}</button>`
             : `<span style="font-size:11.5px;color:var(--mut-2)" title="Requires 'Apply to Cin7' permission">Apply — no permission</span>`}</td>
         </tr>`;}).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">Nothing to apply — receipts appear here once completed. Cin7 is only written when you click Apply and confirm the plan.</div>`)
     +(pending.length?`<div style="color:var(--mut-2);padding:8px 14px;font-size:12px;border-top:1px solid var(--line)">${pending.length} receipt(s) still receiving/held — finish them to apply.</div>`:"");
-  ex.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>applyToCin7(+b.dataset.apply,b.dataset.po,b));
+  ex.querySelectorAll("[data-apply]").forEach(b=>b.onclick=()=>applyToCin7(+b.dataset.apply,b.dataset.po,b,null,b.dataset.retry==="1"));
   ex.querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>reviewReceipt(+b.dataset.review));
   syncApplyBusyUI();   // 탭 전환 등으로 재렌더돼도 진행 중 상태(비활성 + 배너)를 유지
 
@@ -1452,7 +1458,7 @@ async function loadRecv(){
   hist.innerHTML=rs.length
     ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th>Status</th><th>Cin7</th><th>Received by</th><th>Updated</th><th></th></tr></thead><tbody>${
         rs.slice(0,40).map(r=>{
-          const applied=!!r.applied_at, fb=applied?failedBins(r):0, rg=remainGroups(r);
+          const applied=!!r.applied_at, fb=applied?failedBins(r):0, rg=remainGroups(r), pf=permBins(r), fix=fb+pf;
           return `<tr>
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TR</span>':"PO"}</td>
@@ -1460,8 +1466,8 @@ async function loadRecv(){
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
           <td>${RECV_ST_LABEL[r.status]||r.status}</td>
           <td>${applied
-            ? (fb
-              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ Applied (${fb} bin${fb>1?"s":""} failed)</span>`
+            ? (fix
+              ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ Applied (${fix} bin${fix>1?"s":""} need manual fixing)</span>`
               : rg
               ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ Applied (${rg} group${rg>1?"s":""} left)</span>`
               : `<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`)
@@ -1620,7 +1626,9 @@ let applyBtnRef=null;      // 진행 중인 버튼 노드(재렌더로 갈릴 �
 // ── 청크 자동 반복 (EF done:false → 재호출, 규칙 30-2) ──
 let applyStopReq=false;    // Stop 버튼 — 이번 회차가 끝나면 반복을 멈춘다 (exported_base 체크포인트까지 안전, 재개 가능)
 let applyProgressMsg="";   // 배너/모달 노트의 진행 문구 — EF 응답 숫자를 그대로 표시(캡 규칙을 여기서 재계산하지 않는다)
-const APPLY_MAX_ROUNDS=20; // 무한 루프 가드 상한 — 20회 × 30그룹/회 = 600그룹이면 충분하고도 남는다
+const APPLY_MAX_ROUNDS=30; // 무한 루프 가드 상한 — 30회 × 12그룹/회 = 360그룹. 실패 그룹은 회차당 6초(EF
+                           // APPLY_FAIL_BUDGET_MS)만 허용돼 실패가 많은 receipt 은 회차가 늘어난다 → 20 에서 상향.
+                           // 격리(연속 3회 → permanently_failed) 덕에 반복은 반드시 수렴하므로 이건 폭주 방지선일 뿐.
 const APPLY_WAIT_MSG="Writing to Cin7 — this can take a few minutes for large receipts. Do not close this tab or press Apply again.";
 function applyUnloadGuard(e){ e.preventDefault(); e.returnValue=APPLY_WAIT_MSG; return APPLY_WAIT_MSG; }
 // alert() 는 렌더를 막으므로 상태 변경 뒤 한 프레임 양보해 버튼이 먼저 그려지게 한다.
@@ -1665,7 +1673,9 @@ function setApplyWriting(on){
   else window.removeEventListener("beforeunload",applyUnloadGuard);
   syncApplyBusyUI();
 }
-async function applyToCin7(rid,po,btn,ov){
+// retryFailed = 'Retry failed bins' 버튼 경로 — EF 에 retry_failed=1 을 보내 연속 실패 카운트를 리셋하고
+// 격리(permanently_failed)된 bin 도 다시 시도한다. ⚠️ dry-run 과 **첫 commit 회차에만** 붙인다(아래 주석).
+async function applyToCin7(rid,po,btn,ov,retryFailed){
   if(!((me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply"))){
     toast("You don't have permission to Apply to Cin7",true); return; }
   // ⚠️ 재진입 차단 — 같은 receipt 이든 다른 receipt 이든 진행 중에는 두 번째 Apply 를 받지 않는다.
@@ -1686,8 +1696,9 @@ async function applyToCin7(rid,po,btn,ov){
   lock.forEach(b=>b.disabled=true);
   syncApplyBusyUI();
   try{
-    // 1) dry-run 계획 (아무것도 안 씀)
-    let r=await fetch(EF+"?action=apply&receipt_id="+rid,{headers:await hdrs()});
+    // 1) dry-run 계획 (아무것도 안 씀) — retry 경로면 플래그를 붙여 계획도 리셋 기준으로 세운다
+    const qsRetry=retryFailed?"&retry_failed=1":"";
+    let r=await fetch(EF+"?action=apply&receipt_id="+rid+qsRetry,{headers:await hdrs()});
     let j=await r.json();
     if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
     const p=j.plan;
@@ -1701,8 +1712,11 @@ async function applyToCin7(rid,po,btn,ov){
       ? `\n\nNot moved (Cin7 holds none of it):\n${p.excluded_from_move.map(s=>`· ${s.sku} ${s.not_moved} of ${s.received} — ${s.reason}`).join("\n")}`:"";
     const loTxt=p.leftover_at_landing&&p.leftover_at_landing.length
       ? `\n\nLeftover — stays in ${p.leftover_at_landing[0].where} (remove in Cin7 manually):\n${p.leftover_at_landing.map(s=>`· ${s.sku} ×${s.qty}`).join("\n")}`:"";
-    const modeTxt=p.mode?`\nMode: ${p.retry?"RETRY (re-running only the bin moves that failed last time)":p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
-    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${exTxt}${loTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
+    const modeTxt=p.mode?`\nMode: ${p.retry?(p.retry_reset?"RETRY (fail history cleared — previously failed bins are attempted again)":"RESUME (untried groups first, previously failed bins last)"):p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
+    // 격리된 bin(연속 3회+ 실패)은 이번 실행에서 제외된다 — 계획 confirm 에 명시해 "왜 안 옮겨졌지"를 예방.
+    const qTxt=p.quarantined_bins&&p.quarantined_bins.length
+      ? `\n\nExcluded — need manual fixing in Cin7 (failed ${p.quarantine_fails||3}+ rounds):\n${p.quarantined_bins.map(b=>`· ${b}`).join("\n")}\n(Fix the stock, then use 'Retry failed bins' to include them.)`:"";
+    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${exTxt}${loTxt}${qTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
     // 2) commit — 여기서부터 되돌릴 수 없다. 진행 표시 + 안내 배너 + 탭 닫기 경고.
     //    EF 는 회차당 최대 APPLY_MAX_GROUPS 개 bin 그룹만 처리하고 done:false 를 돌려주므로(규칙 30-2),
     //    done:true 까지 **자동으로 재호출**한다 — 사람이 Apply 를 반복 클릭하지 않게. commit 이 매번 buildApplyPlan 으로
@@ -1714,10 +1728,12 @@ async function applyToCin7(rid,po,btn,ov){
     setApplyBtn(btn,"busy","Applying…");
     setApplyWriting(true);
     await paintFrame();
-    let rounds=0, stopped=false, stuck=false;
+    let rounds=0, stopped=false, stuck=false, stuckWhy="", zeroTried=0;
     for(;;){
       rounds++;
-      r=await fetch(EF+"?action=apply&receipt_id="+rid+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
+      // ⚠️ retry_failed(실패 카운트 리셋)는 **첫 회차만** — 자동 회차마다 붙이면 회차마다 리셋돼 격리(연속 3회)에
+      //    영영 도달하지 못하고, 고쳐지지 않은 bin 이 무한히 재시도된다.
+      r=await fetch(EF+"?action=apply&receipt_id="+rid+(rounds===1?qsRetry:"")+"&commit=1&by="+encodeURIComponent(me.name||""),{headers:await hdrs()});
       j=await r.json();
       if(!j.ok) throw new Error(j.error||("HTTP "+r.status));
       if(j.lines_total){   // 진행률은 EF 응답 필드를 그대로 표시한다 (PO 경로는 이 필드가 없어 한 번에 끝난다)
@@ -1726,45 +1742,55 @@ async function applyToCin7(rid,po,btn,ov){
         syncApplyBusyUI();
       }
       if(j.done!==false) break;   // 전 그룹 완료 (done 필드가 없는 응답 = 구버전/PO 경로 → 한 번으로 끝)
-      // ⚠️ 무한 루프 가드: 한 회차에서 그룹 이동이 0 이면 반복해도 같은 결과다 — 재고 부족으로 남은 그룹이 전부
-      //    실패하거나(TR-02935 에서 실제 발생) Cin7 429 가 계속되는 상태. 멈추고 실패 목록을 사람에게 보인다.
-      if((j.groups_moved||0)===0){ stuck=true; break; }
+      // ⚠️ 무한 루프 가드 (2026-07-31 정교화): groups_moved===0 이어도 시도(groups_tried)가 있었다면 진행이다 —
+      //    실패한 bin 의 연속 실패 카운트가 전진해 연속 3회에 도달하면 EF 가 격리(permanently_failed)하므로
+      //    반복은 반드시 수렴한다(전부 격리되면 done:true). 미처리 그룹이 남아 있는 한 여기서 멈추지 않는다
+      //    (실패 3건이 진행을 영구히 가로막던 TR-03144 의 반대 방향 보증). 멈추는 건 "아무것도 시도조차 못한"
+      //    회차가 2번 이어질 때뿐 — Cin7 429 벽 등, 반복해도 같은 결과인 상태.
+      if((j.groups_moved||0)===0&&(j.groups_tried||0)===0){
+        if(++zeroTried>=2){ stuck=true; stuckWhy="nothing could be attempted in the last 2 rounds"+(j.rate_limited?" (Cin7 rate limit)":""); break; }
+      }else zeroTried=0;
       if(applyStopReq){ stopped=true; break; }
-      if(rounds>=APPLY_MAX_ROUNDS){ stuck=true; break; }
+      if(rounds>=APPLY_MAX_ROUNDS){ stuck=true; stuckWhy="round limit ("+APPLY_MAX_ROUNDS+") reached"; break; }
       await paintFrame();
     }
     const warn=(j.log||[]).some(s=>String(s).indexOf("WARN")===0);
     // ⚠️ 부분 성공: 일부 bin 이동만 Cin7 이 거부한 경우다(대개 "Available quantity … is 0" — 리시빙 완료와 Apply
     //    사이에 그 재고가 이미 움직였다). ok:true 지만 "Applied" 로만 알리면 실패가 묻힌다 → 판정은 failed_moves 길이.
     const fails=j.failed_moves||[];
+    // perm = 연속 3회+ 실패로 자동 재시도에서 격리된 bin — Cin7 에서 사람이 재고를 고쳐야 풀린다 (v3).
+    const perm=j.permanently_failed||[];
+    const permTxt=perm.length?`\n\nNeed manual fixing in Cin7 (excluded from auto-retry after ${perm[0]&&perm[0].fails||3} failed rounds):\n${perm.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}`).join("\n")}`:"";
     // 쓰기가 끝났으므로 탭 닫기 경고·배너를 먼저 내리고, 결과 상태를 alert 앞에서 그린다.
     setApplyWriting(false);
     if(stopped||stuck){
-      // 중단(사용자 Stop / 전진 0 / 회차 상한) — Cin7 에 쓴 만큼은 exported_base 체크포인트가 찍혀 있어 안전하고,
+      // 중단(사용자 Stop / 시도 0 지속 / 회차 상한) — Cin7 에 쓴 만큼은 exported_base 체크포인트가 찍혀 있어 안전하고,
       // receipt 은 applied_at 없이 큐에 남으므로 나중에 Apply(Continue apply)로 이어서 재개할 수 있다.
       setApplyBtn(btn,"partial",stopped?"⏸ Stopped":"⚠ Stopped");
       await paintFrame();
       const failTxt=fails.length?`\n\nFailed bin moves (last round):\n${fails.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}\n   HTTP ${f.http_status||"?"}: ${f.cin7_error||"(no detail)"}`).join("\n")}`:"";
       alert((stopped
           ? `⏸ ${po} apply stopped by request.`
-          : `⚠ ${po} apply halted — ${rounds>=APPLY_MAX_ROUNDS?"round limit ("+APPLY_MAX_ROUNDS+") reached":"no progress in the last round"}`
-            +(j.rate_limited?" (Cin7 rate limit)":fails.length?" (all remaining moves are failing — e.g. stock already moved in Cin7)":"")+".")
+          : `⚠ ${po} apply halted — ${stuckWhy||"no progress"}.`)
         +`\n\nProgress so far: ${j.lines_moved||0} / ${j.lines_total||"?"} lines · ${j.groups_remaining||0} bin group(s) left.`
         +`\nEverything moved so far is checkpointed — nothing is half-moved, and re-applying will not double-move.`
-        +failTxt
-        +`\n\n${fails.length?"Fix the stock in Cin7, then press":"Press"} Apply again later to continue from where it stopped.`);
+        +failTxt+permTxt
+        +`\n\n${fails.length||perm.length?"Fix the stock in Cin7, then press":"Press"} Apply again later to continue from where it stopped.`);
       toast(`${po} apply ${stopped?"stopped":"halted"} — ${j.groups_remaining||0} group(s) left`,true);
-    }else if(fails.length){
+    }else if(fails.length||perm.length){
+      // 부분 성공 — 마지막 회차의 실패(fails) + 격리(perm). done:true 라 applied_at 은 찍혔고,
+      // 실패분은 exported_base 미기록이라 'Retry failed bins' 로 재시도할 수 있다.
       setApplyBtn(btn,"partial","⚠ Partial");
       await paintFrame();
-      const failTxt=fails.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}\n   HTTP ${f.http_status||"?"}: ${f.cin7_error||"(no detail)"}`).join("\n");
-      alert(`⚠ ${po} applied PARTIALLY.\n\n`
-        +`${j.moved_bins||0} bin group(s) moved · ${fails.length} failed.\n\n`
-        +`Failed bin moves:\n${failTxt}\n\n`
+      const failTxt=fails.length?`Failed bin moves:\n${fails.map(f=>`· ${f.bin} — ${(f.skus||[]).join(", ")} ×${f.qty}\n   HTTP ${f.http_status||"?"}: ${f.cin7_error||"(no detail)"}`).join("\n")}\n\n`:"";
+      alert(`⚠ ${po} applied — ${fails.length+perm.length} bin(s) need manual fixing in Cin7.\n\n`
+        +`${j.moved_bins||0} bin group(s) moved this round · ${fails.length} failed${perm.length?` · ${perm.length} quarantined`:""}.\n\n`
+        +failTxt
+        +(permTxt?permTxt.replace(/^\n+/,"")+"\n\n":"")
         +`That stock is still at the landing point in Cin7 — nothing was double-moved.\n`
-        +`Fix the stock in Cin7, then Apply again — only the failed bins will be retried.\n\n`
+        +`Fix the stock in Cin7, then press 'Retry failed bins' — only the failed bins will be retried.\n\n`
         +`Full log:\n${(j.log||[]).join("\n")}`);
-      toast(`${po} partially applied — ${fails.length} bin(s) failed`,true);
+      toast(`${po} applied — ${fails.length+perm.length} bin(s) need manual fixing`,true);
     }else{
       setApplyBtn(btn,"ok","✓ Applied");
       await paintFrame();
@@ -1945,7 +1971,9 @@ async function loadRecvStats(r){
     document.getElementById("recvByTable").innerHTML=msg;
     return;
   }
-  const failedBins=s=>{ const m=/failed_moves\((\d+)\)/.exec(s||""); return m?Number(m[1]):0; };
+  // 부분 적용 판정 — 실패(failed_moves) + 격리(permanently_failed, 연속 3회+ 실패로 자동 재시도 제외) 둘 다 센다.
+  const failedBins=s=>{ const a=/failed_moves\((\d+)\)/.exec(s||""), b=/permanently_failed\((\d+)\)/.exec(s||"");
+    return (a?Number(a[1]):0)+(b?Number(b[1]):0); };
 
   const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0});
   const T={po:mkT(),transfer:mkT()};
