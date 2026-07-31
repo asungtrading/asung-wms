@@ -323,8 +323,11 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
     - **부분 성공에서도 receipt PATCH(`applied_at`)까지 도달한다** — 실패해도 receipt 이 큐에 갇히고 discrepancy 만 남는 상태를 만들지 않는다. 대신 **실패가 하나라도 있으면 눈에 보이게**: admin History 의 CIN7 열이 `✓ Applied` 대신 **`⚠ Applied (N bins failed)`**, Apply 목록엔 그대로 남고 버튼이 `Retry failed bins`. **판정 기준은 `failed_moves.length > 0`** (log 의 WARN 문자열 아님).
     - **재시도**: 실패 그룹은 `exported_base` 를 안 찍으므로 사람이 Cin7 에서 재고를 바로잡고 **다시 Apply 하면 실패분만** 재시도된다. 이를 위해 `buildApplyPlan` 이 **`applied_at` 이 있어도 재개를 허용**한다 — 게이트 두 겹: ①`apply_note` 에 `failed_moves(N)` N>0 (트랜스퍼만) ②실제로 옮길 그룹이 남아 있음. `plan.mode="resume"` · `plan.retry=true` · 원 TR 은 COMPLETED 이므로 PUT 은 계속 SKIP · discrepancy 선기록은 `ignore-duplicates` 로 안전 재실행. ⚠️ **`failed_moves(N)` 포맷은 EF 정규식과 admin.html 이 공유한다 — 한쪽만 바꾸지 말 것.**
     - ⚠️ **재고 부족은 자동 보정하지 않는다** — 조정은 사람이 Cin7 에서(규칙 27 R13). ⚠️ **PO 경로에는 아직 같은 보호가 없다**(bin 별 `POST /purchase/stock` 중 하나가 실패하면 여전히 전체 throw) — 규칙 27 R10.
-- ⚠️⚠️ **Apply 는 청크로 돈다 — 회차당 bin 그룹 상한 `APPLY_MAX_GROUPS = 30` (2026-07-31, 규칙 30-2 해소)**: 실측(TR-03144 327라인/100+그룹 — Apply 8~10회 필요·30~40 그룹 부근 타임아웃으로 `applied_at`·`apply_note` 둘 다 null / TR-02935 144그룹 동일)상 30 이 안전 마진. 핵심 규칙:
-  - **상한 도달 = 예외가 아니라 정상 종료.** 응답 `{done:false, groups_total, groups_moved, groups_remaining, lines_moved, lines_total, failed_moves, rate_limited}` — 상한 카운트는 "Cin7 POST 를 시도한 그룹(성공+실패)". `applied_at` 은 **모든 그룹이 끝난 회차(done:true)에만** 찍고, **`apply_note` 는 매 회차 갱신**(진행 줄 + 계약 표식 **`groups_remaining(N):`** — `failed_moves(N):` 처럼 EF 정규식·admin.html 이 공유, 한쪽만 바꾸지 말 것). 중간 회차 receipt 은 Apply 목록에 남고 버튼이 `Continue apply`.
+- ⚠️⚠️ **Apply 는 청크로 돈다 — 그룹 수(`APPLY_MAX_GROUPS = 12`) + 시간 예산(`APPLY_TIME_BUDGET_MS = 20000`) 이중 가드, 먼저 걸리는 쪽에서 회차를 끊는다 (2026-07-31 v2, 규칙 30-2 해소)**:
+  - **원칙: 회차는 반드시 완주해야 한다 — 완주하지 못하면 기록(apply_note)이 남지 않아 원인 추적이 불가능하고, Stop 도 회차 경계에서만 동작하므로 듣지 않는다.** 회차가 많아지는 것보다 완주하지 못하는 게 훨씬 나쁘다.
+  - **상한 30 은 부족했다(실측)**: 1차 실측(TR-03144 327라인/100+그룹 — 30~40 그룹 부근 타임아웃 / TR-02935 144그룹 동일)으로 30 을 잡았으나, **배포 후에도 첫 회차조차 완주하지 못했다** — `exported_base` 는 210→225→250 으로 전진(bin 이동은 됨)하는데 `apply_note` 는 계속 null(종료부 미도달). 실패 그룹도 Cin7 왕복+sleep 을 소비하므로 성공 수만으로는 회차 시간을 예측할 수 없다 → **12 로 인하 + 시간 가드 추가**. 시간 예산은 **요청 시작(t0)부터** 재고(buildApplyPlan·PUT 포함 — EF 한도가 보는 것도 요청 전체), 판정은 **반드시 Cin7 POST 앞**(그룹 루프 머리)에서 — 반쯤 옮긴 그룹을 만들지 않는다.
+  - **가드 도달 = 예외가 아니라 정상 종료.** 응답 `{done:false, groups_total, groups_moved, groups_remaining, lines_moved, lines_total, failed_moves, rate_limited, stopped_by, note_saved}` — 그룹 카운트는 "Cin7 POST 를 시도한 그룹(성공+실패)". **`stopped_by: "groups"|"time"`** 은 어느 가드가 걸렸는지(429 만이면 null + `rate_limited`) — apply_note 에도 남겨 다음 상한 조정의 근거로 쓴다. `applied_at` 은 **모든 그룹이 끝난 회차(done:true)에만** 찍고, **`apply_note` 는 매 회차 갱신**(진행 줄 + 계약 표식 **`groups_remaining(N):`** — `failed_moves(N):` 처럼 EF 정규식·admin.html 이 공유, 한쪽만 바꾸지 말 것). 중간 회차 receipt 은 Apply 목록에 남고 버튼이 `Continue apply`.
+  - **종료부(회차의 마지막)는 가장 값싸고 절대 죽지 않는다**: apply_note 갱신 + 응답 반환뿐 — Cin7 호출·무거운 재조회 금지. `lines_moved` 는 DB 재조회 없이 "회차 시작 시점 exported 합(plan.progress) + 이번 회차 markExported 수"로 계산. **receipt PATCH 가 실패해도 응답은 반환한다**(WARN + `note_saved:false` — 기록을 못 남기는 것보다 응답조차 못 주는 게 나쁘다; done 회차였다면 다음 Apply 가 DB 재조회로 수렴해 PATCH 만 재시도).
   - **청크 경계에서 이중 이동 없음**: 성공 그룹만 `exported_base` 가 찍히고, 미처리 그룹은 다음 회차 buildApplyPlan 의 DB 재조회(`pending_base>0`)가 다시 집는다 — 재시도 경로와 같은 메커니즘. `exported_base` 체크포인트·min 캡·discrepancy 선기록·COMPLETED 재개·(a)/(b) 착지 분기는 청크 경계와 무관하게 그대로.
   - **admin 자동 반복**: `done:false` 면 스스로 재호출(회차 사이 dry-run 없음), 진행률은 EF 응답 필드 그대로(`Applying… 210 / 327 lines · 58 bin groups left`) + **Stop 버튼**(회차 경계에서 멈춤 — 체크포인트까지 안전, 재개 가능). **무한 루프 가드** = 한 회차 `groups_moved===0`(남은 그룹 전부 실패·429 지속)이면 멈추고 실패 목록 표시 + 회차 상한 20. `beforeunload`·재진입 차단(applyBusy)은 반복 전체 구간 유지.
   - **429 는 failed_moves 에 넣지 않는다** — `cin7()` 백오프 재시도(1.5s→3s, 상한 2회) 소진 시 그 회차만 조기 종료(`rate_limited`), 잔여는 다음 회차. 그룹 간 sleep 300→**150ms**(FREE 티어 대시보드 `Failed to fetch` 완화 겸).
@@ -400,7 +403,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - 사례 **TR-02935**(첫 에드먼튼 트랜스퍼 Apply): discrepancy 기록이 applyCommit **맨 마지막**에 있어서 ①원 TR 은 COMPLETED 됐고 ②bin 이동이 `/ref/location` Limit 잘림으로 첫 건부터 throw → ③receipt PATCH 미실행(`applied_at` null → 큐에 남고 Applied 배지 없음) ④**discrepancy 기록 통째로 유실**(차이를 되찾을 방법이 사라졌다) ⑤plan 검증이 "IN TRANSIT 이어야 함" 이라 재Apply 도 막혀 영구히 갇힘.
   - → discrepancy 는 **Cin7 쓰기 앞**으로 이동(실패 시 throw), 재개 경로는 COMPLETED 허용, 체크포인트는 `exported_base`. **이 세 개가 한 세트다.**
   - ⚠️ 반대 방향(되돌릴 수 없는 쓰기 **뒤**의 Supabase 기록 — receipt PATCH·`exported_base`)은 여전히 **throw 금지**다. 이미 Cin7 이 바뀐 뒤이므로 중단하면 상태만 더 갈라진다(규칙 21).
-- **R14 — Apply 1회가 EF 실행 시간 한도를 넘는다(대형 트랜스퍼). ✅ 2026-07-31 해소**: 회차당 그룹 상한 `APPLY_MAX_GROUPS=30` + `done:false` 정상 종료 + 매 회차 `apply_note` 갱신 + admin 자동 반복 — 규칙 21 청크 절·규칙 30-2. 잔여: EF 호출 자체가 회차 중간에 죽으면 그 회차 note 는 없다(단 피해가 30 그룹 이내로 갇히고 체크포인트로 재개된다).
+- **R14 — Apply 1회가 EF 실행 시간 한도를 넘는다(대형 트랜스퍼). ✅ 2026-07-31 해소(v2)**: 회차당 그룹 수(12)+시간 예산(20초) 이중 가드 + `done:false` 정상 종료 + 매 회차 `apply_note` 갱신 + admin 자동 반복 — 규칙 21 청크 절·규칙 30-2. ⚠️ 첫 구현(그룹 상한 30 만)은 **여전히 회차를 완주하지 못했다**(TR-03144 실측 — apply_note null 지속). 잔여: EF 호출 자체가 회차 중간에 죽으면 그 회차 note 는 없다(단 피해가 12 그룹/20초 이내로 갇히고 체크포인트로 재개된다).
 - **R15 — Apply 대기 중 사람이 Cin7 에서 수동 이동하면 충돌한다.** 규칙 28(픽 중복)과 같은 종류이고 상대가 WMS 자신이다 → **규칙 30**.
 - **R16 — 스키마 기록(“적용됨”)이 실물 DB 와 다를 수 있다.** 부분 유니크 인덱스가 `on_conflict` 를 깨뜨려 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았다** → **규칙 29**.
 - **R13 — Discrepancy 큐가 방치되면 재고가 계속 틀린 상태로 남는다 (⚠️ 미해결 · 새 정책의 구조적 대가).** 조정은 **사람이 Cin7 에서 수동**으로 하고(자동 adjustment·보정 트랜스퍼 모두 의도적으로 채택 안 함), 트랜스퍼는 완료 수량이 **보낸 수량으로 고정**되므로 **큐를 처리하지 않으면 Cin7 재고가 실물과 계속 어긋난다.** 게다가 캡 때문에 남은 잔량은 착지 지점(집결 bin 또는 창고 no-bin)에 그대로 앉아 있다. 현재 안전장치는 admin Discrepancy 탭 배지(미해결 건수)뿐 — **경과일 알림·에이징 리포트는 없다.**
@@ -472,11 +475,12 @@ TR-02935(토론토→에드먼튼, **344 라인 / 144 bin 그룹**)를 실제로
 - **Cin7 이 받은 수량 = 보낸 수량**(실물과 다름): APR15412 **24**(실물 48) · APR16104 **6**(12) · APR48208 **12**(24) · AJA66008 **6**(12) · WOC40103 **12**(실물 6). → 규칙 20 트랜스퍼 예외 B 정책("완료 수량 = 보낸 수량 확정")의 **직접 근거**이고, `min(received, expected)` bin 이동 캡의 근거다.
 - 초과/부족 보정은 **ST-00794 / ST-00795(재고 조정)로 사람이 처리**했다 — 자동 보정은 없다(규칙 27 R13).
 
-### 30-2. ⚠️ EF 실행 시간 한도 → 회차당 처리 그룹 상한 (✅ 2026-07-31 구현 — 규칙 21 청크 절)
+### 30-2. ⚠️ EF 실행 시간 한도 → 그룹 수 + 시간 예산 이중 가드 (✅ 2026-07-31 v2 구현 — 규칙 21 청크 절)
 - 실측: 144 bin 그룹 중 **1회차에 81 라인 이동 후 무응답 종료**. 이후 Apply 를 **3번 더 눌러 +43 라인**만 전진. TR-03144(327 라인/100+ 그룹)에서도 동일 — 사람이 8~10회 눌러야 했다(진행 17→40→79→173→210/327).
-- ⚠️ **실패한 그룹이 매 회차 앞에서 다시 시도되어 시간 예산을 먹는다** → 회차당 전진량이 **81 → 약 14/회**로 급감한다(재시도 경로 자체는 의도된 동작 — 규칙 21 — 이지만 순서가 앞이라 뒤쪽 미처리 그룹에 시간이 안 남는다). 청크 상한(30)이 이 재시도 비용까지 상한 안에 가둔다(상한 카운트가 성공+실패 시도 기준).
+- ⚠️ **실패한 그룹이 매 회차 앞에서 다시 시도되어 시간 예산을 먹는다** → 회차당 전진량이 **81 → 약 14/회**로 급감한다(재시도 경로 자체는 의도된 동작 — 규칙 21 — 이지만 순서가 앞이라 뒤쪽 미처리 그룹에 시간이 안 남는다). 그룹 카운트가 성공+실패 시도 기준인 이유.
 - ⚠️ **타임아웃으로 죽으면 `applied_at`·`apply_note` 가 둘 다 null 로 남아 실패 목록조차 안 남는다.** 남는 것은 성공 그룹의 `exported_base` 뿐 → 진행률을 사람이 역산해야 한다.
-- **구현 (2026-07-31)**: `APPLY_MAX_GROUPS=30` + 응답 `done:false`/`groups_remaining` + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식) + admin 자동 반복·진행률·Stop·무한루프 가드. 상세는 규칙 21 청크 절 + `references/edge-function.md`. ⚠️ PO 경로 미적용(백로그).
+- ⚠️ **1차 구현(그룹 상한 30 만)은 실패했다**: 배포 후에도 TR-03144 의 첫 회차가 완주하지 못했다(`exported_base` 210→225→250 전진, `apply_note` 는 계속 null). 그룹 수만으로는 Cin7 응답이 느린 날의 회차 시간을 못 가둔다.
+- **구현 (2026-07-31 v2)**: `APPLY_MAX_GROUPS=12` + `APPLY_TIME_BUDGET_MS=20000`(요청 시작 t0 기준, **Cin7 POST 앞 판정**, 먼저 걸리는 쪽) + 응답 `done:false`/`groups_remaining`/`stopped_by` + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식) + 종료부 불사(receipt PATCH 실패에도 응답 반환, `note_saved:false`) + admin 자동 반복·진행률·Stop·무한루프 가드. 상세는 규칙 21 청크 절 + `references/edge-function.md`. ⚠️ PO 경로 미적용(백로그).
 
 ### 30-3. ⚠️ Apply 대기 중 Cin7 에서 수동 이동하면 충돌한다 (운영 규칙)
 - TR-02935 실패의 **상당 부분이 `Available quantity … is 0`** — 사람이 이미 옮긴 재고를 WMS 가 집결 bin EZ010101 에서 꺼내려 한 것이다.
@@ -579,7 +583,8 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 **전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 = 첫 실전(TR-02935, 2026-07-28)이 실패해 재설계 배포 + 수동 마무리로 종료. 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36).**
 
 **2026-07-31 세션 (Apply 청크 — 규칙 30-2 해소)**
-- ✅ **EF Apply 청크 처리**: `APPLY_MAX_GROUPS=30`(실측 TR-03144 327라인·30~40 그룹 부근 타임아웃) + 상한 도달 시 정상 종료(`done:false, groups_remaining, lines_moved/lines_total`) + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식 — buildApplyPlan 재개 게이트·admin 공유) + `applied_at` 은 done:true 회차에만. 429 는 백오프 재시도(상한 2회) 후 회차 조기 종료(failed_moves 제외), 그룹 간 sleep 300→150ms — 규칙 21 청크 절
+- ✅ **EF Apply 청크 처리**: 상한 도달 시 정상 종료(`done:false, groups_remaining, lines_moved/lines_total`) + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식 — buildApplyPlan 재개 게이트·admin 공유) + `applied_at` 은 done:true 회차에만. 429 는 백오프 재시도(상한 2회) 후 회차 조기 종료(failed_moves 제외), 그룹 간 sleep 300→150ms — 규칙 21 청크 절
+- ✅ **청크 v2 — 이중 가드로 재조정**: 1차(`APPLY_MAX_GROUPS=30`)는 배포 후에도 **첫 회차조차 완주 실패**(TR-03144 실측 — `exported_base` 210→225→250 전진, `apply_note` 는 null 지속) → **12 로 인하 + `APPLY_TIME_BUDGET_MS=20000`**(요청 시작 t0 기준·Cin7 POST 앞 판정·먼저 걸리는 쪽) + `stopped_by:"groups"|"time"` 기록 + **종료부 불사**(receipt PATCH 실패에도 응답 반환, `note_saved:false`). 원칙: **회차는 반드시 완주해야 한다 — 완주하지 못하면 기록이 안 남아 원인 추적이 불가능하다.**
 - ✅ **admin 자동 반복**: done:false → 자동 재호출(회차 사이 dry-run 없음), 진행률 배너/버튼(EF 응답 필드 그대로), Stop 버튼(회차 경계 중단 — 체크포인트까지 안전·`Continue apply` 로 재개), 무한루프 가드(`groups_moved===0` 중단 + 회차 상한 20), beforeunload·재진입 차단 반복 전체 유지
 - ⬜ **실전 검증 대기 — TR-03144(현재 210/327 미완)로**: ①자동 반복 ②진행률 일치 ③중간 회차 apply_note 기록 ④Stop/재개 ⑤최종 회차 applied_at + 큐 제거
 - ⬜ **PO 경로 미적용**(청크·체크포인트 둘 다) — 백로그 6번
@@ -649,7 +654,7 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 
 ### 리시빙 Apply — 최우선 (2026-07-31 갱신)
 
-1. ~~Apply 회차당 처리 그룹 상한 (규칙 30-2)~~ — ✅ **2026-07-31 구현** (규칙 21 청크 절): `APPLY_MAX_GROUPS=30`(실측 30~40 그룹 타임아웃 → 안전 마진) + `done:false`/`groups_remaining` 응답 + **매 회차 apply_note 갱신** + admin 자동 반복·진행률·Stop·무한루프 가드. ⚠️ **트랜스퍼만** — PO 경로는 아래 6번. ⬜ 실전 검증 대기: TR-03144(210/327 미완 상태)로 자동 반복·진행률·중간 회차 note·Stop/재개·최종 applied_at 확인.
+1. ~~Apply 회차당 처리 그룹 상한 (규칙 30-2)~~ — ✅ **2026-07-31 v2 구현** (규칙 21 청크 절): 1차(상한 30 만)는 실측 실패(첫 회차 미완주·apply_note null) → **그룹 12 + 시간 예산 20초 이중 가드**(t0 기준·POST 앞 판정) + `done:false`/`groups_remaining`/`stopped_by` 응답 + **매 회차 apply_note 갱신** + 종료부 불사(`note_saved`) + admin 자동 반복·진행률·Stop·무한루프 가드. ⚠️ **트랜스퍼만** — PO 경로는 아래 6번. ⬜ 실전 검증 대기: TR-03144(250/327 미완 상태)로 ①중간 회차 apply_note 의 CHUNK 기록(핵심) ②자동 반복 ③Stop 즉시 반응 ④진행률 일치 ⑤최종 applied_at 확인.
 2. **트랜스퍼 (a) 케이스 첫 실전 Apply** — 첫 실전은 **TR-02935**((b) 집결 bin)였고 실패했다(규칙 20 트랜스퍼 예외 + 규칙 27 R12, 사후분석 규칙 30). ⚠️ **지금까지 실측한 트랜스퍼는 전부 (b)** 이고 **(a)(창고 GUID, bin 없이 착지)의 완료 후 bin 이동은 실전 경험이 없다** → **TR-03259 로 먼저 dry-run**.
 3. **Apply 대기 중 수동 이동 경고 (규칙 30-3)** — admin Receiving 의 Apply 대기 항목에 경고 문구 + 운영 규칙 명문화.
 4. **`apply_note` 정규식 파싱을 컬럼으로** — 지금 EF 와 admin.html **양쪽이 같은 포맷을 파싱**한다(드리프트 위험). 계약 표식이 **2개로 늘었다**(2026-07-31): `failed_moves(N):` + `groups_remaining(N):`(청크 미완). `wms_receipts.failed_move_count`/`groups_remaining`(또는 jsonb) 컬럼으로 승격.

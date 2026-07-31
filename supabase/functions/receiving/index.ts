@@ -100,12 +100,21 @@ function inList(vals: string[]): string {
 
 const WH_NAME: Record<string, string> = { toronto: "Asung Trading Inc.", edmonton: "Asung - Edmonton" };
 
-// ── Apply 청크 상한 — 한 commit 호출이 처리하는 bin 그룹(성공+실패한 Cin7 POST 시도) 상한 (2026-07-31, 규칙 30-2 해소) ──
-// 실측: TR-03144(327라인/100+그룹)·TR-02935(144그룹) 모두 30~40 그룹 부근에서 EF 실행시간 한도로 죽어
-// `applied_at`·`apply_note` 가 **둘 다 null** 로 남았다(실패 목록조차 없음) → 30 이 안전 마진.
-// 상한 도달은 예외가 아니라 **정상 종료**다: 응답 done:false + groups_remaining, apply_note 는 매 회차 갱신,
-// applied_at 은 모든 그룹이 끝난 회차에만 찍는다. admin.html 이 done:false 를 받으면 자동으로 재호출한다.
-const APPLY_MAX_GROUPS = 30;
+// ── Apply 청크 이중 가드 — 그룹 수 + 시간 예산, 먼저 걸리는 쪽에서 회차를 끊는다 (2026-07-31 v2) ──
+// 실측 1차: TR-03144(327라인/100+그룹)·TR-02935(144그룹) 모두 30~40 그룹 부근에서 EF 실행시간 한도로 죽어
+// `applied_at`·`apply_note` 가 **둘 다 null** 로 남았다(실패 목록조차 없음) → 상한 30 도입.
+// 실측 2차(상한 30 배포 후, TR-03144): **여전히 첫 회차조차 완주하지 못했다** — exported_base 는
+// 210→225→250 으로 전진하는데 apply_note 는 계속 null(회차 종료부 미도달). 실패 그룹도 Cin7 왕복+sleep 을
+// 소비하므로 성공만으로는 회차 시간을 예측할 수 없고, 그룹 수만으로는 Cin7 응답이 느린 날 또 죽는다
+// → **12 로 낮추고 시간 예산 가드를 추가**. 회차가 많아지는 것보다 완주하지 못하는 게 훨씬 나쁘다(기록이 안 남고,
+// Stop 도 회차 경계에서만 동작하므로 듣지 않는다).
+// 상한 도달은 예외가 아니라 **정상 종료**다: 응답 done:false + groups_remaining + stopped_by("groups"|"time"),
+// apply_note 는 매 회차 갱신, applied_at 은 모든 그룹이 끝난 회차에만 찍는다. admin.html 이 자동으로 재호출한다.
+const APPLY_MAX_GROUPS = 12;
+// 시간 예산 — **요청 시작 시각(t0)** 부터 잰다(buildApplyPlan 의 DB·Cin7 조회, resume 아닌 회차의 PUT 포함 —
+// EF 한도가 보는 것도 요청 전체이므로). 넘으면 **다음 그룹을 시작하지 않고** 정상 종료한다.
+// ⚠️ 판정은 반드시 Cin7 POST **앞**(그룹 루프 머리)에서 — 반쯤 옮긴 그룹이 생기면 안 된다.
+const APPLY_TIME_BUDGET_MS = 20000;
 
 // ── bin 이름 → GUID (실측 검증: Cin7 쓰기 API 는 이름 거부, GUID 만 받음) ─────────
 // ⚠️⚠️ 실사고 2026-07-28 (TR-02935, 첫 에드먼튼 Apply): `/ref/location` 은 **Total 2678 인데 Limit 500 에서 잘린다.**
@@ -486,7 +495,8 @@ async function buildApplyPlan(receiptId: number) {
           (landingBin && moves.length < Object.keys(groups).length ? " · already-in-place groups skipped" : "") +
           (alreadyExported ? " · " + alreadyExported + " line(s) already exported, skipped" : "") +
           (moves.length > APPLY_MAX_GROUPS
-            ? " · processed " + APPLY_MAX_GROUPS + " group(s) per round — the admin screen repeats Apply automatically and shows progress (Stop is safe between rounds)"
+            ? " · processed up to " + APPLY_MAX_GROUPS + " group(s) or ~" + (APPLY_TIME_BUDGET_MS / 1000) +
+              "s per round, whichever comes first — the admin screen repeats Apply automatically and shows progress (Stop is safe between rounds)"
             : ""),
         "3) " + leftoverAtLanding.length + " leftover line(s) stay in " + landingLabel +
           " — remove them in Cin7 with a manual stock adjustment (see the discrepancy queue)",
@@ -499,7 +509,7 @@ async function buildApplyPlan(receiptId: number) {
       leftover_at_landing: leftoverAtLanding, excluded_from_move: excludedFromMove,
       skipped, discrepancies,
       // 청크 진행률 소스 — admin 은 캡 규칙을 JS 로 재계산하지 않고 이 값(+commit 응답 필드)을 그대로 표시한다.
-      chunk_size: APPLY_MAX_GROUPS,
+      chunk_size: APPLY_MAX_GROUPS, time_budget_ms: APPLY_TIME_BUDGET_MS,
       progress: {
         lines_total: lines.length,
         lines_exported: lines.filter((l: any) => Number(l.exported_base || 0) > 0).length,
@@ -509,7 +519,8 @@ async function buildApplyPlan(receiptId: number) {
 }
 
 // ── Apply to Cin7 — 실행 (commit) ───────────────────────────
-async function applyCommit(planWrap: any, appliedBy: string) {
+// t0 = 요청 시작 시각(Deno.serve 핸들러 진입 직후) — APPLY_TIME_BUDGET_MS 의 기준점.
+async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   const rcpt = planWrap.receipt, source = planWrap.source, plan = planWrap.plan;
   const whName = WH_NAME[rcpt.warehouse] || WH_NAME.toronto;
   const log: string[] = [];
@@ -520,9 +531,11 @@ async function applyCommit(planWrap: any, appliedBy: string) {
   let movedBins = 0;        // 실제로 성공한 bin 그룹 수 (admin 알림의 "N moved / M failed")
   // ── 청크 카운터 (APPLY_MAX_GROUPS — 규칙 30-2 해소) ──
   let groupsAttempted = 0;  // 이번 회차에 Cin7 POST 를 시도한 그룹 수(성공+실패) — 상한 판정 기준
-  let groupsRemaining = 0;  // 상한/429 로 이번 회차에 손대지 않은 그룹 수 — done:false 판정 기준
+  let groupsRemaining = 0;  // 상한/시간 예산/429 로 이번 회차에 손대지 않은 그룹 수 — done:false 판정 기준
   let linesMovedNew = 0;    // 이번 회차에 exported_base 가 0 → 양수 로 바뀐 receipt 라인 수 (진행률용)
   let rateLimited = false;  // 429 백오프 재시도(상한 2회)까지 소진 — 회차 조기 종료, 잔여는 다음 회차
+  // 이번 회차를 끊은 가드 — apply_note·응답에 남긴다(다음에 상한을 조정할 때 어느 쪽이 걸렸는지가 근거).
+  let stoppedBy: "groups" | "time" | null = null;
 
   // ⚠️ apply_note 는 이번 실행 로그로 **덮어써진다** → 재시도 실행임을 note 스스로 밝히게 한다
   //    (직전 부분 성공에서 이미 옮긴 그룹은 pending_base=0 이라 plan.groups 에 아예 없어 로그에 안 남는다).
@@ -662,10 +675,15 @@ async function applyCommit(planWrap: any, appliedBy: string) {
       }
       const moveLines = g.lines.filter((p: any) => Number(p.pending_base) > 0);
       if (!moveLines.length) { log.push("bin " + g.bin + ": already exported - skip"); continue; }
-      // ── 청크 상한 / 429 조기 종료 (2026-07-31) — 예외가 아니라 정상 종료다 ──
-      // 상한 이후의 그룹은 **아무것도 하지 않고** 남은 개수만 센다. exported_base 가 안 찍혀 있으므로
+      // ── 청크 이중 가드: 그룹 수 상한 / 시간 예산 / 429 — 먼저 걸리는 쪽에서 끊는다 (예외가 아니라 정상 종료) ──
+      // ⚠️ 판정은 Cin7 POST **앞**(그룹 시작 전)에서만 — 반쯤 옮긴 그룹을 만들지 않는다.
+      // 가드에 걸린 뒤의 그룹은 **아무것도 하지 않고** 남은 개수만 센다. exported_base 가 안 찍혀 있으므로
       // 다음 회차의 buildApplyPlan 이 DB 재조회로 자동으로 다시 집는다(재시도 경로와 같은 메커니즘 → 이중 이동 없음).
-      if (groupsAttempted >= APPLY_MAX_GROUPS || rateLimited) { groupsRemaining++; continue; }
+      if (groupsAttempted >= APPLY_MAX_GROUPS || rateLimited || Date.now() - t0 > APPLY_TIME_BUDGET_MS) {
+        // 429 는 rate_limited 필드가 따로 밝히므로 stopped_by 는 그룹 수/시간 두 가드만 기록한다(먼저 걸린 쪽 1회).
+        if (!stoppedBy && !rateLimited) stoppedBy = groupsAttempted >= APPLY_MAX_GROUPS ? "groups" : "time";
+        groupsRemaining++; continue;
+      }
       const rg = await tryBinGuid(whName, g.bin);
       if (!rg.guid) {
         g.lines.forEach((p: any) => skippedBins.push({ sku: p.base_sku || p.order_sku, bin: g.bin, reason: rg.reason }));
@@ -768,23 +786,39 @@ async function applyCommit(planWrap: any, appliedBy: string) {
     if (!done) {
       // ⚠️ `groups_remaining(N):` 은 `failed_moves(N):` 처럼 **계약 포맷**이다 — buildApplyPlan 의 재개 게이트와
       //    admin.html(Continue apply 버튼·History 표시)이 같은 정규식을 읽는다. 한쪽만 바꾸지 말 것.
-      log.push("groups_remaining(" + groupsRemaining + "): chunk cap " + APPLY_MAX_GROUPS +
-        " group(s)/round - press Apply again (the admin screen auto-continues) to move the rest");
+      // stopped_by 를 note 에도 남긴다 — 다음에 상한(그룹 수·시간)을 조정할 때 어느 가드가 걸렸는지가 근거다.
+      log.push("groups_remaining(" + groupsRemaining + "): stopped_by=" +
+        (stoppedBy || (rateLimited ? "rate_limit" : "?")) +
+        " (caps: " + APPLY_MAX_GROUPS + " group(s) / " + (APPLY_TIME_BUDGET_MS / 1000) + "s per round)" +
+        " - press Apply again (the admin screen auto-continues) to move the rest");
     }
   }
 
+  // ── 회차 종료부 — **가장 값싼 마지막 동작**이어야 하고 절대 죽지 않는다 (2026-07-31) ──
+  // ⚠️ 여기서 Cin7 호출·무거운 재조회 금지. lines_moved 도 DB 재조회 없이
+  //    "회차 시작 시점 exported 합(plan.progress) + 이번 회차 markExported 수" 로 이미 계산돼 있다.
   // ⚠️ 실패가 있어도 여기까지 온다 — receipt 이 큐에 갇히고 discrepancy 만 남는 상태(TR-02935)를 만들지 않는다.
   // ⚠️ apply_note 는 **매 회차** 갱신한다(타임아웃으로 죽어 아무 기록도 없던 R14 의 반대 방향 보증).
   //    `applied_at` 은 **모든 그룹이 끝난 회차에만** 찍는다 — 남은 그룹이 있는 receipt 은 Apply 목록에 남아야 한다.
   const patch: any = { status: "completed", apply_note: log.join(" | ") };
   if (done) { patch.applied_at = new Date().toISOString(); patch.applied_by = appliedBy || null; }
-  await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, patch);
+  let noteSaved = true;
+  try {
+    await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, patch);
+  } catch (e) {
+    // ⚠️ note 갱신 실패에도 응답은 반환한다(WARN 만) — 기록을 못 남기는 것보다 응답조차 못 주는 게 나쁘다.
+    //    done:true 였다면 applied_at 도 안 찍힌 상태 — 다음 Apply 가 DB 재조회(pending_base=0)로 같은 상태에
+    //    수렴하고 PATCH 만 다시 시도하므로 이중 이동은 없다.
+    noteSaved = false;
+    log.push("WARN receipt patch (apply_note" + (done ? "/applied_at" : "") + ") FAILED - returning the response anyway: " +
+      String((e as Error).message).slice(0, 200));
+  }
 
   return {
     log, skipped_bins: skippedBins, failed_moves: failedMoves, moved_bins: movedBins,
     done, groups_total: groupsAttempted + groupsRemaining, groups_moved: movedBins,
     groups_remaining: groupsRemaining, lines_moved: linesMoved, lines_total: linesTotal,
-    rate_limited: rateLimited,
+    rate_limited: rateLimited, stopped_by: stoppedBy, note_saved: noteSaved,
   };
 }
 
@@ -845,6 +879,8 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, po: await transferDetail(id) });
     }
     if (action === "apply") {
+      // 시간 예산(APPLY_TIME_BUDGET_MS)의 기준점 — buildApplyPlan(DB·Cin7 조회)부터 회차 시간에 포함시킨다.
+      const t0 = Date.now();
       const rid = Number(url.searchParams.get("receipt_id") || 0);
       if (!rid) return json({ ok: false, error: "receipt_id required" }, 400);
       const planWrap = await buildApplyPlan(rid);
@@ -852,18 +888,20 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true, dry_run: true, source: planWrap.source, plan: planWrap.plan });
       }
       const appliedBy = url.searchParams.get("by") || "";
-      const res = await applyCommit(planWrap, appliedBy);
+      const res = await applyCommit(planWrap, appliedBy, t0);
       // skipped_bins = bin GUID 를 못 찾아 Cin7 에 못 쓴 라인. 사유는 log 의 WARN 줄에도 있다(admin 이 alert 로 띄움).
       // failed_moves = Cin7 이 거부한 bin 이동 그룹(대개 "Available quantity … is 0"). ok:true 지만 **부분 성공**이다 —
       //   admin 이 `failed_moves.length > 0` 으로 판정해 다르게 표시하고, 재Apply 하면 실패분만 재시도된다.
-      // done:false = 청크 상한(APPLY_MAX_GROUPS)/429 로 이번 회차에 못 옮긴 그룹이 남았다 — admin 이 자동으로 재호출한다.
+      // done:false = 청크 이중 가드(그룹 수 APPLY_MAX_GROUPS / 시간 APPLY_TIME_BUDGET_MS — stopped_by 가 어느 쪽인지)
+      //   또는 429 로 이번 회차에 못 옮긴 그룹이 남았다 — admin 이 자동으로 재호출한다.
       //   lines_moved/lines_total 은 receipt 라인 기준 누적 진행률(트랜스퍼만 — PO 는 0).
+      // note_saved:false = 종료부의 receipt PATCH(apply_note/applied_at) 실패 — 응답은 그래도 반환한다.
       return json({
         ok: true, dry_run: false, log: res.log, skipped_bins: res.skipped_bins,
         failed_moves: res.failed_moves, moved_bins: res.moved_bins,
         done: res.done, groups_total: res.groups_total, groups_moved: res.groups_moved,
         groups_remaining: res.groups_remaining, lines_moved: res.lines_moved, lines_total: res.lines_total,
-        rate_limited: res.rate_limited,
+        rate_limited: res.rate_limited, stopped_by: res.stopped_by, note_saved: res.note_saved,
       });
     }
     return json({ ok: false, error: "unknown action" }, 400);
