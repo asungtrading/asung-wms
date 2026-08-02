@@ -226,6 +226,7 @@
         <button data-v="single" class="active">Single</button>
         <button data-v="list">List</button>
       </div>
+      <button class="btn ghost" id="printBtn" title="Reprint this pick list">🖨 Print</button>
     </div>
     <div class="prog"><i id="progBar"></i></div>
 
@@ -265,6 +266,7 @@
 <script src="wms-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
+<script src="wms-picklist.js"></script>
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
@@ -743,6 +745,72 @@ async function enterPickView(){
       renderPick();
     }catch(e){ toast("Barcode lookup failed",true); }
   }
+}
+
+/* ---------- reprint the pick list (paper lost / smudged — rule 22: the paper is the ownership token) ----------
+   Format comes from wms-picklist.js, the same module manager.html prints from — do not fork it here.
+   ⚠️ window.open must happen inside the click handler; an open() after an await is popup-blocked. */
+document.getElementById("printBtn").onclick=async ()=>{
+  if(!lines.length){ toast("Nothing to print",true); return; }
+  const win=window.open("","_blank");
+  if(!win){ toast("Popup blocked - allow popups for this site",true); return; }
+  const btn=document.getElementById("printBtn"); btn.disabled=true;
+  try{ await reprintPickList(win); }
+  catch(e){ try{win.close();}catch(_){} toast("Print failed: "+(e.message||e),true); }
+  finally{ btn.disabled=false; focusScan(); }
+};
+async function reprintPickList(win){
+  const today=new Date().toLocaleDateString();
+  if(wave){
+    // Wave mode: one sheet — the wave barcode (the scan key back in) + the tote assignment table.
+    // Reprinting every member order's page is out of scope; the summary carries the tote numbers.
+    const perTote=tasks.map(t=>{
+      const ls=lines.filter(l=>l._taskId===t.id);
+      const o=t.wms_orders||{};
+      return {tote:t.tote_no||0, orderNumber:o.order_number||t.batch_label||"", customerName:o.customer_name,
+              orderDate:o.order_date, lines:ls.length, units:ls.reduce((s,l)=>s+Number(l.assigned||0),0), _oid:t.order_id};
+    });
+    // order dates aren't in the wave's task join — fetch them so the summary can show Order Date
+    try{
+      const oids=[...new Set(perTote.map(t=>t._oid).filter(Boolean))];
+      if(oids.length){
+        const {data:ods}=await sb.from("wms_orders").select("id,order_date").in("id",oids);
+        const dm={}; (ods||[]).forEach(o=>{ dm[o.id]=o.order_date; });
+        perTote.forEach(t=>{ t.orderDate=dm[t._oid]||null; });
+      }
+    }catch(e){ /* order date is optional on the print — never block the reprint */ }
+    wmsPickList.render(win, `WAVE ${wave.label}`, wmsPickList.waveSummaryPage({
+      label:wave.label, warehouse:wave.warehouse, printed:today, printedBy:wave.created_by,
+      totes:perTote.sort((a,b)=>(a.tote||0)-(b.tote||0)),
+    }));
+    return;
+  }
+  // Single batch: the order row on screen only carries a few columns — re-read it for the print fields,
+  // and count the order's batches so the "Batch i of N" footer matches the original print.
+  const [ordRes, sibRes]=await Promise.all([
+    sb.from("wms_orders").select("*").eq("id",task.order_id).single(),
+    sb.from("wms_pick_tasks").select("id,batch_label").eq("order_id",task.order_id).is("wave_id",null),
+  ]);
+  const ord=ordRes.data||order||{};
+  const sibs=sibRes.data||[];
+  const m=/-(\d+)$/.exec(task.batch_label||"");
+  const idx=m?Number(m[1]):0;
+  const footer=(idx&&sibs.length)?`Batch ${idx} of ${sibs.length}`:(idx?`Batch ${idx}`:"");
+  wmsPickList.render(win, `PICK LIST ${ord.order_number||task.batch_label}`, wmsPickList.batchPage({
+    batchLabel:task.batch_label,                     // = barcode, so this reprint scans back in
+    orderNumber:ord.order_number,
+    reference:ord.reference,
+    orderDate:ord.order_date,
+    warehouse:ord.warehouse||order.warehouse,
+    priceTier:ord.price_tier,
+    printed:today, printedBy:(me?me.name:null),
+    customerName:ord.customer_name||order.customer_name,
+    totalLines:lines.length,
+    totalUnits:lines.reduce((s,l)=>s+Number(l.assigned||0),0),
+    zones:[...new Set(lines.map(l=>(l.zone||"·")))].sort().join(", "),
+    comments:ord.comments,
+    footer,
+  }));
 }
 
 /* ---------- waves: grouped small orders, one route, sort-to-tote ---------- */

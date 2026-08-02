@@ -220,6 +220,7 @@ Deno.serve(async (req) => {
           warehouse,
           location: d.Location ?? null,
           ship_by: (d.ShipBy || c.ShipBy || "").slice(0, 10) || null,
+          order_date: (d.OrderDate || c.OrderDate || "").slice(0, 10) || null,
           order_progress: progress,
           cin7_status: d.Status ?? null,
           comments: comments,

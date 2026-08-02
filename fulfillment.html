@@ -160,7 +160,8 @@
   @media print{
     body *{visibility:hidden}
     #printArea, #printArea *{visibility:visible}
-    #printArea{display:block;position:absolute;left:0;top:0;width:100%;padding:24px}
+    #printArea{display:block;position:absolute;left:0;top:0;width:100%;padding:24px;
+               -webkit-print-color-adjust:exact;print-color-adjust:exact}
     @page{margin:16mm}
   }
   .pl-h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px}
@@ -180,6 +181,19 @@
   .pl-store-h{font-family:var(--mono);font-weight:800;font-size:17px;margin:0 0 4px;padding-bottom:6px;border-bottom:1.5px solid #111}
   .pagebreak{page-break-before:always}
   .pl-warn{color:#b40000;font-weight:700;font-size:12.5px;margin-top:6px}
+
+  /* ---- store list: which unit holds this store's goods, and what else rides along (2026-08-02) ----
+     Colour alone can't carry this on a mono printer — every state also has a border weight + a word. */
+  .pl-map{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+  .pl-map .pm{font-family:var(--mono);font-size:11.5px;font-weight:800;border-radius:6px;padding:4px 9px;border:1.5px solid #bbb;background:#fff;color:#888}
+  .pl-map .pm.yes{border:2.5px solid #12602c;background:#e9f7ee;color:#0d4a21}
+  .pl-grp{border-left:6px solid #12602c;background:#f6fbf7;padding:9px 13px 11px;margin:16px 0 4px;border-radius:0 8px 8px 0;page-break-inside:avoid}
+  .pl-grp-hd{font-family:var(--mono);font-weight:800;font-size:16px;margin-bottom:2px}
+  .pl-grp-hd .mine{color:#0d4a21}
+  .pl-sec{font-family:var(--mono);font-weight:800;font-size:13.5px;margin:11px 0 5px}
+  .pl-mix{color:#b40000;font-weight:800;font-size:12px;font-family:var(--sans)}
+  .pl-also{font-size:12px;color:#7a3b00;background:#fdf4e6;border:1px solid #e6c98a;border-radius:6px;padding:6px 10px;margin:8px 0 2px}
+  .pl-also b{font-family:var(--mono)}
 
   /* ---- scan-based assignment ---- */
   :root{--scan:#7c3aed;--scan-bg:#f3eefe;--warn:#b45309;--warn-bg:#fdf4e6}
@@ -320,6 +334,9 @@
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
 let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
+// orders that ride along in the same pallet/box but are NOT in the current selection.
+// The per-store packing list has to name them ("also contains SO-…"), so cache their labels.
+let extOrders={};
 let bcBySku={};   // sku -> its own barcode (for packing lists)
 let availOrders=[];            // selectable order list
 let drag=null; // {kind, ...}
@@ -500,7 +517,7 @@ document.getElementById("completeBtn").onclick=async ()=>{
     await doUpd(directIds,"direct");
     toast(orders.length+" order(s) finalized");
     // reset workspace
-    orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[];
+    orderIds=[]; orders=[]; orderById={}; poolLines=[]; units=[]; items=[]; extOrders={};
     presenceLeave();   // 워크스페이스 비움 — LIVE NOW 에서 제거
     scanTarget=null; scanLog=[]; bcMap={}; assignState.clear(); writeChain.clear();
     renderScanBar(); renderRecent();
@@ -600,6 +617,15 @@ async function refresh(){
   const uIds=units.map(x=>x.id);
   items=[];
   if(uIds.length){ const {data:it}=await sb.from("wms_pallet_items").select("*").in("pallet_id",uIds); items=it||[]; }
+  // a unit may carry goods of an order outside the current selection — resolve its label once,
+  // otherwise the per-store list can only say "also contains order #57" (rule 11: keep it readable)
+  const unknown=[...new Set(items.map(i=>i.order_id).filter(id=>id&&!orderById[id]&&!extOrders[id]))];
+  if(unknown.length){
+    try{
+      const {data:eo}=await sb.from("wms_orders").select("id,order_number,customer_name").in("id",unknown);
+      (eo||[]).forEach(o=>{ extOrders[o.id]=o; });
+    }catch(e){ /* labels are cosmetic — never block the workspace */ }
+  }
   assignState.clear();                       // DB re-read is the new confirmed baseline
   if(scanTarget && !units.find(u=>u.id===scanTarget)) scanTarget=null;
   renderPool(); renderUnits(); renderScanBar();
@@ -1279,7 +1305,13 @@ function renderRecent(){
 /* ==================== end scan-based assignment ==================== */
 
 /* ---------- print packing list ---------- */
-function orderNumOf(oid){ return orderById[oid]?.order_number || "?"; }
+function orderNumOf(oid){ return (orderById[oid]||extOrders[oid])?.order_number || ("order #"+oid); }
+/* "SO-13850 (Store B)" — the receiving side needs the store name, not just the order number */
+function orderTag(oid){
+  const o=orderById[oid]||extOrders[oid];
+  if(!o) return "order #"+oid;
+  return o.order_number + (o.customer_name?` (${o.customer_name})`:"");
+}
 function tableFor(unitId){
   const its=itemsIn(unitId);
   if(!its.length) return {html:"", tot:0};
@@ -1336,26 +1368,99 @@ function renderStoreBar(){
   const all=document.getElementById("allStoresBtn"); if(all) all.onclick=()=>printStores(orders.map(o=>o.id));
 }
 
-// build one order's consolidated body: which unit (pallet/box) holds how much of this order
+/* ---- helpers for the per-store list ----
+   "direct" = items sitting straight in that unit. "under" = a pallet plus its child boxes.
+   A pallet's own item rows never include what's inside its boxes, so pallet-level totals
+   must walk the boxes — otherwise a pallet whose goods are all boxed looks empty. */
+function ordersDirectlyIn(uid){ return [...new Set(itemsIn(uid).map(i=>i.order_id))]; }
+function ordersUnder(u){
+  const ids=itemsIn(u.id).map(i=>i.order_id);
+  if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>itemsIn(b.id).forEach(i=>ids.push(i.order_id)));
+  return [...new Set(ids)];
+}
+function qtyIn(uid,oid){ return itemsIn(uid).filter(i=>i.order_id===oid).reduce((s,i)=>s+Number(i.qty_base||0),0); }
+function qtyUnder(u,oid){
+  let q=qtyIn(u.id,oid);
+  if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>{ q+=qtyIn(b.id,oid); });
+  return q;
+}
+function plTable(list){
+  const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
+  return `<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+/* the whole point of C: whoever opens this unit must know what else is inside it */
+function alsoOthers(u,oid,deep){
+  return (deep?ordersUnder(u):ordersDirectlyIn(u.id)).filter(x=>x!==oid)
+    .map(x=>({oid:x, tag:orderTag(x), qty:deep?qtyUnder(u,x):qtyIn(u.id,x)}))
+    .sort((a,b)=>b.qty-a.qty);
+}
+function alsoLine(u,oid,deep){
+  const others=alsoOthers(u,oid,deep); if(!others.length) return "";
+  const icon=u.unit_type==="box"?"📦":"🟩";
+  const parts=others.map(x=>`<b>${esc(x.tag)}</b> — ${x.qty} units`).join(" · ");
+  return `<div class="pl-also">⚠ ${icon} ${esc(u.label)} also contains ${others.length} other order${others.length>1?"s":""}: ${parts}</div>`;
+}
+
+// build one order's consolidated body: which unit (pallet/box) holds how much of this order,
+// what else rides in that same unit, and which units hold nothing of this store's
 function buildStoreBody(oid){
   const o=orderById[oid];
-  const its=items.filter(i=>i.order_id===oid);
-  const byUnit={}; its.forEach(i=>{ (byUnit[i.pallet_id]=byUnit[i.pallet_id]||[]).push(i); });
-  let body=""; let grand=0;
-  units.forEach(u=>{
-    const list=byUnit[u.id]; if(!list||!list.length) return;
-    const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); grand+=sub;
-    const parent=u.parent_id?units.find(p=>p.id===u.parent_id):null;
-    // a mixed box must be re-sorted at the destination — flag it loudly (pallets mix by design)
-    const boxOrds=u.unit_type==="box"?[...new Set(itemsIn(u.id).map(i=>i.order_id))]:[];
-    const mixTag=boxOrds.length>1?` <span style="color:#b40000;font-weight:800">⚠ MIXED BOX — holds ${boxOrds.length} orders, re-sort at destination</span>`:"";
-    const where=u.unit_type==="box"
-      ? `📦 ${esc(u.label)}${parent?` <span style="font-weight:400;color:#666">(in 🟩 ${esc(parent.label)})</span>`:""}${mixTag}`
-      : `🟩 ${esc(u.label)}`;
-    const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-    body+=`<div class="pl-unit">${where} <span style="font-size:12px;color:#555">(subtotal ${sub})</span></div>
-      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
+  let body=""; let grand=0; let packedUnits=0;
+  const tops=units.filter(u=>!u.parent_id);   // pallets + standalone boxes; child boxes render under their pallet
+
+  // at-a-glance map: every unit in this shipment — pallets, their boxes — marked mine / not mine.
+  // Child boxes are listed too: "BOX-4 on PALLET-1 — none" tells the receiver not to open it.
+  const mapUnits=[];
+  tops.forEach(u=>{
+    mapUnits.push({u, parent:null});
+    if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>mapUnits.push({u:b, parent:u}));
   });
+  const map=mapUnits.length?`<div class="pl-map">`+mapUnits.map(({u,parent})=>{
+    const q=parent?qtyIn(u.id,oid):qtyUnder(u,oid);
+    const icon=u.unit_type==="box"?"📦":"🟩";
+    const on=parent?` on ${esc(parent.label)}`:"";
+    return `<span class="pm${q>0?" yes":""}">${icon} ${esc(u.label)}${on} ${q>0?"✔ "+q+" units":"— none"}</span>`;
+  }).join("")+`</div>`:"";
+
+  tops.forEach(u=>{
+    const mine=qtyUnder(u,oid); if(!mine) return;
+    grand+=mine; packedUnits++;
+    const icon=u.unit_type==="box"?"📦":"🟩";
+    let inner="";
+    // this store's goods sitting straight on the top unit
+    const direct=itemsIn(u.id).filter(i=>i.order_id===oid);
+    if(direct.length){
+      const sub=direct.reduce((s,i)=>s+Number(i.qty_base||0),0);
+      const head=u.unit_type==="pallet"?`Loose on 🟩 ${esc(u.label)}`:`${icon} ${esc(u.label)}`;
+      inner+=`<div class="pl-sec">${head} <span style="font-weight:400;color:#555">(subtotal ${sub})</span></div>${plTable(direct)}`;
+    }
+    // …and this store's goods inside the pallet's boxes (nested — name the parent, rule C.2)
+    if(u.unit_type==="pallet"){
+      boxesIn(u.id).forEach(b=>{
+        const bi=itemsIn(b.id).filter(i=>i.order_id===oid); if(!bi.length) return;
+        packedUnits++;
+        const sub=bi.reduce((s,i)=>s+Number(i.qty_base||0),0);
+        const bOrds=ordersDirectlyIn(b.id);
+        // a mixed box must be re-sorted at the destination — flag it loudly (pallets mix by design)
+        const mix=bOrds.length>1?` <span class="pl-mix">⚠ MIXED BOX — holds ${bOrds.length} orders, re-sort at destination</span>`:"";
+        inner+=`<div class="pl-sec">📦 ${esc(b.label)} on 🟩 ${esc(u.label)} <span style="font-weight:400;color:#555">(subtotal ${sub})</span>${mix}</div>`
+             + plTable(bi) + alsoLine(b,oid,false);
+      });
+    }
+    // a standalone box carries its own mixed warning
+    let topMix="";
+    if(u.unit_type==="box"){
+      const bOrds=ordersDirectlyIn(u.id);
+      if(bOrds.length>1) topMix=` <span class="pl-mix">⚠ MIXED BOX — holds ${bOrds.length} orders, re-sort at destination</span>`;
+    }
+    body+=`<div class="pl-grp">
+      <div class="pl-grp-hd">${icon} ${esc(u.label)} · ${u.unit_type==="pallet"?"PALLET":"BOX"} — <span class="mine">your goods: ${mine} units</span>${topMix}</div>
+      ${inner||'<div class="pl-note">empty</div>'}
+      ${alsoLine(u,oid,u.unit_type==="pallet")}
+    </div>`;
+  });
+  if(body) body=map+body;
+
   // not yet placed (completeness check)
   const rem=poolLines.filter(p=>p.order_id===oid).map(p=>({...p,r:remainingFor(p)})).filter(p=>p.r>0);
   if(rem.length){
@@ -1364,19 +1469,19 @@ function buildStoreBody(oid){
       <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="pl-warn">This store is not fully packed yet.</div>`;
   }
-  if(!body) body=`<div class="pl-note">No products placed.</div>`;
-  return {o, body, grand, packedUnits:Object.keys(byUnit).length};
+  if(!body) body=map+`<div class="pl-note">No products placed.</div>`;
+  return {o, body, grand, packedUnits};
 }
 
 function printStores(oids){
   const dt=new Date().toLocaleDateString();
   const wh=orders[0]?.warehouse==="edmonton"?"Edmonton":"Toronto";
   const sections=oids.map((oid,idx)=>{
-    const {o,body,grand}=buildStoreBody(oid);
+    const {o,body,grand,packedUnits}=buildStoreBody(oid);
     return `<div class="${idx>0?"pagebreak":""}">
       <div class="pl-h"><div class="brand"><img src="${location.origin+'/asung-logo-dark.png'}" alt="ASUNG"></div><div class="doc">STORE PACKING LIST<br>${dt}</div></div>
       <div class="pl-store-h">${esc(o.order_number)} · ${esc(o.customer_name||"—")}</div>
-      <div class="pl-meta"><div>Warehouse <b>${wh}</b></div><div>Total qty <b>${grand}</b></div></div>
+      <div class="pl-meta"><div>Warehouse <b>${wh}</b></div><div>Units with your goods <b>${packedUnits}</b></div><div>Total qty <b>${grand}</b></div></div>
       ${body}
       <div class="pl-total">Total qty: ${grand}</div>
     </div>`;

@@ -13,6 +13,7 @@ fulfillment.html    출고 구성 (팔렛/박스 + 팩킹리스트, 작업자)
 receiver.html       리시빙/풋어웨이 (작업자, 한 PO 를 여러 명이 나눠 받기 — 규칙 24~27)
 wms-config.js       window.WMS_CONFIG = {SUPABASE_URL, SUPABASE_ANON_KEY}
 wms-auth.js         공유 로그인 모듈
+wms-picklist.js     픽리스트 인쇄 공용 모듈 (manager 생성 · picker/packer 재인쇄) ⚠️ 형식은 여기만 고친다
 asung-logo-white.png  런처용 (어두운 배경)
 asung-logo-dark.png   6화면용 (밝은 헤더)
 CNAME               "wms.asung.ca"
@@ -25,6 +26,7 @@ supabase/           Edge Function (배포 소스)
 <script src="wms-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
+<script src="wms-picklist.js"></script>   <!-- manager · picker · packer 만 (픽리스트 인쇄 공용) -->
 ```
 그리고 `boot()`에서:
 ```js
@@ -121,7 +123,7 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 - 멀티오더: "N orders ▾" 체크리스트(고객별 그룹) → 여러 오더 동시 작업. 프랜차이즈=여러 고객 혼합 허용("N customers mixed" 경고만, 차단 아님).
 - 오더→배치 2단 그룹 드래그. 제품/배치를 팔렛·박스로. 박스→팔렛 위로 드래그=중첩. 부분수량 모달.
 - 혼합 팔렛: 각 item이 order_id 가짐(오더별 추적). 유닛 로드=선택오더 홈 유닛 ∪ 선택오더 item 가진 유닛 + 자식박스.
-- 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고). **스토어별 종합에서 혼합 박스는 `⚠ MIXED BOX — holds N orders, re-sort at destination` 로 강조**(2026-07-29).
+- 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고). **스토어별 종합에서 혼합 박스는 `⚠ MIXED BOX — holds N orders, re-sort at destination` 로 강조**(2026-07-29). **2026-08-02: 최상위 유닛 그룹핑 + `also contains` 오더 목록 + 유닛 지도** → 아래 「2026-08-02」 절.
 
 ### 스캔 배정 (2026-07-29 추가 — 세 번째 입력 수단, DnD·탭은 그대로) · ⚠️ **실전 미검증**
 
@@ -303,6 +305,59 @@ const visPos = openPos.map((p,i)=>({p,i})).filter(({p}) => !shownDocs.has(String
 - **`liveBatchSet()` 은 분리됨**: `liveList().filter(m=>m.batch)` — BATCH ACTIVITY 의 `fresh()` 판정은 픽/팩 배치 전용이라 무영향. active/away 판정·채널명·키 형식 무변경.
 - **fulfillment.html presence 신규**: key = `me.name+"|fulfillment"`, 페이로드 `{name, screen:"fulfillment", order:오더번호들, at}` (⚠️ batch 없음·타이머 없음). `loadWorkspace()` 에서 join/재-track(오더 추가 시 갱신), Finalize 리셋에서 leave. 창 닫힘은 웹소켓 종료로 자동 제거.
 - **fulfillment 칩 축약**(`fulfillShort`): 오더 3개+ 면 `SO-13849 +9 more`(1~2개는 전부 표시), 전체 목록은 칩 `title` 툴팁(`liveLabel(m,true)`). 칩은 `#liveStrip .tag` CSS 로 `max-width:340px`+ellipsis 한 줄 고정 — 페이로드는 축약하지 않는다(표시만).
+
+## 2026-08-02 — 픽리스트 공용화 · 재인쇄 · Order Date · 팩킹리스트 혼합 팔렛
+
+### `wms-picklist.js` — 픽리스트 인쇄의 단일 출처 (신규 파일)
+
+manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode 부트스트랩을 통째로 뽑아
+**`wms-picklist.js`** 로 옮겼다. picker·packer 재인쇄가 같은 문서를 찍는다.
+로드 순서에 `<script src="wms-picklist.js"></script>` 추가(manager/picker/packer, `wms-auth.js` 다음).
+
+- `wmsPickList.batchPage(p)` — PICK LIST 한 장. `p` = `{pageBreak, batchLabel, orderNumber, reference, orderDate, warehouse, priceTier, printed, printedBy, wave, tote, customerName, totalLines, totalUnits, pickedBySlot, zones, comments, footer}`. 값이 빈 필드는 **줄 자체를 생략**(Reference 와 같은 방식).
+- `wmsPickList.waveSummaryPage(w)` — WAVE PICK LIST 요약 1장(웨이브 바코드 + 토트 배정표). `w.totes[] = {tote, orderNumber, customerName, orderDate, lines, units}`. **Order Date 열은 하나라도 값이 있을 때만** 생긴다.
+- `wmsPickList.render(win, docTitle, pagesHtml)` — 이미 열린 창에 문서를 쓰고 바코드 렌더 후 `print()`.
+- 그 외 `esc` / `whName` / `fmtDate` 도 export. ⚠️ `fmtDate` 는 `new Date("2026-07-28")` 이 **UTC 파싱이라 tz 에 따라 하루 밀리는** 것을 피해 Y/M/D 를 직접 넣는다.
+- ⚠️ **바코드 값 = 스캔 재진입 키.** 배치면 `batch_label`(SO-X-N), 웨이브면 wave label(W-MMDD-n). 다른 값을 넣으면 인쇄물로 화면에 못 들어온다.
+- ⚠️ **형식을 어느 화면에 복사해 두지 말 것** — 이 파일만 고친다.
+
+### picker.html / packer.html — 🖨 Print 재인쇄
+
+종이를 잃거나 잉크가 번지면 손 쓸 방법이 없었다(픽리스트가 소유권을 보증 — 규칙 22/28). 헤더 `#printBtn`(receiver 와 같은 자리·형태) → `reprintPickList(win)`.
+
+- ⚠️ **`window.open` 은 클릭 핸들러 안에서 먼저** — await 뒤 open 은 팝업차단(receiver 에서 겪은 규칙). 핸들러가 창을 열고, 실패하면 `win.close()`.
+- **picker 단일 배치**: 화면의 `order` 는 `loadBatches` 의 좁은 select(order_number/warehouse/customer_name/needs_review)라 인쇄 필드가 없다 → `wms_orders select("*")` 로 재조회 + 같은 오더의 pick task 수를 세어 `Batch i of N` 푸터를 원본과 맞춘다(i 는 라벨 접미사 파싱). 총라인·총유닛·Zones 는 메모리의 `lines`.
+- **picker wave 모드**: **웨이브 요약 1장만** 인쇄(웨이브 바코드 + 토트표 — 재진입 키가 wave label 이고 토트 번호도 여기 다 있다). 멤버 오더별 픽리스트 N장 재생성은 범위 밖. 토트별 라인/유닛은 `lines` 를 `_taskId` 로 묶어 계산, Order Date 만 `wms_orders` 에서 보강(실패해도 인쇄는 진행).
+- **packer**: 항상 배치 1장. wave 멤버 배치면(`wms_pick_tasks.wave_id`) `wms_waves.label` 을 조회해 `Wave … · Tote n` + 푸터 `Tote n`.
+
+### 픽리스트 Order Date (현장 요청)
+
+- 출처 = **Cin7 화면 "Order Date" = API `OrderDate`**(`/saleList` 항목·`/sale` 상세 둘 다 있음). `ship_by` 와 같이 앞 10자만 잘라 `date` 로 저장.
+- **`wms_orders.order_date` 컬럼 신설** — `supabase/migrations/20260802000000_wms_order_date.sql`. ⚠️ 규칙 23 의 교훈: **컬럼 추가를 EF 배포보다 먼저**. 폴링 EF(`hello`)에 `order_date: (d.OrderDate || c.OrderDate || "").slice(0,10) || null` 추가 필요(⬜ 미적용).
+- 인쇄 3곳 전부 반영: manager 픽리스트 · wave 픽리스트(요약 열 + per-order 페이지) · picker/packer 재인쇄. **값 없으면 줄/열 생략**이라 컬럼·EF 가 없어도 안전하게 no-op.
+
+### fulfillment.html — 스토어별 종합 팩킹리스트: 혼합 팔렛 표기
+
+**문제**: 팔렛은 `⚠ MIXED BOX` 같은 경고가 아예 없었고, 박스 경고도 "N orders" 라고만 하고 **어느 오더인지 말하지 않았다**. 또 그 스토어 물건이 든 유닛만 나열돼 **"이 팔렛엔 내 것이 없다"** 를 알 수 없었다.
+
+- **최상위 유닛(팔렛·독립박스) 단위로 그룹핑**(`.pl-grp`, 초록 좌측 보더). 헤더 = `🟩 PALLET-1 · PALLET — your goods: 120 units`. 팔렛 총량은 **자식 박스까지 걸어서**(`qtyUnder`) 계산 — 안 그러면 물건이 전부 박스에 든 팔렛이 빈 것으로 보인다.
+- **`also contains` 줄**(`.pl-also`) — `⚠ 🟩 PALLET-1 also contains 2 other orders: SO-13851 (Store C) — 60 units · SO-13850 (Store B) — 5 units`. 팔렛은 자식 박스까지 깊게(deep), 박스는 자기 것만.
+- **중첩 표기** `📦 BOX-3 on 🟩 PALLET-1`. 기존 `⚠ MIXED BOX — holds N orders, re-sort at destination` 유지.
+- **유닛 지도**(`.pl-map`) — 출하의 모든 유닛(팔렛 + 자식 박스)을 칩으로 나열, 내 것 있는 유닛은 초록 굵은 테두리 + `✔ N units`, 없으면 회색 `— none`. 색만으로 구분하지 않는다(흑백 인쇄).
+- ⚠️ **미배정 경고 유지**(`⚠ Unassigned` + `This store is not fully packed yet.`).
+- **`extOrders`** 신설 — 같은 팔렛에 실렸지만 **현재 선택에 없는** 오더의 이름표 캐시(`refresh()` 에서 1회 조회). 없으면 "also contains order #57" 로 밖에 못 쓴다. `orderNumOf`/`orderTag` 가 함께 본다.
+- 헬퍼: `ordersDirectlyIn(uid)`(⚠️ **id 를 넘긴다** — 객체를 넘기면 조용히 빈 배열) / `ordersUnder(u)` / `qtyIn(uid,oid)` / `qtyUnder(u,oid)` / `alsoOthers` / `alsoLine` / `plTable`.
+- `#printArea` 에 `print-color-adjust:exact` — 안 넣으면 강조 배경이 인쇄에서 날아간다.
+
+### admin.html Finalized 재출력 3종 — 같은 정보로 정렬
+
+`getPackingData(oid)` 가 공용 경로이고 **Print/PDF/CSV 셋 다 이걸 쓴다**(확인 완료). 여기에 위 정보를 실었다.
+
+- ⚠️ **예전엔 이 오더의 item 만 읽어서 "함께 실린 다른 오더"를 알 수 없었다.** 이제 ①내 유닛 → ②부모까지 올라가 최상위 → ③최상위의 자식 박스 전부 → ④그 유닛들의 item 을 **오더 무관하게** 조회 → ⑤다른 오더 이름표 조회.
+- 반환에 `groups`(최상위별 `{unitType,label,mineQty,mixedCount,also,parts[]}`)와 `unitMap` 추가. **`sections`(평평한 옛 형태)는 호환용으로 계속 반환**한다.
+- CSV 는 3구획: `Units in this shipment` / 내용(Unit·Parent·SKU·…) / `Also contains`.
+- ⚠️ **한계**: Finalized 재출력은 **오더 단위**라 이 오더 물건이 **전혀 없는 다른 팔렛**은 알 수 없다(오더↔출하 묶음 관계가 저장되지 않는다). fulfillment 화면은 선택된 오더들 기준이라 그 팔렛까지 `— none` 으로 보여준다. 두 출력이 이 한 항목에서만 다르다.
+- ⬜ admin 재출력에는 `⚠ Unassigned` 가 없다(fulfillment 전용). Finalize 이후엔 pack task 재집계가 필요해 이번 범위 밖.
 
 ## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
 

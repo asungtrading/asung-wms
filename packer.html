@@ -236,6 +236,7 @@
         <button data-v="single">Single</button>
         <button data-v="list" class="active">List</button>
       </div>
+      <button class="btn ghost" id="printBtn" title="Reprint this pick list">🖨 Print</button>
     </div>
 
     <div class="shortalert" id="shortAlert" style="display:none">
@@ -287,6 +288,7 @@
 <script src="wms-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
+<script src="wms-picklist.js"></script>
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null;
@@ -694,6 +696,59 @@ async function enterPack(){
       renderPack();
     }
   }catch(e){ /* barcode display optional */ }
+}
+
+/* ---------- reprint the pick list (the batch-label barcode is how this screen is scanned into) ----------
+   Format comes from wms-picklist.js, the same module manager.html prints from — do not fork it here.
+   ⚠️ window.open must happen inside the click handler; an open() after an await is popup-blocked. */
+document.getElementById("printBtn").onclick=async ()=>{
+  if(!packTask||!lines.length){ toast("Nothing to print",true); return; }
+  const win=window.open("","_blank");
+  if(!win){ toast("Popup blocked - allow popups for this site",true); return; }
+  const btn=document.getElementById("printBtn"); btn.disabled=true;
+  try{ await reprintPickList(win); }
+  catch(e){ try{win.close();}catch(_){} toast("Print failed: "+(e.message||e),true); }
+  finally{ btn.disabled=false; focusScan(); }
+};
+async function reprintPickList(win){
+  const today=new Date().toLocaleDateString();
+  // the order row on screen carries only a few columns — re-read it for the print fields,
+  // and count the order's batches so the "Batch i of N" footer matches the original print
+  const [ordRes, sibRes]=await Promise.all([
+    sb.from("wms_orders").select("*").eq("id",packTask.order_id).single(),
+    sb.from("wms_pick_tasks").select("id,batch_label,wave_id,tote_no").eq("order_id",packTask.order_id),
+  ]);
+  const ord=ordRes.data||order||{};
+  const sibs=sibRes.data||[];
+  const self=sibs.find(t=>t.batch_label===packTask.batch_label);
+  const plain=sibs.filter(t=>!t.wave_id);
+  const m=/-(\d+)$/.exec(packTask.batch_label||"");
+  const idx=m?Number(m[1]):0;
+  // wave member batch → carry the wave label + tote number, same as the original wave pick list
+  let waveLabel=null;
+  if(self&&self.wave_id){
+    try{ const {data:w}=await sb.from("wms_waves").select("label").eq("id",self.wave_id).single(); waveLabel=w?w.label:null; }
+    catch(e){ waveLabel=null; }
+  }
+  const footer=(self&&self.wave_id)?`Tote ${self.tote_no||"—"}`
+            :(idx&&plain.length)?`Batch ${idx} of ${plain.length}`
+            :(idx?`Batch ${idx}`:"");
+  wmsPickList.render(win, `PICK LIST ${ord.order_number||packTask.batch_label}`, wmsPickList.batchPage({
+    batchLabel:packTask.batch_label,                 // = barcode, so this reprint scans back in
+    orderNumber:ord.order_number,
+    reference:ord.reference,
+    orderDate:ord.order_date,
+    warehouse:ord.warehouse||order.warehouse,
+    priceTier:ord.price_tier,
+    printed:today, printedBy:(me?me.name:null),
+    wave:waveLabel, tote:(self&&self.wave_id)?self.tote_no:null,
+    customerName:ord.customer_name||order.customer_name,
+    totalLines:lines.length,
+    totalUnits:lines.reduce((s,l)=>s+Number(l.required||0),0),
+    zones:[...new Set(lines.map(l=>(l.zone||"·")))].sort().join(", "),
+    comments:ord.comments,
+    footer,
+  }));
 }
 
 /* render */

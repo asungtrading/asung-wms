@@ -1228,47 +1228,149 @@ async function toggleMgrReviewed(oid,checked,chk){
   const tr=chk&&chk.closest("tr");
   if(tr){ tr.dataset.rev=checked?"1":"0"; tr.style.opacity=checked?".55":""; }
 }
+/* Finalized 탭 재출력의 공용 데이터 경로 — Print / PDF / CSV 세 출력이 전부 이걸 쓴다.
+   fulfillment.html 의 스토어별 종합 리스트와 같은 정보를 담아야 한다(2026-08-02):
+   ①이 오더의 물건이 어느 유닛에 얼마나 ②그 유닛에 함께 실린 다른 오더 ③중첩 박스의 부모 팔렛
+   ④이 오더 물건이 없는 유닛까지 포함한 유닛 지도.
+   ⚠️ 이 오더의 item 만 읽으면 ②를 알 수 없다 — 관련 유닛의 item 을 오더 무관하게 전부 읽는다. */
 async function getPackingData(oid){
   const {data:ord}=await sb.from("wms_orders").select("order_number,customer_name,warehouse").eq("id",oid).single();
-  const {data:items}=await sb.from("wms_pallet_items").select("*").eq("order_id",oid);
-  const palletIds=[...new Set((items||[]).map(i=>i.pallet_id))];
+  const {data:mine}=await sb.from("wms_pallet_items").select("*").eq("order_id",oid);
+  const myUnitIds=[...new Set((mine||[]).map(i=>i.pallet_id).filter(Boolean))];
+
+  // 1) 이 오더가 들어간 유닛 → 부모까지 올라가 최상위(팔렛/독립박스)를 구한다
   let units=[];
-  if(palletIds.length){
-    const {data:u}=await sb.from("wms_pallets").select("*").in("id",palletIds); units=u||[];
+  if(myUnitIds.length){
+    const {data:u}=await sb.from("wms_pallets").select("*").in("id",myUnitIds); units=u||[];
     const parentIds=[...new Set(units.map(x=>x.parent_id).filter(Boolean))];
-    if(parentIds.length){ const {data:pu}=await sb.from("wms_pallets").select("*").in("id",parentIds); (pu||[]).forEach(p=>{ if(!units.some(x=>x.id===p.id)) units.push(p); }); }
+    if(parentIds.length){
+      const {data:pu}=await sb.from("wms_pallets").select("*").in("id",parentIds);
+      (pu||[]).forEach(p=>{ if(!units.some(x=>x.id===p.id)) units.push(p); });
+    }
   }
-  const skus=[...new Set((items||[]).map(i=>i.order_sku).filter(Boolean))];
+  const rootIds=[...new Set(units.map(u=>u.parent_id||u.id))];
+  // 2) 최상위의 자식 박스까지 전부 (팔렛에 뭐가 더 얹혀 있는지 알아야 한다)
+  if(rootIds.length){
+    const {data:kids}=await sb.from("wms_pallets").select("*").in("parent_id",rootIds);
+    (kids||[]).forEach(k=>{ if(!units.some(x=>x.id===k.id)) units.push(k); });
+  }
+  const allUnitIds=units.map(u=>u.id);
+  // 3) 그 유닛들의 item 을 오더 무관하게 전부
+  let allItems=[];
+  if(allUnitIds.length){
+    const {data:ai}=await sb.from("wms_pallet_items").select("*").in("pallet_id",allUnitIds);
+    allItems=ai||[];
+  }
+  // 4) 함께 실린 다른 오더의 이름표
+  const otherOids=[...new Set(allItems.map(i=>i.order_id).filter(x=>x&&x!==oid))];
+  const oname={};
+  if(otherOids.length){
+    const {data:oo}=await sb.from("wms_orders").select("id,order_number,customer_name").in("id",otherOids);
+    (oo||[]).forEach(o=>{ oname[o.id]=o.order_number+(o.customer_name?` (${o.customer_name})`:""); });
+  }
+  const skus=[...new Set((mine||[]).map(i=>i.order_sku).filter(Boolean))];
   const bc={};
   if(skus.length){
     const {data:sn}=await sb.from("wms_sku_snapshot").select("sku,barcode").in("sku",skus);
     (sn||[]).forEach(r=>{ bc[r.sku]=String(r.barcode||"").trim(); });
   }
+
   const unitById={}; units.forEach(u=>unitById[u.id]=u);
-  const byUnit={}; (items||[]).forEach(i=>{ (byUnit[i.pallet_id]=byUnit[i.pallet_id]||[]).push(i); });
-  const sections=[]; let grand=0;
-  Object.keys(byUnit).forEach(pid=>{
-    const u=unitById[pid]||{label:"(unit)",unit_type:"pallet"};
-    const list=byUnit[pid]; const sub=list.reduce((s2,i)=>s2+Number(i.qty_base||0),0); grand+=sub;
-    const parent=u.parent_id?unitById[u.parent_id]:null;
-    sections.push({ unitType:u.unit_type, label:u.label||"", parentLabel:parent?(parent.label||""):null, sub,
-      rows:list.map(i=>({sku:i.order_sku||"", barcode:bc[i.order_sku]||"", name:i.product_name||"", qty:Number(i.qty_base||0)})) });
+  const itemsIn=uid=>allItems.filter(i=>i.pallet_id===uid);
+  const boxesIn=uid=>units.filter(u=>u.unit_type==="box"&&u.parent_id===uid);
+  const qtyIn=(uid,x)=>itemsIn(uid).filter(i=>i.order_id===x).reduce((s,i)=>s+Number(i.qty_base||0),0);
+  const qtyUnder=(u,x)=>{ let q=qtyIn(u.id,x); if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>{ q+=qtyIn(b.id,x); }); return q; };
+  const ordsDirect=uid=>[...new Set(itemsIn(uid).map(i=>i.order_id))];
+  const ordsUnder=u=>{ const ids=itemsIn(u.id).map(i=>i.order_id);
+    if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>itemsIn(b.id).forEach(i=>ids.push(i.order_id)));
+    return [...new Set(ids)]; };
+  const alsoOf=(u,deep)=>(deep?ordsUnder(u):ordsDirect(u.id)).filter(x=>x!==oid)
+    .map(x=>({label:oname[x]||("order #"+x), qty:deep?qtyUnder(u,x):qtyIn(u.id,x)}))
+    .sort((a,b)=>b.qty-a.qty);
+  const mapRow=(i,x)=>({sku:i.order_sku||"", barcode:bc[i.order_sku]||"", name:i.product_name||"", qty:Number(i.qty_base||0)});
+
+  const tops=units.filter(u=>!u.parent_id);
+  // 유닛 지도 — 최상위 + 그 자식 박스까지. "BOX-4 on PALLET-1 — none" 이 있어야 받는 쪽이 안 열어본다.
+  // ⚠️ Finalized 재출력은 오더 단위라, 이 오더 물건이 전혀 없는 **다른 팔렛**은 알 수 없다
+  //    (오더↔출하 묶음 관계가 저장되지 않는다). fulfillment 화면은 선택된 오더들 기준이라 더 넓게 본다.
+  const unitMap=[];
+  tops.forEach(u=>{
+    unitMap.push({unitType:u.unit_type, label:u.label||"", parentLabel:null, mineQty:qtyUnder(u,oid)});
+    if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>
+      unitMap.push({unitType:"box", label:b.label||"", parentLabel:u.label||"", mineQty:qtyIn(b.id,oid)}));
   });
-  return {ord, wh: ord.warehouse==="edmonton"?"Edmonton":"Toronto", sections, grand};
+  const groups=[]; let grand=0;
+  tops.forEach(u=>{
+    const mineQty=qtyUnder(u,oid); if(!mineQty) return;
+    grand+=mineQty;
+    const parts=[];
+    const direct=itemsIn(u.id).filter(i=>i.order_id===oid);
+    if(direct.length){
+      parts.push({ kind:u.unit_type==="pallet"?"loose":"box", label:u.label||"", parentLabel:null,
+        sub:direct.reduce((s,i)=>s+Number(i.qty_base||0),0), mixedCount:0, also:[], rows:direct.map(mapRow) });
+    }
+    if(u.unit_type==="pallet"){
+      boxesIn(u.id).forEach(b=>{
+        const bi=itemsIn(b.id).filter(i=>i.order_id===oid); if(!bi.length) return;
+        const bo=ordsDirect(b.id);
+        parts.push({ kind:"box", label:b.label||"", parentLabel:u.label||"",
+          sub:bi.reduce((s,i)=>s+Number(i.qty_base||0),0),
+          mixedCount:bo.length>1?bo.length:0, also:alsoOf(b,false), rows:bi.map(mapRow) });
+      });
+    }
+    const topOrds=ordsDirect(u.id);
+    groups.push({ unitType:u.unit_type, label:u.label||"", mineQty, parts,
+      mixedCount:(u.unit_type==="box"&&topOrds.length>1)?topOrds.length:0,
+      also:alsoOf(u, u.unit_type==="pallet") });
+  });
+
+  // 예전 형태(평평한 sections)를 쓰는 호출자가 남아 있어도 깨지지 않게 함께 돌려준다
+  const sections=[];
+  groups.forEach(g=>g.parts.forEach(p=>sections.push({
+    unitType:p.kind==="box"?"box":"pallet", label:p.label,
+    parentLabel:p.parentLabel, sub:p.sub, rows:p.rows })));
+
+  return {ord, wh: ord.warehouse==="edmonton"?"Edmonton":"Toronto", groups, unitMap, sections, grand};
 }
 async function buildPackingListHTML(oid, autoprint){
   const d=await getPackingData(oid);
   const e=s2=>String(s2==null?"":s2).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const tbl=rows=>`<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>`
+    +rows.map(r=>`<tr><td>${e(r.sku)}</td><td class="bcd">${e(r.barcode)}</td><td>${e(r.name)}</td><td class="n">${r.qty}</td></tr>`).join("")
+    +`</tbody></table>`;
+  const alsoHtml=(u,also)=>{
+    if(!also||!also.length) return "";
+    const icon=u.unitType==="box"?"📦":"🟩";
+    return `<div class="also">⚠ ${icon} ${e(u.label)} also contains ${also.length} other order${also.length>1?"s":""}: `
+      +also.map(a=>`<b>${e(a.label)}</b> — ${a.qty} units`).join(" · ")+`</div>`;
+  };
+  // at-a-glance unit map: every unit in the shipment, this order's goods marked
   let body="";
-  d.sections.forEach(sec=>{
-    const where=sec.unitType==="box"
-      ? `📦 ${e(sec.label)}${sec.parentLabel?` <span style="font-weight:400;color:#666">(in 🟩 ${e(sec.parentLabel)})</span>`:""}`
-      : `🟩 ${e(sec.label)}`;
-    const trs=sec.rows.map(r=>`<tr><td>${e(r.sku)}</td><td class="bcd">${e(r.barcode)}</td><td>${e(r.name)}</td><td class="n">${r.qty}</td></tr>`).join("");
-    body+=`<div class="u">${where} <span style="font-size:12px;color:#555">(subtotal ${sec.sub})</span></div>
-      <table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${trs}</tbody></table>`;
+  if(d.unitMap&&d.unitMap.length){
+    body+=`<div class="map">`+d.unitMap.map(u=>{
+      const icon=u.unitType==="box"?"📦":"🟩";
+      const on=u.parentLabel?` on ${e(u.parentLabel)}`:"";
+      return `<span class="pm${u.mineQty>0?" yes":""}">${icon} ${e(u.label)}${on} ${u.mineQty>0?"✔ "+u.mineQty+" units":"— none"}</span>`;
+    }).join("")+`</div>`;
+  }
+  (d.groups||[]).forEach(g=>{
+    const icon=g.unitType==="box"?"📦":"🟩";
+    const mix=g.mixedCount?` <span class="mix">⚠ MIXED BOX — holds ${g.mixedCount} orders, re-sort at destination</span>`:"";
+    let inner="";
+    g.parts.forEach(p=>{
+      const pmix=p.mixedCount?` <span class="mix">⚠ MIXED BOX — holds ${p.mixedCount} orders, re-sort at destination</span>`:"";
+      const head=p.kind==="loose"?`Loose on 🟩 ${e(g.label)}`
+        :(p.parentLabel?`📦 ${e(p.label)} on 🟩 ${e(p.parentLabel)}`:`📦 ${e(p.label)}`);
+      inner+=`<div class="sec">${head} <span style="font-weight:400;color:#555">(subtotal ${p.sub})</span>${pmix}</div>`
+        +tbl(p.rows)+alsoHtml({unitType:"box",label:p.label},p.also);
+    });
+    body+=`<div class="grp">
+      <div class="grphd">${icon} ${e(g.label)} · ${g.unitType==="pallet"?"PALLET":"BOX"} — <span class="mine">this order: ${g.mineQty} units</span>${mix}</div>
+      ${inner||'<div class="note">empty</div>'}
+      ${alsoHtml(g,g.also)}
+    </div>`;
   });
-  if(!body) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
+  if(!(d.groups||[]).length) body=`<div class="note">Direct pack — no pallet/box for this order.</div>`;
   const logo=location.origin+"/asung-logo-dark.png";
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>PACKING LIST ${e(d.ord.order_number)}</title>
   <style>
@@ -1285,7 +1387,16 @@ async function buildPackingListHTML(oid, autoprint){
     table.pl td.bcd{font-family:monospace;font-size:11.5px;width:130px}
     .total{margin-top:10px;font-weight:800;font-size:15px;text-align:right}
     .note{color:#666;margin:14px 0}
-    @media print{body{margin:14mm}}
+    /* unit map + mixed-unit callouts — same information the fulfillment store list prints */
+    .map{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+    .map .pm{font-size:11.5px;font-weight:800;font-family:monospace;border:1.5px solid #bbb;background:#fff;color:#888;border-radius:6px;padding:4px 9px}
+    .map .pm.yes{border:2.5px solid #12602c;background:#e9f7ee;color:#0d4a21}
+    .grp{border-left:6px solid #12602c;background:#f6fbf7;padding:9px 13px 11px;margin:16px 0 4px;border-radius:0 8px 8px 0;page-break-inside:avoid}
+    .grphd{font-weight:800;font-size:15px;margin-bottom:2px} .grphd .mine{color:#0d4a21}
+    .sec{font-weight:800;font-size:13px;margin:11px 0 5px}
+    .mix{color:#b40000;font-weight:800;font-size:11.5px}
+    .also{font-size:12px;color:#7a3b00;background:#fdf4e6;border:1px solid #e6c98a;border-radius:6px;padding:6px 10px;margin:8px 0 2px}
+    @media print{body{margin:14mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body>
     <div class="h"><div class="brandwrap"><img src="${logo}" alt="ASUNG"><div style="font-weight:800;font-size:16px">PACKING LIST</div></div>
       <div class="doc">${e(d.ord.order_number)}<br><span style="font-weight:400;font-size:12px;color:#666">${new Date().toLocaleDateString()}</span></div></div>
@@ -1332,22 +1443,43 @@ async function downloadPackingPDF(oid, onum){
     doc.text(new Date().toLocaleDateString(),196,19,{align:"right"});
     y+=10;
     doc.text(`Customer: ${d.ord.customer_name||"—"}     Warehouse: ${d.wh}`,14,y); y+=5;
-    d.sections.forEach(sec=>{
-      const title=(sec.unitType==="box"?`BOX ${sec.label}`:`PALLET ${sec.label}`)+(sec.parentLabel?` (in PALLET ${sec.parentLabel})`:"");
-      if(y>265){ doc.addPage(); y=16; }
-      doc.setFontSize(11); doc.setFont(undefined,"bold"); doc.text(title,14,y+4);
-      doc.autoTable({
-        startY:y+6,
-        head:[["SKU","Barcode","Product","Qty"]],
-        body:sec.rows.map(r=>[r.sku, r.barcode, r.name, String(r.qty)]),
-        styles:{fontSize:8.5,cellPadding:1.6},
-        headStyles:{fillColor:[18,22,28]},
-        columnStyles:{0:{cellWidth:30},1:{cellWidth:36,font:"courier"},3:{halign:"right",cellWidth:14}},
-        margin:{left:14,right:14},
+    // unit map — which units hold this order's goods and which don't
+    const wrap=(txt,x)=>{ doc.splitTextToSize(txt,196-x).forEach(ln=>{ if(y>276){doc.addPage();y=16;} doc.text(ln,x,y+4); y+=4.6; }); y+=1; };
+    if(d.unitMap&&d.unitMap.length){
+      doc.setFontSize(9); doc.setFont(undefined,"bold"); doc.text("Units in this shipment:",14,y+4); y+=5;
+      doc.setFont(undefined,"normal");
+      wrap(d.unitMap.map(u=>`${u.unitType==="box"?"BOX":"PALLET"} ${u.label}${u.parentLabel?" on "+u.parentLabel:""}: ${u.mineQty>0?u.mineQty+" units of this order":"none of this order"}`).join("   |   "),14);
+    }
+    (d.groups||[]).forEach(g=>{
+      if(y>258){ doc.addPage(); y=16; }
+      doc.setFontSize(11); doc.setFont(undefined,"bold");
+      doc.text(`${g.unitType==="box"?"BOX":"PALLET"} ${g.label} — this order: ${g.mineQty} units`,14,y+4); y+=6;
+      if(g.mixedCount){ doc.setFontSize(9); doc.setTextColor(180,0,0); doc.text(`MIXED BOX — holds ${g.mixedCount} orders, re-sort at destination`,14,y+3); doc.setTextColor(0,0,0); y+=5; }
+      g.parts.forEach(p=>{
+        const title=p.kind==="loose"?`Loose on PALLET ${g.label}`
+          :(p.parentLabel?`BOX ${p.label} on PALLET ${p.parentLabel}`:`BOX ${p.label}`);
+        if(y>265){ doc.addPage(); y=16; }
+        doc.setFontSize(10); doc.setFont(undefined,"bold"); doc.setTextColor(0,0,0); doc.text(title,14,y+4);
+        doc.autoTable({
+          startY:y+6,
+          head:[["SKU","Barcode","Product","Qty"]],
+          body:p.rows.map(r=>[r.sku, r.barcode, r.name, String(r.qty)]),
+          styles:{fontSize:8.5,cellPadding:1.6},
+          headStyles:{fillColor:[18,22,28]},
+          columnStyles:{0:{cellWidth:30},1:{cellWidth:36,font:"courier"},3:{halign:"right",cellWidth:14}},
+          margin:{left:14,right:14},
+        });
+        y=doc.lastAutoTable.finalY;
+        doc.setFontSize(9); doc.setFont(undefined,"normal");
+        doc.text(`Subtotal: ${p.sub}`,196,y+4,{align:"right"}); y+=6;
+        if(p.mixedCount){ doc.setTextColor(180,0,0); wrap(`MIXED BOX — holds ${p.mixedCount} orders, re-sort at destination`,14); doc.setTextColor(0,0,0); }
+        if(p.also&&p.also.length){ doc.setTextColor(122,59,0);
+          wrap(`BOX ${p.label} also contains: `+p.also.map(a=>`${a.label} — ${a.qty} units`).join("; "),14); doc.setTextColor(0,0,0); }
       });
-      y=doc.lastAutoTable.finalY;
-      doc.setFontSize(9); doc.setFont(undefined,"normal");
-      doc.text(`Subtotal: ${sec.sub}`,196,y+4,{align:"right"}); y+=9;
+      if(g.also&&g.also.length){ doc.setFontSize(9); doc.setTextColor(122,59,0);
+        wrap(`${g.unitType==="box"?"BOX":"PALLET"} ${g.label} also contains: `+g.also.map(a=>`${a.label} — ${a.qty} units`).join("; "),14);
+        doc.setTextColor(0,0,0); }
+      y+=3;
     });
     if(y>272){ doc.addPage(); y=16; }
     doc.setFontSize(11); doc.setFont(undefined,"bold");
@@ -1361,13 +1493,30 @@ async function downloadPackingCSV(oid, onum){
     const q=v=>{ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; };
     const rows=[
       ["Order",d.ord.order_number],["Customer",d.ord.customer_name||""],["Warehouse",d.wh],["Printed",new Date().toLocaleString()],[],
-      ["Unit","SKU","Barcode","Product","Qty"],
     ];
-    d.sections.forEach(sec=>{
-      const title=(sec.unitType==="box"?`BOX ${sec.label}`:`PALLET ${sec.label}`)+(sec.parentLabel?` (in PALLET ${sec.parentLabel})`:"");
-      sec.rows.forEach(r=>rows.push([title,r.sku,r.barcode,r.name,r.qty]));
+    // section 1 — unit map (which units hold this order's goods, which don't)
+    rows.push(["Units in this shipment"]);
+    rows.push(["Unit","On pallet","Holds this order","Qty for this order"]);
+    (d.unitMap||[]).forEach(u=>rows.push([
+      (u.unitType==="box"?"BOX ":"PALLET ")+u.label, u.parentLabel||"", u.mineQty>0?"YES":"no", u.mineQty]));
+    rows.push([]);
+    // section 2 — contents
+    rows.push(["Unit","Parent","SKU","Barcode","Product","Qty"]);
+    (d.groups||[]).forEach(g=>g.parts.forEach(p=>{
+      const unit=p.kind==="loose"?`Loose on PALLET ${g.label}`:`BOX ${p.label}`;
+      const parent=p.kind==="loose"?`PALLET ${g.label}`:(p.parentLabel?`PALLET ${p.parentLabel}`:"");
+      p.rows.forEach(r=>rows.push([unit,parent,r.sku,r.barcode,r.name,r.qty]));
+    }));
+    rows.push([]);
+    // section 3 — what else rides in the same unit (the reason C exists)
+    rows.push(["Unit","Also contains order","Qty in that unit"]);
+    let anyAlso=false;
+    (d.groups||[]).forEach(g=>{
+      (g.also||[]).forEach(a=>{ anyAlso=true; rows.push([(g.unitType==="box"?"BOX ":"PALLET ")+g.label, a.label, a.qty]); });
+      g.parts.forEach(p=>(p.also||[]).forEach(a=>{ anyAlso=true; rows.push(["BOX "+p.label, a.label, a.qty]); }));
     });
-    rows.push([]); rows.push(["Total","","","",d.grand]);
+    if(!anyAlso) rows.push(["(none — no unit is shared with another order)","",""]);
+    rows.push([]); rows.push(["Total","","","","",d.grand]);
     const csv="\uFEFF"+rows.map(r=>r.map(q).join(",")).join("\r\n");
     const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
     const a=document.createElement("a");

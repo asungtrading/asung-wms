@@ -213,6 +213,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **팩킹리스트**(fulfillment 유닛/스토어별, admin Finalized 탭 재출력): 컬럼 **SKU·Barcode·Product·Qty**(바코드=스냅샷 sku별 대표바코드). admin에서 **🖨 Print · ⬇ PDF · ⬇ CSV**. direct 오더는 "Direct pack" 태그(팩킹리스트 없음).
 - **⚠️ 로고 in 프린트창**: `window.open` 새 문서라 상대경로 안 됨 → `location.origin+"/asung-logo-dark.png"` 절대URL. fulfillment은 같은문서 #printArea라 상관없지만 통일. PDF=jsPDF+autotable(CDN, 첫클릭시 lazy-load), CSV=BOM+CRLF.
 - 바코드 라이브러리: JsBarcode `cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js`.
+- ⚠️ **픽리스트 인쇄는 `wms-picklist.js` 한 곳에서만** (2026-08-02, manager/picker/packer 공용 · picker·packer 재인쇄 🖨 Print · 픽리스트 Order Date · fulfillment/admin 팩킹리스트 혼합 팔렛 표기) → `references/frontend.md` 「2026-08-02」 절.
 
 ## 규칙 16 — 매니저 세부권한 & 공용 내비 (⚠️ 2026-07-21)
 
