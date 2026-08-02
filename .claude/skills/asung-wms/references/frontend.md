@@ -74,7 +74,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 ## admin 탭 (8탭, 2026-07-22)
 Status(카드+In-Progress+**Finalized 섹션**) / Discrepancy / **Reports**(wms_reports 리뷰·resolve, kind 필터 All/Wrong location/Barcode changed/Image differs + open 건수, 배지=kind 무관 전체 미해결) / Stats(작업자 처리량+**평균 소요시간**+실수+**리시빙·트랜스퍼·풋어웨이**) / Rollback(단계 되돌리기+로그) / **Finalized**(옛 Packing Lists — 완료오더 기간목록, Fulfillment mix 카드, 🖨Print·⬇PDF·⬇CSV / direct는 "Direct pack" 태그) / Work Screens / **Health**(Rollback 뒤 위치).
 - ⚠️ 탭 전환 핸들러가 각 loadXxx 호출. periodBar `custom` 인자는 반드시 객체 `{from,to}`(null이면 TypeError로 boot 중단).
-- **팩킹리스트 PDF/CSV**: `getPackingData(oid)` 공용 → HTML(print)·jsPDF+autotable(PDF, CDN lazy-load, 로고=canvas dataURL)·CSV(BOM+CRLF). 컬럼 SKU·Barcode·Product·Qty.
+- **팩킹리스트 PDF/CSV**: `getPackingData(oid)` 공용 → HTML(print)·jsPDF+autotable(PDF, CDN lazy-load, 로고=canvas dataURL)·CSV(BOM+CRLF). 컬럼 SKU·Barcode·Product·Qty(CSV 내용 구획은 앞에 **Order**·Unit·Parent — 아래 「오더 소계 캡션」 절).
 - **Stats 탭 리시빙·트랜스퍼·풋어웨이 지표(2026-07-30, 규칙 37)**: 기존 픽/팩과 **같은 기간 필터(`statsPeriod`) 공유** — `loadStats()` 가 `loadRecvStats(r)` 를 fire-and-forget 호출(규칙 34: 픽/팩 렌더를 막지 않고, 조회는 `Promise.all` **2회 왕복**으로 묶음 — ①`wms_receipts`+임베드 `wms_receipt_lines`(FK 임베드, 라인별 왕복 없음) ②`wms_discrepancies` `source='receiving'`. receipts 기간 필터 기준 = `created_at`). 렌더 전 `statsRange!==r` 이면 버림(기간 연타 스테일 방지). 지표: **PO/트랜스퍼 구분**(`source_type`) receipt·라인(received_base>0 만)·수량(received_base 합) / 창고별(`warehouse`) / 소요시간 avg receive=`created_at→completed_at`·avg apply=`completed_at→applied_at`(음수·60일 초과 제외) / **Apply 결과** = 성공·부분성공(`apply_note` 의 `failed_moves(N)` — ⚠️ EF 와 공유하는 포맷, 규칙 21)·미적용(completed & `applied_at` null) / **풋어웨이** 완료율(`putaway_done`)·백로그(미완료 라인 수·수량)·트랜스퍼 라인 `exported_base>0` 비율 / **리시빙 discrepancy** over·short·off-PO 건수 + 미해결(`cin7_corrected=false`). **화면 각주 3개(전부 필수 유지)**: ①`exported_base` 는 수동 UPDATE 로 오염 가능(2026-07-28 TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전엔 기록된 적 없음** — 그 이전 기간은 데이터 없음 ③소요시간은 근무시간 기준(아래).
 - **Stats 작업자 통합 + 근무시간 소요(2026-07-30, 규칙 37)**: 작업자별 리시빙은 별도 표가 아니라 **"Throughput by worker" 에 병합** — `renderProd()` 가 모듈 상태 `prodPP`(픽/팩, loadStats)와 `prodRecv`(리시빙 byWorker, loadRecvStats)를 도착 순서 무관하게 합쳐 그린다(이름 합집합 — 리시빙만 한 사람도 행 생성. 왕복 추가 없음 — 기존 loadRecvStats 집계 재사용, 규칙 34). 두 로더 모두 `statsRange!==r` 스테일 가드.
   - ⚠️ **receipt 수를 배치 수와 같은 스케일의 막대로 그리지 말 것** — receipt 하나가 5라인일 수도 344라인일 수도 있어 왜곡된다. 막대는 **Receive 라인 수** 기준이고, 그마저 배치 max 와 분리된 **자체 스케일**(`lineMax`)을 쓴다(344라인이 픽/팩 막대를 뭉개지 않게). receipt 수·putaway % 는 요약 텍스트로(`Receive 344 lines / 1 receipt (avg 2.0 h work time) · putaway 67%`). 막대 색 `--recv`(teal) — 픽(파랑)·팩(보라)과 구분. 풋어웨이는 네 번째 막대 금지(요약 텍스트만). `Receive lines` 링크 없음 — Pick/Pack batches 도 링크가 아니라 대응 뷰가 없다.
@@ -124,7 +124,7 @@ create policy auth_all on <table> for all to authenticated using (true) with che
 - 멀티오더: "N orders ▾" 체크리스트(고객별 그룹) → 여러 오더 동시 작업. 프랜차이즈=여러 고객 혼합 허용("N customers mixed" 경고만, 차단 아님).
 - 오더→배치 2단 그룹 드래그. 제품/배치를 팔렛·박스로. 박스→팔렛 위로 드래그=중첩. 부분수량 모달.
 - 혼합 팔렛: 각 item이 order_id 가짐(오더별 추적). 유닛 로드=선택오더 홈 유닛 ∪ 선택오더 item 가진 유닛 + 자식박스.
-- 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고). **스토어별 종합에서 혼합 박스는 `⚠ MIXED BOX — holds N orders, re-sort at destination` 로 강조**(2026-07-29). **2026-08-02: 최상위 유닛 그룹핑 + `also contains` 오더 목록 + 유닛 지도** → 아래 「2026-08-02」 절.
+- 팩킹리스트 2종: (a)유닛별 (b)스토어별 종합(각 스토어 1페이지 page-break, 그 스토어 물건이 어느 팔렛/박스에 얼마나 + ⚠️미배정 경고). **스토어별 종합에서 혼합 박스는 `⚠ MIXED BOX — holds N orders, re-sort at destination` 로 강조**(2026-07-29). **2026-08-02: 최상위 유닛 그룹핑 + `also contains` 오더 목록 + 유닛 지도 + 품목표 오더 소계 캡션 상시 표시** → 아래 「2026-08-02」 절.
 
 ### 스캔 배정 (2026-07-29 추가 — 세 번째 입력 수단, DnD·탭은 그대로) · ⚠️ **실전 미검증**
 
@@ -394,6 +394,42 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
   `unitMap[].label/parentLabel`). 세 출력이 그 값을 그대로 쓰므로 출력별 분기가 없다.
   호환용 `sections` 도 같은 코드값을 받는다.
 - 유지된 것: `also contains …` · 유닛 지도 · `⚠ MIXED BOX` · `⚠ Unassigned` 경고.
+
+### 팩킹리스트 품목표 — 오더 소계 캡션 **상시 표시** (2026-08-02 말)
+
+**문제**: 유닛 안 품목표의 오더 소계 행(`SO-13849 (subtotal 20)`)이 **오더가 2건 이상일 때만**
+나왔다. 실측 — P1 은 SO-13849·SO-13993 두 소계가 찍히는데 P2 는 SO-13993 하나뿐이라 캡션 없이
+품목만 나온다. 헤더의 `Order SO-13993` 과 표가 떨어져 있어 현장에서 대조가 안 된다.
+
+- **원인 = 설계 의도였던 조건 분기.** `fulfillment.html` `tableFor()` 의
+  `const multi=Object.keys(byOrder).length>1` → `const cap=multi?…:""`. 캡션을 **혼합 유닛의
+  구분선**으로만 봤고 단일 오더면 헤더와 중복이라 생략했다. 스토어별 종합·admin 재출력은 표
+  자체가 이미 오더별로 걸러진 단일 오더라 **캡션이 아예 없었다**(오더는 페이지 헤더에만).
+  → 캡션의 역할을 "구분선"에서 **"표의 신원"** 으로 바꿨다. 표 한 장만 떼어 봐도 누구 물건인지
+  알아야 한다.
+- **`wms-packing.js` 가 형식을 소유한다**(라벨과 같은 이유 — 화면·인쇄 4경로가 어긋나면 안 된다):
+  `orderSubtotalRow(orderLabel, sub, colspan=4)` = `<tr>` 캡션 행(회색 배경·모노·굵게 + 옅은
+  `(subtotal N)`), `orderSubtotalText(orderLabel, sub)` = `"SO-13993 (subtotal 10)"` 평문.
+  ⚠️ 유닛 라벨 함수(`unitCode`/`nextUnitLabel` 등)는 **손대지 않았다** — 추가 export 뿐.
+  모노 폰트는 `var(--mono)` 가 아니라 스택을 직접 적는다(admin 인쇄 문서는 독립 HTML 이라 그
+  변수가 없다).
+- **적용 4경로 — 문구 동일**:
+  - fulfillment **유닛별 인쇄**(`tableFor`) — `multi` 분기 제거, 오더가 1건이어도 캡션.
+  - fulfillment **스토어별 종합**(`plTable(list, oid)`) — 두 번째 인자로 오더를 받으면 캡션을
+    붙인다(`oid` 생략 시 무캡션 — 옛 호출 호환). 호출부는 `plTable(direct,oid)` /
+    `plTable(bi,oid)`.
+  - admin **Print**(`tbl(rows, sub)`) — 두 번째 인자 신설, 라벨은 `d.ord.order_number`.
+  - admin **PDF** — autoTable `body` 첫 행에 `{content, colSpan:4}` 캡션 셀(courier·굵게·회색).
+- ⚠️ **CSV 에는 오더번호 열이 없었다**(내용 구획 = `Unit,Parent,SKU,Barcode,Product,Qty`; 오더는
+  파일 맨 위 메타 `Order,SO-…` 한 줄뿐). CSV 는 정렬·필터로 행이 흩어져 **캡션 행만으로는 오더
+  구분이 유지되지 않는다** → 내용 구획을 `Order,Unit,Parent,SKU,Barcode,Product,Qty` 로 바꿔
+  **행마다 오더번호**를 싣고, 유닛 파트마다 소계 행 `…,SUBTOTAL,,,N` 을 덧붙였다(SKU 칸이
+  `SUBTOTAL`). 마지막 `Total` 행도 7열로 정렬.
+- **소계 숫자가 두 번 보이는 자리**: 스토어별 종합·admin Print 는 섹션 헤더에도
+  `(subtotal N)` 이 있어 단일 오더면 캡션과 같은 값이 연달아 나온다. 혼합 유닛에서는 헤더=유닛
+  전체, 캡션=오더별로 값이 달라지므로 **형식을 통일하는 쪽**을 택했다(헤더 소계 유지).
+- 유지: `P1 · PALLET` · `B3 on P1` · `also contains` · 유닛 지도 · `⚠ MIXED BOX` ·
+  `⚠ Unassigned`. 미배정 표는 유닛 안이 아니라 캡션을 붙이지 않았다.
 
 ## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
 

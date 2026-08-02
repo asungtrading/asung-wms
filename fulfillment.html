@@ -1315,14 +1315,15 @@ function orderTag(oid){
 function tableFor(unitId){
   const its=itemsIn(unitId);
   if(!its.length) return {html:"", tot:0};
-  // group by order
+  // group by order — the caption is printed even for a single order (wms-packing.js owns the
+  // format). A table with no order line can't be matched against the goods without walking
+  // back up to the header.
   const byOrder={}; its.forEach(i=>{ (byOrder[i.order_id]=byOrder[i.order_id]||[]).push(i); });
-  const multi=Object.keys(byOrder).length>1;
   let html=""; let tot=0;
   Object.entries(byOrder).forEach(([oid,list])=>{
     const sub=list.reduce((s,i)=>s+Number(i.qty_base||0),0); tot+=sub;
     const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-    const cap=multi?`<tr><td colspan="4" style="background:#f7f7f7;font-family:var(--mono);font-weight:800">${esc(orderNumOf(+oid))} <span style="font-weight:400;color:#666">(subtotal ${sub})</span></td></tr>`:"";
+    const cap=wmsPacking.orderSubtotalRow(orderNumOf(+oid), sub);
     html+=`<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
   });
   return {html, tot};
@@ -1384,9 +1385,12 @@ function qtyUnder(u,oid){
   if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>{ q+=qtyIn(b.id,oid); });
   return q;
 }
-function plTable(list){
+/* oid 를 넘기면 표 맨 위에 오더 소계 캡션이 붙는다 — 이 표는 그 스토어 것만 담고 있어도
+   "SO-13993 (subtotal 10)" 를 찍는다(유닛별 인쇄와 같은 줄). */
+function plTable(list, oid){
   const rows=list.map(i=>`<tr><td>${esc(i.order_sku)}</td><td style="font-family:var(--mono);font-size:11px">${esc(bcBySku[i.order_sku]||"")}</td><td>${esc(i.product_name||"")}</td><td class="n">${i.qty_base}</td></tr>`).join("");
-  return `<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const cap=oid==null?"":wmsPacking.orderSubtotalRow(orderNumOf(oid), list.reduce((s,i)=>s+Number(i.qty_base||0),0));
+  return `<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>${cap}${rows}</tbody></table>`;
 }
 /* the whole point of C: whoever opens this unit must know what else is inside it */
 function alsoOthers(u,oid,deep){
@@ -1432,7 +1436,7 @@ function buildStoreBody(oid){
     if(direct.length){
       const sub=direct.reduce((s,i)=>s+Number(i.qty_base||0),0);
       const head=u.unit_type==="pallet"?`Loose on 🟩 ${esc(uCode(u))}`:`${icon} ${esc(uCode(u))}`;
-      inner+=`<div class="pl-sec">${head} <span style="font-weight:400;color:#555">(subtotal ${sub})</span></div>${plTable(direct)}`;
+      inner+=`<div class="pl-sec">${head} <span style="font-weight:400;color:#555">(subtotal ${sub})</span></div>${plTable(direct,oid)}`;
     }
     // …and this store's goods inside the pallet's boxes (nested — name the parent, rule C.2)
     if(u.unit_type==="pallet"){
@@ -1444,7 +1448,7 @@ function buildStoreBody(oid){
         // a mixed box must be re-sorted at the destination — flag it loudly (pallets mix by design)
         const mix=bOrds.length>1?` <span class="pl-mix">⚠ MIXED BOX — holds ${bOrds.length} orders, re-sort at destination</span>`:"";
         inner+=`<div class="pl-sec">📦 ${esc(uCode(b))} on 🟩 ${esc(uCode(u))} <span style="font-weight:400;color:#555">(subtotal ${sub})</span>${mix}</div>`
-             + plTable(bi) + alsoLine(b,oid,false);
+             + plTable(bi,oid) + alsoLine(b,oid,false);
       });
     }
     // a standalone box carries its own mixed warning

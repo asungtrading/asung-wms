@@ -1339,7 +1339,10 @@ async function getPackingData(oid){
 async function buildPackingListHTML(oid, autoprint){
   const d=await getPackingData(oid);
   const e=s2=>String(s2==null?"":s2).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  const tbl=rows=>`<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>`
+  // 재출력은 오더 1건짜리 문서지만 표마다 오더 소계 캡션을 찍는다 — fulfillment 인쇄물과 같은 줄
+  // (wms-packing.js 가 형식 소유). 표만 떼어 봐도 누구 물건인지 알아야 한다.
+  const tbl=(rows,sub)=>`<table class="pl"><thead><tr><th>SKU</th><th>Barcode</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody>`
+    +wmsPacking.orderSubtotalRow(d.ord.order_number, sub)
     +rows.map(r=>`<tr><td>${e(r.sku)}</td><td class="bcd">${e(r.barcode)}</td><td>${e(r.name)}</td><td class="n">${r.qty}</td></tr>`).join("")
     +`</tbody></table>`;
   const alsoHtml=(u,also)=>{
@@ -1366,7 +1369,7 @@ async function buildPackingListHTML(oid, autoprint){
       const head=p.kind==="loose"?`Loose on 🟩 ${e(g.label)}`
         :(p.parentLabel?`📦 ${e(p.label)} on 🟩 ${e(p.parentLabel)}`:`📦 ${e(p.label)}`);
       inner+=`<div class="sec">${head} <span style="font-weight:400;color:#555">(subtotal ${p.sub})</span>${pmix}</div>`
-        +tbl(p.rows)+alsoHtml({unitType:"box",label:p.label},p.also);
+        +tbl(p.rows,p.sub)+alsoHtml({unitType:"box",label:p.label},p.also);
     });
     body+=`<div class="grp">
       <div class="grphd">${icon} ${e(wmsPacking.unitTitle(g))} — <span class="mine">this order: ${g.mineQty} units</span>${mix}</div>
@@ -1464,10 +1467,13 @@ async function downloadPackingPDF(oid, onum){
           :(p.parentLabel?`${p.label} on ${p.parentLabel}`:`${p.label}`);
         if(y>265){ doc.addPage(); y=16; }
         doc.setFontSize(10); doc.setFont(undefined,"bold"); doc.setTextColor(0,0,0); doc.text(title,14,y+4);
+        // 표 첫 행 = 오더 소계 캡션(Print/CSV 와 같은 문구, wms-packing.js). 오더가 하나여도 찍는다.
+        const capRow=[[{content:wmsPacking.orderSubtotalText(d.ord.order_number,p.sub), colSpan:4,
+          styles:{fontStyle:"bold", font:"courier", fillColor:[241,242,244], textColor:[18,22,28]}}]];
         doc.autoTable({
           startY:y+6,
           head:[["SKU","Barcode","Product","Qty"]],
-          body:p.rows.map(r=>[r.sku, r.barcode, r.name, String(r.qty)]),
+          body:capRow.concat(p.rows.map(r=>[r.sku, r.barcode, r.name, String(r.qty)])),
           styles:{fontSize:8.5,cellPadding:1.6},
           headStyles:{fillColor:[18,22,28]},
           columnStyles:{0:{cellWidth:30},1:{cellWidth:36,font:"courier"},3:{halign:"right",cellWidth:14}},
@@ -1505,11 +1511,14 @@ async function downloadPackingCSV(oid, onum){
       wmsPacking.unitTitle(u), u.parentLabel||"", u.mineQty>0?"YES":"no", u.mineQty]));
     rows.push([]);
     // section 2 — contents
-    rows.push(["Unit","Parent","SKU","Barcode","Product","Qty"]);
+    // ⚠️ Order 열을 행마다 싣는다 — CSV 는 정렬·필터로 행이 흩어지므로 소계 행만으로는
+    //    오더 구분이 유지되지 않는다. 소계 행(SKU 칸 = SUBTOTAL)은 Print/PDF 의 캡션과 짝이다.
+    rows.push(["Order","Unit","Parent","SKU","Barcode","Product","Qty"]);
     (d.groups||[]).forEach(g=>g.parts.forEach(p=>{
       const unit=p.kind==="loose"?`Loose on ${g.label}`:p.label;
       const parent=p.kind==="loose"?g.label:(p.parentLabel||"");
-      p.rows.forEach(r=>rows.push([unit,parent,r.sku,r.barcode,r.name,r.qty]));
+      p.rows.forEach(r=>rows.push([d.ord.order_number,unit,parent,r.sku,r.barcode,r.name,r.qty]));
+      rows.push([d.ord.order_number,unit,parent,"SUBTOTAL","","",p.sub]);
     }));
     rows.push([]);
     // section 3 — what else rides in the same unit (the reason C exists)
@@ -1520,7 +1529,7 @@ async function downloadPackingCSV(oid, onum){
       g.parts.forEach(p=>(p.also||[]).forEach(a=>{ anyAlso=true; rows.push([p.label, a.label, a.qty]); }));
     });
     if(!anyAlso) rows.push(["(none — no unit is shared with another order)","",""]);
-    rows.push([]); rows.push(["Total","","","","",d.grand]);
+    rows.push([]); rows.push(["Total","","","","","",d.grand]);
     const csv="\uFEFF"+rows.map(r=>r.map(q).join(",")).join("\r\n");
     const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
     const a=document.createElement("a");

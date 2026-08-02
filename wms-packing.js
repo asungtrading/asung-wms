@@ -1,4 +1,4 @@
-/* wms-packing.js — 팩킹 유닛 라벨의 단일 출처 (single source of truth)
+/* wms-packing.js — 팩킹 유닛 라벨 + 오더 소계 캡션의 단일 출처 (single source of truth)
  *
  * 쓰는 곳:
  *   fulfillment.html — 유닛 생성(addUnit·createBoxFor) · 작업화면 표시 · 유닛별/스토어별 팩킹리스트 인쇄
@@ -70,6 +70,29 @@
     return pfx + (max + 1);
   }
 
+  /* ---- 오더 소계 캡션 (2026-08-02) ----------------------------------------
+     품목표 맨 위에 붙는 "SO-13993 (subtotal 10)" 한 줄.
+     ⚠️ 유닛에 오더가 하나뿐이어도 **항상** 붙인다. 예전에는 오더가 2건 이상일 때만 넣었는데
+     (혼합 유닛의 구분선 용도), 그러면 단일 오더 유닛의 표는 자기가 누구 물건인지 말하지 못하고
+     읽는 사람이 페이지 헤더까지 되짚어야 한다 — 현장 피드백(P2 에 소계 행이 없어 대조 불가).
+     형식은 여기 한 곳에서만 만든다: 유닛별 인쇄 · 스토어별 종합 · admin Print/PDF/CSV 가 같은 줄. */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  var CAP_MONO = "ui-monospace,'SF Mono','DM Mono',Menlo,monospace";
+
+  /* 평문 — PDF/CSV 처럼 마크업을 못 쓰는 출력용 */
+  function orderSubtotalText(orderLabel, sub) {
+    return String(orderLabel == null ? "" : orderLabel) + " (subtotal " + Number(sub || 0) + ")";
+  }
+  /* 표 안의 캡션 행. colspan 기본 4 = SKU·Barcode·Product·Qty */
+  function orderSubtotalRow(orderLabel, sub, colspan) {
+    return '<tr><td colspan="' + (colspan || 4) + '" style="background:#f7f7f7;font-family:' + CAP_MONO + ';font-weight:800">'
+      + esc(orderLabel) + ' <span style="font-weight:400;color:#666">(subtotal ' + Number(sub || 0) + ')</span></td></tr>';
+  }
+
   window.wmsPacking = {
     unitCode: unitCode,
     unitTypeWord: unitTypeWord,
@@ -77,5 +100,7 @@
     unitTitle: unitTitle,
     unitOn: unitOn,
     nextUnitLabel: nextUnitLabel,
+    orderSubtotalText: orderSubtotalText,
+    orderSubtotalRow: orderSubtotalRow,
   };
 })();
