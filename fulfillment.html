@@ -330,8 +330,12 @@
 <script src="wms-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
+<script src="wms-packing.js"></script>
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
+/* unit label helpers — wms-packing.js is the only place that builds them (screen == print) */
+const uCode=u=>wmsPacking.unitCode(u), uTitle=u=>wmsPacking.unitTitle(u), uIcon=u=>wmsPacking.unitIcon(u);
+const uOn=(u,p)=>wmsPacking.unitOn(u,p);
 let sb=null, me=null, staff=[];
 let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
 // orders that ride along in the same pallet/box but are NOT in the current selection.
@@ -704,7 +708,7 @@ function boxBlock(b){
   const its=itemsIn(b.id);
   const tot=its.reduce((s,i)=>s+Number(i.qty_base||0),0);
   return `<div class="nested${scanTarget===b.id?" scan-target":""}" data-unit="${b.id}" data-type="box">
-    <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(b.label)}${orderBadge(b.id)}<span class="tot">${its.length} lines · ${tot} units</span>
+    <div class="nh" draggable="true" data-box="${b.id}">📦 ${esc(uCode(b))}${orderBadge(b.id)}<span class="tot">${its.length} lines · ${tot} units</span>
       <span class="x" data-delunit="${b.id}" style="cursor:pointer;margin-left:6px">✕</span></div>
     <div class="nbody">${its.length?its.map(itemChip).join(""):'<div style="color:var(--mut-2);font-size:11px;padding:4px 2px">Drag or tap here</div>'}
       <button class="mini print" data-print="${b.id}" style="margin-top:4px">🖨 Box list</button></div>
@@ -722,7 +726,7 @@ function renderUnits(){
       const body=(boxes.map(boxBlock).join("")) + (direct.length?direct.map(itemChip).join(""):"") +
         (!boxes.length&&!direct.length?'<div class="ubody empty-hint">Drag or tap here</div>':"");
       return `<div class="unit pallet${scanTarget===u.id?" scan-target":""}" data-unit="${u.id}" data-type="pallet">
-        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(u.label)}</span><span class="typ">PALLET</span><span class="tot">${lineCnt} lines · ${tot} units</span></div>
+        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">🟩 ${esc(uCode(u))}</span><span class="typ">PALLET</span><span class="tot">${lineCnt} lines · ${tot} units</span></div>
         <div class="ubody">${body}</div>
         <div class="notes"><input placeholder="Height note" value="${esc(u.height_note||"")}" data-note="height" data-uid="${u.id}"><input placeholder="Weight note" value="${esc(u.weight_note||"")}" data-note="weight" data-uid="${u.id}"></div>
         <div class="ufoot"><button class="mini" data-addbox="${u.id}">+ Nest box</button><button class="mini print" data-print="${u.id}">🖨 Pallet list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
@@ -730,7 +734,7 @@ function renderUnits(){
     } else {
       const its=itemsIn(u.id);
       return `<div class="unit box${scanTarget===u.id?" scan-target":""}" data-unit="${u.id}" data-type="box">
-        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(u.label)}</span><span class="typ">BOX</span>${orderBadge(u.id)}<span class="tot">${its.length} lines · ${unitTot(u.id)} units</span></div>
+        <div class="uhead"><span class="grip" draggable="true" data-move-unit="${u.id}">⠿</span><span class="lbl">📦 ${esc(uCode(u))}</span><span class="typ">BOX</span>${orderBadge(u.id)}<span class="tot">${its.length} lines · ${unitTot(u.id)} units</span></div>
         <div class="ubody">${its.length?its.map(itemChip).join(""):'<div class="ubody empty-hint">Drag or tap here</div>'}</div>
         <div class="ufoot"><button class="mini print" data-print="${u.id}">🖨 Box list</button><button class="mini" data-delunit="${u.id}">Delete</button></div>
       </div>`;
@@ -760,12 +764,12 @@ function wireUnitEvents(){
       if(e.target.closest("[data-delunit]"))return;
       e.stopPropagation();
       const u=units.find(x=>x.id===+h.dataset.box); if(!u)return;
-      arm({kind:"box",boxId:u.id}, `📦 ${u.label}`, h);
+      arm({kind:"box",boxId:u.id}, `📦 ${uCode(u)}`, h);
     }));
     el.querySelectorAll("[data-move-unit]").forEach(h=>h.addEventListener("click",e=>{
       if(recentDrag())return; e.stopPropagation();
       const u=units.find(x=>x.id===+h.dataset.moveUnit); if(!u||u.unit_type!=="box")return; // pallets don't move
-      arm({kind:"box",boxId:u.id}, `📦 ${u.label}`, h.closest(".unit")||h);
+      arm({kind:"box",boxId:u.id}, `📦 ${uCode(u)}`, h.closest(".unit")||h);
     }));
     // tap a unit to place the armed selection (delegated; innermost unit wins)
     el.addEventListener("click",e=>{
@@ -844,10 +848,9 @@ async function removeItem(itemId){ await sb.from("wms_pallet_items").delete().eq
 
 /* ---------- add/remove unit ---------- */
 async function addUnit(type, parentId=null){
-  const n=units.filter(u=>u.unit_type===type).length+1;
-  const primary=orders.find(o=>o.id===orderIds[0])||orders[0];
-  const prefix=(orderIds.length>1? (primary?.order_number||"SHIP")+"+" : (primary?.order_number||"SO"));
-  const label=prefix+(type==="pallet"?"-P":"-B")+n;
+  // label = unit identifier only (P1 / B3) — the order number is already in the header and
+  // in the per-order subtotals; wms-packing.js owns the scheme.
+  const label=wmsPacking.nextUnitLabel(type, units);
   const {error}=await sb.from("wms_pallets").insert({order_id:orderIds[0], unit_type:type, label, parent_id:parentId, status:"building", created_by:me.name});
   if(error){toast("Add failed: "+error.message,true);return;}
   await refresh();
@@ -982,7 +985,7 @@ function mergeSiblingBarcodes(rows){ // wms_sku_snapshot rows keyed by base_sku
 /* ---- target selection & scan bar ---- */
 function setScanTarget(uid){ scanTarget=uid; renderScanBar(); renderUnits(); focusProdScan(); }
 function clearScanTarget(){ scanTarget=null; renderScanBar(); renderUnits(); focusProdScan(); }
-function targetLabel(){ const u=unitById(scanTarget); return u?(u.unit_type==="pallet"?"🟩 ":"📦 ")+u.label:""; }
+function targetLabel(){ const u=unitById(scanTarget); return u?uIcon(u)+" "+uCode(u):""; }
 function renderScanBar(){
   const bar=document.getElementById("scanBar"); if(!bar) return;
   const chip=document.getElementById("scanTargetChip");
@@ -1152,16 +1155,13 @@ async function guardBoxMix(chosenOrderId,entry){
   const nb=await createBoxFor(chosenOrderId,t);
   if(!nb){ rejectScan("Could not create a new box"); return null; }
   setScanTarget(nb.id);
-  toast(`New box ${nb.label} created — now scanning into it`);
+  toast(`New box ${uCode(nb)} created — now scanning into it`);
   return nb.id;
 }
 async function createBoxFor(orderId,likeBox){
-  // same label scheme as addUnit; stays on the same parent pallet as the current box
-  const n=units.filter(u=>u.unit_type==="box").length+1;
-  const primary=orders.find(o=>o.id===orderIds[0])||orders[0];
-  const prefix=(orderIds.length>1?(primary?.order_number||"SHIP")+"+":(primary?.order_number||"SO"));
+  // same label scheme as addUnit (wms-packing.js); stays on the same parent pallet as the current box
   const {data,error}=await sb.from("wms_pallets")
-    .insert({order_id:orderId, unit_type:"box", label:prefix+"-B"+n, parent_id:likeBox?.parent_id||null, status:"building", created_by:me.name})
+    .insert({order_id:orderId, unit_type:"box", label:wmsPacking.nextUnitLabel("box",units), parent_id:likeBox?.parent_id||null, status:"building", created_by:me.name})
     .select().single();
   if(error||!data) return null;
   units.push(data); renderUnits();
@@ -1190,7 +1190,7 @@ function applyAssign(uid,entries,warnNote){
     queueAssign(uid,en.olid);                          // save behind — never block feedback
   });
   if(!parts.length) return;
-  const label=`${u.label} ← ${entries.length===1?entries[0].sku:entries.length+" SKUs"} ×${total}`;
+  const label=`${uCode(u)} ← ${entries.length===1?entries[0].sku:entries.length+" SKUs"} ×${total}`;
   scanLog.unshift({label,parts}); if(scanLog.length>30)scanLog.length=30;
   renderPool(); renderUnits(); renderScanBar(); renderRecent();
   scanFlash(lineDone?"done":(multi?"okbox":"ok"),`✓ ${label}${lineDone?" · DONE":""}`);
@@ -1334,7 +1334,7 @@ function printUnit(uid){
   if(isPallet){
     const boxes=boxesIn(uid);
     boxes.forEach(b=>{ const t=tableFor(b.id); grand+=t.tot;
-      body+=`<div class="pl-unit">📦 ${esc(b.label)} <span style="font-size:12px;color:#555">(box subtotal ${t.tot})</span></div>${t.html||'<div class="pl-note">empty</div>'}`; });
+      body+=`<div class="pl-unit">📦 ${esc(uOn(b,u))} <span style="font-size:12px;color:#555">(box subtotal ${t.tot})</span></div>${t.html||'<div class="pl-note">empty</div>'}`; });
     const dt=tableFor(uid); grand+=dt.tot;
     if(dt.tot) body+=`<div class="pl-unit">Loose (direct to pallet)</div>${dt.html}`;
     if(u.height_note||u.weight_note) body+=`<div class="pl-note">H: ${esc(u.height_note||"—")} · W: ${esc(u.weight_note||"—")}</div>`;
@@ -1350,7 +1350,7 @@ function printUnit(uid){
   pa.innerHTML=`
     <div class="pl-h"><div class="brand"><img src="${location.origin+'/asung-logo-dark.png'}" alt="ASUNG"></div><div class="doc">PACKING LIST<br>${new Date().toLocaleDateString()}</div></div>
     <div class="pl-meta"><div>Order <b>${esc(orderStr)}</b></div><div>Customer <b>${custs.map(esc).join(" / ")}</b></div><div>Warehouse <b>${wh}</b></div></div>
-    <div class="pl-unit">${isPallet?"🟩":"📦"} ${esc(u.label)} · ${isPallet?"PALLET":"BOX"}</div>
+    <div class="pl-unit">${uIcon(u)} ${esc(uTitle(u))}</div>
     ${body}
     <div class="pl-total">Total qty: ${grand}</div>`;
   window.print();
@@ -1398,7 +1398,7 @@ function alsoLine(u,oid,deep){
   const others=alsoOthers(u,oid,deep); if(!others.length) return "";
   const icon=u.unit_type==="box"?"📦":"🟩";
   const parts=others.map(x=>`<b>${esc(x.tag)}</b> — ${x.qty} units`).join(" · ");
-  return `<div class="pl-also">⚠ ${icon} ${esc(u.label)} also contains ${others.length} other order${others.length>1?"s":""}: ${parts}</div>`;
+  return `<div class="pl-also">⚠ ${icon} ${esc(uCode(u))} also contains ${others.length} other order${others.length>1?"s":""}: ${parts}</div>`;
 }
 
 // build one order's consolidated body: which unit (pallet/box) holds how much of this order,
@@ -1409,7 +1409,7 @@ function buildStoreBody(oid){
   const tops=units.filter(u=>!u.parent_id);   // pallets + standalone boxes; child boxes render under their pallet
 
   // at-a-glance map: every unit in this shipment — pallets, their boxes — marked mine / not mine.
-  // Child boxes are listed too: "BOX-4 on PALLET-1 — none" tells the receiver not to open it.
+  // Child boxes are listed too: "B4 on P1 — none" tells the receiver not to open it.
   const mapUnits=[];
   tops.forEach(u=>{
     mapUnits.push({u, parent:null});
@@ -1418,8 +1418,8 @@ function buildStoreBody(oid){
   const map=mapUnits.length?`<div class="pl-map">`+mapUnits.map(({u,parent})=>{
     const q=parent?qtyIn(u.id,oid):qtyUnder(u,oid);
     const icon=u.unit_type==="box"?"📦":"🟩";
-    const on=parent?` on ${esc(parent.label)}`:"";
-    return `<span class="pm${q>0?" yes":""}">${icon} ${esc(u.label)}${on} ${q>0?"✔ "+q+" units":"— none"}</span>`;
+    const on=parent?` on ${esc(uCode(parent))}`:"";
+    return `<span class="pm${q>0?" yes":""}">${icon} ${esc(uCode(u))}${on} ${q>0?"✔ "+q+" units":"— none"}</span>`;
   }).join("")+`</div>`:"";
 
   tops.forEach(u=>{
@@ -1431,7 +1431,7 @@ function buildStoreBody(oid){
     const direct=itemsIn(u.id).filter(i=>i.order_id===oid);
     if(direct.length){
       const sub=direct.reduce((s,i)=>s+Number(i.qty_base||0),0);
-      const head=u.unit_type==="pallet"?`Loose on 🟩 ${esc(u.label)}`:`${icon} ${esc(u.label)}`;
+      const head=u.unit_type==="pallet"?`Loose on 🟩 ${esc(uCode(u))}`:`${icon} ${esc(uCode(u))}`;
       inner+=`<div class="pl-sec">${head} <span style="font-weight:400;color:#555">(subtotal ${sub})</span></div>${plTable(direct)}`;
     }
     // …and this store's goods inside the pallet's boxes (nested — name the parent, rule C.2)
@@ -1443,7 +1443,7 @@ function buildStoreBody(oid){
         const bOrds=ordersDirectlyIn(b.id);
         // a mixed box must be re-sorted at the destination — flag it loudly (pallets mix by design)
         const mix=bOrds.length>1?` <span class="pl-mix">⚠ MIXED BOX — holds ${bOrds.length} orders, re-sort at destination</span>`:"";
-        inner+=`<div class="pl-sec">📦 ${esc(b.label)} on 🟩 ${esc(u.label)} <span style="font-weight:400;color:#555">(subtotal ${sub})</span>${mix}</div>`
+        inner+=`<div class="pl-sec">📦 ${esc(uCode(b))} on 🟩 ${esc(uCode(u))} <span style="font-weight:400;color:#555">(subtotal ${sub})</span>${mix}</div>`
              + plTable(bi) + alsoLine(b,oid,false);
       });
     }
@@ -1454,7 +1454,7 @@ function buildStoreBody(oid){
       if(bOrds.length>1) topMix=` <span class="pl-mix">⚠ MIXED BOX — holds ${bOrds.length} orders, re-sort at destination</span>`;
     }
     body+=`<div class="pl-grp">
-      <div class="pl-grp-hd">${icon} ${esc(u.label)} · ${u.unit_type==="pallet"?"PALLET":"BOX"} — <span class="mine">your goods: ${mine} units</span>${topMix}</div>
+      <div class="pl-grp-hd">${icon} ${esc(uTitle(u))} — <span class="mine">your goods: ${mine} units</span>${topMix}</div>
       ${inner||'<div class="pl-note">empty</div>'}
       ${alsoLine(u,oid,u.unit_type==="pallet")}
     </div>`;

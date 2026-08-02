@@ -14,6 +14,7 @@ receiver.html       리시빙/풋어웨이 (작업자, 한 PO 를 여러 명이 
 wms-config.js       window.WMS_CONFIG = {SUPABASE_URL, SUPABASE_ANON_KEY}
 wms-auth.js         공유 로그인 모듈
 wms-picklist.js     픽리스트 인쇄 공용 모듈 (manager 생성 · picker/packer 재인쇄) ⚠️ 형식은 여기만 고친다
+wms-packing.js      팩킹 유닛 라벨 공용 모듈 (fulfillment 생성·표시 · admin 재출력) ⚠️ 라벨은 여기만 만든다
 asung-logo-white.png  런처용 (어두운 배경)
 asung-logo-dark.png   6화면용 (밝은 헤더)
 CNAME               "wms.asung.ca"
@@ -340,9 +341,9 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 
 **문제**: 팔렛은 `⚠ MIXED BOX` 같은 경고가 아예 없었고, 박스 경고도 "N orders" 라고만 하고 **어느 오더인지 말하지 않았다**. 또 그 스토어 물건이 든 유닛만 나열돼 **"이 팔렛엔 내 것이 없다"** 를 알 수 없었다.
 
-- **최상위 유닛(팔렛·독립박스) 단위로 그룹핑**(`.pl-grp`, 초록 좌측 보더). 헤더 = `🟩 PALLET-1 · PALLET — your goods: 120 units`. 팔렛 총량은 **자식 박스까지 걸어서**(`qtyUnder`) 계산 — 안 그러면 물건이 전부 박스에 든 팔렛이 빈 것으로 보인다.
-- **`also contains` 줄**(`.pl-also`) — `⚠ 🟩 PALLET-1 also contains 2 other orders: SO-13851 (Store C) — 60 units · SO-13850 (Store B) — 5 units`. 팔렛은 자식 박스까지 깊게(deep), 박스는 자기 것만.
-- **중첩 표기** `📦 BOX-3 on 🟩 PALLET-1`. 기존 `⚠ MIXED BOX — holds N orders, re-sort at destination` 유지.
+- **최상위 유닛(팔렛·독립박스) 단위로 그룹핑**(`.pl-grp`, 초록 좌측 보더). 헤더 = `🟩 P1 · PALLET — your goods: 120 units`(라벨은 2026-08-02 로 짧아졌다 — 아래 「유닛 라벨」 절). 팔렛 총량은 **자식 박스까지 걸어서**(`qtyUnder`) 계산 — 안 그러면 물건이 전부 박스에 든 팔렛이 빈 것으로 보인다.
+- **`also contains` 줄**(`.pl-also`) — `⚠ 🟩 P1 also contains 2 other orders: SO-13851 (Store C) — 60 units · SO-13850 (Store B) — 5 units`. 팔렛은 자식 박스까지 깊게(deep), 박스는 자기 것만.
+- **중첩 표기** `📦 B3 on 🟩 P1`. 기존 `⚠ MIXED BOX — holds N orders, re-sort at destination` 유지.
 - **유닛 지도**(`.pl-map`) — 출하의 모든 유닛(팔렛 + 자식 박스)을 칩으로 나열, 내 것 있는 유닛은 초록 굵은 테두리 + `✔ N units`, 없으면 회색 `— none`. 색만으로 구분하지 않는다(흑백 인쇄).
 - ⚠️ **미배정 경고 유지**(`⚠ Unassigned` + `This store is not fully packed yet.`).
 - **`extOrders`** 신설 — 같은 팔렛에 실렸지만 **현재 선택에 없는** 오더의 이름표 캐시(`refresh()` 에서 1회 조회). 없으면 "also contains order #57" 로 밖에 못 쓴다. `orderNumOf`/`orderTag` 가 함께 본다.
@@ -358,6 +359,41 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 - CSV 는 3구획: `Units in this shipment` / 내용(Unit·Parent·SKU·…) / `Also contains`.
 - ⚠️ **한계**: Finalized 재출력은 **오더 단위**라 이 오더 물건이 **전혀 없는 다른 팔렛**은 알 수 없다(오더↔출하 묶음 관계가 저장되지 않는다). fulfillment 화면은 선택된 오더들 기준이라 그 팔렛까지 `— none` 으로 보여준다. 두 출력이 이 한 항목에서만 다르다.
 - ⬜ admin 재출력에는 `⚠ Unassigned` 가 없다(fulfillment 전용). Finalize 이후엔 pack task 재집계가 필요해 이번 범위 밖.
+
+### `wms-packing.js` — 팩킹 유닛 라벨의 단일 출처 (신규 파일, 2026-08-02 후반)
+
+**문제**: 스토어별 종합 팩킹리스트의 유닛 제목이 `SO-13849+-P1 · PALLET` 로 나왔다.
+오더번호는 헤더(`Order SO-13849, SO-13993`)와 표 안 오더별 소계에 이미 있어 **세 번째 반복**이고,
+`+` 는 읽는 사람에게 의미가 없어 현장에서 헷갈린다는 피드백.
+
+- **`+` 의 출처 = 표시가 아니라 생성**이었다. `addUnit`(과 스캔 배정의 `createBoxFor`)이
+  `prefix = orderIds.length>1 ? 오더번호+"+" : 오더번호` 로 **"외 여러 건" 표시**를 붙여
+  `SO-13849+` + `-P1` = `SO-13849+-P1` 을 만들어 **DB `wms_pallets.label` 에 그대로 저장**했다.
+  → 표시 단계에서 자르는 게 아니라 **생성을 고쳤다**.
+- **새 라벨 = 유닛 식별자만** — 팔렛 `P1`, 박스 `B3`. 유닛 생성·배정 동작(어느 유닛에 무엇이
+  들어가는지)은 **그대로**이고 `wms_pallets`/`wms_pallet_items` 스키마 변경도 없다.
+- ⚠️ **번호는 "개수+1" → "이미 쓰인 최대 번호+1"** 로 바꿨다. 개수 기준은 중간 유닛을 지우면
+  같은 번호를 다시 내준다(P1·P2 중 P1 삭제 → 개수 1 → 또 P2). 접두사가 없어진 만큼 라벨 하나가
+  곧 유닛 이름이라 중복을 만들면 안 된다. 남는 한계: **서로 다른 세션에서 따로 꾸린 오더**를
+  나중에 함께 선택하면 각자의 `P1` 이 한 화면에 모일 수 있다(저장된 라벨은 고치지 않는다 —
+  유닛의 키는 `id`).
+- **`unitCode()` 는 이미 저장된 옛 라벨용 호환 계층** — `SO-13849+-P1`/`SO-13849-B2` → `P1`/`B2`
+  (`/([PB])\s*-?\s*(\d+)$/`, 못 알아보면 원문 유지). 새 라벨엔 아무 일도 하지 않는다.
+  마이그레이션으로 옛 행을 고치지 않은 이유: 라벨은 표시 문자열이고 유닛의 키는 `id` 다.
+- **API**: `unitCode(u)` / `unitTypeWord(u)` / `unitIcon(u)` / `unitTitle(u)`(=`P1 · PALLET`) /
+  `unitOn(u,parent)`(=`B3 on P1`) / `nextUnitLabel(type, units)`.
+  ⚠️ 유닛 객체는 두 형태(`{unit_type,label}` DB 행 / `{unitType,label}` admin 가공 행)로
+  돌아다니므로 **둘 다 받는다** — 호출자마다 변환하게 두면 그게 드리프트다.
+- **표기 규칙**: 제목은 `unitTitle`(`P1 · PALLET`), 다른 유닛을 가리킬 땐 코드만(`on P1`,
+  `also contains`). HTML 은 앞에 아이콘(🟩/📦)을 붙이고 PDF/CSV 는 안 붙인다.
+- **적용 지점 — 화면과 인쇄가 어긋나면 안 된다**(작업자가 화면의 `P1` 을 실물에 적는다):
+  fulfillment 작업화면 유닛 헤더·스캔 타깃 칩·Undo 로그·토스트 / fulfillment 유닛별 인쇄 /
+  fulfillment 스토어별 종합(그룹 헤더·중첩·유닛 지도·`also contains`) /
+  admin Finalized 재출력 Print·PDF·CSV.
+- **admin 은 `getPackingData` 에서 한 번만 정규화**한다(`groups[].label`·`parts[].label/parentLabel`·
+  `unitMap[].label/parentLabel`). 세 출력이 그 값을 그대로 쓰므로 출력별 분기가 없다.
+  호환용 `sections` 도 같은 코드값을 받는다.
+- 유지된 것: `also contains …` · 유닛 지도 · `⚠ MIXED BOX` · `⚠ Unassigned` 경고.
 
 ## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
 

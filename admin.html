@@ -273,6 +273,7 @@
 <script src="wms-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
+<script src="wms-packing.js"></script>
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[];
@@ -1290,14 +1291,17 @@ async function getPackingData(oid){
   const mapRow=(i,x)=>({sku:i.order_sku||"", barcode:bc[i.order_sku]||"", name:i.product_name||"", qty:Number(i.qty_base||0)});
 
   const tops=units.filter(u=>!u.parent_id);
-  // 유닛 지도 — 최상위 + 그 자식 박스까지. "BOX-4 on PALLET-1 — none" 이 있어야 받는 쪽이 안 열어본다.
+  // 유닛 지도 — 최상위 + 그 자식 박스까지. "B4 on P1 — none" 이 있어야 받는 쪽이 안 열어본다.
   // ⚠️ Finalized 재출력은 오더 단위라, 이 오더 물건이 전혀 없는 **다른 팔렛**은 알 수 없다
   //    (오더↔출하 묶음 관계가 저장되지 않는다). fulfillment 화면은 선택된 오더들 기준이라 더 넓게 본다.
+  // ⚠️ 라벨은 여기서 한 번만 정규화한다(wms-packing.js) — Print/PDF/CSV 가 이 값을 그대로 쓴다.
+  //    fulfillment 화면·인쇄와 같은 표기여야 작업자가 실물에 적은 것과 대조된다.
+  const uc=wmsPacking.unitCode;
   const unitMap=[];
   tops.forEach(u=>{
-    unitMap.push({unitType:u.unit_type, label:u.label||"", parentLabel:null, mineQty:qtyUnder(u,oid)});
+    unitMap.push({unitType:u.unit_type, label:uc(u), parentLabel:null, mineQty:qtyUnder(u,oid)});
     if(u.unit_type==="pallet") boxesIn(u.id).forEach(b=>
-      unitMap.push({unitType:"box", label:b.label||"", parentLabel:u.label||"", mineQty:qtyIn(b.id,oid)}));
+      unitMap.push({unitType:"box", label:uc(b), parentLabel:uc(u), mineQty:qtyIn(b.id,oid)}));
   });
   const groups=[]; let grand=0;
   tops.forEach(u=>{
@@ -1306,20 +1310,20 @@ async function getPackingData(oid){
     const parts=[];
     const direct=itemsIn(u.id).filter(i=>i.order_id===oid);
     if(direct.length){
-      parts.push({ kind:u.unit_type==="pallet"?"loose":"box", label:u.label||"", parentLabel:null,
+      parts.push({ kind:u.unit_type==="pallet"?"loose":"box", label:uc(u), parentLabel:null,
         sub:direct.reduce((s,i)=>s+Number(i.qty_base||0),0), mixedCount:0, also:[], rows:direct.map(mapRow) });
     }
     if(u.unit_type==="pallet"){
       boxesIn(u.id).forEach(b=>{
         const bi=itemsIn(b.id).filter(i=>i.order_id===oid); if(!bi.length) return;
         const bo=ordsDirect(b.id);
-        parts.push({ kind:"box", label:b.label||"", parentLabel:u.label||"",
+        parts.push({ kind:"box", label:uc(b), parentLabel:uc(u),
           sub:bi.reduce((s,i)=>s+Number(i.qty_base||0),0),
           mixedCount:bo.length>1?bo.length:0, also:alsoOf(b,false), rows:bi.map(mapRow) });
       });
     }
     const topOrds=ordsDirect(u.id);
-    groups.push({ unitType:u.unit_type, label:u.label||"", mineQty, parts,
+    groups.push({ unitType:u.unit_type, label:uc(u), mineQty, parts,
       mixedCount:(u.unit_type==="box"&&topOrds.length>1)?topOrds.length:0,
       also:alsoOf(u, u.unit_type==="pallet") });
   });
@@ -1341,7 +1345,7 @@ async function buildPackingListHTML(oid, autoprint){
   const alsoHtml=(u,also)=>{
     if(!also||!also.length) return "";
     const icon=u.unitType==="box"?"📦":"🟩";
-    return `<div class="also">⚠ ${icon} ${e(u.label)} also contains ${also.length} other order${also.length>1?"s":""}: `
+    return `<div class="also">⚠ ${icon} ${e(wmsPacking.unitCode(u))} also contains ${also.length} other order${also.length>1?"s":""}: `
       +also.map(a=>`<b>${e(a.label)}</b> — ${a.qty} units`).join(" · ")+`</div>`;
   };
   // at-a-glance unit map: every unit in the shipment, this order's goods marked
@@ -1365,7 +1369,7 @@ async function buildPackingListHTML(oid, autoprint){
         +tbl(p.rows)+alsoHtml({unitType:"box",label:p.label},p.also);
     });
     body+=`<div class="grp">
-      <div class="grphd">${icon} ${e(g.label)} · ${g.unitType==="pallet"?"PALLET":"BOX"} — <span class="mine">this order: ${g.mineQty} units</span>${mix}</div>
+      <div class="grphd">${icon} ${e(wmsPacking.unitTitle(g))} — <span class="mine">this order: ${g.mineQty} units</span>${mix}</div>
       ${inner||'<div class="note">empty</div>'}
       ${alsoHtml(g,g.also)}
     </div>`;
@@ -1448,16 +1452,16 @@ async function downloadPackingPDF(oid, onum){
     if(d.unitMap&&d.unitMap.length){
       doc.setFontSize(9); doc.setFont(undefined,"bold"); doc.text("Units in this shipment:",14,y+4); y+=5;
       doc.setFont(undefined,"normal");
-      wrap(d.unitMap.map(u=>`${u.unitType==="box"?"BOX":"PALLET"} ${u.label}${u.parentLabel?" on "+u.parentLabel:""}: ${u.mineQty>0?u.mineQty+" units of this order":"none of this order"}`).join("   |   "),14);
+      wrap(d.unitMap.map(u=>`${wmsPacking.unitTitle(u)}${u.parentLabel?" on "+u.parentLabel:""}: ${u.mineQty>0?u.mineQty+" units of this order":"none of this order"}`).join("   |   "),14);
     }
     (d.groups||[]).forEach(g=>{
       if(y>258){ doc.addPage(); y=16; }
       doc.setFontSize(11); doc.setFont(undefined,"bold");
-      doc.text(`${g.unitType==="box"?"BOX":"PALLET"} ${g.label} — this order: ${g.mineQty} units`,14,y+4); y+=6;
+      doc.text(`${wmsPacking.unitTitle(g)} — this order: ${g.mineQty} units`,14,y+4); y+=6;
       if(g.mixedCount){ doc.setFontSize(9); doc.setTextColor(180,0,0); doc.text(`MIXED BOX — holds ${g.mixedCount} orders, re-sort at destination`,14,y+3); doc.setTextColor(0,0,0); y+=5; }
       g.parts.forEach(p=>{
-        const title=p.kind==="loose"?`Loose on PALLET ${g.label}`
-          :(p.parentLabel?`BOX ${p.label} on PALLET ${p.parentLabel}`:`BOX ${p.label}`);
+        const title=p.kind==="loose"?`Loose on ${g.label}`
+          :(p.parentLabel?`${p.label} on ${p.parentLabel}`:`${p.label}`);
         if(y>265){ doc.addPage(); y=16; }
         doc.setFontSize(10); doc.setFont(undefined,"bold"); doc.setTextColor(0,0,0); doc.text(title,14,y+4);
         doc.autoTable({
@@ -1474,10 +1478,10 @@ async function downloadPackingPDF(oid, onum){
         doc.text(`Subtotal: ${p.sub}`,196,y+4,{align:"right"}); y+=6;
         if(p.mixedCount){ doc.setTextColor(180,0,0); wrap(`MIXED BOX — holds ${p.mixedCount} orders, re-sort at destination`,14); doc.setTextColor(0,0,0); }
         if(p.also&&p.also.length){ doc.setTextColor(122,59,0);
-          wrap(`BOX ${p.label} also contains: `+p.also.map(a=>`${a.label} — ${a.qty} units`).join("; "),14); doc.setTextColor(0,0,0); }
+          wrap(`${p.label} also contains: `+p.also.map(a=>`${a.label} — ${a.qty} units`).join("; "),14); doc.setTextColor(0,0,0); }
       });
       if(g.also&&g.also.length){ doc.setFontSize(9); doc.setTextColor(122,59,0);
-        wrap(`${g.unitType==="box"?"BOX":"PALLET"} ${g.label} also contains: `+g.also.map(a=>`${a.label} — ${a.qty} units`).join("; "),14);
+        wrap(`${g.label} also contains: `+g.also.map(a=>`${a.label} — ${a.qty} units`).join("; "),14);
         doc.setTextColor(0,0,0); }
       y+=3;
     });
@@ -1498,13 +1502,13 @@ async function downloadPackingCSV(oid, onum){
     rows.push(["Units in this shipment"]);
     rows.push(["Unit","On pallet","Holds this order","Qty for this order"]);
     (d.unitMap||[]).forEach(u=>rows.push([
-      (u.unitType==="box"?"BOX ":"PALLET ")+u.label, u.parentLabel||"", u.mineQty>0?"YES":"no", u.mineQty]));
+      wmsPacking.unitTitle(u), u.parentLabel||"", u.mineQty>0?"YES":"no", u.mineQty]));
     rows.push([]);
     // section 2 — contents
     rows.push(["Unit","Parent","SKU","Barcode","Product","Qty"]);
     (d.groups||[]).forEach(g=>g.parts.forEach(p=>{
-      const unit=p.kind==="loose"?`Loose on PALLET ${g.label}`:`BOX ${p.label}`;
-      const parent=p.kind==="loose"?`PALLET ${g.label}`:(p.parentLabel?`PALLET ${p.parentLabel}`:"");
+      const unit=p.kind==="loose"?`Loose on ${g.label}`:p.label;
+      const parent=p.kind==="loose"?g.label:(p.parentLabel||"");
       p.rows.forEach(r=>rows.push([unit,parent,r.sku,r.barcode,r.name,r.qty]));
     }));
     rows.push([]);
@@ -1512,8 +1516,8 @@ async function downloadPackingCSV(oid, onum){
     rows.push(["Unit","Also contains order","Qty in that unit"]);
     let anyAlso=false;
     (d.groups||[]).forEach(g=>{
-      (g.also||[]).forEach(a=>{ anyAlso=true; rows.push([(g.unitType==="box"?"BOX ":"PALLET ")+g.label, a.label, a.qty]); });
-      g.parts.forEach(p=>(p.also||[]).forEach(a=>{ anyAlso=true; rows.push(["BOX "+p.label, a.label, a.qty]); }));
+      (g.also||[]).forEach(a=>{ anyAlso=true; rows.push([wmsPacking.unitTitle(g), a.label, a.qty]); });
+      g.parts.forEach(p=>(p.also||[]).forEach(a=>{ anyAlso=true; rows.push([p.label, a.label, a.qty]); }));
     });
     if(!anyAlso) rows.push(["(none — no unit is shared with another order)","",""]);
     rows.push([]); rows.push(["Total","","","","",d.grand]);
