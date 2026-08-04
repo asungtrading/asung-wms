@@ -80,11 +80,16 @@ POST /purchase/stock
 
 ## purchaseList 필터 실무 노트
 
-📌 **필터·페이징 실측 전체는 `purchase.md` 「필터·페이징 실측」 표** — `InvoiceStatus` 는 단일 값이라 AUTHORISED/PAID 2회 병합 · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순**(최신 PO 는 마지막 페이지) · `UpdatedSince` 는 최신성 보장 못함 · `RestockReceivedStatus` 무시됨.
+📌 **필터·페이징 실측 전체는 `purchase.md` 「필터·페이징 실측」 표** — `InvoiceStatus` 는 단일 값 · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순**(최신 PO 는 마지막 페이지) · `UpdatedSince` 는 최신성 보장 못함.
 
-- `InvoiceStatus=AUTHORISED` 서버 파라미터 지원 — Invoice First 워크플로의 "리시빙 준비" 필터. ⚠️ **AUTHORISED 만 조회하면 PAID 로 넘어간 PO 가 누락된다**(실측 PO-01081).
+⚠️⚠️ **2026-08-04 정정 2건 — 아래 줄에 예전에 적혀 있던 두 문장이 틀렸거나 폐기됐다** (경위는 `purchase.md` 「정정 — 파라미터 이름 오타」·「`InvoiceStatus` 로 좁히지 말고 `Status` 로」):
+
+1. ~~"`RestockReceivedStatus` 무시됨"~~ → 무시되는 것은 **이름을 잘못 쓴 쪽**이다. 올바른 이름 **`StockReceivedStatus` 는 동작한다**(2026-08-04 실측 `NOT AVAILABLE` Total **585** vs 오타 `RestockReceivedStatus` 877=무필터). 이 오기록이 "서버 필터 불가" 라는 결론을 일주일간 유지시켰다.
+2. ~~"`InvoiceStatus=AUTHORISED` + PAID 2회 병합 = 리시빙 준비 필터"~~ → **좁히는 축으로 폐기.** 사실 자체(파라미터 지원·단일 값·AUTHORISED 만 보면 PAID 로 넘어간 PO 누락 — 실측 PO-01081)는 그대로 유효하지만, `InvoiceStatus=PAID` 는 창업 이후 지불을 마친 **모든** PO(2026-08-04 실측 877건, 그중 리시빙 대상 **0건**)를 돌려줘 전량을 긁고 클라이언트에서 버리는 구조였다. **좁힐 땐 `Status`**(INVOICED 73 + RECEIVING 5 — 완료된 PO 는 COMPLETED 로 빠지므로 데이터가 쌓여도 조회량이 안 늘어난다). Invoice First 검사는 클라이언트로 옮겼다(asung-wms 규칙 20).
+여전히 유효한 실무 사실:
+
 - Status 는 **복합 문자열**("RECEIVED / CREDITED") 가능 — 정확 일치 말고 includes 로 검사.
-- Type 에 "Service"(운송·관세 주문 — 물건 없음) 존재 — 리시빙 목록에서 제외 필요.
+- Type 에 "Service"(운송·관세 주문 — 물건 없음) 존재 — 리시빙 목록에서 제외 필요(⚠️ `Type` 서버 필터는 무시된다 — 2026-08-04 실측).
 
 ---
 

@@ -98,6 +98,30 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 
 ⚠️ **이 문서 곳곳의 `wms_*.sql` 파일 이름은 역사적 기록**(`wms_waves.sql`·`wms_receipts.sql`·`wms_healthcheck.sql` 등). 그 파일들은 repo 에 더 이상 없고 내용은 전부 baseline 에 흡수됐다. **다시 실행하지 말 것** — 스키마 계보를 볼 땐 baseline 을 읽는다.
 
+## 이 스킬 문서를 갱신할 때 (⚠️ 2026-08-04 — 규칙보다 먼저 읽을 것)
+
+### ⚠️⚠️ description 예산이 거의 없다 — 다음 규칙 추가에서 한도에 닿는다
+
+**현재 `asung-wms` frontmatter description = 1017자 / 한도 1024자 → 여유 7자**(2026-08-04 `scripts/check-skill-desc.sh` 실측. 넘으면 claude.ai 업로드가 `must be at most 1024 characters` 로 **거부**된다 — 바이트가 아니라 문자 수).
+
+**규칙 42 를 추가하는 순간 `규칙 20~41` → `규칙 20~42` 로 1자, 새 키워드까지 넣으면 즉시 초과다.** 그러니 **키워드를 더하기 전에 덜어낼 것을 먼저 정해라.** 압축 순서(CLAUDE.md 7절과 동일):
+
+1. **규칙 번호 범위 표기를 줄인다** — `규칙 20~41` 은 이미 범위형이라 더 줄일 게 없다. 다음 단계는 앞의 `아키텍처·스키마·인증·배포·` 열거를 압축하는 것(예 `아키텍처·스키마·배포·규칙 20~42`).
+2. **해소된 함정어를 뺀다** — 그 함정이 다시 오지 않으면 트리거 가치가 낮다. 후보: `"Lines is invalid"`(2026-07-24 원인 확정·해소 — 규칙 21), `"스캔 이어받기"`(규칙 22 로 정착), `"serverChecks"`·`"unconfirmed"`·`"writeChain"`(규칙 24 구현 내부 이름 — 사용자가 이 단어로 말할 일이 드물다).
+3. **다른 스킬 description 에 이미 있는 중복어를 뺀다** — `cin7-api` 가 가진 단어(예 `Invoice First`·`authorize`·`stock received`)는 그쪽이 먼저 뜬다. ⚠️ 단 **불변식 문구는 마지막까지 유지**(factor=unit 컬럼 · bin=base_sku · Cin7 bin=GUID · Invoice First 선승인 · service_role 금지 · UI 영어 · 문서당 bin 1개·authorize POST · 라인 단위 저장).
+4. **일반어·영한 중복쌍**을 뺀다.
+
+⚠️ **트리거 키워드를 먼저 버리지 말 것** — description 은 "이 스킬이 **언제 로드될지**"를 정한다. 키워드를 자르면 필요한 순간에 스킬이 안 뜬다.
+검사: `scripts/check-skill-desc.sh` (커밋 hook = `scripts/hooks`, 클론한 머신마다 `git config core.hooksPath scripts/hooks` 1회).
+
+### 기록 규칙 (이 문서가 신뢰를 유지하는 방식)
+
+- **틀린 기록은 지우지 않는다 — "정정임을 명시하며 교체"한다.** 무엇이 틀렸는지·왜 틀렸는지·정답을 함께 남긴다(예 규칙 20 의 `RestockReceivedStatus` 오타 절, `references/schema.md` 의 `note` 컬럼 부존재 절). 지워버리면 같은 오류를 또 저지르고, 그때 "전에 이거 확인했는데" 가 근거로 재활용된다.
+- **실측에는 날짜·문서번호·값을 붙인다** — "2026-08-04 실측, `StockReceivedStatus=NOT AVAILABLE` Total 585", "TR-03144 327라인/100+그룹". 근거 없는 숫자는 다음 사람이 검증할 수 없다.
+- **추정은 추정으로, 미검증은 미검증으로 표시한다** — `WORK_HOURS`(09–17) 같은 추정 상수, "배포됐으나 실전 미검증"(규칙 36·40). ⚠️ **"동작한다"고 쓰기 전에 실물에서 봤는지 확인할 것.**
+- **새 교훈은 다음 규칙 번호로** 만들고, **기존 규칙에는 참조 한 줄만** 더한다(본문 중복 서술 금지 — 두 곳이 갈라지면 어느 쪽이 최신인지 알 수 없다).
+- **백로그는 「백로그 / 미해결」 단일 목록이 유일한 출처다** — 규칙 본문·`references/` 에 "백로그" 라고만 적고 그 목록에 올리지 않으면 잊힌다. 규칙 번호를 달아 분류 중 하나에 넣을 것.
+
 ---
 
 ## 규칙 1 — Cin7 오더 구조 (실측 확정, 추측 금지)
@@ -285,6 +309,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - 📌 **교훈(다른 API 에도 적용)**: **파라미터가 무시되는 것처럼 보이면 이름 오타를 먼저 의심하라.** Cin7 은 모르는 파라미터를 **조용히 무시**하므로 "오타" 와 "미지원" 이 응답에서 **구별되지 않는다** — 둘 다 "무필터와 같은 Total". 검증 절차: ① 문서·`references/` 의 정확한 스펠링과 대조 ② **동작을 아는 파라미터**(`Status=INVOICED` 등)를 같은 방식으로 같이 보내 배선이 살아 있음을 확인 ③ 그래도 Total 이 안 변하면 그때 "미지원" 으로 기록. **응답이 200 이라는 것은 파라미터를 받아들였다는 뜻이 아니다**(규칙 21 의 "쓰기 검증은 되읽기로" 와 같은 계열).
 
   현재 리시빙 대상 8건은 전부 `Status=INVOICED` / Simple Purchase / StockReceivedStatus=NOT AVAILABLE. `Status=RECEIVING` 5건은 전부 StockReceivedStatus=AUTHORISED 라 지금은 클라이언트 필터에서 걸러지지만 "부분입고 진행중은 유지" 의도로 조회는 유지한다 — 같은 이유로 `StockReceivedStatus` 서버 필터도 안 건다(동작하지만 RECEIVING 유지 의도와 충돌). ⚠️ `Limit=1000`(`PO_PAGE_LIMIT`)·페이지 상한 3(`PO_MAX_PAGES`)·조회 사이 sleep 유지 — 조기 종료 조건도 **같은 상수**(`items.length < PO_PAGE_LIMIT`), 어긋나면 첫 페이지에서 루프가 끊긴다. 📌 **오름차순 함정(잘리면 최신부터 누락 — 규칙 12 상세조회 굶주림과 동일 계열)은 Status 전환 후에도 전제** → 진단 강화: 응답에 **`scanned`**(상태별 필터 전 행수, 예 `{INVOICED:73, RECEIVING:5}`) + **`totals`**(상태별 서버 보고 Total) + **`truncated`**(**Total 대비 덜 받으면 true** — 페이지 상한이든 응답 잘림이든). `pos` 배열 구조·필드명은 불변(receiver.html 이 소비, 진단 필드는 추가만). 클라이언트 제외 4종(모두 includes): Status 에 VOID/COMPLETED/CREDITED 포함 · RECEIVED 포함(단 RECEIVING=부분입고 진행중은 유지) · Type 에 Service 포함(운송·관세 — 물건 없음) · StockReceivedStatus=AUTHORISED. **트랜스퍼는 Status='IN TRANSIT'**, 창고는 ToLocation 정규화 — 리시버 warehouse_access 필터.
+  - ⚠️ **검증 범위 (2026-08-04)**: 확인된 것은 **EF 응답 수준까지**다(위 실측 표 + 973행→78행 · 대상 8건 동일, 배포 전후 diff). **receiver.html 로 실제 PO 를 받아 완료까지 가는 흐름은 미검증** — 백로그 「검증 대기」.
 - **추천 빈 규칙** (base_sku × warehouse): ①`is_current=TRUE` 우선 ②없으면 `last_seen` 최신(=sold-out 자리 중 마지막) ③available 많은 곳. ⚠️ `wms_sku_bins.last_seen` 은 2026-07-23 추가(ALTER + `wms_buildBins_` SELECT/map 각 1줄) — sticky MERGE 가 last_seen 을 갱신 안 하고 얼려두므로 "마지막 재고 있던 날"이 됨. 초기엔 전부 같은 날짜(소급 불가)라 시간이 지나야 갈림.
 - ⚠️ **라스트빈 "no last bin" 근본 한계 (2026-07-24 규명)**: sticky 이력이 **2026-07-06 first_seen 부터** 시작(BQ `min(first_seen)`). 그 전에 이미 0 이 된 과거 bin 은 Cin7 productavailability 가 0-재고 bin 을 아예 안 줘서 sticky 가 **본 적이 없음 → 보존 불가**. 예: CAN01545 는 2/19 트랜스퍼로 에드먼튼 EC010303 에 있었다가 팔려 0 → 7/6 시작 땐 이미 0 → no last bin. **버그 아님, 데이터 시작점 한계.** 복구책: (가)Cin7 movements API 백필 or (나)지금부터 축적+수동지정(권장, 한 번 지정하면 재고 앉을 때 sticky 가 기억). bin 단위 과거이력은 movements 에만 있음(BQ asung_stock_daily 는 warehouse 레벨).
 - **빈 지정 UI (2026-07-24)**: 라스트빈 없거나 바꿀 때 — **스캔(1순위)+드롭다운 검색(폴백) 모달**. 드롭다운 소스 = EF `action=bins&warehouse=`(Cin7 `/ref/location` 전체 bin, **빈 자리 포함** — 신제품 새 자리 지정 가능), 실패 시 wms_sku_bins 폴백. 알려진 bin 아니면 confirm(신규 bin 허용). bin 있는 라인엔 **"Change" 버튼**(다른 자리로 바꾸면 putaway_done 자동 해제).
@@ -611,6 +636,7 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 - **기간 귀속은 `created_at`** — 미완료·미적용 receipt 도 지표에 잡혀야 한다(완료 기준으로 하면 문제 있는 문서가 통계에서 사라진다).
 - ⚠️ **`exported_base` 비율("Moved in Cin7")은 트랜스퍼 라인만** 낸다(`source_type==="transfer"` 필터). 이유가 2026-07-31 에 바뀌었다: 예전엔 "PO 는 이 컬럼을 안 씀"이었지만 이제 **PO 도 쓴다 — 단 의미가 다르다**("문서에 실은 양", 규칙 21 PO 이식 절). 섞으면 "옮겼다"와 "문서에 실었다"가 한 지표에 합쳐져 뜻이 없어지므로 필터는 유지하고, 각주에 PO 제외를 명시했다.
 - **화면 각주 2개는 필수 유지**: ①`exported_base` 는 **수동 UPDATE 로 오염될 수 있다**(TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전 데이터가 없다**. 숫자를 그대로 믿게 두면 안 되는 지표라 각주를 지우지 말 것.
+- ⚠️ **mistake tally 의 집계 대상은 2026-08-04 에 바뀌었다 — 규칙 41 참조**(`recv_*`·`stock_short`·`pack_scan_mistake` 는 실수가 아니다). 여기 본문은 중복 서술하지 않는다.
 
 ## 규칙 38 — 트랜스퍼 Put away 는 v2 API 에 없다 (⚠️⚠️ 탐색 종결 — 2026-07-31 실측 · 같은 탐색 반복 금지)
 
@@ -658,11 +684,12 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
   - ⚠️⚠️ **`pack_scan_mistake` 를 실수 집계에 넣지 않는 것은 타협이 아니라 설계다.** 넣으면 팩커가 정직하게 "내가 두 번 스캔했다" 를 고르지 않고 픽커 탓(`over_pick`)으로 떠넘긴다 — **정직한 기록을 벌주면 기록 자체가 사라진다.** `recv_off_po` 를 리시버 실수에서 뺀 판단과 같은 논리이며, 새 자백형 reason 을 추가할 때도 같은 기준으로 판단할 것.
 - **`responsible` 은 실수 귀속 전용 컬럼이다** — Stats mistake tally 가 이걸로 센다. stock_short/pack_scan_mistake 에 responsible 을 넣지 말 것(선언자는 `declared_by`). `recv_over/recv_short/recv_off_po` 도 실수 집계에서 제외(공급사/실물 사실 — off-PO 확인 소홀 리뷰는 admin Receiving 승인 게이트가 담당).
 - 구현 지도는 `references/frontend.md` 「2026-08-04」 · 스키마는 `supabase/migrations/20260804000000_disc_stock_short.sql`(declared_by + 규칙 29 유니크 정착). ⚠️ **배포 순서: SQL 먼저, 프론트 나중**(규칙 23) — 컬럼 없이 선언 insert 가 실패한다.
-- ⬜ 백로그: packer `overScans` 메모리 전용(Hold/새로고침 시 초과 표시 소실 — 판정 "결과"는 기록됨).
+- ⚠️ **2026-08-04 배포 — 현장 검증 기록이 없다**(코드 경로만 확인). "동작한다"고 쓰기 전에 백로그 「검증 대기」의 확인 항목을 실물에서 볼 것.
+- ⬜ 백로그: packer `overScans` 메모리 전용(Hold/새로고침 시 초과 표시 소실 — 판정 "결과"는 기록됨) · 위 현장 검증 — 둘 다 「백로그 / 미해결」에 등록됨.
 
 ## 현재 진행 상태 (2026-08-04 기준)
 
-**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증).**
+**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증). ⚠️ 2026-08-04 배포분(규칙 41 픽·팩 선언/초과 2택 · 규칙 20 Status 조회)도 **현장 미검증** — 백로그 「검증 대기」.**
 
 **2026-08-04 세션 (폴링 EF saleList 유입 누락 — 규칙 12 실사고 2건)**
 - ✅ **429 백오프 + 회차 조기 종료**: saleList 페이지 순회가 429 즉시 throw 로 죽던 것 → 공용 **`_shared/cin7.ts`**(receiving 의 `cin7()` 추출 — 동작 동일 diff 증명) 백오프 후, 소진 시 throw 없이 조기 종료 + `rate_limited(+at_page)` 노출. ⚠️ `_shared` 변경 시 **hello·receiving 둘 다 재배포**. ⚠️ receiving 은 import 교체만(동작 불변) — **재배포 시 Apply dry-run 으로 확인할 것**
@@ -671,7 +698,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ✅ 실측: 스캔 범위는 무죄(`list_total` 140) · `Status=ORDERED` 도 정상 유입 · **Advanced Sale 정상 처리**(SO-14023 라인 15개 일치, Type 필터 불필요)
 
 **2026-08-04 세션 후반 (픽·팩 실수 vs 재고 불일치 구분 — 규칙 41 신설)**
-- ✅ picker/packer `⚠ Not enough stock` 선언(stock_short·declared_by) + 팩커 초과 라인별 2택 모달(over_pick / pack_scan_mistake 선해소) + admin 카테고리 필터·선언자 표시 + Stats `NOT_MISTAKE`(recv_* 포함 제외 — 그간 리시버가 부당 집계됨)
+- ✅ picker/packer `⚠ Not enough stock` 선언(stock_short·declared_by) + 팩커 초과 라인별 2택 모달(over_pick / pack_scan_mistake 선해소) + admin 카테고리 필터·선언자 표시 + Stats `NOT_MISTAKE`(recv_* 포함 제외 — 그간 리시버가 부당 집계됨). ⚠️ **배포됐으나 현장 미검증** — 백로그 「검증 대기」
 - ✅ **schema.md 정정: `wms_discrepancies.note` 컬럼은 실물에 없다**(문서만 있었음 — 규칙 29 또 한 사례)
 - ⬜ **마이그레이션 2건이 원격 히스토리에 없다 (2026-08-04 실측)** — `supabase migration list --linked` 결과 `20260802000000_wms_order_date`·`20260804000000_disc_stock_short` 둘 다 `remote` 가 **빈 값**이다. 그런데 **컬럼은 원격에 실재한다**(REST 프로브: `order_date`·`declared_by` 는 200, 없는 컬럼은 42703 — 대조군으로 확인) → 컬럼이 **마이그레이션 밖 경로로 먼저 적용**됐고 파일은 사후 기록이라는 뜻이다(스킬 상단 「DB 스키마 변경 절차」가 금지하는 드리프트 — 이번엔 응급 수정의 잔재).
   - ⬜ **사람이 `supabase db push`** — 기능 배포가 아니라 **히스토리 정렬**이 목적이다. 안 하면 새 환경·`db reset` 에서 `order_date` 컬럼이 없어 **오더 유입이 죽고**, `uq_disc_receipt_sku` 가 부분 유니크로 되돌아가 **리시빙 discrepancy 가 다시 조용히 사라진다**(규칙 29 재발).
@@ -769,7 +796,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 5. **admin.html 배너가 EF 캡 규칙을 JS 로 중복 계산** — 같은 판정을 두 곳에서 하지 말고 EF 응답 필드를 그대로 표시하도록.
 6. ~~PO 경로에는 체크포인트도 청크 상한도 없다~~ — ✅ **2026-07-31 이식** (규칙 21 PO 이식 절 · 규칙 27 R10): 전체 throw 제거(수집 후 계속) + `exported_base` 체크포인트(⚠️ PO 의미 = "문서에 실은 양") + 청크 이중 가드(공용 `chunkGuard()` — 트랜스퍼와 같은 상수·판정) + 실패 격리 + **authorize 게이트(미처리·실패·격리·스킵 있으면 DRAFT 유지, 모든 bin 이 실린 마지막 회차에 1회만)**. ⬜ **실전 검증 대기**: ⚠️ 실제 commit 은 **작은 PO 로 먼저** → PO-01070(진행 중, 완료 후)은 dry-run 으로 ①bin 그룹 수·청크 계획 ②미완 상태에서 authorize 보류 확인. ⬜ **PO 되읽기 회복(트랜스퍼 ④ checkpoint repair 상당)은 미적용** — "POST 후 체크포인트 누락" 잔여물은 `Cannot add duplicate value` 400 으로 시끄럽게 드러나므로(조용한 이중 계상 없음) 실측에서 필요성이 확인되면 별도 검토.
 7. ~~discrepancy 유니크 인덱스 수정을 마이그레이션으로~~ — ✅ **2026-08-04 해소**: `supabase/migrations/20260804000000_disc_stock_short.sql` 이 `uq_disc_receipt_sku` 를 WHERE 없는 전체 유니크로 **멱등 재생성**해 담았다(원격엔 이미 응급 적용돼 있었고, 이걸 담지 않으면 새 환경·`db reset` 에서 부분 유니크로 되돌아가 `on_conflict` 42P10 이 재발한다 — 규칙 29). ⬜ **남은 것은 사람이 `supabase db push`** — 그리고 이건 이 마이그레이션만의 문제가 아니다: **2026-08-04 실측 `migration list --linked` 결과 `20260802000000`·`20260804000000` 두 건 모두 원격 히스토리에 없다**(컬럼은 실재 — 마이그레이션 밖 경로로 적용된 드리프트). 둘 다 멱등이라 재실행 안전. **push 의 목적은 기능이 아니라 히스토리 정렬** — 안 하면 `db reset`/새 환경에서 `order_date` 부재로 오더 유입이 죽고 유니크가 부분으로 되돌아간다.
-8. **리시빙 discrepancy Health 검사** — `short_no_disc` 는 픽킹 전용이라 규칙 29 의 사고를 못 잡았다(규칙 19).
+8. **리시빙 discrepancy Health 검사** — `short_no_disc` 는 픽킹 전용이라 규칙 29 의 사고를 못 잡았다(규칙 19). ⚠️ 같은 공백이 하나 더: **`wms_receipts`/`wms_receipt_lines` 는 Health 무검증**이라 R3(중복 receipt)·R4(이중 Apply)도 지금은 검사에 안 걸린다(`references/frontend.md` 「Health」).
 9. **`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조 Health 검사** — 하루 지연 스냅샷이라 실시간 용도는 아님(규칙 32).
 10. **R13 Discrepancy 큐 방치 시 재고 불일치가 계속 남는다** — 에이징 알림·리포트 없음(규칙 27 R13). ⚠️ 규칙 29 로 **큐 자체가 비어 있던 기간**이 있었으므로 과거분은 큐로 복원되지 않는다.
 11. **R10 bin 루프 비트랜잭션** — 트랜스퍼는 부분 실패 수집 + 재Apply 로 운영 가능하지만 원자성은 아니다. ✅ **"POST↔PATCH 사이" 잔여물은 checkpoint repair 가 자동 회복**(2026-07-31, 규칙 21 ④) — 단 v3 이후에도 `checkpoint_repaired` 가 계속 나오면 다른 원인 신호(규칙 27 R10).
@@ -786,11 +813,15 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **근무시간 계산에 공휴일 미반영 (규칙 37)** — `WORK_DAYS`(월–금)만 본다.
 - **근무시간 상수가 실제와 맞는지 확인 (규칙 37)** — `WORK_HOURS`(09–17)·`WORK_DAYS`(월–금)는 추정 상수다. 두 창고의 실제 근무시간과 대조 후 조정할 것.
 - **packer `overScans` 가 메모리 전용 (규칙 41)** — Hold 하거나 새로고침하면 **초과 표시가 사라진다**(판정 "결과" 인 `over_pick`/`pack_scan_mistake` 행은 남는다). 서버 저장이 맞다(규칙 5 — 상태를 localStorage 에 두지 말 것). 지금은 초과가 한 세션 안에서 처리되는 게 보통이라 우선순위 낮음.
+- **admin Finalized 재출력에는 `⚠ Unassigned` 표가 없다 (규칙 15 · 2026-08-02)** — fulfillment 화면 전용이다. Finalize 이후엔 pack task 재집계가 필요해 그때 범위 밖으로 뒀다. 상세는 `references/frontend.md` 「admin.html Finalized 재출력 3종」.
 
 ### 검증 대기 (배포됐으나 실전 미확인)
 - ⚠️ **fulfillment 스캔 배정 (규칙 36)** — `Move all` 기본값 · 포커스 정책 · 오프라인 롤백 · **기존 DnD/탭 경로 회귀** · 태블릿 sticky 오프셋. 현장 검증 전에는 "동작한다"고 기록하지 말 것.
 - ⚠️ **트랜스퍼 (a) 케이스**(창고 착지·bin 없음) — 위 「리시빙 Apply」 2번과 같은 항목. **이제 표준 착지(규칙 40)라 다음 트랜스퍼가 곧 첫 검증** — dry-run 부터.
 - ⚠️ **풋어웨이 진입 성능 태블릿 실물 확인 (규칙 34)** — 직렬 await 제거 수정은 유선에서만 확인했다. 태블릿 Wi-Fi(RTT 150~400ms)에서 진입 즉시 전환·백그라운드 저장 완료를 실물로 확인할 것(`?debug=perf`).
+- ⚠️ **픽·팩 재고 부족 선언 / 초과 2택 모달 (규칙 41, 2026-08-04 배포)** — **현장 검증 기록이 없다.** 확인할 것: 픽커 선언 → 팩커 화면 칩(`Stock short — declared by {picker}`) 표시 · 선언 후 수량을 채운 라인의 stale claim 해소 · 라인별 2택 모달이 초과 라인 **여러 개**에서 각각 뜨는지 · admin Discrepancy 카테고리 필터·Stats tally 에서 `stock_short`/`pack_scan_mistake` 가 실수로 안 잡히는지. **현장에서 보기 전에는 "동작한다"고 기록하지 말 것.**
+- ⚠️ **PO 목록 Status 기반 조회 (규칙 20 개정, 2026-08-04 배포)** — 확인된 것은 **EF 응답 수준까지**다(`scanned {INVOICED:73, RECEIVING:5}` · 973행→78행 · 대상 8건 동일 — 배포 전후 diff). **receiver.html 로 실제 PO 를 받아 완료까지 가는 흐름은 이 세션에서 확인하지 않았다** — 특히 `truncated`/`totals` 진단 필드가 `pos` 소비 경로를 깨지 않는지, 부분입고(RECEIVING) PO 가 목록에 남는지.
+- ⚠️ **`_shared/cin7.ts` 추출 후 `receiving` 재배포 확인 (규칙 12, 2026-08-04)** — `hello` 와 공유하는 파일로 바뀌었고 receiving 은 import 교체뿐(동작 불변 diff 확인)이지만, **재배포 후 Apply dry-run 으로 한 번 확인**할 것. ⚠️ `_shared` 를 고치면 **hello·receiving 둘 다 재배포**.
 
 ### 신규 기능
 - **Cin7 bin↔bin 이동 화면 — 규칙 33**(A 자유 이동 → B 풋어웨이 큐. `wms_bin_moves` 감사 테이블 필요, `wms_sku_bins` 에 쓰지 말 것).
