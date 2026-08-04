@@ -120,6 +120,7 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 - **실측에는 날짜·문서번호·값을 붙인다** — "2026-08-04 실측, `StockReceivedStatus=NOT AVAILABLE` Total 585", "TR-03144 327라인/100+그룹". 근거 없는 숫자는 다음 사람이 검증할 수 없다.
 - **추정은 추정으로, 미검증은 미검증으로 표시한다** — `WORK_HOURS`(09–17) 같은 추정 상수, "배포됐으나 실전 미검증"(규칙 36·40). ⚠️ **"동작한다"고 쓰기 전에 실물에서 봤는지 확인할 것.**
 - **새 교훈은 다음 규칙 번호로** 만들고, **기존 규칙에는 참조 한 줄만** 더한다(본문 중복 서술 금지 — 두 곳이 갈라지면 어느 쪽이 최신인지 알 수 없다).
+- ⚠️ **규칙 번호로 승격할지의 기준 = "모르면 사고가 나는가"** (2026-08-04 사용자 결정). 재고·수량·Cin7 반영이 틀어지거나 남의 작업이 사라지는 것이면 번호를 준다. **UI 입도·표시 방식처럼 몰라도 사고가 안 나는 것은 `references/` 절 + 관련 규칙 각주로 충분하다** — 번호는 description 예산(위)을 먹기 때문에 값을 치를 만한 것에만 쓴다. 실제 사례: 풋어웨이 완료 입도(2026-08-04)는 규칙 42 로 올리지 않고 `references/frontend.md` 「풋어웨이 완료 입도」절 + 규칙 37 각주로 남겼다. **같은 고민을 다시 하지 말 것.**
 - **백로그는 「백로그 / 미해결」 단일 목록이 유일한 출처다** — 규칙 본문·`references/` 에 "백로그" 라고만 적고 그 목록에 올리지 않으면 잊힌다. 규칙 번호를 달아 분류 중 하나에 넣을 것.
 
 ---
@@ -335,6 +336,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - ⑥ ⚠️ **잔량의 위치 표현이 (a)/(b) 로 다르다**(규칙 21 착지 지점 2가지): **(b)** 집결 bin → **bin 이름**(예 `EZ010101`) / **(a)** 창고에 bin 없이 → **`"Asung - Edmonton (no bin)"`** 처럼 창고명+`(no bin)`. 매니저가 Cin7 에서 찾아 제거하는 지점이라 틀리면 못 찾는다 → EF 는 `to_location_raw` 원문을 그대로 쓰고 `leftover_at_landing[].where`·`apply_note`·Review 모달에 같은 문자열을 싣는다. ⚠️ `landingBin = to_location_raw` 의 콜론 뒤 부분은 **반드시 trim + undefined 방어** — (a) 는 콜론이 없어 `split(":")[1]` 이 undefined 이고, 앞 공백이 남으면 "이미 제자리" 스킵 판정이 어긋나 From==To 이동을 쏴서 400 이 난다.
 - ⚠️ **CSV 경로는 폐기** — Cin7 직접 쓰기 검증(규칙 21)으로 대체. **`exported_base` 는 2026-07-28 부터 트랜스퍼 bin 이동 체크포인트로 사용**(옮긴 수량 기록 → 재Apply 시 그 라인 건너뜀). **PO 도 2026-07-31 부터 사용 — 단 의미가 다르다: "Cin7 stock received 문서에 실은 양"**(규칙 21 PO 이식 절).
 - **Apply 는 completed receipt 만**: Simple PO 는 stock received 를 한 번만 authorize 가능(Cin7 제약) → 분할 배송은 최종완료 때 일괄 반영.
+  - ⚠️ **"검수 직후 Apply(풋어웨이 전)" 로 앞당기지 않는다 — 2026-08-04 재검토 후 유지 결정.** ①**authorize 1회 제약과 정면충돌**한다: bin 이 아직 안 정해진 상태로 문서를 authorize 하면 나중에 bin 을 API 로 채울 방법이 없다(규칙 21 authorize 게이트가 미처리·실패·격리·스킵 하나만 있어도 DRAFT 로 남기는 이유와 같다). ②**PO 의 유일한 구조적 장점을 버린다** — PO 는 `POST /purchase/stock` **라인에 `LocationID` 를 실을 수 있는** 유일한 경로다(트랜스퍼는 완료 시 bin 지정이 불가 — 규칙 21). 검수 직후 Apply 는 이걸 포기하고 PO 를 트랜스퍼처럼 **"착지 → bin 재배치" 2단계**로 만든다(=콜 수·실패면 수 증가, 규칙 30 의 청크 문제를 PO 로 수입). 즉 풋어웨이가 Apply 앞에 있는 것은 절차 취향이 아니라 **API 제약이 정한 순서**다.
 - ☰ Menu 에 Receiving(전 작업자), index 런처에 카드.
 
 ## 규칙 21 — Cin7 쓰기 (⚠️ 2026-07-23 실측 검증 — MVP "안 쓴다" 원칙의 첫 예외)
@@ -422,6 +424,9 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - `unconfirmed`(line.id → {kind:qty|putaway|all})는 **"쓰려 했지만 1행 반영을 확인받지 못한 라인"만** 담는다. ⚠️ "건드린 전부(touched)"를 담으면 안 된다 — 이미 저장된 라인을 Hold/완료 때 다시 써서 그 사이 남이 바꾼 값을 스테일 스냅샷으로 되돌린다. 정상 경로에선 이 집합이 **비어 있다**.
   - **성공 판정 = `.select()` 반환 1행 확인.** ⚠️⚠️ PostgREST 는 **0행 매치도 `error=null`/204** 로 돌려준다. 그걸 성공으로 오판하면 라인이 `unconfirmed` 에서 잘못 빠져 **안전망이 사라진다**. 0행이면 `lineGone(id)` 로 갈라 판정: 삭제됨(매니저 off-PO reject) → 로컬에서도 `dropLine` / 그 외 → conflict 로 남겨 재시도.
   - **`writeChain` = 라인별 PATCH 직렬화.** 같은 라인의 쓰기가 서로 추월하면 늦게 도착한 옛 값이 DB 에 남고, 전체 배열 덮어쓰기를 없앤 뒤에는 그걸 뒤늦게 바로잡아 줄 코드가 없다. **라인별**이라 느린 라인이 다른 라인을 막지 않는다. 보낼 필드(`patchFor`)는 **호출 시점의 라인 값**에서 만들어 큐에 밀린 쓰기가 자동으로 최신값이 되게 한다.
+- **⚠️⚠️ 파생 원칙 — `unconfirmed` 안전망이 있는 경로에서는 저장 실패 시 로컬 값을 되돌리지 말고 표시하라 (2026-08-04 확립).** 되돌리면 `flushUnconfirmed` **재시도가 되돌린 값을 써서** 작업자가 실제로 한 작업이 영구히 사라진다 — 이 모델에서는 **로컬이 최신이고 서버 반영은 flush 의 책임**이므로 로컬을 건드리는 것이 곧 데이터 파괴다. 대신 그 행에 **`NOT SAVED`(빨강) + 토스트**를 남겨 화면이 성공을 가장하지 않게 한다.
+  - 실제 사례: 풋어웨이 bin 일괄 완료(`savePutaway`/bin 일괄) — 지시는 "실패 시 되돌려라" 였으나 위 이유로 **유지 + 표시**로 구현했다. `putawayFailed` Set 이 표시 전용이고 ⚠️ **`unconfirmed` 로 대신하면 안 된다** — 그건 쓰기 **전**에 채워지므로 정상 저장에서도 매 탭 번쩍인다.
+  - ⚠️ **반대 방향(규칙 28 프리즈)과 혼동하지 말 것.** 프리즈는 소유권을 잃어 **내 로컬이 스테일임이 확정된** 상태라 로컬을 버리는 게 맞다. 여기는 소유권이 그대로이고 실패 원인이 네트워크뿐이라 로컬이 유일한 진실이다. **판단 기준 = "내 로컬이 최신인가"**, 실패 자체가 아니다.
 - **⚠️ Hold / finishReceipt 는 `lines` 전체 배열을 덮어쓰지 않는다.** `flushUnconfirmed()`(실패분만 재시도) + `wms_receipts` **헤더 patch** 만. 예전의 "최종 라인 저장(authoritative)" 전체 루프가 **같은 receipt 를 함께 받던 사람의 수량·bin·placed 를 전부 되돌리던 원인**이었다. **이 루프를 되살리면 안 된다.**
 - **완료 요약은 반드시 서버 재조회(`serverChecks()`)**. 메모리 스냅샷으로 계산하면 **남이 받은 물량이 전부 short 로 표시된다**(분할 수령에서 기존 동작은 이미 틀렸다). 순서도 고정: `preFinish()` = ①내 미확인분 flush ②서버 재조회 ③확인 다이얼로그. Apply 계획도 DB 를 읽으므로(EF `buildApplyPlan`) **진실은 DB 쪽**. `mergeServerRows` 는 `unconfirmed` 걸린 라인은 건너뛴다(내 값이 더 최신) + **값만 갱신하고 배열은 안 건드린다**.
 - **presence = 기존 `wms-presence` 채널 재사용**, key = `me.name+"|receiver:"+receipt.id`. 헤더에 "🟢 also here: X" 배지. ⚠️ **track 페이로드에 `batch` 필드를 넣지 말 것** — batch 는 picker/packer 배치 라벨 전용으로 admin `liveBatchSet()`(BATCH ACTIVITY active/away 판정)이 소비한다. 구분 필드는 `screen:"receiver"` + `receipt`/`po` + `stage`. (2026-07-30: admin LIVE NOW 가 `screen` 값으로 전 화면 분기 — receiver 는 `stage:"receiving"|"putaway"` 를 화면 전환 시 재-track, fulfillment 도 presence 합류, **미상 screen 은 Picking 폴백 금지 → `Other`**. 상세는 `references/frontend.md` 「admin LIVE NOW 전 화면 확장」.)
@@ -452,6 +457,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **R3 — `wms_receipts.cin7_purchase_id` 에 유니크 없음.** (`wms_orders.cin7_sale_id` 는 유니크 있음 — baseline `wms_orders_cin7_sale_id_key`.) 밀리초 동시 진입이면 **중복 receipt 가능**. 현재 **중복 데이터 0건 확인**. 분할 입고는 새 PO 로 처리하므로 **유니크 제약을 걸어도 됨**(새 마이그레이션으로).
 - **R4 — Apply 중복 실행.** `applied_at` 가드가 **read-then-check**(EF 진입 시 1회 확인)이고, EF 최종 PATCH 에 **`applied_at=is.null` 필터가 없다.** Cin7 쓰기가 수십 초라 그 창에서 두 번째 Apply 가 통과하면 Cin7 에 이중 반영. 해결 = 최종 PATCH 에 `applied_at is null` 조건 + 1행 확인(규칙 24 와 같은 패턴). ⚠️ **2026-07-30 부분 완화**: admin 버튼 상태 머신(규칙 35)이 **같은 브라우저의** 재클릭은 막지만 **매니저 2명이 다른 기기에서 동시에 누르는 것은 못 막는다** — 서버 가드가 여전히 필요하다.
 - **R5 — Complete 후 Apply 진행 중 스캔되면 그 수량은 영구 미적용.** Apply 는 Complete 시점의 DB 를 읽고, 끝나면 `applied_at` 이 찍혀 재적용이 막힌다. → **모두 끝난 뒤 Complete 를 누를 것**(데이터는 안전하나 반영은 못 됨).
+  - ✅ **2026-08-04 부분 완화 — `ensureReceiptOpen()` 가드**(receiver.html): Apply 가 **끝난 뒤**에도 작업자 태블릿의 풋어웨이 화면은 열려 있고 계속 써졌다(그 뒤의 Placed·bin 변경은 Cin7 에 절대 반영되지 않는다). 이제 풋어웨이 쓰기 직전에 `applied_at` 을 재조회해 감지되면 모달 후 목록으로 내보낸다 — 규칙 28 의 형태를 따르되 비교 대상이 소유자가 아니라 **`applied_at`** 이다(규칙 28 항목 참조). ⚠️ **여전히 남는 창**: Complete↔Apply **사이**의 스캔은 못 막는다(그 구간엔 `applied_at` 이 아직 null 이다). 그건 위 R5 그대로다.
 - **R10 — bin 루프가 비트랜잭션 (⚠️ 비원자성은 여전 · 다만 2026-07-28 부터 부분 실패가 기록되고 재시도 가능하다).** bin 별 분할 POST(규칙 21) 중간에 실패하면 **Cin7 에 DRAFT/부분 이동이 남는다**. 원자성은 없고 앞으로도 없을 것이다(Cin7 에 트랜잭션이 없다) — 대신 **부분 실패를 정상 상태로 다루는 쪽**으로 바꿨다:
   - **트랜스퍼**: 그룹 실패는 `failed_moves[{bin,skus,qty,http_status,cin7_error}]` 로 **수집만 하고 루프를 계속**한다(throw 금지 — R12 의 "쓰기 뒤" 방향). 성공 그룹은 `exported_base` 체크포인트를 찍고, 실패 그룹은 안 찍으므로 **재Apply 하면 실패분만 재시도**된다(`applied_at` 이 있어도 `failed_moves(N)` + 남은 그룹이 있으면 재개 허용). `applied_at` 은 부분 성공에서도 찍히되 admin 이 **`⚠ Applied (N bins failed)`** 로 구분 표시한다. 남는 구멍: 체크포인트 PATCH 자체가 실패하면 WARN 만 남고 재Apply 가 그 bin 을 두 번 옮긴다.
   - **PO 경로 — ✅ 2026-07-31 같은 원칙 이식 (규칙 21 PO 이식 절)**: 전체 throw 제거(수집 후 계속) + `exported_base` 체크포인트(⚠️ PO 의미 = "Cin7 stock received 문서에 실은 양") + 청크 이중 가드(공용 `chunkGuard()`) + 실패 격리. ⚠️ **authorize 1회 제약** 때문에 미처리·실패·격리·스킵이 하나라도 있으면 문서를 **DRAFT 로 유지**하고, 모든 bin 이 실린 마지막 회차에만 한 번 authorize 한다. 남는 구멍은 트랜스퍼와 동류(체크포인트 PATCH 실패·회차 중 EF 사망 시 재전송) — 단 PO 는 Cin7 이 같은 (SKU+bin) 재전송을 **400 `Cannot add duplicate value` 로 거부**하므로 조용한 이중 계상은 없고 시끄럽게 실패한다(그 에러 = 라인이 이미 DRAFT 에 있음 → Cin7 에서 확인). 되읽기 회복(checkpoint repair 상당)은 미적용 — 백로그 6번.
@@ -485,6 +491,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **복귀 시점 감지가 실질적으로 가장 중요**: `visibilitychange`(hidden→visible) + `focus` 에서 같은 확인. 태블릿을 두고 나갔다 몇 분 뒤 돌아오는 게 실제 시나리오라 **첫 스캔 전에 잡히는 게 이상적**이다.
 - ⚠️ **타이머·폴링 금지**(규칙 22 배터리). **이벤트 기반만. heartbeat 를 되살리지 마라.** 이벤트가 연속으로 튈 때 중복 조회만 `lastOwnerCheck` 타임스탬프(3초)로 억제 — setInterval 아님.
 - **wave 는 소유권이 wave 단위**(규칙 18)라 `wms_waves` 행의 `assigned_to` 를 본다. **멤버 task 개별 확인은 하지 않는다**(wave 행 하나로 충분, 쿼리만 늘어난다).
+- ⚠️⚠️ **리시빙에는 소유자가 없으므로 이 가드를 그대로 옮기지 마라 (2026-08-04).** `wms_receipts` 에는 **`assigned_to` 컬럼이 아예 없고**, 한 receipt 를 여러 명이 나눠 받는 것은 버그가 아니라 **규칙 24 의 핵심 기능**이다 — 소유권 비교를 이식하면 그 기능을 깬다. 리시빙에서 실제로 갈라지는 상태는 **`applied_at`**(매니저가 Apply 한 뒤의 Placed·bin 변경은 Cin7 에 절대 반영되지 않는다 — 규칙 27 R5) → `receiver.html` 의 **`ensureReceiptOpen()`** 이 그 컬럼만 본다. **가드의 형태**(단일 컬럼 select · 3초 억제 · 타이머 없음 · 확인 실패 시 통과 · 감지되면 모달 후 목록으로)**는 이 규칙과 같고 비교 대상만 다르다.** ⬜ **복귀 시점 감지(`visibilitychange`/`focus`)는 리시빙에 미적용** — 백로그.
 
 **프리즈 동작**
 - 스캔 입력 `disabled` + 수량 조작 버튼 전부 비활성. **렌더 우회로를 남기지 말 것** — 핸들러 `if(frozen) return` 만으로는 부족하고 `renderSingle`/`renderList` 의 스테퍼·수동입력에 `disabled` 를 함께 넣어야 한다(`focusScan` 도 프리즈면 즉시 반환).
@@ -635,7 +642,7 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
   - ⚠️ **한계 — hands-on time 이 아니다.** 이 값은 "시작~완료까지의 근무시간 경과"라 **receipt 을 열어둔 채 다른 일 한 시간이 그대로 포함**된다. 순수 작업시간은 스캔 타임스탬프 집계가 필요(백로그).
 - **기간 귀속은 `created_at`** — 미완료·미적용 receipt 도 지표에 잡혀야 한다(완료 기준으로 하면 문제 있는 문서가 통계에서 사라진다).
 - ⚠️ **`exported_base` 비율("Moved in Cin7")은 트랜스퍼 라인만** 낸다(`source_type==="transfer"` 필터). 이유가 2026-07-31 에 바뀌었다: 예전엔 "PO 는 이 컬럼을 안 씀"이었지만 이제 **PO 도 쓴다 — 단 의미가 다르다**("문서에 실은 양", 규칙 21 PO 이식 절). 섞으면 "옮겼다"와 "문서에 실었다"가 한 지표에 합쳐져 뜻이 없어지므로 필터는 유지하고, 각주에 PO 제외를 명시했다.
-- **화면 각주 3개는 필수 유지**: ①`exported_base` 는 **수동 UPDATE 로 오염될 수 있다**(TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전 데이터가 없다** ③**"Putaway done" 은 2026-08-04 이전 기간을 신뢰할 수 없다** — 그때까지 완료 표시가 **라인당 1탭**뿐이라 11라인 이상 receipt 에서는 아무도 누르지 않았다(경위·근거는 `references/frontend.md` 「풋어웨이 완료 입도」절 — ⚠️ 아직 번호 규칙으로 승격하지 않았다: description 여유가 7자뿐이라 `규칙 20~41` 범위 표기를 늘리는 결정이 필요하다). 숫자를 그대로 믿게 두면 안 되는 지표라 각주를 지우지 말 것.
+- **화면 각주 4개는 필수 유지**(⚠️ 2026-08-04 정정 — 여기 "3개" 로 적혀 있었으나 실물 admin.html Stats 탭에는 4개다. 세는 데서 빠져 있던 것은 **①소요시간 = 근무시간 기준**(위 항목) 각주이고, 개수만 보고 지우면 26.7h 같은 값을 그대로 믿게 된다. 번호는 `references/frontend.md` 「Stats 탭 …」 항목과 **같은 순서**로 맞췄다 — 화면 배치 순서가 아니라 열거 라벨이다): ①`exported_base` 는 **수동 UPDATE 로 오염될 수 있다**(TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전 데이터가 없다** ③**소요시간은 근무시간(Mon–Fri 09–17, 창고 로컬)만 센다**(위 항목) ④**"Putaway done" 은 2026-08-04 이전 기간을 신뢰할 수 없다** — 그때까지 완료 표시가 **라인당 1탭**뿐이라 11라인 이상 receipt 에서는 아무도 누르지 않았다(경위·실측·근거는 `references/frontend.md` 「풋어웨이 완료 입도」절 — 📌 **번호 규칙으로 승격하지 않기로 결정**했다: UI 입도 문제라 "모르면 사고가 나는 것"이 아니다. 판단 기준은 위 「기록 규칙」). 숫자를 그대로 믿게 두면 안 되는 지표라 각주를 지우지 말 것.
 - ⚠️ **mistake tally 의 집계 대상은 2026-08-04 에 바뀌었다 — 규칙 41 참조**(`recv_*`·`stock_short`·`pack_scan_mistake` 는 실수가 아니다). 여기 본문은 중복 서술하지 않는다.
 
 ## 규칙 38 — 트랜스퍼 Put away 는 v2 API 에 없다 (⚠️⚠️ 탐색 종결 — 2026-07-31 실측 · 같은 탐색 반복 금지)
@@ -689,7 +696,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 
 ## 현재 진행 상태 (2026-08-04 기준)
 
-**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증). ⚠️ 2026-08-04 배포분(규칙 41 픽·팩 선언/초과 2택 · 규칙 20 Status 조회)도 **현장 미검증** — 백로그 「검증 대기」.**
+**전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증). ⚠️ 2026-08-04 배포분(규칙 41 픽·팩 선언/초과 2택 · 규칙 20 Status 조회 · **풋어웨이 bin 단위 완료 + admin Apply 주황 경고·Awaiting putaway**)도 **현장 미검증** — 백로그 「검증 대기」.**
 
 **2026-08-04 세션 (폴링 EF saleList 유입 누락 — 규칙 12 실사고 2건)**
 - ✅ **429 백오프 + 회차 조기 종료**: saleList 페이지 순회가 429 즉시 throw 로 죽던 것 → 공용 **`_shared/cin7.ts`**(receiving 의 `cin7()` 추출 — 동작 동일 diff 증명) 백오프 후, 소진 시 throw 없이 조기 종료 + `rate_limited(+at_page)` 노출. ⚠️ `_shared` 변경 시 **hello·receiving 둘 다 재배포**. ⚠️ receiving 은 import 교체만(동작 불변) — **재배포 시 Apply dry-run 으로 확인할 것**
@@ -703,6 +710,14 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ⬜ **마이그레이션 2건이 원격 히스토리에 없다 (2026-08-04 실측)** — `supabase migration list --linked` 결과 `20260802000000_wms_order_date`·`20260804000000_disc_stock_short` 둘 다 `remote` 가 **빈 값**이다. 그런데 **컬럼은 원격에 실재한다**(REST 프로브: `order_date`·`declared_by` 는 200, 없는 컬럼은 42703 — 대조군으로 확인) → 컬럼이 **마이그레이션 밖 경로로 먼저 적용**됐고 파일은 사후 기록이라는 뜻이다(스킬 상단 「DB 스키마 변경 절차」가 금지하는 드리프트 — 이번엔 응급 수정의 잔재).
   - ⬜ **사람이 `supabase db push`** — 기능 배포가 아니라 **히스토리 정렬**이 목적이다. 안 하면 새 환경·`db reset` 에서 `order_date` 컬럼이 없어 **오더 유입이 죽고**, `uq_disc_receipt_sku` 가 부분 유니크로 되돌아가 **리시빙 discrepancy 가 다시 조용히 사라진다**(규칙 29 재발).
   - ✅ **둘 다 멱등이라 이미 적용된 원격에 다시 실행해도 안전**하다(확인함): `add column if not exists` · `drop index if exists` + `create unique index if not exists`.
+
+**2026-08-04 세션 마지막 (풋어웨이 완료 입도 — 번호 규칙 없음 · `references/frontend.md` 「풋어웨이 완료 입도」)**
+- ✅ **`putaway_done` 이 PO 에서 거의 항상 false 였던 원인 = 코드가 아니라 입도.** 완료 표시가 라인별 `togglePlaced()` 하나뿐이었다. 실측: TR-02935 344/344·TR-03144 327/327(둘 다 `updated_at` distinct_sec 222·215 → **작업자가 실제로 하나씩 누른 것 — "수동 SQL 일괄 UPDATE" 가설은 반증됐다**) vs PO-01069 0/26·PO-01073 0/85. **5~6라인은 누르고 11라인 이상은 아무도 안 누른다** — 작업자는 **bin 단위로 움직인다**(한 자리에 서서 다 놓고 이동)
+- ✅ **receiver.html: bin 그룹 헤더 `Place all in this bin`**(클릭이 라인 수 → bin 수). 저장은 기존 라인 단위 경로 그대로(`queueWrite`+`.select()` 1행 — 규칙 24) · **동시 8개 풀**(규칙 34) · **실패해도 로컬 유지 + `NOT SAVED` 표시**(규칙 24 파생 원칙) · `placingBin` 중복 실행 차단. 완료 요약의 `Not yet placed` 는 SKU 나열 → `12 lines not placed in 4 bins`
+- ✅ **admin.html: Apply 버튼 주황 경고**(`putaway_bin` 있고 `putaway_done=false` 인 라인 있으면 — 배지·confirm·Review 배너·History) + **「Awaiting putaway」 섹션**(`Put away →` 딥링크). ⚠️ **비활성화하지 않는다** — 관행 정착 전 하드 게이트는 모든 Apply 를 멈추고 작업자가 안 놓고 눌러 통과시켜 **지표가 더 거짓이 된다**(규칙 41 `pack_scan_mistake`·`recv_off_po` 와 같은 논리 — 정직한 기록을 벌주면 기록이 사라진다). 재검토는 백로그
+- ✅ **`ensureReceiptOpen()`** — Apply 된 receipt 를 열어둔 화면의 풋어웨이 쓰기 차단(규칙 27 R5 부분 완화). ⚠️ **규칙 28 의 `ensureMine()` 은 리시빙에 못 쓴다**(`wms_receipts` 에 `assigned_to` 없음 + 나눠 받기가 규칙 24 기능) — 규칙 28 항목 참조
+- 📌 **번호 규칙(42)으로 승격하지 않음** (사용자 결정) — UI 입도 문제라 "모르면 사고가 나는 것"이 아니다. 기준은 「기록 규칙」에 남겼다. **description 압축은 별건**(백로그)
+- ⬜ **오늘 배포분 전부 실물 미검증** — 백로그 「검증 대기」
 
 **2026-08-02 세션 (인쇄물 3건 — 규칙 15 갱신 · `references/frontend.md` 「2026-08-02」)**
 - ✅ **픽리스트 인쇄 공용화 + picker·packer 재인쇄**: manager 안에 있던 HTML·CSS·JsBarcode 를 **`wms-picklist.js`**(신규 파일 — 형식의 단일 출처)로 추출, picker/packer 헤더에 **🖨 Print**. 종이를 잃으면 손 쓸 방법이 없던 문제(픽리스트가 소유권을 보증 — 규칙 22/28). ⚠️ **바코드 값 = `batch_label`**(웨이브는 wave label) — 스캔 재진입 키라 다른 값을 넣으면 인쇄물로 화면에 못 들어온다. ⚠️ `window.open` 은 **클릭 핸들러 안에서 먼저**(await 뒤면 팝업차단)
@@ -806,6 +821,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 ### 동시 작업 원자화
 - **같은 SKU 다중 픽커 / 같은 라인 동시 스캔 (R1)** — PostgREST 조건부 UPDATE(CAS) 또는 RPC 증분.
 - **`claim_seq`(A→B→A 스테일 화면) — 규칙 28 후속.** 현재 가드는 best-effort. R1 CAS 와 같은 패턴이라 함께 처리.
+- **리시빙에 복귀 시점 감지 미적용 (규칙 28 · 2026-08-04)** — `ensureReceiptOpen()` 은 **쓰기 직전에만** 확인한다. picker/packer 의 `visibilitychange`/`focus` 훅(규칙 28 이 "실질적으로 가장 중요"하다고 적은 경로 — 태블릿 두고 나갔다 복귀)은 리시빙에 없어서, Apply 된 receipt 를 열어둔 화면은 **첫 탭을 누를 때까지** 아무것도 모른다. 손실은 작다(그 탭 하나가 거부되고 목록으로 나간다) — 우선순위 낮음.
 
 ### 리포트·통계
 - ⚠️ **wave 모드 리포트 오더 귀속 버그 (규칙 14)** — `wrong_location`·`barcode_mismatch` 가 `task.order_id` 고정이라 wave 에서 **엉뚱한 오더에 붙는다**. `image_mismatch` 처럼 라인별 `_orderId` 로 바꿀 것. **우선순위를 낮추지 말 것**(매니저가 엉뚱한 라인을 확인하게 된다).
@@ -813,6 +829,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **근무시간 계산에 공휴일 미반영 (규칙 37)** — `WORK_DAYS`(월–금)만 본다.
 - **근무시간 상수가 실제와 맞는지 확인 (규칙 37)** — `WORK_HOURS`(09–17)·`WORK_DAYS`(월–금)는 추정 상수다. 두 창고의 실제 근무시간과 대조 후 조정할 것.
 - **packer `overScans` 가 메모리 전용 (규칙 41)** — Hold 하거나 새로고침하면 **초과 표시가 사라진다**(판정 "결과" 인 `over_pick`/`pack_scan_mistake` 행은 남는다). 서버 저장이 맞다(규칙 5 — 상태를 localStorage 에 두지 말 것). 지금은 초과가 한 세션 안에서 처리되는 게 보통이라 우선순위 낮음.
+- **풋어웨이 하드 게이트 재검토 (2026-08-04 · `references/frontend.md` 「풋어웨이 완료 입도」)** — 지금 admin Apply 는 미배치 라인이 있어도 **주황 경고만** 하고 막지 않는다. **관행이 정착한 뒤**(bin 일괄 버튼이 실제로 눌리는지 몇 주 관찰) 차단으로 올릴지 판단할 것. ⚠️ 지금 막으면 모든 Apply 가 멈추고 작업자가 안 놓고 눌러 통과시켜 **지표가 더 거짓이 된다** — 판단 근거는 규칙 41 의 "정직한 기록을 벌주면 기록이 사라진다".
 - **admin Finalized 재출력에는 `⚠ Unassigned` 표가 없다 (규칙 15 · 2026-08-02)** — fulfillment 화면 전용이다. Finalize 이후엔 pack task 재집계가 필요해 그때 범위 밖으로 뒀다. 상세는 `references/frontend.md` 「admin.html Finalized 재출력 3종」.
 
 ### 검증 대기 (배포됐으나 실전 미확인)
@@ -821,12 +838,17 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ⚠️ **풋어웨이 진입 성능 태블릿 실물 확인 (규칙 34)** — 직렬 await 제거 수정은 유선에서만 확인했다. 태블릿 Wi-Fi(RTT 150~400ms)에서 진입 즉시 전환·백그라운드 저장 완료를 실물로 확인할 것(`?debug=perf`).
 - ⚠️ **픽·팩 재고 부족 선언 / 초과 2택 모달 (규칙 41, 2026-08-04 배포)** — **현장 검증 기록이 없다.** 확인할 것: 픽커 선언 → 팩커 화면 칩(`Stock short — declared by {picker}`) 표시 · 선언 후 수량을 채운 라인의 stale claim 해소 · 라인별 2택 모달이 초과 라인 **여러 개**에서 각각 뜨는지 · admin Discrepancy 카테고리 필터·Stats tally 에서 `stock_short`/`pack_scan_mistake` 가 실수로 안 잡히는지. **현장에서 보기 전에는 "동작한다"고 기록하지 말 것.**
 - ⚠️ **PO 목록 Status 기반 조회 (규칙 20 개정, 2026-08-04 배포)** — 확인된 것은 **EF 응답 수준까지**다(`scanned {INVOICED:73, RECEIVING:5}` · 973행→78행 · 대상 8건 동일 — 배포 전후 diff). **receiver.html 로 실제 PO 를 받아 완료까지 가는 흐름은 이 세션에서 확인하지 않았다** — 특히 `truncated`/`totals` 진단 필드가 `pos` 소비 경로를 깨지 않는지, 부분입고(RECEIVING) PO 가 목록에 남는지.
+- ⚠️⚠️ **풋어웨이 bin 단위 완료 + admin 경고 (2026-08-04 배포, `references/frontend.md` 「풋어웨이 완료 입도」)** — **실물 확인 전혀 없음.** 확인할 것: ①`Place all in this bin` 일괄 **적용과 해제**(재클릭 confirm) ②**20줄 이상 bin 의 반응 속도**(낙관적 렌더 + 동시 8개 풀이 태블릿 Wi-Fi 에서 실제로 안 멈추는지) ③오프라인/순단에서 **`NOT SAVED` 표시 → 완료 flush 가 되찾는지** ④**admin 주황 버튼이 Apply 상태 머신(규칙 35)과 충돌하지 않는지 — 특히 실패 후 5초 뒤 초록이 아니라 `wait` 복구로 다시 주황이 되는지** ⑤「Awaiting putaway」의 `Put away →` 딥링크 이동.
 - ⚠️ **`_shared/cin7.ts` 추출 후 `receiving` 재배포 확인 (규칙 12, 2026-08-04)** — `hello` 와 공유하는 파일로 바뀌었고 receiving 은 import 교체뿐(동작 불변 diff 확인)이지만, **재배포 후 Apply dry-run 으로 한 번 확인**할 것. ⚠️ `_shared` 를 고치면 **hello·receiving 둘 다 재배포**.
 
 ### 신규 기능
 - **Cin7 bin↔bin 이동 화면 — 규칙 33**(A 자유 이동 → B 풋어웨이 큐. `wms_bin_moves` 감사 테이블 필요, `wms_sku_bins` 에 쓰지 말 것).
 - **원가 0 재고 재평가 방법 확정 — 규칙 31**(미해결. 1 SKU 로 2단계 후보를 끝까지 실측).
 - **박스 라벨에 스토어명 인쇄** — 스캔 배정으로 "박스=오더 하나"가 정착되면 가능. 프랜차이즈 창고가 박스를 열어보지 않고 스토어별 재분배할 수 있다(fulfillment 스캔 배정의 후속, 2026-07-29).
+
+### 문서·스킬 유지
+
+- ⚠️⚠️ **`asung-wms` frontmatter description 압축 — 1017 / 1024 자, 여유 7자** (2026-08-04 사용자 결정으로 **별건 작업**으로 분리). 이번 세션은 규칙 42 를 만들지 않아 한도에 닿지 않았지만, **다음 규칙 하나면 초과한다.** 압축 순서는 위 「이 스킬 문서를 갱신할 때」 · CLAUDE.md 7절: ①규칙 번호 앞 열거 압축 ②해소된 함정어 제거(`"Lines is invalid"`·`"스캔 이어받기"`·`"serverChecks"`/`"unconfirmed"`/`"writeChain"`) ③`cin7-api` 와 겹치는 단어 ④일반어·영한 중복쌍. ⚠️ **불변식 문구는 마지막까지 유지.** 검사 `scripts/check-skill-desc.sh`.
 
 ### 정리 필요 (데이터)
 - TR-02935(수동 처리분) · 테스트로 만든 TR-03260(3개씩 완료됨)·TR-03261·TR-03267(수량 실측용) 재고 조정.

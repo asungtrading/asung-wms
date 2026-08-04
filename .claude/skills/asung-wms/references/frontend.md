@@ -217,7 +217,7 @@ let bumpT=null;               // wms_receipts.updated_at debounce (4s)
 ```
 - `markUnconfirmed(l,kind)` / `mergeKind(a,b)`(다른 kind 합쳐지면 `"all"`) / `patchFor(l,kind)` — **패치는 호출 시점 라인 값에서 생성**(큐에 밀린 쓰기가 자동 최신값).
 - `writeLine(l,kind)`: `update(patchFor).eq("id",l.id).select("id")` → **`data.length!==1` 은 성공 아님.** 0행이면 `lineGone(id)` 로 분기 → 삭제됨(`dropLine`+토스트) / conflict(unconfirmed 유지). ⚠️ PostgREST 0행 = `error null`/204 이므로 `.select()` 없이는 구분 불가.
-- `queueWrite(l,kind)` = `writeChain` 에 라인별 체인. `saveLine(l)`(수량, **await 금지 — 스캔 피드백 앞을 막으면 작업자가 재스캔해 과다 계상**) / `savePutaway(l)`(await, 실패해도 로컬 값 유지) 가 진입점.
+- `queueWrite(l,kind)` = `writeChain` 에 라인별 체인. `saveLine(l)`(수량, **await 금지 — 스캔 피드백 앞을 막으면 작업자가 재스캔해 과다 계상**) / `savePutaway(l)`(await, 실패해도 로컬 값 유지 + `putawayFailed` 로 행에 `NOT SAVED` — 2026-08-04, 「풋어웨이 완료 입도」절) 가 진입점. ⚠️ `savePutaway` 와 bin 일괄은 선두에서 **`ensureReceiptOpen()`**(Apply 완료 감지 — 같은 절) 를 통과해야 한다.
 - `flushUnconfirmed()` → `{failed,deleted,ok}`. **Hold·partial·complete 세 경로 전부 이걸 쓴다.** ⚠️ 예전의 `for(l of lines) update(...)` 전체 루프는 **삭제됨 — 되살리지 말 것**(함께 받던 사람 작업이 스테일 스냅샷으로 되돌아감).
 - `dropLine(id)`: splice + unconfirmed/writeChain 정리 + **커서를 id 로 되짚음**(인덱스로 두면 삭제 라인 위쪽일 때 한 칸 밀림).
 - `bumpReceipt()`: 헤더 updated_at debounce(스캔당 요청 2개→1개).
@@ -487,18 +487,27 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 **수정 1 — receiver.html: bin 그룹 헤더 `Place all in this bin`.** 작업자는 **bin 단위로 움직인다**(한 자리에 서서 그 자리 물건을 다 놓고 이동) → 클릭이 **라인 수 → bin 수**로 떨어진다(이미 존 칩을 눌러 이동하는 횟수와 같은 자릿수). 라인별 `Placed` 는 **예외용으로 유지**(일부만 놓은 경우). 전부 placed 인 bin 은 눌린 상태(`✓ All placed`)로 보이고 **재클릭 = confirm 후 전체 해제**(실수 복구).
 - ⚠️ **저장은 기존 라인 단위 경로 그대로** — `queueWrite(l,"putaway")` + `.select()` 1행 판정(규칙 24). **전체 배열 덮어쓰기 금지**(같은 receipt 를 함께 받는 사람의 수량·bin 을 되돌린다).
 - ⚠️ **직렬 await 금지**(규칙 34) — 낙관적 렌더 먼저, 저장은 **동시 8개 풀**(`savePutawayAssigns` 와 같은 패턴). 20라인 bin 을 직렬로 돌리면 태블릿 Wi-Fi 에서 3~8초 멈춘다.
-- ⚠️⚠️ **실패해도 로컬 값을 되돌리지 않는다.** 되돌리면 `flushUnconfirmed` 재시도가 **되돌린 값(false)** 을 써서 작업자가 실제로 놓은 기록이 사라진다. 대신 `putawayFailed` set → 그 행에 **`NOT SAVED`** 를 남겨 화면이 성공을 가장하지 않게 한다(`unconfirmed` 로 대신하면 안 된다 — 그건 쓰기 **전**에 채워지므로 정상 저장에서도 매 탭 번쩍인다).
+- ⚠️⚠️ **실패해도 로컬 값을 되돌리지 않는다** — **규칙 24 파생 원칙**(지시는 "실패 시 되돌려라" 였고 그게 틀렸다). 되돌리면 `flushUnconfirmed` 재시도가 **되돌린 값(false)** 을 써서 작업자가 실제로 놓은 기록이 사라진다: 이 모델에서 **로컬이 최신이고 서버 반영은 flush 의 책임**이다. 대신 `putawayFailed` set → 그 행에 **`NOT SAVED`**(빨강) + 토스트를 남겨 화면이 성공을 가장하지 않게 한다(`unconfirmed` 로 대신하면 안 된다 — 그건 쓰기 **전**에 채워지므로 정상 저장에서도 매 탭 번쩍인다). ⚠️ 규칙 28 프리즈가 로컬을 **버리는** 것과 모순이 아니다 — 거기선 소유권을 잃어 로컬이 스테일임이 확정됐고 여기선 소유권이 그대로다. 판단 기준은 "실패했는가"가 아니라 **"내 로컬이 최신인가"**.
 - `placingBin` 플래그로 같은 bin 재클릭 중복 실행 차단(해제/재적용이 교차하면 값이 엉킨다).
 - **node 모의 검증**: 동시 실행 ≤ 8 / 20라인 각 1회 / 같은 라인에 일괄 뒤 개별 탭이 와도 `writeChain` 이 추월을 막아 **마지막 PATCH = 최신값**(`patchFor` 가 실행 시점 값을 읽으므로) / 실패 2건이 로컬 true 를 유지하고 flush 가 되찾음.
 
 **수정 2 — receiver.html: 완료 요약을 압축.** Complete/Partial 의 `Not yet placed` 가 SKU 를 나열하던 것을 **`12 lines not placed in 4 bins`** 로 바꿨다(85라인 PO 에서는 목록이 화면을 넘겨 아무도 읽지 않았다 — bin 수는 "몇 자리 더 돌면 되는지"라 작업자가 쓸 수 있다). ⚠️ **차단하지 않는다**(아래).
 
 **수정 3 — admin.html: Apply 버튼 경고 상태.** `putaway_bin` 있고 `putaway_done=false` 인 라인이 있는 receipt 는 Apply 버튼이 **주황**(`btnsm warn`) + 배지 `⚠ N lines not placed` + 확인 대화상자에 한 줄 + Review 모달 배너 + History 배지.
-- ⚠️ **비활성화하지 않는다. 하드 게이트는 관행이 정착한 뒤 판단한다** — 지금 막으면 아무도 안 누르는 상태라 **모든 Apply 가 멈추고**, 작업자가 안 놓고 눌러 통과시켜 **지표가 더 거짓이 된다**.
+- ⚠️ **비활성화하지 않는다. 하드 게이트는 관행이 정착한 뒤 판단한다** — 지금 막으면 아무도 안 누르는 상태라 **모든 Apply 가 멈추고**, 작업자가 안 놓고 눌러 통과시켜 **지표가 더 거짓이 된다**. 이건 규칙 41 의 `pack_scan_mistake`(팩커 자백을 실수 집계에서 뺀 것)·`recv_off_po`(리시버 실수에서 뺀 것)와 **같은 논리다 — 정직한 기록을 벌주면 기록 자체가 사라진다.** ⬜ 관행 정착 후 재검토는 「백로그 / 미해결」 리포트·통계 항목에 등록됨.
 - ⚠️ **기존 Apply 상태 머신과 충돌하지 않는 방법**: 경고는 버튼의 `data-notplaced` 속성 + `setApplyBtn` 의 **`wait` 상태에서만** 초록↔주황을 가르는 한 줄로 넣었다. busy/ok/partial/fail 은 그대로 `setApplyBtn` 이 덮으므로 진행 중·결과 표시가 우선하고, 실패 5초 뒤 `wait` 복구에서 경고 색이 자동으로 되살아난다. **라벨은 절대 건드리지 않는다** — `applyToCin7` 의 `waitLabel` 이 `btn.textContent` 에서 오므로 라벨에 경고를 섞으면 복구 라벨이 오염된다. `syncApplyBusyUI` 의 유휴 `title` 도 `data-notplaced` 를 읽어 유지한다(예전엔 빈 문자열로 덮었다).
 
 **수정 4 — admin.html Receiving 탭 「Awaiting putaway」 섹션**(Off-PO approvals 와 Apply 사이). `N lines / M units awaiting putaway` 합계 + receipt·Source·창고·받은 사람·상태·라인/수량·`fmtAge(updated_at)` 표 + **`Put away →` 링크(`receiver.html?receipt=N`)** — ⚠️ 나중에 옮길 때 다시 들어가는 경로가 번거로우면 관행이 안 바뀐다. 이미 Apply 된 receipt 는 `Cin7 applied` 빨간 배지 + 링크 없음(receiver 가 applied receipt 열기를 거부한다) — **Cin7 은 bin 에 있다고 기록했는데 실물이 없는 상태**라 오히려 가장 위험한 케이스여서 목록에서 감추지 않는다.
 - 계산은 `countNotPlaced(rows)` 하나(`received_base>0` & `!needs_approval` & `putaway_bin` & `!putaway_done`) → `recvNotPlaced[receipt.id]` 에 캐시. **왕복을 더하지 않았다** — 기존 `wms_receipts` 임베드에 `putaway_bin,putaway_done,needs_approval` 만 추가(규칙 34).
 - Stats 각주 4번째 추가: **2026-08-04 이전 "Putaway done" 은 신뢰 불가**(규칙 37).
 
-**미결정**: 이 교훈을 번호 규칙(42)으로 승격할지 — `asung-wms` description 여유가 **7자**라 `규칙 20~41` → `규칙 20~42` 표기 변경에 사람 결정이 필요하다(CLAUDE.md 규칙 7 경고).
+**수정 5 — receiver.html: `ensureReceiptOpen()` 쓰기 가드** (규칙 27 R5 부분 완화 · 규칙 28 계열).
+
+매니저가 Apply 를 돌린 **뒤에도** 작업자 태블릿의 풋어웨이 화면은 열려 있고 계속 써졌다. 그 뒤의 Placed·bin 변경은 **Cin7 에 절대 반영되지 않는다**(EF 는 Complete 시점의 DB 를 읽고 `applied_at` 이 재적용을 막는다).
+
+- ⚠️⚠️ **규칙 28 의 `ensureMine()` 을 그대로 옮길 수 없다** — `wms_receipts` 에 **`assigned_to` 컬럼이 아예 없고**, 한 receipt 를 여러 명이 나눠 받는 것은 **규칙 24 의 핵심 기능**이다. 소유권 비교를 이식하면 그 기능을 깬다. 리시빙에서 실제로 갈라지는 상태는 **`applied_at`** 이다.
+- **형태는 규칙 28 그대로**: `select("applied_at")` **단일 컬럼** · `lastOpenCheck` **3초 억제**(⚠️ setInterval 아님 — 규칙 22) · **확인 실패 시 통과**(`catch` → `return true`, 와이파이 순단으로 작업을 멈추지 않는다 — best-effort) · 감지되면 `receiptClosed=true` + 모달 후 `exitToList()`. `exitToList` 가 `receiptClosed`/`lastOpenCheck`/`putawayFailed` 를 리셋한다.
+- **관문 2곳**: `savePutaway(l)` 선두(라인별 Placed·bin 변경의 공통 경로) + bin 일괄(`Place all in this bin`) 선두.
+- ⬜ **규칙 28 의 "복귀 시점(`visibilitychange`/`focus`) 감지" 는 리시빙에 미적용** — 쓰기 직전에만 확인하므로 **첫 탭을 누를 때까지** 모른다. 규칙 28 이 그 훅을 "실질적으로 가장 중요"하다고 적은 것과 다르지만, 여기선 손실이 탭 하나라 우선순위가 낮다 — **백로그 「동시 작업 원자화」에 등록됨.**
+
+**📌 번호 규칙(42)으로 승격하지 않는다 (2026-08-04 사용자 결정).** 규칙 번호는 **"모르면 사고가 나는 것"** 에 쓴다 — 이건 UI 입도 문제이므로 description 여유 7자를 쓸 사안이 아니다. 이 절 + 규칙 37 각주 ③ 가 가리키는 현재 구조를 유지한다. 판단 기준은 SKILL.md 「이 스킬 문서를 갱신할 때」→「기록 규칙」에 남겼다. **description 압축은 별건**(백로그 「문서·스킬 유지」).
