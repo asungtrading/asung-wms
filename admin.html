@@ -72,6 +72,8 @@
   .r-short_pick{color:var(--warn);background:var(--warn-bg)}
   .r-short_after_pack{color:#fff;background:var(--danger)}
   .r-over_pick{color:#fff;background:var(--violet)}
+  .r-stock_short{color:#2456d6;background:#eaf2ff}
+  .r-pack_scan_mistake{color:var(--mut);background:#f1f3f6}
   .r-resolved_pack_recovery,.r-resolved{color:var(--ok);background:var(--ok-bg)}
   .st-pending{color:var(--mut);background:var(--line-2)}
   .st-picking{color:var(--tor);background:#eef3ff}
@@ -188,6 +190,7 @@
     <!-- Discrepancy -->
     <div class="view" id="v-disc">
       <div class="period" id="discPeriod"></div>
+      <div id="discFilter" style="margin:0 0 10px"></div>
       <div class="sect-h">Open Discrepancies <span id="discOpenCnt" style="color:var(--danger)"></span></div>
       <div class="card"><div id="discOpen"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <div class="sect-h">Recently resolved</div>
@@ -284,7 +287,7 @@ let discCustom={from:null,to:null}, statsCustom={from:null,to:null};
 // 각자 도착하는 대로 renderProd()가 합쳐 그린다 (규칙 17: 렌더를 서로 막지 않음)
 let prodPP=null, prodRecv=null;
 
-const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
+const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", stock_short:"Stock short (inventory)", pack_scan_mistake:"Packer double scan", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
 const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
 
 /* ---------- boot / login ---------- */
@@ -2010,6 +2013,13 @@ async function refreshDiscBadge(){
   const b=document.getElementById("discBadge");
   if(count&&count>0){ b.style.display="inline-block"; b.textContent=count; } else { b.style.display="none"; }
 }
+let discOpenRows=[], discDoneRows=[], discCat="all";   // category filter is client-side over the loaded rows
+// worker mistake vs inventory mismatch vs receiving — must be tellable at a glance (2026-08-04)
+function discCatOf(d){
+  if(d.reason==="stock_short") return "inventory";
+  if(d.source==="receiving") return "receiving";
+  return "mistake";
+}
 async function loadDisc(){
   const r=rangeFor(discPeriodKey,discCustom); discRange=r; setRangeLabel("discPeriod",r.label);
   // open (all, any period) + recently resolved (period applied)
@@ -2017,25 +2027,45 @@ async function loadDisc(){
     sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).order("created_at",{ascending:false}),
     sb.from("wms_discrepancies").select("*").or("resolved_at.not.is.null,cin7_corrected.eq.true").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(100),
   ]);
-  const openD=open.data||[];
-  document.getElementById("discOpenCnt").textContent=openD.length?`(${openD.length})`:"(0)";
-  renderDiscTable("discOpen", openD, true);
-  renderDiscTable("discDone", done.data||[], false);
+  discOpenRows=open.data||[]; discDoneRows=done.data||[];
+  renderDisc();
   refreshDiscBadge();
+}
+function renderDisc(){
+  // category filter bar — counts are of OPEN rows so a manager sees where the work is
+  const catBtn=(v,l)=>{
+    const n=v==="all"?discOpenRows.length:discOpenRows.filter(d=>discCatOf(d)===v).length;
+    return `<button data-disccat="${v}" style="border:1px solid var(--line);background:${discCat===v?"#eef4ff":"#fff"};color:${discCat===v?"#2456d6":"var(--mut)"};border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px">${l}${n?` (${n})`:""}</button>`;
+  };
+  document.getElementById("discFilter").innerHTML=
+    catBtn("all","All")+catBtn("mistake","Worker mistakes")+catBtn("inventory","Stock short (inventory)")+catBtn("receiving","Receiving");
+  document.querySelectorAll("[data-disccat]").forEach(b=>b.onclick=()=>{ discCat=b.dataset.disccat; renderDisc(); });
+  const keep=d=>discCat==="all"||discCatOf(d)===discCat;
+  const openR=discOpenRows.filter(keep);
+  document.getElementById("discOpenCnt").textContent=openR.length?`(${openR.length})`:"(0)";
+  renderDiscTable("discOpen", openR, true);
+  renderDiscTable("discDone", discDoneRows.filter(keep), false);
 }
 function discRow(d,actionable){
   const rl=REASON_LABEL[d.reason]||d.reason;
   const act=actionable
     ? `<td><button class="btnsm ok" data-fix="${d.id}">Cin7 Fixed</button></td>`
     : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}</td>`;
+  // stock_short: no responsible (it is not a mistake) — show who DECLARED it + when (audit)
+  const who=d.declared_by
+    ? `<span style="color:#2456d6">${esc(d.declared_by)}</span> <span style="color:var(--mut-2);font-size:11px">declared${d.source&&d.source!=="receiving"?" · "+esc(d.source):""}</span>`
+    : esc(d.responsible||"—");
+  const when=d.created_at
+    ? new Date(d.created_at).toLocaleDateString()+(d.declared_by?` <span style="color:var(--mut-2)">${new Date(d.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>`:"")
+    : "";
   return `<tr>
     <td style="font-family:var(--mono);font-weight:700">${esc(d.order_number||"")}${d.source==="receiving"?' <span class="tag" style="background:#eaf2ff;color:#2456d6;font-family:var(--sans)">Receiving</span>':""}</td>
     <td style="font-family:var(--mono)">${esc(d.sku||"")}${d.note?`<div style="font-family:inherit;font-weight:400;font-size:11px;color:var(--mut);margin-top:2px">${esc(d.note)}</div>`:""}</td>
     <td><span class="tag r-${d.reason}">${rl}</span></td>
     <td class="num">${d.ordered_base??"—"}</td>
     <td class="num">${d.actual_base??"—"}</td>
-    <td>${esc(d.responsible||"—")}</td>
-    <td style="color:var(--mut);font-size:12px">${d.created_at?new Date(d.created_at).toLocaleDateString():""}</td>
+    <td>${who}</td>
+    <td style="color:var(--mut);font-size:12px">${when}</td>
     ${act}
   </tr>`;
 }
@@ -2074,9 +2104,13 @@ async function loadStats(){
   (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;} });
   (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;} });
   prodPP=prod; renderProd();
-  // mistake tally (by responsible person, resolved not excluded — count occurrences themselves, resolved_pack_recovery excluded)
+  // mistake tally (by responsible person, resolved not excluded — count occurrences themselves)
+  // NOT mistakes (2026-08-04): stock_short/pack_scan_mistake are inventory-mismatch/self-caught rows
+  // (responsible=null anyway — belt and suspenders); recv_* are supplier/shipping facts, and off-PO
+  // review already happens at the admin Receiving approval gate — none of these belong to a worker.
+  const NOT_MISTAKE=new Set(["resolved_pack_recovery","stock_short","pack_scan_mistake","recv_over","recv_short","recv_off_po"]);
   const mistakes={};
-  (disc.data||[]).forEach(d=>{ if(!d.responsible)return; if(d.reason==="resolved_pack_recovery")return;
+  (disc.data||[]).forEach(d=>{ if(!d.responsible)return; if(NOT_MISTAKE.has(d.reason))return;
     const m=mistakes[d.responsible]=mistakes[d.responsible]||{short_after_pack:0,over_pick:0,short_pick:0,total:0};
     if(m[d.reason]!=null)m[d.reason]++; m.total++; });
   renderMistakes(mistakes);

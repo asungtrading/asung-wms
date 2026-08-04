@@ -164,8 +164,8 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 **⚠️ 2026-07-21 세션에서 대량 추가됨 (아래 규칙 12~16 + references/frontend.md 참조).**
 
 1. **index.html(런처)** — 다크테마, 로그인 게이트, role별 메뉴 카드. ⚠️ 메뉴 카드 클래스 `.card`가 `display:flex` → wms-auth 로그인 카드도 `card`면 충돌. **로그인 카드는 `wcard`로 격리됨**(교훈: 공유 모듈 클래스는 페이지와 안 겹치게).
-2. **picker.html** — 셀프서브 픽킹, 낙관적 잠금, 홀드/재개, 스캔=factor 증가, WebAudio 삐+진동+플래시, 부족→"Complete as incomplete"→discrepancy.
-3. **packer.html** — 전량 재스캔 검수, 목표=required(주문량) not expected(픽량), 팩커 부족분 보충("Pack fill"), 초과스캔 소프트경고+완료시 1회 확인(진짜 초과→discrepancy responsible=picker+반납, 스캔실수→무시), 회수된 부족→픽 discrepancy 해소, 전배치 팩완료→order status='ready_to_close'+알림.
+2. **picker.html** — 셀프서브 픽킹, 낙관적 잠금, 홀드/재개, 스캔=factor 증가, WebAudio 삐+진동+플래시, 부족→"Complete as incomplete"→discrepancy. **`⚠ Not enough stock` 선언 토글**(2026-08-04, 규칙 41): 선반이 정말 비었을 때 short 를 실수가 아닌 **재고 불일치(`stock_short`, responsible=null, declared_by 기록)**로 재분류 — 선언된 라인은 finish() 가 short_pick 을 안 만든다.
+3. **packer.html** — 전량 재스캔 검수, 목표=required(주문량) not expected(픽량), **부족 3갈래**: 팩커 부족분 보충("Pack fill") / **`⚠ Not enough stock` 선언**(선반 확인 후 보조 선언, source='packing') / 그대로 완료→short_after_pack. 픽커가 선언한 라인은 `Stock short — declared by {picker}` 칩 표시(선반 재수색 방지). **초과스캔 소프트경고 + 완료시 라인별 2택 모달**(2026-08-04 — "실물을 세어라": `Picker brought extra`→over_pick responsible=picker+반납 / `I scanned twice`→pack_scan_mistake 선해소 기록·실수 집계 제외), 회수된 부족→픽 discrepancy 해소, 전배치 팩완료→order status='ready_to_close'+알림. 상세는 `references/frontend.md` 「2026-08-04」.
 4. **manager.html** — 오더 분할 + wave. **Split | Group 토글**. Split=하이브리드 분할(라인 한도 or 낱개 한도 먼저 걸리는 쪽, 동선순 정렬, 1라인=1배치 최소보장, 미리보기=생성 일치). Group=소량 오더 wave 그룹핑(규칙 18).
 5. **admin.html** — 매니저 허브 **8탭**(Status/Discrepancy/Reports/Stats/Rollback/Finalized/Work Screens + **Health**), 기간필터+달력. 불일치 "Fixed in Cin7" 처리(사람이 Cin7 backend 수정 후). Health=불변식 검증 탭(규칙 19).
 6. **staff-admin.html** — 20명 직원 목록, 인라인 창고/역할 드롭다운(변경즉시저장), active토글, 추가/삭제. **여기서 4명(Ho Kang·Ted Shin·Changmo Ku·Jan Ko)을 manager로 설정** → 그래야 그들에게 매니저 메뉴 보임.
@@ -208,7 +208,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 ## 규칙 14 — 워커 리포트 & 롤백 (⚠️ 2026-07-21)
 
-- **`wms_reports`**(별도 테이블, `wms_reports.sql`): 데이터품질 리포트 전용 — discrepancy(재고수량) 큐와 분리. kind=`wrong_location`(picker만)/`barcode_mismatch`(picker+packer)/**`image_mismatch`(picker+packer, 2026-07-30)**. picker 싱글뷰 ⚑Wrong location/⚑Barcode changed/⚑Image differs, packer 싱글뷰 ⚑Barcode changed/⚑Image differs. admin **Reports 탭**에서 리뷰/resolve(kind 필터 + open 건수), 미해결 배지(kind 무관 전체 집계).
+- **`wms_reports`**(별도 테이블, `wms_reports.sql`): 데이터품질 리포트 전용 — discrepancy(재고수량) 큐와 분리. kind=`wrong_location`(picker만)/`barcode_mismatch`(picker+packer)/**`image_mismatch`(picker+packer, 2026-07-30)**. picker 싱글뷰 ⚑Wrong location/⚑Barcode changed/⚑Image differs, packer 싱글뷰 ⚑Barcode changed/⚑Image differs. admin **Reports 탭**에서 리뷰/resolve(kind 필터 + open 건수), 미해결 배지(kind 무관 전체 집계). ⚠️ **`⚠ Not enough stock`(2026-08-04, 규칙 41)은 같은 reportrow 에 있지만 wms_reports 가 아니라 `wms_discrepancies`(stock_short) 에 쓴다** — 재고 수량 문제라 discrepancy 큐 소관.
 - **`image_mismatch` 는 토글**(2026-07-30): 상세 프롬프트 없이 체크만 — note 는 코드가 고정 문구(`Image does not match the physical product`)로 생성. 같은 **order_id+sku+kind 의 미해결(resolved_at is null) 행 1개**가 불변식이고, 다시 누르면 그 행을 **delete**(⚠️ `.is("resolved_at",null)` 조건 필수 — 해소된 감사기록은 지우지 않는다). 진입 시 `loadImageFlags()` 가 미해결 행을 읽어 눌린 상태를 복원한다(⚠️ 상태를 localStorage 에 두지 말 것 — 규칙 5, 태블릿 교체 시나리오). 쓰기 중 `imgBusy` 로 버튼 비활성 = 연타 중복 insert 방지.
   - ⚠️⚠️ **wave 모드의 귀속 — 기존 두 kind 는 버그다**: picker 의 `image_mismatch` 만 `wave? l._orderId : task.order_id` 로 **라인별 귀속**이라 옳고(finish() discrepancy 와 같은 규칙 — 규칙 18), **기존 `wrong_location`·`barcode_mismatch` 는 `task.order_id` 고정이라 wave 에서 엉뚱한 오더에 귀속된다.** 이번 세션(2026-07-30)에 새 kind 를 넣으며 발견했고 동작 변경 범위 밖이라 그대로 뒀다 → **백로그(우선순위를 낮추지 말 것 — 리포트가 잘못된 오더에 붙으면 매니저가 엉뚱한 라인을 확인한다).**
   - ⚠️ `kind` 는 baseline 에서 CHECK 없는 `text` → **스키마 변경 불필요**. 실물 확인은 `supabase/wms_reports_image_mismatch.sql` STEP 1(규칙 29 — 문서 말고 DB 를 믿는다).
@@ -285,7 +285,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **Resume/열기 필터 (2026-07-24)**: `loadMyReceipts` 는 `applied_at IS NULL` 만(반영된 건 목록에서 제외). openReceipt 도 applied 면 차단.
   - **중복 카드 숨김 (2026-07-28)**: Resume 섹션에 **이미 카드로 떠 있는 문서**는 아래 "Ready to receive (Cin7)" 목록에서 감춘다(키 = `po_number` 대문자 비교, 헤더에 "— N already open above" 표시). ⚠️ **기준은 "화면에 렌더된 `myReceipts`" 뿐이다** — "receipt 행이 존재하면 숨김"으로 짜면 안 된다: 창고 접근 밖 등으로 Resume 에 안 뜨는 문서까지 사라져 **스캔 이어받기 진입로가 막힌다**. 빈 목록 판정도 `openPos` 가 아니라 `visPos` 기준(전부 숨겨졌는데 "없음"이 안 뜨던 문제).
 - **리시빙 리스트 프린트 (2026-07-25)**: receiver 검수 헤더 **🖨 Print** → 픽리스트와 동일 형식 새 창(팝업차단 회피: 클릭 핸들러 안에서 `window.open`). 로고 + "PO/TRANSFER RECEIVING" + **문서번호 CODE128 바코드**(인쇄물 스캔으로 재진입) + 공급사/루트·창고·총라인/수량·Received By 서명란 + 라인표(**Last bin** · SKU · 제품명 · Qty · ✓체크박스). **라스트빈(존) 순 정렬**(창고 동선), no-bin 은 주황 "no bin" 으로 눈에 띄게. `zoneOfBin`/`zOrder` 재사용.
-- **차이(불일치) 처리 정책 (2026-07-25 사용자 결정 · 중요 / 2026-07-28 트랜스퍼 예외 추가)**: ① Cin7 에는 **초과/부족 무관 "들어온 대로"**(received) 쓴다 — **PO stock received 는 초과 허용이 실측 사실**(⚠️ 트랜스퍼는 아니다, 아래 예외). ② 기대치와의 차이는 **`wms_discrepancies` 큐에 자동 기록**(`source='receiving'`, reason `recv_over`/`recv_short`/`recv_off_po`, `po_number`/`receipt_id`, responsible=received_by). ③ 매니저가 admin Discrepancy 탭에서 보고 **Cin7 backend 에서 수동 stock adjustment** → "Cin7 Fixed" 버튼으로 정리. **자동 adjustment 는 하지 않음**(사람 판단 유지 = 안전). `receipt_id+sku` **전체 유니크**로 재적용 중복 방지. SQL `wms_disc_receiving.sql`(order_id NULL 허용 + source/po_number/receipt_id + 유니크 인덱스). ⚠️⚠️ **2026-07-29 정정 — 원래 이 인덱스는 `WHERE receipt_id IS NOT NULL` 부분 유니크였고, 그 때문에 PostgREST `on_conflict` 가 깨져 리시빙 discrepancy 가 구현 이후 한 건도 기록되지 않았다: 규칙 29.**
+- **차이(불일치) 처리 정책 (2026-07-25 사용자 결정 · 중요 / 2026-07-28 트랜스퍼 예외 추가)**: ① Cin7 에는 **초과/부족 무관 "들어온 대로"**(received) 쓴다 — **PO stock received 는 초과 허용이 실측 사실**(⚠️ 트랜스퍼는 아니다, 아래 예외). ② 기대치와의 차이는 **`wms_discrepancies` 큐에 자동 기록**(`source='receiving'`, reason `recv_over`/`recv_short`/`recv_off_po`, `po_number`/`receipt_id`, responsible=received_by). ③ 매니저가 admin Discrepancy 탭에서 보고 **Cin7 backend 에서 수동 stock adjustment** → "Cin7 Fixed" 버튼으로 정리. **자동 adjustment 는 하지 않음**(사람 판단 유지 = 안전). **2026-08-04 부터 픽·팩의 재고 부족 선언(`stock_short`, 규칙 41)도 같은 큐·같은 흐름으로 합류** — 리시빙과 동일하게 매니저 Cin7 수동 조정이 유일한 보정 경로다. `receipt_id+sku` **전체 유니크**로 재적용 중복 방지. SQL `wms_disc_receiving.sql`(order_id NULL 허용 + source/po_number/receipt_id + 유니크 인덱스). ⚠️⚠️ **2026-07-29 정정 — 원래 이 인덱스는 `WHERE receipt_id IS NOT NULL` 부분 유니크였고, 그 때문에 PostgREST `on_conflict` 가 깨져 리시빙 discrepancy 가 구현 이후 한 건도 기록되지 않았다: 규칙 29.**
   - ⚠️ **기록 시점 = Cin7 쓰기 "앞"** (2026-07-28 역전). 예전엔 applyCommit **맨 마지막**이라 bin 이동이 throw 하면 차이 기록이 통째로 유실됐다(TR-02935 실사고). 이 큐가 **유일한 보정 지시서**이므로 **insert 실패 = Apply 중단**(Cin7 을 건드리지 않는다) — 여기서만 "실패해도 Apply 성공(WARN)" 방침을 의도적으로 뒤집는다. 자세한 원칙은 규칙 27 **R12**.
 - **⚠️⚠️ 트랜스퍼 예외 (2026-07-28 사용자 결정 — API 제약 때문)**: 트랜스퍼는 "Cin7 에 received 를 쓴다"가 **API 레벨에서 불가능**하다(완료 PUT 의 `TransferQuantity` 변경은 무시된다 — 규칙 21 정정 항목).
   - ① **완료 수량 = 보낸 수량(주문 수량) 그대로 확정.** 실물 수량 덮어쓰기 로직은 제거했다.
@@ -633,6 +633,17 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ⚠️ **(a) 케이스의 완료 후 bin 이동은 실전 미검증** — API 실측(규칙 21: From=창고 GUID 로 "bin 없는 재고"를 꺼냄, TR-03260 1건)은 됐지만 **실전 Apply 경험은 전부 (b)였다. 다음 트랜스퍼가 첫 검증이다 — dry-run 을 먼저 확인할 것**(백로그 「검증 대기」).
 - **풋어웨이 마무리 방식**: 라스트 로케이션이 **없으면 지정하고, 있으면 그대로 둔다.**
 
+## 규칙 41 — 픽·팩 discrepancy: 작업자 실수 vs 재고 불일치는 다른 것이다 (⚠️ 2026-08-04 사용자 결정)
+
+현장 사실: 선반에 5개뿐이면 픽커는 6개를 못 뽑는다 — 이건 실수가 아니라 **Cin7 재고(6)와 실물(5)의 불일치**다. 마찬가지로 "픽커가 7개를 가져옴"과 "팩커가 한 번 더 스캔함"은 다른 사람의 다른 사건이다. 이 구분이 없으면 정확도 지표가 거짓말을 하고, 재고 불일치는 영영 보정되지 않는다.
+
+- **부족은 선반 앞의 사람이 선언한다**: 픽커 `⚠ Not enough stock`(1차) / 팩커는 선반 확인 후 보조 선언. 선언 = `wms_discrepancies` 에 `reason='stock_short'`, `source='picking'|'packing'`, **`responsible=null`**, `declared_by=선언자`(시각=created_at) — 토글(재클릭 취소), 진입 시 미해결 행으로 복원.
+- **⚠️ 선언은 실수를 지우는 것이 아니라 재분류다.** 주문 수량은 그대로(여전히 부족 출고), 차이는 discrepancy 큐에 남아 **매니저가 Cin7 에서 수동 조정 → "Cin7 Fixed"** — 규칙 20 리시빙 차이 처리와 같은 구조(자동 조정 없음). **남용 방지가 이 구조 자체다**: 선언해도 기록은 남고, 매니저가 bin 을 확인하는 단계에서 걸러진다.
+- **초과는 실물을 셀 수 있는 팩커가 라인별로 구분한다**(완료 시 2택 모달): `Picker brought extra`(실물이 정말 많음)→`over_pick` responsible=picker+반납 / `I scanned twice`(실물은 정확)→`pack_scan_mistake` **선해소 insert**(responsible=null — 감사 기록만, 실수 집계 제외).
+- **`responsible` 은 실수 귀속 전용 컬럼이다** — Stats mistake tally 가 이걸로 센다. stock_short/pack_scan_mistake 에 responsible 을 넣지 말 것(선언자는 `declared_by`). `recv_over/recv_short/recv_off_po` 도 실수 집계에서 제외(공급사/실물 사실 — off-PO 확인 소홀 리뷰는 admin Receiving 승인 게이트가 담당).
+- 구현 지도는 `references/frontend.md` 「2026-08-04」 · 스키마는 `supabase/migrations/20260804000000_disc_stock_short.sql`(declared_by + 규칙 29 유니크 정착). ⚠️ **배포 순서: SQL 먼저, 프론트 나중**(규칙 23) — 컬럼 없이 선언 insert 가 실패한다.
+- ⬜ 백로그: packer `overScans` 메모리 전용(Hold/새로고침 시 초과 표시 소실 — 판정 "결과"는 기록됨).
+
 ## 현재 진행 상태 (2026-08-04 기준)
 
 **전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증).**
@@ -642,6 +653,11 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ✅ **상세조회 최신 오더번호 우선(내림차순)**: 오름차순 + MAX_DETAIL 캡 + "비대상은 저장 안 됨 → 매 회차 fresh 잔류" 가 합쳐져 최신 오더가 영구 굶주림(SO-14106). 규칙 20 오름차순 함정의 두 번째 사례
 - ✅ **진단 필드 확장**: `list_total/list_fetched/truncated/oldest·newest_scanned/rate_limited/detail_capped_orders` + `skipped_detail` 에 `skip_picked` 포함 — "안 들어온다" 진단 순서는 규칙 12
 - ✅ 실측: 스캔 범위는 무죄(`list_total` 140) · `Status=ORDERED` 도 정상 유입 · **Advanced Sale 정상 처리**(SO-14023 라인 15개 일치, Type 필터 불필요)
+
+**2026-08-04 세션 후반 (픽·팩 실수 vs 재고 불일치 구분 — 규칙 41 신설)**
+- ✅ picker/packer `⚠ Not enough stock` 선언(stock_short·declared_by) + 팩커 초과 라인별 2택 모달(over_pick / pack_scan_mistake 선해소) + admin 카테고리 필터·선언자 표시 + Stats `NOT_MISTAKE`(recv_* 포함 제외 — 그간 리시버가 부당 집계됨)
+- ✅ **schema.md 정정: `wms_discrepancies.note` 컬럼은 실물에 없다**(문서만 있었음 — 규칙 29 또 한 사례)
+- ⬜ `20260804000000_disc_stock_short.sql` — 사람이 `db push`(declared_by + 규칙 29 유니크 정착 · **프론트 배포보다 먼저**)
 
 **2026-07-31 세션 (Apply 청크 v1→v3 — 규칙 30-2·R10 해소 + 규칙 38~40)**
 - ✅ **EF Apply 청크 처리**: 상한 도달 시 정상 종료(`done:false, groups_remaining, lines_moved/lines_total`) + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식 — buildApplyPlan 재개 게이트·admin 공유) + `applied_at` 은 done:true 회차에만. 429 는 백오프 재시도(상한 2회) 후 회차 조기 종료(failed_moves 제외), 그룹 간 sleep 300→150ms — 규칙 21 청크 절

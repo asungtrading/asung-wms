@@ -151,6 +151,7 @@
   .lrow.done .q{color:var(--ok)}
   .shortchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--danger);border-radius:5px;padding:1px 5px;margin-left:6px}
   .recchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--ok);border-radius:5px;padding:1px 5px;margin-left:6px}
+  .stockchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#2456d6;background:#eaf2ff;border:1px solid #c6dbff;border-radius:5px;padding:1px 5px;margin-left:6px}
   .picknote{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--warn);background:#fdf6ec;border-radius:5px;padding:1px 5px;margin-left:4px}
   .rmover{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--mut);background:#fff;border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin-left:6px;cursor:pointer}
   .rmover:hover{color:var(--danger);border-color:#f3c4c4}
@@ -280,6 +281,17 @@
     <p id="fzMsg"></p>
     <p class="sub">Quantities you entered after that were not saved. To keep working on it, reload and scan the pack list again to take it over.</p>
     <button class="btn dark" id="fzReload">Reload</button>
+  </div>
+</div>
+
+<!-- Over-scan verdict: one line at a time — the packer COUNTS the physical items and picks one of two explicit answers -->
+<div class="fz" id="overModal" style="display:none">
+  <div class="fzbox">
+    <div class="t" style="color:var(--warn)">⚠ Over-scan — count the items</div>
+    <p id="ovmMsg" style="white-space:pre-line"></p>
+    <button class="btn dark" id="ovmExtra" style="margin-bottom:8px"></button>
+    <button class="btn ghost" id="ovmTwice" style="margin-bottom:8px"></button>
+    <button class="btn ghost" id="ovmCancel" style="font-size:12.5px;color:var(--mut)">← Go back and recount</button>
   </div>
 </div>
 
@@ -482,6 +494,7 @@ function qcard(o,label,btnTxt,attr,resume,shortCnt){
 }
 let queueFilter="", skuFilter="", lastScan=null, advTimer=null;
 let imgFlags=new Set(), imgBusy=false;   // open image_mismatch reports: "orderId|sku"
+let stockFlags=new Set(), stockBusy=false, stockDecl={};   // open stock_short declarations: "orderId|sku" (+ who/where declared)
 function renderQueue(){
   const be=document.getElementById("bempty");
   const f=queueFilter.trim().toUpperCase();
@@ -661,13 +674,7 @@ async function enterPack(){
     lines.forEach(l=>{ if(l.packline_id==null) l.packline_id=m[l.order_line_id]||null; });
   }
   curIdx=lines.findIndex(l=>l.verified<l.required); if(curIdx<0)curIdx=0;
-  // pick-incomplete warning (shortfall to fill during packing)
-  const shorts=lines.filter(l=>l.verified<l.required && l.expected<l.required);
-  const al=document.getElementById("shortAlert");
-  if(shorts.length){
-    al.style.display="block";
-    document.getElementById("shortList").innerHTML=shorts.map(l=>`<li>· ${esc(l.order_sku)} — Pick ${l.expected} / ordered ${l.required} (from other locations ${l.required-l.expected} more to find)</li>`).join("");
-  }else{ al.style.display="none"; }
+  renderShortAlert();   // re-rendered again once loadStockFlags() knows about declarations
   // show the lines immediately (don't wait for enrichment queries)
   skuFilter=""; lastScan=null; clearTimeout(advTimer); const _se=document.getElementById("skuSearch"); if(_se)_se.value="";
   document.getElementById("listView").style.display="none";
@@ -676,6 +683,7 @@ async function enterPack(){
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
   renderPack(); focusScan();
   loadImageFlags();   // independent — restores the pressed state of ⚑ Image differs
+  loadStockFlags();   // independent — shows picker's stock-short declarations + restores ⚠ Not enough stock
   // enrich: picker name (attribution) + sibling barcodes, then re-render
   try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
   try{
@@ -796,6 +804,8 @@ function renderSingle(){
     else chips+=`<span class="shortchip">Short ${l.required-l.verified}</span>`;
   }
   if((l.overScans||0)>0) chips+=`<span class="overchip">Over-scan ${l.overScans}</span>`;
+  const sd=stockDeclOf(l);
+  if(sd) chips+=`<span class="stockchip">Stock short — declared by ${esc(sd.by||"?")}</span>`;
   const pickNote=l.expected<l.required?`<span class="picknote">Pick ${l.expected}</span>`:"";
   host.innerHTML=`
     <div class="body">
@@ -826,13 +836,16 @@ function renderSingle(){
       <div class="reportrow">
         <button class="rep" data-rep="bc">⚑ Barcode changed</button>
         <button class="rep ${imgFlagged(l)?"on":""}" data-rep="img" ${imgBusy?"disabled":""}>${imgFlagged(l)?"✓":"⚑"} Image differs</button>
+        ${(l.verified<l.required||stockFlagged(l))?`<button class="rep ${stockFlagged(l)?"on":""}" data-rep="stock" ${stockBusy?"disabled":""}>${stockFlagged(l)?"✓":"⚠"} Not enough stock</button>`:""}
       </div>
     </div>`;
   host.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   host.querySelector("[data-manual]").onclick=()=>manualSetPack(curIdx);
   host.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{movePack(+b.dataset.nav);});
   host.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{
-    if(b.dataset.rep==="img") toggleImageReport(curIdx); else reportIssuePack(b.dataset.rep, curIdx);
+    if(b.dataset.rep==="img") toggleImageReport(curIdx);
+    else if(b.dataset.rep==="stock") toggleStockShortPack(curIdx);
+    else reportIssuePack(b.dataset.rep, curIdx);
   });
   if(lastScan && Date.now()-lastScan.at<1200){ const qb=host.querySelector(".qtybig"); if(qb) qb.classList.add("pop"); }
 }
@@ -898,6 +911,93 @@ async function toggleImageReport(idx){
   }catch(e){ toast("Report failed: "+(e.message||e),true); }
   imgBusy=false; renderPack(); focusScan();
 }
+
+/* ---------- "Not enough stock" — declarations & the pick-incomplete banner ----------
+   Same policy as picker: declaring reclassifies a short line as an INVENTORY mismatch
+   (reason 'stock_short', responsible=null → never in the mistake tally). The order
+   still ships short; a manager fixes Cin7 from the discrepancy queue.
+   The packer only declares AFTER checking the shelf. If the picker already declared,
+   the line shows "Stock short — declared by {picker}" so the packer does not search
+   the shelf again in vain.                                                            */
+function stockKeyPack(l){ const oid=packTask?packTask.order_id:null; return oid?oid+"|"+(l.order_sku||""):""; }
+function stockFlagged(l){ const k=stockKeyPack(l); return !!k && stockFlags.has(k); }
+function stockDeclOf(l){ const k=stockKeyPack(l); return k?stockDecl[k]:null; }
+function renderShortAlert(){
+  // pick-incomplete warning (shortfall to fill during packing; declared lines = shelf is empty)
+  const shorts=lines.filter(l=>l.verified<l.required && l.expected<l.required);
+  const al=document.getElementById("shortAlert");
+  if(shorts.length){
+    al.style.display="block";
+    document.getElementById("shortList").innerHTML=shorts.map(l=>{
+      const sd=stockDeclOf(l);
+      const tail=sd?` — ⚠ stock short, declared by ${esc(sd.by||"?")} (shelf already checked)`
+                   :` (from other locations ${l.required-l.expected} more to find)`;
+      return `<li>· ${esc(l.order_sku)} — Pick ${l.expected} / ordered ${l.required}${tail}</li>`;
+    }).join("");
+  }else{ al.style.display="none"; }
+}
+async function loadStockFlags(){
+  stockFlags=new Set(); stockDecl={};
+  try{
+    const oid=packTask?packTask.order_id:null;
+    const skus=[...new Set(lines.map(l=>l.order_sku).filter(Boolean))];
+    if(!oid||!skus.length) return;
+    const {data,error}=await sb.from("wms_discrepancies")
+      .select("order_id,sku,declared_by,source").eq("reason","stock_short").is("resolved_at",null)
+      .eq("order_id",oid).in("sku",skus);
+    if(error) throw error;
+    (data||[]).forEach(r=>{
+      const k=r.order_id+"|"+(r.sku||"");
+      stockFlags.add(k); stockDecl[k]={by:r.declared_by||null, src:r.source||null};
+    });
+    renderShortAlert(); renderPack();
+  }catch(e){ /* declaration display is informative — never block the pack view */ }
+}
+async function toggleStockShortPack(idx){
+  const l=lines[idx]; if(!l||stockBusy) return;
+  if(!await ensureMine()) return;   // 규칙 28 — 선언도 쓰기다
+  const oid=packTask?packTask.order_id:null;
+  if(!oid){ toast("Cannot declare — order unknown",true); focusScan(); return; }
+  const key=oid+"|"+(l.order_sku||""), on=stockFlags.has(key);
+  stockBusy=true; renderPack();
+  try{
+    if(on){
+      // cancel: only the still-open declaration — resolved history is never deleted
+      const {error}=await sb.from("wms_discrepancies").delete()
+        .eq("order_id",oid).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
+      if(error) throw error;
+      stockFlags.delete(key); delete stockDecl[key]; toast("Stock-short declaration cancelled");
+    }else{
+      if(!confirm(`${l.order_sku}\n\nDeclare NOT ENOUGH STOCK?\nOrdered ${l.required}, physically here ${l.verified}.\n\nGo CHECK THE SHELF first — only declare if the rest\nreally is not there.\n\nThis is NOT counted as a worker mistake — it goes to the\nmanager's queue as an inventory mismatch to fix in Cin7.`)){ stockBusy=false; renderPack(); focusScan(); return; }
+      const {error}=await sb.from("wms_discrepancies").insert({
+        order_id:oid, order_number:order.order_number, sku:l.order_sku,
+        ordered_base:l.required, actual_base:l.verified,
+        reason:"stock_short", source:"packing", declared_by:me.name,
+        responsible:null, cin7_corrected:false
+      });
+      if(error) throw error;
+      stockFlags.add(key); stockDecl[key]={by:me.name, src:"packing"}; toast("Stock shortage declared");
+    }
+    renderShortAlert();
+  }catch(e){ toast("Declaration failed: "+(e.message||e),true); }
+  stockBusy=false; renderPack(); focusScan();
+}
+
+/* ---------- over-scan verdict modal (one line at a time, two explicit answers) ---------- */
+function overChoice(l){
+  return new Promise(res=>{
+    const m=document.getElementById("overModal");
+    const total=l.required+(l.overScans||0);
+    document.getElementById("ovmMsg").textContent=
+      `${l.order_sku}\nOrdered ${l.required} · scans say ${total}.\n\nCOUNT the physical items in front of you now.\nHow many are actually there?`;
+    const bE=document.getElementById("ovmExtra"), bT=document.getElementById("ovmTwice"), bC=document.getElementById("ovmCancel");
+    bE.textContent=`Picker brought extra — ${total} items are here`;
+    bT.textContent=`I scanned twice — only ${l.required} are here`;
+    const done=v=>{ m.style.display="none"; bE.onclick=bT.onclick=bC.onclick=null; res(v); };
+    bE.onclick=()=>done("extra"); bT.onclick=()=>done("mistake"); bC.onclick=()=>done(null);
+    m.style.display="grid";
+  });
+}
 function manualSetPack(idx){
   if(frozen) return;
   const l=lines[idx];
@@ -953,6 +1053,8 @@ function renderList(){
       else chip=`<span class="shortchip">Short ${l.required-l.verified}</span>`;
     }
     if((l.overScans||0)>0) chip+=`<span class="overchip">Over-scan ${l.overScans}</span>`;
+    const sd=stockDeclOf(l);
+    if(sd) chip+=`<span class="stockchip">Stock short · ${esc(sd.by||"?")}</span>`;
     const pickNote=l.expected<l.required?`<span class="picknote">Pick ${l.expected}</span>`:"";
     const overBtn=(l.overScans||0)>0?`<button class="rmover" data-rmover="${idx}" ${frozen?"disabled":""}>Clear over</button>`:"";
     return `<div class="lrow ${cls}" data-idx="${idx}">
@@ -1048,21 +1150,23 @@ document.getElementById("doneBtn").onclick=async ()=>{
   const miss=lines.filter(l=>l.verified<l.required);          // below ordered qty
   const recovered=lines.filter(l=>l.expected<l.required && l.verified>=l.required); // filled during packing
   const overScanLines=lines.filter(l=>(l.overScans||0)>0);    // over-scan detected lines
-  let realOvers=[];                                            // lines the packer confirmed as 'real extra'
+  let realOvers=[], scanMistakes=[];                          // per-line verdicts (packer counts the physical items)
 
-  // 1) if there are over-scans — ask packer if real extra or scan mistake (default: treat as mistake)
-  if(overScanLines.length){
-    const od=overScanLines.map(l=>`· ${l.order_sku}: ordered ${l.required} after meeting ${l.overScans} more scans`).join("\n");
-    const real=confirm(`There were over-scans:\n${od}\n\nDid you actually bring more items than ordered?\n\n[OK] = real extra exists → return to origin + record as picker mistake\n[Cancel] = it was a scan mistake → ignore and complete normally`);
-    if(real){
-      realOvers=overScanLines;
-      const rd=realOvers.map(l=>`· ${l.order_sku}: extra ${l.overScans} → ${l.bin||"?"} return`).join("\n");
-      if(!confirm(`Did you return the extra to its original location?\n${rd}\n\nPicker(${packTask.picker||"unknown"})'s over-pick will be recorded..`)) { focusScan(); return; }
-    }
+  // 1) over-scans — ONE LINE AT A TIME: count the items, then pick one of two explicit answers.
+  //    'extra' = picker really brought more (return + record over_pick, responsible=picker)
+  //    'mistake' = my double scan (recorded as pack_scan_mistake, pre-resolved, responsible=null)
+  for(const l of overScanLines){
+    const v=await overChoice(l);
+    if(v===null){ focusScan(); return; }   // go back and recount — completion aborted
+    if(v==="extra") realOvers.push(l); else scanMistakes.push(l);
   }
-  // 2) shortfall check
+  if(realOvers.length){
+    const rd=realOvers.map(l=>`· ${l.order_sku}: extra ${l.overScans} → ${l.bin||"?"} return`).join("\n");
+    if(!confirm(`Did you return the extra to its original location?\n${rd}\n\nPicker(${packTask.picker||"unknown"})'s over-pick will be recorded..`)) { focusScan(); return; }
+  }
+  // 2) shortfall check (lines declared "Not enough stock" are inventory mismatch, not a mistake)
   if(miss.length){
-    const detail=miss.map(l=>`· ${l.order_sku}: ${l.verified}/${l.required}`).join("\n");
+    const detail=miss.map(l=>`· ${l.order_sku}: ${l.verified}/${l.required}${stockFlagged(l)?" — stock short (declared)":""}`).join("\n");
     if(!confirm(`Some lines did not reach the ordered quantity:\n${detail}\n\nIf not found in other locations either, it completes as short..\n(discrepancy queue → backend updates Cin7)\n\nContinue?`)) { focusScan(); return; }
   } else if(!overScanLines.length) {
     const msg=recovered.length?`${packTask.batch_label} Complete pack?\n(in packing, ${recovered.length} lines' shortfall recovered)`:`${packTask.batch_label} Complete pack?`;
@@ -1078,14 +1182,41 @@ document.getElementById("doneBtn").onclick=async ()=>{
       await sb.from("wms_pack_task_lines").update({verified_base:l.verified,status:st,verification_method:l.vmethod,verified_at:new Date().toISOString()}).eq("id",l.packline_id);
     }
     // below ordered qty → discrepancy queue (responsible: picker)
-    if(miss.length){
-      const rows=miss.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.verified, reason:"short_after_pack", responsible:packTask.picker||null, cin7_corrected:false}));
+    // — EXCEPT lines declared "Not enough stock": those are already queued as stock_short
+    //   (inventory mismatch, responsible=null) — do NOT double-record as a mistake.
+    const plainMiss=miss.filter(l=>!stockFlagged(l));
+    if(plainMiss.length){
+      const rows=plainMiss.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.verified, reason:"short_after_pack", responsible:packTask.picker||null, cin7_corrected:false}));
       await sb.from("wms_discrepancies").insert(rows);
+    }
+    // declared short lines: refresh the open stock_short row to the final packed qty (best-effort)
+    for(const l of miss.filter(stockFlagged)){
+      try{
+        await sb.from("wms_discrepancies")
+          .update({ordered_base:l.required, actual_base:l.verified})
+          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
+      }catch(e){ /* declaration row already exists with declare-time qty — good enough */ }
+    }
+    // a declaration on a line that DID reach ordered qty is disproven (stock was found)
+    // → resolve it so the manager queue does not ask for a Cin7 fix that isn't needed
+    for(const l of lines.filter(l=>l.verified>=l.required && stockFlagged(l))){
+      try{
+        await sb.from("wms_discrepancies")
+          .update({resolved_by:me.name, resolved_at:new Date().toISOString()})
+          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
+      }catch(e){ /* stays open — manager will see stock on the bin and clear it */ }
     }
     // only confirmed real extras → record over-pick (responsible: picker)
     if(realOvers.length){
       const rows=realOvers.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required+l.overScans, reason:"over_pick", responsible:packTask.picker||null, cin7_corrected:false}));
       await sb.from("wms_discrepancies").insert(rows);
+    }
+    // double scans → audit record only: pre-resolved (never in the open queue, never a mistake)
+    if(scanMistakes.length){
+      const now=new Date().toISOString();
+      const rows=scanMistakes.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required, reason:"pack_scan_mistake", source:"packing", declared_by:me.name, responsible:null, resolved_by:me.name, resolved_at:now, cin7_corrected:false}));
+      await sb.from("wms_discrepancies").insert(rows);
+      scanMistakes.forEach(l=>{ l.overScans=0; });
     }
     // lines recovered during packing → pick-stage short_pick resolve discrepancy
     if(recovered.length){
@@ -1099,7 +1230,12 @@ document.getElementById("doneBtn").onclick=async ()=>{
 
     const ready=await checkOrderReady(packTask.order_id);
     if(ready){ alert(`✅ ${order.order_number} — All batches for this order are packed!\n\nCin7, press pack authorize to finalize (3.Finalized)..`); }
-    const extra=[]; if(miss.length)extra.push(`Short ${miss.length}`); if(realOvers.length)extra.push(`Over ${realOvers.length}`); if(!miss.length&&recovered.length)extra.push(`Recovered ${recovered.length}`);
+    const extra=[];
+    const declaredMiss=miss.filter(stockFlagged).length;
+    if(miss.length)extra.push(`Short ${miss.length}${declaredMiss?` (${declaredMiss} stock-short)`:""}`);
+    if(realOvers.length)extra.push(`Over ${realOvers.length}`);
+    if(scanMistakes.length)extra.push(`Double scan ${scanMistakes.length}`);
+    if(!miss.length&&recovered.length)extra.push(`Recovered ${recovered.length}`);
     toast(packTask.batch_label+" Complete pack"+(extra.length?` (${extra.join(", ")})`:""));
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";

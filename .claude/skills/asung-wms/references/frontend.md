@@ -431,6 +431,28 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 - 유지: `P1 · PALLET` · `B3 on P1` · `also contains` · 유닛 지도 · `⚠ MIXED BOX` ·
   `⚠ Unassigned`. 미배정 표는 유닛 안이 아니라 캡션을 붙이지 않았다.
 
+## 2026-08-04 — 픽·팩 discrepancy: 작업자 실수 vs 재고 불일치 구분
+
+**정책(사용자 결정)**: 재고 부족 선언은 실수를 지우는 것이 아니라 **재분류**다 — 주문은 여전히 부족 출고이고, Cin7 재고와 실물의 차이는 discrepancy 큐(reason `stock_short`)에 남아 매니저가 Cin7 에서 수동 조정한다(리시빙과 같은 흐름 — 자동 조정 없음, 남용은 매니저 bin 확인 단계에서 걸러짐). 부족은 **선반 앞의 사람(픽커)이 선언**하고 팩커는 확인 후 보조 선언, 초과는 **실물을 셀 수 있는 팩커가 구분**한다.
+
+### picker.html — `⚠ Not enough stock` 선언 (토글)
+- 싱글뷰 reportrow 4번째 버튼 — `l.picked<l.assigned` 이거나 이미 선언된 라인에만 표시. **image_mismatch 와 같은 토글 패턴**: 선언=insert(`reason:'stock_short'`, `source:'picking'`, `declared_by:me.name`, **`responsible:null`**, ordered=assigned·actual=picked) / 재클릭=미해결 행만 delete / 진입 시 `loadStockFlags()` 가 미해결 행으로 눌린 상태 복원(localStorage 금지 — 규칙 12·14 와 동일). 선언 전 confirm("선반이 정말 비었을 때만") — 남용 방지 1차 관문.
+- wave 는 라인별 오더 귀속(`lineOrder(l)` = finish()·image_mismatch 와 같은 규칙).
+- `finish()`: 선언된 short 라인은 **short_pick 을 insert 하지 않고** 기존 stock_short 행의 actual_base 만 최종 picked 로 갱신(best-effort). 선언됐는데 결국 수량을 채운 라인은 **stale claim 으로 미해결 행 delete**(best-effort). 미선언 short 는 기존대로 short_pick.
+- 선언 토글에도 `ensureMine()`(규칙 28 — 선언도 쓰기다).
+
+### packer.html — 부족 3갈래 + 초과 2갈래(라인별)
+- **부족 3갈래**: ① Pack fill(기존 그대로) ② `⚠ Not enough stock` 토글(reportrow 3번째, `source:'packing'`) ③ 그대로 완료 → short_after_pack(기존). **픽커가 이미 선언한 라인은 칩 `Stock short — declared by {picker}`** (싱글=파란 stockchip, 리스트=`Stock short · {name}`) + shortAlert 배너 문구가 "shelf already checked" 로 바뀜 → 팩커가 헛되게 선반을 다시 찾지 않는다. `renderShortAlert()` 로 추출, `loadStockFlags()` 완료 시 재렌더.
+- **doneBtn**: 선언된 miss 라인은 **short_after_pack insert 제외**(stock_short actual_base 만 갱신). 선언됐는데 verified 가 required 에 도달한 라인은 **선언이 반증된 것** → resolved_by/resolved_at 으로 해소(delete 아님 — 감사 유지).
+- **초과 2갈래 — 라인별 모달** (`#overModal`, promise 기반 `overChoice(l)`): 전 라인 일괄 confirm 을 대체. 문구가 "COUNT the physical items now" 로 실물 세기를 지시하고 버튼 두 개가 명시적 — `Picker brought extra — {N} items are here`(→ 기존 반납 confirm + `over_pick` insert, responsible=picker) / `I scanned twice — only {N} are here`(→ **`pack_scan_mistake` 를 선해소로 insert**: responsible=null·declared_by=팩커·resolved_at=now — 미해결 큐에 안 뜨고 실수 집계에도 안 잡히는 감사 기록). `← Go back and recount` 는 완료 중단.
+- ⚠️ `overScans` 는 여전히 메모리 전용(Hold/새로고침 시 소실) — **백로그**. 판정 "결과"는 위 두 insert 로 확실히 기록된다.
+
+### admin.html — Discrepancy 탭 + Stats
+- **카테고리 필터** `#discFilter`(Reports 탭 kind 필터와 같은 패턴, open 건수 표시): All / Worker mistakes / Stock short (inventory) / Receiving. `discCatOf()`: stock_short→inventory, source=receiving→receiving, 나머지→mistake. open·resolved 두 표에 동일 적용.
+- `discRow`: `declared_by` 있으면 Responsible 열에 파란 "{name} declared · {source}" + Date 열에 **시각(HH:MM)까지** 표시(감사). REASON_LABEL/`r-stock_short`(파랑)·`r-pack_scan_mistake`(회색) 추가.
+- **Stats mistake tally**: `NOT_MISTAKE` set = resolved_pack_recovery(기존) + **stock_short·pack_scan_mistake**(responsible=null 이라 이중 안전) + **recv_over·recv_short·recv_off_po**(2026-08-04 사용자 결정 — 공급사/실물 사실이지 리시버 실수가 아님; off-PO 확인 소홀은 admin Receiving 승인 게이트에서 이미 리뷰됨). 그 전까지 recv_* 가 리시버 "Total mistakes" 에 부당하게 합산되고 있었다.
+- ⚠️ **배포 순서(규칙 23)**: `20260804000000_disc_stock_short.sql`(declared_by 컬럼) **실행이 먼저**, picker/packer 배포가 나중 — 컬럼 없이 프론트가 나가면 선언 insert 가 42703 으로 실패한다. admin 은 `select("*")` 라 먼저 나가도 무해.
+
 ## ⬜ admin.html Receiving — 붙일 것 (규칙 30)
 
 - **Apply 대기 항목에 경고 문구** (규칙 30-3): *"Do not move this stock in Cin7 until Apply finishes."* TR-02935 실패의 상당수가 `Available quantity … is 0` = 사람이 이미 옮긴 재고였다. 규칙 28(픽 중복)과 같은 종류이고 상대가 WMS 자신이다.

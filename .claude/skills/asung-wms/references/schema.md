@@ -43,7 +43,8 @@
 `id`, `pallet_id`(FK), `pack_task_id`(FK), `order_id`(FK), `drop_location`, `label`, `note`, `created_at`. 재배치=pallet_id만 변경, 부분이동=item split.
 
 ### wms_discrepancies — ⚠️ 불일치 미해결 큐 (가장 중요)
-`id`, `order_id`(FK), `order_number`, `sku`, `ordered_base`, `actual_base`, `reason`(short_pick/damaged/not_found), `cin7_corrected`(bool, backend가 Cin7 수정 완료 체크), `resolved_by`, `resolved_at`, `created_at`. 부분인덱스 `where cin7_corrected=false`(미해결만 빠른 조회).
+컬럼 (2026-08-04 실물 DB 확인): `id`, `order_id`(FK, **NULL 허용** — 리시빙), `order_number`, `sku`, `ordered_base`, `actual_base`, `reason`(**text, CHECK 없음**), `cin7_corrected`(bool, backend가 Cin7 수정 완료 체크), `resolved_by`, `resolved_at`, `created_at`, `responsible`(⚠️ **실수 귀속 전용** — Stats mistake tally 가 이 컬럼으로 센다), `source`(picking/packing/receiving — pick/pack 의 옛 행은 null), `po_number`, `receipt_id`, `declared_by`(2026-08-04, stock_short 선언자 — 감사, 시각은 created_at). 부분인덱스 `where cin7_corrected=false`(미해결만 빠른 조회) + 전체 유니크 `uq_disc_receipt_sku(receipt_id, sku)`.
+`reason` 실제 값: `short_pick`(픽커 부족, responsible 미설정) / `short_after_pack`(팩 후 부족, responsible=picker) / `over_pick`(진짜 초과, responsible=picker) / `resolved_pack_recovery`(팩커가 채워 해소) / **`stock_short`(재고 불일치 선언 — 실수 아님, responsible=null·declared_by 기록, 2026-08-04)** / **`pack_scan_mistake`(팩커 중복 스캔 자백 — 선해소 insert, responsible=null, 2026-08-04)** / `recv_over`·`recv_short`·`recv_off_po`(리시빙).
 
 ## 복제 테이블 2개 (BQ→Supabase, 길 A)
 
@@ -70,8 +71,8 @@
 ## wms_rollback_log — 롤백 감사 (2026-07-21, `wms_rollback_log.sql`)
 `id`(PK), `order_id`, `order_number`, `action`, `from_stage`, `to_stage`, `performed_by`, `note`, `created_at`. admin Rollback 탭이 단계 되돌릴 때 기록. 한 단계씩 최심단계만(Undo Fulfillment→Undo Pack→Reset Pick→Undo Split). discrepancy는 자동삭제 안 함.
 
-## wms_discrepancies — note 컬럼
-`wms_discrepancy_note.sql`로 `note` 추가했으나 리포트가 wms_reports로 분리되어 **현재 미사용/무해**. discRow는 `d.note` 있으면 표시(없어도 안전).
+## wms_discrepancies — note 컬럼 (⚠️ 2026-08-04 정정 — 존재하지 않는다)
+이 문서가 "`wms_discrepancy_note.sql`로 `note` 추가됨(미사용/무해)"이라고 적어 왔으나 **실물 DB 에 note 컬럼이 없다**(2026-08-04 information_schema 직접 조회 — baseline dump 에도 없음). admin `discRow` 가 `d.note` 를 참조하지만 undefined 라 표시가 안 될 뿐 무해해서 드러나지 않았다. **규칙 29(문서 말고 실물 DB)의 또 한 사례.** 선언자 기록이 필요했던 2026-08-04 작업은 note 재사용 대신 `declared_by` 신규 컬럼으로 갔다.
 
 ## wms_waves — 소량 오더 그룹 (2026-07-22, `wms_waves.sql`)
 `id`(PK), `label`(unique, `W-MMDD-n`), `warehouse`(toronto/edmonton, wave당 한 창고), `status`(pending/in_progress/completed), `assigned_to`(wave 잡은 픽커), `created_by`, `created_at`/`started_at`/`heartbeat_at`/`completed_at`. RLS auth_all. 인덱스 `idx_waves_status`.
@@ -116,3 +117,9 @@ RLS: 다른 wms_ 테이블 동일(auth_all).
 - `wms_discrepancies`: `order_id` **NULL 허용으로 변경**(리시빙 차이는 sales order 없음) + `source`(pick/pack/receiving) + `po_number` + `receipt_id`(bigint) + 유니크 `uq_disc_receipt_sku(receipt_id, sku)`. `wms_disc_receiving.sql`
   - ⚠️⚠️ **2026-07-29 정정 (규칙 29)** — 원래 이 인덱스는 `WHERE receipt_id IS NOT NULL` **부분** 유니크였고, **PostgREST `on_conflict` 는 부분 인덱스를 추론하지 못한다** → EF 의 `POST wms_discrepancies?on_conflict=receipt_id,sku` 가 **400 `42P10 there is no unique or exclusion constraint matching the ON CONFLICT specification`** 으로 실패했고, 그래서 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았다.** **WHERE 절 없는 전체 유니크로 교체**했다(pick/pack 행은 `receipt_id` 가 NULL 이고 유니크는 기본 **NULLS DISTINCT** 라 무영향). SQL = `supabase/wms_disc_uq_fix.sql` (⚠️ 마이그레이션 아님 — 같은 내용을 새 마이그레이션으로 담아야 로컬·원격이 정렬된다).
 - `wms_orders.reference` (text) — Cin7 화면 Reference(=API CustomerReference), 픽리스트 인쇄용. `wms_order_reference.sql`
+
+## 2026-08-04 추가 — 실수 vs 재고 불일치 구분 (`supabase/migrations/20260804000000_disc_stock_short.sql`)
+
+- `wms_discrepancies.declared_by` (text) — `stock_short`/`pack_scan_mistake` 의 선언자(감사용, 시각은 `created_at`). ⚠️ `responsible` 재사용 금지 — responsible 은 mistake tally 가 세는 컬럼이라 선언자가 실수로 집계된다.
+- **정책**: "재고 부족 선언(stock_short)"은 실수를 지우는 것이 아니라 **재분류**다 — 주문은 여전히 부족 출고, Cin7 재고와 실물의 차이는 큐에 남아 매니저가 Cin7 에서 수동 조정("Cin7 Fixed"). 리시빙 discrepancy 와 같은 흐름 = 남용해도 매니저가 bin 확인 단계에서 걸러진다.
+- 같은 마이그레이션이 **규칙 29 응급 수정분을 정착**시킨다: `uq_disc_receipt_sku` 를 WHERE 없는 전체 유니크로 재생성(멱등 — 원격엔 이미 적용됨, 이걸 안 담으면 새 환경/`db reset` 때 부분 유니크로 되돌아가 on_conflict 42P10 이 재발한다).

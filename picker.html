@@ -274,6 +274,7 @@ let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcM
 let waves=[], myWaves=[], staleWaves=[], wave=null, tasks=[];   // wave mode (grouped small orders, sort-to-tote)
 let curWh="", pickTitle="", pickMeta="";                        // shared pick-view context (single batch or wave)
 let imgFlags=new Set(), imgBusy=false;                          // open image_mismatch reports: "orderId|sku"
+let stockFlags=new Set(), stockBusy=false;                      // open stock_short declarations: "orderId|sku"
 let actx=null;
 
 /* ---------- lease / presence (heartbeat 제거 — 스캔 시 이어받기로 대체) ---------- */
@@ -711,6 +712,7 @@ async function enterPickView(){
   document.getElementById("pMeta").textContent=pickMeta;
   renderPick(); focusScan();
   loadImageFlags();   // independent — restores the pressed state of ⚑ Image differs
+  loadStockFlags();   // independent — restores the pressed state of ⚠ Not enough stock
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
   // enrich availability (independent — a failure here must not block barcodes)
   if(baseSkus.length){
@@ -959,6 +961,7 @@ function renderSingle(){
         <button class="rep" data-rep="loc">⚑ Wrong location</button>
         <button class="rep" data-rep="bc">⚑ Barcode changed</button>
         <button class="rep ${imgFlagged(l)?"on":""}" data-rep="img" ${imgBusy?"disabled":""}>${imgFlagged(l)?"✓":"⚑"} Image differs</button>
+        ${(l.picked<l.assigned||stockFlagged(l))?`<button class="rep ${stockFlagged(l)?"on":""}" data-rep="stock" ${stockBusy?"disabled":""}>${stockFlagged(l)?"✓":"⚠"} Not enough stock</button>`:""}
       </div>
     </div>`;
   const s=document.getElementById("single");
@@ -966,7 +969,9 @@ function renderSingle(){
   s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
   s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{
-    if(b.dataset.rep==="img") toggleImageReport(curIdx); else reportIssue(b.dataset.rep, curIdx);
+    if(b.dataset.rep==="img") toggleImageReport(curIdx);
+    else if(b.dataset.rep==="stock") toggleStockShort(curIdx);
+    else reportIssue(b.dataset.rep, curIdx);
   });
   const mc=s.querySelector("[data-map]");
   if(mc) mc.onclick=()=>window.open("https://tools.asung.ca/warehousemap.html?loc="+encodeURIComponent(mc.dataset.map),"_blank");
@@ -1122,6 +1127,58 @@ async function toggleImageReport(idx){
   imgBusy=false; renderPick(); focusScan();
 }
 
+/* ---------- "Not enough stock" declaration (toggle) → wms_discrepancies ----------
+   Declaring reclassifies a short line: it is NOT a picker mistake — the shelf really
+   has less than Cin7 says. The order still ships short; the row stays in the
+   discrepancy queue (reason 'stock_short') for a manager to adjust in Cin7.
+   responsible stays null (mistake tally must not count this); declared_by + created_at
+   are the audit trail. One open row per order+sku; press again to cancel (delete).
+   In a wave the order is per line (l._orderId) — the same rule finish() uses.        */
+function stockKey(l){ const o=lineOrder(l); return o.id?o.id+"|"+(l.order_sku||""):""; }
+function stockFlagged(l){ const k=stockKey(l); return !!k && stockFlags.has(k); }
+async function loadStockFlags(){
+  stockFlags=new Set();
+  try{
+    const oids=[...new Set(lines.map(l=>lineOrder(l).id).filter(Boolean))];
+    const skus=[...new Set(lines.map(l=>l.order_sku).filter(Boolean))];
+    if(!oids.length||!skus.length) return;
+    const {data,error}=await sb.from("wms_discrepancies")
+      .select("order_id,sku").eq("reason","stock_short").is("resolved_at",null)
+      .in("order_id",oids).in("sku",skus);
+    if(error) throw error;
+    (data||[]).forEach(r=>stockFlags.add(r.order_id+"|"+(r.sku||"")));
+    renderPick();
+  }catch(e){ /* pressed state is cosmetic — never block the pick view */ }
+}
+async function toggleStockShort(idx){
+  const l=lines[idx]; if(!l||stockBusy) return;
+  if(!await ensureMine()) return;   // 규칙 28 — 선언도 쓰기다
+  const o=lineOrder(l);
+  if(!o.id){ toast("Cannot declare — order unknown",true); focusScan(); return; }
+  const key=o.id+"|"+(l.order_sku||""), on=stockFlags.has(key);
+  stockBusy=true; renderPick();
+  try{
+    if(on){
+      // cancel: only the still-open declaration — resolved history is never deleted
+      const {error}=await sb.from("wms_discrepancies").delete()
+        .eq("order_id",o.id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
+      if(error) throw error;
+      stockFlags.delete(key); toast("Stock-short declaration cancelled");
+    }else{
+      if(!confirm(`${l.order_sku}\n\nDeclare NOT ENOUGH STOCK on the shelf?\nNeeded ${l.assigned}, you could only find ${l.picked}.\n\nThis is NOT counted as a picker mistake — it goes to the\nmanager's queue as an inventory mismatch to fix in Cin7.\nOnly declare it if the shelf is really empty.`)){ stockBusy=false; renderPick(); focusScan(); return; }
+      const {error}=await sb.from("wms_discrepancies").insert({
+        order_id:o.id, order_number:o.num, sku:l.order_sku,
+        ordered_base:l.assigned, actual_base:l.picked,
+        reason:"stock_short", source:"picking", declared_by:me.name,
+        responsible:null, cin7_corrected:false
+      });
+      if(error) throw error;
+      stockFlags.add(key); toast("Stock shortage declared");
+    }
+  }catch(e){ toast("Declaration failed: "+(e.message||e),true); }
+  stockBusy=false; renderPick(); focusScan();
+}
+
 /* ---------- save (background) ---------- */
 async function saveLine(l){
   l._sync=false;
@@ -1146,8 +1203,8 @@ async function finish(allowShort){
     toast("There are short lines. Press 'Complete as incomplete'.",true); return;
   }
   if(shorts.length && allowShort){
-    const detail=shorts.map(l=>`· ${l.order_sku}${l._tote?` (Tote ${l._tote})`:""}: ${l.picked}/${l.assigned}`).join("\n");
-    if(!confirm(`Completing as incomplete.\nShort ${shorts.length}:\n${detail}\n\nThe shortfall will be flagged at packing and recorded in the discrepancy queue. Continue?`)) return;
+    const detail=shorts.map(l=>`· ${l.order_sku}${l._tote?` (Tote ${l._tote})`:""}: ${l.picked}/${l.assigned}${stockFlagged(l)?" — stock short (declared)":""}`).join("\n");
+    if(!confirm(`Completing as incomplete.\nShort ${shorts.length}:\n${detail}\n\nThe shortfall will be flagged at packing and recorded in the discrepancy queue.\nLines declared "Not enough stock" are recorded as inventory mismatch, not a mistake. Continue?`)) return;
   } else {
     if(!confirm(`${label} Mark pick as complete??`)) return;
   }
@@ -1165,15 +1222,37 @@ async function finish(allowShort){
       if(error) throw error;
     }
     // 2) shortfall → discrepancy queue record (in a wave each short belongs to ITS order)
+    //    Lines declared "Not enough stock" are already in the queue as stock_short
+    //    (inventory mismatch, responsible=null) — do NOT double-record them as short_pick.
     if(shorts.length){
-      const rows=shorts.map(l=>({
-        order_id: wave? l._orderId : task.order_id,
-        order_number: wave? l._orderNumber : order.order_number,
-        sku:l.order_sku,
-        ordered_base:l.assigned, actual_base:l.picked, reason:"short_pick", cin7_corrected:false,
-      }));
-      const {error:de}=await sb.from("wms_discrepancies").insert(rows);
-      if(de) throw de;
+      const plain=shorts.filter(l=>!stockFlagged(l));
+      if(plain.length){
+        const rows=plain.map(l=>({
+          order_id: wave? l._orderId : task.order_id,
+          order_number: wave? l._orderNumber : order.order_number,
+          sku:l.order_sku,
+          ordered_base:l.assigned, actual_base:l.picked, reason:"short_pick", cin7_corrected:false,
+        }));
+        const {error:de}=await sb.from("wms_discrepancies").insert(rows);
+        if(de) throw de;
+      }
+      // declared lines: refresh the open stock_short row to the final picked qty (best-effort)
+      for(const l of shorts.filter(stockFlagged)){
+        const o=lineOrder(l);
+        try{
+          await sb.from("wms_discrepancies")
+            .update({ordered_base:l.assigned, actual_base:l.picked})
+            .eq("order_id",o.id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
+        }catch(e){ /* declaration row already exists with declare-time qty — good enough */ }
+      }
+    }
+    // a declaration left on a line that is no longer short is a stale claim — remove it (best-effort)
+    for(const l of lines.filter(l=>l.picked>=l.assigned && stockFlagged(l))){
+      const o=lineOrder(l);
+      try{
+        await sb.from("wms_discrepancies").delete()
+          .eq("order_id",o.id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
+      }catch(e){ /* manager will see stock on the bin and clear it */ }
     }
     // 3) complete: all member batches + the wave, or the single batch
     if(wave){
