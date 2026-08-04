@@ -9,6 +9,8 @@ description: >
   "Fixed Price", "고정 단가", "product-suppliers", "빈 트랜스퍼", "bin GUID",
   "stock received 쓰기", "purchase/stock", "리시빙 반영", "Invoice First",
   "ref/location", "Bins", "purchaseList 필터", "InvoiceStatus", "PAID",
+  "StockReceivedStatus", "OrderStatus", "Status 필터", "파라미터 무시",
+  "429", "rate limit", "백오프",
   "재평가", "Stock Revaluation", "Stock Level Report", "bin 재고 리포트",
   "Movement Details" 등의
   키워드가 나오면 반드시 이 스킬을 먼저 읽고 코드를 작성하세요. 엔드포인트 URL, 파라미터 이름, 
@@ -155,11 +157,14 @@ const adjustments = fetchAllPages('stockadjustmentList', {
    - ⚠️⚠️ **쓰기 검증은 HTTP 200 이 아니라 GET 으로 되읽은 값으로 한다 (2026-07-28 원칙).** Cin7 은 요청을 **200 으로 받고 조용히 무시**하는 경우가 있다 — 창고간 트랜스퍼 완료 PUT 의 `TransferQuantity` 변경이 그렇다(TR-03267: 요청 4 → 저장 2, 요청 2 → 저장 4, 양방향 무시). 이 때문에 "수량 초과 완료 허용"이라는 **틀린 기록**이 한동안 남아 있었다 — 정정 내용은 `references/stock-write.md` 2절.
 1. **List vs Detail 패턴**: `*List` 엔드포인트는 요약 정보만 반환. 라인 아이템이 필요하면 TaskID/SaleID로 상세 엔드포인트를 별도 호출해야 함.
 2. **응답 배열 키 이름**: 엔드포인트마다 다름. `SaleList`, `PurchaseList`, `StockAdjustmentList`, `StockTransferList`, `ProductAvailabilityList`, `CustomerList` 등.
-3. **Rate Limit**: 루프에서 `Utilities.sleep(300)` 추가 권장.
+3. **Rate Limit**: 루프에서 `Utilities.sleep(300)` 추가 권장. ⚠️ **sleep 만으로는 부족하다** — 여러 프로세스가 같은 계정을 쓰면 429 가 그래도 온다. 429 처리 원칙은 아래 11번.
 4. **날짜 필터**: `UpdatedSince`, `CreatedSince` 등은 UTC 기준 ISO 8601.
 5. **Simple vs Advanced**: Sale/Purchase 모두 Simple/Advanced 타입 존재. Advanced는 여러 Invoice/Fulfilment 가질 수 있음.
 6. **bin GUID 는 `/ref/location` 최상위 창고 행의 `Bins[]` 에서** — 응답은 Total 2678 에 `Limit 500` 으로 잘리지만 `Bins[]` 는 창고 행 하나에 전부 들어있다(에드먼튼 628 · 토론토 2047). ⚠️ child-location 행의 `Name` 은 bin 이름이 아니다(바코드류). `references/stock-write.md` 5절.
-7. **`purchaseList` 필터는 직관과 다르다** — `InvoiceStatus` 는 단일 값(AUTHORISED/PAID **2회 병합** 필요) · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순이라 최신 PO 가 마지막 페이지** · `UpdatedSince` 는 최신성 보장 못함 · `RestockReceivedStatus` 는 무시됨. 실측 표는 `references/purchase.md`.
+7. **`purchaseList` 필터는 직관과 다르다** — `InvoiceStatus`·`Status` 모두 **단일 값만**(콤마·파이프로 여러 값 = Total 0 → 상태별 개별 호출 + `ID` dedup) · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순이라 최신 PO 가 마지막 페이지**(잘리면 항상 최신부터 누락) · `UpdatedSince` 는 최신성 보장 못함 · `Type` 은 무시됨 · **`StockReceivedStatus` 는 동작한다**(⚠️ 아래 12번 — 종전 "무시됨" 기록은 파라미터 **이름 오타**였다). **좁힐 땐 `InvoiceStatus` 가 아니라 `Status` 로** — 실측 973행→78행. 실측 표는 `references/purchase.md`.
+   - **`saleList` 는 `OrderStatus`(승인 상태)와 `Status`(진행 상태)가 독립된 축이다** — `OrderStatus=AUTHORISED` 인 오더의 `Status` 는 `ORDERED` 로 남는 게 정상(Simple·Advanced 공통). Advanced Sale 도 라인 구조가 같아 **`Type` 필터는 불필요**. `references/sale.md`.
 8. **화면으로만 되는 작업**(재고 재평가·bin 재고 리포트)은 `references/stock.md` 하단 「Cin7 UI 실측 노트」. ⚠️ **원가 0 재고 재평가는 방법 미확정**(Non-zero 0 + Zero stock 재입력은 상계되지 않고 재고가 2배가 된다).
 9. ⚠️⚠️ **트랜스퍼 Put away 는 v2 API 에 없다 (2026-07-31 TR-03259 실측 — 탐색 종결).** UI 의 라인별 Put away/LOCATION 은 API 로 노출되지 않는다(`/stockTransfer/putaway` 등 전부 404, 본 문서에 `PutAway` 플래그도 없음, CSV Import 도 없음) → **헤더 `To` 착지 + bin 별 별도 트랜스퍼가 유일한 경로. 같은 탐색을 반복하지 말 것.** `references/stock-write.md` 「Put away」절.
 10. **쓰기 되읽기 검증·bin 단위 재고 확인은 `/ref/productavailability`** — 판정은 **OnHand**(Available 은 판매 배정 차감이라 오판) · SKU/창고/Bin 정확 일치 · `Total > 반환 행수` 면 미확인 처리. `references/stock-write.md`.
+11. ⚠️ **429 는 일상 전제다 — 페이지 순회에서 즉시 throw 하지 말 것.** 같은 Cin7 계정을 여러 프로세스(pg_cron 5분 폴링 + GAS 잡들)가 공유하면 429 가 흔하다. 1페이지 성공 후 2페이지 429 에 throw 하면 **회차 전체가 죽고 조용한 부분 스캔이 남는다**(2026-08-04 SO-14100/14106 미유입 실사고). 패턴: **백오프 재시도(1.5s→3s, 상한 2회) → 소진 시 throw 없이 회차 조기 종료 + `rate_limited`/`rate_limited_at_page` 진단 필드 노출.** 429 외 4xx/5xx 는 throw 유지. Asung WMS 는 이 HTTP 레이어를 `supabase/functions/_shared/cin7.ts` 로 공용화해 `hello`·`receiving` 두 Edge Function 이 함께 쓴다 — ⚠️ **그 파일을 고치면 두 함수 모두 재배포**(각 함수는 배포 시점 번들을 쓴다).
+12. ⚠️⚠️ **파라미터가 무시되는 것처럼 보이면 이름 오타를 먼저 의심하라 (2026-08-04 교훈).** Cin7 은 **모르는 파라미터를 조용히 무시**하므로 응답만으로 "오타" 와 "미지원" 이 **구별되지 않는다** — 둘 다 무필터와 같은 Total 이다. 실제로 `RestockReceivedStatus`(apib 표기, 존재하지 않는 이름)를 보내고 "서버 필터 불가" 라고 잘못 기록해 **일주일간 전량 조회 + 클라이언트 필터를 짊어졌다**(정답은 `StockReceivedStatus`: 585 vs 877). 검증 순서 = ①`references/` 스펠링 대조(⚠️ apib 파라미터 표기 ≠ 응답 필드명일 수 있다) ②**동작을 아는 파라미터를 같이 보내** 배선 확인 ③그래도 Total 불변이면 "미지원" 기록. **200 은 파라미터를 받아들였다는 뜻이 아니다**(0번의 "검증은 되읽기로" 와 같은 계열).

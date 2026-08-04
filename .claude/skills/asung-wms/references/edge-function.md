@@ -246,3 +246,10 @@ Cin7 형태(실측 확정 — 불변): Date = `YYYY-MM-DDT00:00:00Z` · **문서
 ## 폴링 EF `hello` — Reference 저장 (2026-07-25)
 
 `extractReference(d)` 추가: `d.CustomerReference` → 폴백 `d.Reference`. `wms_orders.reference` 로 저장, dry-run `would_insert` 에도 노출해 유입 확인 가능. ⚠️ **`wms_order_reference.sql`(컬럼 추가)을 배포보다 먼저** — 없으면 insert 400.
+
+## 폴링 EF `hello` — Order Date 저장 (2026-08-02)
+
+`wms_orders` insert 에 `order_date: (d.OrderDate || c.OrderDate || "").slice(0, 10) || null` 추가(`d`=`/sale` 상세, `c`=`saleList` 항목 — **상세 우선, 목록 폴백**). 앞 10자만 잘라 `date` 컬럼에 넣는다(`ship_by` 와 같은 방식).
+
+- 마이그레이션 `supabase/migrations/20260802000000_wms_order_date.sql`. ⚠️ **컬럼을 EF 배포보다 먼저** — Reference 때와 같은 함정이고 더 나쁘다: 헤더 insert 가 통째로 실패하므로 **오더 유입이 전면 중단**된다.
+- ⚠️ **신규 유입분부터만 찬다** — 기존 행은 null, 소급 백필 없음. 픽리스트 인쇄(`wms-picklist.js`)가 값 없으면 줄/열을 생략하므로 옛 오더도 깔끔히 찍힌다.

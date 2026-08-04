@@ -118,6 +118,12 @@ RLS: 다른 wms_ 테이블 동일(auth_all).
   - ⚠️⚠️ **2026-07-29 정정 (규칙 29)** — 원래 이 인덱스는 `WHERE receipt_id IS NOT NULL` **부분** 유니크였고, **PostgREST `on_conflict` 는 부분 인덱스를 추론하지 못한다** → EF 의 `POST wms_discrepancies?on_conflict=receipt_id,sku` 가 **400 `42P10 there is no unique or exclusion constraint matching the ON CONFLICT specification`** 으로 실패했고, 그래서 **리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않았다.** **WHERE 절 없는 전체 유니크로 교체**했다(pick/pack 행은 `receipt_id` 가 NULL 이고 유니크는 기본 **NULLS DISTINCT** 라 무영향). SQL = `supabase/wms_disc_uq_fix.sql` (⚠️ 마이그레이션 아님 — 같은 내용을 새 마이그레이션으로 담아야 로컬·원격이 정렬된다).
 - `wms_orders.reference` (text) — Cin7 화면 Reference(=API CustomerReference), 픽리스트 인쇄용. `wms_order_reference.sql`
 
+## 2026-08-02 추가 — 픽리스트 Order Date (`supabase/migrations/20260802000000_wms_order_date.sql`)
+
+- `wms_orders.order_date` (**date**, nullable) — Cin7 화면 "Order Date" = API `OrderDate`. 픽리스트 인쇄용. 폴링 EF(`hello`)가 `(d.OrderDate || c.OrderDate).slice(0,10)` 로 채운다(상세 우선, 목록 폴백).
+- ⚠️ **신규 유입분부터만 찬다** — 기존 행은 null(소급 백필 안 함). 인쇄 3경로가 값 없으면 줄/열을 생략하므로 안전.
+- ⚠️ 규칙 23 순서: **컬럼 먼저, EF 나중.** 컬럼 없이 EF 가 이 키를 실으면 `wms_orders` insert 가 통째로 실패해 **오더 유입이 전면 중단**된다(개별 라인 실패가 아니다).
+
 ## 2026-08-04 추가 — 실수 vs 재고 불일치 구분 (`supabase/migrations/20260804000000_disc_stock_short.sql`)
 
 - `wms_discrepancies.declared_by` (text) — `stock_short`/`pack_scan_mistake` 의 선언자(감사용, 시각은 `created_at`). ⚠️ `responsible` 재사용 금지 — responsible 은 mistake tally 가 세는 컬럼이라 선언자가 실수로 집계된다.

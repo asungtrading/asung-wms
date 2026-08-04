@@ -25,6 +25,14 @@
 ### Sale 상태 목록
 `DRAFT`, `VOIDED`, `ESTIMATING`, `ESTIMATED`, `ORDERING`, `ORDERED`, `BACKORDERED`, `PICKING`, `PICKED`, `PACKING`, `PACKED`, `SHIPPING`, `INVOICING`, `INVOICED`, `CREDITED`, `COMPLETED`
 
+### ⚠️ `OrderStatus` 와 `Status` 는 다른 축이다 (2026-08-04 실측)
+
+`OrderStatus` = **오더 승인 상태**(DRAFT/AUTHORISED/…) · `Status` = **전체 문서 진행 상태**(ORDERED/PICKING/…). **둘은 독립이다.**
+
+- **승인된 오더를 걸러내려면 `OrderStatus=AUTHORISED` 를 쓴다.** 그 오더의 `Status` 는 여전히 `ORDERED` 로 남아 있는 게 정상이며 — Simple/Advanced 둘 다 그렇다 — `Status` 가 `ORDERED` 라는 이유로 "승인 안 된 오더" 로 판단하면 안 된다. (Asung WMS 폴링 EF 가 `OrderStatus=AUTHORISED` 로 필터하는 이유. "Status 가 ORDERED 라서 안 들어오나?" 는 오해로, 2026-08-04 에 실측으로 배제됐다.)
+- **`Type`(Simple/Advanced) 필터는 필요 없다** — Advanced Sale 도 `/sale` 상세의 `Order.Lines[]` 가 동일 구조로 오고 정상 처리된다(SO-14023 Advanced Sale 의 라인 15개가 Cin7 화면과 일치 확인). Advanced 는 Invoice/Fulfilment 를 **여럿** 가질 수 있다는 뜻이고 오더 라인 구조가 다르다는 뜻이 아니다.
+- `AdditionalAttributes` 는 `saleList` 에 **없다** → 진행단계(`AdditionalAttribute1`) 판정은 반드시 `/sale` 상세로.
+
 ### 응답 구조
 ```json
 {

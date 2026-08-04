@@ -334,8 +334,9 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 ### 픽리스트 Order Date (현장 요청)
 
 - 출처 = **Cin7 화면 "Order Date" = API `OrderDate`**(`/saleList` 항목·`/sale` 상세 둘 다 있음). `ship_by` 와 같이 앞 10자만 잘라 `date` 로 저장.
-- **`wms_orders.order_date` 컬럼 신설** — `supabase/migrations/20260802000000_wms_order_date.sql`. ⚠️ 규칙 23 의 교훈: **컬럼 추가를 EF 배포보다 먼저**. 폴링 EF(`hello`)에 `order_date: (d.OrderDate || c.OrderDate || "").slice(0,10) || null` 추가 필요(⬜ 미적용).
-- 인쇄 3곳 전부 반영: manager 픽리스트 · wave 픽리스트(요약 열 + per-order 페이지) · picker/packer 재인쇄. **값 없으면 줄/열 생략**이라 컬럼·EF 가 없어도 안전하게 no-op.
+- **`wms_orders.order_date` 컬럼 신설** — `supabase/migrations/20260802000000_wms_order_date.sql`. ⚠️ 규칙 23 의 교훈: **컬럼 추가를 EF 배포보다 먼저** — 컬럼 없이 EF 가 `order_date` 를 실으면 `wms_orders` insert 가 **통째로** 실패한다(오더 유입 전면 중단).
+- **폴링 EF(`hello`) 매핑 적용됨** — `order_date: (d.OrderDate || c.OrderDate || "").slice(0,10) || null` (상세 우선, 목록 폴백). `d`=`/sale` 상세, `c`=`saleList` 항목.
+- ⚠️ **값은 신규 유입분부터만 찬다** — 이미 들어와 있던 오더의 `order_date` 는 null 이고 소급 백필은 하지 않았다. 그래서 인쇄 3곳(manager 픽리스트 · wave 픽리스트 요약 열 + per-order 페이지 · picker/packer 재인쇄)이 모두 **값 없으면 줄/열 자체를 생략**한다 — 옛 오더를 인쇄해도 빈 "Order Date —" 줄이 남지 않는다.
 
 ### fulfillment.html — 스토어별 종합 팩킹리스트: 혼합 팔렛 표기
 

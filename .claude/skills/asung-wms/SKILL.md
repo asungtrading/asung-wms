@@ -1,7 +1,7 @@
 ---
 name: asung-wms
 description: >
-  Asung Trading 커스텀 WMS(IMS 첫 모듈)를 다룰 때 반드시 먼저 읽으세요.
+  Asung Trading 커스텀 WMS(IMS 첫 모듈)를 다룰 때 먼저 읽으세요.
   Supabase(Postgres+Edge Function) 기반, Cin7 multi-packing 한계를 넘는
   대형오더 분할 동시 픽/팩 + 리시빙/풋어웨이.
   "WMS", "픽킹", "패킹", "Supabase", "Edge Function", "wms_orders",
@@ -11,8 +11,8 @@ description: >
   "stock received", "bin transfer", "트랜스퍼", "Invoice First", "스캔 이어받기",
   "Lines is invalid", "authorize", "held_by", "동시 작업", "unconfirmed",
   "writeChain", "presence", "serverChecks", "bcMap", "CAS", "on_conflict",
-  "exported_base", "재평가" 등이 나오면 추측하지 말고
-  이 스킬의 아키텍처·스키마·인증·배포·규칙 20~34 를 먼저 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
+  "exported_base", "stock_short", "픽리스트 인쇄" 등이 나오면 추측하지 말고
+  이 스킬의 아키텍처·스키마·인증·배포·규칙 20~41 을 확인하세요. 특히 ⚠️Order_Progress=AdditionalAttribute1(백오더 공유),
   ⚠️bin은 base_sku 기준, ⚠️Cin7 쓰기 bin은 GUID(이름은 400),
   ⚠️PO는 Invoice First 선승인, ⚠️factor는 unit 컬럼, ⚠️service_role 금지, ⚠️UI 영어,
   ⚠️stock received는 문서당 bin 1개·authorize는 POST,
@@ -280,6 +280,9 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   | `StockReceivedStatus=NOT AVAILABLE` | Total 585 — **동작**. ⚠️ 7/28 의 "무시된다"는 `RestockReceivedStatus` 로 **파라미터 이름을 잘못 쓴 것**이었다(정답은 `StockReceivedStatus`) |
   | `Type=Simple/Advanced/Service Purchase` | 585 그대로 — **무시됨** → Service 제외는 클라이언트 유지 |
   | `InvoiceStatus=PAID` | 877 (그중 `Status=INVOICED` 교집합은 **1건**) |
+
+  ⚠️⚠️ **2026-08-04 정정 — 7/28 기록이 틀렸다.** 스킬에 *"Cin7 이 `StockReceivedStatus` 서버 필터를 무시한다(NOT AVAILABLE·DRAFT 모두 Total 825)"* 로 적혀 있었는데, 실제로 보낸 파라미터 이름은 **존재하지 않는 `RestockReceivedStatus`** 였고 Cin7 이 그것을 무시한 것이다. 올바른 이름(`StockReceivedStatus=NOT AVAILABLE`)은 **동작한다**(Total 585 vs 오타 877). 이 오기록 때문에 **"서버 필터는 불가능하다" 는 잘못된 결론이 일주일간 유지**됐고 클라이언트 전량 필터를 계속 짊어졌다.
+  - 📌 **교훈(다른 API 에도 적용)**: **파라미터가 무시되는 것처럼 보이면 이름 오타를 먼저 의심하라.** Cin7 은 모르는 파라미터를 **조용히 무시**하므로 "오타" 와 "미지원" 이 응답에서 **구별되지 않는다** — 둘 다 "무필터와 같은 Total". 검증 절차: ① 문서·`references/` 의 정확한 스펠링과 대조 ② **동작을 아는 파라미터**(`Status=INVOICED` 등)를 같은 방식으로 같이 보내 배선이 살아 있음을 확인 ③ 그래도 Total 이 안 변하면 그때 "미지원" 으로 기록. **응답이 200 이라는 것은 파라미터를 받아들였다는 뜻이 아니다**(규칙 21 의 "쓰기 검증은 되읽기로" 와 같은 계열).
 
   현재 리시빙 대상 8건은 전부 `Status=INVOICED` / Simple Purchase / StockReceivedStatus=NOT AVAILABLE. `Status=RECEIVING` 5건은 전부 StockReceivedStatus=AUTHORISED 라 지금은 클라이언트 필터에서 걸러지지만 "부분입고 진행중은 유지" 의도로 조회는 유지한다 — 같은 이유로 `StockReceivedStatus` 서버 필터도 안 건다(동작하지만 RECEIVING 유지 의도와 충돌). ⚠️ `Limit=1000`(`PO_PAGE_LIMIT`)·페이지 상한 3(`PO_MAX_PAGES`)·조회 사이 sleep 유지 — 조기 종료 조건도 **같은 상수**(`items.length < PO_PAGE_LIMIT`), 어긋나면 첫 페이지에서 루프가 끊긴다. 📌 **오름차순 함정(잘리면 최신부터 누락 — 규칙 12 상세조회 굶주림과 동일 계열)은 Status 전환 후에도 전제** → 진단 강화: 응답에 **`scanned`**(상태별 필터 전 행수, 예 `{INVOICED:73, RECEIVING:5}`) + **`totals`**(상태별 서버 보고 Total) + **`truncated`**(**Total 대비 덜 받으면 true** — 페이지 상한이든 응답 잘림이든). `pos` 배열 구조·필드명은 불변(receiver.html 이 소비, 진단 필드는 추가만). 클라이언트 제외 4종(모두 includes): Status 에 VOID/COMPLETED/CREDITED 포함 · RECEIVED 포함(단 RECEIVING=부분입고 진행중은 유지) · Type 에 Service 포함(운송·관세 — 물건 없음) · StockReceivedStatus=AUTHORISED. **트랜스퍼는 Status='IN TRANSIT'**, 창고는 ToLocation 정규화 — 리시버 warehouse_access 필터.
 - **추천 빈 규칙** (base_sku × warehouse): ①`is_current=TRUE` 우선 ②없으면 `last_seen` 최신(=sold-out 자리 중 마지막) ③available 많은 곳. ⚠️ `wms_sku_bins.last_seen` 은 2026-07-23 추가(ALTER + `wms_buildBins_` SELECT/map 각 1줄) — sticky MERGE 가 last_seen 을 갱신 안 하고 얼려두므로 "마지막 재고 있던 날"이 됨. 초기엔 전부 같은 날짜(소급 불가)라 시간이 지나야 갈림.
@@ -651,6 +654,8 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **부족은 선반 앞의 사람이 선언한다**: 픽커 `⚠ Not enough stock`(1차) / 팩커는 선반 확인 후 보조 선언. 선언 = `wms_discrepancies` 에 `reason='stock_short'`, `source='picking'|'packing'`, **`responsible=null`**, `declared_by=선언자`(시각=created_at) — 토글(재클릭 취소), 진입 시 미해결 행으로 복원.
 - **⚠️ 선언은 실수를 지우는 것이 아니라 재분류다.** 주문 수량은 그대로(여전히 부족 출고), 차이는 discrepancy 큐에 남아 **매니저가 Cin7 에서 수동 조정 → "Cin7 Fixed"** — 규칙 20 리시빙 차이 처리와 같은 구조(자동 조정 없음). **남용 방지가 이 구조 자체다**: 선언해도 기록은 남고, 매니저가 bin 을 확인하는 단계에서 걸러진다.
 - **초과는 실물을 셀 수 있는 팩커가 라인별로 구분한다**(완료 시 2택 모달): `Picker brought extra`(실물이 정말 많음)→`over_pick` responsible=picker+반납 / `I scanned twice`(실물은 정확)→`pack_scan_mistake` **선해소 insert**(responsible=null — 감사 기록만, 실수 집계 제외).
+  - ⚠️ **왜 바꿨나 — 기존 초과 처리의 두 결함**(2026-08-04 이전): ① 초과 confirm 이 **전 라인 일괄 1회**였다. 초과 라인이 여러 개면 OK/Cancel 하나로 전부 같은 판정이 되어 "이 라인은 픽커가 정말 더 가져왔고 저 라인은 내 스캔 실수" 를 **나눌 수 없었다**. ② `Cancel`(=스캔 실수) 은 **아무것도 기록하지 않았다** → 사후에 "실수였는지 그냥 취소였는지" 구별이 불가능. → **라인별 2택 모달**(promise 기반)로 교체하고 두 갈래 **모두** 행을 남긴다.
+  - ⚠️⚠️ **`pack_scan_mistake` 를 실수 집계에 넣지 않는 것은 타협이 아니라 설계다.** 넣으면 팩커가 정직하게 "내가 두 번 스캔했다" 를 고르지 않고 픽커 탓(`over_pick`)으로 떠넘긴다 — **정직한 기록을 벌주면 기록 자체가 사라진다.** `recv_off_po` 를 리시버 실수에서 뺀 판단과 같은 논리이며, 새 자백형 reason 을 추가할 때도 같은 기준으로 판단할 것.
 - **`responsible` 은 실수 귀속 전용 컬럼이다** — Stats mistake tally 가 이걸로 센다. stock_short/pack_scan_mistake 에 responsible 을 넣지 말 것(선언자는 `declared_by`). `recv_over/recv_short/recv_off_po` 도 실수 집계에서 제외(공급사/실물 사실 — off-PO 확인 소홀 리뷰는 admin Receiving 승인 게이트가 담당).
 - 구현 지도는 `references/frontend.md` 「2026-08-04」 · 스키마는 `supabase/migrations/20260804000000_disc_stock_short.sql`(declared_by + 규칙 29 유니크 정착). ⚠️ **배포 순서: SQL 먼저, 프론트 나중**(규칙 23) — 컬럼 없이 선언 insert 가 실패한다.
 - ⬜ 백로그: packer `overScans` 메모리 전용(Hold/새로고침 시 초과 표시 소실 — 판정 "결과"는 기록됨).
@@ -668,7 +673,16 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 **2026-08-04 세션 후반 (픽·팩 실수 vs 재고 불일치 구분 — 규칙 41 신설)**
 - ✅ picker/packer `⚠ Not enough stock` 선언(stock_short·declared_by) + 팩커 초과 라인별 2택 모달(over_pick / pack_scan_mistake 선해소) + admin 카테고리 필터·선언자 표시 + Stats `NOT_MISTAKE`(recv_* 포함 제외 — 그간 리시버가 부당 집계됨)
 - ✅ **schema.md 정정: `wms_discrepancies.note` 컬럼은 실물에 없다**(문서만 있었음 — 규칙 29 또 한 사례)
-- ⬜ `20260804000000_disc_stock_short.sql` — 사람이 `db push`(declared_by + 규칙 29 유니크 정착 · **프론트 배포보다 먼저**)
+- ⬜ **마이그레이션 2건이 원격 히스토리에 없다 (2026-08-04 실측)** — `supabase migration list --linked` 결과 `20260802000000_wms_order_date`·`20260804000000_disc_stock_short` 둘 다 `remote` 가 **빈 값**이다. 그런데 **컬럼은 원격에 실재한다**(REST 프로브: `order_date`·`declared_by` 는 200, 없는 컬럼은 42703 — 대조군으로 확인) → 컬럼이 **마이그레이션 밖 경로로 먼저 적용**됐고 파일은 사후 기록이라는 뜻이다(스킬 상단 「DB 스키마 변경 절차」가 금지하는 드리프트 — 이번엔 응급 수정의 잔재).
+  - ⬜ **사람이 `supabase db push`** — 기능 배포가 아니라 **히스토리 정렬**이 목적이다. 안 하면 새 환경·`db reset` 에서 `order_date` 컬럼이 없어 **오더 유입이 죽고**, `uq_disc_receipt_sku` 가 부분 유니크로 되돌아가 **리시빙 discrepancy 가 다시 조용히 사라진다**(규칙 29 재발).
+  - ✅ **둘 다 멱등이라 이미 적용된 원격에 다시 실행해도 안전**하다(확인함): `add column if not exists` · `drop index if exists` + `create unique index if not exists`.
+
+**2026-08-02 세션 (인쇄물 3건 — 규칙 15 갱신 · `references/frontend.md` 「2026-08-02」)**
+- ✅ **픽리스트 인쇄 공용화 + picker·packer 재인쇄**: manager 안에 있던 HTML·CSS·JsBarcode 를 **`wms-picklist.js`**(신규 파일 — 형식의 단일 출처)로 추출, picker/packer 헤더에 **🖨 Print**. 종이를 잃으면 손 쓸 방법이 없던 문제(픽리스트가 소유권을 보증 — 규칙 22/28). ⚠️ **바코드 값 = `batch_label`**(웨이브는 wave label) — 스캔 재진입 키라 다른 값을 넣으면 인쇄물로 화면에 못 들어온다. ⚠️ `window.open` 은 **클릭 핸들러 안에서 먼저**(await 뒤면 팝업차단)
+- ✅ **픽리스트 Order Date**(현장 요청): `wms_orders.order_date` 신설(`20260802000000_wms_order_date.sql`) + 폴링 EF `hello` 매핑(`d.OrderDate || c.OrderDate` 앞 10자). ⚠️ **컬럼이 EF 보다 먼저**(없으면 헤더 insert 실패 = 유입 전면 중단). **신규 유입분부터만 차고, 값 없으면 줄/열 생략**이라 옛 오더도 깔끔히 찍힌다
+- ✅ **팩킹 유닛 라벨을 식별자만으로**(`P1` · `B3 on P1`) — **`wms-packing.js`**(신규, 라벨의 단일 출처). `SO-13849+-P1` 의 `+` 는 표시가 아니라 **생성 단계 버그**였다(`addUnit` 이 "외 여러 건" 접두사를 DB `wms_pallets.label` 에 저장) → 표시에서 자르지 않고 생성을 고쳤다. 번호는 **"개수+1" → "이미 쓰인 최대 번호+1"**(중간 유닛 삭제 후 중복 방지) + `unitCode()` 옛 라벨 호환 계층(마이그레이션 없음 — 라벨은 표시 문자열이고 유닛의 키는 `id`)
+- ✅ **팩킹리스트 오더 소계 캡션 상시 표시 + CSV `Order` 열**: 캡션의 역할을 "혼합 유닛의 구분선" 에서 **"표의 신원"** 으로 재정의(표 한 장만 떼어 봐도 누구 물건인지 알아야 한다) → 4경로 문구 통일(fulfillment 유닛별·스토어별 종합·admin Print·PDF). CSV 는 정렬·필터로 행이 흩어져 캡션만으로 부족 → **행마다 오더번호**를 싣고 7열로 정렬
+- ✅ 스토어별 종합 팩킹리스트 혼합 팔렛 표기(`also contains` 오더 목록 · 유닛 지도 · 최상위 유닛 그룹핑)
 
 **2026-07-31 세션 (Apply 청크 v1→v3 — 규칙 30-2·R10 해소 + 규칙 38~40)**
 - ✅ **EF Apply 청크 처리**: 상한 도달 시 정상 종료(`done:false, groups_remaining, lines_moved/lines_total`) + **매 회차 apply_note 갱신**(`groups_remaining(N):` 계약 표식 — buildApplyPlan 재개 게이트·admin 공유) + `applied_at` 은 done:true 회차에만. 429 는 백오프 재시도(상한 2회) 후 회차 조기 종료(failed_moves 제외), 그룹 간 sleep 300→150ms — 규칙 21 청크 절
@@ -754,7 +768,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 4. **`apply_note` 정규식 파싱을 컬럼으로** — 지금 EF 와 admin.html **양쪽이 같은 포맷을 파싱**한다(드리프트 위험). 계약 표식이 **4개로 늘었다**(2026-07-31 v3): `failed_moves(N):` + `groups_remaining(N):`(청크 미완) + `permanently_failed(N):`(격리) + `fail_counts:{...}`(연속 실패 카운트). `wms_receipts.failed_move_count`/`groups_remaining`/`fail_counts`(또는 jsonb 하나) 컬럼으로 승격.
 5. **admin.html 배너가 EF 캡 규칙을 JS 로 중복 계산** — 같은 판정을 두 곳에서 하지 말고 EF 응답 필드를 그대로 표시하도록.
 6. ~~PO 경로에는 체크포인트도 청크 상한도 없다~~ — ✅ **2026-07-31 이식** (규칙 21 PO 이식 절 · 규칙 27 R10): 전체 throw 제거(수집 후 계속) + `exported_base` 체크포인트(⚠️ PO 의미 = "문서에 실은 양") + 청크 이중 가드(공용 `chunkGuard()` — 트랜스퍼와 같은 상수·판정) + 실패 격리 + **authorize 게이트(미처리·실패·격리·스킵 있으면 DRAFT 유지, 모든 bin 이 실린 마지막 회차에 1회만)**. ⬜ **실전 검증 대기**: ⚠️ 실제 commit 은 **작은 PO 로 먼저** → PO-01070(진행 중, 완료 후)은 dry-run 으로 ①bin 그룹 수·청크 계획 ②미완 상태에서 authorize 보류 확인. ⬜ **PO 되읽기 회복(트랜스퍼 ④ checkpoint repair 상당)은 미적용** — "POST 후 체크포인트 누락" 잔여물은 `Cannot add duplicate value` 400 으로 시끄럽게 드러나므로(조용한 이중 계상 없음) 실측에서 필요성이 확인되면 별도 검토.
-7. **discrepancy 유니크 인덱스 수정을 마이그레이션으로** — `supabase/wms_disc_uq_fix.sql` 내용을 새 마이그레이션에 담아 로컬·원격 정렬(규칙 29).
+7. ~~discrepancy 유니크 인덱스 수정을 마이그레이션으로~~ — ✅ **2026-08-04 해소**: `supabase/migrations/20260804000000_disc_stock_short.sql` 이 `uq_disc_receipt_sku` 를 WHERE 없는 전체 유니크로 **멱등 재생성**해 담았다(원격엔 이미 응급 적용돼 있었고, 이걸 담지 않으면 새 환경·`db reset` 에서 부분 유니크로 되돌아가 `on_conflict` 42P10 이 재발한다 — 규칙 29). ⬜ **남은 것은 사람이 `supabase db push`** — 그리고 이건 이 마이그레이션만의 문제가 아니다: **2026-08-04 실측 `migration list --linked` 결과 `20260802000000`·`20260804000000` 두 건 모두 원격 히스토리에 없다**(컬럼은 실재 — 마이그레이션 밖 경로로 적용된 드리프트). 둘 다 멱등이라 재실행 안전. **push 의 목적은 기능이 아니라 히스토리 정렬** — 안 하면 `db reset`/새 환경에서 `order_date` 부재로 오더 유입이 죽고 유니크가 부분으로 되돌아간다.
 8. **리시빙 discrepancy Health 검사** — `short_no_disc` 는 픽킹 전용이라 규칙 29 의 사고를 못 잡았다(규칙 19).
 9. **`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조 Health 검사** — 하루 지연 스냅샷이라 실시간 용도는 아님(규칙 32).
 10. **R13 Discrepancy 큐 방치 시 재고 불일치가 계속 남는다** — 에이징 알림·리포트 없음(규칙 27 R13). ⚠️ 규칙 29 로 **큐 자체가 비어 있던 기간**이 있었으므로 과거분은 큐로 복원되지 않는다.
@@ -771,6 +785,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **스캔 타임스탬프 기반 순수 작업시간 (규칙 37)** — 현재 소요시간은 근무시간 경과라 "열어두고 다른 일 한 시간"이 포함된다. 스캔 이벤트 타임스탬프 집계가 필요.
 - **근무시간 계산에 공휴일 미반영 (규칙 37)** — `WORK_DAYS`(월–금)만 본다.
 - **근무시간 상수가 실제와 맞는지 확인 (규칙 37)** — `WORK_HOURS`(09–17)·`WORK_DAYS`(월–금)는 추정 상수다. 두 창고의 실제 근무시간과 대조 후 조정할 것.
+- **packer `overScans` 가 메모리 전용 (규칙 41)** — Hold 하거나 새로고침하면 **초과 표시가 사라진다**(판정 "결과" 인 `over_pick`/`pack_scan_mistake` 행은 남는다). 서버 저장이 맞다(규칙 5 — 상태를 localStorage 에 두지 말 것). 지금은 초과가 한 세션 안에서 처리되는 게 보통이라 우선순위 낮음.
 
 ### 검증 대기 (배포됐으나 실전 미확인)
 - ⚠️ **fulfillment 스캔 배정 (규칙 36)** — `Move all` 기본값 · 포커스 정책 · 오프라인 롤백 · **기존 DnD/탭 경로 회귀** · 태블릿 sticky 오프셋. 현장 검증 전에는 "동작한다"고 기록하지 말 것.

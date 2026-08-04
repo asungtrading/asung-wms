@@ -92,9 +92,13 @@ claude.ai 스킬 업로드는 `SKILL.md` frontmatter의 `description`을 **1024 
   키워드를 자르면 필요할 때 스킬이 안 뜬다. 순서: 일반어·중복어(영/한 같은 뜻 쌍) -> 문구 압축 -> 그 다음 키워드.
 - ⚠️ 불변식 문구(factor는 unit 컬럼, bin은 base_sku, Cin7 bin은 GUID, Invoice First,
   service_role 금지, UI 영어, stock received는 문서당 bin 1개, authorize는 POST)는 마지막까지 유지.
-- 현재 여유: `asung-wms` **1005자(19자)** · `cin7-api` 750자(274자) — asung-wms 에 키워드를 더할 땐 반드시 같은 양을 덜어낼 것.
-  (2026-07-29 갱신: 규칙 29~33 키워드 `on_conflict`/`exported_base`/`재평가` 를 넣으며
+- 현재 여유: `asung-wms` **1017자(7자)** · `cin7-api` 840자(184자) — asung-wms 에 키워드를 더할 땐 반드시 같은 양을 덜어낼 것.
+  (2026-07-29: 규칙 29~33 키워드 `on_conflict`/`exported_base`/`재평가` 를 넣으며
   본문 "Cin7 Core multi-packing … 처리합니다" 압축 + "리시빙·동시 작업(규칙 20~22/24~28)" → "규칙 20~33" 로 상계.)
+  (2026-08-04 갱신: `stock_short`·`픽리스트 인쇄` 추가 + `규칙 20~41` — 상계는
+  **`재평가` 제거**(cin7-api description 이 이미 갖고 있는 중복어) + "반드시 먼저 읽으세요"→"먼저 읽으세요" ·
+  "먼저 확인하세요"→"확인하세요" 압축. ⚠️ **여유가 7자다** — 다음에 키워드를 더하려면
+  먼저 덜어낼 것을 정하고 시작할 것.)
 
 검사:
 ```bash
