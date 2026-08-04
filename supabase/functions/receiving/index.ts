@@ -23,7 +23,9 @@
 //         → 완료 수량 = 보낸 수량 확정 / 실물 차이는 discrepancy 큐 / bin 이동은 min(received, expected) 캡.
 // ============================================================
 
-const CIN7_BASE = "https://inventory.dearsystems.com/ExternalApi/v2";
+// Cin7 HTTP 레이어는 hello(폴링)와 공용 — 429 백오프·에러 구조화가 한 곳에서 관리된다 (2026-08-04 공용화).
+// ⚠️ _shared/cin7.ts 를 바꾸면 hello 도 함께 재배포할 것 (파일 상단 주석 참조).
+import { cin7, cin7ErrInfo, cin7Get, sleep } from "../_shared/cin7.ts";
 
 const CORS: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -31,56 +33,11 @@ const CORS: HeadersInit = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-function cin7Headers(): HeadersInit {
-  return {
-    "api-auth-accountid": Deno.env.get("CIN7_ACCOUNT_ID") ?? "",
-    "api-auth-applicationkey": Deno.env.get("CIN7_APPLICATION_KEY") ?? "",
-    "Content-Type": "application/json",
-  };
-}
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function cin7(method: string, path: string, body?: unknown): Promise<any> {
-  // ⚠️ 429 는 백오프(1.5s → 3s) 후 재시도한다(상한 2회). 소진되면 status=429 를 실어 throw —
-  //    호출부(bin 이동 루프)가 429 를 failed_moves 에 넣지 않고 회차를 조기 종료하는 데 이 status 를 쓴다.
-  for (let attempt = 0; ; attempt++) {
-    const resp = await fetch(CIN7_BASE + path, {
-      method, headers: cin7Headers(),
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    if (resp.status === 429 && attempt < 2) { await sleep(1500 * (attempt + 1)); continue; }
-    const text = await resp.text();
-    if (!resp.ok) {
-      // ⚠️ status/body 를 Error 에 실어 보낸다 — 호출부가 "계속 진행" 을 택할 때(bin 이동 루프) 사람이 읽을
-      //    실패 사유(Cin7 `Exception` 문자열)를 구조화해 수집해야 한다. 메시지 문자열 파싱은 취약하다.
-      const err: any = new Error("Cin7 " + method + " " + path.split("?")[0] + " -> " + resp.status + ": " + text.slice(0, 400) +
-        (method !== "GET" && body !== undefined ? " | SENT: " + JSON.stringify(body).slice(0, 600) : ""));
-      err.status = resp.status; err.body = text;
-      throw err;
-    }
-    return text ? JSON.parse(text) : {};
-  }
-}
-const cin7Get = (path: string) => cin7("GET", path);
-
-// Cin7 에러 바디에서 사람이 바로 원인을 아는 문장만 뽑는다.
-// 실측 400 형태: {"ErrorCode":..,"Exception":"Available quantity for product (SKU: AS97745 …) is 0.0000000000, cannot transfer 2"}
-// 배열로 오는 경우도 있어 둘 다 처리하고, JSON 이 아니면 원문을 자른다.
-function cin7ErrInfo(e: any): { http_status: number | null; cin7_error: string } {
-  const status = Number(e && e.status) || null;
-  const raw = String((e && e.body) || (e && e.message) || e || "");
-  let msg = "";
-  try {
-    const j = JSON.parse(raw);
-    const pick = (o: any) => String((o && (o.Exception || o.ExceptionMessage || o.Message || o.Error)) || "").trim();
-    msg = Array.isArray(j) ? j.map(pick).filter(Boolean).join(" · ") : pick(j);
-  } catch { /* JSON 아님 — 원문 폴백 */ }
-  if (!msg) msg = raw;
-  return { http_status: status, cin7_error: msg.slice(0, 300) };
-}
+// (cin7/cin7Get/cin7ErrInfo/sleep 은 ../_shared/cin7.ts 에서 import — 상단 주석 참조.
+//  429 백오프 1.5s→3s 상한 2회, 소진 시 err.status=429 throw, 에러에 status/body 구조화 — 동작 불변.)
 
 // ── 목적지 bin 의 SKU 보유량 되읽기 (checkpoint repair 판정용, 2026-07-31 — TR-03144) ──
 // GET /ref/productavailability 는 (SKU × Location × Bin) 행 단위로 OnHand 를 준다 (cin7-api 스킬 product.md).

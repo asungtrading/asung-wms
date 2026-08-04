@@ -4,30 +4,26 @@
 // ------------------------------------------------------------
 // 흐름:
 //   1) saleList(OrderStatus=AUTHORISED) 여러 페이지 순회로 후보 수집
-//   2) 이미 PICKED 된 것 스킵(우리 단계는 픽 이전)
+//      — 429 는 공용 cin7() 백오프로 재시도, 소진 시 throw 없이 회차 조기 종료(rate_limited 노출)
+//   2) 이미 PICKED 된 것 스킵(우리 단계는 픽 이전) — 제외 내역은 skipped_detail 에 기록
 //   3) detail 조회 "전에" batch dedup — 이미 wms_orders 에 있는 건 상세조회 자체를 생략
 //      (→ Cin7 API 호출을 크게 줄여 rate limit 안전, 밀린 오더까지 스캔 가능)
-//   4) 남은 후보만 /sale 상세 → AdditionalAttribute1='2.Release to WMS' 만 통과
+//   4) 남은 후보만 "최신 오더번호부터" /sale 상세 → AdditionalAttribute1='2.Release to WMS' 만 통과
+//      (비대상 오더는 저장되지 않아 매 회차 fresh 에 남는다 — 최신 우선이 아니면
+//       MAX_DETAIL 캡을 그것들이 선점해 최신 오더가 굶는다. 2026-08-04 실사고 SO-14106)
 //   5) assembleLine() 정규화 → needs_review 계산
 //   6) ?commit=1 이면 wms_orders + wms_order_lines 저장, 아니면 dry-run(보고만)
 // ============================================================
-const CIN7_BASE = "https://inventory.dearsystems.com/ExternalApi/v2";
-const POLL_LIMIT = 100;       // saleList 페이지 크기 (Cin7 최대 100)
-const POLL_MAX_PAGES = 3;     // 최대 순회 페이지 (100 x 3 = 최근 AUTHORISED 300건 스캔)
+// Cin7 HTTP 레이어는 receiving 과 공용 (2026-08-04 공용화 — 429 정책이 갈라지지 않게).
+// ⚠️ _shared/cin7.ts 를 바꾸면 receiving 도 함께 재배포할 것 (파일 상단 주석 참조).
+import { CIN7_BASE, cin7Get, cin7Headers, sleep } from "../_shared/cin7.ts";
+
+const POLL_LIMIT = 100;       // saleList 페이지 크기 (실측 2026-08-04: AUTHORISED Total 140 — 100×3 이면 전량)
+const POLL_MAX_PAGES = 3;     // 최대 순회 페이지 (총량이 300 을 넘으면 재검토 — 응답 truncated:true 가 그 신호)
 const MAX_DETAIL = 60;        // 한 실행당 /sale 상세조회 상한 (rate limit 보호)
 const SKIP_PICKED = true;     // 이미 PICKED 된 오더는 상세조회 생략(우리 단계는 픽 이전)
 const DETAIL_DELAY_MS = 250;  // Cin7 rate limit 완화 (상세조회 간 간격)
 const DEDUP_CHUNK = 50;       // dedup 조회 시 SaleID 묶음 크기 (URL 길이 보호)
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function cin7Headers(): HeadersInit {
-  return {
-    "api-auth-accountid": Deno.env.get("CIN7_ACCOUNT_ID") ?? "",
-    "api-auth-applicationkey": Deno.env.get("CIN7_APPLICATION_KEY") ?? "",
-    "Content-Type": "application/json",
-  };
-}
 
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
@@ -137,27 +133,61 @@ Deno.serve(async (req) => {
   try {
     const commit = new URL(req.url).searchParams.get("commit") === "1";
 
-    // 1) 폴링: AUTHORISED 최근 여러 페이지 수집
+    // 1) 폴링: AUTHORISED 여러 페이지 수집
+    //    ⚠️ 429 처리 (2026-08-04 실사고 — SO-14100·SO-14106 미유입): 예전엔 !ok 즉시 throw 라
+    //    1페이지 성공 후 2·3페이지에서 429 를 맞으면 회차 전체가 500 으로 죽고, pg_cron 5분 주기 +
+    //    같은 Cin7 계정을 쓰는 GAS 들 때문에 429 가 일상이라 뒤 페이지 오더가 영구히 유입되지 않았다.
+    //    지금은 공용 cin7()(백오프 1.5s→3s, 상한 2회)로 재시도하고, 소진되면 throw 없이 그 회차를
+    //    조기 종료해 앞 페이지 분량은 정상 처리한다. 429 외 4xx/5xx 는 기존대로 throw.
+    //    ⚠️ 조용한 부분 스캔이 가장 위험 — rate_limited / rate_limited_at_page 로 반드시 노출한다.
     let candidates: any[] = [];
     let pagesScanned = 0;
+    let listTotal: number | null = null;          // saleList 가 보고한 Total (잘림 감지용)
+    let rateLimited = false;                       // 429 백오프 소진으로 조기 종료했으면 true
+    let rateLimitedAtPage: number | null = null;   // 어느 페이지에서 끊겼는지
     for (let page = 1; page <= POLL_MAX_PAGES; page++) {
-      const listResp = await fetch(
-        CIN7_BASE + "/saleList?Limit=" + POLL_LIMIT + "&Page=" + page + "&OrderStatus=AUTHORISED",
-        { headers: cin7Headers() }
-      );
-      if (!listResp.ok) throw new Error("Cin7 saleList " + listResp.status);
-      const batch = (await listResp.json()).SaleList ?? [];
+      let j: any;
+      try {
+        j = await cin7Get("/saleList?Limit=" + POLL_LIMIT + "&Page=" + page + "&OrderStatus=AUTHORISED");
+      } catch (e: any) {
+        if (Number(e?.status) === 429) { rateLimited = true; rateLimitedAtPage = page; break; }
+        throw e;
+      }
+      if (j?.Total != null) listTotal = Number(j.Total);
+      const batch = j?.SaleList ?? [];
       pagesScanned++;
       candidates = candidates.concat(batch);
       if (batch.length < POLL_LIMIT) break; // 마지막 페이지
     }
 
+    // 스캔 범위 진단 — "안 들어온다" 를 dry-run 응답만으로 판정하기 위한 필드 (규칙 12).
+    // saleList 는 오더번호 오름차순이라(실측 2026-08-04, 1페이지 = SO-11739~SO-14061)
+    // newest_scanned 가 실제 최신 오더에 못 미치면 스캔 범위가 최신에 도달하지 못한 것.
+    let oldestScanned: string | null = null;
+    let newestScanned: string | null = null;
+    for (const c of candidates) {
+      const n = String(c?.OrderNumber ?? "").trim();
+      if (!n) continue;
+      if (oldestScanned === null || n < oldestScanned) oldestScanned = n;
+      if (newestScanned === null || n > newestScanned) newestScanned = n;
+    }
+
     // 2) PICKED 스킵 (우리 단계는 픽 이전)
-    const notPicked = candidates.filter((c) => !(SKIP_PICKED && c.CombinedPickingStatus === "PICKED"));
+    //    ⚠️ 제외 내역을 skipped_detail 에 남긴다 (2026-08-04: 제외 45건이 응답에 안 보여
+    //    "안 들어온다" 진단을 GAS 로 손수 해야 했다. SKIP_PICKED 는 병행운영 케이스 (B),
+    //    규칙 12 — "안 들어온다" 의 최빈 원인이라 노출 가치가 가장 크다.)
+    const skipped: any[] = [];
+    const notPicked: any[] = [];
+    for (const c of candidates) {
+      if (SKIP_PICKED && c.CombinedPickingStatus === "PICKED") {
+        skipped.push({ order: c.OrderNumber, reason: "skip_picked", picking_status: c.CombinedPickingStatus });
+      } else {
+        notPicked.push(c);
+      }
+    }
 
     // 3) detail 조회 전 batch dedup — 이미 있는 건 상세조회 생략
     const idset = await existingSaleIds(notPicked.map((c) => String(c.SaleID)));
-    const skipped: any[] = [];
     const fresh: any[] = [];
     for (const c of notPicked) {
       const ex = idset.get(String(c.SaleID));
@@ -165,15 +195,31 @@ Deno.serve(async (req) => {
       else fresh.push(c);
     }
 
+    // ⚠️ 상세조회는 최신 오더번호부터 (내림차순 — 2026-08-04 실사고 SO-14106).
+    //    saleList 는 오더번호 오름차순인데, '2.Release to WMS' 가 아닌 오더는 저장되지 않아
+    //    다음 회차에도 fresh 에 계속 남는다 → 오래된 비대상 오더들이 매 회차 MAX_DETAIL 예산을
+    //    선점하면 뒤쪽(최신) 오더는 영구히 순번이 오지 않는다(굶주림). 우리가 필요한 것은
+    //    방금 릴리즈된 최신 오더다. 규칙 20 purchaseList 오름차순 함정의 두 번째 사례.
+    const orderNum = (c: any) => Number(String(c?.OrderNumber ?? "").replace(/\D/g, "")) || 0;
+    fresh.sort((a, b) => orderNum(b) - orderNum(a));
+
     const inserted: any[] = [];
     const wouldInsert: any[] = [];
     const errors: any[] = [];
     let detailFetched = 0;
     let detailCapped = false;
+    let detailCappedOrders: string[] = [];
 
-    // 4) 남은 후보만 상세조회
-    for (const c of fresh) {
-      if (detailFetched >= MAX_DETAIL) { detailCapped = true; break; }
+    // 4) 남은 후보만 상세조회 (최신 우선)
+    for (let fi = 0; fi < fresh.length; fi++) {
+      const c = fresh[fi];
+      if (detailFetched >= MAX_DETAIL) {
+        detailCapped = true;
+        // 캡에 잘린 오더를 응답에 노출 — 최신 우선 정렬이라 잘리는 건 가장 오래된 fresh 후보들.
+        // 이 목록이 회차마다 계속 자라면 (a) "확인했으나 비대상" 기억 테이블 도입을 재검토(규칙 12).
+        detailCappedOrders = fresh.slice(fi).map((x) => String(x?.OrderNumber ?? ""));
+        break;
+      }
       await sleep(DETAIL_DELAY_MS);
       const detResp = await fetch(CIN7_BASE + "/sale?ID=" + c.SaleID, { headers: cin7Headers() });
       if (detResp.status === 429) { await sleep(60000); continue; } // rate limit
@@ -259,12 +305,22 @@ Deno.serve(async (req) => {
     return json({
       mode: commit ? "COMMIT" : "DRY-RUN (저장 안 함, ?commit=1 붙이면 저장)",
       pages_scanned: pagesScanned,
+      // ── 스캔 범위 진단 (2026-08-04) — 이 여섯 개로 "안 들어온다" 즉시 판정 ──
+      list_total: listTotal,                    // saleList 가 보고한 Total
+      list_fetched: candidates.length,          // 실제로 받은 행 수
+      truncated: listTotal == null ? null : candidates.length < listTotal, // 전량을 못 읽었으면 true
+      oldest_scanned: oldestScanned,            // 스캔한 오더번호 범위
+      newest_scanned: newestScanned,
+      rate_limited: rateLimited,                // 429 백오프 소진으로 회차 조기 종료
+      rate_limited_at_page: rateLimitedAtPage,  // 끊긴 페이지 (정상이면 null)
       candidates: candidates.length,
       after_skip_picked: notPicked.length,
-      already_exists: skipped.length,
+      // skipped 배열에 skip_picked 도 들어가므로(2026-08-04) 기존 카운트 의미를 지키려면 reason 필터 필요
+      already_exists: skipped.filter((s) => s.reason === "already_exists").length,
       fresh_candidates: fresh.length,
       detail_fetched: detailFetched,
-      detail_capped: detailCapped, // true 면 이번 실행 상한 도달 → 다음 실행에서 나머지 유입
+      detail_capped: detailCapped, // true 면 이번 실행 상한 도달 (최신 우선이라 잘린 건 가장 오래된 fresh)
+      detail_capped_orders: detailCappedOrders, // 캡에 잘린 오더 목록 — 굶주림 감시용 (2026-08-04)
       inserted: inserted.length,
       errors: errors.length,
       would_insert: commit ? undefined : wouldInsert,

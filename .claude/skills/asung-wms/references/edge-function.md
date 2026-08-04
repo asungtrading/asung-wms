@@ -27,6 +27,8 @@ async function sbSelect(path: string): Promise<any[]> {  // Supabase REST 조회
 ```
 ⚠️ `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`는 Edge Function에 자동 주입(별도 secrets 등록 불필요, GAS용과 별개).
 
+⚠️ **2026-08-04 공용화**: Cin7 HTTP 레이어(`CIN7_BASE`·`cin7Headers()`·`cin7()`·`cin7Get`·`cin7ErrInfo()`·`sleep`)는 **`supabase/functions/_shared/cin7.ts`** 로 추출돼 hello·receiving 이 함께 import 한다(위 코드 블록의 `cin7Headers` 정의는 역사 기록). `cin7()` 은 429 백오프(1.5s→3s, 상한 2회) 후 소진 시 `err.status=429` 를 실어 throw — 호출부가 "회차 조기 종료" 를 택할 수 있다. ⚠️ **이 파일을 바꾸면 두 함수 모두 재배포**(각 함수는 배포 시점 번들 사용 — 한쪽만 배포하면 조용히 갈라진다). `supabase functions deploy` 가 `_shared` 상대 import 를 번들에 포함함은 실증됨(Supabase 공식 권장 패턴, CLI 2.109.1).
+
 ## assembleLine() — 라인 정규화+조립 (2단계, 순수함수. 3단계·프론트 재사용)
 
 라인 하나를 받아: ①스냅샷 조회(order_sku 기준) ②정규화(base_sku·factor는 스냅샷에서, `required_base=ordered_qty×factor`) ③**bin 조회는 base_sku 기준**(재고는 낱개=base로 쌓임) ④flags 계산. 반환: order_sku, base_sku, is_variant, ordered_qty, factor, required_base, product_name, is_selling, available_total, bins[{bin,zone,available}], flags[].
@@ -75,8 +77,14 @@ import 파이프라인 완성. 흐름: saleList AUTHORISED 50건 폴링 → `SKI
 
 ## 확대 폴링 + 자동 스케줄러 (2026-07-21, LIVE)
 
-**확대 폴링**(3단계 위에 얹음): saleList AUTHORISED **페이지네이션**(POLL_LIMIT 100 × POLL_MAX_PAGES 3 = 300 스캔), `SKIP_PICKED`, **상세조회 전 dedup**(`existingSaleIds()`: cin7_sale_id in.(...) 청크 50), `MAX_DETAIL` 60캡(detail_capped 플래그), DETAIL_DELAY_MS 250. dry-run 진단필드: `pages_scanned·candidates·after_skip_picked·already_exists·fresh_candidates·detail_fetched·detail_capped·would_insert`.
-- ⚠️ **이 필드들이 응답에 없으면 옛날(50건 1페이지) 버전이 배포된 것.** `supabase functions download hello`로 받은 소스가 stale일 수 있으니, 확대판(POLL_MAX_PAGES 상수 존재)으로 덮어쓴 뒤 deploy. 배포 전 `Select-String -Path ...\hello\index.ts -Pattern "POLL_MAX_PAGES"`로 확인.
+**확대 폴링**(3단계 위에 얹음): saleList AUTHORISED **페이지네이션**(POLL_LIMIT 100 × POLL_MAX_PAGES 3 = 300 스캔), `SKIP_PICKED`, **상세조회 전 dedup**(`existingSaleIds()`: cin7_sale_id in.(...) 청크 50), `MAX_DETAIL` 60캡(detail_capped 플래그), DETAIL_DELAY_MS 250. 진단필드(dry-run·commit 공통): `pages_scanned·candidates·after_skip_picked·already_exists·fresh_candidates·detail_fetched·detail_capped·would_insert` + 2026-08-04 추가분(아래).
+- ⚠️ **이 필드들이 응답에 없으면 옛날(50건 1페이지) 버전이 배포된 것.** `supabase functions download hello`로 받은 소스가 stale일 수 있으니, 확대판(POLL_MAX_PAGES 상수 존재)으로 덮어쓴 뒤 deploy. 배포 전 `grep POLL_MAX_PAGES supabase/functions/hello/index.ts` 로 확인.
+
+**429·굶주림 수정 + 진단 확장 (2026-08-04 — SO-14100·SO-14106 미유입 실사고, 규칙 12)**
+- **429**: saleList 루프가 공용 `cin7Get()`(_shared) 사용 — 백오프(1.5s→3s, 상한 2회) 소진 시 **throw 없이 회차 조기 종료**(앞 페이지 분량은 정상 처리), `rate_limited`/`rate_limited_at_page` 노출. 429 외 4xx/5xx 는 기존대로 throw. 예전엔 `!ok` 즉시 throw 라 2·3페이지 429 면 회차 전체가 500 으로 죽었다. `/sale` 상세조회의 기존 429 처리(60초 대기 후 그 오더 스킵)는 그대로 raw fetch.
+- **상세조회 순서 = 최신 오더번호 내림차순**: saleList 는 오름차순 + 비대상(`2.Release to WMS` 아님) 오더는 저장되지 않아 매 회차 fresh 에 잔류 → `MAX_DETAIL` 60 예산을 선점해 **최신 오더 영구 굶주림**(SO-14106 이 캡에 잘리는 2건 중 하나). 정렬 키 = OrderNumber 숫자부(`Number(String(n).replace(/\D/g,""))`) 내림차순. 규칙 20 오름차순 함정의 두 번째 사례.
+- **진단 필드 추가**: `list_total`(saleList Total) · `list_fetched` · `truncated`(list_fetched < list_total) · `oldest_scanned`/`newest_scanned`(스캔한 오더번호 범위) · `rate_limited(+rate_limited_at_page)` · `detail_capped_orders`(캡에 잘린 오더 목록 — 최신 우선이라 잘리는 건 가장 오래된 fresh. **회차마다 계속 자라면** "확인했으나 비대상" 기억 테이블 도입 재검토). `skipped_detail` 은 `already_exists` 에 더해 **`skip_picked`**(reason + picking_status)도 포함.
+- 스캔 범위(100×3)는 실측상 충분(`list_total` 140, truncated false) — Limit 상향·UpdatedSince 병용 불필요. `truncated:true` 가 재검토 신호. "안 들어온다" 진단 순서는 규칙 12.
 
 **자동 스케줄러**(`wms_schedule_polling.sql`): pg_cron + pg_net. 잡 `wms-poll-orders` `*/5 * * * *` → 함수 `?commit=1` anon Bearer 호출. 검증: `select * from cron.job;` / 실행이력 `cron.job_run_details`(succeeded) / 응답 `net._http_response`(status_code 200).
 - ⚠️ **net._http_response가 null로 남을 수 있음**(pg_net 타임아웃 ~5초 초과, 상세조회 여럿 돌 때). **저장은 됐을 수 있으니 진실은 `wms_orders.imported_at`으로 확인.**
