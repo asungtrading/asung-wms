@@ -75,7 +75,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 Status(카드+In-Progress+**Finalized 섹션**) / Discrepancy / **Reports**(wms_reports 리뷰·resolve, kind 필터 All/Wrong location/Barcode changed/Image differs + open 건수, 배지=kind 무관 전체 미해결) / Stats(작업자 처리량+**평균 소요시간**+실수+**리시빙·트랜스퍼·풋어웨이**) / Rollback(단계 되돌리기+로그) / **Finalized**(옛 Packing Lists — 완료오더 기간목록, Fulfillment mix 카드, 🖨Print·⬇PDF·⬇CSV / direct는 "Direct pack" 태그) / Work Screens / **Health**(Rollback 뒤 위치).
 - ⚠️ 탭 전환 핸들러가 각 loadXxx 호출. periodBar `custom` 인자는 반드시 객체 `{from,to}`(null이면 TypeError로 boot 중단).
 - **팩킹리스트 PDF/CSV**: `getPackingData(oid)` 공용 → HTML(print)·jsPDF+autotable(PDF, CDN lazy-load, 로고=canvas dataURL)·CSV(BOM+CRLF). 컬럼 SKU·Barcode·Product·Qty(CSV 내용 구획은 앞에 **Order**·Unit·Parent — 아래 「오더 소계 캡션」 절).
-- **Stats 탭 리시빙·트랜스퍼·풋어웨이 지표(2026-07-30, 규칙 37)**: 기존 픽/팩과 **같은 기간 필터(`statsPeriod`) 공유** — `loadStats()` 가 `loadRecvStats(r)` 를 fire-and-forget 호출(규칙 34: 픽/팩 렌더를 막지 않고, 조회는 `Promise.all` **2회 왕복**으로 묶음 — ①`wms_receipts`+임베드 `wms_receipt_lines`(FK 임베드, 라인별 왕복 없음) ②`wms_discrepancies` `source='receiving'`. receipts 기간 필터 기준 = `created_at`). 렌더 전 `statsRange!==r` 이면 버림(기간 연타 스테일 방지). 지표: **PO/트랜스퍼 구분**(`source_type`) receipt·라인(received_base>0 만)·수량(received_base 합) / 창고별(`warehouse`) / 소요시간 avg receive=`created_at→completed_at`·avg apply=`completed_at→applied_at`(음수·60일 초과 제외) / **Apply 결과** = 성공·부분성공(`apply_note` 의 `failed_moves(N)` — ⚠️ EF 와 공유하는 포맷, 규칙 21)·미적용(completed & `applied_at` null) / **풋어웨이** 완료율(`putaway_done`)·백로그(미완료 라인 수·수량)·트랜스퍼 라인 `exported_base>0` 비율 / **리시빙 discrepancy** over·short·off-PO 건수 + 미해결(`cin7_corrected=false`). **화면 각주 3개(전부 필수 유지)**: ①`exported_base` 는 수동 UPDATE 로 오염 가능(2026-07-28 TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전엔 기록된 적 없음** — 그 이전 기간은 데이터 없음 ③소요시간은 근무시간 기준(아래).
+- **Stats 탭 리시빙·트랜스퍼·풋어웨이 지표(2026-07-30, 규칙 37)**: 기존 픽/팩과 **같은 기간 필터(`statsPeriod`) 공유** — `loadStats()` 가 `loadRecvStats(r)` 를 fire-and-forget 호출(규칙 34: 픽/팩 렌더를 막지 않고, 조회는 `Promise.all` **2회 왕복**으로 묶음 — ①`wms_receipts`+임베드 `wms_receipt_lines`(FK 임베드, 라인별 왕복 없음) ②`wms_discrepancies` `source='receiving'`. receipts 기간 필터 기준 = `created_at`). 렌더 전 `statsRange!==r` 이면 버림(기간 연타 스테일 방지). 지표: **PO/트랜스퍼 구분**(`source_type`) receipt·라인(received_base>0 만)·수량(received_base 합) / 창고별(`warehouse`) / 소요시간 avg receive=`created_at→completed_at`·avg apply=`completed_at→applied_at`(음수·60일 초과 제외) / **Apply 결과** = 성공·부분성공(`apply_note` 의 `failed_moves(N)` — ⚠️ EF 와 공유하는 포맷, 규칙 21)·미적용(completed & `applied_at` null) / **풋어웨이** 완료율(`putaway_done`)·백로그(미완료 라인 수·수량)·트랜스퍼 라인 `exported_base>0` 비율 / **리시빙 discrepancy** over·short·off-PO 건수 + 미해결(`cin7_corrected=false`). **화면 각주 4개(전부 필수 유지)**: ①`exported_base` 는 수동 UPDATE 로 오염 가능(2026-07-28 TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전엔 기록된 적 없음** — 그 이전 기간은 데이터 없음 ③소요시간은 근무시간 기준(아래) ④**"Putaway done" 은 2026-08-04 이전 기간 신뢰 불가**(그때까지 라인당 1탭뿐이라 11라인 이상 receipt 에서는 아무도 누르지 않았다 — 「풋어웨이 완료 입도」절).
 - **Stats 작업자 통합 + 근무시간 소요(2026-07-30, 규칙 37)**: 작업자별 리시빙은 별도 표가 아니라 **"Throughput by worker" 에 병합** — `renderProd()` 가 모듈 상태 `prodPP`(픽/팩, loadStats)와 `prodRecv`(리시빙 byWorker, loadRecvStats)를 도착 순서 무관하게 합쳐 그린다(이름 합집합 — 리시빙만 한 사람도 행 생성. 왕복 추가 없음 — 기존 loadRecvStats 집계 재사용, 규칙 34). 두 로더 모두 `statsRange!==r` 스테일 가드.
   - ⚠️ **receipt 수를 배치 수와 같은 스케일의 막대로 그리지 말 것** — receipt 하나가 5라인일 수도 344라인일 수도 있어 왜곡된다. 막대는 **Receive 라인 수** 기준이고, 그마저 배치 max 와 분리된 **자체 스케일**(`lineMax`)을 쓴다(344라인이 픽/팩 막대를 뭉개지 않게). receipt 수·putaway % 는 요약 텍스트로(`Receive 344 lines / 1 receipt (avg 2.0 h work time) · putaway 67%`). 막대 색 `--recv`(teal) — 픽(파랑)·팩(보라)과 구분. 풋어웨이는 네 번째 막대 금지(요약 텍스트만). `Receive lines` 링크 없음 — Pick/Pack batches 도 링크가 아니라 대응 뷰가 없다.
   - ⚠️ **리시빙 소요시간은 근무시간(work hrs) 기준 + 창고별 타임존** — 달력 경과로 계산하면 퇴근 후 밤·주말이 포함돼 26.7h 같은 쓸모없는 값이 나온다(실제 그랬음). `workMinutes(a,b,warehouse)` 하나를 타입 표·작업자 행이 **공유**(두 곳이 다른 계산이면 안 됨). 상수 `WORK_HOURS`(09–17)·`WORK_DAYS`(월–금)·`WH_TZ` 는 스크립트 상단 — 토론토/에드먼턴 2시간 차라 receipt 의 `warehouse` 로 타임존 결정(미매핑=토론토 폴백), 공휴일 미반영(백로그). 결과 0(전 구간 근무시간 밖)은 `< 1 min` 표시 — `—`(데이터 없음)와 구분. **남는 한계**: 이 값은 "순수 작업 시간"이 아니라 "시작~완료까지의 근무시간 경과" — receipt 를 열어두고 다른 일 한 시간이 여전히 포함된다. 순수 작업 시간은 스캔 타임스탬프 기반 집계 필요(백로그). 검증 케이스: 금 16:00 → 월 10:00 = 2 work hrs(금 16–17 + 월 9–10, 토론토·에드먼턴 벽시계 동일), 같은 UTC 순간을 에드먼턴 창고로 계산하면 3 work hrs.
@@ -162,13 +162,14 @@ parcel(박스) 출고는 담으면서 맞추는 작업이라 집는 순간 스�
 
 - **리스트**: PO 바코드 스캔 진입(진행중 receipt 우선 → Cin7 검색 정확일치 시 바로 시작) + "Ready to receive" 섹션 ↻POs / ↻Transfers 온디맨드 버튼. Resume 섹션(in_progress/held/partial). 트랜스퍼 카드 = TRANSFER 태그 + 창고 태그, warehouse_access 필터.
 - **검수**: Single(기본)|List 세그 토글 — 픽커 이식(큰 이미지·바코드 블록 base/×factor/ALT-UPC·큰 수량·스테퍼·Enter quantity·Prev/Next·autoAdvance). **Last bin 칩**(추천 빈 미리 표시 — buildBcMap 뒤 wms_sku_bins 독립 enrich). 스캔=bcMap(형제 -12 병합, 픽커 패턴), 초과=confirm 후 허용(over), 미지 바코드=스냅샷 조회(barcode/sku eq → scannable_barcodes contains) → 오프-PO confirm → needs_approval 라인 insert. 홀드=진행 저장.
-- **풋어웨이**: Putaway→ 가 추천 빈 자동확정(is_current desc → last_seen desc → available desc, base_sku×warehouse 배치 조회) → 가이드: 빈별 그룹 zone 동선순(zoneSeq), Placed 토글, "Bin needed"(신규 SKU — prompt 스캔/입력), "Off-PO awaiting manager"(차단 표시).
+- **풋어웨이**: Putaway→ 가 추천 빈 자동확정(is_current desc → last_seen desc → available desc, base_sku×warehouse 배치 조회) → 가이드: 빈별 그룹 zone 동선순(zoneSeq), Placed 토글, "Bin needed"(신규 SKU — prompt 스캔/입력), "Off-PO awaiting manager"(차단 표시). ⚠️ 완료 입도는 2026-08-04 에 bin 단위로 바뀌었다 — 아래 「풋어웨이 완료 입도」절.
 - **완료**: Partial complete(PO 열림) / Complete PO — short/over/미배치/승인대기 요약 confirm. 저장 후 exitToList. ⚠️ **2026-07-27 갱신**: 요약은 메모리가 아니라 `serverChecks()` 서버 재조회, 저장은 `flushUnconfirmed()`+헤더 patch — 아래 「동시 작업」 절.
 - startPo 가 source 분기(action=po vs action=transfer), receipt insert 에 source_type. ⚠️ wms_receipts_apply.sql 미실행이면 insert 실패.
 
 ## admin.html Receiving 탭 (9탭째, Health 와 Finalized 사이)
 
 - **Off-PO approvals**: needs_approval 라인 테이블, Approve(승인자·시각) / Reject(라인 삭제 + 실물 반품 보류 안내). 탭 배지 = 대기 건수.
+- **Awaiting putaway** (2026-08-04, Off-PO approvals 와 Apply 사이): bin 은 정해졌는데 `putaway_done` 이 없는 라인 = 픽커가 못 찾는 재고. `Put away →` 링크로 receiver 풋어웨이 화면 직행. Apply 버튼 주황 경고와 한 세트 — 아래 「풋어웨이 완료 입도」절.
 - **Apply to Cin7**: completed & applied_at null 인 receipt 만. 버튼 → EF dry-run 계획 → confirm(라인·bin·스킵 사유 표시) → commit=1 → alert 로그(WARN 시 경고). partial/held/in_progress 는 "finish them to apply" 힌트.
 - **Apply 버튼 진행 상태 (2026-07-30 — 중복 클릭 차단, 규칙 35 · 규칙 27 R4)**: 모듈 플래그 `applyBusy`(진행 receipt id)·`applyWriting`(commit 구간)·`applyBtnRef`(버튼 노드) + `setApplyBtn`/`syncApplyBusyUI`/`setApplyWriting`. 라벨·색 = `Apply to Cin7`(초록) → `Checking…`/`Applying…`(회색 `.busy`+`.bspin` 스피너·비활성) → `✓ Applied`/`⚠ Partial`(주황 `.warn`)/`Apply failed`(빨강 `.bad`, 5초 뒤 원래 라벨 복구). 진행 중엔 **목록의 다른 Apply 도 비활성** + `#applyBanner`/모달 `#rvApplyNote` 한 줄 안내 + `beforeunload` 경고(commit 구간만). Review 모달 Apply 는 **모달을 열어둔 채** 실행(성공 시 자신이 닫음, Close/backdrop 잠금). ⚠️ 복구는 **try/finally**(취소·예외 포함) — `paintFrame()` 은 alert 전에 버튼을 그리려는 rAF 인데 **백그라운드 탭에서 rAF 가 멈추므로 150ms 타임아웃 필수**(없으면 busy 로 굳는다). ⚠️ 성공 뒤 `loadRecv()` 는 `.catch()` 로 감싼다 — 새로고침 실패를 Apply 실패로 표시하면 이미 반영된 Cin7 을 재클릭하게 만든다. 📌 **청크 자동 반복·진행률 배너·Stop·버튼 우선순위(`Continue apply` > `Retry failed bins`)·무한루프 가드 v3 는 `edge-function.md` 「청크 처리」·「청크 v3」절**(2026-07-31 — admin.html 쪽 기계장치도 거기에 함께 기록).
 - **History**: Source(PO/TR)·Cin7(✓ Applied 배지, hover=apply_note)·Delete(PO 번호 타이핑 가드; Applied 후엔 "Cin7 안 되돌아감" 경고). Delete = WMS receipt 통째 삭제(단계 없음, cascade).
@@ -459,3 +460,45 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 - **Apply 대기 항목에 경고 문구** (규칙 30-3): *"Do not move this stock in Cin7 until Apply finishes."* TR-02935 실패의 상당수가 `Available quantity … is 0` = 사람이 이미 옮긴 재고였다. 규칙 28(픽 중복)과 같은 종류이고 상대가 WMS 자신이다.
 - **`groups_remaining` 배너** (규칙 30-2): "N groups remaining, press Apply again". ⚠️ 지금 배너는 **EF 의 캡 규칙을 JS 로 중복 계산**한다 — EF 응답 필드를 그대로 표시하도록 바꿀 것(드리프트 위험).
 - **`failed_moves(N):` 정규식 파싱** — EF 와 admin.html 이 같은 포맷을 각자 파싱한다. `wms_receipts` 컬럼(예 `failed_move_count`)으로 승격하는 게 맞다 — 백로그.
+
+## 풋어웨이 완료 입도 — bin 단위 일괄 (⚠️ 2026-08-04 실측 진단 · receiver.html + admin.html)
+
+**증상**: `wms_receipt_lines.putaway_done` 이 PO 에서는 거의 항상 false 였다. `putaway_bin`·`exported_base` 는 정상(Apply 성공, Cin7 에 bin 반영됨) — **목적지 지정과 Cin7 쓰기는 되는데 "놓았다" 체크만 없었다.**
+
+**원인 = 코드가 아니라 입도.** `putaway_done` 을 쓰는 경로는 라인별 `togglePlaced()` 하나뿐이고 일괄 버튼이 없었다. 실측이 규모에 따라 관행이 갈리는 것을 보여준다:
+
+| receipt | 라인 | placed | `updated_at` distinct_sec | 소요 |
+|---|---|---|---|---|
+| TR-02935 | 344 | 344 | 222 | 29분 |
+| TR-03144 | 327 | 327 | 215 | 56분 |
+| PO-01086 | 6 | 6 | 3 | — |
+| PO-01078 | 5 | 5 | 4 | — |
+| PO-01069 | 26 | **0** | 6 | — |
+| PO-01073 | 85 | **0** | — | — |
+
+- ⚠️ **"수동 SQL 일괄 UPDATE 였을 것"이라는 가설은 반증됐다** — `distinct_sec` 222·215 로 퍼져 있어 트랜스퍼는 작업자가 실제로 하나씩 누른 것이다. 같은 탐색을 반복하지 말 것.
+- 즉 **트랜스퍼와 PO 의 완료 경로는 같은 함수**다(`source_type` 이 갈리는 곳은 진입 EF action·인쇄 제목·EF Apply 쓰기 방식 셋뿐). 코드 차이가 아니라 5~6라인은 누르고 11라인 이상은 아무도 안 누르는 관행 차이다.
+
+**왜 고쳤나 — `putaway_done` 의 실질 용도 2개.** `Apply`/EF `buildApplyPlan` 은 이 값을 **보지 않는다**(`putaway_bin` 만 본다 — `if(!l.putaway_bin) skipped … "no bin assigned"`). 그래서 재고·Cin7 반영에는 영향이 없지만:
+1. **작업 중 "어디까지 놓았나"** — 종이가 없는 유일한 표시(zone/bay 칩 done/n). 서버 저장이라 교대·다른 태블릿에서도 보인다(localStorage 금지와 같은 이유).
+2. **awaiting putaway 백로그** = "받아놓고 bin 에 안 넣은 물량". **bin 에 없는 물건은 픽커가 못 찾으므로 재고 정확성에 직결된다.**
+3. ⚠️ 라스트 로케이션 자동 배정은 **틀릴 수 있다**(전날 스냅샷 — 자리가 꽉 찼거나 재고가 빠졌거나 재배치됨). 그래서 `Placed` 는 단순 지표가 아니라 **"자동 배정된 값을 사람이 확인했다"** 는 기록이기도 하다.
+
+**수정 1 — receiver.html: bin 그룹 헤더 `Place all in this bin`.** 작업자는 **bin 단위로 움직인다**(한 자리에 서서 그 자리 물건을 다 놓고 이동) → 클릭이 **라인 수 → bin 수**로 떨어진다(이미 존 칩을 눌러 이동하는 횟수와 같은 자릿수). 라인별 `Placed` 는 **예외용으로 유지**(일부만 놓은 경우). 전부 placed 인 bin 은 눌린 상태(`✓ All placed`)로 보이고 **재클릭 = confirm 후 전체 해제**(실수 복구).
+- ⚠️ **저장은 기존 라인 단위 경로 그대로** — `queueWrite(l,"putaway")` + `.select()` 1행 판정(규칙 24). **전체 배열 덮어쓰기 금지**(같은 receipt 를 함께 받는 사람의 수량·bin 을 되돌린다).
+- ⚠️ **직렬 await 금지**(규칙 34) — 낙관적 렌더 먼저, 저장은 **동시 8개 풀**(`savePutawayAssigns` 와 같은 패턴). 20라인 bin 을 직렬로 돌리면 태블릿 Wi-Fi 에서 3~8초 멈춘다.
+- ⚠️⚠️ **실패해도 로컬 값을 되돌리지 않는다.** 되돌리면 `flushUnconfirmed` 재시도가 **되돌린 값(false)** 을 써서 작업자가 실제로 놓은 기록이 사라진다. 대신 `putawayFailed` set → 그 행에 **`NOT SAVED`** 를 남겨 화면이 성공을 가장하지 않게 한다(`unconfirmed` 로 대신하면 안 된다 — 그건 쓰기 **전**에 채워지므로 정상 저장에서도 매 탭 번쩍인다).
+- `placingBin` 플래그로 같은 bin 재클릭 중복 실행 차단(해제/재적용이 교차하면 값이 엉킨다).
+- **node 모의 검증**: 동시 실행 ≤ 8 / 20라인 각 1회 / 같은 라인에 일괄 뒤 개별 탭이 와도 `writeChain` 이 추월을 막아 **마지막 PATCH = 최신값**(`patchFor` 가 실행 시점 값을 읽으므로) / 실패 2건이 로컬 true 를 유지하고 flush 가 되찾음.
+
+**수정 2 — receiver.html: 완료 요약을 압축.** Complete/Partial 의 `Not yet placed` 가 SKU 를 나열하던 것을 **`12 lines not placed in 4 bins`** 로 바꿨다(85라인 PO 에서는 목록이 화면을 넘겨 아무도 읽지 않았다 — bin 수는 "몇 자리 더 돌면 되는지"라 작업자가 쓸 수 있다). ⚠️ **차단하지 않는다**(아래).
+
+**수정 3 — admin.html: Apply 버튼 경고 상태.** `putaway_bin` 있고 `putaway_done=false` 인 라인이 있는 receipt 는 Apply 버튼이 **주황**(`btnsm warn`) + 배지 `⚠ N lines not placed` + 확인 대화상자에 한 줄 + Review 모달 배너 + History 배지.
+- ⚠️ **비활성화하지 않는다. 하드 게이트는 관행이 정착한 뒤 판단한다** — 지금 막으면 아무도 안 누르는 상태라 **모든 Apply 가 멈추고**, 작업자가 안 놓고 눌러 통과시켜 **지표가 더 거짓이 된다**.
+- ⚠️ **기존 Apply 상태 머신과 충돌하지 않는 방법**: 경고는 버튼의 `data-notplaced` 속성 + `setApplyBtn` 의 **`wait` 상태에서만** 초록↔주황을 가르는 한 줄로 넣었다. busy/ok/partial/fail 은 그대로 `setApplyBtn` 이 덮으므로 진행 중·결과 표시가 우선하고, 실패 5초 뒤 `wait` 복구에서 경고 색이 자동으로 되살아난다. **라벨은 절대 건드리지 않는다** — `applyToCin7` 의 `waitLabel` 이 `btn.textContent` 에서 오므로 라벨에 경고를 섞으면 복구 라벨이 오염된다. `syncApplyBusyUI` 의 유휴 `title` 도 `data-notplaced` 를 읽어 유지한다(예전엔 빈 문자열로 덮었다).
+
+**수정 4 — admin.html Receiving 탭 「Awaiting putaway」 섹션**(Off-PO approvals 와 Apply 사이). `N lines / M units awaiting putaway` 합계 + receipt·Source·창고·받은 사람·상태·라인/수량·`fmtAge(updated_at)` 표 + **`Put away →` 링크(`receiver.html?receipt=N`)** — ⚠️ 나중에 옮길 때 다시 들어가는 경로가 번거로우면 관행이 안 바뀐다. 이미 Apply 된 receipt 는 `Cin7 applied` 빨간 배지 + 링크 없음(receiver 가 applied receipt 열기를 거부한다) — **Cin7 은 bin 에 있다고 기록했는데 실물이 없는 상태**라 오히려 가장 위험한 케이스여서 목록에서 감추지 않는다.
+- 계산은 `countNotPlaced(rows)` 하나(`received_base>0` & `!needs_approval` & `putaway_bin` & `!putaway_done`) → `recvNotPlaced[receipt.id]` 에 캐시. **왕복을 더하지 않았다** — 기존 `wms_receipts` 임베드에 `putaway_bin,putaway_done,needs_approval` 만 추가(규칙 34).
+- Stats 각주 4번째 추가: **2026-08-04 이전 "Putaway done" 은 신뢰 불가**(규칙 37).
+
+**미결정**: 이 교훈을 번호 규칙(42)으로 승격할지 — `asung-wms` description 여유가 **7자**라 `규칙 20~41` → `규칙 20~42` 표기 변경에 사람 결정이 필요하다(CLAUDE.md 규칙 7 경고).

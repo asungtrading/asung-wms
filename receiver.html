@@ -163,6 +163,10 @@
   .bin-group .zn{font-family:var(--mono);font-weight:800;font-size:13px;color:#fff;background:var(--mut);min-width:30px;height:30px;border-radius:8px;display:grid;place-items:center;padding:0 7px}
   .bin-group .binbig{font-family:var(--mono);font-weight:800;font-size:19px}
   .bin-group .bmeta{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--mut)}
+  /* bin 단위 일괄 완료 — 작업자는 한 자리에 서서 그 자리 물건을 다 놓는다. 클릭 = bin 수 (라인 수 아님) */
+  .bin-group .pkall{border:1px solid var(--line);background:#fff;border-radius:9px;min-height:40px;padding:8px 14px;font:inherit;font-size:12.5px;font-weight:800;color:var(--mut);cursor:pointer;flex:none;white-space:nowrap}
+  .bin-group .pkall:hover{border-color:#c9d4e6;color:var(--accent)}
+  .bin-group.donegrp .pkall{background:var(--ok);color:#fff;border-color:var(--ok)}
   .prow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line-2)}
   .prow:last-child{border-bottom:0}
   .prow.pdone{background:var(--ok-bg)}
@@ -176,6 +180,10 @@
   .prow .assign{border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;min-height:40px;padding:8px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;flex:none}
   .prow .chgbin{border:1px solid var(--line);background:#fff;border-radius:9px;min-height:40px;padding:8px 13px;font:inherit;font-size:12.5px;font-weight:700;color:var(--mut);cursor:pointer;flex:none}
   .prow .chgbin:hover{border-color:#c9d4e6;color:var(--accent)}
+  /* 저장 실패 표시 — 값은 되돌리지 않는다(규칙 24: 로컬 값이 진실이고 완료 때 flush 된다).
+     대신 "저장 안 됨"을 화면에 남겨 UI 가 성공을 가장하지 않게 한다. */
+  .prow.unsaved{background:var(--danger-bg)}
+  .prow .unsv{font-family:var(--mono);font-size:10px;font-weight:800;color:var(--danger);flex:none;letter-spacing:.03em}
 
   #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:90vw}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -357,8 +365,14 @@ function perfLog(){ if(PERF) console.log.apply(console,["[perf]"].concat([].slic
       정상 경로에서는 이 집합이 비어 있으므로 Hold/완료가 라인을 한 건도 쓰지 않는다. */
 const unconfirmed=new Map();   // line.id -> {kind:"qty"|"putaway"|"all"}
 const writeChain=new Map();    // line.id -> Promise (같은 라인 PATCH 추월 방지)
+/* putawayFailed: putaway 쓰기가 확정적으로 실패한 라인 — 행에 "NOT SAVED" 를 남기는 용도.
+   ⚠️ unconfirmed 로 이걸 대신하면 안 된다 — unconfirmed 는 쓰기 "전"에 채워지므로
+      정상 저장에서도 매 탭마다 경고가 번쩍인다. 여기는 실패 뒤에만 들어온다. */
+const putawayFailed=new Set();
 let bumpT=null;                // wms_receipts.updated_at debounce 타이머
 let presCh=null, presOthers=[];
+let receiptClosed=false;       // Apply 된 receipt 를 열어둔 화면 — 쓰기 차단 (아래 ensureReceiptOpen)
+let lastOpenCheck=0;
 
 /* ---------- boot ---------- */
 function boot(){
@@ -655,6 +669,7 @@ async function openReceipt(rid){
   if(rh.applied_at){ toast("Already applied to Cin7 — this receipt is closed.",true); loadMyReceipts(); return; }
   receipt=rh;
   unconfirmed.clear(); writeChain.clear();   // 새 receipt — 이전 세션의 미확인분은 이어받지 않는다
+  putawayFailed.clear(); receiptClosed=false; lastOpenCheck=0;
   if(receipt.status!=="in_progress"){ // held/partial → 재개 시 진행중으로
     await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid);
     receipt.status="in_progress";
@@ -1211,15 +1226,44 @@ function saveLine(l){
   });
   bumpReceipt();
 }
+/* 쓰기 직전 소유권/상태 가드 (규칙 28 계열).
+   ⚠️ 리시빙에는 소유자가 없다 — 한 receipt 를 여러 명이 나눠 받는 것이 정상 기능이라
+      picker/packer 의 `ensureMine`(assigned_to 비교)을 그대로 옮길 수 없다.
+      리시빙에서 실제로 갈라지는 상태는 **Apply 완료**다: 매니저가 Apply 를 돌린 뒤에도
+      작업자 태블릿의 풋어웨이 화면은 열려 있고 계속 쓸 수 있는데, 그 뒤의 Placed·bin 변경은
+      Cin7 에 절대 반영되지 않는다(EF 는 Complete 시점의 DB 를 읽고 applied_at 이 재적용을 막는다 — R5).
+   단일 컬럼 select · 3초 억제 · 확인 실패 시 통과(best-effort) 는 규칙 28 그대로. 타이머 없음. */
+async function ensureReceiptOpen(){
+  if(!receipt) return false;
+  if(receiptClosed) return false;
+  const now=performance.now();
+  if(now-lastOpenCheck<3000) return true;
+  lastOpenCheck=now;
+  let res;
+  try{ res=await sb.from("wms_receipts").select("applied_at").eq("id",receipt.id).limit(1); }
+  catch(e){ console.warn("owner check failed",e); return true; }   // 와이파이 순단으로 작업을 멈추지 않는다
+  if(res.error||!res.data||!res.data.length) return true;
+  if(res.data[0].applied_at){
+    receiptClosed=true;
+    alert("This receipt was already applied to Cin7 by a manager.\nYour screen is out of date — putaway changes are no longer saved.");
+    exitToList();
+    return false;
+  }
+  return true;
+}
 /* 풋어웨이 필드 저장 — 실패해도 로컬 값을 되돌리지 않는다.
-   unconfirmed 에 남아 완료 시 flush 되므로 UI 가 거짓말을 하는 게 아니다. */
+   unconfirmed 에 남아 완료 시 flush 되므로 UI 가 거짓말을 하는 게 아니다.
+   대신 putawayFailed 에 넣어 행에 "NOT SAVED" 를 남긴다. */
 async function savePutaway(l){
+  if(!await ensureReceiptOpen()) return false;
   const r=await queueWrite(l,"putaway");
-  if(r.ok) return true;
+  if(r.ok){ putawayFailed.delete(l.id); return true; }
   if(r.why==="deleted"){
     toast(l.order_sku+" was removed by a manager",true);
+    putawayFailed.delete(l.id);
     await dropLine(l.id); renderPutaway(); return false;
   }
+  putawayFailed.add(l.id);
   toast("Save delayed — will retry on completion",true);
   return false;
 }
@@ -1245,7 +1289,8 @@ document.getElementById("backBtn").onclick=async ()=>{
 };
 function exitToList(){
   presenceLeave();
-  unconfirmed.clear(); writeChain.clear();
+  unconfirmed.clear(); writeChain.clear(); putawayFailed.clear();
+  receiptClosed=false; lastOpenCheck=0;
   if(bumpT){ clearTimeout(bumpT); bumpT=null; }
   receipt=null;lines=[];bcMap={};
   document.getElementById("recvView").style.display="none";
@@ -1374,17 +1419,23 @@ function renderPutaway(){
     const grp=withBin[bin];
     const allDone=grp.every(l=>l.putaway_done);
     const rows=grp.map(l=>`
-      <div class="prow ${l.putaway_done?"pdone":""}">
+      <div class="prow ${l.putaway_done?"pdone":""} ${putawayFailed.has(l.id)?"unsaved":""}">
         <div class="thumb" ${imgStyle(l)}></div>
         <div class="li"><div class="s">${esc(l.order_sku)}</div><div class="n">${esc(l.product_name)}</div></div>
+        ${putawayFailed.has(l.id)?`<span class="unsv" title="Not saved yet — retried when you finish">NOT SAVED</span>`:""}
         <div class="q">${l.received}</div>
         <button class="chgbin" data-assign="${l.id}" title="Change bin">Change</button>
         <button class="pk" data-place="${l.id}">${l.putaway_done?"✓ Placed":"Placed"}</button>
       </div>`).join("");
     const z=zoneOfBin(bin);
+    const doneN=grp.filter(l=>l.putaway_done).length;
+    // 일괄 버튼: 작업자는 bin 단위로 움직인다 → 클릭 수를 라인 수에서 bin 수로 내린다.
+    // 전부 placed 면 눌린 상태로 보이고 재클릭이 전체 해제(실수 복구).
+    const allBtn=`<button class="pkall" data-placeall="${esc(bin)}">${
+      allDone?"✓ All placed":(grp.length>1?`Place all ${doneN?`(${doneN}/${grp.length})`:`(${grp.length})`}`:"Place all")}</button>`;
     return `<div class="bin-group ${allDone?"donegrp":""}" data-zone="${esc(z||"·")}" data-bay="${esc(bayOfBin(bin))}" data-bin="${esc(bin)}">
       <div class="bh"><span class="zn">${esc(z||"·")}</span><span class="binbig">${esc(bin)}</span>
-        <span class="bmeta">${grp.length} item${grp.length>1?"s":""}</span></div>
+        <span class="bmeta">${grp.length} item${grp.length>1?"s":""}</span>${allBtn}</div>
       ${rows}
     </div>`;
   }).join("");
@@ -1416,6 +1467,7 @@ function renderPutaway(){
   const pg=document.getElementById("putGroups");
   pg.innerHTML=html;
   pg.querySelectorAll("[data-place]").forEach(b=>b.onclick=()=>togglePlaced(+b.dataset.place));
+  pg.querySelectorAll("[data-placeall]").forEach(b=>b.onclick=()=>placeAllInBin(b.dataset.placeall));
   pg.querySelectorAll("[data-assign]").forEach(b=>b.onclick=()=>assignBin(+b.dataset.assign));
   // zone 점프 칩 바 — Zone 클릭 시 그 zone 의 Bay 칩 펼침
   const zj=document.getElementById("putZjump"), zjb=document.getElementById("putZjumpBay");
@@ -1458,6 +1510,54 @@ async function togglePlaced(lineId){
   if(l.putaway_done) beep("ok");
   renderPutaway();                 // 낙관적 — 탭 반응을 네트워크 뒤로 밀지 않는다
   await savePutaway(l);
+}
+
+/* bin 단위 일괄 완료 — 작업자는 한 자리에 서서 그 자리 물건을 다 놓고 옮겨간다.
+   라인별 강제는 잘못된 입도였다(실측: 5~6라인 PO 는 누르고 11라인부터 아무도 안 누름).
+   ⚠️ 쓰기는 기존 라인 단위 경로(queueWrite + .select() 1행 판정 — 규칙 24)를 그대로 쓴다.
+      전체 배열 덮어쓰기 금지: 같은 receipt 를 함께 받는 사람의 수량·bin 을 되돌리게 된다.
+   ⚠️ 직렬 await 금지(규칙 34) — 20라인 bin 이면 태블릿 Wi-Fi 에서 3~8초 멈춘다.
+      낙관적 렌더 먼저, 저장은 동시 8개 풀. savePutawayAssigns 와 같은 패턴. */
+let placingBin=null;   // 같은 bin 재클릭 중복 실행 차단 (해제/재적용이 교차하면 값이 엉킨다)
+async function placeAllInBin(bin){
+  if(placingBin===bin) return;
+  const grp=lines.filter(l=>l.received>0&&l.putaway_bin===bin&&!(l.is_off_po&&l.needs_approval));
+  if(!grp.length) return;
+  const next=!grp.every(l=>l.putaway_done);          // 전부 done 이면 재클릭 = 전체 해제
+  if(!next && !confirm(`Clear "placed" for all ${grp.length} item${grp.length>1?"s":""} in ${bin}?`)) return;
+  placingBin=bin;
+  const t0=performance.now();
+  try{
+    const todo=grp.filter(l=>l.putaway_done!==next);  // 이미 그 상태인 라인은 쓰지 않는다
+    if(!todo.length){ renderPutaway(); return; }
+    todo.forEach(l=>l.putaway_done=next);
+    if(next) beep("ok");
+    renderPutaway();                                 // 낙관적 — 네트워크 앞에 피드백을 둔다 (togglePlaced 와 같은 순서)
+    // 가드는 렌더 뒤에 둔다(규칙 34) — 닫힌 receipt 면 exitToList 가 로컬 상태를 통째로 버리므로 순서가 안전하다.
+    if(!await ensureReceiptOpen()) return;
+    const q=todo.slice(); const failed=[]; let gone=false;
+    let workers=Math.min(8,q.length);
+    await new Promise(done=>{
+      let live=workers;
+      for(let w=0;w<workers;w++)(async()=>{
+        while(q.length){
+          const l=q.shift();
+          const r=await queueWrite(l,"putaway");
+          if(r.ok){ putawayFailed.delete(l.id); }
+          else if(r.why==="deleted"){ putawayFailed.delete(l.id); await dropLine(l.id); gone=true; }
+          else { putawayFailed.add(l.id); failed.push(l); }
+        }
+        if(--live===0) done();
+      })();
+    });
+    perfLog("place all",Math.round(performance.now()-t0)+"ms","bin="+bin,"n="+todo.length,"failed="+failed.length);
+    // ⚠️ 실패해도 로컬 값을 되돌리지 않는다 — 되돌리면 unconfirmed 재시도가 되돌린 값(false)을
+    //    써서 작업자가 실제로 놓은 기록이 사라진다(규칙 24: 로컬이 최신, 서버 반영은 flush 가 책임).
+    //    대신 그 행에 NOT SAVED 를 남겨 화면이 성공을 가장하지 않게 한다.
+    if(failed.length) toast(failed.length+" of "+todo.length+" line(s) not saved yet — will retry on completion",true);
+    if(gone) toast("Some lines were removed by a manager",true);
+    renderPutaway();
+  } finally { placingBin=null; }
 }
 
 /* 빈 지정: 스캔(1순위) + 드롭다운 검색(폴백) 모달 */
@@ -1573,7 +1673,16 @@ function summaryText(c){
   if(c.shorts.length) parts.push("Short "+c.shorts.length+":\n"+c.shorts.map(l=>`· ${l.order_sku}: ${l.received}/${l.expected}`).join("\n"));
   if(c.overs.length) parts.push("Over "+c.overs.length+":\n"+c.overs.map(l=>`· ${l.order_sku}: ${l.received}/${l.expected}`).join("\n"));
   if(c.pendingAppr.length) parts.push("Off-PO awaiting approval: "+c.pendingAppr.map(l=>l.order_sku).join(", "));
-  if(c.notPlaced.length) parts.push("Not yet placed: "+c.notPlaced.map(l=>l.order_sku).join(", "));
+  // ⚠️ SKU 를 나열하지 않는다 — 85라인 PO 에서는 목록이 화면을 넘겨 아무도 안 읽는다.
+  //    bin 수로 압축하면 "몇 자리 더 돌면 되는지"라는 작업자가 쓸 수 있는 정보가 된다.
+  if(c.notPlaced.length){
+    const bins=new Set(c.notPlaced.filter(l=>l.putaway_bin).map(l=>l.putaway_bin));
+    const noBin=c.notPlaced.filter(l=>!l.putaway_bin).length;
+    let s=c.notPlaced.length+" line"+(c.notPlaced.length>1?"s":"")+" not placed";
+    if(bins.size) s+=" in "+bins.size+" bin"+(bins.size>1?"s":"");
+    if(noBin) s+=" ("+noBin+" with no bin yet)";
+    parts.push(s);
+  }
   if(c.unknown) parts.push(c.unknown+" line(s) were added by someone else on this PO (included above)");
   return parts.length?("\n\n"+parts.join("\n\n")):"";
 }
