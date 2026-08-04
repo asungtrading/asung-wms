@@ -12,3 +12,5 @@ Thumbs.db
 
 # Claude Code 로컬 설정 (권한 승인 목록 등 — 컴퓨터마다 다름)
 .claude/settings.local.json
+.claude/settings.local.json
+.claude/settings.local.json.bak
