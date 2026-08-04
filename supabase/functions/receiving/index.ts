@@ -2,7 +2,7 @@
 // ASUNG WMS — Edge Function: receiving (v2)
 // ------------------------------------------------------------
 // 액션:
-//   ?action=pos                → 리시빙 준비된 PO (⚠️ InvoiceStatus=AUTHORISED 만 — Invoice First 워크플로)
+//   ?action=pos                → 리시빙 준비된 PO (Status=INVOICED+RECEIVING 조회, Invoice First 는 클라이언트 검사)
 //   ?action=pos&search=...     → PO 검색 (동일 필터)
 //   ?action=po&id=&type=       → PO 상세 + 라인 정규화(스냅샷 조인)
 //   ?action=transfers          → IN TRANSIT 트랜스퍼 (입고 대기)
@@ -226,47 +226,72 @@ function normLine(l: any, s: any) {
   };
 }
 
-// ── PO 목록: 인보이스 AUTHORISED + PAID (Invoice First) ──────
-// PAID 를 포함하는 이유: Invoice First 는 "인보이스가 승인됐는가"의 문제이고 PAID 는 그 승인 이후 단계(지불 완료)라 리시빙 자격을 잃지 않는다.
-// (실측 2026-07-28 PO-01081: Status=INVOICED / InvoiceStatus=PAID → AUTHORISED 단일 조회에서 Total 0 으로 통째로 누락됐다.)
-// 서버 파라미터는 유지한다 — 제거하면 DRAFT/NOT AVAILABLE/VOIDED 까지 긁어와 스캔량이 커지고 Invoice First 게이트가 느슨해진다.
-const PO_INVOICE_STATUSES = ["AUTHORISED", "PAID"];
+// ── PO 목록: Status=INVOICED + RECEIVING (Invoice First 는 클라이언트 검사) ──────
+// 2026-08-04 전환 — 왜 InvoiceStatus 서버 필터가 아니라 Status 인가 (실측, 전체 PO 1,129건):
+//  · 종전 InvoiceStatus=PAID 조회는 창업 이후 지불을 마친 **모든** PO(877건)를 돌려주는데, 그중 리시빙
+//    대상은 0건 — 전량 받아 클라이언트 필터로 버리고 있었다. PO 는 계속 쌓이므로 언젠가 페이지 상한
+//    (Limit 1000 × 3페이지)에 닿고, **정렬이 PO 번호 오름차순이라 잘리는 쪽은 항상 최신 PO** 다 —
+//    2026-07-28 PO-01081 누락과 같은 형태의 조용한 사고. 상한 증설은 시간을 살 뿐 근본 해결이 아니다.
+//  · **Status 서버 필터는 동작한다**: Status=INVOICED → Total 73 · Status=RECEIVING → Total 5.
+//    현재 리시빙 대상 8건은 전부 Status=INVOICED. RECEIVING(부분입고 진행중)은 규칙 20 의 유지 의도대로
+//    함께 조회한다(실측상 5건 전부 StockReceivedStatus=AUTHORISED 라 지금은 클라이언트 필터에서 걸러진다).
+//  · ⚠️ **여러 값 동시 요청은 불가** — `Status=INVOICED,RECEIVING` 도 `INVOICED|RECEIVING` 도 Total 0.
+//    그래서 상태별 개별 조회 + ID dedup (호출 수는 종전 AUTHORISED/PAID 2회와 동일).
+//  · ⚠️ **Type 서버 필터는 무시된다** (Simple/Advanced/Service Purchase 모두 무필터와 동일 결과) —
+//    Service 제외는 계속 클라이언트에서 한다.
+//  · **StockReceivedStatus 서버 필터는 사실 동작한다** (NOT AVAILABLE → Total 585. 2026-07-28 의 "무시된다"
+//    는 `RestockReceivedStatus` 로 파라미터 **이름을 잘못 쓴** 실측이었다). 그래도 서버에 걸지 않는다 —
+//    RECEIVING 5건이 전부 StockReceivedStatus=AUTHORISED 라 부분입고 유지 의도와 충돌한다.
+const PO_STATUSES = ["INVOICED", "RECEIVING"];
+
+// Invoice First 게이트 (규칙 20) — 서버 파라미터에서 클라이언트 값 비교로 이동 (2026-08-04).
+// 좁히는 필터이므로 서버에서 빼도 안전하다(못 보던 게 생기는 게 아니라 더 보고 코드로 거르는 쪽).
+// ⚠️ includes 가 아니라 **정확 값 비교** — 그 외 값(DRAFT 등 = 인보이스 미승인)은 제외하고,
+//    루프가 값별 카운트를 모아 로그에 남긴다(예상 밖 값이 조용히 새지 않게).
+const PO_INVOICE_OK = new Set(["AUTHORISED", "PAID"]);
 
 // ⚠️ 페이지 크기 — 조기 종료 조건(`items.length < PO_PAGE_LIMIT`)과 **반드시 같은 상수**를 써야 한다.
 // 둘이 어긋나면(예: Limit=1000 인데 종료 조건이 100) 첫 페이지에서 무조건 루프가 끊긴다.
-// ⚠️ 실측 2026-07-28 (purchaseList, InvoiceStatus=PAID, Total 825):
-//  · **정렬은 PO 번호 오름차순.** page1 = PO-00004~ 이고 최신 PO 는 마지막 페이지(Page=9 에서 PO-01081 확인).
-//    → 기존 `Limit=100` + `page <= 3`(=상태별 300건) 상한이 최신 PO 를 통째로 못 읽던 진짜 원인.
-//  · **Limit=1000 이 동작한다**: page1 에 825건 전부(PO-00004~PO-01081), page2 는 0건. 상태당 호출 1번으로 끝난다.
-//  · **UpdatedSince 는 쓰지 않는다** — 동작은 하지만(30일 124건/60일 249건/90일 331건) 60일 창의 page1 도
-//    PO-00004 부터 시작한다. 지불 처리로 옛 PO 가 계속 갱신되므로 날짜 창이 PO 번호의 최신성을 보장하지 못한다.
-//  · **RestockReceivedStatus 는 무시된다** — NOT AVAILABLE·DRAFT 모두 Total 825(무필터와 동일). 서버 필터로 못 좁히니
-//    StockReceivedStatus 제외는 아래 루프에서 클라이언트 측으로 계속 처리한다.
-// ⚠️ PO 총건수가 2000건을 넘기 시작하면 이 상한(PO_PAGE_LIMIT × PO_MAX_PAGES)을 다시 봐야 한다.
+// Status 기반 전환 후 상태별 Total 은 73/5 수준이라 사실상 page1 한 번으로 끝나지만,
+// **정렬이 오름차순(잘리면 최신 PO 부터 누락)이라는 사실은 그대로**이므로 Limit=1000 · 페이지 상한 ·
+// truncated 진단(서버 Total 대비 실수신 행수 비교)을 유지한다.
 const PO_PAGE_LIMIT = 1000;
 const PO_MAX_PAGES = 3;
 
-async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Record<string, number>; truncated: boolean }> {
+async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Record<string, number>; totals: Record<string, number>; truncated: boolean }> {
   const byId = new Map<string, any>(); // dedup — PurchaseList 의 ID 기준 (두 조회에 같은 PO 가 들어올 수 있음)
   const scanned: Record<string, number> = {}; // 진단 — 상태별로 실제 가져온 행 수 (필터 전)
-  let truncated = false;                      // 진단 — 페이지 상한에 걸려 더 있는데 못 읽은 상태가 있으면 true
-  for (let si = 0; si < PO_INVOICE_STATUSES.length; si++) {
+  const totals: Record<string, number> = {};  // 진단 — 상태별 서버 보고 Total (scanned 보다 크면 못 읽은 게 있다)
+  let truncated = false;                      // 진단 — Total 만큼 못 읽은 상태가 있으면 true (페이지 상한 포함)
+  const invoiceExcluded: Record<string, number> = {}; // Invoice First 클라이언트 검사에서 떨어진 InvoiceStatus 값별 카운트
+  for (let si = 0; si < PO_STATUSES.length; si++) {
     if (si > 0) await sleep(250); // 조회 사이 간격 (Cin7 rate limit)
-    const st0 = PO_INVOICE_STATUSES[si];
+    const st0 = PO_STATUSES[si];
     scanned[st0] = 0;
+    totals[st0] = 0;
     let page = 1;
     while (page <= PO_MAX_PAGES) {
-      const q = "/purchaseList?Page=" + page + "&Limit=" + PO_PAGE_LIMIT + "&InvoiceStatus=" + st0 +
+      const q = "/purchaseList?Page=" + page + "&Limit=" + PO_PAGE_LIMIT + "&Status=" + encodeURIComponent(st0) +
         (search ? "&Search=" + encodeURIComponent(search) : "");
       const data = await cin7Get(q);
       const items = data.PurchaseList || [];
       scanned[st0] += items.length;
+      totals[st0] = Number(data.Total || 0);
       for (const p of items) {
+        // 아래 4개 제외조건은 Status 전환과 무관하게 유지 — 복합 상태("RECEIVED / CREDITED" 등)가 실재하므로 includes 검사.
         const st = String(p.Status || "").toUpperCase();
         if (st.includes("VOID") || st.includes("COMPLETED") || st.includes("CREDITED")) continue; // 끝난/취소 PO (복합상태 포함)
         if (st.includes("RECEIVED") && !st.includes("RECEIVING")) continue;                       // 이미 받은 PO (RECEIVING=부분입고 진행중은 유지)
         if (/service/i.test(String(p.Type || ""))) continue;                                     // Service 주문(운송·관세 등) 제외 — 물건 없음
         if (String(p.StockReceivedStatus || "").toUpperCase() === "AUTHORISED") continue;
+        // Invoice First (규칙 20) — InvoiceStatus 는 이제 서버 파라미터가 아니라 여기서 검사한다.
+        // 정확 값 비교(AUTHORISED/PAID 만 통과) — 그 외 값은 제외하고 카운트해 아래에서 로그.
+        const inv = String(p.InvoiceStatus || "").trim().toUpperCase();
+        if (!PO_INVOICE_OK.has(inv)) {
+          const k = inv || "(empty)";
+          invoiceExcluded[k] = (invoiceExcluded[k] || 0) + 1;
+          continue;
+        }
         const key = String(p.ID || "");
         if (byId.has(key)) continue;
         byId.set(key, {
@@ -275,14 +300,19 @@ async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Recor
           type: p.Type || "Simple Purchase", order_date: p.OrderDate || null, source: "po",
         });
       }
-      if (items.length < PO_PAGE_LIMIT) break;              // 마지막 페이지 (실측: PAID 는 page1 825건 → 여기서 끝)
-      if (page === PO_MAX_PAGES) { truncated = true; break; } // 꽉 찬 페이지인데 상한 도달 → 아직 더 남았다
+      if (items.length < PO_PAGE_LIMIT) break;              // 마지막 페이지 (실측: INVOICED 73 · RECEIVING 5 → page1 로 끝)
+      if (page === PO_MAX_PAGES) break;                     // 상한 도달 — 못 읽은 잔여는 아래 Total 비교가 잡는다
       page++; await sleep(300);
     }
+    if (totals[st0] > scanned[st0]) truncated = true;       // Total 대비 덜 받았다 — 페이지 상한이든 응답 잘림이든
+  }
+  if (Object.keys(invoiceExcluded).length) {
+    // Invoice First 에서 떨어진 PO 들 — DRAFT 등은 정상이지만, 예상 밖 값이 새로 나타나면 여기서 보인다.
+    console.warn("[receiving pos] excluded by InvoiceStatus (Invoice First):", JSON.stringify(invoiceExcluded));
   }
   const out = [...byId.values()];
   out.sort((a, b) => String(b.order_date || "").localeCompare(String(a.order_date || "")));
-  return { pos: out, scanned, truncated };
+  return { pos: out, scanned, totals, truncated };
 }
 
 // ── PO 상세 ─────────────────────────────────────────────────
@@ -1146,7 +1176,7 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "pos";
     if (action === "pos") {
-      // pos 배열은 그대로, scanned/truncated 는 최상위 진단 필드로만 추가 (receiver.html 은 pos 만 읽는다)
+      // pos 배열은 그대로, scanned/totals/truncated 는 최상위 진단 필드로만 추가 (receiver.html 은 pos 만 읽는다)
       return json({ ok: true, ...(await listOpenPOs((url.searchParams.get("search") || "").trim())) });
     }
     if (action === "po") {
