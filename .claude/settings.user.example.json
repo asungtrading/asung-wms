@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(cat *)",
+      "Bash(grep *)",
+      "Bash(ls *)",
+      "Bash(sed -n *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(git status*)",
+      "Bash(git --no-pager diff*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(node --check *)",
+      "Bash(npx tsc *)",
+      "Bash(deno check *)"
+    ]
+  },
+  "model": "opus",
+  "theme": "dark"
+}
