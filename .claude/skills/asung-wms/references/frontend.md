@@ -49,7 +49,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 - **packer 싱글모드**: picker처럼 Single/List 토글(기본 List). 이미지/zone-bin/이름/sku/barcodeBlock/칩(Short/Pack fill/Over-scan).
 - **싱글뷰 barcodeBlock**: base(factor1) + 변형(factor>1, ×12 등) + ALT-UPC(scannable_barcodes type='alt'). picker·packer 공통.
 - **⚠️ -12 박스 스캔**: 형제 스냅샷 바코드를 bcMap에 병합해야 base 라인에서도 박스 바코드 스캔됨(picker/packer loadLines/enterPack).
-- **리포트 버튼**: picker ⚑Wrong location/⚑Barcode changed, packer ⚑Barcode changed → `wms_reports` insert. **⚑Image differs**(2026-07-30, 양쪽 싱글뷰)는 프롬프트 없는 **토글** — `.rep.on`(amber 채움 + ✓)으로 눌린 상태, 재클릭 시 미해결 행 delete. `.reportrow`는 `flex-wrap`+`min-width:104px`(버튼 3개 좁은 태블릿 대응). 진입 시 `loadImageFlags()`가 독립 try 로 상태 복원(실패해도 픽/팩 뷰는 뜬다).
+- **리포트 버튼**: picker ⚑Wrong location/⚑Barcode changed, packer ⚑Barcode changed, **receiver ⚑Barcode changed/⚑Box barcode(2026-08-05 — 아래 「receiver 리포트」절)** → `wms_reports` insert. **⚑Image differs**(2026-07-30, 픽·팩 싱글뷰 / +receiver 2026-08-05)는 프롬프트 없는 **토글** — `.rep.on`(amber 채움 + ✓)으로 눌린 상태, 재클릭 시 미해결 행 delete. `.reportrow`는 `flex-wrap`+`min-width:104px`(버튼 3개 좁은 태블릿 대응). 진입 시 `loadImageFlags()`가 독립 try 로 상태 복원(실패해도 픽/팩 뷰는 뜬다).
 - **진입 즉시 렌더 후 enrich**: 라인 로드 후 즉시 렌더, 재고/바코드는 독립 try로 뒤이어. ⚠️ 존재않는 DOM id 참조 금지(렌더 죽음).
 - **자동이동**: 스캔+수동(+/−·입력) 목표도달 시 autoAdvance(picker). packer 초과 시 confirmFillIfNeeded(소리+플래시+확인).
 - **⚠️ 스캔 오류음**: 2400/1600Hz 교차 사이렌, 볼륨 1.0, 0.72초(작은 스피커 대응). 성공음 유지.
@@ -72,7 +72,7 @@ wmsAuth.start({requireManager:false}, (sb, me)=>{ /* me.name, me.role, me.wareho
 - 구현: 매니저 카드에 class `mgr-only`(CSS `display:none`) + `data-perm`, 로그인 후 admin이거나 매니저 perms 포함 카드만 `classList.remove("mgr-only")`. ⚠️ `style.display=""`는 CSS 때문에 안 먹음 → classList.remove.
 
 ## admin 탭 (8탭, 2026-07-22)
-Status(카드+In-Progress+**Finalized 섹션**) / Discrepancy / **Reports**(wms_reports 리뷰·resolve, kind 필터 All/Wrong location/Barcode changed/Image differs + open 건수, 배지=kind 무관 전체 미해결) / Stats(작업자 처리량+**평균 소요시간**+실수+**리시빙·트랜스퍼·풋어웨이**) / Rollback(단계 되돌리기+로그) / **Finalized**(옛 Packing Lists — 완료오더 기간목록, Fulfillment mix 카드, 🖨Print·⬇PDF·⬇CSV / direct는 "Direct pack" 태그) / Work Screens / **Health**(Rollback 뒤 위치).
+Status(카드+In-Progress+**Finalized 섹션**) / Discrepancy / **Reports**(wms_reports 리뷰·resolve, kind 필터 All/Wrong location/Barcode changed/Image differs/**Box barcode(2026-08-05)** + open 건수, 배지=kind 무관 전체 미해결, Order 열=`order_number||po_number` — 리시빙 건은 PO 번호로 표시) / Stats(작업자 처리량+**평균 소요시간**+실수+**리시빙·트랜스퍼·풋어웨이**) / Rollback(단계 되돌리기+로그) / **Finalized**(옛 Packing Lists — 완료오더 기간목록, Fulfillment mix 카드, 🖨Print·⬇PDF·⬇CSV / direct는 "Direct pack" 태그) / Work Screens / **Health**(Rollback 뒤 위치).
 - ⚠️ 탭 전환 핸들러가 각 loadXxx 호출. periodBar `custom` 인자는 반드시 객체 `{from,to}`(null이면 TypeError로 boot 중단).
 - **팩킹리스트 PDF/CSV**: `getPackingData(oid)` 공용 → HTML(print)·jsPDF+autotable(PDF, CDN lazy-load, 로고=canvas dataURL)·CSV(BOM+CRLF). 컬럼 SKU·Barcode·Product·Qty(CSV 내용 구획은 앞에 **Order**·Unit·Parent — 아래 「오더 소계 캡션」 절).
 - **Stats 탭 리시빙·트랜스퍼·풋어웨이 지표(2026-07-30, 규칙 37)**: 기존 픽/팩과 **같은 기간 필터(`statsPeriod`) 공유** — `loadStats()` 가 `loadRecvStats(r)` 를 fire-and-forget 호출(규칙 34: 픽/팩 렌더를 막지 않고, 조회는 `Promise.all` **2회 왕복**으로 묶음 — ①`wms_receipts`+임베드 `wms_receipt_lines`(FK 임베드, 라인별 왕복 없음) ②`wms_discrepancies` `source='receiving'`. receipts 기간 필터 기준 = `created_at`). 렌더 전 `statsRange!==r` 이면 버림(기간 연타 스테일 방지). 지표: **PO/트랜스퍼 구분**(`source_type`) receipt·라인(received_base>0 만)·수량(received_base 합) / 창고별(`warehouse`) / 소요시간 avg receive=`created_at→completed_at`·avg apply=`completed_at→applied_at`(음수·60일 초과 제외) / **Apply 결과** = 성공·부분성공(`apply_note` 의 `failed_moves(N)` — ⚠️ EF 와 공유하는 포맷, 규칙 21)·미적용(completed & `applied_at` null) / **풋어웨이** 완료율(`putaway_done`)·백로그(미완료 라인 수·수량)·트랜스퍼 라인 `exported_base>0` 비율 / **리시빙 discrepancy** over·short·off-PO 건수 + 미해결(`cin7_corrected=false`). **화면 각주 4개(전부 필수 유지)**: ①`exported_base` 는 수동 UPDATE 로 오염 가능(2026-07-28 TR-02935 344행 일괄 백필 — 규칙 30-4) → "WMS 가 옮긴 것"의 **근사치** ②리시빙 discrepancy 는 유니크 인덱스 버그(규칙 29)로 **2026-07-28 이전엔 기록된 적 없음** — 그 이전 기간은 데이터 없음 ③소요시간은 근무시간 기준(아래) ④**"Putaway done" 은 2026-08-04 이전 기간 신뢰 불가**(그때까지 라인당 1탭뿐이라 11라인 이상 receipt 에서는 아무도 누르지 않았다 — 「풋어웨이 완료 입도」절).
@@ -543,3 +543,16 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 - **행 탭 제외 대상**: packer 수량 스테퍼(`data-step`)·`Clear over`(`data-rmover`) — 기존 제외 유지(picker 리스트 행에는 컨트롤 없음). **스크롤 직후 350ms 고스트 탭 무시**(fulfillment `__justDragged` 패턴 — `#list` touchmove 타임스탬프). packer 는 행 탭 시 `clearTimeout(advTimer)` — 완료된 라인을 탭했는데 900ms auto-advance 로 밀려나지 않게.
 - **`← Back to list`**: 싱글뷰 상단, **`viewOverride` 일 때만 표시**(원래 싱글뷰 작업자에겐 없음). 복귀 시 **탭했던 행(`backIdx`) 을 `scrollIntoView({block:"center"})` + 1.2초 하이라이트**(`.flashback`, 사용자 결정 — scrollY 픽셀 복원은 행 높이 변화에 어긋남). skuFilter 로 행이 숨겨졌으면 스크롤 생략(폴백). 상태는 전부 메모리 — localStorage 금지(규칙 5·12·14).
 - wave 픽: 같은 `renderList`/`renderSingle`(tote 표기) 를 쓰므로 동일 동작 — ⚠️ 실물 확인 필요.
+
+## 2026-08-05 — receiver 리포트: ⚑Barcode changed · ⚑Box barcode · ⚑Image differs (⚠️ 현장 미검증)
+
+**성격(사용자 확정)**: picker/packer 리포트와 같다 — **매니저에게 알리기만** 하고 Cin7 쓰기·bcMap 수정은 하지 않는다. 박스 바코드도 작업자가 스캔한 값을 리포트로 남기고 매니저가 Cin7 backend 에서 반영한다. factor(박스당 수량) 리포트는 범위 제외(사용자 결정 — 우선 바코드만).
+
+- **위치 = recvView 싱글뷰** `renderSingle()` 카운터 아래 `.reportrow`(CSS 는 picker/packer 동일 클래스 복사, `@media 480px` 축소 포함). 리스트뷰에는 없음(픽·팩과 동일). footer(Hold)·putView(Complete PO)와 물리적으로 분리 — 오탭 인접 문제 없음(SO-14129 교훈). 핸들러는 `l.id` 기반(`lineById` — receiver 는 splice 가 있어 인덱스 금지, 규칙 24 계열).
+- **귀속 = `receipt_id`+`po_number`** (`20260805200000_reports_receiving.sql` 신규 컬럼 + 부분 인덱스 `idx_reports_receipt_open`), `order_id`=null, `source='receiver'`. `wms_discrepancies` 리시빙 전례와 같은 구조. 이미지 토글 키 = `receiptId|sku`(픽·팩은 `orderId|sku`).
+- **⚑Barcode changed** = packer 프롬프트 재사용(listed = `barcodeRows`+`altCodes`, 새 값 optional) → kind `barcode_mismatch`, note `Listed X · new Y`.
+- **⚑Box barcode** = kind **`box_barcode`**(신규 — CHECK 없는 text 라 마이그레이션 불필요, baseline 715행). 프롬프트에 기존 박스 바코드(`barcodeRows` 의 factor>1, `×12 code` 형식) 표시, **스캔 값 필수**(빈 값 거부 — 값이 리포트의 본체다). note `New box barcode X · listed ×12 Y`.
+- **⚑Image differs** = 픽·팩과 같은 토글(미해결 1행 불변식, 재클릭 delete `.is("resolved_at",null)`, `imgBusy` 연타 방지). `openReceipt` 가 `loadImageFlags()` 독립 호출(실패해도 리시빙 뷰는 뜬다), receipt 닫을 때 `imgFlags` 리셋.
+- **포커스**: 세 버튼 모두 종료 시 `focusScan()` — recvView 전용 focusScan 체계 그대로, putView 는 손대지 않음.
+- **admin Reports 탭**: `REPORT_KIND` 에 `box_barcode:"Box barcode"`(필터 버튼 자동 생성), Order 열 `order_number||po_number`. `select("*")` 라 새 컬럼은 자동 포함, resolve 경로는 id 기반이라 무변경. 바코드 값은 Detail(note) 열에 표시.
+- ⚠️ **배포 순서: SQL 먼저, 프론트 나중**(규칙 23) — `receipt_id`/`po_number` 컬럼 없이 insert 하면 42703 으로 리포트 3종 전부 실패.

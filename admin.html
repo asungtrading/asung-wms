@@ -1131,7 +1131,7 @@ async function doUndoWave(wid,label,memberCnt){
 }
 
 /* ---------- Reports (data-quality) ---------- */
-const REPORT_KIND={wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs"};
+const REPORT_KIND={wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs", box_barcode:"Box barcode"};
 let repOpen=[], repDone=[], repKind="all";   // kind filter is client-side over the loaded rows
 async function refreshReportBadge(){
   try{
@@ -1154,7 +1154,7 @@ async function loadReports(){
 function renderReports(){
   const el=document.getElementById("reportsList");
   const row=(r,actionable)=>`<tr>
-    <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"")}</td>
+    <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||r.po_number||"")}</td>
     <td style="font-family:var(--mono)">${esc(r.sku||"")}</td>
     <td><span class="tag">${esc(REPORT_KIND[r.kind]||r.kind)}</span></td>
     <td style="font-size:12px;color:var(--mut)">${esc(r.note||"")}</td>

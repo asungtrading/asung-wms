@@ -102,6 +102,11 @@
   .single .barcodes .bl{color:var(--mut);min-width:58px;font-weight:700;font-size:11.5px}
   .single .barcodes .bv{font-weight:700;letter-spacing:.02em}
   .single .barcodes .bv.empty{color:var(--mut-2);font-weight:400;font-style:italic}
+  .reportrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+  .reportrow .rep{flex:1 1 30%;min-width:104px;border:1px solid #f0d9ae;background:#fffdf6;color:#a86e12;border-radius:9px;padding:8px 6px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .reportrow .rep:active{background:#fdf3df}
+  .reportrow .rep.on{background:#a86e12;border-color:#a86e12;color:#fff}
+  .reportrow .rep:disabled{opacity:.55;cursor:default}
   .lastbin{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);background:#eef3ff;border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
   .lastbin.none{color:var(--mut-2);background:#f1f3f6}
   .qtybox{display:flex;align-items:flex-end;gap:8px;margin-top:14px}
@@ -234,6 +239,7 @@
     main{padding:12px}
     .foot .row{flex-wrap:wrap}
     .foot .row .btn{flex:1 1 45%}
+    .reportrow .rep{font-size:11px}
   }
 </style>
 </head>
@@ -355,6 +361,7 @@ const EF_RECEIVING = (window.WMS_CONFIG ? WMS_CONFIG.SUPABASE_URL : "") + "/func
 let sb=null, me=null, zoneSeq={};
 let myReceipts=[], openPos=[];
 let receipt=null, lines=[], bcMap={}, actx=null, view="single", curIdx=0;
+let imgFlags=new Set(), imgBusy=false;   // open image_mismatch reports: "receiptId|sku"
 let allBins=[];   // 현재 receipt 창고의 bin 목록 (빈 지정 드롭다운용)
 let sortMode="po";   // 검수 리스트/싱글 표시 순서: po|zone|product|sku
 
@@ -705,6 +712,7 @@ async function openReceipt(rid){
   document.getElementById("rTitle").textContent=receipt.po_number;
   document.getElementById("rMeta").textContent=(receipt.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(receipt.supplier_name||"");
   renderRecv(); focusScan();
+  loadImageFlags();     // ⚑ Image differs 눌린 상태 복원 (독립 — 실패해도 리시빙 뷰는 뜬다)
   await buildBcMap();   // 바코드 맵 + 이미지 enrich (독립)
   renderRecv(); focusScan();
   loadBins();           // 창고 bin 목록 (빈 지정용, 독립)
@@ -895,11 +903,20 @@ function renderSingle(){
         <button class="btn dark" data-nav="1">Next →</button>
       </div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--mut-2);margin-top:8px">${(orderedIdx().indexOf(curIdx)+1)} / ${lines.length}</div>
+      <div class="reportrow">
+        <button class="rep" data-rep="bc">⚑ Barcode changed</button>
+        <button class="rep" data-rep="box">⚑ Box barcode</button>
+        <button class="rep ${imgFlagged(l)?"on":""}" data-rep="img" ${imgBusy?"disabled":""}>${imgFlagged(l)?"✓":"⚑"} Image differs</button>
+      </div>
     </div>`;
   const s=document.getElementById("rSingle");
   s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(l.id,+b.dataset.step);});
   s.querySelector("[data-manual]").onclick=()=>manualSet(l.id);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
+  s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.rep==="img") toggleImageReport(l.id);
+    else reportIssueRecv(b.dataset.rep, l.id);
+  });
 }
 function renderRList(){
   document.getElementById("rSingle").style.display="none";
@@ -1136,6 +1153,88 @@ async function offPoScan(code){
   }catch(e){ toast("Off-PO add failed: "+(e.message||e),true); focusScan(); }
 }
 
+/* ============================================================
+   데이터품질 리포트 → wms_reports (picker/packer 와 같은 성격)
+   ------------------------------------------------------------
+   매니저에게 알리기만 한다 — Cin7 쓰기·bcMap 수정 없음. 매니저가 admin Reports
+   탭에서 보고 Cin7 backend 에서 반영한다(박스 바코드 값 포함 — note 에 담는다).
+   receiver 는 오더가 없으므로 receipt_id + po_number 로 귀속
+   (wms_discrepancies 리시빙 전례와 같은 구조 — order_id 는 null).
+   ============================================================ */
+async function reportIssueRecv(kind, id){
+  const l=lineById(id); if(!l){ focusScan(); return; }
+  let kindDb, note, okMsg;
+  if(kind==="box"){
+    // 박스(×factor) 바코드 업데이트 — 스캔 값이 리포트의 본체라 필수
+    const boxes=(l.barcodeRows||[]).filter(r=>r.factor>1&&r.barcode);
+    const listed=boxes.map(r=>`×${r.factor} ${r.barcode}`).join(", ")||"none";
+    const got=prompt(`Box barcode for ${l.order_sku}\nListed: ${listed}\n\nScan the new box barcode`, "");
+    if(got===null){ focusScan(); return; }
+    if(!got.trim()){ toast("No barcode scanned — not reported",true); focusScan(); return; }
+    kindDb="box_barcode"; note=`New box barcode ${got.trim()} · listed ${listed}`;
+    okMsg="Box barcode reported";
+  }else{
+    const listed=[...new Set([...(l.barcodeRows||[]).map(r=>String(r.barcode||"").trim()), ...(l.altCodes||[])].filter(Boolean))].join(", ")||"—";
+    const got=prompt(`Barcode changed for ${l.order_sku}\nListed: ${listed}\n\nScan or type the new barcode (optional)`, "");
+    if(got===null){ focusScan(); return; }
+    kindDb="barcode_mismatch"; note=`Listed ${listed}${got.trim()?` · new ${got.trim()}`:""}`;
+    okMsg="Barcode issue reported";
+  }
+  try{
+    const {error}=await sb.from("wms_reports").insert({
+      receipt_id:receipt.id, po_number:receipt.po_number, sku:l.order_sku,
+      kind:kindDb, note, reported_by:me.name, source:"receiver"
+    });
+    if(error) throw error;
+    toast(okMsg);
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  focusScan();
+}
+
+/* ---------- image mismatch report (toggle, no detail prompt) → wms_reports ----------
+   One open report per receipt+sku+kind: press to report, press again to cancel.     */
+const IMG_NOTE="Image does not match the physical product";
+function imgKey(l){ return receipt?receipt.id+"|"+(l.order_sku||""):""; }
+function imgFlagged(l){ const k=imgKey(l); return !!k && imgFlags.has(k); }
+async function loadImageFlags(){
+  imgFlags=new Set();
+  try{
+    const rid=receipt?receipt.id:null;
+    const skus=[...new Set(lines.map(l=>l.order_sku).filter(Boolean))];
+    if(!rid||!skus.length) return;
+    const {data,error}=await sb.from("wms_reports")
+      .select("receipt_id,sku").eq("kind","image_mismatch").is("resolved_at",null)
+      .eq("receipt_id",rid).in("sku",skus);
+    if(error) throw error;
+    (data||[]).forEach(r=>imgFlags.add(r.receipt_id+"|"+(r.sku||"")));
+    renderRecv();
+  }catch(e){ /* pressed state is cosmetic — never block the receiving view */ }
+}
+async function toggleImageReport(id){
+  const l=lineById(id); if(!l||imgBusy) return;
+  const rid=receipt?receipt.id:null;
+  if(!rid){ toast("Cannot report — receipt unknown",true); focusScan(); return; }
+  const key=rid+"|"+(l.order_sku||""), on=imgFlags.has(key);
+  imgBusy=true; renderRecv();
+  try{
+    if(on){
+      // cancel: only the still-open report — resolved history is never deleted
+      const {error}=await sb.from("wms_reports").delete()
+        .eq("receipt_id",rid).eq("sku",l.order_sku).eq("kind","image_mismatch").is("resolved_at",null);
+      if(error) throw error;
+      imgFlags.delete(key); toast("Image report cancelled");
+    }else{
+      const {error}=await sb.from("wms_reports").insert({
+        receipt_id:rid, po_number:receipt.po_number, sku:l.order_sku,
+        kind:"image_mismatch", note:IMG_NOTE, reported_by:me.name, source:"receiver"
+      });
+      if(error) throw error;
+      imgFlags.add(key); toast("Image issue reported");
+    }
+  }catch(e){ toast("Report failed: "+(e.message||e),true); }
+  imgBusy=false; renderRecv(); focusScan();
+}
+
 /* ---------- 수동 조정 ---------- */
 function manualAdjust(id,delta){
   const l=lineById(id); if(!l) return;
@@ -1327,7 +1426,7 @@ function exitToList(){
   unconfirmed.clear(); writeChain.clear(); putawayFailed.clear();
   receiptClosed=false; lastOpenCheck=0;
   if(bumpT){ clearTimeout(bumpT); bumpT=null; }
-  receipt=null;lines=[];bcMap={};
+  receipt=null;lines=[];bcMap={};imgFlags=new Set();imgBusy=false;
   document.getElementById("recvView").style.display="none";
   document.getElementById("putView").style.display="none";
   document.getElementById("listView").style.display="block";
