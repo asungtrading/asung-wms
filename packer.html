@@ -140,6 +140,12 @@
   .searchbar button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;color:var(--mut);cursor:pointer}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.12)}
+  .lrow.flashback{animation:rowflash 1.2s ease}
+  @keyframes rowflash{0%,60%{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,90,240,.35)}100%{}}
+  .single .backlist{display:block;margin:0 0 10px;border:1px solid var(--line);background:var(--paper);color:var(--mut);border-radius:9px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .avail{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--edm);background:#e9f7f1;border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+  .avail.low{color:var(--danger);background:var(--danger-bg)}
+  .avail.na{color:var(--mut-2);background:#f1f3f6}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
   .lrow.miss{background:var(--danger-bg);border-color:#f3c4c4}
   .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line)}
@@ -494,6 +500,10 @@ function qcard(o,label,btnTxt,attr,resume,shortCnt){
   </div>`;
 }
 let queueFilter="", skuFilter="", lastScan=null, advTimer=null;
+/* 리스트 행 탭 → 임시 싱글뷰 (2026-08-05). view(선호)는 건드리지 않는다 — 렌더는 viewOverride||view */
+let viewOverride=null, backIdx=null;
+let lastListScroll=0;   // 스크롤 직후 고스트 탭 무시 (fulfillment __justDragged 패턴)
+const recentListScroll=()=>Date.now()-lastListScroll<350;
 let imgFlags=new Set(), imgBusy=false;   // open image_mismatch reports: "orderId|sku"
 let stockFlags=new Set(), stockBusy=false, stockDecl={};   // open stock_short declarations: "orderId|sku" (+ who/where declared)
 function renderQueue(){
@@ -678,6 +688,7 @@ async function enterPack(){
   renderShortAlert();   // re-rendered again once loadStockFlags() knows about declarations
   // show the lines immediately (don't wait for enrichment queries)
   skuFilter=""; lastScan=null; clearTimeout(advTimer); const _se=document.getElementById("skuSearch"); if(_se)_se.value="";
+  viewOverride=null; backIdx=null;   // 배치 진입 — 임시 싱글뷰 상태 초기화 (선호 view 는 그대로)
   document.getElementById("listView").style.display="none";
   document.getElementById("packView").style.display="block";
   document.getElementById("pTitle").textContent=packTask.batch_label;
@@ -687,6 +698,20 @@ async function enterPack(){
   loadStockFlags();   // independent — shows picker's stock-short declarations + restores ⚠ Not enough stock
   // enrich: picker name (attribution) + sibling barcodes, then re-render
   try{ const {data:ptk}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",packTask.pick_task_id).single(); packTask.picker=ptk?.assigned_to||null; }catch(e){ packTask.picker=null; }
+  // enrich availability (independent — picker 와 동일 패턴: wms_sku_bins 일괄 1요청, 진입 시 1회.
+  // ⚠️ 라인당 개별 조회 금지 — 60줄이면 직렬 60요청이 된다)
+  try{
+    const avSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
+    if(avSkus.length){
+      const {data:bins,error}=await sb.from("wms_sku_bins")
+        .select("sku,available").in("sku",avSkus).eq("warehouse",order.warehouse).eq("is_current",true);
+      if(error) throw error;
+      const av={};
+      (bins||[]).forEach(b=>{ av[b.sku]=(av[b.sku]||0)+(Number(b.available)||0); });
+      lines.forEach(l=>{ l.available=(l.base_sku in av)?av[l.base_sku]:null; });
+      renderPack();
+    }
+  }catch(e){ toast("Stock lookup failed (avail hidden)",true); }
   try{
     const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
     if(baseSkus.length){
@@ -782,7 +807,14 @@ function renderPack(){
   const ov=document.getElementById("overAlert");
   if(overs.length){ ov.style.display="block"; document.getElementById("overList").innerHTML=overs.map(l=>`<li>\u00b7 ${esc(l.order_sku)} \u2014 ordered ${l.required} met, then ${l.overScans} more scans</li>`).join(""); }
   else{ ov.style.display="none"; }
-  if(view==="single") renderSingle(); else renderList();
+  const ev=viewOverride||view;   // 행 탭 임시 싱글뷰 — 선호(view)는 그대로
+  [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x.dataset.v===ev));
+  if(ev==="single") renderSingle(); else renderList();
+}
+function availChip(l){
+  if(l.available==null) return `<span class="avail na">Avail ?</span>`;
+  const low=l.available<l.required;
+  return `<span class="avail ${low?"low":""}">Avail ${l.available}</span>`;
 }
 function lastScanHtml(){
   if(!lastScan) return "";
@@ -810,12 +842,13 @@ function renderSingle(){
   const pickNote=l.expected<l.required?`<span class="picknote">Pick ${l.expected}</span>`:"";
   host.innerHTML=`
     <div class="body">
+      ${viewOverride?`<button class="backlist" data-backlist>← Back to list</button>`:""}
       <div class="head">
         <div class="img" ${imgStyle(l)}></div>
         <div class="info">
           <div class="zbin"><span class="zbadge">${esc(l.zone||"\u00b7")}</span><span class="binbig">${esc(l.bin||"\u2014")}</span></div>
           <div class="nm">${esc(l.product_name)}</div>
-          <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` \u00b7 base ${esc(l.base_sku)}`:""}</div>
+          <div class="sku">${esc(l.order_sku)}${l.order_sku!==l.base_sku?` \u00b7 base ${esc(l.base_sku)}`:""} ${availChip(l)}</div>
           ${(chips||pickNote)?`<div class="chips">${chips}${pickNote}</div>`:""}
         </div>
       </div>
@@ -840,6 +873,8 @@ function renderSingle(){
         ${(l.verified<l.required||stockFlagged(l))?`<button class="rep ${stockFlagged(l)?"on":""}" data-rep="stock" ${stockBusy?"disabled":""}>${stockFlagged(l)?"✓":"⚠"} Not enough stock</button>`:""}
       </div>
     </div>`;
+  const bl=host.querySelector("[data-backlist]");
+  if(bl) bl.onclick=backToList;
   host.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   host.querySelector("[data-manual]").onclick=()=>manualSetPack(curIdx);
   host.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{movePack(+b.dataset.nav);});
@@ -1013,6 +1048,7 @@ function movePack(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); 
 document.getElementById("viewSeg").onclick=e=>{
   const b=e.target.closest("button"); if(!b)return;
   view=b.dataset.v;
+  viewOverride=null; backIdx=null;   // 토글은 명시 선택 — 임시 싱글뷰 상태 해제
   [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x===b));
   renderPack(); focusScan();
 };
@@ -1061,17 +1097,32 @@ function renderList(){
     const overBtn=(l.overScans||0)>0?`<button class="rmover" data-rmover="${idx}" ${frozen?"disabled":""}>Clear over</button>`:"";
     return `<div class="lrow ${cls}" data-idx="${idx}">
       <div class="thumb" ${imgStyle(l)}></div>
-      <div class="li"><div class="s">${esc(l.order_sku)}${chip}</div><div class="n">${esc(l.product_name)}</div><div class="b">${esc(l.bin||"—")} ${pickNote}${overBtn}</div></div>
+      <div class="li"><div class="s">${esc(l.order_sku)}${chip}</div><div class="n">${esc(l.product_name)}</div><div class="b">${esc(l.bin||"—")}${availChip(l)} ${pickNote}${overBtn}</div></div>
       <div>
         <div class="q">${l.verified} / ${l.required}</div>
         <div class="stepmini"><button data-step="-1" data-i="${idx}" ${frozen?"disabled":""}>−</button><button data-step="1" data-i="${idx}" ${frozen?"disabled":""}>+</button></div>
       </div>
     </div>`;
   }).join("");
-  el.querySelectorAll(".lrow").forEach(r=>r.onclick=e=>{ if(e.target.dataset.step||e.target.dataset.rmover)return; curIdx=+r.dataset.idx; focusScan(); });
+  el.querySelectorAll(".lrow").forEach(r=>r.onclick=e=>{
+    if(e.target.dataset.step||e.target.dataset.rmover)return;     // 스테퍼·Clear over 는 행 탭에서 제외
+    if(recentListScroll())return;                                 // 스크롤 직후 고스트 탭 무시
+    clearTimeout(advTimer);                                       // 명시적 이동 — 900ms auto-advance 억제
+    curIdx=+r.dataset.idx; backIdx=curIdx; viewOverride="single"; // 행 탭 → 그 SKU 임시 싱글뷰
+    renderPack(); focusScan();
+  });
   el.querySelectorAll("[data-step]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); manualAdjust(+b.dataset.i,+b.dataset.step); });
   el.querySelectorAll("[data-rmover]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); lines[+b.dataset.rmover].overScans=0; renderPack(); focusScan(); });
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
+}
+document.getElementById("list").addEventListener("touchmove",()=>{ lastListScroll=Date.now(); },{passive:true});
+/* 임시 싱글뷰에서 복귀 — 탭했던 행으로 스크롤 + 짧은 하이라이트 (상태는 메모리만 — 규칙 5) */
+function backToList(){
+  const idx=backIdx; viewOverride=null; backIdx=null;
+  renderPack();
+  const row=document.querySelector(`#list .lrow[data-idx="${idx}"]`);
+  if(row){ row.scrollIntoView({block:"center"}); row.classList.add("flashback"); setTimeout(()=>row.classList.remove("flashback"),1300); }
+  focusScan();
 }
 
 /* scan */

@@ -129,6 +129,9 @@
   .list{display:none;flex-direction:column;gap:8px}
   .lrow{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;align-items:center;gap:12px}
   .lrow.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,109,246,.12)}
+  .lrow.flashback{animation:rowflash 1.2s ease}
+  @keyframes rowflash{0%,60%{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,109,246,.35)}100%{}}
+  .single .backlist{display:block;margin:0 0 10px;border:1px solid var(--line);background:var(--paper);color:var(--mut);border-radius:9px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
   .lrow.short{background:var(--danger-bg);border-color:#f3c4c4}
   .lrow .zn{font-family:var(--mono);font-weight:800;font-size:12px;color:#fff;background:var(--mut-2);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
@@ -272,6 +275,10 @@
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
 let batches=[], myBatches=[], stalePool=[], task=null, order=null, lines=[], bcMap={}, curIdx=0, view="single", batchFilter="";
+/* 리스트 행 탭 → 임시 싱글뷰 (2026-08-05). view(선호)는 건드리지 않는다 — 렌더는 viewOverride||view */
+let viewOverride=null, backIdx=null;
+let lastListScroll=0;   // 스크롤 직후 고스트 탭 무시 (fulfillment __justDragged 패턴)
+const recentListScroll=()=>Date.now()-lastListScroll<350;
 let waves=[], myWaves=[], staleWaves=[], wave=null, tasks=[];   // wave mode (grouped small orders, sort-to-tote)
 let curWh="", pickTitle="", pickMeta="";                        // shared pick-view context (single batch or wave)
 let imgFlags=new Set(), imgBusy=false;                          // open image_mismatch reports: "orderId|sku"
@@ -688,6 +695,7 @@ async function loadLines(){
 /* shared pick-view entry: sort lines by route, build the scan map, show, then enrich.
    Used by both a single batch (loadLines) and a wave (loadWaveLines). */
 async function enterPickView(){
+  viewOverride=null; backIdx=null;   // 배치 진입 — 임시 싱글뷰 상태 초기화 (선호 view 는 그대로)
   const wh=curWh;
   // zone sort by pick path (tote is only a tiebreaker so the route stays optimal)
   lines.sort((a,b)=>{
@@ -905,7 +913,9 @@ function totalPicked(){return lines.reduce((s,l)=>s+Math.min(l.picked,l.assigned
 function renderPick(){
   const tot=totalReq(), pk=totalPicked();
   document.getElementById("progBar").style.width=(tot?Math.round(pk/tot*100):0)+"%";
-  if(view==="single") renderSingle(); else renderList();
+  const ev=viewOverride||view;   // 행 탭 임시 싱글뷰 — 선호(view)는 그대로
+  [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x.dataset.v===ev));
+  if(ev==="single") renderSingle(); else renderList();
 }
 function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
 // base barcode (factor 1) + variant barcodes (factor>1, e.g. -12) + ALT-UPC aliases.
@@ -935,6 +945,7 @@ function renderSingle(){
   const l=lines[curIdx]; const done=l.picked>=l.assigned;
   document.getElementById("single").innerHTML=`
     <div class="body">
+      ${viewOverride?`<button class="backlist" data-backlist>← Back to list</button>`:""}
       ${l._tote?`<div class="totebar"><span class="tn">TOTE ${l._tote}</span><span class="tc">${esc(l._customer||"")}${l._orderNumber?" · "+esc(l._orderNumber):""}</span></div>`:""}
       <div class="head">
         <div class="img" ${imgStyle(l)}></div>
@@ -969,6 +980,8 @@ function renderSingle(){
   s.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{manualAdjust(curIdx,+b.dataset.step);});
   s.querySelector("[data-manual]").onclick=()=>manualSet(curIdx);
   s.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{move(+b.dataset.nav);});
+  const bl=s.querySelector("[data-backlist]");
+  if(bl) bl.onclick=backToList;
   s.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{
     if(b.dataset.rep==="img") toggleImageReport(curIdx);
     else if(b.dataset.rep==="stock") toggleStockShort(curIdx);
@@ -990,14 +1003,28 @@ function renderList(){
       <div class="q">${l.picked} / ${l.assigned}</div>
     </div>`;
   }).join("");
-  el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{curIdx=+r.dataset.idx;focusScan();});
+  el.querySelectorAll(".lrow").forEach(r=>r.onclick=()=>{
+    if(recentListScroll())return;                                 // 스크롤 직후 고스트 탭 무시
+    curIdx=+r.dataset.idx; backIdx=curIdx; viewOverride="single"; // 행 탭 → 그 SKU 임시 싱글뷰
+    renderPick(); focusScan();
+  });
   const cur=el.querySelector(".lrow.cur"); if(cur)cur.scrollIntoView({block:"nearest"});
+}
+document.getElementById("list").addEventListener("touchmove",()=>{ lastListScroll=Date.now(); },{passive:true});
+/* 임시 싱글뷰에서 복귀 — 탭했던 행으로 스크롤 + 짧은 하이라이트 (상태는 메모리만 — 규칙 5) */
+function backToList(){
+  const idx=backIdx; viewOverride=null; backIdx=null;
+  renderPick();
+  const row=document.querySelector(`#list .lrow[data-idx="${idx}"]`);
+  if(row){ row.scrollIntoView({block:"center"}); row.classList.add("flashback"); setTimeout(()=>row.classList.remove("flashback"),1300); }
+  focusScan();
 }
 
 /* ---------- Toggle view ---------- */
 document.getElementById("viewSeg").onclick=e=>{
   const b=e.target.closest("button");if(!b)return;
   view=b.dataset.v;
+  viewOverride=null; backIdx=null;   // 토글은 명시 선택 — 임시 싱글뷰 상태 해제
   [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x===b));
   renderPick(); focusScan();
 };

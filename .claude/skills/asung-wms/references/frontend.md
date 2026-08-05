@@ -533,3 +533,13 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 ### 스키마 (`20260805000000_completed_by_pack_link.sql` — ⚠️ 배포 순서: SQL 먼저, 프론트 나중 — 규칙 23)
 - `wms_pack_tasks.completed_by` / `wms_pick_tasks.completed_by` — 완료 UPDATE 가 `me.name` 을 채움. 기존 `responsible` 은 enterPack 시점의 픽 배정자라 "누가 완료를 눌렀나"를 답하지 못했다.
 - `wms_discrepancies.pack_task_id` / `pick_task_id` — packer 의 insert 4곳(short_after_pack·over_pick·pack_scan_mistake·stock_short)이 pack_task_id 를, picker 의 insert 2곳(short_pick·stock_short)이 pick_task_id 를 채움(**wave 는 라인별 멤버 task** `l._taskId` — 규칙 18, finish 의 오더 귀속과 같은 규칙). **FK 없음** — 롤백이 task 행을 delete 하므로 FK 면 증거가 사라진다. **읽는 쪽 미구현(의도)** — 나중 롤백 무효화의 근거, 나중에 추가하면 그 전에 쌓인 행은 어느 단계 산물인지 알 수 없어 영구히 정리 불가라 지금 넣음. ⚠️ 무효화 판단은 reason 으로 — stock_short 는 선언 산물이라 대상이 아니다.
+
+## 2026-08-05 — 리스트뷰 정보 접근성: 행 탭 임시 싱글뷰 + packer available 칩 (⚠️ 현장 미검증)
+
+**배경**: 리스트뷰 선호 작업자가 리포트·재고 확인 때마다 토글로 싱글뷰에 들어가는데, 토글은 "탭한 SKU" 가 아니라 현재 라인으로 가서 자리를 잃는다.
+
+- **packer available 칩**: picker 의 기존 패턴 이식 — `enterPack` enrich 단계(렌더를 막지 않는 독립 try)에서 `wms_sku_bins` 를 `.in(baseSkus)` **일괄 1요청**(`warehouse`·`is_current` 필터, bin 합산), **배치 진입 시 1회만**(사용자 결정 — 참고용이라 갱신 불필요). 리스트 행 `.b` + 싱글뷰 sku 줄 양쪽에 `availChip`(부족이면 red). ⚠️ **라인당 개별 조회 금지** — 60줄이면 직렬 60요청.
+- **행 탭 → 임시 싱글뷰**: 리스트 행 탭이 그 SKU 의 싱글뷰로 진입. **`viewOverride` 별도 변수**(사용자 결정) — 렌더는 `viewOverride||view`, 선호 `view`(세션 메모리 변수, localStorage 아님)는 불변. 해제 지점: `← Back to list` · 세그 토글(명시 선택 — view 변경+override 해제) · 배치 진입(`enterPickView`/`enterPack`). Back 없이 완료/Hold 로 나가도 다음 배치는 선호 뷰로 열린다. 세그 active 표시는 renderPick/renderPack 이 effective view 로 동기화.
+- **행 탭 제외 대상**: packer 수량 스테퍼(`data-step`)·`Clear over`(`data-rmover`) — 기존 제외 유지(picker 리스트 행에는 컨트롤 없음). **스크롤 직후 350ms 고스트 탭 무시**(fulfillment `__justDragged` 패턴 — `#list` touchmove 타임스탬프). packer 는 행 탭 시 `clearTimeout(advTimer)` — 완료된 라인을 탭했는데 900ms auto-advance 로 밀려나지 않게.
+- **`← Back to list`**: 싱글뷰 상단, **`viewOverride` 일 때만 표시**(원래 싱글뷰 작업자에겐 없음). 복귀 시 **탭했던 행(`backIdx`) 을 `scrollIntoView({block:"center"})` + 1.2초 하이라이트**(`.flashback`, 사용자 결정 — scrollY 픽셀 복원은 행 높이 변화에 어긋남). skuFilter 로 행이 숨겨졌으면 스크롤 생략(폴백). 상태는 전부 메모리 — localStorage 금지(규칙 5·12·14).
+- wave 픽: 같은 `renderList`/`renderSingle`(tote 표기) 를 쓰므로 동일 동작 — ⚠️ 실물 확인 필요.
