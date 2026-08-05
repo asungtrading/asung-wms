@@ -53,7 +53,10 @@ POST /stockTransfer
 
 - **선행조건 (⚠️ Invoice First)**: PO 가 'Invoice First' approach 면 **인보이스가 AUTHORISED 여야**
   stock received 가능. 아니면 400 "'Invoice First' approach option set. Please authorise Invoice
-  before StockReceived". Asung 은 전 PO Invoice First. 확인: GET /purchase/invoice?TaskID=.
+  before StockReceived". Asung 은 전 PO Invoice First. 확인: **PO 상세 응답의 Invoice 블록**
+  (`purchase.md` 「인보이스 블록 실측」 — `Array.isArray(d.Invoice)?d.Invoice[0]:d.Invoice` 의 `Status`).
+  ⚠️ **정정 (2026-08-05)** — 종전 안내였던 `GET /purchase/invoice?TaskID=` 는 **Advanced PO 에서
+  400** ("deprecated and does not support Advanced Purchase"): 신규 코드에 쓰지 말 것.
 - PO 의 전체 Status=INVOICED 상태에서도 stock received POST 통과(실측).
 - **라인 `Date` 필수** (빠지면 400 "'Date' is required for 'Lines' line").
 - **LocationID = bin GUID** → 입고 시점에 bin 직접 지정 (후속 재배치 불필요).

@@ -150,6 +150,10 @@
   .chip{font-family:var(--mono);font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;margin-left:6px}
   .chip.appr{color:#7c3aed;background:#f3ebff}
   .chip.newsku{color:var(--warn);background:var(--warn-bg)}
+  /* 인보이스에 없는 오더 라인 (expected 0 — 공장 백오더). 흐리게 두되 스캔은 가능해야 한다 */
+  .chip.noinv{color:var(--mut);background:#eef1f6}
+  .lrow.noinv{opacity:.55}
+  .gdiv.noinv .gl{color:var(--mut)}
 
   .foot{position:sticky;bottom:0;background:rgba(247,248,250,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);margin:16px -16px -16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
   .foot .row{display:flex;gap:10px}
@@ -634,14 +638,22 @@ async function startPo(i){
       : "action=po&id="+encodeURIComponent(p.id)+"&type="+encodeURIComponent(p.type||""));
     const po=j.po;
     // receipt 헤더
+    // expected_source/cin7_type (2026-08-05, 규칙 20 개정): EF poDetail 이 기대치를 인보이스 라인으로
+    // 만들고 기준 표식을 돌려준다. 트랜스퍼는 인보이스가 없으므로 'order'(기본값)·cin7_type null.
+    // ⚠️ 배포 순서: 컬럼 추가 SQL 이 먼저 나가야 이 insert 가 성공한다 (규칙 23).
     const {data:rh,error:re}=await sb.from("wms_receipts").insert({
       po_number:po.po_number, cin7_purchase_id:po.id, supplier_name:po.supplier,
       warehouse:po.warehouse||"toronto", status:"in_progress", received_by:me.name,
       source_type:isTr?"transfer":"po",
+      expected_source:(!isTr&&po.expected_source==="invoice")?"invoice":"order",
+      cin7_type:isTr?null:(po.cin7_type||p.type||null),
     }).select();
     if(re) throw re;
     const rid=rh[0].id;
-    // 라인 (PO 예상)
+    // ⚠️ 인보이스 폴백 경고 — EF 가 인보이스 라인을 못 찾으면 오더 수량으로 돌아온다(조용한 expected 0 방지).
+    if(!isTr&&po.expected_source!=="invoice")
+      toast("No invoice lines from Cin7 — expected quantities are from the PO order",true);
+    // 라인 (기대치 = 인보이스 수량 × factor — EF poDetail. 인보이스에 없는 오더 라인은 expected 0)
     const rows=po.lines.map(l=>({
       receipt_id:rid, cin7_po_line_id:l.cin7_po_line_id,
       order_sku:l.order_sku, base_sku:l.base_sku, product_name:l.product_name,
@@ -784,6 +796,12 @@ async function buildBcMap(){
 function lineById(id){ return lines.find(x=>x.id===id); }
 /* "주문 수량을 정확히 채웠다" — 부족도 초과도 아닌 상태. 정렬·색·비프가 같은 기준을 쓴다. */
 function isFilled(l){ return l.expected>0 && l.received===l.expected; }
+/* 인보이스에 없는 오더 라인 (2026-08-05 — 기대치가 인보이스 기준일 때만 의미가 있다).
+   공장 백오더라 안 온 물건이다: 부족(short)이 아니고, 스캔 전까지는 할 일도 아니다.
+   ⚠️ expected_source==='invoice' 게이트 — 오더 폴백/구형 receipt 에서 흐림 처리가 오발동하지 않게. */
+function notInvoiced(l){
+  return !!(receipt&&receipt.expected_source==="invoice")&&!l.is_off_po&&l.expected===0;
+}
 
 /* ---------- receiving 렌더 ---------- */
 /* 표시 순서: lines 는 고정, 순서만 인덱스 배열로.
@@ -801,8 +819,10 @@ function orderedIdx(){ return sortedIdx(true); }
       존 순서로 걷던 작업자가 이미 지나온 존으로 끌려간다. */
 function sortedIdx(groupFilled){
   const idx=lines.map((_,i)=>i);
+  // 그룹: 0=할 일(미충족·초과·off-PO) · 1=충족(아래로) · 2=인보이스에 없음(맨 아래·흐림).
+  // ⚠️ notInvoiced 인데 received>0 이면 그룹 0 — 인보이스보다 더 온 물건이라 매니저가 봐야 한다(over).
   const key=i=>{
-    const l=lines[i], g=(groupFilled&&isFilled(l))?1:0;
+    const l=lines[i], g=(groupFilled&&isFilled(l))?1:((groupFilled&&notInvoiced(l)&&l.received===0)?2:0);
     if(sortMode==="zone"){ const z=l.lastBin?zoneOfBin(l.lastBin):null; return [g, z==null?1:0, zOrder(z), l.lastBin||"~", i]; }
     if(sortMode==="product") return [g, (l.product_name||"~").toUpperCase(), i];
     if(sortMode==="sku") return [g, (l.order_sku||"~").toUpperCase(), i];
@@ -823,6 +843,7 @@ function renderRecv(){
 }
 function lineChips(l){
   return (l.is_off_po?`<span class="chip appr">${l.needs_approval?"OFF-PO · approval pending":"OFF-PO · approved"}</span>`:"")+
+         (notInvoiced(l)?`<span class="chip noinv">NOT INVOICED</span>`:"")+
          (!l.is_off_po&&!l.barcodeRows?"":"")+
          (!l.is_off_po&&!l.base_sku?`<span class="chip newsku">NO SNAPSHOT</span>`:"");
 }
@@ -888,8 +909,10 @@ function renderRList(){
   // 완료 라인은 아래로 내려가므로 zone 헤더 카운트도 그룹별로 세야 한다.
   // 그렇지 않으면 위쪽 "Zone C 8" 아래에 3줄만 붙고 나머지는 완료 구역에 있어 오해를 준다.
   const zoneOf=l=>l.lastBin?zoneOfBin(l.lastBin):"__none";
-  const grpOf=i=>isFilled(lines[i])?1:0;
-  const zoneCount={}, zoneGrp={}, doneCount=ord.filter(i=>grpOf(i)===1).length;
+  // sortedIdx 와 같은 3그룹 기준 (0=할 일 · 1=충족 · 2=인보이스에 없음) — 구분선 카운트가 어긋나면 오해를 준다.
+  const grpOf=i=>{const l=lines[i];return isFilled(l)?1:((notInvoiced(l)&&l.received===0)?2:0);};
+  const zoneCount={}, zoneGrp={}, doneCount=ord.filter(i=>grpOf(i)===1).length,
+        noInvCount=ord.filter(i=>grpOf(i)===2).length;
   if(sortMode==="zone") ord.forEach(i=>{
     const z=zoneOf(lines[i]);
     zoneCount[z]=(zoneCount[z]||0)+1;                                  // 칩 바용 (전체)
@@ -901,6 +924,7 @@ function renderRList(){
     if(g!==curGrp){
       curGrp=g; curZone=null;   // 그룹이 바뀌면 zone 헤더도 다시 시작
       if(g===1) html+=`<div class="gdiv"><span class="gl">Received in full</span><span class="gc">${doneCount}</span></div>`;
+      if(g===2) html+=`<div class="gdiv noinv"><span class="gl">Not on invoice — not expected</span><span class="gc">${noInvCount}</span></div>`;
     }
     if(sortMode==="zone"){
       const z=zoneOf(l);
@@ -914,7 +938,8 @@ function renderRList(){
     }
     const done=isFilled(l);
     const over=l.received>l.expected;
-    const cls=(l.is_off_po?"offpo":(over?"over":(done?"done":"")))+(idx===curIdx?" cur":"");
+    const cls=(l.is_off_po?"offpo":(over?"over":(done?"done":"")))+(idx===curIdx?" cur":"")
+      +((notInvoiced(l)&&l.received===0)?" noinv":"");
     html+=`<div class="lrow ${cls}" data-id="${l.id}" data-bay="${l.lastBin?esc(bayOfBin(l.lastBin)):"__none"}">
       <div class="thumb" ${imgStyle(l)}></div>
       <div class="li"><div class="s">${esc(l.order_sku)}${lineChips(l)}</div>
@@ -1020,7 +1045,10 @@ async function manualSet(id){
   if(v===null){focusScan();return;}
   let n=parseInt(v,10); if(isNaN(n)||n<0)n=0;
   if(n>l.expected&&!l.is_off_po){
-    if(!confirm(`${l.order_sku} — exceeds PO quantity (${n} > ${l.expected}). Continue?`)){focusScan();return;}
+    const m=notInvoiced(l)
+      ? `${l.order_sku} — not on the invoice (0 expected). Record ${n} anyway? (flagged as over-receipt)`
+      : `${l.order_sku} — exceeds expected quantity (${n} > ${l.expected}). Continue?`;
+    if(!confirm(m)){focusScan();return;}
   }
   const srv=await serverLineQty(l.id);
   if(srv!=null && srv!==before){
@@ -1052,10 +1080,14 @@ async function processScan(code){
   // 미충족 라인 우선
   let hit=cands.find(c=>c.l.received<c.l.expected);
   if(!hit){
-    // 전 라인 충족 → 초과 입고 확인 (실물이 더 온 케이스)
+    // 전 라인 충족 → 초과 입고 확인 (실물이 더 온 케이스).
+    // 인보이스에 없는 라인(expected 0)은 첫 스캔부터 여기로 온다 — 문구만 갈라 정확히 알린다.
     hit=cands[0];
     const l=hit.l;
-    if(!confirm(`${l.order_sku} — PO quantity already met (${l.received}/${l.expected}).\nReceive ${hit.factor} more anyway? (over-receipt is flagged)`)){ focusScan(); return; }
+    const msg=notInvoiced(l)
+      ? `${l.order_sku} — not on the invoice (0 expected).\nReceive ${hit.factor} unit(s) anyway? (flagged as over-receipt)`
+      : `${l.order_sku} — expected quantity already met (${l.received}/${l.expected}).\nReceive ${hit.factor} more anyway? (over-receipt is flagged)`;
+    if(!confirm(msg)){ focusScan(); return; }
   }
   const l=hit.l, f=hit.factor;
   l.received+=f;
@@ -1109,7 +1141,10 @@ function manualAdjust(id,delta){
   const l=lineById(id); if(!l) return;
   const nv=Math.max(0,l.received+delta);
   if(nv>l.expected&&delta>0&&!l.is_off_po){
-    if(!confirm(`${l.order_sku} — exceeds PO quantity (${nv} > ${l.expected}). Continue?`)) return;
+    const m=notInvoiced(l)
+      ? `${l.order_sku} — not on the invoice (0 expected). Record ${nv} anyway? (flagged as over-receipt)`
+      : `${l.order_sku} — exceeds expected quantity (${nv} > ${l.expected}). Continue?`;
+    if(!confirm(m)) return;
   }
   if(nv===l.received)return;
   l.received=nv; l.vmethod="manual"; saveLine(l);
@@ -1650,6 +1685,8 @@ async function serverChecks(){
   return {
     rows, targets,
     notPlaced:targets.filter(l=>!l.putaway_done&&!(l.is_off_po&&l.needs_approval)),
+    // shorts: 인보이스에 없는 라인(expected 0)은 received<expected 가 성립할 수 없어 자동 제외된다 —
+    // 안 온 물건은 부족이 아니다(2026-08-05 기대치=인보이스 전환의 목적). 별도 조건 불필요.
     shorts:rows.filter(l=>!l.is_off_po&&l.received<l.expected),
     overs:rows.filter(l=>!l.is_off_po&&l.received>l.expected),
     pendingAppr:rows.filter(l=>l.is_off_po&&l.needs_approval&&l.received>0),
@@ -1672,6 +1709,9 @@ function summaryText(c){
   const parts=[];
   if(c.shorts.length) parts.push("Short "+c.shorts.length+":\n"+c.shorts.map(l=>`· ${l.order_sku}: ${l.received}/${l.expected}`).join("\n"));
   if(c.overs.length) parts.push("Over "+c.overs.length+":\n"+c.overs.map(l=>`· ${l.order_sku}: ${l.received}/${l.expected}`).join("\n"));
+  // 인보이스에 없는 라인 — "왜 15줄이 비어 보이나"를 완료 시점에 설명한다 (short 로 세지 않음)
+  const noInv=c.rows.filter(l=>notInvoiced(l)&&l.received===0).length;
+  if(noInv) parts.push(noInv+" line(s) not on the invoice — not expected, not counted as short");
   if(c.pendingAppr.length) parts.push("Off-PO awaiting approval: "+c.pendingAppr.map(l=>l.order_sku).join(", "));
   // ⚠️ SKU 를 나열하지 않는다 — 85라인 PO 에서는 목록이 화면을 넘겨 아무도 안 읽는다.
   //    bin 수로 압축하면 "몇 자리 더 돌면 되는지"라는 작업자가 쓸 수 있는 정보가 된다.

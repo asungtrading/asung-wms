@@ -5,6 +5,8 @@
 //   ?action=pos                → 리시빙 준비된 PO (Status=INVOICED+RECEIVING 조회, Invoice First 는 클라이언트 검사)
 //   ?action=pos&search=...     → PO 검색 (동일 필터)
 //   ?action=po&id=&type=       → PO 상세 + 라인 정규화(스냅샷 조인)
+//                                ⚠️ 기대치(expected_base)는 2026-08-05 부터 **인보이스 라인** 기준 —
+//                                   라인 집합은 Order.Lines 유지 + 수량만 덮어쓰기. 인보이스 없으면 오더 폴백.
 //   ?action=transfers          → IN TRANSIT 트랜스퍼 (입고 대기)
 //   ?action=transfer&id=       → 트랜스퍼 상세 + 라인 정규화
 //   ?action=apply&receipt_id=N          → Apply 계획(dry-run) 반환 — 아무것도 안 씀
@@ -208,16 +210,20 @@ async function snapMap(skus: string[]): Promise<Record<string, any>> {
   }
   return out;
 }
-function normLine(l: any, s: any) {
+// expectedQty (2026-08-05): PO 경로가 인보이스 수량으로 기대치를 덮어쓸 때 넘긴다.
+// ⚠️ 트랜스퍼는 절대 넘기지 않는다 — 트랜스퍼에는 인보이스가 없고, expected_base 는
+//    bin 이동 캡 min(received, expected)의 근거다(규칙 20 트랜스퍼 예외). 안 넘기면 종전과 동일(qty).
+function normLine(l: any, s: any, expectedQty?: number | null) {
   const orderSku = String(l.SKU || "").trim();
   const qty = Number(l.Quantity ?? l.TransferQuantity) || 0;
+  const expQty = (expectedQty === undefined || expectedQty === null) ? qty : (Number(expectedQty) || 0);
   const factor = (s && Number(s.factor) > 0) ? Number(s.factor) : 1;
   return {
     cin7_po_line_id: l.ProductID || null,
     order_sku: orderSku,
     base_sku: s ? s.base_sku : orderSku,
     factor,
-    expected_base: qty * factor,
+    expected_base: expQty * factor,
     ordered_qty: qty,
     product_name: (s && s.product_name) || l.Name || l.ProductName || "",
     image_url: (s && s.image_url) || "",
@@ -315,17 +321,98 @@ async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Recor
   return { pos: out, scanned, totals, truncated };
 }
 
-// ── PO 상세 ─────────────────────────────────────────────────
-async function poDetail(id: string, type: string): Promise<any> {
+// ── PO 상세 원본 — poDetail(라인 정규화)과 Apply 의 인보이스 게이트가 같은 소스를 쓴다 ──
+// 실측 (2026-08-05 GAS 직접 호출, PO-01068): 상세 응답 안에 인보이스 블록이 이미 들어 있다 —
+// `/purchase/invoice` 추가 호출 불필요.
+//   · Simple   GET /purchase?ID=          → d.Invoice 는 **객체**
+//   · Advanced GET /advanced-purchase?ID= → d.Invoice 는 **배열** (실측 len=1)
+//   · 인보이스 라인 필드(양쪽 동일): SKU · Quantity · Price · Total · NonInventory
+//   · AdditionalCharges 는 별도 배열 — Discount 류가 Lines 에 섞이지 않는다
+//   · SKU 표기는 Order.Lines 와 동일
+// ⚠️⚠️ GET /purchase/invoice 는 Advanced PO 에서 400 "deprecated and does not support Advanced
+//    Purchase" (실측) — 종전 Apply 게이트가 이 엔드포인트라 Advanced Apply 가 오진 메시지로 막혔다.
+async function poRaw(id: string, type: string): Promise<any> {
   const endpoint = /advanced/i.test(type || "") ? "/advanced-purchase" : "/purchase";
-  const d = await cin7Get(endpoint + "?ID=" + encodeURIComponent(id));
+  return await cin7Get(endpoint + "?ID=" + encodeURIComponent(id));
+}
+// Simple(객체)/Advanced(배열)를 하나로 흡수하는 공용 접근자 — 타입 분기를 새로 만들지 않는다.
+// ⚠️ Advanced 다중 인보이스(부분 출하)는 [0]만 본다 — 실측 len=1. 복수가 실측되면 그때 합산을 설계할 것.
+function invoiceBlock(d: any): any {
+  const b = Array.isArray(d && d.Invoice) ? d.Invoice[0] : (d && d.Invoice);
+  return b || null;
+}
+
+// ── PO 상세 ─────────────────────────────────────────────────
+// 기대치 = 인보이스 기준 (2026-08-05 전환 — 규칙 20 개정).
+// 공장이 실제로 보내는 것은 authorize 된 인보이스 라인이다. 오더 기준 expected 는 차이 라인마다
+// 가짜 recv_short/recv_over 를 만들었다(실측 PO-01068: Order 92줄 vs Invoice 77줄 · ORS11021 360→264).
+// ⚠️ 라인 집합은 Order.Lines 를 유지하고 **수량만** 인보이스로 덮어쓴다 — 라인을 제거하면 그 SKU
+//    스캔이 off-PO(needs_approval)로 빠져 매니저 승인 전까지 풋어웨이·Apply 가 막힌다(receiver.html).
+//    인보이스에 없는 오더 라인 = expected 0 (공장 백오더 — short 아님, received 0 이면 discrepancy 도 없음).
+async function poDetail(id: string, type: string): Promise<any> {
+  const d = await poRaw(id, type);
   const rawLines: any[] = d.Lines || (d.Order && d.Order.Lines) || [];
   const location = d.Location || (d.Order && d.Order.Location) || "";
-  const sm = await snapMap(rawLines.map((l) => String(l.SKU || "").trim()));
-  const lines = rawLines.map((l) => normLine(l, sm[String(l.SKU || "").trim().toUpperCase()]));
+
+  const inv = invoiceBlock(d);
+  const invLines: any[] = (inv && inv.Lines) || [];
+  const invQty: Record<string, number> = {};   // SKU(대문자) → 인보이스 수량 합 (같은 SKU 복수 라인 병합)
+  const invSku: Record<string, string> = {};   // 원본 표기 보존 — 인보이스-only 라인 추가 시 그대로 쓴다
+  let nonInventorySkipped = 0;
+  for (const il of invLines) {
+    // NonInventory=true 제외 (사용자 결정 2026-08-05): 재고로 받지 않는 항목(수수료·서비스류)이라
+    // 기대치에 넣으면 영영 미충족으로 남는다. AdditionalCharges 는 별도 배열이라 애초에 안 읽힌다.
+    if (il && il.NonInventory === true) { nonInventorySkipped++; continue; }
+    const sku = String((il && il.SKU) || "").trim();
+    if (!sku) continue;
+    const k = sku.toUpperCase();
+    invQty[k] = (invQty[k] || 0) + (Number(il.Quantity) || 0);
+    if (!invSku[k]) invSku[k] = sku;
+  }
+  // ⚠️ 폴백 — 인보이스 블록이 없거나 쓸 라인이 없으면 **오더 기준 유지 + 경고**.
+  //    조용히 expected 0 으로 만들면 전 라인이 초과(recv_over)로 잡힌다. expected_source 로 표식.
+  const useInvoice = Object.keys(invQty).length > 0;
+  if (!useInvoice) {
+    console.warn("[receiving po] " + (d.OrderNumber || id) + ": no usable invoice lines" +
+      (invLines.length ? " (all NonInventory)" : (inv ? " (Invoice.Lines empty)" : " (no Invoice block)")) +
+      " - expected falls back to ORDER quantities (expected_source=order)");
+  }
+  if (nonInventorySkipped) {
+    console.warn("[receiving po] " + (d.OrderNumber || id) + ": " + nonInventorySkipped +
+      " NonInventory invoice line(s) excluded from expected");
+  }
+
+  const orderSkus = rawLines.map((l) => String(l.SKU || "").trim());
+  const extraSkus = useInvoice
+    ? Object.keys(invSku).filter((k) => !orderSkus.some((s2) => s2.toUpperCase() === k)).map((k) => invSku[k])
+    : [];
+  const sm = await snapMap([...orderSkus, ...extraSkus]);
+
+  // 수량 덮어쓰기 — 같은 SKU 가 오더에 두 줄이면 첫 줄이 인보이스 수량 전부를 갖는다(합산 이중 계상 방지).
+  const used = new Set<string>();
+  const lines = rawLines.map((l) => {
+    const k = String(l.SKU || "").trim().toUpperCase();
+    if (!useInvoice) return normLine(l, sm[k]);
+    let q = 0;
+    if (k && invQty[k] !== undefined && !used.has(k)) { q = invQty[k]; used.add(k); }
+    return normLine(l, sm[k], q);
+  });
+  // 인보이스에만 있고 오더에 없는 SKU — 정상 기대 라인으로 추가한다 (is_off_po 아님: 공장이 청구한 물건이다).
+  if (useInvoice) {
+    for (const k of Object.keys(invQty)) {
+      if (used.has(k)) continue;
+      lines.push(normLine({ SKU: invSku[k], Quantity: invQty[k] }, sm[k], invQty[k]));
+    }
+  }
+
   return {
     id: d.ID || id, po_number: d.OrderNumber || "", supplier: d.Supplier || "",
     status: d.Status || "", location, warehouse: normWarehouse(location), source: "po",
+    // 프론트가 wms_receipts 에 그대로 저장한다 (2026-08-05 마이그레이션):
+    // expected_source = 기대치 기준 표식('order'|'invoice') / cin7_type = Apply 게이트의 엔드포인트 선택 근거.
+    expected_source: useInvoice ? "invoice" : "order",
+    cin7_type: type || "Simple Purchase",
+    invoice_status: (inv && inv.Status) || null,
     line_count: lines.length, total_expected_base: lines.reduce((s2, l) => s2 + l.expected_base, 0), lines,
   };
 }
@@ -723,9 +810,17 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   }
 
   if (source === "po") {
+    // ── Invoice First 게이트 — PO 상세 응답의 Invoice 블록으로 확인 (2026-08-05 전환) ──
+    // ⚠️ 종전 GET /purchase/invoice 는 Advanced PO 에서 400 "deprecated and does not support
+    //    Advanced Purchase" (실측) — Advanced receipt 의 Apply 가 "Invoice not authorised" 오진
+    //    메시지로 막혔다. 상세 응답의 invoiceBlock() 은 Simple/Advanced 공통. 호출 수는 동일(1 GET 대체).
+    // ⚠️ 판정 로직은 의도적으로 유지 (st 를 못 읽으면 통과 = fail-open) — fail-closed 전환은 EF 로그
+    //    관찰 후 별건 결정(2026-08-05 사용자 결정). 지금 바꾸면 Apply 가 막혀 창고가 멈출 수 있다.
+    // cin7_type 없는 구형 receipt 은 /purchase 로 조회 — 종전 게이트도 Simple 전용이었으므로 회귀 없음.
     try {
-      const inv = await cin7Get("/purchase/invoice?TaskID=" + encodeURIComponent(rcpt.cin7_purchase_id));
-      const st = String((inv.Invoices && inv.Invoices[0] && inv.Invoices[0].Status) || inv.Status || "").toUpperCase();
+      const det0 = await poRaw(rcpt.cin7_purchase_id, rcpt.cin7_type || "");
+      const inv = invoiceBlock(det0);
+      const st = String((inv && inv.Status) || "").toUpperCase();
       if (st && st !== "AUTHORISED" && st !== "PAID") throw new Error("invoice status is " + st);
       log.push("invoice check: " + (st || "ok"));
     } catch (e) {

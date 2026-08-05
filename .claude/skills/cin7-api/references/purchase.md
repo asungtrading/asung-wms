@@ -137,6 +137,32 @@ Asung 계정 실측(당시 `InvoiceStatus=PAID` Total **825**). "최신 PO 가 �
 }
 ```
 
+⚠️⚠️ **정정 (2026-08-05 실측 덤프)** — 위 샘플의 **`InvoicedQuantity` 필드는 실계정 Order.Lines 응답에 없다**(apib 원문 표기일 뿐). 인보이스 수량이 필요하면 아래 「인보이스 블록 실측」의 `Invoice.Lines` 를 읽을 것 — Order 라인에서 읽으려 하지 말 것.
+
+---
+
+## ⚠️ 인보이스 블록 실측 (2026-08-05, GAS 직접 호출 — WMS 리시빙 기대치 전환의 근거)
+
+PO 상세 응답 안에 인보이스가 **이미 들어 있다** — `/purchase/invoice` 추가 호출 불필요.
+
+| | Simple `GET /purchase?ID=` | Advanced `GET /advanced-purchase?ID=` |
+|---|---|---|
+| `d.Invoice` | **객체** | **배열** (실측 len=1 — 다중 인보이스는 미실측) |
+| 접근 | `d.Invoice` | `d.Invoice[0]` |
+
+공용 접근자 (WMS EF `invoiceBlock()` — 타입 분기를 새로 만들지 말 것):
+```javascript
+const invBlock = Array.isArray(d.Invoice) ? d.Invoice[0] : d.Invoice;
+```
+
+- Advanced `Invoice[0]` keys: `TaskID, InvoicingAndReceivingNumber, InvoiceDate, InvoiceDueDate, InvoiceNumber, Status, CurrencyRate, Lines, AdditionalCharges, Payments, TotalBeforeTax, Tax, Total, Paid`
+- Simple `Invoice` keys: `InvoiceDate, InvoiceDueDate, InvoiceNumber, Status, Lines, …`
+- **라인 필드 (양쪽 동일): `SKU` · `Quantity` · `Price` · `Total` · `NonInventory`** — SKU 표기는 Order.Lines 와 동일
+- `AdditionalCharges` 는 별도 배열 — Discount 류가 `Lines` 에 섞이지 않는다
+- ⚠️⚠️ **`GET /purchase/invoice` 는 Advanced PO 에서 400** — `"deprecated and does not support Advanced Purchase"`. Simple 에선 동작하지만 deprecated 명시 — 신규 코드는 상세 응답의 Invoice 블록을 쓸 것 (WMS Apply 게이트도 2026-08-05 전환).
+- 실측 예 **PO-01068 (Advanced)**: Order.Lines **92줄** / Invoice[0].Lines **77줄** — 빠진 15줄은 공장 백오더. `ORS11021` 오더 360 → 인보이스 **264** (수량도 다르다). 오더 라인으로 기대치를 잡으면 이 차이가 전부 가짜 discrepancy 가 된다.
+- ⚠️ **리시빙 대상 PO 에 Advanced 가 실재한다**(PO-01068) — "Asung 발주는 전부 Simple" 로 가정하지 말 것.
+
 ---
 
 ## Advanced Purchase — GET /advanced-purchase

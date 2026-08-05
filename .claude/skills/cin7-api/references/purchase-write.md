@@ -121,5 +121,8 @@ DRAFT PO 라인에 Price를 반드시 명시할 것.
 - Sale(판매주문) 쓰기는 아직 미검증 — Purchase와 유사한 패턴(POST /sale → POST /sale/order)일
   것으로 추정되나 **실측 전까지 추정으로 코드 작성 금지**. Sale POST 제약 (문서 기준):
   재고 초과 수량은 조용히 백오더 생성(에러 없음), Lines 내 중복 SKU 예외.
-- Advanced Purchase 쓰기 미검증 (Asung의 DRAFT 발주는 Simple이라 현재 불필요).
+- Advanced Purchase **쓰기** 미검증 — DRAFT 발주 **생성**은 Simple 만 쓰므로 현재 불필요.
+  ⚠️ 단 **"Asung 발주는 전부 Simple" 로 일반화하지 말 것 (2026-08-05 정정)** — 리시빙 대상 PO 에
+  Advanced 가 실재한다(PO-01068, Order 92줄/Invoice 77줄). 읽기 쪽 인보이스 블록 구조는
+  `purchase.md` 「인보이스 블록 실측」 (⚠️ `GET /purchase/invoice` 는 Advanced 에서 400·deprecated).
 - `PUT /purchase/order`(기존 라인 교체) 미검증.
