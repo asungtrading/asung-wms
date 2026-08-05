@@ -267,6 +267,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
 <script src="wms-picklist.js"></script>
+<script src="wms-confirm-modal.js"></script>
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null, zoneSeq={};
@@ -1003,11 +1004,13 @@ document.getElementById("viewSeg").onclick=e=>{
 
 /* ---------- scan handler ---------- */
 const scanEl=document.getElementById("scan");
+let scanBusy=false;   // 결정 모달 표시 중 스캔 차단 (fulfillment 의 scanBusy 패턴 — 2026-08-05)
 scanEl.addEventListener("keydown",e=>{
   if(e.key==="Enter"){ e.preventDefault(); const v=scanEl.value.trim(); scanEl.value=""; if(v)processScan(v); }
 });
 function processScan(code){
   if(frozen) return;
+  if(scanBusy) return;              // a decision modal is open — ignore scans meanwhile
   const cands=bcMap[code];
   if(!cands||!cands.length){ flash("bad","✕ Barcode not in this "+(wave?"wave":"batch")); return; }
   // unfilled lines first (route order — in a wave the same SKU fills tote by tote)
@@ -1167,7 +1170,8 @@ async function toggleStockShort(idx){
     }else{
       if(!confirm(`${l.order_sku}\n\nDeclare NOT ENOUGH STOCK on the shelf?\nNeeded ${l.assigned}, you could only find ${l.picked}.\n\nThis is NOT counted as a picker mistake — it goes to the\nmanager's queue as an inventory mismatch to fix in Cin7.\nOnly declare it if the shelf is really empty.`)){ stockBusy=false; renderPick(); focusScan(); return; }
       const {error}=await sb.from("wms_discrepancies").insert({
-        order_id:o.id, order_number:o.num, sku:l.order_sku,
+        order_id:o.id, pick_task_id: wave? (l._taskId||null) : (task?task.id:null),
+        order_number:o.num, sku:l.order_sku,
         ordered_base:l.assigned, actual_base:l.picked,
         reason:"stock_short", source:"picking", declared_by:me.name,
         responsible:null, cin7_corrected:false
@@ -1203,8 +1207,27 @@ async function finish(allowShort){
     toast("There are short lines. Press 'Complete as incomplete'.",true); return;
   }
   if(shorts.length && allowShort){
-    const detail=shorts.map(l=>`· ${l.order_sku}${l._tote?` (Tote ${l._tote})`:""}: ${l.picked}/${l.assigned}${stockFlagged(l)?" — stock short (declared)":""}`).join("\n");
-    if(!confirm(`Completing as incomplete.\nShort ${shorts.length}:\n${detail}\n\nThe shortfall will be flagged at packing and recorded in the discrepancy queue.\nLines declared "Not enough stock" are recorded as inventory mismatch, not a mistake. Continue?`)) return;
+    // 미선언 short 는 공용 마찰 모달(wms-confirm-modal.js) — native confirm 은 footer 완료 버튼
+    // 오탭 → OK 오탭, 물리 탭 2회로 통과됐다(SO-14129 확정 원인, packer 와 같은 결함).
+    // stock_short 선언 라인은 부족 계산에서 제외(규칙 41) — 선언만 남으면 모달 없이 가벼운 확인.
+    const plainShorts=shorts.filter(l=>!stockFlagged(l));
+    if(plainShorts.length){
+      const shortQty=plainShorts.reduce((s,l)=>s+(l.assigned-l.picked),0);
+      scanBusy=true;
+      const go=await wmsConfirmModal.ask({
+        keepLabel:"Keep picking",
+        endLabel:`End · ${shortQty} short`,
+        doneLabel:"picked",
+        doneQty:lines.reduce((s,l)=>s+Math.min(l.picked,l.assigned),0),
+        shortQty, orderedQty:lines.reduce((s,l)=>s+Number(l.assigned||0),0),
+        lines:plainShorts.map(l=>({sku:l.order_sku+(l._tote?` (Tote ${l._tote})`:""), short:l.assigned-l.picked})),
+      });
+      scanBusy=false;
+      scanEl.value="";   // 모달 중 들어온 스캔 문자 잔여물 제거 (Enter 가 차단돼 값이 쌓인다)
+      if(!go){ focusScan(); return; }
+    } else {
+      if(!confirm(`Completing as incomplete.\n${shorts.length} short line(s) — all declared "Not enough stock" (inventory mismatch, not a mistake).\n\nContinue?`)) return;
+    }
   } else {
     if(!confirm(`${label} Mark pick as complete??`)) return;
   }
@@ -1229,6 +1252,7 @@ async function finish(allowShort){
       if(plain.length){
         const rows=plain.map(l=>({
           order_id: wave? l._orderId : task.order_id,
+          pick_task_id: wave? (l._taskId||null) : task.id,   // wave 는 라인별 멤버 task (규칙 18)
           order_number: wave? l._orderNumber : order.order_number,
           sku:l.order_sku,
           ordered_base:l.assigned, actual_base:l.picked, reason:"short_pick", cin7_corrected:false,
@@ -1258,14 +1282,14 @@ async function finish(allowShort){
     if(wave){
       const now=new Date().toISOString();
       const {error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"completed",completed_at:now}).in("id",tasks.map(t=>t.id));
+        .update({status:"completed",completed_at:now,completed_by:me.name}).in("id",tasks.map(t=>t.id));
       if(te) throw te;
       const {error:we}=await sb.from("wms_waves")
         .update({status:"completed",completed_at:now}).eq("id",wave.id);
       if(we) throw we;
     }else{
       const {error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"completed",completed_at:new Date().toISOString()}).eq("id",task.id);
+        .update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name}).eq("id",task.id);
       if(te) throw te;
     }
 

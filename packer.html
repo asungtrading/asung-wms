@@ -301,6 +301,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wms-auth.js"></script>
 <script src="wms-picklist.js"></script>
+<script src="wms-confirm-modal.js"></script>
 <script>
 const SUPABASE_URL="https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, staff=[], me=null;
@@ -970,7 +971,7 @@ async function toggleStockShortPack(idx){
     }else{
       if(!confirm(`${l.order_sku}\n\nDeclare NOT ENOUGH STOCK?\nOrdered ${l.required}, physically here ${l.verified}.\n\nGo CHECK THE SHELF first — only declare if the rest\nreally is not there.\n\nThis is NOT counted as a worker mistake — it goes to the\nmanager's queue as an inventory mismatch to fix in Cin7.`)){ stockBusy=false; renderPack(); focusScan(); return; }
       const {error}=await sb.from("wms_discrepancies").insert({
-        order_id:oid, order_number:order.order_number, sku:l.order_sku,
+        order_id:oid, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku,
         ordered_base:l.required, actual_base:l.verified,
         reason:"stock_short", source:"packing", declared_by:me.name,
         responsible:null, cin7_corrected:false
@@ -987,13 +988,14 @@ async function toggleStockShortPack(idx){
 function overChoice(l){
   return new Promise(res=>{
     const m=document.getElementById("overModal");
+    scanBusy=true;   // 모달 표시 중에도 #scan 은 살아 있다 — processScan 쪽에서 막는다 (2026-08-05)
     const total=l.required+(l.overScans||0);
     document.getElementById("ovmMsg").textContent=
       `${l.order_sku}\nOrdered ${l.required} · scans say ${total}.\n\nCOUNT the physical items in front of you now.\nHow many are actually there?`;
     const bE=document.getElementById("ovmExtra"), bT=document.getElementById("ovmTwice"), bC=document.getElementById("ovmCancel");
     bE.textContent=`Picker brought extra — ${total} items are here`;
     bT.textContent=`I scanned twice — only ${l.required} are here`;
-    const done=v=>{ m.style.display="none"; bE.onclick=bT.onclick=bC.onclick=null; res(v); };
+    const done=v=>{ m.style.display="none"; scanBusy=false; bE.onclick=bT.onclick=bC.onclick=null; res(v); };
     bE.onclick=()=>done("extra"); bT.onclick=()=>done("mistake"); bC.onclick=()=>done(null);
     m.style.display="grid";
   });
@@ -1074,9 +1076,11 @@ function renderList(){
 
 /* scan */
 const scanEl=document.getElementById("scan");
+let scanBusy=false;   // 결정 모달 표시 중 스캔 차단 (fulfillment 의 scanBusy 패턴 — 2026-08-05)
 scanEl.addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();const v=scanEl.value.trim();scanEl.value="";if(v)processScan(v);} });
 function processScan(code){
   if(frozen) return;
+  if(scanBusy) return;               // a decision modal is open — ignore scans meanwhile
   const cands=bcMap[code];
   if(!cands||!cands.length){ flash("bad","✕ Barcode not in this batch"); return; }
   clearTimeout(advTimer);
@@ -1148,6 +1152,7 @@ async function saveLine(l){
 document.getElementById("doneBtn").onclick=async ()=>{
   if(frozen) return;
   const miss=lines.filter(l=>l.verified<l.required);          // below ordered qty
+  const plainMiss=miss.filter(l=>!stockFlagged(l));           // 규칙 41 — 선언 라인은 부족 계산에서 제외
   const recovered=lines.filter(l=>l.expected<l.required && l.verified>=l.required); // filled during packing
   const overScanLines=lines.filter(l=>(l.overScans||0)>0);    // over-scan detected lines
   let realOvers=[], scanMistakes=[];                          // per-line verdicts (packer counts the physical items)
@@ -1164,10 +1169,24 @@ document.getElementById("doneBtn").onclick=async ()=>{
     const rd=realOvers.map(l=>`· ${l.order_sku}: extra ${l.overScans} → ${l.bin||"?"} return`).join("\n");
     if(!confirm(`Did you return the extra to its original location?\n${rd}\n\nPicker(${packTask.picker||"unknown"})'s over-pick will be recorded..`)) { focusScan(); return; }
   }
-  // 2) shortfall check (lines declared "Not enough stock" are inventory mismatch, not a mistake)
-  if(miss.length){
-    const detail=miss.map(l=>`· ${l.order_sku}: ${l.verified}/${l.required}${stockFlagged(l)?" — stock short (declared)":""}`).join("\n");
-    if(!confirm(`Some lines did not reach the ordered quantity:\n${detail}\n\nIf not found in other locations either, it completes as short..\n(discrepancy queue → backend updates Cin7)\n\nContinue?`)) { focusScan(); return; }
+  // 2) shortfall gate — 미선언 short 는 공용 마찰 모달(wms-confirm-modal.js).
+  //    native confirm 은 footer 완료 버튼 오탭 → OK 오탭, 물리 탭 2회로 통과됐다(SO-14129 확정 원인).
+  //    stock_short 선언 라인은 부족 계산에서 제외(규칙 41) — 선언만 남으면 모달 없이 가벼운 확인.
+  if(plainMiss.length){
+    const shortQty=plainMiss.reduce((s,l)=>s+(l.required-l.verified),0);
+    scanBusy=true;
+    const go=await wmsConfirmModal.ask({
+      keepLabel:"Keep packing",
+      endLabel:`End · ${shortQty} short`,
+      doneLabel:"verified", doneQty:totVer(),
+      shortQty, orderedQty:totTarget(),
+      lines:plainMiss.map(l=>({sku:l.order_sku, short:l.required-l.verified})),
+    });
+    scanBusy=false;
+    scanEl.value="";   // 모달 중 들어온 스캔 문자 잔여물 제거 (Enter 가 차단돼 값이 쌓인다)
+    if(!go){ focusScan(); return; }
+  } else if(miss.length){
+    if(!confirm(`${packTask.batch_label} Complete pack?\n${miss.length} short line(s) — all declared "Not enough stock" (inventory mismatch, not a mistake).\n\nContinue?`)) { focusScan(); return; }
   } else if(!overScanLines.length) {
     const msg=recovered.length?`${packTask.batch_label} Complete pack?\n(in packing, ${recovered.length} lines' shortfall recovered)`:`${packTask.batch_label} Complete pack?`;
     if(!confirm(msg)) { focusScan(); return; }
@@ -1184,9 +1203,8 @@ document.getElementById("doneBtn").onclick=async ()=>{
     // below ordered qty → discrepancy queue (responsible: picker)
     // — EXCEPT lines declared "Not enough stock": those are already queued as stock_short
     //   (inventory mismatch, responsible=null) — do NOT double-record as a mistake.
-    const plainMiss=miss.filter(l=>!stockFlagged(l));
     if(plainMiss.length){
-      const rows=plainMiss.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.verified, reason:"short_after_pack", responsible:packTask.picker||null, cin7_corrected:false}));
+      const rows=plainMiss.map(l=>({order_id:packTask.order_id, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.verified, reason:"short_after_pack", responsible:packTask.picker||null, cin7_corrected:false}));
       await sb.from("wms_discrepancies").insert(rows);
     }
     // declared short lines: refresh the open stock_short row to the final packed qty (best-effort)
@@ -1208,13 +1226,13 @@ document.getElementById("doneBtn").onclick=async ()=>{
     }
     // only confirmed real extras → record over-pick (responsible: picker)
     if(realOvers.length){
-      const rows=realOvers.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required+l.overScans, reason:"over_pick", responsible:packTask.picker||null, cin7_corrected:false}));
+      const rows=realOvers.map(l=>({order_id:packTask.order_id, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required+l.overScans, reason:"over_pick", responsible:packTask.picker||null, cin7_corrected:false}));
       await sb.from("wms_discrepancies").insert(rows);
     }
     // double scans → audit record only: pre-resolved (never in the open queue, never a mistake)
     if(scanMistakes.length){
       const now=new Date().toISOString();
-      const rows=scanMistakes.map(l=>({order_id:packTask.order_id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required, reason:"pack_scan_mistake", source:"packing", declared_by:me.name, responsible:null, resolved_by:me.name, resolved_at:now, cin7_corrected:false}));
+      const rows=scanMistakes.map(l=>({order_id:packTask.order_id, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required, reason:"pack_scan_mistake", source:"packing", declared_by:me.name, responsible:null, resolved_by:me.name, resolved_at:now, cin7_corrected:false}));
       await sb.from("wms_discrepancies").insert(rows);
       scanMistakes.forEach(l=>{ l.overScans=0; });
     }
@@ -1226,7 +1244,7 @@ document.getElementById("doneBtn").onclick=async ()=>{
           .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","short_pick").is("resolved_at",null);
       }
     }
-    await sb.from("wms_pack_tasks").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",packTask.id);
+    await sb.from("wms_pack_tasks").update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name}).eq("id",packTask.id);
 
     const ready=await checkOrderReady(packTask.order_id);
     if(ready){ alert(`✅ ${order.order_number} — All batches for this order are packed!\n\nCin7, press pack authorize to finalize (3.Finalized)..`); }

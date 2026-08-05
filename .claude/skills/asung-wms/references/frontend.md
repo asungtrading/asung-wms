@@ -511,3 +511,25 @@ manager 의 `printPickList`/`printWaveAll` 안에 있던 HTML·CSS·JsBarcode �
 - ⬜ **규칙 28 의 "복귀 시점(`visibilitychange`/`focus`) 감지" 는 리시빙에 미적용** — 쓰기 직전에만 확인하므로 **첫 탭을 누를 때까지** 모른다. 규칙 28 이 그 훅을 "실질적으로 가장 중요"하다고 적은 것과 다르지만, 여기선 손실이 탭 하나라 우선순위가 낮다 — **백로그 「동시 작업 원자화」에 등록됨.**
 
 **📌 번호 규칙(42)으로 승격하지 않는다 (2026-08-04 사용자 결정).** 규칙 번호는 **"모르면 사고가 나는 것"** 에 쓴다 — 이건 UI 입도 문제이므로 description 여유 7자를 쓸 사안이 아니다. 이 절 + 규칙 37 각주 ③ 가 가리키는 현재 구조를 유지한다. 판단 기준은 SKILL.md 「이 스킬 문서를 갱신할 때」→「기록 규칙」에 남겼다. **description 압축은 별건**(백로그 「문서·스킬 유지」).
+
+## 2026-08-05 — 되돌리기 어려운 완료의 마찰 모달: wms-confirm-modal.js (SO-14129 후속)
+
+**확정 원인(실물 테스트 검증)**: 스캔 0건 상태에서 packer `Complete pack` 탭 → native confirm OK 탭 — **물리 탭 2회**만으로 60줄 오더가 검수 없이 완료됐다. 조건·타이밍 불필요, 상시 재현. ~~H1(스캐너 말미 CR 이 confirm 을 승인)~~ 은 **반증** — 안드로이드 태블릿 실측에서 스캐너는 읽었으나(비프) 다이얼로그에 무반응, 접미는 CR 뿐(Tab 없음). 정황: footer 의 인접 버튼(Hold | Complete) + 부족 라인이 나열된 영어 confirm → 오탭 + 읽지 않은 승인. **대응은 모달 강화 하나** — 하드 차단·버튼 위치 변경은 하지 않는다(사용자 결정).
+
+### `wms-confirm-modal.js` — 되돌리기 어려운 동작의 확인 모달 (신규 공용 모듈)
+- **picker·packer 가 같은 모달을 쓴다** — 화면별 복제 금지(갈라지면 한쪽만 가드가 생긴다). 이후 receiver `Complete PO`·리시빙 초과/Off-PO 확인·fulfillment `Finalize` 에도 쓸 예정이라 이름을 "confirm" 으로 넓혀 둠(complete 아님).
+- API: `wmsConfirmModal.ask({keepLabel, endLabel, doneLabel, doneQty, shortQty, orderedQty, warnText?, hintText?, lines?}) → Promise<bool>` (true=확정). **문구는 전부 호출 화면이 넘긴다** — 특히 취소 버튼 라벨(`Keep picking`/`Keep packing`)은 하드코딩 금지.
+- 표시: 테두리 2px 빨강(티어 무관) · 완료 수량 28px 중립+라벨(picked/verified) · 부족 수량 **노랑 #d9820a**(티어1 20px / 티어2 28px) — 빨강은 테두리·경고문 전용, 색이 두 뜻으로 섞이지 않게 · 부족 라인 목록(스크롤).
+- 티어: **부족 base ÷ 주문 base ≥ 50% → 티어 2** = 상단 빨간 경고 1줄 + 큰 부족 숫자. 검수 0건 = 100% = 자동 티어 2. **마찰 로직은 티어 무분기 — 표시만 다르다.**
+- 마찰: 부족 수량을 **정확히** 타이핑해야 End 활성화. End 라벨에 숫자(`End · 177 short`). 3초 지연 없음(사용자 결정).
+- 키: autofocus 금지 · **Enter 는 캡처 단계 전면 차단**(스캐너 CR 포함 — 확정 불가, 열린 동안 #scan keydown 에도 안 닿음) · **Escape=취소** — 표시하지 않는 단축키(태블릿엔 키가 없다 — 안내문 금지).
+- 배치: 큰 `Keep …` 버튼이 **모달 맨 아래**(footer 완료 버튼을 오탭한 손가락의 두 번째 탭이 떨어지는 자리 = 안전 방향), End 는 작게 마찰 입력 옆 — footer 버튼과 같은 위치에 두지 않는다.
+
+### 화면 통합 (이번 커밋은 picker·packer 만)
+- **packer doneBtn**: 미선언 short(`plainMiss`) 있으면 모달(기존 short confirm 대체). **전부 stock_short 선언이면 모달 없이 가벼운 confirm**(규칙 41 — 정직한 기록을 벌주지 않는다). 부족 0건 전량 완료 confirm·over-scan verdict(overModal)·반납 confirm 은 그대로.
+- **picker finish(true)** (`Complete as incomplete` 의 confirm 대체): 동일 구조(wave 는 라인에 Tote 표기). `Pick complete` 의 **기존 toast 차단은 유지** — 이미 올바른 가드.
+- **scanBusy 이식**(fulfillment 패턴): picker/packer `processScan` 선두 가드 + 새 모달·packer **overModal 표시 중에도** 차단(기존엔 overModal 중 #scan 이 살아 있었다). 모달 닫힌 뒤 `#scan.value` 잔여물 비우고(차단된 Enter 탓에 문자만 쌓인다) focusScan.
+
+### 스키마 (`20260805000000_completed_by_pack_link.sql` — ⚠️ 배포 순서: SQL 먼저, 프론트 나중 — 규칙 23)
+- `wms_pack_tasks.completed_by` / `wms_pick_tasks.completed_by` — 완료 UPDATE 가 `me.name` 을 채움. 기존 `responsible` 은 enterPack 시점의 픽 배정자라 "누가 완료를 눌렀나"를 답하지 못했다.
+- `wms_discrepancies.pack_task_id` / `pick_task_id` — packer 의 insert 4곳(short_after_pack·over_pick·pack_scan_mistake·stock_short)이 pack_task_id 를, picker 의 insert 2곳(short_pick·stock_short)이 pick_task_id 를 채움(**wave 는 라인별 멤버 task** `l._taskId` — 규칙 18, finish 의 오더 귀속과 같은 규칙). **FK 없음** — 롤백이 task 행을 delete 하므로 FK 면 증거가 사라진다. **읽는 쪽 미구현(의도)** — 나중 롤백 무효화의 근거, 나중에 추가하면 그 전에 쌓인 행은 어느 단계 산물인지 알 수 없어 영구히 정리 불가라 지금 넣음. ⚠️ 무효화 판단은 reason 으로 — stock_short 는 선언 산물이라 대상이 아니다.
