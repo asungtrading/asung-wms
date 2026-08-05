@@ -42,7 +42,12 @@ function getProp(key) {
 표준 키 이름(값은 Script Properties에만 존재):
 
 - `CIN7_ACCOUNT_ID`
-- `CIN7_APPLICATION_KEY`
+- `CIN7_APPLICATION_KEY` — ⚠️ **`CIN7_API_KEY` 가 아니다.** `cin7-api` 스킬이 `CIN7_API_KEY` 로
+  적혀 있어 **2026-08-05 실호출이 한 번 실패**했고, 근거 4:1 로 이 이름으로 통일했다
+  (이 파일 · `shopify-tracking/references/customer-master.md` · `asung-wms` 환경 상수 ·
+  `asung-wms/references/edge-function.md` 의 실동작 Supabase secret 대 `cin7-api` 한 곳).
+  ⚠️ **Script Properties 실물 확인은 미실시** — `401/403` 이나 `Missing Script Property` 가 나오면
+  추측하지 말고 Script Properties 화면을 열어 실제 이름을 확인하고 **양쪽 스킬을 함께** 고칠 것.
 - `GITHUB_TOKEN`
 
 **코드 리뷰/스킬 문서/커밋에 실제 키 문자열을 절대 넣지 마세요.**

@@ -30,6 +30,18 @@ description: >
 
 ## Apps Script 인증 패턴 (Asung 표준)
 
+⚠️⚠️ **Script Property 이름은 `CIN7_APPLICATION_KEY` 다 — 2026-08-05 정정.**
+이 문서는 `CIN7_API_KEY` 로 적혀 있었고, `asung-apps-script` 스킬은 `CIN7_APPLICATION_KEY` 로
+적혀 있었다. **두 스킬이 갈라져 있어 2026-08-05 실호출이 한 번 실패**했다(폴백으로 진행).
+`CIN7_APPLICATION_KEY` 로 통일한 근거는 **문서 4 : 1**:
+`asung-apps-script/SKILL.md` 규칙 1 표준 키 목록 · `shopify-tracking/references/customer-master.md`
+(⚠️ "`CIN7_API_KEY` 아님" 이라고 **명시**) · `asung-wms/SKILL.md` 환경 상수 ·
+`asung-wms/references/edge-function.md`(Supabase secret 이 같은 이름으로 **실동작 중**) 대(對)
+이 문서 한 곳. ⚠️ **단 GAS Script Properties 실물은 이번에 열어보지 않았다** — 헤더 이름
+(`api-auth-applicationkey`)과 Script Property 키 이름은 별개이고, 확증은 Script Properties 화면뿐이다.
+**호출이 `401/403` 이면 이름을 의심하고 Script Properties 를 먼저 열어 확인할 것**(`getProp` 은
+없는 키에 `Missing Script Property: …` 를 throw 하므로 증상이 분명하다).
+
 ```javascript
 // Config.gs의 getProp() 사용 — API Key를 코드에 직접 쓰지 말 것
 const BASE_URL = 'https://inventory.dearsystems.com/ExternalApi/v2/';
@@ -37,7 +49,8 @@ const BASE_URL = 'https://inventory.dearsystems.com/ExternalApi/v2/';
 function getCin7Headers() {
   return {
     'api-auth-accountid': getProp('CIN7_ACCOUNT_ID'),
-    'api-auth-applicationkey': getProp('CIN7_API_KEY'),
+    // ⚠️ CIN7_API_KEY 가 아니다 (위 정정 참조)
+    'api-auth-applicationkey': getProp('CIN7_APPLICATION_KEY'),
     'Content-Type': 'application/json'
   };
 }
