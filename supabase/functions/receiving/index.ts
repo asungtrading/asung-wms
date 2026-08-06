@@ -331,9 +331,38 @@ async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Recor
 //   · SKU 표기는 Order.Lines 와 동일
 // ⚠️⚠️ GET /purchase/invoice 는 Advanced PO 에서 400 "deprecated and does not support Advanced
 //    Purchase" (실측) — 종전 Apply 게이트가 이 엔드포인트라 Advanced Apply 가 오진 메시지로 막혔다.
-async function poRaw(id: string, type: string): Promise<any> {
-  const endpoint = /advanced/i.test(type || "") ? "/advanced-purchase" : "/purchase";
-  return await cin7Get(endpoint + "?ID=" + encodeURIComponent(id));
+// ── 엔드포인트 폴백 (2026-08-05, ⚠️ 현장 미검증) ──
+// type 이 실제와 다르면(대표 사례: 마이그레이션 이전 receipt 은 cin7_type 이 NULL → Simple 간주 →
+// Advanced PO 에 /purchase 를 쳐서 400) 반대 엔드포인트로 **1회만** 재시도한다.
+//   · 400 만 폴백 대상 — 429 는 cin7() 백오프가 이미 소진된 상태(회차 조기 종료가 맞다)고,
+//     404·5xx 는 타입 불일치의 신호가 아니다. 그대로 throw (기존 경로 불변).
+//   · 반대쪽도 실패하면 **원래 에러**를 던진다 — 무한 재시도 없음.
+//   · 폴백 성공은 반드시 console.warn — 조용히 넘기면 cin7_type 이 틀렸다는 사실 자체를 아무도 못 본다.
+// 반환이 raw 응답에서 {data, resolvedType, fellBack} 으로 바뀌었다 — 폴백으로 확정된 타입을
+// 호출부가 쓴다(poDetail 의 cin7_type 반환값 → receiver 가 receipt 생성 시 저장 /
+// Apply 게이트 → 기존 receipt 의 cin7_type 교정 PATCH).
+async function poRaw(id: string, type: string, ctx = ""): Promise<{ data: any; resolvedType: string; fellBack: boolean }> {
+  const isAdv = /advanced/i.test(type || "");
+  const primary = isAdv ? "/advanced-purchase" : "/purchase";
+  const fallback = isAdv ? "/purchase" : "/advanced-purchase";
+  let firstErr: unknown;
+  try {
+    const data = await cin7Get(primary + "?ID=" + encodeURIComponent(id));
+    return { data, resolvedType: type || "Simple Purchase", fellBack: false };
+  } catch (e) {
+    if (cin7ErrInfo(e).http_status !== 400) throw e;   // 폴백은 400 전용
+    firstErr = e;
+  }
+  try {
+    const data = await cin7Get(fallback + "?ID=" + encodeURIComponent(id));
+    console.warn("[receiving poRaw] " + ctx + ": " + primary + " -> 400, fell back to " + fallback +
+      " OK (stored type was '" + (type || "NULL") + "')");
+    return { data, resolvedType: isAdv ? "Simple Purchase" : "Advanced Purchase", fellBack: true };
+  } catch (e2) {
+    console.warn("[receiving poRaw] " + ctx + ": " + primary + " -> 400, fallback " + fallback +
+      " also failed (" + String((e2 as Error).message).slice(0, 200) + ") - rethrowing the original 400");
+    throw firstErr;
+  }
 }
 // Simple(객체)/Advanced(배열)를 하나로 흡수하는 공용 접근자 — 타입 분기를 새로 만들지 않는다.
 // ⚠️ Advanced 다중 인보이스(부분 출하)는 [0]만 본다 — 실측 len=1. 복수가 실측되면 그때 합산을 설계할 것.
@@ -350,7 +379,15 @@ function invoiceBlock(d: any): any {
 //    스캔이 off-PO(needs_approval)로 빠져 매니저 승인 전까지 풋어웨이·Apply 가 막힌다(receiver.html).
 //    인보이스에 없는 오더 라인 = expected 0 (공장 백오더 — short 아님, received 0 이면 discrepancy 도 없음).
 async function poDetail(id: string, type: string): Promise<any> {
-  const d = await poRaw(id, type);
+  const pr = await poRaw(id, type, "poDetail " + id);
+  const d = pr.data;
+  // 폴백 발동 = 목록(purchaseList)의 Type 이 실제와 달랐다는 뜻 — PO 번호까지 붙여 한 번 더 남긴다
+  // (poRaw 의 warn 은 fetch 전이라 PO 번호를 모른다). 화면이 조용히 열리면 아무도 이 사실을 모른다.
+  if (pr.fellBack) {
+    console.warn("[receiving poDetail] " + (d.OrderNumber || id) + ": type corrected '" +
+      (type || "NULL") + "' -> '" + pr.resolvedType + "' via endpoint fallback" +
+      " - receiver stores the corrected type on receipt creation");
+  }
   const rawLines: any[] = d.Lines || (d.Order && d.Order.Lines) || [];
   const location = d.Location || (d.Order && d.Order.Location) || "";
 
@@ -410,8 +447,10 @@ async function poDetail(id: string, type: string): Promise<any> {
     status: d.Status || "", location, warehouse: normWarehouse(location), source: "po",
     // 프론트가 wms_receipts 에 그대로 저장한다 (2026-08-05 마이그레이션):
     // expected_source = 기대치 기준 표식('order'|'invoice') / cin7_type = Apply 게이트의 엔드포인트 선택 근거.
+    // ⚠️ resolvedType — 폴백이 발동했으면 교정된 타입이다(receiver.html 이 receipt 생성 시 이 값을 저장:
+    //    po.cin7_type || p.type. 저장 안 되면 매번 폴백이 발동한다).
     expected_source: useInvoice ? "invoice" : "order",
-    cin7_type: type || "Simple Purchase",
+    cin7_type: pr.resolvedType,
     invoice_status: (inv && inv.Status) || null,
     line_count: lines.length, total_expected_base: lines.reduce((s2, l) => s2 + l.expected_base, 0), lines,
   };
@@ -816,16 +855,40 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
     //    메시지로 막혔다. 상세 응답의 invoiceBlock() 은 Simple/Advanced 공통. 호출 수는 동일(1 GET 대체).
     // ⚠️ 판정 로직은 의도적으로 유지 (st 를 못 읽으면 통과 = fail-open) — fail-closed 전환은 EF 로그
     //    관찰 후 별건 결정(2026-08-05 사용자 결정). 지금 바꾸면 Apply 가 막혀 창고가 멈출 수 있다.
-    // cin7_type 없는 구형 receipt 은 /purchase 로 조회 — 종전 게이트도 Simple 전용이었으므로 회귀 없음.
+    // cin7_type 없는 구형 receipt 은 /purchase 로 먼저 조회하되, 400 이면 poRaw 가 /advanced-purchase 로
+    // 1회 폴백한다(⚠️ 현장 미검증 — 구형 NULL receipt 이 Advanced PO 인 경우가 위험 구간이었다).
+    // 폴백 성공 시 cin7_type 을 교정 PATCH — 다음 Apply 부터 바로 맞는 엔드포인트를 친다.
+    let det0: any;
     try {
-      const det0 = await poRaw(rcpt.cin7_purchase_id, rcpt.cin7_type || "");
-      const inv = invoiceBlock(det0);
-      const st = String((inv && inv.Status) || "").toUpperCase();
-      if (st && st !== "AUTHORISED" && st !== "PAID") throw new Error("invoice status is " + st);
-      log.push("invoice check: " + (st || "ok"));
+      const pr = await poRaw(rcpt.cin7_purchase_id, rcpt.cin7_type || "",
+        "apply receipt " + rcpt.id + " " + rcpt.po_number);
+      if (pr.fellBack) {
+        // ⚠️ 교정 기록 실패가 Apply 를 막으면 안 된다 — 부가 정보다(못 고쳐도 다음 회차에 폴백이 또 잡는다).
+        try {
+          await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, { cin7_type: pr.resolvedType }, "return=minimal");
+          log.push("cin7_type corrected to '" + pr.resolvedType + "' (endpoint fallback - was '" +
+            (rcpt.cin7_type || "NULL") + "')");
+        } catch (e2) {
+          console.warn("[receiving apply] receipt " + rcpt.id + " " + rcpt.po_number +
+            ": cin7_type correction PATCH failed (non-blocking): " + String((e2 as Error).message).slice(0, 200));
+          log.push("WARN cin7_type correction failed (non-blocking) - fallback will fire again next apply");
+        }
+      }
+      det0 = pr.data;
     } catch (e) {
-      throw new Error("Invoice not authorised - authorize the invoice in Cin7 first (Invoice First). Detail: " + String((e as Error).message));
+      // ⚠️ 메시지 분리 (2026-08-05): 여기 도달 = PO 상세 **조회 자체**가 실패(폴백까지 포함) — 인보이스
+      //    미승인이 원인이 아닐 수 있다. 종전엔 이 경우도 "Invoice not authorised - authorize ..." 로 나가
+      //    잘못된 처방을 줬다. 차단 동작 자체는 종전과 동일하다(조회 실패 = Apply 중단, fail-open 아님).
+      throw new Error("Invoice check failed - could not read the PO detail from Cin7, so the invoice status is unknown" +
+        " (this may NOT be an authorisation problem). Detail: " + String((e as Error).message));
     }
+    // 판정 로직 불변 — fail-open(st 없으면 통과) 포함. 미승인일 때만 Invoice First 처방을 준다.
+    const inv0 = invoiceBlock(det0);
+    const st0v = String((inv0 && inv0.Status) || "").toUpperCase();
+    if (st0v && st0v !== "AUTHORISED" && st0v !== "PAID") {
+      throw new Error("Invoice not authorised - authorize the invoice in Cin7 first (Invoice First). Detail: invoice status is " + st0v);
+    }
+    log.push("invoice check: " + (st0v || "ok"));
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식
     // ── bin 그룹 루프 (2026-07-31 — 트랜스퍼 보호 장치 이식: 청크 이중 가드·실패 수집·격리·체크포인트) ──
     // ⚠️ Cin7 stock received 는 한 문서(POST)에 bin 1개만(실측: 섞으면 400 'Lines is invalid') — 그대로.
