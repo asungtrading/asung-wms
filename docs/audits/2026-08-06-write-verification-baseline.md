@@ -36,19 +36,6 @@ supabase-js(PostgREST)는 쓰기가 실패해도 **throw 하지 않고 `{error}`
 ②실패 시 메시지는 유실 방향에 맞춰 "그 수량은 어느 팔렛에도 배정되지 않았다 —
 pool 에서 다시 끌어다 놓아라" 로 안내한다.
 
-## 2026-08-06 후속 — 픽·팩 완료 라인 묶음 upsert 커밋 (⚠️ 현장 미검증)
-
-- **packer 완료 경로의 잔존 무확인 5곳 해소**: `saveLine`(스캔당 1행 — 확인만 추가, 규칙 20) ·
-  discrepancy insert 3곳(`mustRows` 패턴 로컬 복사 — error + `.select()` 행 수) ·
-  `checkOrderReady`(⚠️ 0행은 멱등 가드의 정상 no-op — error 만 판정).
-  → **잔존 12 → 7** (다음 감사에서 같은 방법으로 재측정해 대조할 것).
-- **완료 라인 최종 저장 루프(packer·picker)는 순차 PATCH → 단일 upsert 로 대체** —
-  60줄=60요청≈9.5초·중단 시 반쪽 상태 문제의 본체. 한 요청 = 단일 문 = 전부 아니면 전무.
-  전제 마이그레이션 `20260806130000_pick_pack_line_id_by_default.sql`(GENERATED ALWAYS 는
-  PostgREST upsert 를 428C9 로 거부 — 2026-08-06 실측). 상세는 SKILL 규칙 9.
-- 실패 시 서버 재조회(`resyncAfterFail`)로 "이미 저장됨/미저장" 구분 안내 — fulfillment 의
-  "실패 시 refresh() 재조회" 와 같은 원칙, 단 로컬 수량(실물 카운트)은 버리지 않는다.
-
 ## 재측정 방법 (다음 감사 때)
 
 1. 패턴 검색: `await sb.from(` 뒤에 결과 미사용(`const {…}=` 없음, `.error` 미참조) 지점 수집
