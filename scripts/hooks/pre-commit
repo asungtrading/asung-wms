@@ -5,6 +5,7 @@ set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel) || exit 0
 CHECK="$ROOT/scripts/check-skill-desc.sh"
+CLASS="$ROOT/scripts/check-class-values.sh"
 
 # 스킬 description 1024자 제한 — 넘으면 claude.ai 업로드가 거부된다
 if [ -x "$CHECK" ]; then
@@ -14,6 +15,18 @@ if [ -x "$CHECK" ]; then
     echo "  고치기: frontmatter 의 description 을 줄인 뒤 다시 커밋"
     echo "  확인  : scripts/check-skill-desc.sh"
     echo "  우회  : git commit --no-verify  (업로드는 여전히 거부된다)"
+    exit 1
+  fi
+fi
+
+# 분류 값(reason/kind) — CHECK 목록에 없는 값은 첫 insert 가 400(23514) 으로 죽는다 (규칙 41)
+if [ -x "$CLASS" ]; then
+  if ! bash "$CLASS" --staged; then
+    echo
+    echo "커밋 중단: 코드의 분류 값이 DB CHECK 목록과 어긋난다 (또는 검사 불능)."
+    echo "  고치기: CHECK 를 바꾸는 마이그레이션을 먼저 추가 (supabase migration new …, 규칙 41)"
+    echo "  확인  : scripts/check-class-values.sh"
+    echo "  우회  : git commit --no-verify  (런타임 400 은 여전히 난다)"
     exit 1
   fi
 fi
