@@ -48,6 +48,11 @@ pool 에서 다시 끌어다 놓아라" 로 안내한다.
   PostgREST upsert 를 428C9 로 거부 — 2026-08-06 실측). 상세는 SKILL 규칙 9.
 - 실패 시 서버 재조회(`resyncAfterFail`)로 "이미 저장됨/미저장" 구분 안내 — fulfillment 의
   "실패 시 refresh() 재조회" 와 같은 원칙, 단 로컬 수량(실물 카운트)은 버리지 않는다.
+- **(커밋 2 — Hold) 정독 추가 발견 +2, 해소 +3**: **packer Hold 라인 루프 · picker Hold 라인
+  루프**가 결과 무확인이었다(원래 표의 28+ 에 포함됐는지 재확인 안 함 — 하한 기록 원칙,
+  발견을 숫자에 맞춰 빼지 않는다). 둘 다 완료 경로와 같은 묶음 upsert 로 해소.
+  추가로 **packer Hold 의 태스크 플립**(pack_tasks → pending)도 error 무확인이었다
+  (picker 는 확인하고 있었다 — 비대칭) → error 확인 추가.
 
 ## 재측정 방법 (다음 감사 때)
 
