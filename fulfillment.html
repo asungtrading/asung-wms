@@ -856,19 +856,37 @@ function wireUnitEvents(){
   // print
   el.querySelectorAll("[data-print]").forEach(b=>b.onclick=e=>{e.stopPropagation();printUnit(+b.dataset.print);});
   // notes
-  el.querySelectorAll("[data-note]").forEach(inp=>inp.addEventListener("change",e=>{
+  el.querySelectorAll("[data-note]").forEach(inp=>inp.addEventListener("change",async e=>{
     const uid=+inp.dataset.uid, field=inp.dataset.note==="height"?"height_note":"weight_note";
-    sb.from("wms_pallets").update({[field]:inp.value||null}).eq("id",uid);
+    // fire-and-forget 이던 노트 저장도 확인 (2026-08-06 감사 — 패턴 검색 밖에서 사람이 읽어 발견한 2곳 중 하나)
+    try{ await mustRows(sb.from("wms_pallets").update({[field]:inp.value||null}).eq("id",uid).select("id"),"Saving the note failed - retype it"); }
+    catch(e2){ toast(e2.message||String(e2),true); }
   }));
 }
 
 /* ---------- drop handler ---------- */
+/* ── 팔렛 조작 쓰기 확인 (2026-08-06 감사 후속 · ⚠️ 현장 미검증) ──
+   규칙 20 — 에러 없음 ≠ 성공: PostgREST 는 실패해도 throw 하지 않고 {error} 로 정상 반환하고
+   (그래서 바깥 try/catch 에 절대 안 걸린다), 0행 매치도 error null 이다 → 행이 바뀌어야 하는
+   쓰기는 .select() 행 수까지 확인한다. ⚠️ 보상 쓰기(롤백) 금지 — 실패를 드러내고 refresh()
+   재조회까지만. ⚠️ 분할 이동 순서는 감소→추가 그대로 유지(사용자 결정 2026-08-06): 이 화면의
+   pool 은 rem>0 만 표시하므로 순서를 역전하면 남는 잔여가 "숨는 증식"이고, 지금 순서의 잔여는
+   "pool 로 되돌아와 보이는 유실"이다 — 보이는 쪽이 낫다. */
+async function mustRows(q, what, n=1){
+  const {data,error}=await q;
+  if(error) throw new Error(what+": "+error.message);
+  if(n>0 && (data||[]).length<n) throw new Error(what+": no row was changed (someone else may have moved or deleted it)");
+  return data;
+}
 async function onDropToUnit(uid,utype){
   const d=drag; drag=null;
   if(d.kind==="box"){ // nest box into pallet (utype guaranteed pallet)
     if(d.boxId===uid) return;
-    await sb.from("wms_pallets").update({parent_id:uid}).eq("id",d.boxId);
-    await refresh(); toast("Box nested into pallet"); return;
+    try{
+      await mustRows(sb.from("wms_pallets").update({parent_id:uid}).eq("id",d.boxId).select("id"),"Box move failed - nothing changed, drop it again");
+      toast("Box nested into pallet");   // 확인된 뒤에만 성공 문구 (거짓 성공 토스트 제거)
+    }catch(e){ toast(e.message||String(e),true); }
+    await refresh(); return;
   }
   if(d.kind==="unit"){ return; } // moving a pallet elsewhere: unsupported
   if(d.kind==="item"){
@@ -876,32 +894,60 @@ async function onDropToUnit(uid,utype){
     if(Number(it.qty_base)>1){
       const q=await askQty("move qty", `${it.order_sku} · max ${it.qty_base}`, it.qty_base, it.qty_base);
       if(q==null){await refresh();return;}
-      if(q>=it.qty_base){ await sb.from("wms_pallet_items").update({pallet_id:uid}).eq("id",it.id); }
-      else { await sb.from("wms_pallet_items").update({qty_base:it.qty_base-q}).eq("id",it.id);
-             await mergeOrInsert(uid, it.order_id, it.order_line_id, it.order_sku, it.product_name, q, it.from_drop); }
-    } else { await sb.from("wms_pallet_items").update({pallet_id:uid}).eq("id",it.id); }
+      if(q>=it.qty_base){
+        try{ await mustRows(sb.from("wms_pallet_items").update({pallet_id:uid}).eq("id",it.id).select("id"),"Move failed - nothing changed, drop it again"); }
+        catch(e){ toast(e.message||String(e),true); }
+      } else {
+        // 감소 → 추가 (순서 유지 — 위 주석). 감소 실패면 아무것도 안 바뀐 상태로 중단.
+        try{
+          await mustRows(sb.from("wms_pallet_items").update({qty_base:it.qty_base-q}).eq("id",it.id).select("id"),"Split failed - nothing changed, drop it again");
+        }catch(e){ toast(e.message||String(e),true); await refresh(); return; }
+        try{
+          await mergeOrInsert(uid, it.order_id, it.order_line_id, it.order_sku, it.product_name, q, it.from_drop);
+        }catch(e){
+          // 감소는 됐는데 추가가 실패 = 유실 방향: 그 수량은 지금 어느 팔렛에도 배정되지 않았고
+          // pool 로 되돌아와 보인다 — 다시 끌어다 놓으면 복구된다.
+          toast(`⚠ ${q} × ${it.order_sku} is NOT on any pallet now - it went back to the pool. Drag it onto the unit again. (${e.message||e})`,true);
+        }
+      }
+    } else {
+      try{ await mustRows(sb.from("wms_pallet_items").update({pallet_id:uid}).eq("id",it.id).select("id"),"Move failed - nothing changed, drop it again"); }
+      catch(e){ toast(e.message||String(e),true); }
+    }
     await refresh(); return;
   }
   if(d.kind==="poolLine"){
     const pl=poolLines.find(p=>p.order_line_id===d.olid); const rem=remainingFor(pl); if(rem<=0){await refresh();return;}
     let q=rem;
     if(rem>1){ q=await askQty("qty to place", `${pl.sku} · max ${rem}`, rem, rem); if(q==null){await refresh();return;} }
-    await mergeOrInsert(uid, pl.order_id, pl.order_line_id, pl.sku, pl.name, q, null);
+    try{ await mergeOrInsert(uid, pl.order_id, pl.order_line_id, pl.sku, pl.name, q, null); }
+    catch(e){ toast((e.message||e)+" - it stays in the pool, drop it again",true); }
     await refresh(); return;
   }
   if(d.kind==="poolMany"){
     const set=new Set(d.olids);
     const avail=poolLines.map(p=>({...p,rem:remainingFor(p)})).filter(p=>p.rem>0 && set.has(p.order_line_id));
-    for(const p of avail){ await mergeOrInsert(uid, p.order_id, p.order_line_id, p.sku, p.name, p.rem, null); }
-    await refresh(); toast(`${avail.length} SKUs placed`); return;
+    let okN=0; const failed=[];
+    for(const p of avail){
+      try{ await mergeOrInsert(uid, p.order_id, p.order_line_id, p.sku, p.name, p.rem, null); okN++; }
+      catch(e){ failed.push(p.sku); }
+    }
+    await refresh();
+    if(failed.length) toast(`${okN} placed, ${failed.length} FAILED - still in the pool, drop again: ${failed.join(", ")}`,true);
+    else toast(`${okN} SKUs placed`);
+    return;
   }
 }
 async function mergeOrInsert(uid, orderId, olid, sku, name, qty, fromDrop){
   const ex=items.find(i=>i.pallet_id===uid && i.order_line_id===olid);
-  if(ex){ await sb.from("wms_pallet_items").update({qty_base:Number(ex.qty_base)+qty}).eq("id",ex.id); }
-  else { await sb.from("wms_pallet_items").insert({pallet_id:uid, order_id:orderId, order_line_id:olid, order_sku:sku, product_name:name, qty_base:qty, from_drop:fromDrop}); }
+  if(ex){ await mustRows(sb.from("wms_pallet_items").update({qty_base:Number(ex.qty_base)+qty}).eq("id",ex.id).select("id"),"Placing "+sku+" failed"); }
+  else { await mustRows(sb.from("wms_pallet_items").insert({pallet_id:uid, order_id:orderId, order_line_id:olid, order_sku:sku, product_name:name, qty_base:qty, from_drop:fromDrop}).select("id"),"Placing "+sku+" failed"); }
 }
-async function removeItem(itemId){ await sb.from("wms_pallet_items").delete().eq("id",itemId); await refresh(); }
+async function removeItem(itemId){
+  try{ await mustRows(sb.from("wms_pallet_items").delete().eq("id",itemId).select("id"),"Remove failed - nothing changed, try again"); }
+  catch(e){ toast(e.message||String(e),true); }
+  await refresh();
+}
 
 /* ---------- add/remove unit ---------- */
 async function addUnit(type, parentId=null){
@@ -920,9 +966,18 @@ async function delUnit(uid){
   const hasItems=itemsIn(uid).length||childBoxes.some(b=>itemsIn(b.id).length);
   if(hasItems){ if(!confirm("Delete this unit (and its items)? Its products return to unassigned.")) return; }
   // also organize child boxes' items/boxes
-  for(const b of childBoxes){ await sb.from("wms_pallet_items").delete().eq("pallet_id",b.id); await sb.from("wms_pallets").delete().eq("id",b.id); }
-  await sb.from("wms_pallet_items").delete().eq("pallet_id",uid);
-  await sb.from("wms_pallets").delete().eq("id",uid);
+  // 삭제는 0행이어도 실패가 아니다(이미 비어 있을 수 있다) → error 만 확인(n=0).
+  // 중간에 실패하면 남은 박스/유닛이 화면에 그대로 보인다 — 다시 delete 를 누르면 이어서 지워진다.
+  try{
+    for(const b of childBoxes){
+      await mustRows(sb.from("wms_pallet_items").delete().eq("pallet_id",b.id),"Deleting the box's items failed",0);
+      await mustRows(sb.from("wms_pallets").delete().eq("id",b.id),"Deleting the box failed",0);
+    }
+    await mustRows(sb.from("wms_pallet_items").delete().eq("pallet_id",uid),"Deleting the unit's items failed",0);
+    await mustRows(sb.from("wms_pallets").delete().eq("id",uid),"Deleting the unit failed",0);
+  }catch(e){
+    toast((e.message||e)+" - what remains is still shown; press delete again",true);
+  }
   await refresh();
 }
 
