@@ -254,6 +254,11 @@ const PO_STATUSES = ["INVOICED", "RECEIVING"];
 // 좁히는 필터이므로 서버에서 빼도 안전하다(못 보던 게 생기는 게 아니라 더 보고 코드로 거르는 쪽).
 // ⚠️ includes 가 아니라 **정확 값 비교** — 그 외 값(DRAFT 등 = 인보이스 미승인)은 제외하고,
 //    루프가 값별 카운트를 모아 로그에 남긴다(예상 밖 값이 조용히 새지 않게).
+// ⚠️⚠️ 이 상수는 **목록 필터와 Apply 게이트(applyCommit)가 공유**한다 (2026-08-06) — 따로 두면
+//    한쪽만 고쳐져 "목록은 통과시키는데 게이트는 막는" 불일치가 된다. 값 근거: 인보이스 블록에는
+//    Payments·Paid 필드가 따로 있어 결제 정보가 Status 와 분리돼 있다(2026-08-05 실측 — 블록 레벨
+//    Status 실측은 AUTHORISED 만). 블록 레벨 PAID 는 미실측이며, 헤더 InvoiceStatus=PAID 가
+//    실측된(PO-01081) 정상 후속 상태라 보험으로 포함한다 — 빼면 그 상태의 PO 가 전부 막힌다.
 const PO_INVOICE_OK = new Set(["AUTHORISED", "PAID"]);
 
 // ⚠️ 페이지 크기 — 조기 종료 조건(`items.length < PO_PAGE_LIMIT`)과 **반드시 같은 상수**를 써야 한다.
@@ -853,8 +858,12 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
     // ⚠️ 종전 GET /purchase/invoice 는 Advanced PO 에서 400 "deprecated and does not support
     //    Advanced Purchase" (실측) — Advanced receipt 의 Apply 가 "Invoice not authorised" 오진
     //    메시지로 막혔다. 상세 응답의 invoiceBlock() 은 Simple/Advanced 공통. 호출 수는 동일(1 GET 대체).
-    // ⚠️ 판정 로직은 의도적으로 유지 (st 를 못 읽으면 통과 = fail-open) — fail-closed 전환은 EF 로그
-    //    관찰 후 별건 결정(2026-08-05 사용자 결정). 지금 바꾸면 Apply 가 막혀 창고가 멈출 수 있다.
+    // ⚠️ 판정은 fail-closed (2026-08-06 사용자 결정 — 종전 fail-open 을 정정): 되돌릴 수 없는
+    //    Cin7 쓰기 직전의 마지막 관문이므로 "확인 자체 실패"도 차단한다. 전환 조건이었던 관찰은
+    //    끝났다 — 엔드포인트 폴백 배포(v30)로 400 경로가 닫혔고 그 코드로 PO-01076 Apply 성공.
+    //    실질 적용 구간은 좁다(목록 필터가 미승인 PO 를 이미 제외 — 남는 것은 목록↔Apply 시간차에
+    //    Cin7 쪽 인보이스가 변한 경우와 상태를 못 읽는 경우). 메시지는 아래 3분기 + 조회 실패 1분기
+    //    — 첫 문장이 잘못된 처방을 주지 않게 유지할 것(폴백 작업에서 겪은 오진 메시지 문제).
     // cin7_type 없는 구형 receipt 은 /purchase 로 먼저 조회하되, 400 이면 poRaw 가 /advanced-purchase 로
     // 1회 폴백한다(⚠️ 현장 미검증 — 구형 NULL receipt 이 Advanced PO 인 경우가 위험 구간이었다).
     // 폴백 성공 시 cin7_type 을 교정 PATCH — 다음 Apply 부터 바로 맞는 엔드포인트를 친다.
@@ -882,13 +891,28 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
       throw new Error("Invoice check failed - could not read the PO detail from Cin7, so the invoice status is unknown" +
         " (this may NOT be an authorisation problem). Detail: " + String((e as Error).message));
     }
-    // 판정 로직 불변 — fail-open(st 없으면 통과) 포함. 미승인일 때만 Invoice First 처방을 준다.
+    // fail-closed 3분기 — 통과 목록은 목록 필터와 같은 상수(PO_INVOICE_OK) 하나를 공유한다:
+    // 두 곳이 갈라지면 "목록은 통과시키는데 게이트는 막는" 가장 찾기 어려운 종류의 불일치가 된다.
     const inv0 = invoiceBlock(det0);
-    const st0v = String((inv0 && inv0.Status) || "").toUpperCase();
-    if (st0v && st0v !== "AUTHORISED" && st0v !== "PAID") {
+    if (!inv0) {
+      // ① 인보이스 블록 없음 = 이 PO 에 인보이스가 없다 (목록 통과 후 Cin7 쪽에서 void/삭제됐을 수 있다)
+      throw new Error("No invoice on this PO - create and authorize the invoice in Cin7 first (Invoice First)." +
+        " Detail: the PO detail response has no Invoice block (type '" + (rcpt.cin7_type || "unknown") +
+        "', PO " + rcpt.po_number + ") - if Cin7 shows an invoice, report this as a data issue");
+    }
+    const st0v = String(inv0.Status || "").trim().toUpperCase();  // trim: 목록 필터와 동일 정규화
+    if (!st0v) {
+      // ② 블록은 있는데 Status 를 못 읽음 — 승인 문제가 아닐 수 있으니 처방을 주지 않는다
+      throw new Error("Invoice status could not be read - Apply is blocked until it can be verified" +
+        " (this may NOT be an authorisation problem). Detail: Invoice block exists but Status is " +
+        JSON.stringify(inv0.Status ?? null) + " (type '" + (rcpt.cin7_type || "unknown") +
+        "', PO " + rcpt.po_number + ")");
+    }
+    if (!PO_INVOICE_OK.has(st0v)) {
+      // ③ 미승인 — 실제 상태값을 보여주고 Invoice First 처방
       throw new Error("Invoice not authorised - authorize the invoice in Cin7 first (Invoice First). Detail: invoice status is " + st0v);
     }
-    log.push("invoice check: " + (st0v || "ok"));
+    log.push("invoice check: " + st0v);
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식
     // ── bin 그룹 루프 (2026-07-31 — 트랜스퍼 보호 장치 이식: 청크 이중 가드·실패 수집·격리·체크포인트) ──
     // ⚠️ Cin7 stock received 는 한 문서(POST)에 bin 1개만(실측: 섞으면 400 'Lines is invalid') — 그대로.
