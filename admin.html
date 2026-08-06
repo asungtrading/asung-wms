@@ -516,12 +516,24 @@ async function loadOverview(){
   loadBatchActivity(orders.data||[]);
   const os=orders.data||[];
   const fin=finalized.data||[];
+  // 분할 팩 진행 (규칙 9 fulfillment 게이트와 같은 뷰 — 판정은 한 곳): 팩이 1개 이상 끝났지만
+  // 전부는 아닌 오더 = fulfillment 보드에서 숨겨진 상태. 박스는 창고에 쌓이는데 화면 신호가
+  // 없으면 갇힌 걸 아무도 모른다 — 여기가 그 신호다.
+  const prog={};
+  if(os.length){
+    const {data:pg}=await sb.from("wms_order_pack_progress")
+      .select("order_id,pick_batches,packs_done,all_packed").in("order_id",os.map(o=>o.id));
+    (pg||[]).forEach(r=>{ prog[r.order_id]=r; });
+  }
+  const holdOf=o=>{ const p=prog[o.id]; return p&&p.packs_done>0&&!p.all_packed?p:null; };
+  const holds=os.filter(o=>holdOf(o));
   const cnt=s=>os.filter(o=>o.status===s).length;
   document.getElementById("orderStats").innerHTML=[
     ["pending","pending",cnt("pending"),""],
     ["Picking","picking",cnt("picking"),""],
     ["Packing","packing",cnt("packing"),""],
     ["Ready to close","ready_to_close",cnt("ready_to_close"),"ok"],
+    ["Fulfillment hold","",holds.length,holds.length?"warn":""],
     ["Finalized","closed",fin.length,""],
   ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
@@ -540,7 +552,7 @@ async function loadOverview(){
       <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${o.needs_review?' <span class="tag r-short_pick">Review</span>':""}</td>
       <td>${esc(o.customer_name||"—")}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
-      <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span></td>
+      <td><span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span>${(p=>p?` <span class="tag r-short_pick" title="hidden from fulfillment until every split batch is packed">⏳ ${p.packs_done}/${p.pick_batches} packed</span>`:"")(holdOf(o))}</td>
       <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
     </tr>`).join("")
   }</tbody></table>`;

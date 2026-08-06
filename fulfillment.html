@@ -343,6 +343,7 @@ let orders=[], orderIds=[], orderById={}, poolLines=[], units=[], items=[];
 let extOrders={};
 let bcBySku={};   // sku -> its own barcode (for packing lists)
 let availOrders=[];            // selectable order list
+let packProg={};               // order_id -> wms_order_pack_progress 행 (분할 팩 완료 게이트, 규칙 9)
 let drag=null; // {kind, ...}
 
 /* ---------- tap-to-place (mobile-friendly alternative to drag) ----------
@@ -423,22 +424,52 @@ function presenceLeave(){
   if(presCh){ try{ presCh.untrack(); sb.removeChannel(presCh); }catch(e){} presCh=null; }
 }
 
-/* ---------- order list (orders with completed packs) — checklist ---------- */
+/* ---------- order list (orders with ALL packs completed) — checklist ----------
+   분할 오더 게이트 (2026-08-06, 규칙 9 — ⚠️ 현장 미검증): 부모 오더의 **모든 분할이 팩 완료**
+   되기 전에는 보드에 나타나지 않는다(전부 아니면 전무 — 사용자 결정, 예외 없음).
+   판정은 wms_order_pack_progress 뷰 한 곳 — 분모는 픽 배치 수다(팩 태스크 수로 세면
+   팩을 시작 안 한 배치가 빠져 SO-14188 처럼 오판한다). 롤백이 pack_tasks 를 지우면
+   카운트가 줄어 자동으로 다시 숨는다(상태 전이 비의존). */
 async function loadOrders(){
-  const {data:packs}=await sb.from("wms_pack_tasks").select("order_id").eq("status","completed");
-  const ids=[...new Set((packs||[]).map(p=>p.order_id))];
   const box=document.getElementById("orderList");
-  if(!ids.length){ box.innerHTML='<div style="padding:20px;color:var(--mut);font-size:13px">No verified orders.</div>'; return; }
-  const {data:ords}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status").in("id",ids).neq("status","closed").order("customer_name").order("order_number");
+  // ⚠️ 조회 실패를 "주문 없음" 으로 위장하지 않는다 — 빈 보드에 설명이 없으면 작업자는
+  //    일이 없는 줄 알고 기다린다. 오류는 크게, 이유와 함께.
+  const fail=(where,e)=>{
+    availOrders=[];
+    box.innerHTML=`<div style="padding:24px 16px;text-align:center">
+      <div style="font-size:15px;font-weight:800;color:var(--warn)">⚠ Couldn't check pack status</div>
+      <div style="font-size:12px;color:var(--mut-2);margin:8px 0">Orders are hidden until this check works — this is NOT an empty queue.<br>${esc(where)}: ${esc(String(e&&e.message||e||"unknown error"))}</div>
+      <button onclick="loadOrders()" style="font:inherit;font-weight:700;padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer">Retry</button>
+    </div>`;
+  };
+  const {data:packs,error:pe}=await sb.from("wms_pack_tasks").select("order_id").eq("status","completed");
+  if(pe){ fail("pack tasks",pe); return; }
+  const ids=[...new Set((packs||[]).map(p=>p.order_id))];
+  if(!ids.length){ availOrders=[]; box.innerHTML='<div style="padding:20px;color:var(--mut);font-size:13px">No verified orders.</div>'; return; }
+  const {data:prog,error:ge}=await sb.from("wms_order_pack_progress")
+    .select("order_id,pick_batches,packs_done,all_packed").in("order_id",ids);
+  if(ge){ fail("pack progress",ge); return; }
+  packProg={}; (prog||[]).forEach(r=>{ packProg[r.order_id]=r; });
+  // 뷰에 행이 없으면 미자격(fail-closed) — pick_batches 0 인 오더는 뷰에 안 나온다
+  const readyIds=ids.filter(id=>packProg[id]&&packProg[id].all_packed);
+  const holdCount=ids.length-readyIds.length;
+  if(!readyIds.length){
+    availOrders=[];
+    box.innerHTML=`<div style="padding:20px;color:var(--mut);font-size:13px">No orders ready to ship.${holdCount?`<br><span style="color:var(--warn);font-weight:700">${holdCount} order(s) waiting for all split batches to finish packing</span> — they appear here when EVERY batch is packed.`:""}</div>`;
+    return;
+  }
+  const {data:ords,error:oe}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status").in("id",readyIds).neq("status","closed").order("customer_name").order("order_number");
+  if(oe){ fail("orders",oe); return; }
   const acc=me.warehouse_access;
   availOrders=(ords||[]).filter(o=>acc==="both"||o.warehouse===acc);
-  renderOrderList();
+  renderOrderList(holdCount);
 }
-function renderOrderList(){
+function renderOrderList(holdCount=0){
   const box=document.getElementById("orderList");
   // group by customer
   const byCust={}; availOrders.forEach(o=>{ const c=o.customer_name||"—"; (byCust[c]=byCust[c]||[]).push(o); });
-  box.innerHTML=Object.entries(byCust).map(([cust,list])=>`
+  box.innerHTML=(holdCount?`<div style="padding:8px 12px;font-size:12px;color:var(--warn);font-weight:700">⏳ ${holdCount} order(s) hidden — waiting for all split batches to finish packing</div>`:"")
+  +Object.entries(byCust).map(([cust,list])=>`
     <div class="ocust">${esc(cust)}</div>
     ${list.map(o=>`<label class="orow">
       <input type="checkbox" value="${o.id}" ${orderIds.includes(o.id)?"checked":""}>
@@ -475,6 +506,19 @@ async function scanLoadOrder(v){
       focusProdScan(true);
       return;
     }
+    // 게이트에 걸린 오더면 이유를 말해준다 — "없음" 은 작업자가 원인을 찾을 수 없다 (판정은 같은 뷰)
+    try{
+      const {data:o2}=await sb.from("wms_orders").select("id,order_number")
+        .eq("order_number",f).neq("status","closed").maybeSingle();
+      if(o2){
+        const {data:pr}=await sb.from("wms_order_pack_progress")
+          .select("pick_batches,packs_done,all_packed").eq("order_id",o2.id).maybeSingle();
+        if(pr && !pr.all_packed){
+          toast(`${o2.order_number}: ${pr.packs_done}/${pr.pick_batches} batches packed — it appears here when ALL are packed`,true);
+          return;
+        }
+      }
+    }catch(e){ /* 안내 실패는 기본 메시지로 */ }
     toast("No order ready to ship for "+v,true); return;
   }
   if(!orderIds.includes(o.id)) orderIds=[...orderIds,o.id];
@@ -505,6 +549,19 @@ document.getElementById("completeBtn").onclick=async ()=>{
   if(!confirm(msg)) return;
   const btn=document.getElementById("completeBtn"); btn.disabled=true;
   try{
+    // 벨트 (규칙 9 게이트와 같은 뷰): 보드에 실릴 땐 전부 팩 완료였어도, 그 사이 매니저 롤백이
+    // 팩을 되돌렸을 수 있다 — Finalize 직전 재확인. 확인 실패도 차단(빈 결과로 위장하지 않는다).
+    const {data:pr,error:pe}=await sb.from("wms_order_pack_progress")
+      .select("order_id,pick_batches,packs_done,all_packed").in("order_id",orders.map(o=>o.id));
+    if(pe){ toast("Couldn't check pack status — finalize blocked, retry ("+(pe.message||"")+")",true); btn.disabled=false; return; }
+    const progById={}; (pr||[]).forEach(r=>{ progById[r.order_id]=r; });
+    const notReady=orders.filter(o=>!(progById[o.id]&&progById[o.id].all_packed));
+    if(notReady.length){
+      alert("⚠ Not all batches are packed anymore (a rollback may have reopened packing):\n"
+        +notReady.map(o=>{const p=progById[o.id];return `· ${o.order_number} — ${p?`${p.packs_done}/${p.pick_batches}`:"?"} packed`;}).join("\n")
+        +"\n\nNOTHING was finalized. Remove these orders or wait until packing finishes.");
+      btn.disabled=false; return;
+    }
     const now=new Date().toISOString();
     const packedIds=info.filter(x=>x.placed).map(x=>x.o.id);
     const directIds=info.filter(x=>!x.placed).map(x=>x.o.id);
