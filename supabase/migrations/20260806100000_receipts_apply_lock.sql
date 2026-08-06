@@ -11,7 +11,8 @@
 --
 -- "동시 실행 금지"는 유니크 제약으로 표현할 수 없어(단일 행 상태 전이) 컬럼 + 조건부 UPDATE 가
 -- PostgREST 로 가능한 가장 강한 형태다. advisory lock 은 커넥션 풀링에서 세션 보증이 없어 부적합.
--- 컬럼은 PO·트랜스퍼 공용이지만 EF 는 PO 경로에서만 사용(트랜스퍼는 별도 판단 대기 — 2026-08-06).
+-- PO·트랜스퍼 공통 사용(2026-08-06 같은 날 트랜스퍼 확장 — 델타 수량 mini transfer 는 duplicate
+-- 거부가 없어 동시 실행이면 진짜 이중 이동이라 PO 보다 위험했다).
 
 alter table public.wms_receipts add column if not exists apply_lock_at timestamptz;
 alter table public.wms_receipts add column if not exists apply_lock_by text;

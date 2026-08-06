@@ -800,18 +800,24 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
 // ── Apply to Cin7 — 실행 (commit) ───────────────────────────
 // t0 = 요청 시작 시각(Deno.serve 핸들러 진입 직후) — APPLY_TIME_BUDGET_MS 의 기준점.
 //
-// in-flight 잠금 래퍼 (2026-08-06, 규칙 27 R4 — ⚠️ 현장 미검증. PO 전용, 트랜스퍼는 별도 판단 대기):
+// in-flight 잠금 래퍼 (2026-08-06, 규칙 27 R4 — ⚠️ 현장 미검증. PO·트랜스퍼 공통 — 같은 날 트랜스퍼 확장):
 // plan 시점의 applied_at 검사는 read-then-check 라, Cin7 쓰기가 도는 수 초~수십 초 동안 두 번째
 // Apply(새로고침 재시도·매니저 2명 동시·네트워크 절단 후 재시도)를 못 막았다. 조건부 PATCH(원자
 // UPDATE)로 wms_receipts.apply_lock_at 을 선점해 실행 중 중복 진입을 차단한다.
+// ⚠️ 트랜스퍼가 PO 보다 위험해서 확장했다: mini transfer 의 TransferQuantity 는 델타라 멱등이 아니고
+//    Cin7 duplicate 거부(PO 의 "Cannot add duplicate value" 400)도 없다 — 동시 실행이면 같은 이동이
+//    조용히 2배로 나간다. exported_base 는 순차 재실행만 수렴시키고 동시 실행은 못 막는다.
+//    (이미 COMPLETED 인 TR 에 두 번째 완료 PUT 이 거부되는지/무시되는지는 **미실측** — 규칙 27 R11,
+//     200 이 아니라 되읽은 값이 근거다. 잠금이 있으면 그 상황 자체가 안 생긴다.)
 // ⚠️ 획득은 ⓪ discrepancy 선기록보다 **앞** — 차단된 중복 요청이 불필요한 행을 만들지 않는다.
-// ⚠️ 순차 재시도 3종(청크 자동 반복·부분 실패 재개·retry_failed=1)은 회차마다 획득→해제라 안 막힌다.
+// ⚠️ 순차 재시도 3종(청크 자동 반복·부분 실패 재개·retry_failed=1)은 PO·트랜스퍼 공통 구조라
+//    회차마다 획득→해제로 안 막힌다. checkpoint repair 는 회차 내부 동작이라 무관 — 오히려 잠금이
+//    "동시 실행이 만든 체크포인트 꼬임"을 없애 repair 발동 원인 하나가 줄어든다.
 // 해제는 회차 종료 PATCH 에 병합(요청 추가 없음), throw 경로는 아래 catch 가 best-effort 해제.
 // 종료 PATCH 실패로 잠금이 남아도 APPLY_LOCK_STALE_MS 뒤 만료 탈취로 자동 회복된다.
+// 차단·탈취 메시지의 rcpt.po_number 는 트랜스퍼 receipt 에선 TR 번호다(생성 경로 PO/TR 공통).
 async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
-  const rcpt = planWrap.receipt, source = planWrap.source;
-  if (source !== "po") return applyCommitRun(planWrap, appliedBy, t0, [], false);
-
+  const rcpt = planWrap.receipt;
   const preLog: string[] = [];
   const nowIso = new Date().toISOString();
   const lockBody = { apply_lock_at: nowIso, apply_lock_by: appliedBy || null };
@@ -882,6 +888,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
   let movedBins = 0;        // 실제로 성공한 bin 그룹 수 (admin 알림의 "N moved / M failed")
   // 목적지 되읽기로 "이미 도착" 이 확인돼 exported_base 만 기록한 receipt 라인 수 (checkpoint repair — R10 측정용).
   // 청크 v3(회차 완주 보장) 이후에도 이 값이 계속 나오면 타임아웃 외의 다른 원인이 있다는 신호다.
+  // (2026-08-06 in-flight 잠금이 "동시 실행이 만든 체크포인트 꼬임" 원인도 제거 — 신호의 해상도가 더 올라갔다.)
   let checkpointRepaired = 0;
   // PO 전용 — 이번 회차의 authorize 결과: true=성공 / false=시도했으나 실패(WARN·DRAFT 유지) / null=시도 안 함
   // (미처리·실패·격리·스킵이 남아 보류했거나, 트랜스퍼 경로). ⚠️ authorize 는 Simple PO 에서 1회뿐이라
