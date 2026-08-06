@@ -121,6 +121,10 @@ const APPLY_TIME_BUDGET_MS = 20000;
 //     이미 도착해 있으면 완료로 간주한다 — 그룹 루프 catch 안의 주석 참조(TR-03144 실측 근거 포함).
 const APPLY_FAIL_BUDGET_MS = 6000;
 const APPLY_QUARANTINE_FAILS = 3;
+// ── Apply in-flight 잠금 만료 (규칙 27 R4 — 2026-08-06) ──
+// 회차 시간 예산(20초)의 4.5배 — 정상 회차는 이 안에 반드시 끝난다. 잠금을 쥔 EF 가 회차 중에
+// 죽으면(타임아웃·크래시) 이 시간이 지난 뒤의 다음 Apply 가 만료 탈취로 자동 회복한다.
+const APPLY_LOCK_STALE_MS = 90_000;
 
 // ── 청크 가드 공용 판정 (2026-07-31 — PO 경로 이식하며 트랜스퍼와 상수·판정을 한 곳으로) ──
 // 반환 = 걸린 가드("groups"|"time"|"rate"|"fail_budget") 또는 null(계속 진행).
@@ -525,7 +529,11 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
     const fc = /fail_counts:(\{[^{}]*\})/.exec(noteStr);
     if (fc) { try { failCounts = JSON.parse(fc[1]) || {}; } catch { failCounts = {}; } }
   }
-  if (rcpt.applied_at && !retryFailed) throw new Error(rcpt.po_number + " already applied at " + rcpt.applied_at);
+  // 수행자까지 보여준다 (R4 메시지 개선) — "실패했나?" 하고 다시 누른 매니저가 안심할 수 있어야 한다.
+  if (rcpt.applied_at && !retryFailed) {
+    throw new Error(rcpt.po_number + " already applied at " + rcpt.applied_at +
+      (rcpt.applied_by ? " by " + rcpt.applied_by : "") + " - nothing was written by this request");
+  }
   if (rcpt.status !== "completed") throw new Error("receipt must be completed first (current: " + rcpt.status + ")");
   const lines = await sbSelect("wms_receipt_lines?receipt_id=eq." + receiptId + "&order=id");
 
@@ -610,6 +618,7 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
     // 재시도 게이트 ② (트랜스퍼와 동일) — 마커는 남았는데 실제로 실을 그룹이 없으면 재개할 이유가 없다.
     if (rcpt.applied_at && retryFailed && !bins.length) {
       throw new Error(rcpt.po_number + " already applied at " + rcpt.applied_at +
+        (rcpt.applied_by ? " by " + rcpt.applied_by : "") +
         " - nothing left to retry (every line is already on the Cin7 stock received document)");
     }
     return {
@@ -790,10 +799,75 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
 
 // ── Apply to Cin7 — 실행 (commit) ───────────────────────────
 // t0 = 요청 시작 시각(Deno.serve 핸들러 진입 직후) — APPLY_TIME_BUDGET_MS 의 기준점.
+//
+// in-flight 잠금 래퍼 (2026-08-06, 규칙 27 R4 — ⚠️ 현장 미검증. PO 전용, 트랜스퍼는 별도 판단 대기):
+// plan 시점의 applied_at 검사는 read-then-check 라, Cin7 쓰기가 도는 수 초~수십 초 동안 두 번째
+// Apply(새로고침 재시도·매니저 2명 동시·네트워크 절단 후 재시도)를 못 막았다. 조건부 PATCH(원자
+// UPDATE)로 wms_receipts.apply_lock_at 을 선점해 실행 중 중복 진입을 차단한다.
+// ⚠️ 획득은 ⓪ discrepancy 선기록보다 **앞** — 차단된 중복 요청이 불필요한 행을 만들지 않는다.
+// ⚠️ 순차 재시도 3종(청크 자동 반복·부분 실패 재개·retry_failed=1)은 회차마다 획득→해제라 안 막힌다.
+// 해제는 회차 종료 PATCH 에 병합(요청 추가 없음), throw 경로는 아래 catch 가 best-effort 해제.
+// 종료 PATCH 실패로 잠금이 남아도 APPLY_LOCK_STALE_MS 뒤 만료 탈취로 자동 회복된다.
 async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
+  const rcpt = planWrap.receipt, source = planWrap.source;
+  if (source !== "po") return applyCommitRun(planWrap, appliedBy, t0, [], false);
+
+  const preLog: string[] = [];
+  const nowIso = new Date().toISOString();
+  const lockBody = { apply_lock_at: nowIso, apply_lock_by: appliedBy || null };
+  // ① 정상 획득 — 잠금이 비어 있을 때만 (원자적 조건부 UPDATE, 규칙 20 의 .select() 1행 판정과 동형)
+  let claim: any[] = await sb("PATCH", "wms_receipts?id=eq." + rcpt.id + "&apply_lock_at=is.null", lockBody);
+  if (!claim.length) {
+    // ② 만료 탈취 — 직전 실행이 회차 중에 죽은 경우의 자동 회복. 관찰한 잠금 값으로 eq CAS 를 걸어
+    //    탈취 경쟁(두 요청이 동시에 만료를 발견)에서도 한쪽만 이긴다.
+    const cur = (await sbSelect("wms_receipts?id=eq." + rcpt.id + "&select=apply_lock_at,apply_lock_by"))[0] || {};
+    const heldSince = cur.apply_lock_at ? Date.parse(cur.apply_lock_at) : NaN;
+    if (Number.isFinite(heldSince) && Date.now() - heldSince > APPLY_LOCK_STALE_MS) {
+      claim = await sb("PATCH", "wms_receipts?id=eq." + rcpt.id +
+        "&apply_lock_at=eq." + encodeURIComponent(cur.apply_lock_at), lockBody);
+      if (claim.length) {
+        // ⚠️ 조용히 탈취하지 않는다 — 만료 잠금은 "직전 EF 가 회차 중에 죽었다"는 이상 신호다.
+        //    (정상 종료는 잠금을 해제하므로 여기 올 수 없다.) 반복되면 회차 예산·EF 한도를 의심할 것.
+        preLog.push("WARN stale apply lock taken over - a previous run (started " + cur.apply_lock_at +
+          " by " + (cur.apply_lock_by || "?") + ") died mid-round without releasing it; " +
+          "this is an abnormal signal, not routine (check EF logs if it repeats)");
+      }
+    }
+    if (!claim.length) {
+      // ③ 차단 — 누가·언제 시작했는지 반드시 보여준다. "이미 실행 중"만으로는 매니저가 자기 요청이
+      //    걸린 건지 남의 것인지 몰라 기다릴지 다시 누를지 판단할 수 없다.
+      const ageS = Number.isFinite(heldSince) ? Math.round((Date.now() - heldSince) / 1000) : null;
+      throw new Error("Apply is already running for " + rcpt.po_number +
+        " - started " + (cur.apply_lock_at || "?") + " by " + (cur.apply_lock_by || "another manager") +
+        (ageS !== null ? " (" + ageS + "s ago)" : "") +
+        ". Nothing was written by this request. Wait for that run to finish (the screen continues automatically);" +
+        " if it crashed, the lock expires " + (APPLY_LOCK_STALE_MS / 1000) + "s after it started and Apply can be retried.");
+    }
+  }
+  // read-then-check 창 마감: 획득 PATCH 가 돌려준 행에서 applied_at 재확인 (추가 요청 0).
+  // plan 은 잠금 밖에서 만들어졌으므로, 그 사이 다른 실행이 완주했다면 여기서 잡힌다.
+  const fresh = claim[0] || {};
+  if (fresh.applied_at && !planWrap.plan.retry) {
+    try { await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, { apply_lock_at: null, apply_lock_by: null }, "return=minimal"); } catch { /* 만료로 회복 */ }
+    throw new Error(rcpt.po_number + " already applied at " + fresh.applied_at +
+      (fresh.applied_by ? " by " + fresh.applied_by : "") +
+      " - it finished while this request was being prepared. Nothing was written by this request.");
+  }
+  try {
+    return await applyCommitRun(planWrap, appliedBy, t0, preLog, true);
+  } catch (e) {
+    // throw 경로의 잠금 해제 (best-effort — 실패해도 만료 탈취가 회복한다)
+    try { await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, { apply_lock_at: null, apply_lock_by: null }, "return=minimal"); } catch { /* 위와 동일 */ }
+    throw e;
+  }
+}
+
+// preLog = 잠금 단계에서 생긴 로그(만료 탈취 WARN)를 응답 로그에 합류시킨다.
+// lockHeld = 회차 종료 PATCH 에 잠금 해제를 병합할지 (PO 잠금 경로만 true).
+async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preLog: string[], lockHeld: boolean) {
   const rcpt = planWrap.receipt, source = planWrap.source, plan = planWrap.plan;
   const whName = WH_NAME[rcpt.warehouse] || WH_NAME.toronto;
-  const log: string[] = [];
+  const log: string[] = [...preLog];
   // bin GUID 를 못 찾은 라인 — 전체를 중단시키지 않고 여기 모아 응답·apply_note 로 노출한다 (TR-02935 교훈).
   const skippedBins: { sku: string; bin: string; reason: string }[] = [];
   // Cin7 이 거부한 bin 그룹(트랜스퍼 = bin 이동 / PO = stock received POST) — 수집만 하고 다음 그룹을 계속 진행한다.
@@ -1298,6 +1372,9 @@ async function applyCommit(planWrap: any, appliedBy: string, t0: number) {
   //    `applied_at` 은 **모든 그룹이 끝난 회차에만** 찍는다 — 남은 그룹이 있는 receipt 은 Apply 목록에 남아야 한다.
   const patch: any = { status: "completed", apply_note: log.join(" | ") };
   if (done) { patch.applied_at = new Date().toISOString(); patch.applied_by = appliedBy || null; }
+  // in-flight 잠금 해제를 같은 PATCH 에 병합 (R4 — 요청 추가 없음). 이 PATCH 가 실패하면
+  // 잠금이 남지만 APPLY_LOCK_STALE_MS 뒤 만료 탈취가 회복한다(아래 WARN 이 그 근거로 남는다).
+  if (lockHeld) { patch.apply_lock_at = null; patch.apply_lock_by = null; }
   let noteSaved = true;
   try {
     await sb("PATCH", "wms_receipts?id=eq." + rcpt.id, patch);
