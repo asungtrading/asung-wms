@@ -915,36 +915,119 @@ async function loadRollback(){
 }
 
 /* batch-level rollback: one batch of a split order, one step at a time */
+/* ── 롤백 아카이브 + discrepancy 무효화 공용부 (2026-08-06, SO-14129 후속 · ⚠️ 현장 미검증) ──
+   ⚠️ 순서 불가침: archiveRows 의 insert 성공(행 수 일치)을 확인한 뒤에만 delete 한다.
+      insert 실패 = 롤백 전체 중단, 아무것도 지우지 않는다. 순서가 반대면 아카이브의 목적이 무너진다.
+   ⚠️ 이 기록은 사고 조사용이지 보안 경계가 아니다 — delete 하는 클라이언트가 직접 쓴다(EF 경유는 백로그).
+      권한은 INSERT+SELECT 만이라 클라이언트에겐 append-only. */
+async function archiveRows(action, oid, onum, label, srcTable, rows){
+  if(!rows||!rows.length) return;
+  const payload=rows.map(r=>({archived_by:me.name, action, order_id:oid, order_number:onum,
+    batch_label:label||null, src_table:srcTable, row_data:r}));
+  const {data,error}=await sb.from("wms_rollback_archive").insert(payload).select("id");
+  if(error) throw new Error("archive failed - NOTHING was deleted ("+srcTable+"): "+error.message);
+  if(!data||data.length!==payload.length)
+    throw new Error("archive failed - NOTHING was deleted ("+srcTable+"): expected "+payload.length+" row(s), got "+(data?data.length:0));
+}
+/* 무효화 — 삭제가 아니다(증거 보존). ⚠️ 화이트리스트 엄수 (규칙 41 — 이 작업의 급소):
+   팩 롤백 = short_after_pack·over_pick·pack_scan_mistake / 픽 롤백 = short_pick.
+   stock_short(선반 사실 — 롤백은 선반을 채우지 않는다)·recv_*(무관)·cin7_corrected=true(역조정
+   검토 — rollbackNotes 가 표시)·링크 null(옛 행 — 수동)은 절대 자동 무효화하지 않는다.
+   order_id 로 긁지 않는다 — 링크 컬럼(pack_task_id/pick_task_id)으로만 잡는다. */
+const PACK_VOID_REASONS=["short_after_pack","over_pick","pack_scan_mistake"];
+async function voidDisc(linkCol, ids, reasons, why){
+  if(!ids.length) return 0;
+  const {data,error}=await sb.from("wms_discrepancies")
+    .update({voided_at:new Date().toISOString(), voided_by:me.name, voided_reason:why})
+    .in(linkCol,ids).in("reason",reasons).is("voided_at",null).eq("cin7_corrected",false)
+    .select("id");
+  if(error) throw new Error("discrepancy void failed - rollback aborted before any delete: "+error.message);
+  return (data||[]).length;
+}
+/* 오더 단위 팩 롤백·Void 전용 — 팩 완료가 해소한 픽 부족(resolved_pack_recovery)을 다시 연다.
+   안 열면 실재하는 부족이 조용히 해소된 채 남는다(양방향). ⚠️ 배치 단위는 자동 재개하지 않는다
+   (recovery 행에 pack_task_id 가 없어 귀속 불가 — 근사 매칭은 오탐이 없는 문제를 만든다,
+   사용자 결정 2026-08-06. packer 가 링크를 남기게 하는 건 백로그) → rollbackNotes 가 표시만. */
+async function reopenRecoveries(oids){
+  const {data,error}=await sb.from("wms_discrepancies")
+    .update({reason:"short_pick", resolved_by:null, resolved_at:null})
+    .in("order_id",oids).eq("reason","resolved_pack_recovery")
+    .is("voided_at",null).eq("cin7_corrected",false)
+    .select("id");
+  if(error) throw new Error("recovery reopen failed - rollback aborted before any delete: "+error.message);
+  return (data||[]).length;
+}
+/* 자동 처리하지 않는 것들의 매니저 안내 (D·E·C — 표시만, 추측 처리 금지) */
+async function rollbackNotes(linkCol, ids, reasons, oids, opts){
+  const notes=[];
+  try{
+    const {count:cFixed}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true})
+      .in(linkCol,ids).in("reason",reasons).eq("cin7_corrected",true);
+    if(cFixed) notes.push(`⚠ ${cFixed} discrepancy(ies) referencing this work were already FIXED IN CIN7 — a reverse adjustment may be needed (Discrepancy tab shows them tagged).`);
+    const {count:cOld}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true})
+      .in("order_id",oids).in("reason",reasons).is(linkCol,null).is("voided_at",null).is("resolved_at",null);
+    if(cOld) notes.push(`⚠ ${cOld} older discrepancy row(s) have no task link and were NOT auto-voided — review manually in the Discrepancy tab.`);
+    if(opts&&opts.batchRecoveryNote){
+      const {count:cRec}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true})
+        .in("order_id",oids).eq("reason","resolved_pack_recovery").is("voided_at",null);
+      if(cRec) notes.push(`⚠ ${cRec} pick shortage(s) on this order were resolved during packing — THIS batch may be the one that resolved them. Verify; they are NOT auto-reopened on a batch-level undo (order-level Undo Pack reopens them).`);
+    }
+  }catch(e){ notes.push("⚠ discrepancy review checks failed — check the Discrepancy tab yourself: "+(e.message||e)); }
+  return notes;
+}
+function rollbackDone(headline, voided, reopened, notes){
+  const parts=[];
+  if(voided) parts.push(voided+" discrepancy(ies) voided (kept for audit)");
+  if(reopened) parts.push(reopened+" pick shortage(s) reopened (pack recovery undone)");
+  if(notes.length||reopened) alert(headline+(parts.length?"\n\n• "+parts.join("\n• "):"")+(notes.length?"\n\n"+notes.join("\n"):""));
+  else toast(headline+(parts.length?" · "+parts.join(" · "):""));
+}
+
 async function doBatchRollback(kind, pickId, packId, oid, onum, label){
   const msg = kind==="pack"
-    ? `Undo packing for batch ${label}?\n\n• Deletes pack verification for THIS batch only\n• Other batches of ${onum} are untouched\n• Related discrepancies are NOT removed\n\nProceed?`
-    : `Reset picking for batch ${label}?\n\n• This batch's picked quantities go back to 0\n• The batch returns to the waiting pool (unassigned)\n• Other batches of ${onum} are untouched\n\nProceed?`;
+    ? `Undo packing for batch ${label}?\n\n• Deletes pack verification for THIS batch only (a copy is archived first)\n• Other batches of ${onum} are untouched\n• This batch's pack discrepancies (short after pack / over-pick / double scan) are voided — kept for audit\n\nProceed?`
+    : `Reset picking for batch ${label}?\n\n• This batch's picked quantities go back to 0 (a copy is archived first)\n• The batch returns to the waiting pool (unassigned)\n• This batch's short-pick discrepancies are voided — kept for audit\n• Other batches of ${onum} are untouched\n\nProceed?`;
   if(!confirm(msg)) return;
   const now=new Date().toISOString();
   try{
-    // capture the original worker BEFORE deleting (pack packer / pick picker)
-    let origWorker=null;
-    if(kind==="pack" && packId){
-      const {data:pkt}=await sb.from("wms_pack_tasks").select("assigned_to").eq("id",packId).maybeSingle();
-      origWorker=pkt?.assigned_to||null;
-    } else {
-      const {data:pit}=await sb.from("wms_pick_tasks").select("assigned_to").eq("id",pickId).maybeSingle();
-      origWorker=pit?.assigned_to||null;
-    }
+    let origWorker=null, voided=0, notes=[];
     if(kind==="pack"){
       // safety re-check: block if this pack's items are already on a pallet
       const {count}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pack_task_id",packId);
       if(count){ toast("Blocked: this batch is on a pallet. Undo Fulfillment first.",true); return; }
-      await sb.from("wms_pack_task_lines").delete().eq("pack_task_id",packId);
-      await sb.from("wms_pack_tasks").delete().eq("id",packId);
+      // ── 아카이브 → 무효화 → 삭제 (순서 불가침 — archiveRows 성공 전엔 아무것도 지우지 않는다) ──
+      const [pk,pl]=await Promise.all([
+        sb.from("wms_pack_tasks").select("*").eq("id",packId),
+        sb.from("wms_pack_task_lines").select("*").eq("pack_task_id",packId),
+      ]);
+      if(pk.error||pl.error) throw (pk.error||pl.error);
+      origWorker=pk.data?.[0]?.assigned_to||null;
+      await archiveRows("pack", oid, onum, label, "wms_pack_tasks", pk.data);
+      await archiveRows("pack", oid, onum, label, "wms_pack_task_lines", pl.data);
+      voided=await voidDisc("pack_task_id",[packId],PACK_VOID_REASONS,"pack rollback "+label);
+      notes=await rollbackNotes("pack_task_id",[packId],PACK_VOID_REASONS,[oid],{batchRecoveryNote:true});
+      let d=await sb.from("wms_pack_task_lines").delete().eq("pack_task_id",packId); if(d.error) throw d.error;
+      d=await sb.from("wms_pack_tasks").delete().eq("id",packId); if(d.error) throw d.error;
       // order can no longer be ready_to_close with a pack missing
       await sb.from("wms_orders").update({status:"packing",updated_at:now}).eq("id",oid).eq("status","ready_to_close");
     } else { // pick
       // safety re-check: block if a pack task exists for this batch (undo pack first)
       const {count}=await sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("pick_task_id",pickId);
       if(count){ toast("Blocked: this batch already has packing. Undo Pack first.",true); return; }
-      await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).eq("pick_task_id",pickId);
-      await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("id",pickId);
+      // 리셋은 delete 가 아니라 0 으로 덮는 UPDATE 지만 증거(picked_base·picked_at)가 같은 방식으로
+      // 사라진다 → 덮기 전 스냅샷을 같은 아카이브에 남긴다 (사용자 승인 2026-08-06).
+      const [pt,pl]=await Promise.all([
+        sb.from("wms_pick_tasks").select("*").eq("id",pickId),
+        sb.from("wms_pick_task_lines").select("*").eq("pick_task_id",pickId),
+      ]);
+      if(pt.error||pl.error) throw (pt.error||pl.error);
+      origWorker=pt.data?.[0]?.assigned_to||null;
+      await archiveRows("pick_reset", oid, onum, label, "wms_pick_tasks", pt.data);
+      await archiveRows("pick_reset", oid, onum, label, "wms_pick_task_lines", pl.data);
+      voided=await voidDisc("pick_task_id",[pickId],["short_pick"],"pick reset "+label);
+      notes=await rollbackNotes("pick_task_id",[pickId],["short_pick"],[oid],{});
+      let u=await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).eq("pick_task_id",pickId); if(u.error) throw u.error;
+      u=await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("id",pickId); if(u.error) throw u.error;
     }
     // audit log (batch_label + original_worker columns optional; fall back without them)
     const STAGE={pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"]};
@@ -957,7 +1040,7 @@ async function doBatchRollback(kind, pickId, packId, oid, onum, label){
       ins=await sb.from("wms_rollback_log").insert(row2);
       if(ins.error){ delete row2.batch_label; await sb.from("wms_rollback_log").insert(row2); }
     }
-    toast(label+" rolled back");
+    rollbackDone(label+" rolled back.", voided, 0, notes);
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
 }
@@ -983,49 +1066,77 @@ async function loadRollbackLog(){
 }
 
 const RB_CONFIRM={
-  fulfillment:o=>`Undo fulfillment for ${o}?\n\n• Deletes this order's pallet/box assignments\n• Returns it to the Pack-complete stage\n• Shared pallets still holding other orders' items are kept\n\nProceed?`,
-  pack:o=>`Undo packing for ${o}?\n\n• Deletes ALL pack verification for this order\n• Returns it to the Pick-complete stage\n• Related discrepancies are NOT removed (review separately)\n\nProceed?`,
-  pick:o=>`Reset picking for ${o}?\n\n• All picked quantities go back to 0\n• Batches return to unstarted (batches are kept)\n• Related discrepancies are NOT removed\n\nProceed?`,
-  split:o=>`Undo split for ${o}?\n\n• Deletes ALL batches for this order\n• Returns it to the waiting-to-split stage so it can be split again\n\nProceed?`,
+  fulfillment:o=>`Undo fulfillment for ${o}?\n\n• Deletes this order's pallet/box assignments (a copy is archived first)\n• Returns it to the Pack-complete stage\n• Shared pallets still holding other orders' items are kept\n\nProceed?`,
+  pack:o=>`Undo packing for ${o}?\n\n• Deletes ALL pack verification for this order (a copy is archived first)\n• Returns it to the Pick-complete stage\n• Its pack discrepancies (short after pack / over-pick / double scan) are voided — kept for audit\n• Pick shortages that packing had resolved are REOPENED\n\nProceed?`,
+  pick:o=>`Reset picking for ${o}?\n\n• All picked quantities go back to 0 (a copy is archived first)\n• Batches return to unstarted (batches are kept)\n• Its short-pick discrepancies are voided — kept for audit\n\nProceed?`,
+  split:o=>`Undo split for ${o}?\n\n• Deletes ALL batches for this order (a copy is archived first)\n• Its short-pick discrepancies are voided — kept for audit\n• Returns it to the waiting-to-split stage so it can be split again\n\nProceed?`,
 };
 async function doRollback(oid, action, onum, worker){
   if(!confirm(RB_CONFIRM[action](onum))) return;
   const now=new Date().toISOString();
   try{
+    let voided=0, reopened=0, notes=[];
     if(action==="fulfillment"){
-      await sb.from("wms_pallet_items").delete().eq("order_id",oid);
-      const {data:units}=await sb.from("wms_pallets").select("id").eq("order_id",oid);
+      // fulfillment 는 discrepancy 를 만들지 않는다 — 아카이브만.
+      const it=await sb.from("wms_pallet_items").select("*").eq("order_id",oid); if(it.error) throw it.error;
+      await archiveRows("fulfillment", oid, onum, null, "wms_pallet_items", it.data);
+      let d=await sb.from("wms_pallet_items").delete().eq("order_id",oid); if(d.error) throw d.error;
+      const {data:units}=await sb.from("wms_pallets").select("*").eq("order_id",oid);
       for(const u of (units||[])){
         const {count:itemCnt}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pallet_id",u.id);
         const {count:childCnt}=await sb.from("wms_pallets").select("id",{count:"exact",head:true}).eq("parent_id",u.id);
-        if(!itemCnt && !childCnt) await sb.from("wms_pallets").delete().eq("id",u.id);
+        if(!itemCnt && !childCnt){
+          await archiveRows("fulfillment", oid, onum, null, "wms_pallets", [u]);
+          d=await sb.from("wms_pallets").delete().eq("id",u.id); if(d.error) throw d.error;
+        }
       }
       // order stays ready_to_close
     }
     else if(action==="pack"){
-      const {data:packs}=await sb.from("wms_pack_tasks").select("id").eq("order_id",oid);
+      const {data:packs,error:pe}=await sb.from("wms_pack_tasks").select("*").eq("order_id",oid);
+      if(pe) throw pe;
       const pids=(packs||[]).map(p=>p.id);
       if(pids.length){
-        await sb.from("wms_pack_task_lines").delete().in("pack_task_id",pids);
-        await sb.from("wms_pack_tasks").delete().eq("order_id",oid);
+        const pl=await sb.from("wms_pack_task_lines").select("*").in("pack_task_id",pids); if(pl.error) throw pl.error;
+        // ── 아카이브 → 무효화·재개 → 삭제 (순서 불가침) ──
+        await archiveRows("pack", oid, onum, null, "wms_pack_tasks", packs);
+        await archiveRows("pack", oid, onum, null, "wms_pack_task_lines", pl.data);
+        voided=await voidDisc("pack_task_id",pids,PACK_VOID_REASONS,"pack rollback (order "+onum+")");
+        reopened=await reopenRecoveries([oid]);   // 오더 단위 = 자동 재개 (모든 팩이 사라지므로 안전)
+        notes=await rollbackNotes("pack_task_id",pids,PACK_VOID_REASONS,[oid],{});
+        let d=await sb.from("wms_pack_task_lines").delete().in("pack_task_id",pids); if(d.error) throw d.error;
+        d=await sb.from("wms_pack_tasks").delete().eq("order_id",oid); if(d.error) throw d.error;
       }
       await sb.from("wms_orders").update({status:"picking",updated_at:now}).eq("id",oid);
     }
     else if(action==="pick"){
-      const {data:pt}=await sb.from("wms_pick_tasks").select("id").eq("order_id",oid);
+      const {data:pt,error:te}=await sb.from("wms_pick_tasks").select("*").eq("order_id",oid);
+      if(te) throw te;
       const tids=(pt||[]).map(p=>p.id);
       if(tids.length){
-        await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).in("pick_task_id",tids);
-        await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("order_id",oid);
+        const pl=await sb.from("wms_pick_task_lines").select("*").in("pick_task_id",tids); if(pl.error) throw pl.error;
+        // 리셋(0 덮어쓰기)도 증거가 사라지므로 덮기 전 스냅샷 (사용자 승인 2026-08-06)
+        await archiveRows("pick_reset", oid, onum, null, "wms_pick_tasks", pt);
+        await archiveRows("pick_reset", oid, onum, null, "wms_pick_task_lines", pl.data);
+        voided=await voidDisc("pick_task_id",tids,["short_pick"],"pick reset (order "+onum+")");
+        notes=await rollbackNotes("pick_task_id",tids,["short_pick"],[oid],{});
+        let u=await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).in("pick_task_id",tids); if(u.error) throw u.error;
+        u=await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("order_id",oid); if(u.error) throw u.error;
       }
       await sb.from("wms_orders").update({status:"picking",updated_at:now}).eq("id",oid);
     }
     else if(action==="split"){
-      const {data:pt}=await sb.from("wms_pick_tasks").select("id").eq("order_id",oid);
+      const {data:pt,error:te}=await sb.from("wms_pick_tasks").select("*").eq("order_id",oid);
+      if(te) throw te;
       const tids=(pt||[]).map(p=>p.id);
       if(tids.length){
-        await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids);
-        await sb.from("wms_pick_tasks").delete().eq("order_id",oid);
+        const pl=await sb.from("wms_pick_task_lines").select("*").in("pick_task_id",tids); if(pl.error) throw pl.error;
+        await archiveRows("split", oid, onum, null, "wms_pick_tasks", pt);
+        await archiveRows("split", oid, onum, null, "wms_pick_task_lines", pl.data);
+        voided=await voidDisc("pick_task_id",tids,["short_pick"],"split undo (order "+onum+")");
+        notes=await rollbackNotes("pick_task_id",tids,["short_pick"],[oid],{});
+        let d=await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids); if(d.error) throw d.error;
+        d=await sb.from("wms_pick_tasks").delete().eq("order_id",oid); if(d.error) throw d.error;
       }
       await sb.from("wms_orders").update({status:"pending",updated_at:now}).eq("id",oid);
     }
@@ -1038,7 +1149,7 @@ async function doRollback(oid, action, onum, worker){
     };
     const ins=await sb.from("wms_rollback_log").insert(logRow);
     if(ins.error){ delete logRow.original_worker; await sb.from("wms_rollback_log").insert(logRow); } // 컬럼 없으면 폴백
-    toast("Rollback done");
+    rollbackDone(onum+" rollback done ("+action+").", voided, reopened, notes);
     loadRollback();
   }catch(e){ toast("Rollback failed: "+(e.message||e), true); }
 }
@@ -1063,36 +1174,67 @@ function wireRollbackCommon(el){
    Waves left empty by this void are removed automatically. Order row is kept (status
    'voided') so polling dedup still blocks re-import and records stay auditable. */
 async function doVoid(oid,onum,fromStage,worker){
-  if(!confirm(`VOID ${onum}?\n\nThis wipes EVERY stage for this order:\n• pallet/box assignments removed\n• pack verification deleted\n• all pick batches deleted (empty waves cleaned up)\n• order marked VOIDED — hidden from work screens, kept for records\n\nUse when the order was cancelled in Cin7. Proceed?`)) return;
+  if(!confirm(`VOID ${onum}?\n\nThis wipes EVERY stage for this order (copies are archived first):\n• pallet/box assignments removed\n• pack verification deleted\n• all pick batches deleted (empty waves cleaned up)\n• its pack/pick discrepancies are voided — kept for audit; pack-recovered pick shortages are reopened\n• order marked VOIDED — hidden from work screens, kept for records\n\nUse when the order was cancelled in Cin7. Proceed?`)) return;
   const now=new Date().toISOString();
   try{
+    // ── 아카이브 → 무효화·재개 → 삭제 (순서 불가침 — archiveRows 성공 전엔 아무것도 지우지 않는다) ──
+    // 세 층의 대상 행을 전부 먼저 보존한 뒤에야 첫 delete 가 나간다.
+    const [it,units,packs,pt]=await Promise.all([
+      sb.from("wms_pallet_items").select("*").eq("order_id",oid),
+      sb.from("wms_pallets").select("*").eq("order_id",oid),
+      sb.from("wms_pack_tasks").select("*").eq("order_id",oid),
+      sb.from("wms_pick_tasks").select("*").eq("order_id",oid),
+    ]);
+    const err=it.error||units.error||packs.error||pt.error; if(err) throw err;
+    const pids=(packs.data||[]).map(p=>p.id);
+    const tids=(pt.data||[]).map(p=>p.id);
+    const waveIds=[...new Set((pt.data||[]).map(p=>p.wave_id).filter(Boolean))];
+    const [packL,pickL]=await Promise.all([
+      pids.length?sb.from("wms_pack_task_lines").select("*").in("pack_task_id",pids):{data:[]},
+      tids.length?sb.from("wms_pick_task_lines").select("*").in("pick_task_id",tids):{data:[]},
+    ]);
+    if(packL.error||pickL.error) throw (packL.error||pickL.error);
+    await archiveRows("void", oid, onum, null, "wms_pallet_items", it.data);
+    await archiveRows("void", oid, onum, null, "wms_pack_tasks", packs.data);
+    await archiveRows("void", oid, onum, null, "wms_pack_task_lines", packL.data);
+    await archiveRows("void", oid, onum, null, "wms_pick_tasks", pt.data);
+    await archiveRows("void", oid, onum, null, "wms_pick_task_lines", pickL.data);
+    // 무효화: 팩 3종 + short_pick. stock_short 는 Void 여도 제외 — 오더가 취소돼도 선반이 비었다는
+    // 사실은 남는다(규칙 41, 매니저의 Cin7 조정 근거). recv_* 무관.
+    let voided=0, reopened=0;
+    voided+=await voidDisc("pack_task_id",pids,PACK_VOID_REASONS,"void "+onum);
+    voided+=await voidDisc("pick_task_id",tids,["short_pick"],"void "+onum);
+    reopened=await reopenRecoveries([oid]);
+    const notes=[...await rollbackNotes("pack_task_id",pids,PACK_VOID_REASONS,[oid],{}),
+                 ...await rollbackNotes("pick_task_id",tids,["short_pick"],[oid],{})];
     // fulfillment layer (same as Undo Fulfillment)
-    await sb.from("wms_pallet_items").delete().eq("order_id",oid);
-    const {data:units}=await sb.from("wms_pallets").select("id").eq("order_id",oid);
-    for(const u of (units||[])){
+    let d=await sb.from("wms_pallet_items").delete().eq("order_id",oid); if(d.error) throw d.error;
+    for(const u of (units.data||[])){
       const {count:itemCnt}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pallet_id",u.id);
       const {count:childCnt}=await sb.from("wms_pallets").select("id",{count:"exact",head:true}).eq("parent_id",u.id);
-      if(!itemCnt && !childCnt) await sb.from("wms_pallets").delete().eq("id",u.id);
+      if(!itemCnt && !childCnt){
+        await archiveRows("void", oid, onum, null, "wms_pallets", [u]);
+        d=await sb.from("wms_pallets").delete().eq("id",u.id); if(d.error) throw d.error;
+      }
     }
     // pack layer
-    const {data:packs}=await sb.from("wms_pack_tasks").select("id").eq("order_id",oid);
-    const pids=(packs||[]).map(p=>p.id);
     if(pids.length){
-      await sb.from("wms_pack_task_lines").delete().in("pack_task_id",pids);
-      await sb.from("wms_pack_tasks").delete().eq("order_id",oid);
+      d=await sb.from("wms_pack_task_lines").delete().in("pack_task_id",pids); if(d.error) throw d.error;
+      d=await sb.from("wms_pack_tasks").delete().eq("order_id",oid); if(d.error) throw d.error;
     }
-    // pick layer — remember wave membership BEFORE deleting
-    const {data:pt}=await sb.from("wms_pick_tasks").select("id,wave_id").eq("order_id",oid);
-    const tids=(pt||[]).map(p=>p.id);
-    const waveIds=[...new Set((pt||[]).map(p=>p.wave_id).filter(Boolean))];
+    // pick layer
     if(tids.length){
-      await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids);
-      await sb.from("wms_pick_tasks").delete().eq("order_id",oid);
+      d=await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids); if(d.error) throw d.error;
+      d=await sb.from("wms_pick_tasks").delete().eq("order_id",oid); if(d.error) throw d.error;
     }
-    // waves this void left empty → remove them
+    // waves this void left empty → remove them (archived first)
     for(const wid of waveIds){
       const {count}=await sb.from("wms_pick_tasks").select("id",{count:"exact",head:true}).eq("wave_id",wid);
-      if(!count) await sb.from("wms_waves").delete().eq("id",wid);
+      if(!count){
+        const {data:wrow}=await sb.from("wms_waves").select("*").eq("id",wid);
+        await archiveRows("void", oid, onum, null, "wms_waves", wrow||[]);
+        d=await sb.from("wms_waves").delete().eq("id",wid); if(d.error) throw d.error;
+      }
     }
     // order → voided (kept as a record; dedup still blocks re-import)
     await sb.from("wms_orders").update({status:"voided",updated_at:now}).eq("id",oid);
@@ -1102,7 +1244,7 @@ async function doVoid(oid,onum,fromStage,worker){
       original_worker:(worker||null)};
     const ins=await sb.from("wms_rollback_log").insert(logRow);
     if(ins.error){ delete logRow.original_worker; await sb.from("wms_rollback_log").insert(logRow); }
-    toast(onum+" voided");
+    rollbackDone(onum+" voided.", voided, reopened, notes);
     loadRollback();
   }catch(e){ toast("Void failed: "+(e.message||e), true); }
 }
@@ -1118,18 +1260,33 @@ async function doUndoWave(wid,label,memberCnt){
     if(!confirm(`Delete empty wave ${label}? It has no member batches left.`)) return;
   }
   try{
-    const {data:ts}=await sb.from("wms_pick_tasks").select("id,order_id, wms_orders(order_number)").eq("wave_id",wid);
+    const {data:ts,error:tse}=await sb.from("wms_pick_tasks").select("*, wms_orders(order_number)").eq("wave_id",wid);
+    if(tse) throw tse;
     const tids=(ts||[]).map(t=>t.id);
     const oids=[...new Set((ts||[]).map(t=>t.order_id).filter(Boolean))];
+    // ── 아카이브 → 무효화 → 삭제 (순서 불가침) ──
+    let voided=0, notes=[];
+    const {data:wrow}=await sb.from("wms_waves").select("*").eq("id",wid);
+    // 임베드(wms_orders)는 원본 행이 아니다 — 아카이브에는 순수 행만 담는다
+    const tsRows=(ts||[]).map(({wms_orders,...r})=>r);
     if(tids.length){
-      await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids);
-      await sb.from("wms_pick_tasks").delete().in("id",tids);
+      const pl=await sb.from("wms_pick_task_lines").select("*").in("pick_task_id",tids); if(pl.error) throw pl.error;
+      await archiveRows("unwave", null, label, label, "wms_pick_tasks", tsRows);
+      await archiveRows("unwave", null, label, label, "wms_pick_task_lines", pl.data);
+      voided=await voidDisc("pick_task_id",tids,["short_pick"],"wave undo "+label);
+      notes=await rollbackNotes("pick_task_id",tids,["short_pick"],oids.length?oids:[-1],{});
+    }
+    await archiveRows("unwave", null, label, label, "wms_waves", wrow||[]);
+    if(tids.length){
+      let d=await sb.from("wms_pick_task_lines").delete().in("pick_task_id",tids); if(d.error) throw d.error;
+      d=await sb.from("wms_pick_tasks").delete().in("id",tids); if(d.error) throw d.error;
     }
     if(oids.length){
       await sb.from("wms_orders").update({status:"pending",updated_at:new Date().toISOString()}).in("id",oids);
     }
     const {error:we}=await sb.from("wms_waves").delete().eq("id",wid);
     if(we) throw we;
+    if(voided||notes.length) rollbackDone(label+" undone.", voided, 0, notes);
     // audit: one row per member order
     for(const t of (ts||[])){
       const row={order_id:t.order_id,order_number:t.wms_orders?.order_number||null,action:"unwave",
@@ -1741,12 +1898,23 @@ async function deleteReceipt(rid,po,exported){
   const warn=exported
     ? `\n\n⚠ This receipt was already APPLIED to Cin7. Deleting here does NOT undo Cin7 — correct Cin7 manually (unstock / reverse transfer).`
     : "";
-  const typed=prompt(`Delete receipt ${po}?\nAll receiving progress and lines for this receipt are removed (WMS only — Cin7 is untouched).${warn}\n\nType the PO number to confirm:`,"");
+  const typed=prompt(`Delete receipt ${po}?\nAll receiving progress and lines for this receipt are removed (a copy is archived first; WMS only — Cin7 is untouched).${warn}\n\nType the PO number to confirm:`,"");
   if(typed===null) return;
   if(typed.trim().toUpperCase()!==String(po).toUpperCase()){ toast("PO number mismatch — cancelled",true); return; }
-  const {error}=await sb.from("wms_receipts").delete().eq("id",rid);
-  if(error){ toast("Delete failed: "+error.message,true); return; }
-  toast(po+" receipt deleted"); loadRecv();
+  try{
+    // ── 아카이브 → 삭제 (순서 불가침). 라인은 FK CASCADE 로 조용히 함께 지워진다 — 반드시 함께 보존.
+    //    리시빙 discrepancy(recv_*)는 건드리지 않는다 — 매니저 판단 유지(위 경고문 그대로).
+    const [rc,rl]=await Promise.all([
+      sb.from("wms_receipts").select("*").eq("id",rid),
+      sb.from("wms_receipt_lines").select("*").eq("receipt_id",rid),
+    ]);
+    if(rc.error||rl.error) throw (rc.error||rl.error);
+    await archiveRows("receipt_delete", null, po, null, "wms_receipts", rc.data);
+    await archiveRows("receipt_delete", null, po, null, "wms_receipt_lines", rl.data);
+    const {error}=await sb.from("wms_receipts").delete().eq("id",rid);
+    if(error) throw error;
+    toast(po+" receipt deleted (archived)"); loadRecv();
+  }catch(e){ toast("Delete failed: "+(e.message||e),true); }
 }
 async function approveOffPo(id){
   const {error}=await sb.from("wms_receipt_lines")
@@ -2112,7 +2280,7 @@ async function printOrderPackingList(oid){
 
 /* ---------- Discrepancy ---------- */
 async function refreshDiscBadge(){
-  const {count}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true}).is("resolved_at",null).eq("cin7_corrected",false);
+  const {count}=await sb.from("wms_discrepancies").select("id",{count:"exact",head:true}).is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null);
   const b=document.getElementById("discBadge");
   if(count&&count>0){ b.style.display="inline-block"; b.textContent=count; } else { b.style.display="none"; }
 }
@@ -2126,11 +2294,25 @@ function discCatOf(d){
 async function loadDisc(){
   const r=rangeFor(discPeriodKey,discCustom); discRange=r; setRangeLabel("discPeriod",r.label);
   // open (all, any period) + recently resolved (period applied)
+  // voided(롤백 무효화) 행은 큐에서 빠지고 이력에 태그로 남는다 — 삭제가 아니라 무효화 (2026-08-06)
   const [open, done]=await Promise.all([
-    sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).order("created_at",{ascending:false}),
-    sb.from("wms_discrepancies").select("*").or("resolved_at.not.is.null,cin7_corrected.eq.true").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(100),
+    sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null).order("created_at",{ascending:false}),
+    sb.from("wms_discrepancies").select("*").or("resolved_at.not.is.null,cin7_corrected.eq.true,voided_at.not.is.null").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(100),
   ]);
   discOpenRows=open.data||[]; discDoneRows=done.data||[];
+  // D 표시: Cin7 Fixed 인데 근거 태스크가 롤백돼 사라진 행 → "역조정 필요할 수 있음" 배지.
+  // 링크는 있는데 라이브 테이블에 없음 = 롤백/삭제됨 (컬럼 추가 없이 계산 — 일괄 2쿼리, N+1 없음).
+  try{
+    const fixed=discDoneRows.filter(d=>d.cin7_corrected&&!d.voided_at);
+    const pkIds=[...new Set(fixed.map(d=>d.pack_task_id).filter(Boolean))];
+    const ptIds=[...new Set(fixed.map(d=>d.pick_task_id).filter(Boolean))];
+    const [pkLive,ptLive]=await Promise.all([
+      pkIds.length?sb.from("wms_pack_tasks").select("id").in("id",pkIds):{data:[]},
+      ptIds.length?sb.from("wms_pick_tasks").select("id").in("id",ptIds):{data:[]},
+    ]);
+    const pkSet=new Set((pkLive.data||[]).map(r=>r.id)), ptSet=new Set((ptLive.data||[]).map(r=>r.id));
+    fixed.forEach(d=>{ d._srcGone=(d.pack_task_id&&!pkSet.has(d.pack_task_id))||(d.pick_task_id&&!ptSet.has(d.pick_task_id)); });
+  }catch(e){ /* 배지는 부가 정보 — 실패해도 목록은 그린다 */ }
   renderDisc();
   refreshDiscBadge();
 }
@@ -2153,7 +2335,11 @@ function discRow(d,actionable){
   const rl=REASON_LABEL[d.reason]||d.reason;
   const act=actionable
     ? `<td><button class="btnsm ok" data-fix="${d.id}">Cin7 Fixed</button></td>`
-    : `<td style="color:var(--mut);font-size:12px">${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}</td>`;
+    : `<td style="color:var(--mut);font-size:12px">${
+        d.voided_at
+          ? `<span class="tag r-short_pick" title="${esc(d.voided_reason||"")}">Voided (rollback)</span> ${d.voided_by?esc(d.voided_by)+" · ":""}${new Date(d.voided_at).toLocaleDateString()}`
+          : `${d._srcGone?'<span class="tag r-short_pick" title="the batch this row came from was rolled back after the Cin7 fix">⚠ batch rolled back — reverse adjustment?</span> ':""}${d.resolved_by?esc(d.resolved_by)+" · ":""}${d.resolved_at?new Date(d.resolved_at).toLocaleDateString():"Fixed"}`
+      }</td>`;
   // stock_short: no responsible (it is not a mistake) — show who DECLARED it + when (audit)
   const who=d.declared_by
     ? `<span style="color:#2456d6">${esc(d.declared_by)}</span> <span style="color:var(--mut-2);font-size:11px">declared${d.source&&d.source!=="receiving"?" · "+esc(d.source):""}</span>`
@@ -2197,7 +2383,7 @@ async function loadStats(){
   const [picks, packs, disc]=await Promise.all([
     sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
+    sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null),
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders
   // throughput + avg duration tally

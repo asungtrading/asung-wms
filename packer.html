@@ -1292,7 +1292,8 @@ document.getElementById("doneBtn").onclick=async ()=>{
       for(const l of recovered){
         await sb.from("wms_discrepancies")
           .update({resolved_by:me.name, resolved_at:new Date().toISOString(), reason:"resolved_pack_recovery"})
-          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","short_pick").is("resolved_at",null);
+          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","short_pick").is("resolved_at",null)
+          .is("voided_at",null);   // 롤백 무효화 행을 되살리지 않는다 (2026-08-06 — 사용자 승인 1줄)
       }
     }
     // CAS (규칙 28 후속): 확인-쓰기 틈에 이어받기당한 스테일 화면이 완료를 덮지
