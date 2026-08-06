@@ -1440,36 +1440,20 @@ document.getElementById("holdBtn").onclick=async ()=>{
   if(!confirm("Hold this verification?\nYour progress is saved and the batch returns to the pack queue\nYou or another worker can resume it later..")) return;
   if(!await ensureMine()) return;   // 규칙 28 — 이미 남의 것이면 내 스테일 수량으로 덮지 않는다
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
-  scanBusy=true;   // 쓰기 구간 동안 스캔 차단 (2026-08-06, 완료 경로와 동일)
   try{
-    // 라인 저장 = 완료 경로와 같은 묶음 upsert (전부 아니면 전무 — 규칙 9 「완료 라인 저장은 묶음 upsert」).
-    // 이 루프도 결과 무확인이었다(기준선 감사 정독 추가 발견).
-    const holdRows=lines.filter(l=>l.packline_id).map(l=>({
-      id:l.packline_id, verified_base:l.verified,
-      status:(l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending")),
-      verification_method:l.vmethod||null,
-    }));
-    if(holdRows.length){
-      await mustRows(sb.from("wms_pack_task_lines").upsert(holdRows,{onConflict:"id"}).select("id"),
-        "Hold failed — nothing was saved", holdRows.length);
-    }
+    for(const l of lines){ const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending"); await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id); }
     // pack_task delete → pick batch returns to pack queue (line progress lost: fresh verify on restart)
     // to preserve progress, pack_taskwould need to keep as pending, but pool logic is "pack_task none"is
     // hold keeps pack_task as pending + clears assigned_to → drops from 'My In Progress' so anyone can resume.
     stopHeartbeat(); presenceLeave();
-    // picker Hold 는 이 플립의 error 를 확인하는데 packer 만 안 하고 있었다 — 대칭 교정 (2026-08-06)
-    const {error:he}=await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",packTask.id);
-    if(he) throw he;
+    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",packTask.id);
     toast(packTask.batch_label+" held");
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){
-    toast("Hold failed: "+(e.message||e),true);
-    if(packTask){ startHeartbeat(); presenceJoin(); resyncAfterFail(); } // 서버 재조회로 저장/미저장 안내 (2026-08-06)
-  }
-  finally{ scanBusy=false; btn.disabled=false; }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
+  finally{ btn.disabled=false; }
 };
 
 /* Back (keep My In Progress) */

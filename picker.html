@@ -1441,18 +1441,11 @@ document.getElementById("holdBtn").onclick=async ()=>{
     : "Hold this batch?\nYour progress is saved and the batch returns to the waiting list.\nYou or another worker can resume it later.")) return;
   if(!await ensureMine()) return;   // 규칙 28 — 이미 남의 것이면 내 스테일 수량으로 덮지 않는다
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
-  scanBusy=true;   // 쓰기 구간 동안 스캔 차단 (2026-08-06, 완료 경로와 동일)
   try{
-    // save current line quantity — 완료 경로와 같은 묶음 upsert (전부 아니면 전무 —
-    // 규칙 9 「완료 라인 저장은 묶음 upsert」). 이 루프도 결과 무확인이었다(기준선 감사 정독 추가 발견).
-    const holdRows=lines.map(l=>({
-      id:l.id, picked_base:l.picked,
-      status:(l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending")),
-      verification_method:l.vmethod||null,
-    }));
-    if(holdRows.length){
-      await mustRows(sb.from("wms_pick_task_lines").upsert(holdRows,{onConflict:"id"}).select("id"),
-        "Hold failed — nothing was saved", holdRows.length);
+    // save current line quantity
+    for(const l of lines){
+      const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
+      await sb.from("wms_pick_task_lines").update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
     }
     // set to pending + unassigned (progress preserved on lines)
     stopHeartbeat(); presenceLeave();
@@ -1470,11 +1463,8 @@ document.getElementById("holdBtn").onclick=async ()=>{
     }
     toast(label+" Held (returned to waiting list)");
     resetToList();
-  }catch(e){
-    toast("Hold failed: "+(e.message||e),true);
-    if(task||wave){ startHeartbeat(); presenceJoin(); resyncAfterFail(); } // 서버 재조회로 저장/미저장 안내 (2026-08-06)
-  }
-  finally{ scanBusy=false; btn.disabled=false; }
+  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(task||wave){ startHeartbeat(); presenceJoin(); } }
+  finally{ btn.disabled=false; }
 };
 
 /* ---------- keep scan focus (scan is default) ---------- */
