@@ -43,8 +43,9 @@
 `id`, `pallet_id`(FK), `pack_task_id`(FK), `order_id`(FK), `drop_location`, `label`, `note`, `created_at`. 재배치=pallet_id만 변경, 부분이동=item split.
 
 ### wms_discrepancies — ⚠️ 불일치 미해결 큐 (가장 중요)
-컬럼 (2026-08-04 실물 DB 확인): `id`, `order_id`(FK, **NULL 허용** — 리시빙), `order_number`, `sku`, `ordered_base`, `actual_base`, `reason`(**text, CHECK 없음**), `cin7_corrected`(bool, backend가 Cin7 수정 완료 체크), `resolved_by`, `resolved_at`, `created_at`, `responsible`(⚠️ **실수 귀속 전용** — Stats mistake tally 가 이 컬럼으로 센다), `source`(picking/packing/receiving — pick/pack 의 옛 행은 null), `po_number`, `receipt_id`, `declared_by`(2026-08-04, stock_short 선언자 — 감사, 시각은 created_at). 부분인덱스 `where cin7_corrected=false`(미해결만 빠른 조회) + 전체 유니크 `uq_disc_receipt_sku(receipt_id, sku)`.
+컬럼 (2026-08-04 실물 DB 확인): `id`, `order_id`(FK, **NULL 허용** — 리시빙), `order_number`, `sku`, `ordered_base`, `actual_base`, `reason`(text — ⚠️ **2026-08-06 부터 CHECK 있음**, 아래), `cin7_corrected`(bool, backend가 Cin7 수정 완료 체크), `resolved_by`, `resolved_at`, `created_at`, `responsible`(⚠️ **실수 귀속 전용** — Stats mistake tally 가 이 컬럼으로 센다), `source`(picking/packing/receiving — pick/pack 의 옛 행은 null), `po_number`, `receipt_id`, `declared_by`(2026-08-04, stock_short 선언자 — 감사, 시각은 created_at). 부분인덱스 `where cin7_corrected=false`(미해결만 빠른 조회) + 전체 유니크 `uq_disc_receipt_sku(receipt_id, sku)`.
 `reason` 실제 값: `short_pick`(픽커 부족, responsible 미설정) / `short_after_pack`(팩 후 부족, responsible=picker) / `over_pick`(진짜 초과, responsible=picker) / `resolved_pack_recovery`(팩커가 채워 해소) / **`stock_short`(재고 불일치 선언 — 실수 아님, responsible=null·declared_by 기록, 2026-08-04)** / **`pack_scan_mistake`(팩커 중복 스캔 자백 — 선해소 insert, responsible=null, 2026-08-04)** / `recv_over`·`recv_short`·`recv_off_po`(리시빙).
+- ⚠️⚠️ **`reason` CHECK (2026-08-06, `20260806000000_receipts_uq_disc_reports_checks.sql`)** — 위 9개 값만 허용(코드 전수 조사와 일치 · admin REASON_LABEL 에만 있던 `pack_mismatch` 는 insert 코드·데이터 모두 없어 제외 — 사용자 결정). NULL 은 통과. **새 reason 추가 = CHECK 를 바꾸는 마이그레이션이 코드보다 먼저** — 안 나가면 첫 insert 가 400(23514) 으로 죽고, EF 리시빙 선기록이면 Apply 중단(규칙 27 R12).
 
 ## 복제 테이블 2개 (BQ→Supabase, 길 A)
 
@@ -65,7 +66,7 @@
 
 ## wms_reports — 워커 데이터품질 리포트 (2026-07-21 추가, `wms_reports.sql`)
 `id`(PK), `order_id`(FK, **nullable** — 리시빙 리포트는 null), `order_number`, `sku`, `kind`(`wrong_location`/`barcode_mismatch`/`image_mismatch`/`box_barcode`), `note`(상세 예 "Listed bin A1-02 · found at B3-04" — **박스 바코드 스캔 값도 여기 담긴다**), `reported_by`(작업자), `source`(picker/packer/receiver), `resolved_by`, `resolved_at`, `created_at`, **`receipt_id`/`po_number`(2026-08-05, `20260805200000_reports_receiving.sql` — 리시빙 귀속, wms_discrepancies 전례와 동일 구조 · ⚠️ 현장 미검증)**. **discrepancy(재고수량) 큐와 분리.** picker=wrong_location+barcode_mismatch+image_mismatch, packer=barcode_mismatch+image_mismatch, receiver=barcode_mismatch+box_barcode+image_mismatch. admin Reports 탭에서 리뷰/resolve(kind 필터). 인덱스 `idx_reports_open`(부분)·`idx_reports_order`·`idx_reports_receipt_open`(부분, 2026-08-05). RLS auth_all.
-- ⚠️ **`kind` 는 `text NOT NULL` — CHECK 제약이 없다**(baseline 710~723 확인). 새 kind 추가는 앱 코드만으로 되고 마이그레이션이 필요 없다. 규칙 29 대로 실물 확인 후 판단할 것: `supabase/wms_reports_image_mismatch.sql` STEP 1(제약이 있으면 STEP 2 가 값 목록을 실데이터에서 뽑아 재생성).
+- ⚠️ **2026-08-06 정정 — `kind` 에 CHECK 가 생겼다** (`20260806000000_receipts_uq_disc_reports_checks.sql` — wrong_location·barcode_mismatch·image_mismatch·box_barcode 4개). 종전 기록("CHECK 제약이 없다 → 새 kind 는 앱 코드만으로")은 **그날까지만 사실**이다. **새 kind 추가 = CHECK 를 바꾸는 마이그레이션이 코드보다 먼저** — 안 나가면 첫 insert 가 400(23514) 으로 죽는다. 실물 확인은 규칙 29 대로 `pg_constraint` 조회.
 - **`image_mismatch`(2026-07-30)** — 화면 이미지 ≠ 실물. 토글형: note 는 코드가 `Image does not match the physical product` 고정 생성, 다시 누르면 **미해결 행 delete**. 불변식 = **order_id+sku+kind 당 미해결 1행**(⚠️ DB 제약 아님, 앱 레벨 — 밀리초 동시진입은 이론적 예외). picker wave 는 라인별 `_orderId` 로 귀속.
 
 ## wms_rollback_log — 롤백 감사 (2026-07-21, `wms_rollback_log.sql`)
@@ -95,6 +96,7 @@ sku, product_name, brand, supplier_name, supplier_sku, cost_price(FLOAT), catego
 **wms_receipts** — PO/트랜스퍼 단위 리시빙 세션. "PO 1개 = receipt 1개"(분할 배송도 한 행에 누적).
 id BIGINT PK · po_number TEXT NOT NULL (PO-xxxxx / TR-xxxxx) · cin7_purchase_id TEXT (PO GUID/TR TaskID — 안정 키, 열린 receipt dedup) · supplier_name TEXT · warehouse TEXT NOT NULL default 'toronto' CHECK(toronto/edmonton) · status TEXT CHECK(in_progress/held/partial/completed) · **source_type TEXT default 'po' CHECK(po/transfer)** · received_by TEXT · note TEXT · **applied_at TIMESTAMPTZ / applied_by TEXT / apply_note TEXT** (Apply to Cin7 성공 기록 = 이중 반영 방지 키) · created_at/updated_at/completed_at.
 인덱스: idx_receipts_status(status, created_at desc), idx_receipts_po(po_number).
+⚠️ **`cin7_purchase_id` 전체 유니크 (2026-08-06, `20260806000000_receipts_uq_disc_reports_checks.sql` — 규칙 27 R3)**: `wms_receipts_cin7_purchase_id_key`. WHERE 없는 전체 유니크(규칙 29 — 부분 인덱스는 on_conflict 추론 불가)·NULL 은 NULLS DISTINCT. ⚠️ **트랜스퍼 행도 걸린다** — receiver.html 이 PO/TR 공통으로 `cin7_purchase_id` 에 GUID/TaskID 를 저장(2026-08-06 코드 확인). 롤백(행 삭제) 후 재수령은 막지 않는다. startPo 의 앱 레벨 dedup 이 1차, 이 유니크는 밀리초 동시 진입의 마지막 방어선.
 status 의미: held=중단(진행 저장, PO 열림) / partial=이번 배송분 끝(PO 열림, 분할배송) / completed=최종(Apply 대상).
 
 **wms_receipt_lines** — 라인별 예상 vs 실제 + 풋어웨이 + 승인.
