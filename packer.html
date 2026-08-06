@@ -1295,7 +1295,13 @@ document.getElementById("doneBtn").onclick=async ()=>{
           .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","short_pick").is("resolved_at",null);
       }
     }
-    await sb.from("wms_pack_tasks").update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name}).eq("id",packTask.id);
+    // CAS (규칙 28 후속): 확인-쓰기 틈에 이어받기당한 스테일 화면이 완료를 덮지
+    // 않는다. 성공 판정 = .select() 행 수 — 0행 매치도 error null (규칙 24).
+    const {data:done,error:ce}=await sb.from("wms_pack_tasks")
+      .update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name})
+      .eq("id",packTask.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+    if(ce) throw ce;
+    if(!done||!done.length){ await completeCasFailed(packTask.id); return; }
 
     const ready=await checkOrderReady(packTask.order_id);
     if(ready){ alert(`✅ ${order.order_number} — All batches for this order are packed!\n\nCin7, press pack authorize to finalize (3.Finalized)..`); }
@@ -1311,8 +1317,46 @@ document.getElementById("doneBtn").onclick=async ()=>{
     document.getElementById("listView").style.display="block";
     loadQueue();
   }catch(e){ toast("Completion failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
-  finally{ btn.disabled=false; }
+  finally{ if(!frozen){ btn.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
 };
+
+/* 완료 CAS 0행 → 원인 구분 (2026-08-06, 규칙 28 후속 · ⚠️ 현장 미검증)
+   "Completion failed" 로 뭉개면 작업자가 다시 눌러보다 포기한다 — 세 갈래로 가른다.
+   라인 저장·discrepancy 는 완료 플립 앞에서 이미 끝났으므로 어느 갈래든 유실은 없다. */
+async function completeCasFailed(id){
+  let row;
+  try{
+    const q=await sb.from("wms_pack_tasks").select("assigned_to,status,completed_by").eq("id",id).maybeSingle();
+    if(q.error) throw q.error;
+    row=q.data;
+  }catch(e){
+    // 재조회도 실패(네트워크) — 완료가 실제로는 반영됐을 수 있다.
+    // 재시도하면 반영된 경우 아래 "내 완료" 분기가 성공으로 구제한다.
+    toast("Couldn't confirm completion — check connection and try again",true);
+    if(packTask){ startHeartbeat(); presenceJoin(); }
+    return;
+  }
+  // "이미 완료" 를 성공으로 치는 것은 completed_by 가 정확히 나일 때만 —
+  // completed 만 보면 남이 완료한 것을 내 성공으로 착각한다.
+  if(row && row.status==="completed" && row.completed_by===me.name){
+    // 이전 시도가 완료 플립까지 반영되고 응답만 유실된 재시도 — 그 시도는
+    // checkOrderReady 에 도달하지 못했다. 여기서 안 부르면 마지막 배치의 오더가
+    // ready_to_close 로 영영 못 넘어간다 (다시 발동시킬 경로가 없다).
+    let note="Already completed — saved", bad=false;
+    try{
+      const ready=await checkOrderReady(packTask.order_id);
+      if(ready){ alert(`✅ ${order.order_number} — All batches for this order are packed!\n\nCin7, press pack authorize to finalize (3.Finalized)..`); }
+    }catch(e){ note="Saved — order status update failed, ask a manager to check the order"; bad=true; }
+    toast(note,bad);
+    packTask=null;order=null;lines=[];bcMap={};
+    document.getElementById("packView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadQueue();
+    return;
+  }
+  // 남이 가져갔거나(assigned_to=남) 풀렸다(null/행 없음) → 검증된 프리즈 모달 재사용(리로드만).
+  freezeScreen(row && row.assigned_to && row.assigned_to!==me.name ? row.assigned_to : null);
+}
 
 async function checkOrderReady(orderId){
   const [pk, pack]=await Promise.all([
@@ -1323,7 +1367,11 @@ async function checkOrderReady(orderId){
   const total=(pk.data||[]).length;
   const done=new Set((pack.data||[]).map(p=>p.pick_task_id)).size;
   if(total>0 && done>=total){
-    await sb.from("wms_orders").update({status:"ready_to_close",notified_at:new Date().toISOString()}).eq("id",orderId);
+    // 허용 목록 조건 = 멱등화 (2026-08-06): 재시도(완료 CAS 분기 1)가 늦게 와도
+    // 이미 closed(Finalize)/voided 된 오더를 ready_to_close 로 되돌리지 않는다.
+    // 정상 경로(완료 시점 status=packing)는 목록에 있으므로 동작 동일.
+    await sb.from("wms_orders").update({status:"ready_to_close",notified_at:new Date().toISOString()})
+      .eq("id",orderId).in("status",["pending","picking","packing","ready_to_close"]);
     return true;
   }
   return false;

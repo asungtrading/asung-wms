@@ -524,6 +524,13 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 **실패 처리 & 한계.** 확인 select 가 네트워크 오류로 실패하면 **프리즈하지 말고 쓰기를 진행한다**(창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실). 콘솔 warn 만. 즉 이 가드는 **best-effort** 이고 원자적이지 않다 — 확인과 UPDATE 사이의 밀리초 창에서 넘어가면 통과한다. **후속: claim_seq(클레임 시퀀스) 로 원자화** — 클레임마다 증가하는 정수를 task 행에 두고 UPDATE 를 `.eq("claim_seq", 진입 시 읽은 값)` 조건부로 보내 0행이면 프리즈. 규칙 27 R1 의 CAS 와 같은 패턴이라 함께 처리.
 
+**✅ 2026-08-06 — 완료 UPDATE 에 CAS 도입 (⚠️ 현장 미검증 — 백로그 「검증 대기」)**
+- **대상 3곳**: packer 완료(doneBtn) · picker 단일 완료 · picker wave 완료. 완료 UPDATE 에 `.eq("assigned_to", me.name)` + `.eq("status","in_progress")` 조건 + **`.select()` 행 수로 성공 판정**(0행도 error null — 규칙 24). ⚠️ **wave 멤버 task 만 status 조건 없음**(소유권 조건만) — wave 행 UPDATE 만 실패한 부분 실패에서 재시도의 멤버 재플립이 막히지 않게 멱등으로 둔다. 순서는 **멤버 먼저 → wave 행**(반대면 부분 실패 시 멤버가 in_progress 로 영구히 갇힌다).
+- **0행 → 재조회로 3분기** (`completeCasFailed`, 두 파일 각각): ① `completed` 이고 **completed_by=나** → 성공 처리(응답 유실 뒤 재시도 구제 — ⚠️ completed 만 보면 남의 완료를 내 성공으로 착각한다. wave 는 completed_by 컬럼이 없어 **assigned_to=나 + completed** 로 판정: 완료 UPDATE 는 assigned_to 를 안 지우고 남의 완료는 클레임 선행이 필수라 이 조합은 내 완료뿐). **packer 분기 ①은 `checkOrderReady` 를 재실행한다** — 유실된 첫 시도는 거기 도달하지 못했으므로, 안 부르면 마지막 배치의 오더가 ready_to_close 로 영영 못 넘어간다. ② assigned_to 가 남/null → **기존 `freezeScreen` 재사용**(리로드 전용 모달 — 리로드해도 라인·discrepancy 는 완료 플립 앞에서 이미 저장돼 유실 없음. packer overScans 표시 소실은 기존 백로그 그대로, 판정 행은 이미 insert 됨). ③ 재조회도 실패(네트워크) → 재시도 안내 + heartbeat/presence 복구(반영된 경우 ①이 구제). finally 의 버튼 복구는 `if(!frozen)` 가드.
+- **`checkOrderReady` 멱등화**: 내부 `wms_orders` UPDATE 가 status 무조건이라 늦은 재시도가 closed(Finalize)/voided 를 ready_to_close 로 되돌릴 수 있었다 → `.in("status", pending·picking·packing·ready_to_close)` 허용 목록 추가. 정상 경로(완료 시점 packing)는 목록에 있어 동작 동일.
+- **⚠️ 발견 기록**: packer 완료 UPDATE 는 CAS 이전까지 **error 를 아예 확인하지 않았다** — 완료 실패가 조용히 무시되고 화면은 성공 흐름을 탔다(CAS 와 함께 throw 로 교정). pack **라인 최종 저장 루프와 discrepancy insert 들도 같은 패턴으로 error 미확인**(picker 는 확인함) — **미수정, 별건**.
+- **남는 한계**: finish 단계의 라인 최종 저장·discrepancy insert 는 여전히 무조건(CAS 는 완료 플립만 보호 — 라인 단위 CAS 는 R1 계열 백로그) · wave 멤버 UPDATE 와 wave 행 UPDATE 사이의 밀리초 창은 남는다(조용한 덮어쓰기 → 시끄러운 실패로 바뀐 것) · claim_seq 원자화는 여전히 후속.
+
 ## 규칙 29 — 스키마 기록의 진실은 실물 DB 다: 부분 유니크 인덱스가 `on_conflict` 를 깨뜨렸다 (⚠️ 2026-07-29 실사고)
 
 **증상.** 리시빙 Apply 시 Supabase 가 **400 / `42P10 there is no unique or exclusion constraint matching the ON CONFLICT specification`**. EF 는 `POST wms_discrepancies?on_conflict=receipt_id,sku` 로 선기록(규칙 27 R12)하므로 **discrepancy 기록 실패 = Apply 중단**이 되어 Cin7 을 아예 못 건드렸다.

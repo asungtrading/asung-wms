@@ -1308,16 +1308,30 @@ async function finish(allowShort){
     // 3) complete: all member batches + the wave, or the single batch
     if(wave){
       const now=new Date().toISOString();
-      const {error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"completed",completed_at:now,completed_by:me.name}).in("id",tasks.map(t=>t.id));
+      // CAS (규칙 28 후속): 멤버 task 는 소유권 조건만, status 조건 없음 — wave 행
+      // UPDATE 만 실패한 재시도에서 멤버 재플립이 막히지 않게 멱등으로 둔다.
+      // 소유권 단위는 wave 행이지만 멤버도 모든 클레임/테이크오버 경로에서
+      // assigned_to 가 함께 움직인다.
+      const {data:mts,error:te}=await sb.from("wms_pick_tasks")
+        .update({status:"completed",completed_at:now,completed_by:me.name})
+        .in("id",tasks.map(t=>t.id)).eq("assigned_to",me.name).select("id");
       if(te) throw te;
-      const {error:we}=await sb.from("wms_waves")
-        .update({status:"completed",completed_at:now}).eq("id",wave.id);
+      if(!mts||mts.length!==tasks.length){ await completeCasFailed("wave",wave.id); return; }
+      // wave 행이 소유권 관문. 순서는 멤버 먼저 — 반대면 wave 만 완료된 부분 실패에서
+      // 재시도가 "이미 완료" 로 빠져 멤버가 in_progress 로 영구히 갇힌다.
+      const {data:wd,error:we}=await sb.from("wms_waves")
+        .update({status:"completed",completed_at:now})
+        .eq("id",wave.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
       if(we) throw we;
+      if(!wd||!wd.length){ await completeCasFailed("wave",wave.id); return; }
     }else{
-      const {error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name}).eq("id",task.id);
+      // CAS (규칙 28 후속): 확인-쓰기 틈에 이어받기/롤백당한 스테일 화면이 완료를
+      // 덮지 않는다. 성공 판정 = .select() 행 수 — 0행 매치도 error null (규칙 24).
+      const {data:done,error:te}=await sb.from("wms_pick_tasks")
+        .update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name})
+        .eq("id",task.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
       if(te) throw te;
+      if(!done||!done.length){ await completeCasFailed("task",task.id); return; }
     }
 
     toast(label+(shorts.length?` Completed incomplete (short ${shorts.length})`:" Pick complete"));
@@ -1325,7 +1339,37 @@ async function finish(allowShort){
   }catch(e){
     toast("Completion failed: "+(e.message||e),true);
     if(task||wave){ startHeartbeat(); presenceJoin(); } // still holding the claim
-  }finally{ btnD.disabled=btnS.disabled=false; }
+  }finally{ if(!frozen){ btnD.disabled=btnS.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
+}
+
+/* ---------- 완료 CAS 0행 → 원인 구분 (2026-08-06, 규칙 28 후속 · ⚠️ 현장 미검증) ----------
+   "Completion failed" 로 뭉개면 작업자가 다시 눌러보다 포기한다 — 세 갈래로 가른다.
+   라인 저장·discrepancy 는 완료 플립 앞에서 이미 끝났으므로 어느 갈래든 유실은 없다. */
+async function completeCasFailed(kind, id){
+  let row;
+  try{
+    const q = kind==="wave"
+      ? await sb.from("wms_waves").select("assigned_to,status").eq("id",id).maybeSingle()
+      : await sb.from("wms_pick_tasks").select("assigned_to,status,completed_by").eq("id",id).maybeSingle();
+    if(q.error) throw q.error;
+    row=q.data;
+  }catch(e){
+    // 재조회도 실패(네트워크) — 완료가 실제로는 반영됐을 수 있다.
+    // 재시도하면 반영된 경우 아래 "내 완료" 분기가 성공으로 구제한다.
+    toast("Couldn't confirm completion — check connection and try again",true);
+    if(task||wave){ startHeartbeat(); presenceJoin(); }
+    return;
+  }
+  // "이미 완료" 를 성공으로 치는 것은 **내가** 완료한 것일 때만 — completed 만 보면
+  // 남이 완료한 것을 내 성공으로 착각한다. wave 는 completed_by 컬럼이 없어
+  // assigned_to=나 + completed 로 판정한다. 근거: 완료 UPDATE 는 assigned_to 를
+  // 지우지 않고, 남이 완료하려면 먼저 클레임(assigned_to=자기)을 거쳐야 하므로
+  // completed && assigned_to=나 로 남는 경로는 내 완료(응답 유실 뒤 재시도)뿐이다.
+  const mine = row && row.status==="completed" &&
+    (kind==="wave" ? row.assigned_to===me.name : row.completed_by===me.name);
+  if(mine){ toast("Already completed — saved"); resetToList(); return; }
+  // 남이 가져갔거나(assigned_to=남) 풀렸다(null/행 없음) → 검증된 프리즈 모달 재사용(리로드만).
+  freezeScreen(row && row.assigned_to && row.assigned_to!==me.name ? row.assigned_to : null);
 }
 
 /* ---------- Back ---------- */
