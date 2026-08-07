@@ -490,6 +490,28 @@ async function transferDetail(id: string): Promise<any> {
 }
 
 // ── Apply to Cin7 — 계획 수립 (dry-run 공용) ─────────────────
+/* ── Advanced 태스크 상태 판정 헬퍼 (2026-08-07 존재 증명 재설계 — 계획·커밋이 같은 판정 공유) ──
+   ⚠️ PO-01094 실사고: Status==="DRAFT" 만 승인 대상으로 고른 부재 증명이, 응답 Status 가 예상
+   문자열로 안 읽히자 승인 0회 + 되읽기 가드 통과 → stage2 직행(put-away 400)을 만들었다.
+   → trim 정규화 · 승인 대상 = "AUTHORISED 도 VOIDED 도 아닌, 라인 있는 태스크" · stage2 진입 =
+   존재 증명("라인 있는 비VOIDED 태스크 ≥1 이고 전부 정확히 AUTHORISED") · 원문 상태는 항상 로그. */
+const stStatus = (t: any) => String((t && t.Status) ?? "").trim().toUpperCase();
+const hasLines = (t: any) => (((t && t.Lines) || []) as any[]).length > 0;
+const nonVoidOf = (tasks: any[]) => tasks.filter((t) => stStatus(t) !== "VOIDED");
+const unauthorizedOf = (tasks: any[]) => nonVoidOf(tasks).filter((t) => stStatus(t) !== "AUTHORISED");
+const rawStatuses = (tasks: any[]) =>
+  tasks.map((t) => JSON.stringify((t && t.Status) ?? null) + (hasLines(t) ? "" : "(empty)")).join(", ");
+const skuOnDoc = (tasks: any[]) => {   // 비VOIDED 전 태스크의 SKU 별 수량 합 — Status 가 아니라 수량이 재전송 판정
+  const m: Record<string, number> = {};
+  for (const t of nonVoidOf(tasks)) {
+    for (const ln of (t.Lines || []) as any[]) {
+      const k = String(ln.SKU || "").trim().toUpperCase();
+      m[k] = (m[k] || 0) + Number(ln.Quantity || 0);
+    }
+  }
+  return m;
+};
+
 // resetFails = true (?retry_failed=1, admin 'Retry failed bins'): 연속 실패 카운트를 리셋하고
 // 격리(permanently_failed)된 bin 도 다시 시도 대상에 넣는다 — 사람이 Cin7 재고를 고친 뒤의 명시적 재시도 경로.
 async function buildApplyPlan(receiptId: number, resetFails = false) {
@@ -621,14 +643,53 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
         (rcpt.applied_by ? " by " + rcpt.applied_by : "") +
         " - nothing left to retry (every line is already on the Cin7 stock received document)");
     }
+    // Advanced 2단 표시 (2026-08-07 — dry-run 문구 전용. 커밋의 실분기는 상세 응답의 Invoice 모양이
+    // 정하므로(서버 진실 — applyCommitRun 참조) 여기 cin7_type 이 틀려도 동작은 어긋나지 않는다.)
+    const planAdv = /advanced/i.test(rcpt.cin7_type || "");
+    // ── Advanced 계획에 Cin7 stage 상태 표시 (2026-08-07 — "계획서는 검증이 아니다" 후속) ──
+    // stage1 이 이미 승인된 receipt(PO-01094 복구 등)에서 사람이 **실행 전에** "이번 회차는 stage2 만"
+    // 임을 볼 수 있어야 한다(사용자 조건). 읽기 실패는 표시만 unknown — 커밋 경로는 자기 GET 으로
+    // 재판정하므로 이 GET 은 순수 표시용이고 실패해도 계획을 막지 않는다.
+    let advState: any = null;
+    if (planAdv) {
+      try {
+        const g = await cin7Get("/advanced-purchase/stock?PurchaseID=" + encodeURIComponent(rcpt.cin7_purchase_id));
+        const tasks = ((g || {}).StockReceiving || []) as any[];
+        const withLines = nonVoidOf(tasks).filter(hasLines);
+        advState = {
+          stage1_done: withLines.length > 0 && withLines.every((t: any) => stStatus(t) === "AUTHORISED"),
+          stock_tasks: tasks.length ? "[" + rawStatuses(tasks) + "]" : "(none)",
+          stock_lines: withLines.reduce((n: number, t: any) => n + ((t.Lines || []) as any[]).length, 0),
+        };
+      } catch (e) {
+        advState = { stage1_done: null, stock_lines: null,
+          stock_tasks: "(Cin7 read failed: " + String((e as Error).message).slice(0, 120) + ")" };
+      }
+    }
     return {
       receipt: rcpt, source: "po",
       plan: {
-        action: "PO stock received" + (retryFailed ? (resetFails
+        advanced: planAdv, advanced_state: advState,
+        action: "PO stock received" + (planAdv ? " [ADVANCED two-stage]" : "") + (retryFailed ? (resetFails
             ? " (RETRY — fail history cleared, previously failed bins are attempted again)"
             : " (RESUME — untried groups go first, previously failed bins last)") : ""),
         retry: retryFailed, retry_reset: resetFails,
-        steps: [
+        steps: planAdv ? [
+          "1) Check invoice is AUTHORISED (Invoice First)",
+          "2) ADVANCED pre-flight: resolve EVERY bin GUID first - if any bin is unresolvable, stop before anything irreversible",
+          (advState && advState.stage1_done === true
+            ? "3) Stage 1 ALREADY AUTHORISED on Cin7 (" + advState.stock_lines + " line(s) on the stock document, tasks " +
+              advState.stock_tasks + ") - this round SKIPS stage 1 and runs stage 2 only"
+            : advState && advState.stage1_done === null
+              ? "3) Stage 1 - stock received -> authorize: IRREVERSIBLE. Current Cin7 state UNKNOWN " +
+                advState.stock_tasks + " - the commit run re-checks and only adds what is missing (per-SKU delta)"
+              : "3) Stage 1 - stock received (quantities only, Advanced carries no bins here) -> authorize: IRREVERSIBLE, " +
+                "stock enters at warehouse level without bins" +
+                (advState ? " (current stock tasks: " + advState.stock_tasks + ")" : "")),
+          "4) Stage 2 - put-away: ONE AUTHORISED post places every bin (" + binsActive.length + " bin group(s), " +
+            "no per-bin chunking - Advanced has no one-bin-per-document limit); if it fails, the stock stays " +
+            "bin-less at warehouse level and Apply again retries placement only",
+        ] : [
           "1) Check invoice is AUTHORISED (Invoice First)",
           "2) POST /purchase/stock - one DRAFT document per bin: " + binsActive.length + " bin group(s)" +
             (alreadyExported ? " · " + alreadyExported + " line(s) already on the document, skipped" : "") +
@@ -995,6 +1056,240 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
     }
     log.push("invoice check: " + st0v);
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식
+    /* ═══ Advanced PO 분기 (2026-08-07 · 규칙 20/21 개정 · ⚠️ 현장 미검증) ═══
+       판정은 저장된 cin7_type 이 아니라 **방금 게이트가 읽은 상세의 Invoice 블록 모양**(서버 진실 —
+       Simple=객체 / Advanced=배열, 실측)으로 한다. poRaw 폴백이 type 을 교정한 그 회차에도 즉시 맞는
+       경로를 타므로, 쓰기 지점에 deprecated 400 이 도달할 일이 없다(별도 쓰기 폴백 불요 — 역방향
+       쓰기 폴백은 Simple PO 를 Advanced 로 조용히 변환하므로 금지, cin7-api 주의사항 13). */
+    const isAdv = Array.isArray(det0.Invoice);
+    // ⚠️ 응답 로그 첫 줄 = 실행 경로 (2026-08-07 사용자 조건 — PO-01094 사고에서 계획 문구(ADVANCED)와
+    //    실행이 달라도 응답만으로 구분할 수 없었다. 계획서(dry-run steps)는 표시 전용이지 검증이 아니다.)
+    log.unshift("PATH=" + (isAdv ? "advanced" : "simple") +
+      " (decided by the PO detail Invoice shape; cin7_type='" + (rcpt.cin7_type || "NULL") + "')");
+    if (isAdv !== /advanced/i.test(rcpt.cin7_type || "")) {
+      log.push("WARN cin7_type says '" + (rcpt.cin7_type || "NULL") + "' but the PO detail shape says " +
+        (isAdv ? "Advanced" : "Simple") + " - trusting the detail (server truth)");
+    }
+    if (isAdv) {
+      /* ══ Advanced 2단: stage1 수량(stock received)→authorize(★불가역) · stage2 선반(put-away) ══
+         실측 근거(cin7-api stock-write.md 「Advanced」절 · R1~R3 2026-08-07):
+         · stock 라인의 LocationID 는 저장되지 않는다(선반은 put-away 전용) — bin 은 stage2 에서만
+         · stock 과 put-away 는 같은 TaskID 의 두 면 · put-away 는 stock AUTHORISED 뒤에만 유효
+           (NOT AVAILABLE 중 POST 를 스펙이 안 막는다 — 순서는 이 코드가 강제, 모든 쓰기는 되읽어 검증:
+           이 API 는 "200 인데 무시" 전과가 둘이다 — TransferQuantity·DELETE)
+         · DELETE 는 200 이어도 태스크를 못 지운다 — 기존 DRAFT 재사용이 필수
+         ⚠️ stage2 = 단일 AUTHORISED POST 로 확정(X-a 그룹별 DRAFT 는 폐기 — 2026-08-07 설계 결정):
+         apib 의 "invoice lines match the receiving → only AUTHORISED accepted" 때문에 정확 수령(정상
+         케이스)에서 첫 DRAFT POST 가 결정론적 400 이 되고, 전환 판정을 에러 문자열로 하지 않는다는
+         조건과 "우리의 일치 판정 ≠ Cin7 의 일치 판정" 위험이 겹쳐 X-a 는 막다른 길이다. AUTHORISED
+         POST 는 스펙상 항상 허용. 잘못 놓인 bin 의 정정은 stockTransfer(bin↔bin — 표준 실측 경로,
+         TR-03236)로 가능할 것으로 보이나 ⚠️ put-away 로 놓인 재고에 대해선 **미실측 추정**이다 —
+         확정처럼 다루지 말 것(백로그 「검증 대기」 Advanced 항목). 확실한 것은 stage1(수량 투입)이
+         불가역이라는 것뿐이다.
+         ⚠️ 청크 불용 근거: 이 분기의 Cin7 왕복은 라인 수와 무관하게 고정(~10콜 — 게이트 GET·
+         /ref/location·stock GET/POST/authorize/재GET·put-away GET/POST/재GET). 92줄 페이로드도
+         한 콜이다(트랜스퍼 PUT 344줄 실측 전례). 최악 ~30초는 chunkGuard 예산(20초 — 이 분기는
+         호출 안 함)을 넘을 수 있으나 EF 한도·in-flight 잠금 만료(90초)에는 여유가 있고, 회차가
+         중간에 죽어도 재개는 되읽기 유도라 안전하다(잠금은 90초 만료 탈취로 회복).
+         ⚠️ 대상 집합 보증(사용자 조건): stage1 합산·stage2 배치 모두 plan.lines(=bin 배정 완료 target)
+         하나에서만 유도 — bin 미배정·off-PO 라인은 buildApplyPlan 이 이미 뺐으므로 stage1 수량에도
+         없다("재고는 들어갔는데 선반을 영영 못 잡는 수량"이 구조적으로 생기지 않는다). */
+      const ADV_STOCK = "/advanced-purchase/stock", ADV_PA = "/advanced-purchase/put-away";
+      const pid = rcpt.cin7_purchase_id;
+      const advAll = (plan.lines || []) as any[];                                  // stage1 총량의 근거(기배치 포함)
+      const advPending = advAll.filter((p: any) => Number(p.pending_base) > 0);    // stage2 대상(선반 미완)
+      // ── pre-flight: 전 bin GUID 해석 — 불가역 지점 앞의 하드 게이트 (2026-08-07 사용자 승인:
+      //    확인 모달 대신 결정론적 게이트. 하나라도 실패 = 전량 중단·Cin7 무기록·receipt 큐 잔류) ──
+      const advGuid: Record<string, string> = {};
+      {
+        const bad: string[] = [];
+        for (const p of advPending) {
+          const key = String(p.bin).toUpperCase();
+          if (advGuid[key]) continue;
+          const rg = await tryBinGuid(whName, p.bin);
+          if (rg.guid) advGuid[key] = rg.guid; else bad.push(p.bin + ": " + rg.reason);
+        }
+        if (bad.length) {
+          throw new Error("ADVANCED pre-flight: " + bad.length + " bin(s) have no Cin7 GUID - shelf placement would fail AFTER stock enters, so NOTHING was written. Fix the bins and Apply again. " + bad.join(" | "));
+        }
+      }
+      // ── stage1 상태 = Cin7 문서가 진실(exported_base 는 stage2 전용 — 규칙 21 의미 분기) ──
+      const readStock = async () =>
+        (((await cin7Get(ADV_STOCK + "?PurchaseID=" + encodeURIComponent(pid))) || {}).StockReceiving || []) as any[];
+      // 상태 판정 = 모듈 스코프 공용 헬퍼(stStatus·hasLines·nonVoidOf·unauthorizedOf·rawStatuses·skuOnDoc —
+      // buildApplyPlan 의 dry-run 상태 표시와 같은 판정을 공유한다. 재설계 경위는 헬퍼 정의부 주석).
+      let stTasks = await readStock();
+      log.push("ADVANCED stock tasks on Cin7: " + (stTasks.length ? "[" + rawStatuses(stTasks) + "]" : "(none)"));
+      const needUnits: Record<string, { sku: string; units: number }> = {};
+      for (const p of advAll) {
+        const k = String(p.order_sku).toUpperCase();
+        (needUnits[k] = needUnits[k] || { sku: p.order_sku, units: 0 }).units += Number(p.qty_units || 0);
+      }
+      let onDoc = skuOnDoc(stTasks);
+      // 문서가 계획보다 많이 들고 있으면(수동 라인·잔재) authorize 가 초과분까지 확정한다 → 무기록 중단.
+      {
+        const over: string[] = [];
+        for (const k in onDoc) {
+          const need = needUnits[k] ? needUnits[k].units : 0;
+          if (onDoc[k] > need) over.push((needUnits[k] ? needUnits[k].sku : k) + ": doc " + onDoc[k] + " > plan " + need);
+        }
+        if (over.length) {
+          throw new Error("ADVANCED: the Cin7 stock document already carries MORE than this receipt plans (manual lines?) - authorising would confirm the excess, so NOTHING was authorised. Remove the extra lines in Cin7, then Apply again. " + over.join(" | "));
+        }
+      }
+      // ── stage1: 부족분만 DRAFT 로 실음 — LocationID(무시됨)·Received(read-only)는 싣지 않는다 ──
+      const stockLines: any[] = [];
+      for (const k in needUnits) {
+        const delta = needUnits[k].units - (onDoc[k] || 0);
+        if (delta > 0) stockLines.push({ Date: now, SKU: needUnits[k].sku, Quantity: delta });
+      }
+      if (stockLines.length) {
+        const reuse = unauthorizedOf(stTasks)[0];   // DELETE 무력 → 기존 미승인 태스크(프로브 잔재 포함) 재사용이 필수
+        await cin7("POST", ADV_STOCK, {
+          PurchaseID: pid, ...(reuse ? { TaskID: reuse.TaskID } : {}), Status: "DRAFT", Lines: stockLines,
+        });
+        stTasks = await readStock();         // 되읽기 — 200 을 믿지 않는다
+        onDoc = skuOnDoc(stTasks);
+        const short: string[] = [];
+        for (const k in needUnits) {
+          if ((onDoc[k] || 0) < needUnits[k].units) short.push(needUnits[k].sku + ": doc " + (onDoc[k] || 0) + " < plan " + needUnits[k].units);
+        }
+        if (short.length) {
+          throw new Error("ADVANCED stage1 readback mismatch - the document does not carry what was just posted, so NOTHING was authorised. " + short.join(" | "));
+        }
+        log.push("ADVANCED stage1: " + stockLines.length + " SKU line(s) on the stock document (readback verified)");
+      } else {
+        log.push("ADVANCED stage1: every quantity is already on the stock document");
+      }
+      // ── stage1 authorize — ★ 되돌릴 수 없는 지점: 재고가 창고 레벨로 들어간다(bin 은 아직 없다) ──
+      // 대상 = AUTHORISED 도 VOIDED 도 아닌, **라인이 있는** 모든 태스크(상태 문자열이 무엇이든 시도).
+      let stage1Ok = true;
+      const toAuth = unauthorizedOf(stTasks).filter(hasLines);
+      const emptyIgnored = unauthorizedOf(stTasks).filter((t) => !hasLines(t));
+      if (emptyIgnored.length) {
+        log.push("ADVANCED stage1: " + emptyIgnored.length + " empty task(s) ignored (probe leftovers - carry no quantity, cannot be deleted via API)");
+      }
+      for (const t of toAuth) {
+        try {
+          await cin7("POST", ADV_STOCK, { PurchaseID: pid, TaskID: t.TaskID, Status: "AUTHORISED", Lines: [] });
+        } catch (e) {
+          const info = cin7ErrInfo(e);
+          if (info.http_status === 429) rateLimited = true;
+          stage1Ok = false;
+          log.push("WARN ADVANCED stage1 authorize FAILED (task " + t.TaskID + ", status was " + JSON.stringify(t.Status ?? null) +
+            ", HTTP " + (info.http_status || "?") + "): " + info.cin7_error +
+            " - the stock document is NOT authorised, NO stock entered inventory; Apply again to retry");
+        }
+      }
+      if (stage1Ok) {
+        // 되읽기 = **존재 증명** (2026-08-07 재설계): "DRAFT 가 없다"가 아니라 "라인 있는 비VOIDED 태스크가
+        // 1개 이상이고 전부 정확히 AUTHORISED 로 읽힌다"일 때만 통과. 알 수 없는 상태는 fail-closed + 원문 로그.
+        stTasks = await readStock();
+        const withLines = nonVoidOf(stTasks).filter(hasLines);
+        const notAuth = withLines.filter((t) => stStatus(t) !== "AUTHORISED");
+        if (!withLines.length || notAuth.length) {
+          stage1Ok = false;
+          log.push("WARN ADVANCED stage1 positive-proof readback FAILED - stage2 is blocked. Task statuses as returned by Cin7: [" +
+            rawStatuses(stTasks) + "] (need every non-void task with lines to read exactly AUTHORISED). Apply again to retry;" +
+            " if this repeats, the raw statuses above are the diagnosis data");
+        }
+      }
+      if (!stage1Ok) {
+        // done:false 로 큐 잔류(applied_at 없음) — groups_remaining 마커가 재개 게이트를 연다
+        groupsRemaining += Math.max(1, new Set(advPending.map((p: any) => String(p.bin).toUpperCase())).size);
+      } else {
+        log.push(toAuth.length
+          ? "ADVANCED stage1 AUTHORISED - stock is now IN Cin7 at warehouse level, WITHOUT bins yet; stage2 places shelves"
+          : "ADVANCED stage1 already AUTHORISED (nothing to authorize this round) - skipping to stage2");
+        // ── stage2: put-away — 두 번째 불가역 호출(단일 AUTHORISED POST). 크게 남긴다(사용자 조건) ──
+        const readPa = async () =>
+          (((await cin7Get(ADV_PA + "?PurchaseID=" + encodeURIComponent(pid))) || {}).PutAway || []) as any[];
+        const placedOf = (tasks: any[]) => {
+          const m: Record<string, number> = {};
+          for (const t of nonVoidOf(tasks)) {   // 상태 정규화 공유 (stStatus — 2026-08-07 존재 증명 재설계)
+            for (const ln of (t.Lines || []) as any[]) {
+              const k = String(ln.SKU || "").trim().toUpperCase() + "|" + String(ln.LocationID || "").toLowerCase();
+              m[k] = (m[k] || 0) + Number(ln.Quantity || 0);
+            }
+          }
+          return m;
+        };
+        const keyOf = (p: any) =>
+          String(p.order_sku).toUpperCase() + "|" + String(advGuid[String(p.bin).toUpperCase()] || "").toLowerCase();
+        let paTasks = await readPa();
+        let placed = placedOf(paTasks);
+        // 지난 회차에 배치됐는데 체크포인트만 빠진 라인 — 되읽기로 회복(checkpoint repair 와 동일 원칙)
+        const toPost: any[] = [];
+        for (const p of advPending) {
+          if ((placed[keyOf(p)] || 0) >= Number(p.qty_units || 0)) {
+            log.push("ADVANCED stage2: " + p.order_sku + " -> " + p.bin + " already on the put-away document - checkpoint repaired");
+            const n = await markExported(p, log); linesMovedNew += n; checkpointRepaired += n;
+          } else toPost.push(p);
+        }
+        if (toPost.length) {
+          // put-away 태스크 재사용도 정규화 판정 — DRAFT 만이 아니라 비승인·비VOIDED 전부(NOT AVAILABLE 포함:
+          // R3 실측이 그 상태였고 스펙상 POST 허용 상태다). 없으면 TaskID 생략(새 태스크).
+          const paDraft = unauthorizedOf(paTasks)[0];
+          log.push("ADVANCED put-away tasks on Cin7: " + (paTasks.length ? "[" + rawStatuses(paTasks) + "]" : "(none)"));
+          const paLines = toPost.map((p: any) => ({
+            Date: now, SKU: p.order_sku, Quantity: Math.round(Number(p.qty_units)),
+            LocationID: advGuid[String(p.bin).toUpperCase()],
+          }));
+          const binCount = new Set(toPost.map((p: any) => String(p.bin).toUpperCase())).size;
+          groupsAttempted++;
+          log.push("ADVANCED stage2 IRREVERSIBLE CALL - posting ALL " + paLines.length + " line(s) / " + binCount +
+            " bin(s) in ONE AUTHORISED put-away request" + (paDraft ? " (draft task " + paDraft.TaskID + " reused)" : ""));
+          let postOk = true;
+          try {
+            await cin7("POST", ADV_PA, {
+              PurchaseID: pid, ...(paDraft ? { TaskID: paDraft.TaskID } : {}), Status: "AUTHORISED", Lines: paLines,
+            });
+          } catch (e) {
+            postOk = false;
+            const info = cin7ErrInfo(e);
+            if (info.http_status === 429) rateLimited = true;
+            // bin 별 failed_moves 로 남긴다 — admin 표시·'Retry failed bins'·재Apply 경로가 기존 그대로 동작
+            const byBin: Record<string, any[]> = {};
+            toPost.forEach((p: any) => { (byBin[p.bin] = byBin[p.bin] || []).push(p); });
+            for (const b in byBin) {
+              failedMoves.push({
+                bin: b, skus: byBin[b].map((p: any) => String(p.order_sku)),
+                qty: byBin[b].reduce((n: number, p: any) => n + Math.round(Number(p.pending_base)), 0),
+                http_status: info.http_status, cin7_error: info.cin7_error, fails: 1,
+              });
+            }
+            log.push("WARN ADVANCED stage2 put-away FAILED (HTTP " + (info.http_status || "?") + "): " + info.cin7_error +
+              " - ALL-OR-NOTHING: the single put-away call places every bin together, so NO bin was placed (this is NOT a partial failure even though " + binCount + " bin(s) are listed)." +
+              " STOCK IS IN Cin7 WITHOUT SHELF LOCATIONS. Nothing is lost: Apply again (or 'Retry failed bins') to place the bins; until then the stock sits at warehouse level (no bin)");
+          }
+          if (postOk) {
+            paTasks = await readPa();          // 되읽기 — LocationID 실저장 확인(조용한 무시 전과 대비)
+            placed = placedOf(paTasks);
+            let verified = 0;
+            for (const p of toPost) {
+              if ((placed[keyOf(p)] || 0) >= Number(p.qty_units || 0)) {
+                const n = await markExported(p, log); linesMovedNew += n; verified++;
+              } else {
+                failedMoves.push({
+                  bin: p.bin, skus: [String(p.order_sku)], qty: Math.round(Number(p.pending_base)),
+                  http_status: null, cin7_error: "put-away readback: line missing after POST 200 (silently ignored?)", fails: 1,
+                });
+                log.push("WARN ADVANCED stage2 readback: " + p.order_sku + " -> " + p.bin +
+                  " NOT on the put-away document despite POST 200 - not checkpointed; STOCK IS IN Cin7 WITHOUT A SHELF for this line");
+              }
+            }
+            if (verified === toPost.length) {
+              movedBins += binCount;
+              authorized = true;
+              log.push("ADVANCED stage2 put-away AUTHORISED - all " + verified + " line(s) placed on shelves (readback verified)");
+            }
+          }
+        } else if (advPending.length === 0 || advPending.every((p: any) => (placed[keyOf(p)] || 0) >= Number(p.qty_units || 0))) {
+          authorized = true;   // 전 라인이 이미 배치돼 있던 재개 회차 — 이번 회차 쓰기 없음
+          log.push("ADVANCED stage2: every line already placed - nothing to post");
+        }
+      }
+    } else {
     // ── bin 그룹 루프 (2026-07-31 — 트랜스퍼 보호 장치 이식: 청크 이중 가드·실패 수집·격리·체크포인트) ──
     // ⚠️ Cin7 stock received 는 한 문서(POST)에 bin 1개만(실측: 섞으면 400 'Lines is invalid') — 그대로.
     //    plan.groups 는 buildApplyPlan 이 pending 라인만 모아 "미시도 먼저, 실패 이력 뒤로" 정렬해 놓았다.
@@ -1117,6 +1412,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
         ") - NOT authorised; authorize runs automatically, exactly once, on the round where every bin is on the document." +
         " Do NOT authorize the partial document in Cin7 (authorize is one-shot on a Simple PO).");
     }
+    }   // ← Advanced 분기의 else(Simple 경로) 닫힘 — Simple 본문은 무변, 들여쓰기도 유지(diff 최소화)
   } else {
     const det = await cin7Get("/stockTransfer?TaskID=" + encodeURIComponent(rcpt.cin7_purchase_id));
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";

@@ -81,6 +81,60 @@ POST /purchase/stock
 }
 ```
 
+## ⚠️⚠️ Advanced PO stock received — Simple 과 전혀 다르다 (2026-08-07 실측, PO-01094 프로브)
+
+주소·식별자·응답이 다르다는 것은 SKILL.md 주의사항 13. 여기는 **쓰기 실측 4건**:
+
+1. ⚠️⚠️ **`POST /advanced-purchase/stock` 의 `Lines[].LocationID` 는 저장되지 않는다** — bin GUID 를
+   실어 보내도 200 후 되읽으면 `LocationID:null, Location:null`. **Advanced 는 "재고 넣기"(stock
+   received)와 "선반 지정"(put-away)이 분리**돼 있다(별도 엔드포인트 `/advanced-purchase/put-away`,
+   apib 17347행). Simple 처럼 한 번에 안 된다 — bin 을 실었는데 조용히 사라지는 종류라 **200 만 보면
+   전 라인이 bin 없이 들어간다**(되읽기 원칙의 또 한 사례).
+2. **"문서당 bin 1개" 제약이 없다** — 한 태스크에 다른 bin 라인 append 가 200 (Simple 의 400
+   "Lines is invalid" 와 다름). 단 1번 때문에 stock received 단계에서 bin 은 의미가 없다.
+3. ⚠️⚠️ **`DELETE /advanced-purchase/stock?TaskID=` 는 200 을 주지만 태스크를 지우지 않는다**
+   (Void 기본값 false=Undo 로 호출·재확인 실측). 라인은 Cin7 화면에서 수동으로 지웠고 빈 태스크는
+   그래도 남았다. **API 로 입고 태스크를 제거하는 방법은 미확인** — "200 은 반영을 뜻하지 않는다"
+   (TransferQuantity 무시·파라미터 오타와 같은 R11 계열)의 세 번째 실측. 프로브·쓰기를 설계할 때
+   **지울 수 있다고 가정하지 말 것.**
+4. **빈 DRAFT 태스크는 무해하게 남는다**(재고 영향 없음, `Lines:[]`) — PO-01094 에 실재
+   (TaskID `44e2f761-5f39-4ec4-bb55-fb7e1d1abf66`). 지울 수 없으므로 **후속 쓰기는 회차 시작에
+   GET 으로 기존 DRAFT 태스크를 찾아 재사용(append)하는 설계가 필수**다.
+
+프로브 도구: asung-wms repo `docs/probes/WmsAdvPoStockProbe.gs` (교차 조합·자체 정리 시도 포함).
+put-away 요청 스펙은 apib 17347행(`PurchaseID`+`TaskID`+`Status`+`Lines[{…,Location/LocationID 필수*}]`,
+authorize 는 빈 Lines POST).
+
+### 읽기 프로브 R1~R3 추가 실측 (2026-08-07, PO-01068 이력 + PO-01094)
+
+5. **stock 과 put-away 는 별개 문서가 아니라 한 태스크의 두 면이다** — 같은 `TaskID` 를 공유
+   (PO-01068 둘 다 `f7188ac1…`, PO-01094 둘 다 `44e2f761…`). put-away 태스크를 따로 만들/찾을
+   필요 없이 stock 태스크의 TaskID 로 put-away 를 쓴다.
+6. **stock authorize 가 put-away 의 선행조건이다** — stock 이 DRAFT 인 동안 put-away 는
+   `NOT AVAILABLE`(PO-01094 실측). 정상 이력(PO-01068)은 stock AUTHORISED + put-away
+   AUTHORISED + bin GUID·이름이 put-away 라인에 채워져 있다 → **put-away 가 이 계정의 정식
+   선반 지정 경로**(Use Put Away 흐름 실사용 확인).
+7. ⚠️ **순서 위반을 스펙이 막지 않는다** — put-away POST 의 예외 조건은 "status 가 DRAFT/
+   NOT AVAILABLE 이 아닐 때"라서 NOT AVAILABLE(=stock 미승인) 중 POST 가 명문상 허용으로
+   읽힌다. 조용한 수용/무시 가능성(위 3번 전과)을 배제할 수 없으므로 **호출측이 순서를 강제**
+   (stock authorize 되읽기 확인 후에만 put-away)하고 모든 쓰기를 되읽어 검증할 것.
+8. **따라서 불가역 지점 = stock authorize** — 여기서 재고가 창고 레벨(bin 없음)로 들어가고,
+   put-away 실패 시 "bin 없는 재고"로 남는다(트랜스퍼 (a) 착지와 같은 형태 — put-away 재시도로
+   회복. 진짜로 못 되돌리는 것은 수량 투입뿐).
+9. **WMS 확정 설계 (2026-08-07)**: stage1 = SKU 합산 단일 POST(같은 SKU 를 나눠 보내면
+   location null 중복 400 — 합산 필수) + authorize / stage2 = **put-away 단일 AUTHORISED
+   POST**(그룹별 DRAFT 는 폐기 — "invoice lines match the receiving → only AUTHORISED value
+   accepted" 조건이 정확 수령에서 DRAFT 를 결정론적 400 으로 만든다. AUTHORISED POST 는 항상
+   허용). ⚠️ **"잘못 놓인 bin 은 stockTransfer 로 정정"은 미실측 추정** — bin↔bin 이동 자체는
+   표준 실측(TR-03236)이나 **put-away 로 놓인 재고에 실측한 적은 없다.** 확정처럼 인용하지 말 것.
+   구현·재개 멱등성은 asung-wms 규칙 21 Advanced 절.
+10. ⚠️⚠️ **GET 응답의 태스크 `Status` 를 정확한 문자열로 신뢰하지 말 것 (2026-08-07 PO-01094 실사고)** —
+    `Status==="DRAFT"` 로 승인 대상을 고른 코드에서 승인 루프가 **0회** 돌았다(원문 문자열 미확정 —
+    수정 코드가 매 실행 태스크별 Status 원문을 로그로 남기므로 다음 Apply 가 확정한다). 같은
+    엔드포인트에서 apib 가 LocationID 도 틀렸다(1번). **상태 판정은 부재 증명("DRAFT 없음")이 아니라
+    존재 증명("전부 정확히 AUTHORISED 로 되읽힘")으로**, 비교는 trim+대문자 정규화로, 실패는
+    fail-closed 로. 계획 문구·계획서는 실행 검증이 아니다 — 실행 경로는 응답 로그(`PATH=`)로 확인.
+
 ## purchaseList 필터 실무 노트
 
 📌 **필터·페이징 실측 전체는 `purchase.md` 「필터·페이징 실측」 표** — `InvoiceStatus` 는 단일 값 · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순**(최신 PO 는 마지막 페이지) · `UpdatedSince` 는 최신성 보장 못함.

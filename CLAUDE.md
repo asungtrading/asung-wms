@@ -52,7 +52,7 @@ Edge Function secrets, Auth 설정(Site URL / Redirect), Storage 버킷 설정�
 - `Order_Progress` = `AdditionalAttributes.AdditionalAttribute1` — 백오더 `'Backordered'`와 같은 필드를 공유.
   `saleList`는 이 필드를 주지 않으므로 `/sale` 상세로 확인.
 - WMS가 소유하는 단계는 `2.Release to WMS` 하나. MVP에서 WMS는 Cin7에 재고를 쓰지 않는다(리시빙 Apply는 예외).
-- PO stock received: 문서당 bin 1개(bin별 분할 POST) · 같은 SKU+bin 병합 · authorize는 POST(PUT은 405) · Invoice First 선승인
+- PO stock received(⚠️ **Simple 전용** — 2026-08-07): 문서당 bin 1개(bin별 분할 POST) · 같은 SKU+bin 병합 · authorize는 POST(PUT은 405) · Invoice First 선승인. **Advanced 는 2단**(수량→put-away, stock 라인에 bin 못 실음 — 규칙 21 Advanced 절·cin7-api 주의 13)
 - 트랜스퍼 풋어웨이: `From`은 항상 `det.To`
 - 한 PO = receipt 1개. `applied_at` 있으면 재적용 거부.
 

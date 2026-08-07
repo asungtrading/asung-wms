@@ -73,7 +73,8 @@
 | `GET /purchase/invoice` | 14899 | 발주 인보이스 |
 | `GET /purchase/creditnote` | 15111 | 발주 크레딧 노트 |
 | `GET /purchase/payment` | 15355 | 발주 결제 |
-| `GET /advanced-purchase/stock` | 16918 | Advanced 입고 |
+| `GET /advanced-purchase/stock` | 16918 | Advanced 입고 — ⚠️ 쓰기 실측은 `stock-write.md` Advanced 절(LocationID 무시·DELETE 무력) |
+| `GET /advanced-purchase/put-away` | 17347 | Advanced 풋어웨이(선반 지정) — stock received 와 분리된 2단계. 스펙 발췌 `stock-write.md` Advanced 절 |
 | `GET /advanced-purchase/invoice` | 17565 | Advanced 인보이스 |
 
 ### Stock 관련 추가 엔드포인트
