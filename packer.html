@@ -371,7 +371,7 @@ async function ensureMine(){
 }
 /* ⚠️ 프리즈 시 로컬 수량을 flush 하지 않는다 — 내 메모리 값은 스테일이고 쓰면
    이어받은 사람의 작업을 덮는다. 로컬 상태는 버리고 서버를 진실로 둔다. */
-function freezeScreen(who){
+function freezeScreen(who, msg){   // msg = 커스텀 사유 (2026-08-06 — 이름 드리프트 안내용, 없으면 기존 문구)
   if(frozen) return;
   frozen=true;
   stopHeartbeat(); presenceLeave();
@@ -379,9 +379,9 @@ function freezeScreen(who){
   const scan=document.getElementById("scan"); if(scan){ scan.disabled=true; scan.blur(); }
   ["holdBtn","doneBtn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.disabled=true; });
   renderPack();   // re-render so steppers / manual entry come back disabled (no render bypass)
-  document.getElementById("fzMsg").textContent = who
+  document.getElementById("fzMsg").textContent = msg || (who
     ? `This batch is now assigned to ${who}. Your screen is out of date.`
-    : "This batch was released and is waiting to be claimed.";
+    : "This batch was released and is waiting to be claimed.");
   document.getElementById("freeze").style.display="grid";
   try{ beep("bad"); vibe("bad"); }catch(e){}
 }
@@ -1242,70 +1242,54 @@ document.getElementById("doneBtn").onclick=async ()=>{
     const msg=recovered.length?`${packTask.batch_label} Complete pack?\n(in packing, ${recovered.length} lines' shortfall recovered)`:`${packTask.batch_label} Complete pack?`;
     if(!confirm(msg)) { focusScan(); return; }
   }
-  // 규칙 28 — Pack fill·Over-scan 확인까지 끝난 뒤, 라인·discrepancy·완료를 쓰기 직전에 재확인
+  // 규칙 28 — Pack fill·Over-scan 확인까지 끝난 뒤 쓰기 직전에 재확인.
+  // 값싼 선확인(조기 프리즈)일 뿐, 최종 관문은 RPC 안의 CAS 다 (2026-08-06 8단계).
   if(!await ensureMine()) return;
   const btn=document.getElementById("doneBtn"); btn.disabled=true;
+  scanBusy=true;   // RPC 비행 중 스캔 차단 — saveLine 이 완료 뒤에 끼어들지 않게 (2026-08-06)
   stopHeartbeat(); presenceLeave();
   try{
-    for(const l of lines){
-      const st=l.verified>=l.required?"verified":"mismatch";
-      await sb.from("wms_pack_task_lines").update({verified_base:l.verified,status:st,verification_method:l.vmethod,verified_at:new Date().toISOString()}).eq("id",l.packline_id);
-    }
-    // below ordered qty → discrepancy queue (responsible: picker)
-    // — EXCEPT lines declared "Not enough stock": those are already queued as stock_short
-    //   (inventory mismatch, responsible=null) — do NOT double-record as a mistake.
-    if(plainMiss.length){
-      const rows=plainMiss.map(l=>({order_id:packTask.order_id, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.verified, reason:"short_after_pack", responsible:packTask.picker||null, cin7_corrected:false}));
-      await sb.from("wms_discrepancies").insert(rows);
-    }
-    // declared short lines: refresh the open stock_short row to the final packed qty (best-effort)
-    for(const l of miss.filter(stockFlagged)){
-      try{
-        await sb.from("wms_discrepancies")
-          .update({ordered_base:l.required, actual_base:l.verified})
-          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
-      }catch(e){ /* declaration row already exists with declare-time qty — good enough */ }
-    }
-    // a declaration on a line that DID reach ordered qty is disproven (stock was found)
-    // → resolve it so the manager queue does not ask for a Cin7 fix that isn't needed
-    for(const l of lines.filter(l=>l.verified>=l.required && stockFlagged(l))){
-      try{
-        await sb.from("wms_discrepancies")
-          .update({resolved_by:me.name, resolved_at:new Date().toISOString()})
-          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
-      }catch(e){ /* stays open — manager will see stock on the bin and clear it */ }
-    }
-    // only confirmed real extras → record over-pick (responsible: picker)
-    if(realOvers.length){
-      const rows=realOvers.map(l=>({order_id:packTask.order_id, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required+l.overScans, reason:"over_pick", responsible:packTask.picker||null, cin7_corrected:false}));
-      await sb.from("wms_discrepancies").insert(rows);
-    }
-    // double scans → audit record only: pre-resolved (never in the open queue, never a mistake)
-    if(scanMistakes.length){
-      const now=new Date().toISOString();
-      const rows=scanMistakes.map(l=>({order_id:packTask.order_id, pack_task_id:packTask.id, order_number:order.order_number, sku:l.order_sku, ordered_base:l.required, actual_base:l.required, reason:"pack_scan_mistake", source:"packing", declared_by:me.name, responsible:null, resolved_by:me.name, resolved_at:now, cin7_corrected:false}));
-      await sb.from("wms_discrepancies").insert(rows);
-      scanMistakes.forEach(l=>{ l.overScans=0; });
-    }
-    // lines recovered during packing → pick-stage short_pick resolve discrepancy
-    if(recovered.length){
-      for(const l of recovered){
-        await sb.from("wms_discrepancies")
-          .update({resolved_by:me.name, resolved_at:new Date().toISOString(), reason:"resolved_pack_recovery"})
-          .eq("order_id",packTask.order_id).eq("sku",l.order_sku).eq("reason","short_pick").is("resolved_at",null)
-          .is("voided_at",null);   // 롤백 무효화 행을 되살리지 않는다 (2026-08-06 — 사용자 승인 1줄)
+    /* ── 완료 쓰기 전부 = wms_complete_pack RPC 한 트랜잭션 (2026-08-06 8단계 · 규칙 9/28) ──
+       라인 최종 저장 → discrepancy 생성 → stock_short 정리 → CAS 플립 → ready 판정.
+       전부 성공하거나 전부 취소된다. 계산은 여기(JS)가, 쓰기는 함수가.
+       완료자·픽커(responsible)는 함수가 서버에서 유도(auth.email() → wms_staff.name).
+       ~~라인 묶음 upsert~~ 는 23502 로 구조적 불가 — NOT NULL 검사가 충돌 판정보다
+       먼저다(2026-08-06 프로덕션 실측). 같은 접근을 다시 시도하지 말 것. */
+    const payload={
+      p_task_id: packTask.id,
+      p_lines: lines.filter(l=>l.packline_id).map(l=>({
+        id:l.packline_id, verified_base:l.verified,
+        status:(l.verified>=l.required?"verified":"mismatch"),
+        verification_method:l.vmethod||null,
+      })),
+      p_disc: [
+        // 미선언 부족 → short_after_pack. 선언(stock_short) 라인은 제외 — 이미 큐에 있다(규칙 41)
+        ...plainMiss.map(l=>({sku:l.order_sku, reason:"short_after_pack", ordered_base:l.required, actual_base:l.verified})),
+        // 확인된 진짜 초과 → over_pick
+        ...realOvers.map(l=>({sku:l.order_sku, reason:"over_pick", ordered_base:l.required, actual_base:l.required+l.overScans})),
+        // 중복 스캔 자백 → pack_scan_mistake (선해소 컬럼은 함수가 채운다)
+        ...scanMistakes.map(l=>({sku:l.order_sku, reason:"pack_scan_mistake", ordered_base:l.required, actual_base:l.required})),
+      ],
+      // 선언 정리 — 여전히 부족=수량 갱신 / 채워짐=해소 / 팩 회복=short_pick 해소(voided 제외는 함수가)
+      p_short_refresh: miss.filter(stockFlagged).map(l=>({sku:l.order_sku, ordered_base:l.required, actual_base:l.verified})),
+      p_short_resolve: lines.filter(l=>l.verified>=l.required && stockFlagged(l)).map(l=>l.order_sku),
+      p_recovered: recovered.map(l=>l.order_sku),
+    };
+    const {data:res,error:re}=await sb.rpc("wms_complete_pack", payload);
+    if(re) throw re;   // 예외 = 전체 롤백 — 아무것도 저장되지 않았다 (함수 메시지가 원인을 담는다)
+    if(!res || res.completed!==true){
+      // CAS 0행. 함수가 준 서버 유도 이름(worker)이 내 세션(me.name)과 다르면 매니저가
+      // wms_staff.name 을 고친 드리프트 — 원인 없는 프리즈로 뭉개지 않는다 (2026-08-06 조건).
+      if(res && res.worker && res.worker!==me.name){
+        freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
+        return;
       }
+      await completeCasFailed(packTask.id);
+      return;
     }
-    // CAS (규칙 28 후속): 확인-쓰기 틈에 이어받기당한 스테일 화면이 완료를 덮지
-    // 않는다. 성공 판정 = .select() 행 수 — 0행 매치도 error null (규칙 24).
-    const {data:done,error:ce}=await sb.from("wms_pack_tasks")
-      .update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name})
-      .eq("id",packTask.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
-    if(ce) throw ce;
-    if(!done||!done.length){ await completeCasFailed(packTask.id); return; }
-
-    const ready=await checkOrderReady(packTask.order_id);
-    if(ready){ alert(`✅ ${order.order_number} — All batches for this order are packed!\n\nCin7, press pack authorize to finalize (3.Finalized)..`); }
+    scanMistakes.forEach(l=>{ l.overScans=0; });   // 판정 기록 완료 — 초과 표시 해제
+    if(res.ready){ alert(`✅ ${order.order_number} — All batches for this order are packed!\n\nCin7, press pack authorize to finalize (3.Finalized)..`); }
+    else if(res.ready_error){ toast("Completed — order status update failed, ask a manager to check the order",true); }
     const extra=[];
     const declaredMiss=miss.filter(stockFlagged).length;
     if(miss.length)extra.push(`Short ${miss.length}${declaredMiss?` (${declaredMiss} stock-short)`:""}`);
@@ -1317,8 +1301,12 @@ document.getElementById("doneBtn").onclick=async ()=>{
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){ toast("Completion failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
-  finally{ if(!frozen){ btn.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
+  }catch(e){
+    // RPC 는 전체 롤백이므로 이 메시지가 정직하다 — 반쪽 상태가 없다
+    toast("Completion failed — nothing was saved: "+(e.message||e),true);
+    if(packTask){ startHeartbeat(); presenceJoin(); }
+  }
+  finally{ scanBusy=false; if(!frozen){ btn.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
 };
 
 /* 완료 CAS 0행 → 원인 구분 (2026-08-06, 규칙 28 후속 · ⚠️ 현장 미검증)

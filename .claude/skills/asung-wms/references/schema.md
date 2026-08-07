@@ -1,6 +1,6 @@
-# WMS Supabase 스키마 (14개 테이블 + 함수 1)
+# WMS Supabase 스키마 (14개 테이블 + 함수 2)
 
-운영 테이블 12개(2026-07-22 `wms_waves` 추가) + 복제 2 + `wms_staff` + 불변식 함수 `wms_health_check()`. RLS ON(2026-07-19, `auth_all`). 복제 2테이블은 GAS·Edge Function만 접근하는 내부 마스터.
+운영 테이블 12개(2026-07-22 `wms_waves` 추가) + 복제 2 + `wms_staff` + 함수 2(`wms_health_check()` 불변식 · **`wms_complete_pack()` 팩 완료 트랜잭션 — 2026-08-06, 아래**). RLS ON(2026-07-19, `auth_all`). 복제 2테이블은 GAS·Edge Function만 접근하는 내부 마스터.
 
 > ⚠️⚠️ **이 문서는 요약이고 진실은 실물 DB 다 (2026-07-29 — 규칙 29).** "적용됨"으로 적힌 인덱스가 실제와 달라 리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않은 사고가 있었다. 인덱스·제약을 근거로 코드를 쓸 때는 먼저 확인할 것:
 > ```sql
@@ -35,6 +35,10 @@
 
 ### wms_pack_task_lines — 팩 배치 라인 (팩커 재스캔 검수)
 `id`, `pack_task_id`(FK), `order_line_id`(FK), `expected_base`, `verified_base`(재스캔 누적), `status`(pending/in_progress/verified/mismatch), `verification_method`, `created_at`/`verified_at`.
+- ⚠️ **두 라인 테이블의 id identity 는 2026-08-06 에 왕복했다 — 현재 GENERATED ALWAYS**: 7단계(묶음 upsert)가 BY DEFAULT 로 전환(`20260806130000`, revert 로 파일 삭제·DB 만 적용) → **upsert 는 23502 로 구조적 불가 판명**(`INSERT..ON CONFLICT` 는 NOT NULL 검사가 충돌 판정보다 먼저 — 행이 있어도 페이로드에 NOT NULL 컬럼이 빠지면 항상 거부, 프로덕션 실측) → 8단계 RPC 는 진짜 UPDATE 라 불필요 → `20260806140000` 이 **ALWAYS 복원**(파일-DB 정렬 회복 겸). **라인 묶음 upsert 를 다시 설계하지 말 것.**
+
+### 함수 wms_complete_pack — 팩 완료 트랜잭션 (2026-08-06 8단계 · 첫 RPC)
+`wms_complete_pack(p_task_id bigint, p_lines jsonb, p_disc jsonb, p_short_refresh jsonb, p_short_resolve jsonb, p_recovered jsonb) returns jsonb` (`20260806150000`). 라인 최종 저장(UPDATE)·discrepancy 3종 생성·stock_short 정리·**CAS 플립(첫 쓰기 — 0행이면 `{completed:false, worker}` 반환·무기록·재호출 멱등)**·ready 판정(비치명 서브블록)을 한 트랜잭션으로. **SECURITY INVOKER** · 작업자는 `auth.email()`→`wms_staff.name` 서버 유도 · ⚠️ EXECUTE 는 PUBLIC 기본 부여라 **명시 revoke 후 authenticated 만**. 로컬 테스트 `supabase/tests/wms_complete_pack_test.sql`. 상세는 SKILL 규칙 9 「팩 완료는 RPC」.
 
 ### wms_pallets — 팔렛
 `id`, `pallet_label`, `warehouse`, `status`(building/completed), `weight_note`, `height_note`, `created_at`/`completed_at`.
