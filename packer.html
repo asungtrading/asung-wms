@@ -1371,23 +1371,76 @@ document.getElementById("holdBtn").onclick=async ()=>{
   if(frozen) return;
   if(!packTask)return;
   if(!confirm("Hold this verification?\nYour progress is saved and the batch returns to the pack queue\nYou or another worker can resume it later..")) return;
-  if(!await ensureMine()) return;   // 규칙 28 — 이미 남의 것이면 내 스테일 수량으로 덮지 않는다
+  if(!await ensureMine()) return;   // 규칙 28 — 값싼 선확인(조기 프리즈). 최종 관문은 RPC 안의 CAS (2026-08-07)
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
+  scanBusy=true;   // RPC 비행 중 스캔 차단 — saveLine 이 Hold 뒤에 끼어들지 않게 (doneBtn 과 동일)
+  stopHeartbeat(); presenceLeave();
   try{
-    for(const l of lines){ const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending"); await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id); }
-    // pack_task delete → pick batch returns to pack queue (line progress lost: fresh verify on restart)
-    // to preserve progress, pack_taskwould need to keep as pending, but pool logic is "pack_task none"is
-    // hold keeps pack_task as pending + clears assigned_to → drops from 'My In Progress' so anyone can resume.
-    stopHeartbeat(); presenceLeave();
-    await sb.from("wms_pack_tasks").update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",packTask.id);
+    /* ── Hold 쓰기 전부 = wms_hold_pack RPC 한 트랜잭션 (2026-08-07 · 규칙 9/28) ──
+       CAS 플립(pending 복귀 + held_by) → 라인 최종 저장. 전체 롤백 확정(2026-08-07
+       사용자 결정) — 스캔 잔존은 saveLine 증분 저장이 담당. hold keeps pack_task as
+       pending + clears assigned_to → drops from 'My In Progress' so anyone can resume.
+       종전의 플립 error 무확인(revert ae1a623 로 잔존하던 것)도 이 이식이 흡수. */
+    const payload={
+      p_task_id: packTask.id,
+      p_lines: lines.filter(l=>l.packline_id).map(l=>({
+        id:l.packline_id, verified_base:l.verified,
+        status:(l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending")),
+        verification_method:l.vmethod||null,
+      })),
+    };
+    const {data:res,error:re}=await sb.rpc("wms_hold_pack", payload);
+    if(re) throw re;   // 예외 = 전체 롤백 — 클레임은 그대로 내 것 (아래 alert 가 정직하다)
+    if(!res || res.held!==true){
+      // CAS 0행. 서버 유도 이름(worker)이 내 세션(me.name)과 다르면 이름 드리프트 (doneBtn 과 동일)
+      if(res && res.worker && res.worker!==me.name){
+        freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
+        return;
+      }
+      await holdCasFailed(packTask.id);
+      return;
+    }
     toast(packTask.batch_label+" held");
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";
     loadQueue();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(packTask){ startHeartbeat(); presenceJoin(); } }
-  finally{ btn.disabled=false; }
+  }catch(e){
+    // ⚠️ Hold 는 눌러놓고 자리를 뜨는 동작 — 실패를 토스트로 흘리면 배치가 in_progress 로
+    // 남은 채 화면만 떠나 남이 못 잡는다. alert(단일 OK — confirm 오탭류 위험 없음)로 멈춰 세운다.
+    alert(`HOLD FAILED — this batch was NOT held.\n\nIt is still assigned to you and will NOT appear in the pack queue, so no one else can pick it up.\n\nNothing was saved. Stay on this screen and press Hold again, or ask a manager.\n\nReason: ${e.message||e}`);
+    if(packTask){ startHeartbeat(); presenceJoin(); }
+  }finally{ scanBusy=false; if(!frozen){ btn.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
 };
+
+/* Hold CAS 0행 → 원인 구분 (2026-08-07 · completeCasFailed 와 동형 · ⚠️ 현장 미검증)
+   Hold 도 결과 오인이 곧 사고다(성공 오인 = 배치가 in_progress 로 잠긴 채 방치).
+   "내 Hold" 판정 = pending + assigned_to null + held_by=나 — claim(startPack)이
+   held_by 를 null 로 정리하므로 이 조합으로 남는 경로는 내 Hold(응답 유실 뒤 재탭)뿐이다. */
+async function holdCasFailed(id){
+  let row;
+  try{
+    const q=await sb.from("wms_pack_tasks").select("assigned_to,status,held_by").eq("id",id).maybeSingle();
+    if(q.error) throw q.error;
+    row=q.data;
+  }catch(e){
+    // 재조회도 실패(네트워크) — Hold 가 실제로는 반영됐을 수 있다. 재시도가 "내 Hold" 분기로 구제.
+    alert("HOLD NOT CONFIRMED — could not reach the server.\n\nThe hold may or may not have gone through. Check the connection and press Hold again — if it already went through you will be returned to the list.");
+    if(packTask){ startHeartbeat(); presenceJoin(); }
+    return;
+  }
+  const mine = row && row.status==="pending" && !row.assigned_to && row.held_by===me.name;
+  if(mine){   // 목록 복귀 = "Hold 됐다" 신호
+    toast("Already held (returned to the pack queue)");
+    packTask=null;order=null;lines=[];bcMap={};
+    document.getElementById("packView").style.display="none";
+    document.getElementById("listView").style.display="block";
+    loadQueue();
+    return;
+  }
+  // 남이 가져갔거나(assigned_to=남) 풀렸다(null/행 없음) → 검증된 프리즈 모달 재사용(리로드만).
+  freezeScreen(row && row.assigned_to && row.assigned_to!==me.name ? row.assigned_to : null);
+}
 
 /* Back (keep My In Progress) */
 document.getElementById("backBtn").onclick=async ()=>{

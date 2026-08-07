@@ -1368,37 +1368,72 @@ document.getElementById("backBtn").onclick=async ()=>{
 document.getElementById("holdBtn").onclick=async ()=>{
   if(frozen) return;
   if(!task && !wave) return;
-  const label=wave?wave.label:task.batch_label;
+  const label=wave?wave.label:task.batch_label, unit=wave?"wave":"batch";
   if(!confirm(wave
     ? "Hold this wave?\nYour progress is saved and the whole wave returns to the waiting list.\nYou or another worker can resume it later."
     : "Hold this batch?\nYour progress is saved and the batch returns to the waiting list.\nYou or another worker can resume it later.")) return;
-  if(!await ensureMine()) return;   // 규칙 28 — 이미 남의 것이면 내 스테일 수량으로 덮지 않는다
+  if(!await ensureMine()) return;   // 규칙 28 — 값싼 선확인(조기 프리즈). 최종 관문은 RPC 안의 CAS (2026-08-07)
   const btn=document.getElementById("holdBtn"); btn.disabled=true;
+  scanBusy=true;   // RPC 비행 중 스캔 차단 — saveLine 이 Hold 뒤에 끼어들지 않게 (finish 와 동일)
+  stopHeartbeat(); presenceLeave();
   try{
-    // save current line quantity
-    for(const l of lines){
-      const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
-      await sb.from("wms_pick_task_lines").update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
-    }
-    // set to pending + unassigned (progress preserved on lines)
-    stopHeartbeat(); presenceLeave();
-    if(wave){
-      const {error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).in("id",tasks.map(t=>t.id));
-      if(te) throw te;
-      const {error:we}=await sb.from("wms_waves")
-        .update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",wave.id);
-      if(we) throw we;
-    }else{
-      const {error}=await sb.from("wms_pick_tasks")
-        .update({status:"pending",assigned_to:null,heartbeat_at:null,held_by:me.name}).eq("id",task.id);
-      if(error) throw error;
+    /* ── Hold 쓰기 전부 = wms_hold_pick RPC 한 트랜잭션 (2026-08-07 · 규칙 9/18/28) ──
+       CAS 플립(단일=task 행 / wave=wave 행 + 멤버 서버 유도) → 라인 최종 저장.
+       전체 롤백 확정(2026-08-07 사용자 결정) — 스캔 잔존은 saveLine 증분 저장이 담당하므로
+       실패해도 스캔은 서버에 남아 있다. discrepancy 배열 없음(Hold 는 만들지 않는다). */
+    const payload={
+      p_task_id: wave? null : task.id,
+      p_wave_id: wave? wave.id : null,
+      p_lines: lines.map(l=>({
+        id:l.id, picked_base:l.picked,
+        status:(l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending")),
+        verification_method:l.vmethod||null,
+      })),
+    };
+    const {data:res,error:re}=await sb.rpc("wms_hold_pick", payload);
+    if(re) throw re;   // 예외 = 전체 롤백 — 클레임은 그대로 내 것 (아래 alert 가 정직하다)
+    if(!res || res.held!==true){
+      // CAS 0행. 서버 유도 이름(worker)이 내 세션(me.name)과 다르면 이름 드리프트 (finish 와 동일)
+      if(res && res.worker && res.worker!==me.name){
+        freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
+        return;
+      }
+      await holdCasFailed(wave?"wave":"task", wave?wave.id:task.id);
+      return;
     }
     toast(label+" Held (returned to waiting list)");
     resetToList();
-  }catch(e){ toast("Hold failed: "+(e.message||e),true); if(task||wave){ startHeartbeat(); presenceJoin(); } }
-  finally{ btn.disabled=false; }
+  }catch(e){
+    // ⚠️ Hold 는 눌러놓고 자리를 뜨는 동작 — 실패를 토스트로 흘리면 배치가 in_progress 로
+    // 남은 채 화면만 떠나 남이 못 잡는다. alert(단일 OK — confirm 오탭류 위험 없음)로 멈춰 세운다.
+    alert(`HOLD FAILED — this ${unit} was NOT held.\n\nIt is still assigned to you and will NOT appear in the waiting list, so no one else can pick it up.\n\nNothing was saved. Stay on this screen and press Hold again, or ask a manager.\n\nReason: ${e.message||e}`);
+    if(task||wave){ startHeartbeat(); presenceJoin(); }
+  }finally{ scanBusy=false; if(!frozen){ btn.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
 };
+
+/* ---------- Hold CAS 0행 → 원인 구분 (2026-08-07 · completeCasFailed 와 동형 · ⚠️ 현장 미검증)
+   Hold 도 결과 오인이 곧 사고다(성공 오인 = 배치가 in_progress 로 잠긴 채 방치).
+   "내 Hold" 판정 = pending + assigned_to null + held_by=나 — claim 이 held_by 를 null 로
+   정리하므로(startBatch/startWave) 이 조합으로 남는 경로는 내 Hold(응답 유실 뒤 재탭)뿐이다. */
+async function holdCasFailed(kind, id){
+  let row;
+  try{
+    const q = kind==="wave"
+      ? await sb.from("wms_waves").select("assigned_to,status,held_by").eq("id",id).maybeSingle()
+      : await sb.from("wms_pick_tasks").select("assigned_to,status,held_by").eq("id",id).maybeSingle();
+    if(q.error) throw q.error;
+    row=q.data;
+  }catch(e){
+    // 재조회도 실패(네트워크) — Hold 가 실제로는 반영됐을 수 있다. 재시도가 "내 Hold" 분기로 구제.
+    alert("HOLD NOT CONFIRMED — could not reach the server.\n\nThe hold may or may not have gone through. Check the connection and press Hold again — if it already went through you will be returned to the list.");
+    if(task||wave){ startHeartbeat(); presenceJoin(); }
+    return;
+  }
+  const mine = row && row.status==="pending" && !row.assigned_to && row.held_by===me.name;
+  if(mine){ toast("Already held (returned to waiting list)"); resetToList(); return; }   // 목록 복귀 = "Hold 됐다" 신호
+  // 남이 가져갔거나(assigned_to=남) 풀렸다(null/행 없음) → 검증된 프리즈 모달 재사용(리로드만).
+  freezeScreen(row && row.assigned_to && row.assigned_to!==me.name ? row.assigned_to : null);
+}
 
 /* ---------- keep scan focus (scan is default) ---------- */
 function focusScan(){

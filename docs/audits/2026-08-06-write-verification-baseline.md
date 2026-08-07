@@ -65,7 +65,22 @@ POST /wms_pack_task_lines?on_conflict=id&columns="id","verified_base"&select=id
   **재호출이 멱등**(응답 유실 뒤 재시도의 discrepancy 중복이 원천 불가).
 - ~~픽 완료·wave 는 미적용~~ → **같은 날 `wms_complete_pick` 으로 이식**(단일+wave 한 함수 —
   wave 의 "멤버↔wave 행 2단 쓰기 틈"도 소멸. picker 쪽 쓰기는 원래 error 확인이 있었으므로
-  무확인 카운트는 불변). Hold·리시빙은 미적용(Hold 는 다음 차례). 상세 SKILL 규칙 9.
+  무확인 카운트는 불변). ~~Hold·리시빙은 미적용(Hold 는 다음 차례)~~ → Hold 는 아래 후속 ③,
+  리시빙은 대상 아님(규칙 24 — 소유자 없음). 상세 SKILL 규칙 9.
+
+## 2026-08-07 후속 ③ — Hold RPC (`wms_hold_pick`/`wms_hold_pack` · ⚠️ 현장 미검증)
+
+- **Hold 경로의 쓰기 전부가 RPC 한 트랜잭션으로** — 무확인 3곳 소멸:
+  ① picker Hold 라인 루프(`wms_pick_task_lines` update — error 무확인)
+  ② packer Hold 라인 루프(`wms_pack_task_lines` update — error 무확인)
+  ③ packer Hold 태스크 플립(`wms_pack_tasks` update — error 무확인.
+  ⚠️ 확인을 넣었던 `2cdb973` 이 upsert 폐기 revert(`ae1a623`)에 휩쓸려 함께 사라졌던 지점 —
+  RPC 이식이 revert 불가능한 형태로 재해소)
+  → **잔존 8 → 5** (picker/packer `saveLine` 등 스캔당 1행 쓰기는 범위 밖 잔존 — 다음 감사 대상).
+- 실패는 전체 롤백 + 예외이고, 프론트는 토스트가 아니라 **alert** 로 표시한다
+  (Hold 는 눌러놓고 자리를 뜨는 동작 — 성공 오인 = 배치가 in_progress 로 잠긴 채 방치).
+- ⚠️ 위 3곳이 기준선 26곳 패턴(결과 미사용 `await sb.from(`)에 걸리는 형태임은 확인했으나,
+  "잔존 12/8" 의 항목별 명세는 이 문서에 없다 — 다음 재측정에서 5 가 실측과 맞는지 확인할 것.
 
 ## 재측정 방법 (다음 감사 때)
 
