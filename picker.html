@@ -16,7 +16,7 @@
     --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;overscroll-behavior:none}
   body{font-family:var(--sans);background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.45;overscroll-behavior:none}
 
   header{position:sticky;top:0;z-index:20;background:rgba(247,248,250,.9);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
@@ -95,7 +95,8 @@
   .single{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
   .single .body{padding:16px}
   .single .head{display:flex;gap:14px;margin-bottom:6px}
-  .single .img{width:150px;height:150px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat}
+  .single .img{width:150px;height:150px;flex:none;border:1px solid var(--line);border-radius:12px;background:#f1f3f6 center/contain no-repeat;overflow:hidden}
+  .single .img img{width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block}
   .single .info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
   .single .zbin{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .single .barcodes{margin:2px 0 4px;padding:9px 11px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
@@ -141,7 +142,8 @@
   .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
   .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap}
   .lrow.done .q{color:var(--ok)}
-  .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line)}
+  .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line);overflow:hidden}
+  .lrow .thumb img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
   .avail{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--edm);background:#e9f7f1;border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
   .avail.low{color:var(--danger);background:var(--danger-bg)}
   .avail.na{color:var(--mut-2);background:#f1f3f6}
@@ -386,6 +388,45 @@ function resetToList(){
   loadBatches();
 }
 
+/* ---------- 리로드 복원용 URL (2026-08-07 · 규칙 9 · ⚠️ 현장 미검증) ----------
+   탭 폐기(안드로이드 크롬 메모리 압박)·렌더러 OOM 크래시 복구·pageshow 리로드(규칙 16)는
+   전부 신규 로드라 메모리 상태가 사라진다 → 열려 있던 배치를 URL 에 남겨 리로드 후 복귀.
+   규칙 5: localStorage 금지 — URL(replaceState)과 메모리만. pushState 금지(뒤로가기 스택 무증가). */
+const RESTORE=new URLSearchParams(location.search);   // 파싱 시점 1회 캡처 — 이후 URL 정리와 경합 없음
+function setUrlParam(k,v){ try{ history.replaceState(null,"",location.pathname+"?"+k+"="+v); }catch(e){} }
+function clearUrlParam(){ try{ if(location.search) history.replaceState(null,"",location.pathname); }catch(e){} }
+
+/* ⚠️ URL 은 소유권 증명이 아니다(규칙 28 — 증명은 종이 재스캔 scanTakeover).
+   in_progress + 내 것일 때만 진입, 그 외엔 자동 클레임 없이 사유 toast 후 목록.
+   toast 의 담당자 이름은 freezeScreen·이어받기 confirm 과 동일한 기존 노출 범위(RLS auth_all — 규칙 8). */
+async function restoreFromUrl(kind, id){
+  try{
+    if(kind==="wave"){
+      const {data:w,error}=await sb.from("wms_waves").select("id,status,assigned_to").eq("id",id).maybeSingle();
+      if(error) throw error;
+      if(w && w.status==="in_progress" && w.assigned_to===me.name){ await resumeWave(id); return; }  // 기존 재개 경로 재사용(자체 재확인 포함)
+      restoreDenied(w);
+    }else{
+      const {data:t,error}=await sb.from("wms_pick_tasks")
+        .select("*, wms_orders(order_number,warehouse,customer_name,needs_review)").eq("id",id).maybeSingle();
+      if(error) throw error;
+      if(t && t.status==="in_progress" && t.assigned_to===me.name){
+        task=t; order=t.wms_orders||{};        // resumeBatch 와 같은 조건·같은 이어짐 (목록 캐시 없이)
+        startHeartbeat(); presenceJoin();
+        await loadLines(); return;
+      }
+      restoreDenied(t);
+    }
+  }catch(e){ toast("Could not restore your batch — pick it from the list",true); loadBatches(); }
+}
+function restoreDenied(row){
+  if(!row) toast("That batch no longer exists — it may have been rolled back",true);
+  else if(row.status==="completed") toast("That batch was already completed",true);
+  else if(row.assigned_to && row.assigned_to!==me.name) toast("That batch is now assigned to "+row.assigned_to+" — re-scan the pick list to take it over",true);
+  else toast("That batch went back to the waiting list — resume it below",true);
+  loadBatches();
+}
+
 /* ---------- boot / login ---------- */
 function boot(){
   wmsAuth.start({requireManager:false}, (client, staffMe)=>{
@@ -450,11 +491,16 @@ async function init(){
   if(zs.error){setConn("err");toast("Initial load failed",true);return;}
   setConn("ok");
   (zs.data||[]).forEach(z=>zoneSeq[z.warehouse+"|"+z.zone]=z.sequence_order);
+  // 리로드 복원 — URL 에 배치/웨이브가 남아 있으면 소유권 재확인 후 재진입 (실패 시 내부에서 목록 폴백)
+  const rw=RESTORE.get("wave"), rb=RESTORE.get("batch");
+  if(rw){ await restoreFromUrl("wave", +rw); return; }
+  if(rb){ await restoreFromUrl("task", +rb); return; }
   loadBatches();
 }
 
 /* ---------- batch list ---------- */
 async function loadBatches(){
+  clearUrlParam();   // 목록 = 열린 배치 없음 — 여기서 리로드되면 목록으로 (파라미터는 파싱 시점에 캡처됨)
   document.getElementById("bempty").style.display="none";
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
@@ -717,6 +763,7 @@ async function enterPickView(){
   curIdx=firstIncomplete();
   document.getElementById("listView").style.display="none";
   document.getElementById("pickView").style.display="block";
+  setUrlParam(wave?"wave":"batch", wave?wave.id:task.id);   // 리로드 복원 지점 — 진입 7경로 전부 여기로 수렴
   document.getElementById("pTitle").textContent=pickTitle;
   document.getElementById("pMeta").textContent=pickMeta;
   renderPick(); focusScan();
@@ -917,7 +964,10 @@ function renderPick(){
   [...document.querySelectorAll("#viewSeg button")].forEach(x=>x.classList.toggle("active",x.dataset.v===ev));
   if(ev==="single") renderSingle(); else renderList();
 }
-function imgStyle(l){ return l.image_url?`style="background-image:url('${esc(l.image_url)}')"`:""; }
+/* 이미지는 background-image 가 아니라 <img loading="lazy"> — 브라우저가 뷰포트 근처만 로드하고
+   오프스크린 디코딩 메모리를 회수한다(60줄 리스트 빠른 스크롤의 렌더러 OOM 후보 완화 — 2026-08-07,
+   ⚠️ 리로드 빈도 감소 효과는 미검증 가설). 고정 크기 컨테이너 div 는 유지해 레이아웃 불변. */
+function imgTag(l){ return l.image_url?`<img src="${esc(l.image_url)}" loading="lazy" decoding="async" alt="">`:""; }
 // base barcode (factor 1) + variant barcodes (factor>1, e.g. -12) + ALT-UPC aliases.
 function barcodeBlock(l){
   const rows=l.barcodeRows||[];
@@ -948,7 +998,7 @@ function renderSingle(){
       ${viewOverride?`<button class="backlist" data-backlist>← Back to list</button>`:""}
       ${l._tote?`<div class="totebar"><span class="tn">TOTE ${l._tote}</span><span class="tc">${esc(l._customer||"")}${l._orderNumber?" · "+esc(l._orderNumber):""}</span></div>`:""}
       <div class="head">
-        <div class="img" ${imgStyle(l)}></div>
+        <div class="img">${imgTag(l)}</div>
         <div class="info">
           <div class="zbin"><span class="zbadge">${esc(l.zone||"·")}</span><span class="binbig">${esc(l.bin||"—")}</span>${l.bin?`<button class="mapchip" data-map="${esc(l.bin)}" title="Find this bin on the warehouse map">🗺</button>`:""}</div>
           <div class="nm">${esc(l.product_name)}</div>
@@ -998,7 +1048,7 @@ function renderList(){
     const cls=done?"done":(idx===curIdx?"cur":"");
     return `<div class="lrow ${cls}" data-idx="${idx}">
       <span class="zn">${esc(l.zone||"·")}</span>${l._tote?`<span class="tt">T${l._tote}</span>`:""}
-      <div class="thumb" ${imgStyle(l)}></div>
+      <div class="thumb">${imgTag(l)}</div>
       <div class="li"><div class="s">${esc(l.order_sku)}</div><div class="n">${esc(l.product_name)}</div><div class="b">${esc(l.bin||"—")}${availChip(l)}</div></div>
       <div class="q">${l.picked} / ${l.assigned}</div>
     </div>`;
