@@ -511,6 +511,17 @@ const skuOnDoc = (tasks: any[]) => {   // 비VOIDED 전 태스크의 SKU 별 수
   }
   return m;
 };
+/* ⚠️⚠️ Advanced 의 TaskID = I&R(Invoicing & Receiving) 그룹 식별자다 (2026-08-07 PO-01094 실사고 2호).
+   stock POST 에 TaskID 를 안 실으면 Cin7 이 **새 그룹을 만들고 빈 DRAFT 인보이스까지 자동 생성**한다 —
+   인보이스와 입고가 영구히 다른 그룹에 갈라진다. **타깃은 승인된 인보이스의 TaskID**(Invoice[] 원소가
+   TaskID·InvoicingAndReceivingNumber 를 가진다 — 2026-08-05 실측). 정확히 1개일 때만 진행:
+   0개=중단(새 그룹 생성보다 낫다) · 2개+=중단(다중 인보이스 부분 출하는 미지원 — 어느 출하의 입고인지
+   WMS 가 모른다). "기본 그룹 TaskID==PurchaseID(PO-01068)" 는 미확인이며 **의존하지 않는다**.
+   계획(dry-run 표시)과 커밋이 이 헬퍼 하나를 공유한다. */
+const advInvoiceTargets = (det: any): any[] => {
+  const list = (Array.isArray(det && det.Invoice) ? det.Invoice : [det && det.Invoice]).filter(Boolean) as any[];
+  return list.filter((i) => PO_INVOICE_OK.has(String(i.Status || "").trim().toUpperCase()) && i.TaskID);
+};
 
 // resetFails = true (?retry_failed=1, admin 'Retry failed bins'): 연속 실패 카운트를 리셋하고
 // 격리(permanently_failed)된 bin 도 다시 시도 대상에 넣는다 — 사람이 Cin7 재고를 고친 뒤의 명시적 재시도 경로.
@@ -653,16 +664,29 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
     let advState: any = null;
     if (planAdv) {
       try {
-        const g = await cin7Get("/advanced-purchase/stock?PurchaseID=" + encodeURIComponent(rcpt.cin7_purchase_id));
-        const tasks = ((g || {}).StockReceiving || []) as any[];
-        const withLines = nonVoidOf(tasks).filter(hasLines);
+        // 상세(인보이스 → I&R 타깃)와 stock 문서를 함께 읽어 "어느 그룹에 쓰는지"까지 계획에 보여준다.
+        const [gd, gs] = await Promise.all([
+          cin7Get("/advanced-purchase?ID=" + encodeURIComponent(rcpt.cin7_purchase_id)),
+          cin7Get("/advanced-purchase/stock?PurchaseID=" + encodeURIComponent(rcpt.cin7_purchase_id)),
+        ]);
+        const tasks = ((gs || {}).StockReceiving || []) as any[];
+        const okInvs = advInvoiceTargets(gd);
+        const target = okInvs.length === 1 ? String(okInvs[0].TaskID) : null;
+        const inGroup = target ? tasks.filter((t: any) => String(t && t.TaskID) === target) : tasks;
+        const withLines = nonVoidOf(inGroup).filter(hasLines);
+        const foreign = target
+          ? nonVoidOf(tasks.filter((t: any) => String(t && t.TaskID) !== target)).filter(hasLines) : [];
         advState = {
+          ok_invoices: okInvs.length,
+          target_task: target,
+          target_invoice: target ? String(okInvs[0].InvoiceNumber || "?") : null,
           stage1_done: withLines.length > 0 && withLines.every((t: any) => stStatus(t) === "AUTHORISED"),
           stock_tasks: tasks.length ? "[" + rawStatuses(tasks) + "]" : "(none)",
           stock_lines: withLines.reduce((n: number, t: any) => n + ((t.Lines || []) as any[]).length, 0),
+          foreign_lines: foreign.reduce((n: number, t: any) => n + ((t.Lines || []) as any[]).length, 0),
         };
       } catch (e) {
-        advState = { stage1_done: null, stock_lines: null,
+        advState = { stage1_done: null, stock_lines: null, ok_invoices: null, target_task: null, foreign_lines: 0,
           stock_tasks: "(Cin7 read failed: " + String((e as Error).message).slice(0, 120) + ")" };
       }
     }
@@ -676,17 +700,28 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
         retry: retryFailed, retry_reset: resetFails,
         steps: planAdv ? [
           "1) Check invoice is AUTHORISED (Invoice First)",
-          "2) ADVANCED pre-flight: resolve EVERY bin GUID first - if any bin is unresolvable, stop before anything irreversible",
+          (advState && advState.ok_invoices === 1
+            ? "2) Target I&R group: task " + String(advState.target_task).slice(0, 8) + "… (invoice " +
+              advState.target_invoice + ") - EVERY stock/put-away write goes to this group (never a new group)"
+            : advState && advState.ok_invoices !== null && advState.ok_invoices !== undefined
+              ? "2) ⚠ " + advState.ok_invoices + " authorised invoice(s) with an I&R TaskID - the commit run will STOP" +
+                " (exactly one is required to target an I&R group)"
+              : "2) Target I&R group: (Cin7 state could not be read for this preview - the commit run derives and enforces it)"),
+          "3) ADVANCED pre-flight: resolve EVERY bin GUID first - if any bin is unresolvable, stop before anything irreversible",
           (advState && advState.stage1_done === true
-            ? "3) Stage 1 ALREADY AUTHORISED on Cin7 (" + advState.stock_lines + " line(s) on the stock document, tasks " +
+            ? "4) Stage 1 ALREADY AUTHORISED on Cin7 (" + advState.stock_lines + " line(s) in the target group, tasks " +
               advState.stock_tasks + ") - this round SKIPS stage 1 and runs stage 2 only"
             : advState && advState.stage1_done === null
-              ? "3) Stage 1 - stock received -> authorize: IRREVERSIBLE. Current Cin7 state UNKNOWN " +
+              ? "4) Stage 1 - stock received -> authorize: IRREVERSIBLE. Current Cin7 state UNKNOWN " +
                 advState.stock_tasks + " - the commit run re-checks and only adds what is missing (per-SKU delta)"
-              : "3) Stage 1 - stock received (quantities only, Advanced carries no bins here) -> authorize: IRREVERSIBLE, " +
+              : "4) Stage 1 - stock received (quantities only, Advanced carries no bins here) -> authorize: IRREVERSIBLE, " +
                 "stock enters at warehouse level without bins" +
                 (advState ? " (current stock tasks: " + advState.stock_tasks + ")" : "")),
-          "4) Stage 2 - put-away: ONE AUTHORISED post places every bin (" + binsActive.length + " bin group(s), " +
+          ...(advState && advState.foreign_lines
+            ? ["⚠ " + advState.foreign_lines + " line(s) sit on task(s) OUTSIDE the target group - the commit run will STOP" +
+               " until they are removed in Cin7 (re-posting them would double the stock)"]
+            : []),
+          "5) Stage 2 - put-away: ONE AUTHORISED post places every bin (" + binsActive.length + " bin group(s), " +
             "no per-bin chunking - Advanced has no one-bin-per-document limit); if it fails, the stock stays " +
             "bin-less at warehouse level and Apply again retries placement only",
         ] : [
@@ -1098,6 +1133,26 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
       const pid = rcpt.cin7_purchase_id;
       const advAll = (plan.lines || []) as any[];                                  // stage1 총량의 근거(기배치 포함)
       const advPending = advAll.filter((p: any) => Number(p.pending_base) > 0);    // stage2 대상(선반 미완)
+      // ── I&R 그룹 타깃 유도 (2026-08-07 실사고 2호 — 헬퍼 정의부 주석 참조. 모든 쓰기가 이 TaskID 로 간다) ──
+      const okInvs = advInvoiceTargets(det0);
+      if (!okInvs.length) {
+        throw new Error("ADVANCED: no authorised invoice with an I&R TaskID on this PO - cannot target an I&R group, so NOTHING was written" +
+          " (posting without a TaskID would create a NEW group with an empty draft invoice - the PO-01094 defect)." +
+          " Authorize the invoice in Cin7, then Apply again.");
+      }
+      if (okInvs.length > 1) {
+        throw new Error("ADVANCED: " + okInvs.length + " authorised invoices on this PO - multi-invoice (partial-shipment) Advanced POs are not supported," +
+          " because WMS cannot tell which shipment this receipt belongs to. NOTHING was written. Invoices: " +
+          okInvs.map((i: any) => (i.InvoiceNumber || "?") + " (I&R task " + String(i.TaskID).slice(0, 8) + "…)").join(", ") +
+          ". Handle this PO in Cin7 directly.");
+      }
+      const targetTask = String(okInvs[0].TaskID);
+      const targetInvNo = String(okInvs[0].InvoiceNumber || "?");
+      log.push("ADVANCED I&R group target: task " + targetTask + " (invoice " + targetInvNo + ", " +
+        String(okInvs[0].Status || "").trim() + ") - every stock/put-away write goes to this group");
+      const inGroupOf = (tasks: any[]) => tasks.filter((t: any) => String(t && t.TaskID) === targetTask);
+      const foreignLinesOf = (tasks: any[]) =>
+        nonVoidOf(tasks.filter((t: any) => String(t && t.TaskID) !== targetTask)).filter(hasLines);
       // ── pre-flight: 전 bin GUID 해석 — 불가역 지점 앞의 하드 게이트 (2026-08-07 사용자 승인:
       //    확인 모달 대신 결정론적 게이트. 하나라도 실패 = 전량 중단·Cin7 무기록·receipt 큐 잔류) ──
       const advGuid: Record<string, string> = {};
@@ -1120,12 +1175,27 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
       // buildApplyPlan 의 dry-run 상태 표시와 같은 판정을 공유한다. 재설계 경위는 헬퍼 정의부 주석).
       let stTasks = await readStock();
       log.push("ADVANCED stock tasks on Cin7: " + (stTasks.length ? "[" + rawStatuses(stTasks) + "]" : "(none)"));
+      // ── 외부 그룹 가드: 타깃이 아닌 태스크에 라인이 있으면 중단 (2026-08-07 사용자 승인) ──
+      // 그 라인이 AUTHORISED 면 이미 재고에 들어가 있어, 타깃 그룹에 전량을 다시 실으면 **이중 재고**가 된다
+      // (DRAFT 라도 나중에 승인되면 같은 결과). WMS 가 안전하게 정산할 방법이 없다 — 사람 정리 후 재시도.
+      {
+        const foreign = foreignLinesOf(stTasks);
+        if (foreign.length) {
+          throw new Error("ADVANCED: " + foreign.reduce((n: number, t: any) => n + ((t.Lines || []) as any[]).length, 0) +
+            " stock line(s) sit on task(s) OUTSIDE the authorised invoice group " +
+            foreign.map((t: any) => "[task " + String(t.TaskID).slice(0, 8) + "… " + JSON.stringify(t.Status ?? null) + " " +
+              ((t.Lines || []) as any[]).length + " line(s)]").join(" ") +
+            " - re-posting into the correct group would DOUBLE the stock, so NOTHING was written." +
+            " FIX: in Cin7, open this PO and void/remove those lines from the wrong I&R group (target group is task " +
+            targetTask.slice(0, 8) + "… / invoice " + targetInvNo + "), then press Apply again.");
+        }
+      }
       const needUnits: Record<string, { sku: string; units: number }> = {};
       for (const p of advAll) {
         const k = String(p.order_sku).toUpperCase();
         (needUnits[k] = needUnits[k] || { sku: p.order_sku, units: 0 }).units += Number(p.qty_units || 0);
       }
-      let onDoc = skuOnDoc(stTasks);
+      let onDoc = skuOnDoc(inGroupOf(stTasks));   // 회계는 타깃 그룹만 — 외부 그룹은 위 가드가 이미 배제
       // 문서가 계획보다 많이 들고 있으면(수동 라인·잔재) authorize 가 초과분까지 확정한다 → 무기록 중단.
       {
         const over: string[] = [];
@@ -1144,12 +1214,12 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
         if (delta > 0) stockLines.push({ Date: now, SKU: needUnits[k].sku, Quantity: delta });
       }
       if (stockLines.length) {
-        const reuse = unauthorizedOf(stTasks)[0];   // DELETE 무력 → 기존 미승인 태스크(프로브 잔재 포함) 재사용이 필수
+        // ⚠️ TaskID 는 **항상 타깃 그룹** — 생략(새 그룹 생성) 경로는 폐지됐다(실사고 2호의 재발 봉쇄).
         await cin7("POST", ADV_STOCK, {
-          PurchaseID: pid, ...(reuse ? { TaskID: reuse.TaskID } : {}), Status: "DRAFT", Lines: stockLines,
+          PurchaseID: pid, TaskID: targetTask, Status: "DRAFT", Lines: stockLines,
         });
         stTasks = await readStock();         // 되읽기 — 200 을 믿지 않는다
-        onDoc = skuOnDoc(stTasks);
+        onDoc = skuOnDoc(inGroupOf(stTasks));
         const short: string[] = [];
         for (const k in needUnits) {
           if ((onDoc[k] || 0) < needUnits[k].units) short.push(needUnits[k].sku + ": doc " + (onDoc[k] || 0) + " < plan " + needUnits[k].units);
@@ -1164,7 +1234,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
       // ── stage1 authorize — ★ 되돌릴 수 없는 지점: 재고가 창고 레벨로 들어간다(bin 은 아직 없다) ──
       // 대상 = AUTHORISED 도 VOIDED 도 아닌, **라인이 있는** 모든 태스크(상태 문자열이 무엇이든 시도).
       let stage1Ok = true;
-      const toAuth = unauthorizedOf(stTasks).filter(hasLines);
+      const toAuth = unauthorizedOf(inGroupOf(stTasks)).filter(hasLines);   // 승인도 타깃 그룹만
       const emptyIgnored = unauthorizedOf(stTasks).filter((t) => !hasLines(t));
       if (emptyIgnored.length) {
         log.push("ADVANCED stage1: " + emptyIgnored.length + " empty task(s) ignored (probe leftovers - carry no quantity, cannot be deleted via API)");
@@ -1185,7 +1255,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
         // 되읽기 = **존재 증명** (2026-08-07 재설계): "DRAFT 가 없다"가 아니라 "라인 있는 비VOIDED 태스크가
         // 1개 이상이고 전부 정확히 AUTHORISED 로 읽힌다"일 때만 통과. 알 수 없는 상태는 fail-closed + 원문 로그.
         stTasks = await readStock();
-        const withLines = nonVoidOf(stTasks).filter(hasLines);
+        const withLines = nonVoidOf(inGroupOf(stTasks)).filter(hasLines);   // 존재 증명도 타깃 그룹만
         const notAuth = withLines.filter((t) => stStatus(t) !== "AUTHORISED");
         if (!withLines.length || notAuth.length) {
           stage1Ok = false;
@@ -1217,7 +1287,18 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
         const keyOf = (p: any) =>
           String(p.order_sku).toUpperCase() + "|" + String(advGuid[String(p.bin).toUpperCase()] || "").toLowerCase();
         let paTasks = await readPa();
-        let placed = placedOf(paTasks);
+        // 외부 그룹 put-away 라인도 같은 가드 — 다른 그룹에 놓인 선반 기록은 정산 불능(이중 배치 위험)
+        {
+          const foreignPa = foreignLinesOf(paTasks);
+          if (foreignPa.length) {
+            throw new Error("ADVANCED: put-away line(s) exist on task(s) OUTSIDE the authorised invoice group " +
+              foreignPa.map((t: any) => "[task " + String(t.TaskID).slice(0, 8) + "… " + ((t.Lines || []) as any[]).length + " line(s)]").join(" ") +
+              " - WMS cannot reconcile this safely. FIX: void/remove them in Cin7 (target group is task " +
+              targetTask.slice(0, 8) + "… / invoice " + targetInvNo + "), then Apply again. Stage 2 was NOT run" +
+              " (stage 1 stock stays AUTHORISED at warehouse level - nothing is lost).");
+          }
+        }
+        let placed = placedOf(inGroupOf(paTasks));   // 배치 회계도 타깃 그룹만
         // 지난 회차에 배치됐는데 체크포인트만 빠진 라인 — 되읽기로 회복(checkpoint repair 와 동일 원칙)
         const toPost: any[] = [];
         for (const p of advPending) {
@@ -1227,9 +1308,6 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
           } else toPost.push(p);
         }
         if (toPost.length) {
-          // put-away 태스크 재사용도 정규화 판정 — DRAFT 만이 아니라 비승인·비VOIDED 전부(NOT AVAILABLE 포함:
-          // R3 실측이 그 상태였고 스펙상 POST 허용 상태다). 없으면 TaskID 생략(새 태스크).
-          const paDraft = unauthorizedOf(paTasks)[0];
           log.push("ADVANCED put-away tasks on Cin7: " + (paTasks.length ? "[" + rawStatuses(paTasks) + "]" : "(none)"));
           const paLines = toPost.map((p: any) => ({
             Date: now, SKU: p.order_sku, Quantity: Math.round(Number(p.qty_units)),
@@ -1238,11 +1316,12 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
           const binCount = new Set(toPost.map((p: any) => String(p.bin).toUpperCase())).size;
           groupsAttempted++;
           log.push("ADVANCED stage2 IRREVERSIBLE CALL - posting ALL " + paLines.length + " line(s) / " + binCount +
-            " bin(s) in ONE AUTHORISED put-away request" + (paDraft ? " (draft task " + paDraft.TaskID + " reused)" : ""));
+            " bin(s) in ONE AUTHORISED put-away request to I&R task " + targetTask.slice(0, 8) + "… (invoice " + targetInvNo + ")");
           let postOk = true;
           try {
+            // ⚠️ TaskID 는 항상 타깃 그룹 — 생략(새 그룹/태스크 생성) 경로 폐지 (stage1 과 동일)
             await cin7("POST", ADV_PA, {
-              PurchaseID: pid, ...(paDraft ? { TaskID: paDraft.TaskID } : {}), Status: "AUTHORISED", Lines: paLines,
+              PurchaseID: pid, TaskID: targetTask, Status: "AUTHORISED", Lines: paLines,
             });
           } catch (e) {
             postOk = false;
@@ -1264,7 +1343,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
           }
           if (postOk) {
             paTasks = await readPa();          // 되읽기 — LocationID 실저장 확인(조용한 무시 전과 대비)
-            placed = placedOf(paTasks);
+            placed = placedOf(inGroupOf(paTasks));
             let verified = 0;
             for (const p of toPost) {
               if ((placed[keyOf(p)] || 0) >= Number(p.qty_units || 0)) {

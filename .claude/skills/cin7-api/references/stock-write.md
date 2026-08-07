@@ -98,8 +98,11 @@ POST /purchase/stock
    (TransferQuantity 무시·파라미터 오타와 같은 R11 계열)의 세 번째 실측. 프로브·쓰기를 설계할 때
    **지울 수 있다고 가정하지 말 것.**
 4. **빈 DRAFT 태스크는 무해하게 남는다**(재고 영향 없음, `Lines:[]`) — PO-01094 에 실재
-   (TaskID `44e2f761-5f39-4ec4-bb55-fb7e1d1abf66`). 지울 수 없으므로 **후속 쓰기는 회차 시작에
-   GET 으로 기존 DRAFT 태스크를 찾아 재사용(append)하는 설계가 필수**다.
+   (TaskID `44e2f761-5f39-4ec4-bb55-fb7e1d1abf66`). ~~지울 수 없으므로 후속 쓰기는 회차 시작에
+   GET 으로 기존 DRAFT 태스크를 찾아 재사용(append)하는 설계가 필수다~~ → ⚠️⚠️ **2026-08-07 후반
+   정정: "아무 DRAFT 나 재사용"이 실사고 2호를 키웠다**(그 빈 태스크가 잘못 만들어진 I&R 그룹이었고,
+   재사용 로직이 그 그룹에 계속 썼다). **재사용이 아니라 11번의 타깃 지정** — TaskID 는 항상 승인
+   인보이스에서 유도하고, 다른 태스크는 라인이 있으면 중단·없으면 무시.
 
 프로브 도구: asung-wms repo `docs/probes/WmsAdvPoStockProbe.gs` (교차 조합·자체 정리 시도 포함).
 put-away 요청 스펙은 apib 17347행(`PurchaseID`+`TaskID`+`Status`+`Lines[{…,Location/LocationID 필수*}]`,
@@ -134,6 +137,19 @@ authorize 는 빈 Lines POST).
     엔드포인트에서 apib 가 LocationID 도 틀렸다(1번). **상태 판정은 부재 증명("DRAFT 없음")이 아니라
     존재 증명("전부 정확히 AUTHORISED 로 되읽힘")으로**, 비교는 trim+대문자 정규화로, 실패는
     fail-closed 로. 계획 문구·계획서는 실행 검증이 아니다 — 실행 경로는 응답 로그(`PATH=`)로 확인.
+11. ⚠️⚠️ **Advanced 의 `TaskID` 는 I&R(Invoicing & Receiving) 그룹 식별자다. 지정하지 않으면 새 그룹이
+    생기고 빈 DRAFT 인보이스가 딸려 만들어진다. 반드시 승인된 인보이스의 TaskID 를 지정할 것.**
+    (2026-08-07 PO-01094 실사고 2호 실측: TaskID 없이 stock POST → Cin7 이 새 그룹 #1 생성 + 빈
+    DRAFT 인보이스 자동 생성 → 승인 인보이스(#63467, 그룹 #0=cf791a11…)와 입고가 영구히 갈라짐.
+    프로브 탓이 아니라 TaskID 생략의 구조적 결과 — 모든 Advanced PO 에서 재현된다.)
+    · **타깃 유도**: PO 상세의 `Invoice[]` 원소가 `TaskID`·`InvoicingAndReceivingNumber` 를 갖는다 —
+      `Status ∈ {AUTHORISED, PAID}` && TaskID 있는 인보이스가 **정확히 1개**일 때만 그 TaskID 로 진행.
+      0개(타깃 불능)·2개+(다중 인보이스 부분 출하 — 어느 출하의 입고인지 알 수 없음)는 **중단**.
+    · put-away 도 같은 TaskID 를 쓴다(같은 그룹의 두 면 — 5번). stock·put-away 모두 **TaskID 생략 경로 금지**.
+    · **외부 그룹 가드**: 타깃이 아닌 태스크에 라인이 있으면(상태 불문 비VOID) 중단 — 그 라인이
+      승인돼 있으면 이미 재고라서 타깃 그룹에 재전송 시 **이중 재고**. 사람이 Cin7 에서 정리 후 재시도.
+    · "기본 그룹의 TaskID == PurchaseID"(PO-01068 관찰)는 **미확인이며 의존하지 않는다** —
+      타깃은 항상 인보이스에서 유도한다.
 
 ## purchaseList 필터 실무 노트
 
