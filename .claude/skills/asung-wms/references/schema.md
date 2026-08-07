@@ -1,6 +1,6 @@
-# WMS Supabase 스키마 (14개 테이블 + 함수 2)
+# WMS Supabase 스키마 (14개 테이블 + 함수 3)
 
-운영 테이블 12개(2026-07-22 `wms_waves` 추가) + 복제 2 + `wms_staff` + 함수 2(`wms_health_check()` 불변식 · **`wms_complete_pack()` 팩 완료 트랜잭션 — 2026-08-06, 아래**). RLS ON(2026-07-19, `auth_all`). 복제 2테이블은 GAS·Edge Function만 접근하는 내부 마스터.
+운영 테이블 12개(2026-07-22 `wms_waves` 추가) + 복제 2 + `wms_staff` + 함수 3(`wms_health_check()` 불변식 · **`wms_complete_pack()`·`wms_complete_pick()` 완료 트랜잭션 — 2026-08-06, 아래**). RLS ON(2026-07-19, `auth_all`). 복제 2테이블은 GAS·Edge Function만 접근하는 내부 마스터.
 
 > ⚠️⚠️ **이 문서는 요약이고 진실은 실물 DB 다 (2026-07-29 — 규칙 29).** "적용됨"으로 적힌 인덱스가 실제와 달라 리시빙 discrepancy 가 구현 이후 한 번도 기록되지 않은 사고가 있었다. 인덱스·제약을 근거로 코드를 쓸 때는 먼저 확인할 것:
 > ```sql
@@ -39,6 +39,9 @@
 
 ### 함수 wms_complete_pack — 팩 완료 트랜잭션 (2026-08-06 8단계 · 첫 RPC)
 `wms_complete_pack(p_task_id bigint, p_lines jsonb, p_disc jsonb, p_short_refresh jsonb, p_short_resolve jsonb, p_recovered jsonb) returns jsonb` (`20260806150000`). 라인 최종 저장(UPDATE)·discrepancy 3종 생성·stock_short 정리·**CAS 플립(첫 쓰기 — 0행이면 `{completed:false, worker}` 반환·무기록·재호출 멱등)**·ready 판정(비치명 서브블록)을 한 트랜잭션으로. **SECURITY INVOKER** · 작업자는 `auth.email()`→`wms_staff.name` 서버 유도 · ⚠️ EXECUTE 는 PUBLIC 기본 부여라 **명시 revoke 후 authenticated 만**. 로컬 테스트 `supabase/tests/wms_complete_pack_test.sql`. 상세는 SKILL 규칙 9 「팩 완료는 RPC」.
+
+### 함수 wms_complete_pick — 픽 완료 트랜잭션 (2026-08-06 · 단일 + wave)
+`wms_complete_pick(p_lines jsonb, p_task_id bigint, p_wave_id bigint, p_disc jsonb, p_short_refresh jsonb, p_short_delete jsonb) returns jsonb` (`20260806160000`). 팩과 같은 골격. 다른 점: `p_task_id`/`p_wave_id` 중 정확히 하나(단일/wave 모드) · **wave 모드 CAS = `wms_waves` 행**(첫 쓰기 — completed_by 컬럼 없음·스키마 무변) + **멤버 task 는 wave_id 로 서버 유도** 일괄 플립(행 수 ≠ 멤버 수 = 전체 롤백) · ⚠️ **귀속 가드** — p_disc·p_short_refresh·p_short_delete 의 order/task 가 완료 범위 밖이면 예외(wave 는 클라이언트가 라인별 귀속을 실어 보내므로 — 규칙 18) · reason `'short_pick'` 고정·`order_number` 서버 유도 · stale stock_short 는 **delete**(⚠️ 팩은 resolve — 비대칭, 백로그 「원장 선행」). 로컬 테스트 `supabase/tests/wms_complete_pick_test.sql`(12케이스). 상세는 SKILL 규칙 9 「픽 완료도 RPC」.
 
 ### wms_pallets — 팔렛
 `id`, `pallet_label`, `warehouse`, `status`(building/completed), `weight_note`, `height_note`, `created_at`/`completed_at`.

@@ -240,6 +240,7 @@ FIFO / 가중평균 결정은 **두 번째 문제**다.
 - [ ] ⚠️ **Cin7 movements API 실측** — 매니저의 수동 조정이 조회되는지.
       안 되면 shadow 원장이 성립하지 않는다. GAS 실호출로 30분
 - [ ] 실사(순환재고조사) 절차 정립 — 차이 난 SKU 만, 결과를 기록으로
+- [ ] ⚠️ **stale stock_short 처리 통일 판단** — 픽은 **delete**, 팩은 **resolve**(2026-08-06 RPC 이식 시점 기준). 비대칭이며 delete 는 원칙 1번(고치지 않고 추가)과 어긋난다 — 선언·해소의 사실 자체가 지워진다. 원장 착수 전에 resolve 로 통일할지 결정(SKILL 백로그 「원장 선행」)
 - [ ] RLS · GRANT 감사 — 스키마 기본 권한이 헐겁다는 실측 근거 있음
 - [ ] 쓰기 확인 미비 잔여 12곳 (`docs/audits/2026-08-06-write-verification-baseline.md`)
 - [ ] Supabase Pro 업그레이드 — Free 는 백업이 없다

@@ -352,7 +352,7 @@ async function ensureMine(){
 }
 /* ⚠️ 프리즈 시 로컬 수량을 flush 하지 않는다 — 내 메모리 값은 스테일이고 쓰면
    이어받은 사람의 작업을 덮는다. 로컬 상태는 버리고 서버를 진실로 둔다. */
-function freezeScreen(who){
+function freezeScreen(who, msg){   // msg = 커스텀 사유 (2026-08-06 — 이름 드리프트 안내용, 없으면 기존 문구)
   if(frozen) return;
   frozen=true;
   stopHeartbeat(); presenceLeave();
@@ -360,9 +360,9 @@ function freezeScreen(who){
   const scan=document.getElementById("scan"); if(scan){ scan.disabled=true; scan.blur(); }
   ["holdBtn","shortBtn","doneBtn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.disabled=true; });
   renderPick();   // re-render so steppers / manual entry come back disabled (no render bypass)
-  document.getElementById("fzMsg").textContent = who
+  document.getElementById("fzMsg").textContent = msg || (who
     ? `This ${unit} is now assigned to ${who}. Your screen is out of date.`
-    : `This ${unit} was released and is waiting to be claimed.`;
+    : `This ${unit} was released and is waiting to be claimed.`);
   document.getElementById("freeze").style.display="grid";
   try{ beep("bad"); vibe("bad"); }catch(e){}
 }
@@ -1259,87 +1259,57 @@ async function finish(allowShort){
     if(!confirm(`${label} Mark pick as complete??`)) return;
   }
 
-  if(!await ensureMine()) return;   // 규칙 28 — 남이 이어받았으면 라인·discrepancy·완료를 쓰지 않는다
+  if(!await ensureMine()) return;   // 규칙 28 — 값싼 선확인(조기 프리즈). 최종 관문은 RPC 안의 CAS (2026-08-06)
   const btnD=document.getElementById("doneBtn"), btnS=document.getElementById("shortBtn");
   btnD.disabled=btnS.disabled=true;
+  scanBusy=true;   // RPC 비행 중 스캔 차단 — saveLine 이 완료 뒤에 끼어들지 않게 (2026-08-06)
   stopHeartbeat(); presenceLeave();
   try{
-    // 1) final line save (authoritative)
-    for(const l of lines){
-      const st=l.picked>=l.assigned?"picked":"short";
-      const {error}=await sb.from("wms_pick_task_lines")
-        .update({picked_base:l.picked,status:st,verification_method:l.vmethod}).eq("id",l.id);
-      if(error) throw error;
-    }
-    // 2) shortfall → discrepancy queue record (in a wave each short belongs to ITS order)
-    //    Lines declared "Not enough stock" are already in the queue as stock_short
-    //    (inventory mismatch, responsible=null) — do NOT double-record them as short_pick.
-    if(shorts.length){
-      const plain=shorts.filter(l=>!stockFlagged(l));
-      if(plain.length){
-        const rows=plain.map(l=>({
-          order_id: wave? l._orderId : task.order_id,
-          pick_task_id: wave? (l._taskId||null) : task.id,   // wave 는 라인별 멤버 task (규칙 18)
-          order_number: wave? l._orderNumber : order.order_number,
-          sku:l.order_sku,
-          ordered_base:l.assigned, actual_base:l.picked, reason:"short_pick", cin7_corrected:false,
-        }));
-        const {error:de}=await sb.from("wms_discrepancies").insert(rows);
-        if(de) throw de;
+    /* ── 완료 쓰기 전부 = wms_complete_pick RPC 한 트랜잭션 (2026-08-06 · 규칙 9/18/28) ──
+       라인 최종 저장 → short_pick 생성 → stock_short 정리 → CAS 플립.
+       wave 는 CAS 가 wave 행(소유권 단위)이고 멤버 task 는 함수가 wave_id 로 서버 유도 —
+       종전의 "멤버 먼저 → wave 나중" 순서 규칙은 원자성이 대체한다(틈 소멸).
+       계산은 여기(JS — 규칙 41 의 선언 라인 제외 필터 포함), 쓰기는 함수가.
+       ⚠️ wave 의 discrepancy 귀속(order_id·pick_task_id)은 라인별(규칙 18) — 함수의
+       귀속 가드가 완료 범위 밖이면 예외로 전체를 되돌린다. order_number 는 안 보낸다(서버 유도). */
+    const plain=shorts.filter(l=>!stockFlagged(l));   // 선언 라인은 short_pick 이중 기록 금지 (규칙 41)
+    const payload={
+      p_task_id: wave? null : task.id,
+      p_wave_id: wave? wave.id : null,
+      p_lines: lines.map(l=>({
+        id:l.id, picked_base:l.picked,
+        status:(l.picked>=l.assigned?"picked":"short"),
+        verification_method:l.vmethod||null,
+      })),
+      p_disc: plain.map(l=>({
+        order_id: wave? l._orderId : task.order_id,
+        pick_task_id: wave? (l._taskId||null) : task.id,   // wave 는 라인별 멤버 task (규칙 18)
+        sku:l.order_sku, ordered_base:l.assigned, actual_base:l.picked,
+      })),
+      // 선언 정리 — 여전히 부족=수량 갱신 / 채워짐=stale delete (현행 유지 — 팩의 resolve 와 비대칭, 백로그)
+      p_short_refresh: shorts.filter(stockFlagged).map(l=>({order_id:lineOrder(l).id, sku:l.order_sku, ordered_base:l.assigned, actual_base:l.picked})),
+      p_short_delete: lines.filter(l=>l.picked>=l.assigned && stockFlagged(l)).map(l=>({order_id:lineOrder(l).id, sku:l.order_sku})),
+    };
+    const {data:res,error:re}=await sb.rpc("wms_complete_pick", payload);
+    if(re) throw re;   // 예외 = 전체 롤백 — 아무것도 저장되지 않았다 (함수 메시지가 원인을 담는다)
+    if(!res || res.completed!==true){
+      // CAS 0행. 서버 유도 이름(worker)이 내 세션(me.name)과 다르면 매니저가
+      // wms_staff.name 을 고친 드리프트 — 원인 없는 프리즈로 뭉개지 않는다 (2026-08-06 조건).
+      if(res && res.worker && res.worker!==me.name){
+        freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
+        return;
       }
-      // declared lines: refresh the open stock_short row to the final picked qty (best-effort)
-      for(const l of shorts.filter(stockFlagged)){
-        const o=lineOrder(l);
-        try{
-          await sb.from("wms_discrepancies")
-            .update({ordered_base:l.assigned, actual_base:l.picked})
-            .eq("order_id",o.id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
-        }catch(e){ /* declaration row already exists with declare-time qty — good enough */ }
-      }
-    }
-    // a declaration left on a line that is no longer short is a stale claim — remove it (best-effort)
-    for(const l of lines.filter(l=>l.picked>=l.assigned && stockFlagged(l))){
-      const o=lineOrder(l);
-      try{
-        await sb.from("wms_discrepancies").delete()
-          .eq("order_id",o.id).eq("sku",l.order_sku).eq("reason","stock_short").is("resolved_at",null);
-      }catch(e){ /* manager will see stock on the bin and clear it */ }
-    }
-    // 3) complete: all member batches + the wave, or the single batch
-    if(wave){
-      const now=new Date().toISOString();
-      // CAS (규칙 28 후속): 멤버 task 는 소유권 조건만, status 조건 없음 — wave 행
-      // UPDATE 만 실패한 재시도에서 멤버 재플립이 막히지 않게 멱등으로 둔다.
-      // 소유권 단위는 wave 행이지만 멤버도 모든 클레임/테이크오버 경로에서
-      // assigned_to 가 함께 움직인다.
-      const {data:mts,error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"completed",completed_at:now,completed_by:me.name})
-        .in("id",tasks.map(t=>t.id)).eq("assigned_to",me.name).select("id");
-      if(te) throw te;
-      if(!mts||mts.length!==tasks.length){ await completeCasFailed("wave",wave.id); return; }
-      // wave 행이 소유권 관문. 순서는 멤버 먼저 — 반대면 wave 만 완료된 부분 실패에서
-      // 재시도가 "이미 완료" 로 빠져 멤버가 in_progress 로 영구히 갇힌다.
-      const {data:wd,error:we}=await sb.from("wms_waves")
-        .update({status:"completed",completed_at:now})
-        .eq("id",wave.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
-      if(we) throw we;
-      if(!wd||!wd.length){ await completeCasFailed("wave",wave.id); return; }
-    }else{
-      // CAS (규칙 28 후속): 확인-쓰기 틈에 이어받기/롤백당한 스테일 화면이 완료를
-      // 덮지 않는다. 성공 판정 = .select() 행 수 — 0행 매치도 error null (규칙 24).
-      const {data:done,error:te}=await sb.from("wms_pick_tasks")
-        .update({status:"completed",completed_at:new Date().toISOString(),completed_by:me.name})
-        .eq("id",task.id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
-      if(te) throw te;
-      if(!done||!done.length){ await completeCasFailed("task",task.id); return; }
+      await completeCasFailed(wave?"wave":"task", wave?wave.id:task.id);
+      return;
     }
 
     toast(label+(shorts.length?` Completed incomplete (short ${shorts.length})`:" Pick complete"));
     resetToList();
   }catch(e){
-    toast("Completion failed: "+(e.message||e),true);
+    // RPC 는 전체 롤백이므로 이 메시지가 정직하다 — 반쪽 상태가 없다
+    toast("Completion failed — nothing was saved: "+(e.message||e),true);
     if(task||wave){ startHeartbeat(); presenceJoin(); } // still holding the claim
-  }finally{ if(!frozen){ btnD.disabled=btnS.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
+  }finally{ scanBusy=false; if(!frozen){ btnD.disabled=btnS.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
 }
 
 /* ---------- 완료 CAS 0행 → 원인 구분 (2026-08-06, 규칙 28 후속 · ⚠️ 현장 미검증) ----------

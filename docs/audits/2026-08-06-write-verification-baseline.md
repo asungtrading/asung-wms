@@ -63,7 +63,9 @@ POST /wms_pack_task_lines?on_conflict=id&columns="id","verified_base"&select=id
   → **잔존 12 → 8** (packer saveLine 1곳은 스캔당 1행이라 범위 밖 잔존 — 다음 감사 대상).
 - CAS 플립이 함수의 첫 쓰기 — 0행이면 아무것도 안 쓰고 `{completed:false}` 반환이라
   **재호출이 멱등**(응답 유실 뒤 재시도의 discrepancy 중복이 원천 불가).
-- 픽 완료·wave·Hold·리시빙은 미적용(다음 차례 — 이 함수가 패턴 원형). 상세 SKILL 규칙 9.
+- ~~픽 완료·wave 는 미적용~~ → **같은 날 `wms_complete_pick` 으로 이식**(단일+wave 한 함수 —
+  wave 의 "멤버↔wave 행 2단 쓰기 틈"도 소멸. picker 쪽 쓰기는 원래 error 확인이 있었으므로
+  무확인 카운트는 불변). Hold·리시빙은 미적용(Hold 는 다음 차례). 상세 SKILL 규칙 9.
 
 ## 재측정 방법 (다음 감사 때)
 
