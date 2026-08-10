@@ -28,6 +28,8 @@
 // Cin7 HTTP 레이어는 hello(폴링)와 공용 — 429 백오프·에러 구조화가 한 곳에서 관리된다 (2026-08-04 공용화).
 // ⚠️ _shared/cin7.ts 를 바꾸면 hello 도 함께 재배포할 것 (파일 상단 주석 참조).
 import { cin7, cin7ErrInfo, cin7Get, sleep } from "../_shared/cin7.ts";
+// PO 초과 클램프(2026-08-10 규칙 20 개정) — 순수 함수 분리: po_clamp_test.ts 가 Deno.serve 없이 import 하기 위함.
+import { applyPoInvoiceClamp } from "./po_clamp.ts";
 
 const CORS: HeadersInit = {
   "Access-Control-Allow-Origin": "*",
@@ -649,10 +651,21 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
     //    **전량**을 pending 으로 되돌린다 — 부분 수량 재전송은 factor 로 안 나눠떨어질 수 있고, PO stock received 는
     //    같은 (SKU+bin) 재전송을 400 "Cannot add duplicate value" 로 거부하므로(실측, cin7-api 스킬) 전량 재전송이
     //    조용히 이중 계상되는 일은 없다 — 중복이면 시끄럽게 실패해 사람이 본다.
-    for (const p of planLines as any[]) {
-      p.move_base = Number(p.qty_base);   // markExported 재사용용 — PO 는 캡 없음(received 그대로)
-      p.pending_base = Number(p.exported_already || 0) >= Number(p.qty_base) ? 0 : Number(p.qty_base);
+    // ── 초과 클램프 (2026-08-10 · 규칙 20 개정): received > expected 면 **인보이스 수량까지만** 쓴다 ──
+    // 부족·일치는 그대로 received. SKU 합계 expected 0(공장 백오더)은 클램프 제외 — 받은 대로(재고 누락 금지).
+    // ⚠️ expected_source='invoice' receipt 만 — 'order'(구형·인보이스 폴백)를 오더 기준으로 자르면 정상 수량이 잘린다.
+    // budget 은 received 0 라인의 expected 도 포함한 전체 인보이스 합(트랜스퍼 expBySku 와 동일 집계 —
+    // 위 discrepancy 의 bySku 는 rb>0 필터가 있어 다르다). 소진 순서 = planLines(라인 id) 순 →
+    // **마지막 PO 라인부터** 잘린다 ("마지막 bin 부터" 아님 — bin 채움 시각은 미기록, po_clamp.ts 헤더 참조).
+    // 잘린 수량은 Cin7 에 안 쓰고(exported_base 도 클램프값 — markExported 가 move_base 기준) recv_over 로만
+    // 남는다 → 매니저 Cin7 수동 조정(규칙 20 ③, 자동 조정 없음). 검증: po_clamp_test.ts (합성 라인, deno test).
+    const clampOn = String(rcpt.expected_source || "order") === "invoice";
+    const expBySkuPo: Record<string, number> = {};
+    for (const l of lines) {
+      const k = String(l.order_sku).toUpperCase();
+      expBySkuPo[k] = (expBySkuPo[k] || 0) + Number(l.expected_base || 0);
     }
+    const cappedToInvoice = applyPoInvoiceClamp(planLines as any[], expBySkuPo, clampOn);
     const groups: Record<string, any[]> = {};
     (planLines as any[]).filter((p) => Number(p.pending_base) > 0).forEach((p) => { (groups[p.bin] = groups[p.bin] || []).push(p); });
     const bins = Object.keys(groups);
@@ -702,6 +715,13 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
           stock_tasks: "(Cin7 read failed: " + String((e as Error).message).slice(0, 120) + ")" };
       }
     }
+    // 클램프 발동 시 dry-run 계획에 명시 — 매니저가 "왜 수량이 다르지"를 실행 전에 본다 (규칙 20 개정 D).
+    const capSteps = cappedToInvoice.length
+      ? ["1b) CAPPED to invoice quantity - " + cappedToInvoice.length + " line(s), " +
+         cappedToInvoice.reduce((n, c) => n + c.cut, 0) + " base unit(s) received OVER the invoice will NOT be written: " +
+         cappedToInvoice.map((c) => c.sku + "@" + c.bin + " writes " + c.writes + " of " + c.received).join(", ") +
+         " - the excess stays physical only; adjust it in Cin7 manually (recv_over is in the discrepancy queue)"]
+      : [];
     return {
       receipt: rcpt, source: "po",
       plan: {
@@ -712,6 +732,7 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
         retry: retryFailed, retry_reset: resetFails,
         steps: planAdv ? [
           "1) Check invoice is AUTHORISED (Invoice First)",
+          ...capSteps,
           (advState && advState.ok_invoices === 1
             ? "2) Target I&R group: task " + String(advState.target_task).slice(0, 8) + "… (invoice " +
               advState.target_invoice + ") - EVERY stock/put-away write goes to this group (never a new group)"
@@ -738,6 +759,7 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
             "bin-less at warehouse level and Apply again retries placement only",
         ] : [
           "1) Check invoice is AUTHORISED (Invoice First)",
+          ...capSteps,
           "2) POST /purchase/stock - one DRAFT document per bin: " + binsActive.length + " bin group(s)" +
             (alreadyExported ? " · " + alreadyExported + " line(s) already on the document, skipped" : "") +
             " · untried groups go first, previously failed bins last" +
@@ -760,6 +782,7 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
         groups: bins.map((b) => ({ bin: b, prev_fails: failsOf(b), lines: groups[b] }))
           .sort((a, b) => a.prev_fails - b.prev_fails),
         fail_counts: failCounts, quarantined_bins: quarantinedBins, quarantine_fails: APPLY_QUARANTINE_FAILS,
+        capped_to_invoice: cappedToInvoice,   // 초과 클램프 발동 라인 (admin Review 모달·commit 로그가 소비)
         skipped, discrepancies,
         chunk_size: APPLY_MAX_GROUPS, time_budget_ms: APPLY_TIME_BUDGET_MS,
         progress: {
@@ -1102,6 +1125,17 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
       throw new Error("Invoice not authorised - authorize the invoice in Cin7 first (Invoice First). Detail: invoice status is " + st0v);
     }
     log.push("invoice check: " + st0v);
+    // 초과 클램프 발동 표시 (2026-08-10 규칙 20 개정) — apply_note 에 남아 admin History 에서 보인다.
+    // 매니저가 Cin7 수동 조정을 놓치면 창고 실물과 Cin7 이 계속 어긋난다 — 이 정책의 유일한 실패 지점이라 크게 남긴다.
+    {
+      const capLines = (plan.capped_to_invoice || []) as any[];
+      if (capLines.length) {
+        log.push("CAPPED to invoice quantity - " + capLines.length + " line(s): " +
+          capLines.map((c: any) => c.sku + "@" + c.bin + " writes " + c.writes + " of " + c.received).join(", ") +
+          " - the excess (" + capLines.reduce((n: number, c: any) => n + c.cut, 0) +
+          " base) is NOT written to Cin7; adjust it there manually (recv_over is in the discrepancy queue)");
+      }
+    }
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식
     /* ═══ Advanced PO 분기 (2026-08-07 · 규칙 20/21 개정 · ⚠️ 현장 미검증) ═══
        판정은 저장된 cin7_type 이 아니라 **방금 게이트가 읽은 상세의 Invoice 블록 모양**(서버 진실 —

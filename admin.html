@@ -2142,12 +2142,15 @@ async function applyToCin7(rid,po,btn,ov,retryFailed){
     const isPo=j.source!=="transfer";
     // ⚠️ 트랜스퍼는 bin 이동 수량이 min(received, expected) 로 캡되므로 received 와 실제 이동량이 다를 수 있다 → 둘 다 보여준다.
     const lineTxt=p.lines.map(l=>{
-      const cap=(l.move_base!==undefined&&Number(l.move_base)!==Number(l.qty_base))?` [moves ${l.move_base} — capped at sent qty]`:"";
+      const cap=(l.move_base!==undefined&&Number(l.move_base)!==Number(l.qty_base))?` [moves ${l.move_base} — capped at ${isPo?"invoice":"sent"} qty]`:"";
       return `· ${l.order_sku} ×${l.qty_units}${l.qty_units!==l.qty_base?` (${l.qty_base} units)`:""} → ${l.bin}${cap}`;
     }).join("\n");
     const skipTxt=p.skipped&&p.skipped.length?`\n\nSkipped:\n${p.skipped.map(s=>`· ${s.sku} ×${s.qty} — ${s.reason}`).join("\n")}`:"";
     const exTxt=p.excluded_from_move&&p.excluded_from_move.length
       ? `\n\nNot moved (Cin7 holds none of it):\n${p.excluded_from_move.map(s=>`· ${s.sku} ${s.not_moved} of ${s.received} — ${s.reason}`).join("\n")}`:"";
+    // PO 초과 클램프 (2026-08-10 규칙 20 개정) — 잘린 수량은 Cin7 에 안 쓰인다. 매니저 수동 조정이 유일한 정정 경로라 크게 보여준다.
+    const capTxt=p.capped_to_invoice&&p.capped_to_invoice.length
+      ? `\n\n⚠ Capped to INVOICE qty — the excess is NOT written to Cin7 (adjust manually, see discrepancy queue):\n${p.capped_to_invoice.map(s=>`· ${s.sku}@${s.bin} writes ${s.writes} of ${s.received} received (cut ${s.cut})`).join("\n")}`:"";
     const loTxt=p.leftover_at_landing&&p.leftover_at_landing.length
       ? `\n\nLeftover — stays in ${p.leftover_at_landing[0].where} (remove in Cin7 manually):\n${p.leftover_at_landing.map(s=>`· ${s.sku} ×${s.qty}`).join("\n")}`:"";
     const modeTxt=p.mode?`\nMode: ${p.retry?(p.retry_reset?"RETRY (fail history cleared — previously failed bins are attempted again)":"RESUME (untried groups first, previously failed bins last)"):p.mode==="resume"?"RESUME (transfer already COMPLETED — bin moves only)":"NEW"}`:"";
@@ -2160,7 +2163,7 @@ async function applyToCin7(rid,po,btn,ov,retryFailed){
     const npTxt=npApply.lines
       ? `\n\n⚠ ${npApply.lines} line(s) / ${npApply.units} unit(s) were never confirmed placed in their bin.\nCin7 will record that stock in the bin anyway — pickers will be sent there. Check the floor first.`
       : "";
-    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${exTxt}${loTxt}${qTxt}${npTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
+    if(!confirm(`Apply ${po} to Cin7?\n\n${p.action}${modeTxt}\n${p.steps.join("\n")}\n\nLines:\n${lineTxt}${skipTxt}${capTxt}${exTxt}${loTxt}${qTxt}${npTxt}\n\nThis WRITES to Cin7. Continue?`)){ return; }
     // 2) commit — 여기서부터 되돌릴 수 없다. 진행 표시 + 안내 배너 + 탭 닫기 경고.
     //    EF 는 회차당 최대 APPLY_MAX_GROUPS 개 bin 그룹만 처리하고 done:false 를 돌려주므로(규칙 30-2),
     //    done:true 까지 **자동으로 재호출**한다 — 사람이 Apply 를 반복 클릭하지 않게. commit 이 매번 buildApplyPlan 으로
