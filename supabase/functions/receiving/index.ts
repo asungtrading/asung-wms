@@ -121,6 +121,11 @@ const APPLY_TIME_BUDGET_MS = 20000;
 //     이미 도착해 있으면 완료로 간주한다 — 그룹 루프 catch 안의 주석 참조(TR-03144 실측 근거 포함).
 const APPLY_FAIL_BUDGET_MS = 6000;
 const APPLY_QUARANTINE_FAILS = 3;
+// 트랜스퍼 bin 이동 그룹 간 간격. Cin7 한도 60 calls/60s 에 맞춘 값.
+// ⚠️ 종전 150ms(= 분당 400콜)는 FREE 티어 대시보드 이슈 완화용이었고 Cin7 한도 기준이 아니었다.
+//    한도를 넘으면 429 백오프(1.5s→3s)로 그룹당 3콜을 쓰게 돼 오히려 느려진다 — TR-03259 실측.
+// ⚠️ checkpoint repair 안쪽 라인 루프(binOnHand GET)에는 쓰지 말 것 — 중첩이라 실패 예산이 터진다.
+const TRANSFER_GROUP_SLEEP_MS = 1200;
 // ── Apply in-flight 잠금 만료 (규칙 27 R4 — 2026-08-06) ──
 // 회차 시간 예산(20초)의 4.5배 — 정상 회차는 이 안에 반드시 끝난다. 잠금을 쥔 EF 가 회차 중에
 // 죽으면(타임아웃·크래시) 이 시간이 지난 뒤의 다음 Apply 가 만료 탈취로 자동 회복한다.
@@ -1649,7 +1654,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
           // 그룹 전 라인이 이미 목적지에 있다 — 실패가 아니라 완료다. 연속 실패 카운트도 리셋한다.
           delete failCounts[binKey];
           log.push("bin " + g.bin + ": all line(s) already at destination - group treated as done (no failure recorded)");
-          await sleep(150);
+          await sleep(TRANSFER_GROUP_SLEEP_MS);
           continue;
         }
         // 연속 실패 +1 — APPLY_QUARANTINE_FAILS 에 도달하면 다음 회차부터 격리된다. 429 는 위에서 이미 빠졌다
@@ -1666,7 +1671,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
         log.push("WARN bin move -> " + g.bin + " FAILED (HTTP " + (info.http_status || "?") + "): " + info.cin7_error +
           " - " + remaining.map((p: any) => p.base_sku + " x" + Math.round(Number(p.pending_base))).join(", ") +
           " stays in " + landingLabel + "; fix the stock in Cin7 and Apply again to retry this bin only");
-        await sleep(150);
+        await sleep(TRANSFER_GROUP_SLEEP_MS);
         continue;   // ⚠️ throw 금지 — 남은 그룹을 계속 옮기고 receipt PATCH 까지 반드시 도달한다.
       }
       if (prevFails > 0) { failSpentMs += Date.now() - tAttempt; delete failCounts[binKey]; }  // 성공 — 연속 실패 리셋
@@ -1679,7 +1684,7 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
       // ⚠️ 되돌릴 수 없는 Cin7 쓰기 **뒤**라 PATCH 실패에도 throw 하지 않는다(규칙 21). 대신 WARN 으로 크게 남긴다 —
       //    체크포인트가 빠지면 재Apply 시 같은 bin 을 한 번 더 옮겨 재고가 이중으로 움직인다.
       for (const p of moveLines) linesMovedNew += await markExported(p, log);
-      await sleep(150);
+      await sleep(TRANSFER_GROUP_SLEEP_MS);
     }
 
     // 잔량(부족분·bin 없음·off-transfer)이 착지 지점에 남는다 — 의도된 동작이고, 매니저가 제거할 지점이다.
