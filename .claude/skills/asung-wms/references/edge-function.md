@@ -86,6 +86,17 @@ import 파이프라인 완성. 흐름: saleList AUTHORISED 50건 폴링 → `SKI
 - **진단 필드 추가**: `list_total`(saleList Total) · `list_fetched` · `truncated`(list_fetched < list_total) · `oldest_scanned`/`newest_scanned`(스캔한 오더번호 범위) · `rate_limited(+rate_limited_at_page)` · `detail_capped_orders`(캡에 잘린 오더 목록 — 최신 우선이라 잘리는 건 가장 오래된 fresh. **회차마다 계속 자라면** "확인했으나 비대상" 기억 테이블 도입 재검토). `skipped_detail` 은 `already_exists` 에 더해 **`skip_picked`**(reason + picking_status)도 포함.
 - 스캔 범위(100×3)는 실측상 충분(`list_total` 140, truncated false) — Limit 상향·UpdatedSince 병용 불필요. `truncated:true` 가 재검토 신호. "안 들어온다" 진단 순서는 규칙 12.
 
+**"확인했으나 비대상" 기억 스킵 (2026-08-11 — `wms_polled_sales` · 백로그 17번 해소)**
+- **왜**: 비대상 오더는 저장되지 않아 매 회차 fresh 에 잔류 → 같은 ~51건의 `/sale` 상세를 5분마다 다시 읽었다(회차당 52콜 · 하루 ~15,000콜 · 상세 50건×250ms ≈ 25초 버스트가 60/60 창을 소진 — 트랜스퍼 Apply 429 의 원인). ⚠️ 캡 상향은 답이 아니다(콜이 늘어 악화 — PO 목록 "상한 증설은 시간 벌기" 함정과 동일).
+- **신호 실측(SO-14516, 2026-08-11)**: saleList 항목에 `Updated` 가 있고, `AdditionalAttribute1` 을 릴리즈로 바꾸면 **Updated 만 바뀐다**(Status·OrderStatus·CombinedPickingStatus 전부 그대로) — 목록에서 볼 수 있는 유일한 변경 신호. `AdditionalAttribute1` 은 목록에 없다(판정은 상세조회만).
+- **스킵 = 기억에 있고 AND `Updated` 가 저장값과 정확히 같고(⚠️ 문자열 비교 — 파싱하면 .29Z/.290Z 차이가 흡수돼 "다른데 같다" 오판. 그래서 `cin7_updated` 컬럼은 text) AND 확인이 TTL(1시간) 이내.** 위치 = already_exists dedup 직후 3b 단계(fresh 배열 자체가 줄어 내림차순 정렬·MAX_DETAIL 캡은 무접촉). memset 조회는 **already_exists 통과 후보만**(청크 in.() — `polledMemory()`).
+- ⚠️ **Updated 는 신호가 아니라 트리거다** — "릴리즈됐다"가 아니라 "뭔가 바뀌었으니 읽어봐라". 판정은 언제나 상세조회. 무관한 수정(코멘트·주소·수량)으로 바뀌어도 헛읽기 1회뿐(누락 없음). **TTL 1시간은 순수 보험** — 신호가 실패해도 최대 1시간 안에 반드시 다시 읽힌다(`memory_ttl_expired` 로 발동 관측, 0 근처가 정상).
+- ⚠️⚠️ **기록의 급소**: 기록은 **"상세조회 성공 + 판정 결과 비대상"** 일 때만(코드상 판정 분기 안 — 429/실패는 continue 로 도달 불가 = 구조적 보장). 쓰기는 `?commit=1` 만(읽기·스킵 판정은 dry-run 공통 — dry-run 이 프로덕션 동작을 반영). 안 읽은 것을 기억하면 Updated 가 다시 바뀔 때까지 영영 안 읽힌다.
+- ⚠️ **경합(설계상 허용 — 2026-08-11 명시)**: saleList 조회와 그 오더의 상세조회 사이에 릴리즈되면 목록의 Updated 가 옛값이라 기억과 일치해 그 회차를 건너뛴다. **다음 회차(≤5분)에 들어오므로 누락이 아니라 최대 한 회차 지연이다** — 종전에는 같은 회차에 잡혔다(이번 변경으로 새로 생긴 좁은 경합).
+- **정리**: 릴리즈로 저장 성공 시 그 기억 행 best-effort DELETE(memory_rows 감시 청결용 — 실패해도 already_exists 가 먼저 거른다) · commit 회차 끝에 `checked_at < now()-30일` purge 1콜(활성 행은 TTL 재확인 upsert 로 매시간 갱신되므로 30일 미갱신 = 목록 이탈. "목록에 없는 id 삭제"는 truncated 회차 대량 오삭제 위험이라 기각).
+- **킬 스위치**: `POLL_MEMORY_TTL_MS = 3600_000` — **0 이면 조회·스킵·기록·purge 전부 비활성 = 현행 동작 복귀**(상수 1줄 + 재배포).
+- **진단 추가**(기존 필드 무변): `skipped_unchanged`(기억 스킵 건수 — 개별 행은 skipped_detail 에 안 실음, 사용자 결정) · `memory_ttl_expired`(보험 발동) · `memory_rows`(증식 감시) · `detail_rate_limited`(상세 429 로 조용히 건너뛴 건수 — ⚠️ 종전엔 **어디에도 안 남았다**: fresh 51 vs detail_fetched 50 의 1 차이가 이 경로였다. 60초 sleep 구조는 무변 — 백로그 별건, 이 카운트로 빈도 관측 후 판단).
+
 **자동 스케줄러**(`wms_schedule_polling.sql`): pg_cron + pg_net. 잡 `wms-poll-orders` `*/5 * * * *` → 함수 `?commit=1` anon Bearer 호출. 검증: `select * from cron.job;` / 실행이력 `cron.job_run_details`(succeeded) / 응답 `net._http_response`(status_code 200).
 - ⚠️ **net._http_response가 null로 남을 수 있음**(pg_net 타임아웃 ~5초 초과, 상세조회 여럿 돌 때). **저장은 됐을 수 있으니 진실은 `wms_orders.imported_at`으로 확인.**
 - ⚠️ **Cin7 병행운영**: 유입 전 상태변경→유입안됨(정상), Cin7에서 PICKED→SKIP_PICKED 제외("안 들어온다" 최빈원인), **유입 후 변경→WMS 모름**(dedup, 재조회 안 함 — 병행 테스트 위험, 자동감지 백로그).

@@ -8,6 +8,8 @@
 //   2) 이미 PICKED 된 것 스킵(우리 단계는 픽 이전) — 제외 내역은 skipped_detail 에 기록
 //   3) detail 조회 "전에" batch dedup — 이미 wms_orders 에 있는 건 상세조회 자체를 생략
 //      (→ Cin7 API 호출을 크게 줄여 rate limit 안전, 밀린 오더까지 스캔 가능)
+//   3b) "확인했으나 비대상" 기억 스킵 (2026-08-11, wms_polled_sales) — Updated 정확 일치 + TTL(1시간)
+//      이내면 상세조회 생략. 회차당 상세 50→~6건. 판정은 언제나 상세조회가 한다(상수 주석 참조).
 //   4) 남은 후보만 "최신 오더번호부터" /sale 상세 → AdditionalAttribute1='2.Release to WMS' 만 통과
 //      (비대상 오더는 저장되지 않아 매 회차 fresh 에 남는다 — 최신 우선이 아니면
 //       MAX_DETAIL 캡을 그것들이 선점해 최신 오더가 굶는다. 2026-08-04 실사고 SO-14106)
@@ -24,6 +26,21 @@ const MAX_DETAIL = 60;        // 한 실행당 /sale 상세조회 상한 (rate l
 const SKIP_PICKED = true;     // 이미 PICKED 된 오더는 상세조회 생략(우리 단계는 픽 이전)
 const DETAIL_DELAY_MS = 250;  // Cin7 rate limit 완화 (상세조회 간 간격)
 const DEDUP_CHUNK = 50;       // dedup 조회 시 SaleID 묶음 크기 (URL 길이 보호)
+
+// ── "확인했으나 비대상" 기억 (2026-08-11 — 회차당 상세조회 50→~6건 목표, wms_polled_sales) ──
+// saleList 의 `Updated` 를 변경 트리거로 쓴다: 기억에 있고 + Updated 가 저장값과 **정확히 같고**
+// (문자열 비교 — 파싱하면 .29Z/.290Z 형식 차이가 흡수돼 "다른데 같다" 오판) + 마지막 확인이 TTL 이내면
+// 상세조회를 생략한다. ⚠️ Updated 는 신호가 아니라 트리거다 — "릴리즈됐다"가 아니라 "뭔가 바뀌었으니
+// 읽어봐라"일 뿐, 판정(AdditionalAttribute1)은 언제나 상세조회가 한다. 무관한 수정(코멘트·주소·수량)으로
+// 바뀌어도 헛읽기 1회뿐 = 낭비만, 누락 없음.
+// ⚠️ TTL 은 순수 보험 — Updated 신호가 어떤 이유로든 실패해도 최대 1시간 안에는 반드시 다시 읽힌다
+//    (조용한 영구 누락을 구조적으로 차단). 정상 작동하는 한 거의 발동하지 않는다(memory_ttl_expired 로 관측).
+// ⚠️ 킬 스위치: 0 으로 두면 기억 조회·스킵·기록·정리 전부 비활성 = 현행 동작 복귀(상수 1줄 + 재배포).
+const POLL_MEMORY_TTL_MS = 3600_000;
+// 목록에서 빠진 오더(PICKED·CLOSED 등)의 기억 행 정리 기준. 활성 비대상 오더는 TTL 재확인 upsert 로
+// checked_at 이 매시간 갱신되므로, 30일 미갱신 = 목록에서 빠진 지 오래 = 삭제 안전.
+// ("목록에 없는 id 삭제" 방식은 truncated 회차에 대량 오삭제 위험이 있어 기각 — 시간 기준이 안전.)
+const POLL_MEMORY_PURGE_MS = 30 * 86400_000;
 
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
@@ -75,6 +92,26 @@ async function sbDelete(path: string): Promise<void> {
   const r = await fetch(SB_URL() + "/rest/v1/" + path, { method: "DELETE", headers: sbHeaders() });
   if (!r.ok) throw new Error("sbDelete " + r.status + ": " + (await r.text()).slice(0, 300));
 }
+// upsert — ⚠️ 페이로드에 NOT NULL 전 컬럼을 실을 것 (NOT NULL 검사가 ON CONFLICT 해소보다 먼저 돈다
+// — 2026-08-06 배치 upsert 프로덕션 실패). on_conflict 대상은 평범한 PK 만(부분 유니크는 깨진다 — 규칙 29).
+async function sbUpsert(table: string, conflictCol: string, rows: unknown): Promise<void> {
+  const r = await fetch(SB_URL() + "/rest/v1/" + table + "?on_conflict=" + conflictCol, {
+    method: "POST",
+    headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+    body: JSON.stringify(rows),
+  });
+  if (!r.ok) throw new Error("sbUpsert " + table + " " + r.status + ": " + (await r.text()).slice(0, 400));
+}
+// 행 수 (HEAD + count=exact — 본문 없이 Content-Range 헤더로). 실패해도 회차를 깨지 않는다(null).
+async function sbCount(table: string): Promise<number | null> {
+  try {
+    const r = await fetch(SB_URL() + "/rest/v1/" + table + "?select=*", {
+      method: "HEAD", headers: sbHeaders({ Prefer: "count=exact" }),
+    });
+    const total = (r.headers.get("content-range") || "").split("/")[1];
+    return total && total !== "*" ? Number(total) : null;
+  } catch { return null; }
+}
 
 // 이미 존재하는 cin7_sale_id 집합을 묶음 조회로 구성 (detail 호출 전 dedup)
 async function existingSaleIds(saleIds: string[]): Promise<Map<string, any>> {
@@ -84,6 +121,21 @@ async function existingSaleIds(saleIds: string[]): Promise<Map<string, any>> {
     const inList = chunk.map((id) => '"' + id + '"').join(",");
     const rows = await sbGet(
       "wms_orders?cin7_sale_id=in.(" + encodeURIComponent(inList) + ")&select=cin7_sale_id,order_number,status"
+    );
+    for (const row of rows) found.set(String(row.cin7_sale_id), row);
+  }
+  return found;
+}
+
+// "확인했으나 비대상" 기억 조회 — ⚠️ already_exists 를 통과한 후보만 대상(2026-08-11 사용자 조건:
+// 조회량 110→51 — already_exists 는 앞에서 어차피 걸러진다). existingSaleIds 와 같은 청크 in.() 패턴.
+async function polledMemory(saleIds: string[]): Promise<Map<string, any>> {
+  const found = new Map<string, any>();
+  for (let i = 0; i < saleIds.length; i += DEDUP_CHUNK) {
+    const chunk = saleIds.slice(i, i + DEDUP_CHUNK);
+    const inList = chunk.map((id) => '"' + id + '"').join(",");
+    const rows = await sbGet(
+      "wms_polled_sales?cin7_sale_id=in.(" + encodeURIComponent(inList) + ")&select=cin7_sale_id,cin7_updated,checked_at"
     );
     for (const row of rows) found.set(String(row.cin7_sale_id), row);
   }
@@ -188,11 +240,36 @@ Deno.serve(async (req) => {
 
     // 3) detail 조회 전 batch dedup — 이미 있는 건 상세조회 생략
     const idset = await existingSaleIds(notPicked.map((c) => String(c.SaleID)));
-    const fresh: any[] = [];
+    const freshPre: any[] = [];
     for (const c of notPicked) {
       const ex = idset.get(String(c.SaleID));
       if (ex) skipped.push({ order: c.OrderNumber, reason: "already_exists", status: ex.status });
-      else fresh.push(c);
+      else freshPre.push(c);
+    }
+
+    // 3b) "확인했으나 비대상" 기억 스킵 (2026-08-11 — 상수 주석·edge-function.md 폴링 절 참조)
+    //     스킵 = 기억에 있고 AND Updated 정확 일치(문자열) AND 확인 TTL 이내. Updated 가 비면 항상 읽는다.
+    //     ⚠️ 읽기(스킵 판정)는 dry-run·commit 공통 — dry-run 이 프로덕션 동작을 반영해야 한다.
+    //     ⚠️ 개별 스킵 행은 skipped_detail 에 싣지 않는다(정상 스킵 40여 건이 매 회차 응답에 실릴 이유가
+    //        없다 — 사용자 결정 2026-08-11). 카운트는 skipped_unchanged.
+    //     ⚠️ 경합(설계상 허용): saleList 조회와 상세조회 사이에 릴리즈되면 목록의 Updated 가 옛값이라
+    //        그 회차를 건너뛴다 — 다음 회차(≤5분)에 들어오므로 누락이 아니라 지연이다(edge-function.md).
+    let skippedUnchanged = 0;
+    let memoryTtlExpired = 0;
+    let memset = new Map<string, any>();
+    if (POLL_MEMORY_TTL_MS > 0 && freshPre.length) {
+      memset = await polledMemory(freshPre.map((c) => String(c.SaleID)));
+    }
+    const fresh: any[] = [];
+    const nowMs = Date.now();
+    for (const c of freshPre) {
+      const mem = memset.get(String(c.SaleID));
+      const upd = String(c.Updated ?? "");
+      if (mem && upd && String(mem.cin7_updated) === upd) {
+        if (nowMs - Date.parse(mem.checked_at) < POLL_MEMORY_TTL_MS) { skippedUnchanged++; continue; }
+        memoryTtlExpired++;   // 보험 발동 — Updated 는 같지만 TTL 만료라 읽는다 (0 에 가까워야 정상)
+      }
+      fresh.push(c);
     }
 
     // ⚠️ 상세조회는 최신 오더번호부터 (내림차순 — 2026-08-04 실사고 SO-14106).
@@ -209,6 +286,8 @@ Deno.serve(async (req) => {
     let detailFetched = 0;
     let detailCapped = false;
     let detailCappedOrders: string[] = [];
+    let detailRateLimited = 0;      // 상세조회 429 로 이번 회차 건너뛴 건수 (2026-08-11 — 종전엔 어디에도 안 남았다)
+    const memoryUpserts: any[] = []; // "확인했으나 비대상" 기록 후보 — 회차 끝에 한 번에 upsert (commit 만)
 
     // 4) 남은 후보만 상세조회 (최신 우선)
     for (let fi = 0; fi < fresh.length; fi++) {
@@ -216,19 +295,38 @@ Deno.serve(async (req) => {
       if (detailFetched >= MAX_DETAIL) {
         detailCapped = true;
         // 캡에 잘린 오더를 응답에 노출 — 최신 우선 정렬이라 잘리는 건 가장 오래된 fresh 후보들.
-        // 이 목록이 회차마다 계속 자라면 (a) "확인했으나 비대상" 기억 테이블 도입을 재검토(규칙 12).
+        // ("확인했으나 비대상" 기억은 2026-08-11 도입 완료 — fresh 자체가 줄어 평시엔 캡이 안 걸려야 정상.
+        //  이 목록이 다시 자라면 기억 스킵이 안 먹는다는 신호: skipped_unchanged·memory_ttl_expired 를 볼 것.)
         detailCappedOrders = fresh.slice(fi).map((x) => String(x?.OrderNumber ?? ""));
         break;
       }
       await sleep(DETAIL_DELAY_MS);
       const detResp = await fetch(CIN7_BASE + "/sale?ID=" + c.SaleID, { headers: cin7Headers() });
-      if (detResp.status === 429) { await sleep(60000); continue; } // rate limit
+      // ⚠️ 429 스킵 오더는 **기억에 기록하면 안 된다**(안 읽은 것을 "확인했음"으로 기억하면 Updated 가
+      //    다시 바뀔 때까지 영영 안 읽힌다) — 기록 지점이 상세 판정 뒤라 구조적으로 보장된다.
+      //    60초 sleep 구조 자체는 이번 범위 밖(백로그 — detail_rate_limited 로 빈도를 먼저 관측).
+      if (detResp.status === 429) { detailRateLimited++; await sleep(60000); continue; } // rate limit
       if (!detResp.ok) { errors.push({ order: c.OrderNumber, err: "detail " + detResp.status }); continue; }
       detailFetched++;
       const d = await detResp.json();
 
       const progress = d.AdditionalAttributes?.AdditionalAttribute1 ?? "";
-      if (progress !== "2.Release to WMS") continue; // 우리 큐만
+      if (progress !== "2.Release to WMS") {
+        // ⚠️⚠️ 기억 기록의 급소: **상세조회에 성공했고 + 판정 결과 비대상**일 때만 기록한다.
+        //    조회 실패·429 스킵은 위에서 continue 로 빠져 여기 도달하지 못한다(구조적 보장).
+        //    쓰기는 commit 만(dry-run 은 판정만) · cin7_updated 는 NOT NULL 이라 항상 싣는다(빈 값이면
+        //    스킵 판정의 upd 검사가 어차피 항상 "읽기"로 떨어진다) · last_progress 는 진단 전용.
+        if (commit && POLL_MEMORY_TTL_MS > 0) {
+          memoryUpserts.push({
+            cin7_sale_id: String(c.SaleID),
+            order_number: String(c.OrderNumber ?? ""),
+            last_progress: String(progress || "") || null,
+            cin7_updated: String(c.Updated ?? ""),
+            checked_at: new Date().toISOString(),
+          });
+        }
+        continue; // 우리 큐만
+      }
 
       const comments = extractComments(d);  // Cin7 sale 코멘트 → 픽리스트 표시용
       const priceTier = (d.PriceTier ?? "").trim() || null;  // 실측 확정(SO-13560): 최상위 PriceTier
@@ -297,9 +395,30 @@ Deno.serve(async (req) => {
           throw le;
         }
         inserted.push({ order: c.OrderNumber, warehouse, line_count: assembled.length, needs_review: needsReview });
+        // 과거 비대상으로 기억됐던 오더가 릴리즈됐다 — 기억 행 정리 (best-effort: 실패해도 무해,
+        // 다음 회차엔 already_exists 가 기억보다 먼저 거른다. 목적은 memory_rows 감시를 깨끗하게).
+        if (POLL_MEMORY_TTL_MS > 0) {
+          try { await sbDelete("wms_polled_sales?cin7_sale_id=eq." + encodeURIComponent(String(c.SaleID))); }
+          catch { /* 무해 — 위 주석 */ }
+        }
       } catch (e) {
         errors.push({ order: c.OrderNumber, err: String(e) });
       }
+    }
+
+    // ── "확인했으나 비대상" 기억 쓰기 + 정리 (commit 만 — dry-run 은 wms_orders 처럼 아무것도 안 쓴다) ──
+    let memoryRows: number | null = null;
+    if (POLL_MEMORY_TTL_MS > 0) {
+      if (commit && memoryUpserts.length) {
+        try { await sbUpsert("wms_polled_sales", "cin7_sale_id", memoryUpserts); }
+        catch (e) { errors.push({ order: "(poll memory upsert)", err: String(e) }); } // 기록 실패 = 다음 회차에 다시 읽을 뿐
+      }
+      if (commit) {
+        // purge: 30일 미갱신 = 목록에서 빠진 지 오래(활성 행은 TTL 재확인 upsert 가 매시간 checked_at 갱신).
+        try { await sbDelete("wms_polled_sales?checked_at=lt." + encodeURIComponent(new Date(Date.now() - POLL_MEMORY_PURGE_MS).toISOString())); }
+        catch (e) { errors.push({ order: "(poll memory purge)", err: String(e) }); }
+      }
+      memoryRows = await sbCount("wms_polled_sales");   // 무한 증식 감시 (실패 시 null — 회차는 계속)
     }
 
     return json({
@@ -318,7 +437,12 @@ Deno.serve(async (req) => {
       // skipped 배열에 skip_picked 도 들어가므로(2026-08-04) 기존 카운트 의미를 지키려면 reason 필터 필요
       already_exists: skipped.filter((s) => s.reason === "already_exists").length,
       fresh_candidates: fresh.length,
+      // ── 기억 스킵 진단 (2026-08-11) — 기존 필드는 이름·의미 무변, 아래는 추가만 ──
+      skipped_unchanged: skippedUnchanged,   // 기억(Updated 정확 일치 + TTL 내)으로 상세조회 생략한 건수
+      memory_ttl_expired: memoryTtlExpired,  // Updated 는 같은데 TTL 만료로 읽은 건수 — 보험 발동 횟수(0 근처가 정상)
+      memory_rows: memoryRows,               // 기억 테이블 행 수 (무한 증식 감시 · 조회 실패 시 null)
       detail_fetched: detailFetched,
+      detail_rate_limited: detailRateLimited, // 상세조회 429 로 이번 회차 조용히 건너뛴 건수 (2026-08-11 — 종전엔 미노출)
       detail_capped: detailCapped, // true 면 이번 실행 상한 도달 (최신 우선이라 잘린 건 가장 오래된 fresh)
       detail_capped_orders: detailCappedOrders, // 캡에 잘린 오더 목록 — 굶주림 감시용 (2026-08-04)
       inserted: inserted.length,
