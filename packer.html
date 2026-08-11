@@ -1015,8 +1015,13 @@ async function loadStockFlags(){
     const oid=packTask?packTask.order_id:null;
     const skus=[...new Set(lines.map(l=>l.order_sku).filter(Boolean))];
     if(!oid||!skus.length) return;
+    // ⚠️ voided 만 제외한다 — resolved 제외가 아니다 (2026-08-11 수정 · 실사고 SO-14090/PRO00123):
+    //    선언은 **사실**이고 resolve 는 "매니저가 Cin7 을 고쳤다"지 선언 취소가 아니다(취소는 delete 라 행이 없다).
+    //    종전 .is("resolved_at",null) 은 매니저가 빨리 resolve 할수록 선언이 안 보여 short_after_pack 에
+    //    픽커가 부당 집계되는 역인센티브였다(규칙 41 의 "정직한 기록을 벌주면 기록이 사라진다" 그 실패 모드).
+    //    ⚠️ image_mismatch 의 loadImageFlags 는 resolved_at 조건이 **옳다** — 성격이 다르다(규칙 41 명문).
     const {data,error}=await sb.from("wms_discrepancies")
-      .select("order_id,sku,declared_by,source").eq("reason","stock_short").is("resolved_at",null)
+      .select("order_id,sku,declared_by,source").eq("reason","stock_short").is("voided_at",null)
       .eq("order_id",oid).in("sku",skus);
     if(error) throw error;
     (data||[]).forEach(r=>{

@@ -1135,6 +1135,10 @@ function move(dir){ curIdx=Math.max(0,Math.min(lines.length-1,curIdx+dir)); rend
 /* ---------- picker issue reports (wrong location / barcode changed) → wms_reports ---------- */
 async function reportIssue(kind, idx){
   const l=lines[idx]; if(!l) return;
+  // wave 는 라인별 오더 귀속 (2026-08-11 수정 — 종전 task.order_id 고정은 wave 에서 B 오더 라인의
+  // 리포트를 대표 오더 A 에 붙였다). image_mismatch·finish() discrepancy 와 같은 규칙(규칙 18) = lineOrder(l).
+  const o=lineOrder(l);
+  if(!o.id){ toast("Cannot report — order unknown",true); focusScan(); return; }
   let note;
   if(kind==="loc"){
     const found=prompt(`Wrong location for ${l.order_sku}\nListed bin: ${l.bin||"—"}\n\nWhere did you actually find it? (optional)`, "");
@@ -1148,7 +1152,7 @@ async function reportIssue(kind, idx){
   }
   try{
     const {error}=await sb.from("wms_reports").insert({
-      order_id:task.order_id, order_number:order.order_number, sku:l.order_sku,
+      order_id:o.id, order_number:o.num, sku:l.order_sku,   // ⚠️ 반드시 짝으로 — 하나만 바꾸면 두 컬럼이 서로 다른 오더를 가리킨다
       kind: kind==="loc"?"wrong_location":"barcode_mismatch",
       note, reported_by:me.name, source:"picker"
     });
@@ -1222,8 +1226,13 @@ async function loadStockFlags(){
     const oids=[...new Set(lines.map(l=>lineOrder(l).id).filter(Boolean))];
     const skus=[...new Set(lines.map(l=>l.order_sku).filter(Boolean))];
     if(!oids.length||!skus.length) return;
+    // ⚠️ voided 만 제외한다 — resolved 제외가 아니다 (2026-08-11 수정 · packer 실사고 SO-14090 과 같은 결함):
+    //    선언은 사실 · resolve 는 Cin7 고침이지 취소가 아니다(취소=delete). 종전 resolved_at 조건은
+    //    Hold 중 매니저가 resolve 하면 재개 시 선언이 사라져 ① finish() 의 short_pick 에 픽커 부당 집계
+    //    ② p_short_refresh/p_short_delete 정리 어긋남 ③ 마찰 모달 오판정 — 3갈래로 어긋났다.
+    //    ⚠️ image_mismatch 의 loadImageFlags 는 resolved_at 조건이 **옳다** — 성격이 다르다(규칙 41 명문).
     const {data,error}=await sb.from("wms_discrepancies")
-      .select("order_id,sku").eq("reason","stock_short").is("resolved_at",null)
+      .select("order_id,sku").eq("reason","stock_short").is("voided_at",null)
       .in("order_id",oids).in("sku",skus);
     if(error) throw error;
     (data||[]).forEach(r=>stockFlags.add(r.order_id+"|"+(r.sku||"")));
