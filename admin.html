@@ -297,6 +297,8 @@ let repPeriodKey="week", repCustom={from:null,to:null}, repRange=null;
 // Throughput by worker 병합 상태 — pick/pack(loadStats)과 receiving(loadRecvStats)이
 // 각자 도착하는 대로 renderProd()가 합쳐 그린다 (규칙 17: 렌더를 서로 막지 않음)
 let prodPP=null, prodRecv=null;
+// 배치 목록 펼침 상태 — "이름|pick|pack|recv" 단일 키(하나만 펼침 — 여러 개 열리면 작업자 간 줄 비교가 깨진다).
+let prodExpanded=null;
 
 const REASON_LABEL={short_pick:"pick short", short_after_pack:"short after pack", over_pick:"Over-pick", stock_short:"Stock short (inventory)", pack_scan_mistake:"Packer double scan", resolved_pack_recovery:"pack recovery resolve", pack_mismatch:"pack discrepancy", wrong_location:"Wrong location", barcode_mismatch:"Barcode changed", image_mismatch:"Image differs", recv_over:"Receiving OVER (got more)", recv_short:"Receiving SHORT (got less)", recv_off_po:"Off-PO received"};
 const STATUS_LABEL={pending:"pending", picking:"Picking", packing:"Packing", ready_to_close:"Ready to close", closed:"Finalized", voided:"voided"};
@@ -2484,14 +2486,15 @@ async function fixDisc(id){
 async function loadStats(){
   const r=rangeFor(statsPeriodKey,statsCustom); statsRange=r; setRangeLabel("statsPeriod",r.label);
   prodPP=null; prodRecv=null; // new period — both halves refill, renderProd merges whatever has arrived
+  prodExpanded=null; // 기간 변경 = 펼침 접기(사용자 확정) — 다른 기간의 목록이 펼쳐진 채 남으면 오독한다
   loadRecvStats(r); // receiving/putaway stats fill in independently — never blocks pick/pack render (rule 34)
   // throughput: completed pick/pack batches (by completion time)
   // 2026-08-11: 라인·유닛(base 낱개)까지 — 라인 테이블은 PostgREST 임베드로(왕복 수 불변, 규칙 34 패턴).
   //   "실제 한 일" 기준(리시빙 통계와 동일 규칙): 라인 = 수량>0 인 라인 수 · 유닛 = 수량 합
   //   (픽 picked_base / 팩 verified_base — 손대지 않은 라인은 처리량에 안 잡힌다, 섹션 부제에 명시).
   const [picks, packs, disc, reps]=await Promise.all([
-    sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pick_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pack_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null),
     // 품질 리포트 활동 — source 무필터(receiver 포함, 사용자 확정 2026-08-11). 평가·포상 표현 없음(조건 1) — 데이터 표로만.
     sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
@@ -2499,12 +2502,21 @@ async function loadStats(){
   if(statsRange!==r) return; // period changed while loading — the newer call renders
   // throughput + avg duration tally
   const prod={};
-  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0});
+  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0,pickList:[],packList:[]});
   const dur=t=>{ if(!t.started_at||!t.completed_at)return null; const m=(new Date(t.completed_at)-new Date(t.started_at))/60000; return (m>=0&&m<24*60)?m:null; };
+  // 펼침 목록(2026-08-11)은 표시 전용 push — 집계식은 무변(태스크별 tl/tu 를 합산하는 형태로만 재배열, 합계 동일).
   (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;}
-    (p.wms_pick_task_lines||[]).forEach(l=>{ const q=Number(l.picked_base)||0; if(q<=0)return; v.pickLines++; v.pickUnits+=q; }); });
+    let tl=0,tu=0;
+    (p.wms_pick_task_lines||[]).forEach(l=>{ const q=Number(l.picked_base)||0; if(q<=0)return; tl++; tu+=q; });
+    v.pickLines+=tl; v.pickUnits+=tu;
+    v.pickList.push({label:p.batch_label||"", lines:tl, units:tu, min:m, at:p.completed_at}); });
   (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;}
-    (p.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q<=0)return; v.packLines++; v.packUnits+=q; }); });
+    let tl=0,tu=0;
+    (p.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q<=0)return; tl++; tu+=q; });
+    v.packLines+=tl; v.packUnits+=tu;
+    v.packList.push({label:p.batch_label||"", lines:tl, units:tu, min:m, at:p.completed_at}); });
+  // 펼침 목록 정렬 = 완료시각 내림차순 (최근 먼저 — 상한 30 표시가 "가장 최근 30개"가 되는 근거)
+  Object.values(prod).forEach(v=>{ const byAt=(a,b)=>new Date(b.at)-new Date(a.at); v.pickList.sort(byAt); v.packList.sort(byAt); });
   prodPP=prod; renderProd();
   // quality reports by worker (2026-08-11) — 종류별 건수. 정렬은 표시 순서일 뿐, 순위·강조·색 차등 없음(조건 1).
   const qual={};
@@ -2548,7 +2560,7 @@ function renderProd(){
   // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
   const lineMax=Math.max(...rows.map(([,,rc])=>rc?rc.lines:0),1);
   el.innerHTML=rows.map(([nm,v,rc])=>{
-    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} · ${nf(rc.units)} units (base) / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work time)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
+    const recvTxt=rc?`Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} · ${nf(rc.units)} units (base) / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work time)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";   // 선두 구분자 " · " 는 템플릿(segBtn 앞)이 붙인다 (2026-08-11)
     // 라인·유닛 보조 줄 (2026-08-11) — ⚠️ 세 지표(배치/라인/유닛)를 나란히 보여줄 뿐, 종합 점수·순위·정렬·
     // 강조에 쓰지 않는다(사용자 확정 — 한 숫자로 줄이면 그 숫자에 맞춰 행동이 왜곡된다: 작은 오더 골라잡기.
     // min/line 도 같은 이유로 회색 텍스트만 — 작은 라인만 골라잡으면 좋아지는 지표다).
@@ -2556,15 +2568,48 @@ function renderProd(){
     const seg=(label,lines,units,min)=>lines?`${label} ${nf(lines)} line${lines===1?"":"s"} · ${nf(units)} units (base)${min!=null?` · ${(min/lines).toFixed(1)} min/line`:""}`:"";
     const subParts=[seg("Pick",v.pickLines,v.pickUnits,v.pickN?v.pickMin:null),seg("Pack",v.packLines,v.packUnits,v.packN?v.packMin:null)].filter(Boolean);
     const subLine=subParts.length?`<div style="font-size:11px;color:var(--mut);margin:0 0 3px">${subParts.join(" — ")}</div>`:"";
+    // 배치 목록 펼침 (2026-08-11 · 표시 전용 — 메모리의 pickList/packList/rc.list 를 그릴 뿐, 추가 조회 없음)
+    // 클릭 대상 = 항목 세그먼트 + 해당 막대 행 둘 다(태블릿 터치 면적). 항목별 독립 토글 — 이름 클릭 아님.
+    const expKey=k=>nm+"|"+k;
+    const caret=k=>prodExpanded===expKey(k)?"▾ ":"▸ ";
+    const segBtn=(k,txt)=>`<span data-expand="${esc(expKey(k))}" style="cursor:pointer;border-bottom:1px dotted var(--mut)">${caret(k)}${txt}</span>`;
     const recvBar=rc?`
-      <div class="bar-row"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
+      <div class="bar-row" data-expand="${esc(expKey("recv"))}" style="cursor:pointer"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
+    const exp=prodExpanded===expKey("pick")?["Pick batches",v.pickList,false]
+      :prodExpanded===expKey("pack")?["Pack batches",v.packList,false]
+      :(rc&&prodExpanded===expKey("recv"))?["Receipts",rc.list,true]:null;
     return `
     <div style="margin:10px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""} · Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}${recvTxt}</span></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· ${segBtn("pick",`Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""}`)} · ${segBtn("pack",`Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}`)}${rc?` · ${segBtn("recv",recvTxt)}`:""}</span></div>
       ${subLine}
-      <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/batchMax*100)}%"></div></div><span class="val">${v.pick}</span></div>
-      <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/batchMax*100)}%"></div></div><span class="val">${v.pack}</span></div>${recvBar}
+      <div class="bar-row" data-expand="${esc(expKey("pick"))}" style="cursor:pointer"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/batchMax*100)}%"></div></div><span class="val">${v.pick}</span></div>
+      <div class="bar-row" data-expand="${esc(expKey("pack"))}" style="cursor:pointer"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/batchMax*100)}%"></div></div><span class="val">${v.pack}</span></div>${recvBar}
+      ${exp?renderProdExpand(exp[0],exp[1],exp[2]):""}
     </div>`;}).join("");
+  // 하나만 펼침: 같은 키 재클릭 = 접기, 다른 키 클릭 = 이전 것 자동 접힘 (단일 상태 prodExpanded)
+  el.querySelectorAll("[data-expand]").forEach(x=>x.onclick=()=>{
+    const k=x.dataset.expand;
+    prodExpanded=(prodExpanded===k)?null:k;
+    renderProd();
+  });
+}
+// 펼침 패널 — 배치 수준까지만(⚠️ 라인/SKU 수준 금지: 수백~수천 행이라 화면이 감당 못 한다 — 특정 배치는
+// 오더번호로 따로 찾는다). 정렬은 완료시각 내림차순으로 이미 정렬돼 들어온다. 상한 30 = 가장 최근 30개.
+function renderProdExpand(title,list,isRecv){
+  const CAP=30;
+  const fmtAt=at=>at
+    ? new Date(at).toLocaleDateString()+" "+new Date(at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})
+    : `<i style="color:var(--mut)">in progress</i>`;   // 미완료 receipt — 빈칸이면 "데이터 없음"으로 오독한다 (2026-08-11)
+  const rows=list.slice(0,CAP).map(b=>`<tr>
+      <td style="font-family:var(--mono);font-weight:600">${esc(b.label||"—")}</td>
+      <td class="num">${nf(b.lines)}</td><td class="num">${nf(b.units)}</td>
+      <td class="num">${b.min!=null?(isRecv?fmtWorkDur(b.min):b.min.toFixed(1)+" min"):"—"}</td>
+      <td style="color:var(--mut);font-size:12px">${fmtAt(b.at)}</td></tr>`).join("");
+  const more=list.length>CAP
+    ? `<div style="font-size:11px;color:var(--mut);margin:4px 0 0">showing the ${CAP} most recent — ${list.length-CAP} older hidden (narrow the period to see them)</div>`:"";
+  return `<div style="margin:6px 0 2px;padding:8px 10px;background:#f7f8fa;border:1px solid var(--line);border-radius:8px">
+    <table style="font-size:12px"><thead><tr><th>${isRecv?"PO / TR":"Batch"}</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">${isRecv?"Work time":"Time"}</th><th>Completed</th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="5" style="color:var(--mut)">None in this period.</td></tr>`}</tbody></table>${more}</div>`;
 }
 /* ---------- Quality reports by worker (2026-08-11 — 포상 판단용 데이터) ----------
    ⚠️ 화면은 평가·포상을 표현하지 않는다(사용자 조건): 순위 번호·1위 강조·트로피·색 차등 없음 —
@@ -2603,7 +2648,7 @@ async function loadRecvStats(r){
   // one round-trip batch: receipts + embedded lines / receiving discrepancies (rule 34 — no per-line queries)
   const [rec,disc]=await Promise.all([
     sb.from("wms_receipts")
-      .select("id,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done)")
+      .select("id,po_number,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done)")
       .gte("created_at",r.fromISO).lte("created_at",r.toISO),
     sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")
       .gte("created_at",r.fromISO).lte("created_at",r.toISO),
@@ -2627,7 +2672,7 @@ async function loadRecvStats(r){
   let pLines=0,pDone=0,backLines=0,backUnits=0,trLines=0,trMoved=0;
   (rec.data||[]).forEach(rc=>{
     const t=T[rc.source_type==="transfer"?"transfer":"po"];
-    const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0};
+    const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0,list:[]};
     const wh=byWh[rc.warehouse||"?"]=byWh[rc.warehouse||"?"]||{n:0,lines:0,units:0};
     t.n++; w.n++; wh.n++;
     const rm=workMinutes(rc.created_at,rc.completed_at,rc.warehouse);
@@ -2636,15 +2681,20 @@ async function loadRecvStats(r){
     if(am!=null){ t.aMin+=am;t.aN++; }
     if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
     else if(rc.status==="completed") notApplied++;
+    let rl=0,ru=0;   // 펼침 목록용 receipt 별 소계 (2026-08-11 — 표시 전용, 아래 합산 집계는 무변)
     (rc.wms_receipt_lines||[]).forEach(l=>{
       const q=Number(l.received_base)||0;
       if(q<=0)return; // untouched expected lines are not throughput
       t.lines++; t.units+=q; w.lines++; w.units+=q; wh.lines++; wh.units+=q;
+      rl++; ru+=q;
       pLines++;
       if(l.putaway_done){ pDone++; w.pDone++; } else{ backLines++; backUnits+=q; }
       if(rc.source_type==="transfer"){ trLines++; if((Number(l.exported_base)||0)>0)trMoved++; }
     });
+    w.list.push({label:rc.po_number||"", lines:rl, units:ru, min:rm, at:rc.completed_at||null});
   });
+  // 펼침 목록 정렬 = 완료시각 내림차순, 미완료(in progress)는 맨 위(가장 최근 활동)
+  Object.values(byWorker).forEach(w=>w.list.sort((a,b)=>(b.at?new Date(b.at).getTime():Infinity)-(a.at?new Date(a.at).getTime():Infinity)));
 
   document.getElementById("recvStatGrid").innerHTML=[
     ["PO receipts",T.po.n,""],
