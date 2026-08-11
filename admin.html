@@ -202,8 +202,10 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time</span></div>
+      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time · lines/units actually handled (qty&gt;0 — untouched lines don't count)</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
+      <div class="sect-h">Quality reports by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode · image · box barcode (picking/packing/receiving)</span></div>
+      <div class="card" style="padding:14px 16px"><div id="qualityTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
 
@@ -2484,19 +2486,32 @@ async function loadStats(){
   prodPP=null; prodRecv=null; // new period — both halves refill, renderProd merges whatever has arrived
   loadRecvStats(r); // receiving/putaway stats fill in independently — never blocks pick/pack render (rule 34)
   // throughput: completed pick/pack batches (by completion time)
-  const [picks, packs, disc]=await Promise.all([
-    sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+  // 2026-08-11: 라인·유닛(base 낱개)까지 — 라인 테이블은 PostgREST 임베드로(왕복 수 불변, 규칙 34 패턴).
+  //   "실제 한 일" 기준(리시빙 통계와 동일 규칙): 라인 = 수량>0 인 라인 수 · 유닛 = 수량 합
+  //   (픽 picked_base / 팩 verified_base — 손대지 않은 라인은 처리량에 안 잡힌다, 섹션 부제에 명시).
+  const [picks, packs, disc, reps]=await Promise.all([
+    sb.from("wms_pick_tasks").select("assigned_to,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
+    sb.from("wms_pack_tasks").select("assigned_to,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
     sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null),
+    // 품질 리포트 활동 — source 무필터(receiver 포함, 사용자 확정 2026-08-11). 평가·포상 표현 없음(조건 1) — 데이터 표로만.
+    sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders
   // throughput + avg duration tally
   const prod={};
-  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0});
+  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0});
   const dur=t=>{ if(!t.started_at||!t.completed_at)return null; const m=(new Date(t.completed_at)-new Date(t.started_at))/60000; return (m>=0&&m<24*60)?m:null; };
-  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;} });
-  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;} });
+  (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;}
+    (p.wms_pick_task_lines||[]).forEach(l=>{ const q=Number(l.picked_base)||0; if(q<=0)return; v.pickLines++; v.pickUnits+=q; }); });
+  (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;}
+    (p.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q<=0)return; v.packLines++; v.packUnits+=q; }); });
   prodPP=prod; renderProd();
+  // quality reports by worker (2026-08-11) — 종류별 건수. 정렬은 표시 순서일 뿐, 순위·강조·색 차등 없음(조건 1).
+  const qual={};
+  (reps.data||[]).forEach(x=>{ if(!x.reported_by)return;
+    const q=qual[x.reported_by]=qual[x.reported_by]||{wrong_location:0,barcode_mismatch:0,image_mismatch:0,box_barcode:0,total:0};
+    if(q[x.kind]!=null)q[x.kind]++; q.total++; });
+  renderQuality(qual);
   // mistake tally (by responsible person, resolved not excluded — count occurrences themselves)
   // NOT mistakes (2026-08-04): stock_short/pack_scan_mistake are inventory-mismatch/self-caught rows
   // (responsible=null anyway — belt and suspenders); recv_* are supplier/shipping facts, and off-PO
@@ -2526,22 +2541,49 @@ function renderProd(){
   const pp=prodPP||{}, rv=prodRecv||{};
   const names=[...new Set([...Object.keys(pp),...Object.keys(rv)])];
   if(!names.length){ el.innerHTML=`<div class="empty">No work completed in this period.</div>`; return; }
-  const P0={pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0};
+  const P0={pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0};
   const rows=names.map(nm=>[nm,pp[nm]||P0,rv[nm]||null])
     .sort((a,b)=>((b[1].pick+b[1].pack)-(a[1].pick+a[1].pack))||((b[2]?b[2].lines:0)-(a[2]?a[2].lines:0)));
   const batchMax=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
   // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
   const lineMax=Math.max(...rows.map(([,,rc])=>rc?rc.lines:0),1);
   el.innerHTML=rows.map(([nm,v,rc])=>{
-    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work time)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
+    const recvTxt=rc?` · Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} · ${nf(rc.units)} units (base) / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work time)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";
+    // 라인·유닛 보조 줄 (2026-08-11) — ⚠️ 세 지표(배치/라인/유닛)를 나란히 보여줄 뿐, 종합 점수·순위·정렬·
+    // 강조에 쓰지 않는다(사용자 확정 — 한 숫자로 줄이면 그 숫자에 맞춰 행동이 왜곡된다: 작은 오더 골라잡기.
+    // min/line 도 같은 이유로 회색 텍스트만 — 작은 라인만 골라잡으면 좋아지는 지표다).
+    // min/line 은 근사치 — 분모(라인)는 전 배치, 분자(시간)는 소요시간이 유효한 배치만(결측·24h+ 이상치 제외, 기존 dur 규칙).
+    const seg=(label,lines,units,min)=>lines?`${label} ${nf(lines)} line${lines===1?"":"s"} · ${nf(units)} units (base)${min!=null?` · ${(min/lines).toFixed(1)} min/line`:""}`:"";
+    const subParts=[seg("Pick",v.pickLines,v.pickUnits,v.pickN?v.pickMin:null),seg("Pack",v.packLines,v.packUnits,v.packN?v.packMin:null)].filter(Boolean);
+    const subLine=subParts.length?`<div style="font-size:11px;color:var(--mut);margin:0 0 3px">${subParts.join(" — ")}</div>`:"";
     const recvBar=rc?`
       <div class="bar-row"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
     return `
     <div style="margin:10px 0">
       <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""} · Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}${recvTxt}</span></div>
+      ${subLine}
       <div class="bar-row"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/batchMax*100)}%"></div></div><span class="val">${v.pick}</span></div>
       <div class="bar-row"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/batchMax*100)}%"></div></div><span class="val">${v.pack}</span></div>${recvBar}
     </div>`;}).join("");
+}
+/* ---------- Quality reports by worker (2026-08-11 — 포상 판단용 데이터) ----------
+   ⚠️ 화면은 평가·포상을 표현하지 않는다(사용자 조건): 순위 번호·1위 강조·트로피·색 차등 없음 —
+   Mistakes 표와 같은 중립 표 형식. 정렬(total 내림차순)은 표시 순서일 뿐이다.
+   매니저가 데이터를 보고 판단한다 — 화면이 상벌을 지시하는 게 아니다. */
+function renderQuality(q){
+  const rows=Object.entries(q).sort((a,b)=>b[1].total-a[1].total);
+  const el=document.getElementById("qualityTable");
+  if(!rows.length){ el.innerHTML=`<div class="empty">No quality reports in this period.</div>`; return; }
+  el.innerHTML=`<div style="font-size:11px;color:var(--mut-2);margin:0 0 8px">Higher is better — these are quality reports, not mistakes.</div>
+    <table><thead><tr><th>Worker</th><th class="num">Total</th><th class="num">Wrong location</th><th class="num">Barcode</th><th class="num">Image</th><th class="num">Box barcode</th></tr></thead>
+    <tbody>${rows.map(([nm,v])=>`<tr>
+      <td style="font-weight:600">${esc(nm)}</td>
+      <td class="num" style="font-weight:800">${v.total}</td>
+      <td class="num">${v.wrong_location}</td>
+      <td class="num">${v.barcode_mismatch}</td>
+      <td class="num">${v.image_mismatch}</td>
+      <td class="num">${v.box_barcode}</td>
+    </tr>`).join("")}</tbody></table>`;
 }
 function renderMistakes(m){
   const rows=Object.entries(m).sort((a,b)=>b[1].total-a[1].total);
