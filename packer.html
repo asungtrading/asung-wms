@@ -607,11 +607,22 @@ async function scanTakeoverPack(f){
   if(hit.assigned_to===me.name){ resumePack(hit.id); return; }
   if(!confirm(`${hit.batch_label} is already open by ${hit.assigned_to||"another worker"}.\n\nYou have the pack list — take it over and continue? Their progress is kept.`)) return;
   const {data,error}=await sb.from("wms_pack_tasks")
-    .update({assigned_to:me.name, started_at:new Date().toISOString()})
+    .update({assigned_to:me.name})   // started_at 은 보내지 않는다 — 최초 시작 보존 (ensureStartedAtPack 주석)
     .eq("id",hit.id).eq("status","in_progress").select();
   if(error){ toast("Take over failed: "+error.message,true); return; }
   if(!data||!data.length){ toast("Could not take over — try again.",true); loadQueue(); return; }
+  await ensureStartedAtPack(hit.id,data[0]);   // in_progress 라 항상 값이 있어 no-op — null 엣지만 자가 치유
   resumePack(hit.id);
+}
+
+/* ---------- started_at 은 "최초 시작"이다 (2026-08-11 · 규칙 37 — picker ensureStartedAt 와 동일 패턴) ----------
+   이어받기·held 재개가 덮어쓰지 않는다. 최초만 null→now (서버측 only-if-null — 경합에도 1회).
+   pending pack task 는 held 재개(started_at 보존됨)와 롤백 복귀(null 리셋)뿐이라 null 여부가 정확한 구분자다. */
+async function ensureStartedAtPack(id,row){
+  if(row&&row.started_at) return;
+  const now=new Date().toISOString();
+  await sb.from("wms_pack_tasks").update({started_at:now}).eq("id",id).is("started_at",null);
+  if(row) row.started_at=now;
 }
 
 /* start verify: pack_task + pack_task_lines create */
@@ -648,9 +659,10 @@ async function resumePack(packId){
   // if held(pending) batch, claim it as mine (concurrency: only when pending)
   if(pk.status==="pending"){
     const now=new Date().toISOString();
-    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,held_by:null})
-      .eq("id",packId).eq("status","pending").select();
+    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",heartbeat_at:now,held_by:null})
+      .eq("id",packId).eq("status","pending").select();   // started_at 은 ensureStartedAtPack — held 재개는 보존, 롤백 복귀(null)만 새로 찍힘
     if(cl.error||!cl.data||!cl.data.length){ toast("Another worker already took this",true); loadQueue(); return; }
+    await ensureStartedAtPack(packId,cl.data[0]);
     pk.work_started=cl.data[0].work_started;
   }
   const [ptl, pl]=await Promise.all([
