@@ -1034,7 +1034,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 | 2 | admin `wms_pick_tasks` 배치 카운트 | ✅ 근본 수정(2026-08-12 1단계 — count-head 4콜·행 0개. 종전 1000+ 과소 표시였으므로 수정 후 증가가 정상) |
 | 3 | admin `wms_pack_tasks` 배치 카운트 | ✅ 근본 수정(동일 커밋 — completed 는 카드가 안 써 아예 미조회) |
 | 4 | admin Finalized 팔렛 배지 pallet_items | ✅ 수정(.in 300오더 + range 페이지네이션 — 발견 시 이미 2517/1000) |
-| 5 | admin Stats 기간 조회 5곳(픽/팩/disc/reports/recvStats) | ⬜ TODO — 1 year/All 은 이미 1000+ 지표 과소. 서버 집계(뷰/RPC) 검토 |
+| 5 | admin Stats 기간 조회 6곳(픽/팩/disc/reports/recvStats 2곳) | ✅ 근본 수정(2026-08-12 4단계 — `sbAll` 페이지 누적으로 기간 전량. **종전 1 year/All 은 1000+ 로 지표 과소였으므로 수정 후 장기 기간 숫자 증가가 정상.** 임베드 라인은 최상위 행에 실려 페이지와 함께 온전 — 라인·유닛 합계도 캡 무관. 서버 집계 뷰/RPC 는 불채택: 펼침 목록이 행 자체를 쓰므로 전량 행이 필요) |
 | 6 | manager Splitting `pending+voided` 오름차순 | ⬜ TODO — voided 영구 누적, 도달 시 최신 pending 소실(분할 불가) |
 | 7 | admin Rollback 대상 목록(closed 포함·오름차순) | ⬜ TODO — 757/1000 접근 중 |
 | 8 | admin open 큐 2곳(reports·discrepancies) | ✅ 근본 수정(2026-08-12 3단계 — `sbAll` range 페이지 누적으로 전량. 실측 11·15건이라 지금은 1왕복 그대로 = 예방. 미해결 큐는 잘리면 처리 누락이라 전량 정확성이 목적) |

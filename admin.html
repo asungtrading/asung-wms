@@ -2579,12 +2579,16 @@ async function loadStats(){
   // 2026-08-11: 라인·유닛(base 낱개)까지 — 라인 테이블은 PostgREST 임베드로(왕복 수 불변, 규칙 34 패턴).
   //   "실제 한 일" 기준(리시빙 통계와 동일 규칙): 라인 = 수량>0 인 라인 수 · 유닛 = 수량 합
   //   (픽 picked_base / 팩 verified_base — 손대지 않은 라인은 처리량에 안 잡힌다, 섹션 부제에 명시).
+  // 캡 위험 #5 근본 해결(2026-08-12 4단계): 기간 전량 조회 4곳을 sbAll 페이지 누적으로 —
+  // 종전 무LIMIT 은 1 year/All 에서 이미 1000+ 로 지표가 과소였다(수정 후 장기 기간 숫자 증가가 정상).
+  // 집계는 순서 무관·펼침 목록은 아래 byAt 재정렬이라 표시 불변. 임베드 라인은 최상위 행에 실려
+  // 페이지와 함께 온전하다(라인 합계도 캡 무관). .order("id") = 페이지 결정성(규칙 20).
   const [picks, packs, disc, reps]=await Promise.all([
-    sb.from("wms_pick_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — 1 year/All 은 이미 1000+ 로 지표 과소)
-    sb.from("wms_pack_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 동일)
-    sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — 장기 기간에서 mistake tally 과소 가능)
+    sbAll(()=>sb.from("wms_pick_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
+    sbAll(()=>sb.from("wms_pack_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
+    sbAll(()=>sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
     // 품질 리포트 활동 — source 무필터(receiver 포함, 사용자 확정 2026-08-11). 평가·포상 표현 없음(조건 1) — 데이터 표로만.
-    sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — 장기 기간 과소 가능)
+    sbAll(()=>sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders
   // throughput + avg duration tally
@@ -2733,12 +2737,14 @@ function renderMistakes(m){
 /* ---------- Stats: receiving / transfer / putaway (shares the stats period bar) ---------- */
 async function loadRecvStats(r){
   // one round-trip batch: receipts + embedded lines / receiving discrepancies (rule 34 — no per-line queries)
+  // 캡 위험 #5 계열 근본 해결(2026-08-12 4단계): 픽/팩 Stats 와 같은 처방(sbAll — 기간 전량·페이지 누적).
+  // receipts 는 아직 수백 규모지만 누적 테이블이라 같은 만기를 가진다. 임베드 라인은 페이지에 실려 온전.
   const [rec,disc]=await Promise.all([
-    sb.from("wms_receipts")   // caps-ok: TODO(캡 위험 #5 계열 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — receipts 는 아직 수백 규모라 여유)
+    sbAll(()=>sb.from("wms_receipts")   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5 계열)
       .select("id,po_number,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done)")
-      .gte("created_at",r.fromISO).lte("created_at",r.toISO),
-    sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")   // caps-ok: TODO(캡 위험 #5 계열 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT)
-      .gte("created_at",r.fromISO).lte("created_at",r.toISO),
+      .gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),
+    sbAll(()=>sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5 계열)
+      .gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders
   const err=rec.error||disc.error;
