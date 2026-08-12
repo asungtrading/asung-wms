@@ -730,11 +730,19 @@ async function loadBins(){
     throw new Error("empty");
   }catch(e){
     try{
-      const {data}=await sb.from("wms_sku_bins").select("bin,zone").eq("warehouse",receipt.warehouse);   // caps-ok: TODO(캡 위험 #11 — 미수정, 전수조사 2026-08-12: sku_bins 는 창고당 수천 행(sku×bin) — 빈 지정 드롭다운 폴백이 잘릴 수 있음. 1순위는 EF action=bins 라 실해 제한적)
+      // 캡 위험 #11 근본 해결 (2026-08-12 2단계): 종전엔 sku_bins 를 통째로 받아(창고당 7~8천 행,
+      // 1000행 캡의 8배) 클라이언트에서 distinct — 드롭다운에 1481개(toronto) 중 최대 1000개만 들어
+      // 있었다. RPC 가 서버에서 distinct 한 결과를 **단일 jsonb 값(행 1개)** 으로 반환하므로 행 캡이
+      // 원천적으로 적용되지 않는다(뷰는 안 된다 — 행을 반환하는 한 캡 대상, 규칙 20).
+      // ⚠️ RPC 실패 시 2차 폴백(직접 테이블 조회)은 두지 않는다 — 그게 바로 잘린 쿼리라 틀린 목록을
+      // 되살린다. allBins=[] 이면 모달이 "Bin list unavailable — scan or type the bin above." 를 띄우고
+      // 스캔/타이핑 경로(commitBin)는 살아 있다.
+      const {data,error}=await sb.rpc("wms_warehouse_bins",{p_warehouse:receipt.warehouse});
+      if(error) throw error;
       const seen={};
       (data||[]).forEach(r=>{ const b=(r.bin||"").trim(); if(b&&!seen[b])seen[b]={bin:b,zone:(r.zone||zoneOfBin(b))}; });
       allBins=sortBins(Object.values(seen));
-    }catch(e2){ allBins=[]; }  // 실패해도 스캔/타이핑은 됨
+    }catch(e2){ allBins=[]; }  // 실패해도 스캔/타이핑은 됨 — commitBin 은 allBins 비면 confirm 없이 진행
   }
 }
 function sortBins(arr){
