@@ -495,9 +495,14 @@ async function loadQueue(){
   if(!me){document.getElementById("blist").innerHTML="";document.getElementById("bloading").style.display="none";const be=document.getElementById("bempty");be.style.display="block";be.textContent="Select a worker first..";return;}
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
+  // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다. 오름차순이면 **잘리는 쪽이 항상 최신**이라
+  //    새 데이터가 조용히 사라진다(2026-08-12 SO-14532 실사고 — 완료 픽 누적이 1000 돌파, 새 완료 픽이
+  //    응답 밖으로 밀려 팩 대기열·스캔 진입이 전 계정에서 죽었다). 규칙 20 오름차순 함정의 세 번째 사례
+  //    (purchaseList · saleList SO-14106 · 여기). **내림차순 + 명시 LIMIT 을 지켜라** — 근본 수정
+  //    (donePick 을 wms_orders!inner 로 안 닫힌 오더만 · allPack 기간 제한)은 검증 필요라 백로그.
   const [donePick, allPack]=await Promise.all([
-    sb.from("wms_pick_tasks").select("id,batch_label,order_id, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at"),
-    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders(order_number,warehouse,customer_name)"),
+    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at",{ascending:false}).limit(1000),
+    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders(order_number,warehouse,customer_name)").order("id",{ascending:false}).limit(1000),
   ]);
   document.getElementById("bloading").style.display="none";
   if(donePick.error||allPack.error){toast("Failed to load list",true);return;}
@@ -508,7 +513,8 @@ async function loadQueue(){
   mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&p.work_started&&inWh(p.wms_orders));
   held=packs.filter(p=>p.status==="pending"&&inWh(p.wms_orders));
   stalePacks=[];   // 시간 기반 abandoned 제거 — 스캔 이어받기로 처리
-  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders));
+  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders))
+    .sort((a,b)=>new Date(a.completed_at)-new Date(b.completed_at));   // 표시는 종전 FIFO 유지(조회만 내림차순 — 위 캡 주석)
   // lookup cache for resume verify
   packLookup={}; [...mine,...held,...stalePacks].forEach(p=>packLookup[p.id]=p);
   // short pre-check presence
