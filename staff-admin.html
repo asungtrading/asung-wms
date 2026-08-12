@@ -273,7 +273,7 @@ function toast(msg,bad){
 // ---- data load ----
 async function load(){
   document.getElementById("loading").style.display="block";
-  const {data,error} = await sb.from("wms_staff").select("*").order("name");
+  const {data,error} = await sb.from("wms_staff").select("*").order("name");   // caps-ok: 직원 마스터 — 수십 명, 채용 시에만 증가
   document.getElementById("loading").style.display="none";
   if(error){ setConn("err"); toast("Failed to load: "+error.message,true); return; }
   setConn("ok");

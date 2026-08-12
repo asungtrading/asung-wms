@@ -501,7 +501,7 @@ async function loadQueue(){
   //    (purchaseList · saleList SO-14106 · 여기). **내림차순 + 명시 LIMIT 을 지켜라** — 근본 수정
   //    (donePick 을 wms_orders!inner 로 안 닫힌 오더만 · allPack 기간 제한)은 검증 필요라 백로그.
   const [donePick, allPack]=await Promise.all([
-    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders(order_number,warehouse,customer_name)").eq("status","completed").order("completed_at",{ascending:false}).limit(1000),
+    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders(order_number,warehouse,customer_name,hold_state)").eq("status","completed").order("completed_at",{ascending:false}).limit(1000),
     sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders(order_number,warehouse,customer_name)").order("id",{ascending:false}).limit(1000),
   ]);
   document.getElementById("bloading").style.display="none";
@@ -513,7 +513,9 @@ async function loadQueue(){
   mine=packs.filter(p=>p.status==="in_progress"&&p.assigned_to===me.name&&p.work_started&&inWh(p.wms_orders));
   held=packs.filter(p=>p.status==="pending"&&inWh(p.wms_orders));
   stalePacks=[];   // 시간 기반 abandoned 제거 — 스캔 이어받기로 처리
-  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders))
+  // Cin7 보류(규칙 43 — 2026-08-12 원복: 268e318 되돌림의 원인이던 대기열 장애는 1000행 캡으로 확정·수정됨,
+  // 보류 필터는 무관했다): **새 작업 풀에서만** 숨긴다 — 진행 중(mine)·held(내 Hold)는 끝까지 허용.
+  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders)&&pt.wms_orders?.hold_state!=="on_hold")
     .sort((a,b)=>new Date(a.completed_at)-new Date(b.completed_at));   // 표시는 종전 FIFO 유지(조회만 내림차순 — 위 캡 주석)
   // lookup cache for resume verify
   packLookup={}; [...mine,...held,...stalePacks].forEach(p=>packLookup[p.id]=p);
@@ -601,7 +603,7 @@ document.getElementById("orderScan").addEventListener("keydown",async e=>{
 /* 스캔한 배치가 이미 in_progress(남이 열어둠)면 이어받기 */
 async function scanTakeoverPack(f){
   const acc=me.warehouse_access;
-  const {data:ip}=await sb.from("wms_pack_tasks")
+  const {data:ip}=await sb.from("wms_pack_tasks")   // caps-ok: 진행 중 팩만 — 완료로 소진되는 활성 풀(동시 작업자 수 규모)
     .select("id,batch_label,status,assigned_to,pick_task_id,order_id, wms_orders(order_number,warehouse,customer_name)")
     .eq("status","in_progress");
   const hit=(ip||[]).find(p=>{
@@ -1357,6 +1359,12 @@ document.getElementById("doneBtn").onclick=async ()=>{
     if(scanMistakes.length)extra.push(`Double scan ${scanMistakes.length}`);
     if(!miss.length&&recovered.length)extra.push(`Recovered ${recovered.length}`);
     toast(packTask.batch_label+" Complete pack"+(extra.length?` (${extra.join(", ")})`:""));
+    // Cin7 보류 안내 (규칙 43 — 완료는 허용됐지만 fulfillment/Finalize 로 못 간다. 이유를 모르면 혼란하다)
+    try{
+      const {data:hd}=await sb.from("wms_orders").select("hold_state").eq("id",packTask.order_id).maybeSingle();
+      if(hd&&hd.hold_state==="on_hold")
+        alert(`⚠ ON HOLD — ${order.order_number}\n\nThis order was put on hold in Cin7. Your pack is saved,\nbut it will NOT move to fulfillment until a manager reviews and resumes it.`);
+    }catch(e){ /* 부가 안내 — 실패해도 완료 흐름을 막지 않는다 */ }
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";
     document.getElementById("listView").style.display="block";

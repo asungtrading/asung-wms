@@ -242,7 +242,7 @@ function toast(msg,bad){
 // ---- 데이터 로드 ----
 async function load(){
   document.getElementById("loading").style.display="block";
-  const {data,error} = await sb.from("wms_staff").select("*").order("name");
+  const {data,error} = await sb.from("wms_staff").select("*").order("name");   // caps-ok: 낡은 사본(삭제 대상 — CLAUDE.md 6절) · 직원 마스터 수십 명
   document.getElementById("loading").style.display="none";
   if(error){ setConn("err"); toast("불러오기 실패: "+error.message,true); return; }
   setConn("ok");

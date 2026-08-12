@@ -600,12 +600,12 @@ async function holdResume(oid,btn){
 
 async function loadOverview(){
   const [orders, picks, packs, finalized, cin7Holds]=await Promise.all([
-    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),
-    sb.from("wms_pick_tasks").select("status"),
-    sb.from("wms_pack_tasks").select("status"),
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),   // caps-ok: 활성 오더 풀 — closed 로 소진, 활성 수십 규모(누적 안 됨)
+    sb.from("wms_pick_tasks").select("status"),   // caps-ok: TODO(캡 위험 #2 — 미수정, 전수조사 2026-08-12: 전체 픽 태스크 누적 — 이미 1000+ 라 배치 카운트가 지금 과소)
+    sb.from("wms_pack_tasks").select("status"),   // caps-ok: TODO(캡 위험 #3 — 미수정, 전수조사 2026-08-12: 전체 팩 태스크 누적 — 997/1000 임박)
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
     // Cin7 보류/예상 밖 값 (규칙 43) — 종착(closed/voided) 무관하게 hold_state 가 남은 행 전부
-    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at").not("hold_state","is",null).order("hold_detected_at",{ascending:false}),
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at").not("hold_state","is",null).order("hold_detected_at",{ascending:false}),   // caps-ok: hold_state 가 남은 오더만 — 보류는 드물고 해제 시 null 복귀(소수)
   ]);
   renderHolds(cin7Holds.data||[]);   // 이름 주의: loadOverview 아래쪽의 holds(분할 팩 게이트)와 별개
   loadBatchActivity(orders.data||[]);
@@ -859,10 +859,10 @@ async function loadRollback(){
   const el=document.getElementById("rollbackList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
   const [ordsQ,wvsQ]=await Promise.all([
-    sb.from("wms_orders")
+    sb.from("wms_orders")   // caps-ok: TODO(캡 위험 #7 — 미수정, 전수조사 2026-08-12: closed 누적·오름차순 — 757/1000 접근 중, 도달 시 최신 오더가 롤백 목록에서 소실)
       .select("id,order_number,customer_name,warehouse,status")
       .in("status",["picking","packing","ready_to_close","closed"]).order("order_number"),
-    sb.from("wms_waves")
+    sb.from("wms_waves")   // caps-ok: 완료 아닌 wave 만 — 완료로 소진되는 활성 풀(동시 수 개 규모)
       .select("id,label,warehouse,status,assigned_to, wms_pick_tasks(id,order_id, wms_orders(order_number))")
       .neq("status","completed").order("label"),
   ]);
@@ -1413,7 +1413,7 @@ async function loadReports(){
   // done = 기간 + LIMIT 500(안전장치 — 종전 LIMIT 50 건수 자르기를 기간 기준으로 통일).
   // sum = 요약·추세용 경량 쿼리(기간 전체 발생 — resolved 포함, wms_reports 는 voided 컬럼 없음).
   const [open,done,sum]=await Promise.all([
-    sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}),
+    sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}),   // caps-ok: TODO(캡 위험 #8 — 미수정, 전수조사 2026-08-12: open 리포트 — 해소 습관 의존 누적, 현재 수십)
     sb.from("wms_reports").select("*",{count:"exact"}).not("resolved_at","is",null).gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(500),
     sb.from("wms_reports").select("kind,created_at,resolved_at",{count:"exact"}).gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
@@ -1906,7 +1906,7 @@ async function loadRecv(){
   const ap=document.getElementById("recvApprovals");
   ap.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
   const [pend,rcpts]=await Promise.all([
-    sb.from("wms_receipt_lines").select("*, wms_receipts(po_number,supplier_name,warehouse)")
+    sb.from("wms_receipt_lines").select("*, wms_receipts(po_number,supplier_name,warehouse)")   // caps-ok: 승인 대기 라인만(needs_approval=true) — 승인/거부로 소진되는 소수
       .eq("needs_approval",true).order("created_at",{ascending:false}),
     // putaway_bin/putaway_done/needs_approval 도 같은 임베드로 받는다 — awaiting putaway 계산에 왕복을 더하지 않는다(규칙 34).
     sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
@@ -2451,7 +2451,7 @@ async function loadDisc(){
   //   요약·추세는 별도 경량 쿼리 — 목록 LIMIT 과 무관하게 기간 전체를 센다. 제외 조건은 voided 뿐
   //   (resolved 포함 — "몇 건이 발생했나"의 질문. 규칙 14 집계와 동일한 voided 제외).
   const [open, done, sum]=await Promise.all([
-    sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null).order("created_at",{ascending:false}),
+    sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null).order("created_at",{ascending:false}),   // caps-ok: TODO(캡 위험 #8 — 미수정, 전수조사 2026-08-12: open discrepancy — 해소 습관 의존 누적, 현재 수십)
     sb.from("wms_discrepancies").select("*",{count:"exact"}).or("resolved_at.not.is.null,cin7_corrected.eq.true,voided_at.not.is.null").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(500),
     sb.from("wms_discrepancies").select("reason,source,created_at,resolved_at,cin7_corrected",{count:"exact"})
       .is("voided_at",null).gte("created_at",r.fromISO).lte("created_at",r.toISO),
@@ -2556,11 +2556,11 @@ async function loadStats(){
   //   "실제 한 일" 기준(리시빙 통계와 동일 규칙): 라인 = 수량>0 인 라인 수 · 유닛 = 수량 합
   //   (픽 picked_base / 팩 verified_base — 손대지 않은 라인은 처리량에 안 잡힌다, 섹션 부제에 명시).
   const [picks, packs, disc, reps]=await Promise.all([
-    sb.from("wms_pick_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_pack_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),
-    sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null),
+    sb.from("wms_pick_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — 1 year/All 은 이미 1000+ 로 지표 과소)
+    sb.from("wms_pack_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 동일)
+    sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — 장기 기간에서 mistake tally 과소 가능)
     // 품질 리포트 활동 — source 무필터(receiver 포함, 사용자 확정 2026-08-11). 평가·포상 표현 없음(조건 1) — 데이터 표로만.
-    sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),
+    sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO),   // caps-ok: TODO(캡 위험 #5 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — 장기 기간 과소 가능)
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders
   // throughput + avg duration tally
@@ -2710,10 +2710,10 @@ function renderMistakes(m){
 async function loadRecvStats(r){
   // one round-trip batch: receipts + embedded lines / receiving discrepancies (rule 34 — no per-line queries)
   const [rec,disc]=await Promise.all([
-    sb.from("wms_receipts")
+    sb.from("wms_receipts")   // caps-ok: TODO(캡 위험 #5 계열 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT — receipts 는 아직 수백 규모라 여유)
       .select("id,po_number,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done)")
       .gte("created_at",r.fromISO).lte("created_at",r.toISO),
-    sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")
+    sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")   // caps-ok: TODO(캡 위험 #5 계열 — 미수정, 전수조사 2026-08-12: 기간 무LIMIT)
       .gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders

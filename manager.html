@@ -256,7 +256,7 @@ function toast(m,bad){const el=document.getElementById("toast");el.textContent=m
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 async function init(){
-  const zs = await sb.from("wms_zone_sequence").select("*");
+  const zs = await sb.from("wms_zone_sequence").select("*");   // caps-ok: 존 마스터 — 수십 행, 창고 구조 변경 시에만 증가
   if(zs.error){ setConn("err"); toast("Initial load failed",true); return; }
   setConn("ok");
   (zs.data||[]).forEach(z=>{ zoneSeq[z.warehouse+"|"+z.zone]=z.sequence_order; });
@@ -265,7 +265,7 @@ async function init(){
 
 async function loadOrders(){
   document.getElementById("qloading").style.display="block";
-  const {data,error}=await sb.from("wms_orders").select("*").in("status",["pending","voided"]).order("imported_at");
+  const {data,error}=await sb.from("wms_orders").select("*").in("status",["pending","voided"]).order("imported_at");   // caps-ok: TODO(캡 위험 #6 — 미수정, 전수조사 2026-08-12: voided 영구 누적·오름차순 — 1000 도달 시 최신 pending 이 분할 화면에서 소실)
   document.getElementById("qloading").style.display="none";
   if(error){ toast("Failed to load order: "+error.message,true); return; }
   // Cin7 보류(규칙 43 — 2026-08-12 SO-14592 로 누락 발견): pending 오더의 유일한 출구가 이 화면이라

@@ -688,6 +688,7 @@ async function refresh(){
   // include child boxes (boxes whose parent is the above unit)
   let allUnits=[];
   if(unitIds.size){
+    // caps-ok: 화면의 유닛 id 목록(id.in/parent_id.in) — 선택 오더의 팔렛 트리로 한정(수십 규모)
     const {data:u2}=await sb.from("wms_pallets").select("*").or(
       `id.in.(${[...unitIds].join(",")}),parent_id.in.(${[...unitIds].join(",")})`
     ).order("id");

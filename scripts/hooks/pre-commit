@@ -19,6 +19,20 @@ if [ -x "$CHECK" ]; then
   fi
 fi
 
+# PostgREST 1000행 캡 — 무제한 조회는 1000행에서 조용히 잘린다. 실사고 5건(규칙 20 캡 함정)
+CAPS="$ROOT/scripts/check-caps.sh"
+if [ -x "$CAPS" ]; then
+  if ! bash "$CAPS" --staged; then
+    echo
+    echo "커밋 중단: PostgREST 1000행 캡에 걸릴 수 있는 조회가 있다."
+    echo "  고치기: 내림차순+.limit / 식별자 .eq·.in / .range 페이지네이션 중 하나"
+    echo "  의도적 무제한: // caps-ok: <왜 안 자라는지>  (사유 필수)"
+    echo "  확인  : scripts/check-caps.sh   · 테스트: scripts/test-caps-hook.sh"
+    echo "  우회  : git commit --no-verify  (1000행 캡은 여전히 자른다)"
+    exit 1
+  fi
+fi
+
 # 분류 값(reason/kind) — CHECK 목록에 없는 값은 첫 insert 가 400(23514) 으로 죽는다 (규칙 41)
 if [ -x "$CLASS" ]; then
   if ! bash "$CLASS" --staged; then

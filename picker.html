@@ -487,7 +487,7 @@ function flash(kind,msg){
 
 /* ---------- initial load ---------- */
 async function init(){
-  const zs=await sb.from("wms_zone_sequence").select("*");
+  const zs=await sb.from("wms_zone_sequence").select("*");   // caps-ok: 존 마스터 — 수십 행, 창고 구조 변경 시에만 증가
   if(zs.error){setConn("err");toast("Initial load failed",true);return;}
   setConn("ok");
   (zs.data||[]).forEach(z=>zoneSeq[z.warehouse+"|"+z.zone]=z.sequence_order);
@@ -510,10 +510,10 @@ async function loadBatches(){
   // wave member batches are hidden from the individual pool (picked only as a whole wave)
   // my in-progress + waiting pool (heartbeat/stale 제거 — 방치분은 스캔 이어받기로 처리)
   const [mine, pool, wmine, wpool]=await Promise.all([
-    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).is("wave_id",null).order("started_at"),
-    sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).is("wave_id",null).order("batch_label"),
-    sb.from("wms_waves").select(wsel).eq("status","in_progress").eq("assigned_to",me.name).order("label"),
-    sb.from("wms_waves").select(wsel).eq("status","pending").is("assigned_to",null).order("label"),
+    sb.from("wms_pick_tasks").select(sel).eq("status","in_progress").eq("assigned_to",me.name).is("wave_id",null).order("started_at"),   // caps-ok: 내 진행 중 픽만 — 소진되는 활성 풀
+    sb.from("wms_pick_tasks").select(sel).eq("status","pending").is("assigned_to",null).is("wave_id",null).order("batch_label"),   // caps-ok: 대기 픽 풀(pending·미할당) — 시작으로 소진
+    sb.from("wms_waves").select(wsel).eq("status","in_progress").eq("assigned_to",me.name).order("label"),   // caps-ok: 내 진행 중 wave 만 — 소진되는 활성 풀
+    sb.from("wms_waves").select(wsel).eq("status","pending").is("assigned_to",null).order("label"),   // caps-ok: 대기 wave 풀 — 시작으로 소진
   ]);
   document.getElementById("bloading").style.display="none";
   if(mine.error||pool.error){toast("Failed to load batches",true);return;}
@@ -643,7 +643,7 @@ document.getElementById("orderScan").addEventListener("keydown",async e=>{
 /* 스캔한 오더가 이미 in_progress(남이 열어둠)면 누가 열었는지 알려주고 이어받기 */
 async function scanTakeover(f){
   // batch_label 또는 order_number 로 in_progress task 찾기
-  const {data:tasksIP}=await sb.from("wms_pick_tasks")
+  const {data:tasksIP}=await sb.from("wms_pick_tasks")   // caps-ok: 진행 중 픽만 — 소진되는 활성 풀
     .select("id,batch_label,status,assigned_to,wave_id,order_id, wms_orders(order_number,warehouse,customer_name)")
     .eq("status","in_progress");
   const acc=me.warehouse_access;
