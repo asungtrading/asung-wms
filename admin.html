@@ -349,6 +349,23 @@ document.getElementById("stockRefreshBtn").onclick=async ()=>{
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 const nf=n=>Math.round(Number(n)||0).toLocaleString("en-CA");
 
+/* ---------- range 페이지 누적 공용 헬퍼 (2026-08-12 캡 위험 3~5단계) ----------
+   PostgREST 1000행 캡은 행을 반환하는 모든 조회에 걸린다(규칙 20) — 전량이 정말 필요한
+   조회는 페이지 누적만이 캡 무관. #4(pallet_items 2517행) 인라인 루프를 공용화한 것.
+   build 는 **호출마다 새 빌더를 만드는 함수**여야 한다(빌더 재사용 시 .range 가 누적 오염).
+   ⚠️ 쿼리에 결정적 order 필수 — 무정렬 페이지는 페이지 사이에서 행이 중복/누락된다
+   (동시각 tie 가 있으면 .order("id") 를 보조로). 임베드 라인은 최상위 행에 실려 오므로
+   페이지 누적으로 온전하다(캡은 최상위 행 수에만 걸린다). 반환은 {data,error} — sb 와 호환. */
+async function sbAll(build){
+  const out=[], PAGE=1000;
+  for(let from=0;;from+=PAGE){
+    const {data,error}=await build().range(from,from+PAGE-1);
+    if(error) return {data:null,error};
+    out.push(...(data||[]));
+    if(!data||data.length<PAGE) return {data:out,error:null};
+  }
+}
+
 /* ---------- 리시빙 소요시간 = 근무시간 기준 경과 ----------
    밤·주말을 빼고 센다. ⚠️ 공휴일 미반영(이번 범위 밖 — 필요해지면 여기 상수 옆에 목록 추가).
    주의: 이 값은 "순수 작업 시간"이 아니다 — receipt 를 열어두고 다른 일을 한 시간도 포함된다.
@@ -1417,7 +1434,9 @@ async function loadReports(){
   // done = 기간 + LIMIT 500(안전장치 — 종전 LIMIT 50 건수 자르기를 기간 기준으로 통일).
   // sum = 요약·추세용 경량 쿼리(기간 전체 발생 — resolved 포함, wms_reports 는 voided 컬럼 없음).
   const [open,done,sum]=await Promise.all([
-    sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}),   // caps-ok: TODO(캡 위험 #8 — 미수정, 전수조사 2026-08-12: open 리포트 — 해소 습관 의존 누적, 현재 수십)
+    // 캡 위험 #8 근본 해결(2026-08-12 3단계): 미해결 큐는 잘리면 곧 처리 누락 — sbAll 페이지 누적으로 전량.
+    // 현재 11건(실측)이라 1왕복 그대로지만, 캡 도달 여부와 무관하게 전량이 보장된다. id 보조 정렬 = 동시각 tie 대비.
+    sbAll(()=>sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미해결 큐 전량(#8)
     sb.from("wms_reports").select("*",{count:"exact"}).not("resolved_at","is",null).gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(500),
     sb.from("wms_reports").select("kind,created_at,resolved_at",{count:"exact"}).gte("created_at",r.fromISO).lte("created_at",r.toISO),
   ]);
@@ -2455,7 +2474,8 @@ async function loadDisc(){
   //   요약·추세는 별도 경량 쿼리 — 목록 LIMIT 과 무관하게 기간 전체를 센다. 제외 조건은 voided 뿐
   //   (resolved 포함 — "몇 건이 발생했나"의 질문. 규칙 14 집계와 동일한 voided 제외).
   const [open, done, sum]=await Promise.all([
-    sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null).order("created_at",{ascending:false}),   // caps-ok: TODO(캡 위험 #8 — 미수정, 전수조사 2026-08-12: open discrepancy — 해소 습관 의존 누적, 현재 수십)
+    // 캡 위험 #8 근본 해결(2026-08-12 3단계): 미해결 큐 전량 — Reports 탭 open 과 같은 처방(sbAll·id 보조 정렬).
+    sbAll(()=>sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null).order("created_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미해결 큐 전량(#8)
     sb.from("wms_discrepancies").select("*",{count:"exact"}).or("resolved_at.not.is.null,cin7_corrected.eq.true,voided_at.not.is.null").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(500),
     sb.from("wms_discrepancies").select("reason,source,created_at,resolved_at,cin7_corrected",{count:"exact"})
       .is("voided_at",null).gte("created_at",r.fromISO).lte("created_at",r.toISO),

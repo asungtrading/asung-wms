@@ -1037,7 +1037,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 | 5 | admin Stats 기간 조회 5곳(픽/팩/disc/reports/recvStats) | ⬜ TODO — 1 year/All 은 이미 1000+ 지표 과소. 서버 집계(뷰/RPC) 검토 |
 | 6 | manager Splitting `pending+voided` 오름차순 | ⬜ TODO — voided 영구 누적, 도달 시 최신 pending 소실(분할 불가) |
 | 7 | admin Rollback 대상 목록(closed 포함·오름차순) | ⬜ TODO — 757/1000 접근 중 |
-| 8 | admin open 큐 2곳(reports·discrepancies) | ⬜ TODO — 해소 습관 의존 누적(현재 수십) |
+| 8 | admin open 큐 2곳(reports·discrepancies) | ✅ 근본 수정(2026-08-12 3단계 — `sbAll` range 페이지 누적으로 전량. 실측 11·15건이라 지금은 1왕복 그대로 = 예방. 미해결 큐는 잘리면 처리 누락이라 전량 정확성이 목적) |
 | 9 | admin 요약·추세 쿼리 | 잘림 표기 있음("trend counts the first N of M") — 기존 백로그 「예고된 만기」 |
 | 10 | receiving EF receipt_lines(문서당) | 여유 — 문서 라인 수 bound(실측 최대 344). 1000라인+ 문서만 이론상 위험 |
 | 11 | receiver 빈 지정 드롭다운 폴백 `wms_sku_bins.eq("warehouse")` | ✅ 근본 수정(2026-08-12 2단계 — RPC `wms_warehouse_bins` jsonb 단일 값·1왕복. **실측 8105/7371행 = 캡 8배 초과, 발견 시 이미 잘린 상태**(1481개 중 최대 1000개·누락 bin 미정의) — "실해 제한적" 판단은 실측 전 과소평가였다. 뷰는 기각: distinct 1481 > 1000, 규칙 20 원리) |
