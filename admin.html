@@ -1000,6 +1000,8 @@ async function loadRollback(){
       stage=pack.status==="completed"?"Pack complete":"Pack in progress";
       if(r.hasFulfill || palletPackIds.has(pack.id))
         act=`<span style="color:var(--mut);font-size:11.5px">On a pallet — Undo Fulfillment first</span>`;
+      else if(r.o.status==="closed")   // 응급 차단(SO-13893) — 배치 단위 Undo Pack 도 같은 결함
+        act=`<span style="color:var(--mut);font-size:11.5px" title="This order is finalized (closed) — see backlog: Rollback doesn't model the Finalize stage.">Finalized — undo pack unavailable</span>`;
       else
         act=`<button data-brb="pack" data-pickid="${t.id}" data-packid="${pack.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
           style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Undo Pack</button>`;
@@ -1017,21 +1019,34 @@ async function loadRollback(){
   }).join("");
 
   el.innerHTML=voidBox+closedNote+waveHtml+`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
-    rows.map(r=>`<tr>
+    rows.map(r=>{
+      // ⚠️ 응급 차단(2026-08-12 SO-13893): closed(finalized) 오더가 "Pack complete"로 오판된 경우
+      // Undo Pack 을 막는다 — stage 판정이 fulfillment 를 pallet_items 유무로만 가려서 Direct pack
+      // (정의상 팔렛 없음, 노출 513건)이 여기로 떨어진다. Undo Pack 은 status 를 picking 으로 되돌리며
+      // finalized_at 은 남겨 어중간한 상태를 만든다(실사고 SO-13893 — 2주 방치). 판정 자체·Undo
+      // Fulfillment 의 반쪽 결함은 별건(백로그 「Rollback 이 Finalize 단계를 모델링하지 않는다」).
+      // Void 는 정당한 경로라 그대로 둔다(SO-13364·SO-13333 이 그 경로로 종결).
+      const packBlocked=r.action==="pack"&&r.o.status==="closed";
+      const rbBtn=packBlocked
+        ? `<button disabled title="This order is finalized (closed). Undoing pack would delete packing but leave it finalized — blocked. See backlog: Rollback doesn't model the Finalize stage."
+            style="border:1px solid var(--line);background:#f3f4f6;color:var(--mut);border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:not-allowed">${r.btn}</button>
+           <div style="font-size:10.5px;color:var(--mut);white-space:normal;max-width:240px;margin:3px 0 0 auto;text-align:right">Finalized — undo pack unavailable<br>(Rollback doesn't model the Finalize stage yet)</div>`
+        : `<button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-worker="${esc(r.worker||"")}"
+            style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button>`;
+      return `<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}
         ${r.myPicks.length>1?`<button data-bt="${r.o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${r.myPicks.length} batches</button>`:""}</td>
       <td>${esc(r.o.customer_name||"—")}</td>
       <td><span class="tag wh-${r.o.warehouse}">${r.o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td>${esc(r.stage)}</td>
       <td style="font-size:12px">${esc(r.worker||"—")}</td>
-      <td style="text-align:right;white-space:nowrap"><button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-worker="${esc(r.worker||"")}"
-        style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button>
+      <td style="text-align:right;white-space:nowrap"><span style="display:inline-block;vertical-align:top">${rbBtn}</span>
         <button data-vd="${r.o.id}" data-on="${esc(r.o.order_number)}" data-st="${esc(r.o.status)}" data-worker="${esc(r.worker||"")}" title="Order cancelled in Cin7 — wipe every stage and mark VOIDED"
-        style="border:1px solid #c0392b;background:#c0392b;color:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px">⊘ Void</button></td>
+        style="border:1px solid #c0392b;background:#c0392b;color:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;vertical-align:top">⊘ Void</button></td>
     </tr>
     ${r.myPicks.length>1?`<tr class="batchsub" data-bsub="${r.o.id}" style="display:none"><td colspan="6" style="background:#fafbfd;padding:6px 10px">
       <table style="width:100%"><thead><tr><th style="font-size:11px">Batch</th><th style="font-size:11px">Worker</th><th style="font-size:11px">Batch stage</th><th></th></tr></thead>
-      <tbody>${batchRows(r)}</tbody></table></td></tr>`:""}`).join("")
+      <tbody>${batchRows(r)}</tbody></table></td></tr>`:""}`;}).join("")
   }</tbody></table>`;
   el.querySelectorAll("[data-rb]").forEach(b=>b.onclick=()=>doRollback(+b.dataset.oid, b.dataset.rb, b.dataset.on, b.dataset.worker));
   el.querySelectorAll("[data-vd]").forEach(b=>b.onclick=()=>doVoid(+b.dataset.vd, b.dataset.on, b.dataset.st, b.dataset.worker));
@@ -1129,6 +1144,13 @@ async function doBatchRollback(kind, pickId, packId, oid, onum, label){
       // safety re-check: block if this pack's items are already on a pallet
       const {count}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pack_task_id",packId);
       if(count){ toast("Blocked: this batch is on a pallet. Undo Fulfillment first.",true); return; }
+      // 응급 벨트(2026-08-12 SO-13893): finalize 된 오더의 배치 Undo Pack 도 차단 — 오더 단위와 동일 결함
+      const cur=await sb.from("wms_orders").select("status").eq("id",oid).maybeSingle();
+      if(cur.error){ toast("Couldn't check order status — rollback blocked, retry ("+(cur.error.message||"")+")",true); return; }
+      if(cur.data&&cur.data.status==="closed"){
+        alert("⚠ "+onum+" is finalized (closed) — Undo Pack is blocked.\n\nUndoing this batch's pack would leave the order half rolled back (finalize stays).\nIf the order was cancelled in Cin7, use ⊘ Void instead.");
+        loadRollback(); return;
+      }
       // ── 아카이브 → 무효화 → 삭제 (순서 불가침 — archiveRows 성공 전엔 아무것도 지우지 않는다) ──
       const [pk,pl]=await Promise.all([
         sb.from("wms_pack_tasks").select("*").eq("id",packId),
@@ -1227,6 +1249,16 @@ async function doRollback(oid, action, onum, worker){
       // order stays ready_to_close
     }
     else if(action==="pack"){
+      // 응급 벨트(2026-08-12 SO-13893): closed(finalized) 오더의 Undo Pack 은 서버 재확인으로도 차단 —
+      // 버튼 비활성은 목록 로드 시점 기준이라, 띄워 둔 사이 다른 매니저가 finalize 하는 경합 창이 남는다.
+      // Undo Pack 은 status 를 picking 으로 되돌리지만 finalized_at 은 안 지운다(어중간한 상태 —
+      // 백로그 「Rollback 이 Finalize 단계를 모델링하지 않는다」). 확인 실패도 차단(빈 결과로 위장 금지).
+      const cur=await sb.from("wms_orders").select("status").eq("id",oid).maybeSingle();
+      if(cur.error){ toast("Couldn't check order status — rollback blocked, retry ("+(cur.error.message||"")+")",true); return; }
+      if(cur.data&&cur.data.status==="closed"){
+        alert("⚠ "+onum+" is finalized (closed) — Undo Pack is blocked.\n\nUndoing pack here would delete packing but leave the order finalized (half rolled back).\nIf the order was cancelled in Cin7, use ⊘ Void instead — that path stays available.");
+        loadRollback(); return;
+      }
       const {data:packs,error:pe}=await sb.from("wms_pack_tasks").select("*").eq("order_id",oid);
       if(pe) throw pe;
       const pids=(packs||[]).map(p=>p.id);

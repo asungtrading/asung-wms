@@ -946,6 +946,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 24. **`hello` 상세조회 429 경로의 `await sleep(60000)` 구조 (2026-08-11 별건 — 사용자 결정: 이번에 고치지 않음)** — 회차를 60초 통째로 막으면서 그 오더를 건너뛰기까지 한다. 기억 스킵(17번)으로 상세조회가 50→0~1건이 되어 발생 확률이 크게 줄었지만 구조는 그대로다. **`detail_rate_limited` 로 빈도를 먼저 관측한 뒤 판단**(2026-08-11 도입 — 종전엔 이 스킵이 어디에도 안 남아 fresh 51 vs detail_fetched 50 의 1 차이로만 흔적이 보였다).
 25. **폴링 TTL 흩기 — 필요 없을 수 있음 (2026-08-11 관찰 대기)** — 배포 직후 첫 commit 회차에 일괄 기록된 9건이 1시간 뒤 **동시에** 만료되는 herd(그 회차만 detail 9, 나머지 0~3). 자연히 흩어지는 중(`memory_ttl_expired` 9→1)이고 최악이 회차당 9콜(한도 60 대비 미미) — **며칠 관찰 후에도 뭉쳐 있으면** TTL 55~65분 무작위화 검토 (세션 문서 2장).
 
+- ⚠️⚠️ **Rollback 탭이 Finalize 단계를 모델링하지 않는다 (2026-08-12 실사고 — 버튼 차단 응급 처방만 배포, 근본 미수정)** — stage 판정(admin.html loadRollback)이 fulfillment 여부를 **pallet_items 행 존재 하나로만** 가린다(2026-07-20~23 커밋 — Finalize 개념·`finalized_at`·`fulfillment_type` 은 07-21 에 들어왔는데 판정이 안 따라갔다). Direct pack 은 정의상 팔렛에 안 올리므로 pallet_items 0행 → closed 인데 "Pack complete"/**Undo Pack 으로 오판**. ⚠️ **실사고 SO-13893**: 07-30 18:56 finalize(direct) → 19:20 Undo Pack → **status='picking' + finalized_at 잔존**인 어중간한 상태로 2주 방치. 노출 규모 = closed+finalized_at+팔렛 없음 **513건**(Finalized 164 중 Direct 115 라 대부분이 direct 경로). ⚠️ **doRollback("fulfillment") 도 반쪽 결함** — 팔렛만 지우고 status·finalized_at 무접촉(`// order stays ready_to_close` 주석이 Finalize 이전 세계의 증거) → packing_list 오더의 Undo Fulfillment 도 표시만 맞고 실행하면 finalize 가 안 풀린다. **응급 조치(2026-08-12)** = closed 오더의 Undo Pack 버튼 비활성(사유 문구 표시 — 회색 버튼만 두지 않는다) + 오더/배치 단위 서버 재확인 벨트(로드 후 finalize 경합 창 차단) — **버튼 차단이지 근본 수정이 아니다.** 근본 = "Finalized" 단계 신설(status/finalized_at 을 판정 최상단에) 인데 **설계 판단 필요**: 무엇을 되돌리나 · Cin7 은 이미 3.Finalized 인데 그건 어떻게 · direct 와 packing_list 가 다르다. ⊘ Void 는 정당 경로라 유지(SO-13364·SO-13333 이 그 경로로 종결). SO-13893 잔재 정리는 「정리 필요 (데이터)」 참조.
 - ⚠️ **packer 대기열 쿼리 근본 수정 (2026-08-12 SO-14532 응급 처치의 후속)** — 응급 처방(내림차순+LIMIT 1000)은 잘리는 쪽을 "오래된 것"으로 바꿨을 뿐 캡 자체는 남아 있다. 근본: donePick 을 `wms_orders!inner(status)` 로 **안 닫힌 오더의 완료 픽만**(닫힌 오더의 완료 픽 제외 — 결과가 수십 건 규모로 영구 유지) + allPack 의 완료 팩 기간 제한(진행·pending 은 전량). ⚠️ **!inner 전환은 임베드 형태가 바뀌어 검증이 필요해 응급 커밋에서 하지 않았다**(사용자 지시 — 창고 대기 중). 미팩 백로그가 1000건에 근접하면(비현실적이지만) 응급 처방도 뚫린다.
 
 ### 동시 작업 원자화
@@ -1049,6 +1050,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **레포 비공개 전환 검토** — `asungtrading/asung-wms` 는 PUBLIC(Pages 무료 배포 때문 — 환경 상수 표). anon 키·EF 주소·전체 로직이 공개다. 비공개 전환 시 Pages 유료화 또는 배포 방식 변경 필요 — EF 게이트 확대와 묶어 판단. ⚠️ 위 항목과 서로 연결(둘 중 하나만으로는 불완전).
 
 ### 정리 필요 (데이터)
+- **SO-13893 어중간 상태 (2026-08-12 발견)** — 07-30 finalize(direct) 후 Undo Pack 오판 실행으로 status='picking'+finalized_at 잔존 2주. 실물 상태 확인 후 정리 방향 결정(재팩·재finalize 또는 finalize 기록 정정 — 위 「Rollback 이 Finalize 단계를 모델링하지 않는다」 참조).
 - TR-02935(수동 처리분) · 테스트로 만든 TR-03260(3개씩 완료됨)·TR-03261·TR-03267(수량 실측용) 재고 조정.
 - **2026-08-10 세션분은 세션 문서 8장이 목록의 정본** (`docs/sessions/2026-08-10-transfer-parallel-and-clamp.md` — ANN04401/ASSH40608 감산 · ASSH40615 실물 카운트 선행 · 유령 discrepancy 281/282 · PO-01094 잔재 · 테스트 계정 · `PARALLEL PROBE` TR 8건은 상쇄 완료 등).
 
