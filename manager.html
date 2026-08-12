@@ -238,6 +238,7 @@
 <script>
 const SUPABASE_URL = "https://gftpcnkxbdjzzfvzwcfl.supabase.co";
 let sb=null, me=null, staff=[], orders=[], zoneSeq={}, filterWh="all", filterTier="all", showVoided=false;
+let voidTotal=0;   // voided 총수(count-head — 목록은 최근 50만이라 배열 길이가 총수가 아니다, #6)
 let selected=null, selLines=[], preview=null;
 
 function boot(){
@@ -265,9 +266,23 @@ async function init(){
 
 async function loadOrders(){
   document.getElementById("qloading").style.display="block";
-  const {data,error}=await sb.from("wms_orders").select("*").in("status",["pending","voided"]).order("imported_at");   // caps-ok: TODO(캡 위험 #6 — 미수정, 전수조사 2026-08-12: voided 영구 누적·오름차순 — 1000 도달 시 최신 pending 이 분할 화면에서 소실)
+  // 캡 위험 #6 근본 해결(2026-08-12 5단계): pending 과 voided 분리 — 종전엔 한 쿼리(오름차순 무LIMIT)라
+  // voided 영구 누적이 1000 도달 시 최신 pending 을 분할 화면에서 지웠다(대기 풀 소실 = 분할 불가).
+  // pending 은 분할·void 로 소진되는 활성 풀(수십 규모·캡 무관). voided 는 참고 표시용 —
+  // 사용자 확정 사양(2026-08-12): "목록은 최근 N, 전체는 검색으로. 옛 void 오더를 목록에서 찾을 일은 없다."
+  // ⊘ 버튼 라벨은 count-head 총수 — "몇 건인지 모른 채 일부만 보는" 것과 "정해서 안 보여주는" 것의 차이.
+  const [pend,vRecent,vCount]=await Promise.all([
+    sb.from("wms_orders").select("*").eq("status","pending").order("imported_at"),   // caps-ok: pending 은 분할·void 로 소진되는 활성 풀(수십 규모) — 누적원(voided)을 분리해 캡 무관(#6)
+    sb.from("wms_orders").select("*").eq("status","voided").order("updated_at",{ascending:false}).limit(50),   // caps-ok: 최근 50 사양 — 전량 아님(사용자 확정 2026-08-12, ⊘ 버튼이 count-head 총수 표시)
+    sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","voided"),
+  ]);
   document.getElementById("qloading").style.display="none";
+  const error=pend.error||vRecent.error;
   if(error){ toast("Failed to load order: "+error.message,true); return; }
+  voidTotal=vCount.count??(vRecent.data||[]).length;   // count 실패 시 표시분으로 폴백(과소 표기일 수 있음)
+  // 병합 후 imported_at 재정렬 — 종전 단일 쿼리의 표시 순서 보존(배열 순서가 곧 카드 순서)
+  const data=[...(pend.data||[]),...(vRecent.data||[])]
+    .sort((a,b)=>String(a.imported_at||"")<String(b.imported_at||"")?-1:1);
   // Cin7 보류(규칙 43 — 2026-08-12 SO-14592 로 누락 발견): pending 오더의 유일한 출구가 이 화면이라
   // 여기를 안 막으면 보류가 무력화된다. Split·Group 두 탭이 같은 orders 배열을 쓰므로 이 한 줄로 둘 다.
   // unexpected 는 숨기지 않는다(보류가 아니다 — 다른 화면과 동일). 관리는 admin 에서만.
@@ -308,10 +323,11 @@ function populateTierFilter(){
 
 function renderQueue(){
   // voided toggle (visible only when there are voided orders)
-  const vc=orders.filter(o=>o.status==="voided").length;
+  // 라벨 숫자 = count-head 총수(voidTotal) — 목록은 최근 50만이라 배열 길이는 총수가 아니다(#6).
+  const vShown=orders.filter(o=>o.status==="voided").length;
   const vt=document.getElementById("voidToggle");
-  vt.style.display=vc?"inline-block":"none";
-  vt.textContent=(showVoided?"⊘ Hide voided ":"⊘ Voided ")+vc;
+  vt.style.display=(voidTotal||vShown)?"inline-block":"none";
+  vt.textContent=(showVoided?"⊘ Hide voided ":"⊘ Voided ")+voidTotal+(voidTotal>vShown?` (latest ${vShown} shown)`:"");
   vt.style.color=showVoided?"#c0392b":"var(--mut)";
   if(mode==="wave"){ renderWaveQueue(); return; }
   const list=orders.filter(o=>(o.status!=="voided"||showVoided)

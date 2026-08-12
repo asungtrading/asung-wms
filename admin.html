@@ -879,16 +879,31 @@ async function refreshHealthBadge(){
 async function loadRollback(){
   const el=document.getElementById("rollbackList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
-  const [ordsQ,wvsQ]=await Promise.all([
-    sb.from("wms_orders")   // caps-ok: TODO(캡 위험 #7 — 미수정, 전수조사 2026-08-12: closed 누적·오름차순 — 757/1000 접근 중, 도달 시 최신 오더가 롤백 목록에서 소실)
+  // 캡 위험 #7 근본 해결(2026-08-12 5단계): 활성 3상태와 closed 분리 — 종전엔 한 쿼리(오름차순 무LIMIT,
+  // 757/1000 접근 중)라 closed 누적이 1000 도달 시 최신 오더가 롤백 목록에서 사라질 참이었다.
+  // 활성 3상태는 closed 로 소진되는 활성 풀(수십 규모·캡 무관). closed 는 최근 200 —
+  // 사용자 확정 사양(2026-08-12): "목록은 최근 N. 옛 오더 롤백은 없다." 총수는 캡션에 count-head 로 표시.
+  const [ordsQ,closedQ,closedCnt,wvsQ]=await Promise.all([
+    sb.from("wms_orders")   // caps-ok: 활성 3상태 — closed 로 소진되는 활성 풀(수십 규모), 누적원(closed)을 분리해 캡 무관(#7)
       .select("id,order_number,customer_name,warehouse,status")
-      .in("status",["picking","packing","ready_to_close","closed"]).order("order_number"),
+      .in("status",["picking","packing","ready_to_close"]).order("order_number"),
+    sb.from("wms_orders")   // caps-ok: 최근 200 사양 — 전량 아님(사용자 확정 2026-08-12, 총수는 count-head 캡션 표시)
+      .select("id,order_number,customer_name,warehouse,status")
+      .eq("status","closed").order("updated_at",{ascending:false}).limit(200),
+    sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed"),
     sb.from("wms_waves")   // caps-ok: 완료 아닌 wave 만 — 완료로 소진되는 활성 풀(동시 수 개 규모)
       .select("id,label,warehouse,status,assigned_to, wms_pick_tasks(id,order_id, wms_orders(order_number))")
       .neq("status","completed").order("label"),
   ]);
-  const orders=ordsQ.data||[];
+  const closedRows=closedQ.data||[], closedTotal=closedCnt.count??closedRows.length;
+  // 병합 후 order_number 재정렬 — 종전 단일 쿼리의 표시 순서 보존
+  const orders=[...(ordsQ.data||[]),...closedRows]
+    .sort((a,b)=>a.order_number<b.order_number?-1:a.order_number>b.order_number?1:0);
   const wavesRb=(wvsQ&&wvsQ.data)||[];
+  // "잘려서 안 보임(총수 모름)"과 "정해서 안 보여줌(총수 표시)"의 차이가 이 캡션이다(#7).
+  const closedNote=closedTotal>closedRows.length
+    ? `<div style="font-size:11.5px;color:var(--mut);margin:0 0 10px">Closed orders: latest ${closedRows.length} of ${closedTotal} shown — older closed orders are not listed (rollback of old orders is not a supported path).</div>`
+    : "";
 
   // void-by-number box (works at ANY stage incl. waiting-to-split, which isn't listed below)
   const voidBox=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfcfd">
@@ -921,20 +936,23 @@ async function loadRollback(){
   }
 
   if(!orders.length){
-    el.innerHTML=voidBox+waveHtml+`<div class="empty">No orders past the split stage.</div>`;
+    el.innerHTML=voidBox+closedNote+waveHtml+`<div class="empty">No orders past the split stage.</div>`;
     wireRollbackCommon(el); loadRollbackLog(); return;
   }
   const ids=orders.map(o=>o.id);
+  // 다운스트림도 sbAll(#7 과 같은 뿌리): .in(오더 250개) 이라도 **행 수는 오더당 배수**다 —
+  // #4 실측이 근거(오더 300개의 pallet_items 가 2517행 = 캡 초과). 잘리면 stage 판정(hasFulfill 등)이
+  // 조용히 얕아져 엉뚱한 단계 롤백을 권한다. 정렬은 기존 유지 + id 보조(페이지 결정성).
   const [picks,packs,pitems]=await Promise.all([
-    sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to,created_by").in("order_id",ids).order("batch_label"),
-    sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,status,assigned_to").in("order_id",ids),
-    sb.from("wms_pallet_items").select("order_id,pack_task_id").in("order_id",ids),
+    sbAll(()=>sb.from("wms_pick_tasks").select("id,order_id,batch_label,status,assigned_to,created_by").in("order_id",ids).order("batch_label").order("id")),
+    sbAll(()=>sb.from("wms_pack_tasks").select("id,order_id,pick_task_id,status,assigned_to").in("order_id",ids).order("id")),
+    sbAll(()=>sb.from("wms_pallet_items").select("order_id,pack_task_id").in("order_id",ids).order("id")),
   ]);
   const pk=picks.data||[], pc=packs.data||[], pi=pitems.data||[];
   // picked progress per batch (a held/pending batch with progress is still resettable)
   const pkIds=pk.map(t=>t.id); let progByPick={};
   if(pkIds.length){
-    const {data:pls}=await sb.from("wms_pick_task_lines").select("pick_task_id,picked_base").in("pick_task_id",pkIds);
+    const {data:pls}=await sbAll(()=>sb.from("wms_pick_task_lines").select("pick_task_id,picked_base").in("pick_task_id",pkIds).order("id"));
     (pls||[]).forEach(l=>{ progByPick[l.pick_task_id]=(progByPick[l.pick_task_id]||0)+Number(l.picked_base||0); });
   }
   const packByPick={}; pc.forEach(p=>packByPick[p.pick_task_id]=p);
@@ -969,7 +987,7 @@ async function loadRollback(){
     return {o,stage,action,btn,myPicks,hasFulfill,worker};
   }).filter(r=>r.action); // only orders with something to undo
   if(!rows.length){
-    el.innerHTML=voidBox+waveHtml+`<div class="empty">Nothing to roll back.</div>`;
+    el.innerHTML=voidBox+closedNote+waveHtml+`<div class="empty">Nothing to roll back.</div>`;
     wireRollbackCommon(el); loadRollbackLog(); return;
   }
 
@@ -998,7 +1016,7 @@ async function loadRollback(){
     </tr>`;
   }).join("");
 
-  el.innerHTML=voidBox+waveHtml+`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
+  el.innerHTML=voidBox+closedNote+waveHtml+`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
     rows.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.o.order_number)}
         ${r.myPicks.length>1?`<button data-bt="${r.o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${r.myPicks.length} batches</button>`:""}</td>

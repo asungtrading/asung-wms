@@ -1035,8 +1035,8 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 | 3 | admin `wms_pack_tasks` 배치 카운트 | ✅ 근본 수정(동일 커밋 — completed 는 카드가 안 써 아예 미조회) |
 | 4 | admin Finalized 팔렛 배지 pallet_items | ✅ 수정(.in 300오더 + range 페이지네이션 — 발견 시 이미 2517/1000) |
 | 5 | admin Stats 기간 조회 6곳(픽/팩/disc/reports/recvStats 2곳) | ✅ 근본 수정(2026-08-12 4단계 — `sbAll` 페이지 누적으로 기간 전량. **종전 1 year/All 은 1000+ 로 지표 과소였으므로 수정 후 장기 기간 숫자 증가가 정상.** 임베드 라인은 최상위 행에 실려 페이지와 함께 온전 — 라인·유닛 합계도 캡 무관. 서버 집계 뷰/RPC 는 불채택: 펼침 목록이 행 자체를 쓰므로 전량 행이 필요) |
-| 6 | manager Splitting `pending+voided` 오름차순 | ⬜ TODO — voided 영구 누적, 도달 시 최신 pending 소실(분할 불가) |
-| 7 | admin Rollback 대상 목록(closed 포함·오름차순) | ⬜ TODO — 757/1000 접근 중 |
+| 6 | manager Splitting `pending+voided` 오름차순 | ✅ 근본 수정(2026-08-12 5단계 — 쿼리 분리: pending 전량(활성 풀·캡 무관) + **voided 최근 50 사양**(전량 아님 — 사용자 확정: "목록은 최근 N, 전체는 검색으로") + ⊘ 버튼 라벨 = count-head 총수. 핵심 = "잘려서 안 보임(총수 모름)"→"정해서 안 보여줌(총수 표시)") |
+| 7 | admin Rollback 대상 목록(closed 포함·오름차순) | ✅ 근본 수정(2026-08-12 5단계 — 활성 3상태 전량 + **closed 최근 200 사양**(updated_at desc, 총수 count-head 캡션) 병합 후 order_number 재정렬. **다운스트림 4쿼리(picks/packs/pallet_items/pick_task_lines `.in`)도 sbAll** — #4 실측(오더 300개=2517행)이 근거: `.in` 이라도 행 수는 오더당 배수라 잘리면 stage 판정이 조용히 얕아진다) |
 | 8 | admin open 큐 2곳(reports·discrepancies) | ✅ 근본 수정(2026-08-12 3단계 — `sbAll` range 페이지 누적으로 전량. 실측 11·15건이라 지금은 1왕복 그대로 = 예방. 미해결 큐는 잘리면 처리 누락이라 전량 정확성이 목적) |
 | 9 | admin 요약·추세 쿼리 | 잘림 표기 있음("trend counts the first N of M") — 기존 백로그 「예고된 만기」 |
 | 10 | receiving EF receipt_lines(문서당) | 여유 — 문서 라인 수 bound(실측 최대 344). 1000라인+ 문서만 이론상 위험 |
