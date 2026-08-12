@@ -599,10 +599,15 @@ async function holdResume(oid,btn){
 }
 
 async function loadOverview(){
-  const [orders, picks, packs, finalized, cin7Holds]=await Promise.all([
+  const [orders, pickPend, pickProg, packPend, packProg, finalized, cin7Holds]=await Promise.all([
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),   // caps-ok: 활성 오더 풀 — closed 로 소진, 활성 수십 규모(누적 안 됨)
-    sb.from("wms_pick_tasks").select("status"),   // caps-ok: TODO(캡 위험 #2 — 미수정, 전수조사 2026-08-12: 전체 픽 태스크 누적 — 이미 1000+ 라 배치 카운트가 지금 과소)
-    sb.from("wms_pack_tasks").select("status"),   // caps-ok: TODO(캡 위험 #3 — 미수정, 전수조사 2026-08-12: 전체 팩 태스크 누적 — 997/1000 임박)
+    // 캡 위험 #2·#3 근본 해결 (2026-08-12 1단계): 카드는 pending·in_progress 4개 숫자만 쓴다 —
+    // 전체 행을 받아 클라이언트가 세던 것을 count-head(행 0개)로. completed 는 아예 조회하지 않는다(카드가 안 씀).
+    // 종전엔 전체 태스크 무LIMIT 조회가 1000행 캡에 잘려 **카운트가 과소 표시 중이었다** — 수정 후 숫자가 늘면 정상.
+    sb.from("wms_pick_tasks").select("id",{count:"exact",head:true}).eq("status","pending"),
+    sb.from("wms_pick_tasks").select("id",{count:"exact",head:true}).eq("status","in_progress"),
+    sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("status","pending"),
+    sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("status","in_progress"),
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
     // Cin7 보류/예상 밖 값 (규칙 43) — 종착(closed/voided) 무관하게 hold_state 가 남은 행 전부
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at").not("hold_state","is",null).order("hold_detected_at",{ascending:false}),   // caps-ok: hold_state 가 남은 오더만 — 보류는 드물고 해제 시 null 복귀(소수)
@@ -632,11 +637,10 @@ async function loadOverview(){
     ["Finalized","closed",fin.length,""],
   ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
-  const pk=picks.data||[], pc=packs.data||[];
-  const pkc=s=>pk.filter(x=>x.status===s).length, pcc=s=>pc.filter(x=>x.status===s).length;
+  // count-head 의 count 는 서버가 센 정확한 총수 — 캡·행 수신과 무관 (#2·#3 근본 해결)
   document.getElementById("batchStats").innerHTML=[
-    ["Pick pending",pkc("pending"),""],["Pick in progress",pkc("in_progress"),""],
-    ["Pack pending",pcc("pending")+"",""],["Pack in progress",pcc("in_progress"),""],
+    ["Pick pending",pickPend.count??0,""],["Pick in progress",pickProg.count??0,""],
+    ["Pack pending",(packPend.count??0)+"",""],["Pack in progress",packProg.count??0,""],
   ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
   // in-progress orders table
