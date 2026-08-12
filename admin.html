@@ -1476,10 +1476,23 @@ async function loadPacking(){
   const r=rangeFor(finPeriodKey,finCustom); setRangeLabel("finPeriod",r.label);
   const el=document.getElementById("packingList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
-  const [{data:ords},{data:its}]=await Promise.all([
-    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300),
-    sb.from("wms_pallet_items").select("order_id"),
-  ]);
+  const {data:ords}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300);
+  // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다 — 종전 조회는 pallet_items **전량**(무정렬·무LIMIT)이라
+  //    캡이 어느 쪽을 버릴지 미정의였다(규칙 20 캡 함정 **5호** — 2026-08-12 전수 조사에서
+  //    **이미 초과 상태로 발견됨(2517/1000) — 언제부터 틀렸는지 불명**. 팔렛 유무 배지·Direct pack 판별이
+  //    그동안 조용히 오표시). 수정 = **화면의 300개 오더로 .in 축소**(캡과 무관한 모수) — 단 300개 오더의
+  //    아이템만으로도 1000을 넘을 수 있어 LIMIT 이 아니라 **range 페이지네이션**으로 전량을 읽는다
+  //    (현 규모 ≤3 왕복). 표시 순서는 무관(Set — 존재 판별만). 병렬(Promise.all)이던 것을 순차로 바꾼
+  //    이유 = ords 의 id 목록이 먼저 필요해서다.
+  let its=[];
+  const oids=(ords||[]).map(o=>o.id);
+  if(oids.length){
+    for(let from=0;;from+=1000){
+      const {data:page}=await sb.from("wms_pallet_items").select("order_id").in("order_id",oids).order("id").range(from,from+999);
+      its=its.concat(page||[]);
+      if(!page||page.length<1000) break;
+    }
+  }
   const hasPallet=new Set((its||[]).map(i=>i.order_id));
   const inRange=o=>{ const t=new Date(o.finalized_at||o.updated_at).getTime(); return t>=new Date(r.fromISO).getTime() && t<=new Date(r.toISO).getTime(); };
   const fin=(ords||[]).filter(inRange).map(o=>({ ...o, ftype: o.fulfillment_type || (hasPallet.has(o.id)?"packing_list":"direct") }));
