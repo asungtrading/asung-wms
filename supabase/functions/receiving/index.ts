@@ -652,7 +652,9 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
     //    같은 (SKU+bin) 재전송을 400 "Cannot add duplicate value" 로 거부하므로(실측, cin7-api 스킬) 전량 재전송이
     //    조용히 이중 계상되는 일은 없다 — 중복이면 시끄럽게 실패해 사람이 본다.
     // ── 초과 클램프 (2026-08-10 · 규칙 20 개정): received > expected 면 **인보이스 수량까지만** 쓴다 ──
-    // 부족·일치는 그대로 received. SKU 합계 expected 0(공장 백오더)은 클램프 제외 — 받은 대로(재고 누락 금지).
+    // 부족·일치는 그대로 received. ⚠️ SKU 합계 expected 0(인보이스에 없는 SKU)도 **전량 초과 = move 0**
+    // (2026-08-12 정책 반전 — 종전 "공장 백오더 통과"는 전제 오류. 실사고 PO-01027: Cin7 400
+    // "doesn't exist in purchase invoice" 로 2 bin 전멸. 경위는 po_clamp.ts 헤더·규칙 20 정정 기록).
     // ⚠️ expected_source='invoice' receipt 만 — 'order'(구형·인보이스 폴백)를 오더 기준으로 자르면 정상 수량이 잘린다.
     // budget 은 received 0 라인의 expected 도 포함한 전체 인보이스 합(트랜스퍼 expBySku 와 동일 집계 —
     // 위 discrepancy 의 bySku 는 rb>0 필터가 있어 다르다). 소진 순서 = planLines(라인 id) 순 →
@@ -672,7 +674,9 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
     const failsOf = (b: string) => Number(failCounts[String(b).toUpperCase()] || 0);
     const quarantinedBins = bins.filter((b) => failsOf(b) >= APPLY_QUARANTINE_FAILS);
     const binsActive = bins.filter((b) => failsOf(b) < APPLY_QUARANTINE_FAILS);
-    const alreadyExported = (planLines as any[]).filter((p) => Number(p.pending_base) <= 0).length;
+    // ⚠️ move_base > 0 가드(2026-08-12): 전량 컷 라인(인보이스에 없는 SKU — move 0·pending 0)은 문서에
+    //    오른 적이 없다 — 가드 없이는 "already on the document, skipped" 로 오표시된다(트랜스퍼 863행과 동일 형식).
+    const alreadyExported = (planLines as any[]).filter((p) => Number(p.move_base) > 0 && Number(p.pending_base) <= 0).length;
     // 재시도 게이트 ② (트랜스퍼와 동일) — 마커는 남았는데 실제로 실을 그룹이 없으면 재개할 이유가 없다.
     if (rcpt.applied_at && retryFailed && !bins.length) {
       throw new Error(rcpt.po_number + " already applied at " + rcpt.applied_at +
@@ -716,11 +720,17 @@ async function buildApplyPlan(receiptId: number, resetFails = false) {
       }
     }
     // 클램프 발동 시 dry-run 계획에 명시 — 매니저가 "왜 수량이 다르지"를 실행 전에 본다 (규칙 20 개정 D).
+    // writes 0 = 인보이스에 아예 없는 SKU(2026-08-12 정책 반전) — "물건은 창고에 있는데 Cin7 에는 없다"가
+    // 전달되도록 NOT ON INVOICE 표식 + 요약 병기(부분 클램프 사이에 묻히면 전량 미반영이 안 보인다).
+    const cutAll = cappedToInvoice.filter((c) => c.writes === 0);
     const capSteps = cappedToInvoice.length
-      ? ["1b) CAPPED to invoice quantity - " + cappedToInvoice.length + " line(s), " +
-         cappedToInvoice.reduce((n, c) => n + c.cut, 0) + " base unit(s) received OVER the invoice will NOT be written: " +
-         cappedToInvoice.map((c) => c.sku + "@" + c.bin + " writes " + c.writes + " of " + c.received).join(", ") +
-         " - the excess stays physical only; adjust it in Cin7 manually (recv_over is in the discrepancy queue)"]
+      ? ["1b) CAPPED to invoice quantity - " + cappedToInvoice.length + " line(s)" +
+         (cutAll.length ? " (" + cutAll.length + " NOT ON INVOICE at all)" : "") + ", " +
+         cappedToInvoice.reduce((n, c) => n + c.cut, 0) + " base unit(s) received over/off the invoice will NOT be written: " +
+         cappedToInvoice.map((c) => c.sku + "@" + c.bin +
+           (c.writes === 0 ? " NOT ON INVOICE - writes 0 of " + c.received : " writes " + c.writes + " of " + c.received)).join(", ") +
+         " - the excess stays physical only; adjust it in Cin7 manually (recv_over is in the discrepancy queue)" +
+         (cutAll.length ? ". NOT ON INVOICE lines mean the goods ARE in the warehouse but will NOT exist in Cin7 until adjusted there" : "")]
       : [];
     return {
       receipt: rcpt, source: "po",
@@ -1130,10 +1140,15 @@ async function applyCommitRun(planWrap: any, appliedBy: string, t0: number, preL
     {
       const capLines = (plan.capped_to_invoice || []) as any[];
       if (capLines.length) {
-        log.push("CAPPED to invoice quantity - " + capLines.length + " line(s): " +
-          capLines.map((c: any) => c.sku + "@" + c.bin + " writes " + c.writes + " of " + c.received).join(", ") +
+        // writes 0 = NOT ON INVOICE (2026-08-12) — dry-run capSteps 와 같은 표식·같은 의미 전달.
+        const cutAll = capLines.filter((c: any) => Number(c.writes) === 0);
+        log.push("CAPPED to invoice quantity - " + capLines.length + " line(s)" +
+          (cutAll.length ? " (" + cutAll.length + " NOT ON INVOICE at all)" : "") + ": " +
+          capLines.map((c: any) => c.sku + "@" + c.bin +
+            (Number(c.writes) === 0 ? " NOT ON INVOICE - writes 0 of " + c.received : " writes " + c.writes + " of " + c.received)).join(", ") +
           " - the excess (" + capLines.reduce((n: number, c: any) => n + c.cut, 0) +
-          " base) is NOT written to Cin7; adjust it there manually (recv_over is in the discrepancy queue)");
+          " base) is NOT written to Cin7; adjust it there manually (recv_over is in the discrepancy queue)" +
+          (cutAll.length ? ". NOT ON INVOICE lines mean the goods ARE in the warehouse but will NOT exist in Cin7 until adjusted there" : ""));
       }
     }
     const now = new Date().toISOString().slice(0, 10) + "T00:00:00Z";  // 실측 성공 형식

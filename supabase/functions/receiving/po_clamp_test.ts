@@ -57,14 +57,18 @@ Deno.test("③ 일치: 10/10 → move 10", () => {
   eq(capped, [], "capped 없음");
 });
 
-Deno.test("④ expected 0 (공장 백오더): received 5 → move 5 통과 — 0 으로 자르면 재고 누락", () => {
-  // 인보이스에 없는 오더 라인 = expected 합계 0. 맵에 0 으로 있든 아예 없든 동일해야 한다.
+Deno.test("④ expected 0 (인보이스에 없는 SKU): received 5 → move 0 전량 컷 — 2026-08-12 정책 반전(PO-01027)", () => {
+  // ⚠️ 2026-08-12 에 ④ 를 정반대로 뒤집었다(종전: "공장 백오더 — move 5 통과"). 전제가 틀렸었다 —
+  // 공장 백오더는 물건만 따로 오지 않는다(사용자 확인). 인보이스에 없는 SKU 를 쏘면 Cin7 이
+  // 400 "doesn't exist in purchase invoice" 로 거부한다(실사고 PO-01027 — 2 bin 전멸·DRAFT 잔류).
+  // 이 테스트를 다시 "통과"로 되돌리려는 사람은 규칙 20 정정 기록을 먼저 읽을 것.
+  // 맵에 0 으로 있든 키가 아예 없든 동일해야 한다.
   for (const expMap of [{ "SKU-B": 0 }, {}]) {
     const ls = [line("SKU-B", "B02", 5)];
     const capped = applyPoInvoiceClamp(ls, expMap as Record<string, number>, true);
-    eq(ls[0].move_base, 5, "move_base (expMap=" + JSON.stringify(expMap) + ")");
-    eq(ls[0].pending_base, 5, "pending_base");
-    eq(capped, [], "capped 없음");
+    eq(ls[0].move_base, 0, "move_base 0 (expMap=" + JSON.stringify(expMap) + ")");
+    eq(ls[0].pending_base, 0, "pending_base 0 — POST 그룹에서 빠져 Cin7 무접촉");
+    eq(capped, [{ sku: "SKU-B", bin: "B02", received: 5, writes: 0, cut: 5 }], "전량이 capped 로 기록");
   }
 });
 
@@ -102,14 +106,15 @@ Deno.test("⑧ capped_to_invoice 내용이 실제 잘린 라인과 일치 (혼�
     line("OVER-1", "B01", 12),          // 인보이스 10 → cut 2
     line("SHORT", "B02", 8),            // 인보이스 10 → 무변
     line("EXACT", "B03", 10),           // 인보이스 10 → 무변
-    line("BACKORDER", "B04", 5),        // expected 0 → 통과
+    line("BACKORDER", "B04", 5),        // expected 0 → 전량 컷 (2026-08-12 정책 반전 — ④ 참조)
     line("MULTI", "B05", 6),            // 인보이스 10, 라인 2개 —
     line("MULTI", "B06", 6),            //   앞 6 + 뒤 4 → 뒤만 cut 2
   ];
   const capped = applyPoInvoiceClamp(ls, { "OVER-1": 10, "SHORT": 10, "EXACT": 10, "MULTI": 10 }, true);
   eq(capped, [
     { sku: "OVER-1", bin: "B01", received: 12, writes: 10, cut: 2 },
+    { sku: "BACKORDER", bin: "B04", received: 5, writes: 0, cut: 5 },
     { sku: "MULTI", bin: "B06", received: 6, writes: 4, cut: 2 },
   ], "잘린 라인만, planLines 순서대로");
-  eq(ls.map((l) => l.move_base), [10, 8, 10, 5, 6, 4], "각 라인 move_base");
+  eq(ls.map((l) => l.move_base), [10, 8, 10, 0, 6, 4], "각 라인 move_base");
 });
