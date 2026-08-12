@@ -268,7 +268,30 @@ async function loadOrders(){
   const {data,error}=await sb.from("wms_orders").select("*").in("status",["pending","voided"]).order("imported_at");
   document.getElementById("qloading").style.display="none";
   if(error){ toast("Failed to load order: "+error.message,true); return; }
-  orders=data||[]; populateTierFilter(); renderQueue();
+  // Cin7 보류(규칙 43 — 2026-08-12 SO-14592 로 누락 발견): pending 오더의 유일한 출구가 이 화면이라
+  // 여기를 안 막으면 보류가 무력화된다. Split·Group 두 탭이 같은 orders 배열을 쓰므로 이 한 줄로 둘 다.
+  // unexpected 는 숨기지 않는다(보류가 아니다 — 다른 화면과 동일). 관리는 admin 에서만.
+  orders=(data||[]).filter(o=>o.hold_state!=="on_hold"); populateTierFilter(); renderQueue();
+}
+
+/* ---------- Cin7 보류 확정 벨트 (2026-08-12 · 규칙 43) ----------
+   분할·wave 생성은 "픽 대기열로 넘기는 행위" = 다음 단계 진입이다 — 목록 필터(로드 시점)와
+   확정 사이의 경합 창을 서버 재확인으로 닫는다. 미리보기는 실물이 없어 버려도 손실 0
+   (picker 의 "진행 중 유지" 원칙은 토트에 실물이 담긴 경우를 위한 것 — 여기는 예외가 아니라 정확한 적용).
+   반환 null=진행 / 문자열=차단 사유. ⚠️ "보류됨"과 "확인 실패"는 매니저 대응이 다르다(전자는
+   Cin7/admin 을 보고, 후자는 다시 누른다) — 문구를 구분한다. 확인 실패도 차단(빈 결과로 위장 금지). */
+async function holdBelt(ids){
+  try{
+    const {data,error}=await sb.from("wms_orders").select("order_number,hold_state").in("id",ids);
+    if(error) throw error;
+    const held=(data||[]).filter(o=>o.hold_state==="on_hold");
+    if(held.length)
+      return "⚠ ON HOLD — cannot send to picking:\n"+held.map(o=>"· "+o.order_number).join("\n")
+        +"\n\nThese orders were put on hold in Cin7.\nA manager must review and resume them first (admin screen).";
+    return null;   // unexpected 는 차단하지 않는다("모르는 값"이지 보류가 아니다 — 사용자 결정)
+  }catch(e){
+    return "⚠ Couldn't check hold status — blocked to be safe.\n("+String((e&&e.message)||e)+")\n\nNothing was created. Try again.";
+  }
 }
 
 // price_tier 값들을 모아 드롭다운 옵션 구성(데이터에 있는 tier만). 현재 선택은 유지.
@@ -473,6 +496,9 @@ document.getElementById("createBtn").onclick=async ()=>{
   const createdBy=me?me.name:null;
   const btn=document.getElementById("createBtn"); btn.disabled=true; btn.textContent="Creating…";
   try{
+    // Cin7 보류 확정 벨트 — 첫 쓰기 앞. 아직 아무것도 안 만들었으므로 return 무해(finally 가 버튼 복구).
+    const heldMsg=await holdBelt([selected.id]);
+    if(heldMsg){ alert(heldMsg); try{printWin.close();}catch(_){} loadOrders(); return; }
     for(let i=0;i<preview.length;i++){
       const label=selected.order_number+"-"+(i+1);
       // batch header
@@ -677,6 +703,9 @@ document.getElementById("createWaveBtn").onclick=async ()=>{
   const selIds=waveSel.slice();
   let waveRow=null, createdTasks=[];
   try{
+    // Cin7 보류 확정 벨트 — 첫 쓰기(wave insert) 앞. 아직 아무것도 안 만들었으므로 return 무해(finally 가 버튼 복구).
+    const heldMsg=await holdBelt(selIds);
+    if(heldMsg){ alert(heldMsg); try{printWin.close();}catch(_){} loadOrders(); return; }
     // label W-MMDD-n (n = waves created today + 1)
     const day=new Date(); day.setHours(0,0,0,0);
     const {count}=await sb.from("wms_waves").select("id",{count:"exact",head:true}).gte("created_at",day.toISOString());
