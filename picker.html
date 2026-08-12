@@ -505,8 +505,8 @@ async function loadBatches(){
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  const sel="id,batch_label,status,assigned_to,started_at,work_started,held_by,order_id, wms_orders(order_number,warehouse,customer_name,needs_review), wms_pick_task_lines(count)";
-  const wsel="id,label,warehouse,status,assigned_to,started_at,held_by, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review), wms_pick_task_lines(count))";
+  const sel="id,batch_label,status,assigned_to,started_at,work_started,held_by,order_id, wms_orders(order_number,warehouse,customer_name,needs_review,hold_state), wms_pick_task_lines(count)";
+  const wsel="id,label,warehouse,status,assigned_to,started_at,held_by, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review,hold_state), wms_pick_task_lines(count))";
   // wave member batches are hidden from the individual pool (picked only as a whole wave)
   // my in-progress + waiting pool (heartbeat/stale 제거 — 방치분은 스캔 이어받기로 처리)
   const [mine, pool, wmine, wpool]=await Promise.all([
@@ -519,11 +519,16 @@ async function loadBatches(){
   if(mine.error||pool.error){toast("Failed to load batches",true);return;}
   const inWh=b=>{ const wh=b.wms_orders?.warehouse; return acc==="both"||wh===acc; };
   const wInWh=w=>acc==="both"||w.warehouse===acc;
+  // Cin7 보류(규칙 43): **대기 풀에서만** 숨긴다 — 진행 중(mine·myWaves)은 끝까지 허용(실물이 이미
+  // 토트에 있는데 화면이 사라지면 되돌릴 근거가 없다). wave 는 멤버 중 하나라도 보류면 카드 전체 숨김
+  // (부분 시작 불가 — 매니저가 unwave 로 정리). admin 에서만 관리·재개.
+  const notHeld=b=>b.wms_orders?.hold_state!=="on_hold";
+  const wNotHeld=w=>!(w.wms_pick_tasks||[]).some(t=>t.wms_orders?.hold_state==="on_hold");
   myBatches=(mine.data||[]).filter(inWh);
-  batches=(pool.data||[]).filter(inWh);
+  batches=(pool.data||[]).filter(inWh).filter(notHeld);
   stalePool=[];   // 더 이상 시간 기반 abandoned 목록 없음 (스캔 이어받기로 대체)
   myWaves=((wmine&&wmine.data)||[]).filter(wInWh);
-  waves=((wpool&&wpool.data)||[]).filter(wInWh);
+  waves=((wpool&&wpool.data)||[]).filter(wInWh).filter(wNotHeld);
   staleWaves=[];
   renderBatches();
 }
@@ -1377,12 +1382,26 @@ async function finish(allowShort){
     }
 
     toast(label+(shorts.length?` Completed incomplete (short ${shorts.length})`:" Pick complete"));
+    // Cin7 보류 안내 (규칙 43 — 완료는 허용됐지만 packer 대기열에 안 뜬다. 이유를 모르면 혼란하다)
+    await notifyIfHeld(wave? [...new Set(lines.map(l=>l._orderId).filter(Boolean))] : [task.order_id]);
     resetToList();
   }catch(e){
     // RPC 는 전체 롤백이므로 이 메시지가 정직하다 — 반쪽 상태가 없다
     toast("Completion failed — nothing was saved: "+(e.message||e),true);
     if(task||wave){ startHeartbeat(); presenceJoin(); } // still holding the claim
   }finally{ scanBusy=false; if(!frozen){ btnD.disabled=btnS.disabled=false; } } // 프리즈면 버튼을 되살리지 않는다
+}
+
+/* ---------- Cin7 보류 완료 안내 (2026-08-12 · 규칙 43) ----------
+   진행 중이던 보류 오더는 완료까지 허용되지만 다음 단계(팩 대기열)에 안 뜬다 —
+   작업자가 이유를 모르면 혼란하므로 완료 직후 알린다. 조회 실패는 조용히 넘어간다(안내는 부가 정보). */
+async function notifyIfHeld(orderIds){
+  try{
+    const ids=(orderIds||[]).filter(Boolean); if(!ids.length) return;
+    const {data}=await sb.from("wms_orders").select("order_number").in("id",ids).eq("hold_state","on_hold");
+    if(data&&data.length)
+      alert(`⚠ ON HOLD — ${data.map(r=>r.order_number).join(", ")}\n\nThis order was put on hold in Cin7. Your work is saved,\nbut it will NOT move to the next step until a manager reviews and resumes it.`);
+  }catch(e){ /* 부가 안내 — 실패해도 완료 흐름을 막지 않는다 */ }
 }
 
 /* ---------- 완료 CAS 0행 → 원인 구분 (2026-08-06, 규칙 28 후속 · ⚠️ 현장 미검증) ----------

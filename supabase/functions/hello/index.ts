@@ -42,6 +42,20 @@ const POLL_MEMORY_TTL_MS = 3600_000;
 // ("목록에 없는 id 삭제" 방식은 truncated 회차에 대량 오삭제 위험이 있어 기각 — 시간 기준이 안전.)
 const POLL_MEMORY_PURGE_MS = 30 * 86400_000;
 
+// ── 유입 오더 변경 감지 → 보류 (2026-08-12 · 규칙 43 — "실수로 오더가 진행되는 것을 막는" 안전장치) ──
+// 유입된(already_exists) 오더는 상세를 다시 안 읽어 Cin7 On Hold 를 영원히 몰랐다(종전 갭).
+// wms_orders.cin7_updated(유입 시점의 saleList.Updated)와 현재 목록의 Updated 를 비교(0콜) —
+// 다르면 상세 재조회로 AdditionalAttribute1 판정. Updated 는 신호가 아니라 **트리거**다(판정은 상세만).
+// ⚠️ wms_polled_sales 기억(미유입 전용)과 별개 — 유입 오더는 wms_orders.cin7_updated 가 기억 역할.
+// ⚠️ 보류 트리거는 'On Hold' 하나뿐 — "2.Release 가 아닌 전부"로 잡으면 정상 완료 오더가 전부 보류가 된다.
+//    예상 밖 값은 hold_state='unexpected' 로 admin 알림만(숨김·차단 없음 — 매니저 판단).
+// ⚠️ 캡 굶주림 없음(self-draining): 판정 후 cin7_updated 를 갱신하므로 처리된 오더는 다음 회차 후보에서
+//    자동 이탈 — 잘린 것은 다음 회차에 반드시 앞으로 온다(SO-14106 의 "영구 잔류" 구조와 반대).
+//    정렬은 오더번호 내림차순(최신 우선 — 픽 임박 가능성이 높은 쪽 먼저). 잘린 수는 hold_check_deferred.
+const HOLD_CHECK_MAX = 10;                  // 회차당 재조회 상한 (평시 후보 0~2건 — 초과 자체가 이상 신호)
+const HOLD_RELEASE = "2.Release to WMS";    // 정상 값 — 이것으로 복귀하면 on_hold 는 재개 가능 표시(수동), unexpected 는 자동 해소
+const HOLD_TRIGGER = "On Hold";             // 보류 트리거 — 이 값 하나뿐
+
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
@@ -102,6 +116,12 @@ async function sbUpsert(table: string, conflictCol: string, rows: unknown): Prom
   });
   if (!r.ok) throw new Error("sbUpsert " + table + " " + r.status + ": " + (await r.text()).slice(0, 400));
 }
+async function sbPatch(path: string, body: unknown): Promise<void> {
+  const r = await fetch(SB_URL() + "/rest/v1/" + path, {
+    method: "PATCH", headers: sbHeaders({ Prefer: "return=minimal" }), body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error("sbPatch " + r.status + ": " + (await r.text()).slice(0, 300));
+}
 // 행 수 (HEAD + count=exact — 본문 없이 Content-Range 헤더로). 실패해도 회차를 깨지 않는다(null).
 async function sbCount(table: string): Promise<number | null> {
   try {
@@ -120,7 +140,8 @@ async function existingSaleIds(saleIds: string[]): Promise<Map<string, any>> {
     const chunk = saleIds.slice(i, i + DEDUP_CHUNK);
     const inList = chunk.map((id) => '"' + id + '"').join(",");
     const rows = await sbGet(
-      "wms_orders?cin7_sale_id=in.(" + encodeURIComponent(inList) + ")&select=cin7_sale_id,order_number,status"
+      // cin7_updated·hold_* 는 유입 오더 변경 감지용 (2026-08-12 규칙 43 — 같은 조회에 필드 추가라 0콜)
+      "wms_orders?cin7_sale_id=in.(" + encodeURIComponent(inList) + ")&select=id,cin7_sale_id,order_number,status,cin7_updated,hold_state,hold_detected_at"
     );
     for (const row of rows) found.set(String(row.cin7_sale_id), row);
   }
@@ -181,9 +202,57 @@ async function assembleLine(ln: any, warehouse: string) {
   };
 }
 
+// ── ?action=hold_recheck&order_id=N — admin 재개 버튼 (2026-08-12 · 규칙 43) ──
+// Cin7 을 재확인한 뒤에만 해제한다: 매니저가 WMS 에서 재개했는데 Cin7 이 아직 On Hold 면 다음 폴링이
+// 다시 보류로 되돌려 두 시스템이 싸운다 — "Cin7 을 먼저 풀고, 그걸 인지한 매니저가 재개를 허가한다".
+// ⚠️⚠️ 이 분기는 이 레포 **첫 서버측 사용자 권한 게이트**다(staff-create 의 /auth/v1/user 검증 패턴 이식).
+//    기존 EF들은 verify_jwt 뿐이라 공개 커밋된 anon 키로 통과한다 — 보류 해제는 매니저 권한이어야
+//    하므로(재개는 신중해야 한다) 여기서만 먼저 올렸다. 다른 EF 확대는 별건 백로그(규칙 8 각주).
+async function holdRecheck(req: Request, url: URL): Promise<Response> {
+  // ① 호출자 검증 — anon 키는 /auth/v1/user 에서 유저가 안 나온다 → 401
+  const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!tok) return json({ ok: false, error: "not signed in" }, 401);
+  const uResp = await fetch(SB_URL() + "/auth/v1/user", {
+    headers: { apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "", Authorization: "Bearer " + tok },
+  });
+  if (!uResp.ok) return json({ ok: false, error: "not signed in" }, 401);
+  const email = (await uResp.json())?.email;
+  if (!email) return json({ ok: false, error: "not signed in" }, 401);
+  // ② 권한 — admin 역할 또는 perms 'apply' (기존 "신중한 조작" 권한 키 재사용 — 2026-08-12 사용자 결정)
+  const staff = await sbGet("wms_staff?email=eq." + encodeURIComponent(email) + "&select=name,role,perms&limit=1");
+  const s = staff[0];
+  if (!(s && (s.role === "admin" || (Array.isArray(s.perms) ? s.perms : []).includes("apply")))) {
+    return json({ ok: false, error: "no permission - admin role or 'apply' permission required" }, 403);
+  }
+  // ③ Cin7 재확인 → 판정
+  const oid = Number(url.searchParams.get("order_id"));
+  if (!oid) return json({ ok: false, error: "order_id required" }, 400);
+  const rows = await sbGet("wms_orders?id=eq." + oid + "&select=id,cin7_sale_id,order_number,hold_state");
+  const o = rows[0];
+  if (!o) return json({ ok: false, error: "order not found" }, 404);
+  if (!o.hold_state) return json({ ok: true, released: true, note: "not held" });
+  const dr = await fetch(CIN7_BASE + "/sale?ID=" + o.cin7_sale_id, { headers: cin7Headers() });
+  if (!dr.ok) return json({ ok: false, error: "Cin7 read failed (" + dr.status + ") - try again" }, 502);
+  const progress = String((await dr.json())?.AdditionalAttributes?.AdditionalAttribute1 ?? "");
+  if (progress === HOLD_RELEASE) {
+    // cin7_updated 는 여기서 갱신하지 않는다(목록 Updated 가 비교 기준 — 다음 폴링이 1회 재확인 후 스스로 갱신).
+    await sbPatch("wms_orders?id=eq." + oid,
+      { hold_state: null, hold_progress: null, hold_detected_at: null, hold_releasable_at: null, order_progress: progress });
+    return json({ ok: true, released: true, progress, by: s.name });
+  }
+  // 여전히 보류/이상 값 — 차단 + 최신 값으로 갱신(admin 이 이유를 그대로 본다)
+  const still = progress === HOLD_TRIGGER ? "on_hold" : "unexpected";
+  await sbPatch("wms_orders?id=eq." + oid, { hold_state: still, hold_progress: progress });
+  return json({ ok: true, released: false, progress, state: still });
+}
+
 Deno.serve(async (req) => {
   try {
-    const commit = new URL(req.url).searchParams.get("commit") === "1";
+    const url0 = new URL(req.url);
+    // 재개 재확인 액션 — 폴링 본문과 독립 (규칙 43. OPTIONS 는 브라우저 preflight)
+    if (req.method === "OPTIONS") return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
+    if (url0.searchParams.get("action") === "hold_recheck") return await holdRecheck(req, url0);
+    const commit = url0.searchParams.get("commit") === "1";
 
     // 1) 폴링: AUTHORISED 여러 페이지 수집
     //    ⚠️ 429 처리 (2026-08-04 실사고 — SO-14100·SO-14106 미유입): 예전엔 !ok 즉시 throw 라
@@ -241,10 +310,18 @@ Deno.serve(async (req) => {
     // 3) detail 조회 전 batch dedup — 이미 있는 건 상세조회 생략
     const idset = await existingSaleIds(notPicked.map((c) => String(c.SaleID)));
     const freshPre: any[] = [];
+    const holdCandidates: { c: any; ex: any }[] = [];   // 유입 오더 중 Updated 가 바뀐 것 (규칙 43 — 상수 주석)
     for (const c of notPicked) {
       const ex = idset.get(String(c.SaleID));
-      if (ex) skipped.push({ order: c.OrderNumber, reason: "already_exists", status: ex.status });
-      else freshPre.push(c);
+      if (ex) {
+        skipped.push({ order: c.OrderNumber, reason: "already_exists", status: ex.status });
+        // active 만 — WMS 종착(closed)·voided 는 어떤 값이 와도 무시(정상 종착이 3.Finalized 다).
+        // cin7_updated null 도 후보(비교 불가 행이 영원히 감지에서 빠지지 않게 — 2026-08-12 사용자 지시).
+        if (ex.status !== "closed" && ex.status !== "voided" &&
+            (ex.cin7_updated == null || String(c.Updated ?? "") !== String(ex.cin7_updated))) {
+          holdCandidates.push({ c, ex });
+        }
+      } else freshPre.push(c);
     }
 
     // 3b) "확인했으나 비대상" 기억 스킵 (2026-08-11 — 상수 주석·edge-function.md 폴링 절 참조)
@@ -406,6 +483,45 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── 유입 오더 변경 감지 → 보류 판정 (2026-08-12 · 규칙 43 — 상단 상수 주석이 설계 정본) ──
+    //    읽기(재조회·판정)는 dry-run·commit 공통(dry-run 이 프로덕션 동작을 반영), 쓰기는 commit 만.
+    //    429 는 이번 회차 중단 — 후보는 cin7_updated 미갱신이라 다음 회차에 자연 재시도된다.
+    let holdChecked = 0, holdDetected = 0, holdReleasableSeen = 0, holdUnexpected = 0;
+    holdCandidates.sort((a, b) => orderNum(b.c) - orderNum(a.c));   // 최신 우선 — 기존 상세조회 원칙과 동일
+    const holdDeferred = Math.max(0, holdCandidates.length - HOLD_CHECK_MAX);
+    for (const { c, ex } of holdCandidates.slice(0, HOLD_CHECK_MAX)) {
+      await sleep(DETAIL_DELAY_MS);
+      const dr = await fetch(CIN7_BASE + "/sale?ID=" + c.SaleID, { headers: cin7Headers() });
+      if (dr.status === 429) { detailRateLimited++; break; }   // 이번 회차 중단 — sleep(60000) 은 안 쓴다(후보는 자연 이월)
+      if (!dr.ok) { errors.push({ order: c.OrderNumber, err: "hold check detail " + dr.status }); continue; }
+      holdChecked++;
+      const d = await dr.json();
+      const progress = String(d.AdditionalAttributes?.AdditionalAttribute1 ?? "");
+      const patch: Record<string, unknown> = { cin7_updated: String(c.Updated ?? ""), order_progress: progress };
+      if (progress === HOLD_RELEASE) {
+        if (ex.hold_state === "on_hold") {
+          // 재개 가능 표시만 — 자동 복귀 금지(막는 건 자동·푸는 건 수동, 의도적 비대칭 — 규칙 43)
+          patch.hold_releasable_at = new Date().toISOString(); holdReleasableSeen++;
+        } else if (ex.hold_state === "unexpected") {
+          // unexpected 는 아무것도 안 멈췄으므로 정상 복귀 확인 = 알림 자동 소멸 (on_hold 와 비대칭 — 의도)
+          patch.hold_state = null; patch.hold_progress = null; patch.hold_detected_at = null; patch.hold_releasable_at = null;
+        }
+      } else if (progress === HOLD_TRIGGER) {
+        patch.hold_state = "on_hold"; patch.hold_progress = progress; patch.hold_releasable_at = null;
+        if (!ex.hold_detected_at) patch.hold_detected_at = new Date().toISOString();   // 최초 감지 시각 유지
+        holdDetected++;
+      } else {
+        // 예상 밖 값 — 보류로 처리하지도, 무시하지도 않는다: admin 에 원문 그대로(숨김·차단 없음)
+        patch.hold_state = "unexpected"; patch.hold_progress = progress; patch.hold_releasable_at = null;
+        if (!ex.hold_detected_at) patch.hold_detected_at = new Date().toISOString();
+        holdUnexpected++;
+      }
+      if (commit) {
+        try { await sbPatch("wms_orders?id=eq." + ex.id, patch); }
+        catch (e) { errors.push({ order: c.OrderNumber, err: "hold patch: " + String(e).slice(0, 200) }); }
+      }
+    }
+
     // ── "확인했으나 비대상" 기억 쓰기 + 정리 (commit 만 — dry-run 은 wms_orders 처럼 아무것도 안 쓴다) ──
     let memoryRows: number | null = null;
     if (POLL_MEMORY_TTL_MS > 0) {
@@ -443,6 +559,12 @@ Deno.serve(async (req) => {
       memory_rows: memoryRows,               // 기억 테이블 행 수 (무한 증식 감시 · 조회 실패 시 null)
       detail_fetched: detailFetched,
       detail_rate_limited: detailRateLimited, // 상세조회 429 로 이번 회차 조용히 건너뛴 건수 (2026-08-11 — 종전엔 미노출)
+      // ── 유입 오더 변경 감지 진단 (2026-08-12 · 규칙 43) ──
+      hold_checked: holdChecked,             // Updated 변경으로 재조회한 건수 (평시 0~2 — 계속 높으면 이상)
+      hold_detected: holdDetected,           // 이번 회차 On Hold 판정
+      hold_releasable_seen: holdReleasableSeen, // 보류 중인데 Cin7 이 2.Release 로 복귀한 것을 본 건수
+      hold_unexpected: holdUnexpected,       // 예상 밖 값 (admin 알림 대상)
+      hold_check_deferred: holdDeferred,     // 캡(HOLD_CHECK_MAX)에 밀린 건수 — 여러 회차 연속 >0 이면 캡 재검토
       detail_capped: detailCapped, // true 면 이번 실행 상한 도달 (최신 우선이라 잘린 건 가장 오래된 fresh)
       detail_capped_orders: detailCappedOrders, // 캡에 잘린 오더 목록 — 굶주림 감시용 (2026-08-04)
       inserted: inserted.length,
@@ -458,5 +580,8 @@ Deno.serve(async (req) => {
 });
 
 function json(obj: unknown, status = 200): Response {
-  return new Response(JSON.stringify(obj, null, 2), { status, headers: { "Content-Type": "application/json" } });
+  // CORS 는 hold_recheck(브라우저의 admin 이 호출 — 2026-08-12)용. 폴링 응답(pg_cron)엔 무해.
+  return new Response(JSON.stringify(obj, null, 2), {
+    status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
 }

@@ -99,7 +99,7 @@ import 파이프라인 완성. 흐름: saleList AUTHORISED 50건 폴링 → `SKI
 
 **자동 스케줄러**(`wms_schedule_polling.sql`): pg_cron + pg_net. 잡 `wms-poll-orders` `*/5 * * * *` → 함수 `?commit=1` anon Bearer 호출. 검증: `select * from cron.job;` / 실행이력 `cron.job_run_details`(succeeded) / 응답 `net._http_response`(status_code 200).
 - ⚠️ **net._http_response가 null로 남을 수 있음**(pg_net 타임아웃 ~5초 초과, 상세조회 여럿 돌 때). **저장은 됐을 수 있으니 진실은 `wms_orders.imported_at`으로 확인.**
-- ⚠️ **Cin7 병행운영**: 유입 전 상태변경→유입안됨(정상), Cin7에서 PICKED→SKIP_PICKED 제외("안 들어온다" 최빈원인), **유입 후 변경→WMS 모름**(dedup, 재조회 안 함 — 병행 테스트 위험, 자동감지 백로그).
+- ⚠️ **Cin7 병행운영**: 유입 전 상태변경→유입안됨(정상), Cin7에서 PICKED→SKIP_PICKED 제외("안 들어온다" 최빈원인), ~~**유입 후 변경→WMS 모름**(dedup, 재조회 안 함 — 병행 테스트 위험, 자동감지 백로그)~~ → ⚠️⚠️ **2026-08-12 정정 — 이 갭은 닫혔다(규칙 43)**: 유입 오더의 `wms_orders.cin7_updated`(유입 시점 saleList.Updated)와 목록의 현재 Updated 를 dedup 루프에서 비교(0콜), 다르면 상세 재조회(최신 우선 · `HOLD_CHECK_MAX=10` · self-draining — 판정 후 cin7_updated 갱신으로 후보 자동 이탈) → `On Hold` = `hold_state='on_hold'`(작업 화면 숨김+다음 단계 차단, 진행 중은 끝까지 허용) / 예상 밖 값 = `'unexpected'`(admin 알림만) / closed·voided 무시. 재개는 admin → **`?action=hold_recheck&order_id=`**(Cin7 재확인 후에만 해제 · ⚠️ **레포 첫 서버측 권한 게이트** — anon 401, admin/`apply` 만). 진단: `hold_checked/hold_detected/hold_releasable_seen/hold_unexpected/hold_check_deferred`. 정본은 SKILL 규칙 43.
 
 ## 호출 (테스트) — bash + curl
 ```bash

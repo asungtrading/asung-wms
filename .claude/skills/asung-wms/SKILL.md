@@ -209,6 +209,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **화면별 requireManager**: picker/packer/**fulfillment=false(작업자 화면!)**, manager/admin/staff-admin=true.
 - **런처(index.html) 로그인 게이트**: 로그인 전 오버레이만, 로그인 후 role 따라 메뉴 필터(worker=Picking/Packing/Fulfillment만, mgr/admin=+Order Splitting/Admin/Staff). ⚠️ role 필터는 `classList.remove("mgr-only")`로(‌CSS `.mgr-only{display:none}` 때문에 `style.display=""`는 안 먹음).
 - **RLS ON**: wms_ 테이블 전부(신규 `wms_waves` 포함) `rowsecurity=true` + 정책 `auth_all`(`for all to authenticated using(true) with check(true)`). anon 거부, authenticated 전체허용. service_role은 RLS 우회(GAS 동기화가 RLS 켜진 뒤에도 작동하는 이유 = 설계 증명). `wms_health_check()`는 `security definer`. 세분화(직원 쓰기/불일치 해소=매니저만)는 백로그.
+- ⚠️⚠️ **EF 에는 서버측 사용자 권한 검사가 없다 — 실측 확인 (2026-08-12, 규칙 43 작업 중 발견)**: receiving apply 의 "3중 게이트"는 전부 클라이언트다(admin.html — 버튼 표시 2곳 + JS 함수 진입 `applyToCin7` 머리의 `me.role==="admin"||perms.includes("apply")` 검사). **EF 자체는 플랫폼 verify_jwt 뿐이라 anon JWT 로 통과**하고, ⚠️ 레포가 PUBLIC 이라(환경 상수 표 — Pages 무료 배포) **anon 키는 누구나 볼 수 있다** — 즉 EF 호출 자체는 누구나 가능하다(RLS 가 DB 쓰기는 막지만 EF 가 service_role 로 하는 일은 못 막는다). **첫 서버측 게이트 = hello `hold_recheck`**(2026-08-12, 규칙 43 — `/auth/v1/user` 로 호출자 검증 후 wms_staff 권한 확인, staff-create 의 검증 패턴 이식). 다른 EF(특히 receiving apply — Cin7 쓰기)로의 확대와 레포 비공개 전환은 **별건 백로그**(「그 외」) — 이번 범위에서 고치지 않았다(범위 폭발 방지, 사용자 결정).
 - **⚠️ 비번 재설정 이메일 링크**: Supabase Authentication→URL Configuration의 Site URL=`https://wms.asung.ca` + Redirect URLs=`https://wms.asung.ca/*` 설정해야 링크가 맞음(안 하면 localhost:3000으로 감). 배포 후 필수 설정.
 
 ## 규칙 9 — 프론트엔드 7화면 (순수 HTML/JS + Supabase CDN)
@@ -252,7 +253,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **자동 유입 = pg_cron + pg_net.** `wms_schedule_polling.sql`로 잡 `wms-poll-orders` 등록(`*/5 * * * *`, Edge Function `?commit=1` anon Bearer 호출). 확인: `select * from cron.job;`, 실행이력 `cron.job_run_details`, 응답 `net._http_response`.
 - **⚠️ pg_net 응답이 null로 남을 수 있음** — 확대폴링이 상세조회 여럿 돌면 pg_net 기본 타임아웃(~5초) 초과. **응답 수신 실패 ≠ 저장 실패.** 진짜 확인은 **`wms_orders` 테이블의 `imported_at`** (진실). net._http_response는 참고용.
 - **확대 폴링**: saleList AUTHORISED 페이지네이션(POLL_LIMIT 100 × POLL_MAX_PAGES 3=300스캔), SKIP_PICKED(CombinedPickingStatus='PICKED' 제외), **상세조회 전 dedup**(existingSaleIds), MAX_DETAIL 60캡(**최신 오더번호부터** — 아래 2026-08-04 ②). 진단필드(dry-run·commit 공통): `pages_scanned/candidates/after_skip_picked/already_exists/fresh_candidates/detail_fetched/detail_capped(+detail_capped_orders)/would_insert` + **2026-08-04 추가**: `list_total/list_fetched/truncated`(스캔 잘림)·`oldest_scanned/newest_scanned`(스캔 범위)·`rate_limited(+rate_limited_at_page)`(429 조기 종료). `skipped_detail` 은 `already_exists` 에 더해 **`skip_picked` 제외분도 포함**(오더번호+사유). ⚠️ 이 필드들이 응답에 **없으면 옛 버전** — 재배포 필요.
-- **⚠️ Cin7 병행운영 3케이스**: (A) 유입 전 `2.Release to WMS`→`3.Finalized` 등으로 바뀌면 → 유입 안 됨(정상). (B) Cin7에서 픽됨(PICKED) → SKIP_PICKED로 제외(두 시스템 동시작업 방지, 의도됨 — "안 들어온다"의 최빈 원인. 2026-08-04 부터 `skipped_detail` 의 `skip_picked` 로 응답에서 바로 보임). (C) **유입 후 Cin7에서 바뀜 → WMS는 모름**(dedup으로 재조회 안 함). 병행 테스트 중 위험. 자동감지(pending/picking 오더 재확인 → needs_review/voided)는 백로그.
+- **⚠️ Cin7 병행운영 3케이스**: (A) 유입 전 `2.Release to WMS`→`3.Finalized` 등으로 바뀌면 → 유입 안 됨(정상). (B) Cin7에서 픽됨(PICKED) → SKIP_PICKED로 제외(두 시스템 동시작업 방지, 의도됨 — "안 들어온다"의 최빈 원인. 2026-08-04 부터 `skipped_detail` 의 `skip_picked` 로 응답에서 바로 보임). (C) ~~**유입 후 Cin7에서 바뀜 → WMS는 모름**(dedup으로 재조회 안 함). 자동감지는 백로그.~~ → ✅ **2026-08-12 해소 — Updated 트리거 감지(규칙 43)**: 유입 오더의 `cin7_updated` 와 목록 Updated 를 비교해 바뀐 것만 상세 재조회 → `On Hold` 보류 / 예상 밖 값 admin 알림. ⚠️ 감지 범위는 **AdditionalAttribute1 변경**(보류 안전장치) — 종전 백로그 문구의 needs_review/voided 자동 전환까지는 아니다(그건 여전히 미구현).
 - **⚠️⚠️ 2026-08-04 실사고 — SO-14100·SO-14106 미유입 (원인 2개, 스캔 범위는 무죄)**:
   - ① **429 로 페이지 순회 중단** — 예전 saleList 루프는 `!ok` 즉시 throw 라 1페이지 성공 후 2·3페이지 429 면 회차 전체가 500 으로 죽었다(pg_cron 5분 + GAS 들이 같은 Cin7 계정 공유 → 429 는 일상 전제). → **공용 `_shared/cin7.ts`**(receiving 의 `cin7()` 를 추출 — 백오프 1.5s→3s 상한 2회, 소진 시 `err.status=429` throw)로 재시도하고, 소진되면 **throw 없이 회차 조기 종료** + `rate_limited`/`rate_limited_at_page` 노출(조용한 부분 스캔이 가장 위험). 429 외 4xx/5xx 는 기존대로 throw. ⚠️ **`_shared/cin7.ts` 를 바꾸면 hello·receiving 둘 다 재배포** — 각 함수는 배포 시점 번들을 쓰므로 한쪽만 배포하면 조용히 갈라진다. `supabase functions deploy` 가 `_shared` 상대 import 를 번들에 포함함은 실증됨(Supabase 공식 권장 패턴).
   - ② **MAX_DETAIL 캡 + 오름차순 = 최신 오더 영구 굶주림** — saleList 는 오더번호 **오름차순**이고, `2.Release to WMS` 가 아닌 오더는 상세조회만 하고 저장되지 않아 **다음 회차에도 fresh_candidates 에 계속 남는다** → 오래된 비대상 오더들이 매 회차 60건 예산을 선점, 뒤쪽(최신) 오더는 영구히 순번이 오지 않았다(SO-14106 이 캡에 잘리는 2건 중 하나였다). → **상세조회를 최신 오더번호부터(내림차순)** 하도록 수정. **규칙 20 purchaseList 오름차순 함정의 두 번째 사례.** 잘린 목록은 `detail_capped_orders` 로 노출(최신 우선이라 잘리는 건 가장 오래된 fresh) — **이 목록이 회차마다 계속 자라면** "확인했으나 비대상" 기억 테이블(재조회 스킵 + `Updated` 변경 시 재확인) 도입을 재검토. 지금은 fresh ≈ 62 vs 캡 60 이라 과설계로 판단해 안 만들었다.
@@ -784,6 +785,21 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ⚠️ **2026-08-04 배포 — 현장 검증 기록이 없다**(코드 경로만 확인). "동작한다"고 쓰기 전에 백로그 「검증 대기」의 확인 항목을 실물에서 볼 것.
 - ⬜ 백로그: packer `overScans` 메모리 전용(Hold/새로고침 시 초과 표시 소실 — 판정 "결과"는 기록됨) · 위 현장 검증 — 둘 다 「백로그 / 미해결」에 등록됨.
 
+## 규칙 43 — Cin7 On Hold 감지 → WMS 보류 (⚠️ 2026-08-12 · 현장 미검증)
+
+> 규칙 42 는 **결번** — "규칙 42 계열(근거의 출처)"이 기록 규칙의 비공식 번호로 여러 문서에 굳어 있어 충돌을 피했다.
+
+**목적: 실수로 오더가 진행되는 것을 막는 안전장치.** 자주 쓰는 기능이 아니다 — 평소엔 존재감이 없고, 필요할 때 확실히 막는다. 릴리즈 후 WMS 작업이 끝날 때까지 `AdditionalAttribute1` 은 안 바뀌는 것이 정상이고, 드물게 보류가 필요하면 Cin7 에서 `On Hold` 로 바꾼다(해소되면 `2.Release to WMS` 로 되돌림).
+
+- **감지 = hello 폴링의 Updated 트리거**: 유입 오더(already_exists)의 `wms_orders.cin7_updated`(유입 시점 Updated)와 목록의 현재 `Updated` 를 비교(0콜) — 다르면 상세 재조회로 판정. ⚠️ Updated 는 신호가 아니라 **트리거**(판정은 상세만 — 무관한 수정은 헛읽기 1회, 누락 없음). ⚠️ `wms_polled_sales`(미유입 전용)와 별개. 종전 갭("유입 후 변경 → WMS 모름")이 이걸로 닫혔다 — 정정은 `references/edge-function.md` 폴링 절.
+- **보류 트리거는 `On Hold` 하나뿐** — "2.Release 가 아닌 전부"로 잡으면 정상 완료 오더(3.Finalized 등)가 전부 보류가 돼 기능이 무력해진다. **예상 밖 값 = `hold_state='unexpected'`**: 보류로 처리하지도 무시하지도 않는다 — admin 에 **원문 그대로** 알림(숨김·차단 없음, 매니저 판단). WMS 종착(closed)·voided 는 어떤 값이 와도 무시.
+- **보류 동작 = "현재 단계는 마치되 다음 단계로 넘어가지 않는다"**: 대기 풀(picker pending·pending wave 카드·packer poolNew·fulfillment 보드)에서 **완전히 숨김** / **진행 중(내 배치·held)은 끝까지 허용** — 실물이 토트에 있는데 화면이 사라지면 되돌릴 근거가 없다. 완료 직후 "ON HOLD — 다음 단계로 안 넘어감" 안내(`notifyIfHeld`). wave 는 멤버 하나라도 보류면 **시작 전 카드 전체 숨김**(부분 시작 불가 — unwave 로 정리).
+- **Finalize 서버 재확인 벨트가 마지막 방벽** — 픽·팩이 끝났어도 출고 직전에 `hold_state` 를 서버 재조회해 on_hold 면 전체 차단(pack progress 벨트와 같은 지점·같은 원칙 — 확인 실패도 차단). unexpected 는 경고 후 진행 허용(차단하면 정상 오더가 갇힌다 — 사용자 결정).
+- **재개는 수동만 — 비대칭이 의도다**(막는 건 자동=빨라야, 푸는 건 수동=신중해야): Cin7 복귀를 폴링이 보면 `hold_releasable_at` 표시만. admin "Re-check & resume" → **hello EF `?action=hold_recheck`** 가 **Cin7 을 재확인(1콜)한 뒤에만 해제** — 안 그러면 다음 폴링이 다시 보류로 되돌려 두 시스템이 싸운다. `unexpected` 는 Cin7 정상 복귀 시 **자동 해소**(아무것도 안 멈췄으므로 — on_hold 와 비대칭 의도) · 강제 dismiss 없음(WMS 에서 알림만 끄면 Cin7 불일치가 숨는다 — 사용자 결정).
+- ⚠️⚠️ **hold_recheck 는 레포 첫 서버측 사용자 권한 게이트**(anon 401 · `role='admin' || perms 'apply'` — staff-create 의 `/auth/v1/user` 패턴 이식). 배경 실측은 규칙 8 각주.
+- **캡 굶주림 없음(self-draining)**: 판정 후 `cin7_updated` 갱신으로 처리된 오더는 후보에서 자동 이탈(SO-14106 의 영구 잔류와 반대 구조) · 정렬 최신 우선 · `HOLD_CHECK_MAX=10` · 잘린 수는 `hold_check_deferred`(여러 회차 연속 >0 이면 캡 재검토). `cin7_updated is null` 행도 후보(비교 불가 행이 영원히 안 빠지게 — 사용자 지시. 2026-08-12 실측은 757건 전부 채워짐/null 0).
+- 저장 = `wms_orders` 4컬럼(`hold_state/hold_progress/hold_detected_at/hold_releasable_at`, `20260812000000_wms_orders_hold.sql`) — status 는 무접촉(직교 플래그. 세 화면이 이미 wms_orders 임베드라 조인 추가 0). admin Status 탭 보류 목록은 **WMS 단계 표시 필수**(극단 케이스는 기존 Rollback 으로 — 강제 중단 도구는 안 만든다, 사용자 결정 F).
+
 ## 현재 진행 상태 (2026-08-04 기준)
 
 **전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증). ⚠️ 2026-08-04 배포분(규칙 41 픽·팩 선언/초과 2택 · 규칙 20 Status 조회 · **풋어웨이 bin 단위 완료 + admin Apply 주황 경고·Awaiting putaway**)도 **현장 미검증** — 백로그 「검증 대기」. ⚠️⚠️ **2026-08-05 배포 4건(완료 확인 마찰 모달 — SO-14129 · 리스트뷰 행 탭+available 칩 · 리시빙 기대치 인보이스 전환 · receiver 리포트 3종)도 현장 미검증** — 백로그 「검증 대기」 맨 위. 그중 **인보이스 전환의 Advanced 경로 + 첫 Apply 가 가장 중요**하다(재고·Cin7 반영이 걸린 유일한 건 — 아직 안 받은 PO 로 검증할 것, PO-01068 은 이미 Apply 됨).
@@ -954,6 +970,8 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 
 ### 검증 대기 (배포됐으나 실전 미확인)
 
+- ⚠️⚠️ **Cin7 On Hold 감지 → 보류 (2026-08-12 구현 — ⬜ 배포 전 · 규칙 43)** — 배포 순서: **SQL(`20260812000000_wms_orders_hold.sql`) 먼저** → `supabase functions deploy hello` → 프론트 4파일 push(컬럼 없이 프론트가 먼저 나가면 임베드 select 가 400). 확인할 것: ① **anon 키로 hold_recheck 호출 → 401** (`curl -H "Authorization: Bearer <anon>" "...functions/v1/hello?action=hold_recheck&order_id=1"` — **이 게이트가 안 되면 기능 전체가 무의미하다**) + apply 권한 계정 → 통과, 무권한 로그인 → 403 ② 픽 대기 오더를 Cin7 On Hold → ≤5분 내 picker 목록에서 사라짐(진단 `hold_detected 1`) ③ 픽 진행 중 보류 → 완료는 되고 완료 시 ON HOLD 안내 + packer 대기열에 안 뜸 ④ Cin7 을 2.Release 복귀 → admin 에 "resumable" 표시(자동 복귀 안 됨 확인) ⑤ 매니저 Re-check & resume → 복귀(픽커 목록 재등장) ⑥ Cin7 이 아직 On Hold 인데 재개 시도 → 차단 + 값 표시 ⑦ **회귀: 정상 오더가 실수로 사라지지 않는지** — 배포 전후 picker/packer/fulfillment 목록 건수 비교(hold_state 전부 null 이므로 동일해야 함) + 폴링 진단 `hold_checked` 평시 0~2 · `hold_check_deferred` 0 ⑧ 예상 밖 값(예 Backordered 로 변경) → 화면 유지 + admin 에 원문 표시, Cin7 정상 복귀 시 자동 소멸.
+
 - ~~⚠️⚠️ **폴링 "확인했으나 비대상" 기억 (⬜ 배포 전)**~~ — ✅ **2026-08-11 배포 + 양방향 검증 완료** (세션 문서 `docs/sessions/2026-08-11-polling-and-stats.md` 2·8장): 회차당 콜 **52 → 2~3**(94% 감소) · `detail_fetched` 50 → 0~1 · 안 바뀐 오더 스킵(11/12) · **릴리즈 → 다음 회차 유입 지연 0**(SO-14521) · 기억 행 자동 삭제·신규 자동 등록 확인 · `errors`/`detail_rate_limited` 0. ⚠️ **관찰 잔여 — 동기화된 무리(herd)**: 배포 직후 일괄 기록된 9건이 1시간 뒤 동시 만료(그 회차만 detail 9) — 자연히 흩어지는 중(`memory_ttl_expired` 9→1), **한 시점만 보고 "절감이 사라졌다" 판단 금지**(실제로 그렇게 오판했다가 5분 뒤 재측정으로 정정 — 세션 문서 7장). 판정 순서·킬 스위치는 `references/edge-function.md` 폴링 절이 정본.
 - 🟡 **WMS 체감 지연 (2026-08-11 — 원인 미확정)** — 재현 없음. Cin7 키 분리와 폴링 수정이 그 사이에 있어 **어느 것이 효과였는지 구분 불가**(그날의 일시적 부하였을 수도). 재발 시 그때 파야 한다 — 지금 원인을 적으면 추정이 사실로 굳는다.
 - ⚠️ **2026-08-11 결함 수정 3건 — 자연 발생 검증** (세션 문서 9장): ① **wave 리포트 귀속** — 오더 2개+ wave 에서 **두 번째 오더 라인**에 ⚑ → admin Reports 에 그 오더로 뜨는지(⚠️ 1오더 wave·비-wave 로는 안 드러난다) ② **stock_short 선언 복원** — 선언 → 매니저 resolve → 팩 완료 시 `short_after_pack` 미생성 · picker 는 선언→Hold→resolve→재개 시 칩 유지 ③ **started_at 보존** — Hold 재개·이어받기 후 완료가 라인 수 대비 말이 되는 시간인지. **또 2분짜리가 나오면 실패.**
@@ -1003,6 +1021,10 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - ~~⚠️⚠️ **`asung-wms` frontmatter description 압축 — 1017 / 1024 자, 여유 7자**~~ — ✅ **2026-08-05 완료: 722자 / 여유 302자.** 무엇을 뺐는지와 왜 그것을 골랐는지는 위 「이 스킬 문서를 갱신할 때」 · CLAUDE.md 7절. 요약: 키워드 9개 제거(중복 2 · 과도하게 일반적 2 · 해소된 함정어 2 · 구현 내부 이름 3) + 열거 1개 압축 + ⚠️ 불변식 9→4. **본문에서 빠진 사실은 없다.** 검사 `scripts/check-skill-desc.sh`.
 - **`shopify-tracking` description = 855자 / 여유 169자** (2026-08-05 실측 — 이제 6개 스킬 중 가장 빡빡하다). 그 스킬에 키워드를 더할 때는 같은 압축 순서를 적용할 것.
 
+### 보안 (2026-08-12 — 규칙 8 각주의 실측이 근거)
+- ⚠️⚠️ **EF 서버측 권한 게이트 확대** — 기존 EF(특히 receiving apply — 되돌릴 수 없는 Cin7 쓰기)는 anon JWT 로 호출 가능(규칙 8 각주 실측). hold_recheck 의 게이트(`/auth/v1/user` → wms_staff 권한)를 같은 패턴으로 이식할 것. ⚠️ 아래 "레포 비공개 전환"과 같은 뿌리 — 키가 공개인 한 클라이언트 게이트는 장식이다.
+- **레포 비공개 전환 검토** — `asungtrading/asung-wms` 는 PUBLIC(Pages 무료 배포 때문 — 환경 상수 표). anon 키·EF 주소·전체 로직이 공개다. 비공개 전환 시 Pages 유료화 또는 배포 방식 변경 필요 — EF 게이트 확대와 묶어 판단. ⚠️ 위 항목과 서로 연결(둘 중 하나만으로는 불완전).
+
 ### 정리 필요 (데이터)
 - TR-02935(수동 처리분) · 테스트로 만든 TR-03260(3개씩 완료됨)·TR-03261·TR-03267(수량 실측용) 재고 조정.
 - **2026-08-10 세션분은 세션 문서 8장이 목록의 정본** (`docs/sessions/2026-08-10-transfer-parallel-and-clamp.md` — ANN04401/ASSH40608 감산 · ASSH40615 실물 카운트 선행 · 유령 discrepancy 281/282 · PO-01094 잔재 · 테스트 계정 · `PARALLEL PROBE` TR 8건은 상쇄 완료 등).
@@ -1020,7 +1042,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **리시빙 동시 작업 미해결분 — 규칙 27 이 전체 목록** (위 「리시빙 Apply」·「동시 작업 원자화」에 안 담긴 것): **R3 `wms_receipts.cin7_purchase_id` 유니크**(중복 0건 확인, 분할 입고는 새 PO 라 걸어도 안전 — 새 마이그레이션) · ~~R4 Apply 최종 PATCH 에 `applied_at is null`~~(✅ 2026-08-06 in-flight 잠금으로 PO·트랜스퍼 해소 — 규칙 27 R4) · R5 Complete↔Apply 창 · RLS 창고 스코프 · EF 호출자/perms 서버 검증.
 - **`startWave` 가 wave 행의 `held_by` 를 정리하지 않는다 (규칙 18·23 · 2026-08-07 발견)** — 멤버 task 는 `held_by:null` 로 정리하는데 wave 행 UPDATE 에는 빠져 있다(picker.html `startWave`). "내가 Hold → 남이 claim → 무작업 Back" 뒤 wave 가 pending 인데 held_by=나 로 남아 **"Resume your held" 섹션에 잘못 떠 보이는 표시성 스테일**(실해 없음 — holdCasFailed 의 "내 Hold" 오판 케이스도 그 시점 실상(pending·미배정·라인 보존)과 결과가 같다). 수정은 `startWave` 의 wave UPDATE 에 `held_by:null` 한 필드 — 단 검증된 claim 경로라 별건으로.
 - **인덱스 기반 bcMap 잔존**: picker.html·packer.html(규칙 25). 지금은 splice 를 안 해 안전 — 라인 삭제 기능 추가 시 반드시 id 기반으로 먼저 전환.
-- **Cin7 병행 케이스 C 자동감지**: 유입 후 Cin7 상태 변경 감지.
+- ~~**Cin7 병행 케이스 C 자동감지**: 유입 후 Cin7 상태 변경 감지.~~ → ✅ **2026-08-12 해소** (규칙 43 — Updated 트리거 · On Hold 보류 · unexpected 알림). 잔여: needs_review/voided 자동 전환은 범위 밖(필요해지면 같은 감지 루프에 분기 추가).
 - **GAS scannable_barcodes 근본수정**: base 라인에 형제변형(-12) 바코드 포함(현재 bcMap 병합 우회).
 - 진단 로그(EF SENT) 유지 중 — 안정화 후 제거 가능.
 - `wms_drop_locations` 비어있음.

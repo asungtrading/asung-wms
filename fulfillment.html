@@ -458,10 +458,11 @@ async function loadOrders(){
     box.innerHTML=`<div style="padding:20px;color:var(--mut);font-size:13px">No orders ready to ship.${holdCount?`<br><span style="color:var(--warn);font-weight:700">${holdCount} order(s) waiting for all split batches to finish packing</span> — they appear here when EVERY batch is packed.`:""}</div>`;
     return;
   }
-  const {data:ords,error:oe}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status").in("id",readyIds).neq("status","closed").order("customer_name").order("order_number");
+  const {data:ords,error:oe}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state").in("id",readyIds).neq("status","closed").order("customer_name").order("order_number");
   if(oe){ fail("orders",oe); return; }
   const acc=me.warehouse_access;
-  availOrders=(ords||[]).filter(o=>acc==="both"||o.warehouse===acc);
+  // Cin7 보류(규칙 43): 보드에서 숨긴다 — admin 에서만 관리·재개. unexpected 는 숨기지 않는다(보류가 아니다).
+  availOrders=(ords||[]).filter(o=>acc==="both"||o.warehouse===acc).filter(o=>o.hold_state!=="on_hold");
   renderOrderList(holdCount);
 }
 function renderOrderList(holdCount=0){
@@ -551,6 +552,18 @@ document.getElementById("completeBtn").onclick=async ()=>{
   try{
     // 벨트 (규칙 9 게이트와 같은 뷰): 보드에 실릴 땐 전부 팩 완료였어도, 그 사이 매니저 롤백이
     // 팩을 되돌렸을 수 있다 — Finalize 직전 재확인. 확인 실패도 차단(빈 결과로 위장하지 않는다).
+    // Cin7 보류 재확인 벨트 (2026-08-12 · 규칙 43) — **마지막 방벽**: 픽·팩이 끝났어도 출고는 막는다.
+    // 화면 캐시가 아니라 서버 값 기준. 확인 실패도 차단(빈 결과로 위장하지 않는다 — 아래 pack 벨트와 동일 원칙).
+    const {data:hh,error:he}=await sb.from("wms_orders").select("id,order_number,hold_state,hold_progress").in("id",orders.map(o=>o.id));
+    if(he){ toast("Couldn't check hold status — finalize blocked, retry ("+(he.message||"")+")",true); btn.disabled=false; return; }
+    const heldNow=(hh||[]).filter(o=>o.hold_state==="on_hold");
+    if(heldNow.length){
+      alert("⚠ ON HOLD — finalize blocked:\n"+heldNow.map(o=>"· "+o.order_number).join("\n")+"\n\nThese orders were put on hold in Cin7. A manager must review and resume them (admin screen).");
+      btn.disabled=false; loadOrders(); return;
+    }
+    // unexpected 는 "모르는 값"이지 보류가 아니다 — 차단하면 정상 오더가 갇힌다(2026-08-12 사용자 결정). 경고만.
+    const oddNow=(hh||[]).filter(o=>o.hold_state==="unexpected");
+    if(oddNow.length && !confirm("⚠ Unexpected Cin7 status on:\n"+oddNow.map(o=>`· ${o.order_number} — "${o.hold_progress||"?"}"`).join("\n")+"\n\nNot a hold, but worth a look. Finalize anyway?")){ btn.disabled=false; return; }
     const {data:pr,error:pe}=await sb.from("wms_order_pack_progress")
       .select("order_id,pick_batches,packs_done,all_packed").in("order_id",orders.map(o=>o.id));
     if(pe){ toast("Couldn't check pack status — finalize blocked, retry ("+(pe.message||"")+")",true); btn.disabled=false; return; }

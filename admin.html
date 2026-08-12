@@ -176,6 +176,7 @@
     <div class="view active" id="v-overview">
       <div class="sect-h">Order Status</div>
       <div class="grid" id="orderStats"></div>
+      <div id="holdSection"></div>
       <div class="sect-h">work batches</div>
       <div class="grid" id="batchStats"></div>
       <div class="sect-h">Live now <span style="font-weight:400;color:var(--mut);font-size:12.5px">— screens open this second · Picking/Packing (batch) · Receiving/Transfer (stage · document) · Fulfillment (orders)</span></div>
@@ -551,13 +552,62 @@ function markLiveRows(){
 }
 
 /* ---------- Status ---------- */
+/* ---------- Cin7 보류 / 예상 밖 값 (2026-08-12 · 규칙 43) ----------
+   on_hold = 작업 화면에서 숨김 + 다음 단계 차단(진행 중은 끝까지 허용) — 재개는 수동만.
+   unexpected = 알림만(숨김·차단 없음 — "보류"로 뭉뚱그리지 않는다: 값 원문을 그대로 보여야
+   매니저 대응이 갈린다). WMS 단계 표시는 필수 — 극단 케이스(팩까지 끝난 보류)를 기존
+   Rollback 으로 처리하려면 어느 단계인지 알아야 한다(강제 중단 도구는 만들지 않음 — 사용자 결정). */
+function renderHolds(rows){
+  const el=document.getElementById("holdSection"); if(!el) return;
+  if(!rows.length){ el.innerHTML=""; return; }
+  const canRelease=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");
+  const stageCnt={};
+  rows.forEach(r=>{ stageCnt[r.status]=(stageCnt[r.status]||0)+1; });
+  const chips=Object.entries(stageCnt).map(([k,n])=>`<span class="tag" style="background:#fff4e0;color:#a86400;margin-right:6px">${esc(k)} ${n}</span>`).join("");
+  const fmtT=t=>t?new Date(t).toLocaleDateString()+" "+new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—";
+  el.innerHTML=`
+    <div class="sect-h" style="color:#a86400">⏸ Cin7 hold / unexpected <span style="font-weight:400;color:var(--mut);font-size:12.5px">— On Hold is hidden from workers &amp; blocked from the next step · unexpected is a flag only · resume re-checks Cin7 first</span></div>
+    <div class="card" style="padding:12px 14px;margin-bottom:14px">
+      <div style="margin-bottom:8px">${chips}</div>
+      <table><thead><tr><th>Order</th><th>Cin7 value</th><th>WMS stage</th><th>Detected</th><th>Cin7 released</th><th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"")} <span style="color:var(--mut-2);font-size:11px;font-family:var(--sans);font-weight:400">${esc(r.customer_name||"")}</span></td>
+        <td><span class="tag" style="background:${r.hold_state==="on_hold"?"#fdecec;color:#c0392b":"#fff4e0;color:#a86400"}">${esc(r.hold_progress||r.hold_state)}</span></td>
+        <td>${esc(r.status)}</td>
+        <td style="color:var(--mut);font-size:12px">${fmtT(r.hold_detected_at)}</td>
+        <td style="font-size:12px">${r.hold_releasable_at?`<b style="color:#16a34a">resumable</b> <span style="color:var(--mut)">${fmtT(r.hold_releasable_at)}</span>`:'<span style="color:var(--mut)">not yet</span>'}</td>
+        <td>${canRelease?`<button class="btnsm ok" data-holdresume="${r.id}">Re-check &amp; resume</button>`:'<span style="color:var(--mut-2);font-size:11px">no permission</span>'}</td>
+      </tr>`).join("")}</tbody></table>
+    </div>`;
+  el.querySelectorAll("[data-holdresume]").forEach(b=>b.onclick=()=>holdResume(+b.dataset.holdresume,b));
+}
+async function holdResume(oid,btn){
+  if(!confirm("Re-check Cin7 and resume this order?\n(If Cin7 still says On Hold, the resume stays blocked.)")) return;
+  btn.disabled=true; btn.textContent="Checking…";
+  try{
+    // hold_recheck 는 서버측 권한 게이트가 있다(레포 첫 사례 — anon 401 · admin/apply 만 통과, 규칙 43)
+    const {data:{session}}=await sb.auth.getSession();
+    const tk=(session&&session.access_token)||WMS_CONFIG.SUPABASE_ANON_KEY;
+    const r=await fetch(WMS_CONFIG.SUPABASE_URL+"/functions/v1/hello?action=hold_recheck&order_id="+oid,
+      {headers:{Authorization:"Bearer "+tk, apikey:WMS_CONFIG.SUPABASE_ANON_KEY}});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.ok) throw new Error(j.error||("HTTP "+r.status));
+    if(j.released) toast("Resumed — the order is back in the worker queues");
+    else alert(`Still blocked — Cin7 says "${j.progress}".\nFix it in Cin7 first, then re-check again.`);
+  }catch(e){ toast("Resume failed: "+(e.message||e),true); }
+  loadOverview();
+}
+
 async function loadOverview(){
-  const [orders, picks, packs, finalized]=await Promise.all([
+  const [orders, picks, packs, finalized, cin7Holds]=await Promise.all([
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),
     sb.from("wms_pick_tasks").select("status"),
     sb.from("wms_pack_tasks").select("status"),
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
+    // Cin7 보류/예상 밖 값 (규칙 43) — 종착(closed/voided) 무관하게 hold_state 가 남은 행 전부
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at").not("hold_state","is",null).order("hold_detected_at",{ascending:false}),
   ]);
+  renderHolds(cin7Holds.data||[]);   // 이름 주의: loadOverview 아래쪽의 holds(분할 팩 게이트)와 별개
   loadBatchActivity(orders.data||[]);
   const os=orders.data||[];
   const fin=finalized.data||[];
