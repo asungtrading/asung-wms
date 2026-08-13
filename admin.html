@@ -890,7 +890,8 @@ async function loadRollback(){
   const orders=[...(ordsQ.data||[]),...closedRows]
     .sort((a,b)=>a.order_number<b.order_number?-1:a.order_number>b.order_number?1:0);
   const wavesRb=(wvsQ&&wvsQ.data)||[];
-  // "잘려서 안 보임(총수 모름)"과 "정해서 안 보여줌(총수 표시)"의 차이(#7) — 총수는 이제 토글 버튼이 담당.
+  // "잘려서 안 보임(총수 모름)"과 "정해서 안 보여줌(총수 표시)"의 차이(#7) — 총수는 펼침 캡션("Latest N of M listed")이 담당.
+  //   버튼 괄호 숫자 = 실제 표시 건수(closedRows.length — 2026-08-13 사용자 결정: 버튼 숫자는 목록 건수와 일치해야 한다).
   // finalize 숨김 토글(2026-08-12, 기본 숨김) — 판정은 status==='closed':
   //   · finalize 는 Direct/packing_list 모두 같은 doUpd 로 status=closed 를 쓴다(fulfillment.html) → 둘 다 잡힌다.
   //   · 컬럼 없던 시절의 폴백은 finalized_at 없이 status 만 남겨서, finalized_at 기준은 옛 closed 를 놓친다.
@@ -899,7 +900,7 @@ async function loadRollback(){
   const finToggle=closedTotal>0?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px">
     <button id="finToggleRb" title="Finalized (closed) orders can't be rolled back here — undo pack is blocked and undo fulfillment doesn't reopen them. Void by order number above still works at any stage."
       style="font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:var(--card);cursor:pointer;color:var(--mut)">${
-      showFinalizedRb?`Hide finalized (${closedTotal})`:`Show finalized (${closedTotal})`}</button>
+      showFinalizedRb?`Hide finalized (${closedRows.length})`:`Show finalized (${closedRows.length})`}</button>
     <span style="font-size:11.5px;color:var(--mut)">${
       showFinalizedRb
         ?(closedTotal>closedRows.length?`Latest ${closedRows.length} of ${closedTotal} listed — older closed orders are not listed (rollback of old orders is not a supported path).`:"")
