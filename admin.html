@@ -1156,10 +1156,10 @@ async function loadRollback(){
   // 사용자 확정 사양(2026-08-12): "목록은 최근 N. 옛 오더 롤백은 없다." 총수는 캡션에 count-head 로 표시.
   const [ordsQ,closedQ,closedCnt,wvsQ]=await Promise.all([
     sb.from("wms_orders")   // caps-ok: 활성 3상태 — closed 로 소진되는 활성 풀(수십 규모), 누적원(closed)을 분리해 캡 무관(#7)
-      .select("id,order_number,customer_name,warehouse,status")
+      .select("id,order_number,customer_name,warehouse,status,finalized_at,finalized_by")
       .in("status",["picking","packing","ready_to_close"]).order("order_number"),
     sb.from("wms_orders")   // caps-ok: 최근 200 사양 — 전량 아님(사용자 확정 2026-08-12, 총수는 count-head 캡션 표시)
-      .select("id,order_number,customer_name,warehouse,status")
+      .select("id,order_number,customer_name,warehouse,status,finalized_at,finalized_by")
       .eq("status","closed").order("updated_at",{ascending:false}).limit(200),
     sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed"),
     sb.from("wms_waves")   // caps-ok: 완료 아닌 wave 만 — 완료로 소진되는 활성 풀(동시 수 개 규모)
@@ -1179,13 +1179,13 @@ async function loadRollback(){
   //   · SO-13893 형(잔존 finalized_at·status=picking)은 활성 풀에 남아 계속 보인다 — 숨기면 안 되는 사고 상태.
   // latest-200 설명은 펼쳤을 때만 붙인다 — "latest 200 of 640" 캡션과 버튼의 "(N)" 두 숫자가 나란히면 헷갈린다.
   const finToggle=closedTotal>0?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px">
-    <button id="finToggleRb" title="Finalized (closed) orders can't be rolled back here — undo pack is blocked and undo fulfillment doesn't reopen them. Void by order number above still works at any stage."
+    <button id="finToggleRb" title="Finalized orders are hidden by default. Show them to ↩ Undo Finalize — WMS only, Cin7 stays at 3.Finalized. ⊘ Void by order number above still works at any stage."
       style="font:inherit;font-size:12px;font-weight:700;border:1px solid var(--line);border-radius:9px;padding:6px 9px;background:var(--card);cursor:pointer;color:var(--mut)">${
       showFinalizedRb?`Hide finalized (${closedRows.length})`:`Show finalized (${closedRows.length})`}</button>
     <span style="font-size:11.5px;color:var(--mut)">${
       showFinalizedRb
         ?(closedTotal>closedRows.length?`Latest ${closedRows.length} of ${closedTotal} listed — older closed orders are not listed (rollback of old orders is not a supported path).`:"")
-        :"Finalized orders can't be rolled back — hidden so the list shows only what can be undone."}</span>
+        :"Finalized orders hidden — use “Show finalized” to ↩ Undo Finalize (WMS only — Cin7 stays at 3.Finalized)."}</span>
   </div>`:"";
 
   // void-by-number box (works at ANY stage incl. waiting-to-split, which isn't listed below)
@@ -1247,9 +1247,21 @@ async function loadRollback(){
     const pickStarted=myPicks.some(x=>x.status==="in_progress"||x.status==="completed");
     const hasPack=pc.some(x=>x.order_id===o.id);
     const hasFulfill=pi.some(x=>x.order_id===o.id);
-    // deepest stage → single action
+    // ── deepest stage → single action ──
+    // Finalized 최상단 (2026-08-13 신설 — 백로그 「Rollback 이 Finalize 단계를 모델링하지 않는다」 해소):
+    // 종전 판정(07-20~23)은 fulfillment 를 pallet_items 행 존재로만 가려서, 07-21 에 들어온
+    // Finalize 단계(status=closed + finalized_at)를 못 따라갔다. Direct pack 은 정의상 팔렛을
+    // 안 쓰므로(pallet_items 0행) finalize 완료가 "Pack complete / Undo Pack" 으로 오판됐다 —
+    // 실사고 SO-13893(2026-07-30 Undo Pack 실행 → status=picking + finalized_at 잔존, 2주 방치).
+    // 노출 [실측 2026-08-13] 540건(direct 538 / packing_list 2) · 어중간 잔재 0건.
+    // 팔렛이 있어도 finalize 됐으면 Finalized 가 먼저다(더 깊은 단계 — packing_list 도 같은 오판이었다).
+    // ⚠️ closed 인데 finalized_at null(통계 컬럼이 없던 시절의 status-only 폴백 finalize)은 이
+    // 분기에 안 걸리고 기존 체인으로 떨어진다 — 08-12 응급 차단(packBlocked)과 fulfillment 벨트가
+    // 그쪽을 막고, 경로는 ⊘ Void 뿐이다.
+    const isFinalized=o.status==="closed"&&!!o.finalized_at;
     let stage="", action="", btn="", worker="";
-    if(hasFulfill){ stage="Fulfilled"; action="fulfillment"; btn="↩ Undo Fulfillment";
+    if(isFinalized){ stage="Finalized"; action="finalize"; btn="↩ Undo Finalize"; worker=o.finalized_by||""; }
+    else if(hasFulfill){ stage="Fulfilled"; action="fulfillment"; btn="↩ Undo Fulfillment";
       // 대표 팩커(팔렛에 올라간 배치들의 팩 작업자, 중복 제거)
       const packerNames=[...new Set(pc.filter(x=>x.order_id===o.id).map(x=>x.assigned_to).filter(Boolean))];
       worker=packerNames.join(", ");
@@ -1284,16 +1296,20 @@ async function loadRollback(){
     let stage="", act="";
     if(pack){
       stage=pack.status==="completed"?"Pack complete":"Pack in progress";
-      if(r.hasFulfill || palletPackIds.has(pack.id))
+      if(r.action==="finalize")   // finalize 오더의 배치는 개별 롤백 불가 — 오더 단위 Undo Finalize 먼저 (2026-08-13)
+        act=`<span style="color:var(--mut);font-size:11.5px">Finalized — undo finalize first</span>`;
+      else if(r.hasFulfill || palletPackIds.has(pack.id))
         act=`<span style="color:var(--mut);font-size:11.5px">On a pallet — Undo Fulfillment first</span>`;
-      else if(r.o.status==="closed")   // 응급 차단(SO-13893) — 배치 단위 Undo Pack 도 같은 결함
-        act=`<span style="color:var(--mut);font-size:11.5px" title="This order is finalized (closed) — see backlog: Rollback doesn't model the Finalize stage.">Finalized — undo pack unavailable</span>`;
+      else if(r.o.status==="closed")   // 응급 차단(SO-13893) — 유지: 레거시(closed+finalized_at null)와 판정 회귀 대비 마지막 방어선
+        act=`<span style="color:var(--mut);font-size:11.5px" title="This order is closed without a finalize record (legacy) — batches can't be rolled back. Use ⊘ Void if it was cancelled in Cin7.">Finalized — undo pack unavailable</span>`;
       else
         act=`<button data-brb="pack" data-pickid="${t.id}" data-packid="${pack.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
           style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Undo Pack</button>`;
     } else if(t.status==="in_progress"||t.status==="completed"||prog>0){
       stage=t.status==="completed"?"Pick done":(t.status==="in_progress"?"Picking":"Held (progress)");
-      act=`<button data-brb="pick" data-pickid="${t.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
+      act=r.action==="finalize"   // finalize 오더면 픽 배치 리셋도 막는다 — doBatchRollback pick 에는 closed 벨트가 없어 이 표시가 유일한 차단(잔여 경합 창은 별건)
+        ?`<span style="color:var(--mut);font-size:11.5px">Finalized — undo finalize first</span>`
+        :`<button data-brb="pick" data-pickid="${t.id}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-bl="${esc(t.batch_label)}"
         style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:7px;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer">↩ Reset Pick</button>`;
     } else { stage="Waiting (no progress)"; act=`<span style="color:var(--mut)">—</span>`; }
     return `<tr>
@@ -1306,17 +1322,17 @@ async function loadRollback(){
 
   el.innerHTML=voidBox+waveHtml+finToggle+`<table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Current stage</th><th>Worker</th><th></th></tr></thead><tbody>${
     visRows.map(r=>{
-      // ⚠️ 응급 차단(2026-08-12 SO-13893): closed(finalized) 오더가 "Pack complete"로 오판된 경우
-      // Undo Pack 을 막는다 — stage 판정이 fulfillment 를 pallet_items 유무로만 가려서 Direct pack
-      // (정의상 팔렛 없음, 노출 513건)이 여기로 떨어진다. Undo Pack 은 status 를 picking 으로 되돌리며
-      // finalized_at 은 남겨 어중간한 상태를 만든다(실사고 SO-13893 — 2주 방치). 판정 자체·Undo
-      // Fulfillment 의 반쪽 결함은 별건(백로그 「Rollback 이 Finalize 단계를 모델링하지 않는다」).
-      // Void 는 정당한 경로라 그대로 둔다(SO-13364·SO-13333 이 그 경로로 종결).
+      // ⚠️ 응급 차단(2026-08-12 SO-13893) — 2026-08-13 Finalized 단계 신설 후에도 유지(사용자 지시):
+      // 종전엔 stage 판정이 pallet_items 유무만 봐서 Direct pack(팔렛 없음, 당시 노출 513건)의
+      // finalize 완료가 "Pack complete/Undo Pack" 으로 떨어졌고 이 차단이 유일한 방어였다.
+      // 이제 closed+finalized_at 는 판정 최상단에서 finalize 로 가므로 여기 오는 closed 는
+      // 레거시(finalized_at null — status-only 폴백 finalize)뿐이지만, 판정이 다시 어긋날 때의
+      // 마지막 방어선으로 남긴다. Void 는 정당한 경로라 그대로(SO-13364·SO-13333 이 그 경로로 종결).
       const packBlocked=r.action==="pack"&&r.o.status==="closed";
       const rbBtn=packBlocked
-        ? `<button disabled title="This order is finalized (closed). Undoing pack would delete packing but leave it finalized — blocked. See backlog: Rollback doesn't model the Finalize stage."
+        ? `<button disabled title="This order is closed without a finalize record (legacy fallback) — Undo Pack would leave it half rolled back. Use ⊘ Void if it was cancelled in Cin7."
             style="border:1px solid var(--line);background:#f3f4f6;color:var(--mut);border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:not-allowed">${r.btn}</button>
-           <div title="This order is finalized (closed). Undoing pack would delete packing but leave it finalized — blocked. See backlog: Rollback doesn't model the Finalize stage."
+           <div title="This order is closed without a finalize record (legacy fallback) — Undo Pack would leave it half rolled back. Use ⊘ Void if it was cancelled in Cin7."
              style="font-size:10.5px;color:var(--mut);white-space:normal;max-width:120px;margin:3px 0 0 auto;text-align:right;line-height:1.35">Finalized — undo pack unavailable</div>`
         : `<button data-rb="${r.action}" data-oid="${r.o.id}" data-on="${esc(r.o.order_number)}" data-worker="${esc(r.worker||"")}"
             style="border:1px solid #f0c4c4;background:#fdecec;color:#c0392b;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">${r.btn}</button>`;
@@ -1392,6 +1408,25 @@ async function reopenRecoveries(oids){
     .select("id");
   if(error) throw new Error("recovery reopen failed - rollback aborted before any delete: "+error.message);
   return (data||[]).length;
+}
+/* 팔렛/박스 삭제 공용부 — doRollback 의 "fulfillment" 와 "finalize" 가 공유 (2026-08-13 추출 · 동작 동일).
+   ⚠️ 새로 짜지 말 것: pallet_items 삭제 후 "빈 유닛만"(아이템 0 + 자식 0) 지운다 —
+   남의 오더 물건이 든 공유 유닛과 박스가 딸린 팔렛(wms_pallets 는 unit_type 으로 팔렛/박스,
+   parent_id 로 계층)은 남긴다. 잘못 지우면 남의 오더 물건이 사라지거나 고아 박스가 생긴다.
+   아카이브 성공 전엔 아무것도 지우지 않는다(archiveRows 순서 불가침). */
+async function deleteFulfillmentRows(action, oid, onum){
+  const it=await sb.from("wms_pallet_items").select("*").eq("order_id",oid); if(it.error) throw it.error;
+  await archiveRows(action, oid, onum, null, "wms_pallet_items", it.data);
+  let d=await sb.from("wms_pallet_items").delete().eq("order_id",oid); if(d.error) throw d.error;
+  const {data:units}=await sb.from("wms_pallets").select("*").eq("order_id",oid);
+  for(const u of (units||[])){
+    const {count:itemCnt}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pallet_id",u.id);
+    const {count:childCnt}=await sb.from("wms_pallets").select("id",{count:"exact",head:true}).eq("parent_id",u.id);
+    if(!itemCnt && !childCnt){
+      await archiveRows(action, oid, onum, null, "wms_pallets", [u]);
+      d=await sb.from("wms_pallets").delete().eq("id",u.id); if(d.error) throw d.error;
+    }
+  }
 }
 /* 자동 처리하지 않는 것들의 매니저 안내 (D·E·C — 표시만, 추측 처리 금지) */
 async function rollbackNotes(linkCol, ids, reasons, oids, opts){
@@ -1494,7 +1529,7 @@ async function loadRollbackLog(){
   const {data,error}=await sb.from("wms_rollback_log").select("*").order("created_at",{ascending:false}).limit(30);
   if(error){ el.innerHTML=`<div class="empty" style="font-size:12px">Log table not found. Run wms_rollback_log.sql to enable history.</div>`; return; }
   if(!data||!data.length){ el.innerHTML=`<div class="empty" style="font-size:12px">No rollbacks yet.</div>`; return; }
-  const AL={fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split",void:"⊘ Void",unwave:"Undo Wave"};
+  const AL={finalize:"Undo Finalize",fulfillment:"Undo Fulfillment",pack:"Undo Pack",pick:"Reset Pick",split:"Undo Split",void:"⊘ Void",unwave:"Undo Wave"};
   el.innerHTML=`<table><thead><tr><th>Order</th><th>Batch</th><th>Action</th><th>Stage</th><th>Original worker</th><th>Undone by</th><th>When</th></tr></thead><tbody>${
     data.map(r=>`<tr>
       <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"—")}</td>
@@ -1509,6 +1544,7 @@ async function loadRollbackLog(){
 }
 
 const RB_CONFIRM={
+  finalize:o=>`Undo finalize for ${o}?\n\n• Cin7 stays at 3.Finalized — this changes the WMS only. Adjust Cin7 manually if needed.\n• Pallet/box assignments (if any) are deleted (a copy is archived first)\n• The order returns to Ready-to-close and reappears on the fulfillment board\n• Pick/pack work and their discrepancies are untouched\n\nProceed?`,
   fulfillment:o=>`Undo fulfillment for ${o}?\n\n• Deletes this order's pallet/box assignments (a copy is archived first)\n• Returns it to the Pack-complete stage\n• Shared pallets still holding other orders' items are kept\n\nProceed?`,
   pack:o=>`Undo packing for ${o}?\n\n• Deletes ALL pack verification for this order (a copy is archived first)\n• Returns it to the Pick-complete stage\n• Its pack discrepancies (short after pack / over-pick / double scan) are voided — kept for audit\n• Pick shortages that packing had resolved are REOPENED\n\nProceed?`,
   pick:o=>`Reset picking for ${o}?\n\n• All picked quantities go back to 0 (a copy is archived first)\n• Batches return to unstarted (batches are kept)\n• Its short-pick discrepancies are voided — kept for audit\n\nProceed?`,
@@ -1520,20 +1556,41 @@ async function doRollback(oid, action, onum, worker){
   try{
     let voided=0, reopened=0, notes=[];
     if(action==="fulfillment"){
-      // fulfillment 는 discrepancy 를 만들지 않는다 — 아카이브만.
-      const it=await sb.from("wms_pallet_items").select("*").eq("order_id",oid); if(it.error) throw it.error;
-      await archiveRows("fulfillment", oid, onum, null, "wms_pallet_items", it.data);
-      let d=await sb.from("wms_pallet_items").delete().eq("order_id",oid); if(d.error) throw d.error;
-      const {data:units}=await sb.from("wms_pallets").select("*").eq("order_id",oid);
-      for(const u of (units||[])){
-        const {count:itemCnt}=await sb.from("wms_pallet_items").select("id",{count:"exact",head:true}).eq("pallet_id",u.id);
-        const {count:childCnt}=await sb.from("wms_pallets").select("id",{count:"exact",head:true}).eq("parent_id",u.id);
-        if(!itemCnt && !childCnt){
-          await archiveRows("fulfillment", oid, onum, null, "wms_pallets", [u]);
-          d=await sb.from("wms_pallets").delete().eq("id",u.id); if(d.error) throw d.error;
-        }
+      // closed 벨트 신설(2026-08-13 — 종전엔 pack 분기에만 있었다): closed(finalized) 오더에
+      // 실행되면 팔렛만 사라지고 status=closed·finalized_at 이 남아, fulfillment 보드의
+      // .neq("status","closed") 에 걸려 재-finalize 가 영구히 불가능해진다(반쪽 결함).
+      // 판정 신설로 UI 에선 안 오지만 레거시(closed+finalized_at null)와 로드↔실행 사이
+      // finalize 경합 창이 남는다 — pack 벨트와 동형, 확인 실패도 차단(빈 결과로 위장 금지).
+      const cur=await sb.from("wms_orders").select("status").eq("id",oid).maybeSingle();
+      if(cur.error){ toast("Couldn't check order status — rollback blocked, retry ("+(cur.error.message||"")+")",true); return; }
+      if(cur.data&&cur.data.status==="closed"){
+        alert("⚠ "+onum+" is finalized (closed) — Undo Fulfillment is blocked.\n\nUse ↩ Undo Finalize instead — it clears the finalize AND removes pallet/box assignments.\nIf the order was cancelled in Cin7, use ⊘ Void.");
+        loadRollback(); return;
       }
+      // fulfillment 는 discrepancy 를 만들지 않는다 — 아카이브만(삭제 로직은 finalize 와 공용부).
+      await deleteFulfillmentRows("fulfillment", oid, onum);
       // order stays ready_to_close
+    }
+    else if(action==="finalize"){
+      // Undo Finalize (2026-08-13 신설 — Finalize 단계 모델링. ⚠️ Cin7 은 건드리지 않는다:
+      // 이미 3.Finalized 이고 불가역 외부 쓰기를 늘리지 않는다는 기존 결정 — 매니저가 Cin7 에서 직접).
+      // 벨트: finalize 상태 재확인 — 다른 매니저가 이미 되돌렸거나(경합) 조회 실패면 중단.
+      const cur=await sb.from("wms_orders").select("status,finalized_at").eq("id",oid).maybeSingle();
+      if(cur.error){ toast("Couldn't check order status — rollback blocked, retry ("+(cur.error.message||"")+")",true); return; }
+      if(!cur.data||cur.data.status!=="closed"||!cur.data.finalized_at){
+        alert("⚠ "+onum+" is not finalized any more — reloading the list."); loadRollback(); return;
+      }
+      // 팔렛 먼저 · status 플립 마지막 — 중간 실패 시 오더는 여전히 closed 라 Undo Finalize
+      // 재실행이 잔여분을 완주한다(역순이면 ready_to_close 오더가 스테일 팔렛을 단 채 보드에 뜬다).
+      await deleteFulfillmentRows("finalize", oid, onum);
+      // voidDisc 없음: finalize 는 discrepancy 를 만들지 않고, 픽·팩 작업은 되돌리지 않으므로
+      // 그 단계들의 discrepancy 는 살아있는 게 맞다(규칙 41 화이트리스트 원칙).
+      const up=await sb.from("wms_orders")
+        .update({status:"ready_to_close", finalized_at:null, finalized_by:null, fulfillment_type:null, updated_at:now})
+        .eq("id",oid).eq("status","closed").select("id");   // CAS + .select() 행수 판정(규칙 24 — 0행도 error null)
+      if(up.error) throw up.error;
+      if(!up.data||!up.data.length) throw new Error("order flip matched 0 rows — the order changed while undoing (pallet data, if any, is archived). Reload and retry.");
+      notes.push("⚠ Cin7 is still 3.Finalized — this undo changed the WMS only. Adjust Cin7 manually if needed.\n"+onum+" is back on the fulfillment board as Ready to close.");
     }
     else if(action==="pack"){
       // 응급 벨트(2026-08-12 SO-13893): closed(finalized) 오더의 Undo Pack 은 서버 재확인으로도 차단 —
@@ -1594,7 +1651,9 @@ async function doRollback(oid, action, onum, worker){
       await sb.from("wms_orders").update({status:"pending",updated_at:now}).eq("id",oid);
     }
     // audit log (separate table — keeps discrepancy queue clean)
-    const STAGE={fulfillment:["fulfilled","pack_complete"],pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"],split:["split","unsplit"]};
+    // finalize 착지 = pack_complete: Undo Finalize 는 팔렛까지 지우므로(A안 — 사용자 승인 2026-08-13)
+    // "fulfilled" 로 적으면 로그가 실제 착지 단계와 어긋난다.
+    const STAGE={finalize:["finalized","pack_complete"],fulfillment:["fulfilled","pack_complete"],pack:["pack_complete","pick_complete"],pick:["pick_complete","pick_reset"],split:["split","unsplit"]};
     const logRow={
       order_id:oid, order_number:onum, action,
       from_stage:STAGE[action][0], to_stage:STAGE[action][1], performed_by:me.name,
