@@ -1594,7 +1594,28 @@ async function loadPacking(){
   const r=rangeFor(finPeriodKey,finCustom); setRangeLabel("finPeriod",r.label);
   const el=document.getElementById("packingList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
-  const {data:ords}=await sb.from("wms_orders").select("id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at").eq("status","closed").order("updated_at",{ascending:false}).limit(300);
+  // 목록을 리뷰 기준으로 (2026-08-13 사용자 결정 · 1-D): 종전 "closed 최근 300 고정"은 All 에서도 340건을
+  // 조용히 누락시켰다(실측: All 인데 FINALIZED 카드가 정확히 300). 미리뷰 = 리뷰 대기 큐 — 잘리면 처리
+  // 누락이므로 sbAll 전량. 리뷰 완료분 = 최근 200(Rollback #7 의 "활성 전량 + closed 최근 200" 패턴 —
+  // 총수는 아래 캡션이 명시). 기간 필터는 기존 클라이언트 inRange 유지(이번 범위 밖).
+  // total_lines/total_required_base = 저장 컬럼(1-E — 추가 쿼리 0, Status 탭 Finalized 섹션과 같은 숫자).
+  const FIN_SELECT="id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at,total_lines,total_required_base";
+  // 카드 모수의 기간(1-D-2): 화면 기준이 coalesce(finalized_at, updated_at) 라 서버 or(and(),and()) 로 옮긴다 —
+  // 카드가 목록 제한과 독립(count-head)이면서도 기간 버튼과 같은 기준을 쓴다.
+  const rangeOr=`and(finalized_at.gte.${r.fromISO},finalized_at.lte.${r.toISO}),and(finalized_at.is.null,updated_at.gte.${r.fromISO},updated_at.lte.${r.toISO})`;
+  const cntCard=f=>{ const q=sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed").or(rangeOr); return f?f(q):q; };
+  const [unrevQ,revQ,revCnt,cTotal,cPk,cDr,cNull]=await Promise.all([
+    sbAll(()=>sb.from("wms_orders").select(FIN_SELECT).eq("status","closed").or("mgr_reviewed.is.null,mgr_reviewed.eq.false").order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미리뷰 전량(리뷰 대기 큐, 잘리면 처리 누락)
+    sb.from("wms_orders").select(FIN_SELECT).eq("status","closed").eq("mgr_reviewed",true).order("updated_at",{ascending:false}).limit(200),   // caps-ok: 최근 200 사양 — 전량 아님(Rollback #7 패턴, 총수는 캡션 표시)
+    sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed").eq("mgr_reviewed",true),
+    cntCard(),
+    cntCard(q=>q.eq("fulfillment_type","packing_list")),
+    cntCard(q=>q.eq("fulfillment_type","direct")),
+    cntCard(q=>q.is("fulfillment_type",null)),
+  ]);
+  const revRows=revQ.data||[], revTotal=revCnt.count??revRows.length;
+  // 병합 후 기존 정렬 기준(updated_at desc) 재정렬 — 종전 단일 쿼리의 표시 순서 보존
+  const ords=[...(unrevQ.data||[]),...revRows].sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다 — 종전 조회는 pallet_items **전량**(무정렬·무LIMIT)이라
   //    캡이 어느 쪽을 버릴지 미정의였다(규칙 20 캡 함정 **5호** — 2026-08-12 전수 조사에서
   //    **이미 초과 상태로 발견됨(2517/1000) — 언제부터 틀렸는지 불명**. 팔렛 유무 배지·Direct pack 판별이
@@ -1614,17 +1635,25 @@ async function loadPacking(){
   const hasPallet=new Set((its||[]).map(i=>i.order_id));
   const inRange=o=>{ const t=new Date(o.finalized_at||o.updated_at).getTime(); return t>=new Date(r.fromISO).getTime() && t<=new Date(r.toISO).getTime(); };
   const fin=(ords||[]).filter(inRange).map(o=>({ ...o, ftype: o.fulfillment_type || (hasPallet.has(o.id)?"packing_list":"direct") }));
-  renderFulfillStats(fin.map(o=>({fulfillment_type:o.ftype})));
+  // 카드는 목록과 독립(1-D-2) — 위 count-head 서버 집계. 목록 배열을 모수로 쓰면 목록 제한(리뷰 200 등)이
+  // 그대로 지표 왜곡이 된다(종전: All 인데 300). 팔렛 폴백(ftype)은 목록 행 표시에만 남는다 — 카드 쪽 절충은
+  // renderFulfillStats 주석 참조(unknown 명시).
+  renderFulfillStats({total:cTotal.count??0, pk:cPk.count??0, dr:cDr.count??0, unknown:cNull.count??0});
   if(!fin.length){ el.innerHTML=`<div class="empty">No finalized orders in this period.</div>`; return; }
   const unrev=fin.filter(o=>!o.mgr_reviewed).length;
-  el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+  // 리뷰 완료분 잘림 명시(Rollback 캡션 패턴) — "정해서 안 보여줌 + 총수 표시"
+  const revNote=revTotal>revRows.length
+    ? `<span style="font-size:11.5px;color:var(--mut)">Latest ${revRows.length} of ${revTotal} reviewed listed — older reviewed orders are not listed.</span>`
+    : "";
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);cursor:pointer"><input type="checkbox" id="finHideRev"> Hide reviewed</label>
-      <span style="font-size:12px;color:var(--mut-2)">${unrev} of ${fin.length} not yet reviewed</span></div>
-    <table><thead><tr><th style="width:32px">✓</th><th>Order</th><th>Customer</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
+      <span style="font-size:12px;color:var(--mut-2)">${unrev} of ${fin.length} not yet reviewed</span>${revNote}</div>
+    <table><thead><tr><th style="width:32px">✓</th><th>Order</th><th>Customer</th><th class="num">Lines</th><th class="num">Units</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
     fin.map(o=>`<tr data-rev="${o.mgr_reviewed?1:0}" style="${o.mgr_reviewed?"opacity:.55":""}">
       <td><input type="checkbox" class="mgrchk" data-oid="${o.id}" ${o.mgr_reviewed?"checked":""} title="${o.mgr_reviewed?("Reviewed by "+esc(o.mgr_reviewed_by||"")+(o.mgr_reviewed_at?" · "+new Date(o.mgr_reviewed_at).toLocaleDateString():"")):"Mark as reviewed"}"></td>
       <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
       <td>${esc(o.customer_name||"—")}</td>
+      <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td>${esc(o.finalized_by||"—")}</td>
       <td style="color:var(--mut);font-size:12px">${(o.finalized_at||o.updated_at)?new Date(o.finalized_at||o.updated_at).toLocaleString():""}</td>
@@ -2744,17 +2773,21 @@ async function loadStats(){
     if(m[d.reason]!=null)m[d.reason]++; m.total++; });
   renderMistakes(mistakes);
 }
-function renderFulfillStats(fin){
-  const total=fin.length;
-  const pk=fin.filter(o=>o.fulfillment_type==="packing_list").length;
-  const dr=fin.filter(o=>o.fulfillment_type==="direct").length;
-  const pct=total?Math.round(pk/total*100):0;
+function renderFulfillStats(c){
+  // 모수 = count-head 서버 집계(2026-08-13 1-D-2 — 목록 제한과 독립). 기간은 coalesce(finalized_at,updated_at)
+  // 의 서버 or 표현(loadPacking rangeOr)이라 기간 버튼과 같은 기준.
+  // ⚠️ 절충: fulfillment_type 미기록(unknown — 컬럼 신설 2026-07-21 이전 finalize, 고정 과거 모수·안 늘어남)은
+  // 목록 행에선 팔렛 유무로 폴백 분류하지만, 카드는 행 없이 세므로(count-head) 기록된 타입만 집계한다.
+  // rate 분모 = 기록분(pk+dr) — unknown 은 캡션으로 명시(0 이면 캡션 없음 = 종전과 완전 동일).
+  const {total,pk,dr,unknown}=c, known=pk+dr;
+  const pct=known?Math.round(pk/known*100):0;
   document.getElementById("fulfillStats").innerHTML=[
     ["Finalized",total,""],
     ["With packing list",pk,"ok"],
     ["Direct pack",dr,dr>0?"warn":""],
-    ["Packing-list rate",pct+"%",pct>=80?"ok":(total?"warn":"")],
-  ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+    ["Packing-list rate",pct+"%",pct>=80?"ok":(known?"warn":"")],
+  ].map(([k,v,c2])=>`<div class="stat ${c2}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")
+  +(unknown?`<div style="grid-column:1/-1;font-size:11px;color:var(--mut-2)">${unknown} order(s) finalized before the type was recorded — shown in the list by pallet fallback, not counted in the split or rate above.</div>`:"");
 }
 function renderProd(){
   // one row per worker = pick/pack (prodPP) ∪ receiving (prodRecv) — 두 조회가 도착하는 대로 병합 재렌더
