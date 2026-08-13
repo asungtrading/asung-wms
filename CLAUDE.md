@@ -137,3 +137,9 @@ git config core.hooksPath scripts/hooks
   경고만 한다(무관한 커밋을 붙잡지 않는다).
 - `git commit --no-verify`로 우회 가능하지만 업로드는 여전히 거부된다.
 - PyYAML이 있으면 그걸로 파싱하고, 없으면 stdlib 폴백 파서를 쓴다(`>`/`|`/단일행 모두 동일 결과 검증됨).
+
+## 8. 커밋 규칙
+
+- ⚠️ 커밋 메시지에 `Co-Authored-By` 줄을 넣지 말 것 (2026-08-13 사용자 지시 —
+  Claude Code 기본 동작이 매번 붙여, 프롬프트마다 수동 지시가 필요했다)
+- 형식: `fix|feat|docs|refactor(범위): 한국어 상세` — "왜"와 무접촉 범위까지 본문에
