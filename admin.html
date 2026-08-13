@@ -1588,7 +1588,9 @@ async function loadPacking(){
   // 누락이므로 sbAll 전량. 리뷰 완료분 = 최근 200(Rollback #7 의 "활성 전량 + closed 최근 200" 패턴 —
   // 총수는 아래 캡션이 명시). 기간 필터는 기존 클라이언트 inRange 유지(이번 범위 밖).
   // total_lines/total_required_base = 저장 컬럼(1-E — 추가 쿼리 0, Status 탭 Finalized 섹션과 같은 숫자).
-  const FIN_SELECT="id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at,total_lines,total_required_base";
+  // wms_pick_tasks(count) = "N batches" 배지용 임베드 카운트(2026-08-13) — 최상위 행은 오더뿐이라
+  // 1000행 캡과 무관(규칙 20: 캡은 최상위 행에만)·추가 왕복 0. FK 실재 확인: wms_pick_tasks_order_id_fkey.
+  const FIN_SELECT="id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at,total_lines,total_required_base,wms_pick_tasks(count)";
   // 카드 모수의 기간(1-D-2): 화면 기준이 coalesce(finalized_at, updated_at) 라 서버 or(and(),and()) 로 옮긴다 —
   // 카드가 목록 제한과 독립(count-head)이면서도 기간 버튼과 같은 기준을 쓴다.
   const rangeOr=`and(finalized_at.gte.${r.fromISO},finalized_at.lte.${r.toISO}),and(finalized_at.is.null,updated_at.gte.${r.fromISO},updated_at.lte.${r.toISO})`;
@@ -1638,9 +1640,14 @@ async function loadPacking(){
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);cursor:pointer"><input type="checkbox" id="finHideRev"> Hide reviewed</label>
       <span style="font-size:12px;color:var(--mut-2)">${unrev} of ${fin.length} not yet reviewed</span>${revNote}</div>
     <table><thead><tr><th style="width:32px">✓</th><th>Order</th><th>Customer</th><th class="num">Lines</th><th class="num">Units</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
-    fin.map(o=>`<tr data-rev="${o.mgr_reviewed?1:0}" style="${o.mgr_reviewed?"opacity:.55":""}">
+    fin.map(o=>{
+      // 배치 펼침(2026-08-13): 분할 오더(배치 2개+)에만 캐럿 — 1개가 대부분이라 노이즈 방지(사용자 지시).
+      // 상세는 펼칠 때 그 오더만 lazy 1왕복(Rollback 식 4종 프리로드는 closed 640건에서 2만~4만 행 — 부적격 판정).
+      const nb=(o.wms_pick_tasks&&o.wms_pick_tasks[0]&&o.wms_pick_tasks[0].count)||0;
+      const bt=nb>=2?` <button data-finbt="${o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${nb} batches</button>`:"";
+      return `<tr data-rev="${o.mgr_reviewed?1:0}" style="${o.mgr_reviewed?"opacity:.55":""}">
       <td><input type="checkbox" class="mgrchk" data-oid="${o.id}" ${o.mgr_reviewed?"checked":""} title="${o.mgr_reviewed?("Reviewed by "+esc(o.mgr_reviewed_by||"")+(o.mgr_reviewed_at?" · "+new Date(o.mgr_reviewed_at).toLocaleDateString():"")):"Mark as reviewed"}"></td>
-      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
+      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${bt}</td>
       <td>${esc(o.customer_name||"—")}</td>
       <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
@@ -1649,8 +1656,56 @@ async function loadPacking(){
       <td>${o.ftype==="packing_list"
         ? `<button class="plbtn" data-print="${o.id}">🖨 Print</button> <button class="plbtn" data-pdf="${o.id}" data-onum="${esc(o.order_number)}">⬇ PDF</button> <button class="plbtn" data-csv="${o.id}" data-onum="${esc(o.order_number)}">⬇ CSV</button>`
         : `<span class="tag" style="color:#c2410c;border-color:#f2c9ae;background:#fff7f2">Direct pack</span>`}</td>
-    </tr>`).join("")
+    </tr>${
+      // 서브행 접힘은 hidden 속성으로(스타일 display 아님) — Hide reviewed 토글이 style.display 를 일괄
+      // 되돌려도(체크 해제 시 "") hidden 인 접힌 서브행이 같이 펼쳐지지 않는다. data-rev 상속 = 부모가
+      // 숨겨질 때 서브행도 함께 숨도록(토글 코드 무접촉).
+      nb>=2?`<tr data-finsub="${o.id}" data-rev="${o.mgr_reviewed?1:0}" hidden><td colspan="9" style="background:#fafbfd;padding:6px 10px"><div data-finsubbox="${o.id}"></div></td></tr>`:""
+    }`;}).join("")
   }</tbody></table>`;
+  // ── 배치 펼침(2026-08-13) — 펼치는 오더 1건만 lazy 조회·캐시 ──
+  // 임베드 체인 pick→pack→lines 로 1왕복(FK 전부 실재: order_id·pick_task_id·pack_task_id fkey).
+  // lines/units = 팩 검수 실적(verified_base>0 라인 수 · 합) — Stats 의 "실제 한 일" 기준과 같은 자.
+  // 캐시는 loadPacking 호출 스코프 — 기간 변경·재로드 시 자연 초기화. 동시 여러 오더 펼침 허용(각 1왕복·수십 행).
+  const finBatchCache={};
+  el.querySelectorAll("[data-finbt]").forEach(b=>b.onclick=async()=>{
+    const oid=+b.dataset.finbt;
+    const sub=el.querySelector(`[data-finsub="${oid}"]`); if(!sub) return;
+    const wasOpen=!sub.hidden;
+    sub.hidden=wasOpen;
+    b.textContent=(wasOpen?"▸ ":"▾ ")+b.textContent.slice(2);
+    if(wasOpen) return;
+    const box=el.querySelector(`[data-finsubbox="${oid}"]`);
+    if(finBatchCache[oid]){ box.innerHTML=finBatchCache[oid]; return; }
+    box.innerHTML=`<span style="color:var(--mut);font-size:12px">Loading batches…</span>`;
+    try{
+      const {data,error}=await sb.from("wms_pick_tasks")
+        .select("id,batch_label,assigned_to,completed_by,wms_pack_tasks(id,assigned_to,completed_by,wms_pack_task_lines(verified_base))")
+        .eq("order_id",oid).order("batch_label");
+      if(error) throw error;
+      // 헤더에 "verified" 명시(2026-08-13 사용자 결정): 상위 표의 Lines/Units 는 주문 기준(total_*),
+      // 여기는 검수 실적(verified_base>0) — 부족 출고면 합이 안 맞는 게 정상이라 같은 이름이면 오독한다.
+      const html=`<table style="width:100%"><thead><tr><th style="font-size:11px">Batch</th><th style="font-size:11px">Picked by</th><th style="font-size:11px">Packed by</th><th class="num" style="font-size:11px">Lines verified</th><th class="num" style="font-size:11px">Units verified</th></tr></thead><tbody>${
+        (data||[]).map(t=>{
+          let lines=0, units=0, packer="";
+          (t.wms_pack_tasks||[]).forEach(pk=>{
+            packer=packer||pk.completed_by||pk.assigned_to||"";
+            (pk.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q>0){lines++;units+=q;} });
+          });
+          const hasPack=(t.wms_pack_tasks||[]).length>0;
+          return `<tr>
+            <td style="font-family:var(--mono);font-weight:700;padding-left:22px">${esc(t.batch_label||"—")}</td>
+            <td style="font-size:12px">${esc(t.completed_by||t.assigned_to||"—")}</td>
+            <td style="font-size:12px">${hasPack?esc(packer||"—"):`<span style="color:var(--mut)">not packed</span>`}</td>
+            <td class="num">${hasPack?lines:"—"}</td><td class="num">${hasPack?nf(units):"—"}</td>
+          </tr>`;}).join("")
+      }</tbody></table>`;
+      finBatchCache[oid]=html; box.innerHTML=html;
+    }catch(e){
+      // 비치명 — 목록은 유지, 캐시 안 함(접었다 펼치면 재시도)
+      box.innerHTML=`<span style="color:#c0392b;font-size:12px">Couldn't load batches: ${esc(e.message||e)} — the list is unaffected. Collapse and expand to retry.</span>`;
+    }
+  });
   el.querySelectorAll("[data-print]").forEach(b=>b.onclick=()=>printOrderPackingList(+b.dataset.print));
   el.querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>downloadPackingPDF(+b.dataset.pdf, b.dataset.onum));
   el.querySelectorAll("[data-csv]").forEach(b=>b.onclick=()=>downloadPackingCSV(+b.dataset.csv, b.dataset.onum));
