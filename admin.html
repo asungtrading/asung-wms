@@ -158,6 +158,7 @@
       <button data-t="health">Health <span class="badge" id="healthBadge" style="display:none">0</span></button>
       <button data-t="recv">Receiving <span class="badge" id="recvBadge" style="display:none">0</span></button>
       <button data-t="packing">Finalized</button>
+      <button data-t="trace">Trace</button>
     </div>
   </header>
 
@@ -259,6 +260,22 @@
     <div class="view" id="v-health">
       <div class="sect-h">System health <span style="font-weight:400;color:var(--mut);font-size:12.5px">— invariants that must always hold · a red card means the rule broke and needs review</span></div>
       <div id="healthList"><div class="loading"><div class="spin"></div>Running checks…</div></div>
+    </div>
+
+    <!-- Order Trace (CCTV lookup) -->
+    <div class="view" id="v-trace">
+      <div class="sect-h">Order trace <span style="font-weight:400;color:var(--mut);font-size:12.5px">— who worked on an order, when and where — to pin down the CCTV time window fast</span></div>
+      <div class="card" style="padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input id="trOrderNum" placeholder="SO-12345" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;font-family:var(--mono);width:140px">
+          <button id="trOrderGo" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Trace</button>
+          <span style="color:var(--mut);font-size:12px">or</span>
+          <input id="trCustomer" placeholder="Customer name (partial OK)" style="border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;width:220px">
+          <button id="trCustGo" style="border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer">Search</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--mut);margin-top:6px">Order number is an exact match (fastest). Customer search shows the latest 30 matches with the total count.</div>
+      </div>
+      <div id="traceResult"><div class="empty">Enter an order number, or search by customer name.</div></div>
     </div>
 
   </main>
@@ -461,6 +478,243 @@ function renderIssueSummary(elId, rows, isOpenFn, cats, r, periodKey, caution, t
   </div>`;
 }
 
+/* ---------- Order Trace: CCTV lookup (2026-08-13) ----------
+   손님 "물건 못 받았다" 연락 → 어느 배치를 누가 언제 작업했는지로 CCTV 시간·장소를 특정한다.
+   급한 화면 — 입력 하나로 답이 나와야 한다. 시각은 CCTV 벽시계 기준이 필요해 토론토 로컬 고정,
+   에드먼턴 오더는 EDM 로컬 병기(DB 는 UTC — Intl timeZone 변환, 오프셋 하드코딩 없음).
+   라인 테이블에는 SKU 가 없다 — order_line_id → wms_order_lines Map 조인.
+   픽↔팩 라인 매칭도 order_line_id (SKU 매칭 금지 — 같은 base_sku 가 여러 order_line 일 수 있다).
+   discrepancy 배치 귀속은 pick_task_id / pack_task_id → 그 팩의 픽 배치 — 2026-08-06 이전 행은
+   링크가 NULL(규칙 41 커버리지 경계)이라 "batch unknown" 블록으로 따로 표시한다. */
+let traceWired=false;
+const TR_CUST_LIMIT=30;
+const TR_ORDER_SEL="id,order_number,customer_name,warehouse,status,imported_at,finalized_at,finalized_by,total_lines,total_required_base";
+
+function loadTrace(){
+  if(!traceWired){
+    traceWired=true;
+    document.getElementById("trOrderGo").onclick=traceByOrder;
+    document.getElementById("trCustGo").onclick=traceByCustomer;
+    document.getElementById("trOrderNum").addEventListener("keydown",e=>{ if(e.key==="Enter") traceByOrder(); });
+    document.getElementById("trCustomer").addEventListener("keydown",e=>{ if(e.key==="Enter") traceByCustomer(); });
+  }
+  // 탭 재진입 시 이전 결과는 유지(급한 화면 — 다른 탭에 다녀와도 재검색시키지 않는다), 포커스만 준다
+  document.getElementById("trOrderNum").focus();
+}
+
+/* 시각 표시 — CCTV 는 현지 벽시계로 찾는다. Intl 포맷터는 캐시(재생성 비용 방지). */
+const _trF={};
+function trAt(iso,tz,withDate){
+  if(!iso) return "—";
+  const k=tz+(withDate?"|d":"|t");
+  const f=_trF[k]||(_trF[k]=new Intl.DateTimeFormat("en-CA",withDate
+    ?{timeZone:tz,month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}
+    :{timeZone:tz,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}));
+  return f.format(new Date(iso));
+}
+function trDayKey(iso,tz){
+  const k=tz+"|day";
+  const f=_trF[k]||(_trF[k]=new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit"}));
+  return f.format(new Date(iso));
+}
+// "Aug 12, 09:14 → 09:52 (38 min)" — 같은 로컬 날짜면 끝은 시각만. withDur=false 는 EDM 병기용.
+// 소요는 달력 경과(근무시간 자 아님) — CCTV 구간은 벽시계 그대로가 필요하다.
+function trSpan(a,b,tz,withDur){
+  if(!a) return '<span style="color:var(--mut)">not started</span>';
+  const s=trAt(a,tz,true);
+  if(!b) return s+' → <span style="color:#8a5a08">(in progress)</span>';
+  const e=trDayKey(a,tz)===trDayKey(b,tz)?trAt(b,tz,false):trAt(b,tz,true);
+  let d="";
+  if(withDur){
+    const min=Math.round((new Date(b)-new Date(a))/60000);
+    d=` <span style="color:var(--mut)">(${min<1?"<1 min":min<90?min+" min":(min/60).toFixed(1)+" h"})</span>`;
+  }
+  return `${s} → ${e}${d}`;
+}
+
+async function traceByOrder(){
+  const num=(document.getElementById("trOrderNum").value||"").trim().toUpperCase();
+  if(!num) return;
+  const box=document.getElementById("traceResult");
+  box.innerHTML=`<div class="loading"><div class="spin"></div>Looking up ${esc(num)}…</div>`;
+  const {data,error}=await sb.from("wms_orders").select(TR_ORDER_SEL).eq("order_number",num).limit(1);
+  if(error){ box.innerHTML=`<div class="empty" style="color:#c0392b">Lookup failed: ${esc(error.message||"")} — try again.</div>`; return; }
+  const o=(data||[])[0];
+  if(!o){ box.innerHTML=`<div class="empty">Order not found: <b style="font-family:var(--mono)">${esc(num)}</b> — exact match only (e.g. SO-12345). Try the customer search.</div>`; return; }
+  renderTrace(o);
+}
+
+async function traceByCustomer(){
+  const term=(document.getElementById("trCustomer").value||"").trim();
+  if(!term) return;
+  const box=document.getElementById("traceResult");
+  box.innerHTML=`<div class="loading"><div class="spin"></div>Searching "${esc(term)}"…</div>`;
+  // ilike 부분 일치(admin 첫 선례). 흔한 단어("Beauty")는 수백 건 → 최근 N + 총수 캡션
+  // (2026-08-13 표시 관례: 표시 건수와 총수의 역할을 나눈다). count:"exact" 는 행과 함께 총수 — 왕복 1.
+  const {data,count,error}=await sb.from("wms_orders")
+    .select(TR_ORDER_SEL,{count:"exact"})
+    .ilike("customer_name","%"+term.replace(/[%_]/g,"\\$&")+"%")
+    .order("imported_at",{ascending:false}).order("id",{ascending:false})
+    .limit(TR_CUST_LIMIT);   // caps-ok: 최근 30 사양 — 총수는 캡션이 표시
+  if(error){ box.innerHTML=`<div class="empty" style="color:#c0392b">Search failed: ${esc(error.message||"")} — try again.</div>`; return; }
+  const rows=data||[];
+  if(!rows.length){ box.innerHTML=`<div class="empty">No orders match "${esc(term)}".</div>`; return; }
+  const total=count??rows.length;
+  box.innerHTML=`<div style="font-size:12px;color:var(--mut);margin:0 0 6px">${
+      total>rows.length?`Latest ${rows.length} of ${total} matching orders listed — refine the name to narrow down.`:`${total} matching order${total===1?"":"s"}.`
+    } Click a row to trace it.</div>
+    <div class="card"><table><thead><tr><th>Order</th><th>Customer</th><th>Warehouse</th><th>Status</th><th>Finalized</th></tr></thead><tbody>${
+    rows.map((r,i)=>`<tr data-tri="${i}" style="cursor:pointer">
+      <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number)}</td>
+      <td>${esc(r.customer_name||"—")}</td>
+      <td><span class="tag wh-${r.warehouse}">${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
+      <td><span class="tag st-${r.status}">${STATUS_LABEL[r.status]||r.status}</span></td>
+      <td style="color:var(--mut);font-size:12px">${r.finalized_at?trAt(r.finalized_at,WH_TZ.toronto,true):"—"}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  box.querySelectorAll("[data-tri]").forEach(tr=>tr.onclick=()=>renderTrace(rows[+tr.dataset.tri]));
+}
+
+// discrepancy 한 줄 — 표기 순서는 규칙 41 분기와 동일: declared_by(선언 — 실수 아님) 먼저, responsible(실수 귀속) 다음
+function trDiscLine(d){
+  const lbl=REASON_LABEL[d.reason]||d.reason||"—";
+  const qty=(d.ordered_base!=null||d.actual_base!=null)?` · expected ${nf(d.ordered_base)} → actual ${nf(d.actual_base)}`:"";
+  const who=d.declared_by?` · declared by ${esc(d.declared_by)}`:(d.responsible?` · responsible: ${esc(d.responsible)}`:"");
+  const when=d.created_at?` · ${trAt(d.created_at,WH_TZ.toronto,true)}`:"";
+  return `<div style="font-size:12px;color:#8a5a08;margin-top:2px;${d.voided_at?"text-decoration:line-through;opacity:.55":""}">⚠ <b>${esc(lbl)}</b> · <span style="font-family:var(--mono)">${esc(d.sku)}</span>${qty}${who}${when}${
+    d.resolved_at?' · <span style="color:#1a7f4e">resolved</span>':""}${
+    d.voided_at?" · voided (rollback)":""}</div>`;
+}
+
+// 배치 라벨 자연수 정렬 — baCmp(BATCH ACTIVITY)의 batch 키와 같은 방식(정규식 숫자 비교).
+// 텍스트 정렬은 SO-xxxxx-10 이 -2 앞에 온다 — CCTV 조회는 배치 번호를 눈으로 훑는 작업이라
+// 순서가 어긋나면 급할 때 놓친다(2026-08-13 사용자 결정). baCmp 를 직접 부르지 않는 이유:
+// baSort 전역(키·방향)에 묶여 있어 BATCH ACTIVITY 의 정렬 상태가 여기로 샌다.
+// SO- 형태가 아닌 라벨(wave 라벨 W-MMDD-n 등)은 정규식에 안 걸려 문자열 비교 폴백 — baCmp 와 동일.
+function trBatchCmp(a,b){
+  const pa=/^SO-(\d+)-(\d+)/.exec(a||"")||[], pb=/^SO-(\d+)-(\d+)/.exec(b||"")||[];
+  const x=(Number(pa[1])||0)-(Number(pb[1])||0); if(x) return x;
+  const y=(Number(pa[2])||0)-(Number(pb[2])||0); if(y) return y;
+  return (a||"")<(b||"")?-1:(a||"")>(b||"")?1:0;
+}
+
+// 배치 펼침 내용 — SKU 라인 표 + 그 배치의 discrepancy. 데이터는 renderTrace 가 전부 로드해 둠(추가 왕복 0).
+function trBatchDetail(t,pk,olMap,iss){
+  const packByOl=new Map(); if(pk)(pk.wms_pack_task_lines||[]).forEach(l=>packByOl.set(l.order_line_id,l));
+  const rows=(t.wms_pick_task_lines||[]).map(l=>{
+    const ol=olMap.get(l.order_line_id)||{};
+    const v=pk?packByOl.get(l.order_line_id):null;
+    const asg=Number(l.assigned_base)||0, pkd=Number(l.picked_base)||0;
+    const ver=v?(Number(v.verified_base)||0):null;
+    const pickDiff=pkd!==asg, packDiff=v!=null&&ver!==pkd;
+    return `<tr style="${pickDiff||packDiff?"background:#fdf1ec":""}">
+      <td style="font-family:var(--mono);font-size:12px">${esc(ol.order_sku||("line #"+l.order_line_id))}</td>
+      <td style="font-size:12px">${esc(ol.product_name||"—")}</td>
+      <td style="font-family:var(--mono);font-size:12px">${esc(ol.bin_location||"—")}</td>
+      <td class="num">${nf(asg)}</td>
+      <td class="num" style="${pickDiff?"color:#c0392b;font-weight:700":""}">${nf(pkd)}${pickDiff?` (${pkd>asg?"+":""}${nf(pkd-asg)})`:""}</td>
+      <td class="num" style="${packDiff?"color:#c0392b;font-weight:700":""}">${v!=null?nf(ver)+(packDiff?` (${ver>pkd?"+":""}${nf(ver-pkd)})`:""):"—"}</td>
+    </tr>`;
+  }).join("");
+  return `<table style="width:100%"><thead><tr><th style="font-size:11px">SKU</th><th style="font-size:11px">Product</th><th style="font-size:11px">Bin</th><th class="num" style="font-size:11px">Assigned</th><th class="num" style="font-size:11px">Picked</th><th class="num" style="font-size:11px">Verified</th></tr></thead><tbody>${
+    rows||'<tr><td colspan="6" style="color:var(--mut);font-size:12px">No lines in this batch</td></tr>'}</tbody></table>${
+    iss.length?`<div style="margin-top:6px">${iss.map(trDiscLine).join("")}</div>`:""}`;
+}
+
+async function renderTrace(o){
+  const box=document.getElementById("traceResult");
+  box.innerHTML=`<div class="loading"><div class="spin"></div>Loading ${esc(o.order_number)}…</div>`;
+  try{
+    const [bt,ol,dc]=await Promise.all([
+      // 배치 + 픽 라인 + 팩(pick_task_id 유니크 uq_packtasks_pick — 1:1) + 팩 라인.
+      // pick→pack→pack_lines 3단 체인은 2026-08-13 실측 통과 형태(Finalized 탭)이고,
+      // 임베드 라인은 최상위 배치 행에 실려 오므로 1000행 캡 무관(규칙 20).
+      sb.from("wms_pick_tasks")
+        .select("id,batch_label,assigned_to,completed_by,status,started_at,completed_at,wave_id,tote_no,"
+          +"wms_pick_task_lines(order_line_id,assigned_base,picked_base,status),"
+          +"wms_pack_tasks(id,assigned_to,completed_by,status,started_at,completed_at,"
+          +"wms_pack_task_lines(order_line_id,verified_base,status))")
+        .eq("order_id",o.id).order("batch_label"),
+      // SKU·상품명·bin 은 order_lines 에만 있다 — 라인 ~1000개 오더가 실재해 캡 경계라 sbAll 전량
+      sbAll(()=>sb.from("wms_order_lines").select("id,order_sku,base_sku,product_name,bin_location,zone").eq("order_id",o.id).order("id")),
+      sb.from("wms_discrepancies")
+        .select("id,sku,reason,ordered_base,actual_base,responsible,declared_by,created_at,resolved_at,voided_at,pick_task_id,pack_task_id")
+        .eq("order_id",o.id).order("created_at"),   // caps-ok: 오더 1건 귀속 — 수십 건 규모
+    ]);
+    if(bt.error) throw bt.error;
+    if(ol.error) throw ol.error;
+    const tasks=(bt.data||[]).slice().sort((a,b)=>trBatchCmp(a.batch_label,b.batch_label));   // 자연수 정렬 — 서버 .order 는 텍스트 정렬이라 -10 이 -2 앞
+    const olMap=new Map((ol.data||[]).map(l=>[l.id,l]));
+    // disc 실패는 비치명 — 본체(배치·시각·작업자)는 그대로 보여주고 경고만 남긴다
+    const discs=dc.error?[]:(dc.data||[]);
+    const discNote=dc.error?`<div style="font-size:12px;color:#c0392b;margin:8px 0">Couldn't load discrepancies: ${esc(dc.error.message||"")} — batch info above is unaffected.</div>`:"";
+    // 배치 귀속: pick_task_id 직접 / 팩 산물은 pack_task_id → 그 팩의 픽 배치.
+    // 링크가 라이브 배치와 안 맞으면(NULL 옛 행·롤백으로 배치 삭제) orphans 로.
+    const packToPick=new Map();
+    tasks.forEach(t=>(t.wms_pack_tasks||[]).forEach(p=>packToPick.set(p.id,t.id)));
+    const discByBatch=new Map(); const orphans=[];
+    discs.forEach(d=>{
+      const tid=d.pick_task_id!=null?d.pick_task_id:(d.pack_task_id!=null?packToPick.get(d.pack_task_id):null);
+      if(tid!=null&&tasks.some(t=>t.id===tid)){ if(!discByBatch.has(tid))discByBatch.set(tid,[]); discByBatch.get(tid).push(d); }
+      else orphans.push(d);
+    });
+
+    const TZT=WH_TZ.toronto, isEdm=o.warehouse==="edmonton";
+    const hdr=`<div class="card" style="padding:12px 14px;margin:0 0 12px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-family:var(--mono);font-weight:800;font-size:16px">${esc(o.order_number)}</span>
+        <span style="font-size:13.5px;font-weight:600">${esc(o.customer_name||"—")}</span>
+        <span class="tag wh-${o.warehouse}">${isEdm?"Edmonton":"Toronto"}</span>
+        <span class="tag st-${o.status}">${STATUS_LABEL[o.status]||o.status}</span>
+      </div>
+      <div style="font-size:12px;color:var(--mut);margin-top:4px">Imported ${trAt(o.imported_at,TZT,true)} · ${
+        o.finalized_at?`Finalized ${trAt(o.finalized_at,TZT,true)}${o.finalized_by?" by "+esc(o.finalized_by):""}`:"not finalized yet"
+      } · ${o.total_lines??"—"} lines · ${nf(o.total_required_base)} units ordered</div>
+      <div style="font-size:11.5px;color:var(--mut-2);margin-top:2px">All times are <b>Toronto local</b>${
+        isEdm?" · <b>EDM</b> lines are Edmonton local — match them to the Edmonton CCTV clock":" — match them to the CCTV clock"
+      } (the database stores UTC).</div>
+    </div>`;
+
+    let batHtml;
+    if(!tasks.length){
+      batHtml=`<div class="empty">No pick batches — this order hasn't been split yet, so nothing was physically picked.</div>`;
+    }else{
+      const autoOpen=tasks.length===1;   // 스마트 펼침: 배치 1개(대부분)면 클릭 0회로 SKU 까지
+      const edmLine=x=>isEdm?`<br><span style="color:var(--mut);font-size:11px">EDM ${trSpan(x.started_at,x.completed_at,WH_TZ.edmonton,false)}</span>`:"";
+      batHtml=`<div class="card"><table><thead><tr><th>Batch</th><th>Picked by</th><th>Pick time</th><th>Packed by</th><th>Pack time</th><th class="num">Lines verified</th><th class="num">Units verified</th><th class="num">Issues</th></tr></thead><tbody>${
+        tasks.map(t=>{
+          const pk=(t.wms_pack_tasks||[])[0]||null;
+          const iss=discByBatch.get(t.id)||[];
+          const nIss=iss.filter(d=>!d.voided_at).length;
+          let lv=0,uv=0;
+          if(pk)(pk.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q>0){lv++;uv+=q;} });
+          return `<tr data-trbt="${t.id}" style="cursor:pointer" title="Click to show/hide the SKU lines">
+            <td style="font-family:var(--mono);font-weight:700;white-space:nowrap"><span class="trcaret">${autoOpen?"▾ ":"▸ "}</span>${esc(t.batch_label||("#"+t.id))}${
+              t.wave_id?` <span class="tag" title="picked as part of a wave (multi-order tote cart)">wave${t.tote_no!=null?" · tote "+t.tote_no:""}</span>`:""}</td>
+            <td>${esc(t.completed_by||t.assigned_to||"—")}</td>
+            <td style="font-size:12px;white-space:nowrap">${trSpan(t.started_at,t.completed_at,TZT,true)}${edmLine(t)}</td>
+            <td>${pk?esc(pk.completed_by||pk.assigned_to||"—"):'<span style="color:var(--mut)">not packed</span>'}</td>
+            <td style="font-size:12px;white-space:nowrap">${pk?trSpan(pk.started_at,pk.completed_at,TZT,true)+edmLine(pk):"—"}</td>
+            <td class="num">${pk?lv:"—"}</td><td class="num">${pk?nf(uv):"—"}</td>
+            <td class="num">${nIss?`<span style="color:#c0392b;font-weight:700">⚠ ${nIss}</span>`:"—"}</td>
+          </tr>
+          <tr data-trsub="${t.id}" ${autoOpen?"":"hidden"}><td colspan="8" style="background:#fafbfd;padding:6px 10px">${trBatchDetail(t,pk,olMap,iss)}</td></tr>`;
+        }).join("")}</tbody></table></div>`;
+    }
+    const orphHtml=orphans.length?`<div class="card" style="padding:10px 12px;margin-top:12px">
+      <div style="font-size:12.5px;font-weight:700;color:#8a5a08">⚠ ${orphans.length} discrepanc${orphans.length===1?"y":"ies"} without a batch link <span style="font-weight:400;color:var(--mut)">— recorded before 2026-08-06 (no link column yet) or the batch was removed by a rollback · batch unknown</span></div>
+      ${orphans.map(trDiscLine).join("")}</div>`:"";
+    box.innerHTML=hdr+batHtml+discNote+orphHtml;
+    // 펼침 토글 — 데이터는 전부 로드돼 있어 DOM 토글만(추가 왕복 0). 서브행 접힘은 hidden 속성(Finalized 관례).
+    box.querySelectorAll("[data-trbt]").forEach(tr=>tr.onclick=()=>{
+      const sub=box.querySelector(`[data-trsub="${tr.dataset.trbt}"]`); if(!sub) return;
+      sub.hidden=!sub.hidden;
+      const c=tr.querySelector(".trcaret"); if(c) c.textContent=sub.hidden?"▸ ":"▾ ";
+    });
+  }catch(e){
+    box.innerHTML=`<div class="empty" style="color:#c0392b">Couldn't load trace: ${esc(e.message||e)} — try again.</div>`;
+  }
+}
+
 /* ---------- start ---------- */
 function start(){
   // tab
@@ -478,6 +732,7 @@ function start(){
     if(t==="packing")loadPacking();
     if(t==="health")loadHealth();
     if(t==="recv")loadRecv();
+    if(t==="trace")loadTrace();
   };
   periodBar("discPeriod",discPeriodKey,discCustom,(k,c)=>{discPeriodKey=k;loadDisc();});
   periodBar("repPeriod",repPeriodKey,repCustom,(k,c)=>{repPeriodKey=k;loadReports();});
