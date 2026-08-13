@@ -175,8 +175,7 @@
       <div class="card"><div id="batchActivity"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <div class="sect-h">In-Progress Orders</div>
       <div class="card"><div id="activeOrders"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
-      <div class="sect-h">Finalized <span style="font-weight:400;color:var(--mut);font-size:12.5px">— recently completed (last 40)</span></div>
-      <div class="card"><div id="finalizedOrders"></div></div>
+      <!-- Finalized 섹션 제거(2026-08-13 사용자 결정) — lines·units 포함 전체가 Finalized 탭으로 이관(d540a72). 카드의 Finalized 숫자는 count-head 로 유지. -->
     </div>
 
     <!-- Discrepancy -->
@@ -599,7 +598,7 @@ async function holdResume(oid,btn){
 }
 
 async function loadOverview(){
-  const [orders, pickPend, pickProg, packPend, packProg, finalized, cin7Holds]=await Promise.all([
+  const [orders, pickPend, pickProg, packPend, packProg, finCnt, cin7Holds]=await Promise.all([
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,total_lines,total_required_base,needs_review,imported_at").in("status",["pending","picking","packing","ready_to_close"]).order("imported_at"),   // caps-ok: 활성 오더 풀 — closed 로 소진, 활성 수십 규모(누적 안 됨)
     // 캡 위험 #2·#3 근본 해결 (2026-08-12 1단계): 카드는 pending·in_progress 4개 숫자만 쓴다 —
     // 전체 행을 받아 클라이언트가 세던 것을 count-head(행 0개)로. completed 는 아예 조회하지 않는다(카드가 안 씀).
@@ -608,14 +607,16 @@ async function loadOverview(){
     sb.from("wms_pick_tasks").select("id",{count:"exact",head:true}).eq("status","in_progress"),
     sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("status","pending"),
     sb.from("wms_pack_tasks").select("id",{count:"exact",head:true}).eq("status","in_progress"),
-    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,total_lines,total_required_base,updated_at").eq("status","closed").order("updated_at",{ascending:false}).limit(40),
+    // Finalized 카드용 count-head(2026-08-13 — 섹션 제거 후 카드만 유지). ⚠️ 종전 값은 limit 40 에 잘린
+    // 배열 길이라 40 초과 시 항상 "40" 이었다 — count 로 바꾸면 숫자가 closed 총수(수백)로 크게 느는데
+    // 그것이 정상(과소 표시의 교정)이다. "숫자가 갑자기 커졌다"고 되돌리지 말 것.
+    sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed"),
     // Cin7 보류/예상 밖 값 (규칙 43) — 종착(closed/voided) 무관하게 hold_state 가 남은 행 전부
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at").not("hold_state","is",null).order("hold_detected_at",{ascending:false}),   // caps-ok: hold_state 가 남은 오더만 — 보류는 드물고 해제 시 null 복귀(소수)
   ]);
   renderHolds(cin7Holds.data||[]);   // 이름 주의: loadOverview 아래쪽의 holds(분할 팩 게이트)와 별개
   loadBatchActivity(orders.data||[]);
   const os=orders.data||[];
-  const fin=finalized.data||[];
   // 분할 팩 진행 (규칙 9 fulfillment 게이트와 같은 뷰 — 판정은 한 곳): 팩이 1개 이상 끝났지만
   // 전부는 아닌 오더 = fulfillment 보드에서 숨겨진 상태. 박스는 창고에 쌓이는데 화면 신호가
   // 없으면 갇힌 걸 아무도 모른다 — 여기가 그 신호다.
@@ -634,7 +635,7 @@ async function loadOverview(){
     ["Packing","packing",cnt("packing"),""],
     ["Ready to close","ready_to_close",cnt("ready_to_close"),"ok"],
     ["Fulfillment hold","",holds.length,holds.length?"warn":""],
-    ["Finalized","closed",fin.length,""],
+    ["Finalized","closed",finCnt.count??0,""],
   ].map(([k,s,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
   // count-head 의 count 는 서버가 센 정확한 총수 — 캡·행 수신과 무관 (#2·#3 근본 해결)
@@ -656,18 +657,6 @@ async function loadOverview(){
     </tr>`).join("")
   }</tbody></table>`;
 
-  // finalized (recently completed) table
-  const fe=document.getElementById("finalizedOrders");
-  if(!fin.length){ fe.innerHTML=`<div class="empty">No finalized orders yet.</div>`; }
-  else fe.innerHTML=`<table><thead><tr><th>Orders</th><th>Customer</th><th>Warehouse</th><th class="num">Lines</th><th class="num">units</th><th>Finalized</th></tr></thead><tbody>${
-    fin.map(o=>`<tr>
-      <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}</td>
-      <td>${esc(o.customer_name||"—")}</td>
-      <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
-      <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
-      <td style="color:var(--mut);font-size:12px">${o.updated_at?new Date(o.updated_at).toLocaleString():""}</td>
-    </tr>`).join("")
-  }</tbody></table>`;
 }
 
 /* ---------- Batch activity (who holds what, live/idle, release) ---------- */
