@@ -28,6 +28,8 @@
 // Cin7 HTTP 레이어는 hello(폴링)와 공용 — 429 백오프·에러 구조화가 한 곳에서 관리된다 (2026-08-04 공용화).
 // ⚠️ _shared/cin7.ts 를 바꾸면 hello 도 함께 재배포할 것 (파일 상단 주석 참조).
 import { cin7, cin7ErrInfo, cin7Get, sleep } from "../_shared/cin7.ts";
+// 서버측 권한 게이트 (2026-08-13) — hello(hold_recheck)와 공용. ⚠️ 바꾸면 hello 도 재배포.
+import { hasApply, verifyCaller } from "../_shared/authgate.ts";
 // PO 초과 클램프(2026-08-10 규칙 20 개정) — 순수 함수 분리: po_clamp_test.ts 가 Deno.serve 없이 import 하기 위함.
 import { applyPoInvoiceClamp } from "./po_clamp.ts";
 
@@ -1948,6 +1950,23 @@ Deno.serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action") || "pos";
+
+    // ── 서버측 권한 게이트 (2026-08-13 · 규칙 8 각주 백로그 해소 — _shared/authgate.ts) ──
+    // 종전엔 이 함수가 Authorization 을 아예 읽지 않았다(플랫폼 verify_jwt 뿐 — anon JWT 통과).
+    // 레포가 PUBLIC 이라 anon 키는 공개 → admin.html 의 3중 게이트는 직호출로 우회 가능했다.
+    // 2단: ① read 5종(pos·po·bins·transfers·transfer) = 로그인한 active 직원이면 통과
+    //         (receiver.html 은 requireManager:false 전 작업자 화면 — apply 권한을 요구하면 깨진다)
+    //      ② action=apply 는 dry-run·commit **둘 다** admin/'apply' 승격 (2026-08-13 사용자 결정 —
+    //         dry-run 은 아무것도 안 쓰지만 발주 계획 전체(SKU·수량·bin·공급사)가 노출되고,
+    //         정당 호출자는 admin.html 뿐이라 막아도 깨질 곳이 0이다)
+    // verifyCaller 의 wms_staff 조회 실패(네트워크)는 throw → 아래 catch 500 = fail-closed.
+    const caller = await verifyCaller(req);
+    if (!caller) return json({ ok: false, error: "not signed in" }, 401);
+    if (!caller.active) return json({ ok: false, error: "account is inactive" }, 401);
+    if (action === "apply" && !hasApply(caller)) {
+      return json({ ok: false, error: "no permission - admin role or 'apply' permission required" }, 403);
+    }
+
     if (action === "pos") {
       // pos 배열은 그대로, scanned/totals/truncated 는 최상위 진단 필드로만 추가 (receiver.html 은 pos 만 읽는다)
       return json({ ok: true, ...(await listOpenPOs((url.searchParams.get("search") || "").trim())) });

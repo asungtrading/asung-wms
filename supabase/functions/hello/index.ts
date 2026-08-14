@@ -19,6 +19,10 @@
 // Cin7 HTTP 레이어는 receiving 과 공용 (2026-08-04 공용화 — 429 정책이 갈라지지 않게).
 // ⚠️ _shared/cin7.ts 를 바꾸면 receiving 도 함께 재배포할 것 (파일 상단 주석 참조).
 import { CIN7_BASE, cin7Get, cin7Headers, sleep } from "../_shared/cin7.ts";
+// 서버측 권한 게이트 (2026-08-13) — receiving 과 공용. ⚠️ 바꾸면 receiving 도 재배포.
+// ⚠️⚠️ hold_recheck 액션에만 쓴다 — 폴링 경로(?commit=1)는 pg_cron 이 Bearer 접두어 없는
+//    anon 키로 부르므로(verify_jwt=false 전제) 전역 게이트를 넣으면 오더 유입이 전면 중단된다.
+import { hasApply, verifyCaller } from "../_shared/authgate.ts";
 
 const POLL_LIMIT = 100;       // saleList 페이지 크기 (실측 2026-08-04: AUTHORISED Total 140 — 100×3 이면 전량)
 const POLL_MAX_PAGES = 3;     // 최대 순회 페이지 (총량이 300 을 넘으면 재검토 — 응답 truncated:true 가 그 신호)
@@ -205,23 +209,20 @@ async function assembleLine(ln: any, warehouse: string) {
 // ── ?action=hold_recheck&order_id=N — admin 재개 버튼 (2026-08-12 · 규칙 43) ──
 // Cin7 을 재확인한 뒤에만 해제한다: 매니저가 WMS 에서 재개했는데 Cin7 이 아직 On Hold 면 다음 폴링이
 // 다시 보류로 되돌려 두 시스템이 싸운다 — "Cin7 을 먼저 풀고, 그걸 인지한 매니저가 재개를 허가한다".
-// ⚠️⚠️ 이 분기는 이 레포 **첫 서버측 사용자 권한 게이트**다(staff-create 의 /auth/v1/user 검증 패턴 이식).
-//    기존 EF들은 verify_jwt 뿐이라 공개 커밋된 anon 키로 통과한다 — 보류 해제는 매니저 권한이어야
-//    하므로(재개는 신중해야 한다) 여기서만 먼저 올렸다. 다른 EF 확대는 별건 백로그(규칙 8 각주).
+// ⚠️⚠️ 이 분기는 이 레포 **첫 서버측 사용자 권한 게이트**였다(staff-create 의 /auth/v1/user 검증 패턴 이식).
+//    ~~다른 EF 확대는 별건 백로그~~ → 2026-08-13 확대 완료: 게이트는 _shared/authgate.ts 로 추출됐고
+//    receiving 도 같은 게이트를 쓴다(read=active 직원 / apply=admin·'apply'). 보류 해제가 매니저
+//    권한이어야 하는 이유(재개는 신중해야 한다)는 불변.
 async function holdRecheck(req: Request, url: URL): Promise<Response> {
-  // ① 호출자 검증 — anon 키는 /auth/v1/user 에서 유저가 안 나온다 → 401
-  const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  if (!tok) return json({ ok: false, error: "not signed in" }, 401);
-  const uResp = await fetch(SB_URL() + "/auth/v1/user", {
-    headers: { apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "", Authorization: "Bearer " + tok },
-  });
-  if (!uResp.ok) return json({ ok: false, error: "not signed in" }, 401);
-  const email = (await uResp.json())?.email;
-  if (!email) return json({ ok: false, error: "not signed in" }, 401);
-  // ② 권한 — admin 역할 또는 perms 'apply' (기존 "신중한 조작" 권한 키 재사용 — 2026-08-12 사용자 결정)
-  const staff = await sbGet("wms_staff?email=eq." + encodeURIComponent(email) + "&select=name,role,perms&limit=1");
-  const s = staff[0];
-  if (!(s && (s.role === "admin" || (Array.isArray(s.perms) ? s.perms : []).includes("apply")))) {
+  // ①② 호출자 검증 + 권한 — _shared/authgate.ts 로 추출 (2026-08-13, receiving 게이트와 공용).
+  //    ⚠️ 종전엔 select 에 active 가 없어 비활성화된 admin 의 살아 있는 세션이 통과했다 — 이제 401.
+  //    (staff-create 는 active 를 검사한다 — 두 게이트가 갈라져 있던 것을 이번에 통일.
+  //     [실측 2026-08-13] 현재 wms_staff 전원 active=true 라 이 변경이 지금 막는 사람은 없다.)
+  //    권한은 admin 역할 또는 perms 'apply' (기존 "신중한 조작" 권한 키 재사용 — 2026-08-12 사용자 결정).
+  const s = await verifyCaller(req);
+  if (!s) return json({ ok: false, error: "not signed in" }, 401);
+  if (!s.active) return json({ ok: false, error: "account is inactive" }, 401);
+  if (!hasApply(s)) {
     return json({ ok: false, error: "no permission - admin role or 'apply' permission required" }, 403);
   }
   // ③ Cin7 재확인 → 판정
