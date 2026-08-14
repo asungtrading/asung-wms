@@ -442,13 +442,15 @@ async function loadOrders(){
       <button onclick="loadOrders()" style="font:inherit;font-weight:700;padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer">Retry</button>
     </div>`;
   };
-  // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다 — 무정렬이면 어느 쪽이 버려질지 미정의고,
-  //    잘림은 조용하다(규칙 20 오름차순/캡 함정 **4호** — 2026-08-12 전수 조사, 완료 팩 998/1000 로
-  //    2건 전 응급 처방. packer donePick 3호와 동형: 넘는 순간 새로 팩 완료된 오더가 보드에서 사라져
-  //    Finalize 불가). **내림차순 + 명시 LIMIT** — 잘리는 쪽을 "오래된 완료 팩"으로 고정(그 오더들은
-  //    아래 orders 조회의 .neq("status","closed") 가 어차피 거른다). 표시 순서는 이 쿼리와 무관
-  //    (Set 으로 id 만 쓰고, 정렬은 orders 조회가 한다). 근본 수정(!inner 안 닫힌 오더만)은 백로그.
-  const {data:packs,error:pe}=await sb.from("wms_pack_tasks").select("order_id").eq("status","completed").order("id",{ascending:false}).limit(1000);
+  // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다(규칙 20 캡 함정 — 2026-08-12 전수 조사에서
+  //    완료 팩 998/1000, 2건 전 응급 처방. packer donePick 과 동형: 넘는 순간 창 밖으로 밀린 오더가
+  //    보드에서 조용히 사라져 Finalize 불가). ✅ 근본 수정(2026-08-14, packer 와 같은 커밋):
+  //    wms_orders!inner 로 안 닫힌 오더 소속만 — 행수가 활성 오더 규모로 유계라 캡이 구조적으로
+  //    무관해진다. desc + limit(1000) 은 이중 안전으로 유지. 표시 순서는 이 쿼리와 무관
+  //    (Set 으로 id 만 쓰고, 정렬은 orders 조회가 한다).
+  // ⚠️⚠️ !inner 를 빼먹으면 부모 행이 남고 임베드만 null(조용히 무의미해짐) · 임베드를 select 에서
+  //    아예 빼면 필터가 400 으로 거부된다(2026-08-14 실측) — 임베드+!inner 둘 다 있어야 한다.
+  const {data:packs,error:pe}=await sb.from("wms_pack_tasks").select("order_id, wms_orders!inner(status)").eq("status","completed").not("wms_orders.status","in","(closed,voided)").order("id",{ascending:false}).limit(1000);   // caps-ok: !inner 활성 오더만 + desc/limit 이중 안전
   if(pe){ fail("pack tasks",pe); return; }
   const ids=[...new Set((packs||[]).map(p=>p.order_id))];
   if(!ids.length){ availOrders=[]; box.innerHTML='<div style="padding:20px;color:var(--mut);font-size:13px">No verified orders.</div>'; return; }

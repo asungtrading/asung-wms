@@ -496,14 +496,21 @@ async function loadQueue(){
   if(!me){document.getElementById("blist").innerHTML="";document.getElementById("bloading").style.display="none";const be=document.getElementById("bempty");be.style.display="block";be.textContent="Select a worker first..";return;}
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다. 오름차순이면 **잘리는 쪽이 항상 최신**이라
-  //    새 데이터가 조용히 사라진다(2026-08-12 SO-14532 실사고 — 완료 픽 누적이 1000 돌파, 새 완료 픽이
-  //    응답 밖으로 밀려 팩 대기열·스캔 진입이 전 계정에서 죽었다). 규칙 20 오름차순 함정의 세 번째 사례
-  //    (purchaseList · saleList SO-14106 · 여기). **내림차순 + 명시 LIMIT 을 지켜라** — 근본 수정
-  //    (donePick 을 wms_orders!inner 로 안 닫힌 오더만 · allPack 기간 제한)은 검증 필요라 백로그.
+  // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다(2026-08-12 SO-14532 실사고 — 완료 픽 누적이
+  //    1000 돌파, 새 완료 픽이 응답 밖으로 밀려 팩 대기열·스캔 진입이 전 계정에서 죽었다).
+  //    ✅ 근본 수정(2026-08-14): wms_orders!inner 로 **안 닫힌 오더 소속만** — [실측] 완료 픽 1,140행
+  //    (이미 캡 초과·140건이 창 밖) 중 활성 오더 소속 13행(98.9% 감소), allPack 도 1,135행 → 활성분만.
+  //    행수가 활성 오더 규모로 유계라 캡이 구조적으로 무관해진다. 창 밖으로 밀린 활성 pending 팩은
+  //    claimedPickIds·held 보호가 함께 사라져 그 픽이 poolNew 에 재등장(이중 팩)할 수 있었다 —
+  //    이 수정이 그 경로를 닫는다. desc + limit(1000) 은 **이중 안전으로 유지**(제거 금지).
+  // ⚠️⚠️ !inner 를 빼먹으면 조용히 틀린다: 임베드 필터만 있으면 부모 행은 남고 임베드가 null 이 되고,
+  //    inWh(null) 은 acc==="both" 작업자에게 true(아래 inWh) — closed 오더 픽이 고객명 없는 카드로
+  //    쏟아진다. 임베드를 select 에서 아예 빼면 같은 필터가 400 으로 거부된다(2026-08-14 실측 —
+  //    그쪽은 시끄럽게 죽어서 차라리 안전). 문법 실측(2026-08-14 콘솔, 레포 첫 !inner 실사용):
+  //    error null · to-one 임베드는 여전히 객체 — 소비 코드 무변.
   const [donePick, allPack]=await Promise.all([
-    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders(order_number,warehouse,customer_name,hold_state,cin7_void_state)").eq("status","completed").order("completed_at",{ascending:false}).limit(1000),
-    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders(order_number,warehouse,customer_name)").order("id",{ascending:false}).limit(1000),
+    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders!inner(order_number,warehouse,customer_name,hold_state,cin7_void_state)").eq("status","completed").not("wms_orders.status","in","(closed,voided)").order("completed_at",{ascending:false}).limit(1000),   // caps-ok: !inner 활성 오더만(실측 1140→13) + desc/limit 이중 안전
+    sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders!inner(order_number,warehouse,customer_name)").not("wms_orders.status","in","(closed,voided)").order("id",{ascending:false}).limit(1000),   // caps-ok: !inner 활성 오더만(실측 1135→활성분) + desc/limit 이중 안전
   ]);
   document.getElementById("bloading").style.display="none";
   if(donePick.error||allPack.error){toast("Failed to load list",true);return;}
