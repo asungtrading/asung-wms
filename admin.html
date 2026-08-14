@@ -2524,16 +2524,16 @@ async function loadRecv(){
     sb.from("wms_receipt_lines").select("*, wms_receipts(po_number,supplier_name,warehouse)")   // caps-ok: 승인 대기 라인만(needs_approval=true) — 승인/거부로 소진되는 소수
       .eq("needs_approval",true).order("created_at",{ascending:false}),
     // putaway_bin/putaway_done/needs_approval 도 같은 임베드로 받는다 — awaiting putaway 계산에 왕복을 더하지 않는다(규칙 34).
-    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
+    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po)")
       .is("applied_at",null).order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미적용 receipt 전량(Apply·백로그 작업 대상, Apply 로 소진. [실측 2026-08-14] 전체 37)
-    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines!inner(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
+    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines!inner(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po)")
       .not("applied_at","is",null)
       .not("wms_receipt_lines.putaway_bin","is",null)
       .not("wms_receipt_lines.putaway_done","is",true)
       .not("wms_receipt_lines.needs_approval","is",true)
       .gt("wms_receipt_lines.received_base",0)
       .order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll — applied 인데 미풋어웨이 라인이 남은 것만(풋어웨이 완료로 소진되는 소수)
-    sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
+    sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po)")
       .order("updated_at",{ascending:false}).limit(60),   // caps-ok: 최근 60 사양 — history 표시 전용(집계 모수 아님), 총수는 캡션
     sb.from("wms_receipts").select("id",{count:"exact",head:true}),
   ]);
@@ -2565,6 +2565,9 @@ async function loadRecv(){
   // 병합: 집계 모수 = 전량 집합(work·placed), recent 는 history 채움용. dedup 은 임베드가 온전한
   // 쪽 우선(work·recent = 전체 라인 / placed = 미풋어웨이 라인만) — Map 선착순이라 순서가 곧 우선순위.
   const _rById=new Map();
+  // placed 집합의 임베드는 미풋어웨이 라인만이라 진행 요약(전 라인 합)이 부정확하다 — 표식을 달아
+  // 그 행에는 수치를 만들지 않는다(선착순 dedup 이라 work/recent 에도 있으면 온전한 행이 이기고 표식은 소멸).
+  (placedQ.data||[]).forEach(r=>{ r._embedPartial=true; });
   [...(workQ.data||[]), ...(recentQ.data||[]), ...(placedQ.data||[])].forEach(r=>{ if(!_rById.has(r.id)) _rById.set(r.id,r); });
   const rs=[..._rById.values()].sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   const rTotal=rTotalQ.count??rs.length;
@@ -2583,6 +2586,25 @@ async function loadRecv(){
   //    **실물이 그 자리에 들어갔는지**다. bin 에 없는 물건은 픽커가 못 찾으므로 재고 정확성에 직결된다.
   //    승인 대기 오프-PO 는 애초에 풋어웨이가 차단돼 있으므로(작업자 화면) 백로그로 세지 않는다.
   rs.forEach(r=>{ recvNotPlaced[r.id]=countNotPlaced(r.wms_receipt_lines); });
+  // ── 진행 요약 (2026-08-14 — "Delete 전에 무작업인지 화면으로 알 수 없다" 해소) ──
+  // 라인은 receipt 를 **열기만 해도** 기대치 스냅샷으로 전량 생성된다(receiver startPo) — 라인 수는
+  // 작업 흔적이 아니다. 작업 흔적 = received>0 · bin 배정 · placed · off-PO 추가 (방치 조사 판정식과 동일).
+  // 임베드는 이미 받고 있어 추가 왕복 0 (is_off_po 만 select 에 추가).
+  const recvWork={};
+  rs.forEach(r=>{
+    if(r._embedPartial){ recvWork[r.id]=null; return; }   // placed 전용 행 — 합계 불가(applied 라 Empty 일 수 없음)
+    let total=0, recvLines=0, units=0, bins=0, placed=0, offpo=0;
+    (r.wms_receipt_lines||[]).forEach(l=>{
+      total++;
+      const q=Number(l.received_base)||0;
+      if(q>0){ recvLines++; units+=q; }
+      if(l.putaway_bin) bins++;
+      if(l.putaway_done) placed++;
+      if(l.is_off_po) offpo++;
+    });
+    recvWork[r.id]={total,recvLines,units,bins,placed,offpo,
+      empty: recvLines===0&&bins===0&&placed===0&&offpo===0};
+  });
   const backlog=rs.filter(r=>recvNotPlaced[r.id].lines>0)
     .sort((a,b)=>recvNotPlaced[b.id].units-recvNotPlaced[a.id].units);
   const bl=document.getElementById("recvBacklog");
@@ -2651,12 +2673,22 @@ async function loadRecv(){
           // PO 미완(rg/fix)은 Cin7 문서가 authorize 안 된 DRAFT 라는 뜻 — 트랜스퍼("이동 실패")와 문구를 구분한다.
           const isTr=r.source_type==="transfer";
           const np=recvNotPlaced[r.id]||{lines:0,units:0};
+          // 진행 요약 표시 (2026-08-14): Empty = 무작업(지워도 잃을 것 없음이 화면에서 확정) /
+          // 수치 = 일부 진행. placed 전용 행(wk null — 임베드가 미풋어웨이 라인만)은 수치를 만들지
+          // 않는다(applied 라 Empty 일 수 없고, ✓ Applied 열과 not-placed 태그가 이미 상태를 말한다).
+          const wk=recvWork[r.id];
+          const wkTag=!wk?"":(wk.empty
+            ?` <span class="tag" style="color:var(--mut);background:var(--line-2,#eef1f6)" title="Opened but nothing was received — no quantities, no bins, no off-PO lines. Deleting loses nothing (expected lines are rebuilt if reopened).">Empty</span>`
+            :` <span style="color:var(--mut);font-size:11px;white-space:nowrap">${wk.recvLines}/${wk.total} lines · ${nf(wk.units)} u${wk.offpo?` · ${wk.offpo} off-PO`:""}</span>`);
+          const wkline=!wk?"":(wk.empty
+            ?"Nothing has been received on this receipt — only the expected-lines snapshot is removed."
+            :`⚠️ ${nf(wk.units)} unit(s) already received across ${wk.recvLines} line(s)${wk.offpo?` (+${wk.offpo} off-PO)`:""} — this progress will be deleted (an archived copy is kept).`);
           return `<tr>
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}${np.lines?` <span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${np.lines} line(s) / ${np.units} unit(s) have a bin but were never confirmed placed — see &quot;Awaiting putaway&quot; above.">⚠ ${np.lines} not placed</span>`:""}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TR</span>':"PO"}</td>
           <td>${esc(r.supplier_name||"—")}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
-          <td>${RECV_ST_LABEL[r.status]||r.status}</td>
+          <td>${RECV_ST_LABEL[r.status]||r.status}${wkTag}</td>
           <td>${applied
             ? (fix
               ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⚠ Applied (${isTr?`${fix} bin${fix>1?"s":""} need manual fixing`:`Cin7 DRAFT — ${fix} bin${fix>1?"s":""} pending`})</span>`
@@ -2668,18 +2700,20 @@ async function loadRecv(){
               : '<span style="color:var(--mut-2);font-size:12px">—</span>')}</td>
           <td>${esc(r.received_by||"—")}</td>
           <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
-          <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}">Delete</button></td>
+          <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}" data-wkline="${esc(wkline)}">Delete</button></td>
         </tr>`;}).join("")}</tbody></table>`
     : `<div style="color:var(--mut);padding:14px;font-size:13px">No receipts yet.</div>`;
-  hist.querySelectorAll("[data-delrcpt]").forEach(b=>b.onclick=()=>deleteReceipt(+b.dataset.delrcpt,b.dataset.po,b.dataset.exp==="1"));
+  hist.querySelectorAll("[data-delrcpt]").forEach(b=>b.onclick=()=>deleteReceipt(+b.dataset.delrcpt,b.dataset.po,b.dataset.exp==="1",b.dataset.wkline||""));
   hist.querySelectorAll("[data-review]").forEach(b=>b.onclick=()=>reviewReceipt(+b.dataset.review));
   refreshRecvBadge();
 }
-async function deleteReceipt(rid,po,exported){
+async function deleteReceipt(rid,po,exported,wkline){
   const warn=exported
     ? `\n\n⚠ This receipt was already APPLIED to Cin7. Deleting here does NOT undo Cin7 — correct Cin7 manually (unstock / reverse transfer).`
     : "";
-  const typed=prompt(`Delete receipt ${po}?\nAll receiving progress and lines for this receipt are removed (a copy is archived first; WMS only — Cin7 is untouched).${warn}\n\nType the PO number to confirm:`,"");
+  // wkline(2026-08-14) = 진행 요약 — "Nothing has been received…" 또는 "⚠️ N units already received…".
+  // placed 전용 행(임베드 부분)은 빈 문자열이라 줄 자체가 빠진다 — 틀린 수치를 말하느니 침묵.
+  const typed=prompt(`Delete receipt ${po}?\n${wkline?wkline+"\n":""}All receiving progress and lines for this receipt are removed (a copy is archived first; WMS only — Cin7 is untouched).${warn}\n\nType the PO number to confirm:`,"");
   if(typed===null) return;
   if(typed.trim().toUpperCase()!==String(po).toUpperCase()){ toast("PO number mismatch — cancelled",true); return; }
   try{
