@@ -1075,7 +1075,12 @@ async function releaseClaim(table,id,label){
 async function loadHealth(){
   const el=document.getElementById("healthList");
   el.innerHTML=`<div class="loading"><div class="spin"></div>Running checks…</div>`;
-  const {data,error}=await sb.rpc("wms_health_check");
+  // 탭은 라이브 RPC 유지(열면 최신 상태) + 마지막 자동 스냅샷 시각 병기 —
+  // 1시간 cron 이 살아 있는지 사람이 보는 유일한 창 (2026-08-14)
+  const [{data,error},snap]=await Promise.all([
+    sb.rpc("wms_health_check"),
+    sb.from("wms_health_runs").select("ran_at,crit_count,warn_count").order("ran_at",{ascending:false}).limit(1),
+  ]);
   if(error){
     el.innerHTML=`<div class="empty">Health checks are not installed yet.<br>
       Run <b>wms_healthcheck.sql</b> in the Supabase SQL editor, then reload this page.<br>
@@ -1091,9 +1096,28 @@ async function loadHealth(){
       +(warn?` · <span style="color:var(--warn);font-weight:700">${warn} warning${warn>1?"s":""}</span>`:"")+` to review`;
   else if(warn) summary=`<span style="color:var(--warn);font-weight:700">${warn} warning${warn>1?"s":""}</span> · no critical issues`;
   else summary=`<span style="color:var(--ok);font-weight:800">All clear</span> — every invariant holds`;
-  el.innerHTML=`<div style="margin:0 2px 14px;font-size:13.5px">${summary}
+  el.innerHTML=`<div style="margin:0 2px 4px;font-size:13.5px">${summary}
       <button class="btnsm" style="margin-left:10px" onclick="loadHealth()">↻ Re-run</button></div>
+    ${healthSnapLine(snap)}
     <div>${rows.map(healthCard).join("")}</div>`;
+}
+function healthSnapLine(snap){
+  let msg,color;
+  if(snap.error){ msg=`Auto snapshot unavailable (${esc(snap.error.message)})`; color="var(--danger)"; }
+  else{
+    const row=(snap.data||[])[0];
+    if(!row){ msg=`No auto snapshot yet — register the hourly cron job <b>wms-health-snapshot</b>.`; color="var(--warn)"; }
+    else{
+      const when=new Date(row.ran_at).toLocaleString("en-CA",
+        {timeZone:"America/Toronto",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+      const stale=Date.now()-new Date(row.ran_at).getTime()>HEALTH_SNAP_STALE_MS;
+      msg=`Last auto snapshot: <b>${when}</b> (Toronto) · ${fmtAge(row.ran_at)} · `
+        +`${Number(row.crit_count)} critical / ${Number(row.warn_count)} warn`
+        +(stale?` — <b>stale: auto checks may not be running</b>`:"");
+      color=stale?"var(--danger)":"var(--mut)";
+    }
+  }
+  return `<div style="margin:0 2px 14px;font-size:12px;color:${color}">${msg}</div>`;
 }
 function healthCard(r){
   const info=r.category==="info";
@@ -1131,16 +1155,27 @@ function sampleTable(sample){
       sample.map(row=>`<tr>${keys.map(k=>`<td style="font-family:var(--mono);font-size:12px">${esc(fmtHealthVal(row[k]))}</td>`).join("")}</tr>`).join("")
     }</tbody></table></div>`;
 }
+const HEALTH_SNAP_STALE_MS=3*60*60*1000; // 스냅샷 cron 은 1시간 주기 — 3시간+ 공백이면 "검사가 안 돌고 있다"
 function updateHealthBadge(crit){
   const b=document.getElementById("healthBadge"); if(!b) return;
-  if(crit>0){ b.textContent=crit; b.style.display="inline-block"; }
-  else b.style.display="none";
+  if(crit==null){
+    // 스냅샷 없음·낡음·조회 실패 — "이상 없음"(배지 숨김)과 구분되는 회색 ? (2026-08-14)
+    b.textContent="?"; b.style.display="inline-block"; b.style.background="var(--mut-2)";
+    b.title="Health snapshot missing or stale — auto checks may not be running";
+  }else if(crit>0){ b.textContent=crit; b.style.display="inline-block"; b.style.background=""; b.title=""; }
+  else { b.style.display="none"; b.style.background=""; b.title=""; }
 }
+// 배지는 wms_health_runs 최신 1행만 읽는다 — 종전엔 부팅마다 12검사 RPC(실측 1.27s ·
+// shared hit 70,550)를 통째로 돌렸다 (2026-08-14). 라이브 검사는 Health 탭 loadHealth() 유지.
 async function refreshHealthBadge(){
   try{
-    const {data,error}=await sb.rpc("wms_health_check"); if(error) return;
-    updateHealthBadge((data||[]).filter(r=>r.category==="critical"&&Number(r.fail_count)>0).length);
-  }catch(e){}
+    const {data,error}=await sb.from("wms_health_runs")
+      .select("crit_count,ran_at").order("ran_at",{ascending:false}).limit(1);
+    if(error){ updateHealthBadge(null); return; }
+    const row=(data||[])[0];
+    if(!row || Date.now()-new Date(row.ran_at).getTime()>HEALTH_SNAP_STALE_MS){ updateHealthBadge(null); return; }
+    updateHealthBadge(Number(row.crit_count));
+  }catch(e){ updateHealthBadge(null); }
 }
 
 /* ---------- Rollback (manager only, one step at a time) ---------- */

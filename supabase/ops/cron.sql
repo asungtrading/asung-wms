@@ -33,3 +33,15 @@ select cron.schedule(
   '*/2 * * * *',
   $job$ select wms_reap_stale_claims() $job$
 );
+
+-- 3) Health 스냅샷 (1시간마다 — 사용자 결정 2026-08-14)
+--    wms_health_check() 12검사를 돌려 wms_health_runs 에 1행 append.
+--    보존 정리(90일)는 함수 안에서 함께 수행 — 별도 정리 잡 없음.
+--    admin 배지는 이 테이블의 최신 1행을 읽고, 3시간+ 공백이면 회색 "?" 로
+--    "검사가 안 돌고 있다"를 표시한다 — 이 잡이 죽으면 배지가 그걸 알린다.
+--    선행 조건: 20260814000000_health_snapshot.sql 마이그레이션이 push 되어 있을 것.
+select cron.schedule(
+  'wms-health-snapshot',
+  '0 * * * *',
+  $job$ select wms_health_snapshot() $job$
+);
