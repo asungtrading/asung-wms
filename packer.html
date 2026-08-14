@@ -235,6 +235,7 @@
 
   <!-- Pack verify -->
   <div class="pwrap" id="packView">
+    <div id="voidBanner" style="display:none;background:#c0392b;color:#fff;font-weight:800;font-size:14px;padding:10px 14px;border-radius:10px;margin-bottom:10px"></div>
     <div class="ptop">
       <button class="btn ghost" id="backBtn">← List</button>
       <div>
@@ -501,7 +502,7 @@ async function loadQueue(){
   //    (purchaseList · saleList SO-14106 · 여기). **내림차순 + 명시 LIMIT 을 지켜라** — 근본 수정
   //    (donePick 을 wms_orders!inner 로 안 닫힌 오더만 · allPack 기간 제한)은 검증 필요라 백로그.
   const [donePick, allPack]=await Promise.all([
-    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders(order_number,warehouse,customer_name,hold_state)").eq("status","completed").order("completed_at",{ascending:false}).limit(1000),
+    sb.from("wms_pick_tasks").select("id,batch_label,order_id,completed_at, wms_orders(order_number,warehouse,customer_name,hold_state,cin7_void_state)").eq("status","completed").order("completed_at",{ascending:false}).limit(1000),
     sb.from("wms_pack_tasks").select("id,batch_label,order_id,pick_task_id,status,assigned_to,started_at,heartbeat_at,work_started,held_by, wms_orders(order_number,warehouse,customer_name)").order("id",{ascending:false}).limit(1000),
   ]);
   document.getElementById("bloading").style.display="none";
@@ -515,7 +516,8 @@ async function loadQueue(){
   stalePacks=[];   // 시간 기반 abandoned 제거 — 스캔 이어받기로 처리
   // Cin7 보류(규칙 43 — 2026-08-12 원복: 268e318 되돌림의 원인이던 대기열 장애는 1000행 캡으로 확정·수정됨,
   // 보류 필터는 무관했다): **새 작업 풀에서만** 숨긴다 — 진행 중(mine)·held(내 Hold)는 끝까지 허용.
-  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders)&&pt.wms_orders?.hold_state!=="on_hold")
+  // Cin7 void(2026-08-14)도 새 작업 풀에서만 숨긴다 — 진행 중(mine·held)은 유지 + 빨간 배너(checkVoidBanner)
+  poolNew=(donePick.data||[]).filter(pt=>!claimedPickIds.has(pt.id)&&!held.some(h=>h.pick_task_id===pt.id)&&inWh(pt.wms_orders)&&pt.wms_orders?.hold_state!=="on_hold"&&pt.wms_orders?.cin7_void_state!=="voided")
     .sort((a,b)=>new Date(a.completed_at)-new Date(b.completed_at));   // 표시는 종전 FIFO 유지(조회만 내림차순 — 위 캡 주석)
   // lookup cache for resume verify
   packLookup={}; [...mine,...held,...stalePacks].forEach(p=>packLookup[p.id]=p);
@@ -529,6 +531,21 @@ async function loadQueue(){
   renderQueue();
 }
 let held=[], poolNew=[];
+/* ---------- Cin7 void 빨간 배너 (2026-08-14 — 백로그 「Cin7 void 감지」 · picker 와 동일) ----------
+   void 는 종착이라 hold 처럼 숨기면 실물이 남는다 — 진행 중 팩은 숨기지 않고 배너로 알린다.
+   중단 여부는 작업자가 아니라 매니저가 정한다. 조회 실패는 조용히 넘어간다(부가 정보). */
+async function checkVoidBanner(orderIds){
+  const el=document.getElementById("voidBanner"); if(!el) return;
+  el.style.display="none";
+  try{
+    const ids=(orderIds||[]).filter(Boolean); if(!ids.length) return;
+    const {data}=await sb.from("wms_orders").select("order_number").in("id",ids).eq("cin7_void_state","voided");
+    if(data&&data.length){
+      el.textContent="⚠ VOIDED in Cin7 — "+data.map(r=>r.order_number).join(", ")+" — stop and tell your manager";
+      el.style.display="block";
+    }
+  }catch(e){ /* 부가 안내 */ }
+}
 function qcard(o,label,btnTxt,attr,resume,shortCnt){
   return `<div class="bcard ${resume?"resume":""} ${shortCnt?"short":""}" ${attr}>
     <div>
@@ -748,6 +765,8 @@ async function enterPack(){
   document.getElementById("pTitle").textContent=packTask.batch_label;
   document.getElementById("pMeta").textContent=(order.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(order.customer_name||"");
   renderPack(); focusScan();
+  // Cin7 void 배너 (2026-08-14) — 진행 중 팩은 숨기지 않고 알린다(실물이 있다). 부가 정보 — 실패해도 진입 유지.
+  checkVoidBanner([packTask.order_id]);
   loadImageFlags();   // independent — restores the pressed state of ⚑ Image differs
   loadStockFlags();   // independent — shows picker's stock-short declarations + restores ⚠ Not enough stock
   // enrich: picker name (attribution) + sibling barcodes, then re-render
@@ -1361,9 +1380,12 @@ document.getElementById("doneBtn").onclick=async ()=>{
     toast(packTask.batch_label+" Complete pack"+(extra.length?` (${extra.join(", ")})`:""));
     // Cin7 보류 안내 (규칙 43 — 완료는 허용됐지만 fulfillment/Finalize 로 못 간다. 이유를 모르면 혼란하다)
     try{
-      const {data:hd}=await sb.from("wms_orders").select("hold_state").eq("id",packTask.order_id).maybeSingle();
+      const {data:hd}=await sb.from("wms_orders").select("hold_state,cin7_void_state").eq("id",packTask.order_id).maybeSingle();
       if(hd&&hd.hold_state==="on_hold")
         alert(`⚠ ON HOLD — ${order.order_number}\n\nThis order was put on hold in Cin7. Your pack is saved,\nbut it will NOT move to fulfillment until a manager reviews and resumes it.`);
+      // Cin7 void (2026-08-14) — 완료는 허용(현재 단계는 마치는 원칙), 처분은 매니저가 정한다
+      if(hd&&hd.cin7_void_state==="voided")
+        alert(`⚠ VOIDED in Cin7 — ${order.order_number}\n\nThis order was voided in Cin7. Your pack is saved,\nbut stop here and tell your manager — the goods must not ship.`);
     }catch(e){ /* 부가 안내 — 실패해도 완료 흐름을 막지 않는다 */ }
     packTask=null;order=null;lines=[];bcMap={};
     document.getElementById("packView").style.display="none";

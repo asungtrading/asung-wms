@@ -60,6 +60,23 @@ const HOLD_CHECK_MAX = 10;                  // 회차당 재조회 상한 (평�
 const HOLD_RELEASE = "2.Release to WMS";    // 정상 값 — 이것으로 복귀하면 on_hold 는 재개 가능 표시(수동), unexpected 는 자동 해소
 const HOLD_TRIGGER = "On Hold";             // 보류 트리거 — 이 값 하나뿐
 
+// ── Cin7 void 감지 (2026-08-14 — 백로그 「Cin7 void 감지」 · 실사고 SO-14015 9일 방치) ──
+// void 된 sale 은 OrderStatus 가 VOIDED 로 바뀌어 AUTHORISED 목록에서 **빠진다**(2026-08-14 GAS 실측)
+// — hold 의 Updated 트리거는 "목록에 있는 행"만 보므로 구조적으로 못 본다. 반대 방향을 대조한다:
+// WMS 활성 오더(closed/voided 제외 — hold 와 동일) 중 이번 회차 목록에 없는 것 = 사라짐 후보.
+// ⚠️ 연속 2회차 완충(사용자 결정): 1회차 부재는 cin7_gone_missing_since 기록만, 2회차 부재만 확정
+//    조회, 재등장하면 자동 해제. "없다"가 진짜 void 인지 목록 누락인지 구분할 방법이 없고,
+//    오판의 대가(작업자가 멀쩡한 오더를 멈춤)가 크다. 5분 지연은 무관(SO-14015 는 9일 걸렸다).
+// ⚠️ truncated/rate_limited 회차는 전면 스킵(후보 기록도 없음) — 목록이 불완전하면 "없다"가 오판이
+//    된다(wms_polled_sales purge 가 "목록에 없는 id 삭제"를 기각한 것과 정확히 같은 함정).
+// 판정은 확정 조회(saleList?Search=<order_number>)의 **Status='VOIDED'** 로만 —
+// CombinedPickingStatus 는 케이스마다 갈린다(실측: SO-14613 NOT PICKED / SO-14015 PICKING).
+// 확정에 상세 /sale 이 아니라 saleList Search 를 쓰는 이유: 필요한 것은 Status 하나뿐이고
+// 목록 응답에 있다(AdditionalAttribute1 은 없지만 여기선 불필요).
+// ⚠️ 감지만 자동 — status='voided' 전환은 매니저의 ⊘ Void 수동 실행만(마이그레이션 주석 참조).
+const VOID_CHECK_MAX = 10;    // 회차당 확정 조회 상한 (HOLD_CHECK_MAX 와 같은 형태 — 평시 후보 0건, 08-14 실측 활성 27 중 0)
+const VOID_ACTIVE_STATUSES = "pending,picking,packing,ready_to_close";
+
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
@@ -523,6 +540,96 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Cin7 void 감지 (2026-08-14 — 상단 상수 주석이 설계 정본. 읽기 공통·쓰기 commit 만 — hold 와 동일) ──
+    let voidActive = 0, voidCandidatesNew = 0, voidChecked = 0, voidDetected = 0,
+        voidGoneOther = 0, voidCleared = 0, voidDeferred = 0;
+    // 목록 완전성 가드 — Total 미보고도 불완전으로 취급(fail-safe: 판정 못 할 뿐 다음 회차에 본다)
+    const voidSkippedUnsafe = rateLimited || listTotal == null || candidates.length < listTotal;
+    if (!voidSkippedUnsafe) {
+      // 활성 오더 조회 — 기존 dedup(existingSaleIds)은 목록의 SaleID 로 in.() 하므로 "목록에 없는
+      // 오더"가 구조적으로 안 나온다 → Supabase REST 1콜 추가(활성 ~27행 · Cin7 콜 아님 — 08-11 예산 무접촉).
+      const active = await sbGet(
+        "wms_orders?status=in.(" + VOID_ACTIVE_STATUSES + ")" +
+        "&select=id,order_number,cin7_sale_id,cin7_void_state,cin7_gone_missing_since");
+      voidActive = active.length;
+      // ⚠️ 대조 기준은 skip_picked **이전**의 전체 candidates — PICKED 오더도 목록엔 있다
+      //    (notPicked 로 대조하면 Cin7 이 먼저 픽한 오더가 전부 "사라짐" 오탐).
+      const presentIds = new Set(candidates.map((c: any) => String(c.SaleID)));
+      const confirmQueue: any[] = [];
+      for (const o of active) {
+        if (!o.cin7_sale_id) continue;
+        if (presentIds.has(String(o.cin7_sale_id))) {
+          // 재등장 = 후보 해제. 확정(voided/gone_other) 뒤의 재등장도 자동 해제 — Cin7 에서
+          // un-void 로 복귀한 것(unexpected 자동 해소와 같은 논리: 정상 복귀 확인 = 알림 소멸).
+          if (o.cin7_gone_missing_since || o.cin7_void_state) {
+            voidCleared++;
+            if (commit) {
+              try {
+                await sbPatch("wms_orders?id=eq." + o.id,
+                  { cin7_void_state: null, cin7_void_detected_at: null, cin7_gone_status: null, cin7_gone_missing_since: null });
+              } catch (e) { errors.push({ order: o.order_number, err: "void clear: " + String(e).slice(0, 200) }); }
+            }
+          }
+          continue;
+        }
+        if (o.cin7_void_state) continue;   // 이미 확정 — 매니저 처리 대기(⊘ Void 로 status 가 바뀌면 활성에서 이탈)
+        if (!o.cin7_gone_missing_since) {  // 1회차 부재 — 기록만, 판정 안 함(완충 — 상수 주석)
+          voidCandidatesNew++;
+          if (commit) {
+            try { await sbPatch("wms_orders?id=eq." + o.id, { cin7_gone_missing_since: new Date().toISOString() }); }
+            catch (e) { errors.push({ order: o.order_number, err: "void mark: " + String(e).slice(0, 200) }); }
+          }
+          continue;
+        }
+        confirmQueue.push(o);              // 2회차 이상 부재 — 확정 조회 대상
+      }
+      // 확정 조회 — 최신 오더번호 우선 + 캡 + 429 는 회차 중단(후보는 자연 이월 — hold 와 동일)
+      const voidOrderNum = (o: any) => Number(String(o?.order_number ?? "").replace(/\D/g, "")) || 0;
+      confirmQueue.sort((a, b) => voidOrderNum(b) - voidOrderNum(a));
+      voidDeferred = Math.max(0, confirmQueue.length - VOID_CHECK_MAX);
+      for (const o of confirmQueue.slice(0, VOID_CHECK_MAX)) {
+        await sleep(DETAIL_DELAY_MS);
+        let sj: any;
+        try {
+          sj = await cin7Get("/saleList?Limit=10&Search=" + encodeURIComponent(String(o.order_number ?? "")));
+        } catch (e: any) {
+          if (Number(e?.status) === 429) { detailRateLimited++; break; }
+          errors.push({ order: o.order_number, err: "void check: " + String(e).slice(0, 200) });
+          continue;
+        }
+        voidChecked++;
+        // Search 는 부분 일치 — OrderNumber 정확 일치 행만 인정
+        const row = (sj?.SaleList ?? []).find((r: any) => String(r?.OrderNumber ?? "") === String(o.order_number ?? ""));
+        const patch: Record<string, unknown> = {};
+        if (!row) {
+          // Search 에도 없음 = 문서가 통째로 사라짐(void 보다 이상한 상태) → NOT_IN_CIN7 로 확정
+          // (사용자 결정 2026-08-14: 후보 유지 재시도는 매 회차 1콜이 영원히 나가고 아무도 모른다.
+          //  값의 언더스코어 = "Cin7 원문이 아니라 우리가 붙인 값" 표식 — 다른 값은 Cin7 원문 대문자).
+          patch.cin7_void_state = "gone_other"; patch.cin7_gone_status = "NOT_IN_CIN7";
+          patch.cin7_void_detected_at = new Date().toISOString();
+          voidGoneOther++;
+        } else if (String(row.Status ?? "") === "VOIDED") {
+          patch.cin7_void_state = "voided"; patch.cin7_gone_status = String(row.Status);
+          patch.cin7_void_detected_at = new Date().toISOString();
+          voidDetected++;
+        } else if (String(row.OrderStatus ?? "") === "AUTHORISED") {
+          // 여전히 AUTHORISED = 폴링 목록 누락 글리치였다 — 후보 해제 ("여전히 목록에 있음"의 판별식:
+          // 무필터 Search 엔 FULFILLED 도 "있으므로" OrderStatus 로 가른다)
+          patch.cin7_gone_missing_since = null;
+          voidCleared++;
+        } else {
+          // AUTHORISED 필터에서 빠진 다른 종착(FULFILLED/CLOSED 등) — 표시만(숨김·차단 없음)
+          patch.cin7_void_state = "gone_other"; patch.cin7_gone_status = String(row.Status ?? "");
+          patch.cin7_void_detected_at = new Date().toISOString();
+          voidGoneOther++;
+        }
+        if (commit) {
+          try { await sbPatch("wms_orders?id=eq." + o.id, patch); }
+          catch (e) { errors.push({ order: o.order_number, err: "void patch: " + String(e).slice(0, 200) }); }
+        }
+      }
+    }
+
     // ── "확인했으나 비대상" 기억 쓰기 + 정리 (commit 만 — dry-run 은 wms_orders 처럼 아무것도 안 쓴다) ──
     let memoryRows: number | null = null;
     if (POLL_MEMORY_TTL_MS > 0) {
@@ -566,6 +673,15 @@ Deno.serve(async (req) => {
       hold_releasable_seen: holdReleasableSeen, // 보류 중인데 Cin7 이 2.Release 로 복귀한 것을 본 건수
       hold_unexpected: holdUnexpected,       // 예상 밖 값 (admin 알림 대상)
       hold_check_deferred: holdDeferred,     // 캡(HOLD_CHECK_MAX)에 밀린 건수 — 여러 회차 연속 >0 이면 캡 재검토
+      // ── Cin7 void 감지 진단 (2026-08-14) ──
+      void_skipped_unsafe: voidSkippedUnsafe, // truncated/rate_limited/Total 미보고 회차 — 감지 전면 스킵(오판 방어)
+      void_active: voidActive,               // 대조한 WMS 활성 오더 수 (평시 ~27)
+      void_candidates_new: voidCandidatesNew, // 이번 회차 1회차 부재로 기록만 한 건수
+      void_checked: voidChecked,             // 2회차 부재로 확정 조회한 건수 (평시 0 — 계속 높으면 이상)
+      void_detected: voidDetected,           // 이번 회차 VOIDED 확정
+      void_gone_other: voidGoneOther,        // 다른 종착/NOT_IN_CIN7 로 확정 (표시만)
+      void_cleared: voidCleared,             // 재등장으로 후보·확정 해제한 건수
+      void_check_deferred: voidDeferred,     // 캡(VOID_CHECK_MAX)에 밀린 건수
       detail_capped: detailCapped, // true 면 이번 실행 상한 도달 (최신 우선이라 잘린 건 가장 오래된 fresh)
       detail_capped_orders: detailCappedOrders, // 캡에 잘린 오더 목록 — 굶주림 감시용 (2026-08-04)
       inserted: inserted.length,

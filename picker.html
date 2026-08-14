@@ -221,6 +221,7 @@
 
   <!-- Pick progress -->
   <div class="pwrap" id="pickView">
+    <div id="voidBanner" style="display:none;background:#c0392b;color:#fff;font-weight:800;font-size:14px;padding:10px 14px;border-radius:10px;margin-bottom:10px"></div>
     <div class="ptop">
       <button class="btn ghost" id="backBtn">← List</button>
       <div>
@@ -505,8 +506,8 @@ async function loadBatches(){
   if(!me){ document.getElementById("blist").innerHTML=""; document.getElementById("bloading").style.display="none"; document.getElementById("bempty").style.display="block"; document.getElementById("bempty").textContent="Select a worker first.."; return; }
   document.getElementById("bloading").style.display="block";
   const acc=me.warehouse_access;
-  const sel="id,batch_label,status,assigned_to,started_at,work_started,held_by,order_id, wms_orders(order_number,warehouse,customer_name,needs_review,hold_state), wms_pick_task_lines(count)";
-  const wsel="id,label,warehouse,status,assigned_to,started_at,held_by, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review,hold_state), wms_pick_task_lines(count))";
+  const sel="id,batch_label,status,assigned_to,started_at,work_started,held_by,order_id, wms_orders(order_number,warehouse,customer_name,needs_review,hold_state,cin7_void_state), wms_pick_task_lines(count)";
+  const wsel="id,label,warehouse,status,assigned_to,started_at,held_by, wms_pick_tasks(id,batch_label,tote_no,order_id, wms_orders(order_number,customer_name,warehouse,needs_review,hold_state,cin7_void_state), wms_pick_task_lines(count))";
   // wave member batches are hidden from the individual pool (picked only as a whole wave)
   // my in-progress + waiting pool (heartbeat/stale 제거 — 방치분은 스캔 이어받기로 처리)
   const [mine, pool, wmine, wpool]=await Promise.all([
@@ -522,8 +523,10 @@ async function loadBatches(){
   // Cin7 보류(규칙 43): **대기 풀에서만** 숨긴다 — 진행 중(mine·myWaves)은 끝까지 허용(실물이 이미
   // 토트에 있는데 화면이 사라지면 되돌릴 근거가 없다). wave 는 멤버 중 하나라도 보류면 카드 전체 숨김
   // (부분 시작 불가 — 매니저가 unwave 로 정리). admin 에서만 관리·재개.
-  const notHeld=b=>b.wms_orders?.hold_state!=="on_hold";
-  const wNotHeld=w=>!(w.wms_pick_tasks||[]).some(t=>t.wms_orders?.hold_state==="on_hold");
+  // Cin7 void(2026-08-14 백로그 「Cin7 void 감지」)도 같은 지점에서 숨긴다 — 안 잡은 배치를 새로
+  // 시작할 이유가 없다(사용자 결정). 진행 중은 hold 와 달리 숨김이 아니라 **빨간 배너**(checkVoidBanner).
+  const notHeld=b=>b.wms_orders?.hold_state!=="on_hold"&&b.wms_orders?.cin7_void_state!=="voided";
+  const wNotHeld=w=>!(w.wms_pick_tasks||[]).some(t=>t.wms_orders?.hold_state==="on_hold"||t.wms_orders?.cin7_void_state==="voided");
   myBatches=(mine.data||[]).filter(inWh);
   batches=(pool.data||[]).filter(inWh).filter(notHeld);
   stalePool=[];   // 더 이상 시간 기반 abandoned 목록 없음 (스캔 이어받기로 대체)
@@ -786,6 +789,9 @@ async function enterPickView(){
   document.getElementById("pTitle").textContent=pickTitle;
   document.getElementById("pMeta").textContent=pickMeta;
   renderPick(); focusScan();
+  // Cin7 void 배너 (2026-08-14) — 진행 중 배치는 숨기지 않고 알린다(실물이 토트에 있다). 서버 재조회라
+  // 목록 임베드보다 신선하다. 부가 정보 — 실패해도 진입을 막지 않는다.
+  checkVoidBanner(wave? [...new Set(lines.map(l=>l._orderId).filter(Boolean))] : [task.order_id]);
   loadImageFlags();   // independent — restores the pressed state of ⚑ Image differs
   loadStockFlags();   // independent — restores the pressed state of ⚠ Not enough stock
   const baseSkus=[...new Set(lines.map(l=>l.base_sku).filter(Boolean))];
@@ -1398,10 +1404,32 @@ async function finish(allowShort){
 async function notifyIfHeld(orderIds){
   try{
     const ids=(orderIds||[]).filter(Boolean); if(!ids.length) return;
-    const {data}=await sb.from("wms_orders").select("order_number").in("id",ids).eq("hold_state","on_hold");
-    if(data&&data.length)
-      alert(`⚠ ON HOLD — ${data.map(r=>r.order_number).join(", ")}\n\nThis order was put on hold in Cin7. Your work is saved,\nbut it will NOT move to the next step until a manager reviews and resumes it.`);
+    const {data}=await sb.from("wms_orders").select("order_number,hold_state,cin7_void_state").in("id",ids);
+    const held=(data||[]).filter(r=>r.hold_state==="on_hold");
+    if(held.length)
+      alert(`⚠ ON HOLD — ${held.map(r=>r.order_number).join(", ")}\n\nThis order was put on hold in Cin7. Your work is saved,\nbut it will NOT move to the next step until a manager reviews and resumes it.`);
+    // Cin7 void (2026-08-14) — 작업자는 판단하지 않는다: 처분은 매니저가 정한다(실물 회수 지시 포함)
+    const voided=(data||[]).filter(r=>r.cin7_void_state==="voided");
+    if(voided.length)
+      alert(`⚠ VOIDED in Cin7 — ${voided.map(r=>r.order_number).join(", ")}\n\nThis order was voided in Cin7. Your work is saved,\nbut stop here and tell your manager — they will decide what to do with the goods.`);
   }catch(e){ /* 부가 안내 — 실패해도 완료 흐름을 막지 않는다 */ }
+}
+
+/* ---------- Cin7 void 빨간 배너 (2026-08-14 — 백로그 「Cin7 void 감지」) ----------
+   hold 와 다르다: hold 는 "나중에 풀린다"라 대기 풀에서 숨기면 끝이지만, void 는 종착이고
+   진행 중 배치를 숨기면 실물이 토트에 남는다 — 숨기지 않고 배너로 알린다(사용자 결정).
+   중단 여부는 작업자가 아니라 매니저가 정한다(문구도 그렇게). 조회 실패는 조용히 넘어간다. */
+async function checkVoidBanner(orderIds){
+  const el=document.getElementById("voidBanner"); if(!el) return;
+  el.style.display="none";
+  try{
+    const ids=(orderIds||[]).filter(Boolean); if(!ids.length) return;
+    const {data}=await sb.from("wms_orders").select("order_number").in("id",ids).eq("cin7_void_state","voided");
+    if(data&&data.length){
+      el.textContent="⚠ VOIDED in Cin7 — "+data.map(r=>r.order_number).join(", ")+" — stop and tell your manager";
+      el.style.display="block";
+    }
+  }catch(e){ /* 부가 안내 */ }
 }
 
 /* ---------- 완료 CAS 0행 → 원인 구분 (2026-08-06, 규칙 28 후속 · ⚠️ 현장 미검증) ----------

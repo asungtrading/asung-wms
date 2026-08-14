@@ -811,15 +811,19 @@ function markLiveRows(){
    unexpected = 알림만(숨김·차단 없음 — "보류"로 뭉뚱그리지 않는다: 값 원문을 그대로 보여야
    매니저 대응이 갈린다). WMS 단계 표시는 필수 — 극단 케이스(팩까지 끝난 보류)를 기존
    Rollback 으로 처리하려면 어느 단계인지 알아야 한다(강제 중단 도구는 만들지 않음 — 사용자 결정). */
-function renderHolds(rows){
+function renderHolds(all){
   const el=document.getElementById("holdSection"); if(!el) return;
-  if(!rows.length){ el.innerHTML=""; return; }
+  const rows=(all||[]).filter(r=>r.hold_state);
+  // Cin7 void 카드 (2026-08-14 — 백로그 「Cin7 void 감지」): status='voided'(⊘ 처리 완료)는 제외 —
+  // 이 카드는 "처리 대기" 목록이다. 처리하면 사라진다(9일 방치 재발 방지의 핵심: 발견→처리가 한 화면).
+  const voidRows=(all||[]).filter(r=>r.cin7_void_state&&r.status!=="voided");
+  if(!rows.length&&!voidRows.length){ el.innerHTML=""; return; }
   const canRelease=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");
   const stageCnt={};
   rows.forEach(r=>{ stageCnt[r.status]=(stageCnt[r.status]||0)+1; });
   const chips=Object.entries(stageCnt).map(([k,n])=>`<span class="tag" style="background:#fff4e0;color:#a86400;margin-right:6px">${esc(k)} ${n}</span>`).join("");
   const fmtT=t=>t?new Date(t).toLocaleDateString()+" "+new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—";
-  el.innerHTML=`
+  const holdHtml=!rows.length?"":`
     <div class="sect-h" style="color:#a86400">⏸ Cin7 hold / unexpected <span style="font-weight:400;color:var(--mut);font-size:12.5px">— On Hold is hidden from workers &amp; blocked from the next step · unexpected is a flag only · resume re-checks Cin7 first</span></div>
     <div class="card" style="padding:12px 14px;margin-bottom:14px">
       <div style="margin-bottom:8px">${chips}</div>
@@ -833,7 +837,52 @@ function renderHolds(rows){
         <td>${canRelease?`<button class="btnsm ok" data-holdresume="${r.id}">Re-check &amp; resume</button>`:'<span style="color:var(--mut-2);font-size:11px">no permission</span>'}</td>
       </tr>`).join("")}</tbody></table>
     </div>`;
+  el.innerHTML=holdHtml+voidCardHtml(voidRows);
   el.querySelectorAll("[data-holdresume]").forEach(b=>b.onclick=()=>holdResume(+b.dataset.holdresume,b));
+  el.querySelectorAll("[data-voidgo2]").forEach(b=>b.onclick=()=>doVoid(+b.dataset.voidgo2,b.dataset.vonum,b.dataset.vstatus,null));
+  enrichVoidProgress(voidRows);   // 작업 진행 상황(팩 n/m)은 비동기 보강 — 카드 표시를 막지 않는다
+}
+/* ---------- Cin7 VOIDED 카드 (2026-08-14) ----------
+   실사고 SO-14015(void 후 9일 방치)의 재발 방지 — 감지는 폴링이 자동으로, 처분은 여기서 ⊘ Void 로.
+   ⚠️ NOT_IN_CIN7(Search 에도 없음 — 문서가 통째로 사라짐)은 void 보다 이상한 상태라 눈에 띄게 구분(사용자 결정).
+   gone_other(FULFILLED 등 다른 종착)는 표시만 — 작업 화면 숨김·차단은 'voided' 만 한다. */
+function voidCardHtml(voidRows){
+  if(!voidRows.length) return "";
+  const fmtTor=t=>t?new Date(t).toLocaleString("en-CA",{timeZone:"America/Toronto",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"—";
+  const cin7Tag=r=>{
+    if(r.cin7_gone_status==="NOT_IN_CIN7")
+      return `<span class="tag" style="background:#4a154b;color:#fff;font-weight:800">NOT_IN_CIN7 ⚠</span> <span style="color:#7c3aed;font-size:11px;font-weight:700">missing from Cin7 entirely — investigate</span>`;
+    if(r.cin7_void_state==="voided")
+      return `<span class="tag" style="background:#fdecec;color:#c0392b;font-weight:800">${esc(r.cin7_gone_status||"VOIDED")}</span>`;
+    return `<span class="tag" style="background:#fff4e0;color:#a86400">${esc(r.cin7_gone_status||"gone")}</span> <span style="color:var(--mut-2);font-size:11px">left the AUTHORISED list — flag only</span>`;
+  };
+  return `
+    <div class="sect-h" style="color:#c0392b">⊘ Voided / gone in Cin7 <span style="font-weight:400;color:var(--mut);font-size:12.5px">— detected by polling · workers see a red banner, next steps are blocked · run ⊘ Void here to clean up (goods go back to the shelf)</span></div>
+    <div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid #c0392b">
+      <table><thead><tr><th>Order</th><th>Cin7 status</th><th>WMS stage</th><th>Work done</th><th>Detected (Toronto)</th><th></th></tr></thead>
+      <tbody>${voidRows.map(r=>`<tr>
+        <td style="font-family:var(--mono);font-weight:700">${esc(r.order_number||"")} <span style="color:var(--mut-2);font-size:11px;font-family:var(--sans);font-weight:400">${esc(r.customer_name||"")}</span></td>
+        <td>${cin7Tag(r)}</td>
+        <td>${esc(STATUS_LABEL[r.status]||r.status)}</td>
+        <td style="font-size:12px;color:var(--mut)" data-voidprog="${r.id}">…</td>
+        <td style="color:var(--mut);font-size:12px">${fmtTor(r.cin7_void_detected_at)}</td>
+        <td><button class="btnsm" style="border:1px solid #c0392b;background:#c0392b;color:#fff" data-voidgo2="${r.id}" data-vonum="${esc(r.order_number||"")}" data-vstatus="${esc(r.status||"")}">⊘ Void</button></td>
+      </tr>`).join("")}</tbody></table>
+    </div>`;
+}
+// 작업 진행 상황 보강: 팩 n/m (실물이 어디까지 갔는지 — 매니저의 회수 지시 근거). 실패는 "—".
+async function enrichVoidProgress(voidRows){
+  if(!voidRows.length) return;
+  try{
+    const {data}=await sb.from("wms_order_pack_progress")
+      .select("order_id,pick_batches,packs_done,all_packed").in("order_id",voidRows.map(r=>r.id));
+    const by={}; (data||[]).forEach(p=>{ by[p.order_id]=p; });
+    voidRows.forEach(r=>{
+      const c=document.querySelector(`[data-voidprog="${r.id}"]`); if(!c) return;
+      const p=by[r.id];
+      c.textContent=r.status==="pending"?"not split yet":p?`${p.packs_done}/${p.pick_batches} packed${p.all_packed?" (all)":""}`:"—";
+    });
+  }catch(e){ document.querySelectorAll("[data-voidprog]").forEach(c=>{ if(c.textContent==="…") c.textContent="—"; }); }
 }
 async function holdResume(oid,btn){
   if(!confirm("Re-check Cin7 and resume this order?\n(If Cin7 still says On Hold, the resume stays blocked.)")) return;
@@ -866,8 +915,9 @@ async function loadOverview(){
     // 배열 길이라 40 초과 시 항상 "40" 이었다 — count 로 바꾸면 숫자가 closed 총수(수백)로 크게 느는데
     // 그것이 정상(과소 표시의 교정)이다. "숫자가 갑자기 커졌다"고 되돌리지 말 것.
     sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed"),
-    // Cin7 보류/예상 밖 값 (규칙 43) — 종착(closed/voided) 무관하게 hold_state 가 남은 행 전부
-    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at").not("hold_state","is",null).order("hold_detected_at",{ascending:false}),   // caps-ok: hold_state 가 남은 오더만 — 보류는 드물고 해제 시 null 복귀(소수)
+    // Cin7 보류/예상 밖 값 (규칙 43) + void 감지 (2026-08-14) — hold 는 종착 무관 전부,
+    // void 는 렌더에서 status='voided'(⊘ 처리 완료) 제외. or() 하나로 두 신호를 한 왕복에.
+    sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at,cin7_void_state,cin7_void_detected_at,cin7_gone_status").or("hold_state.not.is.null,cin7_void_state.not.is.null").order("hold_detected_at",{ascending:false}),   // caps-ok: 신호가 남은 오더만 — 드물고 해제·처리 시 목록에서 빠진다(소수)
   ]);
   renderHolds(cin7Holds.data||[]);   // 이름 주의: loadOverview 아래쪽의 holds(분할 팩 게이트)와 별개
   loadBatchActivity(orders.data||[]);
