@@ -1921,7 +1921,10 @@ async function loadReports(){
     // 현재 11건(실측)이라 1왕복 그대로지만, 캡 도달 여부와 무관하게 전량이 보장된다. id 보조 정렬 = 동시각 tie 대비.
     sbAll(()=>sb.from("wms_reports").select("*").is("resolved_at",null).order("created_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미해결 큐 전량(#8)
     sb.from("wms_reports").select("*",{count:"exact"}).not("resolved_at","is",null).gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(500),
-    sb.from("wms_reports").select("kind,created_at,resolved_at",{count:"exact"}).gte("created_at",r.fromISO).lte("created_at",r.toISO),
+    // ⚠️ 정렬 필수(2026-08-14): 무정렬이면 1000행 캡 도달 시 어느 1000행이 오는지 미정의라
+    //    "trend counts the first N of M" 표기가 전제하는 정렬이 실제로는 없고 추세 바 모양도 미정의로
+    //    왜곡된다. [실측 2026-08-14] 188행 — 여유. 모수 count-head 분리는 백로그 #9 유지(truncNote 공지 있음).
+    sb.from("wms_reports").select("kind,created_at,resolved_at",{count:"exact"}).gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).order("id",{ascending:false}),   // caps-ok: 기간 모수·잘리면 truncNote 표기(#9 — 실측 188/1000)
   ]);
   if(open.error){ el.innerHTML=`<div class="empty" style="font-size:12px">Reports table not found. Run wms_reports.sql to enable.</div>`; return; }
   repOpen=open.data||[]; repDone=done.data||[];
@@ -1994,7 +1997,7 @@ async function loadPacking(){
   // 카드가 목록 제한과 독립(count-head)이면서도 기간 버튼과 같은 기준을 쓴다.
   const rangeOr=`and(finalized_at.gte.${r.fromISO},finalized_at.lte.${r.toISO}),and(finalized_at.is.null,updated_at.gte.${r.fromISO},updated_at.lte.${r.toISO})`;
   const cntCard=f=>{ const q=sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed").or(rangeOr); return f?f(q):q; };
-  const [unrevQ,revQ,revCnt,cTotal,cPk,cDr,cNull]=await Promise.all([
+  const [unrevQ,revQ,revCnt,cTotal,cPk,cDr,cNull,cUnrev]=await Promise.all([
     sbAll(()=>sb.from("wms_orders").select(FIN_SELECT).eq("status","closed").or("mgr_reviewed.is.null,mgr_reviewed.eq.false").order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미리뷰 전량(리뷰 대기 큐, 잘리면 처리 누락)
     sb.from("wms_orders").select(FIN_SELECT).eq("status","closed").eq("mgr_reviewed",true).order("updated_at",{ascending:false}).limit(200),   // caps-ok: 최근 200 사양 — 전량 아님(Rollback #7 패턴, 총수는 캡션 표시)
     sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed").eq("mgr_reviewed",true),
@@ -2002,6 +2005,9 @@ async function loadPacking(){
     cntCard(q=>q.eq("fulfillment_type","packing_list")),
     cntCard(q=>q.eq("fulfillment_type","direct")),
     cntCard(q=>q.is("fulfillment_type",null)),
+    // "N of M not yet reviewed" 분자 (2026-08-14 "잘린 모수" 수정) — not.is.true = false·null 둘 다
+    // (미리뷰 목록 쿼리의 or(is.null,eq.false) 와 같은 집합을 한 필터로).
+    cntCard(q=>q.not("mgr_reviewed","is",true)),
   ]);
   const revRows=revQ.data||[], revTotal=revCnt.count??revRows.length;
   // 병합 후 기존 정렬 기준(updated_at desc) 재정렬 — 종전 단일 쿼리의 표시 순서 보존
@@ -2030,14 +2036,21 @@ async function loadPacking(){
   // renderFulfillStats 주석 참조(unknown 명시).
   renderFulfillStats({total:cTotal.count??0, pk:cPk.count??0, dr:cDr.count??0, unknown:cNull.count??0});
   if(!fin.length){ el.innerHTML=`<div class="empty">No finalized orders in this period.</div>`; return; }
-  const unrev=fin.filter(o=>!o.mgr_reviewed).length;
+  // "잘린 모수" 수정 (2026-08-14 — 08-13 발견 3건과 같은 패턴의 잔존물): 종전 분모 fin.length 에는
+  // "리뷰 완료 최근 200" 잘림이 샜다 — [실측 2026-08-14] closed 703 · 리뷰완료 671 → 분모에서 ~471건
+  // 누락(실제 "32 of 703"이 "32 of ~232"로 표시). 이 숫자의 용도는 "얼마나 밀렸나"이고 목록 잘림이
+  // 섞이면 그 판단이 안 된다(사용자 결정 (가)안) — 분자·분모 둘 다 count-head(rangeOr — FINALIZED
+  // 카드와 같은 모수·같은 기간 기준)로. 분자만 목록 배열로 두면 두 경로가 나중에 어긋난다.
+  // 목록 잘림 공지는 revNote 가 담당(역할 분리 — 2026-08-13 표시 관례). 배열 계산은 fallback 만.
+  const unrev=cUnrev.count ?? fin.filter(o=>!o.mgr_reviewed).length;
+  const finTotal=cTotal.count ?? fin.length;
   // 리뷰 완료분 잘림 명시(Rollback 캡션 패턴) — "정해서 안 보여줌 + 총수 표시"
   const revNote=revTotal>revRows.length
     ? `<span style="font-size:11.5px;color:var(--mut)">Latest ${revRows.length} of ${revTotal} reviewed listed — older reviewed orders are not listed.</span>`
     : "";
   el.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mut);cursor:pointer"><input type="checkbox" id="finHideRev"> Hide reviewed</label>
-      <span style="font-size:12px;color:var(--mut-2)">${unrev} of ${fin.length} not yet reviewed</span>${revNote}</div>
+      <span style="font-size:12px;color:var(--mut-2)">${unrev} of ${finTotal} not yet reviewed</span>${revNote}</div>
     <table><thead><tr><th style="width:32px">✓</th><th>Order</th><th>Customer</th><th class="num">Lines</th><th class="num">Units</th><th>Warehouse</th><th>Finalized by</th><th>When</th><th>Packing list</th></tr></thead><tbody>${
     fin.map(o=>{
       // 배치 펼침(2026-08-13): 분할 오더(배치 2개+)에만 캐럿 — 1개가 대부분이라 노이즈 방지(사용자 지시).
@@ -2495,14 +2508,37 @@ async function refreshRecvBadge(){
 async function loadRecv(){
   const ap=document.getElementById("recvApprovals");
   ap.innerHTML=`<div class="loading"><div class="spin"></div>Loading…</div>`;
-  const [pend,rcpts]=await Promise.all([
+  // "잘린 모수" 수정 (2026-08-14 — 08-13 패턴 전수조사): 종전엔 wms_receipts 단일 limit(60) 배열이
+  // Awaiting putaway 합계·Apply 목록·pending 카운트의 모수였다. updated_at desc 라 **오래된 receipt
+  // 부터** 잘리는데 awaiting putaway 는 오래 방치된 것일수록 문제인 지표고, 60 밖의 completed 미Apply
+  // 는 Apply 화면에서 사라져 Cin7 반영이 영영 안 된다. receipt 는 영구 누적이라 몇 달 안에 만기 —
+  // [실측 2026-08-14] 37/60 · 창 밖 누락 0건 = 예방 수정. 재편은 #6·#7 "작업 대상 전량 + 표시용
+  // 최근 N" 패턴:
+  //   work   = 미적용 전량(applied_at null — in_progress/held/partial/completed 미Apply 전부)
+  //   placed = Apply 는 끝났는데 미풋어웨이 라인이 남은 receipt(백로그의 "Cin7 applied" 행이 이 집합).
+  //            ⚠️ !inner 라 임베드에 미풋어웨이 라인만 실리지만 countNotPlaced 는 어차피 그 라인만
+  //            세므로(received_base>0·비승인대기·bin 있음·미완료 — 같은 조건) 집계 정확.
+  //            임베드 온전 행이 필요한 소비처(백로그·history 의 receipt 필드)에는 영향 없음.
+  //   recent = 최근 60(history 표시 전용 — 잘려도 집계 무영향, 총수는 캡션)
+  const [pend,workQ,placedQ,recentQ,rTotalQ]=await Promise.all([
     sb.from("wms_receipt_lines").select("*, wms_receipts(po_number,supplier_name,warehouse)")   // caps-ok: 승인 대기 라인만(needs_approval=true) — 승인/거부로 소진되는 소수
       .eq("needs_approval",true).order("created_at",{ascending:false}),
     // putaway_bin/putaway_done/needs_approval 도 같은 임베드로 받는다 — awaiting putaway 계산에 왕복을 더하지 않는다(규칙 34).
+    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
+      .is("applied_at",null).order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미적용 receipt 전량(Apply·백로그 작업 대상, Apply 로 소진. [실측 2026-08-14] 전체 37)
+    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines!inner(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
+      .not("applied_at","is",null)
+      .not("wms_receipt_lines.putaway_bin","is",null)
+      .not("wms_receipt_lines.putaway_done","is",true)
+      .not("wms_receipt_lines.needs_approval","is",true)
+      .gt("wms_receipt_lines.received_base",0)
+      .order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll — applied 인데 미풋어웨이 라인이 남은 것만(풋어웨이 완료로 소진되는 소수)
     sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval)")
-      .order("updated_at",{ascending:false}).limit(60),
+      .order("updated_at",{ascending:false}).limit(60),   // caps-ok: 최근 60 사양 — history 표시 전용(집계 모수 아님), 총수는 캡션
+    sb.from("wms_receipts").select("id",{count:"exact",head:true}),
   ]);
-  if(pend.error){ ap.innerHTML=`<div class="empty" style="font-size:12px">Receiving tables not found. Run wms_receipts.sql to enable.</div>`;
+  const rerr=pend.error||workQ.error||placedQ.error||recentQ.error;
+  if(rerr){ ap.innerHTML=`<div class="empty" style="font-size:12px">Receiving tables not found. Run wms_receipts.sql to enable.<br><span style="color:var(--mut-2);font-size:11px">(${esc(rerr.message||"")})</span></div>`;
     document.getElementById("recvExports").innerHTML=""; document.getElementById("recvHistory").innerHTML="";
     document.getElementById("recvBacklog").innerHTML=""; return; }
 
@@ -2526,7 +2562,12 @@ async function loadRecv(){
   ap.querySelectorAll("[data-rej]").forEach(b=>b.onclick=()=>rejectOffPo(+b.dataset.rej,b.dataset.sku));
 
   // ── Apply to Cin7: 완료됐고 아직 미반영인 receipt ──
-  const rs=(rcpts.data||[]);
+  // 병합: 집계 모수 = 전량 집합(work·placed), recent 는 history 채움용. dedup 은 임베드가 온전한
+  // 쪽 우선(work·recent = 전체 라인 / placed = 미풋어웨이 라인만) — Map 선착순이라 순서가 곧 우선순위.
+  const _rById=new Map();
+  [...(workQ.data||[]), ...(recentQ.data||[]), ...(placedQ.data||[])].forEach(r=>{ if(!_rById.has(r.id)) _rById.set(r.id,r); });
+  const rs=[..._rById.values()].sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
+  const rTotal=rTotalQ.count??rs.length;
   const canApply=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");  // Apply to Cin7 권한
   // ⚠️ 부분 성공(일부 bin 이동이 Cin7 에서 거부됨)은 applied_at 이 찍혀도 **다시 Apply 할 수 있어야 한다** —
   //    실패한 bin 은 exported_base 가 안 찍혀 있어 EF 가 그 그룹만 재시도한다. 표식 = apply_note 의 `failed_moves(N)`.
@@ -2601,8 +2642,10 @@ async function loadRecv(){
   syncApplyBusyUI();   // 탭 전환 등으로 재렌더돼도 진행 중 상태(비활성 + 배너)를 유지
 
   const hist=document.getElementById("recvHistory");
+  // history 는 최근 40 표시 사양(2026-08-14 무변) — 총수 캡션으로 "잘려서 안 보임"과 "정해서 안 보여줌"을 가른다(#7 관례)
+  const histNote=rTotal>40?`<div style="font-size:11.5px;color:var(--mut);padding:8px 14px 0">Latest 40 of ${rTotal} receipts listed.</div>`:"";
   hist.innerHTML=rs.length
-    ? `<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th>Status</th><th>Cin7</th><th>Received by</th><th>Updated</th><th></th></tr></thead><tbody>${
+    ? histNote+`<table><thead><tr><th>Receipt</th><th>Source</th><th>Supplier / Route</th><th>Warehouse</th><th>Status</th><th>Cin7</th><th>Received by</th><th>Updated</th><th></th></tr></thead><tbody>${
         rs.slice(0,40).map(r=>{
           const applied=!!r.applied_at, fb=applied?failedBins(r):0, rg=remainGroups(r), pf=permBins(r), fix=fb+pf;
           // PO 미완(rg/fix)은 Cin7 문서가 authorize 안 된 DRAFT 라는 뜻 — 트랜스퍼("이동 실패")와 문구를 구분한다.
@@ -3045,8 +3088,10 @@ async function loadDisc(){
     // 캡 위험 #8 근본 해결(2026-08-12 3단계): 미해결 큐 전량 — Reports 탭 open 과 같은 처방(sbAll·id 보조 정렬).
     sbAll(()=>sb.from("wms_discrepancies").select("*").is("resolved_at",null).eq("cin7_corrected",false).is("voided_at",null).order("created_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미해결 큐 전량(#8)
     sb.from("wms_discrepancies").select("*",{count:"exact"}).or("resolved_at.not.is.null,cin7_corrected.eq.true,voided_at.not.is.null").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).limit(500),
+    // ⚠️ 정렬 필수(2026-08-14): Reports 탭 sum 쿼리와 같은 이유 — 무정렬 + 1000행 캡 = "first N" 미정의.
+    //    [실측 2026-08-14] 379행(voided 제외) — 여유. 모수 count-head 분리는 백로그 #9 유지.
     sb.from("wms_discrepancies").select("reason,source,created_at,resolved_at,cin7_corrected",{count:"exact"})
-      .is("voided_at",null).gte("created_at",r.fromISO).lte("created_at",r.toISO),
+      .is("voided_at",null).gte("created_at",r.fromISO).lte("created_at",r.toISO).order("created_at",{ascending:false}).order("id",{ascending:false}),   // caps-ok: 기간 모수·잘리면 truncNote 표기(#9 — 실측 379/1000)
   ]);
   discOpenRows=open.data||[]; discDoneRows=done.data||[];
   discDoneTotal=done.count??discDoneRows.length;
