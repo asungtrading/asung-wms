@@ -45,3 +45,48 @@ select cron.schedule(
   '0 * * * *',
   $job$ select wms_health_snapshot() $job$
 );
+
+-- 4) Cin7 상품 이미지 → 스냅샷 직결 (매일 1회) → Edge Function 'product-images'
+--    (2026-08-14 — BQ CSV 이미지가 7주 묵었던 실사고의 재발 방지.
+--     설계·원칙은 supabase/functions/product-images/index.ts 헤더 참조.)
+--    ⚠️ 시각: pg_cron 은 UTC 기준이다(등록 후 `select * from cron.job;` 로 실측 확인 권장).
+--       12:30 UTC = 토론토 여름(EDT) 8:30 / 겨울(EST) 7:30 — DST 로 계절마다 1시간 밀린다.
+--       어느 계절에도 WmsSync(GAS, America/Toronto 6:30 ±15분 — 스냅샷 truncate+재적재)
+--       **이후** · 창고 시작(9시) **전**이 되도록 고른 값. 재적재보다 먼저 돌면 그날
+--       덮어쓴 이미지가 BQ 값으로 되돌아간 채 하루를 보낸다.
+--    ⚠️⚠️ x-wms-cron-key 실제 값을 이 파일에 넣지 말 것 — 레포가 PUBLIC 이다.
+--       (anon 키는 원래 공개라 커밋 OK 였지만 이 시크릿은 다르다.)
+--       `supabase secrets set WMS_CRON_SECRET=...` 로 등록한 것과 같은 문자열을
+--       실서버 대시보드 SQL Editor 에서 등록할 때만 채운다. 아래는 placeholder.
+--    선행 조건: 20260814030000_image_sync_runs.sql push · product-images 배포 ·
+--    WMS_CRON_SECRET secret 등록. (EF 는 secret 미설정이면 500 fail-closed.)
+select cron.schedule(
+  'wms-image-sync',
+  '30 12 * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/product-images',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 5) 위 4)의 재시도 슬롯 (1시간 뒤) — 첫 실행이 성공했으면 EF 쿨다운(20시간)이
+--    자동으로 no-op(SKIPPED cooldown) 시키고, 실패(429 등)였으면 여기서 재시도된다.
+--    등록 비용 0 으로 실패 모드만 줄이는 슬롯 (2026-08-14 설계 승인).
+select cron.schedule(
+  'wms-image-sync-retry',
+  '30 13 * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/product-images',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);

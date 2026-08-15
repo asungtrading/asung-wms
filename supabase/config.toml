@@ -423,3 +423,11 @@ entrypoint = "./functions/hello/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/hello/*.html" ]
+
+[functions.product-images]
+enabled = true
+# pg_cron 이 JWT 없이 x-wms-cron-key 시크릿 헤더로 부른다 — 게이트는 함수 진입부에 있다
+# (시크릿 비교, secret 미설정이면 500 fail-closed · ?force=1 수동 실행은 authgate).
+# hello 폴링과 같은 이유의 verify_jwt=false 지만 hello 와 달리 무인증 개방이 아니다.
+verify_jwt = false
+entrypoint = "./functions/product-images/index.ts"

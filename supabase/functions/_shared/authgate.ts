@@ -1,6 +1,6 @@
 // ============================================================
 // ASUNG WMS — 공용 서버측 권한 게이트 (_shared)
-// hello(hold_recheck)·receiving 이 함께 import 한다.
+// hello(hold_recheck)·receiving·product-images(?force=1 수동 실행) 가 함께 import 한다.
 // ------------------------------------------------------------
 // 배경(2026-08-13): 레포가 PUBLIC 이라 anon 키는 공개다 — 클라이언트 게이트(admin.html 의
 // 3중 게이트 등)는 anon 키 직호출로 우회된다(규칙 8 각주 실측). 서버측 검증은 hold_recheck
@@ -8,7 +8,8 @@
 // (staff-create 는 동작 중이라 이번엔 무접촉 — authgate 로의 교체는 별건.)
 //
 // ⚠️ 이 파일을 바꾸면 import 하는 함수를 모두 재배포해야 런타임이 일치한다:
-//    supabase functions deploy hello && supabase functions deploy receiving
+//    supabase functions deploy hello && supabase functions deploy receiving \
+//      && supabase functions deploy product-images
 //    (각 함수는 배포 시점의 번들을 계속 쓴다 — _shared/cin7.ts 와 같은 규칙)
 // ⚠️⚠️ hello 의 "폴링 경로"(?commit=1)에는 절대 걸지 말 것 — pg_cron(wms-poll-orders)이
 //    Bearer 접두어 없는 anon 키로 부르고 hello 는 verify_jwt=false 다(config.toml).
