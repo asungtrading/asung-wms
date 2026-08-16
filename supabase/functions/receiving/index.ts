@@ -2,8 +2,8 @@
 // ASUNG WMS — Edge Function: receiving (v2)
 // ------------------------------------------------------------
 // 액션:
-//   ?action=pos                → 리시빙 준비된 PO (Status=INVOICED+RECEIVING 조회, Invoice First 는 클라이언트 검사)
-//   ?action=pos&search=...     → PO 검색 (동일 필터)
+//   ?action=pos                → 리시빙 준비된 PO (UpdatedSince 6개월 단일 조회, 판정은 클라이언트 7단 — 2026-08-15)
+//   ?action=pos&search=...     → PO 검색 (동일 필터 · 단 UpdatedSince 는 뺀다 — 스캔은 마지막 수단)
 //   ?action=po&id=&type=       → PO 상세 + 라인 정규화(스냅샷 조인)
 //                                ⚠️ 기대치(expected_base)는 2026-08-05 부터 **인보이스 라인** 기준 —
 //                                   라인 집합은 Order.Lines 유지 + 수량만 덮어쓰기. 인보이스 없으면 오더 폴백.
@@ -252,23 +252,30 @@ function normLine(l: any, s: any, expectedQty?: number | null) {
   };
 }
 
-// ── PO 목록: Status=INVOICED + RECEIVING (Invoice First 는 클라이언트 검사) ──────
-// 2026-08-04 전환 — 왜 InvoiceStatus 서버 필터가 아니라 Status 인가 (실측, 전체 PO 1,129건):
-//  · 종전 InvoiceStatus=PAID 조회는 창업 이후 지불을 마친 **모든** PO(877건)를 돌려주는데, 그중 리시빙
-//    대상은 0건 — 전량 받아 클라이언트 필터로 버리고 있었다. PO 는 계속 쌓이므로 언젠가 페이지 상한
-//    (Limit 1000 × 3페이지)에 닿고, **정렬이 PO 번호 오름차순이라 잘리는 쪽은 항상 최신 PO** 다 —
-//    2026-07-28 PO-01081 누락과 같은 형태의 조용한 사고. 상한 증설은 시간을 살 뿐 근본 해결이 아니다.
-//  · **Status 서버 필터는 동작한다**: Status=INVOICED → Total 73 · Status=RECEIVING → Total 5.
-//    현재 리시빙 대상 8건은 전부 Status=INVOICED. RECEIVING(부분입고 진행중)은 규칙 20 의 유지 의도대로
-//    함께 조회한다(실측상 5건 전부 StockReceivedStatus=AUTHORISED 라 지금은 클라이언트 필터에서 걸러진다).
-//  · ⚠️ **여러 값 동시 요청은 불가** — `Status=INVOICED,RECEIVING` 도 `INVOICED|RECEIVING` 도 Total 0.
-//    그래서 상태별 개별 조회 + ID dedup (호출 수는 종전 AUTHORISED/PAID 2회와 동일).
-//  · ⚠️ **Type 서버 필터는 무시된다** (Simple/Advanced/Service Purchase 모두 무필터와 동일 결과) —
-//    Service 제외는 계속 클라이언트에서 한다.
-//  · **StockReceivedStatus 서버 필터는 사실 동작한다** (NOT AVAILABLE → Total 585. 2026-07-28 의 "무시된다"
-//    는 `RestockReceivedStatus` 로 파라미터 **이름을 잘못 쓴** 실측이었다). 그래도 서버에 걸지 않는다 —
-//    RECEIVING 5건이 전부 StockReceivedStatus=AUTHORISED 라 부분입고 유지 의도와 충돌한다.
-const PO_STATUSES = ["INVOICED", "RECEIVING"];
+// ── PO 목록: UpdatedSince 6개월 단일 조회 — 판정은 전부 클라이언트 7단 (2026-08-15 전환) ──────
+// 왜 Status 서버 필터(2026-08-04~)를 버리고 날짜 축인가 (실사고: PO-01083·PO-01130):
+//  · 크레딧 노트가 붙은 PO 의 실제 상태값은 **"RECEIVING / CREDITED"** — 종전 서버 조회
+//    (Status=INVOICED + Status=RECEIVING 2회)의 어느 요청값과도 달라 **응답에 아예 안 들어왔다.**
+//    물건은 창고에 있는데 작업자가 받을 방법이 없어 입고가 WMS 를 안 거쳤다(원장 착수 전에 막을 구멍).
+//  · [실측 2026-08-15] Status 어휘 11종 + 복합 조합이 계속 생긴다: COMPLETED 854 · RECEIVED 118 ·
+//    VOIDED 98 · INVOICED 45 · ORDERED 13 · ORDERING 10 · RECEIVED / CREDITED 7 · CREDITED 4 ·
+//    RECEIVING 3 · RECEIVING / CREDITED 2 · COMPLETED / CREDIT NOTE CLOSED 1.
+//    ⚠️ 값을 하나씩 추가하는 방식("RECEIVING / CREDITED" 추가 등)은 다음 조합이 나오면 또 조용히
+//    놓친다 — 이번 사고가 정확히 그것이라 **Status 축 자체를 버린다.**
+//  · [실측 2026-08-15 — 날짜 파라미터 선별] CreatedSince·CreatedFrom·OrderDateFrom → 전부 Total 1155
+//    = 무필터와 동일 = 조용히 무시됨 (대조군 ZzzNotARealParam 도 1155 — Cin7 이 모르는 파라미터를
+//    무시하는 동작을 대조군으로 확인. 규칙 20 "오타와 미지원이 응답에서 구별 안 됨" 계열).
+//    **UpdatedSince → Total 898 = 동작하는 유일한 날짜 파라미터.**
+//  · [실측] UpdatedSince=2020-01-01(창업 이전) → 1155 = 무필터와 완전 일치 → 갱신일 축이 모든 PO 를
+//    빠짐없이 덮는다(새는 행 0건). LastUpdatedDate 빈 값 0 · 파싱불가 0 · 미래날짜 0.
+//  · [실측] 관문 통과분 8건의 갱신일이 전부 4일 이내 → 6개월 컷 대비 마진 45배.
+//    6개월 밖 "열린" PO 4건은 전부 ORDERING + InvoiceStatus=NOT AVAILABLE — 인보이스를 승인하는 순간
+//    갱신일이 올라와 자동으로 범위에 들어온다(날짜 컷으로 놓치는 경로 없음).
+// ── 경위 보존 (2026-08-04 Status 축 전환 — 그날 기준으로는 옳았던 판단) ──
+//  · 종전 InvoiceStatus=PAID 조회가 지불 완료 전체(877건)를 돌려줘 페이지 상한+오름차순 잘림
+//    (PO-01081 형 조용한 누락) 위험이 있어 Status 축으로 좁혔었다. 그때 실측(Status 서버 필터 동작 ·
+//    다중 값 동시 요청 불가 Total 0 · Type 서버 필터 무시 · StockReceivedStatus 필터는 동작하나 안 씀)은
+//    지금도 사실이다 — 다만 Status 축이 복합 문자열을 못 덮는다는 것이 2026-08-15 실물로 드러났다.
 
 // Invoice First 게이트 (규칙 20) — 서버 파라미터에서 클라이언트 값 비교로 이동 (2026-08-04).
 // 좁히는 필터이므로 서버에서 빼도 안전하다(못 보던 게 생기는 게 아니라 더 보고 코드로 거르는 쪽).
@@ -283,67 +290,92 @@ const PO_INVOICE_OK = new Set(["AUTHORISED", "PAID"]);
 
 // ⚠️ 페이지 크기 — 조기 종료 조건(`items.length < PO_PAGE_LIMIT`)과 **반드시 같은 상수**를 써야 한다.
 // 둘이 어긋나면(예: Limit=1000 인데 종료 조건이 100) 첫 페이지에서 무조건 루프가 끊긴다.
-// Status 기반 전환 후 상태별 Total 은 73/5 수준이라 사실상 page1 한 번으로 끝나지만,
 // **정렬이 오름차순(잘리면 최신 PO 부터 누락)이라는 사실은 그대로**이므로 Limit=1000 · 페이지 상한 ·
-// truncated 진단(서버 Total 대비 실수신 행수 비교)을 유지한다.
+// truncated 진단(서버 Total 대비 실수신 행수 비교)을 유지한다. ⚠️ 2026-08-15 부터 조회 모수가
+// 상태별 73/5 에서 ~898(6개월 갱신분)로 커졌다 — truncated 가 유일한 잘림 감지 수단이라는
+// 사실의 실질도 그만큼 올라갔다(898 은 Limit 1000 의 page1 안이지만 계속 자란다).
 const PO_PAGE_LIMIT = 1000;
 const PO_MAX_PAGES = 3;
+// 6개월 컷 — ⚠️ 고정 일수 산술(180일)로 계산한다. setMonth(-6) 류는 "그 해의 달" 절대 지정이라
+// 컷이 조용히 무력화된다(2026-08-15 계획 검토에서 잡힌 오류). [실측] 이 계산 기준 Total 898 —
+// 배포 후 응답의 totals 로 검산 가능해야 하므로 계산식을 바꾸면 이 숫자도 갱신할 것.
+const PO_UPDATED_MONTHS = 6;
 
-async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Record<string, number>; totals: Record<string, number>; truncated: boolean }> {
-  const byId = new Map<string, any>(); // dedup — PurchaseList 의 ID 기준 (두 조회에 같은 PO 가 들어올 수 있음)
-  const scanned: Record<string, number> = {}; // 진단 — 상태별로 실제 가져온 행 수 (필터 전)
-  const totals: Record<string, number> = {};  // 진단 — 상태별 서버 보고 Total (scanned 보다 크면 못 읽은 게 있다)
-  let truncated = false;                      // 진단 — Total 만큼 못 읽은 상태가 있으면 true (페이지 상한 포함)
+async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Record<string, number>; totals: Record<string, number>; truncated: boolean; updated_since: string | null }> {
+  const byId = new Map<string, any>(); // 페이지 간 중복 방어 (단일 조회 전환 후에도 유지 — 비용 0)
+  const scanned: Record<string, number> = { ALL: 0 }; // 진단 — 실제 가져온 행 수 (필터 전). 키만 상태별→ALL 로, Record 골격은 유지
+  const totals: Record<string, number> = { ALL: 0 };  // 진단 — 서버 보고 Total (scanned 보다 크면 못 읽은 게 있다)
+  let truncated = false;                      // 진단 — Total 만큼 못 읽었으면 true (페이지 상한 포함)
   const invoiceExcluded: Record<string, number> = {}; // Invoice First 클라이언트 검사에서 떨어진 InvoiceStatus 값별 카운트
-  for (let si = 0; si < PO_STATUSES.length; si++) {
-    if (si > 0) await sleep(250); // 조회 사이 간격 (Cin7 rate limit)
-    const st0 = PO_STATUSES[si];
-    scanned[st0] = 0;
-    totals[st0] = 0;
-    let page = 1;
-    while (page <= PO_MAX_PAGES) {
-      const q = "/purchaseList?Page=" + page + "&Limit=" + PO_PAGE_LIMIT + "&Status=" + encodeURIComponent(st0) +
-        (search ? "&Search=" + encodeURIComponent(search) : "");
-      const data = await cin7Get(q);
-      const items = data.PurchaseList || [];
-      scanned[st0] += items.length;
-      totals[st0] = Number(data.Total || 0);
-      for (const p of items) {
-        // 아래 4개 제외조건은 Status 전환과 무관하게 유지 — 복합 상태("RECEIVED / CREDITED" 등)가 실재하므로 includes 검사.
-        const st = String(p.Status || "").toUpperCase();
-        if (st.includes("VOID") || st.includes("COMPLETED") || st.includes("CREDITED")) continue; // 끝난/취소 PO (복합상태 포함)
-        if (st.includes("RECEIVED") && !st.includes("RECEIVING")) continue;                       // 이미 받은 PO (RECEIVING=부분입고 진행중은 유지)
-        if (/service/i.test(String(p.Type || ""))) continue;                                     // Service 주문(운송·관세 등) 제외 — 물건 없음
-        if (String(p.StockReceivedStatus || "").toUpperCase() === "AUTHORISED") continue;
-        // Invoice First (규칙 20) — InvoiceStatus 는 이제 서버 파라미터가 아니라 여기서 검사한다.
-        // 정확 값 비교(AUTHORISED/PAID 만 통과) — 그 외 값은 제외하고 카운트해 아래에서 로그.
-        const inv = String(p.InvoiceStatus || "").trim().toUpperCase();
-        if (!PO_INVOICE_OK.has(inv)) {
-          const k = inv || "(empty)";
-          invoiceExcluded[k] = (invoiceExcluded[k] || 0) + 1;
-          continue;
-        }
-        const key = String(p.ID || "");
-        if (byId.has(key)) continue;
-        byId.set(key, {
-          id: p.ID, po_number: p.OrderNumber || "", supplier: p.Supplier || "",
-          status: p.Status || "", invoice_status: p.InvoiceStatus || "",
-          type: p.Type || "Simple Purchase", order_date: p.OrderDate || null, source: "po",
-        });
+  // ⚠️ UpdatedSince 는 고정 일수 산술 — 상수 정의부 주석 참조(setMonth 금지). 형식은 실측이 동작 확인한
+  //    YYYY-MM-DDTHH:mm:ss (UTC · 밀리초/Z 없음 — toISOString().slice(0,19)).
+  // ⚠️ search(스캔·검색) 때는 UpdatedSince 를 **빼고** Search 만 보낸다 (2026-08-15 사용자 결정) —
+  //    스캔은 Total=1 수준이라 비용이 없고, 6개월보다 오래된 PO 를 스캔했을 때 날짜 컷에 막히는
+  //    실패 모드를 없앤다. 스캔은 작업자의 마지막 수단 — 목록에 없어도 실물 PO 번호로는 닿아야 한다.
+  const updatedSince = search ? null : new Date(Date.now() - PO_UPDATED_MONTHS * 30 * 86400000).toISOString().slice(0, 19);
+  let page = 1;
+  while (page <= PO_MAX_PAGES) {
+    const q = "/purchaseList?Page=" + page + "&Limit=" + PO_PAGE_LIMIT +
+      (updatedSince ? "&UpdatedSince=" + encodeURIComponent(updatedSince) : "") +
+      (search ? "&Search=" + encodeURIComponent(search) : "");
+    const data = await cin7Get(q);
+    const items = data.PurchaseList || [];
+    scanned.ALL += items.length;
+    totals.ALL = Number(data.Total || 0);
+    for (const p of items) {
+      const st = String(p.Status || "").toUpperCase();
+      // ① 끝난/취소 PO — ⚠️ 2026-08-15 부터 CREDITED 는 제외 사유가 아니다: 크레딧 노트가 붙은 살아있는
+      //    PO 가 "RECEIVING / CREDITED" 로 실재한다(실사고 PO-01083·PO-01130 — 목록에 안 떠 받을 수 없었다).
+      //    VOID·COMPLETED 는 반드시 유지 — 특히 COMPLETED 가 Mark as Closed 된 PO 를 막는 조건이다
+      //    ([실측] PO-00892: Cin7 에서 닫으면 Status 가 RECEIVING → COMPLETED).
+      //    ⚠️ CREDITED 허용의 효과는 배포 시점에 검증할 수 없다(대상 2건은 void 예정) — 다음에 크레딧
+      //    노트 붙은 PO 가 나올 때가 첫 검증이다. 그래서 근거를 여기·커밋에 평소보다 상세히 남긴다.
+      if (st.includes("VOID") || st.includes("COMPLETED")) continue;
+      // ② 이미 받은 PO (RECEIVING=부분입고 진행중은 유지)
+      if (st.includes("RECEIVED") && !st.includes("RECEIVING")) continue;
+      // ③ Service 주문(운송·관세 등) 제외 — 물건 없음. ⚠️ IsServiceOnly 필드로 교체하지 말 것:
+      //    [실측 2026-08-15 교차표] Type 판정 vs IsServiceOnly 가 663/663 완전 일치(누수·과차단 0) — 교체 이득 없음.
+      if (/service/i.test(String(p.Type || ""))) continue;
+      // ④ ⚠️⚠️ 주 방어선 — 절대 지우지 말 것. "인보이스 수량만큼 이미 받고 승인까지 끝난 PO" 를 막는다.
+      //    지우면 A유형 5건(PO-00896·00966·01010·01016(Advanced)·01076(Simple) — 전부 Invoice 수량 ==
+      //    StockReceived 수량 == 승인 완료. 오더에만 인보이스 미발행 잔량이 남아 CombinedReceivingStatus 가
+      //    PARTIALLY RECEIVED 로 보일 뿐)이 목록에 떠서, 작업자가 이미 받은 물건을 다시 받는다 = Cin7 재고 2배.
+      if (String(p.StockReceivedStatus || "").toUpperCase() === "AUTHORISED") continue;
+      // ⑤ Mark as Closed 마커 — Cin7 UI 에서 닫으면 OrderStatus=CLOSED ([실측] PO-00892 · 필드 실재, 누락행 0)
+      if (String(p.OrderStatus || "").trim().toUpperCase() === "CLOSED") continue;
+      // ⑥ 오더 기준 수령 완료 — [실측 분포] FULLY RECEIVED 360 · NOT AVAILABLE 696 · NOT RECEIVED 89 ·
+      //    PARTIALLY RECEIVED 8 · 빈값 2 (빈값 2건 = PO-00238·PO-00466, 둘 다 VOIDED 라 ⑦에서도 걸린다)
+      if (String(p.CombinedReceivingStatus || "").trim().toUpperCase() === "FULLY RECEIVED") continue;
+      // ⑦ Invoice First (규칙 20) — 정확 값 비교(AUTHORISED/PAID 만 통과). ⑤⑥ 뒤에 두어 닫힌/수령완료
+      //    PO 가 invoiceExcluded 진단을 오염시키지 않는다. 그 외 값은 제외하고 카운트해 아래에서 로그.
+      const inv = String(p.InvoiceStatus || "").trim().toUpperCase();
+      if (!PO_INVOICE_OK.has(inv)) {
+        const k = inv || "(empty)";
+        invoiceExcluded[k] = (invoiceExcluded[k] || 0) + 1;
+        continue;
       }
-      if (items.length < PO_PAGE_LIMIT) break;              // 마지막 페이지 (실측: INVOICED 73 · RECEIVING 5 → page1 로 끝)
-      if (page === PO_MAX_PAGES) break;                     // 상한 도달 — 못 읽은 잔여는 아래 Total 비교가 잡는다
-      page++; await sleep(300);
+      const key = String(p.ID || "");
+      if (byId.has(key)) continue;
+      byId.set(key, {
+        id: p.ID, po_number: p.OrderNumber || "", supplier: p.Supplier || "",
+        status: p.Status || "", invoice_status: p.InvoiceStatus || "",
+        type: p.Type || "Simple Purchase", order_date: p.OrderDate || null, source: "po",
+      });
     }
-    if (totals[st0] > scanned[st0]) truncated = true;       // Total 대비 덜 받았다 — 페이지 상한이든 응답 잘림이든
+    if (items.length < PO_PAGE_LIMIT) break;              // 마지막 페이지 ([실측] 6개월분 898 → page1 로 끝)
+    if (page === PO_MAX_PAGES) break;                     // 상한 도달 — 못 읽은 잔여는 아래 Total 비교가 잡는다
+    page++; await sleep(300);
   }
+  // ⚠️ 오름차순 정렬이라 잘리면 **최신 PO 부터** 사라진다 — 이 플래그가 유일한 잘림 감지 수단.
+  if (totals.ALL > scanned.ALL) truncated = true;
   if (Object.keys(invoiceExcluded).length) {
     // Invoice First 에서 떨어진 PO 들 — DRAFT 등은 정상이지만, 예상 밖 값이 새로 나타나면 여기서 보인다.
     console.warn("[receiving pos] excluded by InvoiceStatus (Invoice First):", JSON.stringify(invoiceExcluded));
   }
   const out = [...byId.values()];
   out.sort((a, b) => String(b.order_date || "").localeCompare(String(a.order_date || "")));
-  return { pos: out, scanned, totals, truncated };
+  // updated_since: 진단 전용 (2026-08-15) — 잘림 의심 시 컷 기준을 응답에서 바로 본다. search 경로는 null.
+  return { pos: out, scanned, totals, truncated, updated_since: updatedSince };
 }
 
 // ── PO 상세 원본 — poDetail(라인 정규화)과 Apply 의 인보이스 게이트가 같은 소스를 쓴다 ──
