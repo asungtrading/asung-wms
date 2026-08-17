@@ -1,11 +1,11 @@
 // ============================================================
 // ASUNG WMS — 공용 Cin7 HTTP 헬퍼 (_shared)
-// hello(폴링)·receiving·product-images 세 Edge Function 이 함께 import 한다.
+// hello(폴링)·receiving·product-images·inv-snapshot 네 Edge Function 이 함께 import 한다.
 // 예전엔 429 백오프가 receiving 에만 있고 hello 는 즉시 throw 라 갈라져 있었다
 // (2026-08-04 실사고: saleList 429 로 폴링 회차가 통째로 죽어 뒤 페이지 오더 미유입).
-// ⚠️ 이 파일을 바꾸면 세 함수를 모두 재배포해야 런타임이 일치한다:
+// ⚠️ 이 파일을 바꾸면 네 함수를 모두 재배포해야 런타임이 일치한다:
 //    supabase functions deploy hello && supabase functions deploy receiving \
-//      && supabase functions deploy product-images
+//      && supabase functions deploy product-images && supabase functions deploy inv-snapshot
 //    (각 함수는 배포 시점의 번들을 계속 쓴다 — 일부만 배포하면 조용히 갈라진다)
 // ============================================================
 

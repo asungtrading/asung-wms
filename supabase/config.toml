@@ -431,3 +431,11 @@ enabled = true
 # hello 폴링과 같은 이유의 verify_jwt=false 지만 hello 와 달리 무인증 개방이 아니다.
 verify_jwt = false
 entrypoint = "./functions/product-images/index.ts"
+
+[functions.inv-snapshot]
+enabled = true
+# 수동 실행 전용(cron 없음) — x-wms-cron-key 시크릿 헤더로 부른다(JWT 없음). 게이트는
+# 함수 진입부(WMS_CRON_SECRET 비교 — ⚠️ product-images 와 시크릿 공유, secret 미설정이면
+# 500 fail-closed). verify_jwt=false 가 없으면 플랫폼 JWT 검사에 걸려 시크릿 호출이 401.
+verify_jwt = false
+entrypoint = "./functions/inv-snapshot/index.ts"
