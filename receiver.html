@@ -1183,6 +1183,9 @@ async function offPoScan(code){
       receipt_id:receipt.id, order_sku:s.sku, base_sku:s.base_sku, product_name:s.product_name,
       expected_base:0, received_base:f, exported_base:0,
       is_off_po:true, needs_approval:true, status:"received", verification_method:"scanned",
+      // off-PO 는 사람이 실물을 보고 만드는 라인 — 생성 자체가 실작업이라 여기서 찍는다
+      // (PO 라인 초기 적재(startPo)는 껍데기 생성이라 안 찍는다 — 찍으면 연 사람이 전 라인 작업자가 된다)
+      last_received_by:me.name, last_received_at:new Date().toISOString(),
     }).select();
     if(error) throw error;
     lines.push({
@@ -1314,8 +1317,18 @@ function patchFor(l,kind){
     p.verification_method=l.vmethod;
     p.status=l.received>0?"received":"pending";
   }
-  if(kind==="putaway"||kind==="all"){
+  if(kind==="putaway"||kind==="putaway_auto"||kind==="all"){
     p.putaway_bin=l.putaway_bin; p.zone=l.zone; p.putaway_done=!!l.putaway_done;
+  }
+  // 라인별 작업자 기록 (2026-08-17 · 20260817000000 마이그레이션) — "이 라인을 마지막으로 만진 사람".
+  // ⚠️ putaway_auto(풋어웨이 진입 시 라스트빈 자동확정 — savePutawayAssigns)에는 찍지 않는다:
+  //    Putaway → 버튼 하나로 전 라인에 누른 사람 이름이 찍히면 지금 고치는 버그(receipt 를 연
+  //    사람 = received_by 전량 귀속)를 라인 단위로 재현한다. 실작업(스캔 qty · 수동 bin 지정/
+  //    Change/Placed = putaway · bin 일괄 Place all 도 putaway · 병합 all)에만 찍는다.
+  //    자동배정 라인도 이후 사람이 Placed/Change 를 누르면 그때 putaway 로 찍힌다.
+  if(kind!=="putaway_auto"){
+    p.last_received_by=me.name;
+    p.last_received_at=new Date().toISOString();
   }
   return p;
 }
@@ -1535,7 +1548,9 @@ function savePutawayAssigns(list){
   const t0=performance.now();
   let pending=Math.min(8,q.length);
   for(let w=0;w<pending;w++)(async()=>{
-    while(q.length){ const l=q.shift(); await queueWrite(l,"putaway"); }
+    // ⚠️ putaway_auto — 자동배정은 작업자 스탬프를 찍지 않는다(patchFor 주석 참조).
+    //    수동 쓰기(putaway·qty)와 병합되면 mergeKind 가 "all" 로 승격해 그때는 찍힌다 — 의도.
+    while(q.length){ const l=q.shift(); await queueWrite(l,"putaway_auto"); }
     if(--pending===0) perfLog("putaway bg saves",Math.round(performance.now()-t0)+"ms","n="+list.length);
   })();
 }
