@@ -134,7 +134,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.5";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.5 = creditnote 후보 sale 단위 dedup)
+const COLLECTOR_VERSION = "inv-collect@2026-08-17.6";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.6 = 날짜 커서 정체 결함 2건 차단)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -838,6 +838,29 @@ Deno.serve(async (req) => {
       for (const cd of cands) if (!cd.updated) noUpdatedField++;
       cands.sort((a, b) => (a.updated ?? "").localeCompare(b.updated ?? ""));
 
+      // ⚠️ 결함 A 차단 (2026-08-17 .6): 커서는 전체 정밀도 시각(캡 회차 = 마지막 처리 문서의
+      //   Updated)인데 UpdatedSince 요청은 날짜(10자)로 잘라 −1일 — 요청 형태는 의도된 설계라
+      //   그대로 두고(겹침 수신), **거르기를 우리 쪽에서 전체 정밀도로** 한다. 안 거르면 캡 회차
+      //   다음 회차의 후보 집합이 직전과 동일해 같은 앞 40건만 반복 처리 — 41번째 이후가 영영
+      //   안 들어온다(이미 원장에 있는 40건은 유니크 키가 흡수해 삽입 0행·ok:true·커서 동일값
+      //   갱신 = 완전히 조용한 정체. ⚠️ dry 는 커서를 안 쓰므로 dry 로는 재현 불가 — 실측 전 수정).
+      //   · cursorBefore 가 날짜(10자)보다 정밀할 때만 적용 — 날짜 하한(from_since 시드)은 현행 유지
+      //   · < 만 제외, **같은 값(=)은 남긴다** — 경계에서 Updated 가 동일한 형제 문서가 잘리지
+      //     않게(재처리분은 유니크 키가 흡수). <= 로 바꾸지 말 것
+      //   · Updated 없는 후보는 거르지 않는다(정렬이 맨 앞에 두는 것과 같은 이유 — 유실 방지)
+      //   · dedup(아래)보다 먼저 — 뒤에 오면 dedup 이 남긴 "가장 이른 CN"이 정밀도 필터에 걸려
+      //     그 오더가 통째로 탈락할 수 있다(살아남을 늦은 CN 이 있는데도)
+      let precisionSkipped = 0;   // ⚠️ 캡 회차 "다음" 회차에만 0 이 아닌 것이 정상이다
+      if (cursorBefore && cursorBefore.length > 10) {
+        const kept: typeof cands = [];
+        for (const cd of cands) {
+          if (cd.updated && cd.updated < cursorBefore) { precisionSkipped++; continue; }
+          kept.push(cd);
+        }
+        cands.length = 0;
+        cands.push(...kept);
+      }
+
       // ⚠️ creditnote 후보는 CN 단위 — 같은 오더의 CN 여럿이 각각 후보가 된다(실측 SO-00062).
       //   상세는 sale 단위이고 기표부가 det.CreditNotes[] 를 전부 순회하므로 오더당 1회만 부른다 —
       //   안 거르면 같은 /sale?ID= 를 중복 호출하고 같은 AUTHORISED CN 이 한 회차에 두 번 push 되어
@@ -1033,6 +1056,12 @@ Deno.serve(async (req) => {
       //    캡 회차   = 마지막 처리 문서의 Updated(오름차순 처리 전제 — 캡 밖 후보를 다음 회차가 이어받음)
       const runStartIso = new Date(t0).toISOString();
       const cursorWouldBe = detailCapped ? (lastProcessedUpdated ?? cursorBefore) : runStartIso;
+      // ⚠️ 결함 B 차단 (2026-08-17 .6): Updated 없는 문서(정렬상 맨 앞)가 캡을 채우면
+      //   lastProcessedUpdated 가 null → 커서 무변 → 다음 회차도 같은 40건 = 동결.
+      //   from_cursor 하한을 만들게 한 실사고(TR-00012~76 캡 소진)와 같은 모양 — commit 을 막고
+      //   응답으로 드러낸다(dry 에서도 판별되게). 풀기: Cin7 쪽 Updated 를 채우거나,
+      //   inv_sync_state.last_cursor 를 비우고 ?from_since= 로 재시드(②-a 하한 흐름과 동형).
+      const cappedNoUpdated = detailCapped && lastProcessedUpdated == null;
 
       Object.assign(R, {
         list_total: listTotal, list_received: listReceived, pages, truncated,
@@ -1057,6 +1086,10 @@ Deno.serve(async (req) => {
         // ⚠️ 시끄러운 캡 보고 — 캡 회차의 커서 보정 덕에 유실은 없지만, "적게 나온 게 정상" 오해 방지
         detail_capped_alert: detailCapped
           ? "CAPPED - " + cappedRemaining + " candidate doc(s) NOT processed this round; cursor stops at the last processed doc's Updated so the next run continues"
+          : undefined,
+        precision_skipped: precisionSkipped,   // ⚠️ 캡 회차 "다음" 회차에만 0 이 아닌 것이 정상
+        cursor_frozen_alert: cappedNoUpdated
+          ? "capped with no usable Updated - cursor would freeze; commit is blocked (clear inv_sync_state.last_cursor and re-seed with ?from_since= if stuck)"
           : undefined,
         ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
@@ -1110,6 +1143,7 @@ Deno.serve(async (req) => {
         else if (unmappedInSource > 0) blocked = "UNMAPPED location in " + unmappedInSource + " row(s) - fix map first (rows would be permanent)";
         else if (sink.stats.empty_sku_lines > 0) blocked = sink.stats.empty_sku_lines + " line(s) with empty sku - parsing is wrong, the rest of this source cannot be trusted";
         else if (missingDateItems > 0) blocked = missingDateItems + " item(s) without usable date";
+        else if (cappedNoUpdated) blocked = "capped with no usable Updated - cursor would freeze";
         if (blocked) {
           R.write_skipped = blocked;
         } else {
