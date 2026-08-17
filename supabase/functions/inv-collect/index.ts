@@ -1,6 +1,7 @@
 // ============================================================
 // ASUNG 재고 원장 — Edge Function: inv-collect ②-a (2026-08-17)
-//   전량 축 3종(조정·이동·조립) 수집 — 뼈대 + dry-run 검증
+//   수집 6종 — 전량 축 3종(조정·이동·조립, 문서번호 커서) + 증분 축 3종(판매·발주·반품,
+//   날짜 커서 · ②-b 2026-08-17) — dry 기본
 //   설계 정본: docs/design/ledger-design.md · 스키마: 20260816000000_inv_ledger_tables.sql
 // ------------------------------------------------------------
 // ⚠️ 이 단계는 쓰지 않는다. **기본이 dry** 이고 ?commit=1 없이는 어떤 쓰기(원장·커서)도
@@ -84,6 +85,36 @@
 //   같은 창고 + LastModifiedOn 있으면 대체 후 기록(창고 잔고 ±0 이라 무영향 · raw 에
 //   date_substituted 표기), **창고간은 여전히 hold**(잔고가 움직이는데 시점 불명 = 진짜 이상).
 //
+// ══ ②-b 증분 축 3종 (판매·발주·반품 — 날짜 커서) ══
+// 커서가 다르다: ②-a 는 문서번호(전량 수신 후 번호로 거름), ②-b 는 **시각** —
+//   목록을 UpdatedSince 로 받는다. UpdatedSince = last_cursor − 1일(⚠️ 겹치게 받는다 —
+//   경계 유실 방지, 중복은 유니크 키가 흡수). state 없으면 ?from_since=, 둘 다 없으면
+//   전량 + since_alert. **문서 상태로 커서를 멈추지 않는다** — 미완료 문서는 갱신되면
+//   UpdatedSince 에 다시 잡힌다(②-a 의 "비종결 정지"는 여기 해당 없음).
+// ⚠️ 캡 회차 커서 보정(2026-08-17 채택 — 명세 결함 정정): 캡 회차에 커서를 회차 시작
+//   시각으로 옮기면 캡 밖 후보가 **영영 유실**된다(다시 갱신되지 않는 한 재등장 안 함 —
+//   판매는 하루 40~90 오더라 캡 40 초과가 일상). → 후보를 목록 Updated **오름차순**으로
+//   처리하고, 캡 회차만 커서 = 마지막 처리 문서의 Updated(다음 회차가 이어받음 — ②-a 의
+//   "커서가 캡 앞에서 멈춤"과 동형). Updated 필드는 소스별 명시: sale=Updated(hello 실측) ·
+//   purchase=LastUpdatedDate(리시빙 관문 실측) · creditnote=Updated(추정 — 폴백 보고).
+// · 판매: VOIDED·비 SHIPPED 제외(⚠️ 배송 전엔 재고가 안 빠진다 — 픽·팩은 Allocated 일 뿐).
+//   fulfilment 단위 처리 — Ship.Lines 의 ShipmentDate(IsShipped true 만)가 원장 날짜
+//   (실측 3/3 일치) · Pick.Lines 가 실제 나간 SKU·수량(−).
+//   ⚠️ line_ref = <fulfilment TaskID>:<ProductID> — occurred_on 이 유니크 키에 없어 분할
+//   출하에서 같은 SKU·같은 bin 이면 키가 완전히 겹쳐 두 번째 출고가 조용히 버려진다.
+//   TaskID 는 재수집에도 안정(인덱스는 fulfilment void·재정렬에 흔들린다).
+// · 발주: VOID·IsServiceOnly·StockReceivedStatus 없음/NOT AVAILABLE 제외. 상세가 갈린다 —
+//   Type 에 Advanced 포함 → advanced-purchase?ID=(StockReceived **배열**) / 아니면
+//   purchase?ID=(**객체 하나**). 블록 Status=DRAFT 제외(실측: PO-01083 DRAFT 194개 재고에
+//   없음) · 빈 문자열 Status 는 처리(실측 PO-01128 — 재고 들어감, 건수만 보고).
+//   날짜 = Lines[].Date(실측 4/4 — 라인 단위라 분할 입고도 정확). line_ref 는 다른 소스와
+//   통일해 ProductID(CardID 라는 진짜 라인 식별자는 raw.line 원문에 남는다).
+// · 반품: 목록 = saleCreditNoteList(배열 키 **SaleList** — 실측). CreditNoteStatus
+//   VOIDED/NOT AVAILABLE·RestockStatus 비 AUTHORISED 제외. 상세 sale?ID= 의 CreditNotes[]
+//   **전부 순회**(한 오더에 여러 개 — 실측 SO-00062). DRAFT CN 은 Restock 이 비어 있다
+//   (금액만 — 재고 미복귀). ⚠️ doc_number = **CreditNoteNumber**(오더번호 아님 — 다중 CN 이
+//   유니크 키를 깬다). 날짜 = CreditNoteDate.
+//
 // 하지 않는 것: /transactions(창고내 이동 94%가 회계 분개 없음 — 실측) ·
 //   Movements(날짜 필터 없음·SKU 단위 — 검증 전용) · 콜론 파싱 · SKU 접미사 파싱
 //   (AMP41108-12 의 실단위 6 실물 오류) · 판매/발주/반품(②-b) · cron·뷰·트리거 ·
@@ -103,7 +134,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.3";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.3 = 조립 필드 실측 교정 + 빈 이동 날짜 대체)
+const COLLECTOR_VERSION = "inv-collect@2026-08-17.4";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.4 = ②-b 증분 축 3종)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -141,6 +172,15 @@ const SOURCES: Record<string, { listPath: string; listKey: string; numberField: 
     listPath: "/finishedGoodsList", listKey: "FinishedGoods", numberField: "AssemblyNumber",
     detailPath: (id) => "/finishedGoods?TaskID=" + encodeURIComponent(id), docType: "assembly",
   },
+};
+
+// ②-b 증분 축 3종 — 날짜 커서(UpdatedSince). updatedField 는 소스별 명시(공용 폴백 금지 —
+// SOURCES numberField 와 같은 교훈): sale=Updated(hello 폴링 실측) · purchase=LastUpdatedDate
+// (리시빙 관문 실측) · creditnote=Updated(SaleList 형태라 추정 — 비면 no_updated_field 로 드러난다).
+const DATE_SOURCES: Record<string, { listPath: string; listKey: string; updatedField: string; docType: string }> = {
+  sale:       { listPath: "/saleList",           listKey: "SaleList",     updatedField: "Updated",         docType: "sale" },
+  purchase:   { listPath: "/purchaseList",       listKey: "PurchaseList", updatedField: "LastUpdatedDate", docType: "purchase" },
+  creditnote: { listPath: "/saleCreditNoteList", listKey: "SaleList",     updatedField: "Updated",         docType: "creditnote" },
 };
 
 // ── Supabase REST 헬퍼 (inv-snapshot 과 같은 형태 — service_role 자동주입) ──
@@ -182,6 +222,52 @@ const dateOnly = (s: unknown): string | null => {
   return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
 };
 const norm = (s: unknown) => String(s ?? "").trim().toUpperCase();
+// UpdatedSince = 커서 − 1일 (겹침 수신 — 경계 유실 방지, 중복은 유니크 키가 흡수)
+function minusOneDay(d: string): string {
+  const t = new Date(d + "T00:00:00Z");
+  t.setUTCDate(t.getUTCDate() - 1);
+  return t.toISOString().slice(0, 10);
+}
+
+// ── 공유 sink (2026-08-17 ②-b 에서 ②-a runSource 로부터 기계적 추출 — 동작 동일) ──
+// 빈 sku 가드 · 문서 내 합산 · since 필터 · seq_hint 재판정을 문서번호 커서(runSource)와
+// 날짜 커서(runDateSource)가 함께 쓴다 — 게이트 로직이 두 벌이면 다음 수정 때 갈라진다.
+// ⚠️ 회귀 확인: ②-a dry 3종을 추출 전과 같은 파라미터로 재실행해 ledger_rows·samples·
+//   date_histogram·cursor_after_would_be 동일성 대조(커밋 메시지에 절차 기재).
+function makeSink(since: string | null) {
+  const rows: LedgerRow[] = [];
+  const dateHist: Record<string, number> = {};
+  const stats = { merged_lines: 0, empty_sku_lines: 0, since_filtered_rows: 0 };
+  // 문서 하나의 행들을 유니크 키로 합산해 push — merged_lines 는 line_ref 가정 붕괴 신호
+  function push(docRows: LedgerRow[]): void {
+    const byKey = new Map<string, LedgerRow>();
+    for (const r of docRows) {
+      // ⚠️ 빈 sku = 어느 상품인지 모르는 행 — 만들지 않는다. ≠0 이면 그 소스의 파싱이 틀렸다는
+      //   뜻이라 나머지 행도 못 믿는다 → commit 게이트가 소스 전체를 막는다(UNMAPPED 와 같은 논리.
+      //   실사고: 조립 PickLines 에 SKU 필드가 없어(정답은 ProductCode) sku 가 전부 "" 였는데
+      //   나머지 필드는 멀쩡해 보였다 — 조용히 통과할 뻔했다).
+      if (!r.sku) { stats.empty_sku_lines++; continue; }
+      if (since && !(r.occurred_on > since)) { stats.since_filtered_rows++; continue; }   // "그 날짜보다 이후"만 — 경계일 제외
+      const k = [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");   // 구분자 없는 연결은 키 충돌("AB","C")/("A","BC")
+      const cur = byKey.get(k);
+      if (cur) {
+        stats.merged_lines++;
+        cur.qty_delta += r.qty_delta;
+        if (r.amount != null) cur.amount = (cur.amount ?? 0) + r.amount;
+        if (!Array.isArray(cur.raw.merged_lines_raw)) cur.raw.merged_lines_raw = [];
+        (cur.raw.merged_lines_raw as unknown[]).push(r.raw.line);
+      } else byKey.set(k, r);
+    }
+    for (const r of byKey.values()) {
+      r.seq_hint = r.qty_delta > 0 ? 1 : 2;   // 합산 후 재판정 (유입 먼저)
+      rows.push(r);
+      dateHist[r.occurred_on] = (dateHist[r.occurred_on] ?? 0) + 1;
+    }
+  }
+  return { rows, dateHist, stats, push };
+}
+const mkRaw = (line: unknown, header: Record<string, unknown>, rule: string): Record<string, unknown> =>
+  ({ line, header, rule, collector: COLLECTOR_VERSION });   // ⚠️ 문서 전체 금지 — 라인 + 최소 헤더만. 고객명·주소 없음
 
 Deno.serve(async (req) => {
   const t0 = Date.now();
@@ -198,7 +284,9 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const commit = url.searchParams.get("commit") === "1";   // ⚠️ 기본 dry — ⑤에서 켠다
     const only = url.searchParams.get("only");
-    if (only && !SOURCES[only]) return json({ ok: false, error: "only must be adjustment|transfer|assembly" }, 400);
+    if (only && !SOURCES[only] && !DATE_SOURCES[only]) {
+      return json({ ok: false, error: "only must be adjustment|transfer|assembly|sale|purchase|creditnote" }, 400);
+    }
     const since = (url.searchParams.get("since") ?? "").trim() || null;
     if (since && !/^\d{4}-\d{2}-\d{2}$/.test(since)) return json({ ok: false, error: "since must be YYYY-MM-DD" }, 400);
 
@@ -211,6 +299,10 @@ Deno.serve(async (req) => {
     //   문서의 날짜 결손·DRAFT 는 진짜 이상이므로 여전히 커서를 막는다(hold 로직 무변).
     // 형식: from_cursor=TR-03900 (전 소스 공통 — 비교는 숫자 접미사라 접두어 무관)
     //      또는 from_cursor=transfer:TR-03900,adjustment:ST-01150,assembly:FG-00110
+    // ②-b 날짜 커서 시작점 — ②-a from_cursor 와 같은 역할(state 우선 · 없으면 이 값 · 둘 다 없으면 전량+alert)
+    const fromSince = (url.searchParams.get("from_since") ?? "").trim() || null;
+    if (fromSince && !/^\d{4}-\d{2}-\d{2}$/.test(fromSince)) return json({ ok: false, error: "from_since must be YYYY-MM-DD" }, 400);
+
     const fromCursorRaw = (url.searchParams.get("from_cursor") ?? "").trim() || null;
     const floorParam = new Map<string, string>();
     if (fromCursorRaw) {
@@ -274,7 +366,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 수집 상태 (커서) ──
-    const runKeys = only ? [only] : Object.keys(SOURCES);
+    const runKeys = only ? [only] : [...Object.keys(SOURCES), ...Object.keys(DATE_SOURCES)];
     const stateRows = await sbGet("inv_sync_state?source_key=in.(" + runKeys.join(",") + ")&select=source_key,last_cursor");
     const cursorOf = (k: string) => stateRows.find((r) => r.source_key === k)?.last_cursor ?? null;
 
@@ -388,43 +480,12 @@ Deno.serve(async (req) => {
       }
 
       // 3) 상세 조회 (오름차순 · 캡 · 시간 가드) → 원장 행 생성
-      const ledgerRows: LedgerRow[] = [];
-      const dateHist: Record<string, number> = {};
+      const sink = makeSink(since);                 // 공유 sink — 파일 상단 makeSink(②-b 에서 추출, 동작 동일)
       const dateCandidates: { doc_number: string; list_date: string | null; completion_date: string | null; wip_date: string | null }[] = [];
-      let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, mergedLines = 0, sinceFilteredRows = 0, missingDateDocs = 0;
-      let emptySkuLines = 0;                        // ⚠️ ≠0 = 파싱이 틀렸다는 뜻 — commit 게이트 조건(사용자 조건 2026-08-17)
+      let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateDocs = 0;
       const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
       let detailCapped = false, detailCapReason: string | null = null;
       let unmappedInSource = 0;
-
-      // 문서 하나의 행들을 유니크 키로 합산해 push — merged_lines 는 line_ref=ProductID 가정 붕괴 신호
-      function pushDocRows(rows: LedgerRow[]): void {
-        const byKey = new Map<string, LedgerRow>();
-        for (const r of rows) {
-          // ⚠️ 빈 sku = 어느 상품인지 모르는 행 — 만들지 않는다. ≠0 이면 그 소스의 파싱이 틀렸다는
-          //   뜻이라 나머지 행도 못 믿는다 → commit 게이트가 소스 전체를 막는다(UNMAPPED 와 같은 논리.
-          //   실사고: 조립 PickLines 에 SKU 필드가 없어(정답은 ProductCode) sku 가 전부 "" 였는데
-          //   나머지 필드는 멀쩡해 보였다 — 조용히 통과할 뻔했다).
-          if (!r.sku) { emptySkuLines++; continue; }
-          if (since && !(r.occurred_on > since)) { sinceFilteredRows++; continue; }   // "그 날짜보다 이후"만 — 경계일 제외
-          const k = [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");   // 구분자 없는 연결은 키 충돌("AB","C")/("A","BC")
-          const cur = byKey.get(k);
-          if (cur) {
-            mergedLines++;
-            cur.qty_delta += r.qty_delta;
-            if (r.amount != null) cur.amount = (cur.amount ?? 0) + r.amount;
-            if (!Array.isArray(cur.raw.merged_lines_raw)) cur.raw.merged_lines_raw = [];
-            (cur.raw.merged_lines_raw as unknown[]).push(r.raw.line);
-          } else byKey.set(k, r);
-        }
-        for (const r of byKey.values()) {
-          r.seq_hint = r.qty_delta > 0 ? 1 : 2;   // 합산 후 재판정 (유입 먼저)
-          ledgerRows.push(r);
-          dateHist[r.occurred_on] = (dateHist[r.occurred_on] ?? 0) + 1;
-        }
-      }
-      const mkRaw = (line: unknown, header: Record<string, unknown>, rule: string): Record<string, unknown> =>
-        ({ line, header, rule, collector: COLLECTOR_VERSION });   // ⚠️ 문서 전체 금지 — 라인 + 최소 헤더만. 고객명·주소 없음
 
       for (const c of cands) {
         if (!c.disposition.startsWith("process")) continue;
@@ -571,7 +632,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        pushDocRows(rows);
+        sink.push(rows);
         docsProcessed++;
         if (c.disposition === "process") c.disposition = "processed";           // 종결 — 커서 통과 가능
         else if (c.disposition === "process_nonterminal") c.disposition = "processed_nonterminal";   // IN TRANSIT — 커서 hold
@@ -618,7 +679,7 @@ Deno.serve(async (req) => {
       for (const c of cands) dispositions[c.disposition || "(untouched)"] = (dispositions[c.disposition || "(untouched)"] ?? 0) + 1;
 
       // 5) 샘플 5행 (전체 필드 — 숫자만 맞고 내용이 틀릴 수 있다: 눈으로 확인)
-      const samples = ledgerRows.slice(0, 5);
+      const samples = sink.rows.slice(0, 5);
 
       Object.assign(R, {
         list_total: listTotal, list_received: listReceived, pages, truncated,
@@ -643,25 +704,25 @@ Deno.serve(async (req) => {
         detail_capped: detailCapped,
         detail_capped_reason: detailCapReason,
         detail_capped_remaining: detailCapped ? cands.filter((c) => c.disposition === "hold_capped").length : 0,
-        ledger_rows: ledgerRows.length,
+        ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
-        since_filtered_rows: sinceFilteredRows,
+        since_filtered_rows: sink.stats.since_filtered_rows,
         missing_date_docs: missingDateDocs,
         // ⚠️ merged_lines ≠ 0 = line_ref=ProductID 가정(같은 SKU 두 줄 없음)이 깨졌다는 신호
-        merged_lines: mergedLines,
-        merged_lines_alert: mergedLines > 0 ? "NOT ZERO - the line_ref=ProductID assumption is broken, inspect raw.merged_lines_raw" : null,
+        merged_lines: sink.stats.merged_lines,
+        merged_lines_alert: sink.stats.merged_lines > 0 ? "NOT ZERO - the line_ref=ProductID assumption is broken, inspect raw.merged_lines_raw" : null,
         // ⚠️ empty_sku_lines ≠ 0 = 이 소스의 파싱이 틀렸다 — commit 은 소스 전체 차단(사용자 조건)
-        empty_sku_lines: emptySkuLines,
-        empty_sku_alert: emptySkuLines > 0 ? "NOT ZERO - parsing is wrong for this source; commit is blocked until fixed" : undefined,
+        empty_sku_lines: sink.stats.empty_sku_lines,
+        empty_sku_alert: sink.stats.empty_sku_lines > 0 ? "NOT ZERO - parsing is wrong for this source; commit is blocked until fixed" : undefined,
         // 빈 이동 날짜 대체 (같은 창고 + LastModifiedOn — 이 문서들의 occurred_on 은 근사값)
         date_substituted_docs: dateSubstitutedDocs.length,
         date_substituted_doc_numbers: dateSubstitutedDocs.slice(0, 20),
         field_fallbacks: fieldFallbacks,
-        date_histogram: dateHist,
+        date_histogram: sink.dateHist,
         samples,
         warnings,
       });
-      if (emptySkuLines > 0) warnings.push(emptySkuLines + " line(s) dropped for empty sku - parsing is wrong for this source");
+      if (sink.stats.empty_sku_lines > 0) warnings.push(sink.stats.empty_sku_lines + " line(s) dropped for empty sku - parsing is wrong for this source");
       if (key === "assembly") R.date_candidates = dateCandidates;   // Date/CompletionDate/WIPDate 비교표 — Caleb 이 확정
 
       // 6) commit (⑤에서 켠다) — all-or-nothing per source:
@@ -674,22 +735,363 @@ Deno.serve(async (req) => {
         if (listAborted) blocked = "list_aborted: " + listAborted;
         else if (truncated) blocked = "list truncated";
         else if (unmappedInSource > 0) blocked = "UNMAPPED location in " + unmappedInSource + " row(s) - fix map first (rows would be permanent)";
-        else if (emptySkuLines > 0) blocked = emptySkuLines + " line(s) with empty sku - parsing is wrong, the rest of this source cannot be trusted";
+        else if (sink.stats.empty_sku_lines > 0) blocked = sink.stats.empty_sku_lines + " line(s) with empty sku - parsing is wrong, the rest of this source cannot be trusted";
         else if (missingDateDocs > 0) blocked = missingDateDocs + " doc(s) without usable date";
         if (blocked) {
           R.write_skipped = blocked;
         } else {
-          for (let i = 0; i < ledgerRows.length; i += INSERT_BATCH) {
-            await sbInsertIgnoreDup("inv_ledger", LEDGER_CONFLICT, ledgerRows.slice(i, i + INSERT_BATCH));
+          for (let i = 0; i < sink.rows.length; i += INSERT_BATCH) {
+            await sbInsertIgnoreDup("inv_ledger", LEDGER_CONFLICT, sink.rows.slice(i, i + INSERT_BATCH));
           }
           await sbUpsert("inv_sync_state", "source_key", [{
             source_key: key,
             last_cursor: cursorAfter,               // ⚠️ 문서번호 문자열 그대로 — 사람이 읽는 값
             last_run_at: new Date().toISOString(),
             last_ok_at: new Date().toISOString(),
-            note: COLLECTOR_VERSION + " rows=" + ledgerRows.length + (detailCapped ? " capped" : ""),
+            note: COLLECTOR_VERSION + " rows=" + sink.rows.length + (detailCapped ? " capped" : ""),
           }]);
-          R.written = ledgerRows.length;
+          R.written = sink.rows.length;
+        }
+      }
+      results[key] = R;
+    }
+
+    // ══ ②-b 증분 축 소스 하나 처리 (판매·발주·반품 — 날짜 커서) ══
+    // 규칙·실측 근거는 파일 상단 「②-b 증분 축 3종」 절. 캡·시간·429·all-or-nothing 은 runSource 동형.
+    async function runDateSource(key: string): Promise<void> {
+      const cfg = DATE_SOURCES[key];
+      const R: Record<string, unknown> = {};
+      const warnings: string[] = [];
+      const fieldFallbacks: Record<string, number> = {};
+      const bump = (k: string) => { fieldFallbacks[k] = (fieldFallbacks[k] ?? 0) + 1; };
+      const sink = makeSink(since);
+
+      // since(날짜 커서) 해석 — floor 와 같은 우선순위: state → ?from_since= → 없음(전량·시끄럽게)
+      const cursorBefore: string | null = cursorOf(key);
+      let sinceUsed: string | null = null;
+      let sinceSource: "state" | "param" | "none" = "none";
+      if (cursorBefore) { sinceUsed = cursorBefore; sinceSource = "state"; }
+      else if (fromSince) { sinceUsed = fromSince; sinceSource = "param"; }
+      const paramIgnored = sinceSource === "state" && !!fromSince;
+      if (sinceSource === "none") warnings.push("NO SINCE - pulling the full list (pass ?from_since= or seed inv_sync_state)");
+      // ⚠️ UpdatedSince = 커서 − 1일 — 겹치게 받는다(경계 유실 방지 · 중복은 유니크 키가 흡수)
+      const sinceDate = sinceUsed ? (dateOnly(sinceUsed) ?? sinceUsed.slice(0, 10)) : null;
+      const updatedSinceReq = sinceDate ? minusOneDay(sinceDate) : null;
+
+      // 1) 목록 — UpdatedSince 증분 (②-a 와 달리 전량이 아니다) · 페이징·키 폴백은 runSource 동형
+      let listTotal: number | null = null, listReceived = 0, pages = 0;
+      const listRows: any[] = [];
+      let listAborted: string | null = null;
+      for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+        if (timeLeft() < 0) { listAborted = "time"; break; }
+        let j: any;
+        try {
+          j = await cin7Get(cfg.listPath + "?Page=" + page + "&Limit=" + LIST_PAGE_LIMIT +
+            (updatedSinceReq ? "&UpdatedSince=" + encodeURIComponent(updatedSinceReq) : ""));
+        } catch (e: any) {
+          if (Number(e?.status) === 429) { global.rate_limited = true; listAborted = "rate_limited"; }
+          else listAborted = "page_error: " + String(e?.message ?? e).slice(0, 200);
+          break;
+        }
+        pages++;
+        if (j?.Total != null) listTotal = Number(j.Total);
+        let batch = j?.[cfg.listKey] as any[] | undefined;
+        if (!Array.isArray(batch)) {
+          const arrKey = Object.keys(j ?? {}).find((k) => Array.isArray(j[k]));
+          batch = arrKey ? j[arrKey] : [];
+          if (arrKey && arrKey !== cfg.listKey) { bump("list_key_fallback"); warnings.push("list array key was '" + arrKey + "' not '" + cfg.listKey + "'"); }
+        }
+        listReceived += batch!.length;
+        listRows.push(...batch!);
+        if (batch!.length < LIST_PAGE_LIMIT) break;
+        await sleep(LIST_SLEEP_MS);
+      }
+      const truncated = listTotal == null ? null : listReceived < listTotal;
+
+      // 2) 후보 좁히기 — 상세 조회를 줄이는 것이 관건 (소스별 제외는 파일 상단 절)
+      const filterCounts: Record<string, number> = {};
+      const tally = (k: string) => { filterCounts[k] = (filterCounts[k] ?? 0) + 1; };
+      const srsCounts: Record<string, number> = {};   // purchase: 목록 StockReceivedStatus 분포
+      const cands: { row: any; updated: string | null }[] = [];
+      for (const row of listRows) {
+        if (key === "sale") {
+          if (norm(row?.Status) === "VOIDED") { tally("skip_voided"); continue; }
+          // ⚠️ 배송 전에는 재고가 안 빠진다 — 픽·팩은 Allocated 일 뿐 (원장 스킬 함정 표)
+          if (norm(row?.CombinedShippingStatus) !== "SHIPPED") { tally("skip_not_shipped"); continue; }
+        } else if (key === "purchase") {
+          if (norm(row?.Status).includes("VOID")) { tally("skip_voided"); continue; }
+          if (row?.IsServiceOnly === true) { tally("skip_service_only"); continue; }
+          const srs = norm(row?.StockReceivedStatus);
+          srsCounts[srs || "(empty)"] = (srsCounts[srs || "(empty)"] ?? 0) + 1;
+          // "입고 흔적 없음"의 해석 = 비었거나 NOT AVAILABLE — 분포(srsCounts)를 응답에 실어 dry 가 검증
+          if (!srs || srs === "NOT AVAILABLE") { tally("skip_no_stock_received"); continue; }
+        } else {   // creditnote
+          const cst = norm(row?.CreditNoteStatus);
+          if (cst === "VOIDED" || cst === "NOT AVAILABLE") { tally("skip_cn_status"); continue; }
+          if (norm(row?.RestockStatus) !== "AUTHORISED") { tally("skip_restock_status"); continue; }
+        }
+        cands.push({ row, updated: String(row?.[cfg.updatedField] ?? "").trim() || null });
+      }
+      // ⚠️ Updated 오름차순 — 캡 회차의 커서를 "마지막 처리 문서의 Updated" 로 멈추기 위한 전제
+      //   (파일 상단 캡 보정 절). Updated 없는 행은 맨 앞(먼저 처리 — 유실 방지) + 카운트.
+      let noUpdatedField = 0;
+      for (const cd of cands) if (!cd.updated) noUpdatedField++;
+      cands.sort((a, b) => (a.updated ?? "").localeCompare(b.updated ?? ""));
+
+      // 3) 상세 → 원장 행
+      let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateItems = 0;
+      let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
+      let unmappedInSource = 0;
+      let lastProcessedUpdated: string | null = null;
+      // 소스별 부가 카운트 (응답 명세)
+      let fulfilmentsSeen = 0, noShipFulfilments = 0, shipDateAmbiguous = 0, pickLineCount = 0;
+      let advancedCount = 0, simpleCount = 0, draftBlocksSkipped = 0, emptyStatusBlocks = 0;
+      const srBlockStatusCounts: Record<string, number> = {};
+      let creditNotesSeen = 0, emptyRestock = 0, noCnNumber = 0;
+      const restockStatusCounts: Record<string, number> = {};
+
+      function locOf(line: any, docNo: string): { warehouse: string; bin: string } {
+        const r = resolveLoc(line?.LocationID, line?.Location ?? null, key + ":" + docNo);
+        if (!r.mapped) unmappedInSource++;
+        return r;
+      }
+      function pidOf(line: any): string {
+        const pid = String(line?.ProductID ?? "").trim();
+        if (!pid) bump("missing_product_id");
+        return pid || "no-product-id:" + String(line?.SKU ?? "?");
+      }
+
+      for (let i = 0; i < cands.length; i++) {
+        if (detailFetched >= MAX_DETAIL_PER_SOURCE) { detailCapped = true; detailCapReason = "max_detail"; cappedRemaining = cands.length - i; break; }
+        if (timeLeft() < 5_000) { detailCapped = true; detailCapReason = "time"; cappedRemaining = cands.length - i; break; }
+        const cd = cands[i];
+        const row = cd.row;
+        let path: string;
+        let id: string;
+        if (key === "purchase") {
+          id = String(row?.ID ?? "").trim();
+          // ⚠️ 상세 엔드포인트가 갈린다 — Advanced 는 StockReceived 가 배열(파일 상단 절)
+          const adv = norm(row?.Type).includes("ADVANCED");
+          if (adv) advancedCount++; else simpleCount++;
+          path = (adv ? "/advanced-purchase?ID=" : "/purchase?ID=") + encodeURIComponent(id);
+        } else {
+          id = String(row?.SaleID ?? row?.ID ?? "").trim();   // saleList 키는 SaleID (hello void 감지 실측)
+          path = "/sale?ID=" + encodeURIComponent(id);
+        }
+        let det: any;
+        try {
+          det = await cin7Get(path);
+          detailFetched++;
+          await sleep(DETAIL_SLEEP_MS);
+        } catch (e: any) {
+          // ⚠️ 상세 오류도 캡과 같은 정지로 다룬다 — 날짜 커서는 문서 단위 재방문이 없어,
+          //   오류 문서를 지나쳐 커서를 올리면 그 문서가 조용히 유실된다(다시 갱신되지 않는 한).
+          if (Number(e?.status) === 429) { global.rate_limited = true; detailCapReason = "rate_limited"; }
+          else { detailCapReason = "detail_error"; warnings.push("detail error " + String(row?.OrderNumber ?? id) + ": " + String(e?.message ?? e).slice(0, 200)); }
+          detailCapped = true;
+          cappedRemaining = cands.length - i;
+          break;
+        }
+
+        const docNo = String(det?.OrderNumber ?? row?.OrderNumber ?? "").trim();
+        const rows: LedgerRow[] = [];
+
+        if (key === "sale") {
+          const header = { order_number: docNo, sale_id: id, status: det?.Status ?? row?.Status ?? null };
+          const fuls = (det?.Fulfilments ?? []) as any[];
+          fulfilmentsSeen += fuls.length;
+          for (let fi = 0; fi < fuls.length; fi++) {
+            const f = fuls[fi];
+            // ShipmentDate(실측 3/3 일치)가 원장 날짜 — IsShipped true 라인만. 비었으면 건너뛰고 카운트.
+            const shipLines = ((f?.Ship?.Lines ?? []) as any[]).filter((l) => l?.IsShipped === true);
+            if (!shipLines.length) { noShipFulfilments++; continue; }
+            const dates = [...new Set(shipLines.map((l) => dateOnly(l?.ShipmentDate)).filter(Boolean))] as string[];
+            if (!dates.length) { missingDateItems++; warnings.push("shipped fulfilment without usable ShipmentDate: " + docNo); continue; }
+            if (dates.length > 1) shipDateAmbiguous++;   // 한 fulfilment 안 복수 날짜 — 첫 값 사용(실측 전 방어)
+            const shipDate = dates[0];
+            // ⚠️ line_ref = <fulfilment TaskID>:<ProductID> — occurred_on 이 유니크 키에 없어 분할
+            //   출하(같은 SKU·같은 bin)에서 키가 완전히 겹쳐 두 번째 출고가 조용히 버려진다
+            //   (2026-08-17 채택). TaskID 는 재수집에도 안정 — 배열 인덱스는 void·재정렬에 흔들린다.
+            let fid = String(f?.TaskID ?? "").trim();
+            if (!fid) { fid = "f" + (fi + 1); bump("fulfilment_taskid_fallback"); }
+            const pickLines = (f?.Pick?.Lines ?? []) as any[];
+            pickLineCount += pickLines.length;
+            for (const line of pickLines) {
+              const q = Number(line?.Quantity ?? 0);
+              if (q === 0) { zeroQtyLines++; continue; }
+              const loc = locOf(line, docNo);
+              rows.push({
+                doc_type: cfg.docType, doc_number: docNo, doc_task_id: id || null, source: "cin7",
+                occurred_on: shipDate, seq_hint: 2,
+                sku: String(line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
+                qty_delta: -q, event_type: "sale_out",
+                line_ref: fid + ":" + pidOf(line),
+                amount: null,
+                raw: mkRaw(line, { ...header, fulfilment_task_id: fid, ship_date: shipDate }, "sale_out: -Quantity(" + q + ") shipped pick line"),
+              });
+            }
+          }
+        } else if (key === "purchase") {
+          const header = { order_number: docNo, purchase_id: id, type: row?.Type ?? null };
+          // ⚠️ Advanced=배열 · Simple=객체 (실측 — 원장 스킬 함정 표)
+          const blocks = Array.isArray(det?.StockReceived) ? det.StockReceived
+            : det?.StockReceived ? [det.StockReceived] : [];
+          for (const b of blocks) {
+            const bst = norm(b?.Status);
+            srBlockStatusCounts[bst || "(empty)"] = (srBlockStatusCounts[bst || "(empty)"] ?? 0) + 1;
+            // ⚠️ DRAFT 블록만 제외 — 승인 전이라 재고가 안 움직인다(실측 PO-01083 DRAFT 194개 재고에
+            //   없음). 빈 문자열 Status 는 처리한다(실측 PO-01128 — 재고 들어감) — 건수만 보고.
+            if (bst === "DRAFT") { draftBlocksSkipped++; continue; }
+            if (bst === "") emptyStatusBlocks++;
+            for (const line of (b?.Lines ?? []) as any[]) {
+              const q = Number(line?.Quantity ?? 0);
+              if (q === 0) { zeroQtyLines++; continue; }
+              const d = dateOnly(line?.Date);   // ⚠️ 날짜는 라인 단위(실측 4/4) — 분할 입고도 정확
+              if (!d) { missingDateItems++; continue; }
+              const loc = locOf(line, docNo);
+              rows.push({
+                doc_type: cfg.docType, doc_number: docNo, doc_task_id: id || null, source: "cin7",
+                occurred_on: d, seq_hint: 1,
+                sku: String(line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
+                qty_delta: q, event_type: "po_in",
+                // line_ref 는 다른 소스와 통일해 ProductID(WMS cin7_po_line_id 선례) —
+                // 진짜 라인 식별자 CardID 는 raw.line 원문에 그대로 남는다.
+                line_ref: pidOf(line),
+                amount: null,
+                raw: mkRaw(line, { ...header, block_status: b?.Status ?? null }, "po_in: +Quantity(" + q + ") stock received line"),
+              });
+            }
+          }
+        } else {   // creditnote
+          const header = { order_number: docNo, sale_id: id };
+          const cns = (det?.CreditNotes ?? []) as any[];   // ⚠️ 한 오더에 여러 개(실측 SO-00062) — 전부 순회
+          creditNotesSeen += cns.length;
+          for (const cn of cns) {
+            const rst = norm(cn?.RestockStatus);
+            restockStatusCounts[rst || "(empty)"] = (restockStatusCounts[rst || "(empty)"] ?? 0) + 1;
+            if (rst !== "AUTHORISED") continue;   // DRAFT 는 Restock 이 비어 있다 — 금액만, 재고 미복귀
+            const restock = (cn?.Restock ?? []) as any[];
+            if (!restock.length) { emptyRestock++; continue; }
+            const d = dateOnly(cn?.CreditNoteDate);
+            if (!d) { missingDateItems++; warnings.push("credit note without usable CreditNoteDate: " + docNo); continue; }
+            // ⚠️ doc_number = CreditNoteNumber — 오더번호가 아니다. 한 오더에 CN 이 여럿이라
+            //   오더번호를 쓰면 유니크 키가 깨진다.
+            const cnNo = String(cn?.CreditNoteNumber ?? "").trim();
+            if (!cnNo) { noCnNumber++; warnings.push("credit note without CreditNoteNumber on " + docNo + " - rows skipped (unique key would collide)"); continue; }
+            for (const line of restock) {
+              const q = Number(line?.Quantity ?? 0);
+              if (q === 0) { zeroQtyLines++; continue; }
+              const loc = locOf(line, docNo);
+              rows.push({
+                doc_type: cfg.docType, doc_number: cnNo, doc_task_id: id || null, source: "cin7",
+                occurred_on: d, seq_hint: 1,
+                sku: String(line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
+                qty_delta: q, event_type: "credit_in",
+                line_ref: pidOf(line),
+                amount: null,
+                raw: mkRaw(line, { ...header, credit_note_number: cnNo, credit_note_date: cn?.CreditNoteDate ?? null }, "credit_in: +Quantity(" + q + ") restock line"),
+              });
+            }
+          }
+        }
+
+        sink.push(rows);
+        docsProcessed++;
+        if (cd.updated) lastProcessedUpdated = cd.updated;
+      }
+
+      // 4) 커서 (would-be) — 파일 상단 캡 보정 절:
+      //    비캡 회차 = 회차 시작 시각(문서 상태로 멈추지 않는다 — 미완료 문서는 갱신되면 재등장)
+      //    캡 회차   = 마지막 처리 문서의 Updated(오름차순 처리 전제 — 캡 밖 후보를 다음 회차가 이어받음)
+      const runStartIso = new Date(t0).toISOString();
+      const cursorWouldBe = detailCapped ? (lastProcessedUpdated ?? cursorBefore) : runStartIso;
+
+      Object.assign(R, {
+        list_total: listTotal, list_received: listReceived, pages, truncated,
+        list_aborted: listAborted,
+        since_used: sinceUsed,
+        since_source: sinceSource,
+        from_since_param_ignored: paramIgnored || undefined,
+        // ⚠️ 하한 없음 = 전량 수신 — 눈에 띄게 (floor_alert 와 동형)
+        since_alert: sinceSource === "none" ? "NO SINCE - pulling the FULL list; pass ?from_since= or seed inv_sync_state" : undefined,
+        updated_since_requested: updatedSinceReq,   // 커서 − 1일 (겹침 수신)
+        cursor_before: cursorBefore,
+        cursor_after: commit ? cursorWouldBe : cursorBefore,   // dry 는 커서 무변
+        cursor_after_would_be: cursorWouldBe,
+        candidates: cands.length,
+        filter_counts: filterCounts,
+        no_updated_field: noUpdatedField,
+        detail_fetched: detailFetched,
+        docs_processed: docsProcessed,
+        detail_capped: detailCapped,
+        detail_capped_reason: detailCapReason,
+        detail_capped_remaining: cappedRemaining,
+        // ⚠️ 시끄러운 캡 보고 — 캡 회차의 커서 보정 덕에 유실은 없지만, "적게 나온 게 정상" 오해 방지
+        detail_capped_alert: detailCapped
+          ? "CAPPED - " + cappedRemaining + " candidate doc(s) NOT processed this round; cursor stops at the last processed doc's Updated so the next run continues"
+          : undefined,
+        ledger_rows: sink.rows.length,
+        zero_qty_lines: zeroQtyLines,
+        since_filtered_rows: sink.stats.since_filtered_rows,
+        missing_date_items: missingDateItems,
+        merged_lines: sink.stats.merged_lines,
+        merged_lines_alert: sink.stats.merged_lines > 0 ? "NOT ZERO - the line_ref assumption is broken, inspect raw.merged_lines_raw" : null,
+        empty_sku_lines: sink.stats.empty_sku_lines,
+        empty_sku_alert: sink.stats.empty_sku_lines > 0 ? "NOT ZERO - parsing is wrong for this source; commit is blocked until fixed" : undefined,
+        field_fallbacks: fieldFallbacks,
+        date_histogram: sink.dateHist,
+        samples: sink.rows.slice(0, 5),
+        warnings,
+      });
+      if (sink.stats.empty_sku_lines > 0) warnings.push(sink.stats.empty_sku_lines + " line(s) dropped for empty sku - parsing is wrong for this source");
+      if (key === "sale") {
+        Object.assign(R, {
+          fulfilments_seen: fulfilmentsSeen,
+          no_ship_fulfilments: noShipFulfilments,
+          ship_date_ambiguous: shipDateAmbiguous,
+          avg_pick_lines_per_doc: docsProcessed ? Math.round((pickLineCount / docsProcessed) * 10) / 10 : null,
+        });
+      } else if (key === "purchase") {
+        Object.assign(R, {
+          advanced_docs: advancedCount,
+          simple_docs: simpleCount,
+          list_stock_received_status_counts: srsCounts,
+          sr_block_status_counts: srBlockStatusCounts,
+          draft_blocks_skipped: draftBlocksSkipped,
+          empty_status_blocks: emptyStatusBlocks,
+        });
+      } else {
+        Object.assign(R, {
+          credit_notes_seen: creditNotesSeen,
+          restock_status_counts: restockStatusCounts,
+          empty_restock: emptyRestock,
+          no_cn_number: noCnNumber,
+        });
+      }
+
+      // 5) commit (⑤에서 켠다) — all-or-nothing per source (runSource 와 같은 조건).
+      //    커서 저장값 = cursorWouldBe (캡 회차면 마지막 처리 문서 Updated · 아니면 회차 시작 시각).
+      if (commit) {
+        let blocked: string | null = null;
+        if (listAborted) blocked = "list_aborted: " + listAborted;
+        else if (truncated) blocked = "list truncated";
+        else if (unmappedInSource > 0) blocked = "UNMAPPED location in " + unmappedInSource + " row(s) - fix map first (rows would be permanent)";
+        else if (sink.stats.empty_sku_lines > 0) blocked = sink.stats.empty_sku_lines + " line(s) with empty sku - parsing is wrong, the rest of this source cannot be trusted";
+        else if (missingDateItems > 0) blocked = missingDateItems + " item(s) without usable date";
+        if (blocked) {
+          R.write_skipped = blocked;
+        } else {
+          for (let i = 0; i < sink.rows.length; i += INSERT_BATCH) {
+            await sbInsertIgnoreDup("inv_ledger", LEDGER_CONFLICT, sink.rows.slice(i, i + INSERT_BATCH));
+          }
+          await sbUpsert("inv_sync_state", "source_key", [{
+            source_key: key,
+            last_cursor: cursorWouldBe,
+            last_run_at: new Date().toISOString(),
+            last_ok_at: new Date().toISOString(),
+            note: COLLECTOR_VERSION + " rows=" + sink.rows.length + (detailCapped ? " capped" : ""),
+          }]);
+          R.written = sink.rows.length;
         }
       }
       results[key] = R;
@@ -697,7 +1099,8 @@ Deno.serve(async (req) => {
 
     for (const key of runKeys) {
       if (timeLeft() < 3_000) { results[key] = { aborted: "time budget exhausted before this source" }; continue; }
-      await runSource(key);
+      if (SOURCES[key]) await runSource(key);
+      else await runDateSource(key);
     }
 
     const out = {
