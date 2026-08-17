@@ -814,9 +814,17 @@ function markLiveRows(){
 function renderHolds(all){
   const el=document.getElementById("holdSection"); if(!el) return;
   const rows=(all||[]).filter(r=>r.hold_state);
-  // Cin7 void 카드 (2026-08-14 — 백로그 「Cin7 void 감지」): status='voided'(⊘ 처리 완료)는 제외 —
-  // 이 카드는 "처리 대기" 목록이다. 처리하면 사라진다(9일 방치 재발 방지의 핵심: 발견→처리가 한 화면).
-  const voidRows=(all||[]).filter(r=>r.cin7_void_state&&r.status!=="voided");
+  // Cin7 void 카드 (2026-08-14 — 백로그 「Cin7 void 감지」): 이 카드는 "처리 대기" 목록이다 —
+  // 처리하면 사라진다(9일 방치 재발 방지의 핵심: 발견→처리가 한 화면). 제외 2종:
+  //   voided = ⊘ 처리 완료분.
+  //   closed = WMS 에서 정상 종료된 것 — 할 일이 끝났으므로 알릴 이유가 없다(2026-08-17).
+  //   (실사고 SO-13993: Cin7 이 먼저 CLOSED → gone_other 플래그 → 이후 WMS Finalize 완료.
+  //    자동 해제는 hello 의 "AUTHORISED 목록 재등장" 뿐이라 CLOSED 종착은 영영 안 지워진다.
+  //    cin7_void_state 는 지우지 않는다 — "Cin7 이 먼저 닫혔다"는 기록은 원장 대조의 설명이 된다.)
+  //   ⚠️ closed 제외가 진짜 이상 상태(closed + cin7_void_state='voided')를 숨기지 않는 이유:
+  //   'voided' 플래그는 다음 단계를 차단하므로 Finalize 를 통과해 closed 가 될 수 없고,
+  //   void 감지 루프는 활성 오더만 대조하므로 closed 후에 플래그가 새로 붙지도 않는다 — 구조적 도달 불가.
+  const voidRows=(all||[]).filter(r=>r.cin7_void_state&&r.status!=="voided"&&r.status!=="closed");
   if(!rows.length&&!voidRows.length){ el.innerHTML=""; return; }
   const canRelease=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");
   const stageCnt={};
