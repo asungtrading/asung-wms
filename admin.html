@@ -2532,16 +2532,16 @@ async function loadRecv(){
     sb.from("wms_receipt_lines").select("*, wms_receipts(po_number,supplier_name,warehouse)")   // caps-ok: 승인 대기 라인만(needs_approval=true) — 승인/거부로 소진되는 소수
       .eq("needs_approval",true).order("created_at",{ascending:false}),
     // putaway_bin/putaway_done/needs_approval 도 같은 임베드로 받는다 — awaiting putaway 계산에 왕복을 더하지 않는다(규칙 34).
-    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po)")
+    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po,last_received_by,last_received_at)")
       .is("applied_at",null).order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll 페이지 누적 — 미적용 receipt 전량(Apply·백로그 작업 대상, Apply 로 소진. [실측 2026-08-14] 전체 37)
-    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines!inner(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po)")
+    sbAll(()=>sb.from("wms_receipts").select("*, wms_receipt_lines!inner(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po,last_received_by,last_received_at)")
       .not("applied_at","is",null)
       .not("wms_receipt_lines.putaway_bin","is",null)
       .not("wms_receipt_lines.putaway_done","is",true)
       .not("wms_receipt_lines.needs_approval","is",true)
       .gt("wms_receipt_lines.received_base",0)
       .order("updated_at",{ascending:false}).order("id",{ascending:false})),   // caps-ok: sbAll — applied 인데 미풋어웨이 라인이 남은 것만(풋어웨이 완료로 소진되는 소수)
-    sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po)")
+    sb.from("wms_receipts").select("*, wms_receipt_lines(received_base,exported_base,putaway_bin,putaway_done,needs_approval,is_off_po,last_received_by,last_received_at)")
       .order("updated_at",{ascending:false}).limit(60),   // caps-ok: 최근 60 사양 — history 표시 전용(집계 모수 아님), 총수는 캡션
     sb.from("wms_receipts").select("id",{count:"exact",head:true}),
   ]);
@@ -2629,7 +2629,7 @@ async function loadRecv(){
           <td style="font-family:var(--mono);font-weight:700">${esc(r.po_number)}</td>
           <td>${r.source_type==="transfer"?'<span class="tag" style="color:#7c3aed;background:#f3ebff">TR</span>':"PO"}</td>
           <td>${r.warehouse==="edmonton"?"Edmonton":"Toronto"}</td>
-          <td>${esc(r.received_by||"—")}</td>
+          <td style="font-size:12px">${recvWorkersCell(r)}</td>
           <td>${RECV_ST_LABEL[r.status]||r.status}${r.applied_at?` <span class="tag" style="color:var(--danger);background:var(--danger-bg)" title="Cin7 already records this stock in the bin. If it is not physically there, pickers will not find it — check the floor.">Cin7 applied</span>`:""}</td>
           <td class="num" style="font-family:var(--mono);font-weight:700;color:var(--warn)">${nf(np.lines)}</td>
           <td class="num" style="font-family:var(--mono);font-weight:700">${nf(np.units)}</td>
@@ -2706,7 +2706,7 @@ async function loadRecv(){
             : (rg
               ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left${isTr?"":" — Cin7 DRAFT"}</span>`
               : '<span style="color:var(--mut-2);font-size:12px">—</span>')}</td>
-          <td>${esc(r.received_by||"—")}</td>
+          <td style="font-size:12px">${recvWorkersCell(r)}</td>
           <td style="color:var(--mut);font-size:12px">${r.updated_at?new Date(r.updated_at).toLocaleString():""}</td>
           <td style="white-space:nowrap"><button class="btnsm" data-review="${r.id}">Review</button> <button class="btnsm" style="color:var(--danger)" data-delrcpt="${r.id}" data-po="${esc(r.po_number)}" data-exp="${applied?1:0}" data-wkline="${esc(wkline)}">Delete</button></td>
         </tr>`;}).join("")}</tbody></table>`
@@ -2751,6 +2751,30 @@ async function rejectOffPo(id,sku){
   if(error){ toast("Failed: "+error.message,true); return; }
   toast("Rejected — line removed"); loadRecv();
 }
+/* ── 리시빙 작업자 표시 (2026-08-17 · wms_receipt_lines.last_received_by/at) ──
+   리시빙은 여러 작업자가 나눠 받는 것이 기능(규칙 24) — 표시는 참여자 전원(distinct).
+   라인에 값이 하나라도 있으면 라인 값만 쓴다(NULL 라인 무시). 전부 NULL(컬럼 도입 전
+   receipt)이면 wms_receipts.received_by 폴백 — ⚠️ 그건 "시작한 사람"이라 틀린 값이다:
+   회색 + "~" 접두 + (started by) 꼬리표로 구분한다(정확한 값처럼 보이면 수정의 의미가 없다).
+   정렬 = 각자 마지막 터치 시각 내림차순(가장 최근에 만진 사람이 앞).
+   ⚠️ placed(!inner) 부분 임베드 행은 미풋어웨이 라인의 참여자만 보인다 — 실제 참여자의
+   부분집합(틀린 사람이 나오진 않음, 누락 가능)이라 폴백과 달리 표식 없이 그대로 둔다. */
+function recvWorkers(r){
+  const seen=new Map();   // name → 마지막 터치 시각
+  (r.wms_receipt_lines||[]).forEach(l=>{
+    if(!l||!l.last_received_by) return;
+    const t=l.last_received_at?Date.parse(l.last_received_at):0;
+    if(!seen.has(l.last_received_by)||t>seen.get(l.last_received_by)) seen.set(l.last_received_by,t);
+  });
+  if(seen.size) return {names:[...seen.entries()].sort((a,b)=>b[1]-a[1]).map(([n])=>n),fallback:false};
+  return {names:r.received_by?[r.received_by]:[],fallback:true};
+}
+function recvWorkersCell(r){
+  const {names,fallback}=recvWorkers(r);
+  if(!names.length) return '<span style="color:var(--mut-2)">—</span>';
+  if(fallback) return `<span style="color:var(--mut-2)" title="No per-line worker data (rows predate 2026-08-17) — showing who STARTED this receipt, which may not be who received the goods.">~${esc(names[0])} <span style="font-size:10px">(started by)</span></span>`;
+  return `<span title="${esc(names.join(" · "))}">${esc(names[0])}${names.length>1?` <span class="tag" style="font-size:10px" title="${esc(names.join(" · "))}">+${names.length-1}</span>`:""}</span>`;
+}
 async function reviewReceipt(rid){
   try{
     const {data:rh}=await sb.from("wms_receipts").select("*").eq("id",rid).single();
@@ -2771,6 +2795,11 @@ async function reviewReceipt(rid){
     }
     // 모달에서 바로 Apply 하는 경로도 경고 문구를 쓰므로 여기서 카운트를 갱신한다(loadRecv 없이 열려도 정확).
     recvNotPlaced[rid]=countNotPlaced(ls);
+    // 작업자 표시 — 모달은 공간이 있어 전원 나열(마지막 터치 내림차순). 폴백은 (started by) 구분.
+    const rvW=recvWorkers({wms_receipt_lines:ls,received_by:rh.received_by});
+    const rvWho=rvW.fallback
+      ? `<span style="color:var(--mut-2)">~${esc(rvW.names[0]||"—")} (started by — no per-line worker data)</span>`
+      : `received by ${esc(rvW.names.join(" · ")||"—")}`;
     // 라인을 bin 별로 그룹핑 (풋어웨이 결과 뷰)
     const withBin={}, noBin=[];
     (ls||[]).filter(l=>Number(l.received_base||0)>0).forEach(l=>{
@@ -2842,7 +2871,7 @@ async function reviewReceipt(rid){
     ov.innerHTML=`<div style="background:var(--card);border-radius:14px;max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,.3)">
       <div style="padding:16px 18px 8px;border-bottom:1px solid var(--line)">
         <div style="font-family:var(--mono);font-weight:800;font-size:16px">${esc(rh.po_number)} ${isTr?'<span class="badge" style="background:#f3ebff;color:#7c3aed">TRANSFER</span>':"<span class='badge'>PO</span>"} <span class="badge">${RECV_ST_LABEL[rh.status]||rh.status}</span></div>
-        <div style="font-size:12.5px;color:var(--mut);margin-top:3px">${esc(rh.supplier_name||"—")} · ${rh.warehouse==="edmonton"?"Edmonton":"Toronto"} · received by ${esc(rh.received_by||"—")}</div>
+        <div style="font-size:12.5px;color:var(--mut);margin-top:3px">${esc(rh.supplier_name||"—")} · ${rh.warehouse==="edmonton"?"Edmonton":"Toronto"} · ${rvWho}</div>
         <div style="font-size:11.5px;color:var(--mut-2);margin-top:2px">Review the putaway result below before writing to Cin7.</div>
       </div>
       <div style="overflow-y:auto;padding:8px 18px 12px;flex:1">${npBanner}${banner}${body}</div>
@@ -3422,7 +3451,7 @@ async function loadRecvStats(r){
   // receipts 는 아직 수백 규모지만 누적 테이블이라 같은 만기를 가진다. 임베드 라인은 페이지에 실려 온전.
   const [rec,disc]=await Promise.all([
     sbAll(()=>sb.from("wms_receipts")   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5 계열)
-      .select("id,po_number,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done)")
+      .select("id,po_number,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done,last_received_by,last_received_at)")
       .gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),
     sbAll(()=>sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5 계열)
       .gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),
@@ -3446,26 +3475,51 @@ async function loadRecvStats(r){
   let pLines=0,pDone=0,backLines=0,backUnits=0,trLines=0,trMoved=0;
   (rec.data||[]).forEach(rc=>{
     const t=T[rc.source_type==="transfer"?"transfer":"po"];
-    const w=byWorker[rc.received_by||"(unknown)"]=byWorker[rc.received_by||"(unknown)"]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0,list:[]};
     const wh=byWh[rc.warehouse||"?"]=byWh[rc.warehouse||"?"]||{n:0,lines:0,units:0};
-    t.n++; w.n++; wh.n++;
+    t.n++; wh.n++;
     const rm=workMinutes(rc.created_at,rc.completed_at,rc.warehouse);
-    if(rm!=null){ t.rMin+=rm;t.rN++; w.rMin+=rm;w.rN++; }
+    if(rm!=null){ t.rMin+=rm;t.rN++; }
     const am=workMinutes(rc.completed_at,rc.applied_at,rc.warehouse);
     if(am!=null){ t.aMin+=am;t.aN++; }
     if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
     else if(rc.status==="completed") notApplied++;
-    let rl=0,ru=0;   // 펼침 목록용 receipt 별 소계 (2026-08-11 — 표시 전용, 아래 합산 집계는 무변)
+    // ── 사람 귀속은 라인 단위 (2026-08-17 · last_received_by) ──
+    // 종전 receipt 단위 귀속(received_by)은 "시작한 사람" 전량 귀속이라 나눠 받기(규칙 24)에서
+    // 거짓이었다. NULL 라인(컬럼 도입 전)은 "~received_by" 폴백 그룹으로 — "~" 접두 = "시작한
+    // 사람 기준, 정확하지 않음"의 표식(이력 열의 (started by) 꼬리표와 같은 관례). 폴백 그룹은
+    // pick/pack 의 실명 행과 병합되지 않는다 — 의도(그 사람 실적이라고 단정할 수 없어서).
+    // ⚠️ 상단 합계(t/wh/전역 카운터)는 receipt·라인 기준 그대로 — 사람 귀속만 바뀐다.
+    const fbKey="~"+(rc.received_by||"(unknown)");
+    const touched=new Map();   // workerKey → 이 receipt 안에서 그 사람이 만진 소계
     (rc.wms_receipt_lines||[]).forEach(l=>{
       const q=Number(l.received_base)||0;
       if(q<=0)return; // untouched expected lines are not throughput
-      t.lines++; t.units+=q; w.lines++; w.units+=q; wh.lines++; wh.units+=q;
-      rl++; ru+=q;
+      t.lines++; t.units+=q; wh.lines++; wh.units+=q;
       pLines++;
-      if(l.putaway_done){ pDone++; w.pDone++; } else{ backLines++; backUnits+=q; }
+      if(l.putaway_done){ pDone++; } else{ backLines++; backUnits+=q; }
       if(rc.source_type==="transfer"){ trLines++; if((Number(l.exported_base)||0)>0)trMoved++; }
+      const key=l.last_received_by||fbKey;
+      const tw=touched.get(key)||{lines:0,units:0,pDone:0,minAt:null,maxAt:null,fallback:!l.last_received_by};
+      tw.lines++; tw.units+=q; if(l.putaway_done)tw.pDone++;
+      if(l.last_received_at){
+        if(!tw.minAt||l.last_received_at<tw.minAt)tw.minAt=l.last_received_at;
+        if(!tw.maxAt||l.last_received_at>tw.maxAt)tw.maxAt=l.last_received_at;
+      }
+      touched.set(key,tw);
     });
-    w.list.push({label:rc.po_number||"", lines:rl, units:ru, min:rm, at:rc.completed_at||null});
+    touched.forEach((tw,key)=>{
+      const w=byWorker[key]=byWorker[key]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0,list:[]};
+      w.n++;   // 참여한 receipt 수 — 라인이 하나라도 자기 것이면 1 (touched 에 든 것이 그 증거)
+      w.lines+=tw.lines; w.units+=tw.units; w.pDone+=tw.pDone;
+      // work time = 사람별 min(last_received_at)~max(last_received_at) 근무시간 — receipt 전체
+      // 구간(created~completed)을 사람 수만큼 나눠주면 셋이 나눈 4시간이 12시간이 된다(합계 부풂).
+      // ⚠️ 폴백 그룹(라인 전부 NULL)은 계산하지 않는다 — 데이터가 없다. 없는 값을 만들지 않는다
+      //    (rN 0 → renderProd 가 avg 표기를 통째로 생략 · 펼침 목록 min null → "—").
+      let m=null;
+      if(!tw.fallback&&tw.minAt&&tw.maxAt) m=workMinutes(tw.minAt,tw.maxAt,rc.warehouse);
+      if(m!=null){ w.rMin+=m; w.rN++; }
+      w.list.push({label:rc.po_number||"", lines:tw.lines, units:tw.units, min:m, at:tw.maxAt||rc.completed_at||null});
+    });
   });
   // 펼침 목록 정렬 = 완료시각 내림차순, 미완료(in progress)는 맨 위(가장 최근 활동)
   Object.values(byWorker).forEach(w=>w.list.sort((a,b)=>(b.at?new Date(b.at).getTime():Infinity)-(a.at?new Date(a.at).getTime():Infinity)));
