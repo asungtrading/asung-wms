@@ -72,6 +72,17 @@
 // 조립 날짜 미확정: FG-00110 의 실제 이동일은 2026-08-06(오더 생성 시점)인데 어느
 //   필드인지 미확인 → occurred_on 은 잠정 CompletionDate, 응답 date_candidates 에
 //   문서별 Date(목록)/CompletionDate/WIPDate 3종을 나란히 보고(Caleb 이 보고 확정).
+//   [2026-08-17 dry 실측] 40건 전부 3값 동일 — 구별 불가·실질 위험 낮음. CompletionDate 유지.
+//
+// 조립 필드 실측 (2026-08-17 dry 실사고 2건 — 프로브 8·11차와 합치):
+//   · 목록 배열 키 = FinishedGoods("FinishedGoodsList" 아님) · 문서번호 = AssemblyNumber
+//     (Number/StocktakeNumber 폴백 체인이 전부 "" 를 내 커서 정지 + 유니크 키 붕괴 직전)
+//   · PickLines 의 상품 코드 = ProductCode(SKU 필드 없음 — sku 가 전부 "" 로 들어갈 뻔)
+//
+// 빈 이동 날짜 대체 (2026-08-17 보완 2 — 구조적): Cin7 WMS 모바일 빈 이동은 DepartureDate
+//   없는 트랜스퍼를 만든다(우리 WMS 에 빈 이동 기능이 없어 계속 발생 — 규칙 33 백로그).
+//   같은 창고 + LastModifiedOn 있으면 대체 후 기록(창고 잔고 ±0 이라 무영향 · raw 에
+//   date_substituted 표기), **창고간은 여전히 hold**(잔고가 움직이는데 시점 불명 = 진짜 이상).
 //
 // 하지 않는 것: /transactions(창고내 이동 94%가 회계 분개 없음 — 실측) ·
 //   Movements(날짜 필터 없음·SKU 단위 — 검증 전용) · 콜론 파싱 · SKU 접미사 파싱
@@ -92,7 +103,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.2";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.2 = 커서 하한 도입)
+const COLLECTOR_VERSION = "inv-collect@2026-08-17.3";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.3 = 조립 필드 실측 교정 + 빈 이동 날짜 대체)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -112,19 +123,22 @@ type LedgerRow = {
   raw: Record<string, unknown>;
 };
 
-// 소스 3종 설정 — 목록 응답 배열 키는 cin7-api endpoint-index 실측(StockAdjustmentList·
-// StockTransferList 확정 · FinishedGoodsList 는 관례 추정이라 폴백 스캔 + 보고).
-const SOURCES: Record<string, { listPath: string; listKey: string; detailPath: (id: string) => string; docType: string }> = {
+// 소스 3종 설정 — 목록 응답 배열 키는 실측: StockAdjustmentList·StockTransferList(cin7-api
+// endpoint-index) · FinishedGoods(2026-08-17 dry 실측 — "FinishedGoodsList" 관례 추정이 틀렸었다.
+// 폴백 스캔은 방어로 유지). ⚠️ 문서번호 필드는 소스별 명시(numberField) — 공용 폴백 체인은
+// 새 소스가 붙을 때 조용히 틀린다(조립이 그랬다: Number 도 StocktakeNumber 도 없어 전부 ""
+// → 커서 정지 + 유니크 키 붕괴 직전. 실측 프로브 8·11차: 조립 번호는 AssemblyNumber).
+const SOURCES: Record<string, { listPath: string; listKey: string; numberField: string; detailPath: (id: string) => string; docType: string }> = {
   adjustment: {
-    listPath: "/stockadjustmentList", listKey: "StockAdjustmentList",
+    listPath: "/stockadjustmentList", listKey: "StockAdjustmentList", numberField: "StocktakeNumber",
     detailPath: (id) => "/stockadjustment?TaskID=" + encodeURIComponent(id), docType: "adjustment",
   },
   transfer: {
-    listPath: "/stockTransferList", listKey: "StockTransferList",
+    listPath: "/stockTransferList", listKey: "StockTransferList", numberField: "Number",
     detailPath: (id) => "/stockTransfer?TaskID=" + encodeURIComponent(id), docType: "transfer",
   },
   assembly: {
-    listPath: "/finishedGoodsList", listKey: "FinishedGoodsList",
+    listPath: "/finishedGoodsList", listKey: "FinishedGoods", numberField: "AssemblyNumber",
     detailPath: (id) => "/finishedGoods?TaskID=" + encodeURIComponent(id), docType: "assembly",
   },
 };
@@ -322,17 +336,19 @@ Deno.serve(async (req) => {
       const paramIgnored = floorSource === "state" && floorParam.has(key);
       const floorNum = floorUsed ? docNum(floorUsed) : null;
       if (floorSource === "none") warnings.push("NO FLOOR - scanning from the very first document (pass ?from_cursor= or seed inv_sync_state)");
-      const numberOf = (row: any) => String(row?.Number ?? row?.StocktakeNumber ?? "").trim();   // 조정은 StocktakeNumber
+      const numberOf = (row: any) => String(row?.[cfg.numberField] ?? "").trim();   // 소스별 명시 — SOURCES 주석 참조
       const statusCounts: Record<string, number> = {};
       for (const row of listRows) statusCounts[norm(row?.Status) || "(none)"] = (statusCounts[norm(row?.Status) || "(none)"] ?? 0) + 1;
 
       type Cand = { row: any; num: number; number: string; disposition: string };
       const cands: Cand[] = [];
       let skipBeforeFloor = 0;
+      let unparsableNumbers = 0;                 // ⚠️ 행마다 경고를 쏟지 않는다 — 120줄 홍수에 진짜 경고가 묻힌다(실사고)
+      let unparsableSample: string | null = null;
       for (const row of listRows) {
         const number = numberOf(row);
         const n = docNum(number);
-        if (n == null) { warnings.push("unparsable doc number '" + number + "' — treated as after-cursor, cursor will hold at it"); }
+        if (n == null) { unparsableNumbers++; if (unparsableSample == null) unparsableSample = number; }
         const num = n ?? Number.MAX_SAFE_INTEGER;
         // ⚠️ floor 적용은 disposition(hold 판정)보다 먼저 — 하한 이하 문서는 후보에 아예 안
         //   들어가므로 옛 문서의 날짜 결손·DRAFT 가 커서를 막을 기회 자체가 없다.
@@ -340,6 +356,7 @@ Deno.serve(async (req) => {
         cands.push({ row, num, number, disposition: "" });
       }
       cands.sort((a, b) => a.num - b.num);
+      if (unparsableNumbers > 0) warnings.push(unparsableNumbers + " doc(s) with unparsable/empty number (e.g. '" + unparsableSample + "') — cursor will hold at the first one");
 
       // 상태·since 로 disposition 1차 결정 (상세 없이 판정 가능한 것)
       //  terminal-skip = 커서가 지나가도 되는 건너뜀 / hold = 커서가 그 앞에서 멈춤
@@ -375,6 +392,8 @@ Deno.serve(async (req) => {
       const dateHist: Record<string, number> = {};
       const dateCandidates: { doc_number: string; list_date: string | null; completion_date: string | null; wip_date: string | null }[] = [];
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, mergedLines = 0, sinceFilteredRows = 0, missingDateDocs = 0;
+      let emptySkuLines = 0;                        // ⚠️ ≠0 = 파싱이 틀렸다는 뜻 — commit 게이트 조건(사용자 조건 2026-08-17)
+      const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
       let detailCapped = false, detailCapReason: string | null = null;
       let unmappedInSource = 0;
 
@@ -382,6 +401,11 @@ Deno.serve(async (req) => {
       function pushDocRows(rows: LedgerRow[]): void {
         const byKey = new Map<string, LedgerRow>();
         for (const r of rows) {
+          // ⚠️ 빈 sku = 어느 상품인지 모르는 행 — 만들지 않는다. ≠0 이면 그 소스의 파싱이 틀렸다는
+          //   뜻이라 나머지 행도 못 믿는다 → commit 게이트가 소스 전체를 막는다(UNMAPPED 와 같은 논리.
+          //   실사고: 조립 PickLines 에 SKU 필드가 없어(정답은 ProductCode) sku 가 전부 "" 였는데
+          //   나머지 필드는 멀쩡해 보였다 — 조용히 통과할 뻔했다).
+          if (!r.sku) { emptySkuLines++; continue; }
           if (since && !(r.occurred_on > since)) { sinceFilteredRows++; continue; }   // "그 날짜보다 이후"만 — 경계일 제외
           const k = [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");   // 구분자 없는 연결은 키 충돌("AB","C")/("A","BC")
           const cur = byKey.get(k);
@@ -458,14 +482,37 @@ Deno.serve(async (req) => {
             });
           }
         } else if (key === "transfer") {
-          const dep = dateOnly(det?.DepartureDate ?? c.row?.DepartureDate);
-          const comp = dateOnly(det?.CompletionDate ?? c.row?.CompletionDate);
-          if (!dep) { missingDateDocs++; warnings.push("missing DepartureDate: " + c.number); c.disposition = "hold_missing_date"; continue; }
+          // From/To 해석을 날짜 검사보다 먼저 — 빈 이동(같은 창고) 판정에 필요 (2026-08-17 보완 2)
           const fromLoc = resolveLoc(det?.From ?? c.row?.From, det?.FromLocation ?? c.row?.FromLocation, key + ":" + c.number);
           const toLoc = resolveLoc(det?.To ?? c.row?.To, det?.ToLocation ?? c.row?.ToLocation, key + ":" + c.number);
+          let dep = dateOnly(det?.DepartureDate ?? c.row?.DepartureDate);
+          const comp = dateOnly(det?.CompletionDate ?? c.row?.CompletionDate);
+          let dateSubstituted = false;
+          if (!dep) {
+            // [구조적 결손 — 사용자 확인 2026-08-17] Cin7 WMS 모바일로 빈 이동을 하면 DepartureDate
+            // 없는 트랜스퍼가 생긴다. 우리 WMS 에 빈 이동 기능이 없어(규칙 33 백로그) 이 경로가
+            // 계속 쓰이므로 매일 새로 생긴다 — 하한(floor)으로는 못 푼다(실측 TR-03971 외 14건/3일).
+            // 같은 창고 안 이동은 창고 잔고 ±0 이라 날짜가 부정확해도 결과 무영향 → LastModifiedOn
+            // 으로 대체하고 기록한다(버리면 나중에 빈 단위 승격 때 이력이 없다 — "지금 안 써도
+            // 담는다" 원칙). ⚠️ **창고간은 여전히 hold** — 잔고가 움직이는데 시점을 모르는 것은
+            // 진짜 이상이다. 대체 사실은 raw.header.date_substituted 에 남는다(이 날짜는 못 믿는다).
+            const sameWh = fromLoc.mapped && toLoc.mapped && fromLoc.warehouse === toLoc.warehouse;
+            const lm = dateOnly(det?.LastModifiedOn ?? c.row?.LastModifiedOn);
+            if (sameWh && lm) {
+              dep = lm;
+              dateSubstituted = true;
+              dateSubstitutedDocs.push(c.number);
+            } else {
+              missingDateDocs++;
+              warnings.push("missing DepartureDate (cross-warehouse, unmapped, or no LastModifiedOn): " + c.number);
+              c.disposition = "hold_missing_date";
+              continue;
+            }
+          }
           if (!fromLoc.mapped) unmappedInSource++;
           if (!toLoc.mapped) unmappedInSource++;
-          const header = { doc_number: c.number, task_id: taskId, status: det?.Status ?? c.row?.Status, departure_date: det?.DepartureDate, completion_date: det?.CompletionDate ?? null, from: det?.From ?? c.row?.From, to: det?.To ?? c.row?.To };
+          const header: Record<string, unknown> = { doc_number: c.number, task_id: taskId, status: det?.Status ?? c.row?.Status, departure_date: det?.DepartureDate, completion_date: det?.CompletionDate ?? null, from: det?.From ?? c.row?.From, to: det?.To ?? c.row?.To };
+          if (dateSubstituted) header.date_substituted = "DepartureDate <- LastModifiedOn (bin move, same warehouse)";
           for (const line of (det?.Lines ?? []) as any[]) {
             const q = Number(line?.TransferQuantity ?? 0);
             if (q === 0) { zeroQtyLines++; continue; }
@@ -502,7 +549,9 @@ Deno.serve(async (req) => {
             const loc = pickLineLoc(line, det?.LocationID ?? null, det, c.number, key);
             rows.push({
               ...base, occurred_on: occurred, seq_hint: 2,
-              sku: String(line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
+              // ⚠️ PickLines 에는 SKU 필드가 없다 — ProductCode 가 상품 코드다 (2026-08-17 dry 실측:
+              //   SKU 로 읽어 전부 "" 였다. 완제품(헤더)은 원래 ProductCode). SKU 폴백은 방어.
+              sku: String(line?.ProductCode ?? line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
               qty_delta: -q, event_type: "assemble_out", line_ref: lineRef(line, warnings, c.number),
               amount: null, raw: mkRaw(line, header, "assemble_out: -Quantity(" + q + ") component"),
             });
@@ -601,22 +650,31 @@ Deno.serve(async (req) => {
         // ⚠️ merged_lines ≠ 0 = line_ref=ProductID 가정(같은 SKU 두 줄 없음)이 깨졌다는 신호
         merged_lines: mergedLines,
         merged_lines_alert: mergedLines > 0 ? "NOT ZERO - the line_ref=ProductID assumption is broken, inspect raw.merged_lines_raw" : null,
+        // ⚠️ empty_sku_lines ≠ 0 = 이 소스의 파싱이 틀렸다 — commit 은 소스 전체 차단(사용자 조건)
+        empty_sku_lines: emptySkuLines,
+        empty_sku_alert: emptySkuLines > 0 ? "NOT ZERO - parsing is wrong for this source; commit is blocked until fixed" : undefined,
+        // 빈 이동 날짜 대체 (같은 창고 + LastModifiedOn — 이 문서들의 occurred_on 은 근사값)
+        date_substituted_docs: dateSubstitutedDocs.length,
+        date_substituted_doc_numbers: dateSubstitutedDocs.slice(0, 20),
         field_fallbacks: fieldFallbacks,
         date_histogram: dateHist,
         samples,
         warnings,
       });
+      if (emptySkuLines > 0) warnings.push(emptySkuLines + " line(s) dropped for empty sku - parsing is wrong for this source");
       if (key === "assembly") R.date_candidates = dateCandidates;   // Date/CompletionDate/WIPDate 비교표 — Caleb 이 확정
 
       // 6) commit (⑤에서 켠다) — all-or-nothing per source:
-      //    목록 불완전(429·truncated·페이지 오류) 또는 UNMAPPED(사용자 조건 ⑤) 또는 날짜 결손이면
-      //    그 소스는 한 행도 쓰지 않고 커서도 안 옮긴다. detail_capped 는 쓰기 가능 —
-      //    커서가 캡 앞에서 멈추므로 다음 회차가 이어간다.
+      //    목록 불완전(429·truncated·페이지 오류) 또는 UNMAPPED(사용자 조건 ⑤) 또는 날짜 결손
+      //    또는 빈 sku(2026-08-17 조건 — 상품을 모르는 행이 있다는 건 파싱이 틀렸다는 뜻이고
+      //    나머지 행도 못 믿는다)면 그 소스는 한 행도 쓰지 않고 커서도 안 옮긴다.
+      //    detail_capped 는 쓰기 가능 — 커서가 캡 앞에서 멈추므로 다음 회차가 이어간다.
       if (commit) {
         let blocked: string | null = null;
         if (listAborted) blocked = "list_aborted: " + listAborted;
         else if (truncated) blocked = "list truncated";
         else if (unmappedInSource > 0) blocked = "UNMAPPED location in " + unmappedInSource + " row(s) - fix map first (rows would be permanent)";
+        else if (emptySkuLines > 0) blocked = emptySkuLines + " line(s) with empty sku - parsing is wrong, the rest of this source cannot be trusted";
         else if (missingDateDocs > 0) blocked = missingDateDocs + " doc(s) without usable date";
         if (blocked) {
           R.write_skipped = blocked;
