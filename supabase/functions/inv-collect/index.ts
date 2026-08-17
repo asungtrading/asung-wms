@@ -134,7 +134,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.6";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.6 = 날짜 커서 정체 결함 2건 차단)
+const COLLECTOR_VERSION = "inv-collect@2026-08-17.7";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.7 = 발주 블록 화이트리스트 + 반품 목록 필터 제거)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -812,6 +812,7 @@ Deno.serve(async (req) => {
       const filterCounts: Record<string, number> = {};
       const tally = (k: string) => { filterCounts[k] = (filterCounts[k] ?? 0) + 1; };
       const srsCounts: Record<string, number> = {};   // purchase: 목록 StockReceivedStatus 분포
+      const listRestockStatusCounts: Record<string, number> = {};   // creditnote: 목록 RestockStatus 분포(세기만 — 거르지 않음)
       const cands: { row: any; updated: string | null }[] = [];
       for (const row of listRows) {
         if (key === "sale") {
@@ -827,8 +828,16 @@ Deno.serve(async (req) => {
           if (!srs || srs === "NOT AVAILABLE") { tally("skip_no_stock_received"); continue; }
         } else {   // creditnote
           const cst = norm(row?.CreditNoteStatus);
+          // 문서 자체의 유효성 필터는 유지 (VOIDED/NOT AVAILABLE — 실측 477건 탈락, 옳은 탈락)
           if (cst === "VOIDED" || cst === "NOT AVAILABLE") { tally("skip_cn_status"); continue; }
-          if (norm(row?.RestockStatus) !== "AUTHORISED") { tally("skip_restock_status"); continue; }
+          // ⚠️ 목록 단계 RestockStatus 필터 제거 (2026-08-17 .7): 목록 행은 sale 단위인데 한 sale 에
+          //   CN 이 여럿이다([실측 dry] 상세 40건에서 credit_notes_seen 51). 단일값으로 오더를 통째로
+          //   거르면 같은 오더 안의 AUTHORISED CN 이 함께 탈락해 조용히 유실된다 — 발주 게이트웨이
+          //   사고("Status 문자열 필터가 PO 를 목록에서 지워버림")와 같은 계열. 상태 판정 권한은
+          //   상세의 CreditNotes[] 순회 한 곳에만 둔다 — 여기서는 세기만 한다.
+          //   후보 60→약 124 로 늘어 상세 호출이 배가 되는 것은 의도된 결과(캡 이어받기가 여러 회차).
+          const rst = norm(row?.RestockStatus);
+          listRestockStatusCounts[rst || "(empty)"] = (listRestockStatusCounts[rst || "(empty)"] ?? 0) + 1;
         }
         cands.push({ row, updated: String(row?.[cfg.updatedField] ?? "").trim() || null });
       }
@@ -898,6 +907,7 @@ Deno.serve(async (req) => {
       let fulfilmentsSeen = 0, noShipFulfilments = 0, shipDateAmbiguous = 0, pickLineCount = 0;
       let advancedCount = 0, simpleCount = 0, draftBlocksSkipped = 0, emptyStatusBlocks = 0;
       const srBlockStatusCounts: Record<string, number> = {};
+      const srBlocksSkipped: Record<string, number> = {};   // 화이트리스트 밖 제외 블록 — 상태별 (DRAFT 는 별도 카운터 유지)
       let creditNotesSeen = 0, emptyRestock = 0, noCnNumber = 0;
       const restockStatusCounts: Record<string, number> = {};
 
@@ -990,9 +1000,21 @@ Deno.serve(async (req) => {
           for (const b of blocks) {
             const bst = norm(b?.Status);
             srBlockStatusCounts[bst || "(empty)"] = (srBlockStatusCounts[bst || "(empty)"] ?? 0) + 1;
-            // ⚠️ DRAFT 블록만 제외 — 승인 전이라 재고가 안 움직인다(실측 PO-01083 DRAFT 194개 재고에
-            //   없음). 빈 문자열 Status 는 처리한다(실측 PO-01128 — 재고 들어감) — 건수만 보고.
+            // ⚠️ 화이트리스트 (2026-08-17 .7 — 종전 "DRAFT 만 제외" 블랙리스트는 명세 결함):
+            //   [실측 dry 2026-08-17] sr_block_status_counts 에 VOIDED 1 · NOT AVAILABLE 3 —
+            //   블랙리스트로는 이것들이 원장에 + 기표됐다 = 유령 재고. 명세가 DRAFT 만 제외였던 건
+            //   작성 시점에 DRAFT(PO-01083 — 194개 재고에 없음)만 실측했기 때문이다.
+            //   통과 = AUTHORISED 와 ""(빈 문자열 — 실측 PO-01128, 재고 들어감) 둘만.
+            //   반품(CreditNotes[] 순회)은 처음부터 화이트리스트였다 — 발주만 반대였다.
+            //   알려진 어휘 밖 값은 경고 — 어휘 확장을 조용히 통과시키지 않는다.
             if (bst === "DRAFT") { draftBlocksSkipped++; continue; }
+            if (bst !== "" && bst !== "AUTHORISED") {
+              srBlocksSkipped[bst] = (srBlocksSkipped[bst] ?? 0) + 1;
+              if (bst !== "VOIDED" && bst !== "NOT AVAILABLE") {
+                warnings.push("unknown StockReceived block Status: " + bst + " on " + docNo);
+              }
+              continue;
+            }
             if (bst === "") emptyStatusBlocks++;
             for (const line of (b?.Lines ?? []) as any[]) {
               const q = Number(line?.Quantity ?? 0);
@@ -1119,12 +1141,14 @@ Deno.serve(async (req) => {
           list_stock_received_status_counts: srsCounts,
           sr_block_status_counts: srBlockStatusCounts,
           draft_blocks_skipped: draftBlocksSkipped,
+          sr_blocks_skipped: srBlocksSkipped,   // 화이트리스트 밖 제외 (VOIDED·NOT AVAILABLE 등 — 상태별)
           empty_status_blocks: emptyStatusBlocks,
         });
       } else {
         Object.assign(R, {
           credit_notes_seen: creditNotesSeen,
           restock_status_counts: restockStatusCounts,
+          list_restock_status_counts: listRestockStatusCounts,   // 목록 단계는 세기만 — 판정은 상세 한 곳
           empty_restock: emptyRestock,
           no_cn_number: noCnNumber,
           // ⚠️ dup_sale_dropped 는 0 이 아닌 것이 정상 — 한 오더에 CN 여럿(SO-00062)이라 목록 행이 겹친다
