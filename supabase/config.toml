@@ -439,3 +439,10 @@ enabled = true
 # 500 fail-closed). verify_jwt=false 가 없으면 플랫폼 JWT 검사에 걸려 시크릿 호출이 401.
 verify_jwt = false
 entrypoint = "./functions/inv-snapshot/index.ts"
+
+[functions.inv-collect]
+enabled = true
+# 원장 수집 ②-a (조정·이동·조립) — inv-snapshot 과 같은 시크릿 헤더 인증(위 블록 참조).
+# 지금은 dry 검증 전용(수동 실행) — cron 등록은 ⑤에서. 기본 dry, ?commit=1 만 쓴다.
+verify_jwt = false
+entrypoint = "./functions/inv-collect/index.ts"
