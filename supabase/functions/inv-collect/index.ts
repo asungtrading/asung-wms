@@ -45,6 +45,15 @@
 //   ignore-duplicates 가 중복을 막는다. 번호는 Cin7 자동 부여·수동 변경 불가(사용자
 //   확인) — 변경은 새 번호가 되므로 놓치지 않는다. ⚠️ dry 는 커서를 옮기지 않는다.
 //
+// 커서 하한(floor · 2026-08-17 보완 — 첫 dry 실사고): DepartureDate 없는 초기 트랜스퍼
+//   TR-00012~76 40건이 커서 앞에서 hold 되며 캡 40을 정확히 소진 — 뒤 ~3,000건이 한 건도
+//   안 보였다(since 는 커서 정지를 못 푼다). → state 커서가 없을 때 ?from_cursor= 가 시야
+//   하한이 된다: 그 이하 문서는 후보 제외(skip_before_floor). 원장은 스냅샷 이후만 쌓으므로
+//   그 이전 문서는 볼 이유 자체가 없다. ⚠️ 하한은 옛 데이터를 안 보는 것이지 이상 감지를
+//   끄는 것이 아니다 — 하한 이후의 날짜 결손·DRAFT 는 여전히 커서를 막는다(그게 맞다).
+//   ⚠️ floor 는 커서 시작점이 되어 commit(⑤)에서 last_cursor 초기값으로 영속된다 — 그 이하
+//   문서는 영영 안 본다(의도). 다시 보려면 inv_sync_state.last_cursor 를 손으로 되돌릴 것.
+//
 // 상세 조회 캡 (동기 EF 의 물리 제약): 커서·since 없는 첫 dry 는 후보 5,298건 =
 //   상세 90분이라 불가능 → 목록 레벨(번호>커서·상태·since)로 후보를 좁히고
 //   MAX_DETAIL_PER_SOURCE 캡 + **오름차순**(커서 무결성 — 건너뛰기 없음. 규칙 12 의
@@ -83,7 +92,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것
+const COLLECTOR_VERSION = "inv-collect@2026-08-17.2";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.2 = 커서 하한 도입)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -178,6 +187,34 @@ Deno.serve(async (req) => {
     if (only && !SOURCES[only]) return json({ ok: false, error: "only must be adjustment|transfer|assembly" }, 400);
     const since = (url.searchParams.get("since") ?? "").trim() || null;
     if (since && !/^\d{4}-\d{2}-\d{2}$/.test(since)) return json({ ok: false, error: "since must be YYYY-MM-DD" }, 400);
+
+    // ── 커서 하한(floor) 파라미터 (2026-08-17 보완 — 실사고) ──
+    // [실사고] 첫 dry(only=transfer&since=2026-08-10)가 원장 행 0개: DepartureDate 없는
+    // 2025-11 초기 트랜스퍼 TR-00012~76 40건이 hold_missing_date 로 캡 40을 정확히 소진해
+    // 뒤 ~3,000건을 한 건도 못 봤다. since 는 커서 정지를 못 푼다(정지가 필터보다 먼저다).
+    // → 하한: 그 번호 이하 문서는 후보에서 아예 제외(스냅샷에 녹아 있으므로 볼 이유가 없다).
+    // ⚠️ 하한은 "옛 데이터를 안 보는 것"이지 이상 감지를 끄는 것이 아니다 — 하한 이후
+    //   문서의 날짜 결손·DRAFT 는 진짜 이상이므로 여전히 커서를 막는다(hold 로직 무변).
+    // 형식: from_cursor=TR-03900 (전 소스 공통 — 비교는 숫자 접미사라 접두어 무관)
+    //      또는 from_cursor=transfer:TR-03900,adjustment:ST-01150,assembly:FG-00110
+    const fromCursorRaw = (url.searchParams.get("from_cursor") ?? "").trim() || null;
+    const floorParam = new Map<string, string>();
+    if (fromCursorRaw) {
+      const tokens = fromCursorRaw.split(",").map((t) => t.trim()).filter(Boolean);
+      if (tokens.some((t) => t.includes(":"))) {
+        for (const t of tokens) {
+          const [k, v] = t.split(":").map((x) => x.trim());
+          // 잘못된 소스 키·번호를 조용히 무시하면 하한 없이 전량을 돌게 된다 — 400 으로 막는다
+          if (!k || !v || !SOURCES[k]) return json({ ok: false, error: "from_cursor: unknown source '" + (k ?? "") + "' - use transfer:TR-…,adjustment:ST-…,assembly:FG-…" }, 400);
+          if (docNum(v) == null) return json({ ok: false, error: "from_cursor: unparsable doc number '" + v + "'" }, 400);
+          floorParam.set(k, v);
+        }
+      } else {
+        if (tokens.length !== 1) return json({ ok: false, error: "from_cursor: multiple bare values - use source:VALUE form" }, 400);
+        if (docNum(tokens[0]) == null) return json({ ok: false, error: "from_cursor: unparsable doc number '" + tokens[0] + "'" }, 400);
+        for (const k of Object.keys(SOURCES)) floorParam.set(k, tokens[0]);
+      }
+    }
 
     const timeLeft = () => TIME_BUDGET_MS - (Date.now() - t0);
 
@@ -276,20 +313,30 @@ Deno.serve(async (req) => {
 
       // 2) 후보 선정 — 번호 오름차순 · 커서 초과 · 상태 · since(목록 레벨)
       const cursorBefore: string | null = cursorOf(key);
-      const cursorNum = cursorBefore ? docNum(cursorBefore) : null;
+      // floor 해석 — state 커서가 있으면 그것(저장된 진행이 우선 — 파라미터로 실수 되돌림 방지),
+      // 없으면 ?from_cursor=, 둘 다 없으면 없음 = 전량 스캔(시끄럽게 보고 — TR-00012 교착 재발 경로).
+      let floorUsed: string | null = null;
+      let floorSource: "state" | "param" | "none" = "none";
+      if (cursorBefore) { floorUsed = cursorBefore; floorSource = "state"; }
+      else if (floorParam.has(key)) { floorUsed = floorParam.get(key)!; floorSource = "param"; }
+      const paramIgnored = floorSource === "state" && floorParam.has(key);
+      const floorNum = floorUsed ? docNum(floorUsed) : null;
+      if (floorSource === "none") warnings.push("NO FLOOR - scanning from the very first document (pass ?from_cursor= or seed inv_sync_state)");
       const numberOf = (row: any) => String(row?.Number ?? row?.StocktakeNumber ?? "").trim();   // 조정은 StocktakeNumber
       const statusCounts: Record<string, number> = {};
       for (const row of listRows) statusCounts[norm(row?.Status) || "(none)"] = (statusCounts[norm(row?.Status) || "(none)"] ?? 0) + 1;
 
       type Cand = { row: any; num: number; number: string; disposition: string };
       const cands: Cand[] = [];
-      let skippedBeforeCursor = 0;
+      let skipBeforeFloor = 0;
       for (const row of listRows) {
         const number = numberOf(row);
         const n = docNum(number);
         if (n == null) { warnings.push("unparsable doc number '" + number + "' — treated as after-cursor, cursor will hold at it"); }
         const num = n ?? Number.MAX_SAFE_INTEGER;
-        if (cursorNum != null && n != null && n <= cursorNum) { skippedBeforeCursor++; continue; }
+        // ⚠️ floor 적용은 disposition(hold 판정)보다 먼저 — 하한 이하 문서는 후보에 아예 안
+        //   들어가므로 옛 문서의 날짜 결손·DRAFT 가 커서를 막을 기회 자체가 없다.
+        if (floorNum != null && n != null && n <= floorNum) { skipBeforeFloor++; continue; }
         cands.push({ row, num, number, disposition: "" });
       }
       cands.sort((a, b) => a.num - b.num);
@@ -502,7 +549,11 @@ Deno.serve(async (req) => {
 
       // 4) 커서 전진 — 앞에서부터 연속으로 "종결"인 문서까지만. hold 를 만나면 그 앞에서 멈춘다.
       //    (hold 이후의 processed 문서 행도 응답·쓰기에는 포함된다 — 다음 회차 재방문은 유니크 키가 막는다)
-      let cursorAfter: string | null = cursorBefore;
+      // ④ 커서 시작점 = floor — param floor 도 시작점이 되므로 commit 이 켜지면(⑤) floor 가
+      //   그대로 last_cursor 초기값으로 영속된다(별도 주입 코드 불필요).
+      //   ⚠️ floor 를 커서 시작점으로 삼으면 그 이하 문서는 영영 안 본다. 그것이 의도다
+      //   (스냅샷에 녹아 있으므로). 다시 보려면 inv_sync_state.last_cursor 를 손으로 되돌려야 한다.
+      let cursorAfter: string | null = floorUsed;
       let cursorHeldBy: { doc_number: string; reason: string } | null = null;
       for (const c of cands) {
         const d = c.disposition;
@@ -525,10 +576,17 @@ Deno.serve(async (req) => {
         list_aborted: listAborted,
         status_counts: statusCounts,
         cursor_before: cursorBefore,
+        floor_used: floorUsed,
+        floor_source: floorSource,
+        from_cursor_param_ignored: paramIgnored || undefined,      // state 커서가 있어 파라미터를 무시했음
+        // ⚠️ 하한 없음 = 목록 처음부터 전량 — 눈에 띄게 (TR-00012 교착의 재발 경로)
+        floor_alert: floorSource === "none"
+          ? "NO FLOOR - scanning from the very first document; old docs with missing dates will hold the cursor (TR-00012 incident)"
+          : undefined,
         cursor_after: commit ? cursorAfter : cursorBefore,        // dry 는 커서 무변
         cursor_after_would_be: cursorAfter,
         cursor_held_by: cursorHeldBy,
-        skipped_before_cursor: skippedBeforeCursor,
+        skip_before_floor: skipBeforeFloor,
         dispositions,
         detail_fetched: detailFetched,
         docs_processed: docsProcessed,
