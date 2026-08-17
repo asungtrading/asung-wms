@@ -3450,9 +3450,15 @@ async function loadRecvStats(r){
   // 캡 위험 #5 계열 근본 해결(2026-08-12 4단계): 픽/팩 Stats 와 같은 처방(sbAll — 기간 전량·페이지 누적).
   // receipts 는 아직 수백 규모지만 누적 테이블이라 같은 만기를 가진다. 임베드 라인은 페이지에 실려 온전.
   const [rec,disc]=await Promise.all([
-    sbAll(()=>sb.from("wms_receipts")   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5 계열)
+    // 범위 (2026-08-17 개정): created_at 만으로 자르면 며칠 걸쳐 열린 receipt 의 기간 내 작업이
+    // 통째로 빠진다([실측] PO-01113 — created 08-14 · completed 08-17 · 101라인/8,622u 를 당일
+    // Stats 가 0 으로 표시). → "기간 안에 작업이 있었을 수 있는 것" = created_at ≤ to 이고
+    // (미완료이거나 completed_at ≥ from). 넓어진 만큼은 아래 라인 단위 기간 판정이 걸러낸다.
+    sbAll(()=>sb.from("wms_receipts")   // caps-ok: sbAll 페이지 누적 — 기간에 걸친 receipt 전량(#5 계열 · 라인 필터가 후단)
       .select("id,po_number,source_type,warehouse,status,received_by,created_at,completed_at,applied_at,apply_note,wms_receipt_lines(received_base,exported_base,putaway_done,last_received_by,last_received_at)")
-      .gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),
+      .lte("created_at",r.toISO)
+      .or("completed_at.is.null,completed_at.gte."+r.fromISO)
+      .order("id")),
     sbAll(()=>sb.from("wms_discrepancies").select("reason,cin7_corrected").eq("source","receiving")   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5 계열)
       .gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),
   ]);
@@ -3473,16 +3479,28 @@ async function loadRecvStats(r){
   const byWorker={}, byWh={};
   let applied=0, appliedPartial=0, notApplied=0;
   let pLines=0,pDone=0,backLines=0,backUnits=0,trLines=0,trMoved=0;
+  // 기간 판정 두 벌 (2026-08-17 — 어느 지표가 어느 기준인지는 커밋 메시지 목록 참조):
+  //   receipt 단위 지표(receipts 수·applied/notApplied·avg receive·avg complete→apply·byWh.n)
+  //     = 종전대로 created_at 기준 — 라인 기준이 의미가 없는 지표들.
+  //   라인·사람 귀속(T/byWh 의 lines/units·putaway·backlog·transfer moved·byWorker 전부)
+  //     = 라인의 last_received_at 이 기간 안일 때. NULL 라인(컬럼 도입 전)은 receipt created_at
+  //       기준(종전 동작). 같은 receipt 가 실명 그룹과 ~폴백 그룹에 동시에 기여할 수 있다 — 의도
+  //       (컬럼 도입 전후로 걸친 PO-01113 이 실제 사례).
+  const fromMs=Date.parse(r.fromISO), toMs=Date.parse(r.toISO);
+  const inPeriod=ts=>{ if(!ts)return false; const t=Date.parse(ts); return t>=fromMs&&t<=toMs; };
   (rec.data||[]).forEach(rc=>{
     const t=T[rc.source_type==="transfer"?"transfer":"po"];
     const wh=byWh[rc.warehouse||"?"]=byWh[rc.warehouse||"?"]||{n:0,lines:0,units:0};
-    t.n++; wh.n++;
-    const rm=workMinutes(rc.created_at,rc.completed_at,rc.warehouse);
-    if(rm!=null){ t.rMin+=rm;t.rN++; }
-    const am=workMinutes(rc.completed_at,rc.applied_at,rc.warehouse);
-    if(am!=null){ t.aMin+=am;t.aN++; }
-    if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
-    else if(rc.status==="completed") notApplied++;
+    const rcInPeriod=inPeriod(rc.created_at);
+    if(rcInPeriod){
+      t.n++; wh.n++;
+      const rm=workMinutes(rc.created_at,rc.completed_at,rc.warehouse);
+      if(rm!=null){ t.rMin+=rm;t.rN++; }
+      const am=workMinutes(rc.completed_at,rc.applied_at,rc.warehouse);
+      if(am!=null){ t.aMin+=am;t.aN++; }
+      if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
+      else if(rc.status==="completed") notApplied++;
+    }
     // ── 사람 귀속은 라인 단위 (2026-08-17 · last_received_by) ──
     // 종전 receipt 단위 귀속(received_by)은 "시작한 사람" 전량 귀속이라 나눠 받기(규칙 24)에서
     // 거짓이었다. NULL 라인(컬럼 도입 전)은 "~received_by" 폴백 그룹으로 — "~" 접두 = "시작한
@@ -3494,6 +3512,9 @@ async function loadRecvStats(r){
     (rc.wms_receipt_lines||[]).forEach(l=>{
       const q=Number(l.received_base)||0;
       if(q<=0)return; // untouched expected lines are not throughput
+      // 라인 기간 판정 — 시각이 있으면 그 시각, NULL(도입 전)이면 receipt created_at(종전 동작).
+      // 기간 밖 라인은 버린다 — 같은 receipt 의 기간 안 라인만 잡힌다.
+      if(!(l.last_received_at?inPeriod(l.last_received_at):rcInPeriod)) return;
       t.lines++; t.units+=q; wh.lines++; wh.units+=q;
       pLines++;
       if(l.putaway_done){ pDone++; } else{ backLines++; backUnits+=q; }
