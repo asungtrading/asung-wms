@@ -134,7 +134,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.4";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.4 = ②-b 증분 축 3종)
+const COLLECTOR_VERSION = "inv-collect@2026-08-17.5";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.5 = creditnote 후보 sale 단위 dedup)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -838,6 +838,34 @@ Deno.serve(async (req) => {
       for (const cd of cands) if (!cd.updated) noUpdatedField++;
       cands.sort((a, b) => (a.updated ?? "").localeCompare(b.updated ?? ""));
 
+      // ⚠️ creditnote 후보는 CN 단위 — 같은 오더의 CN 여럿이 각각 후보가 된다(실측 SO-00062).
+      //   상세는 sale 단위이고 기표부가 det.CreditNotes[] 를 전부 순회하므로 오더당 1회만 부른다 —
+      //   안 거르면 같은 /sale?ID= 를 중복 호출하고 같은 AUTHORISED CN 이 한 회차에 두 번 push 되어
+      //   보고 숫자(ledger_rows·creditNotesSeen·restockStatusCounts)가 부풀고, 상세 캡이 중복분에
+      //   잠식돼 캡 회차가 실제보다 적게 처리하며 커서도 덜 전진한다(DB 는 ignore-duplicates 가
+      //   흡수하지만 보고·호출 예산은 안 막힌다).
+      //   ⚠️ 정렬 뒤에 거르는 것이 전제: Updated 오름차순에서 "먼저 나온 것"을 남겨야 커서가
+      //   그 오더의 더 늦은 CN 갱신 시각을 앞지르지 않는다(겹침 수신으로 자연 회수).
+      //   sale·purchase 는 후보가 이미 오더/발주 단위 — 적용하지 않는다.
+      let dupSaleDropped = 0;              // ⚠️ 0 이 아닌 것이 정상이다 — 한 오더 여러 CN 은 실측 사실
+      let saleIdPresent = 0, saleIdFallback = 0;   // SaleID 부재 시 ID 폴백 추적 (CN ID 로 /sale?ID= 를 부르면 상세 오류 — 원인 추적용)
+      if (key === "creditnote") {
+        const seenSale = new Set<string>();
+        const deduped: typeof cands = [];
+        for (const cd of cands) {
+          const sid = String(cd.row?.SaleID ?? "").trim();
+          const fid = String(cd.row?.ID ?? "").trim();
+          if (sid) saleIdPresent++; else if (fid) saleIdFallback++;
+          const k = sid || fid;
+          if (!k) { deduped.push(cd); continue; }   // 판정 불가(키 빈 값)는 조용히 탈락시키지 않는다
+          if (seenSale.has(k)) { dupSaleDropped++; continue; }
+          seenSale.add(k);
+          deduped.push(cd);
+        }
+        cands.length = 0;
+        cands.push(...deduped);
+      }
+
       // 3) 상세 → 원장 행
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateItems = 0;
       let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
@@ -1066,6 +1094,10 @@ Deno.serve(async (req) => {
           restock_status_counts: restockStatusCounts,
           empty_restock: emptyRestock,
           no_cn_number: noCnNumber,
+          // ⚠️ dup_sale_dropped 는 0 이 아닌 것이 정상 — 한 오더에 CN 여럿(SO-00062)이라 목록 행이 겹친다
+          dup_sale_dropped: dupSaleDropped,
+          sale_id_present: saleIdPresent,
+          sale_id_fallback: saleIdFallback,
         });
       }
 
