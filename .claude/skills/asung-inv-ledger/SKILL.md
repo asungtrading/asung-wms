@@ -33,12 +33,12 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 - **기준은 Cin7 문서.** WMS 는 보조 — WMS 미경유 사건이 월 수백 건이라 WMS 기준은 처음부터 구멍
 - 원가(amount)·자리(bin)는 **값만 저장하고 계산엔 안 씀** — 나중에 소급 불가라 지금부터 담는다
 
-**진행 상태 (2026-08-17)**: 테이블 4개 + 스냅샷 EF(`inv-snapshot`) + 수집 EF(`inv-collect` —
-②-a 전량 축 3종·②-b 증분 축 3종, `@2026-08-17.7`) **배포·dry 검증 통과. 쓰기는 아직 안 켰다**
-(⑤ — 착수 전 결정 4건은 설계 정본 4부). 기초 스냅샷 8/22 예정. 세션 정본:
-`docs/sessions/2026-08-17-ledger-02b.md`.
-⚠️ **발주 소스는 축이 틀린 것이 확인돼 재설계 중이며 `commit=1` 을 켜면 안 된다**
-(2026-08-18 — `docs/sessions/2026-08-18-purchase-putaway-axis.md`).
+**진행 상태 (2026-08-18)**: 테이블 4개 + 스냅샷 EF(`inv-snapshot`) + 수집 EF(`inv-collect` —
+②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재 `@2026-08-18.1`(발주 PutAway 축
+재설계 완료 — `docs/sessions/2026-08-18-purchase-source-redesign.md`). **쓰기는 아직 안 켰다.**
+기초 스냅샷 8/22 예정. ⚠️ **발주 축은 미검증 3건(CardID 재수집 안정성 · adv_no_putaway 경로 ·
+재등장 전제)이 남아 있어 `commit=1` 금지 — 설계 정본 4부 「commit=1 을 켜기 전에 닫아야 하는 것」
+체크리스트를 먼저 닫을 것.**
 
 ---
 
@@ -54,8 +54,9 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 | `Bin=null` 행이 창고 집계행? | **아니다.** 빈 미지정 재고 자리. 99.8%가 0이고, 0이 아닌 14행은 진짜 재고 |
 | UOM SKU 도 재고가 있나? | 평소 없다(`OnHand=0`·`Available` 만 파생). 다만 **구조상 가질 수는 있다** |
 | `ProductID` 가 라인 식별자? | 상품 ID 다. 같은 SKU 두 줄이면 겹침. **다만 실무상 안 겹쳐서 line_ref 로 씀** (⚠️ 판매 예외 — 5절) |
-| 발주 블록 `Status` 는 DRAFT 만 제외? | **아니다.** VOIDED·NOT AVAILABLE 실재 — 블랙리스트로는 + 기표(유령 재고 90행 실측). **통과는 `AUTHORISED`·`""` 둘만** + 미지값 경고 |
-| 발주 입고는 `StockReceived` 를 읽으면 되나? | ⚠️ **아니다(2026-08-18).** Advanced 는 **`PutAway`** 가 확정 축 — SR 은 `LocationID` 가 **null** 이고 SR Status 가 DRAFT/NOT AVAILABLE 이어도 PA 는 AUTHORISED(실재 입고). **재설계 중 — `docs/sessions/2026-08-18-purchase-putaway-axis.md` 를 먼저 읽을 것** |
+| 발주 블록 `Status` 는 DRAFT 만 제외? | **아니다 — 그리고 어느 배열의 상태를 보느냐가 먼저다(08-18).** 화이트리스트 = **PA 축 기준 `AUTHORISED` 만** + 미지값 경고. ~~SR 기준 AUTHORISED·`""` 통과(08-17)~~ 는 폐기 — 빈 문자열 예외의 근거 PO-01128 은 빈 상태가 **SR 블록**이었다(PA 는 AUTHORISED 84줄). SR 상태로 거른 "−90행 유령 재고 차단" 판정도 무효(실재 입고를 지운 것) |
+| 발주 입고는 `StockReceived` 를 읽으면 되나? | **아니다(2026-08-18 확정).** Advanced = **`PutAway`** / Simple = `StockReceived`. SR 은 ① `LocationID` 가 null 이거나 창고 GUID 라 **bin 이 구조적으로 없다** ② `Status` 가 stock receiving 단계의 **워크플로 상태**라 재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED · PO-01131 SR=NOT AVAILABLE/PA=AUTHORISED 3,570u). SR·PA 는 같은 입고의 두 표현 — 둘 다 읽으면 두 배 |
+| 목록 `StockReceivedStatus` 로 후보를 좁히면? | **안 된다.** 상세 블록 상태와 **상관이 없다**(양방향 불일치 — PO-01131 목록 AUTHORISED/상세 NOT AVAILABLE ↔ PO-00848 반대). 표본 6건 중 4건(12,552u)이 실재 입고인데 문서째 유실됐다. 판정 권한은 상세 한 곳 — 목록 값은 분포만 센다 |
 | `saleCreditNoteList` 행은 CN 단위? | **아니다. sale 단위.** 목록 `RestockStatus` 로 거르면 같은 오더의 AUTHORISED CN 이 유실 — 판정은 상세 `CreditNotes[]` 순회 한 곳만 |
 | `Restock[]` 이 비면 DRAFT? | **아니다.** AUTHORISED+빈 배열 실재(표본 하나 CR-00024 의 일반화였다) — 판정은 배열 실제 길이로 |
 | `UpdatedSince` 로 받으면 그 기간 이벤트만? | **아니다. 갱신 축과 이벤트 날짜는 분리** — 8월 갱신 문서가 4월 이벤트를 품는다. **`since=`(이벤트 필터)가 스냅샷 경계 방어 — 쓰기 켤 때 필수.** `from_since` 는 커서 씨앗으로 딴 것 — 혼동 금지 |
@@ -83,7 +84,7 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 |---|---|---|---|
 | 판매 출고 | `sale` → `Fulfilments[].Pick.Lines` | − | `Ship.Lines[].ShipmentDate` |
 | 반품 입고 | `sale` → `CreditNotes[].Restock` | + | `CreditNoteDate` |
-| 발주 입고 | `purchase`/`advanced-purchase` → `StockReceived[].Lines` | + | **`Lines[].Date`** |
+| 발주 입고 | Advanced → **`PutAway[].Lines`** / Simple → `StockReceived.Lines` (08-18) | + | **`Lines[].Date`** |
 | 이동 출발 | `stockTransfer` → `Lines[].TransferQuantity` | − | `DepartureDate` |
 | 이동 도착 | 같은 문서 | + | `CompletionDate` |
 | 조정 기존 | `stockadjustment` → `ExistingStockLines` | `Adjustment − QuantityOnHand` | `EffectiveDate` |
@@ -94,16 +95,21 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 
 ### 문서별 함정
 
-- **발주**: Advanced 는 `StockReceived` 가 **배열**, Simple 은 **객체**. 둘을 다르게 읽어야 함.
-  ⚠️ 블록 `Status` 는 **화이트리스트**(AUTHORISED·빈 문자열만 통과 — 빈 문자열 근거 PO-01128).
-  "DRAFT 만 제외"는 PO-01083 표본 하나의 일반화였다 — VOIDED·NOT AVAILABLE 이 + 기표되면 유령 재고.
-  ⚠️⚠️ **2026-08-18 — 위 화이트리스트는 `StockReceived` 기준이라 무효다.**
-  Advanced 의 확정 축은 **`PutAway`**(bin 있음 · 상태 AUTHORISED). SR 은 워크플로 중간 상태라
-  **재고 판단 근거가 아니다** — 실측: PO-00703 SR=DRAFT/PA=AUTHORISED 62줄 `FULLY RECEIVED` ·
-  PO-01131 SR=NOT AVAILABLE/PA=AUTHORISED 62줄 3,570u.
-  **현재 배포본(.7)은 Advanced 입고의 bin 이 전부 null 이고 위 두 건이 누락된다.**
-  ⇒ 재설계 전까지 이 절의 발주 규칙을 근거로 코드를 쓰지 말 것
-  (`docs/sessions/2026-08-18-purchase-putaway-axis.md`)
+- **발주 (2026-08-18 재설계 확정 — `@2026-08-18.1` 반영)**: 축은 목록 `Type` 으로 가른다 —
+  **Advanced = `PutAway`**(bin 있음·확정 반영) / **Simple = `StockReceived`**(객체 하나 · bin 있음
+  — PO-00874). SR 을 쓰면 안 되는 이유 둘: ① SR 라인의 `LocationID` 는 null 이거나 **창고
+  GUID** 라 bin 이 구조적으로 없다 ② SR `Status` 는 stock receiving 단계의 **워크플로 상태**지
+  재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED 62줄 `FULLY RECEIVED` · PO-01131
+  SR=NOT AVAILABLE/PA=AUTHORISED 3,570u · PO-01128 SR=""/PA=AUTHORISED 84줄). SR·PA 는 같은
+  입고의 두 표현(15건 srLines==paLines) — **둘 다 읽으면 정확히 두 배**.
+  블록 화이트리스트 = **두 축 모두 AUTHORISED 만** + 미지값 경고(~~빈 문자열 통과~~ 는 근거
+  소멸로 삭제). 목록 `StockReceivedStatus` 게이트 없음(위 함정 표). Advanced 인데 PA 없음 =
+  행 미기표 + 보고, 커서는 안 멈춘다(재등장 전제 미확인 — 정본 4부 체크리스트).
+  ⚠️ `Type` 은 가변(Simple 발행 → 입고 → Apply 후 ~10분에 Advanced 전환, 12/12) —
+  `simple_docs: 0` 은 정상이고, 전환이 `LastUpdatedDate` 를 올려 **모든 PO 가 UpdatedSince 에
+  최소 두 번 잡힌다**. ~~"최근 40건 전부 Advanced — Simple 분기 미실행"(08-17)~~ 은 닫혔다:
+  목록 게이트 제거 후 `simple_docs: 7` 실행·정상 동작(SR NOT AVAILABLE 올바르게 배제).
+  [실측 08-18 dry 전/후] rows 383→643(+68%) · UNMAPPED 소멸 · bin 실제 선반으로
 - **발주 날짜**: `OrderDate`·`InvoiceDate`·`LastUpdatedDate` 전부 어긋남. 우연히 맞는 경우가 있어
   **한 건만 보고 판단 금지**
 - **반품**: `RestockStatus='AUTHORISED'` 일 때만 재고 복귀. `DRAFT` 는 금액만.
@@ -184,15 +190,20 @@ hold_missing_date 로 상세 캡 40을 정확히 소진**해 뒤 ~3,000건을 �
   - ⚠️ `sku` 를 넣은 이유: `line_ref` 가 흔들려도 **조용한 누락 대신 가시적 이중 계상**이 되게
 - `seq_hint` — **1=유입 / 2=유출**. 같은 날 정렬용
 - `warehouse` — **Cin7 원문 그대로** + `IN_TRANSIT`(언더스코어 = Cin7 원문 아님 표시)
-- `line_ref` = **`ProductID`** (WMS 의 `cin7_po_line_id` 선례) — ⚠️⚠️ **판매만 예외:
+- `line_ref` = **`ProductID`** (WMS 의 `cin7_po_line_id` 선례) — ⚠️⚠️ ~~판매만 예외~~ →
+  **예외 둘(08-18): 판매·발주.** 규칙의 정본은 설계 문서 2부 「중복 방지」 소스별 표
+  ("소스마다 가장 안정적인 라인 식별자" — 통일보다 정확성 우선). **판매 예외:
   `<fulfilment TaskID>:<ProductID>`** (2026-08-17 · 의도적 이탈). 유니크 키에 **occurred_on 이
   없어서**, 분할 출하(같은 SKU·같은 bin·날짜만 다름)의 두 행이 키가 완전히 같아져 두 번째
   출고가 조용히 사라진다. **"스킬대로 ProductID 로 되돌리자"는 제안이 나오면 이 줄이 근거다 —
   되돌리면 분할 출하가 뭉개진다.** fulfilment 식별자는 TaskID(GUID — 재수집에도 안정 · 배열
-  인덱스 금지). [실측] TaskID 폴백 발동 0회. 발주의 진짜 라인 식별자 CardID 는 raw 원문에만.
-  ⚠️ **발주도 `CardID` 로 바뀔 예정(2026-08-18 재설계 중)** — 같은 SKU 가 여러 빈으로 쪼개지고
+  인덱스 금지). [실측] TaskID 폴백 발동 0회. ~~발주의 진짜 라인 식별자 CardID 는 raw 원문에만~~
+  → 08-18 부터 발주의 line_ref 자체가 CardID 다(아래).
+  ⚠️ **발주는 `CardID` 로 확정(2026-08-18 · `@2026-08-18.1`)** — 같은 SKU 가 여러 빈으로 쪼개지고
   같은 빈·같은 SKU 가 날짜만 달리 두 줄인 사례 실측(PO-00944 KUZ77036). `ProductID` 는 유일성
-  94/97 · 109/110 으로 부족, `CardID` 는 97/97 · 110/110
+  94/97 · 109/110 으로 부족, `CardID` 는 97/97 · 110/110. [실측] `.7` dry `merged_lines: 5`
+  (가설이던 뭉개짐이 실재) → `.1` 에서 **0**. ⚠️ CardID 의 재수집 안정성(Type 전환 시 재생성
+  여부)은 **미확인** — 정본 4부 체크리스트 1번
 - `raw` = **그 행을 만든 라인 원본 + 계산에 쓴 머리말 + 우리가 적용한 계산 규칙**.
   문서 전체 금지(344라인 트랜스퍼면 수천 벌 중복)
 - ⚠️ `qty_delta` 에 CHECK 없음 — **소수 수량이 실재**(5.25개 · ×0.25)

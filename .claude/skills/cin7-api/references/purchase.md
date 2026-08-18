@@ -176,6 +176,35 @@ Advanced PO (복수 입고/인보이스)의 경우 별도 엔드포인트 사용
 
 **주의**: `PurchaseList`의 `Type` 필드로 Simple/Advanced 구분 후 적절한 엔드포인트 호출.
 
+### ⚠️ 입고 블록 실측 — `PutAway` 가 확정 축 (2026-08-18 · 원장 수집 재설계의 근거)
+
+Advanced 상세 응답의 입고는 **`StockReceived`(창고 도착)와 `PutAway`(선반 배치) 두 배열**이고,
+둘은 **같은 입고의 두 표현**이다(15건 표본 srLines==paLines — 둘 다 읽으면 정확히 두 배).
+**bin 이 있는 쪽은 `PutAway` 뿐** — SR 라인의 `LocationID` 는 null 이거나 **창고 GUID** 다
+(SKILL.md 주의 13 ①의 쓰기 실측과 교차 검증). SR 의 `Status` 는 stock receiving 단계의
+워크플로 상태라 재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED · 62줄 FULLY RECEIVED).
+
+- **블록 필드**: `TaskID` · `InvoicingAndReceivingNumber` · `Status` · `Lines`
+- **라인 필드**: `Date` · `Quantity` · `ProductID` · `SKU` · `Name` · `Location` · `LocationID` ·
+  `Received` · `BatchSN` · `SupplierSKU` · `ExpiryDate` · `CardID` · 상품 치수/커스텀필드
+- ⚠️ **SR 라인에만 `NonInventory` 가 있고 PA 라인엔 없다**(실측)
+- ⚠️ **블록은 receiving 횟수가 아니라 I&R 그룹 단위다** — PO-00703: 화면 stock receiving 2건 ·
+  API 블록 1개(분할 입고는 `Lines[].Date` 로 갈린다). SKILL.md 13번의 "TaskID = I&R 그룹" 과 동일 구조
+- ⚠️ `CardID` = 라인 고유 식별자(같은 SKU 의 빈 분할·날짜 분리에도 유일 — PO-00944 실측
+  97/97·110/110. `ProductID` 는 94/97 로 부족)
+- `InventoryMovements` 는 **수량 축이 아니다** — `Quantity`·`LocationID` 가 없고 COGS·상품
+  치수·커스텀필드뿐. 원가 레이어 작업에는 쓸 수 있다
+
+### 목록(purchaseList) 응답 필드 보강 (2026-08-18)
+
+- `CombinedReceivingStatus` — 실측 어휘: `FULLY RECEIVED` · `PARTIALLY RECEIVED` ·
+  `NOT RECEIVED` · `NOT AVAILABLE`. ⚠️ 관측만 했고 **게이트로는 쓰지 않는다**
+- ⚠️ 목록 `StockReceivedStatus` 는 상세 블록의 `Status` 와 **양방향으로 어긋난다**(상관없음 —
+  PO-01131 목록 AUTHORISED/상세 NOT AVAILABLE ↔ PO-00848 반대). 후보 게이트로 쓰면 실재 입고가
+  문서째 사라진다(표본 4건 12,552u)
+- ⚠️ `Type` 은 **가변**이다 — Simple 로 발행된 PO 가 입고 후(대개 Apply 후 ~10분) Advanced 로
+  전환된다(실측 12/12). 전환이 `LastUpdatedDate` 를 갱신한다
+
 ---
 
 ## Apps Script 예시 — Simple/Advanced 자동 감지 (PurchaseHistory.gs 패턴)
