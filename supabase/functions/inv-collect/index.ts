@@ -103,12 +103,27 @@
 //   ⚠️ line_ref = <fulfilment TaskID>:<ProductID> — occurred_on 이 유니크 키에 없어 분할
 //   출하에서 같은 SKU·같은 bin 이면 키가 완전히 겹쳐 두 번째 출고가 조용히 버려진다.
 //   TaskID 는 재수집에도 안정(인덱스는 fulfilment void·재정렬에 흔들린다).
-// · 발주: VOID·IsServiceOnly·StockReceivedStatus 없음/NOT AVAILABLE 제외. 상세가 갈린다 —
-//   Type 에 Advanced 포함 → advanced-purchase?ID=(StockReceived **배열**) / 아니면
-//   purchase?ID=(**객체 하나**). 블록 Status=DRAFT 제외(실측: PO-01083 DRAFT 194개 재고에
-//   없음) · 빈 문자열 Status 는 처리(실측 PO-01128 — 재고 들어감, 건수만 보고).
-//   날짜 = Lines[].Date(실측 4/4 — 라인 단위라 분할 입고도 정확). line_ref 는 다른 소스와
-//   통일해 ProductID(CardID 라는 진짜 라인 식별자는 raw.line 원문에 남는다).
+// · 발주 (⚠️⚠️ 2026-08-18 재설계 — docs/sessions/2026-08-18-purchase-putaway-axis.md 가 근거.
+//   옛 서술이 왜 틀렸는지를 남긴다 — 지우면 같은 오류를 또 저지른다):
+//   목록 제외 = VOID·IsServiceOnly 만. ~~StockReceivedStatus 없음/NOT AVAILABLE 제외~~ 폐기 —
+//   목록 값과 상세 블록 값은 양방향으로 어긋난다(표본 6건 중 Advanced 4건 = PO-00848·00931·
+//   01048·01065, 12,552u 전부 실재 입고인데 문서째 지워졌다). 이제 분포만 센다.
+//   축: **Advanced = PutAway**(bin 있음·확정 반영) / Simple = StockReceived(bin 있음 —
+//   PO-00874). ~~"Advanced 는 StockReceived 배열을 읽는다"~~ 폐기 — SR 라인은 LocationID 가
+//   null(창고 결손 = UNMAPPED)이고 SR Status 는 stock receiving 단계의 워크플로 상태다
+//   (PO-00703 SR=DRAFT/PA=AUTHORISED 62줄 FULLY RECEIVED · PO-01131 SR=NOT AVAILABLE/
+//   PA=AUTHORISED 3,570u). 그래서 ~~"블록 DRAFT 제외"~~(PO-01083 표본 하나의 일반화 — DRAFT 가
+//   곧 미반영이라는 뜻이 아니었다)와 ~~"빈 문자열 통과"~~(PO-01128 의 빈 상태는 SR 블록이었고
+//   PA 는 AUTHORISED 84줄 — PA 축에선 근거 소멸)이 둘 다 사라졌다. 블록 화이트리스트 =
+//   두 축 모두 **AUTHORISED 만** + 미지값 경고. Advanced 인데 PA 없음 = 행 미기표 + 보고
+//   (커서는 안 멈춘다 — 재등장 전제 미확인). 날짜 = Lines[].Date 유지(분할 입고는 블록이
+//   아니라 라인 날짜로 갈린다 — PO-00703 블록 1개에 두 날짜).
+//   ~~line_ref = ProductID(다른 소스와 통일)~~ 폐기 → **CardID**: PA 는 같은 SKU 를 빈 단위로
+//   쪼개고 같은 빈·같은 SKU 가 날짜만 달라 두 줄인 사례 실재(PO-00944 KUZ77036 — 유니크 키에
+//   occurred_on 이 없어 ProductID 면 뭉개진다. 유일성 실측 ProductID 94/97·109/110 vs
+//   CardID 97/97·110/110. ⚠️ CardID 재수집 안정성 미확인 — 관찰 대상).
+//   Type 은 가변(입고 후 Advanced 전환 관행 — simple_docs 0 은 정상. 전환이 LastUpdatedDate 를
+//   올려 모든 PO 가 최소 두 번 UpdatedSince 에 잡힌다 = DO NOTHING 수정 미반영 문제가 일상).
 // · 반품: 목록 = saleCreditNoteList(배열 키 **SaleList** — 실측). CreditNoteStatus
 //   VOIDED/NOT AVAILABLE·RestockStatus 비 AUTHORISED 제외. 상세 sale?ID= 의 CreditNotes[]
 //   **전부 순회**(한 오더에 여러 개 — 실측 SO-00062). DRAFT CN 은 Restock 이 비어 있다
@@ -134,7 +149,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-17.7";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.7 = 발주 블록 화이트리스트 + 반품 목록 필터 제거)
+const COLLECTOR_VERSION = "inv-collect@2026-08-18.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.1 = 발주 PutAway 축 전환 + 목록 SRS 게이트 제거 + line_ref=CardID)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -811,7 +826,8 @@ Deno.serve(async (req) => {
       // 2) 후보 좁히기 — 상세 조회를 줄이는 것이 관건 (소스별 제외는 파일 상단 절)
       const filterCounts: Record<string, number> = {};
       const tally = (k: string) => { filterCounts[k] = (filterCounts[k] ?? 0) + 1; };
-      const srsCounts: Record<string, number> = {};   // purchase: 목록 StockReceivedStatus 분포
+      const srsCounts: Record<string, number> = {};   // purchase: 목록 StockReceivedStatus 분포 — 관측 전용(2026-08-18 부터 거르지 않는다)
+      const crsCounts: Record<string, number> = {};   // purchase: 목록 CombinedReceivingStatus 분포 — 관측 전용(신규)
       const listRestockStatusCounts: Record<string, number> = {};   // creditnote: 목록 RestockStatus 분포(세기만 — 거르지 않음)
       const cands: { row: any; updated: string | null }[] = [];
       for (const row of listRows) {
@@ -822,10 +838,16 @@ Deno.serve(async (req) => {
         } else if (key === "purchase") {
           if (norm(row?.Status).includes("VOID")) { tally("skip_voided"); continue; }
           if (row?.IsServiceOnly === true) { tally("skip_service_only"); continue; }
+          // ⚠️ 목록 StockReceivedStatus 게이트 제거 (2026-08-18) — 반품(.7)의 목록 RestockStatus
+          //   필터 제거와 같은 계열: **상태 판정 권한은 상세 한 곳에만 둔다.** 목록 값과 상세 블록
+          //   값은 양방향으로 어긋난다 = 상관이 없다([실측] 표본 6건 중 Advanced 4건 —
+          //   PO-00848·00931·01048·01065, 12,552u — 전부 실재 입고인데 이 게이트가 문서째 지웠다).
+          //   여기서는 분포만 센다(관측 전용 — 절대 거르지 않는다). 후보가 늘어 상세 호출이 느는
+          //   것은 의도된 결과([실측] 241건 창에서 약 104 → 124).
           const srs = norm(row?.StockReceivedStatus);
           srsCounts[srs || "(empty)"] = (srsCounts[srs || "(empty)"] ?? 0) + 1;
-          // "입고 흔적 없음"의 해석 = 비었거나 NOT AVAILABLE — 분포(srsCounts)를 응답에 실어 dry 가 검증
-          if (!srs || srs === "NOT AVAILABLE") { tally("skip_no_stock_received"); continue; }
+          const crs = norm(row?.CombinedReceivingStatus);
+          crsCounts[crs || "(empty)"] = (crsCounts[crs || "(empty)"] ?? 0) + 1;
         } else {   // creditnote
           const cst = norm(row?.CreditNoteStatus);
           // 문서 자체의 유효성 필터는 유지 (VOIDED/NOT AVAILABLE — 실측 477건 탈락, 옳은 탈락)
@@ -905,9 +927,13 @@ Deno.serve(async (req) => {
       let lastProcessedUpdated: string | null = null;
       // 소스별 부가 카운트 (응답 명세)
       let fulfilmentsSeen = 0, noShipFulfilments = 0, shipDateAmbiguous = 0, pickLineCount = 0;
-      let advancedCount = 0, simpleCount = 0, draftBlocksSkipped = 0, emptyStatusBlocks = 0;
+      let advancedCount = 0, simpleCount = 0;
+      let advNoPutaway = 0, advNoPutawaySrLines = 0, simpleWithPutaway = 0;
+      let cardIdFallback = 0, nonInventoryLines = 0, receivedFalseLines = 0;
+      const paBlockStatusCounts: Record<string, number> = {};
       const srBlockStatusCounts: Record<string, number> = {};
-      const srBlocksSkipped: Record<string, number> = {};   // 화이트리스트 밖 제외 블록 — 상태별 (DRAFT 는 별도 카운터 유지)
+      const blocksSkipped: Record<string, number> = {};   // "축:상태" 키 (예 "putaway:VOIDED")
+      const advNoPutawaySamples: string[] = [];
       let creditNotesSeen = 0, emptyRestock = 0, noCnNumber = 0;
       const restockStatusCounts: Record<string, number> = {};
 
@@ -929,12 +955,16 @@ Deno.serve(async (req) => {
         const row = cd.row;
         let path: string;
         let id: string;
+        // 발주 축 결정 — 기표부가 재사용한다. ⚠️ 기표부에서 norm(Type) 을 재계산하지 말 것(두 곳이
+        // 갈라질 여지). 판정 기준은 목록 Type 하나 — 엔드포인트 분기와 축 선택이 같은 값을 쓴다.
+        let purchaseIsAdvanced = false;
         if (key === "purchase") {
           id = String(row?.ID ?? "").trim();
-          // ⚠️ 상세 엔드포인트가 갈린다 — Advanced 는 StockReceived 가 배열(파일 상단 절)
-          const adv = norm(row?.Type).includes("ADVANCED");
-          if (adv) advancedCount++; else simpleCount++;
-          path = (adv ? "/advanced-purchase?ID=" : "/purchase?ID=") + encodeURIComponent(id);
+          // ⚠️ 엔드포인트 비대칭(실측): Advanced → purchase?ID= 는 400 deprecated(시끄러움) /
+          //   Simple → advanced-purchase?ID= 는 200 + 빈 껍데기(조용함 — Status:"" · Lines:[]).
+          purchaseIsAdvanced = norm(row?.Type).includes("ADVANCED");
+          if (purchaseIsAdvanced) advancedCount++; else simpleCount++;
+          path = (purchaseIsAdvanced ? "/advanced-purchase?ID=" : "/purchase?ID=") + encodeURIComponent(id);
         } else {
           id = String(row?.SaleID ?? row?.ID ?? "").trim();   // saleList 키는 SaleID (hello void 감지 실측)
           path = "/sale?ID=" + encodeURIComponent(id);
@@ -994,45 +1024,91 @@ Deno.serve(async (req) => {
           }
         } else if (key === "purchase") {
           const header = { order_number: docNo, purchase_id: id, type: row?.Type ?? null };
-          // ⚠️ Advanced=배열 · Simple=객체 (실측 — 원장 스킬 함정 표)
-          const blocks = Array.isArray(det?.StockReceived) ? det.StockReceived
-            : det?.StockReceived ? [det.StockReceived] : [];
-          for (const b of blocks) {
-            const bst = norm(b?.Status);
-            srBlockStatusCounts[bst || "(empty)"] = (srBlockStatusCounts[bst || "(empty)"] ?? 0) + 1;
-            // ⚠️ 화이트리스트 (2026-08-17 .7 — 종전 "DRAFT 만 제외" 블랙리스트는 명세 결함):
-            //   [실측 dry 2026-08-17] sr_block_status_counts 에 VOIDED 1 · NOT AVAILABLE 3 —
-            //   블랙리스트로는 이것들이 원장에 + 기표됐다 = 유령 재고. 명세가 DRAFT 만 제외였던 건
-            //   작성 시점에 DRAFT(PO-01083 — 194개 재고에 없음)만 실측했기 때문이다.
-            //   통과 = AUTHORISED 와 ""(빈 문자열 — 실측 PO-01128, 재고 들어감) 둘만.
-            //   반품(CreditNotes[] 순회)은 처음부터 화이트리스트였다 — 발주만 반대였다.
-            //   알려진 어휘 밖 값은 경고 — 어휘 확장을 조용히 통과시키지 않는다.
-            if (bst === "DRAFT") { draftBlocksSkipped++; continue; }
-            if (bst !== "" && bst !== "AUTHORISED") {
-              srBlocksSkipped[bst] = (srBlocksSkipped[bst] ?? 0) + 1;
-              if (bst !== "VOIDED" && bst !== "NOT AVAILABLE") {
-                warnings.push("unknown StockReceived block Status: " + bst + " on " + docNo);
-              }
-              continue;
+          // ── 축 결정 (2026-08-18 재설계 — docs/sessions/2026-08-18-purchase-putaway-axis.md) ──
+          // Advanced 발주의 입고는 2단계(StockReceived=창고 도착 → PutAway=선반 배치)이고 **확정
+          // 축은 PutAway 다**: SR 라인은 LocationID·Location 이 null(창고 GUID 이거나 아예 null —
+          // resolveLoc 이 UNMAPPED(no-id)/bin 없음을 냈다. bin 이 구조적으로 안 얻어진다)이고,
+          // SR 의 Status 는 stock receiving 단계의 워크플로 상태라 재고 반영 여부가 아니다
+          // ([실측] PO-00703 SR=DRAFT/PA=AUTHORISED · 62줄 FULLY RECEIVED ·
+          //  PO-01131 SR=NOT AVAILABLE/PA=AUTHORISED · 62줄 3,570u). SR·PA 는 같은 입고의 두 표현
+          // (15건 표본 srLines==paLines)이라 **둘 다 읽으면 정확히 두 배**가 된다 — 하나만.
+          // Simple 은 SR 에 LocationID 가 있다([실측] PO-00874) — SR 축 유지.
+          // ⚠️ 축은 purchaseIsAdvanced(목록 Type — 엔드포인트 분기와 같은 기준)로만 가른다.
+          //   **배열 존재 여부로 고르지 말 것** — "PA 가 비면 SR 폴백"은 지금 고치는 결함을 가장
+          //   필요한 순간(선반 미배치 Advanced = 창고가 가짜로 들어가는 바로 그 경우)에 되살린다.
+          const paBlocks = Array.isArray(det?.PutAway) ? det.PutAway : det?.PutAway ? [det.PutAway] : [];
+          const srBlocks = Array.isArray(det?.StockReceived) ? det.StockReceived : det?.StockReceived ? [det.StockReceived] : [];
+          const axis = purchaseIsAdvanced ? "putaway" : "stock_received";
+          const blocks = purchaseIsAdvanced ? paBlocks : srBlocks;
+          if (purchaseIsAdvanced && !paBlocks.length) {
+            // Advanced 인데 PA 블록 없음 = 선반 미배치(실무상 PA 는 무조건 하나, 완료 문서 기준
+            // 30/30 표본 — 진행 중 PO 는 이 상태일 수 있다). **행을 만들지 않고 넘어간다.**
+            // ⚠️ 커서를 멈추지 않는다 — 증분 축(판매·발주·반품)에는 disposition/hold 기계가 없고,
+            //   세우면 선반 배치를 영영 안 하는 PO 하나가 발주 축을 영구 동결시킨다(근거 사고:
+            //   TR-00012~76 이 커서 앞에서 캡 40 을 소진해 뒤 ~3,000건 실명). put-away 가 문서를
+            //   갱신해 다음 회차 UpdatedSince 에 재등장한다는 전제다 — ⚠️ **이 전제는 미확인**
+            //   (관찰 대상 — adv_no_putaway 가 회차마다 같은 문서면 전제가 틀린 것).
+            advNoPutaway++;
+            advNoPutawaySrLines += srBlocks.reduce((n: number, b: any) => n + (((b?.Lines ?? []) as any[]).length), 0);
+            if (advNoPutawaySamples.length < 5) advNoPutawaySamples.push(docNo);
+          } else {
+            if (!purchaseIsAdvanced && paBlocks.length) {
+              // Simple 인데 PA 블록 존재 — 축 모델의 반례 후보. 처리는 SR 축 그대로, 관측만.
+              simpleWithPutaway++;
+              if (simpleWithPutaway === 1) warnings.push("Simple purchase WITH PutAway block(s): " + docNo + " - processed on the SR axis, inspect");
             }
-            if (bst === "") emptyStatusBlocks++;
-            for (const line of (b?.Lines ?? []) as any[]) {
-              const q = Number(line?.Quantity ?? 0);
-              if (q === 0) { zeroQtyLines++; continue; }
-              const d = dateOnly(line?.Date);   // ⚠️ 날짜는 라인 단위(실측 4/4) — 분할 입고도 정확
-              if (!d) { missingDateItems++; continue; }
-              const loc = locOf(line, docNo);
-              rows.push({
-                doc_type: cfg.docType, doc_number: docNo, doc_task_id: id || null, source: "cin7",
-                occurred_on: d, seq_hint: 1,
-                sku: String(line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
-                qty_delta: q, event_type: "po_in",
-                // line_ref 는 다른 소스와 통일해 ProductID(WMS cin7_po_line_id 선례) —
-                // 진짜 라인 식별자 CardID 는 raw.line 원문에 그대로 남는다.
-                line_ref: pidOf(line),
-                amount: null,
-                raw: mkRaw(line, { ...header, block_status: b?.Status ?? null }, "po_in: +Quantity(" + q + ") stock received line"),
-              });
+            for (const b of blocks) {
+              const bst = norm(b?.Status);
+              const axisStatusCounts = purchaseIsAdvanced ? paBlockStatusCounts : srBlockStatusCounts;
+              axisStatusCounts[bst || "(empty)"] = (axisStatusCounts[bst || "(empty)"] ?? 0) + 1;
+              // ── 블록 상태 화이트리스트: 두 축 모두 AUTHORISED 만 (2026-08-18) ──
+              // ⚠️ 종전(.7)의 "빈 문자열 통과" 예외는 삭제 — 근거였던 PO-01128 은 Advanced 였고
+              //   빈 상태는 SR 블록이었다(PA 는 AUTHORISED · 84줄 · bin 84/84). PA 축에선 근거 소멸.
+              // ⚠️ 어제(f33260f)의 "SR NOT AVAILABLE/DRAFT 제외 = 유령 재고 차단" 판정은 무효 —
+              //   SR 상태는 워크플로 중간 상태라 실재 입고를 지우고 있었다(PO-00703·PO-01131).
+              //   화이트리스트 방향 자체는 옳다 — 틀린 것은 어느 배열의 상태를 보느냐였다.
+              // 어휘 밖 값은 경고 — 표본으로 어휘를 확정하지 않는다(NOT AVAILABLE 로 그렇게 틀렸다).
+              if (bst !== "AUTHORISED") {
+                const skKey = axis + ":" + (bst || "(empty)");
+                blocksSkipped[skKey] = (blocksSkipped[skKey] ?? 0) + 1;
+                const known = purchaseIsAdvanced ? ["VOIDED"] : ["VOIDED", "NOT AVAILABLE", "DRAFT", ""];
+                if (!known.includes(bst)) warnings.push("unknown " + axis + " block Status: '" + bst + "' on " + docNo);
+                continue;
+              }
+              for (const line of (b?.Lines ?? []) as any[]) {
+                // 관측 전용 2종 — ⚠️ 필터링 금지(dry 숫자를 보고 다음에 결정한다).
+                //   NonInventory 는 SR 라인에만 있는 필드([실측]) — PA 축의 0 은 "없는 것"인지
+                //   "안 보이는 것"인지 아직 모른다. 그대로 보고만 한다.
+                if (line?.NonInventory === true) nonInventoryLines++;
+                if (line?.Received === false) receivedFalseLines++;
+                const q = Number(line?.Quantity ?? 0);
+                if (q === 0) { zeroQtyLines++; continue; }
+                const d = dateOnly(line?.Date);   // 분할 입고는 블록이 아니라 Lines[].Date 로 갈린다([실측] PO-00703 — 블록 1개에 두 날짜)
+                if (!d) { missingDateItems++; continue; }
+                const loc = locOf(line, docNo);
+                // line_ref = CardID (2026-08-18 — 종전 "다른 소스와 통일해 ProductID" 폐기):
+                //   PA 는 같은 SKU 를 빈 단위로 쪼개 여러 줄로 담고, 같은 빈·같은 SKU 가 날짜만
+                //   달라 두 줄인 사례가 실재한다([실측] PO-00944 KUZ77036: 7/15 894 · 7/16 6).
+                //   유니크 키에 occurred_on 이 없어 ProductID 면 두 줄이 한 행으로 뭉개진다 —
+                //   판매의 <fulfilment TaskID>:<ProductID> 와 같은 구조의 문제.
+                //   유일성 실측: ProductID 94/97·109/110 vs CardID 97/97·110/110·62/62.
+                //   ⚠️ CardID 의 재수집 안정성(Type 전환 시 재생성 여부)은 미확인 — 관찰 대상.
+                let ref = String(line?.CardID ?? "").trim();
+                if (!ref) {
+                  ref = "nocard:" + pidOf(line);
+                  cardIdFallback++;
+                  warnings.push("purchase line without CardID: " + docNo + " " + String(line?.SKU ?? "?"));
+                }
+                rows.push({
+                  doc_type: cfg.docType, doc_number: docNo, doc_task_id: id || null, source: "cin7",
+                  occurred_on: d, seq_hint: 1,
+                  sku: String(line?.SKU ?? "").trim(), warehouse: loc.warehouse, bin: loc.bin,
+                  qty_delta: q, event_type: "po_in",
+                  line_ref: ref,
+                  amount: null,
+                  raw: mkRaw(line, { ...header, axis, block_status: b?.Status ?? null, block_task_id: b?.TaskID ?? null, ir_number: b?.InvoicingAndReceivingNumber ?? null }, "po_in: +Quantity(" + q + ") " + axis + " line"),
+                });
+              }
             }
           }
         } else {   // creditnote
@@ -1135,14 +1211,27 @@ Deno.serve(async (req) => {
           avg_pick_lines_per_doc: docsProcessed ? Math.round((pickLineCount / docsProcessed) * 10) / 10 : null,
         });
       } else if (key === "purchase") {
+        if (advNoPutaway > 0) warnings.push(advNoPutaway + " Advanced doc(s) without PutAway - rows NOT made (shelf placement pending), e.g. " + advNoPutawaySamples.join(", "));
         Object.assign(R, {
           advanced_docs: advancedCount,
+          // ⚠️ simple_docs 0 은 정상 — Type 은 가변(입고 후 Advanced 전환이 관행, 대개 Apply 후
+          //   10분 안팎)이라 수집이 Simple 상태를 볼 확률이 구조적으로 낮다(세션 문서 §2-4).
           simple_docs: simpleCount,
-          list_stock_received_status_counts: srsCounts,
+          list_stock_received_status_counts: srsCounts,      // 관측 전용 — 이제 거르지 않는다
+          list_combined_receiving_status_counts: crsCounts,  // 신규 관측
+          putaway_block_status_counts: paBlockStatusCounts,
           sr_block_status_counts: srBlockStatusCounts,
-          draft_blocks_skipped: draftBlocksSkipped,
-          sr_blocks_skipped: srBlocksSkipped,   // 화이트리스트 밖 제외 (VOIDED·NOT AVAILABLE 등 — 상태별)
-          empty_status_blocks: emptyStatusBlocks,
+          blocks_skipped: blocksSkipped,                     // 예: {"putaway:VOIDED": 3} — 축 접두어
+          adv_no_putaway: advNoPutaway,                      // 선반 미배치 Advanced 문서 수 (행 미기표)
+          adv_no_putaway_sr_lines: advNoPutawaySrLines,      // 그 문서들의 SR 라인 수 — "도착은 했는데 미배치"와 "아무것도 안 옴" 구분
+          adv_no_putaway_samples: advNoPutawaySamples,       // 문서번호 최대 5
+          adv_no_putaway_alert: advNoPutaway > 0
+            ? advNoPutaway + " Advanced doc(s) had no PutAway block - NO rows were made for them; cursor NOT held (they re-enter when put-away updates the doc - that assumption is UNVERIFIED, watch for repeats)"
+            : undefined,
+          simple_with_putaway: simpleWithPutaway,
+          card_id_fallback: cardIdFallback,
+          non_inventory_lines: nonInventoryLines,            // 관측 전용 — 거르지 않음(SR 라인에만 있는 필드)
+          received_false_lines: receivedFalseLines,          // 관측 전용 — 거르지 않음
         });
       } else {
         Object.assign(R, {
