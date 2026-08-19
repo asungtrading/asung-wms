@@ -527,6 +527,31 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   ⚠️ 어휘를 나열해 ④번을 보강하지 말 것(`PARTIALLY RECEIVED` 추가 등 — 다음 값에 또 뚫린다:
   목록 SRS 는 상세 블록 상태와 상관없고 Simple/Advanced 에 따라 의미가 다르다).
 - **이중 반영 방지 (2026-07-24 강화)**: `wms_receipts.applied_at` 있으면 Apply·열기·재개 모두 거부. **한 PO = receipt 1개 강제**: startPo 가 그 PO 의 기존 receipt 전체 조회 → applied 있으면 "이미 받음" 차단, 미완료 있으면 이어받기(새로 안 만듦). 예전엔 `neq status completed` 만 봐서 applied 된 PO 에 새 receipt 이 중복 생성되던 버그. factor 로 안 나눠떨어지는 수량은 에러 차단. Apply 성공 시 status='completed' 명시(applied 인데 in_progress 로 꼬이는 것 방지).
+- ⚠️⚠️ **`wms_receipts.status = 'externally_applied'` (2026-08-19 신설 · 실사고 PO-01130)**
+  **문제**: Cin7 에서 이미 처리가 끝나 WMS 로 Apply 하지 않기로 정한 receipt 가 `completed` +
+  `applied_at=null` 이라 **Apply 대기 목록에 영구히 남았다.** `Delete` 는 라인별 작업자 기록 등
+  이력을 지우므로 부적합했다(규칙 24 라인별 작업자 항목).
+  **해법**: 상태값 추가(마이그레이션 `20260819100000` — CHECK 4값 → 5값, **baseline 무접촉**).
+  `applied_at` 은 **안 채운다** — 「WMS 가 Cin7 에 쓴 적 없다」는 사실을 보존한다(Apply 이력과 구분).
+  Apply 대기에서는 admin `applicable` 필터(`status==="completed"`)가 **자동 제외**하고, 히스토리·
+  Stats 에는 남는다(Stats 는 **별도 카운트** `Applied outside WMS` — `applied` 에 합산하지 않는다:
+  "Applied to Cin7" 은 WMS 가 썼다는 지표라 섞으면 뜻이 흐려진다).
+  **전이는 admin Review 모달에서만**(`Mark externally applied` / `Back to completed`, `canApply` 권한).
+  사유는 **필수 입력**이고 `apply_note` 에 사람용 문장으로 **덧붙인다**(원복도 지우지 않고 덧붙임 —
+  [실물] 표시→원복→재표시 3문장이 시간순으로 남는 것 확인). 두 전이 모두 **상태 조건부 UPDATE +
+  `.select()` 1행 확인**(0행이면 "changed state meanwhile" — 규칙 24 계열).
+  ⚠️⚠️ **누수 봉인 2곳이 이 기능의 핵심이다** — 없으면 새 상태가 **화면 한 번 여는 것으로 소멸**한다:
+  ① `receiver.html` `startPo` 의 `status!=="completed"` "미완료" 판정 → `externally_applied` 제외 추가
+    (안 하면 resume → `openReceipt` 로 흘러 `in_progress` 로 되돌아간다)
+  ② `openReceipt` 의 「held/partial → `in_progress` 되돌림」 **앞**에 가드
+    (⚠️ **`?receipt=N` URL 직접 진입** 때문에 ①만으로는 부족하다)
+  📌 **선택 근거(A안: status 값 / B안: 별도 컬럼)**: 봉인 지점 수는 비슷하나 **실패 모드의 값이 다르다** —
+  A 는 놓치면 되돌릴 수 있는 WMS 내부 문제, **B 는 놓치면 Cin7 이중 Apply(재고 사고)**. 또 B 는
+  「닫힘 판정 = `applied_at` OR `external_applied_at`」이 흩어져 **신규 소비처마다 같은 실수가
+  재생산**된다(조사 시점에 `applied_at` 단독 판정이 이미 4곳). EF 무접촉·재배포 불필요도 A 의 실익.
+  📌 **알려진 잔류 2건(결함 아님)**: `work` 집합(`applied_at is null` 전량 조회)에 **영구 잔류** —
+  소비처 4곳이 전부 제외/처리하므로 표시는 옳고 payload 만 쌓인다 · backlog(Awaiting putaway)에는
+  **계속 뜬다** — **실물 풋어웨이는 Cin7 처리와 독립**이므로 의도된 동작(딥링크만 막고 표시는 남긴다).
 - **자동 실행 강도**: 현재 = 매니저 admin 게이트(dry-run 계획 confirm → commit). 신뢰 쌓이면 작업자 완료 시 자동으로 전환 예정(EF 호출 위치만 이동).
 - 쓰기 검증 도구: `WmsTransferWriteTest.gs`·`WmsPoStockWriteTest.gs` (System_Automation, DRY_RUN 게이트 패턴 — 새 쓰기 검증 시 재사용).
 - 📌 **TR-02935 착지·수량 실측치와 Apply 운영 규칙(실행시간 예산·수동 이동 충돌·체크포인트 불가침)은 규칙 30** · **bin↔bin 이동 화면 설계는 규칙 33** · **재고 대조 리포트는 규칙 32**.
@@ -567,7 +592,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **⚠️ 타이머 폴링 금지** — 규칙 22(배터리). presence 는 이벤트 기반이라 OK. `wms_receipts.updated_at` 갱신은 `bumpReceipt()` 로 debounce(스캔당 요청 2개 → 1개).
 - **Complete 는 누가 눌러도 데이터가 안전**하다(전체 덮어쓰기 제거 + 서버 요약). 단 **모두 끝난 뒤 눌러야 한다** — 아래 R5 참조.
 
-- ⚠️⚠️ **작업자 귀속은 receipt 가 아니라 라인 단위다 (2026-08-17 · `wms_receipt_lines.last_received_by/at`)**: 나눠 받기가 이 규칙의 기능이므로 `wms_receipts.received_by` 는 **"receipt 를 처음 만든 사람"이지 "받은 사람"이 아니다.** [실례] **PO-01131** = Joyce Chang — 들어갔다 나온 사람인데 62라인·3,570유닛의 RECEIVED BY 로 표시됐다. ⚠️ **틀린 표시가 한 곳이 아니라 셋이었다**(admin 이력 열 · Stats `Receive N lines` 전량 귀속 · Stats work time·putaway%) — 📌 처음 진단은 "헤더를 STARTED BY 로 고치면 된다"였고 불충분했다: **표시 문제로 보이는 것의 뿌리가 스키마인 경우가 있다.** 컬럼 의미 = "이 라인을 **마지막으로** 만진 사람"(라인당 1명) — 한 라인을 둘이 나누면 앞사람이 사라지지만 **receipt 전체로는 참여자 전원이 드러난다**(각자 마지막으로 만진 라인이 있으므로) → 표시는 receipt 의 distinct. ⊘ 폐기 대안 = 라인당 참여자 배열(text[]) — 한 라인이 두 사람에게 각각 1줄로 세어져 **"N lines 받았다" 합계가 실제 라인 수를 넘는다.** **기록 지점**(receiver `patchFor`) = 실작업만: `qty`(스캔·스테퍼·수동입력) · `putaway`(수동 bin/Change/Placed · Place all) · `all`(병합) · off-PO 라인 생성. ⚠️ **`putaway_auto`(자동배정 신규 kind)와 `startPo` 초기 적재는 안 찍는다** — 버튼 하나로 전 라인에 누른 사람이 찍히면 **"연 사람 = 전량 귀속" 버그의 라인판 재현**(자동배정 라인도 이후 Placed/Change 때 정상 기록 · mergeKind 병합 시 all 로 승격해 찍힘 — 의도). **표시 폴백**: 라인에 값이 하나라도 있으면 라인 값만 / 전부 NULL(도입 전 — 백필 금지, received_by 복사가 특히 금지: 그게 바로 틀린 값)이면 received_by 폴백을 **회색 `~이름 (started by)`** 로 구분 — 폴백은 틀린 값이라 정확한 값처럼 보이면 수정의 의미가 없다. ⚠️ `approved_by`(off-PO 승인자) 재사용 금지.
+- ⚠️⚠️ **작업자 귀속은 receipt 가 아니라 라인 단위다 (2026-08-17 · `wms_receipt_lines.last_received_by/at`)**: 나눠 받기가 이 규칙의 기능이므로 `wms_receipts.received_by` 는 **"receipt 를 처음 만든 사람"이지 "받은 사람"이 아니다.** [실례] **PO-01131** = Joyce Chang — 들어갔다 나온 사람인데 62라인·3,570유닛의 RECEIVED BY 로 표시됐다. ⚠️ **틀린 표시가 한 곳이 아니라 셋이었다**(admin 이력 열 · Stats `Receive N lines` 전량 귀속 · Stats work time·putaway%) — 📌 처음 진단은 "헤더를 STARTED BY 로 고치면 된다"였고 불충분했다: **표시 문제로 보이는 것의 뿌리가 스키마인 경우가 있다.** 컬럼 의미 = "이 라인을 **마지막으로** 만진 사람"(라인당 1명) — 한 라인을 둘이 나누면 앞사람이 사라지지만 **receipt 전체로는 참여자 전원이 드러난다**(각자 마지막으로 만진 라인이 있으므로) → 표시는 receipt 의 distinct. ⊘ 폐기 대안 = 라인당 참여자 배열(text[]) — 한 라인이 두 사람에게 각각 1줄로 세어져 **"N lines 받았다" 합계가 실제 라인 수를 넘는다.** **기록 지점**(receiver `patchFor`) = 실작업만: `qty`(스캔·스테퍼·수동입력) · `putaway`(수동 bin/Change/Placed · Place all) · `all`(병합) · off-PO 라인 생성. ⚠️ **`putaway_auto`(자동배정 신규 kind)와 `startPo` 초기 적재는 안 찍는다** — 버튼 하나로 전 라인에 누른 사람이 찍히면 **"연 사람 = 전량 귀속" 버그의 라인판 재현**(자동배정 라인도 이후 Placed/Change 때 정상 기록 · mergeKind 병합 시 all 로 승격해 찍힘 — 의도). **표시 폴백**: 라인에 값이 하나라도 있으면 라인 값만 / 전부 NULL(도입 전 — 백필 금지, received_by 복사가 특히 금지: 그게 바로 틀린 값)이면 received_by 폴백을 **회색 `~이름 (started by)`** 로 구분 — 폴백은 틀린 값이라 정확한 값처럼 보이면 수정의 의미가 없다. ⚠️ `approved_by`(off-PO 승인자) 재사용 금지. ✅ **검증 완료 (2026-08-19)** — 2026-08-17 배포분이 **신규 receipt 부터 정상 동작**: PO-01112 `Ian Lee` · TR-03546 `Jan Ko` · **TR-03548 `Jan Ko +1`** · **TR-03547 `Jan Ko +2`**(`+N` 공동작업 표기 실동작 확인). 컬럼 도입 전 receipt 은 `~이름 (started by)` 기울임으로 시각적으로 구분된다(PO-01113·01117·01148 등) — **화면에 다르게 보이는 것이 정상이다**(폴백을 실명처럼 보이게 하면 수정의 의미가 없다는 위 원칙의 실현).
 
 **🆕 receipt 방치 문제와 처방 (2026-08-14 조사·구현)** — [관찰] 어제 21:33~21:40 에 **열기만 한** receipt 4건(PO-01087·PO-01117·TR-03548·PO-01131)이 14시간째 receiver RESUME 목록과 admin "N receipt(s) still receiving/held" 를 차지했다.
 - ⚠️ receipt 는 **열기만 해도** in_progress 로 생성되고 라인도 전량 insert 된다(receiver `startPo` — 기대치 스냅샷). 첫 스캔이 아니다. List 로 나갈 때 서버 정리가 **없다** — 코드 주석이 "무해"라고 명시한 의도된 없음인데, 📌 그 판단이 **재개 가능성만 보고 목록 점유라는 부작용을 계산에 안 넣었다.**

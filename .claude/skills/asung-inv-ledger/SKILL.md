@@ -33,16 +33,25 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 - **기준은 Cin7 문서.** WMS 는 보조 — WMS 미경유 사건이 월 수백 건이라 WMS 기준은 처음부터 구멍
 - 원가(amount)·자리(bin)는 **값만 저장하고 계산엔 안 씀** — 나중에 소급 불가라 지금부터 담는다
 
-**진행 상태 (2026-08-18)**: 테이블 4개 + 스냅샷 EF(`inv-snapshot`) + 수집 EF(`inv-collect` —
-②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재 `@2026-08-18.2`(발주 PutAway 축
-재설계 + PA 어휘 DRAFT — `docs/sessions/2026-08-18-purchase-source-redesign.md`). **쓰기는 아직 안 켰다.**
-기초 스냅샷 8/22 예정. ✅ **6종 소스 개별 dry 검증 완료(2026-08-19 — 소스 하나씩·사이 90초).**
-남은 것은 **6종 동시 실행 1회**(페이싱 수정 후 — 아래 게이트 5).
+**진행 상태 (2026-08-19)**: 테이블 **5개**(`inv_conflicts` 신설) + 스냅샷 EF(`inv-snapshot`) +
+수집 EF(`inv-collect` — ②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재
+**`@2026-08-19.1`**(페이싱 1200ms·`Retry-After` 백오프 + `inv_conflicts` 변경 감지 —
+`docs/sessions/2026-08-19-po01117-followup.md` §6). **쓰기는 아직 안 켰다.**
+기초 스냅샷 8/22 예정. ✅ **6종 소스 개별 dry 검증 완료(2026-08-19 — 소스 하나씩·사이 90초)**
++ ✅ **6종 동시 실행 1회 완료**(페이싱 수정 후 — `rate_limited` 전 소스 false).
 ⚠️ **`commit=1` 은 아직 금지** — ⑤ 진입 게이트 현황(**정본은 설계 4부** 「commit=1 을 켜기 전에
 닫아야 하는 것」): ☑1 CardID 안정성 · 👁2 adv_no_putaway(관찰 대기로 하향 — WMS 는 put-away 없이
 Apply 하지 않아 우리 시스템이 만들 수 없는 상태. ⚠️ Advanced 기본값을 켜면 게이트로 복귀) ·
 ☑3 재등장 전제(2026-08-19 실측 — PO-01117 이 PA 승인 후 +51행으로 들어왔다) ·
-⬜4 ON CONFLICT 감지 · ⬜5 캡·페이싱 · ⬜6 이동 커서 seed.
+🟡4 ON CONFLICT 감지(`inv_conflicts` 신설 + `writeLedgerDetectingConflicts` — **코드 완료,
+실동작은 `commit=1` 첫 회차가 첫 검증**) · ☑5 캡·페이싱(`DETAIL_SLEEP_MS=1200` + `Retry-After`
+백오프 → 6종 동시 실행 429 0건) · ⬜6 이동 커서 seed.
+⚠️ **`TIME_BUDGET_MS=120초` 안에 6종을 다 돌 수 없다**(첫 소스가 예산을 소진 → 나머지는
+`aborted: "time budget exhausted before this source"`) → ⑤에서 **소스별 cron 주기 분리**.
+📌 **시간 가드에 걸린 것은 페이싱 실패가 아니다** — 페이싱 판정 기준은 `rate_limited` 다.
+⚠️ **원장 쓰기 뒤 `insert_skipped ≠ 0` 은 정상**(재수집) · `conflicts_detected ≠ 0` 이면
+`select * from inv_conflicts order by detected_at desc`. **첫 회차는 원장이 비어 `insert_skipped` 0** —
+두 번째 회차부터 의미가 있다. ⚠️ `R.written` 의미가 「시도 행수」 → **「실삽입 행수」**로 바뀌었다.
 (~~CardID 재수집 안정성~~ 은 2026-08-18 저녁 PO-01117 실측으로 닫힘 — Convert 를 통과해도 유지.)
 ⚠️ **PA 블록은 `DRAFT` 로 생성 → 승인되면 `AUTHORISED`.** [실측] PO-01117 은 Convert 직후 DRAFT,
 **다음 날 아침 AUTHORISED** — 화면이 먼저 바뀌고 API 가 따라온다(**지연 확정**, 2026-08-19).
@@ -125,14 +134,20 @@ Apply 하지 않아 우리 시스템이 만들 수 없는 상태. ⚠️ Advance
   근거 소멸로 삭제). **PA 축의 알려진 어휘 = `AUTHORISED`·`VOIDED`·`DRAFT`**(08-18 · Convert
   직후 PA 는 DRAFT 로 생성 — PO-01117) — ⚠️ 어휘와 통과 기준은 다르다: DRAFT 는 경고 없이
   건너뛰는 정상 상태일 뿐 기표되지 않는다. 목록 `StockReceivedStatus` 게이트 없음(위 함정 표).
-  Advanced 인데 PA 없음 = 행 미기표 + 보고, 커서는 안 멈춘다(재등장 전제 미확인 — 정본 4부
-  체크리스트).
+  Advanced 인데 PA 없음 = 행 미기표 + 보고, 커서는 안 멈춘다(~~재등장 전제 미확인~~ →
+  **08-19 실측으로 닫힘 — PA 승인 후 +51행 재등장**. 정본 4부 체크리스트 ☑3).
   ⚠️ `Type` 은 가변이지만 **Convert 는 사람이 누르는 명시적 동작 — 시간 아님(PO-01117 31분 무변)**.
   ~~"Apply 후 ~10분 자동 전환(12/12)"~~ 은 Convert 가 보통 빨리 눌렸던 것의 오인.
   `simple_docs: 0` 도 `> 0` 도 정상이고, 전환이 `LastUpdatedDate` 를 올려 **모든 PO 가
   UpdatedSince 에 최소 두 번 잡힌다**. ~~"최근 40건 전부 Advanced — Simple 분기 미실행"(08-17)~~ 은 닫혔다:
   목록 게이트 제거 후 `simple_docs: 7` 실행·정상 동작(SR NOT AVAILABLE 올바르게 배제).
   [실측 08-18 dry 전/후] rows 383→643(+68%) · UNMAPPED 소멸 · bin 실제 선반으로
+  ✅ **Simple 분기가 실제로 행을 만들었다 (08-19 PO-01112)** — 종전엔 `simple_docs > 0` 이어도 SR 이
+  전부 `NOT AVAILABLE` 이라 걸러졌을 뿐 **Simple 축이 행을 만든 적은 없었다**. PO-01112 Apply 로
+  `sr_block_status_counts={AUTHORISED:1, NOT AVAILABLE:5}` → **102행**(같은 창 727→829).
+  ⇒ Simple=SR 축 결정이 실동작으로 검증됐다. 📌 이 증가는 코드가 아니라 **데이터 변화**다
+  (`candidates`·`docs_processed` 는 20 으로 동일한데 행만 늘어 감지 로직을 의심했다 — 확인은
+  `wms_receipts.applied_at` 조회. **행 수가 늘면 코드보다 그날의 입고를 먼저 볼 것**)
 - **발주 날짜**: `OrderDate`·`InvoiceDate`·`LastUpdatedDate` 전부 어긋남. 우연히 맞는 경우가 있어
   **한 건만 보고 판단 금지**
 - **반품**: `RestockStatus='AUTHORISED'` 일 때만 재고 복귀. `DRAFT` 는 금액만.
