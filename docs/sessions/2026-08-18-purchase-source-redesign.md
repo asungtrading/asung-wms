@@ -163,7 +163,10 @@ Simple 발주는 **인보이스 수량 = 입고 수량 완전 일치**를 요구
 2026-07-24 이후 10건 전부 이 계열·전부 정상 처리(9건 `PA=AUTHORISED`). 별건 과제 = 경고 문구
 개선·화면 표시(진짜 실패와 구별이 안 된다).
 
-### 8-4. 미확정 2건 (정본 4부 「신규 미확정」에 등록)
+### 8-4. 미확정 2건 (정본 4부 「신규 미확정」에 등록) — ✅ **둘 다 2026-08-19 닫힘**
+
+> 결과: `docs/sessions/2026-08-19-po01117-followup.md` §1-1(지연 확정) · §2(미달 24개 =
+> PO 채움 + `ST-01220` adjustment). 정본 4부 「신규 미확정」 절에도 닫힘 표시.
 
 1. **화면 `Authorized` vs API `PA.Status=DRAFT` 불일치** — 화면엔 뱃지가 붙었는데 API 는
    DRAFT·`LastUpdatedDate` 불변. 지연인지 별도 승인 단계인지 미확인 — 원장은 AUTHORISED 만
@@ -229,6 +232,9 @@ GAS `ppa_rateLimitProbe`(무간격 연타로 429 유도 + 5초 간격 회복 측
 ---
 
 ## 다음 세션에서 먼저 할 것 (2026-08-19 아침)
+
+> ✅ **결과 보고는 `docs/sessions/2026-08-19-po01117-followup.md`** — 1·3 닫힘 · 2 는 "판정 불가"로
+> 확인(결과물로만 판정 — 별건) · 4·5 미착수(그 문서 「다음에 할 것」으로 이월).
 
 1. **`putaway:DRAFT` 가 해소되는가** — `dry=1&only=purchase&from_since=2026-08-18` 재실행.
    PO-01117 이 `AUTHORISED` 로 넘어가 `ledger_rows` 가 늘면 §8 의 「화면 Authorized vs API DRAFT」는

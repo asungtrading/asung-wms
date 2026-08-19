@@ -283,6 +283,18 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 - **자동 유입 = pg_cron + pg_net.** `wms_schedule_polling.sql`로 잡 `wms-poll-orders` 등록(`*/5 * * * *`, Edge Function `?commit=1` anon Bearer 호출). 확인: `select * from cron.job;`, 실행이력 `cron.job_run_details`, 응답 `net._http_response`.
 - **⚠️ pg_net 응답이 null로 남을 수 있음** — 확대폴링이 상세조회 여럿 돌면 pg_net 기본 타임아웃(~5초) 초과. **응답 수신 실패 ≠ 저장 실패.** 진짜 확인은 **`wms_orders` 테이블의 `imported_at`** (진실). net._http_response는 참고용.
+- ⚠️⚠️ **pg_cron 기록으로 Edge Function 건강을 판정할 수 없다 (2026-08-19 실측)** — 위 항목의
+  일반화. ⚠️ 이 절은 원래 `asung-ops` 스킬(cron·운영) 소관이나 그 스킬이 이 레포에 없어 여기 둔다
+  — **옮길 것(별건)**:
+  - `cron.job_run_details.status = 'succeeded'` 는 **요청을 보내는 데 성공**했다는 뜻일 뿐이다.
+    **EF 가 401 로 죽어도 `succeeded`** 로 찍힌다.
+  - `net._http_response` 는 **매 실행마다 5초 타임아웃**을 남긴다(`Timeout of 5000 ms reached` —
+    연결·SSL 은 수십 ms 로 정상, 응답만 못 기다림). EF 는 그 뒤에도 계속 돌아 자기 일을 마친다.
+    ⚠️ **타임아웃 로그를 보고 "폴링이 죽었다"고 판단하면 멀쩡한 것을 고치게 된다.**
+  - ⇒ **판정은 결과물로만 가능하다.** 폴링: `select max(checked_at) from wms_polled_sales`
+    ([실측 2026-08-19] 09:09 조회 시 9분 전 갱신 = 정상, 주기 5분).
+    ⚠️ `product-images`(cron 잡 4·5 · 08:30·09:30 토론토)의 결과물 확인 방법은 **미정 — 별건**
+    (`wms_image_sync_runs` 가 후보 — 「상품 이미지 파이프라인」 절의 세 역할 참조).
 - **확대 폴링**: saleList AUTHORISED 페이지네이션(POLL_LIMIT 100 × POLL_MAX_PAGES 3=300스캔), SKIP_PICKED(CombinedPickingStatus='PICKED' 제외), **상세조회 전 dedup**(existingSaleIds), MAX_DETAIL 60캡(**최신 오더번호부터** — 아래 2026-08-04 ②). 진단필드(dry-run·commit 공통): `pages_scanned/candidates/after_skip_picked/already_exists/fresh_candidates/detail_fetched/detail_capped(+detail_capped_orders)/would_insert` + **2026-08-04 추가**: `list_total/list_fetched/truncated`(스캔 잘림)·`oldest_scanned/newest_scanned`(스캔 범위)·`rate_limited(+rate_limited_at_page)`(429 조기 종료). `skipped_detail` 은 `already_exists` 에 더해 **`skip_picked` 제외분도 포함**(오더번호+사유). ⚠️ 이 필드들이 응답에 **없으면 옛 버전** — 재배포 필요.
 - **⚠️ Cin7 병행운영 3케이스**: (A) 유입 전 `2.Release to WMS`→`3.Finalized` 등으로 바뀌면 → 유입 안 됨(정상). (B) Cin7에서 픽됨(PICKED) → SKIP_PICKED로 제외(두 시스템 동시작업 방지, 의도됨 — "안 들어온다"의 최빈 원인. 2026-08-04 부터 `skipped_detail` 의 `skip_picked` 로 응답에서 바로 보임). (C) ~~**유입 후 Cin7에서 바뀜 → WMS는 모름**(dedup으로 재조회 안 함). 자동감지는 백로그.~~ → ✅ **2026-08-12 해소 — Updated 트리거 감지(규칙 43)**: 유입 오더의 `cin7_updated` 와 목록 Updated 를 비교해 바뀐 것만 상세 재조회 → `On Hold` 보류 / 예상 밖 값 admin 알림. ⚠️ 감지 범위는 **AdditionalAttribute1 변경**(보류 안전장치) — 종전 백로그 문구의 needs_review/voided 자동 전환까지는 아니다(needs_review 는 여전히 미구현 · **void 는 2026-08-14 별도 감지 루프로 해소** — 목록 부재 감지 + 2회차 완충, status 전환은 ⊘ Void 수동. 백로그 「신규 기능」 void 항목).
 - **⚠️⚠️ 2026-08-04 실사고 — SO-14100·SO-14106 미유입 (원인 2개, 스캔 범위는 무죄)**:
@@ -503,6 +515,17 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
     - ⚠️⚠️ **authorize 게이트 (PO 고유 — 1회 제약이 가장 중요)**: authorize 는 Simple PO 에서 **한 번뿐**이고, 일부 bin 이 빠진 채 authorize 하면 빠진 수량을 API 로 채울 방법이 사라진다 → **미처리(`groups_remaining`)·실패(`failed_moves`)·격리(`permanently_failed`)·스킵(bin GUID)이 하나라도 있으면 authorize 하지 않고 DRAFT 로 남긴다**(기존 "스킵 시 DRAFT 유지"를 청크 경계·실패·격리까지 확장). authorize 는 **그룹 루프(청크) 밖** — 모든 bin 이 문서에 실린 마지막 회차에 딱 한 번 시도한다(회차마다 시도하면 1회 제약 위반). 노출: apply_note "Cin7 document left as DRAFT — N bin(s) pending" + admin 배지 `Cin7 DRAFT — N bin(s) pending` + 응답 `authorized: true|false|null`(null=보류/트랜스퍼). authorize 실패는 기존 방침 그대로(DRAFT 유지 + WARN — Cin7 화면 수동 authorize).
     - ⚠️ **되읽기 회복(위 ④ checkpoint repair)은 PO 미적용** — PO 는 "bin 이동"이 아니라 "입고 문서 작성"이라 되읽기의 의미가 다르다(백로그 6번). 대신 "POST 성공 후 체크포인트 누락" 잔여물의 재전송은 **400 `Cannot add duplicate value` 로 시끄럽게 거부**된다(실측 — cin7-api 스킬 stock-write.md: 같은 Product+Location 이 이미 stock received 에 있으면 발생) → 조용한 이중 계상은 구조적으로 없다. 이 에러 = 그 라인은 이미 DRAFT 에 있다는 뜻 → Cin7 화면에서 확인 후 거기서 마무리(WARN·admin 알림에 안내 포함).
     - 라인 재전송은 **all-or-nothing**(부분 exported 는 전량 pending 취급 — 부분 수량은 factor 로 안 나눠떨어질 수 있고, 중복은 어차피 400). POST 간 sleep 은 **400ms 유지**(트랜스퍼 150ms 와 다름 — 규칙 21 의 "콜 간 300~400"). 잔여 엣지: authorize 성공 직후 receipt PATCH 전에 EF 가 죽으면 다음 회차가 authorize 를 재시도해 400 (WARN "may already be AUTHORISED") — 문서는 이미 AUTHORISED 이므로 Cin7 에서 상태만 확인.
+- ⚠️⚠️ **PO 목록 필터는 안전장치가 아니다 (2026-08-19 정리)**: 데이터 안전은 `receiver.html`
+  `startPo()` 의 `applied_at` 가드가 담당한다 — applied receipt 이 있으면 토스트만 띄우고 return 이라
+  **이중 입고는 구조적으로 불가능**하다. 목록 필터(`listOpenPOs()` ①~⑦)는 **작업자에게 보여줄 것을
+  고르는 장치**다. 뚫려도 안전 문제가 아니라 UX 문제다.
+  [실물 2026-08-19] PO-01117 이 Convert 후 `StockReceivedStatus=PARTIALLY RECEIVED` 라 ④번을
+  통과해 목록에 떴다 — 눌러도 가드가 막았다. **화면은 `Applied` 배지로 처리했다**(숨기지 않는다 —
+  PO-01083·PO-01130 처럼 "목록에 없어 못 받는" 문제를 만들지 않기 위해 · 커밋 `591b892`).
+  ⚠️ **그 배지는 아직 실사용 검증 전이다** — PO-01117 은 다음 날 `listSRS=AUTHORISED` 로 바뀌어
+  ④번에 걸려 목록에서 빠졌다. **다음 미달 입고가 첫 검증이다.**
+  ⚠️ 어휘를 나열해 ④번을 보강하지 말 것(`PARTIALLY RECEIVED` 추가 등 — 다음 값에 또 뚫린다:
+  목록 SRS 는 상세 블록 상태와 상관없고 Simple/Advanced 에 따라 의미가 다르다).
 - **이중 반영 방지 (2026-07-24 강화)**: `wms_receipts.applied_at` 있으면 Apply·열기·재개 모두 거부. **한 PO = receipt 1개 강제**: startPo 가 그 PO 의 기존 receipt 전체 조회 → applied 있으면 "이미 받음" 차단, 미완료 있으면 이어받기(새로 안 만듦). 예전엔 `neq status completed` 만 봐서 applied 된 PO 에 새 receipt 이 중복 생성되던 버그. factor 로 안 나눠떨어지는 수량은 에러 차단. Apply 성공 시 status='completed' 명시(applied 인데 in_progress 로 꼬이는 것 방지).
 - **자동 실행 강도**: 현재 = 매니저 admin 게이트(dry-run 계획 confirm → commit). 신뢰 쌓이면 작업자 완료 시 자동으로 전환 예정(EF 호출 위치만 이동).
 - 쓰기 검증 도구: `WmsTransferWriteTest.gs`·`WmsPoStockWriteTest.gs` (System_Automation, DRY_RUN 게이트 패턴 — 새 쓰기 검증 시 재사용).

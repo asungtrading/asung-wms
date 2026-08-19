@@ -39,6 +39,9 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 기초 스냅샷 8/22 예정. ⚠️ **발주 축은 미검증 2건(adv_no_putaway 경로 · 재등장 전제)이 남아 있어
 `commit=1` 금지 — 설계 정본 4부 「commit=1 을 켜기 전에 닫아야 하는 것」 체크리스트를 먼저 닫을 것.**
 (~~CardID 재수집 안정성~~ 은 2026-08-18 저녁 PO-01117 실측으로 닫힘 — Convert 를 통과해도 유지.)
+⚠️ **PA 블록은 `DRAFT` 로 생성 → 승인되면 `AUTHORISED`.** [실측] PO-01117 은 Convert 직후 DRAFT,
+**다음 날 아침 AUTHORISED** — 화면이 먼저 바뀌고 API 가 따라온다(**지연 확정**, 2026-08-19).
+⇒ `putaway:DRAFT` 는 오류가 아니라 진행 중 상태고, 원장은 다음 회차에 기표한다(유실 아님).
 
 ---
 
@@ -55,6 +58,7 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 | UOM SKU 도 재고가 있나? | 평소 없다(`OnHand=0`·`Available` 만 파생). 다만 **구조상 가질 수는 있다** |
 | `ProductID` 가 라인 식별자? | 상품 ID 다. 같은 SKU 두 줄이면 겹침. **다만 실무상 안 겹쳐서 line_ref 로 씀** (⚠️ 판매 예외 — 5절) |
 | 발주 블록 `Status` 는 DRAFT 만 제외? | **아니다 — 그리고 어느 배열의 상태를 보느냐가 먼저다(08-18).** 화이트리스트 = **PA 축 기준 `AUTHORISED` 만** + 미지값 경고. ~~SR 기준 AUTHORISED·`""` 통과(08-17)~~ 는 폐기 — 빈 문자열 예외의 근거 PO-01128 은 빈 상태가 **SR 블록**이었다(PA 는 AUTHORISED 84줄). SR 상태로 거른 "−90행 유령 재고 차단" 판정도 무효(실재 입고를 지운 것) |
+| 발주 라인 수량은 나중에 바뀔 수 있는가? | **그렇다(2026-08-19).** PO 를 닫으려면 인보이스 수량과 정확히 같아야 해서 **PO 수량을 인보이스 수량으로 채운다** — [실측] PO-01117 PA `CAN01620` **168→192**(`CardID`·bin·문서번호 전부 동일, 수량만). 차액은 **stock adjustment 로 되돌아온다**(`ST-01220` −24/+24) — 한 입고가 `po_in`+`adjustment` **두 소스에 걸친 사건**이 된다. ⚠️ 유니크 키가 같아 `DO NOTHING` 이면 새 수량이 조용히 버려진다(설계 정본 4부 3번) |
 | 발주 입고는 `StockReceived` 를 읽으면 되나? | **아니다(2026-08-18 확정).** Advanced = **`PutAway`** / Simple = `StockReceived`. SR 은 ① `LocationID` 가 null 이거나 창고 GUID 라 **bin 이 구조적으로 없다** ② `Status` 가 stock receiving 단계의 **워크플로 상태**라 재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED · PO-01131 SR=NOT AVAILABLE/PA=AUTHORISED 3,570u). SR·PA 는 같은 입고의 두 표현 — 둘 다 읽으면 두 배 |
 | 목록 `StockReceivedStatus` 로 후보를 좁히면? | **안 된다.** 상세 블록 상태와 **상관이 없다**(양방향 불일치 — PO-01131 목록 AUTHORISED/상세 NOT AVAILABLE ↔ PO-00848 반대). 표본 6건 중 4건(12,552u)이 실재 입고인데 문서째 유실됐다. 판정 권한은 상세 한 곳 — 목록 값은 분포만 센다 |
 | `saleCreditNoteList` 행은 CN 단위? | **아니다. sale 단위.** 목록 `RestockStatus` 로 거르면 같은 오더의 AUTHORISED CN 이 유실 — 판정은 상세 `CreditNotes[]` 순회 한 곳만 |
