@@ -149,7 +149,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-18.2";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.2 = PA 어휘에 DRAFT 추가(경고 오탐 제거))
+const COLLECTOR_VERSION = "inv-collect@2026-08-19.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.1 = 페이싱 1200ms·Retry-After 백오프 + inv_conflicts 변경 감지)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -218,13 +218,92 @@ async function sbGet(path: string): Promise<any[]> {
   if (!r.ok) throw new Error("sbGet " + r.status + ": " + (await r.text()).slice(0, 300));
   return await r.json();
 }
-async function sbInsertIgnoreDup(table: string, conflictCols: string, rows: unknown): Promise<void> {
-  const r = await fetch(SB_URL() + "/rest/v1/" + table + "?on_conflict=" + conflictCols, {
-    method: "POST",
-    headers: sbHeaders({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
-    body: JSON.stringify(rows),
-  });
-  if (!r.ok) throw new Error("sbInsert " + table + " " + r.status + ": " + (await r.text()).slice(0, 400));
+// ── 원장 쓰기 + 변경 감지 (2026-08-19 · ⑤ 게이트 4번 — 마이그레이션 20260819000000_inv_conflicts) ──
+// ignore-duplicates 는 유니크 키가 겹치면 행을 조용히 버린다 — 재수집이 일상이라 그 자체는 의도.
+// ⚠️ 문제는 「키는 같은데 값이 다른」 경우: [실측 2026-08-19] PO-01117 CAN01620 168→192 —
+//   PO 를 닫으려고 인보이스 수량으로 채우는 **정상 실무**(정본 1부 「미달·초과 입고의 실무 흐름」).
+//   그대로 두면 새 값이 아무 데도 안 남는다(pg_cron 자동 회차의 응답은 아무도 안 본다) →
+//   inv_conflicts 에 기록해 ⑥ 대조에서 "왜 어긋났나"를 답하는 유일한 기록으로 남긴다.
+// ⚠️ 쓰기를 차단하지 않는다(수량 정정은 흔한 정상 실무 — blocked 조건 아님, 경고·기록만) ·
+//   원장 행은 안 고친다(append-only — 역분개는 자리 단위 과제, 정본 4부 3번) · 알림·화면 없음.
+// 두 단계 — 전량 조회는 하지 않는다:
+//   1) return=representation + select=키 7종만 으로 **실제 삽입된 행**을 돌려받아 버려진 행을
+//      특정한다(응답은 raw 없이 키만이라 500행 배치 ≈ 수십 KB — EF 메모리에 무해).
+//      ⚠️ 매칭은 배열 순서가 아니라 유니크 키 7종으로(PostgREST 가 순서를 보장한다는 근거 없음).
+//   2) 버려진 행만 (doc_type, doc_number) 로 묶고 **line_ref 를 50개씩 in.() 청크**로 조회해 비교 —
+//      doc_number 단독 조회는 대형 트랜스퍼(344라인×4행=1,376행/문서)에서 1000행 캡에 잘린다(규칙 20).
+//      qty_delta·occurred_on 이 같으면 아무것도 안 한다(정상 재수집).
+async function writeLedgerDetectingConflicts(rows: LedgerRow[], sourceKey: string): Promise<{
+  inserted: number; insert_skipped: number; conflicts_detected: number; conflicts_sample: string[];
+}> {
+  const keyOf = (r: any) => [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");
+  const skipped: LedgerRow[] = [];
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+    const batch = rows.slice(i, i + INSERT_BATCH);
+    const r = await fetch(SB_URL() + "/rest/v1/inv_ledger?on_conflict=" + LEDGER_CONFLICT + "&select=" + LEDGER_CONFLICT, {
+      method: "POST",
+      headers: sbHeaders({ Prefer: "resolution=ignore-duplicates,return=representation" }),
+      body: JSON.stringify(batch),
+    });
+    if (!r.ok) throw new Error("sbInsert inv_ledger " + r.status + ": " + (await r.text()).slice(0, 400));
+    const returned = (await r.json()) as any[];
+    inserted += returned.length;
+    const got = new Set(returned.map(keyOf));
+    for (const row of batch) if (!got.has(keyOf(row))) skipped.push(row);
+  }
+  const conflicts: any[] = [];
+  const sample: string[] = [];
+  if (skipped.length) {
+    const byDoc = new Map<string, LedgerRow[]>();
+    for (const row of skipped) {
+      const k = row.doc_type + "\u0001" + row.doc_number;
+      let arr = byDoc.get(k); if (!arr) { arr = []; byDoc.set(k, arr); }
+      arr.push(row);
+    }
+    for (const [dk, docRows] of byDoc) {
+      const [docType, docNumber] = dk.split("\u0001");
+      const refs = [...new Set(docRows.map((r) => r.line_ref))];
+      const existing = new Map<string, any>();
+      for (let i = 0; i < refs.length; i += 50) {
+        const rows2 = await sbGet(
+          "inv_ledger?select=" + LEDGER_CONFLICT + ",qty_delta,occurred_on" +
+          "&doc_type=eq." + encodeURIComponent(docType) +
+          "&doc_number=eq." + encodeURIComponent(docNumber) +
+          "&line_ref=in.(" + encodeURIComponent(refs.slice(i, i + 50).map((v) => '"' + String(v).replace(/"/g, '\\"') + '"').join(",")) + ")"
+        );
+        for (const er of rows2) existing.set(keyOf(er), er);
+      }
+      for (const row of docRows) {
+        const ex = existing.get(keyOf(row));
+        if (!ex) continue;   // 이론상 없음(방금 충돌이 났으니 행이 있다) — 경합 등 엣지는 조용히 넘긴다
+        const exQty = Number(ex.qty_delta), inQty = Number(row.qty_delta);
+        const exOn = String(ex.occurred_on), inOn = String(row.occurred_on);
+        if (exQty === inQty && exOn === inOn) continue;   // 정상 재수집 — 아무것도 하지 않는다
+        conflicts.push({
+          doc_type: row.doc_type, doc_number: row.doc_number, line_ref: row.line_ref,
+          event_type: row.event_type, warehouse: row.warehouse, bin: row.bin, sku: row.sku,
+          existing_qty: exQty, incoming_qty: inQty,
+          existing_occurred_on: exOn, incoming_occurred_on: inOn,
+          source: sourceKey, collector: COLLECTOR_VERSION,
+          incoming_raw: (row.raw as any)?.line ?? null,   // 해당 라인만 — 원장 raw 관례(문서 전체 금지)
+        });
+        if (sample.length < 5) {
+          sample.push(row.doc_number + "/" + row.sku + ": " +
+            (exQty !== inQty ? exQty + "\u2192" + inQty : exOn + "\u2192" + inOn + " (date)"));
+        }
+      }
+    }
+    for (let i = 0; i < conflicts.length; i += INSERT_BATCH) {
+      const r = await fetch(SB_URL() + "/rest/v1/inv_conflicts", {
+        method: "POST",
+        headers: sbHeaders({ Prefer: "return=minimal" }),
+        body: JSON.stringify(conflicts.slice(i, i + INSERT_BATCH)),
+      });
+      if (!r.ok) throw new Error("sbInsert inv_conflicts " + r.status + ": " + (await r.text()).slice(0, 400));
+    }
+  }
+  return { inserted, insert_skipped: skipped.length, conflicts_detected: conflicts.length, conflicts_sample: sample };
 }
 async function sbUpsert(table: string, conflictCol: string, rows: unknown): Promise<void> {
   const r = await fetch(SB_URL() + "/rest/v1/" + table + "?on_conflict=" + conflictCol, {
@@ -764,17 +843,18 @@ Deno.serve(async (req) => {
         if (blocked) {
           R.write_skipped = blocked;
         } else {
-          for (let i = 0; i < sink.rows.length; i += INSERT_BATCH) {
-            await sbInsertIgnoreDup("inv_ledger", LEDGER_CONFLICT, sink.rows.slice(i, i + INSERT_BATCH));
-          }
+          const w = await writeLedgerDetectingConflicts(sink.rows, key);
           await sbUpsert("inv_sync_state", "source_key", [{
             source_key: key,
             last_cursor: cursorAfter,               // ⚠️ 문서번호 문자열 그대로 — 사람이 읽는 값
             last_run_at: new Date().toISOString(),
             last_ok_at: new Date().toISOString(),
-            note: COLLECTOR_VERSION + " rows=" + sink.rows.length + (detailCapped ? " capped" : ""),
+            note: COLLECTOR_VERSION + " rows=" + sink.rows.length + " inserted=" + w.inserted + (detailCapped ? " capped" : ""),
           }]);
-          R.written = sink.rows.length;
+          R.written = w.inserted;                    // ⚠️ 2026-08-19 의미 변경: 시도 행수 → 실삽입 행수(재수집 중복 제외)
+          R.insert_skipped = w.insert_skipped;       // 버려진 행 수 — 0 아님이 정상(재수집 포함)
+          R.conflicts_detected = w.conflicts_detected;
+          R.conflicts_sample = w.conflicts_sample;
         }
       }
       results[key] = R;
@@ -1272,17 +1352,18 @@ Deno.serve(async (req) => {
         if (blocked) {
           R.write_skipped = blocked;
         } else {
-          for (let i = 0; i < sink.rows.length; i += INSERT_BATCH) {
-            await sbInsertIgnoreDup("inv_ledger", LEDGER_CONFLICT, sink.rows.slice(i, i + INSERT_BATCH));
-          }
+          const w = await writeLedgerDetectingConflicts(sink.rows, key);
           await sbUpsert("inv_sync_state", "source_key", [{
             source_key: key,
             last_cursor: cursorWouldBe,
             last_run_at: new Date().toISOString(),
             last_ok_at: new Date().toISOString(),
-            note: COLLECTOR_VERSION + " rows=" + sink.rows.length + (detailCapped ? " capped" : ""),
+            note: COLLECTOR_VERSION + " rows=" + sink.rows.length + " inserted=" + w.inserted + (detailCapped ? " capped" : ""),
           }]);
-          R.written = sink.rows.length;
+          R.written = w.inserted;                    // ⚠️ 2026-08-19 의미 변경: 시도 행수 → 실삽입 행수(재수집 중복 제외)
+          R.insert_skipped = w.insert_skipped;       // 버려진 행 수 — 0 아님이 정상(재수집 포함)
+          R.conflicts_detected = w.conflicts_detected;
+          R.conflicts_sample = w.conflicts_sample;
         }
       }
       results[key] = R;
