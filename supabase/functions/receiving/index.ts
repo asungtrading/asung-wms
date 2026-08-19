@@ -43,7 +43,7 @@ function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
 // (cin7/cin7Get/cin7ErrInfo/sleep 은 ../_shared/cin7.ts 에서 import — 상단 주석 참조.
-//  429 백오프 1.5s→3s 상한 2회, 소진 시 err.status=429 throw, 에러에 status/body 구조화 — 동작 불변.)
+//  429 백오프는 2026-08-19 부터 Retry-After 기반(최대 60초 1회 — _shared/cin7.ts 주석), 소진 시 err.status=429 throw · 에러에 status/body 구조화 — 그 계약은 불변.)
 
 // ── 목적지 bin 의 SKU 보유량 되읽기 (checkpoint repair 판정용, 2026-07-31 — TR-03144) ──
 // GET /ref/productavailability 는 (SKU × Location × Bin) 행 단위로 OnHand 를 준다 (cin7-api 스킬 product.md).

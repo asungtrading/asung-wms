@@ -153,8 +153,17 @@ const COLLECTOR_VERSION = "inv-collect@2026-08-18.2";   // raw 에 박는다 —
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
-const DETAIL_SLEEP_MS = 700;           // 한도 60/60 공유(hello 폴링 회차 2~3콜) 고려
-const MAX_DETAIL_PER_SOURCE = 40;      // 동기 EF 시간 제약 — 잘리면 detail_capped 로 시끄럽게 보고
+const DETAIL_SLEEP_MS = 1200;          // = 분당 50콜 (간격 ms = 60,000 ÷ 목표 분당 콜수) — 한도 60/60 의 여유분.
+                                       //   ~~700ms~~ 는 분당 85.7콜 = **한도의 1.43배**였다(2026-08-18 밤 실측 확정 —
+                                       //   429 본문 명문 "60 calls per 60 seconds" · 애플리케이션 키 단위 ·
+                                       //   ⚠️ 200 응답엔 x-ratelimit-* 헤더가 없어 사전 제어 불가).
+                                       //   같은 WMS 키를 hello(5분 폴링)·receiving·product-images·inv-snapshot 이
+                                       //   공유하므로 한도를 통째로 쓸 수 없다.
+const MAX_DETAIL_PER_SOURCE = 40;      // ⚠️ 40 의 근거(2026-08-19 확정): 사전 제어가 불가능하므로(위) 회차당
+                                       //   호출 수를 미리 묶는 것이 유일한 예방책이고 **1,200ms × 40 = 48초 < 60초 창**.
+                                       //   ⚠️ 캡을 올리려면 간격도 함께 봐야 한다 — 캡 55 × 1,200ms = 66초로 창을 넘는다.
+                                       //   판매 하루 후보 145(캡의 3.6배)의 해결은 캡 상향이 아니라 **회차 주기**다
+                                       //   (설계 정본 4부 1번 — ⑤에서 소스별 캡·주기 결정). 잘리면 detail_capped 로 시끄럽게 보고.
 const TIME_BUDGET_MS = 120_000;        // inv-snapshot 과 동일 — 150초 idle timeout 앞에서 먼저 끊는다
 const INSERT_BATCH = 500;
 const IN_TRANSIT = "IN_TRANSIT";       // 합성 창고 — 언더스코어 = "Cin7 원문 아님" 표기

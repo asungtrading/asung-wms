@@ -23,16 +23,30 @@ export function cin7Headers(): HeadersInit {
 }
 
 export async function cin7(method: string, path: string, body?: unknown): Promise<any> {
-  // ⚠️ 429 는 백오프(1.5s → 3s) 후 재시도한다(상한 2회). 소진되면 status=429 를 실어 throw —
-  //    호출부가 429 를 구분해 "회차 조기 종료" 를 택할 수 있게 한다:
+  // ⚠️ 429 는 **Retry-After 를 읽어 그만큼 대기** 후 1회 재시도한다 (2026-08-19 개정 — 실측 근거):
+  //    · [실측 2026-08-18 밤 GAS 프로브] 한도 = 60콜/60초(429 본문 명문) · 애플리케이션 키 단위 ·
+  //      회복 실측 31초 · 응답 헤더 Retry-After: "60 Seconds". ⚠️ 200 응답에는 x-ratelimit-* 이
+  //      오지 않는다 — 사전 제어 불가, 호출부의 회차당 캡이 유일한 예방책.
+  //    · ~~종전 1.5s→3s·상한 2회(최대 4.5초)~~ 는 실측 회복 31초의 1/7 이라 **사실상 재시도가
+  //      아니었다** — 4.5초 뒤에도 창은 여전히 닫혀 있어 그대로 재-429 였다.
+  //    · 재시도는 **1회**(=최대 60초 대기 1번) — 두 번이면 120초로 EF 실행 시간 제약을 위협한다.
+  //    소진되면 종전과 동일하게 status=429 를 실어 throw — **호출부 계약 불변**:
   //    · receiving: bin 이동 루프가 429 를 failed_moves 에 넣지 않고 회차를 끊는다 (rate_limited)
   //    · hello: saleList 페이지 순회가 throw 없이 조기 종료한다 (rate_limited + 끊긴 페이지 노출)
+  //      (2026-08-04 SO-14100/14106 미유입 실사고 방지 — 이 계약을 바꾸지 말 것)
   for (let attempt = 0; ; attempt++) {
     const resp = await fetch(CIN7_BASE + path, {
       method, headers: cin7Headers(),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (resp.status === 429 && attempt < 2) { await sleep(1500 * (attempt + 1)); continue; }
+    if (resp.status === 429 && attempt < 1) {
+      // Retry-After 실측 형태 = "60 Seconds" — parseInt 가 앞 숫자만 취한다. 없거나 파싱 실패면
+      // 60초(서버가 60을 말하면 60을 지키는 것이 계약 — 실측 31초는 단발 관측이라 근거로 안 쓴다).
+      // 상한 60초 — 서버가 더 큰 값을 말해도 EF 시간 제약 안에서 1회만 기다린다.
+      const ra = parseInt(String(resp.headers.get("Retry-After") ?? ""), 10);
+      await sleep(Math.min(Number.isFinite(ra) && ra > 0 ? ra : 60, 60) * 1000);
+      continue;
+    }
     const text = await resp.text();
     if (!resp.ok) {
       // ⚠️ status/body 를 Error 에 실어 보낸다 — 호출부가 "계속 진행" 을 택할 때(bin 이동 루프) 사람이 읽을

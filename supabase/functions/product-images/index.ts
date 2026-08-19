@@ -76,8 +76,9 @@ import { cin7Get, sleep } from "../_shared/cin7.ts";
 import { hasApply, verifyCaller } from "../_shared/authgate.ts";
 
 const PAGE_LIMIT = 100;          // /product 페이지 크기 (실측 148페이지 · Total 14,718)
-const PAGE_SLEEP_MS = 1100;      // 선제 페이싱 — 분당 ~52콜 < 한도 60/60. ⚠️ cin7() 백오프(총 4.5초)는
-                                 //   60초 창을 못 버틴다(백로그 20번) — 복구 수단이 아니라 최후 방어로만.
+const PAGE_SLEEP_MS = 1100;      // 선제 페이싱 — 분당 ~52콜 < 한도 60/60. ⚠️ cin7() 백오프는 2026-08-19 부터
+                                 //   Retry-After 기반(최대 60초 1회 — 백로그 20번 해소)이나 여전히 최후 방어로만 —
+                                 //   선제 페이싱이 주 수단이다(200 응답엔 x-ratelimit-* 이 없어 사전 제어 불가).
                                  //   백그라운드 예산 400초에 수집 ~210초가 들어가므로 줄일 이유가 없다(v2 조사).
 const MAX_PAGES = 200;           // 폭주 방지 하드캡 (Total 이 20,000 을 넘으면 재검토 — truncated 가 신호)
 const TIME_BUDGET_MS = 330_000;  // t0 기준. 초과 시 **쓰기 없이** 중단(aborted:"time") —
@@ -200,7 +201,7 @@ async function runSync(t0: number, startedAtIso: string, diag: Record<string, un
         j = await cin7Get("/product?Page=" + page + "&Limit=" + PAGE_LIMIT + "&IncludeAttachments=true");
       } catch (e: any) {
         if (Number(e?.status) === 429) {
-          // 백오프(총 4.5초) 소진 — 회차 포기. 부분 수집으로는 쓰지 않는다(all-or-nothing).
+          // 백오프(Retry-After 기반 최대 60초 1회 — 2026-08-19 개정) 소진 — 회차 포기. 부분 수집으로는 쓰지 않는다(all-or-nothing).
           rateLimited = true;
           rateLimitedAtPage = page;
           aborted = "rate_limited";
