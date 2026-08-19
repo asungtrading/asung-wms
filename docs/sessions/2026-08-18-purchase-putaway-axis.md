@@ -309,6 +309,8 @@ PO-00894 orderSKU=72  SR·PA 양쪽 동일 1종(ORS11176)            SR엔없고
 - **API 한도 실측은 집에서** — 업무 시간에 WMS 키를 소진하면 리시빙·폴링이 멈춘다.
   확인할 것: 한도가 **키 단위인지 계정 단위인지**(WMS 키 소진 상태에서 GAS 키가 정상이면 키 단위),
   그리고 `DETAIL_SLEEP_MS=700ms`(분당 85콜)가 실제로 초과인지.
+  → ✅ **당일 밤 둘 다 닫힘**: 한도 60콜/60초 · **키 단위**(GAS 429 순간 WMS 200 — AccountID 동일) ·
+  700ms 는 한도의 1.43배로 **초과 확정**. 정본: `2026-08-18-purchase-source-redesign.md` §9.
 - **리시빙 라인별 작업자 검증** — 오전 기준 0행(작업 전). 오늘 리시빙이 돌면 확인:
   ```sql
   select r.po_number, l.last_received_by, count(*) as lines,
