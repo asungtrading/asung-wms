@@ -36,8 +36,13 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 **진행 상태 (2026-08-18)**: 테이블 4개 + 스냅샷 EF(`inv-snapshot`) + 수집 EF(`inv-collect` —
 ②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재 `@2026-08-18.2`(발주 PutAway 축
 재설계 + PA 어휘 DRAFT — `docs/sessions/2026-08-18-purchase-source-redesign.md`). **쓰기는 아직 안 켰다.**
-기초 스냅샷 8/22 예정. ⚠️ **발주 축은 미검증 2건(adv_no_putaway 경로 · 재등장 전제)이 남아 있어
-`commit=1` 금지 — 설계 정본 4부 「commit=1 을 켜기 전에 닫아야 하는 것」 체크리스트를 먼저 닫을 것.**
+기초 스냅샷 8/22 예정. ✅ **6종 소스 개별 dry 검증 완료(2026-08-19 — 소스 하나씩·사이 90초).**
+남은 것은 **6종 동시 실행 1회**(페이싱 수정 후 — 아래 게이트 5).
+⚠️ **`commit=1` 은 아직 금지** — ⑤ 진입 게이트 현황(**정본은 설계 4부** 「commit=1 을 켜기 전에
+닫아야 하는 것」): ☑1 CardID 안정성 · 👁2 adv_no_putaway(관찰 대기로 하향 — WMS 는 put-away 없이
+Apply 하지 않아 우리 시스템이 만들 수 없는 상태. ⚠️ Advanced 기본값을 켜면 게이트로 복귀) ·
+☑3 재등장 전제(2026-08-19 실측 — PO-01117 이 PA 승인 후 +51행으로 들어왔다) ·
+⬜4 ON CONFLICT 감지 · ⬜5 캡·페이싱 · ⬜6 이동 커서 seed.
 (~~CardID 재수집 안정성~~ 은 2026-08-18 저녁 PO-01117 실측으로 닫힘 — Convert 를 통과해도 유지.)
 ⚠️ **PA 블록은 `DRAFT` 로 생성 → 승인되면 `AUTHORISED`.** [실측] PO-01117 은 Convert 직후 DRAFT,
 **다음 날 아침 AUTHORISED** — 화면이 먼저 바뀌고 API 가 따라온다(**지연 확정**, 2026-08-19).
@@ -61,6 +66,7 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 | 발주 라인 수량은 나중에 바뀔 수 있는가? | **그렇다(2026-08-19).** PO 를 닫으려면 인보이스 수량과 정확히 같아야 해서 **PO 수량을 인보이스 수량으로 채운다** — [실측] PO-01117 PA `CAN01620` **168→192**(`CardID`·bin·문서번호 전부 동일, 수량만). 차액은 **stock adjustment 로 되돌아온다**(`ST-01220` −24/+24) — 한 입고가 `po_in`+`adjustment` **두 소스에 걸친 사건**이 된다. ⚠️ 유니크 키가 같아 `DO NOTHING` 이면 새 수량이 조용히 버려진다(설계 정본 4부 3번) |
 | 발주 입고는 `StockReceived` 를 읽으면 되나? | **아니다(2026-08-18 확정).** Advanced = **`PutAway`** / Simple = `StockReceived`. SR 은 ① `LocationID` 가 null 이거나 창고 GUID 라 **bin 이 구조적으로 없다** ② `Status` 가 stock receiving 단계의 **워크플로 상태**라 재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED · PO-01131 SR=NOT AVAILABLE/PA=AUTHORISED 3,570u). SR·PA 는 같은 입고의 두 표현 — 둘 다 읽으면 두 배 |
 | 목록 `StockReceivedStatus` 로 후보를 좁히면? | **안 된다.** 상세 블록 상태와 **상관이 없다**(양방향 불일치 — PO-01131 목록 AUTHORISED/상세 NOT AVAILABLE ↔ PO-00848 반대). 표본 6건 중 4건(12,552u)이 실재 입고인데 문서째 유실됐다. 판정 권한은 상세 한 곳 — 목록 값은 분포만 센다 |
+| 트랜스퍼도 bin 을 가져오는가? | **가져올 수 있다 — 다만 현재 코드는 안 읽는다(2026-08-19 정정).** bin 은 **라인이 아니라 헤더**에 있다: `FromLocation`/`ToLocation` 이 **`"창고: bin"` 문자열**([실측] TR-02645 `"Asung - Edmonton: EZ01Pallet03"`→`"Asung Trading Inc.: F0300PALLET01"` · 목록·상세 양쪽). **문서 하나 = bin 하나 → bin 하나**라 라인에 없는 게 정상(WMS 도 Apply 시 출발 bin 별로 문서를 쪼갠다). 현재는 `From`/`To` GUID 만 `resolveLoc` 에 넘겨 창고만 해석 → `bins=[""]`. **창고 단위는 지금도 정확** · 자리 단위 때 `": "` 파싱+매핑 대조로 고친다. ⚠️ `Lines[].ProductCustomField1/2` 는 상품 마스터 필드 — 쓰지 말 것(TR-02644 null). ⚠️ ~~"라인에 bin 필드가 없다=데이터 없음"~~ 은 오판이었다(응답 한 부분만 보고 판단 — 발주 SR/PA 와 같은 실수) |
 | `saleCreditNoteList` 행은 CN 단위? | **아니다. sale 단위.** 목록 `RestockStatus` 로 거르면 같은 오더의 AUTHORISED CN 이 유실 — 판정은 상세 `CreditNotes[]` 순회 한 곳만 |
 | `Restock[]` 이 비면 DRAFT? | **아니다.** AUTHORISED+빈 배열 실재(표본 하나 CR-00024 의 일반화였다) — 판정은 배열 실제 길이로 |
 | `UpdatedSince` 로 받으면 그 기간 이벤트만? | **아니다. 갱신 축과 이벤트 날짜는 분리** — 8월 갱신 문서가 4월 이벤트를 품는다. **`since=`(이벤트 필터)가 스냅샷 경계 방어 — 쓰기 켤 때 필수.** `from_since` 는 커서 씨앗으로 딴 것 — 혼동 금지 |
@@ -80,6 +86,14 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 - **응답 필드명을 추측했다** (2026-08-17) — `updated_since_req`·`srs_counts`·`advanced_count`
   전부 오답(실제 `updated_since_requested`·`sr_block_status_counts`·`advanced_docs`).
   **`jq 'keys'` 로 먼저 확인할 것** — 위 「파라미터 이름 추측」과 같은 계열
+- ⚠️ **응답의 한 부분만 보고 「없다」고 결론내지 말 것 — 이틀 만에 두 번 반복했다.**
+  ① 2026-08-18 발주: `StockReceived` 라인만 보고 「Advanced 는 bin 을 못 얻는다」 →
+     실제로는 `PutAway` 블록에 있었다.
+  ② 2026-08-19 트랜스퍼: `Lines[]` 와 dry 의 `bins=[""]` 만 보고 「트랜스퍼는 bin 이 없다」 →
+     실제로는 헤더 `FromLocation`/`ToLocation` 에 `"창고: bin"` 문자열로 있었다.
+  📌 **점검 질문**: 라인에 없으면 **헤더·다른 블록·다른 엔드포인트**에는? 그리고
+  **화면에 보이는데 API 에 없어 보이면 API 를 덜 본 것이다.**
+  ⚠️ 둘 다 **Caleb 이 화면을 보고 지적해서** 잡혔다 — dry 숫자만으로는 두 번 다 못 잡았다
 
 ---
 
