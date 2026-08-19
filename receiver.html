@@ -600,17 +600,20 @@ function renderList(){
     //    (PO-01083·PO-01130 실사고 — CREDITED 제외로 목록에 안 떠 받을 수 없었다).
     //    Cin7 이 부분 입고로 문서를 열어두는 것(PO-01117: 인보이스 192/입고 168)은 정상이고,
     //    미달분 처리(다음 PO/크레딧 노트) 후 Close 되면 목록에서 자연히 빠진다 — 그 시차 동안만 배지.
-    const appliedAt=appliedDocs.get(String(p.id||""));
+    const appliedKind=appliedDocs.get(String(p.id||""));   // "applied" | "external" | undefined
     const tr=p.source==="transfer";
-    if(appliedAt){
+    if(appliedKind){
+      const extK=appliedKind==="external";   // externally_applied — WMS 는 Cin7 에 아무것도 안 썼다
       return `<div class="bcard" data-pi="${i}" data-applied="1" style="cursor:default;opacity:.72">
       <div>
         <div class="bl">${esc(p.po_number)}${tr?' <span class="tag st" style="color:#7c3aed;background:#f3ebff">TRANSFER</span>':""}</div>
         <div class="sub">${esc(p.supplier||"—")} · ${esc(p.status)}${p.order_date?" · "+esc(String(p.order_date).slice(0,10)):""}
           ${tr?`<span class="tag wh-${p.warehouse}">${p.warehouse==="edmonton"?"Edmonton":"Toronto"}</span>`:""}</div>
-        <div class="sub">Already applied to Cin7</div>
+        <div class="sub">${extK?"Applied to Cin7 outside the WMS":"Already applied to Cin7"}</div>
       </div>
-      <span class="tag st" style="color:#1e7d43;background:#e8f7ee;white-space:nowrap" title="This document was already received and written to Cin7 in the WMS. It stays on the Cin7 list until the shortfall is closed there.">Applied</span>
+      ${extK
+        ? `<span class="tag st" style="color:#556070;background:#eef1f6;white-space:nowrap" title="This document was received in the WMS but the Cin7 side was handled outside it (e.g. credit note) — closed by an admin, nothing was written by the WMS.">Closed (applied outside WMS)</span>`
+        : `<span class="tag st" style="color:#1e7d43;background:#e8f7ee;white-space:nowrap" title="This document was already received and written to Cin7 in the WMS. It stays on the Cin7 list until the shortfall is closed there.">Applied</span>`}
     </div>`;
     }
     return `<div class="bcard ${existing?"resume":""}" data-pi="${i}">
@@ -645,10 +648,12 @@ async function refreshAppliedDocs(){
   const next=new Map();
   try{
     for(let i=0;i<ids.length;i+=50){   // 식별자 .in 청크 50 — EF 스냅샷 조회와 같은 관례
-      const {data,error}=await sb.from("wms_receipts").select("cin7_purchase_id,applied_at")
-        .in("cin7_purchase_id",ids.slice(i,i+50)).not("applied_at","is",null);
+      // externally_applied 포함 (2026-08-19): WMS 가 안 썼어도 "닫힘"은 표시해야 Start 혼란이 없다.
+      // 값은 종류 문자열("applied"/"external") — 배지 문구 분기용(종전엔 applied_at 을 truthy 로만 썼다).
+      const {data,error}=await sb.from("wms_receipts").select("cin7_purchase_id,applied_at,status")
+        .in("cin7_purchase_id",ids.slice(i,i+50)).or("applied_at.not.is.null,status.eq.externally_applied");
       if(error) throw error;
-      (data||[]).forEach(r=>next.set(String(r.cin7_purchase_id),r.applied_at));
+      (data||[]).forEach(r=>next.set(String(r.cin7_purchase_id),r.applied_at?"applied":"external"));
     }
     appliedDocs=next;
   }catch(e){ console.warn("applied lookup failed (fail-open — badges only):",e.message||e); }
@@ -710,8 +715,13 @@ async function startPo(i){
     const applied=exAll.find(r=>r.applied_at);
     if(applied){ toast("This "+(p.source==="transfer"?"transfer":"PO")+" is already applied to Cin7 — cannot receive again.",true); return; }
     // 미완료(진행중/held/partial) receipt 있으면 이어받기
-    const open=exAll.find(r=>r.status!=="completed");
+    // ⚠️ externally_applied 는 "미완료"가 아니다(2026-08-19 · PO-01130) — status!=="completed" 판정에
+    //    걸리면 resume→openReceipt 가 상태를 in_progress 로 되돌려 새 상태가 조용히 소멸한다.
+    const open=exAll.find(r=>r.status!=="completed"&&r.status!=="externally_applied");
     if(open){ resumeReceipt(open.id); return; }
+    // Cin7 처리가 WMS 밖에서 끝난 것으로 표시된 receipt — 재개 차단(원복은 Admin Review 에서만)
+    const ext=exAll.find(r=>r.status==="externally_applied");
+    if(ext){ toast("This "+(p.source==="transfer"?"transfer":"PO")+" is closed — it was applied to Cin7 outside the WMS.",true); return; }
     // completed 지만 미적용 → 그것 재개(리뷰/적용 대기 상태)
     resumeReceipt(exAll[0].id); return;
   }
@@ -765,6 +775,10 @@ async function openReceipt(rid){
   const {data:rh,error:re}=await sb.from("wms_receipts").select("*").eq("id",rid).single();
   if(re||!rh){toast("Receipt not found",true);loadMyReceipts();return;}
   if(rh.applied_at){ toast("Already applied to Cin7 — this receipt is closed.",true); loadMyReceipts(); return; }
+  // ⚠️ 누수 봉인 (2026-08-19 · PO-01130): 아래의 "held/partial → in_progress 되돌림"이
+  //    externally_applied 까지 되돌리면 새 상태가 화면 한 번 여는 것(URL ?receipt= 직접 진입 포함)으로
+  //    소멸한다. 원복은 Admin Review 의 Back to completed 뿐.
+  if(rh.status==="externally_applied"){ toast("Closed — applied to Cin7 outside the WMS. Revert it in Admin → Review to reopen.",true); loadMyReceipts(); return; }
   receipt=rh;
   unconfirmed.clear(); writeChain.clear();   // 새 receipt — 이전 세션의 미확인분은 이어받지 않는다
   putawayFailed.clear(); receiptClosed=false; lastOpenCheck=0;

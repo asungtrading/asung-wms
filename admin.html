@@ -2453,7 +2453,12 @@ async function downloadPackingCSV(oid, onum){
 }
 
 /* ---------- Receiving tab: off-PO approvals + incremental CSV ---------- */
-const RECV_ST_LABEL={in_progress:"In progress",held:"Held",partial:"Partial (PO open)",completed:"Completed"};
+const RECV_ST_LABEL={in_progress:"In progress",held:"Held",partial:"Partial (PO open)",completed:"Completed",externally_applied:"Externally applied"};
+// externally_applied (2026-08-19 · PO-01130): Cin7 처리가 WMS 밖에서 끝나 Apply 하지 않기로 확정한
+// receipt. applied_at 은 비운다(WMS 가 Cin7 에 쓴 적 없다는 사실 보존) — Apply 대기(applicable 의
+// status==="completed")에서 자동 제외되고 히스토리에는 남는다. 전이는 Review 모달에서만(canApply):
+// Mark externally applied(사유 필수) ↔ Back to completed(원복 — 대기 목록 재등장). 둘 다 apply_note
+// 에 덧붙여 기록한다(기존 문장을 지우지 않는다 — 되돌린 흔적이 없으면 "왜 다시 대기에 있지"를 추적 불가).
 /* ── awaiting putaway (2026-08-04) ──────────────────────────────────────────
    "옮길 일이 남은 라인" = 받았고(received_base>0) bin 도 정해졌는데(putaway_bin)
    작업자가 "놓았다"(putaway_done)를 남기지 않은 라인.
@@ -2634,8 +2639,8 @@ async function loadRecv(){
           <td class="num" style="font-family:var(--mono);font-weight:700;color:var(--warn)">${nf(np.lines)}</td>
           <td class="num" style="font-family:var(--mono);font-weight:700">${nf(np.units)}</td>
           <td style="color:var(--mut);font-size:12px">${fmtAge(r.updated_at)}</td>
-          <td style="white-space:nowrap">${r.applied_at
-            ? `<span style="font-size:11.5px;color:var(--mut-2)" title="Applied receipts cannot be reopened in the receiver screen">closed</span>`
+          <td style="white-space:nowrap">${(r.applied_at||r.status==="externally_applied")
+            ? `<span style="font-size:11.5px;color:var(--mut-2)" title="${r.applied_at?"Applied receipts cannot be reopened in the receiver screen":"This receipt was applied to Cin7 outside the WMS — revert it to Completed in Review to reopen"}">closed</span>`
             : `<a class="btnsm" href="receiver.html?receipt=${r.id}" title="Open the putaway screen for this receipt">Put away →</a>`}</td>
         </tr>`;}).join("")}</tbody></table>`;
 
@@ -2703,7 +2708,9 @@ async function loadRecv(){
               : rg
               ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ Applied (${rg} group${rg>1?"s":""} left${isTr?"":" — Cin7 DRAFT"})</span>`
               : `<span class="tag" style="color:var(--ok);background:var(--ok-bg,#e7f7ed)" title="${esc(r.apply_note||"")}">✓ Applied</span>`)
-            : (rg
+            : (r.status==="externally_applied"
+              ? `<span class="tag" style="color:var(--mut);background:var(--line-2,#eef1f6)" title="${esc(r.apply_note||"Applied to Cin7 outside the WMS")}">External</span>`
+              : rg
               ? `<span class="tag" style="color:var(--warn);background:var(--warn-bg)" title="${esc(r.apply_note||"")}">⏸ ${rg} group${rg>1?"s":""} left${isTr?"":" — Cin7 DRAFT"}</span>`
               : '<span style="color:var(--mut-2);font-size:12px">—</span>')}</td>
           <td style="font-size:12px">${recvWorkersCell(r)}</td>
@@ -2856,10 +2863,18 @@ async function reviewReceipt(rid){
     const canApply=(me.role==="admin")||(Array.isArray(me.perms)?me.perms:[]).includes("apply");
     // 미완료 풋어웨이 — 모달 Apply 버튼도 목록과 같은 규칙으로 주황(data-notplaced → setApplyBtn 이 유지).
     const npRv=recvNotPlaced[rid];
+    // externally_applied 분기 (2026-08-19): 읽기 전용 + 원복만. Apply/Reopen 버튼을 만들지 않는다 —
+    // EF 게이트(status!=='completed')가 어차피 막지만, 뜨는 것 자체가 "눌러야 하나" 혼란을 만든다.
+    const extApplied=rh.status==="externally_applied";
     const foot=applied
       ? `<div style="color:var(--mut);font-size:12.5px;padding:4px 2px">✓ Already applied to Cin7${rh.applied_at?" · "+new Date(rh.applied_at).toLocaleString():""} — read-only. Corrections must be made in Cin7.</div>
          <button class="btnsm" id="rvClose">Close</button>`
+      : extApplied
+      ? `<div style="color:var(--mut);font-size:12.5px;padding:4px 2px">Closed — applied to Cin7 outside the WMS (nothing was written by the WMS). See the note in History for who and why.</div>
+         ${canApply?`<button class="btnsm" id="rvExtRevert" style="color:var(--warn,#d9820a)">Back to completed</button>`:""}
+         <button class="btnsm" id="rvClose">Close</button>`
       : `<button class="btnsm" id="rvReopen" style="color:var(--warn,#d9820a)">Reopen for edit</button>
+         ${(canApply&&rh.status==="completed")?`<button class="btnsm" id="rvExtMark" style="color:var(--mut)" title="The stock was already handled in Cin7 (e.g. credit note) — close this receipt without the WMS writing anything. It leaves the Apply list but stays in history.">Mark externally applied</button>`:""}
          <button class="btnsm" id="rvClose">Close</button>
          ${canApply?`<button class="btnsm ${npRv.lines?"warn":"ok"}" id="rvApply" data-notplaced="${npRv.lines}">Apply to Cin7 →</button>`:`<span style="font-size:12px;color:var(--mut-2)">Apply needs permission</span>`}`;
     const npBanner=npRv.lines?`<div style="margin:8px 0 2px;padding:9px 11px;border-radius:9px;background:var(--warn-bg);border:1px solid #f0dcc0;color:#8a5a08;font-size:12.5px;line-height:1.5">
@@ -2892,9 +2907,40 @@ async function reviewReceipt(rid){
     if(reopenBtn) reopenBtn.onclick=async()=>{
       if(rh.applied_at){ toast("Already applied — cannot reopen",true); return; }
       if(!confirm(`Reopen ${rh.po_number} for edit?\nStatus returns to In progress and opens in the Receiving screen. Re-complete it afterwards.`)) return;
-      const {error}=await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid).is("applied_at",null);
+      // .neq externally_applied (2026-08-19): 모달을 열어둔 사이 남이 externally applied 로 표시한
+      // 레이스에서 Reopen 이 그 상태를 in_progress 로 되돌리지 않게 — 원복은 Back to completed 뿐.
+      const {error}=await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid).is("applied_at",null).neq("status","externally_applied");
       if(error){ toast("Reopen failed: "+error.message,true); return; }
       location.href="receiver.html?receipt="+rid;
+    };
+    // ── externally applied 전이 (2026-08-19 · PO-01130) ──
+    // 두 방향 모두 apply_note 에 **덧붙인다**(기존 문장 보존 — 지우면 원복 흔적이 사라져
+    // "왜 이 receipt 가 대기 목록에 다시 있지"를 추적할 수 없다). failed_moves(N) 류 계약 마커와는
+    // 단어가 달라 정규식 충돌 없음. UPDATE 는 상태 조건부 + .select() 로 실제 1행 갱신을 확인한다
+    // (규칙 27 R11 계열 — 200 이 아니라 갱신된 행이 근거).
+    const extMarkBtn=document.getElementById("rvExtMark");
+    if(extMarkBtn) extMarkBtn.onclick=async()=>{
+      const reason=prompt(`Mark ${rh.po_number} as applied outside the WMS?\nIt leaves the Apply list but stays in history — the WMS writes nothing to Cin7.\n\nWhy was it handled outside the WMS? (required)`,"");
+      if(reason===null) return;
+      if(!reason.trim()){ toast("A reason is required",true); return; }
+      const note=(rh.apply_note?rh.apply_note+" | ":"")+"externally applied by "+me.name+" "+new Date().toISOString()+" — "+reason.trim();
+      const {data,error}=await sb.from("wms_receipts")
+        .update({status:"externally_applied",apply_note:note,updated_at:new Date().toISOString()})
+        .eq("id",rid).is("applied_at",null).eq("status","completed").select("id");
+      if(error){ toast("Failed: "+error.message,true); return; }
+      if(!data||!data.length){ toast("Not marked — the receipt changed state meanwhile, reload and retry",true); return; }
+      toast(rh.po_number+" marked externally applied"); ov.remove(); loadRecv();
+    };
+    const extRevertBtn=document.getElementById("rvExtRevert");
+    if(extRevertBtn) extRevertBtn.onclick=async()=>{
+      if(!confirm(`Return ${rh.po_number} to Completed?\nIt reappears in the Apply list as awaiting apply.`)) return;
+      const note=(rh.apply_note?rh.apply_note+" | ":"")+"reverted to completed by "+me.name+" "+new Date().toISOString();
+      const {data,error}=await sb.from("wms_receipts")
+        .update({status:"completed",apply_note:note,updated_at:new Date().toISOString()})
+        .eq("id",rid).eq("status","externally_applied").select("id");
+      if(error){ toast("Failed: "+error.message,true); return; }
+      if(!data||!data.length){ toast("Not reverted — the receipt changed state meanwhile, reload and retry",true); return; }
+      toast(rh.po_number+" returned to Completed — back in the Apply list"); ov.remove(); loadRecv();
     };
   }catch(e){ toast("Review failed: "+(e.message||e),true); }
 }
@@ -3477,7 +3523,7 @@ async function loadRecvStats(r){
   const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0});
   const T={po:mkT(),transfer:mkT()};
   const byWorker={}, byWh={};
-  let applied=0, appliedPartial=0, notApplied=0;
+  let applied=0, appliedPartial=0, notApplied=0, extApplied=0;
   let pLines=0,pDone=0,backLines=0,backUnits=0,trLines=0,trMoved=0;
   // 기간 판정 두 벌 (2026-08-17 — 어느 지표가 어느 기준인지는 커밋 메시지 목록 참조):
   //   receipt 단위 지표(receipts 수·applied/notApplied·avg receive·avg complete→apply·byWh.n)
@@ -3500,6 +3546,9 @@ async function loadRecvStats(r){
       if(am!=null){ t.aMin+=am;t.aN++; }
       if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
       else if(rc.status==="completed") notApplied++;
+      // externally_applied 는 applied 에 합산하지 않는다(2026-08-19 사용자 결정) —
+      // "Applied to Cin7" 은 WMS 가 썼다는 지표라 섞으면 의미가 흐려진다. 별도 카운트.
+      else if(rc.status==="externally_applied") extApplied++;
     }
     // ── 사람 귀속은 라인 단위 (2026-08-17 · last_received_by) ──
     // 종전 receipt 단위 귀속(received_by)은 "시작한 사람" 전량 귀속이라 나눠 받기(규칙 24)에서
@@ -3552,6 +3601,7 @@ async function loadRecvStats(r){
     ["Applied to Cin7",applied,applied>0?"ok":""],
     ["Applied, bins failed",appliedPartial,appliedPartial>0?"warn":""],
     ["Completed, not applied",notApplied,notApplied>0?"warn":""],
+    ["Applied outside WMS",extApplied,""],
   ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
   const typeRow=(label,t)=>`<tr><td style="font-weight:600">${label}</td>
