@@ -336,10 +336,18 @@ async function listOpenPOs(search: string): Promise<{ pos: any[]; scanned: Recor
       // ③ Service 주문(운송·관세 등) 제외 — 물건 없음. ⚠️ IsServiceOnly 필드로 교체하지 말 것:
       //    [실측 2026-08-15 교차표] Type 판정 vs IsServiceOnly 가 663/663 완전 일치(누수·과차단 0) — 교체 이득 없음.
       if (/service/i.test(String(p.Type || ""))) continue;
-      // ④ ⚠️⚠️ 주 방어선 — 절대 지우지 말 것. "인보이스 수량만큼 이미 받고 승인까지 끝난 PO" 를 막는다.
-      //    지우면 A유형 5건(PO-00896·00966·01010·01016(Advanced)·01076(Simple) — 전부 Invoice 수량 ==
-      //    StockReceived 수량 == 승인 완료. 오더에만 인보이스 미발행 잔량이 남아 CombinedReceivingStatus 가
-      //    PARTIALLY RECEIVED 로 보일 뿐)이 목록에 떠서, 작업자가 이미 받은 물건을 다시 받는다 = Cin7 재고 2배.
+      // ④ 보조 방어선 (2026-08-19 격하 — 종전 "주 방어선" 표현은 틀렸다): Simple PO 의 이중 입고를
+      //    막는 장치다. 유지 근거였던 A유형 5건(PO-00896·00966·01010·01016(Advanced)·01076(Simple) —
+      //    Invoice == StockReceived == 승인 완료)은 여전히 여기서 걸린다 — 지우지 않는다.
+      //    ⚠️ 완전일치는 Convert 된 PO 에 뚫린다 — PO-01117 은 리시빙·Apply 완료(receipt id=58 ·
+      //    applied 2026-08-18 19:41) 후 Convert(Simple→Advanced)돼 목록 StockReceivedStatus 가
+      //    PARTIALLY RECEIVED 라 통과했다.
+      //    ⚠️ 어휘를 나열해 막지 말 것(PARTIALLY RECEIVED 추가 등) — 다음 값에 또 뚫린다.
+      //    목록 StockReceivedStatus 는 상세 블록 상태와 상관이 없고 Simple/Advanced 에 따라 의미가
+      //    다르다(2026-08-18 원장 재설계 — cin7-api 스킬 11번 · ledger-design.md 1부 발주 절).
+      //    ⚠️ 데이터 안전의 실제 담당은 receiver.html startPo() 의 applied_at 가드다 — 목록 필터는
+      //    작업자에게 보여줄 것을 고르는 장치이지 안전장치가 아니다.
+      //    📌 뚫려도 이중 입고는 안 난다 — 화면 표시는 별건(receiver 의 Applied 배지)으로 처리한다.
       if (String(p.StockReceivedStatus || "").toUpperCase() === "AUTHORISED") continue;
       // ⑤ Mark as Closed 마커 — Cin7 UI 에서 닫으면 OrderStatus=CLOSED ([실측] PO-00892 · 필드 실재, 누락행 0)
       if (String(p.OrderStatus || "").trim().toUpperCase() === "CLOSED") continue;
