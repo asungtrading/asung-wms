@@ -149,7 +149,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-18.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.1 = 발주 PutAway 축 전환 + 목록 SRS 게이트 제거 + line_ref=CardID)
+const COLLECTOR_VERSION = "inv-collect@2026-08-18.2";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.2 = PA 어휘에 DRAFT 추가(경고 오탐 제거))
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -1071,7 +1071,9 @@ Deno.serve(async (req) => {
               if (bst !== "AUTHORISED") {
                 const skKey = axis + ":" + (bst || "(empty)");
                 blocksSkipped[skKey] = (blocksSkipped[skKey] ?? 0) + 1;
-                const known = purchaseIsAdvanced ? ["VOIDED"] : ["VOIDED", "NOT AVAILABLE", "DRAFT", ""];
+                // [실측 2026-08-18] PO-01117 — Convert 직후 PA 블록이 DRAFT 로 생성된다.
+                //   종전 어휘 실측 {AUTHORISED:37, VOIDED:1} 은 표본이 완료 문서라 진행 중 상태를 못 봤다.
+                const known = purchaseIsAdvanced ? ["VOIDED", "DRAFT"] : ["VOIDED", "NOT AVAILABLE", "DRAFT", ""];
                 if (!known.includes(bst)) warnings.push("unknown " + axis + " block Status: '" + bst + "' on " + docNo);
                 continue;
               }
@@ -1214,8 +1216,9 @@ Deno.serve(async (req) => {
         if (advNoPutaway > 0) warnings.push(advNoPutaway + " Advanced doc(s) without PutAway - rows NOT made (shelf placement pending), e.g. " + advNoPutawaySamples.join(", "));
         Object.assign(R, {
           advanced_docs: advancedCount,
-          // ⚠️ simple_docs 0 은 정상 — Type 은 가변(입고 후 Advanced 전환이 관행, 대개 Apply 후
-          //   10분 안팎)이라 수집이 Simple 상태를 볼 확률이 구조적으로 낮다(세션 문서 §2-4).
+          // ⚠️ simple_docs 는 0 도 >0 도 정상 — Type 은 가변이지만 전환은 자동이 아니라 사람이
+          //   Cin7 UI 에서 Convert 를 누르는 동작([실측 2026-08-18] PO-01117 Apply 후 31분 무변).
+          //   Convert 가 보통 빨리 눌려 수집이 Simple 상태를 볼 확률이 낮을 뿐이다(세션 문서 §8).
           simple_docs: simpleCount,
           list_stock_received_status_counts: srsCounts,      // 관측 전용 — 이제 거르지 않는다
           list_combined_receiving_status_counts: crsCounts,  // 신규 관측

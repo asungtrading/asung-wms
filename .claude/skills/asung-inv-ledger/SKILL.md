@@ -34,11 +34,11 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 - 원가(amount)·자리(bin)는 **값만 저장하고 계산엔 안 씀** — 나중에 소급 불가라 지금부터 담는다
 
 **진행 상태 (2026-08-18)**: 테이블 4개 + 스냅샷 EF(`inv-snapshot`) + 수집 EF(`inv-collect` —
-②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재 `@2026-08-18.1`(발주 PutAway 축
-재설계 완료 — `docs/sessions/2026-08-18-purchase-source-redesign.md`). **쓰기는 아직 안 켰다.**
-기초 스냅샷 8/22 예정. ⚠️ **발주 축은 미검증 3건(CardID 재수집 안정성 · adv_no_putaway 경로 ·
-재등장 전제)이 남아 있어 `commit=1` 금지 — 설계 정본 4부 「commit=1 을 켜기 전에 닫아야 하는 것」
-체크리스트를 먼저 닫을 것.**
+②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재 `@2026-08-18.2`(발주 PutAway 축
+재설계 + PA 어휘 DRAFT — `docs/sessions/2026-08-18-purchase-source-redesign.md`). **쓰기는 아직 안 켰다.**
+기초 스냅샷 8/22 예정. ⚠️ **발주 축은 미검증 2건(adv_no_putaway 경로 · 재등장 전제)이 남아 있어
+`commit=1` 금지 — 설계 정본 4부 「commit=1 을 켜기 전에 닫아야 하는 것」 체크리스트를 먼저 닫을 것.**
+(~~CardID 재수집 안정성~~ 은 2026-08-18 저녁 PO-01117 실측으로 닫힘 — Convert 를 통과해도 유지.)
 
 ---
 
@@ -60,6 +60,7 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 | `saleCreditNoteList` 행은 CN 단위? | **아니다. sale 단위.** 목록 `RestockStatus` 로 거르면 같은 오더의 AUTHORISED CN 이 유실 — 판정은 상세 `CreditNotes[]` 순회 한 곳만 |
 | `Restock[]` 이 비면 DRAFT? | **아니다.** AUTHORISED+빈 배열 실재(표본 하나 CR-00024 의 일반화였다) — 판정은 배열 실제 길이로 |
 | `UpdatedSince` 로 받으면 그 기간 이벤트만? | **아니다. 갱신 축과 이벤트 날짜는 분리** — 8월 갱신 문서가 4월 이벤트를 품는다. **`since=`(이벤트 필터)가 스냅샷 경계 방어 — 쓰기 켤 때 필수.** `from_since` 는 커서 씨앗으로 딴 것 — 혼동 금지 |
+| `SR=[""]` 빈 상태 블록을 이상 신호로 볼 것인가? | **아니다. Convert 를 거친 문서의 정상 흔적**(라인이 PA 로 옮겨간 뒤 껍데기만 남는다 — PO-01117 실측: Convert 직후 SR 0줄·PA 51줄, CardID 동일) |
 
 ### 조사 자체에서 반복된 실패 (같은 실수 반복 금지)
 
@@ -102,12 +103,16 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED 62줄 `FULLY RECEIVED` · PO-01131
   SR=NOT AVAILABLE/PA=AUTHORISED 3,570u · PO-01128 SR=""/PA=AUTHORISED 84줄). SR·PA 는 같은
   입고의 두 표현(15건 srLines==paLines) — **둘 다 읽으면 정확히 두 배**.
-  블록 화이트리스트 = **두 축 모두 AUTHORISED 만** + 미지값 경고(~~빈 문자열 통과~~ 는 근거
-  소멸로 삭제). 목록 `StockReceivedStatus` 게이트 없음(위 함정 표). Advanced 인데 PA 없음 =
-  행 미기표 + 보고, 커서는 안 멈춘다(재등장 전제 미확인 — 정본 4부 체크리스트).
-  ⚠️ `Type` 은 가변(Simple 발행 → 입고 → Apply 후 ~10분에 Advanced 전환, 12/12) —
-  `simple_docs: 0` 은 정상이고, 전환이 `LastUpdatedDate` 를 올려 **모든 PO 가 UpdatedSince 에
-  최소 두 번 잡힌다**. ~~"최근 40건 전부 Advanced — Simple 분기 미실행"(08-17)~~ 은 닫혔다:
+  블록 화이트리스트: **통과는 두 축 모두 AUTHORISED 만** + 미지값 경고(~~빈 문자열 통과~~ 는
+  근거 소멸로 삭제). **PA 축의 알려진 어휘 = `AUTHORISED`·`VOIDED`·`DRAFT`**(08-18 · Convert
+  직후 PA 는 DRAFT 로 생성 — PO-01117) — ⚠️ 어휘와 통과 기준은 다르다: DRAFT 는 경고 없이
+  건너뛰는 정상 상태일 뿐 기표되지 않는다. 목록 `StockReceivedStatus` 게이트 없음(위 함정 표).
+  Advanced 인데 PA 없음 = 행 미기표 + 보고, 커서는 안 멈춘다(재등장 전제 미확인 — 정본 4부
+  체크리스트).
+  ⚠️ `Type` 은 가변이지만 **Convert 는 사람이 누르는 명시적 동작 — 시간 아님(PO-01117 31분 무변)**.
+  ~~"Apply 후 ~10분 자동 전환(12/12)"~~ 은 Convert 가 보통 빨리 눌렸던 것의 오인.
+  `simple_docs: 0` 도 `> 0` 도 정상이고, 전환이 `LastUpdatedDate` 를 올려 **모든 PO 가
+  UpdatedSince 에 최소 두 번 잡힌다**. ~~"최근 40건 전부 Advanced — Simple 분기 미실행"(08-17)~~ 은 닫혔다:
   목록 게이트 제거 후 `simple_docs: 7` 실행·정상 동작(SR NOT AVAILABLE 올바르게 배제).
   [실측 08-18 dry 전/후] rows 383→643(+68%) · UNMAPPED 소멸 · bin 실제 선반으로
 - **발주 날짜**: `OrderDate`·`InvoiceDate`·`LastUpdatedDate` 전부 어긋남. 우연히 맞는 경우가 있어
@@ -202,8 +207,8 @@ hold_missing_date 로 상세 캡 40을 정확히 소진**해 뒤 ~3,000건을 �
   ⚠️ **발주는 `CardID` 로 확정(2026-08-18 · `@2026-08-18.1`)** — 같은 SKU 가 여러 빈으로 쪼개지고
   같은 빈·같은 SKU 가 날짜만 달리 두 줄인 사례 실측(PO-00944 KUZ77036). `ProductID` 는 유일성
   94/97 · 109/110 으로 부족, `CardID` 는 97/97 · 110/110. [실측] `.7` dry `merged_lines: 5`
-  (가설이던 뭉개짐이 실재) → `.1` 에서 **0**. ⚠️ CardID 의 재수집 안정성(Type 전환 시 재생성
-  여부)은 **미확인** — 정본 4부 체크리스트 1번
+  (가설이던 뭉개짐이 실재) → `.1` 에서 **0**. ✅ CardID 의 재수집 안정성은 **닫힘(08-18 저녁
+  PO-01117)** — Convert(SR→PA)를 통과해도 51줄 전부 CardID·LocationID·순서 유지, 재생성 아님
 - `raw` = **그 행을 만든 라인 원본 + 계산에 쓴 머리말 + 우리가 적용한 계산 규칙**.
   문서 전체 금지(344라인 트랜스퍼면 수천 벌 중복)
 - ⚠️ `qty_delta` 에 CHECK 없음 — **소수 수량이 실재**(5.25개 · ×0.25)

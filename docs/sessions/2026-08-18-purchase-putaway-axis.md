@@ -95,7 +95,11 @@ PutAway[0]       TaskID=3c8cab02… IRNum=0 Status="AUTHORISED" lines=62 dates={
 
 WMS `apply_note` 의 `cin7_type='…'` 이 Apply 시점 타입을 남긴다 — 최근 17건 중 **12건이 Simple**.
 
-📌 **실무 흐름**: PO 는 Simple 로 발행 → 입고 → 여러 이유로 Advanced 로 전환(대개 Apply 후 10분 안팎).
+📌 **실무 흐름**: PO 는 Simple 로 발행 → 입고 → ~~여러 이유로 Advanced 로 전환(대개 Apply 후
+10분 안팎)~~ → ⚠️ **당일 저녁 정정**: 전환은 자동이 아니라 **사람이 Cin7 UI 에서 `Convert` 를
+누르는 명시적 동작**이다(PO-01117 — Apply 후 31분 무변 → Convert 즉시 전환. 정본:
+`2026-08-18-purchase-source-redesign.md` §8). 위 표의 "10분 안팎"은 Convert 가 보통 빨리
+눌렸던 것의 오인.
 
 ⇒ **`simple_docs: 0` 은 이상이 아니라 정상이다.** 수집 조건이 `StockReceivedStatus` 가 서는 것(입고 후)인데
 전환도 입고 후에 일어나므로, **수집이 Simple 상태를 볼 확률이 구조적으로 낮다.**

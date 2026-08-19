@@ -202,8 +202,12 @@ Advanced 상세 응답의 입고는 **`StockReceived`(창고 도착)와 `PutAway
 - ⚠️ 목록 `StockReceivedStatus` 는 상세 블록의 `Status` 와 **양방향으로 어긋난다**(상관없음 —
   PO-01131 목록 AUTHORISED/상세 NOT AVAILABLE ↔ PO-00848 반대). 후보 게이트로 쓰면 실재 입고가
   문서째 사라진다(표본 4건 12,552u)
-- ⚠️ `Type` 은 **가변**이다 — Simple 로 발행된 PO 가 입고 후(대개 Apply 후 ~10분) Advanced 로
-  전환된다(실측 12/12). 전환이 `LastUpdatedDate` 를 갱신한다
+- ⚠️ `Type` 은 **가변**이지만 **전환은 자동이 아니다 — `Convert` 는 사람이 Cin7 UI 에서 누르는
+  명시적 동작**이다(2026-08-18 실측 PO-01117: Apply 후 31분 무변(`LastUpdatedDate` 도 불변) →
+  Convert 즉시 Advanced). ~~"입고 후 대개 Apply 후 ~10분 자동 전환(12/12)"~~ 은 Convert 가
+  보통 빨리 눌렸던 것의 오인. 전환이 `LastUpdatedDate` 를 갱신한다.
+  Convert 는 라인을 재생성하지 않고 **SR → PA 로 옮긴다**(SR 은 빈 상태 `""`·0줄 껍데기로
+  남고, PA 는 `DRAFT` 로 생성 · `CardID`·`TaskID` 유지 — PO-01117 51줄)
 
 ---
 
