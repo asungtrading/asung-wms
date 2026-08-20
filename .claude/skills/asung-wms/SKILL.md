@@ -295,6 +295,42 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
     ([실측 2026-08-19] 09:09 조회 시 9분 전 갱신 = 정상, 주기 5분).
     ⚠️ `product-images`(cron 잡 4·5 · 08:30·09:30 토론토)의 결과물 확인 방법은 **미정 — 별건**
     (`wms_image_sync_runs` 가 후보 — 「상품 이미지 파이프라인」 절의 세 역할 참조).
+- ⚠️ **`asung-wms` 레포는 private 이다 (2026-08-19 전환).** 소유자는 **개인 계정** `asungtrading`(GitHub Pro
+  — private 레포에서 Pages 를 쓰려면 개인은 Pro, 조직은 Team 이상이 필요하다). ⚠️ 위 항목과 같이
+  원래 `asung-ops` 스킬(레포·운영) 소관이나 그 스킬이 이 레포에 없어 여기 둔다 — **같이 옮길 것(별건)**:
+  - **전환은 무중단이었다** — Pages 설정(Source `Deploy from a branch` · `main /(root)` ·
+    Custom domain `wms.asung.ca` · Enforce HTTPS ✓)이 전부 유지됐고 재배포도 필요 없었다.
+    전환 전 `DNS Check in Progress` 였던 것이 전환 후 `DNS check successful` 로 바뀌었고,
+    `wms.asung.ca` 접속·로그인·리시빙 화면까지 정상 확인. ⚠️ 다만 **보장은 아니다** —
+    다른 레포를 전환할 때도 Pages 설정을 미리 기록해 두고 업무 시간 외에 할 것.
+  - ⚠️⚠️ **발행된 사이트는 여전히 공개다** — Pages 화면에 그대로 안내가 뜬다
+    (`This repository is private but the published site will be public`).
+    사이트 자체를 비공개로 발행하려면 **GitHub Enterprise** 가 필요하다(Pages Visibility 항목).
+    ⇒ **private 이 보호하는 것은 프론트가 아니다** — 프론트는 브라우저 소스 보기로도 열린다.
+    실제 보호 대상은 **`docs/`**(설계 정본·세션 문서·SKU/수량/거래처/직원 이름이 담긴 실측 데이터) ·
+    **`supabase/functions/`**(EF 소스·Cin7 연동 로직) · **`.claude/skills/`**(운영 노하우) ·
+    **`supabase/migrations/`**(스키마) 다.
+  - ⚠️ **레포가 개인 계정 소유다 — 버스팩터.** 회사 핵심 시스템이 한 개인 계정에 묶여 있다.
+    조직 이전은 **원장 ⑥ 이후 검토** — ⚠️ 이전 시 **Pages CNAME·HTTPS 재설정이 최대 변수**이니
+    창고 시간대를 피할 것. 그 밖에 두 대의 PC `git remote set-url` · 조직 Team 플랜 ·
+    Actions 시크릿 재설정.
+  - ⬜ **미검토 레포**: `tools.asung.ca` 레포(내부 도구 — ⚠️ **직원이 매일 쓰므로 전환 중 중단 위험**,
+    업무 시간 외에) · `gas-system-automation`(⚠️ Cin7 연동·자동화 전체가 들어 있고 **Pages 를 안 써서
+    전환 위험이 없다 — 우선순위가 더 높을 수 있다**). 판단 기준은 **`docs/` 유무와 코드 내 시크릿 여부**.
+- ⚠️⚠️ **대화 세션의 Claude 는 이제 레포를 직접 읽을 수 없다 (2026-08-19~ · 위 private 전환의 귀결).**
+  종전에는 `raw.githubusercontent.com` 과 codeload tarball 로 파일·스킬을 직접 받아 확인했고,
+  그것으로 코드 대조·스킬 zip 생성을 해 왔다. **private 전환 후 둘 다 404 다**(전환 직후 실측).
+  - ⇒ **파일 내용·diff 는 Caleb 이 붙여넣어야 한다.** 「레포에서 확인해 줘」가 더 이상 성립하지 않는다.
+  - ⇒ **claude.ai 스킬 zip 도 로컬에서 만든다:**
+    ```bash
+    cd ~/asung/asung-wms/.claude/skills
+    zip -r /mnt/c/Users/yoonh/Downloads/asung-inv-ledger.zip asung-inv-ledger
+    zip -r /mnt/c/Users/yoonh/Downloads/asung-wms.zip asung-wms
+    ```
+    (⚠️ zip 하나에 최상위 폴더 하나 · `SKILL.md` 하나 규칙은 그대로 — 7절. Windows 에서 열려면
+    `/mnt/c/...` 경로로 만들 것 — WSL 홈에 만들면 Windows 탐색기에서 찾기 번거롭다.
+    ⚠️ `/mnt/c/Users/yoonh/…` 는 집 PC 의 경로다.)
+  - 📌 **Claude Code 는 로컬 파일을 직접 읽으므로 영향이 없다.**
 - **확대 폴링**: saleList AUTHORISED 페이지네이션(POLL_LIMIT 100 × POLL_MAX_PAGES 3=300스캔), SKIP_PICKED(CombinedPickingStatus='PICKED' 제외), **상세조회 전 dedup**(existingSaleIds), MAX_DETAIL 60캡(**최신 오더번호부터** — 아래 2026-08-04 ②). 진단필드(dry-run·commit 공통): `pages_scanned/candidates/after_skip_picked/already_exists/fresh_candidates/detail_fetched/detail_capped(+detail_capped_orders)/would_insert` + **2026-08-04 추가**: `list_total/list_fetched/truncated`(스캔 잘림)·`oldest_scanned/newest_scanned`(스캔 범위)·`rate_limited(+rate_limited_at_page)`(429 조기 종료). `skipped_detail` 은 `already_exists` 에 더해 **`skip_picked` 제외분도 포함**(오더번호+사유). ⚠️ 이 필드들이 응답에 **없으면 옛 버전** — 재배포 필요.
 - **⚠️ Cin7 병행운영 3케이스**: (A) 유입 전 `2.Release to WMS`→`3.Finalized` 등으로 바뀌면 → 유입 안 됨(정상). (B) Cin7에서 픽됨(PICKED) → SKIP_PICKED로 제외(두 시스템 동시작업 방지, 의도됨 — "안 들어온다"의 최빈 원인. 2026-08-04 부터 `skipped_detail` 의 `skip_picked` 로 응답에서 바로 보임). (C) ~~**유입 후 Cin7에서 바뀜 → WMS는 모름**(dedup으로 재조회 안 함). 자동감지는 백로그.~~ → ✅ **2026-08-12 해소 — Updated 트리거 감지(규칙 43)**: 유입 오더의 `cin7_updated` 와 목록 Updated 를 비교해 바뀐 것만 상세 재조회 → `On Hold` 보류 / 예상 밖 값 admin 알림. ⚠️ 감지 범위는 **AdditionalAttribute1 변경**(보류 안전장치) — 종전 백로그 문구의 needs_review/voided 자동 전환까지는 아니다(needs_review 는 여전히 미구현 · **void 는 2026-08-14 별도 감지 루프로 해소** — 목록 부재 감지 + 2회차 완충, status 전환은 ⊘ Void 수동. 백로그 「신규 기능」 void 항목).
 - **⚠️⚠️ 2026-08-04 실사고 — SO-14100·SO-14106 미유입 (원인 2개, 스캔 범위는 무죄)**:
