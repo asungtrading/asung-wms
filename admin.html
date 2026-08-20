@@ -311,6 +311,10 @@ let repPeriodKey="week", repCustom={from:null,to:null}, repRange=null;
 // Throughput by worker 병합 상태 — pick/pack(loadStats)과 receiving(loadRecvStats)이
 // 각자 도착하는 대로 renderProd()가 합쳐 그린다 (규칙 17: 렌더를 서로 막지 않음)
 let prodPP=null, prodRecv=null;
+// 리시빙 사람 귀속의 ~폴백 접두 — 생성(loadRecvStats 의 fbKey)과 병합 파싱(renderProd)이
+// 이 상수 하나를 공유한다(2026-08-20 — 두 곳이 따로 "~" 를 알면 언젠가 갈라진다).
+const RECV_FB_PREFIX="~";
+const RECV_FB_TIP="Rows predate 2026-08-17 (line-level worker column) — attributed to who STARTED the receipt, not who received the lines.";
 // 배치 목록 펼침 상태 — "이름|pick|pack|recv" 단일 키(하나만 펼침 — 여러 개 열리면 작업자 간 줄 비교가 깨진다).
 let prodExpanded=null;
 
@@ -3505,16 +3509,34 @@ function renderProd(){
   // one row per worker = pick/pack (prodPP) ∪ receiving (prodRecv) — 두 조회가 도착하는 대로 병합 재렌더
   const el=document.getElementById("prodTable");
   const pp=prodPP||{}, rv=prodRecv||{};
-  const names=[...new Set([...Object.keys(pp),...Object.keys(rv)])];
+  // ── ~폴백 그룹을 실명 행에 접어 넣는다 (2026-08-20 Caleb — 렌더 단계 병합) ──
+  // 집계(loadRecvStats)는 그대로 두 키로 나눠 두고(합치면 구분이 사라진다), 여기서 행만 하나로 —
+  // 수치는 exact(라인별 실작업자)/attr(2026-08-17 컬럼 도입 전 — 시작자 귀속 추정) 두 벌 분리 유지.
+  // ⚠️ 한 숫자로 합산 금지: PO-01131 형("들어갔다 나온 사람이 전량 작업자") 거짓이 부활한다(규칙 24).
+  const rvm={};
+  Object.entries(rv).forEach(([k,v])=>{
+    const fb=k.startsWith(RECV_FB_PREFIX);
+    const nm=fb?k.slice(RECV_FB_PREFIX.length):k;
+    const m=rvm[nm]=rvm[nm]||{exact:null,attr:null};
+    if(fb)m.attr=v; else m.exact=v;
+  });
+  const rvLines=rc=>rc?(((rc.exact&&rc.exact.lines)||0)+((rc.attr&&rc.attr.lines)||0)):0;   // 정렬·막대 스케일 = 표시 총량(exact+attr)
+  const names=[...new Set([...Object.keys(pp),...Object.keys(rvm)])];
   if(!names.length){ el.innerHTML=`<div class="empty">No work completed in this period.</div>`; return; }
   const P0={pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0};
-  const rows=names.map(nm=>[nm,pp[nm]||P0,rv[nm]||null])
-    .sort((a,b)=>((b[1].pick+b[1].pack)-(a[1].pick+a[1].pack))||((b[2]?b[2].lines:0)-(a[2]?a[2].lines:0)));
+  const rows=names.map(nm=>[nm,pp[nm]||P0,rvm[nm]||null])
+    .sort((a,b)=>((b[1].pick+b[1].pack)-(a[1].pick+a[1].pack))||(rvLines(b[2])-rvLines(a[2])));
   const batchMax=Math.max(...rows.map(([,v])=>Math.max(v.pick,v.pack)),1);
   // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
-  const lineMax=Math.max(...rows.map(([,,rc])=>rc?rc.lines:0),1);
+  const lineMax=Math.max(...rows.map(([,,rc])=>rvLines(rc)),1);
   el.innerHTML=rows.map(([nm,v,rc])=>{
-    const recvTxt=rc?`Receive ${nf(rc.lines)} line${rc.lines===1?"":"s"} · ${nf(rc.units)} units (base) / ${rc.n} receipt${rc.n===1?"":"s"}${rc.rN?` (avg ${fmtWorkDur(rc.rMin/rc.rN)} work time)`:""}${rc.lines?` · putaway ${Math.round(rc.pDone/rc.lines*100)}%`:""}`:"";   // 선두 구분자 " · " 는 템플릿(segBtn 앞)이 붙인다 (2026-08-11)
+    // rc = {exact, attr} (위 rvm) — 본문 수치(units·receipts·avg·putaway%)는 exact 만, attr 는
+    // "(+N attributed)" 로 분리 표기(툴팁 = RECV_FB_TIP). avg 는 attr 그룹이 원래 계산 안 됨(rN 0 —
+    // 시각 데이터가 없다), putaway% 분모도 exact lines 만(추정 라인을 섞으면 비율이 거짓이 된다).
+    const rx=rc&&rc.exact, ra=rc&&rc.attr;
+    const exL=rx?rx.lines:0, exU=rx?rx.units:0, exN=rx?rx.n:0, atL=ra?ra.lines:0;
+    const attrTag=ra?` <span title="${RECV_FB_TIP}" style="color:var(--mut-2);border-bottom:1px dotted var(--mut-2)">(+${nf(atL)} lines · ${nf(ra.units)} units attributed)</span>`:"";
+    const recvTxt=rc?`Receive ${nf(exL)} line${exL===1?"":"s"} · ${nf(exU)} units (base) / ${exN} receipt${exN===1?"":"s"}${rx&&rx.rN?` (avg ${fmtWorkDur(rx.rMin/rx.rN)} work time)`:""}${exL?` · putaway ${Math.round(rx.pDone/exL*100)}%`:""}${attrTag}`:"";   // 선두 구분자 " · " 는 템플릿(segBtn 앞)이 붙인다 (2026-08-11)
     // 라인·유닛 보조 줄 (2026-08-11) — ⚠️ 세 지표(배치/라인/유닛)를 나란히 보여줄 뿐, 종합 점수·순위·정렬·
     // 강조에 쓰지 않는다(사용자 확정 — 한 숫자로 줄이면 그 숫자에 맞춰 행동이 왜곡된다: 작은 오더 골라잡기.
     // min/line 도 같은 이유로 회색 텍스트만 — 작은 라인만 골라잡으면 좋아지는 지표다).
@@ -3522,16 +3544,20 @@ function renderProd(){
     const seg=(label,lines,units,min)=>lines?`${label} ${nf(lines)} line${lines===1?"":"s"} · ${nf(units)} units (base)${min!=null?` · ${(min/lines).toFixed(1)} min/line`:""}`:"";
     const subParts=[seg("Pick",v.pickLines,v.pickUnits,v.pickN?v.pickMin:null),seg("Pack",v.packLines,v.packUnits,v.packN?v.packMin:null)].filter(Boolean);
     const subLine=subParts.length?`<div style="font-size:11px;color:var(--mut);margin:0 0 3px">${subParts.join(" — ")}</div>`:"";
-    // 배치 목록 펼침 (2026-08-11 · 표시 전용 — 메모리의 pickList/packList/rc.list 를 그릴 뿐, 추가 조회 없음)
+    // 배치 목록 펼침 (2026-08-11 · 표시 전용 — 메모리의 pickList/packList/recvList 를 그릴 뿐, 추가 조회 없음)
     // 클릭 대상 = 항목 세그먼트 + 해당 막대 행 둘 다(태블릿 터치 면적). 항목별 독립 토글 — 이름 클릭 아님.
     const expKey=k=>nm+"|"+k;
     const caret=k=>prodExpanded===expKey(k)?"▾ ":"▸ ";
     const segBtn=(k,txt)=>`<span data-expand="${esc(expKey(k))}" style="cursor:pointer;border-bottom:1px dotted var(--mut)">${caret(k)}${txt}</span>`;
+    // 막대 = 정확분 진하게 + 추정분 연하게(opacity .35) 이어 붙임 — 스케일(lineMax)은 표시 총량 기준
     const recvBar=rc?`
-      <div class="bar-row" data-expand="${esc(expKey("recv"))}" style="cursor:pointer"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track"><div class="fill recv" style="width:${Math.round(rc.lines/lineMax*100)}%"></div></div><span class="val">${rc.lines}</span></div>`:"";
+      <div class="bar-row" data-expand="${esc(expKey("recv"))}" style="cursor:pointer"><span class="nm" style="color:var(--recv)">Receive lines</span><div class="track" style="display:flex"><div class="fill recv" style="width:${Math.round(exL/lineMax*100)}%${atL?";border-radius:5px 0 0 5px":""}"></div>${atL?`<div class="fill recv" title="${RECV_FB_TIP}" style="width:${Math.round(atL/lineMax*100)}%;opacity:.35;border-radius:0 5px 5px 0"></div>`:""}</div><span class="val" style="width:auto;min-width:44px">${exL}${atL?`<span style="color:var(--mut-2);font-weight:400" title="${RECV_FB_TIP}">+${atL}</span>`:""}</span></div>`:"";
+    // 펼침 목록 = exact + attr 병합(attr 항목은 라벨에 " (attributed)" — esc 되므로 평문), 완료시각 재정렬
+    const recvList=rc?[...(rx?rx.list:[]),...(ra?ra.list.map(b=>({...b,label:(b.label||"—")+" (attributed)"})):[])]
+      .sort((a,b)=>(b.at?new Date(b.at).getTime():Infinity)-(a.at?new Date(a.at).getTime():Infinity)):null;
     const exp=prodExpanded===expKey("pick")?["Pick batches",v.pickList,false]
       :prodExpanded===expKey("pack")?["Pack batches",v.packList,false]
-      :(rc&&prodExpanded===expKey("recv"))?["Receipts",rc.list,true]:null;
+      :(rc&&prodExpanded===expKey("recv"))?["Receipts",recvList,true]:null;
     return `
     <div style="margin:10px 0">
       <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· ${segBtn("pick",`Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""}`)} · ${segBtn("pack",`Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}`)}${rc?` · ${segBtn("recv",recvTxt)}`:""}</span></div>
@@ -3660,10 +3686,12 @@ async function loadRecvStats(r){
     // ── 사람 귀속은 라인 단위 (2026-08-17 · last_received_by) ──
     // 종전 receipt 단위 귀속(received_by)은 "시작한 사람" 전량 귀속이라 나눠 받기(규칙 24)에서
     // 거짓이었다. NULL 라인(컬럼 도입 전)은 "~received_by" 폴백 그룹으로 — "~" 접두 = "시작한
-    // 사람 기준, 정확하지 않음"의 표식(이력 열의 (started by) 꼬리표와 같은 관례). 폴백 그룹은
-    // pick/pack 의 실명 행과 병합되지 않는다 — 의도(그 사람 실적이라고 단정할 수 없어서).
+    // 사람 기준, 정확하지 않음"의 표식(이력 열의 (started by) 꼬리표와 같은 관례). 집계는 두 키로
+    // 분리 유지 — ~~렌더에서도 별도 행~~ → 2026-08-20 부터 renderProd 가 실명 행에 **접어 넣되**
+    // 수치는 "(+N attributed)" 로 분리 표기한다(같은 사람이 두 줄로 보여 혼란 — Caleb 결정.
+    // 한 숫자 합산은 여전히 금지: PO-01131 형 거짓의 부활).
     // ⚠️ 상단 합계(t/wh/전역 카운터)는 receipt·라인 기준 그대로 — 사람 귀속만 바뀐다.
-    const fbKey="~"+(rc.received_by||"(unknown)");
+    const fbKey=RECV_FB_PREFIX+(rc.received_by||"(unknown)");   // 접두 상수 공유 — renderProd 가 같은 상수로 접어 넣는다
     const touched=new Map();   // workerKey → 이 receipt 안에서 그 사람이 만진 소계
     (rc.wms_receipt_lines||[]).forEach(l=>{
       const q=Number(l.received_base)||0;
