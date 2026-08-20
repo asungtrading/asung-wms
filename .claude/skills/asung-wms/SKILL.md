@@ -41,7 +41,7 @@ Cin7 Core ──(폴링)──> Supabase Edge Function ──> Supabase Postgres
 - **Edge Function은 BQ에 직접 안 붙습니다.** 조직정책 `iam.disableServiceAccountKeyCreation`이 서비스계정 JSON 키 생성을 차단(Google Secure by Default)했기 때문. Workload Identity는 과함. → **제3의 길**: GAS가 BQ 마스터를 Supabase로 복제하고, Edge Function은 Cin7 읽기 + Supabase 조인만. BQ 인증 관문 자체가 소멸.
 - **WMS는 Cin7에 쓰지 않습니다(MVP).** 작업 완료 시 담당자에게 알림만 → 담당자가 Cin7에서 pack authorize → Cin7 automation('pack is authorized' 이벤트)이 Order_Progress를 `3.Finalized`로 전환 + 재고차감. 즉 재고 무결성은 Cin7이 지키고 WMS는 안 씀.
 - **WMS가 소유하는 단계는 Cin7 Order_Progress = `2.Release to WMS` 하나뿐.** 흐름: `1.New`(오더생성) → 매니저 authorize → `2.Release to WMS`(수동) → [우리 WMS: 분할·분배·병렬 픽/팩] → `3.Finalized`(Cin7 automation 자동전환).
-- **프론트엔드는 순수 HTML/JS + Supabase JS CDN.** 빌드툴 없음. GitHub Pages(⚠️ **private repo** — 2026-08-19 전환, 개인 Pro. 발행 사이트는 여전히 공개)로 `wms.asung.ca`에 배포. 스캔 = Bluetooth HID(키보드처럼 입력+Enter).
+- **프론트엔드는 순수 HTML/JS + Supabase JS CDN.** 빌드툴 없음. GitHub Pages(**public repo** — 2026-08-19 밤 private 전환을 시도했다가 되돌렸다, 규칙 12)로 `wms.asung.ca`에 배포. 스캔 = Bluetooth HID(키보드처럼 입력+Enter).
 
 ## 환경 상수
 
@@ -52,7 +52,7 @@ Cin7 Core ──(폴링)──> Supabase Edge Function ──> Supabase Postgres
 | project-ref | `gftpcnkxbdjzzfvzwcfl` |
 | region | `ca-central-1` (캐나다) |
 | 로컬 개발폴더 | `~/asung/asung-wms` (WSL2 Ubuntu). 집·회사 동일 세팅. ⚠️ `/mnt/c/...` 아래에서 작업 금지 — WSL 파일 I/O가 크게 느려짐 |
-| GitHub | `asungtrading/asung-wms` — ⚠️ **PRIVATE** (2026-08-19 전환 · 개인 계정 GitHub Pro — Pages 는 그대로 발행. ⚠️ 발행된 사이트는 여전히 공개 · 상세는 규칙 12 private 항목) |
+| GitHub | `asungtrading/asung-wms` — ⚠️ **PUBLIC** (2026-08-19 밤 private 전환을 시도했다가 **되돌렸다** — 기술은 문제없었고 작업 방식이 이유. 경위·재검토 조건은 규칙 12 「private 전환 시도 후 복귀」) |
 | 배포 URL | `https://wms.asung.ca` (커스텀 도메인, DNS CNAME→asungtrading.github.io) |
 | BQ Project | `geometric-rock-487814-k4` |
 | Cin7 API Base | `https://inventory.dearsystems.com/ExternalApi/v2` |
@@ -73,6 +73,8 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 - ⚠️ `tools.asung.ca`(customer-portal, 별도 repo `asungtrading/tools`) — ~~반드시 PUBLIC 유지(private 면 무료 Pages 죽음)~~ **무효 (2026-08-19)**:
   개인 계정 **GitHub Pro** 면 private 레포에서도 Pages 가 발행된다(`asung-wms` 무중단 전환으로 실증 — Source·Custom domain·Enforce HTTPS 전부 유지).
   ⇒ `tools.asung.ca` 의 private 전환은 **가능하며 검토 대상**이다(규칙 12 「미검토 레포」).
+  ⚠️ 다만 `asung-wms` 는 전환 후 **되돌렸다**(2026-08-19 — 기술이 아니라 작업 방식이 이유, 규칙 12) —
+  `tools` 도 같은 비용(대화 세션이 레포를 못 읽음)을 함께 계산할 것.
   ⚠️ 다만 **직원이 매일 쓰는 도구**라 전환 중 중단이 곧 업무 중단이다 — **업무 시간 외**에, 그리고 Pages 설정(Source·Branch·Custom domain·Enforce HTTPS)을 **미리 기록**해 두고 할 것.
   📌 판단 기준은 「Pages 가 죽느냐」가 아니라 **레포에 `docs/`·설계 문서·코드 내 시크릿이 있느냐**다 — 프론트는 private 이어도 발행 사이트로 공개되므로 보호 대상이 아니다.
 
@@ -232,9 +234,9 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **인증**: `x-wms-cron-key` 시크릿(⚠️ hello 폴링식 무인증 복제 금지 — 호출 1번 = Cin7 148콜 증폭, secret 미설정이면 500 fail-closed·**실제 값은 `supabase secrets set` + 대시보드 cron 등록에만** — 근거는 아래 시크릿 위치 규칙) + **쿨다운 20h**(ok=true 최신 행 기준 — 실패는 재시도를 안 막는다) + `force=1` 은 authgate(verifyCaller/hasApply). [검증 2026-08-14] 시크릿 없이 호출 → 401.
   - 📌 **시크릿 위치 규칙 — 레포 공개 여부와 무관하다 (이 프로젝트의 정본 서술)**: 실제 값은
     **`supabase secrets set` · 대시보드 cron 등록 · GAS Script Property** 에만 둔다.
-    ⚠️⚠️ 종전 근거는 ~~"레포가 PUBLIC 이라"~~ 였고 **그 전제는 2026-08-19 private 전환으로 사라졌다.
-    그래도 금지는 그대로다** — 근거를 갈아 둔 이유가 이것이다(전제가 사라졌다고 금지까지 지우면
-    시크릿이 커밋된다):
+    ⚠️⚠️ 종전 근거는 ~~"레포가 PUBLIC 이라"~~ 였다. 2026-08-19 private 전환 때 그 전제가 사라져
+    근거를 아래 셋으로 갈았고, **같은 날 밤 public 으로 되돌린 뒤에도 이 근거를 그대로 둔다** —
+    **레포 상태와 무관하게 유효**하기 때문이다(전제에 매달린 금지는 전제가 흔들릴 때마다 무너진다):
     - ① ⚠️ **git 히스토리는 영구히 남는다** — 한 번 커밋한 시크릿은 나중에 지워도 히스토리에 남고,
       레포를 다시 public 으로 되돌리거나 조직으로 이전하면 그대로 노출된다.
     - ② ⚠️ **발행된 Pages 사이트는 여전히 공개다** — private 레포여도 `wms.asung.ca` 는 누구나 본다
@@ -313,21 +315,30 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
     ([실측 2026-08-19] 09:09 조회 시 9분 전 갱신 = 정상, 주기 5분).
     ⚠️ `product-images`(cron 잡 4·5 · 08:30·09:30 토론토)의 결과물 확인 방법은 **미정 — 별건**
     (`wms_image_sync_runs` 가 후보 — 「상품 이미지 파이프라인」 절의 세 역할 참조).
-- ⚠️ **`asung-wms` 레포는 private 이다 (2026-08-19 전환).** 소유자는 **개인 계정** `asungtrading`(GitHub Pro
-  — private 레포에서 Pages 를 쓰려면 개인은 Pro, 조직은 Team 이상이 필요하다). ⚠️ 위 항목과 같이
+- ⚠️ **`asung-wms` 레포는 PUBLIC 이다.** 소유자는 **개인 계정** `asungtrading`(GitHub Pro). ⚠️ 위 항목과 같이
   원래 `asung-ops` 스킬(레포·운영) 소관이나 그 스킬이 이 레포에 없어 여기 둔다 — **같이 옮길 것(별건)**:
-  - **전환은 무중단이었다** — Pages 설정(Source `Deploy from a branch` · `main /(root)` ·
-    Custom domain `wms.asung.ca` · Enforce HTTPS ✓)이 전부 유지됐고 재배포도 필요 없었다.
-    전환 전 `DNS Check in Progress` 였던 것이 전환 후 `DNS check successful` 로 바뀌었고,
-    `wms.asung.ca` 접속·로그인·리시빙 화면까지 정상 확인. ⚠️ 다만 **보장은 아니다** —
-    다른 레포를 전환할 때도 Pages 설정을 미리 기록해 두고 업무 시간 외에 할 것.
-  - ⚠️⚠️ **발행된 사이트는 여전히 공개다** — Pages 화면에 그대로 안내가 뜬다
-    (`This repository is private but the published site will be public`).
-    사이트 자체를 비공개로 발행하려면 **GitHub Enterprise** 가 필요하다(Pages Visibility 항목).
-    ⇒ **private 이 보호하는 것은 프론트가 아니다** — 프론트는 브라우저 소스 보기로도 열린다.
-    실제 보호 대상은 **`docs/`**(설계 정본·세션 문서·SKU/수량/거래처/직원 이름이 담긴 실측 데이터) ·
-    **`supabase/functions/`**(EF 소스·Cin7 연동 로직) · **`.claude/skills/`**(운영 노하우) ·
-    **`supabase/migrations/`**(스키마) 다.
+  - ⚠️ **레포 private 전환 시도 후 복귀 (2026-08-19)** — public → private → public.
+    **기술적으로는 문제가 없었다** — 개인 계정 GitHub Pro 로 무중단 전환됐고 Pages 설정
+    (Source `main /(root)` · `wms.asung.ca` · Enforce HTTPS)이 전부 유지됐다.
+    ⚠️ **되돌린 이유는 작업 방식이다** — 대화 세션의 Claude 가 `raw.githubusercontent`·codeload 로
+    레포를 읽지 못하게 되면서(404 실측) **진단·프롬프트의 정밀도가 떨어졌다.**
+    코드 위치를 직접 특정해 「④번 필터가 뚫린다, 339~343행」처럼 쓰던 것이
+    「목록 필터 어딘가를 확인해줘」가 된다.
+  - **위험 재평가**: 실제 시크릿은 레포에 없었다(주석마다 금지가 박혀 있었고 값은 Supabase Secrets·
+    Script Properties 에 있다 — 규율이 지켜지고 있었다). 남는 노출은 `docs/sessions/` 의 실측 데이터·
+    설계·직원 이름 정도다. ⚠️ **이미 몇 달간 public 이었으므로 지금 닫아도 과거는 지워지지 않는다.**
+    ⇒ **위험은 낮고 만성적, 비용은 확실하고 즉각적.** public 유지가 현재 결론이다.
+    📌 재검토한다면 **`docs/sessions/` 만 분리**하는 쪽. `tools.asung.ca`·`gas-system-automation` 도
+    같은 기준(`docs/` 유무·코드 내 시크릿)으로 판단한다.
+    📌 **부수 소득**: 이 과정에서 「레포가 PUBLIC」을 전제로 한 서술 7곳을 찾아 정리했고,
+    **시크릿 금지의 근거를 「PUBLIC 이라서」가 아니라 「git 히스토리 영구 · 발행 사이트 공개 ·
+    private=접근권한자 열람」으로 갈았다** — 레포 상태와 무관하게 유효한 근거다(⚠️ 그 정정은 그대로 둔다).
+  - 📌 **전환해 두고 알게 된 사실들(다시 검토할 때의 자산 — 되돌렸다고 지우지 않는다)**:
+    개인 Pro 면 **private 레포에서도 Pages 가 발행된다**(무중단 실증 — 재배포 불필요) ·
+    ⚠️ 그래도 **발행된 사이트는 공개다**(`This repository is private but the published site will be public`
+    안내 · 사이트 자체를 비공개로 발행하려면 **GitHub Enterprise**) ⇒ **private 이 보호하는 것은
+    프론트가 아니라** `docs/`(실측 데이터·설계) · `supabase/functions/` · `.claude/skills/` ·
+    `supabase/migrations/` 다.
   - ⚠️ **레포가 개인 계정 소유다 — 버스팩터.** 회사 핵심 시스템이 한 개인 계정에 묶여 있다.
     조직 이전은 **원장 ⑥ 이후 검토** — ⚠️ 이전 시 **Pages CNAME·HTTPS 재설정이 최대 변수**이니
     창고 시간대를 피할 것. 그 밖에 두 대의 PC `git remote set-url` · 조직 Team 플랜 ·
@@ -335,11 +346,12 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - ⬜ **미검토 레포**: `tools.asung.ca` 레포(내부 도구 — ⚠️ **직원이 매일 쓰므로 전환 중 중단 위험**,
     업무 시간 외에) · `gas-system-automation`(⚠️ Cin7 연동·자동화 전체가 들어 있고 **Pages 를 안 써서
     전환 위험이 없다 — 우선순위가 더 높을 수 있다**). 판단 기준은 **`docs/` 유무와 코드 내 시크릿 여부**.
-- ⚠️⚠️ **대화 세션의 Claude 는 이제 레포를 직접 읽을 수 없다 (2026-08-19~ · 위 private 전환의 귀결).**
-  종전에는 `raw.githubusercontent.com` 과 codeload tarball 로 파일·스킬을 직접 받아 확인했고,
-  그것으로 코드 대조·스킬 zip 생성을 해 왔다. **private 전환 후 둘 다 404 다**(전환 직후 실측).
-  - ⇒ **파일 내용·diff 는 Caleb 이 붙여넣어야 한다.** 「레포에서 확인해 줘」가 더 이상 성립하지 않는다.
-  - ⇒ **claude.ai 스킬 zip 도 로컬에서 만든다:**
+- ~~⚠️⚠️ **대화 세션의 Claude 는 이제 레포를 직접 읽을 수 없다 (2026-08-19~ · private 전환의 귀결)**~~
+  → ✅ **해소 (2026-08-19 밤 public 복귀)** — `raw.githubusercontent.com`·codeload 로 다시 읽힌다.
+  ⚠️ **이 불편이 곧 복귀 사유였다**(위 항목): private 동안 둘 다 404 였고(실측), 그래서 파일 내용·diff 를
+  사람이 붙여넣어야 했다 — 「레포에서 확인해 줘」가 성립하지 않으면 진단 정밀도가 떨어진다.
+  📌 **다시 private 을 검토할 때 이 비용을 먼저 계산할 것.**
+  - 📌 **스킬 zip 은 로컬 생성이 편하다**(레포 공개 여부와 무관 — 그대로 유효):
     ```bash
     cd ~/asung/asung-wms/.claude/skills
     zip -r /mnt/c/Users/yoonh/Downloads/asung-inv-ledger.zip asung-inv-ledger
@@ -378,6 +390,25 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
     - **아카이브**: 롤백/삭제(배치·오더 팩, split, void, unwave, fulfillment, admin 리시빙 receipt 삭제 — receipt 은 라인이 FK CASCADE 라 함께 보존)가 지우는 행을 **지우기 전에** `wms_rollback_archive`(범용 JSONB 1테이블)에 복사. Reset Pick 의 0 덮어쓰기도 덮기 전 스냅샷. ⚠️ **순서 불가침: insert 성공(행 수 일치) 확인 후에만 delete — 실패 시 롤백 전체 중단, 아무것도 안 지움.** ⚠️ 정직한 한계: **클라이언트가 직접 쓰는 사고 조사용 기록이지 보안 경계가 아니다**(EF 경유 전환 백로그). 권한은 authenticated 의 INSERT+SELECT 만(기본 default privileges 회수 — append-only). fulfillment 게이트(`wms_order_pack_progress`)는 물리 delete 유지라 무영향(뷰가 아카이브를 세지 않는다).
     - **무효화**(voided_at/by/reason — 삭제 금지): 화이트리스트 = 팩 롤백 `short_after_pack·over_pick·pack_scan_mistake` / 픽 롤백·split·unwave·void `short_pick`. **절대 자동 무효화 금지** = `stock_short`(선반 사실 — void 여도)·`recv_*`·`cin7_corrected=true`(→ 이력에 `⚠ batch rolled back — reverse adjustment?` 배지: 링크 태스크가 라이브에 없으면 계산 표시)·**링크 null 옛 행**(→ "N old rows — review manually" 알림만). 링크 컬럼으로만 잡고 order_id 로 긁지 않는다. 큐·배지·Stats(mistake tally 포함)는 voided 제외, 해소 이력에 `Voided (rollback)` 태그로 남는다.
     - **양방향**: 오더 단위 팩 롤백·Void 는 `resolved_pack_recovery` 를 `short_pick` 으로 **자동 재개**(안 하면 실재하는 부족이 조용히 해소된 채 남는다). ⚠️ **배치 단위는 표시만**("이 배치가 해소한 픽 부족이 있을 수 있음 — 확인 필요") — recovery 행에 pack_task_id 가 없어 귀속 불가, 근사 매칭은 없는 문제를 조사하게 만든다(사용자 결정). packer 가 recovery 에 pack_task_id 를 남기는 것은 백로그. packer recovery UPDATE 에 `.is("voided_at",null)` 1줄 추가(무효화 행 부활 방지 — 승인된 최소 접촉).
+  - ⚠️⚠️ **SO-13893 (2026-07-30) — 창고 무경계 × 롤백이 Finalize 를 모델링 안 함 (2026-08-19 규명)**:
+    `wms_rollback_log` id=178 — **Jan Ko(`warehouse_access=edmonton`)가 toronto 오더를** 오더 단위 `pack` 롤백.
+    당시엔 어떤 벨트도 없었고, 롤백이 `finalized_at` 을 안 되돌려 **closed 인데 팩 기록만 사라진** 상태가
+    남았다 — **closed 896건 중 유일**.
+    **① 창고**: admin 은 `warehouse_access` 를 **한 번도 안 봤다**(grep 0회) — 전 탭 전 창고.
+    경계를 지키던 것은 작업자 화면들뿐(picker·packer·fulfillment·receiver). → 규칙 20 「admin 탭별 창고 경계」.
+    **② 순서**: 롤백이 Finalize 단계를 모델링하지 않았다. 08-12~13 에 오더 단위·배치 pack 벨트가 생겼고
+    **배치 pick 벨트가 마지막 잔여 구멍**이었다(백로그 항목 — 2026-08-19 해소, 아래).
+    📌 `id=228`(finalized → pack_complete)은 사고가 아니라 08-13 신설 **`Undo Finalize` 의 정상 사용**이다.
+    📌 ⚠️ **조사 중 기각된 가설 2개도 남긴다**(다시 같은 길로 가지 않게): (a) 「Cin7 브랜치 변경으로 창고가
+    바뀌었다」 → **불가능** — 현 코드에 `warehouse` 갱신 경로가 **없다**(규칙 43 아래 「브랜치 변경 대응」) ·
+    (b) 「`normWarehouse` toronto 폴백이 오판했다」 → **무죄** — `location` 값이
+    `Asung Trading Inc.` 836 / `Asung - Edmonton` 218 로 깨끗하게 갈린다.
+  - ⚠️ **롤백 벨트 확장 (2026-08-19 · 커밋 `d05ec51`)** — 모든 벨트 4곳(배치 pack·배치 pick·오더
+    fulfillment·오더 pack)이 `status==="closed"` **하나만** 보고 있었다 → **`status==="closed" || finalized_at`**.
+    **잔재가 0건이어도 조건 자체가 불완전했다** — SO-13893 형(활성 status + `finalized_at` 잔존)을 못 잡는다.
+    **배치 pick 벨트 신설** — 백로그 「`doBatchRollback` pick 에 closed 벨트 없음」(2026-08-13) 해소.
+    08-13 의 「`doBatchRollback` 무접촉」 지시를 해제하고 pack 분기와 동형으로 넣었다.
+    📌 `finalize` 벨트는 무변 — **반대 방향**(finalized 여야 진행)이라 확장 대상이 아니다.
 
 ## 규칙 15 — 프린트/다운로드 (⚠️ 2026-07-21)
 
@@ -606,6 +637,38 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   📌 **알려진 잔류 2건(결함 아님)**: `work` 집합(`applied_at is null` 전량 조회)에 **영구 잔류** —
   소비처 4곳이 전부 제외/처리하므로 표시는 옳고 payload 만 쌓인다 · backlog(Awaiting putaway)에는
   **계속 뜬다** — **실물 풋어웨이는 Cin7 처리와 독립**이므로 의도된 동작(딥링크만 막고 표시는 남긴다).
+- ⚠️⚠️ **admin 탭별 창고 경계 (2026-08-19 신설 · 커밋 `d05ec51` · 발단은 SO-13893 — 규칙 14)**
+
+  | 탭 | 처리 |
+  |---|---|
+  | Status·Stats·Trace·Reports·Discrepancy | 전 창고 — 조회 전용이라 무해 |
+  | Finalized | 전 창고 + **창고 선택 세그**(All/Toronto/Edmonton, 기본 All) |
+  | **Receiving·Rollback** | **`warehouse_access` 로 제한** |
+
+  ⚠️ **void 박스는 목록 필터를 우회한다** — 오더 번호를 직접 입력하는 경로라 `voidGo` 에 창고 확인을
+  따로 넣었다(조회 select 에 `warehouse` 병기 → 차단 toast). **목록만 막으면 구멍이 남는다.**
+  ⚠️ **Finalized 는 목록·카드·카운트에 필터를 함께** 걸었다 — 한쪽만 걸면 「32 of 703」이 서로 다른
+  모수를 가리킨다(2026-08-14 잘린-모수 재발).
+  ⚠️ **Receiving 의 `pend`(off-PO 승인)만 클라이언트 필터** — 라인 최상위 + receipts 임베드 구조라
+  `!inner` 없는 서버 임베드 필터는 **부모 잔존 + 임베드 null** 로 조용히 틀린다(규칙 20 캡 절 ③).
+  📌 히스토리에 **「Showing Edmonton receipts only (your warehouse access)」** 안내 —
+  **숨긴 것을 「없다」로 위장하지 않는다**(PO-01083 계열).
+  ⚠️⚠️ **프론트 필터는 표시일 뿐이다** — RLS 가 `auth_all` 이라 진짜 경계가 아니다.
+  실질 대상은 단일 창고 접근자 한 명(Jan Ko = edmonton)이고 나머지는 `both` 다.
+  RLS 창고 스코프는 기존 백로그(규칙 27).
+  📌 검증은 **단일 창고 접근 테스트 계정**을 만들어 했다 — 권한·경계 작업의 표준 절차로 삼는다.
+- ✅ **Finalized 탭 LINES·UNITS 에 실제 팩 수량 병기 (2026-08-19 · 커밋 `9e61285`)** — `222 (218)`·`1066 (1042)`,
+  **차이가 있을 때만** 빨간 괄호. 기준은 **팩(pack) 수량**이고 분할 주문은 배치 합산이다.
+  - 괄호 안 = `wms_pack_task_lines.verified_base` — ⚠️ **`expected_base` 를 쓰면 안 된다**(그건 픽 실적이라
+    픽이 덜 가져온 라인이 「채워진 것처럼」 보인다). 비교 기준은 `wms_orders.total_required_base`.
+  - ⚠️ **초과 스캔은 `verified_base` 에 안 남는다**(packer 가 required 에서 캡 — 초과분은 `overScans` 메모리
+    전용) → **`Σverified ≤ Σrequired` 가 구조적으로 보장**되므로 괄호가 원래 값보다 커지는 경우는 없다.
+  - LINES 의 「실제」 = **`verified_base > 0` 인 라인 수**(배치 펼침과 같은 자 — 상위 행과 펼침 숫자가
+    어긋나면 그게 더 큰 혼란). 부분 부족은 UNITS 에서만 드러난다.
+  - **팩 태스크가 배치 수보다 적으면 회색 `(—)`** — [실측] closed 896건 중 **SO-13893 1건뿐**.
+  - ⚠️ **미완 배치 분기를 만들지 않았다** — `wms_pack_tasks.status` 는 `completed` 하나뿐(1,428건)이라
+    status 를 검사하면 **죽은 조건**이 된다.
+  - 상위 행과 배치 펼침이 **`tallyVerified` 헬퍼 하나를 공유**한다(복사하면 갈라진다).
 - **자동 실행 강도**: 현재 = 매니저 admin 게이트(dry-run 계획 confirm → commit). 신뢰 쌓이면 작업자 완료 시 자동으로 전환 예정(EF 호출 위치만 이동).
 - 쓰기 검증 도구: `WmsTransferWriteTest.gs`·`WmsPoStockWriteTest.gs` (System_Automation, DRY_RUN 게이트 패턴 — 새 쓰기 검증 시 재사용).
 - 📌 **TR-02935 착지·수량 실측치와 Apply 운영 규칙(실행시간 예산·수동 이동 충돌·체크포인트 불가침)은 규칙 30** · **bin↔bin 이동 화면 설계는 규칙 33** · **재고 대조 리포트는 규칙 32**.
@@ -956,6 +1019,31 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - **캡 굶주림 없음(self-draining)**: 판정 후 `cin7_updated` 갱신으로 처리된 오더는 후보에서 자동 이탈(SO-14106 의 영구 잔류와 반대 구조) · 정렬 최신 우선 · `HOLD_CHECK_MAX=10` · 잘린 수는 `hold_check_deferred`(여러 회차 연속 >0 이면 캡 재검토). `cin7_updated is null` 행도 후보(비교 불가 행이 영원히 안 빠지게 — 사용자 지시. 2026-08-12 실측은 757건 전부 채워짐/null 0). ⚠️ **캡 재검토 조건에 실제 도달 (2026-08-14 dry-run 실측)**: `hold_checked` 10(캡 도달) · **`hold_check_deferred` 24** — 5분마다 10건씩이라 후보 34건 소진에 3회차(15분). 실해는 없다(`hold_detected` 0 — 실제 보류 없음). ⚠️ **후보가 34건이나 쌓인 이유 미확인** — `cin7_updated` 가 목록의 Updated 와 안 맞는 오더가 그만큼 있다는 뜻. ⬜ 조사: 자연 이월인가·self-draining 이 안 도는가 → 캡 상향 판단.
 - 저장 = `wms_orders` 4컬럼(`hold_state/hold_progress/hold_detected_at/hold_releasable_at`, `20260812000000_wms_orders_hold.sql`) — status 는 무접촉(직교 플래그. 세 화면이 이미 wms_orders 임베드라 조인 추가 0). admin Status 탭 보류 목록은 **WMS 단계 표시 필수**(극단 케이스는 기존 Rollback 으로 — 강제 중단 도구는 안 만든다, 사용자 결정 F).
 
+### Cin7 브랜치(창고) 변경 대응 — 설계 조사 (2026-08-19, ⬜ 미착수)
+
+⚠️ **실사고 근거는 없다** — SO-13893 이 브랜치 변경이 **아님**이 같은 날 밝혀졌다(규칙 14 기각 가설 (a)).
+즉 이것은 **「일어날 수 있는 일」에 대한 대비**이고, 착수 우선순위는 **실제 발생 빈도**에 달렸다.
+
+**현재 상태**: `hello` 폴링은 창고 변경을 **아예 안 본다.** `warehouse` 는 유입 시점 1회만 기록되고
+(`hello:431→459`), Updated 트리거 재조회가 상세 `d` 를 통째로 받아놓고도 `d.Location` 을 버린다(:517).
+⇒ 「조용히 덮어쓴다」가 아니라 **「바뀌어도 영원히 모른다」**.
+⚠️ 더 나쁜 것은 라인 쪽 — `assembleLine` 이 유입 창고로 `wms_sku_bins` 를 조회해 `bin_location`·`zone` 을
+**동결**한다(:218-219 → :482). 창고가 바뀌면 픽 동선·bin 안내 전체가 옛 창고 것이다.
+
+**설계 방향(Caleb 확정)**: **hold 패턴 재사용** — Q1=(A) `hold_state='on_hold'` + 사유 컬럼.
+화면 6지점(숨김 3·벨트 2·완료 안내 3)이 **무수정으로 작동**하고, 별도 컬럼 세트(B)는 필터 6곳에
+조건을 병기해야 해 **한 곳만 빠뜨려도 구멍**이 된다.
+⚠️ hold 와 다른 점: **시간이 지나도 안 풀린다**(`hold_releasable_at` 상당이 없다) — 사람이
+「옛 창고에서 픽한 물건」을 판단해야 한다. 재개는 두 갈래(Cin7 을 되돌렸다 / 새 창고가 맞다 —
+후자는 라인 bin 재계산·배치 재구성이 필요해 1단계 범위 밖, 기존 Rollback + 수동 재분할로).
+⚠️⚠️ **`warehouse` 자동 덮어쓰기는 금지가 결론이다** — 창고 필터가 **진행 중 배치에도** 걸려 있어
+(picker `myBatches`), 갱신하는 순간 옛 창고 단일 접근 작업자의 배치가 **화면에서 소리 없이 증발**한다
+(프리즈도 아니고 그냥 사라진다). hold 원칙(「진행 중은 끝까지 허용」)과 정면 충돌한다.
+
+⬜ **착수 전 관문(미실측)**: **브랜치 변경이 `saleList` 의 `Updated` 를 올리는가.**
+안 올리면 Updated 트리거로 못 잡고 별도 스윕이 필요해 설계가 달라진다.
+GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측과 같은 방법).
+
 ## 현재 진행 상태 (2026-08-04 기준)
 
 **전 기능 LIVE — wms.asung.ca. 리시빙 PO 경로 실전 성공. 트랜스퍼 창고간 Apply = 청크 v3 + checkpoint repair 로 TR-03144 완주(2026-07-31). 배터리 최적화 완료. 리시빙 동시 작업 정식 지원. ⚠️ fulfillment 스캔 배정은 배포됐으나 실전 미검증(규칙 36). 트랜스퍼 착지는 앞으로 창고만 지정(규칙 40 — (a) 케이스 실전은 미검증). ⚠️ 2026-08-04 배포분(규칙 41 픽·팩 선언/초과 2택 · 규칙 20 Status 조회 · **풋어웨이 bin 단위 완료 + admin Apply 주황 경고·Awaiting putaway**)도 **현장 미검증** — 백로그 「검증 대기」. ⚠️⚠️ **2026-08-05 배포 4건(완료 확인 마찰 모달 — SO-14129 · 리스트뷰 행 탭+available 칩 · 리시빙 기대치 인보이스 전환 · receiver 리포트 3종)도 현장 미검증** — 백로그 「검증 대기」 맨 위. 그중 **인보이스 전환의 Advanced 경로 + 첫 Apply 가 가장 중요**하다(재고·Cin7 반영이 걸린 유일한 건 — 아직 안 받은 PO 로 검증할 것, PO-01068 은 이미 Apply 됨).
@@ -1113,7 +1201,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
   - **08-12 응급 차단(packBlocked·배치 차단·pack 벨트) 전부 유지** — 판정이 다시 어긋날 때의 마지막 방어선(사용자 지시). 이제 여기 오는 closed 는 레거시(finalized_at null)뿐.
   - `STAGE.finalize=["finalized","pack_complete"]` — Undo Finalize 가 팔렛까지 지우므로 착지가 pack_complete("fulfilled" 로 적으면 로그가 실제 착지와 어긋난다).
   - ~~⬜ **실행 한 바퀴 미검증**: Undo Finalize 실행 → ⚠️ **Cin7 안내 alert 이 실제로 뜨는지**(notes 경유라 rollbackDone 이 표시해야 한다 — 안 뜨면 두 시스템이 갈라진 걸 매니저가 모른다) → 보드 재등장(Ready to close) → 재-finalize → 로그 finalized→pack_complete.~~ → ✅ **2026-08-13 통과 (SO-11896)** — [실측] 4단계 전부 화면 확인: ① confirm 4줄 표시 — 첫 줄 "Cin7 stays at 3.Finalized — this changes the WMS only" ② **실행 후 alert 표시 — notes 경유가 정상 작동**(이 항목의 핵심 우려였다): "SO-11896 rollback done (finalize). ⚠ Cin7 is still 3.Finalized … back on the fulfillment board as Ready to close." ③ fulfillment 보드 재등장 — ready_to_close 로 목록에 나타남(`.neq("status","closed")` 통과) ④ 재-finalize 성공 — "Direct pack — no pallet/box" 로 정확히 분류 · Rollback 목록에 Finalized 로 복귀하며 Worker 가 새 finalized_by(재실행자)로 갱신 · closed 총수 676→677. 📌 판정 정합성 부수 확인: finalized_at 없는 오더(SO-13697·SO-13849)는 Rollback 에서 "Pack complete", fulfillment 보드에서 ready_to_close — **두 화면이 같은 사실을 말한다.**
-- **doBatchRollback pick 에 closed 벨트 없음 (2026-08-13 신규)** — 배치 단위 Reset Pick 은 표시로만 차단된다(loadRollback 배치 행의 "Finalized — undo finalize first"). 로드↔실행 사이 finalize 경합 창이 남는다. pack 분기와 같은 형태의 벨트 추가가 근본(2026-08-13 doBatchRollback 무접촉 지시로 미룸).
+- ~~**doBatchRollback pick 에 closed 벨트 없음 (2026-08-13 신규)** — 배치 단위 Reset Pick 은 표시로만 차단된다(loadRollback 배치 행의 "Finalized — undo finalize first"). 로드↔실행 사이 finalize 경합 창이 남는다. pack 분기와 같은 형태의 벨트 추가가 근본(2026-08-13 doBatchRollback 무접촉 지시로 미룸).~~ → ✅ **2026-08-19 해소** (커밋 `d05ec51` — 무접촉 지시 해제 · pack 분기와 동형 벨트 + 벨트 4곳 전부 `status||finalized_at` 확장. 정본은 규칙 14 「롤백 벨트 확장」).
 - **packing_list 인데 팔렛이 없는 finalize 오더 2건 (2026-08-13 관찰 — ⬜ 재발 시 조사, 지금 단정 금지)** — SO-14417·SO-14412, 둘 다 Changmo Ku, finalized_at 이 밀리초까지 동일(2026-08-10 15:43:12.247) · updated_at = finalized_at(= finalize 후 아무것도 실행 안 됨) · wms_pallets 행도 0. 즉 Undo Fulfillment 흔적이 아니라 **처음부터 팔렛 없이 packing_list 로 finalize** 됐다. fulfillment 화면에서 `fulfillment_type` 이 실물과 어긋나게 기록될 수 있다는 신호 — 단 2건·한 시점이라 그날의 특수 상황일 가능성.
 - ⚠️ **packer 대기열 쿼리 근본 수정 (2026-08-12 SO-14532 응급 처치의 후속)** — 응급 처방(내림차순+LIMIT 1000)은 잘리는 쪽을 "오래된 것"으로 바꿨을 뿐 캡 자체는 남아 있다. 근본: donePick 을 `wms_orders!inner(status)` 로 **안 닫힌 오더의 완료 픽만**(닫힌 오더의 완료 픽 제외 — 결과가 수십 건 규모로 영구 유지) + allPack 의 완료 팩 기간 제한(진행·pending 은 전량). ⚠️ **!inner 전환은 임베드 형태가 바뀌어 검증이 필요해 응급 커밋에서 하지 않았다**(사용자 지시 — 창고 대기 중). 미팩 백로그가 1000건에 근접하면(비현실적이지만) 응급 처방도 뚫린다.
 - **Rollback finalize 토글 라벨의 숫자 (2026-08-12 저녁 — 표시 문제, 작업 안 막힘)** — `Hide finalized (640)` 의 N 은 count-head **총수**인데 펼쳐도 목록엔 closed **최근 200**(캡 위험 #7 사양)만 있다 — 매니저가 "640이라더니 왜 200개만?" 하고 헷갈릴 수 있다. 펼친 상태 캡션(`Latest 200 of 640 listed …`)이 설명하고는 있지만, 버튼 숫자를 표시 건수 기준으로 바꿀지 · `640 (200 listed)` 형태로 합칠지 판단(저녁 문서 F절 1번).
@@ -1260,7 +1348,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 
 ### 보안 (2026-08-12 발견 · 2026-08-13 게이트 확대 완료 — 규칙 8 각주의 실측이 근거)
 - ~~⚠️⚠️ **EF 서버측 권한 게이트 확대** — 기존 EF(특히 receiving apply — 되돌릴 수 없는 Cin7 쓰기)는 anon JWT 로 호출 가능(규칙 8 각주 실측). hold_recheck 의 게이트(`/auth/v1/user` → wms_staff 권한)를 같은 패턴으로 이식할 것. ⚠️ 아래 "레포 비공개 전환"과 같은 뿌리 — 키가 공개인 한 클라이언트 게이트는 장식이다.~~ → ✅ **2026-08-13 확대 완료 (커밋 `c76729b` — 규칙 8 각주 백로그 해소)**: **`_shared/authgate.ts` 신설** — `verifyCaller(req)` → `{email,name,role,perms,active} | null` + `hasApply(staff)`. hold_recheck·staff-create 에 두 벌 복제돼 있던 것을 추출(**세 번째 복제를 만들지 않는다** — `_shared/cin7.ts` 추출 전례와 같은 판단 · ⚠️ 바꾸면 hello·receiving 둘 다 재배포). **receiving 2단 게이트**: read 5종(pos·po·bins·transfers·transfer) = 로그인한 active 직원 / **`action=apply` 는 dry-run·commit 둘 다** admin·'apply' 승격(사용자 결정 — 발주 계획 SKU·수량·bin 노출 차단, admin.html 만 호출하므로 깨질 호출자 0). ⚠️⚠️ **hasApply = `role==='admin' || perms.includes('apply')` — `||` 필수**: [실측] Caleb 의 perms 는 `["split","admin","staff"]` 로 apply 가 없고 role='admin' 으로만 통과한다 — perms 만 보면 admin 이 막힌다. **hold_recheck 도 authgate 로 교체 + ⚠️ active 검사 신설** — 종전 `select=name,role,perms` 로 active 를 안 읽어 **비활성화된 admin 의 살아 있는 세션이 통과했다**(staff-create 는 검사했다 — 두 게이트가 갈라져 있었다). [실측] 전원 active=true 라 현재 무영향 = 안전한 타이밍. **구현 판단 2건(실측 근거)**: ① **이메일 lowercase 안 함** — `wms-auth.js:170` 이 원문 `.eq` 하는 것이 기존 불변식. 정규화하면 mixed-case 계정이 로그인은 되는데 게이트만 막히는 회귀 ② **active 판정은 `!== false`**(`=== true` 아님) — null 행이 로그인은 되는데 게이트에서 막히는 어긋남 방지. authgate 의 wms_staff 조회 실패는 throw → 기존 catch 500 = **fail-closed**. **[검증 통과 2026-08-13]** ① 폴링 무회귀(헤더 없이 정상 응답 · list_total 93 · rate_limited false) ② receiving anon → 401 ③ receiver.html read 5종 정상(작업자 Joyce Chang·admin 둘 다) ④ hold_recheck anon → 401(authgate 교체 회귀 없음). ⬜ **미검증**: Apply dry-run 이 admin 계정으로 통과하는지(hasApply 의 `||` 판정) · hold_recheck 실제 재개(보류 오더 발생 시).
-- ~~**레포 비공개 전환 검토 — ⚠️ 위 게이트 항목에서 분리 (2026-08-13 정정)**: 종전 기록이 "같은 뿌리 — 둘 중 하나만으로는 불완전"으로 묶어 놨는데 **그것이 착수를 미뤘다.** 정정: **anon 키는 F12 로 보인다 — 레포 비공개는 근본 방어가 아니다.** 게이트만으로 실질 방어가 성립하고(2026-08-13 완료), 레포 비공개는 **로직 노출을 줄이는 별개 항목**이다. `asungtrading/asung-wms` 는 PUBLIC(Pages 무료 배포 때문 — 환경 상수 표) — 전환 시 Pages 유료화 또는 배포 방식 변경 필요(08-13 GitHub Pages 502 장애와 묶어 검토할 값어치).~~ → ✅ **완료 (2026-08-19)** — 상세는 **규칙 12 private 항목이 정본**. ⚠️ **미착수 전제 2개가 둘 다 틀렸다**: ① "Pages 유료화 또는 **배포 방식 변경 필요**" → 배포 방식은 **무접촉**이었다(Source `main /(root)` · Custom domain · Enforce HTTPS 전부 유지, 재배포도 불필요). 필요한 것은 **개인 계정 GitHub Pro($4/월) 하나**였다 ② "**무중단이 어려울 것**" → 무중단이었다(전환 전 `DNS Check in Progress` → 전환 후 `DNS check successful`, 접속·로그인·리시빙까지 정상). 📌 **교훈 — 비용·난이도를 추정으로 적어 두면 착수가 미뤄진다**(08-13 의 "게이트와 묶어서" 오판과 같은 계열: 그때는 **묶음**이 미뤘고 이번엔 **추정 견적**이 미뤘다). ⚠️ **이월**: ⬜ `tools`(⚠️ 직원 상시 사용 — 업무 시간 외) · ⬜ `gas-system-automation`(Pages 없음 — 위험 낮고 우선순위는 더 높을 수 있다) 의 private 검토 · ⬜ **조직 이전**(버스팩터 — 원장 ⑥ 이후, Pages CNAME·HTTPS 재설정이 최대 변수).
+- ~~**레포 비공개 전환 검토 — ⚠️ 위 게이트 항목에서 분리 (2026-08-13 정정)**: 종전 기록이 "같은 뿌리 — 둘 중 하나만으로는 불완전"으로 묶어 놨는데 **그것이 착수를 미뤘다.** 정정: **anon 키는 F12 로 보인다 — 레포 비공개는 근본 방어가 아니다.** 게이트만으로 실질 방어가 성립하고(2026-08-13 완료), 레포 비공개는 **로직 노출을 줄이는 별개 항목**이다. `asungtrading/asung-wms` 는 PUBLIC(Pages 무료 배포 때문 — 환경 상수 표) — 전환 시 Pages 유료화 또는 배포 방식 변경 필요(08-13 GitHub Pages 502 장애와 묶어 검토할 값어치).~~ → ⚠️ **시도 후 복귀 — 항목은 다시 열려 있다 (2026-08-19 밤)**. 상세·판단은 **규칙 12 「private 전환 시도 후 복귀」가 정본**. 요지: **기술 문제는 없었다**(개인 Pro 로 무중단 · Pages 설정 무접촉 · 재배포 불필요 — 미착수 전제였던 "배포 방식 변경 필요"·"무중단이 어려울 것" 둘 다 틀렸다). **되돌린 이유는 작업 방식** — private 이면 대화 세션의 Claude 가 레포를 못 읽어(raw·codeload 404 실측) 진단 정밀도가 떨어진다. **위험은 낮고 만성적(시크릿은 레포에 없다 · 이미 몇 달 public 이라 지금 닫아도 과거는 안 지워진다), 비용은 확실하고 즉각적** ⇒ public 유지가 현재 결론. 📌 재검토한다면 **`docs/sessions/` 만 분리**하는 쪽. 📌 **교훈 — 비용·난이도를 추정으로 적어 두면 착수가 미뤄진다**(08-13 의 "게이트와 묶어서" 오판과 같은 계열: 그때는 **묶음**이 미뤘고 이번엔 **추정 견적**이 미뤘다. ⚠️ 단 이번엔 착수해 보고 **다른 비용**을 발견한 것이 수확이다). ⚠️ **이월**: ⬜ `tools`(⚠️ 직원 상시 사용 — 업무 시간 외) · ⬜ `gas-system-automation`(Pages 없음 — 위험 낮고 우선순위는 더 높을 수 있다) 의 private 검토 · ⬜ **조직 이전**(버스팩터 — 원장 ⑥ 이후, Pages CNAME·HTTPS 재설정이 최대 변수).
 - 🆕 **hello 폴링 경로 무인증 개방 (2026-08-13 · ⬜ 미착수)** — [실측] `config.toml:416-418` 에서 hello 는 **verify_jwt=false** 이고, cron.job 실물 확인 결과 `wms-poll-orders` 가 Authorization 에 **Bearer 접두어 없는 anon 키**를 넣어 부른다(그 헤더는 사실상 아무 역할을 안 한다). → ⚠️ **헤더 없이 아무나 `hello?commit=1` 을 호출할 수 있다**(2026-08-13 curl 로 실측 — 정상 응답). 재고 불가역 쓰기는 아니지만 **호출당 Cin7 GET 수십 회를 유발하는 429 남용 벡터**다. ⚠️ 게이트를 넣으면 오더 유입이 전면 중단된다 — **cron 호출 형태를 Bearer 로 바꾸는 것이 선행.** 급하지 않음(표적이 될 규모가 아님).
 - **applied_by 서버 유도 (2026-08-13 · 작은 것)** — 여전히 쿼리스트링 `&by=<name>` (위조 가능 — 규칙 27 「EF 권한」 잔존분). 게이트가 생겨 이제 hold_recheck 의 `by: s.name` 처럼 **`caller.name` 으로 대체 가능**해졌다.
 - **프론트 401 처리 (2026-08-13 · 작은 것)** — receiver.html `efGet`·admin.html `hdrs` 의 anon 폴백(`||WMS_CONFIG.SUPABASE_ANON_KEY`)은 게이트 후 **100% 401 이라 실패를 지연시키는 죽은 코드**다. 제안: 폴백 제거 + 401 이면 "Session expired — sign in again" 후 reload. 발생 빈도는 낮음(getSession 자동 갱신) — **401 toast 가 목격되면 착수.**
@@ -1292,7 +1380,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 - `wms_drop_locations` 비어있음.
 - RLS 세분화(쓰기/해소=매니저만) — auth_all로 충분하나 운영 강화 시.
 - is_selling 이상치 청소: CAN94629/-12·RSK53280/-12(변형 No로)·EBI00001~4(Cin7 수정 후 청소쿼리).
-- 알림(작업완료 clean/flagged) 미구현. 미사용 SA `wms-edge-bq` 삭제 가능. private repo+$4/mo 고려.
+- 알림(작업완료 clean/flagged) 미구현. 미사용 SA `wms-edge-bq` 삭제 가능. ~~private repo+$4/mo 고려~~ → 2026-08-19 시도 후 복귀(규칙 12 · 백로그 「보안」).
 - 스캔 오류음 추가강화(풀스크린 빨강 플래시 등)·팔렛/박스 완료 잠금 — 현장 피드백 대기.
 
 ## 개발 워크플로우 노트
