@@ -41,7 +41,7 @@ Cin7 Core ──(폴링)──> Supabase Edge Function ──> Supabase Postgres
 - **Edge Function은 BQ에 직접 안 붙습니다.** 조직정책 `iam.disableServiceAccountKeyCreation`이 서비스계정 JSON 키 생성을 차단(Google Secure by Default)했기 때문. Workload Identity는 과함. → **제3의 길**: GAS가 BQ 마스터를 Supabase로 복제하고, Edge Function은 Cin7 읽기 + Supabase 조인만. BQ 인증 관문 자체가 소멸.
 - **WMS는 Cin7에 쓰지 않습니다(MVP).** 작업 완료 시 담당자에게 알림만 → 담당자가 Cin7에서 pack authorize → Cin7 automation('pack is authorized' 이벤트)이 Order_Progress를 `3.Finalized`로 전환 + 재고차감. 즉 재고 무결성은 Cin7이 지키고 WMS는 안 씀.
 - **WMS가 소유하는 단계는 Cin7 Order_Progress = `2.Release to WMS` 하나뿐.** 흐름: `1.New`(오더생성) → 매니저 authorize → `2.Release to WMS`(수동) → [우리 WMS: 분할·분배·병렬 픽/팩] → `3.Finalized`(Cin7 automation 자동전환).
-- **프론트엔드는 순수 HTML/JS + Supabase JS CDN.** 빌드툴 없음. GitHub Pages(public repo)로 `wms.asung.ca`에 배포. 스캔 = Bluetooth HID(키보드처럼 입력+Enter).
+- **프론트엔드는 순수 HTML/JS + Supabase JS CDN.** 빌드툴 없음. GitHub Pages(⚠️ **private repo** — 2026-08-19 전환, 개인 Pro. 발행 사이트는 여전히 공개)로 `wms.asung.ca`에 배포. 스캔 = Bluetooth HID(키보드처럼 입력+Enter).
 
 ## 환경 상수
 
@@ -52,7 +52,7 @@ Cin7 Core ──(폴링)──> Supabase Edge Function ──> Supabase Postgres
 | project-ref | `gftpcnkxbdjzzfvzwcfl` |
 | region | `ca-central-1` (캐나다) |
 | 로컬 개발폴더 | `~/asung/asung-wms` (WSL2 Ubuntu). 집·회사 동일 세팅. ⚠️ `/mnt/c/...` 아래에서 작업 금지 — WSL 파일 I/O가 크게 느려짐 |
-| GitHub | `asungtrading/asung-wms` — ⚠️ **PUBLIC** (Pages 무료 배포 위해 전환) |
+| GitHub | `asungtrading/asung-wms` — ⚠️ **PRIVATE** (2026-08-19 전환 · 개인 계정 GitHub Pro — Pages 는 그대로 발행. ⚠️ 발행된 사이트는 여전히 공개 · 상세는 규칙 12 private 항목) |
 | 배포 URL | `https://wms.asung.ca` (커스텀 도메인, DNS CNAME→asungtrading.github.io) |
 | BQ Project | `geometric-rock-487814-k4` |
 | Cin7 API Base | `https://inventory.dearsystems.com/ExternalApi/v2` |
@@ -70,7 +70,11 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 - 공유: `wms-config.js`(anon key — ⚠️실제 key 든 버전 유지, 덮어쓰지 말 것) `wms-auth.js`(로그인 모듈)
 - 로고: `asung-logo-white.png`(런처=어두운 테마용) `asung-logo-dark.png`(6화면=밝은 헤더용, 흰로고 RGB를 잉크색으로 recolor해 생성)
 - 배포: `CNAME`(내용 `wms.asung.ca`, 건드리지 말 것) `.nojekyll`(Jekyll 빌드 스킵 — supabase/·.vscode/ 폴더 때문에 필수)
-- ⚠️ `tools.asung.ca`(customer-portal, 별도 repo `asungtrading/tools`)는 반드시 PUBLIC 유지(private면 무료 Pages 죽음).
+- ⚠️ `tools.asung.ca`(customer-portal, 별도 repo `asungtrading/tools`) — ~~반드시 PUBLIC 유지(private 면 무료 Pages 죽음)~~ **무효 (2026-08-19)**:
+  개인 계정 **GitHub Pro** 면 private 레포에서도 Pages 가 발행된다(`asung-wms` 무중단 전환으로 실증 — Source·Custom domain·Enforce HTTPS 전부 유지).
+  ⇒ `tools.asung.ca` 의 private 전환은 **가능하며 검토 대상**이다(규칙 12 「미검토 레포」).
+  ⚠️ 다만 **직원이 매일 쓰는 도구**라 전환 중 중단이 곧 업무 중단이다 — **업무 시간 외**에, 그리고 Pages 설정(Source·Branch·Custom domain·Enforce HTTPS)을 **미리 기록**해 두고 할 것.
+  📌 판단 기준은 「Pages 가 죽느냐」가 아니라 **레포에 `docs/`·설계 문서·코드 내 시크릿이 있느냐**다 — 프론트는 private 이어도 발행 사이트로 공개되므로 보호 대상이 아니다.
 
 ## DB 스키마 변경 절차 (⚠️ 2026-07-26 확립 — 이 문서 전체에 우선)
 
@@ -225,7 +229,21 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⚠️ **SKU 매칭은 sku 정확 일치(base_sku 아님)** — Cin7 에서 GHO57212 와 GHO57212-50 은 별개 product 로 각자 Attachments 를 갖는다([실측]). base 폴백도 넣지 않는다(BQ/포털 동작과 갈라진다).
 - ⚠️ **대표 이미지 없으면 그 행 무접촉** — 빈 값을 쓰는 경로 자체를 만들지 않는다(이중 안전의 전제: BQ 유래 값이 남아야 한다).
 - ⚠️ **ContentType image/ 가드** — PDF 가 대표로 지정된 경우 깨진 URL 로 멀쩡한 BQ 이미지를 덮는다. 그 외: 페이지 원문 비누적(148페이지 ~48MB vs EF 메모리 256MB) · 시간 가드 330초는 **쓰기 앞**(receiving `APPLY_TIME_BUDGET_MS` 원칙) · duplicate SKU 가드 · `synced_at` 무접촉("GAS 가 마지막으로 적재한 시각" 의미 보존).
-- **인증**: `x-wms-cron-key` 시크릿(⚠️ hello 폴링식 무인증 복제 금지 — 호출 1번 = Cin7 148콜 증폭, secret 미설정이면 500 fail-closed·레포 PUBLIC 이라 실제 값은 secrets+대시보드 cron 등록에만) + **쿨다운 20h**(ok=true 최신 행 기준 — 실패는 재시도를 안 막는다) + `force=1` 은 authgate(verifyCaller/hasApply). [검증 2026-08-14] 시크릿 없이 호출 → 401.
+- **인증**: `x-wms-cron-key` 시크릿(⚠️ hello 폴링식 무인증 복제 금지 — 호출 1번 = Cin7 148콜 증폭, secret 미설정이면 500 fail-closed·**실제 값은 `supabase secrets set` + 대시보드 cron 등록에만** — 근거는 아래 시크릿 위치 규칙) + **쿨다운 20h**(ok=true 최신 행 기준 — 실패는 재시도를 안 막는다) + `force=1` 은 authgate(verifyCaller/hasApply). [검증 2026-08-14] 시크릿 없이 호출 → 401.
+  - 📌 **시크릿 위치 규칙 — 레포 공개 여부와 무관하다 (이 프로젝트의 정본 서술)**: 실제 값은
+    **`supabase secrets set` · 대시보드 cron 등록 · GAS Script Property** 에만 둔다.
+    ⚠️⚠️ 종전 근거는 ~~"레포가 PUBLIC 이라"~~ 였고 **그 전제는 2026-08-19 private 전환으로 사라졌다.
+    그래도 금지는 그대로다** — 근거를 갈아 둔 이유가 이것이다(전제가 사라졌다고 금지까지 지우면
+    시크릿이 커밋된다):
+    - ① ⚠️ **git 히스토리는 영구히 남는다** — 한 번 커밋한 시크릿은 나중에 지워도 히스토리에 남고,
+      레포를 다시 public 으로 되돌리거나 조직으로 이전하면 그대로 노출된다.
+    - ② ⚠️ **발행된 Pages 사이트는 여전히 공개다** — private 레포여도 `wms.asung.ca` 는 누구나 본다
+      (Enterprise 가 아니면 사이트 비공개 불가 — 규칙 12 private 항목).
+    - ③ ⚠️ **협업자·조직 이전 시 열람 범위가 넓어진다** — private 은 "아무도 못 본다"가 아니라
+      **"접근 권한이 있는 사람이 본다"** 다.
+    ⇒ 같은 취지의 **짧은** 주석이 `supabase/ops/cron.sql`(잡 4·5 머리)과
+    `supabase/functions/product-images/index.ts`(헤더 인증 절)에 있고 **둘 다 이 항목을 가리킨다** —
+    문구를 고치면 세 곳을 함께 볼 것.
 - **cron**: `wms-image-sync` **12:30 UTC**(여름 토론토 8:30 — WmsSync 6:30 ±15분 이후·창고 9시 전. ⚠️ pg_cron 은 UTC 라 DST 로 계절마다 1시간 밀린다) + **재시도 13:30**(성공 시 쿨다운이 자동 no-op — 등록 비용 0). `supabase/ops/cron.sql` 잡 4·5.
 - **`wms_image_sync_runs` 가 세 역할**: 관측(diag jsonb — EF 로그는 휘발) · Health 알림 · 쿨다운 가드. 90일 보존 정리는 EF 가 기록 직후(health_snapshot 의 "쓰기 지점에서 정리" 패턴).
 - **`wms_health_check()` 에 `image_sync_stale`(warn·sort 120) 추가**(`20260814030000_image_sync_runs.sql`) — 마지막 성공 48h 초과 **또는 한 번도 없음**. ⚠️ **후자도 warn 인 것이 의도다** — cron 등록을 잊어도 조용한 것이 CSV 7주 사고의 재판이다(push 후 첫 성공까지 warn 1 상주가 정상). 기존 12검사는 **바이트 대조로 보존 확인**(추가 2블록을 빼면 baseline 원문과 동일).
@@ -1242,7 +1260,7 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 
 ### 보안 (2026-08-12 발견 · 2026-08-13 게이트 확대 완료 — 규칙 8 각주의 실측이 근거)
 - ~~⚠️⚠️ **EF 서버측 권한 게이트 확대** — 기존 EF(특히 receiving apply — 되돌릴 수 없는 Cin7 쓰기)는 anon JWT 로 호출 가능(규칙 8 각주 실측). hold_recheck 의 게이트(`/auth/v1/user` → wms_staff 권한)를 같은 패턴으로 이식할 것. ⚠️ 아래 "레포 비공개 전환"과 같은 뿌리 — 키가 공개인 한 클라이언트 게이트는 장식이다.~~ → ✅ **2026-08-13 확대 완료 (커밋 `c76729b` — 규칙 8 각주 백로그 해소)**: **`_shared/authgate.ts` 신설** — `verifyCaller(req)` → `{email,name,role,perms,active} | null` + `hasApply(staff)`. hold_recheck·staff-create 에 두 벌 복제돼 있던 것을 추출(**세 번째 복제를 만들지 않는다** — `_shared/cin7.ts` 추출 전례와 같은 판단 · ⚠️ 바꾸면 hello·receiving 둘 다 재배포). **receiving 2단 게이트**: read 5종(pos·po·bins·transfers·transfer) = 로그인한 active 직원 / **`action=apply` 는 dry-run·commit 둘 다** admin·'apply' 승격(사용자 결정 — 발주 계획 SKU·수량·bin 노출 차단, admin.html 만 호출하므로 깨질 호출자 0). ⚠️⚠️ **hasApply = `role==='admin' || perms.includes('apply')` — `||` 필수**: [실측] Caleb 의 perms 는 `["split","admin","staff"]` 로 apply 가 없고 role='admin' 으로만 통과한다 — perms 만 보면 admin 이 막힌다. **hold_recheck 도 authgate 로 교체 + ⚠️ active 검사 신설** — 종전 `select=name,role,perms` 로 active 를 안 읽어 **비활성화된 admin 의 살아 있는 세션이 통과했다**(staff-create 는 검사했다 — 두 게이트가 갈라져 있었다). [실측] 전원 active=true 라 현재 무영향 = 안전한 타이밍. **구현 판단 2건(실측 근거)**: ① **이메일 lowercase 안 함** — `wms-auth.js:170` 이 원문 `.eq` 하는 것이 기존 불변식. 정규화하면 mixed-case 계정이 로그인은 되는데 게이트만 막히는 회귀 ② **active 판정은 `!== false`**(`=== true` 아님) — null 행이 로그인은 되는데 게이트에서 막히는 어긋남 방지. authgate 의 wms_staff 조회 실패는 throw → 기존 catch 500 = **fail-closed**. **[검증 통과 2026-08-13]** ① 폴링 무회귀(헤더 없이 정상 응답 · list_total 93 · rate_limited false) ② receiving anon → 401 ③ receiver.html read 5종 정상(작업자 Joyce Chang·admin 둘 다) ④ hold_recheck anon → 401(authgate 교체 회귀 없음). ⬜ **미검증**: Apply dry-run 이 admin 계정으로 통과하는지(hasApply 의 `||` 판정) · hold_recheck 실제 재개(보류 오더 발생 시).
-- **레포 비공개 전환 검토 — ⚠️ 위 게이트 항목에서 분리 (2026-08-13 정정)**: 종전 기록이 "같은 뿌리 — 둘 중 하나만으로는 불완전"으로 묶어 놨는데 **그것이 착수를 미뤘다.** 정정: **anon 키는 F12 로 보인다 — 레포 비공개는 근본 방어가 아니다.** 게이트만으로 실질 방어가 성립하고(2026-08-13 완료), 레포 비공개는 **로직 노출을 줄이는 별개 항목**이다. `asungtrading/asung-wms` 는 PUBLIC(Pages 무료 배포 때문 — 환경 상수 표) — 전환 시 Pages 유료화 또는 배포 방식 변경 필요(08-13 GitHub Pages 502 장애와 묶어 검토할 값어치).
+- ~~**레포 비공개 전환 검토 — ⚠️ 위 게이트 항목에서 분리 (2026-08-13 정정)**: 종전 기록이 "같은 뿌리 — 둘 중 하나만으로는 불완전"으로 묶어 놨는데 **그것이 착수를 미뤘다.** 정정: **anon 키는 F12 로 보인다 — 레포 비공개는 근본 방어가 아니다.** 게이트만으로 실질 방어가 성립하고(2026-08-13 완료), 레포 비공개는 **로직 노출을 줄이는 별개 항목**이다. `asungtrading/asung-wms` 는 PUBLIC(Pages 무료 배포 때문 — 환경 상수 표) — 전환 시 Pages 유료화 또는 배포 방식 변경 필요(08-13 GitHub Pages 502 장애와 묶어 검토할 값어치).~~ → ✅ **완료 (2026-08-19)** — 상세는 **규칙 12 private 항목이 정본**. ⚠️ **미착수 전제 2개가 둘 다 틀렸다**: ① "Pages 유료화 또는 **배포 방식 변경 필요**" → 배포 방식은 **무접촉**이었다(Source `main /(root)` · Custom domain · Enforce HTTPS 전부 유지, 재배포도 불필요). 필요한 것은 **개인 계정 GitHub Pro($4/월) 하나**였다 ② "**무중단이 어려울 것**" → 무중단이었다(전환 전 `DNS Check in Progress` → 전환 후 `DNS check successful`, 접속·로그인·리시빙까지 정상). 📌 **교훈 — 비용·난이도를 추정으로 적어 두면 착수가 미뤄진다**(08-13 의 "게이트와 묶어서" 오판과 같은 계열: 그때는 **묶음**이 미뤘고 이번엔 **추정 견적**이 미뤘다). ⚠️ **이월**: ⬜ `tools`(⚠️ 직원 상시 사용 — 업무 시간 외) · ⬜ `gas-system-automation`(Pages 없음 — 위험 낮고 우선순위는 더 높을 수 있다) 의 private 검토 · ⬜ **조직 이전**(버스팩터 — 원장 ⑥ 이후, Pages CNAME·HTTPS 재설정이 최대 변수).
 - 🆕 **hello 폴링 경로 무인증 개방 (2026-08-13 · ⬜ 미착수)** — [실측] `config.toml:416-418` 에서 hello 는 **verify_jwt=false** 이고, cron.job 실물 확인 결과 `wms-poll-orders` 가 Authorization 에 **Bearer 접두어 없는 anon 키**를 넣어 부른다(그 헤더는 사실상 아무 역할을 안 한다). → ⚠️ **헤더 없이 아무나 `hello?commit=1` 을 호출할 수 있다**(2026-08-13 curl 로 실측 — 정상 응답). 재고 불가역 쓰기는 아니지만 **호출당 Cin7 GET 수십 회를 유발하는 429 남용 벡터**다. ⚠️ 게이트를 넣으면 오더 유입이 전면 중단된다 — **cron 호출 형태를 Bearer 로 바꾸는 것이 선행.** 급하지 않음(표적이 될 규모가 아님).
 - **applied_by 서버 유도 (2026-08-13 · 작은 것)** — 여전히 쿼리스트링 `&by=<name>` (위조 가능 — 규칙 27 「EF 권한」 잔존분). 게이트가 생겨 이제 hold_recheck 의 `by: s.name` 처럼 **`caller.name` 으로 대체 가능**해졌다.
 - **프론트 401 처리 (2026-08-13 · 작은 것)** — receiver.html `efGet`·admin.html `hdrs` 의 anon 폴백(`||WMS_CONFIG.SUPABASE_ANON_KEY`)은 게이트 후 **100% 401 이라 실패를 지연시키는 죽은 코드**다. 제안: 폴백 제거 + 401 이면 "Session expired — sign in again" 후 reload. 발생 빈도는 낮음(getSession 자동 갱신) — **401 toast 가 목격되면 착수.**

@@ -11,7 +11,8 @@ Cin7 Core를 장기적으로 대체할 커스텀 IMS의 첫 모듈. 추측으로
 
 - 개발 경로: `~/asung/asung-wms` (WSL2 Ubuntu)
 - Supabase project-ref: `gftpcnkxbdjzzfvzwcfl` (ca-central-1)
-- 배포: GitHub Pages -> `wms.asung.ca` (repo `asungtrading/asung-wms`, PUBLIC)
+- 배포: GitHub Pages -> `wms.asung.ca` (repo `asungtrading/asung-wms`, **PRIVATE** — 2026-08-19 전환.
+  개인 계정 GitHub Pro 라 private 이어도 Pages 는 그대로 발행된다. ⚠️ **발행된 사이트는 여전히 공개**)
 - 빌드툴 없음. 순수 HTML/JS + Supabase JS CDN
 - Cin7 API: `https://inventory.dearsystems.com/ExternalApi/v2`
 

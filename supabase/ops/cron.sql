@@ -54,8 +54,11 @@ select cron.schedule(
 --       어느 계절에도 WmsSync(GAS, America/Toronto 6:30 ±15분 — 스냅샷 truncate+재적재)
 --       **이후** · 창고 시작(9시) **전**이 되도록 고른 값. 재적재보다 먼저 돌면 그날
 --       덮어쓴 이미지가 BQ 값으로 되돌아간 채 하루를 보낸다.
---    ⚠️⚠️ x-wms-cron-key 실제 값을 이 파일에 넣지 말 것 — 레포가 PUBLIC 이다.
+--    ⚠️⚠️ x-wms-cron-key 실제 값을 이 파일에 넣지 말 것 — 레포 공개 여부와 무관한 금지다.
 --       (anon 키는 원래 공개라 커밋 OK 였지만 이 시크릿은 다르다.)
+--       ⚠️ 레포는 2026-08-19 부터 private 이지만 금지는 그대로다: git 히스토리는 영구 ·
+--       발행 Pages 사이트는 private 레포여도 공개 · private = "접근 권한자가 본다".
+--       근거 정본은 asung-wms 스킬 「상품 이미지 파이프라인」 절의 시크릿 위치 규칙.
 --       `supabase secrets set WMS_CRON_SECRET=...` 로 등록한 것과 같은 문자열을
 --       실서버 대시보드 SQL Editor 에서 등록할 때만 채운다. 아래는 placeholder.
 --    선행 조건: 20260814030000_image_sync_runs.sql push · product-images 배포 ·

@@ -61,7 +61,10 @@
 // 증폭이 크다. 백로그 「보안」이 hello 를 이미 "429 남용 벡터"로 지적했다):
 //  · cron 경로: x-wms-cron-key 헤더 == secret WMS_CRON_SECRET (verify_jwt=false —
 //    config.toml). secret 미설정이면 500 fail-closed. ⚠️ 시크릿 실제 값은 레포에
-//    절대 넣지 말 것(PUBLIC) — supabase secrets set + 대시보드 cron 등록에만.
+//    절대 넣지 말 것 — supabase secrets set + 대시보드 cron 등록에만. 레포 공개
+//    여부와 무관한 금지다: git 히스토리는 영구 · 발행 Pages 사이트는 private
+//    레포여도 공개 · private = "접근 권한자가 본다". 2026-08-19 private 전환
+//    후에도 그대로 — 근거 정본은 asung-wms 스킬 「상품 이미지 파이프라인」 절.
 //  · 수동 경로: ?force=1 + 로그인 JWT → verifyCaller/hasApply(쿨다운 우회).
 //  · 쿨다운 20시간: 마지막 성공(ok=true)이 20시간 이내면 즉시 SKIPPED — 시크릿이
 //    새도 증폭이 하루 1회로 갇히고, 재시도 cron(13:30)은 첫 실행 성공 시 자동 no-op.
