@@ -1989,6 +1989,16 @@ async function resolveReport(id){
 }
 
 /* ---------- Packing lists (reprint from admin) ---------- */
+// 팩 검수 실적 합산 — Finalized 상위 행의 빨간 괄호와 배치 펼침 표가 **같은 자**를 쓴다
+// (2026-08-20 Caleb — 두 곳이 따로 세면 상위 행과 펼침 숫자가 어긋나는 게 더 큰 혼란이다).
+// "실제 나간 것" = verified_base>0 인 라인 수 · 그 합 (Stats 의 "실제 한 일" 기준과 동일).
+// ⚠️ verified_base 는 packer 가 required 에서 캡해 저장하므로(over 는 overScans 메모리 전용)
+//    합이 주문량을 넘는 경우는 정상 경로에 없다.
+function tallyVerified(packLines){
+  let lines=0, units=0;
+  (packLines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q>0){ lines++; units+=q; } });
+  return {lines, units};
+}
 async function loadPacking(){
   const r=rangeFor(finPeriodKey,finCustom); setRangeLabel("finPeriod",r.label);
   const el=document.getElementById("packingList");
@@ -2000,7 +2010,11 @@ async function loadPacking(){
   // total_lines/total_required_base = 저장 컬럼(1-E — 추가 쿼리 0, Status 탭 Finalized 섹션과 같은 숫자).
   // wms_pick_tasks(count) = "N batches" 배지용 임베드 카운트(2026-08-13) — 최상위 행은 오더뿐이라
   // 1000행 캡과 무관(규칙 20: 캡은 최상위 행에만)·추가 왕복 0. FK 실재 확인: wms_pick_tasks_order_id_fkey.
-  const FIN_SELECT="id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at,total_lines,total_required_base,wms_pick_tasks(count)";
+  // wms_pack_tasks(라인 verified_base) 임베드 추가(2026-08-20 — 실제 팩 수량 병기, Q3=A안):
+  // FK wms_pack_tasks_order_id_fkey 실재(baseline:1183) — order 에서 직접 임베드, 추가 왕복 0.
+  // 캡 무관(캡은 최상위 행에만 — 규칙 20) · payload 증가는 아래 console.debug 로 실측.
+  // status 컬럼은 안 싣는다 — 팩 태스크는 completed 단일값(실측)이라 검사가 죽은 조건(아래 packDone 주석).
+  const FIN_SELECT="id,order_number,customer_name,warehouse,fulfillment_type,finalized_by,finalized_at,updated_at,mgr_reviewed,mgr_reviewed_by,mgr_reviewed_at,total_lines,total_required_base,wms_pick_tasks(count),wms_pack_tasks(wms_pack_task_lines(verified_base))";
   // 카드 모수의 기간(1-D-2): 화면 기준이 coalesce(finalized_at, updated_at) 라 서버 or(and(),and()) 로 옮긴다 —
   // 카드가 목록 제한과 독립(count-head)이면서도 기간 버튼과 같은 기준을 쓴다.
   const rangeOr=`and(finalized_at.gte.${r.fromISO},finalized_at.lte.${r.toISO}),and(finalized_at.is.null,updated_at.gte.${r.fromISO},updated_at.lte.${r.toISO})`;
@@ -2018,6 +2032,9 @@ async function loadPacking(){
     cntCard(q=>q.not("mgr_reviewed","is",true)),
   ]);
   const revRows=revQ.data||[], revTotal=revCnt.count??revRows.length;
+  // payload 실측용 (2026-08-20 — 임베드 확장 Q3=A안의 검증 조건): 과하면 별도 쿼리+range 로 물러선다.
+  console.debug("[finalized] payload bytes:", JSON.stringify(unrevQ.data||[]).length+JSON.stringify(revRows).length,
+    "· orders:", (unrevQ.data||[]).length+revRows.length);
   // 병합 후 기존 정렬 기준(updated_at desc) 재정렬 — 종전 단일 쿼리의 표시 순서 보존
   const ords=[...(unrevQ.data||[]),...revRows].sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   // ⚠️ PostgREST 는 요청하지 않아도 1000행에서 자른다 — 종전 조회는 pallet_items **전량**(무정렬·무LIMIT)이라
@@ -2065,11 +2082,37 @@ async function loadPacking(){
       // 상세는 펼칠 때 그 오더만 lazy 1왕복(Rollback 식 4종 프리로드는 closed 640건에서 2만~4만 행 — 부적격 판정).
       const nb=(o.wms_pick_tasks&&o.wms_pick_tasks[0]&&o.wms_pick_tasks[0].count)||0;
       const bt=nb>=2?` <button data-finbt="${o.id}" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font:inherit;font-size:11.5px;color:var(--mut);cursor:pointer;margin-left:6px">▸ ${nb} batches</button>`:"";
+      // ── 실제 팩 수량 병기 (2026-08-20 Caleb — Q1=(a)·Q2=(ii)·Q3=A) ──
+      // 괄호 = 주문(total_*)과 다를 때만 빨강. 팩 미완이면 회색 (—) — 부분 합산은 그것도 거짓이고,
+      // 「부족 출고」와 「팩 기록 없음」이 같은 빨강이면 레거시 수백 건이 전부 사고처럼 읽힌다.
+      // ⚠️ 미완 판정의 분모는 픽 배치 수(nb) — 팩 태스크 수로 세면 팩 미시작 배치가 빠져
+      //    오판한다(wms_order_pack_progress 뷰의 분모와 같은 원리).
+      // 팩 태스크는 완료 상태로만 존재한다([실측 2026-08-19] status 단일값 'completed' 1,428건) —
+      // 판정은 「배치 수만큼 팩 태스크가 있는가」 하나로 충분하고, status 를 검사하면 죽은 조건이 된다.
+      // ⚠️ [실측 2026-08-19] closed 896건 중 팩 태스크가 배치 수보다 적은 것은
+      //    **SO-13893(id 332, 2026-07-30) 1건뿐**이다. 그 오더는 finalize(18:56) 24분 뒤 `pack` 롤백
+      //    (`wms_rollback_log` id=178, `pack_complete → pick_complete`)을 맞았고, **롤백이 오더
+      //    status·finalized_at 을 되돌리지 않아** closed 인 채 팩 기록만 사라졌다.
+      //    📌 팩 없이 finalize 되는 경로는 이미 막혀 있다(Finalize 게이트 `wms_order_pack_progress` —
+      //    전 배치 팩 완료 확인). 뚫린 것은 **finalize 이후의 롤백**이다.
+      //    ⇒ 이 「—」 분기는 그 계열의 예외 방어다. ⚠️ 롤백 순서 강제(finalized_at 이 있으면
+      //    pack·pick·fulfillment 롤백 불가 — finalize 를 먼저 되돌려야 한다)가 들어가면 재발하지
+      //    않는다 — 별건으로 열려 있다.
+      const pks=o.wms_pack_tasks||[];
+      const packDone=nb>0&&pks.length>=nb;
+      let pkL=0,pkU=0;
+      if(packDone) pks.forEach(p=>{ const t=tallyVerified(p.wms_pack_task_lines); pkL+=t.lines; pkU+=t.units; });
+      const packedCell=(base,actual)=>{
+        if(!packDone) return ` <span style="color:var(--mut-2);font-weight:400" title="Not fully packed — no reliable packed count (legacy finalize or unpacked batches)">(—)</span>`;
+        if(base==null) return "";   // 주문 기준값 자체가 없으면 비교 불가 — 괄호 생략
+        // 괄호 포맷은 기존 셀과 동일한 raw(콤마 없음) — 나란한 두 숫자의 포맷이 갈리면 비교가 어색하다
+        return Number(base)!==actual?` <span style="color:var(--danger)" title="Actually packed (verified) — differs from the ordered amount">(${actual})</span>`:"";
+      };
       return `<tr data-rev="${o.mgr_reviewed?1:0}" style="${o.mgr_reviewed?"opacity:.55":""}">
       <td><input type="checkbox" class="mgrchk" data-oid="${o.id}" ${o.mgr_reviewed?"checked":""} title="${o.mgr_reviewed?("Reviewed by "+esc(o.mgr_reviewed_by||"")+(o.mgr_reviewed_at?" · "+new Date(o.mgr_reviewed_at).toLocaleDateString():"")):"Mark as reviewed"}"></td>
       <td style="font-family:var(--mono);font-weight:700">${esc(o.order_number)}${bt}</td>
       <td>${esc(o.customer_name||"—")}</td>
-      <td class="num">${o.total_lines??"—"}</td><td class="num">${o.total_required_base??"—"}</td>
+      <td class="num">${o.total_lines??"—"}${packedCell(o.total_lines,pkL)}</td><td class="num">${o.total_required_base??"—"}${packedCell(o.total_required_base,pkU)}</td>
       <td><span class="tag wh-${o.warehouse}">${o.warehouse==="edmonton"?"Edmonton":"Toronto"}</span></td>
       <td>${esc(o.finalized_by||"—")}</td>
       <td style="color:var(--mut);font-size:12px">${(o.finalized_at||o.updated_at)?new Date(o.finalized_at||o.updated_at).toLocaleString():""}</td>
@@ -2110,7 +2153,8 @@ async function loadPacking(){
           let lines=0, units=0, packer="";
           (t.wms_pack_tasks||[]).forEach(pk=>{
             packer=packer||pk.completed_by||pk.assigned_to||"";
-            (pk.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q>0){lines++;units+=q;} });
+            // 합산은 상위 행 괄호와 공용 tallyVerified — 따로 세면 두 숫자가 갈라진다(2026-08-20)
+            const tv=tallyVerified(pk.wms_pack_task_lines); lines+=tv.lines; units+=tv.units;
           });
           const hasPack=(t.wms_pack_tasks||[]).length>0;
           return `<tr>
