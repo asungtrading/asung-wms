@@ -934,6 +934,29 @@ Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리�
 
 ⚠️⚠️ **avg time·min/line 의 신뢰 한계 (2026-08-11 조사 — 코드로 확정된 사실)**: `started_at` 이 실제 작업 시작이 아닐 수 있다. **[확정 — 코드]** ① **스캔 이어받기**(picker `openByScan` 이어받기 분기 · packer 스캔 이어받기)가 `started_at` 을 **지금으로 덮어쓴다** — 인계자의 작업 시간이 소멸하고 완료자의 잔여 시간만 남는다(과소). confirm 문구 "quantities are kept" 는 수량만 참이다. ② **Hold→재개**: Hold RPC 는 started_at 을 의도적으로 보존하는데(마이그레이션 주석 명시) **재개가 `startBatch`/packer 큐 클레임을 재사용해 덮어쓴다**(held 카드 디스패치의 else 분기 — RPC 가 지킨 것을 재개가 무효화). ③ **wave 멤버**는 반대 방향 — `startWave` 가 전 멤버에 wave 시작 시각을 일괄 기록 + 완료도 일괄이라 **멤버 전원의 dur ≈ wave 전체 소요**(과대). **대조군(보존이 옳게 된 곳)**: `takeoverBatch`(방치 클레임)는 assigned_to·heartbeat 만 갱신 — 같은 "이어받기"인데 스캔 쪽만 리셋(설계 갈라짐). **[확정 — 증언] (2026-08-11 후반)**: SO-14464-1(68라인/218유닛을 2분 10초 기록)의 원인은 **② Hold→재개**로 확정 — ⚠️ **근거는 코드·행 데이터가 아니라 담당자 증언이다**("라인 수가 많아 중간중간 Hold/Resume 을 여러 번 했다. 2분에 끝날 특별한 상황은 없었다"). 행에는 판별 흔적이 없었다(`picked_at` 전 행 null · 롤백 로그 없음) — 증언이 유일한 판별 근거. ✅ **①②는 2026-08-11 수정 완료**: **"started_at 은 최초 시작이다 — 이어받기·재개가 덮어쓰지 않는다"** 가 명문 원칙이다. 4곳(picker 스캔 이어받기·startBatch / packer 스캔 이어받기·resumePack 클레임) 전부 SET 에서 started_at 제거 + `ensureStartedAt`/`ensureStartedAtPack` 헬퍼의 서버측 only-if-null backfill(`.is("started_at",null)` — 경합에도 최초 1회만). 최초 시작/재개의 구분자는 행의 null 여부(롤백은 null 리셋·Hold 는 보존 — 모드 분기 불필요). packer `startPack` 의 insert(진짜 최초)는 무접촉. ③ wave 멤버 과대는 **잔여**(배분 설계 필요 — 백로그). ⚠️⚠️ **수정의 부작용 — 방향 전환(과소→과대)**: 이제 avg 는 **Hold 대기 시간을 포함**한다(3시간 방치 = 3시간 기록). 매니저가 "갑자기 느려졌다"고 읽으면 오해다 — **기록이 정확해진 것**(2026-08-11 이후 데이터부터). 화면 문구는 **넣지 않기로 판단**(부제가 이미 길고, 일회성 전환이라 영구 문구는 과함 — 물으면 이 문단이 답). ⚠️⚠️ **24시간 캡 의존성(건드리기 전에 읽을 것)**: `dur()` 는 24h 초과를 이상치로 버리는데, 이 캡이 **밤샘 Hold 배치를 avg 에서 자동 제외하는 이번 수정의 안전장치**다 — 동시에 **통계 공백**이기도 하다(오래 Hold 된 배치는 avg 에 아예 안 잡힌다: "왜 이 배치가 avg 에 없지"의 답). 캡을 올리면 밤샘 Hold 가 avg 를 오염시키고, 없애면 며칠짜리 dur 이 들어온다 — **순수 작업시간(스캔 타임스탬프 집계, 백로그)이 생기기 전엔 캡 유지.** → 매니저 안내: ③이 섞인 기간의 avg·min/line 은 여전히 개인 비교 근거로 쓰지 말 것.
 
+⚠️⚠️ **픽 배치 시간이 실제보다 짧게 기록되는 결함 — reaper × 08-11 backfill 조합 (2026-08-21 규명)**
+- **현상**: `SO-15028-1`(229라인·765유닛)이 Stats 에 **4.1분**으로 표시. 물리적으로 불가능하다.
+  `wms_pick_tasks` 에서 `status='completed'` + `work_started=false` 인 건은 **1,551건 중 7건**
+  (7/21 초기 데이터 5건 제외하면 실질 2건, 둘 다 같은 작업자).
+- **지문**: `heartbeat_at` 이 `started_at` 보다 **0.12초 빠르다** — `startBatch` 가 UPDATE 두 번
+  (①클레임 heartbeat / ②`ensureStartedAt`)이고 ②는 **null 일 때만** 쓰므로,
+  **클레임 순간 `started_at` 이 null 이었다**는 뜻이다.
+  📌 8/10 건(`SO-14393-3`)은 `started_at == heartbeat_at` 동일 밀리초 = **UPDATE 한 번**의 지문 —
+  08-11 커밋 `931ecd4` **이전**의 옛 결함(위 ②)이고 이미 고쳐졌다. **두 건은 다른 결함이다.**
+- **원인**: `wms_reap_stale_claims`(pg_cron 2분)가 `work_started=false` + 3분 방치를 유령으로 보고
+  **`started_at` 까지 지운다**. 그런데 **hold 재개(`startBatch`)가 `work_started` 를 false 로 되돌리므로**,
+  재개 후 3분간 스캔이 없으면 진행 중인 배치가 물린다. 그다음 재클레임 시
+  `ensureStartedAt`(08-11 의 only-if-null backfill)이 **「최초 시작」으로 오인**해 새로 찍는다.
+  ⇒ ⚠️ **08-11 수정과 reaper 는 각각 옳았으나 조합이 틀렸다** — backfill 이 리셋을 정당화한다.
+  📌 두 번째 경로: `markWorkStarted` 가 **fire-and-forget**(에러 무시)이라 와이파이 순단이면
+  DB 는 영원히 false 로 남는다.
+- ⚠️ **재발 조건이 창고 일상 동작이다** — held 배치 재개 후 스캔 전 자리 비움.
+- ⚠️ **팩도 같은 구조** — reaper 가 `wms_pack_tasks` 도 같은 식으로 문다.
+- **처방(reaper 에서 `started_at=null` 제거)은 하지 않기로 했다 (사용자 결정 2026-08-21)** —
+  📌 그것은 「4.1분」을 「3시간」으로 바꿀 뿐이다. `completed_at − started_at` 은 **벽시계**라
+  hold·점심·야간이 전부 들어간다. **거짓을 다른 거짓으로 바꾸는 것**이고, 3시간은 그럴듯해 보여
+  오히려 발견되지 않는다. ⇒ **새 자(라인 시각 — 아래 편승 항목)가 검증된 뒤 판단한다.**
+
 **2026-08-11 확장 — 라인·유닛(base) 보조 줄 + Quality reports by worker.** ⚠️⚠️ **설계 판단(사용자 확정): 처리량에 순위를 매기지 않는다** — 배치/시간·라인/시간·유닛/시간 어느 하나도 공정하지 않아(각각 작은 오더·낱개 다SKU·대량 단일SKU 유리) 세 지표를 **나란히 보여주기만** 한다. **한 숫자로 줄이면 그 숫자에 맞춰 행동이 왜곡된다**(작은 오더 골라잡기 — 규칙 41 계열). min/unit 은 왜곡에 가장 취약해 아예 없고, min/line 은 회색 텍스트만. "실제 한 일" 기준(수량>0 라인·수량 합 — 픽 picked_base/팩 verified_base)은 화면 부제에 명시. Quality reports 표는 포상 **판단용 데이터**일 뿐 화면은 상벌을 표현하지 않는다(중립 표 · receiver 포함 · "Higher is better…" 문구). 상세·쿼리 구조는 `references/frontend.md` 「Stats 라인·유닛 지표」 절.
 
 - **작업자 통계는 별도 표가 아니라 「Throughput by worker」에 통합**한다(같은 사람이 픽·팩·리시빙을 다 하므로 표가 갈라지면 비교가 안 된다). 픽/팩 집계와 리시빙 집계를 **도착 순서 무관하게 이름 합집합으로** 합쳐 그린다. ⚠️ **2026-08-17 부터 리시빙 사람 귀속은 라인 단위**(`last_received_by` — 규칙 24 라인별 작업자 항목): 폴백 그룹(도입 전 라인) 키는 **`~이름`** 으로 분리 집계(의도 — 그 사람 실적이라 단정할 수 없다). ~~렌더에서도 별도 행~~ → ⚠️ **2026-08-20 개정: renderProd 가 실명 행에 접어 넣되 수치는 `(+N attributed)` 로 분리 표기**(같은 사람이 `Ian Lee`/`~Ian Lee` 두 줄로 보여 혼란 — Caleb 결정. 접두는 `RECV_FB_PREFIX` 상수를 생성·파싱이 공유). **한 숫자 합산은 여전히 금지** — PO-01131 형 거짓의 부활. 본문 수치(units·receipts·avg·putaway%)는 정확분만, attributed 는 괄호·연한 막대·펼침 라벨 `(attributed)` 로 · **work time = 사람별 min~max `last_received_at`**(receipt 전체 구간을 사람 수만큼 주면 셋이 나눈 4시간이 12시간이 된다 — 폴백 그룹은 미계산: 없는 값을 만들지 않는다) · 받은 라인 0 인 receipt 는 byWorker 에 안 잡힌다.
@@ -1234,6 +1257,25 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 
 ### 검증 대기 (배포됐으나 실전 미확인)
 
+- ⚠️⚠️ **라인 시각 편승 — 검증·후속 4건 (2026-08-21 · Caleb 이 「검증 리스트를 알려달라」고 했다 — 다음 세션은 이 목록을 먼저 보라)**
+  ```
+  ⬜ 1. 라인 시각 기록 검증 — 다음 픽·팩 작업 직후
+     select picked_at, picked_by, picked_base, status
+     from wms_pick_task_lines where picked_at is not null order by picked_at desc limit 5;
+     (팩은 verified_at·verified_by 동일)
+     ⚠️ 값이 안 들어오면 프론트 캐시(Ctrl+Shift+R) 또는 배포 순서 확인
+
+  ⬜ 2. 2단계 — Stats 계산 교체 (다음 주 예정)
+     갭 분포 SQL 로 N 확정 → 스캔 구간 누적 계산 → ⚠️ 벽시계 avg 와 **병기**(교체 아님 — 대조군)
+     select width_bucket(extract(epoch from gap)/60, 0, 60, 12) as bucket_5min, count(*)
+     from (select picked_at - lag(picked_at) over (partition by pick_task_id, picked_by order by picked_at) as gap
+           from wms_pick_task_lines where picked_at > '2026-08-21') g
+     where gap is not null group by 1 order by 1;
+
+  ⬜ 3. 리시빙 갭 컷 통일 — 2단계 검증 후
+
+  ⬜ 4. reaper `started_at=null` 제거 — 새 자 검증 후 판단(규칙 37 「reaper × backfill 조합」 참조)
+  ```
 - ⚠️ **product-images EF (2026-08-14 저녁 — 「상품 이미지 파이프라인」 절이 정본)** — 첫 성공은 실측 완료(148페이지·3분 32초·updated 6·Health warn 소멸). ⬜ 남은 확인: ① **cron 자동 회차**(12:30 UTC — `wms_image_sync_runs` 에 mode CRON 행이 생기는지. ⚠️ **2026-08-15 의 12:30 슬롯은 쿨다운 20h 에 걸려 SKIPPED cooldown 예상**(첫 성공이 08-14 저녁) — **08-16 부터 정상이니 놀라지 말 것**) ② **재시도 슬롯(13:30)이 SKIPPED cooldown 으로 no-op** 하는지 ③ 다음날 사이클(6:30 재적재가 BQ 값으로 되돌림 → EF 가 다시 덮음 — 그 사이 BQ 값 표시는 정상) ④ `force=1` 의 authgate 통과(admin 계정 — 시크릿 없는 401 만 실측됨).
 
 - ⚠️ **2026-08-14 배포분 (Health 자동 실행 · Cin7 void 감지 · !inner 근본 수정 · "잘린 모수" 3건 · 리시빙 진행도)** — 저녁 확인분(2026-08-14) 반영: ~~① Health cron 실동~~(✅ 간접 확인 — `image_sync_stale` 이 `last_ok_at` 을 잡았다 = 스냅샷 cron 이 돌고 있다) ~~② Cin7 void 실전~~(✅ SO-13993 첫 실전 탐지 — 「신규 기능」 void 항목의 실측이 정본) ~~③ packer 기능 한 바퀴~~(✅ 픽 완료 → 팩 대기열 정상 — 하루 출고 49건 정상 완료로 확인). ⬜ 남은 것: ④ Receiving 진행도 정확성(진행 중 receipt 의 수치가 Review 모달 라인 합과 일치하는지) ⑤ 창고별 로컬 시각(TR-03548 에드먼턴이 토론토 PO 보다 2시간 이르게 표시되는지) ⑥ ⬜ **`--line-2` CSS 변수 존재 미확인** — admin Empty 태그가 `var(--line-2,#eef1f6)` 를 쓴다. fallback 이 있어 안전하지만 정의 여부를 확인 안 했다 — 배포 후 태그가 이상하면 여기부터. ⚠️ 어제분 「Apply dry-run 이 admin 계정으로 통과하는지(hasApply 의 `||` 판정)」도 아직 열려 있다 — 다음 리시빙 완료 때.
@@ -1312,7 +1354,8 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
   - **구현(마이그레이션 `20260821201104`)**: `picked_by`·`verified_by` 컬럼 신설 + picker/packer `saveLine` 에 `picked_at/picked_by`·`verified_at/verified_by` 편승 — 의미는 리시빙 `last_received_by/at`(2026-08-17 검증) 과 동형 **"이 라인을 마지막으로 만진 시각/사람"**. 배경 실사고 = SO-15028-1(reaper 의 `started_at=null` 리셋 → 재클레임이 "최초 시작"을 새로 찍어 229라인이 4.1분으로 기록 — 점 하나로 구간을 표현하는 구조 자체가 한계).
   - ⚠️ **팩 완료 RPC 만 한 곳 수정** — `verified_at = v_now`(일괄 덮음) → `coalesce(l.verified_at, v_now)`(스캔 시각 보존 · 스캔 0 라인은 종전대로 완료 시각 — 소비처의 "항상 값 있음" 기대 유지). **픽 RPC 는 무접촉**(라인 UPDATE 가 picked_at 을 원래 안 덮는다 — `20260806160000:125` 실측). [검증 2026-08-21] `db reset` 재생 + 테스트 4스위트 전 통과(팩 9 — **신규 ⓘ 스캔 시각 보존** 포함 · 픽 12 · hold 11+7).
   - admin Reset Pick 2곳은 `picked_by:null` 대칭 리셋(리셋 전 아카이브가 증거 보존).
-  - **2단계(별건 · 며칠 뒤)**: Stats 를 사람·태스크별 scan-span(min~max)으로 — **갭 컷 N=15분은 추측값이라 쌓인 실제 스캔 간격 분포를 보고 확정**(사용자 결정 2026-08-21). 벽시계 avg 는 회색 보조로 병기(대조군 — 교체 금지). 도입 전 태스크는 "—". ⚠️ **리시빙 byWorker 는 갭 컷 없이(i) 남는다 — 의도된 임시 불일치**(픽·팩 숫자가 납득된 뒤 통일 — 검증 대상을 셋으로 늘리지 않는다).
+  - ⚠️⚠️ **화면은 아직 안 바뀐다** — 1단계는 시각이 조용히 쌓이기만 한다(커밋 `c1c84f6`). Stats 계산 교체는 2단계.
+  - **2단계(별건 · 며칠 뒤)**: Stats 를 사람·태스크별 **스캔 구간 누적**으로(갭 15분+ 면 세션을 끊고 각 세션 길이만 합산 — hold·점심·야간·다른 일이 빠진다). **갭 컷 N=15분은 추측값이라 쌓인 실제 스캔 간격 분포를 보고 확정**(사용자 결정 2026-08-21). 벽시계 avg 는 회색 보조로 병기(대조군 — 교체 금지). 도입 전 태스크(배포 이전 19,375행 — 영영 계산 불가)는 "—". 📌 **Caleb 확인(2026-08-21): 첫 스캔 전 준비·마지막 스캔 후 정리 시간이 빠지는 것은 수용** — 「이 오더에 실제로 손을 댄 시간」을 재는 것이지 자리를 지킨 시간이 아니다. ⚠️ **한 라인만 스캔한 세션은 0분이 된다** — 분포를 보고 판단(보정 규칙을 추측으로 넣지 않는다). ⚠️ **리시빙 byWorker 는 갭 컷 없이(첫~마지막) 남는다 — 의도된 임시 불일치**(픽·팩 숫자가 납득된 뒤 통일 — 검증 대상을 셋으로 늘리면 어느 것이 문제인지 구분이 안 된다).
   - ⚠️ 잔류: **태블릿 시계 오차**(클라이언트 시각 수용의 대가 — CCTV 대조 시 위험) · **reaper `started_at=null` 은 안 고쳤다**(새 자 검증 후 판단 — 지금 고치면 "4.1분"이 "3시간"이라는 새 거짓이 될 뿐) · 스캔 0 완료 구간·첫 스캔 전 준비 시간은 안 잡힌다(**과소 방향의 자** — 2단계 화면 표기로 명시 예정).
 - **admin 1-B — ORDER STATUS/WORK BATCHES 카드 클릭 → 오더 목록 (2026-08-13 보류)**: 구현하지 않았다. BATCH ACTIVITY 의 Phase·State 필터가 상당 부분 대체했으므로 **사용해본 뒤 여전히 필요한지 판단**. 연결 고리는 준비돼 있다(`.stat.link` CSS 정의 + orderStats 배열의 미사용 status 키 `s` — data-st 로 살리면 됨).
 - **Finalize 시 Cin7 `3.Finalized` 자동 업데이트 (2026-08-12 검토 — 보류)** — 기술적으로 가능하나 **되돌릴 수 없는 Cin7 쓰기가 는다.** 지금은 사람이 보는 단계가 마지막 안전망이라 자동화하지 않는다(세션 문서 11장 — Rollback Finalize 미모델링과 얽혀 있어 그쪽 설계가 선행).
