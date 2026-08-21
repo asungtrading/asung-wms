@@ -1284,7 +1284,10 @@ async function saveLine(l){
   if(!await ensureMine()) return;      // 규칙 28 — 쓰기 직전 소유권 재확인 (scan · stepper · manual 공통 관문)
   if(l.verified>0) markWorkStarted(); // first real verify = this claim is genuine work
   const st=l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending");
-  await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st}).eq("id",l.packline_id);
+  // verified_at/verified_by (2026-08-21 · 라인 시각 편승 1단계): 스캔 시점 기록 — picker picked_at 과 동형.
+  // 완료 RPC 는 coalesce(l.verified_at, v_now) 로 이 값을 보존한다(20260821201104). 요청 수 증가 0.
+  await sb.from("wms_pack_task_lines").update({verified_base:l.verified,verification_method:l.vmethod,status:st,
+    verified_at:new Date().toISOString(),verified_by:me.name}).eq("id",l.packline_id);
 }
 
 /* Done */

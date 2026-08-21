@@ -1640,7 +1640,7 @@ async function doBatchRollback(kind, pickId, packId, oid, onum, label){
       await archiveRows("pick_reset", oid, onum, label, "wms_pick_task_lines", pl.data);
       voided=await voidDisc("pick_task_id",[pickId],["short_pick"],"pick reset "+label);
       notes=await rollbackNotes("pick_task_id",[pickId],["short_pick"],[oid],{});
-      let u=await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).eq("pick_task_id",pickId); if(u.error) throw u.error;
+      let u=await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null,picked_by:null}).eq("pick_task_id",pickId); if(u.error) throw u.error;   // picked_by 도 대칭 리셋(2026-08-21 — 리셋 전 아카이브가 증거 보존)
       u=await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("id",pickId); if(u.error) throw u.error;
     }
     // audit log (batch_label + original_worker columns optional; fall back without them)
@@ -1769,7 +1769,7 @@ async function doRollback(oid, action, onum, worker){
         await archiveRows("pick_reset", oid, onum, null, "wms_pick_task_lines", pl.data);
         voided=await voidDisc("pick_task_id",tids,["short_pick"],"pick reset (order "+onum+")");
         notes=await rollbackNotes("pick_task_id",tids,["short_pick"],[oid],{});
-        let u=await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null}).in("pick_task_id",tids); if(u.error) throw u.error;
+        let u=await sb.from("wms_pick_task_lines").update({picked_base:0,status:"pending",verification_method:null,picked_at:null,picked_by:null}).in("pick_task_id",tids); if(u.error) throw u.error;   // picked_by 도 대칭 리셋(2026-08-21)
         u=await sb.from("wms_pick_tasks").update({status:"pending",assigned_to:null,started_at:null,completed_at:null,heartbeat_at:null,work_started:false}).eq("order_id",oid); if(u.error) throw u.error;
       }
       await sb.from("wms_orders").update({status:"picking",updated_at:now}).eq("id",oid);

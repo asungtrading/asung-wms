@@ -5,7 +5,7 @@
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/wms_complete_pack_test.sql
 --
 -- 전체가 한 트랜잭션이고 마지막에 ROLLBACK — 로컬 DB 에 아무것도 남기지 않는다.
--- 전부 통과하면 마지막 NOTICE 가 "ALL 8 TESTS PASSED".
+-- 전부 통과하면 마지막 NOTICE 가 "ALL 9 TESTS PASSED". (ⓘ = 2026-08-21 스캔 시각 보존)
 -- auth.email() 은 request.jwt.claims 를 읽으므로 set_config 로 흉내낸다.
 
 begin;
@@ -13,11 +13,12 @@ begin;
 do $test$
 declare
   o1 bigint; o2 bigint;
-  p1 bigint; p2 bigint; p3 bigint; p4 bigint; p6 bigint;
-  k1 bigint; k2 bigint; k3 bigint; k4 bigint; k6 bigint;
+  p1 bigint; p2 bigint; p3 bigint; p4 bigint; p6 bigint; p9 bigint;
+  k1 bigint; k2 bigint; k3 bigint; k4 bigint; k6 bigint; k9 bigint;
   la bigint; lb bigint; lc bigint; ld bigint; le bigint; lf bigint;  -- order lines
   pla bigint; plb bigint; plc bigint; pld bigint; ple bigint; plf bigint;  -- pack lines
-  pl2 bigint; pl4 bigint; pl6 bigint;
+  pl2 bigint; pl4 bigint; pl6 bigint; pl9a bigint; pl9b bigint;
+  ts9 timestamptz;
   res jsonb;
   n int; t text;
   errmsg text;
@@ -255,7 +256,33 @@ begin
   if t <> 'packing' then raise exception 'FAIL h4: order changed (%)', t; end if;
   raise notice 'PASS h — ready 실패 비치명 (완료 유지 · ready_error 보고)';
 
-  raise notice '════ ALL 8 TESTS PASSED ════';
+  -- ── ⓘ 스캔 시각 보존 (2026-08-21 · 라인 시각 편승 1단계) ─────────────────
+  -- packer saveLine 이 스캔마다 찍은 verified_at 을 완료가 덮지 않는다
+  -- (coalesce(l.verified_at, v_now)) · 스캔 0 라인(null)은 완료 시각으로 채워진다.
+  insert into wms_pick_tasks (order_id, batch_label, assigned_to, status)
+  values (o2, 'SO-TEST-RPC-2-9', 'Picker Kim', 'completed') returning id into p9;
+  insert into wms_pack_tasks (order_id, pick_task_id, batch_label, assigned_to, status)
+  values (o2, p9, 'SO-TEST-RPC-2-9', 'RPC Tester', 'in_progress') returning id into k9;
+  ts9 := now() - interval '37 minutes';   -- "스캔이 37분 전에 있었다" 흉내
+  insert into wms_pack_task_lines (pack_task_id, order_line_id, expected_base, verified_at, verified_by)
+  values (k9, lc, 2, ts9, 'RPC Tester') returning id into pl9a;   -- 스캔 시각 있음 → 보존돼야
+  insert into wms_pack_task_lines (pack_task_id, order_line_id, expected_base)
+  values (k9, ld, 3) returning id into pl9b;                      -- 스캔 시각 없음 → 완료 시각으로
+  res := wms_complete_pack(k9,
+    jsonb_build_array(
+      jsonb_build_object('id',pl9a,'verified_base',2,'status','verified','verification_method','scanned_base'),
+      jsonb_build_object('id',pl9b,'verified_base',3,'status','verified','verification_method','manual')));
+  if res->>'completed' <> 'true' then raise exception 'FAIL i1: %', res; end if;
+  select count(*) into n from wms_pack_task_lines where id=pl9a and verified_at = ts9;
+  if n <> 1 then raise exception 'FAIL i2: scan-time verified_at was overwritten by completion'; end if;
+  select count(*) into n from wms_pack_task_lines
+   where id=pl9b and verified_at is not null and verified_at > ts9;
+  if n <> 1 then raise exception 'FAIL i3: null verified_at not filled at completion'; end if;
+  select verified_by into t from wms_pack_task_lines where id=pl9a;
+  if t <> 'RPC Tester' then raise exception 'FAIL i4: verified_by touched (%)', t; end if;   -- RPC 는 verified_by 무접촉
+  raise notice 'PASS i — 스캔 시각 보존 (coalesce) · null 라인은 완료 시각';
+
+  raise notice '════ ALL 9 TESTS PASSED ════';
 end
 $test$;
 

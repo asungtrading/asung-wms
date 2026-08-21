@@ -1300,8 +1300,12 @@ async function saveLine(l){
   if(!await ensureMine()) return;   // 규칙 28 — 쓰기 직전 소유권 재확인 (scan · stepper · manual 공통 관문)
   if(l.picked>0) markWorkStarted(); // first real pick = this claim is genuine work
   const st=l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending");
+  // picked_at/picked_by (2026-08-21 · 라인 시각 편승 1단계): "이 라인을 마지막으로 만진 시각/사람" —
+  // 리시빙 last_received_by/at 과 동형. 기존 UPDATE 에 필드만 편승 — 요청 수 증가 0(배터리 무영향).
+  // 시각은 클라이언트(태블릿) — 리시빙과 동일, 시계 오차는 백로그. Stats 계산 교체는 2단계.
   const {error}=await sb.from("wms_pick_task_lines")
-    .update({picked_base:l.picked,verification_method:l.vmethod,status:st}).eq("id",l.id);
+    .update({picked_base:l.picked,verification_method:l.vmethod,status:st,
+             picked_at:new Date().toISOString(),picked_by:me.name}).eq("id",l.id);
   l._sync=!error;
   if(error){ toast("Save delayed — will retry on completion",true); }
 }
