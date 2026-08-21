@@ -93,3 +93,163 @@ select cron.schedule(
     );
   $job$
 );
+
+-- ============================================================
+-- ⑤ 재고 원장 수집 (2026-08-21 등록 · jobid 6~11) → Edge Function 'inv-collect'
+--   설계 정본: docs/design/ledger-design.md 4부 「⑤ 쓰기 가동」
+--   경위 기록: docs/sessions/2026-08-20-ledger-go-live.md
+--
+-- ⚠️⚠️ **소스별로 6잡으로 나눴다** — TIME_BUDGET_MS=120초 안에 6종을 다 돌 수 없다.
+--    [실측 2026-08-19] 첫 소스(adjustment, 5,009행)가 예산을 거의 소진 → transfer 0행
+--    capped:"time" → 나머지 4종 aborted: "time budget exhausted before this source".
+--    ⇒ 한 회차에 전 소스를 돌린다는 전제 자체를 버렸다. only= 로 하나씩 돈다.
+--
+-- ⚠️⚠️ **분(minute)을 어긋나게 배치했다** — 위 1) 'wms-poll-orders'(*/5)와 **같은 WMS 키를
+--    공유**하므로 Cin7 한도(60콜/60초 · 애플리케이션 키 단위)를 나눠 쓴다. 같은 분에 겹치면
+--    양쪽이 429 를 맞는다. hello 는 0·5·10…, 원장은 2·4·8·11·13·16 로 흩어 놨다.
+--    ⚠️ 여기에 잡을 더 붙일 때도 **분이 겹치지 않는지 먼저 볼 것 — hello 와만이 아니라
+--      원장 잡끼리도.** 아래 「purchase 스케줄 정정」이 정확히 그것을 놓쳐서 생긴 일이다.
+--
+-- ⚠️ **[2026-08-21 정정] purchase 스케줄 — 최초 등록 '7-52/15' → '8-53/15'.**
+--    최초 등록값 7·22·37·52 는 **transfer('2-57/5' = 2·7·12·…·57)의 부분집합**이라 4회 실행이
+--    전부 동시였다. 둘 다 inv-collect 이고 같은 WMS 키라 각각 최대 40콜×1,200ms 면
+--    합산 분당 ~100콜 = 한도 60의 1.7배(드러나는 신호는 rate_limited 하나다).
+--    실서버에서 cron.alter_job 으로 변경 완료(jobid 8 확인) — 아래 8) 은 그 값 그대로다.
+--    📌 **교훈: hello 와의 겹침만 보고 원장 잡끼리를 안 봤다** — 분 집합을 전수 계산할 것.
+--       잡이 늘면 확인해야 하는 쌍은 제곱으로 는다. 눈으로 세지 말 것.
+--    현재 겹침 0 (전수 계산 확인):
+--      hello 0·5·10…55 / transfer 2·7·12…57 / sale 4·9·14…59 /
+--      purchase 8·23·38·53 / adjustment 11 / assembly 13 / creditnote 16
+--
+-- ⚠️⚠️ **URL 의 since=2026-08-20 은 빠지면 안 된다** — 이벤트 날짜 필터이고, 기초 스냅샷
+--    (snapshot_key 2026-08-20-initial · taken_at 2026-08-20T23:42:47.855Z)의 경계 방어다.
+--    빠지면 스냅샷에 이미 녹아 있는 과거 사건이 원장에 또 더해져 **조용히 부푼다.**
+--    코드는 occurred_on > since (엄격히 큼)이라 8/20 전체가 제외된다 — 그날 낮 사건은
+--    스냅샷에 포함돼 있고 19:42 이후에는 창고가 멈춰 사건이 없다. since=2026-08-19 로 하면
+--    8/20 낮이 이중 계상된다.
+--    📌 **스냅샷을 다시 찍으면 아래 6줄의 since 를 손으로 갱신할 것** (설계 4부 「쓰기를 켜기
+--    전에 결정해야 하는 것」 2번 — 테이블 영속화 대신 cron URL 을 고른 대가다).
+--    ⚠️ since 와 from_since 는 다른 것이다 — from_since 는 갱신 커서의 씨앗이고, 커서가
+--    inv_sync_state 에 이미 seed 돼 있으므로 여기에는 넣지 않는다(넣어도 state 가 우선).
+--
+-- ⚠️⚠️ x-wms-cron-key 실제 값을 이 파일에 넣지 말 것 — 위 4)·5)와 같은 관례.
+--    (git 히스토리는 영구 · 발행 Pages 사이트는 private 레포여도 공개 · private =
+--     "접근 권한자가 본다". 근거 정본은 asung-wms 스킬의 시크릿 위치 규칙.)
+--    inv-collect 는 product-images·inv-snapshot 과 **같은 WMS_CRON_SECRET** 을 쓴다.
+--    아래는 placeholder — 대시보드 SQL Editor 에서 등록할 때만 채운다.
+--
+-- 선행 조건: 20260816000000_inv_ledger_tables.sql + 20260819000000_inv_conflicts.sql push ·
+--   inv-collect 배포(@2026-08-19.1 이상) · WMS_CRON_SECRET secret 등록 ·
+--   ⚠️ **inv_sync_state 커서 seed 완료**(전량 축 3종: transfer=TR-01327 · adjustment=ST-00646 ·
+--   assembly=FG-00128 / 증분 축 3종은 스냅샷 taken_at). seed 없이 돌면 매 회차 TR-00001 부터
+--   재처리한다(warnings: "NO FLOOR - scanning from the very first document").
+--
+-- 📌 **검증은 결과물로만 한다** — cron.job_run_details 의 succeeded 는 아무것도 보장하지 않는다
+--    (2026-08-19 실측 — HTTP 요청을 띄운 것까지만 본다). 유일한 증거:
+--      select source_key, last_cursor, last_run_at, note from inv_sync_state order by source_key;
+--    → last_run_at 갱신 + last_cursor 전진. 그리고 select count(*) from inv_ledger;
+-- 📌 placeholder·since 잔존 확인 (값을 노출하지 않는 방식):
+--      select jobname,
+--             command like '%SECRET%'           as still_placeholder,
+--             command like '%since=2026-08-20%' as has_since
+--      from cron.job where jobname like 'inv-collect%';
+-- ============================================================
+
+-- 6) 창고이동 (5분 주기 · 2·7·12…분)
+--    ⚠️ 가장 무거운 소스 — DepartureDate·CompletionDate 두 날짜를 봐야 해서 목록만으로
+--    판정이 안 되고 상세 캡 40에 걸린다(가동 첫 회차 detail_capped_remaining 1,787).
+--    seed 직후에는 밀린 것을 소화하는 구간이 있다 — 5분 주기가 그 때문이다.
+select cron.schedule(
+  'inv-collect-transfer',
+  '2-57/5 * * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-collect?only=transfer&since=2026-08-20&commit=1',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 7) 판매 출고 (5분 주기 · 4·9·14…분)
+--    ⚠️ 후보가 캡 40의 3.6배(하루치 145 — 2026-08-19 실측)라 자주 도는 것이 답이다.
+--    해결은 캡 상향이 아니다: 1,200ms × 40 = 48초로 이미 60초 창의 80% 를 쓴다.
+select cron.schedule(
+  'inv-collect-sale',
+  '4-59/5 * * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-collect?only=sale&since=2026-08-20&commit=1',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 8) 발주 입고 (15분 주기 · 8·23·38·53분)
+--    ⚠️ 최초 등록은 '7-52/15'(7·22·37·52) 였고 transfer 와 매 회 겹쳤다 —
+--    2026-08-21 alter_job 으로 정정. 경위는 위 헤더 「purchase 스케줄」 절.
+select cron.schedule(
+  'inv-collect-purchase',
+  '8-53/15 * * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-collect?only=purchase&since=2026-08-20&commit=1',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 9) 재고 조정 (매시 11분)
+--    📌 무겁지 않다 — skip_since 판정이 목록 레벨에서 되므로 상세를 한 번도 안 부른다
+--    (가동 첫 회차: 후보 586건이 detail_fetched 0 으로 한 회차에 끝났다).
+select cron.schedule(
+  'inv-collect-adjustment',
+  '11 * * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-collect?only=adjustment&since=2026-08-20&commit=1',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 10) 조립 (매시 13분) — 전체 120건 · 대부분 VOIDED
+select cron.schedule(
+  'inv-collect-assembly',
+  '13 * * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-collect?only=assembly&since=2026-08-20&commit=1',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 11) 반품 입고 (매시 16분) — [실측] 하루 4건. 드물어서 자주 돌 이유가 없다.
+select cron.schedule(
+  'inv-collect-creditnote',
+  '16 * * * *',
+  $job$
+    select net.http_post(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-collect?only=creditnote&since=2026-08-20&commit=1',
+      headers := jsonb_build_object(
+        'Content-Type',   'application/json',
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);

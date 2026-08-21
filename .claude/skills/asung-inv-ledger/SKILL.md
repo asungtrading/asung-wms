@@ -33,22 +33,60 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 - **기준은 Cin7 문서.** WMS 는 보조 — WMS 미경유 사건이 월 수백 건이라 WMS 기준은 처음부터 구멍
 - 원가(amount)·자리(bin)는 **값만 저장하고 계산엔 안 씀** — 나중에 소급 불가라 지금부터 담는다
 
-**진행 상태 (2026-08-19)**: 테이블 **5개**(`inv_conflicts` 신설) + 스냅샷 EF(`inv-snapshot`) +
-수집 EF(`inv-collect` — ②-a 전량 축 3종·②-b 증분 축 3종) **배포·dry 검증 통과** · 현재
-**`@2026-08-19.1`**(페이싱 1200ms·`Retry-After` 백오프 + `inv_conflicts` 변경 감지 —
-`docs/sessions/2026-08-19-po01117-followup.md` §6). **쓰기는 아직 안 켰다.**
-기초 스냅샷 8/22 예정. ✅ **6종 소스 개별 dry 검증 완료(2026-08-19 — 소스 하나씩·사이 90초)**
-+ ✅ **6종 동시 실행 1회 완료**(페이싱 수정 후 — `rate_limited` 전 소스 false).
-⚠️ **`commit=1` 은 아직 금지** — ⑤ 진입 게이트 현황(**정본은 설계 4부** 「commit=1 을 켜기 전에
-닫아야 하는 것」): ☑1 CardID 안정성 · 👁2 adv_no_putaway(관찰 대기로 하향 — WMS 는 put-away 없이
-Apply 하지 않아 우리 시스템이 만들 수 없는 상태. ⚠️ Advanced 기본값을 켜면 게이트로 복귀) ·
-☑3 재등장 전제(2026-08-19 실측 — PO-01117 이 PA 승인 후 +51행으로 들어왔다) ·
-🟡4 ON CONFLICT 감지(`inv_conflicts` 신설 + `writeLedgerDetectingConflicts` — **코드 완료,
-실동작은 `commit=1` 첫 회차가 첫 검증**) · ☑5 캡·페이싱(`DETAIL_SLEEP_MS=1200` + `Retry-After`
-백오프 → 6종 동시 실행 429 0건) · ⬜6 이동 커서 seed.
+**진행 상태 (2026-08-20 — ⑤ 가동)**: 테이블 **5개**(`inv_conflicts` 포함) + 스냅샷 EF
+(`inv-snapshot`) + 수집 EF(`inv-collect` — ②-a 전량 축 3종·②-b 증분 축 3종) 배포 · 현재
+**`@2026-08-19.1`**(페이싱 1200ms·`Retry-After` 백오프 + `inv_conflicts` 변경 감지).
+⚠️⚠️ **쓰기가 켜졌다 — `commit=1` 금지는 해제됐다.** ③ 검증에서 ⑤ 가동까지 2026-08-20 저녁~밤에
+한 번에 넘어갔다(경위 정본: `docs/sessions/2026-08-20-ledger-go-live.md` · 설계 정본: 4부
+「⑤ 쓰기 가동」).
+
+- ✅ **④ 기초 스냅샷 완료** — `snapshot_key 2026-08-20-initial` ·
+  `taken_at 2026-08-20T23:42:47.855Z` · **13,844행**(토론토 7,523 / 에드먼튼 6,321) · 44초 ·
+  `truncated`·`rate_limited` false · `unexpected_warehouses []`. **8/22 예정을 8/20 로 앞당겼다**
+  (창고가 멈춘 시각이면 조건이 같다).
+- ✅ **커서 seed 완료** — `transfer=TR-01327` · `adjustment=ST-00646` · `assembly=FG-00128` /
+  증분 축 3종(`sale`·`purchase`·`creditnote`)은 스냅샷 `taken_at`.
+- ✅ **pg_cron 6잡 등록**(jobid 6~11 · 소스별 분리 · `hello` 와 분을 어긋나게) —
+  기록은 `supabase/ops/cron.sql`.
+  ⚠️ **[2026-08-21 정정] purchase 는 `7-52/15` → `8-53/15`** — 최초 등록값 7·22·37·52 가
+  `transfer`(`2-57/5` = 2·7·12·…·57)의 **부분집합**이라 4회 실행이 전부 동시였다(둘 다
+  `inv-collect`·같은 WMS 키 → 합산 분당 ~100콜 = 한도 60의 1.7배). `alter_job` 으로 변경 완료 ·
+  **현재 겹침 0**. `hello` 와는 처음부터 6잡 전부 안 겹쳤다.
+  📌 **분 어긋내기는 「폴링과」가 아니라 「서로」까지 봐야 한다** — 잡이 늘면 쌍은 제곱으로 늘고,
+  눈으로는 못 센다. **분 집합을 전수 계산할 것.**
+
+**⑤ 진입 게이트 — 6개 전부 통과** (**정본은 설계 4부** 「commit=1 을 켜기 전에 닫아야 하는 것」):
+```
+☑1 CardID · 👁2 adv_no_putaway(관찰) · ☑3 재등장 전제 ·
+🟡4 ON CONFLICT(코드 완료 — ⚠️ 실동작 미검증, 원장이 비어 있어 첫 회차 insert_skipped=0) ·
+☑5 캡·페이싱 · ☑6 커서 seed
+```
+⇒ **단계는 ⑥ shadow 대조로 넘어간다.**
+- 👁2 는 **관찰 대기**(WMS 는 put-away 없이 Apply 하지 않아 우리 시스템이 만들 수 없는 상태.
+  ⚠️ Advanced 기본값을 켜면 게이트로 복귀) · 🟡4 만 **실동작 미검증**으로 남는다.
+
+⚠️⚠️ **`since=<스냅샷 날짜>` 는 매 호출에 필요하다 — cron URL 6줄에 `since=2026-08-20` 이 박혀 있다.**
+코드가 `occurred_on > since`(**엄격히 큼**)를 쓰므로 8/20 전체가 제외된다 — 그날 낮 사건은 스냅샷에
+이미 녹아 있다. `since=2026-08-19` 로 하면 8/20 낮이 **이중 계상**된다.
+📌 **스냅샷을 다시 찍으면 cron 6잡의 `since` 를 손으로 갱신할 것**(테이블 영속화 대신 URL 을 고른 대가).
+
 ⚠️ **`TIME_BUDGET_MS=120초` 안에 6종을 다 돌 수 없다**(첫 소스가 예산을 소진 → 나머지는
-`aborted: "time budget exhausted before this source"`) → ⑤에서 **소스별 cron 주기 분리**.
+`aborted: "time budget exhausted before this source"`) → **소스별 cron 분리로 해결했다**.
 📌 **시간 가드에 걸린 것은 페이싱 실패가 아니다** — 페이싱 판정 기준은 `rate_limited` 다.
+
+⚠️ **회차 소요는 「후보 수 ÷ 캡」으로 추정하면 틀린다 — 가르는 것은 「상세를 봐야 하는가」다.**
+[실측 2026-08-20 가동] `adjustment` 는 후보 586건이 **한 회차에 끝났다**(`detail_fetched: 0` —
+`skip_since` 가 목록 레벨에서 판정된다) · `transfer` 는 두 날짜를 봐야 해서 캡 40에 걸린다
+(`detail_capped_remaining: 1,787`, 5회차에 214건 전진).
+
+⚠️ **`precision_skipped` 가 「목록은 많은데 후보가 0」을 설명한다** — `UpdatedSince` 는 날짜 단위라
+겹치게 받고(커서 − 1일) 커서 **시각** 이전 갱신분을 우리 쪽에서 다시 거른다. [실측] 발주 88 =
+45(서비스 전용) + **43(precision)** · 판매 273 = **179(precision)** + 78(미출하) + 16(void).
+📌 **검증 커맨드에 이 필드를 넣을 것** — 없으면 「왜 안 들어왔지」를 추적할 수 없다.
+
+📌 **cron 검증은 결과물로만 한다** — `cron.job_run_details` 의 `succeeded` 는 아무것도 보장하지
+않는다(HTTP 요청을 띄운 것까지만 본다). 유일한 증거는 `inv_sync_state.last_run_at` 갱신 +
+`last_cursor` 전진이다.
 ⚠️ **원장 쓰기 뒤 `insert_skipped ≠ 0` 은 정상**(재수집) · `conflicts_detected ≠ 0` 이면
 `select * from inv_conflicts order by detected_at desc`. **첫 회차는 원장이 비어 `insert_skipped` 0** —
 두 번째 회차부터 의미가 있다. ⚠️ `R.written` 의미가 「시도 행수」 → **「실삽입 행수」**로 바뀌었다.
@@ -251,7 +289,24 @@ hold_missing_date 로 상세 캡 40을 정확히 소진**해 뒤 ~3,000건을 �
 `ref/productavailability` 전량 22,133행 · 23페이지 · 1분. 페이지 상한 없음.
 
 **스냅샷 조건**: 자리 지정된 것은 자리별로, **자리 없이 떠 있는 재고(`Bin=null` & `OnHand≠0`)도 담는다.**
-자리 있는 것만 담으면 11건이 통째로 누락된다. → 약 13,847행
+자리 있는 것만 담으면 11건이 통째로 누락된다.
+
+✅ **실촬영 완료 (2026-08-20)** — `snapshot_key 2026-08-20-initial` ·
+`taken_at 2026-08-20T23:42:47.855Z`(19:42:47 토론토) · **13,844행**(토론토 7,523 / 에드먼튼 6,321) ·
+44초 · `truncated` false · `rate_limited` false · `unexpected_warehouses []`.
+낮 dry 리허설은 41초·13,871행 — **27행 차이는 그사이 5시간의 실제 재고 변동**이다(정상).
+📌 DB 검증 일치. `bins` 만 SQL 쪽이 1씩 많은데(506→507 · 1467→1468) **빈 문자열 bin 이 `distinct` 에
+세어진 것**이지 불일치가 아니다.
+
+⚠️ **`key` 파라미터가 필수다** — 자동 생성을 하지 않으며 **dry 에도 요구**한다. 인증은 `inv-collect` 와
+같은 `WMS_CRON_SECRET`.
+
+⚠️ **자리 미상 재고가 기준선에 포함된다 — 알고 시작하는 위험.** `null_bin_nonzero` **15건**
+(토론토 1,421개 · 에드먼튼 6개). 최대는 **`AS00879BLA` 1,200개 · $12,065** · `AIA*` 7종은 전부
+6개·$0.0831 로 같은 패턴(샘플·디스플레이 추정) · `SUN31504` 159개는 원가 $0.
+⇒ 원장은 그대로 기록하고 **⑥ 대조에서 드러난다.**
+📌 **`null_bin_nonzero` 에 샘플 상한은 없다**(코드 확인 — `nullBinNonzero` 는 조건 없이 `push`,
+`slice` 없음). 15건이 전량이다.
 
 ---
 
