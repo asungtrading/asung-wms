@@ -35,7 +35,8 @@ select cron.schedule(
 );
 
 -- 3) Health 스냅샷 (1시간마다 — 사용자 결정 2026-08-14)
---    wms_health_check() 12검사를 돌려 wms_health_runs 에 1행 append.
+--    wms_health_check() 검사 전부(2026-08-24 현재 13검사+info — schema.md 「wms_health_check()」이
+--    정본, 여기 수를 고정 표기하지 않는다)를 돌려 wms_health_runs 에 1행 append.
 --    보존 정리(90일)는 함수 안에서 함께 수행 — 별도 정리 잡 없음.
 --    admin 배지는 이 테이블의 최신 1행을 읽고, 3시간+ 공백이면 회색 "?" 로
 --    "검사가 안 돌고 있다"를 표시한다 — 이 잡이 죽으면 배지가 그걸 알린다.

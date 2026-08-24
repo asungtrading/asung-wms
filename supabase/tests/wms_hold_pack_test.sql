@@ -5,7 +5,9 @@
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/wms_hold_pack_test.sql
 --
 -- 전체가 한 트랜잭션 + 마지막 ROLLBACK — 로컬 DB 에 무흔적.
--- 전부 통과하면 마지막 NOTICE 가 "ALL 7 TESTS PASSED".
+-- 전부 통과하면 마지막 NOTICE 가 "ALL 9 TESTS PASSED".
+-- (ⓗⓘ 2026-08-24 추가 — wms_task_holds 이력: 성공 Hold 1행 · 멱등/예외 무기록.
+--  마이그레이션 20260824192416)
 
 begin;
 
@@ -168,7 +170,21 @@ begin
   end;
   raise notice 'PASS g — 미등록 로그인 차단';
 
-  raise notice '════ ALL 7 TESTS PASSED ════';
+  -- ── ⓗ Hold 이력 (2026-08-24 · 마이그레이션 20260824192416) ────────────
+  -- ⓐ 의 성공 Hold 가 남긴 행 검증 — kind/task_id/worker/열림/manual
+  select count(*) into n from wms_task_holds
+   where task_kind='pack' and task_id=k1 and worker='RPC Tester'
+     and held_at is not null and resumed_at is null and resumed_by is null and source='manual';
+  if n <> 1 then raise exception 'FAIL h1: pack hold history rows=%', n; end if;
+  raise notice 'PASS h — Hold 이력 · pack (1행 · 열림 · manual)';
+
+  -- ── ⓘ 멱등·예외·CAS 불일치는 이력을 만들지 않는다 ─────────────────────
+  -- 성공 Hold 는 ⓐ 하나뿐 — ⓑ 멱등 · ⓒⓓ CAS/드리프트 · ⓔⓕ 예외 롤백 · ⓖ 미등록 전부 무기록.
+  select count(*) into n from wms_task_holds;
+  if n <> 1 then raise exception 'FAIL i1: total history rows=% (expected 1)', n; end if;
+  raise notice 'PASS i — 멱등·예외·CAS 불일치 무기록 (총 1행)';
+
+  raise notice '════ ALL 9 TESTS PASSED ════';
 end
 $test$;
 

@@ -5,7 +5,9 @@
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/wms_hold_pick_test.sql
 --
 -- 전체가 한 트랜잭션 + 마지막 ROLLBACK — 로컬 DB 에 무흔적.
--- 전부 통과하면 마지막 NOTICE 가 "ALL 11 TESTS PASSED".
+-- 전부 통과하면 마지막 NOTICE 가 "ALL 15 TESTS PASSED".
+-- (ⓛ~ⓞ 2026-08-24 추가 — wms_task_holds 이력: 단일 1행 · wave 는 wave 행 1건 ·
+--  멱등/예외 무기록 · 닫기 UPDATE only-if-null 가드. 마이그레이션 20260824192416)
 
 begin;
 
@@ -252,7 +254,43 @@ begin
   end;
   raise notice 'PASS k — 모드 배타 검증';
 
-  raise notice '════ ALL 11 TESTS PASSED ════';
+  -- ── ⓛ Hold 이력 — 단일 (2026-08-24 · 마이그레이션 20260824192416) ─────
+  -- ⓐ 의 성공 Hold 가 남긴 행 검증: kind/task_id/worker/held_at/열림/수동
+  select count(*) into n from wms_task_holds
+   where task_kind='pick' and task_id=t1 and worker='RPC Tester'
+     and held_at is not null and resumed_at is null and resumed_by is null and source='manual';
+  if n <> 1 then raise exception 'FAIL l1: single hold history rows=%', n; end if;
+  raise notice 'PASS l — Hold 이력 · 단일 (1행 · 열림 · manual)';
+
+  -- ── ⓜ Hold 이력 — wave 는 wave 행 1건, 멤버 행 0 ──────────────────────
+  select count(*) into n from wms_task_holds where task_kind='wave' and task_id=w1;
+  if n <> 1 then raise exception 'FAIL m1: wave hold history rows=%', n; end if;
+  select count(*) into n from wms_task_holds
+   where task_kind='pick' and task_id in (t5, t6);
+  if n <> 0 then raise exception 'FAIL m2: member rows must be 0, got %', n; end if;
+  raise notice 'PASS m — Hold 이력 · wave (wave 행 1건 · 멤버별 N행 금지)';
+
+  -- ── ⓝ 멱등·예외·CAS 불일치는 이력을 만들지 않는다 ─────────────────────
+  -- ⓑⓗ 멱등(CAS 0행) · ⓒⓓ 남의 태스크/드리프트 · ⓔⓕⓘ 예외 전체 롤백 —
+  -- 성공 Hold 는 ⓐ·ⓖ 둘뿐이므로 총 행 수는 정확히 2 여야 한다.
+  select count(*) into n from wms_task_holds;
+  if n <> 2 then raise exception 'FAIL n1: total history rows=% (expected 2)', n; end if;
+  raise notice 'PASS n — 멱등·예외·CAS 불일치 무기록 (총 2행)';
+
+  -- ── ⓞ 재개 닫기 UPDATE 의 서버측 가드 (프론트 3곳이 쓰는 형태 그대로) ──
+  update wms_task_holds set resumed_at=clock_timestamp(), resumed_by='RPC Tester'
+   where task_kind='pick' and task_id=t1 and resumed_at is null;
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL o1: close updated % rows (expected 1)', n; end if;
+  update wms_task_holds set resumed_at=clock_timestamp(), resumed_by='Somebody Else'
+   where task_kind='pick' and task_id=t1 and resumed_at is null;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL o2: re-close overwrote a closed row'; end if;
+  select resumed_by into t from wms_task_holds where task_kind='pick' and task_id=t1;
+  if t <> 'RPC Tester' then raise exception 'FAIL o3: resumed_by overwritten (%)', t; end if;
+  raise notice 'PASS o — 닫기 only-if-null 가드 (재닫기 0행 · resumed_by 보존)';
+
+  raise notice '════ ALL 15 TESTS PASSED ════';
 end
 $test$;
 

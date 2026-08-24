@@ -702,6 +702,12 @@ async function startBatch(id){
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this.",true); loadBatches(); return; }
   await ensureStartedAt(id,data[0]);   // 최초 시작만 찍힘 — held 재개(값 보존)는 그대로
+  // Hold 구간 이력 닫기 (2026-08-24 · 마이그레이션 20260824192416) — held 재개면 열린 행을 닫고,
+  // 신규 시작이면 열린 행이 없어 0행 no-op(목록 캐시 held_by 로 분기하면 스테일 창이 생겨 무조건 실행).
+  // fire-and-forget — 기록 실패가 작업을 막으면 안 된다(markWorkStarted 와 같은 결).
+  // 유실은 health 검사 hold_leak 가 잡는다.
+  sb.from("wms_task_holds").update({resumed_at:now,resumed_by:me.name})
+    .eq("task_kind","pick").eq("task_id",id).is("resumed_at",null).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
   task=data[0]; order=b.wms_orders||{};
   startHeartbeat(); presenceJoin();
   await loadLines();
@@ -928,6 +934,10 @@ async function startWave(id){
   // 이 신규 시작 시 null 로 남지만 picker 는 tasks[].started_at 을 읽지 않는다(2026-08-24 grep 전수).
   await sb.from("wms_pick_tasks").update({started_at:now})
     .eq("wave_id",id).eq("assigned_to",me.name).is("started_at",null);
+  // Hold 구간 이력 닫기 (2026-08-24) — wave 는 wave 행 1건 기록이므로 kind='wave'·task_id=wave id.
+  // held 재개면 닫고 신규 시작이면 0행 no-op. fire-and-forget(startBatch 의 같은 주석 참조).
+  sb.from("wms_task_holds").update({resumed_at:now,resumed_by:me.name})
+    .eq("task_kind","wave").eq("task_id",id).is("resumed_at",null).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
   tasks=ts.sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
   startHeartbeat(); presenceJoin();
   await loadWaveLines();
