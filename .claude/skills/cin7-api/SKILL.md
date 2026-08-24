@@ -198,3 +198,13 @@ const adjustments = fetchAllPages('stockadjustmentList', {
     ⚠️ 재고 판별이 필요하면 **product `Type` 으로** — 단 `purchaseList` 의 `Type` 서버 필터는
     무시되고(7번), 문서 라인 레벨에는 `NonInventory` 가 **SR 라인에만** 있다(13번 — PA·판매 Pick
     라인은 미실측/부재). SKU 목록 확보는 `/product` 전량의 `Type` 집계가 확실하다.
+16. ⚠️⚠️ **`productList`(`/product`)는 `Limit` 을 명시해야 한다 — 기본 100건이다 (2026-08-24 실측).**
+    `Limit` 없이 `Page` 만 올리면 **매 페이지가 같은 100건**이라 페이지를 아무리 돌려도 전량이 안 온다.
+    `Limit=1000` + 페이지네이션으로 5,001건 전량 수신 확인. 📌 **처음에 「응답 배열 키 이름 문제」로
+    오진했다** — 키를 동적으로 찾아내도록 고쳐도 0행이라 그제야 `Limit` 이 원인임을 알았다.
+    ⚠️ 계열 함정: 파라미터가 틀려도 **200 이 온다**(6번 「조용히 무시」·이미지 `IncludeAttachments`).
+    **행 수가 이상하면 파라미터부터 의심할 것 — 에러는 안 난다.**
+17. ⚠️ **product `Type` 의 실제 값은 `Non Inventory`(공백)** 다 — `Non-inventory`(하이픈)가 아니다
+    (2026-08-24 실측 · 화면 표기와 다르다). `product_type = 'Non-inventory'` 로 SQL·코드 필터를 쓰면
+    **조용히 0행**이 된다. 📌 원장의 비재고 게이트가 `Type !== 'Stock'` **부정 조건**을 쓰는 이유가
+    이것이다 — 값 어휘를 맞히지 않아도 되고, 새 타입이 생겨도 자동으로 차단 쪽에 선다.

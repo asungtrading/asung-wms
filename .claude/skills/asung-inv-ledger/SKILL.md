@@ -74,8 +74,8 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 ☑5 캡·페이싱 · ☑6 커서 seed
 ```
 ⇒ **단계는 ⑥ shadow 대조로 넘어간다.**
-- 🟡 **⑥ 실행기 구현 (2026-08-24 · 마이그레이션 `20260824130759` — ⬜ 첫 실행 대기 · 정본은
-  설계 4부 「⑥ shadow 대조 구현」)**: Cin7 현재고 = `inv-snapshot ?key=auto-compare` 재사용
+- ✅ **⑥ shadow 대조 가동 (2026-08-24 · 마이그레이션 `20260824130759` · cron 잡 12·13 등록 ·
+  정본은 설계 4부 「⑥ shadow 대조 가동」)**: Cin7 현재고 = `inv-snapshot ?key=auto-compare` 재사용
   (리터럴일 때만 `YYYY-MM-DD-compare` 자동 생성 — `-initial` 은 여전히 수동만) · 대조 =
   RPC `inv_compare_run(p_key)`(DB 전용 — 기준선+사건 합 FULL JOIN compare 스냅샷, SKU×창고) ·
   verdict 최소 규칙(match 카운트만/IN_TRANSIT explained/나머지 unknown — **missing_event·
@@ -85,9 +85,45 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   ⭐ [실측 2026-08-24 BMA15710] **Cin7 도 운송 중을 ON HAND 에서 빼고 별도 컬럼으로 관리** —
   IN_TRANSIT 합성 창고와 같은 모델. 원장 대조 토론토 910·에드먼튼 16·IN_TRANSIT 204 완전 일치
   = 스냅샷+사건 누적의 첫 증명. `inv-snapshot` 은 OnHand 만 읽으므로 **IN_TRANSIT 짝 없음이 정상**.
-  ⬜ **첫 실행은 수동**(스냅샷 curl → RPC → 예측 대조 → 그 뒤 cron 12·13 등록 — ⑤ 와 같은 순서).
-  ⚠️ **첫 회차 예측이 설계 4부에 적혀 있다** — 특히 TR-03975/76 출발 창고 쌍이 unknown 으로 나올
-  것(커서 대기 중이라 원장만 못 뺐다). **예측대로 나오면 그게 대조 장치의 검증이다.**
+  ✅ **첫 회차 실측**: `compared_pairs 13,836 · match 13,835 · explained 316 · unknown 1`.
+  ⚠️ **카운트 관계 — 셋을 더하지 말 것**: `compared_pairs = match + unknown` 이고
+  **explained(IN_TRANSIT)는 pairs 밖의 별도 집계**다(RPC 의 `filter (warehouse <> 'IN_TRANSIT')`).
+  첫 회차에서 13,835+316+1=14,152 로 배타 합산해 "정합이 안 맞는다"고 오독했다.
+  ⚠️ 15분 간격(스냅샷 21분 → 대조 36분)은 **설계의 핵심**이다 — 아래 오탐 (b).
+
+- ⚠️⚠️ **⑥의 첫 수확 = 비재고 SKU 가 재고로 쌓이던 결함 (`FINAL-SALE` · 2026-08-24)**:
+  unknown 1건 = `FINAL-SALE`(원장 −34 · Cin7 0 · `SO-15097`). Cin7 `Type=Non-inventory`
+  (파손품을 adjustment 로 뺀 뒤 판매하는 껍데기 SKU — Cin7 은 재고를 안 움직인다)인데
+  판매 수집이 재고 사건으로 쌓았다. ⚠️ **`IsService` 와 `Type=Non-inventory` 는 다른 축**이라
+  (cin7-api 스킬 15번) `IsService=false` 인 이 SKU 가 기존 필터의 **틈에 빠졌다**.
+  ✅ **처방**: `inv_sku_types` 캐시(EF `inv-sku-types` · cron 잡 14 일 1회) + 수집 게이트.
+  · 게이트는 **`makeSink` push 진입부 한 곳**(since 필터 앞) — 6소스가 전부 그 지점을 지난다
+    (배출구 = 공유 루프 2곳뿐) ⇒ **새 소스도 자동 적용**
+  · 판정은 **「테이블에 있으면 차단」** — `product_type`·`is_service` **값을 보지 않는다**
+    (로드가 `select=sku,refreshed_at`. 비-Stock 만 저장하는 것이 계약이므로 행의 존재가 곧 판정)
+  · ⚠️ **캐시 미스는 fail-open(통과 + 경고)** — 원장은 shadow, **대조가 안전망**이다.
+    차단은 정상 재고 수집까지 멈춘다. 경고 3분기(EMPTY·STALE·UNREADABLE) → `non_stock_gate`
+  · ⚠️ **저장 범위 계약: Stock 은 넣지 않는다** — 넣으면 1,000행 캡에서 조용히 잘리고
+    **잘린 비재고 SKU 가 게이트를 통과**한다. 마이그레이션 주석 + **800행 근접 경보** + `caps-ok`
+  · **테스트 8케이스** `scripts/test-invcollect-gate.mjs` — 원본에서 `makeSink` 를 **실행 시마다
+    원문 추출**해 검증(구현이 바뀌면 테스트가 따라온다). 정적 검사가 **세 번째 배출구를 잡는다**
+  · 정정은 **상쇄 행**(`source='manual'`·`event_type='manual_reversal'`) — ⚠️ **물리 삭제 금지.
+    append-only 의 첫 위반이 「사소한 1건」인 것이 가장 위험**하다
+  📌 [실측] 비-Stock 45건(`Non Inventory` 2 + `Service` 43). `is_service` 는 **전 행 false** —
+  `productList` 응답에 그 필드가 없어 기본값일 뿐 판정에 안 쓰인다(**정리 후보**).
+
+- ⚠️⚠️ **대조를 잘못 돌리면 오탐이 난다 — 같은 날 3회차 실측(unknown 1 → 134 → 165, 진짜는 1건)**:
+  **(a)** 같은 키로 재촬영하면 `ignore-duplicates` 라 **첫 값이 남는다**(`wrote: 5` 로 끝나고
+  13,800행은 아침 값). 재촬영은 **다른 키**로.
+  **(b)** 낡은 스냅샷에 최신 원장을 맞추면 그사이 판매가 원장에만 반영돼 **134건이 어긋난 것처럼**
+  보인다([실측] 차이가 당일 판매 사건과 정확히 일치 — 원장은 맞고 기준이 낡았다).
+  ⇒ **자동화가 준비된 것을 수동으로 급히 돌리지 말 것.** cron 15분 간격이 이걸 구조적으로 막는다.
+  **(c)** ⚠️ **스냅샷이 조용히 불완전할 수 있다 — 최우선 미해결.** [실측] 밤 회차가 목록 21,877
+  (아침 22,079) · 22페이지(23) · 13,787행 — `truncated:false`·`rate_limited:false` 인데
+  **Cin7 이 애초에 적게 줬다**. `list_total == received_rows` 라 **all-or-nothing 가드가 구조적으로
+  못 잡는다**. [실증] `AS93125` 토론토 2,662개가 그 스냅샷에만 없었다.
+  ⚠️ **기준선(`-initial`)이 이렇게 찍히면 원장 전체가 잘못된 출발점을 갖고, 어느 대조에서도
+  드러나지 않는다.** ⬜ 처방 미구현 = **직전 회차 대비 `list_total`·행 수 급감 검사**.
 - 👁2 는 **관찰 대기**(WMS 는 put-away 없이 Apply 하지 않아 우리 시스템이 만들 수 없는 상태.
   ⚠️ Advanced 기본값을 켜면 게이트로 복귀) · 🟡4 만 **실동작 미검증**으로 남는다.
 
