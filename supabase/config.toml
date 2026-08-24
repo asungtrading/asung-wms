@@ -446,3 +446,10 @@ enabled = true
 # 지금은 dry 검증 전용(수동 실행) — cron 등록은 ⑤에서. 기본 dry, ?commit=1 만 쓴다.
 verify_jwt = false
 entrypoint = "./functions/inv-collect/index.ts"
+
+[functions.inv-sku-types]
+enabled = true
+# 비재고 SKU 캐시 갱신 (2026-08-24 · FINAL-SALE 실사고) — 같은 시크릿 헤더 인증.
+# pg_cron 일 1회(03:26 UTC — cron.sql 잡 14). inv-collect 와 분리 = 갱신 실패가 수집과 격리.
+verify_jwt = false
+entrypoint = "./functions/inv-sku-types/index.ts"

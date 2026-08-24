@@ -74,6 +74,20 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 ☑5 캡·페이싱 · ☑6 커서 seed
 ```
 ⇒ **단계는 ⑥ shadow 대조로 넘어간다.**
+- 🟡 **⑥ 실행기 구현 (2026-08-24 · 마이그레이션 `20260824130759` — ⬜ 첫 실행 대기 · 정본은
+  설계 4부 「⑥ shadow 대조 구현」)**: Cin7 현재고 = `inv-snapshot ?key=auto-compare` 재사용
+  (리터럴일 때만 `YYYY-MM-DD-compare` 자동 생성 — `-initial` 은 여전히 수동만) · 대조 =
+  RPC `inv_compare_run(p_key)`(DB 전용 — 기준선+사건 합 FULL JOIN compare 스냅샷, SKU×창고) ·
+  verdict 최소 규칙(match 카운트만/IN_TRANSIT explained/나머지 unknown — **missing_event·
+  calc_error 는 자동 판정 금지, 사람이 unknown 닫으며 기록**) · `inv_compare` 는 **diff≠0 만** ·
+  `inv_compare_runs` 에 카운트+샘플+**cursors**(타이밍 차이 재확인 근거) · 보존 = compare 14일
+  (**`-initial` 불가침 코드 강제**)·runs 90일. [로컬 검증] 테스트 6케이스 + 회귀(팩9·픽12) 통과.
+  ⭐ [실측 2026-08-24 BMA15710] **Cin7 도 운송 중을 ON HAND 에서 빼고 별도 컬럼으로 관리** —
+  IN_TRANSIT 합성 창고와 같은 모델. 원장 대조 토론토 910·에드먼튼 16·IN_TRANSIT 204 완전 일치
+  = 스냅샷+사건 누적의 첫 증명. `inv-snapshot` 은 OnHand 만 읽으므로 **IN_TRANSIT 짝 없음이 정상**.
+  ⬜ **첫 실행은 수동**(스냅샷 curl → RPC → 예측 대조 → 그 뒤 cron 12·13 등록 — ⑤ 와 같은 순서).
+  ⚠️ **첫 회차 예측이 설계 4부에 적혀 있다** — 특히 TR-03975/76 출발 창고 쌍이 unknown 으로 나올
+  것(커서 대기 중이라 원장만 못 뺐다). **예측대로 나오면 그게 대조 장치의 검증이다.**
 - 👁2 는 **관찰 대기**(WMS 는 put-away 없이 Apply 하지 않아 우리 시스템이 만들 수 없는 상태.
   ⚠️ Advanced 기본값을 켜면 게이트로 복귀) · 🟡4 만 **실동작 미검증**으로 남는다.
 
@@ -247,6 +261,25 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 hold_missing_date 로 상세 캡 40을 정확히 소진**해 뒤 ~3,000건을 한 건도 못 봤다.
 **`since` 로는 못 푼다 — 커서 정지가 필터보다 먼저다.** ⚠️ 하한은 "옛 데이터를 안 보는 것"이지
 **이상 감지를 끄는 것이 아니다** — 하한 이후의 날짜 결손·DRAFT 는 여전히 커서를 막는다.
+
+⚠️⚠️ **`from_cursor` 형식·함정 (2026-08-24 규명 — 두 번 헤맸다)**:
+- **형식 2종**: bare `from_cursor=TR-03900`(②-a 전량 축 3종 전부에 같은 하한) 또는
+  `from_cursor=transfer:TR-03900,adjustment:ST-01150,assembly:FG-00110`(소스별).
+- ⚠️ **②-a(조정·이동·조립) 전용이다** — 판매·발주·반품(②-b 시각 커서)은 이 파라미터를
+  **아예 읽지 않는다**(그쪽 씨앗은 `from_since=YYYY-MM-DD`).
+- 📌 **[2026-08-21 실측 재구성] `from_cursor=TR-03538` 이 "조용히 무시"였던 이유 — 에러가
+  아니라 무시가 맞고, 두 겹이었다**: ① 판매 등 ②-b 에는 참조 코드 자체가 없다(구조적 무시)
+  ② ②-a 에서도 **state 커서가 있으면 param 은 무시**(`floor 우선순위 state → param` —
+  `from_cursor_param_ignored` 로 표시만 된다). ⑤ 가동 후에는 state 가 항상 있으므로
+  **from_cursor 는 사실상 죽은 파라미터다** — 커서를 옮기려면 `inv_sync_state.last_cursor`
+  를 직접 고치는 것뿐(쓰기 — dry 로는 불가).
+- ⚠️ **[2026-08-24 실측] 시각 문자열을 넣으면 콜론이 형식 구분자와 충돌한다** —
+  `from_cursor=2026-08-21T00:00:00` → `2026-08-21T00` 이 소스 키로 오파싱 →
+  400 `"from_cursor: unknown source '2026-08-21T00'"`. 시각 커서 소스를 겨냥할 파라미터가
+  아니다(위 ②-a 전용).
+- ⇒ **커서를 무시하고 특정 창을 강제 조회하는 무해 파라미터는 없다**(2026-08-24 확인) —
+  지나간 문서의 게이트 검증은 실데이터 재조회가 아니라 **로컬 테스트**로 한다
+  (`scripts/test-invcollect-gate.mjs` — makeSink 를 원문 추출해 node 모의, 8케이스).
 
 **증분 셋의 날짜 커서 규칙 (2026-08-17 구현 확정)**: `UpdatedSince = last_cursor − 1일`
 (겹침 수신 — 중복은 유니크 키 흡수) · 문서 상태로 커서 안 멈춤(갱신되면 재등장) ·

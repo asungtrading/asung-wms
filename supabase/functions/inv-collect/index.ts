@@ -149,7 +149,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-19.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (.1 = 페이싱 1200ms·Retry-After 백오프 + inv_conflicts 변경 감지)
+const COLLECTOR_VERSION = "inv-collect@2026-08-24.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-24.1 = 비재고 SKU 게이트(inv_sku_types — FINAL-SALE 실사고) · 이전 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -337,10 +337,11 @@ function minusOneDay(d: string): string {
 // 날짜 커서(runDateSource)가 함께 쓴다 — 게이트 로직이 두 벌이면 다음 수정 때 갈라진다.
 // ⚠️ 회귀 확인: ②-a dry 3종을 추출 전과 같은 파라미터로 재실행해 ledger_rows·samples·
 //   date_histogram·cursor_after_would_be 동일성 대조(커밋 메시지에 절차 기재).
-function makeSink(since: string | null) {
+function makeSink(since: string | null, nonStockSkus?: Set<string>) {
   const rows: LedgerRow[] = [];
   const dateHist: Record<string, number> = {};
-  const stats = { merged_lines: 0, empty_sku_lines: 0, since_filtered_rows: 0 };
+  const stats = { merged_lines: 0, empty_sku_lines: 0, since_filtered_rows: 0,
+                  non_inventory_skipped: 0, non_inventory_sample: [] as { sku: string; doc: string }[] };
   // 문서 하나의 행들을 유니크 키로 합산해 push — merged_lines 는 line_ref 가정 붕괴 신호
   function push(docRows: LedgerRow[]): void {
     const byKey = new Map<string, LedgerRow>();
@@ -350,6 +351,15 @@ function makeSink(since: string | null) {
       //   실사고: 조립 PickLines 에 SKU 필드가 없어(정답은 ProductCode) sku 가 전부 "" 였는데
       //   나머지 필드는 멀쩡해 보였다 — 조용히 통과할 뻔했다).
       if (!r.sku) { stats.empty_sku_lines++; continue; }
+      // 비재고 SKU 게이트 (2026-08-24 · FINAL-SALE) — Type≠Stock 은 Cin7 이 재고를 안 움직인다.
+      //   makeSink 가 6소스 공통 유일 통로라 여기 한 곳이 판매·발주·조정·반품·이동·조립 전부를
+      //   막는다(dry·commit 공통 — dry 응답에서도 skipped 가 보인다). 캐시가 비면 Set 이 비어
+      //   자연히 무필터(fail-open — 로드부의 경고가 그 상태를 알린다).
+      if (nonStockSkus && nonStockSkus.has(r.sku)) {
+        stats.non_inventory_skipped++;
+        if (stats.non_inventory_sample.length < 10) stats.non_inventory_sample.push({ sku: r.sku, doc: r.doc_number });
+        continue;
+      }
       if (since && !(r.occurred_on > since)) { stats.since_filtered_rows++; continue; }   // "그 날짜보다 이후"만 — 경계일 제외
       const k = [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");   // 구분자 없는 연결은 키 충돌("AB","C")/("A","BC")
       const cur = byKey.get(k);
@@ -473,11 +483,43 @@ Deno.serve(async (req) => {
     const stateRows = await sbGet("inv_sync_state?source_key=in.(" + runKeys.join(",") + ")&select=source_key,last_cursor");
     const cursorOf = (k: string) => stateRows.find((r) => r.source_key === k)?.last_cursor ?? null;
 
+    // ── 비재고 SKU 게이트 로드 (2026-08-24 · FINAL-SALE 실사고 — 마이그레이션 20260824140345) ──
+    // Type≠Stock 품목(Non-inventory·Service)은 팔려도 Cin7 이 재고를 안 움직인다 — 재고 사건이
+    // 아니므로 원장에서 거른다. 목록은 inv_sku_types 캐시(별도 EF inv-sku-types 가 일 1회 갱신 —
+    // 갱신 실패가 수집과 격리되도록 분리, 사용자 결정).
+    // ⚠️ fail-open: 캐시가 비었거나 못 읽으면 **필터 없이 통과 + 경고** — 원장은 shadow 이고
+    //   대조가 안전망이다(잘못 들어와도 unknown 으로 잡힌다 — FINAL-SALE 이 정확히 그 경로).
+    //   차단이 수집을 멈추면 정상 재고까지 멈춘다. 조용한 폴백 금지 — global_warnings 에 실린다.
+    let nonStockSkus = new Set<string>();
+    const skuTypeWarnings: string[] = [];
+    try {
+      // ⚠️ 저장 범위 계약(마이그레이션 20260824140345 주석): 이 테이블엔 비-Stock 품목만 들어간다
+      //   (EF inv-sku-types 가 Type!=='Stock' 만 upsert · [실측 2026-08-24] 49행) — 구조적 유계.
+      //   Stock(1.4만+)을 넣으면 1,000행 캡에서 조용히 잘리고 잘린 비재고 SKU 가 게이트를 통과한다
+      //   → 아래 800행 근접 경보가 캡 도달 **전에** 알린다(사후 감지는 이미 뚫린 뒤라 늦다).
+      const st = await sbGet("inv_sku_types?select=sku,refreshed_at");   // caps-ok: 비-Stock 품목만 저장하는 계약 테이블(위 주석 · 49행) — 800행 근접 경보가 계약 붕괴를 선제 감지
+      if (!st.length) skuTypeWarnings.push("inv_sku_types cache EMPTY - non-inventory gate INACTIVE (run inv-sku-types EF)");
+      else {
+        nonStockSkus = new Set(st.map((r: any) => String(r.sku)));
+        if (st.length >= 800) {
+          skuTypeWarnings.push("inv_sku_types has " + st.length + " rows - approaching the 1,000-row PostgREST cap. The table must hold ONLY non-Stock SKUs (contract in migration 20260824140345); if that changed, paginate this read BEFORE rows are silently dropped");
+        }
+        const newest = st.map((r: any) => String(r.refreshed_at ?? "")).sort().pop() ?? "";
+        if (newest && Date.parse(newest) < Date.now() - 48 * 3600_000) {
+          skuTypeWarnings.push("inv_sku_types cache STALE (refreshed " + newest + ") - gate still active with old list");
+        }
+      }
+    } catch (e) {
+      skuTypeWarnings.push("inv_sku_types cache UNREADABLE - non-inventory gate INACTIVE: " + String(e).slice(0, 120));
+    }
+
     const global = {
       mode: commit ? "commit" : "dry",
       since,
       collector_version: COLLECTOR_VERSION,
       location_map: { total: locTotal, received: locReceived, pages: locPages },
+      // 비재고 게이트 상태 (2026-08-24) — 캐시 행 수 + 경고(비었음/낡음/못읽음 — 조용한 폴백 금지)
+      non_stock_gate: { skus: nonStockSkus.size, warnings: skuTypeWarnings },
       rate_limited: false as boolean,
     };
     const results: Record<string, unknown> = {};
@@ -583,7 +625,7 @@ Deno.serve(async (req) => {
       }
 
       // 3) 상세 조회 (오름차순 · 캡 · 시간 가드) → 원장 행 생성
-      const sink = makeSink(since);                 // 공유 sink — 파일 상단 makeSink(②-b 에서 추출, 동작 동일)
+      const sink = makeSink(since, nonStockSkus);   // 공유 sink — 파일 상단 makeSink(②-b 에서 추출) + 비재고 게이트
       const dateCandidates: { doc_number: string; list_date: string | null; completion_date: string | null; wip_date: string | null }[] = [];
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateDocs = 0;
       const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
@@ -810,6 +852,8 @@ Deno.serve(async (req) => {
         ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
         since_filtered_rows: sink.stats.since_filtered_rows,
+        non_inventory_skipped: sink.stats.non_inventory_skipped,
+        non_inventory_sample: sink.stats.non_inventory_sample,
         missing_date_docs: missingDateDocs,
         // ⚠️ merged_lines ≠ 0 = line_ref=ProductID 가정(같은 SKU 두 줄 없음)이 깨졌다는 신호
         merged_lines: sink.stats.merged_lines,
@@ -868,7 +912,7 @@ Deno.serve(async (req) => {
       const warnings: string[] = [];
       const fieldFallbacks: Record<string, number> = {};
       const bump = (k: string) => { fieldFallbacks[k] = (fieldFallbacks[k] ?? 0) + 1; };
-      const sink = makeSink(since);
+      const sink = makeSink(since, nonStockSkus);
 
       // since(날짜 커서) 해석 — floor 와 같은 우선순위: state → ?from_since= → 없음(전량·시끄럽게)
       const cursorBefore: string | null = cursorOf(key);
@@ -1283,6 +1327,8 @@ Deno.serve(async (req) => {
         ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
         since_filtered_rows: sink.stats.since_filtered_rows,
+        non_inventory_skipped: sink.stats.non_inventory_skipped,
+        non_inventory_sample: sink.stats.non_inventory_sample,
         missing_date_items: missingDateItems,
         merged_lines: sink.stats.merged_lines,
         merged_lines_alert: sink.stats.merged_lines > 0 ? "NOT ZERO - the line_ref assumption is broken, inspect raw.merged_lines_raw" : null,

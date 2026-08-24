@@ -680,6 +680,82 @@ IN_TRANSIT 이 음수로 남는다) — 원장을 확인할 것.
 `inv_conflicts` 는 아직 빈 상태(원장이 갓 채워져 두 번째 회차부터 의미). **⑥(shadow 대조)가
 필요한 이유가 이것이다** — 낱건 눈 대조는 표본일 뿐, 전량 대조는 ⑥의 일이다.
 
+### ⑥ shadow 대조 구현 (2026-08-24 — 마이그레이션 `20260824130759` · ⬜ 첫 실행 대기)
+
+`inv_compare` 는 20260816 부터 테이블만 있고 채우는 코드가 0곳이었다 — 이번에 실행기를 만들었다.
+
+**구조** (설계 결정 2026-08-24 Caleb 확정):
+- **Cin7 현재고 = `inv-snapshot` 재사용**(검증된 all-or-nothing — 재구현 안 함). cron URL 에
+  날짜를 박을 수 없어 **`?key=auto-compare` 리터럴일 때만** EF 가 `YYYY-MM-DD-compare` 를 생성한다
+  — 「자동 생성 금지」의 원래 의도(키가 실수로 겹치거나 의미 없는 값이 되는 것)에 어긋나지 않는
+  **명시적으로 요청한 자동화**다. ⚠️ `-initial` 은 여전히 수동 명시만.
+- **대조 = RPC `inv_compare_run(p_key)`** — 전부 DB 안이라 Cin7 왕복 0. 원장 잔고(최신 `-initial`
+  기준선 + `inv_ledger` 전 사건 합) FULL JOIN Cin7 현재고(compare 스냅샷 bin 접기), SKU×창고 단위.
+- **verdict 최소 규칙**: `diff=0 → match`(카운트만) · `IN_TRANSIT → explained` · **나머지 전부
+  `unknown`**. ⚠️ `missing_event`·`calc_error` 는 자동 판정하지 않는다 — 원인 조사의 결론이지
+  계산 결과가 아니다. 사람이 unknown 을 닫으며 기록하는 값이다.
+- **`inv_compare` 에는 diff≠0 행만**(match 는 `inv_compare_runs.match_count` 로). 대가 = 「어느
+  SKU 가 언제부터 맞았나」의 행 단위 이력 없음 — 필요해지면 전 쌍 기록 + 14일 reap 으로 바꾼다.
+- **`inv_compare_runs`**(wms_health_runs 동형): 카운트 + unknown 상위 20 샘플 + **`cursors`
+  jsonb**(대조 시점의 `inv_sync_state` 전체 — 「타이밍 차이」 재확인의 유일한 근거: unknown 이
+  다음날 match 로 돌아오면 이 커서 위치가 증거).
+- **보존**: compare 스냅샷 14일(`not like '%-initial'` — **기준선 불가침을 코드로 강제**) ·
+  runs 90일 — RPC 끝에서 reap(health_snapshot 패턴).
+- **IN_TRANSIT 짝 없음 = 정상**: `inv-snapshot` 은 `OnHand` 만 읽는다(index.ts — `InTransit`
+  컬럼 미참조). ⭐ [실측 2026-08-24 BMA15710] Cin7 도 운송 중을 `ON HAND` 에서 빼고 별도
+  `IN TRANSIT` 컬럼으로 관리(에드먼튼 ON HAND 0 · IN TRANSIT 204) — **원장의 합성 창고와 같은
+  모델**이라 창고별 수치가 자연히 맞는다. [원장 대조] 토론토 910 · 에드먼튼 16 · IN_TRANSIT 204
+  — SKU 단위 완전 일치. **스냅샷+사건 누적이 작동한다는 첫 증명.**
+- **cron 2잡**(기록 = cron.sql 잡 12·13 — ⚠️ **첫 수동 실행 확인 후 등록**, ⑤ 가동과 같은 순서):
+  스냅샷 `21 3 * * *`(03:21 UTC = 토론토 23:21 EDT·에드먼튼 21:21 MDT — 두 창고 마감 후) →
+  RPC `36 3 * * *`. 분 21·36 은 빈 분(전수 계산 — 빈 분 집합 {1,3,6,18,21,26,28,31,33,36,41,
+  43,46,48,51,56,58}. 2026-08-21 purchase 겹침 교훈).
+- [검증 2026-08-24 로컬] `db reset` 재생 + 테스트 6케이스 전 통과(verdict 분포 · diff≠0 만 기록 ·
+  generated diff · 재실행 멱등 · 스냅샷 없음 가드 · **14일 reap + `-initial` 불가침**) + 기존
+  스위트 회귀(팩 9 · 픽 12).
+
+#### ⚠️ 첫 회차 예측 (2026-08-24 — 실행 전에 적는다)
+
+**예측된 unknown 이 예측대로 나오면 그 자체가 대조 장치의 검증이고, 예측 밖 unknown 이 나오면
+그게 ⑥의 첫 수확이다.**
+
+1. **match 압도 다수(추정 97%+)** — 8/20 이후 사건이 있는 SKU 자체가 소수. BMA15710 완전 일치가 표본.
+2. **explained = IN_TRANSIT 잔량 보유 SKU 소수** — TR-03975/76 + 8/21 이후 신규 이동분.
+3. ⚠️ **예측 unknown ①: TR-03975/76 의 출발 창고 쌍** — Cin7 은 출발분을 이미 뺐는데(BMA15710
+   모델) 원장은 커서가 그 문서 **앞에서 대기 중**(`hold_intransit_before_since`)이라 아직 안 뺐다
+   → `ledger_qty > cin7_qty`. 원인을 이미 알지만 최소 규칙상 unknown 으로 나온다 — 그 두 TR 로
+   설명하고 닫는다(도착 후 since 경계 아티팩트와 함께 자연 소멸).
+4. **예측 unknown ②: 당일 타이밍** — 스냅샷(03:21) 직전 마지막 수집 회차 이후 사건. 밤이라 거의 0.
+5. 그 밖의 unknown = **수집 누락·계산 오류의 첫 신호** — 하나씩 원인을 찾아 수집을 고치는 것이
+   2단계(대조)의 본업이다.
+
+⬜ **첫 실행은 수동**: ① `curl …/inv-snapshot?key=auto-compare` (wrote ≈ 13,800 · aborted null 확인)
+② `select inv_compare_run('YYYY-MM-DD-compare')` ③ 결과가 위 예측과 맞는지 확인 → 그 뒤 cron 등록.
+
+#### ✅ 첫 회차 실측 (2026-08-24) — unknown 1건 = ⑥의 첫 수확
+
+**`compared_pairs 13,836 · match 13,835 · explained 316(IN_TRANSIT) · unknown 1`.**
+
+⚠️⚠️ **카운트 관계 — 셋을 더하면 안 된다**: `compared_pairs = match + unknown`
+(13,836 = 13,835 + 1) 이고 **explained(IN_TRANSIT)는 pairs 밖의 별도 집계**다 — IN_TRANSIT 은
+Cin7 에 짝이 없어 비교 쌍에서 제외되고 따로 센다(RPC 의 `filter (warehouse <> 'IN_TRANSIT')`).
+📌 **첫 회차에서 13,835+316+1=14,152 로 셋을 배타 합산해 "정합이 안 맞는다"고 오독했다** —
+같은 오해를 반복하지 않도록 남긴다. ⚠️ 316 은 "IN_TRANSIT 넷 잔량 ≠ 0 인 SKU 수" — 진짜 운송 중
++ **transfer 커서가 아직 도착을 못 본 문서**(출발만 기록)가 섞여 있다. 커서가 따라잡으면 줄어야
+정상 — 추이를 볼 것.
+
+**unknown 1건 = `FINAL-SALE`**(Asung Trading Inc. · 원장 −34 · Cin7 0 · SO-15097 sale_out 8/21).
+Cin7 에서 **`Type=Non-inventory`**(파손품을 adjustment 로 이미 뺀 뒤 판매할 때 쓰는 껍데기 SKU —
+Cin7 은 재고를 안 움직인다)인데 판매 수집이 Pick.Lines 를 무필터로 잡아 재고 사건으로 쌓았다.
+📌 **대조 장치가 없었으면 조용히 누적됐을 것** — ⑥의 존재 이유가 첫 회차에 실증됐다.
+⚠️ `IsService` 와는 **다른 개념**(cin7-api 스킬 15번) — FINAL-SALE 은 IsService=false 라
+기존 `IsServiceOnly` 필터의 틈에 빠졌다. 처방(sku_type 캐시 + 상쇄 행)은 별도 진행.
+
+📌 **예측 채점**: ① TR-03975/76 출발 창고 unknown — **안 나왔고, 안 나온 게 맞다**(그 출발은
+스냅샷 **이전**이라 기준선에 이미 빠져 있었다 — 예측이 그 점을 놓쳤다. 예측 실패의 원인까지
+남긴다) ② 당일 타이밍 unknown — 0(예측대로) ③ **예측 밖 unknown 1건(FINAL-SALE)= 첫 수확**
+(예측 문구 그대로: "예측 밖 unknown 이 나오면 그게 ⑥의 첫 수확이다").
+
 📌 **등록 후 검증은 결과물로만 한다** — `cron.job_run_details` 의 `succeeded` 는 아무것도 보장하지
 않는다(2026-08-19 실측 — HTTP 요청을 **띄운 것**까지만 본다). `inv_sync_state.last_run_at` 갱신과
 `last_cursor` 전진이 유일한 증거다.

@@ -253,3 +253,61 @@ select cron.schedule(
     );
   $job$
 );
+
+-- 12) ⑥ shadow 대조 — Cin7 현재고 스냅샷 (매일 03:21 UTC) → Edge Function 'inv-snapshot'
+--     ⚠️ 등록 전에 첫 실행을 손으로 확인할 것(⑤ 가동과 같은 순서):
+--       curl -s "https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-snapshot?key=auto-compare" \
+--         -H "x-wms-cron-key: $S" | jq .    # → wrote ≈ 13,800 · aborted null
+--       그 뒤 psql: select inv_compare_run(to_char(now(),'YYYY-MM-DD')||'-compare');
+--     시각 근거: 03:21 UTC = 토론토 23:21 EDT / 에드먼튼 21:21 MDT — 두 창고 마감 후 ·
+--       GAS BinStock(05:00 GAS 시간)·WmsSync(6:30) 전. 겨울(EST/MST)도 마감 후라 DST 무해.
+--     ⚠️ 분 21 = 빈 분(2026-08-24 전수 계산 — mod5∈{1,3} 중 8·11·13·16·23·38·53 제외:
+--       {1,3,6,18,21,26,28,31,33,36,41,43,46,48,51,56,58}). 실행 43초라 그 분 안에서 끝난다.
+--       잡이 늘면 이 집합을 다시 전수 계산할 것(2026-08-21 purchase 겹침 교훈 — 눈으로 세지 말 것).
+--     key=auto-compare → EF 가 'YYYY-MM-DD-compare' 생성(-initial 은 여전히 수동 명시만).
+select cron.schedule(
+  'inv-snapshot-compare',
+  '21 3 * * *',
+  $job$
+    select net.http_get(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-snapshot?key=auto-compare',
+      headers := jsonb_build_object(
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);
+
+-- 13) ⑥ shadow 대조 — 대조 RPC (매일 03:36 UTC · 잡 12 의 15분 뒤 — 스냅샷 43초 대비 여유)
+--     DB 전용(Cin7 콜 0) — 분 충돌 무관하나 빈 분 36 으로 관례 유지.
+--     스냅샷이 실패한 날은 RPC 가드가 "no snapshot rows" 기록만 남긴다(오탐 0 — all-or-nothing 의 짝).
+--     결과 확인: select * from inv_compare_runs order by id desc limit 3;
+--                select * from inv_compare where checked_on = current_date order by abs(diff) desc;
+select cron.schedule(
+  'inv-compare-run',
+  '36 3 * * *',
+  $job$
+    select inv_compare_run(to_char(now(), 'YYYY-MM-DD') || '-compare');
+  $job$
+);
+
+-- 14) 비재고 SKU 캐시 갱신 (매일 03:26 UTC) → Edge Function 'inv-sku-types'
+--     배경 [FINAL-SALE 실사고 2026-08-24]: Type=Non-inventory 판매를 수집이 재고 사건으로 잡음.
+--     /product 전량(15~30콜)에서 Type≠Stock SKU 를 inv_sku_types 로 — inv-collect 게이트가 읽는다.
+--     ⚠️ 분 26 = 빈 분(2026-08-24 전수 재계산 — 빈 분 집합에서 21(잡12)·36(잡13)을 추가 제외:
+--       {1,3,6,18,26,28,31,33,41,43,46,48,51,56,58}). 30콜 × 400ms ≈ 22초 — 그 분 안에서 끝난다.
+--       03:26 은 잡 12(03:21 — 43초 종료) 뒤·잡 13(03:36) 앞 — 새벽 원장 작업 몰아두기.
+--     ⚠️ 등록 전에 첫 실행을 손으로(dry → 실행 → 테이블 5행 확인):
+--       curl -s ".../functions/v1/inv-sku-types?dry=1" -H "x-wms-cron-key: $S" | jq '.non_stock'
+select cron.schedule(
+  'inv-sku-types',
+  '26 3 * * *',
+  $job$
+    select net.http_get(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-sku-types',
+      headers := jsonb_build_object(
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
+);

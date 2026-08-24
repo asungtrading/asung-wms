@@ -133,11 +133,19 @@ Deno.serve(async (req) => {
 
     // ── 파라미터 ──
     const dry = url.searchParams.get("dry") === "1";
-    const snapshotKey = (url.searchParams.get("key") ?? "").trim();
+    let snapshotKey = (url.searchParams.get("key") ?? "").trim();
     if (!snapshotKey) {
       // dry 에도 요구한다 — 규칙 하나로 통일(자동 생성 금지의 연장).
       return json({ ok: false, error: "snapshot key required - pass ?key=2026-08-22-initial (no auto-generation)" }, 400);
     }
+    // ── auto-compare (2026-08-24 · ⑥ 대조용 — 사용자 결정 Q-b(i)) ──
+    // pg_cron URL 에 날짜를 박을 수 없어, 리터럴 'auto-compare' 일 때만 서버가 'YYYY-MM-DD-compare'
+    // 를 생성한다. 「자동 생성 금지」의 원래 의도는 키가 실수로 겹치거나 의미 없는 값이 되는 것을
+    // 막는 것 — 이것은 **명시적으로 요청한 자동화**라 취지에 어긋나지 않는다.
+    // ⚠️ '-initial' 은 여전히 수동 명시만 — 기준선 재촬영은 사람이 키를 정해 실행한다.
+    // ⚠️ 같은 날 재실행은 ignore-duplicates 라 **첫 실행 값이 남는다**(덮지 않음) — 대조 기준은
+    //    "당일 첫 스냅샷"이고, 다시 찍고 싶으면 그 키의 행을 지우고 재실행.
+    if (snapshotKey === "auto-compare") snapshotKey = takenAtIso.slice(0, 10) + "-compare";
 
     // ── 1) 수집: ref/productavailability 전량 페이징 ──
     let listTotal: number | null = null;
