@@ -333,13 +333,15 @@ async function checkOwner(){
   if(!task && !wave) return {s:"unknown"};
   try{
     const q = wave
-      ? await sb.from("wms_waves").select("assigned_to").eq("id",wave.id).maybeSingle()
-      : await sb.from("wms_pick_tasks").select("assigned_to").eq("id",task.id).maybeSingle();
+      ? await sb.from("wms_waves").select("assigned_to,held_by").eq("id",wave.id).maybeSingle()
+      : await sb.from("wms_pick_tasks").select("assigned_to,held_by").eq("id",task.id).maybeSingle();
     if(q.error) throw q.error;
     lastOwnerCheck=Date.now();
     if(!q.data) return {s:"unknown"};                 // row gone — not this guard's call
     const who=q.data.assigned_to||null;               // null = Hold 로 풀려 대기 풀에 있음
-    return who===me.name ? {s:"ok"} : {s:"lost",who};
+    // heldMine (2026-08-24 자동 Hold): 풀렸는데 held_by=나 = 내 몫으로 보류됨(자동 Hold 가 지배적 —
+    // 수동 Hold 응답 유실 엣지도 같은 안내가 참). 남이 이어받은 경우(who=타인)와 문구를 가른다.
+    return who===me.name ? {s:"ok"} : {s:"lost",who,heldMine:!who&&q.data.held_by===me.name};
   }catch(e){
     // best-effort: 창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실 (규칙 28)
     console.warn("Ownership check failed — proceeding with the write (best effort):", (e&&e.message)||e);
@@ -347,10 +349,16 @@ async function checkOwner(){
   }
 }
 /* true = 계속 진행(내 것이거나 확인 실패) / false = 프리즈됨, 호출자는 쓰지 말 것 */
+/* 자동 Hold 전용 문구 (2026-08-24 · 마이그레이션 20260824202539): 기존 "released and waiting to be
+   claimed" 는 남이 이어받는 상황용이라, 자동 Hold(아무도 안 가져감 · held_by=나)에서는
+   "내가 뭘 잘못했나 · 스캔이 날아갔나" 로 읽힌다. freezeScreen 의 기존 msg 파라미터만 쓴다 —
+   방어 로직 무변. 10분 숫자는 문구에 박지 않는다(상수가 바뀌면 문구가 거짓말이 된다).
+   in-place Resume 버튼은 별도 단계(백로그 — 재개 3함수가 목록 캐시 의존이라 리팩터 필요). */
+function autoHoldMsg(){ return `This ${ownerUnit()} was put on hold automatically (no activity for a while). Your progress is saved. Reload and resume it from your list.`; }
 async function ensureMine(){
   if(frozen) return false;
   const r=await checkOwner();
-  if(r.s==="lost"){ freezeScreen(r.who); return false; }
+  if(r.s==="lost"){ freezeScreen(r.who, r.heldMine?autoHoldMsg():undefined); return false; }
   return true;
 }
 /* ⚠️ 프리즈 시 로컬 수량을 flush 하지 않는다 — 내 메모리 값은 스테일이고 쓰면
@@ -376,7 +384,7 @@ async function guardOnReturn(){
   if(document.getElementById("pickView").style.display==="none") return;
   if(Date.now()-lastOwnerCheck<3000) return;   // 이벤트 연속 발생 시 중복 조회만 억제 (타이머 아님)
   const r=await checkOwner();
-  if(r.s==="lost") freezeScreen(r.who);
+  if(r.s==="lost") freezeScreen(r.who, r.heldMine?autoHoldMsg():undefined);
 }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") guardOnReturn(); });
 window.addEventListener("focus",guardOnReturn);

@@ -28,6 +28,12 @@ select cron.schedule(
 );
 
 -- 2) 유령 claim 정리 (2분마다)
+-- ⚠️⚠️ [2026-08-24 폐지 — 자동 Hold(잡 15)로 흡수] 아래 등록은 역사 기록으로만 남긴다.
+--   실서버에서 실행할 것: select cron.unschedule('wms-reap-stale-claims');
+--   근거: reaper(클레임+3분 무스캔·started_at=null)와 자동 Hold(마지막 활동+10분·보존)가
+--   hold 재개 직후 무스캔 배치에 겹치고, reaper 가 항상 먼저 물어 started_at 을 지운다
+--   (SO-15028-1 의 원인 경로). reaper 대상은 자동 Hold 판정에 자연 포함된다(클레임 시각 폴백).
+--   함수 wms_reap_stale_claims 는 존치(baseline 무접촉) — 호출 0.
 select cron.schedule(
   'wms-reap-stale-claims',
   '*/2 * * * *',
@@ -331,4 +337,17 @@ select cron.schedule(
       )
     );
   $job$
+);
+
+-- 15) 자동 Hold (2분마다) — 함수 wms_auto_hold() (마이그레이션 20260824202539)
+--     작업자가 Hold 를 안 누르고 사라진 배치(마지막 활동 + 10분)를 자동 보류.
+--     잡 2(wms-reap-stale-claims)를 **흡수·대체**한다 — 등록 전에 잡 2 를 먼저 unschedule 할 것
+--     (동시 가동 금지 — 잡 2 가 먼저 물어 started_at 을 지운다. 위 잡 2 주석 참조).
+--     DB 전용(Cin7 콜 0) — 분 집합 무관(*/2). 판정 10분·상한 20·오래된 것 먼저 — 함수 주석 참조.
+--     ⚠️ 킬 스위치(즉시·배포 불필요): select cron.alter_job(<이 잡의 jobid>, active := false);
+--     확인: select * from wms_task_holds where source='auto' order by id desc limit 5;
+select cron.schedule(
+  'wms-auto-hold',
+  '*/2 * * * *',
+  $job$ select wms_auto_hold() $job$
 );
