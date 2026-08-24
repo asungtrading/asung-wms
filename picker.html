@@ -681,7 +681,9 @@ async function scanTakeover(f){
    이어받기·Hold 재개가 덮어쓰지 않는다 — 종전엔 덮어써서 68라인 배치가 "2분 완료"로
    기록됐다(SO-14464-1, 담당자 증언으로 Hold→재개 경로 확정). 최초 시작만 null→now 로
    찍는다: 서버측 only-if-null 이라 동시 경합에도 1회만. 재개·이어받기는 쓰기 0회.
-   backfill 실패는 치명 아님 — null 로 남으면 dur 계산에서 제외될 뿐이고 다음 재개가 자가 치유. */
+   backfill 실패는 치명 아님 — null 로 남으면 dur 계산에서 제외될 뿐이고 다음 재개가 자가 치유.
+   ⚠️ 2026-08-11 의 4곳 수정에서 wave 경로(startWave)가 빠져 있었다 — 2026-08-24 합류
+   (멤버 SET 에서 started_at 제거 + 일괄 backfill · startWave 안 주석 참조). */
 async function ensureStartedAt(id,row){
   if(row&&row.started_at) return;
   const now=new Date().toISOString();
@@ -901,17 +903,31 @@ async function startWave(id){
   initAudio();
   const w=waves.find(x=>x.id===id); if(!w){ loadBatches(); return; }
   const now=new Date().toISOString();
+  // ⚠️ wave 행의 started_at:now 는 재개(held wave 도 이 함수로 들어온다)마다 리셋된다 —
+  //    [2026-08-24 전수 grep] wms_waves.started_at 을 읽는 소비처 0(Stats 는 멤버 픽태스크만,
+  //    admin select("*") 는 아카이브 원문 보존용). 읽는 코드를 만들려면 이 리셋부터 고칠 것.
+  //    held_by:null 정리는 holdCasFailed 의 판정 전제(아래 주석 "startBatch/startWave 가 정리")와
+  //    실물을 일치시킨다 — 없으면 A Hold → B 시작 → B 무작업 백아웃 사슬에서 held_by=A 가 잔존해
+  //    A 화면에 "Resume your held" 로 오표시된다(2026-08-24).
   const {data,error}=await sb.from("wms_waves")
-    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now})
+    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,held_by:null})
     .eq("id",id).is("assigned_to",null).eq("status","pending").select();
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this wave.",true); loadBatches(); return; }
   wave=data[0]; wave._workStarted=false;
   const {data:ts,error:te}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,work_started:false,held_by:null})
+    .update({assigned_to:me.name,status:"in_progress",heartbeat_at:now,work_started:false,held_by:null})
     .eq("wave_id",id)
-    .select("*, wms_orders(order_number,customer_name,warehouse)");
+    .select("*, wms_orders(order_number,customer_name,warehouse)");   // started_at 은 아래 backfill(최초 시작 보존 — ensureStartedAt 주석·2026-08-24 wave 경로 합류)
   if(te||!ts||!ts.length){ toast("Failed to open wave batches",true); resetToList(); return; }
+  // 최초 시작만 일괄 backfill — ensureStartedAt 의 일괄형. 보장은 서버측 WHERE .is("started_at",null)
+  // (행 단위 only-if-null — READ COMMITTED 에서 후발이 커밋 후 재평가돼 0행)이고, 위 wave CAS 가
+  // 승자 1명만 여기 도달시켜 경합 자체가 구조적으로 차단된다. 신규 wave = 전원 null → 전원 같은 now
+  // (현행 일괄 기록과 동일 값) · held 재개 = 전원 non-null → no-op(보존). 실패해도 치명 아님 —
+  // null 이면 dur 제외, 다음 startWave 가 자가 치유(:684 원칙과 동일). ⚠️ 반환 tasks[] 의 started_at
+  // 이 신규 시작 시 null 로 남지만 picker 는 tasks[].started_at 을 읽지 않는다(2026-08-24 grep 전수).
+  await sb.from("wms_pick_tasks").update({started_at:now})
+    .eq("wave_id",id).eq("assigned_to",me.name).is("started_at",null);
   tasks=ts.sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
   startHeartbeat(); presenceJoin();
   await loadWaveLines();
