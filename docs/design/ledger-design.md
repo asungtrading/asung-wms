@@ -720,7 +720,8 @@ IN_TRANSIT 이 음수로 남는다) — 원장을 확인할 것.
   임의 값이 아니다. **cron 이 이 규율을 구조적으로 지킨다 — 깨는 것은 수동 실행뿐이다.**
   ⚠️ 여기 적힌 시각은 이 파일·cron.sql 의 **설계값**이다. 등록 실물은
   `select jobid, jobname, schedule, active from cron.job order by jobid;` 로 확인할 것.
-  (같은 날 잡 14 `inv-sku-types` `26 3 * * *` 도 등록 — 아래 FINAL-SALE 처방.)
+  (같은 날 `inv-sku-types` `26 3 * * *` 도 **등록하려 했으나 ⬜ 미등록으로 남았다** —
+  [실측 2026-08-24] `cron.job` 에 없다. 경위·영향은 아래 FINAL-SALE 처방 절.)
 - [검증 2026-08-24 로컬] `db reset` 재생 + 테스트 6케이스 전 통과(verdict 분포 · diff≠0 만 기록 ·
   generated diff · 재실행 멱등 · 스냅샷 없음 가드 · **14일 reap + `-initial` 불가침**) + 기존
   스위트 회귀(팩 9 · 픽 12).
@@ -764,7 +765,11 @@ Cin7 은 재고를 안 움직인다)인데 판매 수집이 Pick.Lines 를 무�
 
 ##### ✅ 처방 — 비재고 게이트 (같은 날 구현·배포 · 마이그레이션 `20260824140345`)
 
-- **`inv_sku_types` 캐시 + EF `inv-sku-types`**(cron 잡 14 · 일 1회) — `/product` 전량에서
+- **`inv_sku_types` 캐시 + EF `inv-sku-types`**(cron 일 1회 예정 — ⚠️⚠️ **[실측 2026-08-24]
+  cron 미등록**: `cron.job` 에 없다(발견 경위: WMS 자동 Hold 가 jobid 14 를 받았고, 12·13 다음이
+  14 라는 사실이 곧 미등록의 증거 — jobid 는 시퀀스라 재사용되지 않는다). **영향**: 캐시가
+  갱신되지 않아 48h 뒤부터 `cache STALE` 경고 · 게이트는 옛 목록으로 작동하나 **새 비재고 SKU 를
+  못 막는다**. 등록 = `ops/cron.sql` 해당 절 실행 후 **받은 jobid 를 그 파일에 반영**) — `/product` 전량에서
   `Type ≠ 'Stock'` 인 SKU 만 통째 교체(all-or-nothing). ⚠️ **상수로 박지 않았다**: 상품이 늘면
   코드 배포가 필요해지고, 새 비재고 SKU 는 **대조에서 unknown 이 날 때까지 모른다**(오늘이 그 사례).
 - ⚠️ **왜 별도 EF 인가** — inv-collect 안에 두면 6잡이 각자 갱신을 시도하고(동시 실행 시 중복)

@@ -22,7 +22,10 @@
 //
 // 인증: x-wms-cron-key == WMS_CRON_SECRET (inv-snapshot 과 동일 — fail-closed).
 // dry: ?dry=1 — 수집·diff 보고까지 하고 캐시는 무접촉.
-// cron: 매일 03:26 UTC (supabase/ops/cron.sql 잡 14 — 분 26 은 빈 분: 전수 계산 확인.
+// cron: 매일 03:26 UTC 예정 — ⚠️⚠️ **[실측 2026-08-24] 아직 미등록**(cron.job 에 없다.
+//   supabase/ops/cron.sql 해당 절 · 등록하면 받는 jobid 를 그 파일에 반영할 것).
+//   미등록 동안 캐시는 수동 실행분에 머문다 → 48h 뒤부터 inv-collect 가 cache STALE 경고.
+//   (분 26 은 빈 분: 전수 계산 확인.
 //   30콜 × sleep 400ms ≈ 22초 — 그 분 안에서 끝난다).
 // ============================================================
 

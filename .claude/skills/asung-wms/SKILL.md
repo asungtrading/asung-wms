@@ -162,10 +162,15 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 
 **신규 앵커 「세션당 조용한 결함 발견」** — 정의: 다음 넷을 **모두** 만족한 것만 센다 — ① 에러가 나지 않았다 ② 시스템이 멈추지 않았다 ③ 아무도 신고하지 않았다 ④ 그런데 데이터가 틀렸다. **세지 않는 것**: 에러로 알게 된 것(429 alert 등) · 기능 요청 · 이미 알던 백로그 항목을 그냥 구현한 것. 이 숫자는 **"프론트엔드가 불변식을 소유한다"는 구조의 실제 비용**을 직접 잰다(계속 높으면 구조 문제 — 트리거·트랜잭션으로 DB 에 내리기 전엔 안 떨어진다 / 낮아지면 진짜 개선). 테스트 케이스 수와 달리 의미 없는 걸 늘려 올릴 수 없다. ⚠️ **읽을 때의 주의 둘**: ① **표본 1개는 아무 의미 없다** — 몇 세션 쌓여야 추세다 ② **발견 수는 "얼마나 파고들었느냐"에 좌우된다** — 08-11 은 Stats 확장으로 깊이 파서 3건이 나왔다. **얕게 지나간 세션의 0건은 "결함이 없다"가 아니라 "안 봤다"일 수 있다** — 세션 성격을 같이 적을 것.
 
-**08-24: 1건** — `startWave` 가 wave Hold→재개에서 wave·멤버 전원의 started_at 을 리셋(규칙 37 의
-②가 wave 경로에서 재현 — 08-11 수정 4곳에서 wave 가 빠져 있었다). 4조건 충족: 에러 없음·정지 없음·
-신고 없음·Stats(멤버 픽태스크 dur)가 조용히 틀림. 세션 성격 = 작업시간 측정 개편 전 reaper·Hold·재개
-전수 조사(깊이 판 세션 — 재개 진입점 3곳 전수에서 발견). 같은 날 수정 완료(규칙 37 갱신분).
+**08-24: 2건** (세션 성격 = 작업시간 측정 개편 전 reaper·Hold·재개 지점 전수 조사 — **깊이 판 세션**.
+경위 정본은 `docs/sessions/2026-08-24-hold-tracking.md`):
+① **`startWave` 의 started_at 덮어쓰기** — wave Hold→재개가 wave·멤버 전원의 started_at 을 리셋
+(규칙 37 의 ②가 wave 경로에서 재현 — 08-11 `931ecd4` 의 4곳 수정에서 wave 가 빠져 있었다).
+Stats 는 멤버 픽태스크를 집계하므로 그대로 통계 왜곡. 같은 날 `c8b3c58` 로 수정.
+② **`inv-sku-types` cron 미등록** — ⑥ 세션이 "잡 14"로 문서화했으나 실제로는 등록되지 않았다
+(발견 경위: 자동 Hold 의 실물 jobid 가 14 — 12·13 다음이 14 라는 사실이 곧 미등록의 증거).
+비재고 캐시가 안 도는데 아무도 몰랐다. ⬜ 등록은 원장 세션으로(백로그 = `asung-inv-ledger` 스킬).
+둘 다 4조건 충족: 에러 없음 · 정지 없음 · 신고 없음 · 데이터 틀림.
 
 ---
 
@@ -686,7 +691,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **realtime presence 는 유지** (사용자 결정 — 생산성/LIVE NOW 우선). presence 는 웹소켓 이벤트라 heartbeat 타이머보다 가벼움.
 - **heartbeat 의 원래 목적 = "열어만 두고 방치된 오더가 남에게 안 보이는 문제" 방지.** 하지만 픽리스트를 **물리적으로 인쇄**해 드는 구조라 소유권은 종이가 보증 → 상시 heartbeat 불필요. **대체 = 스캔 이어받기**: 픽리스트 스캔 시 그 오더가 이미 남이 in_progress 로 잡았으면 "X 가 열어둠, 이어받기?"(진행분 보존) → `assigned_to=me` UPDATE. (picker `scanTakeover`, packer `scanTakeoverPack`). 대기목록은 순수 pending 만(시간기반 abandoned 제거).
 - **admin BATCH ACTIVITY active/idle → presence 기반** (`fresh(t)=liveBatchSet().has(t.batch_label)`). heartbeat_at 시간 판정 폐기. 🟢 active(open on screen) / 🟡 away(screen closed). **LIVE NOW 스트립은 원래 presence 라 무관 — 그대로 유지.** 범례도 idle→away 로.
-- ~~**pg_cron reaper `wms_reap_stale_claims()`**: 느슨한 백업만(work_started=false 인 유령만 해제). heartbeat 없으니 interval 넉넉히(현재 2분 → 권장 3~10분). 스캔 이어받기가 주 해결책이라 사실상 보조.~~ → ⚠️ **[2026-08-24 폐지] 자동 Hold(잡 15 `wms-auto-hold` — 규칙 37 계열 「자동 Hold 가동」 항목이 정본)로 흡수** — 함수는 존치·호출 0. reaper 의 `started_at=null` 이 SO-15028-1 의 원인 경로였다.
+- ~~**pg_cron reaper `wms_reap_stale_claims()`**: 느슨한 백업만(work_started=false 인 유령만 해제). heartbeat 없으니 interval 넉넉히(현재 2분 → 권장 3~10분). 스캔 이어받기가 주 해결책이라 사실상 보조.~~ → ⚠️ **[2026-08-24 폐지] 자동 Hold(cron 잡 **14** `wms-auto-hold` — 규칙 37 계열 「Hold 구간 추적」 항목이 정본)로 흡수** — 함수는 존치·호출 0. reaper 의 `started_at=null` 이 SO-15028-1 의 원인 경로였다.
 - `heartbeat_at` 컬럼은 DB 에 잔존(안 읽고 안 씀) — 나중에 drop 가능.
 - ⚠️ **"종이가 소유권을 보증한다" 전제가 깨지는 경우와 그 가드는 규칙 28** 참조(종이는 보드로 돌아갔는데 화면은 열려 있는 상태).
 
@@ -938,8 +943,16 @@ DnD·탭에 더한 **세 번째 입력 수단**. parcel 출고는 담으면서 �
 Stats 탭에 **리시빙/트랜스퍼(`source_type` 구분)·풋어웨이·리시빙 discrepancy(`source='receiving'`)** 를 추가했다. 기존 픽/팩과 **같은 기간 필터**를 쓰고, 조회는 `Promise.all` **2회 왕복**으로 묶어 fire-and-forget(규칙 34 — 픽/팩 렌더를 막지 않는다). 기간 연타 스테일은 `statsRange!==r` 로 버린다.
 
 ⚠️⚠️ **avg time·min/line 의 신뢰 한계 (2026-08-11 조사 — 코드로 확정된 사실)**: `started_at` 이 실제 작업 시작이 아닐 수 있다. **[확정 — 코드]** ① **스캔 이어받기**(picker `openByScan` 이어받기 분기 · packer 스캔 이어받기)가 `started_at` 을 **지금으로 덮어쓴다** — 인계자의 작업 시간이 소멸하고 완료자의 잔여 시간만 남는다(과소). confirm 문구 "quantities are kept" 는 수량만 참이다. ② **Hold→재개**: Hold RPC 는 started_at 을 의도적으로 보존하는데(마이그레이션 주석 명시) **재개가 `startBatch`/packer 큐 클레임을 재사용해 덮어쓴다**(held 카드 디스패치의 else 분기 — RPC 가 지킨 것을 재개가 무효화). ③ **wave 멤버**는 반대 방향 — `startWave` 가 전 멤버에 wave 시작 시각을 일괄 기록 + 완료도 일괄이라 **멤버 전원의 dur ≈ wave 전체 소요**(과대). **대조군(보존이 옳게 된 곳)**: `takeoverBatch`(방치 클레임)는 assigned_to·heartbeat 만 갱신 — 같은 "이어받기"인데 스캔 쪽만 리셋(설계 갈라짐). **[확정 — 증언] (2026-08-11 후반)**: SO-14464-1(68라인/218유닛을 2분 10초 기록)의 원인은 **② Hold→재개**로 확정 — ⚠️ **근거는 코드·행 데이터가 아니라 담당자 증언이다**("라인 수가 많아 중간중간 Hold/Resume 을 여러 번 했다. 2분에 끝날 특별한 상황은 없었다"). 행에는 판별 흔적이 없었다(`picked_at` 전 행 null · 롤백 로그 없음) — 증언이 유일한 판별 근거. ✅ **①②는 2026-08-11 수정 완료**: **"started_at 은 최초 시작이다 — 이어받기·재개가 덮어쓰지 않는다"** 가 명문 원칙이다. 4곳(picker 스캔 이어받기·startBatch / packer 스캔 이어받기·resumePack 클레임) 전부 SET 에서 started_at 제거 + `ensureStartedAt`/`ensureStartedAtPack` 헬퍼의 서버측 only-if-null backfill(`.is("started_at",null)` — 경합에도 최초 1회만). 최초 시작/재개의 구분자는 행의 null 여부(롤백은 null 리셋·Hold 는 보존 — 모드 분기 불필요). packer `startPack` 의 insert(진짜 최초)는 무접촉. ⚠️ **[정정 2026-08-24] 그 4곳에 wave 경로가 빠져 있었다** — `startWave` 는 wave 행·멤버 전원의 started_at 을 계속 덮어쓰고 있었고(②의 wave 판 — Hold→재개 리셋 = 과소), 작업시간 측정 개편 조사에서 발견해 같은 날 수정(멤버 SET 에서 started_at 제거 + `.eq("wave_id").eq("assigned_to",me.name).is("started_at",null)` 일괄 backfill — ensureStartedAt 와 같은 서버측 only-if-null 보장 + wave CAS 가 승자 1명만 도달시키는 이중. wave 행의 started_at:now 는 소비처 0 실측이라 무접촉, held_by:null 만 추가 — holdCasFailed 판정 전제와 실물 일치). ⚠️ ③ wave 멤버 과대(일괄 기록 → 멤버 전원 dur ≈ wave 전체)는 **이번 수정과 별개고 여전히 잔여**다(배분 설계 필요 — 백로그): 이번에 고친 것은 ②의 wave 판(과소) 하나뿐이고, 신규 wave 의 전원 동일 시각 기록(③의 원인)은 backfill 이 그대로 유지한다. ⚠️⚠️ **수정의 부작용 — 방향 전환(과소→과대)**: 이제 avg 는 **Hold 대기 시간을 포함**한다(3시간 방치 = 3시간 기록). 매니저가 "갑자기 느려졌다"고 읽으면 오해다 — **기록이 정확해진 것**(2026-08-11 이후 데이터부터). 화면 문구는 **넣지 않기로 판단**(부제가 이미 길고, 일회성 전환이라 영구 문구는 과함 — 물으면 이 문단이 답). ⚠️⚠️ **24시간 캡 의존성(건드리기 전에 읽을 것)**: `dur()` 는 24h 초과를 이상치로 버리는데, 이 캡이 **밤샘 Hold 배치를 avg 에서 자동 제외하는 이번 수정의 안전장치**다 — 동시에 **통계 공백**이기도 하다(오래 Hold 된 배치는 avg 에 아예 안 잡힌다: "왜 이 배치가 avg 에 없지"의 답). 캡을 올리면 밤샘 Hold 가 avg 를 오염시키고, 없애면 며칠짜리 dur 이 들어온다 — **순수 작업시간(스캔 타임스탬프 집계, 백로그)이 생기기 전엔 캡 유지.** → 매니저 안내: ③이 섞인 기간의 avg·min/line 은 여전히 개인 비교 근거로 쓰지 말 것.
-🆕 **Hold 구간 기록 시작 (2026-08-24 · 마이그레이션 `20260824192416` — 기록만, 화면·Stats 무변)**: 「(completed−started) − Hold 구간 합」 계산의 선행 작업으로 `wms_task_holds` 이력 신설(정본 = `references/schema.md` 해당 절 — wave 는 wave 행 1건 · held_at 은 Hold RPC 안 · resumed_at 은 재개 프론트 3곳 fire-and-forget · 열린 채 끝나는 admin 4경로는 의도적 미닫음). 닫기 유실은 health `hold_leak`(sort 130)이 즉시 드러낸다 — 오탐 설계: 정상 Hold(pending+held_by)와 삭제된 태스크(rollback/void 부산물)는 안 잡고, 상태 불일치와 같은 태스크 이중 open 은 잡는다(4시나리오 로컬 검증 2026-08-24). ⚠️ Stats 계산 변경(C)은 다음 단계 — 기록이 며칠 쌓인 뒤 분포를 보고 설계한다.
-🆕 **자동 Hold 가동 (2026-08-24 · B 단계 — 마이그레이션 `20260824202539` · cron 잡 15 `wms-auto-hold` */2)**: Hold 를 안 누르고 사라진 배치(**마지막 활동 + 10분** — picked_at/verified_at max · 폴백 started/heartbeat/created)를 서버가 자동 보류. `held_at = 마지막 활동 + 10분`(그 10분은 작업시간에 포함 — Caleb 확정) · **started_at 무접촉** · `held_by`=원 소유자라 기존 재개 3곳이 이력을 그대로 닫는다. ⚠️⚠️ **기존 reaper(잡 2)를 흡수·폐지** — 겹치면 reaper 가 먼저 물어 `started_at=null`(SO-15028-1 경로)이었다. 함수 `wms_reap_stale_claims` 는 존치(호출 0). 안전장치: 킬 스위치 `cron.alter_job(active:=false)` · 회차 상한 20(last_activity 오름차순 — 오래된 것 먼저) · `source='auto'` 행이 감사 로그 · hold_leak 이 유실 감시. ⚠️ **10분 상수(`c_after` 한 곳)는 미확정 실측** — [실측 08-24] 스캔 간격 분포(426행)에 10~15분 공백 1건(오탐 후보)·15분+ 0건, 「10분 경과 in_progress」 스냅샷 0건(오후 5시 1회 — 시간대 편향 가능). **배포 후 며칠 현장 청취로 15분 상향 여부 판단.** 화면을 열어둔 채 물린 작업자에겐 freezeScreen 이 **자동 Hold 전용 문구**("put on hold automatically … progress is saved … resume from your list" — checkOwner 가 held_by 를 함께 읽어 `풀림+held_by=나` 구분)를 띄운다. ⬜ 백로그: **프리즈 화면 in-place Resume 버튼** — 재개 3함수가 목록 캐시 의존(startBatch `batches.find`·startWave `waves.find`·resumePack `packLookup`)이라 캐시 비의존 리팩터 필요 + 태블릿 실물 검증 필수. **자동 Hold 실제 발생 빈도를 보고 착수 판단**(드물면 리로드→held 카드 2탭 폴백으로 충분).
+🆕 **Hold 구간 추적 — A 기록 / B 자동 Hold (2026-08-24 · 배포 완료 · Stats 계산 교체 C 는 미착수)**
+— ⚠️ **경위·설계 판단의 정본은 `docs/sessions/2026-08-24-hold-tracking.md`**(방향 전환 2건: 「스캔 갭 컷」→「elapsed − Hold 구간」 · 「reaper 수정」→「흡수 폐지」 · 내가 틀렸던 것 2건). 여기엔 **모르면 사고가 나는 것만** 남긴다:
+  · **A(`20260824192416`)** — `wms_task_holds` 이력(정본 스키마 = `references/schema.md` 해당 절). ⚠️ **wave 는 wave 행 1건**(멤버별 N행 금지 — Hold 횟수가 N배로 왜곡된다) · held_at 은 Hold RPC 안(트랜잭션) · resumed_at 은 **재개 프론트 3곳**(startBatch·startWave·resumePack) fire-and-forget · 열린 채 끝나는 admin 4경로(rollback·void·unwave)는 **의도적 미닫음**.
+  · ⚠️ **C 단계 계산 규칙(미리 박아 둔다)**: `resumed_at is null` 을 「지금도 멈춰 있음」으로 취급하는 것은 **태스크가 지금도 pending + held_by 일 때만** — 그 외는 닫힘 유실/롤백 부산물이라 구간에서 제외(안 그러면 작업시간이 음수·0 이 된다). 닫힘 유실 감시 = health **`hold_leak`(sort 130)** — 정상 Hold·삭제된 태스크는 안 잡고 이중 open 은 잡는다.
+  · **B(`20260824202539`)** — `wms_auto_hold()` · **cron 잡 14 `wms-auto-hold` `*/2`** ([실측 jobid] — `ops/cron.sql` 헤더의 「잡 번호는 추정」 교훈 참조). 판정 = **마지막 활동 + 10분** (picked_at/verified_at max · 폴백 started/heartbeat/created) · `held_at = 마지막 활동 + 10분`(그 10분은 작업시간에 포함 — Caleb 확정) · ⚠️⚠️ **started_at 무접촉**(reaper 와의 결정적 차이).
+  · ⚠️⚠️ **기존 reaper(잡 2)를 흡수·폐지했다** — 공존하면 reaper 가 먼저 물어 `started_at=null` (SO-15028-1 경로)이 잔존한다. 함수 `wms_reap_stale_claims` 는 존치·호출 0. **이제 started_at 을 지우는 서버 경로는 0이다.**
+  · 안전장치: **킬 스위치 `select cron.alter_job(14, active := false);`** · 회차 상한 `c_cap=20`(last_activity 오름차순 — 오래된 것 먼저) · `source='auto'` 행이 감사 로그.
+  · ⚠️ **10분 상수는 미확정**(`c_after` **한 곳** — 마이그레이션 `20260824202539`). [실측] 경계 구간(10~15분) 공백 **1건 = 오탐 후보** · 15분+ 0건 · 「10분 경과 in_progress」 스냅샷 0건(1회·시간대 편향 가능). **현장 청취 후 15분 상향 판단.**
+  · 화면을 열어둔 채 물린 작업자에겐 freezeScreen 이 **자동 Hold 전용 문구**를 띄운다(checkOwner 가 held_by 를 함께 읽어 `풀림+held_by=나` 를 「남이 이어받음」과 구분 — 방어 로직 무변). ⬜ 백로그 **프리즈 화면 in-place Resume 버튼**: 재개 3함수가 목록 캐시 의존이라 리팩터 + 태블릿 실물 검증 필요 · **자동 Hold 발생 빈도를 보고 착수 판단**.
+  · ⬜ **미검증**: 자동 Hold 실물 미발동 · 새 문구 아무도 못 봄 · 팩/wave Hold 이력 미확인.
 
 ⚠️⚠️ **픽 배치 시간이 실제보다 짧게 기록되는 결함 — reaper × 08-11 backfill 조합 (2026-08-21 규명)**
 - **현상**: `SO-15028-1`(229라인·765유닛)이 Stats 에 **4.1분**으로 표시. 물리적으로 불가능하다.

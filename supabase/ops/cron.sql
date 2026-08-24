@@ -7,7 +7,18 @@
 -- 실서버에는 이미 등록되어 돌고 있다. 이 파일은 재해복구용 기록.
 -- 적용이 필요하면 실서버 대시보드 SQL Editor 에서 수동 실행.
 --
--- 확인: select jobname, schedule, active from cron.job order by jobid;
+-- 확인: select jobid, jobname, schedule, active from cron.job order by jobid;
+--
+-- ⚠️⚠️ **잡 번호는 등록 시점에 결정된다 — 이 파일의 절 번호는 추정이다.**
+--    jobid 는 시퀀스라 **unschedule 해도 그 번호는 재사용되지 않는다.** 등록한 뒤 위 조회로
+--    확정해 여기 반영할 것. [실측 2026-08-24] 자동 Hold 를 파일에 "15)" 로 적었으나 실물은
+--    **14** 였다 — 12·13 다음이 14 라는 사실 자체가 **inv-sku-types 미등록의 증거**였다
+--    (절 14 참조). 번호가 틀리면 킬 스위치(alter_job)를 엉뚱한 잡에 쏜다.
+--
+-- [실측 2026-08-24 cron.job 전체] 1(wms-poll-orders) · 3(wms-health-snapshot) ·
+--    4(wms-image-sync) · 5(wms-image-sync-retry) · 6~11(inv-collect 6종) ·
+--    12(inv-snapshot-compare) · 13(inv-compare-run) · 14(wms-auto-hold).
+--    2(wms-reap-stale-claims)는 unschedule 로 사라짐 · inv-sku-types 는 **미등록**.
 
 -- 1) Cin7 주문 폴링 (5분마다) → Edge Function 'hello'
 --    참고: Authorization 에 'Bearer ' 접두어가 없다. hello 가
@@ -28,7 +39,7 @@ select cron.schedule(
 );
 
 -- 2) 유령 claim 정리 (2분마다)
--- ⚠️⚠️ [2026-08-24 폐지 — 자동 Hold(잡 15)로 흡수] 아래 등록은 역사 기록으로만 남긴다.
+-- ⚠️⚠️ [2026-08-24 폐지 — 자동 Hold(잡 14)로 흡수] 아래 등록은 역사 기록으로만 남긴다.
 --   실서버에서 실행할 것: select cron.unschedule('wms-reap-stale-claims');
 --   근거: reaper(클레임+3분 무스캔·started_at=null)와 자동 Hold(마지막 활동+10분·보존)가
 --   hold 재개 직후 무스캔 배치에 겹치고, reaper 가 항상 먼저 물어 started_at 을 지운다
@@ -318,7 +329,17 @@ select cron.schedule(
   $job$
 );
 
--- 14) 비재고 SKU 캐시 갱신 (매일 03:26 UTC) → Edge Function 'inv-sku-types'
+-- ⬜ 비재고 SKU 캐시 갱신 (매일 03:26 UTC) → Edge Function 'inv-sku-types'
+--     ⚠️⚠️ **미등록 — [실측 2026-08-24] cron.job 에 없다.** 절 번호를 14 로 적어 뒀었으나 실제
+--       14 는 wms-auto-hold 가 받았다(파일 헤더 교훈). **등록하면 새 jobid 를 받으므로 그 번호를
+--       여기 반영할 것.** 아래 cron.schedule 을 실서버에서 실행하면 등록된다.
+--     ⚠️ 미등록의 영향: 비재고 SKU 캐시(inv_sku_types)가 갱신되지 않는다 → 마지막 수동 실행에서
+--       48h 뒤부터 inv-collect 응답 non_stock_gate.warnings 에 `cache STALE` 이 뜬다. 게이트는
+--       옛 목록으로 계속 작동하므로 즉시 사고는 아니나 **새 비재고 SKU 를 못 막는다**
+--       (FINAL-SALE 계열이 다시 원장에 쌓인다 — ⑥ 대조가 unknown 으로 잡아줄 뿐).
+--     ⚠️ 이번(2026-08-24 WMS Hold) 범위에서 등록하지 않는다 — 원장 쪽 항목이라 검증 면적이
+--       겹치고, 지금 등록하면 또 새 번호를 문서에 반영해야 한다(사용자 결정).
+--       백로그: asung-inv-ledger 스킬 「검증 대기」.
 --     배경 [FINAL-SALE 실사고 2026-08-24]: Type=Non-inventory 판매를 수집이 재고 사건으로 잡음.
 --     /product 전량(15~30콜)에서 Type≠Stock SKU 를 inv_sku_types 로 — inv-collect 게이트가 읽는다.
 --     ⚠️ 분 26 = 빈 분(2026-08-24 전수 재계산 — 빈 분 집합에서 21(잡12)·36(잡13)을 추가 제외:
@@ -339,12 +360,13 @@ select cron.schedule(
   $job$
 );
 
--- 15) 자동 Hold (2분마다) — 함수 wms_auto_hold() (마이그레이션 20260824202539)
+-- 14) 자동 Hold (2분마다 · [실측 jobid 14 — 2026-08-24 등록 후 cron.job 확인])
+--     함수 wms_auto_hold() (마이그레이션 20260824202539)
 --     작업자가 Hold 를 안 누르고 사라진 배치(마지막 활동 + 10분)를 자동 보류.
 --     잡 2(wms-reap-stale-claims)를 **흡수·대체**한다 — 등록 전에 잡 2 를 먼저 unschedule 할 것
 --     (동시 가동 금지 — 잡 2 가 먼저 물어 started_at 을 지운다. 위 잡 2 주석 참조).
 --     DB 전용(Cin7 콜 0) — 분 집합 무관(*/2). 판정 10분·상한 20·오래된 것 먼저 — 함수 주석 참조.
---     ⚠️ 킬 스위치(즉시·배포 불필요): select cron.alter_job(<이 잡의 jobid>, active := false);
+--     ⚠️ 킬 스위치(즉시·배포 불필요): select cron.alter_job(14, active := false);   -- [실측] jobid 14
 --     확인: select * from wms_task_holds where source='auto' order by id desc limit 5;
 select cron.schedule(
   'wms-auto-hold',

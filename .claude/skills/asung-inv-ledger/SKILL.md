@@ -96,7 +96,8 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   (파손품을 adjustment 로 뺀 뒤 판매하는 껍데기 SKU — Cin7 은 재고를 안 움직인다)인데
   판매 수집이 재고 사건으로 쌓았다. ⚠️ **`IsService` 와 `Type=Non-inventory` 는 다른 축**이라
   (cin7-api 스킬 15번) `IsService=false` 인 이 SKU 가 기존 필터의 **틈에 빠졌다**.
-  ✅ **처방**: `inv_sku_types` 캐시(EF `inv-sku-types` · cron 잡 14 일 1회) + 수집 게이트.
+  ✅ **처방**: `inv_sku_types` 캐시(EF `inv-sku-types` · cron 일 1회 — ⚠️ **cron 은 아직 미등록**,
+  아래 「검증 대기」 항목) + 수집 게이트.
   · 게이트는 **`makeSink` push 진입부 한 곳**(since 필터 앞) — 6소스가 전부 그 지점을 지난다
     (배출구 = 공유 루프 2곳뿐) ⇒ **새 소스도 자동 적용**
   · 판정은 **「테이블에 있으면 차단」** — `product_type`·`is_service` **값을 보지 않는다**
@@ -126,6 +127,20 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   드러나지 않는다.** ⬜ 처방 미구현 = **직전 회차 대비 `list_total`·행 수 급감 검사**.
 - 👁2 는 **관찰 대기**(WMS 는 put-away 없이 Apply 하지 않아 우리 시스템이 만들 수 없는 상태.
   ⚠️ Advanced 기본값을 켜면 게이트로 복귀) · 🟡4 만 **실동작 미검증**으로 남는다.
+
+- ⬜⬜ **검증 대기 — `inv-sku-types` cron 이 등록돼 있지 않다 (2026-08-24 발견 · 미해결)**
+  [실측 2026-08-24 `cron.job` 전체] 12(inv-snapshot-compare)·13(inv-compare-run)·14(wms-auto-hold)
+  — **`inv-sku-types` 는 없다.** ⑥ 세션이 "잡 14"로 문서화했으나 등록되지 않았다(발견 경위:
+  WMS 자동 Hold 의 실물 jobid 가 14 였고, **12·13 다음이 14 라는 사실 자체가 미등록의 증거**였다
+  — jobid 는 시퀀스라 unschedule 해도 재사용되지 않는다).
+  ⚠️ **영향**: 비재고 SKU 캐시(`inv_sku_types`)가 갱신되지 않는다 → 마지막 수동 실행에서 48h 뒤부터
+  `inv-collect` 응답 `non_stock_gate.warnings` 에 `cache STALE`. 게이트는 옛 목록으로 계속
+  작동하므로 즉시 사고는 아니나 **새 비재고 SKU 를 못 막는다**(FINAL-SALE 계열이 다시 쌓이고,
+  ⑥ 대조가 unknown 으로 잡아줄 뿐 — 그것이 원래 이 캐시를 만든 이유다).
+  ⇒ **등록 = `supabase/ops/cron.sql` 의 해당 절 `cron.schedule` 을 실서버에서 실행**하고,
+  **받은 jobid 를 그 파일에 반영**할 것(미리 적은 번호는 추정 — 같은 파일 헤더의 교훈).
+  📌 이 항목은 「세션당 조용한 결함 발견」으로 계상됐다(2026-08-24 · 2건 중 ②) —
+  경위 정본은 `docs/sessions/2026-08-24-hold-tracking.md`.
 
 ⚠️⚠️ **`since=<스냅샷 날짜>` 는 매 호출에 필요하다 — cron URL 6줄에 `since=2026-08-20` 이 박혀 있다.**
 코드가 `occurred_on > since`(**엄격히 큼**)를 쓰므로 8/20 전체가 제외된다 — 그날 낮 사건은 스냅샷에
