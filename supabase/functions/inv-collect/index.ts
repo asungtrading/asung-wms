@@ -149,7 +149,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-24.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-24.1 = 비재고 SKU 게이트(inv_sku_types — FINAL-SALE 실사고) · 이전 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-08-25.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 이전 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -304,6 +304,88 @@ async function writeLedgerDetectingConflicts(rows: LedgerRow[], sourceKey: strin
     }
   }
   return { inserted, insert_skipped: skipped.length, conflicts_detected: conflicts.length, conflicts_sample: sample };
+}
+// ── 라인 소멸 감지 (2026-08-25 · 마이그레이션 20260825142042_inv_missing_lines) ──
+// 배경 [실사고 TR-04175]: 원장은 append-only 라 Cin7 라인 삭제에 아무 신호가 없다 — 8/21 195줄
+// 수집 → 8/24 Cin7 에서 138줄 삭제 → 원장 195행 잔존 = 토론토 138 SKU 이중 차감·대조 unknown 138.
+// B(원장의 그 문서 행 · source='cin7' 만 — G2: manual 상쇄 행 제외) − A(이번 상세가 만든 행) =
+// 사라진 라인. ⚠️ 기록·경보만 — 원장 무접촉·자동 정정 없음(유령 판정은 사람이 Cin7 화면으로).
+// ⚠️ A 는 sink 필터 **전**의 rows 기준이다 — since 필터·비재고 게이트로 걸러진 라인은 Cin7 에
+//   실재하므로 A 에 있어야 오탐이 없다(sink.rows 기준이면 그것들이 전부 "사라진 라인"이 된다).
+// 판정 게이트(넷 다 필수 — 호출부):
+//   G1 상세를 실제 조회하고 rows 를 만든 문서만(sink.push 도달 = processed/processed_nonterminal).
+//      ⚠️ ②-b 는 문서 안 부분 스킵(미배송 fulfilment·비 AUTHORISED 블록·날짜 결손 라인 등)이
+//      있으면 그 문서를 통째로 제외(docIncomplete) — 집합이 불완전하면 "삭제됨"으로 오판한다.
+//   G2 source='cin7' 만 B 에 (아래 쿼리).
+//   G3 회차 중단(list_aborted·truncated·detail cap·time)이면 소스 전체 skip (호출부).
+//   G4 last_modified_on 없으면 그 문서 skip + 카운트 (키가 무너진다 — 호출부).
+// ⚠️⚠️ 키 생성 규칙(bin·line_ref·warehouse)을 바꾸면 기존 원장 행이 전부 "사라진 라인"으로
+//   검출된다(A 는 새 규칙·B 는 옛 규칙 — 집합이 통째로 어긋난다). 그런 변경을 배포할 때는
+//   검출을 일시 정지하거나 기존 원장 행을 함께 마이그레이션할 것.
+//   [예정된 변경] 트랜스퍼 bin 파싱(지금 bin="" — 헤더 "창고: bin" 파싱 시 값이 생긴다,
+//   asung-inv-ledger 스킬 2절) · [전례] 발주 line_ref ProductID → CardID (2026-08-18).
+const MISSING_MAX_PER_DOC = 1500;  // 문서당 상한 — 유니크 키는 DB 축적만 막고 EF 는 매 회차 계산하므로 별도 상한.
+                                   //   ⚠️ 200 → 1500 (2026-08-25 검토): TR-04175 실물이 B−A=276(SKU 195×2 leg 중
+                                   //   57×2 잔존)이라 첫 실사용부터 200 에 걸려 76건이 잘렸다. 대형 트랜스퍼는
+                                   //   문서당 1,376행(344라인×4) — 전량 삭제까지 안 잘리게 1,500. 검출 목록은
+                                   //   사람이 상쇄 SQL 을 만드는 재료라 잘리면 쓸모가 준다. 폭주는 회차 캡이 막는다.
+const MISSING_MAX_PER_RUN = 500;   // 소스 회차당 상한
+const MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on";   // = inv_missing_lines_uq 순서
+type MissingDocCheck = { docNumber: string; lmo: string; docStatus: string | null; keys: Set<string> };
+const ledgerKeyOf = (r: any) => [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");
+async function detectMissingLines(docType: string, docs: MissingDocCheck[], warnings: string[]): Promise<{
+  rows: any[]; detected: number; sample: string[]; capped: boolean;
+}> {
+  const out: any[] = []; const sample: string[] = []; let capped = false;
+  for (const d of docs) {
+    if (out.length >= MISSING_MAX_PER_RUN) { capped = true; warnings.push("missing-lines run cap " + MISSING_MAX_PER_RUN + " reached - remaining docs not checked this round"); break; }
+    // B — 대형 문서(트랜스퍼 344라인×4행=1,376행/문서 실측)가 1000행 캡을 넘으므로 Range 페이지네이션
+    const bRows: any[] = [];
+    for (let off = 0; ; off += 1000) {
+      const r = await fetch(SB_URL() + "/rest/v1/inv_ledger?select=" + LEDGER_CONFLICT + ",qty_delta,occurred_on,id" +
+        "&doc_type=eq." + encodeURIComponent(docType) +
+        "&doc_number=eq." + encodeURIComponent(d.docNumber) +
+        "&source=eq.cin7&order=id.asc",
+        { headers: sbHeaders({ Range: off + "-" + (off + 999) }) });   // caps-ok: Range 헤더 1000행 페이지네이션 — page<1000 까지 전량 수신 루프
+      if (!r.ok) throw new Error("sbGet inv_ledger(missing) " + r.status + ": " + (await r.text()).slice(0, 300));
+      const page = (await r.json()) as any[];
+      bRows.push(...page);
+      if (page.length < 1000) break;
+    }
+    let missing = bRows.filter((er) => !d.keys.has(ledgerKeyOf(er)));
+    if (missing.length > MISSING_MAX_PER_DOC) {
+      warnings.push("missing-lines doc cap: " + d.docNumber + " has " + missing.length + " > " + MISSING_MAX_PER_DOC + " - truncated");
+      missing = missing.slice(0, MISSING_MAX_PER_DOC);
+      capped = true;
+    }
+    for (const er of missing) {
+      if (out.length >= MISSING_MAX_PER_RUN) { capped = true; break; }
+      out.push({
+        doc_type: er.doc_type, doc_number: er.doc_number, line_ref: er.line_ref,
+        event_type: er.event_type, warehouse: er.warehouse, bin: er.bin, sku: er.sku,
+        last_modified_on: d.lmo,
+        existing_qty: er.qty_delta, existing_occurred_on: er.occurred_on, existing_ledger_id: er.id,
+        doc_status: d.docStatus, collector: COLLECTOR_VERSION,
+      });
+      if (sample.length < 5) sample.push(er.doc_number + "/" + er.sku + "/" + er.qty_delta);
+    }
+  }
+  return { rows: out, detected: out.length, sample, capped };
+}
+// 쓰기는 commit + write 성공 경로에서만 (dry=1 은 절대 안 쓴다 — 검출 수만 보고).
+// ignore-duplicates: 같은 편집(같은 last_modified_on)의 재검출은 do-nothing — 중복 폭주 차단.
+async function insertMissingLines(rows: any[]): Promise<number> {
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+    const r = await fetch(SB_URL() + "/rest/v1/inv_missing_lines?on_conflict=" + MISSING_CONFLICT + "&select=id", {
+      method: "POST",
+      headers: sbHeaders({ Prefer: "resolution=ignore-duplicates,return=representation" }),
+      body: JSON.stringify(rows.slice(i, i + INSERT_BATCH)),
+    });
+    if (!r.ok) throw new Error("sbInsert inv_missing_lines " + r.status + ": " + (await r.text()).slice(0, 400));
+    inserted += ((await r.json()) as any[]).length;
+  }
+  return inserted;
 }
 async function sbUpsert(table: string, conflictCol: string, rows: unknown): Promise<void> {
   const r = await fetch(SB_URL() + "/rest/v1/" + table + "?on_conflict=" + conflictCol, {
@@ -631,6 +713,9 @@ Deno.serve(async (req) => {
       const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
       let detailCapped = false, detailCapReason: string | null = null;
       let unmappedInSource = 0;
+      // 라인 소멸 감지 — A 집합 축적 (파일 상단 detectMissingLines 절)
+      const missingDocs: MissingDocCheck[] = [];
+      let missingSkippedNoLmo = 0;
 
       for (const c of cands) {
         if (!c.disposition.startsWith("process")) continue;
@@ -779,6 +864,19 @@ Deno.serve(async (req) => {
 
         sink.push(rows);
         docsProcessed++;
+        // 라인 소멸 감지 A 집합 — G1: push 도달 = 상세 실조회 + 문서 전체 파싱 성공(②-a 는 문서
+        // 단위 hold 라 부분 스킵이 없다). ⚠️ rows=∅ 도 축적한다 — "모든 라인이 삭제된 문서"가
+        // 정확히 실사고의 모양이다(TR-04175 는 부분이었지만 전량 삭제도 같은 경로).
+        // ⚠️ A 는 sink 필터 전 rows — since·비재고로 걸러진 라인도 Cin7 에 실재하므로 A 에 포함.
+        {
+          const lmoRaw = String(det?.LastModifiedOn ?? c.row?.LastModifiedOn ?? "").trim();   // [실측 2026-08-25] stockTransferList 에 존재 — adjustment·assembly 는 값이 있으면 쓰고 없으면 G4
+          if (!lmoRaw) missingSkippedNoLmo++;
+          else missingDocs.push({
+            docNumber: c.number, lmo: lmoRaw,
+            docStatus: String(det?.Status ?? c.row?.Status ?? "").trim() || null,
+            keys: new Set(rows.map(ledgerKeyOf)),
+          });
+        }
         if (c.disposition === "process") c.disposition = "processed";           // 종결 — 커서 통과 가능
         else if (c.disposition === "process_nonterminal") c.disposition = "processed_nonterminal";   // IN TRANSIT — 커서 hold
       }
@@ -826,6 +924,26 @@ Deno.serve(async (req) => {
       // 5) 샘플 5행 (전체 필드 — 숫자만 맞고 내용이 틀릴 수 있다: 눈으로 확인)
       const samples = sink.rows.slice(0, 5);
 
+      // 라인 소멸 감지 — G3: 회차가 중단되면 집합이 불완전하다 → 소스 전체 skip.
+      // 검출(계산)은 dry 에서도 돈다(보고용) — 쓰기는 commit 블록의 write 성공 경로에서만.
+      let missingCheckSkipped: string | null = null;
+      if (listAborted) missingCheckSkipped = "list_aborted: " + listAborted;
+      else if (truncated) missingCheckSkipped = "list_truncated";
+      else if (detailCapped) missingCheckSkipped = "detail_capped: " + detailCapReason;
+      let missing: Awaited<ReturnType<typeof detectMissingLines>> | null = null;
+      // ⚠️ 진단은 수집을 막지 않는다 — 검출 실패는 경고, 수집·커서는 정상 진행.
+      //   (감싸지 않으면 REST 순단 한 번에 이 소스 회차 전체가 abort — 원장 쓰기·커서 전진이
+      //    통째로 멈추는데 cron.job_run_details 는 succeeded = 조용한 정지)
+      if (!missingCheckSkipped) {
+        try {
+          missing = await detectMissingLines(cfg.docType, missingDocs, warnings);
+        } catch (e: any) {
+          missing = null;
+          missingCheckSkipped = "detect_failed: " + String(e?.message ?? e).slice(0, 200);
+          warnings.push("missing-line detection failed (collection unaffected): " + missingCheckSkipped);
+        }
+      }
+
       Object.assign(R, {
         list_total: listTotal, list_received: listReceived, pages, truncated,
         list_aborted: listAborted,
@@ -866,9 +984,17 @@ Deno.serve(async (req) => {
         date_substituted_doc_numbers: dateSubstitutedDocs.slice(0, 20),
         field_fallbacks: fieldFallbacks,
         date_histogram: sink.dateHist,
+        // 라인 소멸 감지 (2026-08-25 · TR-04175) — inserted 는 commit 블록에서 채운다
+        missing_lines_detected: missing ? missing.detected : 0,
+        missing_lines_inserted: 0,
+        missing_lines_sample: missing ? missing.sample : [],
+        missing_lines_capped: missing ? missing.capped : false,
+        missing_lines_skipped_no_lmo: missingSkippedNoLmo,
+        missing_check_skipped_reason: missingCheckSkipped ?? undefined,
         samples,
         warnings,
       });
+      if (missing && missing.detected > 0) warnings.push(missing.detected + " ledger line(s) NO LONGER in the Cin7 doc (deleted lines?) - see inv_missing_lines; ledger rows kept (append-only), human review needed");
       if (sink.stats.empty_sku_lines > 0) warnings.push(sink.stats.empty_sku_lines + " line(s) dropped for empty sku - parsing is wrong for this source");
       if (key === "assembly") R.date_candidates = dateCandidates;   // Date/CompletionDate/WIPDate 비교표 — Caleb 이 확정
 
@@ -899,6 +1025,17 @@ Deno.serve(async (req) => {
           R.insert_skipped = w.insert_skipped;       // 버려진 행 수 — 0 아님이 정상(재수집 포함)
           R.conflicts_detected = w.conflicts_detected;
           R.conflicts_sample = w.conflicts_sample;
+          // 라인 소멸 기록 — 원장 쓰기 성공 뒤에만(dry 는 위에서 검출·보고만). 같은 편집의
+          // 재검출은 유니크 키(7종+last_modified_on) + ignore-duplicates 가 do-nothing 으로 흡수.
+          // ⚠️ 진단은 수집을 막지 않는다 — 원장 쓰기는 이미 성공했으므로 기록 실패가
+          //   응답을 500 으로 만들면 안 된다. 실패 시 inserted 0 + 경고(다음 회차가 재검출).
+          if (missing && missing.rows.length) {
+            try {
+              R.missing_lines_inserted = await insertMissingLines(missing.rows);
+            } catch (e: any) {
+              warnings.push("missing-line insert failed (collection unaffected, will re-detect next round): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
         }
       }
       results[key] = R;
@@ -1069,6 +1206,9 @@ Deno.serve(async (req) => {
       const advNoPutawaySamples: string[] = [];
       let creditNotesSeen = 0, emptyRestock = 0, noCnNumber = 0;
       const restockStatusCounts: Record<string, number> = {};
+      // 라인 소멸 감지 — A 집합 (파일 상단 detectMissingLines 절)
+      const missingDocs: MissingDocCheck[] = [];
+      let missingSkippedNoLmo = 0;
 
       function locOf(line: any, docNo: string): { warehouse: string; bin: string } {
         const r = resolveLoc(line?.LocationID, line?.Location ?? null, key + ":" + docNo);
@@ -1119,6 +1259,10 @@ Deno.serve(async (req) => {
 
         const docNo = String(det?.OrderNumber ?? row?.OrderNumber ?? "").trim();
         const rows: LedgerRow[] = [];
+        // 라인 소멸 감지 G1(②-b 판): 문서 안 부분 스킵이 하나라도 있으면 A 가 불완전 — 판정 제외.
+        // (미배송 fulfilment·날짜 결손·비 AUTHORISED 블록/CN 등 — 그 라인들은 Cin7 에 실재하는데
+        //  A 에 없으므로, 제외하지 않으면 전부 "사라진 라인"으로 오판한다)
+        let docIncomplete = false;
 
         if (key === "sale") {
           const header = { order_number: docNo, sale_id: id, status: det?.Status ?? row?.Status ?? null };
@@ -1128,9 +1272,9 @@ Deno.serve(async (req) => {
             const f = fuls[fi];
             // ShipmentDate(실측 3/3 일치)가 원장 날짜 — IsShipped true 라인만. 비었으면 건너뛰고 카운트.
             const shipLines = ((f?.Ship?.Lines ?? []) as any[]).filter((l) => l?.IsShipped === true);
-            if (!shipLines.length) { noShipFulfilments++; continue; }
+            if (!shipLines.length) { noShipFulfilments++; docIncomplete = true; continue; }
             const dates = [...new Set(shipLines.map((l) => dateOnly(l?.ShipmentDate)).filter(Boolean))] as string[];
-            if (!dates.length) { missingDateItems++; warnings.push("shipped fulfilment without usable ShipmentDate: " + docNo); continue; }
+            if (!dates.length) { missingDateItems++; docIncomplete = true; warnings.push("shipped fulfilment without usable ShipmentDate: " + docNo); continue; }
             if (dates.length > 1) shipDateAmbiguous++;   // 한 fulfilment 안 복수 날짜 — 첫 값 사용(실측 전 방어)
             const shipDate = dates[0];
             // ⚠️ line_ref = <fulfilment TaskID>:<ProductID> — occurred_on 이 유니크 키에 없어 분할
@@ -1182,6 +1326,7 @@ Deno.serve(async (req) => {
             //   갱신해 다음 회차 UpdatedSince 에 재등장한다는 전제다 — ⚠️ **이 전제는 미확인**
             //   (관찰 대상 — adv_no_putaway 가 회차마다 같은 문서면 전제가 틀린 것).
             advNoPutaway++;
+            docIncomplete = true;
             advNoPutawaySrLines += srBlocks.reduce((n: number, b: any) => n + (((b?.Lines ?? []) as any[]).length), 0);
             if (advNoPutawaySamples.length < 5) advNoPutawaySamples.push(docNo);
           } else {
@@ -1208,6 +1353,7 @@ Deno.serve(async (req) => {
                 //   종전 어휘 실측 {AUTHORISED:37, VOIDED:1} 은 표본이 완료 문서라 진행 중 상태를 못 봤다.
                 const known = purchaseIsAdvanced ? ["VOIDED", "DRAFT"] : ["VOIDED", "NOT AVAILABLE", "DRAFT", ""];
                 if (!known.includes(bst)) warnings.push("unknown " + axis + " block Status: '" + bst + "' on " + docNo);
+                docIncomplete = true;
                 continue;
               }
               for (const line of (b?.Lines ?? []) as any[]) {
@@ -1219,7 +1365,7 @@ Deno.serve(async (req) => {
                 const q = Number(line?.Quantity ?? 0);
                 if (q === 0) { zeroQtyLines++; continue; }
                 const d = dateOnly(line?.Date);   // 분할 입고는 블록이 아니라 Lines[].Date 로 갈린다([실측] PO-00703 — 블록 1개에 두 날짜)
-                if (!d) { missingDateItems++; continue; }
+                if (!d) { missingDateItems++; docIncomplete = true; continue; }
                 const loc = locOf(line, docNo);
                 // line_ref = CardID (2026-08-18 — 종전 "다른 소스와 통일해 ProductID" 폐기):
                 //   PA 는 같은 SKU 를 빈 단위로 쪼개 여러 줄로 담고, 같은 빈·같은 SKU 가 날짜만
@@ -1253,15 +1399,15 @@ Deno.serve(async (req) => {
           for (const cn of cns) {
             const rst = norm(cn?.RestockStatus);
             restockStatusCounts[rst || "(empty)"] = (restockStatusCounts[rst || "(empty)"] ?? 0) + 1;
-            if (rst !== "AUTHORISED") continue;   // DRAFT 는 Restock 이 비어 있다 — 금액만, 재고 미복귀
+            if (rst !== "AUTHORISED") { docIncomplete = true; continue; }   // DRAFT 는 Restock 이 비어 있다 — 금액만, 재고 미복귀 (과거 AUTHORISED 수집분과의 비교가 불완전해지므로 판정도 제외)
             const restock = (cn?.Restock ?? []) as any[];
-            if (!restock.length) { emptyRestock++; continue; }
+            if (!restock.length) { emptyRestock++; docIncomplete = true; continue; }
             const d = dateOnly(cn?.CreditNoteDate);
-            if (!d) { missingDateItems++; warnings.push("credit note without usable CreditNoteDate: " + docNo); continue; }
+            if (!d) { missingDateItems++; docIncomplete = true; warnings.push("credit note without usable CreditNoteDate: " + docNo); continue; }
             // ⚠️ doc_number = CreditNoteNumber — 오더번호가 아니다. 한 오더에 CN 이 여럿이라
             //   오더번호를 쓰면 유니크 키가 깨진다.
             const cnNo = String(cn?.CreditNoteNumber ?? "").trim();
-            if (!cnNo) { noCnNumber++; warnings.push("credit note without CreditNoteNumber on " + docNo + " - rows skipped (unique key would collide)"); continue; }
+            if (!cnNo) { noCnNumber++; docIncomplete = true; warnings.push("credit note without CreditNoteNumber on " + docNo + " - rows skipped (unique key would collide)"); continue; }
             for (const line of restock) {
               const q = Number(line?.Quantity ?? 0);
               if (q === 0) { zeroQtyLines++; continue; }
@@ -1281,6 +1427,26 @@ Deno.serve(async (req) => {
 
         sink.push(rows);
         docsProcessed++;
+        // 라인 소멸 감지 A 집합 — G1(②-b): 부분 스킵 없는 문서 + rows>0 만 (rows=∅ 는 미배송·
+        // 미입고 등 정상 상태가 다양해 오탐원 — ②-a 와 달리 축적하지 않는다).
+        // ⚠️ lmo = cd.updated — saleList 'Updated'(hello 폴링 실측)·purchaseList 'LastUpdatedDate'
+        //   (리시빙 관문 실측). LastModifiedOn 이라는 필드는 ②-b 목록에서 미확인 — 실측된 갱신
+        //   시각 필드를 쓴다(G4: 없으면 skip+카운트). creditnote 는 rows 의 doc_number 가 CN 번호
+        //   (한 sale 에 여럿)라 doc_number 로 그룹핑 — 단 CN 이 문서에서 통째로 사라진 경우는
+        //   rows 에 그 번호가 없어 못 잡는다(알려진 한계 — 주석으로만).
+        if (!docIncomplete && rows.length) {
+          if (!cd.updated) missingSkippedNoLmo++;
+          else {
+            const byDoc = new Map<string, Set<string>>();
+            for (const rr of rows) {
+              let ks = byDoc.get(rr.doc_number);
+              if (!ks) { ks = new Set(); byDoc.set(rr.doc_number, ks); }
+              ks.add(ledgerKeyOf(rr));
+            }
+            const st = String(det?.Status ?? row?.Status ?? "").trim() || null;
+            for (const [dn, ks] of byDoc) missingDocs.push({ docNumber: dn, lmo: cd.updated, docStatus: st, keys: ks });
+          }
+        }
         if (cd.updated) lastProcessedUpdated = cd.updated;
       }
 
@@ -1295,6 +1461,25 @@ Deno.serve(async (req) => {
       //   응답으로 드러낸다(dry 에서도 판별되게). 풀기: Cin7 쪽 Updated 를 채우거나,
       //   inv_sync_state.last_cursor 를 비우고 ?from_since= 로 재시드(②-a 하한 흐름과 동형).
       const cappedNoUpdated = detailCapped && lastProcessedUpdated == null;
+
+      // 라인 소멸 감지 — G3(②-a 와 동일): 회차 중단이면 소스 전체 skip. 검출은 dry 에서도(보고).
+      let missingCheckSkipped: string | null = null;
+      if (listAborted) missingCheckSkipped = "list_aborted: " + listAborted;
+      else if (truncated) missingCheckSkipped = "list_truncated";
+      else if (detailCapped) missingCheckSkipped = "detail_capped: " + detailCapReason;
+      let missing: Awaited<ReturnType<typeof detectMissingLines>> | null = null;
+      // ⚠️ 진단은 수집을 막지 않는다 — 검출 실패는 경고, 수집·커서는 정상 진행.
+      //   (감싸지 않으면 REST 순단 한 번에 이 소스 회차 전체가 abort — 원장 쓰기·커서 전진이
+      //    통째로 멈추는데 cron.job_run_details 는 succeeded = 조용한 정지)
+      if (!missingCheckSkipped) {
+        try {
+          missing = await detectMissingLines(cfg.docType, missingDocs, warnings);
+        } catch (e: any) {
+          missing = null;
+          missingCheckSkipped = "detect_failed: " + String(e?.message ?? e).slice(0, 200);
+          warnings.push("missing-line detection failed (collection unaffected): " + missingCheckSkipped);
+        }
+      }
 
       Object.assign(R, {
         list_total: listTotal, list_received: listReceived, pages, truncated,
@@ -1336,9 +1521,17 @@ Deno.serve(async (req) => {
         empty_sku_alert: sink.stats.empty_sku_lines > 0 ? "NOT ZERO - parsing is wrong for this source; commit is blocked until fixed" : undefined,
         field_fallbacks: fieldFallbacks,
         date_histogram: sink.dateHist,
+        // 라인 소멸 감지 (2026-08-25 · TR-04175) — inserted 는 commit 블록에서 채운다
+        missing_lines_detected: missing ? missing.detected : 0,
+        missing_lines_inserted: 0,
+        missing_lines_sample: missing ? missing.sample : [],
+        missing_lines_capped: missing ? missing.capped : false,
+        missing_lines_skipped_no_lmo: missingSkippedNoLmo,
+        missing_check_skipped_reason: missingCheckSkipped ?? undefined,
         samples: sink.rows.slice(0, 5),
         warnings,
       });
+      if (missing && missing.detected > 0) warnings.push(missing.detected + " ledger line(s) NO LONGER in the Cin7 doc (deleted lines?) - see inv_missing_lines; ledger rows kept (append-only), human review needed");
       if (sink.stats.empty_sku_lines > 0) warnings.push(sink.stats.empty_sku_lines + " line(s) dropped for empty sku - parsing is wrong for this source");
       if (key === "sale") {
         Object.assign(R, {
@@ -1410,6 +1603,16 @@ Deno.serve(async (req) => {
           R.insert_skipped = w.insert_skipped;       // 버려진 행 수 — 0 아님이 정상(재수집 포함)
           R.conflicts_detected = w.conflicts_detected;
           R.conflicts_sample = w.conflicts_sample;
+          // 라인 소멸 기록 — ②-a 와 동일(원장 쓰기 성공 뒤에만 · dry 는 검출·보고만)
+          // ⚠️ 진단은 수집을 막지 않는다 — 원장 쓰기는 이미 성공했으므로 기록 실패가
+          //   응답을 500 으로 만들면 안 된다. 실패 시 inserted 0 + 경고(다음 회차가 재검출).
+          if (missing && missing.rows.length) {
+            try {
+              R.missing_lines_inserted = await insertMissingLines(missing.rows);
+            } catch (e: any) {
+              warnings.push("missing-line insert failed (collection unaffected, will re-detect next round): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
         }
       }
       results[key] = R;
