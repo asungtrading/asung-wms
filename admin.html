@@ -193,7 +193,7 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time · lines/units actually handled (qty&gt;0 — untouched lines don't count)</span></div>
+      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time · lines/units actually handled (qty&gt;0 — untouched lines don't count) · "minus holds" = start&rarr;complete minus recorded hold time · held = total hold time (count), tracked since Aug 24</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Quality reports by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode · image · box barcode (picking/packing/receiving)</span></div>
       <div class="card" style="padding:14px 16px"><div id="qualityTable"></div></div>
@@ -3447,24 +3447,90 @@ async function loadStats(){
   // 집계는 순서 무관·펼침 목록은 아래 byAt 재정렬이라 표시 불변. 임베드 라인은 최상위 행에 실려
   // 페이지와 함께 온전하다(라인 합계도 캡 무관). .order("id") = 페이지 결정성(규칙 20).
   const [picks, packs, disc, reps]=await Promise.all([
-    sbAll(()=>sb.from("wms_pick_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
-    sbAll(()=>sb.from("wms_pack_tasks").select("assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
+    sbAll(()=>sb.from("wms_pick_tasks").select("id,wave_id,assigned_to,batch_label,started_at,completed_at,wms_pick_task_lines(picked_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
+    sbAll(()=>sb.from("wms_pack_tasks").select("id,assigned_to,batch_label,started_at,completed_at,wms_pack_task_lines(verified_base)").eq("status","completed").gte("completed_at",r.fromISO).lte("completed_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
     sbAll(()=>sb.from("wms_discrepancies").select("responsible,reason,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).is("voided_at",null).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
     // 품질 리포트 활동 — source 무필터(receiver 포함, 사용자 확정 2026-08-11). 평가·포상 표현 없음(조건 1) — 데이터 표로만.
     sbAll(()=>sb.from("wms_reports").select("reported_by,kind,created_at").gte("created_at",r.fromISO).lte("created_at",r.toISO).order("id")),   // caps-ok: sbAll 페이지 누적 — 기간 전량(#5)
   ]);
   if(statsRange!==r) return; // period changed while loading — the newer call renders
+  // ── Hold 이력 조회 (2026-08-25 C 단계 · 2차 수정) — 하한 = 조회된 eligible 태스크의 min(started_at).
+  // ⚠️ 종전 from−48h 는 캡이 raw 에 걸릴 때의 논리였다 — 캡을 net 으로 옮긴 순간(주말 Hold 배치를
+  // 살리는 결정) raw 는 얼마든지 길 수 있어, 하한 밖 hold 가 조회에서 빠지면 **부분 공제로 캡을
+  // 통과한 틀린 숫자가 조용히 표시**된다. min(started_at) 하한은 상수 없이 완전하다:
+  // started_at 은 최초 시작이 보존되고(08-11 원칙 + 08-24 wave 합류 — 어떤 재개도 안 덮는다)
+  // hold 는 반드시 그 이후에만 생기므로, 이 하한으로 그 태스크들의 hold 집합이 완전하다.
+  // eligible(SINCE 이후 완료)로 좁히는 이유: 도입 전 태스크는 새 자를 계산하지 않으므로 그
+  // started_at 이 하한을 불필요하게 끌어내리면 안 된다. 직렬 왕복 +1 은 holds 뿐(수십 행 규모).
+  // 임베드 불가(task_id 다형 — FK 없음) · RPC 는 병기 단계에 과접촉(옛 자와 같은 층에서 계산해야 대조).
+  const HOLD_TRACKING_SINCE=new Date("2026-08-24T19:57:49Z");   // wms_task_holds 첫 행 실측(id 1) — 추정 아님. 그 이전엔 테이블이 없었다(실물 하한)
+  let holdMinStart=null;
+  for(const p of [...(picks.data||[]),...(packs.data||[])]){
+    if(!p.started_at||!p.completed_at)continue;
+    if(new Date(p.completed_at)<HOLD_TRACKING_SINCE)continue;
+    if(holdMinStart==null||p.started_at<holdMinStart)holdMinStart=p.started_at;
+  }
+  const holds=holdMinStart==null?{data:[]}   // eligible 태스크 0 = 조회 생략 (기간이 추적 도입 전)
+    :await sbAll(()=>sb.from("wms_task_holds").select("task_kind,task_id,held_at,resumed_at").gte("held_at",holdMinStart).lte("held_at",r.toISO).order("id"));   // caps-ok: sbAll 페이지 누적 — 하한은 min(started_at), 근거는 위 주석
+  if(statsRange!==r) return; // period changed while the hold query ran
   // throughput + avg duration tally
   const prod={};
-  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0,pickList:[],packList:[]});
+  const mkP=n=>(prod[n]=prod[n]||{pick:0,pack:0,pickMin:0,pickN:0,packMin:0,packN:0,pickLines:0,pickUnits:0,packLines:0,packUnits:0,pickList:[],packList:[],
+    pickNetMin:0,pickNetN:0,pickHeldMin:0,pickHeldCnt:0,pickElig:0,packNetMin:0,packNetN:0,packHeldMin:0,packHeldCnt:0,packElig:0,_heldWaves:new Set()});
+  // dur = 옛 자(벽시계). 24h 캡은 이 자 전용 — 벽시계에선 밤샘 Hold 가 avg 를 오염시키는 방어였다.
+  // 새 자(아래 net)는 캡을 「공제 후 값」에 건다: 오염원(Hold)을 실제로 빼므로 같은 배치가
+  // 이상치가 아니라 정확히 재진 값이 된다(2026-08-25 판단 — 실측 pick 1767: 989.7분 → 30.8분).
   const dur=t=>{ if(!t.started_at||!t.completed_at)return null; const m=(new Date(t.completed_at)-new Date(t.started_at))/60000; return (m>=0&&m<24*60)?m:null; };
+  // ── Hold 공제 (2026-08-25 C 단계 · 병기 — 교체 아님. 옛 벽시계 avg 가 새 자의 유일한 대조군) ──
+  // HOLD_TRACKING_SINCE 는 위(조회 하한 절)에서 선언. 도입 전 완료 태스크는 새 자 계산 불가 —
+  // 분모에서 제외(⚠️ 백필 금지: 공제 0 으로 섞으면 평균이 옛 값 쪽으로 끌린다).
+  // holdMap: kind\u0001id → {min(구간 합·분), cnt}. ⚠️ 열린 행(resumed_at null)은 제외 — 완료
+  // 태스크에 열린 행 = 닫힘 유실(health hold_leak 이 감시)이라 구간을 만들 수 없다. ⚠️ 음수 구간은
+  // greatest(0) 클램프 — 과거 11행의 태블릿 시계 음수(−1.2초 규모 = 실제 0분 hold)의 실체에 대응
+  // (2026-08-25 부터는 닫기가 RPC 서버 시계라 신규 음수는 구조적으로 불가).
+  const holdMap={};
+  (holds.data||[]).forEach(h=>{ if(!h.resumed_at)return;
+    const k=h.task_kind+"\u0001"+h.task_id;
+    const e=holdMap[k]=holdMap[k]||{min:0,cnt:0};
+    e.min+=Math.max(0,(new Date(h.resumed_at)-new Date(h.held_at))/60000); e.cnt++; });
+  // netDur: 공제 후 값. wave hold 는 멤버 각각에 **전액** 공제(2026-08-25 Caleb 확정 — 멤버의
+  // dur 자체가 wave 전체 벽시계로 각자 통째로 부풀어 있으므로 빼는 것도 각자 통째여야 자가 맞는다.
+  // 5로 나누면 「wave 시간 − hold/5」라는 현실에 없는 수가 된다).
+  const netDur=(t,kind)=>{
+    if(!t.started_at||!t.completed_at)return null;
+    if(new Date(t.completed_at)<HOLD_TRACKING_SINCE)return null;   // 도입 전 — 계산 불가(백필 금지)
+    const raw=(new Date(t.completed_at)-new Date(t.started_at))/60000;
+    if(raw<0)return null;
+    const own=holdMap[kind+"\u0001"+t.id], wv=(kind==="pick"&&t.wave_id)?holdMap["wave\u0001"+t.wave_id]:null;
+    const net=Math.max(0,raw-((own?own.min:0)+(wv?wv.min:0)));
+    return net<24*60?net:null;   // held 합산은 밖(eligible 블록)에서 — 공제는 자의 성질, held 는 사실
+  };
   // 펼침 목록(2026-08-11)은 표시 전용 push — 집계식은 무변(태스크별 tl/tu 를 합산하는 형태로만 재배열, 합계 동일).
   (picks.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pick++; const m=dur(p); if(m!=null){v.pickMin+=m;v.pickN++;}
+    if(new Date(p.completed_at)>=HOLD_TRACKING_SINCE){ v.pickElig++;
+      const nd=netDur(p,"pick");
+      if(nd!=null){ v.pickNetMin+=nd; v.pickNetN++; }
+      // held 합산은 netDur 성공과 **무관** (2026-08-25 2차 수정): 새 자가 캡(net≥24h)에 걸린
+      // 배치도 실제로 멈춘 시간은 사실이다 — netDur 안에서 합산하면 그 배치가 "held 0 min" 으로
+      // 거짓 표기된다. **공제는 자의 성질이고, held 는 사실이다.**
+      // wave hold 는 사람이 멈춘 1회 — 멤버 수만큼 이중 계상하지 않는다(_heldWaves dedup).
+      const own=holdMap["pick\u0001"+p.id];
+      if(own){ v.pickHeldMin+=own.min; v.pickHeldCnt+=own.cnt; }
+      if(p.wave_id!=null&&!v._heldWaves.has(String(p.wave_id))){ v._heldWaves.add(String(p.wave_id));
+        const wv=holdMap["wave\u0001"+p.wave_id]; if(wv){ v.pickHeldMin+=wv.min; v.pickHeldCnt+=wv.cnt; } }
+    }
     let tl=0,tu=0;
     (p.wms_pick_task_lines||[]).forEach(l=>{ const q=Number(l.picked_base)||0; if(q<=0)return; tl++; tu+=q; });
     v.pickLines+=tl; v.pickUnits+=tu;
     v.pickList.push({label:p.batch_label||"", lines:tl, units:tu, min:m, at:p.completed_at}); });
   (packs.data||[]).forEach(p=>{ if(!p.assigned_to)return; const v=mkP(p.assigned_to); v.pack++; const m=dur(p); if(m!=null){v.packMin+=m;v.packN++;}
+    if(new Date(p.completed_at)>=HOLD_TRACKING_SINCE){ v.packElig++;
+      const nd=netDur(p,"pack");
+      if(nd!=null){ v.packNetMin+=nd; v.packNetN++; }
+      // held 는 nd 와 무관 — pick 루프의 같은 주석 참조 (공제는 자의 성질, held 는 사실)
+      const own=holdMap["pack\u0001"+p.id];
+      if(own){ v.packHeldMin+=own.min; v.packHeldCnt+=own.cnt; }
+    }
     let tl=0,tu=0;
     (p.wms_pack_task_lines||[]).forEach(l=>{ const q=Number(l.verified_base)||0; if(q<=0)return; tl++; tu+=q; });
     v.packLines+=tl; v.packUnits+=tu;
@@ -3542,6 +3608,22 @@ function renderProd(){
     // min/line 도 같은 이유로 회색 텍스트만 — 작은 라인만 골라잡으면 좋아지는 지표다).
     // min/line 은 근사치 — 분모(라인)는 전 배치, 분자(시간)는 소요시간이 유효한 배치만(결측·24h+ 이상치 제외, 기존 dur 규칙).
     const seg=(label,lines,units,min)=>lines?`${label} ${nf(lines)} line${lines===1?"":"s"} · ${nf(units)} units (base)${min!=null?` · ${(min/lines).toFixed(1)} min/line`:""}`:"";
+    // 세그 병기 (2026-08-25 C 단계 · Caleb 확정 형식): Pick 12 (avg 34.2 min · 31.1 minus holds) · held 37 min (3×)
+    //  · "minus holds" = 새 자(start→complete 에서 기록된 Hold 구간을 뺀 값 — 근무시간이 아니다)
+    //  · held 는 **합계 + 횟수**(avg 아님 — 70분 1회와 5분 14회가 같은 평균이 되는 것을 횟수가 가른다)
+    //  · 분모가 다르면(옛 캡 초과 배치가 새 자에만 들어옴) (n=N) 병기 — 조용히 다른 분모 금지
+    //  · elig=0(기간이 추적 도입 전) = 새 값·held 통째 생략 / elig>0 + hold 0 = "held 0 min" 명시
+    //    (「안 했다」와 「기록이 없던 때다」가 화면에서 같아 보이면 안 된다 — Caleb 지시)
+    const durSegTxt=(label,cnt,min,nOld,netMin,netN,heldMin,heldCnt,elig)=>{
+      let x=`${label} ${cnt}`;
+      if(nOld||netN){
+        x+=` (avg ${nOld?(min/nOld).toFixed(1)+" min":"—"}`;
+        if(netN) x+=` · ${(netMin/netN).toFixed(1)} minus holds${netN!==nOld?` (n=${netN})`:""}`;
+        x+=")";
+      }
+      if(elig) x+=` · held ${heldMin?fmtWorkDur(heldMin):"0 min"}${heldCnt?` (${heldCnt}\u00d7)`:""}`;   // fmtWorkDur = 리시빙과 같은 포맷터(90분 경계) — 네 번째 시간 포맷 규칙을 만들지 않는다. avg·minus holds 는 분 유지(뺄셈 쌍 = 같은 단위)
+      return x;
+    };
     const subParts=[seg("Pick",v.pickLines,v.pickUnits,v.pickN?v.pickMin:null),seg("Pack",v.packLines,v.packUnits,v.packN?v.packMin:null)].filter(Boolean);
     const subLine=subParts.length?`<div style="font-size:11px;color:var(--mut);margin:0 0 3px">${subParts.join(" — ")}</div>`:"";
     // 배치 목록 펼침 (2026-08-11 · 표시 전용 — 메모리의 pickList/packList/recvList 를 그릴 뿐, 추가 조회 없음)
@@ -3560,7 +3642,7 @@ function renderProd(){
       :(rc&&prodExpanded===expKey("recv"))?["Receipts",recvList,true]:null;
     return `
     <div style="margin:10px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· ${segBtn("pick",`Pick ${v.pick}${v.pickN?` (avg ${(v.pickMin/v.pickN).toFixed(1)} min)`:""}`)} · ${segBtn("pack",`Pack ${v.pack}${v.packN?` (avg ${(v.packMin/v.packN).toFixed(1)} min)`:""}`)}${rc?` · ${segBtn("recv",recvTxt)}`:""}</span></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:3px">${esc(nm)} <span style="color:var(--mut);font-weight:400;font-size:12px">· ${segBtn("pick",durSegTxt("Pick",v.pick,v.pickMin,v.pickN,v.pickNetMin,v.pickNetN,v.pickHeldMin,v.pickHeldCnt,v.pickElig))} · ${segBtn("pack",durSegTxt("Pack",v.pack,v.packMin,v.packN,v.packNetMin,v.packNetN,v.packHeldMin,v.packHeldCnt,v.packElig))}${rc?` · ${segBtn("recv",recvTxt)}`:""}</span></div>
       ${subLine}
       <div class="bar-row" data-expand="${esc(expKey("pick"))}" style="cursor:pointer"><span class="nm" style="color:var(--tor)">Pick batches</span><div class="track"><div class="fill" style="width:${Math.round(v.pick/batchMax*100)}%"></div></div><span class="val">${v.pick}</span></div>
       <div class="bar-row" data-expand="${esc(expKey("pack"))}" style="cursor:pointer"><span class="nm" style="color:var(--violet)">Pack batches</span><div class="track"><div class="fill pack" style="width:${Math.round(v.pack/batchMax*100)}%"></div></div><span class="val">${v.pack}</span></div>${recvBar}

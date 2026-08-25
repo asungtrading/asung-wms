@@ -5,9 +5,9 @@
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/wms_hold_pick_test.sql
 --
 -- 전체가 한 트랜잭션 + 마지막 ROLLBACK — 로컬 DB 에 무흔적.
--- 전부 통과하면 마지막 NOTICE 가 "ALL 15 TESTS PASSED".
+-- 전부 통과하면 마지막 NOTICE 가 "ALL 17 TESTS PASSED".
 -- (ⓛ~ⓞ 2026-08-24 추가 — wms_task_holds 이력: 단일 1행 · wave 는 wave 행 1건 ·
---  멱등/예외 무기록 · 닫기 UPDATE only-if-null 가드. 마이그레이션 20260824192416)
+--  멱등/예외 무기록 · 닫기 RPC wms_resume_hold(서버 시계 — 20260825183827). 마이그레이션 20260824192416)
 
 begin;
 
@@ -277,20 +277,40 @@ begin
   if n <> 2 then raise exception 'FAIL n1: total history rows=% (expected 2)', n; end if;
   raise notice 'PASS n — 멱등·예외·CAS 불일치 무기록 (총 2행)';
 
-  -- ── ⓞ 재개 닫기 UPDATE 의 서버측 가드 (프론트 3곳이 쓰는 형태 그대로) ──
-  update wms_task_holds set resumed_at=clock_timestamp(), resumed_by='RPC Tester'
-   where task_kind='pick' and task_id=t1 and resumed_at is null;
-  get diagnostics n = row_count;
-  if n <> 1 then raise exception 'FAIL o1: close updated % rows (expected 1)', n; end if;
-  update wms_task_holds set resumed_at=clock_timestamp(), resumed_by='Somebody Else'
-   where task_kind='pick' and task_id=t1 and resumed_at is null;
-  get diagnostics n = row_count;
-  if n <> 0 then raise exception 'FAIL o2: re-close overwrote a closed row'; end if;
+  -- ── ⓞ 닫기 RPC wms_resume_hold (2026-08-25 · 20260825183827 — 프론트 3곳이 쓰는 형태 그대로) ──
+  -- 서버 시계(resumed_at = now()) + 서버 유도(resumed_by = auth.email→name) + only-if-null 가드
+  n := wms_resume_hold('pick', t1);
+  if n <> 1 then raise exception 'FAIL o1: close returned % (expected 1)', n; end if;
   select resumed_by into t from wms_task_holds where task_kind='pick' and task_id=t1;
-  if t <> 'RPC Tester' then raise exception 'FAIL o3: resumed_by overwritten (%)', t; end if;
-  raise notice 'PASS o — 닫기 only-if-null 가드 (재닫기 0행 · resumed_by 보존)';
+  if t <> 'RPC Tester' then raise exception 'FAIL o2: resumed_by=% (expected server-derived RPC Tester)', t; end if;
+  select count(*) into n from wms_task_holds
+   where task_kind='pick' and task_id=t1 and resumed_at is not null and resumed_at >= held_at;
+  if n <> 1 then raise exception 'FAIL o3: resumed_at missing or before held_at (server clock broken)'; end if;
+  n := wms_resume_hold('wave', w1);   -- wave kind 도 같은 함수 (프론트 startWave 가 이 형태)
+  if n <> 1 then raise exception 'FAIL o4: wave close returned % (expected 1)', n; end if;
+  raise notice 'PASS o — 닫기 RPC (서버 시계 · resumed_by 서버 유도 · pick/wave)';
 
-  raise notice '════ ALL 15 TESTS PASSED ════';
+  -- ── ⓟ 재닫기 멱등 — only-if-null 이라 0행 · 기존 값 보존 (프론트 재호출·경합 대비) ──
+  n := wms_resume_hold('pick', t1);
+  if n <> 0 then raise exception 'FAIL p1: re-close returned % (expected 0)', n; end if;
+  select resumed_by into t from wms_task_holds where task_kind='pick' and task_id=t1;
+  if t <> 'RPC Tester' then raise exception 'FAIL p2: resumed_by overwritten (%)', t; end if;
+  raise notice 'PASS p — 재닫기 0행 (resumed_at/resumed_by 보존)';
+
+  -- ── ⓠ 미등록 로그인 차단 (Hold RPC 와 동일 관례) ──
+  perform set_config('request.jwt.claims', '{"email":"nobody@asung.ca"}', false);
+  begin
+    n := wms_resume_hold('pick', t1);
+    raise exception 'FAIL q1: no exception';
+  exception when others then
+    errmsg := sqlerrm;
+    if errmsg like 'FAIL%' then raise; end if;
+    if position('No staff record' in errmsg) = 0 then raise exception 'FAIL q2: %', errmsg; end if;
+  end;
+  raise notice 'PASS q — 미등록 로그인 차단 (닫기 RPC)';
+  perform set_config('request.jwt.claims', '{"email":"rpc-test@asung.ca"}', false);
+
+  raise notice '════ ALL 17 TESTS PASSED ════';
 end
 $test$;
 

@@ -698,11 +698,10 @@ async function resumePack(packId){
       .eq("id",packId).eq("status","pending").select();   // started_at 은 ensureStartedAtPack — held 재개는 보존, 롤백 복귀(null)만 새로 찍힘
     if(cl.error||!cl.data||!cl.data.length){ toast("Another worker already took this",true); loadQueue(); return; }
     await ensureStartedAtPack(packId,cl.data[0]);
-    // Hold 구간 이력 닫기 (2026-08-24 · 마이그레이션 20260824192416) — pending 클레임 = held 재개
-    // 또는 롤백 복귀(후자는 열린 행이 없어 0행 no-op). fire-and-forget — 기록 실패가 작업을 막으면
-    // 안 된다. 유실은 health 검사 hold_leak 가 잡는다.
-    sb.from("wms_task_holds").update({resumed_at:now,resumed_by:me.name})
-      .eq("task_kind","pack").eq("task_id",packId).is("resumed_at",null).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
+    // Hold 구간 이력 닫기 (2026-08-24 → 2026-08-25 RPC · 20260825183827) — pending 클레임 = held
+    // 재개 또는 롤백 복귀(후자는 0행 no-op). ⚠️ RPC 인 이유: resumed_at 서버 시계 + resumed_by
+    // 서버 유도(picker startBatch 주석 참조). fire-and-forget — 기록 실패가 작업을 막지 않는다.
+    sb.rpc("wms_resume_hold",{p_task_kind:"pack",p_task_id:packId}).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
     pk.work_started=cl.data[0].work_started;
   }
   const [ptl, pl]=await Promise.all([
