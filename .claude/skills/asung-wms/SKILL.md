@@ -172,6 +172,17 @@ Stats 는 멤버 픽태스크를 집계하므로 그대로 통계 왜곡. 같은
 비재고 캐시가 안 도는데 아무도 몰랐다. ⬜ 등록은 원장 세션으로(백로그 = `asung-inv-ledger` 스킬).
 둘 다 4조건 충족: 에러 없음 · 정지 없음 · 신고 없음 · 데이터 틀림.
 
+**08-25: 1건** (세션 성격 = 깊이 판 구현+검증 — 같은 자를 전 워크플로에 완결하며 단계마다
+조사 선행. 경위 정본 `docs/sessions/2026-08-25-work-time-same-ruler.md`):
+= **pack verification_method 오염**(resumePack 복원 누락 → 완료·Hold RPC 가 null 로 덮음 —
+**실제 오염 3,702행** · Hold 를 성실히 쓴 사람일수록 더 지워짐 · 4조건 충족 · 비가역 증거 오염).
+⚠️ **「구현 전 예방 발견」은 이 앵커에 세지 않는다 (2026-08-25 Caleb 확정)** — 이 지표는
+「실제로 데이터가 틀어지고 있던 것」을 센다. 예방 발견을 섞으면 실제 사고 규모를 오해한다.
+같은 날 예방 발견 2건은 별도: ① admin Reopen 이 receiver 재개 분기를 우회(startWave 13일
+미발견과 같은 모양이 될 자리) ② A Hold → B 완료 엣지(리시빙 고유 · Claude Code 자체 발견).
+📌 같은 날 **오후에 확인 생략 3연발**(컬럼명 추측·"Hold 없다" 단정·요일 오인+그럴듯한 진단)
+— "틀린 답이 자연스러워 보일수록 검증을 안 하게 된다"(세션 문서 · 「근거의 출처」 규칙의 실패 사례).
+
 ---
 
 ## 규칙 1 — Cin7 오더 구조 (실측 확정, 추측 금지)
@@ -956,7 +967,7 @@ select id, pack_task_id, verified_base, verified_at from wms_pack_task_lines
 — ⚠️ **경위·설계 판단의 정본은 `docs/sessions/2026-08-24-hold-tracking.md`**(방향 전환 2건: 「스캔 갭 컷」→「elapsed − Hold 구간」 · 「reaper 수정」→「흡수 폐지」 · 내가 틀렸던 것 2건). 여기엔 **모르면 사고가 나는 것만** 남긴다:
   · **A(`20260824192416`)** — `wms_task_holds` 이력(정본 스키마 = `references/schema.md` 해당 절). ⚠️ **wave 는 wave 행 1건**(멤버별 N행 금지 — Hold 횟수가 N배로 왜곡된다) · held_at 은 Hold RPC 안(트랜잭션) · resumed_at 은 **재개 프론트 3곳**(startBatch·startWave·resumePack) fire-and-forget · 열린 채 끝나는 admin 4경로(rollback·void·unwave)는 **의도적 미닫음**.
   · ⚠️ **C 단계 계산 규칙**: `resumed_at is null` 을 「지금도 멈춰 있음」으로 취급하는 것은 **태스크가 지금도 pending + held_by 일 때만** — 그 외는 닫힘 유실/롤백 부산물이라 구간에서 제외(안 그러면 작업시간이 음수·0 이 된다). 닫힘 유실 감시 = health **`hold_leak`(sort 130)** — 정상 Hold·삭제된 태스크는 안 잡고 이중 open 은 잡는다.
-  · ✅ **C 병기 구현 (2026-08-25 · admin loadStats — 교체 아님, 옛 벽시계 avg 가 새 자의 유일한 대조군)**: 표기 `Pick 12 (avg 34.2 min · 31.1 minus holds) · held 37 min (3×)` — Caleb 확정 어휘("excl." 금지 — 회계 축약). **held 는 합계+횟수**(avg 로 만들면 70분 1회와 5분 14회가 같아진다). 분모 = `HOLD_TRACKING_SINCE`(**2026-08-24T19:57:49Z — wms_task_holds 첫 행 실측, 추정 금지**) 이후 완료 태스크만 — 도입 전이 섞이면 공제 0 으로 평균이 옛 값 쪽으로 끌린다(백필 금지의 통계판) · 기간에 eligible 0 이면 새 값·held 통째 생략, eligible>0 + hold 0 이면 **"held 0 min" 명시**(「안 했다」와 「기록이 없던 때다」 구분). **wave hold 는 공제 = 멤버별 전액 / held 표기 = 사람당 1회**(멤버 dur 자체가 wave 전체 벽시계로 각자 부풀어 있으니 빼는 것도 각자 통째 — 표기까지 ×멤버수로 하면 실제 멈춘 시간이 아니다). 음수 구간(태블릿 시계 잔재 11행)은 greatest(0) 클램프. Hold 이력 조회 = sbAll + **하한 = eligible 태스크의 `min(started_at)`**(⚠️ 같은 날 2차 수정 — 종전 from−48h 는 캡이 raw 에 걸릴 때의 논리였다. 캡을 net 으로 옮긴 순간 raw 는 얼마든지 길 수 있어 **하한 밖 hold 가 빠지면 부분 공제로 캡을 통과한 틀린 숫자가 조용히 표시**된다. min(started_at)은 상수 없이 완전: started_at 은 최초 시작 보존 + hold 는 반드시 그 이후 — 직렬 왕복 +1 뿐). held 합산은 netDur 성공과 **무관**(캡에 걸린 배치도 멈춘 시간은 사실 — netDur 안에서 합산하면 "held 0 min" 거짓 표기. **공제는 자의 성질, held 는 사실**). held 표기는 `fmtWorkDur`(90분 경계 — 리시빙과 같은 포맷터, 네 번째 시간 포맷 규칙을 만들지 않는다 · avg·minus holds 는 뺄셈 쌍이라 분 유지). ⚠️ 닫기 3곳은 **RPC `wms_resume_hold`**(20260825183827)로 교체 — resumed_at 서버 시계·resumed_by 서버 유도(종전 태블릿 시계가 11행 음수를 만들었다. 트리거는 기각 — 프론트 값을 조용히 덮는 함정 + 앵커 「트리거 0」 훼손). [실측 2026-08-25] 하루: 잡14 645회 failed 0 · hold_leak 0 · 자동 Hold 1건 오탐 아님(10분 유효) · 결정적 재현 = Joyce Lee 픽 평균 46분→13분(한 배치가 3.6배 부풀리고 있었다).
+  · ✅ **C 병기 구현 (2026-08-25 · admin loadStats — 교체 아님, 옛 벽시계 avg 가 새 자의 유일한 대조군 · 실측·경위 정본 `docs/sessions/2026-08-25-work-time-same-ruler.md`)**: 표기 `Pick 12 (avg 34.2 min · 31.1 minus holds) · held 37 min (3×)` — Caleb 확정 어휘("excl." 금지 — 회계 축약). **held 는 합계+횟수**(avg 로 만들면 70분 1회와 5분 14회가 같아진다). 분모 = `HOLD_TRACKING_SINCE`(**2026-08-24T19:57:49Z — wms_task_holds 첫 행 실측, 추정 금지**) 이후 완료 태스크만 — 도입 전이 섞이면 공제 0 으로 평균이 옛 값 쪽으로 끌린다(백필 금지의 통계판) · 기간에 eligible 0 이면 새 값·held 통째 생략, eligible>0 + hold 0 이면 **"held 0 min" 명시**(「안 했다」와 「기록이 없던 때다」 구분). **wave hold 는 공제 = 멤버별 전액 / held 표기 = 사람당 1회**(멤버 dur 자체가 wave 전체 벽시계로 각자 부풀어 있으니 빼는 것도 각자 통째 — 표기까지 ×멤버수로 하면 실제 멈춘 시간이 아니다). 음수 구간(태블릿 시계 잔재 11행)은 greatest(0) 클램프. Hold 이력 조회 = sbAll + **하한 = eligible 태스크의 `min(started_at)`**(⚠️ 같은 날 2차 수정 — 종전 from−48h 는 캡이 raw 에 걸릴 때의 논리였다. 캡을 net 으로 옮긴 순간 raw 는 얼마든지 길 수 있어 **하한 밖 hold 가 빠지면 부분 공제로 캡을 통과한 틀린 숫자가 조용히 표시**된다. min(started_at)은 상수 없이 완전: started_at 은 최초 시작 보존 + hold 는 반드시 그 이후 — 직렬 왕복 +1 뿐). held 합산은 netDur 성공과 **무관**(캡에 걸린 배치도 멈춘 시간은 사실 — netDur 안에서 합산하면 "held 0 min" 거짓 표기. **공제는 자의 성질, held 는 사실**). held 표기는 `fmtWorkDur`(90분 경계 — 리시빙과 같은 포맷터, 네 번째 시간 포맷 규칙을 만들지 않는다 · avg·minus holds 는 뺄셈 쌍이라 분 유지). ⚠️ 닫기 3곳은 **RPC `wms_resume_hold`**(20260825183827)로 교체 — resumed_at 서버 시계·resumed_by 서버 유도(종전 태블릿 시계가 11행 음수를 만들었다. 트리거는 기각 — 프론트 값을 조용히 덮는 함정 + 앵커 「트리거 0」 훼손). [실측 2026-08-25] 하루: 잡14 645회 failed 0 · hold_leak 0 · 자동 Hold 1건 오탐 아님(10분 유효) · 결정적 재현 = Joyce Lee 픽 평균 46분→13분(한 배치가 3.6배 부풀리고 있었다).
   · **B(`20260824202539`)** — `wms_auto_hold()` · **cron 잡 14 `wms-auto-hold` `*/2`** ([실측 jobid] — `ops/cron.sql` 헤더의 「잡 번호는 추정」 교훈 참조). 판정 = **마지막 활동 + 10분** (picked_at/verified_at max · 폴백 started/heartbeat/created) · `held_at = 마지막 활동 + 10분`(그 10분은 작업시간에 포함 — Caleb 확정) · ⚠️⚠️ **started_at 무접촉**(reaper 와의 결정적 차이).
   · ⚠️⚠️ **기존 reaper(잡 2)를 흡수·폐지했다** — 공존하면 reaper 가 먼저 물어 `started_at=null` (SO-15028-1 경로)이 잔존한다. 함수 `wms_reap_stale_claims` 는 존치·호출 0. **이제 started_at 을 지우는 서버 경로는 0이다.**
   · 안전장치: **킬 스위치 `select cron.alter_job(14, active := false);`** · 회차 상한 `c_cap=20`(last_activity 오름차순 — 오래된 것 먼저) · `source='auto'` 행이 감사 로그.
