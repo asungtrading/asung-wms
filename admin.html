@@ -200,7 +200,7 @@
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
 
-      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7 · durations in work hours</span></div>
+      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7 · durations in work hours · "− holds" = start&rarr;complete wall clock minus recorded hold / awaiting-shipment time — per receipt, not per worker (several people can share one receipt) · tracked since Aug 26</span></div>
       <div class="grid" id="recvStatGrid"></div>
       <div class="card" style="padding:14px 16px;margin-top:12px"><div id="recvTypeTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ Durations count <b>work hours only</b> (Mon–Fri 09:00–17:00, warehouse-local time; statutory holidays not excluded). This is elapsed work time from start to completion — <b>not</b> hands-on time: a receipt left open while doing other work still counts. "&lt; 1 min" means the whole span fell outside work hours.</p>
@@ -3022,6 +3022,11 @@ async function reviewReceipt(rid){
       // 레이스에서 Reopen 이 그 상태를 in_progress 로 되돌리지 않게 — 원복은 Back to completed 뿐.
       const {error}=await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid).is("applied_at",null).neq("status","externally_applied");
       if(error){ toast("Reopen failed: "+error.message,true); return; }
+      // Hold·선적 대기 이력 닫기 (2026-08-25): 이 경로는 receiver 의 재개 분기(openReceipt — 상태가
+      // 이미 in_progress 라 미발동)를 지나지 않는다 — 여기서 닫아야 한다(안 닫으면 startWave 를
+      // 13일 놓친 것과 같은 모양). ⚠️ await — 직후 페이지 이동이 fire-and-forget 요청을 끊는다.
+      const rz=await sb.rpc("wms_resume_hold",{p_task_kind:"receipt",p_task_id:rid});
+      if(rz.error) console.warn("hold close failed (hold_leak will catch it)", rz.error);
       location.href="receiver.html?receipt="+rid;
     };
     // ── externally applied 전이 (2026-08-19 · PO-01130) ──
@@ -3731,11 +3736,30 @@ async function loadRecvStats(r){
     document.getElementById("recvByTable").innerHTML=msg;
     return;
   }
+  // ── 리시빙 Hold·선적대기 공제 (2026-08-25 · 픽·팩 C 와 같은 자 — 문서 단위) ──
+  // RECV_PAUSE_SINCE = 기록 시작의 신뢰 시점. 배포(2026-08-25 저녁) 다음날 0시 UTC 여유 상계 —
+  // verification_method 전례와 같은 원칙(Pages 배포~태블릿 새로고침 창 동안 옛 화면이 이력 없이
+  // 상태만 바꾼다). 첫 행 실측이 이보다 이르면 그 행의 receipt 하나가 분모에서 빠질 뿐(안전 방향).
+  // 하한 = eligible receipt 의 min(created_at) — 멈춤 이벤트는 created_at 이후에만 생기므로 상수
+  // 없이 완전(픽·팩 C 2차 수정과 같은 논리 — from−N 상수는 부분 공제로 캡을 통과시킨다).
+  const RECV_PAUSE_SINCE=new Date("2026-08-26T00:00:00Z");
+  let rHoldMinStart=null;
+  (rec.data||[]).forEach(rc=>{
+    if(rc.completed_at&&rc.created_at&&new Date(rc.completed_at)>=RECV_PAUSE_SINCE){
+      if(rHoldMinStart==null||rc.created_at<rHoldMinStart)rHoldMinStart=rc.created_at;
+    }
+  });
+  const rholds=rHoldMinStart==null?{data:[]}   // eligible 0 = 조회 생략 (기간이 기록 도입 전)
+    :await sbAll(()=>sb.from("wms_task_holds").select("task_id,held_at,resumed_at").eq("task_kind","receipt").gte("held_at",rHoldMinStart).order("id"));   // caps-ok: sbAll 페이지 누적 — 하한은 min(created_at), 근거는 위 주석
+  if(statsRange!==r) return; // period changed while the hold query ran
+  const rHoldMap={};   // receipt_id → 공제 분(닫힌 행만 · greatest(0) 클램프 — 픽·팩 C 와 동일 규칙)
+  (rholds.data||[]).forEach(h=>{ if(!h.resumed_at)return;
+    rHoldMap[h.task_id]=(rHoldMap[h.task_id]||0)+Math.max(0,(new Date(h.resumed_at)-new Date(h.held_at))/60000); });
   // 부분 적용 판정 — 실패(failed_moves) + 격리(permanently_failed, 연속 3회+ 실패로 자동 재시도 제외) 둘 다 센다.
   const failedBins=s=>{ const a=/failed_moves\((\d+)\)/.exec(s||""), b=/permanently_failed\((\d+)\)/.exec(s||"");
     return (a?Number(a[1]):0)+(b?Number(b[1]):0); };
 
-  const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0});
+  const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0,netMin:0,netN:0});
   const T={po:mkT(),transfer:mkT()};
   const byWorker={}, byWh={};
   let applied=0, appliedPartial=0, notApplied=0, extApplied=0;
@@ -3757,6 +3781,17 @@ async function loadRecvStats(r){
       t.n++; wh.n++;
       const rm=workMinutes(rc.created_at,rc.completed_at,rc.warehouse);
       if(rm!=null){ t.rMin+=rm;t.rN++; }
+      // 새 자 (2026-08-25): (completed − created) 순수 벽시계 − Hold·선적대기 공제. ⚠️ workMinutes
+      // 와 섞지 않는다(주말·밤 이중 공제). 캡은 픽·팩과 동일하게 공제 후 값(net<24h — Caleb 확정
+      // "Hold 빼고 24시간 걸린 입고는 없었다" · 걸리는 건이 나오면 그때 조정). 분모 = RECV_PAUSE_SINCE
+      // 이후 완료만(백필 금지의 통계판). ⚠️ 문서 단위 지표 — 사람의 시간이 아니다(부제 각주).
+      if(rc.completed_at&&rc.created_at&&new Date(rc.completed_at)>=RECV_PAUSE_SINCE){
+        const raw=(new Date(rc.completed_at)-new Date(rc.created_at))/60000;
+        if(raw>=0){
+          const net=Math.max(0,raw-(rHoldMap[rc.id]||0));
+          if(net<24*60){ t.netMin+=net; t.netN++; }
+        }
+      }
       const am=workMinutes(rc.completed_at,rc.applied_at,rc.warehouse);
       if(am!=null){ t.aMin+=am;t.aN++; }
       if(rc.applied_at){ if(failedBins(rc.apply_note)>0)appliedPartial++; else applied++; }
@@ -3821,12 +3856,14 @@ async function loadRecvStats(r){
     ["Applied outside WMS",extApplied,""],
   ].map(([k,v,c])=>`<div class="stat ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
 
+  // "Avg receive − holds" (2026-08-25 · 픽·팩과 같은 자의 리시빙 판 — 병기 대조군은 왼쪽 옛 열):
+  // 순수 벽시계 − Hold·선적대기 · 문서 단위(사람 아님 — 부제 각주) · 분모 = RECV_PAUSE_SINCE 이후 완료만.
   const typeRow=(label,t)=>`<tr><td style="font-weight:600">${label}</td>
     <td class="num">${t.n}</td><td class="num">${nf(t.lines)}</td><td class="num">${nf(t.units)}</td>
-    <td class="num">${t.rN?fmtWorkDur(t.rMin/t.rN):"—"}</td><td class="num">${t.aN?fmtWorkDur(t.aMin/t.aN):"—"}</td></tr>`;
+    <td class="num">${t.rN?fmtWorkDur(t.rMin/t.rN):"—"}</td><td class="num">${t.netN?fmtWorkDur(t.netMin/t.netN):"—"}</td><td class="num">${t.aN?fmtWorkDur(t.aMin/t.aN):"—"}</td></tr>`;
   document.getElementById("recvTypeTable").innerHTML=(T.po.n+T.transfer.n===0)
     ? `<div class="empty">No receiving in this period.</div>`
-    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive (work hrs)</th><th class="num">Avg complete → apply (work hrs)</th></tr></thead>
+    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive (work hrs)</th><th class="num">Avg receive − holds</th><th class="num">Avg complete → apply (work hrs)</th></tr></thead>
        <tbody>${typeRow("PO",T.po)}${typeRow("Transfer",T.transfer)}</tbody></table>`;
 
   // per-worker receiving merges into "Throughput by worker" (renderProd) — no separate worker table (중복 제거)

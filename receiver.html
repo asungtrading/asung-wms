@@ -785,6 +785,9 @@ async function openReceipt(rid){
   if(receipt.status!=="in_progress"){ // held/partial → 재개 시 진행중으로
     await sb.from("wms_receipts").update({status:"in_progress",updated_at:new Date().toISOString()}).eq("id",rid);
     receipt.status="in_progress";
+    // Hold·선적 대기 이력 닫기 (2026-08-25 · resumed_at 서버 시계 — 픽·팩과 같은 RPC).
+    // ⚠️ admin Reopen 은 이 분기를 안 지난다(DB 직접 플립) — admin 쪽에서 따로 닫는다.
+    sb.rpc("wms_resume_hold",{p_task_kind:"receipt",p_task_id:rid}).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
   }
   const {data,error}=await sb.from("wms_receipt_lines").select("*").eq("receipt_id",rid).order("id");
   if(error){toast("Failed to load lines",true);return;}
@@ -1525,7 +1528,11 @@ document.getElementById("holdBtn").onclick=async ()=>{
   try{
     const f=await flushUnconfirmed();
     if(f.failed && !confirm(f.failed+" line(s) could not be saved (connection?).\nHold anyway? Those counts would be lost.")) return;
-    await sb.from("wms_receipts").update({status:"held",updated_at:new Date().toISOString()}).eq("id",receipt.id);
+    // RPC (2026-08-25 · 20260825203457): 플립+Hold 이력을 한 트랜잭션으로 — 새 시간 자(Receiving 표
+    // "− holds")의 재료. CAS(in_progress 만)라 남이 먼저 완료/held 면 무기록 false — 상태 오염 없음.
+    const {data:pz,error:pe}=await sb.rpc("wms_pause_receipt",{p_receipt_id:receipt.id,p_reason:"held"});
+    if(pe) throw pe;
+    if(!pz||!pz.paused){ toast("Could not hold — the receipt status was changed by someone else. Reload the list.",true); exitToList(); return; }
     toast(receipt.po_number+" held");
     exitToList();
   }catch(e){ toast("Hold failed: "+(e.message||e),true); }
@@ -1979,10 +1986,19 @@ async function finishReceipt(status){
     // preFinish 에서 이미 flush 하고 사용자 동의를 받았으므로 여기 남은 실패는 치명적으로 다루지 않는다.
     const f=await flushUnconfirmed();
     if(f.failed) toast(f.failed+" line(s) could not be saved — recorded counts may be incomplete",true);
-    const patch={status,updated_at:new Date().toISOString()};
-    if(status==="completed") patch.completed_at=new Date().toISOString();
-    const {error:he}=await sb.from("wms_receipts").update(patch).eq("id",receipt.id);
-    if(he) throw he;
+    if(status==="partial"){
+      // RPC (2026-08-25): 플립+선적 대기 이력(source='partial')을 한 트랜잭션으로 — holdBtn 과 동형.
+      const {data:pz,error:he}=await sb.rpc("wms_pause_receipt",{p_receipt_id:receipt.id,p_reason:"partial"});
+      if(he) throw he;
+      if(!pz||!pz.paused){ toast("Status was changed by someone else — reload the list and retry.",true); return; }
+    }else{
+      const {error:he}=await sb.from("wms_receipts").update({status,updated_at:new Date().toISOString(),completed_at:new Date().toISOString()}).eq("id",receipt.id);
+      if(he) throw he;
+      // ⚠️ 리시빙 고유 엣지 (2026-08-25): A 가 Hold 한 문서를 동시 작업자 B 가 그대로 완료할 수
+      // 있다(이 patch 는 status 조건이 없다 — 의도). 열린 hold 이력의 종점 = 완료 시각으로 닫는다.
+      // fire-and-forget — 실패는 health hold_leak 이 잡는다.
+      sb.rpc("wms_resume_hold",{p_task_kind:"receipt",p_task_id:receipt.id}).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
+    }
     toast(receipt.po_number+(status==="partial"?" partially completed (PO stays open)":" completed"));
     exitToList();
   }catch(e){ toast("Completion failed: "+(e.message||e),true); }
