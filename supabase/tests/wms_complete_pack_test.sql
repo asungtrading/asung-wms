@@ -5,7 +5,7 @@
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/wms_complete_pack_test.sql
 --
 -- 전체가 한 트랜잭션이고 마지막에 ROLLBACK — 로컬 DB 에 아무것도 남기지 않는다.
--- 전부 통과하면 마지막 NOTICE 가 "ALL 9 TESTS PASSED". (ⓘ = 2026-08-21 스캔 시각 보존)
+-- 전부 통과하면 마지막 NOTICE 가 "ALL 10 TESTS PASSED". (ⓘ = 스캔 시각 보존 · ⓙ = 2026-08-25 방법 보존)
 -- auth.email() 은 request.jwt.claims 를 읽으므로 set_config 로 흉내낸다.
 
 begin;
@@ -282,7 +282,29 @@ begin
   if t <> 'RPC Tester' then raise exception 'FAIL i4: verified_by touched (%)', t; end if;   -- RPC 는 verified_by 무접촉
   raise notice 'PASS i — 스캔 시각 보존 (coalesce) · null 라인은 완료 시각';
 
-  raise notice '════ ALL 9 TESTS PASSED ════';
+  -- ── ⓙ verification_method 보존 (2026-08-25 · 20260825193231 — vmethod 실사고 null 3,702행) ──
+  -- 프론트가 vm null 을 보내도(재개·새로고침 후 상태 소실) 저장된 방법을 덮지 않는다 ·
+  -- 새 값이 오면 항상 새 값(정당한 변경 — 스캔→수동).
+  insert into wms_pick_tasks (order_id, batch_label, assigned_to, status)
+  values (o2, 'SO-TEST-RPC-2-10', 'Picker Kim', 'completed') returning id into p9;
+  insert into wms_pack_tasks (order_id, pick_task_id, batch_label, assigned_to, status)
+  values (o2, p9, 'SO-TEST-RPC-2-10', 'RPC Tester', 'in_progress') returning id into k9;
+  insert into wms_pack_task_lines (pack_task_id, order_line_id, expected_base, verified_base, verification_method)
+  values (k9, lc, 2, 2, 'scanned_base') returning id into pl9a;   -- 스캔으로 저장돼 있던 라인
+  insert into wms_pack_task_lines (pack_task_id, order_line_id, expected_base, verified_base, verification_method)
+  values (k9, ld, 3, 1, 'scanned_variant') returning id into pl9b;  -- 이후 수동으로 고칠 라인
+  res := wms_complete_pack(k9,
+    jsonb_build_array(
+      jsonb_build_object('id',pl9a,'verified_base',2,'status','verified','verification_method',null),
+      jsonb_build_object('id',pl9b,'verified_base',3,'status','verified','verification_method','manual')));
+  if res->>'completed' <> 'true' then raise exception 'FAIL j1: %', res; end if;
+  select verification_method into t from wms_pack_task_lines where id=pl9a;
+  if t <> 'scanned_base' then raise exception 'FAIL j2: scanned method overwritten to % (null must preserve)', coalesce(t,'null'); end if;
+  select verification_method into t from wms_pack_task_lines where id=pl9b;
+  if t <> 'manual' then raise exception 'FAIL j3: legitimate change blocked (% — new value must win)', coalesce(t,'null'); end if;
+  raise notice 'PASS j — 방법 보존 (null 전송 = 기존 유지 · 새 값 = 갱신)';
+
+  raise notice '════ ALL 10 TESTS PASSED ════';
 end
 $test$;
 

@@ -705,7 +705,7 @@ async function resumePack(packId){
     pk.work_started=cl.data[0].work_started;
   }
   const [ptl, pl]=await Promise.all([
-    sb.from("wms_pack_task_lines").select("id,order_line_id,expected_base,verified_base,status, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)").eq("pack_task_id",packId),
+    sb.from("wms_pack_task_lines").select("id,order_line_id,expected_base,verified_base,status,verification_method, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)").eq("pack_task_id",packId),
     sb.from("wms_pick_task_lines").select("order_line_id,assigned_base,picked_base").eq("pick_task_id",pk.pick_task_id),
   ]);
   if(ptl.error){toast("Failed to load lines",true);return;}
@@ -720,7 +720,9 @@ async function resumePack(packId){
       bin:ol.bin_location, zone:ol.zone||"", barcodes:ol.scannable_barcodes||[],
       required:reqMap[r.order_line_id]??Number(r.expected_base||0),
       expected:Number(r.expected_base||0), verified:Number(r.verified_base||0),
-      overage:0, vmethod:null,
+      // vmethod 복원 (2026-08-25 · 실사고 null 3,702행): verified_base 는 복원하면서 방법만 버리면
+      // 완료·Hold 가 전 라인을 null 로 덮는다 — 스캔 증거의 비가역 소실. picker(:758·770)와 대칭.
+      overage:0, vmethod:r.verification_method||null,
     };
   });
   finishBuild(); enterPack();

@@ -5,7 +5,7 @@
 --   psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/tests/wms_hold_pack_test.sql
 --
 -- 전체가 한 트랜잭션 + 마지막 ROLLBACK — 로컬 DB 에 무흔적.
--- 전부 통과하면 마지막 NOTICE 가 "ALL 9 TESTS PASSED".
+-- 전부 통과하면 마지막 NOTICE 가 "ALL 10 TESTS PASSED".
 -- (ⓗⓘ 2026-08-24 추가 — wms_task_holds 이력: 성공 Hold 1행 · 멱등/예외 무기록.
 --  마이그레이션 20260824192416)
 
@@ -14,8 +14,8 @@ begin;
 do $test$
 declare
   o1 bigint; o2 bigint;
-  p1 bigint; p2 bigint; p3 bigint; p4 bigint;
-  k1 bigint; k2 bigint; k3 bigint; k4 bigint;
+  p1 bigint; p2 bigint; p3 bigint; p4 bigint; p5 bigint;
+  k1 bigint; k2 bigint; k3 bigint; k4 bigint; k5 bigint;
   la bigint; lb bigint; lc bigint; le bigint;   -- order lines
   pla bigint; plb bigint; plc bigint; ple bigint;  -- pack lines
   res jsonb;
@@ -184,7 +184,24 @@ begin
   if n <> 1 then raise exception 'FAIL i1: total history rows=% (expected 1)', n; end if;
   raise notice 'PASS i — 멱등·예외·CAS 불일치 무기록 (총 1행)';
 
-  raise notice '════ ALL 9 TESTS PASSED ════';
+  perform set_config('request.jwt.claims', '{"email":"rpc-test@asung.ca"}', false);   -- ⓖ가 nobody 로 바꾼 로그인 복귀 (종전엔 ⓖ가 마지막이라 무해했다)
+
+  -- ── ⓙ verification_method 보존 (2026-08-25 · 20260825193231 — 완료 RPC ⓙ 와 동형) ──
+  -- pick_task_id 는 유니크(uq_packtasks_pick)라 픽 태스크도 새로 (ⓓ 와 같은 함정)
+  insert into wms_pick_tasks (order_id, batch_label, assigned_to, status)
+  values (o1,'AH-VM-1','Picker Kim','completed') returning id into p5;
+  insert into wms_pack_tasks (order_id, pick_task_id, batch_label, assigned_to, status)
+  values (o1, p5, 'AH-VM-1', 'RPC Tester', 'in_progress') returning id into k5;
+  insert into wms_pack_task_lines (pack_task_id, order_line_id, expected_base, verified_base, verification_method)
+  values (k5, la, 5, 5, 'scanned_base') returning id into pla;
+  res := wms_hold_pack(k5,
+    jsonb_build_array(jsonb_build_object('id',pla,'verified_base',5,'status','verified','verification_method',null)));
+  if res->>'held' <> 'true' then raise exception 'FAIL j1: %', res; end if;
+  select verification_method into t from wms_pack_task_lines where id=pla;
+  if t <> 'scanned_base' then raise exception 'FAIL j2: hold overwrote method to %', coalesce(t,'null'); end if;
+  raise notice 'PASS j — Hold 도 방법 보존 (null 전송 = 기존 유지)';
+
+  raise notice '════ ALL 10 TESTS PASSED ════';
 end
 $test$;
 
