@@ -13,12 +13,15 @@
 --    jobid 는 시퀀스라 **unschedule 해도 그 번호는 재사용되지 않는다.** 등록한 뒤 위 조회로
 --    확정해 여기 반영할 것. [실측 2026-08-24] 자동 Hold 를 파일에 "15)" 로 적었으나 실물은
 --    **14** 였다 — 12·13 다음이 14 라는 사실 자체가 **inv-sku-types 미등록의 증거**였다
---    (절 14 참조). 번호가 틀리면 킬 스위치(alter_job)를 엉뚱한 잡에 쏜다.
+--    (그 항목은 2026-08-26 에 등록돼 **jobid 15** 를 받았다 — 절 15 참조).
+--    번호가 틀리면 킬 스위치(alter_job)를 엉뚱한 잡에 쏜다.
 --
--- [실측 2026-08-24 cron.job 전체] 1(wms-poll-orders) · 3(wms-health-snapshot) ·
+-- [실측 2026-08-26 cron.job 전체] 1(wms-poll-orders) · 3(wms-health-snapshot) ·
 --    4(wms-image-sync) · 5(wms-image-sync-retry) · 6~11(inv-collect 6종) ·
---    12(inv-snapshot-compare) · 13(inv-compare-run) · 14(wms-auto-hold).
---    2(wms-reap-stale-claims)는 unschedule 로 사라짐 · inv-sku-types 는 **미등록**.
+--    12(inv-snapshot-compare) · 13(inv-compare-run) · 14(wms-auto-hold) ·
+--    15(inv-sku-types — 2026-08-26 등록, 08-24 백로그 소진).
+--    2(wms-reap-stale-claims)는 unschedule 로 사라짐.
+--    📌 예측대로 15 를 받았지만 **확인 전에는 추정이었다** — 그것이 08-24 의 교훈이다.
 
 -- 1) Cin7 주문 폴링 (5분마다) → Edge Function 'hello'
 --    참고: Authorization 에 'Bearer ' 접두어가 없다. hello 가
@@ -273,7 +276,7 @@ select cron.schedule(
 );
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- ⑥ shadow 대조 + 비재고 캐시 (2026-08-24 · jobid 12·13·14)
+-- ⑥ shadow 대조 + 비재고 캐시 (2026-08-24 · jobid 12·13 + 15 — sku-types 는 2026-08-26 등록)
 --
 -- ⚠️ 분 집합 전수 (2026-08-24 · Cin7 콜을 쓰는 잡 전부 — 겹침 0):
 --     hello(wms-poll-orders)   0·5·10·15·20·25·30·35·40·45·50·55   (*/5)
@@ -281,23 +284,31 @@ select cron.schedule(
 --     sale                     4·9·14·19·24·29·34·39·44·49·54·59   (4-59/5)
 --     purchase                 8·23·38·53                          (8-53/15)
 --     adjustment               11        assembly 13       creditnote 16
---     snapshot(잡12) 21        sku-types(잡14) 26        compare(잡13) 36 ← DB 전용
+--     snapshot(잡12) 21        sku-types(잡15) 26        compare(잡13) 36 ← DB 전용
+--       ⚠️ 이 표는 **분만** 본다(위 잡들은 매시 돌아 시(hour)와 무관하게 분에서 부딪힌다).
+--       시각은 다르다: 잡12·13 = **05:21·05:36 UTC** · 잡15 = **03:26 UTC**(2시간 떨어져 있다).
 --   ⇒ 사용 중 = mod5∈{0,2,4} 전체 + {8,11,13,16,21,23,26,36,38,53}
 --     남은 빈 분 = {1,3,6,18,28,31,33,41,43,46,48,51,56,58}  ← 다음 잡은 여기서 고른다
 --   ⚠️ 잡이 늘 때마다 **눈으로 세지 말고 다시 전수 계산할 것**(2026-08-21 purchase 겹침 교훈:
 --     7·22·37·52 가 transfer 의 부분집합이라 4회가 전부 동시 실행 = 분당 ~100콜).
 --   📌 DB 전용 잡(reaper */2 · health 0분 · compare 36분)은 Cin7 한도와 무관해 이 집합 밖이다.
 --
--- ⚠️ **등록 실물은 화면이 아니라 cron.job 으로 확인한다** — 아래 시각(03:xx UTC)은 이 파일의
---   설계값이다. 실제 등록값 확인: select jobid, jobname, schedule, active from cron.job order by jobid;
+-- ⚠️ **등록 실물은 화면이 아니라 cron.job 으로 확인한다.**
+--   실제 등록값 확인: select jobid, jobname, schedule, active from cron.job order by jobid;
+--   📌 [2026-08-26] 아래 잡 12·13 시각은 **실측으로 맞춘 값**이다(종전 03:21·03:36 기록이 2시간
+--   어긋나 있었다 — 절 12 정정). 이 예방선이 그 어긋남을 잡았다.
 -- ══════════════════════════════════════════════════════════════════════════════
 
--- 12) ⑥ shadow 대조 — Cin7 현재고 스냅샷 (매일 03:21 UTC) → Edge Function 'inv-snapshot'
+-- 12) ⑥ shadow 대조 — Cin7 현재고 스냅샷 (매일 05:21 UTC) → Edge Function 'inv-snapshot'
+--     ⚠️⚠️ [정정 2026-08-26] 이 파일이 03:21·03:36 으로 기록하고 있었으나 실물은 05:21·05:36 이다
+--       (cron.job + inv_snapshot.taken_at + inv_compare_runs.ran_at 세 경로 일치).
+--       재해복구용 기록이 실서버와 어긋나 있었다 — 파일 헤더의 「실물은 cron.job 으로 확인」이
+--       예방선 역할을 했다.
 --     ⚠️ 등록 전에 첫 실행을 손으로 확인할 것(⑤ 가동과 같은 순서):
 --       curl -s "https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-snapshot?key=auto-compare" \
 --         -H "x-wms-cron-key: $S" | jq .    # → wrote ≈ 13,800 · aborted null
 --       그 뒤 psql: select inv_compare_run(to_char(now(),'YYYY-MM-DD')||'-compare');
---     시각 근거: 03:21 UTC = 토론토 23:21 EDT / 에드먼튼 21:21 MDT — 두 창고 마감 후 ·
+--     시각 근거: 05:21 UTC = 토론토 01:21 EDT / 에드먼튼 23:21 MDT — 두 창고 마감 후 ·
 --       GAS BinStock(05:00 GAS 시간)·WmsSync(6:30) 전. 겨울(EST/MST)도 마감 후라 DST 무해.
 --     ⚠️ 분 21 = 빈 분(2026-08-24 전수 계산 — mod5∈{1,3} 중 8·11·13·16·23·38·53 제외:
 --       {1,3,6,18,21,26,28,31,33,36,41,43,46,48,51,56,58}). 실행 43초라 그 분 안에서 끝난다.
@@ -305,7 +316,7 @@ select cron.schedule(
 --     key=auto-compare → EF 가 'YYYY-MM-DD-compare' 생성(-initial 은 여전히 수동 명시만).
 select cron.schedule(
   'inv-snapshot-compare',
-  '21 3 * * *',
+  '21 5 * * *',                 -- [실측 2026-08-26 cron.job] jobid 12
   $job$
     select net.http_get(
       url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-snapshot?key=auto-compare',
@@ -316,37 +327,45 @@ select cron.schedule(
   $job$
 );
 
--- 13) ⑥ shadow 대조 — 대조 RPC (매일 03:36 UTC · 잡 12 의 15분 뒤 — 스냅샷 43초 대비 여유)
+-- 13) ⑥ shadow 대조 — 대조 RPC (매일 05:36 UTC · 잡 12 의 15분 뒤 — 스냅샷 43초 대비 여유)
+--     ⚠️ [정정 2026-08-26] 종전 기록 03:36 → 실물 05:36(위 잡 12 정정과 같은 건).
+--       ⚠️⚠️ **15분 간격은 설계의 핵심이므로 그대로다** — 정정은 시(hour)만 옮겼고 21분→36분
+--       관계는 유지된다(스냅샷 직후 대조. 벌어지면 그사이 판매가 원장에만 반영돼 오탐).
 --     DB 전용(Cin7 콜 0) — 분 충돌 무관하나 빈 분 36 으로 관례 유지.
 --     스냅샷이 실패한 날은 RPC 가드가 "no snapshot rows" 기록만 남긴다(오탐 0 — all-or-nothing 의 짝).
 --     결과 확인: select * from inv_compare_runs order by id desc limit 3;
 --                select * from inv_compare where checked_on = current_date order by abs(diff) desc;
 select cron.schedule(
   'inv-compare-run',
-  '36 3 * * *',
+  '36 5 * * *',                 -- [실측 2026-08-26 cron.job] jobid 13
   $job$
     select inv_compare_run(to_char(now(), 'YYYY-MM-DD') || '-compare');
   $job$
 );
 
--- ⬜ 비재고 SKU 캐시 갱신 (매일 03:26 UTC) → Edge Function 'inv-sku-types'
---     ⚠️⚠️ **미등록 — [실측 2026-08-24] cron.job 에 없다.** 절 번호를 14 로 적어 뒀었으나 실제
---       14 는 wms-auto-hold 가 받았다(파일 헤더 교훈). **등록하면 새 jobid 를 받으므로 그 번호를
---       여기 반영할 것.** 아래 cron.schedule 을 실서버에서 실행하면 등록된다.
---     ⚠️ 미등록의 영향: 비재고 SKU 캐시(inv_sku_types)가 갱신되지 않는다 → 마지막 수동 실행에서
---       48h 뒤부터 inv-collect 응답 non_stock_gate.warnings 에 `cache STALE` 이 뜬다. 게이트는
---       옛 목록으로 계속 작동하므로 즉시 사고는 아니나 **새 비재고 SKU 를 못 막는다**
---       (FINAL-SALE 계열이 다시 원장에 쌓인다 — ⑥ 대조가 unknown 으로 잡아줄 뿐).
---     ⚠️ 이번(2026-08-24 WMS Hold) 범위에서 등록하지 않는다 — 원장 쪽 항목이라 검증 면적이
---       겹치고, 지금 등록하면 또 새 번호를 문서에 반영해야 한다(사용자 결정).
---       백로그: asung-inv-ledger 스킬 「검증 대기」.
---     배경 [FINAL-SALE 실사고 2026-08-24]: Type=Non-inventory 판매를 수집이 재고 사건으로 잡음.
---     /product 전량(15~30콜)에서 Type≠Stock SKU 를 inv_sku_types 로 — inv-collect 게이트가 읽는다.
+-- 15) 비재고 SKU 캐시 갱신 (매일 03:26 UTC · [실측 jobid 15 — 2026-08-26 등록 후 cron.job 확인])
+--     배경 [FINAL-SALE 실사고 2026-08-24]: Type=Non Inventory 판매를 수집이 재고 사건으로 잡았다.
+--     /product 전량에서 Type≠Stock SKU 를 inv_sku_types 로 — inv-collect 게이트가 읽는다.
+--     ⚠️ 킬 스위치(즉시·배포 불필요): select cron.alter_job(15, active := false);   -- [실측] jobid 15
+--     ⚠️ 확인은 결과물로만 한다 — cron.job_run_details 의 succeeded 는 아무것도 보장하지 않는다.
+--       유일한 증거는 refreshed_at 갱신이다:
+--         select count(*), max(refreshed_at) from inv_sku_types;
+--       [실측 2026-08-26 수동 실행] 49행 · Service 47 + Non Inventory 2 · 15콜 · 15초 ·
+--       total=received=14,754(전량 수신) · added/removed/type_changed 전부 없음.
+--     📌 [실증 2026-08-26] Type='Service' 47건이 **전부 IsService=false** 다 — 두 축이 다르다는 것이
+--       전수로 확인됐다. FINAL-SALE 하나의 특이 사례가 아니라 일반 패턴이다.
+--       ⇒ 게이트가 「테이블에 있으면 차단」(값을 보지 않음)인 것이 옳았다. is_service 를 봤다면
+--         49건을 **전부 통과**시켰을 것이다.
+--     ⚠️ 저장 범위 계약: 비-Stock 만 넣는다. Stock 을 넣으면 1,000행 캡에 잘려 비재고가 게이트를
+--       통과한다. [실측 2026-08-26] 49행 — 캡에서 한참 멀다(경보선 800).
 --     ⚠️ 분 26 = 빈 분(2026-08-24 전수 재계산 — 빈 분 집합에서 21(잡12)·36(잡13)을 추가 제외:
 --       {1,3,6,18,26,28,31,33,41,43,46,48,51,56,58}). 30콜 × 400ms ≈ 22초 — 그 분 안에서 끝난다.
---       03:26 은 잡 12(03:21 — 43초 종료) 뒤·잡 13(03:36) 앞 — 새벽 원장 작업 몰아두기.
---     ⚠️ 등록 전에 첫 실행을 손으로(dry → 실행 → 테이블 5행 확인):
---       curl -s ".../functions/v1/inv-sku-types?dry=1" -H "x-wms-cron-key: $S" | jq '.non_stock'
+--     ⚠️ [정정 2026-08-26] 종전 주석은 "03:26 은 잡 12(03:21) 뒤 · 잡 13(03:36) 앞"이라 적었으나
+--       **틀렸다** — 잡 12·13 은 05:21·05:36 UTC 다(그 두 잡의 파일 기록도 같이 정정했다 — 절 12).
+--       "사이에 끼운다"는 근거는 성립하지 않았다.
+--       그래도 26분을 유지한다: (1) 26 분은 여전히 빈 분이고 (2) 03:26 은 스냅샷(05:21)에서
+--       2시간 떨어져 있다 — 스냅샷은 23페이지를 몰아 치는 회차라 **멀수록 429 위험이 낮다.**
+--       5시대로 옮기면 오히려 가까워진다. ⇒ 이 정정으로 26분 유지 근거가 **오히려 확인됐다.**
 select cron.schedule(
   'inv-sku-types',
   '26 3 * * *',

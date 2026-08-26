@@ -153,8 +153,8 @@ from inv_snapshot_runs order by ran_at desc limit 3;
   (파손품을 adjustment 로 뺀 뒤 판매하는 껍데기 SKU — Cin7 은 재고를 안 움직인다)인데
   판매 수집이 재고 사건으로 쌓았다. ⚠️ **`IsService` 와 `Type=Non-inventory` 는 다른 축**이라
   (cin7-api 스킬 15번) `IsService=false` 인 이 SKU 가 기존 필터의 **틈에 빠졌다**.
-  ✅ **처방**: `inv_sku_types` 캐시(EF `inv-sku-types` · cron 일 1회 — ⚠️ **cron 은 아직 미등록**,
-  아래 「검증 대기」 항목) + 수집 게이트.
+  ✅ **처방**: `inv_sku_types` 캐시(EF `inv-sku-types` · cron 일 1회 — ✅ **2026-08-26 등록 완료**
+  `jobid 15`, 아래 항목) + 수집 게이트.
   · 게이트는 **`makeSink` push 진입부 한 곳**(since 필터 앞) — 6소스가 전부 그 지점을 지난다
     (배출구 = 공유 루프 2곳뿐) ⇒ **새 소스도 자동 적용**
   · 판정은 **「테이블에 있으면 차단」** — `product_type`·`is_service` **값을 보지 않는다**
@@ -169,6 +169,12 @@ from inv_snapshot_runs order by ran_at desc limit 3;
     append-only 의 첫 위반이 「사소한 1건」인 것이 가장 위험**하다
   📌 [실측] 비-Stock 45건(`Non Inventory` 2 + `Service` 43). `is_service` 는 **전 행 false** —
   `productList` 응답에 그 필드가 없어 기본값일 뿐 판정에 안 쓰인다(**정리 후보**).
+  · 📌 **[실증 2026-08-26 전수] `Type='Service'` 47건이 전부 `IsService=false` 다.**
+    두 축이 다르다는 것이 표본 하나가 아니라 **전수로** 확인됐다 — `FINAL-SALE` 은 특이 사례가
+    아니라 **일반 패턴**이었다. ⇒ 게이트가 「테이블에 있으면 차단」(`product_type`·`is_service`
+    **값을 보지 않음**)인 것이 옳았다. `is_service` 를 판정에 썼다면 **49건을 전부 통과**시켰을 것이다.
+  · ⚠️ `inv_sku_types` 컬럼: `sku` · `product_type` · `is_service` · **`refreshed_at`**
+    (⚠️ `updated_at` 이 아니다 — 2026-08-26 에 추측으로 쿼리를 써서 에러를 냈다).
 
 - ⚠️⚠️ **대조를 잘못 돌리면 오탐이 난다 — 같은 날 3회차 실측(unknown 1 → 134 → 165, 진짜는 1건)**:
   **(a)** 같은 키로 재촬영하면 `ignore-duplicates` 라 **첫 값이 남는다**(`wrote: 5` 로 끝나고
@@ -186,19 +192,17 @@ from inv_snapshot_runs order by ran_at desc limit 3;
 - 👁2 는 **관찰 대기**(WMS 는 put-away 없이 Apply 하지 않아 우리 시스템이 만들 수 없는 상태.
   ⚠️ Advanced 기본값을 켜면 게이트로 복귀) · 🟡4 만 **실동작 미검증**으로 남는다.
 
-- ⬜⬜ **검증 대기 — `inv-sku-types` cron 이 등록돼 있지 않다 (2026-08-24 발견 · 미해결)**
-  [실측 2026-08-24 `cron.job` 전체] 12(inv-snapshot-compare)·13(inv-compare-run)·14(wms-auto-hold)
-  — **`inv-sku-types` 는 없다.** ⑥ 세션이 "잡 14"로 문서화했으나 등록되지 않았다(발견 경위:
-  WMS 자동 Hold 의 실물 jobid 가 14 였고, **12·13 다음이 14 라는 사실 자체가 미등록의 증거**였다
-  — jobid 는 시퀀스라 unschedule 해도 재사용되지 않는다).
-  ⚠️ **영향**: 비재고 SKU 캐시(`inv_sku_types`)가 갱신되지 않는다 → 마지막 수동 실행에서 48h 뒤부터
-  `inv-collect` 응답 `non_stock_gate.warnings` 에 `cache STALE`. 게이트는 옛 목록으로 계속
-  작동하므로 즉시 사고는 아니나 **새 비재고 SKU 를 못 막는다**(FINAL-SALE 계열이 다시 쌓이고,
-  ⑥ 대조가 unknown 으로 잡아줄 뿐 — 그것이 원래 이 캐시를 만든 이유다).
-  ⇒ **등록 = `supabase/ops/cron.sql` 의 해당 절 `cron.schedule` 을 실서버에서 실행**하고,
-  **받은 jobid 를 그 파일에 반영**할 것(미리 적은 번호는 추정 — 같은 파일 헤더의 교훈).
-  📌 이 항목은 「세션당 조용한 결함 발견」으로 계상됐다(2026-08-24 · 2건 중 ②) —
-  경위 정본은 `docs/sessions/2026-08-24-hold-tracking.md`.
+- ✅ **`inv-sku-types` cron 등록 완료 (2026-08-26 · [실측] jobid 15 · `26 3 * * *`)**
+  08-24 에 「잡 14」로 문서화했으나 실제로는 등록되지 않았던 항목(발견 경위: WMS 자동 Hold 의
+  실물 jobid 가 14 였고, **12·13 다음이 14 라는 사실 자체가 미등록의 증거**였다). 백로그 소진.
+  · ⚠️ **킬 스위치**: `select cron.alter_job(15, active := false);`
+  · ⚠️ **확인은 결과물로만** — `cron.job_run_details` 의 `succeeded` 는 아무것도 보장하지 않는다.
+    유일한 증거는 `refreshed_at` 갱신이다:
+    `select count(*), max(refreshed_at) from inv_sku_types;`
+  · [실측 2026-08-26 수동 실행] **49행**(Service 47 + Non Inventory 2) · 15콜 · 15초 ·
+    `total=received=14,754`(전량 수신) · `added`/`removed`/`type_changed` 전부 없음
+    ⇒ 미등록 기간에 새 비재고 SKU 가 생기지 않았다 — **운이 좋았던 것이지 안전했던 것이 아니다.**
+  · 📌 **첫 cron 실행 = 토론토 23:26**(03:26 UTC · 여름 −4). 수동 실행(15:31)과 시각으로 구별된다.
 
 ⚠️⚠️ **`since=<스냅샷 날짜>` 는 매 호출에 필요하다 — cron URL 6줄에 `since=2026-08-20` 이 박혀 있다.**
 코드가 `occurred_on > since`(**엄격히 큼**)를 쓰므로 8/20 전체가 제외된다 — 그날 낮 사건은 스냅샷에
@@ -563,6 +567,5 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    ⚠️ 임계값은 **정상 회차가 며칠 쌓인 뒤** 분포를 보고 정한다(표본 없이 숫자를 정하지 말 것).
    ⚠️ 판정 축은 `list_total`·`pages_scanned`·`duration_ms` — **행 수가 아니다.**
    ⚠️ 「거부 vs 경고」 미결 — 거부는 그날 스냅샷이 안 찍히는 것이고, 그러면 그날 대조가 사라진다.
-2. ⬜ `inv-sku-types` cron 등록 (등록 후 jobid 를 `ops/cron.sql` 에 반영)
-3. 매일 아침 4줄 — 스냅샷 · 대조 unknown · `inv_missing_lines` 미해결 · 회차 로그
-4. 30일 무결 후 하드 플립
+2. 매일 아침 4줄 — 스냅샷 · 대조 unknown · `inv_missing_lines` 미해결 · 회차 로그
+3. 30일 무결 후 하드 플립
