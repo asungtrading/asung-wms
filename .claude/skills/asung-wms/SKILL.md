@@ -1233,6 +1233,24 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 
 ### ⚠️ 다음 단계 (2026-08-25 Caleb 확정 — 백로그가 아니라 바로 다음 작업)
 
+→ ✅ **2026-08-26 구현 완료** (마이그레이션 `20260826014848` — 원격 push·실측 확인 + receiver 프론트).
+**설계 조정 1건(Caleb 확정)**: ~~`Done receiving` 버튼 신설~~ → **기존 2버튼의 전환 이력화(B안)** —
+`Putaway →`/`← Receiving` 의 이름·동작·확인 창 전부 무변(작업자 경험 동일), 누를 때마다
+`wms_receipt_stage_events` 에 한 줄(fire-and-forget · at 은 서버 시계 — 태블릿 음수 전례 회피).
+복귀는 막지 않고 기록만(빈도 실측 후 나중 판단 — 리시빙 롤백이 없어 막으면 전 라인 재스캔 벌칙).
+축 4컬럼 = `last_qty_at/by`·`last_putaway_at/by`(라인 축별 마지막 터치 — 마킹은 saveLine/
+savePutaway/placeAllInBin 3곳, putaway_auto·startPo 제외 유지) + `last_received_at` 진실화
+(터치 시각 — kind 별 마킹 중 늦은 것, 마킹 없으면 현행 폴백). 'all' 재시도는 **마킹 있는 축만**
+싣는다(재개 후 안 만진 축은 키 생략 — 서버 값 보존). 검증 = 하니스 23체크(실물 코드 추출 실행)
++ 로컬 PostgREST 라이브 3종 + diff 훅 위치로 queueWrite/writeLine/flushUnconfirmed 무수정 증명.
+⬜ **신뢰 시점 실측 대기**: 배포 후 첫 행 —
+`select min(last_qty_at) from wms_receipt_lines;` ·
+`select min(at) from wms_receipt_stage_events;`
+⬜ **화면·Stats 소비는 별건**(데이터 며칠 축적 후): 계산 정의(리시빙 구간 = created_at ~
+max(last_qty_at) · 풋어웨이 구간 = min(stage='putaway' at) ~ completed_at · 겹침 병기·합산 금지 ·
+사람 수 = 축별 distinct)의 정본 = 마이그레이션 `20260826014848` 헤더.
+
+원문(설계 경위 — 구현 전 기록):
 - **리시빙 「받기 끝」 기록(Done receiving) + kind 별 축 분리 + last_received_at 진실화.**
   근거 [실측 2026-08-25 · receipt 67]: Place all 재스탬프가 스캔 시각을 bin 별 버스트(20줄 3.2초 — 실제 80분)로 덮는다 — 큐 지연이 아니라 **마지막 터치 덮어쓰기**가 주범. 코드상 리시빙/풋어웨이는 단계가 아니라 **화면 2개**다(toPutawayBtn 완료 게이트 없음 · putBackBtn 무제한 복귀 — 「리시빙 종료 시각」이 지금은 성립 안 함). 그러나 **실작업은 "전부 받고 → 전부 치운다" 한 방향**(Caleb 확정) — 코드만 열려 있다.
   설계 확정분:

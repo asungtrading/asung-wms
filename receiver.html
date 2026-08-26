@@ -1240,19 +1240,23 @@ async function offPoScan(code){
     if(!hits||!hits.length){ flash("bad","✕ Unknown barcode"); focusScan(); return; }
     const s=hits[0], f=Number(s.factor)||1;
     if(!confirm(`${s.sku} — not on this PO.\nAdd as OFF-PO (manager approval required)?\n+${f} unit(s) will be recorded.`)){ focusScan(); return; }
+    const offAt=new Date().toISOString();   // 터치 시각 — last_received_at 과 수량 축이 같은 값을 공유
     const {data:ins,error}=await sb.from("wms_receipt_lines").insert({
       receipt_id:receipt.id, order_sku:s.sku, base_sku:s.base_sku, product_name:s.product_name,
       expected_base:0, received_base:f, exported_base:0,
       is_off_po:true, needs_approval:true, status:"received", verification_method:"scanned",
       // off-PO 는 사람이 실물을 보고 만드는 라인 — 생성 자체가 실작업이라 여기서 찍는다
       // (PO 라인 초기 적재(startPo)는 껍데기 생성이라 안 찍는다 — 찍으면 연 사람이 전 라인 작업자가 된다)
-      last_received_by:me.name, last_received_at:new Date().toISOString(),
+      // 축 분리 (2026-08-26): 생성 = 수량 터치이므로 수량 축도 같은 시각으로. ⚠️ 축 컬럼 선행(규칙 23).
+      last_received_by:me.name, last_received_at:offAt,
+      last_qty_by:me.name, last_qty_at:offAt,
     }).select();
     if(error) throw error;
     lines.push({
       id:ins[0].id, order_sku:s.sku, base_sku:s.base_sku, product_name:s.product_name,
       expected:0, received:f, exported:0, putaway_bin:null, zone:null, putaway_done:false,
       is_off_po:true, needs_approval:true, vmethod:"scanned", image_url:s.image_url||"", barcodeInfo:[],
+      qtyTouchAt:offAt,   // 이후 'all' 재시도가 수량 축을 이 시각으로 유지하도록 (마킹 없으면 키 생략됨)
     });
     await buildBcMap();  // 새 라인 바코드 반영
     flash("okbox",`✓ OFF-PO ${s.sku} +${f} (approval pending)`);
@@ -1377,9 +1381,14 @@ function patchFor(l,kind){
     p.received_base=l.received;
     p.verification_method=l.vmethod;
     p.status=l.received>0?"received":"pending";
+    // 축 분리 (2026-08-26 · 20260826014848): 마킹이 있는 축만 싣는다 — 재개 후 이 세션이
+    // 안 만진 축('all' 재시도)은 키 자체를 생략해 서버 값을 보존한다. ⚠️ 원격에 축 컬럼이
+    // 먼저 있어야 한다(규칙 23 — 없으면 이 UPDATE 전체가 400 = 수량 저장 전면 실패).
+    if(l.qtyTouchAt){ p.last_qty_at=l.qtyTouchAt; p.last_qty_by=me.name; }
   }
   if(kind==="putaway"||kind==="putaway_auto"||kind==="all"){
     p.putaway_bin=l.putaway_bin; p.zone=l.zone; p.putaway_done=!!l.putaway_done;
+    if(kind!=="putaway_auto"&&l.putawayTouchAt){ p.last_putaway_at=l.putawayTouchAt; p.last_putaway_by=me.name; }
   }
   // 라인별 작업자 기록 (2026-08-17 · 20260817000000 마이그레이션) — "이 라인을 마지막으로 만진 사람".
   // ⚠️ putaway_auto(풋어웨이 진입 시 라스트빈 자동확정 — savePutawayAssigns)에는 찍지 않는다:
@@ -1389,7 +1398,13 @@ function patchFor(l,kind){
   //    자동배정 라인도 이후 사람이 Placed/Change 를 누르면 그때 putaway 로 찍힌다.
   if(kind!=="putaway_auto"){
     p.last_received_by=me.name;
-    p.last_received_at=new Date().toISOString();
+    // 진실화 (2026-08-26): 전송 시각이 아니라 터치 시각 — 이 kind 에 해당하는 마킹 중 늦은 것.
+    // (종전 new Date() = 전송 시각은 flush 가 밀리면 거짓이었다 — receipt 67.) 마킹이 없으면
+    // 현행 폴백(방어 — 정상 경로에선 kind qty/putaway 가 항상 마킹 직후에 온다).
+    // ISO 문자열은 사전순 = 시간순이라 sort().pop() 이 최신값이다.
+    const t=[(kind==="qty"||kind==="all")?l.qtyTouchAt:null,
+             (kind==="putaway"||kind==="all")?l.putawayTouchAt:null].filter(Boolean).sort().pop();
+    p.last_received_at=t||new Date().toISOString();
   }
   return p;
 }
@@ -1466,6 +1481,11 @@ function bumpReceipt(){   // 스캔마다 때리지 않고 묶는다 (스캔당 
 /* ⚠️ 여기에 await 를 걸어 렌더·비프를 막지 말 것. ca-central-1 왕복이 스캔 피드백 앞에
       들어가면 작업자가 "안 먹었다"고 판단해 재스캔한다 → 과다 계상. */
 function saveLine(l){
+  // 수량 축 마킹 (2026-08-26 · 20260826014848 축 분리): 호출자 3곳(스캔·수동입력·스테퍼)이 전부
+  // 동기 호출이라 여기가 곧 터치 순간이다. patchFor 가 이 값을 last_qty_at 으로 싣는다 —
+  // 전송이 밀려도(큐 백로그·flush 재시도) 터치 시각이 유지된다. 재시도 경로(flushUnconfirmed)는
+  // 이 함수를 안 지나므로 마킹이 새로 찍히지 않는다.
+  l.qtyTouchAt=new Date().toISOString();
   queueWrite(l,"qty").then(r=>{
     if(r.ok) return;
     if(r.why==="deleted"){
@@ -1506,6 +1526,9 @@ async function ensureReceiptOpen(){
    unconfirmed 에 남아 완료 시 flush 되므로 UI 가 거짓말을 하는 게 아니다.
    대신 putawayFailed 에 넣어 행에 "NOT SAVED" 를 남긴다. */
 async function savePutaway(l){
+  // 풋어웨이 축 마킹 (2026-08-26 축 분리): 호출자 2곳(togglePlaced·commitBin)이 탭 직후 호출 —
+  // ensureReceiptOpen 왕복 앞에서 찍어야 터치 순간이다. placeAllInBin 은 queueWrite 직행이라 별도 마킹.
+  l.putawayTouchAt=new Date().toISOString();
   if(!await ensureReceiptOpen()) return false;
   const r=await queueWrite(l,"putaway");
   if(r.ok){ putawayFailed.delete(l.id); return true; }
@@ -1641,6 +1664,16 @@ function bayOfBin(bin){
 }
 function zOrder(z){ const k=receipt.warehouse+"|"+(z||""); return zoneSeq[k]!=null?zoneSeq[k]:9999; }
 
+/* 전환 이력 (2026-08-26 · wms_receipt_stage_events) — fire-and-forget: 실패해도 화면 전환을
+   막지 않는다(통계 전용). at 은 서버 default now()(태블릿 시계 음수 전례 회피 — 즉발 insert 라
+   지연 없음). 기록 지점 전수 = 이 2버튼뿐(putView 를 여는 경로는 showPutaway 하나 · openReceipt
+   은 항상 recvView — 열기는 기록하지 않는다: 모든 열기가 리시빙 시작이라 정보 0).
+   'receiving' 행 = ← Receiving 복귀 — 빈도 실측 후 나중 판단(Caleb 확정: 복귀는 막지 않는다). */
+function logStage(stage){
+  if(!receipt) return;
+  sb.from("wms_receipt_stage_events").insert({receipt_id:receipt.id, worker:me.name, stage})
+    .then(r=>{ if(r.error) console.warn("stage log failed", r.error); });
+}
 function showPutaway(){
   document.getElementById("recvView").style.display="none";
   document.getElementById("putView").style.display="block";
@@ -1648,12 +1681,14 @@ function showPutaway(){
   document.getElementById("pMeta").textContent=(receipt.warehouse==="edmonton"?"Edmonton":"Toronto")+" · "+esc(receipt.supplier_name||"");
   renderPutaway();
   presenceStage("putaway");
+  logStage("putaway");
 }
 document.getElementById("putBackBtn").onclick=()=>{
   document.getElementById("putView").style.display="none";
   document.getElementById("recvView").style.display="block";
   renderRecv(); focusScan();
   presenceStage("receiving");
+  logStage("receiving");
 };
 
 function renderPutaway(){
@@ -1787,7 +1822,10 @@ async function placeAllInBin(bin){
   try{
     const todo=grp.filter(l=>l.putaway_done!==next);  // 이미 그 상태인 라인은 쓰지 않는다
     if(!todo.length){ renderPutaway(); return; }
-    todo.forEach(l=>l.putaway_done=next);
+    // 풋어웨이 축 마킹 — 한 번 누름 = 전 라인 동일 시각(그게 사실이다: 버스트가 데이터에 그대로 남아
+    // 사후 판별 가능. 수량 축은 별도 컬럼이라 이 버스트가 스캔 시각을 더는 못 덮는다 — receipt 67 교훈)
+    const tAt=new Date().toISOString();
+    todo.forEach(l=>{ l.putaway_done=next; l.putawayTouchAt=tAt; });
     if(next) beep("ok");
     renderPutaway();                                 // 낙관적 — 네트워크 앞에 피드백을 둔다 (togglePlaced 와 같은 순서)
     // 가드는 렌더 뒤에 둔다(규칙 34) — 닫힌 receipt 면 exitToList 가 로컬 상태를 통째로 버리므로 순서가 안전하다.
