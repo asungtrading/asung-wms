@@ -3836,7 +3836,9 @@ async function loadRecvStats(r){
       // 2026-08-25 제거(⑤): Place all 재스탬프가 스캔 시각을 bin 버스트로 덮어([실측] receipt 67 —
       // 실제 80분이 3.2초로) 사람별 시간이 구조적으로 붕괴한다. 라인 시각 한 칸(마지막 터치)으로는
       // 못 내는 지표다 — 시간의 정본은 Receiving 표 "Avg receive − holds"(문서 단위).
-      // ⚠️ 되살리려면 kind 별 축 분리(qty/putaway 터치 시각 컬럼)가 선행이다 — 스킬 「다음 단계」.
+      // ⚠️ 되살리려면 축 기반이어야 한다 — kind 별 축 분리는 2026-08-26 완료(`last_qty_at/by` ·
+      // `last_putaway_at/by` · 전환 이력 `wms_receipt_stage_events` — 마이그레이션 20260826014848).
+      // 화면 전환은 데이터 축적 후 별건: 판단 항목·SELECT 는 세션 문서 2026-08-25 「⬜ 다음」.
       if(l.last_received_at&&(!tw.maxAt||l.last_received_at>tw.maxAt))tw.maxAt=l.last_received_at;
       touched.set(key,tw);
     });
