@@ -193,17 +193,18 @@
     <!-- Stats -->
     <div class="view" id="v-stats">
       <div class="period" id="statsPeriod"></div>
-      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time · lines/units actually handled (qty&gt;0 — untouched lines don't count) · "minus holds" = start&rarr;complete minus recorded hold time · held = total hold time (count), tracked since Aug 24</span></div>
+      <div class="sect-h">Throughput by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— pick/pack batches + receiving lines completed · avg time (pick/pack only — receiving time is per receipt, in the Receiving table) · lines/units actually handled (qty&gt;0 — untouched lines don't count) · "minus holds" = start&rarr;complete minus recorded hold time · held = total hold time (count), tracked since Aug 24</span></div>
       <div class="card" style="padding:14px 16px"><div id="prodTable"></div></div>
       <div class="sect-h">Quality reports by worker <span style="font-weight:400;color:var(--mut);font-size:12.5px">— wrong location · barcode · image · box barcode (picking/packing/receiving)</span></div>
       <div class="card" style="padding:14px 16px"><div id="qualityTable"></div></div>
       <div class="sect-h">Mistakes by worker (discrepancy responsibility)</div>
       <div class="card" style="padding:14px 16px"><div id="mistakeTable"></div></div>
 
-      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed · apply = completed → Apply to Cin7 · durations in work hours · "− holds" = start&rarr;complete wall clock minus recorded hold / awaiting-shipment time — per receipt, not per worker (several people can share one receipt) · tracked since Aug 26</span></div>
+      <div class="sect-h">Receiving &amp; transfers <span style="font-weight:400;color:var(--mut);font-size:12.5px">— receipts started in this period · receive = start → completed (includes putaway — Complete is pressed after placing) · apply = completed → Apply to Cin7 · durations in work hours · "− holds" = start&rarr;complete wall clock minus recorded hold / awaiting-shipment time — per receipt, not per worker (several people can share one receipt) · tracked since Aug 26</span></div>
       <div class="grid" id="recvStatGrid"></div>
       <div class="card" style="padding:14px 16px;margin-top:12px"><div id="recvTypeTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
       <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ Durations count <b>work hours only</b> (Mon–Fri 09:00–17:00, warehouse-local time; statutory holidays not excluded). This is elapsed work time from start to completion — <b>not</b> hands-on time: a receipt left open while doing other work still counts. "&lt; 1 min" means the whole span fell outside work hours.</p>
+      <p style="color:var(--mut);font-size:12px;margin:8px 2px 0">⚠ <b>Workers are counted by each line's last touch</b> (who last saved the line, and when). Bulk putaway ("Place all") re-stamps every line it closes, so lines one person scanned can end up credited to whoever pressed the button — read this as "who finished the line", <b>not</b> a participant list or a share of hands-on work. The period follows the last touch too: a line scanned earlier counts in the period it was last touched.</p>
       <div class="sect-h">Receiving by warehouse</div>
       <div class="card" style="padding:14px 16px"><div id="recvByTable"><div class="loading"><div class="spin"></div>Loading…</div></div></div>
 
@@ -3601,13 +3602,14 @@ function renderProd(){
   // receive bar has its OWN scale: a receipt can be 5 or 344 lines — sharing the batch scale would flatten pick/pack
   const lineMax=Math.max(...rows.map(([,,rc])=>rvLines(rc)),1);
   el.innerHTML=rows.map(([nm,v,rc])=>{
-    // rc = {exact, attr} (위 rvm) — 본문 수치(units·receipts·avg·putaway%)는 exact 만, attr 는
-    // "(+N attributed)" 로 분리 표기(툴팁 = RECV_FB_TIP). avg 는 attr 그룹이 원래 계산 안 됨(rN 0 —
-    // 시각 데이터가 없다), putaway% 분모도 exact lines 만(추정 라인을 섞으면 비율이 거짓이 된다).
+    // rc = {exact, attr} (위 rvm) — 본문 수치(units·receipts·putaway%)는 exact 만, attr 는
+    // "(+N attributed)" 로 분리 표기(툴팁 = RECV_FB_TIP). putaway% 분모도 exact lines 만
+    // (추정 라인을 섞으면 비율이 거짓이 된다). ~~avg work time~~ 은 2026-08-25 제거(⑤) —
+    // 근거는 loadRecvStats 의 maxAt 주석(Place all 재스탬프 붕괴 · receipt 67 실측).
     const rx=rc&&rc.exact, ra=rc&&rc.attr;
     const exL=rx?rx.lines:0, exU=rx?rx.units:0, exN=rx?rx.n:0, atL=ra?ra.lines:0;
     const attrTag=ra?` <span title="${RECV_FB_TIP}" style="color:var(--mut-2);border-bottom:1px dotted var(--mut-2)">(+${nf(atL)} lines · ${nf(ra.units)} units attributed)</span>`:"";
-    const recvTxt=rc?`Receive ${nf(exL)} line${exL===1?"":"s"} · ${nf(exU)} units (base) / ${exN} receipt${exN===1?"":"s"}${rx&&rx.rN?` (avg ${fmtWorkDur(rx.rMin/rx.rN)} work time)`:""}${exL?` · putaway ${Math.round(rx.pDone/exL*100)}%`:""}${attrTag}`:"";   // 선두 구분자 " · " 는 템플릿(segBtn 앞)이 붙인다 (2026-08-11)
+    const recvTxt=rc?`Receive ${nf(exL)} line${exL===1?"":"s"} · ${nf(exU)} units (base) / ${exN} receipt${exN===1?"":"s"}${exL?` · putaway ${Math.round(rx.pDone/exL*100)}%`:""}${attrTag}`:"";   // 선두 구분자 " · " 는 템플릿(segBtn 앞)이 붙인다 (2026-08-11)
     // 라인·유닛 보조 줄 (2026-08-11) — ⚠️ 세 지표(배치/라인/유닛)를 나란히 보여줄 뿐, 종합 점수·순위·정렬·
     // 강조에 쓰지 않는다(사용자 확정 — 한 숫자로 줄이면 그 숫자에 맞춰 행동이 왜곡된다: 작은 오더 골라잡기.
     // min/line 도 같은 이유로 회색 텍스트만 — 작은 라인만 골라잡으면 좋아지는 지표다).
@@ -3667,16 +3669,18 @@ function renderProdExpand(title,list,isRecv){
   const fmtAt=at=>at
     ? new Date(at).toLocaleDateString()+" "+new Date(at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})
     : `<i style="color:var(--mut)">in progress</i>`;   // 미완료 receipt — 빈칸이면 "데이터 없음"으로 오독한다 (2026-08-11)
+  // 리시빙 펼침의 시간 열은 2026-08-25 제거(⑤ — 사람별 시간은 못 낸다 · loadRecvStats maxAt 주석 참조).
+  // 문서 시간으로의 대체는 기각: 사람 행 아래 펼침에 문서 시간을 넣으면 표기를 붙여도 자리가 거짓말을 한다.
   const rows=list.slice(0,CAP).map(b=>`<tr>
       <td style="font-family:var(--mono);font-weight:600">${esc(b.label||"—")}</td>
       <td class="num">${nf(b.lines)}</td><td class="num">${nf(b.units)}</td>
-      <td class="num">${b.min!=null?(isRecv?fmtWorkDur(b.min):b.min.toFixed(1)+" min"):"—"}</td>
+      ${isRecv?"":`<td class="num">${b.min!=null?b.min.toFixed(1)+" min":"—"}</td>`}
       <td style="color:var(--mut);font-size:12px">${fmtAt(b.at)}</td></tr>`).join("");
   const more=list.length>CAP
     ? `<div style="font-size:11px;color:var(--mut);margin:4px 0 0">showing the ${CAP} most recent — ${list.length-CAP} older hidden (narrow the period to see them)</div>`:"";
   return `<div style="margin:6px 0 2px;padding:8px 10px;background:#f7f8fa;border:1px solid var(--line);border-radius:8px">
-    <table style="font-size:12px"><thead><tr><th>${isRecv?"PO / TR":"Batch"}</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">${isRecv?"Work time":"Time"}</th><th>Completed</th></tr></thead>
-    <tbody>${rows||`<tr><td colspan="5" style="color:var(--mut)">None in this period.</td></tr>`}</tbody></table>${more}</div>`;
+    <table style="font-size:12px"><thead><tr><th>${isRecv?"PO / TR":"Batch"}</th><th class="num">Lines</th><th class="num">Units (base)</th>${isRecv?"":'<th class="num">Time</th>'}<th>${isRecv?"Last touch":"Completed"}</th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="${isRecv?4:5}" style="color:var(--mut)">None in this period.</td></tr>`}</tbody></table>${more}</div>`;
 }
 /* ---------- Quality reports by worker (2026-08-11 — 포상 판단용 데이터) ----------
    ⚠️ 화면은 평가·포상을 표현하지 않는다(사용자 조건): 순위 번호·1위 강조·트로피·색 차등 없음 —
@@ -3759,7 +3763,7 @@ async function loadRecvStats(r){
   const failedBins=s=>{ const a=/failed_moves\((\d+)\)/.exec(s||""), b=/permanently_failed\((\d+)\)/.exec(s||"");
     return (a?Number(a[1]):0)+(b?Number(b[1]):0); };
 
-  const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0,netMin:0,netN:0});
+  const mkT=()=>({n:0,lines:0,units:0,rMin:0,rN:0,aMin:0,aN:0,netMin:0,netN:0,workers:{},unattr:0});
   const T={po:mkT(),transfer:mkT()};
   const byWorker={}, byWh={};
   let applied=0, appliedPartial=0, notApplied=0, extApplied=0;
@@ -3817,30 +3821,30 @@ async function loadRecvStats(r){
       // 기간 밖 라인은 버린다 — 같은 receipt 의 기간 안 라인만 잡힌다.
       if(!(l.last_received_at?inPeriod(l.last_received_at):rcInPeriod)) return;
       t.lines++; t.units+=q; wh.lines++; wh.units+=q;
+      // 참여자 열 (2026-08-25 B안) — 라인의 「마지막 터치」 기준. ⚠️ Place all 재스탬프로 사람·날짜가
+      // 둘 다 이동할 수 있다([실측] receipt 67: 시각이 bin 별 버스트) — 화면 각주가 이 한계의 안전장치다.
+      // NULL(2026-08-17 컬럼 도입 전)은 이름 귀속 금지(received_by 복사 = 바로 그 틀린 값) — 개수만.
+      if(l.last_received_by) t.workers[l.last_received_by]=(t.workers[l.last_received_by]||0)+1;
+      else t.unattr++;
       pLines++;
       if(l.putaway_done){ pDone++; } else{ backLines++; backUnits+=q; }
       if(rc.source_type==="transfer"){ trLines++; if((Number(l.exported_base)||0)>0)trMoved++; }
       const key=l.last_received_by||fbKey;
-      const tw=touched.get(key)||{lines:0,units:0,pDone:0,minAt:null,maxAt:null,fallback:!l.last_received_by};
+      const tw=touched.get(key)||{lines:0,units:0,pDone:0,maxAt:null};
       tw.lines++; tw.units+=q; if(l.putaway_done)tw.pDone++;
-      if(l.last_received_at){
-        if(!tw.minAt||l.last_received_at<tw.minAt)tw.minAt=l.last_received_at;
-        if(!tw.maxAt||l.last_received_at>tw.maxAt)tw.maxAt=l.last_received_at;
-      }
+      // maxAt = 그 사람의 마지막 터치 — 펼침 목록 At 열·정렬 전용. ~~사람별 min~max work time~~ 은
+      // 2026-08-25 제거(⑤): Place all 재스탬프가 스캔 시각을 bin 버스트로 덮어([실측] receipt 67 —
+      // 실제 80분이 3.2초로) 사람별 시간이 구조적으로 붕괴한다. 라인 시각 한 칸(마지막 터치)으로는
+      // 못 내는 지표다 — 시간의 정본은 Receiving 표 "Avg receive − holds"(문서 단위).
+      // ⚠️ 되살리려면 kind 별 축 분리(qty/putaway 터치 시각 컬럼)가 선행이다 — 스킬 「다음 단계」.
+      if(l.last_received_at&&(!tw.maxAt||l.last_received_at>tw.maxAt))tw.maxAt=l.last_received_at;
       touched.set(key,tw);
     });
     touched.forEach((tw,key)=>{
-      const w=byWorker[key]=byWorker[key]||{n:0,lines:0,units:0,rMin:0,rN:0,pDone:0,list:[]};
+      const w=byWorker[key]=byWorker[key]||{n:0,lines:0,units:0,pDone:0,list:[]};
       w.n++;   // 참여한 receipt 수 — 라인이 하나라도 자기 것이면 1 (touched 에 든 것이 그 증거)
       w.lines+=tw.lines; w.units+=tw.units; w.pDone+=tw.pDone;
-      // work time = 사람별 min(last_received_at)~max(last_received_at) 근무시간 — receipt 전체
-      // 구간(created~completed)을 사람 수만큼 나눠주면 셋이 나눈 4시간이 12시간이 된다(합계 부풂).
-      // ⚠️ 폴백 그룹(라인 전부 NULL)은 계산하지 않는다 — 데이터가 없다. 없는 값을 만들지 않는다
-      //    (rN 0 → renderProd 가 avg 표기를 통째로 생략 · 펼침 목록 min null → "—").
-      let m=null;
-      if(!tw.fallback&&tw.minAt&&tw.maxAt) m=workMinutes(tw.minAt,tw.maxAt,rc.warehouse);
-      if(m!=null){ w.rMin+=m; w.rN++; }
-      w.list.push({label:rc.po_number||"", lines:tw.lines, units:tw.units, min:m, at:tw.maxAt||rc.completed_at||null});
+      w.list.push({label:rc.po_number||"", lines:tw.lines, units:tw.units, at:tw.maxAt||rc.completed_at||null});
     });
   });
   // 펼침 목록 정렬 = 완료시각 내림차순, 미완료(in progress)는 맨 위(가장 최근 활동)
@@ -3858,12 +3862,25 @@ async function loadRecvStats(r){
 
   // "Avg receive − holds" (2026-08-25 · 픽·팩과 같은 자의 리시빙 판 — 병기 대조군은 왼쪽 옛 열):
   // 순수 벽시계 − Hold·선적대기 · 문서 단위(사람 아님 — 부제 각주) · 분모 = RECV_PAUSE_SINCE 이후 완료만.
+  // Workers 열 (2026-08-25 B안 — 시간 칸 대신 작업량): 이름 + 담당 라인 수, 내림차순.
+  // 7명 이상이면 상위 5 + "+M more"(전체 명단은 셀 title 툴팁). NULL 라인은 이름 없이 개수만 —
+  // received_by 귀속 금지(그게 바로 틀린 값 — schema.md last_received_by 절). ⚠️ 「마지막 터치」
+  // 기준의 한계(Place all 로 사람·날짜 이동)는 표 아래 Workers 각주가 명시한다 — 지우면 거짓이 된다.
+  const workersCell=t=>{
+    const es=Object.entries(t.workers).sort((a,b)=>b[1]-a[1]);
+    if(!es.length&&!t.unattr) return `<td style="color:var(--mut-2)">—</td>`;
+    const full=es.map(([n,c])=>`${n} (${c})`).join(" · ");
+    const shown=(es.length>6?es.slice(0,5):es).map(([n,c])=>`${esc(n)} (${nf(c)})`).join(" · ");
+    const more=es.length>6?` <span style="color:var(--mut)">+${es.length-5} more</span>`:"";
+    const un=t.unattr?` <span style="color:var(--mut-2);border-bottom:1px dotted var(--mut-2)" title="Lines predate 2026-08-17 (no per-line worker recorded) — not attributed to anyone.">· ${nf(t.unattr)} unattributed</span>`:"";
+    return `<td style="font-size:12px" title="${esc(full)}">${shown}${more}${un}</td>`;
+  };
   const typeRow=(label,t)=>`<tr><td style="font-weight:600">${label}</td>
     <td class="num">${t.n}</td><td class="num">${nf(t.lines)}</td><td class="num">${nf(t.units)}</td>
-    <td class="num">${t.rN?fmtWorkDur(t.rMin/t.rN):"—"}</td><td class="num">${t.netN?fmtWorkDur(t.netMin/t.netN):"—"}</td><td class="num">${t.aN?fmtWorkDur(t.aMin/t.aN):"—"}</td></tr>`;
+    <td class="num">${t.rN?fmtWorkDur(t.rMin/t.rN):"—"}</td><td class="num">${t.netN?fmtWorkDur(t.netMin/t.netN):"—"}</td><td class="num">${t.aN?fmtWorkDur(t.aMin/t.aN):"—"}</td>${workersCell(t)}</tr>`;
   document.getElementById("recvTypeTable").innerHTML=(T.po.n+T.transfer.n===0)
     ? `<div class="empty">No receiving in this period.</div>`
-    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive (work hrs)</th><th class="num">Avg receive − holds</th><th class="num">Avg complete → apply (work hrs)</th></tr></thead>
+    : `<table><thead><tr><th>Type</th><th class="num">Receipts</th><th class="num">Lines</th><th class="num">Units (base)</th><th class="num">Avg receive (work hrs)</th><th class="num">Avg receive − holds</th><th class="num">Avg complete → apply (work hrs)</th><th>Workers (last touch)</th></tr></thead>
        <tbody>${typeRow("PO",T.po)}${typeRow("Transfer",T.transfer)}</tbody></table>`;
 
   // per-worker receiving merges into "Throughput by worker" (renderProd) — no separate worker table (중복 제거)
