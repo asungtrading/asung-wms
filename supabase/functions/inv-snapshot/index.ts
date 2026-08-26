@@ -273,17 +273,62 @@ Deno.serve(async (req) => {
       unexpected_warehouses: [...unexpectedWh].map(([name, rows]) => ({ name, rows })),   // 있으면 이상 신호
     };
 
+    // ── 회차 로그 (2026-08-26) — inv_snapshot_runs 에 1행. **기록만** — 판정·차단·경보는 다음 단계 ──
+    // [실사고 2026-08-24] 회차 간 급감(목록 22,079→21,877 · 23→22페이지 · 43초→1분44초)의 신호가
+    // 전부 summary 로 계산되고도 응답으로 나간 뒤 사라졌다 — all-or-nothing 은 회차 「안」
+    // (받은 수 < Total)만 보고 회차 「간」 비교를 못 한다. 값은 summary 의 기존 것을 그대로 옮긴다.
+    // ⚠️ aborted 회차도 기록한다(중단된 회차가 가장 알고 싶은 회차) · dry 는 기록하지 않는다
+    //    (수동 조사용 — 기준선 오염) · catch(예외) 경로는 summary 가 없어 대상 밖.
+    // ⚠️⚠️ 로그 실패가 스냅샷을 죽이면 안 된다 — 스냅샷은 하루 한 번뿐이라 놓치면 그날 대조가
+    //    통째로 날아간다. 실패는 summary.run_log_error 로만 보고하고 응답은 그대로 낸다
+    //    (inv-collect 의 「진단은 본업을 막지 않는다」 원칙 — 2026-08-25).
+    const logRun = async (wrote: number | null, existingRowsBefore: number | null, dbRowsAfter: number | null) => {
+      if (dry) return;   // ⚠️ dry 는 기록하지 않는다 — 회차 간 비교의 기준선을 오염시킨다.
+                         //   (분기 순서상 aborted 검사가 dry 보다 앞이라 dry+중단이 여기로 온다 —
+                         //    수동 dry 는 429·time 으로 끊기기 가장 쉬운 호출이다. 2026-08-26 리뷰)
+      try {
+        const r = await fetch(SB_URL() + "/rest/v1/inv_snapshot_runs", {
+          method: "POST",
+          headers: sbHeaders({ Prefer: "return=minimal" }),
+          body: JSON.stringify({
+            // ran_at 은 보내지 않는다 — DB default now()
+            snapshot_key: snapshotKey,
+            taken_at: takenAtIso,
+            ok: aborted ? false : true,
+            aborted,                                // 정상이면 null
+            abort_note: abortNote,
+            list_total: listTotal,
+            pages_scanned: pagesScanned,
+            duration_ms: Date.now() - t0,
+            received_rows: receivedRows,
+            insert_rows: agg.size,
+            wrote,                                  // 정상 경로만 — aborted 는 null
+            existing_rows_before: existingRowsBefore,
+            db_rows_after: dbRowsAfter,
+            truncated,
+            rate_limited: rateLimited,
+            warehouses,
+            summary,
+          }),
+        });
+        if (!r.ok) throw new Error("inv_snapshot_runs insert " + r.status + ": " + (await r.text()).slice(0, 200));
+      } catch (e: any) {
+        summary.run_log_error = String(e?.message ?? e).slice(0, 300);
+      }
+    };
+
     // ── all-or-nothing 관문: 수집 불완전이면 한 행도 쓰지 않는다 ──
     if (aborted) {
       summary.aborted = aborted;
       summary.abort_note = abortNote;
       summary.duration_ms = Date.now() - t0;
+      await logRun(null, null, null);   // 로그는 남긴다 — 이 회차가 가장 알고 싶은 회차다
       return json({ ok: false, wrote: 0, ...summary }, 200);   // 부분 스냅샷은 원장의 출발점을 틀리게 만든다
     }
 
     if (dry) {
       summary.duration_ms = Date.now() - t0;
-      return json({ ok: true, wrote: 0, ...summary });
+      return json({ ok: true, wrote: 0, ...summary });   // dry 는 회차 로그 없음 (의도)
     }
 
     // ── 3) 실적재: 사전 count → 500행 배치 insert → 사후 count ──
@@ -310,6 +355,7 @@ Deno.serve(async (req) => {
     summary.inserted_batches = insertedBatches;
     summary.db_rows_after = dbAfter;               // insert_rows 와 일치해야 정상 (재실행이면 수렴 확인)
     summary.duration_ms = Date.now() - t0;
+    await logRun(dbAfter - existingBefore, existingBefore, dbAfter);
     return json({ ok: true, wrote: dbAfter - existingBefore, ...summary });
   } catch (e) {
     // insert 도중 예외 = 부분 적재 가능 상태 — 같은 key 재실행이 수렴한다(ignore-duplicates).
