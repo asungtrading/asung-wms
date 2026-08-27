@@ -124,6 +124,22 @@ from inv_snapshot_runs order by ran_at desc limit 3;
 ```
 ⚠️ `ok=false` 이면 그 회차는 한 행도 안 썼다 — **그날 대조는 옛 스냅샷을 상대로 돈다.**
 
+- 🔵 **원가(landed cost) — `inv_cost` + EF `inv-cost` (2026-08-27 · `20260827184936`)**
+  조사·구현 정본은 `docs/sessions/2026-08-27-landed-cost-investigation.md` — **다시 조사하지 말 것.**
+  Cin7 이 계산한 COGS 를 우리 원장 행 단위(**bin·CardID**)로 나눠 담는다.
+  · ⭐ **원장과 달리 upsert 다 — append 가 아니다.** Cin7 을 베낀 값이라 재수집으로 다시 만들 수
+    있고, Cin7 은 **재평가로 값을 바꾼다**(`+A/−A/+B`). append 로 담으면 `TR-04175` 와 같은
+    이중 계상이 된다. 📌 **경계: 우리가 만든 사건 = 상쇄 / Cin7 을 베낀 것 = 덮어쓰기.**
+  · ⚠️ **`since` 는 문서 선택에만** — `occurred_on` 필터 금지. 비용은 **입고보다 앞선 날짜로
+    소급**된다(인보이스 날짜). 필터하면 유실된다.
+  · **수집 축** = `UpdatedSince` + 커서(`inv_sync_state` `source_key='cost'`). 첫 시딩 8/20.
+  · ✅ **실물 검증**: 47행 · **원장 조인 47/47**(`doc_number`·`line_ref`·`sku`·`warehouse`·`bin`) ·
+    재계산 항등식 `ratio = 1.000000`(세금·할인·부분입고·bin 배분 네 축 동시)
+  · ⬜ **cron 미등록** — 며칠 수동 후. 첫 회차 116초 · 2회차 18초.
+  · 👁 **landed 재방문이 마지막 미검증 지점** — 현재 `landed_rows` 0(비용이 아직 안 왔다).
+    한 달쯤 뒤 붙으면 갱신 축으로 다시 잡혀야 한다.
+  · ⬜ Simple Purchase 경로 미검증(표본 없음) · ⬜ freight `_95_` 정책 회계 확인 · ⬜ FIFO 레이어
+
 **⑤ 진입 게이트 — 6개 전부 통과** (**정본은 설계 4부** 「commit=1 을 켜기 전에 닫아야 하는 것」):
 ```
 ☑1 CardID · 👁2 adv_no_putaway(관찰) · ☑3 재등장 전제 ·
@@ -259,6 +275,7 @@ from inv_snapshot_runs order by ran_at desc limit 3;
 | `SR=[""]` 빈 상태 블록을 이상 신호로 볼 것인가? | **아니다. Convert 를 거친 문서의 정상 흔적**(라인이 PA 로 옮겨간 뒤 껍데기만 남는다 — PO-01117 실측: Convert 직후 SR 0줄·PA 51줄, CardID 동일) |
 | 원장이 재수집하면 문서 변경을 다 잡나? | **아니다 — `inv_conflicts` 는 「변경」 전용이다.** 삭제된 라인은 **다시 오지 않으므로 비교 대상 자체가 없다**(재수집 세트에 없는 것은 아무 일도 일으키지 않는다). ⇒ 소멸은 `inv_missing_lines`(B−A 집합 뺄셈 · 2026-08-25 TR-04175 실사고)가 잡는다. 📌 `inv_conflicts` 가 오래 0인 것은 「감지가 안 된다」가 아니라 「수량 변경이 아직 없었다」일 수 있다 — 두 가설을 섞지 말 것 |
 | 커서가 지나간 문서는 다시 안 읽나? | **아니다 — 커서는 비종결 문서 앞에서 멈춘다.** `processed`·`skip_voided`·`skip_since` 만 넘어가고 `processed_nonterminal`(IN TRANSIT)·`hold_*` 는 커서를 잡는다. ⇒ **편집 가능한 기간 = 재읽기되는 기간**이라 소멸 감지를 붙일 자리가 구조적으로 보장된다(새 수집 축 불필요). ⚠️ 단 커서 **위쪽** 문서는 매 회차 전부 다시 훑는다 — 교착이 길어지면 API 예산을 계속 쓴다 |
+| 원가도 원장처럼 append 로 담나? | **아니다 — `inv_cost` 는 upsert 다.** 원장은 「우리가 만든 사건」이라 상쇄로만 고치지만, 원가는 **Cin7 의 계산 결과를 베낀 것**이고 언제든 다시 가져올 수 있다. Cin7 이 재평가로 값을 바꾸므로 append 로 담으면 옛 값이 남아 이중 계상된다. 📌 **하드 플립 시점의 값이 원가의 기초**가 된다(`inv_snapshot` 이 수량에 한 역할과 같다) — 그 이후에는 우리가 계산해 쌓으므로 그때는 append 가 맞다 |
 
 ### 조사 자체에서 반복된 실패 (같은 실수 반복 금지)
 
@@ -558,6 +575,10 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
   📌 같은 건에서 지시문의 유니크 인덱스 `(snapshot_key, ran_at)` 도 **무의미**했다 —
   `ran_at` 이 DB `default now()` 라 재삽입해도 충돌하지 않는다. **제약을 넣기 전에
   「이것이 실제로 무엇을 막는가」를 확인할 것.**
+- ⚠️ **새 Edge Function 을 만들 때 `supabase/config.toml` 블록을 반드시 함께 추가할 것.**
+  [2026-08-27] `inv-cost` 를 배포했는데 블록이 없어 첫 호출이 `UNAUTHORIZED_NO_AUTH_HEADER` 로
+  막혔다 — **함수에 도달하기 전 게이트웨이가 막는다**(새 함수는 `verify_jwt` 기본 켜짐).
+  형식: `enabled = true` · `verify_jwt = false` · `entrypoint = "./functions/<name>/index.ts"`.
 
 ---
 

@@ -208,3 +208,36 @@ const adjustments = fetchAllPages('stockadjustmentList', {
     (2026-08-24 실측 · 화면 표기와 다르다). `product_type = 'Non-inventory'` 로 SQL·코드 필터를 쓰면
     **조용히 0행**이 된다. 📌 원장의 비재고 게이트가 `Type !== 'Stock'` **부정 조건**을 쓰는 이유가
     이것이다 — 값 어휘를 맞히지 않아도 되고, 새 타입이 생겨도 자동으로 차단 쪽에 선다.
+
+### ⚠️ Advanced Purchase 상세 — 원가(COGS)를 읽을 때 (2026-08-27 실측)
+
+정본: `docs/sessions/2026-08-27-landed-cost-investigation.md` · 구현: EF `inv-cost`
+
+- **`GET /advanced-purchase?ID=<purchaseList 의 ID>`**
+  ⚠️ **`/purchase` 는 Advanced·Service Purchase 를 지원하지 않는다** —
+  `"This endpoint is deprecated and does not support Advanced Purchase and Service Purchase"`.
+  ⚠️ 파라미터는 **`ID`** 다. `TaskID` 는 `"Purchase Task with specified ID not found"`.
+- ⚠️⚠️ **`Invoice`·`StockReceived`·`PutAway`·`CreditNote`·`ManualJournals` 는 전부 배열이다.**
+  `[0]` 만 보면 틀린다 — `PO-01130` 은 Invoice 2 · SR 2 · PA 2 였고, 첫 원소만 보다가
+  숫자가 안 닫혀 헤맸다.
+- ⭐ **`InvoicingAndReceivingNumber`(I&R)** 가 회차↔인보이스 대응 축이다.
+  세 배열 모두에 있다. **입고 회차마다 환율이 다르므로**(`PO-01130` 1.40275 / 1.39342)
+  이 축으로 맞춰야 한다.
+- ⚠️⚠️ **SR 블록의 `Status` 를 판정에 쓰지 말 것.** [실측] `PO-01117` SR `status="DRAFT"` 인데
+  SR qty 8,664 = PA qty 8,664 이고 COGS 도 오차 0으로 맞았다(헤더는 `AUTHORISED`·`FULLY RECEIVED`).
+  **Advanced 의 확정 축은 `PutAway`** 다. SR 은 **VOIDED 만** 제외한다.
+- ⚠️⚠️ **`Invoice.Total` 은 세후다.** 재고 원가 계산에는 **`TotalBeforeTax`** 를 쓴다
+  ([실측] 국내 매입 `PO-00967` 에서 HST 13% 만큼 어긋났다. 수입 PO 는
+  `TaxRule="Zero-rated (Purchase)"` 라 `Tax=0` 이어서 오래 안 보였다).
+- **`InventoryMovements`** = 가치 장부다. `ProductID · Date · COGS` 뿐 — **수량도 SKU 도 bin 도 없다.**
+  ⚠️ 같은 `(ProductID, Date)` 에 행이 **여럿일 수 있다**(재평가 상쇄 `+A/−A/+B`) — **합산**해야 순액이다.
+  ⚠️ **bin 은 `PutAway.Lines` 에만 있다** — `StockReceived.Lines` 의 `Location` 은 전부 null 이다.
+- **`Type='Service Purchase'`**(`IsServiceOnly=true`) 는 통관사·포워더 인보이스 문서다.
+  `InventoryMovements` 0건이고 **자기가 어느 PO 에 붙었는지 모른다**(연결 필드 없음).
+  ⇒ 원가는 반드시 **Advanced PO 축에서** 읽는다. 목록의 `IsServiceOnly` 로 걸러진다([실측] 41%).
+  📌 PO 쪽 `ManualJournals` 의 **`IsSystem=false`** 줄이 그 비용이고, 금액은 **세전액**이다
+  (HST 13% 제외 — 4건 전수 확인). 한 인보이스가 **여러 PO·여러 줄로** 쪼개진다.
+- **배분은 금액 비례**다(수량·무게 아님). 분모 = `Invoice.Lines` 총합(AdditionalCharges **전**).
+- **`Invoice[].AdditionalCharges`** 의 **`Account`** 가 재고 여부를 가른다 —
+  `_59_`(Discount·Rounding)는 재고, `_95_`(Freight·Commission)는 손익.
+  ⚠️ **`Order.AdditionalCharges` 에는 `Account` 필드가 없다** — 판정은 `Invoice` 쪽으로.
