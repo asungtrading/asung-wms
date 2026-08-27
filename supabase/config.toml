@@ -450,6 +450,15 @@ entrypoint = "./functions/inv-collect/index.ts"
 [functions.inv-sku-types]
 enabled = true
 # 비재고 SKU 캐시 갱신 (2026-08-24 · FINAL-SALE 실사고) — 같은 시크릿 헤더 인증.
-# pg_cron 일 1회(03:26 UTC — cron.sql 잡 14). inv-collect 와 분리 = 갱신 실패가 수집과 격리.
+# pg_cron 일 1회(03:26 UTC — cron.sql 잡 15 [실측 2026-08-26 등록]). inv-collect 와 분리 = 갱신 실패가 수집과 격리.
 verify_jwt = false
 entrypoint = "./functions/inv-sku-types/index.ts"
+
+[functions.inv-cost]
+enabled = true
+# 원가(landed cost) 수집 (2026-08-27) — 같은 시크릿 헤더 인증(위 블록 참조).
+# Cin7 InventoryMovements 의 COGS 를 원장 행 단위(bin·CardID)로 나눠 inv_cost 에 upsert.
+# ⚠️ 원장(append-only)과 달리 덮어쓴다 — Cin7 을 베낀 값이라 재수집으로 다시 만들 수 있다.
+# 지금은 dry 검증 전용(수동 실행) — cron 등록은 검증 후 별도.
+verify_jwt = false
+entrypoint = "./functions/inv-cost/index.ts"
