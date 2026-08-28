@@ -135,10 +135,42 @@ from inv_snapshot_runs order by ran_at desc limit 3;
   · **수집 축** = `UpdatedSince` + 커서(`inv_sync_state` `source_key='cost'`). 첫 시딩 8/20.
   · ✅ **실물 검증**: 47행 · **원장 조인 47/47**(`doc_number`·`line_ref`·`sku`·`warehouse`·`bin`) ·
     재계산 항등식 `ratio = 1.000000`(세금·할인·부분입고·bin 배분 네 축 동시)
-  · ⬜ **cron 미등록** — 며칠 수동 후. 첫 회차 116초 · 2회차 18초.
-  · 👁 **landed 재방문이 마지막 미검증 지점** — 현재 `landed_rows` 0(비용이 아직 안 왔다).
-    한 달쯤 뒤 붙으면 갱신 축으로 다시 잡혀야 한다.
-  · ⬜ Simple Purchase 경로 미검증(표본 없음) · ⬜ freight `_95_` 정책 회계 확인 · ⬜ FIFO 레이어
+  · ✅ **cron 등록 (2026-08-28 · [실측] jobid 16 · `33 4 * * *` UTC = 토론토 00:33)**
+    ⚠️⚠️ URL 에 **`since=2026-08-20`** 이 반드시 있어야 한다 — 빠지면 기초 스냅샷 이전
+    입고까지 원가가 들어온다. ⚠️ 킬 스위치 `select cron.alter_job(16, active := false);`
+  · ⭐ **아침 점검 ⑥ — 원가가 빠진 입고** (2026-08-28 · 경고 대신 **결과로 잡는다**)
+```sql
+select l.doc_number, min(l.occurred_on) as received,
+       count(*) as ledger_rows, sum(l.qty_delta) as qty
+from inv_ledger l
+left join inv_cost c
+  on  c.doc_number = l.doc_number and c.line_ref = l.line_ref
+  and c.sku = l.sku and c.bin = l.bin and c.warehouse = l.warehouse
+where l.doc_type = 'purchase' and l.source = 'cin7'
+  and l.occurred_on > '2026-08-20' and c.id is null
+group by l.doc_number order by 2;
+```
+    📌 **이유를 묻지 않는다** — Simple 이든·캡에 걸렸든·자기검증에 막혔든 결과 하나로 잡는다.
+    **해결하면 저절로 사라지는 목록**이라 닫거나 끌 장치가 필요 없다.
+    ⚠️ EF 경고를 정교화하지 않기로 한 이유: `skip_simple_unverified` 는 대부분 **아직 안 받은
+    오더**라 노이즈고, WMS 에 띄우는 것은 성격이 안 맞으며(창고 작업자는 PO 유형을 정하지
+    않는다), 별도 테이블은 연 2건 사건에 과하다.
+  · 👁 **`landed` 재방문이 마지막 미검증 지점** — 현재 `landed_rows` **0**. 통관·운임
+    인보이스는 입고 후 **한두 달** 뒤에 온다. **잊지 않을 장치**:
+    `select cost_kind, count(*) from inv_cost group by 1;` — **landed 가 처음 나타나는 날이
+    검증일**이다(검증할 것: 소급 날짜가 `since` 에 안 걸리나 · 별도 행으로 오나 · 재평가 덮어쓰나).
+  · ⬜ Simple Purchase 경로 미검증 · ⬜ freight `_95_` 정책 회계 확인 · ⬜ FIFO 레이어
+
+- ⭐ **Simple 로 완료된 PO 도 나중에 Advanced 로 Convert 할 수 있다** ⇒ 「Simple 로 완료됨」은
+  **영구 상태가 아니다.** 경고할 필요가 없고 **자가 치유된다**:
+  `Convert → LastUpdatedDate 갱신 → inv-cost 가 UpdatedSince 로 포착 → 원가 기표 → ⑥ 목록 소멸`
+  [실측 2026-08-28 `PO-01133`] 이 고리가 **3초**에 돌았다(`processed 1` · `rows_written 1`).
+- ⚠️ **`CardID` 는 Convert 를 넘어 유지된다** — `PO-01133` 의 원장 행은 Simple 시절
+  `StockReceived` 축으로, 원가 행은 Convert 후 `PutAway` 축으로 만들어졌는데 **`line_ref` 가
+  같았다**(`90bc0304-…`). 실무의 예외가 원장·원가 정합을 깨지 않는다.
+- [실측 2026-08-28] 4년치 1,231건 중 **Simple 인 채로 입고 완료된 것 7건**(`PO-01133`·`00893`·
+  `00874`·`00583`·`00229`·`00081`·`00080`). 관행은 「대부분 Advanced 로 넘긴다」이지만
+  **규칙이 아니다** — Simple 로 마무리해도 되는 오더가 실재한다.
 
 **⑤ 진입 게이트 — 6개 전부 통과** (**정본은 설계 4부** 「commit=1 을 켜기 전에 닫아야 하는 것」):
 ```
@@ -204,7 +236,22 @@ from inv_snapshot_runs order by ran_at desc limit 3;
   못 잡는다**. [실증] `AS93125` 토론토 2,662개가 그 스냅샷에만 없었다.
   ⚠️ **기준선(`-initial`)이 이렇게 찍히면 원장 전체가 잘못된 출발점을 갖고, 어느 대조에서도
   드러나지 않는다.** 🔵 **기록은 완료**(`inv_snapshot_runs` · 2026-08-26 — 위 회차 로그 항목) ·
-  ⬜ **판정 미구현** = 직전 회차 대비 `list_total`·`pages_scanned`·`duration_ms` 급감 검사.
+  ⬜ **판정 미구현** = 직전 회차 대비 `list_total` 급감 검사(축 정리는 아래).
+
+⚠️⚠️ **[실측 2026-08-28 · 첫 뺄셈] 축은 `list_total` 하나뿐이다.**
+
+| 축 | 정상(8/28) | 불량(8/24 밤) | 판정 |
+|---|---|---|---|
+| **`list_total` 일일 변화** | **+33** | **−202** | ⭐ 유일한 축 |
+| `duration_ms` | 45.1초 | 104초 | 보조 |
+| ~~`pages_scanned`~~ | 23 | **22** | ❌ `list_total÷1000` 올림값 |
+| ~~`insert_rows`~~ | −45 | −42 | ❌ 다른 물건 · 방향 무관 |
+
+· ⚠️ **`list_total` 과 `insert_rows` 는 반대로 움직인다**(+33 vs −45) — 전자는 **Cin7 의
+  product availability 행 수**, 후자는 **우리가 합쳐 만든 재고 행 수**다. 다른 물건이다.
+· ⚠️ **`pages_scanned` 는 독립 정보가 아니다** — 22,009 는 22,000 을 넘어 23페이지가 됐을 뿐이고,
+  **8/24 불량(21,877)과 8/27 정상(21,976)은 똑같이 22페이지**였다.
+· ⬜ 임계값은 정상 표본 2점뿐이라 아직 정하지 않는다.
 - 👁2 는 **관찰 대기**(WMS 는 put-away 없이 Apply 하지 않아 우리 시스템이 만들 수 없는 상태.
   ⚠️ Advanced 기본값을 켜면 게이트로 복귀) · 🟡4 만 **실동작 미검증**으로 남는다.
 
@@ -586,7 +633,8 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 1. 🔵 **스냅샷 급감 검사 — 판정 단계만 남았다**. 회차 로그는 2026-08-26 신설 완료.
    ⚠️ 임계값은 **정상 회차가 며칠 쌓인 뒤** 분포를 보고 정한다(표본 없이 숫자를 정하지 말 것).
-   ⚠️ 판정 축은 `list_total`·`pages_scanned`·`duration_ms` — **행 수가 아니다.**
+   ⚠️ 판정 축은 **`list_total` 하나**(`duration_ms` 보조) — 행 수도 `pages_scanned` 도 아니다
+   ([실측 2026-08-28] 축 정리 표는 §4-c (c) 항목).
    ⚠️ 「거부 vs 경고」 미결 — 거부는 그날 스냅샷이 안 찍히는 것이고, 그러면 그날 대조가 사라진다.
 2. 매일 아침 4줄 — 스냅샷 · 대조 unknown · `inv_missing_lines` 미해결 · 회차 로그
 3. 30일 무결 후 하드 플립

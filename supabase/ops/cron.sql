@@ -16,12 +16,12 @@
 --    (그 항목은 2026-08-26 에 등록돼 **jobid 15** 를 받았다 — 절 15 참조).
 --    번호가 틀리면 킬 스위치(alter_job)를 엉뚱한 잡에 쏜다.
 --
--- [실측 2026-08-26 cron.job 전체] 1(wms-poll-orders) · 3(wms-health-snapshot) ·
+-- [실측 2026-08-28 cron.job 전체] 1(wms-poll-orders) · 3(wms-health-snapshot) ·
 --    4(wms-image-sync) · 5(wms-image-sync-retry) · 6~11(inv-collect 6종) ·
 --    12(inv-snapshot-compare) · 13(inv-compare-run) · 14(wms-auto-hold) ·
---    15(inv-sku-types — 2026-08-26 등록, 08-24 백로그 소진).
+--    15(inv-sku-types — 2026-08-26 등록) · 16(inv-cost — 2026-08-28 등록).
 --    2(wms-reap-stale-claims)는 unschedule 로 사라짐.
---    📌 예측대로 15 를 받았지만 **확인 전에는 추정이었다** — 그것이 08-24 의 교훈이다.
+--    📌 15·16 둘 다 예측한 번호를 받았지만 **확인 전에는 추정이었다** — 08-24 의 교훈이다.
 
 -- 1) Cin7 주문 폴링 (5분마다) → Edge Function 'hello'
 --    참고: Authorization 에 'Bearer ' 접두어가 없다. hello 가
@@ -285,10 +285,12 @@ select cron.schedule(
 --     purchase                 8·23·38·53                          (8-53/15)
 --     adjustment               11        assembly 13       creditnote 16
 --     snapshot(잡12) 21        sku-types(잡15) 26        compare(잡13) 36 ← DB 전용
+--     cost(잡16) 33
 --       ⚠️ 이 표는 **분만** 본다(위 잡들은 매시 돌아 시(hour)와 무관하게 분에서 부딪힌다).
---       시각은 다르다: 잡12·13 = **05:21·05:36 UTC** · 잡15 = **03:26 UTC**(2시간 떨어져 있다).
---   ⇒ 사용 중 = mod5∈{0,2,4} 전체 + {8,11,13,16,21,23,26,36,38,53}
---     남은 빈 분 = {1,3,6,18,28,31,33,41,43,46,48,51,56,58}  ← 다음 잡은 여기서 고른다
+--       시각은 다르다: 잡12·13 = **05:21·05:36 UTC** · 잡15 = **03:26** · 잡16 = **04:33 UTC**.
+--   ⇒ 사용 중 = mod5∈{0,2,4} 전체 + {8,11,13,16,21,23,26,33,36,38,53}
+--     남은 빈 분 = {1,3,6,18,28,31,41,43,46,48,51,56,58}  ← 다음 잡은 여기서 고른다
+--     (21=잡12 · 26=잡15 · 33=잡16 · 36=잡13 이 쓰고 있다)
 --   ⚠️ 잡이 늘 때마다 **눈으로 세지 말고 다시 전수 계산할 것**(2026-08-21 purchase 겹침 교훈:
 --     7·22·37·52 가 transfer 의 부분집합이라 4회가 전부 동시 실행 = 분당 ~100콜).
 --   📌 DB 전용 잡(reaper */2 · health 0분 · compare 36분)은 Cin7 한도와 무관해 이 집합 밖이다.
@@ -391,4 +393,44 @@ select cron.schedule(
   'wms-auto-hold',
   '*/2 * * * *',
   $job$ select wms_auto_hold() $job$
+);
+
+-- 16) 원가(landed cost) 수집 (매일 04:33 UTC = 토론토 00:33 ·
+--     [실측 jobid 16 — 2026-08-28 등록 후 cron.job 확인])
+--     → Edge Function 'inv-cost' (마이그레이션 20260827184936 · 테이블 inv_cost)
+--     배경: Cin7 InventoryMovements 의 COGS 를 원장 행 단위(bin·CardID)로 나눠 upsert.
+--     정본 = docs/sessions/2026-08-27-landed-cost-investigation.md (조사·구현) ·
+--            docs/sessions/2026-08-28-cost-first-verification.md (첫 검증)
+--     ⚠️⚠️ **URL 에 since=2026-08-20 이 반드시 있어야 한다** — 빠지면 기초 스냅샷 이전
+--       입고까지 원가가 들어온다(원장에 대응 행이 없는 원가가 대량 유입).
+--     ⚠️ 킬 스위치: select cron.alter_job(16, active := false);
+--     ⚠️ 확인은 결과물로만 — cron.job_run_details 의 succeeded 는 아무것도 보장하지 않는다:
+--         select source_key, last_cursor, last_run_at from inv_sync_state where source_key='cost';
+--         select cost_kind, count(*), max(refreshed_at) from inv_cost group by 1;
+--     ⚠️ 분 33 = 빈 분. 스냅샷(잡12 · 05:21)과 48분 떨어뜨렸다 — 스냅샷은 23페이지를 몰아
+--       치는 회차라 멀수록 429 위험이 낮다. inv-sku-types(잡15 · 03:26)와 67분.
+--       아침 점검 전에 돌아야 「원가 누락」 점검(⑥)이 간밤 결과를 본다.
+--     📌 하루 1회로 시작한다. 회차가 3~9초라 부담이 없고, detail_capped 가 반복되면
+--       '33 */6 * * *' 로 늘린다(상세 캡은 회차당 40건 — 일괄 마감 때 밀린다).
+--     ⚠️⚠️ [2026-08-28 실수] 처음 등록 때 placeholder 를 실제 값으로 바꾸는 것을 놓쳤다
+--       (still_placeholder=true). 401 로 매일 조용히 실패할 뻔했다. **같은 이름으로
+--       cron.schedule 을 다시 부르면 덮어쓴다**(unschedule 불필요 · jobid 유지).
+--       등록 직후 반드시:
+--         select jobname, command like '%WMS_CRON_SECRET%' as still_placeholder,
+--                command like '%since=2026-08-20%' as has_since,
+--                command like '%commit=1%' as has_commit
+--         from cron.job where jobname='inv-cost';
+--         select length((regexp_match(command,'x-wms-cron-key'',\s*''([^'']*)'''))[1])
+--         from cron.job where jobname='inv-cost';   -- 24 여야 한다(공백 섞임·잘림 탐지)
+select cron.schedule(
+  'inv-cost',
+  '33 4 * * *',
+  $job$
+    select net.http_get(
+      url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-cost?commit=1&since=2026-08-20',
+      headers := jsonb_build_object(
+        'x-wms-cron-key', '<WMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'
+      )
+    );
+  $job$
 );
