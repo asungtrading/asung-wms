@@ -10,7 +10,7 @@
     --paper:#f7f8fa; --card:#ffffff; --mut:#6b7686; --mut-2:#9aa4b2;
     --accent:#7a5af0; --accent-ink:#5a3fd0;
     --tor:#2f6df6; --edm:#12996b;
-    --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --danger:#dc2626; --danger-bg:#fdecec;
+    --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --warn-bg:#f9e6b8; --danger:#dc2626; --danger-bg:#fdecec;
     --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
     --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
     --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
@@ -116,6 +116,7 @@
   .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
   .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
   .qtybox.done .qtybig{color:var(--ok)}
+  .qtybox.partial .qtybig{color:var(--warn)}
   .lastscan{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 13px;border-radius:11px;background:var(--ok-bg);border:1.5px solid #bfe6cd;font-family:var(--mono);font-weight:800;font-size:15px;color:#15803d}
   .lastscan .fbig{font-size:22px;white-space:nowrap}
   .lastscan.boxscan{background:#fff4e0;border-color:#f0d9ae;color:#a86400}
@@ -148,7 +149,7 @@
   .avail.low{color:var(--danger);background:var(--danger-bg)}
   .avail.na{color:var(--mut-2);background:#f1f3f6}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
-  .lrow.miss{background:var(--danger-bg);border-color:#f3c4c4}
+  .lrow.partial{background:#fdf6ec;border-color:#f0d9ae}
   .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line);overflow:hidden}
   .lrow .thumb img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
   .lrow .li{flex:1;min-width:0}
@@ -157,6 +158,7 @@
   .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
   .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap;text-align:right}
   .lrow.done .q{color:var(--ok)}
+  .lrow.partial .q{color:var(--warn)}
   .shortchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--danger);border-radius:5px;padding:1px 5px;margin-left:6px}
   .recchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--ok);border-radius:5px;padding:1px 5px;margin-left:6px}
   .stockchip{font-family:var(--mono);font-size:10px;font-weight:700;color:#2456d6;background:#eaf2ff;border:1px solid #c6dbff;border-radius:5px;padding:1px 5px;margin-left:6px}
@@ -922,7 +924,7 @@ function renderSingle(){
   const host=document.getElementById("single"); host.style.display="block";
   if(!lines.length){ host.innerHTML=""; return; }
   if(curIdx>=lines.length)curIdx=lines.length-1;
-  const l=lines[curIdx]; const done=l.verified>=l.required;
+  const l=lines[curIdx]; const done=l.verified>=l.required; const partial=l.verified>0&&!done;
   let chips="";
   if(l.expected<l.required){
     if(l.verified>=l.required) chips+=`<span class="recchip">Pack fill +${l.verified-l.expected}</span>`;
@@ -945,7 +947,7 @@ function renderSingle(){
         </div>
       </div>
       ${barcodeBlock(l)}
-      <div class="qtybox ${done?"done":""}">
+      <div class="qtybox ${done?"done":partial?"partial":""}">
         <div class="qtybig">${l.verified}<span class="of"> / ${l.required}</span></div>
         <div class="stepper">
           <button data-step="-1" ${frozen?"disabled":""}>\u2212</button>
@@ -1181,7 +1183,9 @@ function renderList(){
   if(sf && !visible.length){ el.innerHTML=`<div style="padding:18px;color:var(--mut);font-size:13px;text-align:center">No item matches "${esc(skuFilter)}" in this batch.</div>`; return; }
   el.innerHTML=visible.map(({l,idx})=>{
     const done=l.verified>=l.required;
-    const cls=done?"done":(idx===curIdx?"cur":"");
+    const partial=l.verified>0&&!done;   // 부분 = 0<verified<required (required 기준 — 픽 부족 라인은 픽량을 다 담아도 유지: 「부족한 채 나간다」 표시)
+    // 부분(주황 배경)은 cur(보라 테두리)와 병기 — 배경과 테두리는 직교 레이어. done 은 종전대로 단독
+    const cls=done?"done":[partial?"partial":"",idx===curIdx?"cur":""].filter(Boolean).join(" ");
     let chip="";
     if(l.expected<l.required){
       if(l.verified>=l.required) chip=`<span class="recchip">Pack fill +${l.verified-l.expected}</span>`;

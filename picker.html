@@ -10,7 +10,7 @@
     --paper:#f7f8fa; --card:#ffffff; --mut:#6b7686; --mut-2:#9aa4b2;
     --accent:#2f6df6; --accent-ink:#1b4fd6;
     --tor:#2f6df6; --edm:#12996b;
-    --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --danger:#dc2626; --danger-bg:#fdecec;
+    --ok:#16a34a; --ok-bg:#e7f7ed; --warn:#d9820a; --warn-bg:#f9e6b8; --danger:#dc2626; --danger-bg:#fdecec;
     --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
     --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
     --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
@@ -114,6 +114,7 @@
   .qtybig{font-family:var(--mono);font-weight:800;font-size:40px;line-height:1}
   .qtybig .of{font-size:22px;color:var(--mut-2);font-weight:700}
   .qtybox.done .qtybig{color:var(--ok)}
+  .qtybox.partial .qtybig{color:var(--warn)}
   .stepper{margin-left:auto;display:flex;gap:8px}
   .stepper button{width:42px;height:42px;border-radius:11px;border:1px solid var(--line);background:#fff;font-size:22px;font-weight:700;color:var(--ink);cursor:pointer}
   .stepper button:active{background:var(--paper)}
@@ -134,7 +135,7 @@
   @keyframes rowflash{0%,60%{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,109,246,.35)}100%{}}
   .single .backlist{display:block;margin:0 0 10px;border:1px solid var(--line);background:var(--paper);color:var(--mut);border-radius:9px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
   .lrow.done{background:var(--ok-bg);border-color:#bfe6cd}
-  .lrow.short{background:var(--danger-bg);border-color:#f3c4c4}
+  .lrow.partial{background:#fdf6ec;border-color:#f0d9ae}
   .lrow .zn{font-family:var(--mono);font-weight:800;font-size:12px;color:#fff;background:var(--mut-2);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
   .lrow .li{flex:1;min-width:0}
   .lrow .li .s{font-family:var(--mono);font-weight:800;font-size:15.5px;color:var(--ink)}
@@ -142,6 +143,7 @@
   .lrow .li .b{font-family:var(--mono);font-size:11px;color:var(--mut)}
   .lrow .q{font-family:var(--mono);font-weight:800;font-size:15px;white-space:nowrap}
   .lrow.done .q{color:var(--ok)}
+  .lrow.partial .q{color:var(--warn)}
   .lrow .thumb{width:44px;height:44px;border-radius:8px;background:#f1f3f6 center/cover no-repeat;flex:none;border:1px solid var(--line);overflow:hidden}
   .lrow .thumb img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
   .avail{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--edm);background:#e9f7f1;border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
@@ -1049,7 +1051,7 @@ function renderSingle(){
   document.getElementById("list").style.display="none";
   if(!lines.length){document.getElementById("single").innerHTML="";return;}
   if(curIdx>=lines.length)curIdx=lines.length-1;
-  const l=lines[curIdx]; const done=l.picked>=l.assigned;
+  const l=lines[curIdx]; const done=l.picked>=l.assigned; const partial=l.picked>0&&!done;
   document.getElementById("single").innerHTML=`
     <div class="body">
       ${viewOverride?`<button class="backlist" data-backlist>← Back to list</button>`:""}
@@ -1063,7 +1065,7 @@ function renderSingle(){
         </div>
       </div>
       ${barcodeBlock(l)}
-      <div class="qtybox ${done?"done":""}">
+      <div class="qtybox ${done?"done":partial?"partial":""}">
         <div class="qtybig">${l.picked}<span class="of"> / ${l.assigned}</span></div>
         <div class="stepper">
           <button data-step="-1" ${frozen?"disabled":""}>−</button>
@@ -1101,8 +1103,9 @@ function renderList(){
   document.getElementById("single").style.display="none";
   const el=document.getElementById("list"); el.style.display="flex";
   el.innerHTML=lines.map((l,idx)=>{
-    const done=l.picked>=l.assigned; const short=l.picked<l.assigned&&l.picked>0;
-    const cls=done?"done":(idx===curIdx?"cur":"");
+    const done=l.picked>=l.assigned; const partial=l.picked>0&&!done;
+    // 부분(주황 배경)은 cur(파란 테두리)와 병기 — 배경과 테두리는 직교 레이어. done 은 종전대로 단독(완료 행에 테두리 없음)
+    const cls=done?"done":[partial?"partial":"",idx===curIdx?"cur":""].filter(Boolean).join(" ");
     return `<div class="lrow ${cls}" data-idx="${idx}">
       <span class="zn">${esc(l.zone||"·")}</span>${l._tote?`<span class="tt">T${l._tote}</span>`:""}
       <div class="thumb">${imgTag(l)}</div>
