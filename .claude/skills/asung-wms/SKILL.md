@@ -205,6 +205,7 @@ Stats 는 멤버 픽태스크를 집계하므로 그대로 통계 왜곡. 같은
 - **saleList는 AdditionalAttributes를 안 줌** → 반드시 `/sale` 상세로 확인.
 - **AUTHORISED에 여러 진행단계가 혼재**(Fulfilled/Packed도 AUTHORISED) → saleList로 후보 좁힌 뒤 상세에서 `AdditionalAttribute1='2.Release to WMS'`만 필터 필수.
 - `/sale` 상세 최상위: `AdditionalAttributes`(객체) / `Location`(창고명 문자열) / `Order`(라인) / `Fulfilments` / `Status`(='ORDERED'). ⚠️ `OrderStatus`·`OrderLocationID`는 상세엔 없음(saleList에만).
+  - **추가 확정 6종 (실측 GAS 프로브 2026-08-28 · SO-15505)** — 위 목록이 불완전해서 프로브를 한 번 더 돌려야 했다. **추측 말 것**: `ShippingAddress`(객체 — ⭐ **`DisplayAddressLine1`·`DisplayAddressLine2`** = Cin7 이 인쇄용으로 합쳐둔 두 줄, **조립 금지**) / `BillingAddress` / **`Terms`**(문자열. ⚠️ customer·supplier 의 `PaymentTerm` 과 **다른 이름**) / `Contact` / `Phone` / `ShippingNotes`. 쓰는 곳 = 픽리스트 주소·Terms(규칙 23 · `wms_orders.ship_address` jsonb 원문 / `terms` text — 컬럼명을 `payment_terms` 로 하지 않은 이유가 위 ⚠️ 다). **⚠️ 필드 상세(하위 필드 전수·실물 값)의 정본은 `cin7-api` 스킬 `references/sale.md` 「배송 주소·결제 조건」 절** — 필드 사실이 바뀌면 거기부터 고치고 이 줄을 맞출 것(한쪽만 고치면 갈라진다).
 - 라인 = `Order.Lines[]`, 필드: `SKU`/`Name`/`Quantity`/`Price`/`AverageCost`/`BackorderQuantity`/`ProductWeight`.
 - Cin7 헤더: `api-auth-accountid` / `api-auth-applicationkey`.
 

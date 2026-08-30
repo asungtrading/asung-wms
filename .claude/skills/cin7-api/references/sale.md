@@ -76,6 +76,11 @@
 | `IncludeProductInfo` | bool | 제품 상세 정보 포함 여부 |
 
 ### 응답 구조 (핵심 필드)
+
+⚠️ **아래 블록은 발췌다 — 없는 필드가 "응답에 없다"는 뜻이 아니다.** 실제로 이 발췌에
+배송 주소·결제 조건이 빠져 있어 **2026-08-28 에 프로브를 한 번 더 돌려야 했다**
+(픽리스트 주소·Terms 작업). 확정분은 바로 아래 「배송 주소·결제 조건」 절에 있다.
+
 ```json
 {
   "ID": "guid",
@@ -105,6 +110,39 @@
   }
 }
 ```
+
+### 배송 주소·결제 조건 — 최상위 6종 (실측 확정 · 이 절이 정본)
+
+📌 **출처: GAS 프로브 2026-08-28 · SO-15505** (아래 값은 그 실물). 추측 아님.
+📌 **정본 표시** — 같은 사실이 `asung-wms` 스킬 규칙 1 에도 요약돼 있다(WMS 사용처 관점).
+   **필드 사실이 바뀌면 이 절을 고치고 그쪽 요약을 맞출 것** (한쪽만 고치면 갈라진다).
+
+```json
+{
+  "ShippingAddress": {
+    "ID": "2fdf25a9-…",
+    "Line1": "611 Wellington Ave", "Line2": "",
+    "City": "Windsor", "State": "ON", "Postcode": "N9A5J5", "Country": "CANADA",
+    "Company": "", "Contact": "", "ShipToOther": false,
+    "DisplayAddressLine1": "611 Wellington Ave",
+    "DisplayAddressLine2": "Windsor ON N9A5J5 CANADA"
+  },
+  "BillingAddress": { "…같은 모양 — 단 ID 없음…": "" },
+  "Terms": "C.B.S (Cash Before Shipment)",
+  "Contact": "James Javier",
+  "Phone": "5192546333",
+  "ShippingNotes": "…화면 Shipping notes…"
+}
+```
+
+- ⭐ **`DisplayAddressLine1`·`DisplayAddressLine2` 는 Cin7 이 인쇄용으로 이미 합쳐둔 두 줄이다
+  — 우리가 Line1/City/Postcode 로 조립하지 말 것.** 인쇄물은 이 둘을 그대로 쓴다.
+  조립이 필요한 경우(라벨 등)를 위해 하위 필드도 함께 온다.
+- ⚠️ **`Terms` 는 sale 의 필드명이다** — customer·supplier 목록의 `PaymentTerm`(customer.md ·
+  supplier.md)과 **이름이 다르다.** 섞어 쓰면 조회가 조용히 빈 값을 낸다.
+- ⚠️ `BillingAddress` 는 `ShippingAddress` 와 같은 모양이지만 **`ID` 가 없다.**
+- 소비처: Asung WMS 픽리스트 주소·Terms(`wms_orders.ship_address` jsonb 원문 · `terms` text —
+  `asung-wms` 규칙 23 · `references/schema.md` 2026-08-30 절).
 
 ---
 
