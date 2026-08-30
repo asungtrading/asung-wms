@@ -97,6 +97,10 @@
 //   처리하고, 캡 회차만 커서 = 마지막 처리 문서의 Updated(다음 회차가 이어받음 — ②-a 의
 //   "커서가 캡 앞에서 멈춤"과 동형). Updated 필드는 소스별 명시: sale=Updated(hello 실측) ·
 //   purchase=LastUpdatedDate(리시빙 관문 실측) · creditnote=Updated(추정 — 폴백 보고).
+// ⚠️ 커서 tie-breaker (2026-08-30 결함 C — cursorKeyOf 절 주석이 정본): 정렬·필터·커서의
+//   단위는 Updated 단독이 아니라 **<Updated>|<문서식별자>** 키다 — Updated 동률 그룹이 캡보다
+//   크면(실측: 밀리초까지 같은 238건 = Cin7 플랫폼 일괄 갱신) Updated 단독 커서는 그룹 안에서
+//   영원히 제자리였다(하루 반 동결·cron 은 매번 succeeded). 증상 가드 = decideCursor.cursorStalled.
 // · 판매: VOIDED·비 SHIPPED 제외(⚠️ 배송 전엔 재고가 안 빠진다 — 픽·팩은 Allocated 일 뿐).
 //   fulfilment 단위 처리 — Ship.Lines 의 ShipmentDate(IsShipped true 만)가 원장 날짜
 //   (실측 3/3 일치) · Pick.Lines 가 실제 나간 SKU·수량(−).
@@ -149,7 +153,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-25.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 이전 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-08-30.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -412,6 +416,54 @@ function minusOneDay(d: string): string {
   const t = new Date(d + "T00:00:00Z");
   t.setUTCDate(t.getUTCDate() - 1);
   return t.toISOString().slice(0, 10);
+}
+
+// ── ②-b 커서 tie-breaker (2026-08-30 결함 C) ──
+// [실사고] 밀리초까지 같은 Updated(2026-08-28T15:25:33.383Z)의 판매 238건(History 에 해당 시각
+//   활동 없음 = Cin7 플랫폼 일괄 갱신 — 예고 없음·주기 미상·재발 전제)이 캡(40건/120초)보다
+//   커서, 캡 회차 커서(=마지막 처리 문서의 Updated)가 동률 그룹 안에서 영원히 제자리 →
+//   판매 수집이 하루 반 동결(cron 잡 7 은 350회+ 전부 succeeded — ⑥ 대조 unknown 861 이
+//   하루 뒤에야 잡았다). 결함 A(후보 안 줄음)·B(Updated null) 가드는 「시각이 없다」만 봐서
+//   「시각이 있는데 다 같다」(C)에 안 걸렸다 — 그래서 증상 가드(decideCursor)도 함께 둔다.
+// 커서 형식: <Updated>|<문서식별자> (예 2026-08-28T15:25:33.383Z|SO-14030)
+//   · Updated 는 항상 24자 ISO → 문자열 비교가 그대로 성립. 기존 맨 ISO 커서는 "그 시각 동률
+//     그룹 맨 앞"으로 해석된다 — 동률 문서를 건너뛰지 않고 **재처리**한다(유니크 키가 흡수 —
+//     안전 방향). ⚠️ 마이그레이션·일회성 변환 불필요 — 그대로 둔다.
+//   · '|' 근거: [실측 2026-08-30] inv_ledger.doc_number 중 '|' 포함 0건 · ASCII 124 라
+//     숫자·대문자보다 크다.
+//   · updated_since_requested 는 커서 앞 10자를 잘라 쓴다 — '|' 가 붙어도 앞 10자는 날짜라 무변.
+//   · ②-a(문서번호 커서)는 무접촉 — 동률 문제가 없다.
+type CursorCand = { updated: string | null };
+function cursorDocIdent(row: any): string {
+  // 목록 행의 OrderNumber → 없으면 ID(SaleID/ID) 폴백 → 둘 다 없으면 "" (그 문서는 실질
+  // tie-breaker 없이 동작 — 키 "<Updated>|" 는 그 시각 동률 그룹의 맨 앞에 선다 = 유실 방지)
+  return String(row?.OrderNumber ?? "").trim() || String(row?.SaleID ?? row?.ID ?? "").trim();
+}
+function cursorKeyOf(updated: string | null, ident: string): string | null {
+  // updated 없으면 key 도 null — 정렬 맨 앞·정밀도 필터 미적용(종전 동작 유지 = 유실 방지)
+  return updated ? updated + "|" + ident : null;
+}
+function cursorKeyCompare(a: string | null, b: string | null): number {
+  // ⚠️ 코드유닛 비교 — 정밀도 필터·커서 저장이 쓰는 < 와 같은 순서여야 한다
+  //   (localeCompare 는 '|' 같은 문장부호 취급이 로케일·ICU 에 좌우된다). null(=Updated 없음)은 맨 앞.
+  const ka = a ?? "", kb = b ?? "";
+  return ka < kb ? -1 : ka > kb ? 1 : 0;
+}
+function countUpdatedTies(cands: CursorCand[]): number {
+  // 이번 회차 후보 중 Updated 가 중복된 문서 수 — 동률 그룹의 존재를 평소에도 보이게(조기 신호)
+  const freq = new Map<string, number>();
+  for (const cd of cands) if (cd.updated) freq.set(cd.updated, (freq.get(cd.updated) ?? 0) + 1);
+  let n = 0;
+  for (const cd of cands) if (cd.updated && (freq.get(cd.updated) ?? 0) > 1) n++;
+  return n;
+}
+// 커서 결정 + 동결 가드 — A·B·C 전부 「캡에 걸렸는데 커서가 안 나갔다」로 나타났다:
+// 원인별 가드는 사촌을 놓치므로 **증상을 직접 본다**. stalled 면 commit 차단(호출부 5).
+function decideCursor(detailCapped: boolean, lastProcessedKey: string | null, cursorBefore: string | null, runStartIso: string) {
+  // 비캡 회차 = 회차 시작 시각(맨 ISO — 모든 이전 키보다 크므로 다음 회차의 키 비교가 정상 동작)
+  const cursorWouldBe = detailCapped ? (lastProcessedKey ?? cursorBefore) : runStartIso;
+  const cursorStalled = detailCapped && String(cursorWouldBe ?? "") <= String(cursorBefore ?? "");
+  return { cursorWouldBe, cursorStalled };
 }
 
 // ── 공유 sink (2026-08-17 ②-b 에서 ②-a runSource 로부터 기계적 추출 — 동작 동일) ──
@@ -1099,7 +1151,7 @@ Deno.serve(async (req) => {
       const srsCounts: Record<string, number> = {};   // purchase: 목록 StockReceivedStatus 분포 — 관측 전용(2026-08-18 부터 거르지 않는다)
       const crsCounts: Record<string, number> = {};   // purchase: 목록 CombinedReceivingStatus 분포 — 관측 전용(신규)
       const listRestockStatusCounts: Record<string, number> = {};   // creditnote: 목록 RestockStatus 분포(세기만 — 거르지 않음)
-      const cands: { row: any; updated: string | null }[] = [];
+      const cands: { row: any; updated: string | null; key: string | null }[] = [];
       for (const row of listRows) {
         if (key === "sale") {
           if (norm(row?.Status) === "VOIDED") { tally("skip_voided"); continue; }
@@ -1131,13 +1183,15 @@ Deno.serve(async (req) => {
           const rst = norm(row?.RestockStatus);
           listRestockStatusCounts[rst || "(empty)"] = (listRestockStatusCounts[rst || "(empty)"] ?? 0) + 1;
         }
-        cands.push({ row, updated: String(row?.[cfg.updatedField] ?? "").trim() || null });
+        const updated = String(row?.[cfg.updatedField] ?? "").trim() || null;
+        cands.push({ row, updated, key: cursorKeyOf(updated, cursorDocIdent(row)) });
       }
-      // ⚠️ Updated 오름차순 — 캡 회차의 커서를 "마지막 처리 문서의 Updated" 로 멈추기 위한 전제
-      //   (파일 상단 캡 보정 절). Updated 없는 행은 맨 앞(먼저 처리 — 유실 방지) + 카운트.
+      // ⚠️ 키(<Updated>|<식별자>) 오름차순 — 캡 회차의 커서를 "마지막 처리 문서의 키" 로 멈추기
+      //   위한 전제(파일 상단 캡 보정·tie-breaker 절). Updated 없는 행(key=null)은 종전대로
+      //   맨 앞(먼저 처리 — 유실 방지) + 카운트.
       let noUpdatedField = 0;
       for (const cd of cands) if (!cd.updated) noUpdatedField++;
-      cands.sort((a, b) => (a.updated ?? "").localeCompare(b.updated ?? ""));
+      cands.sort((a, b) => cursorKeyCompare(a.key, b.key));
 
       // ⚠️ 결함 A 차단 (2026-08-17 .6): 커서는 전체 정밀도 시각(캡 회차 = 마지막 처리 문서의
       //   Updated)인데 UpdatedSince 요청은 날짜(10자)로 잘라 −1일 — 요청 형태는 의도된 설계라
@@ -1146,16 +1200,19 @@ Deno.serve(async (req) => {
       //   안 들어온다(이미 원장에 있는 40건은 유니크 키가 흡수해 삽입 0행·ok:true·커서 동일값
       //   갱신 = 완전히 조용한 정체. ⚠️ dry 는 커서를 안 쓰므로 dry 로는 재현 불가 — 실측 전 수정).
       //   · cursorBefore 가 날짜(10자)보다 정밀할 때만 적용 — 날짜 하한(from_since 시드)은 현행 유지
-      //   · < 만 제외, **같은 값(=)은 남긴다** — 경계에서 Updated 가 동일한 형제 문서가 잘리지
-      //     않게(재처리분은 유니크 키가 흡수). <= 로 바꾸지 말 것
-      //   · Updated 없는 후보는 거르지 않는다(정렬이 맨 앞에 두는 것과 같은 이유 — 유실 방지)
+      //   · < 만 제외, **같은 값(=)은 남긴다** — 경계에서 키가 동일한 문서(커서 경계 문서)가
+      //     잘리지 않게(재처리분은 유니크 키가 흡수). <= 로 바꾸지 말 것
+      //   · (2026-08-30 결함 C) 비교 단위는 updated 가 아니라 **키(<Updated>|<식별자>)** —
+      //     맨 ISO 커서(구형 state·비캡 회차의 runStartIso)는 같은 시각의 키보다 작아(짧은 쪽이
+      //     작다) 동률 문서가 걸러지지 않고 재처리된다(안전 방향 — tie-breaker 절 주석)
+      //   · Updated 없는 후보(key=null)는 거르지 않는다(정렬이 맨 앞에 두는 것과 같은 이유 — 유실 방지)
       //   · dedup(아래)보다 먼저 — 뒤에 오면 dedup 이 남긴 "가장 이른 CN"이 정밀도 필터에 걸려
       //     그 오더가 통째로 탈락할 수 있다(살아남을 늦은 CN 이 있는데도)
       let precisionSkipped = 0;   // ⚠️ 캡 회차 "다음" 회차에만 0 이 아닌 것이 정상이다
       if (cursorBefore && cursorBefore.length > 10) {
         const kept: typeof cands = [];
         for (const cd of cands) {
-          if (cd.updated && cd.updated < cursorBefore) { precisionSkipped++; continue; }
+          if (cd.key && cd.key < cursorBefore) { precisionSkipped++; continue; }
           kept.push(cd);
         }
         cands.length = 0;
@@ -1190,11 +1247,14 @@ Deno.serve(async (req) => {
         cands.push(...deduped);
       }
 
+      // 동률 관측 (결함 C 조기 신호 — 응답 updated_ties): 후보 확정(필터·dedup) 후에 센다
+      const updatedTies = countUpdatedTies(cands);
+
       // 3) 상세 → 원장 행
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateItems = 0;
       let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
       let unmappedInSource = 0;
-      let lastProcessedUpdated: string | null = null;
+      let lastProcessedKey: string | null = null;
       // 소스별 부가 카운트 (응답 명세)
       let fulfilmentsSeen = 0, noShipFulfilments = 0, shipDateAmbiguous = 0, pickLineCount = 0;
       let advancedCount = 0, simpleCount = 0;
@@ -1447,20 +1507,25 @@ Deno.serve(async (req) => {
             for (const [dn, ks] of byDoc) missingDocs.push({ docNumber: dn, lmo: cd.updated, docStatus: st, keys: ks });
           }
         }
-        if (cd.updated) lastProcessedUpdated = cd.updated;
+        if (cd.key) lastProcessedKey = cd.key;
       }
 
-      // 4) 커서 (would-be) — 파일 상단 캡 보정 절:
+      // 4) 커서 (would-be) — 파일 상단 캡 보정·tie-breaker 절:
       //    비캡 회차 = 회차 시작 시각(문서 상태로 멈추지 않는다 — 미완료 문서는 갱신되면 재등장)
-      //    캡 회차   = 마지막 처리 문서의 Updated(오름차순 처리 전제 — 캡 밖 후보를 다음 회차가 이어받음)
+      //    캡 회차   = 마지막 처리 문서의 키 <Updated>|<식별자> (오름차순 처리 전제 — 캡 밖 후보를
+      //               다음 회차가 이어받고, Updated 동률 그룹 안에서도 식별자로 전진한다 — 결함 C)
       const runStartIso = new Date(t0).toISOString();
-      const cursorWouldBe = detailCapped ? (lastProcessedUpdated ?? cursorBefore) : runStartIso;
+      const { cursorWouldBe, cursorStalled } = decideCursor(detailCapped, lastProcessedKey, cursorBefore, runStartIso);
       // ⚠️ 결함 B 차단 (2026-08-17 .6): Updated 없는 문서(정렬상 맨 앞)가 캡을 채우면
-      //   lastProcessedUpdated 가 null → 커서 무변 → 다음 회차도 같은 40건 = 동결.
+      //   lastProcessedKey 가 null → 커서 무변 → 다음 회차도 같은 40건 = 동결.
       //   from_cursor 하한을 만들게 한 실사고(TR-00012~76 캡 소진)와 같은 모양 — commit 을 막고
       //   응답으로 드러낸다(dry 에서도 판별되게). 풀기: Cin7 쪽 Updated 를 채우거나,
       //   inv_sync_state.last_cursor 를 비우고 ?from_since= 로 재시드(②-a 하한 흐름과 동형).
-      const cappedNoUpdated = detailCapped && lastProcessedUpdated == null;
+      const cappedNoUpdated = detailCapped && lastProcessedKey == null;
+      // ⚠️ 결함 C 증상 가드 (2026-08-30): 캡에 걸렸는데 커서가 전진하지 않으면 원인 불문 동결이다
+      //   (decideCursor — cappedNoUpdated 는 「시각이 없다」만 보는 더 구체적인 진단이라 그대로 두고,
+      //   이 가드가 A·B·C 와 미래의 사촌까지 증상으로 잡는다). commit 차단은 아래 5).
+      if (cursorStalled) warnings.push("CURSOR STALLED - capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - collection is frozen; commit is blocked");
 
       // 라인 소멸 감지 — G3(②-a 와 동일): 회차 중단이면 소스 전체 skip. 검출은 dry 에서도(보고).
       let missingCheckSkipped: string | null = null;
@@ -1496,6 +1561,7 @@ Deno.serve(async (req) => {
         candidates: cands.length,
         filter_counts: filterCounts,
         no_updated_field: noUpdatedField,
+        updated_ties: updatedTies,   // ⚠️ 동률 그룹 조기 신호 — 캡보다 커지면 결함 C 상황(가드가 잡는다)
         detail_fetched: detailFetched,
         docs_processed: docsProcessed,
         detail_capped: detailCapped,
@@ -1503,11 +1569,14 @@ Deno.serve(async (req) => {
         detail_capped_remaining: cappedRemaining,
         // ⚠️ 시끄러운 캡 보고 — 캡 회차의 커서 보정 덕에 유실은 없지만, "적게 나온 게 정상" 오해 방지
         detail_capped_alert: detailCapped
-          ? "CAPPED - " + cappedRemaining + " candidate doc(s) NOT processed this round; cursor stops at the last processed doc's Updated so the next run continues"
+          ? "CAPPED - " + cappedRemaining + " candidate doc(s) NOT processed this round; cursor stops at the last processed doc's cursor key so the next run continues"
           : undefined,
         precision_skipped: precisionSkipped,   // ⚠️ 캡 회차 "다음" 회차에만 0 이 아닌 것이 정상
         cursor_frozen_alert: cappedNoUpdated
           ? "capped with no usable Updated - cursor would freeze; commit is blocked (clear inv_sync_state.last_cursor and re-seed with ?from_since= if stuck)"
+          : undefined,
+        cursor_stalled_alert: cursorStalled
+          ? "capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - collection is frozen; commit is blocked"
           : undefined,
         ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
@@ -1588,6 +1657,7 @@ Deno.serve(async (req) => {
         else if (sink.stats.empty_sku_lines > 0) blocked = sink.stats.empty_sku_lines + " line(s) with empty sku - parsing is wrong, the rest of this source cannot be trusted";
         else if (missingDateItems > 0) blocked = missingDateItems + " item(s) without usable date";
         else if (cappedNoUpdated) blocked = "capped with no usable Updated - cursor would freeze";
+        else if (cursorStalled) blocked = "capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - collection is frozen";
         if (blocked) {
           R.write_skipped = blocked;
         } else {
