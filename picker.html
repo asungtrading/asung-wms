@@ -901,6 +901,7 @@ async function reprintPickList(win){
     orderNumber:ord.order_number,
     reference:ord.reference,
     orderDate:ord.order_date,
+    terms:ord.terms, shipAddress:ord.ship_address,   // 유입 시점 값 — wms-picklist.js 헤더 주석
     warehouse:ord.warehouse||order.warehouse,
     priceTier:ord.price_tier,
     printed:today, printedBy:(me?me.name:null),

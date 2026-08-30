@@ -496,6 +496,7 @@ function printPickList(win, ord, batches){
     orderNumber:ord.order_number,
     reference:ord.reference,
     orderDate:ord.order_date,
+    terms:ord.terms, shipAddress:ord.ship_address,   // 유입 시점 값 — wms-picklist.js 헤더 주석
     warehouse:ord.warehouse,
     priceTier:ord.price_tier,
     printed:today, printedBy:ord.created_by,
@@ -698,6 +699,7 @@ function printWaveAll(win, label, sel, linesByOrder, createdBy){
       orderNumber:o.order_number,
       reference:o.reference,
       orderDate:o.order_date,
+      terms:o.terms, shipAddress:o.ship_address,     // 유입 시점 값 — wms-picklist.js 헤더 주석
       warehouse:o.warehouse,
       priceTier:o.price_tier,
       printed:today, printedBy:createdBy,

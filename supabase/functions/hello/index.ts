@@ -426,6 +426,11 @@ Deno.serve(async (req) => {
       const comments = extractComments(d);  // Cin7 sale 코멘트 → 픽리스트 표시용
       const priceTier = (d.PriceTier ?? "").trim() || null;  // 실측 확정(SO-13560): 최상위 PriceTier
       const reference = extractReference(d);  // 화면 Reference(=CustomerReference) → 픽리스트 표시용
+      // 배송 주소·결제 조건 → 픽리스트 표시용 (2026-08-30 · 필드 실측 GAS 프로브 SO-15505).
+      // ⚠️ 유입 시점 값 — 이후 Cin7 에서 고쳐도 반영 안 됨(A안 확정 2026-08-30: 「주소 수정이 목록
+      //   Updated 를 올리는지」 미확인이라, hold 재조회 patch 에 얹는 최신화는 다음 단계로 남겼다).
+      const shipAddress = d.ShippingAddress ?? null;   // 객체 통째(jsonb) — 인쇄는 DisplayAddressLine1/2 두 줄, 원문 보존은 라벨 인쇄 대비
+      const terms = String(d.Terms ?? "").trim() || null;
 
       // 5) 라인 정규화
       const warehouse = normWarehouse(d.Location);
@@ -445,6 +450,8 @@ Deno.serve(async (req) => {
           comments: comments,  // dry-run에서 어느 오더에 코멘트가 들어오는지 확인
           price_tier: priceTier,
           reference: reference,  // dry-run 에서 Reference 유입 확인
+          terms: terms,          // dry-run 에서 Terms 유입 확인 (배포 직후 오더 유입을 안 기다리고 확인)
+          ship_to: shipAddress ? [shipAddress.DisplayAddressLine1, shipAddress.DisplayAddressLine2].filter(Boolean).join(" / ") : null,  // 주소 요약 1줄 — 위와 동일 목적
           flagged: assembled.filter((l) => l.flags.length).map((l) => ({ sku: l.order_sku, flags: l.flags })),
         });
         continue;
@@ -465,6 +472,8 @@ Deno.serve(async (req) => {
           comments: comments,
           price_tier: priceTier,
           reference: reference,
+          ship_address: shipAddress,   // ⚠️ 컬럼 추가 마이그레이션(20260830182524)이 이 EF 배포보다 먼저 (규칙 23)
+          terms: terms,
           status: "pending",
           needs_review: needsReview,
           total_lines: assembled.length,

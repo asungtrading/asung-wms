@@ -143,3 +143,10 @@ RLS: 다른 wms_ 테이블 동일(auth_all).
 - `wms_discrepancies.declared_by` (text) — `stock_short`/`pack_scan_mistake` 의 선언자(감사용, 시각은 `created_at`). ⚠️ `responsible` 재사용 금지 — responsible 은 mistake tally 가 세는 컬럼이라 선언자가 실수로 집계된다.
 - **정책**: "재고 부족 선언(stock_short)"은 실수를 지우는 것이 아니라 **재분류**다 — 주문은 여전히 부족 출고, Cin7 재고와 실물의 차이는 큐에 남아 매니저가 Cin7 에서 수동 조정("Cin7 Fixed"). 리시빙 discrepancy 와 같은 흐름 = 남용해도 매니저가 bin 확인 단계에서 걸러진다.
 - 같은 마이그레이션이 **규칙 29 응급 수정분을 정착**시킨다: `uq_disc_receipt_sku` 를 WHERE 없는 전체 유니크로 재생성(멱등 — 원격엔 이미 적용됨, 이걸 안 담으면 새 환경/`db reset` 때 부분 유니크로 되돌아가 on_conflict 42P10 이 재발한다).
+
+## 2026-08-30 추가 — 픽리스트 배송 주소·Terms (`20260830182524_wms_order_ship_address_terms.sql`)
+
+- `wms_orders.ship_address` (**jsonb**, nullable) — Cin7 sale 상세 최상위 `ShippingAddress` **객체 원문**(실측 GAS 프로브 SO-15505: `Line1/Line2/City/State/Postcode/Country/Company/Contact/ShipToOther` + **`DisplayAddressLine1/2`** — Cin7 이 인쇄용으로 합쳐둔 두 줄). 인쇄는 Display 두 줄만 쓰고, 원문 보존은 라벨 인쇄 대비.
+- `wms_orders.terms` (**text**, nullable) — Cin7 sale 상세 최상위 `Terms` 문자열(예 `"C.B.S (Cash Before Shipment)"`). ⚠️ customer 엔드포인트의 `PaymentTerm` 과 혼동 금지(그래서 컬럼명을 `payment_terms` 로 하지 않았다).
+- 폴링 EF(`hello`)가 유입 insert 에서 채운다 → `wms-picklist.js` batchPage 좌열(Order Date 아래)에 Terms + Ship To 두 줄 인쇄. ⚠️ **유입 시점 값**(A안 2026-08-30) — 이후 Cin7 수정은 반영 안 됨. 「주소 수정이 목록 `Updated` 를 올리는가」 미확인이라 hold 재조회 patch 에 얹는 최신화는 **다음 단계**로 남겼다(확인되면 hello 의 hold patch 에 두 필드만 추가).
+- ⚠️ 신규 유입분부터만 찬다 — 기존 행 null(백필 금지), 인쇄는 값 없으면 줄 생략(`row()` — reference 전례). 규칙 23 순서: **컬럼 먼저, EF 나중**(어기면 오더 유입 전면 중단 — 2026-08-02 절과 동일 경고).

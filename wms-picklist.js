@@ -12,6 +12,9 @@
  * ⚠️ 로고는 절대 URL(location.origin + …) — 새 문서라 상대경로가 안 잡힌다.
  * ⚠️ window.open 은 반드시 호출자의 클릭 핸들러 안에서 먼저 부른다(await 뒤 open 은 차단된다).
  *    이 모듈은 이미 열린 win 을 받기만 한다.
+ * ⚠️ Terms · Ship To(2026-08-30) 는 wms_orders.terms·ship_address(jsonb) — **유입 시점 값**이다(A안).
+ *    인쇄 시점의 Cin7 최신값이 아니다 — Cin7 에서 주소·terms 를 고친 오더는 옛 값이 찍힌다(최신화는 다음 단계).
+ *    과거 오더는 null → row() 가 줄을 생략한다(reference 전례).
  */
 (function () {
   "use strict";
@@ -53,6 +56,7 @@
   /* ---- 배치 한 장 (일반 분할 배치 · wave 멤버 배치 공용) ----
      p = {
        pageBreak, barcode, batchLabel, orderNumber, reference, orderDate,
+       terms, shipAddress(wms_orders.ship_address jsonb 원문 — Display 두 줄만 찍는다, 유입 시점 값),
        warehouse, priceTier, printed, printedBy,
        wave, tote, customerName, totalLines, totalUnits,
        pickedBySlot(기본 true — 우측 칸에 "Picked By ____"),
@@ -63,10 +67,20 @@
     p = p || {};
     var barcode = p.barcode || p.batchLabel || "";
     var printed = p.printed || new Date().toLocaleDateString();
+    // Ship To — Cin7 이 인쇄용으로 합쳐둔 DisplayAddressLine1/2 그대로(우리가 조립하지 않는다 — 실측 SO-15505)
+    var addr = p.shipAddress || {};
+    var ship1 = String(addr.DisplayAddressLine1 || "").trim();
+    var ship2 = String(addr.DisplayAddressLine2 || "").trim();
+    var shipRows = (ship1 || ship2)
+      ? row("Ship To", ship1 || ship2) +
+        (ship1 && ship2 ? "<div><b></b>" + esc(ship2) + "</div>" : "")   // 둘째 줄은 라벨 폭만큼 들여쓴 무라벨 줄
+      : "";
     var left = row("Batch", p.batchLabel) +
       row("Order", p.orderNumber) +
       row("Reference", p.reference) +
       row("Order Date", fmtDate(p.orderDate)) +          // Cin7 화면 용어 = Order Date (API OrderDate)
+      row("Terms", p.terms) +
+      shipRows +
       row("Warehouse", p.warehouse ? whName(p.warehouse) : "") +
       row("Price Tier", (p.priceTier || "").trim()) +
       "<div><b>Printed</b>" + esc(printed) + (p.printedBy ? " · by " + esc(p.printedBy) : "") + "</div>";
