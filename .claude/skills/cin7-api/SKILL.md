@@ -234,6 +234,35 @@ const adjustments = fetchAllPages('stockadjustmentList', {
   이동(Sale · Transfer out · PO 등)이 날짜순으로 나온다. [2026-08-31] 원장에 없는
   `TR-04330 −144` 를 이것으로 찾았다. **API 로 같은 것을 얻는 방법은 미확인.**
 
+### ⚠️⚠️ 트랜스퍼 bin — API 는 주지 않는다 (2026-08-31 전수 확인)
+
+정본: `docs/sessions/2026-08-31-transfer-departure-bin.md`
+
+- **헤더에는 있다**: `FromLocation`/`ToLocation` 이 `"창고: bin"` 형태다
+  (같은 창고 안 bin 이동은 이것으로 충분하다). ⚠️ **창고 간 이동은 창고 이름만** 나온다.
+- ⚠️⚠️ **라인에는 없다.** `stockTransfer`→`Lines` · 같은 응답의 `Order.Lines` ·
+  `stockTransfer/order`→`Lines` **셋이 키까지 완전히 동일**하고 bin 이 없다.
+  공식 `dearinventory.apib` 의 **Stock Transfer Line Model 에 `Bin`·`Location` 정의 자체가 없다.**
+- ⚠️⚠️ **재고 이동(movement) 조회 API 가 존재하지 않는다** — 엔드포인트 **102개 전수** 확인.
+  재고 계열은 `stockadjustment` · `stocktake` · `stockTransfer` · `ref/productavailability`
+  (현재 상태) · `transactions`(회계 분개 — 수량·bin 없음)뿐이다.
+  📌 추측한 `ref/stockMovementDetails` 류는 **HTTP 200 + HTML 404 페이지**를 준다 —
+  JSON 이 아니면 파싱 전에 걸러라.
+- 📌 **필드 이름이 둘이다**: `BinID`(생산 계열 — Disassembly · Finished Goods ·
+  Inventory Write-Off) vs **`Location`**(입출고 — 예: `PutAway.Lines.Location`).
+  그리고 Cin7 에서 **`Location` 은 트리**다 — bin 도 Location 이다
+  (`ref/location` 2,676건 · `ParentID` 로 창고에 매달림).
+- ⚠️ **`ref/productavailability` 에는 `Bin` 이 있다**(현재 재고 · bin 단위). 기초 스냅샷이
+  이미 bin 단위인 이유이고, **bin 단위 대조가 가능한 근거**다.
+- ⭐ **문서 데이터는 화면 `Export` CSV 에 있다** — 라인별 `Location`.
+  [결정적 실측 `TR-04166`] CSV 가 출발 bin `E050202` 를 주는데 그 제품은 지금 `E050103` 에
+  있다 ⇒ **기록값이다.** ⚠️ 반면 **화면의 `LOCATION` 컬럼은 현재 재고 조회**다
+  (`QuantityOnHand` 처럼 참고값). **화면과 Export 를 혼동하지 말 것.**
+- ⚠️ **픽용 SO 는 VOID 하면 `Pick`/`Pack`/`Ship` lines 가 0**이 된다(실측 `SO-15482`).
+  문서는 남지만 픽 데이터는 사라진다.
+- 📌 `Reference` 가 `"WMS putaway …"` 로 시작하면 **우리 WMS 가 API 로 만든 문서**다
+  (`User = "Data Management (API Application)"`). 픽이 아니라 SO 가 없는 것이 정상이다.
+
 ### ⚠️ Advanced Purchase 상세 — 원가(COGS)를 읽을 때 (2026-08-27 실측)
 
 정본: `docs/sessions/2026-08-27-landed-cost-investigation.md` · 구현: EF `inv-cost`

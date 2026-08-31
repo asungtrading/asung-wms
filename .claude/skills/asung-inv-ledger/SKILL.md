@@ -135,6 +135,23 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
     ②-b **최근 창만**(`UpdatedSince`). 📌 어느 쪽도 **악화는 아니다**
   · **`doc_state_oldest_seen` 이 커버리지 지표**
   · `?recheck=1` 은 수동 조사 도구로 남긴다 — ⬜ cron 미등록
+- ✅ **트랜스퍼 출발 bin (2026-08-31 · `inv-collect@2026-08-31.4`)**
+  정본: `docs/sessions/2026-08-31-transfer-departure-bin.md` — ⚠️ **막다른 길 다섯이 거기 있다.
+  다시 파지 말 것.**
+  · 문제: 창고 간 이동의 출발 bin 이 비어 있었다. [실측] bin 대조에서 **토론토 8,141칸 중
+    1,201칸 · 격차 15,640**(에드먼튼은 12칸·80). ⚠️ **한 건의 결손이 두 곳을 어긋나게 한다** —
+    유령 `bin=''`(−7,530)과 안 뺀 실제 bin(+6,710)이 거울상이라 **창고 단위 합은 맞고
+    매일 대조(⑥)에는 안 걸린다.** 대상 5문서 734행
+  · ⭐ **해결: 우리 DB 에 이미 있었다.** 트랜스퍼 `Reference` → 픽용 SO → `wms_orders` →
+    `wms_order_lines.bin_location`. [실측] `TR-04331` CSV 112줄 대조 **112/112 완전 일치**
+  · ⚠️ **`Reference` 는 사람이 손으로 넣는다** — 빠뜨리면 `transfer_bin_no_reference` 로 뜬다.
+    자가 치유 안 됨 ⇒ Reference 를 채우고 `scripts/fix-transfer-bins.mjs` 를 돌린다
+  · ⚠️ **결합**: 원장이 WMS 테이블을 읽는다. **잠정이다** — 목표는 WMS 픽이 원장에
+    사건을 남기는 것이고, 그때 이 조회도 `Reference` 라는 다리도 사라진다
+  · ⭐ **소멸 감지 `bin 변경` 예외**(`partitionBinChanged`) — 스킬의 「키 변경 경고」 처방.
+    bin 만 다른 **6키**(`doc_type`·`doc_number`·`line_ref`·`event_type`·`warehouse`·`sku`)가
+    A 에 있으면 소멸이 아니다. ⚠️ **`event_type` 까지 일치를 요구**해야 IN_TRANSIT 다리가
+    창고 다리를 면책하는 오판이 구조적으로 불가능하다. **캡보다 앞에서 거른다**
 
 **⑦ 수집 회차 — 캡·동결이 있었나** (2026-08-31 신설)
 ```sql
@@ -370,7 +387,7 @@ group by l.doc_number order by 2;
 | 발주 라인 수량은 나중에 바뀔 수 있는가? | **그렇다(2026-08-19).** PO 를 닫으려면 인보이스 수량과 정확히 같아야 해서 **PO 수량을 인보이스 수량으로 채운다** — [실측] PO-01117 PA `CAN01620` **168→192**(`CardID`·bin·문서번호 전부 동일, 수량만). 차액은 **stock adjustment 로 되돌아온다**(`ST-01220` −24/+24) — 한 입고가 `po_in`+`adjustment` **두 소스에 걸친 사건**이 된다. ⚠️ 유니크 키가 같아 `DO NOTHING` 이면 새 수량이 조용히 버려진다(설계 정본 4부 3번) |
 | 발주 입고는 `StockReceived` 를 읽으면 되나? | **아니다(2026-08-18 확정).** Advanced = **`PutAway`** / Simple = `StockReceived`. SR 은 ① `LocationID` 가 null 이거나 창고 GUID 라 **bin 이 구조적으로 없다** ② `Status` 가 stock receiving 단계의 **워크플로 상태**라 재고 반영 여부가 아니다(PO-00703 SR=DRAFT/PA=AUTHORISED · PO-01131 SR=NOT AVAILABLE/PA=AUTHORISED 3,570u). SR·PA 는 같은 입고의 두 표현 — 둘 다 읽으면 두 배 |
 | 목록 `StockReceivedStatus` 로 후보를 좁히면? | **안 된다.** 상세 블록 상태와 **상관이 없다**(양방향 불일치 — PO-01131 목록 AUTHORISED/상세 NOT AVAILABLE ↔ PO-00848 반대). 표본 6건 중 4건(12,552u)이 실재 입고인데 문서째 유실됐다. 판정 권한은 상세 한 곳 — 목록 값은 분포만 센다 |
-| 트랜스퍼도 bin 을 가져오는가? | **가져올 수 있다 — 다만 현재 코드는 안 읽는다(2026-08-19 정정).** bin 은 **라인이 아니라 헤더**에 있다: `FromLocation`/`ToLocation` 이 **`"창고: bin"` 문자열**([실측] TR-02645 `"Asung - Edmonton: EZ01Pallet03"`→`"Asung Trading Inc.: F0300PALLET01"` · 목록·상세 양쪽). **문서 하나 = bin 하나 → bin 하나**라 라인에 없는 게 정상(WMS 도 Apply 시 출발 bin 별로 문서를 쪼갠다). 현재는 `From`/`To` GUID 만 `resolveLoc` 에 넘겨 창고만 해석 → `bins=[""]`. **창고 단위는 지금도 정확** · 자리 단위 때 `": "` 파싱+매핑 대조로 고친다. ⚠️ `Lines[].ProductCustomField1/2` 는 상품 마스터 필드 — 쓰지 말 것(TR-02644 null). ⚠️ ~~"라인에 bin 필드가 없다=데이터 없음"~~ 은 오판이었다(응답 한 부분만 보고 판단 — 발주 SR/PA 와 같은 실수) |
+| 트랜스퍼도 bin 을 가져오는가? | ⚠️⚠️ **[정정 2026-08-31] 「트랜스퍼가 bin 을 안 읽는다」는 틀렸다.** 같은 창고 안 bin 이동은 이미 헤더에서 읽고 있다([실측] `TR-04166` `E050202 → E050103` · 335행). **문제는 창고 간 이동에 헤더 bin 이 아예 없다는 것**이었다(창고 이름만 온다) ⇒ 출발 bin 은 **WMS 픽에서** 얻는다(아래 항목 · 정본 `docs/sessions/2026-08-31-transfer-departure-bin.md`). 헤더 형태는 그대로다: `FromLocation`/`ToLocation` 이 **`"창고: bin"` 문자열**([실측] TR-02645 `"Asung - Edmonton: EZ01Pallet03"`→`"Asung Trading Inc.: F0300PALLET01"`) · **문서 하나 = bin 하나 → bin 하나**라 라인에 없는 게 정상. ⚠️ 창고 판정은 **`resolveLoc` 가 GUID 로 푼다** — `": "` 콜론 파싱은 금지 관례다(이름이 바뀌면 조용히 깨진다). ⚠️ `Lines[].ProductCustomField1/2` 는 상품 마스터 필드 — 쓰지 말 것(TR-02644 null). ⚠️ ~~"라인에 bin 필드가 없다=데이터 없음"~~ 은 오판이었다(응답 한 부분만 보고 판단 — 발주 SR/PA 와 같은 실수) |
 | `saleCreditNoteList` 행은 CN 단위? | **아니다. sale 단위.** 목록 `RestockStatus` 로 거르면 같은 오더의 AUTHORISED CN 이 유실 — 판정은 상세 `CreditNotes[]` 순회 한 곳만 |
 | `Restock[]` 이 비면 DRAFT? | **아니다.** AUTHORISED+빈 배열 실재(표본 하나 CR-00024 의 일반화였다) — 판정은 배열 실제 길이로 |
 | `UpdatedSince` 로 받으면 그 기간 이벤트만? | **아니다. 갱신 축과 이벤트 날짜는 분리** — 8월 갱신 문서가 4월 이벤트를 품는다. **`since=`(이벤트 필터)가 스냅샷 경계 방어 — 쓰기 켤 때 필수.** `from_since` 는 커서 씨앗으로 딴 것 — 혼동 금지 |
@@ -382,6 +399,9 @@ group by l.doc_number order by 2;
 | `occurred_on`(ShipmentDate)이 재고가 빠진 시각인가? | ⚠️⚠️ **아니다.** [실측 `SO-15041`] 출하 승인은 **8/20 16:29**(Cin7 이 그때 차감)인데 API `ShipmentDate` 는 **8/21** 이다 — 사용자가 적는 날짜다. ⇒ **기초 스냅샷(8/20 19:42) 경계를 넘는 어긋남을 `since` 필터가 못 막는다.** 2026-08-30 회수에서 4문서 522행이 **이중 차감**됐고 상쇄로 정정했다. 📌 트랜스퍼 「since 경계 아티팩트」의 판매판이다 |
 | 커서가 비종결 문서 앞에 멈추면 그 위는 다 처리되나? | ⚠️ **아니다 — 캡을 넘으면 뒤쪽은 영영 안 들어온다(결함 D).** [실측 2026-08-31 transfer] `processed 36 · processed_nonterminal 3 · hold_capped 120`. `TR-04330`(8/28 · −144)이 그 안에 있어 누락됐고 `BMA15710` 대조 차이 144와 정확히 일치했다. ⚠️ 8/27 에는 `capped_remaining 0` 이었다 — **문서가 늘면서 조용히 넘어간다.** 그리고 `processed 36` 은 **이미 원장에 있는 완료 문서를 매 회차 다시 읽는 낭비**다 |
 | 완료된 문서를 건너뛰면 되나? | ⚠️ **판정 기준은 「완료됐나」가 아니라 「안 바뀌었나」다.** 완료 문서도 나중에 편집된다(`TR-04175` 가 그랬다). ⇒ `inv_doc_state` 에 문서별 `last_modified` 를 기록하고 값이 같을 때만 skip 한다. [실측 2026-08-31] 세 축 모두 그 값이 **라인 편집에 반응한다**(`SO-15440` 삭제 3분 뒤 · `PO-01117` 수량변경 3주 뒤). ⚠️ **비종결은 절대 skip 금지**(도착 시 반응 여부 미확인) · ⚠️ **skip 문서도 커서 전진에 포함** · ⚠️ `last_modified` 는 **문자열 그대로**(발주는 `Z` 가 없다) |
+| 창고 간 트랜스퍼의 출발 bin 을 API 로 얻을 수 있나? | ⚠️ **없다.** [전수 확인 2026-08-31] `stockTransfer`→`Lines` · `Order.Lines` · `stockTransfer/order`→`Lines` 가 **키까지 완전히 동일**하고 bin 이 없다. 공식 `apib` 의 **Stock Transfer Line Model 에 정의 자체가 없다.** 엔드포인트 **102개 전수**에 **재고 이동 조회 API 가 존재하지 않는다.** 픽용 SO 는 **VOID 하면 `Pick`/`Pack`/`Ship` lines 가 0**이 된다. ⇒ **우리 WMS 에서 얻는다**(`wms_order_lines.bin_location` · 112/112 실증) |
+| 화면에 보이는 bin 을 믿어도 되나? | ⚠️ **화면과 Export 가 다르다.** 트랜스퍼 화면의 `LOCATION` 컬럼은 **현재 재고 조회**다(`QuantityOnHand` 처럼 참고값 · 4/4 현재 bin 과 일치). **Export CSV 의 `Location` 이 문서 데이터**다 — [결정적 실측 `TR-04166`] CSV 는 출발 bin `E050202` 를 주는데 그 제품은 지금 `E050103` 에 있다 |
+| 「비슷한 것」으로 이어 붙여도 되나? | ⚠️ **안 된다 — 틀린 값을 채우느니 비워둔다.** [실증 2026-08-31] `TR-04331` Reference 에 **존재하지 않는 `SO-15834`** 가 손으로 적혀 있었다(실제 `SO-15483` · 숫자 두 개 바뀐 오타). 폴백이 없었기에 시스템이 **조용히 틀리지 않고 `so_missing` 으로 이름을 대며 멈췄다.** 「손님 이름+날짜」·「비슷한 번호」 같은 폴백을 만들지 말 것 |
 
 ### ⚠️ 커서 결함 계보 — 전부 「캡에 걸렸는데 커서가 안 나갔다」
 
@@ -690,10 +710,15 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
   A·B 비교는 7키(`doc_type,doc_number,line_ref,event_type,warehouse,bin,sku`)로 한다.
   `bin`·`line_ref`·`warehouse` 의 **생성 규칙**이 바뀌면 A 는 새 규칙·B 는 옛 규칙이라 집합이
   통째로 어긋나 **기존 행 전부가 「사라진 라인」**이 된다.
-  · **[예정된 변경] 트랜스퍼 bin 파싱** — 지금 `bin=""` 인데 헤더 `FromLocation`/`ToLocation` 의
-    `"창고: bin"` 을 파싱하면 값이 생긴다(2절). **그 순간 모든 트랜스퍼 행이 소멸로 검출된다.**
+  · ✅ **[발동·처방 완료 2026-08-31] 트랜스퍼 출발 bin 해결**이 정확히 이 변경이었다 —
+    옛 `bin=""` 행의 키가 새 A 집합에 영원히 없어 매 회차 734행이 「사라짐」으로 검출되고
+    **회차 캡 500 을 소진해 진짜 소멸을 가렸다**(⚠️ 상쇄로도 안 없어진다 — 옛 cin7 행은 B 에
+    그대로 남는다). ⇒ **`bin 변경` 예외**(`partitionBinChanged` · 위 진행 상태 항목):
+    bin 만 다른 6키가 A 에 있으면 소멸이 아니다. **앞으로의 어떤 bin 규칙 변경에도 이 예외가
+    방어한다** — ⚠️ 다만 **`line_ref`·`sku`·`warehouse` 변경은 여전히 무방비**다.
   · **[전례] 발주 `line_ref` `ProductID` → `CardID`** (2026-08-18) — 같은 성질의 변경이었다
-  ⇒ 그런 변경을 배포할 때는 **검출을 일시 정지하거나 기존 원장 행을 함께 마이그레이션**할 것.
+  ⇒ **bin 외의** 키 규칙을 바꿀 때는 **검출을 일시 정지하거나 기존 원장 행을 함께
+    마이그레이션**할 것.
 
 ---
 
@@ -721,11 +746,18 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ## 다음에 할 일 (우선순위 — 2026-08-31 갱신)
 
-1. ⬜ **트랜스퍼 bin 단위** — 헤더 `FromLocation`/`ToLocation` 의 `"창고: bin"` 을 안 읽는다.
-   ⚠️ 고치면 **키가 바뀌어 소멸 감지가 원장 전체를 「삭제됨」으로 잡는다.** 순서 설계가 먼저다.
-2. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥을 분리한다. `inv_doc_state`(08-31)는
-   **캡을 푼 것이지 커서를 푼 것이 아니다**(트랜스퍼 커서는 여전히 `TR-04172`).
-3. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
+1. ⬜ **트랜스퍼 bin 마무리** — 보정 도구 실행(배포 후 한 회차 뒤 · 계획 → `--commit`) ·
+   bin 대조 재확인(토론토 1,201 → **200 근처** 기대 · 잔여는 다중 bin SKU 10개와
+   초과·미달 입고 bin 어긋남).
+   ⚠️ **아침 점검 ⑧ 의 축**: SQL 의 `bin=''` 전수는 역방향·내부 풋어웨이의 **정상 `''`** 까지
+   잡는다. **정확한 축은 `transfer_bin_no_reference`**(`inv_collect_runs.summary`).
+2. ⭐ **근본 해결 — WMS 픽 라인에 bin 기록.** 최소 = 화면이 이미 보여주는 자리를 저장
+   (작업 추가 없음) · 완전 = 작업자가 스캔(사실). 그러면 `Reference` 도, WMS 조회도,
+   「트랜스퍼 → 가짜 SO → 픽 → VOID」 우회도 사라진다.
+   ⚠️ WMS 쪽 작업이고 원장↔WMS 통합은 ⑥ 완료 후로 합의돼 있다
+3. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리(`inv_doc_state` 는 캡을 푼 것이지
+   커서를 푼 게 아니다 · 트랜스퍼 커서는 여전히 `TR-04172`)
+4. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.
