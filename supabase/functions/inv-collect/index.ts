@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-31.3";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-08-31.4";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -339,8 +339,14 @@ async function writeLedgerDetectingConflicts(rows: LedgerRow[], sourceKey: strin
 // ⚠️⚠️ 키 생성 규칙(bin·line_ref·warehouse)을 바꾸면 기존 원장 행이 전부 "사라진 라인"으로
 //   검출된다(A 는 새 규칙·B 는 옛 규칙 — 집합이 통째로 어긋난다). 그런 변경을 배포할 때는
 //   검출을 일시 정지하거나 기존 원장 행을 함께 마이그레이션할 것.
-//   [예정된 변경] 트랜스퍼 bin 파싱(지금 bin="" — 헤더 "창고: bin" 파싱 시 값이 생긴다,
-//   asung-inv-ledger 스킬 2절) · [전례] 발주 line_ref ProductID → CardID (2026-08-18).
+//   [발동 2026-08-31] 트랜스퍼 출발 bin 해결(loadTransferBinMap 절)이 정확히 이 변경이다 —
+//   옛 bin="" 행의 키가 새 A 집합에 영원히 없어 매 회차 734행이 「사라짐」으로 검출되고,
+//   inv_missing_lines 는 유니크 키가 막지만 **회차 캡 500 을 매번 소진해 진짜 소멸을 가린다**
+//   (⚠️ 상쇄로도 안 없어진다 — 옛 cin7 행은 B 집합에 그대로 남는다).
+//   ⇒ **처방 = 「bin 변경」 예외**(아래 partitionBinChanged): bin 만 다른 행이 A 에 있으면
+//   소멸이 아니라 bin_changed 로 센다. **앞으로의 어떤 bin 규칙 변경에도 이 예외가 방어한다.**
+//   line_ref·sku·warehouse 변경은 여전히 마이그레이션 동반이 필요하다.
+//   · [전례] 발주 line_ref ProductID → CardID (2026-08-18).
 const MISSING_MAX_PER_DOC = 1500;  // 문서당 상한 — 유니크 키는 DB 축적만 막고 EF 는 매 회차 계산하므로 별도 상한.
                                    //   ⚠️ 200 → 1500 (2026-08-25 검토): TR-04175 실물이 B−A=276(SKU 195×2 leg 중
                                    //   57×2 잔존)이라 첫 실사용부터 200 에 걸려 76건이 잘렸다. 대형 트랜스퍼는
@@ -350,10 +356,32 @@ const MISSING_MAX_PER_RUN = 500;   // 소스 회차당 상한
 const MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on";   // = inv_missing_lines_uq 순서
 type MissingDocCheck = { docNumber: string; lmo: string; docStatus: string | null; keys: Set<string> };
 const ledgerKeyOf = (r: any) => [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");
+// ── 「bin 변경」 예외 (2026-08-31 — 스킬 「키 변경 시 소멸 감지가 원장 전체를 삭제됨으로
+//    잡는다」 경고의 처방) ──
+// B−A 후보 중, **bin 만 다른 행이 A 에 있으면** 소멸이 아니다 — 같은 라인이 새 bin 규칙으로
+// 다시 기표된 것이다(트랜스퍼 출발 bin 해결 @2026-08-31.4 가 첫 사례: 옛 bin="" 행 734개가
+// 매 회차 「사라짐」으로 검출돼 회차 캡 500 을 소진, 진짜 소멸을 가렸다. 상쇄로도 안 없어진다 —
+// 옛 cin7 행은 B 에 그대로 남는다). **앞으로의 어떤 bin 규칙 변경에도 이 예외가 방어한다.**
+// ⚠️ 예외는 bin 축에만 — 비교 키는 7키에서 bin 만 뺀 6키(doc_type·doc_number·line_ref·
+//   event_type·warehouse·sku 전부 동일 = 정확히 「bin 만 다른」)다. line_ref·sku·warehouse 가
+//   바뀌면 종전대로 소멸이다. 순수 함수 — 테스트 ⑪~⑬(scripts/test-invcollect-transferbin.mjs).
+type BinChangedPartition = { kept: any[]; binChanged: number };
+// ⚠️ 시그니처에 { 를 두지 않는다 — 테스트의 원문 추출(균형 중괄호) 관례
+function partitionBinChanged(missing: any[], aKeys: Set<string>): BinChangedPartition {
+  const aNoBin = new Set<string>();
+  for (const k of aKeys) { const p = String(k).split("\u0001"); p.splice(5, 1); aNoBin.add(p.join("\u0001")); }
+  let binChanged = 0;
+  const kept = missing.filter((er) => {
+    const noBin = [er.doc_type, er.doc_number, er.line_ref, er.event_type, er.warehouse, er.sku].join("\u0001");
+    if (aNoBin.has(noBin)) { binChanged++; return false; }
+    return true;
+  });
+  return { kept, binChanged };
+}
 async function detectMissingLines(docType: string, docs: MissingDocCheck[], warnings: string[]): Promise<{
-  rows: any[]; detected: number; sample: string[]; capped: boolean;
+  rows: any[]; detected: number; sample: string[]; capped: boolean; binChanged: number;
 }> {
-  const out: any[] = []; const sample: string[] = []; let capped = false;
+  const out: any[] = []; const sample: string[] = []; let capped = false; let binChanged = 0;
   for (const d of docs) {
     if (out.length >= MISSING_MAX_PER_RUN) { capped = true; warnings.push("missing-lines run cap " + MISSING_MAX_PER_RUN + " reached - remaining docs not checked this round"); break; }
     // B — 대형 문서(트랜스퍼 344라인×4행=1,376행/문서 실측)가 1000행 캡을 넘으므로 Range 페이지네이션
@@ -370,6 +398,10 @@ async function detectMissingLines(docType: string, docs: MissingDocCheck[], warn
       if (page.length < 1000) break;
     }
     let missing = bRows.filter((er) => !d.keys.has(ledgerKeyOf(er)));
+    // 「bin 변경」 예외 — 캡 검사보다 앞: bin_changed 행이 문서·회차 캡을 소진하면 안 된다(그게 목적)
+    const part = partitionBinChanged(missing, d.keys);
+    missing = part.kept;
+    binChanged += part.binChanged;
     if (missing.length > MISSING_MAX_PER_DOC) {
       warnings.push("missing-lines doc cap: " + d.docNumber + " has " + missing.length + " > " + MISSING_MAX_PER_DOC + " - truncated");
       missing = missing.slice(0, MISSING_MAX_PER_DOC);
@@ -387,7 +419,7 @@ async function detectMissingLines(docType: string, docs: MissingDocCheck[], warn
       if (sample.length < 5) sample.push(er.doc_number + "/" + er.sku + "/" + er.qty_delta);
     }
   }
-  return { rows: out, detected: out.length, sample, capped };
+  return { rows: out, detected: out.length, sample, capped, binChanged };
 }
 // 쓰기는 commit + write 성공 경로에서만 (dry=1 은 절대 안 쓴다 — 검출 수만 보고).
 // ignore-duplicates: 같은 편집(같은 last_modified_on)의 재검출은 do-nothing — 중복 폭주 차단.
@@ -486,6 +518,84 @@ function pickRollingRecheck(eligible: RollingEligible[], n: number): RollingPick
   if (!eligible.length || n <= 0) return { set: new Set(), oldestSeen: null };
   const sorted = [...eligible].sort((a, b) => (a.seenAt < b.seenAt ? -1 : a.seenAt > b.seenAt ? 1 : 0));
   return { set: new Set(sorted.slice(0, n).map((x) => x.docNumber)), oldestSeen: sorted[0].seenAt };
+}
+
+// ── 트랜스퍼 출발 bin 해결 (2026-08-31 — 창고 간 이동의 출발 bin 결손) ──
+// [실측 2026-08-31 bin 단위 대조] 토론토 8,141칸 중 1,201칸 어긋남(격차 15,640) — 전부
+//   창고 간 트랜스퍼 5문서(TR-04173·74·75·04330·04331 · IN TRANSIT) 734행의 출발 bin 결손.
+//   유령 bin=''(−) 과 안 뺀 실제 bin(+) 이 거울상이라 **창고 합은 맞아 매일 대조에 안 걸린다.**
+// ⚠️ API 다섯 갈래 전부 막다른 길이다 — 다시 파지 말 것:
+//   stockTransfer Lines · Order.Lines · /order Lines · apib Line Model(Bin/Location 없음) ·
+//   엔드포인트 102개 전수(재고 이동 조회 API 자체가 없다). 픽용 SO 에서 읽기도 불가 —
+//   VOID 하면 Pick/Pack/Ship lines 가 0이 된다([실측] SO-15482).
+// ⭐ 그런데 그 값이 우리 DB 에 있다: 업무 흐름이 「트랜스퍼 생성 → 같은 내용의 픽용 SO
+//   (가상 손님 ASUNG EDM TRANSFER) → Release to WMS → 분할 픽·팩 → SO VOID → 트랜스퍼 확정」
+//   이라, WMS 가 보여준 자리에서 작업자가 뺐고 Cin7 이 그 자리에서 차감했다.
+//   [실측 TR-04331] Cin7 화면 Export CSV 112줄 vs wms_order_lines.bin_location — **112/112 완전 일치.**
+//   연결 고리 = 트랜스퍼 Reference 의 SO 번호(예 "P2_(SO-15482-7,9 / SO-15834-1,2,3)").
+//   ⚠️ Reference 는 사람이 손으로 넣는다 — 자동으로 붙지 않는다(없으면 비워두고 카운트).
+//   ⚠️ 파트 번호(-1,2,3)는 무시한다 — bin 은 SO 라인당 하나라 어느 팔레트로 갔든 같다.
+// ⚠️⚠️ 원칙: **틀린 bin 을 채우느니 비워둔다.** Reference 의 SO + WMS 에 그 SKU 가 있을 때만
+//   채우고, 그 외 전부 bin='' 유지 + 카운트 + 경고. 「손님 이름 + 날짜」 같은 폴백 금지 —
+//   잘못 이으면 틀린 bin 이 그럴듯하게 들어가고, 비어 있는 것보다 나쁘다(08-30 이중 차감의 교훈).
+// ⚠️⚠️ 결합 명시: **원장이 WMS 테이블(wms_orders·wms_order_lines)을 읽는다** —
+//   ims-principles 원칙 2(접점은 사건을 남긴다)와 어긋나는 **잠정 조치**다.
+//   · 읽기 전용 · 같은 Supabase · WMS 스키마 변경에 취약하다
+//   · ⭐ 목표는 WMS 픽이 원장에 **사건을 남기는** 것이다. 그때 이 조회는 사라진다
+//   · 그리고 Reference 라는 다리 자체가 「트랜스퍼 → 가짜 SO → 픽 → VOID」 우회 때문에 있다.
+//     WMS 가 트랜스퍼를 직접 픽하면 다리도 사라진다
+// SKU 축: 원장 라인 sku = Cin7 원문(inv-collect 는 정규화하지 않는다) ↔ wms_order_lines 는
+//   base_sku. 트랜스퍼는 재고(bin) 이동이고 bin 은 base_sku 기준(불변식)이라 실무상 같다
+//   ([실측] 112/112). UOM SKU 가 오면 못 맞춰 비워둔다 — 안전 방향.
+// ⚠️ 적용 범위: transfer_out · warehouse ≠ IN_TRANSIT · **헤더에서 bin 을 못 얻은 라인만**.
+//   헤더에 bin 이 있으면(내부 bin 이동 — 이미 잘 된다 · 335행 실측) 종전 그대로.
+//   도착 다리(4)·IN_TRANSIT 다리(2·3)는 무접촉.
+// ⚠️ 과거 행은 안 고친다 — 보정은 scripts/fix-transfer-bins.mjs(같은 함수를 원문 추출해 쓴다).
+// ⚠️ 조회 실패는 수집을 막지 않는다 — 해결만 끄고(전부 bin='') 경고(호출부 try/catch).
+function parseTransferRefSOs(reference: unknown): string[] {
+  // "P2_(SO-15482-7,9,10,11,12 / SO-15834-1,2,3)" → ["SO-15482","SO-15834"] (파트 번호 무시 · 중복 제거)
+  return [...new Set(String(reference ?? "").match(/SO-\d+/g) ?? [])];
+}
+type TransferBinLine = { base_sku: unknown; bin_location: unknown };
+type TransferBinBuild = { map: Map<string, string>; conflicts: string[] };
+function buildTransferBinMap(lines: TransferBinLine[]): TransferBinBuild {
+  // base_sku → bin_location. ⚠️ 여러 SO 에서 같은 SKU 의 bin 이 갈리면 그 SKU 는 뺀다
+  //   (하나로 정할 근거가 없다 — 비워두고 conflict 로 보고). bin_location 빈 값도 뺀다.
+  const map = new Map<string, string>();
+  const conflicted = new Set<string>();
+  for (const l of lines) {
+    const sku = String(l?.base_sku ?? "").trim();
+    const bin = String(l?.bin_location ?? "").trim();
+    if (!sku || !bin) continue;
+    const cur = map.get(sku);
+    if (cur === undefined) map.set(sku, bin);
+    else if (cur !== bin) conflicted.add(sku);
+  }
+  for (const sku of conflicted) map.delete(sku);
+  return { map, conflicts: [...conflicted].sort() };
+}
+function resolveTransferBin(map: Map<string, string> | null, sku: string): string {
+  // 판정 불가(맵 없음·미등재)는 전부 "" = 비워둔다 — 틀린 bin 보다 낫다
+  if (!map || !sku) return "";
+  return map.get(sku) ?? "";
+}
+type TransferBinLookup = { map: Map<string, string> | null; sos: string[]; soMissing: string[]; conflicts: string[]; truncated: boolean };
+// sbGetFn 주입 — 테스트(test-invcollect-transferbin.mjs)와 보정 도구(fix-transfer-bins.mjs)가
+// 같은 함수를 원문 추출해 쓴다(로직 두 벌 금지).
+async function loadTransferBinMap(reference: unknown, sbGetFn: (path: string) => Promise<any[]>): Promise<TransferBinLookup> {
+  const sos = parseTransferRefSOs(reference);
+  if (!sos.length) return { map: null, sos, soMissing: [], conflicts: [], truncated: false };
+  const orders = await sbGetFn("wms_orders?select=id,order_number&order_number=in.(" +
+    encodeURIComponent(sos.map((v) => '"' + v + '"').join(",")) + ")");
+  const found = new Set(orders.map((o: any) => String(o.order_number)));
+  const soMissing = sos.filter((so) => !found.has(so));
+  if (!orders.length) return { map: null, sos, soMissing, conflicts: [], truncated: false };
+  const ids = orders.map((o: any) => String(o.id)).join(",");
+  const lines = await sbGetFn("wms_order_lines?select=base_sku,bin_location&order_id=in.(" + ids + ")");   // caps-ok: 픽용 SO 라인 — 문서당 SO 1~2개 × ~110라인(실측 112). 1000행 도달 시 아래 truncated 가 해결을 끈다
+  // ⚠️ PostgREST 1000행 캡 방어 — 잘린 맵으로 채우면 틀린 판정이 된다: 해결을 끈다(안전 방향)
+  if (lines.length >= 1000) return { map: null, sos, soMissing, conflicts: [], truncated: true };
+  const b = buildTransferBinMap(lines);
+  return { map: b.map, sos, soMissing, conflicts: b.conflicts, truncated: false };
 }
 
 // ── 회차 로그 (2026-08-31 · 결함 C·D 후속 — 마이그레이션 20260831153314_inv_collect_runs) ──
@@ -961,6 +1071,10 @@ Deno.serve(async (req) => {
       const dateCandidates: { doc_number: string; list_date: string | null; completion_date: string | null; wip_date: string | null }[] = [];
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateDocs = 0;
       const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
+      // 트랜스퍼 출발 bin 해결 카운터 (transfer 전용 — 파일 상단 loadTransferBinMap 절)
+      let tbResolved = 0, tbUnresolved = 0;
+      const tbNoReference: string[] = [], tbSoMissing: string[] = [], tbConflict: string[] = [];
+      const tbPush = (arr: string[], v: string) => { if (v && !arr.includes(v) && arr.length < 10) arr.push(v); };
       let detailCapped = false, detailCapReason: string | null = null;
       let unmappedInSource = 0;
       // 라인 소멸 감지 — A 집합 축적 (파일 상단 detectMissingLines 절)
@@ -1072,6 +1186,28 @@ Deno.serve(async (req) => {
           if (!toLoc.mapped) unmappedInSource++;
           const header: Record<string, unknown> = { doc_number: c.number, task_id: taskId, status: det?.Status ?? c.row?.Status, departure_date: det?.DepartureDate, completion_date: det?.CompletionDate ?? null, from: det?.From ?? c.row?.From, to: det?.To ?? c.row?.To };
           if (dateSubstituted) header.date_substituted = "DepartureDate <- LastModifiedOn (bin move, same warehouse)";
+          // ── 출발 bin 해결 (2026-08-31 — 파일 상단 loadTransferBinMap 절) ──
+          // ⚠️ 헤더에서 bin 을 얻은 문서(fromLoc.bin ≠ "" — 내부 bin 이동)는 WMS 를 조회하지
+          //   않는다(종전 그대로). 못 얻은 문서만 Reference 의 픽용 SO 로 WMS 픽 bin 을 찾는다.
+          let transferBinMap: Map<string, string> | null = null;
+          if (fromLoc.mapped && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) {
+            try {
+              const tb = await loadTransferBinMap(det?.Reference ?? c.row?.Reference, sbGet);
+              if (!tb.sos.length) tbPush(tbNoReference, c.number);
+              for (const so of tb.soMissing) tbPush(tbSoMissing, so);
+              for (const sk of tb.conflicts) tbPush(tbConflict, sk);
+              if (tb.truncated) {
+                warnings.push("transfer-bin: wms_order_lines hit the 1000-row cap on " + c.number + " - resolution disabled for this doc (bins left empty)");
+              } else if (tb.map && tb.map.size) {
+                transferBinMap = tb.map;
+                header.transfer_bin_source = "wms_order_lines via Reference " + tb.sos.join(",");   // 근거를 raw 에 남긴다
+              }
+            } catch (e: any) {
+              // ⚠️ 진단·보강은 수집을 막지 않는다 — 해결만 끄고(전부 bin='') 경고만.
+              transferBinMap = null;
+              warnings.push("transfer-bin lookup failed (collection unaffected, bins left empty): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
           for (const line of (det?.Lines ?? []) as any[]) {
             const q = Number(line?.TransferQuantity ?? 0);
             if (q === 0) { zeroQtyLines++; continue; }
@@ -1083,7 +1219,14 @@ Deno.serve(async (req) => {
               qty_delta: delta, event_type: event, line_ref: ref, amount: null,
               raw: mkRaw(lineRaw, header, "transfer 4-row leg " + leg + ": " + (delta > 0 ? "+" : "") + delta),
             });
-            rows.push(mk("transfer_out", fromLoc.warehouse, fromLoc.bin, -q, dep, "1 from-warehouse departure"));
+            // 출발 bin: 헤더 값 우선 · 없으면 WMS 픽 bin (틀린 bin 을 채우느니 비워둔다 — 위 절)
+            let depBin = fromLoc.bin;
+            let binFromWms = false;
+            if (depBin === "" && fromLoc.mapped) {
+              depBin = resolveTransferBin(transferBinMap, sku);
+              if (depBin) { tbResolved++; binFromWms = true; } else tbUnresolved++;
+            }
+            rows.push(mk("transfer_out", fromLoc.warehouse, depBin, -q, dep, "1 from-warehouse departure" + (binFromWms ? " - bin from WMS pick (Reference SO)" : "")));
             rows.push(mk("transfer_in", IN_TRANSIT, "", q, dep, "2 into IN_TRANSIT departure"));
             if (comp) {   // 없으면(IN TRANSIT) 1·2만 — 3·4는 도착 후 회차 (커서가 이 문서 앞에서 멈춘다)
               rows.push(mk("transfer_out", IN_TRANSIT, "", -q, comp, "3 out of IN_TRANSIT completion"));
@@ -1271,6 +1414,7 @@ Deno.serve(async (req) => {
         date_histogram: sink.dateHist,
         // 라인 소멸 감지 (2026-08-25 · TR-04175) — inserted 는 commit 블록에서 채운다
         missing_lines_detected: missing ? missing.detected : 0,
+        missing_lines_bin_changed: missing ? missing.binChanged : 0,   // bin 만 바뀐 행 — 소멸 아님(키 규칙 변경의 흔적)
         missing_lines_inserted: 0,
         missing_lines_sample: missing ? missing.sample : [],
         missing_lines_capped: missing ? missing.capped : false,
@@ -1282,6 +1426,18 @@ Deno.serve(async (req) => {
       if (missing && missing.detected > 0) warnings.push(missing.detected + " ledger line(s) NO LONGER in the Cin7 doc (deleted lines?) - see inv_missing_lines; ledger rows kept (append-only), human review needed");
       if (sink.stats.empty_sku_lines > 0) warnings.push(sink.stats.empty_sku_lines + " line(s) dropped for empty sku - parsing is wrong for this source");
       if (key === "assembly") R.date_candidates = dateCandidates;   // Date/CompletionDate/WIPDate 비교표 — Caleb 이 확정
+      if (key === "transfer") {
+        // 출발 bin 해결 (2026-08-31 — loadTransferBinMap 절). unresolved > 0 이면 Reference
+        // 누락·SO 미존재·SKU 불일치 중 하나 — 아래 목록이 어느 쪽인지 말한다.
+        Object.assign(R, {
+          transfer_bin_resolved: tbResolved,
+          transfer_bin_unresolved: tbUnresolved,
+          transfer_bin_no_reference: tbNoReference,
+          transfer_bin_so_missing: tbSoMissing,
+          transfer_bin_conflict: tbConflict,
+        });
+        if (tbUnresolved > 0) warnings.push(tbUnresolved + " transfer_out line(s) left with empty departure bin - fill Reference in Cin7 and run scripts/fix-transfer-bins.mjs");
+      }
 
       // 6) commit (⑤에서 켠다) — all-or-nothing per source:
       //    목록 불완전(429·truncated·페이지 오류) 또는 UNMAPPED(사용자 조건 ⑤) 또는 날짜 결손
@@ -1926,6 +2082,7 @@ Deno.serve(async (req) => {
         date_histogram: sink.dateHist,
         // 라인 소멸 감지 (2026-08-25 · TR-04175) — inserted 는 commit 블록에서 채운다
         missing_lines_detected: missing ? missing.detected : 0,
+        missing_lines_bin_changed: missing ? missing.binChanged : 0,   // bin 만 바뀐 행 — 소멸 아님(키 규칙 변경의 흔적)
         missing_lines_inserted: 0,
         missing_lines_sample: missing ? missing.sample : [],
         missing_lines_capped: missing ? missing.capped : false,

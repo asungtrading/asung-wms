@@ -47,6 +47,10 @@ const code = [
   constLine("MISSING_MAX_PER_RUN"),
   constLine("MISSING_CONFLICT"),
   constLine("ledgerKeyOf"),
+  // 「bin 변경」 예외 (2026-08-31) — detectMissingLines 가 호출한다. 동작 검증은
+  // test-invcollect-transferbin.mjs ⑪~⑬ · 여기서는 링크만 채운다.
+  "type BinChangedPartition = { kept: any[]; binChanged: number };",
+  extractBlock("function partitionBinChanged", "async function detectMissingLines"),
   extractBlock("async function detectMissingLines", "// 쓰기는 commit"),
   extractBlock("async function insertMissingLines", "async function sbUpsert"),
   "export { detectMissingLines, insertMissingLines, ledgerKeyOf };",
