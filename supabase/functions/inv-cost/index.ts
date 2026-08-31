@@ -26,11 +26,14 @@
 // ⚠️ 창고·bin 은 원장의 resolveLoc 와 동일 규칙(ref/location ID 맵 · 콜론 파싱 금지) —
 //   값이 다르면 원장 행과 조인이 안 된다. UNMAPPED 는 commit 차단(inv-collect 와 동일).
 //
-// 인증·페이싱·dry/commit·커서(②-b 시각 커서·캡 보정·정밀도 필터)는 inv-collect 관례 그대로.
+// 인증·페이싱·dry/commit·커서(②-b 시각 커서·캡 보정·정밀도 필터)는 inv-collect 관례 그대로 —
+//   커서 단위는 <Updated>|<문서식별자> tie-breaker(2026-08-31 결함 C 이식 · 아래 커서 절)이고
+//   증상 가드 cursorStalled 가 commit 을 차단한다. 회차는 inv_collect_runs 에 source_key='cost' 로
+//   남는다(하루 1회 cron 이라 응답을 볼 기회가 없다 — 가드가 울려도 테이블에 남아야 보인다).
 // _shared/cin7.ts 무변(바꾸면 소비 함수 전부 재배포).
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-cost@2026-08-27.1";
+const COLLECTOR_VERSION = "inv-cost@2026-08-31.1";   // 08-31.1 = 결함 C 방어 이식(커서 <Updated>|<식별자> tie-breaker + cursorStalled 증상 가드 — inv-collect 08-30.1 의 복제) + 회차 로그 inv_collect_runs(source_key=cost). 원가 계산·배분 규칙은 무변 · 이전 08-27.1 = 최초 배포
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;
 const LIST_SLEEP_MS = 400;
@@ -451,6 +454,113 @@ function minusOneDay(d: string): string {
   return t.toISOString().slice(0, 10);
 }
 
+// ── ②-b 커서 tie-breaker (2026-08-31 결함 C 이식 — ⚠️ inv-collect 의 복제) ──
+// 원본: supabase/functions/inv-collect/index.ts 「②-b 커서 tie-breaker (2026-08-30 결함 C)」 절.
+// 파일이 분리돼 있어 복제가 된다 — 규칙이 바뀌면 양쪽을 함께 고칠 것.
+// [실사고 2026-08-29] Cin7 플랫폼 일괄 갱신이 판매 238건의 Updated 를 밀리초까지 같은 값으로
+//   올렸다(History 무기록 — 실제 거래 아님 · 반복된다: 08-07 40건 · 08-13 52건 · 08-28 238건 =
+//   주 1회꼴). 동률 그룹 > 캡이면 캡 회차 커서(=마지막 처리 문서의 시각)가 그 안에서 영원히
+//   제자리 = 영구 동결. 새 데이터가 없어 처음엔 조용하고, 뒤에 온 진짜 거래가 못 들어와서야
+//   드러난다. [실측 2026-08-31] purchaseList 의 동률은 0 — 그러나 판매를 치는 갱신이 발주를
+//   안 친다는 보장이 없고, inv-cost 는 하루 1회(cron 16)라 멈추면 더 늦게 드러난다.
+// 커서 형식: <Updated>|<문서식별자> — Updated = purchaseList 의 LastUpdatedDate 원문
+//   (⚠️ 발주 타임스탬프에는 Z 접미가 없다 — 문자열 그대로 다루고 절대 시각으로 파싱하지 말 것).
+//   · 하위 호환 — 마이그레이션 불필요: 기존 맨 커서는 「그 시각 동률 그룹 맨 앞」으로 해석돼
+//     동률 문서를 건너뛰지 않고 재처리한다(upsert 가 흡수 — 안전 방향).
+//   · '|' 근거: [실측 2026-08-30] inv_ledger.doc_number 중 '|' 포함 0건 · ASCII 124.
+//   · updated_since_requested 는 커서 앞 10자 — '|' 가 붙어도 앞 10자는 날짜라 무변.
+type CursorCand = { updated: string | null };
+function cursorDocIdent(row: any): string {
+  // 목록 행의 OrderNumber → 없으면 ID 폴백 → 둘 다 없으면 "" (그 문서는 실질 tie-breaker 없이
+  // 동작 — 키 "<Updated>|" 는 그 시각 동률 그룹 맨 앞 = 유실 방지). ⚠️ inv-collect 판의 SaleID
+  // 폴백은 판매 전용이라 뺐다 — purchaseList 행엔 SaleID 가 없어 동작 동일.
+  return String(row?.OrderNumber ?? "").trim() || String(row?.ID ?? "").trim();
+}
+function cursorKeyOf(updated: string | null, ident: string): string | null {
+  // updated 없으면 key 도 null — 정렬 맨 앞·정밀도 필터 미적용(종전 동작 유지 = 유실 방지)
+  return updated ? updated + "|" + ident : null;
+}
+function cursorKeyCompare(a: string | null, b: string | null): number {
+  // ⚠️ 코드유닛 비교 — 정밀도 필터·커서 저장이 쓰는 < 와 같은 순서여야 한다
+  //   (localeCompare 는 '|' 같은 문장부호 취급이 로케일·ICU 에 좌우된다 — 두 순서가 어긋나면
+  //   문서가 유실된다). null(=Updated 없음)은 맨 앞.
+  const ka = a ?? "", kb = b ?? "";
+  return ka < kb ? -1 : ka > kb ? 1 : 0;
+}
+function countUpdatedTies(cands: CursorCand[]): number {
+  // 이번 회차 후보 중 Updated 가 중복된 문서 수 — 동률 그룹의 존재를 평소에도 보이게(조기 신호)
+  const freq = new Map<string, number>();
+  for (const cd of cands) if (cd.updated) freq.set(cd.updated, (freq.get(cd.updated) ?? 0) + 1);
+  let n = 0;
+  for (const cd of cands) if (cd.updated && (freq.get(cd.updated) ?? 0) > 1) n++;
+  return n;
+}
+// 커서 결정 + 증상 가드 — 결함 A·B·C 가 전부 「캡에 걸렸는데 커서가 안 나갔다」로 나타났다:
+// 원인별 가드는 매번 사촌을 놓치므로 증상을 직접 본다. stalled 면 commit 차단(호출부 4).
+// 기존 cappedNoUpdated(결함 B — 더 구체적인 진단)는 그대로 유지한다.
+function decideCursor(detailCapped: boolean, lastProcessedKey: string | null, cursorBefore: string | null, runStartIso: string) {
+  const cursorWouldBe = detailCapped ? (lastProcessedKey ?? cursorBefore) : runStartIso;
+  const cursorStalled = detailCapped && String(cursorWouldBe ?? "") <= String(cursorBefore ?? "");
+  return { cursorWouldBe, cursorStalled };
+}
+
+// ── 회차 로그 (2026-08-31 · inv_collect_runs 에 source_key='cost' 로 — ⚠️ inv-collect 의 복제) ──
+// 원본: supabase/functions/inv-collect/index.ts 「회차 로그」 절(buildCollectRun/writeCollectRun ·
+// 마이그레이션 20260831153314_inv_collect_runs). 파일이 분리돼 있어 복제 — 규칙 변경은 양쪽 함께.
+// inv-cost 는 하루 1회(cron 16 · 04:33 UTC)라 응답을 볼 기회가 거의 없다 — 가드가 울려도
+// 테이블에 남아야 아침 점검이 본다(결함 C·D 를 하루 늦게 안 이유가 정확히 그것이었다).
+// ⚠️ dry 미기록(수동 조사가 기준선 오염) · 차단 회차도 기록(ok=false) ·
+// ⚠️ 로그 실패가 수집을 막지 않는다 — 호출부 try/catch, 실패는 응답 collect_run_error 만.
+// 매핑: inv-cost 에 없는 개념(hold_capped·skipped_unchanged·cursor_frozen_alert 응답 필드)은 null.
+//   ledger_rows/inserted/insert_skipped 도 null — 실제 응답 필드는 rows_built(원가 행)·
+//   rows_written(upsert 시도 행수)라 이름·의미가 달라 매핑하지 않는다(원본은 summary 에 남는다).
+// summary = 응답 전체 — 단 samples 제외(행이 커진다) · warnings 는 잘린 사본으로 대체(같은 이유).
+function buildCostRun(out: Record<string, unknown>, warnings: string[], durationMs: number): Record<string, unknown> {
+  const num = (v: unknown) => (v == null ? null : Number(v));
+  const warnCapped = warnings.slice(0, 50);   // ⚠️ 길면 앞 50개 — jsonb 행 폭주 방지
+  const summary: Record<string, unknown> = {};
+  for (const k of Object.keys(out)) if (k !== "samples") summary[k] = k === "warnings" ? warnCapped : out[k];
+  return {
+    source_key: "cost",
+    ok: out.write_skipped ? false : true,
+    collector: COLLECTOR_VERSION,
+    detail_capped: out.detail_capped === true,
+    detail_capped_reason: out.detail_capped_reason ?? null,
+    detail_capped_remaining: num(out.detail_capped_remaining) ?? 0,
+    hold_capped: null,                                   // ②-a 전용 개념 — inv-cost 에 없다
+    cursor_before: out.cursor_before ?? null,
+    cursor_after: out.cursor_after ?? out.cursor_after_would_be ?? null,
+    cursor_stalled_alert: out.cursor_stalled_alert ?? null,
+    cursor_frozen_alert: null,                           // 응답에 그 이름의 필드가 없다(cappedNoUpdated 는 write_skipped 로 남는다)
+    list_total: num(out.list_total),
+    list_received: num(out.list_received),
+    pages: num(out.pages),
+    truncated: out.truncated ?? null,
+    list_aborted: out.list_aborted ?? null,
+    candidates: num(out.candidates),
+    docs_processed: num(out.docs_processed),
+    detail_fetched: num(out.detail_fetched),
+    ledger_rows: null,
+    inserted: null,
+    insert_skipped: null,
+    skipped_unchanged: null,
+    precision_skipped: num(out.precision_skipped),
+    write_skipped: out.write_skipped ?? null,
+    dispositions: out.dispositions ?? null,
+    warnings: warnCapped,
+    summary,
+    duration_ms: durationMs,
+  };
+}
+async function writeCollectRun(row: Record<string, unknown>): Promise<void> {
+  const r = await fetch(SB_URL() + "/rest/v1/inv_collect_runs", {
+    method: "POST",
+    headers: sbHeaders({ Prefer: "return=minimal" }),
+    body: JSON.stringify([row]),
+  });
+  if (!r.ok) throw new Error("sbInsert inv_collect_runs " + r.status + ": " + (await r.text()).slice(0, 400));
+}
+
 Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
@@ -548,7 +658,7 @@ Deno.serve(async (req) => {
     const dispositions: Record<string, number> = {};
     const tally = (k: string) => { dispositions[k] = (dispositions[k] ?? 0) + 1; };
     let simpleWarned = false;
-    const cands: { row: any; updated: string | null }[] = [];
+    const cands: { row: any; updated: string | null; key: string | null }[] = [];
     for (const row of listRows) {
       const d = listDisposition(row);
       if (d !== "advanced") {
@@ -559,27 +669,35 @@ Deno.serve(async (req) => {
         }
         continue;
       }
-      cands.push({ row, updated: String(row?.LastUpdatedDate ?? "").trim() || null });
+      const updated = String(row?.LastUpdatedDate ?? "").trim() || null;
+      cands.push({ row, updated, key: cursorKeyOf(updated, cursorDocIdent(row)) });
     }
-    cands.sort((a, b) => (a.updated ?? "").localeCompare(b.updated ?? ""));
+    // ⚠️ 키(<Updated>|<식별자>) 오름차순 · 코드유닛 비교 — 정밀도 필터의 < 와 같은 순서
+    //   (localeCompare 금지 — 커서 tie-breaker 절 · 2026-08-31 결함 C 이식)
+    cands.sort((a, b) => cursorKeyCompare(a.key, b.key));
     // 정밀도 필터 (inv-collect 결함 A 차단과 동일): 커서가 시각 정밀도면 우리 쪽에서 전체 정밀도로
     // 거른다 — 안 거르면 캡 회차 다음 회차가 같은 앞 40건만 반복(완전히 조용한 정체).
+    // (2026-08-31 결함 C 이식) 비교 단위는 updated 가 아니라 키 — 맨 커서(구형·비캡 회차의
+    //   runStartIso)는 같은 시각의 키보다 작아(짧은 쪽이 작다) 동률 문서가 걸러지지 않고
+    //   재처리된다(upsert 흡수 — 안전 방향). key=null(Updated 없음)은 거르지 않는다(유실 방지).
     let precisionSkipped = 0;
     if (cursorBefore && cursorBefore.length > 10) {
       const kept: typeof cands = [];
       for (const cd of cands) {
-        if (cd.updated && cd.updated < cursorBefore) { precisionSkipped++; continue; }
+        if (cd.key && cd.key < cursorBefore) { precisionSkipped++; continue; }
         kept.push(cd);
       }
       cands.length = 0;
       cands.push(...kept);
     }
+    // 동률 관측 (결함 C 조기 신호 — 응답 updated_ties): 후보 확정(필터) 후에 센다
+    const updatedTies = countUpdatedTies(cands);
 
     // ── 3) 상세 → 원가 행 ──
     const allRows: CostRow[] = [];
     let detailFetched = 0, docsProcessed = 0, rowsGoods = 0, rowsLanded = 0, zeroQtyLines = 0, mergedRows = 0, invoiceQtyMissing = 0, netTotalMissingAll = 0;
     let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
-    let lastProcessedUpdated: string | null = null;
+    let lastProcessedKey: string | null = null;
     const blocksSkippedAll: Record<string, number> = {};
     const mergedLandedDocs: string[] = [];
     for (let i = 0; i < cands.length; i++) {
@@ -619,13 +737,17 @@ Deno.serve(async (req) => {
         rowsLanded += r.landedRows;
         allRows.push(...r.rows);
       }
-      if (cd.updated) lastProcessedUpdated = cd.updated;
+      if (cd.key) lastProcessedKey = cd.key;
     }
 
-    // ── 커서 (inv-collect ②-b 와 동형): 비캡 회차 = 회차 시작 시각 · 캡 회차 = 마지막 처리 문서의 Updated ──
+    // ── 커서 (inv-collect ②-b 와 동형 · 2026-08-31 결함 C 이식): 비캡 회차 = 회차 시작 시각 ·
+    //    캡 회차 = 마지막 처리 문서의 키 <Updated>|<식별자> (동률 그룹 안에서도 식별자로 전진) ──
     const runStartIso = new Date(t0).toISOString();
-    const cursorWouldBe = detailCapped ? (lastProcessedUpdated ?? cursorBefore) : runStartIso;
-    const cappedNoUpdated = detailCapped && lastProcessedUpdated == null;
+    const { cursorWouldBe, cursorStalled } = decideCursor(detailCapped, lastProcessedKey, cursorBefore, runStartIso);
+    // 결함 B 가드 — 「시각이 없다」만 보는 더 구체적인 진단이라 그대로 두고, cursorStalled 가
+    // A·B·C 와 미래의 사촌까지 증상으로 잡는다.
+    const cappedNoUpdated = detailCapped && lastProcessedKey == null;
+    if (cursorStalled) warnings.push("CURSOR STALLED - capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - cost collection is frozen; commit is blocked");
 
     // ── 4) commit — 쓰기 성공 뒤에만 커서 전진 (실패 회차는 다음 회차가 같은 창을 다시 받는다) ──
     let rowsWritten: number | null = null;
@@ -635,6 +757,7 @@ Deno.serve(async (req) => {
       else if (truncated) writeSkipped = "list truncated";
       else if (unmappedTotal > 0) writeSkipped = "UNMAPPED location in " + unmappedTotal + " line(s) - fix map first (rows would never join the ledger)";
       else if (cappedNoUpdated) writeSkipped = "capped with no usable LastUpdatedDate - cursor would freeze";
+      else if (cursorStalled) writeSkipped = "capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - cost collection is frozen";
       if (!writeSkipped) {
         rowsWritten = await writeCostRows(allRows as unknown as Record<string, unknown>[], new Date().toISOString());
         await sbUpsert("inv_sync_state", "source_key", [{
@@ -648,7 +771,7 @@ Deno.serve(async (req) => {
     }
     // commit 블록 끝 — ⚠️ writeCostRows 호출은 위 블록 안 한 곳뿐이다(dry 는 절대 쓰지 않는다)
 
-    return json({
+    const out: Record<string, unknown> = {
       ok: true,
       mode: commit ? "commit" : "dry",
       collector_version: COLLECTOR_VERSION,
@@ -662,6 +785,7 @@ Deno.serve(async (req) => {
       dispositions,
       candidates: cands.length,
       precision_skipped: precisionSkipped,
+      updated_ties: updatedTies,   // ⚠️ 동률 그룹 조기 신호 — 캡보다 커지면 결함 C 상황(가드가 잡는다)
       detail_fetched: detailFetched,
       detail_capped: detailCapped,
       detail_capped_reason: detailCapReason,
@@ -682,7 +806,10 @@ Deno.serve(async (req) => {
       cursor_before: cursorBefore,
       cursor_after: commit && !writeSkipped ? cursorWouldBe : cursorBefore,   // dry·차단 회차는 커서 무변
       cursor_after_would_be: cursorWouldBe,
-      cursor_held_by: detailCapped ? "capped:" + detailCapReason + " - cursor held at last processed doc's LastUpdatedDate" : null,
+      cursor_held_by: detailCapped ? "capped:" + detailCapReason + " - cursor held at last processed doc's cursor key" : null,
+      cursor_stalled_alert: cursorStalled
+        ? "capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - cost collection is frozen; commit is blocked"
+        : undefined,
       cursor_source: sinceSource,
       updated_since_requested: updatedSinceReq,
       unexpected_warehouses: [...unexpectedWarehouses].map(([name, hits]) => ({ name, hits })),
@@ -690,7 +817,20 @@ Deno.serve(async (req) => {
       samples: allRows.slice(0, 5),                  // 5행 전체 필드
       warnings,
       duration_ms: Date.now() - t0,
-    });
+    };
+
+    // 회차 로그 (2026-08-31 · inv_collect_runs source_key='cost' — dry 미기록 · 차단 회차도 기록 · 실패는 경고만)
+    if (commit) {
+      try {
+        await writeCollectRun(buildCostRun(out, warnings, Date.now() - t0));
+        out.collect_run_logged = true;
+      } catch (e: any) {
+        out.collect_run_logged = false;
+        out.collect_run_error = String(e?.message ?? e).slice(0, 200);
+        warnings.push("collect-run log failed (cost collection unaffected): " + out.collect_run_error);
+      }
+    } else out.collect_run_logged = false;
+    return json(out);
   } catch (e) {
     return json({ ok: false, error: String(e).slice(0, 500), duration_ms: Date.now() - t0 }, 500);
   }
