@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-31.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-08-31.2";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -451,6 +451,66 @@ function docStateSkip(terminal: boolean, recheck: boolean, state: Map<string, st
   if (!terminal || recheck) return false;
   if (!state || !docNumber || !listModified) return false;
   return state.get(docNumber) === listModified;
+}
+
+// ── 회차 로그 (2026-08-31 · 결함 C·D 후속 — 마이그레이션 20260831153314_inv_collect_runs) ──
+// 결함 C(커서 동결)·D(캡 누락) 둘 다 **EF 응답에는 신호가 있었다**(cursor_after_would_be ==
+//   cursor_before · hold_capped 120) — 그런데 응답은 수동 실행 때만 보이고, cron 은 응답을 안
+//   읽으며 cron.job_run_details 는 늘 succeeded 다(결함 C 때 350회+). 각각 하루 반·사흘 늦게
+//   알았고 그 지연이 데이터 유실 + 잘못된 응급조치를 낳았다. ⇒ commit 회차 결과를
+//   inv_collect_runs 에 남겨 아침 점검이 SQL 한 줄이 되게 한다(inv_snapshot_runs 와 같은 틀 —
+//   §4-c 급감 검사도 나중에 이 틀에 얹는다).
+// ⚠️ dry 회차는 남기지 않는다 — 수동 조사가 기준선을 오염시킨다(inv_snapshot_runs 와 같은 판단).
+// ⚠️ commit 이 차단된 회차(write_skipped)도 남긴다 — 차단된 회차가 남아야 원인이 보인다(ok=false).
+// ⚠️ 진단은 수집을 막지 않는다 — 로그 실패는 경고 + collect_run_error 만(호출부 try/catch).
+// 매핑은 R 의 기존 값 그대로 — 새로 계산하지 않는다. hold_capped 는 ②-a dispositions 에만 있다
+//   (②-b 는 null). inserted ← R.written(응답 필드명이 written 이다 · blocked/미commit 이면 null).
+// summary = R 전체 — 단 samples 는 제외(행이 커진다) · warnings 는 잘린 사본으로 대체(같은 이유).
+function buildCollectRun(sourceKey: string, R: Record<string, unknown>, warnings: string[], durationMs: number): Record<string, unknown> {
+  const num = (v: unknown) => (v == null ? null : Number(v));
+  const warnCapped = warnings.slice(0, 50);   // ⚠️ 길면 앞 50개 — jsonb 행 폭주 방지
+  const summary: Record<string, unknown> = {};
+  for (const k of Object.keys(R)) if (k !== "samples") summary[k] = k === "warnings" ? warnCapped : R[k];
+  const dispositions = (R.dispositions ?? null) as Record<string, number> | null;
+  return {
+    source_key: sourceKey,
+    ok: R.write_skipped ? false : true,
+    collector: COLLECTOR_VERSION,
+    detail_capped: R.detail_capped === true,
+    detail_capped_reason: R.detail_capped_reason ?? null,
+    detail_capped_remaining: num(R.detail_capped_remaining) ?? 0,
+    hold_capped: dispositions && dispositions["hold_capped"] != null ? Number(dispositions["hold_capped"]) : null,
+    cursor_before: R.cursor_before ?? null,
+    cursor_after: R.cursor_after ?? R.cursor_after_would_be ?? null,
+    cursor_stalled_alert: R.cursor_stalled_alert ?? null,
+    cursor_frozen_alert: R.cursor_frozen_alert ?? null,
+    list_total: num(R.list_total),
+    list_received: num(R.list_received),
+    pages: num(R.pages),
+    truncated: R.truncated ?? null,
+    list_aborted: R.list_aborted ?? null,
+    candidates: num(R.candidates),
+    docs_processed: num(R.docs_processed),
+    detail_fetched: num(R.detail_fetched),
+    ledger_rows: num(R.ledger_rows),
+    inserted: num(R.written),
+    insert_skipped: num(R.insert_skipped),
+    skipped_unchanged: num(R.skipped_unchanged),
+    precision_skipped: num(R.precision_skipped),
+    write_skipped: R.write_skipped ?? null,
+    dispositions,
+    warnings: warnCapped,
+    summary,
+    duration_ms: durationMs,
+  };
+}
+async function writeCollectRun(row: Record<string, unknown>): Promise<void> {
+  const r = await fetch(SB_URL() + "/rest/v1/inv_collect_runs", {
+    method: "POST",
+    headers: sbHeaders({ Prefer: "return=minimal" }),
+    body: JSON.stringify([row]),
+  });
+  if (!r.ok) throw new Error("sbInsert inv_collect_runs " + r.status + ": " + (await r.text()).slice(0, 400));
 }
 
 // 문서번호 → 비교용 숫자 (TR-03976 → 3976). ⚠️ 저장은 항상 문자열 원문 — 비교만 숫자
@@ -1198,6 +1258,17 @@ Deno.serve(async (req) => {
           }
         }
       }
+      // 회차 로그 (2026-08-31 · inv_collect_runs — dry 미기록 · 차단 회차도 기록 · 실패는 경고만)
+      if (commit) {
+        try {
+          await writeCollectRun(buildCollectRun(key, R, warnings, Date.now() - t0));
+          R.collect_run_logged = true;
+        } catch (e: any) {
+          R.collect_run_logged = false;
+          R.collect_run_error = String(e?.message ?? e).slice(0, 200);
+          warnings.push("collect-run log failed (collection unaffected): " + R.collect_run_error);
+        }
+      } else R.collect_run_logged = false;
       results[key] = R;
     }
 
@@ -1845,6 +1916,17 @@ Deno.serve(async (req) => {
           }
         }
       }
+      // 회차 로그 (2026-08-31 · inv_collect_runs — dry 미기록 · 차단 회차도 기록 · 실패는 경고만)
+      if (commit) {
+        try {
+          await writeCollectRun(buildCollectRun(key, R, warnings, Date.now() - t0));
+          R.collect_run_logged = true;
+        } catch (e: any) {
+          R.collect_run_logged = false;
+          R.collect_run_error = String(e?.message ?? e).slice(0, 200);
+          warnings.push("collect-run log failed (collection unaffected): " + R.collect_run_error);
+        }
+      } else R.collect_run_logged = false;
       results[key] = R;
     }
 
