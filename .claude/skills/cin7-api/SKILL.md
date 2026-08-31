@@ -209,6 +209,31 @@ const adjustments = fetchAllPages('stockadjustmentList', {
     **조용히 0행**이 된다. 📌 원장의 비재고 게이트가 `Type !== 'Stock'` **부정 조건**을 쓰는 이유가
     이것이다 — 값 어휘를 맞히지 않아도 되고, 새 타입이 생겨도 자동으로 차단 쪽에 선다.
 
+### ⚠️⚠️ 판매(sale) — `Updated` 와 날짜 필드의 함정 (2026-08-29~31 실측)
+
+- ⚠️ **`Updated` 는 「문서가 바뀌었다」는 뜻이 아니다.** Cin7 이 내용 변화 없이 갱신한다.
+  [실측 2026-08-28 11:25] 판매 문서 **238건이 밀리초까지 같은 `Updated`** 로 바뀌었는데
+  **Cin7 History 에는 그 시각 활동이 하나도 없다**(`SO-15485` 마지막 활동 8/28 10:08 ·
+  `SO-13009` 는 8/21) ⇒ **플랫폼 쪽 일괄 갱신**이다. 예고 없고 주기 미상.
+  📌 [08-26 유사 사례] `PO-00754` 는 회계가 상태 라벨만 바꿔 `LastUpdatedDate` 가 갱신됐다.
+  ⇒ **더 받는 방향이라 무해하지만, 대량이면 `UpdatedSince` 커서를 막는다**(동률 그룹).
+- ⚠️⚠️ **`Fulfilments[].Ship.Lines[].ShipmentDate` 는 재고가 빠진 시각이 아니다.**
+  사용자가 적는 날짜다. [실측 `SO-15041`] Activity log 의
+  `Shipping for fulfillment #1 has been authorized` = **08/20 16:29:21** 인데
+  `ShipmentDate` 는 **2026-08-21** 이었다. **Cin7 은 승인 시각에 차감한다.**
+  ⇒ 기준선 스냅샷 경계에서 **이중 차감**이 난다(2026-08-30 실사고 · 4문서 522행).
+  📌 실제 차감 시각은 **Activity log(화면)** 에만 있다 — API 에서 얻는 방법은 미확인.
+- 📌 **판매 목록 행 키**(실측):
+  `SaleID, OrderNumber, Status, OrderDate, InvoiceDate, Customer, CustomerID, InvoiceNumber,
+  CustomerReference, InvoiceAmount, PaidAmount, SaleInvoicesTotalAmount, InvoiceDueDate, ShipBy,
+  BaseCurrency, CustomerCurrency, CreditNoteNumber, Updated, QuoteStatus, OrderStatus,
+  CombinedPickingStatus, CombinedPaymentStatus, CombinedTrackingNumbers, CombinedPackingStatus,
+  CombinedShippingStatus, CombinedInvoiceStatus, CombinedPaymentTotal, CreditNoteStatus,
+  FulFilmentStatus, Type, SourceChannel, ExternalID, OrderLocationID, RestockStatus`
+- 📌 **상품 이동 내역은 화면이 가장 빠르다** — Cin7 Inventory 에서 상품을 열면 창고·bin 별
+  이동(Sale · Transfer out · PO 등)이 날짜순으로 나온다. [2026-08-31] 원장에 없는
+  `TR-04330 −144` 를 이것으로 찾았다. **API 로 같은 것을 얻는 방법은 미확인.**
+
 ### ⚠️ Advanced Purchase 상세 — 원가(COGS)를 읽을 때 (2026-08-27 실측)
 
 정본: `docs/sessions/2026-08-27-landed-cost-investigation.md` · 구현: EF `inv-cost`
