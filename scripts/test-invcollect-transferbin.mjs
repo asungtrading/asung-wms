@@ -23,6 +23,10 @@
 //  ⑪ 소멸 감지 「bin 변경」 예외 — bin 만 바뀐 행은 소멸 아님 · bin_changed 카운트
 //  ⑫ line_ref 가 사라짐 → 종전대로 소멸 검출(회귀)
 //  ⑬ bin 은 같고 sku 가 사라짐 → 종전대로 소멸 검출(회귀)
+//  ⑭ From·To 창고가 같음(내부 풋어웨이) → 해결 시도 안 함 · no_reference 에 안 들어감
+//  ⑮ To 에 bin 이 붙어도 창고 이름만 비교(resolveLoc 가 bin GUID 를 부모 창고로 푼다 — 콜론 파싱 없음)
+//  ⑯ 역방향(에드먼튼 출발) → 픽용 SO 가 구조적으로 없다 — no_source 로 분류 · 조회 안 함 ·
+//     no_reference(⭐ 매니저가 빠뜨림 — 진짜 신호)는 순방향만 센다
 
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -50,11 +54,11 @@ function extract(name) {
   }
   return src.slice(start, end);
 }
-const FNS = ["parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "partitionBinChanged"];
+const FNS = ["parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "partitionBinChanged", "isCrossWarehouseTransfer"];
 const dir = mkdtempSync(join(tmpdir(), "transferbin-"));
 writeFileSync(join(dir, "tb.ts"), FNS.map(extract).join("\n") + "\nexport { " + FNS.join(", ") + " };\n");
 execSync(`npx --yes esbuild ${join(dir, "tb.ts")} --outfile=${join(dir, "tb.mjs")} --format=esm`, { stdio: "pipe" });
-const { parseTransferRefSOs, buildTransferBinMap, resolveTransferBin, loadTransferBinMap, partitionBinChanged } = await import(join(dir, "tb.mjs"));
+const { parseTransferRefSOs, buildTransferBinMap, resolveTransferBin, loadTransferBinMap, partitionBinChanged, isCrossWarehouseTransfer } = await import(join(dir, "tb.mjs"));
 
 // sbGetFn 목 — 경로에 따라 응답을 돌려준다
 const mockSb = (orders, lines) => async (path) => {
@@ -127,11 +131,11 @@ const bStart = src.indexOf("async function runDateSource(");
 const A = src.slice(aStart, bStart);
 
 // ⑦ 헤더 bin 우선 — 조회 게이트와 leg1 순서
-ok("⑦ WMS lookup only when header gave no bin",
-  A.includes('if (fromLoc.mapped && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length)'));
+ok("⑦ WMS lookup only when header gave no bin (and forward cross-warehouse — ⑭·⑯ 이후)",
+  A.includes('if (binResolvable && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) {'));
 ok("⑦b leg1 uses header bin first, WMS only as fill-in",
   A.includes("let depBin = fromLoc.bin;")
-  && A.includes('if (depBin === "" && fromLoc.mapped) {')
+  && A.includes('if (depBin === "" && binResolvable) {')
   && A.includes("depBin = resolveTransferBin(transferBinMap, sku);"));
 
 // ⑧ 다리 2·3·4 무접촉 (원문 그대로)
@@ -196,6 +200,36 @@ const bRow = (line_ref, warehouse, bin, sku) => ({ doc_type: "transfer", doc_num
 ok("(배선) partitionBinChanged runs before caps · response field in both runners",
   src.indexOf("const part = partitionBinChanged(missing, d.keys);") < src.indexOf("missing.length > MISSING_MAX_PER_DOC")
   && (src.match(/missing_lines_bin_changed: missing \? missing\.binChanged : 0/g) ?? []).length === 2);
+
+// ── 적용 조건 좁힘 — 창고 간 이동만 (⑭~⑮) ──
+{
+  const L = (warehouse, bin) => ({ warehouse, bin, mapped: true });
+  // ⑭ 내부 풋어웨이 (TR-04260~64 실측 모양: From 창고 → To 같은 창고의 bin) → 대상 아님
+  ok("⑭ same-warehouse (internal putaway) → not a resolution target",
+    isCrossWarehouseTransfer(L("Asung - Edmonton", ""), L("Asung - Edmonton", "EG020102")) === false);
+  // ⑮ To 에 bin 이 붙어도 창고 이름만 비교 — resolveLoc 가 bin GUID 를 부모 창고 이름으로
+  //   풀므로 toLoc.warehouse 는 이미 "Asung - Edmonton" 이다(콜론 파싱 없음 · bin 필드는 무시)
+  ok("⑮ bin part never enters the comparison (warehouse names only)",
+    isCrossWarehouseTransfer(L("Asung Trading Inc.", ""), L("Asung - Edmonton", "EG020102")) === true
+    && isCrossWarehouseTransfer(L("Asung - Edmonton", "EZ01Pallet03"), L("Asung - Edmonton", "EG020102")) === false);
+  // unmapped 는 판정 불가 = 대상 아님 (UNMAPPED 는 commit 이 어차피 차단)
+  ok("⑭b unmapped → not a target", isCrossWarehouseTransfer({ warehouse: "UNMAPPED(x)", bin: "", mapped: false }, L("Asung - Edmonton", "")) === false);
+}
+// (정적) 게이트 배선 — 조회·leg1 채움 둘 다 binResolvable(순방향) 조건 · 같은 창고는 skip 카운트만
+ok("⑭c lookup gate requires binResolvable · same-warehouse only counts skip_same_warehouse",
+  A.includes("const crossWh = isCrossWarehouseTransfer(fromLoc, toLoc);")
+  && A.includes("const binResolvable = crossWh && fromLoc.warehouse === WMS_PICK_WAREHOUSE;")
+  && A.includes('if (!crossWh && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) tbSkipSameWh++;')
+  && A.includes('if (depBin === "" && binResolvable) {')
+  && A.includes("transfer_bin_skip_same_warehouse: tbSkipSameWh")
+  && (A.match(/tbPush\(tbNoReference/g) ?? []).length === 1);   // no_reference push 는 binResolvable 게이트 안 한 곳뿐
+
+// ⑯ 역방향 분류 — no_source (구조적으로 픽용 SO 없음) · no_reference 는 순방향 전용
+ok("⑯ reverse direction (Edmonton departure) → no_source, never no_reference",
+  A.includes('else if (crossWh && !binResolvable && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) tbPush(tbNoSource, c.number);')
+  && A.includes("transfer_bin_no_source: tbNoSource")
+  && src.includes('const WMS_PICK_WAREHOUSE = "Asung Trading Inc.";')
+  && A.indexOf("tbPush(tbNoSource") < A.indexOf('if (binResolvable && fromLoc.bin === ""'));   // 분류가 조회 게이트 앞
 
 // ⑩ 보정 도구 — 안전장치
 ok("⑩a tool: nothing written without --commit",

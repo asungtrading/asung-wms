@@ -185,6 +185,10 @@ const TIME_BUDGET_MS = 120_000;        // inv-snapshot 과 동일 — 150초 idl
 const INSERT_BATCH = 500;
 const IN_TRANSIT = "IN_TRANSIT";       // 합성 창고 — 언더스코어 = "Cin7 원문 아님" 표기
 const KNOWN_WAREHOUSES = new Set(["Asung Trading Inc.", "Asung - Edmonton"]);
+const WMS_PICK_WAREHOUSE = "Asung Trading Inc.";   // 트랜스퍼 출발 bin 해결의 순방향 기준(2026-08-31) —
+                                                   //   픽용 SO(가상 손님 ASUNG EDM TRANSFER) 는 **토론토 픽**에서만
+                                                   //   나온다. 역방향(에드먼튼 출발)은 픽용 SO 가 **구조적으로 없다** —
+                                                   //   no_reference(매니저 실수)와 구분해 no_source 로 센다.
 // 유니크 키 = 마이그레이션 inv_ledger_event_uq 와 동일 순서 (on_conflict 대상)
 const LEDGER_CONFLICT = "doc_type,doc_number,line_ref,event_type,warehouse,bin,sku";
 
@@ -547,7 +551,9 @@ function pickRollingRecheck(eligible: RollingEligible[], n: number): RollingPick
 // SKU 축: 원장 라인 sku = Cin7 원문(inv-collect 는 정규화하지 않는다) ↔ wms_order_lines 는
 //   base_sku. 트랜스퍼는 재고(bin) 이동이고 bin 은 base_sku 기준(불변식)이라 실무상 같다
 //   ([실측] 112/112). UOM SKU 가 오면 못 맞춰 비워둔다 — 안전 방향.
-// ⚠️ 적용 범위: transfer_out · warehouse ≠ IN_TRANSIT · **헤더에서 bin 을 못 얻은 라인만**.
+// ⚠️ 적용 범위: transfer_out · warehouse ≠ IN_TRANSIT · **헤더에서 bin 을 못 얻은 라인만** ·
+//   **순방향(토론토 출발)만** — 역방향(에드먼튼 출발)은 픽용 SO 가 구조적으로 없고, 있다 해도
+//   wms_order_lines 의 bin 은 토론토 픽 bin 이라 에드먼튼 출발에 채우면 틀린 bin 이 된다.
 //   헤더에 bin 이 있으면(내부 bin 이동 — 이미 잘 된다 · 335행 실측) 종전 그대로.
 //   도착 다리(4)·IN_TRANSIT 다리(2·3)는 무접촉.
 // ⚠️ 과거 행은 안 고친다 — 보정은 scripts/fix-transfer-bins.mjs(같은 함수를 원문 추출해 쓴다).
@@ -578,6 +584,20 @@ function resolveTransferBin(map: Map<string, string> | null, sku: string): strin
   // 판정 불가(맵 없음·미등재)는 전부 "" = 비워둔다 — 틀린 bin 보다 낫다
   if (!map || !sku) return "";
   return map.get(sku) ?? "";
+}
+// 적용 조건 (2026-08-31 좁힘): **창고 간 이동의 출발 다리만.** [실측] TR-04260~04264 는
+//   Reference 가 "WMS putaway TR-03976" — **우리 WMS 가 API 로 만든 에드먼튼 내부 풋어웨이**다
+//   (From "Asung - Edmonton" → To "Asung - Edmonton: EG020102" · User "Data Management (API
+//   Application)"). 픽이 아니라 SO 가 없는 것이 정상이고 도착 bin 은 헤더 To 에서 이미 읽힌다 —
+//   no_reference 로 세면 소음이다. 📌 Reference 가 "WMS putaway …" 로 시작하면 우리가 만든
+//   문서다(다음 사람이 SO 를 찾다가 헤맬 자리 — receiver 풋어웨이가 붙이는 관례 문자열).
+// ⚠️ 창고 비교는 resolveLoc 가 GUID 로 푼 창고 이름으로 한다 — 헤더 "창고: bin" 문자열의
+//   콜론 파싱은 이 파일의 금지 관례(파일 상단 「창고 판정은 문자열 파싱 금지」). resolveLoc 가
+//   bin GUID 를 부모 창고 이름으로 풀므로 "Asung - Edmonton: EG020102" 도 창고 부분
+//   ("Asung - Edmonton")으로 비교된다 — 「bin 부분을 뗀 창고 이름 비교」와 같은 의미다.
+type LocRef = { warehouse: string; bin: string; mapped: boolean };
+function isCrossWarehouseTransfer(fromLoc: LocRef, toLoc: LocRef): boolean {
+  return fromLoc.mapped && toLoc.mapped && fromLoc.warehouse !== toLoc.warehouse;
 }
 type TransferBinLookup = { map: Map<string, string> | null; sos: string[]; soMissing: string[]; conflicts: string[]; truncated: boolean };
 // sbGetFn 주입 — 테스트(test-invcollect-transferbin.mjs)와 보정 도구(fix-transfer-bins.mjs)가
@@ -1072,8 +1092,8 @@ Deno.serve(async (req) => {
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateDocs = 0;
       const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
       // 트랜스퍼 출발 bin 해결 카운터 (transfer 전용 — 파일 상단 loadTransferBinMap 절)
-      let tbResolved = 0, tbUnresolved = 0;
-      const tbNoReference: string[] = [], tbSoMissing: string[] = [], tbConflict: string[] = [];
+      let tbResolved = 0, tbUnresolved = 0, tbSkipSameWh = 0;
+      const tbNoReference: string[] = [], tbNoSource: string[] = [], tbSoMissing: string[] = [], tbConflict: string[] = [];
       const tbPush = (arr: string[], v: string) => { if (v && !arr.includes(v) && arr.length < 10) arr.push(v); };
       let detailCapped = false, detailCapReason: string | null = null;
       let unmappedInSource = 0;
@@ -1188,9 +1208,17 @@ Deno.serve(async (req) => {
           if (dateSubstituted) header.date_substituted = "DepartureDate <- LastModifiedOn (bin move, same warehouse)";
           // ── 출발 bin 해결 (2026-08-31 — 파일 상단 loadTransferBinMap 절) ──
           // ⚠️ 헤더에서 bin 을 얻은 문서(fromLoc.bin ≠ "" — 내부 bin 이동)는 WMS 를 조회하지
-          //   않는다(종전 그대로). 못 얻은 문서만 Reference 의 픽용 SO 로 WMS 픽 bin 을 찾는다.
+          //   않는다(종전 그대로). **창고 간 이동**에서 못 얻은 문서만 Reference 의 픽용 SO 로
+          //   WMS 픽 bin 을 찾는다 — 같은 창고 안(내부 풋어웨이 등 · "WMS putaway …")은 대상이
+          //   아니다: SO 가 없는 것이 정상이라 no_reference 로 세지 않고 skip_same_warehouse 만 센다.
+          //   창고 간이라도 **역방향(에드먼튼 출발)** 은 픽용 SO 가 구조적으로 없다 — no_source 로
+          //   센다(⭐ no_reference 는 순방향에서 매니저가 Reference 를 빠뜨린 **진짜 신호**만 남긴다).
           let transferBinMap: Map<string, string> | null = null;
-          if (fromLoc.mapped && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) {
+          const crossWh = isCrossWarehouseTransfer(fromLoc, toLoc);
+          const binResolvable = crossWh && fromLoc.warehouse === WMS_PICK_WAREHOUSE;   // 순방향만
+          if (!crossWh && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) tbSkipSameWh++;
+          else if (crossWh && !binResolvable && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) tbPush(tbNoSource, c.number);
+          if (binResolvable && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) {
             try {
               const tb = await loadTransferBinMap(det?.Reference ?? c.row?.Reference, sbGet);
               if (!tb.sos.length) tbPush(tbNoReference, c.number);
@@ -1222,7 +1250,7 @@ Deno.serve(async (req) => {
             // 출발 bin: 헤더 값 우선 · 없으면 WMS 픽 bin (틀린 bin 을 채우느니 비워둔다 — 위 절)
             let depBin = fromLoc.bin;
             let binFromWms = false;
-            if (depBin === "" && fromLoc.mapped) {
+            if (depBin === "" && binResolvable) {   // 같은 창고 안·역방향은 대상 아님 — 종전대로 '' 유지(카운트 무접촉)
               depBin = resolveTransferBin(transferBinMap, sku);
               if (depBin) { tbResolved++; binFromWms = true; } else tbUnresolved++;
             }
@@ -1432,9 +1460,11 @@ Deno.serve(async (req) => {
         Object.assign(R, {
           transfer_bin_resolved: tbResolved,
           transfer_bin_unresolved: tbUnresolved,
-          transfer_bin_no_reference: tbNoReference,
-          transfer_bin_so_missing: tbSoMissing,
+          transfer_bin_no_reference: tbNoReference,               // ⭐ 매니저가 Reference 를 빠뜨림 (진짜 신호 — 순방향만 센다)
+          transfer_bin_no_source: tbNoSource,                     // 역방향(에드먼튼 출발) — 픽용 SO 가 구조적으로 없다
+          transfer_bin_so_missing: tbSoMissing,                   // Reference 의 SO 가 wms_orders 에 없다
           transfer_bin_conflict: tbConflict,
+          transfer_bin_skip_same_warehouse: tbSkipSameWh,   // 내부 풋어웨이 등 — 대상 아님(소음 아님)
         });
         if (tbUnresolved > 0) warnings.push(tbUnresolved + " transfer_out line(s) left with empty departure bin - fill Reference in Cin7 and run scripts/fix-transfer-bins.mjs");
       }
