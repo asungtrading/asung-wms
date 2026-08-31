@@ -407,6 +407,9 @@ select cron.schedule(
 --     ⚠️ 확인은 결과물로만 — cron.job_run_details 의 succeeded 는 아무것도 보장하지 않는다:
 --         select source_key, last_cursor, last_run_at from inv_sync_state where source_key='cost';
 --         select cost_kind, count(*), max(refreshed_at) from inv_cost group by 1;
+--     📌 [2026-08-31] 결함 C 방어 이식(커서 tie-breaker + cursorStalled) + 회차 로그.
+--       확인은 inv_collect_runs 에서: select * from inv_collect_runs where source_key='cost'
+--       order by ran_at desc limit 5;  ⚠️ cron.job_run_details 의 succeeded 는 증거가 아니다.
 --     ⚠️ 분 33 = 빈 분. 스냅샷(잡12 · 05:21)과 48분 떨어뜨렸다 — 스냅샷은 23페이지를 몰아
 --       치는 회차라 멀수록 429 위험이 낮다. inv-sku-types(잡15 · 03:26)와 67분.
 --       아침 점검 전에 돌아야 「원가 누락」 점검(⑥)이 간밤 결과를 본다.

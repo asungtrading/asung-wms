@@ -114,9 +114,43 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   변경 없는 종결 문서는 상세를 부르지 않는다. [실측] 트랜스퍼 상세 **39 → 5** ·
   `hold_capped 120 → 0` · Cin7 호출 회차당 34건 감소.
   · **시딩 불필요** — 회차마다 채워져 **20분에 156건**이 찼다
-  · ⚠️ **`?recheck=1`** 로 그 회차만 판정을 끈다 — ⬜ **주 1회 cron 미등록**.
-    `last_modified` 가 **안 올라가는 경우**가 있으면 조용히 놓치므로 믿는 축에는 검산이 필요하다
+  · ⚠️ `last_modified` 가 **안 올라가는 경우**가 있으면 조용히 놓치므로 믿는 축에는 검산이
+    필요하다 ⇒ **롤링 재확인**(아래 항목)이 그 일을 한다. `?recheck=1` 은 그 회차만 판정을
+    끄는 **수동 조사 도구** — ❌ **cron 등록하지 않는다**(커버리지가 안 나온다 · 롤링 항목)
   · ⚠️ ②-b 는 `docIncomplete` 문서를 기록하지 않는다(`adv_no_putaway` 등의 재조회 안전망 보존)
+
+- ✅ **수집 회차 로그 (2026-08-31 · `20260831153314` · `inv_collect_runs`)**
+  결함 C·D 둘 다 **EF 응답에는 신호가 있었는데**(`cursor_after_would_be == cursor_before` ·
+  `hold_capped 120`) 응답을 아무도 안 봐서 하루 반·사흘 늦게 알았다.
+  ⇒ 회차별 밀림 축과 실적을 남긴다. `inv_snapshot_runs` 와 같은 틀.
+  · ⚠️ **`dry` 는 안 남긴다** · 차단된 commit 회차는 `ok=false` 로 남긴다
+  · ⚠️ 관측만 추가 — 커서·캡 로직 무접촉
+  · **`inv-cost` 도 `source_key='cost'` 로 남긴다**(하루 1회라 응답 볼 기회가 없다)
+  · ⭐ **아침 점검 ⑦** — 24시간 내 이상 회차가 **0행이면 그날 수집은 정상**
+- ✅ **롤링 재확인 (2026-08-31)** — `last_modified` 를 믿는 축의 검산.
+  매 회차 `seen_at` 이 가장 오래된 **5건**을 강제 재조회한다(트랜스퍼 156건 · 약 2.6시간 회전).
+  · ❌ **`?recheck=1` cron 은 커버리지가 안 나온다** — 캡 40 · 커서 hold 조합이라 매번
+    「커서 위 첫 40건」만 본다. ⚠️ **「검산하고 있다」는 착각만 남아 안 하는 것보다 나쁠 수 있다**
+  · ⚠️ 커버리지: `transfer` **완전** / `adjustment`·`assembly` **닿지 않음**(커서 전진) /
+    ②-b **최근 창만**(`UpdatedSince`). 📌 어느 쪽도 **악화는 아니다**
+  · **`doc_state_oldest_seen` 이 커버리지 지표**
+  · `?recheck=1` 은 수동 조사 도구로 남긴다 — ⬜ cron 미등록
+
+**⑦ 수집 회차 — 캡·동결이 있었나** (2026-08-31 신설)
+```sql
+select source_key, ran_at at time zone 'America/Toronto' as ran_toronto,
+       detail_capped, detail_capped_reason, detail_capped_remaining, hold_capped,
+       cursor_stalled_alert, cursor_frozen_alert, write_skipped
+from inv_collect_runs
+where ran_at > now() - interval '24 hours'
+  and (detail_capped or coalesce(hold_capped,0) > 0
+       or cursor_stalled_alert is not null or cursor_frozen_alert is not null or not ok)
+order by ran_at desc limit 20;
+```
+📌 **0행이면 그날 수집은 정상이다.** 결함 C·D 를 하루 늦게 안 이유가 이것이 없어서였다.
+📌 회전 확인(롤링 재확인):
+`select source_key, count(*), min(seen_at), max(seen_at) from inv_doc_state group by 1;`
+— `min` 이 계속 당겨지면 회전이 돈다(트랜스퍼는 2.6시간 안에 최고령 갱신).
 
 - 🔵 **스냅샷 회차 로그 (2026-08-26 · `20260826130408` · `inv_snapshot_runs`)**
   §4-c 급감 검사의 **선행 조건**. 판정에 필요한 값이 `summary` 로 계산되고도 응답 후 사라지고
@@ -306,6 +340,8 @@ group by l.doc_number order by 2;
 `inv-sku-types` cron 미등록(08-24 · 돌지 않는데 succeeded) · `inv-cost` placeholder
 (08-28 · 401 인데 succeeded) · **결함 C**(08-29 · 350회+ succeeded인데 수집 동결).
 ⇒ **확인은 언제나 결과물로.** 커서 전진 · 행 수 · `refreshed_at` 갱신.
+📌 **2026-08-31 부터는 `inv_collect_runs` 가 그 창구다** — 회차 결과가 남으므로
+「돌았는데 아무 일도 안 했다」를 아침에 본다. ⚠️ 다만 **`dry` 는 안 남는다**(의도).
 (HTTP 요청을 띄운 것까지만 본다 — cron 검증의 유일한 증거는 `inv_sync_state.last_run_at` 갱신 +
 `last_cursor` 전진이다.)
 ⚠️ **원장 쓰기 뒤 `insert_skipped ≠ 0` 은 정상**(재수집) · `conflicts_detected ≠ 0` 이면
@@ -685,16 +721,11 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ## 다음에 할 일 (우선순위 — 2026-08-31 갱신)
 
-1. ⚠️ **수집 밀림 감지** — `inv_collect_runs` 신설(`inv_snapshot_runs` 와 동형). 회차별
-   `dispositions`·`detail_capped`·`hold_capped`·커서를 남긴다. **결함 C·D 를 각각 하루 반·
-   사흘 늦게 안 것**이 근거고, `hold_capped`·`detail_capped` 는 **EF 응답에만 있어 SQL 로 못 본다.**
-   📌 급감 검사(§4-c)도 같은 틀에 얹힌다.
-2. ⚠️ **`inv-cost` 가 결함 C 에 노출** — 커서가 맨 `Updated` 이고 가드는 `cappedNoUpdated` 뿐이다.
-   판매 동률이 **주 1회꼴**로 관측되므로 발주도 안전하지 않다. tie-breaker + `cursorStalled` 이식.
-3. ⬜ **`?recheck=1` 주 1회 cron**
-4. ⬜ **트랜스퍼 bin 단위** — ⚠️ 키가 바뀌어 **소멸 감지가 원장 전체를 「삭제됨」으로 잡는다.**
-   순서 설계가 먼저다.
-5. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
+1. ⬜ **트랜스퍼 bin 단위** — 헤더 `FromLocation`/`ToLocation` 의 `"창고: bin"` 을 안 읽는다.
+   ⚠️ 고치면 **키가 바뀌어 소멸 감지가 원장 전체를 「삭제됨」으로 잡는다.** 순서 설계가 먼저다.
+2. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥을 분리한다. `inv_doc_state`(08-31)는
+   **캡을 푼 것이지 커서를 푼 것이 아니다**(트랜스퍼 커서는 여전히 `TR-04172`).
+3. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.

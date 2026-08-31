@@ -269,6 +269,7 @@ inv-cost placeholder        (08-28) — 401 인데 succeeded
 ⚠️ 그런데 **SQL 만으로는 부족하다** — `hold_capped`·`detail_capped` 는 **EF 응답에만 있고
 DB 에 안 남는다.** ⇒ ⬜ **EF 회차 통계를 테이블에 남기는 설계가 필요하다**
 (`inv_snapshot_runs` 가 스냅샷에 한 역할과 같다).
+⇒ **같은 날 오후에 만들었다 — §6-a `inv_collect_runs` · 아침 점검 ⑦.**
 
 ### 4-c. 내가 틀린 것 (기록 규칙)
 
@@ -305,4 +306,136 @@ DB 에 안 남는다.** ⇒ ⬜ **EF 회차 통계를 테이블에 남기는 설
 기대   원장 적음 → 0 근처 (이중 차감 상쇄)
        원장 많음 → 크게 감소 (TR-04330·04331 회수)
 남는 것이 있으면 그것이 아직 모르는 원인이다.
+```
+
+---
+
+## 6. 같은 날 오후 — 재발을 「즉시 알고, 안 겪고, 검산한다」
+
+오전에 결함 D 를 고치고 나서, **왜 매번 하루 늦게 알았나**를 되짚어 셋을 더 만들었다.
+
+### 6-a. ⭐ 수집 회차 로그 — `inv_collect_runs` (커밋 `63bb906`)
+
+**결함 C·D 둘 다 EF 응답에는 신호가 있었다.**
+
+```
+결함 C   cursor_after_would_be == cursor_before
+결함 D   hold_capped 120 · detail_capped_remaining 120
+```
+
+⚠️ **그런데 응답은 수동 실행 때만 보인다.** cron 은 응답을 안 읽고
+`cron.job_run_details` 는 늘 `succeeded` 다(결함 C 때 350회+).
+⇒ **회차 결과를 테이블에 남겨** 아침에 SQL 한 줄로 본다.
+
+- 마이그레이션 `20260831153314` · `inv_snapshot_runs`(08-26)와 **같은 틀**
+- 밀림 축: `detail_capped` · `detail_capped_reason` · `detail_capped_remaining` ·
+  `hold_capped` · `cursor_before/after` · `cursor_stalled_alert` · `cursor_frozen_alert`
+- 실적: `list_*` · `candidates` · `docs_processed` · `ledger_rows` · `inserted` ·
+  `insert_skipped` · `skipped_unchanged` · `precision_skipped` · `write_skipped`
+- 원본: `dispositions` · `warnings`(앞 50) · `summary`(⚠️ `samples` 제외)
+- ⚠️ **`dry` 는 남기지 않는다**(수동 조사가 기준선을 오염시킨다). 차단된 commit 회차는
+  `ok=false` 로 남긴다 — 원인이 보여야 한다
+- ⚠️ **관측만 추가한다** — 커서·캡·판정 로직 무접촉. `R` 에서 값을 꺼내 쓰므로 응답과 어긋나지 않는다
+- ⚠️ 로그 실패가 수집을 막지 않는다(try/catch → `collect_run_error`)
+- 📌 Claude Code 판단: `summary` 안의 `warnings` 도 함께 잘랐다 — 원본 배열 참조라 그대로
+  담으면 컬럼 절단이 무의미해진다. `inserted ← R.written`(실물 이름이 다르다)
+
+**✅ 실물 검증(배포 10분 뒤)**
+```
+transfer 2회차 · skipped 312(=156×2) · capped 0 · hold 0
+sale 3 · purchase 1 · 이상 회차 0행
+```
+📌 **어제 같으면 `hold_capped 120` 이 매 회차 찍혔을 자리다.**
+
+**⭐ 아침 점검 ⑦ — 24시간 내 이상 회차**
+```sql
+select source_key, ran_at at time zone 'America/Toronto' as ran_toronto,
+       detail_capped, detail_capped_reason, detail_capped_remaining, hold_capped,
+       cursor_stalled_alert, cursor_frozen_alert, write_skipped
+from inv_collect_runs
+where ran_at > now() - interval '24 hours'
+  and (detail_capped or coalesce(hold_capped,0) > 0
+       or cursor_stalled_alert is not null or cursor_frozen_alert is not null or not ok)
+order by ran_at desc limit 20;
+```
+**0행이면 그날 수집은 정상이다.**
+
+### 6-b. `inv-cost` 결함 C 방어 이식 (커밋 `8746c96`)
+
+`inv-collect` 는 08-30 에 고쳤지만 **`inv-cost` 는 노출된 채였다** — 커서가 맨 `Updated` 이고
+가드는 `cappedNoUpdated`(결함 B) 하나뿐이었다.
+
+⚠️ **그리고 동률은 반복된다**(§6-c 실측). 지금 발주 동률은 0 이지만 판매를 치는 플랫폼
+갱신이 발주를 안 친다는 보장이 없다. 그리고 `inv-cost` 는 **하루 1회**라 멈춰도 조용하다.
+
+- 커서 `<Updated>|<문서식별자>` · 코드유닛 정렬 · `cursorStalled` 가드 — **`inv-collect` 의 것을 이식**
+- ⭐ **회차 로그를 `source_key='cost'` 로 남긴다** — 하루 1회라 응답을 볼 기회가 거의 없다.
+  **가드가 울려도 볼 자리가 없으면 소용없다**
+- ⚠️ 발주 타임스탬프에는 **`Z` 가 없다**(`2026-08-28T12:59:44.05`) — 문자열 그대로 다룬다
+- 📌 공유 규칙 4함수가 `inv-collect` 판과 **주석 제외 바이트 동일**함을 확인했다(복제 검증).
+  `cursorDocIdent` 만 `SaleID` 폴백을 뺐다 — `purchaseList` 행에 없어 동작은 같다
+- 📌 `ledger_rows`/`inserted` 는 **매핑하지 않았다** — 실물이 `rows_built`·`rows_written` 이라
+  이름도 의미도 다르다. 억지로 넣으면 `inv-collect` 행과 섞여 잘못 읽힌다
+
+**✅ dry 확인**: `collector inv-cost@2026-08-31.1` · `ties 0` · `stalled null` · `logged false`
+
+### 6-c. ⭐ 롤링 재확인 (커밋 `f61a95b`)
+
+오전에 `inv_doc_state` 를 넣으면서 **`last_modified` 를 믿게 됐다.**
+Cin7 이 내용을 바꾸면서 그 값을 안 올리면 **영영 안 읽는다** — **놓치는 방향**이라 이전보다 나쁘다.
+
+**❌ `?recheck=1` 을 cron 으로 도는 방식은 커버리지가 안 나온다**
+```
+recheck 는 skip 판정만 끈다 → 후보 159건이 전부 상세 대상
+그런데 캡 40 · 트랜스퍼 커서는 TR-04172 에 묶여 있다
+⇒ 매번 「커서 위 첫 40건」만 본다. 나머지 116건은 몇 번을 돌려도 안 본다
+```
+⚠️ **「검산하고 있다」는 착각만 남아 안 하는 것보다 나쁠 수 있다.**
+
+**⇒ 롤링**: 매 회차 skip 예정 문서 중 **`seen_at` 이 가장 오래된 5건**을 강제 재조회한다.
+처리되면 기존 upsert 가 `seen_at` 을 갱신하므로 **추가 코드 없이 자연 회전**한다.
+[계산] 트랜스퍼 156건 · 5분 주기 · 5건 ⇒ **약 2.6시간에 한 바퀴.**
+
+⚠️ **커버리지는 축마다 다르다**
+| | |
+|---|---|
+| `transfer` | ⭐ **완전** — 커서가 비종결에 묶여 전량이 후보다 |
+| `adjustment`·`assembly` | ⚠️ **닿지 않는다** — 커서가 전진해 처리된 문서가 후보에서 빠진다 |
+| ②-b(sale·purchase·creditnote) | ⚠️ **최근 창만** — `UpdatedSince` 라 커서보다 오래된 문서는 후보가 아니다 |
+
+📌 **어느 쪽도 악화는 아니다** — 그 한계는 `inv_doc_state` 이전부터 있던 것이다.
+📌 ②-b 에서 Cin7 이 변경 시 `Updated` 를 안 올리면 그 문서는 **목록에 아예 안 나온다** —
+롤링으로도 못 닿는 구조적 한계다.
+
+- **`doc_state_oldest_seen` 이 커버리지 지표**다 — 회전이 얼마나 뒤처졌는지 한 값으로 보인다
+- ⚠️ 캡에 밀리면 `seen_at` 이 안 갱신돼 다음 회차에 다시 후보가 된다(그대로 둔다).
+  부수 효과: ②-a 에서 롤링 문서가 캡에 걸리면 `skip_unchanged`(커서 통과) 대신
+  `hold_capped`(커서 hold)가 된다 — 매 회차 전량 재스캔이라 무해하다
+- ⚠️ 선정 실패는 **롤링만 끄고** 평소 skip 으로 동작한다
+- **`?recheck=1` 은 수동 조사 도구로 남긴다.** ⬜ cron 등록은 하지 않는다
+
+**✅ 실물 검증**
+```
+skipped_unchanged 151 + rolling_rechecked 5 = 156   ✅ 합이 맞는다
+detail_fetched 10 = 비종결 5 + 롤링 5 · capped false
+sample TR-04176~04180 · oldest_seen 2026-08-31 10:38(토론토)
+```
+📌 앞쪽 `TR-04173~75` 는 비종결이라 매번 조회돼 `seen_at` 이 갱신되므로 **그다음이 가장
+오래됐다** — 선정이 논리적으로 맞다.
+
+### 6-d. ⭐ 오늘 네 번 쓴 원칙
+
+**「진단이 본업을 막지 않는다」** — 소멸 감지(08-25) · 원가(08-27) · 회차 로그 · 롤링 선정.
+전부 try/catch 로 감싸고 실패하면 **그 기능만 끄고 수집·커서는 정상 진행**한다.
+
+📌 그리고 오늘 배운 짝: **가드가 있어도 볼 자리가 없으면 소용없고, 볼 자리가 있어도 가드가
+없으면 잡을 게 없다.** 그래서 ②(로그)를 ③(가드)보다 먼저 했다.
+
+### 6-e. 오늘 남은 것
+
+```
+⬜ 트랜스퍼 bin 단위 — ⚠️ 키가 바뀌어 소멸 감지가 원장 전체를 「삭제됨」으로 잡는다.
+   순서 설계가 먼저다
+⬜ 커서 근본 해결(홀드 목록과 커서 분리) — (B)는 캡을 푼 것이지 커서를 푼 것이 아니다
+⏸ 표본 대기: 급감 임계값 · landed cost 첫 발생 · Simple Purchase 원가
 ```
