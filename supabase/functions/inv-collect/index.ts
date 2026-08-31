@@ -62,6 +62,14 @@
 //   잘리면 detail_capped 를 **시끄럽게** 보고 — 조용하면 "적게 나온 게 정상"으로
 //   오해한다. 검증 플로우(only=+since=)에선 후보가 작아 캡에 안 걸린다.
 //
+// 문서 상태 skip (2026-08-31 · 결함 D — inv_doc_state · 상세는 loadDocState/docStateSkip 절):
+//   [실사고] 비종결 3건이 커서를 잡은 채 위 후보 159건 중 154건(COMPLETED — 이미 원장에 있고
+//   안 바뀜)을 매 회차 다시 읽어 캡 40 을 소진 → TR-04330(−144)이 hold_capped 뒤에 갇혀 영영
+//   누락(BMA15710 대조 차이 144). → 문서별 「마지막으로 본 목록 수정 시각」을 기록하고 값이
+//   같으면 상세를 부르지 않는다. skip 문서도 커서 전진에 포함(처리한 것으로 취급).
+//   ⚠️ 비종결(process_nonterminal)은 절대 skip 하지 않는다. ?recheck=1 = 그 회차만 판정 OFF
+//   (전수 재확인 — 기록·커서는 평소대로 · 캡 때문에 여러 회차 분할 전제).
+//
 // 같은 문서 안 동일 유니크 키 라인은 **합산** + merged_lines 보고 (①스냅샷 합산과
 //   같은 논리 — ignore-duplicates 의 조용한 소실 방지). ⚠️ merged_lines ≠ 0 은
 //   line_ref=ProductID 가정("같은 SKU 두 줄 없음 — 실무 검증")이 깨졌다는 신호다.
@@ -153,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-30.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-08-31.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -400,6 +408,51 @@ async function sbUpsert(table: string, conflictCol: string, rows: unknown): Prom
   if (!r.ok) throw new Error("sbUpsert " + table + " " + r.status + ": " + (await r.text()).slice(0, 400));
 }
 
+// ── 문서 상태 skip (2026-08-31 · 결함 D — 마이그레이션 20260831140218_inv_doc_state) ──
+// [실사고 2026-08-31] ②-a 는 비종결 문서(IN TRANSIT) 앞에서 커서가 멈추는데(설계대로), 그 위
+//   문서가 상세 캡(40건/120초)을 넘으면 뒤쪽이 영영 안 들어온다: transfer 후보 159건 중 154건이
+//   COMPLETED(이미 원장에 있고 안 바뀜)인데 매 회차 다시 읽어 캡을 소진 — TR-04330(8/28 · −144)
+//   누락 = BMA15710 대조 차이 144. [08-27 은 capped_remaining 0 — 문서가 늘며 조용히 넘었다.]
+// 처방: 문서별 「마지막으로 본 목록 수정 시각」을 inv_doc_state 에 기록하고, 다음 회차에 목록의
+//   값이 같으면 상세를 부르지 않는다(skip_unchanged). [실측 2026-08-31 GAS 프로브] 그 값은 라인
+//   편집에 반응한다: SO-15440 라인 삭제 3분 뒤 Updated 갱신 · TR-04175 138줄 삭제 시각 =
+//   LastModifiedOn · PO-01117 수량 168→192 는 3주 뒤 LastUpdatedDate — 「값이 같으면 내용도
+//   같다」. 반대 방향(내용 무변에 값만 갱신 — 08-28 플랫폼 일괄 갱신 238건)은 한 번 더 읽을 뿐
+//   무해. ⚠️ 그래도 믿는 축에는 검산이 필요하다 — ?recheck=1 이 그 회차만 판정을 끄고 전량
+//   조회한다(캡 때문에 여러 회차 분할 전제 · cron 등록은 Caleb 판단).
+// ⚠️ 판정은 종결 문서에만 — ②-a process_nonterminal 은 절대 skip 하지 않는다(도착이 목록 값을
+//   바꾸는지 미확인 — 안 바꾸면 3·4행을 영영 못 만든다). ②-b 는 docIncomplete 문서를 기록하지
+//   않는 것으로 같은 원칙을 지킨다(기록이 없으면 skip 도 없다).
+// ⚠️ last_modified 는 문자열 완전 일치로만 비교 — 파싱 금지(sale/transfer 는 …Z · purchase 는
+//   Z 없음 — 타임존 해석이 축마다 다르다. 같은 축의 저장값↔수신값 비교라 형식 차이는 무해).
+// ⚠️ 진단·최적화는 수집을 막지 않는다(소멸 감지와 같은 원칙) — 읽기 실패 = 판정 OFF(전량 조회)
+//   + doc_state_error · 쓰기 실패 = 경고만(다음 회차 재조회). 쓰기는 commit + 원장 쓰기 성공
+//   뒤에만(dry 미기록).
+// skip 문서는 missingDocs(A 집합)에 안 들어간다 — G1 동형(상세가 없으면 판정 불가).
+//   손실 없음: 라인 삭제는 last_modified 를 바꿔 skip 되지 않는다(위 실측).
+type DocStateRow = { source_key: string; doc_number: string; last_modified: string; doc_status: string | null; collector: string };
+const DOC_STATE_CHUNK = 200;   // in.() 청크 — (source_key, doc_number) PK 조회라 요청당 행수 ≤ 청크 = 1000행 캡에 구조적으로 안 닿는다
+async function loadDocState(sourceKey: string, docNumbers: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const uniq = [...new Set(docNumbers.filter(Boolean))];
+  for (let i = 0; i < uniq.length; i += DOC_STATE_CHUNK) {
+    const chunk = uniq.slice(i, i + DOC_STATE_CHUNK);
+    const rows = await sbGet("inv_doc_state?select=doc_number,last_modified" +
+      "&source_key=eq." + encodeURIComponent(sourceKey) +
+      "&doc_number=in.(" + encodeURIComponent(chunk.map((v) => '"' + String(v).replace(/"/g, '\\"') + '"').join(",")) + ")");
+    for (const r of rows) map.set(String(r.doc_number), String(r.last_modified));
+  }
+  return map;
+}
+// skip 판정 — ②-a·②-b 공유 헬퍼(테스트 scripts/test-invcollect-docstate.mjs):
+//   종결(terminal) ∧ ¬recheck ∧ 기록 존재 ∧ 문자열 완전 일치. 판정 불가(맵 없음 = 읽기 실패 ·
+//   식별자/목록 값 결손)는 전부 false = 조회한다 — 틀려도 「한 번 더 읽는」 쪽으로만 틀린다.
+function docStateSkip(terminal: boolean, recheck: boolean, state: Map<string, string> | null, docNumber: string, listModified: string | null): boolean {
+  if (!terminal || recheck) return false;
+  if (!state || !docNumber || !listModified) return false;
+  return state.get(docNumber) === listModified;
+}
+
 // 문서번호 → 비교용 숫자 (TR-03976 → 3976). ⚠️ 저장은 항상 문자열 원문 — 비교만 숫자
 // (사람이 last_cursor 를 읽으면 "TR-03976 까지 봤다"가 보여야 한다 — 사용자 지시).
 function docNum(n: string): number | null {
@@ -536,6 +589,9 @@ Deno.serve(async (req) => {
     }
     const since = (url.searchParams.get("since") ?? "").trim() || null;
     if (since && !/^\d{4}-\d{2}-\d{2}$/.test(since)) return json({ ok: false, error: "since must be YYYY-MM-DD" }, 400);
+    // 전수 재확인 (2026-08-31 결함 D — docStateSkip 절): 그 회차만 문서 상태 skip 판정 OFF.
+    // 기록(inv_doc_state 갱신)과 커서는 평소대로 — 캡 때문에 한 회차로 못 끝나 여러 회차 분할 전제.
+    const recheck = url.searchParams.get("recheck") === "1";
 
     // ── 커서 하한(floor) 파라미터 (2026-08-17 보완 — 실사고) ──
     // [실사고] 첫 dry(only=transfer&since=2026-08-10)가 원장 행 0개: DepartureDate 없는
@@ -650,6 +706,7 @@ Deno.serve(async (req) => {
     const global = {
       mode: commit ? "commit" : "dry",
       since,
+      recheck: recheck || undefined,   // 전수 재확인 회차 — 문서 상태 skip 판정 OFF(기록·커서는 평소대로)
       collector_version: COLLECTOR_VERSION,
       location_map: { total: locTotal, received: locReceived, pages: locPages },
       // 비재고 게이트 상태 (2026-08-24) — 캐시 행 수 + 경고(비었음/낡음/못읽음 — 조용한 폴백 금지)
@@ -758,6 +815,24 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── 문서 상태 skip 준비 (2026-08-31 결함 D — 파일 상단 docStateSkip 절) ──
+      let docState: Map<string, string> | null = null;
+      let docStateError: string | null = null;
+      let skippedUnchanged = 0;
+      const docStateRows: DocStateRow[] = [];
+      // ②-a 목록의 갱신 필드 = LastModifiedOn ([실측 2026-08-31] transfer 1000/1000 · 빈 값 0 ·
+      // 동률 0. adjustment·assembly 는 미실측 — 값이 있으면 쓰고 없으면 판정 불가 = 늘 조회,
+      // missingDocs 의 lmo 폴백과 같은 자세). ⚠️ 문자열 그대로 — 파싱 금지(축마다 형식이 다르다).
+      const listLmOf = (row: any) => String(row?.LastModifiedOn ?? "").trim() || null;
+      try {
+        docState = await loadDocState(key, cands.filter((c) => c.disposition.startsWith("process")).map((c) => c.number));
+      } catch (e: any) {
+        // ⚠️ 진단·최적화는 수집을 막지 않는다 — 판정을 끄고(전량 조회) 경고만.
+        docState = null;
+        docStateError = String(e?.message ?? e).slice(0, 200);
+        warnings.push("doc-state read failed - skip judging disabled, fetching all details: " + docStateError);
+      }
+
       // 3) 상세 조회 (오름차순 · 캡 · 시간 가드) → 원장 행 생성
       const sink = makeSink(since, nonStockSkus);   // 공유 sink — 파일 상단 makeSink(②-b 에서 추출) + 비재고 게이트
       const dateCandidates: { doc_number: string; list_date: string | null; completion_date: string | null; wip_date: string | null }[] = [];
@@ -771,6 +846,16 @@ Deno.serve(async (req) => {
 
       for (const c of cands) {
         if (!c.disposition.startsWith("process")) continue;
+        // 변경 없는 종결 문서는 상세를 부르지 않는다 (결함 D) — ⚠️ 종결(process)만.
+        // process_nonterminal 은 절대 skip 하지 않는다: 도착(3·4행)을 만들려면 재방문이 필수인데,
+        // 도착이 목록 값을 안 바꾸는 경우가 미확인이라 skip 하면 도착 다리를 영영 못 받는다.
+        // skip 문서는 missingDocs(A 집합)에도 안 들어간다(상세가 없으니 판정 불가 — G1 동형).
+        // 캡 검사보다 앞 — skip 은 호출 예산을 안 쓰므로 캡 도달 뒤에도 판정된다(집계 정확).
+        if (docStateSkip(c.disposition === "process", recheck, docState, c.number, listLmOf(c.row))) {
+          c.disposition = "skip_unchanged";
+          skippedUnchanged++;
+          continue;
+        }
         if (detailFetched >= MAX_DETAIL_PER_SOURCE) { detailCapped = true; detailCapReason = "max_detail"; c.disposition = "hold_capped"; continue; }
         if (timeLeft() < 5_000) { detailCapped = true; detailCapReason = "time"; c.disposition = "hold_capped"; continue; }
         const taskId = String(c.row?.TaskID ?? "").trim();
@@ -929,6 +1014,14 @@ Deno.serve(async (req) => {
             keys: new Set(rows.map(ledgerKeyOf)),
           });
         }
+        // 문서 상태 기록 대상 (결함 D) — 종결(process) 문서만(비종결은 판정 대상이 아니라 기록도
+        // 안 한다). 값은 **목록 행**의 것 — 다음 회차 skip 판정이 목록 값과 비교하므로 축을
+        // 맞춘다(상세 값과 어긋나면 다음 회차에 한 번 더 읽을 뿐 — 안전 방향). 쓰기는 commit 블록.
+        if (c.disposition === "process") {
+          const lm = listLmOf(c.row);
+          if (lm) docStateRows.push({ source_key: key, doc_number: c.number, last_modified: lm,
+            doc_status: String(det?.Status ?? c.row?.Status ?? "").trim() || null, collector: COLLECTOR_VERSION });
+        }
         if (c.disposition === "process") c.disposition = "processed";           // 종결 — 커서 통과 가능
         else if (c.disposition === "process_nonterminal") c.disposition = "processed_nonterminal";   // IN TRANSIT — 커서 hold
       }
@@ -965,7 +1058,7 @@ Deno.serve(async (req) => {
         // ⚠️ 파싱 불가 번호에는 커서를 올리지 않는다 — 저장되면 다음 회차 docNum(cursor)=null 이
         //   되어 커서 자체가 무효화된다(전량 재스캔). 그 문서 앞에서 멈추고 경고로 남긴다.
         if (docNum(c.number) == null) { cursorHeldBy = { doc_number: c.number, reason: "unparsable_number" }; break; }
-        if (d === "processed" || d === "skip_voided" || d === "skip_since") { cursorAfter = c.number; continue; }
+        if (d === "processed" || d === "skip_voided" || d === "skip_since" || d === "skip_unchanged") { cursorAfter = c.number; continue; }   // skip_unchanged 도 처리한 것으로 취급 — 커서가 정상 전진해야 한다(결함 D)
         cursorHeldBy = { doc_number: c.number, reason: d };
         break;
       }
@@ -1019,6 +1112,11 @@ Deno.serve(async (req) => {
         detail_capped: detailCapped,
         detail_capped_reason: detailCapReason,
         detail_capped_remaining: detailCapped ? cands.filter((c) => c.disposition === "hold_capped").length : 0,
+        // 문서 상태 skip (2026-08-31 결함 D) — skipped_unchanged 가 쌓이고 detail_capped 가
+        // false 로 내려가는 것이 정상 궤적(1회차는 기록이 없어 0).
+        skipped_unchanged: skippedUnchanged,
+        doc_state_known: docState ? docState.size : 0,
+        doc_state_error: docStateError ?? undefined,   // 있으면 이번 회차는 전량 조회로 동작했다
         ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
         since_filtered_rows: sink.stats.since_filtered_rows,
@@ -1073,6 +1171,16 @@ Deno.serve(async (req) => {
             last_ok_at: new Date().toISOString(),
             note: COLLECTOR_VERSION + " rows=" + sink.rows.length + " inserted=" + w.inserted + (detailCapped ? " capped" : ""),
           }]);
+          // 문서 상태 기록 (결함 D) — 원장 쓰기 성공 뒤에만(dry 는 안 쓴다).
+          // ⚠️ 진단·최적화는 수집을 막지 않는다 — 실패는 경고만(다음 회차가 그 문서를 다시 읽는다).
+          if (docStateRows.length) {
+            try {
+              const seenAt = new Date().toISOString();
+              await sbUpsert("inv_doc_state", "source_key,doc_number", docStateRows.map((r) => ({ ...r, seen_at: seenAt })));
+            } catch (e: any) {
+              warnings.push("doc-state upsert failed (collection unaffected): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
           R.written = w.inserted;                    // ⚠️ 2026-08-19 의미 변경: 시도 행수 → 실삽입 행수(재수집 중복 제외)
           R.insert_skipped = w.insert_skipped;       // 버려진 행 수 — 0 아님이 정상(재수집 포함)
           R.conflicts_detected = w.conflicts_detected;
@@ -1250,6 +1358,24 @@ Deno.serve(async (req) => {
       // 동률 관측 (결함 C 조기 신호 — 응답 updated_ties): 후보 확정(필터·dedup) 후에 센다
       const updatedTies = countUpdatedTies(cands);
 
+      // ── 문서 상태 skip 준비 (2026-08-31 결함 D — ②-a 와 같은 판정 · 파일 상단 docStateSkip 절) ──
+      // ②-b 는 문서에 커서가 멈추지 않으므로(갱신되면 UpdatedSince 재등장) 후보를 종결로 취급하되,
+      // 「비종결 skip 금지」 원칙은 기록 쪽에서 지킨다: docIncomplete 문서는 기록하지 않는다
+      // (기록이 없으면 skip 도 없다 — 아래 기록 지점). 문서 식별자 = cursorDocIdent(OrderNumber →
+      // SaleID/ID) — creditnote 는 sale 단위(원장 doc_number 는 CN 번호지만 목록·상세 조회 단위가 sale).
+      let docState: Map<string, string> | null = null;
+      let docStateError: string | null = null;
+      let skippedUnchanged = 0;
+      const docStateRows: DocStateRow[] = [];
+      try {
+        docState = await loadDocState(key, cands.map((cd) => cursorDocIdent(cd.row)).filter(Boolean));
+      } catch (e: any) {
+        // ⚠️ 진단·최적화는 수집을 막지 않는다 — 판정을 끄고(전량 조회) 경고만.
+        docState = null;
+        docStateError = String(e?.message ?? e).slice(0, 200);
+        warnings.push("doc-state read failed - skip judging disabled, fetching all details: " + docStateError);
+      }
+
       // 3) 상세 → 원장 행
       let detailFetched = 0, docsProcessed = 0, zeroQtyLines = 0, missingDateItems = 0;
       let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
@@ -1282,9 +1408,19 @@ Deno.serve(async (req) => {
       }
 
       for (let i = 0; i < cands.length; i++) {
+        const cd = cands[i];
+        // 변경 없는 문서는 상세를 부르지 않는다 (결함 D) — 캡 검사보다 앞(호출 예산 무소모).
+        // 비교 값 = cd.updated (sale 'Updated' · purchase 'LastUpdatedDate' — 목록 실측 필드 ·
+        // [실측 2026-08-31] 빈 값 0건). 기록은 docIncomplete 문서를 제외하므로(아래) 여기 걸리는
+        // 문서는 전부 「부분 스킵 없이 전량 기표된」 것 — 종결 취급이 안전하다.
+        // ⚠️ skip 도 커서 전진에 포함(lastProcessedKey) — 처리한 것으로 취급해야 커서가 전진한다.
+        if (docStateSkip(true, recheck, docState, cursorDocIdent(cd.row), cd.updated)) {
+          skippedUnchanged++;
+          if (cd.key) lastProcessedKey = cd.key;
+          continue;
+        }
         if (detailFetched >= MAX_DETAIL_PER_SOURCE) { detailCapped = true; detailCapReason = "max_detail"; cappedRemaining = cands.length - i; break; }
         if (timeLeft() < 5_000) { detailCapped = true; detailCapReason = "time"; cappedRemaining = cands.length - i; break; }
-        const cd = cands[i];
         const row = cd.row;
         let path: string;
         let id: string;
@@ -1507,6 +1643,16 @@ Deno.serve(async (req) => {
             for (const [dn, ks] of byDoc) missingDocs.push({ docNumber: dn, lmo: cd.updated, docStatus: st, keys: ks });
           }
         }
+        // 문서 상태 기록 대상 (결함 D) — **부분 스킵 없는 문서만**(!docIncomplete — 소멸 감지
+        // G1 과 같은 자세). docIncomplete(미배송 fulfilment·비 AUTHORISED 블록·DRAFT CN·
+        // adv_no_putaway 등)는 ②-a 의 비종결에 해당한다 — 기록하면 「갱신 없이 완성되는」
+        // 미확인 경로(예: put-away 가 LastUpdatedDate 를 안 올리는 경우)에서 영영 skip 된다.
+        // 지금처럼 겹침 창(커서 −1일) 동안 늘 조회한다. 쓰기는 commit 블록.
+        if (!docIncomplete) {
+          const ident = cursorDocIdent(row);
+          if (ident && cd.updated) docStateRows.push({ source_key: key, doc_number: ident, last_modified: cd.updated,
+            doc_status: String(det?.Status ?? row?.Status ?? "").trim() || null, collector: COLLECTOR_VERSION });
+        }
         if (cd.key) lastProcessedKey = cd.key;
       }
 
@@ -1571,6 +1717,10 @@ Deno.serve(async (req) => {
         detail_capped_alert: detailCapped
           ? "CAPPED - " + cappedRemaining + " candidate doc(s) NOT processed this round; cursor stops at the last processed doc's cursor key so the next run continues"
           : undefined,
+        // 문서 상태 skip (2026-08-31 결함 D) — 1회차는 기록이 없어 skipped_unchanged 0 이 정상.
+        skipped_unchanged: skippedUnchanged,
+        doc_state_known: docState ? docState.size : 0,
+        doc_state_error: docStateError ?? undefined,   // 있으면 이번 회차는 전량 조회로 동작했다
         precision_skipped: precisionSkipped,   // ⚠️ 캡 회차 "다음" 회차에만 0 이 아닌 것이 정상
         cursor_frozen_alert: cappedNoUpdated
           ? "capped with no usable Updated - cursor would freeze; commit is blocked (clear inv_sync_state.last_cursor and re-seed with ?from_since= if stuck)"
@@ -1669,6 +1819,16 @@ Deno.serve(async (req) => {
             last_ok_at: new Date().toISOString(),
             note: COLLECTOR_VERSION + " rows=" + sink.rows.length + " inserted=" + w.inserted + (detailCapped ? " capped" : ""),
           }]);
+          // 문서 상태 기록 (결함 D) — ②-a 와 동일(원장 쓰기 성공 뒤에만 · dry 는 안 쓴다).
+          // ⚠️ 진단·최적화는 수집을 막지 않는다 — 실패는 경고만(다음 회차가 그 문서를 다시 읽는다).
+          if (docStateRows.length) {
+            try {
+              const seenAt = new Date().toISOString();
+              await sbUpsert("inv_doc_state", "source_key,doc_number", docStateRows.map((r) => ({ ...r, seen_at: seenAt })));
+            } catch (e: any) {
+              warnings.push("doc-state upsert failed (collection unaffected): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
           R.written = w.inserted;                    // ⚠️ 2026-08-19 의미 변경: 시도 행수 → 실삽입 행수(재수집 중복 제외)
           R.insert_skipped = w.insert_skipped;       // 버려진 행 수 — 0 아님이 정상(재수집 포함)
           R.conflicts_detected = w.conflicts_detected;
