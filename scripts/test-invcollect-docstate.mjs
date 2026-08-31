@@ -51,7 +51,10 @@ writeFileSync(join(dir, "docstate.ts"), extract("docStateSkip") + "\nexport { do
 execSync(`npx --yes esbuild ${join(dir, "docstate.ts")} --outfile=${join(dir, "docstate.mjs")} --format=esm`, { stdio: "pipe" });
 const { docStateSkip } = await import(join(dir, "docstate.mjs"));
 
-const M = new Map([["TR-04200", "2026-08-27T10:00:00.123Z"], ["PO-01130", "2026-08-19T13:04:50.803"]]);
+// 2026-08-31 롤링 재확인 이후 맵 값은 DocStateRec({ lastModified, seenAt }) — loadDocState 가
+// seen_at 도 읽는다. docStateSkip 은 lastModified 만 본다(seenAt 은 pickRollingRecheck 용).
+const rec = (lm, seen = "2026-08-31T10:00:00+00:00") => ({ lastModified: lm, seenAt: seen });
+const M = new Map([["TR-04200", rec("2026-08-27T10:00:00.123Z")], ["PO-01130", rec("2026-08-19T13:04:50.803")]]);
 
 // ── 동적 — 판정 함수 ──
 // ① 변경 없음 + 완료 → skip

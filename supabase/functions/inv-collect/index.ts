@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-31.2";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-08-31.3";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -176,6 +176,11 @@ const MAX_DETAIL_PER_SOURCE = 40;      // ⚠️ 40 의 근거(2026-08-19 확정
                                        //   ⚠️ 캡을 올리려면 간격도 함께 봐야 한다 — 캡 55 × 1,200ms = 66초로 창을 넘는다.
                                        //   판매 하루 후보 145(캡의 3.6배)의 해결은 캡 상향이 아니라 **회차 주기**다
                                        //   (설계 정본 4부 1번 — ⑤에서 소스별 캡·주기 결정). 잘리면 detail_capped 로 시끄럽게 보고.
+const ROLLING_RECHECK_PER_RUN = 5;     // 롤링 재확인(2026-08-31 · pickRollingRecheck 절): skip 예정 문서 중
+                                       //   inv_doc_state.seen_at 최고령 N건을 매 회차 강제 재조회 — last_modified 를
+                                       //   믿게 된 대가의 상시 검산. 처리되면 seen_at 이 갱신돼 자연히 회전한다
+                                       //   ([계산] 트랜스퍼 156건 · 5분 주기 · N=5 = 약 2.6시간에 한 바퀴).
+                                       //   캡 부담 거의 없음 — 현행 상세 5건 + 5건 = 10건 << 캡 40.
 const TIME_BUDGET_MS = 120_000;        // inv-snapshot 과 동일 — 150초 idle timeout 앞에서 먼저 끊는다
 const INSERT_BATCH = 500;
 const IN_TRANSIT = "IN_TRANSIT";       // 합성 창고 — 언더스코어 = "Cin7 원문 아님" 표기
@@ -418,8 +423,10 @@ async function sbUpsert(table: string, conflictCol: string, rows: unknown): Prom
 //   편집에 반응한다: SO-15440 라인 삭제 3분 뒤 Updated 갱신 · TR-04175 138줄 삭제 시각 =
 //   LastModifiedOn · PO-01117 수량 168→192 는 3주 뒤 LastUpdatedDate — 「값이 같으면 내용도
 //   같다」. 반대 방향(내용 무변에 값만 갱신 — 08-28 플랫폼 일괄 갱신 238건)은 한 번 더 읽을 뿐
-//   무해. ⚠️ 그래도 믿는 축에는 검산이 필요하다 — ?recheck=1 이 그 회차만 판정을 끄고 전량
-//   조회한다(캡 때문에 여러 회차 분할 전제 · cron 등록은 Caleb 판단).
+//   무해. ⚠️ 그래도 믿는 축에는 검산이 필요하다 — Cin7 이 내용을 바꾸면서 값을 안 올리는 경우가
+//   있으면 「안 바뀌었다」고 판단해 영영 안 읽는다(놓치는 방향 — 이전(더 읽는 방향)보다 나쁘다).
+//   ⇒ 검산 두 겹: ① **롤링 재확인**(상시 — 아래 pickRollingRecheck 절 · 회차마다 seen_at 최고령
+//   N건 강제 재조회) ② ?recheck=1(수동 — 그 회차만 판정 OFF · 특정 구간 조사 도구).
 // ⚠️ 판정은 종결 문서에만 — ②-a process_nonterminal 은 절대 skip 하지 않는다(도착이 목록 값을
 //   바꾸는지 미확인 — 안 바꾸면 3·4행을 영영 못 만든다). ②-b 는 docIncomplete 문서를 기록하지
 //   않는 것으로 같은 원칙을 지킨다(기록이 없으면 skip 도 없다).
@@ -431,26 +438,54 @@ async function sbUpsert(table: string, conflictCol: string, rows: unknown): Prom
 // skip 문서는 missingDocs(A 집합)에 안 들어간다 — G1 동형(상세가 없으면 판정 불가).
 //   손실 없음: 라인 삭제는 last_modified 를 바꿔 skip 되지 않는다(위 실측).
 type DocStateRow = { source_key: string; doc_number: string; last_modified: string; doc_status: string | null; collector: string };
+type DocStateRec = { lastModified: string; seenAt: string };   // seen_at — 롤링 재확인의 회전 축(2026-08-31)
 const DOC_STATE_CHUNK = 200;   // in.() 청크 — (source_key, doc_number) PK 조회라 요청당 행수 ≤ 청크 = 1000행 캡에 구조적으로 안 닿는다
-async function loadDocState(sourceKey: string, docNumbers: string[]): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+async function loadDocState(sourceKey: string, docNumbers: string[]): Promise<Map<string, DocStateRec>> {
+  const map = new Map<string, DocStateRec>();
   const uniq = [...new Set(docNumbers.filter(Boolean))];
   for (let i = 0; i < uniq.length; i += DOC_STATE_CHUNK) {
     const chunk = uniq.slice(i, i + DOC_STATE_CHUNK);
-    const rows = await sbGet("inv_doc_state?select=doc_number,last_modified" +
+    const rows = await sbGet("inv_doc_state?select=doc_number,last_modified,seen_at" +
       "&source_key=eq." + encodeURIComponent(sourceKey) +
       "&doc_number=in.(" + encodeURIComponent(chunk.map((v) => '"' + String(v).replace(/"/g, '\\"') + '"').join(",")) + ")");
-    for (const r of rows) map.set(String(r.doc_number), String(r.last_modified));
+    for (const r of rows) map.set(String(r.doc_number), { lastModified: String(r.last_modified), seenAt: String(r.seen_at ?? "") });
   }
   return map;
 }
 // skip 판정 — ②-a·②-b 공유 헬퍼(테스트 scripts/test-invcollect-docstate.mjs):
 //   종결(terminal) ∧ ¬recheck ∧ 기록 존재 ∧ 문자열 완전 일치. 판정 불가(맵 없음 = 읽기 실패 ·
 //   식별자/목록 값 결손)는 전부 false = 조회한다 — 틀려도 「한 번 더 읽는」 쪽으로만 틀린다.
-function docStateSkip(terminal: boolean, recheck: boolean, state: Map<string, string> | null, docNumber: string, listModified: string | null): boolean {
+function docStateSkip(terminal: boolean, recheck: boolean, state: Map<string, DocStateRec> | null, docNumber: string, listModified: string | null): boolean {
   if (!terminal || recheck) return false;
   if (!state || !docNumber || !listModified) return false;
-  return state.get(docNumber) === listModified;
+  return state.get(docNumber)?.lastModified === listModified;
+}
+// ── 롤링 재확인 (2026-08-31 — last_modified 를 믿게 된 대가의 상시 검산) ──
+// skip 예정 문서 중 seen_at 이 가장 오래된 N건은 skip 하지 않고 강제 재조회한다. 처리되면
+// seen_at 이 갱신되므로 자연히 회전한다. 재조회 결과 내용이 저장분과 다르면(=값이 안 올라간
+// 변경이 실재하면) 유니크 키·소멸 감지가 잡는다 — 놓친 것이 있어도 하루 안에 드러난다.
+// ⚠️ 커버리지는 축마다 다르다:
+//   · ②-a(transfer·adjustment·assembly) = ⭐ 완전 커버리지 — 매 회차 목록 전량을 받으므로
+//     모든 문서가 언젠가 재조회된다. **롤링 재확인의 실질적 대상.**
+//   · ②-b(sale·purchase·creditnote) = ⚠️ 최근 창만 — UpdatedSince 로 받으므로 커서보다 오래된
+//     문서는 애초에 후보가 아니다. 📌 단 inv_doc_state 가 상황을 악화시키지는 않는다 — Cin7 이
+//     변경 시 Updated 를 안 올리면 그 문서는 목록에 아예 안 나온다(이 위험은 inv_doc_state
+//     이전부터 있던 것이고 롤링으로도 못 닿는다). 같은 코드를 적용하되(무해 · 최근 창 검산) 한계 명시.
+// ⚠️ ?recheck=1 을 cron 으로 돌리는 방식은 버렸다 — recheck 는 skip 판정만 꺼서 후보 전체가
+//   상세 대상이 되는데 캡은 40이라 매번 「커서 위 첫 40건」만 반복 = 나머지는 영영 안 본다
+//   (「검산하고 있다」는 착각만 남는다 — 안 하는 것보다 나쁠 수 있다). recheck 는 수동 조사
+//   도구로 유지 · ⬜ cron 등록하지 않는다.
+// ⚠️ 강제 재조회분도 상세 조회라 캡에 포함된다 — 캡이 먼저 걸리면 그 회차는 못 하고 넘어간다
+//   (seen_at 이 안 갱신되니 다음 회차에 다시 후보가 된다. 그대로 둔다).
+// ⚠️ 진단이 수집을 막지 않는다 — 선정 실패는 롤링만 끄고(평소대로 skip) 경고만(호출부 try/catch).
+type RollingEligible = { docNumber: string; seenAt: string };
+type RollingPick = { set: Set<string>; oldestSeen: string | null };
+// ⚠️ 시그니처에 { 를 두지 않는다 — 테스트의 원문 추출(균형 중괄호)이 본문 첫 { 를 찾는다(관례)
+function pickRollingRecheck(eligible: RollingEligible[], n: number): RollingPick {
+  // seen_at 오름차순(코드유닛 — timestamptz 문자열이라 성립) 앞 N건. 빈 seenAt 은 맨 앞 = 우선 재조회.
+  if (!eligible.length || n <= 0) return { set: new Set(), oldestSeen: null };
+  const sorted = [...eligible].sort((a, b) => (a.seenAt < b.seenAt ? -1 : a.seenAt > b.seenAt ? 1 : 0));
+  return { set: new Set(sorted.slice(0, n).map((x) => x.docNumber)), oldestSeen: sorted[0].seenAt };
 }
 
 // ── 회차 로그 (2026-08-31 · 결함 C·D 후속 — 마이그레이션 20260831153314_inv_collect_runs) ──
@@ -651,6 +686,9 @@ Deno.serve(async (req) => {
     if (since && !/^\d{4}-\d{2}-\d{2}$/.test(since)) return json({ ok: false, error: "since must be YYYY-MM-DD" }, 400);
     // 전수 재확인 (2026-08-31 결함 D — docStateSkip 절): 그 회차만 문서 상태 skip 판정 OFF.
     // 기록(inv_doc_state 갱신)과 커서는 평소대로 — 캡 때문에 한 회차로 못 끝나 여러 회차 분할 전제.
+    // ⚠️ cron 으로 돌리지 않는다(2026-08-31 결정 — pickRollingRecheck 절): 캡 40 + 커서 고정 탓에
+    //   매번 커서 위 첫 40건만 반복해 커버리지가 안 나온다. 상시 검산은 롤링 재확인이 한다 —
+    //   recheck 는 특정 구간을 강제로 다시 볼 때의 수동 조사 도구로 유지.
     const recheck = url.searchParams.get("recheck") === "1";
 
     // ── 커서 하한(floor) 파라미터 (2026-08-17 보완 — 실사고) ──
@@ -876,7 +914,7 @@ Deno.serve(async (req) => {
       }
 
       // ── 문서 상태 skip 준비 (2026-08-31 결함 D — 파일 상단 docStateSkip 절) ──
-      let docState: Map<string, string> | null = null;
+      let docState: Map<string, DocStateRec> | null = null;
       let docStateError: string | null = null;
       let skippedUnchanged = 0;
       const docStateRows: DocStateRow[] = [];
@@ -891,6 +929,31 @@ Deno.serve(async (req) => {
         docState = null;
         docStateError = String(e?.message ?? e).slice(0, 200);
         warnings.push("doc-state read failed - skip judging disabled, fetching all details: " + docStateError);
+      }
+
+      // ── 롤링 재확인 대상 선정 (2026-08-31 — 파일 상단 pickRollingRecheck 절) ──
+      // ②-a 는 매 회차 목록 전량을 받으므로 ⭐ 완전 커버리지 — 롤링 재확인의 실질적 대상.
+      // ⚠️ 비종결(process_nonterminal)은 원래 skip 대상이 아니라 선정과 무관하다(늘 조회).
+      let rollingSet = new Set<string>();
+      let rollingOldestSeen: string | null = null;
+      let rollingRechecked = 0;
+      const rollingSample: string[] = [];
+      try {
+        if (docState && !recheck) {   // recheck 회차는 전량 조회라 롤링이 무의미
+          const eligible: RollingEligible[] = [];
+          for (const c of cands) {
+            if (c.disposition !== "process") continue;
+            if (!docStateSkip(true, false, docState, c.number, listLmOf(c.row))) continue;
+            eligible.push({ docNumber: c.number, seenAt: docState.get(c.number)!.seenAt });
+          }
+          const picked = pickRollingRecheck(eligible, ROLLING_RECHECK_PER_RUN);
+          rollingSet = picked.set;
+          rollingOldestSeen = picked.oldestSeen;   // ⭐ 커버리지 지표 — 2.6시간 이상 벌어지면 회전이 밀린 것
+        }
+      } catch (e: any) {
+        // ⚠️ 진단이 수집을 막지 않는다 — 선정 실패는 롤링만 끄고(평소대로 skip) 경고만.
+        rollingSet = new Set();
+        warnings.push("rolling-recheck selection failed - disabled this round (docs skip as usual): " + String(e?.message ?? e).slice(0, 200));
       }
 
       // 3) 상세 조회 (오름차순 · 캡 · 시간 가드) → 원장 행 생성
@@ -912,9 +975,17 @@ Deno.serve(async (req) => {
         // skip 문서는 missingDocs(A 집합)에도 안 들어간다(상세가 없으니 판정 불가 — G1 동형).
         // 캡 검사보다 앞 — skip 은 호출 예산을 안 쓰므로 캡 도달 뒤에도 판정된다(집계 정확).
         if (docStateSkip(c.disposition === "process", recheck, docState, c.number, listLmOf(c.row))) {
-          c.disposition = "skip_unchanged";
-          skippedUnchanged++;
-          continue;
+          if (rollingSet.has(c.number)) {
+            // 롤링 재확인 — skip 예정이지만 seen_at 최고령이라 강제 재조회(아래로 계속 → 상세).
+            // skip_unchanged 로 세지 않는다(실제로 조회한다). 캡에 걸리면 hold_capped 로 넘어가고
+            // seen_at 이 안 갱신되니 다음 회차에 다시 후보가 된다(그대로 둔다).
+            rollingRechecked++;
+            if (rollingSample.length < 5) rollingSample.push(c.number);
+          } else {
+            c.disposition = "skip_unchanged";
+            skippedUnchanged++;
+            continue;
+          }
         }
         if (detailFetched >= MAX_DETAIL_PER_SOURCE) { detailCapped = true; detailCapReason = "max_detail"; c.disposition = "hold_capped"; continue; }
         if (timeLeft() < 5_000) { detailCapped = true; detailCapReason = "time"; c.disposition = "hold_capped"; continue; }
@@ -1177,6 +1248,10 @@ Deno.serve(async (req) => {
         skipped_unchanged: skippedUnchanged,
         doc_state_known: docState ? docState.size : 0,
         doc_state_error: docStateError ?? undefined,   // 있으면 이번 회차는 전량 조회로 동작했다
+        // 롤링 재확인 (2026-08-31 — pickRollingRecheck 절)
+        rolling_rechecked: rollingRechecked,
+        rolling_recheck_sample: rollingSample,
+        doc_state_oldest_seen: rollingOldestSeen ?? undefined,   // ⭐ 커버리지 지표 — 회전이 얼마나 뒤처졌는지
         ledger_rows: sink.rows.length,
         zero_qty_lines: zeroQtyLines,
         since_filtered_rows: sink.stats.since_filtered_rows,
@@ -1434,7 +1509,7 @@ Deno.serve(async (req) => {
       // 「비종결 skip 금지」 원칙은 기록 쪽에서 지킨다: docIncomplete 문서는 기록하지 않는다
       // (기록이 없으면 skip 도 없다 — 아래 기록 지점). 문서 식별자 = cursorDocIdent(OrderNumber →
       // SaleID/ID) — creditnote 는 sale 단위(원장 doc_number 는 CN 번호지만 목록·상세 조회 단위가 sale).
-      let docState: Map<string, string> | null = null;
+      let docState: Map<string, DocStateRec> | null = null;
       let docStateError: string | null = null;
       let skippedUnchanged = 0;
       const docStateRows: DocStateRow[] = [];
@@ -1445,6 +1520,33 @@ Deno.serve(async (req) => {
         docState = null;
         docStateError = String(e?.message ?? e).slice(0, 200);
         warnings.push("doc-state read failed - skip judging disabled, fetching all details: " + docStateError);
+      }
+
+      // ── 롤링 재확인 대상 선정 (2026-08-31 — 파일 상단 pickRollingRecheck 절) ──
+      // ⚠️ ②-b 는 최근 창만 검산한다 — UpdatedSince 로 받으므로 커서보다 오래된 문서는 애초에
+      //   후보가 아니다. 📌 단 inv_doc_state 가 상황을 악화시키지는 않는다: Cin7 이 변경 시
+      //   Updated 를 안 올리면 그 문서는 목록에 아예 안 나온다(inv_doc_state 이전부터 있던 위험 ·
+      //   롤링으로도 못 닿는다). 같은 코드를 무해하게 적용한다 — 실질적 대상은 ②-a.
+      let rollingSet = new Set<string>();
+      let rollingOldestSeen: string | null = null;
+      let rollingRechecked = 0;
+      const rollingSample: string[] = [];
+      try {
+        if (docState && !recheck) {   // recheck 회차는 전량 조회라 롤링이 무의미
+          const eligible: RollingEligible[] = [];
+          for (const cd of cands) {
+            const ident = cursorDocIdent(cd.row);
+            if (!docStateSkip(true, false, docState, ident, cd.updated)) continue;
+            eligible.push({ docNumber: ident, seenAt: docState.get(ident)!.seenAt });
+          }
+          const picked = pickRollingRecheck(eligible, ROLLING_RECHECK_PER_RUN);
+          rollingSet = picked.set;
+          rollingOldestSeen = picked.oldestSeen;
+        }
+      } catch (e: any) {
+        // ⚠️ 진단이 수집을 막지 않는다 — 선정 실패는 롤링만 끄고(평소대로 skip) 경고만.
+        rollingSet = new Set();
+        warnings.push("rolling-recheck selection failed - disabled this round (docs skip as usual): " + String(e?.message ?? e).slice(0, 200));
       }
 
       // 3) 상세 → 원장 행
@@ -1480,15 +1582,22 @@ Deno.serve(async (req) => {
 
       for (let i = 0; i < cands.length; i++) {
         const cd = cands[i];
+        const docIdent = cursorDocIdent(cd.row);
         // 변경 없는 문서는 상세를 부르지 않는다 (결함 D) — 캡 검사보다 앞(호출 예산 무소모).
         // 비교 값 = cd.updated (sale 'Updated' · purchase 'LastUpdatedDate' — 목록 실측 필드 ·
         // [실측 2026-08-31] 빈 값 0건). 기록은 docIncomplete 문서를 제외하므로(아래) 여기 걸리는
         // 문서는 전부 「부분 스킵 없이 전량 기표된」 것 — 종결 취급이 안전하다.
         // ⚠️ skip 도 커서 전진에 포함(lastProcessedKey) — 처리한 것으로 취급해야 커서가 전진한다.
-        if (docStateSkip(true, recheck, docState, cursorDocIdent(cd.row), cd.updated)) {
-          skippedUnchanged++;
-          if (cd.key) lastProcessedKey = cd.key;
-          continue;
+        if (docStateSkip(true, recheck, docState, docIdent, cd.updated)) {
+          if (rollingSet.has(docIdent)) {
+            // 롤링 재확인 — skip 예정이지만 seen_at 최고령이라 강제 재조회(아래로 계속 → 상세).
+            rollingRechecked++;
+            if (rollingSample.length < 5) rollingSample.push(docIdent);
+          } else {
+            skippedUnchanged++;
+            if (cd.key) lastProcessedKey = cd.key;
+            continue;
+          }
         }
         if (detailFetched >= MAX_DETAIL_PER_SOURCE) { detailCapped = true; detailCapReason = "max_detail"; cappedRemaining = cands.length - i; break; }
         if (timeLeft() < 5_000) { detailCapped = true; detailCapReason = "time"; cappedRemaining = cands.length - i; break; }
@@ -1792,6 +1901,10 @@ Deno.serve(async (req) => {
         skipped_unchanged: skippedUnchanged,
         doc_state_known: docState ? docState.size : 0,
         doc_state_error: docStateError ?? undefined,   // 있으면 이번 회차는 전량 조회로 동작했다
+        // 롤링 재확인 (2026-08-31 — pickRollingRecheck 절 · ⚠️ ②-b 는 최근 창만 검산)
+        rolling_rechecked: rollingRechecked,
+        rolling_recheck_sample: rollingSample,
+        doc_state_oldest_seen: rollingOldestSeen ?? undefined,
         precision_skipped: precisionSkipped,   // ⚠️ 캡 회차 "다음" 회차에만 0 이 아닌 것이 정상
         cursor_frozen_alert: cappedNoUpdated
           ? "capped with no usable Updated - cursor would freeze; commit is blocked (clear inv_sync_state.last_cursor and re-seed with ?from_since= if stuck)"
