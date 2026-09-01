@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-08-31.4";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-09-01.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -616,6 +616,83 @@ async function loadTransferBinMap(reference: unknown, sbGetFn: (path: string) =>
   if (lines.length >= 1000) return { map: null, sos, soMissing, conflicts: [], truncated: true };
   const b = buildTransferBinMap(lines);
   return { map: b.map, sos, soMissing, conflicts: b.conflicts, truncated: false };
+}
+
+// ── 「그 시점 잔고」 규칙 (2026-09-01 — SKL01861 실사고: WMS 값의 시점성 한계) ──
+// [실사고] SO-15071 유입(8/20) 값 D110302 → TR-04169 가 8/21 10:27 에 D110301 로 이동(신고→정정)
+//   → TR-04174 픽(14:52)은 Cin7 기록대로 **D110301** 에서 뺐는데 원장은 유입 값 D110302 를 채웠다.
+//   화면·wms_order_lines·sticky 셋 다 같은 낡은 값이라 **WMS 에서 더 얻을 것이 없음이 확정**됐다
+//   (WMS 답신 — 픽 화면은 진입 시 1회 읽고 끝 · sticky 는 05:00/06:30 일 배치라 당일 정정을 모른다).
+// ⭐ 관점: 재현할 것은 「작업자가 간 자리」가 아니라 **「Cin7 의 bin 기록」**이다 — Cin7 은 자기
+//   기록대로 뺀다. 그리고 그 기록을 바꾼 이동(TR-04169)을 **원장이 이미 수집해 갖고 있다**
+//   ⇒ WMS 무접촉으로 잡는다.
+// 판정 순서(호출부 decideDepartureBin):
+//   ① 그 시점 bin 잔고 = 기초 스냅샷(since + "-initial") + 원장 델타(occurred_on <= 출발일 ·
+//      출발 창고 · ⚠️ 자기 문서 제외) · 잔고 > 0 인 칸만 후보(bin='' 는 물리 칸이 아니라 제외)
+//   ② 후보가 정확히 하나 → ⭐ 그 칸 (WMS 값과 어긋나면 잔고가 이기고 **wms_stale 로 보고** —
+//      이번 부류의 발생 빈도를 재는 유일한 축)
+//   ③ 여러 칸 → WMS 값이 그중 하나면 그것 · 아니면 비움 + ambiguous
+//   ④ 0칸/잔고 불가 → WMS 값 폴백(현행 유지) ⑤ 그래도 없으면 비움(현행 유지)
+// ⚠️ 알려진 한계:
+//   · **같은 날 안의 순서를 못 가린다** — occurred_on 이 date 라 TR-04169(10:27)와
+//     TR-04174(14:52)가 같은 8/21 이다. 자기 문서만 빼면 이번 건은 맞지만, 같은 날 여러
+//     트랜스퍼가 같은 SKU 를 건드리면 서로를 못 가린다 ⇒ 그래서 ②가 **유일할 때만** 확정.
+//   · 기준선(8/20) 이전 이동은 스냅샷에 녹아 있어 무해하다.
+//   · 스냅샷 키는 since + "-initial" 로 파생한다 — cron URL 의 since=<스냅샷 날짜> 관례와 같은
+//     끈이라 재기준선 때 함께 갱신된다. since 없으면(수동 dry) 규칙 OFF + WMS 폴백.
+// ⚠️ 진단·보강은 수집을 막지 않는다 — 조회 실패/1,000행 캡은 규칙만 끄고(WMS 폴백) 경고.
+type BinBalances = Map<string, Map<string, number>>;   // sku → (bin → 잔고)
+function buildBinBalances(snapRows: any[], ledgerRows: any[], excludeDocNumber: string): BinBalances {
+  const m: BinBalances = new Map();
+  const add = (sku: string, bin: string, q: number) => {
+    if (!sku) return;
+    let bins = m.get(sku); if (!bins) { bins = new Map(); m.set(sku, bins); }
+    bins.set(bin, (bins.get(bin) ?? 0) + q);
+  };
+  for (const r of snapRows) add(String(r?.sku ?? "").trim(), String(r?.bin ?? ""), Number(r?.qty) || 0);
+  for (const r of ledgerRows) {
+    if (String(r?.doc_number ?? "") === excludeDocNumber) continue;   // ⚠️ 자기 문서 제외 — 안 빼면 자기 출고가 잔고를 지워 0칸이 된다(테스트 ㉔)
+    add(String(r?.sku ?? "").trim(), String(r?.bin ?? ""), Number(r?.qty_delta) || 0);
+  }
+  return m;
+}
+type DepartureBinDecision = { bin: string; method: "balance" | "wms" | "none"; stale: boolean; ambiguous: boolean };
+// ⚠️ 시그니처에 { 를 두지 않는다 — 테스트의 원문 추출(균형 중괄호) 관례
+function decideDepartureBin(balances: Map<string, number> | null, wmsBin: string): DepartureBinDecision {
+  // balances = 그 SKU 의 bin→잔고 (null = 잔고 규칙 꺼짐 → ④ WMS 폴백)
+  const w = String(wmsBin ?? "");
+  if (!balances) return { bin: w, method: w ? "wms" : "none", stale: false, ambiguous: false };
+  const cands: string[] = [];
+  for (const [bin, qty] of balances) if (bin !== "" && qty > 0) cands.push(bin);   // '' 는 물리 칸이 아니다
+  if (cands.length === 1) return { bin: cands[0], method: "balance", stale: !!w && w !== cands[0], ambiguous: false };
+  if (cands.length > 1) {
+    if (w && cands.includes(w)) return { bin: w, method: "wms", stale: false, ambiguous: false };
+    return { bin: "", method: "none", stale: false, ambiguous: true };   // 정할 근거가 없다 — 비운다(안전한 실패)
+  }
+  return { bin: w, method: w ? "wms" : "none", stale: false, ambiguous: false };   // ④ 0칸 → WMS 폴백(현행 유지)
+}
+type BinBalanceLookup = { balances: BinBalances | null; off: string | null };
+const BALANCE_SKU_CHUNK = 30;   // in.() 청크 — 30 SKU × 12일 델타 ≈ 수백 행 << 1000. 캡에 닿으면 규칙 OFF(잘린 잔고로 판정하면 틀린다)
+// sbGetFn 주입 — 보정 도구(fix-transfer-bins.mjs)와 테스트가 같은 함수를 원문 추출해 쓴다(로직 두 벌 금지)
+async function loadBinBalances(snapshotKey: string, warehouse: string, skus: string[], cutoffDate: string, excludeDocNumber: string, sbGetFn: (path: string) => Promise<any[]>): Promise<BinBalanceLookup> {
+  const snapRows: any[] = [];
+  const ledgerRows: any[] = [];
+  const uniq = [...new Set(skus.filter(Boolean))];
+  for (let i = 0; i < uniq.length; i += BALANCE_SKU_CHUNK) {
+    const chunk = uniq.slice(i, i + BALANCE_SKU_CHUNK);
+    const inList = encodeURIComponent(chunk.map((v) => '"' + String(v).replace(/"/g, '\\"') + '"').join(","));
+    const sn = await sbGetFn("inv_snapshot?select=sku,bin,qty&snapshot_key=eq." + encodeURIComponent(snapshotKey) +
+      "&warehouse=eq." + encodeURIComponent(warehouse) + "&sku=in.(" + inList + ")");   // caps-ok: 기초 키 한 벌 × 청크 SKU — SKU 당 bin 1~3행. 아래 1000행 가드가 절단을 잡는다
+    if (sn.length >= 1000) return { balances: null, off: "snapshot rows hit the 1000-row cap" };
+    snapRows.push(...sn);
+    const ld = await sbGetFn("inv_ledger?select=sku,bin,qty_delta,doc_number" +
+      "&warehouse=eq." + encodeURIComponent(warehouse) +
+      "&occurred_on=lte." + encodeURIComponent(cutoffDate) +
+      "&sku=in.(" + inList + ")");   // caps-ok: 청크 SKU × 기준선 이후 델타 — 아래 1000행 가드가 절단을 잡는다(잘리면 규칙 OFF)
+    if (ld.length >= 1000) return { balances: null, off: "ledger rows hit the 1000-row cap" };
+    ledgerRows.push(...ld);
+  }
+  return { balances: buildBinBalances(snapRows, ledgerRows, excludeDocNumber), off: null };
 }
 
 // ── 회차 로그 (2026-08-31 · 결함 C·D 후속 — 마이그레이션 20260831153314_inv_collect_runs) ──
@@ -1093,7 +1170,10 @@ Deno.serve(async (req) => {
       const dateSubstitutedDocs: string[] = [];     // 빈 이동 날짜 대체 문서 (아래 transfer 분기)
       // 트랜스퍼 출발 bin 해결 카운터 (transfer 전용 — 파일 상단 loadTransferBinMap 절)
       let tbResolved = 0, tbUnresolved = 0, tbSkipSameWh = 0;
+      let tbByBalance = 0, tbByWms = 0;                    // 잔고 규칙(2026-09-01) — 확정 방법별 집계
+      let tbBalanceOff: string | null = null;              // 잔고 조회 실패/절단 사유(첫 건) — 폴백 작동 표식
       const tbNoReference: string[] = [], tbNoSource: string[] = [], tbSoMissing: string[] = [], tbConflict: string[] = [];
+      const tbWmsStale: string[] = [], tbAmbiguous: string[] = [];   // ⭐ stale = 잔고가 WMS 값을 이긴 SKU(이번 부류의 빈도 축)
       const tbPush = (arr: string[], v: string) => { if (v && !arr.includes(v) && arr.length < 10) arr.push(v); };
       let detailCapped = false, detailCapReason: string | null = null;
       let unmappedInSource = 0;
@@ -1236,6 +1316,29 @@ Deno.serve(async (req) => {
               warnings.push("transfer-bin lookup failed (collection unaffected, bins left empty): " + String(e?.message ?? e).slice(0, 200));
             }
           }
+          // ── 그 시점 잔고 로드 (2026-09-01 — 파일 상단 「그 시점 잔고」 절 · WMS 맵과 독립) ──
+          // WMS 맵이 없어도(no_reference 등) 잔고가 유일하면 채울 수 있다 — 판정 순서 ①②.
+          let binBalances: BinBalances | null = null;
+          if (binResolvable && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) {
+            if (!since) {
+              if (!tbBalanceOff) tbBalanceOff = "no ?since= - baseline snapshot key unknown (balance rule off, WMS fallback)";
+            } else {
+              try {
+                const docSkus = [...new Set(((det?.Lines ?? []) as any[]).map((l) => String(l?.SKU ?? "").trim()).filter(Boolean))];
+                const bb = await loadBinBalances(since + "-initial", fromLoc.warehouse, docSkus, dep!, c.number, sbGet);
+                binBalances = bb.balances;
+                if (bb.off) {
+                  if (!tbBalanceOff) tbBalanceOff = c.number + ": " + bb.off;
+                  warnings.push("transfer-bin balance rule off on " + c.number + " (WMS-value fallback): " + bb.off);
+                }
+              } catch (e: any) {
+                // ⚠️ 진단·보강은 수집을 막지 않는다 — 규칙만 끄고(WMS 폴백) 경고만.
+                binBalances = null;
+                if (!tbBalanceOff) tbBalanceOff = c.number + ": " + String(e?.message ?? e).slice(0, 150);
+                warnings.push("transfer-bin balance lookup failed (collection unaffected, WMS-value fallback): " + String(e?.message ?? e).slice(0, 200));
+              }
+            }
+          }
           for (const line of (det?.Lines ?? []) as any[]) {
             const q = Number(line?.TransferQuantity ?? 0);
             if (q === 0) { zeroQtyLines++; continue; }
@@ -1247,14 +1350,23 @@ Deno.serve(async (req) => {
               qty_delta: delta, event_type: event, line_ref: ref, amount: null,
               raw: mkRaw(lineRaw, header, "transfer 4-row leg " + leg + ": " + (delta > 0 ? "+" : "") + delta),
             });
-            // 출발 bin: 헤더 값 우선 · 없으면 WMS 픽 bin (틀린 bin 을 채우느니 비워둔다 — 위 절)
+            // 출발 bin: 헤더 값 우선 · 없으면 잔고 규칙 → WMS 값 교차 (2026-09-01 — 파일 상단 절.
+            // 틀린 bin 을 채우느니 비워둔다는 원칙은 그대로다)
             let depBin = fromLoc.bin;
-            let binFromWms = false;
+            let binMethod: "balance" | "wms" | "none" | null = null;
             if (depBin === "" && binResolvable) {   // 같은 창고 안·역방향은 대상 아님 — 종전대로 '' 유지(카운트 무접촉)
-              depBin = resolveTransferBin(transferBinMap, sku);
-              if (depBin) { tbResolved++; binFromWms = true; } else tbUnresolved++;
+              const wmsBin = resolveTransferBin(transferBinMap, sku);
+              const d = decideDepartureBin(binBalances ? (binBalances.get(sku) ?? new Map()) : null, wmsBin);
+              depBin = d.bin;
+              binMethod = d.method;
+              if (d.method === "balance") tbByBalance++;
+              else if (d.method === "wms" && depBin) tbByWms++;
+              if (d.stale) tbPush(tbWmsStale, sku);        // ⭐ 잔고가 WMS 값을 이겼다 — 유입 이후 이동 부류
+              if (d.ambiguous) tbPush(tbAmbiguous, sku);   // 다중인데 WMS 로도 못 가름 — 비웠다
+              if (depBin) tbResolved++; else tbUnresolved++;
             }
-            rows.push(mk("transfer_out", fromLoc.warehouse, depBin, -q, dep, "1 from-warehouse departure" + (binFromWms ? " - bin from WMS pick (Reference SO)" : "")));
+            rows.push(mk("transfer_out", fromLoc.warehouse, depBin, -q, dep,
+              "1 from-warehouse departure" + (binMethod === "balance" ? " - bin from ledger balance (unique at departure)" : binMethod === "wms" && depBin ? " - bin from WMS pick (Reference SO)" : "")));
             rows.push(mk("transfer_in", IN_TRANSIT, "", q, dep, "2 into IN_TRANSIT departure"));
             if (comp) {   // 없으면(IN TRANSIT) 1·2만 — 3·4는 도착 후 회차 (커서가 이 문서 앞에서 멈춘다)
               rows.push(mk("transfer_out", IN_TRANSIT, "", -q, comp, "3 out of IN_TRANSIT completion"));
@@ -1460,6 +1572,12 @@ Deno.serve(async (req) => {
         Object.assign(R, {
           transfer_bin_resolved: tbResolved,
           transfer_bin_unresolved: tbUnresolved,
+          // 잔고 규칙 (2026-09-01) — by_balance + by_wms = resolved
+          transfer_bin_by_balance: tbByBalance,
+          transfer_bin_by_wms: tbByWms,
+          transfer_bin_wms_stale: tbWmsStale,               // ⭐ 잔고가 WMS 값을 이긴 SKU — 이번 부류의 빈도 축
+          transfer_bin_ambiguous: tbAmbiguous,
+          transfer_bin_balance_off: tbBalanceOff ?? undefined,
           transfer_bin_no_reference: tbNoReference,               // ⭐ 매니저가 Reference 를 빠뜨림 (진짜 신호 — 순방향만 센다)
           transfer_bin_no_source: tbNoSource,                     // 역방향(에드먼튼 출발) — 픽용 SO 가 구조적으로 없다
           transfer_bin_so_missing: tbSoMissing,                   // Reference 의 SO 가 wms_orders 에 없다

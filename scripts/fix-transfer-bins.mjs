@@ -46,7 +46,11 @@ import { join } from "node:path";
 const COMMIT = process.argv.includes("--commit");
 const docArgIdx = process.argv.indexOf("--doc");
 const ONLY_DOC = docArgIdx > -1 ? process.argv[docArgIdx + 1] : null;
-const FIXER = "fix-transfer-bins@2026-08-31.2";
+// 기준선 날짜 — 잔고 규칙(2026-09-01)의 스냅샷 키(<since>-initial) 파생.
+// cron URL 의 since=2026-08-20 과 같은 끈이다 — 재기준선 때 --since 로 넘겨라.
+const sinceArgIdx = process.argv.indexOf("--since");
+const SINCE = sinceArgIdx > -1 ? process.argv[sinceArgIdx + 1] : "2026-08-20";
+const FIXER = "fix-transfer-bins@2026-09-01.1";
 
 const SB_URL = process.env.SUPABASE_URL ?? "";
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -96,11 +100,12 @@ function extract(name) {
   }
   return src.slice(start, end);
 }
-const FNS = ["parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "isCrossWarehouseTransfer"];
+const FNS = ["parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "isCrossWarehouseTransfer", "buildBinBalances", "decideDepartureBin", "loadBinBalances"];
 const dir = mkdtempSync(join(tmpdir(), "binfix-"));
-writeFileSync(join(dir, "resolve.ts"), FNS.map(extract).join("\n") + "\nexport { " + FNS.join(", ") + " };\n");
+const CHUNK_LINE = src.match(/^const BALANCE_SKU_CHUNK = .*$/m)[0];   // loadBinBalances 가 참조하는 모듈 상수
+writeFileSync(join(dir, "resolve.ts"), CHUNK_LINE + "\n" + FNS.map(extract).join("\n") + "\nexport { " + FNS.join(", ") + " };\n");
 execSync(`npx --yes esbuild ${join(dir, "resolve.ts")} --outfile=${join(dir, "resolve.mjs")} --format=esm`, { stdio: "pipe" });
-const { resolveTransferBin, loadTransferBinMap, isCrossWarehouseTransfer } = await import(join(dir, "resolve.mjs"));
+const { resolveTransferBin, loadTransferBinMap, isCrossWarehouseTransfer, decideDepartureBin, loadBinBalances } = await import(join(dir, "resolve.mjs"));
 
 // 재실행 안전 키 — **접미 무관** (테스트 ⑰ 이 원문 추출해 검증한다).
 // line_ref 의 마지막 `:접미`(:reversal·:binfix·:binfixed·앞으로의 어떤 것이든)를 떼고 원본과 맞춘다
@@ -196,6 +201,20 @@ for (const [docNo, rows] of byDoc) {
     (tb.truncated ? "  ⚠️ wms_order_lines 1000행 캡 — 해결 불가" : ""));
   const map = tb.truncated ? null : tb.map;
 
+  // ── 그 시점 잔고 (2026-09-01 — EF 와 같은 함수 · 판정 순서 ①~⑤) ──
+  // cutoff = 그 행들의 occurred_on(출발일 · leg1 은 문서 안에서 동일) · 자기 문서 제외.
+  let binBalances = null;
+  try {
+    const docSkus = [...new Set(rows.map((t) => String(t.sku)))];
+    const cutoff = String(rows[0].occurred_on);
+    const bb = await loadBinBalances(SINCE + "-initial", String(rows[0].warehouse), docSkus, cutoff, docNo, sbGet);
+    binBalances = bb.balances;
+    if (bb.off) console.log(`  ⚠️ 잔고 규칙 OFF (WMS 값 폴백): ${bb.off}`);
+  } catch (e) {
+    binBalances = null;
+    console.log(`  ⚠️ 잔고 조회 실패 (WMS 값 폴백): ${String(e).slice(0, 150)}`);
+  }
+
   // ⑤ 건너뛰기 판정용 — cin7 재수집이 이미 쓴 「올바른 bin」 행의 키 집합
   const already = await sbGetAll("inv_ledger?select=line_ref,warehouse,bin,sku&doc_type=eq.transfer&doc_number=eq." +
     encodeURIComponent(docNo) + "&event_type=eq.transfer_out&source=eq.cin7&bin=neq.&order=id.asc");
@@ -207,11 +226,17 @@ for (const [docNo, rows] of byDoc) {
       console.log(`  ⏭ ${t.sku}  skip_already_reversed — source='manual' 상쇄 행 실재(접미 무관) · 건너뜀`);
       continue;
     }
-    const bin = resolveTransferBin(map, String(t.sku));
-    if (!bin) { planUnresolved++; console.log(`  ✗ ${t.sku}  bin 미해결 (WMS 에 없음/충돌/Reference 없음) — 비워둔다`); continue; }
+    // 판정 = EF 와 같은 규칙(2026-09-01): 잔고 유일 → 그 칸(WMS 와 어긋나면 stale 표시) ·
+    // 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움
+    const wmsBin = resolveTransferBin(map, String(t.sku));
+    const d = decideDepartureBin(binBalances ? (binBalances.get(String(t.sku)) ?? new Map()) : null, wmsBin);
+    const bin = d.bin;
+    if (d.stale) console.log(`  ⭐ ${t.sku}  wms_stale — 잔고(${bin})가 WMS 값(${wmsBin})을 이겼다 (유입 이후 이동 부류)`);
+    if (!bin) { planUnresolved++; console.log(`  ✗ ${t.sku}  bin 미해결 (${d.ambiguous ? "잔고 다중 · WMS 로도 못 가름" : "WMS 에 없음/충돌/Reference 없음"}) — 비워둔다`); continue; }
     planResolved++;
     const rawBase = {
       reason: "transfer departure bin fix - ghost bin='' offset (2026-08-31 bin-level compare)",
+      basis: d.method,   // 'balance'(잔고 유일) | 'wms'(WMS 값 — 다중 가름/폴백)
       basis_so: tb.sos, reference, original_ledger_id: t.id, original_bin: "", resolved_bin: bin,
       collector: FIXER,
     };

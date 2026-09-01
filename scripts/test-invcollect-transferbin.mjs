@@ -31,6 +31,16 @@
 //     (skip_already_reversed · [실측 2026-08-31] :binfix 만 보던 판정이 TR-04175 의 삭제·상쇄된
 //      138줄을 되살릴 뻔했다 — 중복 상쇄 + bin='' 유령 +Q · 실제 bin 허위 −Q)
 //  ⑱ 보정 도구 — 같은 창고 문서(내부 풋어웨이 TR-04183~98 등)는 대상 목록에 안 들어간다
+//  ── 잔고 규칙 (2026-09-01 · SKL01861 실사고) ──
+//  ⑲ ⭐ 이번 사례 — 기초 D110302=24 · 같은 날 이동 24 · WMS 는 D110302 → D110301 확정 + wms_stale
+//  ⑳ 잔고 한 칸 = WMS 값 → 그대로 확정 · stale 아님
+//  ㉑ 잔고 두 칸 · WMS 가 그중 하나 → WMS 값 (by_wms)
+//  ㉒ 잔고 두 칸 · WMS 가 그중에 없음 → 비운다 + ambiguous
+//  ㉓ 잔고 0칸 → WMS 폴백 (현행 유지)
+//  ㉔ 자기 문서의 델타는 잔고에서 제외 (안 빼면 이번 건이 0칸)
+//  ㉕ 잔고 조회 throw → WMS 폴백 + balance_off · 수집 계속
+//  ㉖ 1,000행 캡 → 잔고 규칙 OFF + 폴백 + 경고
+//  ㉗ 회귀 — 같은 창고·도착 다리·IN_TRANSIT 무접촉
 //     (skip_same_warehouse 카운트만 · EF 와 같은 isCrossWarehouseTransfer 판정)
 
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
@@ -59,11 +69,12 @@ function extract(name) {
   }
   return src.slice(start, end);
 }
-const FNS = ["parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "partitionBinChanged", "isCrossWarehouseTransfer"];
+const FNS = ["parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "partitionBinChanged", "isCrossWarehouseTransfer", "buildBinBalances", "decideDepartureBin", "loadBinBalances"];
 const dir = mkdtempSync(join(tmpdir(), "transferbin-"));
-writeFileSync(join(dir, "tb.ts"), FNS.map(extract).join("\n") + "\nexport { " + FNS.join(", ") + " };\n");
+const CHUNK_LINE = src.match(/^const BALANCE_SKU_CHUNK = .*$/m)[0];   // loadBinBalances 가 참조하는 모듈 상수
+writeFileSync(join(dir, "tb.ts"), CHUNK_LINE + "\n" + FNS.map(extract).join("\n") + "\nexport { " + FNS.join(", ") + " };\n");
 execSync(`npx --yes esbuild ${join(dir, "tb.ts")} --outfile=${join(dir, "tb.mjs")} --format=esm`, { stdio: "pipe" });
-const { parseTransferRefSOs, buildTransferBinMap, resolveTransferBin, loadTransferBinMap, partitionBinChanged, isCrossWarehouseTransfer } = await import(join(dir, "tb.mjs"));
+const { parseTransferRefSOs, buildTransferBinMap, resolveTransferBin, loadTransferBinMap, partitionBinChanged, isCrossWarehouseTransfer, buildBinBalances, decideDepartureBin, loadBinBalances } = await import(join(dir, "tb.mjs"));
 
 // 보정 도구의 판정 함수도 원문 추출 (도구는 순수 JS — esbuild 불필요)
 function extractTool(name) {
@@ -153,10 +164,11 @@ const A = src.slice(aStart, bStart);
 // ⑦ 헤더 bin 우선 — 조회 게이트와 leg1 순서
 ok("⑦ WMS lookup only when header gave no bin (and forward cross-warehouse — ⑭·⑯ 이후)",
   A.includes('if (binResolvable && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) {'));
-ok("⑦b leg1 uses header bin first, WMS only as fill-in",
+ok("⑦b leg1 uses header bin first, balance→WMS decision only as fill-in (2026-09-01)",
   A.includes("let depBin = fromLoc.bin;")
   && A.includes('if (depBin === "" && binResolvable) {')
-  && A.includes("depBin = resolveTransferBin(transferBinMap, sku);"));
+  && A.includes("const wmsBin = resolveTransferBin(transferBinMap, sku);")
+  && A.includes("const d = decideDepartureBin(binBalances ? (binBalances.get(sku) ?? new Map()) : null, wmsBin);"));
 
 // ⑧ 다리 2·3·4 무접촉 (원문 그대로)
 ok("⑧ legs 2·3·4 untouched",
@@ -250,6 +262,100 @@ ok("⑯ reverse direction (Edmonton departure) → no_source, never no_reference
   && A.includes("transfer_bin_no_source: tbNoSource")
   && src.includes('const WMS_PICK_WAREHOUSE = "Asung Trading Inc.";')
   && A.indexOf("tbPush(tbNoSource") < A.indexOf('if (binResolvable && fromLoc.bin === ""'));   // 분류가 조회 게이트 앞
+
+// ── 잔고 규칙 (2026-09-01 · ⑲~㉗) ──
+const snap = (sku, bin, qty) => ({ sku, bin, qty });
+const delta = (sku, bin, qty_delta, doc_number) => ({ sku, bin, qty_delta, doc_number });
+{
+  // ⑲ ⭐ SKL01861 실사고 그대로 — 기초 D110302=24 · TR-04169 가 같은 날 D110301 로 24 이동 ·
+  //     자기 문서(TR-04174 −6 · 옛 유령 '' 행 포함)는 제외 · WMS 값은 낡은 D110302
+  const balances = buildBinBalances(
+    [snap("SKL01861", "D110302", 24)],
+    [delta("SKL01861", "D110302", -24, "TR-04169"), delta("SKL01861", "D110301", 24, "TR-04169"),
+     delta("SKL01861", "D110302", -6, "TR-04174")],   // 자기 문서 — 제외돼야 한다
+    "TR-04174");
+  const d = decideDepartureBin(balances.get("SKL01861"), "D110302");
+  ok("⑲ the SKL01861 case: balance wins → D110301, wms_stale flagged",
+    d.bin === "D110301" && d.method === "balance" && d.stale === true && !d.ambiguous, JSON.stringify(d));
+}
+{
+  // ⑳ 잔고 한 칸 = WMS 값 → 확정 · stale 아님
+  const b = buildBinBalances([snap("A", "F020802", 10)], [], "TR-X");
+  const d = decideDepartureBin(b.get("A"), "F020802");
+  ok("⑳ single balance bin equal to WMS → confirmed, not stale",
+    d.bin === "F020802" && d.method === "balance" && !d.stale);
+}
+{
+  // ㉑ 두 칸 · WMS 가 그중 하나 → WMS 값 / ㉒ 그중에 없음 → 비움 + ambiguous
+  const b = buildBinBalances([snap("A", "B1", 5), snap("A", "B2", 7)], [], "TR-X");
+  const d1 = decideDepartureBin(b.get("A"), "B2");
+  ok("㉑ multi-bin, WMS among candidates → WMS value (by_wms)", d1.bin === "B2" && d1.method === "wms" && !d1.ambiguous);
+  const d2 = decideDepartureBin(b.get("A"), "B9");
+  ok("㉒ multi-bin, WMS not among → left empty + ambiguous", d2.bin === "" && d2.method === "none" && d2.ambiguous === true);
+}
+{
+  // ㉓ 0칸 → WMS 폴백 (현행 유지) · '' 칸은 물리 칸이 아니라 후보에서 제외
+  const b = buildBinBalances([snap("A", "", 30)], [delta("A", "B1", 3, "TR-Y"), delta("A", "B1", -3, "TR-Z")], "TR-X");
+  const d = decideDepartureBin(b.get("A"), "F020802");
+  ok("㉓ zero candidate bins ('' excluded, zeroed bin excluded) → WMS fallback",
+    d.bin === "F020802" && d.method === "wms" && !d.stale && !d.ambiguous);
+  const dNone = decideDepartureBin(b.get("A"), "");
+  ok("㉓b zero candidates and no WMS value → empty", dNone.bin === "" && dNone.method === "none");
+}
+{
+  // ㉔ 자기 문서 제외 — 안 빼면 이번 건이 0칸이 된다 (⑲의 반증형)
+  const withEx = buildBinBalances([snap("S", "D1", 6)], [delta("S", "D1", -6, "TR-SELF")], "TR-SELF");
+  const withoutEx = buildBinBalances([snap("S", "D1", 6)], [delta("S", "D1", -6, "TR-SELF")], "TR-OTHER");
+  ok("㉔ own-doc deltas excluded (else the case collapses to 0 candidates)",
+    decideDepartureBin(withEx.get("S"), "").bin === "D1"
+    && decideDepartureBin(withoutEx.get("S"), "D1").method === "wms");   // 제외 안 하면 0칸 → WMS 폴백으로 새는 모양
+}
+{
+  // ㉕(동적 절반) 규칙 꺼짐(null) → WMS 폴백 그대로
+  const d = decideDepartureBin(null, "F020802");
+  ok("㉕a balances=null (rule off) → WMS fallback", d.bin === "F020802" && d.method === "wms");
+}
+{
+  // ㉖ 1,000행 캡 → off · balances null (스냅샷/원장 각각)
+  const big = Array.from({ length: 1000 }, (_, i) => snap("S" + i, "B", 1));
+  const mockCap = (snapRows, ledRows) => async (path) =>
+    path.startsWith("inv_snapshot?") ? snapRows : path.startsWith("inv_ledger?") ? ledRows : [];
+  const r1 = await loadBinBalances("2026-08-20-initial", "Asung Trading Inc.", ["S"], "2026-08-21", "TR-X", mockCap(big, []));
+  const r2 = await loadBinBalances("2026-08-20-initial", "Asung Trading Inc.", ["S"], "2026-08-21", "TR-X", mockCap([], big));
+  ok("㉖ 1000-row cap → rule off (snapshot and ledger sides)",
+    r1.balances === null && r1.off !== null && r2.balances === null && r2.off !== null, r1.off + " / " + r2.off);
+  // 정상 경로 — 로더가 buildBinBalances 로 잇는다
+  const r3 = await loadBinBalances("2026-08-20-initial", "Asung Trading Inc.", ["SKL01861"], "2026-08-21", "TR-04174",
+    mockCap([snap("SKL01861", "D110302", 24)], [delta("SKL01861", "D110302", -24, "TR-04169"), delta("SKL01861", "D110301", 24, "TR-04169")]));
+  ok("㉖b loader happy path feeds buildBinBalances",
+    r3.off === null && decideDepartureBin(r3.balances.get("SKL01861"), "D110302").bin === "D110301");
+}
+// ㉕(정적) EF 호출부 — try/catch · balance_off 보고 · since 없으면 규칙 OFF
+ok("㉕b EF wiring: try/catch → WMS fallback + balance_off, no-since guard",
+  A.includes("transfer-bin balance lookup failed (collection unaffected, WMS-value fallback)")
+  && A.includes("transfer_bin_balance_off: tbBalanceOff ?? undefined")
+  && A.includes('tbBalanceOff = "no ?since= - baseline snapshot key unknown (balance rule off, WMS fallback)"')
+  && A.includes('loadBinBalances(since + "-initial", fromLoc.warehouse, docSkus, dep!, c.number, sbGet)'));
+// 응답 필드 5종 + 기존 필드 유지
+ok("(응답) balance-rule fields exposed, legacy fields kept",
+  A.includes("transfer_bin_by_balance: tbByBalance")
+  && A.includes("transfer_bin_by_wms: tbByWms")
+  && A.includes("transfer_bin_wms_stale: tbWmsStale")
+  && A.includes("transfer_bin_ambiguous: tbAmbiguous")
+  && A.includes("transfer_bin_resolved: tbResolved")
+  && A.includes("transfer_bin_no_reference: tbNoReference")
+  && A.includes("transfer_bin_skip_same_warehouse: tbSkipSameWh"));
+// ㉗ 회귀 — 다리 2·3·4 원문 그대로 + 같은 창고 skip 카운트 유지 (⑧·⑭c 와 동일 축 재확인)
+ok("㉗ regression: legs 2·3·4 and same-warehouse gate untouched",
+  A.includes('rows.push(mk("transfer_in", IN_TRANSIT, "", q, dep, "2 into IN_TRANSIT departure"));')
+  && A.includes('rows.push(mk("transfer_out", IN_TRANSIT, "", -q, comp, "3 out of IN_TRANSIT completion"));')
+  && A.includes('rows.push(mk("transfer_in", toLoc.warehouse, toLoc.bin, q, comp, "4 to-warehouse completion"));')
+  && A.includes('if (!crossWh && fromLoc.bin === "" && ((det?.Lines ?? []) as any[]).length) tbSkipSameWh++;'));
+// 보정 도구 — 같은 규칙(원문 추출) · 접미 무관 건너뛰기 유지
+ok("(도구) same balance rule extracted, suffix-agnostic skip kept",
+  tool.includes('"buildBinBalances", "decideDepartureBin", "loadBinBalances"')
+  && tool.includes("decideDepartureBin(binBalances ? (binBalances.get(String(t.sku)) ?? new Map()) : null, wmsBin)")
+  && tool.includes("offsetKeys.has(offsetBaseKey("));
 
 // ⑩ 보정 도구 — 안전장치
 ok("⑩a tool: nothing written without --commit",
