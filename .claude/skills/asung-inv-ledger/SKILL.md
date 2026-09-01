@@ -165,6 +165,25 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   · ⚠️ 1,000행 캡에 닿으면 규칙을 끈다(잘린 잔고로 판정하면 틀린다)
   · ⚠️ **배포 직후 함정**: 손으로 넣은 `:binfixed` 행과 수집기의 `cin7` 행은 `line_ref` 가
     달라 **유니크 키가 막지 못한다** ⇒ `:superseded` 로 자리를 비워줘야 한다
+- ✅ **재고 마스터 — 원장측 (2026-09-01)**
+  정본: `docs/sessions/2026-09-01-stock-master.md` · 계약: `ledger-design.md`
+  ⭐ **방향 전환**: 「검증이 깨끗해지면 화면을 연다」에는 **끝이 없다**(그날도 새 문제가 셋).
+  그리고 **Caleb 이 화면 없이 코드에만 의존**한다 ⇒ **화면은 검증의 보상이 아니라 검증 도구**다.
+  📌 그날 찾은 셋 중 둘은 **사람이 이미 아는 일**이었다(`SKL01861` · `FG-00131`).
+  · `inv_config`(기준선) · `inv_balance`(라이브 재고) · `inv_balance_vs_cin7`(⭐ 시점 컷오프)
+  · `inv_stock_master(...)` RPC — 검색·창고·이상만·페이징. ⚠️ **`jsonb_agg`**(1,000행 캡)
+  · `inv_balance_diffs` + `inv_snap_balance_diffs()` — 아침에 굳힌다(cron **jobid 18**)
+    ⭐ `first_seen_on`(시간 축) · `acknowledged_*`(사람이 닫는 축)
+  · `inv_ack_diff(...)` · `inv_diff_summary()` · `inv_bin_notes`(코멘트 · select·insert 만)
+  · [실측] `inv_balance` **244ms · 14,432칸** ⇒ 일반 뷰로 충분(머티리얼라이즈드 불필요)
+  · ⚠️ **Cin7 열을 나란히 둔다** — 8,060 SKU 는 다 못 보니 틀려도 모를 수 있다.
+    「원장이 정답」이라 주장하지 않으면 틀린 숫자가 **위험이 아니라 보이는 것**이 된다
+- ✅ **「확인됨」 축 (2026-09-01)** — WMS 조건 ②(매일 빨간불 금지).
+  ⚠️ **「확인됨」(창고가 원인을 안다)과 「해결됨」(원장이 상쇄로 맞췄다)은 다르다.**
+  📌 **「해결됨」 버튼은 없다** — 상쇄를 넣으면 **다음 회차에 목록에서 저절로 사라진다.**
+  ⭐ 승계는 `first_seen_on` 과 같은 규칙(직전 회차) — 재발하면 확인을 새로 받는다.
+  ⚠️ 알려진 의미론: 어긋남이 0이라 **회차 자체가 비는 날은 건너뛰고** 그 전 회차에서 승계한다.
+  지금은 그런 날이 없어 실현되지 않았다 — **원장이 깨끗해질수록 그 날이 온다.**
 
 **⑦ 수집 회차 — 캡·동결이 있었나** (2026-08-31 신설)
 ```sql
@@ -182,42 +201,20 @@ order by ran_at desc limit 20;
 `select source_key, count(*), min(seen_at), max(seen_at) from inv_doc_state group by 1;`
 — `min` 이 계속 당겨지면 회전이 돈다(트랜스퍼는 2.6시간 안에 최고령 갱신).
 
-**⑧ bin 단위 대조 — ⚠️ 아침에만 유효하다** (2026-09-01)
+**⑧ bin 단위 대조** (2026-09-01 · 뷰로 통일)
 ```sql
-with base as (
-  select sku, warehouse, coalesce(bin,'') as bin, sum(qty) as qty
-  from inv_snapshot where snapshot_key='2026-08-20-initial' group by 1,2,3
-), delta as (
-  select sku, warehouse, coalesce(bin,'') as bin, sum(qty_delta) as qty
-  from inv_ledger where warehouse <> 'IN_TRANSIT' group by 1,2,3
-), today as (
-  select sku, warehouse, coalesce(bin,'') as bin, sum(qty) as qty
-  from inv_snapshot where snapshot_key='<오늘>-compare' group by 1,2,3
-), keys as (
-  select sku, warehouse, bin from base
-  union select sku, warehouse, bin from delta
-  union select sku, warehouse, bin from today
-), j as (
-  select k.sku, k.warehouse, k.bin,
-         coalesce(b.qty,0)+coalesce(d.qty,0) as ledger_qty,
-         coalesce(t.qty,0) as cin7_qty
-  from keys k
-  left join base b using (sku,warehouse,bin)
-  left join delta d using (sku,warehouse,bin)
-  left join today t using (sku,warehouse,bin)
-)
 select warehouse, count(*) as bin_pairs,
-       count(*) filter (where ledger_qty <> cin7_qty) as mismatch,
-       sum(abs(ledger_qty-cin7_qty)) filter (where ledger_qty <> cin7_qty) as abs_gap
-from j group by warehouse order by 1;
+       count(*) filter (where diff <> 0) as mismatch,
+       sum(abs(diff)) filter (where diff <> 0) as abs_gap
+from inv_balance_vs_cin7 group by warehouse order by 1;
+
+select sku, warehouse, bin, ledger_qty, cin7_qty, diff
+from inv_balance_vs_cin7 where diff <> 0 order by abs(diff) desc;
 ```
-⚠️⚠️ **오후에 재면 못 쓴다.** 스냅샷은 **01:21 의 한순간**인데 원장은 그 뒤로 계속 쌓여
-**낮 판매가 전부 「원장이 과하게 뺐다」로 잡힌다.**
-[실측 2026-09-01] 같은 날 같은 쿼리가 **아침 9칸 · 오후 128칸**을 냈다.
-⚠️ **`occurred_on < 오늘` 필터는 답이 아니다** — 01:21 스냅샷은 그날 00:00~01:21 사건을 이미
-포함하는데 필터가 그것까지 뺀다(오후 49칸). **날짜 단위 필터로는 순간을 맞출 수 없다.**
-📌 **판정 근거**: 이번 보정과 무관한 **에드먼튼도 12 → 359 로 같이 늘었다** — 드리프트의 증거.
-📌 [기준선 2026-09-01 아침] 토론토 8,149칸 중 **9칸 · 격차 52**(8/31 아침 1,201칸 · 15,640).
+⭐ **시점 컷오프가 들어가 언제 조회해도 같은 값**이다(2026-09-01 · §함정 표).
+📌 [기준선 2026-09-01 저녁] **토론토 7칸 · 에드먼튼 2칸 · 격차 26**
+(같은 날 아침 1,201칸 · 15,640 에서).
+📌 카드용 요약은 `select jsonb_pretty(inv_diff_summary());` — `unack` 이 사람이 닫는 숫자다.
 
 **⑨ 기초 스냅샷 경계 오더 재유입** (2026-09-01)
 ```sql
@@ -445,6 +442,10 @@ group by l.doc_number order by 2;
 
 | 함정 | 진실 |
 |---|---|
+| 원장과 Cin7 을 대조할 때 시점을 어떻게 맞추나? | ⚠️⚠️ **잘못 자르면 세 번 틀린다.** [실측 2026-09-01] 같은 날 같은 쿼리가 **9 · 49 · 128 · 475 · 161 · 7 · 9** 를 냈다. Cin7 스냅샷은 **01:21 의 한순간**인데 원장 델타는 계속 쌓이기 때문이다. ❌ **날짜 필터(`occurred_on < 오늘`)는 답이 아니다** — 01:21 스냅샷이 그날 00:00~01:21 사건을 **이미 포함**하는데 날짜로 자르면 그것까지 뺀다. ⇒ ⭐ **최종 규칙 셋을 함께 쓴다**: `source='manual'`(정정은 뒤늦게 적은 과거 사실) **or** `occurred_on < 스냅샷의 토론토 날짜`(⭐ **과거 사건은 늦게 수집돼도 자르지 않는다** — Cin7 이 이미 반영했다) **or** `created_at <= taken_at`(당일 사건은 수집 시각이 가른다). ⚠️ 세 조건이 **서로를 보완한다** — 하나만 쓰면 반드시 틀린다. 정본: `docs/sessions/2026-09-01-stock-master.md` §3 |
+| ⭐ 「과거 사건을 오늘 수집」이 왜 계속 생기나? | **커서가 밀리거나(결함 C·D) 재수집하거나 bin 규칙을 바꾸면** `occurred_on` 이 과거인 행이 오늘 `created_at` 으로 들어온다. [실사고] 트랜스퍼 bin 을 채우자 `cin7 A070401 −60`(8/21 사건)이 그날 낮에 수집됐고, `created_at` 컷오프가 그것을 잘라 **상쇄와 재기록의 짝 중 반쪽만** 남았다(`WTA00219` diff +60). ⇒ 컷오프의 축은 **수집 시각이 아니라 사건 시각**이다 |
+| `manual` 정정을 컷오프에서 빼도 되나? | ⭐ **빼야 한다.** 정정은 **사건 시각이 과거인데 기록 시각은 현재**다. [실사고 `ANN01111`] 라이브 20(Cin7 과 일치)인데 컷오프가 상쇄를 잘라 `at_snapshot −4 · diff −24` 로 **상쇄 전 상태로 되돌렸다**(`total 157` = 그날 아침 상쇄한 경계 오더 행 수). ⇒ **고쳤으면 대조가 바로 맞아야** 한다. ⚠️ **대가**: `manual` 을 잘못 넣으면 대조가 **즉시** 그것을 정답으로 받아들인다 — 정정 전에 근거를 `raw` 에 남기는 관례가 그래서 중요하다 |
+| 뷰를 만들 때 `anon` 을 신경 써야 하나? | ⚠️⚠️ **반드시.** 뷰는 **소유자 권한으로 실행**되므로(`security_invoker` 없이) `anon` 에 열어두면 `inv_ledger`·`inv_snapshot` 의 `anon` 회수를 **우회한다.** `anon` key 는 커밋되는 값이라 **실질 공개**다. ⇒ `revoke all ... from anon` 을 **`create or replace` 할 때마다** 다시 건다 |
 | 수집한 뒤 Cin7 에서 문서가 **취소**되면? | ⚠️⚠️ **아무도 안 본다 — 구조적 구멍이다.** 수집 시 `VOIDED` 는 제외하지만(`skip_voided`), **이미 원장에 들어온 문서가 나중에 취소되면 상쇄가 안 된다.** `raw.header.status` 의 `COMPLETED` 는 **수집 당시 값**이라 그 뒤의 취소는 어디에도 없다. [실사고 2026-09-01 `FG-00131`] 8/28 13:13 수집 시 COMPLETED → 지금 VOIDED. 검산이 정확히 맞았다 — `UNF18050` 기초 84 − 우리 18 = 66 인데 Cin7 은 72 로 **한 건 몫(6)이 남았다.** ⚠️ **빈도와 기제**: 조립 132건 중 VOIDED 86건이지만 **업무상 취소가 아니다 — Cin7 의 기계적 동작이다.** 기제 둘: **①SO 편집 → Cin7 이 기존 자동조립을 VOID 하고 재생성**(`Notes` 가 `by System` · SO 묶음 30개가 「VOIDED → COMPLETED」 짝) · **②트랜스퍼 픽용 SO 를 VOID**([실증 `SO-14692`] `wms_orders` 에 `ASUNG EDM TRANSFER` 로 실재 · 딸린 `FG-00115~00120` 6건 전부 VOID — **설계된 동작**). ⚠️ 조립 자체는 **월 20건 안팎의 드문 작업**이다. ⭐ **그리고 우리가 걸리는 조건은 좁다** — 수집 주기(1시간) 안에 상태 변화가 안 끝날 때뿐이고, [실측] **8월 VOID 12건 중 잡힌 것은 `FG-00131` 하나**다(13:13 수집 → 16:13 에 재생성). ⚠️ **다만 기제 ②는 창이 길다** — 픽 시작과 SO VOID 사이가 몇 시간~며칠이라 그 사이에 수집이 들어간다. **트랜스퍼 픽은 정기적이므로 ①보다 잘 걸릴 수 있다.** ⚠️ **그리고 전 축 공통이다** — 판매·트랜스퍼·조정 모두 같은 구조(트랜스퍼 화면에도 Void 버튼이 있다). 📌 **소멸 감지(`inv_missing_lines`)는 라인 삭제만 잡는다** — 문서 전체 취소는 다른 축이다. ⬜ 처방 미착수 |
 | `Adjustment` 가 증감분? | **아니다. 조정 후 목표 수량.** 증감 = `Adjustment − QuantityOnHand` |
 | `NewStockLines` 도 같은 규칙? | **아니다.** `Quantity` 가 그대로 증가분. 섞으면 원장이 통째로 틀림 |
@@ -819,21 +820,16 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ## 다음에 할 일 (우선순위 — 2026-09-01 갱신)
 
-1. ⚠️ **「수집 후 취소」 감지** — §2 함정 표 첫 줄의 구멍.
-   ⚠️ **빈도는 낮다**(8월 VOID 12건 중 1건 관측). 다만 ⭐ **기제 ②(트랜스퍼 픽용 SO VOID)는
-   창이 길고 정기적**이라 앞으로 더 잘 걸릴 수 있다 — `SO-14692` 는 기초 스냅샷 이전이라
-   원장에 없었을 뿐이다.
-   📌 조립은 목록(`finishedGoodsList`)에 `Status` 가 있어 **상세 없이도 판정 가능**하다.
-   ⚠️ 구멍 자체는 전 축 공통이지만 **판매·트랜스퍼는 사람이 Void 할 때뿐**이라 조립과 성격이
-   다르다(조립은 Cin7 이 자동으로 VOID 한다).
-   ⚠️ API 를 봐야 해서 SQL 로는 안 된다 — EF 작업이다
-2. ⬜ **bin 대조 남은 7칸** — `BNAT48173` +11 · `CAN01003` −4 · `UNF18261` `''` +1 ·
-   `PRO00124` 짝(에드먼튼). 미조사
-3. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리(트랜스퍼 커서는 여전히 `TR-04172`)
-4. ⭐ **WMS 픽 시점 bin 기록** — §2 함정 표의 「유입 시점 값은 낡는다」 한계를 지운다.
-   ⚠️ 다만 **「신고 없이 다른 자리에서 뽑은 경우」는 자리 스캔만 잡는다.**
-   📌 IMS 로 가면 **우리가 정본**이라 틀린 걸 잡아줄 사람이 없다 ⇒ **IMS 와 함께 가야 한다**
-5. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
+1. ⚠️ **새 5개(각 −1) 미규명** — ⭐ **가설: 우리가 안 보는 축이 있다.**
+   수집 축은 여섯뿐(`transfer`·`sale`·`purchase`·`adjustment`·`assembly`·`creditnote`)이고
+   **Inventory Write-Off · Disassembly · Stock Take 는 안 본다.**
+   📌 다섯 중 셋은 8/31 이후 원장 행이 **아예 없다** — 사건 자체를 못 받았다
+2. ⚠️ **「수집 후 취소」 감지** — 2026-09-01 오전 발견. 조립은 드물지만(월 20건 안팎)
+   기제 ②(트랜스퍼 픽용 SO VOID)는 창이 길고 정기적이다
+3. ⬜ **`BNAT48173` +11 · `CAN01003` −4 · `PRO00124` 짝** — 미조사
+4. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리(트랜스퍼 커서는 여전히 `TR-04172`)
+5. ⭐ **WMS 재고 마스터 화면** — 원장 쪽 준비는 끝났다. 통지 완료
+6. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.
