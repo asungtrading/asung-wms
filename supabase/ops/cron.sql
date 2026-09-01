@@ -438,7 +438,7 @@ select cron.schedule(
   $job$
 );
 
--- 17) ⬜ inv-balance-diffs : 매일 아침 대조 결과를 굳힌다 (2026-09-01 · 미등록 — 주석만)
+-- 18) ✅ inv-balance-diffs : 매일 아침 대조 결과를 굳힌다 (2026-09-01 · [실측 jobid 18 — cron.schedule 반환값 확인 · cron.job active=true])
 --     → DB 함수 inv_snap_balance_diffs() (마이그레이션 20260901183252 · 테이블 inv_balance_diffs)
 --     배경: 대조는 아침 스냅샷 직후에만 유효하다([실측 2026-09-01] 같은 계산이 아침 9칸 ·
 --       오후 128칸). 어긋남을 그날 일지로 굳혀야 화면(재고 마스터)의 시간 축(first_seen_on)이 산다.
