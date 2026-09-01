@@ -223,6 +223,12 @@ const adjustments = fetchAllPages('stockadjustmentList', {
   `ShipmentDate` 는 **2026-08-21** 이었다. **Cin7 은 승인 시각에 차감한다.**
   ⇒ 기준선 스냅샷 경계에서 **이중 차감**이 난다(2026-08-30 실사고 · 4문서 522행).
   📌 실제 차감 시각은 **Activity log(화면)** 에만 있다 — API 에서 얻는 방법은 미확인.
+- ⚠️⚠️ **`ShipmentDate` 는 재고가 빠진 시각이 아니다 — 사용자 입력 날짜다.**
+  [실사고 2026-08-30 · 재발 09-01] 8/20 저녁 출하 승인으로 Cin7 이 차감했는데
+  `ShipmentDate` 는 8/21 이었다. 기초 스냅샷 경계에서 **이중 차감**이 난다.
+  ⚠️ 재기준선을 잡을 때마다 걸린다.
+- ⚠️ **Cin7 이 내용 변화 없이 대량 갱신한다** — [실측] 8/28(238건 · 밀리초 동일) ·
+  8/31 오후. **사흘 간격**이다. 그때 옛 문서가 재유입되므로 경계 문제가 되살아난다.
 - 📌 **판매 목록 행 키**(실측):
   `SaleID, OrderNumber, Status, OrderDate, InvoiceDate, Customer, CustomerID, InvoiceNumber,
   CustomerReference, InvoiceAmount, PaidAmount, SaleInvoicesTotalAmount, InvoiceDueDate, ShipBy,
@@ -233,6 +239,26 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 - 📌 **상품 이동 내역은 화면이 가장 빠르다** — Cin7 Inventory 에서 상품을 열면 창고·bin 별
   이동(Sale · Transfer out · PO 등)이 날짜순으로 나온다. [2026-08-31] 원장에 없는
   `TR-04330 −144` 를 이것으로 찾았다. **API 로 같은 것을 얻는 방법은 미확인.**
+
+### ⚠️⚠️ 조립(Finished Goods) — VOIDED 가 다수다
+
+- 목록 배열 키는 **`FinishedGoods`** 다(`FinishedGoodsList` 아님 · 2026-08-17 실측).
+  ⚠️ 문서번호 필드는 **`AssemblyNumber`**.
+- ⭐ **목록에 `Status` 가 있다** — 상세 없이 `COMPLETED`/`VOIDED` 판정이 된다.
+- ⚠️ **[실측 2026-09-01] 132건 중 VOIDED 86건.** ⭐ **업무상 취소가 아니라 Cin7 의 기계적
+  동작**이다. 기제 둘:
+  · **① SO 편집 → 재생성** — SO 를 고치면 기존 자동조립을 VOID 하고 새로 만든다.
+    `Notes` 가 **`by System`** 인 것이 증거다. SO 묶음 30개가 「VOIDED → COMPLETED」 짝이다
+    (`SO-15502`: `FG-00131` VOIDED → `FG-00132` COMPLETED · 같은 날 · 같은 제품)
+  · **② 트랜스퍼 픽용 SO 를 VOID** — Asung 은 창고 간 트랜스퍼를 가상 손님
+    `ASUNG EDM TRANSFER` 의 SO 로 만들어 WMS 로 픽하고 **끝나면 VOID** 한다.
+    [실증 `SO-14692`] 딸린 `FG-00115~00120` 6건이 전부 VOID 됐다 — **설계된 동작**이다
+- 📌 조립 자체는 **월 20건 안팎**이다. 월별로는 **2025-10 의 16/16(완료 0건)만 이관 초기
+  노이즈**이고 2026-03 이후도 61%로 꾸준하다(위 기제 때문).
+- ⚠️ 수집 후 취소를 감지하지 않으면 원장이 틀어진다 — 실사고 `FG-00131`.
+  ⭐ 다만 **수집 주기 안에 상태 변화가 안 끝날 때만** 걸린다(8월 12건 중 1건).
+- 📌 화면에 **`Undo`** 버튼이 있다 — 완료된 조립도 되돌릴 수 있다.
+- 날짜 축이 셋이다: `Date`(목록) · `CompletionDate` · `WIPDate`.
 
 ### ⚠️⚠️ 트랜스퍼 bin — API 는 주지 않는다 (2026-08-31 전수 확인)
 

@@ -152,6 +152,19 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
     bin 만 다른 **6키**(`doc_type`·`doc_number`·`line_ref`·`event_type`·`warehouse`·`sku`)가
     A 에 있으면 소멸이 아니다. ⚠️ **`event_type` 까지 일치를 요구**해야 IN_TRANSIT 다리가
     창고 다리를 면책하는 오판이 구조적으로 불가능하다. **캡보다 앞에서 거른다**
+- ✅ **트랜스퍼 출발 bin — 잔고 규칙 우선 (2026-09-01 · `inv-collect@2026-09-01.1`)**
+  정본: `docs/sessions/2026-09-01-morning-check.md` §5
+  · 판정: ①그 시점 잔고(기초 스냅샷 + `occurred_on` 이하 델타 · ⚠️ **자기 문서 제외**) →
+    ②유일하면 그 칸(+`wms_stale` 보고) → ③다중이면 WMS 값으로 가름, 못 가르면 비움
+    (+`ambiguous`) → ④0칸이면 WMS 폴백 → ⑤비움
+  · ⭐ **관점**: 재현할 것은 「작업자가 간 자리」가 아니라 **Cin7 의 bin 기록**이다.
+    Cin7 은 자기 기록대로 뺀다 ⇒ 원장이 이미 가진 이동 사건으로 따라갈 수 있다
+  · ⭐ **WMS 맵 없는 문서에도 적용**한다 — `no_reference`·`so_missing` 부류가 자동 해결된다
+    ([실측] `resolved` 592 → 596 · `unresolved` 4 → 0)
+  · ⚠️ **한계**: 같은 날 안의 순서를 못 가린다 ⇒ **유일할 때만 확정**하고 애매하면 비운다
+  · ⚠️ 1,000행 캡에 닿으면 규칙을 끈다(잘린 잔고로 판정하면 틀린다)
+  · ⚠️ **배포 직후 함정**: 손으로 넣은 `:binfixed` 행과 수집기의 `cin7` 행은 `line_ref` 가
+    달라 **유니크 키가 막지 못한다** ⇒ `:superseded` 로 자리를 비워줘야 한다
 
 **⑦ 수집 회차 — 캡·동결이 있었나** (2026-08-31 신설)
 ```sql
@@ -168,6 +181,63 @@ order by ran_at desc limit 20;
 📌 회전 확인(롤링 재확인):
 `select source_key, count(*), min(seen_at), max(seen_at) from inv_doc_state group by 1;`
 — `min` 이 계속 당겨지면 회전이 돈다(트랜스퍼는 2.6시간 안에 최고령 갱신).
+
+**⑧ bin 단위 대조 — ⚠️ 아침에만 유효하다** (2026-09-01)
+```sql
+with base as (
+  select sku, warehouse, coalesce(bin,'') as bin, sum(qty) as qty
+  from inv_snapshot where snapshot_key='2026-08-20-initial' group by 1,2,3
+), delta as (
+  select sku, warehouse, coalesce(bin,'') as bin, sum(qty_delta) as qty
+  from inv_ledger where warehouse <> 'IN_TRANSIT' group by 1,2,3
+), today as (
+  select sku, warehouse, coalesce(bin,'') as bin, sum(qty) as qty
+  from inv_snapshot where snapshot_key='<오늘>-compare' group by 1,2,3
+), keys as (
+  select sku, warehouse, bin from base
+  union select sku, warehouse, bin from delta
+  union select sku, warehouse, bin from today
+), j as (
+  select k.sku, k.warehouse, k.bin,
+         coalesce(b.qty,0)+coalesce(d.qty,0) as ledger_qty,
+         coalesce(t.qty,0) as cin7_qty
+  from keys k
+  left join base b using (sku,warehouse,bin)
+  left join delta d using (sku,warehouse,bin)
+  left join today t using (sku,warehouse,bin)
+)
+select warehouse, count(*) as bin_pairs,
+       count(*) filter (where ledger_qty <> cin7_qty) as mismatch,
+       sum(abs(ledger_qty-cin7_qty)) filter (where ledger_qty <> cin7_qty) as abs_gap
+from j group by warehouse order by 1;
+```
+⚠️⚠️ **오후에 재면 못 쓴다.** 스냅샷은 **01:21 의 한순간**인데 원장은 그 뒤로 계속 쌓여
+**낮 판매가 전부 「원장이 과하게 뺐다」로 잡힌다.**
+[실측 2026-09-01] 같은 날 같은 쿼리가 **아침 9칸 · 오후 128칸**을 냈다.
+⚠️ **`occurred_on < 오늘` 필터는 답이 아니다** — 01:21 스냅샷은 그날 00:00~01:21 사건을 이미
+포함하는데 필터가 그것까지 뺀다(오후 49칸). **날짜 단위 필터로는 순간을 맞출 수 없다.**
+📌 **판정 근거**: 이번 보정과 무관한 **에드먼튼도 12 → 359 로 같이 늘었다** — 드리프트의 증거.
+📌 [기준선 2026-09-01 아침] 토론토 8,149칸 중 **9칸 · 격차 52**(8/31 아침 1,201칸 · 15,640).
+
+**⑨ 기초 스냅샷 경계 오더 재유입** (2026-09-01)
+```sql
+select l.doc_number, count(*) as rows, sum(l.qty_delta) as qty,
+       min(l.created_at at time zone 'America/Toronto') as first_collected
+from inv_ledger l
+where l.doc_type='sale' and l.source='cin7' and l.occurred_on='2026-08-21'
+group by l.doc_number
+having min(l.created_at) >= '2026-08-22'
+   and not exists (
+     select 1 from inv_ledger m
+     where m.source='manual' and m.doc_number = l.doc_number
+       and m.occurred_on = '2026-08-21'
+   )
+order by 1;
+```
+**0행이면 정상.** 뜨면 **또 들어온 것**이다 — 상쇄하면 된다.
+📌 판정 근거는 **「8/21 에 수집 안 됐다」** 하나다 — 그때 `Updated` 가 8/20 이었다는 뜻이고,
+곧 모든 활동이 8/20 에 끝났다는 뜻이다.
+📌 경계 오더는 **유한한 집합**(8/20 승인분)이라 다 나오면 끝난다.
 
 - 🔵 **스냅샷 회차 로그 (2026-08-26 · `20260826130408` · `inv_snapshot_runs`)**
   §4-c 급감 검사의 **선행 조건**. 판정에 필요한 값이 `summary` 로 계산되고도 응답 후 사라지고
@@ -375,6 +445,7 @@ group by l.doc_number order by 2;
 
 | 함정 | 진실 |
 |---|---|
+| 수집한 뒤 Cin7 에서 문서가 **취소**되면? | ⚠️⚠️ **아무도 안 본다 — 구조적 구멍이다.** 수집 시 `VOIDED` 는 제외하지만(`skip_voided`), **이미 원장에 들어온 문서가 나중에 취소되면 상쇄가 안 된다.** `raw.header.status` 의 `COMPLETED` 는 **수집 당시 값**이라 그 뒤의 취소는 어디에도 없다. [실사고 2026-09-01 `FG-00131`] 8/28 13:13 수집 시 COMPLETED → 지금 VOIDED. 검산이 정확히 맞았다 — `UNF18050` 기초 84 − 우리 18 = 66 인데 Cin7 은 72 로 **한 건 몫(6)이 남았다.** ⚠️ **빈도와 기제**: 조립 132건 중 VOIDED 86건이지만 **업무상 취소가 아니다 — Cin7 의 기계적 동작이다.** 기제 둘: **①SO 편집 → Cin7 이 기존 자동조립을 VOID 하고 재생성**(`Notes` 가 `by System` · SO 묶음 30개가 「VOIDED → COMPLETED」 짝) · **②트랜스퍼 픽용 SO 를 VOID**([실증 `SO-14692`] `wms_orders` 에 `ASUNG EDM TRANSFER` 로 실재 · 딸린 `FG-00115~00120` 6건 전부 VOID — **설계된 동작**). ⚠️ 조립 자체는 **월 20건 안팎의 드문 작업**이다. ⭐ **그리고 우리가 걸리는 조건은 좁다** — 수집 주기(1시간) 안에 상태 변화가 안 끝날 때뿐이고, [실측] **8월 VOID 12건 중 잡힌 것은 `FG-00131` 하나**다(13:13 수집 → 16:13 에 재생성). ⚠️ **다만 기제 ②는 창이 길다** — 픽 시작과 SO VOID 사이가 몇 시간~며칠이라 그 사이에 수집이 들어간다. **트랜스퍼 픽은 정기적이므로 ①보다 잘 걸릴 수 있다.** ⚠️ **그리고 전 축 공통이다** — 판매·트랜스퍼·조정 모두 같은 구조(트랜스퍼 화면에도 Void 버튼이 있다). 📌 **소멸 감지(`inv_missing_lines`)는 라인 삭제만 잡는다** — 문서 전체 취소는 다른 축이다. ⬜ 처방 미착수 |
 | `Adjustment` 가 증감분? | **아니다. 조정 후 목표 수량.** 증감 = `Adjustment − QuantityOnHand` |
 | `NewStockLines` 도 같은 규칙? | **아니다.** `Quantity` 가 그대로 증가분. 섞으면 원장이 통째로 틀림 |
 | `StockOnHand` 가 수량? | **아니다. 평가액.** 원장 기준값은 `OnHand` |
@@ -402,6 +473,8 @@ group by l.doc_number order by 2;
 | 창고 간 트랜스퍼의 출발 bin 을 API 로 얻을 수 있나? | ⚠️ **없다.** [전수 확인 2026-08-31] `stockTransfer`→`Lines` · `Order.Lines` · `stockTransfer/order`→`Lines` 가 **키까지 완전히 동일**하고 bin 이 없다. 공식 `apib` 의 **Stock Transfer Line Model 에 정의 자체가 없다.** 엔드포인트 **102개 전수**에 **재고 이동 조회 API 가 존재하지 않는다.** 픽용 SO 는 **VOID 하면 `Pick`/`Pack`/`Ship` lines 가 0**이 된다. ⇒ **우리 WMS 에서 얻는다**(`wms_order_lines.bin_location` · 112/112 실증) |
 | 화면에 보이는 bin 을 믿어도 되나? | ⚠️ **화면과 Export 가 다르다.** 트랜스퍼 화면의 `LOCATION` 컬럼은 **현재 재고 조회**다(`QuantityOnHand` 처럼 참고값 · 4/4 현재 bin 과 일치). **Export CSV 의 `Location` 이 문서 데이터**다 — [결정적 실측 `TR-04166`] CSV 는 출발 bin `E050202` 를 주는데 그 제품은 지금 `E050103` 에 있다 |
 | 「비슷한 것」으로 이어 붙여도 되나? | ⚠️ **안 된다 — 틀린 값을 채우느니 비워둔다.** [실증 2026-08-31] `TR-04331` Reference 에 **존재하지 않는 `SO-15834`** 가 손으로 적혀 있었다(실제 `SO-15483` · 숫자 두 개 바뀐 오타). 폴백이 없었기에 시스템이 **조용히 틀리지 않고 `so_missing` 으로 이름을 대며 멈췄다.** 「손님 이름+날짜」·「비슷한 번호」 같은 폴백을 만들지 말 것 |
+| `ShipmentDate` 를 차감 시각으로 믿어도 되나? | ⚠️ **아니다 — 사용자 입력 날짜다.** [실사고 2026-08-30 · 재발 2026-09-01] 8/20 저녁 출하 승인 → Cin7 차감 → 기초 스냅샷(19:42)이 그 값을 찍음 → `ShipmentDate` 는 8/21 이라 `since` 필터를 통과 → **이중 차감.** 08-30 에 4문서(522행), 09-01 에 3문서(157행)를 상쇄했다. ⚠️ **재발 경로**: Cin7 이 대량 갱신하면(8/28 · 8/31 오후 — 사흘 간격) 옛 문서가 재유입되고 그때 경계 오더가 **처음** 들어온다. ⇒ 아침 점검 ⑨ |
+| 트랜스퍼 출발 bin 을 `wms_order_lines.bin_location` 으로 채워도 되나? | ⚠️ **그 값은 오더 유입 시점 것이다.** 유입~픽 사이에 `wrong_location` 정정이나 재배치가 있으면 **낡는다.** [실사고 2026-09-01 `SKL01861`] 유입 8/20 18:50 `D110302` → **8/21 10:27 `TR-04169` 가 `D110301` 로 옮김** → 14:52 픽 → Cin7 은 `D110301` 에서 뺐다. ⇒ **잔고 규칙 우선 + WMS 교차**로 바꿨다(`inv-collect@2026-09-01.1`). ⚠️ **WMS 에서 더 얻을 것이 없다** — 픽 화면도 sticky 도 같은 낡은 값이다(WMS 세션이 코드로 확정 · sticky 는 05:00 배치라 당일 정정을 모른다). [실측] 이 부류 빈도 **596건 중 1건**(`transfer_bin_wms_stale`) |
 
 ### ⚠️ 커서 결함 계보 — 전부 「캡에 걸렸는데 커서가 안 나갔다」
 
@@ -744,20 +817,23 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-08-31 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-01 갱신)
 
-1. ⬜ **트랜스퍼 bin 마무리** — 보정 도구 실행(배포 후 한 회차 뒤 · 계획 → `--commit`) ·
-   bin 대조 재확인(토론토 1,201 → **200 근처** 기대 · 잔여는 다중 bin SKU 10개와
-   초과·미달 입고 bin 어긋남).
-   ⚠️ **아침 점검 ⑧ 의 축**: SQL 의 `bin=''` 전수는 역방향·내부 풋어웨이의 **정상 `''`** 까지
-   잡는다. **정확한 축은 `transfer_bin_no_reference`**(`inv_collect_runs.summary`).
-2. ⭐ **근본 해결 — WMS 픽 라인에 bin 기록.** 최소 = 화면이 이미 보여주는 자리를 저장
-   (작업 추가 없음) · 완전 = 작업자가 스캔(사실). 그러면 `Reference` 도, WMS 조회도,
-   「트랜스퍼 → 가짜 SO → 픽 → VOID」 우회도 사라진다.
-   ⚠️ WMS 쪽 작업이고 원장↔WMS 통합은 ⑥ 완료 후로 합의돼 있다
-3. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리(`inv_doc_state` 는 캡을 푼 것이지
-   커서를 푼 게 아니다 · 트랜스퍼 커서는 여전히 `TR-04172`)
-4. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
+1. ⚠️ **「수집 후 취소」 감지** — §2 함정 표 첫 줄의 구멍.
+   ⚠️ **빈도는 낮다**(8월 VOID 12건 중 1건 관측). 다만 ⭐ **기제 ②(트랜스퍼 픽용 SO VOID)는
+   창이 길고 정기적**이라 앞으로 더 잘 걸릴 수 있다 — `SO-14692` 는 기초 스냅샷 이전이라
+   원장에 없었을 뿐이다.
+   📌 조립은 목록(`finishedGoodsList`)에 `Status` 가 있어 **상세 없이도 판정 가능**하다.
+   ⚠️ 구멍 자체는 전 축 공통이지만 **판매·트랜스퍼는 사람이 Void 할 때뿐**이라 조립과 성격이
+   다르다(조립은 Cin7 이 자동으로 VOID 한다).
+   ⚠️ API 를 봐야 해서 SQL 로는 안 된다 — EF 작업이다
+2. ⬜ **bin 대조 남은 7칸** — `BNAT48173` +11 · `CAN01003` −4 · `UNF18261` `''` +1 ·
+   `PRO00124` 짝(에드먼튼). 미조사
+3. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리(트랜스퍼 커서는 여전히 `TR-04172`)
+4. ⭐ **WMS 픽 시점 bin 기록** — §2 함정 표의 「유입 시점 값은 낡는다」 한계를 지운다.
+   ⚠️ 다만 **「신고 없이 다른 자리에서 뽑은 경우」는 자리 스캔만 잡는다.**
+   📌 IMS 로 가면 **우리가 정본**이라 틀린 걸 잡아줄 사람이 없다 ⇒ **IMS 와 함께 가야 한다**
+5. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.
