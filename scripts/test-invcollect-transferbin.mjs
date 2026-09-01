@@ -7,7 +7,7 @@
 // resolveTransferBin/loadTransferBinMap)를 **원문 추출**해 목(sbGetFn)과 함께 실행하고,
 // 루프 배선(헤더 bin 우선 · 다리 2·3·4 무접촉 · try/catch)은 정적 grep 으로 못박는다.
 // 보정 도구(fix-transfer-bins.mjs)는 같은 함수를 원문 추출하므로 별도 로직 검증이 필요 없다 —
-// ⑩ 은 도구의 안전장치(--commit 게이트 · :binfix 재실행 안전)만 정적으로 확인한다.
+// ⑩ 은 도구의 안전장치(--commit 게이트 · 접미 무관 재실행 안전)만 정적으로 확인한다.
 //
 // 검증 ①~⑩ (지시서 §5):
 //  ① Reference 파싱 — 파트 번호 무시 · SO 전부 · 중복 제거
@@ -19,7 +19,7 @@
 //  ⑦ 헤더에 bin 이 있으면 WMS 조회를 하지 않는다(회귀)
 //  ⑧ 도착 다리·IN_TRANSIT 다리 무접촉(회귀)
 //  ⑨ 조회 throw → 해결만 끄고 수집 계속 · 경고만
-//  ⑩ 보정 도구 — --commit 없으면 쓰기 0 · :binfix 재실행 안전 · ④⑤ 동시 · cin7 실재 시 ⑤ 생략
+//  ⑩ 보정 도구 — --commit 없으면 쓰기 0 · 접미 무관 재실행 안전(⑰) · ④⑤ 동시 · cin7 실재 시 ⑤ 생략
 //  ⑪ 소멸 감지 「bin 변경」 예외 — bin 만 바뀐 행은 소멸 아님 · bin_changed 카운트
 //  ⑫ line_ref 가 사라짐 → 종전대로 소멸 검출(회귀)
 //  ⑬ bin 은 같고 sku 가 사라짐 → 종전대로 소멸 검출(회귀)
@@ -27,6 +27,11 @@
 //  ⑮ To 에 bin 이 붙어도 창고 이름만 비교(resolveLoc 가 bin GUID 를 부모 창고로 푼다 — 콜론 파싱 없음)
 //  ⑯ 역방향(에드먼튼 출발) → 픽용 SO 가 구조적으로 없다 — no_source 로 분류 · 조회 안 함 ·
 //     no_reference(⭐ 매니저가 빠뜨림 — 진짜 신호)는 순방향만 센다
+//  ⑰ 보정 도구 — 원본에 :reversal 등 **어떤 접미의** manual 상쇄가 이미 있으면 건너뛴다
+//     (skip_already_reversed · [실측 2026-08-31] :binfix 만 보던 판정이 TR-04175 의 삭제·상쇄된
+//      138줄을 되살릴 뻔했다 — 중복 상쇄 + bin='' 유령 +Q · 실제 bin 허위 −Q)
+//  ⑱ 보정 도구 — 같은 창고 문서(내부 풋어웨이 TR-04183~98 등)는 대상 목록에 안 들어간다
+//     (skip_same_warehouse 카운트만 · EF 와 같은 isCrossWarehouseTransfer 판정)
 
 import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -59,6 +64,21 @@ const dir = mkdtempSync(join(tmpdir(), "transferbin-"));
 writeFileSync(join(dir, "tb.ts"), FNS.map(extract).join("\n") + "\nexport { " + FNS.join(", ") + " };\n");
 execSync(`npx --yes esbuild ${join(dir, "tb.ts")} --outfile=${join(dir, "tb.mjs")} --format=esm`, { stdio: "pipe" });
 const { parseTransferRefSOs, buildTransferBinMap, resolveTransferBin, loadTransferBinMap, partitionBinChanged, isCrossWarehouseTransfer } = await import(join(dir, "tb.mjs"));
+
+// 보정 도구의 판정 함수도 원문 추출 (도구는 순수 JS — esbuild 불필요)
+function extractTool(name) {
+  const start = tool.indexOf("function " + name);
+  if (start < 0) { console.error("FAIL extractTool — " + name + " not found"); process.exit(1); }
+  let depth = 0, end = start, started = false;
+  for (let i = start; i < tool.length; i++) {
+    if (tool[i] === "{") { depth++; started = true; }
+    else if (tool[i] === "}") { depth--; if (started && depth === 0) { end = i + 1; break; } }
+  }
+  return tool.slice(start, end);
+}
+const TOOL_FNS = ["offsetBaseKey", "locRefOf"];
+writeFileSync(join(dir, "tool.mjs"), TOOL_FNS.map(extractTool).join("\n") + "\nexport { " + TOOL_FNS.join(", ") + " };\n");
+const { offsetBaseKey, locRefOf } = await import(join(dir, "tool.mjs"));
 
 // sbGetFn 목 — 경로에 따라 응답을 돌려준다
 const mockSb = (orders, lines) => async (path) => {
@@ -236,14 +256,51 @@ ok("⑩a tool: nothing written without --commit",
   tool.includes('process.argv.includes("--commit")')
   && tool.includes("if (!COMMIT) {")
   && tool.indexOf("if (!COMMIT) {") < tool.indexOf('method: "POST"'));
-ok("⑩b tool: rerun-safe via existing :binfix rows",
-  tool.includes("fixedKeys.has(") && tool.includes(":binfix"));
+ok("⑩b tool: rerun-safe via existing manual offset rows (suffix-agnostic — ⑰ 이 동적 검증)",
+  tool.includes("offsetKeys.has(") && tool.includes("offsetBaseKey("));
 ok("⑩c tool: offset(④) and re-post(⑤) computed together, ⑤ skipped when cin7 row exists",
   tool.includes(':binfix", event_type: "manual_reversal"')
   && tool.includes(':binfixed", event_type: "transfer_out"')
   && tool.includes("alreadyKeys.has("));
 ok("⑩d tool: same resolution functions extracted from EF (no second copy)",
-  tool.includes('readFileSync(EF, "utf8")') && tool.includes('"parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap"'));
+  tool.includes('readFileSync(EF, "utf8")') && tool.includes('"parseTransferRefSOs", "buildTransferBinMap", "resolveTransferBin", "loadTransferBinMap", "isCrossWarehouseTransfer"'));
+
+// ⑰ 원본에 :reversal 상쇄가 이미 있으면 건너뛴다 — 키가 **접미 무관**으로 일치해야 한다
+{
+  const target = offsetBaseKey("TR-04175", "pid-1", "Asung Trading Inc.", "BMA15710", "2026-08-21");
+  ok("⑰ any-suffix manual offset matches its original (skip_already_reversed)",
+    offsetBaseKey("TR-04175", "pid-1:reversal", "Asung Trading Inc.", "BMA15710", "2026-08-21") === target
+    && offsetBaseKey("TR-04175", "pid-1:binfix", "Asung Trading Inc.", "BMA15710", "2026-08-21") === target
+    && offsetBaseKey("TR-04175", "pid-1:whatever", "Asung Trading Inc.", "BMA15710", "2026-08-21") === target);
+  ok("⑰b non-matches stay distinct (다른 라인·IN_TRANSIT leg·다른 날짜는 안 맞는다)",
+    offsetBaseKey("TR-04175", "pid-2:reversal", "Asung Trading Inc.", "BMA15710", "2026-08-21") !== target
+    && offsetBaseKey("TR-04175", "pid-1:reversal", "IN_TRANSIT", "BMA15710", "2026-08-21") !== target
+    && offsetBaseKey("TR-04175", "pid-1:reversal", "Asung Trading Inc.", "BMA15710", "2026-08-22") !== target);
+  // 배선 — manual 조회에 line_ref 접미 필터가 없어야 하고(:binfix 한정이 사고 원인), 사유가 계획에 남아야 한다
+  ok("⑰c wiring: manual rows fetched with NO line_ref suffix filter · skip reason printed",
+    tool.includes("doc_type=eq.transfer&source=eq.manual&order=id.asc")
+    && !tool.includes("line_ref=like")
+    && tool.includes("skip_already_reversed"));
+}
+
+// ⑱ 같은 창고 문서는 대상 목록에 안 들어간다 (skip_same_warehouse)
+{
+  const m = new Map([
+    ["wh-tor", { name: "Asung Trading Inc.", parentId: null }],
+    ["wh-edm", { name: "Asung - Edmonton", parentId: null }],
+    ["bin-eg", { name: "EG020102", parentId: "wh-edm" }],
+  ]);
+  ok("⑱ same-warehouse doc excluded (bin GUID resolves to parent warehouse — EF 와 같은 판정)",
+    isCrossWarehouseTransfer(locRefOf(m, "wh-edm"), locRefOf(m, "bin-eg")) === false
+    && isCrossWarehouseTransfer(locRefOf(m, "wh-tor"), locRefOf(m, "bin-eg")) === true
+    && locRefOf(m, "unknown-guid").mapped === false);
+  // 배선 — 게이트가 Reference 해석보다 앞 · skip_same_warehouse 카운트 · 잘린 위치 맵은 중단(조용한 제외 방지)
+  ok("⑱b wiring: gate before resolution · counted as skip_same_warehouse · truncated location map aborts",
+    tool.indexOf("isCrossWarehouseTransfer(fromLoc, toLoc)") > -1
+    && tool.indexOf("isCrossWarehouseTransfer(fromLoc, toLoc)") < tool.indexOf("loadTransferBinMap(reference")
+    && tool.includes("skip_same_warehouse")
+    && tool.includes("location map truncated"));
+}
 
 if (fails) { console.error(fails + " FAILURE(S)"); process.exit(1); }
 console.log("ALL TRANSFER-BIN TESTS PASSED");
