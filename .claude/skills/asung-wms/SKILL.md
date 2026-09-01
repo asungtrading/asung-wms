@@ -197,6 +197,16 @@ Stats 는 멤버 픽태스크를 집계하므로 그대로 통계 왜곡. 같은
 📌 같은 날 **오후에 확인 생략 3연발**(컬럼명 추측·"Hold 없다" 단정·요일 오인+그럴듯한 진단)
 — "틀린 답이 자연스러워 보일수록 검증을 안 하게 된다"(세션 문서 · 「근거의 출처」 규칙의 실패 사례).
 
+**08-31 「bin 백필」 세션: 1건** (세션 성격 = 원장 파생 조사 → 규명 → 설계 → 구현까지 깊이 판 세션.
+경위 정본 `docs/sessions/2026-08-31-bin-backfill-sweep.md`):
+① **유입 시점 sticky 미인지로 `bin_location` 이 비어 유입되고, 사후 보정 경로가 없었다** —
+[실측] 2026-08 한 달 52오더·~180줄(그중 「알 수 있는데 비어 있던」 것 ~110줄) · 매일 발생.
+결손이 픽 동선(9999 맨 뒤)·픽리스트 Zones·원장 트랜스퍼 출발 bin 해결(미해결 4줄)로 번졌다.
+4조건 충족: 에러 없음(200 + flag 만) · 정지 없음 · 신고 없음(작업자가 자리 없이 알아서 찾았다) ·
+데이터 결손. → 스위프(규칙 12 항목)로 닫힘.
+⚠️ **발견의 단서는 원장 세션이 만들었지만**(트랜스퍼 bin 미해결 4줄) 원장 문서는 이 건을
+계상하지 않았다 — 규명·처방을 한 **이 세션에 1건, 중복 없음**(08-25 「세션당」 처리와 동일).
+
 ---
 
 ## 규칙 1 — Cin7 오더 구조 (실측 확정, 추측 금지)
@@ -406,6 +416,11 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - ④ **`Status=ORDERED` 여도 정상 유입된다** — EF 필터는 `OrderStatus=AUTHORISED`(saleList 파라미터)다. Simple/Advanced 모두 `Status` 는 ORDERED 로 남을 수 있다.
   - ⑤ **Advanced Sale 도 정상 처리된다** — SO-14023(Advanced Sale)의 WMS 라인 15개가 Cin7 과 일치 확인. **Type(Simple/Advanced) 필터는 코드에 없고, 없어도 된다** — "Simple 만 가져오게 설정했나?" 는 오해이니 반복하지 말 것.
 - **"안 들어온다" 진단 순서 (2026-08-04 확립 — 위에서부터)**: ① dry-run 진단 필드 — `rate_limited`(429 조기 종료)·`truncated`(스캔 잘림)·`detail_capped`+`detail_capped_orders`(상세조회 캡 굶주림) ② `skipped_detail` 의 사유(`skip_picked`=병행운영 (B) / `already_exists`=dedup) ③ Cin7 쪽 필드 — `OrderStatus`(AUTHORISED 인가)·`AdditionalAttribute1`(`2.Release to WMS` 인가)·`CombinedPickingStatus`(PICKED 인가) ④ 스캔 범위(`list_total`·`oldest/newest_scanned` vs 문제 오더번호).
+- 🆕 **bin 백필 스위프 (2026-08-31 · 커밋 `7c148e0` — 경위 정본은 `docs/sessions/2026-08-31-bin-backfill-sweep.md`)**: 유입이 sticky 미인지로 못 채운 `wms_order_lines.bin_location`(월 ~180줄 실측 — `line_flag='no_bin'`)을 **폴링 회차 맨 끝에서 재해석해 채운다.** 모르면 사고가 나는 것만 여기에:
+  - **`bin_location` 쓰기 주체는 이제 두 지점**(유입 `assembleLine` + 스위프) — 둘 다 `hello` EF 안이고, **bin 판정은 `skuBinsQuery`+`primaryBinsBySku` 가 단일 출처**다. 조건(warehouse·is_current·available desc)을 바꿀 땐 반드시 이 빌더만 — 한쪽만 바꾸면 유입과 백필이 같은 SKU 에 다른 bin 을 고른다.
+  - **비어 있는 것만 채운다**(PATCH 의 null 가드는 서버측 URL 필터) · 대상은 `BACKFILL_STATUSES`(pending·picking) — ⚠️ `VOID_ACTIVE_STATUSES` 재사용 금지(packing 이후는 픽이 끝난 뒤라 「그때 자리」 보증이 없다) · ⚠️ **이미 픽된 라인(`picked_base>0`) 제외** — 채우면 「실제로 집은 자리」가 아닌 값이 원장 트랜스퍼 출발 bin 다리로 흐른다(대조 실패 시 그 회차 스위프 전체 skip — 덜 채우는 쪽이 안전).
+  - **`line_flag='no_bin'` + 채워진 `bin_location` 공존은 의도다**(flag 는 「유입 땐 몰랐다」는 기록) — 그 조합이 곧 **스위프의 서명**(관측 창구 — cron 은 응답을 안 읽는다). manager 분할 미리보기의 no_bin 칩과 bin 이 같이 보여도 결함이 아니다. `needs_review` 도 무접촉(잔존 판단 대기 — 백로그 「검증 대기」).
+  - **못 잡는 것**: 당일 유입·당일 픽(sticky 가 아직 모르는 구간)·sticky 가 끝내 모르는 SKU — 근본 해결은 WMS 픽 라인 bin 기록(별건 · 원장 합의사항).
 
 ## 규칙 13 — Finalize 완료흐름 & 통계 (⚠️ 2026-07-21)
 
@@ -1367,6 +1382,7 @@ SELECT 3종은 세션 문서 「⬜ 다음」 절**(Hold·partial 공제를 어�
 
 ### 검증 대기 (배포됐으나 실전 미확인)
 
+- ⚠️ **bin 백필 스위프 작동 검증 (2026-08-31 배포 `7c148e0` — 규칙 12 항목·세션 문서가 정본)**: ⚠️ **배포 시점 활성 후보가 0이라 실동작을 확인하지 못했다** — 테스트 14케이스는 배선 검증이지 PostgREST 응답 검증이 아니다. 확인(오더 유입 후): ① `select count(*) from wms_order_lines where line_flag like '%no_bin%' and bin_location is not null;` — **0에서 올라가면 작동**(no_bin flag + 채워진 bin = 스위프 서명) ② 활성 후보의 `expected_filled` 가 계속 >0 으로 남으면 스위프가 못 채우는 것 — dry-run `backfill_filled` 와 대조(설계 보고의 판정표: `candidates>0·filled=0·unresolved=전부` + `expected_filled>0` 이면 `sku=in.()` 실패 확정) ③ `needs_review` 잔존이 매니저 화면에서 거슬리는지 관찰 후 판단(Caleb 확정 — 지금은 무접촉).
 - ⚠️⚠️ **라인 시각 편승 — 검증·후속 4건 (2026-08-21 · Caleb 이 「검증 리스트를 알려달라」고 했다 — 다음 세션은 이 목록을 먼저 보라)**
   ```
   ⬜ 1. 라인 시각 기록 검증 — 다음 픽·팩 작업 직후
