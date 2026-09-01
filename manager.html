@@ -516,7 +516,7 @@ document.getElementById("createBtn").onclick=async ()=>{
   if(!preview||!preview.length) return;
   if(!confirm(`${selected.order_number} · ${preview.length} batches will be created (total ${selLines.length} lines). Continue?`)) return;
   // capture for pick list before state is cleared; open print window now (within user gesture → avoids popup block)
-  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments, price_tier:selected.price_tier, reference:selected.reference, order_date:selected.order_date, created_by:(me?me.name:null)};
+  const pickOrd={order_number:selected.order_number, customer_name:selected.customer_name, warehouse:selected.warehouse, comments:selected.comments, price_tier:selected.price_tier, reference:selected.reference, order_date:selected.order_date, terms:selected.terms, ship_address:selected.ship_address, created_by:(me?me.name:null)};
   const pickBatches=preview.map(b=>b.slice());
   const printWin=window.open("","_blank");
   const createdBy=me?me.name:null;
