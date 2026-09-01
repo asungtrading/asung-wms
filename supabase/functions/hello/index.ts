@@ -77,6 +77,17 @@ const HOLD_TRIGGER = "On Hold";             // 보류 트리거 — 이 값 하�
 const VOID_CHECK_MAX = 10;    // 회차당 확정 조회 상한 (HOLD_CHECK_MAX 와 같은 형태 — 평시 후보 0건, 08-14 실측 활성 27 중 0)
 const VOID_ACTIVE_STATUSES = "pending,picking,packing,ready_to_close";
 
+// ── bin 백필 스위프 (2026-08-31 — 유입 시점 sticky 미인지로 bin_location 이 빈 라인을 재해석) ──
+// 왜: 유입(assembleLine)은 그 순간의 wms_sku_bins(전일 05:00 Cin7 → 06:30 재적재)만 본다.
+//   저녁 유입 오더는 sticky 가 다음날 아침에야 배우는 자리를 영영 못 받는다([실측 2026-08]
+//   한 달 52오더·~180줄 · SO-15071 세 줄 line_flag='no_bin' 으로 규명). 소비처(픽 화면·동선
+//   정렬·픽리스트 Zones·packer·manager·원장 트랜스퍼 출발 bin)가 전부 이 컬럼을 읽으므로
+//   화면 재조회 대신 여기(서버 — wms_order_lines 의 단일 쓰기 주체 유지)서 채운다.
+// ⚠️ VOID_ACTIVE_STATUSES 재사용 금지 — packing 이후는 픽이 끝난 뒤라, 그때 채우는 값에는
+//   「실제로 집은 자리」 보증이 없다(원장 다리가 이 컬럼을 트랜스퍼 출발 bin 으로 쓴다).
+const BACKFILL_STATUSES = "pending,picking";
+const BACKFILL_MAX_LINES = 40;   // 회차 캡 — 초과분은 자연 이월(채워진 라인이 is.null 필터에서 이탈 = self-draining)
+
 function normWarehouse(loc: string): string {
   return /edmonton/i.test(loc || "") ? "edmonton" : "toronto";
 }
@@ -184,6 +195,19 @@ async function polledMemory(saleIds: string[]): Promise<Map<string, any>> {
   return found;
 }
 
+// ── bin 판정의 단일 출처 — 유입(assembleLine)과 백필 스위프가 같은 규칙을 쓴다 (2026-08-31) ──
+// 규칙: 같은 warehouse + is_current=true 만, available 내림차순 — 첫 행이 primary.
+// ⚠️ 조건을 한쪽만 바꾸면 유입과 백필이 같은 SKU 에 다른 bin 을 고른다 — 반드시 이 빌더를 거칠 것.
+function skuBinsQuery(skuFilter: string, warehouse: string): string {
+  return "wms_sku_bins?" + skuFilter + "&warehouse=eq." + warehouse + "&is_current=eq.true&order=available.desc";
+}
+// 정렬된(available desc) 행에서 SKU 별 첫 등장 행 = assembleLine 의 bins[0] 과 같은 선택 규칙의 배치판.
+function primaryBinsBySku(rows: any[]): Map<string, any> {
+  const m = new Map<string, any>();
+  for (const r of rows ?? []) { const k = String(r?.sku ?? ""); if (k && !m.has(k)) m.set(k, r); }
+  return m;
+}
+
 // ── 라인 정규화 + 조립 (저장용 필드 포함) ──
 async function assembleLine(ln: any, warehouse: string) {
   const orderSku = (ln.SKU ?? "").trim();
@@ -193,10 +217,7 @@ async function assembleLine(ln: any, warehouse: string) {
   const baseSku = s?.base_sku ?? orderSku;
   const factor = s?.factor ?? 1;
   const requiredBase = orderedQty * factor;
-  const bins = await sbGet(
-    "wms_sku_bins?sku=eq." + encodeURIComponent(baseSku) +
-    "&warehouse=eq." + warehouse + "&is_current=eq.true&order=available.desc"
-  );
+  const bins = await sbGet(skuBinsQuery("sku=eq." + encodeURIComponent(baseSku), warehouse));
   const flags: string[] = [];
   if (!s) flags.push("no_snapshot");
   if (s && s.is_selling === false) flags.push("not_sellable");
@@ -654,6 +675,78 @@ Deno.serve(async (req) => {
       memoryRows = await sbCount("wms_polled_sales");   // 무한 증식 감시 (실패 시 null — 회차는 계속)
     }
 
+    // ── bin 백필 스위프 (2026-08-31 — 상단 BACKFILL_* 상수 주석이 설계 정본) ──
+    // 회차 맨 끝 + 블록 전체 try/catch: 여기서 무엇이 죽어도 유입·hold·void 는 이미 끝나 있다.
+    // Cin7 콜 0 (Supabase REST 만 — DETAIL_DELAY_MS·429 무관). dry-run 은 계획 카운트만(쓰기 0).
+    // 관측: cron 은 응답을 안 읽으므로(pg_net 5초 타임아웃 — 규칙 12) 영구 창구는 결과물이다 —
+    //   line_flag 에 no_bin 이 있는데 bin_location 이 채워진 라인 = 이 스위프의 서명.
+    // ⚠️ line_flag('no_bin')·needs_review 는 무접촉 — flag 는 「유입 땐 몰랐다」는 기록이고,
+    //   manager 분할 미리보기의 no_bin 칩과 채워진 bin 이 공존하는 것이 의도다(오해 아님).
+    //   needs_review 잔존이 매니저 화면에서 거슬리는지는 배포 후 관찰로 판단(Caleb 확정 — 판단 대기).
+    // 못 잡는 것: 당일 유입·당일 픽(sticky 가 아직 모르는 구간)·sticky 가 끝내 모르는 SKU —
+    //   근본 해결은 WMS 픽 라인 bin 기록(별건).
+    let backfillCandidates = 0, backfillFilled = 0, backfillUnresolved = 0,
+        backfillSkippedPicked = 0, backfillCapHit = false;
+    try {
+      // ⚠️ !inner 필수 — 빠지면 부모 행이 남고 임베드만 null 이라 status 필터가 조용히 무력화된다
+      //   ([실측 2026-08-14 packer] !inner 누락 = 조용히 틀림 / 임베드 자체가 빠지면 400 = 시끄럽게 죽음).
+      const cand = await sbGet(
+        "wms_order_lines?bin_location=is.null" +
+        "&select=id,base_sku,order_id,wms_orders!inner(status,warehouse)" +
+        "&wms_orders.status=in.(" + BACKFILL_STATUSES + ")" +
+        "&order=id.asc&limit=" + BACKFILL_MAX_LINES);
+      backfillCandidates = cand.length;
+      backfillCapHit = cand.length === BACKFILL_MAX_LINES;   // 가득 = 더 있을 수 있음(다음 회차 자연 이월)
+      if (cand.length) {
+        // ⚠️ 이미 픽된 라인 제외 — 안내 없이 집은 자리를 모른 채 sticky 자리를 쓰면 원장 다리
+        //   (wms_order_lines.bin_location → 트랜스퍼 출발 bin)에 보증 없는 값이 흐른다.
+        //   pending 오더 라인은 픽 행 자체가 없어 자동 통과. 같은 order_line_id 의 분할 배치
+        //   다중 행은 Set 이 흡수한다.
+        const picked = new Set<number>();
+        try {
+          const pkRows = await sbGet(
+            "wms_pick_task_lines?order_line_id=in.(" + cand.map((c: any) => c.id).join(",") + ")" +
+            "&picked_base=gt.0&select=order_line_id");
+          for (const r of pkRows) picked.add(Number(r.order_line_id));
+        } catch (e) {
+          // 픽 대조 실패 = 이번 회차 전체 skip (덜 채우는 쪽이 안전 — 픽 여부 모른 채 채우지 않는다)
+          throw new Error("pick-check failed, sweep skipped this run: " + String(e).slice(0, 150));
+        }
+        const fillable = cand.filter((c: any) => !picked.has(Number(c.id)));
+        backfillSkippedPicked = cand.length - fillable.length;
+        // 창고별 배치 조회 — 유입과 같은 규칙(skuBinsQuery)·같은 선택(primaryBinsBySku = bins[0])
+        const byWh: Record<string, any[]> = {};
+        for (const c of fillable) {
+          const wh = String(c.wms_orders?.warehouse ?? "");
+          if (!wh) { backfillUnresolved++; continue; }
+          (byWh[wh] = byWh[wh] || []).push(c);
+        }
+        for (const wh of Object.keys(byWh)) {
+          const group = byWh[wh];
+          const inList = [...new Set(group.map((c: any) => String(c.base_sku)))]
+            .map((s) => '"' + s + '"').join(",");
+          const rows = await sbGet(
+            skuBinsQuery("sku=in.(" + encodeURIComponent(inList) + ")", wh) + "&select=sku,bin,zone,available");
+          const primary = primaryBinsBySku(rows);
+          for (const c of group) {
+            const p = primary.get(String(c.base_sku));
+            if (!p || !p.bin) { backfillUnresolved++; continue; }   // sticky 가 여전히 모름 — 비워둔다
+            if (!commit) { backfillFilled++; continue; }             // dry-run: 채울 것 카운트만
+            try {
+              // ⚠️ null 가드는 서버측 URL 필터 — 경합 시 0행 매치(204)로 무해하게 진다
+              await sbPatch("wms_order_lines?id=eq." + c.id + "&bin_location=is.null",
+                { bin_location: p.bin, zone: p.zone ?? null });
+              backfillFilled++;
+            } catch (e) {
+              errors.push({ order: "(backfill line " + c.id + ")", err: String(e).slice(0, 200) });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      errors.push({ order: "(bin backfill sweep)", err: String(e).slice(0, 200) });
+    }
+
     return json({
       mode: commit ? "COMMIT" : "DRY-RUN (저장 안 함, ?commit=1 붙이면 저장)",
       pages_scanned: pagesScanned,
@@ -691,6 +784,12 @@ Deno.serve(async (req) => {
       void_gone_other: voidGoneOther,        // 다른 종착/NOT_IN_CIN7 로 확정 (표시만)
       void_cleared: voidCleared,             // 재등장으로 후보·확정 해제한 건수
       void_check_deferred: voidDeferred,     // 캡(VOID_CHECK_MAX)에 밀린 건수
+      // ── bin 백필 스위프 진단 (2026-08-31) — 평시 전부 0 이 정상 (아침 6:30 재적재 후 첫 회차에 몰린다) ──
+      backfill_candidates: backfillCandidates,        // 활성(pending·picking) 오더의 빈 bin 라인 수
+      backfill_filled: backfillFilled,                // 채운 수 (dry-run 에선 "채울 것" 수)
+      backfill_unresolved: backfillUnresolved,        // sticky 가 여전히 모름 — 비워둠 (당일 유입·이력 밖 부류)
+      backfill_skipped_picked: backfillSkippedPicked, // 이미 픽된 라인 — 원장 보증이 없어 안 채움
+      backfill_cap_hit: backfillCapHit,               // 캡(BACKFILL_MAX_LINES) 가득 — 잔여는 다음 회차 자연 이월
       detail_capped: detailCapped, // true 면 이번 실행 상한 도달 (최신 우선이라 잘린 건 가장 오래된 fresh)
       detail_capped_orders: detailCappedOrders, // 캡에 잘린 오더 목록 — 굶주림 감시용 (2026-08-04)
       inserted: inserted.length,
