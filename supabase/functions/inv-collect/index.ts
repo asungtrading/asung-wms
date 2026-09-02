@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-09-01.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-09-02.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-02.1 = 결함 E — ②-a 커서 아래 「최근 7일 재조회 창」(RECHECK_WINDOW_DAYS): 수집 후 편집된 문서를 커서가 지나가 영영 못 보던 것(ST-01283 실사고 — 조정이 완제품 3행에서 재료 12행으로 편집됐는데 원장은 옛 3행 유지·소멸 감지도 상세를 안 읽어 사각지대)을, 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보로 남겨 재수집한다. 안 바뀐 문서는 inv_doc_state 가 상세 호출 전에 거른다(비용 최소). 창 문서는 커서에 관여하지 않는다(전진값도 hold 도 아님 — 커서 후퇴 방지) · skip_since 보다 창 판정이 우선 · ②-b 무접촉(UpdatedSince 라 편집이 목록에 다시 나옴) · 커서 규칙·캡·doc_state 판정 무변(후보 선정만 확대) · **원장 행 생성 규칙은 무변**. 이전 09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -181,6 +181,12 @@ const ROLLING_RECHECK_PER_RUN = 5;     // 롤링 재확인(2026-08-31 · pickRol
                                        //   믿게 된 대가의 상시 검산. 처리되면 seen_at 이 갱신돼 자연히 회전한다
                                        //   ([계산] 트랜스퍼 156건 · 5분 주기 · N=5 = 약 2.6시간에 한 바퀴).
                                        //   캡 부담 거의 없음 — 현행 상세 5건 + 5건 = 10건 << 캡 40.
+const RECHECK_WINDOW_DAYS = 7;         // 결함 E(2026-09-02 · ST-01283 실사고): ②-a 는 커서 아래 문서를 다시
+                                       //   안 읽어 수집 후 편집을 영영 못 본다(소멸 감지도 상세를 읽어야 작동 —
+                                       //   사각지대). 커서 아래라도 목록 행의 사건 날짜가 최근 N일 이내면 후보에
+                                       //   남긴다(recheckWindowJudge 절). 비용은 inv_doc_state 가 지운다 —
+                                       //   안 바뀐 문서는 상세를 안 부른다(skip_unchanged). ②-b 는 무관 —
+                                       //   UpdatedSince 라 편집되면 목록에 다시 나온다(구조가 다르다).
 const TIME_BUDGET_MS = 120_000;        // inv-snapshot 과 동일 — 150초 idle timeout 앞에서 먼저 끊는다
 const INSERT_BATCH = 500;
 const IN_TRANSIT = "IN_TRANSIT";       // 합성 창고 — 언더스코어 = "Cin7 원문 아님" 표기
@@ -766,6 +772,30 @@ const dateOnly = (s: unknown): string | null => {
   return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
 };
 const norm = (s: unknown) => String(s ?? "").trim().toUpperCase();
+
+// ── 결함 E: 커서 아래 최근 창 재조회 (2026-09-02 · ST-01283 — 수집 후 편집된 조정 문서를 못 봤다) ──
+// 목록 행에서 소스별 「사건 날짜」를 뽑는다 — ⚠️ 상세를 부르기 전에 판정해야 하므로 목록 값만 쓴다.
+//   adjustment = EffectiveDate([실측] 목록에 있음 — 아래 disposition 1차 결정이 이미 쓴다) ·
+//   transfer   = Departure/Completion 중 늦은 것(둘 다 목록에 있음 — 커서가 비종결에 묶여 이미
+//                전량을 훑으므로 실질 변화 없음) ·
+//   assembly   = Date([실측] 목록에 있음 — dateCandidates 의 list_date) → Completion/WIP 는
+//                목록에 있으면 쓰는 방어 폴백(미실측).
+function recheckListDate(key: string, row: any): string | null {
+  if (key === "adjustment") return dateOnly(row?.EffectiveDate);
+  if (key === "transfer") {
+    const dep = dateOnly(row?.DepartureDate), comp = dateOnly(row?.CompletionDate);
+    if (dep && comp) return comp > dep ? comp : dep;
+    return comp ?? dep;
+  }
+  if (key === "assembly") return dateOnly(row?.Date) ?? dateOnly(row?.CompletionDate) ?? dateOnly(row?.WIPDate);
+  return null;   // 모르는 축 — 종전 동작(하한 스킵)으로. 창은 후보 선정만 넓힌다.
+}
+// 순수 판정 — "keep"=창으로 후보에 남김(recheck_window 집계) / "skip"=종전대로 하한 스킵 /
+// "no_date"=목록에서 날짜를 못 얻음(종전 동작 + 경고 — ⚠️ 진단이 수집을 막지 않는다).
+function recheckWindowJudge(eventDate: string | null, cutoff: string): "keep" | "skip" | "no_date" {
+  if (!eventDate) return "no_date";
+  return eventDate >= cutoff ? "keep" : "skip";
+}
 // UpdatedSince = 커서 − 1일 (겹침 수신 — 경계 유실 방지, 중복은 유니크 키가 흡수)
 function minusOneDay(d: string): string {
   const t = new Date(d + "T00:00:00Z");
@@ -1073,11 +1103,15 @@ Deno.serve(async (req) => {
       const statusCounts: Record<string, number> = {};
       for (const row of listRows) statusCounts[norm(row?.Status) || "(none)"] = (statusCounts[norm(row?.Status) || "(none)"] ?? 0) + 1;
 
-      type Cand = { row: any; num: number; number: string; disposition: string };
+      type Cand = { row: any; num: number; number: string; disposition: string; recheckWindow?: boolean };
       const cands: Cand[] = [];
       let skipBeforeFloor = 0;
       let unparsableNumbers = 0;                 // ⚠️ 행마다 경고를 쏟지 않는다 — 120줄 홍수에 진짜 경고가 묻힌다(실사고)
       let unparsableSample: string | null = null;
+      // 결함 E — 창 컷오프(UTC 날짜). 창이 7일이라 시차 ±1일은 실질 무영향 · 회차 시작에 1회 고정.
+      const recheckCutoff = new Date(Date.now() - RECHECK_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+      let recheckWindowKept = 0, recheckWindowNoDate = 0;
+      const recheckWindowSample: string[] = [];
       for (const row of listRows) {
         const number = numberOf(row);
         const n = docNum(number);
@@ -1085,10 +1119,25 @@ Deno.serve(async (req) => {
         const num = n ?? Number.MAX_SAFE_INTEGER;
         // ⚠️ floor 적용은 disposition(hold 판정)보다 먼저 — 하한 이하 문서는 후보에 아예 안
         //   들어가므로 옛 문서의 날짜 결손·DRAFT 가 커서를 막을 기회 자체가 없다.
-        if (floorNum != null && n != null && n <= floorNum) { skipBeforeFloor++; continue; }
+        if (floorNum != null && n != null && n <= floorNum) {
+          // 결함 E — 커서 아래라도 사건이 최근 창 안이면 후보로 남긴다(편집 재수집 — ST-01283).
+          //   ⚠️ 이 판정은 skip_since 분기보다 앞이다(아래 1차 결정에 !recheckWindow 가드도 있음).
+          //   안 바뀐 문서는 docStateSkip 이 상세 호출 전에 걸러 비용이 거의 없다.
+          const j = recheckWindowJudge(recheckListDate(key, row), recheckCutoff);
+          if (j === "keep") {
+            cands.push({ row, num, number, disposition: "", recheckWindow: true });
+            recheckWindowKept++;
+            if (recheckWindowSample.length < 5) recheckWindowSample.push(number);
+            continue;
+          }
+          if (j === "no_date") recheckWindowNoDate++;   // 폴백 = 종전 동작(하한 스킵) — 경고는 아래 1회 집계
+          skipBeforeFloor++;
+          continue;
+        }
         cands.push({ row, num, number, disposition: "" });
       }
       cands.sort((a, b) => a.num - b.num);
+      if (recheckWindowNoDate > 0) warnings.push(recheckWindowNoDate + " below-cursor doc(s) had no usable list date - recheck window cannot judge them, left skipped as before");
       if (unparsableNumbers > 0) warnings.push(unparsableNumbers + " doc(s) with unparsable/empty number (e.g. '" + unparsableSample + "') — cursor will hold at the first one");
 
       // 상태·since 로 disposition 1차 결정 (상세 없이 판정 가능한 것)
@@ -1100,7 +1149,8 @@ Deno.serve(async (req) => {
           if (st === "COMPLETED") {
             const dep = dateOnly(c.row?.DepartureDate), comp = dateOnly(c.row?.CompletionDate);
             // 만들 수 있는 모든 날짜가 since 이하면 전부 걸러질 문서 — 종결이므로 커서 통과 가능
-            if (since && dep && comp && dep <= since && comp <= since) { c.disposition = "skip_since"; continue; }
+            // (결함 E — 창으로 남긴 문서는 skip_since 로 되떨어뜨리지 않는다: 창 판정이 우선)
+            if (since && dep && comp && dep <= since && comp <= since && !c.recheckWindow) { c.disposition = "skip_since"; continue; }
             c.disposition = "process";
           } else if (st === "IN TRANSIT") {
             const dep = dateOnly(c.row?.DepartureDate);
@@ -1113,7 +1163,8 @@ Deno.serve(async (req) => {
           if (st !== "COMPLETED") { c.disposition = "hold_status:" + st; continue; }
           if (key === "adjustment") {
             const eff = dateOnly(c.row?.EffectiveDate);
-            if (since && eff && eff <= since) { c.disposition = "skip_since"; continue; }
+            // (결함 E — 창으로 남긴 문서는 skip_since 로 되떨어뜨리지 않는다: 창 판정이 우선)
+            if (since && eff && eff <= since && !c.recheckWindow) { c.disposition = "skip_since"; continue; }
           }
           // 조립은 날짜 미확정(3후보)이라 목록 레벨 since 스킵을 하지 않는다 — 120건뿐이라 비용 없음
           c.disposition = "process";
@@ -1469,6 +1520,11 @@ Deno.serve(async (req) => {
       let cursorHeldBy: { doc_number: string; reason: string } | null = null;
       for (const c of cands) {
         const d = c.disposition;
+        // 결함 E — 창(recheck_window)으로 남긴 커서 아래 문서는 커서에 관여하지 않는다:
+        //   전진값으로 쓰면 커서가 뒤로 가고(지시 「커서 전진에 포함」의 실체 = 전진을 방해하지
+        //   않는 것), hold 로 세우면 커서 위쪽 문서의 전진을 막는다. 처리 실패(hold_*)로 남아도
+        //   창 안(7일)인 동안 다음 회차가 다시 후보로 집는다 — 자가 회복.
+        if (c.recheckWindow) continue;
         // ⚠️ 파싱 불가 번호에는 커서를 올리지 않는다 — 저장되면 다음 회차 docNum(cursor)=null 이
         //   되어 커서 자체가 무효화된다(전량 재스캔). 그 문서 앞에서 멈추고 경고로 남긴다.
         if (docNum(c.number) == null) { cursorHeldBy = { doc_number: c.number, reason: "unparsable_number" }; break; }
@@ -1519,6 +1575,14 @@ Deno.serve(async (req) => {
         cursor_after_would_be: cursorAfter,
         cursor_held_by: cursorHeldBy,
         skip_before_floor: skipBeforeFloor,
+        // 결함 E — 커서 아래인데 최근 창(RECHECK_WINDOW_DAYS)이라 후보에 남긴 문서 수.
+        //   ⚠️ skip_before_floor(종전 하한 스킵)와 구분해야 효과를 잰다. 문서별 최종 처리 결과는
+        //   dispositions 에 그대로 섞인다(processed/skip_unchanged/hold_* — 키를 새로 만들면
+        //   run 로그의 hold_capped 추출이 어긋난다). no_date 는 판정 불가 폴백 건수.
+        recheck_window: recheckWindowKept,
+        recheck_window_days: RECHECK_WINDOW_DAYS,
+        recheck_window_sample: recheckWindowSample,
+        recheck_window_no_date: recheckWindowNoDate || undefined,
         dispositions,
         detail_fetched: detailFetched,
         docs_processed: docsProcessed,
