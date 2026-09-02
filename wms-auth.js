@@ -202,6 +202,7 @@
       ["Packing","packer.html",null],
       ["Fulfillment","fulfillment.html",null],
       ["Receiving","receiver.html",null],
+      ["Inventory","inventory.html","stock"],
       ["Staff","staff-admin.html","staff"],
       ["Home","index.html",null],
     ];

@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Asung WMS · Inventory</title>
+<style>
+  :root{
+    --ink:#12161c; --ink-2:#1b222c; --line:#e5e9ef; --line-2:#eef1f6;
+    --paper:#f7f8fa; --card:#ffffff; --mut:#6b7686; --mut-2:#9aa4b2;
+    --accent:#2f6df6; --accent-ink:#1b4fd6;
+    --ok:#16a34a; --danger:#dc2626; --danger-bg:#fef2f2;
+    --warn:#d9820a; --warn-bg:#fdf3e6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,22,30,.04),0 4px 16px rgba(16,22,30,.05);
+    --mono:ui-monospace,"SF Mono","DM Mono",Menlo,monospace;
+    --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+  a{color:inherit}
+
+  /* header */
+  header{position:sticky;top:0;z-index:20;background:rgba(247,248,250,.85);
+    backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
+  .bar{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+  .logo{display:flex;align-items:center;gap:7px}
+  .logo .logo-img{height:28px;width:auto;display:block}
+  .logo span{color:var(--mut);font-weight:600;font-size:11px;font-family:var(--mono)}
+  .conn{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut);
+    font-family:var(--mono)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--mut-2);flex:none}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+  .dot.err{background:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+
+  main{max-width:1180px;margin:0 auto;padding:18px 20px 80px}
+  .subtitle{font-size:12px;color:var(--mut);margin-bottom:14px}
+
+  /* banners */
+  .banner{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:14px 18px;margin-bottom:12px}
+  .banner .big{font-size:17px;font-weight:800}
+  .banner .big .k{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mut);margin-left:8px}
+  .banner .sub{font-size:12.5px;color:var(--mut);margin-top:4px;font-family:var(--mono)}
+  .stale{background:var(--warn-bg);border:1px solid #f8e2c2;color:#8a5a00;border-radius:10px;
+    padding:9px 14px;font-size:13px;font-weight:600;margin-bottom:12px}
+
+  /* summary cards */
+  .cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .scard{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);
+    padding:10px 16px;min-width:120px}
+  .scard .l{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+  .scard .v{font-size:22px;font-weight:800;line-height:1.25}
+  .scard .v.red{color:var(--danger)}
+  .scard .v.orange{color:var(--warn)}
+  .scard .v.ok{color:var(--ok)}
+  .scard .s{font-family:var(--mono);font-size:11px;color:var(--mut-2)}
+  .cardcap{font-family:var(--mono);font-size:11px;color:var(--mut-2);margin:0 0 12px 2px}
+  .sumfail{background:var(--danger-bg);border:1px solid #f3c4c4;color:var(--danger);border-radius:10px;
+    padding:9px 14px;font-size:13px;font-weight:600;margin-bottom:12px}
+  .sumfail button{margin-left:8px;font:inherit;font-size:12px;font-weight:700;padding:3px 10px;
+    border:1px solid #f3c4c4;border-radius:7px;background:#fff;cursor:pointer;color:var(--danger)}
+
+  /* toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px}
+  select.pillsel{font:inherit;font-size:13px;font-weight:600;border-radius:10px;
+    padding:8px 28px 8px 12px;border:1px solid var(--line);background:var(--card);cursor:pointer;
+    box-shadow:var(--shadow);-webkit-appearance:none;appearance:none;background-repeat:no-repeat;
+    background-position:right 9px center;background-size:11px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa4b2' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+  .search{flex:1;min-width:180px;max-width:340px;position:relative}
+  .search input{width:100%;border:1px solid var(--line);background:var(--card);
+    border-radius:10px;padding:9px 12px 9px 34px;font:inherit;font-size:14px;box-shadow:var(--shadow)}
+  .search input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--mut-2)}
+  .btn{border:0;border-radius:9px;padding:9px 16px;font:inherit;font-size:13.5px;font-weight:700;
+    cursor:pointer;transition:.12s;white-space:nowrap}
+  .btn.primary{background:var(--ink);color:#fff}
+  .btn.primary:hover{background:var(--ink-2)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);
+    cursor:pointer;white-space:nowrap;user-select:none}
+  .chk input{accent-color:var(--ink);width:15px;height:15px;cursor:pointer}
+  .filternote{font-size:12px;font-weight:600;color:var(--warn);margin:0 0 8px 2px}
+
+  /* table */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:920px}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--mut);text-align:left;font-weight:600;padding:10px 14px;
+    border-bottom:1px solid var(--line);background:var(--card)}
+  thead tr.grp th{padding:7px 14px 2px;border-bottom:0;font-size:10px;color:var(--mut-2)}
+  th.num,td.num{text-align:right;font-family:var(--mono)}
+  th.sep,td.sep{border-left:2px solid var(--line)}
+  tbody td{padding:9px 14px;border-bottom:1px solid var(--line-2);vertical-align:middle;font-size:13.5px}
+  tbody tr:last-child td{border-bottom:0}
+  td.sku{font-family:var(--mono);font-weight:700;font-size:13px}
+  td.bin{font-family:var(--mono);font-size:12.5px}
+  td.wh{font-size:12px;color:var(--mut)}
+  td.qty{font-weight:800;font-size:14px}
+  .na{display:inline-block;font-style:italic;font-family:var(--mono);font-size:11px;color:var(--mut-2);
+    background:var(--line-2);border-radius:6px;padding:1px 7px;cursor:help}
+  .z{color:var(--mut-2)}
+  b.dneg,b.dpos{color:var(--danger)}
+  .dd{color:var(--accent-ink);font-weight:600}
+  .new{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:800;color:#8a5a00;
+    background:var(--warn-bg);border:1px solid #f8e2c2;border-radius:6px;padding:1px 7px}
+  .days{font-family:var(--mono);font-size:12px;color:var(--mut)}
+  .days.old{color:var(--ink-2);font-weight:700}
+  .ackchip{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--mut);
+    background:var(--line-2);border-radius:6px;padding:1px 8px;cursor:help}
+  .mut2{color:var(--mut-2)}
+
+  /* states */
+  .empty,.loading{padding:48px 20px;text-align:center;color:var(--mut)}
+  .loading .spin{width:22px;height:22px;border:2.5px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;margin:0 auto 12px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .failbox{padding:28px 18px;text-align:center}
+  .failbox .h{font-size:15px;font-weight:800;color:var(--warn)}
+  .failbox .m{font-size:12px;color:var(--mut-2);margin:8px 0;font-family:var(--mono);word-break:break-all}
+  .failbox button{font:inherit;font-weight:700;padding:8px 16px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;cursor:pointer}
+
+  /* pager */
+  .pager{display:flex;align-items:center;gap:12px;justify-content:center;margin-top:14px}
+  .pager button{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:8px 16px;
+    font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:var(--shadow)}
+  .pager button:disabled{opacity:.4;cursor:default}
+  .pager span{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:600;
+    box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:90vw}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.bad{background:var(--danger)}
+
+  @media(max-width:640px){
+    .bar{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    header button{font-size:12px;padding:6px 9px}
+    .banner .big{font-size:14.5px}
+    .scard .v{font-size:18px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="logo"><img class="logo-img" src="asung-logo-dark.png" alt="ASUNG"><span>Inventory</span></div>
+    <div class="conn">
+      <span id="meName" style="font-size:13px;font-weight:600"></span>
+      <button title="Main menu" onclick="location.href='index.html'" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">☰ Menu</button> <button id="logoutBtn" title="Sign out" style="border:1px solid #e5e9ef;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;color:#6b7686">Sign out</button>
+      <span class="dot" id="dot"></span><span id="connTxt">Connecting…</span>
+    </div>
+  </div>
+</header>
+
+<main id="app" style="display:none">
+  <!-- 화면 경계(규칙: Discrepancy=오더 픽·팩 / Health=WMS 내부 12검사 / 여기=원장 vs Cin7 재고) -->
+  <div class="subtitle">Stock master — every bin, ledger and Cin7 side by side. Order-level pick/pack issues live in Admin › Discrepancy; WMS self-checks live in Admin › Health.</div>
+
+  <!-- 「○시 기준」 배너 — Cin7 쪽 값은 이 시각의 것(원장 요구 ①). 원장 수집 시각은 계약에
+       키(ledger_collected_at·ledger_lag_source)가 오면 표시 — 없으면 조용히 비운다(구현 지시 §5). -->
+  <div class="banner">
+    <div class="big" id="snapLine">Loading snapshot…</div>
+    <div class="sub" id="ledgerLine" style="display:none"></div>
+  </div>
+
+  <div id="staleWarn" class="stale" style="display:none"></div>
+  <div id="sumFail" class="sumfail" style="display:none"></div>
+  <div class="cards" id="cards"></div>
+  <div class="cardcap" id="cardCap" style="display:none"></div>
+
+  <div class="toolbar">
+    <select class="pillsel" id="whSel" title="Warehouse">
+      <option value="">All warehouses</option>
+      <!-- ⚠️ 창고 값은 추측으로 박지 않는다 — Caleb 이
+           select distinct warehouse from inv_balance order by 1;
+           로 확정한 뒤 <option value="원문">라벨</option> 로 추가한다(값=Cin7 원문, p_warehouse 정확 일치). -->
+    </select>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/></svg>
+      <input id="q" placeholder="Search SKU…" autocomplete="off">
+    </div>
+    <button class="btn primary" id="searchBtn">Search</button>
+    <label class="chk"><input type="checkbox" id="onlyDiff"> Differences only</label>
+    <label class="chk"><input type="checkbox" id="showEmpty"> Show empty cells</label>
+  </div>
+  <!-- only_diff 는 diff=0(일치)과 diff null(비교 불가)을 서버에서 함께 걸러낸다(RPC WHERE 실물).
+       숨김을 숨기지 않는다 — 개수는 현 계약으로 산출 불가라 문구만(Caleb 확정 2026-09-01:
+       추가 대조 호출 금지 · 필요해지면 원장 계약에 카운트를 올려 받는다). -->
+  <div class="filternote" id="filterNote" style="display:none">Filter hides matching and not-comparable cells</div>
+
+  <div class="card">
+    <div class="tablewrap" id="tablewrap">
+      <table>
+        <thead>
+          <tr class="grp">
+            <th colspan="3"></th>
+            <th class="num">live</th>
+            <th colspan="3" class="sep" id="grpSnap">as of snapshot</th>
+            <th></th>
+            <th colspan="2"></th>
+          </tr>
+          <tr>
+            <th>SKU</th><th>WH</th><th>Bin</th>
+            <th class="num">Qty</th>
+            <th class="num sep">@snapshot</th><th class="num">Cin7 @snap</th><th class="num">Diff</th>
+            <th class="num" title="Qty − @snapshot = change since the snapshot">Δ</th>
+            <th>First seen</th><th>Ack</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="loading" id="loading"><div class="spin"></div>Loading…</div>
+    <div class="empty" id="empty" style="display:none">0 rows match — not an error. Adjust the search or filters.</div>
+    <div class="failbox" id="listFail" style="display:none"></div>
+  </div>
+
+  <div class="pager">
+    <button id="prevBtn">&lsaquo; Prev</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn">Next &rsaquo;</button>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script src="wms-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wms-auth.js"></script>
+<script>
+/* 재고 마스터 1단계(조회) — 2026-09-01.
+   IMS 의 재고 마스터: 「어느 칸에 무엇이 몇 개」가 주역이고 Cin7 대조는 그 위의 한 축.
+   데이터는 원장 RPC 둘뿐(inv_stock_master · inv_diff_summary — 계약은 ledger-design.md).
+   테이블 직조회 없음(8,060 SKU → PostgREST 1,000행 캡 — RPC 가 jsonb 로 감싸는 이유).
+   2단계(inv_ack_diff 확인 · inv_bin_notes 코멘트)가 붙을 자리: Ack 열 + tr[data-key]. */
+
+const PAGE = 200;   // RPC 기본값과 같지만 기본값에 기대지 않는다 — 매 호출 전부 명시(구현 지시 §1)
+
+// ⚠️ 계약 필드 12개 — 원장이 개명하면 첫 행 검사가 이름을 찍어 실패 블록을 낸다(구현 지시 §2).
+//    값 null 은 정상(비교 불가) — 검사는 `in`(키 존재)로만 한다. ledger_collected_at 은 검사 대상 아님.
+const ROW_FIELDS=["sku","warehouse","bin","baseline_qty","delta_qty","ledger_qty",
+  "ledger_qty_at_snapshot","cin7_qty","diff","first_seen_on","acknowledged_at","acknowledged_note"];
+
+const NA_TIP="Not comparable — IN_TRANSIT or created after the snapshot (this is not 0)";
+const naChip=()=>`<span class="na" title="${NA_TIP}">n/a</span>`;
+
+let sb=null, me=null;
+let page=0, total=0, rowCount=0;
+let summary=null;                 // inv_diff_summary 응답
+let ledgerMeta=null;              // {at, src} — 두 RPC 어느 쪽에서든 오면 채움
+
+/* ---------- boot ---------- */
+function boot(){
+  wmsAuth.start({requireManager:true, requirePerm:"stock"}, (client, staffMe)=>{
+    sb=client; me=staffMe;
+    document.getElementById("app").style.display="block";
+    document.getElementById("meName").textContent=me.name;
+    loadSummary();   // 카드 — 실패해도 목록은 독립 진행(단, 조용히 넘기지 않는다)
+    loadList();
+  });
+}
+document.getElementById("logoutBtn").onclick=()=>wmsAuth.signOut();
+
+function setConn(state){
+  const dot=document.getElementById("dot"), t=document.getElementById("connTxt");
+  dot.className="dot "+(state==="ok"?"on":state==="err"?"err":"");
+  t.textContent = state==="ok"?"Connected":state==="err"?"Connection error":"Connecting…";
+}
+function toast(msg,bad){
+  const el=document.getElementById("toast");
+  el.textContent=msg; el.className="show"+(bad?" bad":"");
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className="",2200);
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+const fmtNum=v=> v==null? "" : Number(v).toLocaleString("en-CA");
+
+/* ---------- 시각 — 전부 토론토 기준(UTC·cron 번호를 화면에 노출하지 않는다: 구현 지시 §4) ---------- */
+function fmtTorTime(ts){
+  if(!ts) return "—";
+  try{
+    return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Toronto",
+      month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(ts));
+  }catch(e){ return String(ts); }
+}
+// date-only 문자열("2026-09-01")은 new Date() 에 그대로 넣으면 UTC 자정으로 읽혀
+// 로컬 표기에서 하루 밀릴 수 있다 — 수동 분해 + 정오 고정으로 회피.
+function fmtTorDate(dstr){
+  if(!dstr) return "—";
+  const p=String(dstr).split("-").map(Number);
+  if(p.length!==3||p.some(n=>!n)) return esc(String(dstr));
+  return new Intl.DateTimeFormat("en-CA",{month:"short",day:"numeric"}).format(new Date(Date.UTC(p[0],p[1]-1,p[2],12)));
+}
+function torToday(){ return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Toronto"}).format(new Date()); } // YYYY-MM-DD
+function daysSince(dstr){
+  const p=String(dstr).split("-").map(Number); if(p.length!==3||p.some(n=>!n)) return null;
+  const t=torToday().split("-").map(Number);
+  return Math.round((Date.UTC(t[0],t[1]-1,t[2])-Date.UTC(p[0],p[1]-1,p[2]))/86400000);
+}
+
+/* ---------- 원장 수집 시각(계약 확장 대기 — 키가 없으면 조용히 비움, inv_sync_state 직접 읽기 금지) ---------- */
+function captureLedgerMeta(resp){
+  if(resp && typeof resp==="object" && ("ledger_collected_at" in resp) && resp.ledger_collected_at){
+    ledgerMeta={at:resp.ledger_collected_at, src:("ledger_lag_source" in resp)?resp.ledger_lag_source:null};
+    const el=document.getElementById("ledgerLine");
+    el.style.display="block";
+    el.textContent="Ledger collected up to "+fmtTorTime(ledgerMeta.at)+" (Toronto)"
+      +(ledgerMeta.src?(" · lagging source: "+ledgerMeta.src):"");
+  }
+}
+
+/* ---------- 카드 (inv_diff_summary) ---------- */
+async function loadSummary(){
+  const failEl=document.getElementById("sumFail");
+  failEl.style.display="none";
+  let data=null;
+  try{
+    const r=await sb.rpc("inv_diff_summary");
+    if(r.error) throw new Error("inv_diff_summary: "+r.error.message);
+    data=r.data;
+    if(!data || typeof data!=="object" || !("unack" in data) || !("checked_on" in data))
+      throw new Error("contract mismatch — inv_diff_summary shape changed");
+  }catch(e){
+    // 조용히 넘기지 않는다 — 카드 자리는 비우고 빨간 줄 + Retry(목록과 독립)
+    failEl.innerHTML="⚠ Comparison summary failed — "+esc(e.message||e)
+      +' <button onclick="loadSummary()">Retry</button>';
+    failEl.style.display="block";
+    document.getElementById("cards").innerHTML="";
+    document.getElementById("cardCap").style.display="none";
+    document.getElementById("staleWarn").style.display="none";
+    return;
+  }
+  summary=data;
+  captureLedgerMeta(data);
+  const c=(label,val,cls,sub)=>`<div class="scard"><div class="l">${label}</div>`
+    +`<div class="v ${cls||""}">${fmtNum(val)}</div>${sub?`<div class="s">${sub}</div>`:""}</div>`;
+  const prevSub=(data.prev_total==null)?"":("prev "+fmtNum(data.prev_total));
+  document.getElementById("cards").innerHTML=
+     c("Unack", data.unack, Number(data.unack)>0?"red":"ok")
+    +c("New today", data.new_today, Number(data.new_today)>0?"orange":"")
+    +c("Total diffs", data.total, "", prevSub)
+    +c("Abs gap", data.abs_gap, "");
+  const cap=document.getElementById("cardCap");
+  cap.textContent="Comparison — as of "+fmtTorDate(data.checked_on);
+  cap.style.display="block";
+  // 오늘 회차가 아직 안 굳었으면 — 상태와 날짜만, 토론토 기준(cron 이름·번호·UTC 금지)
+  const sw=document.getElementById("staleWarn");
+  if(data.checked_on && data.checked_on!==torToday()){
+    sw.textContent="⚠ Today's comparison hasn't run yet — these numbers are as of "
+      +fmtTorDate(data.checked_on)+" (Toronto)";
+    sw.style.display="block";
+  }else{
+    sw.style.display="none";
+  }
+  if(lastRows.length) renderRows();   // NEW 배지 기준(checked_on)이 이제 생겼으니 목록 재렌더
+}
+
+/* ---------- 목록 (inv_stock_master) ---------- */
+let lastRows=[];
+async function loadList(){
+  const loading=document.getElementById("loading"), failBox=document.getElementById("listFail"),
+        emptyEl=document.getElementById("empty"), wrap=document.getElementById("tablewrap");
+  loading.style.display="block"; failBox.style.display="none"; emptyEl.style.display="none";
+  document.getElementById("rows").innerHTML="";
+  const onlyDiff=document.getElementById("onlyDiff").checked;
+  const showEmpty=document.getElementById("showEmpty").checked;
+  const q=document.getElementById("q").value.trim();
+  const wh=document.getElementById("whSel").value;
+  let data=null;
+  try{
+    // 6개 파라미터 전부 명시 — 원장이 SQL 기본값을 바꿔도 화면 동작이 조용히 바뀌지 않게(구현 지시 §1)
+    const r=await sb.rpc("inv_stock_master",{
+      p_search: q||null,
+      p_warehouse: wh||null,
+      p_only_diff: onlyDiff,
+      p_nonzero: !showEmpty,
+      p_limit: PAGE,
+      p_offset: page*PAGE,
+    });
+    if(r.error) throw new Error("inv_stock_master: "+r.error.message);
+    data=r.data;
+    // 봉투 검사
+    if(!data || typeof data!=="object") throw new Error("contract mismatch — response is not an object");
+    if(!("snapshot_at" in data)) throw new Error("contract mismatch — missing: snapshot_at");
+    if(!("total" in data)) throw new Error("contract mismatch — missing: total");
+    if(!Array.isArray(data.rows)) throw new Error("contract mismatch — rows is not an array");
+    // 내용 검사 — 첫 행의 키 집합(`in` — 값 null 은 정상이라 오탐하지 않는다)
+    if(data.rows.length){
+      const miss=ROW_FIELDS.filter(f=>!(f in data.rows[0]));
+      if(miss.length) throw new Error("contract mismatch — missing: "+miss.join(", "));
+    }
+  }catch(e){
+    // ⚠️ 조회 실패를 「빈 목록」으로 위장하지 않는다(fulfillment 패턴 — 원장 요구 ③)
+    loading.style.display="none";
+    setConn("err");
+    failBox.innerHTML=`<div class="h">⚠ Couldn't load the stock master</div>
+      <div class="m">Rows are hidden until this works — this is NOT an empty list.<br>${esc(String(e&&e.message||e||"unknown error"))}</div>
+      <button onclick="loadList()">Retry</button>`;
+    failBox.style.display="block";
+    document.getElementById("pageInfo").textContent="";
+    document.getElementById("prevBtn").disabled=true;
+    document.getElementById("nextBtn").disabled=true;
+    return;
+  }
+  loading.style.display="none";
+  setConn("ok");
+  captureLedgerMeta(data);
+
+  // 「○시 기준」 배너 — Cin7 쪽은 이 시각의 값(원장 요구 ①)
+  const sl=document.getElementById("snapLine");
+  if(data.snapshot_at){
+    sl.innerHTML="Cin7 side as of <b>"+esc(fmtTorTime(data.snapshot_at))+"</b> (Toronto)"
+      +'<span class="k">snapshot '+esc(data.snapshot_key||"—")+"</span>";
+    document.getElementById("grpSnap").textContent="as of "+fmtTorTime(data.snapshot_at);
+  }else{
+    sl.innerHTML='<span style="color:var(--warn)">⚠ No Cin7 snapshot found — comparison columns are empty</span>';
+    document.getElementById("grpSnap").textContent="as of snapshot";
+  }
+
+  total=Number(data.total)||0;
+  lastRows=data.rows;
+  rowCount=lastRows.length;
+  renderRows();
+
+  // 페이저 — from–to of total (total 은 서버가 센 전체 매치 수)
+  const from=total? page*PAGE+1 : 0;
+  const to=page*PAGE+rowCount;
+  document.getElementById("pageInfo").textContent=
+    total? (fmtNum(from)+"–"+fmtNum(to)+" of "+fmtNum(total)) : "0 of 0";
+  document.getElementById("prevBtn").disabled = page<=0;
+  document.getElementById("nextBtn").disabled = (page+1)*PAGE>=total;
+  emptyEl.style.display = total? "none":"block";
+}
+
+/* ---------- 행 렌더 ---------- */
+// 창고 축소 표기 — 값은 Cin7 원문이 진실이고(title 에 원문) 표기만 줄인다.
+// Edmonton 포함 판정은 규칙 2 가 보증하는 방식 · 토론토는 정확 일치만 · 모르는 값은 원문 그대로.
+function whShort(w){
+  if(w==="IN_TRANSIT") return "Transit";
+  if(String(w).includes("Edmonton")) return "EDM";
+  if(w==="Asung Trading Inc.") return "TOR";
+  return esc(String(w));
+}
+function renderRows(){
+  const ref=(summary&&summary.checked_on)?summary.checked_on:torToday();  // NEW 판정 기준
+  document.getElementById("rows").innerHTML=lastRows.map(r=>{
+    const snap=r.ledger_qty_at_snapshot;
+    const delta=(snap==null)?null:(Number(r.ledger_qty)-Number(snap));
+    const diff=r.diff;
+    const diffCell = diff==null? naChip()
+      : (Number(diff)===0? '<span class="z">0</span>'
+      : `<b class="${Number(diff)>0?"dpos":"dneg"}">${Number(diff)>0?"+":""}${fmtNum(diff)}</b>`);
+    const dCell = delta==null? naChip()
+      : (delta===0? '<span class="z">0</span>'
+      : `<span class="dd">${delta>0?"+":""}${fmtNum(delta)}</span>`);
+    let seen="";
+    if(r.first_seen_on){
+      if(r.first_seen_on===ref) seen=`<span class="new" title="${esc(r.first_seen_on)}">NEW</span>`;
+      else{
+        const d=daysSince(r.first_seen_on);
+        seen=(d==null)?esc(r.first_seen_on)
+          :`<span class="days ${d>=30?"old":""}" title="${esc(r.first_seen_on)}">${d} d</span>`;
+      }
+    }
+    let ack="";
+    if(r.acknowledged_at)
+      ack=`<span class="ackchip" title="${esc(r.acknowledged_note||"(no note)")} · ${esc(String(r.acknowledged_at).slice(0,10))}">✓ acked</span>`;
+    else if(diff!=null && Number(diff)!==0) ack='<span class="mut2">—</span>';
+    // data-key = 2단계(확인·코멘트)의 행 식별자 — 1단계에선 무동작
+    return `<tr data-key="${esc(r.sku)}|${esc(r.warehouse)}|${esc(r.bin)}">
+      <td class="sku">${esc(r.sku)}</td>
+      <td class="wh" title="${esc(r.warehouse)}">${whShort(r.warehouse)}</td>
+      <td class="bin">${esc(r.bin)||'<span class="mut2">(no bin)</span>'}</td>
+      <td class="num qty" title="baseline ${fmtNum(r.baseline_qty)} + delta ${fmtNum(r.delta_qty)}">${fmtNum(r.ledger_qty)}</td>
+      <td class="num sep">${snap==null? naChip() : fmtNum(snap)}</td>
+      <td class="num">${r.cin7_qty==null? naChip() : fmtNum(r.cin7_qty)}</td>
+      <td class="num">${diffCell}</td>
+      <td class="num">${dCell}</td>
+      <td>${seen}</td>
+      <td>${ack}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------- 검색·필터·페이징 — 검색은 Enter/버튼만(타자마다 RPC 금지), 변경 시 offset 리셋 ---------- */
+function resetAndLoad(){ page=0; loadList(); }
+document.getElementById("searchBtn").onclick=resetAndLoad;
+document.getElementById("q").addEventListener("keydown",e=>{ if(e.key==="Enter") resetAndLoad(); });
+document.getElementById("whSel").onchange=resetAndLoad;
+document.getElementById("showEmpty").onchange=resetAndLoad;
+document.getElementById("onlyDiff").onchange=()=>{
+  document.getElementById("filterNote").style.display=
+    document.getElementById("onlyDiff").checked?"block":"none";
+  resetAndLoad();
+};
+document.getElementById("prevBtn").onclick=()=>{ if(page>0){ page--; loadList(); } };
+document.getElementById("nextBtn").onclick=()=>{ if((page+1)*PAGE<total){ page++; loadList(); } };
+
+boot();
+</script>
+</body>
+</html>
