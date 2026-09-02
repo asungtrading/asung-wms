@@ -113,7 +113,7 @@ sticky(`wms_sku_bins`)도 Cin7 화면도 자리를 아는데 **오더 라인만 
 
 | | |
 |---|---|
-| ⬜ **작동 검증 미완** | ⚠️ 배포 시점 활성 후보가 0이라 확인 불가였다. 내일 오더 유입 후: `select count(*) as swept from wms_order_lines where line_flag like '%no_bin%' and bin_location is not null;` — **0에서 올라가면 작동.** 활성 후보의 `expected_filled` 가 계속 0보다 크게 남으면 스위프가 못 채우는 것(설계 보고의 대조 SQL — dry-run `backfill_filled` 와 대조) |
+| ✅ ~~⬜ **작동 검증 미완**~~ → **닫힘 (2026-09-01)** | ⚠️ 배포 시점 활성 후보가 0이라 확인 불가였다. 내일 오더 유입 후: `select count(*) as swept from wms_order_lines where line_flag like '%no_bin%' and bin_location is not null;` — **0에서 올라가면 작동.** 활성 후보의 `expected_filled` 가 계속 0보다 크게 남으면 스위프가 못 채우는 것(설계 보고의 대조 SQL — dry-run `backfill_filled` 와 대조)<br>⭐ **결과 [실측 2026-09-01]: `swept 0 → 8` · `candidates 8 → 1`** — 남은 1줄 `SKL00882` 는 sticky 에 기록이 없는 **설계상 못 잡는 부류**(아래 세 번째 행). ⚠️⚠️ **확인이 하루 늦어진 이유가 스위프와 무관한 별개 장애였다** — 후보를 채우려면 재고 스냅샷이 갱신돼야 하는데 `⟳ Stock` 체인이 12일 이상 반쪽만 돌고 있었다(`docs/sessions/2026-09-01-refresh-chain-dead.md` · 규칙 6). 📌 **「채울 기회가 없었다」로 넘기지 말고 왜 기회가 없었는지 물을 것 — 미검증 항목이 다른 장애의 증상일 수 있다.** |
 | ⬜ **`needs_review` 잔존 관찰** | 자리를 채운 뒤에도 「검토 필요」로 남는다(Caleb 확정 — 그대로 둔다). ⚠️ 「고쳐졌는데 계속 뜨는 알림」이 되면 무시하게 된다 — 매니저 화면에서 실제로 거슬리는지 보고 판단 |
 | ⬜ **못 잡는 부류의 빈도** | 당일 유입·당일 픽 + sticky 가 끝내 모르는 SKU 는 스위프도 못 잡는다. 규모를 재는 SELECT 는 설계 보고 §5 — 아직 안 돌렸다. **근본 해결 = WMS 픽 라인 bin 기록**(별건 · 원장 세션 문서 §10 ⭐와 같은 항목) |
 | ⬜ **과거 180줄** | **일괄 백필 반대 확정** — 채울 값은 「지금 자리」인데 필요한 건 「그때 자리」. 완료 오더 라인의 bin 은 소비처도 사실상 없다. **예외 = 원장 잔여 3줄**(TR-04173 = SO-15071 의 WTA00219·220·286): Cin7 트랜스퍼 Export CSV 로 「그때 자리」 확인 → 그 3라인만 UPDATE(SQL 제시·Caleb 실행) → `fix-transfer-bins.mjs` 계획 → `--commit`(접미 무관 재실행 안전이 기존 보정분을 건너뛴다) |
