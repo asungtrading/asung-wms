@@ -193,6 +193,19 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
   · ⚠️ 날짜를 못 얻으면 종전 동작 + 축당 1회 경고
   · 응답 `recheck_window`·`recheck_window_days`·`recheck_window_sample`·`recheck_window_no_date`
   · [실물] `recheck_window 34` · 다음 회차에 `ST-01283` 의 재료 12행이 **자동으로 들어왔다**
+- ✅ **소멸 감지 사각지대 1단계 (2026-09-03 · `inv-collect@2026-09-03.1`)**
+  정본: `docs/sessions/2026-09-03-clean-morning.md` §4
+  · `lmo` 없는 문서도 B−A 판정은 한다. **표에는 안 쓴다**(유니크 키 보호)
+  · ⚠️ **`partitionBinChanged` 뒤 · 캡 앞**에 분기 — bin 변경분은 소멸이 아니다
+  · ⚠️ 카운터를 섞지 않았다: `detected` 는 표에 넣은 것만 · `skipped_no_lmo` 는 그대로
+  · G1·G2·G3 무접촉 — 회차 중단이면 종전대로 소스 전체를 건너뛴다. **그 안전장치가 전제다**
+- ✅ **`ledger_collected_at` (2026-09-03)** — 원장 값의 신선도를 화면 계약에 올렸다.
+  `inv_diff_summary()`·`inv_stock_master(...)` 둘 다 `ledger_collected_at`·`ledger_lag_source`.
+  · ⭐ **`inv_sync_state.last_ok_at`** 을 쓴다 — `last_run_at` 도 있지만 **성공 축**이 맞다
+    (실패한 회차 시각을 신선도로 보여주면 안 된다)
+  · ⚠️ **`cost` 제외** — 하루 1회(00:33)라 `min` 에 넣으면 늘 「하루 뒤처짐」이고
+    **원가 축이라 재고 수량과 무관**하다. `source_key <> 'cost'` 로 거른다
+  · [실물] `07:11:48` · `adjustment` · 여섯 축 범위 07:11~07:34(가장 뒤처진 것 23분)
 
 **⑦ 수집 회차 — 캡·동결이 있었나** (2026-08-31 신설)
 ```sql
@@ -210,6 +223,19 @@ order by ran_at desc limit 20;
 `select source_key, count(*), min(seen_at), max(seen_at) from inv_doc_state group by 1;`
 — `min` 이 계속 당겨지면 회전이 돈다(트랜스퍼는 2.6시간 안에 최고령 갱신).
 
+**⑦-b 표에 못 넣은 소멸** (2026-09-03 · `adjustment`·`assembly` 전용)
+```sql
+select source_key, ran_at at time zone 'America/Toronto' as ran_toronto,
+       summary ->> 'missing_lines_unkeyed'      as unkeyed,
+       summary -> 'missing_lines_unkeyed_docs'  as docs
+from inv_collect_runs
+where ran_at > now() - interval '24 hours'
+  and coalesce((summary ->> 'missing_lines_unkeyed')::int, 0) > 0
+order by ran_at desc limit 10;
+```
+**0행이면 정상.** 뜨면 `summary -> 'missing_lines_unkeyed_sample'` 로 상쇄 SQL 을 만든다.
+⚠️ 그 둘은 **유니크 키 때문에 `inv_missing_lines` 에 안 들어간다** — ③ 으로는 안 보인다.
+
 **⑧ bin 단위 대조** (2026-09-01 · 뷰로 통일)
 ```sql
 select warehouse, count(*) as bin_pairs,
@@ -221,8 +247,8 @@ select sku, warehouse, bin, ledger_qty, cin7_qty, diff
 from inv_balance_vs_cin7 where diff <> 0 order by abs(diff) desc;
 ```
 ⭐ **시점 컷오프가 들어가 언제 조회해도 같은 값**이다(2026-09-01 · §함정 표).
-📌 [기준선 2026-09-02 아침] **토론토 4칸 · 에드먼튼 2칸 · 격차 23**
-(9/1 아침 1,201칸 · 15,640 에서). ⭐ 이 축이 **결함 E 를 잡았다** — 창고 단위로는 안 보였다.
+📌 [기준선 2026-09-03] **토론토 4칸 · 에드먼튼 2칸 · 격차 23** ·
+⭐ `new_today 0` · `unack 0` — **처음으로 「새로 생긴 것이 없는」 아침**이다.
 📌 카드용 요약은 `select jsonb_pretty(inv_diff_summary());` — `unack` 이 사람이 닫는 숫자다.
 📌 **어긋난 칸의 원인을 모를 때는 「언제 생겼나」부터 찾는다**(⭐ **스냅샷 소급**) — `inv_snapshot` 이 기초일부터
 매일 있으므로, 날짜별 스냅샷과 「그 시점 원장 잔고(기초 + 컷오프 델타)」를 대면
@@ -457,7 +483,9 @@ group by l.doc_number order by 2;
 | 함정 | 진실 |
 |---|---|
 | 커서 아래로 내려간 문서가 편집되면? | ⚠️⚠️ **결함 E — 영영 못 본다.** ②-a(문서번호 커서)는 커서 아래를 `skip_before_floor` 로 떨어뜨린다. [실사고 `ST-01283`] 8/31 13:11 수집 시 완제품 3행이었는데 9/1 에 실무가 「완제품이 아니라 재료였다」로 정정해 **재료 12행으로 통째로 바꿨다**(ref `"Shrikage - UNI (EDM Transfer Adjustment For ST-01283)"`). 원장은 9/2 아침까지 옛 3행을 들고 있었다. ⇒ ✅ **최근 7일 재조회 창**(`inv-collect@2026-09-02.1`) — 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보에 남긴다. ⚠️ 비용은 `inv_doc_state` 가 지운다. ⚠️ **창 문서는 커서에 관여하지 않는다** — 전진값으로 쓰면 커서가 후퇴하고 hold 로 세우면 위쪽 전진을 막는다. 📌 ②-b 는 해당 없다(`UpdatedSince` 라 편집되면 목록에 다시 나온다) |
-| ⚠️⚠️ 소멸 감지가 못 보는 축이 있나? | **있다 — 둘이다.** 판정에 「언제 편집됐나」가 필요한데 **목록에 그 값이 없는 축**이 있다. `stockTransferList` 만 `LastModifiedOn` 을 준다. `stockAdjustmentList`(`TaskID`·`EffectiveDate`·`StocktakeNumber`·`Status`·`Account`·`Reference`·`Comment`)와 `finishedGoodsList`(`TaskID`·`AssemblyNumber`·…·`Date`·`Status`·`Notes`)에는 **없다.** ⇒ **`adjustment`·`assembly` 의 라인 삭제·교체는 아무도 못 본다.** [실측 2026-09-02] `missing_lines_skipped_no_lmo` **33 = `detail_fetched` 33** — 조회한 문서 전부가 A 집합에서 빠졌다. ⭐ **`bin` 단위 대조만이 잡는다.** 📌 부수 효과: 그 둘은 `inv_doc_state` 도 같은 값을 쓰므로 **매 회차 상세를 다 부른다**(`skipped_unchanged 0`) — 비용은 크지만 덕분에 재조회 창이 잘 작동한다. ⬜ 처방 후보: `LastModifiedOn` 은 **판정 기준**이지 A 집합의 재료가 아니고, 그 둘은 전량 상세를 부르므로 **재료가 이미 있다** ⇒ `lmoRaw` 조건만 완화하면 될 가능성이 크다(안전장치 `listAborted`·`truncated`·`detailCapped` 는 이미 있다) |
+| ⚠️⚠️ 소멸 감지가 못 보는 축이 있나? | **있다 — 둘이다.** 판정에 「언제 편집됐나」가 필요한데 **목록에 그 값이 없는 축**이 있다. `stockTransferList` 만 `LastModifiedOn` 을 준다. `stockAdjustmentList`(`TaskID`·`EffectiveDate`·`StocktakeNumber`·`Status`·`Account`·`Reference`·`Comment`)와 `finishedGoodsList`(`TaskID`·`AssemblyNumber`·…·`Date`·`Status`·`Notes`)에는 **없다.** ⇒ **`adjustment`·`assembly` 의 라인 삭제·교체는 아무도 못 본다.** [실측 2026-09-02] `missing_lines_skipped_no_lmo` **33 = `detail_fetched` 33** — 조회한 문서 전부가 A 집합에서 빠졌다. ⭐ **`bin` 단위 대조만이 잡는다.** 📌 부수 효과: 그 둘은 `inv_doc_state` 도 같은 값을 쓰므로 **매 회차 상세를 다 부른다**(`skipped_unchanged 0`) — 비용은 크지만 덕분에 재조회 창이 잘 작동한다. ⇒ ✅ **1단계 처방**(`inv-collect@2026-09-03.1`): **판정은 하되 표에 넣지 않는다.** 응답·회차 로그에 `missing_lines_unkeyed`·`_docs`·`_sample`(≤200행)·`_truncated` 로만 남긴다. ⭐ **`_sample` 이 실질**이다 — 목록이 없으면 사람이 상쇄를 못 만든다. `inv_collect_runs.summary` 에 실려 SQL 로 조회된다. ⚠️⚠️ **「조건만 완화」로는 안 된다**: `MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on"` — 그 값이 **유니크 키의 일부**이고 「같은 편집의 재검출은 do-nothing」으로 **중복 폭주를 막는 장치**다. 값 없이 넣으면 매 회차 재적재로 **회차 캡 500 을 소진해 진짜 소멸을 가린다**(08-31 사고와 같은 모양). 📌 G4 주석의 「키가 무너진다」는 옳았다. ⬜ **2단계**(표에 기록)는 `lmo` 자리에 **A 집합 키의 해시**를 넣는 콘텐츠 지문이 필요하고 ⚠️ 마이그레이션(컬럼 추가 + 유니크 재생성)을 동반한다 — 1단계 실물을 보고 판단한다 |
+| 소멸 감지가 같은 라인을 또 검출하면? | ⚠️ **「이미 상쇄됐는지」를 보지 않는다.** [실사고 `TR-04175`] 8/24 에 138 라인이 삭제돼 8/25 에 상쇄했는데, **9/1 20:32 에 문서를 만지자 같은 라인이 다시 검출**됐다. 실제로 사라진 것이 아니라 문서를 건드렸을 뿐이다. ⇒ 원장 순액이 0인지 확인하고(`cin7` + `manual` = 0) `bin` 대조에 안 나오면 **감지 기록만 닫는다**(`resolved_at` + `resolution_note`). ⬜ 처방 후보: 재검출 시 순액 0이면 자동으로 닫는다 |
+| 원장 값의 신선도를 어디서 보나? | `inv_diff_summary()` · `inv_stock_master(...)` 의 **`ledger_collected_at`**(가장 뒤처진 축의 `last_ok_at`) · **`ledger_lag_source`**(그 축 이름). ⚠️ **`cost` 는 세지 않는다** — 하루 1회라 늘 「하루 뒤처짐」으로 보이고 재고 수량과 무관하다. 📌 `adjustment`·`assembly`·`creditnote` 는 시간당 1회라 **최대 1시간 뒤처지는 것이 정상**이다. ⚠️ **화면이 이 값을 반드시 표시한다** — [실사고 2026-09-01] WMS 의 `⟳ Stock` 체인이 12일간 죽어 있었는데 어느 화면에도 드러나지 않았다 |
 | 원장과 Cin7 을 대조할 때 시점을 어떻게 맞추나? | ⚠️⚠️ **잘못 자르면 세 번 틀린다.** [실측 2026-09-01] 같은 날 같은 쿼리가 **9 · 49 · 128 · 475 · 161 · 7 · 9** 를 냈다. Cin7 스냅샷은 **01:21 의 한순간**인데 원장 델타는 계속 쌓이기 때문이다. ❌ **날짜 필터(`occurred_on < 오늘`)는 답이 아니다** — 01:21 스냅샷이 그날 00:00~01:21 사건을 **이미 포함**하는데 날짜로 자르면 그것까지 뺀다. ⇒ ⭐ **최종 규칙 셋을 함께 쓴다**: `source='manual'`(정정은 뒤늦게 적은 과거 사실) **or** `occurred_on < 스냅샷의 토론토 날짜`(⭐ **과거 사건은 늦게 수집돼도 자르지 않는다** — Cin7 이 이미 반영했다) **or** `created_at <= taken_at`(당일 사건은 수집 시각이 가른다). ⚠️ 세 조건이 **서로를 보완한다** — 하나만 쓰면 반드시 틀린다. 정본: `docs/sessions/2026-09-01-stock-master.md` §3 |
 | ⭐ 「과거 사건을 오늘 수집」이 왜 계속 생기나? | **커서가 밀리거나(결함 C·D) 재수집하거나 bin 규칙을 바꾸면** `occurred_on` 이 과거인 행이 오늘 `created_at` 으로 들어온다. [실사고] 트랜스퍼 bin 을 채우자 `cin7 A070401 −60`(8/21 사건)이 그날 낮에 수집됐고, `created_at` 컷오프가 그것을 잘라 **상쇄와 재기록의 짝 중 반쪽만** 남았다(`WTA00219` diff +60). ⇒ 컷오프의 축은 **수집 시각이 아니라 사건 시각**이다 |
 | `manual` 정정을 컷오프에서 빼도 되나? | ⭐ **빼야 한다.** 정정은 **사건 시각이 과거인데 기록 시각은 현재**다. [실사고 `ANN01111`] 라이브 20(Cin7 과 일치)인데 컷오프가 상쇄를 잘라 `at_snapshot −4 · diff −24` 로 **상쇄 전 상태로 되돌렸다**(`total 157` = 그날 아침 상쇄한 경계 오더 행 수). ⇒ **고쳤으면 대조가 바로 맞아야** 한다. ⚠️ **대가**: `manual` 을 잘못 넣으면 대조가 **즉시** 그것을 정답으로 받아들인다 — 정정 전에 근거를 `raw` 에 남기는 관례가 그래서 중요하다 |
@@ -836,20 +864,17 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-09-02 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-03 갱신)
 
-1. ⚠️⚠️ **소멸 감지 사각지대** — `adjustment`·`assembly` 는 목록에 last-modified 가 없어
-   **라인 삭제·교체를 아무도 못 본다**(§함정 표). ⬜ `lmoRaw` 조건 완화가 후보다
-2. ⚠️ **「수집 후 취소」 감지** — 2026-09-01 오전 발견. 여전히 미착수
-3. ⬜ **`TR-04175` 276행 소멸 감지** — 9/1 20:32 편집. 별건
-4. ⬜ **잔여 어긋남 — 발생 시점은 규명, 원인은 미규명**(스냅샷 소급 · 2026-09-02).
-   `WEL04770`·`WEL04771`(`A090203`) **9/2 발생 · ⚠️ 원인 못 찾음** ·
-   `BNAT48173` +11 · `CAN01003` −4 는 **8/29**(결함 C 혼란기) ·
-   `PRO00124` 짝은 **8/20~8/24**(초기 수집기 · 에드먼튼 bin 이동).
-   여섯 다 `inv_ack_diff` 로 「확인됨」 — ⚠️ **상쇄하지 않았다**(§함정 표)
-5. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리
-6. ⭐ **WMS 재고 마스터 화면** — 원장 준비 완료 · 통지함. ⬜ `ledger_collected_at` 추가 요청 처리
-7. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
+1. ⬜ **소멸 감지 2단계** — 표에 기록하려면 콘텐츠 지문(A 집합 키의 해시)이 필요하고
+   ⚠️ 마이그레이션(유니크 재생성)을 동반한다. **1단계 실물(`missing_lines_unkeyed`)을 보고 판단**
+2. ⚠️ **「수집 후 취소」 감지** — 2026-09-01 오전 발견 · 여전히 미착수
+3. ⬜ **잔여 6칸** — `WEL04770`/`WEL04771`(9/2 · ⭐ 고정 오프셋 확인 · 원인 미규명) ·
+   `BNAT48173`·`CAN01003`(8/29 결함 C 잔재) · `PRO00124` 짝(8/20~24 · 초기 수집기).
+   ⚠️ **전부 「확인됨」 표시** — 상쇄하지 않았다
+4. ⬜ **커서 근본 해결** — 홀드 목록과 커서 바닥 분리
+5. ⭐ **WMS 재고 마스터 화면** — 원장 준비 완료
+6. ⏸ 표본 대기: 급감 검사 임계값 · `landed cost` 첫 발생 · Simple Purchase 원가
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.
