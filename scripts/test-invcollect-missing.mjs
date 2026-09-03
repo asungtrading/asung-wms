@@ -41,11 +41,13 @@ const code = [
   "const sbHeaders = (extra: Record<string, string> = {}): HeadersInit => ({ ...extra });",
   'const COLLECTOR_VERSION = "test";',
   "const INSERT_BATCH = 500;",
-  "type MissingDocCheck = { docNumber: string; lmo: string; docStatus: string | null; keys: Set<string> };",
+  "type MissingDocCheck = { docNumber: string; lmo: string | null; docStatus: string | null; keys: Set<string> };",
   constLine("LEDGER_CONFLICT"),
   constLine("MISSING_MAX_PER_DOC"),
   constLine("MISSING_MAX_PER_RUN"),
   constLine("MISSING_CONFLICT"),
+  constLine("MISSING_UNKEYED_SAMPLE_MAX"),   // 2026-09-03 사각지대 1단계 — detectMissingLines 가 참조
+  constLine("MISSING_UNKEYED_DOCS_MAX"),
   constLine("ledgerKeyOf"),
   // 「bin 변경」 예외 (2026-08-31) — detectMissingLines 가 호출한다. 동작 검증은
   // test-invcollect-transferbin.mjs ⑪~⑬ · 여기서는 링크만 채운다.

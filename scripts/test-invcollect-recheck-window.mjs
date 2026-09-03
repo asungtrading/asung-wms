@@ -218,7 +218,8 @@ ok("(날짜) assembly = Date → Completion → WIP 폴백",
 ok("(응답) recheck_window 필드 배선",
   A.includes("recheck_window: recheckWindowKept") && A.includes("recheck_window_days: RECHECK_WINDOW_DAYS")
   && A.includes("recheck_window_sample: recheckWindowSample"));
-ok("(버전) COLLECTOR_VERSION 09-02.1", src.includes('const COLLECTOR_VERSION = "inv-collect@2026-09-02.1"'));
+// 09-02.1(재조회 창) 이상이면 통과 — 뒤 배포(09-03.1 unkeyed 등)가 버전을 올려도 이 테스트가 깨지지 않게 하한으로 본다
+ok("(버전) COLLECTOR_VERSION ≥ 09-02.1", (src.match(/const COLLECTOR_VERSION = "inv-collect@([^"]+)";/)?.[1] ?? "") >= "2026-09-02.1");
 
 console.log(fails === 0 ? "ALL RECHECK-WINDOW TESTS PASSED" : fails + " TEST(S) FAILED");
 process.exit(fails === 0 ? 0 : 1);
