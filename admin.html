@@ -832,7 +832,17 @@ function markLiveRows(){
    Rollback 으로 처리하려면 어느 단계인지 알아야 한다(강제 중단 도구는 만들지 않음 — 사용자 결정). */
 function renderHolds(all){
   const el=document.getElementById("holdSection"); if(!el) return;
-  const rows=(all||[]).filter(r=>r.hold_state);
+  // hold 카드도 종착(voided·closed) 제외 (2026-09-01 — 실사고 SO-15688: Cin7 'Cancelled' → unexpected
+  // → WMS ⊘ Void 후에도 카드에 영구 잔존. 감지 루프(hello 의 holdCandidates)가 closed·voided 를
+  // 후보에서 빼고, unexpected 자동 해소는 2.Release 복귀가 전제라 취소 오더는 영영 안 지워진다).
+  // 아래 void 카드 필터와 동형. 제외해도 이상 상태를 숨기지 않는 이유:
+  //   unexpected 는 어디서도 차단하지 않고(경고만), voided 는 픽·팩 태스크가 삭제돼 작업 화면
+  //   도달 불가, on_hold+closed 는 Finalize 벨트 전면 차단 + closed 후 신규 감지 없음으로 구조적 불가.
+  // ⚠️ hold_* 컬럼은 지우지 않는다(⊘ Void 도 무접촉 유지) — hold_detected_at·hold_progress 는
+  //   "Cin7 이 언제부터 무슨 값으로 이상했나"의 유일한 기록이고, cin7_void_state 를 지우지 않는
+  //   것과 같은 이유(원장 대조·사후 추적). 렌더 제외로 충분하다 — doVoid 에서 지우는 쪽으로
+  //   되돌리지 말 것(지운 사실이 어디에도 안 남는 비가역 삭제가 된다).
+  const rows=(all||[]).filter(r=>r.hold_state&&r.status!=="voided"&&r.status!=="closed");
   // Cin7 void 카드 (2026-08-14 — 백로그 「Cin7 void 감지」): 이 카드는 "처리 대기" 목록이다 —
   // 처리하면 사라진다(9일 방치 재발 방지의 핵심: 발견→처리가 한 화면). 제외 2종:
   //   voided = ⊘ 처리 완료분.
@@ -942,8 +952,9 @@ async function loadOverview(){
     // 배열 길이라 40 초과 시 항상 "40" 이었다 — count 로 바꾸면 숫자가 closed 총수(수백)로 크게 느는데
     // 그것이 정상(과소 표시의 교정)이다. "숫자가 갑자기 커졌다"고 되돌리지 말 것.
     sb.from("wms_orders").select("id",{count:"exact",head:true}).eq("status","closed"),
-    // Cin7 보류/예상 밖 값 (규칙 43) + void 감지 (2026-08-14) — hold 는 종착 무관 전부,
-    // void 는 렌더에서 status='voided'(⊘ 처리 완료) 제외. or() 하나로 두 신호를 한 왕복에.
+    // Cin7 보류/예상 밖 값 (규칙 43) + void 감지 (2026-08-14) — 조회는 두 신호 전부,
+    // 종착(voided·closed) 제외는 렌더에서 (void 는 2026-08-14/17, hold 도 2026-09-01 동형 —
+    // renderHolds 주석 참조). or() 하나로 두 신호를 한 왕복에.
     sb.from("wms_orders").select("id,order_number,customer_name,warehouse,status,hold_state,hold_progress,hold_detected_at,hold_releasable_at,cin7_void_state,cin7_void_detected_at,cin7_gone_status").or("hold_state.not.is.null,cin7_void_state.not.is.null").order("hold_detected_at",{ascending:false}),   // caps-ok: 신호가 남은 오더만 — 드물고 해제·처리 시 목록에서 빠진다(소수)
   ]);
   renderHolds(cin7Holds.data||[]);   // 이름 주의: loadOverview 아래쪽의 holds(분할 팩 게이트)와 별개
