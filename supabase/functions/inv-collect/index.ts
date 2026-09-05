@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-09-04.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-04.1 = 「수집 후 취소」 감지 1단계 — ②-a adjustment·assembly 축의 status_counts 자리(커서·floor·재조회 창 이전 = 목록 전량)에서 VOIDED 문서번호를 모아 원장과 대조, 원장에 행이 있고 net<>0 인 문서만 inv_voided_docs 에 upsert(merge-duplicates · last_seen_at 갱신 · resolved_at 등은 payload 에 안 넣는다). 새 API 호출 0건 · 기록·경보만 · 커서·캡·disposition·detectMissingLines 무접촉 · **원장 행 생성 규칙은 무변**. FG-00131/00133/00134 실사고 — 취소를 아무도 못 봐 반나절씩 파헤쳤다. 이전 09-03.1 = 소멸 감지 사각지대 1단계 — lmo(LastModifiedOn) 없는 문서(adjustment·assembly 목록엔 없다)도 B−A 판정은 하되 inv_missing_lines 엔 쓰지 않는다(유니크 키의 일부라 값 없이 넣으면 매 회차 재적재·캡 소진). 응답·회차 로그에 missing_lines_unkeyed/_docs/_sample(200행 상한)/_truncated 로만 남긴다 — ST-01283 편집·FG-00133 취소를 못 본 사고. 「bin 변경」 예외 먼저·G1~G3 그대로·②-b 무접촉·**원장 행 생성 규칙은 무변**. 이전 09-02.1 = 결함 E — ②-a 커서 아래 「최근 7일 재조회 창」(RECHECK_WINDOW_DAYS): 수집 후 편집된 문서를 커서가 지나가 영영 못 보던 것(ST-01283 실사고 — 조정이 완제품 3행에서 재료 12행으로 편집됐는데 원장은 옛 3행 유지·소멸 감지도 상세를 안 읽어 사각지대)을, 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보로 남겨 재수집한다. 안 바뀐 문서는 inv_doc_state 가 상세 호출 전에 거른다(비용 최소). 창 문서는 커서에 관여하지 않는다(전진값도 hold 도 아님 — 커서 후퇴 방지) · skip_since 보다 창 판정이 우선 · ②-b 무접촉(UpdatedSince 라 편집이 목록에 다시 나옴) · 커서 규칙·캡·doc_state 판정 무변(후보 선정만 확대) · **원장 행 생성 규칙은 무변**. 이전 09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-09-05.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-05.1 = 소멸 감지 2단계 — lmo 없는 축(adjustment·assembly)의 소멸을 **문서 단위** 표 inv_missing_docs 에 담는다(detectMissingLines 판정 무변 · unkeyed 분기에서 캡 전 원본을 문서로 접기만 · ignore-duplicates POST(신규만 · 최초 스냅샷 missing_lines/qty) → merge-duplicates POST(last_seen 계열만) 두 번 · net 을 보지 않는다(⑪ 과 다름 — 사라진 라인만 상쇄하므로 문서 순액이 안 바뀐다) · 닫는 수단은 resolved_at 하나). ST-01283 이 매 회차 unkeyed 3 으로 남아 ⑦-b 기준선을 외워야 했던 것을 없앤다. inv_missing_lines·세 축·커서·캡 무접촉 · **원장 행 생성 규칙은 무변**. 이전 09-04.1 = 「수집 후 취소」 감지 1단계 — ②-a adjustment·assembly 축의 status_counts 자리(커서·floor·재조회 창 이전 = 목록 전량)에서 VOIDED 문서번호를 모아 원장과 대조, 원장에 행이 있고 net<>0 인 문서만 inv_voided_docs 에 upsert(merge-duplicates · last_seen_at 갱신 · resolved_at 등은 payload 에 안 넣는다). 새 API 호출 0건 · 기록·경보만 · 커서·캡·disposition·detectMissingLines 무접촉 · **원장 행 생성 규칙은 무변**. FG-00131/00133/00134 실사고 — 취소를 아무도 못 봐 반나절씩 파헤쳤다. 이전 09-03.1 = 소멸 감지 사각지대 1단계 — lmo(LastModifiedOn) 없는 문서(adjustment·assembly 목록엔 없다)도 B−A 판정은 하되 inv_missing_lines 엔 쓰지 않는다(유니크 키의 일부라 값 없이 넣으면 매 회차 재적재·캡 소진). 응답·회차 로그에 missing_lines_unkeyed/_docs/_sample(200행 상한)/_truncated 로만 남긴다 — ST-01283 편집·FG-00133 취소를 못 본 사고. 「bin 변경」 예외 먼저·G1~G3 그대로·②-b 무접촉·**원장 행 생성 규칙은 무변**. 이전 09-02.1 = 결함 E — ②-a 커서 아래 「최근 7일 재조회 창」(RECHECK_WINDOW_DAYS): 수집 후 편집된 문서를 커서가 지나가 영영 못 보던 것(ST-01283 실사고 — 조정이 완제품 3행에서 재료 12행으로 편집됐는데 원장은 옛 3행 유지·소멸 감지도 상세를 안 읽어 사각지대)을, 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보로 남겨 재수집한다. 안 바뀐 문서는 inv_doc_state 가 상세 호출 전에 거른다(비용 최소). 창 문서는 커서에 관여하지 않는다(전진값도 hold 도 아님 — 커서 후퇴 방지) · skip_since 보다 창 판정이 우선 · ②-b 무접촉(UpdatedSince 라 편집이 목록에 다시 나옴) · 커서 규칙·캡·doc_state 판정 무변(후보 선정만 확대) · **원장 행 생성 규칙은 무변**. 이전 09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -212,11 +212,13 @@ type LedgerRow = {
 // → 커서 정지 + 유니크 키 붕괴 직전. 실측 프로브 8·11차: 조립 번호는 AssemblyNumber).
 // detectVoided — 「수집 후 취소」 감지 축(2026-09-04 · 파일 상단 detectVoidedDocs 절). adjustment·assembly 만.
 //   transfer 는 이번 범위 밖(제외) · sale·purchase 는 ②-b 별도 루프라 이 플래그와 무관.
-const SOURCES: Record<string, { listPath: string; listKey: string; numberField: string; detailPath: (id: string) => string; docType: string; detectVoided?: boolean }> = {
+// detectMissingDocs — 소멸 감지 2단계(2026-09-05 · detectMissingLines 의 unkeyed 분기 + upsertMissingDocs 절). lmo 가 없어
+//   inv_missing_lines 에 못 들어가는 adjustment·assembly 만. 다른 축은 inv_missing_lines 로 정상 처리되므로 이 표에 넣지 않는다.
+const SOURCES: Record<string, { listPath: string; listKey: string; numberField: string; detailPath: (id: string) => string; docType: string; detectVoided?: boolean; detectMissingDocs?: boolean }> = {
   adjustment: {
     listPath: "/stockadjustmentList", listKey: "StockAdjustmentList", numberField: "StocktakeNumber",
     detailPath: (id) => "/stockadjustment?TaskID=" + encodeURIComponent(id), docType: "adjustment",
-    detectVoided: true,
+    detectVoided: true, detectMissingDocs: true,
   },
   transfer: {
     listPath: "/stockTransferList", listKey: "StockTransferList", numberField: "Number",
@@ -225,7 +227,7 @@ const SOURCES: Record<string, { listPath: string; listKey: string; numberField: 
   assembly: {
     listPath: "/finishedGoodsList", listKey: "FinishedGoods", numberField: "AssemblyNumber",
     detailPath: (id) => "/finishedGoods?TaskID=" + encodeURIComponent(id), docType: "assembly",
-    detectVoided: true,
+    detectVoided: true, detectMissingDocs: true,
   },
 };
 
@@ -375,6 +377,8 @@ const MISSING_MAX_PER_RUN = 500;   // 소스 회차당 상한
 const MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on";   // = inv_missing_lines_uq 순서
 const MISSING_UNKEYED_SAMPLE_MAX = 200;   // 표에 못 넣는(lmo 없는) 소멸 행의 응답 상한 — 상쇄 SQL 재료. summary 가 커지지 않게 반드시 지킨다
 const MISSING_UNKEYED_DOCS_MAX = 20;      // 그 문서번호 목록 상한
+const MISSING_DOCS_SAMPLE_MAX = 20;       // inv_missing_docs.sample 행 상한(문서당) — 상쇄 SQL 재료
+type MissingDocAgg = { docNumber: string; docStatus: string | null; lines: number; qty: number; sample: { sku: string; bin: string; warehouse: string; event_type: string; qty: unknown }[] };
 // lmo=null: 목록·상세 어디에도 LastModifiedOn 이 없는 문서(adjustment·assembly) — 판정은 하되 표 미기록(unkeyed · G4 주석)
 type MissingDocCheck = { docNumber: string; lmo: string | null; docStatus: string | null; keys: Set<string> };
 const ledgerKeyOf = (r: any) => [r.doc_type, r.doc_number, r.line_ref, r.event_type, r.warehouse, r.bin, r.sku].join("\u0001");
@@ -403,10 +407,14 @@ function partitionBinChanged(missing: any[], aKeys: Set<string>): BinChangedPart
 async function detectMissingLines(docType: string, docs: MissingDocCheck[], warnings: string[]): Promise<{
   rows: any[]; detected: number; sample: string[]; capped: boolean; binChanged: number;
   unkeyed: number; unkeyedDocs: string[]; unkeyedSample: any[]; unkeyedTruncated: boolean;
+  unkeyedByDoc: MissingDocAgg[];
 }> {
   const out: any[] = []; const sample: string[] = []; let capped = false; let binChanged = 0;
   // unkeyed — lmo 없는 문서의 B−A. rows/detected 에 넣지 않는다(표 미기록). 수는 전량 세고 목록만 상한.
   let unkeyed = 0; const unkeyedDocs: string[] = []; const unkeyedSample: any[] = []; let unkeyedTruncated = false;
+  // 2단계(2026-09-05) — 같은 결과를 **문서 단위로 접은** 것. inv_missing_docs 의 재료.
+  //   ⚠️ unkeyedSample(200행 상한)로 접으면 잘린 문서의 행 수가 줄어 missing_lines 가 틀린다 → 캡 전 원본(missing)에서 접는다.
+  const unkeyedByDoc: MissingDocAgg[] = [];
   for (const d of docs) {
     if (out.length >= MISSING_MAX_PER_RUN) { capped = true; warnings.push("missing-lines run cap " + MISSING_MAX_PER_RUN + " reached - remaining docs not checked this round"); break; }
     // B — 대형 문서(트랜스퍼 344라인×4행=1,376행/문서 실측)가 1000행 캡을 넘으므로 Range 페이지네이션
@@ -432,6 +440,14 @@ async function detectMissingLines(docType: string, docs: MissingDocCheck[], warn
     if (d.lmo === null) {
       unkeyed += missing.length;
       if (missing.length && !unkeyedDocs.includes(d.docNumber) && unkeyedDocs.length < MISSING_UNKEYED_DOCS_MAX) unkeyedDocs.push(d.docNumber);
+      if (missing.length) {   // 문서 단위 접기 — 판정 결과(missing)를 그대로 집계만 한다
+        unkeyedByDoc.push({
+          docNumber: d.docNumber, docStatus: d.docStatus,
+          lines: missing.length,
+          qty: missing.reduce((a, er) => a + Math.abs(Number(er.qty_delta) || 0), 0),
+          sample: missing.slice(0, MISSING_DOCS_SAMPLE_MAX).map((er) => ({ sku: er.sku, bin: er.bin, warehouse: er.warehouse, event_type: er.event_type, qty: er.qty_delta })),
+        });
+      }
       for (const er of missing) {
         if (unkeyedSample.length >= MISSING_UNKEYED_SAMPLE_MAX) { unkeyedTruncated = true; break; }
         unkeyedSample.push({ doc_number: er.doc_number, line_ref: er.line_ref, event_type: er.event_type, warehouse: er.warehouse, bin: er.bin, sku: er.sku });
@@ -455,7 +471,7 @@ async function detectMissingLines(docType: string, docs: MissingDocCheck[], warn
       if (sample.length < 5) sample.push(er.doc_number + "/" + er.sku + "/" + er.qty_delta);
     }
   }
-  return { rows: out, detected: out.length, sample, capped, binChanged, unkeyed, unkeyedDocs, unkeyedSample, unkeyedTruncated };
+  return { rows: out, detected: out.length, sample, capped, binChanged, unkeyed, unkeyedDocs, unkeyedSample, unkeyedTruncated, unkeyedByDoc };
 }
 // 쓰기는 commit + write 성공 경로에서만 (dry=1 은 절대 안 쓴다 — 검출 수만 보고).
 // ignore-duplicates: 같은 편집(같은 last_modified_on)의 재검출은 do-nothing — 중복 폭주 차단.
@@ -542,6 +558,46 @@ async function upsertVoidedDocs(rows: VoidedDocRow[]): Promise<number> {
     written += ((await r.json()) as any[]).length;
   }
   return written;
+}
+
+// ── 소멸 감지 2단계 — 문서 단위 표 (2026-09-05 · 마이그레이션 20260905085620_inv_missing_docs) ──
+// 왜: inv_missing_lines 유니크 키의 last_modified_on 이 not null 이라 lmo 없는 축(adjustment·assembly)은
+//   표에 못 들어가고 summary.missing_lines_unkeyed 로만 남는다 — 로그는 닫을 수 없어 ST-01283 상쇄 뒤에도
+//   매 회차 unkeyed 3 이 남아 ⑦-b 기준선을 외워야 했다. ⇒ 그 둘만 문서 단위 표에 담고 resolved_at 으로 닫는다.
+// ⚠️⚠️ net 을 보지 않는다 — ⑪(inv_voided_docs)과 다르다. 사라진 라인만 상쇄하므로 문서 순액은 원래 값
+//   그대로다 ⇒ 감지되면 무조건 upsert · 닫는 수단은 resolved_at 하나 · 닫힌 뒤 다시 열리지 않아야 한다.
+// 쓰기 = POST 두 번 · 읽기 0회 (「없을 때만 최초 스냅샷」을 읽기-분기로 하면 두 회차가 끼어 둘 다 「없음」으로
+//   판단해 merge 로 스냅샷을 덮을 수 있다 — 유니크 제약이 「최초 1회」를 보장하게 한다):
+//   ① ignore-duplicates + missing_lines·missing_qty 포함 → 표에 없는 문서만 insert(최초 스냅샷 · first_detected_at default)
+//   ② merge-duplicates + 7필드만(doc_type·doc_number·doc_status·last_seen_at·last_seen_lines·sample·collector)
+//      → 모든 감지 문서의 last_seen 계열 갱신. ❌ first_detected_at·missing_lines·missing_qty·resolved_at·
+//      resolution_note 는 ②에 넣지 않는다 — 넣으면 사람이 닫은 것이 다시 열리고 최초 스냅샷이 덮인다.
+// 반환: inserted = ①의 반환 행 수(⭐ 이번에 처음 표에 들어간 문서 — 0 이 정상) · updated = ②의 반환 행 수.
+type MissingDocsWrite = { inserted: number; updated: number; insertedDocs: string[] };
+async function upsertMissingDocs(docType: string, docs: MissingDocAgg[]): Promise<MissingDocsWrite> {
+  const seenAt = new Date().toISOString();
+  const base = (d: MissingDocAgg) => ({
+    doc_type: docType, doc_number: d.docNumber, doc_status: d.docStatus,
+    last_seen_at: seenAt, last_seen_lines: d.lines, sample: d.sample, collector: COLLECTOR_VERSION,
+  });
+  const insertRows = docs.map((d) => ({ ...base(d), missing_lines: d.lines, missing_qty: d.qty }));
+  const mergeRows  = docs.map(base);
+  const post = async (rows: any[], resolution: string, select: string): Promise<any[]> => {
+    const got: any[] = [];
+    for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+      const r = await fetch(SB_URL() + "/rest/v1/inv_missing_docs?on_conflict=doc_type,doc_number&select=" + select, {
+        method: "POST",
+        headers: sbHeaders({ Prefer: "resolution=" + resolution + ",return=representation" }),
+        body: JSON.stringify(rows.slice(i, i + INSERT_BATCH)),
+      });
+      if (!r.ok) throw new Error("sbUpsert inv_missing_docs(" + resolution + ") " + r.status + ": " + (await r.text()).slice(0, 400));
+      got.push(...((await r.json()) as any[]));
+    }
+    return got;
+  };
+  const ins = await post(insertRows, "ignore-duplicates", "doc_number");
+  const upd = await post(mergeRows,  "merge-duplicates",  "id");
+  return { inserted: ins.length, updated: upd.length, insertedDocs: ins.map((x) => String(x.doc_number)) };
 }
 async function sbUpsert(table: string, conflictCol: string, rows: unknown): Promise<void> {
   const r = await fetch(SB_URL() + "/rest/v1/" + table + "?on_conflict=" + conflictCol, {
@@ -1753,6 +1809,13 @@ Deno.serve(async (req) => {
         voided_written: 0,
         voided_sample: voided ? voided.sample : [],
         voided_ledger_capped: voided ? voided.capped : false,
+        // 소멸 감지 2단계 (2026-09-05 · upsertMissingDocs 절) — detectMissingDocs 축(adjustment·assembly)만.
+        //   open = 이번 회차 감지 문서 수(닫힌 뒤에도 감지는 계속되므로 매 회차 나온다 — 경고 기준이 아니다).
+        //   new  = ⭐ 이번에 처음 표에 들어간 문서 수(0 이 정상 · 경고 기준) · written = 갱신된 문서 수. 둘은 commit 블록에서 채운다(dry 는 null = 모른다).
+        missing_docs_open: (cfg.detectMissingDocs && missing) ? missing.unkeyedByDoc.length : 0,
+        missing_docs_new: null as number | null,
+        missing_docs_written: 0,
+        missing_docs_sample: (cfg.detectMissingDocs && missing) ? missing.unkeyedByDoc.slice(0, 20).map((d) => ({ doc_number: d.docNumber, lines: d.lines, qty: d.qty })) : [],
         samples,
         warnings,
       });
@@ -1838,6 +1901,20 @@ Deno.serve(async (req) => {
               R.voided_written = await upsertVoidedDocs(voided.rows);
             } catch (e: any) {
               warnings.push("voided-doc upsert failed (collection unaffected, will re-detect next round): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
+          // 소멸 감지 2단계 기록 (2026-09-05) — 원장 쓰기 성공 뒤에만(dry 는 위에서 검출·보고만).
+          //   ⚠️ 경고는 new(처음 표에 들어간 것) 기준 — open 기준이면 닫힌 뒤에도 매 회차 경고가 떠 사람이
+          //   무시하게 된다(⑦-b 「기준선 3」과 같은 실패 모양 — 이 작업이 없애려는 것). 실패는 경고만.
+          if (cfg.detectMissingDocs && missing) R.missing_docs_new = 0;   // commit 에서 검출이 돌았으면 「모른다(null)」가 아니라 0 이 기본
+          if (cfg.detectMissingDocs && missing && missing.unkeyedByDoc.length) {
+            try {
+              const w2 = await upsertMissingDocs(cfg.docType, missing.unkeyedByDoc);
+              R.missing_docs_new = w2.inserted;
+              R.missing_docs_written = w2.updated;
+              if (w2.inserted > 0) warnings.push(w2.inserted + " NEW doc(s) with ledger lines NO LONGER in the Cin7 doc (" + w2.insertedDocs.join(",") + ") - recorded in inv_missing_docs; ledger rows kept (append-only), human offset then resolved_at");
+            } catch (e: any) {
+              warnings.push("missing-docs upsert failed (collection unaffected, will re-detect next round): " + String(e?.message ?? e).slice(0, 200));
             }
           }
         }
