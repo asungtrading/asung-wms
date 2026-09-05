@@ -40,9 +40,9 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 
 **핵심 셋**: ② 대조 · ⑧ bin 대조 · ⓪ 요약(`new_today`).
 나머지는 그 셋이 이상할 때 원인을 좁히는 축이다.
-⭐ **③·⑩·⑪ 은 「무엇이 왜 틀렸나」를 말해준다** — ⑧ 이 「뭔가 틀렸다」를 잡고,
-③(라인 삭제)·⑩(수량 변경)·⑪(문서 취소)이 원인을 준다.
-**⑧ 이 뜨면 이 셋을 먼저 뒤진다**(절 끝 0번).
+⭐ **③·⑩·⑪·⑫ 는 「무엇이 왜 틀렸나」를 말해준다** — ⑧ 이 「뭔가 틀렸다」를 잡고,
+③(라인 삭제 · lmo 있는 축)·⑩(수량 변경)·⑪(문서 취소)·⑫(라인 삭제 · lmo 없는 축)가
+원인을 준다. **⑧ 이 뜨면 이 넷을 먼저 뒤진다**(절 끝 0번).
 
 ### ⓪ 요약 — 카드 한 줄
 ```sql
@@ -169,7 +169,12 @@ where ran_at > now() - interval '24 hours'
   and coalesce((summary ->> 'missing_lines_unkeyed')::int, 0) > 0
 order by ran_at desc limit 10;
 ```
-⚠️⚠️ **「0행이면 정상」이 아니다 — 현재 기준선은 `adjustment` 3 이다.**
+✅ **[2026-09-05 해소] 판정은 ⑫ 로 옮겼다 — 이 줄은 참고용이다.**
+⚠️ 그전까지는 「0행이면 정상」이 아니라 **기준선이 `adjustment` 3**(`ST-01283`)이었고,
+**사람이 그 숫자를 외워야 했다.** 상쇄가 끝나 원장은 정상인데 로그에는 닫을 자리가
+없었기 때문이다. ⇒ `inv_missing_docs`(⑫)가 그 자리를 만들었고 `ST-01283` 은 09-05 에
+닫혔다. 📌 **이 줄의 `missing_lines_unkeyed` 는 여전히 3을 센다** — 원장에 옛 행이 남아
+있어 감지 자체는 계속되기 때문이다. **그 숫자로 판정하지 말 것.**
 [실측 09-04] `ST-01283` 의 `adjust_new` 3행(`UNF18259`·`UNF18260`·`UNF18261` · bin
 `EU050402`)이 매 회차 검출된다. **원장은 정상이다** — `cin7 +2` / `manual −2` 로 상쇄가
 끝나 순액 0이고 ⑧ 에도 안 나온다. ⚠️ 그런데 `unkeyed` 는 표에 안 들어가므로
@@ -177,11 +182,14 @@ order by ran_at desc limit 10;
 ⇒ **읽는 법: 3 이면 정상, 4 이상이면 새 소멸이다.** `_docs` 에 `ST-01283` 외의 문서가
 나타나는 것도 같은 신호다. 뜨면 `summary -> 'missing_lines_unkeyed_sample'` 로 상쇄 SQL 을
 만든다(`_truncated` 도 함께 볼 것 · ≤200행).
-⚠️ 그 둘은 ③ 에 안 나온다(유니크 키 때문) — **이 줄이 유일한 창구**다.
-⚠️ **이 숫자를 「원래 3이야」로 외우면 4가 됐을 때 알아챌 사람이 없다.**
+⚠️ 그 둘은 ③ 에 안 나온다(유니크 키 때문) — **판정 창구는 ⑫ 다**(2026-09-04 까지는
+이 줄이 유일한 창구였다).
 ⚠️ `collector` 가 `inv-collect@2026-09-03.1` 이상이어야 이 필드가 있다.
-⬜ 근본 처방: 소멸 감지 2단계(콘텐츠 지문 + 마이그레이션) 또는 `unkeyed` 전용 닫힘 표시.
-**미착수 — 09-04 에 근거가 생겼다.**
+✅ **근본 처방 완료 (2026-09-05)** — 소멸 감지 2단계 = `inv_missing_docs`(⑫).
+콘텐츠 지문 + 유니크 재생성 대신 **문서 단위 별도 표**로 갔다: 잘 작동 중인 세 축
+(`sale`·`purchase`·`transfer`)의 `inv_missing_lines` 경로를 건드리지 않고,
+`last_modified_on` 이 필요 없으며, **기존 사각지대(`ST-01283`)까지 닫을 수 있기** 때문이다
+(콘텐츠 지문은 그때의 A 집합을 몰라 백필이 불가능해 옛 건을 못 닫는다).
 
 ### ⑧ bin 단위 대조 — ⭐ 가장 잘 잡는 축
 ```sql
@@ -292,6 +300,39 @@ order by first_detected_at;
 ⚠️ 검출은 try/catch 라 실패해도 수집을 막지 않는다 — **조용히 죽을 수 있다.**
 `warnings` 에 `voided-doc detection failed` 가 있는지 ⑦ 과 함께 볼 것.
 
+### ⑫ 소멸 문서 — lmo 없는 축(`adjustment`·`assembly`)
+```sql
+select doc_type, doc_number, missing_lines, missing_qty, last_seen_lines,
+       first_detected_at at time zone 'America/Toronto' as detected_toronto,
+       last_seen_at      at time zone 'America/Toronto' as last_seen_toronto,
+       sample
+from inv_missing_docs
+where resolved_at is null
+order by first_detected_at;
+```
+**0행이면 정상.** 뜨면 **그 문서에서 라인이 사라졌는데 원장이 아직 안 고친 것**이다.
+`sample`(최대 20행 · `{sku,bin,warehouse,event_type,qty}`)로 상쇄 SQL 을 만들고,
+상쇄 후 `resolved_at`·`resolution_note` 로 닫는다.
+⭐ **③ 이 못 보는 축이다** — ③(`inv_missing_lines`)은 유니크 키에 `last_modified_on` 이
+들어가고 그 컬럼이 `not null` 인데, Cin7 이 `adjustment`·`assembly` 목록·상세에 그 값을
+주지 않는다. ⑫ 는 **문서 단위**라 그 값이 필요 없다.
+⚠️⚠️ **`net` 을 보지 않는다 — ⑪ 과 다르다.** ⑪ 은 문서 전체를 되돌리므로 상쇄하면 순액이
+0이 되어 「해결됐나」를 숫자로 알 수 있다. **소멸은 사라진 라인만 상쇄하므로 문서 순액이
+원래 값 그대로다** ⇒ **`resolved_at` 이 유일한 종결 수단**이고, 닫지 않으면 영원히 열려 있다.
+⚠️ **`missing_lines`(최초 감지 시점)와 `last_seen_lines`(마지막 회차)가 다르면 사건이 더
+생긴 것**이다. `missing_lines` 는 최초 1회만 기록되고 이후 덮이지 않는다.
+📌 회차별 관측은 `inv_collect_runs.summary` 의
+`missing_docs_open` · `missing_docs_new` · `missing_docs_written` · `missing_docs_sample`.
+⭐ **경고 기준은 `_new`(이번에 처음 표에 들어간 문서)** — `_open` 은 **닫은 뒤에도 매 회차
+나온다**(원장에 옛 행이 남아 있어 감지 자체는 계속되므로). `_open` 으로 경고를 걸면
+매 회차 떠서 사람이 무시하게 된다 — ⑦-b 의 「기준선 3」과 같은 실패 모양이다.
+⚠️ **⑦-b 와 겹친다** — ⑦-b 의 `missing_lines_unkeyed` 는 **같은 사건을 라인 수로 세는
+1단계 관측**이고 **닫을 수단이 없다.** ⇒ **판정은 ⑫ 로 한다.** ⑦-b 는 참고용으로만 본다.
+⬜ ⑫ 가 실전에서 검증되면 ⑦-b 와 그 경고를 정리한다(코드 변경 · 미착수).
+📌 [실측 09-05 배포 직후] `ST-01283` 1행이 들어왔고, `resolved_at` 으로 닫은 뒤 재검출에도
+`_new 0` · `last_seen_at` 만 갱신 · `resolved_at` 그대로였다 — **닫은 것이 다시 열리지 않는다**
+(⑩ 이 같은 건을 4행 쌓은 것과 다르다).
+
 ### 📌 어긋남의 원인을 모를 때
 
 0. ⭐⭐ **감지 테이블을 먼저 뒤진다 — 원인을 추측하기 전에.**
@@ -306,6 +347,17 @@ order by first_detected_at;
           detected_at at time zone 'America/Toronto', resolved_at
    from inv_conflicts where sku = '<SKU>'
    order by detected_toronto;
+   ```
+   ⚠️ 위 조회는 **SKU 축**이라 `adjustment`·`assembly` 의 소멸은 안 나온다(⑫ 는 문서 단위다).
+   그 축이 의심되면 **문서번호로** 함께 본다:
+   ```sql
+   select 'missing_doc' as src, doc_number, missing_lines, last_seen_lines,
+          first_detected_at at time zone 'America/Toronto' as detected_toronto, resolved_at
+   from inv_missing_docs where doc_number = '<DOC>'
+   union all
+   select 'voided_doc', doc_number, ledger_rows, null, 
+          first_detected_at at time zone 'America/Toronto', resolved_at
+   from inv_voided_docs where doc_number = '<DOC>';
    ```
    ⚠️⚠️ [실사고 2026-09-04] `CAN01003`·`BNAT48173` 두 칸이 **일주일 묵었다.** 감지는
    8/28 10:09 한 회차에 둘 다 정확히 잡아 기록했는데(삭제 → ③ · 수량 1→12 → ⑩),
@@ -1176,14 +1228,15 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-09-04 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-05 갱신)
 
-1. ⬜ **소멸 감지 2단계** — ⭐ **[09-04 근거 생김]** 1단계 실물이 `ST-01283` 3행으로
-   **영구 재검출**이다(상쇄 완료분 · 원장 순액 0 · ⑧ 에 안 나옴 · **닫을 자리 없음**).
-   ⇒ ⑦-b 의 「0행이면 정상」이 죽고 **기준선이 3** 이 됐다. ⚠️ **사람이 숫자를 외워야 하는
-   상태** — 09-04 의 「확인됨 오진」과 같은 실패 모양이다(외운 숫자는 옆에서 손을 들어도
-   조용해진다). 표 기록엔 콘텐츠 지문(A 집합 키 해시) + 마이그레이션이 필요하지만
-   ⬜ **더 가벼운 답**(`unkeyed` 전용 닫힘 표시)도 후보다
+1. ✅ **소멸 감지 2단계 — 완료 (2026-09-05).** `inv_missing_docs` + `inv-collect@2026-09-05.1`
+   · 아침 점검 ⑫ 가 창구 · 커밋 `e56b205`.
+   ⭐ **콘텐츠 지문이 아니라 문서 단위 별도 표**로 갔다 — 세 축 무접촉 · `last_modified_on`
+   불필요 · **기존 사각지대까지 닫힌다**(지문은 옛 건의 A 집합을 몰라 백필 불가).
+   [실측] `ST-01283` 1행 입력 → `resolved_at` 로 닫음 → 재검출에도 `_new 0`.
+   ⇒ ⭐ **⑦-b 의 「기준선 3을 외운다」가 사라졌다.**
+   ⬜ 남은 것: ⑫ 가 실전 검증되면 ⑦-b 와 그 경고를 코드에서 정리한다.
 2. ✅ **「수집 후 취소」 감지 — 1단계 완료 (2026-09-04).** `inv_voided_docs` +
    `inv-collect@2026-09-04.1` · 아침 점검 ⑪ 이 창구 · 새 API 호출 0건.
    [실측 배포 직후] `assembly` `seen 88 · in_ledger 3 · open 0` — **오탐 0.**
