@@ -179,9 +179,11 @@
   <div class="toolbar">
     <select class="pillsel" id="whSel" title="Warehouse">
       <option value="">All warehouses</option>
-      <!-- ⚠️ 창고 값은 추측으로 박지 않는다 — Caleb 이
-           select distinct warehouse from inv_balance order by 1;
-           로 확정한 뒤 <option value="원문">라벨</option> 로 추가한다(값=Cin7 원문, p_warehouse 정확 일치). -->
+      <!-- value = Cin7 원문 그대로 (2026-09-04 실측 확정 · p_warehouse 정확 일치 — 한 글자 틀리면 빈 결과).
+           라벨은 표 WH 열 축약(whShort: TOR/EDM/Transit)과 대응 · title 에 원문. -->
+      <option value="Asung Trading Inc." title="Asung Trading Inc. (TOR)">Toronto</option>
+      <option value="Asung - Edmonton" title="Asung - Edmonton (EDM)">Edmonton</option>
+      <option value="IN_TRANSIT" title="IN_TRANSIT (Transit)">In transit</option>
     </select>
     <div class="search">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-3.5-3.5"/></svg>
@@ -255,6 +257,7 @@ const naChip=()=>`<span class="na" title="${NA_TIP}">n/a</span>`;
 let sb=null, me=null;
 let page=0, total=0, rowCount=0;
 let summary=null;                 // inv_diff_summary 응답
+let nowDiffTotal=null;            // 목록 RPC 가 「Differences only · 검색 없음 · 창고 전체」로 돌아왔을 때의 total — 아니면 null(카드 부제 「now —」)
 let ledgerMeta=null;              // {at, src} — 두 RPC 어느 쪽에서든 오면 채움
 
 /* ---------- boot ---------- */
@@ -339,14 +342,7 @@ async function loadSummary(){
   }
   summary=data;
   captureLedgerMeta(data);
-  const c=(label,val,cls,sub)=>`<div class="scard"><div class="l">${label}</div>`
-    +`<div class="v ${cls||""}">${fmtNum(val)}</div>${sub?`<div class="s">${sub}</div>`:""}</div>`;
-  const prevSub=(data.prev_total==null)?"":("prev "+fmtNum(data.prev_total));
-  document.getElementById("cards").innerHTML=
-     c("Unack", data.unack, Number(data.unack)>0?"red":"ok")
-    +c("New today", data.new_today, Number(data.new_today)>0?"orange":"")
-    +c("Total diffs", data.total, "", prevSub)
-    +c("Abs gap", data.abs_gap, "");
+  renderCards();
   const cap=document.getElementById("cardCap");
   cap.textContent="Comparison — as of "+fmtTorDate(data.checked_on);
   cap.style.display="block";
@@ -360,6 +356,32 @@ async function loadSummary(){
     sw.style.display="none";
   }
   if(lastRows.length) renderRows();   // NEW 배지 기준(checked_on)이 이제 생겼으니 목록 재렌더
+}
+
+// 카드 4장 — loadSummary 성공 후와 loadList 성공 후(now 값 갱신) 양쪽에서 부른다.
+// ⚠️ 세 번째 카드는 시점을 라벨에 박는다(2026-09-02 규명): 카드 total 은 새벽에 굳은 일지
+//   (inv_balance_diffs)·목록 Differences only 는 지금 이 순간의 뷰(inv_balance_vs_cin7)라 값이
+//   다른 것이 정상이다. 종전 라벨 「TOTAL DIFFS」는 「지금 어긋난 총계」로 읽혀 「N개가 없어졌다」로
+//   오독됐다. ⇒ 라벨 = AS OF <snapshot_at 토론토> · 부제 = now <현재 목록 총계>.
+// ⚠️⚠️ 「resolved」류 해석은 붙이지 않는다(B안 확정) — 낮에 0 이 된 칸 중 원장이 수집을 덜 해 우연히
+//   0 인 것이 섞일 수 있다. 두 시점을 나란히 두고 해석은 사람이 한다.
+// ⚠️ now 는 새 RPC 없이 목록 응답의 total 만 쓴다 — 조건이 안 맞으면 틀린 수 대신 「now —」.
+function renderCards(){
+  const data=summary; if(!data) return;
+  const c=(label,val,cls,sub,title)=>`<div class="scard"${title?` title="${esc(title)}"`:""}><div class="l">${label}</div>`
+    +`<div class="v ${cls||""}">${fmtNum(val)}</div>${sub?`<div class="s">${sub}</div>`:""}</div>`;
+  // 라벨 시각 = 그 회차가 댄 Cin7 스냅샷 시각(inv_diff_summary.snapshot_at) — 없으면 checked_on 날짜만
+  const asOf = data.snapshot_at ? fmtTorTime(data.snapshot_at) : fmtTorDate(data.checked_on);
+  const nowSub = (nowDiffTotal==null)
+    ? '<span title="Check \u2018Differences only\u2019 with no search or warehouse filter to see the current count">now \u2014</span>'
+    : ("now "+fmtNum(nowDiffTotal));
+  // prev_total 은 부제 자리를 now 에 내주고 title(hover)로 옮겼다(2026-09-04 · Caleb 확정)
+  const prevTitle=(data.prev_total==null)?"":("prev "+fmtNum(data.prev_total)+" (previous comparison)");
+  document.getElementById("cards").innerHTML=
+     c("Unack", data.unack, Number(data.unack)>0?"red":"ok")
+    +c("New today", data.new_today, Number(data.new_today)>0?"orange":"")
+    +c("As of "+esc(asOf), data.total, "", nowSub, prevTitle)
+    +c("Abs gap", data.abs_gap, "");
 }
 
 /* ---------- 목록 (inv_stock_master) ---------- */
@@ -428,6 +450,10 @@ async function loadList(){
   lastRows=data.rows;
   rowCount=lastRows.length;
   renderRows();
+  // 「현재 어긋남 총계」 채택 — Differences only · 검색 없음 · 창고 전체일 때만 그 total 이 그 뜻이다.
+  //   p_nonzero 는 조건에 안 넣는다: diff≠0 이면 두 값 중 하나는 0 이 아니라 nonzero 필터를 항상 통과한다(RPC WHERE 실물).
+  nowDiffTotal = (onlyDiff && !q && !wh) ? total : null;
+  renderCards();   // summary 가 아직 없으면 no-op
 
   // 페이저 — from–to of total (total 은 서버가 센 전체 매치 수)
   const from=total? page*PAGE+1 : 0;
