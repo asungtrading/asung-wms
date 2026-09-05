@@ -161,7 +161,7 @@
 // Cin7 HTTP 는 _shared/cin7.ts 공용 — ⚠️ _shared 를 바꾸면 소비 함수 전부 재배포.
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-collect@2026-09-03.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-03.1 = 소멸 감지 사각지대 1단계 — lmo(LastModifiedOn) 없는 문서(adjustment·assembly 목록엔 없다)도 B−A 판정은 하되 inv_missing_lines 엔 쓰지 않는다(유니크 키의 일부라 값 없이 넣으면 매 회차 재적재·캡 소진). 응답·회차 로그에 missing_lines_unkeyed/_docs/_sample(200행 상한)/_truncated 로만 남긴다 — ST-01283 편집·FG-00133 취소를 못 본 사고. 「bin 변경」 예외 먼저·G1~G3 그대로·②-b 무접촉·**원장 행 생성 규칙은 무변**. 이전 09-02.1 = 결함 E — ②-a 커서 아래 「최근 7일 재조회 창」(RECHECK_WINDOW_DAYS): 수집 후 편집된 문서를 커서가 지나가 영영 못 보던 것(ST-01283 실사고 — 조정이 완제품 3행에서 재료 12행으로 편집됐는데 원장은 옛 3행 유지·소멸 감지도 상세를 안 읽어 사각지대)을, 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보로 남겨 재수집한다. 안 바뀐 문서는 inv_doc_state 가 상세 호출 전에 거른다(비용 최소). 창 문서는 커서에 관여하지 않는다(전진값도 hold 도 아님 — 커서 후퇴 방지) · skip_since 보다 창 판정이 우선 · ②-b 무접촉(UpdatedSince 라 편집이 목록에 다시 나옴) · 커서 규칙·캡·doc_state 판정 무변(후보 선정만 확대) · **원장 행 생성 규칙은 무변**. 이전 09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
+const COLLECTOR_VERSION = "inv-collect@2026-09-04.1";   // raw 에 박는다 — 규칙이 바뀌면 올릴 것 (09-04.1 = 「수집 후 취소」 감지 1단계 — ②-a adjustment·assembly 축의 status_counts 자리(커서·floor·재조회 창 이전 = 목록 전량)에서 VOIDED 문서번호를 모아 원장과 대조, 원장에 행이 있고 net<>0 인 문서만 inv_voided_docs 에 upsert(merge-duplicates · last_seen_at 갱신 · resolved_at 등은 payload 에 안 넣는다). 새 API 호출 0건 · 기록·경보만 · 커서·캡·disposition·detectMissingLines 무접촉 · **원장 행 생성 규칙은 무변**. FG-00131/00133/00134 실사고 — 취소를 아무도 못 봐 반나절씩 파헤쳤다. 이전 09-03.1 = 소멸 감지 사각지대 1단계 — lmo(LastModifiedOn) 없는 문서(adjustment·assembly 목록엔 없다)도 B−A 판정은 하되 inv_missing_lines 엔 쓰지 않는다(유니크 키의 일부라 값 없이 넣으면 매 회차 재적재·캡 소진). 응답·회차 로그에 missing_lines_unkeyed/_docs/_sample(200행 상한)/_truncated 로만 남긴다 — ST-01283 편집·FG-00133 취소를 못 본 사고. 「bin 변경」 예외 먼저·G1~G3 그대로·②-b 무접촉·**원장 행 생성 규칙은 무변**. 이전 09-02.1 = 결함 E — ②-a 커서 아래 「최근 7일 재조회 창」(RECHECK_WINDOW_DAYS): 수집 후 편집된 문서를 커서가 지나가 영영 못 보던 것(ST-01283 실사고 — 조정이 완제품 3행에서 재료 12행으로 편집됐는데 원장은 옛 3행 유지·소멸 감지도 상세를 안 읽어 사각지대)을, 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보로 남겨 재수집한다. 안 바뀐 문서는 inv_doc_state 가 상세 호출 전에 거른다(비용 최소). 창 문서는 커서에 관여하지 않는다(전진값도 hold 도 아님 — 커서 후퇴 방지) · skip_since 보다 창 판정이 우선 · ②-b 무접촉(UpdatedSince 라 편집이 목록에 다시 나옴) · 커서 규칙·캡·doc_state 판정 무변(후보 선정만 확대) · **원장 행 생성 규칙은 무변**. 이전 09-01.1 = ⚠️ 트랜스퍼 출발 bin 판정을 「그 시점 잔고 규칙 우선 + WMS 값 교차」로 — SKL01861 실사고(유입→픽 사이 bin 이동을 WMS 세 경로가 전부 모른다 · 원장은 그 이동 TR-04169 를 이미 갖고 있다). 잔고 유일 → 그 칸(WMS 와 어긋나면 wms_stale 보고) · 다중 → WMS 로 가름 · 불명 → WMS 폴백 · 애매 → 비움. 이전 08-31.4 = ⚠️⚠️ 트랜스퍼 출발 bin — 헤더에서 bin 을 못 얻은 transfer_out(비 IN_TRANSIT)에 WMS 픽 bin 을 채운다(Reference 의 픽용 SO → wms_order_lines.bin_location · 실측 112/112 일치). **행 생성 규칙 변경** — 유니크 키의 bin 이 바뀌므로 기존 bin="" 행과 키가 갈린다: 재수집되는 문서는 새 bin 행이 추가되고 옛 "" 행은 scripts/fix-transfer-bins.mjs 로 상쇄한다. 소멸 감지에는 「bin 변경」 예외(partitionBinChanged)를 함께 넣어 옛 행이 매 회차 「사라짐」으로 검출돼 캡 500 을 소진하는 것을 막았다(missing_lines_bin_changed 로 카운트만). 이전 08-31.3 = 롤링 재확인 — skip 예정 중 seen_at 최고령 5건/회차 강제 재조회(inv_doc_state 검산 상시화 · 응답 rolling_* 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.2 = 회차 로그 inv_collect_runs — commit 회차를 테이블에 남긴다(dry 미기록 · 응답 collect_run_logged/collect_run_error 추가). 원장 행 생성 규칙은 무변 · 이전 08-31.1 = 결함 D — inv_doc_state 문서 상태 skip: 변경 없는 종결 문서는 상세 미조회(skip_unchanged) + ?recheck=1 전수 재확인. 원장 행 생성 규칙은 무변 · 이전 08-30.1 = ②-b 커서 tie-breaker <Updated>|<식별자> + cursor_stalled 증상 가드 — 결함 C·판매 하루 반 동결 실사고. 원장 행 생성 규칙은 무변 · 이전 08-25.1 = 라인 소멸 감지(inv_missing_lines — TR-04175 실사고: 수집 후 Cin7 라인 138줄 삭제를 아무도 몰라 이중 차감·unknown 138 · 같은 날 검토 조정: 검출/기록 try/catch(진단은 수집을 안 막는다)·문서 캡 200→1500 — 규칙 변경 아님이라 버전 유지) · 08-24.1 = 비재고 SKU 게이트 · 08-19.1 = 페이싱·inv_conflicts)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;             // 실측 2/4/1 페이지 — 성장 대비 하드캡(truncated 가 신호)
 const LIST_SLEEP_MS = 400;
@@ -210,10 +210,13 @@ type LedgerRow = {
 // 폴백 스캔은 방어로 유지). ⚠️ 문서번호 필드는 소스별 명시(numberField) — 공용 폴백 체인은
 // 새 소스가 붙을 때 조용히 틀린다(조립이 그랬다: Number 도 StocktakeNumber 도 없어 전부 ""
 // → 커서 정지 + 유니크 키 붕괴 직전. 실측 프로브 8·11차: 조립 번호는 AssemblyNumber).
-const SOURCES: Record<string, { listPath: string; listKey: string; numberField: string; detailPath: (id: string) => string; docType: string }> = {
+// detectVoided — 「수집 후 취소」 감지 축(2026-09-04 · 파일 상단 detectVoidedDocs 절). adjustment·assembly 만.
+//   transfer 는 이번 범위 밖(제외) · sale·purchase 는 ②-b 별도 루프라 이 플래그와 무관.
+const SOURCES: Record<string, { listPath: string; listKey: string; numberField: string; detailPath: (id: string) => string; docType: string; detectVoided?: boolean }> = {
   adjustment: {
     listPath: "/stockadjustmentList", listKey: "StockAdjustmentList", numberField: "StocktakeNumber",
     detailPath: (id) => "/stockadjustment?TaskID=" + encodeURIComponent(id), docType: "adjustment",
+    detectVoided: true,
   },
   transfer: {
     listPath: "/stockTransferList", listKey: "StockTransferList", numberField: "Number",
@@ -222,6 +225,7 @@ const SOURCES: Record<string, { listPath: string; listKey: string; numberField: 
   assembly: {
     listPath: "/finishedGoodsList", listKey: "FinishedGoods", numberField: "AssemblyNumber",
     detailPath: (id) => "/finishedGoods?TaskID=" + encodeURIComponent(id), docType: "assembly",
+    detectVoided: true,
   },
 };
 
@@ -467,6 +471,77 @@ async function insertMissingLines(rows: any[]): Promise<number> {
     inserted += ((await r.json()) as any[]).length;
   }
   return inserted;
+}
+
+// ── 「수집 후 취소」 감지 (2026-09-04 · 마이그레이션 20260904192652_inv_voided_docs) ──
+// 배경 [실사고 FG-00131 09-01 · FG-00133 09-02 · FG-00134 09-04]: 원장에 이미 들어온 문서를 Cin7 에서
+//   나중에 VOID 하면 원장은 모른다 — Cin7 은 재고를 되돌리고 원장은 차감한 채로 남아 어긋난다.
+//   detectMissingLines 는 상세를 실조회한 문서만 보고, skip_voided 는 커서 위(또는 7일 창 안)의
+//   VOIDED 만 만나므로 「오래된 문서의 나중 취소」는 어느 축도 못 본다.
+// 어디서: ②-a runSource 의 status_counts 자리 — 커서·floor·재조회 창 **이전**이라 목록 전량을 본다.
+//   수집기가 매 회차 목록을 이미 전량 받으므로 **새 API 호출 0건** — 원장 REST 조회만 더한다.
+// 판정: 목록 Status=VOIDED 문서번호 → 원장(cin7+manual 합산) 행 수·net 집계 →
+//   원장에 없는 문서(받은 적 없음) 제외 · net=0(이미 상쇄됨) 제외 → 남은 것이 「취소됐는데 원장에 남은 문서」.
+// ⚠️ 기록·경보만 — 원장 무접촉(append-only) · 자동 상쇄 없음 · 사람이 상쇄 뒤 resolved_at 로 닫는다.
+// ⚠️ 진단은 수집을 막지 않는다 — 호출부가 try/catch 로 감싸고, 실패는 경고만(결함 D 교훈).
+// ⚠️ 쓰기는 commit + 원장 쓰기 성공 경로에서만(dry 는 검출·보고만) — insertMissingLines 와 같은 자리.
+const VOIDED_DOC_CHUNK = 50;        // in.() 청크 — 문서번호 50개씩
+const VOIDED_LEDGER_LIMIT = 1000;   // ⚠️⚠️ PostgREST 는 한도 없는 쿼리를 1000행에서 조용히 자른다 — 명시 limit.
+                                    //   (Supabase max-rows 기본값도 1000 이라 그 이상은 어차피 잘린다.) 닿으면 capped 로 보고.
+const VOIDED_SAMPLE_MAX = 20;
+type VoidedDocRow = { doc_type: string; doc_number: string; doc_status: string; ledger_rows: number; ledger_net: number; last_seen_at: string; collector: string };
+type VoidedDetect = { seen: number; inLedger: number; open: number; rows: VoidedDocRow[]; sample: { doc_number: string; rows: number; net: number }[]; capped: boolean };
+async function detectVoidedDocs(docType: string, voidedNumbers: string[], warnings: string[]): Promise<VoidedDetect> {
+  const uniq = [...new Set(voidedNumbers.filter(Boolean))];
+  const out: VoidedDetect = { seen: uniq.length, inLedger: 0, open: 0, rows: [], sample: [], capped: false };
+  if (!uniq.length) return out;
+  const agg = new Map<string, { rows: number; net: number }>();
+  for (let i = 0; i < uniq.length; i += VOIDED_DOC_CHUNK) {
+    const chunk = uniq.slice(i, i + VOIDED_DOC_CHUNK);
+    const inList = encodeURIComponent(chunk.map((v) => '"' + String(v).replace(/"/g, '\\"') + '"').join(","));
+    const rows = await sbGet("inv_ledger?select=doc_number,qty_delta,source" +
+      "&doc_type=eq." + encodeURIComponent(docType) +
+      "&doc_number=in.(" + inList + ")" +
+      "&limit=" + VOIDED_LEDGER_LIMIT);   // caps-ok: 명시 limit + 아래 capped 판정(닿으면 집계를 못 믿는다고 보고)
+    if (rows.length >= VOIDED_LEDGER_LIMIT) {
+      out.capped = true;
+      warnings.push("voided-docs ledger read hit limit " + VOIDED_LEDGER_LIMIT + " for a " + chunk.length + "-doc chunk - net/rows for this chunk are UNRELIABLE (shrink VOIDED_DOC_CHUNK)");
+    }
+    for (const r of rows) {
+      const dn = String(r.doc_number);
+      const a = agg.get(dn) ?? { rows: 0, net: 0 };
+      a.rows += 1; a.net += Number(r.qty_delta) || 0;
+      agg.set(dn, a);
+    }
+  }
+  const seenAt = new Date().toISOString();
+  for (const dn of uniq) {
+    const a = agg.get(dn);
+    if (!a) continue;                 // 원장에 없다 — 우리가 받은 적 없는 문서
+    out.inLedger++;
+    if (Math.abs(a.net) < 1e-9) continue;   // ⭐ 이미 상쇄된 문서 — 표에 안 넣는다
+    //   ⚠️ qty_delta 는 numeric 이라 소수가 있다(실측 FG-00128 = 0.25) — 부동소수 오차로 상쇄 완료 문서가 매 회차 뜨는 것을 막는다
+    out.open++;
+    out.rows.push({ doc_type: docType, doc_number: dn, doc_status: "VOIDED", ledger_rows: a.rows, ledger_net: a.net, last_seen_at: seenAt, collector: COLLECTOR_VERSION });
+    if (out.sample.length < VOIDED_SAMPLE_MAX) out.sample.push({ doc_number: dn, rows: a.rows, net: a.net });
+  }
+  return out;
+}
+// ⚠️ merge-duplicates(insertMissingLines 의 ignore-duplicates 와 다르다) — 같은 문서가 다음 회차에도
+//   VOIDED 면 last_seen_at 을 갱신해야 한다. PostgREST 는 **보낸 컬럼만** 갱신하므로 payload 에
+//   first_detected_at·resolved_at·resolution_note 를 넣지 않는다 — 넣으면 사람이 닫은 것이 다시 열린다.
+async function upsertVoidedDocs(rows: VoidedDocRow[]): Promise<number> {
+  let written = 0;
+  for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+    const r = await fetch(SB_URL() + "/rest/v1/inv_voided_docs?on_conflict=doc_type,doc_number&select=id", {
+      method: "POST",
+      headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
+      body: JSON.stringify(rows.slice(i, i + INSERT_BATCH)),
+    });
+    if (!r.ok) throw new Error("sbUpsert inv_voided_docs " + r.status + ": " + (await r.text()).slice(0, 400));
+    written += ((await r.json()) as any[]).length;
+  }
+  return written;
 }
 async function sbUpsert(table: string, conflictCol: string, rows: unknown): Promise<void> {
   const r = await fetch(SB_URL() + "/rest/v1/" + table + "?on_conflict=" + conflictCol, {
@@ -1125,6 +1200,22 @@ Deno.serve(async (req) => {
       const statusCounts: Record<string, number> = {};
       for (const row of listRows) statusCounts[norm(row?.Status) || "(none)"] = (statusCounts[norm(row?.Status) || "(none)"] ?? 0) + 1;
 
+      // ── 「수집 후 취소」 감지 (2026-09-04 · 파일 상단 detectVoidedDocs 절) ──
+      // ⚠️ 이 자리인 이유: 커서·floor·재조회 창 **이전**이라 목록 전량을 본다. skip_voided 자리(아래
+      //   disposition 루프)에 붙이면 커서 아래 + 7일 창 밖의 VOIDED — 오래된 문서의 나중 취소 — 를 놓친다.
+      // 검출(원장 REST 조회)은 dry 에서도 돈다(보고용) — 쓰기는 commit 블록의 원장 쓰기 성공 경로에서만.
+      // ⚠️ 진단은 수집을 막지 않는다 — 실패는 경고만, 커서·캡·disposition 무접촉.
+      let voided: VoidedDetect | null = null;
+      if (cfg.detectVoided) {
+        try {
+          const voidedNumbers = listRows.filter((row) => norm(row?.Status) === "VOIDED").map(numberOf);
+          voided = await detectVoidedDocs(cfg.docType, voidedNumbers, warnings);
+        } catch (e: any) {
+          voided = null;
+          warnings.push("voided-doc detection failed (collection unaffected): " + String(e?.message ?? e).slice(0, 200));
+        }
+      }
+
       type Cand = { row: any; num: number; number: string; disposition: string; recheckWindow?: boolean };
       const cands: Cand[] = [];
       let skipBeforeFloor = 0;
@@ -1654,9 +1745,18 @@ Deno.serve(async (req) => {
         missing_lines_unkeyed_sample: missing ? missing.unkeyedSample : [],
         missing_lines_unkeyed_truncated: missing ? missing.unkeyedTruncated : false,
         missing_check_skipped_reason: missingCheckSkipped ?? undefined,
+        // 「수집 후 취소」 감지 (2026-09-04 · detectVoidedDocs 절) — detectVoided 축(adjustment·assembly)만.
+        //   voided_open > 0 = 취소됐는데 원장에 net<>0 으로 남은 문서 — 사람이 상쇄해야 한다. written 은 commit 블록에서 채운다.
+        voided_seen: voided ? voided.seen : 0,
+        voided_in_ledger: voided ? voided.inLedger : 0,
+        voided_open: voided ? voided.open : 0,
+        voided_written: 0,
+        voided_sample: voided ? voided.sample : [],
+        voided_ledger_capped: voided ? voided.capped : false,
         samples,
         warnings,
       });
+      if (voided && voided.open > 0) warnings.push(voided.open + " VOIDED doc(s) still have net<>0 in the ledger (cancelled after collection) - see inv_voided_docs; ledger rows kept (append-only), human offset needed");
       if (missing && missing.detected > 0) warnings.push(missing.detected + " ledger line(s) NO LONGER in the Cin7 doc (deleted lines?) - see inv_missing_lines; ledger rows kept (append-only), human review needed");
       if (missing && missing.unkeyed > 0) warnings.push(missing.unkeyed + " ledger line(s) NO LONGER in Cin7 doc(s) WITHOUT LastModifiedOn (" + missing.unkeyedDocs.join(",") + ") - NOT written to inv_missing_lines (no unique key); see missing_lines_unkeyed_sample, human review needed");
       if (sink.stats.empty_sku_lines > 0) warnings.push(sink.stats.empty_sku_lines + " line(s) dropped for empty sku - parsing is wrong for this source");
@@ -1729,6 +1829,15 @@ Deno.serve(async (req) => {
               R.missing_lines_inserted = await insertMissingLines(missing.rows);
             } catch (e: any) {
               warnings.push("missing-line insert failed (collection unaffected, will re-detect next round): " + String(e?.message ?? e).slice(0, 200));
+            }
+          }
+          // 「수집 후 취소」 기록 (2026-09-04) — 원장 쓰기 성공 뒤에만(dry 는 위에서 검출·보고만).
+          //   merge-duplicates 라 재검출은 last_seen_at 갱신(행 증가 없음). 실패는 경고만(다음 회차 재검출).
+          if (voided && voided.rows.length) {
+            try {
+              R.voided_written = await upsertVoidedDocs(voided.rows);
+            } catch (e: any) {
+              warnings.push("voided-doc upsert failed (collection unaffected, will re-detect next round): " + String(e?.message ?? e).slice(0, 200));
             }
           }
         }
