@@ -9,8 +9,9 @@ description: >
   "Finalize", "Health 탭", "리시빙", "receiver.html", "풋어웨이",
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼", "Invoice First", "held_by", "presence", "bcMap",
-  "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄" 등이
-  나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~41 을 확인하세요.
+  "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄",
+  "inventory.html", "재고 마스터" 등이
+  나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~44 를 확인하세요.
   특히 ⚠️factor는 unit 컬럼, ⚠️bin은 base_sku 기준, ⚠️service_role 금지,
   ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
   어기면 재고·픽 수량이 틀어지거나 남의 작업이 사라집니다.
@@ -334,7 +335,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⚠️⚠️ **EF 에는 서버측 사용자 권한 검사가 없다 — 실측 확인 (2026-08-12, 규칙 43 작업 중 발견)**: receiving apply 의 "3중 게이트"는 전부 클라이언트다(admin.html — 버튼 표시 2곳 + JS 함수 진입 `applyToCin7` 머리의 `me.role==="admin"||perms.includes("apply")` 검사). **EF 자체는 플랫폼 verify_jwt 뿐이라 anon JWT 로 통과**하고, ⚠️ 레포가 PUBLIC 이라(환경 상수 표 — Pages 무료 배포) **anon 키는 누구나 볼 수 있다** — 즉 EF 호출 자체는 누구나 가능하다(RLS 가 DB 쓰기는 막지만 EF 가 service_role 로 하는 일은 못 막는다). **첫 서버측 게이트 = hello `hold_recheck`**(2026-08-12, 규칙 43 — `/auth/v1/user` 로 호출자 검증 후 wms_staff 권한 확인, staff-create 의 검증 패턴 이식). ~~다른 EF(특히 receiving apply — Cin7 쓰기)로의 확대와 레포 비공개 전환은 별건 백로그 — 이번 범위에서 고치지 않았다~~ → ✅ **확대는 2026-08-13 완료**: 게이트를 `_shared/authgate.ts` 로 추출해 **receiving 도 2단 게이트**(read 5종=로그인한 active 직원 / apply 는 dry-run·commit 둘 다 admin·'apply')를 쓴다(커밋 `c76729b` — 상세·검증·구현 판단은 백로그 「보안」). ⚠️ **레포 비공개는 그 항목에서 분리**(2026-08-13 정정 — anon 키는 F12 로 보이므로 비공개는 근본 방어가 아니라 로직 노출을 줄이는 별개 항목).
 - **⚠️ 비번 재설정 이메일 링크**: Supabase Authentication→URL Configuration의 Site URL=`https://wms.asung.ca` + Redirect URLs=`https://wms.asung.ca/*` 설정해야 링크가 맞음(안 하면 localhost:3000으로 감). 배포 후 필수 설정.
 
-## 규칙 9 — 프론트엔드 7화면 (순수 HTML/JS + Supabase CDN)
+## 규칙 9 — 프론트엔드 8화면 (순수 HTML/JS + Supabase CDN)
 
 각 화면 `<head>`에 `wms-config.js` → `supabase CDN(@supabase/supabase-js@2)` → `wms-auth.js` 순 로드. 헤더에 로고+화면명, `me.name` 표시, ☰ Menu(드롭다운 내비)·Change Password·#logoutBtn.
 
@@ -347,6 +348,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 5. **admin.html** — 매니저 허브 **8탭**(Status/Discrepancy/Reports/Stats/Rollback/Finalized/Work Screens + **Health**), 기간필터+달력. 불일치 "Fixed in Cin7" 처리(사람이 Cin7 backend 수정 후). Health=불변식 검증 탭(규칙 19).
 6. **staff-admin.html** — 20명 직원 목록, 인라인 창고/역할 드롭다운(변경즉시저장), active토글, 추가/삭제. **여기서 4명(Ho Kang·Ted Shin·Changmo Ku·Jan Ko)을 manager로 설정** → 그래야 그들에게 매니저 메뉴 보임.
 7. **fulfillment.html** — 팔레타이징+팩킹리스트. **멀티오더**(고객별 그룹 체크리스트→여러 오더 동시), 오더→배치 2단 그룹 드래그, 부분수량 모달, 박스→팔렛 중첩, 혼합 팔렛 오더별 추적. **프랜차이즈**(여러 고객 혼합 허용, "N customers mixed" 경고만). **팩킹리스트 2종**: 유닛별 / **스토어별 종합**(각 스토어 1페이지, 그 스토어 물건이 어느 팔렛·박스에 있는지 + ⚠️미배정 경고). requireManager=false. **스캔 배정**(2026-07-29, 세 번째 입력 수단): 유닛 탭=타깃 → 상품 스캔 배정 — Scan qty|Move all 토글, 오더 귀속 3단(1오더 자동/유닛 내 오더 자동/모달), 박스=오더 하나 원칙(혼합 가드 `New box for …` + `⚠ N orders mixed` 배지), Undo 5건, 낙관적 렌더+저장 실패 롤백 — **규칙 36**(⚠️ 실전 미검증) · 상세는 `references/frontend.md` 「스캔 배정」. **분할 팩 완료 게이트 (2026-08-06 · ⚠️ 현장 미검증)**: 부모 오더의 **모든 분할이 팩 완료되기 전에는 보드에 안 보인다**(전부 아니면 전무 — 5분할 중 1개 미완이면 5개 전부 숨고 마지막 완료 순간 함께 등장. 현장 사고: 일부만 팩 완료된 오더가 진행돼 분할 누락 — 표시는 아무도 안 읽는다, SO-14129 동류). **판정 = `wms_order_pack_progress` 뷰 한 곳**(`20260806110000_…view.sql`, security_invoker + ⚠️ GRANT 필수 — 빠지면 보드 전체가 빈다): ⚠️ **분모는 픽 배치 수**(팩 태스크 수로 세면 팩 미시작 배치가 빠져 오판 — 실측 SO-14188 pick 2·pack 1) · `ready_to_close` 상태 비의존(전이 유실·롤백에도 사실 계산이 자동 복구 — 롤백이 pack_tasks 를 지우면 스스로 다시 숨는다) · 뷰에 행 없음 = 미자격(fail-closed). 소비 4곳이 전부 이 뷰만 읽는다: ①보드 필터(`loadOrders`) ②차단 오더 스캔 시 "N/M packed" 안내 토스트 ③**Finalize 직전 재확인 벨트**(로드 후 롤백 대비 — 미달이면 전체 중단) ④admin Status 의 `Fulfillment hold` 카드+행 칩(`⏳ N/M packed` — 숨긴 오더의 박스가 쌓이는 걸 매니저가 볼 유일한 신호). **예외 없음**(사용자 결정 — 갇히면 매니저가 롤백으로 재구성, 예외 컬럼 미리 안 만든다) — 나중에 예외가 생기면 **뷰의 all_packed 식 한 줄**만 고친다. ⚠️ **뷰 조회 실패는 "주문 없음"과 구분해 크게 표시**("Couldn't check pack status — NOT an empty queue" + Retry) — 빈 보드로 위장하면 작업자가 일이 없는 줄 알고 기다린다. ⚠️ 배포 순서: SQL(뷰) 먼저 → 프론트 나중. **팔렛 조작 쓰기 확인 (2026-08-06 감사 후속 · ⚠️ 현장 미검증)**: onDropToUnit·mergeOrInsert·delUnit·removeItem·노트 입력의 무확인 쓰기 11곳에 `mustRows` 헬퍼(error + `.select()` 행 수 — 규칙 20, 삭제는 0행 허용) 적용. PostgREST 는 실패해도 throw 하지 않아 바깥 try/catch 가 무의미했다. 실패 메시지 3등급(재시도 "drop it again" / **분할 이동 부분 실패 = 유실 방향** — "그 수량은 어느 팔렛에도 없음, pool 에서 다시 끌 것" / poolMany 집계 "N placed, M FAILED"), 실패 시 refresh() 재조회, **보상 쓰기 금지**. ⚠️ **분할 이동 순서는 감소→추가 유지(역전안 기각 — 사용자 결정)**: pool 이 rem>0 만 표시해 **증식은 숨고 유실은 보인다** — 일반론과 반대. 기준선·경위는 `docs/audits/2026-08-06-write-verification-baseline.md`(145곳 중 무확인 28+ — 패턴 26 + 정독 2, 하한).
+8. **inventory.html** — ⭐ **재고 마스터**(2026-09-01~05 · 원장 재고를 보는 매니저 화면 · `requireManager:true` + `perms=stock`). **SKU 층 | Bins 층 토글**(기본 SKU · 상태는 메모리에만 — localStorage 금지). 데이터는 **원장 RPC 셋**(`inv_stock_master_sku` · `inv_stock_master` · `inv_diff_summary`) + 마스터 `wms_sku_snapshot` 1왕복(페이지 sku `.in()` — 이름·바코드·입수·사진 · ⚠️ 브랜드 없음). SKU 행 캐럿을 펼치면 그 SKU 의 칸(bin) 행이 lazy 1왕복으로 나온다(캐시 · 목록 재로드 시 비움). ⚠️⚠️ **어기면 조용히 틀리는 규칙 7개는 규칙 44** — 명명 인자 · 캐럿에 `p_warehouse` 금지 · 거울 칸 · `new_since_snapshot_bins` 비경고 · 카드≠목록 시점 · 창고 원문 · 마스터 재적재 공백. 커밋: 1단계 `2392f76` · 창고·카드 `51279b6` · SKU 층 `d4f1dd5`. 계약 정본은 원장 `docs/design/ledger-design.md` §재고 마스터(WMS 는 읽기만).
 
 - ⚠️ **완료 확인은 공용 마찰 모달 `wms-confirm-modal.js` (2026-08-05, SO-14129 팩 무단완료 후속)**: picker `Complete as incomplete`·packer `Complete pack` 의 native confirm 은 **물리 탭 2회**(footer 완료 버튼 오탭 → OK 오탭)로 스캔 0건 60줄 오더가 완료되는 결함이었다(상시 재현 검증). ~~스캐너 CR 이 confirm 을 승인한다는 가설(H1)~~ 은 실측 반증 — 안드로이드에서 스캐너는 읽었으나(비프) 다이얼로그에 무반응, 접미는 CR 뿐. **대응은 모달 강화 하나** — 하드 차단·버튼 위치 변경은 하지 않는다(사용자 결정). 모달: 부족 수량(base)을 정확히 타이핑해야 End 활성화 · Enter 확정 불가(캡처 차단, 스캐너 CR 포함) · Escape=취소(비표시 단축키) · autofocus 금지 · 표시 중 `scanBusy` 로 processScan 차단(packer overModal 도 포함) · 티어 2(부족 ≥ 주문 base 의 50%, 검수 0건=100%)는 빨간 경고문 추가 — **마찰 로직은 티어 무분기, 문구·라벨은 호출 화면이 넘긴다**(하드코딩 금지). ⚠️ **stock_short 선언 라인은 부족 계산에서 제외** — 선언만 남으면 모달 없이 가벼운 confirm(규칙 41: 정직한 기록을 벌주지 않는다). picker `Pick complete` 의 기존 toast 차단은 그대로(올바른 가드). 완료 UPDATE 는 `completed_by`, packer discrepancy insert 4곳은 `pack_task_id`·picker insert 2곳은 `pick_task_id` 를 남긴다(`20260805000000_completed_by_pack_link.sql` — **FK 없음**(롤백 delete 에도 증거 보존), **읽는 쪽 미구현(의도)**: 나중 롤백 무효화 근거, 무효화 판단은 reason 으로 — stock_short 는 선언 산물이라 대상 아님). 상세는 `references/frontend.md` 「2026-08-05」.
 
@@ -1169,6 +1171,52 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 ⬜ **착수 전 관문(미실측)**: **브랜치 변경이 `saleList` 의 `Updated` 를 올리는가.**
 안 올리면 Updated 트리거로 못 잡고 별도 스윕이 필요해 설계가 달라진다.
 GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측과 같은 방법).
+
+## 규칙 44 — 재고 마스터 화면(inventory.html): 어기면 조용히 틀리는 것 7개 (⚠️ 2026-09-06 · 원장 RPC 소비 규칙)
+
+`inventory.html` 은 원장(`asung-inv-ledger`)이 만든 RPC 를 **소비만** 한다 — 뷰·RPC·마이그레이션은 원장 몫이고 WMS 는 화면만 고친다. 아래 7개는 전부 **에러가 안 나고 값만 틀리는** 종류라 코드 주석에만 있으면 다음 세션이 못 본다(jobid 15 오기 · bin 백필 검증 상태 갈림 — 「어딘가엔 적혀 있었지만 읽히는 자리에 없었던」 사고들과 같은 부류).
+
+```
+① 두 RPC 의 파라미터 순서가 다르다
+   inv_stock_master_sku : p_sku_exact 가 5번째
+   inv_stock_master     : p_sku_exact 가 맨 끝
+   ⇒ 반드시 명명 인자 sb.rpc("이름", {키: 값}). 위치 인자로 부르면 에러 없이 틀린 값이 나온다
+
+② 캐럿 펼침에 p_warehouse 를 넘기지 않는다 (null 명시)
+   창고 필터가 걸려 있어도 그 SKU 의 전 창고 칸을 보여주는 것이 WMS 가 원장에 한 약속이다.
+   ⚠️ 함수는 이것을 막지 않는다 — 화면에만 있는 규칙이다. 넘기면 그 창고 칸만 나오고 에러가 안 난다
+
+③ diff 합만 보면 거울 칸이 사라진다
+   +3/−3 이 SKU 층에서 0 이 된다(실물 PRO00124 · EB010302/EB010304 · diff 0 · diff_bins 2 · abs_diff 6).
+   diff_bins · abs_diff 를 반드시 함께 그린다 — diff 가 0 이어도 diff_bins > 0 이면 경고(빨강 + 배지)
+   ⚠️ 이게 없으면 SKU 층은 어긋남을 감추는 화면이 되고 칸 층보다 나빠진다
+
+④ new_since_snapshot_bins 를 경고로 띄우지 않는다
+   낮에 자리 이동이 있으면 늘 생기고 다음 스냅샷에 사라지는 정상값이다
+   [실측] 09-04 저녁 10칸 → 09-05 아침 0칸
+   ⚠️ 경고로 만들면 매일 오탐 — 이 레포가 계속 경계해 온 「매일 빨간불」이다.
+   표시한다면 in_transit_bins(상시 · IN_TRANSIT)와 나란히 중립적으로(hover 문구)
+
+⑤ 카드와 목록은 다른 시점을 센다 — 값이 달라도 정상이다
+   카드 = inv_diff_summary → inv_balance_diffs(새벽에 굳은 일지)
+   목록 = inv_stock_master → inv_balance_vs_cin7(현재 뷰)
+   [실측 09-02] 카드 21 · 목록 9 — 12칸은 낮에 해소된 것. 둘 다 맞다
+   ⚠️ 이것을 결함으로 오인해 파고든 일이 실제로 두 번 있었다(WMS·원장 각 1회)
+   ⇒ 카드 라벨이 「AS OF <스냅샷 시각>」 이고 부제가 「now N」 인 이유(51279b6). 「resolved」류 해석은 붙이지 않는다
+
+⑥ 창고 값은 Cin7 원문 정확 일치 — 한 글자 틀리면 조용히 빈 결과
+   Asung Trading Inc. / Asung - Edmonton / IN_TRANSIT   (2026-09-04 실측 확정 · <option value> 가 그 원문)
+
+⑦ 마스터(wms_sku_snapshot)는 매일 06:31 truncate 후 재적재(약 14초)
+   그 사이에 열면 이름이 전부 빈칸이다. SKU 코드는 항상 남긴다
+   ⚠️ 조회 실패는 표 단위 사실 — 행마다 칩을 찍지 않고 표 위에 한 번(masterNote). 행 단위 (no master) 칩과 섞지 않는다
+```
+
+**성능(실측)**: `inv_stock_master` **496 ms**(09-05 수리 · 3,891 → 496 · `full outer join` 치환 — 원장 몫) · `inv_stock_master_sku` **537 ms**. 목표 ≤1,000 ms 합의 · ≤500 ms 면 캐럿 펼침이 자연스럽다. ⚠️ 화면 쪽 캐시: 펼친 SKU 는 재호출하지 않는다(목록 재로드 시 비움). 페이징은 서버 비용을 줄이지 않는다(`total` 이 `count(*)`) — 느리면 원장 세션 일이다.
+
+**⬜ 열려 있는 것**
+- **브랜드** — Supabase 에 없다(BQ `asung_product_master.brand`). 마이그레이션 ALTER + GAS `WmsSync` SELECT + 프론트 **3곳** 수정(규칙 6) · 별건.
+- **2단계 쓰기** — 확인 버튼(`inv_ack_diff` · 칸 단위 축이라 bin 행에서만) · 코멘트(`inv_bin_notes`). ⚠️ 코멘트의 정보원은 **창고 작업자**인데 지금 게이트가 `requireManager:true` 다 — 착수 때 재판단.
 
 ## 현재 진행 상태 (2026-08-04 기준)
 
