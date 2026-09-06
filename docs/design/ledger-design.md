@@ -63,6 +63,11 @@ VOID 된 SO). 정본: `docs/sessions/2026-08-31-transfer-departure-bin.md`.
 계약에 올렸다. ⚠️ **「G4 조건만 완화」가 안 되는 이유**(유니크 키)를 §B-1 에 박았다.
 정본: `docs/sessions/2026-09-03-clean-morning.md`.
 
+갱신 2026-09-05 — 재고 마스터 RPC 둘. ① `inv_stock_master` 성능 수리(`union all` 두 갈래를
+`full outer join` 하나로 — 뷰가 인라인되어 각 2회 실행되던 것을 1회로 · **3,891 → 496 ms**)
++ `p_sku_exact` 추가(옛 6-인자 `drop`). ② **`inv_stock_master_sku` 신설**(SKU 층 · 537 ms) —
+⚠️ 필터를 집계 전/후로 나눠 **거울 칸**을 지킨다(`diff` 합이 0이어도 `diff_bins > 0`).
+
 레포 경로: `docs/design/ledger-design.md`
 (마이그레이션 `20260816000000_inv_ledger_tables.sql` 이 이 문서를 참조한다)
 
@@ -595,6 +600,7 @@ Cin7 대조는 `inv_balance_vs_cin7` 이고 ⭐ **시점 컷오프가 들어가 
 | | |
 |---|---|
 | `inv_stock_master(...)` RPC | 전체 재고 + Cin7 열 · 검색·필터·페이징 |
+| `inv_stock_master_sku(...)` RPC | ⭐ **SKU 층**(2026-09-05) — 한 SKU 를 한 줄로 접는다. 캐럿 펼침은 칸 층을 `p_sku_exact` 로 부른다 |
 | `inv_balance_diffs` | 어긋남 일지 · ⭐ `first_seen_on` 이 시간 축 |
 | `inv_bin_notes` | 코멘트 (insert·select 만) |
 | `inv_ack_diff(...)` | ⭐ 「확인됨」 누르기 — **창고·매니저가 원인을 안다는 표시**다 |
@@ -604,6 +610,71 @@ Cin7 대조는 `inv_balance_vs_cin7` 이고 ⭐ **시점 컷오프가 들어가 
 있다. 해결됨은 원장이 상쇄를 넣어 실제로 맞춘 것이고, 그러면 **다음 회차에 목록에서 저절로
 사라진다** — 별도 상태가 없다.
 📌 화면이 누르는 것은 **「확인됨」 하나**다.
+
+#### 두 RPC — 시그니처와 반환 (2026-09-05)
+
+⚠️⚠️ **파라미터 순서가 두 함수에서 다르다 — 반드시 명명 인자로 부를 것.**
+위치 인자로 부르면 **조용히 틀린다.**
+
+```
+inv_stock_master(      p_search, p_warehouse, p_only_diff, p_nonzero,
+                       p_limit, p_offset, p_sku_exact )      ← p_sku_exact 가 맨 끝
+inv_stock_master_sku(  p_search, p_warehouse, p_only_diff, p_nonzero,
+                       p_sku_exact, p_limit, p_offset )      ← p_nonzero 다음
+```
+
+📌 칸 층에서 `p_sku_exact` 를 **맨 끝**에 붙인 이유: 기존 6-인자 호출(위치·명명 모두)을
+깨지 않기 위해서다.
+⚠️ **옛 6-인자 시그니처는 `drop` 했다.** 7-인자가 default 라 6-인자 명명 호출에도
+매칭되어, 둘이 남으면 PostgREST 가 두 후보를 모두 맞다고 보고 **후보 선택 오류**를 낸다
+(화면이 통째로 깨진다). ⇒ **시그니처를 바꿀 때는 옛것을 반드시 지운다.**
+
+**SKU 층 `rows[]` — 13개**
+
+| 컬럼 | 뜻 |
+|---|---|
+| `sku` | 접기 키 |
+| `qty` | 창고 재고 — ⚠️ **`IN_TRANSIT` 제외** |
+| `in_transit_qty` | 운송 중 — 분리해서 낸다 |
+| `qty_at_snapshot` · `cin7_qty` | 컷오프 시점 원장 · Cin7 |
+| `diff` | ⚠️ **이것만 보면 안 된다** — 거울 칸이 상쇄된다 |
+| `diff_bins` | ⭐ `diff ≠ 0` 인 칸 수 |
+| `abs_diff` | ⭐ 각 칸 `abs(diff)` 의 합 |
+| `in_transit_bins` | 운송 중이라 대조 상대가 없는 칸 수 — **상시** |
+| `new_since_snapshot_bins` | 스냅샷 이후 생긴 칸 수 — ⚠️ **정상값**(아래) |
+| `bins` · `warehouses` | 걸쳐 있는 칸·창고 수 (⚠️ `IN_TRANSIT` 은 창고로 세지 않는다) |
+| `unack_bins` | `diff ≠ 0` 이고 미확인인 칸 수 |
+
+봉투는 칸 층과 동형: `total` · `snapshot_key` · `snapshot_at` ·
+`ledger_collected_at` · `ledger_lag_source` · `rows[]`.
+❌ `first_seen_on` 은 SKU 층에 내지 않는다 — 칸 단위 의미다. 가장 오래된 것을 대표로 내면
+**새로 생긴 칸이 오래된 것처럼 보인다.**
+
+⚠️⚠️ **`diff` 합만 보면 거울 칸이 사라진다.**
+[실물 `PRO00124`] 에드먼튼 `EB010302` **+3** · `EB010304` **−3** →
+SKU 층에서 `diff 0` 인데 `diff_bins 2` · `abs_diff 6` 이다.
+⇒ **화면은 `diff` 가 0이어도 `diff_bins > 0` 이면 경고를 띄운다.**
+그것이 없으면 SKU 층은 **어긋남을 감추는 화면**이 된다 — 칸 층보다 나빠진다.
+
+📌 **필터는 집계 전/후로 나뉜다** — 칸 단위로 먼저 걸면 `p_only_diff` 가 `diff = 0` 칸을
+지워 `qty` 가 「어긋난 칸의 재고만 더한 값」이 되고, **거울 칸 경고를 넣어놓고 필터가
+그것을 걸러내는** 모양이 된다.
+· 집계 전 — `p_sku_exact`/`p_search` · `p_warehouse`
+· 집계 후 — `p_only_diff` → `diff_bins > 0` · `p_nonzero`
+⚠️ **`p_only_diff` 의 뜻이 층마다 다르다**: 칸 층 「이 칸이 어긋났다」 ·
+SKU 층 **「이 SKU 에 어긋난 칸이 있다」**.
+
+📌 **`p_warehouse` 는 부분합이다**(WMS 확정) — 창고를 고르면 `qty`·`bins`·`warehouses`·
+`diff_bins` 전부 그 창고 것만. 총합이 필요하면 필터를 푼다(기본이 전체).
+⚠️ **캐럿 펼침에는 `p_warehouse` 를 주지 않는 것이 화면의 약속**이다(전 창고 칸을 보여주려고).
+**함수는 그 규칙을 넣지 않았다 — 받은 대로 처리한다.** 주면 그 창고 칸만 나온다.
+
+⚠️ **`unack_bins` 는 낮에 부풀어 보인다.** 「확인됨」을 `inv_balance_diffs` 의 **최신 회차**
+에서 읽는데 그 일지는 **새벽에 굳는다** ⇒ 낮에 새로 어긋난 칸은 일지에 없어 미확인으로
+세인다. 칸 층 `Ack` 열이 그런 칸을 「—」로 그리는 것과 **같은 동작**이다.
+
+📌 [실측 2026-09-05] 칸 층 **496 ms** · SKU 층 **537 ms** · 칸 14,272 → SKU 7,938.
+⚠️ `total` 이 `count(*)` 라 **페이징은 비용을 줄이지 않는다**(두 층 모두).
 
 📌 **세 화면의 경계** — 겹치지 않는다:
 · WMS **Discrepancy** = 오더 단위 픽·팩 수량 불일치
@@ -620,10 +691,35 @@ Cin7 대조는 `inv_balance_vs_cin7` 이고 ⭐ **시점 컷오프가 들어가 
 📌 **화면은 이 값을 반드시 표시한다** — [실사고 2026-09-01] WMS 의 `⟳ Stock` 체인이
 **12일간 죽어 있었는데 어느 화면에도 드러나지 않았다.**
 
-⚠️ **`diff` 가 `null` 인 행**: `inv_balance_vs_cin7` 은 `IN_TRANSIT` 을 제외하고
-`inv_stock_master` 는 `inv_balance`(포함)에 그것을 left join 하므로 **조인에서** `null` 이 생긴다.
+⚠️ **`diff` 가 `null` 인 행**: `inv_balance_vs_cin7` 은 `IN_TRANSIT` 을 제외한다.
+`inv_stock_master` 는 두 뷰를 **`full outer join`** 하므로(2026-09-05 성능 수리 —
+그전에는 `union all` + `not exists` 두 갈래였다) **`inv_balance` 에만 있는 행**에서
+`null` 이 생긴다.
 ⇒ **뷰를 `group by` 로 세면 `null` 이 0건인 것이 정상**이다 — 「비교 불가」는 **뷰에 없다는
 사실 자체**로 표현된다. 화면은 그것을 `n/a` 로 그리고 **0 과 구분**한다.
+
+⚠️⚠️ **그 `n/a` 는 두 부류이고 성격이 다르다 — 하나로 합치면 뜻을 잃는다.**
+
+| | 무엇 | 성격 |
+|---|---|---|
+| `in_transit_bins` | `IN_TRANSIT` — Cin7 쪽 대응이 원래 없다 | ⭐ **상시**(실측 512칸) |
+| `new_since_snapshot_bins` | 스냅샷 **이후** 생긴 자리 — 대조 상대가 아직 없다 | ⚠️ **하루살이** |
+
+⚠️⚠️ **`new_since_snapshot_bins` 는 정상값이다.** 낮에 자리 이동이 있으면 늘 생기고
+**다음 스냅샷에 사라진다.** [실측] 09-04 저녁 **10칸**(에드먼튼 `TR-04501`~`04504` bin 이동)
+→ 09-05 아침 **0칸**.
+⇒ 📌 **화면이 이것을 경고로 띄우면 매일 오탐이 난다** — 이 프로젝트가 계속 경계해 온
+「매일 빨간불」이 하나 더 생긴다. 표시한다면 `in_transit_bins` 와 **나란히, 중립적으로**.
+
+📌 하나로 합쳐 세면 이런 것을 못 읽는다 — 09-04 `n/a` 522칸 → 09-05 **512칸**의 차이 10 이
+무슨 뜻인지 알 수 없게 된다.
+
+⚠️ **`full outer join` 이 성립하는 전제**: 두 뷰 모두 `(sku, warehouse, bin)` 이 group by
+키라 **유일**하고, `bin` 이 양쪽 `coalesce(bin,'')` 라 **not null** 이다
+(`null = null` 은 false 라, 이것이 아니었으면 매칭이 조용히 깨졌다).
+⇒ **뷰의 group by 키·bin coalesce 를 바꿀 때 이 조인을 함께 볼 것.**
+📌 `IN_TRANSIT` 512칸은 그 조인에서 **`inv_balance` 전용 행**으로 살아남는다 —
+**잃어도 에러가 안 난다. 조용히 줄어든다.** RPC 를 고칠 때 그 수를 반드시 검산한다.
 
 ### 4단계 — 원가
 
