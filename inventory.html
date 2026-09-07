@@ -710,8 +710,8 @@ function histHtml(d, key){
     ? `<tr class="baserow" title="Baseline snapshot — the starting point, not an event. Taken ${esc(fmtTorTime(b.taken_at))} (Toronto). Changes when the baseline is re-based (inv_config).">
         <td class="mono">${esc(fmtTorDate(String(b.taken_at).slice(0,10)))}</td><td></td><td class="mono">${esc(b.snapshot_key||"")}</td>
         <td>baseline snapshot</td><td></td><td class="num mono">${fmtNum(b.qty)}</td><td></td></tr>`
-    : `<tr class="baserow" title="This SKU has no row in the baseline snapshot — it starts from 0.">
-        <td></td><td></td><td class="mono">${esc(b.snapshot_key||"")}</td><td>no baseline row for this SKU</td><td></td><td class="num mono">${fmtNum(b.qty==null?0:b.qty)}</td><td></td></tr>`;
+    : `<tr class="baserow" title="This bin has no row in the baseline snapshot — it starts from 0.">
+        <td></td><td></td><td class="mono">${esc(b.snapshot_key||"")}</td><td>no baseline row for this bin</td><td></td><td class="num mono">${fmtNum(b.qty==null?0:b.qty)}</td><td></td></tr>`;
   return cap+`<table class="histtbl"><thead><tr>
       <th>Date</th><th>Collected</th><th>Doc</th><th>Event</th><th class="num">Δ</th><th class="num">Running</th><th>Reason</th>
     </tr></thead><tbody>${evRows}${baseRow}</tbody></table>`;
