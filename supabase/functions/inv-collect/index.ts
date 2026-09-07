@@ -223,6 +223,7 @@ const SOURCES: Record<string, { listPath: string; listKey: string; numberField: 
   transfer: {
     listPath: "/stockTransferList", listKey: "StockTransferList", numberField: "Number",
     detailPath: (id) => "/stockTransfer?TaskID=" + encodeURIComponent(id), docType: "transfer",
+    detectVoided: true,   // transfer 는 4행 구조라 문서 순액이 늘 0(실측 339건 전부) — net 판정으로는 안 잡힌다. seen/in_ledger 관측용으로 먼저 켠다(2026-09-07) · open 은 0 예상
   },
   assembly: {
     listPath: "/finishedGoodsList", listKey: "FinishedGoods", numberField: "AssemblyNumber",
