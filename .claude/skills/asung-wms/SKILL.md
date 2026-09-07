@@ -348,7 +348,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 5. **admin.html** — 매니저 허브 **8탭**(Status/Discrepancy/Reports/Stats/Rollback/Finalized/Work Screens + **Health**), 기간필터+달력. 불일치 "Fixed in Cin7" 처리(사람이 Cin7 backend 수정 후). Health=불변식 검증 탭(규칙 19).
 6. **staff-admin.html** — 20명 직원 목록, 인라인 창고/역할 드롭다운(변경즉시저장), active토글, 추가/삭제. **여기서 4명(Ho Kang·Ted Shin·Changmo Ku·Jan Ko)을 manager로 설정** → 그래야 그들에게 매니저 메뉴 보임.
 7. **fulfillment.html** — 팔레타이징+팩킹리스트. **멀티오더**(고객별 그룹 체크리스트→여러 오더 동시), 오더→배치 2단 그룹 드래그, 부분수량 모달, 박스→팔렛 중첩, 혼합 팔렛 오더별 추적. **프랜차이즈**(여러 고객 혼합 허용, "N customers mixed" 경고만). **팩킹리스트 2종**: 유닛별 / **스토어별 종합**(각 스토어 1페이지, 그 스토어 물건이 어느 팔렛·박스에 있는지 + ⚠️미배정 경고). requireManager=false. **스캔 배정**(2026-07-29, 세 번째 입력 수단): 유닛 탭=타깃 → 상품 스캔 배정 — Scan qty|Move all 토글, 오더 귀속 3단(1오더 자동/유닛 내 오더 자동/모달), 박스=오더 하나 원칙(혼합 가드 `New box for …` + `⚠ N orders mixed` 배지), Undo 5건, 낙관적 렌더+저장 실패 롤백 — **규칙 36**(⚠️ 실전 미검증) · 상세는 `references/frontend.md` 「스캔 배정」. **분할 팩 완료 게이트 (2026-08-06 · ⚠️ 현장 미검증)**: 부모 오더의 **모든 분할이 팩 완료되기 전에는 보드에 안 보인다**(전부 아니면 전무 — 5분할 중 1개 미완이면 5개 전부 숨고 마지막 완료 순간 함께 등장. 현장 사고: 일부만 팩 완료된 오더가 진행돼 분할 누락 — 표시는 아무도 안 읽는다, SO-14129 동류). **판정 = `wms_order_pack_progress` 뷰 한 곳**(`20260806110000_…view.sql`, security_invoker + ⚠️ GRANT 필수 — 빠지면 보드 전체가 빈다): ⚠️ **분모는 픽 배치 수**(팩 태스크 수로 세면 팩 미시작 배치가 빠져 오판 — 실측 SO-14188 pick 2·pack 1) · `ready_to_close` 상태 비의존(전이 유실·롤백에도 사실 계산이 자동 복구 — 롤백이 pack_tasks 를 지우면 스스로 다시 숨는다) · 뷰에 행 없음 = 미자격(fail-closed). 소비 4곳이 전부 이 뷰만 읽는다: ①보드 필터(`loadOrders`) ②차단 오더 스캔 시 "N/M packed" 안내 토스트 ③**Finalize 직전 재확인 벨트**(로드 후 롤백 대비 — 미달이면 전체 중단) ④admin Status 의 `Fulfillment hold` 카드+행 칩(`⏳ N/M packed` — 숨긴 오더의 박스가 쌓이는 걸 매니저가 볼 유일한 신호). **예외 없음**(사용자 결정 — 갇히면 매니저가 롤백으로 재구성, 예외 컬럼 미리 안 만든다) — 나중에 예외가 생기면 **뷰의 all_packed 식 한 줄**만 고친다. ⚠️ **뷰 조회 실패는 "주문 없음"과 구분해 크게 표시**("Couldn't check pack status — NOT an empty queue" + Retry) — 빈 보드로 위장하면 작업자가 일이 없는 줄 알고 기다린다. ⚠️ 배포 순서: SQL(뷰) 먼저 → 프론트 나중. **팔렛 조작 쓰기 확인 (2026-08-06 감사 후속 · ⚠️ 현장 미검증)**: onDropToUnit·mergeOrInsert·delUnit·removeItem·노트 입력의 무확인 쓰기 11곳에 `mustRows` 헬퍼(error + `.select()` 행 수 — 규칙 20, 삭제는 0행 허용) 적용. PostgREST 는 실패해도 throw 하지 않아 바깥 try/catch 가 무의미했다. 실패 메시지 3등급(재시도 "drop it again" / **분할 이동 부분 실패 = 유실 방향** — "그 수량은 어느 팔렛에도 없음, pool 에서 다시 끌 것" / poolMany 집계 "N placed, M FAILED"), 실패 시 refresh() 재조회, **보상 쓰기 금지**. ⚠️ **분할 이동 순서는 감소→추가 유지(역전안 기각 — 사용자 결정)**: pool 이 rem>0 만 표시해 **증식은 숨고 유실은 보인다** — 일반론과 반대. 기준선·경위는 `docs/audits/2026-08-06-write-verification-baseline.md`(145곳 중 무확인 28+ — 패턴 26 + 정독 2, 하한).
-8. **inventory.html** — ⭐ **재고 마스터**(2026-09-01~05 · 원장 재고를 보는 매니저 화면 · `requireManager:true` + `perms=stock`). **SKU 층 | Bins 층 토글**(기본 SKU · 상태는 메모리에만 — localStorage 금지). 데이터는 **원장 RPC 셋**(`inv_stock_master_sku` · `inv_stock_master` · `inv_diff_summary`) + 마스터 `wms_sku_snapshot` 1왕복(페이지 sku `.in()` — 이름·바코드·입수·사진 · ⚠️ 브랜드 없음). SKU 행 캐럿을 펼치면 그 SKU 의 칸(bin) 행이 lazy 1왕복으로 나온다(캐시 · 목록 재로드 시 비움). ⚠️⚠️ **어기면 조용히 틀리는 규칙 7개는 규칙 44** — 명명 인자 · 캐럿에 `p_warehouse` 금지 · 거울 칸 · `new_since_snapshot_bins` 비경고 · 카드≠목록 시점 · 창고 원문 · 마스터 재적재 공백. 커밋: 1단계 `2392f76` · 창고·카드 `51279b6` · SKU 층 `d4f1dd5`. 계약 정본은 원장 `docs/design/ledger-design.md` §재고 마스터(WMS 는 읽기만).
+8. **inventory.html** — ⭐ **재고 마스터**(2026-09-01~06 · 원장 재고를 보는 매니저 화면 · `requireManager:true` + `perms=stock`). **SKU 층 | Bins 층 토글**(기본 SKU · 상태는 메모리에만 — localStorage 금지). 데이터는 **원장 RPC 넷**(`inv_stock_master_sku` · `inv_stock_master` · `inv_diff_summary` · `inv_bin_history`) + 마스터 `wms_sku_snapshot` 1왕복(페이지 sku `.in()` — 이름·바코드·입수·사진 · ⚠️ 브랜드 없음). SKU 행 캐럿을 펼치면 그 SKU 의 칸(bin) 행이 lazy 1왕복으로 나온다(캐시 · 목록 재로드 시 비움). 칸 행 캐럿을 펼치면 그 칸의 **이력**(`inv_bin_history` · 사건 목록 + 맨 아래 기초 행 · 최신이 위 · lazy 1왕복 · 캐시 · 두 층 공통 · 경고 스타일 없음)이 나온다. ⚠️⚠️ **어기면 조용히 틀리는 규칙 9개는 규칙 44** — 명명 인자 · 캐럿에 `p_warehouse` 금지 · 거울 칸 · `new_since_snapshot_bins` 비경고 · 카드≠목록 시점 · 창고 원문 · 마스터 재적재 공백 · 기초 행 · 이력 캐럿은 창고·bin 을 넘긴다. 커밋: 1단계 `2392f76` · 창고·카드 `51279b6` · SKU 층 `d4f1dd5` · 이력 `629ae65`·`bc99d10`. 계약 정본은 원장 `docs/design/ledger-design.md` §재고 마스터(WMS 는 읽기만).
 
 - ⚠️ **완료 확인은 공용 마찰 모달 `wms-confirm-modal.js` (2026-08-05, SO-14129 팩 무단완료 후속)**: picker `Complete as incomplete`·packer `Complete pack` 의 native confirm 은 **물리 탭 2회**(footer 완료 버튼 오탭 → OK 오탭)로 스캔 0건 60줄 오더가 완료되는 결함이었다(상시 재현 검증). ~~스캐너 CR 이 confirm 을 승인한다는 가설(H1)~~ 은 실측 반증 — 안드로이드에서 스캐너는 읽었으나(비프) 다이얼로그에 무반응, 접미는 CR 뿐. **대응은 모달 강화 하나** — 하드 차단·버튼 위치 변경은 하지 않는다(사용자 결정). 모달: 부족 수량(base)을 정확히 타이핑해야 End 활성화 · Enter 확정 불가(캡처 차단, 스캐너 CR 포함) · Escape=취소(비표시 단축키) · autofocus 금지 · 표시 중 `scanBusy` 로 processScan 차단(packer overModal 도 포함) · 티어 2(부족 ≥ 주문 base 의 50%, 검수 0건=100%)는 빨간 경고문 추가 — **마찰 로직은 티어 무분기, 문구·라벨은 호출 화면이 넘긴다**(하드코딩 금지). ⚠️ **stock_short 선언 라인은 부족 계산에서 제외** — 선언만 남으면 모달 없이 가벼운 confirm(규칙 41: 정직한 기록을 벌주지 않는다). picker `Pick complete` 의 기존 toast 차단은 그대로(올바른 가드). 완료 UPDATE 는 `completed_by`, packer discrepancy insert 4곳은 `pack_task_id`·picker insert 2곳은 `pick_task_id` 를 남긴다(`20260805000000_completed_by_pack_link.sql` — **FK 없음**(롤백 delete 에도 증거 보존), **읽는 쪽 미구현(의도)**: 나중 롤백 무효화 근거, 무효화 판단은 reason 으로 — stock_short 는 선언 산물이라 대상 아님). 상세는 `references/frontend.md` 「2026-08-05」.
 
@@ -1172,14 +1172,15 @@ Cin7 UI 의 트랜스퍼 문서에는 `Put away` 옵션이 있고, 켜면 라인
 안 올리면 Updated 트리거로 못 잡고 별도 스윕이 필요해 설계가 달라진다.
 GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측과 같은 방법).
 
-## 규칙 44 — 재고 마스터 화면(inventory.html): 어기면 조용히 틀리는 것 7개 (⚠️ 2026-09-06 · 원장 RPC 소비 규칙)
+## 규칙 44 — 재고 마스터 화면(inventory.html): 어기면 조용히 틀리는 것 9개 (⚠️ 2026-09-06 · 09-07 ⑧⑨ 추가 · 원장 RPC 소비 규칙)
 
-`inventory.html` 은 원장(`asung-inv-ledger`)이 만든 RPC 를 **소비만** 한다 — 뷰·RPC·마이그레이션은 원장 몫이고 WMS 는 화면만 고친다. 아래 7개는 전부 **에러가 안 나고 값만 틀리는** 종류라 코드 주석에만 있으면 다음 세션이 못 본다(jobid 15 오기 · bin 백필 검증 상태 갈림 — 「어딘가엔 적혀 있었지만 읽히는 자리에 없었던」 사고들과 같은 부류).
+`inventory.html` 은 원장(`asung-inv-ledger`)이 만든 RPC 를 **소비만** 한다 — 뷰·RPC·마이그레이션은 원장 몫이고 WMS 는 화면만 고친다. 아래 아홉은 전부 **에러가 안 나고 값만 틀리는** 종류라 코드 주석에만 있으면 다음 세션이 못 본다(jobid 15 오기 · bin 백필 검증 상태 갈림 — 「어딘가엔 적혀 있었지만 읽히는 자리에 없었던」 사고들과 같은 부류).
 
 ```
-① 두 RPC 의 파라미터 순서가 다르다
+① 세 RPC 의 파라미터 순서가 셋 다 다르다
    inv_stock_master_sku : p_sku_exact 가 5번째
    inv_stock_master     : p_sku_exact 가 맨 끝
+   inv_bin_history      : p_sku 가 필수라 맨 앞
    ⇒ 반드시 명명 인자 sb.rpc("이름", {키: 값}). 위치 인자로 부르면 에러 없이 틀린 값이 나온다
 
 ② 캐럿 펼침에 p_warehouse 를 넘기지 않는다 (null 명시)
@@ -1196,6 +1197,9 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
    [실측] 09-04 저녁 10칸 → 09-05 아침 0칸
    ⚠️ 경고로 만들면 매일 오탐 — 이 레포가 계속 경계해 온 「매일 빨간불」이다.
    표시한다면 in_transit_bins(상시 · IN_TRANSIT)와 나란히 중립적으로(hover 문구)
+   ⭐ 같은 원칙이 이력(⑧⑨)에도 적용된다 — 이력은 사실 기록이지 문제 표시가 아니다:
+   ⚠️ is_manual 을 경고 스타일로 그리지 않는다 — 수동 정정은 해결의 흔적이다
+   ⚠️ reason 이 null 인 것(:binfix 592행)도 정상이다 — fix_kind 가 종류를 말해준다
 
 ⑤ 카드와 목록은 다른 시점을 센다 — 값이 달라도 정상이다
    카드 = inv_diff_summary → inv_balance_diffs(새벽에 굳은 일지)
@@ -1210,13 +1214,43 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 ⑦ 마스터(wms_sku_snapshot)는 매일 06:31 truncate 후 재적재(약 14초)
    그 사이에 열면 이름이 전부 빈칸이다. SKU 코드는 항상 남긴다
    ⚠️ 조회 실패는 표 단위 사실 — 행마다 칩을 찍지 않고 표 위에 한 번(masterNote). 행 단위 (no master) 칩과 섞지 않는다
+
+⑧ 이력의 baseline 행을 반드시 그린다
+   ⚠️ 사건이 0건인 칸이 있다 — [실물] PRO00124/EB010302 는 사건 0 · 잔고 3 이고
+      그 3 은 전부 기초에서 온다.
+   ⇒ rows[] 만 그리면 빈 목록이 뜨고 사람이 왜 3인지 못 읽는다.
+      baseline 은 봉투의 별도 키다(rows[] 에 섞이지 않는다 — 사건이 아니라 출발점)
+   📌 기초가 없을 때의 문구는 SKU 가 아니라 bin 기준이다 — p_bin 을 넘겨 부르므로
+      같은 SKU 라도 칸마다 갈린다(PRO00124 은 EB010302 에 기초가 있고 EB010304 에 없다)
+   📌 두 날짜 축을 둘 다 보여준다:
+      occurred_on  사건 날짜 — ⚠️ Cin7 문서의 날짜라 사용자 입력일 수 있다
+                   (실물: 수집이 사건보다 하루 먼저인 행이 있다)
+      created_at   수집 시각
+      ⇒ occurred_on 으로 정렬하되 created_at 도 보여준다.
+        [실물] SO-15440 상쇄는 8/28 사건인데 9/4 수집 — 그 한 줄이 반나절 걸린 규명을 설명한다
+
+⑨ ⚠️ 이력 캐럿은 창고·bin 을 넘긴다 — SKU 캐럿과 반대다
+   SKU 캐럿  inv_stock_master   p_warehouse: null          ← 전 창고를 보여주는 약속(②)
+   이력 캐럿  inv_bin_history    p_warehouse/p_bin 그 칸 값  ← 그 칸이 대상이다
+   ⇒ 둘을 헷갈리면 에러 없이 틀린 범위가 나온다
 ```
 
-**성능(실측)**: `inv_stock_master` **496 ms**(09-05 수리 · 3,891 → 496 · `full outer join` 치환 — 원장 몫) · `inv_stock_master_sku` **537 ms**. 목표 ≤1,000 ms 합의 · ≤500 ms 면 캐럿 펼침이 자연스럽다. ⚠️ 화면 쪽 캐시: 펼친 SKU 는 재호출하지 않는다(목록 재로드 시 비움). 페이징은 서버 비용을 줄이지 않는다(`total` 이 `count(*)`) — 느리면 원장 세션 일이다.
+**성능(실측)**: `inv_stock_master` **496 ms**(09-05 수리 · 3,891 → 496 · `full outer join` 치환 — 원장 몫) · `inv_stock_master_sku` **537 ms**. 목표 ≤1,000 ms 합의 · ≤500 ms 면 캐럿 펼침이 자연스럽다. ⚠️ 화면 쪽 캐시: 펼친 SKU 는 재호출하지 않는다(목록 재로드 시 비움). 페이징은 서버 비용을 줄이지 않는다(`total` 이 `count(*)`) — 느리면 원장 세션 일이다. · `inv_bin_history` **5 ms**(09-06 실측 · `inv_ledger_sku_wh_on_idx` 가 필터·정렬을 처리 — 인덱스 추가 금지). ⚠️ 이력 `HIST_LIMIT=100` 주의 — 사건이 그것을 넘으면 페이징이 필요하다. 근거인 「칸당 최대 39건」은 2026-09-06 실측이라 시간이 지나면 사라진다(`total > rows.length` 캡션이 조용히 잘리는 것은 막지만 더 볼 방법은 아직 없다).
 
-**⬜ 열려 있는 것**
+**용어** — 「로드맵 N단계」로 부르지 않는다. 이름으로만 부른다(「PO + 원가」 · 「SO 모듈」).
+📌 `ledger-design.md` 3부의 「단계」(원장 안의 순서 · 1 쌓기 · 2 대조 · 3 자리 · 4 원가)와 IMS 전체 로드맵의 「단계」가 다른 것을 가리켜 혼동이 있었다(2026-09-07 · 양쪽 합의).
+
+**⬜ 열려 있는 것** (2026-09-07 실물 대조 — `inventory.html` `bc99d10` 기준)
 - **브랜드** — Supabase 에 없다(BQ `asung_product_master.brand`). 마이그레이션 ALTER + GAS `WmsSync` SELECT + 프론트 **3곳** 수정(규칙 6) · 별건.
+- **내보내기(CSV)** — 미구현(코드에 export·download 없음). 전례는 admin 팩킹리스트 ⬇ CSV(규칙 15).
+- **정렬** — 미구현. 두 층 모두 RPC 가 `sku` 순으로 고정해 내고 화면에 정렬 UI 가 없다. ⚠️ 서버 페이징이라 클라이언트 정렬은 페이지 안에서만 맞는다 — 열 정렬을 원하면 원장 계약(`order by` 파라미터)이 먼저다.
 - **2단계 쓰기** — 확인 버튼(`inv_ack_diff` · 칸 단위 축이라 bin 행에서만) · 코멘트(`inv_bin_notes`). ⚠️ 코멘트의 정보원은 **창고 작업자**인데 지금 게이트가 `requireManager:true` 다 — 착수 때 재판단.
+- ❌ **가용(Available) — 만들지 않는다 (2026-09-07 결정)**
+  ⚠️ `inv_stock_master` 에 `available` 컬럼을 넣지 않는다 — 원장 축이 아니다. 원장은 Ship 에서 차감하고 픽·팩은 사건이 아니다 ⇒ `Allocated` 는 「약속」이지 움직임이 아니다.
+  ⚠️ WMS 기준으로 계산하면 **과소집계**다 — 서밋~WMS 구간이 비고, 백오더가 중간에 스플릿되고, WMS 미경유가 월 수백 건이다. 틀린 숫자를 정답처럼 보여주게 된다.
+  📌 지금 정본은 Cin7 이고 그것이 옳다(Inventory → Products → Stock 의 `ALLOCATED` 열). 그 원천은 **SO 모듈**이 서야 생긴다.
+  ⚠️ 용어 — 「팔 수 있는」이 아니라 **「보낼 수 있는」**이다. 오버셀은 정책이라 주문은 재고와 무관하게 받는다(프리오더 · 수요 예측 입력).
+  📌 정본: `ledger-design.md` 「#### 가용(Available) — ❌ 원장이 내지 않는다」 — 이유 전문은 그쪽. 여기 다시 적지 않는다(두 곳에 다르게 적으면 갈라진다).
 
 ## 현재 진행 상태 (2026-08-04 기준)
 
