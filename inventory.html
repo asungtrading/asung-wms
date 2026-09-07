@@ -142,6 +142,19 @@
   table.subtbl thead th{background:#fafbfd;font-size:10.5px;padding:6px 10px}
   table.subtbl tbody td{padding:6px 10px;font-size:13px}
   .subfail{color:var(--danger);font-size:12px;font-weight:600}
+  /* history (inv_bin_history) — 칸 행 아래 인라인 · 두 층 공통 · 경고 스타일 없음(사실 기록) */
+  td.hcar{width:26px;padding-right:0}
+  tr.histrow>td{background:#f4f6fa;padding:6px 10px 10px 40px;border-bottom:1px solid var(--line)}
+  .histcap{font-family:var(--mono);font-size:11px;color:var(--mut);margin:2px 0 6px}
+  table.histtbl{min-width:0;width:100%;border-collapse:collapse}
+  table.histtbl thead th{background:#f4f6fa;font-size:10px;padding:4px 8px;border-bottom:1px solid var(--line)}
+  table.histtbl tbody td{padding:4px 8px;font-size:12.5px;border-bottom:1px solid var(--line-2)}
+  table.histtbl td.mono{font-family:var(--mono);font-size:12px}
+  table.histtbl td.reason{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2);font-size:12px;cursor:help}
+  .chip{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--mut);
+    background:var(--line-2);border-radius:6px;padding:0 6px;margin-left:4px;white-space:nowrap}
+  tr.baserow>td{border-top:1px dashed var(--mut-2);border-bottom:0;color:var(--mut);font-style:italic;background:#eef1f6}
+  tr.baserow>td.mono{font-style:normal;font-weight:700;color:var(--ink-2)}
 
   /* states */
   .empty,.loading{padding:48px 20px;text-align:center;color:var(--mut)}
@@ -261,7 +274,7 @@
 <script>
 /* 재고 마스터 — 1단계(칸 조회 · 2026-09-01) + 2단계(SKU 층 접기 · 마스터 데이터 · 2026-09-05).
    IMS 의 재고 마스터: 「이 물건 총 몇 개」가 주역이고, 칸(bin)과 Cin7 대조는 그 아래 축.
-   데이터는 원장 RPC 셋(inv_stock_master_sku · inv_stock_master · inv_diff_summary — 계약은 ledger-design.md)
+   데이터는 원장 RPC 넷(inv_stock_master_sku · inv_stock_master · inv_diff_summary · inv_bin_history — 계약은 ledger-design.md)
    + 마스터 wms_sku_snapshot(이름·바코드·입수·사진 — 브랜드는 Supabase 에 없어 이번 범위 밖).
    테이블 직조회는 마스터 .in() 1왕복만(8,060 SKU → PostgREST 1,000행 캡 — 목록은 RPC 가 jsonb 로 감싸는 이유).
 
@@ -295,6 +308,13 @@ let snapAtText="as of snapshot";  // 표 그룹 헤더 문구(층을 바꿔 헤�
 let masterBySku={};               // wms_sku_snapshot 행(sku → {product_name,barcode,factor,image_url}) — 이번 페이지분
 let masterFailed=false;           // 마스터 조회 자체가 실패했나(표 단위 사실 — 행 칩 아님)
 const expandCache=new Map();      // sku → 펼침 HTML. 목록을 다시 부를 때 비운다(접었다 펴기 반복엔 왕복 1회)
+const histCache=new Map();        // "sku|wh|bin" → 이력 HTML. 같은 방식(목록 재로드 시 비움)
+// 이력 RPC 계약 필드 12개 — 20260906133451 실물. 첫 행 키 검사(규칙 44-① 과 같은 방식).
+const HIST_ROW_FIELDS=["occurred_on","doc_type","doc_number","event_type","warehouse","bin",
+  "qty_delta","running_qty","is_manual","fix_kind","reason","created_at"];
+// ⚠️ 사건이 p_limit 을 넘으면 페이징이 필요하다. 지금은 칸당 최대 39건(2026-09-06 실측)이라 100 으로 덮지만
+//   이 근거는 시간이 지나면 사라진다. total > rows.length 캡션이 조용히 잘리는 것은 막지만 더 볼 방법은 아직 없다.
+const HIST_LIMIT=100;
 
 /* ---------- boot ---------- */
 function boot(){
@@ -425,14 +445,14 @@ function renderCards(){
 /* ---------- 표 헤더 — 층별 ---------- */
 const BINS_THEAD=()=>`
   <tr class="grp">
-    <th colspan="3"></th>
+    <th colspan="4"></th>
     <th class="num">live</th>
     <th colspan="3" class="sep grpSnap">${esc(snapAtText)}</th>
     <th></th>
     <th colspan="2"></th>
   </tr>
   <tr>
-    <th>SKU</th><th>WH</th><th>Bin</th>
+    <th></th><th>SKU</th><th>WH</th><th>Bin</th>
     <th class="num">Qty</th>
     <th class="num sep">@snapshot</th><th class="num">Cin7 @snap</th><th class="num">Diff</th>
     <th class="num" title="Qty − @snapshot = change since the snapshot">Δ</th>
@@ -464,6 +484,7 @@ async function loadList(){
   loading.style.display="block"; failBox.style.display="none"; emptyEl.style.display="none";
   document.getElementById("rows").innerHTML="";
   expandCache.clear();   // 새 목록 = 새 데이터 — 옛 펼침을 재사용하지 않는다
+  histCache.clear();
   const onlyDiff=document.getElementById("onlyDiff").checked;
   const showEmpty=document.getElementById("showEmpty").checked;
   const q=document.getElementById("q").value.trim();
@@ -627,7 +648,10 @@ function binRowHtml(r, ref){
     ack=`<span class="ackchip" title="${esc(r.acknowledged_note||"(no note)")} · ${esc(String(r.acknowledged_at).slice(0,10))}">✓ acked</span>`;
   else if(diff!=null && Number(diff)!==0) ack='<span class="mut2">—</span>';
   // data-key = 확인·코멘트 단계의 행 식별자(칸 단위 축 — Ack 은 여기서만) — 현재 무동작
-  return `<tr data-key="${esc(r.sku)}|${esc(r.warehouse)}|${esc(r.bin)}">
+  // 이력(inv_bin_history)은 이 칸 행 아래 histrow 에 인라인으로 펼친다 — 두 층 공통(bindHistToggles 가 캐럿을 묶는다)
+  const key=r.sku+"|"+r.warehouse+"|"+r.bin;
+  return `<tr data-key="${esc(key)}">
+    <td class="hcar"><button class="caret" data-histbt="${esc(key)}" data-hsku="${esc(r.sku)}" data-hwh="${esc(r.warehouse)}" data-hbin="${esc(r.bin)}" title="Show this bin's history (why this quantity)">▸</button></td>
     <td class="sku">${esc(r.sku)}</td>
     <td class="wh" title="${esc(r.warehouse)}">${whShort(r.warehouse)}</td>
     <td class="bin">${esc(r.bin)||'<span class="mut2">(no bin)</span>'}</td>
@@ -638,11 +662,97 @@ function binRowHtml(r, ref){
     <td class="num">${dCell}</td>
     <td>${seen}</td>
     <td>${ack}</td>
-  </tr>`;
+  </tr>
+  <tr class="histrow" data-hist="${esc(key)}" hidden><td colspan="11"><div class="histbox" data-histbox="${esc(key)}"></div></td></tr>`;
 }
 function renderBinRows(){
   const ref=(summary&&summary.checked_on)?summary.checked_on:torToday();  // NEW 판정 기준
-  document.getElementById("rows").innerHTML=lastRows.map(r=>binRowHtml(r,ref)).join("");
+  const body=document.getElementById("rows");
+  body.innerHTML=lastRows.map(r=>binRowHtml(r,ref)).join("");
+  bindHistToggles(body);
+}
+
+/* ---------- 이력 펼침 (inv_bin_history) — 칸 행 아래 · lazy 1왕복 · 캐시 · 두 층 공통 ---------- */
+// ⭐ 진단 도구다 — 「왜 이 숫자인가」. 경고 스타일을 쓰지 않는다(수동 정정은 해결의 흔적 · reason null 은 정상).
+function bindHistToggles(container){
+  container.querySelectorAll("[data-histbt]").forEach(b=>{
+    b.onclick=(ev)=>{ ev.stopPropagation(); toggleHist(b, container); };
+  });
+}
+const shortReason=(s)=>{ const t=String(s); return t.length>70? esc(t.slice(0,70))+"…" : esc(t); };
+function histHtml(d, key){
+  // 최신이 위 · 기초 행이 맨 아래 — RPC 는 오름차순(기초→현재)으로 오고 계약이 「화면이 뒤집는다」를 허용한다.
+  // 맨 위 행의 running_qty 가 바로 위 칸 행의 Qty 와 같아야 하고, 맨 아래 기초에서 출발한다.
+  const rows=[...d.rows].reverse();
+  const b=d.baseline||{};
+  const total=Number(d.total)||0;
+  const cap=`<div class="histcap">${fmtNum(total)} event${total===1?"":"s"}`
+    +(total>d.rows.length?` · showing first ${fmtNum(d.rows.length)} of ${fmtNum(total)} (oldest) — more exist`:"")
+    +(total===0?` — balance is entirely from the baseline`:"")+`</div>`;
+  const evRows=rows.map(x=>{
+    const q=Number(x.qty_delta)||0;
+    const chips=(x.is_manual?`<span class="chip" title="source = manual — a correction we entered by hand (a fix, not a problem)">manual</span>`:"")
+      +(x.fix_kind?`<span class="chip" title="line_ref suffix — kind of correction">${esc(x.fix_kind)}</span>`:"");
+    const reason = x.reason==null
+      ? `<span class="mut2" title="No reason text on this row (normal for :binfix rows written by the 2026-08-31 script — fix_kind tells the kind)">—</span>`
+      : shortReason(x.reason);
+    return `<tr>
+      <td class="mono" title="occurred_on — event date from the Cin7 document (may be user-entered)">${esc(fmtTorDate(x.occurred_on))}</td>
+      <td class="mono" title="created_at — when the ledger collected it (Toronto). Differs from the event date by days when a document was edited or collected late.">${esc(fmtTorTime(x.created_at))}</td>
+      <td class="mono" title="${esc(x.doc_type)}">${esc(x.doc_number)}</td>
+      <td>${esc(x.event_type)}${chips}</td>
+      <td class="num mono">${q>0?"+":""}${fmtNum(q)}</td>
+      <td class="num mono">${fmtNum(x.running_qty)}</td>
+      <td class="reason" title="${x.reason==null?"":esc(x.reason)}">${reason}</td>
+    </tr>`;
+  }).join("");
+  const baseRow = b.taken_at
+    ? `<tr class="baserow" title="Baseline snapshot — the starting point, not an event. Taken ${esc(fmtTorTime(b.taken_at))} (Toronto). Changes when the baseline is re-based (inv_config).">
+        <td class="mono">${esc(fmtTorDate(String(b.taken_at).slice(0,10)))}</td><td></td><td class="mono">${esc(b.snapshot_key||"")}</td>
+        <td>baseline snapshot</td><td></td><td class="num mono">${fmtNum(b.qty)}</td><td></td></tr>`
+    : `<tr class="baserow" title="This SKU has no row in the baseline snapshot — it starts from 0.">
+        <td></td><td></td><td class="mono">${esc(b.snapshot_key||"")}</td><td>no baseline row for this SKU</td><td></td><td class="num mono">${fmtNum(b.qty==null?0:b.qty)}</td><td></td></tr>`;
+  return cap+`<table class="histtbl"><thead><tr>
+      <th>Date</th><th>Collected</th><th>Doc</th><th>Event</th><th class="num">Δ</th><th class="num">Running</th><th>Reason</th>
+    </tr></thead><tbody>${evRows}${baseRow}</tbody></table>`;
+}
+async function toggleHist(btn, container){
+  const key=btn.dataset.histbt;
+  const sub=container.querySelector(`[data-hist="${CSS.escape(key)}"]`); if(!sub) return;
+  const wasOpen=!sub.hidden;
+  sub.hidden=wasOpen;
+  btn.textContent=wasOpen?"▸":"▾";
+  if(wasOpen) return;
+  const box=container.querySelector(`[data-histbox="${CSS.escape(key)}"]`);
+  if(histCache.has(key)){ box.innerHTML=histCache.get(key); return; }
+  box.innerHTML=`<span style="color:var(--mut);font-size:12px">Loading history…</span>`;
+  try{
+    // ⚠️⚠️ 명명 인자 5개 전부 명시 — 이 RPC 는 p_sku 가 필수라 맨 앞이고 앞선 두 RPC 와 순서가 또 다르다.
+    //   위치 인자로 부르면 에러 없이 틀린 값이 나온다. 칸 이력이므로 그 칸의 창고·bin 을 그대로 넘긴다.
+    const r=await sb.rpc("inv_bin_history",{
+      p_sku: btn.dataset.hsku,
+      p_warehouse: btn.dataset.hwh,
+      p_bin: btn.dataset.hbin,
+      p_limit: HIST_LIMIT,
+      p_offset: 0,
+    });
+    if(r.error) throw new Error("inv_bin_history: "+r.error.message);
+    const d=r.data;
+    if(!d || typeof d!=="object") throw new Error("contract mismatch — response is not an object");
+    if(!("total" in d)) throw new Error("contract mismatch — missing: total");
+    if(!("baseline" in d) || !d.baseline || typeof d.baseline!=="object") throw new Error("contract mismatch — missing: baseline");
+    if(!Array.isArray(d.rows)) throw new Error("contract mismatch — rows is not an array");
+    if(d.rows.length){
+      const miss=HIST_ROW_FIELDS.filter(f=>!(f in d.rows[0]));
+      if(miss.length) throw new Error("contract mismatch — missing: "+miss.join(", "));
+    }
+    const html=histHtml(d, key);
+    histCache.set(key, html);
+    box.innerHTML=html;
+  }catch(e){
+    // 비치명 — 목록은 유지, 캐시 안 함(접었다 펼치면 재시도)
+    box.innerHTML=`<span class="subfail">Couldn't load history: ${esc(e.message||e)} — the list is unaffected. Collapse and expand to retry.</span>`;
+  }
 }
 
 // SKU 행 — 마스터(이름·바코드·입수·썸네일) + 합계 + 거울 칸 배지 + 캐럿 서브행
@@ -699,7 +809,7 @@ async function toggleExpand(sku, btn){
   btn.textContent=wasOpen?"▸":"▾";
   if(wasOpen) return;
   const box=body.querySelector(`[data-subbox="${CSS.escape(sku)}"]`);
-  if(expandCache.has(sku)){ box.innerHTML=expandCache.get(sku); return; }
+  if(expandCache.has(sku)){ box.innerHTML=expandCache.get(sku); bindHistToggles(box); return; }   // 캐시 HTML 에도 이력 캐럿을 다시 묶는다
   box.innerHTML=`<span style="color:var(--mut);font-size:12px">Loading bins…</span>`;
   try{
     // ⚠️⚠️ p_warehouse 는 null — 창고 필터가 걸려 있어도 전 창고 칸을 보여준다(WMS 가 원장에 한 약속 · 함수는 막지 않는다).
@@ -729,6 +839,7 @@ async function toggleExpand(sku, btn){
         : `<div style="color:var(--mut);font-size:12px">No non-empty bins for this SKU.</div>`);
     expandCache.set(sku, html);
     box.innerHTML=html;
+    bindHistToggles(box);
   }catch(e){
     // 비치명 — 목록은 유지, 캐시 안 함(접었다 펼치면 재시도)
     box.innerHTML=`<span class="subfail">Couldn't load bins: ${esc(e.message||e)} — the list is unaffected. Collapse and expand to retry.</span>`;
