@@ -68,6 +68,12 @@ VOID 된 SO). 정본: `docs/sessions/2026-08-31-transfer-departure-bin.md`.
 + `p_sku_exact` 추가(옛 6-인자 `drop`). ② **`inv_stock_master_sku` 신설**(SKU 층 · 537 ms) —
 ⚠️ 필터를 집계 전/후로 나눠 **거울 칸**을 지킨다(`diff` 합이 0이어도 `diff_bins > 0`).
 
+갱신 2026-09-06 — **이력 RPC `inv_bin_history`**(칸·SKU 의 사건 목록 · 실측 5 ms).
+⭐ `reason` 이 모든 사건에 붙는다(`cin7` 은 `raw.rule` 100% · `manual` 은 `raw.detail`) ·
+`running_qty` 는 `baseline` 에서 **누적 후 페이징** · `fix_kind` 는 `line_ref` 접미어.
+⚠️ 계약에 박은 것 둘: **`reason` 이 null 일 수 있다**(`:binfix` 592행 — 정상값) ·
+**`occurred_on ≠ created_at`**(두 축이 며칠씩 갈린다 — 그 차이가 진단 정보다).
+
 레포 경로: `docs/design/ledger-design.md`
 (마이그레이션 `20260816000000_inv_ledger_tables.sql` 이 이 문서를 참조한다)
 
@@ -601,6 +607,7 @@ Cin7 대조는 `inv_balance_vs_cin7` 이고 ⭐ **시점 컷오프가 들어가 
 |---|---|
 | `inv_stock_master(...)` RPC | 전체 재고 + Cin7 열 · 검색·필터·페이징 |
 | `inv_stock_master_sku(...)` RPC | ⭐ **SKU 층**(2026-09-05) — 한 SKU 를 한 줄로 접는다. 캐럿 펼침은 칸 층을 `p_sku_exact` 로 부른다 |
+| `inv_bin_history(...)` RPC | ⭐ **이력**(2026-09-06) — 칸(또는 SKU)의 사건 목록. **왜 그 숫자인지**를 보여준다 |
 | `inv_balance_diffs` | 어긋남 일지 · ⭐ `first_seen_on` 이 시간 축 |
 | `inv_bin_notes` | 코멘트 (insert·select 만) |
 | `inv_ack_diff(...)` | ⭐ 「확인됨」 누르기 — **창고·매니저가 원인을 안다는 표시**다 |
@@ -675,6 +682,104 @@ SKU 층 **「이 SKU 에 어긋난 칸이 있다」**.
 
 📌 [실측 2026-09-05] 칸 층 **496 ms** · SKU 층 **537 ms** · 칸 14,272 → SKU 7,938.
 ⚠️ `total` 이 `count(*)` 라 **페이징은 비용을 줄이지 않는다**(두 층 모두).
+
+#### 이력 — `inv_bin_history` (2026-09-06)
+
+```
+inv_bin_history(
+  p_sku        text,                  -- ⚠️ 필수 · 정확 일치(ilike 아님 — 지목해 여는 것이다)
+  p_warehouse  text default null,     -- null = 전 창고
+  p_bin        text default null,     -- null = 전 칸
+  p_limit      int  default 50,
+  p_offset     int  default 0
+)
+```
+
+**봉투**: `total` · `rows[]` + ⭐ **`baseline`** 별도 키
+```
+baseline: { snapshot_key, taken_at, qty }
+```
+⚠️⚠️ **`baseline` 을 `rows[]` 에 섞지 않는다** — 기초는 **사건이 아니라 출발점**이다.
+섞으면 「사건 수」가 하나 늘어 보인다.
+📌 원장은 8/20 기초 스냅샷 **위에** 사건을 쌓으므로, **사건을 다 훑어도 기초 없이는 잔고에
+닿지 않는다.** 화면은 목록 맨 아래(오름차순이므로 시작점)에 그 행을 그린다.
+⚠️ **재기준선을 잡으면 값이 바뀐다** — `inv_config.baseline_snapshot_key` 를 읽는다.
+
+**`rows[]` — 12개**
+
+| 컬럼 | 뜻 |
+|---|---|
+| `occurred_on` | ⭐ **사건 날짜** |
+| `doc_type` · `doc_number` | ⭐ 문서번호는 **전 축 100%** 존재(실측) — `SO-15440`·`TR-04504`·`ST-01283` |
+| `event_type` | `sale_out`·`transfer_in`·`assemble_out` … |
+| `warehouse` · `bin` | SKU 단위로 볼 때 필요하다 |
+| `qty_delta` · `running_qty` | 증감 · 그 사건 뒤 잔고(`baseline.qty` 에서 누적) |
+| `is_manual` | `source = 'manual'` — **우리가 손으로 맞춘 것** |
+| `fix_kind` | `line_ref` 접미어 — 상쇄 종류 |
+| `reason` | 사람이 읽을 한 줄 — ⚠️ **null 일 수 있다**(아래) |
+| `created_at` | ⚠️ **수집 시각** — 사건 날짜와 다르다(아래) |
+
+⭐ **정렬은 오름차순(기초 → 현재)이다.** `running_qty` 가 더해가며 읽히고,
+**「마지막 `running_qty` = 현재 잔고」**가 성립한다. 최신을 위로 보이려면 화면이 뒤집는다.
+
+⚠️ **`running_qty` 는 전 사건을 누적한 뒤 페이징한 값**이다. 페이징을 먼저 하면
+2페이지부터 누적이 틀린다. 누적 순서는 `occurred_on` · `seq_hint` · `id` 이며,
+`seq_hint` 는 원장이 **같은 날 유입(1)을 유출(2)보다 먼저** 적용하려고 둔 축이다.
+
+⭐ **`reason` 은 모든 사건에 붙는다** — `coalesce(raw->>'detail', raw->>'rule')`.
+[실측] `cin7` 19,668행에 `raw.rule` **100%**(예: `"sale_out: -Quantity(48) shipped pick line"`) ·
+`manual` 1,579행에 `raw.detail` 987행.
+⇒ `cin7` 행은 **「이 증감이 어느 규칙으로 나왔나」**, `manual` 행은 **「왜 손으로 맞췄나」**가 보인다.
+⚠️ **원장은 자르지 않고 그대로 낸다** — `detail` 은 영문 장문이다. 어디서 자를지는 화면이
+정하고(목록엔 짧게 · 전문은 hover/펼침), 잘라서 내면 **전문을 볼 방법이 없어진다.**
+
+⚠️⚠️ **`reason` 이 `null` 인 것은 정상이다 — 에러가 아니다.**
+[실측] `transfer`/`manual` 881행 중 **592행**에 `detail` 이 없다. 8/31
+`scripts/fix-transfer-bins.mjs` 가 넣은 행이고 접미어가 `:binfix` 다(실물 `TR-04173`) —
+스크립트가 `detail` 을 안 담았다. ⇒ **`fix_kind` 가 종류를 말해준다.**
+📌 화면은 이 경우를 **정상으로 그린다**(경고 스타일 금지).
+
+⚠️ **`is_manual` 을 경고 스타일로 그리지 않는다** — 수동 정정은 **문제가 아니라 해결의
+흔적**이다. 숨기면 오히려 나쁘다: 사건의 증감을 더했는데 잔고와 안 맞으면 사람이 화면을
+못 믿게 된다.
+
+**`fix_kind` — 상쇄 종류** (`line_ref` 의 마지막 `:` 뒤 · `manual` 행만)
+
+| 값 | 무엇 |
+|---|---|
+| `voided` | 문서 전체가 Cin7 에서 취소됨 |
+| `deleted` | 라인 하나가 삭제됨 |
+| `qtyfix` | 라인 수량이 바뀜 — 차액만 |
+| `latepick` | 기초 이전 `ship_date` 의 홀드 오더가 기초 이후 출고 |
+| `binfix` · `binfixed` | bin 규칙 변경 상쇄(스크립트 · `detail` 없음) |
+| `superseded` · `reversal` | bin 규칙 변경으로 자리 비움 · 되돌림 |
+
+⚠️ **판정은 화이트리스트가 아니다** — `source='manual'` 이고 마지막 `:` 뒤가
+**영문 소문자만**(`^[a-z]+$`)일 때다. 목록으로 박으면 **앞으로 생길 접미어가 전부 null** 이 된다.
+⚠️⚠️ 판매의 `line_ref` 는 `<Fulfilment TaskID GUID>:<ProductID GUID>` **복합키**이고
+`cin7` 폴백에 `no-product-id:<SKU>` 도 있다 — 「마지막 `:` 뒤」만으로는 **GUID·SKU 가 샌다.**
+GUID 는 숫자·하이픈을, SKU 는 숫자를 포함해 `^[a-z]+$` 에 걸리지 않고, `cin7` 행은
+`source` 조건으로 애초에 null 이다. **이 규칙을 단순화하지 말 것.**
+
+⚠️⚠️ **두 날짜 축이 며칠씩 갈린다 — 둘 다 낸다.**
+```
+occurred_on   사건 날짜   — Cin7 문서의 날짜(⚠️ 사용자 입력일 수 있다 · §ShipmentDate)
+created_at    수집 시각   — 우리가 그것을 안 시각
+```
+[실물 `SO-14897`] `occurred_on` **8/25** · 수집 **9/4**.
+⇒ ⭐ **그 차이 자체가 진단 정보다.** 「왜 이 사건이 이제야 보이나」가 그 자리에서 읽힌다 —
+결함 E·`SO-14734` 규명 때 결정적이었던 축이 정확히 이것이다.
+📌 화면은 `occurred_on` 으로 정렬하되 `created_at` 도 보여주는 편이 낫다.
+
+📌 [실측 2026-09-06] **5 ms**(`p_sku := 'PRO00124'`). 인덱스
+`inv_ledger_sku_wh_on_idx (sku, warehouse, occurred_on)` 가 필터와 정렬을 함께 처리한다 —
+**인덱스를 추가하지 말 것.** 칸당 사건 수는 최대 39 · 평균 3.0 · p95 9 다.
+
+⭐ **이력은 편의 기능이 아니라 진단 도구다.** [실물 `BNAT48173`/`C120102`]
+`baseline 836` 에서 시작해 마지막 `running_qty 747` 로 ⑧ bin 대조의 `ledger_qty` 와
+정확히 맞는데, 그 사이에 `SO-15440 −1` 과 `qtyfix −11` 이 나란히 보인다 —
+**09-04 에 반나절 걸린 규명이 두 줄로 읽힌다.**
+⚠️ 그러므로 **경고 스타일을 쓰지 않는다.** 이력은 사실 기록이지 문제 표시가 아니다.
 
 📌 **세 화면의 경계** — 겹치지 않는다:
 · WMS **Discrepancy** = 오더 단위 픽·팩 수량 불일치
