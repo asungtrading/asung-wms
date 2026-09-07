@@ -284,8 +284,18 @@ order by first_detected_at;
 📌 **검출 자리**: `inv-collect` ②-a 의 `status_counts` 자리 — **커서·floor·재조회 창 이전**이라
 목록 전량을 본다. `skip_voided` 자리에 붙였다면 커서 아래 + 7일 창 밖의 VOID
 (**오래된 문서의 나중 취소**)를 놓쳤을 것이다. **새 API 호출 0건.**
-📌 **축**: `adjustment`·`assembly` 만(2026-09-04 1단계).
-⬜ `transfer` 미착수 · `sale`·`purchase` 는 ②-b 별도 루프라 별도 설계.
+📌 **축**: `adjustment`·`assembly`·`transfer`(2026-09-07 관측 확대).
+⬜ `sale`·`purchase` 는 ②-b 별도 루프라 별도 설계.
+⚠️⚠️ **`transfer` 는 `voided_open` 으로 판정할 수 없다 — `voided_in_ledger` 를 볼 것.**
+[실측 09-07] 트랜스퍼는 **4행 구조**(출발 bin → `IN_TRANSIT` → `IN_TRANSIT` → 도착 bin)라
+**문서 순액이 늘 0** 이다(원장의 트랜스퍼 문서 **339건 전부**). ⇒ `net ≉ 0` 판정이
+무의미하고 `voided_open` 은 **VOID 가 있어도 0** 이다.
+📌 [실측 09-07 관측 켠 직후] `voided_seen 30 · voided_in_ledger 0` —
+Cin7 의 VOID 30건이 **전부 원장 밖**이다(기초 이전이거나 받은 적 없는 문서).
+⇒ ⭐ **`voided_in_ledger` 가 0 보다 커지면 그 자체가 신호다.** 그때 문서를 특정해
+**bin 단위**로 어긋났는지 본다 — 순액은 0이어도 **출발 bin 은 덜 빠지고 도착 bin 은 더
+들어와** 있다(`PRO00124` 와 같은 모양이고, ⑧ 이 그것을 잡는다).
+⬜ 판정 설계 **미착수 — 대상이 0건이라 검증할 실물이 없다.** 실물이 생기면 설계한다.
 ⚠️ **오탐이 없는 구조다** — 원장에 행이 없는 문서(받은 적 없음)와 `net≈0`(이미 상쇄됨)은
 기록하지 않는다. [실측 09-04 배포 직후] `assembly` `seen 88 · in_ledger 3 · open 0`
 (`FG-00131`·`FG-00133`·`FG-00134` 셋 다 상쇄 완료라 안 뜬다) · `adjustment` `seen 30 · open 0`.
