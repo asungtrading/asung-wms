@@ -96,6 +96,15 @@ WMS 는 일부만 안다. ⇒ WMS 기준 계산은 **과소집계**다. ⭐ 그 
 으로 쓴다. ⚠️ 용어: **「로드맵 N단계」로 부르지 않는다** — 이 문서의 「N단계」는 원장 안의
 순서이고 IMS 전체 로드맵은 이 문서에 없다(⬜ 어디에 둘지 별도로 정한다).
 
+갱신 2026-09-08 — ✅ **테스트 DB 구축 완료**(`Asung-IMS` · ref `fazgmyvzzhqybtvtktyg`) ·
+**절차 확정**(§4단계 「테스트 DB」) · ⚠️⚠️ **프로젝트 구분 규칙 신설**.
+⭐ 세 단계로 만든다: 운영에서 `db dump --data-only --schema public`(로그성 12개 제외) →
+테스트에 `db push --db-url` → `psql -f` 로 복원. **cron 잡 0 · EF 미배포**가
+「Cin7 미연결」의 실체다. ⚠️ 함정 넷: **IPv6 불가**(Session pooler 5432) · **Docker 필요** ·
+**URL 은 파일에 담는다** · **`inv_config` 중복 키**(재복사 시 먼저 비운다).
+⚠️⚠️ 그리고 **이제 프로젝트가 둘이다** — `--db-url` 이 테스트, 없으면 운영이다.
+**헷갈리면 실제 재고가 틀어진다.**
+
 레포 경로: `docs/design/ledger-design.md`
 (마이그레이션 `20260816000000_inv_ledger_tables.sql` 이 이 문서를 참조한다)
 
@@ -1012,15 +1021,135 @@ Cin7 API 호출도 두 배가 된다.
 「과연 복사가 되나」를 모르는 채로 착수하면 **그 자리에서 막힌다.**
 ⇒ ⭐ **리허설로 한 번, 실제 착수 때 최신으로 다시.**
 
-**⬜ 복사 방법 — 미확정**
-- ⬜ `pg_dump` → `psql` 이 표준이나 Supabase 는 **확장·RLS·역할**이 얽혀 있다.
-  ⚠️ **RLS 정책과 `grant`/`revoke` 가 함께 가는지** 확인해야 한다.
-- 📌 마이그레이션은 **레포에서 재생**한다(`db push`) — **데이터만** 옮긴다.
-- ⬜ 재복사 주기 미정. ⭐ 다만 **「필요할 때 다시 만든다」**가 맞아 보인다 —
-  테스트 DB 를 계속 최신으로 유지하려 들면 **그 자체가 일이 된다.**
+**✅ 구축 완료 (2026-09-08) — 절차 확정**
+
+📌 프로젝트: **`Asung-IMS`** · ref `fazgmyvzzhqybtvtktyg` · `ca-central-1` ·
+운영과 **같은 조직**(Pro). ⭐ **마이그레이션은 레포에서 재생하고 데이터만 옮긴다.**
+
+**세 단계**
+
+```bash
+# ① 운영에서 데이터만 덤프 (--linked = 운영)
+supabase db dump --linked --data-only --use-copy --schema public \
+  -x public.inv_collect_runs   -x public.inv_snapshot_runs \
+  -x public.inv_compare_runs   -x public.inv_compare \
+  -x public.inv_missing_lines  -x public.inv_conflicts \
+  -x public.inv_missing_docs   -x public.inv_voided_docs \
+  -x public.wms_health_runs    -x public.wms_refresh_requests \
+  -x public.wms_polled_sales   -x public.wms_image_sync_runs \
+  -f ~/asung-testdb-data.sql
+
+# ② 테스트에 스키마 재생
+supabase db push --db-url "$(cat ~/.asung-testdb-url)"
+
+# ③ 테스트에 데이터 복원
+psql "$(cat ~/.asung-testdb-url)" -f ~/asung-testdb-data.sql > ~/restore.log 2>&1
+```
+
+⚠️ **`--schema public` 이 필수다.** 없으면 `--schema "*"` 가 되어 **`auth`·`storage` 가
+덤프에 들어간다**(`refresh_tokens` · 사용자 계정). 📌 [실측] 붙이면 `COPY "auth"` 0건이다.
+
+📌 **제외 12개는 로그성·감지 표다** — 테스트에선 수집·대조를 안 돌리므로 **화석**이 되고,
+낡은 채로 남으면 헷갈린다. ⭐ `inv_balance_diffs` 는 **복사한다**(「확인됨」 이력이라 재현 가치가 있다).
+
+**⚠️ 오늘 겪은 함정 넷**
+
+1. ⚠️⚠️ **IPv6 로는 연결이 안 된다.** `db.<ref>.supabase.co` 직접 연결은 **IPv6 전용**이라
+   WSL 에서 `network is unreachable` 이 난다.
+   ⇒ ⭐ **Session pooler(포트 5432)** 를 쓴다 — 대시보드 `Connect → Direct → Session pooler`.
+   ```
+   postgresql://postgres.<ref>:<비번>@aws-0-ca-central-1.pooler.supabase.com:5432/postgres
+   ```
+   ⚠️ **Transaction pooler(6543)는 마이그레이션에 맞지 않는다**(세션이 필요하다).
+2. ⚠️ **`supabase db dump` 는 Docker 를 쓴다** — 버전을 맞추려고 컨테이너로 `pg_dump` 를
+   돌린다. **Docker Desktop 이 떠 있어야** 한다.
+3. ⚠️ **URL 을 셸 변수에 넣으면 잃어버린다.** 비밀번호에 `!`·`@` 가 있으면 붙여넣기가
+   쪼개지고, 변수는 **셸 세션이 바뀌면 사라진다.**
+   ⇒ ⭐ **파일에 담는다**: `cat > ~/.asung-testdb-url` → 붙여넣기 → `Ctrl+D` →
+   `tr -d '\n'` 로 개행 제거 → `chmod 600`.
+   ⚠️ 비밀번호가 **평문으로 남는다** — 그것을 알고 쓴다.
+4. ⚠️ **`inv_config` 는 중복 키로 실패한다.** 마이그레이션이 기본값을 이미 넣어 두므로
+   덤프의 `COPY` 가 `duplicate key value violates unique constraint "inv_config_pkey"` 로
+   막힌다. 📌 [실측 09-08] 값이 같아서(`2026-08-20-initial`) **무해했다.**
+   ⚠️ 그러나 **재복사 시 운영에 새 키가 추가돼 있으면 그 `COPY` 블록 전체가 안 들어간다.**
+   ⇒ ⭐ **재복사 절차: `truncate inv_config;` 를 먼저 하고 복원한다.**
+
+**⭐ 검산값 (2026-09-08 구축 직후 · 두 DB 일치)**
+
+| | 값 |
+|---|---|
+| 테이블 수 | **43** |
+| 마이그레이션 | **53** (전부 적용) |
+| ⚠️ **cron 잡** | ⭐ **0** — 이것이 「Cin7 미연결」의 실체다 |
+| `inv_ledger` | 22,285 |
+| `inv_snapshot` | 206,489 |
+| `wms_orders` | 1,613 |
+| `wms_order_lines` | 40,364 |
+| `inv_cost` | 922 |
+| `inv_config.baseline_snapshot_key` | `2026-08-20-initial` |
+
+⭐ **cron 잡이 0인 이유**: 마이그레이션에 `cron.schedule` 이 **한 줄도 없다**
+([실측] `grep -rln "cron.schedule" supabase/migrations/` 0건). 잡은 `supabase/ops/cron.sql`
+에만 있고 그것은 **손으로 돌리는 파일**이다. ⇒ `db push` 만으로는 잡이 생기지 않는다.
+⚠️ **그 파일을 테스트에 실행하지 말 것.**
+
+⚠️ **EF 도 배포하지 않는다** — 아무것도 하지 않으면 된다.
+`supabase functions deploy` 는 **link 가 걸린 운영으로** 가므로 실수할 여지가 적다.
+
+**⬜ 남은 판단**
+- ⬜ `inv_snapshot` 의 `-compare` 약 192,000행(44MB)은 **테스트에서 화석**이다
+  (대조를 안 돌린다). 지울지 미정 — **급하지 않다.**
+- ⬜ 재복사 주기 미정. ⭐ **「필요할 때 다시 만든다」**가 맞아 보인다 —
+  최신으로 유지하려 들면 **그 자체가 일이 된다.**
 
 ⚠️ **원칙**: **테스트를 위한 시스템이 되어서는 안 된다.**
 운영 코드가 테스트를 알아야 한다면 그 설계는 틀린 것이다.
+
+#### ⚠️⚠️ 어느 프로젝트에서 실행하는가 (2026-09-08 · 프로젝트가 둘이 됐다)
+
+⚠️ **레포는 하나다.** `~/asung/asung-wms` 에서 두 DB 를 다 쏜다 —
+**구분은 폴더가 아니라 옵션이다.**
+
+| | 프로젝트 | ref |
+|---|---|---|
+| **운영** | `asung-WMS` | `gftpcnkxbdjzzfvzwcfl` |
+| **테스트** | `Asung-IMS` | `fazgmyvzzhqybtvtktyg` |
+
+⚠️ 이름이 헷갈린다 — **새로 만든 `Asung-IMS` 가 테스트**이고, 원래 쓰던
+**`asung-WMS` 가 운영**이다.
+
+| 명령에 보이는 것 | 어디로 |
+|---|---|
+| `--db-url "$(cat ~/.asung-testdb-url)"` | ⭐ **테스트** |
+| `psql "$(cat ~/.asung-testdb-url)"` | ⭐ **테스트** |
+| `supabase db push` (옵션 없음) | ⚠️ **운영** |
+| `supabase functions deploy` | ⚠️ **운영** |
+| `supabase db dump --linked` | ⚠️ **운영에서 읽기** |
+| 대시보드 SQL Editor | ⚠️ **화면에서 고른 것** — URL 의 ref 를 확인한다 |
+
+⇒ ⭐ **`~/.asung-testdb-url` 이 보이면 테스트다.** 그것이 가장 기억하기 쉬운 규칙이다.
+⚠️ **`--linked` 는 테스트가 아니라 운영이다** — link 는 운영에 걸려 있다.
+
+⚠️⚠️ **`supabase link` 를 테스트로 바꾸지 말 것.** 그러면 `db push`·`functions deploy` 가
+**전부 테스트로** 가고, 나중에 운영에 배포하려 할 때 「왜 안 바뀌지」가 된다.
+⇒ ⭐ **link 는 운영에 둔다.**
+
+**⚠️ 틀리면 무슨 일이 나나**
+- 테스트에서 돌릴 것을 운영에서 → ⚠️⚠️ **실제 재고가 틀어진다**
+- 운영에서 볼 것을 테스트에서 → 📌 **덤프 시점에 고정된 낡은 값**을 보고 판단한다
+
+**⚠️ 마이그레이션 이력이 갈린다 — 정상이다**
+PO + 원가 작업은 **테스트에 먼저** 쏘므로 두 DB 의 적용 수가 다르다.
+⇒ ⭐ 「어느 쪽이 앞서 있나」를 헷갈리지 않도록 세어 본다.
+```bash
+# 테스트
+psql "$(cat ~/.asung-testdb-url)" -c "select count(*) from supabase_migrations.schema_migrations;"
+```
+```sql
+-- 운영 · asung-WMS 의 SQL Editor
+select count(*) from supabase_migrations.schema_migrations;
+```
+📌 [실측 09-08 구축 직후] 둘 다 **53**.
 
 ---
 
