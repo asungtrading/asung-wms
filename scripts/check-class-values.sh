@@ -7,7 +7,10 @@
 # 사람의 기억 대신 커밋 시점에 잡는다.
 #
 # CHECK 목록의 출처 = supabase/migrations/*.sql 파싱 (하드코딩 금지 — 두 곳이
-# 갈라지면 검사가 거짓말을 한다). 같은 제약을 재정의(drop+add)하는 마이그레이션이
+# 갈라지면 검사가 거짓말을 한다). 인식하는 서식은 둘: `alter table … add constraint …
+# check (col in (…))` 와 `create table … ( … constraint … check (col in (…)) … )` 인라인
+# (2026-09-08 — inv_layer 가 reason/kind 컬럼을 인라인으로 정의해 검사 불능이 났다.
+# 대상 테이블이 아니면 TARGETS 필터에서 자연히 빠진다). 같은 제약을 재정의(drop+add)하는 마이그레이션이
 # 여러 개면 파일명 정렬상 마지막 정의가 이긴다 — DB 적용 순서와 같은 의미론
 # (2026-08-06 사용자 결정). drop 만 하고 add 가 없으면 그 제약은 검사에서 빠진다.
 # ⚠️ 모르면 멈춤: 마이그레이션이 제약 이름(wms_*_check)이나 대상 컬럼 CHECK 를
@@ -101,6 +104,34 @@ ADD  = re.compile(r'alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(\S+)\s+'
                   r'(reason|kind)\s+in\s*\(([^()]*)\)', re.I | re.S)
 DROP = re.compile(r'alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(\S+)\s+'
                   r'drop\s+constraint\s+(?:if\s+exists\s+)?([^\s;]+)', re.I)
+# create table 인라인 제약 (2026-09-08). 두 단계: 헤더에서 테이블명 → 본문(다음 ';' 까지)
+# 안의 `constraint <name> check ((reason|kind) in (…))` 전부. 한 테이블에 둘 이상도 잡는다.
+# 매치는 ADD 와 같은 인터페이스(start/span/group 1~4)로 감싸 events 에 **동일하게** 들어간다
+# — spans 에만 넣고 값을 버리면 앞으로 대상 테이블을 인라인으로 정의할 때 목록이 비게 된다.
+CREATE = re.compile(r'create\s+table\s+(?:if\s+not\s+exists\s+)?(\S+)\s*\(', re.I)
+INLINE = re.compile(r'constraint\s+(\S+)\s+check\s*\(\s*\(?\s*'
+                    r'(reason|kind)\s+in\s*\(([^()]*)\)', re.I | re.S)
+
+class InlineMatch:
+    """CREATE 헤더 + INLINE 매치를 ADD 매치 모양으로: group(1)=테이블 · 2=제약명 · 3=컬럼 · 4=값 목록."""
+    def __init__(self, table, m, offset):
+        self._table, self._m, self._off = table, m, offset
+    def start(self):
+        return self._off + self._m.start()
+    def span(self):
+        return (self._off + self._m.start(), self._off + self._m.end())
+    def group(self, n):
+        return self._table if n == 1 else self._m.group(n - 1)
+
+def inline_adds(text):
+    out = []
+    for c in CREATE.finditer(text):
+        body_start = c.end()
+        end = text.find(";", body_start)
+        body = text[body_start:(end if end >= 0 else len(text))]
+        for m in INLINE.finditer(body):
+            out.append((body_start + m.start(), "add", InlineMatch(c.group(1), m, body_start)))
+    return out
 # "모르면 멈춤" 신호: 이 패턴이 ADD/DROP 로 해석된 구간 밖에서 나타나면
 # 파서가 그 정의를 놓친 것이다 → 낡은 목록으로 검사하는 대신 실패 처리.
 SIGNALS = [re.compile(r'check\s*\(\s*\(*\s*(?:reason|kind)\b', re.I),      # = any 서식 포함
@@ -121,6 +152,7 @@ for path in sorted(env_list("MIGS")):
     text = strip_sql_comments(text)
     events = sorted(
         [(m.start(), "add", m) for m in ADD.finditer(text)] +
+        inline_adds(text) +
         [(m.start(), "drop", m) for m in DROP.finditer(text)])
     spans = [m.span() for _, _, m in events]
     if any(not any(a <= m.start() < b for a, b in spans)
