@@ -10,7 +10,7 @@ Cin7 Core를 장기적으로 대체할 커스텀 IMS의 첫 모듈. 추측으로
 ## 1. 환경 (2026-07-26 갱신 — 이전 기록은 Windows 경로였음)
 
 - 개발 경로: `~/asung/asung-wms` (WSL2 Ubuntu)
-- Supabase project-ref: `gftpcnkxbdjzzfvzwcfl` (ca-central-1)
+- Supabase project-ref: `gftpcnkxbdjzzfvzwcfl` (ca-central-1) — **운영**
 - 배포: GitHub Pages -> `wms.asung.ca` (repo `asungtrading/asung-wms`, **PUBLIC**
   — 2026-08-19 밤 private 전환을 시도했다가 되돌렸다. 경위·판단은 스킬 규칙 12)
 - 빌드툴 없음. 순수 HTML/JS + Supabase JS CDN
@@ -18,6 +18,20 @@ Cin7 Core를 장기적으로 대체할 커스텀 IMS의 첫 모듈. 추측으로
 
 ⚠️ `/mnt/c/...` 아래에서 작업하지 말 것 — WSL 파일 I/O가 크게 느려진다.
 ⚠️ 스킬에 남은 PowerShell 예시(`Invoke-RestMethod`, `cd ~\asung-wms`)는 낡았다. 이제 bash + curl.
+
+### ⚠️ Supabase 프로젝트가 둘이다 (2026-09-09)
+
+| | 프로젝트 | ref | 용도 |
+|---|---|---|---|
+| **운영** | `asung-WMS` | `gftpcnkxbdjzzfvzwcfl` | 실제 서비스 — WMS·원장·EF·cron 이 여기서 돈다 |
+| **테스트** | `Asung-IMS` | `fazgmyvzzhqybtvtktyg` | 스키마·RPC 시험용. **Cin7 secret 없음 = 수집 안 돎(의도적)** |
+
+- ⇒ SQL·배포 명령은 **어느 프로젝트인지 항상 명시**한다: `[운영 · asung-WMS]` / `[테스트 · Asung-IMS]`
+- ⇒ `--linked` 는 **운영**이다. `supabase link` 를 테스트로 바꾸지 말 것(`db push`·`functions deploy` 가 전부 테스트로 간다).
+  테스트는 `--db-url "$(cat ~/.asung-testdb-url)"` 로만 — **그 파일 경로가 보이면 테스트다.**
+- ⇒ 이름이 헷갈린다 — 새로 만든 `Asung-IMS` 가 **테스트**, 원래 쓰던 `asung-WMS` 가 **운영**.
+- 절차 정본: `docs/design/ledger-design.md` §4단계 「테스트 DB」(복사 세 단계 · 함정 넷 · 어느 프로젝트에서 실행하는가).
+  동기화 점검은 `asung-inv-ledger` 스킬 아침 점검 ⑭. 원칙은 `docs/design/ims-principles.md`(테스트는 「내일의 운영」).
 
 ## 2. DB 스키마 — 마이그레이션만 (2026-07-26 확립)
 

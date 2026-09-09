@@ -58,6 +58,9 @@ Cin7 Core ──(폴링)──> Supabase Edge Function ──> Supabase Postgres
 | BQ Project | `geometric-rock-487814-k4` |
 | Cin7 API Base | `https://inventory.dearsystems.com/ExternalApi/v2` |
 
+⚠️ 위 프로젝트는 **운영**이다. 2026-09-08 부터 **테스트 프로젝트 `Asung-IMS` 가 따로 있다** — ref·구분 규칙·절차는
+`CLAUDE.md` §1 「Supabase 프로젝트가 둘이다」와 `docs/design/ledger-design.md` §테스트 DB 를 볼 것(여기에 값을 복사하지 않는다).
+
 Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CIN7_ACCOUNT_ID`/`CIN7_APPLICATION_KEY`) + Supabase secrets(동일 이름). `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`는 Edge Function에 **자동 주입**(별도 등록 불필요). GAS가 Supabase에 쓸 땐 GAS Script Property의 `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` 사용.
 
 **⚠️ 비밀값 규칙 (매우 중요):**

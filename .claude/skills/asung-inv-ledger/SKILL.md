@@ -158,6 +158,11 @@ group by l.doc_number order by 2;
 SR 에 있나」 **한쪽만** 보므로 반대 방향(SR 에 있고 IM 에 없음)을 못 봤다 — `(c′)` 가 그 방향을 닫는다.
 ⚠️ **Simple 전용이다** — Advanced 의 `(b)(c)`(PA↔SR 대조)는 원문 그대로다.
 
+⚠️ **`warnings` 에 `warn_merged_landed` 가 뜨면** (2026-09-09 규명 · `PO-01120`): 운임이 **입고 날짜의 goods COGS 에 병합**된
+것이다 — Cin7 이 그렇게 넣고 IM 에 분리 수단이 없다(`ProductID`+`Date` 축만). **결함이 아니고 총액은 맞다.** ⇒ 볼 것은 하나뿐 —
+**그 문서에서 한 `ProductID` 가 여러 라인으로 갈려 있나.** 1:1 이면 `goods`/`landed` 배분 결과가 같아 **차이 0**이고, 갈려 있으면
+**단가가 라인별로 달라진다.** 📌 [실측 `PO-01120`] `distinct_pid 37` = 라인 37 ⇒ 차이 0. 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` §7-①.
+
 ### ⑦ 수집 회차 — 캡·동결이 있었나
 ```sql
 select source_key, ran_at at time zone 'America/Toronto' as ran_toronto,
@@ -190,15 +195,21 @@ order by ran_at desc limit 10;
 ⚠️ 그전까지는 「0행이면 정상」이 아니라 **기준선이 `adjustment` 3**(`ST-01283`)이었고,
 **사람이 그 숫자를 외워야 했다.** 상쇄가 끝나 원장은 정상인데 로그에는 닫을 자리가
 없었기 때문이다. ⇒ `inv_missing_docs`(⑫)가 그 자리를 만들었고 `ST-01283` 은 09-05 에
-닫혔다. 📌 **이 줄의 `missing_lines_unkeyed` 는 여전히 3을 센다** — 원장에 옛 행이 남아
-있어 감지 자체는 계속되기 때문이다. **그 숫자로 판정하지 말 것.**
+닫혔다. ~~📌 **이 줄의 `missing_lines_unkeyed` 는 여전히 3을 센다** — 원장에 옛 행이 남아
+있어 감지 자체는 계속되기 때문이다.~~ ⚠️ [09-09] 7일 재조회 창을 벗어나 **0** 이 됐다 — 아래 정정. **그 숫자로 판정하지 말 것.**
 [실측 09-04] `ST-01283` 의 `adjust_new` 3행(`UNF18259`·`UNF18260`·`UNF18261` · bin
 `EU050402`)이 매 회차 검출된다. **원장은 정상이다** — `cin7 +2` / `manual −2` 로 상쇄가
 끝나 순액 0이고 ⑧ 에도 안 나온다. ⚠️ 그런데 `unkeyed` 는 표에 안 들어가므로
 **`resolved_at` 으로 닫을 자리가 없다.** 상쇄 완료분이 영구히 재검출된다.
-⇒ **읽는 법: 3 이면 정상, 4 이상이면 새 소멸이다.** `_docs` 에 `ST-01283` 외의 문서가
+~~⇒ **읽는 법: 3 이면 정상, 4 이상이면 새 소멸이다.**~~ `_docs` 에 `ST-01283` 외의 문서가
 나타나는 것도 같은 신호다. 뜨면 `summary -> 'missing_lines_unkeyed_sample'` 로 상쇄 SQL 을
 만든다(`_truncated` 도 함께 볼 것 · ≤200행).
+⚠️⚠️ **[정정 2026-09-09] 이 숫자로 판정하지 말 것 — 재조회 창이 지나면 0 이 된다.**
+[실측] 09-03~09-06 `3` 고정 → **09-07 전환**(0~3 혼재) → 09-08 이후 `0` 고정. `detail_fetched` 22 → 16 과
+**동시에 움직였다** ⇒ `ST-01283`(08-31 사건)이 **7일 재조회 창을 벗어나** 상세 조회 대상이 아니게 된 것이다.
+⚠️ **원장 행은 그대로 남아 있고 해결된 것도 아니다** — **숫자와 상태가 무관하다.**
+⇒ ⭐ **판정은 ⑫ 로 한다**(이미 그렇게 적혀 있다). ⑦-b 는 참고용이고 **어떤 값이든 판정 근거가 아니다.**
+📌 `unkeyed` 필드 자체는 `inv-collect@2026-09-03.1` 이상에만 있다(그 앞은 `null`). 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` §7-②.
 ⚠️ 그 둘은 ③ 에 안 나온다(유니크 키 때문) — **판정 창구는 ⑫ 다**(2026-09-04 까지는
 이 줄이 유일한 창구였다).
 ⚠️ `collector` 가 `inv-collect@2026-09-03.1` 이상이어야 이 필드가 있다.
@@ -295,6 +306,16 @@ append-only 라 기존 행의 `occurred_on` 을 고치지 않는다(실물 확�
 `select raw -> 'line' ->> 'Quantity', qty_delta from inv_ledger where id = <existing_ledger_id>;`
 [실측 09-04] `raw.Quantity` 가 `abs(qty_delta)` 와 일치하고 UOM 이 null 이면 **배수 문제가
 아니라 원본 값 자체가 바뀐 것**이다. ⭐ 원문을 담아둔 덕분에 UOM 가설을 깼다.
+📌 **[실측 09-09] `inv_conflicts` 는 재유입이 있을 때만 생긴다.** 검출일(08-26·27·28·30·31·09-04)이 원장 backdated
+재유입 기간과 정확히 겹치고, 재유입이 멈춘 09-08 이후 0 이다. ⇒ ⚠️ **⑩ 의 0행이 「깨끗함」인지 「안 봄」인지는
+`inv_ledger` 의 backdated 유입으로 가른다**(정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` §7-③):
+```sql
+select date_trunc('day', created_at at time zone 'America/Toronto') as day_toronto,
+       source, count(*) as rows,
+       count(*) filter (where occurred_on < (current_date - 3)) as backdated_rows
+from inv_ledger where doc_type='sale' and created_at > now() - interval '10 days'
+group by 1,2 order by 1 desc;
+```
 
 ### ⑪ 수집 후 취소 — 문서가 통째로 VOID 됐나
 ```sql
@@ -1402,7 +1423,9 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    ⬜ 남은 것: ⑫ 가 실전 검증되면 ⑦-b 와 그 경고를 코드에서 정리한다.
    📌 **[09-09 아침 관측]** `missing_lines_unkeyed` 가 **0행**이었다 — 종전 기준선은 `ST-01283` 로 인한 **3**.
    ⚠️ **원인 미확인**(원장의 옛 행이 정리됐거나 collector 동작이 바뀐 것일 수 있다). 판정은 ⑫ 가 하므로
-   영향은 없으나, 「기준선 3을 외운다」가 실제로 사라진 것이면 위 ⑦-b 정리의 근거가 된다. ⬜ 확인 필요.
+   영향은 없으나, 「기준선 3을 외운다」가 실제로 사라진 것이면 위 ⑦-b 정리의 근거가 된다. ~~⬜ 확인 필요.~~
+   ⭐ **[09-09 저녁] 근거 확보 — 착수 가능.** 3 → 0 은 `ST-01283` 이 7일 재조회 창을 벗어난 것이고 원장 행은 그대로다
+   (`detail_fetched` 와 동행). ⇒ **⑦-b 는 어떤 값이든 판정에 못 쓴다**가 확정됐다(§아침 점검 ⑦-b 정정).
 2. ✅ **「수집 후 취소」 감지 — 1단계 완료 (2026-09-04).** `inv_voided_docs` +
    `inv-collect@2026-09-04.1` · 아침 점검 ⑪ 이 창구 · 새 API 호출 0건.
    [실측 배포 직후] `assembly` `seen 88 · in_ledger 3 · open 0` — **오탐 0.**
@@ -1423,10 +1446,12 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    `BNAT48173`·`CAN01003`(실제: `SO-15440` 8/28 편집) · `WEL04770`·`WEL04771`
    (실제: `SO-14734` 홀드 오더 `ship_date` 8/14). 넷 다 상쇄 완료.
    ⇒ ⚠️ **「확인됨」의 원인은 근거를 확인한 것만 적는다**(§아침 점검 0번)
-4. ⬜ **`inv_conflicts` `date_only` 62건 처리 방침** — 09-04 신규.
+4. ✅ **`inv_conflicts` `date_only` — 닫힘 (2026-09-09).** ~~⬜ 62건 처리 방침 — 09-04 신규.~~
    `occurred_on` 만 바뀐 무해한 행이 `resolved_at null` 로 쌓인다. ⑩ 의 필터가 가리므로
    당장 해는 없으나 **계속 늘고, 「이 62건이 정말 다 무해했나」를 확인할 사람이 없다.**
-   후보: 일괄 닫기 · 날짜 변경에도 의미가 있는지 판정 후 결정
+   ~~후보: 일괄 닫기 · 날짜 변경에도 의미가 있는지 판정 후 결정~~
+   ⭐ [실측 09-09] 잔량 **0행** · 재유입이 있을 때만 생긴다(검출일 = backdated 재유입 기간) · 09-07 에 78건을 실제로 닫아
+   **처리 절차 확인됨.** 방침 미정이 아니라 **「재유입 시 반복」**이다 — Cin7 사흘 간격 대량 갱신 때 다시 쌓이면 같은 절차로 닫는다.
 5. ✅ **미출고 31건 — 위험 없음으로 판정 (2026-09-06).**
    실무 확인: **인보이스와 `ship_date` 는 같은 경로**를 타므로 인보이스가 갱신되면
    `ship_date` 도 갱신된다. 31건은 **인보이스 미발행**이라 과거 날짜가 박히지 않는다.
@@ -1467,10 +1492,22 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
     Transit) 한 줄뿐이라 운임이 **아직 없다**. ⚠️ 「운임 없음」이 아니라 **「북키퍼가 아직 `Expense` 로 링크하지
     않았다」**다(Caleb 확인). 링크되면 `LastUpdatedDate` 갱신 → 재수집 → `landed` 추가 ⇒ **소급 입력 구조가
     실제로 도는지의 첫 시험**이 된다.
+    ⭐ **[09-09 저녁] 순서 확정**: ① 북키퍼가 Cin7 에서 `PO-01215` 에 `Expense` 링크 → ② **운영** `inv-cost` 가 다음 회차에
+    재수집하며 `landed` 추가 → ③ 그 뒤 테스트 재복사로 가져와 레이어 적재를 `goods`+`landed` 실물로 시험.
+    ⚠️ **테스트에 `PO-01215` 를 미리 넣어도 표본이 안 된다** — 테스트는 `inv-cost` 가 돌지 않는다(아래 13번). ①②는 운영에서만.
+    📌 `PO-01215` 의 운임 인보이스가 이미 Cin7 에 있는지는 **북키퍼에게 직접 묻는다**(API 추정보다 정확하다).
 13. ⬜ **테스트 프로젝트(Asung-IMS) `inv-cost` 정지 상태.** [실측 09-09] Cin7 secret 이 없다(`SUPABASE_DB_URL`
     하나뿐) ⇒ 배포해도 첫 호출에서 죽는다. `last_run` 09-08 00:33 · `latest_cost_date 2026-09-03` · 922행
     (운영 1,006). ⚠️ 「운영 변경이 테스트로 흐른다」는 원칙에서 이미 갈라져 있다 — 원가 층 작업이 진행 중인데
-    테스트에서 원가를 돌릴 수 없다. ⬜ 언제 어떻게 맞출지 미결정.
+    테스트에서 원가를 돌릴 수 없다. ~~⬜ 언제 어떻게 맞출지 미결정.~~
+    ⭐ **[09-09 저녁 · Caleb 판정] Cin7 secret 을 넣지 않는다.** 같은 Cin7 계정이라 「테스트 데이터로 실험」이 되지 않고, rate limit
+    예산(키 단위 60콜/60초)을 나눠 쓰며 호출이 두 배가 된다. **EF 검증은 `dry` 가 대신한다**(09-09 Simple 배포가 실증).
+    ⇒ **테스트의 실질 용도는 스키마·RPC 시험**이고, 데이터가 필요하면 **재복사**한다(정본 `ledger-design.md` §테스트 DB).
+    [실측] 뒤처진 규모 `inv_ledger` `cin7` +1,402 · `inv_cost` +84 · `manual` 1,579 와 `inv_layer` 13,830 은 양쪽 동일.
+    ⇒ **지금 재복사할 필요 없음** — 레이어 적재 함수 착수 시점에 한다.
+14. ⬜ **`x-wms-cron-key` 교체 — 시스템 완성 후**(Caleb 판정 09-09 · 대화 평문 노출 · 지금 위험 낮음). 교체 시 둘:
+    ① 사용처 전수 `grep -rn 'x-wms-cron-key' supabase/functions/`(이름이 WMS 공통처럼 읽히므로 `inv-cost` 전용인지 확인)
+    ② **secret 과 pg_cron 잡 헤더를 동시에** — 하나 빠지면 그 축이 401 로 **조용히 죽는다.**
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.

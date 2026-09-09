@@ -330,6 +330,14 @@ const adjustments = fetchAllPages('stockadjustmentList', {
   CAD 확정값**이고, 그래서 `inv_cost` 의 `landed` 행은 `currency_orig`·`fx_rate`·`amount_orig` 가 **전량 null
   인 것이 정확한 표현**이다(원문 통화가 우리 쪽에 도달하지 않는다). [실측] `landed` 434/434 전량 null —
   종전 「표본 4건이 CAD 였다」가 우연이 아니라 **경로 자체가 항상 환산된 CAD 를 준다.**
+- ⭐ **`ManualJournals` 줄의 `Date` 가 goods/landed 분류를 결정한다 (2026-09-09 실측 `PO-01120`).** `IsSystem=false` 줄의
+  `Date` 가 **입고일과 다르면** 별도 IM 묶음이 되어 `landed` 로 잡히고, **같으면** 재고 본체와 합산되어 `goods` 에 섞인다.
+  [실물] 운임 ① 90.00(`Date 08-27` · `Ref 16895`) → IM 08-27 묶음 COGS 89.999982 ⇒ `landed` / 운임 ② 695.00(`Date 08-28` ·
+  `Ref 42256`) → IM 08-28 묶음 COGS 22,395.686012 = 21,700.69 + 695 ⇒ **goods 에 병합**(`inv-cost` 의 `warn_merged_landed`).
+  ⚠️ **IM 에는 `ProductID`+`Date` 축만 있어 분리할 수단이 없다** — 우리가 고칠 수 없고 경고가 그 사실을 알린다.
+  📌 **그 날짜는 북키퍼가 입력한다.** 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` §7-①.
+- ⚠️ **금액 일치를 문서 연결의 근거로 쓰지 말 것** — [09-09] `PO-01120` 차액 695 가 `PO-01268`(Service Purchase) 금액 695 와
+  같아 같은 건으로 추측했으나 **틀렸다**(`Ref 42256` ≠ 그 문서). 695 는 흔한 운임 금액이다.
 - **배분은 금액 비례**다(수량·무게 아님). 분모 = `Invoice.Lines` 총합(AdditionalCharges **전**).
 
 ### ⚠️ Simple Purchase 상세 — Advanced 와 정반대인 축들 (2026-09-09 실측)
