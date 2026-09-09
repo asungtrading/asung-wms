@@ -32,6 +32,8 @@
 //   · 자기검증 (b) 상대 = **Invoice.Lines 의 ProductID 별 수량 합**(Simple 은 인보이스=입고 수량을 구조적으로
 //     강제 · cin7-api 주의 14) · (c) = **SR (ProductID,Date) 키가 IM 에 있나**(SR↔자기 자신 항등식 금지 ·
 //     입고됐는데 COGS 없는 라인을 잡는다 — 현행 cost_kind 판정이 못 보는 방향). 둘 다 불일치 = 문서 격리.
+//   · 입고 전(SR 라인 0 · IM 0)은 **skip_not_received** 로 경고 없이 센다 — (b') 에 넣으면 입고까지 매일 경고가 쌓인다
+//     (dry 실측 4건). Advanced 는 같은 상황을 processed(행 0)로 넘긴다 — Advanced 는 건드리지 않았다.
 //   · ⚠️ Order.Lines 금지(백오더 포함 · 52≠47) · AdditionalCharges 는 COGS 에 이미 반영(raw 기록만) ·
 //     COGS 는 CAD 확정값(환율 곱 금지) · landed 경로는 표본 대기(ManualJournals IsSystem=true 만 실측).
 // ⚠️ 창고·bin 은 원장의 resolveLoc 와 동일 규칙(ref/location ID 맵 · 콜론 파싱 금지) —
@@ -155,6 +157,11 @@ function buildCostRows(input: {
              zeroQtyLines, mergedRows: 0, warnMergedLanded: false, blocksSkipped, unmappedLines,
              irUnmatchedBlocks, invQtyMissing, netTotalMissing, fxRateMissing };
   };
+  // 경고 없는 스킵 — 결함이 아니라 「처리 대상이 아님」(입고 전). dispositions 에서만 센다(2026-09-09).
+  const skipQuiet = (disposition: string) => ({
+    rows: [] as CostRow[], disposition, warnings, goodsRows: 0, landedRows: 0,
+    zeroQtyLines, mergedRows: 0, warnMergedLanded: false, blocksSkipped, unmappedLines,
+    irUnmatchedBlocks, invQtyMissing, netTotalMissing, fxRateMissing });
 
   // 블록 정규화 — ⚠️ 전부 배열이다([0]만 보면 틀린다 · PO-01130 Invoice 2·SR 2·PA 2)
   const asBlocks = (v: any) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -361,6 +368,15 @@ function buildCostRows(input: {
       }
     }
   } else {
+    // ── 입고 전 문서 = 처리 대상이 아니다 (2026-09-09 dry 실측 — PO-01228·01231·01274·01275 SR=NOT AVAILABLE) ──
+    //   SR 라인이 0개(수량 합 0)이고 IM 도 없으면 원가를 만들 대상이 애초에 없다. (b') 에 넣으면 「SR 0 vs INV n」
+    //   불일치로 격리돼 **입고될 때까지 매일 경고 4건**이 쌓인다(「기준선 3을 외운다」 모양). 경고 없이 disposition 만 센다.
+    //   📌 Advanced 는 같은 상황(PA 0 · SR 0 · IM 0)을 `processed`(행 0)로 조용히 넘긴다 — 어휘를 새로 두는 이유:
+    //   「처리했는데 행이 0」과 「처리 대상이 아니었다」는 다른 상태이고, 후자가 보여야 아침 점검이 셀 수 있다.
+    //   ⚠️ IM 이 있는데 SR 이 0 이면 여기서 안 빠진다 — COGS 가 입고 전에 생긴 이상 상태라 바로 아래 (b') 가
+    //   「SR 0 vs INV n」으로 격리·경고한다(조용히 통과하지 않는다 — 테스트 ㉖).
+    const srTotalQty = [...srQtyByPid.values()].reduce((s, q) => s + q, 0);
+    if (srTotalQty <= QTY_EPS && imNet.size === 0) return skipQuiet("skip_not_received");
     // ── Simple 자기검증 (2026-09-09 · Caleb 판정) — 격을 낮추지 않는다. 불일치 = 문서 격리(skip_check_failed) ──
     // (b') SR 수량 합 == Invoice.Lines 수량 합 (ProductID 별). PA 가 없으니 상대를 인보이스로 바꾼다 —
     //   Simple 은 인보이스 수량 = 입고 수량을 구조적으로 강제한다(불일치 승인은 400 · cin7-api 주의 14).

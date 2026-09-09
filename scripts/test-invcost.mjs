@@ -34,6 +34,9 @@
 //  ㉒ 환율 부재(회차·헤더 둘 다 없음) — 행은 저장 · 원화 3필드 null · fxRateMissing 1 · (d) 오탐 없음 (Advanced 픽스처로 — 공통 수정)
 //  ㉓ Advanced 회귀 — 회차 CurrencyRate 가 있으면 헤더 값이 있어도 회차 값이 이긴다(PO-01130 규칙 유지) · raw.axis=putaway
 //  ㉔ Simple 인보이스 블록 없음(입고 먼저) → skip_check_failed (조용히 통과하지 않는다)
+//  ㉕ Simple 입고 전(SR 라인 0 · IM 0 · 인보이스 있음) → skip_not_received · 경고 0 (dry 실측 PO-01228 계열 — 매일 경고 방지)
+//  ㉖ Simple SR 0 인데 IM 있음(입고 전에 COGS) → 조용히 빠지지 않는다 — (b') 가 'SR 0 vs INV n' 으로 격리 + 경고
+//  ㉗ Advanced 입고 전(PA 없음 · SR 라인 0 · IM 0) → 현행 그대로 processed(행 0) · 경고 0 (무접촉 확인용 — 어휘 차이의 근거)
 
 import { readFileSync } from "node:fs";
 
@@ -575,6 +578,41 @@ const simpleDet = (over = {}) => ({
   ok("㉔ Simple 인보이스 없음 → skip_check_failed + 'no invoice block'",
     r.disposition === "skip_check_failed" && r.rows.length === 0
     && r.warnings.some((w) => w.includes("no invoice block")),
+    JSON.stringify({ d: r.disposition, w: r.warnings }));
+}
+// ㉕ Simple 입고 전 — SR=NOT AVAILABLE(라인 0) · IM 0 · 인보이스 AUTHORISED (PO-01231 Invoice First 모양) → 조용한 스킵
+{
+  const det = simpleDet({
+    StockReceived: { Status: "NOT AVAILABLE", Lines: [] },
+    InventoryMovements: [],
+  });
+  const r = callSimple(det);
+  ok("㉕ Simple 입고 전 → skip_not_received · rows 0 · warnings 0",
+    r.disposition === "skip_not_received" && r.rows.length === 0 && r.warnings.length === 0,
+    JSON.stringify({ d: r.disposition, w: r.warnings }));
+}
+// ㉖ Simple SR 0 인데 IM 있음 — 이상 상태(입고 전에 COGS)는 조용히 빠지면 안 된다. skip_not_received 는 IM 0 일 때만이라
+//    여기서는 (b') 로 내려가 'SR 0 vs INV n' 으로 격리·경고된다
+{
+  const det = simpleDet({ StockReceived: { Status: "NOT AVAILABLE", Lines: [] } });   // IM 은 기본 픽스처 2행 그대로
+  const r = callSimple(det);
+  ok("㉖ Simple SR 0 + IM 있음 → skip_check_failed + (b') 경고 'SR 0 vs INV 10' (조용히 통과 금지)",
+    r.disposition === "skip_check_failed" && r.rows.length === 0
+    && r.warnings.some((w) => w.includes("INV/SR qty mismatch for p1: SR 0 vs INV 10")),
+    JSON.stringify({ d: r.disposition, w: r.warnings }));
+}
+// ㉗ Advanced 입고 전 — 현행 동작 기록: PA 없음 · SR 라인 0 · IM 0 → processed(행 0) · 경고 0. ⚠️ Advanced 는 무접촉 —
+//    이 단언이 깨지면 Advanced 경로가 바뀐 것이다(skip_not_received 어휘를 Simple 에만 둔 이유가 이 차이다).
+{
+  const det = {
+    Type: "Advanced Purchase", SupplierCurrency: "USD",
+    Invoice: [{ Status: "AUTHORISED", InvoicingAndReceivingNumber: "IR-1", CurrencyRate: 1.4, TotalBeforeTax: 100, Lines: [{ ProductID: "p1", Total: 100, Quantity: 10 }] }],
+    StockReceived: [{ Status: "NOT AVAILABLE", Lines: [] }],
+    InventoryMovements: [],
+  };
+  const r = call(det);
+  ok("㉗ Advanced 입고 전 → processed(행 0) · 경고 0 (현행 그대로)",
+    r.disposition === "processed" && r.rows.length === 0 && r.warnings.length === 0,
     JSON.stringify({ d: r.disposition, w: r.warnings }));
 }
 
