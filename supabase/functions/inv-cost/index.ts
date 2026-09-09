@@ -18,11 +18,22 @@
 //   ⚠️ ?since= 는 **문서 선택에만** 쓴다(skip_no_recent_receipt) — 행의 occurred_on 을 거르면
 //   소급된 비용이 유실된다(조사 §7 — UpdatedSince 축과 이벤트 날짜는 독립).
 //
-// ⚠️ 환율은 Invoice[].CurrencyRate — 헤더 CurrencyRate 금지(PO-01130: 회차별 1.40275/1.39342).
+// ⚠️ 환율은 Invoice[].CurrencyRate 우선 — 헤더 CurrencyRate 는 **폴백**(PO-01130: 회차별 1.40275/1.39342
+//   라 회차 값이 있으면 그것). ⚠️ [정정 2026-09-09] 둘 다 없으면 **0 이 아니라 null** — 종전 `?? 0` 은
+//   fx_rate=0 을 조용히 저장했다(창구 없는 결손). 지금은 세 원화 필드 null + fx_rate_missing 카운터 + 경고.
 // ⚠️ Invoice·StockReceived·PutAway 는 배열 — [0] 만 보면 틀린다(조사 §1 · PO-01130 실사고).
-// ⚠️ Simple Purchase 는 미검증(2026-08-27 표본 없음) — skip_simple_unverified + 경고만.
-//   상세를 부르기 **전에** 목록 Type 으로 거른다: Simple 을 advanced-purchase 로 부르면
-//   200 + 빈 껍데기(조용함 — inv-collect 실측)라 부르고 나서는 못 알아챈다.
+// ⭐ Simple Purchase 경로 (2026-09-09 · 표본 PO-01215 · GAS 프로브 3회 · 정본 /tmp/inv-cost-simple-probe.md
+//   → docs/design/ledger-design.md §원가 레이어): ~~skip_simple_unverified~~ 는 폐기. 분기 안에서만 다르다:
+//   · 상세 = **GET /purchase?ID=** (Advanced 는 /advanced-purchase — ⚠️ 주소를 섞으면 빈 껍데기 · POST/PUT 은
+//     PO 가 Advanced 로 변환된다 · cin7-api 주의 13)
+//   · 라인 출처 = **StockReceived.Lines**(PutAway 블록이 ABSENT · SR 라인에 CardID·Location·LocationID 가 있다 —
+//     Advanced 와 정반대). 원장 inv-collect 도 같은 SR 축을 읽으므로 5키가 그대로 맞는다.
+//   · I&R 짝짓기 없음(단일 태스크 · IM[0].TaskID = PO ID) — 인보이스 블록 하나를 합성 키로 등록한다.
+//   · 자기검증 (b) 상대 = **Invoice.Lines 의 ProductID 별 수량 합**(Simple 은 인보이스=입고 수량을 구조적으로
+//     강제 · cin7-api 주의 14) · (c) = **SR (ProductID,Date) 키가 IM 에 있나**(SR↔자기 자신 항등식 금지 ·
+//     입고됐는데 COGS 없는 라인을 잡는다 — 현행 cost_kind 판정이 못 보는 방향). 둘 다 불일치 = 문서 격리.
+//   · ⚠️ Order.Lines 금지(백오더 포함 · 52≠47) · AdditionalCharges 는 COGS 에 이미 반영(raw 기록만) ·
+//     COGS 는 CAD 확정값(환율 곱 금지) · landed 경로는 표본 대기(ManualJournals IsSystem=true 만 실측).
 // ⚠️ 창고·bin 은 원장의 resolveLoc 와 동일 규칙(ref/location ID 맵 · 콜론 파싱 금지) —
 //   값이 다르면 원장 행과 조인이 안 된다. UNMAPPED 는 commit 차단(inv-collect 와 동일).
 //
@@ -33,7 +44,7 @@
 // _shared/cin7.ts 무변(바꾸면 소비 함수 전부 재배포).
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-cost@2026-08-31.1";   // 08-31.1 = 결함 C 방어 이식(커서 <Updated>|<식별자> tie-breaker + cursorStalled 증상 가드 — inv-collect 08-30.1 의 복제) + 회차 로그 inv_collect_runs(source_key=cost). 원가 계산·배분 규칙은 무변 · 이전 08-27.1 = 최초 배포
+const COLLECTOR_VERSION = "inv-cost@2026-09-09.1";   // 09-09.1 = Simple Purchase 경로(SR 축 · /purchase · (b)=Invoice.Lines · (c)=IM 키) + 환율 헤더 폴백·null(fx_rate_missing) + ?recheck_since + raw.axis. 이전 08-31.1 = 결함 C 방어 이식 + 회차 로그 · 08-27.1 = 최초 배포
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;
 const LIST_SLEEP_MS = 400;
@@ -111,9 +122,11 @@ function listDisposition(row: any): string {
   if (row?.IsServiceOnly === true) return "skip_service";
   const t = norm(row?.Type);
   if (t.includes("ADVANCED")) return "advanced";
-  if (t.includes("SIMPLE")) return "skip_simple_unverified";   // ⚠️ Simple 축(SR)은 미검증 — 생기면 그때 확인
+  if (t.includes("SIMPLE")) return "simple";   // 2026-09-09 — SR 축 경로(파일 상단) · ~~skip_simple_unverified~~
   return "skip_unknown_type";
 }
+type DocMode = "advanced" | "simple";
+const SIMPLE_IR = "__simple__";   // Simple 은 I&R 이 없다 — 인보이스 블록 하나를 이 합성 키로 등록해 allocate() 를 무수정으로 쓴다
 
 // 문서 하나의 원가 행 계산 — 조사 문서 §3(산술)·§6(사슬) 그대로.
 // 자기검증에 하나라도 걸리면 rows=[] + disposition 으로 문서째 격리(다른 문서는 계속).
@@ -122,21 +135,25 @@ function buildCostRows(input: {
   det: any;
   since: string | null;   // 문서 선택 게이트 전용 — 행 필터 아님
   loc: (line: any) => { warehouse: string; bin: string; mapped: boolean };
+  mode?: DocMode;         // 기본 advanced — Simple 은 라인 출처·(b)(c)·I&R 만 분기 안에서 다르다(파일 상단)
 }): {
   rows: CostRow[]; disposition: string; warnings: string[];
   goodsRows: number; landedRows: number; zeroQtyLines: number; mergedRows: number;
   warnMergedLanded: boolean; blocksSkipped: Record<string, number>; unmappedLines: number;
-  irUnmatchedBlocks: number; invQtyMissing: number; netTotalMissing: number;
+  irUnmatchedBlocks: number; invQtyMissing: number; netTotalMissing: number; fxRateMissing: number;
 } {
   const { docNo, det, since, loc } = input;
+  const mode: DocMode = input.mode ?? "advanced";
+  const simple = mode === "simple";
+  const axisLabel = simple ? "SR" : "PA";   // 실패 문구의 라인 축 이름 — Advanced 문구는 종전과 글자까지 같다
   const warnings: string[] = [];
   const blocksSkipped: Record<string, number> = {};
-  let zeroQtyLines = 0, unmappedLines = 0, irUnmatchedBlocks = 0, invQtyMissing = 0, netTotalMissing = 0;
+  let zeroQtyLines = 0, unmappedLines = 0, irUnmatchedBlocks = 0, invQtyMissing = 0, netTotalMissing = 0, fxRateMissing = 0;
   const fail = (reason: string, disposition = "skip_check_failed") => {
     warnings.push(docNo + " skipped (" + reason + ")");
     return { rows: [] as CostRow[], disposition, warnings, goodsRows: 0, landedRows: 0,
              zeroQtyLines, mergedRows: 0, warnMergedLanded: false, blocksSkipped, unmappedLines,
-             irUnmatchedBlocks, invQtyMissing, netTotalMissing };
+             irUnmatchedBlocks, invQtyMissing, netTotalMissing, fxRateMissing };
   };
 
   // 블록 정규화 — ⚠️ 전부 배열이다([0]만 보면 틀린다 · PO-01130 Invoice 2·SR 2·PA 2)
@@ -189,13 +206,26 @@ function buildCostRows(input: {
   //     **null + net_total_missing 카운트** — Total 로 대체하지 않는다(잘못된 축으로 조용히
   //     채우느니 비워두는 게 낫다).
   //   · additional      = AdditionalCharges 요약 — ⚠️ Account 가 재고 여부를 가른다(_59_ 재고 · 그 외 손익)
-  const invoiceByIr = new Map<string, { idx: number; rate: number; linesByPid: Map<string, { total: number; qty: number }>;
+  const invoiceByIr = new Map<string, { idx: number; rate: number | null; linesByPid: Map<string, { total: number; qty: number }>;
     linesTotalAll: number; netTotal: number | null; tax: number | null;
     additional: { description: unknown; account: unknown; total: unknown }[] }>();
-  let invLinesTotalCad = 0;   // 자기검증 (d)의 기대값 — Σ(인보이스 라인 Total 합 × 그 인보이스 CurrencyRate)
+  let invLinesTotalCad = 0;   // 자기검증 (d)의 기대값 — Σ(인보이스 라인 Total 합 × 그 인보이스 환율)
+  let fxUnknownBlock = false; // 환율 모르는 블록이 하나라도 있으면 (d) 기대값이 성립하지 않는다 — (d) 를 건너뛴다
+  // 환율: 회차(인보이스 블록) 값 우선 → 헤더 폴백 → 둘 다 없으면 null (⚠️ 0 금지 — 파일 상단 정정 2026-09-09).
+  //   [실측 PO-01215 Simple] Invoice.CurrencyRate 는 null 이고 환율은 최상위 CurrencyRate(1.37905)뿐.
+  //   Advanced 도 같은 구멍이 있었다 — 회차 값이 있으면 종전과 동일하게 그 값이다.
+  const posNum = (v: unknown): number | null => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  const headerRate = posNum(det?.CurrencyRate);
   for (let idx = 0; idx < invBlocks.length; idx++) {
     const inv = invBlocks[idx];
-    const rate = Number(inv?.CurrencyRate ?? 0);   // ⚠️ 회차별 환율 — 헤더 CurrencyRate 금지
+    const ir = irOf(inv);
+    const irKey = simple ? SIMPLE_IR : ir;   // Simple 은 I&R 이 없다 — 합성 키 하나(파일 상단)
+    const rate = posNum(inv?.CurrencyRate) ?? headerRate;
+    if (rate == null) {
+      fxRateMissing++;
+      warnings.push(docNo + ": no CurrencyRate on invoice " + (ir ? "I&R '" + ir + "'" : "#" + idx) + " nor header - fx fields left null (fx_rate_missing)");
+      fxUnknownBlock = true;
+    }
     const linesByPid = new Map<string, { total: number; qty: number }>();
     let linesTotalAll = 0;
     for (const line of (inv?.Lines ?? []) as any[]) {
@@ -203,17 +233,20 @@ function buildCostRows(input: {
       const total = Number(line?.Total ?? 0);
       linesTotalAll += total;   // 배분 분모 — pid 없는 라인도 Cin7 분모에는 들어간다
       if (!pid) continue;
-      invLinesTotalCad += total * (rate || 1);
+      if (rate != null) invLinesTotalCad += total * rate;
       const cur = linesByPid.get(pid) ?? { total: 0, qty: 0 };
       cur.total += total;
       cur.qty += Number(line?.Quantity ?? 0);   // amount_orig 입고 비율의 분모(주문수량) — PO-00805 정정
       linesByPid.set(pid, cur);
     }
-    const ir = irOf(inv);
-    if (!ir) continue;   // I&R 없는 인보이스는 대응 불가 — PA 쪽이 짝을 못 찾으면 그 블록이 스킵된다
-    if (invoiceByIr.has(ir)) { warnings.push(docNo + ": duplicate invoice I&R '" + ir + "' - first one kept"); continue; }
+    if (!irKey) continue;   // I&R 없는 인보이스는 대응 불가 — PA 쪽이 짝을 못 찾으면 그 블록이 스킵된다
+    if (invoiceByIr.has(irKey)) {
+      warnings.push(simple ? docNo + ": simple purchase has more than one invoice block - first one kept (verify (b) will compare against it)"
+                           : docNo + ": duplicate invoice I&R '" + ir + "' - first one kept");
+      continue;
+    }
     if (inv?.TotalBeforeTax == null) netTotalMissing++;
-    invoiceByIr.set(ir, {
+    invoiceByIr.set(irKey, {
       idx, rate, linesByPid,
       linesTotalAll: round6(linesTotalAll),
       netTotal: inv?.TotalBeforeTax == null ? null : Number(inv.TotalBeforeTax),
@@ -267,7 +300,7 @@ function buildCostRows(input: {
   if (since && srDates.length && srDates.every((d) => d <= since)) {
     return { rows: [], disposition: "skip_no_recent_receipt", warnings, goodsRows: 0, landedRows: 0,
              zeroQtyLines, mergedRows: 0, warnMergedLanded: false, blocksSkipped, unmappedLines,
-             irUnmatchedBlocks, invQtyMissing, netTotalMissing };
+             irUnmatchedBlocks, invQtyMissing, netTotalMissing, fxRateMissing };
   }
 
   // ── 1) IM 순액 맵 — ⚠️ 같은 (pid,date)에 행이 여럿(재평가 상쇄 +A/−A/+B) → 반드시 합산 ──
@@ -284,40 +317,74 @@ function buildCostRows(input: {
     imNet.set(k, cur);
   }
 
-  // ── PutAway 라인 (bin·CardID — 원장 line_ref 와 잇는 축) ──
+  // ── 배분 대상 라인 (bin·CardID — 원장 line_ref 와 잇는 축) ──
+  //   Advanced = PutAway.Lines(짝 있는 I&R 블록만 — 스킵 블록의 회차는 SR·IM 에서도 함께 뺐다)
+  //   Simple   = StockReceived.Lines(2026-09-09 · PutAway 부재 · 같은 필드가 SR 라인에 전부 있다 — 파일 상단)
+  //   변수명 paLines 는 Advanced 시절 이름 그대로 둔다 — allocate()·goods/landed 루프가 이 이름을 쓴다.
   type PaLine = { pid: string; sku: string; cardId: string; qty: number; date: string; wh: string; bin: string; ir: string };
   const paLines: PaLine[] = [];
   const paQtyByPidDate = new Map<string, number>();
   const paQtyByPid = new Map<string, number>();
-  for (const b of keptPa) {   // 짝 있는 I&R 블록만 — 스킵 블록의 회차는 SR·IM 에서도 함께 뺐다
+  const lineBlocks: { b: any; ir: string }[] = simple
+    ? srBlocks.map((b: any) => ({ b, ir: SIMPLE_IR }))
+    : keptPa.map((b: any) => ({ b, ir: irOf(b) }));
+  for (const { b, ir: blockIr } of lineBlocks) {
     for (const line of (b?.Lines ?? []) as any[]) {
       const q = Number(line?.Quantity ?? 0);
       if (q === 0) { zeroQtyLines++; continue; }   // 자기검증: qty=0 은 unit_cost 계산 불가 — 건너뛰고 카운트
       const pid = String(line?.ProductID ?? "").trim();
       const d = dateOnly(line?.Date);
       const cardId = String(line?.CardID ?? "").trim();
-      if (!pid || !d) return fail("PA line without ProductID/Date");
-      if (!cardId) return fail("PA line without CardID (line_ref would collide)");
+      if (!pid || !d) return fail(axisLabel + " line without ProductID/Date");
+      if (!cardId) return fail(axisLabel + " line without CardID (line_ref would collide)");
       const l = loc(line);
       if (!l.mapped) unmappedLines++;
       const k = pid + "\u0001" + d;
-      // 스킵된 회차와 (제품,날짜)가 겹치면 IM 순액을 회차별로 가를 수 없다 — 문서째 격리(드묾)
+      // 스킵된 회차와 (제품,날짜)가 겹치면 IM 순액을 회차별로 가를 수 없다 — 문서째 격리(드묾 · Simple 은 항상 빈 집합)
       if (excludedRoundKeys.has(k)) return fail("kept round overlaps an unmatched-I&R round on (product,date) " + pid + " @ " + d);
-      paLines.push({ pid, sku: String(line?.SKU ?? "").trim(), cardId, qty: q, date: d, wh: l.warehouse, bin: l.bin, ir: irOf(b) });
+      paLines.push({ pid, sku: String(line?.SKU ?? "").trim(), cardId, qty: q, date: d, wh: l.warehouse, bin: l.bin, ir: blockIr });
       paQtyByPidDate.set(k, (paQtyByPidDate.get(k) ?? 0) + q);
       paQtyByPid.set(pid, (paQtyByPid.get(pid) ?? 0) + q);
     }
   }
 
-  // ── 자기검증 (b) PutAway 수량 합 == SR 수량 합 (제품별) ──
-  for (const pid of new Set([...srQtyByPid.keys(), ...paQtyByPid.keys()])) {
-    const s = srQtyByPid.get(pid) ?? 0, p = paQtyByPid.get(pid) ?? 0;
-    if (Math.abs(s - p) > QTY_EPS) return fail("PA/SR qty mismatch for " + pid + ": SR " + s + " vs PA " + p);
-  }
-  // ── 자기검증 (c) PutAway 날짜 == SR 날짜 ([실측 PO-00853] 불일치 0건) ──
-  for (const k of new Set([...srQty.keys(), ...paQtyByPidDate.keys()])) {
-    if (!srQty.has(k) || !paQtyByPidDate.has(k)) {
-      return fail("PA/SR date mismatch on key " + k.replace("\u0001", " @ "));
+  if (!simple) {
+    // ── 자기검증 (b) PutAway 수량 합 == SR 수량 합 (제품별) ──
+    for (const pid of new Set([...srQtyByPid.keys(), ...paQtyByPid.keys()])) {
+      const s = srQtyByPid.get(pid) ?? 0, p = paQtyByPid.get(pid) ?? 0;
+      if (Math.abs(s - p) > QTY_EPS) return fail("PA/SR qty mismatch for " + pid + ": SR " + s + " vs PA " + p);
+    }
+    // ── 자기검증 (c) PutAway 날짜 == SR 날짜 ([실측 PO-00853] 불일치 0건) ──
+    for (const k of new Set([...srQty.keys(), ...paQtyByPidDate.keys()])) {
+      if (!srQty.has(k) || !paQtyByPidDate.has(k)) {
+        return fail("PA/SR date mismatch on key " + k.replace("\u0001", " @ "));
+      }
+    }
+  } else {
+    // ── Simple 자기검증 (2026-09-09 · Caleb 판정) — 격을 낮추지 않는다. 불일치 = 문서 격리(skip_check_failed) ──
+    // (b') SR 수량 합 == Invoice.Lines 수량 합 (ProductID 별). PA 가 없으니 상대를 인보이스로 바꾼다 —
+    //   Simple 은 인보이스 수량 = 입고 수량을 구조적으로 강제한다(불일치 승인은 400 · cin7-api 주의 14).
+    //   부분입고·미승인 인보이스에서 어긋나면 격리가 맞다 — 인보이스가 갱신되면 UpdatedSince 로 다시 들어온다.
+    const invRef = invoiceByIr.get(SIMPLE_IR);
+    if (!invRef) return fail("simple purchase has no invoice block - cannot verify SR quantities (received before invoice?)");
+    const invQtyByPid = new Map<string, number>();
+    for (const [pid, v] of invRef.linesByPid) invQtyByPid.set(pid, v.qty);
+    for (const pid of new Set([...srQtyByPid.keys(), ...invQtyByPid.keys()])) {
+      const s = srQtyByPid.get(pid) ?? 0, p = invQtyByPid.get(pid) ?? 0;
+      if (Math.abs(s - p) > QTY_EPS) return fail("INV/SR qty mismatch for " + pid + ": SR " + s + " vs INV " + p);
+    }
+    // (c') SR (ProductID,Date) 키가 IM 에 있나 — 「PA 날짜 == SR 날짜」를 그대로 두면 SR 을 자기 자신과 비교하는
+    //   항등식이 된다. IM 은 다른 원천(Cin7 확정 가치 장부)이라 검증이 성립하고, cost_kind 판정(아래 3)이 못 보는
+    //   방향(SR 에 있는데 IM 에 없다 = 입고됐는데 원가가 안 붙었다)을 잡는다. 반대 방향(IM 에만 있다)은 landed 다.
+    //   ⚠️ qty 0 인 SR 키는 제외 — IM 이 없는 것이 정상이다. 어긋난 키와 수량을 전부 문구에 남긴다(다음 사람이
+    //   문서를 열지 않아도 알 수 있게).
+    const missing: string[] = [];
+    for (const [k, q] of srQty) {
+      if (q > QTY_EPS && !imNet.has(k)) missing.push(k.replace("\u0001", " @ ") + " qty " + q);
+    }
+    if (missing.length) {
+      return fail("SR key(s) without IM (received but no COGS): " + missing.slice(0, 20).join(" · ")
+        + (missing.length > 20 ? " · +" + (missing.length - 20) + " more" : ""));
     }
   }
 
@@ -375,11 +442,14 @@ function buildCostRows(input: {
         warehouse: l.wh, bin: l.bin,
         occurred_on: kind === "goods" ? l.date : imDate,   // landed 는 IM 날짜 그대로(소급 유지)
         cost_kind: kind, qty: l.qty, amount, unit_cost: round6(amount / l.qty),
-        currency_orig: amountOrig != null ? currency : null,
-        amount_orig: amountOrig,                           // 행 단위 · 입고 비율 — Σ = lineTotal × (입고합 ÷ 주문수량)
-        fx_rate: amountOrig != null ? invRef!.rate : null, // ⚠️ 회차별 환율 — I&R 로 맞춘 그 인보이스의 값
+        // 원화 3필드 — 환율을 모르면 **셋 다 null**(2026-09-09 · 「모르면 비워둔다」 · fx_rate_missing 이 창구).
+        //   amount·unit_cost 는 COGS 에서 나오므로 그대로 정확하다.
+        currency_orig: amountOrig != null && invRef!.rate != null ? currency : null,
+        amount_orig: invRef?.rate != null ? amountOrig : null,   // 행 단위 · 입고 비율 — Σ = lineTotal × (입고합 ÷ 주문수량)
+        fx_rate: amountOrig != null && invRef!.rate != null ? invRef!.rate : null, // ⚠️ 회차 값 우선 · 헤더 폴백 · 0 금지
         collector: COLLECTOR_VERSION,
         raw: {
+          axis: simple ? "stock_received" : "putaway",   // 이 행의 라인 출처(2026-09-09) — 원가는 소급 재구성이 어려워 지금 담는다
           im: { product_id: pid, date: imDate, net: round6(net), im_rows: imRows },
           alloc: kind === "goods"
             ? { rule: "unit = im_net / sr_qty; amount = unit x pa_line_qty (remainder on last)", sr_qty: srQty.get(key) ?? null }
@@ -420,7 +490,9 @@ function buildCostRows(input: {
 
   // ── 자기검증 (d) goods IM 순액 ≈ 인보이스 라인 환산 합 — 크게 초과 = 비용이 입고일에 섞임 ──
   //   분리할 수 없으므로 경고만 하고 goods 로 담는다. 오탐이 아니라 알려진 한계다(지시서 2-d 6).
-  const warnMergedLanded = goodsNetTotal - invLinesTotalCad > MERGED_LANDED_TOLERANCE;
+  //   ⚠️ 환율 모르는 인보이스 블록이 있으면 기대값(CAD 환산 합)이 성립하지 않는다 — (d) 를 건너뛴다
+  //   (종전 `rate || 1` 은 원화 합과 CAD 순액을 비교해 Simple 에서 오탐을 냈다 — 2026-09-09).
+  const warnMergedLanded = !fxUnknownBlock && goodsNetTotal - invLinesTotalCad > MERGED_LANDED_TOLERANCE;
   if (warnMergedLanded) {
     warnings.push(docNo + ": goods IM net " + round6(goodsNetTotal) + " exceeds invoice-line CAD sum " +
       round6(invLinesTotalCad) + " - cost likely merged into a receipt date (warn_merged_landed, kept as goods)");
@@ -443,7 +515,7 @@ function buildCostRows(input: {
   if (mergedRows) warnings.push(docNo + ": " + mergedRows + " duplicate cost key(s) merged - CardID uniqueness assumption broken, inspect");
 
   return { rows: [...byKey.values()], disposition: "processed", warnings, goodsRows, landedRows,
-           zeroQtyLines, mergedRows, warnMergedLanded, blocksSkipped, unmappedLines, irUnmatchedBlocks, invQtyMissing, netTotalMissing };
+           zeroQtyLines, mergedRows, warnMergedLanded, blocksSkipped, unmappedLines, irUnmatchedBlocks, invQtyMissing, netTotalMissing, fxRateMissing };
 }
 // ── 계산 핵심 끝 ──
 
@@ -579,6 +651,13 @@ Deno.serve(async (req) => {
     if (since && !/^\d{4}-\d{2}-\d{2}$/.test(since)) return json({ ok: false, error: "since must be YYYY-MM-DD" }, 400);
     const fromSince = (url.searchParams.get("from_since") ?? "").trim() || null; // 커서 첫 시딩(=2026-08-20 — 스냅샷 축)
     if (fromSince && !/^\d{4}-\d{2}-\d{2}$/.test(fromSince)) return json({ ok: false, error: "from_since must be YYYY-MM-DD" }, 400);
+    // ?recheck_since=YYYY-MM-DD (2026-09-09) — 커서 **아래** 문서를 다시 태운다(PO-01215: Simple 경로 배포 전 스킵돼
+    //   LastUpdatedDate 가 커서보다 앞이라 평시 회차로는 영영 안 들어온다). 이 날짜를 목록 UpdatedSince 로 쓰고
+    //   정밀도 필터를 이 회차만 끈다. ⚠️ 커서는 손대지 않는다 — 비캡 회차면 평시대로 회차 시작 시각으로 전진
+    //   (재조회 창 ⊇ 평시 창이라 유실 없음 · 중복은 upsert 흡수) · 캡 회차면 **제자리**(뒤로 가지 않는다 · 아래 커서 절).
+    //   ❌ 수동 커서 되감기 대신 이것을 쓰는 이유: 되감은 사실이 회차 로그에 남지 않는다 — 이 값은 summary 에 남는다.
+    const recheckSince = (url.searchParams.get("recheck_since") ?? "").trim() || null;
+    if (recheckSince && !/^\d{4}-\d{2}-\d{2}$/.test(recheckSince)) return json({ ok: false, error: "recheck_since must be YYYY-MM-DD" }, 400);
     const timeLeft = () => TIME_BUDGET_MS - (Date.now() - t0);
     const warnings: string[] = [];
     if (!since) warnings.push("NO SINCE - skip_no_recent_receipt gate inactive; pre-snapshot docs will be written (pass ?since=2026-08-20)");
@@ -621,12 +700,15 @@ Deno.serve(async (req) => {
     const stateRows = await sbGet("inv_sync_state?source_key=eq.cost&select=source_key,last_cursor");
     const cursorBefore: string | null = stateRows[0]?.last_cursor ?? null;
     let sinceUsed: string | null = null;
-    let sinceSource: "state" | "param" | "none" = "none";
-    if (cursorBefore) { sinceUsed = cursorBefore; sinceSource = "state"; }
+    let sinceSource: "state" | "param" | "recheck" | "none" = "none";
+    if (recheckSince) { sinceUsed = recheckSince; sinceSource = "recheck"; }
+    else if (cursorBefore) { sinceUsed = cursorBefore; sinceSource = "state"; }
     else if (fromSince) { sinceUsed = fromSince; sinceSource = "param"; }
     if (sinceSource === "none") warnings.push("NO CURSOR - pulling the full purchase list (pass ?from_since=2026-08-20 or seed inv_sync_state 'cost')");
+    if (recheckSince) warnings.push("RECHECK_SINCE=" + recheckSince + " - list window widened below cursor (" + cursorBefore + "), precision filter off for this run; cursor is not moved backwards");
     const sinceDate = sinceUsed ? (dateOnly(sinceUsed) ?? sinceUsed.slice(0, 10)) : null;
-    const updatedSinceReq = sinceDate ? minusOneDay(sinceDate) : null;
+    // recheck 는 지정 날짜 그대로(겹침 보정 없이 — 사람이 정한 창) · 평시는 커서 − 1일
+    const updatedSinceReq = recheckSince ? recheckSince : (sinceDate ? minusOneDay(sinceDate) : null);
 
     // ── 1) 목록 — purchaseList UpdatedSince 증분 ──
     let listTotal: number | null = null, listReceived = 0, pages = 0;
@@ -654,23 +736,15 @@ Deno.serve(async (req) => {
     }
     const truncated = listTotal == null ? null : listReceived < listTotal;
 
-    // ── 2) 목록 레벨 게이트 → 후보 (상세는 Advanced 만 · Updated 오름차순 · 정밀도 필터) ──
+    // ── 2) 목록 레벨 게이트 → 후보 (상세는 Advanced·Simple · Updated 오름차순 · 정밀도 필터) ──
     const dispositions: Record<string, number> = {};
     const tally = (k: string) => { dispositions[k] = (dispositions[k] ?? 0) + 1; };
-    let simpleWarned = false;
-    const cands: { row: any; updated: string | null; key: string | null }[] = [];
+    const cands: { row: any; updated: string | null; key: string | null; mode: DocMode }[] = [];
     for (const row of listRows) {
       const d = listDisposition(row);
-      if (d !== "advanced") {
-        tally(d);
-        if (d === "skip_simple_unverified" && !simpleWarned) {
-          simpleWarned = true;
-          warnings.push("Simple Purchase encountered (e.g. " + String(row?.OrderNumber ?? "?") + ") - SR-axis cost path is UNVERIFIED (2026-08-27, no specimen); skipped, verify when one appears");
-        }
-        continue;
-      }
+      if (d !== "advanced" && d !== "simple") { tally(d); continue; }
       const updated = String(row?.LastUpdatedDate ?? "").trim() || null;
-      cands.push({ row, updated, key: cursorKeyOf(updated, cursorDocIdent(row)) });
+      cands.push({ row, updated, key: cursorKeyOf(updated, cursorDocIdent(row)), mode: d as DocMode });
     }
     // ⚠️ 키(<Updated>|<식별자>) 오름차순 · 코드유닛 비교 — 정밀도 필터의 < 와 같은 순서
     //   (localeCompare 금지 — 커서 tie-breaker 절 · 2026-08-31 결함 C 이식)
@@ -681,7 +755,7 @@ Deno.serve(async (req) => {
     //   runStartIso)는 같은 시각의 키보다 작아(짧은 쪽이 작다) 동률 문서가 걸러지지 않고
     //   재처리된다(upsert 흡수 — 안전 방향). key=null(Updated 없음)은 거르지 않는다(유실 방지).
     let precisionSkipped = 0;
-    if (cursorBefore && cursorBefore.length > 10) {
+    if (!recheckSince && cursorBefore && cursorBefore.length > 10) {   // recheck 회차는 커서 아래를 다시 태우는 것이 목적 — 필터 끔
       const kept: typeof cands = [];
       for (const cd of cands) {
         if (cd.key && cd.key < cursorBefore) { precisionSkipped++; continue; }
@@ -696,6 +770,7 @@ Deno.serve(async (req) => {
     // ── 3) 상세 → 원가 행 ──
     const allRows: CostRow[] = [];
     let detailFetched = 0, docsProcessed = 0, rowsGoods = 0, rowsLanded = 0, zeroQtyLines = 0, mergedRows = 0, invoiceQtyMissing = 0, netTotalMissingAll = 0;
+    let simpleDocs = 0, fxRateMissingAll = 0;   // 2026-09-09 — 진단 없는 경로는 조용히 죽는다: Simple 상세 호출 수 · 환율 모르는 인보이스 블록 수
     let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
     let lastProcessedKey: string | null = null;
     const blocksSkippedAll: Record<string, number> = {};
@@ -707,9 +782,11 @@ Deno.serve(async (req) => {
       const id = String(cd.row?.ID ?? "").trim();
       let det: any;
       try {
-        // ⚠️ 파라미터는 ID 다(TaskID 는 not found) · /purchase 는 Advanced 미지원("deprecated" 400)
-        det = await cin7Get("/advanced-purchase?ID=" + encodeURIComponent(id));
+        // ⚠️ 파라미터는 ID 다(TaskID 는 not found) · 주소는 목록 Type 으로 가른다 — 섞으면 빈 껍데기(파일 상단):
+        //   Advanced = /advanced-purchase(/purchase 는 "deprecated" 400) · Simple = /purchase(2026-09-09 · PO-01215 실측)
+        det = await cin7Get((cd.mode === "simple" ? "/purchase?ID=" : "/advanced-purchase?ID=") + encodeURIComponent(id));
         detailFetched++;
+        if (cd.mode === "simple") simpleDocs++;
         await sleep(DETAIL_SLEEP_MS);
       } catch (e: any) {
         // 상세 오류 = 캡과 같은 정지 — 시각 커서는 재방문이 없어, 지나치면 그 문서가 조용히 유실된다
@@ -720,13 +797,14 @@ Deno.serve(async (req) => {
         break;
       }
       const docNo = String(det?.OrderNumber ?? cd.row?.OrderNumber ?? "").trim();
-      const r = buildCostRows({ docNo, det, since, loc: resolveLoc });
+      const r = buildCostRows({ docNo, det, since, loc: resolveLoc, mode: cd.mode });
       tally(r.disposition);
       warnings.push(...r.warnings);
       zeroQtyLines += r.zeroQtyLines;
       mergedRows += r.mergedRows;
       invoiceQtyMissing += r.invQtyMissing;
       netTotalMissingAll += r.netTotalMissing;
+      fxRateMissingAll += r.fxRateMissing;
       for (const [k, n] of Object.entries(r.blocksSkipped)) blocksSkippedAll[k] = (blocksSkippedAll[k] ?? 0) + n;
       if (r.warnMergedLanded) mergedLandedDocs.push(docNo);
       // ⚠️ 블록 수 기준 — 다른 disposition(문서 수)과 단위가 다르다(문서는 processed 로도 함께 센다)
@@ -743,7 +821,15 @@ Deno.serve(async (req) => {
     // ── 커서 (inv-collect ②-b 와 동형 · 2026-08-31 결함 C 이식): 비캡 회차 = 회차 시작 시각 ·
     //    캡 회차 = 마지막 처리 문서의 키 <Updated>|<식별자> (동률 그룹 안에서도 식별자로 전진) ──
     const runStartIso = new Date(t0).toISOString();
-    const { cursorWouldBe, cursorStalled } = decideCursor(detailCapped, lastProcessedKey, cursorBefore, runStartIso);
+    let { cursorWouldBe, cursorStalled } = decideCursor(detailCapped, lastProcessedKey, cursorBefore, runStartIso);
+    // recheck 회차가 캡에 걸리면 커서는 **제자리** — 마지막 처리 문서의 키는 커서 아래라 뒤로 가는 셈이고,
+    //   그것을 stalled 로 보면 정당한 행까지 쓰기가 막힌다. 남은 문서는 사람이 recheck_since 를 늦춰 다시 돈다
+    //   (응답 detail_capped_remaining 이 몇 건 남았는지 말한다). 비캡 회차는 평시대로 회차 시작 시각으로 전진.
+    if (recheckSince && detailCapped) {
+      cursorWouldBe = cursorBefore;
+      cursorStalled = false;
+      warnings.push("RECHECK capped - cursor held at " + cursorBefore + "; re-run with a later recheck_since to cover the remaining " + cappedRemaining + " doc(s)");
+    }
     // 결함 B 가드 — 「시각이 없다」만 보는 더 구체적인 진단이라 그대로 두고, cursorStalled 가
     // A·B·C 와 미래의 사촌까지 증상으로 잡는다.
     const cappedNoUpdated = detailCapped && lastProcessedKey == null;
@@ -800,6 +886,9 @@ Deno.serve(async (req) => {
       merged_rows: mergedRows,
       invoice_qty_missing_lines: invoiceQtyMissing,   // 원본 3필드 null 로 남은 goods 행(주문수량 0/없음)
       net_total_missing: netTotalMissingAll,          // TotalBeforeTax 없는 인보이스 블록 수(raw.net_total null)
+      fx_rate_missing: fxRateMissingAll,              // 2026-09-09 — 환율(회차·헤더 둘 다) 없는 인보이스 블록 수 · 그 행은 원화 3필드 null
+      simple_docs: simpleDocs,                        // 2026-09-09 — Simple 상세 호출 수(격리돼도 센다 · 0 이면 Simple 이 안 돈 것)
+      recheck_since: recheckSince,                    // 2026-09-09 — 소급 재수집 회차면 그 날짜 · 평시 null (회차 로그 summary 에 남는다)
 
       merged_landed_docs: mergedLandedDocs,          // warn_merged_landed — 알려진 한계(비용·입고 동일 날짜)
       blocks_skipped: blocksSkippedAll,

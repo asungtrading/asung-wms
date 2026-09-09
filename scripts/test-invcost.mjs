@@ -26,6 +26,14 @@
 //  ⑮ 부분 입고(주문 100 · 입고 63) — Σ amount_orig == lineTotal × 0.63 · 재계산 항등식 성립
 //  ⑯ 같은 제품 두 날짜 분할 입고(40+60, 주문 100) — Σ amount_orig == lineTotal (이중 계상 회귀 방지)
 //  ⑰ 세금 있는 인보이스(HST 13%) — net_total 은 TotalBeforeTax(세전) · ratio 1 (PO-00967 회귀 가드)
+// 2026-09-09 추가 — Simple Purchase 경로(PO-01215 실측 모양) + 환율 폴백·null (지시서 /tmp/asung/prompt-inv-cost-simple.md):
+//  ⑱ Simple 기본 — PutAway 부재 · SR 라인이 출처 · Invoice 객체 · 헤더 CurrencyRate 폴백 · raw.axis=stock_received
+//  ⑲ Simple 1:N — 한 ProductID 가 두 bin 으로 분산 입고(SR 2라인 · IM 합산 1행) → 수량 비례 배분 · 합계 == IM 순액
+//  ⑳ Simple (b') INV/SR 수량 불일치 → skip_check_failed + 양쪽 수량이 문구에
+//  ㉑ Simple (c') SR 키에 IM 없음(입고됐는데 COGS 없음) → skip_check_failed + 어긋난 키·수량이 문구에 · qty 0 SR 키는 무시
+//  ㉒ 환율 부재(회차·헤더 둘 다 없음) — 행은 저장 · 원화 3필드 null · fxRateMissing 1 · (d) 오탐 없음 (Advanced 픽스처로 — 공통 수정)
+//  ㉓ Advanced 회귀 — 회차 CurrencyRate 가 있으면 헤더 값이 있어도 회차 값이 이긴다(PO-01130 규칙 유지) · raw.axis=putaway
+//  ㉔ Simple 인보이스 블록 없음(입고 먼저) → skip_check_failed (조용히 통과하지 않는다)
 
 import { readFileSync } from "node:fs";
 
@@ -156,10 +164,10 @@ const call = (det, since = null) => buildCostRows({ docNo: "PO-TEST", det, since
 }
 // ④ IsServiceOnly 스킵 — 상세 조회 전 목록 게이트 (129건 중 53건 = 41% 절약)
 {
-  ok("④ IsServiceOnly → skip_service (+ Simple/미지 Type 스킵)",
+  ok("④ IsServiceOnly → skip_service (+ Simple 은 simple · 미지 Type 스킵)",
     listDisposition({ IsServiceOnly: true, Type: "Service Purchase", Status: "COMPLETED" }) === "skip_service"
     && listDisposition({ IsServiceOnly: false, Type: "Advanced Purchase", Status: "COMPLETED" }) === "advanced"
-    && listDisposition({ IsServiceOnly: false, Type: "Simple Purchase", Status: "COMPLETED" }) === "skip_simple_unverified"
+    && listDisposition({ IsServiceOnly: false, Type: "Simple Purchase", Status: "COMPLETED" }) === "simple"   // 2026-09-09 — ~~skip_simple_unverified~~
     && listDisposition({ IsServiceOnly: false, Type: "???", Status: "COMPLETED" }) === "skip_unknown_type"
     && listDisposition({ IsServiceOnly: false, Type: "Advanced Purchase", Status: "VOIDED" }) === "skip_voided");
 }
@@ -437,6 +445,137 @@ const call = (det, since = null) => buildCostRows({ docNo: "PO-TEST", det, since
     && x.raw.invoice.net_total === 6156 && x.raw.invoice.tax === 800.28
     && Math.abs(ratio - 1) < 0.0001 && r.netTotalMissing === 0,
     JSON.stringify({ ratio, nt: x.raw.invoice.net_total, tax: x.raw.invoice.tax }));
+}
+
+// ══ 2026-09-09 — Simple Purchase 경로 + 환율 폴백·null ══
+const callSimple = (det, since = null) => buildCostRows({ docNo: "PO-SIMPLE", det, since, loc: mockLoc, mode: "simple" });
+// PO-01215 모양: PutAway 없음 · Invoice/SR/MJ 는 객체 · Invoice.CurrencyRate null · 헤더 CurrencyRate 만 · Co-op 할인 _59_ 가
+// COGS 에 이미 녹아 있다(TotalBeforeTax 480 = 라인 500 − 20). Order.Lines 에는 백오더 p9 가 있다 — 쓰면 가짜 결손.
+const simpleDet = (over = {}) => ({
+  Type: "Simple Purchase", SupplierCurrency: "USD", CurrencyRate: 1.37905,
+  Order: { Lines: [{ ProductID: "p1", Quantity: 10 }, { ProductID: "p2", Quantity: 30 }, { ProductID: "p9", Quantity: 5 }] },
+  Invoice: { Status: "AUTHORISED", CurrencyRate: null, TotalBeforeTax: 480, Tax: 0,
+    Lines: [{ ProductID: "p1", SKU: "SKU1", Total: 200, Quantity: 10 }, { ProductID: "p2", SKU: "SKU2", Total: 300, Quantity: 30 }],
+    AdditionalCharges: [{ Description: "Co-op 4%", Account: "_59_", Total: -20 }] },
+  StockReceived: { Status: "AUTHORISED", Lines: [
+    { ProductID: "p1", SKU: "SKU1", CardID: "c1", Quantity: 10, Date: "2026-09-08T00:00:00", LocationID: "L1", Location: "BIN-A" },
+    { ProductID: "p2", SKU: "SKU2", CardID: "c2", Quantity: 30, Date: "2026-09-08T00:00:00", LocationID: "L2", Location: "BIN-B" },
+  ] },
+  InventoryMovements: [
+    { TaskID: "po-id", ProductID: "p1", Date: "2026-09-08T00:00:00", COGS: 264.7776 },   // = 200 × (480/500) × 1.37905
+    { TaskID: "po-id", ProductID: "p2", Date: "2026-09-08T00:00:00", COGS: 397.1664 },   // = 300 × (480/500) × 1.37905
+  ],
+  ManualJournals: { Lines: [{ Reference: "Stock in Transit", Amount: 661.944, Date: "2026-09-08", Debit: "_136_", Credit: "_59_", IsSystem: true }] },
+  ...over,
+});
+// ⑱ Simple 기본 — SR 축 · 헤더 환율 폴백 · raw.axis · 재계산 항등식(할인 반영 net_total × 헤더 fx)
+{
+  const r = callSimple(simpleDet());
+  const c1 = r.rows.find((x) => x.line_ref === "c1");
+  const recalc = (x) => (x.amount_orig / x.raw.invoice.lines_total_all) * x.raw.invoice.net_total * x.fx_rate;
+  const aligned = r.rows.every((x) => Math.abs(x.amount - recalc(x)) <= 0.01);
+  const sum = round6(r.rows.reduce((s, x) => s + x.amount, 0));
+  ok("⑱ Simple 기본 — SR 라인 출처 · 헤더 CurrencyRate 폴백 · 5키 · raw.axis=stock_received · 항등식",
+    r.disposition === "processed" && r.rows.length === 2 && r.rows.every((x) => x.cost_kind === "goods")
+    && c1 && c1.amount === 264.7776 && c1.unit_cost === 26.47776 && c1.qty === 10
+    && c1.fx_rate === 1.37905 && c1.currency_orig === "USD" && c1.amount_orig === 200
+    && c1.bin === "BIN-A" && c1.sku === "SKU1" && c1.occurred_on === "2026-09-08"
+    && c1.raw.axis === "stock_received" && c1.raw.invoice.ir === "__simple__" && c1.raw.invoice.net_total === 480
+    && String(c1.raw.invoice.additional[0].account) === "_59_"
+    && aligned && sum === 661.944 && r.fxRateMissing === 0 && !r.warnMergedLanded && r.warnings.length === 0,
+    JSON.stringify({ d: r.disposition, rows: r.rows.map((x) => [x.line_ref, x.amount, x.fx_rate, x.raw.axis]), w: r.warnings }));
+}
+// ⑲ Simple 1:N — 한 ProductID 가 두 bin 으로 분산 입고(SR 2라인 · IM 합산 1행) → 수량 비례 · 합계 == IM 순액
+{
+  const det = simpleDet({
+    CurrencyRate: 1,
+    Invoice: { Status: "AUTHORISED", CurrencyRate: null, TotalBeforeTax: 100, Lines: [{ ProductID: "p1", SKU: "SKU1", Total: 100, Quantity: 10 }] },
+    StockReceived: { Status: "AUTHORISED", Lines: [
+      { ProductID: "p1", SKU: "SKU1", CardID: "c1", Quantity: 6, Date: "2026-09-08T00:00:00", LocationID: "L1", Location: "BIN-A" },
+      { ProductID: "p1", SKU: "SKU1", CardID: "c2", Quantity: 4, Date: "2026-09-08T00:00:00", LocationID: "L2", Location: "BIN-B" },
+    ] },
+    InventoryMovements: [{ TaskID: "po-id", ProductID: "p1", Date: "2026-09-08T00:00:00", COGS: 100 }],
+  });
+  const r = callSimple(det);
+  const a = r.rows.find((x) => x.bin === "BIN-A"), b = r.rows.find((x) => x.bin === "BIN-B");
+  ok("⑲ Simple 1:N — 두 bin 수량 비례(6:4) · 합계 == IM 순액 · amount_orig 60/40",
+    r.disposition === "processed" && r.rows.length === 2 && a.amount === 60 && b.amount === 40
+    && a.amount_orig === 60 && b.amount_orig === 40 && a.raw.im.im_rows === 1,
+    JSON.stringify(r.rows.map((x) => [x.bin, x.amount, x.amount_orig])));
+}
+// ⑳ Simple (b') — SR 8 ≠ INV 10 → 문서 격리 · 양쪽 수량이 문구에
+{
+  const det = simpleDet();
+  det.StockReceived = { Status: "AUTHORISED", Lines: [
+    { ProductID: "p1", SKU: "SKU1", CardID: "c1", Quantity: 8, Date: "2026-09-08T00:00:00", LocationID: "L1", Location: "BIN-A" },
+    { ProductID: "p2", SKU: "SKU2", CardID: "c2", Quantity: 30, Date: "2026-09-08T00:00:00", LocationID: "L2", Location: "BIN-B" },
+  ] };
+  const r = callSimple(det);
+  ok("⑳ Simple (b') INV/SR 수량 불일치 → skip_check_failed + 'SR 8 vs INV 10'",
+    r.disposition === "skip_check_failed" && r.rows.length === 0
+    && r.warnings.some((w) => w.includes("INV/SR qty mismatch for p1: SR 8 vs INV 10")),
+    JSON.stringify({ d: r.disposition, w: r.warnings }));
+}
+// ㉑ Simple (c') — SR p2 에 IM 없음(입고됐는데 COGS 없음) → 격리 · 키·수량이 문구에 · qty 0 SR 키(p3)는 무시
+{
+  const det = simpleDet();
+  det.Invoice.Lines.push({ ProductID: "p3", SKU: "SKU3", Total: 0, Quantity: 0 });
+  det.StockReceived.Lines.push({ ProductID: "p3", SKU: "SKU3", CardID: "c3", Quantity: 0, Date: "2026-09-08T00:00:00", LocationID: "L3", Location: "BIN-C" });
+  det.InventoryMovements = det.InventoryMovements.filter((m) => m.ProductID !== "p2");
+  const r = callSimple(det);
+  const w = r.warnings.find((x) => x.includes("SR key(s) without IM")) ?? "";
+  ok("㉑ Simple (c') SR 키에 IM 없음 → skip_check_failed + 'p2 @ 2026-09-08 qty 30' · p3(qty 0) 미포함",
+    r.disposition === "skip_check_failed" && r.rows.length === 0
+    && w.includes("p2 @ 2026-09-08 qty 30") && !w.includes("p3"),
+    JSON.stringify({ d: r.disposition, w: r.warnings }));
+}
+// ㉒ 환율 부재(회차·헤더 둘 다) — 행 저장 · 원화 3필드 null · fxRateMissing 1 · (d) 오탐 없음 (Advanced 픽스처 — 공통 수정)
+{
+  const det = {
+    Type: "Advanced Purchase", SupplierCurrency: "USD",   // ⚠️ 헤더 CurrencyRate 없음
+    Invoice: [{ Status: "AUTHORISED", InvoicingAndReceivingNumber: "IR-1", CurrencyRate: null, TotalBeforeTax: 100, Lines: [{ ProductID: "p1", Total: 100, Quantity: 10 }] }],
+    StockReceived: [{ Status: "AUTHORISED", Lines: [{ ProductID: "p1", Date: "2026-09-08T00:00:00", Quantity: 10 }] }],
+    PutAway: [{ Status: "AUTHORISED", InvoicingAndReceivingNumber: "IR-1", Lines: [
+      { ProductID: "p1", SKU: "SKU1", CardID: "c1", Quantity: 10, Date: "2026-09-08T00:00:00", LocationID: "L1", Location: "B1" },
+    ] }],
+    InventoryMovements: [{ ProductID: "p1", Date: "2026-09-08T00:00:00", COGS: 137.905 }],
+  };
+  const r = call(det);
+  const x = r.rows[0];
+  ok("㉒ 환율 부재 → 행 저장 · fx_rate/amount_orig/currency_orig 셋 다 null · fxRateMissing 1 · (d) 미발동",
+    r.disposition === "processed" && r.rows.length === 1 && x.amount === 137.905
+    && x.fx_rate === null && x.amount_orig === null && x.currency_orig === null
+    && r.fxRateMissing === 1 && !r.warnMergedLanded
+    && r.warnings.some((w) => w.includes("fx_rate_missing")),
+    JSON.stringify({ d: r.disposition, x: [x.amount, x.fx_rate, x.amount_orig, x.currency_orig], fx: r.fxRateMissing, w: r.warnings }));
+}
+// ㉓ Advanced 회귀 — 회차 CurrencyRate 가 있으면 헤더가 있어도 회차 값(PO-01130 규칙) · raw.axis=putaway
+{
+  const det = {
+    Type: "Advanced Purchase", SupplierCurrency: "USD", CurrencyRate: 9.9,   // 헤더는 무시돼야 한다
+    Invoice: [{ Status: "AUTHORISED", InvoicingAndReceivingNumber: "IR-1", CurrencyRate: 1.4, TotalBeforeTax: 100, Lines: [{ ProductID: "p1", Total: 100, Quantity: 10 }] }],
+    StockReceived: [{ Status: "AUTHORISED", Lines: [{ ProductID: "p1", Date: "2026-09-08T00:00:00", Quantity: 10 }] }],
+    PutAway: [{ Status: "AUTHORISED", InvoicingAndReceivingNumber: "IR-1", Lines: [
+      { ProductID: "p1", SKU: "SKU1", CardID: "c1", Quantity: 10, Date: "2026-09-08T00:00:00", LocationID: "L1", Location: "B1" },
+    ] }],
+    InventoryMovements: [{ ProductID: "p1", Date: "2026-09-08T00:00:00", COGS: 140 }],
+  };
+  const r = call(det);
+  const x = r.rows[0];
+  ok("㉓ Advanced 회귀 — 회차 1.4 가 헤더 9.9 를 이긴다 · raw.axis=putaway · fxRateMissing 0",
+    r.disposition === "processed" && x.fx_rate === 1.4 && x.amount_orig === 100 && x.currency_orig === "USD"
+    && x.raw.axis === "putaway" && r.fxRateMissing === 0 && r.warnings.length === 0,
+    JSON.stringify({ x: [x.fx_rate, x.amount_orig, x.raw.axis], w: r.warnings }));
+}
+// ㉔ Simple 인보이스 블록 없음(입고 먼저) → (b') 상대가 없다 → 격리 (조용히 통과 금지)
+{
+  const det = simpleDet();
+  delete det.Invoice;
+  const r = callSimple(det);
+  ok("㉔ Simple 인보이스 없음 → skip_check_failed + 'no invoice block'",
+    r.disposition === "skip_check_failed" && r.rows.length === 0
+    && r.warnings.some((w) => w.includes("no invoice block")),
+    JSON.stringify({ d: r.disposition, w: r.warnings }));
 }
 
 if (fails) { console.error(fails + " FAILURE(S)"); process.exit(1); }
