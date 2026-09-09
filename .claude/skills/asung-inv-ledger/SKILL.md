@@ -137,9 +137,26 @@ where l.doc_type = 'purchase' and l.source = 'cin7'
   and l.occurred_on > '2026-08-20' and c.id is null
 group by l.doc_number order by 2;
 ```
-📌 Simple Purchase 로 완료된 발주가 여기 뜬다 — Cin7 에서 Convert 하면 다음 회차에 사라진다
-(자가 치유 · [실측 `PO-01133`] 3초).
-📌 [실측 09-04] 0행.
+~~📌 Simple Purchase 로 완료된 발주가 여기 뜬다 — Cin7 에서 Convert 하면 다음 회차에 사라진다
+(자가 치유 · [실측 `PO-01133`] 3초).~~
+✅ **[2026-09-09] Simple Purchase 는 이제 정상 수집된다** — `inv-cost@2026-09-09.1` 부터 SR 축 경로로
+처리한다(정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` · 계약 `ledger-design.md` §「inv-cost 수집 계약」).
+⇒ **Simple 이라서 ⑥ 에 뜨는 일은 없어졌다.** ⚠️ 「⑥ 이 뜨면 Convert 하면 된다」로 외우면 이제 틀린다.
+- ⇒ 앞으로 ⑥ 이 뜨면 **Convert 로 해결되는 건이 아니다.** 원가가 실제로 못 붙은 것이므로
+  `inv_collect_runs.summary` 의 `dispositions` 와 `warnings` 를 먼저 본다.
+- 📌 `dispositions.skip_not_received` 는 **정상**이다 — 입고 전(SR=NOT AVAILABLE) 문서이고 원가를 만들
+  대상이 없다. **경고를 내지 않고 dispositions 에서만 센다.** [실측 09-09] `PO-01228`·`PO-01231`·
+  `PO-01274`·`PO-01275` 넷. ⚠️ 이 넷은 입고되면 자동으로 처리 대상이 된다 — 사람이 할 일은 없다.
+- ⚠️ `dispositions.skip_check_failed` 가 뜨면 **그것은 봐야 한다** — 자기검증 실패로 문서가 격리된
+  것이고 `warnings` 에 사유(어긋난 `ProductID`·수량 · SR 키)가 있다.
+📌 [실측 09-04] 0행. 📌 [실측 09-09] `PO-01215`(Simple · 47라인) 1건 → `?recheck_since=2026-09-07` 재수집 후 **0행 복귀**.
+
+⭐ **수집 단계 검출 (2026-09-09) — `(c′)` IM 키 ⊇ SR 키.** `inv-cost` 의 Simple 경로 자기검증 `(c′)` 가
+**「SR 의 `(ProductID, Date)` 키가 `InventoryMovements` 에 있나」**를 본다 ⇒ **「입고됐는데 COGS 가 없는
+라인」을 수집 단계에서 잡는다.** 오늘 겪은 결손(`PO-01215`)의 모양이 바로 그것이고, 앞으로는 ⑥ 까지 오기
+전에 걸린다(문서 격리 `skip_check_failed` + 경고에 어긋난 키·수량). 📌 현행 `cost_kind` 판정은 「IM 키가
+SR 에 있나」 **한쪽만** 보므로 반대 방향(SR 에 있고 IM 에 없음)을 못 봤다 — `(c′)` 가 그 방향을 닫는다.
+⚠️ **Simple 전용이다** — Advanced 의 `(b)(c)`(PA↔SR 대조)는 원문 그대로다.
 
 ### ⑦ 수집 회차 — 캡·동결이 있었나
 ```sql
@@ -755,13 +772,15 @@ cd ~/asung/asung-wms && supabase migration list --db-url "$(cat ~/.asung-testdb-
     (`ProductID`, `Date`) 로 묶은 행 수이고, 1 이상이 되는 것은 같은 날 재평가 상쇄(+A/−A/+B)가 있을 때다.
   · ⚠️ `raw.alloc.mj_user_lines` 는 `det.ManualJournals` 의 `IsSystem=false` 줄이고 **배분 규칙에
     영향이 없다**(raw 에 실릴 뿐). 지금까지 전부 빈 배열 — ⬜ 한 번도 안 타본 경로다.
-  · ⬜ Simple Purchase 경로 미검증 · ⬜ freight `_95_` 정책 회계 확인 · ~~⬜ FIFO 레이어~~ ✅ 그릇 완료
+  · ~~⬜ Simple Purchase 경로 미검증~~ ✅ **2026-09-09 SR 축 경로 구현·검증**(정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` ·
+    아침 점검 ⑥ 의 대응 방식이 바뀌었다 — 그 절 참조) · ⬜ freight `_95_` 정책 회계 확인 · ~~⬜ FIFO 레이어~~ ✅ 그릇 완료
     (2026-09-08 · 아래 🔵 원가 레이어 항목)
 
 - ⭐ **Simple 로 완료된 PO 도 나중에 Advanced 로 Convert 할 수 있다** ⇒ 「Simple 로 완료됨」은
   **영구 상태가 아니다.** 경고할 필요가 없고 **자가 치유된다**:
   `Convert → LastUpdatedDate 갱신 → inv-cost 가 UpdatedSince 로 포착 → 원가 기표 → ⑥ 목록 소멸`
   [실측 2026-08-28 `PO-01133`] 이 고리가 **3초**에 돌았다(`processed 1` · `rows_written 1`).
+  📌 [2026-09-09] Convert 는 여전히 되지만 **⑥ 의 처방은 아니다** — Simple 은 Convert 없이 그대로 수집된다.
 - ⚠️ **`CardID` 는 Convert 를 넘어 유지된다** — `PO-01133` 의 원장 행은 Simple 시절
   `StockReceived` 축으로, 원가 행은 Convert 후 `PutAway` 축으로 만들어졌는데 **`line_ref` 가
   같았다**(`90bc0304-…`). 실무의 예외가 원장·원가 정합을 깨지 않는다.
@@ -1372,7 +1391,7 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-09-08 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-09 갱신)
 
 1. ✅ **소멸 감지 2단계 — 완료 (2026-09-05).** `inv_missing_docs` + `inv-collect@2026-09-05.1`
    · 아침 점검 ⑫ 가 창구 · 커밋 `e56b205`.
@@ -1381,6 +1400,9 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    [실측] `ST-01283` 1행 입력 → `resolved_at` 로 닫음 → 재검출에도 `_new 0`.
    ⇒ ⭐ **⑦-b 의 「기준선 3을 외운다」가 사라졌다.**
    ⬜ 남은 것: ⑫ 가 실전 검증되면 ⑦-b 와 그 경고를 코드에서 정리한다.
+   📌 **[09-09 아침 관측]** `missing_lines_unkeyed` 가 **0행**이었다 — 종전 기준선은 `ST-01283` 로 인한 **3**.
+   ⚠️ **원인 미확인**(원장의 옛 행이 정리됐거나 collector 동작이 바뀐 것일 수 있다). 판정은 ⑫ 가 하므로
+   영향은 없으나, 「기준선 3을 외운다」가 실제로 사라진 것이면 위 ⑦-b 정리의 근거가 된다. ⬜ 확인 필요.
 2. ✅ **「수집 후 취소」 감지 — 1단계 완료 (2026-09-04).** `inv_voided_docs` +
    `inv-collect@2026-09-04.1` · 아침 점검 ⑪ 이 창구 · 새 API 호출 0건.
    [실측 배포 직후] `assembly` `seen 88 · in_ledger 3 · open 0` — **오탐 0.**
@@ -1431,13 +1453,24 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    ⬜ 로드맵: **잔고 구체화** — 지금 3.9초를 고치는 임시 카드가 아니라 IMS 가 커지면
    필요한 구조다. ⚠️ 착수 시 **재마감 절차**(과거 문서 편집 시 굳힌 잔고를 다시 만든다)와
    **Δ 축 유지**가 함께 설계돼야 한다. 착수 시점은 성능이 정한다.
-8. ⏸ 표본 대기: 급감 검사 임계값 · ~~`landed cost` 첫 발생~~ · Simple Purchase 원가
+8. ⏸ 표본 대기: 급감 검사 임계값 · ~~`landed cost` 첫 발생~~ · ~~Simple Purchase 원가~~
+   ✅ **Simple Purchase 원가 — 완료 2026-09-09.** 표본 `PO-01215` 로 SR 축 경로 실측·구현·검증
+   (실측 47행 · `sum(amount) 35,957.06` · ⑥ 0행 복귀 · Advanced 회귀 0 · 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md`).
+   📌 08-27 에 「표본이 나타나면 검증한다」고 남긴 것이 **13일 만에** 닫혔다.
    ✅ **[2026-09-08] `landed cost` 는 해제** — 이미 도착해 있었다(408행 · 11 PO). §1 🔵 원가 항목의 정정 참조.
 9. ⬜ **사건 적재 함수** — 종류별 vs 날짜순 하나. 「같은 날은 유입 먼저」를 사람이 지키게 하면
    조용히 틀린다 ⇒ **날짜순 하나가 유력**
 10. ⬜ **트랜스퍼 운송비 수집** — `inv-cost` 확장(§3 문서별 함정 「원가 축 실측」 참조)
 11. ⬜ **북키퍼 미매칭 여부** — Service Invoice 를 PO 에 매칭하지 않고 P&L 에 남기는 경우가 있는지
     실무 확인. 있으면 FIFO 금액이 구조적으로 낮게 나온다
+12. ⬜ **Simple 의 `landed` 경로 — 표본 대기.** `PO-01215` 의 `ManualJournals` 는 `IsSystem=true`(Stock in
+    Transit) 한 줄뿐이라 운임이 **아직 없다**. ⚠️ 「운임 없음」이 아니라 **「북키퍼가 아직 `Expense` 로 링크하지
+    않았다」**다(Caleb 확인). 링크되면 `LastUpdatedDate` 갱신 → 재수집 → `landed` 추가 ⇒ **소급 입력 구조가
+    실제로 도는지의 첫 시험**이 된다.
+13. ⬜ **테스트 프로젝트(Asung-IMS) `inv-cost` 정지 상태.** [실측 09-09] Cin7 secret 이 없다(`SUPABASE_DB_URL`
+    하나뿐) ⇒ 배포해도 첫 호출에서 죽는다. `last_run` 09-08 00:33 · `latest_cost_date 2026-09-03` · 922행
+    (운영 1,006). ⚠️ 「운영 변경이 테스트로 흐른다」는 원칙에서 이미 갈라져 있다 — 원가 층 작업이 진행 중인데
+    테스트에서 원가를 돌릴 수 없다. ⬜ 언제 어떻게 맞출지 미결정.
 
 📌 **플립 시점은 날짜가 아니라 사건 목록으로 센다** (2026-08-28 재검토 — ⚠️⚠️ **「30일」은 근거가
 없는 숫자였다**). 재려는 것은 「시간이 흘렀다」가 아니라 **「일어날 만한 일이 다 일어났다」**다.
@@ -1501,6 +1534,15 @@ sale_out 5,481 · transfer 925×2 · 라인 삭제 · 부분입고 · 분할입�
 **(다) 우리가 만든 것 — 1건.** 이중 차감(08-30 · 같은 날 발견·상쇄 522행).
 ⚠️ **앵커에 세지 않는다** — 발견한 결함이 아니라 **내가 만든 것**이다.
 정본은 `docs/sessions/2026-08-31-cursor-defects.md` §2 와 §4-c 「내가 틀린 것」.
+
+**(라) 사람의 입력 속도에 달린 항목.** (2026-09-09 · 결함이 아니라 **관측 조건**이라 건수를 세지 않는다)
+📌 닫힘 기준 ① 은 그대로다 — **Advanced landed 는 겪었다**(08-31까지 408행 · 종류 축은 닫혔다). 남은 것은
+**Simple 의 `landed` 소급**(`PO-01215` · 대기열 12번)과, 그 소급이 **북키퍼가 Cin7 에서 `Expense` 버튼으로
+PO 를 링크하는 시점**에 달려 있다는 **성격**이다(Caleb 확인 · 09-09).
+⇒ ⚠️⚠️ **「일어날 만한 일이 다 일어났다」를 세는데, 이 항목만은 우리가 통제할 수 없는 사람의 작업 속도로
+센다.** 선택지 둘: **기다린다** / **`PO-01215` 같은 실물에 링크를 요청해 표본을 만든다** — 후자면 통제 가능한
+축으로 바뀐다. 📌 「새 사건 종류를 기다리는 것」이 아니라 **「사람이 언제 입력하나」**여서 가·나·다와 성격이
+다르다. 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md` §2-f · `cin7-api` §Service Purchase 정정.
 
 ⚠️ **읽을 때의 주의**: 발견 수는 **얼마나 파고들었느냐에 좌우된다** — 08-29~31 은 사흘 내내
 깊이 판 세션이었다. **얕게 지나간 날의 0건은 「결함이 없다」가 아니라 「안 봤다」일 수 있다.**

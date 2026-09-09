@@ -107,6 +107,10 @@ WMS 는 일부만 안다. ⇒ WMS 기준 계산은 **과소집계**다. ⭐ 그 
 
 갱신 2026-09-08(오후) — **원가 레이어 절 신설** — `inv_layer` 3표 + 기초 적재 RPC · IN_TRANSIT 음수 예외.
 
+갱신 2026-09-09 — **`inv-cost` 수집 계약 절 신설**(§4단계 「inv-cost 수집 계약」) — Simple Purchase 경로
+(`StockReceived.Lines` 출처 · `raw.axis` · (b′)(c′) · `skip_not_received` · 환율 우선/폴백/null ·
+`?recheck_since`). 표본 `PO-01215` 47행 · 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md`.
+
 레포 경로: `docs/design/ledger-design.md`
 (마이그레이션 `20260816000000_inv_ledger_tables.sql` 이 이 문서를 참조한다)
 
@@ -1152,6 +1156,50 @@ psql "$(cat ~/.asung-testdb-url)" -c "select count(*) from supabase_migrations.s
 select count(*) from supabase_migrations.schema_migrations;
 ```
 📌 [실측 09-08 구축 직후] 둘 다 **53**.
+
+#### inv-cost 수집 계약 — Advanced·Simple (2026-09-09)
+
+📌 실측 근거는 `docs/sessions/2026-09-09-simple-purchase-cost.md` · Advanced 는 `docs/sessions/2026-08-27-landed-cost-investigation.md`.
+여기는 **계약**만 적는다(스킬은 요약·함정).
+
+**라인 출처** — Advanced 는 `PutAway.Lines`, **Simple 은 `StockReceived.Lines`**(PutAway 블록이 없다).
+`inv_cost.raw.axis` 가 `"putaway"` / `"stock_received"` 로 출처를 남긴다.
+
+**5키 계약**
+
+| `inv_cost` 컬럼 | Advanced (`PutAway.Lines`) | Simple (`StockReceived.Lines`) |
+|---|---|---|
+| `line_ref` | `CardID` | `CardID` |
+| `bin` | `LocationID` → `resolveLoc` | `LocationID` → `resolveLoc`(= `Location`) |
+| `warehouse` | `resolveLoc` | `resolveLoc` |
+| `sku` | `SKU` | `SKU` |
+| `occurred_on` | 라인 `Date` | 라인 `Date` |
+
+⭐ **Simple·Advanced 공통으로 `line_ref` = `CardID`** 이므로 하류(레이어 조인)에 타입 분기가 필요 없다.
+
+**자기검증** — 불일치 = **문서 단위 격리**(`skip_check_failed`) · 부분 저장 없음.
+
+| | Advanced | Simple |
+|---|---|---|
+| (b) 수량 | PA↔SR `ProductID` 별 수량 합 | **(b′)** `Invoice.Lines`↔SR `ProductID` 별 수량 합 — 근거: Simple 은 인보이스=입고 수량을 구조적으로 강제(`cin7-api` 주의 14) |
+| (c) 키 | PA↔SR `(ProductID, Date)` 키 양방향 존재 | **(c′)** **IM 키 ⊇ SR 키** — PA↔SR 을 그대로 두면 SR↔자기 자신 항등식이 되어 검증이 아니게 된다. ⭐ 부수 효과로 「입고됐는데 COGS 없는 라인」을 잡는다 |
+
+**`skip_not_received`** — SR 수량 합 0 **그리고** IM 0 인 Simple 문서. 경고 없이 `dispositions` 에서만 센다.
+⚠️ **IM 이 있는데 SR 이 0 이면 빠지지 않는다** — 입고 전에 COGS 가 생긴 이상 상태이므로 (b′) 가 격리한다.
+📌 Advanced 는 같은 상황에서 `processed`(행 0)로 조용히 끝난다(현행 유지 · `scripts/test-invcost.mjs` ㉗ 이 가드).
+
+**환율** — `Invoice[].CurrencyRate` **우선** → 최상위 `CurrencyRate` **폴백** → 둘 다 없으면 **null**(⚠️ **0 금지**)
++ `fx_rate_missing` 카운터 + 경고. null 이면 `currency_orig`·`amount_orig`·`fx_rate` 셋 다 null 로 두고 **행은
+저장**한다(`amount`·`unit_cost` 는 `COGS` 에서 나와 정확하므로 문서를 버리지 않는다).
+⚠️⚠️ **`COGS` 에 환율을 곱하지 않는다** — 이미 CAD 확정값이다.
+📌 `amount_orig` 는 `Invoice.Lines` 원문 합(**할인 전**)이고 `amount` 는 할인·환율이 반영된 CAD 확정값이다 —
+[실측 `PO-01215`] `amount_orig` 27,160.20 / `amount` 35,957.06. **두 축은 다른 것을 담는다**(재계산 항등식
+`amount = (amount_orig ÷ lines_total_all) × net_total × fx_rate` 로 연결된다).
+
+**`?recheck_since=YYYY-MM-DD`** — 목록 `UpdatedSince` 를 그 날짜로 쓰고 정밀도 필터를 그 회차만 끈다.
+**커서는 뒤로 가지 않는다**(캡 회차에는 유지 · 비캡이면 회차 시작 시각으로 전진). `summary.recheck_since` 에 값이
+남는다. ⚠️ **수동 커서 되감기 금지** — 결함 C·D 계열 사고 지점이고 **되감은 사실이 회차 로그에 남지 않는다**
+(「사건을 남긴다」 위반).
 
 #### 원가 레이어 (2026-09-08 · 그릇 + 기초 적재까지)
 

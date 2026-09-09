@@ -312,12 +312,58 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 - **`InventoryMovements`** = 가치 장부다. `ProductID · Date · COGS` 뿐 — **수량도 SKU 도 bin 도 없다.**
   ⚠️ 같은 `(ProductID, Date)` 에 행이 **여럿일 수 있다**(재평가 상쇄 `+A/−A/+B`) — **합산**해야 순액이다.
   ⚠️ **bin 은 `PutAway.Lines` 에만 있다** — `StockReceived.Lines` 의 `Location` 은 전부 null 이다.
+  ⚠️ **Advanced 한정** — Simple 은 정반대다(아래 절 · 2026-09-09).
 - **`Type='Service Purchase'`**(`IsServiceOnly=true`) 는 통관사·포워더 인보이스 문서다.
   `InventoryMovements` 0건이고 **자기가 어느 PO 에 붙었는지 모른다**(연결 필드 없음).
   ⇒ 원가는 반드시 **Advanced PO 축에서** 읽는다. 목록의 `IsServiceOnly` 로 걸러진다([실측] 41%).
   📌 PO 쪽 `ManualJournals` 의 **`IsSystem=false`** 줄이 그 비용이고, 금액은 **세전액**이다
   (HST 13% 제외 — 4건 전수 확인). 한 인보이스가 **여러 PO·여러 줄로** 쪼개진다.
+  ⚠️⚠️ **[정정 2026-09-09] 「어느 PO 에 붙었는지 모른다」는 API 관점의 반쪽이었다.** Cin7 안에서는 **북키퍼가
+  Service 인보이스의 `Expense` 버튼으로 해당 PO 를 찾아 수동 링크**한다(Caleb 확인). **연결은 실재하고 사람이
+  만든다.** ⇒ 위 「PO 쪽 `ManualJournals` `IsSystem=false` 줄 · 한 인보이스가 여러 PO·여러 줄로」가 바로 이 수동
+  링크의 결과다. 방향은 **PO → Service 한쪽** — Service 에서 역참조는 API 로 못 읽지만 PO 에서 「어떤 비용이
+  붙었나」는 읽힌다 ⇒ **되짚기 경로가 있다.** ⚠️ **소급 타이밍은 사람에게 달려 있다** — `asung-inv-ledger`
+  §하드 플립 판단 (라) 참조.
+  📌 **통화 축 (Caleb 확인 2026-09-09)**: USD 결제 운임은 Service 인보이스에서 **CAD 로 환산되어** 넘어온다.
+  환산 환율은 Service 인보이스 작성 시점 기준이고 그 환율은 Service Purchase 문서 최상위(`SupplierCurrency`·
+  `CurrencyRate`)에 보존된다([실측 `PO-01268`] CAD/1.0). ⇒ 우리가 PO 축에서 읽는 `IM.COGS` 는 **환산 이후의
+  CAD 확정값**이고, 그래서 `inv_cost` 의 `landed` 행은 `currency_orig`·`fx_rate`·`amount_orig` 가 **전량 null
+  인 것이 정확한 표현**이다(원문 통화가 우리 쪽에 도달하지 않는다). [실측] `landed` 434/434 전량 null —
+  종전 「표본 4건이 CAD 였다」가 우연이 아니라 **경로 자체가 항상 환산된 CAD 를 준다.**
 - **배분은 금액 비례**다(수량·무게 아님). 분모 = `Invoice.Lines` 총합(AdditionalCharges **전**).
+
+### ⚠️ Simple Purchase 상세 — Advanced 와 정반대인 축들 (2026-09-09 실측)
+
+정본: `docs/sessions/2026-09-09-simple-purchase-cost.md` · 구현: EF `inv-cost`(Simple 분기) ·
+표본: `PO-01215`(47라인 9,192개 · USD · GAS 프로브 3회)
+
+- **주소는 `GET /purchase?ID=`** — ⚠️ `/advanced-purchase` 로 부르면 **빈 껍데기**다(200 · 조용함).
+  POST/PUT 이면 **PO 가 조용히 Advanced 로 변환**된다(주의 13번). 읽기라도 주소를 섞지 말 것.
+- **최상위 블록**: `Order`(객체) · `StockReceived`(객체) · `Invoice`(객체) · `CreditNote`(객체) ·
+  `ManualJournals`(객체) · `InventoryMovements`(배열). ⚠️ **`PutAway` 블록이 ABSENT** — Advanced 와 다르다.
+- ⚠️⚠️ **bin 이 `StockReceived.Lines[].Location` 에 있다 — Advanced 와 정반대다.** Advanced 는 SR 의 `Location`
+  이 null 이고 bin 이 `PutAway` 에만 있다. [실측] `Location` null **0건** · 18개 bin.
+  📌 SR 라인 키: `Date, Quantity, ProductID, SKU, Name, Location, LocationID, Received, BatchSN, SupplierSKU,
+  ExpiryDate, CardID, …` — **`CardID` 도 있다**(원장 `line_ref` 와 그대로 맞는다). ⚠️ `ProductCustomField2` 는
+  상품 마스터 필드 — bin 처럼 보여도 쓰지 말 것.
+- ⚠️⚠️ **`Invoice.CurrencyRate` 가 null 이다** — 환율은 **응답 최상위 `CurrencyRate`** 뿐이다([실측] 1.37905).
+  Advanced 는 인보이스 블록마다 환율이 다르므로 **회차 값 우선 · 헤더 폴백**이 맞는 순서다.
+- ⚠️ **`InvoicingAndReceivingNumber`(I&R)가 없다** — Invoice·SR·CreditNote·ManualJournals·최상위 **전부**
+  없고, SR/Invoice 블록에 `TaskID` 자체가 없다. **`IM[0].TaskID` = PO ID** 다(Advanced 는 하위 태스크 GUID)
+  ⇒ **단일 태스크 구조.**
+- **`InventoryMovements` 는 Advanced 와 동일**(`TaskID, ProductID, Date, COGS, …` · 수량·SKU·bin 없음).
+  ⭐ [실측 검산] `sum(COGS) = 35,957.0601` = `Invoice.TotalBeforeTax 26,073.79 × 최상위 CurrencyRate 1.37905`
+  — **소수점까지 일치.** ⇒ ⭐ **환율 환산도 할인 배분도 계산 불필요 — Cin7 확정 CAD 값이다.**
+- ⚠️⚠️ **`Order.Lines` 를 쓰지 말 것** — [실측] 52라인 9,840개 ≠ SR/Invoice 47라인 9,192개(백오더 5라인
+  648개). 오더 축으로 기대치를 잡으면 **전부 가짜 결손**이 된다(`PO-01068` Advanced 전례와 같은 계열).
+  📌 Simple 은 오더 라인이 `d.Lines` 가 아니라 **`d.Order.Lines`** 안에 있다.
+- ⚠️ **`AdditionalCharges` 를 따로 더하지 말 것** — [실측] Co-op 4% `-1086.41` · `Account="_59_"`(재고 축)이고
+  **이미 `COGS` 에 반영**돼 있다(`Invoice.Lines` 합 27,160.20 − 1,086.41 = `TotalBeforeTax` 26,073.79). 이중 계상.
+- 📌 `Invoice.Total` 이 아니라 **`TotalBeforeTax`** — 이 표본은 `Tax=0`(`Zero-rated (Purchase)`)이라 우연히
+  같지만 국내 매입은 HST 13% 만큼 어긋난다.
+- 📌 **Service Purchase 는 금액만 있고 라인이 없다** — [실측 `PO-01268`] `Invoice.Lines`·`InventoryMovements`·
+  `ManualJournals.Lines` **전부 빈 배열**이고 `TotalBeforeTax` 만 있다(695) ⇒ 목록의 `IsServiceOnly` 로
+  거르는 것이 맞다.
 - **`Invoice[].AdditionalCharges`** 의 **`Account`** 가 재고 여부를 가른다 —
   `_59_`(Discount·Rounding)는 재고, `_95_`(Freight·Commission)는 손익.
   ⚠️ **`Order.AdditionalCharges` 에는 `Account` 필드가 없다** — 판정은 `Invoice` 쪽으로.
