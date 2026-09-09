@@ -111,6 +111,10 @@ WMS 는 일부만 안다. ⇒ WMS 기준 계산은 **과소집계**다. ⭐ 그 
 (`StockReceived.Lines` 출처 · `raw.axis` · (b′)(c′) · `skip_not_received` · 환율 우선/폴백/null ·
 `?recheck_since`). 표본 `PO-01215` 47행 · 정본 `docs/sessions/2026-09-09-simple-purchase-cost.md`.
 
+갱신 2026-09-09(저녁) — **상쇄(정정) 계약 절 신설**(§4단계 「상쇄(정정) 계약」) — 방식 둘의 선택 기준 ·
+`source` 필터 금지 · `line_ref` 키 금지 · `(doc_number, sku, warehouse)` 순액. 오진 둘(`source='cin7'` · `line_ref` 키)의
+경위와 상쇄 전수 실측은 정본 `docs/sessions/2026-09-09-reversal-conventions.md`.
+
 레포 경로: `docs/design/ledger-design.md`
 (마이그레이션 `20260816000000_inv_ledger_tables.sql` 이 이 문서를 참조한다)
 
@@ -1200,6 +1204,23 @@ select count(*) from supabase_migrations.schema_migrations;
 **커서는 뒤로 가지 않는다**(캡 회차에는 유지 · 비캡이면 회차 시작 시각으로 전진). `summary.recheck_since` 에 값이
 남는다. ⚠️ **수동 커서 되감기 금지** — 결함 C·D 계열 사고 지점이고 **되감은 사실이 회차 로그에 남지 않는다**
 (「사건을 남긴다」 위반).
+
+#### 상쇄(정정) 계약 (2026-09-09)
+
+📌 실측 근거는 `docs/sessions/2026-09-09-reversal-conventions.md`. 여기는 **판정 기준**만 적는다.
+
+- **물리 삭제 금지**(append-only). 정정은 항상 **행 추가**다.
+- **두 방식과 선택 기준**
+  · 같은 사건을 **다른 키로 재기표**해 옛 벌을 무효화 → `event_type='manual_reversal'` · 접미어 **없음**(타입이 구분한다)
+  · 사건 자체를 **취소·정정** → **원래 `event_type` 유지** · `line_ref` 에 **`:reversal` 접미어** · 부호 반대
+- **`source='manual'`** 은 두 방식 공통이다.
+- ⚠️⚠️ **원장 잔고·소진량을 계산할 때 `source` 로 필터하지 않는다.** 정본은 `inv_balance` 뷰이고 `source` 를 구분하지 않는다.
+- ⚠️⚠️ **`line_ref` 를 집계 키에 넣지 않는다.** 접미어 때문에 원본과 상쇄가 다른 키가 된다. 판매 소진량은
+  **`(doc_number, sku, warehouse)` 키 순액**으로 구한다(순액이 0 이상이면 소진하지 않는다 = 완전 상쇄된 판매).
+  · [근거] 그 키 수 13,183 = `cin7 sale_out` 행 수 ⇒ 판매에서 이미 유일하다.
+  · ⚠️ `replace(line_ref,':reversal','')` 금지 — 문자열을 만지는 방식이다.
+- ⭐ **트랜스퍼도 같은 키 순액 방식이 성립한다**(방식·접미어·타입이 섞여 있어도 `doc_net` 0). ⚠️ 단 **`warehouse` 를 키에서
+  빼지 말 것** — 출발과 도착이 상쇄돼 이동 자체가 사라진다(leg 는 `event_type` 으로 한 번 더 가른다 · §원가 레이어 10번).
 
 #### 원가 레이어 (2026-09-08 · 그릇 + 기초 적재까지)
 
