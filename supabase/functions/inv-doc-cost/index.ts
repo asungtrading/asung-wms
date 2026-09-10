@@ -1,6 +1,6 @@
 // ============================================================
 // ASUNG 재고 원장 — Edge Function: inv-doc-cost (2026-09-10)
-//   Cin7 트랜스퍼 운송비(stockTransfer.ManualJournals · IsSystem=false · Debit='_59_') → inv_doc_cost
+//   Cin7 트랜스퍼 운송비(stockTransfer.ManualJournals · ~~IsSystem=false · Debit='_59_'~~ → [정정 2026-09-10] Debit='_59_' AND Credit='_136_') → inv_doc_cost
 //   ⭐ 문서 단위 금액을 **읽어서 upsert 만** 한다. 배분하지 않는다(아래 「하지 않는 것」).
 //   스키마: 20260910141553_inv_doc_cost_transfer_freight.sql · 설계: docs/design/ledger-design.md §원가 레이어
 //   「트랜스퍼 운송비 — 배분까지 완료 · 수집기는 미착수」 소절 · 방향 정본: docs/design/ims-principles.md
@@ -14,7 +14,7 @@
 //
 // ═══ 무엇을 하나 ═══
 //  ① stockTransferList 순회(Status=COMPLETED) → ② 후보 문서 상세(stockTransfer?TaskID=) → ③ ManualJournals 에서
-//  IsSystem=false · Debit='_59_' 만 추출 → ④ inv_doc_cost upsert(on_conflict = inv_doc_cost_uq).
+//  ~~IsSystem=false · Debit='_59_'~~ → [정정 2026-09-10] Debit='_59_' AND Credit='_136_' 만 추출 → ④ inv_doc_cost upsert(on_conflict = inv_doc_cost_uq).
 //
 // ═══ ⚠️⚠️ 커서 축은 LastModifiedOn 이다 — CompletionDate 로 잡으면 놓친다 ═══
 //  [실측 2026-09-10] TR-04175 는 Completion 09-02 인데 저널이 **09-10 에 붙었다**(LastModifiedOn = 2026-09-10T15:32:06.049Z).
@@ -50,22 +50,46 @@
 //  「절대 시각으로 파싱하지 않는다 · 코드유닛 비교」와 tie-breaker(동일 타임스탬프 다건 · <LMO>|<Number>)를 그대로 유지한다.
 //  예상 밖 형식(정규식 불일치)은 원문 유지 + lmo_unnormalized 카운트(0 이 아니면 신호). 기존 저장 커서와의 호환은 문제 없다 — 배포 전이다.
 //
+// ═══ 진단 — skip 된 문서번호를 남긴다 (2026-09-10 · 정식 응답 필드) ═══
+//  dispositions 는 개수만 세어 「어느 문서가 왜 빠졌나」를 모른다. [실사고 2026-09-10] TR-04175(LastModifiedOn 15:32 · ManualJournals ARRAY(1) ·
+//  ~~IsSystem=false~~ · 249.33 — GAS 프로브 실측)를 하한 00:00 으로 태웠는데 커서가 15:41 까지 갔음에도 kept 0 · skip_no_journal 39 —
+//  그 문서가 후보에 없는지 · 캡 밖인지 · 저널을 못 읽는지 구분할 수 없었다. [정정 2026-09-10] 최종 원인은 아래 「IsSystem 은 존재하지 않는 필드」.
+//  ⇒ skipped_docs = 상세를 본 문서 중 processed 가 아닌 것의 {doc_number, disposition, mj_len}(최대 50 · mj_len = det.ManualJournals 배열 길이 ·
+//     초과분은 skipped_docs_truncated 로 센다) · candidate_head = 커서 필터 뒤 후보 정렬 앞 10건의 {doc_number, key} — 특정 문서가 후보에 있는지 ·
+//     몇 번째인지 바로 보인다(캡 안/밖 판별).
+//
 // ═══ ⚠️⚠️ 문서 필터 — From <> To (GUID) 로 건다 · 이름으로 걸면 안 된다 ═══
 //  FromLocation/ToLocation 은 「창고: bin」 형태라 bin 트랜스퍼가 섞인다. [실측 2026-09-09] 이름 필터 784건 vs GUID 12건.
 //  GUID 를 하드코딩하지 않는다 — From <> To 가 더 일반적이고 창고가 늘어도 돈다. 같으면 skip_same_location.
 //  Status 는 COMPLETED 만 본다(목록 Status 파라미터 · 문서화됨) — 저널은 완료 뒤에 붙으므로 좁혀도 놓치지 않는다(실측 둘 다 COMPLETED).
 //  서버 필터가 새는 경우를 위해 코드에서도 확인한다(skip_not_completed · 0 이 아니면 신호).
 //
-// ═══ ⚠️⚠️ ManualJournals 추출 — IsSystem 이 관건 · 배열 길이로 판단하면 틀린다 ═══
-//  원소 키 여섯 [실측]: Debit · Credit · Reference · Date · Amount · IsSystem
-//    TR-03975  ARRAY(2)  [0] Debit=_1150040007_ · Credit=_59_ · Ref=TR-03975 · 08-26 · 4878.11 · IsSystem=true
-//                        [1] Debit=_59_ · Credit=_136_ · Ref=B6900109 · 08-27 · 398.75 · IsSystem=false
-//    TR-04175  ARRAY(1)  [0] Debit=_59_ · Credit=_136_ · Ref=B6913286 · 09-04 · 249.33 · IsSystem=false
-//  · IsSystem=true 는 운송중 계정 이동(_1150040007_ ↔ _59_)이고 금액이 **재고 자체**(4,878.11) — 담지 않는다.
-//  · TR-04175 는 시스템 저널이 아예 없어 1행이고 그것이 운송비 · TR-03975 는 2행 중 [1] ⇒ 길이가 아니라 IsSystem 으로.
-//  · 거르는 조건 둘(AND): IsSystem === false · Debit === '_59_'(재고 계정). ⭐ 화이트리스트 — 블랙리스트(_95_ 제외)는 처음 보는
-//    계정을 조용히 통과시킨다. IsSystem=false 인데 Debit ≠ '_59_' 면 skip_non_inventory_debit + warning 에 계정 코드
-//    (0 이 아니게 되는 것이 신호 · 새 계정이 나타났다는 뜻).
+// ═══ ⚠️⚠️ ManualJournals 추출 — ~~IsSystem 이 관건 · 배열 길이로 판단하면 틀린다~~ → [정정 2026-09-10] 계정 화이트리스트 둘(Debit · Credit) ═══
+//  ~~원소 키 여섯 [실측]: Debit · Credit · Reference · Date · Amount · IsSystem~~
+//  ~~  TR-03975  ARRAY(2)  [0] Debit=_1150040007_ · Credit=_59_ · Ref=TR-03975 · 08-26 · 4878.11 · IsSystem=true~~
+//  ~~                      [1] Debit=_59_ · Credit=_136_ · Ref=B6900109 · 08-27 · 398.75 · IsSystem=false~~
+//  ~~  TR-04175  ARRAY(1)  [0] Debit=_59_ · Credit=_136_ · Ref=B6913286 · 09-04 · 249.33 · IsSystem=false~~
+//  ~~· IsSystem=true 는 운송중 계정 이동(_1150040007_ ↔ _59_)이고 금액이 재고 자체(4,878.11) — 담지 않는다.~~
+//  ~~· TR-04175 는 시스템 저널이 아예 없어 1행이고 그것이 운송비 · TR-03975 는 2행 중 [1] ⇒ 길이가 아니라 IsSystem 으로.~~
+//  ~~· 거르는 조건 둘(AND): IsSystem === false · Debit === '_59_'(재고 계정).~~
+//
+//  ⚠️⚠️ [정정 2026-09-10 · GAS 프로브 실측 14:40 · TR-03975 · TR-04175 · TR-03976] **IsSystem 은 존재하지 않는 필드다.**
+//  응답 전체를 문자열 검색해도 0건이다(세 문서 · 237,148 · 94,981 · 192,365자). ⇒ 종전 `j?.IsSystem === false` 는 `undefined === false` → false 라
+//  **전량 걸러졌다** — 다섯 회차 docs_processed 0 의 최종 원인.
+//  ⚠️ 위 취소선 기록의 「[0] Debit=_1150040007_ · 4878.11 · IsSystem=true」는 **창작이었다** — `1150040007` 은 저널이 아니라 문서 헤더의
+//  `InTransitAccount`("CostDistributionType":"Cost","InTransitAccount":"_1150040007_", …)이고, `4878.11` 은 응답에 없다(세 문서 모두 "4878.11" 포함 false).
+//  ⭐ 운송중 계정 이동은 ManualJournals 로 오지 않는다 — Cin7 이 내부에서 처리하고 헤더에 계정 코드만 알려준다. ManualJournals 에는 **운송비만** 온다.
+//  [실측] Debit/Credit 을 가진 객체는 중첩 전체에서 root.ManualJournals[0] 하나뿐(세 문서 동일). 세 문서 모두 ARRAY(1):
+//    TR-03975 [{"TaskID":"c456b86f-…","ID":"8ea9e56f-…","Reference":"B6900109","Amount":398.75,"Date":"2026-08-27T00:00:00","Debit":"_59_","Credit":"_136_",
+//              "ManualJournalsDistributedCosts":[],"vDimensionDefaultValueStockTransferJournals":[],"ValidationText":null,"ValidationState":null}]
+//    TR-04175 [{… "Reference":"B6913286","Amount":249.33,"Date":"2026-09-04T00:00:00","Debit":"_59_","Credit":"_136_" …}]
+//    TR-03976 [{… "Reference":"B6900109","Amount":229.2,"Date":"2026-08-27T00:00:00","Debit":"_59_","Credit":"_136_" …}]   ← TR-03975 와 같은 인보이스를 나눠 갖는다
+//  ⭐ 원소 키 11개: TaskID · ID · Reference · Amount · Date · Debit · Credit · ManualJournalsDistributedCosts · vDimensionDefaultValueStockTransferJournals ·
+//     ValidationText · ValidationState.
+//  ⇒ ⭐ 거르는 조건: **Debit === '_59_'(재고) AND Credit === '_136_'(Freight-COS)**. ⚠️ 둘 다 화이트리스트 — 블랙리스트는 처음 보는 계정을 조용히
+//     통과시킨다. 다른 값이 오면 skip_non_inventory_debit / skip_non_freight_credit 로 세고 warning 에 계정 코드(0 이 아니면 새 계정 신호 · Credit 표본은 3건뿐).
+//  ⚠️ 「배열 길이로 판단하면 틀린다」의 근거(2행 vs 1행)도 사라졐다 — 세 문서 모두 1행. ⭐ 그래도 배열이므로 **전량 순회**한다(인보이스가 여러 장 붙으면
+//     늘어날 수 있다 · ⬜ 실측 표본 없음). skip_system_only disposition 과 journal_lines.system 카운터는 도달 불가능해져 **제거**했다(항상 0 인 카운터는 신호가 아니다).
 //
 // ═══ ⚠️ inv_doc_cost 유니크와 null ═══
 //  inv_doc_cost_uq = (doc_type, doc_number, kind, ref_number, occurred_on). ⚠️ ref_number 가 null 이면 유니크가 안 걸린다
@@ -74,7 +98,7 @@
 //  (inv_doc_cost 에 amount >= 0 CHECK 를 일부러 안 걸었다). 같은 upsert 페이로드 안에 같은 5키가 두 번이면 PostgREST 가
 //  거부하므로("cannot affect row a second time") 합산 1행 + merged_rows 카운트 + 경고 — ⬜ 같은 인보이스가 같은 날 두 줄로
 //  오는 경우는 미확인(두 실측 문서 모두 1행)이라 그때 실물로 판단한다.
-//  raw = 그 문서의 ManualJournals 배열 **전체**(IsSystem=true 포함) + 최소 문서 헤더 — 「왜 이 금액만 골랐나」를 되짚을 수 있게.
+//  raw = 그 문서의 ManualJournals 배열 **전체**(~~IsSystem=true 포함~~ → 화이트리스트에 걸린 행 포함) + 최소 문서 헤더 — 「왜 이 금액만 골랐나」를 되짚을 수 있게.
 //
 // ═══ ⚠️⚠️ 하지 않는 것 ═══
 //  · inv_layer 를 읽지 않는다 · 배분하지 않는다. 배분은 inv_layer_apply 가 한다(20260910141553). 이유: ① 수집기가 inv_layer 를
@@ -87,7 +111,7 @@
 // _shared/cin7.ts 무변(바꾸면 소비 함수 전부 재배포).
 import { cin7Get, sleep } from "../_shared/cin7.ts";
 
-const COLLECTOR_VERSION = "inv-doc-cost@2026-09-10.1";   // 10.1 = 최초 — 트랜스퍼 운송비 문서 단위 수집(배분 없음)
+const COLLECTOR_VERSION = "inv-doc-cost@2026-09-10.2";   // 10.2 = IsSystem 필터 제거(존재하지 않는 필드 · 전량 걸러졌다) → Debit _59_ AND Credit _136_ 화이트리스트 · 이전 10.1 = 최초(배분 없음)
 const LIST_PAGE_LIMIT = 1000;
 const MAX_LIST_PAGES = 12;
 const LIST_SLEEP_MS = 400;
@@ -97,7 +121,8 @@ const TIME_BUDGET_MS = 120_000;  // 150초 idle timeout 앞에서 먼저 끊는�
 const INSERT_BATCH = 500;
 const SOURCE_KEY = "cost_transfer";                       // ⚠️ 'cost'(inv-cost) 와 독립 — 커서 시계가 다르다(헤더)
 const DOC_CONFLICT = "doc_type,doc_number,kind,ref_number,occurred_on";   // = inv_doc_cost_uq 순서
-const INVENTORY_DEBIT = "_59_";                            // 재고 계정 — 화이트리스트(헤더)
+const INVENTORY_DEBIT = "_59_";                            // 재고 계정 — Debit 화이트리스트(헤더)
+const FREIGHT_CREDIT = "_136_";                           // Freight-COS — Credit 화이트리스트(2026-09-10 · 실측 3건 전부 · 다른 값은 세고 거른다)
 
 // ── Supabase REST 헬퍼 (inv-cost 와 같은 형태 — service_role 자동주입) ──
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
@@ -144,8 +169,10 @@ type DocCostRow = {
   collector: string; raw: Record<string, unknown>;
 };
 // 저널 행 단위 집계 — 문서 disposition(문서 수)과 단위가 다르다. processed 문서 안에서도 skip 된 행이 보여야 신호가 산다.
-type JournalTally = { kept: number; system: number; non_inventory_debit: number; no_reference: number; zero_amount: number; bad_amount: number; no_date: number };
-const emptyTally = (): JournalTally => ({ kept: 0, system: 0, non_inventory_debit: 0, no_reference: 0, zero_amount: 0, bad_amount: 0, no_date: 0 });
+//   ~~system~~ 제거(2026-09-10) — IsSystem 필드가 없어 「시스템 저널 수」는 셀 수 없고 항상 0 이 될 카운터였다. 대신 non_freight_credit 신설:
+//   Debit 은 맞는데 Credit 이 '_136_' 이 아닌 행(새 비용 계정 신호). 화이트리스트에 걸린 행 수 = non_inventory_debit + non_freight_credit.
+type JournalTally = { kept: number; non_inventory_debit: number; non_freight_credit: number; no_reference: number; zero_amount: number; bad_amount: number; no_date: number };
+const emptyTally = (): JournalTally => ({ kept: 0, non_inventory_debit: 0, non_freight_credit: 0, no_reference: 0, zero_amount: 0, bad_amount: 0, no_date: 0 });
 
 // 목록 레벨 disposition — 상세 조회 전에 정한다. ⚠️ 이름(FromLocation/ToLocation)이 아니라 GUID(From/To)로(헤더).
 function listDisposition(row: any): string {
@@ -168,12 +195,10 @@ function buildDocCostRows(input: { docNo: string; det: any; row: any }): {
   const done = (disposition: string, rows: DocCostRow[] = [], mergedRows = 0) => ({ rows, disposition, warnings, tally, mergedRows });
   if (mjArr.length === 0) return done("skip_no_journal");
 
-  const userRows = mjArr.filter((j: any) => j?.IsSystem === false);   // ⚠️ === false — 값이 없는 행은 시스템 저널로도 운송비로도 안 본다
-  tally.system = mjArr.length - userRows.length;
-  if (userRows.length === 0) return done("skip_system_only");          // 아직 운송비 인보이스가 매칭되지 않았다
-
+  // ~~const userRows = mjArr.filter(j => j?.IsSystem === false)~~ [정정 2026-09-10] IsSystem 은 존재하지 않는 필드 — undefined === false 로 전량 걸러졌다(헤더).
+  //   ManualJournals 에는 운송비만 오므로 배열 전체를 계정 화이트리스트(Debit · Credit)로 판정한다. 전량 순회 — 인보이스 여러 장이면 늘어날 수 있다.
   const raw = {
-    manual_journals: mjArr,                                            // ⭐ 배열 전체(IsSystem=true 포함) — 「왜 이 금액만 골랐나」
+    manual_journals: mjArr,                                            // ⭐ 배열 전체(화이트리스트에 걸린 행 포함) — 「왜 이 금액만 골랐나」
     doc: {
       task_id: det?.TaskID ?? row?.TaskID ?? null, status: det?.Status ?? row?.Status ?? null,
       from: row?.From ?? null, to: row?.To ?? null,
@@ -185,13 +210,20 @@ function buildDocCostRows(input: { docNo: string; det: any; row: any }): {
   const rows: DocCostRow[] = [];
   let firstSkip: string | null = null;   // 행이 하나도 안 남았을 때의 문서 disposition — 처음 걸린 사유
   const skipRow = (k: keyof JournalTally, disposition: string) => { tally[k]++; firstSkip ??= disposition; };
-  for (const j of userRows) {
-    const debit = String(j?.Debit ?? "").trim();
+  for (const j of mjArr) {
+    const debit = String(j?.Debit ?? "").trim(), credit = String(j?.Credit ?? "").trim();
     if (debit !== INVENTORY_DEBIT) {
-      // 화이트리스트 밖 — 새 계정이 나타났다는 신호. 조용히 통과시키지 않는다(헤더)
+      // Debit 화이트리스트 밖 — 새 계정이 나타났다는 신호. 조용히 통과시키지 않는다(헤더)
       skipRow("non_inventory_debit", "skip_non_inventory_debit");
-      warnings.push(docNo + ": user journal with Debit '" + (debit || "(empty)") + "' (Credit '" + String(j?.Credit ?? "") + "', Ref '" + String(j?.Reference ?? "")
+      warnings.push(docNo + ": journal with Debit '" + (debit || "(empty)") + "' (Credit '" + credit + "', Ref '" + String(j?.Reference ?? "")
         + "', Amount " + String(j?.Amount) + ") is not the inventory account " + INVENTORY_DEBIT + " - skipped (skip_non_inventory_debit)");
+      continue;
+    }
+    if (credit !== FREIGHT_CREDIT) {
+      // Credit 화이트리스트 밖 (2026-09-10) — 실측 3건 전부 _136_(Freight-COS). 다른 값 = 새 비용 계정 신호 · 세고 거른다
+      skipRow("non_freight_credit", "skip_non_freight_credit");
+      warnings.push(docNo + ": journal with Debit " + INVENTORY_DEBIT + " but Credit '" + (credit || "(empty)") + "' (Ref '" + String(j?.Reference ?? "")
+        + "', Amount " + String(j?.Amount) + ") is not the freight account " + FREIGHT_CREDIT + " - skipped (skip_non_freight_credit)");
       continue;
     }
     const ref = String(j?.Reference ?? "").trim();
@@ -212,7 +244,7 @@ function buildDocCostRows(input: { docNo: string; det: any; row: any }): {
       amount: round6(amount),                 // ⚠️ 음수도 넣는다 — 배분 단계 가드가 차단한다(헤더)
       occurred_on: occurredOn,                // ⚠️ 저널 Date(인보이스 날짜)
       ref_number: ref,                        // ⭐ Service Invoice 번호
-      debit_account: debit, credit_account: String(j?.Credit ?? "").trim() || null,
+      debit_account: debit, credit_account: credit,
       collector: COLLECTOR_VERSION, raw,
     });
   }
@@ -225,7 +257,7 @@ function buildDocCostRows(input: { docNo: string; det: any; row: any }): {
     if (cur) { mergedRows++; cur.amount = round6(cur.amount + r.amount); } else byKey.set(k, r);
   }
   if (mergedRows) warnings.push(docNo + ": " + mergedRows + " duplicate (ref, date) journal line(s) merged into one row - first real sample of same-invoice-same-day, inspect raw");
-  if (byKey.size === 0) return done(firstSkip ?? "skip_system_only");
+  if (byKey.size === 0) return done(firstSkip ?? "skip_no_journal");   // firstSkip 은 mjArr 이 비지 않으면 항상 있다 — 폴백은 방어용(~~skip_system_only~~ 제거 · 2026-09-10)
   return done("processed", [...byKey.values()], mergedRows);
 }
 // ── 계산 핵심 끝 ──
@@ -423,12 +455,19 @@ Deno.serve(async (req) => {
       cands.push(...kept);
     }
     const updatedTies = countUpdatedTies(cands);
+    // 진단 — 후보 정렬(커서 필터 뒤 = 실제 처리 순서) 앞 10건 (헤더 「진단」)
+    const candidateHead = cands.slice(0, 10).map((cd, i) => ({ n: i + 1, doc_number: cursorDocIdent(cd.row), key: cd.key }));
 
     // ── 3) 상세 → 운송비 행 ──
     const allRows: DocCostRow[] = [];
     const journal = emptyTally();
     let detailFetched = 0, docsProcessed = 0, mergedRows = 0;
     let detailCapped = false, detailCapReason: string | null = null, cappedRemaining = 0;
+    const SKIPPED_DOCS_MAX = 50;   // 진단 목록 상한 — 응답 폭주 방지 (헤더 「진단」)
+    const skippedDocs: { doc_number: string; disposition: string; mj_len: number | null }[] = [];
+    let skippedDocsTruncated = 0;
+    const mjLenOf = (det: any): number | null => Array.isArray(det?.ManualJournals) ? det.ManualJournals.length
+      : Array.isArray(det?.ManualJournals?.Lines) ? det.ManualJournals.Lines.length : (det?.ManualJournals == null ? null : 0);
     let lastProcessedKey: string | null = null;
     for (let i = 0; i < cands.length; i++) {
       if (detailFetched >= MAX_DETAIL_PER_RUN) { detailCapped = true; detailCapReason = "max_detail"; cappedRemaining = cands.length - i; break; }
@@ -451,6 +490,10 @@ Deno.serve(async (req) => {
       const docNo = String(det?.Number ?? cd.row?.Number ?? "").trim();
       const r = buildDocCostRows({ docNo, det, row: cd.row });
       tally(r.disposition);
+      if (r.disposition !== "processed") {   // 진단 — 어느 문서가 왜 빠졌나 (mj_len null = ManualJournals 키 자체 없음 · 0 = 빈 배열)
+        if (skippedDocs.length < SKIPPED_DOCS_MAX) skippedDocs.push({ doc_number: docNo, disposition: r.disposition, mj_len: mjLenOf(det) });
+        else skippedDocsTruncated++;
+      }
       warnings.push(...r.warnings);
       mergedRows += r.mergedRows;
       for (const k of Object.keys(journal) as (keyof JournalTally)[]) journal[k] += r.tally[k];
@@ -468,7 +511,8 @@ Deno.serve(async (req) => {
     }
     const cappedNoUpdated = detailCapped && lastProcessedKey == null;
     if (cursorStalled) warnings.push("CURSOR STALLED - capped and cursor would not advance (cursorBefore=" + cursorBefore + ", wouldBe=" + cursorWouldBe + ") - transfer freight collection is frozen; commit is blocked");
-    if (journal.non_inventory_debit) warnings.push("SIGNAL: " + journal.non_inventory_debit + " user journal line(s) with a non-inventory Debit account were skipped - a new account appeared, inspect warnings above");
+    if (journal.non_inventory_debit) warnings.push("SIGNAL: " + journal.non_inventory_debit + " journal line(s) with a non-inventory Debit account were skipped - a new account appeared, inspect warnings above");
+    if (journal.non_freight_credit) warnings.push("SIGNAL: " + journal.non_freight_credit + " journal line(s) with Debit _59_ but a non-freight Credit account were skipped - a new cost account appeared, inspect warnings above");
     if (journal.no_reference) warnings.push("SIGNAL: " + journal.no_reference + " freight journal line(s) without Reference were skipped (would break inv_doc_cost_uq)");
 
     // ── 4) commit — 쓰기 성공 뒤에만 커서 전진 ──
@@ -511,6 +555,7 @@ Deno.serve(async (req) => {
       candidates: cands.length,
       precision_skipped: precisionSkipped,   // 키 < 커서 (이미 본 문서)
       updated_ties: updatedTies,             // 동률 그룹 조기 신호 — 캡보다 커지면 결함 C 상황(가드가 잡는다)
+      candidate_head: candidateHead,         // 진단 — 커서 필터 뒤 후보 앞 10건 {n, doc_number, key} (특정 문서가 후보에 있나 · 몇 번째인가)
       detail_fetched: detailFetched,
       detail_capped: detailCapped,
       detail_capped_reason: detailCapReason,
@@ -519,7 +564,9 @@ Deno.serve(async (req) => {
       rows_built: allRows.length,
       rows_written: rowsWritten,
       write_skipped: writeSkipped ?? undefined,
-      journal_lines: journal,                // 저널 행 단위 집계(kept·system·non_inventory_debit·no_reference·zero_amount·bad_amount·no_date)
+      skipped_docs: skippedDocs,             // 진단 — 상세를 봤는데 processed 가 아닌 문서 {doc_number, disposition, mj_len} · 최대 50
+      skipped_docs_truncated: skippedDocsTruncated,   // 50 을 넘어 목록에서 빠진 skip 문서 수
+      journal_lines: journal,                // 저널 행 단위 집계(kept·non_inventory_debit·non_freight_credit·no_reference·zero_amount·bad_amount·no_date) · ~~system~~ 제거(2026-09-10)
       merged_rows: mergedRows,               // 같은 (ref, date) 두 줄 합산 — ⬜ 표본 없음 · 0 이 아니면 첫 실물
       amount_built: round6(allRows.reduce((s, r) => s + r.amount, 0)),
       recheck_since: recheckSince,           // 정규화 ISO(입력 원문은 recheck_since_raw)
