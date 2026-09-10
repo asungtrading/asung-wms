@@ -13,7 +13,9 @@
 --
 -- 📌 [배경 2026-09-10] 운영 migration list 에서 20260910132601·20260910141553 이 비어 있어 commit=1 이 실패하는 상태였다.
 --   수집기가 inv_doc_cost 에 쓰려면 그 표가 운영에 있어야 한다.
--- 설계·실측(ManualJournals 원문 · IsSystem · 유니크의 ref_number null 약점)은 20260910141553 헤더가 정본이다 — 여기 반복하지 않는다.
+-- 설계·실측(ManualJournals 원문 · ~~IsSystem~~ · 유니크의 ref_number null 약점)은 20260910141553 헤더가 정본이다 — 여기 반복하지 않는다.
+-- ⚠️ [정정 2026-09-10] 141553 헤더의 IsSystem 실측표는 창작이었다(트랜스퍼 ManualJournals 에 IsSystem 없음 · 발주 구조를 옮겨 적은 것) — 141553 헤더의 정정 절 참조.
+--   표 정의는 그 사고와 무관하다(컬럼에 IsSystem 이 없다).
 
 create table if not exists inv_doc_cost (
   id             bigint generated always as identity primary key,
@@ -27,7 +29,7 @@ create table if not exists inv_doc_cost (
   credit_account text,               -- '_136_'
   collector      text not null,
   refreshed_at   timestamptz not null default now(),
-  raw            jsonb,              -- 그 문서의 ManualJournals 배열 전체(IsSystem=true 포함) — 「왜 이 금액만 골랐나」 추적용
+  raw            jsonb,              -- 그 문서의 ManualJournals 배열 전체(~~IsSystem=true 포함~~ → 화이트리스트에 걸린 행 포함 · 2026-09-10 정정) — 「왜 이 금액만 골랐나」 추적용
   constraint inv_doc_cost_doc_type_ck check (doc_type in ('transfer')),
   constraint inv_doc_cost_kind_ck     check (kind in ('transfer_freight')),
   constraint inv_doc_cost_uq

@@ -260,6 +260,22 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 - 📌 화면에 **`Undo`** 버튼이 있다 — 완료된 조립도 되돌릴 수 있다.
 - 날짜 축이 셋이다: `Date`(목록) · `CompletionDate` · `WIPDate`.
 
+### ⚠️⚠️ `ManualJournals` 는 발주와 트랜스퍼의 구조가 다르다 (2026-09-10 실측 · 같다고 가정한 사고)
+
+| | 발주 `/advanced-purchase?ID=` [PO-01111 · 15:06] | 트랜스퍼 `/stockTransfer?TaskID=` [TR-03975·03976·04175 · 14:40] |
+|---|---|---|
+| `ManualJournals[0]` 키 | 4개 `TaskID · InvoicingAndReceivingNumber · Status · Lines` — ⭐ **`Lines` 겹 안에** 저널 | 11개 `TaskID · ID · Reference · Amount · Date · Debit · Credit · ManualJournalsDistributedCosts · vDimensionDefaultValueStockTransferJournals · ValidationText · ValidationState` — ⭐ **저널이 바로 원소** |
+| `IsSystem` | **실재** · `Lines[0]` Stock in Transit 91,877.51 `Debit _59_ / Credit _1150040012_` `true` · `Lines[1]` 운임 90 `Credit _135_` `false` | ⚠️⚠️ **없다** — 응답 전체 문자열 검색 0건(237K·95K·192K자). 운송중 계정 이동은 저널로 오지 않고 헤더 `InTransitAccount` 에 코드만 |
+| In Transit 계정 | `_1150040012_` | `_1150040007_` (헤더 `InTransitAccount`) |
+| 비용 계정 | `_135_` (landed) | `_136_` (운송비 · 화면 「Freight - COS」) |
+| 걸러내는 조건 | `IsSystem === false` (위 PO 절 · **정상**) | **`Debit === '_59_' AND Credit === '_136_'`** (둘 다 화이트리스트) |
+
+- ⬜ `_135_`·`_136_` 계정명 미확인 — 필터엔 영향 없음(각 축 실측값).
+- ⚠️⚠️ **[사고 2026-09-10]** 트랜스퍼 프로브 출력을 요약하며 발주 구조를 섞어 「TR-03975 ARRAY(2) · [0] `IsSystem=true` 4878.11 ·
+  [1] `IsSystem=false` 398.75」를 문서·주석·픽스처에 적었다 — `4878.11` 은 응답에 없고 `_1150040007_` 은 헤더 오독. EF 필터
+  `j?.IsSystem === false` 가 `undefined === false` 로 **전량 걸러져** 다섯 회차 `docs_processed 0`. ⇒ **응답 구조는 요약하지 말고 원문
+  JSON 을 옮긴다 · 픽스처는 실측 원문으로 · 두 엔드포인트를 같다고 가정하지 않는다.** 정본: `docs/design/ledger-design.md` §원가 레이어 12번.
+
 ### ⚠️⚠️ 트랜스퍼 bin — API 는 주지 않는다 (2026-08-31 전수 확인)
 
 정본: `docs/sessions/2026-08-31-transfer-departure-bin.md`

@@ -12,15 +12,27 @@
 --    ⭐ ManualJournalsDistributedCosts = ARRAY(0)  ← 둘 다 빈 배열       ⭐ Lines[0] 원가류 필드 = (없음) ← TransferQuantity 만
 --  ⇒ 화면의 「Distribute journals using the product: Cost」 는 Cin7 내부 설정이고 결과를 API 로 주지 않는다. 우리가 원가 비례로 배분한다.
 --
---  ManualJournals 원소 키 여섯: Debit · Credit · Reference · Date · Amount · IsSystem     [실측 원문]
---    TR-03975  ARRAY(2)
---      [0] {"Debit":"_1150040007_","Credit":"_59_","Reference":"TR-03975","Date":"2026-08-26T00:00:00","Amount":4878.11,"IsSystem":true}
---      [1] {"Debit":"_59_","Credit":"_136_","Reference":"B6900109","Date":"2026-08-27T00:00:00","Amount":398.75,"IsSystem":false}
---    TR-04175  ARRAY(1)
---      [0] {"Debit":"_59_","Credit":"_136_","Reference":"B6913286","Date":"2026-09-04T00:00:00","Amount":249.33,"IsSystem":false}
---  ⚠️⚠️ IsSystem 으로 걸러야 한다 — 배열 길이로 판단하면 틀린다(TR-04175 는 시스템 저널이 없어 1행이고 그것이 운송비 · TR-03975 는 [1]).
---    · IsSystem=true  = 운송중 계정 이동(_1150040007_ In Transit ↔ _59_ 재고). ⭐ 재고 원가와 무관 — 금액이 재고 자체(4,878.11)다.
---    · IsSystem=false = ⭐ 운송비. Debit='_59_'(재고) / Credit='_136_'(Freight-COS).
+--  ~~ManualJournals 원소 키 여섯: Debit · Credit · Reference · Date · Amount · IsSystem     [실측 원문]~~
+--  ~~  TR-03975  ARRAY(2)~~
+--  ~~    [0] {"Debit":"_1150040007_","Credit":"_59_","Reference":"TR-03975","Date":"2026-08-26T00:00:00","Amount":4878.11,"IsSystem":true}~~
+--  ~~    [1] {"Debit":"_59_","Credit":"_136_","Reference":"B6900109","Date":"2026-08-27T00:00:00","Amount":398.75,"IsSystem":false}~~
+--  ~~  TR-04175  ARRAY(1)~~
+--  ~~    [0] {"Debit":"_59_","Credit":"_136_","Reference":"B6913286","Date":"2026-09-04T00:00:00","Amount":249.33,"IsSystem":false}~~
+--  ~~⚠️⚠️ IsSystem 으로 걸러야 한다 — 배열 길이로 판단하면 틀린다(TR-04175 는 시스템 저널이 없어 1행이고 그것이 운송비 · TR-03975 는 [1]).~~
+--  ~~  · IsSystem=true  = 운송중 계정 이동(_1150040007_ In Transit ↔ _59_ 재고). 재고 원가와 무관 — 금액이 재고 자체(4,878.11)다.~~
+--  ~~  · IsSystem=false = 운송비. Debit='_59_'(재고) / Credit='_136_'(Freight-COS).~~
+--  ⚠️⚠️ [정정 2026-09-10 · GAS 프로브 실측 14:40 · TR-03975·TR-04175·TR-03976] **위 취소선 표는 창작이었다 — IsSystem 은 존재하지 않는 필드다.**
+--    응답 전체 문자열 검색 0건(237,148 · 94,981 · 192,365자). 「[0] Debit=_1150040007_ · 4878.11 · IsSystem=true」는 **발주 구조를 트랜스퍼에 옮겨 적은 것**:
+--    IsSystem true/false 짝 = 발주 ManualJournals[0].Lines 의 모양 · _1150040007_ 은 트랜스퍼 **헤더 InTransitAccount** 를 저널로 오독 · 4878.11 은 응답에 없다.
+--    ⭐ 트랜스퍼 실물: 최상위 키 18개(… CostDistributionType · InTransitAccount · … · ManualJournals · SkipOrder · Order) · ManualJournals 는 ARRAY(1) 이고
+--      **저널이 바로 원소**(Lines 겹 없음) · 원소 키 11개 = TaskID · ID · Reference · Amount · Date · Debit · Credit · ManualJournalsDistributedCosts ·
+--      vDimensionDefaultValueStockTransferJournals · ValidationText · ValidationState. 세 문서 모두 Debit _59_ · Credit _136_:
+--        TR-03975 {"Reference":"B6900109","Amount":398.75,"Date":"2026-08-27T00:00:00"} · TR-03976 {"B6900109",229.2,"2026-08-27"} · TR-04175 {"B6913286",249.33,"2026-09-04"}
+--    ⭐ 운송중 계정 이동은 ManualJournals 로 오지 않는다 — Cin7 내부 처리 · 헤더 InTransitAccount 에 코드만. Debit/Credit 객체는 중첩 전체에서 root.ManualJournals[0] 하나뿐.
+--    ⭐ 발주(/advanced-purchase · PO-01111 실측 15:06)는 다르다: ManualJournals[0] 키 4개(TaskID · InvoicingAndReceivingNumber · Status · Lines) · **Lines 겹 안에** 저널 ·
+--      Lines[0] {"Stock in Transit",91877.51,Debit _59_,Credit _1150040012_,IsSystem:true} · Lines[1] {"16898",90,Debit _59_,Credit _135_,IsSystem:false} — 발주에는 IsSystem 이 실재한다.
+--    계정 코드: 발주 In Transit _1150040012_ · 비용 _135_(landed) / 트랜스퍼 In Transit _1150040007_ · 비용 _136_(운송비). ⬜ _135_·_136_ 계정명 미확인.
+--    ⇒ 트랜스퍼 필터 = **Debit _59_ AND Credit _136_**(둘 다 화이트리스트) · 「배열 길이로 판단」 문장의 근거(2행 vs 1행)도 소멸 — 세 문서 모두 1행이나 전량 순회는 유지.
 --  ⭐ 저널은 나중에 붙는다 — TR-03975 Departure 08-14 · Completion 08-26 · 저널 08-27 / TR-04175 Departure 08-21 · Completion 09-02 · 저널 09-04.
 --    ⚠️ TR-04175 는 09-09 실측엔 저널이 없었고 09-10 에 붙었다(LastModifiedOn = 2026-09-10T15:32:06.049Z) ⇒ ⭐ LastModifiedOn 이 수집 커서 축이다(다음 단계).
 --    📌 저널 날짜는 도착일 +1~2일로 일관되지만 문서가 갱신되는 시점은 훨씬 늦다.
@@ -28,8 +40,8 @@
 -- ═══ A. 왜 문서 단위 표(inv_doc_cost)를 따로 두나 ═══
 --  · inv_cost 는 sku·line_ref·qty·unit_cost 가 전부 not null 이라 문서 단위 금액을 담을 수 없다 — 가짜 SKU 를 넣지 않는다.
 --  · 표는 문서 금액을 담기만 한다. ⭐ 배분하지 않는다.
---  · IsSystem=true 는 담지 않는다(운송중 계정 이동 · 재고 원가와 무관). ⭐ 필요하면 raw 에 그 문서의 ManualJournals 배열 전체를 남긴다
---    (「왜 이 금액만 골랐나」를 되짚을 수 있게).
+--  · ~~IsSystem=true 는 담지 않는다(운송중 계정 이동 · 재고 원가와 무관).~~ [정정 2026-09-10] 그런 행은 오지 않는다 — 계정 화이트리스트(Debit _59_ · Credit _136_)에
+--    걸린 행만 담지 않는다. ⭐ 필요하면 raw 에 그 문서의 ManualJournals 배열 전체를 남긴다(「왜 이 금액만 골랐나」를 되짚을 수 있게).
 --  · ⚠️ amount 는 유니크 키에서 뺐다 — 금액이 정정될 수 있으므로 upsert 로 덮어쓴다(inv_cost 와 같은 이유).
 --  · ⚠️ ref_number 가 키에 있다 — 인보이스가 여러 장 붙으면 각각 남아야 한다. 📌 occurred_on 도 키에 있어 같은 인보이스가 다른 날짜로
 --    정정돼도 공존한다(⚠️ inv_cost 와 같은 약점 · ⬜ 실측 표본 없음).
@@ -75,7 +87,7 @@
 --      freight_orphan · freight_multi_ref.
 --
 -- ═══ 아직 안 된 것 ═══
---  · 수집기(EF) — stockTransfer 상세의 ManualJournals(IsSystem=false)를 inv_doc_cost 로 upsert. LastModifiedOn 커서. 지금은 scripts/testdb/ 시험 데이터만.
+--  · 수집기(EF) — stockTransfer 상세의 ManualJournals(~~IsSystem=false~~ → [정정 2026-09-10] Debit _59_ AND Credit _136_)를 inv_doc_cost 로 upsert. LastModifiedOn 커서. 지금은 scripts/testdb/ 시험 데이터만.
 --  · 20260910132601 헤더의 「트랜스퍼 운송비 … 대상이 0건」 문장은 이 마이그레이션으로 낡았다(그 파일은 적용됐으므로 고치지 않는다).
 
 -- ── A. inv_doc_cost ──
@@ -91,7 +103,7 @@ create table if not exists inv_doc_cost (
   credit_account text,               -- '_136_'
   collector      text not null,
   refreshed_at   timestamptz not null default now(),
-  raw            jsonb,              -- 그 문서의 ManualJournals 배열 전체(IsSystem=true 포함) — 「왜 이 금액만 골랐나」 추적용
+  raw            jsonb,              -- 그 문서의 ManualJournals 배열 전체(~~IsSystem=true 포함~~ → 화이트리스트에 걸린 행 포함 · 2026-09-10 정정) — 「왜 이 금액만 골랐나」 추적용
   constraint inv_doc_cost_doc_type_ck check (doc_type in ('transfer')),
   constraint inv_doc_cost_kind_ck     check (kind in ('transfer_freight')),
   constraint inv_doc_cost_uq

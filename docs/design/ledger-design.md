@@ -1912,25 +1912,64 @@ landed 키 (doc_number, line_ref, sku, warehouse) 408개
 ⇒ ⭐ **Cin7 화면의 `Distribute journals using the product: Cost` 는 내부 설정이고
 결과를 API 로 주지 않는다.**
 
-### ⭐ `ManualJournals` 구조 — 키 여섯 · `IsSystem` 이 관건
+### ~~⭐ `ManualJournals` 구조 — 키 여섯 · `IsSystem` 이 관건~~ → ⚠️⚠️ [정정 2026-09-10] 아래 표는 창작이었다
+
+~~`Debit · Credit · Reference · Date · Amount · IsSystem`~~
+
+~~TR-03975 ARRAY(2) · [0] Debit=_1150040007_ · Credit=_59_ · Ref=TR-03975 · 08-26 · 4878.11 · IsSystem=true · [1] Debit=_59_ · Credit=_136_ · Ref=B6900109 · 08-27 · 398.75 · IsSystem=false~~
+~~TR-04175 ARRAY(1) · [0] Debit=_59_ · Credit=_136_ · Ref=B6913286 · 09-04 · 249.33 · IsSystem=false~~
+
+~~⚠️⚠️ `IsSystem` 으로 거른다. 배열 길이로 판단하면 틀린다. · `true` = 운송중 계정 이동(`_1150040007_` In Transit ↔ `_59_`) · 금액이 재고 자체(4,878.11) · `false` = 운송비 · `TR-04175` 는 시스템 저널이 아예 없어 1행~~
+
+### ⭐ [정정 2026-09-10 · GAS 프로브 실측 14:40 · 세 문서] `ManualJournals` 실물 — `IsSystem` 은 존재하지 않는다
 
 ```
-Debit · Credit · Reference · Date · Amount · IsSystem
+트랜스퍼 /stockTransfer?TaskID=   응답 최상위 키 18개(세 문서 동일):
+  TaskID · Status · From · FromLocation · To · ToLocation · Number · CostDistributionType ·
+  InTransitAccount · DepartureDate · CompletionDate · RequiredByDate · Reference · LastModifiedOn ·
+  Lines · ManualJournals · SkipOrder · Order
+
+ManualJournals: ARRAY(1) — ⭐ 저널이 바로 원소다 (Lines 겹이 없다)
+  원소 키 11개: TaskID · ID · Reference · Amount · Date · Debit · Credit ·
+    ManualJournalsDistributedCosts · vDimensionDefaultValueStockTransferJournals ·
+    ValidationText · ValidationState
+  ⚠️⚠️ IsSystem 없음 — 응답 전체 문자열 검색 0건 (237,148 · 94,981 · 192,365자)
+
+  TR-03975  {"Reference":"B6900109","Amount":398.75,"Date":"2026-08-27T00:00:00","Debit":"_59_","Credit":"_136_", …}
+  TR-03976  {"Reference":"B6900109","Amount":229.2, "Date":"2026-08-27T00:00:00","Debit":"_59_","Credit":"_136_", …}
+  TR-04175  {"Reference":"B6913286","Amount":249.33,"Date":"2026-09-04T00:00:00","Debit":"_59_","Credit":"_136_", …}
 ```
 
-```
-TR-03975  ARRAY(2)
-  [0] Debit=_1150040007_ · Credit=_59_ · Ref=TR-03975 · 08-26 · 4878.11 · IsSystem=true
-  [1] Debit=_59_ · Credit=_136_ · Ref=B6900109 · 08-27 · 398.75 · ⭐ IsSystem=false
-TR-04175  ARRAY(1)
-  [0] Debit=_59_ · Credit=_136_ · Ref=B6913286 · 09-04 · 249.33 · ⭐ IsSystem=false
-```
+- ⭐ **운송중 계정 이동은 `ManualJournals` 로 오지 않는다** — Cin7 이 내부에서 처리하고 헤더 `InTransitAccount: "_1150040007_"` 에 계정 코드만 알려준다. [실측] `Debit`/`Credit` 을 가진 객체는 중첩 전체에서 `root.ManualJournals[0]` 하나뿐(세 문서 동일). `4878.11` 은 응답 어디에도 없다.
+- ⭐ **필터 = `Debit === '_59_'`(재고) AND `Credit === '_136_'`(Freight-COS)** — 둘 다 화이트리스트(다른 값은 `skip_non_inventory_debit`·`skip_non_freight_credit` 로 세고 경고 · 새 계정 신호). 「배열 길이로 판단하면 틀린다」의 근거(2행 vs 1행)도 사라졐다 — 세 문서 모두 1행. 배열이므로 **전량 순회**는 유지(인보이스 여러 장 ⬜ 표본 없음).
+- ⭐ **`TR-03975`·`TR-03976` 은 같은 인보이스 `B6900109`** 를 398.75 / 229.2 로 나눠 갖는다 — 「인보이스 1장 → 문서 여럿」의 실물.
 
-⚠️⚠️ **`IsSystem` 으로 거른다. 배열 길이로 판단하면 틀린다.**
-- `true` = 운송중 계정 이동(`_1150040007_` In Transit ↔ `_59_` 재고) ·
-  ⭐ 금액이 **재고 자체**(4,878.11)라 원가와 무관하다
-- `false` = 운송비 · `Debit='_59_'`(재고) / `Credit='_136_'`(Freight-COS)
-- 📌 `TR-04175` 는 시스템 저널이 **아예 없어** 1행이고 그것이 운송비다
+**⭐ 발주와 트랜스퍼는 구조가 완전히 다르다 — 이번 사고의 뿌리**
+
+```
+발주 /advanced-purchase?ID=   [실측 GAS 2026-09-10 15:06 · PO-01111]
+ManualJournals: ARRAY(1)
+  원소 키 4개: TaskID · InvoicingAndReceivingNumber · Status · Lines   ← ⭐ Lines 겹이 한 번 더 있다
+  Lines[0] {"Reference":"Stock in Transit","Amount":91877.51,"Date":"2026-09-02T00:00:00",
+            "Debit":"_59_","Credit":"_1150040012_","IsSystem":true}
+  Lines[1] {"Reference":"16898","Amount":90,"Date":"2026-08-27T00:00:00",
+            "Debit":"_59_","Credit":"_135_","IsSystem":false}
+```
+⭐ **발주에는 `IsSystem` 이 실재하고 `true`/`false` 가 다 온다** ⇒ `inv-cost/index.ts` 의 `l?.IsSystem === false`(발주 `mj_user_lines`)는 **정상**이다.
+
+| | In Transit | 비용 계정 |
+|---|---|---|
+| 발주 | `_1150040012_` | `_135_` (landed) |
+| 트랜스퍼 | `_1150040007_` | `_136_` (운송비) |
+
+⚠️ ⬜ `_135_`·`_136_` 의 계정명은 미확인(Cin7 화면에는 `_136_: Freight - COS`). 필터에는 영향 없음 — 각 축에서 실측된 값을 화이트리스트로 쓴다.
+
+⚠️⚠️ **[사고 2026-09-10] 프로브 출력을 요약하다 없는 필드를 창작했다.**
+어제 프로브 결과를 문서·주석·테스트 픽스처에 옮기면서 **발주 구조를 트랜스퍼에 섞어** `IsSystem` 을 적었다(`IsSystem` true/false 짝 = 발주 `ManualJournals[0].Lines` 의 모양 · 「`Debit=_1150040007_`」 = 트랜스퍼 헤더 `InTransitAccount` 를 저널로 오독 · `4878.11` = 응답에 없음). ⇒ EF 필터가 `j?.IsSystem === false` 로 `undefined === false` → false 를 만들어 **전량 걸러졌고**, 다섯 회차 `docs_processed 0` 을 「도달 실패」로 오진하며 하한·정렬·캡을 파느라 반나절을 썼다.
+⚠️⚠️ **테스트 25개가 전부 PASS 였는데 그중 7개가 창작 필드 위에서만 성립했다** — 픽스처를 내 요약으로 만들었기 때문이다.
+⇒ ⭐ **API 응답 구조는 요약하지 말고 원문(JSON)을 그대로 옮긴다.**
+⇒ ⭐ **픽스처는 프로브 실측 원문으로 만든다** — 요약으로 만든 픽스처는 자기 요약을 검증할 뿐이다.
+⚠️ 그리고 **두 엔드포인트의 구조를 같다고 가정하지 않는다**(발주 ≠ 트랜스퍼).
 
 ### ⭐ 저널은 나중에 붙는다 — 커서 축은 `LastModifiedOn`
 
@@ -1955,7 +1994,7 @@ TR-04175  Departure 08-21 · Completion 09-02 · 저널 09-04
 | 키 | `(doc_type, doc_number, kind, ref_number, occurred_on)` |
 | ⚠️ `amount` 를 키에서 뺐다 | 금액이 정정될 수 있어 upsert 로 덮어써야 한다(`inv_cost` 와 같은 이유) |
 | `ref_number` 가 키에 있다 | 인보이스가 여러 장 붙으면 각각 남는다 |
-| `IsSystem: true` | ⚠️ **담지 않는다.** 필요하면 `raw` 에 `ManualJournals` 배열 전체를 남긴다 |
+| ~~`IsSystem: true`~~ → 화이트리스트(Debit `_59_`·Credit `_136_`)에 걸린 행 | ⚠️ **담지 않는다.** ~~IsSystem=true~~ 는 오지 않는 행이었다([정정 2026-09-10] 위 절). 필요하면 `raw` 에 `ManualJournals` 배열 전체를 남긴다 |
 | `amount >= 0` CHECK | ⚠️ **걸지 않았다** — 정정이 음수로 올 수 있다. 배분 단계 가드가 방어한다 |
 | ⬜ 미확인 | 같은 인보이스가 **같은 날 두 줄**로 오는 경우 — 그러면 유니크에 걸려 하나만 남는다(표본 없음 · 두 문서 모두 1행) |
 
@@ -2045,8 +2084,8 @@ Cin7 대조(③)에서 **이 값만큼은 설명된 차이**다.
 **②-a ⬜ 수집기 — 미착수. `inv_doc_cost` 를 채운다**
 
 ⭐ **배분이 빠졌으므로 훨씬 단순해졌다** — EF 가 할 일은
-`stockTransferList` 순회 → 상세 → `ManualJournals` 에서 `IsSystem=false` ·
-`Debit='_59_'` 만 → `inv_doc_cost` upsert 뿐이다.
+`stockTransferList` 순회 → 상세 → `ManualJournals` 에서 ~~`IsSystem=false` ·~~ `Debit='_59_'` **AND `Credit='_136_'`**
+만([정정 2026-09-10] `IsSystem` 은 트랜스퍼에 없는 필드) → `inv_doc_cost` upsert 뿐이다.
 ⭐ **`inv_layer` 를 안 보고 배분하지 않는다.**
 
 ⚠️ 정할 것 둘:

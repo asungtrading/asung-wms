@@ -1248,6 +1248,20 @@ cd ~/asung/asung-wms && supabase migration list --db-url "$(cat ~/.asung-testdb-
     1,550개 $398.75). PO landed 는 개당 0.2센트. **에드먼튼 재고 원가에서 운송비 비중이 크다**
   · ⚠️ **인보이스 1장 → 문서 여럿**([실측] `B6880391` → `TR-03531~34` · `B6887959` → `TR-03546~48` ·
     `B6900109` → `TR-03975`·`03976`)
+  · ⚠️⚠️ **트랜스퍼 `ManualJournals` 에는 `IsSystem` 이 없다 — [사고 2026-09-10] 없는 필드를 창작해 EF 가 전량 걸러졌다.**
+    [실측 GAS 14:40 · 세 문서] 응답 전체 문자열 검색 0건(237K·95K·192K자). 원소 키 11개 = `TaskID · ID · Reference · Amount ·
+    Date · Debit · Credit · ManualJournalsDistributedCosts · vDimensionDefaultValueStockTransferJournals · ValidationText ·
+    ValidationState` · ARRAY(1) · **저널이 바로 원소**(Lines 겹 없음) · 운송중 계정 이동은 저널로 오지 않고 헤더 `InTransitAccount`
+    (`_1150040007_`)에 코드만. ⭐ **발주(`/advanced-purchase`)는 다르다**: `ManualJournals[0]` 키 4개(`TaskID · InvoicingAndReceivingNumber ·
+    Status · Lines`) · **`Lines` 겹 안에** 저널 · `IsSystem` true/false 실재(`PO-01111`: Stock in Transit 91,877.51 `_1150040012_` true ·
+    운임 90 `_135_` false) ⇒ `inv-cost` 의 `IsSystem === false` 는 **정상**. 계정 코드: 발주 In Transit `_1150040012_`·비용 `_135_` /
+    트랜스퍼 `_1150040007_`·`_136_`(⬜ 계정명 미확인). ⇒ 트랜스퍼 필터 = **`Debit _59_` AND `Credit _136_`**(둘 다 화이트리스트).
+    **경위**: 어제 프로브 출력을 요약해 옮기며 **발주 구조를 트랜스퍼에 섞어** 「TR-03975 ARRAY(2) · [0] IsSystem=true 4878.11 ·
+    [1] IsSystem=false 398.75」를 적었다(`4878.11` 은 응답에 없고 `_1150040007_` 은 헤더 오독). EF 필터 `j?.IsSystem === false` 가
+    `undefined === false` → false 로 **전량 skip** → 다섯 회차 `docs_processed 0` 을 「도달 실패」로 오진, 하한·정렬·캡을 파느라 반나절.
+    **테스트 25개 전부 PASS 였는데 7개가 창작 필드 위에서만 성립** — 픽스처를 요약으로 만들었기 때문. ⇒ ⭐ **API 응답 구조는
+    요약하지 말고 원문 JSON 을 그대로 옮긴다 · 픽스처는 프로브 실측 원문으로 만든다 · 두 엔드포인트의 구조를 같다고 가정하지
+    않는다(발주 ≠ 트랜스퍼).** 정본 정정: `docs/design/ledger-design.md` §원가 레이어 12번 「트랜스퍼 운송비」 소절.
   · ⚠️ 저널 날짜는 **완료일 +1~2일**(8/26→8/27 · 8/19→8/21 · 8/12→8/14) — PO landed(평균 1주일)보다 빠르다
   · ⚠️ **최근 트랜스퍼는 대부분 미매칭이다** — `TR-04173~04175` 저널 0건. 트랜스퍼당 저널이 붙기까지
     시간이 걸린다
@@ -1587,7 +1601,8 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    ✅ **[2026-09-08] `landed cost` 는 해제** — 이미 도착해 있었다(408행 · 11 PO). §1 🔵 원가 항목의 정정 참조.
 9. ⬜ **사건 적재 함수** — 종류별 vs 날짜순 하나. 「같은 날은 유입 먼저」를 사람이 지키게 하면
    조용히 틀린다 ⇒ **날짜순 하나가 유력**
-10. ⬜ **트랜스퍼 운송비 수집** — `inv-cost` 확장(§3 문서별 함정 「원가 축 실측」 참조)
+10. ⬜ **트랜스퍼 운송비 수집** — ~~`inv-cost` 확장~~ → 별도 EF `inv-doc-cost`(작성됨 · 미배포 · 2026-09-10). ⚠️ 필터는 `Debit _59_ AND
+    Credit _136_` — ~~`IsSystem`~~ 은 트랜스퍼에 없는 필드(§3 「원가 축 실측」의 사고 기록 참조)
 11. ⬜ **북키퍼 미매칭 여부** — Service Invoice 를 PO 에 매칭하지 않고 P&L 에 남기는 경우가 있는지
     실무 확인. 있으면 FIFO 금액이 구조적으로 낮게 나온다
 12. ⬜ **Simple 의 `landed` 경로 — 표본 대기.** `PO-01215` 의 `ManualJournals` 는 `IsSystem=true`(Stock in
