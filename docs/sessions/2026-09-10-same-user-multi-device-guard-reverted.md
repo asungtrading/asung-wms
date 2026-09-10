@@ -82,6 +82,8 @@ supabase migration list --linked → 프로덕션 미적용 14건 · 그중 13�
 
 ## 7. 재개 절차
 
+✅ **재개 완료 2026-09-10 밤 — 보고서 `docs/sessions/2026-09-10-multi-device-guard/v5_7-reapply-implementation.md`** (마이그레이션 `20260910230704` · 격자 전부 통과 · 회귀 5파일 통과 · 배포는 Caleb).
+
 ```
 ① 전제: 원장 마이그레이션 13건이 프로덕션에 올라갔는지 확인 — supabase migration list --linked 가 비어 있어야 한다
 ② 실해 재확인 — §2 쿼리 (0건이어야 한다 · 아니면 먼저 보정)

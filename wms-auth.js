@@ -232,6 +232,31 @@
     };
     document.addEventListener("click",(e)=>{ if(dd.style.display==="block" && !dd.contains(e.target) && e.target!==btn) dd.style.display="none"; });
   }
+  /* ---- 화면(탭) 세션 ID (2026-09-10 · 규칙 28 「같은 사람 · 다른 기기(탭)」 차단) ----
+     ⚠️⚠️ 「상태 vs 정체」 — CLAUDE.md 「상태를 localStorage 에 저장하지 말 것」은 *작업 상태*(held_by 등)를
+     기기에 두면 다른 태블릿에서 깨진다는 규칙이다. 이 값은 상태가 아니라 **이 화면(탭)의 정체(identity)** 이고,
+     정체는 정의상 그 탭에만 있어야 한다. 상태(어느 화면이 작업을 잡고 있나)는 **서버 컬럼**
+     (wms_pick_tasks·wms_waves·wms_pack_tasks.session_id)에 둔다. 규칙 위반으로 보고 되돌리지 말 것.
+     - sessionStorage: 하드 리로드(Ctrl+Shift+R — 현장에서 흔한 조작)에 유지 · 탭·기기마다 다름 · 탭 닫으면 소멸.
+       메모리 변수는 새로고침이 「새 기기」로 오인돼 탈락 · localStorage 는 같은 기기 두 탭을 못 가른다 ·
+       JWT session_id 클레임은 존재 미확인 + 두 탭 동일 (설계 정본 docs/sessions/2026-09-10-multi-device-guard/v5_3-design.md §1-a).
+     - 저장이 막힌 환경(프라이빗 모드 등)은 메모리 폴백 — 그 탭은 새로고침마다 새 정체가 되지만
+       안전한 쪽으로 실패한다(자기 자신의 옛 화면을 얼릴 뿐, 수량 유실 없음).
+     세 화면이 같은 헬퍼를 쓴다 — 화면마다 만들면 키 이름이 갈린다. */
+  let memSid=null;
+  function newSid(){ return (window.crypto&&crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36)+"-"+Math.random().toString(36).slice(2)); }
+  function sessionId(){
+    const K="wms_session_id";
+    try{
+      let v=sessionStorage.getItem(K);
+      if(!v){ v=newSid(); sessionStorage.setItem(K,v); }
+      return v;
+    }catch(e){
+      if(!memSid) memSid=newSid();
+      return memSid;
+    }
+  }
+
   const wmsAuth={
     async start(options, cb){
       if(typeof options==="function"){ cb=options; options={}; }
@@ -252,6 +277,7 @@
     },
     async signOut(){ if(sb){ await sb.auth.signOut(); } location.reload(); },
     changePassword(){ showChangePw(); },
+    sessionId,          // 이 화면(탭)의 세션 UUID — 위 주석(상태 vs 정체)
     get me(){ return me; },
     get sb(){ return sb; },
   };

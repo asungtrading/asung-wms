@@ -330,20 +330,29 @@ function markWorkStarted(){
    ⚠️ 타이머·폴링 금지(규칙 22 배터리). 이벤트 기반만. */
 let frozen=false, lastOwnerCheck=0;
 function ownerUnit(){ return wave?"wave":"batch"; }
+/* 이 화면(탭)의 세션 ID (2026-09-10 · 규칙 28 「같은 사람 · 다른 기기(탭)」 차단) — 클레임·재개 때 행에 쓰고(새 화면이
+   이긴다) checkOwner 와 완료·Hold RPC 의 CAS 가 대조한다. 정체는 탭(sessionStorage) · 상태는 서버 컬럼 — wms-auth.js 주석. */
+const SID=wmsAuth.sessionId();
 /* {s:"ok"} | {s:"lost",who} | {s:"unknown"}  — unknown = 조회 실패(네트워크). 쓰기는 진행한다. */
 async function checkOwner(){
   if(!task && !wave) return {s:"unknown"};
   try{
     const q = wave
-      ? await sb.from("wms_waves").select("assigned_to,held_by").eq("id",wave.id).maybeSingle()
-      : await sb.from("wms_pick_tasks").select("assigned_to,held_by").eq("id",task.id).maybeSingle();
+      ? await sb.from("wms_waves").select("assigned_to,held_by,session_id").eq("id",wave.id).maybeSingle()
+      : await sb.from("wms_pick_tasks").select("assigned_to,held_by,session_id").eq("id",task.id).maybeSingle();
     if(q.error) throw q.error;
     lastOwnerCheck=Date.now();
     if(!q.data) return {s:"unknown"};                 // row gone — not this guard's call
     const who=q.data.assigned_to||null;               // null = Hold 로 풀려 대기 풀에 있음
     // heldMine (2026-08-24 자동 Hold): 풀렸는데 held_by=나 = 내 몫으로 보류됨(자동 Hold 가 지배적 —
     // 수동 Hold 응답 유실 엣지도 같은 안내가 참). 남이 이어받은 경우(who=타인)와 문구를 가른다.
-    return who===me.name ? {s:"ok"} : {s:"lost",who,heldMine:!who&&q.data.held_by===me.name};
+    if(who===me.name){
+      // 같은 사람 · 다른 화면(탭/기기) (2026-09-10): 행의 session_id 가 있고 내 것과 다르면 다른 화면이 이 작업을 열었다.
+      // null 은 배포 전 클레임(레거시) → 통과 — 다음 클레임/재개가 채운다. 최종 관문은 RPC 의 CAS(p_session_id).
+      if(q.data.session_id && q.data.session_id!==SID) return {s:"lost",who,otherDevice:true};
+      return {s:"ok"};
+    }
+    return {s:"lost",who,heldMine:!who&&q.data.held_by===me.name};
   }catch(e){
     // best-effort: 창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실 (규칙 28)
     console.warn("Ownership check failed — proceeding with the write (best effort):", (e&&e.message)||e);
@@ -357,10 +366,14 @@ async function checkOwner(){
    방어 로직 무변. 10분 숫자는 문구에 박지 않는다(상수가 바뀌면 문구가 거짓말이 된다).
    in-place Resume 버튼은 별도 단계(백로그 — 재개 3함수가 목록 캐시 의존이라 리팩터 필요). */
 function autoHoldMsg(){ return `This ${ownerUnit()} was put on hold automatically (no activity for a while). Your progress is saved. Reload and resume it from your list.`; }
+/* 같은 사람 · 다른 기기(탭) 전용 문구 (2026-09-10 · 규칙 28 소절). 기존 "assigned to {who}" 는 who 가 자기 이름이면 어색하다.
+   Reload → restoreFromUrl → claimSession 이 session_id 를 이 탭으로 다시 쓴다 → 저쪽이 얼어붙는다(「새 것이 이긴다」 대칭). */
+function otherDeviceMsg(){ return `This ${ownerUnit()} is now open on another device that is signed in as you. This screen is out of date and won't save. Continue on the other device — or tap Reload here to take it back to this one.`; }
+function lostMsg(r){ return r.otherDevice ? otherDeviceMsg() : (r.heldMine ? autoHoldMsg() : undefined); }
 async function ensureMine(){
   if(frozen) return false;
   const r=await checkOwner();
-  if(r.s==="lost"){ freezeScreen(r.who, r.heldMine?autoHoldMsg():undefined); return false; }
+  if(r.s==="lost"){ freezeScreen(r.who, lostMsg(r)); return false; }
   return true;
 }
 /* ⚠️ 프리즈 시 로컬 수량을 flush 하지 않는다 — 내 메모리 값은 스테일이고 쓰면
@@ -386,7 +399,7 @@ async function guardOnReturn(){
   if(document.getElementById("pickView").style.display==="none") return;
   if(Date.now()-lastOwnerCheck<3000) return;   // 이벤트 연속 발생 시 중복 조회만 억제 (타이머 아님)
   const r=await checkOwner();
-  if(r.s==="lost") freezeScreen(r.who, r.heldMine?autoHoldMsg():undefined);
+  if(r.s==="lost") freezeScreen(r.who, lostMsg(r));
 }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") guardOnReturn(); });
 window.addEventListener("focus",guardOnReturn);
@@ -422,6 +435,7 @@ async function restoreFromUrl(kind, id){
         .select("*, wms_orders(order_number,warehouse,customer_name,needs_review)").eq("id",id).maybeSingle();
       if(error) throw error;
       if(t && t.status==="in_progress" && t.assigned_to===me.name){
+        if(!await claimSession("task",id)){ toast("That batch changed while loading — resume it from the list",true); loadBatches(); return; }   // 이 탭이 이긴다 (2026-09-10 · Reload 로 되찾는 경로)
         task=t; order=t.wms_orders||{};        // resumeBatch 와 같은 조건·같은 이어짐 (목록 캐시 없이)
         startHeartbeat(); presenceJoin();
         await loadLines(); return;
@@ -673,13 +687,14 @@ async function scanTakeover(f){
     return;
   }
   if(hit.assigned_to===me.name){
-    // 내가 이미 잡은 것 → 바로 이어서
+    // 내가 이미 잡은 것 → 바로 이어서 (session_id 는 이 탭으로 — 2026-09-10)
+    if(!await claimSession("task",hit.id)){ toast("Could not open "+hit.batch_label+" — it changed just now. Try again.",true); loadBatches(); return; }
     task=hit; order=hit.wms_orders||{}; presenceJoin(); await loadLines(); return;
   }
   // 남이 잡음 → 이어받기 확인
   if(!confirm(`${hit.batch_label} is already open by ${hit.assigned_to||"another worker"}.\n\nYou have the pick list — take it over and continue? Their picked quantities are kept.`)) return;
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name})   // started_at 은 보내지 않는다 — 최초 시작 보존 (takeoverBatch 와 동일 · ensureStartedAt 주석)
+    .update({assigned_to:me.name,session_id:SID})   // started_at 은 보내지 않는다 — 최초 시작 보존 (takeoverBatch 와 동일 · ensureStartedAt 주석)
     .eq("id",hit.id).eq("status","in_progress").select();
   if(error){ toast("Take over failed: "+error.message,true); return; }
   if(!data||!data.length){ toast("Could not take over — try again.",true); loadBatches(); return; }
@@ -707,7 +722,7 @@ async function startBatch(id){
   const b=batches.find(x=>x.id===id);
   const now=new Date().toISOString();
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",heartbeat_at:now,work_started:false,held_by:null})
+    .update({assigned_to:me.name,session_id:SID,status:"in_progress",heartbeat_at:now,work_started:false,held_by:null})
     .eq("id",id).is("assigned_to",null).select();  // 0 rows if batch already taken · started_at 은 ensureStartedAt(위 주석)
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this.",true); loadBatches(); return; }
@@ -729,7 +744,7 @@ async function takeoverBatch(id){
   if(!confirm(`Take over ${b.batch_label}?\nCurrent holder: ${b.assigned_to||"?"} (away).\nTheir picked quantities are kept — you continue from where they stopped.`)) return;
   const now=new Date().toISOString();
   const {data,error}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,heartbeat_at:now})
+    .update({assigned_to:me.name,session_id:SID,heartbeat_at:now})
     .eq("id",id).eq("status","in_progress")
     .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
     .select();
@@ -738,6 +753,25 @@ async function takeoverBatch(id){
   task=data[0]; order=b.wms_orders||{};
   startHeartbeat(); presenceJoin();
   await loadLines();
+}
+
+/* ---------- 재개 = 클레임 (2026-09-10 · 규칙 28 「같은 사람 · 다른 기기(탭)」) ----------
+   종전 재개 경로(resumeBatch · restoreFromUrl task · resumeWave · scanTakeover 「내 것」)는 읽기만 했다.
+   「여는 순간 이 화면이 이긴다」가 되려면 여기서 session_id 를 이 탭 값으로 쓴다 — 조건부 UPDATE +
+   .select() 1행 판정(규칙 20/24). 0행 = 그 사이 남이 가져갔거나 풀렸다 → false(호출자가 목록으로).
+   네트워크 실패는 true(best-effort — 규칙 28): 이 탭은 열리되 서버의 session_id 는 옛 화면 것이라
+   완료·Hold 가 other_device 로 얼어붙고 Reload 가 다시 클레임한다 — 유실 없는 쪽으로 실패한다. */
+async function claimSession(kind,id){
+  try{
+    const q = kind==="wave"
+      ? await sb.from("wms_waves").update({session_id:SID}).eq("id",id).eq("assigned_to",me.name).eq("status","in_progress").select("id")
+      : await sb.from("wms_pick_tasks").update({session_id:SID}).eq("id",id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+    if(q.error) throw q.error;
+    return !!(q.data&&q.data.length);
+  }catch(e){
+    console.warn("Session claim failed — opening anyway (best effort):", (e&&e.message)||e);
+    return true;
+  }
 }
 
 /* ---------- resume in-progress batch ---------- */
@@ -750,6 +784,7 @@ async function resumeBatch(id){
   if(data.status!=="in_progress" || data.assigned_to!==me.name){
     toast("This batch is no longer in My In Progress",true); loadBatches(); return;
   }
+  if(!await claimSession("task",id)){ toast("This batch is no longer in My In Progress",true); loadBatches(); return; }   // 이 탭이 이긴다 (2026-09-10)
   task=data; order=b.wms_orders||{};
   startHeartbeat(); presenceJoin();
   await loadLines();
@@ -926,13 +961,13 @@ async function startWave(id){
   //    실물을 일치시킨다 — 없으면 A Hold → B 시작 → B 무작업 백아웃 사슬에서 held_by=A 가 잔존해
   //    A 화면에 "Resume your held" 로 오표시된다(2026-08-24).
   const {data,error}=await sb.from("wms_waves")
-    .update({assigned_to:me.name,status:"in_progress",started_at:now,heartbeat_at:now,held_by:null})
+    .update({assigned_to:me.name,session_id:SID,status:"in_progress",started_at:now,heartbeat_at:now,held_by:null})
     .eq("id",id).is("assigned_to",null).eq("status","pending").select();
   if(error){toast("Start failed: "+error.message,true);return;}
   if(!data||!data.length){ toast("Another worker has already started this wave.",true); loadBatches(); return; }
   wave=data[0]; wave._workStarted=false;
   const {data:ts,error:te}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,status:"in_progress",heartbeat_at:now,work_started:false,held_by:null})
+    .update({assigned_to:me.name,session_id:SID,status:"in_progress",heartbeat_at:now,work_started:false,held_by:null})
     .eq("wave_id",id)
     .select("*, wms_orders(order_number,customer_name,warehouse)");   // started_at 은 아래 backfill(최초 시작 보존 — ensureStartedAt 주석·2026-08-24 wave 경로 합류)
   if(te||!ts||!ts.length){ toast("Failed to open wave batches",true); resetToList(); return; }
@@ -958,6 +993,7 @@ async function resumeWave(id){
   if(w.status!=="in_progress" || w.assigned_to!==me.name){
     toast("This wave is no longer in My In Progress",true); loadBatches(); return;
   }
+  if(!await claimSession("wave",id)){ toast("This wave is no longer in My In Progress",true); loadBatches(); return; }   // 이 탭이 이긴다 (2026-09-10) — restoreFromUrl wave 분기도 여기로 수렴
   wave=w; wave._workStarted=true;
   const {data:ts,error:te}=await sb.from("wms_pick_tasks")
     .select("*, wms_orders(order_number,customer_name,warehouse)").eq("wave_id",id);
@@ -972,7 +1008,7 @@ async function takeoverWave(id){
   if(!confirm(`Take over ${w.label}?\nCurrent holder: ${w.assigned_to||"?"} (away).\nPicked quantities are kept — you continue from where they stopped.`)) return;
   const now=new Date().toISOString();
   const {data,error}=await sb.from("wms_waves")
-    .update({assigned_to:me.name,heartbeat_at:now})
+    .update({assigned_to:me.name,session_id:SID,heartbeat_at:now})
     .eq("id",id).eq("status","in_progress")
     .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
     .select();
@@ -980,7 +1016,7 @@ async function takeoverWave(id){
   if(!data||!data.length){ toast("Could not take over — the holder is back or it was released.",true); loadBatches(); return; }
   wave=data[0]; wave._workStarted=true;
   const {data:ts}=await sb.from("wms_pick_tasks")
-    .update({assigned_to:me.name,heartbeat_at:now}).eq("wave_id",id)
+    .update({assigned_to:me.name,session_id:SID,heartbeat_at:now}).eq("wave_id",id)
     .select("*, wms_orders(order_number,customer_name,warehouse)");
   if(!ts||!ts.length){ toast("Failed to open wave batches",true); resetToList(); return; }
   tasks=ts.sort((a,b)=>(a.tote_no||0)-(b.tote_no||0));
@@ -1400,6 +1436,7 @@ async function finish(allowShort){
     const payload={
       p_task_id: wave? null : task.id,
       p_wave_id: wave? wave.id : null,
+      p_session_id: SID,   // 이 화면(탭) 세션 — 행의 session_id 와 다르면 CAS 0행 + reason "other_device" (2026-09-10 · 규칙 28)
       p_lines: lines.map(l=>({
         id:l.id, picked_base:l.picked,
         status:(l.picked>=l.assigned?"picked":"short"),
@@ -1423,6 +1460,8 @@ async function finish(allowShort){
         freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
         return;
       }
+      // 같은 사람 · 다른 화면(탭/기기)이 이 작업을 열었다 (2026-09-10) — 서버가 판정한 reason. 재조회 없이 전용 프리즈.
+      if(res && res.reason==="other_device"){ freezeScreen(null, otherDeviceMsg()); return; }
       await completeCasFailed(wave?"wave":"task", wave?wave.id:task.id);
       return;
     }
@@ -1544,6 +1583,7 @@ document.getElementById("holdBtn").onclick=async ()=>{
     const payload={
       p_task_id: wave? null : task.id,
       p_wave_id: wave? wave.id : null,
+      p_session_id: SID,   // 이 화면(탭) 세션 — 행의 session_id 와 다르면 CAS 0행 + reason "other_device" (2026-09-10 · 규칙 28)
       p_lines: lines.map(l=>({
         id:l.id, picked_base:l.picked,
         status:(l.picked>=l.assigned?"picked":(l.picked>0?"in_progress":"pending")),
@@ -1558,6 +1598,7 @@ document.getElementById("holdBtn").onclick=async ()=>{
         freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
         return;
       }
+      if(res && res.reason==="other_device"){ freezeScreen(null, otherDeviceMsg()); return; }   // 다른 화면이 열었다 (finish 와 동일 · 2026-09-10)
       await holdCasFailed(wave?"wave":"task", wave?wave.id:task.id);
       return;
     }

@@ -351,17 +351,26 @@ function markWorkStarted(){
    pack_task_lines 에 쓴다 → 쓰기 직전 + 복귀 시점에 assigned_to 를 재확인한다.
    ⚠️ 타이머·폴링 금지(규칙 22 배터리). 이벤트 기반만. */
 let frozen=false, lastOwnerCheck=0;
+/* 이 화면(탭)의 세션 ID (2026-09-10 · 규칙 28 「같은 사람 · 다른 기기(탭)」 차단 — picker 동형) — 클레임·재개 때 행에 쓰고
+   checkOwner 와 완료·Hold RPC 의 CAS 가 대조한다. 정체는 탭(sessionStorage) · 상태는 서버 컬럼 — wms-auth.js 주석. */
+const SID=wmsAuth.sessionId();
 /* {s:"ok"} | {s:"lost",who} | {s:"unknown"}  — unknown = 조회 실패(네트워크). 쓰기는 진행한다. */
 async function checkOwner(){
   if(!packTask) return {s:"unknown"};
   try{
-    const q=await sb.from("wms_pack_tasks").select("assigned_to,held_by").eq("id",packTask.id).maybeSingle();
+    const q=await sb.from("wms_pack_tasks").select("assigned_to,held_by,session_id").eq("id",packTask.id).maybeSingle();
     if(q.error) throw q.error;
     lastOwnerCheck=Date.now();
     if(!q.data) return {s:"unknown"};                 // row gone — not this guard's call
     const who=q.data.assigned_to||null;               // null = Hold 로 풀려 팩 큐에 있음
     // heldMine (2026-08-24 자동 Hold — picker checkOwner 동형 주석 참조)
-    return who===me.name ? {s:"ok"} : {s:"lost",who,heldMine:!who&&q.data.held_by===me.name};
+    if(who===me.name){
+      // 같은 사람 · 다른 화면(탭/기기) (2026-09-10 — picker checkOwner 동형): session_id 가 있고 내 것과 다르면 다른 화면이 열었다.
+      // null 은 배포 전 클레임(레거시) → 통과. 최종 관문은 RPC 의 CAS(p_session_id).
+      if(q.data.session_id && q.data.session_id!==SID) return {s:"lost",who,otherDevice:true};
+      return {s:"ok"};
+    }
+    return {s:"lost",who,heldMine:!who&&q.data.held_by===me.name};
   }catch(e){
     // best-effort: 창고 와이파이 순단으로 작업이 멈추는 게 더 큰 손실 (규칙 28)
     console.warn("Ownership check failed — proceeding with the write (best effort):", (e&&e.message)||e);
@@ -371,10 +380,14 @@ async function checkOwner(){
 /* true = 계속 진행(내 것이거나 확인 실패) / false = 프리즈됨, 호출자는 쓰지 말 것 */
 /* 자동 Hold 전용 문구 (2026-08-24 — picker autoHoldMsg 동형 주석 참조. 방어 로직 무변) */
 function autoHoldMsg(){ return "This batch was put on hold automatically (no activity for a while). Your progress is saved. Reload and resume it from your list."; }
+/* 같은 사람 · 다른 기기(탭) 전용 문구 (2026-09-10 · 규칙 28 소절 — picker otherDeviceMsg 동형).
+   Reload → restoreFromUrl → resumePack → claimSessionPack 이 이 탭으로 되찾는다 → 저쪽이 얼어붙는다. */
+function otherDeviceMsg(){ return "This batch is now open on another device that is signed in as you. This screen is out of date and won't save. Continue on the other device — or tap Reload here to take it back to this one."; }
+function lostMsg(r){ return r.otherDevice ? otherDeviceMsg() : (r.heldMine ? autoHoldMsg() : undefined); }
 async function ensureMine(){
   if(frozen) return false;
   const r=await checkOwner();
-  if(r.s==="lost"){ freezeScreen(r.who, r.heldMine?autoHoldMsg():undefined); return false; }
+  if(r.s==="lost"){ freezeScreen(r.who, lostMsg(r)); return false; }
   return true;
 }
 /* ⚠️ 프리즈 시 로컬 수량을 flush 하지 않는다 — 내 메모리 값은 스테일이고 쓰면
@@ -400,7 +413,7 @@ async function guardOnReturn(){
   if(document.getElementById("packView").style.display==="none") return;
   if(Date.now()-lastOwnerCheck<3000) return;   // 이벤트 연속 발생 시 중복 조회만 억제 (타이머 아님)
   const r=await checkOwner();
-  if(r.s==="lost") freezeScreen(r.who, r.heldMine?autoHoldMsg():undefined);
+  if(r.s==="lost") freezeScreen(r.who, lostMsg(r));
 }
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") guardOnReturn(); });
 window.addEventListener("focus",guardOnReturn);
@@ -644,7 +657,7 @@ async function scanTakeoverPack(f){
   if(hit.assigned_to===me.name){ resumePack(hit.id); return; }
   if(!confirm(`${hit.batch_label} is already open by ${hit.assigned_to||"another worker"}.\n\nYou have the pack list — take it over and continue? Their progress is kept.`)) return;
   const {data,error}=await sb.from("wms_pack_tasks")
-    .update({assigned_to:me.name})   // started_at 은 보내지 않는다 — 최초 시작 보존 (ensureStartedAtPack 주석)
+    .update({assigned_to:me.name,session_id:SID})   // started_at 은 보내지 않는다 — 최초 시작 보존 (ensureStartedAtPack 주석)
     .eq("id",hit.id).eq("status","in_progress").select();
   if(error){ toast("Take over failed: "+error.message,true); return; }
   if(!data||!data.length){ toast("Could not take over — try again.",true); loadQueue(); return; }
@@ -675,7 +688,7 @@ async function startPack(pickId){
   const now=new Date().toISOString();
   const ins=await sb.from("wms_pack_tasks").insert({
     order_id:pt.order_id, pick_task_id:pickId, batch_label:pt.batch_label,
-    assigned_to:me.name, status:"in_progress", started_at:now, heartbeat_at:now, work_started:false
+    assigned_to:me.name,session_id:SID, status:"in_progress", started_at:now, heartbeat_at:now, work_started:false
   }).select();
   if(ins.error){ toast(ins.error.message.includes("uq_packtasks_pick")?"Another worker is already verifying this":("Start failed: "+ins.error.message),true); loadQueue(); return; }
   packTask=ins.data[0]; order=pt.wms_orders||{};
@@ -689,6 +702,21 @@ async function startPack(pickId){
   buildLines(pl); enterPack();
 }
 
+/* 재개 = 클레임 (2026-09-10 · 규칙 28 「같은 사람 · 다른 기기(탭)」 — picker claimSession 동형).
+   resumePack 의 in_progress 분기는 종전에 읽기만 했다(pending 분기는 클레임 UPDATE 에 session_id 동봉).
+   scanTakeoverPack 「내 것」·restoreFromUrl·takeoverPack 이 전부 resumePack 으로 수렴하므로 호출은 한 곳.
+   조건부 UPDATE + .select() 1행 판정 · 네트워크 실패는 통과(best-effort — 완료가 other_device 로 얼어붙어 유실 없는 쪽). */
+async function claimSessionPack(id){
+  try{
+    const q=await sb.from("wms_pack_tasks").update({session_id:SID}).eq("id",id).eq("assigned_to",me.name).eq("status","in_progress").select("id");
+    if(q.error) throw q.error;
+    return !!(q.data&&q.data.length);
+  }catch(e){
+    console.warn("Session claim failed — opening anyway (best effort):", (e&&e.message)||e);
+    return true;
+  }
+}
+
 /* resume verify: existing pack_task_lines + load pick lines (for required) */
 async function resumePack(packId){
   initAudio();
@@ -696,7 +724,7 @@ async function resumePack(packId){
   // if held(pending) batch, claim it as mine (concurrency: only when pending)
   if(pk.status==="pending"){
     const now=new Date().toISOString();
-    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,status:"in_progress",heartbeat_at:now,held_by:null})
+    const cl=await sb.from("wms_pack_tasks").update({assigned_to:me.name,session_id:SID,status:"in_progress",heartbeat_at:now,held_by:null})
       .eq("id",packId).eq("status","pending").select();   // started_at 은 ensureStartedAtPack — held 재개는 보존, 롤백 복귀(null)만 새로 찍힘
     if(cl.error||!cl.data||!cl.data.length){ toast("Another worker already took this",true); loadQueue(); return; }
     await ensureStartedAtPack(packId,cl.data[0]);
@@ -705,6 +733,9 @@ async function resumePack(packId){
     // 서버 유도(picker startBatch 주석 참조). fire-and-forget — 기록 실패가 작업을 막지 않는다.
     sb.rpc("wms_resume_hold",{p_task_kind:"pack",p_task_id:packId}).then(r=>{ if(r.error) console.warn("hold close failed", r.error); });
     pk.work_started=cl.data[0].work_started;
+  }else{
+    // in_progress 재개 — 이 탭이 이긴다 (2026-09-10). 0행 = 그 사이 남이 가져갔거나 풀렸다.
+    if(!await claimSessionPack(packId)){ toast("This batch is no longer in My In Progress",true); loadQueue(); return; }
   }
   const [ptl, pl]=await Promise.all([
     sb.from("wms_pack_task_lines").select("id,order_line_id,expected_base,verified_base,status,verification_method, wms_order_lines(order_sku,base_sku,product_name,image_url,bin_location,zone,scannable_barcodes)").eq("pack_task_id",packId),
@@ -737,7 +768,7 @@ async function takeoverPack(packId){
   if(!confirm(`Take over ${pk.batch_label}?\nCurrent holder: ${pk.assigned_to||"?"} (away).\nTheir verified quantities are kept — you continue from where they stopped.`)) return;
   const now=new Date().toISOString();
   const cl=await sb.from("wms_pack_tasks")
-    .update({assigned_to:me.name,heartbeat_at:now})
+    .update({assigned_to:me.name,session_id:SID,heartbeat_at:now})
     .eq("id",packId).eq("status","in_progress")
     .or(`heartbeat_at.is.null,heartbeat_at.lt.${staleISO()}`)  // only if still abandoned
     .select();
@@ -1362,6 +1393,7 @@ document.getElementById("doneBtn").onclick=async ()=>{
        먼저다(2026-08-06 프로덕션 실측). 같은 접근을 다시 시도하지 말 것. */
     const payload={
       p_task_id: packTask.id,
+      p_session_id: SID,   // 이 화면(탭) 세션 — 행의 session_id 와 다르면 CAS 0행 + reason "other_device" (2026-09-10 · 규칙 28)
       p_lines: lines.filter(l=>l.packline_id).map(l=>({
         id:l.packline_id, verified_base:l.verified,
         status:(l.verified>=l.required?"verified":"mismatch"),
@@ -1389,6 +1421,8 @@ document.getElementById("doneBtn").onclick=async ()=>{
         freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
         return;
       }
+      // 같은 사람 · 다른 화면(탭/기기)이 이 작업을 열었다 (2026-09-10) — 서버가 판정한 reason. 재조회 없이 전용 프리즈.
+      if(res && res.reason==="other_device"){ freezeScreen(null, otherDeviceMsg()); return; }
       await completeCasFailed(packTask.id);
       return;
     }
@@ -1497,6 +1531,7 @@ document.getElementById("holdBtn").onclick=async ()=>{
        종전의 플립 error 무확인(revert ae1a623 로 잔존하던 것)도 이 이식이 흡수. */
     const payload={
       p_task_id: packTask.id,
+      p_session_id: SID,   // 이 화면(탭) 세션 — 행의 session_id 와 다르면 CAS 0행 + reason "other_device" (2026-09-10 · 규칙 28)
       p_lines: lines.filter(l=>l.packline_id).map(l=>({
         id:l.packline_id, verified_base:l.verified,
         status:(l.verified>=l.required?"verified":(l.verified>0?"in_progress":"pending")),
@@ -1511,6 +1546,7 @@ document.getElementById("holdBtn").onclick=async ()=>{
         freezeScreen(null, `Your staff name was changed to "${res.worker}" (this session signed in as "${me.name}") — a manager may have edited the staff list. Nothing was saved. Sign in again, then re-scan the picklist to continue.`);
         return;
       }
+      if(res && res.reason==="other_device"){ freezeScreen(null, otherDeviceMsg()); return; }   // 다른 화면이 열었다 (doneBtn 과 동일 · 2026-09-10)
       await holdCasFailed(packTask.id);
       return;
     }
