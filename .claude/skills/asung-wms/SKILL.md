@@ -1466,6 +1466,7 @@ SELECT 3종은 세션 문서 「⬜ 다음」 절**(Hold·partial 공제를 어�
 - **Rollback finalize 토글 라벨의 숫자 (2026-08-12 저녁 — 표시 문제, 작업 안 막힘)** — `Hide finalized (640)` 의 N 은 count-head **총수**인데 펼쳐도 목록엔 closed **최근 200**(캡 위험 #7 사양)만 있다 — 매니저가 "640이라더니 왜 200개만?" 하고 헷갈릴 수 있다. 펼친 상태 캡션(`Latest 200 of 640 listed …`)이 설명하고는 있지만, 버튼 숫자를 표시 건수 기준으로 바꿀지 · `640 (200 listed)` 형태로 합칠지 판단(저녁 문서 F절 1번).
 
 ### 동시 작업 원자화
+- ⏸ **같은 사람 · 다중 기기(탭) 차단 — 설계 확정·구현·격자 검증까지 끝나고 되돌림 (2026-09-10 · 재개 조건 = 원장 `inv_layer` 마이그레이션 13건이 프로덕션에 먼저 올라가야 한다).** 같은 사람 두 기기는 `checkOwner`(`who===me.name`)·완료/Hold RPC CAS 를 전부 통과해 완료 스냅샷이 다른 기기의 픽을 0 으로 덮는다([실측] 실해 0건 — `picked_at` 있고 `verification_method` null 인 라인 0). RPC 4개 시그니처가 바뀌어 DB→HTML 순서가 강제되는데 `db push --linked` 가 원장 13건을 함께 올려 배포할 수 없었다. ⚠️ 정본·재개 절차·확정 설계(sessionStorage UUID · 작업 단위 잠금 · 새 기기가 이김) = `docs/sessions/2026-09-10-same-user-multi-device-guard-reverted.md` + 보고서 3건 `docs/sessions/2026-09-10-multi-device-guard/v5_{1,3,4}-*.md`(v5_4 에 RPC 4개 diff 실물 — 재개 시 그대로 재적용). 다시 조사하지 말 것.
 - ⚠️ **completed wave + 멤버 0 잔재 (2026-08-11 실물 확보 — wave id 21/W-0806-4)** — 08-06 테스트 조작이 만든 상태를 발견·삭제했다(규칙 20 「지우지 않는다 원칙의 예외 사례」). **조작으로 가능하면 운영에서도 가능하다** — 픽 RPC 원자화(`wms_complete_pick`) 이후 재발하는지 관찰, 재발하면 unwave/롤백 경로 조사 (세션 문서 11장).
 - **같은 SKU 다중 픽커 / 같은 라인 동시 스캔 (R1)** — PostgREST 조건부 UPDATE(CAS) 또는 RPC 증분.
 - **`claim_seq`(A→B→A 스테일 화면) — 규칙 28 후속.** 현재 가드는 best-effort. R1 CAS 와 같은 패턴이라 함께 처리.
