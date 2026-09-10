@@ -58,9 +58,26 @@
 //     초과분은 skipped_docs_truncated 로 센다) · candidate_head = 커서 필터 뒤 후보 정렬 앞 10건의 {doc_number, key} — 특정 문서가 후보에 있는지 ·
 //     몇 번째인지 바로 보인다(캡 안/밖 판별).
 //
-// ═══ ⚠️⚠️ 문서 필터 — From <> To (GUID) 로 건다 · 이름으로 걸면 안 된다 ═══
-//  FromLocation/ToLocation 은 「창고: bin」 형태라 bin 트랜스퍼가 섞인다. [실측 2026-09-09] 이름 필터 784건 vs GUID 12건.
-//  GUID 를 하드코딩하지 않는다 — From <> To 가 더 일반적이고 창고가 늘어도 돈다. 같으면 skip_same_location.
+// ═══ ⚠️⚠️ 문서 필터 — ~~From <> To (GUID) 로 건다 · 이름으로 걸면 안 된다~~ → [정정 2026-09-10 저녁 · 운영 실측] 현재 필터는 창고간 이동을 좁히지 못한다 ═══
+//  ~~FromLocation/ToLocation 은 「창고: bin」 형태라 bin 트랜스퍼가 섞인다. [실측 2026-09-09] 이름 필터 784건 vs GUID 12건.~~
+//  ~~GUID 를 하드코딩하지 않는다 — From <> To 가 더 일반적이고 창고가 늘어도 돈다. 같으면 skip_same_location.~~
+//  ⚠️⚠️ [실측 2026-09-10 · 운영 dry · from_since=2026-08-20T00:00:00Z] list_total 4,680 · below_floor 4,122 · **candidates 558**.
+//    원인: **bin 마다 LocationID(GUID)가 따로 있다** — 같은 창고 안 bin 이동도 From <> To 가 성립해 skip_same_location 에 안 걸린다.
+//    [실측] TR-03979 = 「Asung Trading Inc.: B030101」(2e2dc073…) → 「Asung Trading Inc.: B030303」(8fb43878…) — 같은 창고인데 GUID 가 다르다.
+//    ⇒ 회차당 40건 캡에서 39건이 bin 트랜스퍼 상세 조회로 소모된다(dispositions {skip_no_journal: 39, processed: 1}).
+//    ⚠️ 09-09 의 「784 vs 12」가 무엇을 센 것인지는 모른다 — 구간·기준 불명. 지우지 않고 오늘 실측을 나란히 둔다.
+//  ⭐ 창고간 이동의 실제 모양은 셋이다 [실측 4,680건 전수 · W=콜론 없음(창고) · B=콜론 있음(bin) · CROSS=콜론 앞 창고 이름이 다름]:
+//    B->B same 3,280 · W->B same 1,283 · B->W same 11 · W->W same 1(⚠️ TR-01875 토론토→토론토) / W->W CROSS 62 · W->B CROSS 9 · B->B CROSS 34 ⇒ CROSS 합계 105.
+//    ⚠️⚠️ 콜론 유무만으로 거르면 43건(9+34)을 놓친다 — 진짜 창고간(TR-03267 「Asung Trading Inc.」→「Asung - Edmonton: EZ010101」 ·
+//    TR-02937 「Asung Trading Inc.: J02PALLET08」→「Asung - Edmonton: ED020504」 · 둘 다 InTransitAccount _1150040007_ · DepartureDate 있음).
+//    창고 이름은 정확히 둘: 「Asung - Edmonton」 1,264 · 「Asung Trading Inc.」 165 (콜론 없는 이름 집계). 창고 GUID(참고용 · 하드코딩 안 함):
+//    Asung Trading Inc. f1ca3946-5a4e-4da7-b68a-ce7d3500f0be · Asung - Edmonton 623edcaa-5f18-4682-aae1-b9016d977c11.
+//  ⭐ 정정 방향(Caleb 판정 2026-09-10): 기준은 GUID 가 아니라 **창고 이름** — FromLocation/ToLocation 의 **콜론 앞부분**을 떼어 비교, 다르면 창고간.
+//    「이름으로 걸면 안 된다」를 뒤집는 것이 아니라 범위를 좁히는 것 — 이름 전체는 bin 이 섞이지만 콜론 앞은 창고 축이다. GUID 하드코딩은 채택 안 함(창고가 늘면 깨진다).
+//    목록 행에 판정 필드가 다 있다(From·FromLocation·To·ToLocation·Status·Number·CompletionDate·DepartureDate·InTransitAccount·CostDistributionType·Reference·SkipOrder·LastModifiedOn) —
+//    상세 조회 없이 판정 가능. Limit=1000 이면 전체 5페이지(6페이지는 빈 배열).
+//  ⚠️ ⬜ **코드(listDisposition)는 아직 고치지 않았다** — cron 등록 시점에 함께 한다(후보 558 → 105 · 안 고치면 회차당 40콜 중 39가 헛돈다).
+//    정본: docs/design/ledger-design.md §원가 레이어 12번 「②-a 수집기 작동 확인」 · docs/sessions/2026-09-10-transfer-freight-ops-notes.md
 //  Status 는 COMPLETED 만 본다(목록 Status 파라미터 · 문서화됨) — 저널은 완료 뒤에 붙으므로 좁혀도 놓치지 않는다(실측 둘 다 COMPLETED).
 //  서버 필터가 새는 경우를 위해 코드에서도 확인한다(skip_not_completed · 0 이 아니면 신호).
 //
