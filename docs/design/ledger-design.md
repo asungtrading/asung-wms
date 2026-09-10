@@ -1690,6 +1690,8 @@ Cin7 이 `UnitCost` 를 주지 않는다 — [실측] `ExistingStockLines` **157
 
 **12. ⭐⭐ 사건 9종 완료 · 잔량 대조 첫 통과 (2026-09-09 저녁)**
 
+⚠️ **이 절의 숫자는 「그 시점 실측」이다** — 사건이 매일 쌓이므로 최신 값은 `select inv_layer_apply();` 와 `select sum(remaining_cost) from inv_layer_open;` 을 직접 돌려 본다. ⭐ 문서 값은 **당시 판단의 근거**이고 현재 상태가 아니다. 📌 §11 은 재복사 전(09-08 08:59 복사본) · §12 는 재복사 후 기준이다.
+
 마이그레이션 `20260909231134`(assemble + credit_in) ·
 `20260909233729`(IN_TRANSIT 문서 범위) · `20260909235347`(트랜스퍼 날짜 범위).
 
@@ -1749,6 +1751,8 @@ Cin7 이 `UnitCost` 를 주지 않는다 — [실측] `ExistingStockLines` **157
 
 **$3,073,830.45** (`select sum(remaining_cost) from inv_layer_open`)
 ⇒ ⭐ **[2026-09-10] PO landed 적재 후 `$3,075,916.90`** (+$2,086.45).
+⇒ ⭐ **[2026-09-10] 트랜스퍼 운송비 배분 후 `$3,076,166.23`** (+$249.33).
+⚠️ `freight_no_basis` $398.75 는 반영되지 않았다(아래 「트랜스퍼 운송비」 소절 D).
 ⚠️ 아래 대조 얘기는 **landed 적재 전 값 기준**이다.
 
 📌 기초 스냅샷 Cin7 평가액 $3,055,493 대비 **+0.6%**. 그 사이 3주간 매입·판매가
@@ -1887,6 +1891,137 @@ landed 키 (doc_number, line_ref, sku, warehouse) 408개
 나올 수 있어 표본 없이 정할 수 없다. ⭐ **가드가 차단하고 그때 실물로 판단한다**
 (⚠️ 「나중에 보자」가 아니다 — 지금 차단돼 있고 조용히 통과하지 않는다).
 
+**⭐ 트랜스퍼 운송비 — 배분까지 완료 · 수집기는 미착수 (2026-09-10)**
+
+마이그레이션 `20260910141553`.
+
+### ⚠️ Cin7 은 문서 단위로만 준다 — 배분은 우리가 한다
+
+[실측 GAS 프로브 2026-09-10 · `TR-04175`·`TR-03975`]
+
+```
+목록:  CostDistributionType = "Cost"          ⭐ 원가 비례
+상세 최상위 키 (10):
+  Lines · ManualJournals · ManualJournalsDistributedCosts · Status · TaskID ·
+  From · To · Reference · DepartureDate · CompletionDate
+
+⭐ ManualJournalsDistributedCosts = ARRAY(0)   ← 둘 다 빈 배열
+⭐ Lines[0] 원가류 필드 = (없음)               ← TransferQuantity 만
+```
+
+⇒ ⭐ **Cin7 화면의 `Distribute journals using the product: Cost` 는 내부 설정이고
+결과를 API 로 주지 않는다.**
+
+### ⭐ `ManualJournals` 구조 — 키 여섯 · `IsSystem` 이 관건
+
+```
+Debit · Credit · Reference · Date · Amount · IsSystem
+```
+
+```
+TR-03975  ARRAY(2)
+  [0] Debit=_1150040007_ · Credit=_59_ · Ref=TR-03975 · 08-26 · 4878.11 · IsSystem=true
+  [1] Debit=_59_ · Credit=_136_ · Ref=B6900109 · 08-27 · 398.75 · ⭐ IsSystem=false
+TR-04175  ARRAY(1)
+  [0] Debit=_59_ · Credit=_136_ · Ref=B6913286 · 09-04 · 249.33 · ⭐ IsSystem=false
+```
+
+⚠️⚠️ **`IsSystem` 으로 거른다. 배열 길이로 판단하면 틀린다.**
+- `true` = 운송중 계정 이동(`_1150040007_` In Transit ↔ `_59_` 재고) ·
+  ⭐ 금액이 **재고 자체**(4,878.11)라 원가와 무관하다
+- `false` = 운송비 · `Debit='_59_'`(재고) / `Credit='_136_'`(Freight-COS)
+- 📌 `TR-04175` 는 시스템 저널이 **아예 없어** 1행이고 그것이 운송비다
+
+### ⭐ 저널은 나중에 붙는다 — 커서 축은 `LastModifiedOn`
+
+```
+TR-03975  Departure 08-14 · Completion 08-26 · 저널 08-27
+TR-04175  Departure 08-21 · Completion 09-02 · 저널 09-04
+```
+
+⚠️ **`TR-04175` 는 09-09 실측에서 저널이 없었고 09-10 에 붙었다**
+(`LastModifiedOn = 2026-09-10T15:32:06`).
+⇒ ⭐ 저널 날짜는 도착일 +1~2일이지만 **문서 갱신 시점은 훨씬 늦다.**
+⚠️ 수집 커서는 `LastModifiedOn` 이어야 한다 — `CompletionDate` 로 잡으면 놓친다.
+
+### A. 새 표 `inv_doc_cost` — 문서 단위 금액
+
+⭐ **왜 표를 따로 두나** — `inv_cost` 는 `sku`·`line_ref`·`qty`·`unit_cost` 가
+**전부 `not null`** 이라 문서 단위 금액을 담을 수 없다.
+⚠️ 가짜 SKU 를 채우면 「모르면 비워둔다」와 반대이고 `inv_cost_sku_idx` 가 오염된다.
+
+| | |
+|---|---|
+| 키 | `(doc_type, doc_number, kind, ref_number, occurred_on)` |
+| ⚠️ `amount` 를 키에서 뺐다 | 금액이 정정될 수 있어 upsert 로 덮어써야 한다(`inv_cost` 와 같은 이유) |
+| `ref_number` 가 키에 있다 | 인보이스가 여러 장 붙으면 각각 남는다 |
+| `IsSystem: true` | ⚠️ **담지 않는다.** 필요하면 `raw` 에 `ManualJournals` 배열 전체를 남긴다 |
+| `amount >= 0` CHECK | ⚠️ **걸지 않았다** — 정정이 음수로 올 수 있다. 배분 단계 가드가 방어한다 |
+| ⬜ 미확인 | 같은 인보이스가 **같은 날 두 줄**로 오는 경우 — 그러면 유니크에 걸려 하나만 남는다(표본 없음 · 두 문서 모두 1행) |
+
+### B. ⭐ 배분은 EF 가 아니라 `inv_layer_apply` 에서 한다
+
+⚠️⚠️ **이것이 이번 설계의 핵심 판단이다.** 이유 둘:
+
+1. ⚠️ **의존 방향** — 수집기가 `inv_layer` 를 읽으면 방향이 역전된다.
+   `ims-principles.md`: 「모듈은 레고처럼 · 접점은 사건 하나」. 지금 레이어가
+   원장·원가를 **읽기만** 하는데 반대 의존이 생기면 그 원칙이 깨진다
+2. ⚠️⚠️ **불변 조건(§3)** — 배분 결과가 `inv_cost` 에 굳으면 **레이어 규칙이
+   바뀌어도 배분은 안 바뀐다.** ⭐ `apply` 에서 하면 매번 다시 계산된다
+
+📌 불변 조건에 원천이 하나 늘었다:
+`inv_ledger + inv_cost + inv_doc_cost + inv_snapshot`
+
+**배분 규칙**
+
+| | |
+|---|---|
+| 대상 레이어 | `origin_type='transfer'` · 그 `doc_number` · ⚠️ **`warehouse <> 'IN_TRANSIT'`** — 운송비는 **도착지 재고**에 녹는다(`Debit='_59_'` · 실무 목적이 에드먼튼 gross 마진 정확도다) |
+| 기준 | ⭐ **`unit_cost × qty`** (`remaining` 이 **아니다**) — 배분은 **입고 시점의 원가 구성**을 따르고 그 뒤 얼마가 팔렸는지와 무관하다 |
+| 끝수 | 마지막 레이어에 잔액(①의 「remainder on last」와 같은 관례) · 소수 6자리 |
+
+### C. ⭐ 실측 — 배분 검증 통과
+
+`scripts/testdb/transfer_freight_sample.sql`(프로브 실측 2건)로 검증.
+
+| | |
+|---|---|
+| `freight_rows` | **57** (`TR-04175` 도착 레이어 수) |
+| `freight_amount` | ⭐ **$249.33** — 문서 금액 전액 |
+| `freight_docs` | 1 |
+| ⚠️ `freight_no_basis` / `_amount` | **1 / $398.75** |
+| `freight_orphan` | ⭐ **0** |
+| 재고 평가액 | $3,075,916.90 → **$3,076,166.23** (⭐ 정확히 +$249.33) |
+
+⭐ **평가액이 배분액 전액만큼 올랐다** ⇒ `TR-04175` 로 온 재고가 아직 하나도
+안 팔렸다는 뜻이다(9/02 도착 · 저널 9/04).
+📌 PO landed 는 $2,215.65 중 $2,086.45 만 반영됐다(차액 $129.20 = 이미 팔린 몫) —
+8월 건이라 판매가 있었다.
+
+⚠️ 수량 카운터는 전부 불변(`short_events 0` · `skipped_by_type {}`).
+
+### ⚠️⚠️ D. 배분 기준이 0 인 문서는 운송비를 버린다
+
+[실측] `TR-03975` **$398.75** 가 `freight_no_basis` 로 떨어졌다.
+⚠️ 그 문서는 **기초 이전 출발**(8/14 출발 · leg 1·2 가 `since` 로 원장에 없음)이라
+IN_TRANSIT 레이어가 없고, 도착 레이어가 `cost_source='unknown'` · `unit_cost 0` 이다
+⇒ **원가 비례로 나눌 기준이 0 이다.**
+
+⇒ ⭐ **수량 비례로 배분하지 않는다** (Caleb 판정 2026-09-10). 이유 둘:
+- ⚠️ Cin7 은 `CostDistributionType='Cost'` 다 — 수량 비례로 하면 **방식이 달라지고**
+  Cin7 평가액 대조에서 「방식이 달라 차이가 난다」가 또 생긴다.
+  ⭐ 방식이 같아야 차이의 원인을 규명할 수 있다
+- ⭐ **재기준선이 지운다** — 기준선을 다시 잡으면 그 레이어에 원가가 붙어
+  저절로 배분된다
+
+⚠️ **대가: 그만큼 우리 평가액이 Cin7 보다 낮다.** Cin7 은 그 운송비를 재고에
+녹였다(`Debit='_59_'`).
+⇒ ⭐ **`freight_no_basis_amount` 가 그 차이의 크기를 알려주는 창구다** —
+Cin7 대조(③)에서 **이 값만큼은 설명된 차이**다.
+
+⬜ **미확인 — 실물 비중**: 표본이 둘뿐이라 전체 트랜스퍼 중 몇 %가 `no_basis` 인지
+모른다. 수집기가 붙으면 그 비율이 나온다.
+
 **⬜ 남은 것**
 
 - ⏸ **`adjust_existing` 남은 레이어 0** — 실측 0건 · 방어 됨 ·
@@ -1899,10 +2034,32 @@ landed 키 (doc_number, line_ref, sku, warehouse) 408개
 ⭐ **남은 순서 — 이 순서를 지킨다**
 
 ```
-② 트랜스퍼 운송비 — 수집(inv-cost 확장) + 얹기
+②-b ✅ 트랜스퍼 운송비 — 배분 (2026-09-10 완료)
+②-a ⬜ 트랜스퍼 운송비 — 수집기 (inv_doc_cost 를 채운다)
 ③ Cin7 평가액과 대조 (SKU·창고별)
 ④ 그다음 PO 모듈
 ```
+
+**②-b ✅ 배분 완료 (2026-09-10 · 위 소절)**
+
+**②-a ⬜ 수집기 — 미착수. `inv_doc_cost` 를 채운다**
+
+⭐ **배분이 빠졌으므로 훨씬 단순해졌다** — EF 가 할 일은
+`stockTransferList` 순회 → 상세 → `ManualJournals` 에서 `IsSystem=false` ·
+`Debit='_59_'` 만 → `inv_doc_cost` upsert 뿐이다.
+⭐ **`inv_layer` 를 안 보고 배분하지 않는다.**
+
+⚠️ 정할 것 둘:
+- **별도 EF 인지 `inv-cost` 확장인지** — [보고 2026-09-10 `/tmp/inv-cost-report.md`]
+  `inv-cost` 는 948줄이고 입력 축이 `purchaseList` 하나다.
+  `doc_type` 이 `buildCostRows` 의 `rows.push` 에 `"purchase"` 리터럴로 박혀 있고,
+  `DocMode` 타입이 두 값으로 좁아 분기 셋을 고쳐야 한다.
+  ⚠️ 커서도 `source_key='cost'` 하나다
+- **커서 축** — ⭐ `LastModifiedOn` (위 참조 · `CompletionDate` 로 잡으면 놓친다).
+  별도 EF 면 `source_key='cost_transfer'` 로 독립
+
+📌 수집기가 붙으면 `scripts/testdb/transfer_freight_sample.sql` 은 필요 없어지지만
+**지우지 말고 「수집기 이전 검증용」으로 남긴다** — 배분 로직만 따로 시험할 수 있다.
 
 ⚠️ **②를 먼저 하는 이유** — ③(대조)을 먼저 하면 차이가 나도 **우리 결함인지
 빠진 원가인지 가릴 수 없다.** 트랜스퍼 운송비는 재고 단가의 **16%** 규모라
@@ -1917,14 +2074,16 @@ landed 키 (doc_number, line_ref, sku, warehouse) 408개
 붙은 경우를 이제 볼 수 있다.
 ⚠️ **우리는 아직 수집하지 않으므로 `inv_cost` 에는 없다.**
 
-⚠️ ②를 어느 대화에서 할지 결정 필요 — `inv-cost` 는 원장 수집기지만, 배분 규칙
+~~⚠️ ②를 어느 대화에서 할지 결정 필요 — `inv-cost` 는 원장 수집기지만, 배분 규칙
 (`CostDistributionType='Cost'` · **원가 비례**)이 **레이어 원가를 써야 계산**되므로
-원가 층 설계와 묶여 있다.
+원가 층 설계와 묶여 있다.~~
+[정정 2026-09-10] 배분은 `inv_layer_apply` 로 갔다(위 소절 B) — 수집기는 `inv_doc_cost` 만 채운다(②-a).
 
-- ⬜ **트랜스퍼 운송비 수집** — `inv-cost` 확장(별도 작업).
+- ⬜ **트랜스퍼 운송비 수집** — ~~`inv-cost` 확장(별도 작업).~~
   `stockTransfer.ManualJournals` · `Debit='_59_'` 만 ·
-  배분이 `CostDistributionType='Cost'`(원가 비례)라 **이 함수가 만든 레이어의
-  원가가 있어야 계산된다** ⇒ 순서가 고정이다
+  ~~배분이 `CostDistributionType='Cost'`(원가 비례)라 **이 함수가 만든 레이어의
+  원가가 있어야 계산된다** ⇒ 순서가 고정이다~~
+  [정정 2026-09-10] 별도 EF 인지 확장인지는 미정(②-a) · 배분은 `apply` 안이라 수집기는 레이어 원가를 보지 않는다.
 - ⬜ **Cin7 평가액과 본격 대조** — ⭐ 방식이 같으므로(둘 다 FIFO) 차이가 나면
   원인을 규명한다. ⚠️ **창고별로** 비교하면 Cin7 FIFO 의 단위(SKU vs SKU×창고)도
   함께 확인된다
