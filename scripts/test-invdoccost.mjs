@@ -20,6 +20,11 @@
 //  ⑩ 커서 — 키 정렬(코드유닛) · decideCursor: 비캡=회차시각 · 캡=마지막 키 · 캡인데 전진 없음=stalled
 //  ⑪ 정적 — dry 기본(commit==="1") · writeDocCostRows 호출은 commit 블록 안 1곳 · on_conflict = inv_doc_cost_uq 순서 ·
 //     SOURCE_KEY='cost_transfer' · 코드(주석 제외)에 inv_layer·inv_cost 참조 0 · Cin7 GET 만(cin7Get 외 cin7( 호출 없음)
+// 2026-09-10 추가 — from_since/recheck_since 가 시각을 받는다 + LastModifiedOn 밀리초 자릿수 정규화 (prompt-from-since-time):
+//  ⑫ parseFloor — 날짜 → T00:00:00.000Z · 시각(HH:MM · :SS · .mmmZ) → 그대로(정규화) · 잘못된 형식(2026-13-99 · hello · T99:99) → null(=400)
+//  ⑬ normLmo — .9Z·.10Z·.373Z·.4Z·.0Z·소수부 없음을 섞어 정규화 뒤 코드유닛 정렬 = 시각 순서 · 원문 정렬은 뒤집힘(결함 재현) ·
+//     커서 키·하한 비교가 정규화 값으로 옳게 판정(".3Z|TR-a" 커서 뒤의 ".373Z|TR-b" 를 건너뛰지 않는다)
+//  ⑭ 정적 — 필터가 slice(0,10) 이 아니라 정규화 시각 비교 · 키는 normLmo 값으로 · 응답 키 lmo_floor(lmo_floor_date 없음) · 두 파라미터 모두 parseFloor · 실패 400
 
 import { readFileSync } from "node:fs";
 
@@ -48,7 +53,7 @@ const code = [
   constLine("INVENTORY_DEBIT"),
   extractBlock("// ── 계산 핵심 (pure", "// ── 계산 핵심 끝 ──"),
   extractBlock("// ── 커서 tie-breaker", "// ── 회차 로그"),
-  "export { buildDocCostRows, listDisposition, cursorKeyOf, cursorKeyCompare, decideCursor, countUpdatedTies };",
+  "export { buildDocCostRows, listDisposition, cursorKeyOf, cursorKeyCompare, decideCursor, countUpdatedTies, normLmo, parseFloor, LMO_RE };",
 ].join("\n");
 const { mkdtempSync, writeFileSync } = await import("node:fs");
 const { execSync } = await import("node:child_process");
@@ -57,7 +62,7 @@ const { join } = await import("node:path");
 const dir = mkdtempSync(join(tmpdir(), "invdoccost-"));
 writeFileSync(join(dir, "c.ts"), code);
 execSync(`npx --yes esbuild ${join(dir, "c.ts")} --outfile=${join(dir, "c.mjs")} --format=esm`, { stdio: "pipe" });
-const { buildDocCostRows, listDisposition, cursorKeyOf, cursorKeyCompare, decideCursor, countUpdatedTies } = await import(join(dir, "c.mjs"));
+const { buildDocCostRows, listDisposition, cursorKeyOf, cursorKeyCompare, decideCursor, countUpdatedTies, normLmo, parseFloor, LMO_RE } = await import(join(dir, "c.mjs"));
 
 const TOR = "f1ca3946-5a4e-4da7-b68a-ce7d3500f0be", EDM = "623edcaa-5f18-4682-aae1-b9016d977c11";
 const row = (over = {}) => ({ TaskID: "t1", From: TOR, To: EDM, Status: "COMPLETED", Number: "TR-X", LastModifiedOn: "2026-09-10T15:32:06.049Z", CostDistributionType: "Cost", ...over });
@@ -179,6 +184,56 @@ const call = (mj, docNo = "TR-X") => buildDocCostRows({ docNo, det: { TaskID: "t
   ok("⑪-f 목록은 Status=COMPLETED 서버 필터 + UpdatedSince 미사용(미확인 파라미터) · 페이싱 1200ms · 캡 40 · 120초",
     codeOnly.includes('"/stockTransferList?Page=" + page + "&Limit=" + LIST_PAGE_LIMIT + "&Status="') && !codeOnly.includes("UpdatedSince")
     && /const DETAIL_SLEEP_MS = 1200;/.test(src) && /const MAX_DETAIL_PER_RUN = 40;/.test(src) && /const TIME_BUDGET_MS = 120_000;/.test(src));
+}
+
+// ⑫ parseFloor — from_since / recheck_since 공용
+{
+  const ok1 = parseFloor("2026-08-26") === "2026-08-26T00:00:00.000Z";
+  const ok2 = parseFloor("2026-08-26T20:50") === "2026-08-26T20:50:00.000Z";
+  const ok3 = parseFloor("2026-08-26T20:51:06") === "2026-08-26T20:51:06.000Z";
+  const ok4 = parseFloor("2026-08-26T20:51:06.373Z") === "2026-08-26T20:51:06.373Z";
+  const ok5 = parseFloor("2026-08-26T20:51:06.4Z") === "2026-08-26T20:51:06.400Z";   // 1자리도 3자리로
+  const bad = ["2026-13-99", "hello", "2026-08-26T99:99", "2026-08-26 20:50", "2026-02-30", ""].map((v) => parseFloor(v));
+  ok("⑫ parseFloor — 날짜→T00:00:00.000Z · HH:MM · :SS · .mmmZ · .4Z→.400Z · 잘못된 형식 6종 → null(400)",
+    ok1 && ok2 && ok3 && ok4 && ok5 && bad.every((v) => v === null),
+    JSON.stringify({ a: parseFloor("2026-08-26"), b: parseFloor("2026-08-26T20:50"), bad }));
+}
+// ⑬ normLmo — 밀리초 자릿수 정규화 · 정렬 · 커서 판정
+{
+  const raw = ["2026-08-26T20:51:06.9Z", "2026-08-26T20:51:06.10Z", "2026-08-26T20:51:06.373Z", "2026-08-26T20:51:06.4Z", "2026-08-26T20:51:06.0Z", "2026-08-26T20:51:06Z", "2026-08-26T20:51:06.3Z"];
+  const byTime = [...raw].sort((a, b) => Date.parse(a) - Date.parse(b));
+  const byNorm = [...raw].sort((a, b) => cursorKeyCompare(normLmo(a), normLmo(b)));
+  const byRaw  = [...raw].sort((a, b) => cursorKeyCompare(a, b));
+  const normVals = raw.map(normLmo);
+  ok("⑬-a normLmo — 3자리 패딩 · 소수부 없음 → .000Z · 정규화 뒤 코드유닛 정렬 == 시각 정렬",
+    normLmo("2026-08-26T20:51:06.4Z") === "2026-08-26T20:51:06.400Z" && normLmo("2026-08-26T20:51:06Z") === "2026-08-26T20:51:06.000Z"
+    && normLmo("2026-08-26T20:51:06.10Z") === "2026-08-26T20:51:06.100Z" && normLmo(null) === null
+    && JSON.stringify(byNorm) === JSON.stringify(byTime) && normVals.every((v) => /\.\d{3}Z$/.test(v)),
+    JSON.stringify({ byNorm, byTime }));
+  ok("⑬-b 결함 재현 — 원문 정렬은 시각 순서와 다르다(짧은 소수부가 뒤로 감 · 이것이 고친 이유)",
+    JSON.stringify(byRaw) !== JSON.stringify(byTime) && byRaw.indexOf("2026-08-26T20:51:06Z") > byRaw.indexOf("2026-08-26T20:51:06.4Z"),
+    JSON.stringify(byRaw));
+  // 커서 키 판정: 커서 = ".3Z|TR-a"(300ms) 뒤에 ".373Z|TR-b"(373ms) 가 와야 한다 — 원문 비교면 건너뛰고(key < cursor), 정규화면 처리된다
+  const cursorRaw = "2026-08-26T20:51:06.3Z|TR-a", docRaw = cursorKeyOf("2026-08-26T20:51:06.373Z", "TR-b");
+  const cursorN = cursorKeyOf(normLmo("2026-08-26T20:51:06.3Z"), "TR-a"), docN = cursorKeyOf(normLmo("2026-08-26T20:51:06.373Z"), "TR-b");
+  ok("⑬-c 커서 판정 — 원문이면 373ms 문서가 300ms 커서보다 작아 건너뛰고(결함) · 정규화면 크다(처리) · 하한 비교도 정규화 값으로 옳다",
+    (docRaw < cursorRaw) === true && (docN < cursorN) === false
+    && normLmo("2026-08-26T20:51:06.373Z") >= parseFloor("2026-08-26T20:51:06.373Z") && normLmo("2026-08-26T20:51:06.4Z") >= parseFloor("2026-08-26T20:51:06.373Z")
+    && normLmo("2026-08-26T20:51:06.3Z") < parseFloor("2026-08-26T20:51:06.373Z"),
+    JSON.stringify({ docRaw, cursorRaw, docN, cursorN }));
+  ok("⑬-d 예상 밖 형식은 원문 유지(LMO_RE 불일치) — 호출부가 lmo_unnormalized 로 센다", normLmo("2026-08-26 20:51:06") === "2026-08-26 20:51:06" && !LMO_RE.test("2026-08-26 20:51:06"));
+}
+// ⑭ 정적 — 세 비교 지점이 전부 정규화 값을 쓰는지 · 응답 키
+{
+  const codeOnly = src.split("\n").map((l) => l.replace(/\/\/.*$/, "")).join("\n");
+  ok("⑭-a 하한 필터 — updated.slice(0,10) 날짜 절단 없음 · 정규화 updated < lmoFloor 비교 · updated = normLmo(rawLmo)",
+    !codeOnly.includes("updated.slice(0, 10)") && codeOnly.includes("if (lmoFloor && updated && updated < lmoFloor)") && codeOnly.includes("const updated = normLmo(rawLmo);"));
+  ok("⑭-b 커서 키 — cursorKeyOf(updated, …) 의 updated 가 정규화 값(같은 루프) · runStartIso 는 toISOString(3자리)",
+    codeOnly.includes("cands.push({ row, updated, key: cursorKeyOf(updated, cursorDocIdent(row)) });") && codeOnly.includes("const runStartIso = new Date(t0).toISOString();"));
+  ok("⑭-c 두 파라미터 모두 parseFloor · 실패 400 · 응답 키 lmo_floor(옛 lmo_floor_date 없음) · lmo_unnormalized 카운터",
+    (codeOnly.match(/parseFloor\((fromSinceRaw|recheckSinceRaw)\)/g) ?? []).length === 2
+    && codeOnly.includes('if (fromSinceRaw && !fromSince) return json(') && codeOnly.includes('if (recheckSinceRaw && !recheckSince) return json(')
+    && codeOnly.includes("lmo_floor: lmoFloor,") && !codeOnly.includes("lmo_floor_date") && codeOnly.includes("lmo_unnormalized: lmoUnnormalized,"));   // 옛 키는 주석(헤더 경위)에만 남는다
 }
 
 if (fails) { console.error(fails + " FAILED"); process.exit(1); }

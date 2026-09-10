@@ -27,8 +27,28 @@
 //  커서 형식·판정은 inv-cost 관례 복제: <LastModifiedOn>|<Number> tie-breaker(동일 타임스탬프 다건 · 2026-08-31 결함 C) ·
 //  비캡 회차 = 회차 시작 시각 · 캡 회차 = 마지막 처리 문서의 키 · cursorStalled 증상 가드가 commit 을 차단한다.
 //  ⚠️ 전량 목록이라 「정밀도 필터」가 곧 증분 필터다 — 키 < 커서 인 문서를 코드에서 거른다(inv-cost 의 UpdatedSince −1일 +
-//  정밀도 필터와 같은 결과 · 서버 창이 없을 뿐). ?from_since=YYYY-MM-DD 는 커서 없을 때의 첫 시딩 하한 · ?recheck_since 는
+//  정밀도 필터와 같은 결과 · 서버 창이 없을 뿐). ?from_since 는 커서 없을 때의 첫 시딩 하한 · ?recheck_since 는
 //  커서 아래를 다시 태운다(커서는 뒤로 가지 않는다 · 캡이면 제자리).
+//
+// ═══ ⚠️⚠️ from_since · recheck_since 는 **시각**을 받는다 (2026-09-10 정정) ═══
+//  커서 축이 LastModifiedOn **시각**(밀리초)인데 두 하한이 날짜(YYYY-MM-DD)만 받았다 — 하루 안에 문서가 많으면 캡 안에서 특정 문서에
+//  닿을 수 없다. [실사고 2026-09-10] TR-03975(LastModifiedOn 2026-08-26T20:51:06.373Z)를 ?from_since=2026-08-26 으로 태우려 했으나
+//  그날 후보 395건이 38건 캡(time)에 걸려 들어오지 않았다 — 「봤는데 저널이 없다」가 아니라 **아예 못 봤다**(docs_processed 0 의 원인은
+//  파싱 결함이 아니라 도달 실패). 종전 필터는 updated.slice(0,10) 으로 날짜 10자만 비교해 시각을 넘겨도 무시했다.
+//  ⇒ 두 파라미터 모두 YYYY-MM-DD(그날 T00:00:00.000Z) · YYYY-MM-DDTHH:MM · …:SS · …:SS.mmmZ 를 받아 **커서와 같은 축(정규화 ISO)** 으로
+//  비교한다. 파싱 실패는 400(조용히 날짜로 떨어지지 않는다). 응답 키 lmo_floor_date → **lmo_floor**(실제 적용된 하한 값 그대로) —
+//  이 EF 는 아직 아무 곳에서도 호출되지 않아(cron 미등록 · GAS 없음) 키 변경이 안전하다.
+//
+// ═══ ⚠️⚠️ LastModifiedOn 밀리초 자릿수가 일정하지 않다 — 비교 전에 정규화한다 (2026-09-10) ═══
+//  [실측 2026-09-10] TR-03975 …:06.373Z (3자리) · TR-04214 …:06.4Z (1자리). [실측 테스트 DB inv_doc_state · transfer 349건]
+//  ms3 209 · ms2 129 · ms1 10 · 소수부 없음 1 — 끝의 0 을 잘라낸 형식이다(예 .09Z · .76Z).
+//  ⚠️ 원문 그대로 코드유닛 비교하면 순서가 뒤집힌다: 한 소수부가 다른 것의 접두면(".3Z" vs ".373Z" · ":06Z" vs ":06.4Z") 'Z'(0x5A) 가
+//  숫자·'.' 보다 커서 **짧은 쪽이 뒤로** 간다 — 300ms 가 373ms 뒤, 0ms 가 400ms 뒤. 커서 키가 ".3Z|TR-a" 일 때 ".373Z|TR-b" 는
+//  키 < 커서 로 판정돼 **건너뛴다** — 감지되지 않는 유실(어느 카운터에도 안 나타난다 · LastModifiedOn 은 그 문서의 유일한 등장 기회).
+//  ⇒ normLmo(): 소수부를 3자리로 패딩(없으면 .000)하고 Z 를 붙인 뒤에만 키를 만들고 비교한다. 정렬·하한·커서 판정 **세 곳이 전부**
+//  정규화된 값을 쓴다(runStartIso 는 toISOString 이라 이미 같은 형식). Date.parse 가 아니라 문자열 패딩인 이유 — inv-cost 관례
+//  「절대 시각으로 파싱하지 않는다 · 코드유닛 비교」와 tie-breaker(동일 타임스탬프 다건 · <LMO>|<Number>)를 그대로 유지한다.
+//  예상 밖 형식(정규식 불일치)은 원문 유지 + lmo_unnormalized 카운트(0 이 아니면 신호). 기존 저장 커서와의 호환은 문제 없다 — 배포 전이다.
 //
 // ═══ ⚠️⚠️ 문서 필터 — From <> To (GUID) 로 건다 · 이름으로 걸면 안 된다 ═══
 //  FromLocation/ToLocation 은 「창고: bin」 형태라 bin 트랜스퍼가 섞인다. [실측 2026-09-09] 이름 필터 784건 vs GUID 12건.
@@ -211,9 +231,31 @@ function buildDocCostRows(input: { docNo: string; det: any; row: any }): {
 // ── 계산 핵심 끝 ──
 
 // ── 커서 tie-breaker (inv-cost 의 복제 — 원본 inv-collect 「②-b 커서 tie-breaker (2026-08-30 결함 C)」 절) ──
-// 커서 = <LastModifiedOn>|<Number>. LastModifiedOn 은 목록 원문 문자열 그대로(절대 시각으로 파싱하지 않는다).
+// 커서 = <LastModifiedOn 정규화>|<Number>. LastModifiedOn 은 절대 시각으로 파싱하지 않고 **문자열 패딩으로 정규화**(normLmo · 헤더)한다.
 // 비캡 회차 = 회차 시작 시각(ISO Z) · 캡 회차 = 마지막 처리 문서의 키 — 동률 그룹 안에서도 식별자로 전진.
 // ⚠️ 코드유닛 비교(localeCompare 금지) — 필터·저장이 같은 순서여야 문서가 유실되지 않는다. null(LMO 없음)은 맨 앞 = 거르지 않는다.
+// LastModifiedOn 정규화 — 밀리초 3자리 고정 + Z (2026-09-10 · 헤더 「밀리초 자릿수」). 정규식 불일치는 원문 그대로(호출자가 lmo_unnormalized 로 센다).
+const LMO_RE = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z?$/;
+function normLmo(s: string | null): string | null {
+  if (!s) return null;
+  const m = LMO_RE.exec(s);
+  if (!m) return s;
+  return m[1] + "." + (m[2] ?? "").slice(0, 3).padEnd(3, "0") + "Z";
+}
+// from_since · recheck_since 파서 — 날짜 또는 ISO 시각을 커서와 같은 축(정규화 ISO)으로. 실패 = null → 호출부가 400.
+//   YYYY-MM-DD → T00:00:00.000Z · YYYY-MM-DDTHH:MM[:SS[.mmm]][Z]. 달력·시각 범위는 Date.parse 재직렬화로 검증(2026-13-99 · T99:99 거부).
+function parseFloor(raw: string): string | null {
+  let iso: string | null = null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) iso = raw + "T00:00:00.000Z";
+  else {
+    const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?Z?$/.exec(raw);
+    if (!m) return null;
+    iso = m[1] + ":" + (m[2] ?? "00") + "." + (m[3] ?? "").padEnd(3, "0") + "Z";
+  }
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t) || new Date(t).toISOString() !== iso) return null;   // 달력·범위 밖(2026-13-99 · T99:99) — 재직렬화가 다르다
+  return iso;
+}
 type CursorCand = { updated: string | null };
 function cursorDocIdent(row: any): string {
   return String(row?.Number ?? "").trim() || String(row?.TaskID ?? "").trim();
@@ -301,12 +343,16 @@ Deno.serve(async (req) => {
     // ── 파라미터 (관례: 기본 dry · ?commit=1 이 있어야 쓴다) ──
     const url = new URL(req.url);
     const commit = url.searchParams.get("commit") === "1";
-    const fromSince = (url.searchParams.get("from_since") ?? "").trim() || null;   // 커서 없을 때의 첫 시딩 하한(LastModifiedOn 날짜)
-    if (fromSince && !/^\d{4}-\d{2}-\d{2}$/.test(fromSince)) return json({ ok: false, error: "from_since must be YYYY-MM-DD" }, 400);
-    // ?recheck_since=YYYY-MM-DD — 커서 아래 문서를 다시 태운다(이 날짜 이후 LastModifiedOn 전부 · 필터 끔). 커서는 손대지 않는다 —
+    // ?from_since=<날짜|ISO 시각> — 커서 없을 때의 첫 시딩 하한. ⚠️ 시각을 받는다(2026-09-10 · 헤더 실사고 TR-03975) — 커서와 같은 축.
+    const fromSinceRaw = (url.searchParams.get("from_since") ?? "").trim() || null;
+    const fromSince = fromSinceRaw ? parseFloor(fromSinceRaw) : null;
+    if (fromSinceRaw && !fromSince) return json({ ok: false, error: "from_since must be YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS[.mmm]][Z] (UTC) - got '" + fromSinceRaw + "'" }, 400);
+    // ?recheck_since=<날짜|ISO 시각> — 커서 아래 문서를 다시 태운다(이 시각 이후 LastModifiedOn 전부 · 커서 필터 끔). 커서는 손대지 않는다 —
     //   비캡 회차면 회차 시작 시각으로 전진(재조회 창 ⊇ 평시 창 · 중복은 upsert 흡수) · 캡 회차면 제자리(뒤로 가지 않는다).
-    const recheckSince = (url.searchParams.get("recheck_since") ?? "").trim() || null;
-    if (recheckSince && !/^\d{4}-\d{2}-\d{2}$/.test(recheckSince)) return json({ ok: false, error: "recheck_since must be YYYY-MM-DD" }, 400);
+    //   ⚠️ from_since 와 같은 축 결함이 있었다(날짜만) — 함께 고쳤다(2026-09-10).
+    const recheckSinceRaw = (url.searchParams.get("recheck_since") ?? "").trim() || null;
+    const recheckSince = recheckSinceRaw ? parseFloor(recheckSinceRaw) : null;
+    if (recheckSinceRaw && !recheckSince) return json({ ok: false, error: "recheck_since must be YYYY-MM-DD or YYYY-MM-DDTHH:MM[:SS[.mmm]][Z] (UTC) - got '" + recheckSinceRaw + "'" }, 400);
     const timeLeft = () => TIME_BUDGET_MS - (Date.now() - t0);
     const warnings: string[] = [];
 
@@ -319,8 +365,9 @@ Deno.serve(async (req) => {
     else if (fromSince) sinceSource = "param";
     if (sinceSource === "none") warnings.push("NO CURSOR - every COMPLETED transfer is a candidate (pass ?from_since=2026-08-20 or seed inv_sync_state '" + SOURCE_KEY + "'); the detail cap will page through them run by run");
     if (recheckSince) warnings.push("RECHECK_SINCE=" + recheckSince + " - candidates widened below cursor (" + cursorBefore + "), cursor filter off for this run; cursor is not moved backwards");
-    // 코드 측 하한 — 전량 목록이라 서버 창이 없다(헤더). recheck > 커서 > from_since. 커서는 <LMO>|<Number> 키 비교 · 나머지는 날짜(앞 10자) 비교.
-    const lmoFloorDate: string | null = recheckSince ?? (cursorBefore ? null : fromSince);
+    // 코드 측 하한 — 전량 목록이라 서버 창이 없다(헤더). recheck > 커서 > from_since. 하한은 정규화 ISO 시각 · 정규화된 LastModifiedOn 과
+    //   같은 축으로 비교한다(종전 「앞 10자」 비교 폐기 — 헤더 실사고). 커서 회차는 null(키 필터가 대신한다).
+    const lmoFloor: string | null = recheckSince ?? (cursorBefore ? null : fromSince);
 
     // ── 1) 목록 — stockTransferList 전량(Status=COMPLETED) · 최근순이 아니므로 끝까지 받는다 ──
     let listTotal: number | null = null, listReceived = 0, pages = 0;
@@ -347,16 +394,18 @@ Deno.serve(async (req) => {
     }
     const truncated = listTotal == null ? null : listReceived < listTotal;
 
-    // ── 2) 후보 — 하한(날짜) → 목록 disposition → 키 정렬 → 커서 필터 ──
+    // ── 2) 후보 — 정규화(normLmo) → 하한(시각) → 목록 disposition → 키 정렬 → 커서 필터 ──
     //   ⚠️ 목록 disposition 은 하한 안의 행만 센다 — 전량 목록에서 매 회차 「같은 창고 이동 772건」을 세면 기준선을 외우게 된다.
     const dispositions: Record<string, number> = {};
     const tally = (k: string) => { dispositions[k] = (dispositions[k] ?? 0) + 1; };
     const cands: { row: any; updated: string | null; key: string | null }[] = [];
-    let belowFloor = 0, lmoMissing = 0;
+    let belowFloor = 0, lmoMissing = 0, lmoUnnormalized = 0;
     for (const row of listRows) {
-      const updated = String(row?.LastModifiedOn ?? "").trim() || null;
-      if (!updated) lmoMissing++;   // [실측 2026-08-31] 1000/1000 존재 — 0 이 아니면 신호(그 문서는 매 회차 후보가 된다 · 유실 방지 방향)
-      if (lmoFloorDate && updated && updated.slice(0, 10) < lmoFloorDate) { belowFloor++; continue; }
+      const rawLmo = String(row?.LastModifiedOn ?? "").trim() || null;
+      if (!rawLmo) lmoMissing++;   // [실측 2026-08-31] 1000/1000 존재 — 0 이 아니면 신호(그 문서는 매 회차 후보가 된다 · 유실 방지 방향)
+      const updated = normLmo(rawLmo);   // ⚠️ 밀리초 3자리 정규화 — 정렬·하한·커서 판정이 전부 이 값을 쓴다(헤더 「밀리초 자릿수」)
+      if (rawLmo && !LMO_RE.test(rawLmo)) lmoUnnormalized++;   // 예상 밖 형식 — 원문 그대로 비교된다(0 이 아니면 신호)
+      if (lmoFloor && updated && updated < lmoFloor) { belowFloor++; continue; }
       const d = listDisposition(row);
       if (d !== "candidate") { tally(d); continue; }
       cands.push({ row, updated, key: cursorKeyOf(updated, cursorDocIdent(row)) });
@@ -454,9 +503,10 @@ Deno.serve(async (req) => {
       truncated,
       list_aborted: listAborted,
       rate_limited: rateLimited,
-      lmo_floor_date: lmoFloorDate,          // 코드 측 날짜 하한(recheck_since / from_since) · 커서 회차는 null(키 필터가 대신한다)
+      lmo_floor: lmoFloor,                   // 실제 적용된 하한(정규화 ISO 시각 · recheck_since / from_since 파싱 결과) · 커서 회차는 null(키 필터가 대신한다)
       below_floor: belowFloor,
       lmo_missing: lmoMissing,               // LastModifiedOn 없는 목록 행 — [실측] 0 · 0 이 아니면 신호
+      lmo_unnormalized: lmoUnnormalized,     // LastModifiedOn 이 예상 형식(YYYY-MM-DDTHH:MM:SS[.f]Z)이 아닌 행 — 원문 비교로 떨어진다 · 0 이 아니면 신호
       dispositions,
       candidates: cands.length,
       precision_skipped: precisionSkipped,   // 키 < 커서 (이미 본 문서)
@@ -472,7 +522,9 @@ Deno.serve(async (req) => {
       journal_lines: journal,                // 저널 행 단위 집계(kept·system·non_inventory_debit·no_reference·zero_amount·bad_amount·no_date)
       merged_rows: mergedRows,               // 같은 (ref, date) 두 줄 합산 — ⬜ 표본 없음 · 0 이 아니면 첫 실물
       amount_built: round6(allRows.reduce((s, r) => s + r.amount, 0)),
-      recheck_since: recheckSince,
+      recheck_since: recheckSince,           // 정규화 ISO(입력 원문은 recheck_since_raw)
+      recheck_since_raw: recheckSinceRaw,
+      from_since_raw: fromSinceRaw,
       cursor_before: cursorBefore,
       cursor_after: commit && !writeSkipped ? cursorWouldBe : cursorBefore,
       cursor_after_would_be: cursorWouldBe,
