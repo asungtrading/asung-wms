@@ -53,3 +53,52 @@ Caleb 이 「지금 하려는 게 정확히 뭐야」를 **세 번** 물어 되�
 ## 3. 이 기록이 가리키는 다음 일 (설계 §12 「남은 것」이 정본 · 여기는 포인터)
 - ⬜ 다섯 건 `commit=1` 적재 → ⬜ 운송비 비율 측정(다섯 문서 운송비 ÷ 그 문서 물건 원가 · 분모는 재고 평가액이 아님) → ③ Cin7 대조 → ③-b cron 등록(+ 창고 이름 필터 · 캡·주기·`recheck` 설계).
 - ⬜ 아침 점검 ⑭ 기준선 재실측(`migration list --linked`).
+
+---
+
+## 4. 09-11 오전 — 창고 이름 필터 배포 · cron 등록 (jobid 19) · 예외 문구 되돌림
+
+### 4-1. 필터 수정 결과 — 예측과 실측 일치
+커밋 `fix(inv-doc-cost): 문서 필터를 창고 이름 기준으로 — bin GUID 가 창고를 못 가른다`(`index.ts` +15/−4 · `scripts/test-invdoccost.mjs` +34/−8 · 테스트 27 PASS · 배포 완료).
+[실측 운영 dry] `skip_same_warehouse` **4,575** — 09-10 GAS 4,680건 전수 분류의 예측값과 **정확히 일치** · `skip_no_location` **0**(목록 13필드에 이름이 항상 있다 — 0 이 아니면 응답 모양 변경 신호).
+
+### 4-2. ⚠️⚠️ 105 와 7 은 다른 축 — 캡·주기 설계는 불필요했다
+09-10 문서의 「후보 558 → 105」의 105 는 **전 기간 창고간 이동 수**. 실제 후보에는 하한(기초선 8/20)이 한 번 더 걸린다.
+```
+[실측 2026-09-11 · recheck_since=2026-08-20T00:00:00Z]
+  list_total 4,680 · below_floor 4,122 · skip_same_warehouse 551 · candidates 7
+    → processed 5      (TR-03975 · TR-03976 · TR-04173 · TR-04174 · TR-04175)
+    → skip_no_journal 2 (TR-04330 · TR-04331 · 09-10 자 · 운송비 아직 안 붙음)
+
+4,680 전체 COMPLETED → 105 창고간(전 기간) → 7 기초선 이후(실제 상세 호출) → 5 운송비 있음
+```
+⇒ 회차당 40건 캡에 걸릴 일이 사실상 없다(3주치가 7건 = 하루 한두 건). 105 로 캡·주기를 설계했으면 과대 설계였다 — 09-10 저녁 서술의 「3회차 · 사흘」은 이 혼동에서 나왔다(문서에 취소선으로 남김).
+
+### 4-3. cron 등록 — jobid 19
+```sql
+select cron.schedule('inv-doc-cost', '45 4 * * *', $$
+  select net.http_get(
+    url     := 'https://gftpcnkxbdjzzfvzwcfl.supabase.co/functions/v1/inv-doc-cost?commit=1',
+    headers := jsonb_build_object('x-wms-cron-key', '<WMS_CRON_SECRET>')
+  );
+$$);
+```
+| | |
+|---|---|
+| jobid | **19** (17 결번 · 18 = `inv-balance-diffs`) |
+| schedule | `45 4 * * *` = UTC 04:45 = 토론토 00:45(EDT) · 겨울 EST 면 23:45(기존 잡 전부 같은 성질) |
+| active | true |
+| 첫 자동 실행 | **2026-09-12 새벽** — ⬜ 아침 점검 ⑤ 에서 `cost_transfer` `last_run` 갱신 확인 |
+
+자리 근거: `inv-cost`(jobid 16 · `33 4`) 뒤 · `inv-snapshot-compare`(jobid 12 · `21 5`) 앞 — 원가 → 운송비 → 스냅샷, 아침 점검 시점엔 둘 다 끝나 있다. ⚠️ 순서 의존을 코드로 확인한 것은 아니다(`inv-doc-cost` 는 `inv_doc_cost` 표에만 쓰고 `inv_cost` 를 읽지 않아 독립으로 본다 · 배분은 cron 에 없는 `inv_layer_apply` 소관). `from_since` 는 붙이지 않았다 — 커서가 이미 서 있고 붙이면 충돌한다.
+
+**확정 사실 — 빈 회차에도 커서는 전진한다.** [실측] `commit=1 · candidates 0 · docs_processed 0` 인데 `cursor_before 2026-09-10T21:07:43.939Z` → `cursor_after 2026-09-11T12:15:53.269Z`(회차 시각). `decideCursor`: 비캡 = 회차 시각 · 캡 = 마지막 키(테스트 ⑩). ⇒ 할 일이 없어도 커서가 나아가므로 매일 볼 후보가 쌓이지 않는다.
+
+### 4-4. ⚠️⚠️ 아침 점검 ⓪·⑤ 의 `cost_transfer` 예외 문구를 되돌렸다
+09-11 아침 스킬 ⓪·⑤ 에 「`lag_source` 가 `cost_transfer` 면 그 값으로 판정하지 말고 ⑤ 를 직접 볼 것」을 넣었다 — 근거는 cron 미등록. 오전에 그것이 해소됐다.
+[실측 12:16Z · 등록 + `commit=1` 직후] `ledger_lag_source: "purchase"`(← `cost_transfer` 에서 넘어감) · `ledger_collected_at: 2026-09-11T12:08:02.527Z`.
+⇒ 이제 `lag_source` 가 `cost_transfer` 로 뜨면 「무시할 예외」가 아니라 **「수집이 실제로 멈췄다」는 신호**다. 예외 문구를 그대로 두면 진짜 신호를 무시하게 된다 → 스킬 두 곳 취소선 + 정정.
+⬜ 내일 아침(09-12)이 진짜 확인 — 오늘 전진은 손으로 돌린 `commit=1` 이고 cron 첫 실행이 아니다. 09-12 ⓪ 에서 `purchase` 유지 확인.
+
+### 4-5. ⬜ 남은 순서 · 파생
+`③-b ✅ cron 등록` → `④ ⬜ PO 모듈`(다음). 파생(③-b 안에 닫지 않음): `TR-04330`·`TR-04331` 에 운송비가 붙어 `LastModifiedOn` 이 갱신되면 다시 후보 — **cron 이 이것을 잡는지가 첫 실전 시험** · 기존 넷(Cin7 하락 89개 · `Not received` PO 총액 · `unit_cost 0→null` · 운영 08-27 스냅샷 부재) 유지.

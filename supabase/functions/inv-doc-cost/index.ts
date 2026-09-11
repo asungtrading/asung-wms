@@ -77,6 +77,12 @@
 //    목록 행에 판정 필드가 다 있다(From·FromLocation·To·ToLocation·Status·Number·CompletionDate·DepartureDate·InTransitAccount·CostDistributionType·Reference·SkipOrder·LastModifiedOn) —
 //    상세 조회 없이 판정 가능. Limit=1000 이면 전체 5페이지(6페이지는 빈 배열).
 //  ✅ **[2026-09-11] 고쳤다** — listDisposition 이 FromLocation/ToLocation 의 콜론 앞 창고 이름을 비교한다(후보 558 → 105 기대).
+//     [실측 2026-09-11 · 운영 dry · 배포 후] skip_same_warehouse **4,575**(09-10 GAS 전수 분류 예측과 정확히 일치) · skip_no_location **0**.
+//     ⚠️⚠️ 「105」는 **전 기간 창고간 이동 수**다 — 실제 후보에는 하한(기초선 8/20)이 한 번 더 걸린다:
+//       4,680 전체 COMPLETED → 105 창고간(전 기간) → **7** 기초선 이후(= 실제 상세 호출 수) → **5** 운송비 있음(TR-03975·03976·04173·04174·04175) · 2 저널 없음(TR-04330·04331).
+//       [실측 recheck_since=2026-08-20T00:00:00Z] list_total 4,680 · below_floor 4,122 · skip_same_warehouse 551 · candidates 7 · processed 5 · skip_no_journal 2.
+//     ⇒ 회차당 40건 캡에 걸릴 일이 사실상 없다(3주치 7건). cron 등록 2026-09-11 오전(jobid 19 · 45 4 * * * UTC · ?commit=1 · from_since 없음 — 커서가 서 있다).
+//     ⭐ 빈 회차에도 커서는 전진한다(비캡 = 회차 시각 · decideCursor): [실측] candidates 0 · docs_processed 0 에서 cursor 2026-09-10T21:07:43.939Z → 2026-09-11T12:15:53.269Z.
 //     disposition 이름: **skip_same_warehouse 신설 · skip_same_location 폐기 · skip_no_location 신설**(이름 빈 행 · 0 이 아니면 신호) · skip_not_completed 유지.
 //    정본: docs/design/ledger-design.md §원가 레이어 12번 「②-a 수집기 작동 확인」 · docs/sessions/2026-09-10-transfer-freight-ops-notes.md
 //  Status 는 COMPLETED 만 본다(목록 Status 파라미터 · 문서화됨) — 저널은 완료 뒤에 붙으므로 좁혀도 놓치지 않는다(실측 둘 다 COMPLETED).
