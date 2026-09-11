@@ -166,6 +166,6 @@ supabase db push --linked
 ```
 
 ## 6. 남은 것
-- 현장 미검증: 두 기기로 같은 배치 → 옛 기기 프리즈 문구 · Reload 되찾기 · sessionStorage 가 하드 리로드에 유지되는지(설계 근거는 브라우저 사양).
+- ~~현장 미검증: 두 기기로 같은 배치 → 옛 기기 프리즈 문구 · Reload 되찾기 · sessionStorage 가 하드 리로드에 유지되는지(설계 근거는 브라우저 사양).~~ → ✅ **[추기 · 실측 2026-09-10 밤 · Caleb] 배포(`23df53a`) 후 3종 전부 통과** — ① 다른 탭 → 프리즈 모달 실물 ② Reload 되찾기 → 저쪽 프리즈(대칭) ③ 단일 탭 Ctrl+Shift+R → 아무 일 없음(오탐 없음). 프로덕션 pg_proc 4줄 전부 `p_session_id text` · 오버로드 잔존 0 · 컬럼 3표 확인. 완결 절은 세션 문서 §10.
 - 하루 관찰 후 ② 리시빙(`wms_receipt_sessions`) · 별건 LIVE NOW ×2 · 리시빙 같은 라인 CAS.
 - 부수: `supabase migration new` 는 stdin 이 파이프면 **입력을 기다리며 멈춘다**(비대화식 셸) — 빈 파일은 만들어지므로 그 파일에 직접 썼다.
