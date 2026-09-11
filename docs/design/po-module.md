@@ -21,7 +21,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 
 ```
 ① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 wms_staff 확장(별건)
-② 공급처           ⬜ ⚠️ 표가 셋이 된다(본체·주소·연락처) — §8 supplier 실측
+② 공급처           🔵 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · 표 셋(본체·주소·연락처) · is_purchasable 은 우리 칸 — §8 supplier 실측
 ③ 제품             ⬜ ⚠️ Cin7 필드 83개 · 우리 것이 아닌 항목을 거르는 판단이 첫 질문 — §8 product 실측
 ④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
 ⑤ PO 본체          ⬜
@@ -58,7 +58,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 | `ref_brand` · `ref_category` · `ref_unit` | `20260911144606` | 8 | `name` | Cin7 필드가 `ID`·`Name` 둘뿐 · ⚠️ `ref_unit.name` 은 **text** — 44개 중 39개가 숫자 이름(2·12·1200·960…)이지만 파싱·CHECK 하지 않는다(케이스 입수 수량으로 쓰이는 UOM · SKU 접미사 파싱 금지 계열). 카테고리 19 중 제품 아닌 것(Liability·Service·Unclassified·Other)도 거르지 않는다 — ③ 제품 단계의 판단 |
 | `ref_payment_term` | `20260911161647` | 12 | `name` | `net_days`·`discount_days`·`discount_percent`·`is_split` 네 칸 — ⚠️ Cin7 `Duration` 함정(§4-②) 때문에 나눴다 · **값은 손으로 채운다**(파싱 금지 — 표기가 흔들린다: Net31 · N30 · 「1% Warehouse Allowance + 2%10 Net30」) · `Method` 칸 없음(34개 전부 `number of days` — 값이 하나뿐인 칸은 아무것도 구별하지 않는다) · `IsDefault` 는 `inv_config` 로(이번엔 행 안 넣음) · 통합용 `canonical_id` 없음(표에는 정리된 것만 · 흔들림은 불러올 때 매칭이 흡수) |
 | `ref_account` | `20260911162906` | 12 | ⭐ **`code`** | ⚠️ **`name` 유니크 없음**(§4-①) · `account_class` 만 CHECK(다섯) · `account_type` CHECK 없음(16종) · `code` 형식 CHECK 없음(형식 둘) · `for_payments` · `Status` → `is_active`(ARCHIVED 76개도 담는다 — 과거 문서가 가리킬 수 있다) · `Description` → `note` · `DisplayName`·은행 계좌·`SystemAccount*` 는 담지 않는다 |
-| `ref_currency` | `20260911164513` | 9 | ⭐ **`code`** | ⚠️ **`cin7_id` 없음**(Cin7 에 목록이 없다) · `source` default **`manual`** · ⭐ **값 2행(CAD·USD)을 넣은 유일한 표** + `inv_config.base_currency='CAD'` 1행 · `code` 형식 CHECK **있음**(`^[A-Z]{3}$`) · `name` 유니크 있음 · `symbol` 화면용(⚠️ CAD·USD 둘 다 `$`) · `rate`·`is_base`·`decimal_places` 없음 · KRW 없음(송금 수단이지 거래 통화가 아니다 · 공급처 Currency 실측 KRW 0) |
+| `ref_currency` | `20260911164513` | 9 | ⭐ **`code`** | ⚠️ **`cin7_id` 없음**(Cin7 에 목록이 없다) · `source` default **`manual`** · ⭐ **값 2행(CAD·USD)을 넣은 유일한 표** + `inv_config.base_currency='CAD'` 1행 · `code` 형식 CHECK **있음**(`^[A-Z]{3}$`) · `name` 유니크 있음 · `symbol` 화면용(⚠️ CAD·USD 둘 다 `$`) · `rate`·`is_base`·`decimal_places` 없음 · KRW 없음(송금 수단이지 거래 통화가 아니다 · ~~공급처 Currency 실측 KRW 0~~ [2026-09-11 정정] **담는 범위(활성 226) 안에 KRW 0** — 비활성에 1곳 있다 · §8-A-2) |
 | `ref_warehouse` | `20260911165946` | 15 | `name` | 주소 6칸 + `is_default` 를 **표에 뒀다**(§4-④) · ⚠️ `IN_TRANSIT` 안 담는다(원장의 합성 창고 · 실재하지 않는다) · `Production Facility` 는 담되 비활성(Cin7 시스템 창고 · 삭제 불가 · 없으면 갈 곳 없는 참조) · Cin7 플래그 넷(`FixedAssetsLocation`·`IsCoMan`·`IsShopFloor`·`IsStaging`)·`PickZones`·`Bins` 는 담지 않는다 · ⭐ `name` 이 `inv_ledger.warehouse`·`wms_orders.location` 과 잇는 고리 |
 | `ref_bin` | `20260911165946` | 11 | ⭐ **`(warehouse_id, name)`** | FK → `ref_warehouse` (`on delete no action` · 인덱스 `ref_bin_warehouse_idx`) · ⚠️⚠️ **2,675행 예정 — PostgREST 1,000행 캡을 넘는 첫 마스터** · `zone` 은 칸만 있고 비어 있다 · `is_staging` · 주소 칸 없음(bin 행 주소는 전부 빈 문자열) · `IsDeprecated` → `is_active` |
 
@@ -210,8 +210,46 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
 - ⬜ 아침 점검 ⑭ — `ref_` 표 여덟은 테스트에만 있다(§2 승격 기준).
 - ⬜ `ref_bin.zone` 채우는 방법 미정 — `wms_sku_bins` 에 있지만 마스터가 WMS 표를 읽으면 안 된다(원칙 2 · 원장이
   `wms_order_lines` 를 읽는 「잠정·결합」 빚을 하나 더 지는 것).
-- ⬜ 공급처당 기본 통화는 하나(Caleb 확정) — 새 통화로 결제하면 공급처 계정을 새로 연다. 아직 발동 없음(이름 정규화 묶음 0).
+- ⬜ 공급처당 기본 통화는 하나(Caleb 확정) — 새 통화로 결제하면 공급처 계정을 새로 연다. ~~아직 발동 없음(이름 정규화 묶음 0).~~
+  [2026-09-11 정정] **이미 발동된 실물 둘** — `East West Connect Inc.`/`East West Connect Inc._USD`(활성) · `Asung Trading`/`Asung Trading - USD`(비활성). 접미사 표기가 제각각이라 이름 정규화로는 안 잡힌다(§8-A-3).
 - ⬜ 사용자 축은 `wms_staff` 확장 — 별건.
+
+### ⬜ 다음 갈림길 — ② 공급처 (2026-09-11 오후)
+
+- ⬜ **`ref_tax_rule` 표를 만들 것인가** (미결 · 다음 판단)
+  - 만들자는 쪽 근거 셋: ⓐ 데이터가 이미 손에 있다 — CSV 31행에 세율·계정코드·활성여부·매입매출 구분이 다 들어 있다(`ref_currency` 2행을 손으로 넣은 것과 같은 상황) ⓑ ⚠️ **세율은 바뀐다 — 소급이 안 될 수 있다.** NS 15%→14% 가 이미 일어났다. Cin7 이 옛 규칙을 지우면 「오늘 15%였다」를 복원할 수 없다(원칙 1 의 3번) ⓒ 문자열로 두면 QBO 연동 때 226곳을 다시 이어야 한다.
+  - 미루자는 쪽 근거: ② 가 한 칸 밀린다 · 마스터는 대체로 소급이 된다.
+  - ⚠️ 어느 쪽이든 원문 칸 이름은 결제조건·계정과목과 같은 규칙으로 지어 둔다 — 나중에 FK 칸만 옆에 붙이면 구조가 흔들리지 않는다.
+- ⬜ 발주처 161곳만 추린 TaxRule 분포 (§8-C 오염 문제)
+- ⬜ HST PE 2016 · 38곳 동일값의 원인 (기본값 가설 기각됨)
+- ⬜ Intervision Trading 중복 의심 2행
+
+---
+
+## 7-a. ② 공급처 설계 확정 (2026-09-11 오후)
+
+**담는 범위** — 활성 226곳 전부. 비활성 462곳은 담지 않는다.
+근거: 대부분이 경비 지출처이고 발주 모듈이 참조할 대상이 아니다(§8-A-1). 경비 지급처는 QBO 연동의 영역.
+⚠️ 「거래처가 아니다」와 「IMS 에 필요 없다」는 다르다 — 버리는 것이 아니라 여기 있을 것이 아니라고 경계를 긋는 것이다(원칙 2).
+
+**⭐ `is_purchasable` — Cin7 에 없는 우리 칸** (nullable boolean)
+- true 161 · false 56 · null 9 (= 아직 판정 안 됨 · Caleb 전수 판정 §8-B).
+- ⚠️ `is_active` 와 뜻이 다르다 — 활성이면서 발주 대상이 아닌 곳이 56곳이다.
+- ⚠️ null 을 false 로 밀지 마라 — 「경비처로 판정했다」와 「아직 안 정했다」가 구별되지 않는다(「모르면 비워둔다」). null 개수가 정리해야 할 목록의 카운터가 된다.
+- ⚠️ Cin7 재동기화가 이 칸을 덮어쓰면 안 된다 — Cin7 에 대응 개념이 없다. `source` 칸이 그 근거.
+
+**참조 방식 — FK 로 잇는다**
+```
+결제조건  FK(ref_payment_term) nullable + Cin7 원문 문자열 칸
+계정과목  FK(ref_account · code 로 매칭) nullable + Cin7 원문 문자열 칸
+통화      FK(ref_currency) 하나 — CAD·USD 둘뿐이고 우리가 만든 표라 흔들리지 않는다
+세금규칙  원문 문자열 (⬜ ref_tax_rule 표를 만들지 미결 — §7 다음 갈림길)
+```
+- ⭐ 원문 칸을 함께 두는 이유: 적재가 도중에 멈추지 않게 한다. 못 이은 것은 FK 가 null 이고 그 개수가 「아직 정리 안 된 곳」의 카운터가 된다(§6 「정확히 못 이으면 비워 두고 센다」).
+- ⚠️ 계정과목은 실측 226/226 이 Code 로 일치하지만 원문 칸을 둔다 — **226/226 은 오늘의 사실이지 규칙이 아니다**(`ref_bin` 이름이 창고 간 안 겹치는 것과 같은 성질).
+- ⚠️ Cin7 화면에서 필수인 축이라도 우리 FK 에 NOT NULL 을 걸지 마라. NOT NULL 은 원문 칸에.
+
+**Default carrier 는 담지 않는다** (§8-D).
 
 ---
 
@@ -292,10 +330,12 @@ ParentID 없음(창고) 3  ·  있음(bin) 2,675   토론토 2,047 · 에드먼�
 ⚠️ IsDeprecated 인 bin 0건
 ```
 
-### supplier 226 (전량 · `IncludeDeprecated` 미사용 — 비활성은 안 봤다)
+### supplier ~~226 (전량 · `IncludeDeprecated` 미사용 — 비활성은 안 봤다)~~ → [2026-09-11 정정] 전량 688 · 활성 226 — 아래 A-1
+
+아래 첫 블록은 **활성 226 기준**(오전 프로브)이다. 정정된 두 줄은 블록 안에 표시하고 새 실측은 그 뒤 A-1~A-3 에 있다.
 
 ```
-Currency        USD 159 · CAD 67  ·  ⚠️ KRW 0곳
+Currency        USD 159 · CAD 67  ·  ~~⚠️ KRW 0곳~~ [2026-09-11 정정] 활성 226 안에 0 · 비활성에 1곳(A-2)
 Status          Active 226
 AccountPayable  _109_ 193 · _62_ 33
 PaymentTerm     14종 (활성 17종과 불일치 — 비활성 3종을 24곳이 쓰고 있다)
@@ -307,8 +347,102 @@ Discount        0 이 215곳
    ⇒ 칸으로 흡수할 수 없다 — 별도 표가 필요하다(② 공급처가 표 셋이 되는 이유)
 Address 키  Line1,Line2,City,State,Postcode,Country,Type,DefaultForType,ID
 Contact 키  Name,Phone,MobilePhone,Fax,Email,Website,Default,Comment,IncludeInEmail,ID
-⚠️ 이름 정규화 후 같은 이름 묶음 0개 — 통화 때문에 갈라진 공급처는 아직 없다
+⚠️ 이름 정규화 후 같은 이름 묶음 0개 — ~~통화 때문에 갈라진 공급처는 아직 없다~~ [2026-09-11 정정] 앞 문장만 맞다 · A-3
 ```
+
+#### A-1. [2026-09-11 정정] 비활성을 봤다 — 전량 688 (GAS 프로브 `spProbeSupplierDeprecated` · 13:36 Toronto)
+
+```
+Total   IncludeDeprecated=false 226 · =true 688  ⇒ 비활성 전용 462
+Status  Active 226 · Deprecated 462 (값 2종)
+⭐ 이름 중복  688행 전수 0 — 원문 기준도, 정규화(소문자·앞뒤공백·연속공백1) 기준도 0
+             ⇒ name 자연키를 쓸 수 있다. ref_account 와 달리 측정했다
+비활성 462곳이 쓰는 참조 문자열 중 활성 집합에 없던 값
+  PaymentTerm 0종 · AccountPayable 0종 · TaxRule 0종 · Currency 1종 = KRW(1)
+비활성 462곳의 빈 값  Name·Currency·PaymentTerm·AccountPayable·TaxRule 전부 0건
+Addresses 최대 2 · Contacts 최대 4 — 688행 전체에서도 동일(표 셋 구조 무변)
+```
+⭐ 비활성 462곳의 성격: `AdditionalAttribute1` 이 Service Supplier 457 · Product 4 · 빈값 1. 실물 이름이 407 ETR · Air Canada ·
+Airbnb · Amazon · Apple Store · Adobe · ATCO Energy · 7-Eleven · 식당 다수 ⇒ **발주처가 아니라 경비 지출처다.** Cin7 은 경비
+지급처를 담을 곳이 공급처 표뿐이라 여기에 쌓인다.
+
+#### A-2. [2026-09-11 정정] KRW — ~~0곳~~ **비활성에 1곳 있다**
+
+IPOS Systems (Deprecated · Service Supplier · Due on receipt · `_109_`).
+⇒ 활성 226곳만 담는 이번 설계(§7-a)에서는 `ref_currency` 2행(CAD·USD) 판단이 그대로 선다.
+⚠️ 다만 근거 문장은 「실측 KRW 0」이 아니라 **「담는 범위 안에 KRW 0」** 이다(§3 표 · §7 도 같이 정정).
+
+#### A-3. [2026-09-11 정정] 통화 때문에 갈라진 공급처 — ~~아직 없다~~ **실물 둘**
+
+```
+Asung Trading (CAD)          / Asung Trading - USD (USD)          — 둘 다 비활성
+East West Connect Inc. (CAD) / East West Connect Inc._USD (USD)   — 둘 다 활성
+```
+⚠️ 접미사 표기가 ` - USD` 와 `_USD` 로 제각각이라 **이름 정규화로는 안 잡힌다**(그래서 「묶음 0」은 맞았고 결론이 틀렸다).
+「공급처당 기본 통화는 하나 · 새 통화면 계정을 새로 연다」(§7)가 실제로 발동된 실물이다.
+📌 별건 의심: Intervision Trading / Intervision Trading (Supplier) — 통화·조건·계정이 모두 같은데 이름만 다르다. 중복 행일 가능성(미확인).
+
+#### B. ⚠️⚠️ `AdditionalAttribute1`(Supplier Type)은 구분 기준이 아니다
+
+**Cin7 의 Supplier Type 표시를 거르는 기준으로 쓰면 안 된다.**
+```
+활성 226곳   Product Supplier 143 · Service Supplier 11 · 빈값 72
+비활성 462곳 Service Supplier 457 · Product 4 · 빈값 1
+```
+⇒ 비활성 쪽이 98.9% Service 로 깨끗한 것은 **비활성으로 내리는 정리 작업 때 같이 붙인 표시**이지 평상시 관리되는 값이 아니다.
+활성 쪽은 72곳이 아예 비어 있다.
+
+⭐ **Caleb 전수 판정**(2026-09-11 · 활성 226곳 · 시트 「공급처 판정 2026-09-11 13:43」): **O 발주처 161 · X 경비처 56 · ? 모름 9** → `is_purchasable`(§7-a).
+
+⚠️ 속성이 붙은 154곳 중 **8곳이 판정과 어긋났다**:
+```
+Service Supplier 인데 O — Biochem Korea · Les Aliments Basmex Inc. · The Clorox Company
+Product Supplier 인데 X — Walmart
+Product Supplier 인데 ? — Intervision Trading · Intervision Trading (Supplier) · Locher Evers International · UNIT5LLC
+```
+⇒ 표에 담더라도 참고값이다. **구분의 정본은 Caleb 판정이다.**
+
+⬜ ? 9곳: East West Connect Inc. · East West Connect Inc._USD · Intervision Trading · Intervision Trading (Supplier) ·
+Locher Evers International · Polymos Inc. · Rosinella · UNIT5LLC · Urban Crave
+(Locher Evers 는 통관·물류 — 발주서는 안 나가지만 운임·통관료가 원가에 얹히는 통로)
+
+#### C. 세금 규칙 (Cin7 Settings › Taxation Rules 내보내기 CSV 31행 · 2026-09-11)
+
+필드: `Description` · `Tax1`(INPUT/OUTPUT/NONE/GSTONIMPORTS/AVALARA) · `AccountCode` · `Inclusive` · `IsActive` ·
+`EffectivePercentExclusive` · `EffectivePercentInclusive` · `EffectivePercent`
+
+⭐ **이름 규칙: 세율이 바뀐 해를 이름에 붙인다. 연도가 붙은 쪽이 현행이다.** (2026-09-11 CRA·공개 자료로 확인 · Caleb 추정이 맞았다)
+```
+현행                              폐지된 옛 세율
+HST PE 2016 (Purchase) 15%   ←→   HST PE (Purchase) 14%   (2016-10-01 인상)
+HST NB 2016 (Purchase) 15%   ←→   HST NB (Purchase) 13%   (2016-07-01 인상)
+HST NL 2016 (Purchase) 15%   ←→   HST NL (Purchase) 13%   (2016-07-01 인상)
+HST NS 2025 (Purchase) 14%   ←→   HST NS (Purchase) 15%   (2025-04-01 인하 · Cin7 에서 IsActive=false)
+HST ON (Purchase) 13%             연도 없음 — 2010 이후 변경 없음
+```
+⚠️ 활성 공급처 226곳의 TaxRule 분포: Zero-rated (Purchase) 140 · HST PE 2016 (Purchase) 38 · HST ON (Purchase) 29 ·
+HST NS (Purchase) 16 · GST (Purchase) 2 · Exempt (Purchase) 1
+
+⚠️⚠️ **HST NS (Purchase) — 폐지된 15% 이고 Cin7 에서도 비활성인데 활성 공급처 16곳이 쓴다.** 결제조건에서 비활성 3종을
+24곳이 쓰는 것과 같은 모양이다. Cin7 은 마스터를 비활성으로 내릴 뿐 그것을 쓰던 거래처를 고쳐 주지 않는다.
+
+⚠️ HST PE 2016 을 쓰는 38곳: 세 축(TaxRule · PaymentTerm=C.B.S · AccountPayable=`_109_`)이 완전히 동일하고 통화만 CAD 20 / USD 18 로
+갈린다. Caleb 판정은 X 32 · O 4 · ? 2 로 대부분 경비처(식당·호텔·항공·SaaS 구독).
+⬜ **원인 미상.** 「생성 시 기본값」 가설은 Caleb 이 Cin7 현재 설정을 확인해 **기각**했다. 과거 기본값 · 일괄 생성 등 대체 설명은 아직 없다.
+
+⚠️ 이 분포는 경비처 56곳에 오염돼 있다 — 설계 근거로 쓰려면 발주처 161곳만 추려 다시 세야 한다(⬜ 미측정 · §7 다음 갈림길).
+
+#### D. Cin7 공급처 화면 실측 (스크린샷 · 2026-09-11)
+
+- 필수(빨간 별) 여섯: Name · Tax rule · Currency · Status · Payment term · Account payable
+- 선택: Discount · Tax number · Comments · Attribute set · Default carrier
+- ⚠️ **Default carrier 는 화면에만 있고 `GET /supplier` 응답에 없다** — 그리고 실무에서 쓰지 않는다(Caleb 확인 2026-09-11). ⇒ 담지 않는다.
+  `ref_payment_term` 의 `Method` 를 안 만든 것과 같은 판단.
+- 📌 Account payable 화면 표기는 `_109_: Accounts Payable (A/P) - USD`(DisplayName). API 는 `_109_` 만 준다. 우리는 Code 로 잇는다.
+  DisplayName 은 담지 않아도 코드+이름으로 재구성된다.
+- ⚠️ **주소가 없는 발주처가 있다**(Caleb 2026-09-11). 활성 226곳 중 주소 0건이 143곳.
+  ⇒ 공급처 주소 표에 「최소 1건」류의 제약을 걸지 마라 · 본체 표로 주소를 끌어올리지 마라.
+  ⚠️ 주소 유무는 발주처/경비처 판정의 근거로도 쓰지 않는다(상관이 보였으나 인과가 아니다).
 
 ### product (Total 14,677 · 30행 표본)
 
