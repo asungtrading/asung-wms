@@ -159,3 +159,22 @@ function syncModifiedProducts(lastSyncDate) {
 - `AverageCost`는 read-only (FIFO/FEFO 기반 자동 계산)
 - **공급사 단가는 `Suppliers[].Cost`(최근가)와 `Suppliers[].FixedCost`(고정가)** — `Price` 필드 아님(실측 확정)
 - `PriceTiers` 객체는 실제 PriceTier 이름을 키로 사용 (`Tier 1`, `Wholesale` 등 계정 설정에 따라 다름)
+
+---
+
+## 2026-09-11 표본 실측 (Total 14,677 · 30행 표본 · GAS 프로브 · IMS PO 모듈 ③ 제품 표 설계 근거)
+
+```
+배열 키 Products  ·  필드 83개
+CostingMethod   30행 전부 FIFO
+UOM 빈값        0/30
+⭐ Brand·Category·UOM 이 ref/brand·ref/category·ref/unit 의 Name 과 일치 100% · GUID꼴 0건 — 이름 문자열 참조
+⭐ 제품이 계정과목을 넷 참조한다 — InventoryAccount · COGSAccount · RevenueAccount · ExpenseAccount (ref/account 의 Code)
+📌 HSCode · CountryOfOrigin 칸이 있다
+```
+⚠️⚠️ **제품이 아닌 항목이 섞여 있다** — SKU 가 `[:[OrderTotalDiscount]:]` · `_1_` · `_10_` · `_10767_` 같은 것들(Type=Service 등).
+⭐ Caleb 확인: **`_숫자_` 형식은 우리 제품이 아니다.** 목록이 SKU 순 정렬이라 **앞쪽에 몰려 있다** — 앞 몇 페이지만 보고 판단하면 틀린다.
+
+⬜ **`product?IncludeSuppliers=true` 는 미확인** — 표본 5행이 전부 시스템 항목이라 `Suppliers` 가 0 이었다.
+「파라미터가 안 먹는다」와 「표본이 나빴다」가 구별되지 않는다 — 실제 상품 SKU 로 다시 봐야 한다.
+(⚠️ 「안 된다」가 아니다. `product-suppliers-write.md` 의 읽기 경로는 이 파라미터를 전제한다.)

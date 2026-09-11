@@ -114,6 +114,7 @@ function fetchAllPages(endpoint, params) {
 | **공급사 단가(Fixed Price) 갱신 (쓰기)** | `PUT /product-suppliers` (읽기는 `GET /product?IncludeSuppliers=true`) | `references/product-suppliers-write.md` |
 | **트랜스퍼/입고 쓰기 (bin GUID 필수)** | `POST /stockTransfer`, `POST /purchase/stock`, `PUT /stockTransfer`(완료 — ⚠️수량 변경 무시) | `references/stock-write.md` |
 | **bin GUID 조회** | `GET /ref/location` → 창고 행 `Bins[]` | `references/stock-write.md` 5절 |
+| **Reference Book 여섯 (마스터 · 전량 실측 2026-09-11)** | `GET /ref/brand`·`/ref/category`·`/ref/unit`·`/ref/paymentterm`·`/ref/account`(⚠️키 `AccountsList`)·`/ref/location` — ⚠️ 통화 목록 없음 | `references/ref-endpoints.md` |
 | 고객 목록 / 상세 | `GET /customer` | `references/customer.md` |
 | 공급업체 목록 / 상세 | `GET /supplier` | `references/supplier.md` |
 | 제품 마스터 | `GET /product` | `references/product-master.md` |
@@ -173,7 +174,7 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 3. **Rate Limit = 60콜/60초 · 애플리케이션 키 단위 (2026-08-18 밤 실측 확정 — 상세는 아래 11번)**: 루프에서 `Utilities.sleep(1200)` 권장(분당 50콜 — 같은 키의 다른 주체와 겹칠 여유. ~~종전 300ms~~ 는 분당 200콜로 한도의 3.3배였다). ⚠️ **sleep 만으로는 부족하다** — 같은 키를 쓰는 다른 호출과 겹치면 429 가 그래도 온다. 키가 WMS 용과 GAS 용으로 분리돼 있고 한도는 **키마다 독립**이라 GAS 프로브는 WMS 키 예산과 무관하다(계정 단위 아님 — 11번의 키 범위 실측).
 4. **날짜 필터**: `UpdatedSince`, `CreatedSince` 등은 UTC 기준 ISO 8601.
 5. **Simple vs Advanced**: Sale/Purchase 모두 Simple/Advanced 타입 존재. Advanced는 여러 Invoice/Fulfilment 가질 수 있음.
-6. **bin GUID 는 `/ref/location` 최상위 창고 행의 `Bins[]` 에서** — 응답은 Total 2678 에 `Limit 500` 으로 잘리지만 `Bins[]` 는 창고 행 하나에 전부 들어있다(에드먼튼 628 · 토론토 2047). ⚠️ child-location 행의 `Name` 은 bin 이름이 아니다(바코드류). `references/stock-write.md` 5절.
+6. **bin GUID 는 `/ref/location` 최상위 창고 행의 `Bins[]` 에서** — 응답은 Total 2678 에 `Limit 500` 으로 잘리지만 `Bins[]` 는 창고 행 하나에 전부 들어있다(에드먼튼 628 · 토론토 2047). ~~⚠️ child-location 행의 `Name` 은 bin 이름이 아니다(바코드류).~~ → ⚠️⚠️ **[정정 2026-09-11] 틀린 기록이었다.** `ref/location` 전량 2,678행(GAS 프로브 · `Limit` 페이지네이션으로 전부 수집)에서 **하위 행(`ParentID` 있음) 2,675개의 `Name` 이 창고 `Bins[]` 의 `Name` 과 2,675/2,675 일치 · 숫자만인 이름 0 · 20자 이상 0** — 바코드는 섞여 있지 않다. `Bins[]` 원소 `{ID, Name, IsDeprecated, IsStaging}` 의 `ID` = 하위 행의 `ID`(같은 bin GUID) — **어느 쪽에서 얻어도 같다.** ⚠️ 원래 기록(`"071164313169"` 같은 바코드류)이 무엇을 본 것인지는 **구간·기준 불명** — 추측하지 않는다. `Bins[]` 경로가 잘림 없이 안전한 것은 여전히 사실이다. `references/stock-write.md` 5절 · `references/ref-endpoints.md`.
 7. **`purchaseList` 필터는 직관과 다르다** — `InvoiceStatus`·`Status` 모두 **단일 값만**(콤마·파이프로 여러 값 = Total 0 → 상태별 개별 호출 + `ID` dedup) · `Limit=1000` 동작 · **기본 정렬이 PO 번호 오름차순이라 최신 PO 가 마지막 페이지**(잘리면 항상 최신부터 누락) · `UpdatedSince` 는 최신성 보장 못함 · `Type` 은 무시됨 · **`StockReceivedStatus` 는 동작한다**(⚠️ 아래 12번 — 종전 "무시됨" 기록은 파라미터 **이름 오타**였다). **좁힐 땐 `InvoiceStatus` 가 아니라 `Status` 로** — 실측 973행→78행. 실측 표는 `references/purchase.md`.
    - **`saleList` 는 `OrderStatus`(승인 상태)와 `Status`(진행 상태)가 독립된 축이다** — `OrderStatus=AUTHORISED` 인 오더의 `Status` 는 `ORDERED` 로 남는 게 정상(Simple·Advanced 공통). Advanced Sale 도 라인 구조가 같아 **`Type` 필터는 불필요**. `references/sale.md`.
 8. **화면으로만 되는 작업**(재고 재평가·bin 재고 리포트)은 `references/stock.md` 하단 「Cin7 UI 실측 노트」. ⚠️ **원가 0 재고 재평가는 방법 미확정**(Non-zero 0 + Zero stock 재입력은 상계되지 않고 재고가 2배가 된다).
@@ -270,7 +271,7 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 | 비용 계정 | `_135_` (landed) | `_136_` (운송비 · 화면 「Freight - COS」) |
 | 걸러내는 조건 | `IsSystem === false` (위 PO 절 · **정상**) | **`Debit === '_59_' AND Credit === '_136_'`** (둘 다 화이트리스트) |
 
-- ⬜ `_135_`·`_136_` 계정명 미확인 — 필터엔 영향 없음(각 축 실측값).
+- ~~⬜ `_135_`·`_136_` 계정명 미확인~~ → ✅ [2026-09-11 `ref/account` 전량] `_135_` = **Brokerage - COS**(⚠️ 우리 문서의 "landed" — 통관중개료) · `_136_` = **Freight - COS** · 둘 다 EXPENSE/ACTIVE. 필터엔 영향 없음. `references/ref-endpoints.md`.
 - ⚠️⚠️ **[사고 2026-09-10]** 트랜스퍼 프로브 출력을 요약하며 발주 구조를 섞어 「TR-03975 ARRAY(2) · [0] `IsSystem=true` 4878.11 ·
   [1] `IsSystem=false` 398.75」를 문서·주석·픽스처에 적었다 — `4878.11` 은 응답에 없고 `_1150040007_` 은 헤더 오독. EF 필터
   `j?.IsSystem === false` 가 `undefined === false` 로 **전량 걸러져** 다섯 회차 `docs_processed 0`. ⇒ **응답 구조는 요약하지 말고 원문

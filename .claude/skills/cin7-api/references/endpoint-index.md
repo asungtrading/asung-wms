@@ -49,6 +49,8 @@
 | `GET /ref/customer/credits` | 1709 | 고객 크레딧 |
 | `GET /ref/supplier/deposits` | 27350 | 공급업체 예치금 |
 
+⚠️ **통화 목록 엔드포인트는 없다** — 위 `ref/` 계열 전수 확인 2026-09-11 · 환율은 문서의 `CurrencyRate` 로만 온다 · `references/ref-endpoints.md`(brand·category·unit·paymentterm·account·location 전량 실측).
+
 ### Sale 관련 세부 엔드포인트
 | 엔드포인트 | apib 라인 | 설명 |
 |-----------|----------|------|
