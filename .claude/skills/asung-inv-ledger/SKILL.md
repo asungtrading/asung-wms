@@ -388,6 +388,45 @@ Cin7 의 VOID 30건이 **전부 원장 밖**이다(기초 이전이거나 받은
 **bin 단위**로 어긋났는지 본다 — 순액은 0이어도 **출발 bin 은 덜 빠지고 도착 bin 은 더
 들어와** 있다(`PRO00124` 와 같은 모양이고, ⑧ 이 그것을 잡는다).
 ⬜ 판정 설계 **미착수 — 대상이 0건이라 검증할 실물이 없다.** 실물이 생기면 설계한다.
+📌 **[실측 09-10] `assembly` 축은 `voided_in_ledger 3` 이 기준선이다.**
+`voided_seen 88` · **`voided_in_ledger 3`** · `voided_open 0` · `voided_ledger_capped false` —
+**09-04 20:13 ~ 09-10 08:13 · 133회차 전부 고정**(변동 0).
+⭐ **그 3건은 이것이다**(원장 역추적으로 특정 · Caleb 이 Cin7 에서 VOID 확인):
+
+| 문서 | 상쇄 시각(토론토) | `net` |
+|---|---|---|
+| `FG-00131` | 2026-09-01 11:06 | **0** |
+| `FG-00133` | 2026-09-02 21:16 | **0** |
+| `FG-00134` | 2026-09-04 09:26 | **0** |
+
+⇒ **셋 다 `net 0`(상쇄 완료)이라 재고 영향이 없다.** ⑧ 이 깨끗한 것과 정합한다.
+⭐ **`voided_open 0` 인 이유**: `net≈0` 이면 `inv_voided_docs` 에 **기록하지 않는 구조**다(오탐 방지 설계 · 의도대로 작동).
+⇒ ⑪ 의 `resolved_at` 으로 닫을 수 없다 — **등록 자체가 안 되므로** 이 기준선을 문서로 외우는 것이 유일한 수단이다.
+📌 관측 시작(09-04 20:13)이 마지막 상쇄(09-04 09:26)보다 **나중**이라 첫 회차부터 3 이었다 — 새로 생긴 사건이 아니다.
+⚠️⚠️ **읽는 법 — 「3 이면 정상」이 아니라 「이 셋이면 정상」이다.**
+> `voided_in_ledger` 가 3 을 넘으면 신호다. ⚠️ 그런데 **`voided_sample` 이 빈 배열**이라 회차 로그로는 **무엇이 늘었는지 알 수 없다.**
+> ⇒ 그때는 원장에서 역추적한다(아래 쿼리 · `manual_rows > 0` 인 조립 문서가 그 후보다).
+⚠️ **숫자로 외우지 말 것** — ⑦-b 의 「3 이면 정상」이 7일 재조회 창이 지나며 **자동 무효화**된 전례가 있다(§⑦-b 정정 2026-09-09).
+이 축은 문서가 원장에 영구히 남으므로 3 이 유지되지만, **판정 근거는 문서명이다.**
+```sql
+-- assembly VOID 후보 역추적 (⚠️ source 필터 금지 — 상쇄가 사라진다)
+select doc_number,
+       count(*) as rows,
+       count(*) filter (where source = 'cin7')   as cin7_rows,
+       count(*) filter (where source = 'manual') as manual_rows,
+       round(sum(qty_delta)) as net,
+       round(sum(qty_delta) filter (where source = 'cin7')) as cin7_net,
+       min(occurred_on) as occurred_on,
+       max(created_at at time zone 'America/Toronto') as last_written
+from inv_ledger
+where doc_type = 'assembly'
+group by 1 order by 1;
+```
+⭐ **`manual_rows > 0` 인 문서가 VOID 후보다** — 상쇄가 들어간 문서라는 뜻이다.
+[실측 09-10] 정확히 `FG-00131`·`FG-00133`·`FG-00134` 셋이고 `voided_in_ledger 3` 과 일치했다.
+⚠️ **`source` 로 필터하지 말 것** — §아침 점검 ③ 「원장을 조회할 때의 함정 둘」 참조.
+📌 [실측 09-11] `assembly` `seen 88` · `in_ledger 3` · `open 0` — 위 셋 그대로다. ⭐ **문서명 기준 판정의 첫 적용 사례**이고 역추적이 불필요했다.
+`adjustment` 는 `seen 30 → 31` · `in_ledger 0`. 정본 `docs/sessions/2026-09-10-morning-check.md` · `2026-09-11-boundary-reorder.md`.
 ⚠️ **오탐이 없는 구조다** — 원장에 행이 없는 문서(받은 적 없음)와 `net≈0`(이미 상쇄됨)은
 기록하지 않는다. [실측 09-04 배포 직후] `assembly` `seen 88 · in_ledger 3 · open 0`
 (`FG-00131`·`FG-00133`·`FG-00134` 셋 다 상쇄 완료라 안 뜬다) · `adjustment` `seen 30 · open 0`.
@@ -1265,6 +1304,22 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
   없다) · `doc_number` = **`AssemblyNumber`**(목록 배열 키는 **`FinishedGoods`**) ·
   날짜 = `CompletionDate`(FG-00110 = 2026-08-06 — `Date`/`CompletionDate`/`WIPDate` 세 값 동일 ·
   재고 이동일과 일치) · `Status='COMPLETED'` 만(120건 중 VOIDED 77)
+  ⚠️⚠️ **조립 문서의 `net` 으로 수량을 검산하지 말 것 — 소진과 유입이 한 문서에 함께 들어온다.** [실측 09-10 · `FG-00130`]
+  ```
+  assemble_out : UNF18050·18051·18052·18053  각 −6  = −24   ← 투입(원자재 소진)
+  assemble_in  : UNF18261                        +1  =  +1   ← 완성품
+                                                    net  −23
+  ```
+  ⇒ ⭐ **Cin7 화면(Assembly order → ORDER 탭)의 `Total Quantity 24` 는 투입 축만**이다. 원장 `net −23` 은 **−24 + 1** 이고 **정상**이다.
+  ⚠️ 「24 여야 하는데 23 이다」로 읽으면 오진이다 — **`event_type` 별로 갈라야** 한다:
+  ```sql
+  select event_type, sku, coalesce(bin,'') as bin,
+         count(*) as rows, round(sum(qty_delta)) as qty
+  from inv_ledger where doc_number = '<FG-…>' and doc_type = 'assembly'
+  group by 1,2,3 order by event_type, sku;
+  ```
+  📌 [실측] 정상 조립 `FG-00130`·`FG-00132` 는 `net −23` · `manual_rows 0` 이다 — `net` 이 0 이 아닌 것이 정상이고,
+  **0 인 쪽(상쇄 완료)이 VOID 다**(⑪ 의 `assembly` 기준선 셋 참조). 정본 `docs/sessions/2026-09-10-morning-check.md`.
 - ⭐ **원가 축 실측 (2026-09-08 · 원가 레이어 조사에서 나온 Cin7 새 사실)**
   · ⭐ **트랜스퍼 운송비가 API 에 있는데 우리가 안 읽고 있다.** `stockTransfer.ManualJournals[]` —
     `Reference`(Service Invoice 번호) · `Amount` · `Date` · `Debit` · `Credit`.
