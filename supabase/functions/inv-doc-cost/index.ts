@@ -76,7 +76,8 @@
 //    「이름으로 걸면 안 된다」를 뒤집는 것이 아니라 범위를 좁히는 것 — 이름 전체는 bin 이 섞이지만 콜론 앞은 창고 축이다. GUID 하드코딩은 채택 안 함(창고가 늘면 깨진다).
 //    목록 행에 판정 필드가 다 있다(From·FromLocation·To·ToLocation·Status·Number·CompletionDate·DepartureDate·InTransitAccount·CostDistributionType·Reference·SkipOrder·LastModifiedOn) —
 //    상세 조회 없이 판정 가능. Limit=1000 이면 전체 5페이지(6페이지는 빈 배열).
-//  ⚠️ ⬜ **코드(listDisposition)는 아직 고치지 않았다** — cron 등록 시점에 함께 한다(후보 558 → 105 · 안 고치면 회차당 40콜 중 39가 헛돈다).
+//  ✅ **[2026-09-11] 고쳤다** — listDisposition 이 FromLocation/ToLocation 의 콜론 앞 창고 이름을 비교한다(후보 558 → 105 기대).
+//     disposition 이름: **skip_same_warehouse 신설 · skip_same_location 폐기 · skip_no_location 신설**(이름 빈 행 · 0 이 아니면 신호) · skip_not_completed 유지.
 //    정본: docs/design/ledger-design.md §원가 레이어 12번 「②-a 수집기 작동 확인」 · docs/sessions/2026-09-10-transfer-freight-ops-notes.md
 //  Status 는 COMPLETED 만 본다(목록 Status 파라미터 · 문서화됨) — 저널은 완료 뒤에 붙으므로 좁혀도 놓치지 않는다(실측 둘 다 COMPLETED).
 //  서버 필터가 새는 경우를 위해 코드에서도 확인한다(skip_not_completed · 0 이 아니면 신호).
@@ -191,11 +192,17 @@ type DocCostRow = {
 type JournalTally = { kept: number; non_inventory_debit: number; non_freight_credit: number; no_reference: number; zero_amount: number; bad_amount: number; no_date: number };
 const emptyTally = (): JournalTally => ({ kept: 0, non_inventory_debit: 0, non_freight_credit: 0, no_reference: 0, zero_amount: 0, bad_amount: 0, no_date: 0 });
 
-// 목록 레벨 disposition — 상세 조회 전에 정한다. ⚠️ 이름(FromLocation/ToLocation)이 아니라 GUID(From/To)로(헤더).
+// 목록 레벨 disposition — 상세 조회 전에 정한다.
+// ⚠️⚠️ [정정 2026-09-11] 기준은 GUID 가 아니라 **창고 이름**이다 — FromLocation/ToLocation 의 **콜론 앞부분**(「창고: bin」의 창고 부분)을
+//   떼어 비교하고, 다르면 창고간 이동이다. 「이름으로 걸면 안 된다」를 뒤집는 것이 아니라 범위를 좁히는 것 — 이름 **전체**로 걸면
+//   bin 트랜스퍼가 섞이지만, **콜론 앞**은 창고 축이다(헤더 「문서 필터」 절 실측 · bin 마다 GUID 가 따로라 From <> To 는 창고를 못 가른다).
+//   ~~From/To GUID 비교 · skip_same_location~~ 폐기. 기대값[실측 4,680건]: skip_same_warehouse 4,575 · candidate 105(W→W 62 · W→B 9 · B→B 34).
 function listDisposition(row: any): string {
   if (norm(row?.Status) !== "COMPLETED") return "skip_not_completed";   // 서버 Status 필터가 새면 여기서 잡힌다(0 이 아니면 신호)
-  const from = String(row?.From ?? "").trim(), to = String(row?.To ?? "").trim();
-  if (!from || !to || from === to) return "skip_same_location";          // bin 이동(같은 창고) · GUID 없음도 창고간 이동으로 볼 수 없다
+  const wh = (s: unknown) => String(s ?? "").split(":")[0].trim();      // 「Asung Trading Inc.: B030101」 → 「Asung Trading Inc.」 · 콜론 없으면 그대로
+  const f = wh(row?.FromLocation), t = wh(row?.ToLocation);
+  if (!f || !t) return "skip_no_location";      // ⚠️ 이름이 없으면 창고간으로 볼 수 없다 — 조용히 버리지 않고 센다(0 이 아니면 신호)
+  if (f === t) return "skip_same_warehouse";    // 같은 창고 안(bin↔bin · 창고↔bin 둘 다) — 옛 GUID 기준에서 candidate 로 새던 TR-01875(토론토→토론토)도 여기
   return "candidate";
 }
 

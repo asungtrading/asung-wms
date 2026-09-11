@@ -20,7 +20,8 @@
 //  ⑥ Reference 비었음 → skip_no_reference · 행 0 (유니크가 안 걸리므로 넣지 않는다)
 //  ⑦ Amount 0 → skip_zero_amount · 음수는 넣는다(배분 가드가 차단)
 //  ⑧ 같은 (ref, date) 두 줄 → 합산 1행 · mergedRows 1 · 경고
-//  ⑨ listDisposition — From===To → skip_same_location · Status≠COMPLETED → skip_not_completed · GUID 없음 → skip_same_location
+//  ⑨ listDisposition — [정정 2026-09-11] 창고 이름(FromLocation/ToLocation 콜론 앞) 기준 · 실측 원문 다섯(TR-03979 B→B same ·
+//     TR-03975 W→W CROSS · TR-03267 W→B CROSS · TR-02937 B→B CROSS · TR-01875 W→W same) + 이름 빈 행 → skip_no_location + Status≠COMPLETED
 //  ⑩ 커서 — 키 정렬(코드유닛) · decideCursor: 비캡=회차시각 · 캡=마지막 키 · 캡인데 전진 없음=stalled
 //  ⑪ 정적 — dry 기본(commit==="1") · writeDocCostRows 호출은 commit 블록 안 1곳 · on_conflict = inv_doc_cost_uq 순서 ·
 //     SOURCE_KEY='cost_transfer' · 코드(주석 제외)에 inv_layer·inv_cost 참조 0 · Cin7 GET 만(cin7Get 외 cin7( 호출 없음) ·
@@ -72,7 +73,7 @@ execSync(`npx --yes esbuild ${join(dir, "c.ts")} --outfile=${join(dir, "c.mjs")}
 const { buildDocCostRows, listDisposition, cursorKeyOf, cursorKeyCompare, decideCursor, countUpdatedTies, normLmo, parseFloor, LMO_RE } = await import(join(dir, "c.mjs"));
 
 const TOR = "f1ca3946-5a4e-4da7-b68a-ce7d3500f0be", EDM = "623edcaa-5f18-4682-aae1-b9016d977c11";
-const row = (over = {}) => ({ TaskID: "t1", From: TOR, To: EDM, Status: "COMPLETED", Number: "TR-X", LastModifiedOn: "2026-09-10T15:32:06.049Z", CostDistributionType: "Cost", ...over });
+const row = (over = {}) => ({ TaskID: "t1", From: TOR, To: EDM, FromLocation: "Asung Trading Inc.", ToLocation: "Asung - Edmonton", Status: "COMPLETED", Number: "TR-X", LastModifiedOn: "2026-09-10T15:32:06.049Z", CostDistributionType: "Cost", ...over });
 const call = (mj, docNo = "TR-X") => buildDocCostRows({ docNo, det: { TaskID: "t1", Status: "COMPLETED", Number: docNo, ManualJournals: mj }, row: row({ Number: docNo }) });
 // ⭐ 실측 원문 (GAS 프로브 2026-09-10 14:40) — 원소 키 11개 · IsSystem 없음. 저널 행 하나만 실제 값이고 나머지 키는 실측 그대로(빈 배열·null).
 const MJ_03975 = [{ TaskID: "c456b86f-59e5-4953-8ef6-cb5db0b4e932", ID: "8ea9e56f-8e31-4cd8-9b1c-4ab10e21bbf4", Reference: "B6900109", Amount: 398.75, Date: "2026-08-27T00:00:00",
@@ -150,13 +151,30 @@ const mj = (o) => ({ TaskID: "t", ID: "i", Reference: "B1", Amount: 10, Date: "2
     r.disposition === "processed" && r.rows.length === 2 && r.rows[0].amount === 12.75 && r.rows[1].amount === 1 && r.mergedRows === 1 && r.warnings.some((w) => w.includes("merged")),
     JSON.stringify(r.rows.map((x) => [x.occurred_on, x.amount])));
 }
-// ⑨ 목록 disposition
+// ⑨ 목록 disposition — [정정 2026-09-11] 창고 이름(콜론 앞) 기준. 픽스처 = 2026-09-10 운영 실측 원문의 FromLocation/ToLocation.
 {
-  ok("⑨ listDisposition — From===To / Status / GUID 없음 / 정상",
-    listDisposition(row({ To: TOR })) === "skip_same_location"
-    && listDisposition(row({ Status: "IN TRANSIT" })) === "skip_not_completed"
-    && listDisposition(row({ From: "" })) === "skip_same_location"
-    && listDisposition(row()) === "candidate" && listDisposition(row({ Status: "completed" })) === "candidate");
+  const cases = [
+    // 실측 다섯 — 헤더 「문서 필터」 절
+    ["TR-03979 B→B same",  row({ Number: "TR-03979", FromLocation: "Asung Trading Inc.: B030101",    ToLocation: "Asung Trading Inc.: B030303", From: "2e2dc073-same-wh-bin-a", To: "8fb43878-same-wh-bin-b" }), "skip_same_warehouse"],
+    ["TR-03975 W→W CROSS", row({ Number: "TR-03975", FromLocation: "Asung Trading Inc.",             ToLocation: "Asung - Edmonton" }), "candidate"],
+    ["TR-03267 W→B CROSS", row({ Number: "TR-03267", FromLocation: "Asung Trading Inc.",             ToLocation: "Asung - Edmonton: EZ010101" }), "candidate"],
+    ["TR-02937 B→B CROSS", row({ Number: "TR-02937", FromLocation: "Asung Trading Inc.: J02PALLET08", ToLocation: "Asung - Edmonton: ED020504" }), "candidate"],
+    ["TR-01875 W→W same",  row({ Number: "TR-01875", FromLocation: "Asung Trading Inc.",             ToLocation: "Asung Trading Inc.", From: TOR, To: TOR }), "skip_same_warehouse"],
+    // 합성 둘
+    ["FromLocation 빈 문자열", row({ FromLocation: "" }), "skip_no_location"],
+    ["Status IN TRANSIT",     row({ Status: "IN TRANSIT" }), "skip_not_completed"],
+    // 방어 — GUID 는 더 이상 판정에 쓰지 않는다(같은 창고 bin 둘은 GUID 가 달라도 same) · 소문자 status 통과 · ToLocation 없음
+    ["GUID 다르지만 같은 창고", row({ From: "guid-a", To: "guid-b", FromLocation: "Asung - Edmonton: E010101", ToLocation: "Asung - Edmonton: E020202" }), "skip_same_warehouse"],
+    ["status 소문자",            row({ Status: "completed" }), "candidate"],
+    ["ToLocation 키 없음",       (() => { const r = row(); delete r.ToLocation; return r; })(), "skip_no_location"],
+  ];
+  const bad = cases.filter(([, r, want]) => listDisposition(r) !== want).map(([name, r, want]) => name + " → " + listDisposition(r) + " (want " + want + ")");
+  ok("⑨ listDisposition — 실측 다섯(same 2 · CROSS 3) + 빈 이름 → skip_no_location + Status + 방어 3", bad.length === 0, JSON.stringify(bad));
+  const codeOnly = src.split("\n").map((l) => l.replace(/\/\/.*$/, "")).join("\n");
+  ok("⑨-b 정적 — 코드에 skip_same_location 없음 · From/To GUID 를 listDisposition 판정에 안 씀 · 콜론 앞 비교",
+    !codeOnly.includes("skip_same_location") && codeOnly.includes('String(s ?? "").split(":")[0].trim()')
+    && codeOnly.includes("wh(row?.FromLocation)") && codeOnly.includes("wh(row?.ToLocation)")
+    && !/function listDisposition[\s\S]*?row\?\.From\b[\s\S]*?\n}/.test(codeOnly.slice(codeOnly.indexOf("function listDisposition"), codeOnly.indexOf("function listDisposition") + 900)));
 }
 // ⑩ 커서
 {
