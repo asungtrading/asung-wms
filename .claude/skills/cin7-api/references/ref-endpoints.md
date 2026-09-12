@@ -21,6 +21,44 @@ IMS PO 모듈 ① Settings(`ref_brand`·`ref_category`·`ref_unit`·`ref_payment
 `CurrencyRate` 로만 온다(⚠️ Simple Purchase 의 `Invoice.CurrencyRate` 는 null — 상위 `CurrencyRate` 를 쓴다).
 ⇒ 통화는 IMS 가 스스로 세운 첫 마스터다(`ref_currency` · `cin7_id` 없음).
 
+## [2026-09-11 저녁] 적재(`ImsRefLoad.gs`)로 확인된 실측 갱신
+
+⚠️⚠️ **배열 키 이름이 엔드포인트마다 다르다 — 추측하면 0행이 나온다.**
+
+```
+ref/brand         BrandList
+ref/category      CategoryList
+ref/unit          UnitList
+ref/account       AccountsList   ⚠️ 여기만 복수형 s
+ref/paymentterm   PaymentTermList
+ref/location      LocationList   (창고+bin 한 엔드포인트 · ParentID 유무로 갈린다)
+```
+
+📌 [실사고 2026-09-11] `AccountList` 로 추측했다가 0행. 새 엔드포인트는 반드시 응답을 먼저 볼 것.
+
+⚠️ **`Total` 의 의미가 엔드포인트마다 다르다.** `ref/account` 는 전체 수(289)를 주는데
+`ref/paymentterm` 은 Limit 과 같은 값(5)을 줬다.
+⇒ `Total` 로 페이지를 돌지 말고 **받은 행 수**로 판단한다.
+
+⚠️⚠️ **레이트 리밋에 실제로 걸렸다** — `ref/location` 은 2,678행 = 27페이지라
+페이지당 `sleep(1200)` 으로는 60콜/60초를 넘는다.
+⇒ **2,500ms** 로 늘리고, 429 시 65초 대기 후 **같은 페이지 재시도**를 넣었다.
+
+📌 `ref/account` 필드: Code · Status(ACTIVE/ARCHIVED) · Name · Type(16종) · Description ·
+   Class(ASSET/EQUITY/EXPENSE/LIABILITY/REVENUE 5종) · SystemAccount · SystemAccountCode ·
+   BankAccountNumber · BankAccountId · ForPayments · DisplayName
+   ⚠️ **uuid 형태의 ID 가 없다** — 계정은 Code 로만 식별된다(우리 `cin7_id` 는 null).
+   실측 289행 · ForPayments true 23
+
+📌 `ref/paymentterm` 필드: ID · Name · Duration · Method · IsActive · IsDefault
+   실측 34행 · Method 는 전부 `number of days` · IsDefault true 1
+
+📌 `ref/location` 필드: ID · Name · IsDefault · IsDeprecated · ParentID · Bins ·
+   FixedAssetsLocation · AddressLine1/2 · AddressCitySuburb · AddressStateProvince ·
+   AddressZipPostCode · AddressCountry · PickZones · IsCoMan · IsShopFloor · IsStaging
+   실측 2,678행 = 창고 3(ParentID 없음) + bin 2,675
+   ⚠️ 빈 주소가 `""` 와 `null` 두 형태로 섞여 온다
+
 ## ⭐⭐ Cin7 은 마스터를 GUID 가 아니라 이름 문자열로 참조한다
 
 ```
@@ -113,7 +151,10 @@ Bins[] 원소  {ID, Name, IsDeprecated, IsStaging}  — 그 ID = 하위 행의 I
 ```
 PickZones 채워진 하위 행    0      ⚠️ bin 별 zone 은 Cin7 에 없다 (창고 행에만 문자열 하나)
 IsDeprecated 하위 행        0      비활성 bin 은 아직 없다
-⚠️ 창고 행의 주소 칸은 값이 있고, bin 행은 전부 빈 문자열('')이다 — null 이 아니다
+~~⚠️ 창고 행의 주소 칸은 값이 있고, bin 행은 전부 빈 문자열('')이다 — null 이 아니다~~
+[2026-09-11 저녁 정정] ⚠️ bin 행 주소는 "" 와 null 이 섞여 온다 — 같은 응답 안에서도 행마다 다르다
+   (연속 네 행: A0100PALLET01 "" · A010101 "" · A010102 null · A010103 null — 「전부 빈 문자열」은 앞쪽 표본만 본 결과)
+   ⇒ = '' 로만 거르면 null 행이 조용히 빠진다. 적재 시에는 빈 문자열을 null 로 통일한다(ImsRefLoad.gs 의 ims_blank_)
 ```
 
 ## 관련 실측(같은 날 · 다른 파일)

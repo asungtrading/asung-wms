@@ -60,7 +60,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 | `ref_account` | `20260911162906` | 12 | ⭐ **`code`** | ⚠️ **`name` 유니크 없음**(§4-①) · `account_class` 만 CHECK(다섯) · `account_type` CHECK 없음(16종) · `code` 형식 CHECK 없음(형식 둘) · `for_payments` · `Status` → `is_active`(ARCHIVED 76개도 담는다 — 과거 문서가 가리킬 수 있다) · `Description` → `note` · `DisplayName`·은행 계좌·`SystemAccount*` 는 담지 않는다 |
 | `ref_currency` | `20260911164513` | 9 | ⭐ **`code`** | ⚠️ **`cin7_id` 없음**(Cin7 에 목록이 없다) · `source` default **`manual`** · ⭐ **값 2행(CAD·USD)을 넣은 유일한 표** + `inv_config.base_currency='CAD'` 1행 · `code` 형식 CHECK **있음**(`^[A-Z]{3}$`) · `name` 유니크 있음 · `symbol` 화면용(⚠️ CAD·USD 둘 다 `$`) · `rate`·`is_base`·`decimal_places` 없음 · KRW 없음(송금 수단이지 거래 통화가 아니다 · ~~공급처 Currency 실측 KRW 0~~ [2026-09-11 정정] **담는 범위(활성 226) 안에 KRW 0** — 비활성에 1곳 있다 · §8-A-2) |
 | `ref_warehouse` | `20260911165946` | 15 | `name` | 주소 6칸 + `is_default` 를 **표에 뒀다**(§4-④) · ⚠️ `IN_TRANSIT` 안 담는다(원장의 합성 창고 · 실재하지 않는다) · `Production Facility` 는 담되 비활성(Cin7 시스템 창고 · 삭제 불가 · 없으면 갈 곳 없는 참조) · Cin7 플래그 넷(`FixedAssetsLocation`·`IsCoMan`·`IsShopFloor`·`IsStaging`)·`PickZones`·`Bins` 는 담지 않는다 · ⭐ `name` 이 `inv_ledger.warehouse`·`wms_orders.location` 과 잇는 고리 |
-| `ref_bin` | `20260911165946` | 11 | ⭐ **`(warehouse_id, name)`** | FK → `ref_warehouse` (`on delete no action` · 인덱스 `ref_bin_warehouse_idx`) · ⚠️⚠️ **2,675행 예정 — PostgREST 1,000행 캡을 넘는 첫 마스터** · `zone` 은 칸만 있고 비어 있다 · `is_staging` · 주소 칸 없음(bin 행 주소는 전부 빈 문자열) · `IsDeprecated` → `is_active` |
+| `ref_bin` | `20260911165946` | 11 | ⭐ **`(warehouse_id, name)`** | FK → `ref_warehouse` (`on delete no action` · 인덱스 `ref_bin_warehouse_idx`) · ⚠️⚠️ ~~2,675행 예정 — PostgREST 1,000행 캡을 넘는 첫 마스터~~ [2026-09-11 저녁] **2,675행 적재 완료 — 1,000행 캡을 넘는 첫 실물** · `zone` 은 칸만 있고 비어 있다 · `is_staging` · 주소 칸 없음(~~bin 행 주소는 전부 빈 문자열~~ [2026-09-11 저녁 정정] ⚠️ **`""` 와 null 이 섞여 온다** — 같은 응답 안에서도 행마다 다르다 · `= ''` 로만 거르면 null 행이 조용히 빠진다 · 적재 시 빈 문자열을 null 로 통일(`ImsRefLoad.gs` 의 `ims_blank_`)) · `IsDeprecated` → `is_active` |
 
 **표를 둘로 나눈 이유(창고·bin)**: Cin7 은 한 표 + `ParentID` 자기참조지만 창고 3 · bin 2,675 로 규모가
 다르고, 주소·회계 의미는 창고에만 있으며, ⭐ `inv_ledger` 가 이미 `warehouse` 와 `bin` 을 별개 칸으로
@@ -68,6 +68,39 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 
 **`ref_bin.name` 에 단독 유니크가 없는 이유**: bin 이름은 창고 안에서만 유일하다. 지금은 접두어가
 갈려(`A…` 토론토 · `E…` 에드먼튼) 전역 중복 0 이지만 **오늘의 우연이지 규칙이 아니다.**
+
+---
+
+## 3-a. ref_ 표 여덟 적재 완료 (2026-09-11 저녁 · 테스트 DB)
+
+⭐ 표만 있던 상태에서 **값이 들어간 상태**가 됐다. 합계 3,481행.
+
+```
+ref_brand          415
+ref_category        19
+ref_unit            44
+ref_account        289   (ACTIVE 213 · ARCHIVED 76)
+ref_payment_term    34   (활성 17 · 비활성 17 · ⚠️ 계산 칸 넷은 전부 비어 있다 — 2단계)
+ref_currency         2   (마이그레이션에서 이미 들어가 있었다)
+ref_warehouse        3   (Production Facility 는 is_active=false)
+ref_bin          2,675   (토론토 2,047 · 에드먼턴 628 · Production Facility 0)
+```
+
+**적재 방식** — Google Apps Script 에서 Cin7 을 읽고 PostgREST 로 upsert.
+원본은 `docs/probes/ImsRefLoad.gs`.
+
+- Script Properties 에 `SUPABASE_IMS_URL` · `SUPABASE_IMS_SERVICE_KEY` 를 **새 이름으로** 추가했다.
+  ⚠️ 기존 WMS 용 키를 고치면 WMS 자동화가 테스트 DB 를 보게 된다 — 반드시 별도 이름.
+- ⚠️⚠️ **`service_role` 금지는 프론트엔드 한정이다.** GitHub Pages 정적 페이지에 키가 공개되기
+  때문에 금지인 것이고, Apps Script 는 서버에서 돌고 Script Properties 가 공개되지 않으므로
+  service key 사용이 맞다.
+  ⇒ `asung-wms` 스킬의 「service_role 금지」를 다른 맥락에 넓게 적용하지 마라.
+- 각 표마다 **dryRun**(쓰지 않고 무엇이 들어갈지 확인) → **Apply** 2단계로 돌렸다.
+- `ref_bin` 은 200행씩 14묶음으로 나눠 POST.
+- `ref_bin.warehouse_id` 는 창고 uuid 를 코드에 박지 않고 **`ref_warehouse` 에서 읽어** 대응표를
+  만들어 채웠다(테스트 DB 를 다시 만들면 uuid 가 바뀐다).
+
+⭐ **검증 원칙** — HTTP 201 과 응답 행 수만 보고 끝내지 않고, 매 표마다 SQL 로 다시 읽어 확인했다.
 
 ---
 
@@ -326,7 +359,9 @@ ParentID 없음(창고) 3  ·  있음(bin) 2,675   토론토 2,047 · 에드먼�
 ⭐ 정정      하위 행(bin)의 Name = bin 이름. Bins[] 원소 {ID,Name,IsDeprecated,IsStaging} 와 2,675/2,675 일치 · 숫자만 0 · 20자 이상 0.
             ⇒ cin7-api 스킬의 「child-location Name 은 바코드류」는 틀렸다(2026-09-11 정정 · 원래 기록의 구간·기준 불명)
 ⚠️ PickZones 는 창고 행에만 문자열 하나 — bin 별 zone 0건
-⚠️ bin 행의 주소 칸은 null 이 아니라 빈 문자열('')
+~~⚠️ bin 행의 주소 칸은 null 이 아니라 빈 문자열('')~~
+            [2026-09-11 저녁 정정] ⚠️ "" 와 null 이 섞여 온다 — 같은 응답 안에서도 행마다 다르다(A0100PALLET01 "" · A010101 "" · A010102 null · A010103 null).
+            ⇒ = '' 로만 거르면 null 행이 조용히 빠진다. 적재 시에는 빈 문자열을 null 로 통일한다(ImsRefLoad.gs 의 ims_blank_)
 ⚠️ IsDeprecated 인 bin 0건
 ```
 
@@ -443,6 +478,47 @@ HST NS (Purchase) 16 · GST (Purchase) 2 · Exempt (Purchase) 1
 - ⚠️ **주소가 없는 발주처가 있다**(Caleb 2026-09-11). 활성 226곳 중 주소 0건이 143곳.
   ⇒ 공급처 주소 표에 「최소 1건」류의 제약을 걸지 마라 · 본체 표로 주소를 끌어올리지 마라.
   ⚠️ 주소 유무는 발주처/경비처 판정의 근거로도 쓰지 않는다(상관이 보였으나 인과가 아니다).
+
+#### E. [2026-09-11 저녁] 적재로 검증된 아침 판단들
+
+⭐⭐ **`ref_account.name` 중복이 실제로 9개 있었다.** 아침에 「Name 중복을 측정하지 않았으므로
+유니크를 걸지 않는다」고 물러선 판단이 옳았다. 걸었으면 289행 전체가 막혔다.
+
+Automobile Expense · Cost of Goods Sold · Customer Credits · Insurance · Other Expense ·
+Professional Fees · Retained Earnings · Stock in Transit (GINR) · Uncategorized Income
+
+⇒ 「측정하지 않은 것을 제약으로 걸면 적재가 조용히 깨진다」(§4-①)의 실물 사례.
+
+⭐ **`Duration` 함정이 실물로 찍혔다.** `1% Warehouse Allowance + 2%10 Net30` 의 Duration 이 **10**
+(이름의 Net30 은 어디에도 담기지 않는다). ⇒ 담지 않기로 한 판단이 옳았다.
+⚠️ 같은 칸에 **기일 · 할인 기한 · 0** 세 가지가 섞여 있다:
+`Net 30`→30(기일) · `2%10 Net30`→10(할인 기한) · `C.O.D`·`Due on receipt`·`C.B.S`→0
+
+⭐ **`IN_TRANSIT` 은 Cin7 `ref/location` 에 존재하지 않는다.** 창고는 3곳뿐
+(Asung Trading Inc. · Asung - Edmonton · Production Facility).
+원장의 합성 창고라는 판단이 실측으로 확인됐다.
+
+⭐ **bin 이름의 창고 간 중복은 0.** 복합키 `(warehouse_id, name)` 판단은 유효하고,
+0 은 **오늘의 사실이지 규칙이 아니다**(기존 문장 유지).
+
+⭐ **`ref_payment_term` 활성/비활성이 정확히 17/17.** 목록을 보면 **활성은 띄어쓰기 있는 형태,
+비활성은 붙은 형태**로 규칙적으로 갈린다:
+`Net 30`(활성)/`Net30`(비활성) · `Net 45`/`Net45` · `C.B.S (…)`(활성)/`C.B.S. (…)`(비활성)
+언젠가 정리하며 새로 만들고 옛것을 내린 흔적이다.
+⚠️ 그런데 공급처 226곳 중 `Net30`(비활성) 21곳 · `Net45`(비활성) 2곳이 아직 옛 형태를 쓴다
+— **정리가 절반만 됐다.**
+📌 새 값: `2.1%13 Net30` — 소수점 할인율. `discount_percent` 가 numeric 인 것이 맞았다.
+
+⭐ **세금 규칙의 계정** — `_54_` = **GST/HST Payable**(LIABILITY/CURRLIAB). 세금 규칙 27행이
+전부 이 계정을 쓴다. 캐나다는 매입·매출분을 상계해 순액 신고하므로 한 계정에 모으는 것이 맞다.
+⚠️ `_118_` = **Vacation Pay** — 세금과 무관한 계정인데 `Tax on Sales`·`Tax Exempt`·
+`Sales Tax on Imports` 셋이 이것을 가리킨다. 우리가 쓰지 않는 Cin7 기본 규칙이라 실무 지장은 없으나,
+나중에 「세금이 휴가수당 계정으로 간다」고 읽히지 않도록 기록해 둔다.
+⇒ `ref_tax_rule` 의 `AccountCode` 는 `ref_account` 에 **FK 로 이을 수 있다**
+(`_54_`·`_118_`·`_109_`·`_62_` 네 코드 모두 존재 확인).
+
+⚠️ 빈 주소가 `""` 와 `null` **두 형태로 섞여 온다**(같은 응답 안에서도).
+⇒ 적재 때 빈 문자열은 null 로 통일했다(값을 바꾸는 것이 아니라 같은 것을 같게 적는 것).
 
 ### product (Total 14,677 · 30행 표본)
 
