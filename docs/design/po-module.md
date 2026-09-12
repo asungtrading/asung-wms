@@ -21,7 +21,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 
 ```
 ① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 wms_staff 확장(별건)
-② 공급처           🔵 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §7-b**(`supplier_discount` 추가) · is_purchasable 은 우리 칸 — §8 supplier 실측
+② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §7-b**(`supplier_discount` 추가) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §7-c) — 226 / 87 / 237 / 0**
 ③ 제품             ⬜ ⚠️ Cin7 필드 83개 · 우리 것이 아닌 항목을 거르는 판단이 첫 질문 — §8 product 실측
 ④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
 ⑤ PO 본체          ⬜
@@ -542,6 +542,107 @@ Discount(Cin7 칸)  담자 → ⭐ 안 담는다
      마이너스로 처리해 왔다. 담으면 PO 가 그것을 기본값으로 밀어 넣고 실무는 다시 지운다.
      ⚠️ 더 나쁜 것은 언젠가 누군가 그 칸이 맞는 줄 알고 쓰는 것이다(Supplier Type 을 안 담은 이유와 같다)
      ⇒ 대신 supplier_discount 표로 여러 줄을 담는다 (위 D)
+```
+
+---
+
+## 7-c. ② 공급처 표 넷 적재 완료 (2026-09-12 저녁 · 테스트 DB)
+
+**[테스트 · Asung-IMS]** `fazgmyvzzhqybtvtktyg` · 마이그레이션 셋 적용·커밋·푸시 완료.
+
+| 표 | 마이그레이션 | 행 | 열쇠 | 비고 |
+|---|---|---|---|---|
+| `supplier` | `20260912202952` | **226** | `name` (unique) | `cin7_id` 도 unique · FK 셋 전부 연결 성공 |
+| `supplier_address` | `20260912210733` | **87** | `cin7_id` | 주소 있는 공급처 83곳 · Billing 77 |
+| `supplier_contact` | `20260912210733` | **237** | `cin7_id` | 261 − 거래중단 24 · 연락처 있는 공급처 182곳 |
+| `supplier_discount` | `20260912212150` | **0** | `(supplier_id, seq)` unique | ⚠️ 뼈대만 — 내용은 Cin7 에 없다(사람이 채운다) |
+
+**적재 후 실측 (SQL 확인)**
+```
+supplier         226 = is_purchasable true 161 · false 56 · null 9   ⭐ 어제 판정과 정확히 일치
+                 is_discontinued 24 · cin7_comments 75
+                 payment_term_id·account_payable_id·currency_id 미연결 0 ⭐ 226/226 전부 연결
+supplier_address  87 · 주소 있는 공급처 83 · type='Billing' 77
+supplier_contact 237 · 연락처 있는 공급처 182 · is_default true 159
+```
+
+**📌 `is_purchasable` 은 별도 단계로 넣었다** — 적재 스크립트는 이 칸을 **보내지 않는다**(Cin7 이 모르는
+우리 칸이므로 재동기화가 덮으면 안 된다). 판정은 시트
+`공급처 판정 2026-09-11 13:43`(`1AqoQPQejFcZfkkwRWDFKMw4GVkM2HcGT5vNRSfI-HJU`)에서
+`cin7_id` 로 이어 PATCH 했다(217행 = 161 + 56 · `?` 9곳은 건드리지 않는다).
+⚠️ 이 시트는 Cin7 에 없는 값의 **유일한 사본이었다** — 표로 옮겨 사본이 둘이 됐다.
+
+**📌 적재 스크립트 (GAS · `~/asung/gas-system-automation`)**
+```
+ImsLoadSupplier.gs      imsLoadSupplier / ...Apply       본체 226
+ImsLoadPurchasable.gs   imsLoadPurchasable / ...Apply    판정 217 (시트 → PATCH)
+ImsLoadSupplierSub.gs   imsLoadSupplierSub / ...Apply    주소 87 · 연락처 237
+```
+⚠️ 셋 다 `ims_fetch_`·`ims_blank_`(`ImsLoad.gs`) 와 `sp_fetchSuppliers_`(`ProbeSupplier.gs`) 를 쓴다 —
+**다시 만들지 마라.**
+📌 연락처 적재는 이름이 `'no longer purchase'`(⭐ 소문자로 맞춰 비교)인 행을 건너뛴다 — 24건.
+
+### ⚠️ 오늘 겪은 것 셋 — 다음에 같은 데서 멈추지 않도록
+
+**① `UrlFetchApp` 이 URL 안의 큰따옴표를 거부한다** (PATCH 가 두 번 실패했다)
+```
+PostgREST 의 in.("guid","guid",…) 문법을 그대로 URL 에 넣으면
+  Exception: Invalid argument: https://…/supplier?cin7_id=in.("…","…")
+⚠️ 처음엔 URL 길이 문제로 오진하고 묶음을 200 → 40 으로 줄였다 — 그래도 같은 오류였다.
+   40개짜리 URL 은 1,700자 남짓이라 한도와 무관했다.
+⭐ 원인은 인코딩되지 않은 " 다. GUID 에 따옴표는 필요 없다:
+   var list = encodeURIComponent(chunk.map(function (r) { return r.id; }).join(','));
+```
+
+**② 조회 결과를 눈으로 보고 「표가 잘못 섰다」고 판단할 뻔했다**
+`information_schema.columns` 결과가 화면에서 어긋나 보여(`is_purchasable` 이 `NO`/`DEFAULT false` 로,
+끝에 `ate` 세 줄이 붙어) 마이그레이션이 반대로 적용된 줄 알았다. **두 칸만 다시 조회하니 정상**이었다
+(`YES` / `null`).
+⚠️ §1-a 「결론을 데이터 전에 내리지 않는다」가 사람이 아니라 **도구 출력**에서도 똑같이 적용된다 —
+   화면에 보인 것을 사실로 받기 전에 **범위를 좁혀 다시 물어라.**
+
+**③ `supabase db push` 의 카탈로그 캐시 경고는 실패가 아니다**
+```
+Warning: failed to cache migrations catalog: … pgdelta-target-ca.crt: ENOENT
+```
+마이그레이션은 `Applying …` → `Finished supabase db push.` 로 정상 적용됐다. 캐시는 편의 기능이라
+표 생성과 무관하다(CLI v2.109.1 · 업데이트 안내 동반). ⚠️ 그래도 적용 여부는 **실제로 조회해서 확인**했다.
+
+### ⚠️ [실측 정정] TaxRule 분포가 하루 사이에 움직였다
+
+```
+2026-09-11  Zero-rated 140 · HST PE 2016 38 · HST ON 29 · HST NS 16 · GST 2 · Exempt 1
+2026-09-12  Zero-rated 149 · HST ON 34 · HST PE 2016 29 · HST NS  8 · GST 4 · Exempt 1 · Out of Scope 1
+```
+⭐ **폐지된 `HST NS (Purchase)`(15%)를 쓰던 곳이 16 → 8 로 줄었다** — 누군가 정리하고 있다.
+⚠️ §8 의 「활성 226곳 TaxRule 분포」는 **2026-09-11 시점의 사실**이다. 취소선을 긋지 말고 위 두 줄을
+   나란히 남긴다 — 값이 움직이는 중이라는 것 자체가 사실이다.
+⇒ `ref_tax_rule` 을 만들 때 **지금 값이 정리되는 중임을 전제로** 시작한다. 오늘 분포를 그대로 시드로
+   박으면 내일 또 달라진다. 종류는 일곱(위 2026-09-12 줄)이고 표를 만들 값어치는 충분하다.
+📌 어제 남긴 「발주처 161곳만 추려 다시 세야 한다」(§7 미결)는 **여전히 유효**하다 — 위 숫자도 226곳 전체다.
+
+### 활성 226 전 칸 빈값 실측 (2026-09-12 · NOT NULL 판단 근거)
+```
+Name · PaymentTerm · AccountPayable · Currency · TaxRule — 빈값 0 / 226 (전부 채워져 있다)
+ID 중복 0 · 이름 앞뒤 공백 0
+Currency: CAD 67 · USD 159
+```
+⚠️ 그럼에도 **`tax_rule` 에 NOT NULL 을 걸지 않았다** — 226/226 은 Cin7 화면이 필수로 강제한 결과이지
+우리 규칙이 아니다. 우리 화면에서 새 공급처를 만들 때 세금규칙을 아직 안 정한 상태가 있을 수 있고,
+막히면 등록 자체가 안 된다. `ref_tax_rule` 이 생겨 FK+원문 쌍이 될 때 다시 판단한다.
+
+### ⬜ 다음
+
+```
+supplier_discount 채우기   실무 지식 — 어느 공급사가 어떤 할인을 주는지. Cin7 에 없다
+연락처 정리               연락수단 없는 117건 중 회사 이름·상태 문구 행을 지운다(DELETE 열려 있다)
+사라진 행 감지            ⚠️ 두 번째 적재부터 생긴다 — upsert 는 「없어진 것」을 모른다.
+                         Cin7 에서 연락처를 지우면 우리 표에 남고 에러도 안 난다(§6-a 계열).
+                         ⭐ 오늘은 「그대로 둔다」로 간다 — 재적재를 몇 번 해 보고 실태를 본 뒤 정한다.
+                         후보: ⓐ 그대로 둔다 ⓑ 공급처별로 지우고 다시 넣는다(우리 note 가 사라진다)
+                               ⓒ 이번에 안 들어온 행을 is_active=false 로 내린다(되돌릴 수 있다)
+                         📌 컷오버 뒤에는 문제 자체가 사라진다 — 우리 표가 정본이 되면 재적재가 없다
+③ 제품                    다음 모듈. Cin7 필드 83 · `_숫자_` SKU 거르는 판단이 첫 질문
 ```
 
 ---
