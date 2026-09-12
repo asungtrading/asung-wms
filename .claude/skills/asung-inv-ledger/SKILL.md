@@ -156,7 +156,7 @@ select source_key, last_cursor,
 from inv_sync_state order by source_key;
 ```
 📌 주기: `transfer`·`sale` 5분 · `purchase` 15분(= `inv-collect-purchase` · jobid 8 · **원장 수집**) · `adjustment`·`assembly`·`creditnote` 1시간 ·
-`cost` 하루(00:33 토론토 · `33 4 * * *` · = `inv-cost` · jobid 16 · **발주 원가**). ⚠️ `cost_transfer`(`inv-doc-cost` · 트랜스퍼 운송비)는 **cron 미등록**(2026-09-10 · 손으로 부른다).
+`cost` 하루(00:33 토론토 · `33 4 * * *` · = `inv-cost` · jobid 16 · **발주 원가**). ~~⚠️ `cost_transfer`(`inv-doc-cost` · 트랜스퍼 운송비)는 **cron 미등록**(2026-09-10 · 손으로 부른다).~~ [2026-09-11] `cost_transfer` 는 **jobid 19 로 등록됐다**(`45 4 * * *` · 아래 참조 — 09-12 401 사고 포함).
 ⚠️⚠️ **잡 이름·jobid 를 함께 읽을 것** — [실사고 2026-09-10] 「`purchase` 15분」을 원가 축으로 읽어 「원가 수집이 반나절 멈췄다」로 오진했다. 두 축은 표(`inv_ledger` vs `inv_cost`)·주기·잡이 다르다.
 ⬜ 나머지 잡의 jobid 는 `select jobid, jobname, schedule from cron.job order by jobid` 실측으로 채울 것(여기 추정으로 적지 않는다).
 📌 **[실측 09-11] `inv_sync_state` 에 `cost_transfer` 축이 생겼다**(PO+원가 쪽 `inv-doc-cost` EF · 09-10 배포). `last_run` = `last_ok` = **09-10 17:08** 이고 그 뒤 돌지 않았다.
