@@ -25,6 +25,9 @@ description: >
 ```
 ① Settings (8축)  ✅ 2026-09-11 — 7축(표 여덟) · 사용자는 wms_staff 확장(별건)
 ② 공급처           🔵 범위·칸 확정(2026-09-11 · 정본 §7-a) — 활성 226 만 담는다(비활성 462 는 경비처) · 표 셋(본체·주소·연락처) · is_purchasable 은 우리 칸(null=미판정 · false 로 밀지 마라) · FK + 원문 칸 병행 · AdditionalAttribute1(Supplier Type)·AttributeSet 담지 않음(09-12 · 정본 §7-a · 상위 근거 ims-principles §4-d)
+                   🔵 ~~표 셋~~ 표 넷 확정(09-12 · 정본 §7-b) — supplier / _address / _contact / _discount · ref_ 접두어 없음 · name 유니크 ·
+                   거래중단은 is_purchasable 과 별개 칸(연락처 이름 칸에 숨어 있던 24곳) · Comments 담는다(75/226 · 우리 note 와 섞지 마라) ·
+                   DefaultForType·IncludeInEmail·Discount·TaxNumber·LastModifiedOn 담지 않음 · ⚠️ 할인은 체인(곱한다) · 조기결제는 결제조건이 정본
 ③ 제품             ⬜ Cin7 필드 83 · ⚠️ `_숫자_` SKU 는 우리 제품이 아니다 — 거르는 판단이 첫 질문
 ④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
 ⑤ PO 본체          ⬜
