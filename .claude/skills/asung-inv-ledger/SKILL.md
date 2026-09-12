@@ -167,7 +167,7 @@ from inv_sync_state order by source_key;
 ⚠️⚠️ **[정정 2026-09-11 오전] 위 예외 문구는 같은 날 아침에 넣었고 오전에 되돌렸다** — 근거였던 「cron 미등록」이 해소됐다.
 ⭐ **`inv-doc-cost` cron 등록 완료 — jobid 19** · `45 4 * * *`(UTC 04:45 = 토론토 00:45 EDT · 겨울 EST 면 23:45 — 기존 잡 전부 같은 성질) · active · `?commit=1` · `from_since` 없음(커서가 서 있어 붙이면 충돌).
 자리: `inv-cost`(jobid 16 · `33 4`) **뒤** · `inv-snapshot-compare`(jobid 12 · `21 5`) **앞** — 원가 → 운송비 → 스냅샷 순. ⚠️ 순서 의존을 코드로 확인한 것은 아니다(`inv_doc_cost` 표에만 쓰고 `inv_cost` 를 읽지 않으므로 독립으로 본다).
-📌 `cron.job` 전수 1~19 · **17 결번** · 18 = `inv-balance-diffs` · 19 = `inv-doc-cost`(신규). ⬜ 첫 자동 실행 = **2026-09-12 새벽** — ⑤ 에서 `cost_transfer` `last_run` 갱신 확인.
+📌 `cron.job` 전수 1~19 · **17 결번** · 18 = `inv-balance-diffs` · 19 = `inv-doc-cost`(신규). ~~⬜ 첫 자동 실행 = **2026-09-12 새벽** — ⑤ 에서 `cost_transfer` `last_run` 갱신 확인.~~ ⚠️⚠️ **[실사고 2026-09-12] 잡 19 는 등록 후 한 번도 성공한 적이 없었다** — `config.toml` 에 `[functions.inv-doc-cost]` 블록이 없어 JWT 검증 기본값으로 배포됐고 cron 호출이 게이트웨이 401. 고쳤다(`config.toml` 블록 + 대시보드 토글). ⚠️ **`cost_transfer` 시각이 하루 이상이면 의심할 것 — cron `succeeded` 도 `inv_collect_runs` 도 이 실패를 못 잡는다**(행이 없을 뿐). [실측 09-12 13:36 손 실행] candidates 0 · rows_written 0 — 25시간 정지에도 밀린 문서 0건. 진단법·상세는 `asung-ops` §5.
 ⇒ ⚠️⚠️ **이제 ⓪ 의 `lag_source` 가 `cost_transfer` 면 실제 지연 신호다** — 여기서 `last_run`/`last_ok` 를 본다. 예외 문구를 그대로 두었으면 진짜 신호를 무시하게 됐을 것이다.
 ⭐ **확정 사실 — 빈 회차에도 커서는 전진한다.** [실측] `commit=1` · `candidates 0` · `docs_processed 0` 인데 `cursor_before 2026-09-10T21:07:43.939Z` → `cursor_after 2026-09-11T12:15:53.269Z`(회차 시각).
 `decideCursor`: 비캡 = 회차 시각 · 캡 = 마지막 키(테스트 ⑩). ⇒ 할 일이 없어도 커서가 나아가므로 **매일 볼 후보가 쌓이지 않는다** — 하루 1회 주기의 근거.
