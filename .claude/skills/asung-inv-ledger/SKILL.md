@@ -146,6 +146,14 @@ from inv_snapshot_runs order by ran_at desc limit 5;
 ```
 ⭐ **`list_total` 이 유일한 급감 축**이다(`pages_scanned`·`insert_rows` 는 아니다).
 📌 관측 변동폭 −265 ~ +446. ⏸ 임계값은 표본 대기 중.
+📌 **[정정 2026-09-13] `list_total` 이 무엇을 세는지 확정됐다 — 재고 축이 아니다.**
+[실측 09-13 `inv_snapshot_runs.summary` 원문] `list_total 22,022` = `received_rows`(Cin7 ProductAvailability 가 준 전체 행) − `dropped_zero_nobin 8,315`(bin 없고 수량 0 · 버림) = `kept_source_rows 13,707` = `insert_rows` = `db_rows_after`. **22,022 − 8,315 = 13,707 — 정확히 맞는다.**
+[실증 09-12→09-13 · 주말] `insert_rows` 가 **13,707 로 이틀 연속 동일**(재고 무변)인데 `list_total` 만 **+102** ⇒ 늘어난 102 는 전부 「bin 없고 수량 0」 행이고 `dropped_zero_nobin` 이 흡수했다. ⇒ ⭐ **업무가 없는 주말에도 `list_total` 은 변한다** — 제품 추가·비활성화 · bin 배정 변화 · 수량 0 전환 등 **Cin7 마스터의 모양**을 반영하고 재고 변동과 직접 연동되지 않는다.
+⇒ ⭐ **재고 급감을 보려면 `insert_rows`(= `kept_source_rows`)를 본다. `list_total` 은 Cin7 마스터 축이다.** ⚠️ `list_total` 이 크게 움직여도 `insert_rows` 가 평평하면 재고 문제가 아니다.
+📌 **위 원 문장(「유일한 급감 축」)의 출처** — 이 스킬 「스냅샷이 조용히 불완전할 수 있다」 절의 [실측 2026-08-28 · 첫 뺄셈] 표 와 `ledger-design.md` 「판정 축은 행 수가 아니다」. 거기서 「급감」은 **Cin7 이 애초에 적게 준 회차(불완전 스냅샷 · 8/24 밤 `AS93125` 2,662개 누락)** 를 잡는 축이라는 뜻이고, 이미 「`list_total` 과 `insert_rows` 는 다른 물건」이라 적혀 있다. ⇒ 두 서술은 **다른 질문**에 답한다: **스냅샷이 온전한가 → `list_total`(원 문장) · 재고가 줄었나 → `insert_rows`(이 정정)**. ⬜ 원 문장을 「불완전 스냅샷 축」으로 고쳐 쓸지는 Caleb 판단.
+⭐ **임계값 판정은 「연속 횟수」가 아니라 「누적 폭과 반등」으로.** [실측 `list_total` 일일 변화 09-08~09-13] +63 · **+535** · **−615** · −345 · −317 · **+102**(`insert_rows` 13,759→13,750→13,670→13,712→13,707→13,707). ⚠️ 09-12 에 「나흘 연속 하락 = 추세 확정」으로 판정했으나 09-13 에 반등해 틀렸다(누적 −1,277 까지 갔다가 돌아옴). 관측폭은 이제 **−615 ~ +535**. 📌 `duration_ms` 는 `list_total` 과 같은 방향으로 움직인다(조회량 연동).
+📌 `null_bin_nonzero` [실측 09-13] **6건** — bin 없는데 수량 있음: `AS91459`(EDM 10) · `AS91457`(EDM 20) · `ABE16004`(EDM 3) · `UNF18155`(EDM 1) · `EBI03960`(TOR 8) · `AIA03588`(TOR 6). `dropped_zero_nobin` 과 달리 **버리지 않고 기록만 남는다**(수량이 0 이 아니라서). ⬜ ⑧ bin 대조에서 어떻게 취급되는지 미확인(`bin=''` 로 들어갈 텐데 Cin7 쪽과 어떻게 맞추는지) — 별건.
+정본 `docs/sessions/2026-09-13-list-total-axis.md`.
 ⚠️ `ok=false` 이면 그 회차는 한 행도 안 썼다 — **그날 대조는 옛 스냅샷을 상대로 돈다.**
 
 ### ⑤ 수집 커서 — 밀린 축이 있나
@@ -174,6 +182,19 @@ from inv_sync_state order by source_key;
 ⚠️⚠️ **숫자 혼동 금지 — 105 와 7 은 다른 축이다** [실측 09-11]: `4,680` 전체 COMPLETED 트랜스퍼 → `105` 그중 창고간(CROSS · 전 기간) → `7` 그중 기초선(8/20) 이후 = **수집기가 실제로 상세를 부르는 수** → `5` 그중 운송비가 붙은 것(`TR-03975`·`03976`·`04173`·`04174`·`04175`) · 나머지 2 = `TR-04330`·`04331`(09-10 자 · 저널 아직 없음 · `skip_no_journal`).
 ⇒ 회차당 40건 캡에 걸릴 일이 사실상 없다(3주치가 7건). 필터 수정 실측: `skip_same_warehouse 4,575`(09-10 GAS 전수 분류 예측과 **정확히 일치**) · `skip_no_location 0`.
 ⭐ **볼 것은 `last_run` 과 `last_ok` 가 벌어진 축**이다(있으면 그 축은 돌지만 실패 중).
+⭐⭐ **[정정 2026-09-12] `last_run`=`last_ok` 만 보면 「실행 자체가 안 된 실패」를 못 잡는다 — 시각이 그 축의 주기를 넘겼는지도 함께 본다.** [실사고 09-12] `cost_transfer` 25시간 정지인데 cron `succeeded` · `inv_collect_runs` 에 00:45 회차 **행 없음** · `last_run`=`last_ok` — 세 창구가 전부 괜찮다고 말했고, 알아챈 것은 **시각이 하루 전**이라는 것 하나였다. ⇒ 기존 경고 「`cron.job_run_details` 의 `succeeded` 는 아무것도 보장하지 않는다」가 실증됐고, 거기에 **「자체 회차 표에 행이 아예 안 남는 실패 모양」**이 새로 나왔다 — 「없음」은 경고를 만들지 않는다.
+📌 **진단 경로** — 「cron 은 성공인데 커서가 안 움직인다」면 실제 HTTP 응답을 본다(`net.http_get` 은 비동기 · cron 은 큐에 넣은 것만으로 `succeeded`):
+```sql
+select id, status_code, error_msg,
+       created at time zone 'America/Toronto' as created,
+       left(content, 300) as body
+from net._http_response
+where created > now() - interval '30 hours'
+order by created desc limit 20;
+```
+읽는 법: **401** = 인증(09-12 실사고 · `config.toml` 블록 누락 · 게이트웨이에서 막혀 EF Logs 에 안 남고 **Invocations 탭에만** 찍힌다) · **500** = EF 내부 에러 · **`status_code` null + `error_msg` `Timeout of 5000 ms reached`** = pg_net 이 5초 기다리다 포기한 기록 — ⚠️ **그 자체는 실패가 아니다.** EF 는 그 뒤로도 돌아 제 일을 끝낸다(원장 수집 축은 매 회차 타임아웃이 찍히지만 커서가 정상 전진한다).
+⚠️ [경위 09-12] 아침 점검은 이 타임아웃을 원인으로 판정했으나 **같은 날 낮에 401(`config.toml`)로 정정됐다** — 타임아웃 행을 보고 원인을 짚지 마라. 상세는 `asung-ops` §5-b · `docs/sessions/2026-09-13-list-total-axis.md` §2.
+✅ [실측 09-13] 해결 확인 — `cost_transfer` `last_run`=`last_ok`=**09-13 00:45:03**(cron 시각 정확) · 커서 `2026-09-11T12:15:53Z` → `2026-09-13T04:45:00Z` · ⑦ 캡 없음 — **이틀치를 한 회차에 완주했다.**
 ⚠️ `transfer` 커서가 문서번호에 묶여 있는 것은 **알려진 상태**다(비종결 홀드).
 ⚠️⚠️ **커서 값만 보고 교착을 판정하지 말 것 — 판정은 ⑦ 이 한다**(`hold_capped`·
 `cursor_stalled_alert`). [실측 09-04] `transfer` 가 `TR-04329` 로 §진행 상태의
@@ -321,6 +342,7 @@ having min(l.created_at) >= '2026-08-22'
 order by 1;
 ```
 **0행이면 정상.** 뜨면 또 들어온 것이다 — 상쇄한다.
+📌 **상쇄 후 확인 시점은 다음 날 아침이다** — ⑧·② 대조는 01:21 스냅샷 기준이라 상쇄 당일에는 안 사라진다. [실증 09-11→09-12 · `SO-14986` `AS01287AST` −12] ⓪ `total 3`/`abs_gap 18` → **`2`/`6`** · ② `unknown_count 1` → **0** · ⑧ 토론토 1칸 → **0칸** ⇒ ⭐ **상쇄 처방(`manual`·`sale_out`·`:reversal`·부호 반전)이 세 창구에서 실물로 검증됐다.**
 ⚠️ 판정 근거는 「8/21 에 수집 안 됐다」 하나다(그때 `Updated` 가 8/20 이었다는 뜻).
 📌 유한한 집합(8/20 승인분)이라 다 나오면 끝난다. ⚠️ **재기준선을 잡으면 날짜를 바꿔야 한다.**
 📌 **[정정 2026-09-11] 집합은 유한하지만 나오는 속도가 결제에 묶여 있다.**
