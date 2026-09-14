@@ -216,6 +216,9 @@ IncludeBOM=true           ⭐ 먹는다. BillOfMaterialsProducts[] 원소: Compo
                              구성품 1개 6,406 · 2개 이상 15 · 없음 12,408. 가르는 기준은 BOMType 이 아니라 **구성품 수**.
                           ⭐⭐ 세트 계수의 정본은 BOM Quantity 다 — Cin7 이 재고를 빼는 수. UOM 이름은 화면 표시.
                              실측: 숫자UOM · BOM · SKU 접미사 셋 일치 6,340 · 어긋남 3 (AIA00207-6·ORS12208-6 UOM=6/BOM=1 → 재고가 1개만 빠졌다 · AMP41108-12 접미사만 틀림)
+                          ⚠️ [2026-09-14] AutoAssembly·AutoDisassembly 로는 **조립 방향**(낱개로 사서 우리가 묶는다 / 디스플레이로 사서 우리가 가른다)을 가를 수 없다 —
+                             콤보 15 전수 AutoAssembly true · AutoDisassembly false 한 모양 · AssemblyInstructionURL 빈 문자열 · AssemblyCostEstimationMethod 전부 Average Cost
+                             (ProbeProductSupplier.gs psp_step10_bomdirection · 정본 po-module §3-g). IMS 는 공급처 줄 유무로 판정하고 방향 칸은 ⑤ 에서 만든다
 IncludeMovements=true     ⭐ 먹는다. Movements[] 원소: TaskID · Type · Date · Number · Quantity · Amount · Location · BatchSN · ExpiryDate · FromTo
 IncludeAttachments=true   ⭐ 먹는다 (끄면 빈 배열 · 켜면 1개). GET /product/attachments?ProductID= 도 같은 내용
 IncludeReorderLevels=true ⭐ 먹는다. ReorderLevels[] 원소: LocationID · LocationName · MinimumBeforeReorder · ReorderQuantity · StockLocator · PickZones
