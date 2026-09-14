@@ -115,6 +115,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 대체 UPC(EA-ALT-UPC)를 전부 바코드로 흡수 | BOM ×6·×12 인 둘은 세트일 수 있다 | 조건 = EA-ALT-UPC **그리고** BOM Quantity=1 · 둘은 Caleb 확인 |
 | 새 경로를 HTTP 200 으로 「있다」고 판정 | Cin7 은 없는 경로에 200 + HTML 을 준다 | 본문이 JSON 인지 본다(`cin7-api` 함정 18) |
 | upsert(`merge-duplicates`)로 부분 갱신 · PATCH 를 서버 필터로 건너뛰기 | 400/23502 · 건너뛰는 요청도 왕복(709건에 4분) | **PATCH** · 먼저 읽어 목록에서 뺀다 — `asung-wms` 규칙 45·46 |
+| 재적재를 표마다 다르게 · 「source=cin7 지우고 다시」 | `valid_from`·`note`·id 가 사라진다 · upsert 는 「없어진 것」을 모른다 | ⭐ **넷이 한 규칙** — upsert + 안 들어온 cin7 행은 `is_active=false`(되살아남은 upsert 가 저절로) · 읽는 쪽이 `is_active` 를 건다 · 정본 §3-f |
 
 ⭐ **③ 제품 카운터 다섯** (정본 §3-d·§3-e · 09-14 적재된 표에서 SQL 재확인): ① 구성품 1개인데 GUID 가 우리 표에 없음 **0** ② ⭐ 세트의 `uom_name` ≠ `pack_factor`(BOM) **0** — **재고 수량**을 잡는다 ③ 접미사로 찾은 부모 ≠ BOM 부모 **0** ④ Family SKU 가 `FAM` 으로 안 끝남 **0** ⑤ ⚠️ 한 바코드를 **활성** 제품 둘 이상이 쓴다 **23**(무관 6 · 색상 12 · 세트 5 — ⚠️ **활성끼리만 센다**, 전체 42 로 세면 비활성이 섞여 영원히 0 이 안 된다 · 정본 §3-e 쿼리).
 
