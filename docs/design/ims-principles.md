@@ -118,6 +118,9 @@
   업무 흐름에서 뽑으면 **가끔 쓰는 것이 빠진다** — 마스터 데이터가 빠졌던 것이
   정확히 그 경우다
 · 📌 알려진 것: 가격 체계는 PriceTier **3~4개면 충분**하다(Cin7 은 10단계) ·
+  ⚠️ [2026-09-13 실측] Cin7 의 10 중 **8 에 이름이 붙어 있다** — Wholesale · Franchise · AONE · Regular CAD · ComparedPrice CAD ·
+  wholesalespecia CAD(오타로 보임) · USWholesale USD · REFERENCECOST USD(가격이 아니라 **원가** — §4-d 계열). 이름에 통화가 박혀 있다.
+  ⚠️ 「이름이 붙어 있다」≠「쓰인다」 — 티어별 비0 건수는 아직 안 셌다(po-module §3-d 프로브 5). 3~4개 판단은 그 뒤에 다시 본다 ·
   할인 규칙은 많지 않다(⬜ 실물로 셀 것) · 설정류는 한 번 정하면 자주 안 바꾼다
 · 📌 마스터 데이터는 **소급이 된다** — Cin7 에서 다시 읽어올 수 있으므로
   원가처럼 서두를 필요가 없다. ⚠️ 다만 **변경 이력**은 Cin7 이 안 줄 수 있고
@@ -262,7 +265,13 @@ Cin7 이 속성으로 나르던 신호는 우리 표에서 **뜻이 있는 이�
 ```
 판매 오더  AdditionalAttribute1 = Order_Progress ('2.Release to WMS' 등)
            ⇒ WMS 유입 전체가 이 문자열 하나에 걸려 있다 (asung-wms 규칙 1)
-제품       AdditionalAttribute3 = Discontinued 플래그 (BQ asung_product_master)
+제품       ~~AdditionalAttribute3 = Discontinued 플래그~~ [2026-09-13 정정] 불리언이 아니다 — 화면 이름표 `Project Name`(List)
+           값 Discontinued 4,662 · No Channel 74 · Limited Edition 42 (전량 18,829 실측 · 목록 끝에 빈 항목 둘)
+           ⚠️ 이름과 내용이 다르고, 셋이 배타적이지 않은데 한 칸이라 「한정판이면서 단종」을 적을 자리가 없다(실물 4건)
+           ⚠️ 셋의 성격도 다르다 — 단종·한정판은 제품의 성질, No Channel 은 「아직 안 올렸다」는 지금 상태(판매 게이트)
+           ⇒ IMS 는 is_discontinued 만 칸으로 승격 · 원문은 cin7_project_name 보존 · 게이트는 사건으로(po-module §3-d·§7)
+           📌 나머지 슬롯 실물: 1 Edmonton Bin Location(Text · 6,572) · 2 Toronto Bin Location(Text · 7,492) · 4 Registered On(Date · 612) ·
+              10 Image(Checkbox · 329) · 5~9 Not used — 슬롯 1·2 는 실제 자리이나 미사용(Caleb) · 담지 않는다
 공급처     AdditionalAttribute1 = Supplier Type (활성 226 중 154곳 · 관리되지 않는 값)
 ```
 

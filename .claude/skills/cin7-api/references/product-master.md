@@ -175,6 +175,52 @@ UOM 빈값        0/30
 ⚠️⚠️ **제품이 아닌 항목이 섞여 있다** — SKU 가 `[:[OrderTotalDiscount]:]` · `_1_` · `_10_` · `_10767_` 같은 것들(Type=Service 등).
 ⭐ Caleb 확인: **`_숫자_` 형식은 우리 제품이 아니다.** 목록이 SKU 순 정렬이라 **앞쪽에 몰려 있다** — 앞 몇 페이지만 보고 판단하면 틀린다.
 
-⬜ **`product?IncludeSuppliers=true` 는 미확인** — 표본 5행이 전부 시스템 항목이라 `Suppliers` 가 0 이었다.
-「파라미터가 안 먹는다」와 「표본이 나빴다」가 구별되지 않는다 — 실제 상품 SKU 로 다시 봐야 한다.
-(⚠️ 「안 된다」가 아니다. `product-suppliers-write.md` 의 읽기 경로는 이 파라미터를 전제한다.)
+~~⬜ **`product?IncludeSuppliers=true` 는 미확인** — 표본 5행이 전부 시스템 항목이라 `Suppliers` 가 0 이었다.~~
+⭐ **[2026-09-13 정정] 미확인이 아니다 — 이미 매일 돌고 있다.** `gas-system-automation/Productmaster.js` 가 `IncludeSuppliers=true` 로 전량을 긁어
+BQ `asung_product_master` 에 `supplier_name`·`supplier_sku`·`cost_price` 를 넣는다. 위 「Suppliers 서브 필드」가 그 실측(2026-07-10)이다.
+표본 5행이 시스템 항목이라 0 이었을 뿐 — 「없다」「안 봤다」 다음의 셋째 부류 **「이미 있는데 안 찾아봤다」**.
+
+---
+
+## 2026-09-13 전량 실측 (IMS PO 모듈 ③ 제품 — 정본 `docs/design/po-module.md` §3-d)
+
+### `GET /product` 전량 — `IncludeDeprecated=true`
+```
+Total    IncludeDeprecated=false 14,677 · =true 18,829 (비활성 4,152)   ⚠️ 기본값은 활성만이다
+Limit    ⭐ 1000 먹는다 (19페이지 · 1분 47초) — 함정 16(기본 100)
+         ⚠️⚠️ IncludeBOM=true 를 켜면 Limit=500 이 실효 상한 (1000 을 보내도 안 온다 · 38페이지 · 2분 42초)
+칸       83 (모든 행에 다 있다)
+Type     Stock 18,772 · Service 53 · Non Inventory 4 (함정 17 — 공백)
+SKU      중복 0 · 빈값 0 · 앞뒤공백 0   Name 576종 중복   Barcode 48종 중복
+Brand·Category·UOM·계정 넷  ref/ 목록의 Name(계정은 Code)과 100% 이어진다 · 계정 채움은 5 · 3 · 1,103 · 870 곳뿐
+```
+
+### Include 파라미터 실측
+```
+IncludeBOM=true           ⭐ 먹는다. BillOfMaterialsProducts[] 원소: ComponentProductID · ProductCode · Name · Quantity · WastagePercent · WastageQuantity · CostPercentage
+                          ⚠️ SKU 가 아니라 ProductCode 다
+                          ⚠️⚠️ BOMType=Assembly 6,422 중 진짜 조립은 15 — UOM 을 만들면 Cin7 이 자동으로 Assembly 로 바꾸고 구성품 1개(낱개 ×N)를 채운다.
+                             구성품 1개 6,406 · 2개 이상 15 · 없음 12,408. 가르는 기준은 BOMType 이 아니라 **구성품 수**.
+                          ⭐⭐ 세트 계수의 정본은 BOM Quantity 다 — Cin7 이 재고를 빼는 수. UOM 이름은 화면 표시.
+                             실측: 숫자UOM · BOM · SKU 접미사 셋 일치 6,340 · 어긋남 3 (AIA00207-6·ORS12208-6 UOM=6/BOM=1 → 재고가 1개만 빠졌다 · AMP41108-12 접미사만 틀림)
+IncludeMovements=true     ⭐ 먹는다. Movements[] 원소: TaskID · Type · Date · Number · Quantity · Amount · Location · BatchSN · ExpiryDate · FromTo
+IncludeAttachments=true   ⭐ 먹는다 (끄면 빈 배열 · 켜면 1개). GET /product/attachments?ProductID= 도 같은 내용
+IncludeReorderLevels=true ⭐ 먹는다. ReorderLevels[] 원소: LocationID · LocationName · MinimumBeforeReorder · ReorderQuantity · StockLocator · PickZones
+                          ⚠️ 실측 값은 전부 0 (낱개 활성 8,668 에서 흩어 뽑은 40/40 · 토론토 줄만) — 안 쓰고 있다
+                          ⭐ StockLocator · PickZones 는 창고별 값 — 제품 본체의 그 두 칸은 대표값 하나
+IncludeSuppliers=true     ⭐ 먹는다 · 위 「Suppliers 서브 필드」 · Productmaster.js 가 매일 쓴다
+채널                      ⚠️ API 에 없다 — 후보 경로 일곱 전부 200 + HTML (함정 18)
+```
+
+### `GET /productFamily` 전량
+```
+파라미터   Page · Limit (⭐ 1000 먹는다 · 2페이지면 전량)
+           ⚠️ IncludeDeprecated 는 Total 이 같아 판정 불가 — 변형 SKU 4,884 가 전부 제품 덤프에 있었으므로 「비활성 제품군 없음」쪽
+배열 키    ProductFamilies          ⚠️ List 접미사 없음 (함정 19)
+Total      1,141 · SKU 전부 …FAM 으로 끝난다(Caleb 이 예외 둘을 고친 뒤)
+칸         44 (Products[] · Attachments[] 포함) · 33개가 제품 83칸과 겹친다 — 가격 10단계만 950/4,884 어긋나고 나머지(Brand·Category·계정·원산지)는 전수 일치
+Products[] 원소     ID · SKU · Name · Option1 · Option2 · Option3
+Attachments[] 원소  ID · ContentType · FileName · IsDefault · DownloadUrl
+Option1Name 33종(Color 463 · Size 332 · Formula 69 · Type 52 · Style 46 · color 38 …) · Option2Name 13종 · Option3Name 1종(Quantity)
+⚠️ Color/color · Size/size · Flavor/Flavour 가 따로 있다 — 정규화하지 않고 원문 그대로
+```

@@ -209,6 +209,13 @@ const adjustments = fetchAllPages('stockadjustmentList', {
     (2026-08-24 실측 · 화면 표기와 다르다). `product_type = 'Non-inventory'` 로 SQL·코드 필터를 쓰면
     **조용히 0행**이 된다. 📌 원장의 비재고 게이트가 `Type !== 'Stock'` **부정 조건**을 쓰는 이유가
     이것이다 — 값 어휘를 맞히지 않아도 되고, 새 타입이 생겨도 자동으로 차단 쪽에 선다.
+18. ⚠️⚠️ **Cin7 은 없는 경로에 404 가 아니라 200 + HTML 을 돌려준다 (2026-09-13 실측).**
+    `product/channels` · `productChannel` · `saleChannel` · `ref/saleChannel` · `ref/channel` · `externalService` · `ref/externalService`
+    일곱 모두 HTTP 200 에 「Page not found」 HTML. ⇒ **HTTP 코드로 엔드포인트 존재를 판정하지 마라 — 본문이 JSON 인지 HTML 인지를 봐라.**
+    (12번 「200 은 파라미터를 받아들였다는 뜻이 아니다」와 같은 뿌리.) 📌 제품 Channels 탭은 API 에 없다 — 화면 전용.
+19. ⚠️ **배열 키 이름에 규칙이 없다.** `ProductFamilies`(List 접미사 없음) · `AccountsList`(혼자 복수형) · `BrandList` · `LocationList` · `Products`.
+    ⇒ 키를 이름으로 짐작하지 말고 **「어느 값이 배열인가」로 찾아라.** 📌 `GET /product` 에 `IncludeBOM=true` 를 켜면 **`Limit=500` 이 실효 상한**이다
+    (1000 을 보내도 안 온다 · 18,829 = 38페이지 · 2분 42초). BOM 없이는 1000 이 먹는다(19페이지). 상세 `references/product-master.md`.
 
 ### ⚠️⚠️ 판매(sale) — `Updated` 와 날짜 필드의 함정 (2026-08-29~31 실측)
 

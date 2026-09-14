@@ -21,8 +21,8 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 
 ```
 ① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 wms_staff 확장(별건)
-② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §7-b**(`supplier_discount` 추가) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §7-c) — 226 / 87 / 237 / 0**
-③ 제품             ⬜ ⚠️ Cin7 필드 83개 · 우리 것이 아닌 항목을 거르는 판단이 첫 질문 — §8 product 실측
+② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §3-b**(`supplier_discount` 추가 · ~~§7-b~~ 2026-09-13 이사) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §3-c · ~~§7-c~~) — 226 / 87 / 237 / 0**
+③ 제품             🔄 **표 넷 생성 완료 · 적재 대기**(2026-09-13 · §3-d) — 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` 로컬 재생 통과 · ⚠️ 테스트 DB push 는 Caleb · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS 는 다음 단계
 ④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
 ⑤ PO 본체          ⬜
 ```
@@ -66,8 +66,19 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 다르고, 주소·회계 의미는 창고에만 있으며, ⭐ `inv_ledger` 가 이미 `warehouse` 와 `bin` 을 별개 칸으로
 둔다 — 한 표로 묶으면 쓰는 쪽이 매번 갈라야 한다.
 
-**`ref_bin.name` 에 단독 유니크가 없는 이유**: bin 이름은 창고 안에서만 유일하다. 지금은 접두어가
-갈려(`A…` 토론토 · `E…` 에드먼튼) 전역 중복 0 이지만 **오늘의 우연이지 규칙이 아니다.**
+**`ref_bin.name` 에 단독 유니크가 없는 이유**: bin 이름은 창고 안에서만 유일하다. ~~지금은 접두어가
+갈려(`A…` 토론토 · `E…` 에드먼튼) 전역 중복 0 이지만~~ 지금은 전역 중복 0 이지만 **오늘의 우연이지 규칙이 아니다.**
+
+⚠️ **[2026-09-13 정정] 「접두어가 갈린다」는 틀렸다.** 토론토에도 `E…` bin 이 있다 — zone E 233 bins.
+```
+토론토  zone = 첫 글자   A B C D E F G K R Z  (+ 형식 밖 J H W)
+에드먼튼 전부 E 로 시작 · zone = 둘째 글자   U 195 · D 92 · E 82 · C 66 · B 62 · F 45 · G 42 · A 30 · Z 1
+겹치는 zone 글자  A B C D E F G Z = 여덟   ⭐ 에드먼튼 zone E 는 `EE…` 다 (Caleb)
+```
+⇒ ⚠️⚠️ **창고는 접두어가 아니라 「어느 창고 칸(warehouse_id) · 어느 슬롯인가」로 판정한다.** 접두어로
+판정하면 토론토 E zone 739곳이 에드먼튼으로 **조용히** 넘어간다(에러 없음 · §1-a 감지되지 않는 결함).
+📌 zone 글자가 겹치는 것은 복합키 `(warehouse_id, name)` 판단이 옳았음을 **뒷받침**하지만 「확인」은 아니다 —
+겹치는 것은 zone 글자이고 bin **이름**의 전역 중복은 여전히 0 이다. 「오늘의 사실이지 규칙 아님」 그대로.
 
 ---
 
@@ -104,195 +115,7 @@ ref_bin          2,675   (토론토 2,047 · 에드먼턴 628 · Production Faci
 
 ---
 
-## 4. ⚠️ 판단이 갈린 곳 — 「왜 표마다 다른가」
-
-⭐ **이 절이 이 문서의 핵심이다.** 적어 두지 않으면 다음 사람이 결함으로 본다.
-
-### ① 자연키와 `name` 유니크
-
-```
-자연키      name (brand·category·unit·payment_term·warehouse)
-            code (account · currency)          ← Cin7·우리 코드가 code 로 참조한다
-            복합 (bin)                          ← 창고 안에서만 유일하다
-name 유니크  있다 — 대부분(실측 중복 0 · Cin7 이 이름으로 참조하므로 실질 자연키)
-            ⚠️ 없다 — ref_account
-```
-`ref_account` 근거 넷: ⓐ 공급처가 `Code` 로 참조한다(226/226 · `Name` 일치 0) ⓑ `inv-cost`·`inv-doc-cost` 가
-`Code` 를 코드에 박아 쓴다 ⓒ `Code` 중복 0(289 전수) ⓓ ⚠️ **`Name` 의 중복 여부는 측정하지 않았다** —
-Cin7 이 화면에 `DisplayName`(「_188_: Accounting」 · 코드를 앞에 붙임)을 따로 두는 것은 이름만으로
-구별이 안 되는 경우가 있다는 신호다. 측정하지 않은 것을 제약으로 걸면 적재가 조용히 깨진다.
-
-`name` 유니크는 **plain** 그대로 — `lower(name)` 로 바꾸지 않는다. 이 부류의 실제 사례는 대소문자가
-아니라 띄어쓰기다(`Net 30`/`Net30`). `lower()` 로는 못 막으므로 제약이 아니라 매칭(§6)의 문제다.
-
-### ② ⚠️⚠️ `ref_payment_term` — Cin7 `Duration` 은 최종 기일이 아니다
-
-```
-2%10 Net30   뜻: 기일 30일 · 단 10일 안에 내면 2% 할인 (회계 관용 표기)
-             Cin7 Duration = 10     ← 칸이 하나라 할인 기한 쪽을 담았다
-```
-그대로 기일 계산에 쓰면 **20일이 당겨져** 아직 기한이 남은 건이 연체로 잡힌다.
-⇒ 우리는 칸을 나눠 담는다: `net_days`(30) · `discount_days`(10) · `discount_percent`(2) · `is_split`.
-**Cin7 이 못 담는 것을 우리가 담는 첫 사례**(원칙 1 — 구조를 베끼는 것이 아니다).
-`is_split` 은 숫자 한 칸으로 안 담기는 조건 — 실물 「50% COD & 50% Net30」(Avlon · 절반 즉시 · 절반
-30일) → `net_days=30 + is_split=true`. ⚠️ Cin7 공급처 마스터에는 아직 `C.O.D` 로 남아 있다(§7).
-
-### ③ 형식 CHECK
-
-⭐ 기준은 「전수를 봤는가」가 아니라 **「늘어날 수 있는가 · 우리가 만드는가」** 다.
-```
-건다   — ref_currency.code        ISO 4217 · 우리가 만든다 · 형식이 바뀌지 않는다
-       — ref_account.account_class 회계 기본 다섯 · 안 늘어난다 (289 전수)
-안 건다 — ref_account.code          Cin7 표기가 이미 두 형식(_숫자_ 215 / 순수 숫자 74) — 걸면 74개가 걸린다
-       — ref_account.account_type  16종 · Cin7 이 늘릴 수 있다 (전수를 봤어도 class 와 성질이 다르다)
-       — ref_unit.name              39/44 가 숫자 이름이지만 text 다 — numeric·파싱 금지
-```
-**우리가 만드는 값과 남이 주는 값은 다르다.**
-
-### ④ 기본값 표시 — `inv_config` 냐 표 안이냐
-
-```
-inv_config 로 — ref_payment_term(IsDefault) · ref_currency(base_currency)
-                「새로 만들 때 뭘 고를까」 = 설정. 표 안에 두면 둘이 true 되는 것을 막을 수단이 부분 유니크뿐
-표에          — ref_warehouse.is_default
-                ⭐ 창고의 속성이고 Cin7 이 창고 행에 직접 담아 준다(IsDefault=true · Asung Trading Inc.)
-                ⇒ 긁어올 때 받을 자리가 필요하다 · 창고가 셋뿐이라 눈으로 보인다(결제조건 34개와 규모가 다르다)
-⚠️ 어느 쪽도 부분 유니크로 막지 않는다(WMS 규칙 29 · PostgREST on_conflict 를 깨뜨린다)
-```
-`inv_config.base_currency` ↔ `ref_currency` 에 FK 는 없다 — `inv_config` 는 key-value 표라 `value` 가
-문자열이고 FK 를 걸면 다른 설정값이 전부 막힌다. 그래서 값 2행이 실재해야 한다(⑤).
-
-### ⑤ 값 적재
-
-```
-행 0건 — 일곱 표(Cin7 에서 긁어온다 · 적재는 별도 작업)
-2행    — ref_currency 뿐 (+ inv_config 1행)
-```
-예외의 이유 둘: ⓐ Cin7 에서 긁어올 데가 없다 — 누군가는 손으로 넣어야 하고 두 줄뿐이다 ⓑ `base_currency='CAD'`
-가 가리킬 대상이 표에 실재해야 한다. ⚠️ 「마이그레이션에 데이터를 넣어도 된다」가 **아니다.** 재실행
-안전은 `on conflict do nothing`.
-
-### ⑥ `cin7_id` 가 있는 표와 없는 표
-
-`cin7_id` 는 Cin7 행과의 매핑 고리(우리가 새로 만든 행은 null). `ref_currency` 는 Cin7 에 대응
-엔드포인트가 없어 영원히 비게 되므로 안 쓰는 칸을 두지 않았다 — **우리가 처음부터 세우는 첫 마스터.**
-`sort_order` 를 어디에도 넣지 않은 것과 같은 이유(Cin7 이 주지 않고 실무 요구도 없다 · 빈 표에 컬럼 추가는 공짜).
-
----
-
-## 5. ⭐ 공통 규약 — 새 마스터 표를 만들 때
-
-```
-공통 8칸    id uuid PK gen_random_uuid()   ⭐ 우리 키 — Cin7 GUID 를 PK 로 쓰면 Cin7 이 사라질 때 신원이 사라진다(ims-principles §4-b)
-            cin7_id uuid unique (plain · null 허용 · 부분 유니크 금지)
-            name text not null (유니크는 표마다 — §4-①)
-            is_active boolean not null default true   ⭐ Cin7 에 없는 우리 칸 — 지우지 않고 물러나게 하는 수단
-            source text not null default 'cin7' check in ('cin7','manual')   재동기화가 덮어써도 되는지의 근거
-            note text
-            created_at / updated_at timestamptz not null default now()
-RLS         auth_all (ALL · authenticated · using true / with check true) + revoke all from anon · service_role 개방 없음
-⚠️ 권한      revoke delete, truncate from authenticated
-            근거: 마스터는 지우지 않고 is_active 로 물러나게 한다. 브랜드 한 줄을 지우면 그것을 가리키던 제품이 갈 곳을 잃는다.
-            ⚠️ inv_config·inv_sku_types 관례(안 막음)를 따르지 않는다 — 그쪽은 지워도 다시 만들 수 있는 캐시·설정이다
-⭐ 트리거    공용 함수 set_updated_at() · 표당 트리거 하나 <표>_set_updated_at · before update · for each row
-            ⚠️ 함수를 다시 만들지 마라(create or replace 도) — 하나뿐이다. 20260911144606 에서 만든 public 스키마의 첫 트리거
-            ⚠️ security definer 없음 · set search_path = public, pg_temp
-            returns trigger 함수는 SQL 로 직접 호출할 수 없어 PostgREST RPC 로 노출되지 않는다 — RPC 관례의 revoke/grant 불필요
-FK          on delete no action (기존 참조 FK 13건 관례 · RESTRICT 0건 · CASCADE 는 문서→소유 라인 7건에만)
-            ❌ cascade 금지 — 창고 한 줄에 bin 2,047개가 조용히 딸려 사라진다
-            ⭐ FK 컬럼에 인덱스를 직접 만든다(Postgres 는 자동 생성 안 한다) · 이름 <표>_<컬럼>_idx
-```
-
-왜 `updated_at` 을 트리거로 (2026-09-11 이전 public 스키마에 트리거 0개 · `default now()` 만): 쓰는 쪽이
-매번 실어 주는 방식은 빠뜨려도 에러가 안 나고 어느 카운터에도 안 잡힌다(감지되지 않는 결함 ·
-ims-principles §1-a). 표가 비어 있는 지금이 넣기 가장 안전했다. 함수에 `ref_` 접두어를 붙이지 않은 것은
-②공급처·③제품 표가 `ref_` 가 아닐 수 있어서다. ⚠️ `now()` 는 트랜잭션 시작 시각 고정 — 트리거 검증은
-문장마다 별도 트랜잭션으로.
-
----
-
-## 6. ⚠️ 매칭 — 아직 만들지 않은 것
-
-Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매칭은 표가 아니라 **불러오는 코드의 일**이다.
-- ⭐ 정해진 원칙 하나: 정확히 못 이으면 **비워 두고 센다**(「모르면 비워둔다」). 억지로 붙이면 `Net 30`/`Net 45`
-  를 헷갈려 기일이 15일 틀린다.
-- ⚠️ Caleb 방침: Cin7 값을 그대로 불러온 뒤 **사람이 전수 검사**한다. ⇒ 결제조건 표는 활성 17개(띄어쓰기
-  중복 포함)를 그대로 받을 수 있어야 하고, 정리는 `is_active` 를 끄는 것으로. `source` 칸이 그 검사의
-  근거다(`cin7` / `manual` — 재동기화가 손댄 것을 덮지 않게).
-- ⭐ Cin7 은 마스터를 GUID 가 아니라 **이름 문자열**로 참조한다(계정만 `Code`). 연결 고리는 이름이고,
-  `cin7_id` 는 안정성을 위해 함께 담되 매핑 실패 시 이름으로 붙일 수 있어야 한다. 실측은 §8.
-- 적재 시 bin 행 주소 빈 문자열(`''`) → null 로 받는다.
-
----
-
-## 7. ⬜ 알고 시작하는 위험
-
-- ⚠️ **Cin7 공급처 마스터가 실무를 못 따라온다** — [실물] Avlon 은 Cin7 에 `C.O.D` 로 남아 있으나 실제 조건은
-  「50% COD & 50% Net30」(Caleb 확인). ⇒ 「우리 표에 잘 이어졌다」와 「그 값이 맞다」는 다르다. 전수 검사가 그래서 필요하다.
-- ⚠️ 비활성 결제조건 3종(`Net30`·`Net45`·`1%20 Net30`)을 공급처 24곳이 여전히 쓴다.
-- ⚠️ 제품 마스터 14,677개에 우리 것이 아닌 항목이 섞여 있다(`_숫자_` 형식 · `[:[OrderTotalDiscount]:]` · Type=Service).
-  목록이 SKU 순 정렬이라 앞쪽에 몰려 있다 — 앞 몇 페이지만 보고 판단하면 틀린다.
-- ⚠️ `ref_bin` 2,675행이 1,000행 캡을 넘는다 — 전량을 읽는 코드는 페이징하거나 `jsonb_agg` RPC. 모르고 읽으면
-  **에러 없이 1,000개만 온다.** 브랜드 415행·계정 289행은 캡 아래지만 마스터는 늘어난다.
-- ⚠️ 화면에서 통화를 기호로만 구별하면 안 된다 — CAD·USD 둘 다 `$`.
-- ⚠️ 환율은 마스터가 아니라 문서에 박는다 — 필요한 것은 「그 거래를 한 날의 환율」. Cin7 도 문서마다 `CurrencyRate`
-  (⚠️ Simple Purchase 의 `Invoice.CurrencyRate` 는 null 이라 상위 `CurrencyRate` — `inv-cost` 실측).
-- ⬜ KRW 송금의 환차손익 — 인보이스는 USD 로 받고 결제만 원화다. 회계 담당자와 정리할 영역(Caleb 판정) · QBO 연동 때 다시 올라온다.
-- ⬜ `inv-cost`·`inv-doc-cost` 가 계정 코드(`_59_`·`_136_` 등)를 하드코딩한다 — 표는 세웠지만 **필터는 건드리지 않았다.**
-  QBO 연동 때 옮긴다(2026-09-10 에 고친 것을 또 흔들지 않는다).
-- ⬜ 아침 점검 ⑭ — `ref_` 표 여덟은 테스트에만 있다(§2 승격 기준).
-- ⬜ `ref_bin.zone` 채우는 방법 미정 — `wms_sku_bins` 에 있지만 마스터가 WMS 표를 읽으면 안 된다(원칙 2 · 원장이
-  `wms_order_lines` 를 읽는 「잠정·결합」 빚을 하나 더 지는 것).
-- ⬜ 공급처당 기본 통화는 하나(Caleb 확정) — 새 통화로 결제하면 공급처 계정을 새로 연다. ~~아직 발동 없음(이름 정규화 묶음 0).~~
-  [2026-09-11 정정] **이미 발동된 실물 둘** — `East West Connect Inc.`/`East West Connect Inc._USD`(활성) · `Asung Trading`/`Asung Trading - USD`(비활성). 접미사 표기가 제각각이라 이름 정규화로는 안 잡힌다(§8-A-3).
-- ⬜ 사용자 축은 `wms_staff` 확장 — 별건.
-
-### ⬜ 다음 갈림길 — ② 공급처 (2026-09-11 오후)
-
-- ⬜ **`ref_tax_rule` 표를 만들 것인가** (미결 · 다음 판단)
-  - 만들자는 쪽 근거 셋: ⓐ 데이터가 이미 손에 있다 — CSV 31행에 세율·계정코드·활성여부·매입매출 구분이 다 들어 있다(`ref_currency` 2행을 손으로 넣은 것과 같은 상황) ⓑ ⚠️ **세율은 바뀐다 — 소급이 안 될 수 있다.** NS 15%→14% 가 이미 일어났다. Cin7 이 옛 규칙을 지우면 「오늘 15%였다」를 복원할 수 없다(원칙 1 의 3번) ⓒ 문자열로 두면 QBO 연동 때 226곳을 다시 이어야 한다.
-  - 미루자는 쪽 근거: ② 가 한 칸 밀린다 · 마스터는 대체로 소급이 된다.
-  - ⚠️ 어느 쪽이든 원문 칸 이름은 결제조건·계정과목과 같은 규칙으로 지어 둔다 — 나중에 FK 칸만 옆에 붙이면 구조가 흔들리지 않는다.
-- ⬜ 발주처 161곳만 추린 TaxRule 분포 (§8-C 오염 문제)
-- ⬜ HST PE 2016 · 38곳 동일값의 원인 (기본값 가설 기각됨)
-- ⬜ Intervision Trading 중복 의심 2행
-
----
-
-## 7-a. ② 공급처 설계 확정 (2026-09-11 오후)
-
-**담는 범위** — 활성 226곳 전부. 비활성 462곳은 담지 않는다.
-근거: 대부분이 경비 지출처이고 발주 모듈이 참조할 대상이 아니다(§8-A-1). 경비 지급처는 QBO 연동의 영역.
-⚠️ 「거래처가 아니다」와 「IMS 에 필요 없다」는 다르다 — 버리는 것이 아니라 여기 있을 것이 아니라고 경계를 긋는 것이다(원칙 2).
-
-**⭐ `is_purchasable` — Cin7 에 없는 우리 칸** (nullable boolean)
-- true 161 · false 56 · null 9 (= 아직 판정 안 됨 · Caleb 전수 판정 §8-B).
-- ⚠️ `is_active` 와 뜻이 다르다 — 활성이면서 발주 대상이 아닌 곳이 56곳이다.
-- ⚠️ null 을 false 로 밀지 마라 — 「경비처로 판정했다」와 「아직 안 정했다」가 구별되지 않는다(「모르면 비워둔다」). null 개수가 정리해야 할 목록의 카운터가 된다.
-- ⚠️ Cin7 재동기화가 이 칸을 덮어쓰면 안 된다 — Cin7 에 대응 개념이 없다. `source` 칸이 그 근거.
-
-**참조 방식 — FK 로 잇는다**
-```
-결제조건  FK(ref_payment_term) nullable + Cin7 원문 문자열 칸
-계정과목  FK(ref_account · code 로 매칭) nullable + Cin7 원문 문자열 칸
-통화      FK(ref_currency) 하나 — CAD·USD 둘뿐이고 우리가 만든 표라 흔들리지 않는다
-세금규칙  원문 문자열 (⬜ ref_tax_rule 표를 만들지 미결 — §7 다음 갈림길)
-```
-- ⭐ 원문 칸을 함께 두는 이유: 적재가 도중에 멈추지 않게 한다. 못 이은 것은 FK 가 null 이고 그 개수가 「아직 정리 안 된 곳」의 카운터가 된다(§6 「정확히 못 이으면 비워 두고 센다」).
-- ⚠️ 계정과목은 실측 226/226 이 Code 로 일치하지만 원문 칸을 둔다 — **226/226 은 오늘의 사실이지 규칙이 아니다**(`ref_bin` 이름이 창고 간 안 겹치는 것과 같은 성질).
-- ⚠️ Cin7 화면에서 필수인 축이라도 우리 FK 에 NOT NULL 을 걸지 마라. NOT NULL 은 원문 칸에.
-
-**`AdditionalAttribute1`(Supplier Type)·`AttributeSet` 은 담지 않는다** (2026-09-12 Caleb 확정).
-구분의 정본은 `is_purchasable` 이고 이 값은 참고값이다(§8-B · 154곳 중 8곳이 판정과 어긋난다).
-두 칸이 나란히 있으면 언젠가 짧은 쪽으로 필터를 짜게 되고, 활성 226 중 72곳이 빈값이라
-`is_purchasable` 의 null 과 신호가 겹친다. 마스터는 소급이 되므로 필요해지면 다시 긁어온다.
-⭐ 방침의 상위 근거는 `ims-principles.md` §4-d — 커스텀 속성 엔진을 만들지 않고 뜻이 있는 칸으로 승격한다.
-
-**Default carrier 는 담지 않는다** (§8-D).
-
----
-
-## 7-b. ⭐ ② 공급처 — 표 넷 확정 (2026-09-12)
+## 3-b. ⭐ ② 공급처 — 표 넷 확정 (2026-09-12)
 
 ⚠️ **표 셋이 아니라 넷이다.** §7-a 의 「표 셋(본체·주소·연락처)」을 정정한다 —
 ~~표 셋~~ → **표 넷**. 넷째는 `supplier_discount`(아래 D).
@@ -546,7 +369,7 @@ Discount(Cin7 칸)  담자 → ⭐ 안 담는다
 
 ---
 
-## 7-c. ② 공급처 표 넷 적재 완료 (2026-09-12 저녁 · 테스트 DB)
+## 3-c. ② 공급처 표 넷 적재 완료 (2026-09-12 저녁 · 테스트 DB)
 
 **[테스트 · Asung-IMS]** `fazgmyvzzhqybtvtktyg` · 마이그레이션 셋 적용·커밋·푸시 완료.
 
@@ -644,6 +467,418 @@ supplier_discount 채우기   실무 지식 — 어느 공급사가 어떤 할�
                          📌 컷오버 뒤에는 문제 자체가 사라진다 — 우리 표가 정본이 되면 재적재가 없다
 ③ 제품                    다음 모듈. Cin7 필드 83 · `_숫자_` SKU 거르는 판단이 첫 질문
 ```
+
+---
+
+## 3-d. ⭐ ③ 제품 — 표 넷 확정 (2026-09-13 · 2차 실측 반영 · 마이그레이션 넷 생성)
+
+**상태**: 2026-09-13 GAS 프로브로 `GET /product?IncludeDeprecated=true` 전량 18,829(83칸) · `GET /productFamily`
+전량 1,141 을 실측하고 설계를 검토했다(1차). 검토에서 미결로 남긴 셋(`pack_factor` 정본 · `parent_product_id` 출처 · 재주문점)을
+**2차 실측(`ProbeProductBom.gs` · `IncludeBOM=true` 전량)으로 결판내고 마이그레이션 넷을 만들었다** — 로컬 `db reset` 재생 통과.
+⚠️ 테스트 DB 적용(`supabase db push --db-url "$(cat ~/.asung-testdb-url)"`)과 적재 GAS 는 다음 단계. 숫자 중 ⬜ 는 **미측정**이다. 지어내지 않는다.
+1차 사료: `~/asung/prompts/ims-product-claude-code-prompt.md` · 검토 회신 `ims-product-reply-prompt.md` · 2차 `ims-product-reply2-prompt.md`.
+
+### 모집단 정정 ⚠️⚠️
+
+§8 의 `product (Total 14,677)` 은 **활성만** 센 숫자였다. 공급처를 226 으로 알았다가 688 이었던 자리(§8-A-1)와 같다.
+```
+IncludeDeprecated=false   14,677
+IncludeDeprecated=true    18,829   ⇐ 전량 (비활성 전용 4,152)
+Type                      Stock 18,772 · Service 53 · Non Inventory 4
+```
+
+### 표 넷 (예정)
+
+```
+product_family   제품군 — 같은 물건의 색상·사이즈 변형을 묶는 단위. 팔리지 않는다. 자연키 sku(…FAM)
+product          본체 — 자연키 sku(18,829 전수 중복 0) · ⚠️ name 유니크 금지(576종 중복 · ORLY GEL FX 60행)
+product_barcode  바코드 — 제품당 여럿 · 유니크 (product_id, barcode) · Cin7 의 「제품당 바코드 1칸」 한계를 SKU 로 우회한 62건을 흡수
+product_bom      콤보 구성 — 다른 물건들을 묶은 것만(15건) · ⚠️ BOMType 으로 가르지 않는다(구성품 2개 이상으로 가른다)
+```
+| 표 | 마이그레이션 | 칸 | 자연키 | 이 표만의 판단 |
+|---|---|---|---|---|
+| `product_family` | `20260913225935` | 21 | `sku`(…FAM · 1,141/1,141) | ⚠️ `name` 유니크 없음(변형 이름 중복의 뿌리 · 제품군 이름 중복은 미측정) · 가격 10단계 안 담는다(제품군↔변형 950/4,884 어긋남) · 옵션 축 **이름**만(33종 · 값은 product) |
+| `product` | `20260913230500` | 46 | `sku` | ⚠️ `name` 유니크 금지 · `barcode` 칸 없음 · 계정 넷 nullable · `cin7_type` 원문 · `is_discontinued`+`cin7_project_name`(❌ `product_channel` 뺐다) · `sellable` 원문 보존 · ⭐ `pack_factor` = BOM Quantity · `parent_product_id` = BOM ComponentProductID |
+| `product_barcode` | `20260913230600` | 11 | `(product_id, barcode)` | 관계 표 · `cin7_id` = 흡수한 대체 UPC 행의 ProductID(⭐ null 아님) · `is_primary` 부분 유니크 금지(카운터) · `valid_from` · DELETE 열림 |
+| `product_bom` | `20260913230700` | 13 | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만(15건) · `quantity > 0` · `cin7_id` 항상 null(규약대로 둠) · DELETE 열림 |
+
+CHECK 이름은 넷 다 `<표>_source_ck`(첨부 `family.sql` 의 인라인 무명 CHECK 도 통일 — 유일한 「그대로」 예외). 인덱스는 `<표>_<컬럼>_idx`.
+로컬 재생 실측(2026-09-13): `set_updated_at` 정의 1 · 트리거 4 · 정책 4(`auth_all`) · anon 권한 0 · authenticated DELETE 는 관계 표 둘만 · 트리거 동작 확인.
+
+### ⭐ 조합 형태 넷 — 「종류 칸」을 만들지 않는다
+
+| 형태 | 뜻 | 실측 | 우리 구조 |
+|---|---|---|---|
+| 관계 없음 | 홀로 선다 (family 도 세트도 콤보도 구성품도 아니다) | ⭐ **4,161** (2차 실측) | 관계가 전부 null |
+| family | 같은 물건의 색상·사이즈 변형 | 1,141군 / 4,884변형 | `product.family_id` |
+| UOM 세트 | 같은 물건의 다른 포장 단위 | ⭐ **구성품 1개인 BOM 6,406**(대체 UPC 61 포함) | `product.parent_product_id` + `pack_factor` |
+| 콤보 | **다른 물건들**을 묶은 것 | 15 | `product_bom` |
+
+⚠️⚠️ **[2026-09-13 정정] 초안의 「기본 제품 13,888 = 관계가 전부 null」은 틀렸다.** 그 수는 `Stock 18,772 − family 변형 4,884` 이고,
+그 안에 세트 · 대체바코드 · 콤보 · 세트의 부모가 다 들어 있다. 2차 실측으로 `Type=Stock` 18,772 를 네 축(family · BOM · 구성품 · 세트의 부모)으로 갈랐다:
+
+| 축 조합 | 수 |
+|---|---|
+| 세트/대체 (구성품 1개인 BOM) | 6,406 |
+| ⭐ 관계 없음 | **4,161** |
+| 구성품 + 세트의 부모 | 3,297 |
+| family | 2,437 |
+| ⭐ family + 구성품 + 세트의 부모 | **2,405** |
+| family + 구성품 | 38 |
+| 구성품 | 13 |
+| 콤보 | 11 |
+| family + 콤보 | 4 |
+
+📌 「관계 없음」 예: `17251` · `17252`(순수 숫자 SKU 둘 · MIXED CHICKS Foundation & Bronzer · 비활성) · `AAA17000` · `AAL10850` …
+📌 세트 모집단은 **BOM 기준 6,406(구성품 1개)** 으로 통일한다. 접미사 SKU 6,349 · 낱개 실재 6,339 는 **검산 수치**로 강등.
+
+⚠️⚠️ **넷은 배타적이지 않다 — 그리고 그것이 다수다.** 초안은 `AS92080`(family 소속 + `AS-DSPLY` 의 구성품 ×12 + `AS92080-6` 의 부모 + 자기도 팔린다)
+같은 제품이 「6건」이라 적었다. **틀렸다** — 그건 `AS-DSPLY` 구성품만 센 수였다. 세 축에 동시에 걸리는 것이 **2,405건**, 두 축 이상은 **5,758건**이다.
+⇒ `product_type` 같은 칸을 하나 두고 고르게 했다면 **5,758행이 갈 곳을 잃었다**(슬롯3 `Project Name` 한 칸에 단종과 한정판이 같이 살던 모양 · ims-principles §4-d).
+**종류는 관계가 있느냐 없느냐로 읽는다**: `family_id` · `parent_product_id` · `product_bom` 의 부모/자식 소속.
+
+축이 겹치는 방식(실측 · ⬜ 재긁기 후 재확인): 세트 SKU 가 family 변형 0건 · 같은 SKU 가 두 제품군 0건 · 콤보 중첩 0건(재귀 없음) ·
+⚠️ 콤보가 family 변형 4건(`JAL99890~93CB`) · ⚠️ 세트의 부모가 family 변형 2,712건(43%) — 「색상 골라 12개들이로 사기」가 일상.
+⇒ 콤보 4건은 `family_id` 와 `product_bom` 이 한 행에 동시에 걸린다. 막지 마라.
+
+### ⭐⭐ `parent_product_id` · `pack_factor` — 정본은 BOM 이다 (2026-09-13 2차 실측으로 확정)
+
+```
+parent_product_id  ⭐ 정본 = BillOfMaterialsProducts[0].ComponentProductID (구성품 1개인 BOM · 구조화된 GUID)
+                   실측: 구성품 1개 6,406건 전부 부모를 GUID 로 찾았다 · ⚠️ 덤프에 없는 ComponentProductID 0 ⇒ FK 가 전부 이어진다
+                   검산 = SKU 접미사를 잘라 찾은 부모와 일치하는가 → 불일치 건수를 카운터로
+                   ⚠️ 처음 초안은 부모를 찾는 법이 접미사뿐이었다 — 「접미사 파싱 금지」라 써 놓고 그 자리에 섰다(검토에서 발견)
+pack_factor        ⭐ 정본 = BOM Quantity. UOM 이름·접미사는 검산으로만
+                   실측: 숫자UOM · BOM · 접미사 셋 일치 6,340 · 어긋남 3 · 숫자UOM 인데 접미사 없음 0
+```
+**⭐ 왜 BOM 인가** — BOM 은 「이 세트 하나를 만들려면 낱개가 몇 개 드는가」이고 **Cin7 이 재고를 실제로 빼는 것도 BOM 이다.**
+UOM 이름은 화면 표시일 뿐이라, 둘이 어긋나면 **화면은 6개라 하고 재고는 1개가 빠진다. 에러는 안 난다**(§1-a 감지되지 않는 결함).
+```
+AIA00207-6    UOM=6 · BOM=1 · 접미사=6    ⚠️ 6개들이를 팔면 재고가 1개만 빠지던 자리 — Caleb 이 Cin7 에서 수정 완료(2026-09-13)
+ORS12208-6    UOM=6 · BOM=1 · 접미사=6    ⚠️ 같은 모양 — 수정 완료
+AMP41108-12   UOM=6 · BOM=6 · 접미사=12   ⭐ 접미사만 틀렸다 (비활성 · 급하지 않다)
+```
+⚠️⚠️ **`AMP41108-12` 의 뒤집힘** — 초안은 「실제 UOM 이 6」이라 적었고 검토는 「미확인」으로 내렸고, `asung-inv-ledger` 스킬은 「UOM='6' 이 원본 오류」로
+**반대로** 적어 뒀었다. 2차 실측으로 결판: **UOM 도 BOM 도 6 이고 SKU 접미사 `-12` 가 틀렸다.** 원장 스킬은 정정했다(2026-09-13).
+WMS 의 「unit 을 믿고 접미사는 믿지 않는다」(변형 6,270행 오염 0.05%)는 결과적으로 맞았지만, 그 근거는 UOM 이 아니라 BOM 이어야 한다 — 둘이 어긋난 자리가 실제로 둘 있었다.
+
+⭐ **카운터 넷 — 평상시 0 이어야 신호가 산다.** 2026-09-13 에 이 넷으로 **오류 열 건**을 찾았고 Caleb 이 여덟을 고쳤다. 넷 다 지금 0.
+| 카운터 | 지금 | 잡히는 것 |
+|---|---|---|
+| 구성품 1개인데 그 GUID 가 우리 표에 없음 | 0 | FK 가 끊긴다 |
+| ⭐ 세트의 `uom_name`(숫자) ≠ `pack_factor`(BOM) | 0 | **재고가 조용히 틀어진다** |
+| 접미사로 찾은 부모 ≠ BOM 으로 찾은 부모 | 0 | SKU 오타 |
+| Family SKU 가 `FAM` 으로 안 끝남 | 0 | 1,141/1,141 |
+⭐ 둘째가 가장 무겁다 — 나머지 셋은 이름 오타를 잡지만 이건 **재고 수량**을 잡는다.
+⚠️ 「세트 SKU 인데 `parent_product_id` 가 null」 초안 카운터는 첫째로 대체됐다 — 「접미사가 있는데 부모를 못 찾음」이 아니라 「BOM 구성품이 1개인데 그 GUID 가 우리 표에 없음」.
+
+Caleb 이 2026-09-13 에 고친 것(다시 긁으면 숫자가 움직인다):
+```
+SKU 공백      FSP60025 -12 · FSP60027 -4 · PNA01280 -4
+SKU 오타      CHI811573-12 → CHI81157-12 · BIS74414-12 → BSI74414-12
+Family SKU    AS93146 → AS93146FAM · WTA00264FAM(뒤 공백)
+⭐ BOM 수량    AIA00207-6 · ORS12208-6  (UOM=6 인데 BOM=1 이던 것)
+```
+
+⬜ **남은 확인(Cin7 · Caleb)**: `SIS00522-6` — UOM=EA-ALT-UPC 인데 BOM ×6 · 활성 ⇒ 대체 UPC 가 아니라 진짜 6개들이일 수 있다(UOM 이름이 잘못 잡혔나) ·
+BOM ×12 인 EA-ALT-UPC 1건 · `AMP41108-12` 접미사 · 구성품 0인 채 Assembly 인 콤보 1건 · `CON00134`(부모 없는 대체바코드 · 비활성).
+
+### 상태 셋은 서로를 설명하지 못한다 — 셋 다 둔다
+
+```
+is_active          Cin7 Status                       비활성 4,152
+is_discontinued    슬롯3 'Project Name' = Discontinued  4,662   ⭐ 우리 칸으로 승격 (제품의 성질)
+sellable           Cin7 Sellable 원문                 false 9,974
+교차  Discontinued × Active 1,141(단종 정했는데 재고가 남아 판다) · Discontinued × Deprecated 3,521 · (빈값) × Deprecated 617
+      Sellable=false × Active 5,879 중 98.7% 가 숫자 UOM(세트) ⇒ 진짜 안 파는 것은 78곳뿐
+```
+⭐ **`sellable` 은 원문 보존용이다. 우리 논리가 이 칸을 읽지 않는다** — 사실상 「세트인가」의 그림자다.
+낱개/세트 판정은 `pack_factor` 와 관계(`parent_product_id`)로 한다(검토 회신 1-d).
+
+**슬롯3 `Project Name` 의 세 값은 전부 「팔 수 있는가」를 말한다** (Caleb 2026-09-13):
+```
+Discontinued      더 이상 안 들여온다   4,662   제품의 성질  → is_discontinued
+Limited Edition   한정 물량이다            42   제품의 성질  → ⏸ 칸 없음 · cin7_project_name 원문에 남는다
+No Channel        아직 안 올렸다           74   ⚠️ 지금 상태 — 재고 도착·보류 해제로 풀린다 → ❌ 칸으로 물려받지 않는다
+```
+❌ **`product_channel` 칸은 뺀다**(검토 회신 1-a). `No Channel` 은 채널 정보가 아니라 **판매 게이트**다 — 「active stock 으로 갖고 있으나
+Shopify 등에 퍼블리시하지 않은 것」이고 사유는 제각각(재고 미도착 신제품 · 판매 보류). 「없음」을 값으로 담는 칸이었고,
+진짜 채널 정보는 Cin7 Channels 탭에 살며 **API 에 없다**(2026-09-13 실측 · 후보 경로 일곱 전부 200 + HTML). ⇒ §7 ⏸ 「판매 게이트는 ⑤ 이후 사건으로」.
+✅ `cin7_project_name text` 원문 그대로 보존(116곳 · 값은 사라지지 않는다).
+
+### 확정된 변경 — 초안 대비 (2026-09-13 검토 회신)
+
+```
+❌ product_channel 뺀다             위
+✅ cin7_type text 넣는다            Stock / Service / Non Inventory 원문 — AS91437-BLK(Non Inventory · 실물은 자재)를 손으로 넣으면 그 사실이 표에서 사라지면 안 된다
+✅ CHECK 이름 <표>_source_ck        기존 표 전부와 통일(인라인 무명 금지)
+✅ product_barcode·product_bom 에 cin7_id · is_active   supplier_discount 선례 「항상 null 이어도 규약대로」 · ⭐ barcode 의 62건은 Cin7 ProductID 를 가진 실물 행 — 재적재 멱등 키 · 추적선
+✅ 인덱스 product_family_idx → product_family_id_idx   product_family 표의 인덱스로 읽힌다
+✅ product_bom.quantity > 0 CHECK
+✅ family.sql 은 첨부 파일(프롬프트 본문 블록 아님 — 주석 한 줄 차이)
+```
+
+### 담는 범위 · 담지 않는 것 (2026-09-13 확정)
+
+```
+담는 범위   Type='Stock' 18,772 − 대체바코드(⭐ UOM=EA-ALT-UPC **그리고** BOM Quantity=1) 59 = 18,713  + AS91437-BLK 1건(Non Inventory · 자재 · 손으로)
+            ⚠️ 초안의 「62 를 뺀 18,710」에서 정정 — EA-ALT-UPC 61건의 BOM Quantity 는 1→59 · 6→1 · 12→1 (+ BOM 없는 CON00134).
+            BOM 이 1 이 아닌 둘은 「진짜 세트인데 UOM 이름만 잘못 잡힌 것」일 수 있어 흡수하지 않고 ⬜ 확인 뒤 판정(위)
+빠지는 57   Service 53 · Non Inventory 4 — 전부 청구서 줄(아마존 프렙·드롭십·배송비·회계 조정·시스템 항목)
+            ⬜ 별도 작업 — ⑤ PO 비용 라인이 참조할 대상이다. 제외는 맞되 담을 자리를 ⑤ 전에 정한다(§7)
+담지 않는 것  Barcode(→ product_barcode) · 치수 넷(전량 0 · Weight 만 값) · PriceTier 1~10(SO 모듈 · 계산 규칙이 API 에 없다) ·
+            BOM 플래그 다섯(관계는 product_bom) · Attachments(이미지 사슬이 따로 있다 — 셋째 사본 금지 · IncludeAttachments 는 먹는다) ·
+            Channels(API 에 없다) · Bin 슬롯 1·2(실제 자리이나 미사용 · 정본은 Cin7 재고 → 원장) · 값이 하나뿐인 칸 · 전량 null 칸
+            ⭐ 재주문점(MinimumBeforeReorder · ReorderQuantity · ReorderLevels[]) — 「안 봤다」가 아니라 **「봤고, 비어 있어서 뺀다」**(2차 실측 · §8)
+```
+📌 「⚠️ 가격 10단계」— 제품군 값과 변형 값이 950/4,884 어긋난다. 같은 값을 두 곳에 담지 않는다. SO 모듈에서 `ref/markupprices` 까지 재고 세운다.
+
+### ⬜ 미측정 — 「없다」가 아니라 「안 봤다」 (2026-09-13 검토)
+
+```
+Name 빈값 · 앞뒤공백            안 셌다 (SKU 는 셌다) · family name 도 같다  ⚠️ name not null 을 걸려면 먼저 센다
+Barcode 빈값                    안 셌다 — product_barcode 행 수가 18,000+ 가 되는데 모른다
+Barcode 중복 48종의 성격        세트·낱개 쌍 / 대체 UPC / 무관 — 안 갈랐다  ⚠️ 무관이면 스캔 화면이 갈라 물어야 한다
+PriceTier 「8단계」              이름 목록(Wholesale · Franchise · AONE · Regular CAD · ComparedPrice CAD · wholesalespecia CAD · USWholesale USD · REFERENCECOST USD)이지 사용 집계가 아니다 · 티어별 비0 건수 없음
+Tags 채움 12,321 (65%)          distinct 안 봤다 — 이 정도면 누가 쓴다
+Option1~3 값의 위치             GET /product 행에 있는지 family 의 Products[] 에만 있는지  ⚠️ 적재 의존 방향이 갈린다
+~~세트 모집단 숫자 셋~~            ✅ 2차 실측 — BOM 기준 6,406 으로 통일 · 접미사 6,349·낱개 실재 6,339 는 검산 수치
+~~관계 전부 null 인 제품 수~~      ✅ 2차 실측 — 4,161
+~~ReorderLevels~~                 ✅ 2차 실측 — 먹는다 · 값 전부 0 · 담지 않는다(§8)
+CustomPrices                    안 켜고 물어 빈 배열 — 「없다」가 아니다 (SO 모듈)
+IncludeSuppliers                ⭐ [정정] 「미확인」이 아니라 **이미 돌고 있다** — §8 product 절
+Registered On 시간대            CreatedDate 에 Z 가 없어 미판정
+구성품 0인 채 Assembly 1건       SKU 미기록 · Cin7 확인 대기
+```
+
+### 프로브 — 표를 만들기 전에 (GAS · Caleb 이 돌린다) · ✅ 1·3·4 완료(2026-09-13 `ProbeProductBom.gs`) · 2·5·6·7·8 은 문서 숫자라 적재와 병행
+
+| # | 무엇 | 표 전에 필요한가 |
+|---|---|---|
+| 1 | `IncludeBOM=true` 전량 덤프(19페이지 · 응답 커지면 Limit 낮춤) — 구성품 1개인 BOM 전수에서 UOM 이름 · BOM Quantity · SKU 접미사 셋 대조 · 불일치 전량 · `AMP41108-12`·`SIS00522-6` 의 BOM Quantity · EA-ALT-UPC 61건의 Quantity(1 인가) · ComponentProductID 가 덤프에 없는 건수 | ✅ 완료 — 정본 BOM 확정 · 덤프에 없는 GUID 0 · 어긋남 3 |
+| 2 | Name 빈값·공백(family 포함) · Barcode 빈값 · 중복 48종 분류 | 아니오(문서 숫자) |
+| 3 | 「관계 전부 null」 재계산 — family 없음 · BOM 없음 · 누구의 구성품도 부모도 아님 | ✅ 완료 — 4,161 · 축 조합 표 |
+| 4 | `IncludeReorderLevels=true` 실제 상품 SKU 표본 200 + 상위 칸 둘(MinimumBeforeReorder·ReorderQuantity) 비0 건수 | ✅ 완료 — 40/40 값 전부 0 · 담지 않는다 |
+| 5 | PriceTier1~10 비0 건수 · Tags distinct 상위 20 | 아니오 |
+| 6 | 실제 상품 1행에 Option1 이 있는지 | 아니오(적재 설계) |
+| 7 | Type=Service·Non Inventory 57건 SKU 목록 저장 | 아니오(⑤ 준비) |
+| 8 | Caleb 확인 — 「한정판이면서 단종」 4건을 어디서 봤나 | 아니오 |
+
+⚠️ 6,343건을 건별로 물으면 Cin7 호출이 4시간이다. **전량 덤프에 `IncludeBOM=true` 를 켜서 한 번에** 받는다 — 실제로 그렇게 했다(38페이지 · 2분 42초 · §8).
+
+---
+
+## 4. ⚠️ 판단이 갈린 곳 — 「왜 표마다 다른가」
+
+⭐ **이 절이 이 문서의 핵심이다.** 적어 두지 않으면 다음 사람이 결함으로 본다.
+
+### ① 자연키와 `name` 유니크
+
+```
+자연키      name (brand·category·unit·payment_term·warehouse)
+            code (account · currency)          ← Cin7·우리 코드가 code 로 참조한다
+            복합 (bin)                          ← 창고 안에서만 유일하다
+name 유니크  있다 — 대부분(실측 중복 0 · Cin7 이 이름으로 참조하므로 실질 자연키)
+            ⚠️ 없다 — ref_account
+```
+`ref_account` 근거 넷: ⓐ 공급처가 `Code` 로 참조한다(226/226 · `Name` 일치 0) ⓑ `inv-cost`·`inv-doc-cost` 가
+`Code` 를 코드에 박아 쓴다 ⓒ `Code` 중복 0(289 전수) ⓓ ⚠️ **`Name` 의 중복 여부는 측정하지 않았다** —
+Cin7 이 화면에 `DisplayName`(「_188_: Accounting」 · 코드를 앞에 붙임)을 따로 두는 것은 이름만으로
+구별이 안 되는 경우가 있다는 신호다. 측정하지 않은 것을 제약으로 걸면 적재가 조용히 깨진다.
+
+`name` 유니크는 **plain** 그대로 — `lower(name)` 로 바꾸지 않는다. 이 부류의 실제 사례는 대소문자가
+아니라 띄어쓰기다(`Net 30`/`Net30`). `lower()` 로는 못 막으므로 제약이 아니라 매칭(§6)의 문제다.
+
+### ② ⚠️⚠️ `ref_payment_term` — Cin7 `Duration` 은 최종 기일이 아니다
+
+```
+2%10 Net30   뜻: 기일 30일 · 단 10일 안에 내면 2% 할인 (회계 관용 표기)
+             Cin7 Duration = 10     ← 칸이 하나라 할인 기한 쪽을 담았다
+```
+그대로 기일 계산에 쓰면 **20일이 당겨져** 아직 기한이 남은 건이 연체로 잡힌다.
+⇒ 우리는 칸을 나눠 담는다: `net_days`(30) · `discount_days`(10) · `discount_percent`(2) · `is_split`.
+**Cin7 이 못 담는 것을 우리가 담는 첫 사례**(원칙 1 — 구조를 베끼는 것이 아니다).
+`is_split` 은 숫자 한 칸으로 안 담기는 조건 — 실물 「50% COD & 50% Net30」(Avlon · 절반 즉시 · 절반
+30일) → `net_days=30 + is_split=true`. ⚠️ Cin7 공급처 마스터에는 아직 `C.O.D` 로 남아 있다(§7).
+
+### ③ 형식 CHECK
+
+⭐ 기준은 「전수를 봤는가」가 아니라 **「늘어날 수 있는가 · 우리가 만드는가」** 다.
+```
+건다   — ref_currency.code        ISO 4217 · 우리가 만든다 · 형식이 바뀌지 않는다
+       — ref_account.account_class 회계 기본 다섯 · 안 늘어난다 (289 전수)
+안 건다 — ref_account.code          Cin7 표기가 이미 두 형식(_숫자_ 215 / 순수 숫자 74) — 걸면 74개가 걸린다
+       — ref_account.account_type  16종 · Cin7 이 늘릴 수 있다 (전수를 봤어도 class 와 성질이 다르다)
+       — ref_unit.name              39/44 가 숫자 이름이지만 text 다 — numeric·파싱 금지
+```
+**우리가 만드는 값과 남이 주는 값은 다르다.**
+
+### ④ 기본값 표시 — `inv_config` 냐 표 안이냐
+
+```
+inv_config 로 — ref_payment_term(IsDefault) · ref_currency(base_currency)
+                「새로 만들 때 뭘 고를까」 = 설정. 표 안에 두면 둘이 true 되는 것을 막을 수단이 부분 유니크뿐
+표에          — ref_warehouse.is_default
+                ⭐ 창고의 속성이고 Cin7 이 창고 행에 직접 담아 준다(IsDefault=true · Asung Trading Inc.)
+                ⇒ 긁어올 때 받을 자리가 필요하다 · 창고가 셋뿐이라 눈으로 보인다(결제조건 34개와 규모가 다르다)
+⚠️ 어느 쪽도 부분 유니크로 막지 않는다(WMS 규칙 29 · PostgREST on_conflict 를 깨뜨린다)
+```
+`inv_config.base_currency` ↔ `ref_currency` 에 FK 는 없다 — `inv_config` 는 key-value 표라 `value` 가
+문자열이고 FK 를 걸면 다른 설정값이 전부 막힌다. 그래서 값 2행이 실재해야 한다(⑤).
+
+### ⑤ 값 적재
+
+```
+행 0건 — 일곱 표(Cin7 에서 긁어온다 · 적재는 별도 작업)
+2행    — ref_currency 뿐 (+ inv_config 1행)
+```
+예외의 이유 둘: ⓐ Cin7 에서 긁어올 데가 없다 — 누군가는 손으로 넣어야 하고 두 줄뿐이다 ⓑ `base_currency='CAD'`
+가 가리킬 대상이 표에 실재해야 한다. ⚠️ 「마이그레이션에 데이터를 넣어도 된다」가 **아니다.** 재실행
+안전은 `on conflict do nothing`.
+
+### ⑥ `cin7_id` 가 있는 표와 없는 표
+
+`cin7_id` 는 Cin7 행과의 매핑 고리(우리가 새로 만든 행은 null). `ref_currency` 는 Cin7 에 대응
+엔드포인트가 없어 영원히 비게 되므로 안 쓰는 칸을 두지 않았다 — **우리가 처음부터 세우는 첫 마스터.**
+`sort_order` 를 어디에도 넣지 않은 것과 같은 이유(Cin7 이 주지 않고 실무 요구도 없다 · 빈 표에 컬럼 추가는 공짜).
+
+---
+
+## 5. ⭐ 공통 규약 — 새 마스터 표를 만들 때
+
+```
+공통 8칸    id uuid PK gen_random_uuid()   ⭐ 우리 키 — Cin7 GUID 를 PK 로 쓰면 Cin7 이 사라질 때 신원이 사라진다(ims-principles §4-b)
+            cin7_id uuid unique (plain · null 허용 · 부분 유니크 금지)
+            name text not null (유니크는 표마다 — §4-①)
+            is_active boolean not null default true   ⭐ Cin7 에 없는 우리 칸 — 지우지 않고 물러나게 하는 수단
+            source text not null default 'cin7' check in ('cin7','manual')   재동기화가 덮어써도 되는지의 근거
+            note text
+            created_at / updated_at timestamptz not null default now()
+RLS         auth_all (ALL · authenticated · using true / with check true) + revoke all from anon · service_role 개방 없음
+⚠️ 권한      revoke delete, truncate from authenticated
+            근거: 마스터는 지우지 않고 is_active 로 물러나게 한다. 브랜드 한 줄을 지우면 그것을 가리키던 제품이 갈 곳을 잃는다.
+            ⚠️ inv_config·inv_sku_types 관례(안 막음)를 따르지 않는다 — 그쪽은 지워도 다시 만들 수 있는 캐시·설정이다
+⭐ 트리거    공용 함수 set_updated_at() · 표당 트리거 하나 <표>_set_updated_at · before update · for each row
+            ⚠️ 함수를 다시 만들지 마라(create or replace 도) — 하나뿐이다. 20260911144606 에서 만든 public 스키마의 첫 트리거
+            ⚠️ security definer 없음 · set search_path = public, pg_temp
+            returns trigger 함수는 SQL 로 직접 호출할 수 없어 PostgREST RPC 로 노출되지 않는다 — RPC 관례의 revoke/grant 불필요
+FK          on delete no action (기존 참조 FK 13건 관례 · RESTRICT 0건 · CASCADE 는 문서→소유 라인 7건에만)
+            ❌ cascade 금지 — 창고 한 줄에 bin 2,047개가 조용히 딸려 사라진다
+            ⭐ FK 컬럼에 인덱스를 직접 만든다(Postgres 는 자동 생성 안 한다) · 이름 <표>_<컬럼>_idx
+```
+
+왜 `updated_at` 을 트리거로 (2026-09-11 이전 public 스키마에 트리거 0개 · `default now()` 만): 쓰는 쪽이
+매번 실어 주는 방식은 빠뜨려도 에러가 안 나고 어느 카운터에도 안 잡힌다(감지되지 않는 결함 ·
+ims-principles §1-a). 표가 비어 있는 지금이 넣기 가장 안전했다. 함수에 `ref_` 접두어를 붙이지 않은 것은
+②공급처·③제품 표가 `ref_` 가 아닐 수 있어서다. ⚠️ `now()` 는 트랜잭션 시작 시각 고정 — 트리거 검증은
+문장마다 별도 트랜잭션으로.
+
+### 관계 표의 규약 예외 (2026-09-13 · `supplier_address`·`supplier_contact`·`supplier_discount` 선례 · ③ `product_barcode`·`product_bom` 도 같다)
+
+```
+DELETE      막지 않는다 — 마스터가 아니라 관계다(잘못 넣은 바코드·구성품은 지운다). TRUNCATE 는 막는다
+            선례: supplier_address(어느 문서도 가리키지 않는다) · supplier_contact(걸러서 지운다) · supplier_discount
+공통 칸     ⚠️ 축소하지 않는다 — cin7_id · is_active 는 항상 null 이어도 둔다(supplier_discount 「규약대로 두지만 항상 null」)
+            ⭐ product_barcode.cin7_id 는 null 이 아니다 — 흡수한 대체 UPC 62건이 Cin7 ProductID 를 가진 실물 행이다(재적재 멱등 키 · 추적선)
+            name 은 관계 표에 없다(주소·바코드·구성 줄에는 이름이 없다) — 7칸
+CHECK 이름  <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지(자동 이름이 표마다 달라진다)
+⚠️ 금지     부분 유니크 인덱스(PostgREST on_conflict · WMS 규칙 29) — product_barcode.is_primary 가 정확히 그 자리다.
+            제약 대신 「제품당 primary 둘 이상」 카운터를 화면에 둔다(평상시 0)
+```
+
+---
+
+## 6. ⚠️ 매칭 — 아직 만들지 않은 것
+
+Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매칭은 표가 아니라 **불러오는 코드의 일**이다.
+- ⭐ 정해진 원칙 하나: 정확히 못 이으면 **비워 두고 센다**(「모르면 비워둔다」). 억지로 붙이면 `Net 30`/`Net 45`
+  를 헷갈려 기일이 15일 틀린다.
+- ⚠️ Caleb 방침: Cin7 값을 그대로 불러온 뒤 **사람이 전수 검사**한다. ⇒ 결제조건 표는 활성 17개(띄어쓰기
+  중복 포함)를 그대로 받을 수 있어야 하고, 정리는 `is_active` 를 끄는 것으로. `source` 칸이 그 검사의
+  근거다(`cin7` / `manual` — 재동기화가 손댄 것을 덮지 않게).
+- ⭐ Cin7 은 마스터를 GUID 가 아니라 **이름 문자열**로 참조한다(계정만 `Code`). 연결 고리는 이름이고,
+  `cin7_id` 는 안정성을 위해 함께 담되 매핑 실패 시 이름으로 붙일 수 있어야 한다. 실측은 §8.
+- 적재 시 bin 행 주소 빈 문자열(`''`) → null 로 받는다.
+
+---
+
+## 7. ⬜ 알고 시작하는 위험
+
+- ⚠️ **Cin7 공급처 마스터가 실무를 못 따라온다** — [실물] Avlon 은 Cin7 에 `C.O.D` 로 남아 있으나 실제 조건은
+  「50% COD & 50% Net30」(Caleb 확인). ⇒ 「우리 표에 잘 이어졌다」와 「그 값이 맞다」는 다르다. 전수 검사가 그래서 필요하다.
+- ⚠️ 비활성 결제조건 3종(`Net30`·`Net45`·`1%20 Net30`)을 공급처 24곳이 여전히 쓴다.
+- ⚠️ 제품 마스터 14,677개에 우리 것이 아닌 항목이 섞여 있다(`_숫자_` 형식 · `[:[OrderTotalDiscount]:]` · Type=Service).
+  목록이 SKU 순 정렬이라 앞쪽에 몰려 있다 — 앞 몇 페이지만 보고 판단하면 틀린다.
+- ⚠️ `ref_bin` 2,675행이 1,000행 캡을 넘는다 — 전량을 읽는 코드는 페이징하거나 `jsonb_agg` RPC. 모르고 읽으면
+  **에러 없이 1,000개만 온다.** 브랜드 415행·계정 289행은 캡 아래지만 마스터는 늘어난다.
+- ⚠️ 화면에서 통화를 기호로만 구별하면 안 된다 — CAD·USD 둘 다 `$`.
+- ⚠️ 환율은 마스터가 아니라 문서에 박는다 — 필요한 것은 「그 거래를 한 날의 환율」. Cin7 도 문서마다 `CurrencyRate`
+  (⚠️ Simple Purchase 의 `Invoice.CurrencyRate` 는 null 이라 상위 `CurrencyRate` — `inv-cost` 실측).
+- ⬜ KRW 송금의 환차손익 — 인보이스는 USD 로 받고 결제만 원화다. 회계 담당자와 정리할 영역(Caleb 판정) · QBO 연동 때 다시 올라온다.
+- ⬜ `inv-cost`·`inv-doc-cost` 가 계정 코드(`_59_`·`_136_` 등)를 하드코딩한다 — 표는 세웠지만 **필터는 건드리지 않았다.**
+  QBO 연동 때 옮긴다(2026-09-10 에 고친 것을 또 흔들지 않는다).
+- ⬜ 아침 점검 ⑭ — `ref_` 표 여덟은 테스트에만 있다(§2 승격 기준).
+- ~~⬜ `ref_bin.zone` 채우는 방법 미정 — `wms_sku_bins` 에 있지만 마스터가 WMS 표를 읽으면 안 된다(원칙 2 · 원장이
+  `wms_order_lines` 를 읽는 「잠정·결합」 빚을 하나 더 지는 것).~~ [2026-09-13 닫음] **bin 이름에서 뽑는다** — 창고별 규칙이 다르다
+  (토론토 첫 글자 · 에드먼튼 둘째 글자 · §3 정정 블록) · 2,675 중 2,478 추출 가능 · ⚠️ 못 뽑는 **197건(`…PALLET01` 계열 · Aoneroom · B0601002)은 null 로 두고
+  그 수를 카운터로** 남긴다 — 채우지 않는다. bin 이름은 우리가 짓는 값이라 파싱이 허용된다(§4-③ 「우리가 만드는 값과 남이 주는 값은 다르다」 · SKU 접미사와 다른 이유).
+- ⏸ **판매 게이트는 ⑤ 이후에 사건으로 만든다 — `No Channel` 을 칸으로 물려받지 않는다** (Caleb 2026-09-13 · §3-d).
+  슬롯3 의 `No Channel` 은 「재고는 있으나 아직 안 올렸다」는 **지금 상태**이고 재고 도착·보류 해제로 풀린다. `2.Release to WMS` 를
+  상태 칸 + 동작으로 옮기기로 한 것(ims-principles §4-d)과 같은 모양 — 칸이 아니라 사건이다.
+- ~~⏸ **`pack_factor` 의 정본 미확정** — UOM 이름 · BOM Quantity · SKU 접미사 셋 대조(§3-d 프로브 1) 뒤 정한다.~~ [2026-09-13 닫음] **BOM Quantity 로 확정**(§3-d).
+  `AMP41108-12` 는 UOM·BOM 둘 다 6 · 접미사가 틀렸다 — `asung-inv-ledger` 스킬의 반대 기록을 정정했다.
+  ⬜ 남는 것: `SIS00522-6`(EA-ALT-UPC 인데 BOM ×6 · 활성) 확인 · `AMP41108-12` 접미사 수정 · 구성품 0인 콤보 1건 · `CON00134`.
+- ~~⬜ 재주문점~~ [2026-09-13 닫음] `IncludeReorderLevels=true` 는 먹지만 **값이 전부 0** 이다(낱개 활성 8,668 에서 흩어 뽑은 40/40 · 토론토 줄만) — 안 쓰고 있다.
+  `purchasing.html` 이 자체 수요 예측을 하므로 당연하다. 「봤고 비어 있어서 뺀다」.
+- ⬜ **별도 작업 — Type=Service 53 · Non Inventory 4** 를 담을 자리. ③ 제품 표에서 빼는 것은 맞지만 ⑤ PO 비용 라인(운임·프렙·드롭십)이
+  참조할 대상이다. ⑤ 전에 정한다(§3-d).
+- ⬜ **제품의 기본 자리(bin)** — ⑤ 리시빙·풋어웨이에서 만든다. 발동 조건은 날짜가 아니라 사건. Cin7 Bin 슬롯 1·2 는 실제 자리이나 미사용(Caleb) — 담지 않는다.
+- ⬜ 공급처당 기본 통화는 하나(Caleb 확정) — 새 통화로 결제하면 공급처 계정을 새로 연다. ~~아직 발동 없음(이름 정규화 묶음 0).~~
+  [2026-09-11 정정] **이미 발동된 실물 둘** — `East West Connect Inc.`/`East West Connect Inc._USD`(활성) · `Asung Trading`/`Asung Trading - USD`(비활성). 접미사 표기가 제각각이라 이름 정규화로는 안 잡힌다(§8-A-3).
+- ⬜ 사용자 축은 `wms_staff` 확장 — 별건.
+
+### ⬜ 다음 갈림길 — ② 공급처 (2026-09-11 오후)
+
+- ⬜ **`ref_tax_rule` 표를 만들 것인가** (미결 · 다음 판단)
+  - 만들자는 쪽 근거 셋: ⓐ 데이터가 이미 손에 있다 — CSV 31행에 세율·계정코드·활성여부·매입매출 구분이 다 들어 있다(`ref_currency` 2행을 손으로 넣은 것과 같은 상황) ⓑ ⚠️ **세율은 바뀐다 — 소급이 안 될 수 있다.** NS 15%→14% 가 이미 일어났다. Cin7 이 옛 규칙을 지우면 「오늘 15%였다」를 복원할 수 없다(원칙 1 의 3번) ⓒ 문자열로 두면 QBO 연동 때 226곳을 다시 이어야 한다.
+  - 미루자는 쪽 근거: ② 가 한 칸 밀린다 · 마스터는 대체로 소급이 된다.
+  - ⚠️ 어느 쪽이든 원문 칸 이름은 결제조건·계정과목과 같은 규칙으로 지어 둔다 — 나중에 FK 칸만 옆에 붙이면 구조가 흔들리지 않는다.
+- ⬜ 발주처 161곳만 추린 TaxRule 분포 (§8-C 오염 문제)
+- ⬜ HST PE 2016 · 38곳 동일값의 원인 (기본값 가설 기각됨)
+- ⬜ Intervision Trading 중복 의심 2행
+
+---
+
+## 7-a. ② 공급처 설계 확정 (2026-09-11 오후)
+
+**담는 범위** — 활성 226곳 전부. 비활성 462곳은 담지 않는다.
+근거: 대부분이 경비 지출처이고 발주 모듈이 참조할 대상이 아니다(§8-A-1). 경비 지급처는 QBO 연동의 영역.
+⚠️ 「거래처가 아니다」와 「IMS 에 필요 없다」는 다르다 — 버리는 것이 아니라 여기 있을 것이 아니라고 경계를 긋는 것이다(원칙 2).
+
+**⭐ `is_purchasable` — Cin7 에 없는 우리 칸** (nullable boolean)
+- true 161 · false 56 · null 9 (= 아직 판정 안 됨 · Caleb 전수 판정 §8-B).
+- ⚠️ `is_active` 와 뜻이 다르다 — 활성이면서 발주 대상이 아닌 곳이 56곳이다.
+- ⚠️ null 을 false 로 밀지 마라 — 「경비처로 판정했다」와 「아직 안 정했다」가 구별되지 않는다(「모르면 비워둔다」). null 개수가 정리해야 할 목록의 카운터가 된다.
+- ⚠️ Cin7 재동기화가 이 칸을 덮어쓰면 안 된다 — Cin7 에 대응 개념이 없다. `source` 칸이 그 근거.
+
+**참조 방식 — FK 로 잇는다**
+```
+결제조건  FK(ref_payment_term) nullable + Cin7 원문 문자열 칸
+계정과목  FK(ref_account · code 로 매칭) nullable + Cin7 원문 문자열 칸
+통화      FK(ref_currency) 하나 — CAD·USD 둘뿐이고 우리가 만든 표라 흔들리지 않는다
+세금규칙  원문 문자열 (⬜ ref_tax_rule 표를 만들지 미결 — §7 다음 갈림길)
+```
+- ⭐ 원문 칸을 함께 두는 이유: 적재가 도중에 멈추지 않게 한다. 못 이은 것은 FK 가 null 이고 그 개수가 「아직 정리 안 된 곳」의 카운터가 된다(§6 「정확히 못 이으면 비워 두고 센다」).
+- ⚠️ 계정과목은 실측 226/226 이 Code 로 일치하지만 원문 칸을 둔다 — **226/226 은 오늘의 사실이지 규칙이 아니다**(`ref_bin` 이름이 창고 간 안 겹치는 것과 같은 성질).
+- ⚠️ Cin7 화면에서 필수인 축이라도 우리 FK 에 NOT NULL 을 걸지 마라. NOT NULL 은 원문 칸에.
+
+**`AdditionalAttribute1`(Supplier Type)·`AttributeSet` 은 담지 않는다** (2026-09-12 Caleb 확정).
+구분의 정본은 `is_purchasable` 이고 이 값은 참고값이다(§8-B · 154곳 중 8곳이 판정과 어긋난다).
+두 칸이 나란히 있으면 언젠가 짧은 쪽으로 필터를 짜게 되고, 활성 226 중 72곳이 빈값이라
+`is_purchasable` 의 null 과 신호가 겹친다. 마스터는 소급이 되므로 필요해지면 다시 긁어온다.
+⭐ 방침의 상위 근거는 `ims-principles.md` §4-d — 커스텀 속성 엔진을 만들지 않고 뜻이 있는 칸으로 승격한다.
+
+**Default carrier 는 담지 않는다** (§8-D).
 
 ---
 
@@ -883,6 +1118,20 @@ Professional Fees · Retained Earnings · Stock in Transit (GINR) · Uncategoriz
 
 ### product (Total 14,677 · 30행 표본)
 
+⚠️⚠️ **[2026-09-13 전량 실측으로 정정됨 — 설계는 §3-d]** 아래 표본 30행 기록은 SKU 순 앞쪽 시스템 항목에 몰려 있었다. 지우지 않고 남긴다.
+```
+· Total 14,677 → 활성만. 전량(IncludeDeprecated=true)은 18,829 · 비활성 4,152
+· CostingMethod FIFO 30/30 → 전량에는 Special - Serial Number 가 섞여 있다
+· 「계정과목을 넷 참조한다」 → 전량 채움은 Inventory 5 · COGS 3 · Revenue 1,103 · Expense 870 곳뿐(착시) — 넷 다 nullable
+· `_숫자_` 형식으로 거를 것 → 전량에서 19건뿐. 진짜 기준은 Type(Stock 18,772 · Service 53 · Non Inventory 4)
+· ⭐ IncludeSuppliers 「미확인」 → 틀렸다. 아래 정정
+```
+⭐ **[2026-09-13 정정] `IncludeSuppliers` 는 「미확인」이 아니라 이미 돌고 있다.** `~/asung/gas-system-automation/Productmaster.js` 가 매일
+`GET /product?IncludeSuppliers=true` 로 전량을 긁어 BQ `asung_product_master` 에 `supplier_name`·`supplier_sku`·`cost_price` 를 넣고 있고,
+`Suppliers[]` 스키마(`ProductSupplierID`·`SupplierID`·`Cost`·`FixedCost`·`PurchaseCost`·`Currency`·`LastSupplied`…)는
+`cin7-api/references/product-master.md` 에 2026-07-10 실측으로 확정돼 있다. ⇒ **④ 제품↔공급처의 출발점은 0 이 아니다.**
+⚠️ 「없다」와 「안 봤다」를 가르라고 해 놓고 셋째 부류 **「이미 있는데 안 찾아봤다」**를 놓쳤다(§9).
+
 ```
 배열 키 Products  ·  필드 83개
 CostingMethod   30행 전부 FIFO  ·  UOM 빈값 0/30
@@ -890,8 +1139,35 @@ CostingMethod   30행 전부 FIFO  ·  UOM 빈값 0/30
    ⭐ Caleb 확인: `_숫자_` 형식은 우리 제품이 아니다. 목록이 SKU 순 정렬이라 앞쪽에 몰려 있다
 ⭐ 제품이 계정과목을 넷 참조한다 — InventoryAccount · COGSAccount · RevenueAccount · ExpenseAccount
 📌 HSCode · CountryOfOrigin 칸이 있다
-⬜ product?IncludeSuppliers=true 는 미확인 — 표본 5행이 전부 시스템 항목이라 Suppliers 0 이었다.
-   실제 상품 SKU 로 다시 봐야 한다(「파라미터가 안 먹는다」와 「표본이 나쁘다」가 구별되지 않는다)
+~~⬜ product?IncludeSuppliers=true 는 미확인 — 표본 5행이 전부 시스템 항목이라 Suppliers 0 이었다.
+   실제 상품 SKU 로 다시 봐야 한다(「파라미터가 안 먹는다」와 「표본이 나쁘다」가 구별되지 않는다)~~
+   [2026-09-13 정정] 위 머리말 — Productmaster.js 가 매일 쓰고 있다. 표본 5행이 시스템 항목이라 0 이었을 뿐이다
+```
+
+### productFamily 1,141 · product 전량 18,829 (2026-09-13) — ⬜ 실측 숫자 부록은 프로브 1·3·4 뒤에 여기 붙인다
+
+설계와 미측정 목록은 §3-d. 1차 사료(`~/asung/prompts/ims-product-claude-code-prompt.md` §6 부록)의 숫자는 재긁기 뒤 검증해 옮긴다 —
+Caleb 이 2026-09-13 에 SKU 여섯(`FSP60025 -12`·`FSP60027 -4`·`PNA01280 -4` 공백 · `CHI811573-12→CHI81157-12` 자리수 · `BIS74414-12→BSI74414-12` 글자순서 ·
+`AS93146→AS93146FAM` · `WTA00264FAM` 뒤 공백)을 고쳐 다시 긁으면 숫자가 움직인다.
+```
+GET /productFamily   Limit 1000 먹는다(2페이지) · 배열 키 ProductFamilies(⚠️ List 접미사 없음) · Total 1,141 · 칸 44(Products[]·Attachments[] 포함)
+                     ⚠️ IncludeDeprecated 는 Total 이 같아 판정 불가 — 변형 SKU 4,884 가 전부 제품 덤프에 있었으므로 「비활성 제품군 없음」쪽
+GET /product         Limit 1000 먹는다(19페이지 · 1분 47초) · 칸 83(전 행 동일)
+⚠️ Cin7 은 없는 경로에 404 가 아니라 200 + HTML 을 준다(채널 후보 경로 일곱 전부) — HTTP 코드로 엔드포인트 존재를 판정하지 마라(cin7-api 함정 12 계열)
+```
+
+**2026-09-13 2차 (`ProbeProductBom.gs` · `IncludeBOM=true` 전량 18,829)**
+```
+⚠️ Limit=500 이 실효 상한 — BOM 을 켜면 1000 이 안 온다 · 38페이지 · 2분 42초
+BOM   구성품 1개 6,406 · 2개 이상 15 · 없음 12,408 · ComponentProductID 가 덤프에 없음 0
+      숫자UOM · BOM Quantity · 접미사 셋 일치 6,340 · 어긋남 3(AIA00207-6 · ORS12208-6 · AMP41108-12) · 숫자UOM 인데 접미사 없음 0
+      EA-ALT-UPC 61건의 BOM Quantity: 1 → 59 · 6 → 1 · 12 → 1
+축 조합(Type=Stock 18,772)  세트/대체 6,406 · 관계 없음 4,161 · 구성품+세트의부모 3,297 · family 2,437 · family+구성품+세트의부모 2,405 ·
+                            family+구성품 38 · 구성품 13 · 콤보 11 · family+콤보 4
+IncludeReorderLevels=true  ⭐ 먹는다 — 낱개(UOM=EA) 활성 8,668 에서 216개마다 하나씩 40건: 40/40 이 1줄씩 · 빈 배열 0
+      원소의 칸  LocationID · LocationName · MinimumBeforeReorder · ReorderQuantity · StockLocator · PickZones
+      값  MinimumBeforeReorder 0 · ReorderQuantity 0 (전부 0) · ⚠️ 창고는 전부 토론토 — 에드먼튼 줄 없음
+      ⭐ 딸려 나온 사실: StockLocator · PickZones 는 **창고별 값**이다 — 제품 본체의 그 두 칸은 대표값 하나를 보여주는 것
 ```
 
 ---
@@ -906,3 +1182,12 @@ CostingMethod   30행 전부 FIFO  ·  UOM 빈값 0/30
 - `20260911164513` currency — 앞선 넷과 갈리는 셋(`cin7_id` 없음 · `manual` · 형식 CHECK) · 값 2행 + `inv_config` 1행.
 - `20260911165946` warehouse·bin — `ref_` 표 사이 첫 FK · 기존 FK 22건 관례 실측 뒤 `no action` · bin Name 정정 발견.
 - 같은 날 — 이 정본 · `asung-po` 스킬 신설 · `cin7-api` 정정(§8 location 정정 반영).
+- 2026-09-12 — ② 공급처 표 넷(`20260912202952`·`210733`·`212150`) 설계·적재. 당시 §7-b·§7-c 로 적었다.
+- 2026-09-13 — ③ 제품 전량 실측(18,829 · family 1,141) · 설계 검토. **하루에 판단이 넷 뒤집혔다**: ① 모집단 14,677→18,829 ② 자리 슬롯은 미사용(Caleb)
+  ③ 표본 20으로 BOM 축을 뺄 뻔(진짜 조립 15) ④ ⭐ `parent_product_id` 의 출처가 접미사뿐이었다(검토에서 발견 · BOM 구성품으로 정정).
+  같은 검토에서 「기본 제품 13,888」 산술 오류 · `IncludeSuppliers` 「미확인」 오기 · §3 「접두어가 갈린다」 오기를 잡았다.
+  ⚠️ **셋째 부류** — 「없다」「안 봤다」를 가르라고 해 놓고 **「이미 있는데 안 찾아봤다」**(Productmaster.js)를 놓쳤다. 다음부터 「없다」고 적기 전에 GAS 레포를 grep 한다.
+  **문서 이사** — §7-b·§7-c 를 §3-b·§3-c 로 옮겼다(본문 무변 · 번호와 상호 참조만). ④⑤ 전이 가장 싸다. §7-a(범위 판단)는 위험 목록에 남긴다.
+  ~~표는 아직 만들지 않았다 — 프로브 1·3·4 대기(§3-d).~~ 같은 날 저녁 — 2차 실측(`ProbeProductBom.gs`)으로 셋을 결판(pack_factor = BOM Quantity ·
+  parent = ComponentProductID · 관계 없음 4,161 · 재주문점 전부 0) · **마이그레이션 넷 생성 · 로컬 재생 통과**(`20260913225935`·`230500`·`230600`·`230700`) ·
+  `AMP41108-12` 는 접미사가 틀린 것으로 확정 — `asung-inv-ledger` 반대 기록 정정 · 「세 축 6건」은 2,405 로 정정. 테스트 DB push · 적재 GAS 는 다음.

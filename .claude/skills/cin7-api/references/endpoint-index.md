@@ -91,8 +91,8 @@
 ### Product 관련 추가 엔드포인트
 | 엔드포인트 | apib 라인 | 설명 |
 |-----------|----------|------|
-| `GET /product/attachments` | 6015 | 제품 첨부파일 |
-| `GET /productFamily` | 6374 | 제품 패밀리 |
+| `GET /product/attachments` | 6015 | 제품 첨부파일 — ✅ 2026-09-13 실측: `?ProductID=` · `GET /product?IncludeAttachments=true` 와 같은 내용(`ID`·`ContentType`·`FileName`·`IsDefault`·`DownloadUrl`) |
+| `GET /productFamily` | 6374 | 제품 패밀리 — ✅ 2026-09-13 실측: 배열 키 **`ProductFamilies`**(List 접미사 없음) · Total 1,141 · `Limit=1000` 먹는다(2페이지) · 칸 44(`Products[]`·`Attachments[]` 포함) · `references/product-master.md` |
 | `GET /ref/markupprices` | 6890 | 마크업 가격 |
 | ~~`GET /product-suppliers`~~ | 19600 | **GET 미지원(405, 실측)** — 읽기는 `GET /product?IncludeSuppliers=true`, 쓰기는 `PUT /product-suppliers` (`references/product-suppliers-write.md`) |
 | `GET /custom-prices` | 18750 | 고객별 특수가격 |

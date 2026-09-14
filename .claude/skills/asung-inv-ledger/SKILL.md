@@ -1647,8 +1647,11 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
   ⭐ **[2026-09-08 Caleb 확인] 원가 0 재고 51칸은 서플라이어 프로모션 무상 재고다.** 진짜 0 이므로
   그대로 0 으로 소진한다 — **예외 처리하지 않는다.** ⚠️ 다만 [실측] `adjust_new` 28행에는 0원이
   **없다**(§3 문서별 함정 · 원가 축 실측) — 0원 칸은 기초 스냅샷 쪽이다
-- **원본 데이터 오류** — `AMP41108-12` 의 `UOM="6"`(SKU 접미어와 불일치).
-  ⚠️ **SKU 접미사 파싱 금지**. 원장은 원본 오류를 그대로 물려받는다
+- **원본 데이터 오류** — ~~`AMP41108-12` 의 `UOM="6"`(SKU 접미어와 불일치).~~ ⚠️⚠️ **[2026-09-13 정정 — 반대로 적혀 있었다]**
+  `AMP41108-12` 는 **UOM 도 BOM Quantity 도 6 이고 SKU 접미사 `-12` 가 틀린 것**이다(`ProbeProductBom.gs` · IncludeBOM=true 전량 실측).
+  ⭐ 세트 계수의 정본은 **BOM Quantity**(Cin7 이 재고를 실제로 빼는 수)이고 UOM 이름은 화면 표시다 — 둘이 어긋난 실물이 둘 있었다
+  (`AIA00207-6`·`ORS12208-6`: UOM=6 인데 BOM=1 → 6개들이를 팔면 재고가 1개만 빠졌다 · Caleb 이 Cin7 에서 수정). 정본 `docs/design/po-module.md` §3-d.
+  ⚠️ **SKU 접미사 파싱 금지**는 그대로다. 원장은 원본 오류를 그대로 물려받는다
 - **전체 합계 검산 경로 없음** — SKU 단위는 `Movements` 누적으로 되지만, 창고 총계는 화면 리포트뿐
 - **수동 단계** — 매니저의 `2.Release to WMS`(`sale` 의 `AdditionalAttributes.AdditionalAttribute1`).
   주 5일이라 월요일에 몰린다. 재고와 무관하나 대조 때 설명이 필요

@@ -5,11 +5,13 @@ description: >
   만들거나 읽거나 Cin7 에서 적재할 때 먼저 읽으세요.
   "PO 모듈", "발주 모듈", "발주앱", "purchasing.html", "Settings", "Reference Book", "마스터 데이터",
   "ref_brand", "ref_category", "ref_unit", "ref_payment_term", "ref_account", "ref_currency",
-  "ref_warehouse", "ref_bin", "공급처", "제품 마스터", "결제조건", "계정과목", "통화", "set_updated_at"
+  "ref_warehouse", "ref_bin", "공급처", "supplier", "제품 마스터", "product_family", "product_barcode", "product_bom",
+  "pack_factor", "BOM Quantity", "UOM 세트", "콤보", "결제조건", "계정과목", "통화", "set_updated_at"
   이 나오면 추측하지 말고 이 스킬과 정본 docs/design/po-module.md 를 확인하세요.
   ⚠️자연키가 표마다 다르다(name·code·복합) — 추측 금지, ⚠️ref_bin 은 2,675행으로 PostgREST 1,000행
   캡을 넘는다, ⚠️Cin7 결제조건 Duration 은 기일이 아니라 할인 기한, ⚠️Cin7 은 마스터를 GUID 가 아니라
-  이름 문자열로 참조(계정만 Code), ⚠️set_updated_at() 은 하나뿐 — 다시 만들지 마라.
+  이름 문자열로 참조(계정만 Code), ⚠️set_updated_at() 은 하나뿐 — 다시 만들지 마라,
+  ⚠️세트 계수(pack_factor)의 정본은 UOM 이름이 아니라 BOM Quantity — 접미사로 읽지 마라, ⚠️product.name 유니크 금지(576종 중복).
 ---
 
 # Asung PO(발주) 모듈 스킬
@@ -25,11 +27,13 @@ description: >
 ```
 ① Settings (8축)  ✅ 2026-09-11 — 7축(표 여덟) · 사용자는 wms_staff 확장(별건)
 ② 공급처           ✅ 범위·칸 확정(2026-09-11 · 정본 §7-a) — 활성 226 만 담는다(비활성 462 는 경비처) · 표 셋(본체·주소·연락처) · is_purchasable 은 우리 칸(null=미판정 · false 로 밀지 마라) · FK + 원문 칸 병행 · AdditionalAttribute1(Supplier Type)·AttributeSet 담지 않음(09-12 · 정본 §7-a · 상위 근거 ims-principles §4-d)
-                   ✅ ~~표 셋~~ 표 넷 확정(09-12 · 정본 §7-b) — supplier / _address / _contact / _discount · ref_ 접두어 없음 · name 유니크 ·
+                   ✅ ~~표 셋~~ 표 넷 확정(09-12 · 정본 §3-b · ~~§7-b~~ 09-13 이사) — supplier / _address / _contact / _discount · ref_ 접두어 없음 · name 유니크 ·
                    거래중단은 is_purchasable 과 별개 칸(연락처 이름 칸에 숨어 있던 24곳) · Comments 담는다(75/226 · 우리 note 와 섞지 마라) ·
                    DefaultForType·IncludeInEmail·Discount·TaxNumber·LastModifiedOn 담지 않음 · ⚠️ 할인은 체인(곱한다) · 조기결제는 결제조건이 정본
-                   ✅ 2026-09-12 적재(정본 §7-c) — supplier 226(판정 161/56/9 · 중단 24) · _address 87 · _contact 237 · _discount 0(뼈대) · ⚠️ 재적재는 「없어진 행」을 모른다(미해결) · ⚠️ TaxRule 분포는 움직이는 중(09-11 대비 HST NS 16→8)
-③ 제품             ⬜ Cin7 필드 83 · ⚠️ `_숫자_` SKU 는 우리 제품이 아니다 — 거르는 판단이 첫 질문
+                   ✅ 2026-09-12 적재(정본 §3-c · ~~§7-c~~ 09-13 이사) — supplier 226(판정 161/56/9 · 중단 24) · _address 87 · _contact 237 · _discount 0(뼈대) · ⚠️ 재적재는 「없어진 행」을 모른다(미해결) · ⚠️ TaxRule 분포는 움직이는 중(09-11 대비 HST NS 16→8)
+③ 제품             🔄 **표 넷 생성 · 적재 대기**(09-13 · 정본 §3-d) — product_family / product / product_barcode / product_bom
+                   (`20260913225935`·`230500`·`230600`·`230700` · 로컬 재생 통과 · ⚠️ 테스트 DB push 는 Caleb) · 전량 18,829(⚠️ 14,677 은 활성만) ·
+                   ⭐ pack_factor 정본 = **BOM Quantity** · parent = BOM ComponentProductID · 관계 없음 4,161 · 세 축 겹침 2,405 · 담는 범위 Stock − 대체UPC(BOM=1) 59 + 자재 1
 ④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
 ⑤ PO 본체          ⬜
 ```
@@ -48,6 +52,11 @@ description: >
 | `ref_currency` | 9 | ⭐ **`code`** (`^[A-Z]{3}$`) · `name` 도 유니크 | ⚠️ **`cin7_id` 없음** · `source` default **`manual`** · ⭐ **값 2행(CAD·USD)이 든 유일한 표** · 기준통화는 `inv_config.base_currency` |
 | `ref_warehouse` | 15 | `name` | `is_default` 는 **표에**(다른 둘은 `inv_config`) · ⚠️ `IN_TRANSIT` 없음(원장의 합성 창고) · `Production Facility` 는 비활성으로 담는다 |
 | `ref_bin` | 11 | ⭐ **`(warehouse_id, name)`** 복합 — `name` 단독 유니크 없음 | FK → `ref_warehouse` `on delete no action` · ⚠️⚠️ **2,675행 = 1,000행 캡 초과** · `zone` 은 비어 있다 |
+
+| `product_family` | 21 | `sku`(…FAM) | ⚠️ `name` 유니크 없음 · 가격 10단계 안 담는다 · 옵션 축 **이름**만(값은 product) |
+| `product` | 46 | `sku` | ⚠️⚠️ `name` 유니크 **금지**(576종 중복) · `barcode` 칸 없음(→ product_barcode) · 계정 넷 nullable · ⭐ `pack_factor`=BOM Quantity · `parent_product_id`=BOM ComponentProductID · `sellable` 은 원문 보존(우리 논리가 읽지 않는다) · `cin7_type` 원문 · ❌ product_channel 없음 |
+| `product_barcode` | 11 | `(product_id, barcode)` | 관계 표 · DELETE 열림 · `cin7_id` = 흡수한 대체 UPC 행의 ProductID · ⚠️ `is_primary` 부분 유니크 금지(카운터) |
+| `product_bom` | 13 | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만(15건) · `quantity > 0` · `cin7_id` 항상 null(규약대로 둠) |
 
 - ⚠️ **새 표를 다룰 때 `information_schema.columns` 를 먼저 본다.** 이 표는 요약이고 기억은 틀린다.
   ```bash
@@ -104,6 +113,16 @@ FK        on delete no action(기존 참조 FK 관례 · RESTRICT 0건) · ❌ c
 | 제품 목록 앞 페이지로 판단 | `_숫자_` 시스템 항목이 앞에 몰림 | 전량 · 형식 필터 |
 | 공급처 전량을 226 으로 안다 | 비활성 462 를 못 본다 | ⭐ `IncludeDeprecated=true` 전량 688 |
 | `AdditionalAttribute1` 로 발주처를 거른다 | 활성 72곳 빈값 · 154곳 중 8곳이 판정과 어긋남 | Caleb 판정이 정본(`is_purchasable`) |
+| 제품 전량을 14,677 로 안다 | 비활성 4,152 를 못 본다 | ⭐ `IncludeDeprecated=true` 전량 18,829 |
+| `product.name` 에 유니크 | 576종 중복(ORLY GEL FX 60행) — 배치 전체 실패 | `sku` 가 자연키 · 화면은 SKU 를 함께 띄운다 |
+| ⭐ `pack_factor` 를 UOM 이름·SKU 접미사에서 읽는다 | **재고가 조용히 틀어진다** — UOM=6 인데 BOM=1 이던 실물 둘(AIA00207-6·ORS12208-6) · AMP41108-12 는 접미사가 틀림 | 정본은 **BOM Quantity** · UOM·접미사는 검산 카운터 |
+| `parent_product_id` 를 접미사로 찾는다 | SKU 오타가 부모를 잃거나 엉뚱한 부모에 붙는다 | BOM `ComponentProductID`(6,406/6,406 · 덤프에 없음 0) |
+| 콤보를 `BOMType=Assembly` 로 가른다 | UOM 세트도 Assembly 다(6,422 중 진짜 조립 15) | **구성품 2개 이상**으로 가른다 |
+| 「제품 종류」 칸을 만든다 | 세 축에 걸리는 것이 2,405 · 두 축 이상 5,758 — 갈 곳을 잃는다 | 관계(family_id·parent·bom)로 읽는다 |
+| 대체 UPC(EA-ALT-UPC) 62건을 전부 바코드로 흡수 | BOM ×6·×12 인 둘은 세트일 수 있다 — 흡수하면 세트가 사라진다 | 조건 = EA-ALT-UPC **그리고** BOM Quantity=1 (59) · 둘은 Caleb 확인 |
+| 새 경로를 HTTP 200 으로 「있다」고 판정 | Cin7 은 없는 경로에 200 + HTML 을 준다 | 본문이 JSON 인지 본다(`cin7-api` 함정 18) |
+
+⭐ **③ 제품 카운터 넷 — 평상시 0** (정본 §3-d · 2026-09-13 에 오류 열 건을 잡았다): ① 구성품 1개인데 GUID 가 우리 표에 없음 ② ⭐ 세트의 `uom_name` ≠ `pack_factor`(BOM) — **재고 수량**을 잡는다 ③ 접미사로 찾은 부모 ≠ BOM 부모 ④ Family SKU 가 `FAM` 으로 안 끝남.
 
 ## 5. 이 스킬을 갱신할 때
 
