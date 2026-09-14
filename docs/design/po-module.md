@@ -1098,7 +1098,14 @@ Currency 문자열               공급처 기본통화와 어긋난 줄 0 ⇒ �
 ~~적재 GAS   ImsLoadProductSupplier.gs~~   ✅ 아래 「적재 결과」 · 원자료 시트(psp_line)를 읽어 Cin7 을 다시 훑지 않았다
 ~~SQL 검증   카운터 다섯~~                 ✅ 여섯으로 갈라 셌다(위)
 화면 ⓐ     마스터 조회·편집 — 시트로 우회하던 것들(supplier_discount 0행 · is_purchasable · 새 바코드 · ref_bin.zone)과
-           오늘 생긴 것(기본 공급처 지정 · 선주문 제품의 공급처 · 콤보 방향). ⚠️ 먼저 asungtrading/tools/purchasing.html 을 읽어라 — 붙이는 일일 수 있다
+           오늘 생긴 것(기본 공급처 지정 · 선주문 제품의 공급처 · 콤보 방향).
+           ⭐ 자리   ims.asung.ca (asungtrading/asung-ims) · DB 는 Asung-IMS · §10 — ⚠️ 가입 닫기 확인 전에는 배포하지 않는다(§10-f ⓪)
+           ~~⚠️ 먼저 asungtrading/tools/purchasing.html 을 읽어라 — 붙이는 일일 수 있다~~ [2026-09-14] 읽었고 **붙이지 않는다** — 겹치는 기능이 없고 컷오버 때 통째로 옮길 대상(§10-d)
+           채울 것(적재 뒤 실측 · §3-g):
+             기본 공급처를 못 정한 제품 2                   카운터 ② — 사람이 골라야 한다
+             살 곳을 적을 제품 26(선주문 Bag 25 + AS01433)   source='manual' 로 미리 적을 자리
+             AS91437-BLK                                    Type=Non Inventory 라 ④ 모집단에서 빠졌다 — 공급처를 손으로
+             새로 들어온 공급처 31곳의 is_purchasable        전부 null(미판정)
 ```
 
 ### ✅ 적재 결과 (2026-09-14 저녁 · 테스트 DB `Asung-IMS`)
@@ -1409,6 +1416,7 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
   is_default 끄고 켜기    §3-g 의 두 문장을 재적재마다 돌린다 — 적재 스크립트에 붙이거나 cron. 안 돌리면 내린 줄이 기본으로 남는다(실사고)
   AS91437-BLK 공급처      Type=Non Inventory 라 ④ 모집단(Type=Stock)에 없다 — 손으로 넣은 제품이니 공급처도 손으로(source='manual' · 화면 ⓐ)
   ```
+- ✅ **화면 ⓐ 의 자리가 정해졌다**(2026-09-14 · §10) — `ims.asung.ca` · `asungtrading/asung-ims` · DB 는 Asung-IMS · `purchasing.html` 에 붙이지 않는다(§10-d). ⬜ 배포 전 **가입 닫기 확인**(§10-f ⓪) · IMS 로그인·사용자 표(§10-f).
   📌 위 목록은 Caleb 이 **Cin7 에서 전부 수정할 예정**이다 — 수정 뒤 재적재·갱신. 그때 정할 것 하나를 미리 적어 둔다:
   ```
   ⬜ Cin7 에서 SKU 를 고치면 우리 표는 어떻게 따라가나
@@ -1765,6 +1773,111 @@ IncludeReorderLevels=true  ⭐ 먹는다 — 낱개(UOM=EA) 활성 8,668 에서 
 
 ---
 
+## 10. 화면과 인프라 (2026-09-14 오후 · ④ 적재 완료 직후 · 결정의 경위)
+
+⚠️ 표도 코드도 아니고 **결정의 경위**다. 코드에 드러나지 않는 판단이라 적어 두지 않으면 다음에 「같은 도메인이 간단한데」로 되돌아간다.
+⭐ 스킬은 이번에 고치지 않았다 — 화면 작업이 실제로 시작될 때 한 번에 반영한다.
+
+### 10-a. 자리 — `ims.asung.ca` (2026-09-14 완료)
+
+```
+도메인   ims.asung.ca            GoDaddy DNS 에 CNAME ims → asungtrading.github.io
+레포     asungtrading/asung-ims  ⚠️ 공개 · GitHub Pages(main · /root) · HTTPS 켜짐 · 소유자는 개인 계정 asungtrading(GitHub Pro · asung-wms 와 같다)
+로컬     ~/asung/asung-ims
+DB       Asung-IMS (fazgmyvzzhqybtvtktyg)
+```
+⭐ **왜 레포를 나눴나** — GitHub Pages 는 **레포 하나에 커스텀 도메인 하나**다. `asung-wms` 루트에 `CNAME`(`wms.asung.ca`)이 이미 있어
+같은 레포로 두 도메인을 낼 수 없다.
+⚠️ **`asung-wms` 는 가르지 않았다.** 마이그레이션 · `docs/design` · `.claude/skills` · WMS 화면은 그대로다. 새 레포는 **앞으로 만들 화면 파일만** 담는다 — 옮긴 것이 없다.
+📌 레포 이름이 `asung-wms` 인데 IMS 설계가 그 안에 사는 어색함은 인정하고 **지금 고치지 않는다** — `supabase link`·`db push` 배선을 전부 다시 해야 하고
+얻는 것은 이름뿐이다. 컷오버 때 함께 정리한다.
+
+### 10-b. ⚠️⚠️ 왜 `wms.asung.ca` 에 올리지 않았나 — 기술이 아니라 사람 문제다
+
+```
+Caleb: 「wms.asung.ca 를 잘 쓰는 사람들이 헷갈릴 것 같다」
+Caleb: 「비공개는 우리 동료들에게 아직은 공개하고 싶지 않다는 뜻이다」
+```
+⇒ 막으려는 대상은 **바깥이 아니라 동료들**이다. 그래서:
+- ⚠️ 「메뉴에 안 올리면 안 보인다」는 **부족하다** — 안 보이는 것과 안 열리는 것은 다르다. URL 을 알면 누구나 연다. 히스토리·자동완성으로도 걸린다.
+- ⭐ 자리를 아예 나누는 편이 확실하고, 어차피 가야 할 자리다.
+- ⭐ 실질 방어는 **IMS 프로젝트에 계정이 있는 사람만 로그인된다**는 것 — 처음엔 Caleb 혼자. ⚠️⚠️ 이 방어는 **가입이 닫혀 있을 때만** 성립한다(10-f ⓪).
+
+### 10-c. ⚠️ 레포는 공개다 — 그 대가와 선
+
+비공개를 검토했으나 **공개로 둔다**. 근거 둘 — 둘 다 `asung-wms` 규칙 12 의 2026-08-19 실측(같은 계정 · public → private → public)에서 왔다:
+```
+⭐ private 은 프론트를 보호하지 못한다   레포가 private 이어도 발행된 사이트는 공개다(「This repository is private but the published site will be public」).
+                                      사이트 자체를 비공개로 발행하는 Visibility 는 GitHub Enterprise 전용.
+⚠️ 작업 비용                          2026-08-19 에 겪었다 — Claude 가 raw 로 레포를 읽지 못해 진단·프롬프트의 정밀도가 떨어졌다(「339~343행」이 「어딘가」가 된다).
+```
+⚠️ **[정정 경위]** 이 절의 초안은 「레포를 비공개로 하면 Pages 가 아예 안 나가고 ims.asung.ca 가 죽는다」로 적혀 있었다 — 오늘 실측한 적이 없다.
+Visibility 설정에 붙은 Enterprise 배지를 「private 레포는 Pages 가 안 나간다」로 잘못 확장한 것이다. **추론을 실측처럼 적었다.** 규칙 12 의 실측(Pro · private 에서도 발행)이 맞다.
+⇒ 공개로 둔다. 대신 선을 지킨다:
+```
+넣어도 되는 것   HTML · JS · anon(publishable) key   ⭐ 브라우저에 어차피 노출된다 · RLS 와 로그인이 지킨다
+절대 안 되는 것  service_role · Cin7 키 · 비밀번호 · 사람 이름이 붙은 실데이터
+                ⚠️ 테스트용으로 실제 SKU·공급처 이름을 하드코딩하면 지워도 히스토리에 남는다
+```
+⚠️ 공개의 실제 대가는 「뚫린다」가 아니라 **「구조가 읽힌다」**이다 — 표 이름·경로·판단이 드러난다. 언젠가 감춰야 할 때가 오면 Enterprise 체험이나 비공개 레포에서 배포되는 다른 배포처를 본다.
+
+### 10-d. ⭐ `purchasing.html` — 건드리지 않는다
+
+[2026-09-14 읽음 · `asungtrading/tools/purchasing.html` · 4,566줄]
+```
+읽기   BigQuery 직접 — 브라우저가 구글 OAuth 로 bigquery.readonly 토큰을 받아 친다
+       제품·공급처는 Cin7_Master_Data.asung_product_master (supplier_name 이 있고 활성인 것)
+쓰기   GAS 웹앱 브리지(PO_WEBAPP_URL) — DRAFT PO 생성 · Fixed Price 조회/수정
+       ⭐ PUT /product-suppliers 로 Fixed Price 를 고치는 기능이 이미 돌고 있다(±50% 경고 · 변경 로그 · Podraft.gs pd_updateFixedPrice)
+계산   절반 이상이 수요 예측 — Huber 회귀·계절성·안전재고·ABC·워킹데이·캐나다 공휴일
+```
+⚠️ **복사해서 고치지 않는다.** 원본과 사본이 갈리면 한쪽을 고칠 때마다 다른 쪽을 따라 고쳐야 한다.
+⭐ **컷오버 때 통째로 옮길 대상**이다 — 계산 로직은 그대로 살고 바뀌는 것은 「어디서 읽느냐」뿐이다.
+⇒ 지금 세우는 화면과 **겹치는 기능이 없다**. 저쪽은 발주 추천, 이쪽은 마스터 값을 채우는 자리. Fixed Price 조차 저쪽은 **Cin7 에** 쓰고 이쪽은 **IMS 에** 쓴다 — 대상이 다르다.
+📌 ⑤ 가 `product_supplier.cin7_id` 로 `PUT /product-suppliers` 를 치려 할 때(§3-g 「⑤ PUT 의 필수 열쇠」) **그 일을 하는 GAS 브리지가 이미 있다** — `pd_updateFixedPrice`.
+   두 번 만들지 말고 그 브리지를 부른다(±50% 경고·변경 로그·Default 옵션 규칙이 거기 산다 · `cin7-api/references/product-suppliers-write.md`).
+
+### 10-e. ⭐ 로그인은 Supabase 프로젝트마다 따로다
+
+```
+한 화면이 두 프로젝트를 볼 수는 있다   createClient 를 둘 만들면 된다 (도메인과 무관)
+⚠️⚠️ 그러나 세션은 공유되지 않는다     운영에서 받은 토큰을 Asung-IMS 에 내밀면 거부된다
+                                      IMS 표는 전부 auth_all(authenticated) — anon 으로는 못 읽는다
+```
+⇒ IMS 화면은 **`Asung-IMS` 에 로그인**해야 한다. 운영의 `wms_staff` 는 다른 프로젝트라 쓸 수 없다.
+
+⚠️⚠️ **`Asung-IMS` 는 「테스트 DB」가 아니라 목적지다.**
+Caleb: 「현재 운영중인 wms 는 cin7 을 바라본다. 특정 시점에 cin7 에서 우리 시스템으로 완전히 넘어오는 것이 목표다. 새로 만든 Asung-IMS 에 모든 기능이 다 들어와야 한다.」
+⇒ 「화면을 어느 DB 에 붙일까」는 애초에 갈림길이 아니었다. `Asung-IMS` 다. ⚠️ 마스터 표를 운영으로 올리는 쪽은 **방향이 반대**다.
+📌 정본 곳곳의 「테스트 DB(Asung-IMS)」와 CLAUDE.md §1 의 `[테스트 · Asung-IMS]` 라벨은 **그대로 둔다** — 「검증 환경」이라는 뜻이 아니라 **「운영 WMS 와 다른 프로젝트」를 가르는 안전 라벨**이다
+(명령이 어느 프로젝트를 치는지). 뜻은 `ims-principles.md` §1-a 「Asung-IMS 는 내일의 운영이다. 버리는 놀이터가 아니다」가 정본.
+
+### 10-f. ⬜ 다음 — IMS 로그인
+
+```
+⓪ ⚠️⚠️ 가입 닫기      Authentication → Sign In / Providers → Email 의 Enable email signups 를 끈다. ⬜ 현재 설정 미확인 —
+                      **확인 전에는 화면을 배포하지 않는다.** anon key 는 공개 레포에 들어가고 IMS 표는 전부 auth_all 이라,
+                      가입이 열려 있으면 누구든 가입해 authenticated 가 되어 다 읽고 쓴다 — 「계정이 있는 사람만」이라는 방어(10-b)가 없어진다.
+                      WMS 가 Add user 로만 20명을 만든 것과 같은 전제(asung-wms 스킬 「인증」)
+① Auth 계정          대시보드 → Authentication → Users → Add user (⭐ Auto Confirm User 켜기)
+② 사용자 표          wms_staff 에 해당하는 자리 — 마이그레이션 필요
+                      ⚠️ ①Settings 의 「사용자는 wms_staff 확장(별건)」이 가리키던 자리다. 더 미룰 수 없다
+                      ⬜ WMS 것을 베낄지 IMS 답게 다시 설계할지 미정 — 운영 wms_staff 의 information_schema 를 먼저 본다
+                         (WMS: role=worker/manager/admin · perms jsonb=split·admin·staff·apply·stock)
+③ URL·anon key       Settings → API
+④ 화면               wms-auth.js 는 복사한다(가져다 쓰면 IMS 가 WMS 파일에 매달린다 · 어차피 URL·anon key 가 달라 그대로는 못 쓴다)
+```
+
+### 10-g. 📌 머신 구분
+
+```
+회사 머신  Windows 사용자 chang · WSL caleb · 머신명 ASUNG-CALEB
+집 머신    Windows 사용자 yoonh · WSL caleb · 머신명 Jeannie
+⚠️ Downloads 경로(/mnt/c/Users/<사용자>/Downloads)와 zip 만들기에서 매번 갈린다 — 먼저 확인할 것
+```
+
+---
+
 ## 9. 경위
 
 - 2026-09-11 오전 — ① Settings 순서 확정(Caleb) · 테스트 DB 에 마스터 표 0개 확인(47개 표 전부 `inv_*`·`wms_*` ·
@@ -1794,3 +1907,6 @@ IncludeReorderLevels=true  ⭐ 먹는다 — 낱개(UOM=EA) 활성 8,668 에서 
   저녁 — **④ 적재 완료**(12,728줄 · 활성 12,721 · supplier 226→257 · is_default 11,480 · 카운터 여섯). Caleb 이 Cin7 에서 세트 셋·콤보 넷의 잘못 붙은 줄을 지웠다(`AS92082-6` FixedCost 0.95 = 낱개 값 복사).
   ⭐ **콤보에 방향이 둘**(묶는 8 · 사 오는 3 립오일)이 드러났다 — Cin7 은 AutoAssembly 15/15 true 로 뭉뚱그렸다 · 방향 칸은 ⑤ 에서(부모당 하나) · 발주 후보 규칙은 「공급처 줄이 있으면 후보 · 세트는 예외」.
   검토에서 바뀐 것: 카운터 ⑤를 세트(0 목표)·⑥ 사 오는 콤보(기대 3)로 가름 · is_default 끄기에서 manual 보호 제거 · 780 의 분해 정정(778+2). 실사고: is_default 를 켜기만 함 · 시트 경유 날짜 소멸 · 「내가 만든 라벨」을 실측으로 믿음.
+  오후 — **화면 준비 §10**: `ims.asung.ca` 신설(GoDaddy CNAME · `asungtrading/asung-ims` · Pages · HTTPS) · `wms.asung.ca` 에 올리지 않은 이유는 동료 비공개(사람 문제) · 레포는 공개 유지 —
+  ⚠️ 초안의 「private 이면 Pages 가 죽는다」는 추론을 실측처럼 적은 것이라 정정(규칙 12 의 8-19 실측이 맞다 · Visibility 만 Enterprise) · `purchasing.html` 읽고 「붙이지 않는다」 확정(GAS 브리지 재사용 각주) ·
+  검토에서 드러난 구멍: **Asung-IMS 가입이 열려 있으면 「계정 있는 사람만」 방어가 없다** → 배포 전 확인 항목. 다음은 IMS 로그인(가입 닫기 → Add user → 사용자 표).
