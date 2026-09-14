@@ -43,10 +43,10 @@
 |---|------|-------------|
 | 1 | 최상위 키는 `ProductSuppliers`, **평평한 연결 레코드 배열** (제품 안에 Suppliers 중첩 아님 — 문서와 다름) | "Nullable object must have a value" / "ProductSuppliers collection cannot be empty" |
 | 2 | `ProductSupplierID` 필수 (GET /product 응답의 Suppliers[]에 있음) | "ProductSupplierID cannot be empty" |
-| 3 | `ProductSupplierOptions` 포함 필수, **Default:true 정확히 1개** (LocationID null인 행) | "Only one Default value is allowed and required in options of product ..." |
+| 3 | `ProductSupplierOptions` 포함 필수, **Default:true 정확히 1개** (LocationID null인 행) · ⚠️ [2026-09-14 실측] **GET `/product?IncludeSuppliers=true` 의 Options[] 에는 `Default` 가 오지 않는다** — 읽은 배열에 우리가 `Default:true` 행(LocationID null)을 만들어 붙여야 한다 | "Only one Default value is allowed and required in options of product ..." |
 | 4 | `MinimumToReorder`는 **Default 옵션에만** 포함 (다른 Location 옵션에 넣으면 400) | "Only Default option ... may have MinimumToReorder attribute set" |
 | 5 | **옵션이 아예 없는 SKU 존재** (UI에서 Location 설정 안 한 제품, 실측 TSK00001) → 기본 Default 행을 생성해서 보낼 것: `{LocationID:null, Default:true, 나머지 0, ID 없이(신규)}` | 규칙 3과 동일 에러 |
-| 6 | null 값 필드(SupplierInventoryCode, SupplierProductName 등)는 payload에서 제외 — GET 응답을 통째로 되돌려보내면 실패 | "Nullable object must have a value" |
+| 6 | null 값 필드(SupplierInventoryCode, SupplierProductName 등)는 payload에서 제외 — GET 응답을 통째로 되돌려보내면 실패 · ⚠️ [2026-09-14] 실패 이유가 하나 더 — GET 에 `Default` 가 없어 규칙 3 에도 걸린다. GET 원본은 **재료**이지 payload 가 아니다 | "Nullable object must have a value" |
 | 7 | 필드 매핑: **`FixedCost` → 화면 FIXED PRICE / `Cost` → 화면 LATEST PRICE** — 독립 제어. FIXED만 바꾸려면 Cost는 GET에서 읽은 기존값 그대로 | (LATEST가 의도치 않게 덮임) |
 
 ## 안전 수칙

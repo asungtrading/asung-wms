@@ -23,7 +23,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 ① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 wms_staff 확장(별건)
 ② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §3-b**(`supplier_discount` 추가 · ~~§7-b~~ 2026-09-13 이사) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §3-c · ~~§7-c~~) — 226 / 87 / 237 / 0**
 ③ 제품             ✅ **적재 완료(2026-09-14 · §3-e · ⚠️ 테스트 DB 한정 — 운영 미적용) — 1,141 / 18,714 / 17,104 / 65** · ~~🔄 표 넷 생성 완료 · 적재 대기(2026-09-13 · §3-d)~~ · 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS `docs/probes/ImsLoadProduct.gs` · 카운터 넷 DB 재확인 0 · ⚠️ 카운터 ⑤ 활성끼리 바코드 겹침 **23**(무관 6)
-④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
+④ 제품↔공급처      🔄 **표 확정 · 마이그레이션 생성(2026-09-14 · §3-g)** — `product_supplier` 1표 · `20260914175145` 로컬 재생 통과 · 실측 12,728줄(Type=Stock) · 충돌 키 cin7_id · is_default 는 우리 칸 · ⚠️ 테스트 DB push·적재 GAS 는 다음
 ⑤ PO 본체          ⬜
 ```
 
@@ -948,6 +948,157 @@ cin7_id 유지      SKU 변경에도 유지되는지 미확인 (§7)
 
 ---
 
+## 3-g. ⭐ ④ 제품↔공급처 — `product_supplier` 표 확정 (2026-09-14 오후 · 마이그레이션 1 · 적재는 다음)
+
+**상태**: GAS `ProbeProductSupplier.gs` 로 `GET /product?IncludeSuppliers=true` 전량 18,829 를 실측하고, 설계 검토(이견 넷 · 아래 「검토에서 바뀐 것」)를
+거쳐 `20260914175145_product_supplier.sql` 을 만들었다 — 로컬 `db reset` 재생 통과. ⚠️ 테스트 DB push · 적재 GAS(`ImsLoadProductSupplier.gs`)는 다음 단계.
+⚠️ 스킬(`asung-po`)은 적재가 끝난 뒤 한 번에 고친다 — 정본에 먼저 쓰고 스킬에는 「모르면 사고가 나는 것」만.
+
+### 실측 (2026-09-14 · 전량)
+
+```
+공급처          688 = 활성 226 + 비활성 462
+제품            18,829 (Type=Stock 18,772 · 그중 활성 14,602)
+제품↔공급처 줄  ⭐ 12,728 (Type=Stock)   ⚠️ 시트 전체는 12,729 — Stock 아닌 제품의 줄 1 이 섞여 있다 (아래 경위)
+  공급처 상태별   활성 11,941 · 비활성 787 · 우리가 모르는 GUID 0
+  ⭐ 비활성을 가리키는 공급처는 31곳뿐 · 제품에 붙은 활성 공급처는 144곳 / 226
+  ⭐ 쌍 (ProductID, SupplierID) 중복 0 · ProductSupplierID 중복·빈값 0 (psp_step9_gaps)
+줄 수 분포      0줄 6,512 · 1줄 11,819 · 2줄 416 · 3줄 이상 25  (= 18,772)
+단가            FixedCost>0 8,921 · Cost>0 11,360 · ⚠️ 둘 다 0 인 줄 1,232 · 소수 일곱 자리(Cost 1.3991666 · FixedCost 1.3991667)
+통화            CAD 1,584 · USD 11,144 · ⭐ 공급처 기본통화와 어긋난 줄 0 · KRW 없음
+채움            공급처SKU 6,981 · LastSupplied 빈 줄 99
+                SupplierProductName 0 · SupplierProductURL 0 · DropShip 0 · IncludeInPricing=false 0
+창고별 옵션     10,637 줄에 4개씩 달려 있으나 ⭐ Lead·Safety·ReorderQuantity 전량 0 (MinimumToReorder 만 2줄) — Cin7 에서 쓰지 않는 칸
+```
+⭐ **「기본 공급처」 표시가 Cin7 응답에 없다** — `Suppliers[]`·`ProductSupplierOptions[]` 어디에도 Default·Primary 류 칸이 없다.
+⭐ 문서에 없던 칸 둘 — `Suppliers[].IncludeInPricing` · `ProductSupplierOptions[].LocationName`(`cin7-api` 정정).
+⚠️ **`ProductSupplierOptions[]` 에 `Default` 가 오지 않는다.** 그런데 `PUT /product-suppliers` 규칙 3은 「`Default:true` 정확히 1개」를 요구한다
+⇒ GET 을 그대로 되돌려보내면 반드시 실패한다. ⑤ 에서 우리가 만들어 붙인다(`product-suppliers-write.md` 규칙 3·6).
+
+**⚠️ 12,729 → 12,728 경위** — 검토에서 「상태별 11,941+787 · 통화별 1,584+11,144 가 둘 다 12,728 인데 총계는 12,729 — 한 줄 빈다」가 나왔다.
+빈 줄은 없었다. **보고서가 두 모집단을 섞어 찍은 것**이다 — 12,729 는 시트 전체 행(Stock 아닌 제품의 줄 포함), 상태별·통화별은 Type=Stock 만 센 수.
+⇒ 정본은 12,728(Type=Stock). 📌 같은 표에서 나온 숫자라도 **어느 모집단을 센 것인지**를 먼저 맞춘다(§3-d 「14,677 은 활성만」과 같은 부류).
+
+### ⭐ 판단 (Caleb 확정 2026-09-14)
+
+**① 비활성 공급처 줄도 담는다 — 표 범위는 226 + 31 = 257**
+- 비활성 공급처 = 「지금도 앞으로도 구매하지 않을 곳」. 그래도 줄은 담는다 — 「이 제품을 예전에 어디서 샀나」는 Cin7 이 지우면 복원할 수 없다(원칙 1).
+  발주 후보에서 빼는 일은 **읽는 쪽이 `supplier.is_active` 를 걸어서** 한다(§3-f 와 같은 모양).
+- ⚠️⚠️ 688 전부를 담지 않는다 — 비활성 462 의 대부분은 경비 지출처(§7-a 의 경계 · QBO 영역).
+- ⭐ 「31곳」을 목록으로 박지 않는다 — 적재가 스스로 판정한다:
+  ```
+  ① 제품 전량을 IncludeSuppliers 로 훑어 등장한 SupplierID 를 모은다
+  ② 그중 supplier 표에 없는 것을 넣는다 (is_active=false · is_purchasable null · 이번 실측 31곳)
+     ⚠️ Suppliers[] 에는 SupplierID·SupplierName 만 온다 — supplier 의 NOT NULL 칸(payment_term_name · account_payable_code)은
+        GET /supplier?IncludeDeprecated=true 전량 688 을 함께 받아 채운다 (검토에서 추가)
+  ③ 그다음에 product_supplier 줄을 넣는다 — FK 가 전부 붙는다
+  ```
+  ⚠️ ②가 ③보다 먼저다(③ 제품의 `imsLinkProductSets` 순서 의존과 같은 모양). 32번째가 생겨도 다음 적재가 알아서 데려온다.
+- 이렇게 들어온 31곳은 「제품에 붙어 있어서」 들어온 것이지 「발주처라서」가 아니다 — `is_purchasable` 은 null(Caleb 의 226곳 전수 판정이 여기엔 없다).
+
+**② ④ 는 낱개에만 붙는다 — 「발주는 낱개 단위로 한다」**
+```
+세트(parent_product_id 있음)   부모의 공급처·단가를 pack_factor 로 환산해 발주
+콤보(product_bom 의 부모)      ⭐ 사지 않는다 — 낱개로 사서 우리가 묶는다(AutoAssembly=true)
+낱개                            ④ 가 붙는 자리
+```
+세트·콤보에 줄이 없는 것은 결함이 아니다 — 이유가 다를 뿐 둘 다 정상. ⭐ **⑤ 발주 화면 규칙**: 콤보를 발주 후보에 올리지 않는다 — 콤보 재고가 필요하면 구성품 발주로 푼다.
+⚠️ [실측] 세트 5,805 중 공급처 줄이 붙은 것 3 — `AS92082-6`·`CRO71964-6`·`EBI68634-6`. **적재는 거르지 않고 넣는다(적재 예정)**(원칙 1 · 거르면 원문이 사라진다) —
+카운터 ⑤ 로 세고 Caleb 이 Cin7 에서 확인한다(§7 ③ 미확인 목록 옆). 고치면 다음 적재에 §3-f 규칙으로 비활성이 된다.
+
+**③ 「공급처 줄이 0」의 뜻이 넷 — 카운터는 마지막 하나뿐**
+```
+세트     부모가 갖고 있다              정상
+콤보     사지 않는다                   정상 (실측 8 — DP 7 + AS-DSPLY)
+선주문   살 곳은 있는데 아직 안 샀다   ⭐ 정상 · 사람이 미리 공급처를 적어 둘 수 있어야 한다 (실물: Custom Reusable Bag 25 — 선주문받아 사입)
+진짜     살 곳을 모른다                ⚠️ 채워야 할 목록 (카운터 ④)
+```
+⚠️ 셋째와 넷째는 데이터로 구별되지 않는다 — 둘 다 줄이 없고 `LastSupplied` 도 없다.
+⇒ 사람이 적은 줄은 `source='manual'` 로 들어오고 재적재가 지우지 않는다(§3-f). ⇒ **단가 없는 연결을 허용한다** — Cin7 에도 둘 다 0 인 줄이 1,232 있다.
+
+**④ 기본 공급처는 우리 칸(`is_default`)으로 만든다**
+```
+후보            ⭐ supplier.is_active=true 인 줄만 (검토에서 추가 — 787줄이 비활성을 가리킨다 · 가장 최근이 비활성이면 「앞으로도 안 살 곳」이 기본이 된다)
+줄이 하나면      그것이 기본
+둘 이상이면      last_supplied 가 가장 최근인 것
+가릴 수 없으면   비워 두고 센다 (카운터 ② · 화면에서 사람이 고른다) · 활성 줄이 없어도 같다
+is_discontinued  기본 계산에 안 쓴다 — 화면 경고로만
+```
+⭐ **바뀔 때 누가 이기나 — `source` 로 가른다.** 그 제품에 `source='manual'` 줄이 하나라도 있으면 재적재가 `is_default` 를 다시 계산하지 않는다.
+사람이 손대지 않은 제품만 `last_supplied` 기준으로 갱신한다(②의 `is_purchasable` 을 Cin7 재동기화가 못 덮게 한 것과 같은 장치).
+❌ `product.default_supplier_id` FK 대안은 채택하지 않았다 — 제품당 하나가 구조로 보장되지만 `product` 를 ALTER 하면 **③ 이 ④ 의 사정을 알게 된다**(원칙 2). `is_primary` 선례와 맞춘다.
+
+### 표 — `product_supplier` (`20260914175145`)
+
+⚠️ `ref_` 를 붙이지 않는다(§3-b · 관계 표). 칸 순서는 `product_barcode` 선례대로 공통 7칸 먼저.
+```
+공통 7칸       id · cin7_id(unique) · is_active · source · note · created_at · updated_at   — name 없음(관계 표 · §5 예외)
+product_id     not null → product(id)    on delete no action
+supplier_id    not null → supplier(id)   on delete no action
+supplier_sku   SupplierInventoryCode
+cost           numeric(18,7)  Cost · 최근 매입가(LATEST PRICE)     ⚠️ Cin7 의 「없음」은 0 — 0 은 0 으로 둔다(원문) · manual 줄의 없음은 null
+fixed_cost     numeric(18,7)  FixedCost · 합의 고정가(FIXED PRICE)  읽는 쪽 폴백 fixed_cost>0 → cost>0 → 없음 이 둘을 같은 「없음」으로 읽는다
+currency_id    → ref_currency(id) nullable   오늘 CAD·USD 만이지만 「오늘의 사실이지 규칙이 아니다」 · 못 이은 줄은 null 로 넣고 센다
+last_supplied  date   Cin7 이 T00:00:00 시간대 없이 준다 (시간대 미판정 · registered_on 과 같다)
+is_default     boolean not null default false   ⭐ 우리 칸
+unique (product_id, supplier_id)   ⭐ 12,728 줄 실측 중복 0 위에 건다 — 「같은 쌍 두 줄 금지」는 우리 규칙
+CHECK product_supplier_source_ck · 인덱스 셋 product_supplier_{product_id,supplier_id,currency_id}_idx · 트리거 set_updated_at() 재사용 · auth_all · revoke anon · revoke truncate(DELETE 는 연다)
+```
+
+**⭐ 충돌 키는 `cin7_id`(ProductSupplierID) — 그리고 승격 규칙** (검토에서 바뀐 것 · 아래)
+```
+충돌 키          cin7_id — Cin7 이 유니크를 보장 · ⑤ PUT /product-suppliers 의 필수 열쇠(없으면 단가를 Cin7 에 못 쓴다)
+승격             사람이 먼저 적은 manual 줄(cin7_id null)과 같은 (product_id, supplier_id) 가 Cin7 에 나타나면
+                 새 행을 만들지 않고 그 행에 cin7_id·단가를 PATCH 로 채운다 · source 는 manual 유지(사람이 만든 줄이라는 사실은 남긴다)
+                 ⚠️ 이 규칙이 없으면 선주문 시나리오(③)가 (product_id, supplier_id) 유니크에 걸려 배치가 실패한다
+재적재 갱신 대상  「source='cin7'」이 아니라 「cin7_id 가 있는 줄」 — §3-f 의 2) (안 들어온 줄 is_active=false)도 같은 기준
+못 이은 줄        supplier_id·product_id 를 못 찾으면 넣지 않고 센다 — 오늘 0(우리가 모르는 GUID 0)이어도 장치는 둔다
+```
+공통 8칸에서 벗어나는 곳은 의도된 것 — `name` 없음(관계 표) · `cin7_id` 가 보조가 아니라 열쇠(⑤ PUT) · DELETE 개방(관계 표 관례 · TRUNCATE 는 막는다).
+⚠️⚠️ **부분 유니크 인덱스 금지** — `is_default` 가 제품당 하나임을 인덱스로 강제하지 마라(WMS 규칙 29). 카운터 ①로 센다.
+
+### 담지 않는 것 — 「봤고 비어 있어서 뺀다」
+```
+ProductSupplierOptions 전체   창고별 Lead·Safety·ReorderQuantity 전량 0 (10,637줄 × 4) — 제품 × 공급처 × 창고 축은 지금 만들지 않는다 · 필요해지면 다시 긁어온다(마스터는 소급이 된다)
+SupplierProductName · URL     0곳
+DropShip                      0곳
+IncludeInPricing              false 가 0곳 (전부 true)
+PurchaseCost                  FixedCost 와 같은 값
+Currency 문자열               공급처 기본통화와 어긋난 줄 0 ⇒ 공급처에서 따라온다 · ⚠️ 단 currency_id 는 둔다
+```
+
+### 카운터 다섯 (적재 뒤 SQL · 평상시 0 이 목표)
+```
+① is_default 가 둘 이상인 제품                  부분 유니크를 못 거는 대신 센다
+② is_default 를 못 정한 제품 (줄은 있는데)      last_supplied 로 못 가린 것 · 활성 줄이 없는 것 · 화면에서 사람이 고른다
+③ 단가가 둘 다 0(또는 null)인 줄                실측 1,232 — 발주 단가 폴백이 비는 자리
+④ 활성 낱개인데 줄이 0                          ⚠️ 세트·콤보·선주문(manual 줄 있음)을 뺀 뒤의 수 (거르기 전 34 · 콤보 8 확인됨)
+⑤ 세트·콤보에 붙은 줄                          실측 3 — 거르지 않고 넣는다 · Caleb 확인
+```
+
+### ⚠️ 검토에서 바뀐 것 — 초안 대비 (2026-09-14 · 「그대로 만들어라」가 아니었다)
+```
+✅ 충돌 키 cin7_id + 승격 규칙          초안은 (product_id, supplier_id) 유니크만 있고 쌍 유니크 실측·manual 승격 경로가 없었다 → 실측 후 유니크 유지 · 승격 규칙 추가
+✅ is_default 후보 = 활성 공급처         초안은 last_supplied 만 봤다 — 비활성이 기본이 될 수 있었다
+✅ 12,729 → 12,728                       두 모집단이 섞인 숫자 — 위 경위
+✅ ② 단계에 GET /supplier 전량 명시      Suppliers[] 만으로는 supplier 의 NOT NULL 칸을 못 채운다
+✅ 세트 3건은 거르지 않고 넣는다          카운터 ⑤ 신설
+✅ 단가 0 은 0 으로                       Cin7 원문 · manual 은 null · 폴백이 둘 다 「없음」
+❌ product.default_supplier_id 대안       채택 안 함 — 원칙 2
+📌 KRW 없음(전수 CAD·USD) · currency_id nullable 은 그대로
+```
+
+### ⬜ 다음
+```
+적재 GAS   ImsLoadProductSupplier.gs — ①②③ 순서 · ims_fetch_·ipr_upsert_ 재사용 · 승격 PATCH · 못 이은 줄 카운트
+           ⚠️ 원자료가 이미 시트에 있다(psp_line 시트 12,729행 · 그중 Type=Stock 12,728) — Cin7 을 다시 훑을 필요가 없을 수 있다
+SQL 검증   카운터 다섯
+화면 ⓐ     마스터 조회·편집 — 시트로 우회하던 것들(supplier_discount 0행 · is_purchasable · 새 바코드 · ref_bin.zone)과
+           오늘 생긴 것(기본 공급처 지정 · 선주문 제품의 공급처). ⚠️ 먼저 asungtrading/tools/purchasing.html 을 읽어라 — 붙이는 일일 수 있다
+```
+
+---
+
 ## 4. ⚠️ 판단이 갈린 곳 — 「왜 표마다 다른가」
 
 ⭐ **이 절이 이 문서의 핵심이다.** 적어 두지 않으면 다음 사람이 결함으로 본다.
@@ -1121,6 +1272,7 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
   CON00134              부모 없는 대체 UPC · 비활성 (BOM 이 없어 흡수되지 않았다)
   대체 UPC 중 바코드 없는 5건   AIA03530 · AIA03534 · DEX30160 · DMI00077 · SIS00510 — 줄이 안 생겼다
   ⚠️ 한 바코드를 활성 제품 둘 이상이 쓰는 23 (~~38~~ → 전체 42 · 09-14 오후 정정) — 무관 6 · 색상 변형 12 · 세트·낱개 5 — 카운터 ⑤ · §3-e
+  세트인데 공급처 줄이 붙은 3건   AS92082-6 · CRO71964-6 · EBI68634-6 — ④ 는 낱개에만 붙는다(§3-g) · 거르지 않고 넣는다(§3-g) · Cin7 에서 확인
   ⬜ 활성 1 + 비활성 13 — 지금은 문제가 아니지만 그 비활성 SKU 를 되살리면 활성끼리로 올라온다 · 카운터에 넣지 않고 여기 남긴다
   ```
   ✅ 재적재 방식은 정했다 — **넷이 한 규칙**(upsert + 안 들어온 cin7 행은 is_active=false · §3-f). ⬜ 읽는 쪽(스캔 화면 · 카운터 ⑤ · is_primary 카운터)이 `is_active` 를 걸어야 한다.
@@ -1504,3 +1656,5 @@ IncludeReorderLevels=true  ⭐ 먹는다 — 낱개(UOM=EA) 활성 8,668 에서 
   `asung-wms` 규칙 45·46 신설(PostgREST 함정 — 규칙 29·20 계열이라 그쪽) · `asung-po` ③ 갱신 · `cin7-api` `GET /product?Sku=` 실측 · 스크립트 사본 `docs/probes/ImsLoadProduct.gs`. 운영 DB 적용은 아직.
   오후 — 바코드 중복 38 은 대체 UPC 적재 **전**의 수였다 → 전체 42 · ⭐ **활성끼리 23 이 카운터 ⑤**(무관 6 · 색상 12 · 세트 5 · Caleb 지적) · `asung-po` 스킬 15,174 → 14,000 바이트 아래로 감축(숫자·칸 목록은 정본으로) · §7 에 「Cin7 SKU 변경 시 충돌 키」 메모.
   오후 — **재적재 방식 §3-f**: 초안 「바코드·BOM 은 source=cin7 지우고 다시」가 `valid_from`·`note` 주석과 충돌(검토 지적)해 폐기 → **넷이 한 규칙**(upsert + 안 들어온 cin7 행 is_active=false · 되살아남은 upsert 가 저절로). §3-c 「사라진 행 감지」도 ⓒ 로 닫고 §3-f 를 가리킨다. SKU 변경 항목은 발동 조건 없음(Caleb · 남은 정리는 바코드뿐).
+  오후 — **④ 제품↔공급처 §3-g**: `ProbeProductSupplier.gs` 전량 실측(12,728줄 · 비활성 공급처 31곳 · 기본 공급처 표시 없음) · 설계 검토에서 넷이 바뀌었다(충돌 키 cin7_id + manual 승격 · is_default 후보는 활성만 · 12,729 는 두 모집단 혼합 · ② 단계에 GET /supplier 전량) ·
+  `20260914175145_product_supplier.sql` 로컬 재생 통과. `cin7-api` Suppliers 절 정정(IncludeInPricing · LocationName · Default 없음 · IncludeSuppliers Limit 1000). 적재는 다음.

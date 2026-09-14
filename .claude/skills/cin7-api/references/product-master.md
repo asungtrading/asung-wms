@@ -80,10 +80,21 @@
     "SupplierInventoryCode": null,
     "SupplierProductName": null,
     "SupplierProductURL": null,
-    "ProductSupplierOptions": []  // Location별 Lead/Safety/Reorder 설정
+    "IncludeInPricing": true,   // ⭐ [2026-09-14 실측 추가] 전량에 있다 · false 0 (2026-09-14 실측)
+    "ProductSupplierOptions": [ // Location별 Lead/Safety/Reorder 설정 — ⚠️ 아래 정정
+      { "ID": "guid", "LocationID": "guid", "LocationName": "Toronto Warehouse",   // ⭐ [2026-09-14] LocationName 도 온다
+        "ReorderQuantity": 0, "Lead": 0, "Safety": 0, "MinimumToReorder": 0, "SupplyIntervals": [] }
+    ]
   }
 ]
 ```
+⭐ **[2026-09-14 전량 실측 — IMS ④ · 정본 `po-module.md` §3-g]** Type=Stock 줄 12,728.
+- ⚠️⚠️ **`ProductSupplierOptions[]` 에 `Default` 가 GET 응답에 오지 않는다.** `PUT /product-suppliers` 규칙 3은 `Default:true` 정확히 1개를 요구하므로
+  **GET 을 그대로 되돌려보내면 반드시 실패한다** — 우리가 만들어 붙여야 한다(`product-suppliers-write.md` 규칙 3·6).
+- ⭐ **「기본 공급처」 표시가 응답 어디에도 없다**(Suppliers[] · Options[] 모두 Default·Primary 류 칸 없음) — IMS 는 우리 칸 `is_default` 로 만든다.
+- 창고별 옵션은 10,637줄에 4개씩 달려 있으나 Lead·Safety·ReorderQuantity **전량 0**(MinimumToReorder 만 2줄) — Cin7 에서 쓰지 않는 칸.
+- 채움: Cost>0 11,360 · FixedCost>0 8,921 · 둘 다 0 1,232 · 소수 **일곱 자리**(1.3991666) · SupplierInventoryCode 6,981 · LastSupplied 빈 99 ·
+  SupplierProductName·URL·DropShip 0 · Currency CAD 1,584 · USD 11,144(공급처 기본통화와 어긋남 0) · SupplierID 가 비활성 공급처 787줄(31곳) · 모르는 GUID 0.
 
 **발주 단가로 쓸 때 폴백:** `FixedCost`(>0) → `Cost`(>0) → 없음(0 처리 + 사람 확인).
 DRAFT PO 생성 시 이 값을 라인 Price로 넣음 (Cin7은 API 생성 시 가격 자동채움 안 함 —
@@ -188,7 +199,8 @@ BQ `asung_product_master` 에 `supplier_name`·`supplier_sku`·`cost_price` 를 
 ```
 Total    IncludeDeprecated=false 14,677 · =true 18,829 (비활성 4,152)   ⚠️ 기본값은 활성만이다
 Limit    ⭐ 1000 먹는다 (19페이지 · 1분 47초) — 함정 16(기본 100)
-         ⚠️⚠️ IncludeBOM=true 를 켜면 Limit=500 이 실효 상한 (1000 을 보내도 안 온다 · 38페이지 · 2분 42초 · 적재 스크립트 IPR_LIMIT=500 이 그 때문)
+         ⚠️⚠️ IncludeBOM=true 를 켜면 Limit=500 이 실효 상한 (1000 을 보내도 안 온다 · 38페이지 · 2분 42초 · 적재 스크립트 IPR_LIMIT=500 이 그 때문 · 2026-09-14 재확인)
+         ⭐ IncludeSuppliers=true 는 1000 이 먹는다 (2026-09-14 실측 · 19페이지 · 107초) — 500 상한은 BOM 만이다
 Sku      ⭐ 먹는다 (2026-09-14 실측 · GET /product?Sku=AS91437-BLK → 그 한 건 · IMS ③ 적재의 imsLoadProductExtra 가 쓴다)
 칸       83 (모든 행에 다 있다)
 Type     Stock 18,772 · Service 53 · Non Inventory 4 (함정 17 — 공백)
