@@ -11,7 +11,7 @@
 | `Limit` | number | 기본값 100 |
 | `ID` | Guid | 특정 Product ID 조회 |
 | `Name` | string | 제품명 포함 검색 (contains) |
-| `Sku` | string | SKU 포함 검색 (contains) |
+| `Sku` | string | SKU 포함 검색 (contains) · ⭐ **먹는다**(2026-09-14 실측 — `?Sku=AS91437-BLK` 가 그 한 건을 정확히 돌려줬다 · 문서상 contains 이므로 정확 일치는 받은 뒤 SKU 로 걸러라) |
 | `ModifiedSince` | DateTime | 이 날짜 이후 수정된 제품 (UTC ISO 8601) |
 | `IncludeDeprecated` | bool | 비활성 포함 여부 (기본값 false) |
 | `IncludeBOM` | bool | Bill of Materials 포함 (기본값 false) |
@@ -188,7 +188,8 @@ BQ `asung_product_master` 에 `supplier_name`·`supplier_sku`·`cost_price` 를 
 ```
 Total    IncludeDeprecated=false 14,677 · =true 18,829 (비활성 4,152)   ⚠️ 기본값은 활성만이다
 Limit    ⭐ 1000 먹는다 (19페이지 · 1분 47초) — 함정 16(기본 100)
-         ⚠️⚠️ IncludeBOM=true 를 켜면 Limit=500 이 실효 상한 (1000 을 보내도 안 온다 · 38페이지 · 2분 42초)
+         ⚠️⚠️ IncludeBOM=true 를 켜면 Limit=500 이 실효 상한 (1000 을 보내도 안 온다 · 38페이지 · 2분 42초 · 적재 스크립트 IPR_LIMIT=500 이 그 때문)
+Sku      ⭐ 먹는다 (2026-09-14 실측 · GET /product?Sku=AS91437-BLK → 그 한 건 · IMS ③ 적재의 imsLoadProductExtra 가 쓴다)
 칸       83 (모든 행에 다 있다)
 Type     Stock 18,772 · Service 53 · Non Inventory 4 (함정 17 — 공백)
 SKU      중복 0 · 빈값 0 · 앞뒤공백 0   Name 576종 중복   Barcode 48종 중복

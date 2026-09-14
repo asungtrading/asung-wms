@@ -22,7 +22,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 ```
 ① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 wms_staff 확장(별건)
 ② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §3-b**(`supplier_discount` 추가 · ~~§7-b~~ 2026-09-13 이사) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §3-c · ~~§7-c~~) — 226 / 87 / 237 / 0**
-③ 제품             🔄 **표 넷 생성 완료 · 적재 대기**(2026-09-13 · §3-d) — 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` 로컬 재생 통과 · ⚠️ 테스트 DB push 는 Caleb · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS 는 다음 단계
+③ 제품             ✅ **적재 완료(2026-09-14 · §3-e · ⚠️ 테스트 DB 한정 — 운영 미적용) — 1,141 / 18,714 / 17,104 / 65** · ~~🔄 표 넷 생성 완료 · 적재 대기(2026-09-13 · §3-d)~~ · 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS `docs/probes/ImsLoadProduct.gs` · 카운터 넷 DB 재확인 0 · ⚠️ 카운터 ⑤ 활성끼리 바코드 겹침 **23**(무관 6)
 ④ 제품↔공급처      ⬜ 공급처 SKU · 단가 · Fixed Price
 ⑤ PO 본체          ⬜
 ```
@@ -475,7 +475,7 @@ supplier_discount 채우기   실무 지식 — 어느 공급사가 어떤 할�
 **상태**: 2026-09-13 GAS 프로브로 `GET /product?IncludeDeprecated=true` 전량 18,829(83칸) · `GET /productFamily`
 전량 1,141 을 실측하고 설계를 검토했다(1차). 검토에서 미결로 남긴 셋(`pack_factor` 정본 · `parent_product_id` 출처 · 재주문점)을
 **2차 실측(`ProbeProductBom.gs` · `IncludeBOM=true` 전량)으로 결판내고 마이그레이션 넷을 만들었다** — 로컬 `db reset` 재생 통과.
-⚠️ 테스트 DB 적용(`supabase db push --db-url "$(cat ~/.asung-testdb-url)"`)과 적재 GAS 는 다음 단계. 숫자 중 ⬜ 는 **미측정**이다. 지어내지 않는다.
+~~⚠️ 테스트 DB 적용(`supabase db push --db-url "$(cat ~/.asung-testdb-url)"`)과 적재 GAS 는 다음 단계.~~ [2026-09-14 완료 — **§3-e**]. 숫자 중 ⬜ 는 **미측정**이다. 지어내지 않는다.
 1차 사료: `~/asung/prompts/ims-product-claude-code-prompt.md` · 검토 회신 `ims-product-reply-prompt.md` · 2차 `ims-product-reply2-prompt.md`.
 
 ### 모집단 정정 ⚠️⚠️
@@ -668,6 +668,190 @@ Registered On 시간대            CreatedDate 에 Z 가 없어 미판정
 
 ---
 
+## 3-e. ③ 제품 표 넷 적재 완료 (2026-09-14 토론토 오전 · 테스트 DB)
+
+**[테스트 · Asung-IMS]** `fazgmyvzzhqybtvtktyg` · 마이그레이션 넷(`20260913225935`·`230500`·`230600`·`230700`) `db push` 적용 후 전량 적재.
+**합계 36,924행.** ⚠️ 운영 DB(asung-WMS)에는 없다 — `ref_` 여덟·② 넷과 같이 테스트 한정(§2 승격 기준).
+②가 §3-b(표 확정) → §3-c(적재 완료)로 나뉜 것과 같은 모양 — 설계는 §3-d, 이 절은 결과와 사고 기록이다.
+
+### 행 수 — SQL 실물 · 적재 후 재조회
+
+| 표 | 마이그레이션 | 행 | 비고 |
+|---|---|---|---|
+| `product_family` | `20260913225935` | **1,141** | FK 셋 전부 1,141 연결 · `not_fam` 0 |
+| `product` | `20260913230500` | **18,714** | `Type=Stock` 18,713 + `AS91437-BLK` 1 |
+| `product_barcode` | `20260913230600` | **17,104** | primary 17,054 + 대체 UPC 50 |
+| `product_bom` | `20260913230700` | **65** | 콤보 15건의 구성품 줄 |
+
+### `product` 속살
+```
+활성                 14,575   (전량 활성 14,677 중 걸러진 116 안에 102 가 있었다)
+family_id             4,884   ⭐ 09-13 실측과 정확히 일치
+is_discontinued       4,660   (전량 4,662 중 둘이 걸러진 116 안에 있었다)
+registered_on           612   ⭐ 실측과 일치
+parent_product_id     6,347   ⭐ pack_factor 와 같은 수 — 짝이 안 맞는 행 0
+cin7_type ≠ Stock         1   AS91437-BLK
+note 있는 행              1   같은 행
+```
+
+### 거르기 — 18,829 → 18,713
+```
+Type ≠ Stock                              57 제외   (Service 53 · Non Inventory 4 — §7 「담을 자리」 미결)
+UOM = EA-ALT-UPC  그리고  BOM Quantity = 1   59 제외   → product_barcode 로 흡수
+= 18,713  (+ AS91437-BLK 1건 = 18,714)
+```
+⭐ **`EA-ALT-UPC` 셋이 `product` 에 남았다** — 「UOM 만으로」 걸렀다면 사라졌을 것들이다(§3-d 「담는 범위」의 **그리고** 조건이 한 일).
+
+| SKU | 상태 | BOM | 왜 남았나 |
+|---|---|---|---|
+| `SIS00522-6` | 활성 | ×6 | 대체 UPC 가 아니라 **세트일 수 있다** ⬜ Caleb 이 Cin7 에서 확인 |
+| `AJA69215-EA-ALT-UPC` | 비활성 | ×12 | 같은 부류 ⬜ |
+| `CON00134` | 비활성 | 없음 | BOM 이 없어 흡수 조건에 안 걸렸다 |
+
+### ⭐ 오타 탐지기 — DB 에서 재확인, 넷 다 0
+
+09-13 에는 GAS 덤프에서 셌다(§3-d 카운터 넷). 이번엔 **적재된 표에서 SQL 로** 다시 셌다 — 같은 값이 다른 경로에서 나왔다.
+
+| 카운터 | 값 |
+|---|---|
+| 세트인데 부모가 우리 표에 없음(고아) | 0 |
+| ⚠️ `uom_name`(숫자) ≠ `pack_factor` | **0** ← 09-13 에 `AIA00207-6`·`ORS12208-6` 를 고친 결과 |
+| 부모가 자기 자신 | 0 |
+| 부모는 있는데 `pack_factor` 없음 | 0 |
+| `product_barcode`·`product_bom` 고아(product_id · parent · component) | 0 · 0 · 0 |
+
+⭐ 실물 검산 — `AS92080` 부류(§3-d 「넷은 배타적이지 않다」의 예시)가 설계대로 갈렸다.
+```
+AS92080     EA   부모 없음 · family AS92082FAM
+AS92080-6   6    부모 AS92080 · pack_factor 6 · family 없음
+```
+
+### 대체 UPC 59 의 처분
+```
+넣은 줄                50
+⚠️ 바코드 없음           5   AIA03530 · AIA03534 · DEX30160 · DMI00077 · SIS00510 (전부 …-EA-ALT-UPC — 바코드용 SKU 인데 바코드가 없다)
+⚠️ 부모가 이미 보유       4   ADA96563 · AMB23411 · AMB46405 · SUN31502 (같은 값이라 새 정보가 없다 · 줄을 만들지 않는다)
+⚠️ 부모 못 찾음           0
+```
+📌 09-13 에 62건을 셀 때 나온 「바코드 없음 7 · 부모와 같음 12」와 다르다. 그때는 `product` 에 남은 셋과 `CON00134` 까지
+포함한 수였고, 흡수 대상 59 만 보면 5 와 4 다.
+
+### ⚠️ 한 바코드를 여러 제품이 쓰는 것 — ~~38~~ 42 · ⭐ 카운터는 활성끼리 **23** (2026-09-14 오후 정정)
+
+```
+48   09-13 GAS 덤프 실측 (대체 UPC 포함)
+38   바코드 로더가 센 수 — ⚠️ 대체 UPC 50줄을 넣기 **전**의 수였다 (오전 기록 · 경위로 남긴다)
+42   대체 UPC 50줄이 들어간 뒤 · SQL 실물
+```
+
+**⭐ 활성/비활성을 갈랐다** (Caleb 2026-09-14) — 겹치는 쪽이 비활성이면 스캔될 일이 없어 문제가 아니다.
+
+| 구분 | 건 | 뜻 |
+|---|---|---|
+| ⚠️ **활성끼리 겹침** | **23** | 스캔이 어느 쪽인지 못 가른다 — **진짜 문제** · 이것이 카운터 ⑤ |
+| 활성 1 + 비활성 | 13 | 스캔되는 건 하나뿐 · ⬜ 버리지 않는다 — 그 비활성을 되살리는 순간 활성끼리로 올라간다(§7) |
+| 전부 비활성 | 6 | 스캔될 일 없음 |
+
+⚠️ **카운터는 42 가 아니라 23 이다.** 42 로 두면 고칠 수 없는 과거(비활성)가 섞여 **평상시 0 이 영원히 안 된다** — 「0 이어야 신호가 산다」(§3-d 카운터 넷)를 깬다.
+
+**활성끼리 23 의 성격 — 셋으로 갈린다**
+
+| 부류 | 건 | 무엇 |
+|---|---|---|
+| ⚠️⚠️ **무관한 제품** | **6** | 서로 다른 물건이 같은 바코드 — **WMS 가 잘못 집는다** · Caleb 이 Cin7 에서 고친다 |
+| 색상·향 변형 | 12 | 같은 제품의 색상별인데 바코드가 하나 · ⬜ 아래 |
+| 세트·낱개 | 5 | 같은 물건의 다른 포장 — 정상일 수 있다 |
+
+무관한 제품 6건:
+```
+10815680003022  UNCLE JIMMY 비어드소프너 · 록홀드 · 몰딩퍼티   ⚠️ 활성 3종이 한 바코드
+10743690086431  HAWAIIAN SILKY 릴랙서 ↔ WONDER GRO 스타일링젤  ⚠️ 다른 브랜드
+074108470508    BABYLISS 포일셰이버 ↔ 메탈트리머               고가 제품
+021959611703    HAIR CHEMIST 샴푸 ↔ 컨디셔너
+10705372000500  ANNIE 스타일링픽 ↔ 커팅콤
+30796708310176  KCA31017-12(Moisturizing Health…) ↔ KCA33081-12(Moisturizing Curl…)
+```
+📌 색상 변형 12 는 **고칠 것이 아닐 수도 있다** — 공급사가 색상 구분 없이 한 바코드로 찍어 보냈다면 Cin7 이 맞다.
+그때는 「이 제품군은 스캔으로 색상을 못 가른다」를 아는 것이 답이다. ⬜ 12건이 어느 쪽인지는 Caleb 이 Cin7 수정 때 함께 본다.
+
+재현 쿼리 — 활성끼리 겹치는 것만(이것이 카운터):
+```sql
+-- [테스트 · Asung-IMS]
+with act as (
+  select b.barcode, p.sku, p.name
+  from public.product_barcode b
+  join public.product p on p.id = b.product_id
+  where p.is_active
+)
+select barcode, count(*) as active_cnt,
+       string_agg(sku, ' · ' order by sku) as skus,
+       string_agg(left(name, 45), ' | ' order by sku) as names
+from act group by barcode having count(*) > 1
+order by count(*) desc, barcode;
+```
+
+### 📌 적재 스크립트 — `docs/probes/ImsLoadProduct.gs`
+
+`ImsRefLoad.gs`·`SupplierProbe.gs` 선례대로 레포에 사본을 둔다(원본은 GAS `gas-system-automation` · 레포에서 실행되지 않는다).
+`ims_fetch_`·`ims_blank_`·`ims_cin7All_`(`ImsLoad.gs`)를 쓴다 — **다시 만들지 마라.** 함수마다 `[Apply]` 없는 쪽이 dry-run 이다.
+
+| 함수 | 하는 일 |
+|---|---|
+| `imsLoadProductFamily[Apply]` | 제품군 1,141 |
+| `imsLoadProduct[Apply]` | 본체 · 페이지마다 upsert · 커서 `IPR_PRODUCT_PAGE`(Script Property · `imsLoadProductReset` 이 지운다) |
+| `imsLoadProductExtra[Apply]` | ⭐ `AS91437-BLK` 한 건 — 규칙 밖(Non Inventory · 실물은 자재)이라 별도 함수 |
+| `imsLinkProductSets[Apply]` | 2단계 · `parent_product_id`·`pack_factor` 를 **PATCH** · 링크 목록을 `_set_links` 시트에 저장 |
+| `imsLinkProductSetsResume` | ⭐ 이어받기 전용 — Cin7 을 안 훑고 시트만 읽는다 |
+| `imsLoadProductBarcode[Apply]` | primary 17,054 · 커서 `IPR_BARCODE_PAGE` |
+| `imsLoadProductAltUpc[Apply]` | ⚠️ 바코드 적재 **뒤에** — 부모 보유 여부를 `product_barcode` 에서 읽어 비교 |
+| `imsLoadProductBom[Apply]` | 콤보 65줄 |
+
+⚠️ **순서 의존이 둘이다.**
+```
+imsLinkProductSets    는 imsLoadProduct         뒤 — 낱개가 다 있어야 자기참조 FK 가 이어진다
+imsLoadProductAltUpc  는 imsLoadProductBarcode  뒤 — 부모의 바코드 줄이 있어야 「이미 보유」 비교가 된다
+```
+`IPR_LIMIT=500`(BOM 을 켜면 1000 이 안 온다 · §8) · `IPR_MAX_RUN` 4분 30초(GAS 6분 한도 안에서 커서를 남기고 ⏸) ·
+대응표는 Range 페이징으로 읽는다(`product_family` 1,141 은 1,000행 캡을 넘는다 — §7).
+
+### ⚠️⚠️ 오늘 겪은 것 셋 — 뿌리가 같다: 요청 하나하나의 비용을 계산하지 않았다
+
+**① upsert 로 부분 갱신을 하려다 400** — `product` 18,714행 · 스킬 `asung-wms` 규칙 45
+두 칸(`parent_product_id`·`pack_factor`)만 고치려고 `POST … Prefer: resolution=merge-duplicates` 를 썼다가
+`23502 null value in column "name" violates not-null` 이 났다.
+```
+관찰  보낸 객체에 없는 NOT NULL 칸(name)에서 23502 — upsert 는 INSERT 후보 행을 먼저 만들므로 부분 객체는 그 검사를 못 넘는다.
+      성공했더라도 보낸 칸은 전부 덮인다(같은 스크립트의 product_barcode 절 — is_primary=true 가 false 로 덮이는 자리).
+⇒ 부분 갱신은 반드시 PATCH 다. upsert 는 「행 전체를 가진 적재」에만.
+추정  「name 이 nullable 이었다면 18,714행의 이름이 통째로 비워졌을 것」— 사고 당시의 해석이다. ⚠️ 미실측.
+      PostgREST 의 DO UPDATE SET 은 보낸 칸만 나열하는 구현이라 안 보낸 nullable 칸은 보존될 가능성이 있다 — 그래도 처방(PATCH)은 같다.
+```
+📌 어느 쪽이든 **「공통 8칸의 NOT NULL 이 왜 값어치 있는가」**의 실물이다 — 검사가 없었다면 부분 객체가 조용히 통과했다(§5).
+
+**② 「건너뛰는 요청」도 공짜가 아니다** — 스킬 `asung-wms` 규칙 46
+PATCH URL 에 `&parent_product_id=is.null` 을 붙여 이미 이어진 행을 서버가 거르게 했는데, **거르는 것도 요청을 한 번씩 보낸다.**
+709건을 건너뛰는 데만 4분을 썼다.
+```
+⇒ 먼저 이어진 id 목록을 읽어 **아예 빼고** 시작한다 (ipr_patch_ 가 select=id&parent_product_id=not.is.null 을 먼저 읽는다 · Range 페이징).
+⭐ 실측: PATCH 한 건 ≈ 0.28초 · 6분 한도에 ~1,200건
+```
+
+**③ Cin7 재훑기를 이어받기마다 반복했다**
+`imsLinkProductSetsApply()` 가 매번 Cin7 18,829행을 2분 10초 훑고 실제 작업은 2분 20초뿐이었다.
+```
+⇒ 링크 목록을 시트(_set_links)에 저장하고, 이어받기(imsLinkProductSetsResume)는 Cin7 을 안 훑는다.   984건/회 → 1,200건/회
+```
+
+### ⬜ 다음
+```
+SIS00522-6 · AJA69215-EA-ALT-UPC   세트인가 대체 UPC 인가 — Caleb 이 Cin7 에서 확인(§7)
+활성끼리 겹치는 바코드 23           무관 6 은 Caleb 이 Cin7 에서 고친다 · 색상 변형 12 는 「고칠 것인가」 판단 · 고친 뒤 재조회해 카운터 ⑤ 를 갱신
+운영 DB 적용                       아직 — ref_ 여덟·② 넷과 함께 「운영에서 도는 것이 필요로 할 때」(§2)
+④ 제품↔공급처                      출발점은 0 이 아니다 — Productmaster.js 의 IncludeSuppliers(§8)
+```
+
+---
+
 ## 4. ⚠️ 판단이 갈린 곳 — 「왜 표마다 다른가」
 
 ⭐ **이 절이 이 문서의 핵심이다.** 적어 두지 않으면 다음 사람이 결함으로 본다.
@@ -767,6 +951,10 @@ FK          on delete no action (기존 참조 FK 13건 관례 · RESTRICT 0건 
             ⭐ FK 컬럼에 인덱스를 직접 만든다(Postgres 는 자동 생성 안 한다) · 이름 <표>_<컬럼>_idx
 ```
 
+📌 **`name text not null` 이 방어선이 된 실물 (2026-09-14 · §3-e ①)** — `product` 18,714행에서 두 칸만 고치려고 upsert(`merge-duplicates`)를
+썼다가 `23502` 로 막혔다. NOT NULL 은 형식 검사가 아니라 **「부분 객체를 행으로 밀어 넣는 도구」를 첫 요청에서 세우는 제약**이다 —
+검사가 없었다면 부분 객체가 조용히 통과했다(§1-a 감지되지 않는 결함). 부분 갱신은 PATCH — `asung-wms` 규칙 45.
+
 왜 `updated_at` 을 트리거로 (2026-09-11 이전 public 스키마에 트리거 0개 · `default now()` 만): 쓰는 쪽이
 매번 실어 주는 방식은 빠뜨려도 에러가 안 나고 어느 카운터에도 안 잡힌다(감지되지 않는 결함 ·
 ims-principles §1-a). 표가 비어 있는 지금이 넣기 가장 안전했다. 함수에 `ref_` 접두어를 붙이지 않은 것은
@@ -817,7 +1005,7 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
 - ⬜ KRW 송금의 환차손익 — 인보이스는 USD 로 받고 결제만 원화다. 회계 담당자와 정리할 영역(Caleb 판정) · QBO 연동 때 다시 올라온다.
 - ⬜ `inv-cost`·`inv-doc-cost` 가 계정 코드(`_59_`·`_136_` 등)를 하드코딩한다 — 표는 세웠지만 **필터는 건드리지 않았다.**
   QBO 연동 때 옮긴다(2026-09-10 에 고친 것을 또 흔들지 않는다).
-- ⬜ 아침 점검 ⑭ — `ref_` 표 여덟은 테스트에만 있다(§2 승격 기준).
+- ⬜ 아침 점검 ⑭ — `ref_` 표 여덟은 테스트에만 있다(§2 승격 기준). [2026-09-14] ② 넷·③ 넷도 같다 — 마스터 16표 전부 테스트 한정.
 - ~~⬜ `ref_bin.zone` 채우는 방법 미정 — `wms_sku_bins` 에 있지만 마스터가 WMS 표를 읽으면 안 된다(원칙 2 · 원장이
   `wms_order_lines` 를 읽는 「잠정·결합」 빚을 하나 더 지는 것).~~ [2026-09-13 닫음] **bin 이름에서 뽑는다** — 창고별 규칙이 다르다
   (토론토 첫 글자 · 에드먼튼 둘째 글자 · §3 정정 블록) · 2,675 중 2,478 추출 가능 · ⚠️ 못 뽑는 **197건(`…PALLET01` 계열 · Aoneroom · B0601002)은 null 로 두고
@@ -827,7 +1015,27 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
   상태 칸 + 동작으로 옮기기로 한 것(ims-principles §4-d)과 같은 모양 — 칸이 아니라 사건이다.
 - ~~⏸ **`pack_factor` 의 정본 미확정** — UOM 이름 · BOM Quantity · SKU 접미사 셋 대조(§3-d 프로브 1) 뒤 정한다.~~ [2026-09-13 닫음] **BOM Quantity 로 확정**(§3-d).
   `AMP41108-12` 는 UOM·BOM 둘 다 6 · 접미사가 틀렸다 — `asung-inv-ledger` 스킬의 반대 기록을 정정했다.
-  ⬜ 남는 것: `SIS00522-6`(EA-ALT-UPC 인데 BOM ×6 · 활성) 확인 · `AMP41108-12` 접미사 수정 · 구성품 0인 콤보 1건 · `CON00134`.
+  ~~⬜ 남는 것: `SIS00522-6`(EA-ALT-UPC 인데 BOM ×6 · 활성) 확인 · `AMP41108-12` 접미사 수정 · 구성품 0인 콤보 1건 · `CON00134`.~~ [2026-09-14] 적재 뒤 목록으로 갱신 — 아래 ③ 항목.
+- ✅ **③ 적재 GAS — 완료**(2026-09-14 · §3-e · 36,924행 · 테스트 DB). ⬜ **적재 뒤 남은 것(③ 제품)**:
+  ```
+  SIS00522-6            UOM=EA-ALT-UPC 인데 BOM ×6 · 활성 — 세트인가 대체 UPC 인가 (product 에 남겨 두었다)
+  AJA69215-EA-ALT-UPC   같은 부류 · BOM ×12 · 비활성
+  AMP41108-12           접미사 -12 · 실제 6 · 비활성
+  구성품 0 인 콤보 1건    SKU 미기록 · Cin7 확인 대기
+  CON00134              부모 없는 대체 UPC · 비활성 (BOM 이 없어 흡수되지 않았다)
+  대체 UPC 중 바코드 없는 5건   AIA03530 · AIA03534 · DEX30160 · DMI00077 · SIS00510 — 줄이 안 생겼다
+  ⚠️ 한 바코드를 활성 제품 둘 이상이 쓰는 23 (~~38~~ → 전체 42 · 09-14 오후 정정) — 무관 6 · 색상 변형 12 · 세트·낱개 5 — 카운터 ⑤ · §3-e
+  ⬜ 활성 1 + 비활성 13 — 지금은 문제가 아니지만 그 비활성 SKU 를 되살리면 활성끼리로 올라온다 · 카운터에 넣지 않고 여기 남긴다
+  ```
+  📌 위 목록은 Caleb 이 **Cin7 에서 전부 수정할 예정**이다 — 수정 뒤 재적재·갱신. 그때 정할 것 하나를 미리 적어 둔다:
+  ```
+  ⬜ Cin7 에서 SKU 를 고치면 우리 표는 어떻게 따라가나
+     지금 적재는 sku 를 충돌 키로 쓴다(ipr_upsert_('product','sku',…)) → SKU 가 바뀌면 옛 행이 남고 새 행이 생긴다.
+     ⭐ cin7_id(ProductID)는 SKU 가 바뀌어도 유지된다 → 충돌 키를 cin7_id 로 바꾸면 따라온다.
+     ⚠️ 다만 sku 에 unique 가 걸려 있어(20260913230500 `sku text not null unique`), 옛 SKU 행이 남은 채 갱신하면 충돌할 수 있다.
+        Cin7 에서 SKU 를 고치면 옛 SKU 는 사라지므로 실제로는 안 걸릴 것으로 보이나 미확인.
+     ⇒ 재적재 전에 정한다.
+  ```
 - ~~⬜ 재주문점~~ [2026-09-13 닫음] `IncludeReorderLevels=true` 는 먹지만 **값이 전부 0** 이다(낱개 활성 8,668 에서 흩어 뽑은 40/40 · 토론토 줄만) — 안 쓰고 있다.
   `purchasing.html` 이 자체 수요 예측을 하므로 당연하다. 「봤고 비어 있어서 뺀다」.
 - ⬜ **별도 작업 — Type=Service 53 · Non Inventory 4** 를 담을 자리. ③ 제품 표에서 빼는 것은 맞지만 ⑤ PO 비용 라인(운임·프렙·드롭십)이
@@ -1191,3 +1399,7 @@ IncludeReorderLevels=true  ⭐ 먹는다 — 낱개(UOM=EA) 활성 8,668 에서 
   ~~표는 아직 만들지 않았다 — 프로브 1·3·4 대기(§3-d).~~ 같은 날 저녁 — 2차 실측(`ProbeProductBom.gs`)으로 셋을 결판(pack_factor = BOM Quantity ·
   parent = ComponentProductID · 관계 없음 4,161 · 재주문점 전부 0) · **마이그레이션 넷 생성 · 로컬 재생 통과**(`20260913225935`·`230500`·`230600`·`230700`) ·
   `AMP41108-12` 는 접미사가 틀린 것으로 확정 — `asung-inv-ledger` 반대 기록 정정 · 「세 축 6건」은 2,405 로 정정. 테스트 DB push · 적재 GAS 는 다음.
+- 2026-09-14 (토론토 오전) — ③ 제품 표 넷 테스트 DB `db push` · **전량 적재 36,924행**(1,141 / 18,714 / 17,104 / 65 · §3-e). 카운터 넷 + 관계 표 고아를 DB 에서 SQL 로 재확인 — 전부 0.
+  ⚠️ **실사고 셋**(upsert 로 부분 갱신 → 23502 · 「건너뛰는 요청」 709건에 4분 · 이어받기마다 Cin7 재훑기) — 뿌리는 **요청 하나하나의 비용을 계산하지 않았다.**
+  `asung-wms` 규칙 45·46 신설(PostgREST 함정 — 규칙 29·20 계열이라 그쪽) · `asung-po` ③ 갱신 · `cin7-api` `GET /product?Sku=` 실측 · 스크립트 사본 `docs/probes/ImsLoadProduct.gs`. 운영 DB 적용은 아직.
+  오후 — 바코드 중복 38 은 대체 UPC 적재 **전**의 수였다 → 전체 42 · ⭐ **활성끼리 23 이 카운터 ⑤**(무관 6 · 색상 12 · 세트 5 · Caleb 지적) · `asung-po` 스킬 15,174 → 14,000 바이트 아래로 감축(숫자·칸 목록은 정본으로) · §7 에 「Cin7 SKU 변경 시 충돌 키」 메모.

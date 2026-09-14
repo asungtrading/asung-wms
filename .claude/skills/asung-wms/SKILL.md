@@ -10,8 +10,8 @@ description: >
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼", "Invoice First", "held_by", "presence", "bcMap",
   "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄",
-  "inventory.html", "재고 마스터" 등이
-  나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~44 를 확인하세요.
+  "inventory.html", "재고 마스터", "merge-duplicates" 등이
+  나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~46 을 확인하세요.
   특히 ⚠️factor는 unit 컬럼, ⚠️bin은 base_sku 기준, ⚠️service_role 금지,
   ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
   어기면 재고·픽 수량이 틀어지거나 남의 작업이 사라집니다.
@@ -108,7 +108,7 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 
 ### description 예산 — ✅ 2026-08-05 감축 완료 (1017 → 722자 · 여유 302자)
 
-**현재 `asung-wms` frontmatter description = 722자 / 한도 1024자 → 여유 302자**(2026-08-05 `scripts/check-skill-desc.sh` 실측. 넘으면 claude.ai 업로드가 `must be at most 1024 characters` 로 **거부**된다 — 바이트가 아니라 문자 수).
+**현재 `asung-wms` frontmatter description = 722자 / 한도 1024자 → 여유 302자**(2026-08-05 `scripts/check-skill-desc.sh` 실측. [2026-09-14] 규칙 45·46 + 키워드 `"merge-duplicates"` 추가로 **770자 · 여유 254자**. 넘으면 claude.ai 업로드가 `must be at most 1024 characters` 로 **거부**된다 — 바이트가 아니라 문자 수).
 
 ⚠️ **2026-08-04 기록은 "여유 7자 — 다음 규칙 하나면 초과" 였다.** 그 상태에서 규칙 42 를 만들지 못하고 미뤘으므로, 2026-08-05 에 **별건 작업으로 감축**했다(사용자 결정). **무엇을 뺐는지 남긴다 — 다음에 "왜 이 키워드가 없나" 를 다시 추측하지 않게:**
 
@@ -1263,6 +1263,33 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
   📌 지금 정본은 Cin7 이고 그것이 옳다(Inventory → Products → Stock 의 `ALLOCATED` 열). 그 원천은 **SO 모듈**이 서야 생긴다.
   ⚠️ 용어 — 「팔 수 있는」이 아니라 **「보낼 수 있는」**이다. 오버셀은 정책이라 주문은 재고와 무관하게 받는다(프리오더 · 수요 예측 입력).
   📌 정본: `ledger-design.md` 「#### 가용(Available) — ❌ 원장이 내지 않는다」 — 이유 전문은 그쪽. 여기 다시 적지 않는다(두 곳에 다르게 적으면 갈라진다).
+
+## 규칙 45 — PostgREST `merge-duplicates` 는 부분 갱신 도구가 아니다: 부분 객체는 첫 요청에서 서고, 성공하면 보낸 칸은 전부 덮인다 (⚠️⚠️ 2026-09-14 실사고 · IMS ③ 제품 적재)
+
+**관찰.** `product` 18,714행에서 두 칸(`parent_product_id`·`pack_factor`)만 고치려고 `POST /rest/v1/product` + `Prefer: resolution=merge-duplicates` 를 썼다가 **400 / `23502 null value in column "name" violates not-null`**. 행은 하나도 바뀌지 않았다.
+
+**설명.** upsert 는 `INSERT … ON CONFLICT DO UPDATE` 다 — **INSERT 후보 행을 먼저 만든다.** 보낸 객체에 없는 NOT NULL 칸은 그 후보 행에서 비어 있으니 충돌 판정 전에 23502 로 선다. 즉 「있는 행이니 갱신되겠지」가 성립하지 않는다.
+성공하는 경우에도 **보낸 칸은 전부 덮인다** — `product_barcode` 재적재에서 부모와 같은 바코드 줄을 다시 보내면 앉아 있던 `is_primary=true` 가 `false` 로 덮이는 자리가 그것이다(`docs/probes/ImsLoadProduct.gs` 5)절 주석 · 그래서 12건은 줄을 만들지 않는다). **재적재가 「우리 칸」을 지운다** — §3-c 「`is_purchasable` 은 적재가 보내지 않는다」와 같은 계열.
+⚠️ **추정(미실측)** — 사고 당시 해석은 「행 전체를 다시 쓴다 · `name` 이 nullable 이었다면 18,714행의 이름이 통째로 비워졌을 것」이었다. PostgREST 의 `DO UPDATE SET` 은 **보낸 칸만** 나열하는 구현이라 안 보낸 nullable 칸은 보존될 가능성이 크다 — 확인하려면 테스트 DB 에서 nullable 칸을 뺀 upsert 를 한 행에 쏘고 되읽어야 한다(규칙 27 R11). 어느 쪽이든 아래 처방은 같다.
+
+**처방.**
+- **부분 갱신은 PATCH** (`PATCH /rest/v1/<표>?id=eq.<id>` · 보낸 칸만 바뀐다 · 한 행씩이라 느리다 — 규칙 46). upsert 는 **행 전체를 가진 적재**에만.
+- 공통 8칸의 `not null`(po-module §5)은 형식 검사가 아니라 **이 도구를 첫 요청에서 세운 제약**이다 — 검사가 없었다면 부분 객체가 조용히 통과했다. 완화하지 마라.
+- 함께 볼 것: 규칙 29(`on_conflict` 는 전체 유니크만 · 부분 인덱스 추론 불가) · 규칙 20 캡 함정(에러 없이 1,000행) · 규칙 27 R11(쓰기 실측은 되읽은 값) — PostgREST 가 **에러 없이, 또는 에러만 내고, 생각과 다른 일을 하는** 계열이다.
+- 정본 기록: `docs/design/po-module.md` §3-e 「오늘 겪은 것 셋」①.
+
+## 규칙 46 — 「건너뛰는 요청」도 왕복 한 번이다: 서버 필터로 거르지 말고 먼저 읽어서 목록에서 빼라 (⚠️ 2026-09-14 실측 · GAS → PostgREST PATCH)
+
+**관찰.** PATCH URL 에 `&parent_product_id=is.null` 을 붙여 「이미 이어진 행」을 서버가 거르게 했다. 거른 행은 0건 갱신으로 돌아오지만 **요청은 그대로 나간다** — 709건을 건너뛰는 데만 **4분**(GAS 실행 한도 6분의 2/3). 같은 스크립트가 이어받기마다 Cin7 18,829행(2분 10초)을 다시 훑어 실제 작업은 2분 20초뿐이었다.
+```
+실측  PATCH 1건 ≈ 0.28초 ⇒ 6분 한도에 ~1,200건 · 재훑기 제거로 984건/회 → 1,200건/회
+```
+
+**처방.**
+- 시작 전에 이미 처리된 id 를 **한 번 읽어**(`select=id&<칸>=not.is.null` · ⚠️ 1,000행 캡 — `Range` 페이징 · 규칙 20) 작업 목록에서 **아예 뺀다.** 필터가 서버에서 거른다고 왕복이 사라지는 것은 아니다.
+- 이어받기(resume)는 **원천을 다시 훑지 않는다** — 작업 목록을 저장해 두고(`_set_links` 시트 · `imsLinkProductSetsResume`) 그것만 읽는다.
+- 뿌리는 규칙 30(Apply 실행시간 예산) · 규칙 34(화면 전환 앞의 N 왕복)와 같다 — **요청 하나의 비용을 세지 않은 것.** 건수 × 콜당 시간을 먼저 계산하고 한도(GAS 6분 · EF 예산)와 비교한 뒤 설계한다.
+- 정본 기록: `docs/design/po-module.md` §3-e 「오늘 겪은 것 셋」②③.
 
 ## 현재 진행 상태 (2026-08-04 기준)
 

@@ -107,7 +107,7 @@ claude.ai 스킬 업로드는 `SKILL.md` frontmatter의 `description`을 **1024 
   키워드를 자르면 필요할 때 스킬이 안 뜬다. 순서: 일반어·중복어(영/한 같은 뜻 쌍) -> 문구 압축 -> 그 다음 키워드.
 - ⚠️ 불변식 문구(factor는 unit 컬럼, bin은 base_sku, Cin7 bin은 GUID, Invoice First,
   service_role 금지, UI 영어, stock received는 문서당 bin 1개, authorize는 POST)는 마지막까지 유지.
-- 현재 여유 (2026-08-05 실측): `asung-wms` **722자(302자)** · `shopify-tracking` 855자(169자) ·
+- 현재 여유 (2026-08-05 실측 · [2026-09-14] `asung-wms` 770자(254자) — 규칙 45·46): `asung-wms` **722자(302자)** · `shopify-tracking` 855자(169자) ·
   `cin7-api` 840자(184자) — **이제 가장 빡빡한 것은 `shopify-tracking` 이다.**
   (2026-07-29: 규칙 29~33 키워드 `on_conflict`/`exported_base`/`재평가` 를 넣으며
   본문 "Cin7 Core multi-packing … 처리합니다" 압축 + "리시빙·동시 작업(규칙 20~22/24~28)" → "규칙 20~33" 로 상계.)
