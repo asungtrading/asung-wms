@@ -2038,19 +2038,20 @@ email·auth_user_id  보여만 준다 — 로그인의 열쇠
 
 ### 10-j. ⭐⭐ 화면 공통 규칙 — 다섯이 이렇게 만들어졌다 (2026-09-15 · 적어 두지 않으면 다음 화면이 제각각이 된다)
 
-**실물 (asung-ims · ims.asung.ca · 2026-09-15)** — 읽기 다섯 + 쓰기 하나. 행 수는 [화면 실측 · Caleb].
+**실물 (asung-ims · ims.asung.ca · 2026-09-15)** — 읽기 넷 + **쓰기 둘**(staff · suppliers). 행 수는 [화면 실측 · Caleb].
 ```
 index.html              로그인 확인 · 마스터 표 행 수 (배선 확인용)
 settings.html           ref_ 여덟 3,481행 — 왼쪽에 표 목록, 오른쪽에 내용
-suppliers.html          supplier 257 + 주소 · 연락처 · 할인 · 연결 제품 수
+suppliers.html          supplier 257 + 주소 · 연락처 · 할인 · 연결 제품 수 · ⭐ 쓰기 — is_purchasable 판정(2026-09-15 저녁 · 둘째 쓰기 화면 · 3-i)
 products.html           product 18,714 — 검색 중심 · 세트는 캐럿 · 브랜드/카테고리 필터 · 상세: 공급처 · 바코드 · 구성품 · 이 제품의 세트 · Same family
 families.html           product_family 1,141 — 옵션 축별 · 속한 제품
-supplier-products.html  product_supplier 12,721 을 공급처 쪽에서 · 단가 없는 줄 카운터
+supplier-products.html  product_supplier 12,721(활성 · 전체 12,728 — SQL 실측 2026-09-15)을 공급처 쪽에서 · 단가 없는 줄 카운터
 staff.html              ims_staff — ⭐ 첫 쓰기 화면 (§10-i)
 메뉴(ims-auth.js items)  Settings · Suppliers · Products · Families · Supplier Products · Staff · Home
 ```
-[SQL 실측 · Caleb 2026-09-15 오후] 공급처 257 · `is_purchasable=true` **161**(⭐ 전부 활성 — 활성 조건을 붙여도 161) · + `is_discontinued=false` **138** — ⭐ 138 이 실제 매입처다. 발주 화면이 보게 될 크기. 판정 없음(null) **40**.
-⚠️ [정정 2026-09-15 오후] 오전 판은 「257 → Active only 226 → + Purchasable **217** → 138」이었다. 217 은 「226 − 판정 없음 31」로 **어림한 값을 실측처럼 적은 것** — 판정 없음이 40 이고 `is_purchasable=false` 인 곳도 있어 성립하지 않는다. 화면의 Purchasable 토글은 161 을 보인다.
+[SQL 실측 · Caleb 2026-09-15] 공급처 **전체 257** = true 161 · false 56 · null **40** / **활성 226** = true 161 · false 56 · null **9** / 활성·true·미단종 **138** — ⭐ 138 이 실제 매입처다. 발주 화면이 보게 될 크기.
+⚠️⚠️ **40 과 9 는 다른 모집단이다(전체 / 활성).** 차이 31 은 ④ 적재가 데려온 비활성 공급처 31곳(§3-g 판단 · is_purchasable null) — ⭐ 판정 대상이 아니다(Caleb 2026-09-15 · §10-k). 화면 기본 상태(Active only 켜짐 · 드롭다운 Not set)가 보여 주는 수는 **9** 다.
+⚠️ [정정 2026-09-15 오후] 오전 판은 「257 → Active only 226 → + Purchasable **217** → 138」이었다. 217 은 「226 − 판정 없음 31」로 **어림한 값을 실측처럼 적은 것** — 판정 없음이 40 이고 `is_purchasable=false` 인 곳도 있어 성립하지 않는다. 화면의 Purchasable 드롭다운(Yes)은 161 을 보인다.
 Cygnus Beauty Supply 연결 236 · 그중 기본 122 · 단가 없음 0.
 
 **3-a. 읽기**
@@ -2070,7 +2071,7 @@ Cygnus Beauty Supply 연결 236 · 그중 기본 122 · 단가 없음 0.
 admin    토글로 그 바깥을 꺼내 본다 (판정이 없는 것 · 잘못된 것을 정리하는 자리)
 ```
 ```
-suppliers.html          매니저는 is_active·is_purchasable·is_discontinued 셋이 고정(138곳) · admin 만 #opts
+suppliers.html          매니저는 is_active·is_purchasable·is_discontinued 셋이 고정(138곳) · admin 만 #opts — 체크박스 둘(Active only · Hide discontinued) + ⭐ Purchasable **드롭다운 넷**(All · Yes · No · Not set · null 은 .is()) · 상세의 판정 드롭다운도 admin 만(3-i)
 supplier-products.html  같다 (!isAdmin || !showAll 이면 정돈된 것만)
 products.html           ⭐ 제품은 감추지 않는다(Caleb 2026-09-15) — 비활성·대체 UPC 도 찾을 일이 있다. Active only 토글은 매니저에게도 보인다.
                         단, 상세의 「공급처 show N inactive」 토글은 admin 만(3-c)
@@ -2118,6 +2119,7 @@ staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감
 ④ Kind 풀림      ?id= 로 들어올 때 Kind 를 무조건 풀어 낱개로 넘어와도 세트가 따라 나왔다 ⇒ 세트일 때만 푼다
 ```
 📌 ①②의 뿌리였던 「목록에 없으면 비운다」를 버리자 규칙이 위 모양으로 정리됐다. 비동기 순서는 실제로 돌려 봐야 안다.
+⚠️ **버린 규칙은 문서에서도 찾아 지운다** — 같은 문서에 옛 규칙과 새 규칙이 함께 있으면 다음 사람이 어느 쪽이 맞는지 모른다. [2026-09-15 저녁] CHECKLIST 의 suppliers 절뿐 아니라 **products 절에도** 「목록에서 빠지면 오른쪽도 비워진다」가 남아 있었다 — 한 곳을 고치면 같은 문장을 문서 전체에서 grep 한다.
 
 **3-e. 불리언 색 (2026-09-15 오후 · 여섯 화면 전부 적용)**
 ⚠️ 색은 `is_active` 에만 쓴다. `is_staging`·`is_default`·`is_split`·`is_primary` 는 false 가 정상인데 빨갛게 칠하면 2,675행이 전부 경고처럼 보인다(2026-09-15 settings.html 에서 드러남).
@@ -2127,6 +2129,7 @@ staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감
 ✅ suppliers.html · products.html · supplier-products.html   is_default · is_primary 를 yn(v, false) 로 (오후 · 공통 파일로 옮기며 고쳤다)
 ```
 ⚠️ [정정 경위] 오전 판은 「색은 is_active 에만 쓴다」를 다섯 화면 전부의 사실처럼 적었다가 코드를 보고 ⬜ 셋으로 고쳤고(코드를 안 보고 기억으로 적은 것), 오후에 셋을 실제로 고쳐 ✅ 가 됐다.
+⚠️ [정정 2026-09-15 저녁] 규칙의 반대쪽도 있었다 — **suppliers.html 만** 목록의 `inactive` 태그가 회색이었다(커밋본부터 · 상세 칩과 products·staff 는 빨강). 저녁에 `tag off` 로 맞췼다. 「색은 is_active 에만」은 **is_active 는 칠하라는 쪽도 포함**한다 — 안 칠하면 비활성이 눈에 안 걸린다.
 
 **3-f. 그 밖**
 ```
@@ -2135,7 +2138,7 @@ staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감
 ☰ Menu 위치       이름·역할 바로 옆 · 다른 버튼보다 앞 (WMS UI 규칙과 같다) · 항목은 ims-auth.js items 한곳
 화면 사이 이동     products.html?id=… / ?sku=… · families.html?id=… · supplier-products.html 의 SKU → products.html 상세
 저장 확인          ⚠️⚠️ PostgREST update 가 RLS 에 막히면 에러가 아니라 0행이다(§10-h 실측).
-                  .update().eq().select() 로 되읽어 0행이면 「Not saved」를 띄운다(staff.html · §10-i)
+                  .update().eq().select() 로 되읽어 0행이면 「Not saved」를 띄운다(staff.html · §10-i) · ⭐ 쓰기 화면 공통 규칙은 **3-i**
 시각               ⚠️⚠️ timestamptz(created_at·updated_at)는 imsTs() 로 토론토 시각으로 보인다(3-g). 문자열을 자르면 UTC 로 보인다(실사고).
                   ⚠️ date 칸(product_barcode.valid_from · product_supplier.last_supplied · product.cin7_modified_on)에는 쓰지 않는다 — 시간대가 없다
 틀                settings.html(가장 짧다)이나 suppliers.html 을 본떠 만든다(헤더 · 왼쪽 목록 · 오른쪽 상세) — ⭐ 공통 파일 넷을 순서대로 부른다(3-g) + imsAuth.start
@@ -2143,7 +2146,7 @@ staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감
 **3-g. ⭐⭐ 공통 파일 — `ims-ui.css` · `ims-ui.js` (2026-09-15 오후)**
 오전에는 화면 다섯이 스타일과 도구를 각자 복사해 갖고 있었다. 오후에 공통으로 뺐다.
 ```
-ims-ui.css   7,505 바이트   색 변수 · 헤더 · 배치 · 목록 패널 · 카드 · 표 · 칩 · 값 표시
+ims-ui.css   7,510 바이트   색 변수 · 헤더 · 배치 · 목록 패널 · 카드 · 표 · 칩 · 값 표시
 ims-ui.js    6,744 바이트   esc · dim · yn · num · imsTs · imsPage · imsSaved · imsQ · imsParam · imsHeader
              ⚠️ 헬퍼 이름은 코드가 정본 — 지시서가 imsFmtTs 라 적었으나 실제는 imsTs (2026-09-15 · 이름은 그대로 둔다)
 ```
@@ -2163,7 +2166,7 @@ ims-ui.js    6,744 바이트   esc · dim · yn · num · imsTs · imsPage · im
 ```
 **크기 (옮긴 직후 → 지금 · 2026-09-15 15:30)** — 지금 값이 큰 것은 오후 커밋(상세 비우기 · 경합 방지 · 시각)이 들어갔기 때문:
 ```
-settings 12,179 → 8,104 → 8,104 · suppliers 15,147 → 10,222 → 10,899 · products 25,143 → 19,842 → 21,909
+settings 12,179 → 8,104 → 8,104 · suppliers 15,147 → 10,222 → 10,899 → **18,151**(저녁 · is_purchasable 쓰기 · 3-i) · products 25,143 → 19,842 → 21,909
 families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,942 · staff (처음부터 옮겨 만들지 않았다) → 17,810
 ```
 **⚠️ 공통 파일을 고치면 여섯이 다 움직인다** ⇒ 고친 뒤 `asung-ims/CHECKLIST.md` 를 처음부터 훑는다(그 문서 §0-a). ⚠️ 다만 **함수를 더하기만 한 경우**는 그 화면만 보면 된다(`imsTs` 를 더할 때 그랬다).
@@ -2181,7 +2184,29 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 규칙    ⚠️⚠️ 화면을 새로 만들면 항목을 더한다. 안 더하면 낡은 목록이 되고 낡은 점검 목록은 「통과했다」는 거짓 안심만 준다
         ⇒ 화면을 만드는 지시서마다 「CHECKLIST 에 항목을 더해라」를 넣는다
         ⚠️ 숫자가 바뀌면(적재 · SQL 정정) 그 문서도 같은 날 고친다 — [실사고 2026-09-15] 「Purchasable 217」이 정본과 점검 목록 둘에 박혔다가 실측 161 로 정정
+        ⭐ 숫자에는 **모집단**을 함께 적는다 — Active only 켜짐/꺼짐 · 전체/활성. 같은 필터라도 모집단이 다르면 수가 다르다(null 40 / 9 · 12,728 / 12,721)
+        ⭐ **줄어들 숫자에는 날짜와 성격을 붙인다** — 「작업 시작 시점 9(2026-09-15) · 판정할수록 줄어든다」. 그대로 박으면 다음 확인 때 「틀렸다」가 된다
 ```
+[2026-09-15 저녁] suppliers 절을 is_purchasable 쓰기에 맞춰 갱신 · 브라우저 확인 다섯 통과(Caleb).
+
+**3-i. ⭐⭐ 쓰기 화면 공통 — 다음 쓰기 화면이 같은 자리에 서지 않게 (2026-09-15 저녁 · suppliers.html is_purchasable 검토에서)**
+선례 둘 — staff.html(§10-i · 편집·추가) · suppliers.html(is_purchasable 판정 · 드롭다운 하나 · 고르면 바로 저장). 다음은 ref_payment_term · 기본 공급처 · ref_bin.zone(§10-k).
+```
+저장 확인        imsSaved() 로 되읽는다 — 0행이면 「Not saved」(3-f · §10-h 실측). 지금 마스터는 auth_all 이라 막힐 일이 없지만, RLS 를 걸었을 때 조용히 지나가는 것을 막는 자리다
+⚠️ 되돌리기      저장이 실패했는데 입력칸이 고른 값에 머물면 **화면만 저장된 것처럼 보여** 「Not saved」가 무력해진다
+                ⇒ 직전 값을 들고 있다가(dataset.prev) 실패하면 되돌린다
+⚠️ 잠금          저장이 끝날 때까지 입력칸을 잠근다(disabled) — 여러 곳을 빠르게 훑는 자리에서 update 둘이 경합한다. DB 는 마지막 것, 화면은 늦게 돌아온 것을 보인다
+⭐ seq 의 범위    detailSeq 는 **오른쪽 상세에 쓰는 것만** 막는다. 왼쪽 목록은 화면 공통이라 보호 대상이 아니다
+                ⚠️ 목록 재읽기까지 seq 로 막으면 숫자가 한 번 안 줄고 다음 새로 고침에야 맞는다 — **재현되지 않는 증상**으로 남는다
+저장 뒤 목록      다시 읽는다(성공했을 때만 — 실패면 목록이 안 바뀌었다). ⚠️ clearDetail() 은 부르지 않는다 — 사람이 필터를 바꾼 것이 아니다(3-d)
+                ⭐ 그래서 되돌리는 길이 남는다 — Not set 으로 걸러 놓고 판정하면 그 행은 목록에서 빠지지만 상세는 열려 있어 잘못 눌렀으면 바로 되돌린다
+세 상태 값        null 을 화면에서 만들 수 있게 둔다(체크박스 두 상태로 가지 마라)
+                ⚠️ 「판정 없음 N곳」이 남은 일의 눈금인데 체크박스로 가면 첫 클릭에 그 눈금이 사라진다. null 필터는 .eq 가 아니라 .is(col, null)
+누가 고치나       지금은 화면에서 감춘다(admin 만) · RLS 는 걸지 않았다 — 마스터 열일곱이 전부 auth_all 인데 한 표만 예외를 내기에는 이르다.
+                막을 것이 늘면 **표 하나가 아니라 규칙으로** 간다(Caleb 2026-09-15 · 3-b · ims_staff 가 선례)
+읽는 값 vs 쓴 값  칩·시각은 **DB 가 돌려준 값**으로 갈아 끼운다(보낸 값이 아니라) — imsSaved 의 .select() 결과를 쓴다. updated_at 은 트리거가 찍는다
+```
+📌 위 「되돌리기 · seq 의 범위 · 잠금」 셋은 suppliers.html 초안이 놓쳤고 검토(Claude Code · 2026-09-15 저녁)에서 잡힌 실제 버그다 — 코드를 읽어야 보이는 종류라 여기 남긴다.
 
 ⬜ IMS 인프라(Supabase 프로젝트 준비 · 화면 규칙 · EF 배포)를 담는 **스킬을 따로 세울지** 정할 일 — 지금은 `asung-po` 스킬 §0·§4 에 한 줄씩 얹어 두었다(마스터·적재 스킬과 성격이 다르다는 것을 알고 얹었다 · 2026-09-15).
 
@@ -2189,8 +2214,16 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 
 전부 **Cin7 이 모르는 우리 칸**이라 IMS 에서 고쳐도 아무것도 안 깨진다(재적재 §3-f 가 manual·우리 칸을 건드리지 않는다) ⇒ 쓰기의 첫 대상이다. 수치는 [화면 실측 · Caleb 2026-09-15].
 ```
-is_purchasable        판정 없음(null) **40곳** + true 161곳 중 잘못 켜진 것(실물: Airalo · Klook 같은 것이 매입처로 잡혀 있다) [SQL 실측 · Caleb 2026-09-15 오후]
-                      ⚠️ [정정] 오전 판은 「31곳(어제 들어온 비활성 공급처)」 — 적재가 데려온 비활성 31곳을 판정 없음 전부로 **어림한 것**. 실측은 40(31 + 아홉 곳 더)
+is_purchasable        화면 ✅ 2026-09-15 저녁(suppliers.html 상세 드롭다운 · §10-j 3-i) — 판정(값 채우기) ⬜
+                      ⭐ 판정 없음(null)은 **모집단을 갈라 적는다** [SQL 실측 · Caleb 2026-09-15]:
+                        전체 257 기준  40곳
+                        활성 226 기준   9곳   ⭐ 화면 기본 상태(Active only 켜짐 · Not set)가 보여 주는 수 · 작업 시작 시점(판정할수록 줄어든다)
+                        차이 31        ④ 적재가 데려온 비활성 공급처(§3-g 판단 · null 로 들어왔다) — ⭐ **판정 대상이 아니다**(Caleb 2026-09-15):
+                                       Cin7 에서 비활성이면 「지금 여기서 안 산다」가 이미 말해져 있다. 다시 활성이 되면 활성 목록에 저절로 뜬다
+                      ⇒ 실제 대상은 둘 — **활성인데 판정 없는 9곳** · **true 161곳 중 잘못 켜진 것**(실물: Airalo · Klook 같은 것이 매입처로 잡혀 있다)
+                      📌 활성 9 는 이 문서에 이미 있던 수다 — §3-c 적재 후 실측(226 = 161·56·9) · §8 supplier 의 Caleb 전수 판정(O 161 · X 56 · ? 9)과 같은 수
+                      ⚠️ [정정 경위] 오전 판 「31곳」은 비활성 31 을 판정 없음 전부로 어림한 것 → 오후에 실측 40 으로 정정 → 그런데 **40 이 전체 기준이라는 것을 안 적었고, 문서 안에 이미 있던 9 와 잇지 않았다.**
+                         40 과 9 는 어느 쪽도 틀리지 않았다. **기준을 안 적은 것이 틀렸다.** 반복되는 실수 — 두 모집단을 섞어 센다 · 내 문서 안의 숫자를 내가 안 본다
 기본 공급처            2건 — 활성 줄이 있는데 날짜가 없거나 동점이라 못 골랐다(§3-g)
 선주문 공급처          26건 — Custom Reusable Bag 25 + AS01433 · source='manual' 줄로 미리 적을 자리(§3-g 승격 규칙)
 AS91437-BLK           Type=Non Inventory 라 ④ 적재 모집단에서 빠졌다
@@ -2200,7 +2233,7 @@ ref_bin.zone          2,675행 전부 비어 있다 — ⚠️ 손으로 채울 
 ref_bin.is_staging    ⭐ 임시 보관용으로 정해진 자리가 실제로 있다(Caleb) — 값만 안 채워졌다
 단가 없는 줄           1,227 — supplier-products.html 의 No price 카운터로 어디에 몰렸는지 보인다
 ```
-⬜ 순서(참고 · 지금 하지 않는다): `is_purchasable` 체크 하나부터 — 화면이 이미 있고 가장 작다. ⚠️ ⑤ PO 본체는 단가 없는 줄 1,227 과 supplier_discount 0행이 남아 있으면 발주 금액이 안 맞는다.
+순서: ~~`is_purchasable` 체크 하나부터 — 화면이 이미 있고 가장 작다(지금 하지 않는다)~~ → ✅ **화면(고칠 수단)은 2026-09-15 저녁에 섰다**(§10-j 3-i) · ⬜ **판정(값 채우기)은 남았다** — 활성 9곳 · Yes 161곳 중 잘못 켜진 것. 다음 화면 후보는 ref_payment_term(34행 · 손이 빠르다). ⚠️ ⑤ PO 본체는 단가 없는 줄 1,227 과 supplier_discount 0행이 남아 있으면 발주 금액이 안 맞는다.
 📌 그 뒤(Caleb 2026-09-15 · 판단만): 제품 등록·이미지 등록은 결국 IMS 에서 한다(Cin7 이 이미지를 회계·재고에 쓰지 않으니 「IMS 가 정본이 되는 첫 값」 · ⚠️ Supabase Storage 첫 사용 — 누가 올리고 누가 보는지) ·
 ⚠️⚠️ Cin7 으로 내보내는 일은 없다 — 한 방향(Cin7 → IMS)뿐. 컷오버 전에 새 제품이 필요하면 **양쪽에서 각각 만든다** ⇒ IMS 에서 먼저 만든 제품(source='manual' · cin7_id 없음)에 나중에 Cin7 것이 따라오면 같은 SKU 가 두 행 — ④ 의 승격 규칙과 같은 장치가 `product` 에도 필요하다(열쇠는 sku · ⬜ 제품 생성 화면 때) ·
 재고·판매가는 원장 이전 뒤(원장은 아직 운영에서 shadow) · `ims_staff.perms` 는 아직 안 쓴다(전부 [] · 화면이 늘면 requirePerm).
@@ -2241,3 +2274,11 @@ ref_bin.is_staging    ⭐ 임시 보관용으로 정해진 자리가 실제로 �
   검토에서 드러난 구멍: **Asung-IMS 가입이 열려 있으면 「계정 있는 사람만」 방어가 없다** → 배포 전 확인 항목. 다음은 IMS 로그인(가입 닫기 → Add user → 사용자 표).
 - 2026-09-15 (토론토 오전) — **`ims_staff` 신설 §10-h**(`20260915141105` · 로컬 재생·RLS 실동작 통과). 검토에서 바뀐 것 셋: 열쇠를 이메일 → **`auth_user_id`(auth.uid())**(WMS 의 대소문자 함정 회피) · RLS 를 **`security definer` `ims_is_admin()` + 정책 셋 + delete 닫음**(재귀는 select 정책이 자기 표를 읽을 때만 — 실측) ·
   **첫 admin 절차**(초안에 없었다 · postgres 로 insert · §10-f ②-b). 기각된 안 「auth_all + 화면 게이트」를 남겼다. §10-f ⓪ 가입 닫기는 Caleb 확인으로 ✅(다섯 설정).
+  오후 — **첫 쓰기 `staff.html` + EF `ims-staff-create` §10-i**(caller JWT 로 rpc/ims_is_admin · 레포가 둘로 갈린다 · config.toml 블록 · 「원본도 verify_jwt=false」는 확인 없이 적은 것 → 블록이 아예 없었다) · 배포·계정 생성 실측 ✅ · URL Configuration 기본값 실사고(§10-f ⓪-b).
+  **읽기 화면 다섯**(Settings·Suppliers·Products·Families·Supplier Products) → §10-j 화면 공통 규칙 신설 · §10-k 채울 칸 · 공통 파일 ims-ui.css/js 로 다섯을 옮김(3-g) · 상세 비우기 규칙 교체(3-d · 「목록에 없으면 비운다」 폐기) · 점검 목록 `asung-ims/CHECKLIST.md` 신설(3-h).
+  정정 셋: 캡 넘는 표 「둘」→넷 · 「색은 is_active 에만」이 한 화면에서만 참 · 「Purchasable 217」은 어림값(실측 161). 실사고 셋: ?id= 진입 · 화면 안 SKU 이동 · 시각이 UTC(imsTs).
+  저녁 — **`suppliers.html` 에 is_purchasable 쓰기**(IMS 둘째 쓰기 화면 · 드롭다운 넷 · 상세에서 고르면 바로 저장 · 10,899 → 18,151 · 커밋·브라우저 확인 다섯 통과 · Caleb).
+  검토(Claude Code)에서 **실제 버그 셋** — 저장 실패 시 되돌리기 없음 · 목록 재읽기를 seq 로 함께 막음(재현되지 않는 증상) · 저장 중 경합 → **§10-j 3-i 쓰기 화면 공통** 신설의 근거.
+  ⭐ **§10-k 의 40 은 전체 기준이었다** — 활성 9 는 §3-c·§8 에 이미 있었는데 잇지 않았다(두 모집단을 섞어 센다 · 내 문서의 숫자를 내가 안 본다). Caleb 판단 — 비활성 31곳은 판정 대상이 아니다.
+  SQL 실측으로 스키마(nullable · default 없음)·트리거·권한(UPDATE 살아 있음)을 확인 — 짐작이었던 셋이 전부 맞았지만, 틀렸으면 설계가 깨질 자리였다. product_supplier 12,728(전체)/12,721(활성)도 SQL 로 확인.
+  ⚠️ 참조 오류 — 지시서가 인계 문서의 §3-b ⑦ 을 「정본 §3-b ⑦」이라 적었다. Claude Code 가 grep 으로 잡았다(정본에 ⑦ 없음). 문서 이름을 흐리게 적지 않는다.

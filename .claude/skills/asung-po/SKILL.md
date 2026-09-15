@@ -18,7 +18,7 @@ description: >
 
 ⭐ **설계 정본 `docs/design/po-module.md`** — 여기는 「모르면 사고가 나는 것」과 포인터만(§5 · 14KB).
 ⚠️ 방향 정본 `docs/design/ims-principles.md` — 충돌하면 그쪽이 이긴다(원칙 1 Cin7 독립 · 원칙 2 레고).
-관련 스킬: `asung-inv-ledger`(원장) · `asung-wms`(규칙 29 부분 유니크 금지 · 규칙 45·46 PostgREST 함정) · `cin7-api`.
+관련 스킬: `asung-inv-ledger`(원장) · `asung-wms`(규칙 29 · 45·46) · `cin7-api`.
 
 ## 0. 어디까지 왔나
 
@@ -31,8 +31,8 @@ description: >
 ④ 제품↔공급처      ✅ 09-14(§3-g · 테스트 DB) — product_supplier 1표 · 활성 12,721줄 · ⭐ 충돌 키 cin7_id
                    · supplier 257(적재가 비활성 31곳을 데려온다) · is_default 는 우리 칸(§4) · 카운터 여섯 §3-g · GAS docs/probes/ImsLoadProductSupplier.gs
 ⑤ PO 본체          ⬜
-화면               ✅ 09-15 — `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) · 읽기 다섯 + 쓰기 하나(Staff · EF `ims-staff-create`) · DB `Asung-IMS` · ⭐ 규칙 **§10-j** · ⬜ 채울 칸 **§10-k**
-                   · ⭐ 공통 `ims-ui.css`·`ims-ui.js` — 새 화면은 넷을 순서대로(css · config → ui → auth · §10-j 3-g)
+화면               ✅ 09-15 — `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) · 읽기 넷 + **쓰기 둘**(staff · suppliers is_purchasable) · DB `Asung-IMS` · 규칙 **§10-j**(쓰기는 3-i) · ⬜ 채울 칸 **§10-k**
+                   · ⭐ 공통 `ims-ui.css`·`ims-ui.js` — 새 화면은 넷을 순서대로(css · config → ui → auth · 3-g)
 ```
 - ⭐ **PO 를 Cin7 에도 쓰지 않는다.** Cin7 이 정본인 동안 두 재고가 다른 것은 정상 — 맞추려 하지 않는다.
   전환 시점에 IMS 를 리셋하고 Cin7 재고를 통째로 가져온다(정본 §2).
@@ -97,21 +97,21 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | `on delete cascade` | bin 2,047개 딸려 소멸 | `no action` |
 | `AdditionalAttribute1` 로 발주처를 거른다 | 판정과 어긋난다 | Caleb 판정이 정본(`is_purchasable`) |
 | `product.name` 에 유니크 | 576종 중복 — 배치 전체 실패 | `sku` 가 자연키 · 화면은 SKU 를 함께 띄운다 |
-| ⭐ `pack_factor` 를 UOM 이름·SKU 접미사에서 읽는다 | **재고가 조용히 틀어진다** — UOM=6 인데 BOM=1 이던 실물 둘 | 정본은 **BOM Quantity** · UOM·접미사는 검산 카운터 |
+| ⭐ `pack_factor` 를 UOM 이름·SKU 접미사에서 읽는다 | **재고가 조용히 틀어진다**(실물 둘 · §3-d) | 정본은 **BOM Quantity** · UOM·접미사는 검산 카운터 |
 | `parent_product_id` 를 접미사로 찾는다 | SKU 오타가 부모를 잃거나 엉뚱한 부모에 붙는다 | BOM `ComponentProductID` |
-| 콤보를 `BOMType=Assembly` 로 가른다 | UOM 세트도 Assembly 다(6,422 중 진짜 조립 15) | **구성품 2개 이상**으로 가른다 |
+| 콤보를 `BOMType=Assembly` 로 가른다 | UOM 세트도 Assembly 다(진짜 조립 15) | **구성품 2개 이상**으로 가른다 |
 | 「제품 종류」 칸을 만든다 | 축이 겹치는 5,758행이 갈 곳을 잃는다 | 관계(family_id·parent·bom)로 읽는다 |
 | 대체 UPC(EA-ALT-UPC)를 전부 바코드로 흡수 | BOM ×6·×12 인 둘은 세트일 수 있다 | 조건 = EA-ALT-UPC **그리고** BOM=1 |
 | upsert(`merge-duplicates`)로 부분 갱신 · PATCH 를 서버 필터로 건너뛰기 | 400/23502 · 건너뛰는 요청도 왕복 | **PATCH** · 먼저 읽어 목록에서 뺀다(`asung-wms` 규칙 45·46) |
 | 재적재를 표마다 다르게 · 「source=cin7 지우고 다시」 | `valid_from`·`note`·id 가 사라진다 · upsert 는 「없어진 것」을 모른다 | ⭐ **넷이 한 규칙** — upsert + 안 들어온 cin7 행은 `is_active=false` · 정본 §3-f |
 | `is_default` 를 켜기만 한다 | 내린 줄·비활성 공급처가 기본으로 남는다(실사고) | **끄고 나서 켠다** — 끄기는 manual 보호 없음 · 켜기만 보호 · 재적재마다(§3-g) |
-| 콤보를 발주 후보에서 뺀다 · 세트에 공급처 줄을 둔다 | 사 오는 콤보(립오일 3)가 사라진다 · 세트를 하나 값으로 발주(AS92082-6) | 「공급처 줄이 있으면 후보」 · 세트는 부모로 산다(카운터 ⑤ 0) |
+| 콤보를 발주 후보에서 뺀다 · 세트에 공급처 줄을 둔다 | 사 오는 콤보가 사라진다 · 세트를 하나 값으로 발주(§3-g) | 「공급처 줄이 있으면 후보」 · 세트는 부모로 산다(카운터 ⑤ 0) |
 | GAS 가 시트를 거쳐 값을 옮긴다 | 시트가 날짜를 Date 로 바꾼다(연도 소멸) | 전 칸 텍스트 서식(`@`) + 문자열 + 읽을 때 모양 검사 |
 | 화면이 `is_active` 를 안 건다 | 내려간 줄이 그대로 보인다(AS92082-6) | 읽는 쪽이 **매번** 건다 · admin 만 토글 · §10-j 3-c |
-| 「목록에 없으면 상세를 비운다」 · 진입·이동 때 검색어를 안 바꾼다 | 언제 비는지 알 수 없다 · 고른 것이 목록에 없어 파란 표시가 없다(?id=·SKU 이동) | **사람이 바꾼** 검색·필터로만 비운다 · 페이지는 둔다 · 진입·이동은 SKU 를 검색칸에(세트면 Kind 풀기) · `detailSeq` · §10-j 3-d |
+| 「목록에 없으면 상세를 비운다」 · 진입·이동 때 검색어를 안 바꾼다 | 언제 비는지 알 수 없다 · 고른 것이 목록에 없어 파란 표시가 없다 | **사람이 바꾼** 검색·필터로만 비운다 · 페이지는 둔다 · 진입·이동은 SKU 를 검색칸에(세트면 Kind 풀기) · §10-j 3-d |
 | 공통 파일을 안 부른다 · 순서를 바꾼다 | 그 화면만 혼자 논다 · `imsPage is not defined` | `ims-ui.css` + config → **ui** → auth · §10-j 3-g |
 | timestamptz 를 문자열로 자른다 | UTC 로 보인다 | `imsTs()` · ⚠️ date 칸(valid_from·last_supplied·cin7_modified_on)은 제외 · §10-j 3-f |
-| update 0행을 성공으로 본다 | RLS 에 막힌 것이 조용히 지나간다 | `imsSaved()`(`.select()` 로 되읽어 0행이면 「Not saved」) · §10-j 3-f |
+| update 0행을 성공으로 본다 · 저장 실패인데 입력칸이 그대로 | RLS 에 막힌 것이 조용히 지나간다 · 화면만 저장된 것처럼 보인다 | `imsSaved()` 로 되읽어 0행이면 「Not saved」 · 직전 값으로 되돌린다 · 저장 중 잠금 · §10-j 3-i |
 | 새 Supabase 프로젝트를 그냥 쓴다 | 재설정 링크가 `localhost:3000` 으로 · 아무나 가입 | 가입 닫기 + URL Configuration · §10-f ⓪·⓪-b |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 진짜 막을 것은 **RLS**(`ims_is_admin` 선례 · §10-j 3-b).
