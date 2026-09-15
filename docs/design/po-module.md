@@ -667,6 +667,21 @@ Registered On 시간대            CreatedDate 에 Z 가 없어 미판정
 
 ⚠️ 6,343건을 건별로 물으면 Cin7 호출이 4시간이다. **전량 덤프에 `IncludeBOM=true` 를 켜서 한 번에** 받는다 — 실제로 그렇게 했다(38페이지 · 2분 42초 · §8).
 
+### ⭐ 덧붙임 (2026-09-15 · 화면을 세우며 드러난 것) — 패밀리와 콤보는 성질이 반대다
+
+같은 「묶음」이라는 말을 쓰지만 하나는 **보여 주기 위한 것**, 하나는 **계산하기 위한 것**이다.
+```
+패밀리(product_family)   ⭐ 느슨한 묶음 — 안 묶여도 재고·발주가 안 깨진다. 안 묶인 제품 4,161 이 있고 그것이 정상이다(위 「관계 전부 null」)
+                        ⭐ Shopify 에서 한 상품의 변형(variant)으로 보일지를 정하는 축 — 묶고 푸는 것은 판매 쪽 판단이다
+콤보(product_bom)       ⚠️ 단단한 묶음 — 재고가 실제로 흐른다. 디스플레이 1개가 낱개 24개로 갈린다(립오일 UNF18259 → UNF18048 ×24). 끊어지면 재고가 안 맞는다
+```
+[화면 실측 · Caleb 2026-09-15 · families.html] 묶인 제품 수 — 1개 11 · 2~5개 913 · 6~20개 197 · 21개 이상 20 · ⭐ 빈 패밀리 0.
+립오일 검산 — 디스플레이 `UNF18259` FixedCost 7.92 = 낱개 `UNF18048` 0.33 × 24(구성품 4종 × 6개). 「사 오는 콤보」의 단가가 구성품 합과 맞는다 — ⑤ 에서 발주 금액 검산에 쓸 수 있다.
+
+⬜ **옵션 축 이름이 갈려 있다** [화면 실측 · Caleb 2026-09-15] — `Color` 463 / `color` 38 · `Flavor` 4 / `Flavour` 3 · `Size` 332 · `Formula` 69 · `Type` 52 · `Style` 46 · 둘째 축이 있는 패밀리 33 · 셋째 축 없음.
+지금은 `families.html` 이 **화면에서만** 합친다(`AXIS_ALIAS` · color→Color · Flavour/flavour/flavor→Flavor · size→Size). 데이터는 Cin7 에서 온 값이라 IMS 에서 고쳐도 다음 재적재(§3-f)가 되돌린다.
+⬜ Shopify 연동 때 정리한다 — 우리 칸을 두거나 Cin7 을 고치거나. ⚠️ `Size`/`Volume`/`Length` 와 `Type`/`Style`/`Design`/`Shape` 는 합치지 않았다 — 실무에서 구별하는 것일 수 있어 판단할 수 없었다.
+
 ---
 
 ## 3-e. ③ 제품 표 넷 적재 완료 (2026-09-14 토론토 오전 · 테스트 DB)
@@ -1379,6 +1394,8 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
   목록이 SKU 순 정렬이라 앞쪽에 몰려 있다 — 앞 몇 페이지만 보고 판단하면 틀린다.
 - ⚠️ `ref_bin` 2,675행이 1,000행 캡을 넘는다 — 전량을 읽는 코드는 페이징하거나 `jsonb_agg` RPC. 모르고 읽으면
   **에러 없이 1,000개만 온다.** 브랜드 415행·계정 289행은 캡 아래지만 마스터는 늘어난다.
+  [2026-09-15] 넘는 표는 **넷** — `ref_bin` 2,675 · `product_family` 1,141 · `product` 18,714 · `product_supplier` 12,721. 화면은 예외 없이 `.range()`(§10-j 3-a).
+- ⬜ **채워야 할 우리 칸**(is_purchasable 판정 · 기본 공급처 · ref_payment_term 값 · ref_bin.zone·is_staging · 단가 없는 줄 …) — 목록은 **§10-k** 한곳에 모았다. 쓰기의 첫 대상.
 - ⚠️ 화면에서 통화를 기호로만 구별하면 안 된다 — CAD·USD 둘 다 `$`.
 - ⚠️ 환율은 마스터가 아니라 문서에 박는다 — 필요한 것은 「그 거래를 한 날의 환율」. Cin7 도 문서마다 `CurrencyRate`
   (⚠️ Simple Purchase 의 `Invoice.CurrencyRate` 는 null 이라 상위 `CurrencyRate` — `inv-cost` 실측).
@@ -1862,6 +1879,11 @@ Caleb: 「현재 운영중인 wms 는 cin7 을 바라본다. 특정 시점에 ci
                       Confirm email                  켜짐   ⇒ Add user 로 만들 때 Auto Confirm User 를 켠다
                       Email provider                 Enabled (로그인 방식이라 켜져 있어야 맞다)
                       ~~⬜ 현재 설정 미확인 — 확인 전에는 화면을 배포하지 않는다~~ → 확인됐다. 「계정이 있는 사람만」이라는 방어(10-b)가 성립한다
+⓪-b ✅ URL 설정      [실사고 → Caleb 고침 2026-09-15 · Asung-IMS → Authentication → URL Configuration]
+                      Site URL        https://ims.asung.ca
+                      Redirect URLs   https://ims.asung.ca/**
+                      ⚠️⚠️ 새 Supabase 프로젝트는 이것이 **기본값(localhost:3000)** 이다 — 비밀번호 재설정 링크가 localhost:3000 으로 갔다(`error_code=otp_expired` 도 함께).
+                      가입 닫기(⓪)는 어제 적었는데 이것은 빠져 있었다. ⚠️ 옛 재설정 링크는 한 번 쓰면 소모된다 — 설정을 고친 뒤 **새 메일**을 받아야 한다.
 ① Auth 계정          대시보드 → Authentication → Users → Add user (⭐ Auto Confirm User 켜기) → 만들어진 사용자의 **UID 를 복사**한다
 ② ✅ 사용자 표        `ims_staff` — 표 확정 · 마이그레이션 `20260915141105_ims_staff.sql` · 로컬 재생·RLS 실동작 통과 · **§10-h**
                       ~~⬜ WMS 것을 베낄지 IMS 답게 다시 설계할지 미정~~ → 베끼지 않았다(어긋나는 다섯 · §10-h) · ⚠️ 테스트 DB push 는 Caleb
@@ -1969,7 +1991,7 @@ anon select                           permission denied
 role='worker'                         role_ck 위반
 ```
 
-### 10-i. 계정 추가 경로 — `staff.html` + `ims-staff-create` EF (2026-09-15 · 파일만 만들었다 · 배포·push ⬜ Caleb)
+### 10-i. 계정 추가 경로 — `staff.html` + `ims-staff-create` EF (2026-09-15 · ✅ 배포 · ✅ 실측 — 계정 생성 성공 · Caleb)
 
 ⭐ 첫 쓰기 화면. §10-f ①·②-b 의 손 절차(Add user → UID 복사 → SQL insert)를 **화면 한 번**으로 대체한다 — WMS `staff-admin.html` + `staff-create` EF(2026-07-21)와 같은 모양.
 ```
@@ -2010,8 +2032,104 @@ email·auth_user_id  보여만 준다 — 로그인의 열쇠
 ⭐ UPDATE 0        RLS 에 막힌 update 는 에러가 아니라 0행이다(§10-h 실측) — .update().select() 로 되읽어 0행이면 「Not saved」.
                   「0행 삽입도 조용히 성공한다」(§10-f)와 같은 교훈
 ```
-⚠️ EF 는 로컬에서 못 돌린다(Auth admin API) — 원본과 나란히 코드 검토로 대신했다. 첫 실측은 배포 뒤 Caleb 이 사람 하나를 실제로 넣어 보는 것.
+⚠️ EF 는 로컬에서 못 돌린다(Auth admin API) — 원본과 나란히 코드 검토로 대신했다. ~~첫 실측은 배포 뒤 Caleb 이 사람 하나를 실제로 넣어 보는 것.~~
+→ [실측 · Caleb 2026-09-15] ⭐ **계정 생성 성공.** 비밀번호 재설정도 작동 — 단, URL Configuration 이 기본값(localhost:3000)이라 먼저 고쳐야 했다(§10-f ⓪-b).
 📌 프롬프트가 가리킨 `.claude/skills/asung-ops/SKILL.md` 의 401 내용은 실제로는 `asung-inv-ledger/SKILL.md` 에 있다 — 스킬 정리는 다음에 한 번에.
+
+### 10-j. ⭐⭐ 화면 공통 규칙 — 다섯이 이렇게 만들어졌다 (2026-09-15 · 적어 두지 않으면 다음 화면이 제각각이 된다)
+
+**실물 (asung-ims · ims.asung.ca · 2026-09-15)** — 읽기 다섯 + 쓰기 하나. 행 수는 [화면 실측 · Caleb].
+```
+index.html              로그인 확인 · 마스터 표 행 수 (배선 확인용)
+settings.html           ref_ 여덟 3,481행 — 왼쪽에 표 목록, 오른쪽에 내용
+suppliers.html          supplier 257 + 주소 · 연락처 · 할인 · 연결 제품 수
+products.html           product 18,714 — 검색 중심 · 세트는 캐럿 · 브랜드/카테고리 필터 · 상세: 공급처 · 바코드 · 구성품 · 이 제품의 세트 · Same family
+families.html           product_family 1,141 — 옵션 축별 · 속한 제품
+supplier-products.html  product_supplier 12,721 을 공급처 쪽에서 · 단가 없는 줄 카운터
+staff.html              ims_staff — ⭐ 첫 쓰기 화면 (§10-i)
+메뉴(ims-auth.js items)  Settings · Suppliers · Products · Families · Supplier Products · Staff · Home
+```
+[화면 실측 · Caleb] 공급처 257 → Active only 226 → + Purchasable 217 → + Hide discontinued **138** — ⭐ 138 이 실제 매입처다. 발주 화면이 보게 될 크기.
+Cygnus Beauty Supply 연결 236 · 그중 기본 122 · 단가 없음 0.
+
+**3-a. 읽기**
+```
+⚠️⚠️ PostgREST 1,000행 캡 — 모든 목록을 .range() 로 나눠 읽고 count:'exact' 로 총계를 받는다. 예외를 두지 않는다.
+     ⭐ 지금 캡을 넘는 표는 넷 — ref_bin 2,675 · product_family 1,141 · product 18,714 · product_supplier 12,721.
+        ⚠️ [정정 2026-09-15] 초안은 「ref_bin 과 product 뿐」이었다 — §1 에 적어 둔 숫자를 스스로 안 봤다.
+     「지금은 안 넘으니까」로 두면 나중에 늘었을 때 조용히 잘린다(이 프로젝트 사고 5건).
+     ⚠️ 예외 하나 — staff.html 은 페이지네이션이 없고 검색도 클라이언트에서 한다(전량을 받는다 · 직원 수십 명). caps-ok 주석을 단다.
+⚠️ 검색은 서버에서 한다(ilike / or). 받아 와서 거르면 첫 페이지 안에서만 찾는다.
+⚠️ 조인된 칸(product.name 등)은 서버에서 못 거른다 — supplier-products.html 의 제품 검색은 받은 페이지 안에서만 걸린다. 알고 쓰는 한계다(코드 주석에 적혀 있다).
+```
+
+**3-b. ⭐ 누가 무엇을 보는가**
+```
+매니저   정돈된 목록만 본다 — 토글이 아예 안 보인다
+admin    토글로 그 바깥을 꺼내 본다 (판정이 없는 것 · 잘못된 것을 정리하는 자리)
+```
+```
+suppliers.html          매니저는 is_active·is_purchasable·is_discontinued 셋이 고정(138곳) · admin 만 #opts
+supplier-products.html  같다 (!isAdmin || !showAll 이면 정돈된 것만)
+products.html           ⭐ 제품은 감추지 않는다(Caleb 2026-09-15) — 비활성·대체 UPC 도 찾을 일이 있다. Active only 토글은 매니저에게도 보인다.
+                        단, 상세의 「공급처 show N inactive」 토글은 admin 만(3-c)
+families.html           토글 없음 — 모두에게 전량
+staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감춘다(§10-i)
+```
+⚠️⚠️ **이것은 화면에서 감추는 것이지 막는 것이 아니다.** anon key 가 공개 레포에 있으니(§10-c) PostgREST 를 직접 치면 다 보인다. 지금은 감추는 것으로 충분하다(공급처 목록은 비밀이 아니다).
+⭐ 진짜 막을 것이 생기면 **RLS** 로 간다 — `ims_staff` 의 `ims_is_admin()`(§10-h)이 그 선례다.
+
+**3-c. ⚠️ 읽는 쪽이 `is_active` 를 건다 (§3-f)**
+⚠️⚠️ **[실사고 2026-09-15]** `AS92082-6`(세트) 상세에 공급처가 붙어 보였다. 데이터는 맞았다 — 어제 Cin7 에서 지우고 `is_active=false` 로 내린 줄인데 **화면이 그대로 띄웠다.**
+`suppliers.html` 의 연결 제품 수는 걸었는데 `products.html` 에서 빠뜨렸다.
+⇒ 내려간 줄은 기본으로 감추고, admin 만 `show N inactive` 토글로 꺼내 본다.
+📌 §3-f 는 「안 들어온 줄을 is_active=false 로 내린다」이고, 그것이 보이지 않으려면 **읽는 쪽이 매번 걸어야 한다.** 표가 알아서 감춰 주지 않는다.
+
+**3-d. ⚠️ 비동기 순서 — 그리고 필터**
+⚠️⚠️ **[실사고 2026-09-15]** `products.html?id=…` 로 들어가면 상세가 빈 채로 떴다. `loadDetail()` 을 `loadList()` 보다 먼저 불렀는데, `loadList()` 안에 「고른 제품이 목록에 없으면 상세를 비운다」가 있어서 곧바로 지웠다(어제 넣은 장치).
+⇒ **완전한 규칙**: ① 목록 필터를 풀어(Active only 끄기 · kind 비우기 · 검색칸에 그 SKU) 그 행이 목록에 **들어오게** 한 뒤 ② 목록을 그리고 ③ 상세를 연다. 「목록을 먼저」만으로는 반쪽이다 — 그 행이 필터에 걸려 목록에 없으면 또 지운다.
+📌 비동기 순서는 실제로 돌려 봐야 안다.
+
+**3-e. 불리언 색 — ⚠️ 규칙과 코드가 아직 다르다 (사실대로)**
+⚠️ 색은 `is_active` 에만 쓴다. `is_staging`·`is_default`·`is_split` 는 false 가 정상인데 빨갛게 칠하면 2,675행이 전부 경고처럼 보인다(2026-09-15 settings.html 에서 드러남).
+```
+✅ settings.html            is_active 만 on/off 색 · 다른 불리언은 무채색 (2026-09-15 고침)
+⬜ suppliers.html           연락처 is_default 를 yn() 으로 칠한다(빨간 ✗)
+⬜ products.html            바코드 is_primary · 공급처 is_default 를 yn() 으로 칠한다
+⬜ supplier-products.html   is_default 를 yn() 으로 칠한다
+```
+⚠️ [정정 2026-09-15] 초안은 「색은 is_active 에만 쓴다」를 다섯 화면 전부의 사실처럼 적었다 — 코드를 안 보고 기억으로 적은 것. 상세의 짧은 표 세 화면은 아직 그대로다. 다음 화면 작업 때 함께 고친다.
+
+**3-f. 그 밖**
+```
+화면 글자는 영문   ⭐ IMS 앱은 모두 영문(Caleb 2026-09-15). 코드 주석은 한국어(정본이 한국어다)
+표 이름은 숨긴다   화면 제목은 `ref_bin` 이 아니라 `Bin` — ⚠️ 표 이름 자체는 바꾸지 않았다(FK·적재 코드가 그 이름을 쓴다)
+☰ Menu 위치       이름·역할 바로 옆 · 다른 버튼보다 앞 (WMS UI 규칙과 같다) · 항목은 ims-auth.js items 한곳
+화면 사이 이동     products.html?id=… / ?sku=… · families.html?id=… · supplier-products.html 의 SKU → products.html 상세
+저장 확인          ⚠️⚠️ PostgREST update 가 RLS 에 막히면 에러가 아니라 0행이다(§10-h 실측).
+                  .update().eq().select() 로 되읽어 0행이면 「Not saved」를 띄운다(staff.html · §10-i)
+틀                suppliers.html 을 본떠 만든다(헤더 · 왼쪽 목록 · 오른쪽 상세) — 스크립트 셋(supabase-js · ims-config.js · ims-auth.js) + imsAuth.start
+```
+⬜ IMS 인프라(Supabase 프로젝트 준비 · 화면 규칙 · EF 배포)를 담는 **스킬을 따로 세울지** 정할 일 — 지금은 `asung-po` 스킬 §0·§4 에 한 줄씩 얹어 두었다(마스터·적재 스킬과 성격이 다르다는 것을 알고 얹었다 · 2026-09-15).
+
+### 10-k. ⬜ 채워야 할 우리 칸 — 쓰기의 첫 대상 (2026-09-15 · 한곳에 모았다)
+
+전부 **Cin7 이 모르는 우리 칸**이라 IMS 에서 고쳐도 아무것도 안 깨진다(재적재 §3-f 가 manual·우리 칸을 건드리지 않는다) ⇒ 쓰기의 첫 대상이다. 수치는 [화면 실측 · Caleb 2026-09-15].
+```
+is_purchasable        판정 없음 31곳(어제 들어온 비활성 공급처) + 138곳 중 잘못 켜진 것(실물: Airalo · Klook 같은 것이 매입처로 잡혀 있다)
+기본 공급처            2건 — 활성 줄이 있는데 날짜가 없거나 동점이라 못 골랐다(§3-g)
+선주문 공급처          26건 — Custom Reusable Bag 25 + AS01433 · source='manual' 줄로 미리 적을 자리(§3-g 승격 규칙)
+AS91437-BLK           Type=Non Inventory 라 ④ 적재 모집단에서 빠졌다
+supplier_discount     0행 — 표만 있고 채울 자리가 없다
+ref_payment_term      기일·할인기한·할인율·분할 34행 전부 비어 있다 — ⭐ Cin7 에서 긁지 않고 화면에서 채운다(Caleb) · 34행이라 손이 빠르다
+ref_bin.zone          2,675행 전부 비어 있다 — ⚠️ 손으로 채울 크기가 아니다. 규칙으로 한 번에(§7 · bin 이름에서 뽑는다 · 197건 null)
+ref_bin.is_staging    ⭐ 임시 보관용으로 정해진 자리가 실제로 있다(Caleb) — 값만 안 채워졌다
+단가 없는 줄           1,227 — supplier-products.html 의 No price 카운터로 어디에 몰렸는지 보인다
+```
+⬜ 순서(참고 · 지금 하지 않는다): `is_purchasable` 체크 하나부터 — 화면이 이미 있고 가장 작다. ⚠️ ⑤ PO 본체는 단가 없는 줄 1,227 과 supplier_discount 0행이 남아 있으면 발주 금액이 안 맞는다.
+📌 그 뒤(Caleb 2026-09-15 · 판단만): 제품 등록·이미지 등록은 결국 IMS 에서 한다(Cin7 이 이미지를 회계·재고에 쓰지 않으니 「IMS 가 정본이 되는 첫 값」 · ⚠️ Supabase Storage 첫 사용 — 누가 올리고 누가 보는지) ·
+⚠️⚠️ Cin7 으로 내보내는 일은 없다 — 한 방향(Cin7 → IMS)뿐. 컷오버 전에 새 제품이 필요하면 **양쪽에서 각각 만든다** ⇒ IMS 에서 먼저 만든 제품(source='manual' · cin7_id 없음)에 나중에 Cin7 것이 따라오면 같은 SKU 가 두 행 — ④ 의 승격 규칙과 같은 장치가 `product` 에도 필요하다(열쇠는 sku · ⬜ 제품 생성 화면 때) ·
+재고·판매가는 원장 이전 뒤(원장은 아직 운영에서 shadow) · `ims_staff.perms` 는 아직 안 쓴다(전부 [] · 화면이 늘면 requirePerm).
 
 ---
 
