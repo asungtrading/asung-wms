@@ -475,3 +475,20 @@ enabled = true
 #   대시보드 토글로 먼저 껐으나 재배포하면 되돌아가므로 여기에 박는다.
 verify_jwt = false
 entrypoint = "./functions/inv-doc-cost/index.ts"
+
+[functions.ims-staff-create]
+enabled = true
+# ⚠️⚠️ Asung-IMS(fazgmyvzzhqybtvtktyg) 전용 — 운영(asung-WMS) 함수가 아니다. 한 config.toml 에 두 Supabase
+#   프로젝트의 블록이 섞이는 첫 사례(2026-09-15 · po-module §10-i). 배포는 반드시 이름과 --project-ref 를 함께:
+#     supabase functions deploy ims-staff-create --project-ref fazgmyvzzhqybtvtktyg
+#   ⚠️ 이름을 빼면 폴더의 함수 전부가 배포된다 — --project-ref 없이 = 운영에 IMS 함수가 ·
+#      이름 없이 = IMS 에 WMS 함수 아홉이 올라간다.
+# staff.html(asung-ims)이 로그인 세션 JWT 를 붙여 부른다. 게이트는 함수 안(caller JWT 로 rpc/ims_is_admin)이라
+# 게이트웨이 JWT 검사는 중복이다.
+# 📌 사실(2026-09-15 확인): 원본 staff-create 는 이 파일에 블록이 없다 — 기본값(verify_jwt=true)으로 배포돼 있고,
+#   브라우저가 사용자 JWT 를 보내니 그대로 통과해 돌고 있다. 그러니 이 EF 도 블록이 없어도 401 이 나지는 않는다
+#   (09-12 의 401 은 JWT 없는 cron 호출의 일). 그래도 넣는다 — 스킬 규칙(새 EF 는 블록 필수 ·
+#   asung-inv-ledger/SKILL.md) · 검사 중복 제거 · [짐작] 게이트웨이 401 은 CORS 헤더 없이 돌아와
+#   브라우저 콘솔에서 원인이 안 보일 것.
+verify_jwt = false
+entrypoint = "./functions/ims-staff-create/index.ts"

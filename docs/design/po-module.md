@@ -1867,7 +1867,9 @@ Caleb: 「현재 운영중인 wms 는 cin7 을 바라본다. 특정 시점에 ci
                       ~~⬜ WMS 것을 베낄지 IMS 답게 다시 설계할지 미정~~ → 베끼지 않았다(어긋나는 다섯 · §10-h) · ⚠️ 테스트 DB push 는 Caleb
 ②-b ⚠️ 첫 admin      정책이 「admin 만 insert」라 첫 행은 아무 authenticated 도 못 넣는다(마이그레이션은 행을 적재하지 않는다).
                       ⇒ ① 의 UID 로 **SQL Editor(postgres · RLS 우회)** 에서 자기 행을 넣는다 — 데이터라 「스키마는 마이그레이션만」 규칙 위반이 아니다.
-                      ⭐ 다음 사람을 추가할 때도 같은 SQL 이다(그때는 admin 이 화면·PostgREST 로 넣어도 되지만 화면이 서기 전엔 이것).
+                      ~~⭐ 다음 사람을 추가할 때도 같은 SQL 이다(그때는 admin 이 화면·PostgREST 로 넣어도 되지만 화면이 서기 전엔 이것).~~
+                      → [2026-09-15] 다음 사람은 **화면으로 넣는다** — `staff.html` + `ims-staff-create` EF(**§10-i** · 파일만 만들었다 · 배포 ⬜ Caleb).
+                      ⚠️ 이 SQL 은 **지우지 않는다** — 표가 빈 첫 admin 과 「Auth 계정만 있고 행이 없는 경우」(EF 가 409 로 여기를 가리킨다)는 여전히 이 길뿐이다.
 ③ URL·anon key       Settings → API
 ④ 화면               wms-auth.js 는 복사한다(가져다 쓰면 IMS 가 WMS 파일에 매달린다 · 어차피 URL·anon key 가 달라 그대로는 못 쓴다)
                       ⚠️ 복사한 뒤 staff 조회를 `.eq("email", user.email)` 이 아니라 **`.eq("auth_user_id", user.id)`** 로 바꾼다(§10-h 열쇠)
@@ -1934,6 +1936,9 @@ anon            revoke all
 ```
 `ims_is_admin()` — `security definer` · `stable` · `set search_path = public, pg_temp` · `auth.uid()` 로 활성 admin 인지 · anon 실행 권한 회수 · authenticated 만.
 ⚠️ **하나뿐이다** — 정책과 EF 게이트가 같은 판정을 쓴다. 다시 만들지 마라(`set_updated_at()` 과 같은 원칙).
+📌 [2026-09-15 · §10-i] EF 가 「같은 판정」을 쓰는 방법은 **caller 의 JWT 로 `POST /rest/v1/rpc/ims_is_admin`** 이다.
+   ⚠️ WMS 원본(`staff-create`)처럼 service_role 로 표를 직접 읽으면 `auth.uid()` 가 null 이라 이 함수를 못 쓰고,
+   정책과 EF 가 **서로 다른 판정 코드**를 갖게 된다 — 어제 함수를 만든 근거 하나가 무너진다. 그래서 rpc 로 갔다(검토에서 바뀐 것 · 초안은 원본 방식).
 
 **⭐ 재귀 — 실측 (2026-09-15 로컬 · 스크래치 표 · 정책 모양 셋)**
 ```
@@ -1963,6 +1968,50 @@ admin 이 delete                       permission denied   (닫혀 있다)
 anon select                           permission denied
 role='worker'                         role_ck 위반
 ```
+
+### 10-i. 계정 추가 경로 — `staff.html` + `ims-staff-create` EF (2026-09-15 · 파일만 만들었다 · 배포·push ⬜ Caleb)
+
+⭐ 첫 쓰기 화면. §10-f ①·②-b 의 손 절차(Add user → UID 복사 → SQL insert)를 **화면 한 번**으로 대체한다 — WMS `staff-admin.html` + `staff-create` EF(2026-07-21)와 같은 모양.
+```
+화면  staff.html(asung-ims)   이름·이메일·역할 → 로그인 세션 JWT 를 붙여 EF 에 POST → 임시 비밀번호를 한 번만 보여 주고 복사
+EF    ims-staff-create        ① caller JWT 로 rpc/ims_is_admin (활성 admin 만 · 정책과 같은 판정 · §10-h)
+                              ② service_role 로 Auth 계정 생성(auto-confirm) ③ ims_staff insert(⭐ auth_user_id 필수) ④ 실패 시 Auth 계정 롤백
+```
+⚠️⚠️ `service_role` 은 EF 안에만 있다 — asung-ims 는 공개 레포다(§10-c).
+
+**⚠️⚠️ 레포가 둘로 갈린다 — 이 프로젝트에서 처음.** EF 는 `asung-wms` 에, 화면은 `asung-ims` 에.
+「Supabase 것은 전부 asung-wms」의 근거 — `supabase link`·마이그레이션 이력 외에 **둘 더**(2026-09-15 검토):
+```
+① asung-ims 는 GitHub Pages 가 루트를 그대로 발행한다   EF 소스를 거기 두면 ims.asung.ca/supabase/functions/…/index.ts 로 열린다.
+                                                        비밀은 없지만(키는 env) 서버 코드가 공개 사이트에 서빙되는 모양이 된다
+② CLI 는 supabase/ 폴더 + config.toml 이 있어야 배포한다   asung-ims 에 두면 supabase 폴더가 둘 · link 도 둘. ims_staff 마이그레이션이 이미 asung-wms 에 있으니 표와 EF 는 같은 곳
+```
+**⚠️⚠️ 배포 함정 — 한 `config.toml` 에 두 프로젝트의 블록이 섞이는 첫 사례다.** `supabase functions deploy` 는 **이름을 빼면 폴더의 함수 전부**를 대상에 배포한다:
+```
+--project-ref 없이            운영(asung-WMS)에 IMS 함수가 올라간다 (link 가 운영에 고정 · CLAUDE.md)
+이름 없이 --project-ref 만    Asung-IMS 에 WMS 함수 아홉이 올라간다
+⇒ 반드시 둘 다:  supabase functions deploy ims-staff-create --project-ref fazgmyvzzhqybtvtktyg
+```
+접두어 `ims-` 가 어느 프로젝트 함수인지 가르는 유일한 표시다 — IMS 함수는 앞으로도 `ims-` 로 시작한다.
+
+**`config.toml` 블록 · `verify_jwt`** — 블록을 넣었다(`verify_jwt = false`). 📌 **사실 정정(2026-09-15 확인)**: 원본 `staff-create` 는 블록이 **없다** —
+기본값(true)으로 배포돼 있고 브라우저가 사용자 JWT 를 보내니 통과해 돌고 있다. 「원본도 false」는 확인 없이 적은 짐작이었다. 09-12 의 401(asung-inv-ledger SKILL.md 196행·1770행)은 JWT 없는 cron 호출의 일이라 이 EF 에는 그대로 적용되지 않는다.
+그래도 넣는 이유 — 스킬 규칙(새 EF 는 블록 필수) · EF 가 스스로 검사하니 게이트웨이 검사는 중복 · [짐작] 게이트웨이 401 은 CORS 헤더 없이 돌아와 브라우저에서 원인이 안 보일 것.
+
+**원본에서 바꾼 여섯** — ① `wms_staff`→`ims_staff` ② caller 확인 email 조회 → **rpc/ims_is_admin**(§10-h) ③ `active`→`is_active` ④ role 둘 · `warehouse_access` 없음 · 기본 `manager` ⑤ admin 만(perms 축 미사용) ⑥ insert 에 `auth_user_id`.
+덧붙인 것 — 이메일 **소문자 저장 + `ilike` 중복 검사**(UNIQUE 가 대소문자를 가른다) · Auth 계정만 있고 행이 없으면 **연결하지 않고** 409 로 §10-f ②-b SQL 을 가리킨다(열쇠가 uid 라 WMS 의 「email 을 고쳐 연결」은 맞지 않다) · 롤백도 실패하면 `orphan_auth_user_id` 를 응답에 싼다.
+
+**화면 규칙** — 영문 UI · 한국어 주석 · `suppliers.html` 틀(목록+상세). 페이지네이션 없음(직원 수십 명 · caps-ok).
+```
+admin 아니면      편집·추가 UI 를 감춘다(읽기 전용) — 진짜 방어는 RLS 와 EF
+자기 행           role·is_active 를 못 바꾼다(스스로 잠긴다 · 마지막 admin 이 자기를 끄면 아무도 못 고친다) · name·note 는 된다
+email·auth_user_id  보여만 준다 — 로그인의 열쇠
+삭제              없다 — is_active=false (delete revoke · §10-h)
+⭐ UPDATE 0        RLS 에 막힌 update 는 에러가 아니라 0행이다(§10-h 실측) — .update().select() 로 되읽어 0행이면 「Not saved」.
+                  「0행 삽입도 조용히 성공한다」(§10-f)와 같은 교훈
+```
+⚠️ EF 는 로컬에서 못 돌린다(Auth admin API) — 원본과 나란히 코드 검토로 대신했다. 첫 실측은 배포 뒤 Caleb 이 사람 하나를 실제로 넣어 보는 것.
+📌 프롬프트가 가리킨 `.claude/skills/asung-ops/SKILL.md` 의 401 내용은 실제로는 `asung-inv-ledger/SKILL.md` 에 있다 — 스킬 정리는 다음에 한 번에.
 
 ---
 
