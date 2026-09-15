@@ -20,7 +20,7 @@ Cin7 Core 의 발주(Purchase)를 대체하는 IMS 세 번째 모듈. WMS(첫 �
 Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원칙 1) · 다른 모듈의 표를 읽지 않는다(원칙 2).
 
 ```
-① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 wms_staff 확장(별건)
+① Settings (8축)  ✅ 2026-09-11 완료 — 7축 · 사용자는 ~~wms_staff 확장(별건)~~ [2026-09-15] `ims_staff` 신설 — §10-h(`20260915141105`)
 ② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §3-b**(`supplier_discount` 추가 · ~~§7-b~~ 2026-09-13 이사) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §3-c · ~~§7-c~~) — 226 / 87 / 237 / 0**
 ③ 제품             ✅ **적재 완료(2026-09-14 · §3-e · ⚠️ 테스트 DB 한정 — 운영 미적용) — 1,141 / 18,714 / 17,104 / 65** · ~~🔄 표 넷 생성 완료 · 적재 대기(2026-09-13 · §3-d)~~ · 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS `docs/probes/ImsLoadProduct.gs` · 카운터 넷 DB 재확인 0 · ⚠️ 카운터 ⑤ 활성끼리 바코드 겹침 **23**(무관 6)
 ④ 제품↔공급처      ✅ **적재 완료(2026-09-14 · §3-g · ⚠️ 테스트 DB 한정 — 운영 미적용) — `product_supplier` 12,728줄(활성 12,721) · supplier 226→257** · `20260914175145` · 충돌 키 cin7_id · is_default 는 우리 칸(11,480) · 적재 GAS `docs/probes/ImsLoadProductSupplier.gs` · 카운터 여섯 — ⑤ 세트 줄 0 · ⑥ 사 오는 콤보 **3**(기대값) · ⚠️ 콤보 방향은 ⑤ 에서(부모당 하나)
@@ -1852,20 +1852,34 @@ Caleb: 「현재 운영중인 wms 는 cin7 을 바라본다. 특정 시점에 ci
 📌 정본 곳곳의 「테스트 DB(Asung-IMS)」와 CLAUDE.md §1 의 `[테스트 · Asung-IMS]` 라벨은 **그대로 둔다** — 「검증 환경」이라는 뜻이 아니라 **「운영 WMS 와 다른 프로젝트」를 가르는 안전 라벨**이다
 (명령이 어느 프로젝트를 치는지). 뜻은 `ims-principles.md` §1-a 「Asung-IMS 는 내일의 운영이다. 버리는 놀이터가 아니다」가 정본.
 
-### 10-f. ⬜ 다음 — IMS 로그인
+### 10-f. IMS 로그인 — ⓪ ✅ · ② 표 확정 · 나머지 ⬜ (2026-09-15 갱신)
 
 ```
-⓪ ⚠️⚠️ 가입 닫기      Authentication → Sign In / Providers → Email 의 Enable email signups 를 끈다. ⬜ 현재 설정 미확인 —
-                      **확인 전에는 화면을 배포하지 않는다.** anon key 는 공개 레포에 들어가고 IMS 표는 전부 auth_all 이라,
-                      가입이 열려 있으면 누구든 가입해 authenticated 가 되어 다 읽고 쓴다 — 「계정이 있는 사람만」이라는 방어(10-b)가 없어진다.
-                      WMS 가 Add user 로만 20명을 만든 것과 같은 전제(asung-wms 스킬 「인증」)
-① Auth 계정          대시보드 → Authentication → Users → Add user (⭐ Auto Confirm User 켜기)
-② 사용자 표          wms_staff 에 해당하는 자리 — 마이그레이션 필요
-                      ⚠️ ①Settings 의 「사용자는 wms_staff 확장(별건)」이 가리키던 자리다. 더 미룰 수 없다
-                      ⬜ WMS 것을 베낄지 IMS 답게 다시 설계할지 미정 — 운영 wms_staff 의 information_schema 를 먼저 본다
-                         (WMS: role=worker/manager/admin · perms jsonb=split·admin·staff·apply·stock)
+⓪ ✅ 가입 닫기      [Caleb 확인 2026-09-15 · Asung-IMS → Authentication → Sign In / Providers]
+                      Allow new users to sign up     꺼짐   ⭐ 공개 레포의 anon key 로 아무나 가입할 수 없다
+                      Allow anonymous sign-ins       꺼짐   ⭐ 로그인 없이 authenticated 토큰을 받을 수 없다
+                      Allow manual linking           꺼짐
+                      Confirm email                  켜짐   ⇒ Add user 로 만들 때 Auto Confirm User 를 켠다
+                      Email provider                 Enabled (로그인 방식이라 켜져 있어야 맞다)
+                      ~~⬜ 현재 설정 미확인 — 확인 전에는 화면을 배포하지 않는다~~ → 확인됐다. 「계정이 있는 사람만」이라는 방어(10-b)가 성립한다
+① Auth 계정          대시보드 → Authentication → Users → Add user (⭐ Auto Confirm User 켜기) → 만들어진 사용자의 **UID 를 복사**한다
+② ✅ 사용자 표        `ims_staff` — 표 확정 · 마이그레이션 `20260915141105_ims_staff.sql` · 로컬 재생·RLS 실동작 통과 · **§10-h**
+                      ~~⬜ WMS 것을 베낄지 IMS 답게 다시 설계할지 미정~~ → 베끼지 않았다(어긋나는 다섯 · §10-h) · ⚠️ 테스트 DB push 는 Caleb
+②-b ⚠️ 첫 admin      정책이 「admin 만 insert」라 첫 행은 아무 authenticated 도 못 넣는다(마이그레이션은 행을 적재하지 않는다).
+                      ⇒ ① 의 UID 로 **SQL Editor(postgres · RLS 우회)** 에서 자기 행을 넣는다 — 데이터라 「스키마는 마이그레이션만」 규칙 위반이 아니다.
+                      ⭐ 다음 사람을 추가할 때도 같은 SQL 이다(그때는 admin 이 화면·PostgREST 로 넣어도 되지만 화면이 서기 전엔 이것).
 ③ URL·anon key       Settings → API
 ④ 화면               wms-auth.js 는 복사한다(가져다 쓰면 IMS 가 WMS 파일에 매달린다 · 어차피 URL·anon key 가 달라 그대로는 못 쓴다)
+                      ⚠️ 복사한 뒤 staff 조회를 `.eq("email", user.email)` 이 아니라 **`.eq("auth_user_id", user.id)`** 로 바꾼다(§10-h 열쇠)
+```
+**②-b 의 SQL** — `<UID>` 는 ① 에서 복사한 값 · `email` 은 Auth 와 같은 표기로:
+```sql
+-- [Asung-IMS · SQL Editor · postgres] 첫 admin (그리고 다음 사람도 같은 모양 · role 만 바꾼다)
+insert into public.ims_staff (auth_user_id, email, name, role, note)
+values ('<UID>', 'caleb@asung.ca', 'Caleb Chang', 'admin', 'first admin · 2026-09-15 · inserted as postgres (RLS bypass) — see po-module §10-f ②-b')
+returning id, auth_user_id, email, role, is_active;
+-- 확인 (반드시 되읽는다 — 0행 삽입도 조용히 성공한다)
+select email, role, is_active, auth_user_id from public.ims_staff order by created_at;
 ```
 
 ### 10-g. 📌 머신 구분
@@ -1874,6 +1888,80 @@ Caleb: 「현재 운영중인 wms 는 cin7 을 바라본다. 특정 시점에 ci
 회사 머신  Windows 사용자 chang · WSL caleb · 머신명 ASUNG-CALEB
 집 머신    Windows 사용자 yoonh · WSL caleb · 머신명 Jeannie
 ⚠️ Downloads 경로(/mnt/c/Users/<사용자>/Downloads)와 zip 만들기에서 매번 갈린다 — 먼저 확인할 것
+```
+
+### 10-h. 사용자 표 `ims_staff` — 표 · 열쇠 · RLS (2026-09-15 · 마이그레이션 `20260915141105` · 로컬 검증 통과)
+
+📌 **자리** — 이 표는 PO 도메인 마스터(§3 계열 · Cin7 매핑)가 아니라 **로그인 인프라의 일부**라 §10 에 둔다. 감사로그·승인 권한이 생겨 커지면 **§11 로 독립**시킨다.
+📌 ①Settings 의 「사용자 축은 `wms_staff` 확장(별건)」이 가리키던 자리 — 확장이 아니라 **새로 세웠다**(운영 `wms_staff` 는 다른 프로젝트 · §10-e).
+
+**실무 (Caleb 2026-09-15)** — 매니저 등급이 발주를 짜고 승인까지 한다(한 사람이 둘 다) · 그 사람들이 IMS 를 메인으로 쓴다 · ⭐ 지금은 Caleb 혼자.
+⚠️ **짜는 사람과 승인하는 사람을 지금 권한으로 가르지 않는다** — 없는 구분을 미리 칸으로 만들면 ③ 「종류 칸」 실수의 반복. 갈리면 그때 권한을 하나 더 만든다.
+
+**표**
+```
+id            uuid pk
+auth_user_id  uuid not null unique     ⭐ 열쇠 = auth.uid() (JWT sub) · auth.users(id) FK 없음
+email         text not null unique     사람이 읽는 칸 — 로그인 매칭에 쓰지 않는다
+name          text not null
+role          text not null default 'manager'   check in ('manager','admin')  · ims_staff_role_ck
+perms         jsonb not null default '[]'
+is_active     boolean not null default true
+note · created_at · updated_at(트리거 set_updated_at() 재사용)
+```
+공통 8칸에서 벗어나는 곳 — **의도된 것**: `cin7_id`·`source` 없음(Cin7 대응이 없다 · `ref_currency` 가 `cin7_id` 를 뺀 것과 같은 판단).
+`wms_staff` 와 어긋나는 다섯(의도): `id` bigint → uuid · `email` nullable → NOT NULL UNIQUE · `active` → `is_active` · `perms` 기본 `["split","admin","staff"]` → `'[]'`(새 사람에게 admin 이 기본으로 붙지 않게) ·
+`warehouse_access` 없음(마스터 편집에 창고 구분이 없다 · ⬜ ⑤ 가 창고별 발주를 다루면 그때).
+role 둘 — `manager`(일하는 사람 · 발주·마스터 편집) · `admin`(+ 사람 추가·비활성). WMS 의 `worker` 는 없다(창고 직원은 IMS 에 들어오지 않는다).
+perms 는 빈 배열로 시작 — 화면이 하나뿐이라 쪼갤 것이 없다. 늘면 `purchasing`·`master` 같은 값(WMS `requirePerm` 과 같은 쓰임).
+
+**⭐ 열쇠는 `auth_user_id`(= `auth.uid()`) — 이메일이 아니다** (검토에서 바뀐 것 · 초안은 WMS 처럼 이메일)
+```
+auth.uid() = JWT sub          이메일이 바뀌어도 끊어지지 않는다
+⚠️ 이메일 매칭의 함정          대소문자 — WMS 는 wms-auth.js:170 이 원문 .eq 를 하는 것이 불변식이 되어 EF 게이트(authgate)에 정규화를 못 넣었다(asung-wms 규칙 8 각주 ·
+                              정규화하면 mixed-case 계정이 로그인은 되는데 게이트만 막히는 회귀). uid 에는 그 문제가 없다
+auth.users(id) FK 없음         걸면 퇴사자의 auth 계정을 지울 때 막힌다(우리는 delete 를 닫아 두므로 영구히) · WMS 도 안 걸었다
+비용                          Add user 뒤 UID 를 복사해 넣는 순서 하나 — 첫 admin 을 손으로 넣는 절차(§10-f ②-b)와 합쳐져 추가 부담 없음
+```
+[로컬 실측] `auth.uid()` 변형 — sub 일치 `UPDATE 1` · 불일치 `UPDATE 0`.
+
+**⚠️⚠️ RLS — 다른 IMS 표와 다르다.** `auth_all` 이면 매니저가 자기 `role` 을 `admin` 으로 고친다.
+```
+select          authenticated 전부 (true)              자기가 누구인지 알아야 화면이 뜬다
+insert·update   ims_is_admin() 인 사람만
+delete          정책 없음 + revoke delete, truncate     직원은 지우지 않고 is_active 로 물러난다(§5 · 나중에 PO created_by·감사로그가 이 행을 가리킨다 · WMS 는 admin 삭제를 열어 뒀지만 IMS 는 닫는다)
+anon            revoke all
+```
+`ims_is_admin()` — `security definer` · `stable` · `set search_path = public, pg_temp` · `auth.uid()` 로 활성 admin 인지 · anon 실행 권한 회수 · authenticated 만.
+⚠️ **하나뿐이다** — 정책과 EF 게이트가 같은 판정을 쓴다. 다시 만들지 마라(`set_updated_at()` 과 같은 원칙).
+
+**⭐ 재귀 — 실측 (2026-09-15 로컬 · 스크래치 표 · 정책 모양 셋)**
+```
+① update 정책이 자기 표를 직접 읽는다 · select 정책은 true          재귀 없음 — manager 자기 role UPDATE 0 · admin UPDATE 1
+⑤ select 정책이 자기 표를 읽는다(「활성 직원만 읽게」)              ERROR: infinite recursion detected in policy for relation
+②⑥ 같은 조건을 security definer 함수로                              둘 다 정상 · manager 막힘 · admin 통과
+```
+Postgres 는 정책 안의 부질의에 **그 표의 select 정책을 다시 적용**한다. select 가 `true` 면 끝나고, select 자체가 표를 읽으면 무한이다.
+⇒ **지금 모양은 안전하지만 나중에 select 를 조이면 조용히 안 뜬다**(에러가 아니라 화면이 그냥 안 뜨는 형태) — 그것이 함수로 가는 이유다. WMS 의 `wms_is_admin()`·`wms_can_manage_staff()` 와 같은 패턴.
+
+**❌ 검토에서 기각된 안 — 「지금은 `auth_all` 로 두고 화면에서만 막고, 카운터·감사로그로 지킨다」.** 다음에 또 떠오를 안이라 남긴다.
+anon key 가 공개 레포에 있으니(§10-c) **PostgREST 를 직접 치면 화면 게이트는 장식**이다. WMS 규칙 8 의 실사고(「EF 에 서버측 권한 검사가 없다」— 3중 게이트가 전부 클라이언트였다)가 정확히 그 모양이었고, RLS 가 유일한 서버측 게이트다. 지금 한 명이라 사고는 안 나지만 그래서 지금 정한다.
+
+**⚠️ 첫 admin — 초안에서 통째로 빠져 있던 것.** 정책이 「admin 만 insert」면 첫 행을 아무도 못 넣는다. 절차와 SQL 은 §10-f ②-b.
+
+**로컬 검증 (2026-09-15 · `db reset` 재생 통과 · 문장마다 별도 트랜잭션 · JWT 클레임을 `request.jwt.claims` 로 심어 authenticated 로 실행)**
+```
+칸 10 · 제약 4(pk · auth_user_id unique · email unique · role_ck) · 정책 3 · 함수 definer=true · search_path=public,pg_temp · anon 실행 false
+postgres 로 첫 admin insert           admin
+admin 이 manager 행 insert            INSERT 1
+manager select                        2행 (전부 보인다)
+manager 가 자기 role → admin          UPDATE 0            ⭐ 막힌다
+manager 가 새 사람 insert             RLS 위반 에러
+admin 이 manager role 수정            UPDATE 1 · updated_at 갱신
+admin 이 delete                       permission denied   (닫혀 있다)
+비활성 admin 이 수정                  UPDATE 0            (is_active 를 본다)
+anon select                           permission denied
+role='worker'                         role_ck 위반
 ```
 
 ---
@@ -1910,3 +1998,5 @@ Caleb: 「현재 운영중인 wms 는 cin7 을 바라본다. 특정 시점에 ci
   오후 — **화면 준비 §10**: `ims.asung.ca` 신설(GoDaddy CNAME · `asungtrading/asung-ims` · Pages · HTTPS) · `wms.asung.ca` 에 올리지 않은 이유는 동료 비공개(사람 문제) · 레포는 공개 유지 —
   ⚠️ 초안의 「private 이면 Pages 가 죽는다」는 추론을 실측처럼 적은 것이라 정정(규칙 12 의 8-19 실측이 맞다 · Visibility 만 Enterprise) · `purchasing.html` 읽고 「붙이지 않는다」 확정(GAS 브리지 재사용 각주) ·
   검토에서 드러난 구멍: **Asung-IMS 가입이 열려 있으면 「계정 있는 사람만」 방어가 없다** → 배포 전 확인 항목. 다음은 IMS 로그인(가입 닫기 → Add user → 사용자 표).
+- 2026-09-15 (토론토 오전) — **`ims_staff` 신설 §10-h**(`20260915141105` · 로컬 재생·RLS 실동작 통과). 검토에서 바뀐 것 셋: 열쇠를 이메일 → **`auth_user_id`(auth.uid())**(WMS 의 대소문자 함정 회피) · RLS 를 **`security definer` `ims_is_admin()` + 정책 셋 + delete 닫음**(재귀는 select 정책이 자기 표를 읽을 때만 — 실측) ·
+  **첫 admin 절차**(초안에 없었다 · postgres 로 insert · §10-f ②-b). 기각된 안 「auth_all + 화면 게이트」를 남겼다. §10-f ⓪ 가입 닫기는 Caleb 확인으로 ✅(다섯 설정).
