@@ -2049,7 +2049,8 @@ supplier-products.html  product_supplier 12,721 을 공급처 쪽에서 · 단�
 staff.html              ims_staff — ⭐ 첫 쓰기 화면 (§10-i)
 메뉴(ims-auth.js items)  Settings · Suppliers · Products · Families · Supplier Products · Staff · Home
 ```
-[화면 실측 · Caleb] 공급처 257 → Active only 226 → + Purchasable 217 → + Hide discontinued **138** — ⭐ 138 이 실제 매입처다. 발주 화면이 보게 될 크기.
+[SQL 실측 · Caleb 2026-09-15 오후] 공급처 257 · `is_purchasable=true` **161**(⭐ 전부 활성 — 활성 조건을 붙여도 161) · + `is_discontinued=false` **138** — ⭐ 138 이 실제 매입처다. 발주 화면이 보게 될 크기. 판정 없음(null) **40**.
+⚠️ [정정 2026-09-15 오후] 오전 판은 「257 → Active only 226 → + Purchasable **217** → 138」이었다. 217 은 「226 − 판정 없음 31」로 **어림한 값을 실측처럼 적은 것** — 판정 없음이 40 이고 `is_purchasable=false` 인 곳도 있어 성립하지 않는다. 화면의 Purchasable 토글은 161 을 보인다.
 Cygnus Beauty Supply 연결 236 · 그중 기본 122 · 단가 없음 0.
 
 **3-a. 읽기**
@@ -2085,20 +2086,47 @@ staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감
 ⇒ 내려간 줄은 기본으로 감추고, admin 만 `show N inactive` 토글로 꺼내 본다.
 📌 §3-f 는 「안 들어온 줄을 is_active=false 로 내린다」이고, 그것이 보이지 않으려면 **읽는 쪽이 매번 걸어야 한다.** 표가 알아서 감춰 주지 않는다.
 
-**3-d. ⚠️ 비동기 순서 — 그리고 필터**
-⚠️⚠️ **[실사고 2026-09-15]** `products.html?id=…` 로 들어가면 상세가 빈 채로 떴다. `loadDetail()` 을 `loadList()` 보다 먼저 불렀는데, `loadList()` 안에 「고른 제품이 목록에 없으면 상세를 비운다」가 있어서 곧바로 지웠다(어제 넣은 장치).
-⇒ **완전한 규칙**: ① 목록 필터를 풀어(Active only 끄기 · kind 비우기 · 검색칸에 그 SKU) 그 행이 목록에 **들어오게** 한 뒤 ② 목록을 그리고 ③ 상세를 연다. 「목록을 먼저」만으로는 반쪽이다 — 그 행이 필터에 걸려 목록에 없으면 또 지운다.
-📌 비동기 순서는 실제로 돌려 봐야 안다.
+**3-d. ⭐ 상세 비우기 · 목록과 상세의 관계 (2026-09-15 오후 · 규칙이 바뀌었다)**
+```
+사람이 검색어를 바꾸거나 지운다 · 토글·드롭다운을 바꾼다   → 오른쪽(상세)을 비운다      화면마다 clearDetail()
+← → 로 페이지를 넘긴다                                    → 그대로 둔다
+⭐ 코드가 넣는 검색어(화면 안 SKU 이동 · ?id=/?sku= 진입)      → 비우지 않는다 — 그 제품을 열러 가는 길이다
+```
+⚠️⚠️ **「사람이 바꾼 검색어만 비운다」를 코드에 박아라.** 지금은 `imsQ` 가 `input` 이벤트만 듣고, 코드는 `q` 변수와 `.value` 를 직접 넣어서 **우연히** 맞는다. 검색칸에 값을 넣고 `dispatchEvent` 를 하거나 `imsQ` 가 값 변화를 감시하게 바꾸면 SKU 이동이 방금 연 상세를 지운다.
+❌ **버린 규칙 — 「고른 것이 이 페이지에 없으면 비운다」(loadList 안에서).** 알파벳 앞쪽이면 남고 2페이지로 넘기면 보던 상세가 사라져서 **언제 비는지 알 수 없었다**(실물: `Ashton Adams` 는 남고 `Parfums de Coeur` 는 사라졌다).
+📌 「비우지 말자」도 검토했으나 접었다 — 왼쪽의 파란 표시가 **화면 밖에 있으면 없는 것과 같다.** 100줄 목록에서 스크롤해야 보이는 자리면 무엇을 보고 있는지 알 수 없다(Caleb). 「커서 있는 곳으로 스크롤한다」도 접었다 — 검색을 지울 때마다 목록이 엉뚱한 데로 튄다.
+⇒ `clearDetail()` 은 화면마다 둔다(문구가 다르다 · 공통에 두지 않았다). 검색·필터 핸들러에서 부른다.
 
-**3-e. 불리언 색 — ⚠️ 규칙과 코드가 아직 다르다 (사실대로)**
-⚠️ 색은 `is_active` 에만 쓴다. `is_staging`·`is_default`·`is_split` 는 false 가 정상인데 빨갛게 칠하면 2,675행이 전부 경고처럼 보인다(2026-09-15 settings.html 에서 드러남).
+**진입·이동할 때는 그 행이 목록에 들어오게 한다** — 이유가 바뀌었다. 옛 이유는 「loadList 가 지운다」였고 이제는 지우지 않는다. 새 이유는 **목록에 없으면 파란 표시가 없어 무엇을 보고 있는지 모른다**.
 ```
-✅ settings.html            is_active 만 on/off 색 · 다른 불리언은 무채색 (2026-09-15 고침)
-⬜ suppliers.html           연락처 is_default 를 yn() 으로 칠한다(빨간 ✗)
-⬜ products.html            바코드 is_primary · 공급처 is_default 를 yn() 으로 칠한다
-⬜ supplier-products.html   is_default 를 yn() 으로 칠한다
+?id= · ?sku= 진입 · 화면 안 SKU 이동     그 제품의 SKU 를 검색칸에 넣는다 · 넘어온 것이 세트일 때만 Kind 를 푼다(낱개면 Singles 그대로 · 세트는 캐럿) → 목록 → 상세
 ```
-⚠️ [정정 2026-09-15] 초안은 「색은 is_active 에만 쓴다」를 다섯 화면 전부의 사실처럼 적었다 — 코드를 안 보고 기억으로 적은 것. 상세의 짧은 표 세 화면은 아직 그대로다. 다음 화면 작업 때 함께 고친다.
+⚠️ 상세 조회는 **경합한다** — `loadDetail()` 이 조회 여럿을 기다리는 사이 필터가 바뀌면 `clearDetail()` 이 비운 뒤 **늦게 도착한 조회가 다시 쓴다** ⇒ 요청마다 번호(`detailSeq`)를 붙여 최신이 아니면 쓰지 않는다. `clearDetail()` 도 번호를 올려 날아오던 것을 무효로 만든다.
+```
+✅ products.html · suppliers.html     clearDetail + detailSeq
+⬜ families.html · supplier-products.html   clearDetail 만 — 상세 조회가 Promise.all 하나라 창이 좁지만 없지 않다
+⬜ staff.html                          clearDetail 없음 — 검색이 클라이언트라 목록에서 사라져도 상세가 남는다(규칙과 어긋난다 · 다음 화면 작업 때)
+—  settings.html                       규칙 대상 아님 — 왼쪽이 고정된 표 목록이고 검색은 오른콽 표 안에서 건다
+```
+
+**경위 — 오늘 이 규칙이 생기기까지 (실사고 넷 · 2026-09-15)**
+```
+① ?id= 진입      상세가 빈 채로 떴다 — loadDetail 을 loadList 보다 먼저 불렀고, loadList 의 「목록에 없으면 비운다」가 지웠다
+② 화면 안 이동    구성품·부모·형제 SKU 를 눌러도 안 넘어갔다 — 검색어가 앞 제품 SKU 로 남아 새로 고른 것이 목록에 없었고 ①과 같은 장치가 지웠다
+                 ⚠️ ①을 고치고 같은 모양(화면 안 이동)을 안 봤다 — 한 곳을 고치면 같은 모양을 다 본다
+③ 세트 중복      낱개 SKU 로 검색하면 그 세트도 ilike 에 걸려 본체에 들어오는데 펼친 부모의 자식으로도 그려져 겹쳤다(BNAT57623 → BNAT57623-12) ⇒ 펼쳐서 이미 보인 것은 본체에서 건너뛴다
+④ Kind 풀림      ?id= 로 들어올 때 Kind 를 무조건 풀어 낱개로 넘어와도 세트가 따라 나왔다 ⇒ 세트일 때만 푼다
+```
+📌 ①②의 뿌리였던 「목록에 없으면 비운다」를 버리자 규칙이 위 모양으로 정리됐다. 비동기 순서는 실제로 돌려 봐야 안다.
+
+**3-e. 불리언 색 (2026-09-15 오후 · 여섯 화면 전부 적용)**
+⚠️ 색은 `is_active` 에만 쓴다. `is_staging`·`is_default`·`is_split`·`is_primary` 는 false 가 정상인데 빨갛게 칠하면 2,675행이 전부 경고처럼 보인다(2026-09-15 settings.html 에서 드러남).
+⇒ 공통 `yn(v)` 는 색(is_active 용) · **`yn(v, false)` 는 회색**(그 밖의 불리언). ims-ui.js 에 있다(3-g).
+```
+✅ settings.html                                    is_active 만 on/off 색 (오전)
+✅ suppliers.html · products.html · supplier-products.html   is_default · is_primary 를 yn(v, false) 로 (오후 · 공통 파일로 옮기며 고쳤다)
+```
+⚠️ [정정 경위] 오전 판은 「색은 is_active 에만 쓴다」를 다섯 화면 전부의 사실처럼 적었다가 코드를 보고 ⬜ 셋으로 고쳤고(코드를 안 보고 기억으로 적은 것), 오후에 셋을 실제로 고쳐 ✅ 가 됐다.
 
 **3-f. 그 밖**
 ```
@@ -2108,15 +2136,61 @@ staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감
 화면 사이 이동     products.html?id=… / ?sku=… · families.html?id=… · supplier-products.html 의 SKU → products.html 상세
 저장 확인          ⚠️⚠️ PostgREST update 가 RLS 에 막히면 에러가 아니라 0행이다(§10-h 실측).
                   .update().eq().select() 로 되읽어 0행이면 「Not saved」를 띄운다(staff.html · §10-i)
-틀                suppliers.html 을 본떠 만든다(헤더 · 왼쪽 목록 · 오른쪽 상세) — 스크립트 셋(supabase-js · ims-config.js · ims-auth.js) + imsAuth.start
+시각               ⚠️⚠️ timestamptz(created_at·updated_at)는 imsTs() 로 토론토 시각으로 보인다(3-g). 문자열을 자르면 UTC 로 보인다(실사고).
+                  ⚠️ date 칸(product_barcode.valid_from · product_supplier.last_supplied · product.cin7_modified_on)에는 쓰지 않는다 — 시간대가 없다
+틀                settings.html(가장 짧다)이나 suppliers.html 을 본떠 만든다(헤더 · 왼쪽 목록 · 오른쪽 상세) — ⭐ 공통 파일 넷을 순서대로 부른다(3-g) + imsAuth.start
 ```
+**3-g. ⭐⭐ 공통 파일 — `ims-ui.css` · `ims-ui.js` (2026-09-15 오후)**
+오전에는 화면 다섯이 스타일과 도구를 각자 복사해 갖고 있었다. 오후에 공통으로 뺐다.
+```
+ims-ui.css   7,505 바이트   색 변수 · 헤더 · 배치 · 목록 패널 · 카드 · 표 · 칩 · 값 표시
+ims-ui.js    6,744 바이트   esc · dim · yn · num · imsTs · imsPage · imsSaved · imsQ · imsParam · imsHeader
+             ⚠️ 헬퍼 이름은 코드가 정본 — 지시서가 imsFmtTs 라 적었으나 실제는 imsTs (2026-09-15 · 이름은 그대로 둔다)
+```
+**⚠️⚠️ 새 화면은 반드시 우리 파일 넷을 이 순서로 부른다** (CDN 은 그 앞):
+```html
+<link rel="stylesheet" href="ims-ui.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="ims-config.js"></script>
+<script src="ims-ui.js"></script>
+<script src="ims-auth.js"></script>
+```
+⚠️ `ims-ui.js` 가 빠지거나 뒤로 가면 **화면이 아예 안 뜬다**(`imsPage is not defined`). CSS 링크가 없으면 글자만 나온다.
+⭐ 안 부르면 그 화면만 혼자 논다 — 나중에 공통을 고쳐도 따라오지 않는다.
+```
+✅ settings · suppliers · products · families · supplier-products · staff   여섯이 공통을 쓴다
+⬜ index.html   공통을 안 부른다(supabase-js · ims-config · ims-auth 셋만 · 배선 확인용 3KB) — 옮길지는 정하지 않았다
+```
+**크기 (옮긴 직후 → 지금 · 2026-09-15 15:30)** — 지금 값이 큰 것은 오후 커밋(상세 비우기 · 경합 방지 · 시각)이 들어갔기 때문:
+```
+settings 12,179 → 8,104 → 8,104 · suppliers 15,147 → 10,222 → 10,899 · products 25,143 → 19,842 → 21,909
+families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,942 · staff (처음부터 옮겨 만들지 않았다) → 17,810
+```
+**⚠️ 공통 파일을 고치면 여섯이 다 움직인다** ⇒ 고친 뒤 `asung-ims/CHECKLIST.md` 를 처음부터 훑는다(그 문서 §0-a). ⚠️ 다만 **함수를 더하기만 한 경우**는 그 화면만 보면 된다(`imsTs` 를 더할 때 그랬다).
+**⚠️ 공통에 흔한 이름을 두면 화면의 것과 부딪친다** — [실사고] `staff.html` 을 옮길 때 `.note` 가 겹쳤다. 공통 `.note` 는 카드 아래 띠(패딩·윗선·배경)인데 그 화면에서는 폼 밑 작은 안내글이었다 ⇒ 화면 쪽을 `.hint` 로. 공통에 이름을 더할 때 흔한 낱말인지 본다.
+**⚠️ 공통 `esc` 는 따옴표를 바꾸지 않는다** — [실사고] 옛 지역 `esc` 는 `"` 를 바꿨고 그 값을 `value="…"` 속성에 썼다. 이름에 `"` 가 들어오면 속성이 깨진다 ⇒ 입력칸 값은 속성이 아니라 **DOM 으로 넣는다**(`el.value = …`).
+**`imsTs`** — timestamptz 를 `toLocaleString("sv-SE", { timeZone:"America/Toronto" })` 로 분까지. [실사고] staff.html 이 ISO 문자열을 잘라 UTC 로 보였다(19:16 → 토론토 15:16). ⭐ 헬퍼로 뺀 이유 — 마스터 표 전부가 공통 8칸으로 `created_at`·`updated_at` 을 갖는다. 쓰기 화면이 늘면 Updated 를 보여 줄 곳도 늘고, 「문자열을 자른다」는 화면마다 복사될 실수다. 📌 `updated_at` 은 UPDATE 때만 바뀐다 — 넣기만 하고 안 고친 행은 `created_at` 과 같다(정상).
+
+**3-h. ⭐ 점검 목록 — `asung-ims/CHECKLIST.md` (2026-09-15)**
+```
+자리    asung-ims/CHECKLIST.md   ⚠️ 화면 옆에 둔다(고친 직후 보는 문서다)
+        ⚠️ 공개 사이트에서 ims.asung.ca/CHECKLIST.md 로 열린다 — 비밀은 넣지 않는다
+담은 것  화면마다 「열면 무엇이 보여야 하는가」를 숫자까지
+        ⭐ 「목록이 뜬다」가 아니라 「8,771 이 뜬다」 — 캡에 잘리거나 필터가 어긋나면 숫자가 달라진다
+        §0-a 공통 파일을 고쳤을 때 · §9 아직 확인 못 한 것
+규칙    ⚠️⚠️ 화면을 새로 만들면 항목을 더한다. 안 더하면 낡은 목록이 되고 낡은 점검 목록은 「통과했다」는 거짓 안심만 준다
+        ⇒ 화면을 만드는 지시서마다 「CHECKLIST 에 항목을 더해라」를 넣는다
+        ⚠️ 숫자가 바뀌면(적재 · SQL 정정) 그 문서도 같은 날 고친다 — [실사고 2026-09-15] 「Purchasable 217」이 정본과 점검 목록 둘에 박혔다가 실측 161 로 정정
+```
+
 ⬜ IMS 인프라(Supabase 프로젝트 준비 · 화면 규칙 · EF 배포)를 담는 **스킬을 따로 세울지** 정할 일 — 지금은 `asung-po` 스킬 §0·§4 에 한 줄씩 얹어 두었다(마스터·적재 스킬과 성격이 다르다는 것을 알고 얹었다 · 2026-09-15).
 
 ### 10-k. ⬜ 채워야 할 우리 칸 — 쓰기의 첫 대상 (2026-09-15 · 한곳에 모았다)
 
 전부 **Cin7 이 모르는 우리 칸**이라 IMS 에서 고쳐도 아무것도 안 깨진다(재적재 §3-f 가 manual·우리 칸을 건드리지 않는다) ⇒ 쓰기의 첫 대상이다. 수치는 [화면 실측 · Caleb 2026-09-15].
 ```
-is_purchasable        판정 없음 31곳(어제 들어온 비활성 공급처) + 138곳 중 잘못 켜진 것(실물: Airalo · Klook 같은 것이 매입처로 잡혀 있다)
+is_purchasable        판정 없음(null) **40곳** + true 161곳 중 잘못 켜진 것(실물: Airalo · Klook 같은 것이 매입처로 잡혀 있다) [SQL 실측 · Caleb 2026-09-15 오후]
+                      ⚠️ [정정] 오전 판은 「31곳(어제 들어온 비활성 공급처)」 — 적재가 데려온 비활성 31곳을 판정 없음 전부로 **어림한 것**. 실측은 40(31 + 아홉 곳 더)
 기본 공급처            2건 — 활성 줄이 있는데 날짜가 없거나 동점이라 못 골랐다(§3-g)
 선주문 공급처          26건 — Custom Reusable Bag 25 + AS01433 · source='manual' 줄로 미리 적을 자리(§3-g 승격 규칙)
 AS91437-BLK           Type=Non Inventory 라 ④ 적재 모집단에서 빠졌다
