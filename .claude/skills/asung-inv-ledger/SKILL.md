@@ -40,9 +40,10 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 
 **핵심 셋**: ② 대조 · ⑧ bin 대조 · ⓪ 요약(`new_today`).
 나머지는 그 셋이 이상할 때 원인을 좁히는 축이다.
-⭐ **③·⑩·⑪·⑫ 는 「무엇이 왜 틀렸나」를 말해준다** — ⑧ 이 「뭔가 틀렸다」를 잡고,
-③(라인 삭제 · lmo 있는 축)·⑩(수량 변경)·⑪(문서 취소)·⑫(라인 삭제 · lmo 없는 축)가
-원인을 준다. **⑧ 이 뜨면 이 넷을 먼저 뒤진다**(절 끝 0번).
+⭐ **③·⑩·⑩-b·⑪·⑫ 는 「무엇이 왜 틀렸나」를 말해준다** — ⑧ 이 「뭔가 틀렸다」를 잡고,
+③(라인 삭제 · lmo 있는 축)·⑩(수량 변경)·⑩-b(bin 변경 이중 기입 · 2026-09-15 신설)·⑪(문서 취소)·⑫(라인 삭제 · lmo 없는 축)가
+원인을 준다. **⑧ 이 뜨면 이 다섯을 먼저 뒤진다**(절 끝 0번).
+⚠️ ③·⑩·⑪·⑫ 는 **감지 표**를 읽고, ⑩-b 는 **원장을 직접** 읽는다 — 키 자체가 달라진 이중 기입은 어느 표에도 안 남는다.
 
 ### ⓪ 요약 — 카드 한 줄
 ```sql
@@ -432,6 +433,73 @@ group by 1,2 order by 1 desc;
 
 📌 [실측 09-11] 09-10 `backdated_rows 1`(= `SO-14986`) 인데 ⑩ 은 **0행**이었다 — 모순이 아니라 **축이 다르다.**
 ⇒ ⚠️ **⑩ 이 0행일 때 `backdated` 유입만으로 「안 봤다」고 판정하지 말 것** — 새 행 추가형이면 ⑨ 가 잡는다. 두 창구를 함께 본다.
+⭐ **⑩-b 와 짝이다** — ⑩ 은 **같은 키에 다른 값**(`inv_conflicts` 가 신고한다), ⑩-b 는 **키 자체가 달라진 값**(bin 이 바뀌면 유니크 키가
+달라져 충돌이 아니라 **새 행**이 된다 — 어느 표에도 안 남는다). 같은 라인의 편집이 어느 쪽으로 들어왔는지는 `line_ref` 가 같은지로 가른다.
+
+### ⑩-b bin 변경 이중 기입 — 같은 라인의 bin 이 바뀌었나 (2026-09-15 신설)
+
+**왜 필요한가** — 같은 라인의 bin 이 바뀌면 원장에 **두 벌**이 들어오는데 **③·⑩·⑪·⑫ 넷이 전부 못 본다.** 유니크 키
+`(doc_type, doc_number, line_ref, event_type, warehouse, bin, sku)` 에 `bin` 이 있어 **키 자체가 달라져** 충돌로 인식되지 않기 때문이다
+(`inv_conflicts` 는 「같은 키에 다른 값」만 신고한다). 📌 이것은 결함이 아니라 **2026-08-16 유니크 키 검토의 나머지 반쪽**이다 — 그때
+「가시적 이중 계상 > 조용한 누락」을 택했고(마이그레이션 주석), 이중 계상이 ⑧ 에 **시끄럽게** 잡히는 것까지는 설계대로였다. 없던 것은 그것을
+**원인으로 읽어 주는 창구**다. ⇒ 다른 키 컬럼(`warehouse`·`event_type`)이 바뀔 때도 같은 구멍이 난다고 예상할 수 있다.
+```
+[실사고 1 · 2026-08-31] 출발 bin 해결 배포 — bin='' → has_bin           (TR-04174 / SKL01861 · D110301 → D110302)
+[실사고 2 · 2026-09-14] 뽑은 뒤 자리 변경 — TR-04729 / ABE52708 · E020202 → E020302   ⭐ 정상 업무의 부산물 — 앞으로도 일어난다
+```
+⭐ **트리거는 달랐지만 메커니즘은 같다.** [실사고 2 경위 · 실무자 확인] 09/11 오전 12개를 `E020202` 에서 뽑아 빼둠 → 09/11 오후 `TR-04717`
+bin transfer 로 나머지 117개 `E020202`→`E020302` → 09/14 `TR-04729` authorize ⇒ Cin7 이 **그 시점 자리 `E020302`** 로 기록.
+원장: 08:47 `transfer_out·E020202·−12`(옛 벌) · 08:47 `transfer_in·IN_TRANSIT·+12`(한 번만) · 11:12 `transfer_out·E020302·−12`(Cin7 과 일치).
+**`line_ref` 가 두 행 모두 같다** ⇒ 라인이 둘이 아니라 **같은 라인의 bin 이 바뀐 것**. 아무도 틀리지 않았다(실무자·Cin7·원장·⑧ 전부 규칙대로) —
+09-11 `SO-14986` 과 같은 「구조가 만드는 경우의 수」다. **예측할 수 없으니 감지로 대응한다.**
+
+**⭐ 판별식 — 「시각이 다른가」가 정상/이상을 가른다**
+> 같은 `(doc_type, doc_number, sku, line_ref, event_type, warehouse)` 에 실제 bin 이 둘 이상이고 `min(created_at) <> max(created_at)` 이면 이상.
+
+⚠️ **같은 시각이면 정상이다** — 한 회차에 두 bin 에서 나눠 픽한 것. [실측 09-15 전수] 판매 7건이 이 형태였고 ⑧ 이 깨끗했다
+(예 `SO-16010`/`CON47506` · `E050302` 1 + `E050402` 1).
+⚠️⚠️ **빈 bin 을 반드시 제외한다**(`bin is not null and bin <> ''`) — 정상 4-leg 트랜스퍼는 IN_TRANSIT leg 의 bin 이 비어 있어, 제외하지 않으면
+`(빈) | 실제bin` 조합으로 **전 문서가 다 걸린다**(첫 시도에서 그렇게 됐다 · `net` 이 정확히 두 배로 나오는 것이 그 표시다).
+```sql
+-- ⑩-b bin 변경 이중 기입 (2026-09-15 신설)
+with d as (
+  select doc_type, doc_number, sku, line_ref, event_type, warehouse,
+         count(*) as rows,
+         string_agg(distinct bin, ' | ' order by bin) as bin_list,
+         round(sum(qty_delta)) as net,
+         min(created_at) as first_at,
+         max(created_at) as last_at
+  from inv_ledger
+  where source = 'cin7' and bin is not null and bin <> ''
+  group by 1,2,3,4,5,6
+  having count(distinct bin) > 1
+     and min(created_at) <> max(created_at)
+)
+select d.*,
+       (select round(sum(m.qty_delta)) from inv_ledger m
+         where m.doc_number = d.doc_number and m.sku = d.sku
+           and m.source = 'manual') as manual_net
+from d
+order by last_at desc;
+```
+⭐ **`manual_net` 이 핵심 장치다** — 상쇄가 들어갔는지 한 줄에 보여준다. ⚠️ 본문 CTE 는 `source='cin7'` 로 「Cin7 이 두 bin 을 줬나」를 보고,
+`manual_net` 은 **필터 없이** 상쇄를 센다. **두 축을 섞지 않는 것이 요점**(§③ 「원장을 조회할 때의 함정 둘」 함정 1).
+
+**⚠️ 읽는 법 — 「0행」이 아니라 「이 둘이면 정상」이다.** 기준선(2026-09-15 · 둘 다 해결 완료):
+
+| 문서 | SKU | bin | 경위 | `manual_net` |
+|---|---|---|---|---|
+| `TR-04729` | `ABE52708` | `E020202` → `E020302` | 09-14 뽑은 뒤 자리 변경 | **12** |
+| `TR-04174` | `SKL01861` | `D110301` → `D110302` | 08-31 배포 · 09-01 정정 | **12** |
+
+⇒ ⭐ **이 둘이 계속 잡히는 것이 정상이고, 검사가 살아 있다는 증거다.** ⚠️ **숫자(2행)로 외우지 말 것** — ⑦-b 의 「3 이면 정상」이 7일 재조회 창에
+무효화된 전례가 있다. **문서명으로 판정한다.**
+⚠️ **새 문서가 뜨거나 `manual_net` 이 비어 있으면**: ① `inv_balance_vs_cin7` 로 **실제 어긋났는지** 확인(⚠️ `manual_net` 이 이미 차 있으면 `diff 0` —
+`SKL01861` 이 그 사례) → ② 어긋났으면 **틀린 bin 쪽(Cin7 Movements 에 없는 쪽)을 `:reversal` 로 상쇄**(원래 `event_type` 유지 · §상쇄 접미어 규칙).
+⚠️ 상쇄 전에 **Cin7 Movements 화면을 끝까지 읽는다** — [09-15] Restock +4 한 줄을 못 봐 「Cin7 이 실물과 어긋났다」를 두 번 단정했다(실물은 맞았다).
+📌 **IMS 이후에도 유효하다.** 유니크 키에 `bin` 이 있는 것은 Cin7 과 무관한 **우리 원장의 구조**이고 IMS 도 `inv_ledger` 를 쓴다 — 「폴링 때문에 생기는
+이중」은 IMS 가 원본을 가지면 사라지지만(전환 기간엔 그대로), 「위치 변경을 충돌로 못 보는 구조」는 남는다. **트리거만 달라진다**(Cin7 폴링 → IMS 내부 정정).
+정본 `docs/design/ledger-design.md` §「변경 감지가 못 보는 축 — bin 변경 이중 기입」 · 실측 `docs/sessions/2026-09-15-bin-change-double-write.md`.
 
 ### ⑪ 수집 후 취소 — 문서가 통째로 VOID 됐나
 ```sql
@@ -446,7 +514,7 @@ order by first_detected_at;
 **0행이면 정상.** 뜨면 **Cin7 에서 취소됐는데 원장에 남아 있는 문서**다 —
 `ledger_net` 만큼 어긋나 있다. 상쇄 후 `resolved_at`·`resolution_note` 로 닫는다
 (접미어 `:voided` · §상쇄 접미어 규칙).
-⭐ **③·⑩ 이 못 보는 축이다** — ③ 은 라인 삭제, ⑩ 은 수량 변경, ⑪ 은 **문서 전체 취소**다.
+⭐ **③·⑩·⑩-b 가 못 보는 축이다** — ③ 은 라인 삭제, ⑩ 은 수량 변경, ⑩-b 는 bin 변경, ⑪ 은 **문서 전체 취소**다.
 📌 **검출 자리**: `inv-collect` ②-a 의 `status_counts` 자리 — **커서·floor·재조회 창 이전**이라
 목록 전량을 본다. `skip_voided` 자리에 붙였다면 커서 아래 + 7일 창 밖의 VOID
 (**오래된 문서의 나중 취소**)를 놓쳤을 것이다. **새 API 호출 0건.**
@@ -629,6 +697,13 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
    from inv_conflicts where sku = '<SKU>'
    order by detected_toronto;
    ```
+   ⭐ **⑩-b 도 같은 SKU 로 본다** — 감지 표에 없어도 원장에 두 벌이 앉아 있을 수 있다(2026-09-15 `ABE52708` — ③·⑩·⑪·⑫ 전부 0행이었다):
+   ```sql
+   select doc_number, line_ref, event_type, bin, qty_delta, source,
+          created_at at time zone 'America/Toronto' as created_toronto
+   from inv_ledger where sku = '<SKU>' and doc_number = '<DOC>'
+   order by created_at;   -- 같은 line_ref 에 bin 이 둘이고 시각이 다르면 ⑩-b
+   ```
    ⚠️ 위 조회는 **SKU 축**이라 `adjustment`·`assembly` 의 소멸은 안 나온다(⑫ 는 문서 단위다).
    그 축이 의심되면 **문서번호로** 함께 본다:
    ```sql
@@ -697,7 +772,7 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 | `:deleted` | 라인 하나가 삭제됐다(③) | 원행 **부호 반전**(⚠️ **그 라인만** — 문서 단위로 뒤집지 말 것) |
 | `:qtyfix` | 라인 수량이 바뀌었다(⑩) | ⚠️ **차액만**(`incoming − existing`) · 부호 반전 아님 |
 | `:superseded` | bin 규칙 변경으로 자리를 비운다 | §진행 상태 「트랜스퍼 출발 bin」 참조 |
-| `:reversal` | 같은 `doc_number` 안에서 사건 자체를 취소·정정한다(**원래 `event_type` 유지**) — [실측 09-09] `sale_out` 680/684 · `transfer_in` 138/138 · `transfer_out` 138/151 | 원행 **부호 반전** |
+| `:reversal` | 같은 `doc_number` 안에서 사건 자체를 취소·정정한다(**원래 `event_type` 유지**) — [실측 09-09] `sale_out` 680/684 · `transfer_in` 138/138 · `transfer_out` 138/151 · ⭐ **bin 변경 이중 기입(⑩-b)도 이것** — **옛 bin 쪽**(Cin7 Movements 에 없는 쪽) 한 벌만 뒤집는다 [실측 09-15 `TR-04729` · `E020202` +12] | 원행 **부호 반전** |
 
 ⚠️ 유니크 키에 `doc_number` 가 들어간다 — [실측 09-04] `FG-00133`·`FG-00134` 가 **같은
 `line_ref` GUID** 인데도 각각 3행씩 공존했다. ⇒ **재생성 짝을 상쇄할 때 접미어를 바꿀
