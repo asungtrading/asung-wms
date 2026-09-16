@@ -98,10 +98,6 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | `AdditionalAttribute1` 로 발주처를 거른다 | 판정과 어긋난다 | Caleb 판정이 정본(`is_purchasable`) |
 | `product.name` 에 유니크 | 576종 중복 — 배치 전체 실패 | `sku` 가 자연키 · 화면은 SKU 를 함께 띄운다 |
 | ⭐ `pack_factor` 를 UOM 이름·SKU 접미사에서 읽는다 | **재고가 조용히 틀어진다**(실물 둘 · §3-d) | 정본은 **BOM Quantity** · UOM·접미사는 검산 카운터 |
-| `parent_product_id` 를 접미사로 찾는다 | SKU 오타가 부모를 잃거나 엉뚱한 부모에 붙는다 | BOM `ComponentProductID` |
-| 콤보를 `BOMType=Assembly` 로 가른다 | UOM 세트도 Assembly 다(진짜 조립 15) | **구성품 2개 이상**으로 가른다 |
-| 「제품 종류」 칸을 만든다 | 축이 겹치는 5,758행이 갈 곳을 잃는다 | 관계(family_id·parent·bom)로 읽는다 |
-| 대체 UPC(EA-ALT-UPC)를 전부 바코드로 흡수 | BOM ×6·×12 인 둘은 세트일 수 있다 | 조건 = EA-ALT-UPC **그리고** BOM=1 |
 | upsert(`merge-duplicates`)로 부분 갱신 · PATCH 를 서버 필터로 건너뛰기 | 400/23502 · 건너뛰는 요청도 왕복 | **PATCH** · 먼저 읽어 목록에서 뺀다(`asung-wms` 규칙 45·46) |
 | 재적재를 표마다 다르게 · 「source=cin7 지우고 다시」 | `valid_from`·`note`·id 가 사라진다 · upsert 는 「없어진 것」을 모른다 | ⭐ **넷이 한 규칙** — upsert + 안 들어온 cin7 행은 `is_active=false` · 정본 §3-f |
 | `is_default` 를 켜기만 한다 | 내린 줄·비활성 공급처가 기본으로 남는다(실사고) | **끄고 나서 켠다** — 끄기는 manual 보호 없음 · 켜기만 보호 · 재적재마다(§3-g) |
@@ -113,6 +109,8 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | timestamptz 를 문자열로 자른다 | UTC 로 보인다 | `imsTs()` · ⚠️ date 칸(valid_from·last_supplied·cin7_modified_on)은 제외 · §10-j 3-f |
 | update 0행을 성공으로 본다 · 저장 실패인데 입력칸이 그대로 | RLS 에 막힌 것이 조용히 지나간다 · 화면만 저장된 것처럼 보인다 | `imsSaved()` 로 되읽어 0행이면 「Not saved」 · 직전 값으로 되돌린다 · 저장 중 잠금 · §10-j 3-i |
 | 새 Supabase 프로젝트를 그냥 쓴다 | 재설정 링크가 `localhost:3000` 으로 · 아무나 가입 | 가입 닫기 + URL Configuration · §10-f ⓪·⓪-b |
+| ⭐ 확정(confirmed)을 **잠금**으로 본다 | 확정 뒤 수량·품목 추가가 빈번하다(Caleb 09-16) — 실무와 어긋난다 | 확정 = 「보낼 수량·라인이 정해졌다」 · 잠금 아님 · 막는 둘만 RPC po_line_update/delete · §11-b |
+| plpgsql — text[] 에 따옴표 리터럴을 이어붙인다(파이프 둘) | malformed array literal · format() 은 통과해 **판정마다 되고 안 됨** | `array_append` · 파일 전체 grep · 실행해야 드러난다 · §13-e |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 진짜 막을 것은 **RLS**(`ims_is_admin` 선례 · §10-j 3-b).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다**(숫자까지) — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).
