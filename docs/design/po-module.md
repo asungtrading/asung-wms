@@ -24,7 +24,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 ② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §3-b**(`supplier_discount` 추가 · ~~§7-b~~ 2026-09-13 이사) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §3-c · ~~§7-c~~) — 226 / 87 / 237 / 0**
 ③ 제품             ✅ **적재 완료(2026-09-14 · §3-e · ⚠️ 테스트 DB 한정 — 운영 미적용) — 1,141 / 18,714 / 17,104 / 65** · ~~🔄 표 넷 생성 완료 · 적재 대기(2026-09-13 · §3-d)~~ · 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS `docs/probes/ImsLoadProduct.gs` · 카운터 넷 DB 재확인 0 · ⚠️ 카운터 ⑤ 활성끼리 바코드 겹침 **23**(무관 6)
 ④ 제품↔공급처      ✅ **적재 완료(2026-09-14 · §3-g · ⚠️ 테스트 DB 한정 — 운영 미적용) — `product_supplier` 12,728줄(활성 12,721) · supplier 226→257** · `20260914175145` · 충돌 키 cin7_id · is_default 는 우리 칸(11,480) · 적재 GAS `docs/probes/ImsLoadProductSupplier.gs` · 카운터 여섯 — ⑤ 세트 줄 0 · ⑥ 사 오는 콤보 **3**(기대값) · ⚠️ 콤보 방향은 ⑤ 에서(부모당 하나)
-⑤ PO 본체          ✅ **표 열하나 적용·실물 검증(2026-09-16 · §13 · ⚠️ 테스트 DB 한정)** — ①차 `20260916144201` po·po_line·po_discount·po_receipt_line · ②차 `20260916153313` po_invoice·_line·_discount · po_charge·_alloc · po_payment·_alloc · ③차 `20260916175003` 크레딧(po_invoice.doc_kind · 표 수 그대로) · 읽기 `20260916163806`·`164539` 뷰 po_list + RPC po_detail(⭐ 계산 규칙의 정본) · 쓰기 `20260916181719` po_create·po_lines_paste·po_line_update/delete · 화면 `asung-ims/po.html`(읽기 → 크레딧 → 만들기·편집) · 설계 판단은 §11(2026-09-15 · ⭐ 09-16 정정: 확정은 잠금이 아니다 §11-b) · 저녁 **§13-g**(넓은 목록·국면 다섯·머리 칸 15 · `20260916190000`) · **§13-h**(인보이스·크레딧 만들기·할인 편집·⭐ 크레딧 번호는 우리 것 · `20260916200000`·`210000` · 화면 `invoices.html`) · 🔄 다음은 §13-f(⬜⬜ 무효로 만들기 · 비용·결제 · 입고/분할 · 사건) · 원장·원가 이식은 PO 뒤(§12 · ⚠️ 재검토 짐작 §12-a) · 제품 생성 규칙 §11-k
+⑤ PO 본체          ✅ **표 열하나 적용·실물 검증(2026-09-16 · §13 · ⚠️ 테스트 DB 한정)** — ①차 `20260916144201` po·po_line·po_discount·po_receipt_line · ②차 `20260916153313` po_invoice·_line·_discount · po_charge·_alloc · po_payment·_alloc · ③차 `20260916175003` 크레딧(po_invoice.doc_kind · 표 수 그대로) · 읽기 `20260916163806`·`164539` 뷰 po_list + RPC po_detail(⭐ 계산 규칙의 정본) · 쓰기 `20260916181719` po_create·po_lines_paste·po_line_update/delete · 화면 `asung-ims/po.html`(읽기 → 크레딧 → 만들기·편집) · 설계 판단은 §11(2026-09-15 · ⭐ 09-16 정정: 확정은 잠금이 아니다 §11-b) · 저녁 **§13-g**(넓은 목록·국면 다섯·머리 칸 15 · `20260916190000`) · **§13-h**(인보이스·크레딧 만들기·할인 편집·⭐ 크레딧 번호는 우리 것 · `20260916200000`·`210000` · 화면 `invoices.html`) · ⭐ **[2026-09-17] 취소·삭제(11-b) · 비용(11-f) · 줄별 수량(11-g) · 결제(11-h) 뒷단 넷(`20260917100000`·`150000`·`170000`·`190000`) + 화면 charges·payments · 공통 CSS·구매 탭(10-j 3-j·3-k)** · 🔄 다음은 §13-f(입고/분할 · 머리 잠금 · 크레딧을 결제에 · 사건) · 원장·원가 이식은 PO 뒤(§12 · ⚠️ 재검토 짐작 §12-a) · 제품 생성 규칙 §11-k
 ```
 
 순서의 이유: **참조되는 쪽을 먼저 세운다.** 공급처가 결제조건·계정과목을 참조하고(226/226 실측),
@@ -1409,11 +1409,12 @@ CHECK 이름  <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지(자동
 뺌         cin7_id(Cin7 발주·인보이스는 적재하지 않는다 · §11-⓪ 함의 ②) · source(cin7/manual 축이 없다) · is_active(status 가 대신) · name(문서에 이름이 없다)
 CASCADE    ⭐ 문서 → 소유 줄에만(po→po_line·po_discount · po_invoice→_line·_discount · po_charge→_alloc · po_payment→_alloc) — 위 「CASCADE 는 문서→소유 라인 7건에만」이 정확히 이 부류
            밖을 가리키는 FK(po_line→product · po_receipt_line→po_line·ref_bin·ims_staff · po_invoice_line→po_line · po_charge_alloc→po · po_payment_alloc→po_invoice/po_charge)는 전부 no action
-DELETE     막지 않는다 — 초안은 지울 수 있어야 한다 · 확정 뒤는 취소(cancelled)로 물러난다 · 결제는 사실이라 잘못 넣었으면 지운다. TRUNCATE 는 막는다
+DELETE     막지 않는다 — 초안은 지울 수 있어야 한다 · 확정 뒤는 취소(cancelled)로 물러난다 · 결제는 사실이라 잘못 넣었으면 지운다. TRUNCATE 는 막는다 · ⭐ [2026-09-17 · `20260917100000`] **판정 축은 confirmed_at — 한 번이라도 확정된 문서는 지워지지 않는다**(status 가 아니다 · 발주도 같다 · §11-b) · 크레딧은 종류로 삭제 금지(§11-c 크레딧 번호) · 결제는 상태가 없어 언제든 지운다(§11-h)
 상태       있으면 CHECK · 진행도(입고 · 결제됨)는 상태가 아니라 줄 합으로 계산한다
 ⚠️⚠️       ~~확정=잠금이지만 지금 확정 문서는 DB 가 보호하지 않는다 — 트리거 없음(⬜ 분할 함수 차수에 예외 경로와 함께)~~ → [2026-09-16 오후 정정] **확정은 잠금이 아니다**(§11-b · 「공급사에 보낼 수량과 라인이 정해졌다」). 막는 것은 둘(받은 것보다 적게 줄이기 · closed/cancelled 문서 고치기)이고 **RPC 가 저장 전에 본다**(po_line_update · po_line_delete · §13-d)
 ⭐ 다른 행     다른 행을 봐야 하는 제약은 트리거 대신 — **읽기는 RPC warnings**(크레딧 · credit_for 가 크레딧을 가리킨다 · 다른 공급처 · 붙어 있는데 alloc 으로도 썼다 · §11-g) · **쓰기는 RPC 가 저장 전에 본다**(사후 warnings 로 구별이 안 될 때 — 수량 감축과 초과 입고는 둘 다 remaining 음수 · §11-b). 같은 행 안의 것만 CHECK
 채번       첫 시퀀스 선례 — po_number_seq + po_next_number() 를 기본값으로 · authenticated 에 USAGE 필요 · 롤백된 번호는 빈다(허용)
+함수 시그니처  ⭐ [2026-09-17] **인자를 늘려 시그니처가 바뀌면 create or replace 가 아니라 drop + create 다** — replace 는 옛 판을 남겨 같은 이름의 함수가 둘이 된다(PostgREST 의 이름 인자 호출이 둘을 다 맞춘다). 레포 첫 사례 `20260917170000`(po_invoice_create + p_line_qty). 인자 타입이 같으면(기본값만 바뀜) replace 로 된다(`20260916210000`)
 ```
 
 ---
@@ -2267,6 +2268,30 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 저장 뒤 다시 읽되        **스크롤 자리를 지킨다**(50줄짜리를 표 안에서 바로 고친다 · Caleb)
 ```
 
+**3-j. ⭐ 공통 CSS 「⑤ 문서 화면 공통」 (2026-09-17 · asung-ims af06c61)**
+화면 셋(po · invoices · charges)의 `<style>` 에 복사돼 있던 **규칙 34** 를 ims-ui.css 맨 아래 한 구역으로 올렸다(`<style>` 밖은 한 글자도 안 건드림 · 스크립트로 대조).
+```
+⭐ 왜 그때인가    [Caleb] 「레이아웃과 디자인을 PO 에서 잡는다 — 상품등록·SO 에도 그대로 쓴다」 ⇒ 기준이 **한 곳**에 있어야 한다. 버튼 하나를 바꾸면 세 곳을 고쳐야 했고 넷째 화면(payments.html)이 오기 전이 가장 쌌다
+올린 것          .pobtn(5) · .qin/.tin/.xbtn(4) · .pomodal/.pobox(6) · .frow(3) · #wide(5) · .wfilt(5) · .invbar/.invgrid/@media/.invsub(5) · [hidden](1 · 실사고 주석도 함께)
+⚠️ 통일한 값 셋   .qin 84→**104** · .tin 150→**180**(charges 값 — 금액이 잘리는 것이 좁은 것보다 나쁘다) · 검색칸 280/340→**260/320**(invoices·charges 값 · po 만 혼자 넓었다) — 이름은 같은데 화면마다 달랐다. 설계가 아니라 그때그때 늘린 값이었다 ⇒ .qin.pin(104)은 뜻이 없어져 지웠다(class="qin pin" 의 pin 은 이제 아무 규칙도 안 건다)
+⚠️ 올리지 못한 둘  **main** — ims-ui.css 의 main·main.stack 과 이름이 겹친다(3-g .note 선례 · 바른 길은 `<main class="stack">` · HTML 은 범위 밖 · §13-f) · **.pobox input,.pobox select** — 특이도(0,1,1)가 .qin(0,1,0)을 이겨 po 모달 안의 수량 칸 모양이 바뀐다 ⇒ 두 화면 로컬에 남겼다
+검산             po 59 = 32 + 27 · invoices 37 = 2 + 35 · charges 45 = 11 + 34 · ims-ui.css 69 → 103 · 같은 선택자 두 번 없음 · 바이트 7,510 → 12,865
+⭐ 규칙            다음 화면은 `<style>` 에 공통을 복사하지 않는다 — ims-ui.css 「⑤ 문서 화면 공통」을 쓴다
+발견             invoices.html 은 .pick/.prow 를 쓰는데 정의가 없다(인라인 style) · charges 는 .prow 만 정의 · po 는 둘 다 — 같은 「PO 고르기」 상자가 세 모양(§13-f)
+```
+**3-k. ⭐ 구매 문서 탭 — 헤더 바로 아래 한 줄 (2026-09-17 · asung-ims 9dcee4d · db4841e)**
+[Caleb] 「payments·charges·invoices 로 넘어가면 PO 로 돌아갈 방법이 다시 메뉴를 클릭하는 것뿐이라 불편하다. PO 와 관련된 메뉴를 한 곳에 모을 수 있을까 — 탭으로」
+```
+묶는 것          **구매 문서 넷** — Purchase Orders · Invoices · Charges · Payments (입고가 서면 그때 더한다)
+❌ 묶지 않는 것    Settings · Suppliers · Products · Families · Supplier Products · Staff · Home — [Caleb] 마스터는 어쩌다 한 번 열지만 이 넷은 하루에도 여러 번 오간다. 전부 묶으면 성격이 다른 아홉이 한 줄에 선다
+자리             헤더 **바로 아래** 한 줄 · 모든 화면에서 같은 자리(넓은 목록 위가 아니다 — 상세를 볼 때 안 보이면 자리가 흔들린다) · 넷에 속하지 않는 화면에서는 그리지 않는다 · 현재 화면은 .cur + aria-current 로 눌리지 않는다 · 그냥 링크(SPA 아님)
+⭐ 출처는 하나     ims-auth.js items 배열의 **넷째 칸 'purchase'** — 메뉴와 탭이 같은 배열에서 나온다 · 화면을 더할 때 고칠 자리가 한 줄 · 권한은 메뉴의 vis 를 그대로 받는다(안 보이는 화면의 탭도 안 보인다)
+현재 판정         location.pathname 의 마지막 조각(소문자) · 「/」로 끝나면 index.html · 쿼리·해시는 pathname 에 없다 · 메뉴의 .cur 와 같은 변수
+sticky 아님      헤더(sticky · top:0)만 남고 탭은 함께 스크롤된다 — .list 의 top:70px 은 그대로 맞는다 · ⚠️ 탭 높이는 JS 가 재서 `--ims-tabs-h` 로 :root 에 적는다 — po.html 의 .list .rows max-height 가 `calc(100vh - 230px - var(--ims-tabs-h, 0px))` 로 빼 쓴다(탭 없는 화면은 0px · 화면 파일 · 대화 Claude)
+모양             ims-ui.css 「구매 문서 탭」 구역(.ims-tabs · 접두어 ims- · 충돌 없음) · 마크업은 화면에 없다(공통 코드가 <header> 뒤에 끼운다 · <header> 가 없으면 조용히 아무것도 안 한다)
+☰ Menu           그대로 둔다 — 탭은 메뉴를 대신하는 것이 아니라 자주 가는 길을 짧게 하는 것이다 · ⚠️ .ims-nav 의 CSS 는 아직 JS 안 <style> 에 있다 — ims-ui.css 로 옮길 후보(§13-f)
+```
+
 ⬜ IMS 인프라(Supabase 프로젝트 준비 · 화면 규칙 · EF 배포)를 담는 **스킬을 따로 세울지** 정할 일 — 지금은 `asung-po` 스킬 §0·§4 에 한 줄씩 얹어 두었다(마스터·적재 스킬과 성격이 다르다는 것을 알고 얹었다 · 2026-09-15).
 
 ### 10-k. ⬜ 채워야 할 우리 칸 — 쓰기의 첫 대상 (2026-09-15 · 한곳에 모았다)
@@ -2374,7 +2399,29 @@ ref_bin.is_staging    ⭐ 임시 보관용으로 정해진 자리가 실제로 �
             ⇒ po_charge_alloc 은 closed 여부와 무관하게 붙는다(제약 없음) · 「닫혔는데 비용 안 붙음」은 큐가 아니라 **조회**로 본다
 ```
 → **표(2026-09-16 · §13)** `po.status` CHECK `draft · confirmed · closed · cancelled` 넷 — 입고 진행은 상태가 아니라 `po_receipt_line` 합. `confirmed_by/at · closed_at · cancelled_at · created_by(→ ims_staff.id)`.
-→ **쓰기(2026-09-16 오후 · §13-d)** 나누는 기준(Caleb): **일이 여럿이면 RPC · 한 가지면 PostgREST**(+ imsSaved 되읽기 · §10-j 3-i). RPC 넷 — `po_create`(공급처 기본값 + supplier_discount 복사 · created_by 는 **auth.uid() → ims_staff.id 서버 유도** — 화면이 주면 공개 anon key 로 아무 id 나 줄 수 있다 ⇒ ①차 ⬜ 기본값 함수 닫힘) · `po_lines_paste`(11-d) · `po_line_update` · `po_line_delete`(위 「막는 둘」). 확정·취소·메모·할인 줄은 PostgREST.
+→ **쓰기(2026-09-16 오후 · §13-d)** 나누는 기준(Caleb): **일이 여럿이면 RPC · 한 가지면 PostgREST**(+ imsSaved 되읽기 · §10-j 3-i). RPC 넷 — `po_create`(공급처 기본값 + supplier_discount 복사 · created_by 는 **auth.uid() → ims_staff.id 서버 유도** — 화면이 주면 공개 anon key 로 아무 id 나 줄 수 있다 ⇒ ①차 ⬜ 기본값 함수 닫힘) · `po_lines_paste`(11-d) · `po_line_update` · `po_line_delete`(위 「막는 둘」). 확정·메모·할인 줄은 PostgREST. ~~취소~~ → [2026-09-17] **취소는 `po_doc_cancel`**(아래 「취소·삭제」).
+→ **취소·삭제(2026-09-17 · `20260917100000` 433행 · 커밋 5355033 · 검토 이견 1~14 · fix 로 둘 뒤집음)**
+```
+왜 지금        [Caleb 2026-09-17] 「테스트 오더를 계속 만들 텐데 하나씩 지우거나 취소를 해야 한다」 — 발주 초안을 지우는 길과 인보이스·크레딧을 취소·삭제하는 길이 화면에 없었다
+RPC 둘         po_doc_cancel(p_target, p_id, p_cancel) · po_doc_delete(p_target, p_id) · p_target 'po' | 'invoice'(크레딧 포함 · doc_kind 는 행에서) → [150000] + 'charge' → [190000] + 'payment'(삭제만)
+               ⭐ 취소를 PostgREST 한 칸에서 RPC 로 옮겼다 — 저장 전에 **다른 행**(입고 줄 · 결제 충당 · 붙은 크레딧)을 봐야 막을 수 있다.
+               ⚠️ 그전에는 **입고가 붙은 발주도 취소되는 길이 열려 있었다**(검토가 찾았다 · po.html setStatus 가 status 만 바꿨다)
+⭐⭐ 지운다/취소한다  **판정 축은 status 가 아니라 confirmed_at 이다 — 한 번이라도 확정된 문서는 지워지지 않는다.** 확정된 적 없는 것(draft · draft→cancelled)만 지운다
+               ⚠️ 발주도 같다 — 처음 검토안은 「발주는 장부가 아니고 번호가 시퀀스라 cancelled 면 지운다」로 넓게 두었다. [Caleb 판정 2026-09-17 · 뒤집음]
+                  근거: 「밖에서 아무것도 안 가리키는 확정 발주」는 물건도 인보이스도 아직 안 온 것 — 그것이 §11-c 「안 온다고 판명되면 취소한다」의 **전형**이다.
+                  지워도 되는 것과 취소의 전형이 같은 모양이 되어 가장 남겨야 할 문서가 가장 잘 지워진다. 「시퀀스라 재사용 위험이 없다」는 이력을 지워도 된다는 뜻이 아니다
+               [실물 2026-09-17 · Caleb SQL] PO-02005 · 02008 은 status='cancelled' 인데 confirmed_at is null — 확정을 안 거쳐 지워졌다(PO-02009 도)
+               ⭐ 크레딧은 **종류로 삭제 금지**(§11-c 크레딧 번호 소절 — 채번이 행을 읽는다) · 취소는 draft 도 받는다(「받았지만 받아들이지 않은 인보이스」를 기록으로 · warnings cancelled_from_draft)
+막는 것        발주 취소: closed · 입고 줄 있음 ⇒ 거부 / 인보이스·크레딧 줄이 가리킴 · 비용 배분 · 번호 낸 크레딧(credit_po_id) · 갈라진 자식은 **경고만**(attached{} 에 이름 — 「안 온다고 판명되면 취소한다」가 실무 · 순서를 강요하면 실물을 못 넣는다)
+               인보이스·크레딧 취소: 결제 충당 ⇒ 거부(po_invoice_confirm Reopen 과 같은 문장 · 참조번호·금액을 이름으로 「WIRE-20260916-01 2010.54」) · 취소 안 된 크레딧이 붙은 인보이스 ⇒ 거부(크레딧의 돈이 허공에 뜬다 · 함께 취소하지 않는다 — 취소는 사람이 한다 §11-c) · 크레딧 취소는 credit_for 인보이스에 결제가 있으면 경고 + unpaid 전후
+               삭제: 밖에서 가리키는 FK(전부 no action)가 어차피 막는다 — RPC 는 **이름을 붙여 읽을 문장으로**(po_line_delete 선례) · 딸려 가는 줄(CASCADE)은 수만 알린다(lines_deleted · discounts_deleted · allocs_deleted)
+               세 문서의 거부 문장이 같은 모양 — 「<문서> <번호> was confirmed on <날짜> — cancel it instead; only a document that was never confirmed can be deleted — nothing was deleted」
+⭐ 되돌리기      p_cancel=false · cancelled → **취소 직전 상태로**(confirmed_at 있으면 confirmed · 없으면 draft) — 취소는 confirmed_at/by 를 건드리지 않는다(po_list order_phase 가 그 값을 본다)
+               필요한 이유: 취소된 인보이스도 유니크 (supplier, doc_kind, number) 를 붙들고 있어 되살릴 길이 없으면 같은 번호를 다시 못 넣는다 — **취소가 곧 삭제가 된다**(Caleb 확인)
+               Reopen(po_invoice_confirm false)은 confirmed_at 을 지운다 — 그래서 그 뒤 삭제가 열린다(크레딧은 종류로 막혀 그 길도 닫혔다)
+cancelled_by   po · po_invoice · po_charge 에 신설 — confirmed_by 는 있는데 누가 취소했나가 안 남았다 · auth.uid() → ims_staff.id 서버 유도 · 되돌리면 cancelled_at 과 함께 비운다
+화면            po.html Cancel 을 RPC 로 · Delete/Restore(po · invoices · charges) · 버튼 노출: Delete = confirmed_at null(크레딧 없음) · Restore = cancelled 만 · 거부 문장은 그대로 띄운다
+```
 📌 Cin7 공급처 Additional attributes 의 `PO Progress` 칸(전 공급처 빈값 · §3-b 「담지 않는다」)은 「⑤ 에서 참고」로 적혀 있었다 ⇒ **참고할 것이 없었다.** 우리 상태는 위로 선다.
 
 ### 11-c. ⭐⭐ 부분 입고 = 문서가 갈라진다 (오늘의 핵심 판단)
@@ -2426,6 +2473,20 @@ b 가 또 갈라지면 c(받은 쪽) · d(남은 쪽). 규칙이 반복되고 �
 ⚠️ 미리 보기(p_commit=false)의 번호는 **잠정**이다(warnings number_is_provisional) — commit 때 다시 센다 · 사이에 다른 크레딧이 끼면 달라진다
 ```
 → **채번이 어떻게 도는가**(「최대 꼬리 + 1」 · 취소 포함 · `credit_po_id` · advisory lock)는 **§13-h** 에. 시험 데이터 CN-AMP-778812-1 은 대화 Claude 가 임의로 붙인 번호라 규칙의 실물이 아니다.
+⭐⭐ **크레딧은 지우지 않는다 — 취소만** (2026-09-17 · `20260917100000` · Caleb 판정 · 검토 이견 5 를 뒤집음)
+```
+채번은 행을 읽는다   po_credit_next_number 는 시퀀스가 아니라 **po_invoice.invoice_number 행**을 읽는다(doc_kind='credit' · 접두어 CN-<po> / CN-<연도>-).
+                    꼬리 없는 첫째(CN-PO-02001a)는 **존재 여부로만** 보고, 둘째부터는 CN-<po>-<n> 의 n 최댓값+1 이다.
+                    ⇒ 첫째를 지우면 다음 크레딧이 **같은 번호를 그대로 다시 받고**, 마지막 꼬리를 지우면 그 꼬리가 다시 난다
+근거가 무너진다      취소된 것을 세기로 한 근거(「공급처에 이미 알려 준 번호가 다른 문서를 가리키면 안 된다」)가 **삭제 한 번으로 무너진다** ⇒ po_doc_delete 가 doc_kind='credit' 을 status·confirmed_at 무관 무조건 거부한다
+                    ⚠️ 「알려 준다」가 IMS 의 confirm 앞인지 뒤인지 정본 어디에도 없다 — 확인되지 않은 것 위에 채번 규칙을 얹지 않는다 ⇒ **초안 예외도 두지 않는다**
+                    ⚠️ 확정 → Reopen(confirmed_at 이 지워진다) → 삭제, 클릭 둘로 빠져나갈 길도 이것으로 함께 닫혔다
+                    ⚠️ 사람이 준 번호(CN-AMP-778812-1)도 같이 막는다 — 종류로 하나의 규칙(예외를 두면 화면도 설명도 갈린다)
+대가는 대가가 아니다 시험 크레딧이 cancelled 로 쌓인다 — 쌓이는 곳은 테스트 DB 뿐이고 그 청소는 Caleb 이 SQL 로 한다 · 운영에서는 쌓이는 쪽이 옳은 동작이다. 저울: 한쪽은 지저분함 · 다른 쪽은 복구 불가
+⚠️ 발주 번호는 다르다  시퀀스(po_number_seq)라 지워도 안 돌아온다 — 빈 번호는 위 11-c 에서 이미 허용했다
+[실물 2026-09-17]   CN-AMP-778812-1 삭제 시도 → 「Credit note CN-AMP-778812-1 cannot be deleted — cancel it instead; its number must never be reused by another credit note — nothing was deleted」 (cancelled 여도 같은 문장 — 종류 검사가 상태 검사보다 앞)
+```
+~~⚠️ 초안을 지우면 그 번호가 다시 날 수 있다 — 지운 초안은 공급처에 안 갔다고 본다(짐작 · `20260916210000` 32행 주석)~~ → [2026-09-17 정정] 위 규칙으로 틀린 문장이 됐다. 마이그레이션 주석은 고치지 않는다(적용된 파일) — §13-h 의 같은 문장도 함께 고쳤다.
 
 ### 11-d. 라인
 ```
@@ -2537,6 +2598,27 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
 ```
 → **표(2026-09-16 · §13)** `po_charge`(줄 없는 문서 · kind·description · 총액) + `po_charge_alloc`(발주에 얼마). ⭐⭐ 배분 금액은 넣을 때 계산해 **박아 두고 발주 금액이 나중에 바뀌어도 다시 계산하지 않는다**(Caleb) — 한번 원가 층에 더해진 금액이 저절로 바뀌면 원가가 흔들린다 · 고치려면 사람이. 「배분이 안 따라온다」는 버그가 아니라 설계다.
 ⭐ closed(입고 종료) 문서에도 붙는다 — 제약 없음. ⚠️ 비용 청구서도 **돈을 낸다** — 결제 충당(`po_payment_alloc`)이 인보이스뿐 아니라 이 문서도 가리킨다(11-h).
+→ **쓰기(2026-09-17 · `20260917150000` 901행 · 커밋 38f1098 · 화면 `charges.html` 신설 · 검토 이견 1~16 · 5(통화 폴백)만 뒤집음)**
+```
+만드는 자리   비용 화면에서 새로 만든다 — 청구서가 먼저 손에 있다(Caleb). PO 상세의 「Add a charge」는 p_po_ids 에 그 발주 하나를 담아 같은 RPC 를 부른다
+             ⚠️ 인보이스처럼 「PO 에서 갈라 만든다」가 아니다 — 비용의 공급처는 발주처가 아니고(CBSA · BBE · Showtime) 컨테이너 하나가 PO 여럿에 걸친다(위)
+             ⚠️ 통화는 **사람이 고른다 · 폴백 없음**(Caleb · 이견 5 뒤집음) — 비용처는 건마다 통화가 다를 수 있어 마스터 값이 그 청구서의 통화라는 보장이 없고, 틀려도 결제 단계까지 조용히 간다
+확정          인보이스와 같게 잠근다(배분 편집 RPC 넷이 draft 만 받는다) · Reopen 은 결제 충당이 있으면 거부(po_invoice_confirm 과 같은 선 · 참조번호·금액을 이름으로)
+             ⚠️ 뜻이 다르다: 비용은 문서가 서는 순간 **이미 미지급**이다(po_charge_money.unpaid 는 status 를 안 본다)
+             ⇒ 비용의 확정은 「돈이 생긴다」가 아니라 **「이 배분으로 원가에 얹겠다」는 선언**이다
+배분 편집     ⭐⭐ **고친 줄만 바뀐다. 나머지는 저절로 움직이지 않는다**(po_charge_alloc_add · _update · _delete)
+             ❌ 기각(Caleb): 「고친 줄을 뺀 나머지를 다시 비례로」 — 사람이 확인하고 지나간 칸이 다른 칸을 고칠 때마다 바뀐다. 「박아 두고 다시 계산하지 않는다」와 반대 방향이다
+             ⇒ 합이 총액과 안 맞는 중간 상태가 정상(po_charge_money.unallocated 가 그 값) · 다시 비례로 채우는 것은 po_charge_alloc_spread 를 **사람이 누를 때만** — 어떤 저장도 자동으로 부르지 않는다
+확정 전 검사  ⭐⭐ unallocated ≠ 0 이면 **거부한다**(경고가 아니다 · 문장에 총액·배분합·미배분 셋)
+             ⚠️ 인보이스의 diff 는 경고였다 — 거기는 공급처가 찍은 총액이 정본이고 우리 계산이 대조값이라 둘이 달라도 공급처 문서가 이긴다.
+                비용 배분은 **양쪽 다 우리가 넣는 숫자**라 안 맞으면 덜 입력한 것이다. 그 밖: 배분 0줄 ⇒ 거부 · total 0 ⇒ 경고 · 취소된 발주에 배분 ⇒ 경고
+비례 규칙     한 곳 — po_charge_alloc_propose(만들기와 spread 가 같이 쓴다 · 규칙이 두 곳이면 갈린다) · 기준은 발주의 **라인 금액 합(할인 전 · po_list.subtotal 과 같은 식 sum(round(qty_ea×unit_price,2)))**
+             줄 = round(총액×기준/합, 2) · 잔돈(총액 − 줄 합)은 기준이 가장 큰 발주 · 동점은 발주번호 순 · 기준이 전부 0 이면 균등 + warnings no_base_amount
+읽기          뷰 po_charge_list(po_invoice_list 와 같은 모양 · po_numbers 로 발주 번호 검색 · 배분 없는 청구서도 보인다) · RPC po_charge_detail(allocs[] 에 base_amount · other_charges — 사람이 배분을 고치는 판단의 재료)
+취소·삭제     po_doc_cancel / po_doc_delete 의 p_target 'charge'(§11-b) · cancelled_by 신설 · 취소는 결제 있으면 거부 · 배분은 경고만 · 삭제는 confirmed_at null 만 · allocs_deleted
+```
+⭐⭐ **[실물 2026-09-17 · Caleb SQL] 박아 둔 배분이 발주 금액 변화를 안 따라오는 실례가 나왔다.** CBSA 2,547.37 의 배분 597.49 / 1,949.88 은 2026-09-16 정오 기준값(PO-02002 소계 7,985.00 · 그때 discount_factor 1.000000)에서 나왔고,
+그 뒤 PO-02002 라인이 +25.40 되어 지금 기준은 8,010.40 이다 ⇒ 지금 비례로는 596.04 / 1,951.33(차이 1.45). **다시 계산하지 않는다 — 설계대로다.** spread 를 사람이 누를 때만 596.04 / 1,951.33 이 된다. §13-b 2868행의 「소계 7,985.00」은 그날 실물이지 오기가 아니다(§13-b 덧붙임 · §13-a 경위).
 
 ### 11-g. ⭐⭐ 인보이스 — 자기 행으로 서고 PO 여럿을 가리킨다
 ```
@@ -2611,6 +2693,12 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
 ⭐⭐ 줄        **미청구 수량**으로 복사한다(po_uninvoiced_lines) — 주문 수량도 입고 수량도 아니다
              ① 입고 수량은 「인보이스가 대체로 먼저 온다」(11-i)라 0 인 경우가 많다  ② 주문 수량은 **둘째 인보이스에서 이중 청구**가 된다(한 PO 에 여러 장 — 실물 PO-01010 · §3-b ③)
              ⇒ 첫 장이면 주문 수량과 같고, 둘째 장이면 남은 것만 온다 · 단가는 po_line(공급처 실제 단가는 사람이) · 단위 칸 넷은 수량이 주문 수량과 같을 때만(일부면 entered_qty 가 틀린 값이 된다)
+             ⭐⭐ [2026-09-17 · `20260917170000` 446행 · 커밋 0184260] **p_line_qty 로 줄마다 수량을 정할 수 있다** — 물건은 한 번에 오는데 공급처가 **인보이스만 여러 장으로 나눠 보내는** 실무(Caleb · 부분 입고가 아니다 · PO 는 안 갈라진다).
+                그전에는 미청구 수량이 전 라인 채워져 나와 안 실린 품목을 만든 뒤 하나씩 지웠다(열 중 셋만 청구됐으면 일곱 번). 모양 { "<po_line_id>": qty_ea } · 인보이스만(크레딧에 주면 거부).
+                0·null·키 없음 = 줄 없음(verdict 'skipped' 로 lines[] 에 담기만 한다 · skipped_count) · 미청구 초과는 **저장 전 거부**(§11-b 와 같은 이유 — 넘긴 음수 remaining 은 초과 입고의 음수와 사후 구별이 안 된다) · 남길 줄 없음(전부 0)도 거부 · 미리 보기도 같은 판정
+                ⭐ **다음 장은 po_uninvoiced_lines 가 저절로 맞춘다**(그 함수는 무변) — 첫 장에 6 만 넣으면 둘째 장에 6 이 돌아오고, 안 넣은 품목은 주문 수량 그대로 나온다
+                [실측 2026-09-17 · Caleb · PO-02007 13라인 전량 12] 라인 1·2 를 12, 라인 3 을 6 으로 넣고 확정 → 둘째 미리 보기: 1·2 fully_invoiced · 3 은 remaining 6 · 4~13 은 12 그대로
+                ⚠️ 인자가 늘어 시그니처가 바뀌었다 — create or replace 로는 옛 판이 남아 둘이 된다 ⇒ **drop 뒤 create**(레포 첫 사례 · §5 규약) · 새 인자는 맨 뒤(살아 있는 호출은 전부 이름 인자)
 ⭐ 크레딧 자동 채우기   credit_for 를 주면 **그 인보이스의 goods 줄 − 그 po_line 의 입고 합**(> 0 만) · 단가는 인보이스 줄 · 단위 EA
              [Caleb] 「화면이 물어보고 누르면 그 차이만큼 줄이 채워진 초안 — 만드는 것은 사람 · 숫자를 손으로 옮기지 않는다」(특정 공급처는 거의 매번)
              ⚠️ 차이가 하나도 없어도 **빈 크레딧을 만들 수 있다**(warnings no_qty_difference) — 수량이 아니라 **단가**를 깎아 주는 크레딧이 있다. 거부하면 그 실물을 못 넣는다
@@ -2625,6 +2713,9 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
              ⚠️ 예외 하나: `supplier_ref_number`(11-c 크레딧 번호)는 확정 뒤에도 넣는다 — 참조가 나중에 오는 것이 정상 흐름이고 장부를 안 건드린다
 목록·상세    뷰 po_invoice_list(PO 없는 조정 크레딧이 보이는 유일한 자리) · RPC po_invoice_detail(한 장을 깊게 · 줄마다 발주 대조값과 qty_diff — 「크레딧을 만드시겠습니까」의 근거) · 돈은 po_invoice_money(§13-g)
 ```
+→ **화면 셋(2026-09-17 · asung-ims)** ⭐ **PO 에서 크레딧으로 가는 길** — po.html 의 인보이스 줄에 「+ credit」(확정된 인보이스에만) → `invoices.html?id=…&credit=1`. ⚠️ **만드는 자리는 옮기지 않았다** — 크레딧 초안이 「청구 − 입고」 차이로 채워지려면 기준 인보이스가 정해져야 한다(§13-h · 크레딧은 PO 에서 만들지 않는다 그대로).
+⭐ **PO 에 없는 제품이 인보이스에 있으면 인보이스에만 둔다**(Caleb 2026-09-17) — `po_line_id` nullable 이 그 자리다. PO 에 끼워 넣으면 「우리가 시켰다」는 거짓이 장부에 남고 확정이 드러내는 차이(②)가 사라진다. 그 제품이 실제로 입고되면 「PO 라인 없이 받는 길 · 약식 제품 등록」이 필요하다 — 입고 차수(§13-f).
+⭐ 문서 사이 이동 — po.html 상세에서 인보이스·크레딧·비용·결제 번호를 눌러 그 문서로, 거꾸로 각 문서에서 발주 번호로(4a87a6c · 55ffd15 · b3e5c89 Pay 링크 — 커밋 제목으로 확인 · 화면 세부는 짐작). 문서 하나를 짚어 따라가는 길이 이것이고, 옆 목록으로 건너뛰는 길은 구매 탭(§10-j 3-k)이다.
 
 ### 11-h. ⭐ 결제 — IMS 가 든다
 ```
@@ -2658,6 +2749,25 @@ discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 
                ⇒ `account_id` → ref_account(id) · nullable · 화면이 목록을 보여 주고 사람이 고른다 · ⬜ 후보를 좁히는 규칙은 실제로 쓰는 계정이 드러나면(화면 차수 이후)
 ```
 미지급(계산): 인보이스 = payable 줄 합(할인 적용 후) − 충당 합 · 비용 = total_amount − 충당 합. [실측 · Caleb 2026-09-16] AMP-778812 0 · CBSA 0.
+→ **쓰기(2026-09-17 · `20260917190000` 880행 · 커밋 db36acd · 화면 `payments.html` 신설 · 검토 이견 1~14 전부 받음)**
+```
+⭐ 통화를 정하는 것은 **공급처**다   [Caleb 실측] Cin7 에서 공급처마다 통화가 정해져 있고 우리는 그것을 지킨다 — 공급처 기본 통화가 USD 면 USD 로 낸다
+             ⚠️ KRW 송금은 결제 단계의 문제가 아니다 — **그런 공급처는 인보이스를 CAD 로 환산해 만든다**(Caleb). 시스템이 보는 것은 CAD 문서를 CAD 로 갚는 것뿐 ⇒ exchange_rate 칸은 두되 이번에 쓰지 않는다(insert 안 함)
+⭐⭐ 한 결제 = 한 통화   대상 문서 전부의 통화 = 결제 통화 — **뒷단이 검사**한다(공급처로 좁혀도 · 손으로 만든 문서가 다를 수 있고 anon key 가 공개다). 거부 문장에 문서 번호와 통화를 이름으로(「Charge FX-TEST-1 is CAD but the payment is USD — one payment, one currency …」)
+             실무에서 섞이는 자리는 **운송** — 제품 인보이스는 CAD 인데 운송 비용 문서가 USD 로 올 수 있다 · [실물] PO-02001a 하나에 결제가 둘(WIRE USD → 인보이스 · EFT CAD → 관세)
+⭐ 확정된 문서에만 붙는다   인보이스·비용 status='confirmed' 만 — 확정 = 「장부에 받아들였다」이고 그때 미지급이 생긴다(§11-g). ⚠️ po_invoice_money.unpaid 는 status 를 안 봐 **초안에도 미지급이 계산된다** — 막지 않으면 초안에 결제가 붙는다 · cancelled 도 거부
+⭐ 부분 결제는 정상   [실물] Avlon 50% COD & 50% Net30 · 막는 둘: **문서 미지급 초과** · **Σ충당 ≠ amount + discount_taken**(표 주석의 검산 · 저장 전 거부 · gap 을 문장에). 비용 배분(unallocated)과 성격이 같다 — 양쪽 다 우리 숫자
+⭐ discount_taken 은 사람이 선언   계산(충당 합 − 낸 돈)만으로는 「덜 낸 것」과 「할인 받은 것」이 구별되지 않는다 · [실측 2026-09-17] 5566 USD 586.92 중 286.92 를 낼 때 250 + 할인 36.92 로 선언하면 통과 · HST 매입세액은 회계사 미결(금액만 기록)
+⭐ 한 결제 = 한 공급처는 **강제하지 않는다**   경고 mixed_supplier 만(검토 이견 1 ⓑ · Caleb) — 비용 문서의 공급처는 경비처(CBSA·BBE)라 「Ampro 인보이스 + CBSA 관세를 한 송금」 실무가 있는지 모른다(짐작). 강제하면 그 실물을 못 넣고 실제 위험(통화 섞임)은 통화 검사가 잡는다 · po_payment 에 공급처 칸은 없다(p_supplier_id 는 화면의 축 · 선택)
+⭐ 상태 없음   결제는 사실이다 — 잘못 넣었으면 **지운다**(po_doc_delete 'payment' · confirmed_at 검사 없음 · 충당 CASCADE · allocs_deleted · 그 문서들의 미지급이 되살아난다) · po_doc_cancel 'payment' 는 **거부**(「A payment has no cancelled state — delete it instead」 · 조용히 통과시키지 않는다)
+⭐ 결제 계좌 — ❌ **ref_account 를 고치지 않았다**   ⚠️ 계좌에 통화 칸을 붙이자는 안이 한 번 섰다가 [Caleb] 「통화는 공급처에서 이미 정해져 내려온다. 계좌에 또 적으면 같은 사실이 두 곳에 있고 언젠가 어긋난다」로 기각됐다
+             ⇒ account_id nullable · 통화 검사 없음 · 안 고르면 경고 account_missing 만 · 화면이 **검색으로** 고른다(코드·이름 · 「CHEQUING」) · for_payments 를 후보 필터로 쓰지 않는 이유는 위 문장 그대로 · 계좌 코드 하드코딩 없음
+             ⚠️ [Caleb 실측 2026-09-17] 카드·Wise 도 쓰지만 **결국 모든 돈은 세 계좌(_104_ TD CAD · _105_ BMO CAD · _106_ BMO USD)에서 나간다** ⇒ 계좌는 셋만 · 수단은 reference 에 적는다(카드 대금 정산은 분개 영역 — QBO 의 일)
+❌ 크레딧을 결제에 쓰는 길은 이번에 없다   위 「안 붙은 크레딧만 이 길」이 190000 의 p_targets(kind invoice | charge)에 빠졌다 — 지시서의 누락(대화 Claude). 검산 부호가 뒤집혀(Σ인보이스 + Σ비용 = amount + discount_taken + Σ크레딧) 섞을 수 없어 **거부**한다(「… is a credit note — a later step」) · 조용히 통과시키지 않는다 · §13-f
+검사 한 곳   po_payment_target_check(존재 · 종류 · confirmed · 통화 · 초과 — 고치는 줄의 금액은 미지급에 되돌려 놓고) — 만들기(po_payment_create · 미리 보기 두 단계 · amount 없으면 미지급 전액 제안)와 충당 편집(po_payment_alloc_set 은 있으면 고치고 없으면 더한다 · unique (payment, invoice)·(payment, charge) 가 축 · _delete)이 같이 쓴다
+읽기          뷰 po_payment_list(alloc_sum · balanced = Σ충당 = amount + discount · doc_numbers · supplier_names · 충당 없는 결제도 보인다) · RPC po_payment_detail(allocs[] 에 doc_total · doc_paid_total · doc_unpaid — 부분 결제가 정상이라 「지금 얼마 남았나」를 보고 정한다)
+머리 칸        paid_on · amount · discount_taken · account_id · reference · note 는 화면이 PostgREST 로 쓴다 — 결제는 상태가 없어 잠금 지점이 없다. gap 은 목록 balanced · 상세가 보여 준다 · ⚠️ currency_id 는 충당이 있으면 **화면이 잠근다**(대화 Claude)
+```
 
 ### 11-i. ⭐⭐ 입고
 ```
@@ -2850,7 +2960,12 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 인보이스 20260916200000_po_invoice_write.sql (1,093행)     커밋 160430b  19:52   po_uninvoiced_lines · po_invoice_create · po_invoice_add_po_lines · po_invoice_line_add/update/delete · po_invoice_confirm ·
                                                                                   ⭐ po_discount_save/delete(세 자리) · 뷰 po_invoice_list · RPC po_invoice_detail   → 13-h
 크레딧번호 20260916210000_po_credit_number.sql (778행)     커밋 0b4a6aa  20:48   po_invoice 에 supplier_ref_number · credit_po_id · po_credit_next_number(CN-<po> / CN-<연도>-<n> · advisory lock) · po_invoice_create 손질 · po_invoice_list/detail · po_list.doc_numbers   → 11-c · 13-h
+[2026-09-17] 취소·삭제 20260917100000_po_void_delete.sql (433행)       커밋 5355033        po_doc_cancel · po_doc_delete(발주·인보이스·크레딧 · ⚠️ 크레딧은 삭제 금지 · 판정 축 confirmed_at) · cancelled_by(po · po_invoice)   → 11-b · 11-c
+           비용     20260917150000_po_charge.sql (901행)            커밋 38f1098        po_charge_list · _detail · _create(미리 보기 · 비례 제안 po_charge_alloc_propose) · 배분 편집 셋 · _spread · _confirm · cancelled_by(po_charge) · 'charge' 를 취소·삭제에   → 11-f
+           줄별 수량 20260917170000_po_invoice_line_qty.sql (446행)   커밋 0184260        po_invoice_create + p_line_qty · ⚠️ 시그니처가 바뀌어 **drop + create**(레포 첫 사례 · §5)   → 11-g
+           결제     20260917190000_po_payment.sql (880행)           커밋 db36acd        po_payment_target_check · po_payment_list · _detail · _create · 충당 편집 둘 · 'payment' 를 삭제에(취소는 거부)   → 11-h
 ```
+⭐ [2026-09-17] 파일 넷 · 커밋 넷이 더 섰다(위 네 줄) — 표는 그대로 열하나 · 칸은 cancelled_by 셋만 늘었다. 화면은 asung-ims 에 charges.html · payments.html 신설 + po.html·invoices.html 손질 + 공통 CSS(af06c61) + 구매 탭(9dcee4d · db4841e).
 전부 **거래** ⇒ 컷오버 때 지운다(§11-⓪). 규약은 §5 「거래 표의 규약 예외」. ~~⚠️ 확정 문서는 DB 가 보호하지 않는다(트리거 없음 · ⬜ 분할 함수 차수).~~ → [2026-09-16 오후] 확정은 잠금이 아니다(§11-b) · 막는 둘은 po_line_update/delete 가 본다(13-d).
 📌 검증 데이터는 지우지 않는다(Caleb) — 화면 만들 때 볼 것이 있다. 어차피 컷오버 때 지울 거래다. `po_number_seq` 는 ~~2002~~ → 2007 까지 썼다(2026-09-16 저녁 · po 8행 PO-02001a·b · 02002~02007).
 
@@ -2866,6 +2981,8 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
           ⭐ 물건 2,446.80 × 할인 체인 = 2,010.54 · + 운임 187 = **2,197.54 = 찍힌 총액**(차이 0.00)
           ⚠️ 처음 총액을 근거 없이 2,451.44 로 넣자 **차이 −253.90 이 드러났다** ⇒ total_amount 를 대조값으로 둔 이유가 실증됨
 비용      CBSA 10039192310530 · duty · CAD 2,547.37 · **두 발주에 걸침** — PO-02001a(소계 2,446.80) 597.49(23.5%) · PO-02002(소계 7,985.00) 1,949.88(76.5%) · 합 = 총액(차이 0)
+          ⭐ [2026-09-17 실측 · Caleb SQL] PO-02002 소계는 지금 **8,010.40** — 그 뒤 라인이 +25.40 되었다. **위 7,985.00 은 오기가 아니라 그날 실물이다**(2026-09-16 정오 discount_factor 1.000000 이라 소계 = net_total · `20260916164539` 291행 · `20260916163806` 347행).
+          ⇒ 지금 비례로는 596.04 / 1,951.33 인데 박힌 597.49 / 1,949.88 은 그대로다 — **박아 둔 배분이 따라오지 않는 §11-f 의 실례.** 📌 [경위] 대화 Claude 가 이 줄을 「net_total 을 소계라 적은 오기」로 단정했다가 검토가 바로잡았다 — 값 하나가 안 맞는 것을 보고 **데이터가 움직였을 가능성을 안 봤다.**
           ⚠️ 우연히 맞았다 — 잔돈 규칙(금액이 가장 큰 발주 · 동점은 발주번호 순)은 §11-f 에 새로 적었다
 결제      WIRE-20260916-01 · USD 2,010.54 · BMO USD CHEQUING → AMP-778812 충당 2,010.54
           EFT-20260916-02 · CAD 2,496.42 + **discount_taken 50.95**(2% 조기결제) → CBSA 충당 2,547.37
@@ -2984,7 +3101,7 @@ RPC 열       po_uninvoiced_lines(발주 라인의 미청구 = 주문 − 취소
              po_invoice_add_po_lines(다른 PO 통째로 · 같은 공급처만 · 두 단계) · po_invoice_line_add/update/delete(draft 만 · goods 는 po_line_id · 그 밖은 description) · po_invoice_confirm(양방향 · reopen 은 결제 없을 때만) ·
              po_discount_save/delete(세 자리 · 11-e) · po_credit_next_number(채번) · 뷰 po_invoice_list · RPC po_invoice_detail — 나누는 기준은 오후와 같다(일이 여럿이면 RPC · 다른 행을 봐야 하면 RPC)
 ⭐⭐ 크레딧 채번  「건수가 아니라 번호를 읽어 **최대 꼬리 + 1**」 — CN-<po> 가 없으면 그것 · 있으면 CN-<po>-<n> 의 n 최댓값 + 1(없으면 2) · 조정 번호도 CN-<연도>-% 의 최댓값 + 1
-             ⭐ **취소된 것도 센다** — 결정적 근거: 취소된 것을 빼면 **공급처에 이미 알려 준 번호가 다른 문서를 가리키게 된다**(「내역을 알려 주면」이 실무) · 유니크(supplier, doc_kind, number)에도 걸린다 · 번호가 건너뛰는 것은 PO 시퀀스의 빈 번호와 같은 판단 · 지운 초안은 번호를 돌려준다(공급처에 안 갔다고 본다 · 짐작)
+             ⭐ **취소된 것도 센다** — 결정적 근거: 취소된 것을 빼면 **공급처에 이미 알려 준 번호가 다른 문서를 가리키게 된다**(「내역을 알려 주면」이 실무) · 유니크(supplier, doc_kind, number)에도 걸린다 · 번호가 건너뛰는 것은 PO 시퀀스의 빈 번호와 같은 판단 · ~~지운 초안은 번호를 돌려준다(짐작)~~ → [2026-09-17 정정] **크레딧은 지우지 않는다 — 취소만**(채번이 행을 읽어 첫째를 지우면 같은 번호가 그대로 다시 난다 · po_doc_delete 가 종류로 거부 · §11-c 크레딧 번호 소절)
              ⭐ `credit_po_id` = 번호를 낸 발주(채번의 축 · 11-g 예외) — p_po_id → credit_for 인보이스의 발주가 **정확히 하나**일 때 그것 → 아니면 null(조정 번호 · 둘 이상이면 warnings credit_po_ambiguous · 화면이 p_po_id 를 골라 준다)
              ⭐ 동시성은 `pg_advisory_xact_lock(hashtext('po_credit_number'))` — ⚠️ **이 레포의 첫 advisory lock**(2026-09-16 grep 선례 없음) · 채번 함수 첫머리에서 잡아 **발주 번호·조정 번호 둘 다** lock 안에서 세고 트랜잭션 끝(insert 뒤)에 풀린다
                재시도 루프 대신 lock 을 고른 **결정적 이유는 조정 번호**다 — 전역인데 유니크는 (supplier, doc_kind, number) 라 다른 공급처끼리의 CN-2026-0001 중복을 재시도로는 못 잡는다 · 시퀀스로 못 내는 이유 — 발주마다 다시 세고 해마다 0001 로 돌아간다
@@ -2996,16 +3113,29 @@ RPC 열       po_uninvoiced_lines(발주 라인의 미청구 = 주문 − 취소
 ⬜ 미룬 것(검토 이견 · Caleb 결정)  confirmed 머리(Printed total · Due date)는 뒷단이 안 막는다(화면은 draft 만 입력칸 · ⬜ 다음 뒷단 차수에 「confirmed 머리 잠금」) · po.html·invoices.html 의 로컬 main{display:flex} → ims-ui.css main.stack 으로(두 화면 함께 · 따로) ·
              .pick/.prow 로컬 CSS 없음(hover 색만) · 검색 .or 쉼표·괄호가 다섯째 화면 · Supplier 드롭다운을 발주처로 좁히지 않는다(비용처 문서가 이 화면에 올 수 있다) · 크레딧 줄의 Qty diff 는 뜻이 없다(비우는 것이 맞다 · 사소)
 CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0-a 여덟) — ⚠️ 그 뒤 ccb58a1 · bbea8a9 로 화면이 두 번 더 바뀌었다 ⇒ ⬜ 「⬜ 아직 없다」 넷을 ✅ 로 · 크레딧 만들기(번호 자동 · provisional · Supplier ref) · Used/Remaining 열 · 빌드 표시(buildTag) · 모집단을 검증 뒤 행수로 — 말만(다른 레포)
+→ [2026-09-17] RPC 열이 늘었다 — po_invoice_create 에 p_line_qty(11-g) · po_doc_cancel/delete(11-b) · po_charge_*(11-f) · po_payment_*(11-h). 「confirmed 머리 잠금」은 인보이스·비용·결제 셋을 한 차수로(§13-f).
 ```
 
 ### 13-f. ⬜ 다음 차수로 넘긴 것 (2026-09-16 오후 · 저녁 갱신 — 닫힌 것은 취소선 · → 어디서 닫혔나)
 ```
 ~~⭐⭐ 목록 화면 두 모드~~ → ✅ 13-g(e62d16a · po.html 54fefb0) · ~~⭐⭐ 국면 다섯~~ → ✅ 13-g(⚠️ 「confirmed 이상 초록」은 「확정됐으면 · 취소는 판정을 바꾸지 않는다」로 정정됐다) ·
 ~~⭐ 발주 머리 칸 추가~~ → ✅ 13-g(15칸 · 드롭십만 ⬜ 아래) · ~~⭐ 검색·필터~~ → ✅ 13-g · ~~⭐ 캐럿 확장~~ → ✅ 13-g · ~~⬜ 크레딧 자동 채우기~~ → ✅ 11-g·13-h(160430b · 화면 ccb58a1) · 인보이스 목록 화면 → ✅ po_invoice_list + invoices.html
-⬜⬜ 인보이스·크레딧·발주 **무효로 만들기**   [Caleb 2026-09-16] 「테스트 오더를 계속 만들 텐데 하나씩 지우거나 취소해야 한다」 — draft 는 지우고 · confirmed 는 취소 · ⚠️ 결제가 붙었거나 이미 쓴 크레딧은 거부
-                              ⚠️ 발주(po)에도 같은 문제 — 취소는 화면에 있지만 초안 삭제가 없다 · 시험 발주 8건 · ⇒ **내일 회사에서 먼저 한다**(Caleb)
-⬜ 비용 문서 만들기 + 배분 · 비용 목록 화면   어느 발주에도 안 붙은 청구서는 캐럿으로도 안 보인다(po_charge_money.unallocated 가 그 자리) · 잔돈은 금액이 가장 큰 발주 · 동점은 발주번호 순(11-f)
-⬜ 결제 만들기                 ⚠️⚠️ **한 결제는 한 통화**다(Caleb 2026-09-16) — CAD·USD 계좌가 따로 있고 청구서 통화에 따라 갈린다 · 통화가 다른 문서를 한 결제에 섞지 않는다 ⇒ RPC 가 저장 전에 막는다 · cancelled 대상 거부 · 「한 결제 = 한 통화」
+~~⬜⬜ 인보이스·크레딧·발주 **무효로 만들기**   [Caleb 2026-09-16] 「테스트 오더를 계속 만들 텐데 하나씩 지우거나 취소해야 한다」 — draft 는 지우고 · confirmed 는 취소 · ⚠️ 결제가 붙었거나 이미 쓴 크레딧은 거부~~ → ✅ **11-b 「취소·삭제」 · 11-c 크레딧 번호 소절(`20260917100000` · 5355033)** — draft 는 지우고 confirmed 는 취소가 그대로 섰다 · ⚠️ 크레딧은 삭제 금지로 · 판정 축은 confirmed_at
+~~                              ⚠️ 발주(po)에도 같은 문제 — 취소는 화면에 있지만 초안 삭제가 없다 · 시험 발주 8건 · ⇒ **내일 회사에서 먼저 한다**(Caleb)~~
+~~⬜ 비용 문서 만들기 + 배분 · 비용 목록 화면   어느 발주에도 안 붙은 청구서는 캐럿으로도 안 보인다(po_charge_money.unallocated 가 그 자리) · 잔돈은 금액이 가장 큰 발주 · 동점은 발주번호 순(11-f)~~ → ✅ **11-f 「→ 쓰기」(`20260917150000` · 38f1098) · 화면 charges.html** — 고친 줄만 바뀐다 · unallocated ≠ 0 은 확정 거부 · 비례 한 곳
+~~⬜ 결제 만들기                 ⚠️⚠️ **한 결제는 한 통화**다(Caleb 2026-09-16) — CAD·USD 계좌가 따로 있고 청구서 통화에 따라 갈린다 · 통화가 다른 문서를 한 결제에 섞지 않는다 ⇒ RPC 가 저장 전에 막는다 · cancelled 대상 거부 · 「한 결제 = 한 통화」~~ → ✅ **11-h 「→ 쓰기」(`20260917190000` · db36acd) · 화면 payments.html** — 한 결제 한 통화를 뒷단이 검사 · 확정 문서만 · 상태 없음(삭제만)
+⬜⬜ 확정 뒤 머리 칸 잠금      **인보이스·비용·결제를 한 차수에 같은 규칙으로**(13-h 「confirmed 머리 잠금」이 셋으로 늘었다)
+                              ⚠️ 비용이 가장 위험하다 — 확정 뒤 total_amount 를 PostgREST 로 고치면 unallocated ≠ 0 인 confirmed 문서가 생겨 §11-f 확정 검사가 지킨 불변식이 조용히 깨진다. 지금은 화면이 draft 에서만 입력칸을 연다
+                              ⚠️ 결제는 currency_id 가 같은 성격 — 충당이 있으면 화면이 잠근다(11-h) · 뒷단 잠금이 서면 그것도 함께
+⬜ 크레딧을 결제에 쓰는 길      §11-h 「안 붙은 크레딧만 이 길」이 `20260917190000` 의 p_targets 에 없다(지금은 거부 · 지시서 누락) · ⚠️ 검산 부호가 뒤집힌다: Σ인보이스 + Σ비용 = amount + discount_taken + Σ크레딧 · po_payment_target_check 에 kind 'credit' 가지
+⬜ 입고 차수에 셋              입고에서 바로 크레딧(위 「입고 + 분할」에 이미 있다) · ⭐ **PO 라인 없이 받는 길** · ⭐ **약식 제품 등록**
+                              ⭐ [Caleb 2026-09-17] 「PO 에 없고 인보이스에만 있는 제품이 입고된다. 그 자리에서 약식 등록이 되면 좋겠다」 · ⭐ 그 줄은 **PO 에 넣지 않는다**(Caleb) — 발주는 우리가 시킨 것의 기록이다(11-g)
+                              📌 왜 입고 차수인가 — 약식 제품에 무슨 칸이 필요한지를 입고·원장이 정한다. 지금 고르면 그때 다시 연다
+⬜ .pick / .prow               같은 「PO 고르기」 상자가 화면마다 세 모양(po 정의 · invoices 인라인 · charges 일부 · 10-j 3-j 발견) — 공통으로 올릴 후보
+⬜ .ims-nav CSS                JS(ims-auth.js) 안의 <style> 에 있다 — ims-ui.css 로 옮길 후보(3-j 와 같은 결 · 탭 CSS 는 이미 ims-ui.css 에)
+⬜ payments.html 만들기 창 재설계  [Caleb 2026-09-17] 「페이먼트가 뭐 이리 어려워」 — ⚠️ 순서가 거꾸로다: 돈 다섯 칸을 먼저 채우게 해 놓고 「무엇을 갚는가」가 맨 아래에 있다
+                              ⇒ 문서 고르기를 맨 위로 · 고르기 전에는 돈 칸을 감춘다 · Check 를 없애고 Create 하나로(뒷단 미리 보기는 그대로 — 화면이 한 번에 부른다)
+⬜ po.html .list .rows          `calc(100vh - 230px - var(--ims-tabs-h, 0px))` 로(3-k · 탭 높이만큼 넘친다) · main → `<main class="stack">` 두 화면(3-j 올리지 못한 둘)
 ⬜ 입고 + 분할 함수            ⭐ **PO 는 자동으로 닫힌다**(사람이 누를 일이 없다 · Caleb): 받은 수량 = 주문 수량이면 닫고 · 덜 받았으면 갈라져 받은 쪽이 닫히고 남은 쪽이 새로 선다 · ⚠️ 「비용과 결제는 PO 가 닫히는 것과 무관하다」 ⇒ 닫기 조건에 넣지 마라 ·
                               ⭐ 할인 줄(po_discount)은 갈라진 문서에 복사(검증에서 그렇게 했다) · ⭐ 원래 주문 수량을 라인에 남긴다(「200 / 원래 300」) · 잠금 트리거는 **없다**(11-b) · ⬜ **입고에서 바로 크레딧을 만드는 길**(「리시빙을 하면서 못 받은 것을 돌린다」 · 지금은 인보이스에서만)
 ⬜ 주석을 영어로               [Caleb] 「한국어가 안 되는 직원들을 위해 다 영문이 좋겠다」 — ⚠️ 화면 일곱 + 공통 둘 + 마이그레이션 여럿이 전부 한국어 · 한 파일만 바꾸면 섞인다 · ⬜ **정본 문서도 영어로 할 것인가**를 먼저 정한다(주석이 §11-b 를 가리키는데 그쪽이 한국어면 거기서 막힌다)
@@ -3097,3 +3227,8 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⚠️ 대화 Claude 의 잘못: §11-e 에 이미 있는 「복사 제안된다」를 「미결」이라 적었다(정본을 안 보고 지시서를 썼다) · 크레딧 자동 채우기를 뒷단에만 만들고 화면에서 닿을 길을 빼먹었다 · 선언 순서를 하루에 두 번 틀렸다(13-e ④) · 「1180 행」을 세 번 보고했는데 어느 커밋에도 없었다.
   ⚠️ 「잠금」이 일곱 곳 · 「담을 자리」가 넷 · 「정본은 RPC」가 세 곳이었다 — 한 곳만 고치면 옛 뜻과 새 뜻이 함께 남는다. 문서를 고칠 때 **같은 모양을 grep 으로 훑는다**(이 저녁분도 그렇게 했다).
   📌 다음(§13-f): ⬜⬜ 무효로 만들기(내일 회사에서 먼저 · Caleb) · 비용 만들기·배분·목록 · 결제(한 결제 = 한 통화) · 입고+분할(PO 자동 닫힘 · 입고에서 크레딧) · 주석 영어(정본 언어 먼저) · 화면 잡일.
+- 2026-09-17 (회사·집) — **취소·삭제(`20260917100000` 5355033) · 비용 문서(`20260917150000` 38f1098) · 인보이스 줄별 수량(`20260917170000` 0184260) · 결제(`20260917190000` db36acd)** 뒷단 넷 + 화면(asung-ims): charges.html · payments.html 신설 · po.html/invoices.html 손질(문서 사이 이동 · + credit · 줄별 수량 · Add a charge · Pay) · 공통 CSS ⑤(af06c61) · 구매 탭(9dcee4d · db4841e).
+  ⭐ 판정 축은 confirmed_at(발주도 · Caleb 이 검토안을 뒤집음 · 11-b) · ⭐ 크레딧은 삭제 금지(채번이 행을 읽는다 · 검토 이견 5 를 뒤집음 · 11-c) · ⭐ 비용 배분은 고친 줄만 · unallocated ≠ 0 은 확정 거부 · 통화 폴백 없음(11-f) · ⭐ 한 결제 한 통화를 뒷단이 · 공급처는 강제 안 함 · ref_account 무변(11-h) · ⭐ 시그니처가 바뀌면 drop + create(§5).
+  ⭐ 검토(Claude Code)가 잡은 것: 입고 붙은 발주가 PostgREST 로 취소되던 길 · Reopen → 삭제 뒷문(크레딧 금지로 닫힘) · 살아 있는 po_invoice_create 정의가 200000 이 아니라 210000 · replace 가 오버로드를 만드는 것 · main/.pobox input 충돌 · 지시서의 크레딧 누락(결제).
+  ⚠️ 대화 Claude 의 잘못: 결제 지시서에서 크레딧을 빠뜨렸다 · §13-b 2868행을 「오기」로 단정했다(데이터가 움직였을 가능성을 안 봤다 · 검토가 바로잡음) · 지시서의 「1.49」는 1.45 였다.
+  📌 다음(§13-f): 확정 뒤 머리 칸 잠금(셋 한 차수) · 크레딧을 결제에 · 입고+분할(PO 라인 없이 받는 길 · 약식 제품) · payments 만들기 창 재설계 · .pick/.prow · .ims-nav CSS · po.html --ims-tabs-h.
