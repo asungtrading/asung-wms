@@ -27,6 +27,7 @@ description: >
                    제품 표 넷(§3-d·e · 범위는 §3-d · ⭐ pack_factor = BOM Quantity) · product_supplier(§3-g · ⭐ 충돌 키 cin7_id · is_default 우리 칸) · 재적재는 넷이 한 규칙 §3-f · 카운터는 §3-e·§3-g
 ⑤ PO 본체          ✅ 09-16~17 · 테스트 DB — 설계 **§11** · 표 열하나 **§13** · 목록은 뷰(po_list·po_invoice_list·po_charge_list·po_payment_list) · 상세는 RPC · 돈은 뷰 po_invoice_money·po_charge_money(화면에서 다시 짜지 마라)
                    · 쓰기 RPC — 발주 · 인보이스·크레딧(p_line_qty) · 비용 · 결제 · 취소·삭제(po_doc_cancel/delete) · 미리 보기 두 단계 · 확정은 잠금이 아니다(§11-b) · 🔄 다음 §13-f
+권한               ✅ 09-17 밤 — role 넷 worker<manager<supervisor<admin(§10-h) · 표 28 쓰기 RLS(§5 권한 규약) · 쓰기 RPC 23 첫머리 ims_require_write · 화면은 ims_access() 하나(§10-j 3-l)
 화면               ✅ 09-17 — `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) · 마스터 + po·invoices·charges·payments · 규칙 **§10-j**(공통 CSS 3-j · 구매 탭 3-k) · 새 화면은 공통 넷을 순서대로(3-g) · <style> 에 공통을 복사하지 않는다 · ⬜ 채울 칸 **§10-k**
 ```
 - ⭐ **PO 를 Cin7 에도 쓰지 않는다.** 두 재고가 다른 것은 정상 — 전환 때 IMS 를 리셋하고 Cin7 재고를 통째로 가져온다(§2).
@@ -52,23 +53,21 @@ description: >
 
 - ⚠️ **새 표를 다룰 때 `information_schema.columns` 를 먼저 본다.** 이 표는 요약이고 기억은 틀린다.
   `psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\d public.ref_bin"`
-- 표마다 다른 것(유니크 유무 · 값이 든 표 · `is_default` 자리)은 **결함이 아니라 판단**이다 — 고치기 전에 정본 §4 를 읽는다.
 
 ## 2. 공통 규약 — 새 마스터 표를 만들 때 (정본 §5)
 
 ```
 공통 8칸  id uuid PK gen_random_uuid() · cin7_id uuid unique(plain · null) · name text not null · is_active boolean not null default true
           · source text not null default 'cin7' check in ('cin7','manual') · note text · created_at/updated_at timestamptz not null default now()
-RLS       create policy auth_all on <t> for all to authenticated using (true) with check (true);  revoke all on <t> from anon;
-⚠️ 권한    revoke delete, truncate on <t> from authenticated;   — 마스터는 지우지 않고 is_active 로 물러나게 한다 (관계 표는 DELETE 열림)
+RLS       ⭐ [09-17] select 열림(using true) · insert/update/delete = (select ims_can_write('<묶음>')) · 정책 이름 <표>_<동사> · revoke all on <t> from anon  (~~auth_all~~ · §5 권한 규약)
+⚠️ 권한    revoke delete, truncate on <t> from authenticated;   — 마스터는 지우지 않고 is_active 로(delete 정책 없음 · 셋) · 관계·거래 표는 DELETE 열림(정책 넷)
 ⭐ 트리거  create trigger <t>_set_updated_at before update on <t> for each row execute function set_updated_at();
           ⚠️⚠️ set_updated_at() 은 20260911144606 에 하나뿐 — create or replace 로도 다시 만들지 마라 · security definer 금지
 FK        on delete no action(기존 참조 FK 관례 · RESTRICT 0건) · ❌ cascade 금지 · ⭐ FK 컬럼 인덱스를 직접 만든다(<표>_<컬럼>_idx)
 CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 금지      부분 유니크 인덱스(WMS 규칙 29) · lower(name) 유니크 · sort_order · 행 적재(ref_currency 예외) · 「종류 칸」(관계로 읽는다)
 ```
-- 검증 관례: `supabase start → db reset → information_schema → 실동작 → check-caps.sh → supabase stop`.
-- `supabase migration new` 가 `$(…)` 안에서 멈춘다 — `date -u +%Y%m%d%H%M%S` 로 파일명을 직접 만든다.
+- 검증 관례: `supabase start → db reset → information_schema → 실동작 → supabase stop` · `migration new` 는 stdin 에서 멈춘다 — 파일명을 직접 만든다.
 
 ## 3. ⚠️ Cin7 에서 적재할 때 (코드: `docs/probes/ImsLoadProduct.gs` · `ImsRefLoad.gs` — 사본 · 원본은 GAS)
 
@@ -96,13 +95,8 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 재적재를 표마다 다르게 · 「지우고 다시」 | 값(valid_from·note·id)이 사라진다 · upsert 는 「없어진 것」을 모른다 | ⭐ **넷이 한 규칙** — upsert + 안 들어온 cin7 행은 `is_active=false` · §3-f |
 | `is_default` 를 켜기만 한다 | 내린 줄·비활성 공급처가 기본으로 남는다(실사고) | **끄고 나서 켠다** · 재적재마다(§3-g) |
 | 콤보를 발주 후보에서 뺀다 · 세트에 공급처 줄을 둔다 | 사 오는 콤보가 사라진다 · 세트를 하나 값으로 발주 | 「공급처 줄이 있으면 후보」 · 세트는 부모로 산다(§3-g) |
-| GAS 가 시트를 거쳐 값을 옮긴다 | 날짜가 Date 로 바뀐다(연도 소멸) | 전 칸 텍스트 서식(`@`) + 문자열 |
 | 화면이 `is_active` 를 안 건다 | 내려간 줄이 그대로 보인다 | 읽는 쪽이 **매번** 건다 · admin 만 토글 · §10-j 3-c |
-| 「목록에 없으면 상세를 비운다」 · 진입 때 검색어를 안 바꾼다 | 언제 비는지 알 수 없다 · 파란 표시가 없다 | **사람이 바꾼** 검색·필터로만 비운다 · 진입·이동은 SKU 를 검색칸에 · §10-j 3-d |
-| 공통 파일을 안 부른다 · 순서를 바꾼다 | 그 화면만 혼자 논다 · `imsPage is not defined` | css + config → **ui** → auth · §10-j 3-g |
 | timestamptz 를 문자열로 자른다 | UTC 로 보인다 | `imsTs()` · ⚠️ date 칸(valid_from 등)은 제외 · §10-j 3-f |
-| update 0행을 성공으로 본다 · 저장 실패인데 입력칸이 그대로 | RLS 에 막힌 것이 조용히 지나간다 · 저장된 것처럼 보인다 | `imsSaved()` 로 되읽어 0행이면 「Not saved」 · 직전 값으로 되돌린다 · §10-j 3-i |
-| 새 Supabase 프로젝트를 그냥 쓴다 | 재설정 링크가 localhost 로 · 아무나 가입 | 가입 닫기 + URL Configuration · §10-f |
 | ⭐ 확정(confirmed)을 **잠금**으로 본다 | 확정 뒤 수량·품목 추가가 빈번하다(Caleb 09-16) — 실무와 어긋난다 | 확정 = 「보낼 수량·라인이 정해졌다」 · 잠금 아님 · 막는 둘만 RPC po_line_update/delete · §11-b |
 | plpgsql — text[] 에 따옴표 리터럴을 이어붙인다 | malformed array literal · format() 은 통과해 **판정마다 되고 안 됨** | `array_append` · 파일 전체 grep · 실행해야 드러난다 · §13-e |
 | ⭐ 크레딧을 지운다 | 채번이 **행을 읽어** 같은 번호가 다시 난다 | 크레딧은 **취소만**(po_doc_delete 가 종류로 거부) · §11-c |
@@ -110,10 +104,13 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 비용 배분 한 줄을 고치면 나머지를 다시 비례로 · unallocated ≠ 0 을 경고로 | 확인한 칸이 저절로 바뀐다 · 덜 입력한 채 확정 | **고친 줄만** · spread 는 사람이 · 확정은 **거부** · §11-f |
 | 결제에 통화 다른 문서 · draft 문서를 담는다 | 미지급이 어긋난다 · 안 받아들인 청구서를 갚는다 | **한 결제 = 한 통화** · **confirmed 만** · 뒷단 검사 · §11-h |
 | 인자를 늘리며 `create or replace` | 옛 판이 남아 같은 이름이 둘 | **drop + create**(`20260917170000`) · §5 |
+| ⭐ RLS 가 막았는데 RPC·화면이 성공을 답한다 | RLS 는 쓰기를 **감출 뿐** 거부하지 않는다 — delete/update 0행 · 화면은 imsSaved() 되읽기 | 쓰기 RPC 첫머리 `ims_require_write('<묶음>','saved'\|'deleted')` + delete/update 뒤 row_count · §5 권한 규약 ② |
+| 화면이 role·perms 를 직접 가른다 | role 넷 — 'manager' 만 아는 코드는 worker·supervisor 를 통과시킨다 | 판정은 **ims_access() 하나** · me.access · §10-j 3-l |
+| role_ck 나열 순서를 등급으로 읽는다 · 같은 등급을 만든다 | 순서가 아니다(임의 나열) · 자기 승격 길 | 순서는 `ims_role_rank` 하나 · **자기보다 아래만**(자기 행 불가) · §10-h |
+| 「읽기는 되는데 쓰기가 안 된다」고 말한다 | 읽기는 전부 열려 있다 — ims_can_view 는 **화면 접근** 판정이지 데이터 읽기가 아니다 | 거부 문장 하나 「You cannot change <묶음> data …」 · §5 권한 규약 ② |
 
-- ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 진짜 막을 것은 **RLS**(`ims_is_admin` 선례 · §10-j 3-b).
+- ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 28 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다**(숫자까지) — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).
-- ⭐ **패밀리는 느슨한 묶음**(Shopify 변형 축 · 안 묶인 4,161 이 정상) · **`product_bom` 은 단단한 묶음**(재고가 흐른다) — §3-d 덧붙임.
 
 ## 5. 이 스킬을 갱신할 때
 

@@ -1091,7 +1091,7 @@ currency_id    → ref_currency(id) nullable   오늘 CAD·USD 만이지만 「�
 last_supplied  date   Cin7 이 T00:00:00 시간대 없이 준다 (시간대 미판정 · registered_on 과 같다)
 is_default     boolean not null default false   ⭐ 우리 칸
 unique (product_id, supplier_id)   ⭐ 12,728 줄 실측 중복 0 위에 건다 — 「같은 쌍 두 줄 금지」는 우리 규칙
-CHECK product_supplier_source_ck · 인덱스 셋 product_supplier_{product_id,supplier_id,currency_id}_idx · 트리거 set_updated_at() 재사용 · auth_all · revoke anon · revoke truncate(DELETE 는 연다)
+CHECK product_supplier_source_ck · 인덱스 셋 product_supplier_{product_id,supplier_id,currency_id}_idx · 트리거 set_updated_at() 재사용 · ~~auth_all~~(→ 09-17 select 열림·쓰기 ims_can_write('master') · §5 권한 규약) · revoke anon · revoke truncate(DELETE 는 연다)
 ```
 
 **⭐ 충돌 키는 `cin7_id`(ProductSupplierID) — 그리고 승격 규칙** (검토에서 바뀐 것 · 아래)
@@ -1365,7 +1365,9 @@ inv_config 로 — ref_payment_term(IsDefault) · ref_currency(base_currency)
             source text not null default 'cin7' check in ('cin7','manual')   재동기화가 덮어써도 되는지의 근거
             note text
             created_at / updated_at timestamptz not null default now()
-RLS         auth_all (ALL · authenticated · using true / with check true) + revoke all from anon · service_role 개방 없음
+RLS         ~~auth_all (ALL · authenticated · using true / with check true)~~ → ⭐ [2026-09-17 밤 · `20260917235000`] **select 열림(using true) · insert/update/delete = `(select ims_can_write('<묶음>'))`** · 정책 이름 `<표>_<동사>`(select·insert·update·delete)
+            ⚠️ 마스터는 delete 권한 자체가 없어(아래) delete 정책을 만들지 않는다(정책 셋) · 관계 표·거래 표는 넷 · 묶음 = perms 화면 값(master · purchasing · receiving · staff) · revoke all from anon · service_role 개방 없음
+            ⚠️ 정책 안의 함수는 `(select …)` 로 감싼다 — 안 그러면 행마다 평가된다(다건 insert 에서 ims_staff 조회가 행 수만큼). 규약 셋은 아래 「권한 규약」
 ⚠️ 권한      revoke delete, truncate from authenticated
             근거: 마스터는 지우지 않고 is_active 로 물러나게 한다. 브랜드 한 줄을 지우면 그것을 가리키던 제품이 갈 곳을 잃는다.
             ⚠️ inv_config·inv_sku_types 관례(안 막음)를 따르지 않는다 — 그쪽은 지워도 다시 만들 수 있는 캐시·설정이다
@@ -1405,7 +1407,7 @@ CHECK 이름  <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지(자동
 
 ⭐ 거래(문서·줄·결제)는 **마스터 표 규약의 대상이 아니다** — 컷오버 때 지워지는 쪽이다(§11-⓪ 축).
 ```
-물려받음   id uuid PK · note · created_at/updated_at + set_updated_at 트리거 · RLS auth_all + revoke anon · <표>_*_ck 이름 · FK 인덱스 <표>_<칸>_idx
+물려받음   id uuid PK · note · created_at/updated_at + set_updated_at 트리거 · RLS(~~auth_all~~ → [2026-09-17] select 열림 · 쓰기 `ims_can_write('purchasing')` · delete 정책 있음 — 삭제 RPC 가 쓴다) + revoke anon · <표>_*_ck 이름 · FK 인덱스 <표>_<칸>_idx
 뺌         cin7_id(Cin7 발주·인보이스는 적재하지 않는다 · §11-⓪ 함의 ②) · source(cin7/manual 축이 없다) · is_active(status 가 대신) · name(문서에 이름이 없다)
 CASCADE    ⭐ 문서 → 소유 줄에만(po→po_line·po_discount · po_invoice→_line·_discount · po_charge→_alloc · po_payment→_alloc) — 위 「CASCADE 는 문서→소유 라인 7건에만」이 정확히 이 부류
            밖을 가리키는 FK(po_line→product · po_receipt_line→po_line·ref_bin·ims_staff · po_invoice_line→po_line · po_charge_alloc→po · po_payment_alloc→po_invoice/po_charge)는 전부 no action
@@ -1415,6 +1417,26 @@ DELETE     막지 않는다 — 초안은 지울 수 있어야 한다 · 확정 
 ⭐ 다른 행     다른 행을 봐야 하는 제약은 트리거 대신 — **읽기는 RPC warnings**(크레딧 · credit_for 가 크레딧을 가리킨다 · 다른 공급처 · 붙어 있는데 alloc 으로도 썼다 · §11-g) · **쓰기는 RPC 가 저장 전에 본다**(사후 warnings 로 구별이 안 될 때 — 수량 감축과 초과 입고는 둘 다 remaining 음수 · §11-b). 같은 행 안의 것만 CHECK
 채번       첫 시퀀스 선례 — po_number_seq + po_next_number() 를 기본값으로 · authenticated 에 USAGE 필요 · 롤백된 번호는 빈다(허용)
 함수 시그니처  ⭐ [2026-09-17] **인자를 늘려 시그니처가 바뀌면 create or replace 가 아니라 drop + create 다** — replace 는 옛 판을 남겨 같은 이름의 함수가 둘이 된다(PostgREST 의 이름 인자 호출이 둘을 다 맞춘다). 레포 첫 사례 `20260917170000`(po_invoice_create + p_line_qty). 인자 타입이 같으면(기본값만 바뀜) replace 로 된다(`20260916210000`)
+```
+
+### ⭐⭐ 권한 규약 셋 (2026-09-17 밤 · 마이그레이션 여덟 · §10-h 「등급·두 축」이 판정 함수의 정본)
+
+```
+① RLS 는 읽기를 열고 쓰기만 조인다   select using(true) — 화면들이 서로 참조한다(리시빙이 product·product_barcode 를, 발주가 supplier·ref_currency 를). anon 은 이미 전부 회수.
+                                  insert/update/delete = (select ims_can_write('<묶음>')) · 표 28 · 정책 104(마스터 11×3 · 관계 6×4 · 거래 10×4 · po_receipt_line 4 · ims_staff 3) · 뷰는 security_invoker 라 select 만 탄다 · GAS 적재는 service_role(안 탄다)
+                                  ⚠️ CASCADE 삭제는 부모 정책만 본다(자식 delete 정책은 화면 직접 삭제 경로용)
+② ⭐⭐ 쓰기 RPC 규약               **첫머리에서 ims_require_write('<묶음>', 'saved'|'deleted') 를 부르고, delete·update 뒤 row_count(또는 returning 뒤 if not found)를 본다.** 23 함수 전부(20260918000000·003000·013000).
+   근거 (검토가 찾았다)            ⚠️⚠️ **RLS 는 쓰기를 거부하지 않고 안 보이게 한다.** 읽기 전용 사용자가 삭제 RPC 를 부르면 앞의 select 검사는 통과하고(읽기 열림) delete 는 0행 — 함수는 row_count 를 안 봐 `deleted: true` 를 돌려줬다.
+                                  정책은 막았고 **함수가 거짓말을 했다.** insert 만 42501 로 죽는데 그 문장은 사람이 읽는 말이 아니다 ⇒ 둘 다 고친다(권한이 있어도 0행일 수 있다 — 그 사이 남이 지웠다 — 그래서 ②의 둘째도 필요)
+   두 묶음 함수                    po_discount_save · po_discount_delete 의 p_target='supplier' 는 supplier_discount(master)를 쓴다 ⇒ **갈래 안에서** 가른다(case when p_target='supplier' then 'master' else 'purchasing').
+                                  ⭐ 그때는 권한 검사가 함수 첫머리가 아니라 p_target 검증 바로 뒤다 — **인자가 어느 권한을 물어야 하는지를 정하기 때문**(인자를 읽기 전에는 묶음을 모른다). 그래도 어떤 select 보다 앞.
+   거부 문장 하나                  「You cannot change <묶음> data — ask an admin to add the '<묶음>' permission — nothing was saved|deleted」(20260918010000 · 도우미 ims_require_write 가 만든다 · 함수는 perform 만)
+                                  ⚠️ **읽기 여부를 말하지 않는다.** [실측 2026-09-17] purchasing 만 가진 사람은 ims_can_view('master')=false 인데 표의 select 는 열려 있어 product·supplier 를 다 읽는다 —
+                                  「읽기는 되는데 쓰기가 안 된다」고 말하면 실물과 어긋난다. ⭐ **ims_can_view 는 「데이터를 읽을 수 있나」가 아니라 「그 화면에 들어갈 수 있나」다**(메뉴·탭 노출 판정)
+   0행 문장                        「<문서> was not saved|deleted — it may have been removed or changed by someone else just now — nothing was …」 · 미리 보기(p_commit=false)도 막는다(왜 미리 보기는 되는데 저장이 안 되지, 를 만들지 않는다)
+   시그니처 무변                    본문만 바뀌면 create or replace(같은 OID · grant·comment 유지) · 인자가 늘면 drop+create(위)
+③ 옛/새 행 비교가 필요해 보이면      **먼저 using/with check 각각의 엄격 조건으로 표현할 수 있는지 본다** — ims_staff 의 「자기보다 아래만」은 using 에 옛 등급 · with check 에 새 등급을 각각 엄격 비교로 두어
+                                  트리거도 RPC 도 없이 막혔다(자기 행 = 같은 등급 = 불가 · 승격 상한 · 낮췄다 올리기 차단 — §10-h). 트리거(규약 위반)·RPC(화면 수정) 는 그 뒤의 선택지다
 ```
 
 ---
@@ -1910,7 +1932,7 @@ Visibility 설정에 붙은 Enterprise 배지를 「private 레포는 Pages 가 
 ```
 한 화면이 두 프로젝트를 볼 수는 있다   createClient 를 둘 만들면 된다 (도메인과 무관)
 ⚠️⚠️ 그러나 세션은 공유되지 않는다     운영에서 받은 토큰을 Asung-IMS 에 내밀면 거부된다
-                                      IMS 표는 전부 auth_all(authenticated) — anon 으로는 못 읽는다
+                                      IMS 표는 로그인하면 전부 읽힌다(select 열림 · ~~auth_all~~ → 2026-09-17 쓰기만 ims_can_write · §5 권한 규약) — anon 으로는 못 읽는다
 ```
 ⇒ IMS 화면은 **`Asung-IMS` 에 로그인**해야 한다. 운영의 `wms_staff` 는 다른 프로젝트라 쓸 수 없다.
 
@@ -1965,7 +1987,7 @@ select email, role, is_active, auth_user_id from public.ims_staff order by creat
 ⚠️ Downloads 경로(/mnt/c/Users/<사용자>/Downloads)와 zip 만들기에서 매번 갈린다 — 먼저 확인할 것
 ```
 
-### 10-h. 사용자 표 `ims_staff` — 표 · 열쇠 · RLS (2026-09-15 · 마이그레이션 `20260915141105` · 로컬 검증 통과)
+### 10-h. 사용자 표 `ims_staff` — 표 · 열쇠 · RLS (2026-09-15 · 마이그레이션 `20260915141105` · 로컬 검증 통과 · ⭐ **2026-09-17 밤 확장 — 아래 「등급 넷 · 두 축 · 등급 순서」가 지금 판**)
 
 📌 **자리** — 이 표는 PO 도메인 마스터(§3 계열 · Cin7 매핑)가 아니라 **로그인 인프라의 일부**라 §10 에 둔다. 감사로그·승인 권한이 생겨 커지면 **§11 로 독립**시킨다.
 📌 ①Settings 의 「사용자 축은 `wms_staff` 확장(별건)」이 가리키던 자리 — 확장이 아니라 **새로 세웠다**(운영 `wms_staff` 는 다른 프로젝트 · §10-e).
@@ -1979,16 +2001,18 @@ id            uuid pk
 auth_user_id  uuid not null unique     ⭐ 열쇠 = auth.uid() (JWT sub) · auth.users(id) FK 없음
 email         text not null unique     사람이 읽는 칸 — 로그인 매칭에 쓰지 않는다
 name          text not null
-role          text not null default 'manager'   check in ('manager','admin')  · ims_staff_role_ck
-perms         jsonb not null default '[]'
+role          text not null default 'manager'   ~~check in ('manager','admin')~~ → [09-17] check in ('worker','supervisor','manager','admin') · ims_staff_role_ck ⚠️ 나열 순서 ≠ 등급 순서
+perms         jsonb not null default '[]'        [09-17] 두 축이 든다 — 모드 'wms'·'ims' · 화면 'purchasing'·'master'·'receiving'·'staff'(+ ':read')
+warehouse_access uuid[] not null default '{}'   [09-17 · 20260917230000] ref_warehouse.id 배열 · ⭐ 빈 배열 = 전부 · FK 없음(배열)
 is_active     boolean not null default true
 note · created_at · updated_at(트리거 set_updated_at() 재사용)
 ```
 공통 8칸에서 벗어나는 곳 — **의도된 것**: `cin7_id`·`source` 없음(Cin7 대응이 없다 · `ref_currency` 가 `cin7_id` 를 뺀 것과 같은 판단).
-`wms_staff` 와 어긋나는 다섯(의도): `id` bigint → uuid · `email` nullable → NOT NULL UNIQUE · `active` → `is_active` · `perms` 기본 `["split","admin","staff"]` → `'[]'`(새 사람에게 admin 이 기본으로 붙지 않게) ·
-`warehouse_access` 없음(마스터 편집에 창고 구분이 없다 · ⬜ ⑤ 가 창고별 발주를 다루면 그때).
-role 둘 — `manager`(일하는 사람 · 발주·마스터 편집) · `admin`(+ 사람 추가·비활성). WMS 의 `worker` 는 없다(창고 직원은 IMS 에 들어오지 않는다).
-perms 는 빈 배열로 시작 — 화면이 하나뿐이라 쪼갤 것이 없다. 늘면 `purchasing`·`master` 같은 값(WMS `requirePerm` 과 같은 쓰임).
+`wms_staff` 와 어긋나는 것(의도): `id` bigint → uuid · `email` nullable → NOT NULL UNIQUE · `active` → `is_active` · `perms` 기본 `["split","admin","staff"]` → `'[]'`(새 사람에게 admin 이 기본으로 붙지 않게) ·
+~~`warehouse_access` 없음(마스터 편집에 창고 구분이 없다 · ⬜ ⑤ 가 창고별 발주를 다루면 그때).~~ → [2026-09-17 밤] **uuid[] 신설 · 빈 값 = 전부** — 채워야 열리는 모양이면 사람을 더할 때 빠뜨리고, 빠뜨리면 조용히 아무것도 안 보인다. WMS 의 text(toronto/edmonton/both) 대신 id — 문서가 창고를 id 로 든다(아래 「등급 넷」).
+~~role 둘 — `manager`(일하는 사람 · 발주·마스터 편집) · `admin`(+ 사람 추가·비활성). WMS 의 `worker` 는 없다(창고 직원은 IMS 에 들어오지 않는다).~~
+→ ⭐⭐ [2026-09-17 밤 · Caleb] **넷이다 — 리시빙을 IMS 로 옮기기로 해서 창고 직원이 들어온다**(WMS 는 2026-01-01 컷오버까지 그대로 · 「모든 유저는 ims.asung.ca 에서 통합 관리 · WMS 모드와 IMS 모드」). worker · manager · supervisor · admin — 아래 「등급 넷」.
+~~perms 는 빈 배열로 시작 — 화면이 하나뿐이라 쪼갤 것이 없다. 늘면 `purchasing`·`master` 같은 값(WMS `requirePerm` 과 같은 쓰임).~~ → [2026-09-17 밤] **두 축이 선다** — 모드(wms·ims) · 화면(purchasing·master·receiving·staff · `:read` 변형 = 화면은 뜨고 저장이 막힌다). 기본값은 여전히 `[]`(role 기본이 채운다 · 아래).
 
 **⭐ 열쇠는 `auth_user_id`(= `auth.uid()`) — 이메일이 아니다** (검토에서 바뀐 것 · 초안은 WMS 처럼 이메일)
 ```
@@ -2000,16 +2024,17 @@ auth.users(id) FK 없음         걸면 퇴사자의 auth 계정을 지울 때 �
 ```
 [로컬 실측] `auth.uid()` 변형 — sub 일치 `UPDATE 1` · 불일치 `UPDATE 0`.
 
-**⚠️⚠️ RLS — 다른 IMS 표와 다르다.** `auth_all` 이면 매니저가 자기 `role` 을 `admin` 으로 고친다.
+**⚠️⚠️ RLS — 다른 IMS 표와 다르다.** `auth_all` 이면 매니저가 자기 `role` 을 `admin` 으로 고친다. [2026-09-17 밤부터는 다른 표도 쓰기를 조인다 — §5 권한 규약 · 이 표만 「등급」이 더 걸린다]
 ```
-select          authenticated 전부 (true)              자기가 누구인지 알아야 화면이 뜬다
-insert·update   ims_is_admin() 인 사람만
+select          authenticated 전부 (true)              자기가 누구인지 알아야 화면이 뜬다 · ⚠️ 조이면 재귀(아래) — 건드리지 않는다
+insert·update   ~~ims_is_admin() 인 사람만~~ → [2026-09-17 밤 · 20260918020000] (select ims_can_write('staff')) AND (select ims_can_manage(role)) — insert 는 새 행의 role · update 는 using 에 옛 role · with check 에 새 role
+                ⚠️ ims_is_admin() 은 남아 있으나 이제 어느 정책도 쓰지 않는다(⬜ 지울지 §13-f)
 delete          정책 없음 + revoke delete, truncate     직원은 지우지 않고 is_active 로 물러난다(§5 · 나중에 PO created_by·감사로그가 이 행을 가리킨다 · WMS 는 admin 삭제를 열어 뒀지만 IMS 는 닫는다)
 anon            revoke all
 ```
 `ims_is_admin()` — `security definer` · `stable` · `set search_path = public, pg_temp` · `auth.uid()` 로 활성 admin 인지 · anon 실행 권한 회수 · authenticated 만.
-⚠️ **하나뿐이다** — 정책과 EF 게이트가 같은 판정을 쓴다. 다시 만들지 마라(`set_updated_at()` 과 같은 원칙).
-📌 [2026-09-15 · §10-i] EF 가 「같은 판정」을 쓰는 방법은 **caller 의 JWT 로 `POST /rest/v1/rpc/ims_is_admin`** 이다.
+⚠️ **하나뿐이다** — 정책과 EF 게이트가 같은 판정을 쓴다. 다시 만들지 마라(`set_updated_at()` 과 같은 원칙). [09-17] 판정 함수는 아홉으로 늘었지만 원칙은 같다 — 화면·EF·정책이 **같은 함수**를 부른다(아래 「판정 함수」).
+📌 [2026-09-15 · §10-i] EF 가 「같은 판정」을 쓰는 방법은 **caller 의 JWT 로 `POST /rest/v1/rpc/ims_is_admin`** 이다. → [09-17] 지금은 `rpc/ims_can_write`(p_screen 'staff') + `rpc/ims_can_manage`(p_target_role) 둘 — 방법(caller JWT)은 그대로.
    ⚠️ WMS 원본(`staff-create`)처럼 service_role 로 표를 직접 읽으면 `auth.uid()` 가 null 이라 이 함수를 못 쓰고,
    정책과 EF 가 **서로 다른 판정 코드**를 갖게 된다 — 어제 함수를 만든 근거 하나가 무너진다. 그래서 rpc 로 갔다(검토에서 바뀐 것 · 초안은 원본 방식).
 
@@ -2039,7 +2064,31 @@ admin 이 manager role 수정            UPDATE 1 · updated_at 갱신
 admin 이 delete                       permission denied   (닫혀 있다)
 비활성 admin 이 수정                  UPDATE 0            (is_active 를 본다)
 anon select                           permission denied
-role='worker'                         role_ck 위반
+role='worker'                         role_ck 위반        → [09-17] 이제 통과한다(넷)
+```
+
+**⭐⭐ 2026-09-17 밤 — 등급 넷 · 두 축 · 판정 함수 · 등급 순서** (마이그레이션 `20260917230000`(231행) · `20260918020000`(152행) · `20260918023000`(25행) · 커밋 `5b4e4c7` · `7ba12b4` · `c034a6f` · 검토 이견은 각 파일 머리 주석)
+```
+등급 넷        worker(창고 · 기본 wms 방 · wms 방 화면 기본 쓰기) < manager(같은 일 · ⚠️ 창고가 걸린다 warehouse_access · 화면은 perms) < supervisor(almost everything · 창고 경계 없음 · 사람 관리 포함 · 아래 등급만) < admin(전부)
+   ⚠️⚠️ role_ck 의 값 나열 순서(worker·supervisor·manager·admin)는 **등급 순서가 아니다** — 임의 나열. 순서를 아는 곳은 ims_role_rank() 하나(1·2·3·4 · 모르는 값 null)
+   ⭐ 값은 WMS 와 같은 낱말(컷오버 때 wms_staff 를 옮기기 쉽게) · supervisor 만 IMS 신설 · 기본값 'manager'
+두 축(perms)   모드 'wms'·'ims' — 방(헤더 모드 전환) · 화면 'purchasing'(po·invoices·charges·payments) · 'master'(settings·suppliers·products·families·supplier-products) · 'receiving' · 'staff' — 쓰기 · '<screen>:read' 읽기만
+   ⭐ 값 목록은 ims_perm_catalog() 한 곳(CHECK 없음 — 화면이 늘 때 표를 안 고친다 · 모르는 값은 함수가 false) · 라벨 staff = 「Adding and editing people (below your own rank)」(20260918023000)
+   ⭐ **더하기만 한다** — role 기본으로 열린 것을 perms 로 닫지 않는다(두 축이 서로 막으면 「왜 안 보이지」를 두 곳에서 찾게 된다). 닫는 길이 필요하면 그때 별도 값
+   ⭐ 방은 화면 값에서도 열린다 — 'receiving' 만 준 worker 도 wms 방에 들어간다(모드 토큰을 따로 안 줘도)
+role 기본      admin 전부 · supervisor 모드 둘·화면 전부(staff 포함 · 09-17 밤 1-b)·창고 전부 · manager 모드 둘·화면 perms·창고 warehouse_access · worker 모드 wms + perms·화면 wms 방(지금 receiving) + perms·창고 warehouse_access
+   ⭐ **모르는 값은 admin 에게도 false** — 정책에 오타가 나면 열리는 쪽이 아니라 닫히는 쪽으로 틀려야 한다
+warehouse_access  uuid[](ref_warehouse.id) · ⭐ 빈 = 전부 · admin·supervisor 는 비워 둔다 · FK 없음(배열 — 없는 id 는 그 창고만 조용히 안 열린다 · 닫히는 쪽) · WMS 매핑 toronto/edmonton → 해당 id · both → {}
+   ⚠️ ims_can_warehouse(null) = false(admin·supervisor 만 true) — 창고 없는 문서(po.ship_to_warehouse_id nullable)는 정책이 따로 다룬다(② 차수)
+판정 함수      ims_role_rank(text)→int · ims_can_manage(text)→bool · ims_can_enter(mode) · ims_can_view(screen) · ims_can_write(screen) · ims_can_warehouse(uuid) · ims_perm_catalog()→jsonb · ims_access()→jsonb · ims_require_write(screen, verb)→void(거부 문장) · (ims_is_admin 잔존 · 미사용)
+   전부 security definer(ims_require_write·ims_perm_catalog·ims_role_rank 제외) · stable · search_path=public,pg_temp · anon 회수 · authenticated 만 · 비활성·행 없음 = false/null
+   ⭐ **ims_access() 가 화면이 부르는 하나** — 로그인 뒤 한 번 · { role, name, modes[], screens{screen: 'write'|'read'|null}, warehouses: null(전부)|uuid[] } · 화면은 role·perms 를 다시 가르지 않는다(§10-j 3-l)
+등급 순서·직원 관리 (20260918020000 · Caleb 1-a~c)
+   직원 관리는 admin 전용이 아니다 — 'staff' 쓰기 권한(admin·supervisor 기본 · manager 는 perms)이 있으면 관리한다
+   ⭐ **자기보다 아래만** 만들고 고친다 — 같은 등급도 안 된다(같은 등급을 늘리는 것은 위가 판단할 일) · admin 은 전부(다른 admin 포함) · worker 는 아래가 없어 아무도 못 만든다
+   ⭐ **자기 행은 못 고친다(admin 만 예외)** — 자기는 자기보다 아래가 아니다. ⚠️ 대가: 자기 이름·메모도 못 고친다(0행 → Not saved). 비밀번호는 Auth 라 무관(Change Password 는 누구나) · ⬜ 자기 행의 이름·메모만 고치는 길은 §13-f
+   ⭐⭐ 지시서의 「옛 행과 새 행을 비교해야 한다(트리거 또는 RPC)」는 **틀린 전제였다** — using 에 옛 등급, with check 에 새 등급을 각각 **엄격 비교**로 두면 두 행을 비교하지 않아도 막힌다(검토가 뒤집었다 · 화면 무접촉 · §5 규약 ③)
+   EF ims-staff-create 도 같은 둘을 caller JWT 로 부른다(rpc/ims_can_write 'staff' → rpc/ims_can_manage role · 963fadd · 7ba12b4) · 거부 문장 「Not allowed — you need the 'staff' permission …」 / 「… only add people below your own role (<role> is not below yours)」
 ```
 
 ### 10-i. 계정 추가 경로 — `staff.html` + `ims-staff-create` EF (2026-09-15 · ✅ 배포 · ✅ 실측 — 계정 생성 성공 · Caleb)
@@ -2047,7 +2096,7 @@ role='worker'                         role_ck 위반
 ⭐ 첫 쓰기 화면. §10-f ①·②-b 의 손 절차(Add user → UID 복사 → SQL insert)를 **화면 한 번**으로 대체한다 — WMS `staff-admin.html` + `staff-create` EF(2026-07-21)와 같은 모양.
 ```
 화면  staff.html(asung-ims)   이름·이메일·역할 → 로그인 세션 JWT 를 붙여 EF 에 POST → 임시 비밀번호를 한 번만 보여 주고 복사
-EF    ims-staff-create        ① caller JWT 로 rpc/ims_is_admin (활성 admin 만 · 정책과 같은 판정 · §10-h)
+EF    ims-staff-create        ① caller JWT 로 ~~rpc/ims_is_admin (활성 admin 만~~ → [09-17 밤] rpc/ims_can_write('staff') + rpc/ims_can_manage(role) · role 넷 · 정책과 같은 판정 · §10-h)
                               ② service_role 로 Auth 계정 생성(auto-confirm) ③ ims_staff insert(⭐ auth_user_id 필수) ④ 실패 시 Auth 계정 롤백
 ```
 ⚠️⚠️ `service_role` 은 EF 안에만 있다 — asung-ims 는 공개 레포다(§10-c).
@@ -2071,7 +2120,7 @@ EF    ims-staff-create        ① caller JWT 로 rpc/ims_is_admin (활성 admin 
 기본값(true)으로 배포돼 있고 브라우저가 사용자 JWT 를 보내니 통과해 돌고 있다. 「원본도 false」는 확인 없이 적은 짐작이었다. 09-12 의 401(asung-inv-ledger SKILL.md 196행·1770행)은 JWT 없는 cron 호출의 일이라 이 EF 에는 그대로 적용되지 않는다.
 그래도 넣는 이유 — 스킬 규칙(새 EF 는 블록 필수) · EF 가 스스로 검사하니 게이트웨이 검사는 중복 · [짐작] 게이트웨이 401 은 CORS 헤더 없이 돌아와 브라우저에서 원인이 안 보일 것.
 
-**원본에서 바꾼 여섯** — ① `wms_staff`→`ims_staff` ② caller 확인 email 조회 → **rpc/ims_is_admin**(§10-h) ③ `active`→`is_active` ④ role 둘 · `warehouse_access` 없음 · 기본 `manager` ⑤ admin 만(perms 축 미사용) ⑥ insert 에 `auth_user_id`.
+**원본에서 바꾼 여섯** — ① `wms_staff`→`ims_staff` ② caller 확인 email 조회 → **rpc/ims_is_admin**(§10-h) ③ `active`→`is_active` ④ ~~role 둘 · `warehouse_access` 없음~~ → [09-17] role 넷 · warehouse_access 는 안 받는다(비움=전부 · 편집은 staff.html) · 기본 `manager` ⑤ ~~admin 만~~ → 'staff' 쓰기 권한자 · 만들 수 있는 등급은 자기보다 아래만(perms 는 [] 로 만든다) ⑥ insert 에 `auth_user_id`.
 덧붙인 것 — 이메일 **소문자 저장 + `ilike` 중복 검사**(UNIQUE 가 대소문자를 가른다) · Auth 계정만 있고 행이 없으면 **연결하지 않고** 409 로 §10-f ②-b SQL 을 가리킨다(열쇠가 uid 라 WMS 의 「email 을 고쳐 연결」은 맞지 않다) · 롤백도 실패하면 `orphan_auth_user_id` 를 응답에 싼다.
 
 **화면 규칙** — 영문 UI · 한국어 주석 · `suppliers.html` 틀(목록+상세). 페이지네이션 없음(직원 수십 명 · caps-ok).
@@ -2131,7 +2180,7 @@ families.html           토글 없음 — 모두에게 전량
 staff.html              매니저는 읽기 전용 — 편집·추가 UI 를 감춘다(§10-i)
 ```
 ⚠️⚠️ **이것은 화면에서 감추는 것이지 막는 것이 아니다.** anon key 가 공개 레포에 있으니(§10-c) PostgREST 를 직접 치면 다 보인다. 지금은 감추는 것으로 충분하다(공급처 목록은 비밀이 아니다).
-⭐ 진짜 막을 것이 생기면 **RLS** 로 간다 — `ims_staff` 의 `ims_is_admin()`(§10-h)이 그 선례다.
+⭐ 진짜 막을 것이 생기면 **RLS** 로 간다 — `ims_staff` 의 `ims_is_admin()`(§10-h)이 그 선례다. → [2026-09-17 밤] **표 28 전부 쓰기를 조였다**(select 열림 · 쓰기 ims_can_write · §5 권한 규약). 감추기(3-b)는 그대로 UX 이고 막는 것은 RLS 다.
 
 **3-c. ⚠️ 읽는 쪽이 `is_active` 를 건다 (§3-f)**
 ⚠️⚠️ **[실사고 2026-09-15]** `AS92082-6`(세트) 상세에 공급처가 붙어 보였다. 데이터는 맞았다 — 어제 Cin7 에서 지우고 `is_active=false` 로 내린 줄인데 **화면이 그대로 띄웠다.**
@@ -2244,7 +2293,7 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 **3-i. ⭐⭐ 쓰기 화면 공통 — 다음 쓰기 화면이 같은 자리에 서지 않게 (2026-09-15 저녁 · suppliers.html is_purchasable 검토에서)**
 선례 둘 — staff.html(§10-i · 편집·추가) · suppliers.html(is_purchasable 판정 · 드롭다운 하나 · 고르면 바로 저장). 다음은 ref_payment_term · 기본 공급처 · ref_bin.zone(§10-k).
 ```
-저장 확인        imsSaved() 로 되읽는다 — 0행이면 「Not saved」(3-f · §10-h 실측). 지금 마스터는 auth_all 이라 막힐 일이 없지만, RLS 를 걸었을 때 조용히 지나가는 것을 막는 자리다
+저장 확인        imsSaved() 로 되읽는다 — 0행이면 「Not saved」(3-f · §10-h 실측). ~~지금 마스터는 auth_all 이라 막힐 일이 없지만~~ → [09-17] 표 28 이 쓰기를 조여 **실제로 막히는 자리가 됐다**(§5 권한 규약) — 0행을 성공으로 보지 않는 것이 이제 실동작이다
 ⚠️ 되돌리기      저장이 실패했는데 입력칸이 고른 값에 머물면 **화면만 저장된 것처럼 보여** 「Not saved」가 무력해진다
                 ⇒ 직전 값을 들고 있다가(dataset.prev) 실패하면 되돌린다
 ⚠️ 잠금          저장이 끝날 때까지 입력칸을 잠근다(disabled) — 여러 곳을 빠르게 훑는 자리에서 update 둘이 경합한다. DB 는 마지막 것, 화면은 늦게 돌아온 것을 보인다
@@ -2254,8 +2303,8 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
                 ⭐ 그래서 되돌리는 길이 남는다 — Not set 으로 걸러 놓고 판정하면 그 행은 목록에서 빠지지만 상세는 열려 있어 잘못 눌렀으면 바로 되돌린다
 세 상태 값        null 을 화면에서 만들 수 있게 둔다(체크박스 두 상태로 가지 마라)
                 ⚠️ 「판정 없음 N곳」이 남은 일의 눈금인데 체크박스로 가면 첫 클릭에 그 눈금이 사라진다. null 필터는 .eq 가 아니라 .is(col, null)
-누가 고치나       지금은 화면에서 감춘다(admin 만) · RLS 는 걸지 않았다 — 마스터 열일곱이 전부 auth_all 인데 한 표만 예외를 내기에는 이르다.
-                막을 것이 늘면 **표 하나가 아니라 규칙으로** 간다(Caleb 2026-09-15 · 3-b · ims_staff 가 선례)
+누가 고치나       ~~지금은 화면에서 감춘다(admin 만) · RLS 는 걸지 않았다 — 마스터 열일곱이 전부 auth_all 인데 한 표만 예외를 내기에는 이르다.~~
+                → [2026-09-17 밤] **규칙으로 갔다** — 마스터·관계 표는 ims_can_write('master') · 거래 표는 'purchasing'(§5 권한 규약 ①). 화면의 admin 토글(3-b)은 정돈용으로 남는다
 읽는 값 vs 쓴 값  칩·시각은 **DB 가 돌려준 값**으로 갈아 끼운다(보낸 값이 아니라) — imsSaved 의 .select() 결과를 쓴다. updated_at 은 트리거가 찍는다
 ```
 📌 위 「되돌리기 · seq 의 범위 · 잠금」 셋은 suppliers.html 초안이 놓쳤고 검토(Claude Code · 2026-09-15 저녁)에서 잡힌 실제 버그다 — 코드를 읽어야 보이는 종류라 여기 남긴다.
@@ -2285,11 +2334,30 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 묶는 것          **구매 문서 넷** — Purchase Orders · Invoices · Charges · Payments (입고가 서면 그때 더한다)
 ❌ 묶지 않는 것    Settings · Suppliers · Products · Families · Supplier Products · Staff · Home — [Caleb] 마스터는 어쩌다 한 번 열지만 이 넷은 하루에도 여러 번 오간다. 전부 묶으면 성격이 다른 아홉이 한 줄에 선다
 자리             헤더 **바로 아래** 한 줄 · 모든 화면에서 같은 자리(넓은 목록 위가 아니다 — 상세를 볼 때 안 보이면 자리가 흔들린다) · 넷에 속하지 않는 화면에서는 그리지 않는다 · 현재 화면은 .cur + aria-current 로 눌리지 않는다 · 그냥 링크(SPA 아님)
-⭐ 출처는 하나     ims-auth.js items 배열의 **넷째 칸 'purchase'** — 메뉴와 탭이 같은 배열에서 나온다 · 화면을 더할 때 고칠 자리가 한 줄 · 권한은 메뉴의 vis 를 그대로 받는다(안 보이는 화면의 탭도 안 보인다)
+⭐ 출처는 하나     ims-auth.js items 배열 — ~~넷째 칸 'purchase'~~ → [09-17 밤 · 3-l] **다섯 칸 [이름, 주소, 화면값, 모드, 탭에 서나]** · 메뉴와 탭이 같은 배열에서 나온다 · 화면을 더할 때 고칠 자리가 한 줄 · 권한은 access.screens[화면값] 이 null 이 아니면('read' 도 보인다)
 현재 판정         location.pathname 의 마지막 조각(소문자) · 「/」로 끝나면 index.html · 쿼리·해시는 pathname 에 없다 · 메뉴의 .cur 와 같은 변수
 sticky 아님      헤더(sticky · top:0)만 남고 탭은 함께 스크롤된다 — .list 의 top:70px 은 그대로 맞는다 · ⚠️ 탭 높이는 JS 가 재서 `--ims-tabs-h` 로 :root 에 적는다 — po.html 의 .list .rows max-height 가 `calc(100vh - 230px - var(--ims-tabs-h, 0px))` 로 빼 쓴다(탭 없는 화면은 0px · 화면 파일 · 대화 Claude)
 모양             ims-ui.css 「구매 문서 탭」 구역(.ims-tabs · 접두어 ims- · 충돌 없음) · 마크업은 화면에 없다(공통 코드가 <header> 뒤에 끼운다 · <header> 가 없으면 조용히 아무것도 안 한다)
 ☰ Menu           그대로 둔다 — 탭은 메뉴를 대신하는 것이 아니라 자주 가는 길을 짧게 하는 것이다 · ⚠️ .ims-nav 의 CSS 는 아직 JS 안 <style> 에 있다 — ims-ui.css 로 옮길 후보(§13-f)
+```
+
+**3-l. ⭐⭐ 권한과 모드는 `ims_access()` 하나로 — 화면은 판정하지 않는다 (2026-09-17 밤 · asung-ims `9f8ed27` ims-auth.js · staff.html `ff36b20`·`6085092`·`29fd003`·`87e0118`)**
+```
+판정은 한 번        로그인 뒤 rpc ims_access() 한 번 → { role, name, modes[], screens{purchasing|master|receiving|staff: 'write'|'read'|null}, warehouses: null(전부)|uuid[] } · me.access 에 실린다(기존 칸 무접촉 — 화면들의 me.role==='admin' 은 깨지지 않는다)
+                  ⚠️ 왜: role 이 넷이 됐는데 옛 코드(resolveIdentity)는 'manager' 만 알았다 ⇒ worker·supervisor 가 requirePerm 게이트를 통과했다. 화면이 role·perms 를 다시 가르면 DB 와 어긋난다(「판정은 한 곳」)
+                  화면이 묻는 법  me.access.screens.purchasing === 'read'(읽기 전용) · imsAuth.canWrite('purchasing') · imsAuth.canView('master') · me.access.warehouses(null = 전부)
+                  ⚠️ RPC 오류 = 로그인 막되 **signOut 하지 않는다**(와이파이 순단에 세션이 날아간다 · 새로고침으로 재시도) · null = 막고 signOut · 조용히 전부 열지 않는다
+                  ⚠️ 왕복이 하나 는다(ims_staff select 뒤 rpc) — 느려지는지는 재지 않았다
+옵션               requireScreen:'purchasing'(옛 이름 requirePerm 도 같은 뜻 · 값 어휘는 새 것) · requireManager(worker 만 막는다 — supervisor 통과) · ⚠️ 2026-09-17 현재 어느 화면도 둘을 쓰지 않는다(grep 0 · 전부 {changePw:true})
+items 다섯 칸      [이름, 주소, 화면값(null=로그인만), 모드('ims'|'wms'|null=둘 다), 탭에 서나(true)] — 메뉴·탭이 이 하나에서 나온다 · 노출 = screens[화면값] 이 null 이 아니면
+                  ⭐ 모드와 탭 플래그가 **둘 다** 필요하다 — 모드는 「어느 방」, 탭은 「자주 가는가」(구매 넷만 · 마스터는 어쩌다 열어 메뉴에만) — 다른 물음이다. 탭 그룹 하나로 대체하면 ims 아홉이 한 줄에 선다
+                  ⬜ 리시빙이 서면 ["Receiving","receiving.html","receiving","wms",true] 한 줄 — 그 순간 WMS 모드가 탭 줄에 나타난다
+탭 줄 = 모드 + 탭   [Caleb] 탭 줄 왼쪽 끝에 모드(IMS · WMS) · 구분선 · 그 뒤 그 모드의 탭 — 한 줄(줄이 셋이 되면 화면이 밀린다 · 헤더 안 작게도 기각) · --ims-tabs-h 그대로(po.html 이 빼 쓴다)
+                  ⚠️ 모드 부분은 **들어갈 수 있고 보이는 화면이 있는 모드가 둘 이상**일 때만 그린다 — 화면이 하나도 없는 모드는 안 그린다(WMS 는 리시빙 전까지 아무에게도 · admin 도) · 모드가 하나뿐인 사람(창고 직원)도 안 그린다
+                  ⚠️ 모드를 누르면 그 모드의 **첫 보이는 화면**으로(마지막 화면 기억 없음 — 저장할 곳이 필요해진다 · WMS 규칙 5 와 같은 결) · 탭 줄이 죽어도 메뉴는 산다(try/catch)
+staff.html        등급으로 폼을 그린다 — 편집 가능 = 'staff' 쓰기 + 자기 아님 + 상대가 자기보다 아래(RANKS 순서 · admin 은 전부) · 선택지와 설명에 **자기보다 위는 나오지 않는다** · ⭐ [Caleb] 「admin = everything 을 빼 달라 — admin 의 존재를 아예 모르게」
+                  ⚠️ 읽기 전용 문구 셋으로 갈린다 — 권한 없음 「you need the 'staff' permission」 · 자기 행 「you cannot edit your own record. Ask someone above you」 · 상대가 위 「this person is at or above your own rank」
+                  ⭐ perms 편집 UI 는 ims_perm_catalog() 를 읽어 그린다(값을 화면에 적지 않는다) · ⚠️ 진짜 게이트는 DB(ims_can_manage · §10-h) — 선택지에서 빼는 것은 UX 다
 ```
 
 ⬜ IMS 인프라(Supabase 프로젝트 준비 · 화면 규칙 · EF 배포)를 담는 **스킬을 따로 세울지** 정할 일 — 지금은 `asung-po` 스킬 §0·§4 에 한 줄씩 얹어 두었다(마스터·적재 스킬과 성격이 다르다는 것을 알고 얹었다 · 2026-09-15).
@@ -2323,7 +2391,7 @@ ref_bin.is_staging    ⭐ 임시 보관용으로 정해진 자리가 실제로 �
 순서: ~~`is_purchasable` 체크 하나부터 — 화면이 이미 있고 가장 작다(지금 하지 않는다)~~ → ✅ **화면(고칠 수단)은 2026-09-15 저녁에 섰다**(§10-j 3-i) · ⬜ **판정(값 채우기)은 남았다** — 활성 9곳 · Yes 161곳 중 잘못 켜진 것. 다음 화면 후보는 ref_payment_term(34행 · 손이 빠르다). ⚠️ ⑤ PO 본체는 단가 없는 줄 1,227 과 supplier_discount 0행이 남아 있으면 발주 금액이 안 맞는다.
 📌 그 뒤(Caleb 2026-09-15 · 판단만): 제품 등록·이미지 등록은 결국 IMS 에서 한다(Cin7 이 이미지를 회계·재고에 쓰지 않으니 「IMS 가 정본이 되는 첫 값」 · ⚠️ Supabase Storage 첫 사용 — 누가 올리고 누가 보는지) ·
 ⚠️⚠️ Cin7 으로 내보내는 일은 없다 — 한 방향(Cin7 → IMS)뿐. 컷오버 전에 새 제품이 필요하면 **양쪽에서 각각 만든다** ⇒ IMS 에서 먼저 만든 제품(source='manual' · cin7_id 없음)에 나중에 Cin7 것이 따라오면 같은 SKU 가 두 행 — ④ 의 승격 규칙과 같은 장치가 `product` 에도 필요하다(열쇠는 sku · ⬜ 제품 생성 화면 때) ·
-재고·판매가는 원장 이전 뒤(원장은 아직 운영에서 shadow) · `ims_staff.perms` 는 아직 안 쓴다(전부 [] · 화면이 늘면 requirePerm).
+재고·판매가는 원장 이전 뒤(원장은 아직 운영에서 shadow) · ~~`ims_staff.perms` 는 아직 안 쓴다(전부 [] · 화면이 늘면 requirePerm)~~ → [09-17 밤] 두 축이 든다(§10-h) · staff.html 의 Access 편집기가 ims_perm_catalog() 로 그린다.
 
 ---
 
@@ -2964,6 +3032,16 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
            비용     20260917150000_po_charge.sql (901행)            커밋 38f1098        po_charge_list · _detail · _create(미리 보기 · 비례 제안 po_charge_alloc_propose) · 배분 편집 셋 · _spread · _confirm · cancelled_by(po_charge) · 'charge' 를 취소·삭제에   → 11-f
            줄별 수량 20260917170000_po_invoice_line_qty.sql (446행)   커밋 0184260        po_invoice_create + p_line_qty · ⚠️ 시그니처가 바뀌어 **drop + create**(레포 첫 사례 · §5)   → 11-g
            결제     20260917190000_po_payment.sql (880행)           커밋 db36acd        po_payment_target_check · po_payment_list · _detail · _create · 충당 편집 둘 · 'payment' 를 삭제에(취소는 거부)   → 11-h
+[2026-09-17 밤] 권한 다섯 덩어리 — 표는 그대로 열하나(ims_staff 칸 +1) · 정책·함수·RPC 본문만 (§10-h · §5 권한 규약 · §10-j 3-l)
+           ① 계정     20260917230000_ims_staff_roles.sql (231행)              커밋 5b4e4c7        role 넷 CHECK · warehouse_access uuid[](빈=전부) · perms 두 축 · 판정 함수 여섯(ims_can_enter/view/write/warehouse · ims_perm_catalog · ims_access)
+           ② RLS      20260917235000_ims_rls_write_gate.sql (249행)           커밋 352d024        auth_all 28 → select 열림 + insert/update/delete = ims_can_write('<묶음>') · 정책 101(+ims_staff 3 = 104) · 마스터 11 은 delete 정책 없음
+           ③-1 거부    20260918000000_ims_rpc_honest_refusal_po.sql (855행)    커밋 d6c3155        도우미 ims_require_write 신설 · 발주 6(po_create · lines_paste · line_update/delete · doc_cancel/delete) 첫머리 권한 + row_count
+           ③-2 거부    20260918003000_ims_rpc_honest_refusal_invoice.sql (870행) 커밋 0e7b61c      인보이스·할인 8(두 묶음 po_discount_save/delete 는 갈래로) · 원본 바이트 스크립트로 옮김(diff 첨부 방식 시작)
+           ③-3 문장    20260918010000_ims_require_write_one_message.sql (34행) 커밋 0e7b61c        거부 문장 하나로 — 읽기 여부를 말하지 않는다(ims_can_view ≠ 데이터 읽기 · 실측)
+           ③-4 거부    20260918013000_ims_rpc_honest_refusal_charge_payment.sql (548행) 커밋 2120657  비용·결제 9 — 쓰기 RPC 23 전부 완료
+           ⑤ 등급     20260918020000_ims_role_hierarchy.sql (152행)           커밋 7ba12b4        ims_role_rank · ims_can_manage · can_view/write 의 staff 특례 제거 · ims_staff 정책 둘 = staff 쓰기 + 아래 등급(트리거·RPC 없이) · EF ims-staff-create 도(963fadd)
+           ⑤ 라벨     20260918023000_ims_perm_catalog_staff_label.sql (25행)  커밋 c034a6f        staff 라벨 「Adding and editing people (below your own rank)」 · ⚠️ 020000 §4 도 같은 함수를 한 번 고쳤다(중복 · 뒤 파일이 이긴다)
+           ④ 화면     asung-ims 9f8ed27(ims-auth.js · ims-ui.css) · staff.html ff36b20 → 6085092 → 29fd003 → 87e0118        ims_access() 한 번 · 모드 탭 줄 · items 다섯 칸 · 등급으로 폼
 ```
 ⭐ [2026-09-17] 파일 넷 · 커밋 넷이 더 섰다(위 네 줄) — 표는 그대로 열하나 · 칸은 cancelled_by 셋만 늘었다. 화면은 asung-ims 에 charges.html · payments.html 신설 + po.html·invoices.html 손질 + 공통 CSS(af06c61) + 구매 탭(9dcee4d · db4841e).
 전부 **거래** ⇒ 컷오버 때 지운다(§11-⓪). 규약은 §5 「거래 표의 규약 예외」. ~~⚠️ 확정 문서는 DB 가 보호하지 않는다(트리거 없음 · ⬜ 분할 함수 차수).~~ → [2026-09-16 오후] 확정은 잠금이 아니다(§11-b) · 막는 둘은 po_line_update/delete 가 본다(13-d).
@@ -3142,6 +3220,13 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ 드롭십(다른 배송지)          13-g — bin_id NOT NULL 이 막는다 · Cin7 실측이 먼저
 ⬜ 화면 잡일                   검색 .or 의 쉼표·괄호(다섯 화면 · 헬퍼) · main.stack(두 화면) · 뷰에 split_from_id · confirmed 머리 잠금(13-h 미룬 것)
 ⬜ 메일 보내기                 기술적으로 가능(EF + 메일 서비스 · PDF 첨부) · ⚠️ 답장 받기는 지금 필요 없다(Caleb) · PO·SO·손님이 다 선 뒤 · 「누구에게 보냈나」는 po 의 그날 연락처(13-g)
+⬜ [09-17 밤 · 권한] 자기 행의 이름·메모만 고치는 길   지금은 admin 외 자기 행 전부 막힌다(등급 엄격 비교의 대가 · §10-h) — 쓰기를 RPC 로 옮기면 칸 단위로 열린다
+⬜ 읽기 전용 화면의 Access 표시      staff.html 이 perms 배열 원문을 보여 「등급으로 열린 것」(supervisor 의 전부 등)이 안 보인다 — ims_access().screens 로 그리면 보인다
+⬜ 읽기 전용(:read)일 때 입력칸 잠금   지금은 뒷단(RLS · RPC 거부 문장)만 막는다 · 화면은 me.access.screens[x]==='read' 로 잠근다(§10-j 3-l)
+⬜ created_by 표시                 staff 화면에 없다(Caleb 2026-09-17)
+⬜ ims_is_admin() 을 지울지          이제 아무 정책도 EF 도 안 쓴다(§10-h) · §10-h 「하나뿐이다 · 고치지 마라」 문장과 함께 정리
+⬜ 020000 §4 의 카탈로그 중복 정의    023000 이 같은 함수를 다시 냈다 — 적용 전이면 020000 §4 를 지워도 된다 · 적용 뒤면 그대로
+⬜ ims-staff-create 가 warehouse_access 를 안 받는다   worker 를 만들면 창고 전부(빈 배열)로 시작 — 창고를 걸 사람은 만든 뒤 staff.html 에서
 ⬜ 그대로 남은 것              사건(원장 이식 때 · 11-j) · 차이 큐(재고조정 때) · 파일 업로드(Storage) · 확정 RPC(Latest 갱신) · 계정 후보 규칙 · HST · KRW 계산 · §12 재검토(짐작) · other 줄 할인(11-e) · supplier_discount 편집 화면(§10-k)
 ```
 
