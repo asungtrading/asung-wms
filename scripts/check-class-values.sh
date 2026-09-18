@@ -16,6 +16,12 @@
 # ⚠️ 모르면 멈춤: 마이그레이션이 제약 이름(wms_*_check)이나 대상 컬럼 CHECK 를
 # 언급하는데 파서가 값 목록을 추출하지 못하면, 낡은 정의로 조용히 폴백하지 않고
 # "이 파일의 CHECK 정의를 해석할 수 없다" 로 실패 처리한다 (exit 2 → 커밋 차단).
+#   ⚠️ [2026-09-18] 그 신호가 **표 이름을 안 봐서** IMS 표에 걸렸다 — po_receipt_diff 의 둘째 CHECK
+#   `((kind = 'off_po') = (po_line_id is null))` 은 값 목록이 아니라 파서가 못 읽는 것이 맞지만, 대상 두 표와 무관하다
+#   (같은 표의 `kind in (…)` 는 인라인 파서가 읽었다 — 걸린 것은 값 목록 CHECK 가 아니었다). 그날 --no-verify 로 두 번 지나갔다.
+#   ⇒ 좁혔다(끄지 않았다): 신호가 속한 **문장**(앞 ';' 부터)의 머리가 create/alter table 이고 그 표가 대상 둘이 아니면
+#   신호로 치지 않는다. 문장 머리에서 표를 못 읽으면(함수 본문 안 · 낯선 서식) 전과 같이 멈춘다 — "모르면 멈춤" 은 그대로다.
+#   IMS 에 reason·kind 칸이 또 생겨도 create/alter table 안에 있으면 훅을 고칠 일이 없다.
 #
 # 판정:
 #   코드에 있는데 CHECK 에 없음  → FAIL (커밋 차단)
@@ -134,8 +140,29 @@ def inline_adds(text):
     return out
 # "모르면 멈춤" 신호: 이 패턴이 ADD/DROP 로 해석된 구간 밖에서 나타나면
 # 파서가 그 정의를 놓친 것이다 → 낡은 목록으로 검사하는 대신 실패 처리.
-SIGNALS = [re.compile(r'check\s*\(\s*\(*\s*(?:reason|kind)\b', re.I),      # = any 서식 포함
-           re.compile(r'wms_(?:discrepancies_reason|reports_kind)_check', re.I)]
+SIGNALS = [re.compile(r'check\s*\(\s*\(*\s*(?:reason|kind)\b', re.I),      # = any 서식 포함 · ⚠️ 표 이름을 안 본다 → signal_table 로 좁힌다(2026-09-18)
+           re.compile(r'wms_(?:discrepancies_reason|reports_kind)_check', re.I)]   # 제약 이름에 표가 들어 있다 — 그대로
+TARGET_TABLES = {t for t, _ in TARGETS}
+# 신호가 속한 문장의 머리 — create table X ( … / alter table X … 에서 X 를 읽는다. 이름 뒤에 바로 '(' 가 붙어도(foo() 잡히지 않게 [^\s(]+.
+STMT_TABLE = re.compile(r'^\s*(?:create\s+table\s+(?:if\s+not\s+exists\s+)?|'
+                        r'alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?)([^\s(]+)', re.I)
+
+def signal_table(text, pos):
+    """신호 위치가 속한 문장(앞 ';' 다음부터)의 머리에서 표 이름을 읽는다. create/alter table 문장이 아니면 None = 모른다."""
+    start = text.rfind(";", 0, pos) + 1
+    m = STMT_TABLE.match(text[start:pos])
+    return norm_table(m.group(1)) if m else None
+
+def is_signal(idx, text, m, spans):
+    """해석된 구간 안이면 신호 아님. SIGNALS[0] 은 그 문장의 표가 대상 둘이 아니라고 **확인되면** 신호 아님(다른 모듈 표의 reason/kind CHECK 는
+    이 스크립트의 일이 아니다). 표를 못 읽으면 신호다 — 모르면 멈춤."""
+    if any(a <= m.start() < b for a, b in spans):
+        return False
+    if idx == 0:
+        t = signal_table(text, m.start())
+        if t is not None and t not in TARGET_TABLES:
+            return False
+    return True
 
 def norm_table(t):
     return t.strip().strip('"').split(".")[-1].strip('"')
@@ -155,8 +182,8 @@ for path in sorted(env_list("MIGS")):
         inline_adds(text) +
         [(m.start(), "drop", m) for m in DROP.finditer(text)])
     spans = [m.span() for _, _, m in events]
-    if any(not any(a <= m.start() < b for a, b in spans)
-           for sig in SIGNALS for m in sig.finditer(text)):
+    if any(is_signal(i, text, m, spans)
+           for i, sig in enumerate(SIGNALS) for m in sig.finditer(text)):
         errors.append(f"{path}: 이 파일의 CHECK 정의를 해석할 수 없다 "
                       f"(reason/kind 제약을 언급하지만 파서가 값 목록을 추출하지 못함 "
                       f"— SQL 서식이 파서 정규식과 어긋남, scripts/check-class-values.sh 수정 필요)")
