@@ -24,7 +24,7 @@ Cin7 을 베끼지 않고 **우리 표를 세우고 Cin7 을 매핑한다**(원�
 ② 공급처           ✅ 범위·칸 확정 2026-09-11(§7-a) — 활성 226 만 담는다 · ~~표 셋(본체·주소·연락처)~~ [2026-09-12 정정] **표 넷 — §3-b**(`supplier_discount` 추가 · ~~§7-b~~ 2026-09-13 이사) · is_purchasable 은 우리 칸 — §8 supplier 실측 · ✅ **표 넷 신설·적재 완료(2026-09-12 · §3-c · ~~§7-c~~) — 226 / 87 / 237 / 0**
 ③ 제품             ✅ **적재 완료(2026-09-14 · §3-e · ⚠️ 테스트 DB 한정 — 운영 미적용) — 1,141 / 18,714 / 17,104 / 65** · ~~🔄 표 넷 생성 완료 · 적재 대기(2026-09-13 · §3-d)~~ · 전량 18,829 실측(⚠️ 14,677 은 활성만) · `20260913225935`·`230500`·`230600`·`230700` · pack_factor 정본 = **BOM Quantity** · 관계 없음 4,161 · 적재 GAS `docs/probes/ImsLoadProduct.gs` · 카운터 넷 DB 재확인 0 · ⚠️ 카운터 ⑤ 활성끼리 바코드 겹침 **23**(무관 6)
 ④ 제품↔공급처      ✅ **적재 완료(2026-09-14 · §3-g · ⚠️ 테스트 DB 한정 — 운영 미적용) — `product_supplier` 12,728줄(활성 12,721) · supplier 226→257** · `20260914175145` · 충돌 키 cin7_id · is_default 는 우리 칸(11,480) · 적재 GAS `docs/probes/ImsLoadProductSupplier.gs` · 카운터 여섯 — ⑤ 세트 줄 0 · ⑥ 사 오는 콤보 **3**(기대값) · ⚠️ 콤보 방향은 ⑤ 에서(부모당 하나)
-⑤ PO 본체          ✅ **표 열하나 적용·실물 검증(2026-09-16 · §13 · ⚠️ 테스트 DB 한정)** — ①차 `20260916144201` po·po_line·po_discount·po_receipt_line · ②차 `20260916153313` po_invoice·_line·_discount · po_charge·_alloc · po_payment·_alloc · ③차 `20260916175003` 크레딧(po_invoice.doc_kind · 표 수 그대로) · 읽기 `20260916163806`·`164539` 뷰 po_list + RPC po_detail(⭐ 계산 규칙의 정본) · 쓰기 `20260916181719` po_create·po_lines_paste·po_line_update/delete · 화면 `asung-ims/po.html`(읽기 → 크레딧 → 만들기·편집) · 설계 판단은 §11(2026-09-15 · ⭐ 09-16 정정: 확정은 잠금이 아니다 §11-b) · 저녁 **§13-g**(넓은 목록·국면 다섯·머리 칸 15 · `20260916190000`) · **§13-h**(인보이스·크레딧 만들기·할인 편집·⭐ 크레딧 번호는 우리 것 · `20260916200000`·`210000` · 화면 `invoices.html`) · ⭐ **[2026-09-17] 취소·삭제(11-b) · 비용(11-f) · 줄별 수량(11-g) · 결제(11-h) 뒷단 넷(`20260917100000`·`150000`·`170000`·`190000`) + 화면 charges·payments · 공통 CSS·구매 탭(10-j 3-j·3-k)** · 🔄 다음은 §13-f(입고/분할 · 머리 잠금 · 크레딧을 결제에 · 사건) · 원장·원가 이식은 PO 뒤(§12 · ⚠️ 재검토 짐작 §12-a) · 제품 생성 규칙 §11-k
+⑤ PO 본체          ✅ **표 열하나 적용·실물 검증(2026-09-16 · §13 · ⚠️ 테스트 DB 한정)** — ①차 `20260916144201` po·po_line·po_discount·po_receipt_line · ②차 `20260916153313` po_invoice·_line·_discount · po_charge·_alloc · po_payment·_alloc · ③차 `20260916175003` 크레딧(po_invoice.doc_kind · 표 수 그대로) · 읽기 `20260916163806`·`164539` 뷰 po_list + RPC po_detail(⭐ 계산 규칙의 정본) · 쓰기 `20260916181719` po_create·po_lines_paste·po_line_update/delete · 화면 `asung-ims/po.html`(읽기 → 크레딧 → 만들기·편집) · 설계 판단은 §11(2026-09-15 · ⭐ 09-16 정정: 확정은 잠금이 아니다 §11-b) · 저녁 **§13-g**(넓은 목록·국면 다섯·머리 칸 15 · `20260916190000`) · **§13-h**(인보이스·크레딧 만들기·할인 편집·⭐ 크레딧 번호는 우리 것 · `20260916200000`·`210000` · 화면 `invoices.html`) · ⭐ **[2026-09-17] 취소·삭제(11-b) · 비용(11-f) · 줄별 수량(11-g) · 결제(11-h) 뒷단 넷(`20260917100000`·`150000`·`170000`·`190000`) + 화면 charges·payments · 공통 CSS·구매 탭(10-j 3-j·3-k)** · ⭐⭐ **[2026-09-18] 리시빙(§13-i · §11-i·c) — 방향 전환(WMS 이관을 미루고 IMS 안에 먼저) · 표 셋 + 차이 큐 · RPC 열(`20260918161537`~`203805`) · 동시 편집 바닥(`133858` · §10-j 3-i) · Receiving 탭(ims)** · 🔄 다음은 §13-f(차이 닫기 · off_po · 환산 · 확정 취소 · 머리 잠금 · 크레딧을 결제에 · 동시 편집 화면) · 원장·원가 이식은 PO 뒤(§12 · ⚠️ 재검토 짐작 §12-a) · 제품 생성 규칙 §11-k
 ```
 
 순서의 이유: **참조되는 쪽을 먼저 세운다.** 공급처가 결제조건·계정과목을 참조하고(226/226 실측),
@@ -1371,10 +1371,12 @@ RLS         ~~auth_all (ALL · authenticated · using true / with check true)~~ 
 ⚠️ 권한      revoke delete, truncate from authenticated
             근거: 마스터는 지우지 않고 is_active 로 물러나게 한다. 브랜드 한 줄을 지우면 그것을 가리키던 제품이 갈 곳을 잃는다.
             ⚠️ inv_config·inv_sku_types 관례(안 막음)를 따르지 않는다 — 그쪽은 지워도 다시 만들 수 있는 캐시·설정이다
-⭐ 트리거    공용 함수 set_updated_at() · 표당 트리거 하나 <표>_set_updated_at · before update · for each row
-            ⚠️ 함수를 다시 만들지 마라(create or replace 도) — 하나뿐이다. 20260911144606 에서 만든 public 스키마의 첫 트리거
-            ⚠️ security definer 없음 · set search_path = public, pg_temp
+⭐ 트리거    ~~공용 함수 set_updated_at() · 표당 트리거 하나 <표>_set_updated_at~~ → ⭐⭐ [2026-09-18 · `20260918133858`] **IMS 표는 <표>_touch … ims_touch()** — updated_at 은 지금 · **updated_by** 는 auth.uid() → ims_staff.id(없으면 null = system · service_role 적재) · before update · for each row · 표당 트리거는 여전히 하나(갈아 끼웠다 · 둘을 두면 「어느 것이 이겼나」를 이름 순서로 알아야 한다)
+            ⚠️ set_updated_at() 정의는 남긴다(규약 · 다시 만들지 마라) — 그러나 **참조 트리거가 0** 이다. [실측 2026-09-18 · 전 마이그레이션 grep] 이 함수를 쓰던 트리거는 IMS 표 29 뿐이었다 · wms_* 표에 붙은 것은 0 — 지시서의 「WMS 표까지 함께 쓴다」는 실물과 달랐다(133858 이견 1)
+            ⚠️ ims_touch 는 **security definer**(ims_staff 를 읽는다 — 쓰는 사람이 못 읽어도 트리거는 읽어야 한다) · set search_path = public, pg_temp · updated_by 는 서버가 채운다(화면이 주면 공개 anon key 로 아무 id 나 줄 수 있다 · created_by 와 같은 자리) · FK ims_staff(id) no action + <표>_updated_by_idx · 새 표는 그 마이그레이션이 같은 두 줄을 넣는다(po_receipt · po_receipt_work · po_receipt_diff 가 그렇게 섰다)
+            ⚠️ 재적재가 updated_at 을 전부 움직이는 것은 그대로 둔다 — Cin7 값이 덮은 것은 사실이고 사람이 알아야 한다(updated_by null = system)
             returns trigger 함수는 SQL 로 직접 호출할 수 없어 PostgREST RPC 로 노출되지 않는다 — RPC 관례의 revoke/grant 불필요
+            ⚠️⚠️ **이름을 꺼내는 서브쿼리에 별칭을 붙인다** — ims_staff 에 updated_by 가 생긴 뒤 `select name from ims_staff where id = updated_by` 는 ims_staff **자기 칸**과 비교해 에러 없이 null 을 낸다(2026-09-18 하루에 두 번). 전부 `s.id = <바깥>.updated_by` 꼴로
 FK          on delete no action (기존 참조 FK 13건 관례 · RESTRICT 0건 · CASCADE 는 문서→소유 라인 7건에만)
             ❌ cascade 금지 — 창고 한 줄에 bin 2,047개가 조용히 딸려 사라진다
             ⭐ FK 컬럼에 인덱스를 직접 만든다(Postgres 는 자동 생성 안 한다) · 이름 <표>_<컬럼>_idx
@@ -1423,7 +1425,7 @@ DELETE     막지 않는다 — 초안은 지울 수 있어야 한다 · 확정 
 
 ```
 ① RLS 는 읽기를 열고 쓰기만 조인다   select using(true) — 화면들이 서로 참조한다(리시빙이 product·product_barcode 를, 발주가 supplier·ref_currency 를). anon 은 이미 전부 회수.
-                                  insert/update/delete = (select ims_can_write('<묶음>')) · 표 28 · 정책 104(마스터 11×3 · 관계 6×4 · 거래 10×4 · po_receipt_line 4 · ims_staff 3) · 뷰는 security_invoker 라 select 만 탄다 · GAS 적재는 service_role(안 탄다)
+                                  insert/update/delete = (select ims_can_write('<묶음>')) · ~~표 28 · 정책 104~~ → [2026-09-18] **표 31(+ ims_staff = 32) · 정책 116**(마스터 11×3 · 관계 6×4 · 거래 10×4 · po_receipt_line 4 · ⭐ 리시빙 셋 po_receipt·po_receipt_work·po_receipt_diff 3×4 · ims_staff 3 — 마이그레이션에서 센 수 · 실물 pg_policies 확인은 ⬜ · 「표 28」은 ims_staff 를 빼고 센 것이었다(133858 머리 주석)) · 뷰는 security_invoker 라 select 만 탄다 · GAS 적재는 service_role(안 탄다)
                                   ⚠️ CASCADE 삭제는 부모 정책만 본다(자식 delete 정책은 화면 직접 삭제 경로용)
 ② ⭐⭐ 쓰기 RPC 규약               **첫머리에서 ims_require_write('<묶음>', 'saved'|'deleted') 를 부르고, delete·update 뒤 row_count(또는 returning 뒤 if not found)를 본다.** 23 함수 전부(20260918000000·003000·013000).
    근거 (검토가 찾았다)            ⚠️⚠️ **RLS 는 쓰기를 거부하지 않고 안 보이게 한다.** 읽기 전용 사용자가 삭제 RPC 를 부르면 앞의 select 검사는 통과하고(읽기 열림) delete 는 0행 — 함수는 row_count 를 안 봐 `deleted: true` 를 돌려줬다.
@@ -1435,6 +1437,10 @@ DELETE     막지 않는다 — 초안은 지울 수 있어야 한다 · 확정 
                                   「읽기는 되는데 쓰기가 안 된다」고 말하면 실물과 어긋난다. ⭐ **ims_can_view 는 「데이터를 읽을 수 있나」가 아니라 「그 화면에 들어갈 수 있나」다**(메뉴·탭 노출 판정)
    0행 문장                        「<문서> was not saved|deleted — it may have been removed or changed by someone else just now — nothing was …」 · 미리 보기(p_commit=false)도 막는다(왜 미리 보기는 되는데 저장이 안 되지, 를 만들지 않는다)
    시그니처 무변                    본문만 바뀌면 create or replace(같은 OID · grant·comment 유지) · 인자가 늘면 drop+create(위)
+   ⭐⭐ security definer 예외 하나     **po_receipt_confirm**(`20260918203805` · 이견 1) — 확정이 po·po_line·po_discount 에 쓰는데(번호 바꾸기 · 닫기 · b 문서) 그 표는 purchasing 이고 창고 담당은 receiving 만 갖는다.
+                                  invoker 로 두면 update 는 0행(조용히) · insert 는 42501 — 「권한은 있는데 확정이 안 된다」. purchasing 을 함께 요구하면 창고 담당이 확정을 못 한다.
+                                  ⇒ 문 앞에서 ims_require_write('receiving') 을 묻고(auth.uid() 는 definer 안에서도 JWT 를 읽는다) 그 뒤 쓰기는 정의자 권한으로 · revoke public/anon · search_path 고정 · 모든 update 뒤 row_count
+                                  ⚠️⚠️ **둘째 겹(RLS)이 이 함수에서는 없다.** 고칠 때 다른 함수보다 조심한다 · **따라 하지 마라** — 다른 쓰기 RPC 는 전부 invoker
 ③ 옛/새 행 비교가 필요해 보이면      **먼저 using/with check 각각의 엄격 조건으로 표현할 수 있는지 본다** — ims_staff 의 「자기보다 아래만」은 using 에 옛 등급 · with check 에 새 등급을 각각 엄격 비교로 두어
                                   트리거도 RPC 도 없이 막혔다(자기 행 = 같은 등급 = 불가 · 승격 상한 · 낮췄다 올리기 차단 — §10-h). 트리거(규약 위반)·RPC(화면 수정) 는 그 뒤의 선택지다
 ```
@@ -2306,6 +2312,9 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 누가 고치나       ~~지금은 화면에서 감춘다(admin 만) · RLS 는 걸지 않았다 — 마스터 열일곱이 전부 auth_all 인데 한 표만 예외를 내기에는 이르다.~~
                 → [2026-09-17 밤] **규칙으로 갔다** — 마스터·관계 표는 ims_can_write('master') · 거래 표는 'purchasing'(§5 권한 규약 ①). 화면의 admin 토글(3-b)은 정돈용으로 남는다
 읽는 값 vs 쓴 값  칩·시각은 **DB 가 돌려준 값**으로 갈아 끼운다(보낸 값이 아니라) — imsSaved 의 .select() 결과를 쓴다. updated_at 은 트리거가 찍는다
+⭐ 동시 편집       [2026-09-18 · 1차 · `20260918133858` + ims-ui.js] **imsSaved(builder, seenAt, ref)** — seenAt(내가 읽었을 때의 updated_at)을 주면 .eq("updated_at", seenAt) 을 붙여 **낡은 값을 보고 고친 저장**만 0행이 된다 · 안 주면 예전과 같다
+                ⭐ 0행이면 되읽어 셋으로 가른다 — 남이 지웠다(removed) / updated_at 이 다르다(conflict · **현재 값 + 마지막으로 고친 사람 이름**(updated_by → ims_staff) · [Caleb 09-17] 「누군가 이미 저장했고 그 값이 뭐다라고 보여 줄 수 있으면 · 이름까지」) / 권한
+                ⚠️⚠️ **화면에는 아직 안 붙어 있다**(2026-09-18 · PO 화면들의 seenAt 을 되돌렸다 dc0da29) — 처방을 「거부하고 끝」에서 **WMS 모양으로 묻고 고르게**(Keep theirs / Use mine / Recount)로 바꿨기 때문 · §13-f 「동시 편집」
 ```
 📌 위 「되돌리기 · seq 의 범위 · 잠금」 셋은 suppliers.html 초안이 놓쳤고 검토(Claude Code · 2026-09-15 저녁)에서 잡힌 실제 버그다 — 코드를 읽어야 보이는 종류라 여기 남긴다.
 ⭐ [2026-09-16 오후 · po.html 만들기·편집에서 · §13-e 실사고]
@@ -2331,7 +2340,7 @@ families 13,898 → 9,151 → 9,283 · supplier-products 13,759 → 8,598 → 8,
 **3-k. ⭐ 구매 문서 탭 — 헤더 바로 아래 한 줄 (2026-09-17 · asung-ims 9dcee4d · db4841e)**
 [Caleb] 「payments·charges·invoices 로 넘어가면 PO 로 돌아갈 방법이 다시 메뉴를 클릭하는 것뿐이라 불편하다. PO 와 관련된 메뉴를 한 곳에 모을 수 있을까 — 탭으로」
 ```
-묶는 것          **구매 문서 넷** — Purchase Orders · Invoices · Charges · Payments (입고가 서면 그때 더한다)
+묶는 것          **구매 문서 넷** — Purchase Orders · Invoices · Charges · Payments ~~(입고가 서면 그때 더한다)~~ → ✅ [2026-09-18] **Receiving 이 다섯째** · 모드는 **ims**(PO 갈래의 사무 화면 · 3-l)
 ❌ 묶지 않는 것    Settings · Suppliers · Products · Families · Supplier Products · Staff · Home — [Caleb] 마스터는 어쩌다 한 번 열지만 이 넷은 하루에도 여러 번 오간다. 전부 묶으면 성격이 다른 아홉이 한 줄에 선다
 자리             헤더 **바로 아래** 한 줄 · 모든 화면에서 같은 자리(넓은 목록 위가 아니다 — 상세를 볼 때 안 보이면 자리가 흔들린다) · 넷에 속하지 않는 화면에서는 그리지 않는다 · 현재 화면은 .cur + aria-current 로 눌리지 않는다 · 그냥 링크(SPA 아님)
 ⭐ 출처는 하나     ims-auth.js items 배열 — ~~넷째 칸 'purchase'~~ → [09-17 밤 · 3-l] **다섯 칸 [이름, 주소, 화면값, 모드, 탭에 서나]** · 메뉴와 탭이 같은 배열에서 나온다 · 화면을 더할 때 고칠 자리가 한 줄 · 권한은 access.screens[화면값] 이 null 이 아니면('read' 도 보인다)
@@ -2351,7 +2360,11 @@ sticky 아님      헤더(sticky · top:0)만 남고 탭은 함께 스크롤된�
 옵션               requireScreen:'purchasing'(옛 이름 requirePerm 도 같은 뜻 · 값 어휘는 새 것) · requireManager(worker 만 막는다 — supervisor 통과) · ⚠️ 2026-09-17 현재 어느 화면도 둘을 쓰지 않는다(grep 0 · 전부 {changePw:true})
 items 다섯 칸      [이름, 주소, 화면값(null=로그인만), 모드('ims'|'wms'|null=둘 다), 탭에 서나(true)] — 메뉴·탭이 이 하나에서 나온다 · 노출 = screens[화면값] 이 null 이 아니면
                   ⭐ 모드와 탭 플래그가 **둘 다** 필요하다 — 모드는 「어느 방」, 탭은 「자주 가는가」(구매 넷만 · 마스터는 어쩌다 열어 메뉴에만) — 다른 물음이다. 탭 그룹 하나로 대체하면 ims 아홉이 한 줄에 선다
-                  ⬜ 리시빙이 서면 ["Receiving","receiving.html","receiving","wms",true] 한 줄 — 그 순간 WMS 모드가 탭 줄에 나타난다
+                  ~~⬜ 리시빙이 서면 ["Receiving","receiving.html","receiving","wms",true] 한 줄 — 그 순간 WMS 모드가 탭 줄에 나타난다~~
+                  → ✅ [2026-09-18 · `20260918165934` · ims-auth.js] **["Receiving","receiving.html","receiving","ims",true]** — [Caleb] 「지금 세우는 것은 IMS PO 옆에 인보이스·비용과 같이 있는 리시빙이다. 그러니 IMS 가 맞다」 · 카탈로그 receiving.room 도 wms → **ims**
+                  ⚠️ 카탈로그 room 과 items 넷째 칸은 **같은 사실을 두 곳에 적는다** — 화면이 room 을 읽지 않아 어긋나도 깨지지 않지만 조용히 간다 ⇒ 함께 고친다
+                  ⚠️ room 을 ims 로 옮기면 **worker 기본이 안 열린다**(ims_can_view/write 의 worker 기본은 room='wms' 화면) — perms 에 'receiving' 을 줘야 한다. 지금은 그것이 맞다 — 창고 사람 기본은 나중 WMS 창고 화면 몫 · 그 화면은 ["…","…","receiving","wms",true] 로 따로 선다(⚠️ 화면 값 하나에 방 하나 — 그때 값을 따로 둘지 정한다 · §13-f)
+                  ⚠️ 부수효과: wms 방에 화면이 0 이라 탭 줄에 WMS 모드는 아무에게도 안 그려진다(설계대로 · vis.some) · 탭 다섯은 폰 폭(≈400px)에서 넘친다(짐작 · .ims-tabs 에 overflow-x 없음 · §13-f 그대로)
 탭 줄 = 모드 + 탭   [Caleb] 탭 줄 왼쪽 끝에 모드(IMS · WMS) · 구분선 · 그 뒤 그 모드의 탭 — 한 줄(줄이 셋이 되면 화면이 밀린다 · 헤더 안 작게도 기각) · --ims-tabs-h 그대로(po.html 이 빼 쓴다)
                   ⚠️ 모드 부분은 **들어갈 수 있고 보이는 화면이 있는 모드가 둘 이상**일 때만 그린다 — 화면이 하나도 없는 모드는 안 그린다(WMS 는 리시빙 전까지 아무에게도 · admin 도) · 모드가 하나뿐인 사람(창고 직원)도 안 그린다
                   ⚠️ 모드를 누르면 그 모드의 **첫 보이는 화면**으로(마지막 화면 기억 없음 — 저장할 곳이 필요해진다 · WMS 규칙 5 와 같은 결) · 탭 줄이 죽어도 메뉴는 산다(try/catch)
@@ -2512,7 +2525,17 @@ b 가 또 갈라지면 c(받은 쪽) · d(남은 쪽). 규칙이 반복되고 �
 ~~⬜ 갈라진 문서끼리의 연결 칸(바로 앞을 가리키나 · 맨 처음을 가리키나 · 둘 다)은 표 설계 때 정한다 — 오늘 미결.~~
 → [2026-09-16 닫힘 · Caleb] ⭐ **`split_from_id` → 바로 앞 문서.** 「PO-12345 가 모체고 바로 직전 알파벳에서 갈라진 것이니 바로 앞을 가리킨다」 — c→b→a 사슬로 갈라진 순서가 그대로 보인다. ⚠️ 「맨 처음을 가리키는 칸」은 두지 않는다 — 한 번에 모으는 것은 **번호 접두어로 찾는다**.
 ```
-→ **표(2026-09-16 · §13)** 채번은 시퀀스 `po_number_seq`(2000 부터) + `po_next_number()` 를 `po.po_number` 기본값으로 — 동시 생성에서 겹치지 않고 PostgREST insert 만으로 번호가 붙는다. ⚠️ 시퀀스는 롤백돼도 되돌리지 않는다 — **빈 번호가 생긴다.** 허용한다(「PO-12345 는 우리 번호일 뿐」). ⚠️ authenticated 에 시퀀스 USAGE 가 필요하다(기본값은 insert 하는 역할로 실행된다). 접미사는 분할 함수(⬜ 다음 차수)가 붙인다.
+→ **표(2026-09-16 · §13)** 채번은 시퀀스 `po_number_seq`(2000 부터) + `po_next_number()` 를 `po.po_number` 기본값으로 — 동시 생성에서 겹치지 않고 PostgREST insert 만으로 번호가 붙는다. ⚠️ 시퀀스는 롤백돼도 되돌리지 않는다 — **빈 번호가 생긴다.** 허용한다(「PO-12345 는 우리 번호일 뿐」). ⚠️ authenticated 에 시퀀스 USAGE 가 필요하다(기본값은 insert 하는 역할로 실행된다). 접미사는 분할 함수~~(⬜ 다음 차수)~~ → ✅ 아래 가 붙인다.
+→ **분할 함수(2026-09-18 · `20260918203805` po_receipt_confirm ⓒ · 커밋 0f50a7e · §13-i)** — 확정 RPC 안에서 라인 하나라도 남으면 갈라진다(판정은 라인마다).
+```
+번호        ⭐ **알파벳을 잇는다** — base(접미사를 뗀 번호)의 접미사 최댓값 다음 두 글자 · 없으면 a(받은 쪽)·b(남은 쪽) · 'b' 가 또 덜 받으면 c·d · 실물 조회(칸 없음 · 잠금 'po:'||base 로 형제 채번을 줄 세운다) · **y 이상이면 거부**(두 글자 접미사는 만들지 않는다)
+라인 셋      다 받은 라인은 a 에 그대로 · **일부 받은 라인은 a 를 받은 만큼으로 줄이고 b 에 나머지 줄 신설**(line_no 같게 — 원장 line_ref 가 흔들리지 않는다) · ⭐ **하나도 안 온 라인은 지우지 않고 행을 b 로 옮긴다**(update po_id) — 인보이스 줄이 그 라인을 가리킬 수 있고 「인보이스가 먼저 온다」가 실무 · 한 인보이스가 a·b 에 걸치는 것은 11-g 가 허용
+딸린 것      할인 줄(po_discount)은 b 에 **복사**(2026-09-16 Caleb 이 PO-02001b 에 손으로 한 것과 같다) · 비용 배분(po_charge_alloc.po_id)과 크레딧 채번 축(credit_po_id)은 **a 에 남는다**(문서에 붙는 것 · 11-b) · po(id) 를 가리키는 FK 는 넷뿐(grep)
+b 의 머리    a 의 머리를 통째로 복사(칸이 늘어도 따라온다) · split_from_id = a · status confirmed · ⭐ **confirmed_at/by · created_by 를 물려받는다**(같은 확정의 나머지다 · po_list order_phase 가 confirmed_at 을 본다) · 닫힘·취소 흔적 없음 · created_at 만 지금
+「닫는다」    실물은 **po.status = 'closed' + closed_at**(11-b 「closed = 입고 종료」) · ⚠️ closed_by 칸은 없다(§13-f) · 다 받았으면(초과만이어도) 갈라지지 않고 닫힌다
+⚠️ entered_* 줄인 a 라인과 신설 b 라인에서 입력 단위 셋(entered_unit_product_id · entered_qty · entered_pack_factor)을 **비운다** — 「사람이 넣은 수 × 계수 = qty_ea」 검산이 더는 맞지 않는다 · warnings entered_units_cleared 에 라인 번호 · 옮긴 행은 그대로
+⚠️⚠️ 크레딧  채번이 PO 번호 **접두어**를 읽는다(CN-<po_number>) — 확정 전에 크레딧이 났다면 PO-02011 → PO-02011a 뒤 접두어가 안 맞아 첫째 번호가 다시 난다. 실무는 크레딧이 입고 뒤라 드물다 · 고치지 않았다(§13-f)
+```
 
 ### ⭐⭐ 크레딧 번호 — 우리가 붙인다 (2026-09-16 저녁 신설 · `20260916210000` · 커밋 `0b4a6aa`)
 
@@ -2657,6 +2680,7 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
      📌 무게·부피가 더 정확하지만 우리는 그 값을 갖고 있지 않다(제품 치수 넷 전량 0 · Weight 만 값 — §3-d 「담지 않는 것」).
         열어 두면 나중에 무게가 생겨도 구조를 안 바꾼다
   ② PO → 라인들          11-e 와 **같은 규칙**(금액 비례 · 잔돈은 가장 큰 줄 · 동점은 SKU 순)
+  ⭐ [2026-09-18] 발주가 갈라져도(11-c) 배분은 **a 에 남는다** — po_charge_alloc.po_id 는 확정 순간의 문서 · b 로 나누지 않는다(비용은 문서에 붙고 닫힌 문서에도 붙는다 · 11-b)
   ⭐ [2026-09-16 추가] ① 청구서 → PO 들 에도 **잔돈 규칙이 필요하다** — 금액 비례 · 잔돈은 금액이 가장 큰 발주 · ⚠️ 동점은 **발주번호 순**(발주 단위엔 SKU 가 없다 — 11-e 를 그대로 옮기며 놓친 것).
      [실측 · Caleb 2026-09-16 · SQL] CBSA 2,547.37 을 두 발주에 597.49(23.5%) + 1,949.88(76.5%) 로 나눈 것은 **우연히 맞았다.** 발주가 셋 이상이거나 비율이 나쁘면 센트가 남는다. 적어 두지 않으면 화면마다 다르게 구현한다.
 
@@ -2859,9 +2883,40 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
 차이 큐    전부 큐에 쌓인다 · ⭐ **자동 조정은 하지 않는다 — 사람 판단 유지**(WMS 에서 확립된 정책)
 ⭐ 보정 경로가 짧아진다 — 지금은 매니저가 **Cin7 에 가서** 손으로 고친다. IMS 에 재고조정 모듈이 서면 그 왕복이 사라진다.
 ```
-→ **표(2026-09-16 · §13)** ⭐⭐ `po_receipt_line` 이 **따로 선다** — 어느 라인을 · 언제(received_on = 원장 occurred_on) · 누가(→ ims_staff.id) · 어느 빈에(→ ref_bin.id · 창고는 bin 에서 따라온다) · 몇 개. 한 라인이 **여러 빈**으로 나뉜다([Caleb 실측] 「가능하면 한 SKU 는 한 빈에」지만 부득이한 경우가 있다 · [실측 SQL] 600개를 A010101 400 · A010102 200 으로 나눠 넣었다).
+→ **표(2026-09-16 · §13)** ⭐⭐ `po_receipt_line` 이 **따로 선다** — 어느 라인을 · 언제(received_on = 원장 occurred_on) · 누가(→ ims_staff.id) · 어느 빈에(→ ref_bin.id · 창고는 bin 에서 따라온다) · 몇 개. 한 라인이 **여러 빈**으로 나뉜다([Caleb 실측] 「가능하면 한 SKU 는 한 빈에」지만 부득이한 경우가 있다 · [실측 SQL] 600개를 A010101 400 · A010102 200 으로 나눠 넣었다). ~~입고 줄 하나로 설계했다~~ → ⭐⭐ [2026-09-18] **표 셋 · 두 단계**(아래 「→ 표 셋」) — 이 문단의 po_receipt_line 은 그중 「확정된 사실」이다.
 ⚠️ `po_line` 에 received_qty 를 **두지 않는다** — 두 곳에 적히면 어긋난다. 입고 줄 합으로 낸다([실측 · Caleb] 합으로 냈는데 문제없다). ⭐ 입고 줄 하나 = 원장 사건 하나(11-j).
-⚠️⚠️ **초과분은 입고 줄에 그대로 적히되 사건은 PO 확정 수량까지만** ⇒ **원장 합 ≠ 입고 줄 합.** 설계대로다 — 대조하다 버그로 오해하지 마라. 차이 = 입고 줄 합 − qty_ea 로 계산. ⬜ 차이 큐 표는 재고조정 모듈 때(WMS `wms_discrepancies` 선례 · 받을 곳이 서면).
+⚠️⚠️ **초과분은 입고 줄에 그대로 적히되 사건은 PO 확정 수량까지만** ⇒ **원장 합 ≠ 입고 줄 합.** 설계대로다 — 대조하다 버그로 오해하지 마라. 차이 = 입고 줄 합 − qty_ea 로 계산. ~~⬜ 차이 큐 표는 재고조정 모듈 때(WMS `wms_discrepancies` 선례 · 받을 곳이 서면).~~ → ✅ [2026-09-18] **차이 큐는 리시빙에 섰다**(po_receipt_diff · 아래) — 「받을 곳」이 재고조정이 아니라 **확정하는 순간**이었다(Caleb · short 를 담는 이유 아래).
+
+→ **표 셋 · 두 단계 · RPC 열(2026-09-18 · `20260918161537`·`163552`·`173042`·`174428`·`203805` · 커밋 f288ee8 → 0f50a7e · §13-i)**
+```
+⭐ 두 단계 관행   [Caleb] ① 검수(인보이스대로 왔는지 센다 · **빈을 모른다**) → ② 풋어웨이(자리에 갖다 놓는다) — 사람도 시점도 다르다 · WMS 도 Cin7 도 같다
+                ⇒ po_receipt_line 하나로는 못 담는다(bin_id NOT NULL 이라 ①단계의 줄이 들어갈 자리가 없다)
+⭐ 표 셋         po_receipt        묶음 — 어느 PO(갈라진 뒤의 문서) · 받는 창고 · 받은 날(received_on = 원장 occurred_on 의 근거) · RCV-00001 번호(시퀀스) · draft|confirmed|cancelled · created/confirmed/cancelled_by
+                po_receipt_work   작업 줄 — 라인별 센 수량(낱개 · >0) · bin_id 는 나중(nullable) · putaway_done · count_method(scanned|manual) · ⭐ 축 칸 넷 counted_by/at · putaway_by/at(WMS 축 분리 승계 — Place all 이 「누가 세었나」를 덮지 못하게) · unique (receipt_id, po_line_id, bin_id)
+                po_receipt_line   확정된 사실(이미 있었다) — receipt_id 를 더했다(⚠️ nullable · 09-16 검증 데이터가 묶음 없이 있다 · ⬜ 백필 뒤 not null §13-f) · 쓰는 길은 **확정 RPC 하나**(관례 · 정책은 열려 있다)
+                po_receipt_diff   차이 큐 — 아래
+⭐ 한 줄 = 한 빈   나누려면 **줄을 쪼갠다**(po_receipt_work_split · 쪼개기는 풋어웨이의 일 · ⭐ 새 줄에 빈을 함께 받는다 — 빈 없이 쪼갤 이유가 없고 빈 없는 줄이 둘 생기는 길이 막힌다) · 확정이 1:1 이 된다(작업 줄 하나 → 입고 줄 하나 · bin·qty 그대로 복사)
+⭐ 빈 없는 줄     = 그 라인의 **「미배정 나머지」**(센 총량 − 빈 붙은 줄들의 합) · 라인당 하나 · 0 이면 없다 · 세는 함수(work_save)는 라인의 **낱개 총량**을 받아 그 줄만 만들고 고친다(총량 < 배정 합이면 거부 — 빈 줄을 먼저 줄여라 · 자동으로 깎지 않는다)
+                ⚠️ 부분 유니크 금지(규칙 29)라 DB 는 (receipt_id, po_line_id, bin_id) 만 건다(null 은 서로 다르다) — 「하나」는 RPC 가 지킨다 · 「PO 당 열린(draft) 입고 하나」도 만들기 RPC 가 막는다(문장에 그 번호 「already has an open receipt (RCV-00003)」)
+⭐ 병합          같은 라인·같은 빈을 만나면 **합친다** — 예외가 아니다 · split · putaway · unassign 셋이 같은 태도(합쳐진 줄의 putaway_by/at 은 덮인다 — 줄은 상태 행이고 사건 기록이 아니다)
+⭐ 합 불변        라인 총량 = 줄들의 합 · 쪼개기·병합·되돌리기는 합을 안 바꾼다 · unassign 은 쓰기 **전후로 실제로 잰다**(다르면 전부 되돌린다) · 되돌리기 = 빈을 지우고 미배정으로(이미 빈 없는 줄이 있으면 거기에 합친다 · [Caleb] 「되돌린다면서 빈이 남아 있으면 되돌린 게 아니다」)
+⭐ 놓인 것        이 화면(사무 화면)은 **빈을 고르는 순간 놓인 것**(putaway_done = true · split 도 같은 길 `174428`) — 「자리를 정했다」와 「갖다 놨다」가 갈릴 이유가 없다 · p_done=false 가지(putaway · putaway_all)는 나중 WMS 창고 화면 몫 · 그 가지가 이제 「빈은 있는데 안 놓인 줄」을 만드는 유일한 길
+⭐ 기준 하나      **PO 확정 수량**(po_line.qty_ea − 이전에 확정된 입고 합 = remaining) · 확정된 인보이스 goods 합은 **표시만 · 아무것도 결정하지 않는다**(detail.lines[].invoiced)
+                ⚠️ WMS 는 2026-08-05 에 기준을 인보이스로 바꿨었다(가짜 차이 때문 · 규칙 20) — IMS 는 PO 기준으로 돌아오되 인보이스를 나란히 보여 사람이 이유를 읽게 한다
+⭐⭐ 확정 게이트   **빈 없는 줄이 하나라도 있으면 거부**(Caleb · po_receipt_line.bin_id NOT NULL · 「빈이 정해진 뒤 입고가 확정된다」) · 거부 문장이 **빠져나갈 길을 함께** 말한다 — 「… still have no bin: line 3 (SKU) 5 EA. Put them away first, or lower the count to what you actually placed — the rest stays on the order — nothing was saved」
+                그 밖에 막는 것 다섯: 이미 확정·취소 · PO 가 confirmed 아님(잠금 뒤 다시 본다 — 그 사이 닫혔을 수 있다) · 작업 줄 없음 · 빈이 그 사이 비활성·다른 창고 · 남이 사이에 확정
+⭐ 확정이 하는 일  ⓐ 작업 줄 → po_receipt_line 1:1(received_on 은 묶음의 것 · ⭐ **received_by = 놓은 사람 → 없으면 센 사람 → 없으면 확정한 사람** · 확정한 사람은 po_receipt.confirmed_by · **초과분도 입고 줄에 그대로** · 줄을 깎지 않는다)
+                ⓑ 차이 큐(기준은 갈라지기 **전** 문서의 수량 — 그래서 ⓒ 앞) ⓒ 자동 분할 또는 닫기(11-c) ⓓ 묶음 confirmed(맨 뒤 — 어디서 터져도 아무것도 안 남는다) · 잠금은 PO(base)+라인 둘
+                ⚠️⚠️ **사건은 안 나간다 · 훅도 없다** — 원장 이식 차수가 po_receipt_line 을 읽는다(11-j) · 초과는 발주 라인을 늘리지 않는다(원장이 기준까지 자른다 · 차이 큐 over 가 그 근거)
+⭐ 차이 큐        po_receipt_diff — kind **over · short · off_po** · expected_qty(기준) · received_qty · resolved_by/at · unique (receipt_id, po_line_id) · 열린 것 = resolved_at is null(뷰 po_receipt_diff_list · 부분 인덱스 없음)
+                ⭐ short 를 담는 이유(Caleb) — **분할은 남은 수량을 옮길 뿐 「왜 덜 왔나」를 아무도 안 본다.** 넷이 섞여 있고 분할은 구별하지 못한다: 공급사가 나눠 보냈다(다음 배에 온다) · 결품(PO 를 닫아야 한다) · 운송 중 분실·파손(크레딧) · 우리가 잘못 셌다(다시 세야 한다)
+                ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」
+                ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)
+⭐ Last bin       **ims_last_bin(uuid[], uuid) → jsonb 하나 뒤에** 있다 — 지금 속은 po_receipt_line(product 는 po_line · warehouse 는 ref_bin · received_on desc, created_at desc) · 나중 속은 원장(출고·조정·이동까지 「지금 있는 자리 → 없으면 마지막 자리」) · **부르는 쪽(화면·RPC)은 안 고친다**
+                ⚠️ wms_sku_bins(Cin7 스냅샷)는 읽지 않는다(원칙 1) · 시드하지 않는다(컷오버 때 채워진다 · 초기에는 거의 비어 있다) · 화면이 po_receipt_line 을 직접 조회해 라스트 빈을 만들지 마라
+⭐ 계산은 DB 에만  po_receipt_detail 이 정본 — lines[] 는 PO 라인 전부(안 센 라인도 · 「센 것만 줄」이라 안 센 라인은 여기서 그린다) · ordered · invoiced · received_before · received_here · remaining · counted · allocated · unallocated · placed · over · work[] · receipt_lines[] · diffs[] · totals · warnings · 목록은 뷰 po_receipt_list · 화면은 저장 뒤 detail 을 되읽는다
+⚠️ 환산          work_save 는 **낱개 총량**을 받는다 — 팩→낱개 환산 RPC 는 없다(화면이 곱하면 「계산은 DB」를 어긴다 · p_entered_qty·p_unit_product_id 로 DB 가 곱하는 안 · §13-f)
+```
 
 ### 11-j. ⭐⭐ 내보내는 사건 — PO 는 원장을 직접 부르지 않는다
 ```
@@ -2882,6 +2937,7 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
               (doc_type, doc_number, line_ref, event_type, warehouse, bin, sku) 일곱(`inv_ledger_event_uq`). 줄 번호 하나가 열쇠가 아니다.
 ⭐ SO · 재고조정 · 트랜스퍼도 **같은 모양**을 따른다. 이 모양이 원장 이식(§12)의 입력 명세가 된다.
 ⬜ 사건을 실제로 어떻게 전달하는가(표 · 트리거 · EF)는 ~~표 설계 때 정한다~~ → [2026-09-16 합의 · Caleb] **원장을 IMS 로 옮길 때 잇는다.** 받을 곳이 없는데 보내는 쪽만 만들면 그 모양이 맞는지 확인할 방법이 없다. 입고 줄(`po_receipt_line`)에 원장이 필요로 하는 것이 다 있다 — 날짜 · SKU(po_line.product_id) · 창고/빈(ref_bin) · 수량 · 문서 번호(갈라진 뒤) · 줄 번호(line_no). ⬜ 유지 — 사건 표·트리거·아웃박스는 만들지 않았다.
+⭐ [2026-09-18 · `20260918203805`] 확정 RPC(po_receipt_confirm)도 **사건을 내보내지 않는다 · 빈 훅도 두지 않았다**(안 도는 코드가 남는다) — po_receipt_line 에 receipt_id 가 더해져 묶음(받은 날·창고·확정한 사람)까지 잇는다 · 초과분은 줄에 그대로이니 「기준까지만」은 원장 쪽이 po_receipt_diff(over)를 보고 자른다 · 방향(원장이 po_receipt_line 을 읽는다)은 맞다고 판단(2-b 이견 7).
 ```
 
 ### 11-k. ⭐ 제품 생성 — 지금 규칙이 필요한 유일한 것 (§10-k 의 예외)
@@ -3004,7 +3060,7 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 ⚠️ §11 은 판단의 기록이고 이 절은 **그 판단이 표가 된 실물**이다. 칸·제약·근거의 정본은 마이그레이션 파일의 주석이다 — 여기는 목록·검증·규약만.
 지시서 `~/asung/prompts/po-tables-1.md` · `po-tables-2.md` · `po-tables-doc.md` · 검토 이견은 각 파일 머리에.
 
-### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2)
+### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6
 ```
 ①차 20260916144201_po.sql (226행)                        커밋 8a27edd  10:49
    po               발주 머리   po_number(PO-02000~ · 시퀀스 기본값) · status 넷 · supplier · currency/exchange_rate · payment_term(FK+원문) · ship_to_warehouse · split_from_id(바로 앞) · created/confirmed_by → ims_staff
@@ -3042,6 +3098,14 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
            ⑤ 등급     20260918020000_ims_role_hierarchy.sql (152행)           커밋 7ba12b4        ims_role_rank · ims_can_manage · can_view/write 의 staff 특례 제거 · ims_staff 정책 둘 = staff 쓰기 + 아래 등급(트리거·RPC 없이) · EF ims-staff-create 도(963fadd)
            ⑤ 라벨     20260918023000_ims_perm_catalog_staff_label.sql (25행)  커밋 c034a6f        staff 라벨 「Adding and editing people (below your own rank)」 · ⚠️ 020000 §4 도 같은 함수를 한 번 고쳤다(중복 · 뒤 파일이 이긴다)
            ④ 화면     asung-ims 9f8ed27(ims-auth.js · ims-ui.css) · staff.html ff36b20 → 6085092 → 29fd003 → 87e0118        ims_access() 한 번 · 모드 탭 줄 · items 다섯 칸 · 등급으로 폼
+[2026-09-18] 리시빙 일곱 — 표 +3 · 뷰 +2 · 함수 +11(+ detail·split 다시 냄) · 칸 +29(updated_by) +1(po_receipt_line.receipt_id) (§13-i · 머리 주석에 근거)
+           동시 편집 바닥 20260918133858_ims_updated_by.sql (121행)         커밋 f288ee8 12:25   ims_touch() · IMS 표 29 에 updated_by + <표>_updated_by_idx · <표>_set_updated_at drop → <표>_touch(§5) · RPC 무접촉
+           1번 표 셋   20260918161537_po_receipt_tables.sql (198행)        커밋 f288ee8 12:25   po_receipt · po_receipt_work · po_receipt_line.receipt_id(nullable) · po_receipt_next_number(RCV-) · ⭐ ims_last_bin(uuid[], uuid) · 정책 8 · touch 트리거
+           2-a RPC    20260918163552_po_receipt_rpc.sql (641행)            커밋 38527e7 12:49   po_receipt_bin_check · _create · _work_save · _work_split · _work_putaway · _work_putaway_all(WMS Place all) · _work_delete · _delete · RPC po_receipt_detail(⭐ 계산의 정본) · 뷰 po_receipt_list · 권고 잠금(PO·라인)
+           탭·room    20260918165934_ims_perm_catalog_receiving_room.sql (35행) 커밋 9f58d40 13:10   receiving.room wms → ims(§10-j 3-l · ⚠️ worker 기본이 안 열린다) · asung-ims ims-auth.js items 다섯째
+           되돌리기   20260918173042_po_receipt_work_unassign.sql (115행)   커밋 e1c7115 13:40   po_receipt_work_unassign — 빈을 지우고 미배정으로 · 빈 없는 줄이 있으면 병합 · 합 불변을 잰다
+           놓인 것    20260918174428_po_receipt_work_split_placed.sql (102행) 커밋 b2adcb5 13:49   split 다시 냄(create or replace) — 새 줄·합쳐진 줄 putaway_done = true · 기존 false 줄 데이터 수정(notice)
+           2-b 확정   20260918203805_po_receipt_confirm.sql (446행)          커밋 0f50a7e 16:50   ⭐⭐ po_receipt_diff(표·뷰 po_receipt_diff_list) · po_receipt_confirm(security definer · 입고 줄 · 차이 · 자동 분할 · 닫기) · detail 다시 냄(receipt_lines · diffs · received_here · split 정보)
 ```
 ⭐ [2026-09-17] 파일 넷 · 커밋 넷이 더 섰다(위 네 줄) — 표는 그대로 열하나 · 칸은 cancelled_by 셋만 늘었다. 화면은 asung-ims 에 charges.html · payments.html 신설 + po.html·invoices.html 손질 + 공통 CSS(af06c61) + 구매 탭(9dcee4d · db4841e).
 전부 **거래** ⇒ 컷오버 때 지운다(§11-⓪). 규약은 §5 「거래 표의 규약 예외」. ~~⚠️ 확정 문서는 DB 가 보호하지 않는다(트리거 없음 · ⬜ 분할 함수 차수).~~ → [2026-09-16 오후] 확정은 잠금이 아니다(§11-b) · 막는 둘은 po_line_update/delete 가 본다(13-d).
@@ -3102,6 +3166,17 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
       po_lines_paste(po, [{sku,qty}], commit)        → {summary, lines[]}          판정 여섯(11-d) · 미리 보기 = 같은 모양 · 500줄은 판정(too_many) · closed/cancelled 는 예외
       po_line_update(line, patch) · po_line_delete(line)                            막는 둘(11-b) · 입고·인보이스가 붙은 줄 삭제 거부 · 갱신된 행을 돌려준다
       ⚠️ 이 파일 머리 주석은 「확정 = 공급처에 보냈다」로 한 판 앞이다 — 그 뒤 대화에서 「수량·라인이 정해졌다」로 한 번 더 바뀌었다(11-b). 마이그레이션은 고치지 않는다
+리시빙 [2026-09-18 · §11-i · §13-i]  쓰기 아홉 · 읽기 셋 — 전부 첫머리 ims_require_write('receiving', …) + update/delete 뒤 row_count(§5 ②) · 이름 서브쿼리는 별칭 · 계산은 DB 에만
+      po_receipt_create(po, received_on?, warehouse?)      → {id, receipt_number, status:'draft', warehouse, warnings}   confirmed PO 만 · PO 당 draft 하나(번호를 문장에) · 창고 = po.ship_to → 인자 · created_by 서버 유도 · 잠금 po_receipt:<po>
+      po_receipt_work_save(receipt, po_line, qty_ea, method?)  → {counted, allocated, unallocated, work_id, action}      ⭐ 라인의 낱개 총량 · 빈 없는 줄 = 나머지 하나(만들고·고치고·0 이면 지운다) · 총량 < 배정 합이면 거부 · 잠금 po_receipt_work:<receipt>:<line>
+      po_receipt_work_split(work, qty_ea, bin)             → {from, to{merged}, line_total}                             원래 줄에서 빼고 빈을 함께 받은 새 줄(putaway_done true) · 같은 빈 줄이 있으면 병합 · 원래 수량 이상은 거부 · 읽은 수량 그대로일 때만
+      po_receipt_work_putaway(work, bin, done=true)        → {work_id, bin, putaway_done, merged_into}                  빈은 po_receipt_bin_check(그 입고의 창고 · 활성) · 같은 빈 줄이 있으면 합치고 이 줄을 지운다
+      po_receipt_work_putaway_all(receipt, bin, done=true) → {rows_changed}                                              WMS Place all 승계 · 이미 그 상태인 줄은 안 건드린다(0 은 거짓말 아님)
+      po_receipt_work_unassign(work)                       → {work_id, removed_work_id, merged_into, qty_after, line_total, action}   빈·놓았나·넣은 사람을 되돌린다 · 빈 없는 줄이 있으면 병합 · 이미 빈 없으면 unchanged · 합 불변을 잰다
+      po_receipt_work_delete(work) · po_receipt_delete(receipt)   → {deleted, line_total} · {deleted, work_rows_deleted}   draft 만 · 묶음 삭제 축은 confirmed_at(세 문서와 같은 문장) · po_receipt_line 이 가리키면 이름으로 거부
+      ⭐⭐ po_receipt_confirm(receipt)                      → {po{number_before, number_after, status}, split|null, diffs{over, short, rows}, receipt_lines_created, warnings}   §11-i 확정 게이트 · ⚠️ security definer(§5 예외 하나)
+      읽기  po_receipt_detail(receipt) → jsonb(⭐ 계산의 정본) · 뷰 po_receipt_list · po_receipt_diff_list · ims_last_bin(product_ids[], warehouse) → jsonb 맵
+      ⚠️ 검증은 RCV-00005(PO-02011)로 rollback 안에서 — po_receipt_create 를 부르면 「already has an open receipt」로 거부된다(앞 검증이 여기서 어긋나 뒤가 전부 깨졌다) · RCV 시퀀스는 rollback 으로 안 돌아간다
 화면  asung-ims po.html                                                                    36c1fc2 12:59 읽기 → 4ae86d6 13:56 크레딧(credit due) → 0e23369 14:35 만들기·편집 → 609297c 14:38 오류 삼킴 수정 → d376907 14:45 TDZ 수정
       읽기: 왼쪽 목록(po_list) + 오른�록 상세(po_detail) · 카드 일곱 + 크레딧 · 갈라진 문서 이동은 모체 번호를 검색칸에(§11-c · §10-j 3-d)
       쓰기: + New purchase order(공급처 → po_create) · Paste lines(미리 보기 → 넣기) · 라인 수량·단가를 표 안에서 바로 고친다(50줄을 하나씩 눌러 들어가면 느리다 · Caleb) · 삭제 · Confirm · Cancel
@@ -3194,6 +3269,26 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 → [2026-09-17] RPC 열이 늘었다 — po_invoice_create 에 p_line_qty(11-g) · po_doc_cancel/delete(11-b) · po_charge_*(11-f) · po_payment_*(11-h). 「confirmed 머리 잠금」은 인보이스·비용·결제 셋을 한 차수로(§13-f).
 ```
 
+### 13-i. ⭐⭐ 리시빙 — 방향 전환 · 표 셋 · RPC 열 · 동시 편집 바닥 (2026-09-18 · 마이그레이션 일곱 `20260918133858`~`203805` · 커밋 f288ee8 → 0f50a7e · 화면 receiving.html 은 대화 Claude)
+```
+⭐⭐ 방향이 바뀌었다   아침 계획은 WMS 리시빙을 IMS 로 **복사**해 오는 여섯 차수였다.
+   저녁 결론 [Caleb] **WMS 이관을 미루고 IMS 안에 리시빙을 먼저 세운다** — 「지금 세우는 것은 IMS PO 옆에 인보이스·비용과 같이 있는 리시빙이다」 · 「IMS 전체를 다 세우고 나서 운영 WMS 를 통째로 옮기면 더 쉽지 않겠나」
+   이유(조사가 밝혔다) — 반쯤 지어진 IMS 위에 완성된 화면을 얹으려니 **없는 것에 걸렸다.** 조사가 찾은 「1번 철칙에 걸리는 것」: 트랜스퍼 입고 · 기대치의 인보이스 기준 · 사람이 누르는 partial · 창고 접근 · 미지 bin 허용 · 상품 이미지(지시서는 「다섯」이라 했으나 나열은 여섯)
+   ⇒ IMS 가 다 서면 그 걸림이 전부 사라지고 WMS 이관은 **배선 작업**이 된다
+⭐⭐ 1번 철칙은 그대로   [Caleb] 「WMS 에서 현재 사용하는 기능과 관행이 깨지지 않아야 한다」 — 옮기지 않기로 한 것이지 버린 것이 아니다
+   조사 결론(칸 대조표 81칸 · 기능 대조표 49항목 — 전문은 2026-09-18 대화에만 · 여기는 결론만)
+     칸 81 중 「안 온다」 — WMS 만 있던 것: 기대치 스냅샷(expected_base — IMS 는 계산) · 인보이스 기준 칸 · 트랜스퍼 참조 · presence(held_by 계열 — 별 프로젝트) · 상품 이미지(product 에 칸 없음) · 미지 bin(Cin7 /ref/location 의 전 빈을 그대로 받던 것 — IMS 는 ref_bin 만)
+     기능 49 중 그대로 건너온 것: 두 단계(검수 → 풋어웨이) · 라인별 수량·빈 · Placed/Place all · Change bin · Last bin 제안 · 축 칸 넷(누가 세었나 · 누가 놓았나) · 스캔/수동 구별 · 「전 라인 표시」(안 센 라인은 detail 의 PO 라인으로 그린다) · 초과·부족은 차이 큐 · 사람 판단 유지
+     더해진 것(WMS 가 못 하던 것): 줄 쪼개기(한 라인을 두 빈에 · 실측 600 → 400 + 200) · 병합 · 되돌리기(빈까지 지운다) · 「누가 마지막에 고쳤나」(updated_by)
+     남은 것(WMS 이관 때): 같은 줄 동시 스캔의 병합(WMS 는 델타라 병합됨 · IMS 는 총량 저장 — 동시 편집 화면이 그 자리) · 창고 접근(ims_staff.warehouse_access 는 섰다 · 리시빙 RPC 가 아직 안 본다 · 짐작: ims_can_warehouse 로 잇는다) · 트랜스퍼
+   ⚠️ 트랜스퍼: IMS 에 트랜스퍼 문서가 없어 지금 리시빙은 **PO 만** 받는다. [Caleb] 「IMS 에 트랜스퍼가 서면 그것도 같이 가져온다 — 순서의 문제다」 · 컷오버 전 필수 · ⚠️ 그때 풀어야 할 자국: 지금 코드가 「PO 가 반드시 있다」를 전제로 쌓인다(po_receipt.po_id NOT NULL · work.po_line_id NOT NULL · 기준 = po_line.qty_ea)
+⭐ 오늘 선 것        표 셋 + 차이 큐(§11-i 「→ 표 셋」) · RPC 열 + 뷰 둘(§13-d 「리시빙」) · 분할 함수(§11-c 「→ 분할 함수」) · Receiving 탭 ims(§10-j 3-k·3-l) · 동시 편집 바닥(§5 트리거 · §10-j 3-i) · security definer 예외 하나(§5 권한 규약 ②)
+   순서(차수)         133858 바닥 → 161537 표 셋 → 163552 2-a RPC → 165934 탭·room → 173042 되돌리기 → 174428 놓인 것 → 203805 2-b 확정. 화면 receiving.html(815행 · 대화 Claude)은 detail 하나로 그린다(sb.rpc("po_receipt_detail") · grep)
+⭐ 실사고·발견        ① 이름 서브쿼리 별칭 없음 → null 두 번(§5 트리거 ⚠️) ② split 의 새 줄이 putaway_done=false 라 PLACED 0(`174428` 로 고침 · 2-a 의 두 길이 달랐다) ③ 검증에서 po_receipt_create 를 다시 불러 「already has an open receipt」로 뒤가 전부 깨짐 → RCV-00005 를 쓰고 rollback
+                    ④ pre-commit 훅(scripts/check-class-values.sh)이 po_receipt_diff 의 kind CHECK 를 wms_reports.kind 로 오해해 커밋을 막았다 — --no-verify 로 지나갔다(§13-f) ⑤ psql -f 로 적용하면 이력 표가 안 쌓여 db push 가 22개를 처음부터 밀다 멈췄다(피해 없음 · §13-f)
+⚠️ 정본과 어긋난 것    §13-f 「원래 주문 수량을 라인에 남긴다(200 / 원래 300)」는 오늘 분할이 **하지 않았다**(a 라인은 받은 만큼으로 줄고 entered_* 는 비운다 · 원래 수량은 갈라진 전 문서에서 접두어로 모아 본다) — 고치지 않고 보고(ims-doc-update-0918 ⬜1)
+```
+
 ### 13-f. ⬜ 다음 차수로 넘긴 것 (2026-09-16 오후 · 저녁 갱신 — 닫힌 것은 취소선 · → 어디서 닫혔나)
 ```
 ~~⭐⭐ 목록 화면 두 모드~~ → ✅ 13-g(e62d16a · po.html 54fefb0) · ~~⭐⭐ 국면 다섯~~ → ✅ 13-g(⚠️ 「confirmed 이상 초록」은 「확정됐으면 · 취소는 판정을 바꾸지 않는다」로 정정됐다) ·
@@ -3214,8 +3309,8 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ payments.html 만들기 창 재설계  [Caleb 2026-09-17] 「페이먼트가 뭐 이리 어려워」 — ⚠️ 순서가 거꾸로다: 돈 다섯 칸을 먼저 채우게 해 놓고 「무엇을 갚는가」가 맨 아래에 있다
                               ⇒ 문서 고르기를 맨 위로 · 고르기 전에는 돈 칸을 감춘다 · Check 를 없애고 Create 하나로(뒷단 미리 보기는 그대로 — 화면이 한 번에 부른다)
 ⬜ po.html .list .rows          `calc(100vh - 230px - var(--ims-tabs-h, 0px))` 로(3-k · 탭 높이만큼 넘친다) · main → `<main class="stack">` 두 화면(3-j 올리지 못한 둘)
-⬜ 입고 + 분할 함수            ⭐ **PO 는 자동으로 닫힌다**(사람이 누를 일이 없다 · Caleb): 받은 수량 = 주문 수량이면 닫고 · 덜 받았으면 갈라져 받은 쪽이 닫히고 남은 쪽이 새로 선다 · ⚠️ 「비용과 결제는 PO 가 닫히는 것과 무관하다」 ⇒ 닫기 조건에 넣지 마라 ·
-                              ⭐ 할인 줄(po_discount)은 갈라진 문서에 복사(검증에서 그렇게 했다) · ⭐ 원래 주문 수량을 라인에 남긴다(「200 / 원래 300」) · 잠금 트리거는 **없다**(11-b) · ⬜ **입고에서 바로 크레딧을 만드는 길**(「리시빙을 하면서 못 받은 것을 돌린다」 · 지금은 인보이스에서만)
+~~⬜ 입고 + 분할 함수            ⭐ **PO 는 자동으로 닫힌다**(사람이 누를 일이 없다 · Caleb): 받은 수량 = 주문 수량이면 닫고 · 덜 받았으면 갈라져 받은 쪽이 닫히고 남은 쪽이 새로 선다 · ⚠️ 「비용과 결제는 PO 가 닫히는 것과 무관하다」 ⇒ 닫기 조건에 넣지 마라 ·~~ → ✅ [2026-09-18] `20260918203805` po_receipt_confirm(§11-i · §11-c · §13-i)
+                              ~~⭐ 할인 줄(po_discount)은 갈라진 문서에 복사(검증에서 그렇게 했다)~~ → ✅ 복사한다 · ⚠️⚠️ **⭐ 원래 주문 수량을 라인에 남긴다(「200 / 원래 300」)** — 오늘 분할은 **하지 않았다**(a 라인은 받은 만큼으로 줄고 entered_* 는 비운다 · 「원래」는 갈라진 전 문서를 접두어로 모아 본다) · 정본 문장과 부딪힌다 — 고치지 않고 보고(⬜ Caleb 판정) · 잠금 트리거는 **없다**(11-b) · ⬜ **입고에서 바로 크레딧을 만드는 길**(「리시빙을 하면서 못 받은 것을 돌린다」 · 지금은 인보이스에서만)
 ⬜ 주석을 영어로               [Caleb] 「한국어가 안 되는 직원들을 위해 다 영문이 좋겠다」 — ⚠️ 화면 일곱 + 공통 둘 + 마이그레이션 여럿이 전부 한국어 · 한 파일만 바꾸면 섞인다 · ⬜ **정본 문서도 영어로 할 것인가**를 먼저 정한다(주석이 §11-b 를 가리키는데 그쪽이 한국어면 거기서 막힌다)
 ⬜ 드롭십(다른 배송지)          13-g — bin_id NOT NULL 이 막는다 · Cin7 실측이 먼저
 ⬜ 화면 잡일                   검색 .or 의 쉼표·괄호(다섯 화면 · 헬퍼) · main.stack(두 화면) · 뷰에 split_from_id · confirmed 머리 잠금(13-h 미룬 것)
@@ -3227,7 +3322,31 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ ims_is_admin() 을 지울지          이제 아무 정책도 EF 도 안 쓴다(§10-h) · §10-h 「하나뿐이다 · 고치지 마라」 문장과 함께 정리
 ⬜ 020000 §4 의 카탈로그 중복 정의    023000 이 같은 함수를 다시 냈다 — 적용 전이면 020000 §4 를 지워도 된다 · 적용 뒤면 그대로
 ⬜ ims-staff-create 가 warehouse_access 를 안 받는다   worker 를 만들면 창고 전부(빈 배열)로 시작 — 창고를 걸 사람은 만든 뒤 staff.html 에서
-⬜ 그대로 남은 것              사건(원장 이식 때 · 11-j) · 차이 큐(재고조정 때) · 파일 업로드(Storage) · 확정 RPC(Latest 갱신) · 계정 후보 규칙 · HST · KRW 계산 · §12 재검토(짐작) · other 줄 할인(11-e) · supplier_discount 편집 화면(§10-k)
+[2026-09-18 · 리시빙 · 동시 편집 — 오늘 늘어난 것 · 근거는 마이그레이션 일곱의 머리 주석과 §13-i]
+동시 편집
+⭐⭐ 뒷단은 섰고 화면은 되돌렸다   `20260918133858`(updated_by · ims_touch) + ims-ui.js imsSaved(builder, seenAt, ref)(§10-j 3-i) — 화면(PO 넷)의 seenAt 은 되돌렸다(asung-ims dc0da29). 처방을 바꿨기 때문 — 거부하고 끝내는 것이 아니라 **WMS 모양으로 묻고 고르게 한다**
+                              근거: receiver.html 1133~1160 askQtyConflict 「Keep theirs / Use mine / Recount」 · WMS 는 스캔이 델타라 병합되고 **절대값 입력만** 충돌한다 · ⚠️ WMS 는 「누가 바꿨나」를 못 채워 presence 로 후보만 보여 준다(1135 주석) — IMS 는 updated_by 로 채운다
+⬜ 리시빙에서 이 모양을 먼저 만들고 그 뒤 PO 화면들로 가져온다
+⬜ 취소·삭제의 동시 편집        성립하지만 대가가 작아 미뤘다(취소는 되돌릴 수 있고 삭제는 확정 전 초안뿐) · ⚠️ confirmed_at 게이트는 「확정된 적이 있나」를 볼 뿐 「내가 본 뒤에 바뀌었나」를 안 본다 — 서로 대신 못 한다
+⬜ confirm 계열                 문서가 아니라 **자식 줄의 max(updated_at)** 을 봐야 한다(표 단위 트리거의 한계 · 부모 updated_at 은 줄이 바뀌어도 안 움직인다)
+⬜ 상세 RPC 넷이 줄의 updated_at 을 안 낸다   줄에 seenAt 을 걸려면 먼저 내야 한다(po_receipt_detail 은 work[].updated_at 을 낸다 — 선례)
+⬜ 거부 문장에 「내가 넣으려던 값」이 없다
+리시빙
+⬜ 차이를 닫는 RPC 와 화면      po_receipt_diff.resolved_by/at · note 는 있다 · 여러 건을 한 번에 닫기 · 닫는 이유 어휘(나눠 보냄 · 결품 · 분실·파손 · 오산)는 그때 정한다(§11-i short 를 담는 이유)
+⬜ off_po(PO 밖)               po_receipt_work.po_line_id nullable + product_id + 승인 칸 + po_receipt_line.po_line_id 도 nullable · 차이 큐 off_po 어휘는 미리 있다 · 약식 제품 등록(위 「입고 차수에 셋」)과 한 묶음
+⬜ 팩→낱개 환산                지금 work_save 는 낱개 총량을 받는다 · p_entered_qty · p_unit_product_id 로 **DB 가 곱하는** 안(화면이 곱하면 「계산은 DB」를 어긴다)
+⬜ 확정 취소                   po_doc_cancel 에 'receipt' 가지(입고 줄·차이·분할을 어떻게 되돌리나 — 사건 차수와 함께) · 확정 전 「그만둔다」는 po_receipt_delete
+⬜ po_receipt_line.receipt_id 를 NOT NULL 로   백필(09-16 검증 데이터 4행 · 짐작 — 실측 필요) 또는 정리 뒤
+⬜ WMS 이관                    조사가 찾은 것(§13-i): 트랜스퍼 입고 · 창고 접근(warehouse_access 를 리시빙 RPC 가 본다) · 상품 이미지 · 미지 bin · 라스트 빈을 원장에서 · 같은 줄 동시 스캔 병합
+⬜ WMS 창고 화면의 화면 값       'receiving' 을 같이 쓰면 카탈로그 room 은 하나라 worker 기본이 안 붙는다 — 값을 따로 둘지(`putaway` 등) 그때 정한다(§10-j 3-l)
+그 밖
+⚠️⚠️ 크레딧 채번이 PO 번호 접두어를 읽는다   분할로 PO-02011 이 PO-02011a 가 되면 CN-<po> 접두어가 안 맞아 같은 번호가 다시 난다 · 실무는 크레딧이 입고 뒤라 드물다 — 그래도 적어 둔다(§11-c)
+⚠️ po 표에 closed_by 칸이 없다   closed_at 만 · 확정 RPC 가 닫는 사람은 po_receipt.confirmed_by 로만 남는다
+⚠️⚠️ pre-commit 훅이 IMS 마이그레이션에 걸린다   scripts/check-class-values.sh 가 po_receipt_diff 의 kind CHECK 를 wms_reports.kind 로 오해하고 「검사 불능」으로 커밋을 막는다 · 오늘 --no-verify 로 지나갔다 ⇒ 훅이 wms_* 표만 보도록 좁힌다
+⚠️⚠️ psql -f 로 적용하면 이력 표가 안 쌓인다   오늘 db push 가 22개를 처음부터 밀다가 첫 파일 둘째 문장에서 멈췄다(피해 없음 · po 34칸 · ims 정책 104 로 확인) ⇒ **적용할 때마다 `supabase migration repair --status applied <버전>` 을 함께 돌린다**
+⚠️⚠️ 이름 서브쿼리 별칭          ims_staff 가 updated_by 를 갖게 되어 별칭 없는 `where id = updated_by` 가 에러 없이 null 을 낸다 — 하루에 두 번(§5 트리거) · 별칭을 반드시 붙인다
+⬜ 정본 정리                   3,319행 → 오늘 더 늘었다 · 한 달 지난 절의 과정 기록을 압축한다(결론과 근거는 남긴다)
+⬜ 그대로 남은 것              사건(원장 이식 때 · 11-j) · ~~차이 큐(재고조정 때)~~ → ✅ [09-18] 리시빙에 섰다(po_receipt_diff · 닫는 길은 아래) · 파일 업로드(Storage) · 확정 RPC(Latest 갱신) · 계정 후보 규칙 · HST · KRW 계산 · §12 재검토(짐작) · other 줄 할인(11-e) · supplier_discount 편집 화면(§10-k)
 ```
 
 ---
@@ -3317,3 +3436,10 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⭐ 검토(Claude Code)가 잡은 것: 입고 붙은 발주가 PostgREST 로 취소되던 길 · Reopen → 삭제 뒷문(크레딧 금지로 닫힘) · 살아 있는 po_invoice_create 정의가 200000 이 아니라 210000 · replace 가 오버로드를 만드는 것 · main/.pobox input 충돌 · 지시서의 크레딧 누락(결제).
   ⚠️ 대화 Claude 의 잘못: 결제 지시서에서 크레딧을 빠뜨렸다 · §13-b 2868행을 「오기」로 단정했다(데이터가 움직였을 가능성을 안 봤다 · 검토가 바로잡음) · 지시서의 「1.49」는 1.45 였다.
   📌 다음(§13-f): 확정 뒤 머리 칸 잠금(셋 한 차수) · 크레딧을 결제에 · 입고+분할(PO 라인 없이 받는 길 · 약식 제품) · payments 만들기 창 재설계 · .pick/.prow · .ims-nav CSS · po.html --ims-tabs-h.
+- 2026-09-18 — **리시빙(§13-i · §11-i · §11-c)** — 마이그레이션 일곱 `20260918133858`(updated_by · ims_touch · f288ee8) · `161537`(표 셋 · ims_last_bin) · `163552`(2-a RPC 여덟 · 38527e7) · `165934`(Receiving 탭 ims · 9f58d40) · `173042`(unassign · e1c7115) · `174428`(split placed · b2adcb5) · `203805`(⭐⭐ 확정 · 차이 큐 · 자동 분할 · 0f50a7e) · 화면 receiving.html(대화 Claude) · asung-ims ims-auth.js Receiving 다섯째.
+  ⭐⭐ 방향 전환(Caleb) — WMS 리시빙을 복사해 오는 여섯 차수 → **WMS 이관을 미루고 IMS 안에 PO 갈래의 리시빙을 먼저 세운다**(조사가 「없는 것에 걸리는」 자리를 찾았다 · 1번 철칙은 그대로 · 조사 결론은 §13-i 에 압축).
+  ⭐ 판단: 표 셋·두 단계 · 빈 없는 줄 = 미배정 나머지 하나 · 같은 빈은 병합 · 빈을 고르는 순간 놓인 것 · 기준은 PO 확정 수량(인보이스는 표시만) · 빈 없는 줄이 있으면 확정 거부(빠져나갈 길을 문장에) · 차이 큐 셋(short 를 담는 이유 — 분할은 「왜」를 안 본다) · received_by 는 놓은 사람 · 분할 번호는 알파벳을 잇는다 · 0 라인은 행을 옮긴다 · po_receipt_confirm 은 security definer 예외 하나.
+  ⭐ 검토(Claude Code)가 찾은 것: set_updated_at 은 IMS 만 썼다(지시서의 「WMS 도」가 틀림) · receiving.room 을 옮기면 worker 기본이 닫힌다 · split 의 새 줄이 false 라 PLACED 0 · 확정이 purchasing 표에 쓴다(definer 근거) · 0 라인 삭제는 인보이스 FK 에 막힌다(행 이동으로) · 크레딧 접두어가 분할에 흔들린다 · 별칭 없는 이름 서브쿼리 null.
+  ⚠️ 실사고: pre-commit 훅이 IMS CHECK 를 오해(--no-verify) · psql -f 적용 뒤 이력 표 빈 채로 db push(repair 로) · 검증에서 po_receipt_create 재호출로 뒤가 깨짐(RCV-00005 로) · 별칭 null 두 번.
+  ⚠️ 정본과 부딪힌 것(고치지 않음): §13-f 「원래 주문 수량을 라인에 남긴다」 — 오늘 분할은 그렇게 하지 않았다(§13-i 끝 · Caleb 판정 대기).
+  📌 다음(§13-f): 동시 편집 화면(WMS 모양 · 리시빙 먼저) · 차이 닫기 RPC·화면 · off_po · 환산 · 확정 취소 · receipt_id NOT NULL · 훅 좁히기 · 머리 잠금 · 크레딧을 결제에.
