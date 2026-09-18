@@ -2,21 +2,21 @@
 // ASUNG IMS — ims-staff-create Edge Function (2026-09-15)
 // ------------------------------------------------------------
 // staff.html(asung-ims 레포)에서 사람을 한 번에 추가한다:
-//   1) 부르는 사람을 확인한다 — ⭐ caller 의 JWT 로 rpc/ims_is_admin 을 부른다
-//      (정책과 같은 판정 함수 · po-module §10-h)
+//   1) 부르는 사람을 확인한다 — ⭐ caller 의 JWT 로 rpc/ims_can_write('staff') 와 rpc/ims_can_manage(role) 을 부른다
+//      (정책과 같은 판정 함수 · po-module §10-h · 2026-09-17 밤: admin 전용 → 「staff 쓰기 권한 + 자기보다 아래 등급만」 · 20260918020000)
 //   2) service_role 로 Supabase Auth 계정을 만든다 (임시 비밀번호 · auto-confirm)
 //   3) ims_staff 행을 만든다 — ⭐ auth_user_id = 방금 만든 Auth 계정의 id
 //   4) 임시 비밀번호를 한 번만 돌려준다 (admin 이 본인에게 전달)
 //
 // 원본: supabase/functions/staff-create/index.ts (WMS · 2026-07-21) — 여기서 바뀐 여섯:
 //   ① 표          wms_staff → ims_staff
-//   ② caller 확인  email 로 표를 읽던 것 → caller JWT 로 rpc/ims_is_admin
+//   ② caller 확인  email 로 표를 읽던 것 → caller JWT 로 rpc (ims_is_admin → 2026-09-17 ims_can_write('staff') + ims_can_manage(role))
 //                 ⚠️ service_role 로 표를 직접 읽으면 auth.uid() 가 null 이라 그 함수를 못 쓰고
 //                    정책과 EF 가 다른 판정 코드를 갖게 된다 — 그래서 rpc (§10-h 「하나뿐이다」)
 //                 ⚠️ email 매칭의 대소문자 함정(WMS 규칙 8 각주)도 이 길에는 없다
 //   ③ 활성 칸      active → is_active
 //   ④ 역할        worker/manager/admin → worker/supervisor/manager/admin 넷(ims_staff_role_ck · 20260917230000 · 2026-09-17 넷으로) · warehouse_access 는 안 받는다(비움 = 전부 · 편집은 staff.html 몫) · 기본 manager
-//   ⑤ 권한        admin 만 (perms 는 [] 로 만든다 — 값은 뒤에 staff.html 에서 · 20260917230000 두 축)
+//   ⑤ 권한        'staff' 쓰기 권한자(admin·supervisor 기본 · manager 는 perms) · 만들 수 있는 등급은 자기보다 아래만(ims_can_manage · admin 은 전부) · perms 는 [] 로 만든다
 //   ⑥ insert     auth_user_id(NOT NULL) 를 넣는다 — 원본에는 없던 단계
 // 그대로 가져온 것: 서버측 권한 검사 · Auth 계정 롤백 · 중복 409 · 읽기 쉬운 임시 비밀번호 · CORS
 // 덧붙인 것: 이메일은 소문자로 저장 · 중복 검사는 ilike · 롤백 실패 시 orphan id 를 응답에 싼다
@@ -71,20 +71,27 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "POST only" });
 
   try {
-    // ---- 1) 부르는 사람 확인 — caller JWT 로 rpc/ims_is_admin ------------
+    // ---- 1) 부르는 사람 확인 — caller JWT 로 판정 함수를 부른다(정책과 같은 함수 · service_role 로 표를 읽으면 auth.uid() 가 null) ----
     //   ⚠️ 이것이 없으면 anon key(공개 레포)만으로 아무나 계정을 만든다(규칙 8 실사고의 모양)
+    //   ① ims_can_write('staff')     — 직원 관리 권한(admin·supervisor 기본 · manager 는 perms 'staff')
+    //   ② ims_can_manage(role)       — 만들려는 등급이 자기보다 아래인가(admin 은 전부 · 같은 등급 false) — role 을 읽은 뒤에 본다
     const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     if (!jwt) return json(401, { error: "Missing Authorization" });
 
-    const adminResp = await fetch(SB_URL + "/rest/v1/rpc/ims_is_admin", {
-      method: "POST",
-      headers: { "apikey": ANON, "Authorization": "Bearer " + jwt, "Content-Type": "application/json" },
-      body: "{}",
-    });
-    if (adminResp.status === 401) return json(401, { error: "Invalid session — sign in again" });
-    if (!adminResp.ok) return json(502, { error: "Admin check failed: " + (await adminResp.text()).slice(0, 200) });
-    const isAdmin = await adminResp.json();          // boolean — 활성 admin 인가 (is_active 도 본다)
-    if (isAdmin !== true) return json(403, { error: "Not allowed — admin only" });
+    // caller JWT 로 boolean RPC 하나를 부른다 — 401 은 세션 만료 · 그 외 비정상은 502
+    async function callerRpc(fn: string, args: Record<string, unknown>): Promise<boolean | Response> {
+      const r = await fetch(SB_URL + "/rest/v1/rpc/" + fn, {
+        method: "POST",
+        headers: { "apikey": ANON, "Authorization": "Bearer " + jwt, "Content-Type": "application/json" },
+        body: JSON.stringify(args),
+      });
+      if (r.status === 401) return json(401, { error: "Invalid session — sign in again" });
+      if (!r.ok) return json(502, { error: "Permission check failed (" + fn + "): " + (await r.text()).slice(0, 200) });
+      return (await r.json()) === true;
+    }
+    const canStaff = await callerRpc("ims_can_write", { p_screen: "staff" });
+    if (canStaff instanceof Response) return canStaff;
+    if (canStaff !== true) return json(403, { error: "Not allowed — you need the 'staff' permission to add people" });
 
     // ---- 2) 입력 검증 ---------------------------------------------------
     const body = await req.json().catch(() => ({}));
@@ -94,6 +101,11 @@ Deno.serve(async (req) => {
     if (!name) return json(400, { error: "Name is required" });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { error: "Valid email is required" });
     if (!["worker", "supervisor", "manager", "admin"].includes(role)) return json(400, { error: "Bad role" });   // ④ ims_staff_role_ck 와 같은 넷
+
+    // ---- 1-②) 만들 수 있는 등급인가 — 자기보다 아래만(같은 등급도 안 된다 · admin 은 전부) ----
+    const canRole = await callerRpc("ims_can_manage", { p_target_role: role });
+    if (canRole instanceof Response) return canRole;
+    if (canRole !== true) return json(403, { error: "Not allowed — you can only add people below your own role (" + role + " is not below yours)" });
 
     // 중복 검사 — email UNIQUE 는 대소문자를 구분하므로 ilike 로 본다
     //   (LIKE 의 _ 는 한 글자 와일드카드라 john_doe 와 johnXdoe 가 겹칠 수 있다 — 막는 쪽 오류라 둔다)
