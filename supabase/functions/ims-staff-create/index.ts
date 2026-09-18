@@ -15,8 +15,8 @@
 //                    정책과 EF 가 다른 판정 코드를 갖게 된다 — 그래서 rpc (§10-h 「하나뿐이다」)
 //                 ⚠️ email 매칭의 대소문자 함정(WMS 규칙 8 각주)도 이 길에는 없다
 //   ③ 활성 칸      active → is_active
-//   ④ 역할        worker/manager/admin → manager/admin 둘 · warehouse_access 없음 · 기본 manager
-//   ⑤ 권한        admin 만 (perms 축은 IMS 에서 아직 안 쓴다 · 전부 [])
+//   ④ 역할        worker/manager/admin → worker/supervisor/manager/admin 넷(ims_staff_role_ck · 20260917230000 · 2026-09-17 넷으로) · warehouse_access 는 안 받는다(비움 = 전부 · 편집은 staff.html 몫) · 기본 manager
+//   ⑤ 권한        admin 만 (perms 는 [] 로 만든다 — 값은 뒤에 staff.html 에서 · 20260917230000 두 축)
 //   ⑥ insert     auth_user_id(NOT NULL) 를 넣는다 — 원본에는 없던 단계
 // 그대로 가져온 것: 서버측 권한 검사 · Auth 계정 롤백 · 중복 409 · 읽기 쉬운 임시 비밀번호 · CORS
 // 덧붙인 것: 이메일은 소문자로 저장 · 중복 검사는 ilike · 롤백 실패 시 orphan id 를 응답에 싼다
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     const role = String(body.role || "manager");                    // ④ 기본 manager
     if (!name) return json(400, { error: "Name is required" });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { error: "Valid email is required" });
-    if (!["manager", "admin"].includes(role)) return json(400, { error: "Bad role" });
+    if (!["worker", "supervisor", "manager", "admin"].includes(role)) return json(400, { error: "Bad role" });   // ④ ims_staff_role_ck 와 같은 넷
 
     // 중복 검사 — email UNIQUE 는 대소문자를 구분하므로 ilike 로 본다
     //   (LIKE 의 _ 는 한 글자 와일드카드라 john_doe 와 johnXdoe 가 겹칠 수 있다 — 막는 쪽 오류라 둔다)
