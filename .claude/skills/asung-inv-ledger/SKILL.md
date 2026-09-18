@@ -147,6 +147,7 @@ from inv_snapshot_runs order by ran_at desc limit 5;
 ```
 ⭐ **`list_total` 이 유일한 급감 축**이다(`pages_scanned`·`insert_rows` 는 아니다).
 📌 관측 변동폭 −265 ~ +446. ⏸ 임계값은 표본 대기 중.
+📌 **[관측 갱신 09-16~18]** `list_total` 22,465(−47) → 21,765(**−700** · 새 하한) → 21,553(−212) · `insert_rows` 13,674 → 13,640 → **13,883(+243 · 관측 중 최대 증가)**. ⭐ 09-18 에 두 축이 **반대로** 갈렸다(−212 / +243) — 09-13 규명대로 `dropped_zero_nobin` 이 줄고 실제 재고 칸이 늘어난 것이며 **입고가 있었다는 신호**와 정합. 관측폭은 **−700 ~ +535** 로 넓어졌다. ⚠️ **`insert_rows` 가 ① 과 맞으면 `list_total` 은 판정 축이 아니다.** 실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md` §H.
 📌 **[정정 2026-09-13] `list_total` 이 무엇을 세는지 확정됐다 — 재고 축이 아니다.**
 [실측 09-13 `inv_snapshot_runs.summary` 원문] `list_total 22,022` = `received_rows`(Cin7 ProductAvailability 가 준 전체 행) − `dropped_zero_nobin 8,315`(bin 없고 수량 0 · 버림) = `kept_source_rows 13,707` = `insert_rows` = `db_rows_after`. **22,022 − 8,315 = 13,707 — 정확히 맞는다.**
 [실증 09-12→09-13 · 주말] `insert_rows` 가 **13,707 로 이틀 연속 동일**(재고 무변)인데 `list_total` 만 **+102** ⇒ 늘어난 102 는 전부 「bin 없고 수량 0」 행이고 `dropped_zero_nobin` 이 흡수했다. ⇒ ⭐ **업무가 없는 주말에도 `list_total` 은 변한다** — 제품 추가·비활성화 · bin 배정 변화 · 수량 0 전환 등 **Cin7 마스터의 모양**을 반영하고 재고 변동과 직접 연동되지 않는다.
@@ -201,6 +202,17 @@ order by created desc limit 20;
 `cursor_stalled_alert`). [실측 09-04] `transfer` 가 `TR-04329` 로 §진행 상태의
 `TR-04331` 보다 아래여서 교착을 의심했으나, ⑦ 이 0행이라 **정상 전진**이었다.
 📌 `TR-04331` 은 당시 **대조 대상 문서번호**였고 커서 위치가 아니다 — **두 축을 섞지 말 것.**
+⭐⭐ **[정정 2026-09-18] `last_run` = `last_ok` 만 보면 커서 정체를 못 잡는다 — 커서 값이 며칠째 같은지도 함께 본다.** 문서번호 커서(`adjustment`·`transfer`·`assembly`)가 **3일 이상 같으면** ⑦ 에서 `cursor_held_by` 를 확인한다(위 「커서 값만 보고 교착을 판정하지 말 것」은 그대로다 — 단정하지 말라는 것이고, **확인하러 가는 신호**로는 커서 값이 유일했다).
+📌 [실측] `ST-01300`(DRAFT · 9/3) 이 `adjustment` 커서를 **13일** 붙잡았고 · `TR-04496`(ORDERED) 이 `transfer` 커서를 **이레** 붙잡았다 — 둘 다 `inv_sync_state` 시각이 아니라 **커서 값**이 단서였다. ⚠️ 그동안 `cursor_stalled_alert` 는 **한 번도 안 울렸다** — 있는데 안 울린 것과 없는 것은 다르다 · ⬜ 발화 조건 확인(코드 미확인 · §다음에 할 일).
+⭐⭐ **커서 정체 — 두 사고의 공통 구조 (2026-09-16 · 09-18)**
+> **미확정 문서 하나가 커서를 붙잡으면, 그 뒤로 쌓인 문서를 매 회차 다시 훑게 된다. 그 자체는 무해하지만, 캡(40건 / 120초)이나 일시적 장애와 겹치면 사고가 된다.**
+
+| | 홀드만 | 홀드 + 캡 | 홀드 + 재훑기 + 해석 실패 |
+|---|---|---|---|
+| 09-16 `ST-01300`(DRAFT) | 13일 무해(`docs_processed` 18→22→29→35) | ⚠️ **영구 교착** — 09-15 16:00 캡 40 도달 · 41번째부터 안 옴 · `docs_processed` 40 에서 18시간 고정 · ⑧ 10칸 288 | — |
+| 09-18 `TR-04730` | 이레 무해(매 회차 5,000건 재훑기 · 평소엔 걸러짐) | — | ⚠️ **중복 행 24개** — 09-17 13:23 회차에 상세 40건 안에 들어왔고 그 회차에 잔고 조회 `sbGet 502` ⇒ 빈 bin 으로 새 행(−299) · 09-14 의 올바른 bin 행과 공존 |
+
+⚠️⚠️ **그래서 커서 정체 자체가 감시 대상이다** — 지금은 사고가 난 뒤에야 안다. 처방은 둘 다 **상쇄가 아니었다**: `ST-01300` 은 Cin7 에서 **Void** 하자 커서가 `ST-01299` → `ST-01342` → `ST-01353` 으로 전진해 다음 아침 `abs_gap 318 → 6` 으로 저절로 맞았다(「원장이 틀린 게 아니라 못 받은 것」 — 상쇄했다면 두 배로 틀어졌다) · `TR-04730` 은 `scripts/fix-transfer-bins.mjs`(⑩-b) 로 중복만 지웠다(+299 · `abs_gap 306 → 7`). ⚠️ Cin7 은 아무것도 안 바꿨다 — `stockTransferList` `LastModifiedOn = 2026-09-14T12:48:39.967Z` 그대로(「누군가 열어서 갱신됐다」 가설 기각 · 여는 것으로는 안 바뀐다). 실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md` §A.
 ⚠️ `cost` 의 `last_cursor` 는 UTC 원문, `last_run` 은 토론토 변환값이다(같은 시각).
 
 ### ⑥ 원가 누락 — 재고는 있는데 원가가 없나
@@ -245,7 +257,8 @@ SR 에 있나」 **한쪽만** 보므로 반대 방향(SR 에 있고 IM 에 없�
 ```sql
 select source_key, ran_at at time zone 'America/Toronto' as ran_toronto,
        detail_capped, detail_capped_reason, detail_capped_remaining, hold_capped,
-       cursor_stalled_alert, cursor_frozen_alert, write_skipped
+       cursor_stalled_alert, cursor_frozen_alert, write_skipped,
+       summary->'cursor_held_by' as cursor_held_by, docs_processed, list_total, cursor_before, cursor_after   -- ⭐ [09-18] held_by·docs_processed·list_total 을 함께 뽑는다 — 없어서 처음에 한참 돌아갔다 · ⚠️ cursor_held_by 는 컬럼이 아니라 summary 안(EF inv-collect 1748행 · 마이그레이션 20260831153314 에 컬럼 없음)
 from inv_collect_runs
 where ran_at > now() - interval '24 hours'
   and (detail_capped or coalesce(hold_capped,0) > 0
@@ -261,6 +274,14 @@ order by ran_at desc limit 20;
 `transfer` 5회차 캡(첫 회차 `reason=time`, 나머지 `max_detail`) — `hold_capped` **27 → 10** 로 줄고 그 뒤 회차에서 사라졌다.
 ⇒ ⭐ **`remaining`/`hold_capped` 가 줄어드는 방향이면 다음 회차가 이어받는 정상 모양이다.** 같은 값이 고정되면 그때가 교착이다.
 📌 그 결과 `transfer` 커서가 `TR-04329` → **`TR-04495`** 로 대폭 전진했다.
+⭐ **[09-16] `summary->'cursor_held_by'` 가 원인을 바로 알려준다** — `{ "reason": "hold_status:DRAFT", "doc_number": "ST-01300" }` · `cursor_before = cursor_after = ST-01299`. ⚠️ `hold_capped` 는 컬럼이고 `summary` 최상위에는 없다(`summary->'dispositions'->'hold_capped'` 에 있다 · `buildCollectRun` 이 그것을 컬럼으로 뽑는다) — 09-16 에 `summary->'hold_capped'` 로 읽어 전 기간 null 을 보고 한참 돌았다. 📌 `summary` = 응답 객체 `R` 전체(samples 제외) — 그래서 `cursor_held_by` 는 `summary` 안에만 있다. ⚠️ 위 `where` 절은 캡·경고·`not ok` 만 거르므로 **홀드만 있는 정상 회차는 0행**이다 — 커서가 며칠째 같으면(⑤) `where` 를 빼고 그 축의 최근 회차를 직접 본다.
+⭐ **네트워크 오류는 설계대로 처리된다 — 다만 둘로 갈린다 (실측 09-17 21:07 `client err` · 09-18 05:07 `502` · 둘 다 `transfer`)**
+```
+목록 조회 실패(/stockTransferList 502)   ok:false · list_aborted:"page_error: …" · write_skipped · missing_check_skipped_reason 같은 사유 · cursor_before = cursor_after · docs_processed 0 · ledger_rows 0
+                                        ⇒ 아무것도 안 쓰고 커서도 그대로 — 「반쪽만 받고 커서를 전진시켜 나머지를 영영 놓치는」 최악을 피했다 · 소멸 감지도 함께 건너뛴다(불완전한 목록으로 「사라졌다」 오판 방지) · 다음 회차에 복구
+잔고 조회 실패(sbGet 502 · transfer-bin balance lookup)   "collection unaffected, WMS-value fallback" ⇒ **수집을 계속하고 WMS 폴백으로 넘어간다** · 폴백도 못 구하면 bin='' 로 쓴다(`bin_unresolved N`) — 09-18 `TR-04730` 24행이 그 결과
+```
+⇒ ⭐ **「목록 실패 = 중단」 · 「잔고 실패 = 계속 + 폴백」.** 후자가 뜬 회차(`bin_unresolved > 0`)는 ⑧ 이 아니라 **⑩-b 의 빈 bin 형태**로 확인한다(⑩-b 검사는 그 형태를 못 잡는다 — 그 절 ⚠️).
 
 ### ⑦-b 표에 못 넣은 소멸 — `adjustment`·`assembly`
 ```sql
@@ -325,7 +346,7 @@ from inv_balance_vs_cin7 where diff <> 0 order by abs(diff) desc;
 (실측: `2026-09-04-compare` 는 `taken_at` 이 01:21 하나뿐).
 📌 상쇄를 넣으면 **즉시 반영된다** — 다음 스냅샷을 기다릴 필요가 없다(실측 09-04).
 📌 [기준선 2026-09-04] **토론토 0칸 · 에드먼튼 2칸 · 격차 6** — 남은 것은
-`PRO00124` 짝뿐이다(위 「지금 알려진 잔재」).
+`PRO00124` 짝뿐이다(위 「지금 알려진 잔재」). → [09-18] + `ANN07490` 1칸(Deprecated 잔재 · 같은 표) — 셋이 남는 것이 정상.
 (9/1 아침 1,201칸·15,640 → 9/3 6칸·23 → 9/4 아침 9칸·26 → 9/4 상쇄 후 2칸·6).
 ⚠️ `IN_TRANSIT` 은 이 뷰에서 제외된다(Cin7 쪽 대응이 없다).
 
@@ -399,6 +420,7 @@ order by detected_at;
 append-only 라 기존 행의 `occurred_on` 을 고치지 않는다(실물 확인: 세 문서 모두 원장 행이
 하나씩 · 옛 날짜 그대로 · **이중 계상 없음**). 셋 다 8월 말이라 컷오프 밖이었고 그래서 무해했다.
 ⚠️ **닫지 않으면 계속 쌓인다** — 같은 라인이 회차마다 재검출된다(`SO-15382` 12라인 × 5회 = 60행).
+⭐ **[09-18 읽는 법] 상쇄 후 `resolved_at` 으로 닫되, 닫은 직후 한 회차 정도는 더 들어올 수 있다.** 그것까지 닫고 **다음 날 재검출 여부로 종결을 판정**한다 — `resolved_at is null` 만 보지 말고 **`last_detected`** 를 본다. [실측] `ST-01306` 45행을 09-16 에 닫자 직후 회차(09-16 10:11)에 한 건(id 128)이 더 들어와 「닫아도 계속 재검출된다」로 판단했는데 **틀렸다** — 09-18 `last_detected` 가 09-16 10:11 그대로(이틀째 새 검출 없음) ⇒ id 128 도 닫아 `still_open 0`. 멈춘 이유는 `adjustment` 커서가 `ST-01299` → `ST-01358` 로 전진해 `ST-01306` 이 재조회 창을 벗어난 것(⚠️ 추론 · ⑦-b `ST-01283` 과 같은 계열).
 ⚠️ **행 수는 사건 수가 아니다** — 「이미 처리했는지」를 보지 않는다.
 [실측] 한 건이 **4행**이었다(같은 문서·SKU·bin·같은 `-1→-12`). 재검출 계기 둘:
 문서 상태 변화(`ORDERED`→`CLOSED`) · Cin7 대량 갱신으로 재유입.
@@ -497,6 +519,37 @@ order by last_at desc;
 ⚠️ **새 문서가 뜨거나 `manual_net` 이 비어 있으면**: ① `inv_balance_vs_cin7` 로 **실제 어긋났는지** 확인(⚠️ `manual_net` 이 이미 차 있으면 `diff 0` —
 `SKL01861` 이 그 사례) → ② 어긋났으면 **틀린 bin 쪽(Cin7 Movements 에 없는 쪽)을 `:reversal` 로 상쇄**(원래 `event_type` 유지 · §상쇄 접미어 규칙).
 ⚠️ 상쇄 전에 **Cin7 Movements 화면을 끝까지 읽는다** — [09-15] Restock +4 한 줄을 못 봐 「Cin7 이 실물과 어긋났다」를 두 번 단정했다(실물은 맞았다).
+⚠️⚠️ **[09-18] 이 검사의 사각지대 — 빈 bin 쪽을 못 본다.** `bin is not null and bin <> ''` 제외 때문에 **실제 bin → 빈 bin** 형태(bin 해석 실패)는 안 잡힌다. 같은 메커니즘의 두 형태 중 하나만 잡고 있다:
+
+| 형태 | 예 | ⑩-b |
+|---|---|---|
+| 실제 bin → 다른 실제 bin | `TR-04729`(자리 변경) · `TR-04174` | ✅ 잡는다 |
+| 실제 bin → **빈 bin** | **`TR-04730`**(09-17 잔고 조회 502 → WMS 폴백 실패 → `bin_unresolved 24`) | ⚠️ **못 잡는다** — ⑧ 24칸 · `abs_gap 306` 으로만 드러났다 |
+
+⬜ 넓히는 방향은 **Caleb 이 정한다** — 후보 둘(`warehouse <> 'IN_TRANSIT'` 로 IN_TRANSIT leg 만 걸러 빈 bin 포함 — ⚠️ 정상 4-leg 의 창고 쪽 leg 에도 빈 bin 이 있는지 먼저 실측 · 또는 빈 bin 전용 검사: `bin=''` 인 `transfer_out` 중 같은 `line_ref` 에 bin 있는 행이 존재하는 것). ⚠️ **지금 정하지 말 것** — 실측 없이 조건을 넓히면 09-15 처럼 전 문서가 걸린다. 근본은 같다(유니크 키의 `bin`) · ⬜ 수집기 근본 처방(`inv-collect` 가 빈 bin 행을 쓰기 전 「이 `line_ref` 에 bin 있는 행이 있나」 확인)은 별건. 당장의 신호는 ⑦ 의 `bin_unresolved > 0` 회차다.
+
+**⭐ 빈 bin 형태의 처방 — `scripts/fix-transfer-bins.mjs` (⚠️ dry 판정이 필수 · 09-18 `TR-04730` 실측)**
+빈 bin 으로 남은 `transfer_out` 행을 정리하는 도구다. ⚠️ 도구의 전제는 「올바른 bin 행이 **없다**」(상쇄 + 재삽입)이므로 `TR-04730` 처럼 **이미 있는** 경우에는 dry 로 확인해야 한다.
+```bash
+cd ~/asung/asung-wms
+ export SUPABASE_URL='https://gftpcnkxbdjzzfvzwcfl.supabase.co'
+ export SUPABASE_SERVICE_ROLE_KEY='…'   # Settings → API → service_role
+ export CIN7_ACCOUNT_ID='…'
+ export CIN7_APPLICATION_KEY='…'
+node scripts/fix-transfer-bins.mjs --doc TR-XXXXX          # dry
+node scripts/fix-transfer-bins.mjs --doc TR-XXXXX --commit # 확인 후
+```
+📌 `export` 앞 **공백 한 칸**이 셸 히스토리 기록을 막는다 · `.env` 는 없다 · 레포는 **`asung-wms`**(`asung-ims` 아님).
+
+| dry 출력 | 판정 |
+|---|---|
+| **`(상쇄만 — cin7 재수집이 이미 올바른 bin 행을 썼다)`** | ⭐ **안전** — 중복만 지운다 |
+| ⚠️ `(상쇄 + 재삽입)` | **이중이 된다** — commit 금지 · SQL 로 직접 상쇄 |
+| ⚠️ `✗ bin 미해결` | 도구가 손 못 댄다 — SQL 상쇄 |
+| ⚠️ `잔고 조회 실패` 줄 | 502 재현 — **나중에 다시** 돌린다 |
+
+⚠️ **왜 「상쇄 + 재삽입」이 위험한가** — 스크립트의 중복 검사 키가 `[line_ref, warehouse, bin, sku]`(`fix-transfer-bins.mjs` 221·253행)라 **`bin` 을 포함**한다 ⇒ 「이 `line_ref` 에 bin 있는 행이 있나」가 아니라 **「내가 구한 bin 과 같은 행이 있나」**를 묻는다. 해결 bin 이 기존 행과 다르면 재삽입이 실행되어 **이중**이 된다.
+📌 **[실측 09-18 `TR-04730`]** dry 24줄 전부 `(상쇄만)` · 미해결 0 · 재삽입 0 ⇒ commit. `manual_reversal` + `:binfix` · **+299** · 빈 bin 순액 **0** · `abs_gap 306 → 7`. ⇒ ⭐ **손으로 쓴 SQL 상쇄보다 이 도구가 낫다** — 기존 관례(`:binfix`)를 쓰고 `raw` 에 근거(잔고/WMS · SO · 원본 id · collector 버전)를 남긴다. 실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md` §C·§D.
 📌 **IMS 이후에도 유효하다.** 유니크 키에 `bin` 이 있는 것은 Cin7 과 무관한 **우리 원장의 구조**이고 IMS 도 `inv_ledger` 를 쓴다 — 「폴링 때문에 생기는
 이중」은 IMS 가 원본을 가지면 사라지지만(전환 기간엔 그대로), 「위치 변경을 충돌로 못 보는 구조」는 남는다. **트리거만 달라진다**(Cin7 폴링 → IMS 내부 정정).
 정본 `docs/design/ledger-design.md` §「변경 감지가 못 보는 축 — bin 변경 이중 기입」 · 실측 `docs/sessions/2026-09-15-bin-change-double-write.md`.
@@ -771,6 +824,7 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 | `:voided` | 문서 전체가 Cin7 에서 취소됐다 | 원행 **부호 반전**(문서의 `cin7` 행 전부) |
 | `:deleted` | 라인 하나가 삭제됐다(③) | 원행 **부호 반전**(⚠️ **그 라인만** — 문서 단위로 뒤집지 말 것) |
 | `:qtyfix` | 라인 수량이 바뀌었다(⑩) | ⚠️ **차액만**(`incoming − existing`) · 부호 반전 아님 |
+| `:binfix` / `:binfixed` | 빈 bin(`bin=''`) `transfer_out` 행을 도구가 상쇄(`:binfix` · `manual_reversal`)하고 필요하면 올바른 bin 으로 재삽입(`:binfixed`) — `scripts/fix-transfer-bins.mjs`(⑩-b) | 상쇄 = 원행 부호 반전 · ⚠️ 재삽입은 올바른 bin 행이 없을 때만(dry 로 확인) |
 | `:superseded` | bin 규칙 변경으로 자리를 비운다 | §진행 상태 「트랜스퍼 출발 bin」 참조 |
 | `:reversal` | 같은 `doc_number` 안에서 사건 자체를 취소·정정한다(**원래 `event_type` 유지**) — [실측 09-09] `sale_out` 680/684 · `transfer_in` 138/138 · `transfer_out` 138/151 · ⭐ **bin 변경 이중 기입(⑩-b)도 이것** — **옛 bin 쪽**(Cin7 Movements 에 없는 쪽) 한 벌만 뒤집는다 [실측 09-15 `TR-04729` · `E020202` +12] | 원행 **부호 반전** |
 
@@ -787,11 +841,12 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 ⚠️ `on conflict do nothing` 이라 **0행 삽입도 조용히 성공한다** — 반드시 넣은 행 수를
 다시 읽어 확인할 것. `update` 도 같다(결과 테이블이 없어 「0건 갱신」과 겉보기가 같다).
 
-### 📌 지금 알려진 잔재 2칸 (전부 「확인됨」)
+### 📌 지금 알려진 잔재 3칸 (전부 「확인됨」 · 2026-09-18 갱신)
 
 | 칸 | 갈라진 날 | 성격 |
 |---|---|---|
 | `PRO00124` 짝 (에드먼튼 `EB010302`/`EB010304`) | 8/4 | ⭐ **규명 완료 — 기초 경계** |
+| `ANN07490` (토론토 `B040803` · 원장 1 / Cin7 0 · diff +1) | 9/17 | ⭐ **규명 완료 — `Deprecated` 잔재 · 새 부류** |
 
 ⭐ **[규명 2026-09-04] `PRO00124` 는 수집기 결함이 아니다.** `TR-03539` 가 **8/4 에**
 `EB010302` → `EB010304` 로 옮겼는데(Cin7 Movements 실물), **8/20 19:42 기초 스냅샷은
@@ -802,7 +857,10 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 맞으므로 ② 창고 축에는 안 걸린다(거울상). ⭐ **재기준선이 지운다.**
 ⚠️ 다만 **사각지대를 메우기 전에 재기준선을 잡으면 같은 부류가 다시 쌓인다.**
 
-📌 **`new_today` 가 0 이면 이 둘만 남아 있는 것**이고 정상이다.
+⭐ **[규명 2026-09-18] `ANN07490` 은 「원장이 못 받았다」도 「두 번 받았다」도 아니다 — Cin7 이 스냅샷에서 뺀 것이다.**
+원장에 행이 **하나도 없다**(`baseline 1` · `delta 0` — 기초에 1개, 그 뒤 사건 없음) · Cin7 Movements 는 입고 1건(2025-10-31 `PO-00001`)뿐 · 출고 사건 없음 · ⚠️ 09-17 에 제품이 **`Deprecated`** 처리됐다(재고를 털지 않고 · Caleb 확인) ⇒ Cin7 이 `ProductAvailability` 목록에서 뺐고 **원장이 옳다**. 실물 1개는 `B040803` 에 있다.
+⇒ ⚠️⚠️ **상쇄 금지** — 하면 실물 1개가 장부에서 사라진다. ⑧ 에 계속 1칸으로 남는다. **해소는 실무 쪽** — Cin7 에서 그 1개를 조정으로 털거나 제품을 다시 활성화해 정상 출고시키면 자동으로 맞는다. ⚠️ 「원장이 못 받았다」로 읽을 뻔했다 — Movements 에 입고 1건뿐인 것을 보고서야 알았다(§어긋남의 원인을 모를 때 0번 · Movements 를 끝까지 읽는다).
+📌 **`new_today` 가 0 이면 이 셋만 남아 있는 것**이고 정상이다.
 ⚠️ [09-04 정리] `BNAT48173`·`CAN01003` — 「8/29 결함 C 잔재」가 **오진**이었다
 (실제는 `SO-15440` 의 8/28 편집 · 상쇄 완료).
 ⚠️ [09-04 정리] `WEL04770`·`WEL04771` — 「9/2 미규명」이 **오진**이었다
@@ -1320,6 +1378,7 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 | **C** (08-29) | **`Updated` 동률 그룹이 캡보다 크다** | 커서 tie-breaker + `cursorStalled` |
 | **D** (08-31) | ②-a 비종결 홀드 + 캡 → 뒤쪽 문서 영구 누락 | ✅ `inv_doc_state` — 변경 없는 문서는 상세 미조회(39→5) |
 | **E** (09-02) | ②-a 커서 아래 문서가 **편집돼도 다시 안 읽는다** | ✅ 최근 7일 재조회 창(`recheck_window` · `inv-collect@2026-09-02.1`) |
+| **F** (09-16 · 09-18) | ⭐ **홀드 자체는 무해한데 겹치면 사고** — 미확정 문서 하나가 커서를 붙잡으면 그 뒤 문서를 매 회차 다시 훑는다 · `ST-01300`(DRAFT · 13일) + 캡 40 ⇒ 영구 교착 · `TR-04496`(ORDERED · 이레) + 재훑기 + 잔고 조회 502 ⇒ `TR-04730` 빈 bin 중복 24행 | ⬜ **커서 정체 감시**(⑤ · 커서 값 3일 같으면 ⑦ `cursor_held_by`) · ⚠️ `cursor_stalled_alert` 는 둘 다 안 울렸다(⬜ 발화 조건) |
 
 📌 **A·B·C 가 전부 같은 증상**이었고 원인별 가드는 매번 사촌을 놓쳤다 ⇒ **증상 가드**를 넣었다:
 `cursorStalled = detailCapped && cursorWouldBe <= cursorBefore` → 경고 + commit 차단.
@@ -1774,7 +1833,14 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-09-09 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-18 갱신)
+
+0. ⬜ **[09-18 신규] 커서 정체 계열 — 남는 것 다섯** (실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md` §I-5)
+   · ⬜ **`cursor_stalled_alert` 발화 조건** — 컬럼이 있고 ⑦ 에서 매일 보는데 `ST-01300` 13일 · `TR-04496` 이레 동안 한 번도 안 울렸다(코드 미확인). 대체 판정은 ⑤(커서 값 3일 같으면 `cursor_held_by`)
+   · ⬜ **⑩-b 사각지대 확장** — 빈 bin 형태(`TR-04730`)를 못 잡는다 · 후보 둘 · ⚠️ 실측 없이 조건을 넓히지 말 것(⑩-b ⚠️⚠️ · 판단은 Caleb)
+   · ⬜ **`inv-collect` 의 빈 bin 방지** — 빈 bin 행을 쓰기 전 「이 `line_ref` 에 bin 있는 행이 있나」 확인(범위 큼 · 별건)
+   · ⬜ `transfer` 경고 4건(아흐레째) · ⬜ `null_bin_nonzero` 6건(④)
+   ⭐ 셋(09-16·17·18)이 **한 계열**이었다 — 「홀드는 무해 · 캡/장애와 겹치면 사고」. 상쇄로 풀 것이 아니었다(§아침 점검 ⑤ 표).
 
 1. ✅ **소멸 감지 2단계 — 완료 (2026-09-05).** `inv_missing_docs` + `inv-collect@2026-09-05.1`
    · 아침 점검 ⑫ 가 창구 · 커밋 `e56b205`.
@@ -1802,7 +1868,7 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    ❌ 09-04 오전에 세운 「짝 없는 VOID 판정선」과 「GUID 지문」은 **둘 다 오판**이었다
    (§함정 표 정정 참조). ⚠️ 그 대신 세운 **「원장 순액이 0이 아닌가」도 축마다 다르다** —
    `adjustment`·`assembly` 에는 맞지만 **`transfer` 에는 안 맞는다**(위 4행 구조).
-3. ⬜ **잔여 2칸** — `PRO00124` 짝(에드먼튼)만 남았다. ⭐ **규명 완료**(기초 경계 ·
+3. ⬜ **잔여 3칸** — `PRO00124` 짝(에드먼튼) + [09-18] `ANN07490`(토론토 · `Deprecated` 잔재 · 상쇄 금지 · 실무 쪽에서 해소 · §아침 점검 「지금 알려진 잔재」). `PRO00124` 는 규명 완료. ⭐ **규명 완료**(기초 경계 ·
    `TR-03539` 8/4 이동 · `skip_since` 정상 동작) ⇒ **상쇄하지 않고 재기준선이 지운다.**
    ⚠️⚠️ **[09-04] 잔재 표의 원인 딱지가 하루에 둘이나 오진으로 드러났다** —
    `BNAT48173`·`CAN01003`(실제: `SO-15440` 8/28 편집) · `WEL04770`·`WEL04771`

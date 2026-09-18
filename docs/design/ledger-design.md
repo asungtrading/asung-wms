@@ -878,6 +878,8 @@ baseline: { snapshot_key, taken_at, qty }
 | `voided` | 문서 전체가 Cin7 에서 취소됨 |
 | `deleted` | 라인 하나가 삭제됨 |
 | `qtyfix` | 라인 수량이 바뀜 — 차액만 |
+| `binfix` | 빈 bin(`bin=''`) `transfer_out` 행의 상쇄(`manual_reversal`) — `scripts/fix-transfer-bins.mjs` |
+| `binfixed` | 같은 사건을 올바른 bin 으로 재삽입 — 같은 도구 · ⚠️ 올바른 bin 행이 없을 때만(dry 로 확인 · §「변경 감지가 못 보는 축」 도구 계약) |
 | `latepick` | 기초 이전 `ship_date` 의 홀드 오더가 기초 이후 출고 |
 | `binfix` · `binfixed` | bin 규칙 변경 상쇄(스크립트 · `detail` 없음) |
 | `superseded` · `reversal` | bin 규칙 변경으로 자리 비움 · 되돌림 |
@@ -3157,6 +3159,16 @@ MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on"
 `min(created_at) <> max(created_at)` 이면 이상. **같은 시각이면 정상**(한 회차에 두 bin 에서 나눠 픽 · 09-15 전수 판매 7건).
 ⚠️ 빈 bin 을 제외하지 않으면 4-leg 트랜스퍼의 IN_TRANSIT leg 때문에 전 문서가 걸린다(`net` 이 두 배 — 그 표시). SQL 과 기준선(문서명 둘)은 스킬 ⑩-b.
 **처방** = 옛 bin 쪽(Cin7 Movements 에 없는 쪽) 한 벌을 `:reversal` 로 부호 반전(원래 `event_type` 유지 · §상쇄(정정) 계약). ⑩ 의 `:qtyfix`(차액만)와 다르다.
+
+**⚠️⚠️ 판별식의 사각지대 (2026-09-18 발견 · `TR-04730`).** 「실제 bin 둘 이상」 조건은 **실제 bin → 빈 bin** 형태를 못 본다. 같은 메커니즘(유니크 키의 `bin`)의 두 형태 중 하나만 잡는다:
+```
+실제 bin → 다른 실제 bin    TR-04729(자리 변경) · TR-04174           ✅ ⑩-b 가 잡는다
+실제 bin → 빈 bin           TR-04730(bin 해석 실패 · 09-17 잔고 조회 sbGet 502 → WMS 폴백 실패 → bin_unresolved 24)   ⚠️ ⑩-b 가 못 잡는다 — ⑧ 24칸·abs_gap 306 으로만 드러났다
+```
+빈 bin 을 제외한 이유는 유효하다(정상 4-leg 의 IN_TRANSIT leg). ⬜ **넓히는 방향은 Caleb 이 정한다** — 후보 ⓐ `warehouse <> 'IN_TRANSIT'` 로 IN_TRANSIT leg 만 걸러 빈 bin 을 포함(⚠️ 정상 4-leg 의 창고 쪽 leg 에도 빈 bin 이 있는지 먼저 실측) ⓑ 빈 bin 전용 검사(`bin=''` 인 `transfer_out` 중 같은 `line_ref` 에 bin 있는 행이 존재하는 것). ⚠️ 실측 없이 넓히면 09-15 처럼 전 문서가 걸린다.
+⇒ 🔧 **수집기 쪽 근본 처방**(⬜ 별건 · 범위 큼): `inv-collect` 가 빈 bin 행을 쓰기 전에 「이 `line_ref` 에 bin 있는 행이 이미 있나」를 확인하면 애초에 안 생긴다. 지금은 잔고 조회 실패 회차의 `bin_unresolved > 0`(⑦)이 신호다.
+
+**도구 계약 — `scripts/fix-transfer-bins.mjs` (빈 bin 형태의 처방 · 2026-09-18 실측으로 확정).** 전제는 「올바른 bin 행이 없다」(상쇄 `:binfix` + 재삽입 `:binfixed`). ⚠️ **중복 검사 키가 `[line_ref, warehouse, bin, sku]` 라 `bin` 을 포함한다**(221·253행) ⇒ 「이 `line_ref` 에 bin 있는 행이 있나」가 아니라 「내가 구한 bin 과 같은 행이 있나」를 묻는다. 해결 bin 이 기존 행과 다르면 재삽입이 실행되어 **이중**이 된다. ⇒ **dry 가 필수**이고 판정은 넷(스킬 ⑩-b 표): `(상쇄만)` 만 안전 · `(상쇄 + 재삽입)`·`✗ bin 미해결`·`잔고 조회 실패` 는 commit 금지. [실측 09-18 `TR-04730`] 24줄 전부 `(상쇄만)` ⇒ commit · +299 · 빈 bin 순액 0 · `abs_gap 306 → 7`. 손으로 쓴 SQL 상쇄보다 이 도구가 낫다 — 기존 관례를 쓰고 `raw` 에 근거를 남긴다. 실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md`.
 
 **IMS 이후.**
 ```
