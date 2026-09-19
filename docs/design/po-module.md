@@ -2907,12 +2907,14 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
                 그 밖에 막는 것 다섯: 이미 확정·취소 · PO 가 confirmed 아님(잠금 뒤 다시 본다 — 그 사이 닫혔을 수 있다) · 작업 줄 없음 · 빈이 그 사이 비활성·다른 창고 · 남이 사이에 확정
 ⭐ 확정이 하는 일  ⓐ 작업 줄 → po_receipt_line 1:1(received_on 은 묶음의 것 · ⭐ **received_by = 놓은 사람 → 없으면 센 사람 → 없으면 확정한 사람** · 확정한 사람은 po_receipt.confirmed_by · **초과분도 입고 줄에 그대로** · 줄을 깎지 않는다)
                 ⓑ 차이 큐(기준은 갈라지기 **전** 문서의 수량 — 그래서 ⓒ 앞) ⓒ 자동 분할 또는 닫기(11-c) ⓓ 묶음 confirmed(맨 뒤 — 어디서 터져도 아무것도 안 남는다) · 잠금은 PO(base)+라인 둘
-                ⚠️⚠️ **사건은 안 나간다 · 훅도 없다** — 원장 이식 차수가 po_receipt_line 을 읽는다(11-j) · 초과는 발주 라인을 늘리지 않는다(원장이 기준까지 자른다 · 차이 큐 over 가 그 근거)
+                ~~⚠️⚠️ **사건은 안 나간다 · 훅도 없다**~~ → ✅ [2026-09-19] **ⓔ 창구 inv_post_receipt 가 같은 트랜잭션으로 사건을 낸다**(11-j · 훅이 아니라 함수 호출 · 원장이 po_receipt_line·po_receipt_diff 를 읽는다) · 초과는 발주 라인을 늘리지 않는다(원장이 기준까지 자른다 · 차이 큐 over 가 그 근거)
 ⭐ 차이 큐        po_receipt_diff — kind **over · short · off_po** · expected_qty(기준) · received_qty · resolved_by/at · unique (receipt_id, po_line_id) · 열린 것 = resolved_at is null(뷰 po_receipt_diff_list · 부분 인덱스 없음)
                 ⭐ short 를 담는 이유(Caleb) — **분할은 남은 수량을 옮길 뿐 「왜 덜 왔나」를 아무도 안 본다.** 넷이 섞여 있고 분할은 구별하지 못한다: 공급사가 나눠 보냈다(다음 배에 온다) · 결품(PO 를 닫아야 한다) · 운송 중 분실·파손(크레딧) · 우리가 잘못 셌다(다시 세야 한다)
                 ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」
                 ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)
-⭐ Last bin       **ims_last_bin(uuid[], uuid) → jsonb 하나 뒤에** 있다 — 지금 속은 po_receipt_line(product 는 po_line · warehouse 는 ref_bin · received_on desc, created_at desc) · 나중 속은 원장(출고·조정·이동까지 「지금 있는 자리 → 없으면 마지막 자리」) · **부르는 쪽(화면·RPC)은 안 고친다**
+⭐ Last bin       **ims_last_bin(uuid[], uuid) → jsonb 하나 뒤에** 있다 — ~~지금 속은 po_receipt_line(received_on desc, created_at desc)~~ → ⭐ **[2026-09-19 `20260919151601`] 속 = 원장(ims_inv_balance)**: 1순위 지금 재고가 있는 자리(qty>0 · 마지막 사건 최근순) → 2순위 마지막으로 있던 자리(qty≤0 · 사건 있음) · 동률이면 수량 큰 것 → 빈 이름(결정적이어야 한다 — 두 번 불러 다른 답이 안 나오게) · **부르는 쪽(화면·RPC)은 안 고친다**
+                ⭐⭐ **화면은 한 줄도 안 고쳤다**(시그니처 · 반환 키 넷 bin_id·bin·zone·received_on 무변) — 「함수 하나 뒤에 감춘다」(09-18 ⬜6)가 실물로 증명된 자리다 · ⚠️ received_on 의 **뜻이 바뀌었다** — 그 빈에서 그 SKU 의 **마지막 사건일**(사건 없이 기초선에만 있으면 촬영일) · 화면은 문자열로 찍기만 한다
+                ⚠️ 후보에서 빼는 것: IN_TRANSIT(창고가 다르다) · 빈 문자열 bin · 마스터에 없는 bin · **비활성 bin** · ⚠️ 0 으로 깎인 빈(§11-j 초과 배분)은 원장 행이 없어 후보에서 빠진다 · ⚠️ 원장은 낱개 SKU 라 세트 product 의 id 로 물으면 키가 없다(화면은 po_line.product_id 낱개를 넘긴다)
                 ⚠️ wms_sku_bins(Cin7 스냅샷)는 읽지 않는다(원칙 1) · 시드하지 않는다(컷오버 때 채워진다 · 초기에는 거의 비어 있다) · 화면이 po_receipt_line 을 직접 조회해 라스트 빈을 만들지 마라
 ⭐ 계산은 DB 에만  po_receipt_detail 이 정본 — lines[] 는 PO 라인 전부(안 센 라인도 · 「센 것만 줄」이라 안 센 라인은 여기서 그린다) · ordered · invoiced · received_before · received_here · remaining · counted · allocated · unallocated · placed · over · work[] · receipt_lines[] · diffs[] · totals · warnings · 목록은 뷰 po_receipt_list · 화면은 저장 뒤 detail 을 되읽는다
 ⚠️ 환산          work_save 는 **낱개 총량**을 받는다 — 팩→낱개 환산 RPC 는 없다(화면이 곱하면 「계산은 DB」를 어긴다 · p_entered_qty·p_unit_product_id 로 DB 가 곱하는 안 · §13-f)
@@ -2936,8 +2938,30 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
               ⚠️ [검토 Claude 정정] 「같은 사건이 두 번 들어오는 것을 막는 열쇠」의 **한 부분**이다 — 실물 유니크 키는
               (doc_type, doc_number, line_ref, event_type, warehouse, bin, sku) 일곱(`inv_ledger_event_uq`). 줄 번호 하나가 열쇠가 아니다.
 ⭐ SO · 재고조정 · 트랜스퍼도 **같은 모양**을 따른다. 이 모양이 원장 이식(§12)의 입력 명세가 된다.
-⬜ 사건을 실제로 어떻게 전달하는가(표 · 트리거 · EF)는 ~~표 설계 때 정한다~~ → [2026-09-16 합의 · Caleb] **원장을 IMS 로 옮길 때 잇는다.** 받을 곳이 없는데 보내는 쪽만 만들면 그 모양이 맞는지 확인할 방법이 없다. 입고 줄(`po_receipt_line`)에 원장이 필요로 하는 것이 다 있다 — 날짜 · SKU(po_line.product_id) · 창고/빈(ref_bin) · 수량 · 문서 번호(갈라진 뒤) · 줄 번호(line_no). ⬜ 유지 — 사건 표·트리거·아웃박스는 만들지 않았다.
+⬜ 사건을 실제로 어떻게 전달하는가(표 · 트리거 · EF)는 ~~표 설계 때 정한다~~ → [2026-09-16 합의 · Caleb] **원장을 IMS 로 옮길 때 잇는다.** 받을 곳이 없는데 보내는 쪽만 만들면 그 모양이 맞는지 확인할 방법이 없다. 입고 줄(`po_receipt_line`)에 원장이 필요로 하는 것이 다 있다 — 날짜 · SKU(po_line.product_id) · 창고/빈(ref_bin) · 수량 · 문서 번호(갈라진 뒤) · 줄 번호(line_no). ~~⬜ 유지 — 사건 표·트리거·아웃박스는 만들지 않았다.~~ → ✅ **[2026-09-19 `20260919155005` 원장 이식 2차] 표·트리거·아웃박스가 아니라 함수 하나로 이어졌다 — 아래.**
 ⭐ [2026-09-18 · `20260918203805`] 확정 RPC(po_receipt_confirm)도 **사건을 내보내지 않는다 · 빈 훅도 두지 않았다**(안 도는 코드가 남는다) — po_receipt_line 에 receipt_id 가 더해져 묶음(받은 날·창고·확정한 사람)까지 잇는다 · 초과분은 줄에 그대로이니 「기준까지만」은 원장 쪽이 po_receipt_diff(over)를 보고 자른다 · 방향(원장이 po_receipt_line 을 읽는다)은 맞다고 판단(2-b 이견 7).
+⭐⭐ ✅ [2026-09-19 · 원장 이식 2차 `20260919155005` · 근거는 그 파일 머리 주석] **원장이 창구를 내고 PO 가 그것을 부른다** — `inv_post_receipt(receipt_id) → jsonb` · **같은 트랜잭션**
+   ⚠️ po_receipt_confirm 이 inv_ledger 에 직접 insert 하지 않는다(원칙 2) — 장부를 어떻게 적을지는 원장이 정하고 PO 는 id 하나만 넘긴다. SO·조정·트랜스퍼가 서면 inv_post_<사건> 이 하나씩 선다
+   ⚠️ 원장 쪽이 실패하면 확정도 실패한다 — **그것이 맞다**(재고에 안 잡힐 거면 확정도 하면 안 된다) · 「확정은 됐는데 재고가 안 늘었다」가 생길 수 없다
+   ⭐ 부르는 자리 = ⓓ(묶음 confirmed) **뒤** · 창구가 status='confirmed' 를 스스로 확인한다(직접 호출로 초안이 장부에 닿는 길이 막힌다) · 그래서 raw 의 po_number 는 **갈라진 뒤 번호**다
+   ⭐ 사건의 모양 (⚠️ 위 「모양」 표 두 줄과 부딪힌다 — 끝의 ⚠️)
+      doc_type purchase · event_type po_in · source **ims** · seq_hint 1 · amount **null**(수량 원장 · 단가·통화·환율은 raw — 원가 차수가 읽는다)
+      doc_number **RCV-…**(⚠️ PO 번호가 아니다 — 유니크 7키에 doc_task_id 가 없어 같은 PO·같은 제품·같은 빈의 재입고가 겹친다 · **입고가 사건의 실제 단위**다 · PO 번호는 raw.po_number)
+      line_ref **po_line_id**(⚠️ ProductID 가 아니다 — Caleb 실측 확정 2026-09-19 · 발주 CardID 와 같은 결 · 같은 제품 두 라인도 키가 안 겹친다 · ledger-design 2부 line_ref 표) · doc_task_id po_receipt.id · occurred_on 묶음의 received_on
+      한 입고 줄 = 한 행(빈별) · warehouse·bin·sku 는 **이름**으로(원장은 텍스트 축 · ledger-design 4부 「이식」)
+   ⭐⭐ **초과는 기준까지만** 원장에 간다(§11-i) ⇒ **원장 합 ≠ 입고 줄 합이 정상이다.** 깎인 것은 raw 에 남는다 — line{counted, basis, posted, excess, diff_kind} · this_bin{counted, posted, trimmed} · bins[](라인 전체 배분 · 0 으로 깎인 줄도 여기)
+      ⭐ **basis(기록)와 cap(깎기)은 다른 값이다** — 기준을 po_line.qty_ea 에서 읽지 않는다(ⓒ 분할이 그 값을 줄인다 · 시점 함정):
+         basis = 차이 큐 po_receipt_diff.expected_qty(over·short 어느 쪽이든 행이 있으면 · ⓑ 가 얼린 **분할 전 기준**) · 없으면(딱 맞게 받음) 센 것
+         cap   = over 면 expected_qty · 아니면 센 것(short 는 깎을 것이 없다) · posted 는 cap 으로만 계산
+         ⚠️ [실사고 2026-09-19 검증 ⑤] 처음에 basis 를 over 에서만 읽어 부족일 때 raw 에 10 이 적혔다(기준은 12 였다 · 분할이 qty_ea 를 10 으로 줄인 뒤라 되캘 길도 없었다). 숫자(posted)는 맞았지만 **기록이 틀렸다** — 나중에 원장 행 하나로 기준을 캐면 틀린 답을 얻는다 ⇒ 둘을 갈랐다
+      ⭐ 초과 배분(한 라인이 여러 빈 · 기준을 넘을 때) — **수량 큰 빈부터 채우고(동률은 빈 이름 → id) 바닥나는 줄에서 자른다**(예 기준 12 · A 8 · B 7 → A 8 · B 4)
+         근거: 어떤 규칙도 실물과 어긋난다(초과분은 어딘가의 빈에 실제로 있다) — 그래서 「덜 틀리게」: 큰 무더기가 그 SKU 의 주 자리이고 작은 쪽이 넘친 것일 확률이 높다 · 주 자리의 장부가 맞는 쪽이 Last bin·피킹에 낫다
+         ⚠️ 비례 배분은 6.4 같은 **가짜 소수**를 만든다 · 이름순은 실물과 무관하다 · 「마지막 놓은 줄」은 po_receipt_line 에 순서가 없다(created_at 이 한 트랜잭션이라 전부 같다)
+         0 으로 깎인 줄은 행을 만들지 않는다(raw.bins 에는 남는다) ⇒ 그 빈은 ims_last_bin 후보에서 빠진다
+   ⭐ 멱등 — 이미 그 RCV 의 ims 행이 있으면 쓰지 않고 already_posted=true · existing_rows 를 말한다(**조용한 0 이 아니라 말하는 0**) · 창구는 직접 부를 수 있다(백필·복구 — 확정된 입고만 받는다) · 유니크 충돌은 읽을 수 있는 문장으로
+   ⭐ 거부(문장) 권한(ims_require_write receiving) · 확정 아님 · 경고만: received_on 이 기초선보다 이름(received_on_before_baseline) · 미래 · 반환 { rows_posted · qty_counted · qty_posted · qty_excess · lines[] · warnings[] } — confirm 반환의 **ledger** 키 · warnings 에 ledger_trimmed_to_basis
+   ⭐ security **invoker**(inv_ledger insert 는 authenticated 에 열려 있다 · definer 가 필요한 표가 없다 · §5 예외를 늘리지 않았다)
+   ⚠️ 위 「모양」 표와 부딪히는 두 줄 — 고치지 않고 적어 둔다(ims-doc-update-0919 ⬜1 · Caleb 판정): 「문서 번호 = 갈라진 뒤의 PO 번호」→ 실물은 **RCV 번호**(PO 번호는 raw) · 「줄 번호(line_no) = line_ref」→ 실물은 **po_line_id**
 ```
 
 ### 11-k. ⭐ 제품 생성 — 지금 규칙이 필요한 유일한 것 (§10-k 의 예외)
@@ -3060,7 +3084,7 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 ⚠️ §11 은 판단의 기록이고 이 절은 **그 판단이 표가 된 실물**이다. 칸·제약·근거의 정본은 마이그레이션 파일의 주석이다 — 여기는 목록·검증·규약만.
 지시서 `~/asung/prompts/po-tables-1.md` · `po-tables-2.md` · `po-tables-doc.md` · 검토 이견은 각 파일 머리에.
 
-### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6
+### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6 → ⭐ [2026-09-19 원장 이식] 뷰 + `ims_inv_balance` · `ims_ledger_unlinked` · 함수 `inv_post_receipt` · `ref_warehouse` +1행(IN_TRANSIT · manual · 비활성) · `po_receipt_list` +open_diffs(맨 뒤) · 마이그레이션 둘 `20260919151601`(162행 · 커밋 49faf5d) · `20260919155005`(450행 · ⬜ 커밋) · 정본 ledger-design 4부 「이식」
 ```
 ①차 20260916144201_po.sql (226행)                        커밋 8a27edd  10:49
    po               발주 머리   po_number(PO-02000~ · 시퀀스 기본값) · status 넷 · supplier · currency/exchange_rate · payment_term(FK+원문) · ship_to_warehouse · split_from_id(바로 앞) · created/confirmed_by → ims_staff
@@ -3174,8 +3198,10 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
       po_receipt_work_putaway_all(receipt, bin, done=true) → {rows_changed}                                              WMS Place all 승계 · 이미 그 상태인 줄은 안 건드린다(0 은 거짓말 아님)
       po_receipt_work_unassign(work)                       → {work_id, removed_work_id, merged_into, qty_after, line_total, action}   빈·놓았나·넣은 사람을 되돌린다 · 빈 없는 줄이 있으면 병합 · 이미 빈 없으면 unchanged · 합 불변을 잰다
       po_receipt_work_delete(work) · po_receipt_delete(receipt)   → {deleted, line_total} · {deleted, work_rows_deleted}   draft 만 · 묶음 삭제 축은 confirmed_at(세 문서와 같은 문장) · po_receipt_line 이 가리키면 이름으로 거부
-      ⭐⭐ po_receipt_confirm(receipt)                      → {po{number_before, number_after, status}, split|null, diffs{over, short, rows}, receipt_lines_created, warnings}   §11-i 확정 게이트 · ⚠️ security definer(§5 예외 하나)
-      읽기  po_receipt_detail(receipt) → jsonb(⭐ 계산의 정본) · 뷰 po_receipt_list · po_receipt_diff_list · ims_last_bin(product_ids[], warehouse) → jsonb 맵
+      ⭐⭐ po_receipt_confirm(receipt)                      → {po{number_before, number_after, status}, split|null, diffs{over, short, rows}, receipt_lines_created, **ledger**, warnings}   §11-i 확정 게이트 · ⚠️ security definer(§5 예외 하나) · [2026-09-19] ⓓ 뒤 ⓔ 창구 호출 · warnings + ledger_trimmed_to_basis · received_on_before_baseline
+      ⭐⭐ inv_post_receipt(receipt)                          → {rows_posted, qty_counted, qty_posted, qty_excess, lines[], already_posted, existing_rows, warnings}   [2026-09-19 `20260919155005`] ⭐ **원장의 창구**(inv_ 접두어 = 원장 소유 · §11-j) — confirm 이 부른다 · 확정된 입고만 · 멱등(말하는 0) · security invoker(예외를 늘리지 않았다) · ⚠️ create function 이라 다시 못 돈다(§13-f)
+      읽기  po_receipt_detail(receipt) → jsonb(⭐ 계산의 정본) · 뷰 po_receipt_list(+ **open_diffs** 맨 뒤 칸 · 2026-09-19 · 기존 24칸 이름·순서 무변 · 화면은 select("*")) · po_receipt_diff_list · ims_last_bin(product_ids[], warehouse) → jsonb 맵(**속 = 원장** 2026-09-19 · §11-i)
+            [2026-09-19 `20260919151601`] 뷰 **ims_inv_balance**(inv_balance 를 읽어 product_id·warehouse_id·bin_id·last_event_on·last_seen_on 을 붙인다 · 잔고 정의는 inv_balance 하나 · security_invoker) · **ims_ledger_unlinked**(축 점검 · kind sku|warehouse|bin · 기준선 sku 1 · warehouse 0 · bin 0)
       ⚠️ 검증은 RCV-00005(PO-02011)로 rollback 안에서 — po_receipt_create 를 부르면 「already has an open receipt」로 거부된다(앞 검증이 여기서 어긋나 뒤가 전부 깨졌다) · RCV 시퀀스는 rollback 으로 안 돌아간다
 화면  asung-ims po.html                                                                    36c1fc2 12:59 읽기 → 4ae86d6 13:56 크레딧(credit due) → 0e23369 14:35 만들기·편집 → 609297c 14:38 오류 삼킴 수정 → d376907 14:45 TDZ 수정
       읽기: 왼쪽 목록(po_list) + 오른�록 상세(po_detail) · 카드 일곱 + 크레딧 · 갈라진 문서 이동은 모체 번호를 검색칸에(§11-c · §10-j 3-d)
@@ -3337,7 +3363,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ 팩→낱개 환산                지금 work_save 는 낱개 총량을 받는다 · p_entered_qty · p_unit_product_id 로 **DB 가 곱하는** 안(화면이 곱하면 「계산은 DB」를 어긴다)
 ⬜ 확정 취소                   po_doc_cancel 에 'receipt' 가지(입고 줄·차이·분할을 어떻게 되돌리나 — 사건 차수와 함께) · 확정 전 「그만둔다」는 po_receipt_delete
 ⬜ po_receipt_line.receipt_id 를 NOT NULL 로   백필(09-16 검증 데이터 4행 · 짐작 — 실측 필요) 또는 정리 뒤
-⬜ WMS 이관                    조사가 찾은 것(§13-i): 트랜스퍼 입고 · 창고 접근(warehouse_access 를 리시빙 RPC 가 본다) · 상품 이미지 · 미지 bin · 라스트 빈을 원장에서 · 같은 줄 동시 스캔 병합
+⬜ WMS 이관                    조사가 찾은 것(§13-i): 트랜스퍼 입고 · 창고 접근(warehouse_access 를 리시빙 RPC 가 본다) · 상품 이미지 · 미지 bin · ~~라스트 빈을 원장에서~~(→ ✅ 09-19 ims_last_bin 속 = 원장 · §11-i) · 같은 줄 동시 스캔 병합
 ⬜ WMS 창고 화면의 화면 값       'receiving' 을 같이 쓰면 카탈로그 room 은 하나라 worker 기본이 안 붙는다 — 값을 따로 둘지(`putaway` 등) 그때 정한다(§10-j 3-l)
 그 밖
 ⚠️⚠️ 크레딧 채번이 PO 번호 접두어를 읽는다   분할로 PO-02011 이 PO-02011a 가 되면 CN-<po> 접두어가 안 맞아 같은 번호가 다시 난다 · 실무는 크레딧이 입고 뒤라 드물다 — 그래도 적어 둔다(§11-c)
@@ -3346,7 +3372,18 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⚠️⚠️ psql -f 로 적용하면 이력 표가 안 쌓인다   오늘 db push 가 22개를 처음부터 밀다가 첫 파일 둘째 문장에서 멈췄다(피해 없음 · po 34칸 · ims 정책 104 로 확인) ⇒ **적용할 때마다 `supabase migration repair --status applied <버전>` 을 함께 돌린다**
 ⚠️⚠️ 이름 서브쿼리 별칭          ims_staff 가 updated_by 를 갖게 되어 별칭 없는 `where id = updated_by` 가 에러 없이 null 을 낸다 — 하루에 두 번(§5 트리거) · 별칭을 반드시 붙인다
 ⬜ 정본 정리                   3,319행 → 오늘 더 늘었다 · 한 달 지난 절의 과정 기록을 압축한다(결론과 근거는 남긴다)
-⬜ 그대로 남은 것              사건(원장 이식 때 · 11-j) · ~~차이 큐(재고조정 때)~~ → ✅ [09-18] 리시빙에 섰다(po_receipt_diff · 닫는 길은 아래) · 파일 업로드(Storage) · 확정 RPC(Latest 갱신) · 계정 후보 규칙 · HST · KRW 계산 · §12 재검토(짐작) · other 줄 할인(11-e) · supplier_discount 편집 화면(§10-k)
+⬜ 그대로 남은 것              ~~사건(원장 이식 때 · 11-j)~~ → ✅ [09-19] inv_post_receipt(§11-j) · ~~차이 큐(재고조정 때)~~ → ✅ [09-18] 리시빙에 섰다(po_receipt_diff · 닫는 길은 아래) · 파일 업로드(Storage) · 확정 RPC(Latest 갱신) · 계정 후보 규칙 · HST · KRW 계산 · §12 재검토(짐작) · other 줄 할인(11-e) · supplier_discount 편집 화면(§10-k)
+[2026-09-19 · 원장 이식 1·2차 — 오늘 늘어난 것 · 근거는 `20260919151601`·`20260919155005` 머리 주석과 ledger-design 4부 「이식」 절]
+⬜⬜ inv_post_receipt 가 **create function 이라 다시 못 돈다**   고쳐 다시 밀 때 매번 drop 이 필요하다 — ⭐ create or replace 로 바꿀 것(2026-09-19 실제로 걸렸다)
+⬜ 확정 취소                   되돌리는 RPC 가 생기면 **반대 방향 po_in 행을 상쇄로 넣어야 한다**(append-only · 지우지 않는다 · 위 「확정 취소」와 한 묶음)
+⬜ 차이를 닫는 길              닫을 때 **초과분을 재고로 넣는 방법** — 기준까지만 들어갔으므로 닫는 순간 나머지가 장부에 들어가야 한다(조정 사건인가 · po_in 추가 행인가 · 그때 정한다 · raw.bins 가 어느 빈에 얼마가 깎였는지 갖고 있다)
+⬜ 음수 잔고 229행 원인 규명    원장이 원래 갖고 있던 상태(ledger-design 4부 「이식 시점 기준선」 · 229 SKU · −2,191) · 늘면 새로 생긴 것
+⬜ SKU 별칭 표                 SKU 를 고칠 때 옛 이름을 남긴다(원장은 텍스트 축 · 조인이 조용히 끊긴다 · ims_ledger_unlinked 가 그 신호) — 실제로 고칠 일이 생길 때
+⬜ shadow 대조에서 source='ims'  inv_balance_vs_cin7 이 IMS 사건을 「원장만 있음」으로 잡는다 — 운영 이식 때 정한다(ledger-design 3부 컷오프 절 ⬜ · 설계는 하지 않았다)
+⬜ 데이터 최신화               테스트 DB 의 원장이 2026-09-10 에서 멈춰 있다 — 운영에서 다시 가져온다 · ⚠️ **inv_* 표만** 골라야 한다(09-10 의 통째 복원 방식으로는 IMS 표 서른둘이 날아간다)
+⬜ RCV-00005 백필 여부          이식 전에 확정돼 원장 행이 없다 — `select inv_post_receipt('<id>')` 한 번이면 된다(확정된 입고만 받는다 · 시험 데이터면 안 해도 된다 · Caleb 판정)
+⬜ receiving.html               confirm 반환 ledger.qty_posted · 경고 ledger_trimmed_to_basis 로 「재고에 n 들어갔다 · m 은 차이 큐에」를 말할 수 있다(대화 Claude)
+⚠️ 정본과 부딪히는 문장(고치지 않고 보고 · ims-doc-update-0919 ⬜1)   §3 표 ref_warehouse 「IN_TRANSIT 안 담는다」(담았다) · §11-j 모양 표 「문서 번호 = 갈라진 뒤 PO 번호」(RCV 번호)·「줄 번호 = line_ref」(po_line_id) · §12-a 「inv_snapshot 안 옮긴다」(ims_inv_balance 가 기초선으로 읽는다)·「doc_task_id 는 IMS 에 없다」(po_receipt.id)·「source 는 모듈 이름(짐작)」('ims' 하나)
 ```
 
 ---
@@ -3443,3 +3480,10 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⚠️ 실사고: pre-commit 훅이 IMS CHECK 를 오해(--no-verify) · psql -f 적용 뒤 이력 표 빈 채로 db push(repair 로) · 검증에서 po_receipt_create 재호출로 뒤가 깨짐(RCV-00005 로) · 별칭 null 두 번.
   ⚠️ 정본과 부딪힌 것(고치지 않음): §13-f 「원래 주문 수량을 라인에 남긴다」 — 오늘 분할은 그렇게 하지 않았다(§13-i 끝 · Caleb 판정 대기).
   📌 다음(§13-f): 동시 편집 화면(WMS 모양 · 리시빙 먼저) · 차이 닫기 RPC·화면 · off_po · 환산 · 확정 취소 · receipt_id NOT NULL · 훅 좁히기 · 머리 잠금 · 크레딧을 결제에.
+- 2026-09-19 — **⭐⭐ 원장 이식 1·2차(§11-j · §11-i · §13-a·d·f · 정본 ledger-design 4부 「⭐⭐ 이식 — 원장이 IMS 안에서 선다」)** — 마이그레이션 둘 `20260919151601`(162행 · 축 잇기 · IN_TRANSIT · source 'ims' · ims_inv_balance · ims_ledger_unlinked · ims_last_bin 속 = 원장 · 커밋 49faf5d) · `20260919155005`(450행 · ⭐⭐ inv_post_receipt 창구 · po_receipt_confirm ⓔ · po_receipt_list open_diffs · ⬜ 커밋). 화면 무접촉 · 운영 DB 무접촉.
+  ⭐ [Caleb] 「원장은 심장이다 — 그 심장을 IMS 에 이식한다」 · 이식이지 데이터 최신화가 아니다(테스트 DB 원장 09-10 정지) · 재기준선도 플립도 아니다.
+  ⭐ 판단: 원장은 텍스트 · 뷰가 잇는다(FINAL-SALE 이 근거) · 잔고를 다시 정의하지 않는다(inv_balance 하나) · 초과는 기준까지만 · basis(기록) ≠ cap(깎기) · 수량 큰 빈부터 · 멱등은 말하는 0 · 창구는 invoker(§5 예외를 늘리지 않았다).
+  ⭐ 검토(Claude Code)가 잡은 것: 잔고 정의 중복 방지(inv_balance 위에 얹기) · bin 조인은 (warehouse_id, name) · 기준은 po_receipt_diff.expected_qty 에서(분할 시점 함정 회피) · 비활성 bin 후보 제외 · 창구는 ⓓ 뒤(확정된 입고만 · 갈라진 뒤 번호).
+  ⚠️ 실측으로 뒤집힌 것: 지시서의 「purchase line_ref = ProductID(888행)」 — Caleb 이 TDX70301(세 PO · 세 line_ref)로 라인 id 임을 확정(대화 Claude 의 09-04 정정은 조립·트랜스퍼 축이었다) · 검증 ⑤ 에서 short 의 raw.basis 가 10 으로 남아 basis/cap 을 갈랐다.
+  ⚠️ 정본과 부딪힌 것(고치지 않음 · §13-f 09-19 블록 끝): §3 표 ref_warehouse 「IN_TRANSIT 안 담는다」 · §11-j 모양 표 두 줄 · §12-a 세 문장.
+  📌 다음(§13-f 09-19 블록): create or replace · 확정 취소 상쇄 · 차이 닫기와 초과분 · 음수 229 · 별칭 표 · shadow ims · 데이터 최신화(inv_* 만) · RCV-00005 백필 · 화면 ledger 표시.
