@@ -2504,6 +2504,18 @@ cancelled_by   po · po_invoice · po_charge 에 신설 — confirmed_by 는 있
 화면            po.html Cancel 을 RPC 로 · Delete/Restore(po · invoices · charges) · 버튼 노출: Delete = confirmed_at null(크레딧 없음) · Restore = cancelled 만 · 거부 문장은 그대로 띄운다
 ```
 📌 Cin7 공급처 Additional attributes 의 `PO Progress` 칸(전 공급처 빈값 · §3-b 「담지 않는다」)은 「⑤ 에서 참고」로 적혀 있었다 ⇒ **참고할 것이 없었다.** 우리 상태는 위로 선다.
+→ **머리 칸 편집(2026-09-19 · 화면 po.html · 대화 Claude)** — 발주만 그 길이 없었다(다른 문서 셋은 있었다).
+```
+여는 것 다섯   draft 까지   Order date · Required by · Ship to(활성 창고 드롭다운)
+              언제나      **Exchange rate · Note**(HEAD_ALWAYS) · ⚠️ 취소된 발주는 아무것도 안 고친다
+⭐⭐ Exchange rate 가 확정·마감 뒤에도 열리는 이유 — **원가가 이 값에 매달린다**(inv_layer_post_receipt · unit_price × CAD per USD). 실제 환율은 인보이스가 온 뒤에야 아는 경우가 있다
+⚠️⚠️ 안 여는 것과 그 이유 — 머리 칸은 라인의 뜻을 바꾼다
+   Supplier        바꾸면 라인의 단가 근거가 통째로 달라진다 — 잘못 골랐으면 새 발주가 맞다
+   Currency        이미 적힌 USD 5.19 가 CAD 5.19 가 되어 버린다
+   Payment term    (Caleb: 열 필요 없다) · Tax rule · Tax inclusive · Inventory account
+⬜ Tax rule — ref_tax_rule 이 Settings 에 서면 그때 드롭다운으로 연다. ⚠️ 지금 세율을 몰라 「기록만」이고 자유 텍스트로 열면 국내 공급처가 생길 때 아무 글자나 쌓인다
+   [Caleb] 「해외 계정은 모두 Zero-rated」 · ⭐ **QBO 가 연동되면 QBO 세율이 내려오고 그쪽이 우선**이다
+```
 
 ### 11-c. ⭐⭐ 부분 입고 = 문서가 갈라진다 (오늘의 핵심 판단)
 ```
@@ -2578,6 +2590,18 @@ b 의 머리    a 의 머리를 통째로 복사(칸이 늘어도 따라온다) 
 [실물 2026-09-17]   CN-AMP-778812-1 삭제 시도 → 「Credit note CN-AMP-778812-1 cannot be deleted — cancel it instead; its number must never be reused by another credit note — nothing was deleted」 (cancelled 여도 같은 문장 — 종류 검사가 상태 검사보다 앞)
 ```
 ~~⚠️ 초안을 지우면 그 번호가 다시 날 수 있다 — 지운 초안은 공급처에 안 갔다고 본다(짐작 · `20260916210000` 32행 주석)~~ → [2026-09-17 정정] 위 규칙으로 틀린 문장이 됐다. 마이그레이션 주석은 고치지 않는다(적용된 파일) — §13-h 의 같은 문장도 함께 고쳤다.
+→ **형제 문서 합계(2026-09-19 · `20260919175712` · 9a5344a · 함수 `po_family_members(po_id)` · `po_family_lines(po_id)`)**
+```
+[Caleb] 「애초에 PO-02011 을 봐야 하는데, 오더가 스플릿 되니까 PO-02011a 만 봐서 생기는 문제로 보인다」
+⇒ 차이를 닫으려 할 때 **그 발주가 결국 다 채워졌는지**가 보여야 판단이 된다 — 12 중 12 · 조각 a 10 · b 2(detail 의 diffs[].family · lines[].family · header.po_family)
+⚠️⚠️ **계산은 DB 가 한다** — 화면이 형제를 찾아 더하면 규칙이 화면에 생긴다.
+   [실사고 2026-09-19] 대화 Claude 가 검증용으로 손으로 쓴 재귀가 뿌리를 중복 제거하지 않아 **합이 두 배(24)로 나왔다.** 함수는 그 실수를 안 했다
+⭐ 형제끼리 라인은 **product_id** 로 맞춘다 — ⚠️ line_no 로는 안 된다: 갈라진 b 는 confirmed 라 새 라인을 붙일 수 있고(po_lines_paste · 「draft·confirmed 는 붙인다」)
+   그 line_no 는 b 안의 max+1 이라 a 의 다른 제품과 겹친다 ⇒ **다른 제품이 합쳐진다.** line_no 는 조각(fragments[])에 표시용
+⭐ 뿌리 찾기 — split_from_id 로 올라가 뿌리에서 내려오며 전부 모은다(a → b → c·d 여러 단). ⚠️ 재귀는 순환을 막는다(path 배열 + 깊이 50) — 자기 참조도 두 문서 고리도 끝난다(실측)
+⚠️ 「분할이 합을 보존한다」는 **분할 시점**의 이야기다 — 그 뒤 라인을 고치거나 지우면 합이 준다. 그것은 「가족이 정말 덜 시켰다」는 뜻이라 ordered_total 이 따라 주는 것이 맞다
+   (실측 등식: 가족 ordered_total = short 차이의 expected_qty + 그 입고 이전 입고 합 · 어긋난 행 0)
+```
 
 ### 11-d. 라인
 ```
@@ -2619,6 +2643,16 @@ b 의 머리    a 의 머리를 통째로 복사(칸이 늘어도 따라온다) 
 SKU 다듬기  앞뒤 공백(비분리 공백 포함)만 자른다 · 정확히 찾고 못 찾으면 대소문자 무시 폴백 · 안쪽 공백·철자는 손대지 않는다(§3-f)
 한도       500줄 — 예외가 아니라 **판정**(summary.too_many · 넣지도 않는다) · closed·cancelled 는 예외 · draft·confirmed 는 붙인다(확정 뒤 추가 · 11-b)
 [화면 실측 · Caleb 2026-09-16] By Natures 제품들은 연결이 아예 없어 단가 0 으로 들어갔다 · Strength of Nature 는 공급처 SKU 와 단가가 다 따라왔다(3.43 · 3.5 · 3.23 · 2.41 · 소계 586.92) — 설계대로다
+```
+→ **한 줄 고르기 「Add a line」(2026-09-19 · 화면 po.html · 대화 Claude)** — ⚠️ 붙여넣기를 대신하는 것이 아니다. 50줄짜리는 붙여넣기고 **한둘을 더할 때**가 이것이다.
+```
+후보          **그 공급처가 파는 것만**(product_supplier · is_active) — 수천이 백 개 안팎으로 준다
+판단 재료      **fixed 와 latest 를 나란히** 보인다 (⚠️ 실측: Ampro 112 중 76 이 다르다 · 전체 12,728 중 fixed 가 싼 것 6,378 · 비싼 것 1,709 · 같은 것 4,641)
+              ⚠️⚠️ **화면이 판정하지 않는다.** 「낡았다」고 쓰면 아닌 경우에 거짓말이 된다 — 협상가일 수도, 지난번만 예외였을 수도 있다. 숫자 둘을 놓고 다르다는 것만 보인다
+단가          **화면이 정하지 않는다** — po_lines_paste 가 Fixed>0 → Latest>0 → 0 으로 고른다(2026-09-16 확정) ⇒ 나중에 발주앱이 생겨도 같은 값
+미리 보기      두 단계 그대로(Check → Add) — 자동으로 채운 단가를 사람이 한 번 본다 · 판정 표는 **공통(runLines)** — 붙여넣기와 한 줄 고르기가 같은 RPC·같은 판정·같은 표
+중복          같은 SKU 를 두 번 넣으면 **합산하지 않고 거부**(Caleb) — duplicate·exists 판정 그대로
+⬜ 셋째 재료   「우리가 지난번에 적은 값」(po_line.unit_price)은 아직 쌓이지 않았다. 그것이 서면 「우리는 5.19 로 발주했는데 latest 가 5.49 다」가 읽히고 **그게 진짜 신호**다(청구가 다르게 오고 있다)
 ```
 
 ### 11-e. ⭐⭐ 할인 — 문서 위에 줄로 선다
@@ -2711,6 +2745,14 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
 ```
 ⭐⭐ **[실물 2026-09-17 · Caleb SQL] 박아 둔 배분이 발주 금액 변화를 안 따라오는 실례가 나왔다.** CBSA 2,547.37 의 배분 597.49 / 1,949.88 은 2026-09-16 정오 기준값(PO-02002 소계 7,985.00 · 그때 discount_factor 1.000000)에서 나왔고,
 그 뒤 PO-02002 라인이 +25.40 되어 지금 기준은 8,010.40 이다 ⇒ 지금 비례로는 596.04 / 1,951.33(차이 1.45). **다시 계산하지 않는다 — 설계대로다.** spread 를 사람이 누를 때만 596.04 / 1,951.33 이 된다. §13-b 2868행의 「소계 7,985.00」은 그날 실물이지 오기가 아니다(§13-b 덧붙임 · §13-a 경위).
+→ **원가(2026-09-19 · `20260919200414` 280행 · 커밋 83b79f5 · 원가 이식 2차)** ⭐ **비용 확정이 원가에 얹는다** — `po_charge_confirm` 이 확정 뒤 같은 트랜잭션으로 `inv_layer_post_charge` 를 부른다(원칙 2 「안에 있는 것끼리는 창구를 부른다」).
+```
+얹는 곳       그 발주의 IMS 입고 레이어(po_line 을 거쳐 · cost_source po_line) · kind 넷 전부 **landed** · 금액 비율(unit_cost × qty) · CAD(⚠️ CAD per USD · amount × rate · 곱한다)
+게이트 ⑥      기준통화가 아닌 비용에 환율이 없거나 0 이면 **확정 거부**(입고와 같은 이유 · 문장이 어디서 고치는지 말한다)
+⚠️⚠️ 되돌리기   landed 가 얹혔으면 **거부** — 되돌려 배분을 고치고 다시 확정해도 멱등이 건너뛰어 옛 금액이 남는다. 고치는 길은 상쇄 비용 문서(append-only)
+반환          cost{layers_touched · amount_posted_cad · no_layers(입고 없는 발주 · 백필 창구) · no_basis(단가 0 · 버림) · allocs[]} · warnings cost_not_on_stock_no_receipt_yet · cost_dropped_no_basis
+⚠️ 위 「박아 둔 배분은 다시 계산하지 않는다」와 한 쌍 — 얹힌 뒤에는 배분도 landed 도 고치지 않는다 · 정본(원가 규칙)은 ledger-design 4부 「원가 이식 2차」
+```
 
 ### 11-g. ⭐⭐ 인보이스 — 자기 행으로 서고 PO 여럿을 가리킨다
 ```
@@ -2910,8 +2952,14 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
                 ~~⚠️⚠️ **사건은 안 나간다 · 훅도 없다**~~ → ✅ [2026-09-19] **ⓔ 창구 inv_post_receipt 가 같은 트랜잭션으로 사건을 낸다**(11-j · 훅이 아니라 함수 호출 · 원장이 po_receipt_line·po_receipt_diff 를 읽는다) · 초과는 발주 라인을 늘리지 않는다(원장이 기준까지 자른다 · 차이 큐 over 가 그 근거)
 ⭐ 차이 큐        po_receipt_diff — kind **over · short · off_po** · expected_qty(기준) · received_qty · resolved_by/at · unique (receipt_id, po_line_id) · 열린 것 = resolved_at is null(뷰 po_receipt_diff_list · 부분 인덱스 없음)
                 ⭐ short 를 담는 이유(Caleb) — **분할은 남은 수량을 옮길 뿐 「왜 덜 왔나」를 아무도 안 본다.** 넷이 섞여 있고 분할은 구별하지 못한다: 공급사가 나눠 보냈다(다음 배에 온다) · 결품(PO 를 닫아야 한다) · 운송 중 분실·파손(크레딧) · 우리가 잘못 셌다(다시 세야 한다)
-                ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」
+                ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ~~⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f)~~ → ✅ [2026-09-19 `20260919175712`] 닫는 길이 섰다(아래 「→ 차이 닫기」 · 여러 건 한 번에는 ⬜) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」
                 ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)
+→ 차이 닫기      ⭐ [2026-09-19 `20260919175712` · 9a5344a] `po_receipt_diff_resolve(diff, resolution, note)` · `po_receipt_diff_reopen(diff, note)` · 칸 resolution · resolution_note
+                ⭐ 이유 어휘 다섯 — split_shipment(나눠 왔다) · out_of_stock(공급사 결품) · lost_damaged(운송 중 분실·파손) · miscount(우리가 잘못 셌다) · other(⚠️ **메모 필수** — 셀 뜻이 없는 「그 밖」을 막는다)
+                ⭐ 왜 어휘인가 — 자유 메모는 셀 수 없다. 「이 공급처가 몇 번 결품했나」를 물으려면 어휘여야 한다(위 「short 를 담는 이유」의 완결)
+                ⭐⭐ **short 만 닫는다.** over 는 「초과분을 재고에 넣을지 돌려보낼지」도 정해야 해서 별도 차수(§13-f) — 닫으려 하면 거부하고 문장에 그 이유를 적는다
+                ⭐ 「닫혔다」의 축은 **resolved_at** 하나 · resolution·resolved_by 와 **CHECK 로 묶었다**(po_receipt_diff_resolved_ck) — ⚠️ 반쪽만 채운 행을 DB 가 거부한다 · 목록의 칩(open_diffs)이 거짓말할 길을 막았다
+                ⭐ reopen 은 세 칸을 비우되 **메모에 흔적을 남긴다**(「reopened: … | was: split_shipment」) · 닫힌 것을 또 닫으면 거부(누가·무엇으로·언제 + reopen 안내) · 닫을 때 형제 합계(11-c)가 함께 나온다
 ⭐ Last bin       **ims_last_bin(uuid[], uuid) → jsonb 하나 뒤에** 있다 — ~~지금 속은 po_receipt_line(received_on desc, created_at desc)~~ → ⭐ **[2026-09-19 `20260919151601`] 속 = 원장(ims_inv_balance)**: 1순위 지금 재고가 있는 자리(qty>0 · 마지막 사건 최근순) → 2순위 마지막으로 있던 자리(qty≤0 · 사건 있음) · 동률이면 수량 큰 것 → 빈 이름(결정적이어야 한다 — 두 번 불러 다른 답이 안 나오게) · **부르는 쪽(화면·RPC)은 안 고친다**
                 ⭐⭐ **화면은 한 줄도 안 고쳤다**(시그니처 · 반환 키 넷 bin_id·bin·zone·received_on 무변) — 「함수 하나 뒤에 감춘다」(09-18 ⬜6)가 실물로 증명된 자리다 · ⚠️ received_on 의 **뜻이 바뀌었다** — 그 빈에서 그 SKU 의 **마지막 사건일**(사건 없이 기초선에만 있으면 촬영일) · 화면은 문자열로 찍기만 한다
                 ⚠️ 후보에서 빼는 것: IN_TRANSIT(창고가 다르다) · 빈 문자열 bin · 마스터에 없는 bin · **비활성 bin** · ⚠️ 0 으로 깎인 빈(§11-j 초과 배분)은 원장 행이 없어 후보에서 빠진다 · ⚠️ 원장은 낱개 SKU 라 세트 product 의 id 로 물으면 키가 없다(화면은 po_line.product_id 낱개를 넘긴다)
@@ -2961,7 +3009,11 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
    ⭐ 멱등 — 이미 그 RCV 의 ims 행이 있으면 쓰지 않고 already_posted=true · existing_rows 를 말한다(**조용한 0 이 아니라 말하는 0**) · 창구는 직접 부를 수 있다(백필·복구 — 확정된 입고만 받는다) · 유니크 충돌은 읽을 수 있는 문장으로
    ⭐ 거부(문장) 권한(ims_require_write receiving) · 확정 아님 · 경고만: received_on 이 기초선보다 이름(received_on_before_baseline) · 미래 · 반환 { rows_posted · qty_counted · qty_posted · qty_excess · lines[] · warnings[] } — confirm 반환의 **ledger** 키 · warnings 에 ledger_trimmed_to_basis
    ⭐ security **invoker**(inv_ledger insert 는 authenticated 에 열려 있다 · definer 가 필요한 표가 없다 · §5 예외를 늘리지 않았다)
-   ⚠️ 위 「모양」 표와 부딪히는 두 줄 — 고치지 않고 적어 둔다(ims-doc-update-0919 ⬜1 · Caleb 판정): 「문서 번호 = 갈라진 뒤의 PO 번호」→ 실물은 **RCV 번호**(PO 번호는 raw) · 「줄 번호(line_no) = line_ref」→ 실물은 **po_line_id**
+   ⚠️ 위 「모양」 표와 부딪히는 두 줄 — 고치지 않고 적어 둔다(ims-doc-update-0919 ⬜1 · Caleb 판정): 「문서 번호 = 갈라진 뒤의 PO 번호」→ 실물은 **RCV 번호**(PO 번호는 raw) · 「줄 번호(line_no) = line_ref」→ 실물은 **po_line_id**   ⭐⭐ [원가 이식 1차 2026-09-19 · `20260919192236` · b09a4c0] **확정이 레이어도 만든다** — inv_post_receipt 가 원장을 넣은 뒤 같은 트랜잭션으로 `inv_layer_post_receipt` 를 부른다(원장 사건·레이어가 함께 서거나 함께 죽는다)
+      키 = 원장 키(RCV · po_line_id) · bin 을 접는다(원장 행 수 ≠ 레이어 행 수가 정상) · 수량 = 원장(기준까지만) · cost_source po_line · unit_cost = unit_price × **CAD per USD**(곱한다 · 기준통화면 ×1)
+      ⭐⭐ 게이트 ⑥ — 기준통화(inv_config.base_currency) 아닌 발주에 환율이 없거나 0 이면 **확정 거부**(어디서 고치는지 문장에 · 발주 머리 Exchange rate 칸은 확정 뒤에도 열린다 · 11-b) · 창구도 같은 조건으로 막는다(백필 경로)
+      백필 — 환율을 넣고 inv_post_receipt 를 다시 부르면 already_posted 분기가 레이어만 세운다(RCV-00005·00006 ⬜) · 반환 ledger.layers{layers_created · qty · cost_total_cad · fx_direction}
+      ⚠️⚠️ **inv_layer_apply() 를 돌리지 마라** — 이 레이어를 지우고 되살리지 않는다(ledger-design 4부 「돌리면 안 되는 함수」 · §13-f) · 원가 규칙의 정본은 ledger-design 4부 「원가 이식 1차」
 ```
 
 ### 11-k. ⭐ 제품 생성 — 지금 규칙이 필요한 유일한 것 (§10-k 의 예외)
@@ -3084,7 +3136,7 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 ⚠️ §11 은 판단의 기록이고 이 절은 **그 판단이 표가 된 실물**이다. 칸·제약·근거의 정본은 마이그레이션 파일의 주석이다 — 여기는 목록·검증·규약만.
 지시서 `~/asung/prompts/po-tables-1.md` · `po-tables-2.md` · `po-tables-doc.md` · 검토 이견은 각 파일 머리에.
 
-### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6 → ⭐ [2026-09-19 원장 이식] 뷰 + `ims_inv_balance` · `ims_ledger_unlinked` · 함수 `inv_post_receipt` · `ref_warehouse` +1행(IN_TRANSIT · manual · 비활성) · `po_receipt_list` +open_diffs(맨 뒤) · 마이그레이션 둘 `20260919151601`(162행 · 커밋 49faf5d) · `20260919155005`(450행 · 커밋 2d2219b) · 정본 ledger-design 4부 「이식」
+### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6 → ⭐ [2026-09-19 원장 이식] 뷰 + `ims_inv_balance` · `ims_ledger_unlinked` · 함수 `inv_post_receipt` · `ref_warehouse` +1행(IN_TRANSIT · manual · 비활성) · `po_receipt_list` +open_diffs(맨 뒤) · 마이그레이션 둘 `20260919151601`(162행 · 커밋 49faf5d) · `20260919155005`(450행 · 커밋 2d2219b) · 정본 ledger-design 4부 「이식」 → ⭐ [2026-09-19 오후] **표 변경 없음** · 칸 +2(po_receipt_diff.resolution · resolution_note) · 어휘 +1(inv_layer.cost_source 'po_line') · 뷰·함수만: `po_family_members` · `po_family_lines` · `po_receipt_diff_resolve` · `po_receipt_diff_reopen` · `inv_layer_post_receipt` · `inv_layer_post_charge` · 다시 낸 것 po_receipt_detail · po_receipt_diff_list(+2칸) · inv_post_receipt · po_receipt_confirm(게이트 ⑥) · po_charge_confirm(게이트 ⑥ · 되돌리기 landed 거부) · 마이그레이션 셋 `20260919175712`(420행 · 9a5344a) · `192236`(538행 · b09a4c0) · `200414`(280행 · 83b79f5)
 ```
 ①차 20260916144201_po.sql (226행)                        커밋 8a27edd  10:49
    po               발주 머리   po_number(PO-02000~ · 시퀀스 기본값) · status 넷 · supplier · currency/exchange_rate · payment_term(FK+원문) · ship_to_warehouse · split_from_id(바로 앞) · created/confirmed_by → ims_staff
@@ -3202,6 +3254,15 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
       ⭐⭐ inv_post_receipt(receipt)                          → {rows_posted, qty_counted, qty_posted, qty_excess, lines[], already_posted, existing_rows, warnings}   [2026-09-19 `20260919155005`] ⭐ **원장의 창구**(inv_ 접두어 = 원장 소유 · §11-j) — confirm 이 부른다 · 확정된 입고만 · 멱등(말하는 0) · security invoker(예외를 늘리지 않았다) · ⚠️ create function 이라 다시 못 돈다(§13-f)
       읽기  po_receipt_detail(receipt) → jsonb(⭐ 계산의 정본) · 뷰 po_receipt_list(+ **open_diffs** 맨 뒤 칸 · 2026-09-19 · 기존 24칸 이름·순서 무변 · 화면은 select("*")) · po_receipt_diff_list · ims_last_bin(product_ids[], warehouse) → jsonb 맵(**속 = 원장** 2026-09-19 · §11-i)
             [2026-09-19 `20260919151601`] 뷰 **ims_inv_balance**(inv_balance 를 읽어 product_id·warehouse_id·bin_id·last_event_on·last_seen_on 을 붙인다 · 잔고 정의는 inv_balance 하나 · security_invoker) · **ims_ledger_unlinked**(축 점검 · kind sku|warehouse|bin · 기준선 sku 1 · warehouse 0 · bin 0)
+      [2026-09-19 오후 · `20260919175712`] 차이 닫기 — 쓰기 둘 · 읽기 둘 · 전부 첫머리 ims_require_write('receiving') · security invoker
+      po_receipt_diff_resolve(diff, resolution, note?)   → {diff_id, receipt_number, resolution, resolved_by_name, resolved_at, family{ordered_total, received_total, still_owed}, open_diffs_left}   short 만 · 어휘 다섯 · other 는 메모 · 이미 닫힘 거부(reopen 안내) · for update 잠금
+      po_receipt_diff_reopen(diff, note?)                → {was_resolution, was_resolved_by, open_diffs_left}   세 칸을 비우고 메모에 흔적
+      읽기  po_family_members(po_id) → table(po_id, po_number, status, closed_at, split_from_id, depth, is_self) · po_family_lines(po_id) → table(product_id, sku, line_nos[], ordered_total, received_total, still_owed, members, fragments[])   ⭐ 계산은 DB · 재귀 순환 방어(path · 깊이 50)
+            po_receipt_detail 이 header.po_family · lines[].family · diffs[].family(+ resolution · resolution_note · resolved_by)를 낸다 · po_receipt_diff_list 맨 뒤 +resolution · resolution_note
+      [2026-09-19 오후 · `20260919192236` · `20260919200414`] 원가 창구 둘 — inv_layer_ 접두어(원가 표 소유) · security invoker
+      inv_layer_post_receipt(receipt)                     → {layers_created, layers_existing, qty, cost_total_cad, fx_rate, fx_direction, lines[]}   inv_post_receipt 가 부른다(already_posted 분기에서도 — 백필) · 확정된 입고만 · 환율 게이트 · 멱등(4키)
+      inv_layer_post_charge(charge)                       → {layers_touched, amount_posted_cad, no_layers_allocs/_amount_cad, no_basis_allocs/_amount_cad, already_posted_allocs, allocs[]}   po_charge_confirm 이 부른다 · purchasing 권한 · 배분 줄 단위 멱등
+      다시 낸 것  po_receipt_confirm(+ 게이트 ⑥ 환율 · 반환 ledger.layers) · po_charge_confirm(+ 게이트 ⑥ · 확정 뒤 창구 · 되돌리기 landed 거부 · 반환 cost)
       ⚠️ 검증은 RCV-00005(PO-02011)로 rollback 안에서 — po_receipt_create 를 부르면 「already has an open receipt」로 거부된다(앞 검증이 여기서 어긋나 뒤가 전부 깨졌다) · RCV 시퀀스는 rollback 으로 안 돌아간다
 화면  asung-ims po.html                                                                    36c1fc2 12:59 읽기 → 4ae86d6 13:56 크레딧(credit due) → 0e23369 14:35 만들기·편집 → 609297c 14:38 오류 삼킴 수정 → d376907 14:45 TDZ 수정
       읽기: 왼쪽 목록(po_list) + 오른�록 상세(po_detail) · 카드 일곱 + 크레딧 · 갈라진 문서 이동은 모체 번호를 검색칸에(§11-c · §10-j 3-d)
@@ -3384,6 +3445,16 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ RCV-00005 백필 여부          이식 전에 확정돼 원장 행이 없다 — `select inv_post_receipt('<id>')` 한 번이면 된다(확정된 입고만 받는다 · 시험 데이터면 안 해도 된다 · Caleb 판정)
 ⬜ receiving.html               confirm 반환 ledger.qty_posted · 경고 ledger_trimmed_to_basis 로 「재고에 n 들어갔다 · m 은 차이 큐에」를 말할 수 있다(대화 Claude)
 ⚠️ 정본과 부딪히는 문장(고치지 않고 보고 · ims-doc-update-0919 ⬜1)   §3 표 ref_warehouse 「IN_TRANSIT 안 담는다」(담았다) · §11-j 모양 표 「문서 번호 = 갈라진 뒤 PO 번호」(RCV 번호)·「줄 번호 = line_ref」(po_line_id) · §12-a 「inv_snapshot 안 옮긴다」(ims_inv_balance 가 기초선으로 읽는다)·「doc_task_id 는 IMS 에 없다」(po_receipt.id)·「source 는 모듈 이름(짐작)」('ims' 하나)
+[2026-09-19 오후 · 차이 닫기 · 원가 이식 1·2차 · 화면 둘 — 근거는 `20260919175712`·`192236`·`200414` 머리 주석과 ledger-design 4부 「원가 이식」]
+~~⬜⬜ inv_post_receipt 가 create function 이라 다시 못 돈다~~ → ✅ `20260919192236`(create or replace) · ~~⬜ 차이를 닫는 RPC~~ → ✅ `20260919175712`(short · 화면은 대화 Claude · 여러 건 한 번에는 ⬜)
+⬜⬜ inv_layer_apply 에 IMS 판을 넣는다   ⚠️⚠️ **그때까지 돌리지 마라** — 지우고 cin7 만 되살려 오늘 원가가 통째로 사라진다(ledger-design 4부 「돌리면 안 되는 함수」 · §4단계 B) · 할 일: RCV 마다 inv_layer_post_receipt · 확정 비용마다 inv_layer_post_charge
+⬜ over 차이 닫기               = 초과분을 재고에 넣을지 정하기 · ⭐ [Caleb] 「지금 실무는 그 3개를 재고조정으로 넣고 평균원가로 환산한다 — Cin7 에서 달리 방법이 없다」 ⇒ IMS 는 **그 발주의 단가로** 넣을 수 있다(같은 창구 inv_layer_post_receipt) · raw.bins 가 어느 빈에 얼마가 깎였는지 갖고 있다
+⬜ 비용 취소와 landed            po_charge 가 confirmed 뒤 cancelled 되면 landed 가 남는다 — 상쇄가 필요하다(취소 RPC 에 「얹혔으면 거부 또는 상쇄」)
+⬜ 발주 머리의 Tax rule          ref_tax_rule 을 Settings 에 세운 뒤 드롭다운으로(⭐ QBO 가 우선 · 11-b 머리 칸 편집)
+⬜ 환율                          MTFX 환율 자동 수신(API 유무 확인 중) · USD 발주 10건의 빈 환율 채우기 · RCV-00005·00006 백필(환율 넣고 inv_post_receipt) · 관세 10039192310530 백필(PO-02002·02001a 입고 뒤 inv_layer_post_charge)
+⬜ Add a line 셋째 재료           po_line.unit_price 가 쌓이면 「우리가 지난번에 적은 값」(11-d)
+⬜ 아침 점검                     no_basis_amount_cad · no_layers_amount_cad 합을 보는 한 줄(Cin7 대조의 「설명된 차이」) · 차이 큐 닫기 여러 건 한 번에
+⚠️ 회계사에게 물을 것이 다섯      (레포 밖 accountant-questions-0919.md) ① kind → QBO 계정 대응 ② 에이전트 수수료가 재고 원가인가 ③ 환율 시점과 차액 처리 ④ 초과 입고분의 원가 ⑤ 조기결제 할인 HST · 뒤늦게 붙는 원가 차액
 ```
 
 ---
@@ -3487,3 +3558,9 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⚠️ 실측으로 뒤집힌 것: 지시서의 「purchase line_ref = ProductID(888행)」 — Caleb 이 TDX70301(세 PO · 세 line_ref)로 라인 id 임을 확정(대화 Claude 의 09-04 정정은 조립·트랜스퍼 축이었다) · 검증 ⑤ 에서 short 의 raw.basis 가 10 으로 남아 basis/cap 을 갈랐다.
   ⚠️ 정본과 부딪힌 것(고치지 않음 · §13-f 09-19 블록 끝): §3 표 ref_warehouse 「IN_TRANSIT 안 담는다」 · §11-j 모양 표 두 줄 · §12-a 세 문장.
   📌 다음(§13-f 09-19 블록): create or replace · 확정 취소 상쇄 · 차이 닫기와 초과분 · 음수 229 · 별칭 표 · shadow ims · 데이터 최신화(inv_* 만) · RCV-00005 백필 · 화면 ledger 표시.
+- 2026-09-19 오후 — **⭐⭐ 차이 닫기 · 원가 이식 1·2차 · PO 화면 둘(§11-b·c·d·f·i·j · §13-a·d·f · 정본 ledger-design 4부 「원가 이식」)** — 마이그레이션 셋 `20260919175712`(420행 · 차이 닫기 short · 이유 어휘 다섯 · 형제 합계 po_family_* · 9a5344a) · `192236`(538행 · 입고가 레이어를 만든다 · cost_source po_line · 환율 게이트 · b09a4c0) · `200414`(280행 · 비용이 landed 를 얹는다 · 넷 다 landed · 금액 비율 · 83b79f5) · 화면 po.html(Add a line · 머리 칸 편집 · 대화 Claude) · receiving.html(차이 닫기 · 형제 한 줄).
+  ⭐ [Caleb] 재고 원가는 인식 시점(발주) 환율 — 결제 환율 차액은 환차손익(회계사 확인 대기) · kind 넷 다 landed(other 도 · 에이전트 수수료 확인 중) · 환율이 없으면 확정을 막는다 · 화면은 판정하지 않는다(fixed·latest 는 재료).
+  ⭐ 판단: 레이어 키 = 원장 키(RCV · po_line_id) · bin 을 접는다 · 발주의 레이어는 po_line 을 거쳐 · 형제 라인은 product_id · 「닫혔다」= resolved_at(CHECK 로 셋 묶음) · reopen 은 흔적을 남긴다 · 되돌리기는 landed 가 얹혔으면 거부.
+  ⚠️ 실사고: 원문에 있던 v_base 를 두 번 선언해 적용이 멈췄다(지웠으면 분할 채번이 CADa 가 될 자리 · v_base_cur 로) · fx_direction 이 CAD 발주에서 「곱한다」고 거짓말했다(통화별 두 문장으로) · 손으로 쓴 검증 재귀가 뿌리를 중복 제거하지 않아 합이 두 배(함수는 맞았다).
+  ⚠️⚠️ **inv_layer_apply() 를 돌리지 마라** — IMS 원가가 통째로 사라진다(§13-f 첫 항목 · ledger-design 4부·§4단계 B · 스킬에도 ⬜).
+  📌 다음(§13-f 09-19 오후 블록): inv_layer_apply IMS 판 · over 닫기 · 비용 취소와 landed · Tax rule · MTFX·빈 환율·백필 · 셋째 재료 · 아침 점검 한 줄 · 회계사 질문 다섯.
