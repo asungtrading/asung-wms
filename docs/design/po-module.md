@@ -3084,7 +3084,7 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 ⚠️ §11 은 판단의 기록이고 이 절은 **그 판단이 표가 된 실물**이다. 칸·제약·근거의 정본은 마이그레이션 파일의 주석이다 — 여기는 목록·검증·규약만.
 지시서 `~/asung/prompts/po-tables-1.md` · `po-tables-2.md` · `po-tables-doc.md` · 검토 이견은 각 파일 머리에.
 
-### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6 → ⭐ [2026-09-19 원장 이식] 뷰 + `ims_inv_balance` · `ims_ledger_unlinked` · 함수 `inv_post_receipt` · `ref_warehouse` +1행(IN_TRANSIT · manual · 비활성) · `po_receipt_list` +open_diffs(맨 뒤) · 마이그레이션 둘 `20260919151601`(162행 · 커밋 49faf5d) · `20260919155005`(450행 · ⬜ 커밋) · 정본 ledger-design 4부 「이식」
+### 13-a. 표 열하나 · 파일 아홉 · 커밋 여덟 (git log 로 확인 · 2026-09-16 · 저녁 갱신 — ⚠️ 표 수는 열하나 그대로 · 칸만 늘었다: po +15 · po_invoice +2) → ⭐ [2026-09-18] **표 열넷**(+ po_receipt · po_receipt_work · po_receipt_diff) · 뷰 + po_receipt_list · po_receipt_diff_list · 파일 +7 · 커밋 +6 → ⭐ [2026-09-19 원장 이식] 뷰 + `ims_inv_balance` · `ims_ledger_unlinked` · 함수 `inv_post_receipt` · `ref_warehouse` +1행(IN_TRANSIT · manual · 비활성) · `po_receipt_list` +open_diffs(맨 뒤) · 마이그레이션 둘 `20260919151601`(162행 · 커밋 49faf5d) · `20260919155005`(450행 · 커밋 2d2219b) · 정본 ledger-design 4부 「이식」
 ```
 ①차 20260916144201_po.sql (226행)                        커밋 8a27edd  10:49
    po               발주 머리   po_number(PO-02000~ · 시퀀스 기본값) · status 넷 · supplier · currency/exchange_rate · payment_term(FK+원문) · ship_to_warehouse · split_from_id(바로 앞) · created/confirmed_by → ims_staff
@@ -3480,7 +3480,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⚠️ 실사고: pre-commit 훅이 IMS CHECK 를 오해(--no-verify) · psql -f 적용 뒤 이력 표 빈 채로 db push(repair 로) · 검증에서 po_receipt_create 재호출로 뒤가 깨짐(RCV-00005 로) · 별칭 null 두 번.
   ⚠️ 정본과 부딪힌 것(고치지 않음): §13-f 「원래 주문 수량을 라인에 남긴다」 — 오늘 분할은 그렇게 하지 않았다(§13-i 끝 · Caleb 판정 대기).
   📌 다음(§13-f): 동시 편집 화면(WMS 모양 · 리시빙 먼저) · 차이 닫기 RPC·화면 · off_po · 환산 · 확정 취소 · receipt_id NOT NULL · 훅 좁히기 · 머리 잠금 · 크레딧을 결제에.
-- 2026-09-19 — **⭐⭐ 원장 이식 1·2차(§11-j · §11-i · §13-a·d·f · 정본 ledger-design 4부 「⭐⭐ 이식 — 원장이 IMS 안에서 선다」)** — 마이그레이션 둘 `20260919151601`(162행 · 축 잇기 · IN_TRANSIT · source 'ims' · ims_inv_balance · ims_ledger_unlinked · ims_last_bin 속 = 원장 · 커밋 49faf5d) · `20260919155005`(450행 · ⭐⭐ inv_post_receipt 창구 · po_receipt_confirm ⓔ · po_receipt_list open_diffs · ⬜ 커밋). 화면 무접촉 · 운영 DB 무접촉.
+- 2026-09-19 — **⭐⭐ 원장 이식 1·2차(§11-j · §11-i · §13-a·d·f · 정본 ledger-design 4부 「⭐⭐ 이식 — 원장이 IMS 안에서 선다」)** — 마이그레이션 둘 `20260919151601`(162행 · 축 잇기 · IN_TRANSIT · source 'ims' · ims_inv_balance · ims_ledger_unlinked · ims_last_bin 속 = 원장 · 커밋 49faf5d) · `20260919155005`(450행 · ⭐⭐ inv_post_receipt 창구 · po_receipt_confirm ⓔ · po_receipt_list open_diffs · 커밋 2d2219b). 화면 무접촉 · 운영 DB 무접촉.
   ⭐ [Caleb] 「원장은 심장이다 — 그 심장을 IMS 에 이식한다」 · 이식이지 데이터 최신화가 아니다(테스트 DB 원장 09-10 정지) · 재기준선도 플립도 아니다.
   ⭐ 판단: 원장은 텍스트 · 뷰가 잇는다(FINAL-SALE 이 근거) · 잔고를 다시 정의하지 않는다(inv_balance 하나) · 초과는 기준까지만 · basis(기록) ≠ cap(깎기) · 수량 큰 빈부터 · 멱등은 말하는 0 · 창구는 invoker(§5 예외를 늘리지 않았다).
   ⭐ 검토(Claude Code)가 잡은 것: 잔고 정의 중복 방지(inv_balance 위에 얹기) · bin 조인은 (warehouse_id, name) · 기준은 po_receipt_diff.expected_qty 에서(분할 시점 함정 회피) · 비활성 bin 후보 제외 · 창구는 ⓓ 뒤(확정된 입고만 · 갈라진 뒤 번호).

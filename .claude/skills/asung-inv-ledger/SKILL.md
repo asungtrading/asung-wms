@@ -9,11 +9,13 @@ description: >
   "IN_TRANSIT", "운송 중", "조립", "FinishedGoods", "번들", "AutoAssembly",
   "Adjustment", "ExistingStockLines", "NewStockLines", "CreditNotes Restock",
   "StockReceived Lines Date", "DepartureDate", "CompletionDate", "seq_hint",
-  "line_ref", "FIFO", "원가 레이어" 등이 나오면 추측하지 말고
+  "line_ref", "FIFO", "원가 레이어", "ims_inv_balance", "inv_post_receipt",
+  "ims_ledger_unlinked", "원장 이식", "축 점검" 등이 나오면 추측하지 말고
   이 스킬의 확정 사실·이벤트 규칙·함정을 확인하세요.
   ⚠️Adjustment는 증감분이 아니라 조정 후 수량, ⚠️NewStockLines는 규칙이 다름,
   ⚠️재고는 Ship에 빠짐(픽·팩은 Allocated), ⚠️StockOnHand는 수량이 아니라 평가액,
-  ⚠️같은 날은 유입 먼저 — 어기면 원장 전체가 반대로 쌓이거나 잔고가 음수가 됩니다.
+  ⚠️같은 날은 유입 먼저, ⚠️line_ref는 축마다 다름(발주 CardID·IMS 입고 po_line_id·조립/트랜스퍼 ProductID)
+  — 어기면 원장 전체가 반대로 쌓이거나 잔고가 음수가 됩니다.
 ---
 
 # Asung Trading 재고 원장 스킬
@@ -27,7 +29,11 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 「사건을 남긴다」 하나뿐이고, 하나가 고장나도 전체 영향이 최소화되어야 한다.
 개별 설계가 이것과 충돌하면 **그쪽이 이긴다.**
 
-관련 스킬: `asung-wms`(같은 레포·DB), `cin7-api`(엔드포인트·파라미터)
+관련 스킬: `asung-wms`(같은 레포·DB), `cin7-api`(엔드포인트·파라미터), `asung-po`(입고 확정이 원장에 사건을 낸다 · 09-19)
+
+⭐ **[2026-09-19] 원장이 IMS 안에서 섰다 — 이식 1·2차**(테스트 DB `Asung-IMS` · `20260919151601` 49faf5d · `20260919155005` 2d2219b).
+정본은 `ledger-design.md` **4부 「⭐⭐ 이식 — 원장이 IMS 안에서 선다」** · 사건 모양은 `po-module.md` **§11-j** · 남은 것은 그쪽 §13-f 「2026-09-19」 블록.
+⚠️ 이식은 **데이터 최신화가 아니다**(테스트 DB 원장은 09-10 에서 멈춰 있다) · **재기준선도 플립도 아니다.** 아침 점검 ⑮ · §2 함정 표 두 행 · §5·§6 이 오늘 바뀐 자리다.
 
 ---
 
@@ -137,6 +143,10 @@ delta AS (
 > ⚠️ [09-09 실사고] 「⑧ 이 나흘 깨끗한데 원장이 −7,537」이라는 **모순을 스스로 적어놓고도** 쿼리를 의심하지 않고 감지 창구가
 > 뚫렸다는 쪽으로 갔다. ⭐ **모순이 보이면 전제를 의심한다.** 그다음이 「어긋남의 원인을 모를 때」 절(감지 표 먼저)이다.
 정본 `docs/sessions/2026-09-09-reversal-conventions.md` · 계약 `ledger-design.md` §「상쇄(정정) 계약」.
+
+⭐ **[2026-09-19] IMS 가 읽는 얼굴은 `ims_inv_balance`** — `inv_balance` 를 **읽어** 열쇠(`product_id`·`warehouse_id`·`bin_id`)와 마지막 사건일(`last_event_on`·`last_seen_on`)을 붙인 것이다.
+⚠️ **잔고 정의는 여전히 `inv_balance` 하나.** 같은 식(기초선 + 원장 합)을 다시 쓰지 마라 — 그 뷰가 생긴 이유가 「정의가 세 곳에 흩어져 어느 것이 맞는지 알 수 없었다」다.
+행 수·숫자가 `inv_balance` 와 같아야 한다(다르면 조인이 행을 늘리거나 줄인 것). 정본 3부 컷오프 절 · 4부 「이식」.
 
 ### ④ 스냅샷 회차 — 급감이 있었나
 ```sql
@@ -704,14 +714,7 @@ cd ~/asung/asung-wms && supabase migration list --db-url "$(cat ~/.asung-testdb-
 `20260909201223`(adjust) · `20260909231134`(assemble+credit) ·
 `20260909233729`(IN_TRANSIT 문서 범위) · `20260909235347`(트랜스퍼 날짜 범위)
 
-~~⚠️⚠️ **운영에 올리지 않는다 — 금액이 검증되지 않았다.**~~
-~~[2026-09-09 실측] 수량은 실제 창고 14,185칸이 원장과 일치하지만 **금액은 아직이다**:~~
-~~· 랜디드 코스트 408행이 `inv_cost` 에 있으나 **레이어에 안 얹혀 있다**~~
-~~· 트랜스퍼 운송비는 **수집조차 안 한다**(재고 단가의 16% 규모)~~ (⚠️ 16% 는 근거 없는 숫자 — 설계 §12 정정)
-~~· Cin7 평가액과 SKU·창고별 대조를 **한 적이 없다**~~
-~~⇒ ⭐ **올리는 시점**: ① 랜디드·운송비를 얹고 ② Cin7 과 대조한 뒤 ③ 정리해서 올린다.~~
-~~⚠️ 시행착오 마이그레이션까지 그대로 올리지 않는다 — **정리 절차가 따로 필요하다.**~~
-~~📌 원장도 아직 shadow 다 — 그 위에 얹힌 원가를 먼저 운영에 올릴 이유가 없다.~~
+(~~09-09 「원가 레이어는 운영에 올리지 않는다」 방침~~ — 아래 09-10 정정으로 무효 · 원문은 정본 `ledger-design.md` §원가 레이어 「⚠️⚠️ `dry` 로만 돌았다」 절)
 
 ⚠️⚠️ **[정정 2026-09-10 저녁 · Caleb 판정] 방침을 뒤집어 운영에 13개를 전부 올렸다**(`20260908195949` ~ `20260910152545` · 위 10개 + `20260910132601`·`141553`·`152545`).
 근거: 수집기(`inv-doc-cost`)에 필요한 건 `inv_doc_cost` 표 하나인데 `db push` 가 갈라 올릴 수 없고, 파일 이동·`repair` 우회보다 **전부 올리는 쪽이 실수의 여지가 적다.**
@@ -734,6 +737,20 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 직접 친 SQL. 레포에 흔적이 없으니 Local·Remote 양쪽에 안 나타나고,
 재복사하면 사라진다. 📌 그래서 「마이그레이션은 항상 새 파일」이 규칙이다
 (§작업 방식).
+
+### ⑮ 축 점검 — 원장 이름이 IMS 마스터에 이어지나 (2026-09-19 신설 · 테스트 DB)
+
+원장은 **텍스트 축**(sku · warehouse · bin 이름)이고 IMS 마스터(`product`·`ref_warehouse`·`ref_bin`)와는 뷰가 잇는다.
+이름이 바뀌면 조인이 **조용히 끊긴다 — 에러가 없다.** 이 점검이 유일한 창구다.
+```sql
+select kind, count(*) from ims_ledger_unlinked group by 1 order by 1;
+```
+⭐ **기준선(2026-09-19): `sku 1` 한 줄만**(`FINAL-SALE` — 제품이 아니라 판매 표식 · 2행 · 순액 0). warehouse 0 · bin 0 은 행이 안 나온다.
+· 늘면 **누가 이름을 고친 것**이다(SKU 의 공백·자릿수 수정은 실제로 있었다 · Caleb) →
+  `select * from ims_ledger_unlinked order by kind, warehouse, name;` 로 이름을 보고 마스터를 되돌리거나 별칭 표(⬜ 미구현)로 잇는다.
+· ⚠️ bin 은 `(warehouse_id, name)` 으로 잇는다 — 이름이 같아도 창고가 다르면 끊긴 것이다.
+· ⚠️ 이 점검은 IMS 마스터가 있는 **테스트 DB** 에서만 돈다(운영 `asung-WMS` 에는 뷰가 없다).
+정본 `ledger-design.md` 4부 「이식」 「⭐⭐ 축을 잇는 방식」 · 마이그레이션 `20260919151601`.
 
 ### 📌 어긋남의 원인을 모를 때
 
@@ -1322,6 +1339,8 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 
 | 함정 | 진실 |
 |---|---|
+| ⚠️⚠️ `line_ref` 는 하나의 규칙인가? | **아니다 — 축마다 다르다.** 발주 = 라인 id(`CardID`) · IMS 입고(`source='ims'`) = **`po_line_id`** · 판매 = `<fulfilment TaskID>:<ProductID>` · 조정·트랜스퍼·조립·반품 = `ProductID`. ⭐ [실사고 2026-09-19] 대화 Claude 가 발주를 `ProductID` 로 알고 이식 2차 지시서를 썼다가 실측으로 뒤집혔다 — 같은 SKU 가 세 PO 에 나올 때 `line_ref` 가 셋 다 달랐다(`TDX70301` docs 3 · refs 3). 09-04 의 「그 GUID 는 ProductID」 정정은 **조립·트랜스퍼 축**의 말이었다. **축을 섞지 마라 — 표의 행을 각각 읽는다.** 정본 `ledger-design.md` 2부 「중복 방지」 line_ref 표 |
+| `source='ims'` 행은 Cin7 행과 같은가? | **넷이 다르다.** ① `doc_number` 가 **`RCV-…`**(입고 번호 · PO 번호가 아니다 — 유니크에 `doc_task_id` 가 없어 같은 PO·같은 제품·같은 빈의 재입고가 겹친다 · PO 번호는 `raw.po_number`) ② Cin7 감지 표(`inv_missing_lines` · `inv_voided_docs` · `inv_missing_docs`)에 **안 뜬다** — 수집기는 `source=eq.cin7` 과 Cin7 문서번호만 본다 ③ ⚠️ **원장 합 ≠ 입고 줄 합은 설계다** — 초과는 기준(분할 전 PO 수량)까지만 원장에 간다 · 깎인 것은 `raw.line`·`raw.bins` · 대조하다 버그로 오해하지 마라 ④ `line_ref` = `po_line_id`(위 행). 잔고를 셀 때 `source` 로 거르지 않는 것은 그대로다(§아침 점검 함정 1). ⬜ shadow 대조(`inv_balance_vs_cin7`)는 이 행을 「원장만 있음」으로 잡는다 — 운영 이식 때 정한다. 정본 `po-module.md` §11-j · `ledger-design.md` 4부 「이식」 2차 |
 | 「트랜스퍼 창고간 이동 105건」이 수집기 후보 수인가? | ⚠️ **아니다 — 축이 다르다.** [실측 09-11] 4,680(전체 COMPLETED) → **105**(창고간 · 전 기간) → **7**(기초선 8/20 이후 = 실제 상세 호출 수) → **5**(운송비 붙은 것). 105 로 캡·주기를 설계하면 과대 설계다. 아침 점검 ⑤ 참조 |
 | 커서 아래로 내려간 문서가 편집되면? | ⚠️⚠️ **결함 E — 영영 못 본다.** ②-a(문서번호 커서)는 커서 아래를 `skip_before_floor` 로 떨어뜨린다. [실사고 `ST-01283`] 8/31 13:11 수집 시 완제품 3행이었는데 9/1 에 실무가 「완제품이 아니라 재료였다」로 정정해 **재료 12행으로 통째로 바꿨다**(ref `"Shrikage - UNI (EDM Transfer Adjustment For ST-01283)"`). 원장은 9/2 아침까지 옛 3행을 들고 있었다. ⇒ ✅ **최근 7일 재조회 창**(`inv-collect@2026-09-02.1`) — 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보에 남긴다. ⚠️ 비용은 `inv_doc_state` 가 지운다. ⚠️ **창 문서는 커서에 관여하지 않는다** — 전진값으로 쓰면 커서가 후퇴하고 hold 로 세우면 위쪽 전진을 막는다. 📌 ②-b 는 해당 없다(`UpdatedSince` 라 편집되면 목록에 다시 나온다) |
 | ⚠️⚠️ 소멸 감지가 못 보는 축이 있나? | **있다 — 둘이다.** 판정에 「언제 편집됐나」가 필요한데 **목록에 그 값이 없는 축**이 있다. `stockTransferList` 만 `LastModifiedOn` 을 준다. `stockAdjustmentList`(`TaskID`·`EffectiveDate`·`StocktakeNumber`·`Status`·`Account`·`Reference`·`Comment`)와 `finishedGoodsList`(`TaskID`·`AssemblyNumber`·…·`Date`·`Status`·`Notes`)에는 **없다.** ⇒ **`adjustment`·`assembly` 의 라인 삭제·교체는 아무도 못 본다.** [실측 2026-09-02] `missing_lines_skipped_no_lmo` **33 = `detail_fetched` 33** — 조회한 문서 전부가 A 집합에서 빠졌다. ⭐ **`bin` 단위 대조만이 잡는다.** 📌 부수 효과: 그 둘은 `inv_doc_state` 도 같은 값을 쓰므로 **매 회차 상세를 다 부른다**(`skipped_unchanged 0`) — 비용은 크지만 덕분에 재조회 창이 잘 작동한다. ⇒ ✅ **1단계 처방**(`inv-collect@2026-09-03.1`): **판정은 하되 표에 넣지 않는다.** 응답·회차 로그에 `missing_lines_unkeyed`·`_docs`·`_sample`(≤200행)·`_truncated` 로만 남긴다. ⭐ **`_sample` 이 실질**이다 — 목록이 없으면 사람이 상쇄를 못 만든다. `inv_collect_runs.summary` 에 실려 SQL 로 조회된다. ⚠️⚠️ **「조건만 완화」로는 안 된다**: `MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on"` — 그 값이 **유니크 키의 일부**이고 「같은 편집의 재검출은 do-nothing」으로 **중복 폭주를 막는 장치**다. 값 없이 넣으면 매 회차 재적재로 **회차 캡 500 을 소진해 진짜 소멸을 가린다**(08-31 사고와 같은 모양). 📌 G4 주석의 「키가 무너진다」는 옳았다. ⬜ **2단계**(표에 기록)는 `lmo` 자리에 **A 집합 키의 해시**를 넣는 콘텐츠 지문이 필요하고 ⚠️ 마이그레이션(컬럼 추가 + 유니크 재생성)을 동반한다 — 1단계 실물을 보고 판단한다 |
@@ -1677,20 +1696,13 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
   - ⚠️ `sku` 를 넣은 이유: `line_ref` 가 흔들려도 **조용한 누락 대신 가시적 이중 계상**이 되게
 - `seq_hint` — **1=유입 / 2=유출**. 같은 날 정렬용
 - `warehouse` — **Cin7 원문 그대로** + `IN_TRANSIT`(언더스코어 = Cin7 원문 아님 표시)
-- `line_ref` = **`ProductID`** (WMS 의 `cin7_po_line_id` 선례) — ⚠️⚠️ ~~판매만 예외~~ →
-  **예외 둘(08-18): 판매·발주.** 규칙의 정본은 설계 문서 2부 「중복 방지」 소스별 표
-  ("소스마다 가장 안정적인 라인 식별자" — 통일보다 정확성 우선). **판매 예외:
-  `<fulfilment TaskID>:<ProductID>`** (2026-08-17 · 의도적 이탈). 유니크 키에 **occurred_on 이
-  없어서**, 분할 출하(같은 SKU·같은 bin·날짜만 다름)의 두 행이 키가 완전히 같아져 두 번째
-  출고가 조용히 사라진다. **"스킬대로 ProductID 로 되돌리자"는 제안이 나오면 이 줄이 근거다 —
-  되돌리면 분할 출하가 뭉개진다.** fulfilment 식별자는 TaskID(GUID — 재수집에도 안정 · 배열
-  인덱스 금지). [실측] TaskID 폴백 발동 0회. ~~발주의 진짜 라인 식별자 CardID 는 raw 원문에만~~
-  → 08-18 부터 발주의 line_ref 자체가 CardID 다(아래).
-  ⚠️ **발주는 `CardID` 로 확정(2026-08-18 · `@2026-08-18.1`)** — 같은 SKU 가 여러 빈으로 쪼개지고
-  같은 빈·같은 SKU 가 날짜만 달리 두 줄인 사례 실측(PO-00944 KUZ77036). `ProductID` 는 유일성
-  94/97 · 109/110 으로 부족, `CardID` 는 97/97 · 110/110. [실측] `.7` dry `merged_lines: 5`
-  (가설이던 뭉개짐이 실재) → `.1` 에서 **0**. ✅ CardID 의 재수집 안정성은 **닫힘(08-18 저녁
-  PO-01117)** — Convert(SR→PA)를 통과해도 51줄 전부 CardID·LocationID·순서 유지, 재생성 아님
+- `source` — `cin7` · `manual`(사람의 상쇄) · **`ims`**(09-19 · IMS 모듈이 낸 사건 · 첫 사용 = 입고 확정의 `po_in` · §2 함정 표) · `wms`(어휘만 · **0행**). ⚠️ 잔고에서 `source` 로 거르지 마라(§아침 점검 함정 1)
+- `line_ref` — ⚠️⚠️ **축마다 다르다**(규칙과 숫자 근거는 정본 2부 「중복 방지」 line_ref 표 — 여기 되쓰지 않는다): 발주 **`CardID`**(08-18) ·
+  판매 **`<fulfilment TaskID>:<ProductID>`**(08-17) · 조정·트랜스퍼·조립·반품 `ProductID` · **IMS 입고 `po_line_id`**(09-19).
+  이유는 하나 — 유니크 키에 `occurred_on` 이 없어 같은 SKU·같은 bin 의 두 사건이 날짜만 다르면 키가 같아져 **두 번째가 조용히
+  사라진다**(분할 출하 · 빈 분할 — 발주 `ProductID` 유일성 94/97 이 그 실물). ⚠️ **「스킬대로 `ProductID` 로 통일하자」는 제안이
+  나오면 이 줄이 근거다 — 되돌리면 뭉개진다.** ✅ `CardID` 의 재수집 안정성은 닫힘(08-18 PO-01117 · Convert 통과 · 재생성 아님).
+  §2 함정 표 「line_ref 는 하나의 규칙인가」.
 - `raw` = **그 행을 만든 라인 원본 + 계산에 쓴 머리말 + 우리가 적용한 계산 규칙**.
   문서 전체 금지(344라인 트랜스퍼면 수천 벌 중복)
 - ⚠️ `qty_delta` 에 CHECK 없음 — **소수 수량이 실재**(5.25개 · ×0.25)
@@ -1759,6 +1771,7 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 - `wms_orders.location` 은 **Cin7 표기 그대로** → 매핑 불필요
 - `wms_receipts`·`wms_waves` 는 `warehouse` 만 → **2줄 매핑 필요**
+- ⭐ [2026-09-19] `IN_TRANSIT` 이 IMS `ref_warehouse` 에 **`source='manual'` · `is_active=false` · `cin7_id null`** 로 담겼다(축이 끊기지 않게 · Cin7 재적재 `ims_loadWarehouse_` 는 보낸 행만 upsert 하므로 남는다). ⚠️ `asung-po` 스킬·po-module §3 표의 「담지 않는다」는 낡았다. 정본 4부 「이식」
 - ⚠️ `Production Facility` 는 삭제 불가한 시스템 창고, 미사용(재고 0 전수 확인).
   **제외하되 `OnHand>0` 이 나타나면 경고할 것**
 
@@ -1833,7 +1846,12 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-09-18 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-19 갱신)
+
+0-a. ⭐⭐ **[09-19] 원장 이식 1·2차 — 원장이 IMS 안에서 섰다(테스트 DB · 49faf5d · 2d2219b).** 축은 텍스트 그대로 뷰로(`ims_inv_balance` · `ims_ledger_unlinked`) · `IN_TRANSIT` 이 마스터에 · `source 'ims'` · 입고 확정이 창구 `inv_post_receipt` 로 `po_in` 을 낸다(같은 트랜잭션 · 초과는 기준까지만) · `ims_last_bin` 속 = 원장(화면 무접촉).
+   **정본 `ledger-design.md` 4부 「⭐⭐ 이식」 · 사건 모양 `po-module.md` §11-j · 남은 것 §13-f 「2026-09-19」 블록**(create or replace · 확정 취소는 상쇄 행 · 차이 닫기와 초과분 · SKU 별칭 표 · shadow 대조의 `ims` · 데이터 최신화는 **`inv_*` 표만** · RCV-00005 백필).
+   ⚠️ **음수 잔고 229행(229 SKU · −2,191)은 원장이 원래 갖고 있던 상태**다 — 뷰가 드러낸 것이지 이식이 만든 것이 아니다. **늘면 새로 생긴 것.** 숫자 정본 4부 「이식 시점 기준선」 · ⬜ 원인 미착수.
+   ⚠️ 이식은 데이터 최신화가 아니다(테스트 DB 원장 09-10 정지) · 재기준선도 플립도 아니다. 아침 점검 ⑮ 신설.
 
 0. ⬜ **[09-18 신규] 커서 정체 계열 — 남는 것 다섯** (실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md` §I-5)
    · ⬜ **`cursor_stalled_alert` 발화 조건** — 컬럼이 있고 ⑦ 에서 매일 보는데 `ST-01300` 13일 · `TR-04496` 이레 동안 한 번도 안 울렸다(코드 미확인). 대체 판정은 ⑤(커서 값 3일 같으면 `cursor_held_by`)
