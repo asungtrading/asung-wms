@@ -10,12 +10,13 @@ description: >
   "Adjustment", "ExistingStockLines", "NewStockLines", "CreditNotes Restock",
   "StockReceived Lines Date", "DepartureDate", "CompletionDate", "seq_hint",
   "line_ref", "FIFO", "원가 레이어", "ims_inv_balance", "inv_post_receipt",
-  "ims_ledger_unlinked", "원장 이식", "축 점검" 등이 나오면 추측하지 말고
+  "ims_ledger_unlinked", "원장 이식", "축 점검", "inv_layer_post_receipt", "inv_layer_post_charge",
+  "landed", "inv_layer_apply" 등이 나오면 추측하지 말고
   이 스킬의 확정 사실·이벤트 규칙·함정을 확인하세요.
   ⚠️Adjustment는 증감분이 아니라 조정 후 수량, ⚠️NewStockLines는 규칙이 다름,
   ⚠️재고는 Ship에 빠짐(픽·팩은 Allocated), ⚠️StockOnHand는 수량이 아니라 평가액,
-  ⚠️같은 날은 유입 먼저, ⚠️line_ref는 축마다 다름(발주 CardID·IMS 입고 po_line_id·조립/트랜스퍼 ProductID)
-  — 어기면 원장 전체가 반대로 쌓이거나 잔고가 음수가 됩니다.
+  ⚠️같은 날은 유입 먼저, ⚠️line_ref는 축마다 다름(발주 CardID·IMS 입고 po_line_id·조립/트랜스퍼 ProductID),
+  ⚠️⚠️inv_layer_apply() 금지(IMS 원가가 사라짐) — 어기면 원장 전체가 반대로 쌓이거나 잔고가 음수가 됩니다.
 ---
 
 # Asung Trading 재고 원장 스킬
@@ -34,6 +35,8 @@ WMS 다음 모듈. **설계 정본은 레포의 `docs/design/ledger-design.md`**
 ⭐ **[2026-09-19] 원장이 IMS 안에서 섰다 — 이식 1·2차**(테스트 DB `Asung-IMS` · `20260919151601` 49faf5d · `20260919155005` 2d2219b).
 정본은 `ledger-design.md` **4부 「⭐⭐ 이식 — 원장이 IMS 안에서 선다」** · 사건 모양은 `po-module.md` **§11-j** · 남은 것은 그쪽 §13-f 「2026-09-19」 블록.
 ⚠️ 이식은 **데이터 최신화가 아니다**(테스트 DB 원장은 09-10 에서 멈춰 있다) · **재기준선도 플립도 아니다.** 아침 점검 ⑮ · §2 함정 표 두 행 · §5·§6 이 오늘 바뀐 자리다.
+⭐⭐ **[2026-09-19 오후] 원가도 이식됐다** — 입고 확정이 레이어를(`inv_layer_post_receipt`) · 비용 확정이 landed 를(`inv_layer_post_charge`). 정본 4부 「원가 이식 1차·2차」.
+⚠️⚠️⚠️ **`inv_layer_apply()` 를 돌리지 마라 — IMS 원가가 통째로 사라진다(원장은 남아 조용하다).** §2 함정 표 **첫 줄**. IMS 판이 들어갈 때까지.
 
 ---
 
@@ -752,6 +755,23 @@ select kind, count(*) from ims_ledger_unlinked group by 1 order by 1;
 · ⚠️ 이 점검은 IMS 마스터가 있는 **테스트 DB** 에서만 돈다(운영 `asung-WMS` 에는 뷰가 없다).
 정본 `ledger-design.md` 4부 「이식」 「⭐⭐ 축을 잇는 방식」 · 마이그레이션 `20260919151601`.
 
+### ⑯ 원가에 못 얹은 비용 — 버린 금액이 얼마나 쌓였나 (2026-09-19 신설 · 테스트 DB)
+
+비용 확정(`inv_layer_post_charge`)은 그 발주에 IMS 입고 레이어가 **없으면**(`no_layers`) · 있어도 단가 합이 **0 이면**(`no_basis` · 정본 D) 그 배분 줄을 **버리고 금액만 반환에 남긴다.**
+표에는 안 남으므로 **확정 시점의 반환을 놓치면 아무 데도 없다.** 대신 지금 상태를 다시 계산해 본다 — 확정된 비용의 배분 줄 중 landed 행이 없는 것:
+```sql
+select ch.charge_number, ch.kind, p.po_number, a.amount, ch.exchange_rate,
+       (select count(*) from inv_layer x join po_line pl on pl.id::text = x.line_ref where x.cost_source='po_line' and pl.po_id = a.po_id) as po_line_layers
+from po_charge ch join po_charge_alloc a on a.po_charge_id = ch.id join po p on p.id = a.po_id
+where ch.status = 'confirmed'
+  and not exists (select 1 from inv_layer_cost_add ca where ca.kind='landed' and ca.doc_number = ch.charge_number and ca.line_ref = a.id::text)
+order by ch.charge_number, p.po_number;
+```
+· `po_line_layers = 0` → **no_layers**(입고가 아직 없다) — 입고가 확정된 뒤 `select inv_layer_post_charge('<charge id>')` 로 백필한다(배분 줄 단위 멱등 · 다시 불러도 한 벌)
+· `po_line_layers > 0` 인데 행이 없다 → **no_basis**(단가 0) 또는 이 차수 전에 확정된 비용 — 금액만큼 우리 평가액이 Cin7 보다 낮다(정본 D 「설명된 차이」)
+⭐ **0행이 정상.** 늘면 「확정은 됐는데 원가에 안 얹힌 돈」이 그만큼이다. 정본 `ledger-design.md` 4부 「원가 이식 2차」 · `po-module.md` §11-f.
+⚠️ 위 ⚠️⚠️ 함정 표 첫 줄 — `inv_layer_apply()` 를 돌렸다면 여기가 갑자기 전부 뜬다(landed 가 지워졌다).
+
 ### 📌 어긋남의 원인을 모를 때
 
 0. ⭐⭐ **감지 테이블을 먼저 뒤진다 — 원인을 추측하기 전에.**
@@ -1339,8 +1359,12 @@ select kind, count(*) from ims_ledger_unlinked group by 1 order by 1;
 
 | 함정 | 진실 |
 |---|---|
+| ⚠️⚠️⚠️ `inv_layer_apply()` 를 돌려도 되나? | **안 된다 — IMS 원가가 통째로 사라진다(2026-09-19 이후).** 그 함수는 `delete from inv_layer where origin_type <> 'baseline'` 한 뒤 **`source='cin7'` 만** 되살린다(`20260909231134:288`). IMS 입고 레이어(`cost_source='po_line'`)와 그 위에 얹은 landed(`inv_layer_cost_add`)가 함께 없어진다. ⚠️ **원장은 남고 원가만 없어져 조용하다** — 수량은 맞는데 평가액이 내려가 있으면 이것을 먼저 의심한다. ⬜ 재생성에 IMS 판(RCV 마다 `inv_layer_post_receipt` · 확정 비용마다 `inv_layer_post_charge`)이 들어갈 때까지 **금지**. ⭐ 되살리기 = 두 창구 재호출(둘 다 멱등 · 원장 무접촉). 정본 `ledger-design.md` 4부 「돌리면 안 되는 함수」 · §4단계 B |
 | ⚠️⚠️ `line_ref` 는 하나의 규칙인가? | **아니다 — 축마다 다르다.** 발주 = 라인 id(`CardID`) · IMS 입고(`source='ims'`) = **`po_line_id`** · 판매 = `<fulfilment TaskID>:<ProductID>` · 조정·트랜스퍼·조립·반품 = `ProductID`. ⭐ [실사고 2026-09-19] 대화 Claude 가 발주를 `ProductID` 로 알고 이식 2차 지시서를 썼다가 실측으로 뒤집혔다 — 같은 SKU 가 세 PO 에 나올 때 `line_ref` 가 셋 다 달랐다(`TDX70301` docs 3 · refs 3). 09-04 의 「그 GUID 는 ProductID」 정정은 **조립·트랜스퍼 축**의 말이었다. **축을 섞지 마라 — 표의 행을 각각 읽는다.** 정본 `ledger-design.md` 2부 「중복 방지」 line_ref 표 |
 | `source='ims'` 행은 Cin7 행과 같은가? | **넷이 다르다.** ① `doc_number` 가 **`RCV-…`**(입고 번호 · PO 번호가 아니다 — 유니크에 `doc_task_id` 가 없어 같은 PO·같은 제품·같은 빈의 재입고가 겹친다 · PO 번호는 `raw.po_number`) ② Cin7 감지 표(`inv_missing_lines` · `inv_voided_docs` · `inv_missing_docs`)에 **안 뜬다** — 수집기는 `source=eq.cin7` 과 Cin7 문서번호만 본다 ③ ⚠️ **원장 합 ≠ 입고 줄 합은 설계다** — 초과는 기준(분할 전 PO 수량)까지만 원장에 간다 · 깎인 것은 `raw.line`·`raw.bins` · 대조하다 버그로 오해하지 마라 ④ `line_ref` = `po_line_id`(위 행). 잔고를 셀 때 `source` 로 거르지 않는 것은 그대로다(§아침 점검 함정 1). ⬜ shadow 대조(`inv_balance_vs_cin7`)는 이 행을 「원장만 있음」으로 잡는다 — 운영 이식 때 정한다. 정본 `po-module.md` §11-j · `ledger-design.md` 4부 「이식」 2차 |
+| ⚠️⚠️ 환율은 어느 방향인가? | `po.exchange_rate`·`po_charge.exchange_rate` 는 **CAD per USD** 다(Cin7 「CAD units per USD」 · 화면 「CAD per USD」) ⇒ **곱한다** — unit_price × rate · amount × rate. ⚠️ **나누면 반값인데 에러가 없다**(실측 ratio 1.3900 으로 확인). 기준통화(CAD)면 곱하지 않는다(×1 · 적혀 있어도 무시·경고). 반환 `fx_direction` 이 방향을 문장으로 말한다 — 의심되면 그것을 보라. 기준통화 아닌데 환율이 없거나 0 이면 **확정 자체가 거부**된다(정본 「0 금지」). 정본 `ledger-design.md` 4부 「원가 이식 1차」 |
+| IMS 입고 레이어의 키는 무엇인가? | **원장 키와 같다** — doc_number `RCV-…` · line_ref `po_line_id`(PO 번호가 아니다 · 규칙은 하나: `inv_layer_apply_po_in` 이 원장 행의 키를 그대로 옮긴다 · Cin7 행이라 PO 번호·CardID 였을 뿐 · 실측 803/803 짝지어짐). **bin 을 접는다**(원장은 bin 단위 · 레이어는 창고 단위 · 4키) ⇒ ⚠️ **원장 행 수 ≠ 레이어 행 수가 정상**(두 빈 8·4 → 레이어 12 한 행). 수량은 원장과 같다(기준까지만 · 초과분은 레이어에도 안 간다) · `cost_source='po_line'`(`cin7_unitcost` 와 섞지 않는다). 발주의 레이어를 찾을 땐 **`po_line` 을 거친다**(line_ref = po_line.id). 정본 4부 「원가 이식 1차」 |
+| IMS landed 는 기존 landed 와 같은 모양인가? | `kind` 는 같다(**넷 다 landed** — freight·duty·brokerage·other · 어휘를 늘리지 않았다). ⚠️ **`doc_number` 의 뜻이 다르다** — 기존 434행은 PO 번호(Cin7 · `inv_cost` 에서) · IMS 것은 **비용 번호**(`po_charge.charge_number` · 「관세가 얼마나 얹혔나」를 거슬러 가는 길). ⭐ 구별점은 **`ref_number`** — 기존은 전부 비어 있고 IMS 것은 발주 번호가 들어간다. line_ref = `po_charge_alloc.id`(배분 줄 단위 멱등) · 배분은 unit_cost×qty 비율(수량 비례 아님) · 기준 0(no_basis)·입고 없음(no_layers)은 버리고 금액을 반환에 남긴다. 정본 4부 「원가 이식 2차」 |
 | 「트랜스퍼 창고간 이동 105건」이 수집기 후보 수인가? | ⚠️ **아니다 — 축이 다르다.** [실측 09-11] 4,680(전체 COMPLETED) → **105**(창고간 · 전 기간) → **7**(기초선 8/20 이후 = 실제 상세 호출 수) → **5**(운송비 붙은 것). 105 로 캡·주기를 설계하면 과대 설계다. 아침 점검 ⑤ 참조 |
 | 커서 아래로 내려간 문서가 편집되면? | ⚠️⚠️ **결함 E — 영영 못 본다.** ②-a(문서번호 커서)는 커서 아래를 `skip_before_floor` 로 떨어뜨린다. [실사고 `ST-01283`] 8/31 13:11 수집 시 완제품 3행이었는데 9/1 에 실무가 「완제품이 아니라 재료였다」로 정정해 **재료 12행으로 통째로 바꿨다**(ref `"Shrikage - UNI (EDM Transfer Adjustment For ST-01283)"`). 원장은 9/2 아침까지 옛 3행을 들고 있었다. ⇒ ✅ **최근 7일 재조회 창**(`inv-collect@2026-09-02.1`) — 목록 행의 사건 날짜가 창 안이면 커서 아래라도 후보에 남긴다. ⚠️ 비용은 `inv_doc_state` 가 지운다. ⚠️ **창 문서는 커서에 관여하지 않는다** — 전진값으로 쓰면 커서가 후퇴하고 hold 로 세우면 위쪽 전진을 막는다. 📌 ②-b 는 해당 없다(`UpdatedSince` 라 편집되면 목록에 다시 나온다) |
 | ⚠️⚠️ 소멸 감지가 못 보는 축이 있나? | **있다 — 둘이다.** 판정에 「언제 편집됐나」가 필요한데 **목록에 그 값이 없는 축**이 있다. `stockTransferList` 만 `LastModifiedOn` 을 준다. `stockAdjustmentList`(`TaskID`·`EffectiveDate`·`StocktakeNumber`·`Status`·`Account`·`Reference`·`Comment`)와 `finishedGoodsList`(`TaskID`·`AssemblyNumber`·…·`Date`·`Status`·`Notes`)에는 **없다.** ⇒ **`adjustment`·`assembly` 의 라인 삭제·교체는 아무도 못 본다.** [실측 2026-09-02] `missing_lines_skipped_no_lmo` **33 = `detail_fetched` 33** — 조회한 문서 전부가 A 집합에서 빠졌다. ⭐ **`bin` 단위 대조만이 잡는다.** 📌 부수 효과: 그 둘은 `inv_doc_state` 도 같은 값을 쓰므로 **매 회차 상세를 다 부른다**(`skipped_unchanged 0`) — 비용은 크지만 덕분에 재조회 창이 잘 작동한다. ⇒ ✅ **1단계 처방**(`inv-collect@2026-09-03.1`): **판정은 하되 표에 넣지 않는다.** 응답·회차 로그에 `missing_lines_unkeyed`·`_docs`·`_sample`(≤200행)·`_truncated` 로만 남긴다. ⭐ **`_sample` 이 실질**이다 — 목록이 없으면 사람이 상쇄를 못 만든다. `inv_collect_runs.summary` 에 실려 SQL 로 조회된다. ⚠️⚠️ **「조건만 완화」로는 안 된다**: `MISSING_CONFLICT = LEDGER_CONFLICT + ",last_modified_on"` — 그 값이 **유니크 키의 일부**이고 「같은 편집의 재검출은 do-nothing」으로 **중복 폭주를 막는 장치**다. 값 없이 넣으면 매 회차 재적재로 **회차 캡 500 을 소진해 진짜 소멸을 가린다**(08-31 사고와 같은 모양). 📌 G4 주석의 「키가 무너진다」는 옳았다. ⬜ **2단계**(표에 기록)는 `lmo` 자리에 **A 집합 키의 해시**를 넣는 콘텐츠 지문이 필요하고 ⚠️ 마이그레이션(컬럼 추가 + 유니크 재생성)을 동반한다 — 1단계 실물을 보고 판단한다 |
@@ -1852,6 +1876,9 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    **정본 `ledger-design.md` 4부 「⭐⭐ 이식」 · 사건 모양 `po-module.md` §11-j · 남은 것 §13-f 「2026-09-19」 블록**(create or replace · 확정 취소는 상쇄 행 · 차이 닫기와 초과분 · SKU 별칭 표 · shadow 대조의 `ims` · 데이터 최신화는 **`inv_*` 표만** · RCV-00005 백필).
    ⚠️ **음수 잔고 229행(229 SKU · −2,191)은 원장이 원래 갖고 있던 상태**다 — 뷰가 드러낸 것이지 이식이 만든 것이 아니다. **늘면 새로 생긴 것.** 숫자 정본 4부 「이식 시점 기준선」 · ⬜ 원인 미착수.
    ⚠️ 이식은 데이터 최신화가 아니다(테스트 DB 원장 09-10 정지) · 재기준선도 플립도 아니다. 아침 점검 ⑮ 신설.
+0-b. ⭐⭐ **[09-19 오후] 원가 이식 1·2차 · 차이 닫기(테스트 DB · 9a5344a · b09a4c0 · 83b79f5).** 입고 확정이 레이어를 만들고(`inv_layer_post_receipt` · 키 = 원장 키 · bin 접기 · unit_price × CAD per USD · 환율 없으면 확정 거부) 비용 확정이 landed 를 얹는다(`inv_layer_post_charge` · 넷 다 landed · 금액 비율 · doc_number 비용 번호). 차이 큐는 short 만 닫힌다(어휘 다섯 · 형제 합계 `po_family_*`).
+   **정본 `ledger-design.md` 4부 「원가 이식 1차·2차」 · 「돌리면 안 되는 함수」 · `po-module.md` §11-f·§11-i·§11-c · 남은 것 §13-f 「2026-09-19 오후」 블록.**
+   ⚠️⚠️ **`inv_layer_apply()` 금지**(§2 함정 표 첫 줄) — IMS 판(RCV·비용마다 두 창구)이 들어가는 차수가 가장 급하다. ⭐ 재고 원가는 인식 시점(발주) 환율 — 결제 환율 차액은 환차손익(Caleb · 회계사 확인 대기 · `inv_layer_cost_add` 로 바꿀 길은 열림). 아침 점검 ⑯ 신설.
 
 0. ⬜ **[09-18 신규] 커서 정체 계열 — 남는 것 다섯** (실측 `docs/sessions/2026-09-18-cursor-stall-double-write.md` §I-5)
    · ⬜ **`cursor_stalled_alert` 발화 조건** — 컬럼이 있고 ⑦ 에서 매일 보는데 `ST-01300` 13일 · `TR-04496` 이레 동안 한 번도 안 울렸다(코드 미확인). 대체 판정은 ⑤(커서 값 3일 같으면 `cursor_held_by`)

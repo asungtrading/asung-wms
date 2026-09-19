@@ -6,7 +6,8 @@ description: >
   "PO 모듈", "발주 모듈", "발주앱", "리시빙", "입고", "입고 확정", "풋어웨이", "po_receipt", "차이 큐", "분할", "ims_last_bin", "Settings", "Reference Book", "마스터 데이터",
   "ref_brand", "ref_category", "ref_unit", "ref_payment_term", "ref_account", "ref_currency",
   "ref_warehouse", "ref_bin", "공급처", "supplier", "제품 마스터", "product_family", "product_barcode", "product_bom",
-  "pack_factor", "BOM Quantity", "UOM 세트", "콤보", "결제조건", "계정과목", "통화", "set_updated_at", "ims_touch"
+  "pack_factor", "BOM Quantity", "UOM 세트", "콤보", "결제조건", "계정과목", "통화", "set_updated_at", "ims_touch",
+  "차이 닫기", "po_family", "landed", "환율"
   이 나오면 추측하지 말고 이 스킬과 정본 docs/design/po-module.md 를 확인하세요.
   ⚠️자연키가 표마다 다르다(name·code·복합) — 추측 금지, ⚠️ref_bin 은 2,675행으로 PostgREST 1,000행
   캡을 넘는다, ⚠️Cin7 결제조건 Duration 은 기일이 아니라 할인 기한, ⚠️Cin7 은 마스터를 GUID 가 아니라
@@ -26,6 +27,7 @@ description: >
 ⑤ PO 본체          ✅ 09-16~17 — 설계 **§11** · 표 **§13-a** · 목록은 뷰 · 상세는 RPC · 돈은 뷰 po_invoice_money·po_charge_money(화면에서 다시 짜지 마라 · §13-d) · 쓰기 RPC 는 §13-d · 확정은 잠금이 아니다(§11-b)
 권한               ✅ 09-17 밤 — role 넷 worker<manager<supervisor<admin(§10-h) · 쓰기 RLS + RPC 첫머리 ims_require_write(§5 권한 규약 셋) · 화면은 ims_access() 하나(3-l)
 ⑥ 리시빙           ✅ 09-18 — ⭐ WMS 이관을 미루고 IMS 안에 PO 갈래로 먼저(§13-i) · 표 셋 + 차이 큐 · RPC 열 · 확정·자동 분할 **§11-i·§11-c** · updated_by + ims_touch(§5) · 탭 다섯
+⑦ 원장·원가 이식    ✅ 09-19 — 입고 확정이 원장 사건(`inv_post_receipt` · **§11-j**)과 원가 레이어(`inv_layer_post_receipt`)를 · 비용 확정이 landed 를(`inv_layer_post_charge` · **§11-f**) · 차이 닫기 short 만 + 형제 합계 `po_family_*`(**§11-i·§11-c**) · Last bin 속 = 원장 · 머리 칸 편집·Add a line(§11-b·§11-d) · 원가 규칙 정본은 `ledger-design.md` 4부 「이식」·「원가 이식」 · ⚠️⚠️ **`inv_layer_apply()` 금지**(아래 함정)
 화면 열하나        ✅ `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) — 마스터 다섯 · staff · po·invoices·charges·payments·receiving · 규칙 **§10-j**(3-g·3-i·3-j·3-k) · ⬜ 채울 칸 **§10-k** · 🔄 다음 **§13-f**
 ```
 - ⭐ **IMS 표 32 · 정책 116**(2026-09-18 실측 · Caleb psql) — 전부 **테스트 DB(Asung-IMS)에만** 있다. `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영.
@@ -39,7 +41,7 @@ description: >
 | `ref_payment_term` | `name` | 값 칸 넷(`net_days` 등)은 **손으로**(파싱 금지) |
 | `ref_account` | ⭐ **`code`** — `name` 유니크 **없음** | `code` 형식 CHECK 없음 |
 | `ref_currency` | ⭐ **`code`** · `name` 도 유니크 | ⚠️ `cin7_id` 없음 · `source` default `manual` · 값 2행 |
-| `ref_warehouse` | `name` | `is_default` 는 표에 · ⚠️ `IN_TRANSIT` 없음 |
+| `ref_warehouse` | `name` | `is_default` 는 표에 · ~~⚠️ `IN_TRANSIT` 없음~~ → ⭐ [09-19 원장 이식 1차] `IN_TRANSIT` 을 **담았다**(`source='manual'` · `is_active=false` · `cin7_id null` · 축이 끊기지 않게). Cin7 재적재는 보낸 행만 upsert 하므로 남는다 · 화면에서 고르는 창고가 아니다 · bin 은 없다 · ledger-design 4부 「이식」 |
 | `ref_bin` | ⭐ **`(warehouse_id, name)`** | ⚠️⚠️ **2,675행 · 캡 초과** |
 | `supplier` | `name` | `cin7_id` 도 unique · `is_purchasable` 은 우리 칸 |
 | `supplier_address` · `supplier_contact` · `supplier_discount` | `cin7_id` · `cin7_id` · `(supplier_id, seq)` | 관계 표 · DELETE 열림 |
@@ -70,7 +72,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ## 3. ⚠️ Cin7 에서 적재할 때 (사본 `docs/probes/*.gs` · 원본은 GAS)
 
 - ⭐ **Cin7 은 마스터를 이름 문자열로 참조한다** — **계정만 `Code`**. `Net 30`/`Net30` 처럼 흔들리면 정확히 못 이은 것 — **비워 두고 센다.**
-- ⚠️ `ref/account` 키는 **`AccountsList`** · 창고 = `ParentID` 없는 행 · bin 이름은 하위 행 `Name` 그대로 · `IN_TRANSIT` 없음(§3-a·§8) · 환율은 문서에 · `inv-cost` 하드코딩 무접촉(§7).
+- ⚠️ `ref/account` 키는 **`AccountsList`** · 창고 = `ParentID` 없는 행 · bin 이름은 하위 행 `Name` 그대로 · ~~`IN_TRANSIT` 없음~~ → [09-19] 원장의 합성 창고를 manual·비활성으로 담았다(재적재가 지우지 않는다 · ledger-design 4부) · 환율은 문서에 · `inv-cost` 하드코딩 무접촉(§7).
 - ⚠️ 전량은 **`IncludeDeprecated=true`** · ③ 순서 의존 둘(세트는 제품 뒤 · 대체 UPC 는 바코드 뒤 · §3-e) · `IncludeBOM=true` 면 `Limit` 실효 500 · 충돌 키 ③ `sku` · ④ `cin7_id`(§3-f).
 - ⭐ **④ 는 낱개에만 붙는다 — 발주는 낱개 단위로 한다.** 세트는 부모를 `pack_factor` 로 환산 · 콤보는 「공급처 줄이 있으면 후보」(§3-g).
 
@@ -105,6 +107,12 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | ⭐ RLS 가 막았는데 RPC·화면이 성공을 답한다 | RLS 는 쓰기를 **감출 뿐** — 0행 | 쓰기 RPC 첫머리 `ims_require_write('<묶음>',…)` + row_count · 화면은 imsSaved() · §5 권한 규약 ② |
 | 화면이 role·perms 를 직접 가른다 · role_ck 나열을 등급으로 | 'manager' 만 아는 코드가 worker 를 통과시킨다 · 자기 승격 길 | 판정은 **ims_access() 하나**(3-l) · 순서는 `ims_role_rank` · **자기보다 아래만** · §10-h |
 | 「읽기는 되는데 쓰기가 안 된다」고 말한다 | ims_can_view 는 **화면 접근** 판정이지 데이터 읽기가 아니다 | 거부 문장 하나 「You cannot change <묶음> data …」 · §5 ② |
+| ⭐ 차이 큐의 over 를 닫는다 · 이유를 자유 메모로 | 초과분이 재고에 안 잡힌 채 「닫힘」 · 「이 공급처가 몇 번 결품했나」를 셀 수 없다 | **short 만**(`po_receipt_diff_resolve` · 어휘 다섯 · other 는 메모 필수 · 「닫혔다」= resolved_at 하나 · CHECK 로 셋 묶음) · over 는 재고를 움직이는 **별도 차수** · §11-i |
+| 형제 문서 합계를 화면이 더한다 · 라인을 line_no 로 맞춘다 | 손 재귀가 뿌리를 중복 제거 못 해 **두 배(24)** 가 났다(09-19 실사고) · b 의 새 라인 line_no 가 a 의 다른 제품과 겹친다 | **`po_family_lines` · product_id** · 계산은 DB(순환 방어 path·깊이 50) · §11-c |
+| 확정된 비용을 되돌려 배분을 고치고 다시 확정 | landed 가 이미 얹힌 뒤라 멱등이 건너뛰어 **옛 금액이 남는다** | 되돌리기는 landed 있으면 **거부** · 고치려면 **상쇄 비용 문서**(append-only) · §11-f |
+| 기준통화 아닌 발주·비용을 환율 없이 확정 · 환율로 **나눈다** | 원가 0 · 또는 **반값 — 에러 없음** | 확정 거부(게이트 ⑥ · 문장이 어디서 고치는지 말한다) · `exchange_rate` 는 **CAD per USD — 곱한다** · §11-j·§11-f · ledger-design 4부 |
+| 발주 머리의 Supplier·Currency 를 연다 | 라인의 단가 근거·통화 뜻이 통째로 바뀐다(USD 5.19 → CAD 5.19) | **열지 않는다** — 잘못 골랐으면 새 발주 · 언제나 여는 것은 Exchange rate·Note 뿐(원가가 매달린다) · §11-b |
+| ⚠️⚠️ `inv_layer_apply()` 를 돌린다 | IMS 원가(`po_line` 레이어 + 그 위 landed)가 **통째로 사라진다** — 원장은 남아 **조용하다** | IMS 판이 들어갈 때까지 **금지** · 되살리기 = 두 창구 재호출 · ledger-design 4부 「돌리면 안 되는 함수」 · 스킬 asung-inv-ledger 함정 첫 줄 |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 32 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다** — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).
