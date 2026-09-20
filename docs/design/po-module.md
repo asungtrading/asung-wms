@@ -3013,7 +3013,7 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
       키 = 원장 키(RCV · po_line_id) · bin 을 접는다(원장 행 수 ≠ 레이어 행 수가 정상) · 수량 = 원장(기준까지만) · cost_source po_line · unit_cost = unit_price × **CAD per USD**(곱한다 · 기준통화면 ×1)
       ⭐⭐ 게이트 ⑥ — 기준통화(inv_config.base_currency) 아닌 발주에 환율이 없거나 0 이면 **확정 거부**(어디서 고치는지 문장에 · 발주 머리 Exchange rate 칸은 확정 뒤에도 열린다 · 11-b) · 창구도 같은 조건으로 막는다(백필 경로)
       백필 — 환율을 넣고 inv_post_receipt 를 다시 부르면 already_posted 분기가 레이어만 세운다(RCV-00005·00006 ⬜) · 반환 ledger.layers{layers_created · qty · cost_total_cad · fx_direction}
-      ⚠️⚠️ **inv_layer_apply() 를 돌리지 마라** — 이 레이어를 지우고 되살리지 않는다(ledger-design 4부 「돌리면 안 되는 함수」 · §13-f) · 원가 규칙의 정본은 ledger-design 4부 「원가 이식 1차」
+      ✅ [2026-09-20] **inv_layer_apply() 전량 재생성이 이 레이어를 창구로 되살린다**(`20260920142635` · 옛 「돌리지 마라 · 되살리지 않는다」는 틀렸었다 — 실물은 0 원 레이어로 덮어썼다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · §13-f) · 원가 규칙의 정본은 ledger-design 4부 「원가 이식 1차」
 ```
 
 ### 11-k. ⭐ 제품 생성 — 지금 규칙이 필요한 유일한 것 (§10-k 의 예외)
@@ -3447,11 +3447,11 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⚠️ 정본과 부딪히는 문장(고치지 않고 보고 · ims-doc-update-0919 ⬜1)   §3 표 ref_warehouse 「IN_TRANSIT 안 담는다」(담았다) · §11-j 모양 표 「문서 번호 = 갈라진 뒤 PO 번호」(RCV 번호)·「줄 번호 = line_ref」(po_line_id) · §12-a 「inv_snapshot 안 옮긴다」(ims_inv_balance 가 기초선으로 읽는다)·「doc_task_id 는 IMS 에 없다」(po_receipt.id)·「source 는 모듈 이름(짐작)」('ims' 하나)
 [2026-09-19 오후 · 차이 닫기 · 원가 이식 1·2차 · 화면 둘 — 근거는 `20260919175712`·`192236`·`200414` 머리 주석과 ledger-design 4부 「원가 이식」]
 ~~⬜⬜ inv_post_receipt 가 create function 이라 다시 못 돈다~~ → ✅ `20260919192236`(create or replace) · ~~⬜ 차이를 닫는 RPC~~ → ✅ `20260919175712`(short · 화면은 대화 Claude · 여러 건 한 번에는 ⬜)
-⬜⬜ inv_layer_apply 에 IMS 판을 넣는다   ⚠️⚠️ **그때까지 돌리지 마라** — 지우고 cin7 만 되살려 오늘 원가가 통째로 사라진다(ledger-design 4부 「돌리면 안 되는 함수」 · §4단계 B) · 할 일: RCV 마다 inv_layer_post_receipt · 확정 비용마다 inv_layer_post_charge
+~~⬜⬜ inv_layer_apply 에 IMS 판을 넣는다~~ → ✅ `20260920142635`(bb519c7 · 테스트 DB 적용·검증 · 입고는 루프 안 inv_layer_post_receipt · 비용은 끝 inv_layer_post_charge) · ⚠️ 옛 문구 「지우고 cin7 만 되살려 통째로 사라진다」는 **틀렸었다** — 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다(경위·실측 ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」) · ⬜ 새로: 보조 함수 넷(transfer·adjust·assemble·credit)의 IMS 문 · Cin7 재생성 차이 +1,330(원인 불명 · 상쇄 금지)
 ⬜ over 차이 닫기               = 초과분을 재고에 넣을지 정하기 · ⭐ [Caleb] 「지금 실무는 그 3개를 재고조정으로 넣고 평균원가로 환산한다 — Cin7 에서 달리 방법이 없다」 ⇒ IMS 는 **그 발주의 단가로** 넣을 수 있다(같은 창구 inv_layer_post_receipt) · raw.bins 가 어느 빈에 얼마가 깎였는지 갖고 있다
 ⬜ 비용 취소와 landed            po_charge 가 confirmed 뒤 cancelled 되면 landed 가 남는다 — 상쇄가 필요하다(취소 RPC 에 「얹혔으면 거부 또는 상쇄」)
 ⬜ 발주 머리의 Tax rule          ref_tax_rule 을 Settings 에 세운 뒤 드롭다운으로(⭐ QBO 가 우선 · 11-b 머리 칸 편집)
-⬜ 환율                          MTFX 환율 자동 수신(API 유무 확인 중) · USD 발주 10건의 빈 환율 채우기 · RCV-00005·00006 백필(환율 넣고 inv_post_receipt) · 관세 10039192310530 백필(PO-02002·02001a 입고 뒤 inv_layer_post_charge)
+⬜ 환율                          MTFX 환율 자동 수신(API 유무 확인 중) · USD 발주 10건의 빈 환율 채우기 · ~~RCV-00005·00006 백필~~(✅ 09-20 · 테스트 값 1.35 · 레이어만 섰다) · 관세 10039192310530 백필(PO-02002·02001a 입고 뒤 inv_layer_post_charge)
 ⬜ Add a line 셋째 재료           po_line.unit_price 가 쌓이면 「우리가 지난번에 적은 값」(11-d)
 ⬜ 아침 점검                     no_basis_amount_cad · no_layers_amount_cad 합을 보는 한 줄(Cin7 대조의 「설명된 차이」) · 차이 큐 닫기 여러 건 한 번에
 ⚠️ 회계사에게 물을 것이 다섯      (레포 밖 accountant-questions-0919.md) ① kind → QBO 계정 대응 ② 에이전트 수수료가 재고 원가인가 ③ 환율 시점과 차액 처리 ④ 초과 입고분의 원가 ⑤ 조기결제 할인 HST · 뒤늦게 붙는 원가 차액
@@ -3562,5 +3562,5 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⭐ [Caleb] 재고 원가는 인식 시점(발주) 환율 — 결제 환율 차액은 환차손익(회계사 확인 대기) · kind 넷 다 landed(other 도 · 에이전트 수수료 확인 중) · 환율이 없으면 확정을 막는다 · 화면은 판정하지 않는다(fixed·latest 는 재료).
   ⭐ 판단: 레이어 키 = 원장 키(RCV · po_line_id) · bin 을 접는다 · 발주의 레이어는 po_line 을 거쳐 · 형제 라인은 product_id · 「닫혔다」= resolved_at(CHECK 로 셋 묶음) · reopen 은 흔적을 남긴다 · 되돌리기는 landed 가 얹혔으면 거부.
   ⚠️ 실사고: 원문에 있던 v_base 를 두 번 선언해 적용이 멈췄다(지웠으면 분할 채번이 CADa 가 될 자리 · v_base_cur 로) · fx_direction 이 CAD 발주에서 「곱한다」고 거짓말했다(통화별 두 문장으로) · 손으로 쓴 검증 재귀가 뿌리를 중복 제거하지 않아 합이 두 배(함수는 맞았다).
-  ⚠️⚠️ **inv_layer_apply() 를 돌리지 마라** — IMS 원가가 통째로 사라진다(§13-f 첫 항목 · ledger-design 4부·§4단계 B · 스킬에도 ⬜).
-  📌 다음(§13-f 09-19 오후 블록): inv_layer_apply IMS 판 · over 닫기 · 비용 취소와 landed · Tax rule · MTFX·빈 환율·백필 · 셋째 재료 · 아침 점검 한 줄 · 회계사 질문 다섯.
+  ✅ [09-20] **inv_layer_apply() 에 IMS 판**(`20260920142635` · bb519c7) — 옛 「돌리지 마라 · 통째로 사라진다」는 틀렸었다(실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」).
+  📌 다음(§13-f 09-19 오후 블록): ~~inv_layer_apply IMS 판~~(✅ 09-20) · over 닫기 · 비용 취소와 landed · Tax rule · MTFX·빈 환율·백필 · 셋째 재료 · 아침 점검 한 줄 · 회계사 질문 다섯.

@@ -141,7 +141,7 @@ IN_TRANSIT 결함 둘(문서 범위 · 날짜 범위) · 테스트 DB 재복사 
 ⚠️ 이식은 **재기준선도 플립도 아니다** — 4부 이식 절 첫머리.
 갱신 2026-09-19 오후 — **⭐⭐ 원가 이식 1·2차 · 차이 닫기**(`20260919175712` 9a5344a · `20260919192236` b09a4c0 · `20260919200414` 83b79f5).
 입고 확정이 **원가 레이어**를 만들고(`inv_layer_post_receipt` · 키 = 원장 키 · bin 을 접는다 · unit_price × CAD per USD) 비용 확정이 **landed 를 얹는다**(`inv_layer_post_charge` · 넷 다 landed · 금액 비율).
-⚠️⚠️ **`inv_layer_apply()` 를 돌리지 마라** — 오늘 만든 원가가 통째로 사라진다(4부 이식 절 「돌리면 안 되는 함수」 · §4단계 B 경고). IMS 판이 들어갈 때까지.
+✅ **[2026-09-20] `inv_layer_apply()` 에 IMS 판**(`20260920142635` · bb519c7) — 「돌리지 마라」가 풀렸다. 옛 경고의 「source='cin7' 만 되살린다」는 틀렸었다(실물은 0 원 레이어로 **덮어썼고** 창구 멱등을 막았다). 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · §4단계 B. ⚠️ 보조 함수 넷(transfer·adjust·assemble·credit)엔 아직 IMS 문이 없다.
 
 ## 이 문서의 전제
 
@@ -2062,12 +2062,11 @@ TR-04175  Departure 08-21 · Completion 09-02 · 저널 09-04
 📌 불변 조건에 원천이 하나 늘었다:
 `inv_ledger + inv_cost + inv_doc_cost + inv_snapshot`
 
-⚠️⚠️ **[2026-09-19] 이 불변 조건이 IMS 행에는 아직 성립하지 않는다 — `inv_layer_apply()` 를 돌리지 마라.**
-그 함수는 `delete from inv_layer where origin_type <> 'baseline'` 한 뒤 **`source='cin7'` 만** 되살린다(`20260909231134:288`).
-IMS 입고 레이어(`cost_source='po_line'`)와 거기 얹은 landed 가 함께 없어진다. ⚠️ 원장 행은 남고 **원가만** 없어진다 — 조용하다.
-⬜ 재생성에 IMS 판을 넣는 차수(RCV 마다 `inv_layer_post_receipt` · 확정 비용마다 `inv_layer_post_charge`)가 설 때까지 **금지**.
-⭐ 되살리는 길은 있다 — 두 창구를 다시 부르면 된다(둘 다 멱등). 원천은 `po_receipt_line`·`po_charge_alloc` 이라 불변 조건의 원천 목록이 그때 둘 더 늘어난다.
-📌 같은 경고가 4부 「이식」 절과 스킬 `asung-inv-ledger` 에도 있다 — 한 곳이면 놓친다.
+✅ **[2026-09-20] 이 불변 조건이 IMS 행에도 성립한다** — `inv_layer_apply()` 에 IMS 판이 들어갔다(`20260920142635` · bb519c7). IMS 입고는 **루프 안**에서 창구 `inv_layer_post_receipt` 로, 확정 비용은 끝에서 `inv_layer_post_charge` 로 다시 만든다.
+실측·경위·고친 모양은 **4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」** 한 곳에만 적는다(여기 되쓰지 않는다).
+⚠️ 2026-09-19 에 여기 적었던 「`source='cin7'` 만 되살린다 · 금지」는 **틀렸었다** — 실물은 IMS 자리에 0 원 레이어를 **만들어** 창구 멱등까지 막았다(경위는 그 절). 원천 목록에 IMS 둘이 늘었다:
+`inv_ledger + inv_cost + inv_doc_cost + inv_snapshot + po_line(단가 · 환율은 po) + po_charge_alloc`.
+⚠️⚠️ 아직 성립하지 않는 것 둘 — IMS 가 트랜스퍼·조정·조립·반품 사건을 내는 날(보조 함수 넷에 IMS 문이 없다) · Cin7 축의 재생성 차이 +1,330(원인 불명). 둘 다 그 절 ⬜.
 
 **배분 규칙**
 
@@ -3333,14 +3332,57 @@ source  cin7 27,324 · manual 1,579 · **wms 0**(CHECK 에는 있지만 쓴 적�
 - ⚠️ `received_on` 이 기초선보다 이르면 **막지 않고 경고**한다(`received_on_before_baseline`) — `inv_balance` 는 컷오프가 없어 「지금 재고」는 어느 날짜든 맞다.
 - 수집기의 소멸·취소 감지(`inv_missing_lines`·`inv_voided_docs`)는 `source=eq.cin7`·Cin7 문서번호 기준이라 `RCV-` 행에 닿지 않는다. ⬜ shadow 대조 축은 3부 컷오프 절.
 
-#### ⚠️⚠️ 돌리면 안 되는 함수 — `inv_layer_apply()` (2026-09-19 · IMS 판이 설 때까지)
+#### ✅ 해소 — `inv_layer_apply()` 에 IMS 판이 들어갔다 (2026-09-20 · `20260920142635` · bb519c7 · 옛 제목 「⚠️⚠️ 돌리면 안 되는 함수」)
 
-**돌리면 오늘 만든 원가가 통째로 사라진다.** `inv_layer_apply()` 는 `delete from inv_layer where origin_type <> 'baseline'` 한 뒤
-`source='cin7'` 만 되살린다(`20260909231134:288`). IMS 입고 레이어(`cost_source='po_line'`)와 거기 얹은 landed(`inv_layer_cost_add`)가 함께 없어진다.
-⚠️ **원장 행은 남고 원가만 없어진다 — 조용하다.** 수량은 맞는데 평가액이 내려가 있으면 이것을 먼저 의심한다.
-⬜ 「재생성에 IMS 판을 넣는 차수」가 설 때까지 **돌리지 마라.** 그 차수가 할 일: RCV 마다 `inv_layer_post_receipt` · 확정 비용마다 `inv_layer_post_charge` —
-그래야 「레이어 = inv_ledger + inv_cost 로 전량 재생성」(§4단계 B)이 IMS 행에도 성립한다.
-⭐ 되살리는 길은 있다 — 두 창구를 다시 부르면 된다(둘 다 멱등 · 원장은 그대로). 📌 같은 경고를 §4단계 B 와 스킬 `asung-inv-ledger` 에도 적는다.
+**이제 돌려도 된다.** 전량 재생성이 IMS 줄을 창구로 다시 만든다 — 테스트 DB 적용·검증 완료(아래 실측). 2026-09-19 의 「돌리지 마라」는 풀렸다.
+📌 이 절이 그 경위·실측·고친 모양의 **유일한 자리**다 — §4단계 B · 문서 머리 · `po-module` · 스킬은 여기를 가리키기만 한다.
+
+⚠️ **옛 서술이 틀렸다** — 「`delete` 뒤 `source='cin7'` 만 되살린다(`20260909231134:288`)」. 실물은 다르다:
+- 루프에 `source` 필터가 **없다**(코드 주석 스스로 「source 필터 없음」). IMS `po_in` 행이 루프에 들어가 `inv_layer_apply_po_in` 으로 갔다.
+- `inv_cost`(Cin7 원가 표)에 IMS 입고가 없으니 unknown 경로 → **`unit_cost 0 · cost_source 'unknown'` 레이어가 만들어졌다.** 사라지는 것이 아니라 **0 원으로 덮어써진다** — 0 은 합계에 섞이고 조용하다.
+- ⚠️⚠️ 그 0 짜리가 4키 자리를 차지해 `inv_layer_post_receipt` 의 멱등이 「이미 있다」로 건너뛴다 ⇒ 옛 문서의 「두 창구를 다시 부르면 된다」가 **안 통했다.** 문서보다 나빴다.
+- **경위**: 첫 판 `20260909155320` 은 실제로 `source='cin7'` 로 필터했다. `20260909174046` 이 「source 필터만 뺐다」고 적으며 제거했다(3부 1435 가 그 기록 — 그 줄은 맞다). 문서 넷은 **첫 판을 기억한 채** 쓰였다 — 창작이 아니라 낡은 사실이다.
+  ⚠️ 마지막 판도 `20260909231134` 가 아니라 **`20260910141553:120`** 이었다(그 사이 `20260909235347` · `20260910132601` 도 덮어썼다) — 옛 판을 원본으로 고쳤으면 transit day scope · landed · 운송비 블록이 통째로 사라질 자리였다.
+
+**실측 (2026-09-20 · 테스트 DB · 롤백)**
+```
+옛 함수   rcv_unknown 0 → 2 · cost_unknown_layers 87 · layers_created 890      ⭐ IMS 자리에 0 원 레이어가 실제로 생겼다(이 칸만으로는 IMS 몫이 구분되지 않는다)
+새 함수   rcv_unknown 0     · cost_unknown_layers 85 · layers_created 888 · ims.receipts_skipped 2(환율 없음 · 문장 그대로) · ims.charges_unvisited 1 · 2,547.37
+          Cin7 쪽 41칸 · consume 21,328 · cost_add 316/434 · 금액 소수점까지 동일 — 회귀 0
+환율 백필 PO-02011a·b 에 1.35(테스트 값) → inv_post_receipt 재호출 → already_posted · rows_posted 0 · ⭐ 레이어만 섰다 · unit_cost 9.9225 = 7.35 × 1.35(곱한다 · fx_direction 이 말한다)
+⭐⭐ 불변  레이어가 있는 채로 전량 재생성 → ims.receipts_posted 2 · layers_created 2 · layers_cost_cad 119.07(= 9.9225 × 12) · 다시 만든 unit_cost 9.9225 그대로
+          processed_po_in 890 = layers_created 888 + ims.layers_created 2 · Cin7 회귀 0
+```
+⇒ 「레이어 = 원장 + 원가로 전량 재생성」(§4단계 B)이 **IMS 행에도 성립한다.**
+
+**고친 모양 셋** (`20260920142635` · 원본 `20260910141553` 위에 **더한 줄만** · diff 로 대조 · 45칸 반환 이름·뜻 무변)
+1. **문** — `inv_layer_apply_po_in` 은 `source='ims'` 면 돌아선다(0·0). 원장 합에도 `source <> 'ims'`(⚠️ `'cin7'` 만이 아니다 — manual 상쇄 행이 들어가야 한다).
+2. **루프 안 창구** — po_in 분기에서 IMS 입고를 `inv_layer_post_receipt(doc_task_id)` 로, 입고 단위 한 번(임시 표 kind `ims_rcv`). ⚠️ **왜 끝이 아닌가**: 입고 레이어는 **수량** 레이어고 `inv_layer_fifo_take` 는 출처를 안 본다(`20260909233729:71`).
+   끝에 만들면 그 뒤 날짜의 sale_out 이 못 보고 short 로 떨어져 **실시간 상태(확정 때 창구가 만든 것)와 재생성이 갈라진다.** 지금은 IMS sale_out 이 없어 안 보일 뿐이다.
+3. **끝의 비용** — 운송비 블록 뒤에서 「레이어가 가리키는 발주」의 확정 비용을 `inv_layer_post_charge` 로(금액만 얹으니 landed·운송비와 같은 층). 레이어 없는 발주에만 배분된 비용은 `ims.charges_unvisited`·금액으로 센다 — 「버린 금액」 그림이 빠지지 않게.
+- 창구가 거부한 것(환율 없음 등)은 **멈추지 않고 건너뛰어 센다** — `ims.receipts_skipped · charges_skipped · skip_reasons[]`(창구 문장 그대로). 건너뛰어도 틀린 값이 들어가지 않는다 — 0 원을 만드는 것과 다르다(선례 §4단계 D `freight_no_basis`).
+
+**새로 확인된 사실 (정본에 없던 것)**
+- ① **자동 실행 없음** — cron.job 0행(⚠️ 테스트 DB 에는 cron 잡이 아예 없다) · 본문에서 부르는 public 함수 0 · 레포 grep 호출 0. 「안 부르면 안전하다」는 짐작이 아니라 실측이다.
+- ② **권한 문** — 두 창구가 `ims_require_write(receiving·purchasing)` 를 부른다. psql 은 `auth.uid()` 가 null 이라 거부된다 ⇒ 재생성은 **지우기 전에** 막는다(문장에 「nothing was rebuilt」). 검증은 `request.jwt.claims` 를 심는다(`20260918133858` 검증 주석 선례).
+- ③ **반환 모양** — `jsonb_build_object` 인자 한도 **100**. 45키 = 90인자였다. 평면으로 더하면 112인자로 **런타임에 죽는다** ⇒ `'ims'` 한 칸에 중첩(46키 = 92인자).
+
+⚠️⚠️ **미래의 같은 사고 — 보조 함수 넷** (실측 · 보조 함수가 `source` 를 보는지 전수 · ⬜ 「이식이 남긴 것」)
+```
+po_in        합계 「source 무관」                          → ✅ 이번에 문을 냈다
+sale_out     합계 「source 무관」 · 소진은 출처를 안 봄     → ⭐ 문 불필요(한 원장 FIFO 가 맞다)
+transfer_in  합계 「source 무관」 · 원가를 inv_cost / 레이어 평균에서 찾는다
+adjust       〃
+assemble     〃 (order by (source='cin7') desc 로 line_ref 를 고른다 · 무해)
+credit       〃
+```
+⇒ IMS 가 그 사건(트랜스퍼·조정·조립·반품)을 내기 시작하는 날 **po_in 과 똑같은 0 원가 사고가 난다.** 각각 문 + 창구가 필요하다. 지금은 IMS 가 `po_in` 만 내서 안 터질 뿐이다.
+
+⬜ **원인 불명 — 같은 함수를 돌렸는데 Cin7 레이어가 늘었다** [실측 2026-09-20 · 롤백 안] 돌리기 전 cin7_layers 4,239 · consume 18,434 → 돌린 뒤 5,569 · 21,328(**+1,330 · +2,894**).
+cost_add 는 316/434 · 금액 동일 — 원가를 얹는 쪽은 재현된다. IMS 와 무관하다(그때 IMS 레이어 0 · 늘어난 것은 전부 Cin7 쪽). ⚠️ 「레이어 = 원장으로 전량 재생성」이 **Cin7 축에서 지금 안 맞고 있다**는 뜻이다.
+가능성(⚠️ 전부 짐작 · 확인하지 않았다): 지금 DB 의 레이어가 마지막 판이 아닌 중간 판으로 만들어진 것 · 09-10 이후 원장에 들어온 것이 있어 더 쌓일 것이 생긴 것. ⚠️ **원인을 모르는 채 상쇄하지 마라 — 재는 것이 먼저다.** ⬜ 「이식이 남긴 것」.
+
+📌 창구 두 함수의 `comment`(「재생성이 되살리지 않는다」)는 마이그레이션 `20260920145614_ims_apply_comments` 가 comment 만 다시 냈다(함수 본문 무접촉).
 
 #### ⭐⭐ 원가 이식 1차 — 입고가 레이어를 만든다 (`20260919192236` · b09a4c0)
 
@@ -3384,10 +3426,12 @@ source  cin7 27,324 · manual 1,579 · **wms 0**(CHECK 에는 있지만 쓴 적�
 📌 차이 큐 닫기(`20260919175712` · 9a5344a · short 만 · 형제 문서 합계 `po_family_*`)는 발주 쪽 일이라 **po-module §11-i · §11-c 가 정본**이다. 원장과 닿는 자리는 하나 — over 를 닫을 때 초과분을 재고에 넣는 길(⬜ · 그 발주의 단가로 · 같은 창구).
 
 #### ⬜ 이식이 남긴 것
-- ⬜⬜ **`inv_layer_apply` 에 IMS 판을 넣는다**(위 「돌리면 안 되는 함수」 · 가장 급하다).
+- ~~⬜⬜ `inv_layer_apply` 에 IMS 판을 넣는다~~ → ✅ **`20260920142635` · bb519c7**(위 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 테스트 DB 적용·검증 · 불변 조건 성립).
+- ⬜⬜ **보조 함수 넷의 IMS 문** — `inv_layer_apply_transfer_in`·`_adjust`·`_assemble`·`_credit` 은 `source` 를 안 보고 원가를 `inv_cost`/레이어 평균에서 찾는다. IMS 가 그 사건을 내기 **전에** 각각 문 + 창구(위 「미래의 같은 사고」). `sale_out` 은 불필요(소진은 출처를 안 보는 것이 맞다).
+- ⬜ **재생성 차이 +1,330** — 같은 함수를 돌렸는데 Cin7 레이어 4,239 → 5,569 · consume 18,434 → 21,328(cost_add 는 동일). 원인 불명 · ⚠️ 상쇄 금지 · 먼저 잰다(위 ⬜ · IMS 와 무관).
 - ⬜ **데이터 최신화** — 테스트 DB 원장은 2026-09-10 에서 멈춰 있다. 운영에서 다시 가져와야 한다. ⚠️ 그때 **`inv_*` 표만** 골라야 한다 — 09-10 의 통째 복원 방식으로는 IMS 표 서른둘이 날아간다.
 - ⬜ shadow 대조 축과 `source='ims'`(3부 컷오프 절) · ⬜ 음수 잔고 229행 원인 · ⬜ SKU 별칭 표 · ⬜ 확정 취소 = 반대 방향 상쇄 행(append-only) · ~~⬜ `inv_post_receipt` 를 create or replace 로~~(✅ `20260919192236`) · 나머지는 po-module §13-f 「2026-09-19」 블록.
-- ⬜ over 차이 닫기 = 초과분을 재고에 넣을지 정하기 · ⬜ 비용 취소(confirmed 뒤 cancelled)와 landed 상쇄 · ⬜ MTFX 환율 · USD 발주 10건의 빈 환율 · RCV-00005·00006 백필 · ⬜ 아침 점검에 `no_basis_amount_cad`·`no_layers_amount_cad` 합 한 줄.
+- ⬜ over 차이 닫기 = 초과분을 재고에 넣을지 정하기 · ⬜ 비용 취소(confirmed 뒤 cancelled)와 landed 상쇄 · ⬜ MTFX 환율 · USD 발주 10건의 빈 환율 · ~~RCV-00005·00006 백필~~(✅ 09-20 · 테스트 값 1.35 · `inv_post_receipt` 재호출 · 레이어만 섰다) · ⬜ 아침 점검에 `no_basis_amount_cad`·`no_layers_amount_cad` 합 한 줄.
 - ⚠️ 회계사에게 물을 것이 다섯(레포 밖 `accountant-questions-0919.md`): kind → QBO 계정 · 에이전트 수수료가 재고 원가인가 · 환율 시점과 차액 · 초과 입고분의 원가 · 조기결제 할인 HST · 뒤늦게 붙는 원가 차액.
 
 ### ⚠️⚠️ 플립 — 이관 (2026-09-07 등록 · ⬜ 미설계)
