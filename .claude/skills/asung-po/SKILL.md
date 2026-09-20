@@ -27,7 +27,7 @@ description: >
 ⑤ PO 본체          ✅ 09-16~17 — 설계 **§11** · 표 **§13-a** · 목록은 뷰 · 상세는 RPC · 돈은 뷰 po_invoice_money·po_charge_money(화면에서 다시 짜지 마라 · §13-d) · 쓰기 RPC 는 §13-d · 확정은 잠금이 아니다(§11-b)
 권한               ✅ 09-17 밤 — role 넷 worker<manager<supervisor<admin(§10-h) · 쓰기 RLS + RPC 첫머리 ims_require_write(§5 권한 규약 셋) · 화면은 ims_access() 하나(3-l)
 ⑥ 리시빙           ✅ 09-18 — ⭐ WMS 이관을 미루고 IMS 안에 PO 갈래로 먼저(§13-i) · 표 셋 + 차이 큐 · RPC 열 · 확정·자동 분할 **§11-i·§11-c** · updated_by + ims_touch(§5) · 탭 다섯
-⑦ 원장·원가 이식    ✅ 09-19 — 입고 확정이 원장 사건(`inv_post_receipt` · **§11-j**)과 원가 레이어(`inv_layer_post_receipt`)를 · 비용 확정이 landed 를(`inv_layer_post_charge` · **§11-f**) · 차이 닫기 short 만 + 형제 합계 `po_family_*`(**§11-i·§11-c**) · Last bin 속 = 원장 · 머리 칸 편집·Add a line(§11-b·§11-d) · 원가 규칙 정본은 `ledger-design.md` 4부 「이식」·「원가 이식」 · ✅ 09-20 `inv_layer_apply()` 에 IMS 판(`20260920142635` · 아래 함정 — 남은 함정은 환율 없는 입고)
+⑦ 원장·원가 이식    ✅ 09-19 — 입고 확정이 원장 사건(`inv_post_receipt` · **§11-j**)과 원가 레이어(`inv_layer_post_receipt`)를 · 비용 확정이 landed 를(`inv_layer_post_charge` · **§11-f**) · 차이 닫기 short 만 + 형제 합계 `po_family_*`(**§11-i·§11-c**) · Last bin 속 = 원장 · 머리 칸 편집·Add a line(§11-b·§11-d) · 원가 규칙 정본은 `ledger-design.md` 4부 「이식」·「원가 이식」 · ✅ 09-20 `inv_layer_apply()` 에 IMS 판(`20260920142635` · 아래 함정 — 남은 함정은 환율 없는 입고) · ✅ 09-20 오후 **over 닫기** `po_receipt_diff_settle_over`(**§11-i** · 이유 셋 free·billed·credited) · **매입 가격 이력** `po_price_history`(**§11-g** · 출처는 확정 인보이스 · 할인 반영)
 화면 열하나        ✅ `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) — 마스터 다섯 · staff · po·invoices·charges·payments·receiving · 규칙 **§10-j**(3-g·3-i·3-j·3-k) · ⬜ 채울 칸 **§10-k** · 🔄 다음 **§13-f**
 ```
 - ⭐ **IMS 표 32 · 정책 116**(2026-09-18 실측 · Caleb psql) — 전부 **테스트 DB(Asung-IMS)에만** 있다. `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영.
@@ -107,7 +107,9 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | ⭐ RLS 가 막았는데 RPC·화면이 성공을 답한다 | RLS 는 쓰기를 **감출 뿐** — 0행 | 쓰기 RPC 첫머리 `ims_require_write('<묶음>',…)` + row_count · 화면은 imsSaved() · §5 권한 규약 ② |
 | 화면이 role·perms 를 직접 가른다 · role_ck 나열을 등급으로 | 'manager' 만 아는 코드가 worker 를 통과시킨다 · 자기 승격 길 | 판정은 **ims_access() 하나**(3-l) · 순서는 `ims_role_rank` · **자기보다 아래만** · §10-h |
 | 「읽기는 되는데 쓰기가 안 된다」고 말한다 | ims_can_view 는 **화면 접근** 판정이지 데이터 읽기가 아니다 | 거부 문장 하나 「You cannot change <묶음> data …」 · §5 ② |
-| ⭐ 차이 큐의 over 를 닫는다 · 이유를 자유 메모로 | 초과분이 재고에 안 잡힌 채 「닫힘」 · 「이 공급처가 몇 번 결품했나」를 셀 수 없다 | **short 만**(`po_receipt_diff_resolve` · 어휘 다섯 · other 는 메모 필수 · 「닫혔다」= resolved_at 하나 · CHECK 로 셋 묶음) · over 는 재고를 움직이는 **별도 차수** · §11-i |
+| ⭐ 차이 큐를 이유 없이·자유 메모로 닫는다 | 「이 공급처가 몇 번 결품했나」를 셀 수 없다 | 어휘로만 — short 다섯(`po_receipt_diff_resolve` · other 는 메모 필수) · over 셋(`po_receipt_diff_settle_over` · 09-20) · 「닫혔다」= resolved_at 하나 · CHECK 로 셋 묶음 + kind 별 어휘 CHECK · §11-i |
+| ⭐ over 를 `_resolve` 로 닫는다 · returned 를 만든다 · 초과분을 발주 단가나 평균원가로 넣는다 · 닫은 over 를 reopen 한다 | 재고를 움직이는 일이 기록만으로 끝난다 · 쓰지 않을 갈래 · **공짜 3개에 11.606 을 매기면 자산 34.82 가 공중에서 생긴다** · 재고는 남고 기록만 사라진다 | `_settle_over` 만(서로를 가리킨다) · 이유 셋 **free(0 · `cost_source free`) · billed · credited(기준 레이어 값)** · 돌려보내는 일은 거의 없다(Caleb) · reopen 은 **거부**(상쇄 길은 ⬜) · 빈은 건드리지 않는다(장부만) · §11-i 「차이 닫기」 |
+| latest/fixed 를 **입고**로 갱신한다 · 발주 확정이 갱신한다고 믿는다 | 공짜·초과분이 가격이 되어 latest 가 0 · 실물은 갱신 함수가 **0개**(11-d 정정) | 가격의 출처는 **확정 인보이스**(`po_price_history` · 할인 체인 반영 · net_unit) · 컷오버 뒤 갱신도 이 뷰가 재료 · §11-g 「매입 가격 이력」 |
 | 형제 문서 합계를 화면이 더한다 · 라인을 line_no 로 맞춘다 | 손 재귀가 뿌리를 중복 제거 못 해 **두 배(24)** 가 났다(09-19 실사고) · b 의 새 라인 line_no 가 a 의 다른 제품과 겹친다 | **`po_family_lines` · product_id** · 계산은 DB(순환 방어 path·깊이 50) · §11-c |
 | 확정된 비용을 되돌려 배분을 고치고 다시 확정 | landed 가 이미 얹힌 뒤라 멱등이 건너뛰어 **옛 금액이 남는다** | 되돌리기는 landed 있으면 **거부** · 고치려면 **상쇄 비용 문서**(append-only) · §11-f |
 | 기준통화 아닌 발주·비용을 환율 없이 확정 · 환율로 **나눈다** | 원가 0 · 또는 **반값 — 에러 없음** | 확정 거부(게이트 ⑥ · 문장이 어디서 고치는지 말한다) · `exchange_rate` 는 **CAD per USD — 곱한다** · §11-j·§11-f · ledger-design 4부 |
