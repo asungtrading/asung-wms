@@ -2438,7 +2438,7 @@ ref_bin.is_staging    ⭐ 임시 보관용으로 정해진 자리가 실제로 �
 ```
 ⇒ ⭐ **설계 함의 ①: 마스터와 거래가 명확히 갈려 있어야 하고, 거래를 지워도 마스터가 안 깨져야 한다.**
    ⚠️ 이것은 `source='cin7'/'manual'` 과는 **다른 축**이다. 표마다 「이 표는 컷오버 때 지워지는가」가 서야 한다 — 표 설계 때 표마다 적는다.
-   → [2026-09-16 · §13] 열하나 전부 **거래 ⇒ 지운다**로 표마다 주석에 박았다. ⭐ 예외 하나 — PO 확정이 갱신하는 `product_supplier.cost`·`last_supplied`(Latest)는 마스터에 있으나 거래에서 나오는 값 · **컷오버 때 거래는 지우지만 Latest 는 남긴다**(11-d).
+   → [2026-09-16 · §13] 열하나 전부 **거래 ⇒ 지운다**로 표마다 주석에 박았다. ⭐ 예외 하나 — PO 확정이 갱신하는 `product_supplier.cost`·`last_supplied`(Latest)는 마스터에 있으나 거래에서 나오는 값 · **컷오버 때 거래는 지우지만 Latest 는 남긴다**(11-d). ⚠️ [2026-09-20] 「PO 확정이 갱신하는」은 설계 문장이지 실물이 아니다 — 갱신 함수는 없고(11-d 정정) 출처는 확정 인보이스로 바뀌었다(11-g).
 ⇒ ⭐ 설계 함의 ②: Cin7 발주·인보이스를 IMS 로 적재할 필요가 없다 — 숫자를 맞춰 볼 대상이 아니다. **적재는 마스터만.**
    📌 [Caleb 확인 2026-09-15 저녁] 「Cin7 으로 내보내는 일은 없다」는 **거래(발주·입고)를 두고 한 말**이다. Fixed Price 는 거래가 아니라 마스터이고,
       Cin7 이 아직 정본인 값이다 — 층이 다르다. §3-g 「⑤ PUT 의 필수 열쇠」·§10-d 의 `PUT /product-suppliers` 는 purchasing.html 의
@@ -2634,7 +2634,7 @@ b 의 머리    a 의 머리를 통째로 복사(칸이 늘어도 따라온다) 
    ~~⬜ 기본값을 Fixed / Last 중에 고르는 옵션을 우리도 둘지는 나중에 정한다.~~ → [2026-09-16 닫힘] 옵션 없이 **폴백 순서로 확정** — Fixed>0 → Latest>0 → 0(경고 · no_price). `po_lines_paste` 가 그렇게 구현됐다(§13-d).
 ```
 → **표(2026-09-16 · §13)** ⭐ Fixed 와 Latest 는 **새로 만들 칸이 아니다** — `product_supplier.fixed_cost · cost · last_supplied` 에 이미 있다([실측 화면 · Caleb] products.html 상세 SUPPLIERS 표에 FIXED · LATEST · LAST SUPPLIED 셋 · ABE50205 / House of Cheatham 2.54 · 2.54 · 2026-08-17). 두 자리 갈림은 `po_line.unit_price`(이번 발주만 · 낱개 · numeric(18,7) · 0 허용) vs `product_supplier.fixed_cost`(마스터).
-⭐⭐ **연습 기간에도 IMS 발주 확정이 Latest(cost · last_supplied)를 갱신한다**(Caleb 2026-09-16 · 흐름을 봐야 하니까). **그런데 적재가 돌면 Cin7 값이 덮는다 — 그것이 정상이다.** 컷오버 전까지 Latest 의 정본은 Cin7 이고, 마지막 적재 뒤 컷오버하면 그때부터 IMS 가 정본이다. ⚠️ 이 문장이 없으면 「IMS 가 쓴 값이 왜 사라졌지」가 버그로 오해된다. ⭐ 컷오버 때 **거래는 지우지만 Latest 는 남긴다**(11-⓪ 축의 예외). 갱신 동작 자체는 확정 RPC(⬜ 다음 차수).
+⭐⭐ **연습 기간에도 IMS 발주 확정이 Latest(cost · last_supplied)를 갱신한다**(Caleb 2026-09-16 · 흐름을 봐야 하니까). **그런데 적재가 돌면 Cin7 값이 덮는다 — 그것이 정상이다.** 컷오버 전까지 Latest 의 정본은 Cin7 이고, 마지막 적재 뒤 컷오버하면 그때부터 IMS 가 정본이다. ⚠️ 이 문장이 없으면 「IMS 가 쓴 값이 왜 사라졌지」가 버그로 오해된다. ⭐ 컷오버 때 **거래는 지우지만 Latest 는 남긴다**(11-⓪ 축의 예외). 갱신 동작 자체는 확정 RPC(⬜ 다음 차수). ⚠️ **[2026-09-20 실측] 그 갱신은 만든 적이 없다** — `product_supplier` 에 쓰는 DB 함수 0개(`po_lines_paste` 는 읽기만 · writes_it f) · AMP41103 `last_supplied` 2026-08-05 그대로(오늘 입고를 확정해도 안 움직였다). ⭐ **출처도 바뀌었다**(Caleb 09-20) — 발주 확정도 입고도 아니라 **확정 인보이스**다(11-g 「매입 가격 이력」 `po_price_history`). ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 latest 가 0 이 된다 — 가격의 출처는 인보이스이지 입고가 아니다. ⬜ §13-f 「latest·fixed 갱신을 IMS 가 맡는다」.
 ⚠️ 라인 할인 칸 없음 · `tax_rule` 원문(ref_tax_rule 미결 §7-a) · `line_no` unique(po_id, line_no) 가 원장 line_ref.
 → **붙여넣기(2026-09-16 오후 · `po_lines_paste` · §13-d)** [실무 Caleb] **50줄 넘는 발주가 꽤 된다** — 하나씩 고르는 방식은 안 된다. 열쇠는 **우리 SKU**(「공급처 SKU 는 다 갱신돼 있지 않고 아예 없는 공급처도 있다」 — 공급처 SKU 는 참고로만 담는다).
 ⭐⭐ **미리 보기가 반드시 있다**(Caleb) — 밖에서 오는 데이터(엑셀 · 공급처 파일)라 옛 SKU·공백·칸 밀림이 있고, 50줄이 잘못 들어가면 하나씩 찾아 지워야 한다. 「이 공급처 제품이 아니다」가 마스터를 채우라는 신호가 된다. ⚠️ 미리 보기에서 **고치지 않는다** — 원본을 고쳐 다시 붙인다(그래서 duplicate·exists 도 합치거나 더하지 않고 판정만 · 합치면 「추가 주문」과 「중복 붙임」을 구별할 수 없다).
@@ -2682,7 +2682,7 @@ po_discount           예상 — 발주를 만들 때 supplier_discount 에서 �
 po_invoice_discount   확정 — 공급처가 인보이스에 적어 보낸 값([실물 Ampro] Trade 17% → Damage 1% → Full Line 3%) · ⭐ **원가 배분의 정본**(11-g ①)
 ```
 ⇒ §3-b ③ 「우리 할인 줄은 어느 인보이스에 속하는지 알아야 한다」가 이것으로 닫힌다. 둘 다 `seq · name · percent(0~100) · supplier_discount_id(원천 · 스페셜은 null)` · unique(문서, seq) · 차례로 곱한다. 배분 규칙(금액 비례 · 잔돈 · 동점 SKU 순)은 계산 — 칸 없음. [실측 · Caleb 2026-09-16 · SQL] 소계 2,755.80 에 17%·1% 를 곱하면 2,264.44 · 더하면 2,259.76 — **차이 4.68**. 「차례로 곱한다」가 실제로 다르다.
-⭐ [2026-09-16 오후 · Caleb] 인보이스 할인 체인은 **goods 줄에만** 곱한다 · charge(운임) 줄에는 안 곱한다 · ⬜ **other(우리가 안 시킨 것) 줄은 판단 보류** — 공급처가 할인을 적용했는지 우리가 모른다. total_amount 가 대조값으로 있으니 잘못 계산하면 차이로 드러난다 — 실물이 나왔을 때 그 차이를 보고 정한다. 지금 짐작으로 정하지 않는다(`po_detail` · §13-d).
+⭐ [2026-09-16 오후 · Caleb] 인보이스 할인 체인은 **goods 줄에만** 곱한다 · charge(운임) 줄에는 안 곱한다 · ⬜ **other(우리가 안 시킨 것) 줄은 판단 보류** — 공급처가 할인을 적용했는지 우리가 모른다. total_amount 가 대조값으로 있으니 잘못 계산하면 차이로 드러난다 — 실물이 나왔을 때 그 차이를 보고 정한다. 지금 짐작으로 정하지 않는다(`po_detail` · §13-d). → [2026-09-20] **매입 가격 이력(`po_price_history` · 11-g)에서는 other 를 뺀다**(po_line 이 없어 SKU 를 모른다 · `po_price_history_skipped` 에 reason `not_ordered` 로 남는다).
 → **쓰기(2026-09-16 저녁 · `20260916200000` · §13-h)** ⚠️ 그때까지 할인 줄은 **화면에서 만들 수가 없었다** — 보여 주기만 했다(대화 Claude 가 SQL 로 넣었다).
 ⭐ [Caleb 요구] 「늘 주는 건 아니지만 **이번 인보이스에 한해 10%** 를 줄 수 있다 — 그런 경우 문서에 적용할 수 있어야 한다」 ⇒ 세 자리가 열렸다: `supplier_discount`(상시) · `po_discount`(발주) · `po_invoice_discount`(인보이스·크레딧).
 ```
@@ -2795,6 +2795,43 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
 ```
 ⭐ 갈라진 문서 덕에 a 는 주문=입고가 맞아 **Copy 할 때 뺄 것이 없다** — [실측 · Caleb 2026-09-16] PO-02001a 세 라인 주문=입고 완전 일치.
 
+**⭐⭐ 매입 가격 이력 — `po_price_history` (2026-09-20 · `20260920163231_po_price_history.sql` · 커밋 `497cd59`)** — 특정 SKU 를 **언제 얼마에 샀나**. 출처는 발주가 아니라 **확정 인보이스**다.
+```
+⭐ [Caleb 2026-09-20 · 말 그대로]
+  「우리는 우리가 업데이트한 fixed price 와 가장 최근에 받은 latest price 를 사용하고 있어. 컷오버 뒤에는 우리가 업데이트를 해야 하는 거야」
+  「난 솔직히 말하면 latest price 만 있는 것은 아쉬워. ⭐ 특정 SKU 의 구매가를 한눈에 볼 수 있는 게 제일 좋아」
+  「인보이스는 공급처에서 제공하는 실제 가격이 들어있는 문서야 … 당연히 인보이스가 가져와야 해. ⭐ 그런데 해당 인보이스에 적용된 **디스카운트도 볼 수 있어야** 제대로 된 확인이 될 것 같아」
+⇒ 한 칸에 마지막 값만 두면 그 값이 예외였는지 추세였는지 알 수 없다. 할인을 빼고 보면 8.29 로 적혀 있어도 17% 가 걸렸으면 실제는 6.88 이다 — 모르고 「지난번 8.29 였으니」 하면 매번 조금씩 비싸게 산다.
+
+뷰 둘(security_invoker · PostgREST 필터 · RPC 없음 — 계산이 없다)
+  po_price_history          한 줄 = 확정 인보이스의 goods 줄 하나 · product·supplier·invoice·po · qty · gross_unit · factor · net_unit · discount_label · currency_code · is_base_currency ·
+                            exchange_rate · exchange_rate_source · net_unit_cad · has_credit · credit_count · credit_numbers · confirmed_at
+  po_price_history_skipped  확정 인보이스 줄 중 위에 안 나오는 것 + reason(charge · not_ordered · not_payable · zero_price · negative_qty) — ⭐ 두 뷰의 합 = 확정 인보이스의 모든 줄(조용히 사라진 줄 0)
+규칙
+  담는 것   doc_kind invoice · status confirmed · line_kind goods · is_payable · 단가 > 0 · 수량 > 0
+  단가      net_unit = round(unit_price × factor, 6) · factor 는 **po_invoice_money 의 po_mul 체인**(정본 하나 · 다시 계산하지 않는다) · ⚠️ 할인은 goods 에만(문서 총액 = round(goods_sum × factor, 2) + other_sum · 운임에 곱하면 안 된다)
+  discount_label ⭐ 「Trade 17% · Damage 1%」(seq 순 · 곱해지는 차례) — 계수 0.8217 만으로는 사람이 확인할 수 없다 · 17% × 1% = 0.8217 이고 18% 가 아니다
+  통화      인보이스 통화가 기준 · 기준통화(inv_config.base_currency)면 is_base_currency=true · 환산하지 않는다(같은 숫자를 두 번 그리지 않는다) · ⚠️ CAD 공급처가 75곳(257 중) — 드문 경우가 아니다
+  환율      인보이스 → 발주(⚠️ 통화가 같을 때만 — 다르면 남의 환율) → null · exchange_rate_source 가 출처를 말한다 · ⚠️⚠️ 없으면 net_unit_cad 는 **null**(0 아님 — 0 은 가격으로 읽힌다)
+  크레딧    이번 판에 안 섞는다 — has_credit · credit_numbers 로 표시만
+  세트      다루지 않는다([Caleb] 「실제로 우리는 세트로 주문하지 않아」 · entered_pack_factor 23행 전부 null)
+⚠️ 왜 is_payable 을 거르나 [Caleb 실무] 「goods 는 모두 payable 이 기본적으로 맞아. 그런데 간혹 ⓐ 우리가 쓸려고 가져오는 제품들도 인보이스에 섞여 오는 경우가 가끔 있어. 사실 이것은 우리가 다르게 처리해야 하는 게 맞아. ⓑ 그리고 공짜로 보내주는 경우도 있긴 있지」
+  ⇒ ⓐ 는 돈은 내지만 판매용 매입과 조건이 다르다 · ⓑ 는 애초에 가격이 아니다 — 둘 다 이력에서 뺀다(skipped 에 not_payable) · ⬜ ⓐ 가 재고로 들어가는 길이 있는지 모른다(§13-f)
+⚠️ 왜 크레딧을 뺐나 [Caleb 실무] 「주로 수량 쪽이야. 그러나 가격 쪽도 간혹 존재해. 얼마 전에 한 공급업체는 가격을 인상했어. 특정 시점 전에 주문하면 이전 가격을 적용해 주기로 했지. 그런데 막상 인보이스를 받으니 오른 가격으로 온 경우가 있어서 크레딧을 받은 적도 있어」
+  「가격 쪽 크레딧은 물건을 특정해서 주는 게 아니라 **그 차액만큼 돌려받는** 경우가 많아」 ⇒ 수량 크레딧 = 제품·개수가 붙는다 / 가격 크레딧 = 금액만 온다 — 줄에 제품이 붙었나로 갈린다 · ⚠️ 실물 크레딧이 1건뿐이고 그것도 cancelled ⇒ 표본 없이 설계하지 않는다(⬜ §13-f)
+⚠️ po_line_id null 인 goods 줄은 없다 — CHECK po_invoice_line_target_ck 가 goods 에 po_line 을 강제한다. 「po_line_id null 1건」은 charge 줄(운임 187)이다 ⇒ SKU 를 몰라 빠지는 goods 는 구조적으로 없다
+⚠️ supplier_ref_number 는 크레딧 전용 칸(CHECK po_invoice_credit_only_ck)이라 뷰에 없다 — 인보이스의 공급처 번호는 invoice_number 자체다
+
+실측 [2026-09-20 · 테스트 DB]
+  AMP-778812  factor 0.8217(Trade 17% × Damage 1%) · 3.09 → 2.539053 · net_unit_cad 3.537536(환율 1.39325 · source invoice) · 운임 187 은 뷰에 없다(skipped · charge)
+  5566        인보이스 환율 없음 → 발주 1.4 로 내려간다(source po) · 3.50 → 4.90
+  CAD test    Laboratories Delon · is_base_currency t · 환산 없이 2.05
+  거르기      확정 인보이스 17줄 = 뷰 16 + skipped 1(Freight - inland) ⭐ 합이 맞는다
+  ⚠️ 1센트 — 라인 합 ≠ 문서 총액이 **정상**이다(끊는 횟수가 한 번이냐 세 줄이냐) · 2,446.80 × 0.8217 → 문서 2,010.54 · 라인 합 2,010.53 · 가격 이력은 단가를 보는 자리라 문제가 아니다
+     ⚠️⚠️ 나중에 이 값을 **원가에 쓰게 되면** 그때는 레이어 배분 방식(6자리 · 끝수는 마지막 줄)을 따라 맞춘다
+화면      po.html 붙여넣기 미리 보기 「Last paid」(asung-ims 161259f) — 같은 공급처 것만 · 지금 값과의 차이 ▲▼(방향만 · 판정하지 않는다) · 날짜·인보이스 번호·할인 문장 · 조회 실패가 미리 보기를 막지 않는다
+⬜ latest·fixed 갱신을 IMS 가 맡는다 — 출처는 이 뷰(11-d 정정) · ⬜ supplier_discount 0행(§13-f) · ⬜ 아침 점검 한 줄 `select count(*) from po_price_history_skipped where reason <> 'charge'`(0 이 정상)
+```
 **⭐⭐ 크레딧 노트 (2026-09-16 오후 신설 · `20260916175003_po_credit.sql` · 커밋 `3be9a86`)** — ⚠️ 정본에 크레딧 설계가 **없었다**(위 「Credit note · Unstock 탭」 한 줄이 전부). 여기서 처음 선다.
 ```
 실무      [Caleb 2026-09-16] PO 100 · 인보이스 100 · 실제 입고 90 — 공급처마다 다르지만 **특정 공급처는 거의 매번 그렇다.** 그때 supplier credit note 를 만들어 두고 있다.
@@ -2957,7 +2994,16 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
 → 차이 닫기      ⭐ [2026-09-19 `20260919175712` · 9a5344a] `po_receipt_diff_resolve(diff, resolution, note)` · `po_receipt_diff_reopen(diff, note)` · 칸 resolution · resolution_note
                 ⭐ 이유 어휘 다섯 — split_shipment(나눠 왔다) · out_of_stock(공급사 결품) · lost_damaged(운송 중 분실·파손) · miscount(우리가 잘못 셌다) · other(⚠️ **메모 필수** — 셀 뜻이 없는 「그 밖」을 막는다)
                 ⭐ 왜 어휘인가 — 자유 메모는 셀 수 없다. 「이 공급처가 몇 번 결품했나」를 물으려면 어휘여야 한다(위 「short 를 담는 이유」의 완결)
-                ⭐⭐ **short 만 닫는다.** over 는 「초과분을 재고에 넣을지 돌려보낼지」도 정해야 해서 별도 차수(§13-f) — 닫으려 하면 거부하고 문장에 그 이유를 적는다
+                ~~⭐⭐ short 만 닫는다. over 는 별도 차수~~ → ✅ **[2026-09-20 `20260920171930` · f413fe3] over 는 형제 함수 `po_receipt_diff_settle_over(diff, reason, note)` 가 닫는다 — 초과 입고를 재고에 넣는다.** `_resolve` 와 `_settle_over` 는 서로를 가리킨다(short 에 over 함수를 부르면 _resolve 를, 반대면 새 함수를 문장으로).
+                ⭐ [Caleb · 실무 셋 · 말 그대로] ① 잘못 더 보냈고 공급처는 리턴보다 **샘플로 쓰라고 공짜로 준다**(⭐ 가장 많다) ② 인보이스를 추가로 보낸다 ③ 다음 오더에서 수량을 깐다 · 「돌려보내는 일은 거의 없어」 ⇒ ⚠️ **returned 는 만들지 않았다**(쓰지 않을 갈래도 유지해야 할 코드다 · 생기면 그때)
+                ⭐ 이유 셋 · 원가는 둘 — **free** → 원가 0 · `cost_source 'free'`(⚠️ `unknown` 과 섞지 마라 — 모르는 0 과 진짜 0) / **billed** · **credited** → 기준 레이어의 unit_cost 그대로(같은 배 · 같은 값 · 기록만 다르다 — 합치면 「그때 깎기로 했다」가 사라진다)
+                ⚠️⚠️ 왜 free 는 0 인가 — 낸 돈이 없다. 발주 단가로 넣으면 재고 자산이 공중에서 생긴다(실물 3개 × 11.606 = 34.82). 0 이면 낸 돈과 자산이 같다. FIFO 로 그 3개가 팔릴 때 이익이 크게 잡히는데 **그것이 사실이다.** ⚠️ 「총액을 15 로 나눈다」(99.48÷15)는 **기각** — 이미 선 12개의 단가가 흔들리고, landed 가 얹혔거나 팔렸으면 되돌릴 수 없어 append-only 와 부딪힌다
+                ⭐ 왜 그 발주의 단가인가 — Cin7 은 재고조정으로 넣어 **창고 평균원가**가 붙는다(같은 배 물건인데 값이 달라진다). IMS 는 어느 발주에서 왔는지 안다 ⇒ 같은 값. **이것이 나아지는 부분이다**(Caleb). ⭐ 값은 기준 레이어에서 **읽는다** — 다시 계산하지 않는다(환율 곱하기 식은 `inv_layer_post_receipt` 한 곳에만 산다)
+                ⭐ 구조 — 창구 둘 `inv_post_receipt_over(diff)`(원장 · 빈 별 초과분 = po_receipt_line 센 것 − 그 빈의 기준 행 · 합 ≠ gap 이면 거부) → `inv_layer_post_receipt_over(diff)`(레이어 하나). ⚠️ 기존 창구는 입고 단위로 「기준까지만」을 스스로 자른다 — 그대로 못 쓴다. ⚠️⚠️ 원장 **line_ref = `po_line_id:over`** — 유니크 7키(doc_type, doc_number, line_ref, event_type, warehouse, bin, sku)에 seq_hint 가 없어 그대로 쓰면 같은 빈의 기준 행(12)과 충돌한다(`:reversal` 선례 · 레이어 4키도 갈라진다) · doc_number RCV 그대로 · occurred_on = 입고일 · raw.kind `po_over` · raw.diff_id
+                ⚠️ 빈은 건드리지 않는다 — 풋어웨이에서 이미 다 놓았다. **장부만 올린다.** · ⚠️ **reopen 은 over 를 거부한다**(재고가 움직였다 · append-only · 상쇄 사건 길은 ⬜) · CHECK `po_receipt_diff_resolution_kind_ck` 가 short 어휘로 over 를(또는 반대로) 닫는 것을 같은 행 안에서 막는다
+                ⭐ 재생성 — `inv_layer_apply` 가 `:over` 행을 만나면 `inv_layer_post_receipt_over` 를 diff 단위로 부른다(기준 레이어 뒤 · 같은 날·더 큰 id) · `inv_layer_post_receipt` 는 `:over` 를 접지 않는다 · 반환 `ims.over_posted/over_layers/over_skipped`
+                ⭐ 실측 [RCV-00026 · PO-02025 · AMP41103 · 실제로 닫았다 · 2026-09-20 17:46 토론토] over 3 · free · 원장 `…po_line_id` 12 + `…:over` 3(같은 빈 F0311PALLET02 · source ims) · 레이어 12·11.606·po_line / 3·0·free · ⭐ 전량 재생성 뒤에도 같다(over_posted 1 · over_layers 1) · billed 로 닫으면 3·11.606(= 8.29 × 1.40 · ⚠️ 나누면 5.92) · 되돌리기·두 번 닫기·short 에 부르기·어휘 밖·권한 없음 전부 문장으로 거부
+                ⬜ billed 초과분에 landed 를 얹나 — `inv_layer_post_charge` 가 `:over` 레이어를 못 본다(`pl.id::text = x.line_ref` 조인). free 는 안 얹는 것이 맞고 billed 는 논의 여지 · ⬜ over 되돌리기 = 상쇄 사건 길
                 ⭐ 「닫혔다」의 축은 **resolved_at** 하나 · resolution·resolved_by 와 **CHECK 로 묶었다**(po_receipt_diff_resolved_ck) — ⚠️ 반쪽만 채운 행을 DB 가 거부한다 · 목록의 칩(open_diffs)이 거짓말할 길을 막았다
                 ⭐ reopen 은 세 칸을 비우되 **메모에 흔적을 남긴다**(「reopened: … | was: split_shipment」) · 닫힌 것을 또 닫으면 거부(누가·무엇으로·언제 + reopen 안내) · 닫을 때 형제 합계(11-c)가 함께 나온다
 ⭐ Last bin       **ims_last_bin(uuid[], uuid) → jsonb 하나 뒤에** 있다 — ~~지금 속은 po_receipt_line(received_on desc, created_at desc)~~ → ⭐ **[2026-09-19 `20260919151601`] 속 = 원장(ims_inv_balance)**: 1순위 지금 재고가 있는 자리(qty>0 · 마지막 사건 최근순) → 2순위 마지막으로 있던 자리(qty≤0 · 사건 있음) · 동률이면 수량 큰 것 → 빈 이름(결정적이어야 한다 — 두 번 불러 다른 답이 안 나오게) · **부르는 쪽(화면·RPC)은 안 고친다**
@@ -3448,12 +3494,17 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 [2026-09-19 오후 · 차이 닫기 · 원가 이식 1·2차 · 화면 둘 — 근거는 `20260919175712`·`192236`·`200414` 머리 주석과 ledger-design 4부 「원가 이식」]
 ~~⬜⬜ inv_post_receipt 가 create function 이라 다시 못 돈다~~ → ✅ `20260919192236`(create or replace) · ~~⬜ 차이를 닫는 RPC~~ → ✅ `20260919175712`(short · 화면은 대화 Claude · 여러 건 한 번에는 ⬜)
 ~~⬜⬜ inv_layer_apply 에 IMS 판을 넣는다~~ → ✅ `20260920142635`(bb519c7 · 테스트 DB 적용·검증 · 입고는 루프 안 inv_layer_post_receipt · 비용은 끝 inv_layer_post_charge) · ⚠️ 옛 문구 「지우고 cin7 만 되살려 통째로 사라진다」는 **틀렸었다** — 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다(경위·실측 ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」) · ⬜ 새로: 보조 함수 넷(transfer·adjust·assemble·credit)의 IMS 문 · Cin7 재생성 차이 +1,330(원인 불명 · 상쇄 금지)
-⬜ over 차이 닫기               = 초과분을 재고에 넣을지 정하기 · ⭐ [Caleb] 「지금 실무는 그 3개를 재고조정으로 넣고 평균원가로 환산한다 — Cin7 에서 달리 방법이 없다」 ⇒ IMS 는 **그 발주의 단가로** 넣을 수 있다(같은 창구 inv_layer_post_receipt) · raw.bins 가 어느 빈에 얼마가 깎였는지 갖고 있다
+~~⬜ over 차이 닫기~~ → ✅ `20260920171930`(f413fe3 · `po_receipt_diff_settle_over` · 이유 셋 free·billed·credited · free 는 0 · 그 밖은 기준 레이어 값 · 창구 둘 `inv_post_receipt_over`·`inv_layer_post_receipt_over` · line_ref `po_line_id:over` · reopen 거부 · RCV-00026 실물로 닫았다 · §11-i 「차이 닫기」) · ⚠️ 옛 문구 「같은 창구 inv_layer_post_receipt」는 틀렸었다 — 기존 창구는 기준까지만을 스스로 잘라 그대로 못 쓴다
+⬜ billed 초과분의 landed        `inv_layer_post_charge` 가 `:over` 레이어를 못 본다(`pl.id::text = x.line_ref`) — free 는 안 얹는 것이 맞고 billed 는 논의 여지 · ⬜ over 되돌리기 = 상쇄 사건 길(지금은 거부)
+⬜ 크레딧 설계                   수량(제품·개수가 붙는다) vs 가격(차액만) — 표본이 생기면(11-g 「매입 가격 이력」)
+⬜ supplier_discount 0행         ⚠️ po_create 가 이미 읽는다 — 「채우면 듣는다」(주석 실물). 안 채우면 발주 원가가 할인 전 값으로 선다 · [실측 09-20] fixed 3.09 vs 실제 2.54 = 21.7% 차이 · ⭐ 세 줄이 전부 정확히 21.7%(= 1 ÷ 0.8217) — 값이 오른 게 아니라 할인이 안 잡힌 것 · 📌 Ampro 실물은 17%→1%→3% 인데 AMP-778812 에는 둘뿐이다 — 왜인지 모른다
+⬜ latest·fixed 갱신을 IMS 가 맡는다  ⭐ 출처는 **인보이스**(`po_price_history` · 11-g) · ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 안 된다 · [실측] product_supplier 에 쓰는 DB 함수 **0개**(po_lines_paste 는 읽기만 · writes_it f) — 11-d 「PO 확정이 갱신한다」는 만든 적 없는 설계 문장이었다
+⬜ 「우리가 쓸 물건」(is_payable false ⓐ)  재고로 들어가는 길이 있나 — 모른다(11-g)
 ⬜ 비용 취소와 landed            po_charge 가 confirmed 뒤 cancelled 되면 landed 가 남는다 — 상쇄가 필요하다(취소 RPC 에 「얹혔으면 거부 또는 상쇄」)
 ⬜ 발주 머리의 Tax rule          ref_tax_rule 을 Settings 에 세운 뒤 드롭다운으로(⭐ QBO 가 우선 · 11-b 머리 칸 편집)
 ⬜ 환율                          MTFX 환율 자동 수신(API 유무 확인 중) · USD 발주 10건의 빈 환율 채우기 · ~~RCV-00005·00006 백필~~(✅ 09-20 · 테스트 값 1.35 · 레이어만 섰다) · 관세 10039192310530 백필(PO-02002·02001a 입고 뒤 inv_layer_post_charge)
 ⬜ Add a line 셋째 재료           po_line.unit_price 가 쌓이면 「우리가 지난번에 적은 값」(11-d)
-⬜ 아침 점검                     no_basis_amount_cad · no_layers_amount_cad 합을 보는 한 줄(Cin7 대조의 「설명된 차이」) · 차이 큐 닫기 여러 건 한 번에
+⬜ 아침 점검                     no_basis_amount_cad · no_layers_amount_cad 합을 보는 한 줄(Cin7 대조의 「설명된 차이」) · 차이 큐 닫기 여러 건 한 번에 · [09-20 +둘] `po_price_history_skipped` 의 reason <> 'charge' 가 0 인지 · `inv_layer_apply()->'ims'->'skipped_by_event'` 가 전부 0 인지(0 이 아니면 그 사건의 창구를 만들 때)
 ⚠️ 회계사에게 물을 것이 다섯      (레포 밖 accountant-questions-0919.md) ① kind → QBO 계정 대응 ② 에이전트 수수료가 재고 원가인가 ③ 환율 시점과 차액 처리 ④ 초과 입고분의 원가 ⑤ 조기결제 할인 HST · 뒤늦게 붙는 원가 차액
 ```
 
@@ -3563,4 +3614,9 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⭐ 판단: 레이어 키 = 원장 키(RCV · po_line_id) · bin 을 접는다 · 발주의 레이어는 po_line 을 거쳐 · 형제 라인은 product_id · 「닫혔다」= resolved_at(CHECK 로 셋 묶음) · reopen 은 흔적을 남긴다 · 되돌리기는 landed 가 얹혔으면 거부.
   ⚠️ 실사고: 원문에 있던 v_base 를 두 번 선언해 적용이 멈췄다(지웠으면 분할 채번이 CADa 가 될 자리 · v_base_cur 로) · fx_direction 이 CAD 발주에서 「곱한다」고 거짓말했다(통화별 두 문장으로) · 손으로 쓴 검증 재귀가 뿌리를 중복 제거하지 않아 합이 두 배(함수는 맞았다).
   ✅ [09-20] **inv_layer_apply() 에 IMS 판**(`20260920142635` · bb519c7) — 옛 「돌리지 마라 · 통째로 사라진다」는 틀렸었다(실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」).
-  📌 다음(§13-f 09-19 오후 블록): ~~inv_layer_apply IMS 판~~(✅ 09-20) · over 닫기 · 비용 취소와 landed · Tax rule · MTFX·빈 환율·백필 · 셋째 재료 · 아침 점검 한 줄 · 회계사 질문 다섯.
+  📌 다음(§13-f 09-19 오후 블록): ~~inv_layer_apply IMS 판~~(✅ 09-20) · ~~over 닫기~~(✅ 09-20 오후) · 비용 취소와 landed · Tax rule · MTFX·빈 환율·백필 · 셋째 재료 · 아침 점검 한 줄 · 회계사 질문 다섯.
+- 2026-09-20 오후 — **⭐⭐ 매입 가격 이력 · over 차이 닫기 · 보조 함수 넷에 IMS 문 · 화면 셋(§11-g 「매입 가격 이력」 · §11-i 「차이 닫기」 · §11-d·11-e 정정 · §13-f · ledger-design 4부 「✅ 해소」·「원가 이식 1차」·「이식이 남긴 것」)** — 마이그레이션 셋 `20260920163231`(150행 · 뷰 둘 po_price_history·_skipped · 497cd59) · `20260920171930`(1,008행 · over 닫기 · 형제 함수 `po_receipt_diff_settle_over` · 창구 둘 · cost_source free · line_ref :over · _resolve 문장 · _reopen 거부 · inv_layer_apply 초과분 분기 · f413fe3) · `20260920181910`(938행 · 보조 넷 문 · 본체가 종류별로 세고 지나간다 · ims.skipped_by_event · unpaired 집계 ims 제외 · 8892f03) · 화면 asung-ims po.html(검색 수리 + 미리 보기 Last paid · 161259f) · receiving.html(over 닫기 UI · 8e6fd18 · p_resolution 인자 이름 · 44f020c).
+  ⭐ [Caleb] 가격의 출처는 인보이스(발주는 우리가 적은 값 · 입고는 수량의 사실) · 할인까지 보여야 확인이 된다 · CAD 공급처는 환산하지 않는다 · 초과분 실무 셋(공짜가 가장 많다 · returned 없음) · free 는 0(낸 돈이 없다 · 15 로 나누기는 기각) · billed·credited 는 기준 레이어 값(Cin7 평균원가와 갈린다 — 나아지는 부분) · 보조 넷은 「문만 낸다 — 창구는 그 사건이 날 때」.
+  ⭐ 판단: factor 는 po_invoice_money 에서 읽는다(정본 하나) · 환율은 인보이스 → 같은 통화의 발주 → null(0 아님) · 빠진 줄은 여집합 뷰로 드러낸다 · line_ref `po_line_id:over`(7키 충돌 · :reversal 선례) · 초과분 값은 기준 레이어에서 읽는다(환율 식은 한 곳) · reopen 은 over 거부 · 본체가 source 로 가르고 보조 넷의 문은 방어(세는 곳은 하나).
+  ⚠️ 실측: 옛 함수에 가짜 IMS 사건 넷을 태우니 `layer_avg` 9.61·9.57 로 **그럴듯한 숫자가 조용히 섰다**(0 보다 나쁘다) · 「재생성 차이 +1,330」은 결함이 아니라 09-10 대조가 `p_until '2026-09-09'` 로 하루를 뺀 것(3,642행) · purchase/unknown 85행 14,274개가 0 원(inv_cost 09-09 정지 · 재적재 때 채워진다) · 오늘 전량 재생성을 실제로 돌렸다(commit · 9.78초 · 기준선은 ledger-design 4부 「✅ 해소」 끝).
+  📌 다음(§13-f 09-19 오후 블록 갱신): billed 초과분 landed · over 되돌리기 · 크레딧 설계 · supplier_discount 0행 · latest·fixed 갱신(출처 인보이스) · 우리 쓸 물건의 재고 길 · 아침 점검 둘 · purchase/unknown 85 · MTFX · Tax rule · 회계사 다섯.

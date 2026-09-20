@@ -141,7 +141,7 @@ IN_TRANSIT 결함 둘(문서 범위 · 날짜 범위) · 테스트 DB 재복사 
 ⚠️ 이식은 **재기준선도 플립도 아니다** — 4부 이식 절 첫머리.
 갱신 2026-09-19 오후 — **⭐⭐ 원가 이식 1·2차 · 차이 닫기**(`20260919175712` 9a5344a · `20260919192236` b09a4c0 · `20260919200414` 83b79f5).
 입고 확정이 **원가 레이어**를 만들고(`inv_layer_post_receipt` · 키 = 원장 키 · bin 을 접는다 · unit_price × CAD per USD) 비용 확정이 **landed 를 얹는다**(`inv_layer_post_charge` · 넷 다 landed · 금액 비율).
-✅ **[2026-09-20] `inv_layer_apply()` 에 IMS 판**(`20260920142635` · bb519c7) — 「돌리지 마라」가 풀렸다. 옛 경고의 「source='cin7' 만 되살린다」는 틀렸었다(실물은 0 원 레이어로 **덮어썼고** 창구 멱등을 막았다). 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · §4단계 B. ⚠️ 보조 함수 넷(transfer·adjust·assemble·credit)엔 아직 IMS 문이 없다.
+✅ **[2026-09-20] `inv_layer_apply()` 에 IMS 판**(`20260920142635` · bb519c7) — 「돌리지 마라」가 풀렸다. 옛 경고의 「source='cin7' 만 되살린다」는 틀렸었다(실물은 0 원 레이어로 **덮어썼고** 창구 멱등을 막았다). 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · §4단계 B. ✅ [09-20 오후] 보조 함수 넷도 문을 냈다(`20260920181910` · 세고 지나간다 · `ims.skipped_by_event`) · over 닫기(`20260920171930` · 초과분을 free 0/기준 레이어 값으로 재고에) · 매입 가격 이력 `po_price_history`(`20260920163231` · po-module §11-g).
 
 ## 이 문서의 전제
 
@@ -402,6 +402,7 @@ Cin7 은 **인보이스 수량과 입고 수량이 정확히 같아야** PO 를 
 | 발주 | **`CardID`** (2026-08-18) | PA 는 같은 SKU 를 **빈 단위로 쪼개** 여러 줄로 담고, **같은 빈·같은 SKU 가 날짜만 달라** 두 줄인 사례 실재(PO-00944 KUZ77036: 7/15 894 · 7/16 6). 유일성 실측 ProductID 94/97·109/110 vs CardID 97/97·110/110·62/62. [실측] `.7` 의 8/01 창 dry 에서 `merged_lines: 5` — **가설이 아니라 실제로 뭉개지고 있었다**(`.1` 에서 0) |
 | 조정·이동·조립·반품 | `ProductID` | 뭉개짐 사례 미발견 — 나타나면 merged_lines 가 시끄럽게 잡는다(문서 내 합산 경보) |
 | ⭐ **IMS 입고**(`source='ims'` · 2026-09-19) | **`po_line_id`**(라인 id) | 발주 축과 **같은 결 — 라인 id** 다(Caleb 실측 확정 · 아래). 같은 PO 에 같은 제품이 두 라인이어도 키가 안 겹친다(ProductID 였다면 겹쳤다). 기표는 창구 `inv_post_receipt`(`20260919155005` · po-module §11-j) |
+| ⭐ **IMS 초과분**(over 닫기 · 2026-09-20) | **`po_line_id:over`** | 유니크 7키(doc_type, doc_number, line_ref, event_type, warehouse, bin, sku)에 seq_hint 가 없어 같은 빈의 기준 행(12)과 부딪힌다 ⇒ 접미어(`:reversal` 선례). 레이어 4키도 갈라져 두 창구의 멱등이 서로를 건너뛰지 않는다. 기표는 창구 `inv_post_receipt_over`(`20260920171930` · po-module §11-i 「차이 닫기」) · raw.kind `po_over` · raw.diff_id 가 재생성의 열쇠 |
 
 ⚠️⚠️ **축마다 다르다 — 이 표를 하나의 규칙으로 읽지 마라 (2026-09-19 실측 확정).** 발주 `line_ref` 가 라인 id 인지 `ProductID` 인지
 지시서에서 갈렸다. 실측(Caleb psql · 테스트 DB): 같은 SKU 가 세 PO 에 나올 때 `line_ref` 가 **셋 다 다르다** —
@@ -2066,7 +2067,7 @@ TR-04175  Departure 08-21 · Completion 09-02 · 저널 09-04
 실측·경위·고친 모양은 **4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」** 한 곳에만 적는다(여기 되쓰지 않는다).
 ⚠️ 2026-09-19 에 여기 적었던 「`source='cin7'` 만 되살린다 · 금지」는 **틀렸었다** — 실물은 IMS 자리에 0 원 레이어를 **만들어** 창구 멱등까지 막았다(경위는 그 절). 원천 목록에 IMS 둘이 늘었다:
 `inv_ledger + inv_cost + inv_doc_cost + inv_snapshot + po_line(단가 · 환율은 po) + po_charge_alloc`.
-⚠️⚠️ 아직 성립하지 않는 것 둘 — IMS 가 트랜스퍼·조정·조립·반품 사건을 내는 날(보조 함수 넷에 IMS 문이 없다) · Cin7 축의 재생성 차이 +1,330(원인 불명). 둘 다 그 절 ⬜.
+✅ [2026-09-20 오후] 둘 다 닫혔다 — 보조 함수 넷도 문을 냈다(`20260920181910` · 창구가 없는 IMS 사건은 보조에 보내지 않고 `ims.skipped_by_event` 에 종류별로 센다 · 0 이 아니면 창구를 만들 때) · 「재생성 차이 +1,330」은 결함이 아니라 09-10 대조가 `p_until '2026-09-09'` 로 하루를 뺀 것이었다(그 절). ⚠️ 새 ⬜ purchase/unknown 85행(14,274개 0 원 · inv_cost 가 09-09 에서 멈춤).
 
 **배분 규칙**
 
@@ -3376,13 +3377,36 @@ adjust       〃
 assemble     〃 (order by (source='cin7') desc 로 line_ref 를 고른다 · 무해)
 credit       〃
 ```
-⇒ IMS 가 그 사건(트랜스퍼·조정·조립·반품)을 내기 시작하는 날 **po_in 과 똑같은 0 원가 사고가 난다.** 각각 문 + 창구가 필요하다. 지금은 IMS 가 `po_in` 만 내서 안 터질 뿐이다.
+⇒ IMS 가 그 사건(트랜스퍼·조정·조립·반품)을 내기 시작하는 날 **po_in 과 똑같은 0 원가 사고가 난다.** 지금은 IMS 가 `po_in` 만 내서 안 터질 뿐이다.
+→ ✅ **[2026-09-20 오후 · `20260920181910` · 8892f03] 문을 냈다 — 창구는 만들지 않았다**(Caleb 「문만 낸다」 — 트랜스퍼 모듈도 IMS 재고조정도 없어 검증할 표본이 없다 · 그 사건이 날 때 창구를 만들고 po_in 처럼 부른다).
+  ⚠️⚠️ **고치기 전 실측이 값이 나간다** — 가짜 IMS 사건 넷을 넣고 옛 함수를 돌리니(rollback):
+  ```
+  IMSTEST-TR-1   0          unknown
+  IMSTEST-ASM-1  0          assembly_sum
+  IMSTEST-ADJ-1  9.607155   layer_avg    ⚠️⚠️ 0 보다 나쁘다
+  IMSTEST-CR-1   9.571835   layer_avg    ⚠️⚠️ 그럴듯한 숫자라 합계에 조용히 섞인다 · 카운터도 움직였다(adj 74→75 · cr 20→21 · asm 2→3)
+  ```
+  ⭐ 0 은 「없다」가 보이지만 `layer_avg` 는 안 보인다 — Cin7 재고조정이 창고 평균원가를 붙이던 것과 똑같은 일이 IMS 안에서 조용히 일어난다.
+  고친 모양: 보조 넷에 문(po_in 과 같은 모양 · 조용히 return · 직접 호출·재귀 방어) · **세는 것은 본체 한 곳**(두 곳이면 두 번 잡힌다) — 본체가 po_in·sale_out 아닌 행의 source 를 보고 종류별로 세고 continue ·
+  반환 `ims.skipped_by_event`(여덟 키가 항상 보인다 — 0 이 아니면 그 사건의 창구를 만들 때) · ⚠️ `transfer_out_unpaired`·`assembly_out_unpaired` 집계에서 ims 를 뺐다(안 하면 IMS out leg 가 「0 이면 정상」 감시 칸을 오염시켜 진짜 신호가 묻힌다) · sale_out 은 문이 없다(소진은 한 원장 FIFO 가 맞다).
+  ⚠️ 마지막 판 함정 — `inv_layer_apply_transfer_in` 은 **다섯 판**(`174046`·`183253`·`190145`·`233729`·**`235347`**). 옛 판을 잡으면 IN_TRANSIT 결함 둘(문서 범위 · 날짜 범위) 수정이 사라진다. 원문 대조 전부 `<` 0.
 
-⬜ **원인 불명 — 같은 함수를 돌렸는데 Cin7 레이어가 늘었다** [실측 2026-09-20 · 롤백 안] 돌리기 전 cin7_layers 4,239 · consume 18,434 → 돌린 뒤 5,569 · 21,328(**+1,330 · +2,894**).
-cost_add 는 316/434 · 금액 동일 — 원가를 얹는 쪽은 재현된다. IMS 와 무관하다(그때 IMS 레이어 0 · 늘어난 것은 전부 Cin7 쪽). ⚠️ 「레이어 = 원장으로 전량 재생성」이 **Cin7 축에서 지금 안 맞고 있다**는 뜻이다.
-가능성(⚠️ 전부 짐작 · 확인하지 않았다): 지금 DB 의 레이어가 마지막 판이 아닌 중간 판으로 만들어진 것 · 09-10 이후 원장에 들어온 것이 있어 더 쌓일 것이 생긴 것. ⚠️ **원인을 모르는 채 상쇄하지 마라 — 재는 것이 먼저다.** ⬜ 「이식이 남긴 것」.
+~~⬜ 원인 불명 — 같은 함수를 돌렸는데 Cin7 레이어가 늘었다(+1,330 · +2,894)~~ → ✅ **[2026-09-20 오후] 원인이 밝혀졌다 — 결함이 아니었다.** 09-10 밤 세션(`docs/sessions/2026-09-10-cin7-valuation-compare.md:52`)이 `inv_layer_apply('2026-09-09')` 로 **09-09 까지만 잘라** 돌렸다(Cin7 평가액 대조의 비교 시점에 맞춘 것).
+원장에는 09-10 사건이 **3,642행** 있었고 그 하루치가 레이어에 없었다 ⇒ 전량(p_until 없이) 돌리니 그 하루가 채워져 +1,330 이 된 것이다. 오전의 「같아야 할 숫자가 다르다」는 **범위를 안 맞춘 대조**였다. cost_add 316/434 가 같았던 것도 그래서다(09-10 에 운송비·landed 사건이 없었다).
+⭐ 오늘 전량 재생성을 실제로 돌렸다(commit · 9.78초) — 이제 원장과 레이어가 같은 날까지 온다. ⚠️ 그 김에 드러난 새 사실: **purchase / cost_source 'unknown' 85행 · 수량 14,274 · 금액 0** — 09-10 입고 중 85건이 `inv_cost` 에 원가가 없다(`inv_cost` 의 max(occurred_on) = 2026-09-09 · 테스트 DB 는 inv-cost 가 돌지 않는다 · 재적재 때 채워진다). ⚠️ 지금 14,274개가 0 원으로 재고에 있다 — 평가액이 그만큼 비어 있다(⬜ 「이식이 남긴 것」).
 
 📌 창구 두 함수의 `comment`(「재생성이 되살리지 않는다」)는 마이그레이션 `20260920145614_ims_apply_comments` 가 comment 만 다시 냈다(함수 본문 무접촉).
+
+**⭐ 기준선 — 2026-09-20 전량 재생성(commit · 9.78초 · 다음에 재는 사람은 이 숫자를 쓴다 · 인계·정본의 옛 실측은 쓰지 마라)**
+```
+transfer_layers_created 4,583 · transfer_unknown_layers 259 · adjust_layers_created 74 · assembly_layers_created 2 · credit_layers_created 20
+consume_rows 21,328 · landed_rows 434 · freight_rows 316 · layers_created 888 · cost_unknown_layers 85 · short_events 0 · elapsed_ms 9,780
+ims: receipts_posted 3 · layers_created 3 · layers_cost_cad 258.342 · over_posted 1 · over_layers 1 · charges_unvisited 1(2,547.37) · skipped_by_event 여덟 키 전부 0
+레이어 종류별: transfer/parent_layer 4,324 · transfer/unknown 259 · purchase/inv_cost 803 · purchase/unknown 85 · purchase/po_line 3 · purchase/free 1 ·
+              adjust_existing/layer_avg 48 · adjust_new/cin7_unitcost 26 · creditnote(layer_avg 11 · return_restore 8 · unknown 1) · assembly/assembly_sum 2
+원장 28,907행(cin7 27,324 · manual 1,579 · ims 4) · Cin7 은 09-10 에서 멈춤
+⚠️ 테스트 값이 들어갔다 — PO-02011a·b exchange_rate **1.35**(임의) → RCV-00005·00006 레이어 9.9225(= 7.35 × 1.35) · PO-02025 1.40 → RCV-00026 레이어 11.606 · 초과분 3 이 free 로 재고에 들어갔다
+```
 
 #### ⭐⭐ 원가 이식 1차 — 입고가 레이어를 만든다 (`20260919192236` · b09a4c0)
 
@@ -3392,14 +3416,21 @@ cost_add 는 316/434 · 금액 동일 — 원가를 얹는 쪽은 재현된다. 
   ⭐ 실측: purchase 레이어 803 중 **803 이 원장 po_in 행과 4키로 짝지어진다.**
 - ⭐ **bin 을 접는다** — 원장은 bin 단위, 레이어는 창고 단위(4키 · 기존 규칙 그대로). ⚠️ **원장 행 수 ≠ 레이어 행 수가 정상**이다(실측: 두 빈 8·4 → 레이어 한 행 12).
   근거: 두 행이면 같은 입고·같은 단가가 둘로 쌓여 FIFO 가 쪼개진다.
-- ⭐ 수량은 **원장과 같다 — 기준까지만**(초과분은 레이어에도 안 간다). 두 번 계산하지 않는다 — 방금 넣은 원장 행을 읽어 접는다.
+- ⭐ 수량은 **원장과 같다 — 기준까지만**(확정 때 초과분은 원장에도 레이어에도 안 간다 → ✅ [2026-09-20] **over 를 닫으면** 형제 창구가 초과분을 넣는다 — 아래 「초과분」). 두 번 계산하지 않는다 — 방금 넣은 원장 행을 읽어 접는다. ⚠️ `:over` 행은 이 창구가 접지 않는다(`20260920171930` 에서 한 줄).
 - `cost_source` **`po_line`**(⚠️ `cin7_unitcost` 와 섞지 않는다 — Cin7 이 준 값과 우리가 발주서에 적은 값은 다른 출처다).
+  ⭐ [2026-09-20] 어휘 +1 **`free`** — 공짜로 받은 초과분 · **진짜 0**. ⚠️⚠️ `unknown`(모르는 0 · 원가를 못 찾았다)과 섞지 마라 — 섞이면 「채워야 할 0」과 「맞는 0」을 못 가른다(위 ⬜ 「unknown 의 0 을 null 로」가 그래서 있다). 어휘 열: inv_cost · snapshot_value · cin7_unitcost · layer_avg · assembly_sum · parent_layer · unknown · return_restore · po_line · free.
 - ⭐⭐⭐ **환율: `unit_cost = unit_price × exchange_rate`.** `po.exchange_rate` 는 **CAD per USD** 다(Cin7 화면 「CAD units per USD」와 같은 뜻 · po.html 칸 「CAD per USD」).
   ⚠️⚠️ **나누면 원가가 반으로 줄어드는데 에러가 안 난다.** 실측 ratio 1.3900. 반환의 `fx_direction` 이 방향을 문장으로 말한다(통화에 따라 둘로 갈린다 · 기준통화면 「no conversion」).
 - ⭐⭐ **환율이 없으면 확정을 막는다**(Caleb) — 기준통화(`inv_config.base_currency`)가 아닌데 null 이거나 0 이면 거부(위 「환율」 절 「0 금지」). 거부 문장이 **어디서 고치는지** 말한다
   (발주 머리 「Exchange rate」 칸 · 확정·마감 뒤에도 열린다). 게이트는 confirm 과 창구 둘 다에 있다(직접 호출·백필 경로). ⚠️ 실측: USD 발주 13 중 **10 이 비어 있었다.**
 - ⭐ 백필이 된다 — 환율을 넣고 `inv_post_receipt` 를 다시 부르면 원장은 already_posted 로 한 줄도 안 쓰고 **레이어만** 선다(RCV-00005·00006 이 그 대상 · ⬜).
 
+**⭐ 초과분 — over 를 닫으면 재고에 들어간다 (2026-09-20 · `20260920171930` · f413fe3 · 정본은 po-module §11-i 「차이 닫기」 · 여기는 원장·레이어 쪽 사실만)**
+- 창구 둘 `inv_post_receipt_over(diff)` → `inv_layer_post_receipt_over(diff)`. ⚠️ 기존 창구는 입고 단위로 「기준까지만」을 스스로 자르고 4키 멱등으로 건너뛴다 — 그대로 못 쓴다.
+- 원장 행: doc_type purchase · event_type po_in · doc_number RCV 그대로 · **line_ref `po_line_id:over`**(2부 line_ref 표 · 7키 충돌) · occurred_on = 입고일 · seq_hint 1 · source ims · **빈 별**(po_receipt_line 센 것 − 그 빈의 기준 행 · 합 ≠ gap 이면 거부) · raw.kind `po_over` · raw.diff_id.
+- 레이어 하나(4키 `purchase · RCV · po_line_id:over · sku · warehouse`): **free → unit_cost 0 · `cost_source 'free'`** / billed·credited → **기준 레이어(같은 RCV · po_line_id)의 unit_cost 그대로** · `po_line` — 같은 배 같은 값 · ⭐ 환율 곱하기 식은 `inv_layer_post_receipt` 한 곳에만 산다. 기준 레이어가 없으면(환율 없이 확정된 옛 입고) 거부하며 어디서 고치는지 말한다.
+- ⭐ 재생성이 성립한다 — `inv_layer_apply` 가 `:over` 행을 만나면 diff 단위로 `inv_layer_post_receipt_over` 를 부른다(기준 레이어 뒤 — 같은 날 · 더 큰 id). [실측 RCV-00026] free 3·0 → 전량 재생성 뒤에도 3·0 · billed 면 3·11.606(= 8.29 × 1.40).
+- ⚠️ 빈은 건드리지 않는다(풋어웨이에서 다 놓았다 · 장부만) · reopen 은 over 거부(상쇄 길은 ⬜) · ⬜ `inv_layer_post_charge` 는 `:over` 레이어에 landed 를 안 얹는다(free 는 맞고 billed 는 논의 여지).
 ⚠️⚠️ **결제 환율 차액 (Caleb 판정 2026-09-19 · 회계사 확인 대기).** 재고 원가는 **인식 시점 환율(= 발주 환율)**로 세운다.
 실제 결제 환율과의 차액은 **재고가 아니라 환차손익**이다 — 레이어에 얹지 않는다.
 ⬜ 회계사와 확인한 뒤 바꿀 길은 열려 있다(`inv_layer_cost_add` 가 그 차액을 받을 수 있다).
@@ -3427,11 +3458,14 @@ cost_add 는 316/434 · 금액 동일 — 원가를 얹는 쪽은 재현된다. 
 
 #### ⬜ 이식이 남긴 것
 - ~~⬜⬜ `inv_layer_apply` 에 IMS 판을 넣는다~~ → ✅ **`20260920142635` · bb519c7**(위 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 테스트 DB 적용·검증 · 불변 조건 성립).
-- ⬜⬜ **보조 함수 넷의 IMS 문** — `inv_layer_apply_transfer_in`·`_adjust`·`_assemble`·`_credit` 은 `source` 를 안 보고 원가를 `inv_cost`/레이어 평균에서 찾는다. IMS 가 그 사건을 내기 **전에** 각각 문 + 창구(위 「미래의 같은 사고」). `sale_out` 은 불필요(소진은 출처를 안 보는 것이 맞다).
-- ⬜ **재생성 차이 +1,330** — 같은 함수를 돌렸는데 Cin7 레이어 4,239 → 5,569 · consume 18,434 → 21,328(cost_add 는 동일). 원인 불명 · ⚠️ 상쇄 금지 · 먼저 잰다(위 ⬜ · IMS 와 무관).
+- ~~⬜⬜ 보조 함수 넷의 IMS 문~~ → ✅ **`20260920181910` · 8892f03**(문 넷 + 본체가 종류별로 센다 · `ims.skipped_by_event` · 위 「미래의 같은 사고」 · 고치기 전 실측 layer_avg 9.61). ⬜ **창구 넷**(트랜스퍼·조정·조립·반품)은 그 사건이 실제로 날 때 — 표본 없이 만들지 않는다.
+- ⬜ **purchase / unknown 85행 · 14,274개 · 0 원** — 09-10 입고의 원가가 `inv_cost` 에 없다(inv_cost 09-09 정지 · 테스트 DB 는 inv-cost 안 돎). 재적재(데이터 최신화) 때 채워지는지 확인 · 그때까지 평가액이 그만큼 비어 있다.
+- ⬜ **billed 초과분에 landed 를 얹나** — `inv_layer_post_charge` 가 `:over` 레이어를 못 본다(`pl.id::text = x.line_ref`). free 는 안 얹는 것이 맞고 billed 는 논의 여지 · ⬜ **over 되돌리기 = 상쇄 사건 길**(지금은 reopen 거부).
+- ⬜ **아침 점검 둘** — `inv_layer_apply()->'ims'->'skipped_by_event'` 전부 0 인지(0 이 아니면 창구를 만들 때) · `po_price_history_skipped` 의 reason <> 'charge' 가 0 인지(스킬 asung-inv-ledger ⑰·⑱).
+- ~~⬜ 재생성 차이 +1,330~~ → ✅ **원인 = 09-10 대조가 `p_until '2026-09-09'` 로 하루(3,642행)를 뺀 것**(결함 아님 · 위 「✅ 해소」 절 · 오늘 전량 재생성 commit · 기준선 갱신).
 - ⬜ **데이터 최신화** — 테스트 DB 원장은 2026-09-10 에서 멈춰 있다. 운영에서 다시 가져와야 한다. ⚠️ 그때 **`inv_*` 표만** 골라야 한다 — 09-10 의 통째 복원 방식으로는 IMS 표 서른둘이 날아간다.
 - ⬜ shadow 대조 축과 `source='ims'`(3부 컷오프 절) · ⬜ 음수 잔고 229행 원인 · ⬜ SKU 별칭 표 · ⬜ 확정 취소 = 반대 방향 상쇄 행(append-only) · ~~⬜ `inv_post_receipt` 를 create or replace 로~~(✅ `20260919192236`) · 나머지는 po-module §13-f 「2026-09-19」 블록.
-- ⬜ over 차이 닫기 = 초과분을 재고에 넣을지 정하기 · ⬜ 비용 취소(confirmed 뒤 cancelled)와 landed 상쇄 · ⬜ MTFX 환율 · USD 발주 10건의 빈 환율 · ~~RCV-00005·00006 백필~~(✅ 09-20 · 테스트 값 1.35 · `inv_post_receipt` 재호출 · 레이어만 섰다) · ⬜ 아침 점검에 `no_basis_amount_cad`·`no_layers_amount_cad` 합 한 줄.
+- ~~⬜ over 차이 닫기~~(✅ 09-20 `20260920171930` · 위 「원가 이식 1차」 끝 「초과분」 · po-module §11-i) · ⬜ 비용 취소(confirmed 뒤 cancelled)와 landed 상쇄 · ⬜ MTFX 환율 · USD 발주 10건의 빈 환율 · ~~RCV-00005·00006 백필~~(✅ 09-20 · 테스트 값 1.35 · `inv_post_receipt` 재호출 · 레이어만 섰다) · ⬜ 아침 점검에 `no_basis_amount_cad`·`no_layers_amount_cad` 합 한 줄.
 - ⚠️ 회계사에게 물을 것이 다섯(레포 밖 `accountant-questions-0919.md`): kind → QBO 계정 · 에이전트 수수료가 재고 원가인가 · 환율 시점과 차액 · 초과 입고분의 원가 · 조기결제 할인 HST · 뒤늦게 붙는 원가 차액.
 
 ### ⚠️⚠️ 플립 — 이관 (2026-09-07 등록 · ⬜ 미설계)
