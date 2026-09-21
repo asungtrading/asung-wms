@@ -21,10 +21,11 @@
 
 컷오버(목표 2027-01-01)는 **`Asung-IMS` 를 운영으로 승격**하는 쪽으로 확정됐다(2026-09-21).
 Caleb: "컷오버때도, cin7에서 바로 가져오지 않고, asung-wms에 일단 오고 그것을 가져오는 것이 더 안전할 것 같아."
+Caleb(승격을 택한 근거 · 2026-09-21): "컷오버 시점에 wms는 cin7접점이 끊기는데, 그 것을 메우고 문제없는지 확인하기 보다는, 미리 wms를 ims에 맞게 최적화 해놓고 검증을 하는게 더 나아 보여."
 ⇒ 운영 `asung-WMS` 가 Cin7 을 긁고, 그것을 `Asung-IMS` 로 복사한다. **이 절차는 그 두 번째 홉이다.**
 
-📌 본문은 **단일판**(17표 한 번에 덤프 · 한 트랜잭션 복원)이다. 2026-09-21 1차 실행은 2단 덤프(16표 + 원장 별도)로 했고
-그 경위·실측은 §N 에 있다. 본문 실측값 중 §N 에서 온 것은 「1차 실행」이라 표시했다.
+📌 본문은 **단일판**(17표 한 번에 덤프 · 한 트랜잭션 복원)이다. 2026-09-21 1차 실행은 2단 덤프(16표 + 원장 별도)로 했고,
+같은 날 2차 실행이 본문 단일판을 그대로 돌려 **실증했다**(11:29 덤프). 경위·실측은 §N. 열린 항목은 **§O** 에 모아 둔다.
 
 ---
 
@@ -70,13 +71,14 @@ cd ~/asung/asung-wms
 supabase migration list --linked                                # 운영
 supabase migration list --db-url "$(cat ~/.asung-testdb-url)"   # 테스트
 ```
-실측 2026-09-21: 운영 Remote 빈 줄 **52**(`20260911144606`~`20260920181910` = IMS 모듈) · 테스트 빈 줄 **0**.
+실측 2026-09-21: 운영 Remote 빈 줄 ~~**52**(`20260911144606`~`20260920181910`)~~ → 오후 **53**(`20260911144606`~`20260921161933` = IMS 모듈 + `po_in` 순서 수정) · 테스트 빈 줄 **0**.
 ```bash
-# 52 의 근거 — 레포에서 센다 (지시서 초안의 51 은 오기)
-ls supabase/migrations/ | awk '$0 >= "20260911144606"' | wc -l     # 52
+# 53 의 근거 — 레포에서 센다 (지시서 초안의 51 은 오기 · 09-21 오후 20260921161933 추가로 52 → 53)
+ls supabase/migrations/ | awk '$0 >= "20260911144606"' | wc -l     # 53
 ```
 ⭐ 이 방향은 **안전하다** — 운영에 없는 표가 테스트에 더 있으니 덤프를 부을 자리가 다 있다.
 ⛔ 반대(테스트 빈 줄 > 0)면 복원이 막힌다. 처방: `supabase db push --db-url "$(cat ~/.asung-testdb-url)"` — ⚠️ 사람이 실행.
+⬜ 운영 일괄 배포 판단(53개를 올리면 이 기준값이 바뀐다) — §O.
 
 ⚠️ **조건 하나 더** — 테스트만 앞선 마이그레이션이 **A 갈래 16표의 컬럼을 바꾸지 않았는가.** 바꿨으면 운영 `COPY` 의 컬럼 목록이 안 맞는다.
 ```bash
@@ -105,7 +107,7 @@ from inv_sync_state order by source_key;
 📌 테스트 재적재 때는 건너뛴다. 컷오버 때는 필수다.
 운영이 계속 긁는 채로 덤프하면 「덤프 시각 이후 운영에 들어온 사건」이 승격된 DB 에 없다. ③ 의 커서를 읽고 → cron 정지 → 마지막 회차가 끝났는지 확인 → §D 로.
 ⭐ 단일판(17표 한 덤프)이라 표끼리는 한 스냅샷이지만, **Cin7 과의 시점**은 cron 을 멈춰야 고정된다.
-⬜ 정지 명령(`cron.unschedule` 목록)은 컷오버 설계에서 `supabase/ops/cron.sql` 기준으로 만든다.
+⬜ 정지 명령(`cron.unschedule` 목록)은 컷오버 설계에서 `supabase/ops/cron.sql` 기준으로 만든다 — §O.
 
 ---
 
@@ -113,6 +115,13 @@ from inv_sync_state order by source_key;
 
 ```sql
 -- [Asung-IMS (테스트)]
+-- ⛔ 창 가드 — 이 문장이 멈추면 테스트(Asung-IMS) 창이 아니다. 아래를 돌리지 마라 (po_line 은 IMS 전용 표 · 20260916144201)
+do $$ begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'po_line') then
+    raise exception 'not Asung-IMS (test): po_line missing — this window is the production project';
+  end if;
+end $$;
+
 create schema if not exists reload_backup;
 drop table if exists reload_backup.ledger_ims;
 drop table if exists reload_backup.config_ims;
@@ -136,8 +145,10 @@ union all select 'layer_cost_add', count(*) from reload_backup.layer_cost_add;
 `reload_backup` 은 PostgREST 에 노출되지 않는다. `Run without RLS`.
 ⚠️ 이 구조는 **직전 회차 백업을 덮어쓴다.** 회차별 보관이 필요하면 스키마명에 날짜를 붙인다.
 📌 백업의 용도가 갈래마다 다르다 — `ledger_ims`·`config_ims` 는 **복원용**, `layer*` 셋은 **대조용**(§H 가 어차피 재생성한다). §L 참조.
+⛔ **창 가드가 SQL 머리에 있는 이유** — 2026-09-21 하루에 두 번 SQL Editor 창이 다른 프로젝트에 머물러 있었다. 이 절은 **테스트에 쓰는** 절이라
+운영 창에서 돌리면 운영에 `reload_backup` 스키마가 생긴다. `po_line` 은 IMS 전용 표라 그것이 없으면 운영이다 — 멈춘다. §G·§H 도 같다.
 
-실측 2026-09-21: `4 · 2 · 19,401 · 21,328 · 750`
+실측 2026-09-21: 1차 `4 · 2 · 19,401 · 21,328 · 750` · 2차 `4 · 2 · 23,327 · 30,971 · 2,173`(1차 §H 재생성 결과가 그대로 백업됐다)
 
 ---
 
@@ -150,17 +161,25 @@ union all select 'layer_cost_add', count(*) from reload_backup.layer_cost_add;
 (1차 실행은 16표와 원장을 따로 떠서 시점이 갈렸다 — §N.)
 
 ```sql
--- [asung-WMS (운영)] — 17개만 남기고 나머지를 -x 인자로 뽑는다
-select string_agg('-x public.' || c.relname, ' ' order by c.relname) as exclude_args
-from pg_class c join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = 'public' and c.relkind = 'r'
-  and c.relname not in (
-    'inv_snapshot','inv_compare','inv_compare_runs','inv_snapshot_runs',
-    'inv_collect_runs','inv_missing_lines','inv_missing_docs','inv_conflicts',
-    'inv_voided_docs','inv_balance_diffs','inv_cost','inv_doc_cost',
-    'inv_doc_state','inv_sync_state','inv_sku_types','inv_bin_notes',
-    'inv_ledger');
+-- [asung-WMS (운영)] — 17개만 남기고 나머지를 -x 인자로 뽑는다 · must_be_zero 가 0 이어야 운영 창이다
+select
+  (select count(*) from information_schema.tables
+    where table_schema = 'public' and table_name = 'po_line') as must_be_zero,
+  (select string_agg('-x public.' || c.relname, ' ' order by c.relname)
+   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r'
+     and c.relname not in (
+       'inv_snapshot','inv_compare','inv_compare_runs','inv_snapshot_runs',
+       'inv_collect_runs','inv_missing_lines','inv_missing_docs','inv_conflicts',
+       'inv_voided_docs','inv_balance_diffs','inv_cost','inv_doc_cost',
+       'inv_doc_state','inv_sync_state','inv_sku_types','inv_bin_notes',
+       'inv_ledger')) as exclude_args;
 ```
+📌 `must_be_zero` 가 1 이면 테스트 창이다(`po_line` 은 IMS 전용 표). 2026-09-21 하루에 두 번 실제로 그랬다 — 대화 Claude 가 `[asung-WMS (운영)]` 이라
+적었지만 SQL Editor 창이 테스트에 머물러 IMS 표가 섞인 목록이 나왔다.
+⚠️ 다만 **이 칸은 습관용이다** — 이 쿼리는 창이 틀려도 덤프 결과가 같다. `pg_dump --help` 원문: "An exclude pattern failing to match any objects is not
+considered an error" — 운영에 없는 IMS 표의 `-x` 는 무시된다. 창 실수가 **정말 위험한 자리는 반대편**(테스트에 쓰는 §C·§G·§H)이고 그쪽엔 멈추는 가드를 넣었다.
+📌 운영 기준 결과는 **30개**(`inv_config` · `inv_layer` 계열 3 · `wms_` 26 · 2026-09-21 실측).
 
 그 문자열을 그대로 붙여 덤프한다:
 ```bash
@@ -185,7 +204,8 @@ date '+%F %T %Z'           # ⚠️ 덤프 시각을 §J 용으로 적어 둔다
 ```
 📌 `replica` 줄이 중요하다 — 그 설정이 있어야 복원 중 트리거가 멈춘다. 없으면 `ims_touch()` 같은 트리거가 돌아 `updated_at` 이 전부 오늘로 덮인다.
 
-실측(1차 실행 2026-09-21 10:46 · 16표판): 63M · COPY 16 · 목록 일치 · auth 0 · DDL 0 · replica 확인.
+실측 2026-09-21: 1차(10:46 · 16표판) 63M · COPY 16 · 목록 일치 · auth 0 · DDL 0 · replica 확인 ·
+2차(**11:29:48 EDT** · 17표 단일판) **107M · COPY 17 · auth 0 · DDL 0 · replica 확인 · setval 14**.
 
 ---
 
@@ -235,9 +255,10 @@ tail -5 ~/reload.log
 `inv_ledger` 컬럼을 바꾸는 마이그레이션은 이 문장도 함께 고친다.
 ⬜ 대안: `insert into public.inv_ledger overriding user value select * from reload_backup.ledger_ims order by id;` —
 `generated always` 식별자에 공급된 `id` 를 무시하고 시퀀스를 쓰므로 컬럼 수에 무관하다. **이번 차수에 채택하지 않았다.**
-다음 회차에 `begin; … rollback;` 으로 확인한 뒤 바꾼다.
+다음 회차에 `begin; … rollback;` 으로 확인한 뒤 바꾼다 — §O.
 
-실측(1차 실행 2026-09-21 · 2단): `setval 8932566` · `INSERT 0 4` · 결과 `cin7 39,913`(09-21 도달) · `manual 1,606` · `ims 4`(id 8,932,567~570)
+실측 2026-09-21: 1차(2단) `setval 8932566` · `INSERT 0 4` · `cin7 39,913` · `manual 1,606` · `ims 4`(id 8,932,567~570) ·
+2차(단일판 · 이 절 그대로) **exit=0 · `setval 8947418` · `INSERT 0 4` · `cin7 39,996` · `manual 1,606` · `ims 4`(id 8,947,419~422)**.
 
 ---
 
@@ -265,6 +286,13 @@ select key, value, updated_at from inv_config order by key;
 다르면 **그 행만** 갱신한다 — `key` 기준 upsert. `delete` 후 `insert` 금지.
 ```sql
 -- [Asung-IMS (테스트)] — 운영 값이 다를 때만
+-- ⛔ 창 가드 — 이 문장이 멈추면 테스트(Asung-IMS) 창이 아니다. 아래를 돌리지 마라 (po_line 은 IMS 전용 표 · 20260916144201)
+do $$ begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'po_line') then
+    raise exception 'not Asung-IMS (test): po_line missing — this window is the production project';
+  end if;
+end $$;
+
 insert into inv_config (key, value, note, updated_at)
 values ('baseline_snapshot_key', '<운영 value>', '<운영 note>', '<운영 updated_at>')
 on conflict (key) do update
@@ -283,7 +311,14 @@ select key, value from inv_config where key in ('base_currency','po_inventory_ac
 ## §H 레이어 재생성
 
 ```sql
--- [Asung-IMS (테스트)] — 네 문장을 한 번에 돌린다
+-- [Asung-IMS (테스트)] — 가드 포함 다섯 문장을 한 번에 돌린다
+-- ⛔ 창 가드 — 이 문장이 멈추면 테스트(Asung-IMS) 창이 아니다. 아래를 돌리지 마라 (po_line 은 IMS 전용 표 · 20260916144201)
+do $$ begin
+  if not exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'po_line') then
+    raise exception 'not Asung-IMS (test): po_line missing — this window is the production project';
+  end if;
+end $$;
+
 select set_config('request.jwt.claims',
   (select jsonb_build_object('sub', auth_user_id, 'role', 'authenticated')::text
      from ims_staff where email = 'caleb@asung.ca'), true);
@@ -299,20 +334,29 @@ select jsonb_pretty(inv_layer_apply());
 ⚠️ 새 표가 `inv_layer` 를 참조하기 시작하면 `cascade` 가 그 표를 **함께 비운다** — 회차마다 grep 을 다시 한다.
 📌 `begin; … rollback;` 으로 먼저 봐도 반환은 읽힌다. 실측상 롤백판과 실행판의 반환이 **한 칸도 다르지 않았다**(재생성은 결정적이다).
 
-**실측 2026-09-21 반환 — 다음 회차 비교 기준**
+**실측 2026-09-21 반환 — 다음 회차 비교 기준 (`20260921161933` 수정판 · 원장 `cin7 39,996` = 11:29 덤프 기준)**
 ```
-elapsed_ms 13,560 · layers_created 1,762 · consume_rows 30,971
-transfer_layers_created 7,601 · transfer_unknown_layers 259 · transfer_unknown_qty 2,559
-landed_rows 1,857 (13,807.94) · freight_rows 316 (807.64) · freight_no_basis 2 (627.95)
-processed_po_in 1,766 · processed_sale_out 24,480 · processed_transfer 14,924
-⭐ cost_unknown_layers 0   ← 09-20 에는 85 였다. 운영 inv_cost 3,619행이 오면서 닫혔다
-⚠️ short_events 2 · credit_unknown_layers 1   ← 09-20 에는 둘 다 0. 열하루치 새 사건 (⬜ 미규명)
+short_events 0                 ← 수정 전 2   (✅ 20260921161933 — 같은 날 po_in 을 유입 맨 앞에 · 정본 ledger-design 16번)
+consume_rows 31,039            ← 수정 전 31,037
+transfer_layers_created 7,619  ← 수정 전 7,617
+inv_layer 23,346
+layers_created 1,762 · landed_rows 1,857 · freight_rows 316 · cost_unknown_layers 0
+transfer_unknown_layers 259 · transfer_unknown_qty 2,559
+credit_unknown_layers 1 (⏸ CR-00592 · 판매 창고 ≠ 반품 창고 · ledger-design 「⬜ 남은 것」) · freight_no_basis 2 (627.95)
+processed_po_in · processed_sale_out · processed_transfer · elapsed_ms · landed/freight 금액 — 미기록 · 다음 회차에 채움
 ims: receipts_posted 3 · layers_created 3 · over_posted 1 · over_layers 1
      charges_unvisited 1 (2,547.37) · skipped_by_event 여덟 키 전부 0
 ```
+⚠️ **이 값은 원장 `cin7 39,996` 기준이다. 원장이 달라지면 값도 달라진다** — 아침(39,913)과 오전(39,996) 값을 섞어 읽고 「레이어만 다르다」고 없는 문제를 만든 것이
+오늘 있었다(ledger-design 16번 「레이어 17 차이」). §J 의 규칙(시각과 함께)이 그래서 있다.
+
+~~수정 전 기준값(09-21 오전 · `20260921161933` 이전 판 · 원장 `cin7 39,913`): elapsed_ms 13,560 · layers_created 1,762 · consume_rows 30,971 ·
+transfer_layers_created 7,601 · transfer_unknown 259 / 2,559 · landed_rows 1,857 (13,807.94) · freight_rows 316 (807.64) · freight_no_basis 2 (627.95) ·
+processed_po_in 1,766 · processed_sale_out 24,480 · processed_transfer 14,924 · cost_unknown_layers 0 · short_events 2 · credit_unknown_layers 1 · ims 블록 동일~~
+⭐ `cost_unknown_layers 0` ← 09-20 에는 85 였다. 운영 `inv_cost` 3,619행이 오면서 닫혔다(ledger-design 「이식이 남긴 것」 ✅).
 ⭐ **`skipped_by_event` 여덟 키가 0 인 것이 IMS 가 온전하다는 증거다.** 0 이 아닌 키가 있으면 그 사건의 창구를 만들 때다.
 
-실측 결과 표: `inv_layer 23,327` · `consume 30,971` · `cost_add 2,173`(landed 1,857 + freight 316) · `po_line 3` · `:over 1`
+실측 결과 표: ~~`inv_layer 23,327` · `consume 30,971`(09-21 오전 · 수정 전)~~ → **`inv_layer 23,346` · `consume 31,039`**(수정판) · `cost_add 2,173`(landed 1,857 + freight 316) · `po_line 3` · `:over 1`
 
 ---
 
@@ -391,7 +435,7 @@ select count(*) from cron.job;
 > "월말 평가액은 지금은 사라져도 괜찮아. 어차피 재고 평가액은 흐르는거니 말이야."
 
 ⇒ 08-31 월말 평가액(2,985,775.96)이 사라지는 것을 알고 내린 결정이다.
-⬜ 월별 평가액 보존은 **컷오버 설계와 함께** 다룬다 — 그때 `value` 의 출처가 Cin7 에서 IMS 레이어로 바뀌므로
+⬜ 월별 평가액 보존은 **컷오버 설계와 함께** 다룬다(§O) — 그때 `value` 의 출처가 Cin7 에서 IMS 레이어로 바뀌므로
 (정의가 다르다 · 09-10 대조에서 절대합 차이가 순액의 18배) 출처를 구분할 장치가 함께 필요하다.
 
 ---
@@ -426,13 +470,15 @@ wms_sku_bins · wms_sku_snapshot · wms_staff · wms_task_holds
 wms_waves · wms_zone_sequence
 ```
 (2026-09-21 레포 grep · `create table` 26건. 컷오버 설계 때 운영 `pg_class` 로 다시 센다.)
-⬜ 이사 절차는 별도 항목 — `wms_pallets` 순환 FK · `wms_staff` 와 `ims_staff` 의 관계 · `wms_rollback_archive` 보존 여부가 그때의 논점이다.
+⬜ 이사 절차는 별도 항목(§O) — `wms_pallets` 순환 FK · `wms_staff` 와 `ims_staff` 의 관계 · `wms_rollback_archive` 보존 여부가 그때의 논점이다.
 
 ---
 
-## §N 1차 실행 경위 — 2026-09-21 (2단 덤프)
+## §N 실행 경위 — 2026-09-21 (1차 2단 덤프 · 2차 단일판)
 
-본문 단일판은 이 실행에서 배운 것을 반영한 것이다. 실제로 한 것은 아래다. **성공했다.**
+본문 단일판은 1차에서 배운 것을 반영한 것이고, 2차가 그것을 그대로 돌려 실증했다. 둘 다 **성공했다.**
+
+### 1차 — 2단 덤프 (10:46 / 10:51)
 
 1. §B ①~③ 통과(④ 없음 — 테스트 재적재).
 2. §C 백업 `4 · 2 · 19,401 · 21,328 · 750`.
@@ -448,4 +494,34 @@ wms_waves · wms_zone_sequence
 ⚠️ **왜 본문을 바꿨나** — 3 과 5 가 **다른 시각의 덤프**다. 그 사이 운영 cron 이 돌았으면 `inv_sync_state` 커서·`inv_doc_state`·`inv_cost` 는 10:46 시점,
 원장은 그 뒤 시점이 된다. 테스트엔 cron 이 없어 그 어긋남이 영구히 남고, §B ③ 이 지키려던 「커서 = 지평선」이 깨진다.
 컷오버 절차로는 안 된다. ⇒ 17표 한 덤프 · 한 트랜잭션(§D·§E).
-📌 이번 회차는 운영 원장이 커서와 어긋나도 테스트 용도엔 무해했다(다음 재적재가 덮는다). 컷오버 전 **단일판으로 한 번 리허설**한다 — ⬜.
+📌 1차는 운영 원장이 커서와 어긋나도 테스트 용도엔 무해했다(다음 재적재가 덮는다). ~~컷오버 전 **단일판으로 한 번 리허설**한다 — ⬜.~~
+
+### 2차 — 단일판 리허설 (11:29) ✅
+
+✅ **단일판 리허설 완료 (2026-09-21 · 2차 실행 · 본문 §B~§I 그대로)**
+```
+§C 백업 4 · 2 · 23,327 · 30,971 · 2,173
+§B ③ 여덟 축 정상 · transfer 는 TR-04495 정지(TR-04496 ORDERED 블로킹 · 기지)
+§D 덤프 11:29:48 EDT · 107M · COPY 17 · auth 0 · DDL 0 · replica 확인 · setval 14
+§E 복원 exit=0 · setval 8,947,418 · INSERT 0 4
+   → cin7 39,996 · manual 1,606 · ims 4(id 8,947,419~422)
+§H 재생성 elapsed_ms 14,250 · IMS 블록 전부 동일
+§I 검산 실제 창고 0 · IN_TRANSIT 259 · gap 2,559
+```
+⭐ **얻은 것**: 17표 한 덤프로 커서·문서 상태·원가·원장이 **같은 시점**(11:29:48)이 됐다. 그리고 2단판(아침)과 단일판(오전)이 IMS 블록·`IN_TRANSIT` 잔재까지
+같은 결과를 냈다. 2차의 §H 반환은 `20260921161933` **이전 판**(`short_events 2`)이고, 수정판 적용 후 기준값은 §H 에 있다.
+
+---
+
+## §O 남은 것 — 한 자리에 모은다
+
+컷오버 당일 펴 볼 문서라 열린 항목을 흩어 두지 않는다. 본문엔 한 줄과 「§O」 포인터만 있다.
+
+- ⬜ **관문 ④ cron 정지 명령 목록** — `supabase/ops/cron.sql` 기준으로 `cron.unschedule` 목록을 만든다(§B ④). 컷오버 설계에서.
+- ⬜ **`wms_` 26개 이사 절차** — 논점: `wms_pallets` 순환 FK · `wms_staff` 와 `ims_staff` 의 관계 · `wms_rollback_archive` 보존 여부(§M).
+- ⬜ **`overriding user value` 전환** — post 의 15컬럼 INSERT 를 컬럼 수에 무관한 문장으로. 다음 회차 `begin; … rollback;` 확인 뒤(§E).
+- ⬜ **운영 일괄 배포 판단** — 운영 Remote 빈 줄 **53**(`20260911144606`~`20260921161933` · 2026-09-21 실측). 전부 올리면 IMS 모듈 전체가 운영 DB 에 빈 표로 선다.
+  **Caleb 판정 2026-09-21: 계속 보류**(`po_in` 순서 수정 `20260921161933` 도 IMS 모듈 53개와 함께 올라가므로 운영 배포 보류).
+  ⚠️ 올리면 §B ② 의 기준값(운영 53 · 테스트 0)이 바뀐다 — 그때 이 문서를 함께 고친다.
+- ⬜ **월별 평가액 보존** — 컷오버 설계와 함께. `value` 의 출처가 Cin7 → IMS 레이어로 바뀌므로 출처 구분 장치가 필요(§K).
+- ✅ ~~단일판 리허설 한 번(컷오버 전)~~ — 2026-09-21 2차 실행(§N).
