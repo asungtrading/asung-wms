@@ -15,7 +15,7 @@ description: >
   이 스킬의 확정 사실·이벤트 규칙·함정을 확인하세요.
   ⚠️Adjustment는 증감분이 아니라 조정 후 수량, ⚠️NewStockLines는 규칙이 다름,
   ⚠️재고는 Ship에 빠짐(픽·팩은 Allocated), ⚠️StockOnHand는 수량이 아니라 평가액,
-  ⚠️같은 날은 유입 먼저, ⚠️line_ref는 축마다 다름(발주 CardID·IMS 입고 po_line_id·조립/트랜스퍼 ProductID),
+  ⚠️같은 날은 유입 먼저·po_in 선두, ⚠️line_ref는 축마다 다름(발주 CardID·IMS 입고 po_line_id·조립/트랜스퍼 ProductID),
   ⚠️inv_layer_apply 는 IMS 줄을 창구로 재생성·보조 넷은 세고 지나감(창구 없음) — 어기면 원장 전체가 반대로 쌓이거나 잔고가 음수가 됩니다.
 ---
 
@@ -703,11 +703,13 @@ cd ~/asung/asung-wms && supabase migration list --db-url "$(cat ~/.asung-testdb-
 · ⚠️ **테스트 쪽 빈 줄 → 대개 빠뜨린 것이다.** 운영에 올린 것은 테스트에도
   올리는 것이 기본이다(테스트 DB 는 「내일의 운영」이다)
 
-📌 **[기준선 2026-09-10 아침 · 실측]**
-| | 적용 | Remote 빈 줄 |
-|---|---|---|
-| 운영 `asung-WMS` | 53 | **10** — 원가 레이어 계열 전부 |
-| 테스트 `Asung-IMS` | 63 | ⭐ **0** |
+📌 **[기준선 2026-09-21 · 실측 — 09-10 표를 대체]**
+| | Remote 빈 줄 |
+|---|---|
+| 운영 `asung-WMS` | **53** — `20260911144606`~`20260921161933` = IMS 모듈 전부 + `po_in` 순서 수정 (⬜ 일괄 배포 판단 · Caleb 「계속 보류」 · `reload-procedure.md` §O) |
+| 테스트 `Asung-IMS` | ⭐ **0** |
+
+~~📌 **[기준선 2026-09-10 아침 · 실측]** 운영 적용 53 · 빈 줄 **10**(원가 레이어 계열 전부) / 테스트 적용 63 · 빈 줄 **0**~~ — 09-10 저녁 13개 전부 올려 무효(아래 정정).
 
 ⭐ **의도한 차이 — 원가 레이어 계열 10개 (테스트 전용)**
 
@@ -723,13 +725,14 @@ cd ~/asung/asung-wms && supabase migration list --db-url "$(cat ~/.asung-testdb-
 근거: 수집기(`inv-doc-cost`)에 필요한 건 `inv_doc_cost` 표 하나인데 `db push` 가 갈라 올릴 수 없고, 파일 이동·`repair` 우회보다 **전부 올리는 쪽이 실수의 여지가 적다.**
 cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측: 원가 레이어 네 표 전부 0행). 📌 push 끝의 `failed to cache migrations catalog`(pgdelta 인증서 ENOENT)는 DB 영향 없음 ·
 `NOTICE 42P07 relation "inv_doc_cost" already exists` 는 의도된 것(`152545` 의 `if not exists`).
-⇒ ⚠️⚠️ **위 기준선 표(운영 빈 줄 10 · 「의도한 차이 = 테스트 전용 10개」)는 낡았다.** 다음 아침 `migration list --linked` 로 **재실측해 갱신할 것**(여기 예상값을 적지 않는다).
+~~⇒ ⚠️⚠️ **위 기준선 표(운영 빈 줄 10 · 「의도한 차이 = 테스트 전용 10개」)는 낡았다.** 다음 아침 `migration list --linked` 로 **재실측해 갱신할 것**(여기 예상값을 적지 않는다).~~ → ✅ 2026-09-21 재실측으로 위 표를 갱신했다(운영 53 · 테스트 0).
 ⚠️⚠️ **「운영에 있는데 아무도 안 쓴다」를 사람이 기억해야 한다** — 운영·테스트 차이가 이제 「원가 레이어는 테스트에만」으로 설명되지 않고, 운영 표가 비어 있는 것이 정상 상태다.
 정본: `docs/design/ledger-design.md` §원가 레이어 12번 「②-a 수집기 작동 확인」 · `docs/sessions/2026-09-10-transfer-freight-ops-notes.md`.
 
 📌 **[2026-09-10 밤 · 재복사 실측]** 테스트를 운영에서 다시 복사했다 — 덤프 **35개 표**(31 → 35 · 원가 레이어 표가 운영에 생겼기 때문) · ③′ `db push --db-url` 은 **「up to date」**(⚠️ 「없을 것」이라 짐작했던 `20260910230704_session_guard` 가 이미 적용돼 있었다 — 확인 없이 짐작한 것이 §2 「조사 자체에서 반복된 실패」(나)) ·
 재복사 후 `inv_ledger` 28,903 · `inv_cost` 1,237 · `inv_doc_cost` 5 · `inv_snapshot` 206,338 (운영과 일치) · 기초 레이어는 그대로 13,830 · 1,909,097개 · $3,055,493.67.
-재생성·`seed_baseline(key,true)` 거부·`reset_done` 임시표는 §2 함정 표 · 절차 정본 `ledger-design.md` §테스트 DB 재복사 정정.
+재생성·`seed_baseline(key,true)` 거부·`reset_done` 임시표는 §2 함정 표 · ~~절차 정본 `ledger-design.md` §테스트 DB 재복사 정정~~ → ⭐ **절차 정본은 `docs/design/reload-procedure.md`**(2026-09-21 신설 · 옛 재복사 절차는 대체 · 최초 구축·함정 넷은 그대로).
+📌 **[2026-09-21 · 재적재 실측]** 새 정본대로 두 번(2단 덤프 · 17표 단일판) — Cin7 축 17표만 갈아 끼우고 IMS 것(`inv_ledger` `source='ims'` · `inv_config` IMS 2행 · `inv_layer` 계열)은 무접촉. 원장 `cin7` 28,903 → **39,996**(11:29 덤프) · 레이어는 함수로 재생성(`inv_layer 23,346` · 수정판). ⚠️ 옛 절차의 `truncate inv_config;` 를 따르면 `po_create` 가 멈춘다.
 
 ⚠️ **이 표에 없는 빈 줄이 나오면 그것이 신호다.** 원가 레이어 계열이 아닌
 마이그레이션이 운영에서 비어 있으면 **빠뜨린 것**이다.
@@ -1378,6 +1381,7 @@ select reason, count(*), string_agg(coalesce(sku, label), ' · ') from po_price_
 
 | 함정 | 진실 |
 |---|---|
+| ⚠️ `seq_hint` 가 같은 날 순서를 다 정하나? | **아니다 — 유입(1)·유출(2)만 가른다.** 유입끼리는 `id`(Cin7 순)가 정했다. [실사고 2026-09-15 `RCO00144` · `TR-04738`/`PO-01274`] 같은 날 입고 480 을 트랜스퍼가 먼저 처리해 `short 2` · 원가 레이어 구성이 실물과 어긋났다(수량은 맞았다). ⇒ ✅ 재생성 순서는 **`po_in` 먼저**(`20260921161933` · `order by … seq_hint, case event_type when 'po_in' then 0 else 1 end, id` · 테스트 적용 · 운영 보류). ⬜ 구조적 규칙(소진 동반 유입 `transfer_in`·`assemble_in` 을 유입 맨 뒤로)은 다음 회차 `begin…rollback` 검증 뒤. 정본 `ledger-design.md` §원가 레이어 **16번** |
 | ⚠️⚠️ `inv_layer_apply()` 를 돌려도 되나? | ✅ **된다(2026-09-20 · `20260920142635` · bb519c7).** 재생성이 IMS 줄을 창구로 다시 만든다 — 입고는 **루프 안**에서 `inv_layer_post_receipt`(입고 단위 · 수량 레이어라 뒤의 FIFO 소진이 봐야 한다) · 비용은 끝에서 `inv_layer_post_charge`. 창구가 거부하면(환율 없음) 멈추지 않고 건너뛰어 반환 `ims.receipts_skipped`·`charges_skipped`·`skip_reasons[]` 에 센다 — **0 이 아니면 그 입고의 원가가 빠진 채다.** ⚠️ 옛 함정 문구 「`source='cin7'` 만 되살린다 · 원가가 사라진다」는 **틀렸었다** — 실물은 IMS 자리에 `unit_cost 0 · 'unknown'` 레이어를 **만들었고**(rcv_unknown 2 실측), 그 0 짜리가 창구 멱등을 막아 되살리기도 안 됐다. ⚠️ psql 로 돌릴 때 `request.jwt.claims` 를 심어라 — 창구가 receiving·purchasing 쓰기 권한을 보고, 함수가 **지우기 전에** 막는다(「nothing was rebuilt」). ✅ **보조 함수 넷도 본다**(`20260920181910` · 09-20 오후) — 창구가 없는 IMS 사건(트랜스퍼·조정·조립·반품 · 두 leg 다)은 보조에 보내지 않고 `ims.skipped_by_event` 에 종류별로 센다(여덟 키 항상 · **0 이 아니면 그 창구를 만들 때**). ⚠️ 고치기 전 실측: 가짜 IMS 조정·반품이 `layer_avg` 9.61·9.57 로 **그럴듯한 숫자가 조용히 섰다** — 0 보다 나쁘다. sale_out 은 문이 없다(소진은 한 원장 FIFO). ⭐ 초과분 레이어(`:over`)도 재생성된다(`ims.over_posted`). 경위·실측은 정본 `ledger-design.md` 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · §4단계 B |
 | ⚠️⚠️ `line_ref` 는 하나의 규칙인가? | **아니다 — 축마다 다르다.** 발주 = 라인 id(`CardID`) · IMS 입고(`source='ims'`) = **`po_line_id`** · ⭐ IMS 초과분(over 닫기 · 09-20) = **`po_line_id:over`**(유니크 7키에 seq_hint 가 없어 같은 빈의 기준 행과 부딪힌다 ⇒ 접미어 · `:reversal` 선례) · 판매 = `<fulfilment TaskID>:<ProductID>` · 조정·트랜스퍼·조립·반품 = `ProductID`. ⭐ [실사고 2026-09-19] 대화 Claude 가 발주를 `ProductID` 로 알고 이식 2차 지시서를 썼다가 실측으로 뒤집혔다 — 같은 SKU 가 세 PO 에 나올 때 `line_ref` 가 셋 다 달랐다(`TDX70301` docs 3 · refs 3). 09-04 의 「그 GUID 는 ProductID」 정정은 **조립·트랜스퍼 축**의 말이었다. **축을 섞지 마라 — 표의 행을 각각 읽는다.** 정본 `ledger-design.md` 2부 「중복 방지」 line_ref 표 |
 | `source='ims'` 행은 Cin7 행과 같은가? | **넷이 다르다.** ① `doc_number` 가 **`RCV-…`**(입고 번호 · PO 번호가 아니다 — 유니크에 `doc_task_id` 가 없어 같은 PO·같은 제품·같은 빈의 재입고가 겹친다 · PO 번호는 `raw.po_number`) ② Cin7 감지 표(`inv_missing_lines` · `inv_voided_docs` · `inv_missing_docs`)에 **안 뜬다** — 수집기는 `source=eq.cin7` 과 Cin7 문서번호만 본다 ③ ⚠️ **원장 합 ≠ 입고 줄 합은 설계다** — 초과는 기준(분할 전 PO 수량)까지만 원장에 간다 · 깎인 것은 `raw.line`·`raw.bins` · 대조하다 버그로 오해하지 마라 ④ `line_ref` = `po_line_id`(위 행). 잔고를 셀 때 `source` 로 거르지 않는 것은 그대로다(§아침 점검 함정 1). ⬜ shadow 대조(`inv_balance_vs_cin7`)는 이 행을 「원장만 있음」으로 잡는다 — 운영 이식 때 정한다. 정본 `po-module.md` §11-j · `ledger-design.md` 4부 「이식」 2차 |
