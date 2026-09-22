@@ -582,6 +582,7 @@ Cin7 `GET /customer` 에서 적재한다(§2-m · 9,452명 · 페이지네이션
 ```
 id · cin7_id(Cin7 GUID · ⭐ 유니크 · 적재 키) · name · display_name · status
 ```
+→ §9-d: `status` 는 `is_active` 로 받는다(마이그레이션 ① · 2026-09-22).
 - ⚠️ `name` 에 유니크를 **걸지 않는다.** 근거: `product.name` 576종 중복 선례(po-module §3). 손님 이름 중복은 미측정 — 걸 근거가 없다.
 - `cin7_id` 가 적재의 열쇠다. Cin7 은 손님을 GUID 로 참조하므로(`ID`) 이름 정규화가 필요 없다.
 
@@ -623,6 +624,7 @@ default_ship_to_customer_id · default_bill_to_customer_id
 ```
 default_carrier · tax_number · tags · comments
 ```
+→ §9-d: `comments` 는 `cin7_comments` 로 · `tags` 는 text 원문 · `currency` 는 FK+원문 · `tax_rule`·`price_tier` 는 원문만 · `default_location` 은 FK+원문(마이그레이션 ① · 2026-09-22).
 - ⬜ **`tax_number` 는 §1-s 프로브 목록에 없던 칸이다**(Cin7 화면에만 보였다). 그 손님이 비어 있어 안 나온 것인지 필드명이 다른 것인지 **모른다** — 적재 때 실물로 확인한다.
 
 **담지 않는 것 — 이유**
@@ -644,6 +646,7 @@ default_carrier · tax_number · tags · comments
 customer_id · type · is_default_for_type · label
 line1 · line2 · city · state · postcode · country
 ```
+→ §9-d: 칸 이름은 `state_province` · `postal_code` · `type` 어휘는 셋(Billing · Business · Shipping) · `DefaultForType` 은 받되 빈 곳은 규칙으로(마이그레이션 ① · 2026-09-22).
 - `type` 은 `Shipping` · `Billing` **둘로 제한한다**(CHECK). 자유 문자열로 두면 적재 때 오타가 섞인다.
   ⬜ Cin7 에 다른 `Type` 값이 실재하는지는 **못 봤다**(프로브는 손님 하나 · §1-s) — 적재 첫 페이지에서 `Type` 의 distinct 를 세어 확인한다. 셋 이상이면 그때 어휘를 늘린다.
 - `is_default_for_type` = Cin7 `DefaultForType`. 「손님·type 당 기본 하나」다.
@@ -661,6 +664,7 @@ line1 · line2 · city · state · postcode · country
 customer_id · name · is_default · include_in_email · marketing_consent
 phone · mobile · email · website
 ```
+→ §9-d: `fax` · `cin7_comment` 를 더했다 · `marketing_consent` 는 nullable(마이그레이션 ① · 2026-09-22).
 - `is_default` · `include_in_email` 이 **메일 수신처를 결정하는 자리**다.
   📌 관찰(Caleb 2026-09-21): "cin7에서 보내지는 이메일은 default contact의 email로 설정이 되어 있는 것 같아." — ⚠️ **확인 전**이다. 어느 칸이 수신처를 정하는지는 메일 절에서 실물을 보고 적는다.
 - `is_default` 도 「손님당 하나」다 — 5-f 와 같은 장치(생성 칸 `default_customer_id = case when is_default then customer_id end` + 전체 유니크 · 이견 7 채택).
@@ -1678,3 +1682,146 @@ credit_line   무엇을 깎나
 [문서]
   파일 나누기 — 지금(1,656행) 나누지 않는다(⬜④ 판정). 마이그레이션 차수 진입 때 §1~§4(청취·판단) / §5~(설계 정본)로 가르고, 행 번호 인용을 절 이름으로 바꾸는 작업을 함께 한다
 ```
+
+---
+
+## §9 마이그레이션 ① 손님 표 셋 (2026-09-22 · 지시서 `~/asung/prompts/so-mig-1-customer.md` · 검토 이견은 회신에)
+
+⚠️ 여기부터 **표가 선다.** §5-a~5-c 가 칸의 정본이고, 이 절은 그 위에서 **이번 차수가 판정한 것**(규약 적용 · 이름 · ⬜ 결론 · 뒤집은 것)만 적는다. 칸 목록을 다시 적지 않는다 — 두 곳에 적으면 어긋난다. DDL 의 정본은 마이그레이션 파일(9-f).
+⚠️ 앞 절 본문은 고치지 않았다 — 예외는 5-a·5-b·5-c 의 코드 블록 뒤에 붙인 「→ §9-d」 한 줄씩(넷). 파일 나누기(8-k [문서])는 **이번 차수에 하지 않는다** — 표를 세우는 차수와 문서를 옮기는 차수를 섞으면 diff 로 검증이 안 된다. 나누는 시점은 이 마이그레이션이 테스트 DB 에 적용·검증된 뒤 별도 정리 차수.
+📌 판정은 Caleb 2026-09-22 저녁(회사 세션 · 판정 ①~⑤) + 검토 이견 1~8 · ⬜1~6 판정(같은 날 저녁). 적재 GAS 는 다음 차수(supplier 와 같은 순서 · 「행 적재 0건 · 뼈대만」).
+
+### 9-a 판정 ①~④ — 손님 셋은 PO 마스터·관계 표 규약을 그대로 따른다
+
+**① `customer` 본체 = PO 마스터 규약**(po-module §5 · supplier 와 같다)
+```
+공통 8칸     id · cin7_id · name · is_active · source · note · created_at · updated_at   + updated_by(→ ims_staff · <t>_updated_by_idx)
+Status  →    is_active        Cin7 Status 를 여기로 받는다
+Comments →   cin7_comments    Cin7 원문 · 우리 note 와 섞지 않는다
+트리거        customer_touch → ims_touch()   (20260918133858 · updated_by 는 서버가 채운다)
+재적재        po-module §3-f 한 규칙 — upsert(on_conflict=cin7_id) + 이번에 안 들어온 source='cin7' 행은 is_active=false
+권한          마스터 — DELETE·TRUNCATE 를 authenticated 에서 막는다 · 정책 셋(select·insert·update)
+```
+- 근거: `status` 는 `so.status`(6-a) 와 **한 모듈 안에서 두 뜻**이 된다 — `released → at_wms` 를 바꾼 것과 같은 종류의 충돌. 손님은 오더·인보이스·원장이 가리키는 마스터라 product 와 같은 이유로 지우는 방식은 후보가 아니다(po-module §3-f 「원장·WMS 가 가리킬 수 있는 표」). `comments` 한 칸이면 재적재가 우리가 적은 말을 덮는다(supplier `cin7_comments` 선례).
+- ⬜ Cin7 손님 `Status` 어휘가 둘뿐인지 모른다(§1-s 프로브는 손님 하나) — 적재 첫 페이지에서 distinct 를 센다. 셋 이상이면 그때 원문 칸을 옆에 더한다(지금 만들지 않는다).
+
+**② `customer_address` · `customer_contact` = 관계 표 규약**(po-module §5 「관계 표의 규약 예외」)
+```
+공통 7칸     id · cin7_id · is_active · source · note · created_at · updated_at   + updated_by   (name 없음)
+cin7_id      unique · nullable — 늘 null 이어도 둔다(supplier_discount 「규약대로」)
+권한          DELETE 연다 · TRUNCATE 막는다 · 정책 넷
+트리거        <t>_touch → ims_touch()
+```
+- ⬜ Cin7 손님 `Addresses[]` · `Contacts[]` 에 ID 가 있는지 §1-s 목록에는 없다 — **안 봤다.** 공급처 API 키에는 둘 다 `ID` 가 있어(cin7-api `references/supplier.md` 101행) 같은 응답 가족으로 **짐작**한다. 있으면 supplier 처럼 `cin7_id` 가 적재 열쇠 · 없으면 「손님 단위로 지우고 다시 넣는다」(관계 표라 DELETE 가 열려 있어 된다 · `cin7_id` 는 null). 표 모양은 둘 다 같다 — 판정은 적재 차수에서 실물로.
+
+**③ 기본 주소(`is_default_for_type`) — 받되 빈 곳은 규칙으로 메운다 · 적재 첫 회에 세고 확정**
+⚠️ supplier 는 `DefaultForType` 을 담지 않았다(po-module §7-b-B · 주소 1건뿐인 79곳 중 60곳 안팎이 「기본 아님」 · 체크박스 미클릭). 5-b 는 그 값을 받아 유니크까지 건다. 이 어긋남의 판정:
+```
+Cin7 에서 체크된 것             그대로 믿는다 — 누군가 일부러 고른 것이다
+체크가 없고 그 type 이 하나      그것을 기본으로 — 고를 것이 하나라 틀릴 수 없다
+체크가 없고 그 type 이 여럿      비워 둔다 — 추정으로 고르지 않는다 · 그 손님 수를 세어 사람이 정한다
+```
+- ⭐ **확정은 적재 첫 회에 센 뒤다.** 체크가 거의 다 되어 있으면 메울 필요가 없고, 거의 비어 있으면 supplier 처럼 Cin7 값을 버리는 쪽이 단순하다. ⇒ 이번 표 모양은 5-b 그대로(`is_default_for_type` + 생성 칸 `default_customer_id` + 전체 유니크 `(default_customer_id, type)`). ⭐ **`Business` 는 배송지·청구지 기본값 찾기에 쓰지 않는다.**
+- ⬜ 규칙으로 메운 것과 Cin7 에서 온 것을 가를 표시가 필요한지 — 적재 차수에서.
+
+**④ 연락처 `is_default` · `include_in_email` · `marketing_consent` — 받아 두고, 메일 기능을 만들 때까지 아무것도 기대지 않는다**
+- supplier 는 `IncludeInEmail` 을 버렸다(true 2/261 · 실무는 Comments 에 cc 를 문장으로 적었다). 손님은 **담는다** — 손님 쪽에만 메일 실무(최종 인보이스 일부 자동 발송 · §1-r · §2-n)가 있고, 버렸다가 필요해지면 9,452명을 다시 받아야 한다. 뜻(어느 칸이 수신처를 정하나)은 **메일 절에서 실물을 보고** 정한다(5-c ⬜ 그대로) · 적재 때 켜진 수만 센다.
+- `is_default` 는 supplier 실측에서 믿을 만했다(둘 이상인 곳 0) — 5-c 그대로 「손님당 하나」 장치(생성 칸 + 전체 유니크).
+- ⭐ **`marketing_consent` 는 nullable · 기본값 없음**(검토 이견 4 채택): true 동의 · false 동의 안 함 · null 모름(IMS 에서 새로 만든 연락처). ⚠️ **보낼 때는 null 을 false 와 똑같이 다룬다 — 확인된 동의(true)에만 마케팅 메일**(CASL · 5-c). `is_default` · `include_in_email` · `is_default_for_type` 은 `not null default false` 그대로.
+
+### 9-b 표 이름 · 함수 이름 규칙 (판정 ⑤)
+
+```
+설계 낱말(§8)      →  표 이름             PO 짝
+invoice               so_invoice           po_invoice
+invoice_order         so_invoice_order     (없음 · PO 는 줄로 잇는다)
+payment               so_payment           po_payment
+payment_invoice       so_payment_alloc     po_payment_alloc
+credit_note           so_credit            (PO 는 po_invoice 안에 doc_kind='credit')
+credit_line           so_credit_line
+credit_applied        so_credit_alloc
+손님 셋  customer · customer_address · customer_contact — 앞머리 없음(supplier · product 처럼 모듈 공용 마스터)
+so · so_line · so_charge · so_reserve — 그대로
+```
+- 근거: `invoice` 만으로는 받는 쪽(PO)인지 내는 쪽(SO)인지 이름이 말하지 않는다. `_alloc` 은 PO 에서 「어디에 얼마씩 붙였나」의 이름이다 — 손님 잔액 식의 빼는 두 항(8-e `payment_invoice` · `credit_applied`)이 짝으로 보인다.
+- **함수 이름은 규칙만 정한다**: 오더 전체 `so_<동작>`(`so_confirm` · `so_release` · `so_cancel` — 6-g′ 에 이미 있다) · 그 밖은 `so_invoice_<동작>` · `so_payment_<동작>` · `so_credit_<동작>` · 읽기는 `_detail` · `_list`(PO 관례 `po_create` · `po_invoice_create` · `po_detail` · `po_receipt_list`). 실제 이름은 각 차수의 지시서가 이 규칙으로 붙인다 — 지금 목록을 만들면 차수마다 고친다(새 `asung-so` 스킬을 한 차수 뒤로 미룬 것과 같은 이유).
+- 📌 파일 이름도 표 이름을 따른다 — `<시각>_customer.sql`(`so_customer` 아님 · 검토 이견 1 · supplier `20260912202952_supplier.sql` 과 같은 결).
+
+### 9-c ⬜1~⬜6 의 결론 (✅ Caleb 판정 2026-09-22 저녁)
+
+| ⬜ | 결론 | 근거 · 대가 |
+|---|---|---|
+| ⬜1 쓰기 묶음 | ✅ **`master`** · 정책 이름 `customer_select/insert/update` · `customer_address_…delete` · `customer_contact_…delete` | 손님은 supplier·product 와 같은 공용 마스터. ⚠️ `ims_perm_catalog()` 가 immutable 함수 안 JSON 리터럴(screens 넷)이고 `ims_can_write()` 는 `screens ? p_screen` 이 아니면 false ⇒ **새 묶음은 마이그레이션이다.** 대가: 영업 담당이 오더 화면에서 배송지를 더하려면 master 쓰기가 필요 — ⬜ SO 거래 표 차수에서 `sales` 묶음을 열 때 주소록·연락처를 그쪽으로 옮길지 함께 판단 |
+| ⬜2 `tax_rule` · `price_tier` | ✅ **원문 칸만** | `ref_tax_rule` 미결(po-module §7 갈림길) · `ref_price_tier` 는 마이그레이션·정본·스킬 어디에도 없다(grep 0). supplier `tax_rule` 주석 「생기면 FK 칸을 옆에 붙인다」와 같은 길. ⬜ **`ref_tax_rule` 은 인보이스(§8) 전에 · `ref_price_tier` 는 오더 가격 계산(§1-j · 5-e `list_price`) 전에** 서야 한다 |
+| ⬜3 `default_location` | ✅ **FK + 원문** — `default_location_id → ref_warehouse(id)` + `default_location_name` | Cin7 은 `Location` 을 이름으로 준다(§1-s `Asung Trading Inc.`) · `ref_warehouse.name` 이 unique 라 매칭이 선다 — supplier `payment_term_id/_name` 과 같은 자리. PO 머리는 `ship_to_warehouse_id` FK 하나(`20260916144201` 71행). ⬜ `so.location`(5-d)도 같은 짝(FK+원문)이어야 한다 — so 표는 다음 차수 · 9-d 에 적기만 |
+| ⬜4 주소 칸 이름 | ✅ **`state_province` · `postal_code`** | `ref_warehouse`(`address_line1/2 · city · state_province · postal_code · country`) · `supplier_address`(`line1 · line2 · … state_province · postal_code`) · po 머리(`supplier_state_province · supplier_postal_code`) 셋이 이미 한 낱말. 5-b 의 `state · postcode` 만 다르고 코드 0줄 — `source → intake` 와 같은 판단. 주소 전용 표라 `address_` 접두어는 supplier_address 처럼 붙이지 않는다. ⬜ 5-d `bill_to_state · ship_to_postcode` 등도 `_state_province · _postal_code` 로 — so 표 차수 · 9-d 에 적기만 |
+| ⬜5 연락처 `Fax` · `Comment` | ✅ **수정 채택 — `fax` · `cin7_comment` 를 만든다 · `job_title` 은 만들지 않는다** | Cin7 손님 연락처 화면에 JOB TITLE · FAX · COMMENT 칸이 있다(Caleb 화면 2026-09-22). 공급처 API Contact 키(cin7-api `references/supplier.md` 101행)에 `Fax` · `Comment` 는 있고 `JobTitle` 은 없다 — 공급처 때 「JOB TITLE 은 화면에만 있고 API 에 없다」(po-module §7-b-C)와 같다. `cin7_comment` 는 우리 `note` 와 가른다(supplier_contact 와 같은 이유) · ⭐ 공급처 때 이 메모에 cc 수신처가 문장으로 적혀 있었다 — 손님 메일 수신처(5-c ⬜)의 근거가 될 수 있다. 적재 첫 페이지에서 Contacts 키 목록을 그대로 센다(JobTitle 이 오면 그때 더한다) |
+| ⬜6 본문과 어긋나는 곳 | ✅ **본문 무접촉 · 9-d 「뒤집은 것」 표** + 5-a·5-b·5-c 코드 블록 뒤 「→ §9-d」 한 줄씩 | 앞 차수(5-h · 6-i · 8-j)와 같은 방식 — 어느 차수가 무엇을 뒤집었는지가 이력이다. 파일 나누기는 이번에 안 한다(머리) |
+
+**검토 이견 채택분(같은 판정)**: 이견 1 파일 이름 `customer.sql` · 이견 2 `type` CHECK **셋**(Billing · Business · Shipping · Cin7 손님 주소 화면 TYPE 선택지 실측 — 그 밖은 고를 수 없다 · null 허용 · 빈 문자열은 적재 때 null · ⭐ Business 는 기본값 찾기에 쓰지 않는다 · 적재 첫 회에 「type 빈 줄 수」·「Business 만 있고 Shipping 없는 손님 수」를 센다 · 📌 주소 type 을 제약하는 첫 표 — `supplier_address.type` 은 CHECK 없음) · 이견 3 `currency` **FK + 원문**(`currency_id → ref_currency` + `currency_code` · PO·SO 가 `ref_currency`(CAD·USD)를 공용 · 원문은 첫 회 검산용 — FK 가 비는 손님 수 = `ref_currency` 에 없는 통화 · 기대값 0) · 이견 4 `marketing_consent` nullable · 이견 5 `tags` text 원문(형식 미확인) · 이견 6~8 확인 수용(하위 ID 짐작 근거 · `ims_perm_catalog` 리터럴 · 공용 함수 마지막 정의 — `ims_touch()` `20260918133858` · `ims_can_write(p_screen text)` `20260917230000` · `ims_perm_catalog()` `20260918165934` · `set_updated_at()` `20260911144606` 은 옛 트리거용 · 손님 셋은 처음부터 `<t>_touch`).
+
+### 9-d 앞 절에서 뒤집은 것 · 더한 것 — 본문은 고치지 않았다 (예외: 5-a·5-b·5-c 의 「→ §9-d」 넷)
+
+| 어디 | 옛 문장 | 이번 판단 | 근거 |
+|---|---|---|---|
+| 5-a 식별 | `status` | **`is_active`** — Cin7 Status 를 여기로 · ⬜ 어휘 셋 이상이면 원문 칸을 옆에 | 9-a ① |
+| 5-a 그 밖 | `comments` | **`cin7_comments`** — 우리 `note` 와 가른다 | 9-a ① · supplier 선례 |
+| 5-a 「FK + 원문 다섯」 | `payment_term · tax_rule · price_tier · ar_account · sale_account` 전부 FK+원문 | **`tax_rule` · `price_tier` 는 원문만으로 시작** — 가리킬 마스터가 없다 · 생기면 FK 칸을 옆에 | 9-c ⬜2 |
+| 5-a · 5-d | `currency` 는 「값 자체라 원문 하나」 | **`customer` 는 FK + 원문**(`currency_id` + `currency_code`) · 📌 `so.currency` 도 PO 머리(`currency_id` FK)와 짝으로 FK — **so 표는 다음 차수 · 적기만** | 검토 이견 3 |
+| 5-a | `default_location`(형식 미정) | **FK + 원문**(`default_location_id → ref_warehouse` + `default_location_name`) · 📌 `so.location` 도 같은 짝 — **적기만** | 9-c ⬜3 |
+| 5-a 그 밖 | `tags` | text 원문 · 형식 미확인 | 검토 이견 5 |
+| 5-b 주소 | `state · postcode` | **`state_province` · `postal_code`** · 📌 5-d `bill_to_state · bill_to_postcode · ship_to_state · ship_to_postcode` 도 같은 낱말로 — **적기만** | 9-c ⬜4 |
+| 5-b `type` | 「Shipping · Billing 둘로 제한(CHECK)」 | **셋 — Billing · Business · Shipping** · null 허용 · Business 는 기본값 찾기에 안 쓴다 | 검토 이견 2 · Cin7 화면 실측 |
+| 5-b `is_default_for_type` | Cin7 `DefaultForType` 을 받아 유니크 | 받되 **빈 곳은 규칙으로 메운다 · 확정은 적재 첫 회 분포를 센 뒤**(supplier 는 버렸다) · 표 모양은 그대로 | 9-a ③ |
+| 5-c 연락처 | `phone · mobile · email · website` | **`fax` · `cin7_comment` 를 더한다** · `job_title` 은 안 만든다 | 9-c ⬜5 |
+| 5-c `marketing_consent` | (형식 미정) | **nullable · 기본값 없음** · 보낼 때 null = false | 9-a ④ · 검토 이견 4 |
+| §8 표 낱말 | `invoice · invoice_order · payment · payment_invoice · credit_note · credit_line · credit_applied` | `so_invoice · so_invoice_order · so_payment · so_payment_alloc · so_credit · so_credit_line · so_credit_alloc`(§8 본문은 그대로 — 「이 절의 낱말 · 마이그레이션 차수에서 관례에 맞춘다」가 그것) | 9-b |
+| §8-k [문서] | 「파일 나누기 — 마이그레이션 차수 진입 때」 | **이번 차수에는 안 한다** — 표 차수와 문서 차수를 섞지 않는다 · 적용·검증 뒤 별도 정리 차수 | 머리 · 9-c ⬜6 |
+
+📌 같은 모양 세기(지시서 §5 · 세기만 하고 고치지 않았다 — 옛 낱말이 §9 밖에 남는 것은 뒤집은 것 표가 설명한다): 회신에.
+
+### 9-e 적재 차수로 넘기는 것 (⬜ 모음)
+
+```
+Status distinct                      둘뿐인가 · 셋 이상이면 원문 칸을 옆에                                   9-a ①
+Addresses[]·Contacts[] 의 ID 유무      있으면 cin7_id 가 열쇠 · 없으면 손님 단위 delete+insert                  9-a ②
+DefaultForType 분포                   체크율 · 「없고 그 type 이 하나」 수 · 「없고 여럿」 손님 수 → 규칙 확정         9-a ③
+type 분포                             빈 줄 수 · Business 만 있고 Shipping 없는 손님 수 · 셋 밖의 값(CHECK 가 막는다)   검토 이견 2
+IncludeInEmail · Default 켜진 수      메일 절의 근거                                                            9-a ④
+Contacts 키 목록                      JobTitle 이 오면 더한다 · Fax·Comment 채움 수                              9-c ⬜5
+currency_code ↔ ref_currency         FK 못 붙은 손님 수 — 기대값 0                                             검토 이견 3
+payment_term · account · location     FK 못 붙은 수 = 정리 대상 카운터(supplier 와 같다)                          9-a ①
+tax_number 필드명 · tags 형식          §1-s 에 없던 칸 · 문자열인지 배열인지                                       5-a ⬜ · 검토 이견 5
+부모 먼저                             parent_id · default_*_customer_id 가 이어지도록 적재 순서                     9-a ①
+빈 문자열 → null                      ims_blank_ 전례(ref_bin · supplier_address)                                검토 이견 2
+규칙으로 메운 기본값의 표시             필요한지                                                                  9-a ③
+```
+⬜ 그 밖(이번 차수 밖): `ref_tax_rule`(인보이스 전) · `ref_price_tier`(가격 계산 전) · `sales` 묶음과 주소록·연락처의 자리 · so 표의 `currency_id` · `location` FK+원문 · 주소 칸 낱말.
+
+### 9-f 마이그레이션 파일
+
+```
+supabase/migrations/20260922201223_customer.sql      234행 · 32,083 바이트 · 표 3 · 정책 11 · 트리거 3 · 인덱스 13 · 컬럼 주석 48 · 행 적재 0
+```
+- 시각은 마지막 파일 `20260921161933` 뒤. ✅ **[적용 2026-09-22 · 테스트 DB `Asung-IMS` · Caleb]** `psql -v ON_ERROR_STOP=1 -1 -f`(한 트랜잭션 — 도중 실패 시 전부 되돌아간다 · 파일에 begin/commit 이 없음을 먼저 grep 으로 확인) + `supabase migration repair --status applied 20260922201223`(po-module §13-f · 이력 표가 안 쌓인다).
+
+**✅ 검증 실측 (2026-09-22 · Caleb 실행 · 예상값과 대조)**
+```
+(가) 구조
+  행              0 · 0 · 0
+  정책            customer 3 · customer_address 4 · customer_contact 4 = 11 · 이름 <표>_<동사>
+  트리거          customer_touch · customer_address_touch · customer_contact_touch 셋 · 옛 _set_updated_at 0
+  제약            p 3 · u 5(cin7_id 셋 · customer_address_default_uq · customer_contact_default_uq) · ⚠️ c 4 — source_ck 셋 + customer_address_type_ck
+                  (회신의 「c 5」는 틀린 숫자였다 — 파일의 check 제약은 79·143·144·184행 넷 · 실물과 일치)
+  인덱스          13 (customer 9 · address 2 · contact 2)
+  권한            anon 0행 · authenticated customer = INSERT,REFERENCES,SELECT,TRIGGER,UPDATE(DELETE·TRUNCATE 없음) · address·contact = +DELETE(TRUNCATE 없음)
+(나) 실동작 — 한 트랜잭션 · ROLLBACK
+  RLS 거부        42501 (insert · master 쓰기 없는 신원)
+  Caleb(admin)    ims_can_write('master') = t · insert 의 updated_by 는 null(트리거는 before update 만 — 예상대로) · update 가 updated_by = Seungchill Chang 을 찍음
+  생성 칸 유니크   23505 customer_address_default_uq(같은 손님 Shipping 기본 둘) · 23505 customer_contact_default_uq(기본 연락처 둘)
+  type CHECK      23514 customer_address_type_ck('business' 소문자 거부) · 'Business' 통과 · null 통과
+  최종 select     6행 — 기본 키(default_customer_id)는 기본 두 줄(Shipping · Billing)에만
+  marketing_consent  null 로 들어감(nullable · 기본값 없음 확인)
+```
+⚠️ **권한 없는 사람 시험은 실제 worker 가 아니었다** — 조건(`role='worker'` · perms 에 master 없음)에 맞는 직원이 테스트 DB 에 없어 `sub = null` 로 돌았다. 확인된 것은 「로그인했지만 신원 없음」이 막힌다는 것까지. ⬜ **master 없는 실제 직원 계정으로 42501 을 다시 본다 — 계정이 생기면.**
+📌 검증 SQL 두 덩어리(구조 · 실동작)는 지시서 차수 회신에 있다 — 적재 차수 뒤 같은 문장으로 다시 돌릴 수 있다.
