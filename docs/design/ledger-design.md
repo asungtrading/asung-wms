@@ -149,6 +149,7 @@ IN_TRANSIT 결함 둘(문서 범위 · 날짜 범위) · 테스트 DB 재복사 
 갱신 2026-09-22 — ⭐⭐ **판매 축의 확정 사각지대 = Ship-undone**(§「수집 후 취소」 09-22 블록 · `SO-16531` 기다려서 해소 · 판정 = 오더 살아 있으면 기다림 · VOID 면 상쇄).
 ⚠️ 지시서 9차의 「`inv_voided_docs` 가 `sale` 을 잡는다」는 **코드 대조에서 근거가 서지 않아 이의로 남김** — 운영 배포판 v29 를 내려받아 레포와 바이트 동일 확인 · `sale` 경로 없음 · 표의 `SO-16464` 행 출처 미규명(⬜ `collector`).
 ⭐⭐ **플립 기준 교체**(§「플립 — 이관」 09-22 블록 · 「30일 어긋남 0건」 폐기 → 「틀렸을 때 왜인지 안다」 + 원장 정확성 ≠ 운영 기능 완성) · 잔재 3칸 → 2칸(`ANN07490` 09-19 실무 조정으로 해소) · `TR-04496` 열하루 홀드 + 502 누적(실무 처리 필요). 정본 `docs/sessions/2026-09-22-ship-undone-vs-voided.md`.
+갱신 2026-09-22(정리) — §원가 레이어 5번 `credit_in` 에 **IMS 판**을 Cin7 판과 나란히(되짚는 열쇠 `credit_line.so_line_id → so_out` · `restock` 라인만 · so-module 8-g). 새 판단 없음 — SO 설계 ④의 「말만」을 본문으로.
 갱신 2026-09-22(오후) — ⭐⭐ **§원가 레이어 17번 신설 — IMS 판매의 원가 미상 · `so_out` 실시간 창구**(Caleb 판정 · SO 설계 ③ 의 선행 · 지시서 `~/asung/prompts/ledger-ims-sale-cost.md`).
 ① 「`sale_out` 부족은 그대로 short」를 **IMS 축에 한해** 뒤집는다 — 같은 SKU 의 최근 원가로 레이어를 세우고 바로 소진 · 새 `cost_source` 값 하나(⬜ 이름) · **Cin7 축은 그대로**(short 는 수집이 못 따라간 것 · 따라잡히면 해소).
 ② PO 와 같은 모양의 실시간 창구가 필요하다 — 지금 판매 소진은 `inv_layer_apply` 전량 재생성(사람이 부르는 검산 도구)에서만 일어난다. ⚠️ 함수는 만들지 않았다 — 「무엇이 필요한가 · 왜」만. ✅ 같은 날 판정: `cost_source 'layer_recent'` · `origin_type 'sale_shortfall'` · 「최근 원가」 네 단계(같은 창고 → 다른 창고 → `po_price_history` → unknown · 기간 제한 없음 · landed 포함) · 재생성 일치는 (가) 실시간 보충을 `raw` 로 재현 · `:reversal` 되돌림 consume · 같은 SKU 라인 둘은 허용.
@@ -1320,7 +1321,7 @@ FIFO 원가 레이어. 「지금 재고 100개의 원가가 얼마」에 답한�
 | `adjust_existing` + | 41 | 생성 | 그 SKU×창고 남은 레이어 가중평균. ⚠️ **ExistingStockLines 에는 UnitCost 가 없다**(157행 전부) |
 | `adjust_existing` − | 116 | FIFO 소진 | 레이어 (⚠️ 손실 계정) |
 | `assemble_out` → `assemble_in` | 16 → 5 | 부품 소진 → 완제품 생성 | 부품 레이어 합 |
-| `credit_in` | 18 | 생성 | ⭐ **두 갈래** — 원 판매가 원장에 있으면 그 소비 기록을 되짚어 복원(`raw.header.order_number` → `sale_out` 조인) · 없으면 남은 레이어 가중평균. [실측] 18행 중 **8행만 되짚기 가능**(나머지는 기초 이전 판매의 반품) |
+| `credit_in` | 18 | 생성 | ⭐ **두 갈래** — 원 판매가 원장에 있으면 그 소비 기록을 되짚어 복원 · 없으면 남은 레이어 가중평균. **되짚는 길은 축마다 다르다**(2026-09-22 정리 · 병행 기간에 둘이 함께 돈다 — Cin7 판을 지우지 않는다): ⚙️ **Cin7 축** `raw.header.order_number` → `sale_out` 조인([실측] 18행 중 **8행만 되짚기 가능** · 나머지는 기초 이전 판매의 반품) · ⭐ **IMS 축** `credit_line.so_line_id` → `so_out` 으로 **곧장** 간다 — SO 인보이스는 여러 오더를 묶으므로(`so-module.md` 8-c) 「원본 인보이스」만으로는 어느 오더의 어느 라인이 돌아왔는지 정해지지 않아 `credit_line` 이 판매 라인을 직접 가리킨다(8-g · nullable — 파손·other·운임은 원 라인이 없다). 📌 IMS 는 `restock = true` 인 `credit_line` 만 `credit_in` 을 낸다(8-g) — 돈만 움직이는 줄은 원장에 오지 않는다. 사건 모양은 `so_out`(so-module 7-b)의 짝 — `source 'ims'` · `doc_type 'creditnote'` · `doc_number` = 크레딧 번호 · `line_ref` = `credit_line` id · 칸 = 「그 SKU 가 지금 있는 칸」(4부 「IMS 설계 요구사항 — 반품 리스탁 bin」) |
 
 **6. ⚠️ 예외 — IN_TRANSIT 음수 잔고 215칸 (−1,999개)**
 [실측 2026-09-08] `inv_balance` 에서 **IN_TRANSIT 축만** 음수 칸이 있다(215칸 · −1,999).
@@ -1912,7 +1913,7 @@ IN_TRANSIT 만 틀렸으니 원인이 「FIFO 자체」가 아니라 **「IN_TRA
 | `assemble` | `in` 이 `seq_hint 1` 이라 먼저 오므로 **그 자리에서 `out` 을 먼저 소진** · `unit_cost` = 부품 원가 합 ÷ 완제품 수량(`assembly_sum`) · `parent_layer_id` null(부품이 여럿) |
 | 조립 부품 부족 | 있는 만큼만 쓰고 원가가 낮아진다(`assembly_partial_cost`) · ⚠️ **원가 미상 레이어를 만들지 않는다** — 완제품은 어차피 새 레이어이고 부족한 것은 「원가의 일부」이지 「재고」가 아니다(⚠️ 트랜스퍼와 판단이 다르다) |
 | 조립 완제품 키 둘 이상 | ⚠️ **예외를 던진다** — 부품 원가를 배분할 근거가 없고 조용히 합치면 이중 계상 |
-| `credit_in` 갈래 ① | 원 판매의 소비 기록 단가로 되짚는다(`return_restore` · `parent` = 원 레이어) · 되짚는 순서는 소비된 순서 |
+| `credit_in` 갈래 ① | 원 판매의 소비 기록 단가로 되짚는다(`return_restore` · `parent` = 원 레이어) · 되짚는 순서는 소비된 순서 · 📌 [2026-09-22] 원 판매를 찾는 열쇠는 축마다 다르다 — Cin7 `order_number → sale_out` · IMS `credit_line.so_line_id → so_out`(5번 `credit_in` 행) |
 | `credit_in` 갈래 ② | 원 판매가 원장에 없으면 남은 레이어 가중평균(`layer_avg`) |
 | ⭐ 반품 매칭 키 | ⚠️ **창고를 넣지 않는다** — 원가는 물건을 따라가고 레이어는 **반품 행의 창고**에 만든다. 📌 토론토 출고 → 에드먼튼 반품이 가능하다(Caleb 확인 · 재고 문제로 토론토에서 보냈는데 반품은 가까운 곳으로). [실측] 되짚기 가능한 9건은 전부 같은 창고였다 |
 | `received_on`(반품) | **물건이 돌아온 날** (원 판매 시점이 아니다) |
