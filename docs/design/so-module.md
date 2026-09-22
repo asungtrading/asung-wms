@@ -466,6 +466,13 @@ Caleb: "이전에 GAS를 통해서 IMS에 적재할때처럼 적재할 수 있�
 - ⚠️ **9,452명**(§1-s) — 페이지네이션 필수
 - **계층은 연결 축으로만 둔다.** 배송지·청구처는 **오더마다 고른다**
   (경우마다 다르므로 「자식이면 무조건 부모로 청구」 같은 규칙을 박지 않는다)
+  → ⭐ **[2026-09-21 정정 · Caleb]** 위 문장은 절반만 맞다. Caleb: "내가 이럴때도 있고 저럴때도 있다는 것은
+  **손님마다 다른 관행이 있다는 거지 특정 손님의 경우에 정해진 방식이 없다는 뜻은 아니었어.** … 자유롭게 연결이
+  된다하더라도, **default를 정해 놓을 수는 있어야.** 매번 번거롭지 않을꺼야."
+  ⇒ **상속이 아니라 손님별 기본값이다.** 「자식이면 무조건 부모로 청구」(상속)는 규칙이 박히는 것이라 여전히 안 한다.
+  대신 손님마다 `default_ship_to_customer_id` · `default_bill_to_customer_id` 를 둔다 — 「이 손님의 오더를 채울 때
+  **어느 손님의 주소록**을 먼저 보나」(비어 있으면 자기 자신 · A 프랜차이즈는 배송이 늘 A 창고 · B 프랜차이즈는 청구가 늘 부모 B).
+  오더마다 고르는 것은 그대로다 — 기본값이 채워 주고 사람이 바꾼다. 칸·근거는 §5-a.
 - ⬜ 적재 시점은 **SO 설계가 끝난 뒤** — 어떤 칸이 필요한지 알아야 표를 만든다
 - ⬜ `CreditLimit`·`IsOnCreditHold` 는 안 쓰므로 설계에서 뺀다. 적재에서 받아만 둘지는 판단
   (마스터 철학 「비활성 레코드도 보존」과 결이 맞는다)
@@ -522,3 +529,409 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 | 초과 | 초과 입고 → `:over` 로 장부에 올림 | `Over-pick` → **장부 무변**(제자리로) ⚠️ 다르다 |
 | 되돌리기 | over 는 reopen 거부(append-only) | 창고 변경도 Draft 복귀 안 씀 ✅ 같은 태도 |
 | 가격 이력 | `po_price_history`(확정 인보이스) | ⬜ 대칭 화면이 있으면 「얼마에 사서 얼마에 파나」가 한자리에 |
+
+---
+
+## §5 표 구조 (2026-09-21 · 설계 ① · 지시서 `~/asung/prompts/so-design-1-tables.md` · 검토 이견은 회신에)
+
+⚠️ 이 절은 **표와 칸과 규칙을 글로 적은 것**이다. 마이그레이션·DDL·함수 본문은 다음 차수. §2 의 판단 열넷 위에 선다.
+⚠️ 이 절이 §1~§4 와 어긋나면 **이 절이 나중 판단**이다 — 어디를 뒤집었는지 5-h 에 모아 적었다. 앞 절 본문은 고치지 않는다(§2-m 의 정정 한 곳만 예외 · 5-h).
+
+**표는 일곱이다.**
+```
+손님   customer · customer_address · customer_contact
+오더   so · so_line · so_charge
+예약   so_reserve
+```
+- **형제 표는 없다.** PO 와 같이 `so.split_from_id` 한 칸 + 읽기 함수 둘(`so_family_members` · `so_family_lines`)이다.
+  📌 §2-c·§3-c·§4 의 `so_family` 는 **표 이름이 아니라 이 구조를 부르는 말**이다 — PO 에도 `po_family` 표는 없다
+  (`po_family_members(po_id)` · `po_family_lines(po_id)` 함수만 · `20260919175712` · po-module 2593행).
+- **수요 표는 없다.** 5-g 에 이유가 있다 — §2-g·§3-c 의 「수요는 별도로 쌓인다」를 뒤집었다.
+- **번호대는 `SO-25000` 부터**(§2-b) · 접미어는 소문자(5-d).
+
+### 5-a `customer` — 손님 마스터
+
+Cin7 `GET /customer` 에서 적재한다(§2-m · 9,452명 · 페이지네이션). 칸 이름은 우리 것, 출처 칸은 §1-s 의 프로브 이름으로 적었다.
+
+**식별**
+```
+id · cin7_id(Cin7 GUID · ⭐ 유니크 · 적재 키) · name · display_name · status
+```
+- ⚠️ `name` 에 유니크를 **걸지 않는다.** 근거: `product.name` 576종 중복 선례(po-module §3). 손님 이름 중복은 미측정 — 걸 근거가 없다.
+- `cin7_id` 가 적재의 열쇠다. Cin7 은 손님을 GUID 로 참조하므로(`ID`) 이름 정규화가 필요 없다.
+
+**오더로 따라가는 설정** — §1-s 에서 Cin7 실재 확인(`Currency` · `PaymentTerm` · `Discount` · `TaxRule` · `PriceTier` · `Location`)
+```
+currency · payment_term · discount_pct · tax_rule · price_tier · default_location
+```
+- 이 여섯은 오더를 만들 때 `so` 로 **복사**된다(5-d 「손님에서 복사해 굳는 것」). 여기 값은 「다음 오더의 기본값」이다.
+- `payment_term` 은 `ref_payment_term` 과 **공용**(§4). ⭐ 마스터를 가리키는 칸은 **「FK + 원문」**으로 둔다(Caleb 2026-09-21 · 이견 3 채택 · PO `payment_term(FK+원문)` 과 같다 · po-module 3188행) — `payment_term` · `tax_rule` · `price_tier` · `ar_account` · `sale_account` 다섯.
+  근거: 원문만 굳히면 「Net30 인 오더 전부」를 물을 수 없고, FK 만 두면 마스터가 바뀔 때 과거가 흔들린다. 둘을 다 두면 잇기도 되고 그날의 값도 남는다. `so` 로 복사될 때도 **둘 다** 따라간다(5-d).
+- `default_location` 은 창고 제안값이다 — ⚠️ 라우팅을 **자동으로 하지 않는다**(§1-i · 5-b `state` 와 같은 태도).
+
+**계정**
+```
+ar_account · sale_account
+```
+- 실물 `_61_`(AccountReceivable) · `_98_`(RevenueAccount). 📌 Cin7 화면의 `Sale account` = 프로브의 `RevenueAccount`.
+- `ref_account` 의 자연키는 `code`(po-module 1626행 · 289 전수 중복 0). `ar_account` · `sale_account` 도 **FK + 원문(code)** — 위 다섯에 든다.
+
+**계층**
+```
+parent_id(자기 참조 · nullable) · is_bill_parent · is_legal_entity
+default_ship_to_customer_id · default_bill_to_customer_id
+```
+- `parent_id` = Cin7 `CustomerParentID`. 연결 축이다 — **상속은 없다**(§2-m 정정).
+- ⭐ **`default_ship_to_customer_id` · `default_bill_to_customer_id` — 이번에 새로 정한 칸.**
+  뜻: 「이 손님의 오더에 배송지·청구처를 채울 때 **어느 손님의 주소록**을 먼저 보나」. **비어 있으면 자기 자신.**
+  근거(Caleb 2026-09-21): 부모·자식 관행이 **손님마다 정해져 있다.**
+  ```
+  A 프랜차이즈   A1·A2·A3 오더가 각각 오지만 배송은 늘 A 창고     → A1.default_ship_to = A
+  B 프랜차이즈   B1·B2·B3 각자 배송이지만 청구는 늘 부모 B        → B1.default_bill_to = B
+  ```
+  ⚠️ 자식마다 부모 주소를 **복제해 넣지 않는** 이유: 부모 주소가 바뀌면 자식 수만큼 고쳐야 하고 하나를 빠뜨리면 조용히 어긋난다.
+  주소가 아니라 **주소록의 주인**을 가리킨다.
+  ⚠️ 기본값일 뿐이다 — 오더에서는 세 길 중 어느 것으로도 채울 수 있다(5-d 「드롭십」). 가리키는 손님이 부모일 필요도 없다(자유 연결).
+- `is_bill_parent` · `is_legal_entity` 는 Cin7 값을 **받아만 둔다**. IMS 규칙은 아직 안 건다(위 두 기본값 칸이 그 일을 한다).
+
+**그 밖**
+```
+default_carrier · tax_number · tags · comments
+```
+- ⬜ **`tax_number` 는 §1-s 프로브 목록에 없던 칸이다**(Cin7 화면에만 보였다). 그 손님이 비어 있어 안 나온 것인지 필드명이 다른 것인지 **모른다** — 적재 때 실물로 확인한다.
+
+**담지 않는 것 — 이유**
+| Cin7 칸 | 왜 안 담나 |
+|---|---|
+| `SalesRepresentative` | Caleb(2026-09-21): "현재 sales rep이 없어" |
+| `CreditLimit` · `IsOnCreditHold` | §2-m — 거의 안 쓴다 |
+| `ProductPrices[]` | §1-j — Custom prices 안 씀(프로브 빈 배열로 확인) |
+| Default templates | Caleb(2026-09-21): "지금 안써" |
+| `AdditionalAttribute1~10` | ⭐ **손님 속성이 아니다** — Cin7 이 빈 칸을 다른 용도로 쓰게 둔 그릇(§1-h · 오더 쪽 `AdditionalAttribute1` 이 진행단계·백오더 표시로 쓰이는 것과 같은 뿌리) |
+| `AttributeSet` | Cin7 그릇 이름일 뿐 |
+| `LastModifiedOn` | 적재 커서로만 쓴다 — 마스터 칸이 아니다 |
+
+📌 위 「담지 않는 것」은 **설계에서 뺀 것**이다. 적재 스크립트가 원문을 받아만 둘지(§2-m ⬜ · 「비활성 레코드도 보존」)는 적재 차수의 판단.
+
+### 5-b `customer_address` — 주소록
+
+```
+customer_id · type · is_default_for_type · label
+line1 · line2 · city · state · postcode · country
+```
+- `type` 은 `Shipping` · `Billing` **둘로 제한한다**(CHECK). 자유 문자열로 두면 적재 때 오타가 섞인다.
+  ⬜ Cin7 에 다른 `Type` 값이 실재하는지는 **못 봤다**(프로브는 손님 하나 · §1-s) — 적재 첫 페이지에서 `Type` 의 distinct 를 세어 확인한다. 셋 이상이면 그때 어휘를 늘린다.
+- `is_default_for_type` = Cin7 `DefaultForType`. 「손님·type 당 기본 하나」다.
+  ⚠️ 이것도 「하나뿐」제약이다 — 5-f 와 같은 장치를 쓴다(Caleb 2026-09-21 · 이견 7 채택): 생성 칸 `default_customer_id = case when is_default_for_type then customer_id end` + 전체 유니크 `(default_customer_id, type)` · 기본이 아닌 줄은 null 이라 안 부딪힌다 · 부분 유니크 금지(규칙 29). 적재 때 Cin7 이 하나만 주는지도 함께 센다.
+- ⭐ **`label` 은 Cin7 에 없는 칸이다** — 사람이 붙이는 이름(`본사` · `2호점` · `DDS 창고`).
+  근거: 드롭십 주소를 고를 때 주소 두 줄만 보고 고르기 어렵다. **적재할 때 비워 두고 쓰면서 채운다.**
+- `state` 가 §1-i 창고 라우팅의 근거 칸이다(BC·AB·MB → 에드먼튼).
+  ⚠️⚠️ **자동으로 라우팅하지 않는다** — 기본값을 **제안**하는 데까지만 쓴다.
+  Caleb(§1-i): "자동으로 작동하지 않고 손님과 브랜치가 소통을 통해서 이뤄져".
+- 주소는 **한 줄에 뭉치지 않는다** — 오더의 `bill_to_*` · `ship_to_*` 가 칸칸이 복사하려면 여기가 먼저 칸칸이어야 한다(5-d).
+
+### 5-c `customer_contact` — 연락처
+
+```
+customer_id · name · is_default · include_in_email · marketing_consent
+phone · mobile · email · website
+```
+- `is_default` · `include_in_email` 이 **메일 수신처를 결정하는 자리**다.
+  📌 관찰(Caleb 2026-09-21): "cin7에서 보내지는 이메일은 default contact의 email로 설정이 되어 있는 것 같아." — ⚠️ **확인 전**이다. 어느 칸이 수신처를 정하는지는 메일 절에서 실물을 보고 적는다.
+- `is_default` 도 「손님당 하나」다 — 5-f 와 같은 장치(생성 칸 `default_customer_id = case when is_default then customer_id end` + 전체 유니크 · 이견 7 채택).
+- ⭐ `marketing_consent` 를 남기는 근거: 캐나다 **CASL**. 동의 기록은 **나중에 만들 수 없는 종류의 기록**이다 — 적재 때 Cin7 값을 그대로 받아 둔다.
+- ⬜ **「무엇을 자동으로 보내나」는 이번 차수에서 정하지 않는다.** §1-r·§2-n 의 자동 발송 설정(최종 인보이스만 일부 손님 자동)이 Cin7 어디에 붙어 있는지 **아직 못 봤다**. 메일을 다루는 절에서 실물을 보고 정한다.
+
+### 5-d `so` — 오더 머리
+
+**오더 자신의 것**
+```
+so_number · customer_id · channel · location · status
+order_date · required_by · ref · comments
+```
+- `so_number` — `SO-25000` 부터(§2-b · Cin7 최신 `SO-16649` · 여유 8,351). PO 와 같이 **시퀀스 + 기본값 함수**로 붙는다(PO: `po_number_seq` + `po_next_number()` · `20260916144201`). 롤백된 번호는 빈다 — 허용(PO 와 같은 판단). 접미어는 아래 「형제」.
+- `channel` — 창고 경유 · POS 둘(§1-c). ⬜ Shopify 는 연동 때 늘린다. CHECK 어휘로 둔다(늘릴 때 마이그레이션 하나).
+- `location` — 손님 `default_location` 으로 채우되 **사람이 바꾼다.** 확정 뒤 바꾸는 것은 §2-h 의 별도 동작(할당 풀고 다시 거는 함수 둘을 잇는다 · 픽 시작 뒤 불가 · manager 이상).
+  ⭐ **한 오더는 한 창고다.** Caleb(2026-09-21): "한 오더라인이 두 창고에서 할당되는 일이 있을 수 있어. 그러나 그런 경우는 오더를 나눌꺼야. 같은 오더내에서는 없어." ⇒ 라인·할당에 창고 칸이 없다(5-f).
+- `status` · `closed_reason` — ⭐ **두 칸으로 가른다**(Caleb 2026-09-21 · 이견 6 채택). `status` 에 `expired`·`superseded` 를 **섞지 않는다.** `closed_reason` 은 `fulfilled` · `expired` · `superseded` 셋(5-g)이고 닫힌 문서에만 선다.
+  근거: 형제 줄이 답해야 하는 물음이 「나머지는 어떻게 됐나」다. `status` 만으로는 물건이 나가서 닫힌 것인지 기한이 지난 것인지 뒤 오더가 이어받은 것인지 구분이 안 된다.
+  ⬜ `status` 어휘(초안 · 확정 · 닫힘 · 취소 …)는 **② 상태와 전이**에서 정한다 — ①에서는 두 칸이 선다는 것만 적는다.
+- `ref` — 손님 쪽 참조. 실물 `AS-6674` · `POS-TOR-001555`.
+- `comments` — 오더 메모. ⚠️ `shipping_notes` 와 **다른 칸**이다(아래).
+
+⭐ **날짜는 둘뿐이다 — `order_date` · `required_by`.**
+Cin7 오더 화면의 `Invoice date` · `Due date` 는 **인보이스의 날짜**라 `so` 에 두지 않는다.
+근거: 새 오더 화면에는 그 칸이 아예 없고, Shopify 오더에만 채워져 보인다(Shopify 오더는 인보이스까지 난 상태로 들어온다). `Due date` 는 결제조건에서 계산되는 값이다. ⇒ ④ 인보이스 절에서 다룬다.
+
+⭐ **백오더 만료는 `order_date` 로 잰다.** `required_by` 가 아니다 — 실물에서 Shopify 가 주문일과 같은 날로 기계적으로 채워 넣고 있었다(09/21 · 09/21). 근거 없는 값으로 만료를 재면 안 된다.
+📌 갈라진 문서(5-d 「형제」)는 머리를 통째로 복사하므로 `order_date` 도 모체의 것이다 ⇒ 백오더 `SO-25001b` 의 만료는 **원래 주문일**에서 센다(vv 의 1월 백오더는 1월부터).
+
+**손님에서 복사해 굳는 것**
+```
+currency · payment_term · discount_pct · tax_rule · price_tier
+ar_account · sale_account
+```
+⭐ **참조가 아니라 복사다.** 근거: 손님의 결제조건·티어가 반년 뒤 바뀌어도 **작년 오더는 그때 조건으로 남아야 한다.** 참조만 하면 과거 오더의 조건이 조용히 바뀐다(po-module §4-d 「그 순간에만 존재한 것」).
+⭐ 마스터가 있는 다섯(`payment_term` · `tax_rule` · `price_tier` · `ar_account` · `sale_account`)은 **FK + 원문** 두 칸씩이다(5-a · 이견 3 채택) — 원문이 그날의 값을 굳히고 FK 가 「Net30 인 오더 전부」 같은 물음을 받는다. `currency` · `discount_pct` 는 값 자체라 원문 하나다.
+📌 §2-h: 창고를 바꿔도 이 일곱은 **안 바뀐다**(세금은 배송지 기준 · 가격은 창고 무관).
+
+**청구처 · 배송지 — ⭐ 칸칸이 복사한다**
+```
+bill_to_name · bill_to_line1 · bill_to_line2 · bill_to_city · bill_to_state · bill_to_postcode · bill_to_country
+
+ship_to_company · ship_to_contact · ship_to_phone
+ship_to_line1 · ship_to_line2 · ship_to_city · ship_to_state · ship_to_postcode · ship_to_country
+```
+- ⭐ Caleb 판단(2026-09-21): **칸칸이 복사한다.** Cin7 은 두 줄에 뭉쳐 담지만(실물 `BSM, 12029 47 Street NW` / `Edmonton AB T5W2X2 Canada`) 그러면 **주별 매출·세금 검산에서 `state` 를 셀 수 없다.** 서류에 찍을 때 이어 붙인다.
+- 복사인 이유는 위와 같다 — 손님이 이사해도 지난 오더의 배송지는 그날 보낸 곳이어야 한다. 주소록(`customer_address`)을 FK 로 가리키지 **않는다**(가리키면 주소록을 고칠 때 과거 오더가 따라 바뀌거나, 못 고치게 잠가야 한다).
+- ⭐ **`ship_to_phone` 은 Cin7 에 없는 칸이다.** 근거: 드롭십이면 택배사가 연락할 상대가 우리 손님이 아니라 **받는 사람**이다. 지금은 `Shipping notes` 에 적고 있을 것이다(짐작 · 실물 미확인).
+- ⬜ 청구처의 연락처(이메일)는 두지 않았다 — 인보이스를 **누구에게** 보내나는 메일 절(5-c ⬜)의 일이다.
+
+**⭐ 드롭십 — 배송지를 채우는 길 셋**
+```
+① 자기 주소록에서 고른다
+② 다른 손님(보통 부모)의 주소록에서 고른다   ← default_ship_to_customer_id 가 기본으로 어느 주소록을 열지 정한다(5-a)
+③ 손으로 직접 넣는다
+```
+청구처도 같은 세 길이다(`default_bill_to_customer_id`).
+⭐ **손으로 넣은 주소를 손님 주소록에 되돌려 담지 않는다.**
+Caleb(2026-09-21): "손으로 넣은 배송지를 안담는게 맞다고 생각이 들어. 주기적으로 보내는 배송지면 등록해두는게 낫고 말이야."
+근거: 일회성 주소가 9,452명의 주소록에 쌓이면 다음에 고르기가 더 어려워진다. 등록은 사람이 주소록에서 따로 한다(`label` 을 붙여서 · 5-b).
+
+**배송 · 메모**
+```
+carrier · tracking_number · shipping_notes
+```
+- `carrier` — 손님 `default_carrier` 가 기본값.
+- `tracking_number` — 지금은 Freightcom 에서 받아 손으로 넣는다(§1-p). ⬜ Freightcom API 를 붙이면 **이 칸이 자동으로 채워지는 자리**가 된다(견적 → 운임 `so_charge` · 예약 → 여기).
+- `shipping_notes` — 창고·배송 지시. `comments`(오더 메모)와 **다른 칸**이다.
+  실물 Shopify 유입: `Purchase_Order(PO)` · `Order Note: I Will pick up` · `Billing_Address: same as shipping` 가 `Shipping notes` 로 들어온다 — Shopify 연동 때 어느 칸으로 보낼지 그때 가른다.
+
+**형제 — `split_from_id` · `split_reason`**
+```
+split_from_id(so.id 자기 참조 · nullable) · split_reason(stock_short · warehouse)
+```
+- ⭐ **PO 와 같다** — `split_from_id` 는 **바로 앞 문서**를 가리킨다. ⚠️ **뿌리를 가리키는 칸은 두지 않는다**(Caleb 2026-09-16 · po-module 2538행: 「맨 처음을 가리키는 칸은 두지 않는다 — 한 번에 모으는 것은 번호 접두어로 찾는다」). 한 번에 모으는 것은 `so_number like 'SO-25001%'` — 유니크 인덱스가 앞부분 검색을 받는다.
+- 사슬(형제가 형제를 낳는다 · §1-f) 은 `split_from_id` 를 따라 올라가고 내려오는 **재귀 함수**가 모은다 — PO 의 `po_family_members` 와 같은 모양(뿌리까지 올라가 거기서 내려온다 · `path` 배열 + 깊이 50 으로 순환 방어 · po-module 2601행). ⇒ **§3-c 「so_family 가 사슬을 어떻게 담나」는 이것으로 닫는다** — 사슬은 칸 하나로 담기고, 모으는 것은 함수다.
+- ⭐ **`split_reason` 은 PO 에 없는 칸이다.** SO 는 갈라지는 계기가 **둘**이다:
+  ```
+  stock_short   재고 부족 — Authorize 때 · 출하 확정 때(§1-f · §2-f)
+  warehouse     창고 분리 — 한 오더를 두 창고에서 보내야 할 때 오더를 나눈다(위 「한 오더는 한 창고」)
+  ```
+  PO 는 계기가 하나(분할 입고)라 칸이 필요 없었다.
+- **갈라질 때 머리는 통째로 복사한다**(PO 2546행과 같다 · 칸이 늘어도 따라온다) · `split_from_id` = 앞 문서 · 확정 흔적(확정 시각·사람)을 물려받는다 · `created_at` 만 지금. ⬜ SO 에서 「딸린 것」(so_charge · so_reserve)이 어느 쪽에 남나는 분할 함수 차수에서 — 운임은 실제로 나가는 쪽(진행 쪽)에 남는 것이 자연스럽다(짐작 · 미확정).
+
+**번호 붙이는 규칙 — ⭐ 원래 번호는 남는다 (Caleb 확정 2026-09-21 저녁)**
+```
+SO-25001 (그대로 남는다 · 진행 쪽)
+  └─ 갈라져 나온 것만 접미어를 받는다   SO-25001a → SO-25001b → SO-25001c …
+```
+- ⭐ **`SO-25001` 은 그대로 남는다.** 갈라져 나온 것(백오더 쪽 · 다른 창고 쪽)만 `a` · `b` · `c` 를 받는다. 손님 서류에 이미 나간 번호가 바뀌지 않는다.
+- ⚠️ **b 를 또 나눠도 `ba` 가 아니라 `c` 다.** 번호는 **뭉치 안 순서**만 말하고(몇 번째로 갈라져 나왔나), **계보는 `split_from_id` 가 말한다**(누구에게서 갈라졌나 · `c.split_from_id = b`). 역할이 갈린다.
+- 접미어는 소문자 한 글자 · CHECK 는 PO 와 같은 모양(`^SO-[0-9]{5,}[a-z]*$` · po-module 2531행) · 두 글자 접미어는 만들지 않는다 ⇒ **최대 24번**(a~x · `y` 이상이면 거부 — PO 와 같은 문장).
+- 접미어를 붙이는 자리는 **시퀀스가 아니라 분할 함수**다 — PO 와 같이 base(`regexp_replace(so_number, '[a-z]+$', '')`)로 advisory lock 을 잡고, 그 base 의 접미어 최댓값 **다음 글자 하나**를 새 문서에 준다(PO `20260919192236` 348·432행의 모양 · 단 글자를 둘이 아니라 하나만 쓴다).
+- ⚠️ **PO 와 갈라지는 자리** — PO 실물은 갈라지는 문서 자신도 다음 글자로 바뀌었다(`b` 를 나누면 `c`·`d` · `b` 는 사라진다). Caleb 판단(2026-09-21): **PO 도 앞으로는 원래 번호를 지킨다**(SO 와 같은 방식). 이미 갈린 것(`PO-02001a`·`b` 등)은 그대로 둔다. ⬜ `po_receipt_confirm` 의 채번 두 줄과 po-module §11-c 문장을 고치는 일은 **PO 쪽 별건**이다 — 이 문서는 적어만 둔다.
+
+**형제 조회 — `so_family_members` · `so_family_lines`**
+- `so_family_members(so_id)` 는 **닫힌 것까지 전부** 낸다(Caleb 2026-09-21) — fulfilled·expired·superseded·cancelled 를 가리지 않는다. 뿌리에서 내려온 모든 문서 · 자기 자신 포함 · 갈라진 적 없으면 하나. 모양은 PO 와 같다: `(so_id, so_number, status, closed_at, split_from_id, depth, is_self)` + ⭐ **`closed_reason` 한 칸 더**(Caleb 2026-09-21) — 형제 줄이 「나머지는 어떻게 됐나」에 답하려면 닫힌 이유가 보여야 한다(5-d).
+- ⭐ **오더 화면에 형제 줄이 선다** — 형제마다 **자기 상태와 못 나간 수량**(`Σ qty_ordered − qty_shipped`)이 보인다. 「이 오더는 결국 다 나갔나」가 한 자리에서 읽힌다(PO 리시빙 화면의 「형제 한 줄」과 같은 자리 · po-module 3612행).
+- `so_family_lines(so_id)` 는 제품 단위로 접는다 — `ordered_total` · `shipped_total` · `backordered` · `members` · `fragments[]`. ⚠️ 접는 축은 `product_id` 다(이견 2 채택 · 5-e · line_no 는 새 줄이 붙으면 겹친다).
+- ⚠️⚠️ **계산은 DB 가 한다** — 화면이 형제를 찾아 더하지 않는다(PO 실사고 2026-09-19: 손으로 쓴 재귀가 뿌리를 중복 세어 합이 두 배).
+
+**담지 않는 것**
+| | 왜 |
+|---|---|
+| `Tax inclusive` | Caleb(2026-09-21): "tax inclusive는 없어" (📌 PO 머리에는 기록용 `tax_inclusive` 가 있다 — SO 는 두지 않는다) |
+| `sales_rep` | 쓰지 않는다(5-a) |
+| `Channel order type` | 실물 `2627105` — Shopify 식별자로 보인다(짐작). ⬜ 연동 때 다시 본다 |
+| `Invoice date` · `Due date` | 인보이스의 것 — ④ 인보이스 절 |
+
+⬜ **금액 칸(라인 합계 · 추가 비용 합계 · 세금)은 이번에 정하지 않는다 — 미정.**
+담아 둘지 매번 계산할지는 §3-c 「가용 재고를 매번 계산할지」와 같은 성격이고 **실측으로 정한다.** ⚠️ 칸을 임의로 만들어 넣지 않는다. 📌 PO 는 문서 돈을 뷰(`po_invoice_money` · `po_charge_money`)로 냈다(po-module 3204행) — 같은 길이 후보다.
+
+### 5-e `so_line` · `so_charge`
+
+**`so_line` — 제품 줄**
+```
+so_id · line_no · product_id                          ← 제품 마스터 FK(잇는 것)
+sku · product_name · unit · pack_factor              ← 마스터에서 복사해 굳는다(그때 서류에 찍힌 값)
+qty_ordered · qty_shipped
+list_price · discount_pct · unit_price · price_override
+surcharge_pct · surcharge_amount · surcharge_label
+tax_rule · comments
+```
+- 자연키 **`(so_id, line_no)`** — PO 와 같다(`po_line_po_id_line_no_key unique (po_id, line_no)` · `20260916144201` 122행). `line_no` 는 CSV 에 적힌 순서를 지키기 위한 것이다(§1-a: 주로 CSV import).
+- ⭐ **`product_id`(FK) + 굳힌 `sku` 둘 다 둔다**(Caleb 2026-09-21 · 이견 2 채택). 역할이 다르다 — FK 는 **잇는 것**(마스터·형제 합계·원장으로), 굳힌 `sku` 는 **그때 서류에 찍힌 값**(`product_name`·`unit`·`pack_factor` 와 같은 결). PO 도 `product_id` 를 두고 형제 라인을 **product_id 로** 맞춘다(line_no 는 새 줄이 붙으면 겹친다 · po-module 2600행). `so_family_lines` 도 product_id 로 접는다(5-d).
+
+⭐ **이름·단위를 복사하는 근거**: 제품 이름이 바뀌면 지난 송장의 품명이 함께 바뀐다. `pack_factor` 는 더하다 — 12개들이를 24개들이로 바꾸면 과거 오더의 「3 박스」가 36인지 72인지 알 수 없게 된다. WMS 가 base 정규화(`required_base = qty × factor`)에 쓰는 값이다.
+📌 `pack_factor` 의 정본은 **BOM Quantity** 다(asung-po · UOM 이름·SKU 접미사로 읽지 않는다). 복사하는 순간의 그 값이다.
+📌 PO 는 수량을 **낱개(EA)로 저장**하고 입력 단위를 따로 남긴다(po-module 11-d). SO 는 **판매 단위 수량 + pack_factor** 로 남긴다 — 가격이 판매 단위에 붙기 때문이다. 원장·WMS 로 갈 때는 `qty × pack_factor` 로 낱개를 낸다. §4 대칭표에 이 차이를 더한다(5-i).
+
+⚠️ **`barcode` 는 담지 않는다.** 스캔은 픽할 때 실물을 맞춰 보는 일이라 **그 시점의 최신 값**이 맞다. 굳히면 바코드를 새로 붙인 물건을 못 읽는다. 이름·단위와 성격이 **반대**다.
+
+⭐ **가격 넷을 다 남기는 근거**(§1-k 의 길: 손님 티어 → 제품의 그 티어 가격 → 손님 할인 % → 사람이 덮어쓰기):
+```
+list_price       티어 가격(그날의 값)
+discount_pct     손님 할인 %(오더 머리에서 복사 · 줄에서 바꿀 수 있다)
+unit_price       실제 단가
+price_override   사람이 덮어썼다(true 면 unit_price 는 계산 결과가 아니다)
+```
+`unit_price` 하나만 남기면 「왜 이 값인가」를 풀 수 없다 — 티어가 바뀐 것인지 할인이 바뀐 것인지 사람이 고친 것인지 구분이 안 된다. `price_override` 가 켜져 있으면 「계산 결과가 아니다」가 바로 보인다(USD 손님 둘의 가격을 지금 그렇게 넣고 있다 · §1-j).
+⚠️ 샘플은 수량이 있고 단가가 0 이다 — 금액 CHECK 에서 0 을 막지 않는다(PO 와 같다).
+
+⭐ **부가(surcharge) 세 칸 — Caleb 요청(2026-09-21)**
+근거: 미국·캐나다 무역분쟁의 보복 관세. **한시적이라고 보고 가격을 올리지 않는다.**
+- 티어 가격을 올리면 풀렸을 때 원위치할 근거가 사라진다
+- 손님이 물으면 송장에서 바로 보여 줄 수 있어야 한다
+- 우리 마진이 아니라 정부에 내는 돈이다 — 매출 분석에서 섞이면 마진이 부풀어 보인다
+```
+surcharge_pct · surcharge_amount     둘 중 하나만 채운다(CHECK) · 둘 다 비면 없는 것이다
+surcharge_label                       예 US Tariff — 몇 년 뒤 「이게 무엇이었나」를 알 수 있어야 한다
+```
+⚠️ `so_charge` 와 **다른 자리**다 — 운임은 오더에 한 번 붙고 제품과 무관하지만, 부가는 **특정 제품에** 붙는다(미국산에만).
+⬜ 제품 마스터에 「부가 대상 SKU」 표시를 두는 안은 ①에서 정하지 않는다 — 제품 마스터 쪽 일이다.
+
+⭐ **같은 SKU 가 두 줄로 들어오면 — Caleb(2026-09-21)**: "같은 sku면 라인을 늘리지 말고 수량을 합쳐줬으면 좋겠어."
+```
+단가가 같다   → 합친다 (10 + 5 → 15)
+단가가 다르다 → 합치지 않고 화면에서 묻는다
+```
+⚠️ **오더 안 SKU 유니크 제약을 걸지 않는다.** 합치는 것이 기본이지만 예외가 있고(단가가 다른 두 줄), 제약을 걸면 그 예외에서 저장 자체가 막힌다. **합치는 일은 화면과 import 가 한다.** ⚠️ PO 와 다른 자리다 — PO 의 `po_lines_paste` 는 같은 제품이 있으면 그 줄을 가리켜 알려 주기만 한다(`20260916181719` 242행 · 합치지 않는다). §4 대칭표에 한 줄 더한다(5-i).
+
+`qty_shipped` — 출하 확정이 채운다. `qty_ordered − qty_shipped` 가 백오더 수량이다(§2-f · 출하 실적에서 나온다).
+
+**`so_charge` — 추가 비용 · 서비스** ⭐ 표를 나눈다(Caleb 동의 2026-09-21)
+```
+so_id · line_no · name · description · amount · tax_rule · account
+```
+- 근거: 재고가 없고, 매출 계정이 `_99_` 로 따로고, 화면 합계도 갈라 보여 준다(§1-p 실물: `INVOICE LINES 1,389.75` / `ADDITIONAL COSTS 110.50`).
+- `account` 를 칸으로 두는 근거: 지금은 운임뿐이지만 취급 수수료·특별 포장비가 생기면 계정이 다르다. 기본값 `_99_`(Freight Sales Account). 5-a 계정과 같이 **FK + 원문(code)**.
+- 실물: `Freight` · `5 BOXES / PUROLATOR` · 110.50 · `GST (Sale)` · `_99_`.
+- ⚠️ **PO 와 방향이 반대다** — `po_charge` 는 **원가에 얹고**(landed) `so_charge` 는 **매출로** 잡는다(§4). 모양도 다르다: `po_charge` 는 공급처가 있는 **문서**(경비처 · 번호 · 상태 · 여러 PO 에 배분)고, `so_charge` 는 오더에 붙는 **줄**이다. 여기서는 배분표가 필요 없다 — 운임은 한 오더에 한 번 붙는다.
+
+### 5-f `so_reserve` — 예약 (할당 · 프리오더 · 보류 · 백오더)
+
+```
+so_line_id · qty_allocated · kind
+allocated_at · allocated_by · released_at · released_by
+open_line_id(생성 칸 · 아래 「하나뿐」)
+```
+- ⭐ **이름이 `so_reserve` 인 이유**(Caleb 2026-09-21 · 이견 4 채택): `kind` 넷 중 셋(프리오더·보류·백오더)은 할당이 아니라 **「잡지 않기로 한 기록」**이다. 「예약」이 넷을 다 덮는다. `so_alloc` 이라 부르면 셋이 할당으로 읽히고, `so_line_state` 는 `so.status` 와 헷갈린다.
+- `kind` 넷: `allocated` · `preorder` · `hold` · `backorder`(§2-e). ⭐ **입력 부담이 거의 없다** — 백오더는 스플릿이, 보류는 할당 해제 동작이, 할당은 Authorize 가 표시한다. 사람이 고르는 것은 프리오더 하나다.
+- `allocated_by` · `released_by` → `ims_staff`(PO 의 created_by/confirmed_by 선례).
+- ⚠️ **창고 칸을 두지 않는다.** 한 오더는 한 창고다(5-d · Caleb). 오더 머리의 `location` 이 이미 답이다. 창고를 바꾸는 §2-h 동작은 **풀고(released_at) 다시 건다(새 줄)** — 옮기는 것이 아니다.
+- **빈(bin) 칸도 없다** — §2-d: 할당은 창고 단위 · 칸은 픽 단계에서 정한다.
+
+⭐ **할당을 풀어도 줄을 지우지 않는다 — `released_at` 을 찍고 남긴다.**
+Caleb 판단(2026-09-21). **§2-d 의 「할당 이력이 안 남는다 — 감수한다」를 이번에 뒤집는다**(§2-d 본문은 고치지 않는다 · 5-h).
+근거: 보류가 잦다(§1-e). 잦은 일일수록 나중에 「왜 이 오더가 오래 걸렸나」를 묻게 된다. 지우면 그 물음에 답할 수 없다.
+📌 §2-d 의 대원칙(할당은 원장 밖 · 원장에는 Ship 때 출고 사건만)은 **그대로다** — 뒤집은 것은 「이력을 안 남긴다」 한 줄이다. 이력은 `so_reserve` 안에 남고 원장은 여전히 모른다.
+
+⚠️ **치르는 값**: 가용 재고를 셀 때마다 「풀린 건 빼고」를 챙겨야 한다.
+⇒ **가용 재고를 내는 함수를 하나만 만들고 모두 그것을 부른다**(계산 규칙은 DB 에만 · 화면이 다시 짜지 않는다 — PO 「계산은 DB 가 한다」와 같은 태도).
+```
+가용(창고, 제품) = 창고 잔고 − Σ qty_allocated  where kind = 'allocated' and released_at is null  (그 창고의 오더 · 그 제품)
+```
+- 「창고 잔고」는 원장의 창구(`ims_inv_balance` · po-module 3306행)에서 읽는다 — 같은 DB 안이라 창구 하나를 부른다(ims-principles 원칙 2 「안과 밖」 2026-09-19).
+- `preorder` · `hold` · `backorder` 줄은 가용에서 **빼지 않는다** — 재고를 잡지 않은 상태의 기록이다(§1-e: 백오더는 자동 할당을 막기 위해 일부러 안 건다).
+- ⬜ 매번 계산할지 담아 둘지는 §3-c 그대로 미정(실측으로).
+
+⚠️ **한 라인에 안 풀린 할당은 언제나 하나뿐이어야 한다.**
+- 뜻: `released_at is null` 인 `so_reserve` 줄이 라인당 **최대 하나 — 어느 `kind` 든**(Caleb 2026-09-21: 한 라인이 동시에 두 상태일 수 없다). 상태가 바뀌면(할당 → 보류) 앞 줄을 풀고 새 줄을 만든다 — 그래야 이력이 줄 단위로 읽힌다.
+- ⚠️ **부분 유니크 인덱스는 금지**다(asung-wms 규칙 29 · PostgREST `on_conflict` 가 부분 인덱스를 못 쓴다 · 2026-07-29 실사고). PO 선례는 「하나」를 **RPC 가 지킨다**(`po_receipt_work` 의 빈 없는 줄 · 「PO 당 열린 입고 하나」 · `20260918161537` 65·121행).
+- ⭐ **장치 — 생성 칸 + 전체 유니크**(Caleb 2026-09-21 · 회신 ① 채택):
+  ```
+  open_line_id   generated always as (case when released_at is null then so_line_id end) stored
+  unique (open_line_id)
+  ```
+  풀린 줄은 `open_line_id` 가 null 이라 서로 부딪히지 않고(NULLS DISTINCT 기본), 열린 줄은 라인당 하나만 선다. **WHERE 절이 없는 전체 유니크**라 규칙 29 에 걸리지 않는다(PostgREST `on_conflict` 도 받을 수 있다).
+  쓰기는 **RPC 로만** 하고 `pg_advisory_xact_lock(hashtext('so_reserve:' || so_line_id))` 을 함께 건다 — 유니크는 마지막 방어, 잠금이 「거부 대신 줄 세우기」를 한다.
+  ⚠️ 같은 장치를 `customer_address.is_default_for_type`(손님·type 당 하나)과 `customer_contact.is_default`(손님당 하나)에도 쓴다(5-b · 5-c · 이견 7 채택).
+
+### 5-g 백오더 · 수요 — ⭐⭐ 수요 표를 만들지 않는다
+
+**지금 수요가 사라지는 이유는 기록할 표가 없어서가 아니라 지우고 있어서다**(§1-h · 3개월 지나면 수동 삭제).
+오더와 라인이 이미 **누가·무엇을·몇 개·언제**를 다 들고 있다(`so.customer_id` · `so_line.sku` · `qty_ordered − qty_shipped` · `so.order_date`). **지우지 않고 닫기만 하면 남는다.**
+⚠️ 표를 따로 만들면 같은 것을 두 번 적는 일이 되고, 어긋나면 어느 쪽이 맞는지 알 수 없다(PO 의 「이중 기록 제안」 실사고와 같은 뿌리 · po-module 2450행).
+⇒ **§2-g 의 「수요는 별도로 쌓이고」 · §3-c 의 「수요 표의 구조」를 뒤집는다**(5-h). §2-g 가 지키려 한 것 — 「알림 기준과 수요 기준이 다르다」 · 「한 번도 입고되지 않아 알림도 못 보낸 수요가 발주 자료가 된다」 — 는 **그대로 지켜진다.** 닫힌 오더도 남아 있으므로 알림은 열린 것만, 수요는 닫힌 것까지 세면 된다.
+
+Caleb 의 실례(2026-09-21)가 이 판단의 근거다:
+> vv 가 매달 60개씩 주문했는데 재고가 없어 못 줬다. **실제 demand 는 60이지 180이 아니다.**
+
+⇒ **수요는 쌓는 것이 아니라 그 시점에 서 있는 것을 세는 것이다.** 쌓는 표를 만들면 180 이 나온다.
+
+**오더가 닫히는 방식 셋**
+```
+fulfilled     물건이 나갔다
+expired       기간이 지났다 — 수요는 남고 주문만 닫힌다
+superseded    뒤 오더가 이어받았다 — 수요가 그쪽으로 옮겨갔다
+```
+셋 다 **지우지 않는다** — 표시다.
+
+⭐ **`superseded` 가 필요한 근거** — Caleb(2026-09-21): "대개는 백오더 수량을 포함해서 오더를 넣는 경우가 많아."
+⇒ 1월 백오더 60 과 2월 오더 60 이 **같은 물건을 두 번 센다.** 하나를 `superseded` 로 닫아야 수요가 60 이 된다.
+
+**`superseded` 로 닫히는 길 둘**
+```
+① 출하 확정이 자동으로 닫는다   ← 기본
+   vv 의 2월 오더에서 그 SKU 가 60개 나가면, 1월부터 기다리던 60개는 채워진 것이다
+   ⭐ §2-f 「백오더는 출하 확정에서 만든다」와 같은 태도 — 만드는 것도 닫는 것도 출하다
+② 사람이 목록에서 손으로 닫는다  ← 보조 · 강제하지 않는다
+```
+- ①의 맞춤 단위: **같은 손님 · 같은 SKU** 의 열린 백오더 라인. 오래된 것부터.
+- ⚠️ **오더를 만들 때 묻지 않는다.** 라인이 100개면 매번 누르는 일이 된다. 겹쳐 있어도 잘못되는 일이 없다 — 백오더는 할당이 안 걸린 상태다(§1-e). **틀어지는 것은 수요를 셀 때뿐이고, 그건 세는 규칙으로 푼다.**
+- ⭐ **세는 규칙**: 손님별로 겹치지 않게 센다. vv 가 60·60·60 이면 **60** 이다.
+- ⬜ **수량이 다를 때(60 → 80)의 규칙은 미정.** 짐작으로 적지 않는다.
+
+**`expired` 는 자동이다** — Caleb 판단(2026-09-21). 매일 한 번 도는 작업이 기한 지난 백오더를 닫는다.
+근거: 손으로 하면 밀리다가 안 하게 된다(지금 3개월 수동 삭제가 그렇다).
+```
+⚠️ 되돌릴 수 있어야 한다 — expired 는 지우는 것이 아니라 표시하는 것이다(닫힌 시각·이유를 남기고 status 만 바꾼다)
+⚠️ 기간은 설정이다(§2-g · 지금 3개월은 경험값). 기간을 늘려도 이미 닫힌 것은 그대로 둔다 —
+   닫힌 시점에는 그것이 규칙이었다. 늘린 규칙은 앞으로 것에만 적용한다
+⚠️ 재는 날짜는 order_date 다(5-d)
+📌 도는 자리는 pg_cron — 스케줄은 마이그레이션이 아니라 supabase/ops/cron.sql 에 기록(CLAUDE.md §2)
+⬜ 닫기 전에 알리는 목록(기한 임박)은 화면 일이다 — 적어만 두고 ①에서 정하지 않는다
+```
+
+### 5-h 앞 절에서 뒤집은 것 · 닫은 것 — 본문은 고치지 않았다
+
+| 어디 | 옛 문장 | 이번 판단 | 근거 |
+|---|---|---|---|
+| §2-d 346행 | 「할당 이력이 안 남는다 — 감수한다」 | **남긴다** — `so_reserve.released_at` | 5-f · Caleb 2026-09-21 · 보류가 잦다 |
+| §2-g 395행 | 「수요는 별도로 쌓이고 만료와 무관하다」 | **별도로 쌓지 않는다** — 닫힌 오더가 수요다 | 5-g · vv 60≠180 |
+| §3-c 505행 | 「수요 표의 구조」 | **수요 표 없음** — 닫는다 | 5-g |
+| §3-c 502행 | 「`so_family` 가 사슬을 어떻게 담나」 | `split_from_id` + 재귀 함수 — **닫는다** | 5-d |
+| §3-c 506행 | 「손님 계층을 어떻게 담나(연결만 · 상속 없음)」 | `parent_id` + 손님별 기본값 칸 둘 — **닫는다** · 자식 설정이 각자인지는 적재 때 확인(그대로 ⬜) | 5-a · §2-m 정정 |
+| §2-c 338행 · §4 523행 | 「`po_family` 와 같은 구조로 `so_family`」 | 표가 아니라 **칸 하나 + 함수 둘**이라는 뜻으로 읽는다(PO 실물이 그렇다) | 5-d |
+
+**§2-m 은 이번 차수의 유일한 본문 수정이다** — 「2026-09-21 정정」 블록을 옛 문장 아래에 **이어 적었다**(지우지 않았다). 상속이 아니라 **손님별 기본값**이다.
+
+§3-c 여덟 중 이번에 닫은 것 **셋**(사슬 · 수요 표 · 손님 계층). 남은 것 다섯: 가용 재고 계산/저장 · 일부 할당 상태의 창고 이동 · 픽 취소와 WMS 롤백 · 브랜치 토글 자리 · 메일 템플릿·자동 발송.
+
+### 5-i §4 대칭표에 더할 줄 (표 본문은 고치지 않았다 — 다음 정본 갱신 때 옮긴다)
+
+| | PO | SO |
+|---|---|---|
+| 라인 수량 | **낱개(EA) 저장** + 입력 단위 칸 셋 | **판매 단위 + `pack_factor` 굳힘** · 낱개는 곱해서 낸다 ⚠️ 다르다 |
+| 같은 제품 두 줄 | 붙이기가 기존 줄을 알려 주기만 한다(합치지 않음) | **단가 같으면 합친다** · 다르면 화면이 묻는다 · 유니크 제약 없음 ⚠️ 다르다 |
+| 갈라지는 계기 | 하나(분할 입고 · 칸 없음) | 둘 — `split_reason(stock_short · warehouse)` ⚠️ 칸이 있다 |
+| 갈라질 때 번호 | 실물: 갈라지는 문서도 다음 글자로 바뀐다(a·b → c·d) → ⭐ **앞으로는 원래 번호를 지킨다**(Caleb 2026-09-21 · 이미 갈린 것은 그대로) | **원래 번호는 남고 갈라져 나온 것만 a·b·c** · 최대 24번 |
+| 추가 비용 모양 | `po_charge` **문서**(경비처 · 번호 · 상태) + `po_charge_alloc` 배분 | `so_charge` **줄**(오더에 붙는다 · 배분 없음) |
+| 머리 세금 칸 | `tax_rule` + `tax_inclusive`(기록만) | `tax_rule` 만 — tax inclusive 없음 |
+| 주소 | 그날의 연락처 3 · 주소 6(원문) | 청구처 7 + 배송지 9 **칸칸이** · `ship_to_phone` 은 Cin7 에 없는 칸 |
+| 할당 | 없음(발주는 재고를 잡지 않는다) | `so_reserve` · 원장 밖 · 이력 남김 · 넷 중 셋은 「잡지 않은 기록」 |
+
+### 5-j 이번에 정하지 않은 것 (⬜ 모음)
+
+```
+so.status 어휘(초안·확정·닫힘·취소 …)        5-d · ② 상태와 전이 — closed_reason 과 가른 것은 확정
+금액 칸(합계·세금) 담나 계산하나            5-d · 실측으로
+분할 때 「딸린 것」(so_charge · so_reserve)이 어느 쪽에 남나   5-d · 분할 함수 차수
+수요 수량이 다를 때(60→80) 세는 규칙         5-g
+customer_address.type 어휘가 둘뿐인가        5-b · 적재 때
+tax_number 의 Cin7 필드명                   5-a · 적재 때
+자동 발송 설정 · 수신처 칸                   5-c · 메일 절
+기한 임박 목록 · 부가 대상 SKU 표시          5-g · 5-e · 화면/제품 마스터
+Shopify channel · Channel order type         5-d · 연동 때
+```
