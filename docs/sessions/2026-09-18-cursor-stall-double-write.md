@@ -1,6 +1,6 @@
 # 2026-09-16 · 17 · 18 아침 점검 — 커서 정체 계열 · 어긋남 세 건(전부 해소) · ⭐ 두 사고가 같은 구조
 
-관련: `asung-inv-ledger` §아침 점검 ④·⑤·⑦·⑧·⑩·**⑩-b**·「지금 알려진 잔재 3칸」·§2 「커서 결함 계보」 F · `docs/design/ledger-design.md` §「변경 감지가 못 보는 축 — bin 변경 이중 기입」(사각지대 · 도구 계약 · `fix_kind` 표) ·
+관련: `asung-inv-ledger` §아침 점검 ④·⑤·⑦·⑧·⑩·**⑩-b**·「지금 알려진 잔재 2칸」(09-18 당시 3칸 · `ANN07490` 09-19 해소)·§2 「커서 결함 계보」 F · `docs/design/ledger-design.md` §「변경 감지가 못 보는 축 — bin 변경 이중 기입」(사각지대 · 도구 계약 · `fix_kind` 표) ·
 앞선 건 `2026-09-15-bin-change-double-write.md`(⑩-b 신설) · `2026-08-31-cursor-defects.md`(결함 A~E) · `2026-09-13-list-total-axis.md`(④ 축).
 ⚠️ 표기: **[실측]** = 운영 DB(`inv_collect_runs` · `inv_sync_state` · `inv_balance_vs_cin7` · `inv_conflicts`) · Cin7 화면·API 에서 읽은 값 · **[추론]** = 판단.
 📌 역할 분담: **스킬은 요약+함정 · `ledger-design.md` 는 계약 · 이 파일은 실측 근거.**
@@ -110,6 +110,7 @@ node scripts/fix-transfer-bins.mjs --doc TR-XXXXX --commit # 확인 후
 - ⚠️ 09-17 에 제품이 `Deprecated` 처리됐다(재고를 털지 않고 · Caleb 확인) ⇒ Cin7 이 `ProductAvailability` 목록에서 뺀 것 · **원장이 옳다** · 실물 1개는 `B040803`
 ⇒ ⚠️⚠️ **상쇄 금지**(실물 1개가 장부에서 사라진다) · 알려진 잔재로 `PRO00124` 옆에 · ⑧ 에 1칸으로 남는다 · 해소는 실무 쪽(조정으로 털거나 재활성화 후 정상 출고).
 ⭐ 지금까지와 다른 부류 — 「못 받았다」도 「두 번 받았다」도 아닌 **「Cin7 이 스냅샷에서 뺐다」**.
+✅ **[후기 09-19] 실무가 조정으로 1개를 털어 해소** — 원장이 받아 양쪽 0. 「계속 남는다」 예상은 하루 만에 깨졌고 「해소는 실무 쪽」 판정이 맞았다. 기록 `2026-09-22-ship-undone-vs-voided.md` §E.
 
 ---
 
