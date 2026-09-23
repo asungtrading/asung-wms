@@ -2026,7 +2026,7 @@ Verify  열두 가지 전부 일치
 
 ## §10 마이그레이션 ④·⑤ 거래 표 넷 (2026-09-23 · 지시서 `~/asung/prompts/so-mig-4-so-tables.md` · `so-mig-5-merge-reason.md` · 검토 이견은 회신에)
 
-⚠️ 표가 섰다 — `so` · `so_line` · `so_charge` · `so_reserve` + 시퀀스 `so_number_seq` · `so_next_number()`. **읽기만**이다: 쓰기 정책 0 · 전이 트리거 없음 · RPC 없음. 칸의 정본은 5-d~5-f · 뒷절(6-a · 6-b · 8-b · 8-c · 9-c · 9-d)이고 이 절은 **이번 차수가 판정한 것**만 적는다. DDL 의 정본은 마이그레이션 파일 둘(10-d).
+⚠️ 표가 섰다 — `so` · `so_line` · `so_charge` · `so_reserve` + 시퀀스 `so_number_seq` · `so_next_number()`. **읽기만**이다: 쓰기 정책 0 · 전이 트리거 없음 · RPC 없음. 칸의 정본은 5-d~5-f · 뒷절(6-a · 6-b · 8-b · 8-c · 9-c · 9-d)이고 이 절은 **이번 차수가 판정한 것**만 적는다. DDL 의 정본은 마이그레이션 파일 둘(10-d). → ✅ [2026-09-23 ①a·①b 로 바뀌었다 — 전이 트리거 `so_status_guard`(허락 짝 0) · 쓰기 창구 열 개(security definer) · 표 grant 는 그대로 select 만 · §12]
 ⚠️ 앞 절 본문은 고치지 않았다(9-i 「보내지 않는 칸」에 이어 적은 한 줄만 예외 — 인계 §5 · 스킬·GAS 에는 이미 있던 줄). 파일 나누기는 이번에도 하지 않는다.
 ⭐ **규칙 한 줄(⑤에서 실측으로 섰다)**: **CHECK 는 null 을 통과시킨다 — 짝 CHECK 는 `=` 양쪽이 null 이 될 수 없게(`is null` · `is not null` · `is not distinct from`) · 검증 시험은 한 번에 CHECK 하나만 어기게.**
 📌 판정 Caleb 2026-09-23(회사 PC · ④ 범위·이견·⬜ · ⑤ 빈틈) · 적용·검증 Caleb 2026-09-23 토론토 오전 · 테스트 DB `Asung-IMS`.
@@ -2035,12 +2035,12 @@ Verify  열두 가지 전부 일치
 
 ```
 만들었다   표 넷 · 시퀀스 so_number_seq(25000) + so_next_number() · CHECK 23 · FK 24(인덱스 24) · <t>_touch 트리거 넷 · RLS <t>_select 넷 · 컬럼 주석 85 · 행 0
-안 만들었다 ① 전이 트리거(6-g′ 허용 짝 목록) — 쓰기 RPC 차수에서 함께
+안 만들었다 ① 전이 트리거(6-g′ 허용 짝 목록) — 쓰기 RPC 차수에서 함께 → ✅ ①a 가 세웠다(허락 짝 0 · ② 가 더한다 · §12)
            ② 쓰기 RPC 전부(so_confirm · so_release · so_cancel · 출고 창구 · 분할 · 병합)
            ③ so_family_members · so_family_lines — 분할 함수 차수(PO 도 뒤에 섰다 · 20260919175712)
            ④ 가용 재고 함수(5-f) — RPC 차수
            ⑤ §8 표(so_invoice …) — 다음 차수
-           ⑥ ims_perm_catalog 변경 · sales 묶음 — RPC 차수
+           ⑥ ims_perm_catalog 변경 · sales 묶음 — RPC 차수 → ✅ ①a(screen `sales` · 주소·연락처 정책 sales OR master · §12)
 ```
 - 근거: 쓰기 길이 없으면 6-g′ 가 막으려는 사고(PO `po.html setStatus` 가 status 를 직접 바꾼 길 · po-module 2489행)가 생길 수 없다. 허용 짝의 내려가는 쪽(WMS 롤백 · 인보이스 취소 `invoiced → shipped` 8-h)은 RPC 와 함께 정해야 시험할 수 있다. PO 도 표를 먼저 세우고 쓰기를 뒤에 얹었다.
 - ⇒ 이번 뒤 `authenticated` 는 네 표를 **읽을 수만** 있다(`revoke all` 뒤 `grant select` 두 문장 — Supabase 기본 권한이 ALL 을 주므로 revoke 만으로는 안 된다 · 검토 이견 3).
@@ -2120,7 +2120,7 @@ HOLE      draft 에 merged_into_id = 다른 오더 → 통과(NOTICE HOLE)   ←
 실동작  ① draft + merged_into_id → 23514 so_merge_reason_ck(HOLE 막힘) · ② cancelled+merged+closed_at · merged_into_id null → 23514 so_merge_reason_ck · ③ 넷 함께 → 통과 · ④ voided → 통과 · last_value null · ROLLBACK
 ```
 
-### 10-e RPC 차수로 넘기는 것 (⬜ 모음)
+### 10-e RPC 차수로 넘기는 것 (⬜ 모음) → ✅ 2026-09-23 ①a·①b 가 닫은 줄: 쓰기 정책·sales 묶음 · so_charge 기본 계정 `_99_` · created_by · surcharge_label 짝(판정 7) — 나머지는 ②~⑤(§12-h)
 
 ```
 전이 트리거 — 6-g′ 허용 짝 목록(길별 · warehouse 는 at_wms→picking→packed · pos·counter 는 confirmed→shipped) · 내려가는 짝(WMS 롤백 · 인보이스 취소 invoiced→shipped 8-h) · 그때 closed_at 비우기
@@ -2294,4 +2294,189 @@ SQL    price_set_by 채움 0(시스템) · 세트 줄 3 · 비활성 제품의 �
 Cin7 에만 있는 제품 249(가격 있는 것 115)의 줄 — 제품 재적재(코드 미구현) 뒤 ImsLoadPrice 재실행
 비활성 제품의 줄 17,925 — 가격 화면은 활성 제품만 거른다(화면 차수) · 줄은 그대로 둔다(되살릴 때 가격이 있다 · ⬜7)
 customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
+```
+
+
+---
+
+## §12 SO 쓰기 ① — 초안(권한 · 표 보정 · 문지기 · 가격 창구 · 창구 열 개) (2026-09-23 · 지시서 `~/asung/prompts/so-write-1-draft.md` · 검토 이견은 회신에)
+
+⚠️ 마이그레이션 셋 — ①a `20260923182231_so_write_base.sql`(368행) · ①b `20260923191030_so_write_rpc.sql`(1,051행) · ①c `20260923192101_so_charge_nonneg.sql`(92행). ①a·①b·①c 셋 다 테스트 DB `Asung-IMS` 적용·검증 완료(Caleb 2026-09-23 · 12-f). DDL·함수의 정본은 파일 · 이 절은 **판정과 뒤집은 것**만.
+⚠️ 앞 절 본문은 고치지 않았다 — §10 머리 · 10-a ①⑥ · 10-e 제목 네 곳에 「①a·①b 로 바뀌었다」를 이어 적었다.
+📌 판정 Caleb 2026-09-23(회사 PC) — 회신 §0 이견 열 · ⬜1~⬜8 · ①a 회신 1~8 · ①b 회신 1~9 · 추가 판정 A·B · ①c.
+
+### 12-a 순서 · 범위 (✅ Caleb 2026-09-23)
+
+```
+쓰기 차수 다섯 + 할인   ① 초안(이 절) → 할인 규칙 차수(Cin7 Product Discounts · Deals) → ② 확정·할당 → ③ 출고(so_out · 백오더 형제) → ④ POS·counter·병합 → ⑤ Release to WMS · WMS 사건
+근거                    차수마다 앞 차수 결과로 시험한다 · 다른 모듈(원장 · WMS)을 건드리는 일이 뒤로 모인다
+①a 바탕                 A 권한 sales · B 표 보정 · C 문지기 · D so_price_for · so_line_total · so_customer_is_company · so_copy_customer
+①b 창구 열 개           so_create · so_header_update · so_line_add · so_lines_paste · so_line_update · so_line_remove · so_charge_set · so_charge_remove · so_delete · so_detail(읽기)
+                        + 속 함수 넷 so_current_staff · so_require_draft · so_line_quote(할인 식 한 곳) · so_tier_warnings
+①c                      so_charge_amount_ck(>= 0) · so_charge_set 거부 문장
+만들지 않은 것          확정·할당·가용 재고(②) · 할인 규칙·딜 · 출고·원장(③) · POS·counter·병합(④) · 릴리스(⑤) · §8 표 · customer.price_tier FK 칸 · 화면 · 다시 가격 매기기 창구(⬜5 · 필요해지면)
+크기                    ①a·①b 로 나눴다(①a 만 적용해도 표는 깨지지 않는다 · ①b 검증이 ①a 함수를 부른다) · ①b 1,051행은 지침 900 을 넘지만 검증 흐름이 창구를 이어 써 한 파일(Caleb ✅)
+```
+
+### 12-b 판정 1~7 · A · B (✅ Caleb 2026-09-23 · 근거까지)
+
+```
+판정 1  권한 — screen 'sales'(room ims · 라벨 "Sales orders, customer addresses and contacts") · 오더 쓰기 = ims_can_write('sales')
+        customer_address · customer_contact 쓰기 = sales OR master(9-c ⬜1 닫힘) · customer 머리(티어·할인·결제조건·통화·계정)는 master 만
+        근거: 주소·연락처는 오더를 받으며 늘어나는 일상 정보(드롭십 배송지 · 5-d) · 티어·할인은 돈이 걸린 조건 — 오더 담당이 올리면 안 된다
+        ⚠️ 실물: sales 만 가진 사람이 customer 머리를 update 하면 42501 이 아니라 UPDATE 0(update grant 는 있고 RLS using 이 행을 숨긴다 · 42501 은 insert 의 with check 때만)
+        📌 master 라벨에 "prices" 를 덧붙였다(product_price · ref_price_tier 가 master 묶음)
+판정 2  가격 없음 · free goods — unit_price null = 가격 없음(줄은 선다 · 확정 ② 가 막는다) · 0 = 무상(사람이 넣는다 · price_override true · free_reason 필수)
+        free_reason CHECK 넷 sample · promotion · replacement · other(Caleb 「대개 그정도야」) · other 는 comments 필수(⬜7)
+        짝 so_line_free_pair_ck (free_reason is not null) = (unit_price is not distinct from 0) — null 이면 양쪽 false 로 통과(§10 머리 규칙) · price_override 는 짝에 넣지 않는다(0 을 받으면 창구가 true 로 굳힌다)
+        근거: 「모르는 0」과 「일부러 0」을 가른다 · Caleb 「free goods을 얼마나, 얼마나 자주 주는지 알고 싶다」 ⇒ 자주 = free_reason 줄 수 · 얼마나 = 원가(출고 원장 FIFO) + 받았을 금액(list_price 가 남는다)
+판정 3  반올림 = Cin7(실측 7% 손님 인보이스 아홉 줄 일치 · Caleb 캡처) — 가격표 값 센트 · 세트 = round(낱개 × pack_factor × (1 − set_discount_pct/100), 2) · 할인 뒤 단가는 자르지 않는다(numeric(18,7)) ·
+        줄 합계 = round(qty × unit_price, 2) 하나(so_line_total · 덮어쓴 줄도 같다) — unit_price = list × (1 − d/100) 을 자르지 않고 담으므로 판정 식과 같다(ANN01314 6 × 2.49 × 0.93 = 13.8942 → 13.89 · 단가 먼저 자르면 13.92 틀림)
+판정 4  줄 할인 = greatest(손님 기본, 그 줄에 맞는 세일) — 더하지 않는다(Caleb 「세일 20% · default 7% 면 합산하지 않아」 · Cin7 도움말) · 세일은 할인 차수 · 식 한 곳 so_line_quote 의 d 에 자리를 비워 뒀다
+판정 5  쓰기는 창구로만 — 표 넷은 읽기만(select 정책 · select grant 그대로) · 창구는 security definer · 첫 줄 ims_require_write('sales') 가 유일한 문 · set search_path = public, pg_temp
+        ⚠️ PO 와 다르다 — PO 는 security invoker + auth_all/쓰기 정책이라 화면이 표를 직접 update 할 수 있었고 그 길로 사고(po.html setStatus · po-module 2489행). 트리거는 status 만 지키고 · 합치기·가격 없음·무상 사유는 창구가 지킨다(6-g′ 「관례만으로는 막히지 않는다」)
+        대가: 창구 하나라도 첫 줄이 빠지면 누구나 쓴다 ⇒ 검증은 창구 열 개 전부 「sales 없는 신원 → 거부」(12-f ✅ 아홉 거부 · so_detail 은 읽기)
+        ⇒ definer 창구는 소유자 권한으로 쓰므로 표에 insert grant 를 열 필요가 없다(10-b ⬜7 이중 방어 유지) · so_number_seq 의 authenticated grant 는 **남아 있으나 쓰이지 않는다**
+판정 6  상태 문지기 so_status_guard — 지금 세우되 허락 짝 0개: insert 는 draft 만 · update 로 status 가 바뀌면(new is distinct from old) 전부 거부 · 같은 상태의 update 는 통과 · 소유자·definer 창구도 지난다
+        근거: POS Finish 를 한 걸음으로 볼지 · 병합 원본이 draft 에서 닫힐 수 있는지 판정 전 — 짐작으로 열어 두지 않는다 · ② 가 v_ok 에 짝을 더한다
+판정 7  부가 요금 이름 ↔ 값 짝 so_line_surcharge_label_ck (surcharge_label is not null) = (surcharge_pct is not null or surcharge_amount is not null) · 기존 so_line_surcharge_ck(둘 중 하나만)는 그대로 — 10-e ⬜ 닫힘(Caleb 「금액이 없는 줄은 막는게 맞지」)
+판정 A  비활성 손님은 막는다(경고가 아니다) — so_create · so_header_update 의 customer_id: 'Customer % is inactive — reactivate it first — nothing was saved' · so_copy_customer 의 customer_inactive 경고는 두었다(창구가 먼저 막아 실제로는 안 뜬다 · 지우면 ①a 재적용)
+판정 B  ⭐ 가격 티어는 손님이 아니라 「오더가 들어온 곳」이 정한다 — 청취(Caleb 2026-09-23 · 말 그대로):
+        「작년 11월 1일에 우리가 cin7 omni에서 cin7 core로 전환했어. 당시에 우리 동료가 price tier를 구분하지 않고 모두 wholesale tier로 올린게 문제야.
+          지금까지 문제가 없었던 것은 … aonebeauty.com의 가격 tier는 aone으로 되어 있어서 그 가격으로 오더가 되었고, 오더가 내려왔을때,
+          기존 default price tier가 오더 문서의 가격을 뒤집지 않은걸로 보여」
+        「사실 오더 채널이 정해져 있어서 그 채널이 곧 프라이스 티어야」
+        「aonebeauty.com은 전화나 이메일로 오더를 받지 않아. 그렇게 받는 손님은 모두 wholesale 손님이야」
+        ⇒ customer.price_tier 는 전환 전 가입 B2C 손님에게 틀려 있다(짐작 · 12-d 「이름=연락처」 76% 와 맞는다) · 1001132194 ONTARIO INC(AONE → asung.ca B2B)는 Caleb 이 Cin7 에서 고쳤다 — 다음 손님 재적재가 가져온다
+        ① 직접 만드는 오더(intake manual · csv)는 손님 기본 티어 — so_copy_customer 그대로
+        ② inv_config 'so_direct_order_tier_code' = '1'(Wholesale · ①b 가 insert · on conflict do nothing · 20260916190000:103 선례) · code 로 읽는다(가격 적재와 같은 규칙) · 숫자 아님·표에 없음 → 경고 direct_order_tier_config_missing
+           ⚠️ inv_config 는 auth_all — 로그인한 누구나 바꿀 수 있다 · 이 값은 **경고만** 좌우한다
+        ③ 경고 direct_order_tier_unexpected — 직접 오더의 so.price_tier_id 의 code ≠ 설정 · so_create 반환 · so_detail · 막지 않는다
+        ④ 경고 tier_differs_from_customer — so.price_tier_id ≠ 손님 원문 price_tier 로 찾은 티어 · 못 찾으면 customer_tier_missing · so_detail · 막지 않는다
+        ⑤ so_header_update 허락 열쇠 price_tier(이름) — purpose='sale' · 활성만 · 원문 so.price_tier + so.price_tier_id 짝으로 · 이미 들어간 줄 가격은 그대로(warning lines_keep_prices · ④ 로 보인다)
+        ⚠️ 낱말 — Caleb 의 「오더 채널」은 「어느 스토어로 들어왔나」다 · so.channel(warehouse·pos·counter · 어느 길로 나가나 · 6-b)과 다른 뜻 — 스토어 쪽은 다른 이름(예 store · 마이그레이션·정본에 칸으로 쓰인 곳 0 · Shopify 차수)
+①c      운임 음수는 막는다(①b 회신 8 에 대한 판정) — so_charge_amount_ck (amount >= 0 · amount 는 NOT NULL 이라 null 구멍 없음) · so_charge_set 'A charge cannot be negative — use a credit note — nothing was saved'
+        근거: 돌려줄 돈은 크레딧 노트가 담는다(8-g) — 음수 운임을 열면 같은 일을 하는 길이 둘이 되고 「운임을 얼마 받았나」가 섞인다 · 안 받으면 줄을 안 넣거나 0
+```
+📌 이미 정해진 것(다시 묻지 않는다 · 지시서 §2): 손님 값 복사(5-d) · 청구처·배송지 칸칸이 복사 · 배송지 기본값 순서(9-h ⑧) · 같은 SKU 는 단가가 같으면 합치고 다르면 되묻는다(5-e · 유니크 제약 금지) · 가격 넷 · barcode 없음 · 금액 칸 없음(8-c) · 통화 어긋남은 막지 않고 알린다(11-c 이견 2) · counter 는 manager 이상(6-h).
+
+### 12-c ⬜1~⬜8 · 검토 이견 · 회신 결정 (✅ Caleb 2026-09-23 · 전부 채택)
+
+**⬜ 여덟(회신 답 그대로)**
+```
+⬜1 창구 열 개  이름 9-b(so_<동작> · 읽기 _detail) · 시그니처 명시 인자(jsonb 자루는 머리·줄 고치기 둘만) · 쓰기 창구 첫 두 줄 = 권한 · 초안 확인(so_require_draft) · 없는 id 'Order not found — nothing was saved'
+              so_create(customer_id · channel='warehouse' · intake='manual' · location_id · comments) → {id · so_number · status · … · warnings}
+              so_header_update(so_id · patch) 허락 열쇠 29(customer_id · location_id · payment_term_id · discount_pct · tax_rule · price_tier · order_date · required_by · ref · comments · shipping_notes · carrier · tracking_number · bill_to 7 · ship_to 9) · 모르는 열쇠 거부
+              so_line_add(so_id · product_id · qty · unit_price · discount_pct · free_reason · comments · force_new) → action added|merged|ask
+              so_lines_paste(so_id · [{sku,qty}] · commit) · so_line_update(line_id · patch 열쇠 아홉) · so_line_remove · so_charge_set(so_id · name · amount · charge_id · description · tax_rule · account_id) · so_charge_remove · so_delete · so_detail
+⬜2 채널        warehouse 만(pos·counter 는 ④ · counter 의 manager 조건도 그때) · intake 는 manual·csv 만(shopify·pos 는 다른 길) · 그 밖 거부
+⬜3 티어 찾기   so.price_tier_id FK(→ ref_price_tier · 인덱스 so_price_tier_idx) 를 ①a 가 더했다 · so_copy_customer 가 customer.price_tier 원문 = ref_price_tier.name 글자 그대로로 찾는다(11-e unmatched 0) · 못 찾으면 null(가격 없음)
+              purpose 가 sale 이 아니어도 id 는 남긴다(어떤 티어가 붙어 있었는지 남아야 고칠 수 있다) — so_price_for 가 그때 null · 원문 so.price_tier 는 그대로 공존 · customer 쪽 FK 칸은 재적재 차수(ImsLoadCustomer 함께)
+⬜4 가격 창구   so_price_for(product_id, tier_id) → (list_price, price_source row|set_calc|null) · 순서: 활성 product_price 줄(낱개 정본 · 세트 고정가) → 세트이고 줄 없으면 낱개 활성 줄 × pack_factor × (1 − set_discount_pct/100) round 2 → null
+              티어는 purpose sale · 활성만 · 가격 줄은 is_active 만(11-g ②) · 낱개 가격 없으면 세트도 null · pack_factor 없으면 null · 늘 한 행 · product.is_active 는 안 본다(비활성 거부는 so_line_add 의 일)
+              'set_fixed' 는 따로 두지 않는다(고정가 세트는 첫 단계 row 로 잡힌다 · 안과 다른 이름 하나) · 줄 합계 so_line_total(so_line) 하나 — 덮어쓴 줄도 round(qty × unit_price, 2)
+⬜5 줄 넣기     같은 SKU: unit_price is not distinct from 이면(null 끼리도) qty 를 더한다(merged) · 다르면 ask(줄 안 넣음 · 기존 줄 목록 반환 · 화면이 고른다) · p_force_new 로 새 줄
+              비활성 제품 거부(되묻지 않는다) · 넣는 순간 굳힌다 sku · product_name · unit(ref_unit.name → 없으면 uom_name) · pack_factor(없으면 1 = 낱개) · list_price · discount_pct · unit_price · tax_rule 은 오더(손님) 값(짐작 — 인보이스 차수가 product.sale_tax_rule 을 볼지 판단)
+              초안의 줄은 가격표가 바뀌어도 따라가지 않는다 · 다시 가격 매기기 창구는 만들지 않는다(필요해지면)
+⬜6 손님 바꾸기 줄·운임이 하나라도 있으면 거부 'Remove all lines and charges before changing the customer — nothing was saved' · 바꿀 때 so_copy_customer 를 다시(so_create 와 공유)
+⬜7 other       CHECK so_line_free_other_ck (free_reason is distinct from 'other' or comments is not null) · null 규칙: reason null → 통과 · sample → 통과 · other+null → 위반 · 빈 문자열은 창구가 nullif(trim()) 로 막는다
+⬜8 시험 신원   가짜 직원 둘을 시험 트랜잭션 안에서만(insert 뒤 rollback · ims_staff.auth_user_id 에 FK 없음 20260915141105 · 테스트 DB 에 남기지 않는다 — 운영으로 올라간다)
+              A manager perms ["sales"] · B manager perms [] · email 은 시험 전용(test-a@example.invalid) · ⚠️ sub null 은 「로그인 안 됨」이지 「sales 없음」이 아니다 — 9-f · 11-e 의 한계를 이번에 넘었다
+```
+**검토 이견 열(전부 ✅)**
+```
+1  지시서 §0 의 po_create·po_lines_paste 참조 파일이 옛 판(20260916181719) — 마지막 정의는 20260918000000:57·198(시그니처 같고 본문만 다르다 · 뼈대는 그 판)
+2  definer 안에서도 auth.uid() 는 호출자(JWT claim) — 20260918000000 머리 주석의 걱정은 틀렸다 · 대가는 RLS 를 통째로 비껴간다는 것 ⇒ 창구마다 첫 줄 권한 + search_path
+3  so_number_seq authenticated grant 는 불필요해졌다 — 두되 「남아 있으나 쓰이지 않는다」
+4  so_lines_paste 는 po_lines_paste 와 같은 SKU 처리가 다르다 — PO 는 duplicate 거부 · SO 는 첫 줄에 수량을 모은 뒤 기존 줄과 대조(merged · ask) · 비활성 제품 거부(PO 는 알리기만)
+5  price_override 는 짝 CHECK 에 넣지 않는다 — 0 은 가격표에서 올 수 없으니(price > 0) 언제나 사람 값 · 창구가 true 로 굳힌다 · 칸 셋을 묶으면 「한 번에 하나만 어기기」 검증이 어렵다
+6  so_line_unit_price_ck(>= 0)는 그대로 — not null · default 0 만 뗀다(null 통과가 의도)
+7  시퀀스 소비 — 시험 전용 번호 인자는 두지 않는다(화면이 번호를 찍어 넣을 길이 열린다) · SO-25000 을 소비하고 rollback 밖에서 setval(so 가 비어 있을 때만 · 12-g)
+8  so_detail 은 함수로(표 select 는 열려 있지만 가격 없음·통화 어긋남·티어 경고 계산을 화면 셋이 같이 보게) · invoker · stable
+9  문지기는 new.status is distinct from old.status 일 때만 거부 — 머리 고치기의 update 가 걸리지 않게
+10 정책 교체는 drop policy + create policy(20260918020000 선례)
+```
+**①a 회신 1~8 · ①b 회신 1~9(전부 ✅)**
+```
+①a 1 회사/사람 규칙은 so_customer_is_company(customer_id) 로 따로(so_copy_customer 가 부른다 · 손님 넷을 so 행 없이 시험) · 2 so_copy_customer 는 authenticated 에서 execute 를 뺐다(표 so 에 쓰는 속 함수 · 직접 부르면 42501)
+   3 location 은 so 에 이미 있으면 그대로 · 없을 때만 손님 default_location(5-d 「채우되 사람이 바꾼다」) · 4 → 판정 A 로 뒤집힘 · 5 Shipping 여럿·기본 없음 → 비움 ship_to_empty · 기본 Billing 없음 → bill_to_empty · 손님 currency null → 거부
+   6 customer 머리 UPDATE 0(판정 1 ⚠️) · 7 master 라벨 prices · 8 set local role authenticated 에서 do $$ 가 돈다(짐작이었으나 검증에서 됐다)
+①b 1 so_charge_set 인자 순서(so_id · name · amount · charge_id default …) — 기본값 있는 인자 뒤에 없는 인자를 못 둔다 · 2 unit = ref_unit.name → uom_name · 3 pack_factor null → 1 · 4 tax_rule 은 오더 값(짐작)
+   5 덮어쓴 줄은 discount_pct null(list × (1−d) 가 성립하지 않는다 · list_price 는 남긴다) · 6 so_line_update 에서 discount_pct 를 비우면 손님 기본으로 다시 계산(덮어쓰기 해제)
+   7 customer_inactive 경고 유지 · 8 운임 음수 → ①c 로 뒤집힘(막는다) · 9 so_current_staff 거부 문장은 지우기 창구에서도 「nothing was saved」(PO 문장 · 사소)
+```
+
+### 12-d ⭐ 배송지 회사/사람 규칙 넷 (✅ Caleb 2026-09-23 · 판정 3 · so_customer_is_company)
+
+```
+사정   Cin7 손님에는 회사 이름 칸이 따로 없다(Name 하나에 회사·사람이 섞였다) · Legal entity 는 거의 안 쓰였다(Caleb 「회사 이름이면 legal entity에 표시를 해줬어야 했는데, 우리는 그러지 않았어」)
+받는 쪽 「회사가 우선 · 회사가 없으면 회사 칸은 비우고 사람 칸이 이름을 받는다」
+규칙   위에서부터 처음 맞는 줄
+  1  customer.is_legal_entity = true                                                          → 회사
+  2  customer.price_tier = 'AONE'                                                             → 사람   (AONE 은 95% 이상 개인)
+  3  기본 연락처(is_default · 활성 · 이름 있음)가 있고 · lower(trim(손님 이름)) ≠ lower(trim(연락처 이름)) · 어느 쪽도 다른 쪽을 포함하지 않는다(position 양방향)   → 회사
+  4  그 밖(같다 · 한쪽이 다른 쪽을 포함 · 연락처 없음)                                              → 사람
+칸     회사  ship_to_company = 배송 손님 name · ship_to_contact = 그 손님 기본 연락처 name
+       사람  ship_to_company = null · ship_to_contact = 배송 손님 name
+       ship_to_phone = 기본 연락처 phone → mobile_phone → null · bill_to_name = 청구처 손님 name(청구서는 이름 하나) · 배송 손님 = default_ship_to_customer_id → 없으면 자신 · 청구처 = default_bill_to_customer_id → 없으면 자신
+근거   실측(2026-09-23 SQL · Caleb 실행) — Wholesale 표본 12 중 사람 이름 10 · 「이름 = 기본 연락처」 Wholesale 5,615/7,407 · AONE 1,867/2,045 — 티어로는 회사 이름을 못 가른다(Wholesale 손님은 사업자지만 대부분 사장 이름으로 등록)
+       「이름 ≠ 연락처」 표본 20 중 회사 16 · 틀린 넷 = AONE 둘 + 포함 관계 하나(Adrian Hamilton / Hamilton) + Clarice Williams — 규칙 2·3 을 더해 표본 기준 1/20
+합의된 오차  규칙 2 는 판정 B 의 사정(전환 전 손님 티어가 틀려 있다)을 탄다 — 실례 1001132194 ONTARIO INC(회사인데 AONE → 사람으로 봤다) · 틀린 손님은 오더 담당이 초안에서 고친다(so_header_update ship_to_*)
+검증   Xeonium Inc. → 회사(t) · Adrian Hamilton → 사람(f) · AONE 손님 하나 → f · 연락처 없는 손님 → f(12-f ✅)
+```
+
+### 12-e 뒤집은 것 · 닫은 것
+
+| 자리 | 전 | 후(2026-09-23) |
+|---|---|---|
+| 9-c ⬜1 주소·연락처 쓰기 | master 만 | **sales OR master**(판정 1) — 정책 여섯 drop+create · customer 머리는 master 그대로 |
+| 쓰기 방식 | PO 처럼 invoker + 쓰기 정책(짐작) | **security definer 창구 · 표는 읽기만**(판정 5 · 「왜 다른가」 12-b) |
+| 10-e surcharge_label 만 있는 줄 | ⬜ 관찰 | **막는다** so_line_surcharge_label_ck(판정 7) |
+| 10-a 안 만들었다 ①⑥ | 전이 트리거 · sales 묶음 「RPC 차수」 | ①a 가 세웠다(허락 짝 0 · sales) |
+| 10-b ⬜7 「invoker 로 가면 시퀀스 grant 필요」 | 가정 | definer 로 갔다 — grant 는 남아 있으나 쓰이지 않는다 |
+| so_line.unit_price | not null default 0 | **nullable · 기본값 없음**(null = 가격 없음 · 판정 2) · CHECK >= 0 그대로 |
+| 11-f ⬜ so.price_tier 옆 FK | ⬜ | **so.price_tier_id 섰다**(①a) · customer 쪽은 ⬜ 그대로 |
+| 비활성 손님(①a 회신 4) | 경고 | **거부**(판정 A) |
+| 운임 음수(①b 회신 8) | 허용 | **거부**(①c) |
+| 가격 티어의 뜻 | 손님 속성 | **들어온 곳이 정한다**(판정 B) — 손님 기본은 직접 오더의 초깃값일 뿐 · 경고 ③④ |
+
+### 12-f 파일 · 검증 실측 (✅ Caleb 2026-09-23 · 테스트 DB `Asung-IMS`)
+
+```
+①a 20260923182231_so_write_base.sql   368행 · 함수 5(so_status_guard · so_price_for · so_line_total · so_customer_is_company · so_copy_customer) · 트리거 so_status_guard · 정책 6 교체 · ims_perm_catalog screens 5 · so.price_tier_id · so_line.free_reason · so_line CHECK 12(+4)
+   검증 ✅ 구조 · 권한(가짜 A·B — 주소록 insert A 통과 · B 42501 · customer 머리 UPDATE 0 · so_copy_customer 직접 42501) · 문지기(insert non-draft P0001 · status update P0001 · status 그대로 update 통과)
+        CHECK 아홉 시험(get stacked diagnostics constraint_name 으로 아홉 모두 OK — 정규식으로 긁으면 표 이름이 먼저 잡힌다) · so_price_for(ABC59130 T1 16.39 · T3 27.49 · REFERENCECOST null · BEL43475-12 T1 16.99 고정가 · 세트 계산 한 건 식과 같다 · 가격 없는 sale 티어 null)
+        so_line_total 13.89(단가 먼저 자르면 13.92) · 회사/사람 넷 · so_copy_customer(Xeonium) · 흔적 0 · 시퀀스 무접촉
+        ⚠️ 배운 것: 한 트랜잭션 안에서는 now() 가 같다 — updated_at > created_at 같은 시각 비교로 판정하지 마라(예상 쪽 오류였다)
+①b 20260923191030_so_write_rpc.sql    1,051행 · inv_config 1행 · 함수 14(속 4 + 창구 10) · definer 9 · so_detail invoker
+   검증 ✅ 권한 B 아홉 거부(문장 그대로) · 표 직접 insert/update 42501 · so_create SO-25000 경고 0 · 합치기 6→12 · 다른 단가 ask(줄 수 그대로) ·
+        붙여넣기 판정어 여섯(merged · ok · not_found · inactive 17251 · no_price AIA03507 · duplicate) · 줄 1 = 17 × 16.39 = 278.63 · BEL43475-12 16.99 · 무상 0 + sample(덮어쓰기) · 거부 둘(사유 없는 0 · label 만) ·
+        운임 110.50 _99_ · 티어 AONE → 경고 셋(direct_order_tier_unexpected · tier_differs_from_customer · lines_keep_prices) · compare 티어 거부 · so_detail 총 144.48 ·
+        비활성 손님(Asung Employee - Brandon Kim) 거부 · pos 거부 · 없는 오더 거부 · so_delete cascade(줄 2 · 운임 1) · 시퀀스 setval → 25000 · f · 가짜 직원 0
+①c 20260923192101_so_charge_nonneg.sql 92행 · so_charge_amount_ck · so_charge_set 재발행(마지막 정의 20260923191030:843 과 diff — 바뀐 줄 1 「create → create or replace」 · 더한 줄 3)
+   검증 ✅ so_charge_amount_ck CHECK ((amount >= (0)::numeric)) · so_charge_set 1개 · 음수 → 'A charge cannot be negative — use a credit note — nothing was saved' · 0 통과 · 110.50 통과 _99_ · 표 직접 −1 → 23514 so_charge_amount_ck · 운임 2 · 시퀀스 25000 · f · 가짜 직원 0
+```
+
+### 12-g 전환 전 점검 · 사실
+
+```
+⭐ 전환(Asung-IMS 를 운영으로 올리기) 전 — so_number_seq 가 25000 · is_called f 인지 본다(첫 실제 번호가 SO-25000 이어야 한다) · 시험이 소비한 번호는 rollback 밖에서 setval 로 되돌린다(so 가 비어 있을 때만)
+⚠️ inv_config 는 auth_all — so_direct_order_tier_code 를 로그인한 누구나 바꿀 수 있다 · 경고만 좌우하므로 사고 크기는 작다 · 잠그려면 별건
+⚠️ so_number_seq 의 authenticated grant(usage · select)는 남아 있으나 쓰이지 않는다(definer 창구가 nextval)
+⚠️ ims_staff.auth_user_id 에 FK 가 없다(20260915141105) — 가짜 직원 시험이 가능한 이유 · 운영에 남기지 않는다
+📌 가짜 직원 시험은 트랜잭션 안에서만 · 검증 heredoc 은 do $$ … exception when <조건> 으로 감싼다(예외가 나면 트랜잭션이 abort · asung-workflow §5)
+```
+
+### 12-h ⬜ 남는 것
+
+```
+확정·할당(②) — so_status_guard v_ok 에 draft→confirmed 등 짝 · 가용 재고 함수 · so_reserve 창구 · 가격 없는 줄(unit_price null) 확정 거부
+할인 규칙 차수 — Cin7 Product Discounts · Deals → so_line_quote 의 d 한 줄(greatest) · 사람이 줄 할인을 고칠 수 있다(지금도 so_line_update discount_pct)
+Shopify 연동 차수 — 스토어 설정의 티어(aonebeauty.com → AONE · asung.ca → Wholesale)로 오더를 받는다 · 경고 ④ 가 뜬 오더를 매니저 목록에 · 스토어 칸 낱말은 channel 이 아니다(판정 B ⚠️)
+전환 전 손님 티어 정리 — 판매 이력의 문서 티어로 「기본 Wholesale · 실제 AONE」 명단(먼저 확인: 판매 데이터에 문서 티어 칸이 적재돼 있는가 — BQ·Cin7 쪽)
+손님 정리 거리(재적재 때 · Cin7 에서 정리 → 재적재가 가져온다) — 이메일 겹침 69개(245명 · 대부분 체인) · 전화 겹침 16개(34명) · 쓰레기 손님 test@digitalcoo.com 다섯 · 부모로 안 이어진 체인(Hera Beauty 18 · Clore 14 · Regina/Rex Beauty 13 · Beauty Collection 6)
+customer.price_tier 옆 FK 칸 — 재적재 차수(ImsLoadCustomer 함께 · 11-f)
+so_lines_paste 반환의 unit_price 가 29자리로 찍힌다(저장값은 numeric(18,7) 정상 · 표시만 · 화면이 반올림)
+so_line.tax_rule 의 출처(오더 값 vs product.sale_tax_rule) — 인보이스 차수 · so_charge_set 의 description·tax_rule 은 update 때 null 이면 비운다(patch 아님) — 화면 차수에서 불편하면 patch 모양으로
+다시 가격 매기기 창구 · 비활성 손님의 초안(만들 수 없다 · 이미 있는 초안은 남는다) · so_current_staff 거부 문장의 verb
 ```
