@@ -12,7 +12,7 @@ description: >
   "StockReceivedStatus", "OrderStatus", "Status 필터", "파라미터 무시",
   "429", "rate limit", "백오프",
   "재평가", "Stock Revaluation", "Stock Level Report", "bin 재고 리포트",
-  "Movement Details", "MarketingConsent", "JobTitle" 등의
+  "Movement Details", "MarketingConsent", "JobTitle", "Deals Export", "Product Discounts" 등의
   키워드가 나오면 반드시 이 스킬을 먼저 읽고 코드를 작성하세요. 엔드포인트 URL, 파라미터 이름, 
   응답 구조가 정확히 문서화되어 있으므로 추측으로 코드를 작성하지 마세요.
 ---
@@ -399,3 +399,12 @@ const adjustments = fetchAllPages('stockadjustmentList', {
 - **`Invoice[].AdditionalCharges`** 의 **`Account`** 가 재고 여부를 가른다 —
   `_59_`(Discount·Rounding)는 재고, `_95_`(Freight·Commission)는 손익.
   ⚠️ **`Order.AdditionalCharges` 에는 `Account` 필드가 없다** — 판정은 `Invoice` 쪽으로.
+
+### ⚠️ Product Discounts · Deals — API 없음 · 화면 Export CSV 로만 (2026-09-23 실측 · IMS 할인 규칙 차수)
+
+- **엔드포인트가 없다** — 공식 목록에 Product Discounts · Deals 가 없고 이 스킬 grep 도 0(짐작이 아니라 「문서·스킬에 없다」). 딜은 Cin7 화면 **Deals → Export(CSV)** 로 받는다(`docs/probes/Deals_2026-09-23.csv` · 97줄 · 딜 26).
+- **CSV 열 24**: `TaskID`(딜 GUID · 적재 열쇠) · `DealName` · `DateFrom` · `DateTo`(YYYYMMDD · 둘 다 빌 수 있다) · `IsActive` · `AllowCoupons` · `SingleUse` · `CouponCodes` · `CustomerGroup`(All customers | Selected) · `CustomerName`(콤마 목록 · 이름) · `CustomerTagName` · `DiscountName` · `EntireOrder` · `BrandName`(콤마 목록) · `CategoryName` · `CommaDelimitedTags` · `ProductSKU`(콤마 목록) · `BuyX` · `BuyOrMore` · `BuyXValue` · `BuyAmount` · `GetX` · `GetXValue` · `GetAmount`.
+- ⚠️ **% 칸이 없다** — 할인률은 `DiscountName` 글자에서만: `Discount 10%` · UOM 태그 이름(`GM20UOM12` = 20% · 12개 이상) · `Discount: Case 12 Salon Pro Glue` 류는 % 를 못 읽는다. **「몇 개 이상」 칸도 없다** — UOM 태그 이름에서만.
+- 한 줄에 범위가 둘일 수 있다(브랜드+SKU · SKU+태그) · 딜 한 개가 여러 줄(DiscountName 마다) · 오더 전체 딜은 `EntireOrder True · BuyX 'Order total' · BuyOrMore True · BuyAmount 1.00` · 기한이 지나도 `IsActive True` 로 남는다(날짜가 정한다).
+- 제품 `Tags` 는 `GET /product` 의 콤마 문자열(GUID 없음 · 실측 1,245종 · 케이스 태그 `GM|HS<%>UOM<수량>` 1,217 제품) — IMS 는 `product_tag` 로 옮긴다(글자 그대로 · asung-so 4-c).
+- Cin7 도움말: 한 제품에 할인이 둘 이상이면 **가장 좋은 하나만** · 쌓이지 않는다(IMS D5 와 같다).

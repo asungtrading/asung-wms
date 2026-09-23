@@ -116,6 +116,7 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
    ⚠️ `^\s*(begin|commit)\b` 로 세면 함수 본문의 plpgsql `begin` 이 걸린다 — 2026-09-23 `20260923154749_price_tier.sql`(트리거 함수 하나)이 첫 사례
    `&& supabase migration repair --status applied <버전> --db-url …` 로 잇는다(적용이 실패하면 이력도 안 적힌다)
 ⭐ 표를 세우는 차수의 순서 — 프로브 → 판정 → 마이그레이션 → 적재 dryRun → Apply → Verify → SQL 눈 확인 (2026-09-22 손님 적재가 이 순서로 하루에 섰다)
+⭐ **날짜 기본값·비교는 `ims_today()`(토론토)** — `current_date` 는 UTC 라 토론토 저녁 8시(겨울 7시) 뒤 내일이다(2026-09-23 · so.order_date · 세일 기간 · 백오더 만료 같은 뿌리 · PO 26곳은 Caleb 판정 대기)
 ```
 
 ---

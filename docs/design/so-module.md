@@ -822,7 +822,7 @@ surcharge_label                       예 US Tariff — 몇 년 뒤 「이게 �
 
 ⭐ **같은 SKU 가 두 줄로 들어오면 — Caleb(2026-09-21)**: "같은 sku면 라인을 늘리지 말고 수량을 합쳐줬으면 좋겠어."
 ```
-단가가 같다   → 합친다 (10 + 5 → 15)
+단가가 같다   → 합친다 (10 + 5 → 15)  → §13
 단가가 다르다 → 합치지 않고 화면에서 묻는다
 ```
 ⚠️ **오더 안 SKU 유니크 제약을 걸지 않는다.** 합치는 것이 기본이지만 예외가 있고(단가가 다른 두 줄), 제약을 걸면 그 예외에서 저장 자체가 막힌다. **합치는 일은 화면과 import 가 한다.** ⚠️ PO 와 다른 자리다 — PO 의 `po_lines_paste` 는 같은 제품이 있으면 그 줄을 가리켜 알려 주기만 한다(`20260916181719` 242행 · 합치지 않는다). §4 대칭표에 한 줄 더한다(5-i).
@@ -1460,7 +1460,7 @@ credit_number   CR-01000 부터     여유 372
 조건    같은 손님 · 같은 창고 · ⚠️ 릴리스 전(at_wms 이전 · 6-e 의 선)
 번호    합쳐진 쪽이 새 번호를 받는다 (SO-25010)
         원본은 번호를 지킨 채 status = cancelled · closed_reason = 'merged' 로 닫히고 merged_into_id 를 가리킨다   (✅ Caleb 판정 2026-09-22 · 검토 이견 1 채택 — 6-a 에 closed 상태가 없다 · 끝 상태는 fulfilled·cancelled 둘 · 「그 밖은 ④」의 첫 값이 merged)
-라인    ①의 규칙과 같다 — 단가가 같으면 합치고 다르면 화면에서 묻는다(5-e)
+라인    ①의 규칙과 같다 — 단가가 같으면 합치고 다르면 화면에서 묻는다(5-e)  → §13
 할당    ⭐ 원본의 so_reserve 줄을 풀고(released_at) 새 오더가 확정 때 다시 건다(6-d) — §2-h 창고 변경과 같은 「풀고 다시 건다」(✅ 판정 · 지시서에 없던 줄)
 ```
 ⚠️⚠️ **릴리스 뒤에는 안 된다.** 창고에 픽 배치가 이미 서 있다.
@@ -2185,10 +2185,10 @@ Sellable   Active Stock 세트 5,832 중 true 1(BEL43475-12) · 낱개 8,609 중
                        compare    ComparedPrice CAD · wholesalespecia CAD                          Shopify 비교가 · 결제에 쓰지 않는다
                        reference  REFERENCECOST USD                                                참고값 · 파는 가격이 아니다
     근거: 비교가 티어를 손님에게 붙이면 줄 그은 값으로 청구한다 · 손님이 안 쓰는 티어도 손으로 넣은 값이라 버리면 되살릴 수 없다 · Franchise = sale 은 짐작(손님 0 · 이름·값으로)
-②  세트 할인은 세트마다 하나 — product.set_discount_pct · 모든 티어에 같이 걸린다
+②  세트 할인은 세트마다 하나 — product.set_discount_pct · 모든 티어에 같이 걸린다  → §13
     세트 가격 = 낱개의 그 티어 가격 × pack_factor × (1 − set_discount_pct/100)
     근거: 지금 세트로 파는 것은 하나뿐 · 티어 간 차이는 낱개 가격이 이미 담는다 · 필요해지면 그때 넓힌다
-    📌 손님 기본 할인(§1-k)과 다른 자리 — 오더 줄에서는 세트 가격 → 손님 할인 순(짐작 · 오더 가격 차수에서 확정)
+    📌 손님 기본 할인(§1-k)과 다른 자리 — 오더 줄에서는 세트 가격 → 손님 할인 순(짐작 · 오더 가격 차수에서 확정)  → §13
 ③  가격표 = 제품 × 티어 → 가격 한 표(product_price) — 낱개: 줄이 있다 = 정본 가격 · 세트: 보통 줄이 없다 = 계산 · 줄이 있으면 = 고정가(계산값보다 줄이 이긴다)
     ⭐ 줄마다 출처를 남긴다 — 어디서 왔나(source) · 언제(price_set_at) · 누가(price_set_by)
        근거: 가격식 차수의 「한 번 정해지면 안 바꾼다」·「일괄 재적용 때 사람이 고친 값은 덮지 않는다」가 이 칸에 선다 · 나중에 더하면 옮겨 온 줄의 출처가 빈다
@@ -2259,7 +2259,7 @@ unmatched_customer_tiers 0 · 손님 티어 분포 Wholesale 7,421 · AONE 2,045
   IncludeBOM 은 Limit 500(1000 이 안 온다 · PriceTierProbe 실측) · 열쇠 (product_id, tier_id) · price_set_at 은 트리거가 지킨다(같은 값이면 안 움직인다)
   검증: 낱개 줄 수 ≈ 채움 실측(Wholesale 8,594 …) · unmatched 0 · 세트 줄 = BEL43475-12 셋
 customer.price_tier · so.price_tier 원문 옆에 FK 칸(price_tier_id → ref_price_tier) 붙이기 — 원문 매칭 name(글자 그대로 일치 실측)
-오더 가격 차수  세트 가격 계산 창구 하나(낱개 × pack_factor × (1 − set_discount_pct/100) · 고정가 줄이 이긴다 · 반올림 round(…,2)) · 세트 가격 → 손님 할인 순(짐작 확정) · 손님 통화 ≠ 티어 통화 알림 · 고정가 세트 목록(화면)
+오더 가격 차수  세트 가격 계산 창구 하나(낱개 × pack_factor × (1 − set_discount_pct/100) · 고정가 줄이 이긴다 · 반올림 round(…,2)) · 세트 가격 → 손님 할인 순(짐작 확정) · 손님 통화 ≠ 티어 통화 알림 · 고정가 세트 목록(화면)  → §13
 가격식 차수     source='formula' · 서플라이어별 식 · 신제품에만 · 일괄 재적용 창구(manual 무접촉) · pricing 묶음(ims_perm_catalog)
 Shopify 연동    스토어 설정(판매 티어 · 비교 티어) — 티어 표에 짝 칸 없음
 ```
@@ -2332,7 +2332,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
         근거: 「모르는 0」과 「일부러 0」을 가른다 · Caleb 「free goods을 얼마나, 얼마나 자주 주는지 알고 싶다」 ⇒ 자주 = free_reason 줄 수 · 얼마나 = 원가(출고 원장 FIFO) + 받았을 금액(list_price 가 남는다)
 판정 3  반올림 = Cin7(실측 7% 손님 인보이스 아홉 줄 일치 · Caleb 캡처) — 가격표 값 센트 · 세트 = round(낱개 × pack_factor × (1 − set_discount_pct/100), 2) · 할인 뒤 단가는 자르지 않는다(numeric(18,7)) ·
         줄 합계 = round(qty × unit_price, 2) 하나(so_line_total · 덮어쓴 줄도 같다) — unit_price = list × (1 − d/100) 을 자르지 않고 담으므로 판정 식과 같다(ANN01314 6 × 2.49 × 0.93 = 13.8942 → 13.89 · 단가 먼저 자르면 13.92 틀림)
-판정 4  줄 할인 = greatest(손님 기본, 그 줄에 맞는 세일) — 더하지 않는다(Caleb 「세일 20% · default 7% 면 합산하지 않아」 · Cin7 도움말) · 세일은 할인 차수 · 식 한 곳 so_line_quote 의 d 에 자리를 비워 뒀다
+판정 4  줄 할인 = greatest(손님 기본, 그 줄에 맞는 세일) — 더하지 않는다(Caleb 「세일 20% · default 7% 면 합산하지 않아」 · Cin7 도움말) · 세일은 할인 차수 · 식 한 곳 so_line_quote 의 d 에 자리를 비워 뒀다  → §13
 판정 5  쓰기는 창구로만 — 표 넷은 읽기만(select 정책 · select grant 그대로) · 창구는 security definer · 첫 줄 ims_require_write('sales') 가 유일한 문 · set search_path = public, pg_temp
         ⚠️ PO 와 다르다 — PO 는 security invoker + auth_all/쓰기 정책이라 화면이 표를 직접 update 할 수 있었고 그 길로 사고(po.html setStatus · po-module 2489행). 트리거는 status 만 지키고 · 합치기·가격 없음·무상 사유는 창구가 지킨다(6-g′ 「관례만으로는 막히지 않는다」)
         대가: 창구 하나라도 첫 줄이 빠지면 누구나 쓴다 ⇒ 검증은 창구 열 개 전부 「sales 없는 신원 → 거부」(12-f ✅ 아홉 거부 · so_detail 은 읽기)
@@ -2375,7 +2375,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 ⬜4 가격 창구   so_price_for(product_id, tier_id) → (list_price, price_source row|set_calc|null) · 순서: 활성 product_price 줄(낱개 정본 · 세트 고정가) → 세트이고 줄 없으면 낱개 활성 줄 × pack_factor × (1 − set_discount_pct/100) round 2 → null
               티어는 purpose sale · 활성만 · 가격 줄은 is_active 만(11-g ②) · 낱개 가격 없으면 세트도 null · pack_factor 없으면 null · 늘 한 행 · product.is_active 는 안 본다(비활성 거부는 so_line_add 의 일)
               'set_fixed' 는 따로 두지 않는다(고정가 세트는 첫 단계 row 로 잡힌다 · 안과 다른 이름 하나) · 줄 합계 so_line_total(so_line) 하나 — 덮어쓴 줄도 round(qty × unit_price, 2)
-⬜5 줄 넣기     같은 SKU: unit_price is not distinct from 이면(null 끼리도) qty 를 더한다(merged) · 다르면 ask(줄 안 넣음 · 기존 줄 목록 반환 · 화면이 고른다) · p_force_new 로 새 줄
+⬜5 줄 넣기     같은 SKU: unit_price is not distinct from 이면(null 끼리도) qty 를 더한다(merged) · 다르면 ask(줄 안 넣음 · 기존 줄 목록 반환 · 화면이 고른다) · p_force_new 로 새 줄  → §13
               비활성 제품 거부(되묻지 않는다) · 넣는 순간 굳힌다 sku · product_name · unit(ref_unit.name → 없으면 uom_name) · pack_factor(없으면 1 = 낱개) · list_price · discount_pct · unit_price · tax_rule 은 오더(손님) 값(짐작 — 인보이스 차수가 product.sale_tax_rule 을 볼지 판단)
               초안의 줄은 가격표가 바뀌어도 따라가지 않는다 · 다시 가격 매기기 창구는 만들지 않는다(필요해지면)
 ⬜6 손님 바꾸기 줄·운임이 하나라도 있으면 거부 'Remove all lines and charges before changing the customer — nothing was saved' · 바꿀 때 so_copy_customer 를 다시(so_create 와 공유)
@@ -2471,7 +2471,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 
 ```
 확정·할당(②) — so_status_guard v_ok 에 draft→confirmed 등 짝 · 가용 재고 함수 · so_reserve 창구 · 가격 없는 줄(unit_price null) 확정 거부
-할인 규칙 차수 — Cin7 Product Discounts · Deals → so_line_quote 의 d 한 줄(greatest) · 사람이 줄 할인을 고칠 수 있다(지금도 so_line_update discount_pct)
+할인 규칙 차수 — Cin7 Product Discounts · Deals → so_line_quote 의 d 한 줄(greatest) · 사람이 줄 할인을 고칠 수 있다(지금도 so_line_update discount_pct)  → §13
 Shopify 연동 차수 — 스토어 설정의 티어(aonebeauty.com → AONE · asung.ca → Wholesale)로 오더를 받는다 · 경고 ④ 가 뜬 오더를 매니저 목록에 · 스토어 칸 낱말은 channel 이 아니다(판정 B ⚠️)
 전환 전 손님 티어 정리 — 판매 이력의 문서 티어로 「기본 Wholesale · 실제 AONE」 명단(먼저 확인: 판매 데이터에 문서 티어 칸이 적재돼 있는가 — BQ·Cin7 쪽)
 손님 정리 거리(재적재 때 · Cin7 에서 정리 → 재적재가 가져온다) — 이메일 겹침 69개(245명 · 대부분 체인) · 전화 겹침 16개(34명) · 쓰레기 손님 test@digitalcoo.com 다섯 · 부모로 안 이어진 체인(Hera Beauty 18 · Clore 14 · Regina/Rex Beauty 13 · Beauty Collection 6)
@@ -2479,4 +2479,186 @@ customer.price_tier 옆 FK 칸 — 재적재 차수(ImsLoadCustomer 함께 · 11
 so_lines_paste 반환의 unit_price 가 29자리로 찍힌다(저장값은 numeric(18,7) 정상 · 표시만 · 화면이 반올림)
 so_line.tax_rule 의 출처(오더 값 vs product.sale_tax_rule) — 인보이스 차수 · so_charge_set 의 description·tax_rule 은 update 때 null 이면 비운다(patch 아님) — 화면 차수에서 불편하면 patch 모양으로
 다시 가격 매기기 창구 · 비활성 손님의 초안(만들 수 없다 · 이미 있는 초안은 남는다) · so_current_staff 거부 문장의 verb
+```
+
+## §13 SO 할인 규칙 — 제품 태그 · 딜 · 오더 전체 할인 · 창구 끼우기 · 「오늘」= 토론토 (2026-09-23 · 지시서 `~/asung/prompts/so-deal-1.md` · 검토 이견은 회신에)
+
+### 13-a 자리 · 범위 (✅ Caleb 2026-09-23)
+
+```
+자리      쓰기 ①(초안 · §12)과 ②(확정·할당) 사이 — Caleb 「첫 차수 마치고, 둘째 차수 전에 할인을 다루는 것으로」
+둘로 나눔  ②-0a 20260923224900_so_deal.sql(442행) = 표 다섯 · 정책 · 문지기 둘 · so_deal_best · so_order_discount · so/so_line 새 칸 · set_discount_pct 주석 · ims_perm_catalog 라벨
+          ②-0b 20260923232500_so_deal_rpc.sql(1,033행) = ims_today · so.reprice_suggested_at · so_line_quote 새 시그니처 · 속 함수 둘 · 창구 여섯 재발행 · so_reprice 신설
+          ⚠️ 운영에서는 둘을 한 번에 — ②-0a 뒤 ②-0b 전까지 ①b 의 so_line_add · so_lines_paste · so_line_update 는 so_line_discount_pair_ck 로 거부된다(출처 칸을 모른다) ·
+             테스트 DB 에서 오더를 쓰는 사람이 없어 사고가 아니었다
+적재는 밖  태그(Cin7 Tags · 새 GAS) · 딜(Export CSV → Drive → GAS) — 적재 차수(13-k) · 이 차수는 표만
+```
+
+### 13-b 실측 (2026-09-23 · Caleb 실행 · 캡처 · `docs/probes/Deals_2026-09-23.csv` · `docs/probes/CaseDiscountProbe.gs`)
+
+```
+Cin7 구조   두 층 — ① Product Discounts(할인 「틀」 48 · 얼마나) ② Product Deals(26 · 누구에게·언제·무엇에) · 도움말: 한 제품에 할인이 둘 이상이면 가장 좋은 하나만 · 쌓이지 않는다
+            API 에 Product Discounts · Deals 엔드포인트 없음(공식 목록 · cin7-api 스킬 grep 0) — 딜은 화면 Export(CSV)로 받았다
+Export CSV  97줄 · 딜 26 · 열 24(TaskID · DealName · DateFrom · DateTo · IsActive · AllowCoupons · SingleUse · CouponCodes · CustomerGroup · CustomerName · CustomerTagName · DiscountName ·
+            EntireOrder · BrandName · CategoryName · CommaDelimitedTags · ProductSKU · BuyX · BuyOrMore · BuyXValue · BuyAmount · GetX · GetXValue · GetAmount)
+            ⭐ % 칸이 없다 — % 는 DiscountName 글자에서만: 「Discount N%」 67줄 · UOM 태그 이름(GM20UOM12 → 20% · 12 이상) 25줄 · 「Discount: Case 12 Salon Pro Glue」 류 7줄(Case Discount 딜 · IsActive False · 2026-03-16 종료)은 % 없음
+            「몇 개 이상」 칸도 없다 — UOM 태그 이름에서만 ⇒ Discount N% 딜은 전부 수량 무관
+            할인 전부 %(5·10·12·15·20·21·25·30·40·50) · 금액·가격 덮어쓰기 없음 · 가산 = 「Tariff Surcharge 50%」 직원 시험 딜 둘(TSK00019)
+            범위  SKU 목록(참조 2,757 · 서로 다른 1,918 · 세트 SKU 124 는 2025-11·12 세일에만) · 브랜드(Hera Beauty 의 GUMMY PROFESSIONAL·Red One · PZ 의 Kim & C · 플래시 · Blowout 26) ·
+                  태그(Blowout 의 DISC_YesSale·Clearance·DISC_NoSale_Stock · 케이스 태그 25) · 카테고리 0 · 손님 태그 0 · 한 줄에 범위 둘(브랜드+SKU · SKU+태그) 7줄 · 태그 줄은 태그 1개(한 줄만 2)
+            손님  All customers 90줄 · Selected 7줄(이름 콤마 목록 · Hera Beauty 18 · PZ Wholesale · Google Review 23곳·10곳 · 직원 시험) · ⚠️ customer.name 은 유니크 아님
+            오더 전체  EntireOrder True 2줄 — Extra 10%(23곳) · Extra 5%(10곳) · Google Review Promo · 2026-03-01 부터 · BuyX 'Order total' · BuyOrMore True · BuyAmount 1.00(「1달러 이상」 짐작)
+                  ⚠️ AllowCoupons True · CouponCodes 'EXTRA10' · 'EXTRA5' — 대화 Claude 의 「코드 비어 있음」은 틀렸다(회신 이견 1) · SO-10842 화면 「Coupon EXTRA5 (…)」는 자동인지 입력인지 화면만으로 모른다
+            날짜  YYYYMMDD · from·to 둘 다 빈 조합 넷 · 기한 지난 딜도 IsActive True(4·5월 세일) — 실제로 거는지는 날짜가 정한다 · 한 제품이 여러 딜에 동시에(AS91750 = 9월 세일 + Kim & C 플래시)
+            오늘(2026-09-23) 걸린 딜 10 — Extra10 · Extra5 · Hera Beauty · PZ Wholesale · Blowout · September · ALL DAY GOT HOLD 플래시 · Eden Bodyworks 플래시 · Surcharge Test · UOM Discount
+케이스 프로브  Cin7 제품 18,989(IncludeBOM) · Tags 있는 제품 12,372 · 종류 1,245(ASS 9,127 · AOS 7,766 · EDM_NoSale 2,390 · BOTH_NoSale_Stock 1,421 · DISC_YesSale 645 · DISC_NoSale_Stock 543 · Clearance 473)
+            케이스 태그(GM|HS<%>UOM<수량>) 제품 1,217(Active 1,079) · GM20UOM12 806 · HS15UOM12 92 · GM20UOM6 79 · 형식 어긋난 UOM 태그 0 · 세트에 붙은 태그 0
+            태그 수량 vs 세트 계수 — 가장 작은 세트와 같다 1,163 · 더 큰 세트와 같다 9(단계 할인 SPR07301 = GM10UOM12 + GM15UOM144 등 여덟) · 어느 세트와도 다르다 5(AS00968GRE·PUR·RED · COC01450 · QHE01961) · 세트 없음 48
+            % 는 브랜드로 묶이지 않는다(Kim & C 한 브랜드에 5·10·15·20) · 카테고리도 섞였다 · 태그 제품이 있는 브랜드 안 「세트는 있고 태그는 없는」 Active 낱개 1,323 — 브랜드 규칙으로 바꾸면 지금 없는 할인이 새로 걸린다
+SO-10842    (Caleb 캡처 · Hera Beauty · Extra 5%) 제품 줄 합계 9,249.51 · Order total discount 단가 −462.4755(= 9,249.51 × 5% 그대로) · 합계 −462.48 ⇒ round(제품 줄 합계 × pct/100, 2)
+            Freight 174.26 은 할인 기준에 없다(D6 ✓) · 운임 줄 할인 100% · 합계 0.00(「원래 운임 · 무료로 줌」이 남는 방식)
+            D5 실물: RON01624(Red One) 21% · 나머지 7% — Hera Beauty 딜 21% 가 손님 기본 7% 를 대신했다(28 이 아니다)
+            세금: 제품 줄 세금 462.48 과 할인 줄 세금 −23.12 를 따로 매겨 더한다 = 439.36 · 한 번에 매기면 439.35(1센트) — 인보이스·세금 차수 ⬜
+```
+
+### 13-c 청취 (Caleb 2026-09-23 · 말 그대로)
+
+```
+「GM과 HS는 우리가 약속하고 쓰는 약어야. GM-general merchandise, HS-Hair & skin care」
+「cin7 방식은 손님은 낱개를 주문하고, 12개나 그 이상을 담으면 그 제품의 택을 보고 15% 디스카운트를 적용해주는방식이야. 그리고 세일즈 오더에는 세트는 전혀 나오지 않아」
+「지금은 우리가 일일히 가격을 넣는게 너무 힘들어서, 택을 넣고, 12개를 합산하고 거기에 20% 디스카운트 이런식으로 디스카운트가 들어간거야」
+「우리는 mix and match는 사용 안해」 · 「케이스 수량에 맞는 태그를 넣고 있어」 · 「태그로도 디스카운트가 적용될 수 있었으면 좋겠어. 지금처럼 말이야」
+「전체 할인은 택스전 sub total에서 5% 디스카운트를 주는거야」 · 「운임은 포함안돼」 · (세일 기간은) 「오더 날짜로 해야지」
+(쿠폰) 「지금은 가야. 그런데 나중에는 손님이 쿠폰 코드를 넣으면 되게 하고 싶어」 · (다시 매기기 창구) 「cin7에도 있는데, 편리한 것 같아」
+```
+
+### 13-d 판정 D1~D9 (✅ Caleb 2026-09-23)
+
+```
+D1  두 층을 딜 한 층으로 — 할인 「틀」 표를 만들지 않는다 · 딜 줄에 % 를 바로 적는다(쓰이는 틀이 사실상 「몇 %」뿐)
+D2  딜 = 이름 · 기간(from · to · 둘 다 선택) · 켜짐 · 대상 손님(전체 | 고른 손님 목록) · 딜 줄 = % · 걸기(태그 | 브랜드 | SKU — 섞어도) · 빼기(태그 + 낱개 SKU · 브랜드 빼기 없음) · 몇 개 이상
+    판정 = 「걸기에 들고 · 빼기에 없고 · 줄 수량이 기준 이상」 · ⭐ 빼기는 그 딜 줄에서만 — 다른 딜이 같은 제품을 따로 걸면 그쪽은 산다(②-0a 검증 T5b = 25 · 대화 Claude 지시서 §5 「뺀 둘은 손님 기본」은 틀렸다)
+D3  몇 개 이상 = 비움(수량 무관) | 숫자 N(N 이상) | 케이스(그 낱개의 켜진 세트 중 가장 작은 계수 이상 · 세트가 없으면 걸리지 않는다)
+    ⚠️ 「케이스」 줄은 미리 보기 화면(걸리는 제품 N · 지금 할인 없는 M · 다른 % 태그 K · 뺀 제품)이 서기 전에는 만들지 않는다 — 표만 · Cin7 UOM Discount 25줄은 qty 모드(단계 할인 8개는 144 줄이 「가장 작은 세트」가 아니다)
+D4  태그 방식을 유지한다 — product_tag(1,245종 전부 옮긴다 · Shopify 쪽 쓰임도 있다 · IMS 에서 붙이고 뗀다) · 글자 그대로 unique · 대소문자만 다른 짝은 적재가 멈추고 보고
+D5  줄 할인 = greatest(손님 기본, 그 줄에 맞는 딜 줄들의 %) — 더하지 않는다(12-b 판정 4 · SO-10842 21%) · mix & match 없음 — 그 줄(같은 SKU 한 줄)의 수량만 · 같은 SKU 두 줄(p_force_new)은 줄마다 따로
+D6  오더 전체 할인 — D5 의 예외 · 줄 할인이 끝난 제품 줄 합계에 한 번 더 · 세금 전 · ⚠️ 운임(so_charge) 제외 · 금액 = round(합계 × pct/100, 2)(SO-10842) · 제품 줄 합계 → − 전체 할인 → + 운임 → 세금
+    지금은 대상 손님 목록이면 자동(코드는 보지 않는다) · so_deal.coupon_code 원문 칸은 두되 계산에 안 쓴다 · 손님이 코드를 넣는 방식은 Shopify 연동 차수
+D7  기간은 오더 날짜(so.order_date)로 판단한다 — 줄을 넣은 날이 아니다 · 세일이 끝난 뒤 넣은 줄은 경고 deal_ended_before_line_added(줄 넣기 · so_detail)
+D8  product.set_discount_pct 는 칸을 두되 뜻을 좁힌다 — 「세트 SKU 자체를 팔 때 그 세트 가격의 할인」만 · 지금은 비워 둔다 · 케이스 할인은 전부 딜 ⇒ 11-c 판정 ② 를 뒤집는다(칸 주석만 새 파일에서 · so_price_for set_calc 식은 그대로)
+D9  옮기지 않는 것 — 금액 할인 · 가산(Tariff Surcharge — 오더 줄 부가 요금 칸 5-e 가 맡는다) · 가격 덮어쓰기 · 무료 배송 · 쿠폰 · Buy X Get Y · 카테고리 범위 · 손님 태그 범위
+```
+
+### 13-e 검토 이견 14 · 판정 2·3 · ⬜1~⬜8 결론 (✅ Caleb 2026-09-23 · 전부 채택)
+
+```
+이견 1   CSV 실물 CouponCodes EXTRA10·EXTRA5 — 「코드 비어 있음」 근거를 바꿨다(D6)                         이견 8   같은 SKU 두 줄은 줄마다 따로 판정(명시)
+이견 2   so_line_quote 는 수량을 받아야 한다 — drop 뒤 (so, uuid, numeric) · grant 다시                        이견 9   오더 전체 반올림은 SO-10842 실측으로 닫음(round 2)
+이견 3   so_line_update 745행이 할인 식을 베끼고 있었다 — so_line_quote 호출로(「식 한 곳」 복원)              이견 10  CSV 에 % 칸 없음 — Case Discount 7줄은 자동으로 못 옮긴다(끝난 딜)
+이견 4   「단가가 같으면 합친다」가 수량 할인과 충돌(6+6 이 12 가 돼도 기본가에 머문다) → 판정 2                이견 11  UOM 25줄은 qty 모드 · case 모드 줄은 0
+이견 5   수동 할인과 계산 할인을 가를 칸 — so_line.discount_source(customer|deal|manual) + deal_line_id       이견 12  D8 은 새 파일의 comment on column 만(적용된 두 파일 머리 주석은 못 고친다)
+이견 6   오더 전체 딜은 「줄 하나 강제」가 아니라 so_deal.order_pct + 짝 CHECK + BEFORE 트리거(표 사이 규칙 하나)  이견 13  태그 대소문자 — 글자 그대로 unique · 적재가 짝을 만나면 멈춤
+이견 7   오더 날짜·티어를 바꾸면 줄을 다시 매기나 → 판정 3                                                    이견 14  API 없음은 「공식 목록·스킬 grep 0」이지 확인이 아니다
+판정 2   합치기 — 시스템이 매긴 줄(price_override=false · discount_source <> manual)은 제품만으로 짝을 찾아 늘 합치고 합친 수량으로 다시 견적 · 사람이 정한 줄(덮어쓴 단가 · 수동 할인)만 단가 비교(다르면 ask) · 붙여넣기도 같다
+         ⇒ 5-e 「단가가 같으면 합친다」를 뒤집는다(13-i)
+판정 3   줄 자신의 변화(넣기 · 합치기 · 수량)는 자동으로 다시 매긴다 · 바깥 조건(오더 날짜 · 티어 · 손님 기본 할인)이 바뀌면 줄은 그대로 + 경고 reprice_suggested + 표시(so.reprice_suggested_at) ·
+         「할인 다시 매기기」 창구 so_reprice — 시스템 줄 전부 · 사람이 정한 줄 그대로 · 오더 전체 할인은 source deal 일 때만 · 반환 줄마다 이전 → 새 · ⭐ 할인만이다(list_price 는 그대로 · ⬜5 유지)
+⬜1  표 다섯 이름 product_tag · so_deal · so_deal_customer · so_deal_line · so_deal_target(9-b · 딜은 SO 소유 마스터 · 태그는 product_barcode 결) · 파일 <시각>_so_deal.sql
+⬜2  브랜드 걸기는 product.brand_id(FK) — brand_name 원문 아님 · 빈 76곳(+ 이름 못 맞춘 곳)은 브랜드 딜에 영원히 안 걸린다(대가)
+⬜3  계산 창구 so_deal_best(product, customer, qty, on) → (pct, deal_id, line_id) · so_line_quote 가 greatest(손님 기본, best.pct) · 큰 쪽의 출처(같으면 customer) · so_order_discount(so_id) → (pct, deal_id)
+⬜4  so.order_discount_pct · order_discount_deal_id · order_discount_source(deal|manual) 굳힘 · so_create · 손님·오더 날짜 바꾸기(source deal 일 때만) · so_header_update 열쇠 order_discount_pct(값 → manual · null → 다시 · 0 = 사람이 껐다)
+⬜5  딜·태그 쓰기 = master · 방식 = RLS 쓰기 정책(product_price 선례) · 창구는 화면 차수 · ⚠️ 거래 표 넷의 「창구만」(12-b 판정 5)과 다른 이유: 딜·태그는 마스터(설정)다 — 화면 사고가 난 자리는 거래 상태 전이였고,
+     표 사이 규칙은 이견 6 으로 트리거 하나에 들어갔다 · 적재는 service_role 이라 창구를 타지 않는다 · 900행 한도
+⬜6  인덱스 so_deal_target(product_id · brand_id · tag) · so_deal_customer(customer_id) · product_tag(tag) · 딜 후보(켜짐·기간·손님)를 먼저 좁히면 작다 — 실측 so_deal_best 2.5ms
+⬜7  둘로 나눔(13-a) · ⬜8 적재는 이 차수 밖 · CSV 사실은 13-k
+```
+
+### 13-f 표 다섯 · 함수 · 칸 (②-0a · ②-0b · 정본은 파일 주석)
+
+```
+product_tag        관계 표 규약 · product_id · tag(글자 그대로 · btrim · 빈 문자열 금지) · unique (product_id, tag) · index (tag) · cin7_id 늘 null · source cin7|manual · DELETE 열림
+so_deal            마스터 규약 · cin7_id = Export TaskID(적재 열쇠) · name(유니크 없음) · is_active · date_from · date_to(null = 열림 · from <= to) · customer_scope all|selected ·
+                   is_order_level · order_pct 짝 CHECK(is_order_level = (order_pct is not null)) · coupon_code 원문(계산 안 씀) · DELETE 없음
+so_deal_customer   deal_id · customer_id · unique 둘 · scope all 이면 뜻 없음(막지 않는다) · selected 인데 비면 아무에게도 안 걸린다(안전한 쪽)
+so_deal_line       deal_id · line_no · pct(0 < pct <= 100) · min_qty_mode none|qty|case · min_qty 짝 CHECK((mode = qty) = (min_qty 있음)) · unique (deal_id, line_no)
+so_deal_target     line_id · kind include|exclude · target tag|brand|product · 값 칸 셋 중 하나만(so_deal_target_value_ck) · exclude 는 brand 금지 · ⭐ 유니크 하나 so_deal_target_uq unique nulls not distinct (line_id, kind, target, tag, brand_id, product_id)
+                   ⚠️ 부분 유니크 인덱스 금지(asung-wms 규칙 29 · PostgREST on_conflict · 2026-07-29 실사고) — 처음 낸 partial unique 셋을 적용 전에 바꿨다 · nulls not distinct 는 PG15 부터(테스트 DB 17.6)
+문지기 둘          so_deal_line_order_level_guard(BEFORE INSERT/UPDATE OF deal_id · 부모가 오더 전체 딜이면 거부) · so_deal_order_level_guard(줄이 있는 딜을 오더 전체로 바꾸면 거부)
+so 새 칸           order_discount_pct(0~100) · order_discount_deal_id · order_discount_source deal|manual · 짝 CHECK 둘(pct ⇔ source · deal_id ⇔ source = deal) · reprice_suggested_at
+so_line 새 칸      discount_source customer|deal|manual · deal_line_id · 짝 CHECK 둘(discount_pct ⇔ source · deal_line_id ⇔ source = deal) · 덮어쓴 줄(price_override)은 둘 다 null
+함수               so_deal_best · so_order_discount(늘 한 행 · 없으면 null) · so_line_quote(so, uuid, numeric) → 6칸 · so_deal_line_ended(deal_line_id, on) · so_line_requote(속 함수) · so_reprice(창구) · ims_today()
+재발행 여섯        so_line_add · so_lines_paste · so_line_update · so_create · so_header_update(열쇠 30) · so_detail(totals 넷 · 경고 둘 · 줄에 deal_ended) — 원본과 diff · 빠진 규칙 0
+                   ⚠️ diff 가 잡은 것: so_lines_paste 의 SKU 정규식 [\s ] 안 비분리 공백(U+00A0)이 재작성에서 일반 공백으로 바뀌어 있었다 — 원본 바이트로 되살렸다 · 「diff 로 대조」가 아니었으면 놓쳤다
+ims_perm_catalog   master 라벨에 product tags · deals(바뀐 줄 1)
+```
+
+### 13-g 계산 규칙 (창구가 지킨다)
+
+```
+줄 할인       so_line_quote(so, product, qty) — list = so_price_for · d = greatest(coalesce(so.discount_pct,0), coalesce(so_deal_best(product, so.customer_id, qty, so.order_date).pct,0)) · unit = list × (1 − d/100) 자르지 않는다 ·
+              출처 = 딜이 더 클 때만 deal(deal_line_id 짝) · 같거나 작으면 customer · p_discount_pct 를 받으면 manual · p_unit_price 를 받으면 price_override(discount_pct·source·deal null)
+합치기        들어오는 줄이 시스템 → 같은 제품의 시스템 줄과 제품만으로 합치고 합친 수량으로 다시 견적(6 + 6 = 12 → 20% · requoted true)
+              그 밖(들어오는 줄이 수동 · 또는 시스템 줄이 없다) → 단가 비교 · 같으면 합침(합쳐진 줄이 시스템이면 다시 견적 · 사람이 정한 줄이면 수량만) · 다르면 ask · p_force_new 는 새 줄 · 붙여넣기는 수동 줄을 만들지 않는다
+다시 매기기    할인만 — 들어간 줄의 list_price 는 그대로(⬜5 「가격표가 바뀌어도 따라가지 않는다」 유지) · unit = 그 줄 list × (1 − 새 d/100) · 새로 넣는 줄만 quote 의 list 를 받는다 · 티어를 바꿔도 list 는 안 바뀐다(lines_keep_prices)
+              자동: so_line_add 합치기 · so_lines_paste 합치기 · so_line_update qty(시스템 줄만) · discount_pct 비움(시스템으로) · 수동: so_reprice · 표시: so_header_update 가 order_date · price_tier · discount_pct 를 바꿀 때 줄이 있으면 reprice_suggested_at
+오더 전체      so_order_discount(so_id) — 켜짐 ∧ is_order_level ∧ 기간(order_date) ∧ 손님 → 가장 큰 order_pct · so_create 가 굳힌다(source deal) · 손님·오더 날짜 바꾸기·so_reprice 는 source deal 일 때만 다시 · manual 은 덮지 않는다
+              so_detail totals: order_discount_amount = round(lines_total × pct/100, 2) · lines_after_discount · order_total = lines_total − amount + charges_total(운임은 기준에 없다)
+경고           deal_ended_before_line_added(줄의 딜 date_to < 줄 넣은 날(ims_today) · so_detail 은 줄 created_at 의 토론토 날짜) · reprice_suggested(so.reprice_suggested_at) · no_price · comments_not_merged
+```
+
+### 13-h ⭐ 회사의 「오늘」은 토론토 날짜다 — `ims_today()` (✅ Caleb 2026-09-23)
+
+```
+근거    DB 시각은 UTC — current_date 는 토론토 저녁 8시(EDT · 겨울 EST 7시) 이후 이미 내일이다
+        ① so.order_date 기본값 — 저녁에 만든 오더가 내일 날짜로 찍힌다   ② 세일 판단(D7 · order_date) — 9/30 저녁 오더가 10/1 이 되어 9월 세일을 놓친다   ③ 백오더 만료(5-g · order_date 로 센다)도 같은 뿌리
+대가    에드먼튼(토론토보다 2시간 늦다) 오더도 토론토 날짜를 따른다 — 창고마다 날짜를 두지 않는다
+함수    ims_today() returns date · language sql stable · set search_path · (now() at time zone 'America/Toronto')::date · authenticated execute · 공용이라 ims_ · 이름 충돌 0 · 기존엔 at time zone 'America/Toronto' 인라인 10곳뿐(원장·리시빙)
+적용    so.order_date default → ims_today() · ②-0b 안 「오늘」 넷(so_deal_line_ended 의 current_date) → ims_today() · so_detail 의 created_at::date → (created_at at time zone 'America/Toronto')::date
+⚠️      시간을 바꿔 시험할 수 없다 — 날짜 경계는 식(pg_get_functiondef · pg_get_expr)과 now()·current_date·ims_today()·토론토 시각 한 줄을 읽어 확인한다
+⬜      같은 뿌리가 다른 모듈에도 있다(13-k · Caleb 판정 대기) · 이미 적용된 ②-0a so_deal_best 의 coalesce(p_on, current_date) 둘은 못 고쳤다 — 부르는 쪽이 늘 order_date 를 주어 닿지 않는다 · 다음 재발행 때
+```
+
+### 13-i 뒤집은 것 · 닫은 것
+
+```
+11-c 판정 ②  「세트 할인은 세트마다 하나 = 케이스 할인」 → D8: set_discount_pct 는 「세트 SKU 자체를 팔 때」만 · 케이스 할인은 전부 딜 · 칸·CHECK·so_price_for 식은 그대로 · 주석만 새 파일에서(2188 · 2191 · 2262 「→ §13」)
+12-b 판정 4  「줄 할인 = greatest(손님 기본, 세일)」 그대로 — 예외 D6(오더 전체 할인은 줄 할인 뒤에 한 번 더) · 세일 자리 0 은 so_deal_best 로 채워졌다(2335)
+5-e          「단가가 같다 → 합친다 · 다르다 → 묻는다」 → 판정 2: 시스템 줄은 제품만으로 · 사람이 정한 줄만 단가 비교(825 · 1463 · 12-c ⬜5 2378)
+12-c ⬜5     「같은 SKU: unit_price is not distinct from 이면 합친다」 → 판정 2 · 「초안의 줄은 가격표가 바뀌어도 따라가지 않는다」는 유지(다시 매기기는 할인만)
+12-h        「할인 규칙 차수 — so_line_quote 의 d 한 줄」 → 닫힘(2474) · 「다시 가격 매기기 창구」 → so_reprice(할인만)로 닫힘
+so.order_date 기본값 current_date → ims_today()(13-h) · 대화 Claude 지시서 §5 「뺀 둘은 손님 기본」 → 빼기는 그 딜 줄에서만(D2)
+```
+
+### 13-j 파일 · 검증 실측 (✅ Caleb 2026-09-23 · 테스트 DB `Asung-IMS` · PostgreSQL 17.6)
+
+```
+②-0a 20260923224900_so_deal.sql      442행 · 표 5 · 정책 19 · 트리거 7(touch 5 · guard 2) · 함수 5(guard 2 · so_deal_best · so_order_discount · ims_perm_catalog 재발행) · 인덱스 16 · so 칸 3 + CHECK 4 · so_line 칸 2 + CHECK 3
+     검증 ✅(~/asung/prompts/so-deal-0a-verify.sql) 구조 · so_deal_best 계산 17(태그 6→null·12→20 · 단계 12→10·144→15 · 케이스 11→null·12→7·세트 없음 null · 브랜드 30 · 태그 빼기는 다른 딜 25 · SKU 빼기 null ·
+          기간 안 5·밖 null·꺼진 딜 무시 · 고른 손님 12·밖 null·손님 null null · 없는 제품 한 행 null) · so_order_discount(5·D7 · 기간 밖 null · 다른 손님 null · 없는 오더 한 행 null · 462.48) ·
+          거부 14(CHECK 열 · 23505 둘 · 문지기 둘 P0001) · 권한(A master 통과 · B sales 42501 · 둘 다 select) · explain 2.5ms · 흔적 0
+     📌 예상 쪽 오류 하나: so_order_discount% 제약은 5(FK so_order_discount_deal_id_fkey 가 이름으로 같이 걸린다 · 예상 4)
+     📌 시험 손님이 쓰레기 손님(';6 · €)으로 뽑혔다 — 이름 순 첫째 · 손님 정리 거리가 실제로 끼어든 예 ⇒ ②-0b 시험은 currency·is_active·sale 티어·가격 줄 있음·영문자 시작 5자 이상으로 뽑았다
+②-0b 20260923232500_so_deal_rpc.sql  1,033행 · ims_today · so.order_date default · so.reprice_suggested_at · so_line_quote(so,uuid,numeric) · so_deal_line_ended · so_line_requote · so_reprice · 재발행 여섯(definer 6 · 첫 줄 sales 6)
+     검증 ✅(~/asung/prompts/so-deal-0b-verify.sql · 19:34 EDT) 날짜(order_date 기본값 ims_today() · now·current_date·ims_today 한 줄) · 합치기 6→12(20% deal · deal_ended_before_line_added)→18 · 줄 1 · unit = list × 0.8 ·
+          수동 할인 10% 줄 qty 50 그대로 · 수동 단가 9.99 → 8.88 ask · 9.99 merged 수량만 · update 12→6(7% customer · deal null)→12(20% deal) · 붙여넣기 merged requoted + 새 SKU 7% ·
+          날짜 밖 → reprice_suggested(줄 20 그대로) → so_reprice(바뀐 줄 1 · 수동 둘 kept · 경고 둘 사라짐 · unit = list × 0.93) · 오더 전체 5% = 26.05 · 운임 110.50 제외 · 총 605.48 ·
+          수동 3% manual → so_reprice kept → null → 5 deal → 0 = manual 끔 · B 쓰기 창구 열 개(so_reprice 포함) 거부 · 읽기 둘 통과 · 시퀀스 setval 25000 f · 흔적 0 · 손님 할인 원상
+```
+
+### 13-k ⬜ 남는 것
+
+```
+「오늘」 같은 뿌리(Caleb 판정 대기 · 세기만 했다 · 고치지 않았다) — PO current_date 26곳(15 파일 · 표 기본값 넷 po.order_date · received_on ×2 · paid_on · RPC coalesce(p_날짜, current_date) 폴백 17 · 미래 날짜 경고 비교 2 · 크레딧 번호 연도 3) ·
+   원장 inv_compare_run 3(checked_on = current_date · 대조 「오늘」) · ledger_graft_2 2 · cost_graft_1 2(맥락 안 봤다) · 원장 ::date 7 은 전부 at time zone 'America/Toronto' 변환(이미 토론토) · 가격 0 · WMS baseline 0
+so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음 · 다음 재발행 때 ims_today()
+100% 딜 줄 함정 — unit_price 0 → so_line_free_pair_ck(무상 사유)에 걸린다 · 실물 최대 50% · 막을지 무상으로 볼지 판정
+무상·덮어쓴 줄이 오더 전체 할인 소계에 드는가 — 든다(짐작 · 청취 「sub total」 · SO-10842 로는 못 봤다)
+인보이스·세금 차수 — Cin7 은 제품 줄 세금과 할인 줄 세금을 따로 매겨 더한다(SO-10842 439.36 vs 한 번에 439.35 · 1센트)
+운임 할인 칸 — Cin7 은 「운임 174.26 · 할인 100% · 합계 0」으로 무료 배송을 남긴다 · so_charge 에는 할인 칸이 없다(무료 배송 측정이 필요하면 칸 판정)
+딜·태그 적재 차수 — 태그(Cin7 제품 Tags · 새 GAS · 대소문자만 다른 짝이면 멈춤) · 딜(Export CSV 를 Drive 에 · % 는 DiscountName 이름에서만 · Case Discount 7줄 % 없음 = 못 옮긴다 · 몇 개 이상은 UOM 태그 이름에서만 ·
+   손님은 이름 콤마 목록 → customer.name(유니크 아님 · 겹치면 멈춤) · SKU → product.sku · BrandName → ref_brand.name · 못 맞추면 멈춤 · 어느 딜을 옮길지(전부 · 켜져 있고 끝나지 않은 것만)는 Caleb 판정)
+손님 정리 거리 — 쓰레기 손님(';6 · €)이 시험에 뽑혔다(12-h 목록에 더한다) · 쿠폰 코드 방식(손님이 코드를 넣으면 걸린다) — Shopify 연동 차수 · so_deal.coupon_code 원문은 있다
+케이스(case) 모드 줄 — 미리 보기 화면 뒤에(D3) · 딜·태그 편집 창구 · 미리 보기 — 화면 차수 · 딜 표는 지금 master RLS 로만 쓴다
+so_header_update 의 reprice 표시에 discount_pct(손님 기본 할인)도 넣었다(판정문은 order_date · price_tier) — 빼려면 한 줄
+asung-so description 에서 뺀 키워드 so_out · credit_in · so_invoice · so_payment_alloc · so_credit_alloc(D · 2026-09-23 · 1024자 한도) — 그 차수(인보이스 · 원장 접점)에서 다시 넣는다 · IsBillParent·DefaultForType·job_title·CustomerProbe 는 정본 9-g~9-i 가 갖는다
 ```

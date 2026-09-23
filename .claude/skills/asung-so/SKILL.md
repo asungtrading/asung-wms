@@ -1,19 +1,19 @@
 ---
 name: asung-so
 description: >
-  Asung Trading IMS 의 SO(판매) 모듈 — Cin7 Core 판매 오더·손님을 대체하는 네 번째 모듈. 손님 표 셋을
-  읽거나 적재하거나 SO 거래 표를 설계·만들 때 먼저 읽으세요.
+  Asung Trading IMS 의 SO(판매) 모듈 — Cin7 Core 판매 오더·손님을 대체하는 네 번째 모듈. 손님·가격·딜·SO 거래 표를 다룰 때 먼저 읽으세요.
   "SO 모듈", "판매 오더", "세일즈 오더", "customer", "customer_address", "customer_contact", "손님 표", "손님 적재",
-  "ImsLoadCustomer", "CustomerProbe", "MarketingConsent", "마케팅 동의", "CASL", "DefaultForType", "기본 주소", "기본 배송지",
-  "청구지", "Shipping", "Billing", "Business", "parent_id", "부모 손님", "IsBillParent", "job_title", "so.status", "so.intake",
-  "Release to WMS", "at_wms", "so_out", "credit_in", "so_invoice", "so_payment_alloc", "so_credit_alloc", "재적재", "내리기",
-  "deferrable", "so-module.md"
+  "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소", "기본 배송지",
+  "청구지", "parent_id", "부모 손님", "so.status", "so.intake",
+  "Release to WMS", "at_wms", "재적재", "내리기",
+  "deferrable", "딜", "so_deal", "product_tag", "케이스 할인", "GM20UOM12", "오더 전체 할인", "so_reprice", "discount_source"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/so-module.md 를 확인하세요.
   ⚠️MarketingConsent 는 숫자다(2 Opt in · 3 Opt out · 0·1 둘 다 Unknown) — 순서·소거 추론으로 옮기지 마라,
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
   ⚠️적재는 id·parent_id·note·default_*·label 을 보내지 않는다(null 로 보내는 것과 다르다),
   ⚠️「기본 하나」 유니크는 deferrable — 한 손님의 주소·연락처는 한 요청에 모아 보낸다,
-  ⚠️SO 거래 표(so·so_line·so_charge·so_reserve)는 창구(so_create…)로만 쓴다 · unit_price null=가격 없음·0=무상.
+  ⚠️SO 거래 표(so·so_line·so_charge·so_reserve)는 창구(so_create…)로만 쓴다 · unit_price null=가격 없음·0=무상,
+  ⚠️줄 할인은 더하지 않는다 · 시스템 줄은 제품만으로 합치고 다시 견적 · 다시 매기기는 할인만 · 오늘은 ims_today(토론토).
 ---
 
 # Asung SO(판매) 모듈 스킬
@@ -29,6 +29,7 @@ description: >
 가격표          ✅ 2026-09-23 — 20260923154749(ref_price_tier 8행 · product_price · product.set_discount_pct) · 첫 적재 76,872줄 · docs/probes/ImsLoadPrice.gs · 테스트 DB(11-e · 11-g)
 SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so · so_line · so_charge · so_reserve · 시퀀스 SO-25000~) · ⑤ 20260923134840(so_merge_reason_ck 양방향) · 테스트 DB(§10)
 SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표 보정 · so_status_guard · so_price_for · so_copy_customer) · ①b 20260923191030(창구 열 개 so_create…so_detail · inv_config so_direct_order_tier_code) · ①c 20260923192101(운임 음수 금지) · 테스트 DB(§12)
+할인 규칙 ②-0   ✅ 2026-09-23 — ②-0a 20260923224900(product_tag · so_deal 넷 · so_deal_best · so_order_discount · so/so_line 출처 칸) · ②-0b 20260923232500(ims_today · so_line_quote 3인자 · 창구 여섯 재발행 · so_reprice) · 테스트 DB(§13) · ⚠️ 운영은 둘을 한 번에
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -116,8 +117,8 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
      ⚠️ PO 와 다르다(PO 는 invoker + 쓰기 정책) — PO 관례를 SO 에 옮기지 마라 · 표에 insert/update grant 를 열지 마라(이중 방어가 무너진다)
 ⭐⭐ so_status_guard — insert 는 draft 만 · status 가 바뀌는 update 는 허락 짝(v_ok)에 없으면 전부 거부 · 지금 짝 0개 · 소유자·definer 창구도 지난다 ⇒ 전이 길을 만들 때 v_ok 에 짝을 더하는 마이그레이션이 먼저   (12-b 판정 6)
 ⭐⭐ unit_price null = 가격 없음(줄은 선다 · 확정 ② 가 막는다) · 0 = 무상(사람 값 · price_override true · free_reason 필수 · other 는 comments) — CHECK so_line_free_pair_ck (free_reason is not null) = (unit_price is not distinct from 0)   (12-b 판정 2)
-⭐⭐ 가격은 so_price_for(티어 sale·활성 · 가격 줄 활성 · 세트 = 낱개 × pack_factor × (1 − set_discount_pct/100) round 2) → so_line_quote(할인 = greatest(손님 기본, 세일) · 더하지 않는다 · 세일 자리는 d 한 줄) · 단가는 자르지 않고 줄 합계만 round(qty × unit_price, 2) = so_line_total 하나   (12-b 판정 3·4)
-⭐⭐ 같은 SKU — unit_price is not distinct from 이면 qty 를 더한다(merged) · 다르면 ask(줄 안 넣음 · 화면이 고른다 · p_force_new) · 붙여넣기는 첫 줄에 수량을 모은다(duplicate) · 비활성 제품은 거부 — po_lines_paste 와 다르다   (12-c ⬜5 · 이견 4)
+⭐⭐ 가격은 so_price_for(티어 sale·활성 · 가격 줄 활성 · 세트 = 낱개 × pack_factor × (1 − set_discount_pct/100) round 2) → so_line_quote(so, product, qty)(할인 = greatest(손님 기본, so_deal_best 의 딜 %) · 더하지 않는다 · 큰 쪽의 출처 customer|deal) · 단가는 자르지 않고 줄 합계만 round(qty × unit_price, 2) = so_line_total 하나   (12-b 판정 3·4 · §13-g)
+⭐⭐ 같은 SKU — ~~unit_price 가 같으면 합친다~~ [2026-09-23 정정 · §13 판정 2] 시스템 줄(price_override=false · discount_source <> manual)은 제품만으로 합치고 합친 수량으로 다시 견적 · 사람이 정한 줄(덮어쓴 단가 · 수동 할인)만 단가 비교(다르면 ask · p_force_new) · 붙여넣기는 첫 줄에 수량을 모은다(duplicate) · 비활성 제품은 거부 — po_lines_paste 와 다르다   (§13-g · 12-c ⬜5)
 ⭐⭐ 티어는 손님이 아니라 「들어온 곳」이 정한다 — 직접 오더는 손님 기본이 초깃값 · inv_config so_direct_order_tier_code(=1 Wholesale · auth_all — 누구나 바꿀 수 있다 · 경고만) ≠ 이면 direct_order_tier_unexpected · 손님 원문과 다르면 tier_differs_from_customer · 막지 않는다   (12-b 판정 B)
 ⭐  배송지 회사/사람 규칙 넷(so_customer_is_company) — legal_entity → 회사 · AONE → 사람 · 기본 연락처 이름이 다르고 서로 포함 안 하면 → 회사 · 그 밖 사람 · 합의된 오차(1001132194 ONTARIO INC) · 틀리면 초안에서 고친다   (12-d)
 ⭐  시험은 SO-25000 을 소비한다 — rollback 밖에서 so 가 비어 있을 때만 setval(25000, false) · 전환 전 점검 25000 · is_called f · 가짜 직원은 트랜잭션 안에서만(ims_staff.auth_user_id FK 없음)   (12-g)
@@ -127,6 +128,20 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 - 표 구조 §5(so · so_line · so_charge · so_reserve · 손님 셋 5-a~5-c) · 상태와 전이 §6(6-a 상태 열 · 6-b `channel` 길 셋 warehouse·pos·counter + `intake` 유입 넷 · 6-e 소유권의 선 `Release to WMS` · 6-g′ CHECK+RPC+트리거) · 원장 접점 §7(7-b 출고 사건 `so_out` · 7-c 쓰기 경로 RPC 하나) · 인보이스·결제·크레딧 §8(8-c 묶음 · 8-e 잔액 · 8-g 크레딧 노트).
 - ⚠️ `counter` ≠ WMS 의 `direct` — 이름을 바꾼 이유는 6-b(1026행) · 손님 잔액 식의 빼는 두 항(결제 배분 · 크레딧 배분 = `so_payment_alloc` · `so_credit_alloc`)은 8-e · 인보이스 묶음의 열쇠 「함께 나갔다」 AND 「같은 청구처」는 8-c(1489행 · Caleb 판정 2026-09-22).
 - ⚠️ 여기 세부를 옮겨 적지 않는다 — 표가 서는 차수에서 그 절이 정본이다.
+
+## 4-c. ⭐⭐ 할인 규칙(②-0a·②-0b) — 모르면 사고 (정본 §13)
+
+```
+⭐⭐ 줄 할인 = greatest(손님 기본 so.discount_pct, 딜 %) — 더하지 않는다(SO-10842: Red One 21% 가 7% 를 대신 · 28 아님) · 딜 판정 = 걸기 ∧ ¬빼기 ∧ 수량 기준 · ⭐ 빼기는 그 딜 줄에서만(다른 딜이 걸면 산다) · 한 줄(같은 SKU 한 줄)의 수량만(mix & match 없음)   (D2 · D5)
+⭐⭐ 「왜 이 할인」은 so_line.discount_source(customer|deal|manual) + deal_line_id — 덮어쓴 줄(price_override)은 둘 다 null(짝 CHECK so_line_discount_pair_ck) · 창구를 새로 쓸 때 이 둘을 빠뜨리면 23514   (이견 5)
+⭐⭐ 다시 매기기는 할인만 — 들어간 줄의 list_price 는 그대로(가격표가 바뀌어도 따라가지 않는다) · 자동 = 넣기·합치기·수량 · 수동 = so_reprice · 사람이 정한 줄(manual · override)은 어느 쪽도 건드리지 않는다 ·
+     바깥 조건(order_date · price_tier · discount_pct)이 바뀌면 줄은 그대로 + so.reprice_suggested_at + 경고 reprice_suggested   (판정 3)
+⭐⭐ 기간은 so.order_date 로 판정(D7) · 「오늘」= ims_today()(토론토 · current_date 는 UTC 라 저녁 8시 뒤 내일) · 세일 끝난 뒤 넣은 줄은 경고 deal_ended_before_line_added   (13-h)
+⭐⭐ 오더 전체 할인(D6) — 줄 할인 뒤 제품 줄 합계에 한 번 · round(합계 × pct/100, 2) · 운임(so_charge) 제외 · so.order_discount_pct/deal_id/source 에 굳는다(deal|manual) · manual 은 자동 재계산이 덮지 않는다 · 0 = 사람이 껐다 · 지금은 손님 목록이면 자동(쿠폰 코드는 원문만)
+⭐⭐ 오더 전체 딜은 so_deal.order_pct 하나 · 줄이 없다(문지기 둘) · so_deal_target 유니크는 전체 하나(nulls not distinct · 부분 유니크 금지 규칙 29) · 딜·태그 쓰기 = master RLS(거래 표 넷의 「창구만」과 다르다 — 이유 §13-e ⬜5)
+⭐  케이스(case) 모드 줄은 미리 보기 화면 뒤에(D3) — Cin7 UOM Discount 25줄은 qty 모드로 옮긴다(태그 이름 GM20UOM12 = 20% · 12 이상 · 단계 할인 8개) · set_discount_pct 는 「세트 SKU 자체」 할인만(D8 · 11-c ② 뒤집힘)
+⚠️  Deals Export CSV 에는 % 칸·수량 칸이 없다 — DiscountName 글자에서만(Case Discount 7줄은 못 옮긴다) · 쿠폰 코드 EXTRA10·EXTRA5 는 실재(「비어 있음」이 틀렸다) · 100% 딜 줄은 so_line_free_pair_ck 에 걸린다(⬜)   (13-b · 13-k)
+```
 
 ## 5. 이 스킬을 갱신할 때
 
