@@ -650,7 +650,7 @@ line1 · line2 · city · state · postcode · country
 - `type` 은 `Shipping` · `Billing` **둘로 제한한다**(CHECK). 자유 문자열로 두면 적재 때 오타가 섞인다.
   ⬜ Cin7 에 다른 `Type` 값이 실재하는지는 **못 봤다**(프로브는 손님 하나 · §1-s) — 적재 첫 페이지에서 `Type` 의 distinct 를 세어 확인한다. 셋 이상이면 그때 어휘를 늘린다.
 - `is_default_for_type` = Cin7 `DefaultForType`. 「손님·type 당 기본 하나」다.
-  ⚠️ 이것도 「하나뿐」제약이다 — 5-f 와 같은 장치를 쓴다(Caleb 2026-09-21 · 이견 7 채택): 생성 칸 `default_customer_id = case when is_default_for_type then customer_id end` + 전체 유니크 `(default_customer_id, type)` · 기본이 아닌 줄은 null 이라 안 부딪힌다 · 부분 유니크 금지(규칙 29). 적재 때 Cin7 이 하나만 주는지도 함께 센다.
+  ⚠️ 이것도 「하나뿐」제약이다 — 5-f 와 같은 장치를 쓴다(Caleb 2026-09-21 · 이견 7 채택): 생성 칸 `default_customer_id = case when is_default_for_type then customer_id end` + 전체 유니크 `(default_customer_id, type)` · 기본이 아닌 줄은 null 이라 안 부딪힌다 · 부분 유니크 금지(규칙 29). 적재 때 Cin7 이 하나만 주는지도 함께 센다. → §9-i(deferrable · 마이그레이션 ③ · 2026-09-22)
 - ⭐ **`label` 은 Cin7 에 없는 칸이다** — 사람이 붙이는 이름(`본사` · `2호점` · `DDS 창고`).
   근거: 드롭십 주소를 고를 때 주소 두 줄만 보고 고르기 어렵다. **적재할 때 비워 두고 쓰면서 채운다.**
 - `state` 가 §1-i 창고 라우팅의 근거 칸이다(BC·AB·MB → 에드먼튼).
@@ -667,7 +667,7 @@ phone · mobile · email · website
 → §9-d: `fax` · `cin7_comment` 를 더했다 · `marketing_consent` 는 nullable(마이그레이션 ① · 2026-09-22) · `job_title` 을 더했다(마이그레이션 ② · 2026-09-22).
 - `is_default` · `include_in_email` 이 **메일 수신처를 결정하는 자리**다.
   📌 관찰(Caleb 2026-09-21): "cin7에서 보내지는 이메일은 default contact의 email로 설정이 되어 있는 것 같아." — ⚠️ **확인 전**이다. 어느 칸이 수신처를 정하는지는 메일 절에서 실물을 보고 적는다.
-- `is_default` 도 「손님당 하나」다 — 5-f 와 같은 장치(생성 칸 `default_customer_id = case when is_default then customer_id end` + 전체 유니크 · 이견 7 채택).
+- `is_default` 도 「손님당 하나」다 — 5-f 와 같은 장치(생성 칸 `default_customer_id = case when is_default then customer_id end` + 전체 유니크 · 이견 7 채택). → §9-i(deferrable · 마이그레이션 ③ · 2026-09-22)
 - ⭐ `marketing_consent` 를 남기는 근거: 캐나다 **CASL**. 동의 기록은 **나중에 만들 수 없는 종류의 기록**이다 — 적재 때 Cin7 값을 그대로 받아 둔다.
 - ⬜ **「무엇을 자동으로 보내나」는 이번 차수에서 정하지 않는다.** §1-r·§2-n 의 자동 발송 설정(최종 인보이스만 일부 손님 자동)이 Cin7 어디에 붙어 있는지 **아직 못 봤다**. 메일을 다루는 절에서 실물을 보고 정한다.
 
@@ -1793,19 +1793,20 @@ Contacts 키 목록                      JobTitle 이 오면 더한다 · Fax·C
 currency_code ↔ ref_currency         FK 못 붙은 손님 수 — 기대값 0                                             검토 이견 3   → ✅ 기대값 0 확인 · CAD 9,465 · USD 3 · 그 밖 0(9-g) · FK 실제 붙임은 적재 때
 payment_term · account · location     FK 못 붙은 수 = 정리 대상 카운터(supplier 와 같다)                          9-a ①   → ✅ 기대값 0 · 9종·2종·2종 전부 Cin7 ref 와 이어짐 · Location 두 이름 ref_warehouse.name 과 정확 일치 · 빈 값 5 → null(9-g)
 tax_number 필드명 · tags 형식          §1-s 에 없던 칸 · 문자열인지 배열인지                                       5-a ⬜ · 검토 이견 5   → ✅ 닫힘 · TaxNumber 확정(값 12) · Tags 쉼표 문자열(9-g)
-부모 먼저                             parent_id · default_*_customer_id 가 이어지도록 적재 순서                     9-a ①   → ⬜ 그대로(적재 차수) · 📌 부모 있는 손님 13 · 없는 부모 0 · 깊이 2+ 0 · 자기 참조 0(9-g)
+부모 먼저                             parent_id · default_*_customer_id 가 이어지도록 적재 순서                     9-a ①   → ⬜ 그대로(적재 차수) · 📌 부모 있는 손님 13 · 없는 부모 0 · 깊이 2+ 0 · 자기 참조 0(9-g) → ✅ 판정 ⑫ 두 단계 · 9-i(1단계는 parent_id 를 보내지 않는다)
 빈 문자열 → null                      ims_blank_ 전례(ref_bin · supplier_address)                                검토 이견 2   → ✅ 섞여 옴 확인(Line2 "" 13,764 · DisplayName "" 870 …) · 적재 때 null · 글자 안쪽 공백은 그대로(9-g)
 규칙으로 메운 기본값의 표시             필요한지                                                                  9-a ③   → ⬜ 그대로 · 메운 수 52 로 작다 · 적재 차수에서(안: 두지 않는다 · 보고에 수만 · 9-h 판정 ⑦)
 ```
 ⬜ 그 밖(이번 차수 밖): `ref_tax_rule`(인보이스 전) · `ref_price_tier`(가격 계산 전) · `sales` 묶음과 주소록·연락처의 자리 · so 표의 `currency_id` · `location` FK+원문 · 주소 칸 낱말.
-⬜ **주소·연락처 재적재 방식**(적재 차수에서 정한다 · 2026-09-22 마이그레이션 ② 차수가 더함): 이번 회차에 안 온 `cin7_id` 를 **지울지**(관계 표 · DELETE 열림) · **`is_active=false` 로 둘지**. Cin7 에서 지운 주소가 실제로 생겼다(DALIANA MOMBRUN 중복 배송지 · 9-g).
+⬜ **주소·연락처 재적재 방식**(적재 차수에서 정한다 · 2026-09-22 마이그레이션 ② 차수가 더함): 이번 회차에 안 온 `cin7_id` 를 **지울지**(관계 표 · DELETE 열림) · **`is_active=false` 로 둘지**. Cin7 에서 지운 주소가 실제로 생겼다(DALIANA MOMBRUN 중복 배송지 · 9-g). → ✅ 판정 ⑩ · 9-i — 지우지 않는다 · 내리기(is_active=false + 2′ 기본 표시 풀기) → upsert 순서 · 마이그레이션 ③ deferrable(판정 ⑪)
 ⬜ **직원 계정 표시**: 직원 계정도 손님 표에 들어온다(`Asung Employee - …` · Jason Lee 가 Opt in 인 유일한 연락처 · 9-g). 마케팅 발송·매출 집계에서 직원을 가르는 표시는 이번에 정하지 않는다.
 
 ### 9-f 마이그레이션 파일
 
 ```
 supabase/migrations/20260922201223_customer.sql      234행 · 32,083 바이트 · 표 3 · 정책 11 · 트리거 3 · 인덱스 13 · 컬럼 주석 48 · 행 적재 0
-supabase/migrations/20260923012022_customer_contact_job_title.sql   ② 51행 · 칸 1(customer_contact.job_title) · comment on 10(칸 8 · 표 2) · 행 적재 0 · ⬜ 적용 전(예상 검증은 지시서 ② 차수 회신)
+supabase/migrations/20260923012022_customer_contact_job_title.sql   ② 51행 · 칸 1(customer_contact.job_title) · comment on 10(칸 8 · 표 2) · 행 적재 0 · ✅ 적용(2026-09-22 · 테스트 DB Asung-IMS · Caleb · 검증 실측은 ② 차수 회신)
+supabase/migrations/20260923014604_customer_default_uq_deferrable.sql   ③ 43행 · 제약 2 다시 만들기(customer_address_default_uq · customer_contact_default_uq → deferrable initially immediate · 이름 그대로) · comment on 5(칸 3 · 표 2) · 행 0 · 표·칸 추가 없음 · ✅ 적용(2026-09-22 · 테스트 DB Asung-IMS · Caleb · psql -1 -f + migration repair · begin/commit 없음 grep 확인 · 실측은 9-i 끝)
 ```
 - ② 파일 시각은 **UTC** 로 짓는다(① `20260922201223` 도 UTC 였다 · 16:12 EDT) — 토론토 밤은 UTC 로 다음 날이다. `date -u +%Y%m%d%H%M%S`.
 - 시각은 마지막 파일 `20260921161933` 뒤. ✅ **[적용 2026-09-22 · 테스트 DB `Asung-IMS` · Caleb]** `psql -v ON_ERROR_STOP=1 -1 -f`(한 트랜잭션 — 도중 실패 시 전부 되돌아간다 · 파일에 begin/commit 이 없음을 먼저 grep 으로 확인) + `supabase migration repair --status applied 20260922201223`(po-module §13-f · 이력 표가 안 쌓인다).
@@ -1924,3 +1925,74 @@ Discount ≠ 0    72명(7% 50 · 13% 8 · 3% 5 · 5% 4 · 10% 3 · 2% 1 · 4% 1)
 **창고 이름** — 판정 없음. 두 이름 모두 `ref_warehouse.name` 과 정확히 일치 · 빈 값 5 → `default_location_id` null.
 
 **검토 이견 채택분(2026-09-22 밤 · 1~7 전부)**: 1 앞 파일의 ⬜ 주석 다섯(`type` · `is_active` · `tax_number` · `tags` · `name`)도 프로브가 닫았으니 같은 파일에서 갈아 쓴다(주석만 · 스키마는 job_title 하나) · 2 「708 · 메운 뒤 709」 병기 · 3 「711 = 주소가 있으면서 Shipping 없는 손님 · 주소 0개 18 은 따로」 정의 · 4 5-c 포인터와 9-c ⬜5 줄 끝에 뒤집힘 표시(본문 무접촉은 유지 — 포인터 줄은 이미 예외) · 5 「수집 시점 0 · 적재 첫 회 예상 1」 · 6 시각은 EDT 기준 · 괄호 UTC · 7 IsBillParent 12 ≠ 부모 5 는 사실만 · 뜻은 ⬜. 📌 스킬 후보(다음 스킬 차수 · 이번엔 말만): cin7-api `references/customer.md` 에 「MarketingConsent 숫자 표 · JobTitle 은 손님 연락처에만 온다 · Address·Contact 에 ID 있음」.
+
+### 9-i 적재 규칙 판정 ⑩~⑫ (✅ Caleb 2026-09-22 밤 · 집 · 지시서 `~/asung/prompts/so-mig-3-default-deferrable.md` · 마이그레이션 ③ · 검토 이견 1~7 전부 채택)
+
+적재 GAS(`ImsLoadCustomer.gs` · 다음 차수 · 대화 Claude 가 쓴다)가 따르는 규칙 셋. 실측 결과(적용 · §4 시험)는 적용 뒤 9-f 에 옮긴다.
+
+**판정 ⑩ 주소·연락처 재적재 — PO 「한 규칙」 + 기본 표시 풀기 · ⚠️ 내리기가 upsert 앞**
+```
+회차마다
+  1)  Cin7 전량을 받는다(95페이지 · 프로브는 4분 안에 끝났다)
+  2)  source='cin7' 이고 이번 회차에 안 들어온 행 → is_active=false · 지우지 않는다
+  2′) ⭐ 내리는 행은 기본 표시도 함께 푼다 — 주소 is_default_for_type=false · 연락처 is_default=false
+  3)  upsert(on_conflict=cin7_id · is_active:true 를 실어 보낸다) — 내린 행이 Cin7 에 다시 나타나면 이것이 저절로 되살린다
+  4)  내린 수 · 되살린 수를 적재 보고에 남긴다
+  source='manual' 은 2)·3) 어디에도 걸리지 않는다
+```
+- 근거: 관계 표라 DELETE 가 열려 있지만 지우면 「언제 어떤 주소가 있었나」가 사라진다(이력 원칙 · 비활성 보존 · po-module §5 「마스터는 지우지 않고 is_active 로 물러나게 한다」를 관계 표에도). PO 는 바코드·BOM 같은 관계 표까지 한 규칙이다(po-module §3-f). 실물 계기: DALIANA MOMBRUN — Caleb 이 Cin7 에서 주소 한 줄을 지웠다(2026-09-22 20:50 EDT · 9-g). DELETE 는 규약대로 열어 두되 적재는 쓰지 않는다.
+- 2′ 근거: 옛 기본 주소를 비활성으로 내리면서 기본 체크를 남기면, 새 기본 주소가 `(default_customer_id, type)` 유니크에 걸린다. 비활성 행이 기본일 이유가 없다.
+- ⚠️⚠️ **순서 — 내리기(2·2′)가 upsert(3) 앞이다(검토 이견 1 채택).** 옛 기본이 Cin7 에서 지워지면 그 줄은 Cin7 응답에 없으므로 **upsert 문장에도 없다** — deferrable(판정 ⑪)은 한 문장 안의 교대(A true→false · B false→true)만 구하고, 문장 밖에 남은 옛 true 는 구하지 못한다. upsert 를 먼저 하면 새 기본 B 가 문장 끝 검사에서 23505 · 그 뒤의 2′ 는 이미 늦다. 📌 대화 Claude 의 처음 순서(upsert → 내리기)는 **틀렸다** — 2′ 를 만든 계기인 DALIANA 모양(옛 기본 지움 + 새 기본)을 그 순서가 막았다. §4 시험 5 가 이것을 보인다.
+- 요청 단위(손님 묶음 PATCH 의 URL 길이 · 손님 단위 요청 수)는 적재 차수의 일 — 여기는 **순서와 이유만**.
+
+**판정 ⑪ 「기본 하나」 제약의 검사 시점을 문장 끝으로 늦춘다 — DEFERRABLE INITIALLY IMMEDIATE**
+- 문제: 두 번째 적재부터, 손님이 Cin7 에서 기본을 A → B 로 옮기면 한 upsert 안에서 A(true→false)·B(false→true)가 함께 바뀐다. 지금 유니크는 **줄마다 즉시** 검사하므로 B 가 A 보다 먼저 처리되면 23505 로 거부된다 — **줄 순서에 따라 성공·실패가 갈린다.**
+- 결정: `customer_address_default_uq` · `customer_contact_default_uq` 를 `deferrable initially immediate` 로 다시 만든다(이름 그대로 · 마이그레이션 ③) → **문장 끝에 한 번** 검사한다. 끝났을 때 기본이 둘이면 여전히 거부된다 — 규칙은 그대로, 검사 때만 바뀐다.
+- 적재 쪽 짝: **한 손님의 주소는 같은 요청(= 한 문장)에 모아 보낸다**(연락처도 같다). 「문장 끝」은 PostgREST 요청 하나다. 📌 짐작: PostgREST 가 벌크 요청을 한 `INSERT … ON CONFLICT` 문장으로 보낸다는 것은 적재 dryRun 에서 다시 확인한다.
+- 버린 안: 줄 순서를 맞춰 보내기(false 로 바뀌는 줄을 먼저) — 요청 안 줄 순서가 지켜진다는 데 기대야 해서 조용히 깨질 수 있다.
+- ⚠️ `initially deferred` 가 아니다 — 트랜잭션 끝까지 미루면 다른 쓰기(화면)에서 실수가 커밋 직전까지 숨는다. 문장 끝이면 충분하다.
+- upsert 의 기준(arbiter)은 `cin7_id` 유니크(plain) 그대로다. **deferrable 유니크는 arbiter 가 못 된다**는 것은 Postgres 규칙이고, 두 default_uq 가 deferrable 이 되어도 arbiter 에 영향이 없다는 것은 대화 Claude 의 지식 → **§4 시험 1 이 실측이다**(검토 이견 7).
+- 5-b 653행 · 5-c 670행 「하나뿐」 장치 문장 끝에 「→ §9-i(deferrable)」 포인터(검토 이견 5).
+
+**판정 ⑫ 부모 손님은 두 단계로 · 적재가 보내지 않는 칸**
+```
+1단계  손님 9,468명 upsert — ⚠️ parent_id 칸을 아예 보내지 않는다
+2단계  부모가 있는 13명에게만 parent_id 를 채운다(부모는 1단계로 이미 있다)
+       CustomerParentID(GUID) → 우리 customer.id 조회가 한 번 필요하다(cin7_id 로)
+       + 재적재: Cin7 에서 부모가 없어진 손님은 parent_id 를 비운다
+         = source='cin7' and parent_id is not null and cin7_id not in (이번 회차 부모 있는 13명) → PATCH parent_id=null
+```
+- 근거: 자기 참조 FK 는 줄마다 즉시 검사 — 자식이 부모보다 먼저 들어가면 거부된다. 순서를 따지는 것보다 두 단계가 단순하다(깊이 2+ 0 · 9-g).
+- ⚠️⚠️ **「보내지 않는다」 ≠ 「null 로 보낸다」** — PostgREST upsert 는 보낸 칸을 덮는다. 1단계가 `parent_id: null` 을 실으면 재적재마다 2단계가 채운 부모를 지운다.
+- ⭐ **적재가 절대 보내지 않는 칸**(같은 이유 · 검토 이견 3):
+```
+세 표 공통   id(우리 PK — 실으면 기존 행의 PK 를 바꾸려 든다 · 짐작 · 시험 안 함) · note · updated_by(트리거가 채운다) · created_at · updated_at(기본값·트리거)
+customer     parent_id(1단계) · default_ship_to_customer_id · default_bill_to_customer_id
+customer_address  label
+보내도 되는 것   source='cin7'(기본값과 같다) · is_active:true · is_default_for_type · is_default(판정 ⑦ 규칙으로 메운 값 포함)
+```
+  칼럼 주석의 「⚠️ 재적재가 덮지 않는다」가 이것으로 지켜진다.
+- 📌 짝(검토 이견 3): 주소·연락처의 `customer_id` 는 Cin7 손님 ID(GUID)가 아니라 **우리 `customer.id`** 다 — 1단계 뒤 `cin7_id → id` 를 조회해 바꿔 보낸다(적재 차수의 일).
+
+**마이그레이션 ③** — `supabase/migrations/20260923014604_customer_default_uq_deferrable.sql`(9-f): 제약 둘 drop → 같은 이름으로 `deferrable initially immediate` · `comment on` 다섯(`customer_address.default_customer_id` · `customer_contact.default_customer_id` · `customer_address` 표 · `customer_contact` 표 · `customer.parent_id` — 앞 문장 전문 + 판정 · 검토 이견 4) · 행 0 · 표·칸 추가 없음. §4 시험은 준비 → 시험 1(⭐ B 줄 먼저 · A→B 옮기기 성공) → 2(둘 다 true → 23505) → 3(연락처 같은 모양) → 4-a(is_active 만 내림 → 23505) · 4-b(2′ 까지 → 성공) → 5-a(옛 기본이 문장에 없음 → 23505) · 5-b(먼저 내린 뒤 → 성공) → rollback.
+
+**검토 이견 채택분(2026-09-22 밤 · 1~7 전부)**: 1 판정 ⑩ 순서 뒤집기(내리기 → upsert) + 시험 5 · 2 시험 4 를 음성·양성 짝으로 · 3 「보내지 않는 칸」에 id(세 표)·updated_at · source 는 cin7 실어도 됨 · customer_id 변환 한 줄 · 4 주석 다섯(둘 + 표 둘 + parent_id) · 5 포인터 둘(653 · 670행) · 6 판정 ⑫ 「어떻게 비우나」 두 줄 · 7 arbiter 규칙 확인 수용 — 시험 1 이 실측. 📌 스킬 후보(말만): asung-workflow 「마이그레이션 파일 시각은 UTC」 · asung-po/so 「관계 표 재적재는 내리기 → upsert 순서 · deferrable 은 한 문장 안만」.
+
+**✅ 마이그레이션 ③ 검증 실측 (2026-09-22 · 테스트 DB `Asung-IMS` · Caleb 실행 · 예상값과 대조)**
+```
+적용    psql -v ON_ERROR_STOP=1 -1 -f + supabase migration repair --status applied 20260923014604 · 파일에 begin/commit 없음(grep)
+(가) 구조
+  두 제약   condeferrable t · condeferred f · pg_get_constraintdef … DEFERRABLE
+  유니크    총수 5 그대로(cin7_id 셋 + default_uq 둘) · 행 0 · 0 · 0
+(나) 실동작 — 한 트랜잭션 · ROLLBACK · leftover 0 · 역할 postgres
+  시험 1   성공 — B 줄 먼저 적은 A→B 옮기기 한 문장 · A f/f · B t/t          ⭐ 판정 ⑪ 실측(즉시 검사였다면 이 순서로 23505)
+  시험 2   23505 customer_address_default_uq — 둘 다 true 는 문장 끝 검사로도 막힌다(규칙은 그대로)
+  시험 3   성공 — 연락처 같은 모양 · C f/f · D t/t
+  시험 4-a 23505 — is_active 만 내리면 새 기본이 막힌다(2′ 의 필요)
+  시험 4-b 성공 — 2′ 까지 · A t/f/f · B f/f/f · E t/t/t
+  시험 5-a 23505 — 옛 기본이 upsert 문장에 없으면 deferrable 로도 못 구한다
+  시험 5-b 성공 — 먼저 내린 뒤 같은 upsert · A t/f/f · B f/f/f · E f/f/f · F t/t/t   ⭐ 「내리기가 upsert 앞」(판정 ⑩ 순서) 실측
+  (값 순서 = is_active / is_default_for_type / has_default_key)
+```
+⚠️ **회신의 예상 표가 틀린 곳**: 4-b · 5-b 의 A 를 「f/f/f」로 적었으나 실측은 **A = is_active t · 기본 f · 키 f**. A 는 시험 1 에서 기본만 풀렸고 한 번도 내린 적이 없다 — DB 가 맞고 예상이 틀렸다(시험 시나리오를 쓴 쪽이 자기 시나리오의 상태를 잘못 따라갔다). 나머지 예상은 실측과 일치.
+📌 남은 짐작 하나(⬜ 그대로): PostgREST 가 벌크 요청을 **한 문장**(`INSERT … ON CONFLICT` 하나)으로 보낸다는 것 — 적재 dryRun 에서 확인. 「문장 끝 검사」가 요청 하나에 대응한다는 판정 ⑪ 의 적재 짝은 이것에 기댄다.
