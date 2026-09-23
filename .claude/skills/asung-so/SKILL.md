@@ -13,7 +13,7 @@ description: >
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
   ⚠️적재는 id·parent_id·note·default_*·label 을 보내지 않는다(null 로 보내는 것과 다르다),
   ⚠️「기본 하나」 유니크는 deferrable — 한 손님의 주소·연락처는 한 요청에 모아 보낸다,
-  ⚠️SO 거래 표는 아직 마이그레이션이 없다 — 표·함수 이름을 지어 적지 마라(9-b 규칙만).
+  ⚠️SO 거래 표(so·so_line·so_charge·so_reserve)는 읽기만 — 쓰기 RPC·전이 트리거는 아직 없다 · 함수 이름은 9-b 규칙만.
 ---
 
 # Asung SO(판매) 모듈 스킬
@@ -26,7 +26,7 @@ description: >
 ```
 손님 표 셋      ✅ 2026-09-22 — 마이그레이션 ① customer · customer_address · customer_contact(9-a~9-f) · ② job_title(9-g·9-h) · ③ 기본 하나 유니크 deferrable(9-i)
 손님 첫 적재    ✅ 2026-09-22 — docs/probes/ImsLoadCustomer.gs · ⚠️ 테스트 DB(Asung-IMS)만 · 실측은 9-j
-SO 거래 표      ⬜ 설계됨 · 마이그레이션 없음 — 표 구조 §5 · 상태·전이 §6 · 원장 접점 §7 · 인보이스·결제·크레딧 §8
+SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so · so_line · so_charge · so_reserve · 시퀀스 SO-25000~) · ⑤ 20260923134840(so_merge_reason_ck 양방향) · ⚠️ 읽기만 · 테스트 DB · 전이·RPC 는 다음(§10)
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -84,7 +84,16 @@ SO 거래 표      ⬜ 설계됨 · 마이그레이션 없음 — 표 구조 §5
 📌  마이그레이션 파일 시각은 UTC — 앞 파일 셋 20260922201223 · 20260923012022 · 20260923014604(asung-workflow §4)
 ```
 
-## 4. SO 거래 표 — 설계됨 · 표는 아직 없다 (포인터만)
+## 4. SO 거래 표 — 표 있음 · 쓰기 없음 (포인터 + 함정 넷)
+
+```
+⭐⭐ at_wms_at ≠ so_reserve.released_at — 앞은 Release to WMS(소유권이 창고로 · 6-e) · 뒤는 「할당을 풀었다」(5-f). 같은 낱말을 쓰지 않은 이유가 6-a(released→at_wms)   (10-b ⬜1)
+⭐⭐ so_reserve 는 풀고(released_at) → 걸기(insert) 순서 — open_line_id 는 plain unique(deferrable 아님 · customer_*_default_uq 와 다르다) · 거꾸로 짜면 23505 · 그것이 맞다    (10-b 이견 4)
+⭐⭐ 검증 insert 는 번호를 직접(SO-99999t 등) — 시퀀스는 롤백되지 않는다 · 기본값은 pg_get_expr 로 읽는다 · so_number_seq.last_value 가 null 인지 본다                   (10-d)
+⭐⭐ CHECK 는 null 을 통과시킨다 — 짝 CHECK 는 = 양쪽이 null 이 될 수 없게(is null · is not null · is not distinct from) · 검증 시험은 한 번에 CHECK 하나만 어기게      (⑤ · 10-b)
+⚠️  so_line·so_charge → so 는 CASCADE(거래 표 「문서 → 소유 줄」) · so_reserve → so_line 은 NO ACTION(이력) — 마스터 규약의 「cascade 금지」를 거래 표에 씌우지 마라       (10-b ⬜8)
+⚠️  status 는 아홉(6-a 제목의 「열」은 세면 아홉 · 정정 후보) · closed_reason 은 cancelled 에만 · merged 이면 merged_into_id 가 있어야 하고 그 반대도(⑤)                    (10-c)
+```
 
 - 표 구조 §5(so · so_line · so_charge · so_reserve · 손님 셋 5-a~5-c) · 상태와 전이 §6(6-a 상태 열 · 6-b `channel` 길 셋 warehouse·pos·counter + `intake` 유입 넷 · 6-e 소유권의 선 `Release to WMS` · 6-g′ CHECK+RPC+트리거) · 원장 접점 §7(7-b 출고 사건 `so_out` · 7-c 쓰기 경로 RPC 하나) · 인보이스·결제·크레딧 §8(8-c 묶음 · 8-e 잔액 · 8-g 크레딧 노트).
 - ⚠️ `counter` ≠ WMS 의 `direct` — 이름을 바꾼 이유는 6-b(1026행) · 손님 잔액 식의 빼는 두 항(결제 배분 · 크레딧 배분 = `so_payment_alloc` · `so_credit_alloc`)은 8-e · 인보이스 묶음의 열쇠 「함께 나갔다」 AND 「같은 청구처」는 8-c(1489행 · Caleb 판정 2026-09-22).

@@ -1969,6 +1969,7 @@ Discount ≠ 0    72명(7% 50 · 13% 8 · 3% 5 · 5% 4 · 10% 3 · 2% 1 · 4% 1)
 세 표 공통   id(우리 PK — 실으면 기존 행의 PK 를 바꾸려 든다 · 짐작 · 시험 안 함) · note · updated_by(트리거가 채운다) · created_at · updated_at(기본값·트리거)
 customer     parent_id(1단계) · default_ship_to_customer_id · default_bill_to_customer_id
 customer_address  label
+customer_address · customer_contact  default_customer_id(생성 칸 — 보내면 PostgREST 가 거부한다 · [2026-09-23 이어 적음] 스킬 asung-so §1 · ImsLoadCustomer.gs 37행에는 이미 있던 줄 — 정본에 빠져 있었다)
 보내도 되는 것   source='cin7'(기본값과 같다) · is_active:true · is_default_for_type · is_default(판정 ⑦ 규칙으로 메운 값 포함)
 ```
   칼럼 주석의 「⚠️ 재적재가 덮지 않는다」가 이것으로 지켜진다.
@@ -2020,3 +2021,114 @@ Verify  열두 가지 전부 일치
 - 📌 DALIANA 청구지 — 20:51 재읽기 때는 `B / 39    CLERMONT        BOUL` 였으나 적재 값은 `39B Boul Clermont` · Caleb 이 그 사이 Cin7 에서 고쳤다(확인).
 - ⚠️ **적재 스크립트 안전장치 둘** — 가짜 데이터 시험에서 수집이 짧게 끝나자 받지 못한 151명을 내렸다 → ① 받은 행 ≠ API Total 이면 멈춤 · ② 한 번에 내리는 줄이 max(20, 1%) 넘으면 멈춤(`ILC_ALLOW_BIG_DOWN=1` 로만 한 번 통과).
 - ⬜ 그대로: PostgREST 벌크 = 한 문장(첫 적재는 교대가 없어 아직 실측 아님 · 재적재 때) · 사람이 정할 7명(기본 배송지 0 · 화면에서 사람이 고른다) · 직원 계정 표시.
+
+---
+
+## §10 마이그레이션 ④·⑤ 거래 표 넷 (2026-09-23 · 지시서 `~/asung/prompts/so-mig-4-so-tables.md` · `so-mig-5-merge-reason.md` · 검토 이견은 회신에)
+
+⚠️ 표가 섰다 — `so` · `so_line` · `so_charge` · `so_reserve` + 시퀀스 `so_number_seq` · `so_next_number()`. **읽기만**이다: 쓰기 정책 0 · 전이 트리거 없음 · RPC 없음. 칸의 정본은 5-d~5-f · 뒷절(6-a · 6-b · 8-b · 8-c · 9-c · 9-d)이고 이 절은 **이번 차수가 판정한 것**만 적는다. DDL 의 정본은 마이그레이션 파일 둘(10-d).
+⚠️ 앞 절 본문은 고치지 않았다(9-i 「보내지 않는 칸」에 이어 적은 한 줄만 예외 — 인계 §5 · 스킬·GAS 에는 이미 있던 줄). 파일 나누기는 이번에도 하지 않는다.
+⭐ **규칙 한 줄(⑤에서 실측으로 섰다)**: **CHECK 는 null 을 통과시킨다 — 짝 CHECK 는 `=` 양쪽이 null 이 될 수 없게(`is null` · `is not null` · `is not distinct from`) · 검증 시험은 한 번에 CHECK 하나만 어기게.**
+📌 판정 Caleb 2026-09-23(회사 PC · ④ 범위·이견·⬜ · ⑤ 빈틈) · 적용·검증 Caleb 2026-09-23 토론토 오전 · 테스트 DB `Asung-IMS`.
+
+### 10-a 범위 — 이번에 만든 것 · 만들지 않은 것 (✅ Caleb 2026-09-23)
+
+```
+만들었다   표 넷 · 시퀀스 so_number_seq(25000) + so_next_number() · CHECK 23 · FK 24(인덱스 24) · <t>_touch 트리거 넷 · RLS <t>_select 넷 · 컬럼 주석 85 · 행 0
+안 만들었다 ① 전이 트리거(6-g′ 허용 짝 목록) — 쓰기 RPC 차수에서 함께
+           ② 쓰기 RPC 전부(so_confirm · so_release · so_cancel · 출고 창구 · 분할 · 병합)
+           ③ so_family_members · so_family_lines — 분할 함수 차수(PO 도 뒤에 섰다 · 20260919175712)
+           ④ 가용 재고 함수(5-f) — RPC 차수
+           ⑤ §8 표(so_invoice …) — 다음 차수
+           ⑥ ims_perm_catalog 변경 · sales 묶음 — RPC 차수
+```
+- 근거: 쓰기 길이 없으면 6-g′ 가 막으려는 사고(PO `po.html setStatus` 가 status 를 직접 바꾼 길 · po-module 2489행)가 생길 수 없다. 허용 짝의 내려가는 쪽(WMS 롤백 · 인보이스 취소 `invoiced → shipped` 8-h)은 RPC 와 함께 정해야 시험할 수 있다. PO 도 표를 먼저 세우고 쓰기를 뒤에 얹었다.
+- ⇒ 이번 뒤 `authenticated` 는 네 표를 **읽을 수만** 있다(`revoke all` 뒤 `grant select` 두 문장 — Supabase 기본 권한이 ALL 을 주므로 revoke 만으로는 안 된다 · 검토 이견 3).
+
+### 10-b 판정 — ⬜1~⬜9 · 검토 이견 1~8 · ⑤
+
+**⬜ 아홉(회신 답 그대로 ✅)**
+```
+⬜1 Release to WMS 시각·사람   at_wms_at · at_wms_by(→ ims_staff · manager 이상 6-h) — ⚠️ released_* 아님 · so_reserve.released_at(할당을 풀었다)과 두 뜻(6-a 가 released→at_wms 로 바꾼 이유)
+⬜2 그 밖 시각·사람           created_by · confirmed_at/by · closed_at(끝 상태 fulfilled·cancelled 에 선 시각 · so_family_members 반환 모양 · PO 와 같다) · cancelled_by
+                              picking·packed 시각은 WMS 사건이 들고 온다 — 두지 않았다(짐작 · RPC 차수) · PO 의 closed_at+cancelled_at 둘 대신 closed_at 하나(closed_reason 이 이유를 말한다)
+⬜3 location 두 칸            location_id(→ ref_warehouse · nullable · PO ship_to_warehouse_id 와 같다) + location_name — customer.default_location_id/_name 과 짝
+⬜4 NOT NULL                  customer_id · currency_id · status · channel · intake · order_date(so) · 그 밖은 draft 가 비어 있을 수 있다 · 원문 칸(currency_code 등)은 nullable(검산용)
+⬜5 짝 CHECK 다섯             so_split_pair_ck · so_cancel_reason_ck · so_merge_reason_ck · so_self_ref_ck · so_closed_at_ck(추가 안 채택 — WMS 롤백으로 끝 상태에서 내려올 때 closed_at 을 함께 비우는 것은 RPC 차수)
+⬜6 수량·금액 CHECK           qty_ordered > 0 · qty_shipped >= 0(상한 없음 — Over-pick 뒤 「더 나갈 수 있는지」 안 봤다) · pack_factor > 0 · line_no >= 1 · list_price·unit_price >= 0(0 을 막지 않는다 · 샘플) · discount_pct 0~100 · qty_allocated > 0 · surcharge 둘 중 하나만
+⬜7 쓰기를 막는 방식          정책 <t>_select 하나 + revoke all → grant select(이중 방어) · 시퀀스·so_next_number() grant 는 PO 모양(usage,select · execute — 지금은 무의미 · RPC 차수가 invoker 로 가면 필요)
+⬜8 on delete                 ⭐ so_line.so_id · so_charge.so_id → so CASCADE(거래 표 규약 「문서 → 소유 줄」 · po-module 1414행 · po_line 선례) · so_reserve.so_line_id → so_line NO ACTION(이력 · 예약이 붙은 줄은 확정된 적이 있다 ⇒ 지우지 않고 cancelled) · 그 밖 no action
+                              ⚠️ 지시서 §2 공통의 「cascade 금지」는 마스터·관계 표 규약이었다(검토 이견 1 · 대화 Claude 의 잘못)
+⬜9 so_charge.line_no         unique (so_id, line_no) — so_line 과 같은 자연키(두 표의 line_no 축은 따로)
+```
+**검토 이견 채택분**: 1(cascade — 위 ⬜8) · 2(6-a 「열」은 세면 **아홉** — 10-c) · 3(revoke all → grant select) · 4(`so_reserve_open_line_uq` 는 **plain unique** — RPC 는 풀고(`released_at`) → 거는(insert) 두 문장이라 즉시 검사로 된다 · 거꾸로 짜면 23505 로 잡힌다(그것이 맞다) · `customer_*_default_uq`(③ · 한 upsert 문장 안 교대)와 다르게 둔 이유 · deferrable 은 on_conflict 기준이 못 된다 9-i ⑪) · 5(`list_price`·`unit_price` numeric(18,7) — po_line 과 한 관례) · 6(`so_charge.account` 기본 `_99_` 은 표 기본값이 아니다 — FK 는 `ref_account.id` 라 테스트·운영이 달라 마이그레이션이 박을 수 없다 · 화면·RPC 가 `code='_99_'` 를 찾아 넣는다) · 7(ims_staff FK 여섯 · 인덱스 so 14) · 8(크기 366행 · 나누지 않음).
+📌 메모 칸: 5-d 의 `comments`(오더 메모) · `shipping_notes` 둘 — 거래 표 규약의 `note` 를 `comments` 가 대신한다(칸을 셋 두지 않는다).
+
+**⑤ `so_merge_reason_ck` 빈틈 (✅ Caleb 2026-09-23)**
+```
+옛 식   check (merged_into_id is null or closed_reason = 'merged')            ← ④ ⬜5 의 안(대화 Claude) · Claude Code 가 그대로 옮겼다
+실측    draft 오더에 merged_into_id = 다른 오더 → 통과(NOTICE HOLE) — closed_reason null 이면 = 'merged' 가 null · false OR null = null · CHECK 는 null 을 통과시킨다
+        ④ 검증 (나) ② 의 병합 시험은 merged_into_id = id 라 so_self_ref_ck 가 대신 막아 빈틈이 가려졌다 — 「이름 순서로 so_merge_reason_ck 가 먼저」 예상은 틀렸고, 그 이유를 따지다 드러났다
+새 식   check ((merged_into_id is not null) = (closed_reason is not distinct from 'merged'))   ← 양방향 · 양쪽이 null 이 될 수 없다
+근거    8-b — 병합이 void 와 다른 점은 「어디로 합쳐졌나」 흔적이 남는 것 · merged 인데 가리키는 곳이 없으면 흔적이 끊긴다 · 다른 짝 CHECK 셋이 이미 양방향
+대가    병합 RPC 는 merged_into_id · closed_reason='merged' · status='cancelled' · closed_at 을 한 문장에서 함께 넣는다(짝이 이어진다: merge → cancel_reason → closed_at)
+전수     CHECK 스물셋 NULL 점검(⑤ 회신 §3 표) — 빈틈은 이것 하나 · 스물둘은 NOT NULL 칸의 식이거나 null 통과가 의도(할인 없음 · 티어 가격 없음 · 짝 CHECK 가 따로 막는 어휘 검사)
+```
+
+### 10-c 앞 절에서 뒤집은 것 · 사실 정정 후보 — 본문은 고치지 않았다 (예외: 9-i 한 줄)
+
+| 어디 | 옛 문장 | 이번 판단 | 근거 |
+|---|---|---|---|
+| 6-a 제목 · 6-i 행 | 「상태 값 **열**」 · 「**열**로 채웠다」 | 목록을 세면 **아홉**(closed 를 빼고 cancelled 를 더해 수가 그대로였다) — ⚠️ 사실 정정 후보 · 본문은 이번에 고치지 않았다 · CHECK 는 아홉 | 검토 이견 2 · `so_status_ck` |
+| 5-d 주소 | `bill_to_state · bill_to_postcode · ship_to_state · ship_to_postcode` | **`_state_province` · `_postal_code`** — 9-d 「적기만」이 실물이 됐다 | 9-d ⬜4 |
+| 5-d `currency` | 「값 자체라 원문 하나」 | **FK + 원문**(`currency_id` NOT NULL + `currency_code`) — PO 머리와 짝 · 9-d 「적기만」이 실물 | 9-d · 검토 이견 3(①) |
+| 5-d `location` | 형식 미정 | **FK + 원문**(`location_id` nullable + `location_name`) | 9-c ⬜3 |
+| 5-d ⬜ 금액 칸 · 8-j | 「담지 않는다(안)」 | **없다** — 실물로 확정(인보이스가 굳힌다 · 오더 금액은 뷰·함수 · 다음 차수) | 8-c · 8-j |
+| 5-d `so_number` | 「시퀀스 + 기본값 함수」 | `so_number_seq`(25000) + `so_next_number()` · CHECK `^SO-[0-9]{5,}[a-z]*$` · 접미어는 분할 함수의 일 | 5-d · §2-b |
+| 거래 표 규약 `note` | 「물려받음 … note」 | `comments`(오더 메모)가 대신 · `shipping_notes` 따로 · 칸을 셋 두지 않는다 | 5-d |
+| 지시서 §2 공통 「cascade 금지」 | 전부 no action | `so_line`·`so_charge → so` **CASCADE** · `so_reserve → so_line` no action — 마스터 규약을 거래 표에 잘못 씌운 것 | ⬜8 · 검토 이견 1 |
+| ④ ⬜5 안 | `merged_into_id is null or closed_reason = 'merged'` | **양방향** `(merged_into_id is not null) = (closed_reason is not distinct from 'merged')` | ⑤ |
+| 6-g′ 「CHECK 는 값만 막는다」 | — | 같은 행 안의 **짝**도 값의 일로 본다(짐작 · 다섯을 걸었다) · 앞뒤 행 비교(전이)는 트리거 차수 | ⬜5 |
+
+### 10-d 마이그레이션 파일 둘 · 검증 실측
+
+```
+supabase/migrations/20260923133042_so.sql                   ④ 366행 · 46,477 바이트 · 표 4 · 시퀀스 1 · 함수 1 · 정책 4 · 트리거 4 · 인덱스 24 · CHECK 23 · 유니크 4 · FK 24 · 컬럼 주석 85 · 행 0
+supabase/migrations/20260923134840_so_merge_reason_pair.sql  ⑤ 40행 · 5,980 바이트 · 제약 1 다시 만들기(이름 그대로) · comment on column 2(merged_into_id · closed_reason) · 행 0
+```
+- 시각은 UTC(`date -u`) · 둘 다 begin/commit 없음 · ✅ **적용 2026-09-23 토론토 오전 · 테스트 DB `Asung-IMS` · Caleb** — `psql -v ON_ERROR_STOP=1 -1 -f` + `supabase migration repair --status applied`(po-module §13-f).
+
+**✅ ④ 검증 실측 (가) 구조 — 전부 예상 일치**
+```
+행 0 × 4 · 정책 4(so_select · so_line_select · so_charge_select · so_reserve_select · 전부 SELECT) · 트리거 _touch 4 · 제약 p4 u4 c23 f24 ·
+so CHECK 12 이름(so_cancel_reason_ck · so_channel_ck · so_closed_at_ck · so_closed_reason_ck · so_discount_pct_ck · so_intake_ck · so_merge_reason_ck · so_number_ck · so_self_ref_ck · so_split_pair_ck · so_split_reason_ck · so_status_ck) ·
+인덱스 so 14 · so_line 3 · so_charge 3 · so_reserve 4 · authenticated SELECT 만 · anon 0 · 시퀀스 start 25000 · last_value null · so_number 기본값 so_next_number()
+```
+**✅ ④ 검증 실측 (나) 실동작 — 전부 예상 일치 · 한 트랜잭션 · ROLLBACK**
+```
+거부 16   23514 ×11(status · channel · intake · cancel_reason 짝 · closed_reason 어휘 · closed_at 짝 · split 짝 · self_ref · surcharge · kind + ⑤에서 다시 본 merge)
+          23503 ×3(product FK · so_line 삭제 — so_reserve no action · so 삭제 — cascade 가 so_reserve 에서 멈춘다) · 23505 ×3(so_line line_no · so_charge line_no · so_reserve_open_line_uq) · 42501 ×1(authenticated insert)
+통과      풀고(released_at) → 걸기 · 풀린 줄 둘 공존 · authenticated select(visible_so 1) · updated_by null(postgres = system) · last_value null(시퀀스 무변)
+📌 ② 병합 시험(merged_into_id = id)은 so_self_ref_ck 가 막았다 — 「이름 순서로 so_merge_reason_ck 가 먼저」 예상은 틀렸다 · 그 이유를 따지다 so_merge_reason_ck 가 null 로 통과한다는 것이 드러났다(⑤ 의 계기)
+HOLE      draft 에 merged_into_id = 다른 오더 → 통과(NOTICE HOLE)   ← ⑤ 전 실측
+```
+**✅ ⑤ 검증 실측**
+```
+구조   pg_get_constraintdef = CHECK (((merged_into_id IS NOT NULL) = (NOT (closed_reason IS DISTINCT FROM 'merged'::text))))
+       📌 IS NOT DISTINCT FROM 이 NOT (IS DISTINCT FROM) 으로 저장된다 — 같은 뜻 · 회신 예상값의 글자 모양이 틀렸다(뜻은 맞았다)
+       so CHECK 12 그대로
+실동작  ① draft + merged_into_id → 23514 so_merge_reason_ck(HOLE 막힘) · ② cancelled+merged+closed_at · merged_into_id null → 23514 so_merge_reason_ck · ③ 넷 함께 → 통과 · ④ voided → 통과 · last_value null · ROLLBACK
+```
+
+### 10-e RPC 차수로 넘기는 것 (⬜ 모음)
+
+```
+전이 트리거 — 6-g′ 허용 짝 목록(길별 · warehouse 는 at_wms→picking→packed · pos·counter 는 confirmed→shipped) · 내려가는 짝(WMS 롤백 · 인보이스 취소 invoiced→shipped 8-h) · 그때 closed_at 비우기
+쓰기 정책 · sales 묶음(ims_perm_catalog 리터럴 갱신 · 주소록·연락처의 자리 9-c ⬜1)
+so_next_number 접미어 — 분할 함수(원본 번호 유지 · 갈라져 나온 것만 a·b·c · base advisory lock 5-d)
+so_family_members · so_family_lines(merged_into 칸 하나 · 8-j ⬜②) · 가용 재고 함수(5-f · 잠금 pg_advisory_xact_lock)
+so_reserve RPC — 풀고 → 걸기 순서(거꾸로면 23505 · plain unique) · 병합 RPC — merged_into_id·closed_reason·status·closed_at 을 한 문장에(⑤)
+so_charge 기본 계정 — 화면·RPC 가 code='_99_' 를 찾아 넣는다 · location_id 는 확정(so_confirm) 때 요구 · created_by 는 RPC 가 auth.uid() → ims_staff.id
+surcharge_label 만 있고 pct·amount 둘 다 null 인 줄 — 막을지(관찰 · ⬜ Caleb · ⑤ 회신 §3)
+6-a 제목·6-i 「열」→ 아홉 사실 정정(10-c) · 5-d 본문의 옛 낱말 넷(682 · 685 · 709 · 712)은 뒤집은 것 표가 설명 — 파일 나누기 차수에서 함께
+```
