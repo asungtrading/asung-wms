@@ -240,3 +240,29 @@ Attachments[] 원소  ID · ContentType · FileName · IsDefault · DownloadUrl
 Option1Name 33종(Color 463 · Size 332 · Formula 69 · Type 52 · Style 46 · color 38 …) · Option2Name 13종 · Option3Name 1종(Quantity)
 ⚠️ Color/color · Size/size · Flavor/Flavour 가 따로 있다 — 정규화하지 않고 원문 그대로
 ```
+
+---
+
+## 2026-09-23 가격 티어 실측 (IMS SO 가격표 차수 — 정본 `docs/design/so-module.md` §11 · 프로브 `docs/probes/PriceTierProbe.gs` · Caleb 실행 · 제품 18,963 전량)
+
+### `GET /ref/priceTier` — 응답 모양
+```
+{ "PriceTiers": [ { "Code": 1, "Name": "Wholesale" }, { "Code": 2, "Name": "Franchise" }, … 열 개 ] }
+```
+- ⭐ **Code N ↔ 제품의 `PriceTierN` 칸 ↔ 제품 `PriceTiers[Name]` 객체 키 — 열 티어 전부 100% 일치**(0 건 어긋남 · 18,963 제품 검산). 짝은 값이 아니라 **Code 로** 정한다 — 값만으로 찾으면 0 끼리·같은 값 티어끼리 속는다(가짜 데이터 시험에서 둘 다 실제로 속았다).
+- 실물 열 개: 1 Wholesale · 2 Franchise · 3 AONE · 4 Regular CAD · 5 ComparedPrice CAD · 6 wholesalespecia CAD · 7 USWholesale USD · 8 REFERENCECOST USD · 9 Tier 9 · 10 Tier 10(9·10 은 전부 0). ⚠️ 이름 속 CAD·USD 는 글자일 뿐 — Cin7 은 티어 통화를 모른다.
+- ⚠️ 위 「주의사항」의 「`PriceTiers` 객체는 실제 PriceTier 이름을 키로 사용」은 그대로 맞다 — 그 키가 `ref/priceTier` 의 `Name` 과 같고 `Code` 가 `PriceTierN` 의 N 이다.
+
+### 제품 가격 칸 실측 (Active Stock 낱개 8,609 · 양수)
+```
+Wholesale 8,594 · Franchise 8,513 · AONE 8,431 · Regular CAD 8,561 · ComparedPrice 8,423 · wholesalespecia 7,541 · USWholesale 7,492 · REFERENCECOST 168 · Tier 9 0 · Tier 10 0
+소수 최대 — 대부분 2자리 · Franchise·AONE·Regular·ComparedPrice 3자리 1~2개 · USWholesale 4자리 5개 · REFERENCECOST 4자리 35개 · ⚠️ 음수 1(Wholesale −0.4 · Active Stock 밖)
+0 은 「가격 없음」이다(IMS 는 줄을 만들지 않는다 · so-module §11)
+```
+
+### `Sellable` — 화면 「I am selling this product」
+- 세트(UOM · BOM 구성품 1개)는 대부분 `Sellable=false` 이고 그 가격 칸의 값은 **뜻이 없다**(Wholesale 값 든 5,464 중 「낱개 한 개 값과 같다」 4,890). `Sellable=true` 인 세트만 실제로 세트 단위로 판다 — Active Stock 세트 5,832 중 **1**(BEL43475-12 · 16.99 · 낱개 1.39×12 = 16.68 보다 1.9% 비쌈).
+- ⇒ IMS 가격 적재는 세트 가격을 `Sellable=true` 일 때만 가져온다(so-module §11 판정 ④). ⚠️ 세트 판정 자체는 `Sellable` 이 아니라 BOM 으로(po-module — `Sellable` 은 「세트인가」의 그림자일 뿐).
+
+### 페이지 크기 — `IncludeBOM=true` 는 Limit 500
+- `GET /product?Page=N&Limit=500&IncludeBOM=true&IncludeDeprecated=true` — **Limit 1000 은 오지 않는다**(500 으로 ≈38 페이지 · 2026-09-23 실측 · 09-13 프로브와 같은 조건). 가격 칸·식별 칸·BOM 요약만 저장해도 한 번에 끝난다(약 3분 안팎).

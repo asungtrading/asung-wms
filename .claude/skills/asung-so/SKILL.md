@@ -79,7 +79,10 @@ SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so �
      함수 so_<동작> · so_invoice_<동작> · so_payment_<동작> · so_credit_<동작> · 읽기 _detail/_list · 손님 셋은 앞머리 없음(supplier·product 처럼) ·
      ⚠️ 실제 이름은 각 차수의 지시서가 이 규칙으로 붙인다 — 지금 목록을 만들지 마라                                          (9-b)
 ⭐  FK+원문 짝 — currency_id+currency_code · payment_term_id+_name · default_location_id+_name(ref_warehouse.name 매칭) · ar/sale_account_id+_code ·
-     tax_rule · price_tier 는 원문만(ref_tax_rule 미결 · ref_price_tier 없음 — 인보이스·가격 계산 전에 서야 한다)                    (9-c ⬜2·⬜3 · 9-d)
+     tax_rule 은 원문만(ref_tax_rule 미결 — 인보이스 전에 서야 한다) · price_tier 원문 옆에 FK 붙이기는 다음(⭐ ref_price_tier 는 섰다 · §11 · 2026-09-23)        (9-c ⬜2·⬜3 · 9-d · 11-f)
+⭐  가격표(§11) — ref_price_tier 여덟 행(code 1~8 · purpose sale·compare·reference · currency_id FK 하나 · 7·8 = USD) · product_price(제품×티어 → 가격 · 낱개 줄 = 정본 · 세트 줄 = 고정가 · 없으면 계산) · product.set_discount_pct(세트만)
+     ⚠️ product_price.source 는 셋(cin7 · formula · manual) — 이 표만 · 재적재는 cin7 줄만 덮는다 · formula·manual 은 무접촉                                          (11-c 이견 3)
+     ⚠️ Cin7 의 0 은 「가격 없음」 — 줄을 만들지 않는다(price > 0) · 세트는 Sellable=Yes 만 · 티어는 이름이 아니라 code 로 맞춘다 · 없는 code·다른 이름이면 멈춘다             (11-c 이견 6·8 · 11-f)
 📌  직원 계정도 손님 표에 있다(Asung Employee - …) — 마케팅·매출에서 가르는 표시 ⬜(9-e)
 📌  마이그레이션 파일 시각은 UTC — 앞 파일 셋 20260922201223 · 20260923012022 · 20260923014604(asung-workflow §4)
 ```

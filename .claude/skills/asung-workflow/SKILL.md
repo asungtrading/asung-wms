@@ -112,7 +112,8 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⚠️ 적용 뒤에는 **실물로 확인한다** — 함수 개수·정책 수·반환 모양(「Success」 한 줄은 적용 증거가 아니다 · §11)
 
 ⭐ **마이그레이션 파일 시각은 UTC** — `date -u +%Y%m%d%H%M%S` (2026-09-22: 토론토 밤에 로컬 시각으로 지을 뻔했다 · UTC 로는 다음 날)
-⭐ **적용은 `psql -v ON_ERROR_STOP=1 -1 -f <파일>`** — 한 트랜잭션 · 도중 실패 시 전부 되돌아간다 · 파일에 begin/commit 이 없는지 먼저 grep
+⭐ **적용은 `psql -v ON_ERROR_STOP=1 -1 -f <파일>`** — 한 트랜잭션 · 도중 실패 시 전부 되돌아간다 · 파일에 트랜잭션 begin/commit 이 없는지 먼저 `grep -nE '^(begin|commit);'`(세미콜론까지)
+   ⚠️ `^\s*(begin|commit)\b` 로 세면 함수 본문의 plpgsql `begin` 이 걸린다 — 2026-09-23 `20260923154749_price_tier.sql`(트리거 함수 하나)이 첫 사례
    `&& supabase migration repair --status applied <버전> --db-url …` 로 잇는다(적용이 실패하면 이력도 안 적힌다)
 ⭐ 표를 세우는 차수의 순서 — 프로브 → 판정 → 마이그레이션 → 적재 dryRun → Apply → Verify → SQL 눈 확인 (2026-09-22 손님 적재가 이 순서로 하루에 섰다)
 ```

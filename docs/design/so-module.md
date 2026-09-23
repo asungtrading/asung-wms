@@ -2132,3 +2132,134 @@ so_charge 기본 계정 — 화면·RPC 가 code='_99_' 를 찾아 넣는다 · 
 surcharge_label 만 있고 pct·amount 둘 다 null 인 줄 — 막을지(관찰 · ⬜ Caleb · ⑤ 회신 §3)
 6-a 제목·6-i 「열」→ 아홉 사실 정정(10-c) · 5-d 본문의 옛 낱말 넷(682 · 685 · 709 · 712)은 뒤집은 것 표가 설명 — 파일 나누기 차수에서 함께
 ```
+
+---
+
+## §11 가격표 ① — `ref_price_tier` · `product_price` · `product.set_discount_pct` (2026-09-23 · 지시서 `~/asung/prompts/so-price-1-tables.md` · 검토 이견은 회신에)
+
+⚠️ 순서: **가격표 차수 → SO 쓰기 차수**(Caleb 2026-09-23 — 오더 줄 `list_price` 가 가격표를 기댄다 · 9-c ⬜2 「`ref_price_tier` 는 가격 계산 전에」). 이 절은 청취 · 실측 · 판정 · 뒤집은 것 · 파일·검증 실측 · 적재 차수로 넘기는 것. 칸의 정본은 마이그레이션 파일(11-e).
+⚠️ 앞 절 본문은 고치지 않았다. 파일 나누기는 이번에도 하지 않는다.
+📌 판정 Caleb 2026-09-23(회사 PC · 판정 ①~④ · 검토 이견 1~10 · ⬜1~7) · 적용·검증 Caleb 2026-09-23 토론토 오전~정오 · 테스트 DB `Asung-IMS`.
+
+### 11-a 청취 — Caleb 2026-09-23 (말 그대로)
+
+```
+가격        「지금 cin7에서 가격을 정하는 것은 수동으로 하고 있어. markup %나 average cost가 기능으로 있지만 사용하지 않아.」
+            ⇒ 제품 차수(20260913230500)가 PriceTier 를 미룬 이유(「계산 규칙이 API 에 없다 · 숫자만 베끼면 왜 이 값인가가 사라진다」)가 풀린다 — 숫자가 정본이다
+세트        「세트들은 대부분은 I'm selling this product이 no … -6, 12등등으로 uom으로 묶여진 세트들은 가격을 안가져와도 돼.
+            다만 … yes로 되어 있는 제품은 실제로 UOM으로 판매를 하고 있는거라 그것은 가격을 가져와야 해.」
+            「세트 하나의 가격이야. 만약에 베이스 가격이 1불이면, -6가 붙은 세트는 6불이야」
+            「IMS에서는 base가격과 unit 단위로 가격이 자동 계산이 될 수 있으면 좋겠어 … 그 가격에 디스카운트를 적용할 수 있으면 … uom으로 판매하는 것들은 좀 더 싸게」
+Shopify 짝   「comparedPrice CAD와 Wholesalespecia CAD는 샤피파이에 있는 두 스토어때문에 만든 거야. comparedPrice는 Aone과, 그리고 wholesalespecia는 Wholesale과 짝」
+            Cin7 Shopify 연동 화면(Caleb 캡처 2026-09-23): Sale price tier = Wholesale · Compare price tier = wholesalespecia CAD · Show comparison price 켜짐
+            ⚠️ 이름과 달리 wholesalespecia 는 특가가 아니라 **비교가**다 — 대화 Claude 가 「특가」로 짐작했다가 화면으로 뒤집혔다
+            ⭐ 짝은 티어가 아니라 **스토어 설정**이 정한다 — 티어 표에 짝 칸을 두지 않는다 · Shopify 연동 차수에서 스토어 설정(판매 티어 · 비교 티어)으로
+가격식(뒤 차수) 서플라이어별 가격식 · 신제품에만 자동 · 한 번 정해지면 안 바꿈 · GP 표시 · 튀는 것 손으로 · 매입가 바뀌면 일괄 재적용 창구 · 상품 쪽에서 서플라이어별로
+            예: ((10 CNY ÷ 5) × 1.4) ÷ 0.5 = 5.6 → 5.49 또는 5.99 — 원가는 원산지 통화(KRW·CNY)일 때가 많다 · ÷5 는 계획 환율 · ×1.4 운임·비용 · ÷0.5 마진
+            ⚠️ 이번 차수 범위 밖 — 다만 가격 줄의 「출처」 칸(product_price.source)은 이 요청 때문에 지금 선다(판정 ③)
+```
+
+### 11-b 실측 — PriceTierProbe (2026-09-23 토론토 오전 · Caleb 실행 · `docs/probes/PriceTierProbe.gs` · Drive `PriceTierProbe 2026-09-23 …`)
+
+```
+제품       받은 행 18,963 = API Total = 고유 ID · Active 14,507 · Deprecated 4,456 · Stock 18,905 · Service 54 · Non Inventory 4
+갈래(BOM)  전체 낱개 12,462 · 세트 6,486 · 콤보 15 / Active Stock 낱개 8,609 · 세트 5,832 · 콤보 15   (가르는 기준은 BOM — UOM 이름·SKU 접미사 아님)
+티어 목록  GET ref/priceTier → {PriceTiers:[{Code,Name}]} 열 · Code N ↔ PriceTierN ↔ PriceTiers[Name] — 열 티어 전부 100% 일치(0 건 어긋남)
+           1 Wholesale · 2 Franchise · 3 AONE · 4 Regular CAD · 5 ComparedPrice CAD · 6 wholesalespecia CAD · 7 USWholesale USD · 8 REFERENCECOST USD · 9 Tier 9 · 10 Tier 10
+채움(Active Stock 낱개 8,609 · 양수)
+           Wholesale 8,594 · Franchise 8,513 · AONE 8,431 · Regular CAD 8,561 · ComparedPrice 8,423 · wholesalespecia 7,541 · USWholesale 7,492 · REFERENCECOST 168 · Tier 9 0 · Tier 10 0
+           소수 최대 — 낱개 대부분 2자리 · Franchise·AONE·Regular·ComparedPrice 3자리 1~2개 · USWholesale 4자리 5개 · REFERENCECOST 4자리 35개
+           ⚠️ 음수 1 — Wholesale 전체에서 −0.4(Active Stock 에는 없다 · 어느 제품인지 안 봤다)
+티어끼리(낱개 · Wholesale 대비)  Franchise 같다 8,486 · wholesalespecia 같다 7,519 · AONE·Regular·ComparedPrice 거의 전부 높다 · USWholesale 거의 전부 낮다(USD)
+Sellable   Active Stock 세트 5,832 중 true 1(BEL43475-12) · 낱개 8,609 중 false 15
+세트 가격  Sellable No 세트 — 값이 있어도 뜻이 없다: Wholesale 값 든 5,464 중 「낱개 한 개 값과 같다」 4,890 · 「낱개×계수」 27
+           Sellable Yes 세트 BEL43475-12 — Wholesale·Franchise·wholesalespecia 16.99 · 나머지 0 · 낱개 1.39 × 12 = 16.68 보다 1.9% 비쌈
+손님 원문  customer.price_tier 넷(9-g) Wholesale · AONE · Regular CAD · USWholesale USD — 티어 이름과 글자 그대로 일치(대소문자·공백)
+```
+
+### 11-c 판정 ①~④ · 검토 이견 · ⬜ (✅ Caleb 2026-09-23)
+
+```
+①  티어 여덟을 옮긴다 · Tier 9 · Tier 10 은 옮기지 않는다(전부 0)
+    purpose CHECK 셋   sale       Wholesale · Franchise · AONE · Regular CAD · USWholesale USD     손님·스토어의 판매 티어가 될 수 있다
+                       compare    ComparedPrice CAD · wholesalespecia CAD                          Shopify 비교가 · 결제에 쓰지 않는다
+                       reference  REFERENCECOST USD                                                참고값 · 파는 가격이 아니다
+    근거: 비교가 티어를 손님에게 붙이면 줄 그은 값으로 청구한다 · 손님이 안 쓰는 티어도 손으로 넣은 값이라 버리면 되살릴 수 없다 · Franchise = sale 은 짐작(손님 0 · 이름·값으로)
+②  세트 할인은 세트마다 하나 — product.set_discount_pct · 모든 티어에 같이 걸린다
+    세트 가격 = 낱개의 그 티어 가격 × pack_factor × (1 − set_discount_pct/100)
+    근거: 지금 세트로 파는 것은 하나뿐 · 티어 간 차이는 낱개 가격이 이미 담는다 · 필요해지면 그때 넓힌다
+    📌 손님 기본 할인(§1-k)과 다른 자리 — 오더 줄에서는 세트 가격 → 손님 할인 순(짐작 · 오더 가격 차수에서 확정)
+③  가격표 = 제품 × 티어 → 가격 한 표(product_price) — 낱개: 줄이 있다 = 정본 가격 · 세트: 보통 줄이 없다 = 계산 · 줄이 있으면 = 고정가(계산값보다 줄이 이긴다)
+    ⭐ 줄마다 출처를 남긴다 — 어디서 왔나(source) · 언제(price_set_at) · 누가(price_set_by)
+       근거: 가격식 차수의 「한 번 정해지면 안 바꾼다」·「일괄 재적용 때 사람이 고친 값은 덮지 않는다」가 이 칸에 선다 · 나중에 더하면 옮겨 온 줄의 출처가 빈다
+④  BEL43475-12 는 16.99 고정가를 지킨다(계산값 16.68 을 따르지 않는다) ⇒ 세트 줄 셋(Wholesale · Franchise · wholesalespecia CAD = 16.99) · 나머지 티어는 계산
+    대가: 낱개 BEL43475 가 바뀌어도 이 셋은 따라가지 않는다 — 가격 화면이 「고정가 세트」를 따로 보여야 한다(화면 차수)
+```
+**Caleb 판정 넷(검토 이견 번호)**
+```
+이견 2  통화 — ref_price_tier.currency_id NOT NULL → ref_currency · FK 하나(원문 칸 없음 · supplier.currency_id 와 같은 자리) · 7 USWholesale USD · 8 REFERENCECOST USD = USD · 나머지 여섯 = CAD
+        Cin7 은 티어 통화를 모른다(이름 속 글자일 뿐 · §1-j) — IMS 판정 값 · 손님 통화 ≠ 티어 통화는 막지 않고 알린다 — 오더 가격 차수에서(USD 손님 셋 중 USWholesale 은 하나 · 9-g)
+이견 3  source 하나 · CHECK 셋(cin7 · formula · manual) · price_source 칸 없음 — 가격 줄은 값이 곧 행이라 「행의 출처」와 「값의 출처」가 갈리지 않는다
+        ⭐ 재적재는 source='cin7' 줄만 덮는다 · formula·manual 은 무접촉 · ⚠️ source 어휘가 이 표만 셋(다른 표는 둘)
+이견 4  값 변경 감지 트리거 product_price_set_touch() — 자기 행만 본다 · insert: price_set_at 기본 now() · price_set_by = auth.uid()→ims_staff.id(없으면 null · 적재)
+        update: price is distinct from old.price 일 때만 둘을 갱신 · 같은 값이면 보낸 대로 · ⚠️ ims_touch 는 그대로(updated_at/by 는 그쪽 일) · 이름 규칙 9-b(<표>_<동작>)
+이견 8  시드 — ⭐ 가격(숫자)은 GAS 적재 · 티어 목록(이름표)은 마이그레이션이 넣는다(여덟 행 · on conflict (code) do nothing · source='cin7' · currency_id 는 조회 — uuid 를 박지 않는다)
+        근거: purpose·currency 는 우리 판정 값이라 스크립트가 Cin7 에서 읽어 낼 수 없다 · ref_currency 선례(20260911164513 · 2행 seed)
+        ⭐ 가격 적재 스크립트는 티어를 이름이 아니라 code 로 맞춘다 · IMS 에 없는 code 가 오거나 같은 code 의 이름이 다르면 멈춘다(적재 차수 규칙)
+```
+**받은 것(같은 판정)**: 이견 1 `ims_can_write` 마지막 정의는 `20260918020000:99`(9-c ⬜1·10-b 의 `20260917230000` 은 틀린 위치 — 11-d) · 5 낱개 금지 CHECK(`set_discount_pct is null or parent_product_id is not null` · 양쪽이 null 을 내지 않는다 · §10 머리) · 6 `price > 0`(Cin7 의 0 = 가격 없음 · 줄을 만들지 않는다 · 음수 1건도 막힌다) · 7 `product_price.cin7_id` 규약대로 두되 늘 null · 9 `code smallint` · 10 Franchise 짐작 주석. ⬜1~7 회신 답 그대로(마스터/관계 규약 · 읽기 함수 없음 — 세트 가격 식은 주석 · 권한 master · Deprecated 낱개도 옮긴다).
+
+### 11-d 앞 절에서 뒤집은 것 · 닫은 것 · 사실 정정 — 본문은 고치지 않았다
+
+| 어디 | 옛 문장 | 이번 판단 | 근거 |
+|---|---|---|---|
+| po-module 603행 · product.sql `sellable` | 「원문 보존용 · 우리 논리가 이 칸을 읽지 않는다」 | **첫 사용** — 세트 판정에는 여전히 안 읽는다(pack_factor·parent_product_id) · 「그 세트를 실제로 파는가 → Cin7 세트 가격을 가져오나」에 **적재 스크립트가 읽는다** · 표·제약은 참조하지 않는다 | 11-a 세트 청취 · 판정 ④ |
+| product.sql 49행 · po-module 638행 | 「PriceTier 1~10 ⬜ SO 모듈 · 계산 규칙이 API 에 없다 · 숫자만 베끼면 왜 이 값인가가 사라진다」 | **닫힘** — 가격은 수동이라 숫자가 정본(11-a) · 출처 칸(source·price_set_at/by)이 「왜 이 값인가」를 대신 답한다 | 11-a · 판정 ③ |
+| 9-c ⬜2 · 9-e · 10-e · so.sql 18행 | 「`ref_price_tier` 는 어디에도 없다(grep 0) · 가격 계산 전에 서야 한다」 | **섰다** — `ref_price_tier` 여덟 행 · `customer.price_tier` · `so.price_tier` 원문 옆에 FK 칸을 붙이는 것은 다음 차수(11-f) | 11-e |
+| 9-c ⬜1 · 10-b | 「`ims_can_write(p_screen text)` `20260917230000`(이후 재정의 없음)」 | ⚠️ **사실 정정** — 마지막 정의는 `20260918020000_ims_role_hierarchy.sql` 99행(시그니처 같음 · 앞 회신의 grep tail 이 create 줄을 놓쳤다) | 검토 이견 1 |
+| po-module §5 공통 규약 `source` | 「cin7 · manual 둘」 | `product_price` 만 **셋**(cin7 · formula · manual) — 값이 곧 행인 표의 예외 · 다른 표는 그대로 | 이견 3 |
+| §1-j 청취 | 「ComparedPrice(표시용 정가) · REFERENCECOST(원가 참고)」 | purpose 로 갈라 담았다(compare · reference) · wholesalespecia 도 compare(특가가 아니다 — 화면으로 확인) | 판정 ① · 11-a |
+| asung-workflow §4 「begin/commit 이 없는지 먼저 grep」 | `^\s*(begin|commit)\b` 모양 | 함수 본문의 plpgsql `begin` 이 걸린다(이 파일이 첫 사례) — `grep -nE '^(begin|commit);'` 로 | 11-e |
+
+### 11-e 마이그레이션 파일 · 검증 실측
+
+```
+supabase/migrations/20260923154749_price_tier.sql   187행 · 26,457 바이트 · 표 2 · 함수 1(product_price_set_touch) · 칸 1(product.set_discount_pct) · CHECK 7(ref 3 · price 2 · product 2) ·
+                                                    유니크 ref cin7_id·code·name / price cin7_id·(product_id, tier_id) · 인덱스 6 · 트리거 3 · 정책 3+4 · 컬럼 주석 17 · ⭐ seed 8행 · 가격 줄 0
+```
+- 시각 UTC · ✅ **적용 2026-09-23 토론토 오전~정오 · 테스트 DB `Asung-IMS` · Caleb** — `psql -v ON_ERROR_STOP=1 -1 -f` + `supabase migration repair --status applied 20260923154749`.
+- ⚠️ `grep -iE '^\s*(begin|commit)\b'` 가 1줄(125행) 잡힌다 — **함수 본문의 plpgsql `begin`** 이고 트랜잭션 문장이 아니다. 트랜잭션 `begin;`·`commit;` 은 없다(11-d · asung-workflow §4 문구를 `^(begin|commit);` 로 바꿨다).
+
+**✅ 검증 실측 (가) 구조 · seed · 손님 원문 — 전부 예상 일치**
+```
+seed 8행   1 Wholesale sale CAD · 2 Franchise sale CAD · 3 AONE sale CAD · 4 Regular CAD sale CAD · 5 ComparedPrice CAD compare CAD · 6 wholesalespecia CAD compare CAD · 7 USWholesale USD sale USD · 8 REFERENCECOST USD reference USD
+           (Tier 9·10 없음 · 전부 source cin7 · is_active t)
+tiers 8 · prices 0 · set_discounts 0 · 정책 ref_price_tier 3 + product_price 4 · 트리거 3(ref_price_tier_touch UPDATE · product_price_set_touch INSERT,UPDATE · product_price_touch UPDATE)
+제약 ref p1 u3 c3 f2 · price p1 u2 c2 f4 · product CHECK 둘 def(product_set_discount_pct_ck · product_set_discount_set_only_ck) · 인덱스 6 · anon 0 · authenticated 두 줄(ref_price_tier INSERT,REFERENCES,SELECT,TRIGGER,UPDATE · product_price +DELETE) · prosecdef t 둘
+unmatched_customer_tiers 0 · 손님 티어 분포 Wholesale 7,421 · AONE 2,045 · Regular CAD 2 · USWholesale USD 1
+📌 AONE 2,045 — 예상 2,044(9-g 프로브 9,468명 기준)와 1 차이 · 적재(9,469명)가 프로브 뒤라 늘어난 한 명으로 본다(짐작 · 이름 미확인) — DB 가 아니라 데이터가 움직였다(asung-workflow §11 「데이터가 움직였을 가능성을 먼저 본다」)
+```
+**✅ 검증 실측 (나) 실동작 — 한 트랜잭션 · ROLLBACK · 시험마다 CHECK 하나**
+```
+23514 다섯(이름 그대로)  ref_price_tier_purpose_ck · ref_price_tier_code_ck · product_price_price_ck · product_set_discount_pct_ck · product_set_discount_set_only_ck
+세트 할인 들어감          AAA07391-6 10 → null(되돌림)
+23505                   product_price_product_tier_key
+트리거                  2020 심음 → 같은 값 update 2020 그대로 → 다른 값 update 오늘 · price_set_by null(postgres = system)
+42501 · visible_tiers 8 (authenticated)
+⚠️ 권한 시험은 sub null(master 없는 worker 계정이 테스트 DB 에 없다 · 9-f 와 같은 한계) — 「신원 없음」이 막힌다까지만 확인
+```
+
+### 11-f 적재 차수로 넘기는 것 (⬜ 모음)
+
+```
+가격 적재 스크립트(GAS · ImsLoadPrice 류 · asung-apps-script 규칙 6)
+  티어는 code 로 맞춘다 · IMS 에 없는 code 가 오거나 같은 code 의 이름이 다르면 멈춘다
+  낱개 전부(Deprecated 도 · 값이 있으면) · 세트는 Sellable=Yes 만(BEL43475-12 · 셋 고정가 16.99 · 나머지 티어 0 = 줄 없음) · Sellable No 세트는 안 가져온다(값이 있어도 뜻이 없다)
+  Cin7 의 0 은 「가격 없음」 — 줄을 만들지 않는다 · 음수(−0.4 1건)는 건너뛰고 센다 · 재적재는 source='cin7' 줄만 덮는다(formula·manual 무접촉) · 사라진 가격은 어떻게(줄 삭제인가 is_active 인가 — 판단)
+  IncludeBOM 은 Limit 500(1000 이 안 온다 · PriceTierProbe 실측) · 열쇠 (product_id, tier_id) · price_set_at 은 트리거가 지킨다(같은 값이면 안 움직인다)
+  검증: 낱개 줄 수 ≈ 채움 실측(Wholesale 8,594 …) · unmatched 0 · 세트 줄 = BEL43475-12 셋
+customer.price_tier · so.price_tier 원문 옆에 FK 칸(price_tier_id → ref_price_tier) 붙이기 — 원문 매칭 name(글자 그대로 일치 실측)
+오더 가격 차수  세트 가격 계산 창구 하나(낱개 × pack_factor × (1 − set_discount_pct/100) · 고정가 줄이 이긴다 · 반올림 round(…,2)) · 세트 가격 → 손님 할인 순(짐작 확정) · 손님 통화 ≠ 티어 통화 알림 · 고정가 세트 목록(화면)
+가격식 차수     source='formula' · 서플라이어별 식 · 신제품에만 · 일괄 재적용 창구(manual 무접촉) · pricing 묶음(ims_perm_catalog)
+Shopify 연동    스토어 설정(판매 티어 · 비교 티어) — 티어 표에 짝 칸 없음
+```
