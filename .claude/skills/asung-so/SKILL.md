@@ -26,6 +26,7 @@ description: >
 ```
 손님 표 셋      ✅ 2026-09-22 — 마이그레이션 ① customer · customer_address · customer_contact(9-a~9-f) · ② job_title(9-g·9-h) · ③ 기본 하나 유니크 deferrable(9-i)
 손님 첫 적재    ✅ 2026-09-22 — docs/probes/ImsLoadCustomer.gs · ⚠️ 테스트 DB(Asung-IMS)만 · 실측은 9-j
+가격표          ✅ 2026-09-23 — 20260923154749(ref_price_tier 8행 · product_price · product.set_discount_pct) · 첫 적재 76,872줄 · docs/probes/ImsLoadPrice.gs · 테스트 DB(11-e · 11-g)
 SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so · so_line · so_charge · so_reserve · 시퀀스 SO-25000~) · ⑤ 20260923134840(so_merge_reason_ck 양방향) · ⚠️ 읽기만 · 테스트 DB · 전이·RPC 는 다음(§10)
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
@@ -54,6 +55,15 @@ SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so �
      계기: 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다 · ⚠️ 끝 판단은 Total 이 아니라 받은 행 수     (9-j)
 ⭐  멈춤 조건(추정해 넣지 않는다 · 로그에 적고 throw) — Status 가 Active·Deprecated 밖 · MarketingConsent 0~3 밖 · Type 이 Billing·Business·Shipping·빈 값 밖 ·
      한 손님에 Default 연락처 둘 이상 · 같은 cin7_id 두 번                                                 (ImsLoadCustomer.gs 머리)
+```
+
+## 1-b. ⭐⭐ 가격 적재 — 모르면 사고 (ImsLoadPrice.gs · ilp 접두 · 11-g)
+
+```
+⭐⭐ 세트는 Sellable=Yes 만 가져온다 — No 세트의 가격 칸 값은 낱개 한 개 값이 남은 것(4,890/5,464) · 가져오면 세트 하나가 낱개 값이 되어 틀린 가격 · 콤보는 낱개처럼 자기 가격(11-g ①)
+⭐⭐ source='cin7' 줄만 다룬다 — formula·manual 줄은 읽지도 덮지도 내리지도 않는다(11-c 이견 3) · 사라진 가격은 is_active=false(지우지 않는다 · 11-g ②)
+⭐⭐ price_set_at · price_set_by 는 보내지 않는다 — 트리거 product_price_set_touch 가 값이 바뀔 때만 채운다 · 같은 값을 다시 보내도 안 움직인다(11-c 이견 4)
+⭐⭐ 티어는 이름이 아니라 code 로 맞춘다 — IMS 에 없는 code 가 오거나 같은 code 의 이름이 다르면 멈춘다(11-c 이견 8) · Cin7 의 0 은 「가격 없음」 = 줄 없음 · 음수는 건너뛰고 센다
 ```
 
 ## 2. ⭐ 기본 주소 · 배송지 기본값

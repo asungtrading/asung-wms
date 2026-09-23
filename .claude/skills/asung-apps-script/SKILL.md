@@ -110,14 +110,14 @@ function getProp(key) {
 
 ## 규칙 6 — IMS 적재 스크립트(Ims*Load) 셋
 
-Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `ImsLoadCustomer` · 사본 `asung-wms/docs/probes/*.gs` · 원본은 GAS)가 공통으로 지키는 셋. 적재 규칙 자체(무엇을 보내고 무엇을 내리나)는 모듈 스킬(`asung-po` §3 · `asung-so` §1)과 정본이 갖는다.
+Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `ImsLoadCustomer` · `ImsLoadPrice`(접두 `ilp` · 2026-09-23 · ⭐ 바뀐 것만 보낸다 — 다시 돌려도 남은 것만 · so-module 11-g) · 사본 `asung-wms/docs/probes/*.gs` · 원본은 GAS)가 공통으로 지키는 셋. 적재 규칙 자체(무엇을 보내고 무엇을 내리나)는 모듈 스킬(`asung-po` §3 · `asung-so` §1)과 정본이 갖는다.
 
 ```
 ⭐ 이어 달리기 수집 — 4분 30초에서 새 페이지를 멈추고 받은 것을 Drive 에 저장 · Script Properties 에 다음 페이지 · 로그에 「Next run」이면 다시 실행
    (6분 제한 대비 · 429 가 오면 쉬고 이어 받는다 · 끝 판단은 Total 이 아니라 받은 행 수 < Limit)
 ⭐ 대량 비활성 안전장치 — 받은 행 수 ≠ API Total 이면 멈춤(수집이 짧게 끝난 것) · 한 번에 내리는(is_active=false) 줄 > max(20, 1%) 면 멈춤
    맞으면 허락 속성(예 ILC_ALLOW_BIG_DOWN=1)을 넣고 **한 번만** 통과 · 계기: 2026-09-22 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다
-⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc …)로 겹침을 막는다
+⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc · ilp · ptp …)로 겹침을 막는다
 ```
 
 ---

@@ -2252,14 +2252,46 @@ unmatched_customer_tiers 0 · 손님 티어 분포 Wholesale 7,421 · AONE 2,045
 ### 11-f 적재 차수로 넘기는 것 (⬜ 모음)
 
 ```
-가격 적재 스크립트(GAS · ImsLoadPrice 류 · asung-apps-script 규칙 6)
+가격 적재 스크립트(GAS · ImsLoadPrice 류 · asung-apps-script 규칙 6)   → ✅ 11-g (2026-09-23 첫 적재 · docs/probes/ImsLoadPrice.gs · 76,872줄)
   티어는 code 로 맞춘다 · IMS 에 없는 code 가 오거나 같은 code 의 이름이 다르면 멈춘다
   낱개 전부(Deprecated 도 · 값이 있으면) · 세트는 Sellable=Yes 만(BEL43475-12 · 셋 고정가 16.99 · 나머지 티어 0 = 줄 없음) · Sellable No 세트는 안 가져온다(값이 있어도 뜻이 없다)
-  Cin7 의 0 은 「가격 없음」 — 줄을 만들지 않는다 · 음수(−0.4 1건)는 건너뛰고 센다 · 재적재는 source='cin7' 줄만 덮는다(formula·manual 무접촉) · 사라진 가격은 어떻게(줄 삭제인가 is_active 인가 — 판단)
+  Cin7 의 0 은 「가격 없음」 — 줄을 만들지 않는다 · 음수(−0.4 1건)는 건너뛰고 센다 · 재적재는 source='cin7' 줄만 덮는다(formula·manual 무접촉) · 사라진 가격은 어떻게(줄 삭제인가 is_active 인가 — 판단) → ✅ 11-g 판정 ② is_active=false
   IncludeBOM 은 Limit 500(1000 이 안 온다 · PriceTierProbe 실측) · 열쇠 (product_id, tier_id) · price_set_at 은 트리거가 지킨다(같은 값이면 안 움직인다)
   검증: 낱개 줄 수 ≈ 채움 실측(Wholesale 8,594 …) · unmatched 0 · 세트 줄 = BEL43475-12 셋
 customer.price_tier · so.price_tier 원문 옆에 FK 칸(price_tier_id → ref_price_tier) 붙이기 — 원문 매칭 name(글자 그대로 일치 실측)
 오더 가격 차수  세트 가격 계산 창구 하나(낱개 × pack_factor × (1 − set_discount_pct/100) · 고정가 줄이 이긴다 · 반올림 round(…,2)) · 세트 가격 → 손님 할인 순(짐작 확정) · 손님 통화 ≠ 티어 통화 알림 · 고정가 세트 목록(화면)
 가격식 차수     source='formula' · 서플라이어별 식 · 신제품에만 · 일괄 재적용 창구(manual 무접촉) · pricing 묶음(ims_perm_catalog)
 Shopify 연동    스토어 설정(판매 티어 · 비교 티어) — 티어 표에 짝 칸 없음
+```
+
+### 11-g 가격 첫 적재 (✅ 2026-09-23 12:08~12:17 EDT · 테스트 DB `Asung-IMS` · `docs/probes/ImsLoadPrice.gs` · Caleb 실행 · 기록 차수 — 판정 둘 추가)
+
+적재 스크립트는 `docs/probes/ImsLoadPrice.gs`(대화 Claude 가 썼다 · Caleb 이 레포에 넣었다 · Apps Script 원본 · `ilp` 접두 · 11-c 판정 ①~④ · 이견 3·6·8 · 11-f 규칙을 따른다 · 대상은 테스트 DB 만 · ⭐ 바뀐 것만 보낸다 — 다시 돌려도 남은 것만).
+
+**판정 셋(✅ Caleb 2026-09-23)**
+```
+① 콤보는 낱개처럼 자기 가격을 가져온다 — 서로 다른 물건의 묶음이라 「낱개 × 계수」로 계산할 수 없다 · DB 는 parent_product_id 가 null 이라 이미 낱개 쪽(product_set_discount_set_only_ck 도 낱개로 본다)
+② Cin7 에서 사라진 가격은 is_active=false — 지우지 않는다(po-module §3-f 한 규칙 · 되나타나면 upsert 가 되살린다) · 읽는 쪽은 켜진 줄만 — 오더 가격 창구 하나에서(⬜5 · SO 쓰기 차수)
+③ Cin7 에만 있는 제품 249(가격 있는 것 115)는 기다리지 않고 적재했다 — 제품 재적재(po-module §3-f · ⚠️ 코드 미구현) 뒤 이 스크립트를 다시 돌리면 그 줄만 생긴다(바뀐 것만 보낸다)
+```
+
+**실측 (ImsLoadPrice.gs 머리 주석 그대로)**
+```
+수집   12:08~12:09 EDT · 38페이지 · 18,963 = API Total · 티어 10(9·10 은 값 없음 — 건너뜀)
+Dry    IMS 제품 18,714 · Cin7 에만 있는 제품 249(가격 있는 것 115 · 표본 -EA-ALT-UPC · AMZ00101…) — 제품 재적재 뒤 이 스크립트를 다시 돌리면 채워진다
+       세트 판정 어긋남 0 · 안 가져온 세트(Sellable No) 6,346 · 음수 0(프로브의 −0.4 는 가져오지 않는 제품에 있다 · 짐작)
+       바라는 줄 76,872 = 낱개 76,772 · 콤보 97 · 세트 고정가 3(BEL43475-12 T1·T2·T6 = 16.99)
+       티어별 T1 11,867 · T2 11,807 · T3 11,883 · T4 11,860 · T5 11,341 · T6 8,516 · T7 9,429 · T8 169
+Apply  12:14:31~12:15:29 EDT · 한 번에 끝 · 보낸 76,872 = 돌아온 76,872 · 내림 0
+Verify 전부 일치(보낼 것 0 · 내릴 것 0 · 활성 cin7 76,872 · 티어 여덟 · 세트 3)
+SQL    price_set_by 채움 0(시스템) · 세트 줄 3 · 비활성 제품의 줄 17,925 · 소수 셋째 자리 이상 53(프로브 합 4+5+1+1+2+5+35 와 같다) ·
+       파는 세트인데 줄 없음 0 · 표본 ABC59130 · BEL43475 · BEL43475-12 · ANU73469 · ANN00023 이 프로브 값과 같다
+```
+📌 11-b 실측(Active Stock 낱개 · 양수 채움)과 자리가 다르다 — 적재는 Deprecated 낱개·콤보까지 넣으므로 티어별 줄 수(T1 11,867 …)가 프로브 채움(Wholesale 8,594 …)보다 크다. 세트 고정가 셋 · 소수 자릿수 53 · 표본 다섯이 프로브와 같다.
+
+**⬜ 남는 것**
+```
+Cin7 에만 있는 제품 249(가격 있는 것 115)의 줄 — 제품 재적재(코드 미구현) 뒤 ImsLoadPrice 재실행
+비활성 제품의 줄 17,925 — 가격 화면은 활성 제품만 거른다(화면 차수) · 줄은 그대로 둔다(되살릴 때 가격이 있다 · ⬜7)
+customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 ```
