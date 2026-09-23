@@ -12,7 +12,7 @@ description: >
   "StockReceivedStatus", "OrderStatus", "Status 필터", "파라미터 무시",
   "429", "rate limit", "백오프",
   "재평가", "Stock Revaluation", "Stock Level Report", "bin 재고 리포트",
-  "Movement Details" 등의
+  "Movement Details", "MarketingConsent", "JobTitle" 등의
   키워드가 나오면 반드시 이 스킬을 먼저 읽고 코드를 작성하세요. 엔드포인트 URL, 파라미터 이름, 
   응답 구조가 정확히 문서화되어 있으므로 추측으로 코드를 작성하지 마세요.
 ---
@@ -115,7 +115,7 @@ function fetchAllPages(endpoint, params) {
 | **트랜스퍼/입고 쓰기 (bin GUID 필수)** | `POST /stockTransfer`, `POST /purchase/stock`, `PUT /stockTransfer`(완료 — ⚠️수량 변경 무시) | `references/stock-write.md` |
 | **bin GUID 조회** | `GET /ref/location` → 창고 행 `Bins[]` | `references/stock-write.md` 5절 |
 | **Reference Book 여섯 (마스터 · 전량 실측 2026-09-11)** | `GET /ref/brand`·`/ref/category`·`/ref/unit`·`/ref/paymentterm`·`/ref/account`(⚠️키 `AccountsList`)·`/ref/location` — ⚠️ 통화 목록 없음 | `references/ref-endpoints.md` |
-| 고객 목록 / 상세 | `GET /customer` | `references/customer.md` |
+| 고객 목록 / 상세 | `GET /customer` — ⚠️ `MarketingConsent` 는 숫자(0·1 Unknown · 2 Opt in · 3 Opt out) · `JobTitle` 은 손님 연락처에만 · Address·Contact 에 `ID` 있음 (2026-09-22 실측) | `references/customer.md` |
 | 공급업체 목록 / 상세 | `GET /supplier` | `references/supplier.md` |
 | 제품 마스터 | `GET /product` | `references/product-master.md` |
 | 재고 현황 | `GET /ref/productavailability` | `references/product.md` |

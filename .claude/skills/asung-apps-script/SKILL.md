@@ -5,10 +5,11 @@ description: >
   Cin7 → BigQuery 적재 스크립트, 알림/이메일 자동화, 트리거 설정, 웹앱 배포 등
   GAS 관련 작업에서 트리거됩니다.
   "Apps Script", "GAS", "스크립트 추가", ".gs", "트리거 설정", "BQ 적재 자동화",
-  "Script Properties", "웹앱 배포", "SalesOrderData", "SystemMonitor", "이메일 알림" 등의
+  "Script Properties", "웹앱 배포", "SalesOrderData", "SystemMonitor", "이메일 알림",
+  "IMS 적재 스크립트", "ImsRefLoad", "ImsLoadCustomer", "이어 달리기", "Next run", "대량 비활성" 등의
   키워드가 나오면 이 스킬의 컨벤션(전역 상수 prefix, getProp 키 관리, diff-check 증분 적재,
-  New Version 재배포 규칙, SystemMonitor 연동)을 반드시 따르세요. 컨벤션을 깨면 스코프 충돌이나
-  배포 누락으로 자동화가 조용히 멈춥니다.
+  New Version 재배포 규칙, SystemMonitor 연동, IMS 적재 스크립트 규칙 셋)을 반드시 따르세요. 컨벤션을 깨면 스코프 충돌이나
+  배포 누락으로 자동화가 조용히 멈춥니다. ⚠️같은 이름 함수가 둘이면 에러 없이 뒤의 것이 이긴다 — 파일은 통째로 바꾼다.
 ---
 
 # Asung Trading Apps Script 자동화 스킬
@@ -104,6 +105,20 @@ function getProp(key) {
 ## 규칙 5 — SystemMonitor에 연동
 
 `SystemMonitor.gs`(System_Automation 프로젝트)는 주요 스크립트들의 실행 결과를 `Asung_System_Monitor` 시트에 로깅하고, 실패 시 Google Space로 알림을 보냅니다. **새 자동화 스크립트를 추가하면 모니터링 대상에 등록**해서 조용히 죽는 일이 없게 하세요. prefix는 `MON_`.
+
+---
+
+## 규칙 6 — IMS 적재 스크립트(Ims*Load) 셋
+
+Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `ImsLoadCustomer` · 사본 `asung-wms/docs/probes/*.gs` · 원본은 GAS)가 공통으로 지키는 셋. 적재 규칙 자체(무엇을 보내고 무엇을 내리나)는 모듈 스킬(`asung-po` §3 · `asung-so` §1)과 정본이 갖는다.
+
+```
+⭐ 이어 달리기 수집 — 4분 30초에서 새 페이지를 멈추고 받은 것을 Drive 에 저장 · Script Properties 에 다음 페이지 · 로그에 「Next run」이면 다시 실행
+   (6분 제한 대비 · 429 가 오면 쉬고 이어 받는다 · 끝 판단은 Total 이 아니라 받은 행 수 < Limit)
+⭐ 대량 비활성 안전장치 — 받은 행 수 ≠ API Total 이면 멈춤(수집이 짧게 끝난 것) · 한 번에 내리는(is_active=false) 줄 > max(20, 1%) 면 멈춤
+   맞으면 허락 속성(예 ILC_ALLOW_BIG_DOWN=1)을 넣고 **한 번만** 통과 · 계기: 2026-09-22 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다
+⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc …)로 겹침을 막는다
+```
 
 ---
 
