@@ -2649,7 +2649,7 @@ so.order_date 기본값 current_date → ims_today()(13-h) · 대화 Claude 지�
 
 ```
 「오늘」 같은 뿌리(Caleb 판정 대기 · 세기만 했다 · 고치지 않았다) — PO current_date 26곳(15 파일 · 표 기본값 넷 po.order_date · received_on ×2 · paid_on · RPC coalesce(p_날짜, current_date) 폴백 17 · 미래 날짜 경고 비교 2 · 크레딧 번호 연도 3) ·
-   원장 inv_compare_run 3(checked_on = current_date · 대조 「오늘」) · ledger_graft_2 2 · cost_graft_1 2(맥락 안 봤다) · 원장 ::date 7 은 전부 at time zone 'America/Toronto' 변환(이미 토론토) · 가격 0 · WMS baseline 0
+   원장 inv_compare_run 3(checked_on = current_date · 대조 「오늘」) · ledger_graft_2 2 · cost_graft_1 2(맥락 안 봤다) · 원장 ::date 7 은 전부 at time zone 'America/Toronto' 변환(이미 토론토) · 가격 0 · WMS baseline 0  → ✅ 2026-09-23 PO 두 파일(20260924000337 기본값 넷 · 20260924001820 창구 일곱 12자리) · 화면 다섯 torontoToday() · po-module §14 「오늘」 · inv_compare_run 3 은 ⬜ 그대로(cron 01:36 토론토 · 안 닿음)
 so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음 · 다음 재발행 때 ims_today()
 100% 딜 줄 함정 — unit_price 0 → so_line_free_pair_ck(무상 사유)에 걸린다 · 실물 최대 50% · 막을지 무상으로 볼지 판정
 무상·덮어쓴 줄이 오더 전체 할인 소계에 드는가 — 든다(짐작 · 청취 「sub total」 · SO-10842 로는 못 봤다)

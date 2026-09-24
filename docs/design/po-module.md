@@ -3541,6 +3541,70 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 
 ---
 
+## 14. ⭐ 회사의 「오늘」은 토론토 날짜 — ims_today() · 기본값 넷 · 창구 일곱 · 화면 다섯 (2026-09-23 · 지시서 `~/asung/prompts/po-today-1.md` · 테스트 DB Asung-IMS 적용·검증 · asung-ims 배포)
+
+### 14-a 판정 · 근거 · 대가 (✅ Caleb 2026-09-23 · so-module §13-h 와 같은 판정)
+
+```
+판정    회사의 「오늘」은 토론토 날짜다 — 날짜 기본값·폴백·비교는 전부 ims_today() · current_date 는 쓰지 않는다
+근거    DB 시각은 UTC — current_date 는 토론토 저녁 8시(EDT · 겨울 EST 7시) 이후 이미 내일이다
+        ① so.order_date 기본값(저녁에 만든 오더가 내일 날짜) ② 세일 판단(D7 · 9/30 저녁 오더가 10/1) ③ 백오더 만료(5-g) — SO 에서 처음 드러났고 PO 도 같은 뿌리
+실측    2026-09-23 20:09 EDT: current_date 2026-09-24 · ims_today() 2026-09-23 — 문제가 눈앞에 찍혔다 · 20:22 EDT 재확인(now 00:22 UTC)
+대가    에드먼튼(토론토보다 2시간 늦다) 오더·입고도 토론토 날짜를 따른다 — 창고마다 날짜를 두지 않는다
+함수    public.ims_today() returns date · language sql stable · (now() at time zone 'America/Toronto')::date · authenticated execute · 20260923232500(SO ②-0b ⓪) · 공용이라 ims_ · 이름 충돌 0
+⚠️      시간을 바꿔 시험할 수 없다 — 날짜 경계는 식(pg_get_expr · pg_get_functiondef)과 now()·current_date·ims_today() 한 줄을 읽어 확인한다
+```
+
+### 14-b 조사 — PO 「오늘」 26곳 · 어디가 실제로 닿나 (2026-09-23 · 마이그레이션 grep + asung-ims grep 44f020c)
+
+```
+26곳 = 표 기본값 4 + 창구 안 22 · ⚠️ 22 중 11 은 덮인 옛 정의(죽은 코드) — 마지막 정의 기준 살아 있는 자리는 PO 11 + 원장 inv_post_receipt 1 = 12
+표 기본값 넷   po.order_date · po_receipt.received_on · po_receipt_line.received_on · po_payment.paid_on — ⚠️ 지금 경로에서는 하나도 닿지 않는다(창구가 coalesce 로 직접 넣거나 복사) · 안전판
+살아 있는 12   po_create 폴백 1(⭐ 화면 po.html:457 이 p_order_date 를 안 보낸다 → 저녁 발주 전부 내일 날짜 · 가장 큰 자리) ·
+              po_receipt_create 3(인자 기본값 · 비교 received_on_in_future · 폴백) · po_receipt_confirm 비교 1 · po_invoice_create 2(크레딧 번호 연도 · 폴백) ·
+              po_charge_create 2(폴백 · 반환 echo) · po_payment_create 2(폴백 · 반환 echo) · inv_post_receipt 비교 1
+화면 다섯      asung-ims 가 날짜 기본값을 new Date().toISOString().slice(0,10) 으로 만들었다 = UTC 날짜(토론토 저녁 8시 뒤 내일) — receiving:883(npd) · po:879(iDate) · charges:551(today) · payments:558(today) · invoices:788(cDate)
+              ⇒ 「늘 보낸다」인 넷도 UTC 값을 보내므로 폴백보다 이쪽이 컸다 · toLocaleDateString · getFullYear 0 · po.html:971 confirmed_at toISOString 은 timestamptz 시각이라 무해
+안 닿는 것     원장 inv_compare_run 3(checked_on = current_date · cron 36 5 * * * = 토론토 01:36 EDT/00:36 EST · 그 시각 UTC 날짜 = 토론토 날짜 · 손으로 저녁에 돌릴 때만 어긋남) ·
+              so_deal_best 폴백 coalesce(p_on, current_date) 2(부르는 쪽이 늘 order_date 를 준다) · 크레딧 연도 3곳은 폴백에 딸린 것(12/31 저녁 · p_invoice_date null 일 때만)
+```
+
+### 14-c 고친 것 셋 (✅ Caleb 2026-09-23 「(가) 화면 다섯 + 서버 함수 일곱을 함께 고친다」)
+
+```
+① 20260924000337_po_today_defaults.sql   28행 · alter column set default public.ims_today() 넷 + comment 넷(「창구가 직접 넣어 지금은 닿지 않는다」 명시) · 함수 없음 · 기존 행 무접촉
+② 20260924001820_po_today_rpc.sql        1,166행 · 창구 일곱 재발행 — 마지막 정의를 바이트 그대로 뽑아 current_date → public.ims_today() 만(12자리) · 그 밖 0 글자
+   po_create(honest_refusal_po:57 · 1) · po_receipt_create(po_receipt_rpc:75 · 3 + create → create or replace) · po_receipt_confirm(cost_graft_1:296 · 1) · po_invoice_create(honest_refusal_invoice:27 · 2) ·
+   po_charge_create(honest_refusal_charge_payment:25 · 2) · po_payment_create(같은 파일:331 · 2) · inv_post_receipt(cost_graft_1:154 · 1) · 시그니처 그대로(create or replace · grant·comment 유지)
+③ 화면 다섯(asung-ims bd042c4 · 대화 Claude · 빌드 2026-09-23 「Toronto date」) — torontoToday() 하나로 · toISOString().slice(0,10) 제거 · Caleb 이 Payments 「Paid on」 기본값 2026-09-23 을 20시 이후 눈으로 확인
+고치지 않은 것  inv_compare_run 3(⬜ · 안 닿는다) · so_deal_best 폴백 2(⬜ · SO 다음 재발행 때) · 덮인 옛 정의 11(죽은 코드 · 그대로)
+```
+
+### 14-d ⭐ 배포 순서 — 화면 먼저가 안전하다
+
+```
+비교 세 곳(received_on_in_future — po_receipt_create · po_receipt_confirm · inv_post_receipt)은 「화면이 보낸 날짜 > 서버의 오늘」이면 경고한다
+화면 먼저(토론토 날짜) · 서버 아직 UTC   → 저녁엔 서버 오늘(내일)이 더 커서 경고가 잘못 뜨지 않는다 — 안전
+서버 먼저(토론토) · 화면 아직 UTC        → 저녁마다 화면 날짜(내일) > 서버 오늘(오늘) 로 경고가 뜬다 — 시끄럽다(신호는 맞지만)
+⇒ 이번은 화면 다섯 배포 → 서버 두 파일 적용 순서로 했다 · 앞으로 날짜 비교가 걸린 자리는 같은 순서
+```
+
+### 14-e 검증 실측 (✅ Caleb 2026-09-23 20:22 EDT · 테스트 DB Asung-IMS)
+
+```
+① po-today-1-verify.sql   pg_get_expr 넷 CURRENT_DATE → public.ims_today() · 네 표 행 수·min/max 날짜 전후 같음 · ims_today 정의 그대로
+② po-today-2-verify.sql   함수 7(오버로드 0) · 시그니처·definer·comment·authenticated execute 전후 같음 · 본문 current_date 12 → 0 · ims_today 0 → 12(1·3·1·2·2·2·1) ·
+                          po_receipt_create 인자 DEFAULT CURRENT_DATE → DEFAULT ims_today() · inv_compare_run 3 · so_deal_best 2 그대로 · now 00:22 UTC · current_date 09-24 · ims_today 09-23
+```
+
+### 14-f ⬜ 남는 것
+
+```
+원장 inv_compare_run 3곳 — cron 시각엔 안 닿는다 · 손으로 저녁에 돌리는 절차(cron.sql:13 의 to_char(now(),…) 도 UTC)를 쓰면 어긋난다 · 고칠지는 판정
+so_deal_best 폴백 2 — SO 다음 재발행 때 ims_today() 로(so-module §13-k)
+날짜 비교 자리가 새로 생기면 — 서버 ims_today() · 화면 torontoToday() · 배포는 화면 먼저(14-d) · 원장·리시빙의 at time zone 'America/Toronto' 인라인 10곳은 이미 토론토(그대로)
+```
+
 ## 9. 경위
 
 - 2026-09-11 오전 — ① Settings 순서 확정(Caleb) · 테스트 DB 에 마스터 표 0개 확인(47개 표 전부 `inv_*`·`wms_*` ·
@@ -3651,3 +3715,4 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
   ⭐ 판단: factor 는 po_invoice_money 에서 읽는다(정본 하나) · 환율은 인보이스 → 같은 통화의 발주 → null(0 아님) · 빠진 줄은 여집합 뷰로 드러낸다 · line_ref `po_line_id:over`(7키 충돌 · :reversal 선례) · 초과분 값은 기준 레이어에서 읽는다(환율 식은 한 곳) · reopen 은 over 거부 · 본체가 source 로 가르고 보조 넷의 문은 방어(세는 곳은 하나).
   ⚠️ 실측: 옛 함수에 가짜 IMS 사건 넷을 태우니 `layer_avg` 9.61·9.57 로 **그럴듯한 숫자가 조용히 섰다**(0 보다 나쁘다) · 「재생성 차이 +1,330」은 결함이 아니라 09-10 대조가 `p_until '2026-09-09'` 로 하루를 뺀 것(3,642행) · purchase/unknown 85행 14,274개가 0 원(inv_cost 09-09 정지 · 재적재 때 채워진다) · 오늘 전량 재생성을 실제로 돌렸다(commit · 9.78초 · 기준선은 ledger-design 4부 「✅ 해소」 끝).
   📌 다음(§13-f 09-19 오후 블록 갱신): billed 초과분 landed · over 되돌리기 · 크레딧 설계 · supplier_discount 0행 · latest·fixed 갱신(출처 인보이스) · 우리 쓸 물건의 재고 길 · 아침 점검 둘 · purchase/unknown 85 · MTFX · Tax rule · 회계사 다섯.
+- 2026-09-23 저녁 — **⭐ 회사의 「오늘」은 토론토(§14)** · 기본값 넷 20260924000337 · 창구 일곱 20260924001820(current_date → ims_today() 12자리 · 그 밖 0 글자) · 화면 다섯 torontoToday()(asung-ims bd042c4) · 배포는 화면 먼저(14-d) · 실측 20:09 EDT current_date 09-24 · ims_today 09-23 · inv_compare_run 3 은 ⬜(cron 01:36 토론토 · 안 닿음)

@@ -12,7 +12,8 @@ description: >
   ⚠️자연키가 표마다 다르다(name·code·복합) — 추측 금지, ⚠️ref_bin 은 2,675행으로 PostgREST 1,000행
   캡을 넘는다, ⚠️Cin7 결제조건 Duration 은 기일이 아니라 할인 기한, ⚠️Cin7 은 마스터를 GUID 가 아니라
   이름 문자열로 참조(계정만 Code), ⚠️IMS 표 트리거는 ims_touch()(set_updated_at() 은 하나뿐·참조 0 — 둘 다 다시 만들지 마라),
-  ⚠️세트 계수(pack_factor)의 정본은 UOM 이름이 아니라 BOM Quantity — 접미사로 읽지 마라, ⚠️product.name 유니크 금지(576종 중복).
+  ⚠️세트 계수(pack_factor)의 정본은 UOM 이름이 아니라 BOM Quantity — 접미사로 읽지 마라, ⚠️product.name 유니크 금지(576종 중복),
+  ⚠️오늘은 ims_today(토론토) · current_date 금지.
 ---
 
 # Asung PO(발주) 모듈 스킬
@@ -118,6 +119,15 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 32 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다** — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).
+
+## 4-b. ⭐ 회사의 「오늘」은 토론토 날짜 (정본 §14 · so-module §13-h · 2026-09-23)
+
+```
+⭐⭐ 날짜 기본값·폴백·비교는 전부 ims_today()(토론토) — current_date 는 UTC 라 토론토 저녁 8시(겨울 7시) 뒤 내일이다(실측 20:09 EDT current_date 09-24 · ims_today 09-23) · current_date 금지
+     기본값 넷(po.order_date · po_receipt.received_on · po_receipt_line.received_on · po_payment.paid_on) 20260924000337 · 창구 일곱(po_create · po_receipt_create · po_receipt_confirm · po_invoice_create · po_charge_create · po_payment_create · inv_post_receipt) 20260924001820
+⭐  화면은 torontoToday() — new Date().toISOString().slice(0,10) 은 UTC 날짜(금지 · asung-ims 다섯 곳 2026-09-23 고침) · 날짜 비교(received_on_in_future)가 걸린 자리는 화면 먼저 배포(반대면 저녁마다 경고 · §14-d)
+⚠️  po_create 는 화면이 p_order_date 를 안 보낸다 — 폴백이 늘 닿는 자리였다(저녁 발주가 내일 날짜) · 원장 inv_compare_run 3곳은 cron 01:36 토론토라 안 닿는다(⬜ · 손으로 저녁에 돌리지 마라)
+```
 
 ## 5. 이 스킬을 갱신할 때
 
