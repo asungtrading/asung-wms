@@ -202,7 +202,7 @@ Caleb: "손님의 기본 통화를 설정할 수 있어야 해. 그래서 기본
 
 Caleb: "세금은 기본적으로 배송지 기준이야." · "손님 데이터베이스에 저장한대로 자동으로 정해져."
 
-⚠️ 시스템이 주소를 계산하는 것이 아니라 **사람이 손님에 정해 둔 값**이 오더로 따라온다.
+⚠️ 시스템이 주소를 계산하는 것이 아니라 **사람이 손님에 정해 둔 값**이 오더로 따라온다. → ⚠️ [2026-09-24 뒤집힘 · §16 판정 2] **배송지 주가 정한다** · 손님 저장값(customer.tax_rule)은 계산에 쓰지 않는다(91% 틀려 있었다 · 실제 인보이스는 배송지를 따랐다) — 이 줄은 청취 기록으로 남긴다.
 실물: 온타리오 손님 `HST ON (Sale)` · 서부 손님 `GST (Sale)`
 
 ### 1-n 결제 — 다대다
@@ -540,7 +540,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 | 갈라지는 계기 | 하나(분할 입고 · 칸 없음) | 둘 — `split_reason(stock_short · warehouse)` ⚠️ 칸이 있다 (① 5-i) |
 | 갈라질 때 번호 | 실물: 갈라지는 문서도 다음 글자로 바뀐다(a·b → c·d) → ⭐ **앞으로는 원래 번호를 지킨다**(Caleb 2026-09-21 · 이미 갈린 것은 그대로) | **원래 번호는 남고 갈라져 나온 것만 a·b·c** · 최대 24번 (① 5-i) |
 | 추가 비용 모양 | `po_charge` **문서**(경비처 · 번호 · 상태) + `po_charge_alloc` 배분 | `so_charge` **줄**(오더에 붙는다 · 배분 없음) (① 5-i) |
-| 머리 세금 칸 | `tax_rule` + `tax_inclusive`(기록만) | `tax_rule` 만 — tax inclusive 없음 (① 5-i) |
+| 머리 세금 칸 | `tax_rule` + `tax_inclusive`(기록만) | `tax_rule` 만 — tax inclusive 없음 (① 5-i) · → §16 실측: 세금 포함가 오더 없음(AS-3127 Tax inclusive 꺼짐 · BigQuery 11.5% 는 적재 결함) · so.tax_rule_id FK 섰다(세금 ②) |
 | 주소 | 그날의 연락처 3 · 주소 6(원문) | 청구처 7 + 배송지 9 **칸칸이** · `ship_to_phone` 은 Cin7 에 없는 칸 (① 5-i) |
 | 할당 | 없음(발주는 재고를 잡지 않는다) | `so_reserve` · 원장 밖 · 이력 남김 · 넷 중 셋은 「잡지 않은 기록」 (① 5-i) |
 | 인보이스 번호 | **공급처가 붙인다** — 없으면 거부(po-module §11-c) | **우리가 붙인다** — 시퀀스 60000~ · 접두어 없음 (④ 8-i) |
@@ -947,7 +947,7 @@ superseded    뒤 오더가 이어받았다 — 수요가 그쪽으로 옮겨갔
 | 갈라지는 계기 | 하나(분할 입고 · 칸 없음) | 둘 — `split_reason(stock_short · warehouse)` ⚠️ 칸이 있다 |
 | 갈라질 때 번호 | 실물: 갈라지는 문서도 다음 글자로 바뀐다(a·b → c·d) → ⭐ **앞으로는 원래 번호를 지킨다**(Caleb 2026-09-21 · 이미 갈린 것은 그대로) | **원래 번호는 남고 갈라져 나온 것만 a·b·c** · 최대 24번 |
 | 추가 비용 모양 | `po_charge` **문서**(경비처 · 번호 · 상태) + `po_charge_alloc` 배분 | `so_charge` **줄**(오더에 붙는다 · 배분 없음) |
-| 머리 세금 칸 | `tax_rule` + `tax_inclusive`(기록만) | `tax_rule` 만 — tax inclusive 없음 |
+| 머리 세금 칸 | `tax_rule` + `tax_inclusive`(기록만) | `tax_rule` 만 — tax inclusive 없음 · → §16 실측: 세금 포함가 오더 없음 · so.tax_rule_id FK 섰다(세금 ②) |
 | 주소 | 그날의 연락처 3 · 주소 6(원문) | 청구처 7 + 배송지 9 **칸칸이** · `ship_to_phone` 은 Cin7 에 없는 칸 |
 | 할당 | 없음(발주는 재고를 잡지 않는다) | `so_reserve` · 원장 밖 · 이력 남김 · 넷 중 셋은 「잡지 않은 기록」 |
 
@@ -1510,7 +1510,7 @@ invoice_order  이 인보이스가 담는 오더들 (하나일 수도 여럿일 
 보내실 금액     188.54
 ```
 ⚠️ 잔액 자체는 굳히지 않는다(결제·인보이스·크레딧에서 계산되는 값이다 · 8-e). ⭐ 그러나 **그 인보이스에 찍혀 나간 값**은 기록한다 — 손님이 그 종이를 보고 돈을 보냈는데 나중에 숫자가 달라지면 곤란하다. 5-d 「손님에서 복사해 굳는 것」과 같은 태도(그날의 값).
-⭐ 금액 합계(라인·추가 비용·세금)도 **인보이스에서 굳는다** ⇒ ✅ **오더에는 금액 칸을 담지 않는다**(Caleb 판정 2026-09-22 · ⬜① 채택). 오더 금액은 발행 전엔 바뀌는 값이고 발행 뒤엔 인보이스가 정본이라 **뷰·함수로 낸다**(PO `po_invoice_money` 선례). 5-d·5-j 의 ⬜ 「금액 칸」이 이것으로 닫힌다(8-j).
+⭐ 금액 합계(라인·추가 비용·세금)도 **인보이스에서 굳는다** ⇒ ✅ **오더에는 금액 칸을 담지 않는다**(Caleb 판정 2026-09-22 · ⬜① 채택). 오더 금액은 발행 전엔 바뀌는 값이고 발행 뒤엔 인보이스가 정본이라 **뷰·함수로 낸다**(PO `po_invoice_money` 선례). 5-d·5-j 의 ⬜ 「금액 칸」이 이것으로 닫힌다(8-j). → [2026-09-24 §16] 세금 **계산** 창구는 so_tax_preview(읽기 · 오더 규칙 so.tax_rule_id · 줄마다 반올림)이고 **굳히는** 것은 인보이스(판정 5 · 발행일로 규칙을 다시 고른다) — 오더에 금액 칸 없음은 그대로.
 
 ### 8-d ⭐ 결제 — `kind` 로 가르고 금액은 항상 양수
 
@@ -1752,7 +1752,7 @@ so · so_line · so_charge · so_reserve — 그대로
 | ⬜ | 결론 | 근거 · 대가 |
 |---|---|---|
 | ⬜1 쓰기 묶음 | ✅ **`master`** · 정책 이름 `customer_select/insert/update` · `customer_address_…delete` · `customer_contact_…delete` | 손님은 supplier·product 와 같은 공용 마스터. ⚠️ `ims_perm_catalog()` 가 immutable 함수 안 JSON 리터럴(screens 넷)이고 `ims_can_write()` 는 `screens ? p_screen` 이 아니면 false ⇒ **새 묶음은 마이그레이션이다.** 대가: 영업 담당이 오더 화면에서 배송지를 더하려면 master 쓰기가 필요 — ⬜ SO 거래 표 차수에서 `sales` 묶음을 열 때 주소록·연락처를 그쪽으로 옮길지 함께 판단 |
-| ⬜2 `tax_rule` · `price_tier` | ✅ **원문 칸만** | `ref_tax_rule` 미결(po-module §7 갈림길) · `ref_price_tier` 는 마이그레이션·정본·스킬 어디에도 없다(grep 0). supplier `tax_rule` 주석 「생기면 FK 칸을 옆에 붙인다」와 같은 길. ⬜ **`ref_tax_rule` 은 인보이스(§8) 전에 · `ref_price_tier` 는 오더 가격 계산(§1-j · 5-e `list_price`) 전에** 서야 한다 |
+| ⬜2 `tax_rule` · `price_tier` | ✅ **원문 칸만** | `ref_tax_rule` 미결(po-module §7 갈림길) · `ref_price_tier` 는 마이그레이션·정본·스킬 어디에도 없다(grep 0). supplier `tax_rule` 주석 「생기면 FK 칸을 옆에 붙인다」와 같은 길. ⬜ **`ref_tax_rule` 은 인보이스(§8) 전에 · `ref_price_tier` 는 오더 가격 계산(§1-j · 5-e `list_price`) 전에** 서야 한다 · → [2026-09-24 §16] **so 는 FK 섰다**(so.tax_rule_id + tax_rule 짝 CHECK · 세금 ②) · customer 쪽 FK 는 만들지 않는다(⬜6 · 계산에 쓰지 않는다) |
 | ⬜3 `default_location` | ✅ **FK + 원문** — `default_location_id → ref_warehouse(id)` + `default_location_name` | Cin7 은 `Location` 을 이름으로 준다(§1-s `Asung Trading Inc.`) · `ref_warehouse.name` 이 unique 라 매칭이 선다 — supplier `payment_term_id/_name` 과 같은 자리. PO 머리는 `ship_to_warehouse_id` FK 하나(`20260916144201` 71행). ⬜ `so.location`(5-d)도 같은 짝(FK+원문)이어야 한다 — so 표는 다음 차수 · 9-d 에 적기만 |
 | ⬜4 주소 칸 이름 | ✅ **`state_province` · `postal_code`** | `ref_warehouse`(`address_line1/2 · city · state_province · postal_code · country`) · `supplier_address`(`line1 · line2 · … state_province · postal_code`) · po 머리(`supplier_state_province · supplier_postal_code`) 셋이 이미 한 낱말. 5-b 의 `state · postcode` 만 다르고 코드 0줄 — `source → intake` 와 같은 판단. 주소 전용 표라 `address_` 접두어는 supplier_address 처럼 붙이지 않는다. ⬜ 5-d `bill_to_state · ship_to_postcode` 등도 `_state_province · _postal_code` 로 — so 표 차수 · 9-d 에 적기만 |
 | ⬜5 연락처 `Fax` · `Comment` | ✅ **수정 채택 — `fax` · `cin7_comment` 를 만든다 · `job_title` 은 만들지 않는다** | Cin7 손님 연락처 화면에 JOB TITLE · FAX · COMMENT 칸이 있다(Caleb 화면 2026-09-22). 공급처 API Contact 키(cin7-api `references/supplier.md` 101행)에 `Fax` · `Comment` 는 있고 `JobTitle` 은 없다 — 공급처 때 「JOB TITLE 은 화면에만 있고 API 에 없다」(po-module §7-b-C)와 같다. `cin7_comment` 는 우리 `note` 와 가른다(supplier_contact 와 같은 이유) · ⭐ 공급처 때 이 메모에 cc 수신처가 문장으로 적혀 있었다 — 손님 메일 수신처(5-c ⬜)의 근거가 될 수 있다. 적재 첫 페이지에서 Contacts 키 목록을 그대로 센다(JobTitle 이 오면 그때 더한다) (→ 판정 ⑨ 로 뒤집힘 · 9-h) |
@@ -2477,7 +2477,7 @@ Shopify 연동 차수 — 스토어 설정의 티어(aonebeauty.com → AONE · 
 손님 정리 거리(재적재 때 · Cin7 에서 정리 → 재적재가 가져온다) — 이메일 겹침 69개(245명 · 대부분 체인) · 전화 겹침 16개(34명) · 쓰레기 손님 test@digitalcoo.com 다섯 · 부모로 안 이어진 체인(Hera Beauty 18 · Clore 14 · Regina/Rex Beauty 13 · Beauty Collection 6)
 customer.price_tier 옆 FK 칸 — 재적재 차수(ImsLoadCustomer 함께 · 11-f)
 so_lines_paste 반환의 unit_price 가 29자리로 찍힌다(저장값은 numeric(18,7) 정상 · 표시만 · 화면이 반올림)
-so_line.tax_rule 의 출처(오더 값 vs product.sale_tax_rule) — 인보이스 차수 · so_charge_set 의 description·tax_rule 은 update 때 null 이면 비운다(patch 아님) — 화면 차수에서 불편하면 patch 모양으로
+so_line.tax_rule 의 출처(오더 값 vs product.sale_tax_rule) — 인보이스 차수 · so_charge_set 의 description·tax_rule 은 update 때 null 이면 비운다(patch 아님) — 화면 차수에서 불편하면 patch 모양으로 · → ✅ [2026-09-24 §16 이견 8 · 판정 8] 닫힘 — 줄은 오더 규칙(배송지 주)을 기록만 · product.sale_tax_rule 은 계산에 안 쓴다 · so_charge_set 의 tax_rule 은 오더 규칙과 다르면 거부(판정 9)
 다시 가격 매기기 창구 · 비활성 손님의 초안(만들 수 없다 · 이미 있는 초안은 남는다) · so_current_staff 거부 문장의 verb
 ```
 
@@ -2518,7 +2518,7 @@ Export CSV  97줄 · 딜 26 · 열 24(TaskID · DealName · DateFrom · DateTo �
 SO-10842    (Caleb 캡처 · Hera Beauty · Extra 5%) 제품 줄 합계 9,249.51 · Order total discount 단가 −462.4755(= 9,249.51 × 5% 그대로) · 합계 −462.48 ⇒ round(제품 줄 합계 × pct/100, 2)
             Freight 174.26 은 할인 기준에 없다(D6 ✓) · 운임 줄 할인 100% · 합계 0.00(「원래 운임 · 무료로 줌」이 남는 방식)
             D5 실물: RON01624(Red One) 21% · 나머지 7% — Hera Beauty 딜 21% 가 손님 기본 7% 를 대신했다(28 이 아니다)
-            세금: 제품 줄 세금 462.48 과 할인 줄 세금 −23.12 를 따로 매겨 더한다 = 439.36 · 한 번에 매기면 439.35(1센트) — 인보이스·세금 차수 ⬜
+            세금: 제품 줄 세금 462.48 과 할인 줄 세금 −23.12 를 따로 매겨 더한다 = 439.36 · 한 번에 매기면 439.35(1센트) — 인보이스·세금 차수 ⬜ → ✅ [2026-09-24 §16 판정 3] 줄마다 반올림해 더한다(so_tax_amount · BigQuery 98.5% · 검증 T2 439.36 재현)
 ```
 
 ### 13-c 청취 (Caleb 2026-09-23 · 말 그대로)
@@ -2653,7 +2653,7 @@ so.order_date 기본값 current_date → ims_today()(13-h) · 대화 Claude 지�
 so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음 · 다음 재발행 때 ims_today()
 100% 딜 줄 함정 — unit_price 0 → so_line_free_pair_ck(무상 사유)에 걸린다 · 실물 최대 50% · 막을지 무상으로 볼지 판정
 무상·덮어쓴 줄이 오더 전체 할인 소계에 드는가 — 든다(짐작 · 청취 「sub total」 · SO-10842 로는 못 봤다)
-인보이스·세금 차수 — Cin7 은 제품 줄 세금과 할인 줄 세금을 따로 매겨 더한다(SO-10842 439.36 vs 한 번에 439.35 · 1센트)
+인보이스·세금 차수 — Cin7 은 제품 줄 세금과 할인 줄 세금을 따로 매겨 더한다(SO-10842 439.36 vs 한 번에 439.35 · 1센트) → ✅ [2026-09-24 §16 판정 3] 줄마다 반올림(so_tax_amount) · 세금 ①·② 섰다
 운임 할인 칸 — Cin7 은 「운임 174.26 · 할인 100% · 합계 0」으로 무료 배송을 남긴다 · so_charge 에는 할인 칸이 없다(무료 배송 측정이 필요하면 칸 판정)
 딜·태그 적재 차수 — 태그(Cin7 제품 Tags · 새 GAS · 대소문자만 다른 짝이면 멈춤) · 딜(Export CSV 를 Drive 에 · % 는 DiscountName 이름에서만 · Case Discount 7줄 % 없음 = 못 옮긴다 · 몇 개 이상은 UOM 태그 이름에서만 ·
    손님은 이름 콤마 목록 → customer.name(유니크 아님 · 겹치면 멈춤) · SKU → product.sku · BrandName → ref_brand.name · 못 맞추면 멈춤 · 어느 딜을 옮길지(전부 · 켜져 있고 끝나지 않은 것만)는 Caleb 판정)
@@ -2936,4 +2936,167 @@ cron  [테스트 · Asung-IMS] jobid 1 · so-backorder-sweep · 17 9 * * * · ac
 백오더 화면(대화 Claude) — 「우리가 줄 것」 따로 · days_waiting · 「IMS 알림 전」 표시(notified_state unknown_pre_ims 는 「안 보냄」이 아니다) · 오래된 무상 줄 정리(매니저) · 가용 음수 표시(so_backorder_list available_other 가 −10 을 그대로 낸다)
 so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IMS 로 옮길 때 backorder_notified_at 채우기(2-g ⬜ · GAS 정지와 동시)
 전환 때 — cron.sql 의 so-backorder-sweep 은 테스트 DB jobid 1 이다(운영에는 함수가 없다 · 함께 올린다) · so_number_seq 25000 · is_called f 점검(12-g)
+```
+
+## §16 SO 세금 ①·② — 세금 규칙 표 · 주 → 규칙 · 계산 창구 · 오더 규칙 하나 (2026-09-24 · 지시서 `~/asung/prompts/so-tax-1.md` · 판정 회신 · 세금 ② 는 회신으로 · 한 번에)
+
+⭐ **뜻 셋을 먼저** (Caleb 2026-09-24)
+```
+오더의 세금은 배송지 주가 정한다   = 손님에 저장된 값(customer.tax_rule)은 계산에 쓰지 않는다(판정 2 · 91% 틀려 있다) · 1-m 의 「손님에 저장한대로 자동」은 실물이 아니었다 — 실제 인보이스는 배송지를 따랐다(16-a ③)
+오더 하나에 규칙 하나              = 제품 줄·운임 줄·오더 전체 할인 줄이 전부 그 규칙(판정 8·9) · 줄(so_line.tax_rule)·운임(so_charge.tax_rule)은 기록만 — 초안 동안 따라가고 인보이스가 굳힌다 · 줄·운임만 따로 바꾸는 길은 없다
+세율은 안 고친다                   = 세율이 바뀌면 새 규칙 + 「주 → 규칙」 연결에 시작일(판정 4) · 인보이스는 발행일로 규칙을 다시 골라 이름·세율·세액을 굳힌다(판정 5 · 인보이스 차수)
+```
+
+### 16-a 실측 셋 (2026-09-24 · so-tax-1.md §1-A 그대로 · 출처 셋)
+
+```
+① Cin7 Tax rules Export CSV(docs/probes/TaxationRules_2026-09-24.csv · 31줄 · Description · Tax1 · AccountCode · Inclusive · IsActive · EffectivePercent 셋)
+   활성 24 · 비활성 7(Tax on Purchases · Tax on Sales · Tax Exempt · Sales Tax on Imports · Auto Look Up · HST NS (Purchase) · HST NS (Sale)) · Tax1 = INPUT · OUTPUT · NONE · GSTONIMPORTS · AVALARA · 규칙마다 세율 하나(합성 없음) · Inclusive 전부 False
+   활성 규칙 계정 전부 _54_(GST/HST Payable) · 비활성 기본 셋은 _118_(Vacation Pay · po-module 1806) · Tax on Purchases 는 _109_
+   ⭐ 세율이 바뀌면 새 규칙 — HST NB (Sale) 13 옆에 HST NB 2016 (Sale) 15 · HST NS (Sale) 15(비활성) 옆에 HST NS 2025 (Sale) 14 · ⚠️ 옛 세율 규칙 셋(NB 13 · NL 13 · PE 14)이 아직 활성
+   매출(OUTPUT) 14(비활성 HST NS (Sale) · Tax on Sales 포함) · 그중 활성 12: Exempt 0 · Zero-rated 0 · Out of Scope 0 · GST 5 · HST ON 13 · HST NB 13 · HST NB 2016 15 · HST NL 13 · HST NL 2016 15 · HST NS 2025 14 · HST PE 14 · HST PE 2016 15
+② 손님 저장 규칙(테스트 DB · 활성 9,461) — HST NB 2016 (Sale) 6,471(주소는 ONTARIO 3,218 · QUEBEC 1,033 · ON 494 · BC 376 · AB 367 · 뉴브런즈윅 51) · Zero-rated 2,131(ON 1,166 · QC 347 · … 해외 약 50) · HST ON 558(ON 551) · GST 290 · HST NS 2025 9 · HST PE 2016 1 · HST NB 13% 1
+   ⇒ 맞게 저장된 손님 약 860(9%) — **91% 틀림** · Caleb 「택스 코드도 프라이스 티어처럼 누군가의 실수로 틀어진 것 같아」 · 「HST NB 2016 (Sale)은 누군가 업로드할 때 잘못 올린 것으로 보여」
+   주 표기가 제각각(§3 조사 137쌍 · 109가지) — ON · ONTARIO · Ontario · QC · QUEBEC · Québec · 풀어 쓴/약자 미국 주 · ⚠️ 'CA'(캐나다? 캘리포니아?) · DUBAI · AUCKLAND · ENG · SCARBOROUGH(도시) · JP-13 · São Paulo · 빈 값
+③ 실제 판매의 세율(BigQuery asung_order_details_historical · 2026-06-01~ 확정 · Total > 0 · 읽기만)
+   오더별 Σtax ÷ ΣTotal — 13% 3,168 · 5% 1,252 · 11.5% 516 · 4.8% 190 · 15% 31 · 14% 24 · 0% 4 · 네 길(AS · AO · POS · 직접) 모두 13%·5% 가 대부분 ⇒ 세금은 손님 저장값(15% 6,471명)이 아니라 **배송지를 따랐다**(15% 오더 31)
+   11.5% = 13/113 · 4.8% = 5/105 — ⚠️ 세금 포함가 오더가 아니다: AS-3127(SO-05606) Cin7 화면 Tax inclusive 꺼짐 · 세전 13.09 · 세 1.70 · 합 14.79 · BigQuery Total = 14.79(세금 포함으로 적재됨) ⇒ **BigQuery 적재 결함**(별건 · asung-bq-data-model data-hygiene 「밀린 일」) · SO 의 「tax_inclusive 칸 없음」(5-i)은 그대로
+   ⭐ 반올림: 13% 오더 두 줄 이상 2,470건 — 줄 세금 = round(줄 금액 × 13%, 2) 인 줄 **98.5%** · 오더 세금(Σ줄) ≠ round(Σ금액 × 13%, 2) 72%(평균 0.03) ⇒ Cin7 은 **줄마다 반올림해 더한다**(SO-10842 제품 줄 462.48 + 할인 줄 −23.12 = 439.36 · 13-b·13-k 의 1센트가 이것)
+   운임: 1-p 실물 제품 1,389.75 · 세 69.51 / 운임 110.50 · 세 5.53 — 둘 다 5% · AS-3127 무료 배송 줄은 Exempt(금액 0)
+```
+
+### 16-b 판정 1~9 (✅ Caleb 2026-09-24 · 말 그대로) · 청취
+
+```
+청취   「나중에는 퀵북에서 불러올 수 있어야 할꺼야」 — Cin7 화면 Load from QuickBooks 단추(목록이 QBO 에서 온다) ⇒ ref_tax_rule.qbo_id · source 'qbo' 자리만(지금 비움)
+       「택스 코드도 아마도 프라이스 티어와 누군가의 실수로 마찬가지로 틀어진 것 같아」 · 「HST NB 2016 (Sale)은 아마도 누군가 업로드할때 잘 못 올린것으로 보여」
+       「zero-rated (sale)이 붙은 손님들은 주로 해외 구매자들이야. 그들에게 택스를 부과할 수 없으니말이야」 → (숫자를 보고) 「맞아 니말대로 해외손님은 얼마 안돼. 그 일부를 제외하면 택스코드가 잘못들어간것으로 보여」
+판정 1 세금 규칙 표를 인보이스보다 먼저 세운다(측정 먼저) — 자료 첨부로 답(CSV 31줄)
+판정 2 「가가 맞다고 생각해」 — 오더의 세금은 배송지의 주가 정한다 · 손님 저장값(customer.tax_rule)은 계산에 쓰지 않는다 · 해외 배송은 Zero-rated · 예외(면세 등)는 초안에서 사람이 바꾼다
+       근거: 실제로 맞게 붙어 온 세금도 배송지를 따랐다(16-a ③) · 원칙이 이미 배송지 기준(1-m) · 저장값은 91% 틀려 있다
+판정 3 「나도 가가 맞다고 생각해」 — 줄마다 반올림해 더한다(Cin7 과 같다) · 오더 전체 할인 · 운임도 각자 한 줄로 매겨 더한다
+       근거: 병행 기간 Cin7 인보이스와 1센트까지 맞춘다 · 크레딧으로 줄을 돌려줄 때 그 줄 세금이 정해져 있다
+판정 4 「니 제안대로 가로 가자」 — 규칙의 세율은 고치지 않는다 · 세율이 바뀌면 새 규칙 + 「주 → 규칙」 연결에 시작일 · 인보이스는 발행 때 규칙 이름·세율·세액을 굳힌다
+       옛 세율 규칙 셋(NB 13 · NL 13 · PE 14)은 기록으로만 싣고 연결에 쓰지 않는다 · Cin7 에서 비활성으로 돌릴지는 Caleb(회계사와)
+판정 5 「가가 맞다고 생각해」 — 세율은 인보이스 발행일(토론토 ims_today)로 고른다 · 할인은 주문일(D7) · 세금은 인보이스 날 — 기준이 갈리는 것이 맞다
+판정 6 「가로 가는게 맞아」 — 운임도 배송지 주의 규칙을 따른다(제품과 같은 세율 · 1-p 실물) · ~~운임 줄마다 사람이 바꿀 수 있다~~ → ⭐ 판정 9 가 거뒀다
+판정 7 (Caleb 「배송지가 바뀌면 배송지 규칙으로 되돌려야 하지 않나?」 — ⬜4 의 안을 뒤집었다)
+       배송지의 나라·주가 바뀌면 사람이 바꿔 둔 규칙이라도 배송지 규칙으로 다시 고른다 · 그때 경고 tax_rule_reset_by_ship_to(이전 규칙 이름 · 새 규칙 이름) · 같은 나라·주 안에서 거리 주소만 바뀌면 그대로
+       근거: 손님 쪽 예외는 두지 않았다(판정 2 — 손님 저장값을 쓰지 않는다) · 예외는 그 오더에서 사람이 정한 것이니 배송지가 바뀌면 다시 판단 · 모르고 지나가지 않게 경고 ⇒ tax_rule_manual 칸은 그대로 필요하다
+판정 8 「나도 a가 맞다고 생각해」 — 오더 하나에 세금 규칙 하나 · 모든 제품 줄·운임 줄·오더 전체 할인 줄을 그 규칙으로 계산
+       줄(so_line.tax_rule)·운임(so_charge.tax_rule) 칸은 두되 오더 규칙을 그대로 기록만(초안 동안은 오더 규칙이 바뀌면 함께 따라간다 · 인보이스가 굳힌다)
+판정 9 「운임 세금도 cin7이 계산해」 — 운임도 오더 규칙을 따르고 운임 줄만 따로 바꾸는 길은 두지 않는다 · ⭐ 판정 6 의 「운임 줄마다 사람이 바꿀 수 있다」를 거둔다
+       근거: 무료 배송은 금액 0 이라 규칙과 무관 · 돈 받는 운임은 제품과 같은 세율(1-p 실물) · 사람이 따로 정하는 실무가 없다
+대화 Claude 안(Caleb 이견 없음 → 그대로) — 세금 규칙을 정할 수 없는 오더(tax_region_unknown · 규칙 null)는 초안에서 경고 · so_confirm 이 막는다(R6 「가격 없는 줄은 확정을 막는다」와 같은 이유 — 세금을 모르면 인보이스를 낼 수 없다)
+```
+
+### 16-c 📌 회계사 확인 거리 여섯 · 연결 시작일 여섯 (Caleb · 말만 · 시작일은 공개 사실이지만 확인 거리)
+
+```
+회계사 확인  ① 줄마다 반올림해 더한다 ② 세율은 인보이스 발행일로 고른다 ③ 운임에 제품과 같은 세율 ④ 옛 세율 규칙 셋(NB 13 · NL 13 · PE 14)을 Cin7 에서 비활성으로 ⑤ QC·BC·MB·SK 에서 GST 만 받는 지금 실무(PST·QST 미징수) ⑥ 해외 배송 Zero-rated
+연결 시작일  ON → HST ON (Sale) 13 · 2010-07-01 / NB → HST NB 2016 (Sale) 15 · 2016-07-01 / NL → HST NL 2016 (Sale) 15 · 2016-07-01 / PE → HST PE 2016 (Sale) 15 · 2016-10-01 / NS → HST NS 2025 (Sale) 14 · 2025-04-01 /
+             QC · AB · BC · MB · SK · YT · NT · NU → GST (Sale) 5 · 2008-01-01 / 캐나다 밖('*','*') → Zero-rated (Sale) 0 · 2008-01-01 · ⚠️ 옛 연결(NS 15 등)은 싣지 않았다(이견 6 ✅ · 2025-03-31 로 NS 를 물으면 「연결 없음」 · IMS 인보이스는 2026 부터)
+             ⚠️ 캐나다는 해외 폴백을 타지 않는다 — 주를 모르면 규칙 없음(0% 로 떨어뜨리지 않는다)
+```
+
+### 16-d 검토 이견 · ⬜ · 내가 정한 것 (✅ Caleb 2026-09-24)
+
+```
+세금 ① 이견(회신 §0 · 1~10 ✅ 전부)
+ 1  마지막 정의 — so_create·so_header_update·so_line_add·so_lines_paste·so_line_update 는 20260923232500(698·705·129·272·471) · so_charge_set 20260923192101:14 · so_copy_customer 20260923182231:222 · so_detail 20260924022449:317 · tax_rule 을 쓰는 자리 넷(copy :321 · line_add :258 · lines_paste :439 · line_update :593 · header_update :836)
+ 2  GET /ref/tax 는 스킬에 한 줄(endpoint-index 45 · 응답 모양 문서 없음) ⇒ CSV 시드 · 프로브는 나중에 cin7_id 채우기용
+ 3  세율은 퍼센트 값(rate_pct numeric(7,4) · 13 · 5 · 0) — 분수(0.13)면 사람이 읽을 때 틀린다 · EffectivePercent 셋은 Inclusive False 라 Tax1 과 같아 담지 않고 inclusive boolean 만 기록
+ 4  방향은 이름 접미어가 아니라 Tax1 원문에서(cin7_tax1 보존 · direction sale·purchase·other 는 한 번 정해 넣는다) — 「Exempt (Sale)」·「Auto Look Up」 파싱은 틀어진다
+ 5  「겹치는 기간 금지」는 제약 없이 구조로 — 종료일 없이 effective_from 만 · 「그 날짜 이하 중 가장 늦은 시작일 하나」가 답 · 유니크 (country_code, region_code, direction, effective_from) 전체 하나(부분 유니크 없음 · 규칙 29)
+ 6  옛 연결(NS 15 등)은 싣지 않는다 — 실으려면 비활성 규칙을 가리키는 연결 예외가 생긴다
+ 7  세율 불변은 트리거로 모두에게(ref_tax_rule_rate_lock · 「The rate of an existing tax rule cannot change — create a new rule … — nothing was saved」) · 적재가 같은 이름·다른 세율을 만나면 멈춤 · 오타 정정은 비활성 + 새 이름
+ 8  so_line.tax_rule 의 출처(12-h ⬜ · 오더 값 vs product.sale_tax_rule)는 닫힘 — 배송지 주가 정한다 · product.sale_tax_rule 은 계산에 안 쓴다(원문 그대로)
+ 9  customer_address 에 국가 코드 칸이 없다(country 원문만) ⇒ 알아보기가 국가부터 정규화 · 'CA' 는 country 로 가른다
+ 10 BigQuery Total 세금 포함 적재는 이 차수 밖(말만 · data-hygiene) — §1-A ③ 의 「배송지를 따랐다 · 줄마다 반올림」 두 결론만 쓴다
+세금 ① ⬜(회신 답 그대로)
+ ⬜1 ref_tax_rule — 마스터 규약(공통 8칸 + updated_by · touch · 정책 셋 master · DELETE·TRUNCATE revoke) · name unique 글자 그대로(Cin7 은 이름으로 참조) · rate_pct · direction · cin7_tax1 · account_id → ref_account + account_code · inclusive · source cin7·qbo·manual · qbo_id unique(비움) · cin7_id 는 null(CSV 에 ID 없음)
+ ⬜2 ref_tax_region — country_code ISO2 대문자(CA · US · '*' 해외) · region_code(ON … · '*' 나라 전체) · direction default sale · tax_rule_id not null · effective_from · name 은 씨앗이 만든다('CA-ON sale 2010-07-01') · 찾기 (country, region) → (country, '*') → ('*','*') · 씨앗 14(캐나다 13 + 해외 1)
+ ⬜3 ims_region_from_address(p_country, p_state) → (country_code, region_code, how) — ① country 정규화(CA·CANADA → CA · US·USA·UNITED STATES → US · 그 밖 원문 있으면 '*' · 비면 ②) ② state 를 별칭 표에서(country 가 정해졋으면 그 나라 안에서만) ③ 'CA' 는 country 가 Canada 면 나라 전체 · US 면 캘리포니아 · 비면 null ④ 못 찾으면 null → tax_region_unknown ·
+     how 일곱(address · country_other · region_missing · region_unknown · inferred_from_region · ambiguous · unknown) · 표기 목록은 표로(ref_region_alias · kind country|region · alias_norm = upper(trim) · 유니크 (kind, alias_norm) · 관계 표 · DELETE 열림 · 씨앗 143 = 캐나다 13 + 미국 50 코드·이름 + §3 조사 실물 표기)
+ ⬜4 계산 창구 셋(읽기 · invoker · authenticated) — so_tax_rule_for(country, state, on, direction) → jsonb(rule_id · rule · rate_pct · effective_from · region(how) · matched region|country|world · warnings tax_region_unknown|tax_rule_not_linked) · so_tax_amount(amount, rate_pct) = round(amount × rate_pct/100, 2) immutable ·
+     so_tax_preview(so, on, rule_id) → 줄마다 · 오더 전체 할인 줄(−round(Σ × pct/100, 2)) · 운임 줄마다 · totals · source · ⬜4 「사람이 바꿨다 표시」 → 세금 ② tax_rule_manual(판정 7 로 뜻이 바뀜)
+ ⬜5 나눈다 — 세금 ① = 표 셋 · 씨앗 · 알아보기 · 찾기 · 계산 · 세율 불변(창구 무접촉) · 세금 ② = so.tax_rule_id · tax_rule_manual · 창구 재발행 · 판정 7
+ ⬜6 customer.tax_rule 은 원문 그대로 · 계산에 안 씀 · 주석 「계산에 쓰지 않는다 · 91% 틀림 · 2026-09-24」(세금 ② 에서 갱신) · FK 칸은 만들지 않는다(쓸 곳이 없다) · 재적재가 계속 덮는 것도 그대로(사실 기록)
+ ⬜7 CSV 시드를 마이그레이션에(31줄 그대로 · on conflict (name) do nothing · 계정은 code 로 조회 · 「판정 값은 마이그레이션이 넣는다」 ref_price_tier 선례) · QBO 는 자리만
+ ⬜8 계정 — 그대로 싣는다 · _118_ 셋은 비활성 + note 「Cin7 기본 규칙 · 계정 오지정 · 쓰지 않는다」 · 표시 여부는 화면 차수
+세금 ② 이견·안(회신 1~9 · Caleb 받음)
+ 1  so_charge_set 의 p_tax_rule 은 받되 오더 규칙과 다르면 거부(「Freight and charges follow the order tax rule (…) — change it on the order, not on the charge — nothing was saved」) · 같은 값·null 은 통과 · 저장은 늘 so.tax_rule — 시그니처 유지(호출자 무접촉 · 조용히 무시하면 의도가 숨는다)
+ 2  so_line_add · so_lines_paste 는 재발행하지 않았다 — v_so.tax_rule(= 오더 규칙)을 그대로 굳혀 값이 맞다 · 대신 so_confirm · so_tax_preview 가 더해져 재발행은 여덟
+ 3  CHECK 둘 — so_tax_rule_pair_ck (tax_rule_id is null) = (tax_rule is null) · so_tax_rule_manual_ck (not tax_rule_manual or tax_rule_id is not null) · ⚠️ so 가 비어 있을 때 적용(원문만 있는 행이 걸린다)
+ 4  판정 7 「같은 나라·주」는 ims_region_from_address 로 전·후 (country_code, region_code) 대조 — 'Ontario' → 'ON' 표기만 바뀐 것도 같은 주
+ 5  so_header_update 열쇠 tax_rule 은 남고 뜻이 바뀐다(활성 sale 규칙 이름 → manual · null → 배송지로 되돌림) · 같은 패치에 ship_to 와 tax_rule 이 함께 오면 배송지 → 사람 값 순서(사람 값이 남는다) · 없는 이름·purchase/other·비활성은 거부
+ 6  so_tax_preview 재발행 — so.tax_rule_id 를 먼저 · 출처 manual|ship_to · 오더 규칙이 뒤에 비활성이 되면 경고 tax_rule_inactive · p_rule_id 는 explicit
+ 7  so_detail 에 tax(preview 전체) · totals 에 tax_rule · tax_rule_source · tax · order_total_with_tax · 경고 tax_rule_missing + preview 경고
+ 8  so_confirm R6 — 「Order % has no tax rule — set the ship-to province (or pick a tax rule) first — nothing was saved」 · 가격 없는 줄·비활성 제품 다음 · 프리오더 줄 검사 앞
+ 9  customer.tax_rule 주석 갱신(⬜6) · PO·공급처·제품 쪽 tax_rule 은 무접촉(판정 회신 ④)
+내가 정한 것(세금 ② 속 함수 둘 · authenticated 실행 없음 · so_copy_customer 와 같은 자리)
+ so_tax_refresh(so, staff, prev_country, prev_state, clear_manual) — 배송지로 고르고 so.tax_rule_id + tax_rule(manual=false) + 줄·운임까지 맞춘다 · manual 이면 이전·새 (나라, 주) 대조 → 같으면 그대로 · 다르면 되돌리고 경고 tax_rule_reset_by_ship_to · 반환 previous · rule · changed · reset_by_ship_to · 규칙 못 정하면 null + 경고
+ so_tax_set_manual(so, staff, name) — 활성 sale 규칙 이름만 · manual=true · 줄·운임까지 · 부르는 곳은 so_copy_customer(create · 손님 바꾸기) · so_header_update(ship_to 나라·주 열쇠 · tax_rule 열쇠)
+```
+
+### 16-e ⭐ 훑기 표 — so.tax_rule · so_line.tax_rule · so_charge.tax_rule 을 쓰거나 읽는 자리 (마지막 정의 기준 · 2026-09-24)
+
+| 자리 | 하는 일 | 세금 ② |
+|---|---|---|
+| so_copy_customer 20260923182231:321 | `tax_rule = c.tax_rule` 복사 | **뺐다**(판정 2) → so_tax_refresh 호출 |
+| so_header_update 20260923232500:836 | 열쇠 tax_rule 직접 쓰기 | **뺐다** → so_tax_set_manual / so_tax_refresh |
+| so_line_add :258 · so_lines_paste :439 | 줄에 `v_so.tax_rule` 굳힘 | 그대로(값이 오더 규칙 · 이견 2) |
+| so_line_update :593 | 열쇠 tax_rule 직접 쓰기 | **뺐다** · 열쇠는 거부 문장(「The tax rule belongs to the order, not to a line」) |
+| so_charge_set 20260923192101:65·78 | `p_tax_rule` 저장 | **바꿨다** → `v_so.tax_rule` · 다르면 거부 |
+| so_split 20260924143507:51·78 | 머리 통째 복사(to_jsonb) · 줄 `l.tax_rule` | 그대로 — tax_rule_id·tax_rule_manual 도 따라온다 · 형제가 물려받는다(검증 3) |
+| so_tax_preview 20260924172351:478 | 배송지에서 고름 | **바꿨다** — so.tax_rule_id 먼저 |
+| so_detail 20260923232500:970 | `to_jsonb(v_so)` 에 실림 | 세금 합계 더함 |
+| so_reprice · so_unconfirm · so_cancel · so_ship · so_hold · so_allocate_run · so_backorder_* | — | tax_rule 등장 0(grep) |
+| PO·공급처·제품 쪽 tax_rule(po · po_line · supplier · product 둘) | 원문 | 무접촉 — 매입(purchase) 연결은 없다 · PO 세금 계산은 여전히 없다(po-module §7 · 3535) |
+
+### 16-f 파일 · 검증 실측 (✅ Caleb 2026-09-24 · 테스트 DB Asung-IMS · 커밋 74d4838 세금 ① · 6bf8e63 세금 ②)
+
+```
+세금 ①  20260924172351_so_tax_rules.sql(517행 · repair applied) — ref_tax_rule 31 · ref_tax_region 14 · ref_region_alias 143 · ims_region_from_address · so_tax_rule_for · so_tax_amount · so_tax_preview · ref_tax_rule_rate_lock · 생성은 scratchpad gen_tax.py + tax_tpl.sql(CSV 31줄 그대로)
+        검증 ~/asung/prompts/so-tax-1-verify.sql v2(166행) — MISMATCH 0 · 활성 24 · sale 14(활성 12) · 옛 세율 셋 연결에 없음 · 세율 update P0001(admin 도) · 같은 시작일 두 번 23505 · 알아보기 25 + §3 조사 표기 108 전부 ·
+        T1 온타리오 10.05 × 3줄 → 1.31 × 3 = **3.93**(한 번에 3.92 아님) · T2 AB 9,249.51 + 오더 전체 할인 5% + 운임 110.50 + 무상 줄 → 462.48 · −23.12 · 5.53 = **444.89**(제품+할인 439.36 = SO-10842) · US → 0(Zero-rated) · 명시 HST ON → 1,202.44 · 주 모름 → null + tax_region_unknown ·
+        NS 2025-03-31 연결 없음 · 2025-04-01 14 · 권한(A sales 읽기만 · Z admin 규칙 더함 · Z 도 세율 못 고침 · alias 넣고 지움) · 흔적 0 · 25000 f
+        ⚠️ v1 결함 둘 — 0) sale 예상을 활성/전부 섞어 13(DB 14 가 맞았다 · 기준 하나로) · T2 시험 자료 `update so set order_discount_pct = 5` 가 짝 CHECK so_order_discount_pair_ck 에 걸렸다(source manual 함께)
+세금 ②  20260924175014_so_tax_order_rule.sql(1,055행 · 그중 824행은 재발행 여덞 원문 그대로 · repair applied) — so.tax_rule_id · tax_rule_manual · CHECK 둘 · so_tax_rule_idx · 주석 다섯 · so_tax_refresh · so_tax_set_manual · 재발행 여덟(diff 는 회신 · 빠진 줄은 의도한 tax_rule 직접 쓰기 넷만)
+        검증 ~/asung/prompts/so-tax-2-verify.sql v3(231행) — MISMATCH 0 · 실물 손님 10432873 Canada Inc.(customer.tax_rule HST NB 2016 (Sale) · 기본 Shipping ON · Canada) 초안 → **HST ON (Sale)**(판정 2 실물) · 줄·붙여넣기·운임 tax_rule 이 오더를 따라감 · 운임에 GST 거부 · 줄 tax_rule 열쇠 거부 ·
+        AB → GST · 사람이 Exempt(manual) · 거리·도시·우편번호만 → Exempt 그대로(tax 무접촉) · Quebec → GST + tax_rule_reset_by_ship_to + manual false(previous Exempt) · HST ON manual → null → GST · 비활성(HST NS (Sale))·purchase·없는 이름 거부 ·
+        주 null → 규칙 null + tax_region_unknown · so_detail tax_rule_missing · 확정 거부 · ON → so_detail 세금 **16.59**(1.31 + 0.26 + 14.37 + 0.65 · order_total 127.55 · with tax 144.14 · source ship_to) · so_split 형제가 Exempt manual 을 물려받음(같은 rule_id · source manual · 세금 0) ·
+        CHECK 둘 각각 제 이름(pair_ck · manual_ck) · authenticated: 속 함수 둘 42501 · so_detail 에 tax · tax_rule null → HST ON · 흔적 0 · 25000 f
+        ⚠️ 검증 파일 결함 셋(v1 → v3 · asung-workflow §4·§5) — do 블록 변수 v 가 t_ids.v 와 겹쳐 42702 · format('%s', boolean) 이 t/f 를 내 여덟 chk 가 글자만 같은 MISMATCH · 「tax_rule_id 만 null」 시험이 두 CHECK 를 함께 어겨 pair_ck 가 manual_ck 에 가려 한 번도 안 돌았다(constraint_name 으로 판정)
+```
+
+### 16-g 뒤집은 것 · 닫은 것
+
+| 자리 | 전 | 후(2026-09-24) |
+|---|---|---|
+| 1-m 「손님에 저장한대로 자동」 | 손님 값이 오더로 따라온다 | **배송지 주가 정한다** · 손님 저장값은 계산에 안 쓴다(판정 2 · 91% 틀림) — 1-m 은 청취 기록으로 남긴다 |
+| 5-i · §5 대칭표 「tax_inclusive 없음」 | (기록만) | 실측으로 굳음 — 세금 포함가 오더 없음(AS-3127 Tax inclusive 꺼짐 · 11.5% 는 BigQuery 적재 결함) |
+| 9-c ⬜2 tax_rule 원문만 | ref_tax_rule 미결 | **so 는 FK 섰다**(so.tax_rule_id · 세금 ②) · customer 는 FK 안 만든다(⬜6) |
+| 12-h so_line.tax_rule 의 출처 | 오더 값 vs product.sale_tax_rule ⬜ | ✅ 닫힘 — 오더 규칙(배송지 주) · product.sale_tax_rule 은 계산에 안 쓴다(이견 8 · 판정 8) |
+| 13-b · 13-k 1센트(439.36 vs 439.35) | 인보이스·세금 차수 ⬜ | ✅ 줄마다 반올림해 더한다(판정 3 · so_tax_amount · 16-a ③ 98.5%) |
+| 8-c 「금액 합계(라인·추가 비용·세금)도 인보이스에서 굳는다」 | 세금 계산 자리 없음 | 계산 창구 so_tax_preview(읽기) · 굳히는 것은 인보이스(판정 5) — 오더에 금액 칸 없음은 그대로 |
+| 판정 6 「운임 줄마다 사람이 바꿀 수 있다」 | 운임 줄 예외 | ✗ 판정 9 가 거뒀다 — 오더 규칙 하나 |
+| ⬜4 「사람이 바꾼 규칙은 배송지가 바뀌어도 안 건드린다」(대화 Claude 안) | manual 은 지킨다 | ✗ 판정 7 — 나라·주가 바뀌면 되돌리고 경고 · 거리만 바뀌면 그대로 |
+| so_charge_set p_tax_rule | 운임 줄 세금 원문 저장 | 오더 규칙과 다르면 거부 · 저장은 오더 규칙(시그니처 유지) |
+| so_line_update 열쇠 아홉 | tax_rule 포함 | 여덟 — tax_rule 은 거부 문장 |
+| so_confirm R6 | 다섯 | + 세금 규칙 없음(so.tax_rule_id null) |
+| po-module §7 갈림길 「ref_tax_rule 표를 만들 것인가」 | 미결 | ✅ 섰다(2026-09-24 · 이 절) · 「FK 로 이을 수 있다」 → 이었다(account_id) |
+
+### 16-h ⬜ 남는 것
+
+```
+인보이스 차수 — 발행일(ims_today)로 규칙을 다시 골라 이름·세율·세액을 굳힌다(판정 5) · manual 이면 오더 규칙을 따른다(판정 7 뒤에도 그대로 — 나라·주가 같으면) · 줄마다 so_tax_amount · so_invoice 에 굳는 칸(규칙 이름 · 세율 · 줄 세액 · Σ) · 오더 규칙이 비활성이 됐을 때(tax_rule_inactive) 어떻게 하나
+크레딧 줄의 세금(8-g) — 돌려주는 줄의 세금은 그 줄이 인보이스에 굳힌 세액(판정 3 근거 둘째) · 크레딧 차수
+QBO 에서 규칙 불러오기(청취 · qbo_id · source 'qbo') — QBO 연동 때 · 지금은 자리만 · cin7_id 채우기 프로브(GET /ref/tax · 응답 모양 문서 없음)
+옛 세율 규칙 셋(NB 13 · NL 13 · PE 14) Cin7 비활성 — Caleb·회계사(16-c ④) · IMS 에는 기록으로만(연결 없음)
+PST·QST 미징수 실무(QC·BC·MB·SK 는 GST 5 만) — 회계사 확인 거리(16-c ⑤) · 바뀌면 새 규칙 + 연결 시작일(판정 4)
+매입(purchase) 연결 없음 — ref_tax_region 은 sale 만 씨앗 · PO 세금 계산은 여전히 없다(po-module §7 · 3535 발주 머리 Tax rule 드롭다운의 재료만 섰다)
+BigQuery Total 세금 포함 적재(SO-05606 · 약 700 오더 13%) — asung-bq-data-model data-hygiene 「밀린 일」 · 원인·범위 조사 전 숫자를 고치지 마라
+화면 차수 — 초안 화면의 규칙 표시(ship_to|manual · 경고 tax_region_unknown · tax_rule_reset_by_ship_to) · tax_rule 드롭다운(활성 sale 규칙) · 주 표기 별칭 추가(ref_region_alias · 새 실물이 나오면 표에 · 마이그레이션 아님) · _118_ 규칙 셋 표시 여부(⬜8)
+so_create 의 반환 tax_rule 이 null 일 때 화면 안내(배송지 비었거나 주 모름 — ship_to_empty 와 함께 온다)
 ```

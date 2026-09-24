@@ -51,6 +51,9 @@ description: >
 | `product_barcode` | `(product_id, barcode)` | 관계 표 · DELETE 열림 · ⚠️ `is_primary` 부분 유니크 금지 · 바코드 중복은 카운터로 |
 | `product_bom` | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만 · ⚠️ 콤보 방향 칸은 여기 아님(§3-g) |
 | `product_supplier` | `(product_id, supplier_id)` · ⭐ **충돌 키는 `cin7_id`** | 관계 표 · manual 승격(§3-g) · ⚠️ `is_default` 부분 유니크 금지 · 단가 `numeric(18,7)` |
+| `ref_tax_rule` [09-24] | `name`(글자 그대로 · Cin7 이 이름으로 참조) | ⭐ **`rate_pct` 는 불변**(트리거 `ref_tax_rule_rate_lock` · admin 도 거부) — 세율이 바뀌면 새 규칙 · `rate_pct` 는 퍼센트 값(13) · `direction` 은 `cin7_tax1` 원문에서 · `cin7_id` null(CSV 시드) · `qbo_id` unique 비움 · so-module §16 |
+| `ref_tax_region` [09-24] | ⭐ **`(country_code, region_code, direction, effective_from)`** | 종료일 없음 — 겹침 불가 · `'*'` = 나라 전체/해외 · 캐나다는 해외 폴백 안 탐 · 매출(sale) 연결만 · so-module §16 |
+| `ref_region_alias` [09-24] | ⭐ **`(kind, alias_norm)`** · `alias_norm = upper(trim(원문))` | 관계 표 · DELETE 열림 · 새 주 표기는 행 추가(마이그레이션 아님) |
 
 - ⚠️ **새 표를 다룰 때 `\d` 를 먼저 본다** — 이 표는 요약이고 기억은 틀린다. `psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\d public.ref_bin"`
 

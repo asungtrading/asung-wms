@@ -128,6 +128,10 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⚠️ **상관 서브쿼리의 칸은 별칭으로 한정하라** — `(select email from ims_staff where id = updated_by)` 의 `updated_by` 는 안쪽 표에 같은 칸이 있으면 **그쪽으로 풀린다**(2026-09-24 inv_config.updated_by 가 빈 값으로 보였다 · 트리거는 채웠었다) ⇒ `c.updated_by`
 ⚠️ **한 트랜잭션 안에서는 순서를 비교하지 마라** — created_at 이 전부 같다 · 목록을 비교할 때는 **정렬해서**(string_agg … order by 키) 비교한다(2026-09-24 ③b S6 예약 목록)
 ⚠️ **cron.sql 은 운영 기록이다** — 테스트 DB 에만 등록한 잡은 `[테스트 · Asung-IMS] jobid N` 을 절 머리에 밝히고 「운영에는 등록하지 마라(함수가 없다) · 전환 때 함께」를 적는다(2026-09-24 so-backorder-sweep · 테스트 jobid 1 ≠ 운영 1 wms-poll-orders)
+⚠️ **검증 do 블록의 변수는 전부 `v_` 접두 · 임시 표의 칸 이름과 겹치지 않게** — 같은 날 두 번(record 변수 `r` = 별칭 `r` · 변수 `v` = `t_ids.v` → 42702 「column reference is ambiguous」 · 2026-09-24 세금 ② v1) · FROM 이 없는 insert … values 는 안 걸리지만 규칙은 같다 · 블록마다 「선언 변수 ∩ 읽는 표의 칸」을 훑는다
+⚠️ **`format('%s', boolean)` 은 `t`/`f` 를 낸다** — 출력 함수를 쓴다(`boolean::text` 는 `true`/`false`) · 기대 문자열이 `manual=false` 면 `::text` 로 캐스트해 넣는다(2026-09-24 세금 ② v2 — 여덟 chk 가 글자만 같은 MISMATCH · DB 는 맞았다)
+⚠️ **CHECK 시험은 한 번에 제약 하나만 어기는 자료로 · `get stacked diagnostics … = constraint_name` 으로 이름까지 판정** — 두 제약을 함께 어기면 Postgres 가 하나만 보고하고 나머지는 한 번도 안 돈다(2026-09-24 세금 ② 「tax_rule_id 만 null」이 pair_ck 대신 manual_ck 에 걸렸는데 OK 로 읽었다)
+⚠️ **bash 에서 `grep $'\x00'` 은 빈 글자가 된다** — 널 바이트 검사는 `file <파일>` 또는 `grep -cP '\x00'` 로(2026-09-24 · Caleb 실측)
 ```
 
 ---
@@ -151,7 +155,7 @@ EOF
    ⇒ 호출마다 따로 돌리거나 do … exception when others then raise notice '%', sqlerrm; end 로 감싼다
 ⚠️ 여러 줄 SQL 은 도구가 `limit 100` 을 엉뚱한 자리에 붙인다 — **한 줄로 붙여서** 준다
 ⚠️ P0001 은 「에러」가 아니라 **함수가 일부러 막은 것**이다. 문장이 그대로 사람이 읽을 말이다
-⚠️ 자리표시자(<id> 같은 것)를 남긴 채 주지 마라 — 그대로 실행된다
+⚠️ 자리표시자(<id> 같은 것)를 남긴 채 주지 마라 — 그대로 실행된다 · [실사고 2026-09-24] 대화 Claude 가 자리표시자를 남긴 명령을 **다시** 줬다 — 주기 전에 `<`·`…` 를 grep 한다
 ⚠️⚠️ **쓰기 창구(volatile 함수)를 FROM 의 LATERAL 에서 부르지 마라** — [실사고 2026-09-24 ③a 검증 v1] `from t_so s, lateral so_confirm(s.so_id) r` 이 같은 오더를 두 번 불렀다(「not a draft」 · 재평가 경로는 짐작) ⇒ do 블록에서 한 번씩 부르고 반환을 임시 표(t_out)에 담아 뒤 SELECT 가 읽는다
 ⚠️ **검증의 확인은 값만 찍지 말고 판정으로** — 「FAIL」 한 단어 금지 · `MISMATCH (<시험>): expected … · actual …`(sqlerrm 포함) · 통과는 OK · 표시 SELECT 옆에 pg_temp.chk(tag, 조건, format(...)) 도우미를 붙인다 · ⚠️ **도우미는 BEGIN 바로 뒤에**(첫 호출보다 앞 · 2026-09-24 두 파일이 정의 전에 불러 첫머리에서 멈췼다) · authenticated 구간(`set local role`)에서는 pg_temp 를 부르지 말고 do 블록으로
 ⚠️ 시간은 못 바꾼다 — 만료류는 order_date 를 과거로 만들어 시험한다 · `session_replication_role = replica` 는 문지기·touch 를 함께 끈다(packed 만들기 등 · 트랜잭션 안에서만)

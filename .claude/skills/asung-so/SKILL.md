@@ -32,6 +32,7 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 할인 규칙 ②-0   ✅ 2026-09-23 — ②-0a 20260923224900(product_tag · so_deal 넷 · so_deal_best · so_order_discount · so/so_line 출처 칸) · ②-0b 20260923232500(ims_today · so_line_quote 3인자 · 창구 여섯 재발행 · so_reprice) · 테스트 DB(§13) · ⚠️ 운영은 둘을 한 번에
 쓰기 ② 확정·할당 ✅ 2026-09-23 — ②a 20260924014219(so_confirm · so_unconfirm · 엔진 so_allocate_run · so_split · so_available · so_family_*) · 015859(so_available_many 식 한 곳) · 020852(grant) · 021413·021759(so_unconfirm 고침 둘) · ②b 022449(so_hold · so_reallocate · so_cancel · so_change_location · so_backorder_proceed · so_divide · so_detail·so_delete 재발행) · 023740(되돌리기는 표시와 사슬로) · 테스트 DB(§14)
 쓰기 ③ 출고·백오더 ✅ 2026-09-24 — ③a 20260924141140(so_ship · inv_post_sale/inv_layer_post_sale · pick_short) · ③a′ 143507 · ③b 145105(so_backorder_close · 이어받기 · 다시 열기) · ③b′ 151719 · ③c 151038(만료 스윕 · so_backorder_list · cron 테스트 jobid 1) · ③b″ 153856(무상 줄 제외 · 만료 기간 supervisor 잠금) · 정본 §15
+세금 ①·②      ✅ 2026-09-24 — ① 20260924172351(ref_tax_rule 31 · ref_tax_region 14 · ref_region_alias 143 · ims_region_from_address · so_tax_rule_for · so_tax_amount · so_tax_preview · 세율 불변) · ② 175014(so.tax_rule_id · tax_rule_manual · so_tax_refresh · so_tax_set_manual · 창구 여덟 재발행) · 정본 §16
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -93,7 +94,7 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
      함수 so_<동작> · so_invoice_<동작> · so_payment_<동작> · so_credit_<동작> · 읽기 _detail/_list · 손님 셋은 앞머리 없음(supplier·product 처럼) ·
      ⚠️ 실제 이름은 각 차수의 지시서가 이 규칙으로 붙인다 — 지금 목록을 만들지 마라                                          (9-b)
 ⭐  FK+원문 짝 — currency_id+currency_code · payment_term_id+_name · default_location_id+_name(ref_warehouse.name 매칭) · ar/sale_account_id+_code ·
-     tax_rule 은 원문만(ref_tax_rule 미결 — 인보이스 전에 서야 한다) · price_tier 원문 옆 FK — so.price_tier_id 는 섰다(①a) · customer 쪽은 다음(재적재 함께 · 11-f)        (9-c ⬜2·⬜3 · 9-d · 11-f · 12-c ⬜3)
+     ~~tax_rule 은 원문만(ref_tax_rule 미결)~~ → [2026-09-24 §16] so.tax_rule_id + tax_rule 짝 CHECK 섰다(customer 쪽 FK 는 안 만든다 · 계산에 안 쓴다) · price_tier 원문 옆 FK — so.price_tier_id 는 섰다(①a) · customer 쪽은 다음(재적재 함께 · 11-f)        (9-c ⬜2·⬜3 · 9-d · 11-f · 12-c ⬜3)
 ⭐  가격표(§11) — ref_price_tier 여덟 행(code 1~8 · purpose sale·compare·reference · currency_id FK 하나 · 7·8 = USD) · product_price(제품×티어 → 가격 · 낱개 줄 = 정본 · 세트 줄 = 고정가 · 없으면 계산) · product.set_discount_pct(세트만)
      ⚠️ product_price.source 는 셋(cin7 · formula · manual) — 이 표만 · 재적재는 cin7 줄만 덮는다 · formula·manual 은 무접촉                                          (11-c 이견 3)
      ⚠️ Cin7 의 0 은 「가격 없음」 — 줄을 만들지 않는다(price > 0) · 세트는 Sellable=Yes 만 · 티어는 이름이 아니라 code 로 맞춘다 · 없는 code·다른 이름이면 멈춘다             (11-c 이견 6·8 · 11-f)
@@ -169,6 +170,20 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐⭐ sweep 은 cron(postgres)만 부른다(authenticated 42501) · 만료 기간은 supervisor 이상만(inv_config_guard · 잠긴 키 목록 ims_config_locked_keys · 값은 양의 정수)   (판정 14)
 ⭐  「입고됨」 = 백오더 뒤 그 창고에 po_in 또는 다른 창고에서 온 transfer_in(출발 줄 있고 출발 ≠ 도착 · IN_TRANSIT 제외) · 조정·반품·조립·출발 줄 없는 도착은 아니다 · notified_state unknown_pre_ims 는 「안 보냄」이 아니다(GAS 가 Cin7 에서 보낸다)   (판정 6·7 · 이견 8)
 ⚠️  CHECK 를 넓히면 함수 본문의 같은 값 목록도 훑어라(so_split 실사고 ③a′) · 쓰기 창구를 FROM 의 lateral 에서 부르지 마라(③a 검증 v1) · 시험은 order_date 를 과거로(시간은 못 바꾼다) · cron.sql 의 이 잡은 테스트 DB jobid 1(운영엔 함수 없음)
+```
+
+## 4-f. ⭐⭐ 세금(세금 ①·②) — 모르면 사고 (정본 §16)
+
+```
+⭐⭐ 오더의 세금은 배송지 주가 정한다(판정 2) — customer.tax_rule 은 계산에 쓰지 않는다(91% 틀림 · HST NB 2016 (Sale) 이 온타리오 손님에게) · so_copy_customer 가 복사하지 않는다 · 1-m 의 「손님에 저장한대로」는 뒤집혔다   (16-a ② · 16-b)
+⭐⭐ 오더 하나에 규칙 하나(판정 8·9) — so.tax_rule_id + tax_rule(짝 CHECK so_tax_rule_pair_ck) · 제품 줄·운임 줄·오더 전체 할인 줄 전부 그 규칙 · so_line.tax_rule·so_charge.tax_rule 은 기록만(따라간다) · 줄·운임만 따로 바꾸는 길 없음(so_line_update tax_rule 열쇠 거부 · so_charge_set p_tax_rule 은 오더 규칙과 다르면 거부)
+⭐⭐ 줄마다 반올림해 더한다(판정 3 · so_tax_amount = round(금액 × rate_pct/100, 2)) — 10.05 × 3줄 13% = 3.93(한 번에 3.92 아님) · 오더 전체 할인 줄도 따로(SO-10842 462.48 − 23.12 = 439.36) · rate_pct 는 퍼센트 값(13 · 5 · 0)   (16-a ③ 98.5%)
+⭐⭐ 세율은 안 고친다(판정 4 · 트리거 ref_tax_rule_rate_lock · admin 도) — 세율이 바뀌면 새 규칙 + ref_tax_region 연결에 effective_from(종료일 없음 · 「그 날짜 이하 중 가장 늦은 시작일」이 답) · 인보이스가 발행일(ims_today)로 다시 골라 이름·세율·세액을 굳힌다(판정 5 · 인보이스 차수)
+⭐⭐ 사람이 정한 규칙(so_header_update tax_rule 열쇠 → tax_rule_manual) — 배송지의 나라·주가 바뀌면 배송지 규칙으로 되돌리고 경고 tax_rule_reset_by_ship_to(판정 7 · 거리·도시·우편번호만 바뀌면 그대로) · tax_rule null 이면 배송지로 · 활성 sale 규칙 이름만(없는 이름·purchase·비활성 거부)
+⭐⭐ 규칙이 없으면 확정 거부(so_confirm R6 · 「Order … has no tax rule」) — 초안은 경고 tax_region_unknown · so_detail warnings tax_rule_missing · 세금을 모르면 인보이스를 낼 수 없다(가격 없는 줄과 같은 이유)
+⭐⭐ 캐나다인데 주를 모르면 규칙 없음 — 해외 폴백('*','*' Zero-rated)을 타지 않는다(0% 로 떨어뜨리지 않는다) · 'CA' 는 country 로 가른다(Canada 면 나라 전체 · US 면 캘리포니아 · 비면 null) · 주 표기는 표(ref_region_alias · upper(trim) · 새 실물은 행 추가 · 마이그레이션 아님)   (⬜3)
+⭐  세금 규칙을 쓰는 자리는 속 함수 둘만(so_tax_refresh · so_tax_set_manual · authenticated 실행 없음) — 새 창구가 so.tax_rule 을 직접 쓰면 짝 CHECK·줄·운임이 어긋난다 · so_split 은 머리 통째 복사라 형제가 물려받는다   (16-d · 16-e)
+⚠️  옛 세율 규칙 셋(HST NB 13 · NL 13 · PE 14)은 표에 기록만 · 연결 없음 · 옛 연결(NS 15)도 안 실었다(2025-03-31 로 물으면 「연결 없음」) · 매입(purchase) 연결은 없다(PO 세금 계산 없음) · 회계사 확인 거리 여섯은 16-c
 ```
 
 ## 5. 이 스킬을 갱신할 때

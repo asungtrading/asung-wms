@@ -1535,7 +1535,7 @@ Cin7 에서 `Net30` 이 오면 우리 표의 `Net 30` 에 잇는다 — 그 매�
 
 ### ⬜ 다음 갈림길 — ② 공급처 (2026-09-11 오후)
 
-- ⬜ **`ref_tax_rule` 표를 만들 것인가** (미결 · 다음 판단)
+- ⬜ **`ref_tax_rule` 표를 만들 것인가** (미결 · 다음 판단) → ✅ [2026-09-24] **섰다** — so-module §16(세금 ① 20260924172351 · ref_tax_rule 31 · ref_tax_region 14 · ref_region_alias 143 · 세율 불변 트리거 · 매출 연결만 · PO 세금 계산은 여전히 없다)
   - 만들자는 쪽 근거 셋: ⓐ 데이터가 이미 손에 있다 — CSV 31행에 세율·계정코드·활성여부·매입매출 구분이 다 들어 있다(`ref_currency` 2행을 손으로 넣은 것과 같은 상황) ⓑ ⚠️ **세율은 바뀐다 — 소급이 안 될 수 있다.** NS 15%→14% 가 이미 일어났다. Cin7 이 옛 규칙을 지우면 「오늘 15%였다」를 복원할 수 없다(원칙 1 의 3번) ⓒ 문자열로 두면 QBO 연동 때 226곳을 다시 이어야 한다.
   - 미루자는 쪽 근거: ② 가 한 칸 밀린다 · 마스터는 대체로 소급이 된다.
   - ⚠️ 어느 쪽이든 원문 칸 이름은 결제조건·계정과목과 같은 규칙으로 지어 둔다 — 나중에 FK 칸만 옆에 붙이면 구조가 흔들리지 않는다.
@@ -1807,7 +1807,7 @@ Professional Fees · Retained Earnings · Stock in Transit (GINR) · Uncategoriz
 `Sales Tax on Imports` 셋이 이것을 가리킨다. 우리가 쓰지 않는 Cin7 기본 규칙이라 실무 지장은 없으나,
 나중에 「세금이 휴가수당 계정으로 간다」고 읽히지 않도록 기록해 둔다.
 ⇒ `ref_tax_rule` 의 `AccountCode` 는 `ref_account` 에 **FK 로 이을 수 있다**
-(`_54_`·`_118_`·`_109_`·`_62_` 네 코드 모두 존재 확인).
+(`_54_`·`_118_`·`_109_`·`_62_` 네 코드 모두 존재 확인). → ✅ [2026-09-24] **이었다** — `ref_tax_rule.account_id → ref_account(id)` + `account_code` 원문 짝(so-module §16 ⬜1 · 시드 31 전부 FK 채움 · _118_ 셋은 비활성 + note)
 
 ⚠️ 빈 주소가 `""` 와 `null` **두 형태로 섞여 온다**(같은 응답 안에서도).
 ⇒ 적재 때 빈 문자열은 null 로 통일했다(값을 바꾸는 것이 아니라 같은 것을 같게 적는 것).
@@ -3532,7 +3532,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ latest·fixed 갱신을 IMS 가 맡는다  ⭐ 출처는 **인보이스**(`po_price_history` · 11-g) · ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 안 된다 · [실측] product_supplier 에 쓰는 DB 함수 **0개**(po_lines_paste 는 읽기만 · writes_it f) — 11-d 「PO 확정이 갱신한다」는 만든 적 없는 설계 문장이었다
 ⬜ 「우리가 쓸 물건」(is_payable false ⓐ)  재고로 들어가는 길이 있나 — 모른다(11-g)
 ⬜ 비용 취소와 landed            po_charge 가 confirmed 뒤 cancelled 되면 landed 가 남는다 — 상쇄가 필요하다(취소 RPC 에 「얹혔으면 거부 또는 상쇄」)
-⬜ 발주 머리의 Tax rule          ref_tax_rule 을 Settings 에 세운 뒤 드롭다운으로(⭐ QBO 가 우선 · 11-b 머리 칸 편집)
+⬜ 발주 머리의 Tax rule          ref_tax_rule 을 Settings 에 세운 뒤 드롭다운으로(⭐ QBO 가 우선 · 11-b 머리 칸 편집) · → [2026-09-24] 드롭다운의 재료(ref_tax_rule · direction purchase 활성)는 섰다(so-module §16) · ⚠️ 매입 세금 **계산**은 여전히 없다(ref_tax_region 은 sale 연결만)
 ⬜ 환율                          MTFX 환율 자동 수신(API 유무 확인 중) · USD 발주 10건의 빈 환율 채우기 · ~~RCV-00005·00006 백필~~(✅ 09-20 · 테스트 값 1.35 · 레이어만 섰다) · 관세 10039192310530 백필(PO-02002·02001a 입고 뒤 inv_layer_post_charge)
 ⬜ Add a line 셋째 재료           po_line.unit_price 가 쌓이면 「우리가 지난번에 적은 값」(11-d)
 ⬜ 아침 점검                     no_basis_amount_cad · no_layers_amount_cad 합을 보는 한 줄(Cin7 대조의 「설명된 차이」) · 차이 큐 닫기 여러 건 한 번에 · [09-20 +둘] `po_price_history_skipped` 의 reason <> 'charge' 가 0 인지 · `inv_layer_apply()->'ims'->'skipped_by_event'` 가 전부 0 인지(0 이 아니면 그 사건의 창구를 만들 때)
