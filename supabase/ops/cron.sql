@@ -448,3 +448,19 @@ select cron.schedule(
 --   select cron.schedule('inv-balance-diffs', '30 6 * * *',
 --     $$ select inv_snap_balance_diffs(); $$);
 --     확인은 결과물로만: select checked_on, count(*) from inv_balance_diffs group by 1 order by 1 desc;
+
+-- N) 백오더 만료 스윕 (매일 09:17 UTC = 토론토 05:17 EDT(여름) · 04:17 EST(겨울) — 두 계절 다 새벽 ·
+--    ⚠️ jobid 는 등록 뒤 select jobid, jobname from cron.job 으로 확정해 여기 적을 것 — 추정 금지(2026-08-24 교훈))
+--     함수 so_backorder_sweep() (마이그레이션 20260924151038 · 정본 so-module §15 · 5-g)
+--     inv_config so_backorder_expire_days(90) 지난 백오더 오더(confirmed · 열린 예약이 전부 backorder 이거나 0)를 닫는다 —
+--     남은 열린 줄은 장부 so_backorder_close 에 expired · 오더 cancelled(expired / superseded) · 상한 200 · 오래된 order_date 먼저 · 반환 remaining.
+--     DB 전용(Cin7 콜 0) · postgres 소유자만 부른다(authenticated revoke — 화면이 못 부른다) · 설정이 없으면 예외로 멈춘다(cron.job_run_details 에 남는다).
+--     ⚠️ 킬 스위치(즉시·배포 불필요): select cron.alter_job(<jobid>, active := false);   -- jobid 는 등록 뒤 확정한 값으로
+--     확인은 결과물로만: select so_number, closed_reason, closed_at, closed_note from so where closed_note like '%backorder sweep%' or closed_note like 'Expired after%' order by closed_at desc limit 20;
+--             select count(*) from so_backorder_close where end_kind = 'expired' and ended_at > now() - interval '1 day';
+--     ⚠️ 분 17 = 빈 분(잡 15 03:26 · 16 04:33 · 12 05:21 과 겹치지 않는다) · 아침 점검 전에 돌아 그날 목록에 반영된다.
+select cron.schedule(
+  'so-backorder-sweep',
+  '17 9 * * *',
+  $job$ select so_backorder_sweep() $job$
+);
