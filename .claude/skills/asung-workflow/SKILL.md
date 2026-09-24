@@ -208,6 +208,19 @@ description ⚠️ 키워드가 트리거다 — 자르면 필요할 때 스킬�
 ⚠️ 「여유 N자」가 본문 바이트인지 description 글자인지 헷갈린 적이 있다 — **각각 재서** 말한다
 ```
 
+### 올리는 법 — claude.ai 스킬은 zip 으로 바꾼다(2026-09-23 인계 §7 에서 옮김)
+```
+① Claude Code 가 레포의 .claude/skills/<이름>/SKILL.md 를 고친다 — 정본 먼저 · description 1024자(pre-commit 이 잰다)
+② Caleb 이 커밋·푸시(스킬은 레포가 정본 · zip 은 사본)
+③ zip — ⚠️ 폴더 겹 없이(스킬 폴더 **안에서** 묶는다)
+   회사  cd ~/asung/asung-wms/.claude/skills && for s in <스킬들>; do rm -f /mnt/c/Users/chang/Downloads/$s.zip; (cd $s && zip -r -q /mnt/c/Users/chang/Downloads/$s.zip .); done && ls -l /mnt/c/Users/chang/Downloads
+   집    같은 명령에서 chang → yoonh
+   ⚠️ references/ 가 있는 스킬(cin7-api · asung-wms · asung-apps-script 등 — ls -d .claude/skills/*/references)은 unzip -l <zip> | grep -c "references/" 가 1 이상인지 본다 — 0 이면 본문만 올라가 참조 파일이 사라진다
+      SKILL.md 하나뿐인 스킬(asung-po · asung-so · asung-workflow)은 0 이 맞다
+④ claude.ai → 스킬 → 그 스킬 → **바꾸기** 로 zip 을 올린다
+⑤ description 여유는 pre-commit 출력으로 본다(날마다 바뀐다 — 여기 적지 않는다) · 여유가 적은 스킬에 키워드를 더할 때는 **먼저 뺄 것을 정한다**(위 압축 순서)
+```
+
 ---
 
 ## 9. ⭐ 인계 문서 (하루 끝에)
