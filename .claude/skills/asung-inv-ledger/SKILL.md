@@ -812,6 +812,17 @@ rollback;
 select reason, count(*), string_agg(coalesce(sku, label), ' · ') from po_price_history_skipped where reason <> 'charge' group by 1 order by 1;
 ```
 ⭐ **0행이 정상**(charge = 운임은 예상된 빠짐이라 뺀다). 뜨면 — `not_payable`(우리 쓸 것·공짜 · 가격이 아니다 · 맞게 빠진 것인지 확인) · `zero_price`(샘플) · `negative_qty`(정정 줄) · `not_ordered`(other · 안 시킨 것 · SKU 모름). 정본 `po-module.md` §11-g 「매입 가격 이력」.
+### ⑲ IMS 판매 부족분 레이어 — 「재고 0 인데 나갔다」가 늘고 있나 (2026-09-24 신설 · 테스트 DB · 17-g)
+
+IMS 판매(so_ship)가 FIFO 로 다 못 꺼내면 부족분만큼 `origin_type = 'sale_shortfall'` 레이어를 세우고 바로 소진한다(17-h). **0 이 정상이 아니다**(POS 의 「재고 0 인데 실물이 있다」는 정상 업무) — 기준선은 가동 뒤 실측으로 · **갑자기 늘면 신호**.
+```sql
+select received_on, cost_source, count(*) as layers, sum(qty) as qty, round(sum(qty * unit_cost), 2) as amount
+from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_date - 14 group by 1, 2 order by 1 desc, 2;
+```
+⭐ `cost_source` 셋을 따로 본다 — `layer_recent`(같은 창고 마지막 레이어 · 보통) · `layer_recent_other_wh`(다른 창고에서 가져옴 · 창고 원가 차이가 섞인다) · `price_history`(입고 전 신제품) · `unknown`(0 · 회계가 안 닫힌다 — 즉시 본다).
+⭐ 이 건수가 SO 쪽 「재고 없이 나갔다」 표(6-f · pos·counter · ④ 뒤)와 **맞아야 한다** — 같은 사건을 두 표에서 본 것이라 어긋나면 어느 쪽이 빠뜨린 것.
+📌 ⑰(`skipped_by_event`)은 무변 — `sale_out` 은 여전히 세지 않는다 · ⑥(원가 누락)은 Cin7 축이라 무관.
+
 ### 📌 어긋남의 원인을 모를 때
 
 0. ⭐⭐ **감지 테이블을 먼저 뒤진다 — 원인을 추측하기 전에.**
@@ -1424,6 +1435,8 @@ select reason, count(*), string_agg(coalesce(sku, label), ' · ') from po_price_
 | `NewStockLines` 도 같은 규칙? | **아니다.** `Quantity` 가 그대로 증가분. 섞으면 원장이 통째로 틀림 |
 | `StockOnHand` 가 수량? | **아니다. 평가액.** 원장 기준값은 `OnHand` |
 | 재고가 픽/팩에 빠지나? | **아니다. Ship 시점.** 픽·팩·Finalize 는 `Allocated` 일 뿐 |
+| `sale_out` 부족은 short 인가? | ⚠️ **축마다 다르다(17-a · 2026-09-24 구현 17-h).** `cin7` 축은 그대로 short(수집이 못 따라간 것 · 따라잡히면 해소) · `ims` 축(IMS 판매 · so_ship)은 **부족분만큼 `sale_shortfall` 레이어를 세우고 즉시 전량 소진**(cost_source `layer_recent` · `layer_recent_other_wh` · `price_history` · 그것도 없으면 `unknown` 0) — 실물이 나갔으니 따라잡을 것이 없다. ⚠️ sale_shortfall 레이어는 다음 부족분의 원천에서 뺀다(추정의 추정 금지) · 이 레이어가 갑자기 늘면 재고 관리 신호(아침 점검 ⑲) |
+| 재생성이 IMS 판매 원가를 어떻게 재현하나? | **원장 판매 행의 `raw.cost.shortfall` 이 hint 다**(qty · unit_cost · cost_source · step · 원천 키) — `inv_layer_apply_sale_out`(20260924141140 재발행)이 `source='ims'` 키에서 첫 행의 hint 로 `inv_layer_post_sale` 을 불러 같은 자리에 같은 레이어를 세운다 · FIFO 는 qty − hint.qty 만. ⚠️ **레이어 id 는 근거가 아니다**(재생성이 바꾼다) — 값이 근거. 실시간·재생성이 **같은 함수** `inv_layer_post_sale` 을 부르고 키 `(doc_number, sku, warehouse)` 로 접어 한 번 소진하므로 consume 행 단위까지 같다(17-f ③ 「합으로만 대조」보다 낫다) · 실측 09-24 short_events 0 · 24,534 키 · 15~17초 |
 | 문서 번호로 순서를 정하면? | **안 된다.** 접두어가 달라 비교 무의미. **유입(+) 먼저, 유출(−) 나중** |
 | `Bin=null` 행이 창고 집계행? | **아니다.** 빈 미지정 재고 자리. 99.8%가 0이고, 0이 아닌 14행은 진짜 재고 |
 | UOM SKU 도 재고가 있나? | 평소 없다(`OnHand=0`·`Available` 만 파생). 다만 **구조상 가질 수는 있다** |

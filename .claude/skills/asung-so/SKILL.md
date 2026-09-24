@@ -31,6 +31,7 @@ SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so �
 SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표 보정 · so_status_guard · so_price_for · so_copy_customer) · ①b 20260923191030(창구 열 개 so_create…so_detail · inv_config so_direct_order_tier_code) · ①c 20260923192101(운임 음수 금지) · 테스트 DB(§12)
 할인 규칙 ②-0   ✅ 2026-09-23 — ②-0a 20260923224900(product_tag · so_deal 넷 · so_deal_best · so_order_discount · so/so_line 출처 칸) · ②-0b 20260923232500(ims_today · so_line_quote 3인자 · 창구 여섯 재발행 · so_reprice) · 테스트 DB(§13) · ⚠️ 운영은 둘을 한 번에
 쓰기 ② 확정·할당 ✅ 2026-09-23 — ②a 20260924014219(so_confirm · so_unconfirm · 엔진 so_allocate_run · so_split · so_available · so_family_*) · 015859(so_available_many 식 한 곳) · 020852(grant) · 021413·021759(so_unconfirm 고침 둘) · ②b 022449(so_hold · so_reallocate · so_cancel · so_change_location · so_backorder_proceed · so_divide · so_detail·so_delete 재발행) · 023740(되돌리기는 표시와 사슬로) · 테스트 DB(§14)
+쓰기 ③ 출고·백오더 ✅ 2026-09-24 — ③a 20260924141140(so_ship · inv_post_sale/inv_layer_post_sale · pick_short) · ③a′ 143507 · ③b 145105(so_backorder_close · 이어받기 · 다시 열기) · ③b′ 151719 · ③c 151038(만료 스윕 · so_backorder_list · cron 테스트 jobid 1) · ③b″ 153856(무상 줄 제외 · 만료 기간 supervisor 잠금) · 정본 §15
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -153,6 +154,21 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐⭐ 되돌리기는 표시와 사슬로 먼저 거른다 — manual 형제 있으면 거부 · 대상은 stock_short·preorder ∧ 같은 시각 · 형제가 또 나뉘었으면(손자) 거부 · 그 뒤 「손대지 않았다」(열린 예약만 · 풀린 이력 무시) · ⚠️ 「같은 시각」은 다른 트랜잭션일 때만 뜻이 있다 · 돌아온 줄은 옛 예약 이력을 달고 다닌다   (14-f)
 ⭐  가용은 EA(so_available_many 식 한 곳 · 뷰 한 번 ~150ms) — 줄마다 so_available 을 부르지 마라(100줄 = 15초) · 세트 줄은 낱개 재고 × pack_factor(floor) · 취소는 열린 자손 전부 함께(p_keep 으로 살린다 · 그 아래도) · 미리 보기는 p_commit false(풀어야 계산되는 것은 하위 블록에서 되돌린다)   (14-c · 14-e)
 ⚠️  invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501(postgres 로 재면 안 보인다) · 시험 자료를 뷰 전체에서 고르지 마라(후보 300 → 한 문장) · psql 백슬래시 줄 끝 주석 금지   (14-e · asung-workflow §4)
+```
+
+## 4-e. ⭐⭐ 출고 · 백오더 장부 · 만료(③) — 모르면 사고 (정본 §15)
+
+```
+⭐⭐ 출고는 so_ship 한 곳(속 함수 · ④⑤ 의 definer 창구가 부른다) — CAS 플립(packed→shipped)이 첫 쓰기 · 할당 닫기(shipped/released) · qty_shipped · 덜 나간 몫은 pick_short 형제(backorder) · 원장은 inv_post_sale → inv_layer_post_sale 만(SO 가 원장에 직접 쓰지 않는다)   (판정 1 · 7-c)
+⭐⭐ 원장 SKU 는 낱개 — 세트 줄은 parent_product.sku · qty × pack_factor · 같은 낱개 SKU 줄은 접어 한 번 소진(재생성과 행 단위까지 같다) · 부족분은 최근 원가 레이어(sale_shortfall · hint 는 값이 근거 · id 아님)   (17번 · 15-b)
+⭐⭐ bin 은 그 창고 ref_bin 에 있어야(없으면 거부) · '' 는 받는다(WMS 칸별 수량 전까지) · 비활성 칸은 받고 경고   (판정 12)
+⭐⭐ 장부(so_backorder_close)는 끝난 방식만 — superseded · expired · proceeded · cancelled · 「열려 있다」는 so_reserve backorder 열린 줄 · 다시 열면 reopened_at(줄당 활성 한 줄 active_line_id)   (판정 2 · 5-g)
+⭐⭐ 이어받기는 새 오더를 「확정할 때」(출하 때 아님) — 같은 손님·같은 제품 · 가족 밖 · 브랜치 무관 · 가장 오래된 줄부터 · 나머지는 더 원하지 않음 · 유상 줄만 센다 · 무상 줄 백오더는 대상에서도 뺀다   (판정 3·4·5·8·13·15)
+⭐⭐ 오더는 만료로만 닫힌다(뒤처리로는 안 닫는다) — 90일(inv_config so_backorder_expire_days) · 유상 줄만 expired · 무상 줄(우리가 줄 것)은 만료도 이어받기도 안 되고 proceed·cancel 로만 끝난다 · 무상 줄이 남으면 오더도 안 닫힌다   (판정 11·16)
+⭐⭐ 다시 열기(so_unconfirm · so_cancel p_reopen_superseded true)는 대상 백오더 오더가 confirmed 일 때만 — 만료·취소 뒤엔 거부(그 되돌리기·취소도 함께 거부) · so_cancel 은 이어받은 줄이 있으면 p_reopen_superseded 를 사람이 고른다(null 이면 거부)   (판정 10·11)
+⭐⭐ sweep 은 cron(postgres)만 부른다(authenticated 42501) · 만료 기간은 supervisor 이상만(inv_config_guard · 잠긴 키 목록 ims_config_locked_keys · 값은 양의 정수)   (판정 14)
+⭐  「입고됨」 = 백오더 뒤 그 창고에 po_in 또는 다른 창고에서 온 transfer_in(출발 줄 있고 출발 ≠ 도착 · IN_TRANSIT 제외) · 조정·반품·조립·출발 줄 없는 도착은 아니다 · notified_state unknown_pre_ims 는 「안 보냄」이 아니다(GAS 가 Cin7 에서 보낸다)   (판정 6·7 · 이견 8)
+⚠️  CHECK 를 넓히면 함수 본문의 같은 값 목록도 훑어라(so_split 실사고 ③a′) · 쓰기 창구를 FROM 의 lateral 에서 부르지 마라(③a 검증 v1) · 시험은 order_date 를 과거로(시간은 못 바꾼다) · cron.sql 의 이 잡은 테스트 DB jobid 1(운영엔 함수 없음)
 ```
 
 ## 5. 이 스킬을 갱신할 때

@@ -2679,6 +2679,20 @@ PO 의 모양   확정 트랜잭션에서 창구가 원장 행과 레이어를 �
 
 ⚠️ 스킬 `asung-inv-ledger` 에 옮길 것(말만 · description 여유 0 · 본문만): 확정 사실 「재고는 Ship 에 빠진다」 옆에 「IMS 판매의 부족은 최근 원가 레이어(`sale_shortfall` · `layer_recent` · 17번) · Cin7 축 short 는 그대로」 · §2 함정 표에 「`sale_out` 부족은 short 인가? — 축마다 다르다」 · 아침 점검에 17-g 항목.
 
+**17-h. ✅ 구현 (2026-09-24 · `20260924141140_so_ship.sql` ③a · 정본 so-module §15 · 테스트 DB 적용·검증)**
+```
+두 층 창구   inv_post_sale(p_so_id, p_picks, p_occurred_on) — 원장 행 · security invoker · 첫 줄 ims_require_write('sales','posted') · authenticated 는 execute 없음(so_ship 만 부른다 · 백필 경로 없음 — 원장이 실패하면 출고도 실패)
+             inv_layer_post_sale(doc_number, line_ref, sku, warehouse, qty, occurred_on, p_hint) — FIFO(inv_layer_fifo_take · reason sale) + 부족분 레이어 · security definer · authenticated 없음 · ⭐ 실시간·재생성 둘이 이것만 부른다 ⇒ inv_layer_apply 의 권한 문(receiving∧purchasing)은 안 늘렸다
+원장 SKU     낱개(세트 줄은 parent_product.sku · qty × pack_factor · inv_ledger 「base SKU」) · 키 (doc_number, sku, warehouse) 로 접어 한 번 소진(consume.line_ref = 첫 줄) — 재생성 키와 같아 행 단위까지 같다(17-f ③ 「허용」보다 낫게)
+순서         소진 먼저 → 결과(raw.cost)를 실어 원장 행 insert — inv_ledger 는 authenticated 에 update 가 없다 · 한 트랜잭션
+hint(가)     raw.cost.shortfall = {qty · unit_cost · cost_source · step · source{키}} — ⭐ 값이 근거다(레이어 id 는 재생성이 바꾼다) · 재생성(inv_layer_apply_sale_out 재발행 · source ims 키)은 첫 행의 hint 로 같은 자리에 같은 레이어 · FIFO 는 qty − hint.qty 만 · 덜 꺼내면 채우지 않고 fifo_short 로 보인다
+부족분 단가  17-e 네 단계 그대로 · sale_shortfall 레이어는 원천에서 뺀다(추정의 추정 금지) · landed 포함(unit_cost×qty + Σcost_add)/qty — ⚠️ 기존 FIFO consume.amount 는 종전대로 unit_cost(landed 제외) · 여기서 바꾸지 않았다
+CHECK        inv_layer_source_ck +layer_recent · layer_recent_other_wh · price_history(④ 는 unknown 0 · 17-g 가 셋을 따로 센다) · inv_layer_origin_ck +sale_shortfall
+17-f ①③     ① 재현(가) 위와 같다 · ③ 접어서 같다 · ② reversal consume 은 미구현 — 취소 상쇄 길(so-module 7-e · ⑤)이 설 때(안 도는 코드 금지)
+실측         ABC59130 12 = 두 칸 → consume 2 · cogs 52.722396 = FIFO 식 · 부족분 5 × 6.29(layer 367720 · 2026-08-20 · step 1 · 평가액 변화 0) · 재생성 short_events 0 · 24,534 키 · 15~17초 · 소진 합·부족분 레이어 동일 · 100줄 × 2칸 140~157ms
+⬜           ⑤ 의 권한 문(WMS 창고 직원은 sales 가 없을 수 있다) · 줄별 COGS 비례 · reversal
+```
+
 ## 4부. 미확정 · 위험
 
 ### 구현 전 미확정이었던 것 — 전부 닫힘 (2026-08-16)

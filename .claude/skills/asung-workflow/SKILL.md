@@ -122,6 +122,12 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⚠️ **한 트랜잭션 안에서는 now() 가 전부 같다** — 시각으로 「손댐」을 판정하는 시험은 `updated_at` 을 명시로 뒤로 적는다(`session_replication_role = replica` 로 ims_touch 를 비껴서 · 2026-09-23 so_unconfirm) · 설계도 시각에만 기대지 마라(표시·사슬 먼저)
 ⚠️ **invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501** — postgres 로 `\timing` 을 재면 안 보인다 · 권한이 걸린 시험은 **가짜 직원 신원**(set role authenticated + claims)으로(2026-09-23 so_available → so_available_many)
 ⚠️ **시험 자료를 뷰 전체에서 고르지 마라** — 제품마다 `ims_inv_balance` 를 다시 계산해 statement timeout 2분(2026-09-23) · 후보를 싸게 좁힌 뒤(활성·가격·sku 순 300) 한 문장(`so_available_many`)으로 · timeout 을 늘려 덮지 마라 · 임시 표는 authenticated 구간에서 못 읽는다(`\gset` 으로 받아 둔다)
+⚠️ **CHECK 를 넓힐 때 함수 본문의 같은 값 목록도 훑어라** — [실사고 2026-09-24 ③a′] so_split_reason_ck 만 다섯으로 넓혔는데 so_split 본문의 `p_reason not in (…)` 목록이 넷이라 pick_short 가 거부됐다 ⇒ 어휘를 늘리는 차수는 `grep -rn "'값1','값2'"` 로 제약·함수 본문을 함께 세고 마지막 정의를 재발행한다
+⚠️ **stable 함수는 임시 표를 못 쓴다**(INSERT is not allowed in a non-volatile function) — 읽기 창구에 담아 두기가 필요하면 CTE·배열 변수로(2026-09-24 so_backorder_list)
+⚠️ **plpgsql 의 record 변수 이름을 조회 별칭으로 쓰지 마라** — `declare r record` 뒤 `from so_reserve r` 은 `r.col` 이 변수로 풀려 `record "r" is not assigned yet`(2026-09-24 ③b 검증 · so_backorder_proceed 재발행에서도 피했다) ⇒ 별칭은 `res`·`x` 처럼 변수와 다른 이름
+⚠️ **상관 서브쿼리의 칸은 별칭으로 한정하라** — `(select email from ims_staff where id = updated_by)` 의 `updated_by` 는 안쪽 표에 같은 칸이 있으면 **그쪽으로 풀린다**(2026-09-24 inv_config.updated_by 가 빈 값으로 보였다 · 트리거는 채웠었다) ⇒ `c.updated_by`
+⚠️ **한 트랜잭션 안에서는 순서를 비교하지 마라** — created_at 이 전부 같다 · 목록을 비교할 때는 **정렬해서**(string_agg … order by 키) 비교한다(2026-09-24 ③b S6 예약 목록)
+⚠️ **cron.sql 은 운영 기록이다** — 테스트 DB 에만 등록한 잡은 `[테스트 · Asung-IMS] jobid N` 을 절 머리에 밝히고 「운영에는 등록하지 마라(함수가 없다) · 전환 때 함께」를 적는다(2026-09-24 so-backorder-sweep · 테스트 jobid 1 ≠ 운영 1 wms-poll-orders)
 ```
 
 ---
@@ -146,6 +152,9 @@ EOF
 ⚠️ 여러 줄 SQL 은 도구가 `limit 100` 을 엉뚱한 자리에 붙인다 — **한 줄로 붙여서** 준다
 ⚠️ P0001 은 「에러」가 아니라 **함수가 일부러 막은 것**이다. 문장이 그대로 사람이 읽을 말이다
 ⚠️ 자리표시자(<id> 같은 것)를 남긴 채 주지 마라 — 그대로 실행된다
+⚠️⚠️ **쓰기 창구(volatile 함수)를 FROM 의 LATERAL 에서 부르지 마라** — [실사고 2026-09-24 ③a 검증 v1] `from t_so s, lateral so_confirm(s.so_id) r` 이 같은 오더를 두 번 불렀다(「not a draft」 · 재평가 경로는 짐작) ⇒ do 블록에서 한 번씩 부르고 반환을 임시 표(t_out)에 담아 뒤 SELECT 가 읽는다
+⚠️ **검증의 확인은 값만 찍지 말고 판정으로** — 「FAIL」 한 단어 금지 · `MISMATCH (<시험>): expected … · actual …`(sqlerrm 포함) · 통과는 OK · 표시 SELECT 옆에 pg_temp.chk(tag, 조건, format(...)) 도우미를 붙인다 · ⚠️ **도우미는 BEGIN 바로 뒤에**(첫 호출보다 앞 · 2026-09-24 두 파일이 정의 전에 불러 첫머리에서 멈췼다) · authenticated 구간(`set local role`)에서는 pg_temp 를 부르지 말고 do 블록으로
+⚠️ 시간은 못 바꾼다 — 만료류는 order_date 를 과거로 만들어 시험한다 · `session_replication_role = replica` 는 문지기·touch 를 함께 끈다(packed 만들기 등 · 트랜잭션 안에서만)
 ```
 
 ---

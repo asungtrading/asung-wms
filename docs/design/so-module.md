@@ -375,7 +375,7 @@ Caleb: "우리는 형제관계를 기록해야 한다고 생각해. 이것은 PO
 ```
 픽커 Stock short 선언 ─▶ 「모자람」 표시 + 매니저 확인 대기
   ─▶ 찾으면 채워 넣고 표시 해제 / 못 찾으면 재고 조정
-  ─▶ ⭐ 출하 확정 ─▶ 오더 수량과 실제 출하 수량의 차이로 백오더 자동 생성
+  ─▶ ⭐ 출하 확정 ─▶ 오더 수량과 실제 출하 수량의 차이로 백오더 자동 생성   → ✅ §15 so_ship(split_reason pick_short · 확정 때 장부 부족 stock_short 와 가른다)
 ```
 
 - ⭐ 백오더가 **출하 실적**에서 나온다 — 중간 신호가 아니라 확정된 사실에서. 원장에 출고
@@ -902,7 +902,7 @@ superseded    뒤 오더가 이어받았다 — 수요가 그쪽으로 옮겨갔
 
 **`superseded` 로 닫히는 길 둘**
 ```
-① 출하 확정이 자동으로 닫는다   ← 기본
+① 출하 확정이 자동으로 닫는다   ← 기본   → ✗ 뒤집힘 [2026-09-24 판정 5] 새 오더를 **확정할 때** 이어받는다(so_backorder_supersede) · 문서를 나누지 않고 줄마다 장부에 → §15
    vv 의 2월 오더에서 그 SKU 가 60개 나가면, 1월부터 기다리던 60개는 채워진 것이다
    ⭐ §2-f 「백오더는 출하 확정에서 만든다」와 같은 태도 — 만드는 것도 닫는 것도 출하다
 ② 사람이 목록에서 손으로 닫는다  ← 보조 · 강제하지 않는다
@@ -910,7 +910,7 @@ superseded    뒤 오더가 이어받았다 — 수요가 그쪽으로 옮겨갔
 - ①의 맞춤 단위: **같은 손님 · 같은 SKU** 의 열린 백오더 라인. 오래된 것부터.
 - ⚠️ **오더를 만들 때 묻지 않는다.** 라인이 100개면 매번 누르는 일이 된다. 겹쳐 있어도 잘못되는 일이 없다 — 백오더는 할당이 안 걸린 상태다(§1-e). **틀어지는 것은 수요를 셀 때뿐이고, 그건 세는 규칙으로 푼다.**
 - ⭐ **세는 규칙**: 손님별로 겹치지 않게 센다. vv 가 60·60·60 이면 **60** 이다.
-- ⬜ **수량이 다를 때(60 → 80)의 규칙은 미정.** 짐작으로 적지 않는다.
+- ⬜ **수량이 다를 때(60 → 80)의 규칙은 미정.** 짐작으로 적지 않는다. → ✅ [2026-09-24 판정 3·4] 마지막 것이 지금의 수요 — 새 수량을 가장 오래된 줄부터 이어받고 나머지는 「더 원하지 않음」 · 60→80 은 60 전부 이어받음 · 100→80→60 은 60 → §15
 
 **`expired` 는 자동이다** — Caleb 판단(2026-09-21). 매일 한 번 도는 작업이 기한 지난 백오더를 닫는다.
 근거: 손으로 하면 밀리다가 안 하게 된다(지금 3개월 수동 삭제가 그렇다).
@@ -1412,13 +1412,13 @@ event_type  'sale_out'
 
 ```
 [원장 쪽 — ✅ 17번에서 확정(2026-09-22) · 남은 것은 구현]
-  so_out 창구 구현 — 원장 행 + FIFO 소진 + 보충 레이어(sale_shortfall · layer_recent)를 한 트랜잭션에 · 실시간·재생성이 같은 창구를 부른다 · 일치 조건 17-f     7-c · 7-d · SO 마이그레이션 차수
-  cost_source·origin_type CHECK 확장(drop+add) · 폴백 단계별 값을 나눌지                                                                         17-d · 17-e · 구현 차수
+  so_out 창구 구현 — 원장 행 + FIFO 소진 + 보충 레이어(sale_shortfall · layer_recent)를 한 트랜잭션에 · 실시간·재생성이 같은 창구를 부른다 · 일치 조건 17-f     7-c · 7-d · SO 마이그레이션 차수   → ✅ §15(③a 20260924141140 · inv_post_sale → inv_layer_post_sale)
+  cost_source·origin_type CHECK 확장(drop+add) · 폴백 단계별 값을 나눌지                                                                         17-d · 17-e · 구현 차수   → ✅ §15(셋으로 나눴다 layer_recent · layer_recent_other_wh · price_history + unknown · origin sale_shortfall)
 [SO·WMS 쪽]
   WMS 픽 라인의 칸별 수량 — SO 가 선 뒤 · 그때까지 bin 은 빈 문자열 · 「언제부터 채워졌나」 기록                                   7-b
   pos·counter 의 bin — 사람이 고르나 비워 두나                                                                                   7-b
   WMS Rollback 사건을 IMS 가 받는 방법 — WMS 쪽 사건 발행 선행 · 받은 뒤 「다시 나간다(packed)」 vs 「취소(cancelled)」는 사람이 고른다   7-e · 6-j
-  RPC 한 트랜잭션의 쓰기 규모(라인 100 × 칸) — 실측은 RPC 가 선 뒤 테스트 DB 에서                                                   7-c · ⬜③
+  RPC 한 트랜잭션의 쓰기 규모(라인 100 × 칸) — 실측은 RPC 가 선 뒤 테스트 DB 에서                                                   7-c · ⬜③   → ✅ §15(100줄 × 2칸 140ms · 원장 200행)
 [컷오버]
   IMS 자체 이상 감지 목록 — Cin7 을 끄기 전에 서 있어야 할 것                                                                    7-g
 [나중 · 다른 모듈]
@@ -2798,6 +2798,142 @@ so_detail 재발행 — family · 줄마다 reserve_kind·qty · available_ea(so
 ```
 credit hold · credit limit(R6 · 손님 칸 없음 · 인보이스 차수 8-e) · 보류 오더의 Release(⑤ — hold 인 채 창고로 보낼 수 있나) · split_reason 'warehouse' 는 비어 있다(한 오더를 두 창고에서 — 만드는 길 없음)
 ims_inv_balance 의 창고 조인이 ref_warehouse.name 텍스트(이름이 바뀌면 끊긴다 · 원장 정본) · 담아 두기(물질화 · 3-c)는 미리 보기가 1초를 넘거나 원장이 몇 배가 될 때 · 화면이 줄마다 so_available 을 묻지 않게(so_detail 의 available_ea 를 쓴다)
-so_reallocate 미리 보기 없음(풀어야 계산된다 — 필요하면 하위 블록 방식) · so_unconfirm 뒤 형제 줄 행이 남는다(합계는 cancelled 제외 · 화면이 「합쳐진 형제」를 어떻게 보이나) · ③ 출고 · R10 순서(인보이스가 ④ 앞)
+so_reallocate 미리 보기 없음(풀어야 계산된다 — 필요하면 하위 블록 방식) · so_unconfirm 뒤 형제 줄 행이 남는다(합계는 cancelled 제외 · 화면이 「합쳐진 형제」를 어떻게 보이나) · ③ 출고 → ✅ §15 · R10 순서(인보이스가 ④ 앞)
 asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더함 · 1014자) — 다음 키워드는 먼저 뺄 것을 정한다
+```
+
+
+---
+
+## §15 SO 쓰기 ③ — 출고 엔진 · 원장 출고 창구 · 백오더 장부 · 이어받기 · 만료 (2026-09-24 · 지시서 `~/asung/prompts/so-write-3-ship.md` · 검토 이견은 회신에 · ③a·③a′·③b·③b′·③b″·③c 한 번에)
+
+⭐ **뜻 셋을 먼저** (Caleb 2026-09-24)
+```
+백오더 오더의 끝   = 「이 오더로는 안 나갔지만 품은 수요의 뒤처리가 끝났다」는 확정 — 보통 오더의 끝(물건이 나갔다)과 다르다 · 줄마다 따로 끝나고 그 방식은 장부(so_backorder_close)에만 적는다
+닫는 길은 만료 하나 = 이어받음·더 원하지 않음(뒤처리)으로는 오더를 닫지 않는다(판정 11 · 「이렇게 하면 안닫히는 것들이 부지기수일 것 같아. … d가 맞다고 보여」) · 석 달 뒤 스윕이 닫는다
+무상 줄 백오더    = 「우리가 줄 것」 — 손님의 수요가 아니다(판정 15·16) · 이어받기·만료 대상이 아니고 proceed(들어오면 보낸다)·cancel(사람이 정리)로만 끝난다 · 오래 남을 수 있다 ⇒ 화면이 따로 · 기다린 날수와 함께
+```
+⚠️ 마이그레이션 일곱(전부 테스트 DB `Asung-IMS` 적용·검증 완료 · 커밋 93cfc54 · 9a67085 · d1a4e37): ③a `20260924141140_so_ship.sql`(568) · ③a′ `20260924143507_so_split_pick_short.sql`(98) · ③b `20260924145105_so_backorder_ledger.sql`(541) · ③b′ `20260924151719_so_backorder_supersede_paid.sql`(68) · ③c `20260924151038_so_backorder_sweep_list.sql`(256) · ③b″ `20260924153856_so_backorder_free_owed.sql`(393) · cron `supabase/ops/cron.sql` 절 하나(테스트 DB jobid 1). DDL·함수의 정본은 파일 · 이 절은 판정과 뒤집은 것.
+⚠️ 앞 절 본문은 고치지 않았다 — 2-f · 5-g ①·⬜ · 7-i 셋 · 14-i 에 「→ §15」를 이어 적었다.
+📌 새 사실(정본에 없던 것 · Caleb 2026-09-24): **입고 알림은 백오더 제품마다 한 번만 보낸다** · **프리오더 = 확정됐지만 재고가 없어 못 나가는 오더**(「보낼 약속」 · 이어받기·만료 대상 아님).
+
+### 15-a 판정 1~16 (✅ Caleb 2026-09-24 · 말 그대로)
+
+```
+판정 1  ③ 에서 출고 엔진을 먼저 세운다(「그러면 니 제안대로 가로 가자」) — 부르는 쪽(④ POS·counter · ⑤ WMS 사건)은 아직 없다 · 그래도 세 길이 부르는 한 곳 · 인보이스가 그 위에 · R10 순서 그대로
+        한 트랜잭션: ① 상태 플립이 첫 쓰기(CAS · 0행이면 무기록 「이미 나갔다」) ② 할당 닫기 ③ 원장 so_out 칸 단위 ④ 창고 단위 FIFO · 부족분 최근 원가(17번) ⑤ 덜 나간 몫 = 백오더 형제(할당 없이 · 재고 조정 자동 안 함)
+판정 2  백오더 줄의 끝남은 오더가 아니라 따로 적는다 · 문서를 나누지 않는다 — 「니 안대로 하면 계속 백오더파일이 엄청 늘어날꺼야. … 우리 손님들의 오더는 라인 아이템 수가 굉장히 많아. 도매상이라는 특성이 있어서 더 그래.
+        어떤 경우에는 20개도 넘는 제품들이 백오더가 나기도 해. 백오더 난 제품들의 서플라이어도 다 제각각이고 말이야. … 영원히 백오더가 해소되지 않을 수도 있어. … 우리 손님들에게 우리는 우리의 현재 인벤토리 상황을 웹싸이트에 공개하기때문에
+        백오더를 알면서도 주문하는 경우도 많아. … 입고를 자동 감지해서 … 알리는 방식 … 해당 백오더를 우리가 처리하는 것이 아니라 손님들의 새오더에 추가하는 것을 제안하고 있지.」 · 「나도 ㄴ이 현재 우리 방식과 그래도 제일 맞는 방식이라 생각이 들어」
+판정 3  일부만 이어받으면 그 줄은 끝난다 · 남은 몫은 「더 원하지 않음」 — 「손님이 60개를 오더했다가 30개만 사갔다는 것은 당시의 60개였던 수요과 현재는 30으로 줄었다지, 30개씩 나눠서 가져갈 수 있다는 추정은 어디에도 근거가 없어 보여.」
+        원래 줄의 qty_ordered 는 안 고친다 · 이어받은 수량 = 새 오더에서 손님이 **주문한** 수량(나간 수량이 아니다) · 새 오더가 더 많으면(60→80) 60 전부 · 20 은 새 수요
+판정 4  새 오더는 같은 손님·같은 제품의 열린 백오더 줄을 전부 닫는다 — 「100개 … 80개 … 60개 … 손님의 수요는 240였다고 판단하면 안되는거야. … 100-->80-->60으로 줄어들고 있다는 흐름을 봐야 하는거지. 그러니 최종 시점의 우리에게 있어 손님 수요는 60이 맞는거지.」
+        배정: 새 수량을 가장 오래된 줄부터 · 모자라면 나머지 줄은 더 원하지 않음 전량 · 5-g ⬜「60→80」 닫힘 · 「60·60·60 → 60」은 특수한 경우
+판정 5  이어받기는 새 오더를 「확정할 때」(나갈 때가 아니다) — 「오더는 그대로 나누고, 백오더 화면이 따로 서야 한다고 생각해. … 손님별로 백오더 히스토리를 볼 수 있어야 하고, 서플라이어 별로도」 · 「손님별, 공급처별뿐만 아니라, 브랜드별, sku별, 기간별, 그리고 브랜치별로 … 이메일이 보내진것과 보내지지 않은 것들 입고되었으나 해당 sku가 아직 오더되지 않은 것들등등」
+        ⇒ 5-g ①「출하가 superseded 로 닫는다」 뒤집힘 · 언제 보아도 같은 손님·같은 제품의 열린 백오더 줄은 하나(마지막 것) · 실물 예: 1월 60 · 3월 40 + 오늘 30 → 3월 확정이 1월을 먼저 닫아(60/40/20) 30 은 3월 줄만(40/30/10) — 두 줄이 한 번에 닫히는 그림이 아니다
+판정 6  「입고됐다」는 사실로 본다 — 「입고는 PO나 트랜스퍼를 통한 입고만 허용이 되어야 한다고 생각해. stock adjustment나 리턴에 의해 스탁이 양수가 되는 것은 제외하는게 맞지 않을까? 그래서 난 a로 봐야 한다고 생각해」
+        자격 = po_in · 다른 창고에서 온 transfer_in · 제외 = 조정 · 반품 · 조립 · ⭐ 출발 줄 없는 도착(§3-① 실측 no_out_leg 2 docs · 어디서 왔는지 모른다 · 모르면 비운다) · 지금 가용이 0 이어도 분류는 그대로(가용은 옆에)
+판정 7  같은 브랜치에 들어온 것만 센다 — 「다른 브랜치에서 들어온것만 세는게 맞아. 다른 브랜치에만 들어온 것은 세면 안될 것 같아.」 · 실측: 트랜스퍼 도착 12 docs 만 다른 창고에서 · 909 docs 는 같은 창고 bin 이동(1,716줄)
+판정 8  이어받기는 브랜치와 상관없다(「a가 맞다고 생각해.」) — 수요는 손님의 것 · 판정 7(물건이 어디 있나)과 다른 물음
+판정 9  프리오더 — 「프리오더는 확정된 오더이지만, 재고가 없어서 못나가고 있는 오더라고 봐야 하는게 맞아.」 ⇒ 이어받기·만료 대상 아님 · 들어오면 so_backorder_proceed
+판정 10 새 오더 취소 — 「취소할때 사람이 고른다가 맞는것 같아.」 ⇒ so_cancel(… p_reopen_superseded boolean default null): 이어받은 장부 줄이 있으면 미리 보기에 목록 · null 이면 commit 거부 · true = 다시 열기 · false = 닫힌 채 (§7-e 「시스템이 짐작하지 않는다」)
+판정 11 백오더 오더 닫기 — 「이렇게 하면 안닫히는 것들이 부지기수일 것 같아. 그래도 상관은 없나? 뭐가 됐는 3개월 후에 expired되면 자동 닫히나?」 → 「나도 너와 같은 생각이야. d가 맞다고 보여」
+        ⇒ 뒤처리로는 닫지 않는다 · 끝 상태로 가는 길은 만료 하나 · 석 달 안에는 다시 열기(판정 10 · so_unconfirm)가 살아 있다 · 만료 뒤 다시 열기 거부
+판정 12 칸 검증 — 「현재 wms에서 칸을 선택하는 것은 타입핑은 없어. 그리고 결국은 wms의 칸 이름은 IMS로 부터 와야해. a가 맞다고 보지만 …」 ⇒ 그 창고 ref_bin 에 없으면 거부 · '' 는 받는다(7-b) · 비활성 칸은 받고 경고(실물이 그 칸에서 나왔다) · 병행 기간 Cin7 새 칸 ↔ ref_bin 지연에만 걸린다(멈추는 것이 맞다)
+판정 13 「무상줄은 세지 말아야지」 — 이어받기의 새 수량은 값을 매긴 줄만(free_reason null) · 무상 줄만 있는 제품은 이어받지 않는다 · 대표 줄(taken_by_line_id)도 유상 줄 · 예: 파손 교환품 1 을 무상으로 넣은 오더가 60 백오더를 「1 이어받음·59 더 원하지 않음」으로 닫으면 안 된다
+판정 14 「나도 수퍼바이저 이상만이라고 생각해」 — inv_config so_backorder_expire_days 는 supervisor 이상만 바꾼다(90 → 9 면 그날 밤 9일 넘은 백오더가 전부 닫힌다 · 되살리지 않는다) · 이 키 하나만 · 다른 키·GAS·EF 는 그대로
+판정 15 「a로가 넷다 뺀다가 맞아 보여」 — 무상 줄 백오더는 이어받기 대상에서 뺀다(사유 넷 전부) · 우리가 줘야 할 것 — 손님이 같은 제품을 새로 사도 없어지지 않는다
+판정 16 「좋아 a로 가자」 — 무상 줄 백오더는 만료에 걸리지 않는다 · 유상 줄만 expired · 무상 줄이 열려 있는 동안 오더는 닫히지 않는다 · 끝나는 길 둘: proceed · so_cancel · 대가: 누가 정리하기 전까지 끝없이 남는다 ⇒ 화면에 「우리가 줄 것」 · days_waiting
+```
+📌 이미 정해진 것(다시 묻지 않는다 · 지시서 §1): 한 오더 한 번(7-b) · 칸 단위 행 · 원가는 창고 단위 FIFO(7-d) · over-pick 은 백오더를 만들지 않는다(2-f) · 재고 조정 자동 안 함 · 5-g 「같은 것을 두 번 적지 않는다」.
+
+### 15-b 검토 이견 · ⬜ · 내가 정한 것 (✅ Caleb 2026-09-24)
+
+```
+이견(회신 §0 · 1~12 중 9·10 ✗)
+ 1  마지막 정의 목록 그대로 + 다섯(inv_layer_fifo_take 20260909233729:71 · inv_ledger event_type CHECK 20260824140345:53 · source CHECK 20260919151601:42 · inv_layer_origin_ck 20260908195949:82 · inv_layer_source_ck 20260920171930:46) · inv_layer_apply_done 은 임시 표
+ 2  원장 창구 두 층 — inv_post_sale(원장 행 · invoker · 첫 줄 ims_require_write('sales','posted')) → inv_layer_post_sale(소진·보충 · definer · authenticated 없음 · 재생성도 이것만) ⇒ inv_layer_apply 권한 문(receiving∧purchasing)을 늘리지 않는다
+ 3  17-f (가)의 근거는 레이어 id 가 아니다(재생성이 id 를 바꾼다) — 값(unit_cost · landed 포함) + 원천 키(doc_number · line_ref · received_on · warehouse) + 단계 · inv_ledger 는 authenticated 에 update 가 없어 소진 먼저 → 결과를 실어 insert
+ 4  17-f ③ 은 「허용」보다 낫게 — 실시간도 (doc_number, sku, warehouse) 로 접어 한 번 소진(consume.line_ref = 첫 줄) ⇒ 행 단위까지 재생성과 같다 · 대가: 줄별 COGS 는 비례 배분(⬜ 인보이스)
+ 5  17-f ② reversal consume 은 이번에 길이 없다(취소 상쇄는 ⑤·7-e) — 만들 때 만든다(안 도는 코드 금지)
+ 6  so_reserve.released_reason(released · shipped · closed) — 짝 CHECK 를 그대로 걸면 ② 창구 일곱이 깨진다 ⇒ BEFORE 트리거가 비면 'released' 를 채운다 · 가용 식(released_at is null)은 무변
+ 7  장부 「so_line 당 한 줄」은 다시 열 수 있어야 — active_line_id 생성 칸 + 전체 유니크(so_reserve.open_line_id 장치 · 규칙 29)
+ 8  「알림 보낸 때」는 장부에 못 들어간다(장부 줄은 끝날 때 생긴다 · 알림은 열린 동안) ⇒ so_line.backorder_notified_at · 지금 아무도 안 채운다(GAS 가 Cin7 에서 보낸다) ⇒ 읽기에 notified_state unknown_pre_ims(「안 보냄」이 아니다)
+ 9  ✗ 오더 자동 닫기를 스윕에서 — 판정 11 로 필요 없어짐
+ 10 ✗ cron 함수 권한 모양 — 선례 wms_auto_hold(20260824202539:62 · revoke 셋 185~187 · cron.sql 잡 14)를 따랐다
+ 11 다른 창고에서 온 transfer_in = 같은 doc_number·sku 의 transfer_out 창고(IN_TRANSIT 아님)가 도착 창고와 다르다 · 실측(Caleb §3-①) from_other_wh 12 docs · same_wh_bin_move 909 docs · no_out_leg 2 docs
+ 12 pick_short 형제는 so_split(…, 'confirmed') 그대로 — 단 so_split 본문의 어휘 목록이 CHECK 와 따로 있어 ③a′ 재발행이 필요했다(아래 실사고) · 형제 created_at ≠ 부모 confirmed_at 이라 so_unconfirm(형제)이 보통 확정 오더처럼 통과한다(백오더 예약만 · 사고 없음)
+⬜ 열둘(회신 답 그대로 · ⬜10 기각)
+ ⬜1 셋으로 — ③a 출고 · ③b 장부·이어받기·다시 열기 · ③c 만료·읽기·cron   ⬜2 so_ship(p_so_id · p_picks [{line_id,bin,qty}] · p_staff · p_shipped_on) 속 함수 · 판정 12   ⬜3 두 층 · 단계별 cost_source 셋 + unknown(17-g 신호)
+ ⬜4 released_reason 셋   ⬜5 짝은 packed→shipped 하나만 · 시험은 replica 로 packed   ⬜6 pick_short(so_split_reason_ck 다섯)   ⬜7 so_backorder_close(end_kind 넷 · manual 은 창구가 설 때) · qty_open/taken/unwanted · taken_by_so/line · ended_by null=시스템 · reopened · active_line_id
+ ⬜8 so_confirm 끝에서 commit 만 · 가족 밖(so_number base) · 새 수량 = 원래 + 이 확정에서 태어난 형제 · 대표 줄 = 원래의 첫 줄 · 프리오더 제외 · 체인 손님 합치지 않음 · so_unconfirm 이 다시 연다(대상이 confirmed 일 때만)
+ ⬜9 90일 · 매일 09:17 UTC(토론토 05:17 EDT · 04:17 EST) · 스윕 대상 = confirmed ∧ order_date + days < ims_today() ∧ 열린 예약이 전부 backorder 이거나 0   ⬜11 so_backorder_list(p_filters jsonb) → jsonb 하나 · 필터 17 · 분류 여덟 + owed   ⬜12 100줄 × 2칸 실측
+내가 정한 것(Caleb 받음)
+ ③a  원장 SKU 는 낱개(세트 줄은 parent_product.sku · qty × pack_factor) · sale_shortfall 레이어는 원천에서 뺀다(추정의 추정 금지) · fifo_take 의 consume.amount 는 종전대로 unit_cost(landed 제외 — 17-e 「landed 포함」은 부족분 단가에만) ·
+     hint 가 있는데 FIFO 가 덜 꺼내면 채우지 않고 fifo_short 로 보인다 · inv_post_sale 은 authenticated 에서 execute 를 뺐다(백필 경로 없음) · 전량 못 나간 줄의 할당은 released · 나간 줄은 shipped · 재호출은 for update 뒤 status 로 가르고 CAS 0행은 예외 · 비활성 칸은 받고 경고
+ ③b  「이 확정의 그 제품 수량」= 원래 + 이 확정에서 태어난 형제(split_from_id · confirmed_at = created_at) · 대상 줄은 confirmed 오더만 · proceed 일부 잡힘 = 원래 줄에 proceeded 한 줄(남은 몫은 새 줄로 이어진다) · so_backorder_record 는 예약을 닫지 않는다(부르는 쪽) · reopen 은 줄에 열린 예약이 있으면 거부
+ ③c  closed_reason: 열린 유상 줄이 있었으면 expired(수요가 기간으로 소멸) · 0 이었으면 superseded(수요는 옮겨 갔고 문서만 정리) · 상한 200(하루 한 번 · 첫 회차 석 달치) · 설정이 없거나 숫자 아니면 예외로 멈춘다 · list 는 stable 이라 임시 표 대신 CTE(INSERT 금지)
+ ③b″ 잠금은 트리거(잠긴 키만 · authenticated 면 supervisor 이상 · 값은 양의 정수 · delete 거부 · postgres·service_role 은 값 검사만) · 잠긴 키 목록 한 곳 ims_config_locked_keys() · inv_config.updated_by(잠긴 키의 authenticated 쓰기에만 채움)
+```
+
+### 15-c ⭐ 훑기 표 둘 — 백오더 예약을 닫는 자리 · 무상 줄을 다루는 자리 (마지막 정의 · 빠진 자리 0)
+
+| 자리(released_at 을 찍는 곳) | 무엇을 하나 | 장부 |
+|---|---|---|
+| so_cancel(20260924145105:463) | 백오더 오더 자체가 취소된다 = 줄이 끝난다 | `cancelled`(무상 줄도 — 판정 16 「사람이 정리」 길) |
+| so_backorder_proceed(:511·513) | 잡힌 줄 = 끝 · 못 잡아 형제로 간 줄 = 같은 줄이 이어진다 | `proceeded`(무상 줄도 — 「들어오면 보낸다」 길) |
+| so_backorder_supersede(20260924153856) | 확정 때 남의 줄 | `superseded`(유상 줄만 · 판정 15) |
+| so_backorder_sweep(20260924153856) | 만료 | `expired`(유상 줄만 · 판정 16) |
+| so_unconfirm(20260924023740:65) | 확정을 무른다 — 형제가 draft 로 되돌아간다(없던 일) | 없음(의도) · 대신 이 확정이 이어받은 남의 줄을 다시 연다 |
+| so_divide(20260924022449:301) | 같은 kind 로 따라간다 | 옮김 · 없음 |
+| so_hold · so_reallocate · so_change_location(창고 칸만) · so_ship | backorder 를 안 닫는다 | 해당 없음 |
+
+| 백오더를 「수요」로 다루는 자리 | 무상 줄 |
+|---|---|
+| 이어받기 수량(새 오더 쪽) · 대상 줄(옛 오더 쪽) | 둘 다 제외(판정 13·15) — join `l.free_reason is null` · where `l.free_reason is null` |
+| 만료 대상 · 닫는 줄 | 유상 백오더가 있거나 열린 예약 0 인 오더만 · 유상 줄만 expired · 무상 남으면 오더 안 닫음(판정 16) |
+| 읽기 | `owed` · `free_reason` · `days_waiting` · 필터 owed · 머리 open_owed |
+| reopen | superseded 줄만 — 무상 줄은 superseded 가 될 수 없어 무관 |
+| so_allocate_run · so_ship(pick_short) | 백오더 예약을 만들기만 — 무상 줄도 재고 없으면 백오더(판정 16 이 원하는 모양) |
+
+### 15-d 파일 · 검증 실측 (✅ Caleb 2026-09-24 · 테스트 DB Asung-IMS)
+
+```
+③a  so_ship 12 = 두 칸(F020802 −4 · F020803 −8) · consume 2 · cogs 52.722396 = FIFO 식 · 할당 shipped · 레이어·잔고 −12 · 가용 변화 0 · 재호출 already_shipped ·
+    부족분 5 × 6.29(원천 layer 367720 · 2026-08-20 · layer_recent · step 1 · age_known f · 즉시 전량 소진 · 평가액 변화 0) · 10/12 → SO-25002a pick_short(backorder · 원래 줄 10/10) · 거부 다섯 · status 무변 ·
+    재생성 inv_layer_apply short_events 0 · processed_sale_out 24,534 · 15~17초 · 소진 합·부족분 레이어 동일(17-f (가) 재현) · 100줄 × 2칸 140~157ms · 원장 200행 · 문지기 셋
+    ⚠️ 실사고 ③a′: so_split 본문에 split_reason 어휘 목록이 CHECK 와 따로 있었다 — CHECK 만 넓혀 pick_short 가 거부됐다 ⇒ 「CHECK 를 넓힐 때 함수 본문의 같은 값 목록도 훑어라」(asung-workflow §4)
+③b  100→80→60(O1 100/80/20 by O2 · O2 80/60/20 by O3 · 열린 줄 1 · O1·O2 confirmed 그대로) · 60→80(60/60/0) · 1월 60·3월 40 + 30(O6 60/40/20 by O7 · O7 40/30/10 by O8 — 판정 5 실물) · 다른 브랜치(O9 by O10) ·
+    자기 형제 안 닫힘(O11a 는 O12 가) · change_location location_only · proceed 재고 없음 0 · 입고 뒤 proceeded 60 · unconfirm 이 다시 엶(재확정 → 줄 2 · 활성 1) · cancel 미리 보기·null 거부·false·true · 대상 취소 뒤 unconfirm 거부(아무것도 안 쓰임) ·
+    판정 13·15: 무상 교환 1 만 → 0 · 유상 30 + 무상 1 → FA 60/30/30 · 대표 줄 유상 · FB 무상 백오더 열린 채 · 합계 11·9·1·1·2
+③c  만료: 91일 expired · 89일 무접촉 · 뒤처리 끝난 오더 superseded · preorder·hold 무접촉 · 이미 끝난 줄 그대로 · 두 번째 회차 0 · 만료 뒤 다시 열기 거부(unconfirm · cancel true) ·
+    판정 16: 유상+무상 91일 → 유상 expired · 무상 열림 · 오더 confirmed · orders_left_open_free 1 · 무상만 91일 → 대상 아님 · owed 2 · days_waiting 91 · proceed → proceeded · cancel → cancelled
+    읽기: 13(열린 8 · 끝난 5) · 입고됨 여섯(po_in 예 · 다른 창고 트랜스퍼 예 · 같은 창고 bin 이동 아니오 · 조정·반품 아니오 · 다른 브랜치에만 아니오 · 출발 줄 없음 아니오) · 필터 열 · limit/offset · authenticated 읽기 통과 · sweep 42501
+    판정 14: manager 거부 · supervisor 90→120(updated_by 기록) · 0·−5·문자·delete 거부 · 다른 키 그대로 · postgres 통과
+cron  [테스트 · Asung-IMS] jobid 1 · so-backorder-sweep · 17 9 * * * · active t · username postgres · 손 호출 orders_closed 0 · cutoff 2026-06-26 (2026-09-24)
+검증 파일 셋 ~/asung/prompts/so-write-3a·3b·3c-verify.sql — 창구는 do 블록에서만(lateral 금지) · 어긋남은 MISMATCH 기대·실제(pg_temp.chk · BEGIN 바로 뒤)
+```
+
+### 15-e 뒤집은 것 · 닫은 것
+
+| 자리 | 전 | 후(2026-09-24) |
+|---|---|---|
+| 5-g ① | 출하 확정이 superseded 로 닫는다 | **새 오더를 확정할 때** 이어받는다(판정 5) · 문서는 안 나눔 · 줄마다 장부 |
+| 5-g ⬜ 60→80 | 미정 | 마지막 것이 지금의 수요(판정 3·4) |
+| 5-g superseded 「오더에만」 | 오더 단위 | **줄 단위**(장부) · 오더는 만료로만 닫힌다(판정 11) |
+| 2-f 출하 차이 백오더 | (계기 없음) | split_reason `pick_short`(장부 부족 stock_short 와 가른다 · 재고 정확도 신호 7-g) |
+| 7-i so_out 창구 · CHECK 확장 · 라인 100×칸 | ⬜ | ✅ ③a |
+| 17-f ③ 라인별 소진 「허용」 | 합으로만 대조 | 접어서 한 번 — 행 단위까지 같다(이견 4) |
+| so_cancel 시그니처 | 넷 | 다섯(+p_reopen_superseded · 판정 10) — 화면 인자 |
+| 12-g inv_config auth_all | 누구나 | so_backorder_expire_days 만 supervisor 이상(판정 14 · 잠긴 키 목록) |
+| ①a 회신 「무상 줄」 | 수량에 들어갔다 | 이어받기 수량·대상 모두 제외(판정 13·15) · 만료 제외(판정 16) |
+
+### 15-f ⬜ 남는 것
+
+```
+⑤ 원장 창구 권한 문 — inv_post_sale 첫 줄 ims_require_write('sales') · ⑤ 에서 출고를 일으키는 사람은 WMS 창고 직원(sales 권한이 없을 수 있다) · receiving 류로 할지 · 부르는 창구가 확인한 사람으로 할지 판정 필요(Caleb 2026-09-24)
+17-f ② reversal consume — 취소 상쇄(7-e · ⑤ WMS 사건) 때 · 줄별 COGS 비례 배분(인보이스 차수) · pos·counter 의 bin(④)
+백오더 화면(대화 Claude) — 「우리가 줄 것」 따로 · days_waiting · 「IMS 알림 전」 표시(notified_state unknown_pre_ims 는 「안 보냄」이 아니다) · 오래된 무상 줄 정리(매니저) · 가용 음수 표시(so_backorder_list available_other 가 −10 을 그대로 낸다)
+so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IMS 로 옮길 때 backorder_notified_at 채우기(2-g ⬜ · GAS 정지와 동시)
+전환 때 — cron.sql 의 so-backorder-sweep 은 테스트 DB jobid 1 이다(운영에는 함수가 없다 · 함께 올린다) · so_number_seq 25000 · is_called f 점검(12-g)
 ```
