@@ -980,7 +980,7 @@ draft       만드는 중 — 라인을 넣고 있다
 confirmed   확정됐다 (Cin7 의 Authorize) — ⭐ 이때 할당이 갈린다(6-d)
 at_wms      창고에 있다 — 사람이 WMS 로 보냈다   ← ⭐ 소유권이 넘어가는 선(6-e)
 picking     창고에서 픽이 시작됐다
-packed      팩이 끝났고 아직 안 나갔다      ← ⭐ 새로 생긴 자리(6-d)
+packed      팩이 끝났고 아직 안 나갔다      ← ⭐ 새로 생긴 자리(6-d) · → [2026-09-24 §17 판정 1] 창고 일(픽·팩·fulfillment) 끝 — WMS 의 팩(검수)과 낱말이 다르다 · 오피스 마무리(so_finalize)가 여기서 출고 + 발행
 shipped     나갔다                          ← ⭐ 원장에서 빠지는 유일한 자리
 invoiced    송장이 나갔다
 fulfilled   물건이 나가고 송장까지 끝났다    ← 끝 상태 ①
@@ -1035,7 +1035,7 @@ counter     draft → confirmed → shipped → invoiced → fulfilled      ⚠�
           할당을 푼다                 (6-d · 오더 상태는 안 건드린다)
 
 시스템    나머지 전부 — 픽이 시작되면 picking · 팩이 끝나면 packed · 출하가 확정되면 shipped ·
-          송장이 나가면 invoiced · 둘 다 끝나면 fulfilled
+          송장이 나가면 invoiced · 둘 다 끝나면 fulfilled   → [2026-09-24 §17] 발행 단위 = 마무리 묶음(청구처별 · 설정이면 매장별) · 담긴 오더 전부 shipped→invoiced · fulfilled 로 옮기는 때는 ⓑ 판정(⬜)
 ```
 ⭐ **`Release to WMS` 가 유일한 판단 게이트다**(§1-b). 재고와 우선순위를 보고 「이제 창고로 보낸다」를 정하는 것이라 시스템이 대신할 수 없다.
 📌 `cancelled` 로 가는 길은 5-g 대로다 — `expired` 는 매일 도는 작업(자동) · `superseded` 는 출하 확정이 닫거나(자동) 사람이 목록에서 닫는다(보조) · 그 밖(`voided` 등)은 사람이 닫는다(④). `fulfilled` 는 `invoiced` 뒤 시스템이 옮기는 끝 상태라 따로 닫는 동작이 없다.
@@ -1273,7 +1273,7 @@ packed 오래 머문 오더 목록 · 릴리스된 오더의 잠금 표시 · co
 
 **칸별 수량을 누가 만드나 — ⬜ WMS 다**
 ```
-⬜ WMS 픽 라인에 칸별 수량을 남기는 일 — SO 가 다 선 뒤에 한다(Caleb 판단 2026-09-22)
+⬜ WMS 픽 라인에 칸별 수량을 남기는 일 — SO 가 다 선 뒤에 한다(Caleb 판단 2026-09-22) · → [2026-09-24 §17-g] 제자리 돌려놓기 화면(WMS 되돌리기·마무리 때 뺀 몫을 원래 칸에 · Caleb 요청)이 이것을 기다린다 · 지금 so_finalize 는 picks 를 입력으로 받는다
    근거: 지금 고치면 SO 가 서면서 픽 흐름이 바뀌어 또 만지게 된다. 설계가 먼저 정해져 있어야 WMS 를 한 번에 제대로 고친다
 📌 리시빙에는 이미 있다 — wms_receipt_lines.putaway_bin(작업자가 지정 · Apply 때 Cin7 으로 실려 간다 · asung-wms 규칙 21·32). 출고 쪽에 그 짝이 없을 뿐이다
 ⚠️ [실물 2026-09-22 · 베이스라인 + 이후 마이그레이션 grep] wms_pick_task_lines 에는 bin 칸이 아예 없다(assigned_base · picked_base · status · verification_method · picked_at · 08-21 picked_by).
@@ -1499,7 +1499,7 @@ invoice_order  이 인보이스가 담는 오더들 (하나일 수도 여럿일 
 📌 Cin7 에서 오더를 취소하고 다시 만들어야 했던 것은 **인보이스가 오더에 붙박이로 매여 있어서**다. 우리는 그 제약이 없다. 8-b 의 병합은 **릴리스 전** 정리이고, 이것은 **출하 뒤** 청구 — 자리가 다르다.
 
 `so.status` 의 `invoiced` 는 그대로다 — 인보이스가 발행되면 **담긴 오더가 전부** `shipped → invoiced` 로 넘어간다(6-g 순서 고정 · 담긴 오더는 전부 `shipped` 여야 발행된다).
-⭐ **발행 트리거 — 시스템이 한다**(✅ Caleb 판정 2026-09-22 · 검토 이견 5 채택 — 6-c 에 「송장이 나가면 invoiced」만 있고 누가 발행하는지가 비어 있었다). **출하 확정 사건이 「함께 나간 오더 집합」을 실어 오면 그 집합(청구처별)이 `invoice_order` 가 되어 자동 발행된다.** ⬜ WMS 출하 사건에 그 집합이 실려야 한다 — 7-e 「사건 발행 선행」과 같은 자리(8-k). 사람이 손대는 것은 발행 뒤 **재인쇄·취소**(8-h)와 결제 붙이기(8-d)다.
+⭐ **발행 트리거 — 시스템이 한다**(✅ Caleb 판정 2026-09-22 · 검토 이견 5 채택 — 6-c 에 「송장이 나가면 invoiced」만 있고 누가 발행하는지가 비어 있었다). **출하 확정 사건이 「함께 나간 오더 집합」을 실어 오면 그 집합(청구처별)이 `invoice_order` 가 되어 자동 발행된다.** ⬜ WMS 출하 사건에 그 집합이 실려야 한다 — 7-e 「사건 발행 선행」과 같은 자리(8-k). 사람이 손대는 것은 발행 뒤 **재인쇄·취소**(8-h)와 결제 붙이기(8-d)다. → ⚠️ [2026-09-24 뒤집힘 · §17 판정 1] **사람이 누르는 오피스 마무리(so_finalize · sales)가 출고와 발행을 한 트랜잭션에** — 출하 사건이 자동 발행하지 않는다 · 묶음(청구처별 · 설정이면 매장별)은 마무리 화면이 미리 나누고 직원이 바꾼다.
 ⭐ **인보이스 상태는 `issued` · `cancelled` 둘이다 — 초안 없음**(✅ 판정 · 자동 발행이라 초안이 설 자리가 없다). PO 인보이스의 `draft/confirmed/cancelled` 셋과 다른 이유는 8-i.
 
 **⭐ 발행 시점 잔액을 기록한다**
@@ -1670,7 +1670,7 @@ credit_line   무엇을 깎나
 
 ```
 [SO 쪽]
-  WMS 출하 사건에 「함께 나간 오더 집합」이 실리나 — 인보이스 묶음의 열쇠 · 7-e 의 사건 발행 선행과 같은 자리                   8-c · 7-e
+  WMS 출하 사건에 「함께 나간 오더 집합」이 실리나 — 인보이스 묶음의 열쇠 · 7-e 의 사건 발행 선행과 같은 자리                   8-c · 7-e   → [2026-09-24 §17] 발행은 사건이 아니라 마무리(so_finalize)가 · 묶음·picks 는 지금 입력 · WMS 가 실어 오는 길은 ⑤(⬜ 그대로)
   선수금 영수증 — 번호 있는 종이를 무엇으로 낼지(화면 차수)                                                                 8-e
   refund 가 크레딧 잔액을 넘지 못한다 · 취소 가드(결제·크레딧 붙기 전) — 함수 거부 문장(마이그레이션 차수)                    8-g · 8-h
   결제 계좌 후보(세 계좌 · PO 와 공용 ref_account) · 결제 방법 어휘                                                          8-d
@@ -2675,7 +2675,7 @@ R2  프리오더 줄도 떼어 낸다 — 「백오더처럼 떼어내야지, �
     ⇒ split_reason 'preorder' · 줄은 so_reserve.kind preorder · 처음부터 잡지 않는다 · 한 번의 확정으로 셋까지(원래 · a 백오더 · b 프리오더)
 R3  보류 · 할당 풀기 = manager 이상(「보류와 할당 풀기는 매니저로 올리자」) · 풀어도 줄은 남긴다(released_at/by · 5-f) · ⭐ 보류는 늘 오더 전체 — 「보류는 특정 제품에만 한한 경우는 없어」(14-b 이견 2 고침)
 R4  확정 뒤 취소 = manager 이상 · 이유 필수(closed_note) · 잡아 둔 재고는 모두 풀린다 · 확정 전은 지운다(so_delete) · ⭐ 취소는 형제도 함께 — 「가가 맞지 않나?」(14-c)
-R5  확정 = manager 이상(「판정 5도 매니저 이상만」) ⇒ 역할 선: 오더 담당(sales) = 초안까지 · 매니저 이상 = 확정부터(확정 · 보류 · 풀기 · 취소 · 창고 바꾸기 · 백오더 진행 · 나누기 · Release · counter · 인보이스 취소)
+R5  확정 = manager 이상(「판정 5도 매니저 이상만」) ⇒ 역할 선: 오더 담당(sales) = 초안까지 · 매니저 이상 = 확정부터(확정 · 보류 · 풀기 · 취소 · 창고 바꾸기 · 백오더 진행 · 나누기 · Release · counter · 인보이스 취소) · → [2026-09-24 §17 판정 8] ⚠️ 예외 하나: **오피스 마무리(so_finalize · 출고 + 발행)는 sales** · 인보이스 취소·재발행은 manager
 R6  확정을 막는 조건: 가격 없는 줄(§12 판정 2) · 창고 없음/비활성(IN_TRANSIT 포함) · 비활성 제품 줄 · 비활성 손님 · 줄 없음 · pos·counter 채널(④) · 막지 않고 경고: 티어·통화 어긋남 · reprice_suggested · deal_ended_before_line_added
     ⬜ credit hold · credit limit — 「지금은 잘 안쓰고 있어」 · 손님 칸도 아직 없다 · 인보이스 차수(8-e)
 R7  창고 바꾸기(릴리스 전 · manager 이상 · 2-h) — 확정과 같은 규칙: 새 창고에서 잡을 수 있는 만큼 잡고 모자란 몫은 백오더 형제(stock_short) · 바꾸기 전에 미리 보기(같은 창구의 p_commit false)
@@ -3099,4 +3099,146 @@ PST·QST 미징수 실무(QC·BC·MB·SK 는 GST 5 만) — 회계사 확인 거
 BigQuery Total 세금 포함 적재(SO-05606 · 약 700 오더 13%) — asung-bq-data-model data-hygiene 「밀린 일」 · 원인·범위 조사 전 숫자를 고치지 마라
 화면 차수 — 초안 화면의 규칙 표시(ship_to|manual · 경고 tax_region_unknown · tax_rule_reset_by_ship_to) · tax_rule 드롭다운(활성 sale 규칙) · 주 표기 별칭 추가(ref_region_alias · 새 실물이 나오면 표에 · 마이그레이션 아님) · _118_ 규칙 셋 표시 여부(⬜8)
 so_create 의 반환 tax_rule 이 null 일 때 화면 안내(배송지 비었거나 주 모름 — ship_to_empty 와 함께 온다)
+```
+
+## §17 SO 인보이스 ⓐ — 오피스 마무리(출고 + 발행 한 번에) · 인보이스 표 셋 · 취소·재발행 · 「손님이 뺐다」 (2026-09-24 · 지시서 `~/asung/prompts/so-invoice-1.md` · 판정 회신 · ⓐ1·ⓐ2 한 번에)
+
+⭐ **뜻 셋을 먼저** (Caleb 2026-09-24)
+```
+창고 = 픽 → 팩 → fulfillment   픽 = 뽑기 · 팩 = 검수 · fulfillment = 포장(박스·팔렛 · 패킹리스트 · 여러 오더 한 번에) — 끝나면 IMS 오더가 packed = 「창고 일 끝」(⚠️ WMS 의 팩(검수)과 낱말이 다르다 · 6-a 의 「팩이 끝났고」는 이 뜻)
+오피스 마무리(so_finalize) = 출고(so_ship) + 인보이스 발행(so_invoice_issue)을 한 트랜잭션에 · 사람(오더 담당 · sales)이 누른다 — 8-c 「발행 트리거는 시스템」을 뒤집는다(판정 1)
+손님이 뺐다(qty_removed) ≠ pick_short   앞은 손님의 수요가 줄었다(백오더 아님 · 원장 무접촉 · 할인은 새 수량으로) · 뒤는 우리가 못 찾았다(백오더 형제 · 할인 그대로)(판정 5·6·7)
+```
+
+### 17-a 판정 1~10 (✅ Caleb 2026-09-24 · 말 그대로)
+
+```
+판정 1  오피스 마무리가 출고와 인보이스를 한 번에 — WMS 가 아니다
+        「wms에서 완료를 해도, 우리는 오피스에서 마무리를 짓는게 실무야. … 지금 운영 wms처럼 최종적으로 finalize가 되면, 그것을 오피스에서 담당 직원이 IMS에서 마무리를 짓는게 순서인데, 그 순서를 지켜서 할 수 있나?」
+        「창고에서는 픽-->팩-->fulfilment까지야. 픽은 뽑는거, 팩은 검수, fulfillment는 포장이라고 보면돼」 · 「묶음단위로 한번에 가자.」
+        ⇒ 오피스 담당이 packed 오더를 fulfillment 묶음 단위로 골라 운임·택배사·추적번호를 넣고 「마무리」 한 번 → so_ship + 발행이 한 트랜잭션 · 막힌 오더는 묶음에서 빼고 나머지를 마무리
+판정 2  한 출하 · 매장별 인보이스 — 「프랜차이즈 스토어의 경우에 여러 스토어를 한 쉽먼트에 모두 모아서 보내오길 바래. 그리고 인보이스는 각 스토어별로 따로 뽑길 원할 수 있어.」 · 「(Clore) 거기는 각 스토어 별로 인보이스를 만들어주길 바래. 쉽먼트는 하나지만, 인보이스는 각 스토어별로인거지」
+        ⇒ 기본 = 청구처별 한 장(8-c) · 청구처 손님에 「매장별로 나눈다」 설정(customer.invoice_split_by_store) — 켜져 있으면 오더의 손님(매장)별로 · 마무리 화면이 설정대로 미리 나누고 직원이 바꿀 수 있다(invoice_group)
+        📌 [실측 2026-09-24] default_bill_to_customer_id 채운 손님 0/9,461 · is_bill_parent 12 · parent_id 13 ⇒ 지금은 모든 손님이 자기 청구처(설정은 나중을 위해 · Clore 14 매장도 본사로 안 이어졌다 12-h)
+판정 3  「가로 가자」 — ⓐ 인보이스 → ⓑ 결제·잔액 → ⓒ 크레딧(원장 credit_in · B급 칸 미정이라 맨 뒤)
+판정 4  「기본적으로 a라고 생각해. 그런데 예외적인 경우들이 생기면 어떻하지? … 이미 포장까지 마무리한 오더인데, 손님이 특정 물건을 빼달라고 요청하는 상황 … 방책은 있어야 하지 않을까?」
+        ⇒ 마무리 때 고칠 수 있는 것 = 운임 줄(더하기·금액·지우기) · 택배사 · 추적번호 · 배송 메모 + 줄의 「손님이 뺀 수량」(판정 5) — 수량 늘리기 · 단가 · 할인은 못 고친다
+        ⇒ 예외의 길(새로 만들 것 없음): 더하기 = 작은 새 오더를 같은 마무리 묶음에(인보이스 한 장) · 크게 고치기 = 마무리 전 WMS 되돌리기 → 확정 되돌리기(supervisor) · 마무리 뒤 = 크레딧(8-h) · 돈 = 언제든 선수금(ⓑ)
+판정 5  「손님이 뺐다로 닫는다가 맞아.」 — 마무리 화면에서 줄의 보낼 수량을 줄이고 사유 → ⚠️ 백오더를 만들지 않는다(pick_short 와 다르다) · 뺀 수량·사유·사람·시각을 줄에(so_line.qty_removed · removed_reason · removed_note · removed_at · removed_by) ·
+        원장 무접촉(빠진 적이 없다) · 그 몫의 할당은 풀린다(so_ship 이 released) · 인보이스에는 보낸 수량만 · 수요 기록 「주문 12 · 뺐다 12」(qty_ordered 는 그대로)
+판정 6  「실무자나 매니저라 하더라고, 가격을 다 기억할 수는 없어. … 수량 디스카운트가 깨졌을때는 원래 가격으로 돌아가야 하는게 맞다고 생각해.」
+        ⇒ 손님이 뺀 줄은 새 수량으로 자동 다시 견적 — 할인만(list_price 그대로 · 13-g) · 시스템 줄만(price_override · manual 할인 줄은 무접촉) · 마무리 반환에 이전 → 새 단가 · 인보이스는 새 가격
+판정 7  「우리쪽 부족은 할인을 그대로 둔다가 맞아」 — 창고가 못 찾아 덜 나간 몫(pick_short)은 다시 매기지 않는다 · 백오더 몫도 원래 주문 가격 · 할인이 깨지는 것은 손님이 줄였을 때만
+판정 8  「오더 담당도 할 수 있게 연다가 맞을 것 같애.」 — 마무리 = sales(오더 담당) 이상 · ⚠️ 역할 선(R5 · 확정부터 manager)의 예외 · 인보이스 취소·재발행은 manager 이상
+판정 9  「A로 가자.」 — 포장된 오더의 줄을 손님이 전부 빼면 so_finalize 가 그 오더를 거부하고 길을 안내한다(「보낼 것이 없다 — WMS 에서 되돌린 뒤 취소」) · 묶음의 나머지는 그 오더를 빼고 마무리(이견 6 채택)
+판정 10 결제조건 기한 일수 — 이름을 보고 손으로 정한 값(파싱이 아니다 · 마이그레이션이 넣는다 · ref_price_tier 이견 8 선례) · 34줄 전부(비활성 포함 — 손님이 옛 이름을 가리킨다) · 손님 인보이스에는 기한만 찍는다(조기결제 할인 기한은 공급처 쪽 조건 · 칸은 기록으로)
+        기한: due_on = issued_on + net_days · net_days null 이면 null + 경고 due_date_unknown · is_split 이면 기한은 net_days 로 찍되 경고 split_terms(절반은 받을 때)
+이미 정해진 것(8-a·8-c·8-h · §16): 번호 60000~ 접두어 없음 · 재사용 금지 · 상태 issued·cancelled 둘 · 초안 없음 · 한 인보이스 = 한 청구처 · 한 통화 · 오더는 살아 있는 인보이스 하나에만 · 금액은 인보이스가 굳힌다(오더에 금액 칸 없음) ·
+  취소 = 문서 전체가 틀렸을 때 · manager · 결제·크레딧이 붙기 전에만 · 담긴 오더 invoiced → shipped · 부분 문제는 크레딧 · 세금 = 인보이스 발행일(ims_today) 세율 · 줄마다 반올림 · 오더 규칙 하나
+```
+
+### 17-b 결제조건 기한 34 (판정 10 · ✅ Caleb 「맞아」 · ref_payment_term 값 · 2026-09-24)
+
+```
+net_days   Net 7·Net7 7 · Net 14·Net14 14 · Net 15·Net15·15 days 15 · Net 21 21 · Net 30·Net30·30 days 30 · Net 45·Net45·45 days 45 · Net 60·Net60·60 days 60 ·
+           C.B.S (Cash Before Shipment)·C.B.S. (Cash Before Shipment) 0 · C.O.D 0 · Due on receipt 0 ·
+           2%10 Net30·2% 10 Net 30 30 · 2%19 Net30 30 · 2.1%13 Net30 30 · 1%20 Net30·1% 20 Net 30 30 · 1%30 Net31·1% 30 Net 31 31 · 2%30 Net31 31 · 2% Net 30 30 ·
+           1% Warehouse Allowance + 2%10 Net30 30 · 50% COD & 50% N30·50% COD & 50% Net 30 30
+discount   2%10 → 10/2 · 2%19 → 19/2 · 2.1%13 → 13/2.1 · 1%20 → 20/1 · 1%30 Net31 → 30/1 · 2%30 Net31 → 30/2 · 2% Net 30 → null/2(기한 모름) · 1% Warehouse Allowance + 2%10 Net30 → 10/2(「1% 창고 공제」는 note 에만)
+is_split   50% COD 둘 true
+[실측 2026-09-24 §3 ①] 활성 17 · 값 채운 것 0 → 34 채움(20260924200029 ①) · 손님 쪽: Net30(⚠️ 비활성 옛 이름) 6,305 · C.B.S (Cash Before Shipment) 3,030 · Net 30 108 · Net 60 12 — 옛 이름을 가리키는 손님이 대다수(정리 거리 · 기한 계산은 비활성 행도 값이 있어 선다)
+읽는 자리(훑기): 마이그레이션·화면·js·gs 전부 0(주석만 · ImsRefLoad.gs 는 「2단계에서 사람이 채운다」로 보내지 않는다) ⇒ 값이 채워져 행동이 바뀌는 곳은 so_invoice_issue 하나
+[실측 §3 ④] Cin7 인보이스 번호 최댓값 49247(BigQuery · 2026-09-24) — 60000 까지 약 10,750 · 하루 40건 남짓 · 전환 전 겹침 없음(📌 Invoice_Date 2026-12-05 인 줄 하나 — Cin7 입력 실수 짐작 · data-hygiene 밀린 일)
+```
+
+### 17-c 검토 이견 · ⬜ · 내가 정한 것 (✅ Caleb 2026-09-24 · 이견 1~11 ✅ · ⬜1~⬜11 ✅)
+
+```
+이견(회신 §0)
+ 1  마지막 정의 — so_charge_set·so_header_update·so_detail·so_confirm·so_tax_preview 는 20260924175014(세금 ②) · so_release 는 없다(⑤ 의 일)
+ 2  so_ship 은 「보낸 수량 < 주문」 전부를 pick_short 로 만들었다 ⇒ 재발행 — 목표 = qty_ordered − qty_removed(초과 픽·차이·반환 세 자리) · 뺀 몫의 할당은 so_ship ② 가 줄의 열린 allocated 예약을 통째로 닫으며 풀린다(released) · released_reason 에 removed 를 더하지 않는다(줄의 removed_reason 이 답한다)
+ 3  판정 5 때문에 so_line_requote 를 그대로 못 쓴다(qty_ordered 를 덮어썼다) ⇒ 인자 p_set_qty(false 면 견적만) · drop + create
+ 4  인보이스 금액은 so_line_total(qty_ordered)로 낼 수 없다 — 뺀 몫이 qty_ordered 에 남는다 ⇒ 줄 금액 = round(qty_shipped × unit_price, 2) · so_tax_preview 에 p_basis ordered|shipped(식 한 곳 · 수량 기준만 가른다)
+ 5  so 에 청구처 손님 id 칸이 없었다(bill_to_name 7칸 원문만) ⇒ so.bill_to_customer_id(FK + 원문 짝 · so_copy_customer 가 coalesce(default_bill_to_customer_id, id) 를 굳힌다) · 마무리는 이 칸으로 묶는다(스냅샷 원칙 · 마무리 때 다시 계산하지 않는다)
+ 6  모든 줄을 뺀 packed 오더는 어디로도 못 갔다(so_ship 은 「나간 것 0」 거부 · so_cancel 은 draft·confirmed 만) ⇒ 판정 9
+ 7  8-c 「발행 트리거는 시스템」 → 사람이 누르는 마무리 · 6-a packed 의 뜻 → 창고 일 끝(줄 끝 포인터)
+ 8  fulfilled 로 가는 길이 이 차수에도 없다 ⇒ invoiced 에서 멈춘다(짝 둘만 · shipped→invoiced · invoiced→shipped) · fulfilled 로 옮기는 때(발행 즉시 vs 결제 완료)는 ⓑ 판정
+ 9  취소 가드(결제·크레딧이 붙기 전)는 지금 검사할 표가 없다 ⇒ so_invoice_cancel 은 상태·역할만 · ⓑ·ⓒ 가 그 표를 세우는 차수에서 재발행해 검사를 더한다(안 도는 코드 금지 · 본문 주석에 자리)
+ 10 미리 보기(p_commit false)는 읽기만으로 된다(so_line_quote 는 stable · 묶음은 계산 · 출고 엔진은 돌리지 않는다 · 번호 없음) — ③ 의 「하위 블록에서 되돌린다」 방식이 필요 없다
+ 11 인보이스 표의 쓰기는 창구만(so 표와 같이 select 만) — 새 권한 묶음 없음
+⬜ 열하나(회신 답 그대로)
+ ⬜1 ⓐ1 = 표 셋 · 시퀀스 · 문지기 짝 둘 · 청구처 칸·설정 · 발행·취소·재발행 · so_tax_preview basis / ⓐ2 = 뺀 몫 칸 · so_ship·so_line_requote 재발행 · so_finalize · so_detail·family 재발행
+ ⬜2 so_invoice(머리 · 청구처 8 · 발행일·사람 · 결제조건 FK+원문 · due_on · 통화 · 합계 여섯 · balance_forward null · amount_due · 취소 셋 · CHECK 8) · so_invoice_order(오더별 배송지 9 · ⭐ 세금 굳힘 tax_rule_id·이름·rate_pct·tax_source ship_to|manual·draft_rule_changed · 금액 · cancelled_at 비정규 복사 · active_so_id 생성 칸 + 유니크) ·
+     so_invoice_line(줄 사본 · kind product|charge|order_discount · so_line_id/so_charge_id 짝 CHECK · qty = 보낸 수량 · amount · tax_amount · 계정 그날 값) — 줄 사본을 둔다(손님이 든 종이 · so_line 은 뒤에 바뀔 수 있다 · 크레딧 8-g 가 so_line_id 로 되짚는다) · 발행 시점 잔액은 null(0 을 넣지 마라 — 「잔액 0 을 확인했다」로 읽힌다)
+ ⬜3 so_invoice_issue(p_so_ids, p_staff, p_issued_on)(속 함수) — 전부 shipped ∧ 살아 있는 인보이스 없음 ∧ 같은 청구처 ∧ 같은 통화 아니면 전체 거부 · 오더마다 규칙 = manual 이면 오더 규칙 · 아니면 발행일로 배송지에서 다시(draft_rule_changed) · null 이면 거부 · 금액은 so_tax_preview(shipped) 식 한 곳 · 운임 0 도 줄(무료 배송 흔적) · shipped→invoiced · 번호 nextval(되돌리지 않는다)
+ ⬜4 so_finalize(p_orders jsonb, p_commit default true, p_shipped_on default null) — 입력 [{so_id, picks, removed?, charges?, carrier?, tracking_number?, shipping_notes?, invoice_group?}] · 순서 ① 검사 전부 ② 운임·택배사·추적번호·메모 ③ 뺀 몫 + 다시 견적 ④ so_ship ⑤ 묶음 ⑥ 발행 ⑦ 반환 · so_ship 을 직접 부르는 길은 없다(속 함수 · so_finalize 가 첫 호출자 · ④⑤ 가 뒤에)
+ ⬜5 뺀 몫 — qty_removed(0 ≤ · ≤ qty_ordered) · removed_reason CHECK customer_removed·not_wanted·other(note 필수) · 짝 CHECK 셋(reason·at·by) · 전부 뺀 줄 = qty_shipped 0 · 인보이스에 안 실림 · 형제 없음 · 장부 무접촉 · 모든 줄을 뺀 오더 = 거부 + 길(판정 9) · 무상 줄은 다시 견적 대상 아님
+ ⬜6 다시 견적 = so_line_requote(line, ordered − removed, false) · 시스템 줄만 · 할인만 · order_date 기준(D7) · 반환 이전·새(단가·할인·출처) · 남은 수량 0 이면 안 함
+ ⬜7 마무리 때 고치기는 so_finalize 안에서(따로 창구 없음 · so_charge_set·so_header_update 는 초안만 그대로 · 대가: 마무리 전에 운임을 미리 저장 못 한다 → 미리 보기로 확인하고 한 번에)
+ ⬜8 so_invoice_cancel(p_invoice_id, p_note) manager · issued 만 · 사유 필수 · 담긴 오더 invoiced→shipped · so_invoice_order.cancelled_at 복사(active_so_id 풀림) · 번호 남음 + so_invoice_reissue(p_so_ids, p_issued_on) manager(마무리 밖의 발행은 좁게)
+ ⬜9 customer.invoice_split_by_store(기본 false · 우리 칸 · ImsLoadCustomer 는 고정 키 목록이라 안 보낸다 · 쓰기 master)   ⬜10 picks·묶음은 입력으로 받는다(WMS ⑤ 전) · 「fulfillment 묶음」을 IMS 가 어디서 아나는 ⑤(8-k)   ⬜11 so_finalize 는 ims_require_write(sales) 만 · so_ship·inv_post_sale 은 definer 안에서 소유자로 · inv_post_sale 첫 줄 sales 는 오피스 담당이 sales 라 통한다(§15 ⬜ ⑤ WMS 직원 경로는 그대로)
+내가 정한 것(Caleb 받음)
+ ⓐ1 so_invoice_number_seq 에 authenticated usage 를 안 준다(definer 가 소유자로 · so_number_seq 의 「남아 있으나 안 쓰이는 grant」를 되풀이하지 않음) · 인보이스 발행일 = 마무리한 날(ims_today · p_shipped_on 이 과거여도) · 결제조건·청구처 주소는 첫 오더(so_number 순) 값 + 다르면 경고(bill_to_differs · payment_term_differs)
+ ⓐ2 so_finalize 의 묶음 열쇠 = bill_to_customer_id || '|' || coalesce(invoice_group, 설정이면 'store:' || customer_id, '') — 청구처가 다른 오더는 어떤 열쇠로도 한 장이 못 된다 · 미리 보기는 칸(bin) 검사를 안 한다(실행 때 so_ship 이) · so_detail 은 shipped·invoiced·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본) · so_family_* 의 남은 수량 = 주문 − 뺀 것 − 보낸 것
+```
+
+### 17-d ⭐ 훑기 표 둘 — qty_ordered·so_line_total 로 셈하는 자리 · ⓐ1 의 tax_rule·청구처 (마지막 정의 기준)
+
+| 자리 | 하는 일 | ⓐ2 |
+|---|---|---|
+| so_ship 20260924141140:442·452·455·459 | 목표·초과·차이·반환 | **고침**(목표 = 주문 − 뺀 것) |
+| so_split 20260924143507:72·75 | 목표 − 보낸 것만 옮김 | 그대로 — 원래 줄 = 뺀 것 + 보낸 것 ≥ qty_removed(CHECK 만족) · 새 줄 0 |
+| so_detail 20260924175014:1008·1010 | so_line_total 합계 | **고침** — 나간 뒤 basis shipped |
+| so_family_members 20260924014219:413 · so_family_lines :438·440 | 남은 수량 ordered − shipped | **고침** — 뺀 몫이 「남았다」로 보이던 자리(검증 F13 12−2−10 = 0) |
+| so_tax_preview 20260924200029:511~517 | basis | ⓐ1 에서 가름 |
+| so_backorder_supersede :47 · so_backorder_list :231·243·310 · so_allocate_run · so_divide · so_hold · so_unconfirm :368 | 확정·보류·백오더 단계 | 그대로 — 뺀 몫은 마무리에서만 생긴다(0) |
+| so_line_add · so_lines_paste · so_line_update · so_reprice · so_line_requote 호출자 | 초안 | 그대로(0) |
+| so_available_many · so_backorder_close | 예약 수량(qty_allocated) | 해당 없음 — qty_ordered 아님 · 할당은 so_ship 이 닫는다 |
+| inv_post_sale | 픽만 | 해당 없음(원장 무접촉 · 판정 5) |
+
+| ⓐ1 훑기 | 결과 |
+|---|---|
+| ref_payment_term.net_days·discount_*·is_split 읽는 자리 | 0(주석만 · ImsRefLoad.gs 안 보냄) — 값이 채워져 바뀌는 행동은 so_invoice_issue 뿐 |
+| so.tax_rule·so_line.tax_rule·so_charge.tax_rule(§16) | ⓐ 무접촉 — 발행은 so.tax_rule_id 로 오더 규칙을 굳힌다(so_invoice_order) |
+| 청구처 | so.bill_to_customer_id 신설 · so_copy_customer 재발행 셋째(더한 줄 1) · 기존 오더 0(테스트 DB 비어 있음) |
+
+### 17-e 파일 · 검증 실측 (✅ Caleb 2026-09-24 · 테스트 DB Asung-IMS · 커밋 5fdbf39 ⓐ1 · ⓐ2 는 Caleb)
+
+```
+ⓐ1  20260924200029_so_invoice_a1.sql(773행 · repair applied) — ref_payment_term 34 채움 · customer.invoice_split_by_store · so.bill_to_customer_id + so_copy_customer 재발행(더한 1) · so_status_guard 짝 일곱(+shipped→invoiced · invoiced→shipped) ·
+     so_invoice · so_invoice_order · so_invoice_line · so_invoice_number_seq 60000 · so_invoice_next_number · so_tax_preview 재발행(drop+create · p_basis) · so_invoice_issue(속) · so_invoice_cancel(manager) · so_invoice_reissue(manager)
+     검증 ~/asung/prompts/so-invoice-1a-verify.sql v3(283행) — MISMATCH 0 · 결제조건 34(null 0 · split 2) · 60000 네 오더 260.30 · −5.00 · 110.50 · 세금 47.57 · 413.37 · 줄 8 · ⭐ 줄마다 반올림(줄 수와 함께): O1 = 3 × 10.05 **한 줄** → 3.92 · O6 = 10.05 × 1 **세 줄** → 1.31 × 3 = 3.93 ·
+     기한 +30(Net 30) · 결제조건 없음 → due null + due_date_unknown · split → +30 + split_terms · 거부 여섯 · 취소(worker 거부 · 사유 필수 · manager) → 오더 넷 shipped → 재발행 60003 · 60000 cancelled 남음 · 문지기 · CHECK 넷 각각 제 이름 · 흔적 0
+     ⚠️ 검증 결함(v1→v3): O1 세금을 3.93 으로 세었다(줄이 하나라 3.92 · DB 가 맞다) · Xeonium Inc. 은 Sherwood Park AB(만들 때 GST · ON 으로 바꾼 뒤 HST ON) · 행 비교의 글자 리터럴 '_99_' 는 ::text · 시험 오더가 전부 한 줄이라 판정 3 이 인보이스 단계에서 시험되지 않아 O6 을 더했다
+ⓐ2  20260924202425_so_finalize_a2.sql(569행 · repair applied) — so_line 칸 다섯 + CHECK 여섯 · so_ship 재발행(바뀐 4) · so_line_requote 재발행(drop+create · p_set_qty) · so_finalize · so_detail 재발행(basis · invoice · removed) · so_family_members·so_family_lines 재발행
+     검증 ~/asung/prompts/so-invoice-1b-verify.sql v2(310행) — MISMATCH 0 · ERROR 0 · vv 세 오더 한 번 60000(160.30 · 20.85 · 181.15 · F1 한 줄 3.92 vs F2 세 줄 3.93) · 두 청구처 두 장 · 청구처 설정 끔 → 매장 둘 한 장 60003 · 켬 → 두 장 · 운임 110.50(HST ON · _99_ · 14.37) + 택배사·추적번호 ·
+     전부 뺀 오더 거부(판정 9) · 12→0(백오더 없음 · 원장에 그 SKU 0 · 할당 released · 인보이스에 없음) · 12 중 2 → 10(딜 20% 깨짐 · 6.312 → 7.89 customer · qty_ordered 12 그대로) · pick_short 10/12(형제 2 · 20% 그대로) · 막힌 묶음 전체 거부(아무것도 안 쓰임) → 빼고 다시 · 미리 보기 아무것도 안 씀 ·
+     worker(권한 없음) 거부 · worker+sales 마무리 60011 · so_detail F13 basis shipped 78.90 · 10.26 · 89.16 · 60008 · lines_removed · family F13 0 · F14 형제 2 · CHECK 여섯 각각 제 이름 · 흔적 0 · 25000 f · 60000 f
+     ⚠️ 검증 결함(v1→v2): 9) chk 의 닫는 괄호 하나가 빠져 그 문장이 파일 끝까지 이어졌고 310행 「syntax error at or near ;」 — 그 앞 절(9·10·rollback·setval)이 전부 안 돌았다 ⇒ 주기 전에 괄호·따옴표·$$ 를 토크나이저로 센다(asung-workflow §5)
+```
+
+### 17-f 뒤집은 것 · 닫은 것
+
+| 자리 | 전 | 후(2026-09-24) |
+|---|---|---|
+| 8-c 「발행 트리거 — 시스템이 한다」 | 출하 사건이 자동 발행 | **사람이 누르는 오피스 마무리**(so_finalize · sales)가 출고 + 발행(판정 1) |
+| 6-a packed | 「팩이 끝났고 아직 안 나갔다」 | 창고 일(픽·팩·fulfillment) 끝 — WMS 의 팩(검수)과 낱말이 다르다 |
+| 6-c 「송장이 나가면 invoiced」 | 오더 단위 | 발행 단위 = 마무리 묶음(청구처별 · 설정이면 매장별) · 담긴 오더 전부 shipped→invoiced |
+| R5 역할 선 「확정부터 manager」 | 예외 없음 | **마무리(출고 + 발행)는 sales**(판정 8) · 취소·재발행은 manager |
+| 8-c 발행 시점 잔액 | 「기록한다」 | 칸은 두되 ⓑ 전에는 null(0 아님) |
+| so_ship 「보낸 수량 < 주문 = pick_short」 | 전부 백오더 | 목표 = 주문 − 손님이 뺀 것 · 그 아래만 pick_short(판정 5·7) |
+| so_line_requote | qty_ordered 를 덮는다 | p_set_qty false 면 견적만(판정 5) |
+| so_line_total 로 인보이스 금액 | 주문 수량 | 보낸 수량(round(qty_shipped × unit_price, 2)) · so_tax_preview basis |
+| so_family_* 남은 수량 | ordered − shipped | ordered − removed − shipped |
+| po-module 149 · 2669 · 3404 「ref_tax_rule 미결」 | 미결 | → §16 섰다(줄 끝 포인터) |
+
+### 17-g ⬜ 남는 것
+
+```
+ⓑ 결제·잔액  fulfilled 로 옮기는 때(발행 즉시 vs 결제 완료) · balance_forward 채우기(발행 시점 잔액 · 8-c 이월 잔액) · so_invoice_cancel 에 「결제가 붙었으면 거부」(재발행) · 선수금 영수증(번호 있는 종이 · 8-e)
+ⓒ 크레딧     so_invoice_cancel 에 「크레딧이 붙었으면 거부」(재발행) · credit_line.so_line_id → so_invoice_line(되짚기 8-g) · 뺀 몫이 아니라 반품인 것은 크레딧
+⑤ WMS       WMS fulfillment 묶음·picks(칸별 수량 · 7-b ⬜)를 IMS 가 받는 길(8-k) — 지금은 so_finalize 입력 · ⭐ 제자리 돌려놓기 화면(Caleb 요청 2026-09-24): WMS 되돌리기 오더와 마무리 때 뺀 몫을 원래 칸에 돌려놓는 「거꾸로 픽」 · 선행 = WMS 픽 라인의 칸별 수량 · 원래 칸이면 원장 무접촉 · 다른 칸이면 칸 이동 기록 · inv_post_sale 첫 줄 sales(§15 ⬜ ⑤ 창고 직원 경로)
+화면         마무리 화면(묶음 미리 나누기 · 직원이 바꾸기 · 미리 보기 → 바뀐 단가 · 인보이스가 몇 장) · 인보이스 인쇄(재인쇄는 발행을 되돌리지 않는다 6-f) · 반환 단가 29자리 표시는 화면이 반올림(12-h) · _118_ 규칙 표시
+연동         QBO(인보이스·결제 계정 · 8-f) · Cin7 인보이스 번호 49247 → 60000 전환 전 겹침 없음(하루 40건)
+정리 거리     손님 결제조건 옛 이름 Net30 6,305(비활성 · 값은 있다) · Cin7 Invoice_Date 2026-12-05 줄 하나(data-hygiene 밀린 일)
 ```

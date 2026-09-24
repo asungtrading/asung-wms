@@ -33,6 +33,7 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 쓰기 ② 확정·할당 ✅ 2026-09-23 — ②a 20260924014219(so_confirm · so_unconfirm · 엔진 so_allocate_run · so_split · so_available · so_family_*) · 015859(so_available_many 식 한 곳) · 020852(grant) · 021413·021759(so_unconfirm 고침 둘) · ②b 022449(so_hold · so_reallocate · so_cancel · so_change_location · so_backorder_proceed · so_divide · so_detail·so_delete 재발행) · 023740(되돌리기는 표시와 사슬로) · 테스트 DB(§14)
 쓰기 ③ 출고·백오더 ✅ 2026-09-24 — ③a 20260924141140(so_ship · inv_post_sale/inv_layer_post_sale · pick_short) · ③a′ 143507 · ③b 145105(so_backorder_close · 이어받기 · 다시 열기) · ③b′ 151719 · ③c 151038(만료 스윕 · so_backorder_list · cron 테스트 jobid 1) · ③b″ 153856(무상 줄 제외 · 만료 기간 supervisor 잠금) · 정본 §15
 세금 ①·②      ✅ 2026-09-24 — ① 20260924172351(ref_tax_rule 31 · ref_tax_region 14 · ref_region_alias 143 · ims_region_from_address · so_tax_rule_for · so_tax_amount · so_tax_preview · 세율 불변) · ② 175014(so.tax_rule_id · tax_rule_manual · so_tax_refresh · so_tax_set_manual · 창구 여덟 재발행) · 정본 §16
+인보이스 ⓐ      ✅ 2026-09-24 — ⓐ1 20260924200029(결제조건 34 · so_invoice 셋 · 60000 · so_invoice_issue/cancel/reissue · 문지기 짝 둘 · so.bill_to_customer_id · customer.invoice_split_by_store) · ⓐ2 202425(so_line.qty_removed 다섯 · so_finalize · so_ship·so_line_requote·so_detail·so_family_* 재발행) · 정본 §17 · ⓑ 결제·ⓒ 크레딧은 다음
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -184,6 +185,19 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐⭐ 캐나다인데 주를 모르면 규칙 없음 — 해외 폴백('*','*' Zero-rated)을 타지 않는다(0% 로 떨어뜨리지 않는다) · 'CA' 는 country 로 가른다(Canada 면 나라 전체 · US 면 캘리포니아 · 비면 null) · 주 표기는 표(ref_region_alias · upper(trim) · 새 실물은 행 추가 · 마이그레이션 아님)   (⬜3)
 ⭐  세금 규칙을 쓰는 자리는 속 함수 둘만(so_tax_refresh · so_tax_set_manual · authenticated 실행 없음) — 새 창구가 so.tax_rule 을 직접 쓰면 짝 CHECK·줄·운임이 어긋난다 · so_split 은 머리 통째 복사라 형제가 물려받는다   (16-d · 16-e)
 ⚠️  옛 세율 규칙 셋(HST NB 13 · NL 13 · PE 14)은 표에 기록만 · 연결 없음 · 옛 연결(NS 15)도 안 실었다(2025-03-31 로 물으면 「연결 없음」) · 매입(purchase) 연결은 없다(PO 세금 계산 없음) · 회계사 확인 거리 여섯은 16-c
+```
+
+## 4-g. ⭐⭐ 오피스 마무리 · 인보이스(ⓐ) — 모르면 사고 (정본 §17)
+
+```
+⭐⭐ 출고 + 발행은 so_finalize 한 트랜잭션(판정 1 · 사람이 누른다 — 출하 사건이 자동 발행하지 않는다) · sales(오더 담당)부터(판정 8 · R5 의 예외) · packed 만 · 하나라도 막히면 전체 거부(막힌 오더를 빼고 다시) · so_ship 은 so_finalize 가 부른다(직접 부르는 창구 없음 · 속 함수)
+⭐⭐ 묶음 = 청구처(so.bill_to_customer_id · 그날 값) · 청구처의 invoice_split_by_store 가 켜졌으면 오더의 손님(매장)별 · invoice_group 으로 직원이 바꾼다(청구처 안에서만) · 한 인보이스 = 한 청구처 · 한 통화 · 오더는 살아 있는 인보이스 하나에만(active_so_id)
+⭐⭐ 「손님이 뺐다」(so_line.qty_removed)는 백오더가 아니다(판정 5) — 원장 무접촉 · 할당은 so_ship 이 released · qty_ordered 는 그대로(주문 12 · 뺐다 12) · 보낼 목표 = 주문 − 뺀 것 · 그 아래 덜 나간 몫만 pick_short(형제 · 백오더)
+⭐⭐ 손님이 뺀 줄만 자동 다시 견적(판정 6 · so_line_requote(…, false) · 할인만 · 시스템 줄만 · 사람이 정한 줄 무접촉) · pick_short 는 다시 견적 없음(판정 7 · 할인 그대로) · 모든 줄을 뺀 오더는 거부 + 길(WMS 되돌리기 → 취소 · 판정 9)
+⭐⭐ 인보이스 금액은 보낸 수량 — round(qty_shipped × unit_price, 2)(so_line_total 은 주문 수량 · 초안까지만) · so_tax_preview(…, 'shipped') 식 한 곳 · 줄마다 반올림(§16 판정 3 · 예시는 줄 수를 함께: 3×10.05 한 줄 3.92 · 10.05 세 줄 3.93) · 오더별 세금 규칙은 so_invoice_order 에 굳는다(발행일 규칙 · manual 이면 오더 규칙)
+⭐⭐ 번호 60000~(접두어 없음 · 재사용 금지 · 취소해도 남는다) · 취소·재발행은 manager(so_invoice_cancel · so_invoice_reissue) · 취소 = 문서 전체가 틀렸을 때(부분 문제는 크레딧) · 담긴 오더 invoiced→shipped · ⚠️ 결제·크레딧이 붙었으면 거부는 ⓑ·ⓒ 가 재발행해 더한다
+⭐⭐ balance_forward 는 ⓑ 전에 null(0 을 넣지 마라 — 「잔액 0 을 확인했다」로 읽힌다) · 기한 = 발행일 + net_days(판정 10 · 34 값 · null 이면 경고 due_date_unknown · split 이면 split_terms) · 조기결제 할인 기한은 안 찍는다
+⚠️  so_detail 은 shipped·invoiced·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본) · so_family_* 남은 수량 = 주문 − 뺀 것 − 보낸 것 · fulfilled 로 옮기는 때·발행 시점 잔액·취소 가드는 ⓑ(17-g)
 ```
 
 ## 5. 이 스킬을 갱신할 때

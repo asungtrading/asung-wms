@@ -146,7 +146,7 @@ supplier · supplier_address · supplier_contact · supplier_discount
 ⭐ name     유니크를 건다 (아래 근거)
 FK+원문     payment_term_id + payment_term_name · account_payable_id + account_payable_code
 FK          currency_id
-원문         tax_rule (ref_tax_rule 은 아직 없다 · §7-a)
+원문         tax_rule (ref_tax_rule 은 아직 없다 · §7-a) → so-module §16 · 2026-09-24 섰다(FK 는 SO 쪽만 · PO 는 원문 그대로)
 우리 칸      is_purchasable  (null=미판정 · false 로 밀지 마라)
 우리 칸 ⭐    거래 중단 두 칸 — is_discontinued(bool) + discontinued_on(date · nullable)
 Cin7 메모    cin7_comments  ⚠️ 우리 note 와 섞지 마라 (아래)
@@ -2666,7 +2666,7 @@ b 의 머리    a 의 머리를 통째로 복사(칸이 늘어도 따라온다) 
 ```
 → **표(2026-09-16 · §13)** ⭐ Fixed 와 Latest 는 **새로 만들 칸이 아니다** — `product_supplier.fixed_cost · cost · last_supplied` 에 이미 있다([실측 화면 · Caleb] products.html 상세 SUPPLIERS 표에 FIXED · LATEST · LAST SUPPLIED 셋 · ABE50205 / House of Cheatham 2.54 · 2.54 · 2026-08-17). 두 자리 갈림은 `po_line.unit_price`(이번 발주만 · 낱개 · numeric(18,7) · 0 허용) vs `product_supplier.fixed_cost`(마스터).
 ⭐⭐ **연습 기간에도 IMS 발주 확정이 Latest(cost · last_supplied)를 갱신한다**(Caleb 2026-09-16 · 흐름을 봐야 하니까). **그런데 적재가 돌면 Cin7 값이 덮는다 — 그것이 정상이다.** 컷오버 전까지 Latest 의 정본은 Cin7 이고, 마지막 적재 뒤 컷오버하면 그때부터 IMS 가 정본이다. ⚠️ 이 문장이 없으면 「IMS 가 쓴 값이 왜 사라졌지」가 버그로 오해된다. ⭐ 컷오버 때 **거래는 지우지만 Latest 는 남긴다**(11-⓪ 축의 예외). 갱신 동작 자체는 확정 RPC(⬜ 다음 차수). ⚠️ **[2026-09-20 실측] 그 갱신은 만든 적이 없다** — `product_supplier` 에 쓰는 DB 함수 0개(`po_lines_paste` 는 읽기만 · writes_it f) · AMP41103 `last_supplied` 2026-08-05 그대로(오늘 입고를 확정해도 안 움직였다). ⭐ **출처도 바뀌었다**(Caleb 09-20) — 발주 확정도 입고도 아니라 **확정 인보이스**다(11-g 「매입 가격 이력」 `po_price_history`). ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 latest 가 0 이 된다 — 가격의 출처는 인보이스이지 입고가 아니다. ⬜ §13-f 「latest·fixed 갱신을 IMS 가 맡는다」.
-⚠️ 라인 할인 칸 없음 · `tax_rule` 원문(ref_tax_rule 미결 §7-a) · `line_no` unique(po_id, line_no) 가 원장 line_ref.
+⚠️ 라인 할인 칸 없음 · `tax_rule` 원문(ref_tax_rule 미결 §7-a → so-module §16 · 2026-09-24 섰다) · `line_no` unique(po_id, line_no) 가 원장 line_ref.
 → **붙여넣기(2026-09-16 오후 · `po_lines_paste` · §13-d)** [실무 Caleb] **50줄 넘는 발주가 꽤 된다** — 하나씩 고르는 방식은 안 된다. 열쇠는 **우리 SKU**(「공급처 SKU 는 다 갱신돼 있지 않고 아예 없는 공급처도 있다」 — 공급처 SKU 는 참고로만 담는다).
 ⭐⭐ **미리 보기가 반드시 있다**(Caleb) — 밖에서 오는 데이터(엑셀 · 공급처 파일)라 옛 SKU·공백·칸 밀림이 있고, 50줄이 잘못 들어가면 하나씩 찾아 지워야 한다. 「이 공급처 제품이 아니다」가 마스터를 채우라는 신호가 된다. ⚠️ 미리 보기에서 **고치지 않는다** — 원본을 고쳐 다시 붙인다(그래서 duplicate·exists 도 합치거나 더하지 않고 판정만 · 합치면 「추가 주문」과 「중복 붙임」을 구별할 수 없다).
 ```
@@ -3401,7 +3401,7 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 ⭐⭐ 돈의 정본    뷰 **po_invoice_money**(인보이스·크레딧 한 장의 goods/other 합 · factor · computed_total · diff · payable_net · alloc_total · credit_total · unpaid · remaining) · **po_charge_money**(paid · unpaid · alloc_sum · unallocated)
                  — po_list 와 po_detail 이 같은 뷰를 읽는다. 식이 두 곳이면 정본이 둘이 된다(Caleb 「지금이 옮길 때다」). 발주 쪽 계산(할인 체인 · 라인 금액 · 입고 합)은 po_detail 그대로 · 13-d 의 「정본은 RPC」는 그 범위로 좁아졌다
 ⭐ po_detail 캐럿  invoices[].po_shares · credits[].po_shares(문서가 걸린 발주 전부 · amount 는 할인 전 줄 합) · charges[].allocs([실물] CBSA 2,547.37 = PO-02001a 597.49 + PO-02002 1,949.88) · header 에 편집용 id(currency_id · payment_term_id · ship_to_warehouse_id)
-⭐ po 머리 칸 15  required_by(Caleb 「필요해」 · 뷰에도 낸다 — 「아직 안 온 것」의 정렬 축) · tax_rule(머리가 기본값 · 줄 null 이면 머리를 따른다 · [실측] po_line.tax_rule 47개 전부 null · product.purchase_tax_rule 0행 · ⚠️ 세금 **계산**은 없다 — ref_tax_rule 미결) · tax_inclusive(기록만) ·
+⭐ po 머리 칸 15  required_by(Caleb 「필요해」 · 뷰에도 낸다 — 「아직 안 온 것」의 정렬 축) · tax_rule(머리가 기본값 · 줄 null 이면 머리를 따른다 · [실측] po_line.tax_rule 47개 전부 null · product.purchase_tax_rule 0행 · ⚠️ 세금 **계산**은 없다 — ref_tax_rule 미결) · tax_inclusive(기록만) · · → ref_tax_rule 은 so-module §16 · 2026-09-24 섰다(매입 계산은 여전히 없다)
                  inventory_account id+code(⭐ 공급처도 제품도 아닌 **회사 기본값** inv_config.po_inventory_account_code=_59_ · [실측] product.inventory_account_code 는 18,713 중 1곳뿐이고 그것도 _58_ · supplier 에는 account_payable 만) ·
                  ⭐ **그날의 연락처 3 · 주소 6**(결제조건 FK+원문과 같은 이유 — 나중에 메일을 보낼 때 「누구에게 보냈나」 · 답장 받기는 지금 필요 없다) — ⚠️ **원문만 · FK 없음**: supplier_contact 는 「261건 그대로 옮기고 나중에 걸러 지운다」(§3-b C)라 FK no action 은 정리를 막고 set null 은 §5 의 새 예외다 · 주소는 여섯 칸 그대로(한 줄로 합치면 문서에 다시 못 찍는다)
                  po_create 규칙: 연락처 = is_default 정확히 하나 → 활성 정확히 하나 → null(contact_unset/ambiguous · [실측] 활성 226 중 기본 하나 159 · 기본 없이 하나 20 · 0건 44 ⇒ 179 곳) · 주소 = 1건 → Billing 하나 → null(⚠️ 활성 226 중 0건 143 ⇒ address_unset 이 대다수 · 오류가 아니다) · 회사 이름·메모가 든 행(「Acquired by House of Cheatham」이 연락처와 Billing 주소로)을 규칙으로 골라내지 않는다 — 정리의 일

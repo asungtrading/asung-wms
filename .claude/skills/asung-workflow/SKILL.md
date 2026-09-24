@@ -159,6 +159,9 @@ EOF
 ⚠️⚠️ **쓰기 창구(volatile 함수)를 FROM 의 LATERAL 에서 부르지 마라** — [실사고 2026-09-24 ③a 검증 v1] `from t_so s, lateral so_confirm(s.so_id) r` 이 같은 오더를 두 번 불렀다(「not a draft」 · 재평가 경로는 짐작) ⇒ do 블록에서 한 번씩 부르고 반환을 임시 표(t_out)에 담아 뒤 SELECT 가 읽는다
 ⚠️ **검증의 확인은 값만 찍지 말고 판정으로** — 「FAIL」 한 단어 금지 · `MISMATCH (<시험>): expected … · actual …`(sqlerrm 포함) · 통과는 OK · 표시 SELECT 옆에 pg_temp.chk(tag, 조건, format(...)) 도우미를 붙인다 · ⚠️ **도우미는 BEGIN 바로 뒤에**(첫 호출보다 앞 · 2026-09-24 두 파일이 정의 전에 불러 첫머리에서 멈췼다) · authenticated 구간(`set local role`)에서는 pg_temp 를 부르지 말고 do 블록으로
 ⚠️ 시간은 못 바꾼다 — 만료류는 order_date 를 과거로 만들어 시험한다 · `session_replication_role = replica` 는 문지기·touch 를 함께 끈다(packed 만들기 등 · 트랜잭션 안에서만)
+⚠️ **검증 파일은 주기 전에 괄호·따옴표·`$$` 를 센다**(토크나이저 · 문장마다 괄호 0 · 끝 상태 code) — 닫는 괄호 하나가 빠지면 psql 은 파일 끝에서 「syntax error at or near ;」만 말하고 **그 앞 절이 전부 안 돈다**(2026-09-24 ⓐ2 v1 · 9)·10)·rollback·setval 이 안 돌았다)
+⚠️ **「줄마다 반올림」 예시는 줄 수를 함께** — 같은 30.15 가 한 줄이면 3.92 · 세 줄이면 3.93(2026-09-24 ⓐ1 v1 은 줄 하나를 3.93 으로 적어 틀렸다)
+⚠️ **출력을 grep 으로 걸러 볼 때는 모든 절 번호를 넣거나 OK 수를 세라** — 절을 빼고 거르면 「안 돈 것」이 「통과」로 보인다(2026-09-24 대화 Claude 가 9·10 을 빼고 걸러 안 돈 것을 못 봤다)
 ```
 
 ---
