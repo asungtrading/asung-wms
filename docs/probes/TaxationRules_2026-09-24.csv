@@ -1,0 +1,32 @@
+Description,Tax1,AccountCode,Inclusive,IsActive,EffectivePercentExclusive,EffectivePercentInclusive,EffectivePercent
+Tax on Purchases,INPUT,_109_,False,False,10.00,9.09,10.00
+Tax on Sales,OUTPUT,_118_,False,False,10.00,9.09,10.00
+Tax Exempt,NONE,_118_,False,False,0.00,0.00,0.00
+Sales Tax on Imports,GSTONIMPORTS,_118_,False,False,0.00,0.00,0.00
+HST NB 2016 (Sale),OUTPUT,_54_,False,True,15.00,13.04,15.00
+HST NS (Purchase),INPUT,_54_,False,False,15.00,13.04,15.00
+Exempt (Purchase),INPUT,_54_,False,True,0.00,0.00,0.00
+HST NS 2025 (Sale),OUTPUT,_54_,False,True,14.00,12.28,14.00
+HST NS 2025 (Purchase),INPUT,_54_,False,True,14.00,12.28,14.00
+HST ON (Purchase),INPUT,_54_,False,True,13.00,11.50,13.00
+Auto Look Up,AVALARA,_54_,False,False,0.00,0.00,0.00
+Exempt (Sale),OUTPUT,_54_,False,True,0.00,0.00,0.00
+HST NL (Sale),OUTPUT,_54_,False,True,13.00,11.50,13.00
+HST PE 2016 (Purchase),INPUT,_54_,False,True,15.00,13.04,15.00
+Zero-rated (Sale),OUTPUT,_54_,False,True,0.00,0.00,0.00
+HST PE (Purchase),INPUT,_54_,False,True,14.00,12.28,14.00
+Out of Scope (Sale),OUTPUT,_54_,False,True,0.00,0.00,0.00
+Zero-rated (Purchase),INPUT,_54_,False,True,0.00,0.00,0.00
+HST PE (Sale),OUTPUT,_54_,False,True,14.00,12.28,14.00
+HST ON (Sale),OUTPUT,_54_,False,True,13.00,11.50,13.00
+HST NL 2016 (Purchase),INPUT,_54_,False,True,15.00,13.04,15.00
+GST (Purchase),INPUT,_54_,False,True,5.00,4.76,5.00
+HST NB 2016 (Purchase),INPUT,_54_,False,True,15.00,13.04,15.00
+GST (Sale),OUTPUT,_54_,False,True,5.00,4.76,5.00
+HST NB (Sale),OUTPUT,_54_,False,True,13.00,11.50,13.00
+HST NL 2016 (Sale),OUTPUT,_54_,False,True,15.00,13.04,15.00
+HST NB (Purchase),INPUT,_54_,False,True,13.00,11.50,13.00
+Out of Scope (Purchase),INPUT,_54_,False,True,0.00,0.00,0.00
+HST NL (Purchase),INPUT,_54_,False,True,13.00,11.50,13.00
+HST NS (Sale),OUTPUT,_54_,False,False,15.00,13.04,15.00
+HST PE 2016 (Sale),OUTPUT,_54_,False,True,15.00,13.04,15.00
