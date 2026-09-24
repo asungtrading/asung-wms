@@ -118,6 +118,10 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⭐ 표를 세우는 차수의 순서 — 프로브 → 판정 → 마이그레이션 → 적재 dryRun → Apply → Verify → SQL 눈 확인 (2026-09-22 손님 적재가 이 순서로 하루에 섰다)
 ⭐ **날짜 기본값·비교는 `ims_today()`(토론토)** — `current_date` 는 UTC 라 토론토 저녁 8시(겨울 7시) 뒤 내일이다(2026-09-23 · so.order_date · 세일 기간 · 백오더 만료 같은 뿌리 · PO 일곱 · 화면 다섯 ✅ 2026-09-23 · po-module §14)
 ⭐ **화면의 날짜 기본값은 `torontoToday()`** — `new Date().toISOString().slice(0,10)` 은 UTC 날짜라 금지(2026-09-23 asung-ims 다섯 곳 고침) · 서버 비교(received_on_in_future 류)가 걸린 자리는 **화면 먼저 배포**(반대면 저녁마다 경고)
+⚠️ **psql 백슬래시 명령(`\gset` · `\if` · `\echo` …) 줄 끝에 `-- 주석`을 두지 마라** — 인자로 읽는다(`invalid variable name: "--pb"` · 2026-09-23) · 주석은 윗줄로 · 검사 `grep -nE '^\s*\\[a-z]+.*--|\\gset.*--'` 0줄
+⚠️ **한 트랜잭션 안에서는 now() 가 전부 같다** — 시각으로 「손댐」을 판정하는 시험은 `updated_at` 을 명시로 뒤로 적는다(`session_replication_role = replica` 로 ims_touch 를 비껴서 · 2026-09-23 so_unconfirm) · 설계도 시각에만 기대지 마라(표시·사슬 먼저)
+⚠️ **invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501** — postgres 로 `\timing` 을 재면 안 보인다 · 권한이 걸린 시험은 **가짜 직원 신원**(set role authenticated + claims)으로(2026-09-23 so_available → so_available_many)
+⚠️ **시험 자료를 뷰 전체에서 고르지 마라** — 제품마다 `ims_inv_balance` 를 다시 계산해 statement timeout 2분(2026-09-23) · 후보를 싸게 좁힌 뒤(활성·가격·sku 순 300) 한 문장(`so_available_many`)으로 · timeout 을 늘려 덮지 마라 · 임시 표는 authenticated 구간에서 못 읽는다(`\gset` 으로 받아 둔다)
 ```
 
 ---

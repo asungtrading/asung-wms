@@ -6,7 +6,7 @@ description: >
   "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소", "기본 배송지",
   "청구지", "parent_id", "부모 손님", "so.status", "so.intake",
   "Release to WMS", "at_wms", "재적재", "내리기",
-  "deferrable", "딜", "so_deal", "product_tag", "케이스 할인", "GM20UOM12", "오더 전체 할인", "so_reprice", "discount_source"
+  "deferrable", "딜", "so_deal", "product_tag", "케이스 할인", "GM20UOM12", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/so-module.md 를 확인하세요.
   ⚠️MarketingConsent 는 숫자다(2 Opt in · 3 Opt out · 0·1 둘 다 Unknown) — 순서·소거 추론으로 옮기지 마라,
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
@@ -30,6 +30,7 @@ description: >
 SO 거래 표      ✅ 2026-09-23 — 마이그레이션 ④ 20260923133042(so · so_line · so_charge · so_reserve · 시퀀스 SO-25000~) · ⑤ 20260923134840(so_merge_reason_ck 양방향) · 테스트 DB(§10)
 SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표 보정 · so_status_guard · so_price_for · so_copy_customer) · ①b 20260923191030(창구 열 개 so_create…so_detail · inv_config so_direct_order_tier_code) · ①c 20260923192101(운임 음수 금지) · 테스트 DB(§12)
 할인 규칙 ②-0   ✅ 2026-09-23 — ②-0a 20260923224900(product_tag · so_deal 넷 · so_deal_best · so_order_discount · so/so_line 출처 칸) · ②-0b 20260923232500(ims_today · so_line_quote 3인자 · 창구 여섯 재발행 · so_reprice) · 테스트 DB(§13) · ⚠️ 운영은 둘을 한 번에
+쓰기 ② 확정·할당 ✅ 2026-09-23 — ②a 20260924014219(so_confirm · so_unconfirm · 엔진 so_allocate_run · so_split · so_available · so_family_*) · 015859(so_available_many 식 한 곳) · 020852(grant) · 021413·021759(so_unconfirm 고침 둘) · ②b 022449(so_hold · so_reallocate · so_cancel · so_change_location · so_backorder_proceed · so_divide · so_detail·so_delete 재발행) · 023740(되돌리기는 표시와 사슬로) · 테스트 DB(§14)
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -141,6 +142,17 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐⭐ 오더 전체 딜은 so_deal.order_pct 하나 · 줄이 없다(문지기 둘) · so_deal_target 유니크는 전체 하나(nulls not distinct · 부분 유니크 금지 규칙 29) · 딜·태그 쓰기 = master RLS(거래 표 넷의 「창구만」과 다르다 — 이유 §13-e ⬜5)
 ⭐  케이스(case) 모드 줄은 미리 보기 화면 뒤에(D3) — Cin7 UOM Discount 25줄은 qty 모드로 옮긴다(태그 이름 GM20UOM12 = 20% · 12 이상 · 단계 할인 8개) · set_discount_pct 는 「세트 SKU 자체」 할인만(D8 · 11-c ② 뒤집힘)
 ⚠️  Deals Export CSV 에는 % 칸·수량 칸이 없다 — DiscountName 글자에서만(Case Discount 7줄은 못 옮긴다) · 쿠폰 코드 EXTRA10·EXTRA5 는 실재(「비어 있음」이 틀렸다) · 100% 딜 줄은 so_line_free_pair_ck 에 걸린다(⬜)   (13-b · 13-k)
+```
+
+## 4-d. ⭐⭐ 확정·할당(②a·②b) — 모르면 사고 (정본 §14)
+
+```
+⭐⭐ 확정할 때 모자란 몫은 늘 나눈다(묻지 않는다 · R1) — 원래 오더는 늘 전부 할당된 줄만(또는 통째로 hold·백오더·프리오더 — 빈 원본 없음) · 백오더 a(stock_short) · 프리오더 b(preorder) 형제는 할당 없음 · 물건이 들어와도 자동으로 잡지 않는다 · 엔진은 so_allocate_run 하나(확정·재할당·창고 바꾸기·백오더 진행이 부른다)   (14-a·14-b)
+⭐⭐ 보류는 늘 오더 전체(Caleb 「보류는 특정 제품에만 한한 경우는 없어」) — so_hold 는 열린 allocated 전부를 풀고 kind hold · 줄 단위 보류 없음 · 처음부터 보류는 so_confirm(p_hold) · 풀기는 so_reallocate(모자라면 그때 나뉜다) · 「특정 제품만 나중에」는 so_divide 로 떼어 so_hold   (R3 · 이견 2)
+⭐⭐ 역할 선 — 오더 담당(sales) = 초안까지 · manager 이상 = 확정부터(확정·보류·풀기·취소·창고 바꾸기·백오더 진행·나누기) · ⭐ 확정 되돌리기(so_unconfirm)는 supervisor 이상 · 창구는 ims_require_write('sales') + so_require_role 둘 다(sales 열쇠 없는 manager 는 막힌다)   (R5 · R9 · ⬜2)
+⭐⭐ 되돌리기는 표시와 사슬로 먼저 거른다 — manual 형제 있으면 거부 · 대상은 stock_short·preorder ∧ 같은 시각 · 형제가 또 나뉘었으면(손자) 거부 · 그 뒤 「손대지 않았다」(열린 예약만 · 풀린 이력 무시) · ⚠️ 「같은 시각」은 다른 트랜잭션일 때만 뜻이 있다 · 돌아온 줄은 옛 예약 이력을 달고 다닌다   (14-f)
+⭐  가용은 EA(so_available_many 식 한 곳 · 뷰 한 번 ~150ms) — 줄마다 so_available 을 부르지 마라(100줄 = 15초) · 세트 줄은 낱개 재고 × pack_factor(floor) · 취소는 열린 자손 전부 함께(p_keep 으로 살린다 · 그 아래도) · 미리 보기는 p_commit false(풀어야 계산되는 것은 하위 블록에서 되돌린다)   (14-c · 14-e)
+⚠️  invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501(postgres 로 재면 안 보인다) · 시험 자료를 뷰 전체에서 고르지 마라(후보 300 → 한 문장) · psql 백슬래시 줄 끝 주석 금지   (14-e · asung-workflow §4)
 ```
 
 ## 5. 이 스킬을 갱신할 때

@@ -403,7 +403,7 @@ IMS 에서는 입고 확정이 이미 우리 함수라 긁을 것도 커서도 �
 
 ### 2-h 창고 변경 — 별도 동작으로 둔다
 
-Cin7 의 Draft 복귀 방식을 따르지 않는다.
+Cin7 의 Draft 복귀 방식을 따르지 않는다.  → §14
 - 근거 셋: ① 되돌리면 손님·가격·할인·세금이 다시 계산돼 **조용히 달라질 수 있다**
   ② Draft 복귀 장치는 **다른 수정에도 남용된다**(확정의 뜻이 흐려진다 · 선례: PO 의 over 는
   reopen 거부) ③ 실무의 일은 「이 오더를 저 창고에서 보낸다」 **하나**다
@@ -420,7 +420,7 @@ Cin7 의 Draft 복귀 방식을 따르지 않는다.
 Caleb: "픽이 시작이 되면 누구도 바꿀 수 없어야 하지 않을까?"
 - 바꾸려면 **먼저 픽을 취소**한다 ⬜ WMS 롤백과 이어질 자리
 - 권한은 **manager 이상**(Caleb: "매니저나 수퍼바이저여야 하지 않을까?")
-- ⬜ 일부만 할당된 상태에서 옮길 때의 처리 — 설계 시 정한다
+- ⬜ 일부만 할당된 상태에서 옮길 때의 처리 — 설계 시 정한다  → §14
 
 ### 2-i Ship 과 Invoice 의 순서를 강제하지 않는다
 
@@ -1067,7 +1067,7 @@ hold        재고는 있지만 안 잡는다   ← 사람이 고른다
 ⚠️⚠️ **위 「재고를 보면 답이 나온다」는 `warehouse` 길의 규칙이다.** `pos` 와 `counter` 는 **실물을 이미 손에 쥔 길**이라 Confirm 이 재고 수치를 보지 않고 `allocated` 로 잡는다(Caleb 판정 2026-09-22 · 검토 이견 6 · ⬜③ 채택). 「나갔다」(POS Finish · counter)에서 음수를 허용하고 그 라인에 「재고 없이 나갔다」 표를 남겨 매니저 목록에 쌓는다(6-f). `backorder` 는 두 길에 없다.
 ⚠️ 막으면 판매 기록이 안 남아 나중에 무엇이 어긋났는지도 못 찾는다(1-f 논리 그대로). ⚠️ `counter` 는 WMS 픽 없이 재고를 내는 **두 번째 길**이다 — 6-b ③ 의 counter 오더 목록이 그것을 본다.
 
-⭐⭐ **그래서 IMS 에는 Cin7 의 undo 가 필요 없다.** Cin7 에서는 Shopify 오더가 **이미 할당된 상태로** 들어와 재고가 없는 제품이 마이너스로 잡히고, 그것을 갈라내려고 undo 로 전체를 되돌린 뒤 다시 밟고 있다(§1 청취 · Caleb 2026-09-21 · §1-i 의 창고 변경 undo 도 같은 장치다). IMS 는 확정할 때 라인마다 재고를 보고 가르므로 마이너스가 날 자리가 없다.
+⭐⭐ **그래서 IMS 에는 Cin7 의 undo 가 필요 없다.** Cin7 에서는 Shopify 오더가 **이미 할당된 상태로** 들어와 재고가 없는 제품이 마이너스로 잡히고, 그것을 갈라내려고 undo 로 전체를 되돌린 뒤 다시 밟고 있다(§1 청취 · Caleb 2026-09-21 · §1-i 의 창고 변경 undo 도 같은 장치다). IMS 는 확정할 때 라인마다 재고를 보고 가르므로 마이너스가 날 자리가 없다.  → §14
 ⇒ **대신 할당을 푸는 기능은 둔다.** 오더는 확정된 채로 두고 라인의 할당만 푼다(오더 상태는 안 건드린다). Caleb 의 두 경우가 여기 해당한다:
 ```
 · fulfillment 가 한참 뒤로 합의된 오더 → 확정하고 할당만 안 잡는다
@@ -1086,7 +1086,7 @@ hold        재고는 있지만 안 잡는다   ← 사람이 고른다
 릴리스 후    창고의 작업   — ⚠️ IMS 는 지켜보되 손대지 않는다
 ```
 
-⚠️⚠️ **되돌리기는 WMS 의 Rollback 탭 하나뿐이다.** IMS 에 되돌리는 단추를 두지 않는다.
+⚠️⚠️ **되돌리기는 WMS 의 Rollback 탭 하나뿐이다.** IMS 에 되돌리는 단추를 두지 않는다.  → §14
 ```
 매니저 전용 · 한 단계씩 최심단계만
 Undo Fulfillment → Undo Pack → Reset Pick → Undo Split        (asung-wms 규칙 14 · 2026-07-21 문구)
@@ -1186,7 +1186,7 @@ RPC       전이는 함수가 한다 — 화면은 RPC 만 부른다(so_confirm 
 Release to WMS      (이번)
 counter 오더          (이번)
 창고 변경            (§2-h · 릴리스 전에만 — 6-e)
-할당 풀기            (6-d · 릴리스 전에만)   ⬜ 권한은 미정 — 짐작으로 적지 않는다
+할당 풀기            (6-d · 릴리스 전에만)   ⬜ 권한은 미정 — 짐작으로 적지 않는다  → §14
 인보이스 취소        (이번 · Finish 전에만)
 WMS Rollback 탭      (기존 · WMS 쪽 · 규칙 14)
 ```
@@ -1197,13 +1197,13 @@ WMS Rollback 탭      (기존 · WMS 쪽 · 규칙 14)
 |---|---|---|---|
 | §2-i 425~432행 | 「Ship 과 Invoice 의 순서를 강제하지 않는다」 | **`shipped → invoiced` 고정** — ⚠️ 정정 블록을 본문 아래에 이어 적었다(유일한 본문 수정) | 6-g · Caleb 2026-09-21 |
 | §2-h 420행 | 「픽이 시작되면 누구도 바꿀 수 없다」 | 선은 **릴리스**다 — 한 칸 앞. 창고 변경도 릴리스 전에만 | 6-e · Caleb 「이미 WMS 로 넘어갔다면 WMS 의 일」 |
-| §1-i 청취 · §2-h | Cin7 의 undo(Draft 복귀) | IMS 에 undo 없음 — **할당만 푼다**(오더 상태 무접촉) | 6-d |
+| §1-i 청취 · §2-h | Cin7 의 undo(Draft 복귀) | IMS 에 undo 없음 — **할당만 푼다**(오더 상태 무접촉) | 6-d |  → §14
 | 5-d `channel` | 「창고 경유 · POS **둘** · ⬜ Shopify 는 연동 때」 | **셋** — `warehouse` · `pos` · `counter`(새 길 · 처음 이름 `direct` → 09-22 `counter`). Shopify 는 `channel` 이 아니라 **새 칸 `intake`**(manual · shopify · csv · pos · 처음 이름 `source` → 09-22 ③′ `intake`)에 담는다 — 칸 하나가 는다. 5-d 본문은 고치지 않았다 · CHECK 어휘라는 것은 그대로 | 6-b · Caleb 2026-09-22 ⬜① |
 | 5-d · 5-j | 「`so.status` 어휘는 ② 에서」 | **열**로 채웠다(6-a · 09-22 판정: `released`→`at_wms` · `closed` 없음 · `cancelled` 추가) · `closed_reason` 과 가른 것은 그대로 | 6-a |
 | 5-d · 5-g | 「`closed_reason` 은 fulfilled · expired · superseded 셋」 | **`fulfilled` 가 빠진다** — 끝 상태가 `fulfilled`·`cancelled` 둘이고 `closed_reason` 은 `cancelled` 에만 선다(expired · superseded · voided · 그 밖은 ④). 5-d·5-g 본문은 고치지 않았다 | 6-a · Caleb 2026-09-22 |
 | §1-n 청취 | 「인보이스 선발행은 결제를 받은 뒤에만」(현행 실무) | 순서 고정은 유지 · 그 결제는 **인보이스가 아니라 선수금**으로 담는다(`packed` 상태와 맞물림) · 발행물은 ④ | 6-g · Caleb 2026-09-22 |
 | 6-b(이 절 안) | 유입 칸 이름 `source` | **`intake`** 로 바꿨다(2026-09-22 ③′) — IMS 관례(`source` = 어느 시스템이 만들었나)와 충돌 · 코드 0줄이라 지금이 가장 싸다 | 6-b · 7-b · Caleb ⬜④ |
-| §3-c 504행 | 「픽 취소와 WMS 롤백의 관계」 | ✅ **닫는다** — IMS 는 되돌리지 않는다 · WMS Rollback 하나 · 접점은 사건 | 6-e |
+| §3-c 504행 | 「픽 취소와 WMS 롤백의 관계」 | ✅ **닫는다** — IMS 는 되돌리지 않는다 · WMS Rollback 하나 · 접점은 사건 | 6-e |  → §14
 | §3-c 505행 | 「수요 표의 구조」 | ✅ 5-g 에서 이미 닫혔다 — 5-h 표에는 있었고 §3-c 줄에 ✅ 가 빠져 있어 이번에 표시 | 5-g |
 
 §3-c 여덟 중 이번에 ✅ 표시한 것 **둘**(픽 취소·WMS 롤백 · 수요 표). 5-h 의 셋과 합쳐 ~~**다섯**~~ → **넷**이 닫혔다(⚠️ **2026-09-22 정정** — 수요 표를 5-h 와 6-i 에서 두 번 셌다 · 사슬 · 수요 표 · 손님 계층 · 픽 취소와 WMS 롤백). 남은 것 **넷**(5-h 「남은 것 다섯」에서 롤백을 뺀 수): 가용 재고 계산/저장 · 일부 할당 상태의 창고 이동 · 브랜치 토글 자리 · 메일 템플릿·자동 발송.
@@ -2308,7 +2308,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 ### 12-a 순서 · 범위 (✅ Caleb 2026-09-23)
 
 ```
-쓰기 차수 다섯 + 할인   ① 초안(이 절) → 할인 규칙 차수(Cin7 Product Discounts · Deals) → ② 확정·할당 → ③ 출고(so_out · 백오더 형제) → ④ POS·counter·병합 → ⑤ Release to WMS · WMS 사건
+쓰기 차수 다섯 + 할인   ① 초안(이 절) → 할인 규칙 차수(Cin7 Product Discounts · Deals) → ② 확정·할당 → ③ 출고(so_out · 백오더 형제) → ④ POS·counter·병합 → ⑤ Release to WMS · WMS 사건  → §14 R10(순서 고침)
 근거                    차수마다 앞 차수 결과로 시험한다 · 다른 모듈(원장 · WMS)을 건드리는 일이 뒤로 모인다
 ①a 바탕                 A 권한 sales · B 표 보정 · C 문지기 · D so_price_for · so_line_total · so_customer_is_company · so_copy_customer
 ①b 창구 열 개           so_create · so_header_update · so_line_add · so_lines_paste · so_line_update · so_line_remove · so_charge_set · so_charge_remove · so_delete · so_detail(읽기)
@@ -2470,7 +2470,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 ### 12-h ⬜ 남는 것
 
 ```
-확정·할당(②) — so_status_guard v_ok 에 draft→confirmed 등 짝 · 가용 재고 함수 · so_reserve 창구 · 가격 없는 줄(unit_price null) 확정 거부
+확정·할당(②) — so_status_guard v_ok 에 draft→confirmed 등 짝 · 가용 재고 함수 · so_reserve 창구 · 가격 없는 줄(unit_price null) 확정 거부  → §14
 할인 규칙 차수 — Cin7 Product Discounts · Deals → so_line_quote 의 d 한 줄(greatest) · 사람이 줄 할인을 고칠 수 있다(지금도 so_line_update discount_pct)  → §13
 Shopify 연동 차수 — 스토어 설정의 티어(aonebeauty.com → AONE · asung.ca → Wholesale)로 오더를 받는다 · 경고 ④ 가 뜬 오더를 매니저 목록에 · 스토어 칸 낱말은 channel 이 아니다(판정 B ⚠️)
 전환 전 손님 티어 정리 — 판매 이력의 문서 티어로 「기본 Wholesale · 실제 AONE」 명단(먼저 확인: 판매 데이터에 문서 티어 칸이 적재돼 있는가 — BQ·Cin7 쪽)
@@ -2661,4 +2661,143 @@ so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음
 케이스(case) 모드 줄 — 미리 보기 화면 뒤에(D3) · 딜·태그 편집 창구 · 미리 보기 — 화면 차수 · 딜 표는 지금 master RLS 로만 쓴다
 so_header_update 의 reprice 표시에 discount_pct(손님 기본 할인)도 넣었다(판정문은 order_date · price_tier) — 빼려면 한 줄
 asung-so description 에서 뺀 키워드 so_out · credit_in · so_invoice · so_payment_alloc · so_credit_alloc(D · 2026-09-23 · 1024자 한도) — 그 차수(인보이스 · 원장 접점)에서 다시 넣는다 · IsBillParent·DefaultForType·job_title·CustomerProbe 는 정본 9-g~9-i 가 갖는다
+```
+
+## §14 SO 쓰기 ② — 확정과 할당 · 백오더/프리오더 나누기 · 보류 · 취소 · 창고 바꾸기 · 백오더 진행 · 오더 나누기 · 확정 되돌리기 (2026-09-23 · 지시서 `~/asung/prompts/so-write-2-confirm.md` · 검토 이견은 회신에 · ②a·②b 한 번에)
+
+### 14-a 판정 R1~R10 (✅ Caleb 2026-09-23 · 집 · 말 그대로)
+
+```
+R1  확정할 때 모자란 몫은 늘 나눈다(묻지 않는다) — 「당연히 바로 백오더로 나눠야 하지 않나?」
+    충분 → 할당 · 일부 → 있는 만큼 할당 + 모자란 몫은 백오더 형제 · 없음 → 원래 자신이 백오더(14-b 이견 1) · 원래 오더는 늘 「전부 할당된 줄만」(또는 통째로 hold·백오더·프리오더) · 백오더 형제는 할당 없음 · 물건이 들어와도 자동으로 잡지 않는다(2-f)
+    ⇒ 분할(접미어)이 ③ 이 아니라 여기서 선다 · 3-c 「일부만 할당된 상태의 창고 이동」은 거의 사라졌다
+R2  프리오더 줄도 떼어 낸다 — 「백오더처럼 떼어내야지, 그러나 프리오더는 백오더와 섞이면 뭐가 뭔지 알 수 없으니 표시 할 수 있으면 좋겠어」 · 「프리오더라면 할당을 풀 필요가 없을것 같아」
+    ⇒ split_reason 'preorder' · 줄은 so_reserve.kind preorder · 처음부터 잡지 않는다 · 한 번의 확정으로 셋까지(원래 · a 백오더 · b 프리오더)
+R3  보류 · 할당 풀기 = manager 이상(「보류와 할당 풀기는 매니저로 올리자」) · 풀어도 줄은 남긴다(released_at/by · 5-f) · ⭐ 보류는 늘 오더 전체 — 「보류는 특정 제품에만 한한 경우는 없어」(14-b 이견 2 고침)
+R4  확정 뒤 취소 = manager 이상 · 이유 필수(closed_note) · 잡아 둔 재고는 모두 풀린다 · 확정 전은 지운다(so_delete) · ⭐ 취소는 형제도 함께 — 「가가 맞지 않나?」(14-c)
+R5  확정 = manager 이상(「판정 5도 매니저 이상만」) ⇒ 역할 선: 오더 담당(sales) = 초안까지 · 매니저 이상 = 확정부터(확정 · 보류 · 풀기 · 취소 · 창고 바꾸기 · 백오더 진행 · 나누기 · Release · counter · 인보이스 취소)
+R6  확정을 막는 조건: 가격 없는 줄(§12 판정 2) · 창고 없음/비활성(IN_TRANSIT 포함) · 비활성 제품 줄 · 비활성 손님 · 줄 없음 · pos·counter 채널(④) · 막지 않고 경고: 티어·통화 어긋남 · reprice_suggested · deal_ended_before_line_added
+    ⬜ credit hold · credit limit — 「지금은 잘 안쓰고 있어」 · 손님 칸도 아직 없다 · 인보이스 차수(8-e)
+R7  창고 바꾸기(릴리스 전 · manager 이상 · 2-h) — 확정과 같은 규칙: 새 창고에서 잡을 수 있는 만큼 잡고 모자란 몫은 백오더 형제(stock_short) · 바꾸기 전에 미리 보기(같은 창구의 p_commit false)
+R8  백오더 진행(1-f 뒤쪽 · 「백오더에서 1개의 sku만 스플릿 해서 진행」) — manager 이상 · 잡을 수 있는 줄은 할당해 그 오더가 진행 · 못 잡은 줄은 새 백오더 형제(다음 글자)
+R9  ⭐ 확정 되돌리기 — supervisor 이상(「수퍼바이저 이상으로 하자」)
+    「이런경우는 흔치는 않지만 … 실무적으로 발생확률이 낮다고 볼수도 없어. 난 이 경우에는 백오더로 스플릿 되기 이전으로 롤백이 가능했으면 좋겠어」
+    경우: 에드먼튼 확정 → 백오더 a → Release → 손님이 토론토로 원함 → WMS 롤백 → 창고를 바꾸면 형제가 흩어진다(토론토에서도 모자라면 b 가 또 생긴다)
+    하는 일: 그 확정 때 떨어져 나간 형제(백오더 · 프리오더)를 원래 오더로 도로 합친다 · 잡아 둔 재고를 모두 푼다 · 원래 오더를 draft 로 · 줄 가격·할인·손님 값은 그대로(다시 매기기는 so_reprice · §13 판정 3)
+    조건: supervisor 이상 · 원래와 형제가 모두 IMS 안(창고로 갔으면 먼저 WMS 롤백) · 형제가 떨어져 나간 뒤 손대지 않았다 · 사람이 나눈 형제(manual)가 없다 · 형제가 또 나뉘지 않았다(14-f)
+    기록: unconfirmed_at/by · 합쳐진 형제는 지우지 않고 cancelled + closed_reason 'merged' + merged_into_id + closed_note 「Unconfirmed with SO-…」 · 글자는 다시 쓰지 않는다(다음 확정은 다음 글자)
+    ⇒ 2-h · 6-d 의 「Cin7 undo(Draft 복귀)를 두지 않는다」를 이 조건으로 뒤집는다(14-g)
+R10 쓰기 차수 순서 고침 — ② → ③ 출고 → 인보이스·결제·크레딧(§8) → ④ POS·counter·병합 → ⑤ Release to WMS(「니가 제안하는 순서대로 가자」 · ④ POS Finish 가 인보이스를 발행한다 6-f)
+추가  오더 나누기(사람) — 「오더 나누기는 스탁이 있음에도 불구하고, 나눠서 받기를 원할 경우에 그렇게 해줄 수 있기위해서도 필요해. 2에 넣어야 하지 않을까?」 ⇒ ②b so_divide · split_reason 'manual' · 쓰임 둘(특정 제품만 나중에 = 떼어 낸 쪽을 so_hold · 재고가 있어도 나눠 받기)
+📌 이미 정해진 것(다시 묻지 않는다): 할당은 원장 밖 · 창고 단위 · bin 칸 없음(2-d · 5-f) · 가용 = 창고 잔고 − Σ 안 풀린 allocated(5-f) · 한 라인 열린 예약 하나(생성 칸 + 전체 유니크 · 풀고 → 걸기) · 원래 번호는 남고 갈라져 나온 것만 소문자 한 글자 · 최대 24 · 계보는 split_from_id · 머리 통째 복사 · order_date 도 모체의 것 · 릴리스 뒤는 WMS(6-e) · 창구만(§12 판정 5) · 「오늘」은 ims_today()
+```
+
+### 14-b 검토 이견 14 · ⬜1~⬜8 결론 (✅ Caleb 2026-09-23 · 2 는 고침)
+
+```
+이견 1 ✅ 빈 원본을 만들지 않는다 — 전부 백오더면 원래 자신이 백오더 · 전부 프리오더면 원래가 프리오더 · 백오더+프리오더(할당 0)면 원래 = 백오더 · a = 프리오더
+        「모든 물건이 없는 것은 당연히 백오더나 프리오더로 나뉘지 않고 그 자체가 백오더나 프리오더가 되어야 하는것에 동의해」 ⇒ 가장 앞선 무리(할당 > 백오더 > 프리오더)가 원래 번호를 지킨다
+이견 2 ✗ 고침 — 줄 단위 보류 없음 · so_hold(so_id) 는 오더 전체 · so_confirm(…, p_hold) 「처음부터 보류로 확정」(재고 안 잡고 나누지 않는다) · so_reallocate(so_id) 가 풀고 엔진으로 다시 잡는다(이때 처음 나뉠 수 있다)
+        ⚠️ 대화 Claude 가 든 「B 만 다음 달에」는 정본에 없는 이야기 — 그 경우는 오더 나누기(so_divide)로
+이견 3 ✅ 보류 = 할당 풀기(창구 하나 so_hold · 「release」 낱말 0 — 6-a 가 at_wms 로 바꾼 이유)
+이견 4 ✅ 형제는 draft 로 insert → 같은 트랜잭션에서 confirmed(문지기 예외 없음 · draft→confirmed 짝 하나로) ⇒ 형제의 created_at = updated_at = 원래 confirmed_at(⬜7 의 재료)
+이견 5 ✅ so.closed_note(취소 이유 문장 · closed_reason 은 어휘 넷 그대로) · 이견 6 ✅ so_line.split_from_line_id(일부만 갈라진 줄의 계보 · 되돌리기의 정확한 합침)
+이견 7 ✅ 되돌린 뒤의 draft 는 예약 이력이 있어 지울 수 없다 — so_delete 문장 「cancel it instead」 + 문지기 draft→cancelled 짝
+이견 8 ✅ R7 의 모자란 몫은 split_reason 'stock_short' — 'warehouse' 는 아직 만드는 길이 없어 비어 있다 · 이견 9 ✅ 엔진 하나 so_allocate_run(확정 · 재할당 · 창고 바꾸기 · 백오더 진행이 부른다)
+이견 10 ✅ 단위 — ims_inv_balance.qty 는 낱개(EA) · bin 별 행 · so_reserve.qty_allocated 는 판매 단위 ⇒ 가용은 EA · 잡는 수량 = floor(가용_EA/pack_factor) · 0 이면 통째로 백오더 · 음수 잔고는 0
+이견 11 ✅ IN_TRANSIT 은 ref_warehouse 행(is_active=false) — 비활성 창고 거부에 걸린다 · 이견 12 ✅ pos·counter 는 ④ · 이견 13 ✅ 6-e 와 R9 는 부딪히지 않는다(6-e 는 릴리스 뒤) · 이견 14 ✅ ims_inv_balance 는 함수가 아니라 뷰(창고 이름 텍스트 조인 ⬜)
+⬜1 창구 — 읽기 so_available · so_family_members · so_family_lines · 속 so_require_role · so_split · so_allocate_run · so_available_many · 창구 so_confirm · so_unconfirm(②a) · so_hold · so_reallocate · so_cancel · so_change_location · so_backorder_proceed · so_divide(②b) · 「release」 0
+⬜2 권한 — 둘 다(ims_require_write('sales') + so_require_role) · ⚠️ ims_can_write 는 admin·supervisor 를 perms 와 무관하게 통과 · manager 는 perms 에 sales 가 있어야(sales 열쇠 없는 manager 는 막힌다 — 맞는 선) · worker 는 sales 가 있어도 순위에서 막힌다
+⬜3 문지기 짝 넷 — draft→confirmed · confirmed→draft · confirmed→cancelled · draft→cancelled(③~⑤ 가 더한다)
+⬜4 가용 — 매번 계산 · 잠금 순서 (창고, 낱개 제품) 오름차순 'so_avail:' + 줄마다 'so_reserve:' + 분할 채번 'so:'||base · 잠금 뒤 한 번 읽는다(so_available_many 한 문장)
+⬜5 ✗ (이견 2 고침으로 대체) · ⬜6 분할 세부 — 원래 줄 줄이고 형제에 새 줄(line_no 1부터 · split_from_line_id) · 굳힌 값 전부 복사 · 운임은 원래에 · 오더 전체 할인·reprice_suggested_at 복사 · confirmed_at/by 물려받음
+⬜7 「손대지 않았다」 = 형제·줄·열린 예약의 updated_at = 형제 created_at(한 트랜잭션 now() 같음) · ⚠️ 14-f 로 보강(표시와 사슬 먼저) · ⬜8 둘로 나눔(②a 확정·되돌리기 / ②b 나머지)
+```
+
+### 14-c 창구 열넷 · 규칙 (파일 주석이 정본 · 여기는 요약)
+
+```
+so_confirm(so, p_preorder_line_ids, p_hold, p_commit)   manager · draft · warehouse 채널 · R6 · 엔진 → 원래(할당) · a(백오더 stock_short) · b(프리오더) · p_hold 면 전부 hold · p_commit false 미리 보기
+so_unconfirm(so)                                         supervisor · confirmed · 14-f 조건 · 예약 전부 풀기 · 형제 줄 도로(통째 = 행 이동 · 일부 = split_from_line_id 줄에 수량) · 형제 cancelled·merged · 원래 draft · unconfirmed_at/by
+so_hold(so) · so_reallocate(so)                          manager · confirmed · 오더 전체 · 풀고 hold / hold 풀고 엔진(모자라면 나뉜다 · 미리 보기 없음)
+so_cancel(so, p_note, p_keep, p_commit)                  manager · draft·confirmed · note 필수 → closed_note · voided · 예약 전부 풀기 · ⭐ 열린 자손 전부 함께(같은 note) · p_keep = 살릴 형제(뺄 목록 · 그 아래도 산다) · 창고로 간 자손은 무접촉 + 경고 · 미리 보기
+so_change_location(so, location, p_commit)               manager · confirmed · 활성 창고 · 할당 있으면 전부 풀고 새 창고에서 엔진(모자란 몫 stock_short) · hold·백오더·프리오더 오더는 창고 칸만 · 미리 보기(하위 블록에서 풀고 엔진 돌린 뒤 되돌린다 — 식 한 곳)
+so_backorder_proceed(so, p_commit)                       manager · confirmed · 열린 backorder(·preorder) 풀고 엔진 · 못 잡은 줄은 다음 글자 · 미리 보기 같은 방법
+so_divide(so, p_moves, p_commit)                         manager · draft·confirmed · [{line_id, qty}] · manual · 형제는 원래와 같은 상태 · confirmed 면 예약이 같은 kind 로 따라간다(줄째 = 행과 함께 · 일부 = 풀고 다시) · 엔진 안 거침 · 전부 떼기 거부
+so_available(product, location) → EA · so_available_many(pids[], location)(⭐ 식 한 곳 · 뷰 한 번 · authenticated) · so_family_members · so_family_lines(합계는 cancelled 문서 제외 · fragments 전부)
+so_detail 재발행 — family · 줄마다 reserve_kind·qty · available_ea(so_available_many 한 번 — 줄마다 부르지 않는다 · 100줄 = 15초) · so_delete 문장 「cancel it instead」
+칸 — so.split_reason CHECK 넷(stock_short · warehouse(비어 있다) · preorder · manual) · so.closed_note · so.unconfirmed_at/by · so_line.split_from_line_id · so_status_guard 짝 넷
+```
+
+### 14-d 내가 정한 것(Claude Code · Caleb 받음)
+
+```
+②a  형제 줄 행은 되돌리기 뒤에도 남는다(so_reserve FK · 일부 줄은 원래에 수량만 더한다 · so_family_lines 합계는 cancelled 제외) · 되돌리기 대상 형제 = created_at = 원래 confirmed_at(→ 14-f 로 보강) · hold ∧ preorder 동시 거부 · 오더 밖 프리오더 줄 거부 ·
+     같은 낱개 제품 두 줄이면 앞 줄이 먼저 잡는다 · 예약 allocated_by: allocated·backorder = system(null) · preorder·hold = 사람 · 미리 보기도 advisory lock 을 잡는다(트랜잭션 끝까지)
+②b  미리 보기의 방법(창고 바꾸기 · 백오더 진행) = 하위 블록에서 실제로 풀고 엔진(commit false)을 돌린 뒤 errcode P0777 로 되돌리고 sqlerrm::jsonb 로 받는다(할인 식처럼 할당 규칙도 엔진 한 곳) ·
+     hold·백오더·프리오더 오더의 창고 바꾸기는 창고 칸만 · so_backorder_proceed 는 preorder 줄도 같은 길 · so_cancel 의 살릴 목록은 p_keep(뺄 목록 · 그 아래도 산다 · 자기 자신 금지) · so_reallocate 는 (so_id) 하나 · so_divide 는 같은 상태로 낳고 같은 줄 두 번 거부
+```
+
+### 14-e ⭐ 결함 넷과 고친 파일 (실측 그대로 · Caleb 2026-09-23 집)
+
+```
+① 검증 1) 이 제품마다 ims_inv_balance 를 다시 계산(상관 서브쿼리 × 후보) → statement timeout 2분 · so_available 한 번은 16 · 194.8ms / 23 · 167.6ms
+   ⇒ 20260924015859_so_confirm_fast.sql — so_available_many(pids[], wh) 식 한 곳(뷰 한 번) · so_available · so_allocate_run 이 이것을 부른다(잠금 뒤 한 문장) · 검증은 후보 300 → 한 문장(cand 300 · plenty 248 · partial 36 · zero 16)
+② 화면용 so_available(invoker · 직원 실행)이 revoke 된 속 함수 so_available_many 를 불러 42501 — postgres 로 잰 \timing 에서는 안 드러났다 · 가짜 직원 신원에서 처음
+   ⇒ 20260924020852_so_available_grant.sql — grant execute to authenticated(읽기 계산 · definer 로 바꾸지 않는다) · 같은 모양 점검: 이것 하나(so_family_lines → so_family_members 는 둘 다 authenticated)
+③ 두 번째 되돌리기가 늘 거부됐다 — 첫 되돌리기에서 merged 로 닫힌 a·b 가 검사에 다시 걸림(「is cancelled」) → 20260924021413 닫힌 형제 무시 ·
+   그 뒤 「SO-25000c was changed after the split」(c 는 아무도 안 고쳤다) — 첫 되돌리기에서 C 줄이 a → 원래로 줄째 돌아오며 a 시절 풀린 예약을 달고 왔고 다시 확정에서 c 로 가자 옛 풀림 이력에 걸림
+   ⇒ 20260924021759 「손대지 않았다」 검사는 열린 예약만(풀린 이력 무시)
+④ 사람이 나눈 형제(manual)가 있는데 되돌리기가 통과 — 한 트랜잭션이라 so_divide 로 난 형제의 created_at 이 confirmed_at 과 같아 「확정 때 태어난 형제」로 보고 합쳤다
+   ⇒ 20260924023740 표시와 사슬로 먼저 거른다(14-f)
+시험 실수(정본이 아니라 검증 파일): psql 백슬래시 명령 줄 끝의 「--」 주석을 인자로 읽는다(invalid variable name "--pb") · 임시 표는 authenticated 구간에서 못 읽는다 · current_setting 이름 누락 · 조인 위 so_number 겹침
+```
+
+### 14-f ⭐ 되돌리기 판정 — 표시와 사슬 먼저 · 「같은 시각」은 그 뒤
+
+```
+1  열린 자식 중 split_reason = 'manual' 이 하나라도 있으면 거부 「has a hand-made split order (…) — cancel or merge it first」
+2  대상 = 열린 자식 중 split_reason in (stock_short, preorder) ∧ created_at = 원래 confirmed_at(그 확정 때 태어났다) · 닫힌 자식(앞선 되돌리기로 merged · 취소)은 무시
+3  대상 형제가 또 나뉘었으면(손자 · 백오더 진행·창고 바꾸기가 낳은 것) 사슬로 거부 「has itself been split again (…)」 — 시각 아님
+4  그 뒤 「손대지 않았다」 = 형제·줄·열린 예약의 updated_at = 형제 created_at ∧ 운임 0 · 확정 뒤 다른 시각에 난 자식이 있으면 「split again after confirmation」
+⭐ 사실  「같은 시각」 판정은 나누기와 고치기가 다른 트랜잭션일 때만 뜻이 있다 — 한 트랜잭션 안에서는 now() 가 같다 · 그래서 표시(split_reason)와 사슬(split_from_id)로 먼저 거른다 · 한 창구 안에서 「나누고 바로 고치는」 길이 생기면 이 판정이 무너진다(지금 없다 · so_divide 는 만들기만)
+⭐ 사실  돌아온 줄은 옛 예약 이력을 달고 다닌다(줄째 이동은 행이 그대로) — 예약을 보는 검사는 열린 것만 · 형제 줄 행은 지우지 않는다(so_reserve FK · 이력)
+```
+
+### 14-g 뒤집은 것 · 닫은 것 · 기각된 안
+
+```
+2-h(406 · 408)   「Cin7 의 Draft 복귀 방식을 따르지 않는다 · 근거 셋」 → R9 조건부 되돌리기 — ①(되돌리면 가격이 다시 계산된다)은 IMS 에서 안 일어난다(넣는 순간 굳힌다) · ③(실무의 일은 창고 변경 하나)은 R9 의 경우가 반례 · ②(남용)는 조건(supervisor · IMS 안 · 손대지 않음 · manual 없음)으로 막는다
+6-d(1070)        「IMS 에는 Cin7 의 undo 가 필요 없다」 → 같은 뒤집기 · 「할당만 푼다」는 so_hold 로 남는다(오더 상태 무접촉)
+6-e(1089)        「되돌리기는 WMS 의 Rollback 탭 하나뿐 · IMS 에 되돌리는 단추를 두지 않는다」 → 조건 추가: 릴리스 뒤 한정 · 릴리스 전 IMS 안에서는 so_unconfirm(R9) — 부딪히지 않는다
+6-h(1189)        할당 풀기 권한 ⬜ → ✅ manager 이상(R3) · 6-i 표(1200 · 1206)도 같은 뒤집기
+12-a 쓰기 순서   ② → ③ → ④ → ⑤ → 인보이스 → R10 순서로(② → ③ 출고 → 인보이스·결제·크레딧 → ④ → ⑤) · 12-h 「확정·할당(②)」 → ✅
+2-h ⬜(423)      「일부만 할당된 상태에서 옮길 때」 → R1 로 거의 사라졌다(원래는 늘 전부 할당 · 창고 바꾸기는 풀고 다시 잡는다)
+기각된 안        대화 Claude 의 「한 뭉치 · 한 창고에 열린 백오더는 하나 · 창고 바꾸기가 뭉치 전체를 함께」 — R9(되돌리기)로 필요 없어졌다 · 이력으로만
+```
+
+### 14-h 파일 · 검증 실측 (✅ Caleb 2026-09-23 · 테스트 DB Asung-IMS · PostgreSQL 17.6)
+
+```
+②a  20260924014219_so_confirm.sql        636행  칸 넷 · 문지기 짝 넷 · so_require_role · so_available · so_split · so_allocate_run · so_family_members/lines · so_confirm · so_unconfirm
+    20260924015859_so_confirm_fast.sql   210행  so_available_many(식 한 곳) · so_available·so_allocate_run 재발행(잠금 뒤 한 문장)
+    20260924020852_so_available_grant.sql 12행  grant execute to authenticated
+    20260924021413_so_unconfirm_fix.sql   98행  닫힌 형제 무시 · 20260924021759_so_unconfirm_fix2.sql 100행 열린 예약만
+    검증 ~/asung/prompts/so-write-2a-verify.sql — 확정 셋(원래 A 5·B 1 allocated · a B 3 partial·C 2 backorder · b D 1 preorder) · 가용 2599→2594 · 1→0 · 전부 없음 = 원래가 백오더 · p_hold 전부 hold · 세트 floor(BEL43475-12 150EA → 12세트 · 988 백오더) ·
+         되돌리기 manager 거부 · supervisor 통과 · 두 번째 되돌리기 통과(a~d merged) · 세 번째 확정 e·f · e 손댐(updated_at 명시로 뒤로) → 거부 · 거부 일곱 · 문지기 · 흔적 0 · 25000 · f
+    서버 안 시간: so_available 155~190ms(대부분 ims_inv_balance) · 30줄 so_confirm 미리 보기 232ms
+②b  20260924022449_so_hold_cancel.sql    420행  so_hold · so_reallocate · so_cancel · so_change_location · so_backorder_proceed · so_divide · so_detail·so_delete 재발행
+    20260924023740_so_unconfirm_fix3.sql 105행  표시와 사슬로(14-f)
+    검증 ~/asung/prompts/so-write-2b-verify.sql — 보류(가용 돌아옴)·다시 잡기 · 창고 바꾸기(미리 보기 반영 0 · 에드먼튼 전부 잡힘 · 같은 창고·IN_TRANSIT 거부) · 백오더 진행(B 1 partial · 나머지 b) · UC2 손자 거부(사슬) ·
+         나누기 confirmed(예약 따라감 · W2 가용 불변) · draft(형제 draft manual) · manual 형제 있으면 되돌리기 거부 · 전부 떼기 거부 · 취소 미리 보기 셋 · a 살리고 1건 voided · 빈 note 거부 ·
+         이력 있는 draft 지우기 거부 → so_cancel · so_detail family·reserve·available_ea · worker 여섯 거부 · 문지기 · 흔적 0 · 25000 · f · ②a 재검증(fix3 뒤) 6)·7) 그대로 통과
+```
+
+### 14-i ⬜ 남는 것
+
+```
+credit hold · credit limit(R6 · 손님 칸 없음 · 인보이스 차수 8-e) · 보류 오더의 Release(⑤ — hold 인 채 창고로 보낼 수 있나) · split_reason 'warehouse' 는 비어 있다(한 오더를 두 창고에서 — 만드는 길 없음)
+ims_inv_balance 의 창고 조인이 ref_warehouse.name 텍스트(이름이 바뀌면 끊긴다 · 원장 정본) · 담아 두기(물질화 · 3-c)는 미리 보기가 1초를 넘거나 원장이 몇 배가 될 때 · 화면이 줄마다 so_available 을 묻지 않게(so_detail 의 available_ea 를 쓴다)
+so_reallocate 미리 보기 없음(풀어야 계산된다 — 필요하면 하위 블록 방식) · so_unconfirm 뒤 형제 줄 행이 남는다(합계는 cancelled 제외 · 화면이 「합쳐진 형제」를 어떻게 보이나) · ③ 출고 · R10 순서(인보이스가 ④ 앞)
+asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더함 · 1014자) — 다음 키워드는 먼저 뺄 것을 정한다
 ```
