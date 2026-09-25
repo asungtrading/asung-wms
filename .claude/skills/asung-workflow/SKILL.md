@@ -155,6 +155,9 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **bash 에서 `grep $'\x00'` 은 빈 글자가 된다** — 널 바이트 검사는 `file <파일>` 또는 `grep -cP '\x00'` 로(2026-09-24 · Caleb 실측)
 ⚠️ **RAISE 의 글자 % 는 %% — 형식 문자열의 % 자리 수와 넘기는 값 수를 주기 전에 센다** — 「50% COD & 50% N30」 같은 문구가 자리표시로 읽혀 do 블록 전체가 「too few parameters specified for RAISE」로 안 돈다(2026-09-24 ⓑ1 검증 v1 · 204행) ⇒ 토크나이저 검사에 RAISE 항목(`$$` 본문의 raise 마다 %(%% 제외) 수 = 값 수)을 더했다 — 마이그레이션(적용이 통과했으니 0)과 검증 파일 둘 다 돌린다
 ⚠️ **BEFORE 트리거(문지기)는 CHECK 보다 먼저 막는다** — CHECK 만 시험하려면 `session_replication_role = replica` 로 문지기를 끄고, 그때도 다른 CHECK(closed_at 짝 등)를 함께 어기지 않는 자료로(2026-09-24 ⓑ2 T8a · invoiced 로 바꾸며 closed_at 을 남겨 so_closed_at_ck 가 먼저 걸렸다)
+⚠️ **번호 시퀀스는 pg_sequences 가 아니라 시퀀스를 직접 읽는다** — pg_sequences.last_value 는 미리 당긴 값을 보이고 is_called 를 `last_value is not null` 로 짐작하면 틀린다 ⇒ `select last_value, is_called from public.<seq>` · 시험 적용이 만드는 시퀀스만 `to_regclass` + `\if` 로 가른다(2026-09-25 ⓒ1 2차 — setval 이 25001·60001 로 밀렸고 Claude Code 가 기준값으로 되돌렸다 · 전후 원문을 보고에)
+⚠️ **시험 적용이 만든 객체를 참조하는 문장은 `\if :{?mig}` 로 가른다** — rollback 뒤 그 표·시퀀스는 없어 파싱에서 죽는다(`relation "public.so_credit" does not exist` · 2026-09-25 ⓒ1 2차 끝 setval) · 확인 실행(-v mig 없음)에서는 반대로 있어야 한다 — 두 갈래를 다 적는다
+⚠️ **훑기가 지시 목록 밖의 함수를 찾으면 재발행하고 이유를 보고한다** — ⓒ2 so_payment_void(환불 취소가 크레딧 몫을 함께 풀지 않으면 크레딧이 사라진 채 돈만 돌아온다) · so_invoice_remaining · so_detail 이 목록 밖이었다(2026-09-25) · 「지시서에 없어서 안 고쳤다」는 답이 아니다
 ```
 
 ---
@@ -188,6 +191,7 @@ EOF
 ⚠️ **시험 예상은 앞 절이 남긴 상태를 따라가라** — 6) 에서 떼고 취소한 손 결제가 일반 잔액이 되어 뒤 절의 재발행 때 자동으로 쓰였는데 예상이 그것을 빠뜨렸다(2026-09-24 ⓑ2 T6i · DB 가 맞았다) ⇒ 절마다 「이 절이 끝난 뒤 잔액·상태」를 한 줄 적고 다음 절 예상은 그 줄에서 시작한다
 ⚠️ **한 트랜잭션 안의 같은 날 결제는 순서가 id 로 갈린다** — paid_on·created_at 이 같아 `order by paid_on, created_at, id` 가 uuid 로 떨어진다(운영에선 요청마다 created_at 이 다르다) ⇒ 순서를 못 박지 말고 집합·합으로 판정하거나 paid_on 을 달리 준다(2026-09-24 ⓑ2 T6i)
 ⚠️ **검증 결과는 파일로 받아 OK 수와 MISMATCH 를 센다** — `psql … -f <검증> 2>&1 | tee /tmp/<이름>.out` 뒤 `grep -c 'OK '` · `grep -n 'MISMATCH\|ERROR'` · 기대 OK 수를 검증 파일 머리에 적어 둔다(2026-09-24 ⓑ1 100 · ⓑ2 54)
+⚠️ **시험 적용 장치의 첫 실물(2026-09-25 ⓒ1 3회 · ⓒ2 2회)에서 걸린 것은 셋 다 검증 파일 쪽이었다** — 임시 표 스키마 접두(마이그레이션 결함 · 시험 적용이 잡았다) · 시퀀스 읽는 법 · 셈 실수(CHECK 수 · 인보이스 장수) ⇒ 예상 개수는 손으로 세지 말고 `pg_constraint`·`count(*)` 로 파일 안에서 뽑아 비교한다 · 기대 OK 수는 통과한 실행에서 받아 머리에 적는다
 ```
 
 ---

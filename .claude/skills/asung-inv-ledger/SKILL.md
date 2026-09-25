@@ -1685,6 +1685,11 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
     애초에 들어오지 않는다([실측] 12문서 18행 전부 `rule='restock line'` · `RestockDate` 존재).
     ⇒ 원가 설계에서 다룰 것이 없다. ⚠️ `RestockLocationID` 가 빈 경우가 있다(`CR-00575` · `CR-00583`) —
     레이어가 창고 단위라 무해하다
+  · ⭐ **IMS 축 `credit_in` 이 섰다**(2026-09-25 · `20260925012354` · so-module §19) — 실시간 `inv_post_credit` → `inv_layer_post_credit`
+    (갈래 ① 원 판매 소비 복원 → ② 가중평균 → ③ 최근 원가 → ④ unknown · hint) · 재생성은 `inv_layer_apply_credit_ims`(inv_layer_apply 가
+    source 로 가른다 · Cin7 축은 `inv_layer_apply_credit` 그대로) · 되짚기 열쇠는 두 축 다 **오더 번호**(SO-…) · 취소 = 반대 `credit_in`(:reversal) + reason reversal 소진
+  · ⚠️ **`inv_layer_apply_done` 은 `inv_layer_apply` 가 만드는 임시 표다 — 보조 함수에서 `public.` 접두를 붙이지 마라**
+    (2026-09-25 실사고 · ⓒ1 시험 적용 1차가 「relation public.inv_layer_apply_done does not exist」 로 멈췄다 · Cin7 보조는 접두 없이 쓴다)
 
 ---
 

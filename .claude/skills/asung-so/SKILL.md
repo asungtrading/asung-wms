@@ -35,6 +35,7 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 세금 ①·②      ✅ 2026-09-24 — ① 20260924172351(ref_tax_rule 31 · ref_tax_region 14 · ref_region_alias 143 · ims_region_from_address · so_tax_rule_for · so_tax_amount · so_tax_preview · 세율 불변) · ② 175014(so.tax_rule_id · tax_rule_manual · so_tax_refresh · so_tax_set_manual · 창구 여덟 재발행) · 정본 §16
 인보이스 ⓐ      ✅ 2026-09-24 — ⓐ1 20260924200029(결제조건 34 · so_invoice 셋 · 60000 · so_invoice_issue/cancel/reissue · 문지기 짝 둘 · so.bill_to_customer_id · customer.invoice_split_by_store) · ⓐ2 202425(so_line.qty_removed 다섯 · so_finalize · so_ship·so_line_requote·so_detail·so_family_* 재발행) · 정본 §17 · ⓑ 결제·ⓒ 크레딧은 다음
 결제 ⓑ          ✅ 2026-09-24 — ⓑ1 20260924234250(so_payment · alloc · order · 계좌 기본값 22 · so_customer_balance · so_invoice_remaining · 창구 다섯) · ⓑ2 20260925001733(발행 때 auto_deposit·auto_balance · deposit_applied · balance_forward · fulfilled 곧장 · 취소 가드 · so_proforma) · 검증 1a OK 100 · 1b OK 54 · 정본 §18
+크레딧 ⓒ        ✅ 2026-09-25 — ⓒ1 20260925012354(so_credit 셋 · CR-01000 · 리스탁킹 피 설정 · 원장 credit_in 두 층 · inv_layer_apply 재발행 · 발행·취소·읽기) · ⓒ2 20260925014413(진 빚 · 발행 ② 크레딧 · 취소 가드 · 환불 크레딧부터 · 붙이기·떼기) · 검증 1a OK 53 · 1b OK 34 · 정본 §19 · ⭐ 새 일하는 방식 첫 실물
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -205,7 +206,7 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 
 ```
 ⭐⭐ 권한: 넣기·붙이기·대상 오더 = ims_require_write('sales') · 떼기·취소·환불 = 거기에 so_require_role('manager') — ⚠️ 「sales」는 역할이 아니라 쓰기 열쇠(ims_role_rank 는 worker<manager<supervisor<admin · so_require_role('sales') 는 전원 거부)
-⭐⭐ 잔액 계산은 so_customer_balance 하나(통화별 · received = Σpayment 남은 금액 − Σrefund · reserved_deposit = 대상 오더가 아직 열린 선결제(so_payment_is_reserved) · owed_credit 0(ⓒ) · available = received + owed − reserved) — 화면·다른 함수가 식을 다시 짜지 않는다 · 별도 잔액 표 없음
+⭐⭐ 잔액 계산은 so_customer_balance 하나(통화별 · received = Σpayment 남은 금액 − Σrefund · reserved_deposit = 대상 오더가 아직 열린 선결제(so_payment_is_reserved) · owed_credit 0(ⓒ) · available = received + owed − reserved) — 화면·다른 함수가 식을 다시 짜지 않는다 · 별도 잔액 표 없음 → ✅ ⓒ2 가 채웠다(4-i)
 ⭐⭐ 인보이스 남은 금액 = so_invoice_remaining = total − Σ활성 alloc — amount_due(= total − deposit_applied + balance_forward)는 종이에 찍힌 값일 뿐(발행 때 자동으로 붙은 것이 둘 다에 있어 amount_due − Σ 로 세면 두 번 뺀다)
 ⭐⭐ 붙이기 한도 셋 = 인보이스 남은 금액 · 결제 남은 금액 · 그 통화의 받아 둔 돈(환불은 집계라 특정 결제에 안 매인다) · 같은 통화끼리만 · 같은 청구처 · 활성 짝(payment, invoice)은 하나 · 붙이는 것은 so_payment_alloc_add(속) 하나
 ⭐⭐ 떼기 = void(행 유지 · voided_at/by/note · 생성 칸 active_invoice_id 가 비어 다시 붙일 수 있다) · 결제 취소 = status voided(활성 alloc 있으면 「먼저 떼라」 · payment 는 취소 뒤 received < 0 이면 거부) · 환불 = kind refund 한 줄(한도 received · 계좌 필수 · 기본값 없음) — 삭제 없음
@@ -215,6 +216,22 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐  결제 계좌 후보 = is_active and (account_type = 'BANK' or code = '_5_') — ⚠️ for_payments 를 믿지 마라(_5_ 만 true · BANK 전부 false) · 기본값은 so_payment_account_default (method, warehouse_id, currency_code) 22행(판정 2 · 없는 조합 = 계좌를 요구 · admin 이 고친다) · 브랜치 = warehouse_id FK(ref_warehouse 에 code 없음)
 ⚠️  선수금 = 붙지 않은 결제 + 대상 오더 표시(금액 없음) · 손님에게 주는 종이는 견적서 so_proforma(읽기 · 저장 안 함 · basis ordered · received = 대상 선결제 남은 금액 · 여러 오더 대상 결제는 남은 금액 전부 — 짐작) · AONE 오더는 method shopify 로 결제된 채 들어온다(유입 차수)
 ⚠️  검증 시험 자료: 인보이스는 postgres 직접 insert(CHECK 여덟 만족) · 오더는 창구로 만들고 shipped/packed 만 replica 로 · 같은 트랜잭션의 같은 날 결제는 순서가 id 로 갈린다 — 예상은 집합·합으로 · 앞 절이 남긴 상태(떼고 푼 결제)를 따라가라
+```
+
+## 4-i. ⭐⭐ 크레딧 노트 · 반품 재고 · 리스탁킹 피(ⓒ) — 모르면 사고 (정본 §19)
+
+```
+⭐⭐ 권한: 발행·취소 = manager(so_credit_issue · so_credit_cancel · 판정 3) · 붙이기 = sales(so_credit_attach) · 떼기 = manager(so_credit_detach) · 환불에 쓰인 몫은 떼지 못한다(환불을 취소 so_payment_void)
+⭐⭐ 원본은 둘 중 하나(짝 CHECK) — IMS invoice_id(issued 만) 또는 Cin7 cin7_invoice_number(종이) + cin7_order_number(되짚기 열쇠 · SO-…) · Cin7 크레딧은 tax_rule 명시 · 줄은 sku·수량·단가 손으로(판정 6)
+⭐⭐ IMS 크레딧 줄은 so_invoice_line 을 가리킨다 — 단가·계정은 그 줄 · 세율은 그 줄의 인보이스 오더 rate_pct 를 줄에 굳힌다(0-11) · Σ반품(활성 크레딧) + 이번 ≤ 인보이스 줄 qty 아니면 거부(과다 반품)
+⭐⭐ 갈리는 것은 「재고가 움직이냐」 — 줄에 restock_bin_id 가 있으면 원장 credit_in(그 칸 · EA · 낱개 SKU) · 없으면 not_restocked_reason(damaged · b_grade · not_returned · other) · 칸 기본 ims_last_bin(그 창고) → 없으면 사람이 · '' 불허 · B급 칸이 서면 칸 표시만 더한다
+⭐⭐ 원가 = 원 판매 소비 기록 복원(return_restore · 열쇠 = 오더 번호 · IMS 는 so_line → so.so_number · Cin7 은 cin7_order_number) → 남은 레이어 가중평균 → 최근 원가(17-e) → unknown · 실시간·재생성이 inv_layer_post_credit 하나를 부른다(17-f) · raw.cost.remainder 가 hint
+⭐⭐ 리스탁킹 피는 알림만(판정 5 · 자동 금지) — 원 인보이스 발행일 + 60일이 지나면 restock_fee_window:N + fee_suggested · 넣으면 kind restocking_fee 한 줄(≤ 0 · 20% 미리 채움 · % 바꿈 · 세금도 음수) · 계정은 지정 → 설정(so_credit_restock_fee_account_code · 지금 빈 값) → 거부(판정 7) · 60·20 은 잠금 키
+⭐⭐ 취소는 돌아온 재고가 안 팔렸을 때만 — 활성 so_credit_alloc 없음 ∧ 그 크레딧 레이어 소진 0 → 반대 credit_in(:reversal) + reason reversal 전량 소진 · 팔렸으면 거부(재고 조정 + 새 크레딧) · 번호 남음
+⭐⭐ 발행 순서 = ① 대상 선결제 → ② 크레딧(발행일 순 · auto) → ③ 받아 둔 돈(received − reserved) · balance_forward = −(② + ③) 한 줄 · so_invoice.credit_applied 는 ② 몫 · 취소는 auto 크레딧을 풀고 manual 이면 거부(판정 7 규칙)
+⭐⭐ 환불은 크레딧부터 — 한도 received + owed_credit · so_credit_alloc.refund_payment_id · received 는 크레딧이 갚은 몫만큼 안 준다 · 환불 취소가 그 몫을 함께 void
+⭐  남은 금액(so_invoice_remaining) = total − 결제 붙임 − 크레딧 붙임 · 잔액 owed_credit = Σissued total − Σ활성 alloc(인보이스·환불) · 식은 so_customer_balance 하나
+⚠️  inv_layer_apply_done 은 inv_layer_apply 가 만드는 임시 표 — 보조 함수에서 스키마 접두를 붙이지 마라(2026-09-25 실사고 · 1차 실행 실패) · 한 크레딧에 같은 SKU 가 다른 원 판매에서 오면 첫 줄의 판매로 되짚고 경고 mixed_origin_sales
 ```
 
 ## 5. 이 스킬을 갱신할 때
