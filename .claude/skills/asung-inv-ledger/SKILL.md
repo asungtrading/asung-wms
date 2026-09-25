@@ -820,7 +820,9 @@ select received_on, cost_source, count(*) as layers, sum(qty) as qty, round(sum(
 from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_date - 14 group by 1, 2 order by 1 desc, 2;
 ```
 ⭐ `cost_source` 셋을 따로 본다 — `layer_recent`(같은 창고 마지막 레이어 · 보통) · `layer_recent_other_wh`(다른 창고에서 가져옴 · 창고 원가 차이가 섞인다) · `price_history`(입고 전 신제품) · `unknown`(0 · 회계가 안 닫힌다 — 즉시 본다).
-⭐ 이 건수가 SO 쪽 「재고 없이 나갔다」 표(6-f · pos·counter · ④ 뒤)와 **맞아야 한다** — 같은 사건을 두 표에서 본 것이라 어긋나면 어느 쪽이 빠뜨린 것.
+⭐ ~~이 건수가 SO 쪽 「재고 없이 나갔다」 표와 **맞아야 한다**~~ [정정 2026-09-25 · SO ④a3] **대조할 표가 없다 — 같은 기록 하나다.** SO 는 새로 적는 곳을 만들지 않고 이 `sale_shortfall` 레이어를 `so_stock_short_list(p_filters)` 로 **읽는다**(so-module.md §20 판정 7).
+   매니저의 「확인함」만 `so_stock_short_check` 에 따로 앉는다 — ⚠️⚠️ **열쇠는 레이어 id 가 아니라 `(doc_number, sku, warehouse)`**(재생성이 id 를 바꾼다 · 실측 494928 → 504446 뒤에도 확인 기록이 같은 줄에 붙어 있었다) · 확인 권한 = manager 이상 + (sales ∨ receiving) 열쇠 · 되돌리기 없음(메모로 고친다).
+⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠가 **둘 다** 있는 로그인으로** — 안쪽 원가 창구(inv_layer_post_receipt · inv_layer_post_charge)가 둘을 요구해 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 검증 2회차).
 📌 ⑰(`skipped_by_event`)은 무변 — `sale_out` 은 여전히 세지 않는다 · ⑥(원가 누락)은 Cin7 축이라 무관.
 
 ### 📌 어긋남의 원인을 모를 때

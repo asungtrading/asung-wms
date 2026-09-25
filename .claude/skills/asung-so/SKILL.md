@@ -36,6 +36,8 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 인보이스 ⓐ      ✅ 2026-09-24 — ⓐ1 20260924200029(결제조건 34 · so_invoice 셋 · 60000 · so_invoice_issue/cancel/reissue · 문지기 짝 둘 · so.bill_to_customer_id · customer.invoice_split_by_store) · ⓐ2 202425(so_line.qty_removed 다섯 · so_finalize · so_ship·so_line_requote·so_detail·so_family_* 재발행) · 정본 §17 · ⓑ 결제·ⓒ 크레딧은 다음
 결제 ⓑ          ✅ 2026-09-24 — ⓑ1 20260924234250(so_payment · alloc · order · 계좌 기본값 22 · so_customer_balance · so_invoice_remaining · 창구 다섯) · ⓑ2 20260925001733(발행 때 auto_deposit·auto_balance · deposit_applied · balance_forward · fulfilled 곧장 · 취소 가드 · so_proforma) · 검증 1a OK 100 · 1b OK 54 · 정본 §18
 크레딧 ⓒ        ✅ 2026-09-25 — ⓒ1 20260925012354(so_credit 셋 · CR-01000 · 리스탁킹 피 설정 · 원장 credit_in 두 층 · inv_layer_apply 재발행 · 발행·취소·읽기) · ⓒ2 20260925014413(진 빚 · 발행 ② 크레딧 · 취소 가드 · 환불 크레딧부터 · 붙이기·떼기) · 검증 1a OK 53 · 1b OK 34 · 정본 §19 · ⭐ 새 일하는 방식 첫 실물
+POS · counter ④a ✅ 2026-09-25 — a1 20260925133147(product_bin_overflow · 창구 둘 · ims_last_bin 재발행 · so_pick_plan) · a2 142307(so_create·so_status_guard·so_ship·so_confirm·so_allocate_run·so_tier_warnings·so_hold·so_divide 재발행 + so_confirm_precheck·so_allocate_all·so_pos_confirm·so_pos_reopen·so_pos_complete·so_pos_finish·so_counter_ship) · a3 144959(so_stock_short_check·_confirm·_list · so_pos_open_list) · 검증 OK 28·36·20 · 정본 §20
+오더 병합 ④b    ✅ 2026-09-25 — 20260925151823(end_kind merged · so_line_merge_source · so_merge_chain_reaches · so_backorder_supersede 재발행 · so_merge_requote_calc·_hint · so_merge) · 검증 OK 22 · 정본 §21
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -232,6 +234,20 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐⭐ 환불은 크레딧부터 — 한도 received + owed_credit · so_credit_alloc.refund_payment_id · received 는 크레딧이 갚은 몫만큼 안 준다 · 환불 취소가 그 몫을 함께 void
 ⭐  남은 금액(so_invoice_remaining) = total − 결제 붙임 − 크레딧 붙임 · 잔액 owed_credit = Σissued total − Σ활성 alloc(인보이스·환불) · 식은 so_customer_balance 하나
 ⚠️  inv_layer_apply_done 은 inv_layer_apply 가 만드는 임시 표 — 보조 함수에서 스키마 접두를 붙이지 마라(2026-09-25 실사고 · 1차 실행 실패) · 한 크레딧에 같은 SKU 가 다른 원 판매에서 오면 첫 줄의 판매로 되짚고 경고 mixed_origin_sales
+```
+
+## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
+
+```
+⭐⭐ 보관용은 칸이 아니라 **SKU × 칸 짝**(product_bin_overflow) — ⚠️ 이름에 reserve 를 쓰지 마라(so_reserve 가 「할당」이다) · 켜기·끄기는 receiving 열쇠(매니저로 좁히지 않는다) · 순서만 바꾸고 막지 않는다 · 칸이 비어도 표시는 남는다   (§20 판정 2·3)
+⭐⭐ 칸 계획 so_pick_plan — 재고 있는 평소 칸 → 재고 있는 보관용 칸 → 모자란 몫은 첫 후보 칸(재고 0 이어도 · 없으면 '') · 세트 줄은 **정수 세트 단위**로만 나눈다 · short_ea = **창고 전체 부족분**(원장 부족분 레이어와 같은 몫 · 칸 하나가 모자란 것이 아니다)   (판정 1·4 · 고침 ①)
+⭐⭐ POS·counter 는 **재고를 보지 않고 전 줄 allocated** — 백오더·이어받기·나누기·보류가 없다(so_allocate_run·so_hold·so_divide 에 길 가드 · ⚠️ 가드가 없던 판이 pos 오더를 갈랐다) · 픽은 목표와 같아야 한다(pick_short 없음) · POS 의 Confirm·다시 열기·Finish = sales(R5 의 두 번째 예외) · counter = manager   (판정 6·12·13 · 20-c)
+⭐⭐ Finish 는 **막지 않는다** — 받은 금액·미수를 보이고 남은 몫은 그 인보이스의 미수 · 미리 보기 식은 발행 ①②③ 과 **같아야 한다**(검증이 「미리 보기 = 발행 뒤 값」으로 묶는다)   (판정 5 · 0-8)
+⭐⭐ 「재고 없이 나갔다」는 새 표가 아니다 — 원장의 sale_shortfall 레이어를 so_stock_short_list 가 읽고, 매니저 확인만 so_stock_short_check 에 적는다 · ⚠️⚠️ **열쇠는 (doc_number, sku, warehouse)** — 레이어 id 는 inv_layer_apply 재생성이 바꾼다(실측 494928 → 504446) · 확인 권한 = manager + (sales ∨ receiving) · 되돌리기 없음   (판정 7 · 0-10·0-11)
+⭐⭐ 병합 — 원본이 전부 초안이면 sales · 하나라도 확정이면 manager · 같은 손님·창고·통화 · **channel warehouse 만** · 주문일은 **합친 날**(ims_today) · 줄은 전부 manual(deal_line_id null) · tax_rule 은 합친 오더의 규칙 · 운임은 **안 옮긴다**(charges_not_merged) · 선결제 대상은 옮긴다 · 되돌리기 없음(떼어 낸다)   (§21 판정 3·4·5·6·8)
+⭐⭐ **병합 오더의 확정은 원본의 백오더 형제를 이어받지 않는다**(so_merge_chain_reaches — split 조상 전부에서 merged_into_id 사슬) ⇒ ⚠️ 한 손님·한 제품의 열린 백오더가 **두 줄**인 것이 정상인 경우가 있다(§15 판정 5 의 병합 예외 · 다음 오더가 오래된 줄부터 닫아 수요는 한 번만 센다)   (§21 판정 1 · 0-1·0-2)
+⭐  병합 줄 모으기 열쇠 아홉(제품·단가·정가·할인%·무상 사유·override·부가 셋)이 **전부 같을 때만** 한 줄 — tax_rule 은 열쇠 밖 · 합친 오더 머리는 so_split 식 통째 복사(so_create 를 거치면 티어·오더 전체 할인이 손님 기본으로 되돌아간다)   (고침 ① · ⬜2)
+⚠️  백오더 오더를 합치면 장부 end_kind **'merged'**(cancelled 로 적으면 백오더 화면이 취소로 센다) · 원본이 이어받은 남의 줄은 다시 열되 대상이 confirmed 일 때만(아니면 경고 superseded_not_reopenable) · 프리오더였던 줄은 표시가 없다(경고 preorder_lines_need_reflag)   (0-4·0-5·0-7)
 ```
 
 ## 5. 이 스킬을 갱신할 때

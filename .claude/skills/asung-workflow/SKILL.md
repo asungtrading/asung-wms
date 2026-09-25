@@ -145,7 +145,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **시험 자료를 뷰 전체에서 고르지 마라** — 제품마다 `ims_inv_balance` 를 다시 계산해 statement timeout 2분(2026-09-23) · 후보를 싸게 좁힌 뒤(활성·가격·sku 순 300) 한 문장(`so_available_many`)으로 · timeout 을 늘려 덮지 마라 · 임시 표는 authenticated 구간에서 못 읽는다(`\gset` 으로 받아 둔다)
 ⚠️ **CHECK 를 넓힐 때 함수 본문의 같은 값 목록도 훑어라** — [실사고 2026-09-24 ③a′] so_split_reason_ck 만 다섯으로 넓혔는데 so_split 본문의 `p_reason not in (…)` 목록이 넷이라 pick_short 가 거부됐다 ⇒ 어휘를 늘리는 차수는 `grep -rn "'값1','값2'"` 로 제약·함수 본문을 함께 세고 마지막 정의를 재발행한다
 ⚠️ **stable 함수는 임시 표를 못 쓴다**(INSERT is not allowed in a non-volatile function) — 읽기 창구에 담아 두기가 필요하면 CTE·배열 변수로(2026-09-24 so_backorder_list)
-⚠️ **plpgsql 의 record 변수 이름을 조회 별칭으로 쓰지 마라** — `declare r record` 뒤 `from so_reserve r` 은 `r.col` 이 변수로 풀려 `record "r" is not assigned yet`(2026-09-24 ③b 검증 · so_backorder_proceed 재발행에서도 피했다) ⇒ 별칭은 `res`·`x` 처럼 변수와 다른 이름
+⚠️ **plpgsql 의 record 변수 이름을 조회 별칭으로 쓰지 마라** — `declare r record` 뒤 `from so_reserve r` 은 `r.col` 이 변수로 풀려 `record "r" is not assigned yet`(2026-09-24 ③b 검증 · so_backorder_proceed 재발행에서도 피했다) ⇒ 별칭은 `res`·`x` 처럼 변수와 다른 이름 · ⚠️ **두 번째 실사고 2026-09-25 ④b**(so_merge · `declare r record` + `from so_reserve r` — 두 회차에 걸쳐 한 곳씩 나왔다) ⇒ 함수를 다 쓴 뒤 **`declare` 의 이름마다 그 함수 본문에서 같은 별칭을 grep** 한다
 ⚠️ **상관 서브쿼리의 칸은 별칭으로 한정하라** — `(select email from ims_staff where id = updated_by)` 의 `updated_by` 는 안쪽 표에 같은 칸이 있으면 **그쪽으로 풀린다**(2026-09-24 inv_config.updated_by 가 빈 값으로 보였다 · 트리거는 채웠었다) ⇒ `c.updated_by`
 ⚠️ **한 트랜잭션 안에서는 순서를 비교하지 마라** — created_at 이 전부 같다 · 목록을 비교할 때는 **정렬해서**(string_agg … order by 키) 비교한다(2026-09-24 ③b S6 예약 목록)
 ⚠️ **cron.sql 은 운영 기록이다** — 테스트 DB 에만 등록한 잡은 `[테스트 · Asung-IMS] jobid N` 을 절 머리에 밝히고 「운영에는 등록하지 마라(함수가 없다) · 전환 때 함께」를 적는다(2026-09-24 so-backorder-sweep · 테스트 jobid 1 ≠ 운영 1 wms-poll-orders)
@@ -156,7 +156,14 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **RAISE 의 글자 % 는 %% — 형식 문자열의 % 자리 수와 넘기는 값 수를 주기 전에 센다** — 「50% COD & 50% N30」 같은 문구가 자리표시로 읽혀 do 블록 전체가 「too few parameters specified for RAISE」로 안 돈다(2026-09-24 ⓑ1 검증 v1 · 204행) ⇒ 토크나이저 검사에 RAISE 항목(`$$` 본문의 raise 마다 %(%% 제외) 수 = 값 수)을 더했다 — 마이그레이션(적용이 통과했으니 0)과 검증 파일 둘 다 돌린다
 ⚠️ **BEFORE 트리거(문지기)는 CHECK 보다 먼저 막는다** — CHECK 만 시험하려면 `session_replication_role = replica` 로 문지기를 끄고, 그때도 다른 CHECK(closed_at 짝 등)를 함께 어기지 않는 자료로(2026-09-24 ⓑ2 T8a · invoiced 로 바꾸며 closed_at 을 남겨 so_closed_at_ck 가 먼저 걸렸다)
 ⚠️ **번호 시퀀스는 pg_sequences 가 아니라 시퀀스를 직접 읽는다** — pg_sequences.last_value 는 미리 당긴 값을 보이고 is_called 를 `last_value is not null` 로 짐작하면 틀린다 ⇒ `select last_value, is_called from public.<seq>` · 시험 적용이 만드는 시퀀스만 `to_regclass` + `\if` 로 가른다(2026-09-25 ⓒ1 2차 — setval 이 25001·60001 로 밀렸고 Claude Code 가 기준값으로 되돌렸다 · 전후 원문을 보고에)
+   ⭐ **죽은 회차가 번호를 당겼으면 되돌리기 전후 원문(last_value · is_called)을 그대로 보고에 붙인다** — 요약하지 마라(2026-09-25 ④a3 · ④b 부터 규칙 · ④a2 보고에는 빠져 있었다) · 되돌리기는 `where not exists (select 1 from public.so)` 처럼 **표가 비어 있을 때만**
 ⚠️ **시험 적용이 만든 객체를 참조하는 문장은 `\if :{?mig}` 로 가른다** — rollback 뒤 그 표·시퀀스는 없어 파싱에서 죽는다(`relation "public.so_credit" does not exist` · 2026-09-25 ⓒ1 2차 끝 setval) · 확인 실행(-v mig 없음)에서는 반대로 있어야 한다 — 두 갈래를 다 적는다
+⚠️ **authenticated 구간(`set local role`)에서 임시 표에 쓰지 마라** — 42501(권한이 없다) · 결과는 `set_config('app.out', v_j::text, true)` 로 내보내고 `reset role` 뒤에 임시 표로 옮긴다(2026-09-25 ④a2 1차)
+⚠️ **`\gset` 별칭은 소문자로 접힌다** — 대문자가 섞인 이름(`recv_before_P2`)은 변수가 서지 않아 `syntax error at or near ":"` 가 난다 ⇒ 별칭은 전부 소문자(2026-09-25 ④a2 2차)
+⚠️ **출고 전 계획은 출고 전에 담아라** — 출고 뒤에 다시 계산하면 잔고가 바뀌어 다른 값이 나온다(예상이 아니라 계산 시점이 틀린 것 · 2026-09-25 ④a2 4차)
+⚠️ **검증의 도우미 초안은 시나리오와 다른 SKU 로** — 같은 SKU 를 쓰면 뒤 오더의 확정이 앞 오더의 백오더 형제를 이어받아 기대가 흔들린다(2026-09-25 ④b 3차 · 재고 넉넉한 SKU 하나를 도우미 전용으로)
+⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠를 둘 다 가진 로그인으로** — 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 2차)
+⭐ **Caleb 에게 줄 적용 명령은 적용과 `migration repair` 를 `&&` 로 잇는다** — 따로 두 줄로 주면 적용이 실패해도 repair 가 돌아 이력만 「적용됨」이 된다
 ⚠️ **훑기가 지시 목록 밖의 함수를 찾으면 재발행하고 이유를 보고한다** — ⓒ2 so_payment_void(환불 취소가 크레딧 몫을 함께 풀지 않으면 크레딧이 사라진 채 돈만 돌아온다) · so_invoice_remaining · so_detail 이 목록 밖이었다(2026-09-25) · 「지시서에 없어서 안 고쳤다」는 답이 아니다
 ```
 
