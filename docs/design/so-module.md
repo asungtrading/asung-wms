@@ -212,7 +212,7 @@ Caleb: "세금은 기본적으로 배송지 기준이야." · "손님 데이터�
 Caleb: "장황하게 있지만, 결국은 몇개로 추려져. 우리가 지금은 넣을 수 있어야 하고, 나중에는
 퀵북에서 가져와야 할거야."
 
-**⭐⭐ 결제와 인보이스는 다대다다:**
+**⭐⭐ 결제와 인보이스는 다대다다:** → [2026-09-24 §18] 표 so_payment · so_payment_alloc(다대다 · 떼기 = void 흔적 · 활성 짝 하나) · 붙이기 한도 셋 · 발행 때 자동 붙이기는 판정 4·5
 - 한 인보이스에 결제 여럿 — `50% COD & 50% N30` 조건이 **실재한다**(Caleb)
 - 한 결제로 인보이스 여럿 — Caleb: "여러 인보이스를 한번에 결제하는 경우도 꽤 있어"
 
@@ -545,7 +545,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 | 할당 | 없음(발주는 재고를 잡지 않는다) | `so_reserve` · 원장 밖 · 이력 남김 · 넷 중 셋은 「잡지 않은 기록」 (① 5-i) |
 | 인보이스 번호 | **공급처가 붙인다** — 없으면 거부(po-module §11-c) | **우리가 붙인다** — 시퀀스 60000~ · 접두어 없음 (④ 8-i) |
 | 인보이스 ↔ 문서 | 인보이스 하나가 발주 라인들을 가리킨다(`po_invoice_line.po_line_id`) · 발주 하나에 인보이스 여럿(분할 청구) | 인보이스 하나가 **오더 여럿**을 담는다(`invoice_order`) · 오더는 인보이스 하나에만 (④ 8-i) |
-| 인보이스 상태 | `draft · confirmed · cancelled` 셋 — 사람이 받아 적고 확정한다 | `issued · cancelled` 둘 — 출하 사건이 자동 발행 · 초안 없음 (④ 8-i) |
+| 인보이스 상태 | `draft · confirmed · cancelled` 셋 — 사람이 받아 적고 확정한다 | `issued · cancelled` 둘 — 출하 사건이 자동 발행 · 초안 없음 (④ 8-i) | → [2026-09-24 §17·§18] 발행은 출하 사건이 아니라 오피스 마무리(so_finalize · 사람 · sales) · 발행 순간 오더는 fulfilled(ⓐ 에서 미룬 포인터)
 | 결제(세부) | `po_payment` 상태 없음 · 삭제 열림 · `discount_taken`(조기결제 할인) · 충당은 인보이스 **또는 비용 문서** | `payment` `kind(payment·refund)` · 금액 항상 양수 · 충당은 인보이스만 · 환불도 같은 표 (④ 8-i) |
 | ⭐ 초과 결제 | ⚠️ **없다** — `Σ충당 ≠ amount + discount_taken` 이면 거부(po-module §11-g) | ⭐ **허용** — `amount > Σ충당` 의 차이가 손님 잔액(오버페이 · 8-f) (④ 8-i · Caleb 2026-09-22) |
 | 크레딧 번호 | **우리가 붙인다** `CN-<PO>` · `CN-<연도>-<n>` · 공급처 번호는 참조로 | **우리가 붙인다** `CR-01000~` 시퀀스 (④ 8-i) |
@@ -982,8 +982,8 @@ at_wms      창고에 있다 — 사람이 WMS 로 보냈다   ← ⭐ 소유권
 picking     창고에서 픽이 시작됐다
 packed      팩이 끝났고 아직 안 나갔다      ← ⭐ 새로 생긴 자리(6-d) · → [2026-09-24 §17 판정 1] 창고 일(픽·팩·fulfillment) 끝 — WMS 의 팩(검수)과 낱말이 다르다 · 오피스 마무리(so_finalize)가 여기서 출고 + 발행
 shipped     나갔다                          ← ⭐ 원장에서 빠지는 유일한 자리
-invoiced    송장이 나갔다
-fulfilled   물건이 나가고 송장까지 끝났다    ← 끝 상태 ①
+invoiced    송장이 나갔다 → [2026-09-24 §18 판정 1] ✗ 상태 값에서 뺐다(so_status_ck 여덟 · ⓑ2) — 끝은 마무리 순간 shipped → fulfilled 곧장 · invoiced_at 은 시각 칸으로 남는다
+fulfilled   물건이 나가고 송장까지 끝났다    ← 끝 상태 ① → [2026-09-24 §18 판정 1] = 오피스 마무리(출고 + 발행) 순간 · 돈은 조건이 아니다(Net 30 미수는 정상 · 잔액은 따로) · 인보이스 취소 → shipped(closed_at 비움)
 cancelled   끝나지 않고 닫혔다 — 이유는 closed_reason 이 말한다   ← 끝 상태 ②
             closed_reason: expired · superseded · voided · (그 밖은 ④에서)
 ```
@@ -1154,7 +1154,7 @@ backorder   실물이 없으면 스캔이 안 된다(Caleb: "POS는 오직 실�
 잃는 것   선결제 같은 예외를 인보이스로는 못 담는다 — ⚠️ §1-n 의 현행 실무가 이것이다(아래)
 ```
 ⚠️ **§1-n 에 있었다**(검토 이견 5 · Caleb 2026-09-22 「정본을 읽고도 못 본 자리」): "지금은 인보이스 발행을 원하면, 결제를 요구하고 있어 … 물건은 이미 준비되었고 가져가기만 하는 상태" — 결제를 받고 인보이스를 **먼저** 내는 실무가 지금 있다. ⭐ 이것이 `packed` 와 맞물린다 — **포장까지 됐는데 안 가져간 상태**에서 손님이 인보이스를 요구한다(6-d).
-⬜ **④에서 정할 것**: 이 결제는 인보이스가 아니라 **선수금**으로 담는다. 회계상 매출은 물건이 나갈 때 선다. 다만 손님이 번호를 원할 수 있으니 **무엇을 발행할지**(선수금 영수증 등)는 ④에서 본다. ⚠️ `shipped → invoiced` 고정은 유지한다.
+⬜ **④에서 정할 것**: 이 결제는 인보이스가 아니라 **선수금**으로 담는다. 회계상 매출은 물건이 나갈 때 선다. 다만 손님이 번호를 원할 수 있으니 **무엇을 발행할지**(선수금 영수증 등)는 ④에서 본다. ⚠️ `shipped → invoiced` 고정은 유지한다. → ✅ [2026-09-24 §18] 선수금 = so_payment + 대상 오더 표시(so_payment_order · 판정 4 · 별도 문서 없음) · 손님에게 주는 종이 = 견적서(so_proforma · 판정 3 · 저장 안 함) · 그 오더가 마무리되면 자동으로 붙는다
 ⚠️ **Shopify 오더가 예외처럼 보이는 것**(`Invoice date` 가 채워져 들어온다 · §1-p 실물)은 그것이 **우리가 발행한 인보이스가 아니기** 때문이다. 손님이 온라인에서 결제한 기록을 Cin7 이 인보이스 칸에 담아 넘긴 것이다. ⇒ IMS 는 그것을 「이미 받은 결제」로 담고 우리 인보이스는 출하 뒤에 낸다. ⬜ ④에서 정한다.
 📌 §1-b 34행의 「Ship · Invoice — 순서 자유」와 §1-c 의 Caleb 인용은 **Cin7 현행의 청취 기록**이라 그대로 둔다 — 규범 문구는 §2-i 하나였고 그것을 정정했다(6-i).
 
@@ -1528,7 +1528,7 @@ payment_invoice  이 결제가 어느 인보이스에 얼마씩 붙었나  (다�
 · kind 로 가면 「kind 를 안 봤네」가 눈에 띈다
 ⚠️ 원장은 부호로 간다 — 사건을 쌓는 장부라 부호가 자연스럽고, 결제는 종류가 분명한 문서라 kind 가 자연스럽다. 두 모듈이 다른 것이 맞다
 ```
-⭐ **붙이는 일 — 오래된 것부터 제안하되 사람이 바꾼다**(Caleb 판정). ⚠️ 자동으로 다 붙이면 위험하다 — 손님이 특정 인보이스만 결제한 것인데 시스템이 오래된 것부터 덮으면, 나중에 「그건 아직 안 냈는데요」 할 때 장부가 다르게 말한다.
+⭐ **붙이는 일 — 오래된 것부터 제안하되 사람이 바꾼다**(Caleb 판정). ⚠️ 자동으로 다 붙이면 위험하다 — 손님이 특정 인보이스만 결제한 것인데 시스템이 오래된 것부터 덮으면, 나중에 「그건 아직 안 냈는데요」 할 때 장부가 다르게 말한다. → [2026-09-24 §18] so_payment_propose(읽기만 · 기한 순) · 넣기·붙이기 so_payment_add/attach(sales) · 한도 셋(인보이스 남은 금액 · 결제 남은 금액 · 받아 둔 돈) · 발행 때는 자동(판정 4·5 · 사람이 보낸 결제를 엉뚱한 인보이스에 붙이는 일과 다르다)
 📌 PO 와 갈리는 자리(8-i): PO 는 `Σ충당 = amount + discount_taken` 이 아니면 **거부**한다(초과 결제가 없다). SO 는 `amount > Σ충당` 을 **허용**한다 — 그 차이가 오버페이 잔액이다(8-f).
 
 ### 8-e ⭐⭐ 손님 잔액 — 출처를 갈라 본다
@@ -1560,7 +1560,7 @@ payment_invoice  이 결제가 어느 인보이스에 얼마씩 붙었나  (다�
 ```
 credit_applied   이 크레딧이 어느 인보이스에 얼마씩 붙었나  (payment_invoice 와 같은 모양)
 ```
-📌 6-g 의 ⬜ 「선수금」(결제 받고 인보이스 선발행 실무 · Shopify 결제 기록)은 이 잔액의 「받아 둔 돈」 그 자체다 — 인보이스 전 결제는 `payment` 로 들어와 `payment_invoice` 가 비어 있는 상태이고, 출하 뒤 인보이스가 발행되면 붙인다. **별도 선수금 문서를 만들지 않는다.** ⬜ 손님이 원하는 「번호 있는 종이」(선수금 영수증)를 무엇으로 낼지는 화면 차수(8-k).
+📌 6-g 의 ⬜ 「선수금」(결제 받고 인보이스 선발행 실무 · Shopify 결제 기록)은 이 잔액의 「받아 둔 돈」 그 자체다 — 인보이스 전 결제는 `payment` 로 들어와 `payment_invoice` 가 비어 있는 상태이고, 출하 뒤 인보이스가 발행되면 붙인다. **별도 선수금 문서를 만들지 않는다.** ⬜ 손님이 원하는 「번호 있는 종이」(선수금 영수증)를 무엇으로 낼지는 화면 차수(8-k). → [2026-09-24 §18] 식의 정본 = so_customer_balance(통화별 한 행 · received · reserved_deposit(예약된 선결제 · 0-7) · owed_credit 0(ⓒ) · available · 미수) · 별도 잔액 표 없음 그대로
 
 ### 8-f ⭐ 오버페이 — 손님 잔액으로 둔다 · §3-a 를 닫는다
 
@@ -1573,7 +1573,7 @@ credit_applied   이 크레딧이 어느 인보이스에 얼마씩 붙었나  (p
 ⇒ `payment.amount` 가 `payment_invoice` 합계보다 클 수 있고, **그 차이가 곧 잔액**이다(8-e 「받아 둔 돈」).
 ⭐ **실무 실례**(Caleb 2026-09-22): e-Transfer 로 188.77 을 청구했는데 189 를 보내는 손님이 있다. 손님은 다 낸 것이지만 우리에게는 초과다. ⇒ 다음 인보이스에서 빼 준다. 📌 그래서 8-c 의 **상계 줄이 인보이스에 보여야** 손님이 보낼 금액을 스스로 계산한다.
 ✅ **§3-a 를 닫았다** — 「오버페이가 정말 크레딧 노트인가」 실물 확인이 **필요 없어졌다.** Cin7 이 어떻게 하든 우리는 우리 방식으로 간다(§3-a 에 ✅ 덧붙임 · 본문 유지).
-⬜ **QuickBooks 로 차액을 어떻게 보낼지는 여기서 정하지 않는다.** Caleb 이 한 번 제기했다가 스스로 접었다 — "안보내서 해결될 문제는 아니야. 어차피 퀵북은 알게되는 문제네. 은행 어카운트가 직접 연결되어 있으니." ⇒ **QuickBooks 연동 때 다시 본다**(8-k).
+⬜ **QuickBooks 로 차액을 어떻게 보낼지는 여기서 정하지 않는다.** Caleb 이 한 번 제기했다가 스스로 접었다 — "안보내서 해결될 문제는 아니야. 어차피 퀵북은 알게되는 문제네. 은행 어카운트가 직접 연결되어 있으니." ⇒ **QuickBooks 연동 때 다시 본다**(8-k). → [2026-09-24 §18] 실물 검증: 189 → 188.77 붙이고 잔액 0.23 → 다음 인보이스 188.77 에 자동으로 붙어 보내실 금액 188.54(balance_forward −0.23) · QBO 는 그대로 ⬜
 
 ### 8-g ⭐⭐ 크레딧 노트 — 갈리는 것은 「재고가 움직이냐」다
 
@@ -1627,7 +1627,7 @@ credit_line   무엇을 깎나
 
 6-g 는 「manager 이상 · Finish 전에만 취소 · 뒤는 반품·크레딧」이었다 — POS 를 두고 쓴 문장이다. 인보이스가 여러 오더를 묶으면 경계를 다시 적어야 한다:
 ```
-문서 전체가 틀렸다        (청구처가 틀림 · 묶음이 틀림 · 발행 자체가 잘못)   → 인보이스 취소 (manager · 결제·크레딧이 하나도 안 붙었을 때만 · 담긴 오더 전부 invoiced → shipped 로 내린다 · 6-g′ 허용 짝에 하향 하나)
+문서 전체가 틀렸다        (청구처가 틀림 · 묶음이 틀림 · 발행 자체가 잘못)   → 인보이스 취소 (manager · 결제·크레딧이 하나도 안 붙었을 때만 · 담긴 오더 전부 invoiced → shipped 로 내린다 · 6-g′ 허용 짝에 하향 하나) → [2026-09-24 §18 판정 7] 「결제·크레딧이 하나도 안 붙었을 때만」을 고쳤다 — 발행 때 자동으로 붙은 것(auto_deposit · auto_balance)은 취소와 함께 void(흔적) · 사람이 붙인 것(manual)이 있으면 거부(먼저 떼라) · 크레딧은 ⓒ
 담긴 오더 중 하나의 라인이 문제 (수량 · 파손 · 반품)                        → 크레딧 노트 (credit_line.so_line_id 가 그 라인을 가리킨다 · 인보이스는 그대로)
 ```
 - 근거: 「한 오더만 문제」일 때 인보이스를 취소하면 나머지 두 오더의 청구까지 사라지고 손님은 이미 그 종이를 들고 있다. 크레딧은 **원 인보이스를 살려 둔 채** 차액만 말한다 — 그것이 크레딧 노트의 뜻이다(8-f 「빚진 것을 말하는 서류」).
@@ -1640,7 +1640,7 @@ credit_line   무엇을 깎나
 |---|---|---|
 | 인보이스 번호 | **공급처가 붙인다** — 없으면 거부(po-module §11-c) | **우리가 붙인다** — 시퀀스 60000~ · 접두어 없음 |
 | 인보이스 ↔ 문서 | 인보이스 하나가 발주 라인들을 가리킨다(`po_invoice_line.po_line_id`) · 발주 하나에 인보이스 여럿(분할 청구) | 인보이스 하나가 **오더 여럿**을 담는다(`invoice_order`) · 오더는 인보이스 하나에만 |
-| 인보이스 상태 | `draft · confirmed · cancelled` 셋 — 사람이 받아 적고 확정한다 | `issued · cancelled` 둘(✅ 판정 2026-09-22 · 8-c) — 출하 사건이 자동 발행 · 초안 없음 |
+| 인보이스 상태 | `draft · confirmed · cancelled` 셋 — 사람이 받아 적고 확정한다 | `issued · cancelled` 둘(✅ 판정 2026-09-22 · 8-c) — 출하 사건이 자동 발행 · 초안 없음 | → [2026-09-24 §17·§18] 발행은 출하 사건이 아니라 오피스 마무리(so_finalize · 사람 · sales) · 발행 순간 오더는 fulfilled(ⓐ 에서 미룬 포인터)
 | 결제 | `po_payment` 상태 없음 · 삭제 열림 · `discount_taken`(조기결제 할인) · 충당은 인보이스 **또는 비용 문서** | `payment` `kind(payment·refund)` · 금액 항상 양수 · 충당은 인보이스만 · 환불도 같은 표 |
 | 초과 결제 | ⚠️ **없다** — `Σ충당 ≠ amount + discount_taken` 이면 거부 | ⭐ **허용** — 차이가 손님 잔액(오버페이 · 8-f) |
 | 크레딧 번호 | **우리가 붙인다** `CN-<PO>` · `CN-<연도>-<n>` · 공급처 번호는 참조로 | **우리가 붙인다** `CR-01000~` 시퀀스 |
@@ -1673,7 +1673,7 @@ credit_line   무엇을 깎나
   WMS 출하 사건에 「함께 나간 오더 집합」이 실리나 — 인보이스 묶음의 열쇠 · 7-e 의 사건 발행 선행과 같은 자리                   8-c · 7-e   → [2026-09-24 §17] 발행은 사건이 아니라 마무리(so_finalize)가 · 묶음·picks 는 지금 입력 · WMS 가 실어 오는 길은 ⑤(⬜ 그대로)
   선수금 영수증 — 번호 있는 종이를 무엇으로 낼지(화면 차수)                                                                 8-e
   refund 가 크레딧 잔액을 넘지 못한다 · 취소 가드(결제·크레딧 붙기 전) — 함수 거부 문장(마이그레이션 차수)                    8-g · 8-h
-  결제 계좌 후보(세 계좌 · PO 와 공용 ref_account) · 결제 방법 어휘                                                          8-d
+  결제 계좌 후보(세 계좌 · PO 와 공용 ref_account) · 결제 방법 어휘                                                          8-d → ✅ [2026-09-24 §18] 닫힘 — 방법 여덟(판정 2) · 계좌 기본값 표 so_payment_account_default(창고 둘 × 11) · 후보 = 활성 BANK 또는 _5_(for_payments 못 씀)
 [재고 쪽]
   B급 칸 — 창고마다 하나인가 · 가용에서 빠지나 · 픽 안내 제외 · 정상 칸으로 되돌리는 길 · 원가 처리                          8-g · 창고의 일반 장치
   credit_in 창구의 원가 복원이 credit_line.so_line_id → so_out 으로 되짚는 모양                                            8-g · ledger-design 정본 몫
@@ -3225,7 +3225,7 @@ is_split   50% COD 둘 true
 | 6-a packed | 「팩이 끝났고 아직 안 나갔다」 | 창고 일(픽·팩·fulfillment) 끝 — WMS 의 팩(검수)과 낱말이 다르다 |
 | 6-c 「송장이 나가면 invoiced」 | 오더 단위 | 발행 단위 = 마무리 묶음(청구처별 · 설정이면 매장별) · 담긴 오더 전부 shipped→invoiced |
 | R5 역할 선 「확정부터 manager」 | 예외 없음 | **마무리(출고 + 발행)는 sales**(판정 8) · 취소·재발행은 manager |
-| 8-c 발행 시점 잔액 | 「기록한다」 | 칸은 두되 ⓑ 전에는 null(0 아님) |
+| 8-c 발행 시점 잔액 | 「기록한다」 | 칸은 두되 ⓑ 전에는 null(0 아님) → [2026-09-24 §18] ⓑ2 부터 발행이 채운다(0 이하 · 봤는데 없으면 0 · null 은 ⓑ 전 발행분) |
 | so_ship 「보낸 수량 < 주문 = pick_short」 | 전부 백오더 | 목표 = 주문 − 손님이 뺀 것 · 그 아래만 pick_short(판정 5·7) |
 | so_line_requote | qty_ordered 를 덮는다 | p_set_qty false 면 견적만(판정 5) |
 | so_line_total 로 인보이스 금액 | 주문 수량 | 보낸 수량(round(qty_shipped × unit_price, 2)) · so_tax_preview basis |
@@ -3235,10 +3235,153 @@ is_split   50% COD 둘 true
 ### 17-g ⬜ 남는 것
 
 ```
-ⓑ 결제·잔액  fulfilled 로 옮기는 때(발행 즉시 vs 결제 완료) · balance_forward 채우기(발행 시점 잔액 · 8-c 이월 잔액) · so_invoice_cancel 에 「결제가 붙었으면 거부」(재발행) · 선수금 영수증(번호 있는 종이 · 8-e)
+ⓑ 결제·잔액  fulfilled 로 옮기는 때(발행 즉시 vs 결제 완료) · balance_forward 채우기(발행 시점 잔액 · 8-c 이월 잔액) · so_invoice_cancel 에 「결제가 붙었으면 거부」(재발행) · 선수금 영수증(번호 있는 종이 · 8-e) → ✅ [2026-09-24 §18] 전부 섰다 — 발행 순간 fulfilled 곧장(판정 1) · balance_forward 0 이하(봤는데 없으면 0) · 취소 가드 판정 7 · 선수금 영수증 = 견적서 so_proforma(판정 3)
 ⓒ 크레딧     so_invoice_cancel 에 「크레딧이 붙었으면 거부」(재발행) · credit_line.so_line_id → so_invoice_line(되짚기 8-g) · 뺀 몫이 아니라 반품인 것은 크레딧
 ⑤ WMS       WMS fulfillment 묶음·picks(칸별 수량 · 7-b ⬜)를 IMS 가 받는 길(8-k) — 지금은 so_finalize 입력 · ⭐ 제자리 돌려놓기 화면(Caleb 요청 2026-09-24): WMS 되돌리기 오더와 마무리 때 뺀 몫을 원래 칸에 돌려놓는 「거꾸로 픽」 · 선행 = WMS 픽 라인의 칸별 수량 · 원래 칸이면 원장 무접촉 · 다른 칸이면 칸 이동 기록 · inv_post_sale 첫 줄 sales(§15 ⬜ ⑤ 창고 직원 경로)
 화면         마무리 화면(묶음 미리 나누기 · 직원이 바꾸기 · 미리 보기 → 바뀐 단가 · 인보이스가 몇 장) · 인보이스 인쇄(재인쇄는 발행을 되돌리지 않는다 6-f) · 반환 단가 29자리 표시는 화면이 반올림(12-h) · _118_ 규칙 표시
 연동         QBO(인보이스·결제 계정 · 8-f) · Cin7 인보이스 번호 49247 → 60000 전환 전 겹침 없음(하루 40건)
 정리 거리     손님 결제조건 옛 이름 Net30 6,305(비활성 · 값은 있다) · Cin7 Invoice_Date 2026-12-05 줄 하나(data-hygiene 밀린 일)
+```
+
+---
+
+## §18 SO 결제 ⓑ — 결제 · 붙이기 · 손님 잔액 · 선결제 · 발행 때 잔액 · 견적서 · 오더 끝 (2026-09-24 · 지시서 `~/asung/prompts/so-payment-1.md` · 판정 회신 · ⓑ1·ⓑ2 한 번에)
+
+⭐ **뜻 넷을 먼저** (Caleb 2026-09-24)
+```
+오더의 끝 = 인보이스 + 출하 · 돈은 조건이 아니다   = 오피스 마무리(so_finalize · §17)가 발행하는 순간 오더는 shipped → fulfilled 곧장 · invoiced 상태 값은 없다(시각 칸 invoiced_at 만) · Net 30 손님의 미수는 정상 · 돈은 인보이스의 남은 금액·손님 잔액에서 따로 본다(판정 1)
+결제와 인보이스는 다대다 · 붙이는 것은 사람   = so_payment ↔ so_invoice 는 so_payment_alloc(8-d) · 사람이 보낸 결제는 제안(so_payment_propose · 기한 순)만 하고 사람이 붙인다 · ⚠️ 예외 둘이 자동이다 — 발행 순간 ① 그 오더를 대상으로 적어 둔 선결제(판정 4) ② 손님의 일반 잔액(판정 5) — 「이미 남은 잔액을 새 인보이스에 쓰는 일」이라 8-d 의 걱정과 다르다
+잔액 식은 함수 하나 · 예약된 선결제는 뺀다   = so_customer_balance(8-e 식 그대로 · 통화별) · received = Σpayment 남은 금액 − Σrefund · reserved_deposit = 대상 오더가 아직 열려 있는 선결제 · available = received + owed_credit(ⓒ · 지금 0) − reserved_deposit — 발행 때 ② 가 쓰는 값
+떼기·취소는 지우지 않는다   = so_payment_alloc 떼기 = void(행 유지 · 활성 짝은 생성 칸 active_invoice_id 하나) · 결제 취소 = status voided · 인보이스 취소는 자동으로 붙은 것만 함께 풀고(void · void_note 에 번호) 사람이 붙인 것이 있으면 거부(판정 7)
+```
+
+### 18-a 판정 1~7 (✅ Caleb 2026-09-24 · 말 그대로 · 집)
+
+```
+판정 1  오더의 끝 = 인보이스 + 출하 · 돈은 조건이 아니다
+        「지금 cin7에서는 돈을 다 받지 않았어도, 오더를 닫을 수 있어. 텀을 받는 손님들이 있으니 말이야.」 · 「인보이스가 나가고, 물건도 나간 조건이어야 해」
+        ⇒ 오피스 마무리(출고 + 발행 한 순간 · §17)가 오더를 끝(fulfilled)으로 · 인보이스 취소 → 오더 shipped 로 · 다시 발행 → 다시 끝 · 6-g 의 예외(포장 끝 · 안 가져감 · 인보이스를 원함)는 선수금으로 받아 두고 가져가는 날 마무리
+        ⬜7 안 (C) ✅: 발행 순간 shipped → fulfilled 곧장(closed_at 짝) · invoiced 를 so_status_ck 에서 뺀다(쓰는 이 없음 · POS ④ 의 Finish 도 출고+발행 한순간) · 시각 칸 invoiced_at 은 남는다
+판정 2  결제 방법 여덟 · 받는 계좌 기본값 · 사람이 바꿀 수 있다
+        「손님들이 결제하는 방식은 아주 다양해. 대표적인 것은 체크와 크레딧 카드, etransfer야. 그 외에, wire transfer, 현금, 데빗 카드도 자주 쓰이고 direct deposit도 종종 쓰여.」
+        「wire transfer와 direct deposit은 두 군데 모두 다 쓰고 있어. TD CAD, BMO CAD」 · 「USD는 이따금 들어오긴 할텐데, 모두 BMO USD야」 · 「shopify는 aone만 해당하는데, 손님들은 credit card로 결제할 것이고, 그것은 모두 TD checking으로 들어가는 것을 알고 있어.」
+        기본값(방법 · 브랜치 · 통화 → 계좌 · 표 so_payment_account_default · 창고 둘 × 11 = 22 · 마이그레이션 씨앗 · admin 이 고친다):
+          cheque          TOR·EDM CAD → _5_ Undeposited Funds · USD → _106_ BMO USD CHEQUING
+          credit_card     TOR → _1150040027_ Clearing - TD Merchant TOR · EDM → _1150040030_ Clearing - TD Merchant EDM · USD → _106_
+          debit_card      TOR → _1150040027_ · EDM → _1150040030_ · USD 없음
+          e_transfer      TOR·EDM → _1150040028_ Clearing - E-Transfer · USD 없음
+          cash            TOR → _137_ Cash on hand TOR · EDM → _1150040031_ Cash on hand EDM · USD → _106_(Cash on hand_USD _145_ 도 고를 수 있다)
+          wire            CAD → 기본값 없음 · 사람이 _104_ TD CAD CHEQUING · _105_ BMO CAD CHEQUING 중 고른다 · USD → _106_
+          direct_deposit  wire 와 같다
+          shopify(AONE)   → _104_ TD CAD CHEQUING · USD 없음 · 📌 회계사 확인 거리: _1150040029_ Clearing - Shopify(수수료 뗀 입금 맞추기용일 수 있다 · 씨앗 없이 고를 수만)
+        「없음」 = 기본값 없음 → 넣을 때 계좌를 요구(이견 0-9 · 거부 아님) · 나머지 활성 BANK(PayPal · MTFX · WISE · CAD Clearing · BMO CAD SAVINGS · TD USD 등)는 고를 수 있되 기본값 아님
+        📌 새 사실(주문 유입 차수의 근거): asung.ca 도매 오더는 결제 없이 들어와 인보이스로 청구 · aonebeauty.com(AONE) 오더는 카드로 결제된 채 들어온다(→ method shopify · reference = Shopify 거래번호 · 대상 = 그 오더로 so_payment_order 에)
+판정 3  선결제 때 손님에게 주는 종이 = 견적서(pro forma) — 「견적서를 주는게 맞지 않을까? 그리고 총금액에 얼마가 paid됐다라는 식으로 말이야.」
+        ⇒ 인보이스 모양 · 「PRO FORMA — 인보이스가 아닙니다」 · 인보이스 번호 없음(오더 번호만) · 줄 · 세금(예상 · 그날 기준) · 합계 · 받은 금액(그 오더를 대상으로 한 선결제) · 남은 금액 · 저장하지 않는다 — 오더 화면에서 그때의 값으로 뽑는다(so_proforma · 읽기 · 화면은 대화 Claude)
+판정 4  「a가 좋아」 — 결제에 대상 오더를 적어 두면(so_payment_order · 금액 없음), 그 오더가 마무리될 때 인보이스에 자동으로 붙는다(auto_deposit) · 인보이스가 선결제보다 적으면 남는 돈은 손님 잔액(대상이 전부 발행·취소되면 저절로 · 0-7)
+판정 5  「이번에도 a로 가자」 — 인보이스를 낼 때 손님 잔액을 자동으로 붙인다(auto_balance) · 순서는 크레딧(진 빚) → 받아 둔 돈(8-e 「크레딧부터」 · ⓒ 전이라 지금은 받아 둔 돈만) · 인보이스만큼만 쓰고 나머지는 잔액 · 다른 오더를 대상으로 적어 둔 선결제는 빼고(available)
+        인보이스에 「이전 잔액 −x · 보내실 금액 y」가 장부와 같은 숫자로 찍힌다(8-c) · balance_forward 를 이제 채운다(§17 에서 null) — 0 이하 · 「봤는데 없었다」 = 0 · null 은 ⓑ 전 발행분
+판정 6  「a로 하자」 — sales 이상: 결제 넣기 · 인보이스에 붙이기(제안 그대로든 바꿔서든) · 선결제 대상 오더 적기 / manager 이상: 결제 취소 · 붙인 것 떼기 · 환불
+        ⚠️ 「sales」는 역할이 아니라 쓰기 열쇠(ims_require_write('sales')) · manager 는 so_require_role('manager')(ims_role_rank 에 sales 없음 · 이견 0-2)
+판정 7  「a로 가자」(⬜8) — 취소 때 alloc 중 source manual 이 하나라도 있으면 「먼저 떼라」 거부 · auto_deposit·auto_balance 는 취소와 함께 void(흔적 · void_note 「Invoice N cancelled: 사유」) → 돈은 받아 둔 돈으로 · 선결제는 대상 표시가 남아 다시 발행하면 다시 붙는다
+        대가(정본에 그대로): (a) alloc 에 source 칸 (b) void 행이 쌓인다(잔액 함수는 활성만) (c) 종이가 나간 뒤 손님이 보고 보낸 돈은 manual 이라 취소가 막힌다 — 그때는 8-h 대로 크레딧 (d) 사람이 붙인 것을 떼고 취소하면 그 결제도 잔액으로 돌아간다(반환 balance 로 보인다)
+        대안 「무조건 거부 · 전부 떼고 취소」는 자동 붙은 것이 거의 늘 있어 취소가 세 단계가 되고 재발행 때 같은 돈이 다시 붙어 얻는 것이 없다
+이미 정해진 것(8-d~8-g · 다시 묻지 않았다): kind(payment · refund) · 금액은 늘 양수 · 다대다 · 오래된 것부터 제안하되 사람이 바꾼다 · 오버페이는 크레딧이 아니라 손님 잔액 · 잔액 = 받아 둔 돈 + 진 빚 · 계산 함수 하나 · 별도 잔액 표 없음 · 선수금 = 붙지 않은 결제 · 환불은 잔액을 넘지 못한다
+```
+
+### 18-b 실측 (§3 조사 · Caleb 실행 · 테스트 DB · 2026-09-24)
+
+```
+① 계좌 열둘 전부 활성 · BANK 11(_104_ · _105_ · _106_ · _137_ · _145_ · _1150040027~31_) · _5_ Undeposited Funds 는 OTHERCURRENTASSET · _61_ A/R 은 CURRENT
+   ⚠️ for_payments 는 _5_ 만 true · BANK 전부 false ⇒ 결제 계좌 거르기에 못 쓴다(po_payment 주석의 경고가 실물) · 후보 조건 = is_active and (account_type = 'BANK' or code = '_5_') · 활성 account_type: BANK 18 · OTHERCURRENTASSET 16 · CREDITCARD 7 등
+② 창고: Asung Trading Inc.(TOR · is_default · North York ON) · Asung - Edmonton(EDM · Edmonton AB) · IN_TRANSIT · Production Facility(둘 다 비활성) · ref_warehouse 에 code 칸이 없다 ⇒ 브랜치 = warehouse_id FK
+   손님 기본 창고: TOR 9,320 · EDM 136 · 없음 5 · 손님 통화: CAD 9,458 · USD 3
+③ so_invoice CHECK 여덟(so_invoice_due_ck = total + coalesce(balance_forward, 0)) · 인보이스 0 · invoiced/fulfilled 오더 0 ⇒ 제약 교체 걸림 없음 · so_status_ck 에 invoiced 포함 · so_closed_at_ck (fulfilled|cancelled) = closed_at
+④ ims_staff 활성: admin 1 · supervisor 1 — 검증은 가짜 직원으로
+```
+
+### 18-c 검토 이견 · ⬜ 결정 (✅ Caleb 2026-09-24 · 이견 0-1~0-11 전부 · ⬜1~⬜11 전부)
+
+```
+이견(회신 §0)
+ 0-1  마지막 정의 — so_invoice_issue/cancel/reissue · so_status_guard · so_tax_preview 는 20260924200029 · so_ship · so_line_requote · so_finalize · so_detail · so_family_* 는 20260924202425 · ref_account 20260911162906(code unique · account_type CHECK 없음 · 씨앗은 GAS)
+ 0-2  「sales 이상」은 역할이 아니다 — ims_role_rank 는 worker<manager<supervisor<admin · sales 는 화면 쓰기 열쇠(ims_require_write) · so_require_role('sales') 를 쓰면 전원 거부
+ 0-3  fulfilled 는 closed_at 짝(so_closed_at_ck) — 발행이 올리면 closed_at = now() · 취소가 내리면 closed_at · invoiced_at null · fulfilled 쪽 첫 작성자가 ⓑ2
+ 0-4  ⚠️ amount_due 의 CHECK 에 선결제 항이 없었다 ⇒ 칸 deposit_applied(≥ 0) + so_invoice_due_ck = total − deposit_applied + coalesce(balance_forward, 0) · so_invoice_bf_ck(0 이하)
+ 0-5  ⚠️ 「남은 금액 = amount_due − Σ붙인 것」은 두 번 뺀다(발행 때 자동으로 붙은 것이 amount_due 에도 alloc 에도 있다) ⇒ 남은 금액 = total − Σ활성 alloc 하나(so_invoice_remaining) · amount_due 는 종이에 찍힌 값
+ 0-6  ⚠️ 환불이 특정 결제에 매이지 않는다(8-e 집계) ⇒ 결제 100 · 환불 100 뒤에도 그 결제의 남은 금액은 100 ⇒ 붙이기 한도 = min(인보이스 남은 금액, 결제 남은 금액, 그 통화의 받아 둔 돈) 셋 · 결제 취소도 잔액이 음수가 되면 거부 · 환불을 결제에 매는 대안은 8-e 와 어긋나 안 함
+ 0-7  선결제가 대상 오더 여럿을 가리킬 때 — 「예약된 선결제」 = 대상 오더 중 「끝 상태 아님 ∧ 살아 있는 인보이스 없음」이 하나라도 남은 결제(so_payment_is_reserved) · 전부 발행·취소되면 저절로 일반 잔액(푸는 동작 없음)
+ 0-8  진 빚(크레딧) 항은 ⓒ 전이라 0 리터럴 + 주석 자리(없는 표를 참조하는 코드는 쓰지 않는다 · ⓒ 가 so_customer_balance · so_invoice_issue ② 를 재발행)
+ 0-9  「USD 없음」 칸(데빗 · e-Transfer · Shopify)은 「거부」가 아니라 「기본값 없음 → 계좌를 요구」
+ 0-10 so_finalize 는 재발행 없음 — so_invoice_issue 반환의 totals · warnings 를 그대로 싣는다(:407~410) · totals 에 deposit_applied · balance_forward · amount_due · remaining 을 넣어 마무리 반환에 보인다(검증 T5b) · 결제별 목록 applied 는 안 실린다(⬜ 화면 때 한 줄 재발행)
+ 0-11 qty_removed 를 쓰는 자리는 so_finalize 하나(같은 트랜잭션에서 발행) ⇒ 발행 전 오더의 qty_removed 는 늘 0 ⇒ 견적서는 so_tax_preview basis 'ordered' 로 정확(새 basis 없음)
+⬜ 열하나(회신 답 그대로 · Caleb ✅)
+ ⬜1 ⓑ1 = 표 넷 · 읽기 넷 · 속 둘 · 창구 다섯(675행) / ⓑ2 = so_invoice 칸·CHECK · so_invoice_issue·cancel·so_status_guard·so_detail·so_customer_balance 재발행 · so_payment_is_reserved · so_proforma(571행) — 900행 안팎보다 큰 이유는 재발행 원문
+ ⬜2 so_payment(kind · amount > 0 · paid_on ims_today · method 여덟 CHECK · reference · customer(청구처) · currency FK+code · account FK+code · warehouse_id FK+name(브랜치 · 기본값 첫 대상 오더 창고 → 손님 기본 창고 → 요구) · note · status active|voided + void 짝 CHECK 셋 · created_by) ·
+     so_payment_alloc(payment cascade · invoice · amount > 0 · source manual|auto_deposit|auto_balance · void 짝 · 생성 칸 active_invoice_id + unique (payment_id, active_invoice_id) — 규칙 29) · so_payment_order(payment · so · unique 짝 · 금액 없음 — 인보이스가 서기 전에 배분 장부를 하나 더 두지 않는다)
+ ⬜3 so_payment_account_default (method, warehouse_id, currency_code) → account · 창고마다 행(부분 유니크 회피) · 마스터 쓰기(master · DELETE 열림) · 씨앗 22 · 창고·계좌 못 맞추면 마이그레이션이 멈춘다 · 조회 so_payment_default_account
+ ⬜4 so_customer_balance(통화별 · received · reserved_deposit · owed_credit 0 · available = greatest(received + owed − reserved, 0) · open_invoices · open_invoices_due(남은 금액 > 0 인 issued)) · so_invoice_remaining(total − Σ활성 alloc · 취소는 0) · so_payment_propose(기한 null 은 뒤 → 발행일 → 번호 · 미수 전부 · 읽기만)
+ ⬜5 so_payment_add(sales · allocations · target_so_ids 함께 · Σalloc ≤ amount · 통화 · voided·cancelled 거부 · 계좌 후보 조건 · 소수 둘째까지 · 미래 거부) · so_payment_attach(sales) · so_payment_detach(manager · void · 사유) · so_payment_void(manager · 활성 alloc 있으면 거부 · payment 는 취소 뒤 received < 0 이면 거부 · 대상 표시는 그대로) · so_payment_refund(manager · kind refund · 한도 = received · 계좌 필수 · 기본값 없음)
+     속 so_payment_alloc_add(한도 셋 · 같은 활성 짝 두 번 거부 · source 인자 — 발행의 자동 붙이기도 이 함수) · so_payment_resolve_account · 손님 행 for update 로 잔액 검사 직렬화
+ ⬜6 so_invoice_issue: 합계 먼저 굳힘 → ① 대상 선결제 auto_deposit(받은 날 순) ② 일반 잔액 auto_balance(available 한도 · so_payment_is_reserved 제외 · 받은 날 순) → deposit_applied · balance_forward = −② · amount_due = total − ① + bf → shipped→fulfilled(closed_at) · 반환 totals(+remaining) · applied · customer_balance
+ ⬜7 안 (C) — 짝 (shipped, fulfilled) · (fulfilled, shipped) · invoiced 를 so_status_ck 에서 뺌 · 뭉치(so_family_*)는 status 분기가 cancelled 뿐이라 무접촉
+ ⬜8 판정 7   ⬜9 so_proforma(p_so_ids · 열린 오더 · 같은 청구처·통화 · 살아 있는 인보이스 없음 · basis ordered · received = 대상 선결제 남은 금액 Σ(짐작: 여러 오더를 대상으로 한 결제는 남은 금액 전부를 보인다) · balance_due = total − received · deposits · customer_balance · 로그인)
+ ⬜10 같은 통화끼리만(환율 없음) · 잔액 통화별   ⬜11 병행 기간 만들 것 없음 · 전환 이월은 말만(18-g)
+```
+
+### 18-d ⭐ 훑기 표 — 상태 값 `invoiced` 를 쓰거나 읽던 자리 (마지막 정의 · 2026-09-24 · ⓑ2 에서 전부 고침)
+
+| 자리 | 하던 일 | ⓑ2 |
+|---|---|---|
+| so_status_ck 20260923133042:128 | 값 목록 아홉 | **뺐다**(여덟 · so.status 주석 갱신) |
+| so_status_guard 20260924200029:269 | 짝 shipped→invoiced · invoiced→shipped | **바꿨다** → shipped→fulfilled · fulfilled→shipped(짝 일곱 그대로) |
+| so_invoice_issue :684 | `status = 'invoiced'` | **바꿨다** → fulfilled + closed_at(so_closed_at_ck) |
+| so_invoice_cancel :739 | `where status = 'invoiced'` | **바꿨다** → fulfilled · closed_at·invoiced_at null |
+| so_detail 20260924202425:463 | basis 목록 | **뺐다**(shipped·fulfilled) |
+| so_family_members·lines · so_backorder_* · sweep · so_available_* | status 분기 cancelled 뿐 | 무접촉(grep 0) · 화면·js·gs 0 · PO 쪽 'invoiced' 열여덟은 po_line 칸 이름 |
+
+검증 1b S8 이 `so_%` 함수 본문 전체에서 `'invoiced'` 리터럴 0 을 다시 센다.
+
+### 18-e 파일 · 검증 실측 (✅ Caleb 2026-09-24 · 테스트 DB Asung-IMS · 커밋 33d134f ⓑ1 · ⓑ2 는 Caleb)
+
+```
+ⓑ1  20260924234250_so_payment_b1.sql(675행 · repair applied) — so_payment · so_payment_alloc · so_payment_order · so_payment_account_default(씨앗 22) · so_invoice_remaining · so_customer_balance · so_payment_default_account · so_payment_propose · so_payment_resolve_account · so_payment_alloc_add · so_payment_add/attach/detach/void/refund
+     검증 ~/asung/prompts/so-payment-1a-verify.sql v3(531행) — OK 100 · MISMATCH 0 · 흔적 0 · 넣기 15(TOR·EDM·USD · 송금 CAD 거부 · 지정 계좌 · _61_ 거부) · P1 338.77 → 인보이스 셋 · I4 ← 100+100 · 오버페이 189 → 188.77 잔액 0.23 · 제안 순서·읽기만 · 한도 셋 · 같은 짝 두 번 거부 ·
+     떼기(void · 다시 붙임 짝 2 활성 1) · 취소(붙어 있으면 거부 → 떼고 → 취소 · 음수 잔액 거부 · 환불 취소) · 선결제 대상(창고 기본값 EDM · 예약 → 오더 닫히면 풀림) · 통화(USD→CAD 거부 · 행 둘) · 권한 · CHECK 16 constraint_name · 표 직접 쓰기 42501
+     ⚠️ 검증 결함(v1→v3): RAISE 형식 문자열의 글자 % 둘(「50% COD & 50% N30」)이 자리표시로 읽혀 「too few parameters」 — %% 로 · 토크나이저에 RAISE 자리 수·값 수 검사를 더했다 / T8i 미수 장수를 7 로 셌다(다 낸 두 장은 안 센다 · 6 · DB 가 맞았다)
+ⓑ2  20260925001733_so_payment_b2.sql(571행 · repair applied) — so_invoice.deposit_applied + CHECK 셋 교체 · so_status_ck 여덟 · so_status_guard · so_payment_is_reserved · so_customer_balance 재발행 · so_invoice_issue 재발행(154→217행) · so_invoice_cancel 재발행(36→53행) · so_detail 재발행 · so_proforma
+     검증 ~/asung/prompts/so-payment-1b-verify.sql v3(334행) — OK 54 · MISMATCH 0 · 흔적 0 · 오더 일곱은 창구로(so_create · HST ON 고정 · 단가 지정 · D1~D3 확정) · shipped/packed 는 replica 로(시험 재료) ·
+     0.23 → SA 188.77 발행 → bf −0.23 · 보내실 금액 188.54 · fulfilled+closed_at · 잔액 500 > SB 188.77 → 인보이스만큼만(bf −188.77 · due 0 · received 311.23) · SX 대상 선결제 50 은 SC 발행에 안 쓰임(reserved) ·
+     선결제 400 대상 D1·D2·D3 → so_finalize 실물(픽 · so_ship · inv_post_sale 원장 3행) → 한 장 339 · auto_deposit 339 · 남는 61 은 잔액(예약 저절로 풀림) · 마무리 반환 totals 에 보임 ·
+     취소 → shipped(closed_at null) · auto 풀림(void_note 「Invoice N cancelled: …」 · received 422.23) · 재발행 → 다시 붙음 · 손으로 붙인 100 있으면 취소 거부 → 떼고 취소 → 재발행 때 P0 0.23(어제) 먼저 · 떼고 취소한 손 결제 100 도 일반 잔액이 되어 자동으로 쓰임(판정 5·7 의 실물 예) ·
+     so_detail(remaining · paid · customer_balance) · 견적서 SX(113 · 세금 13 · 받은 50 · 남은 63 · 아무것도 안 씀 · 끝난 오더 거부) · so_status_ck 가 invoiced 거부(문지기는 replica 로 끄고 CHECK 만) · CHECK 셋 constraint_name · 인보이스 6장(취소 2 · bf null 0)
+     ⚠️ 검증 결함(v1→v3): T8a 가 CHECK 둘을 함께 어겼다(invoiced 로 바꾸며 closed_at 을 남김 → so_closed_at_ck 가 먼저) / T6i 예상이 앞 절이 남긴 상태(떼고 취소한 손 결제 = 일반 잔액)를 빠뜨렸고, 같은 트랜잭션의 같은 날 결제는 created_at 이 같아 순서가 id 로 갈렸다 — 순서 대신 집합·합으로 판정
+```
+
+### 18-f 뒤집은 것 · 닫은 것
+
+| 자리 | 전 | 후(2026-09-24) |
+|---|---|---|
+| 6-a `invoiced` 상태 | 「송장이 나갔다」 | ✗ 상태 값에서 뺐다 — 발행 순간 fulfilled 곧장(판정 1) · invoiced_at 은 시각 칸 |
+| 6-a `fulfilled` 「물건이 나가고 송장까지」 | 돈은? | 돈은 조건이 아니다 — 미수는 인보이스 남은 금액·손님 잔액에서 |
+| 6-g ⬜ 선수금 · 발행물 | 「인보이스가 아니라 선수금 · 무엇을 발행할지 ④」 | ✅ so_payment + 대상 오더 · 종이는 견적서(so_proforma · 저장 안 함) |
+| 8-c balance_forward · §17 「ⓑ 전에는 null」 | null | 0 이하 · 봤는데 없으면 0 · null 은 ⓑ 전 발행분 |
+| §17 so_invoice_due_ck | total + coalesce(bf, 0) | total − deposit_applied + coalesce(bf, 0) (0-4) |
+| 8-d 「사람이 붙인다」 | 자동 없음 | 발행 순간 둘은 자동(대상 선결제 · 일반 잔액) — 8-d 의 걱정(엉뚱한 인보이스)과 다르다(판정 4·5) |
+| 8-e 잔액 식 | 항 넷 | 그대로 + 「예약된 선결제」는 available 에서 뺀다(0-7 · 식의 정본 so_customer_balance) |
+| 8-h 「결제·크레딧이 하나도 안 붙었을 때만 취소」 | 전부 거부 | manual 만 거부 · 자동은 함께 풀린다(판정 7) · 크레딧은 ⓒ |
+| 8-k 결제 계좌 후보(세 계좌) · 방법 어휘 | ⬜ | ✅ 여덟 · 기본값 표 22 · 후보 = 활성 BANK 또는 _5_ |
+| po_payment 주석 「for_payments 를 결제 계좌 필터로 쓰지 마라」 | 경고 | 실측으로 굳음(_5_ 만 true) |
+| 17-c ⬜3 「balance_forward 는 null」 · 17-g ⓑ | ⬜ | ✅ 섰다 |
+
+### 18-g ⬜ 남는 것
+
+```
+ⓒ 크레딧      so_customer_balance 의 owed_credit(Σcredit − Σcredit_applied) · so_invoice_issue ② 앞에 크레딧 소진(8-e 「크레딧부터」) · so_invoice_cancel 「크레딧이 붙었으면 거부」 · so_payment_refund 한도에 owed_credit(진 빚 환불) — 재발행 셋
+견적서        여러 오더를 대상으로 한 결제는 남은 금액 전부를 보인다(짐작 · ⬜9) · 인쇄 모양 「PRO FORMA — 인보이스가 아닙니다」(화면)
+마무리 반환   결제별 목록 applied 는 so_invoice_issue 반환에만 — so_finalize 가 실으려면 한 줄 재발행(화면 때)
+전환          Cin7 미수·선수금 이월(method 어휘에 opening 같은 값? · 인보이스 없는 미수를 어떻게 담나) — 전환 차수
+연동          QBO(받아 둔 돈·진 빚 계정 · 오버페이 차액 · 8-f) · _1150040029_ Clearing - Shopify 의 용도(회계사)
+화면          결제 넣기(기본 계좌 미리 채움 so_payment_default_account · 제안 so_payment_propose) · 붙이기·떼기 · 잔액 표시(received · reserved · available) · 인보이스 종이(받은 금액 · 이전 잔액 · 보내실 금액)
+정본 정리     6-a 본문 표에서 invoiced 줄 삭제는 파일 나누기 때 함께(지금은 줄 끝 포인터) · 검증 규칙(RAISE %% · 집합·합 판정)은 asung-workflow §4·§5
 ```

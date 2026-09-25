@@ -31,7 +31,8 @@ description: >
 Claude Code   레포 파일 수정(마이그레이션 · 설계 문서 · 공통 js/css · Edge Function)
               ⚠️ 반드시 「검토 후 이의 제기」 먼저 — 「그대로 만들어라」가 아니다
               ⚠️ 화면 html 은 안 고친다(지시서가 명시적으로 허락할 때만 · 예: <style> 블록만)
-Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로 보는 것은 전부 Caleb**
+              ⭐ [2026-09-24 Caleb] **테스트 DB 에서 「시험 적용 + 검증」을 스스로 돌린다** — begin → 마이그레이션 읽기 → 검증 → rollback 하나(§4 「시험 적용 장치」) · 통과할 때까지 고치고 **횟수·걸린 것·고친 것**을 보고한다
+Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일 옮기기 · ⭐ **눈으로 보는 것은 전부 Caleb** · Claude Code 의 검증 보고를 대화 Claude 와 함께 확인 → 실제 적용 + 확인 검증 한 번 + 커밋
               ⚠️ 개발자가 아닌 실무 전문가다 — 판단의 근거를 말로 설명한다
 ```
 
@@ -48,6 +49,8 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⚠️ [Caleb] 회신 평가를 길게 늘어놓지 마라 — **할 일을 먼저** 주고 평가는 짧게
 ⭐ 확인하지 않은 것은 「짐작」이라고 쓴다. 안 본 것은 「안 봤다」
 ⚠️ 「못 봤다」와 「없다」를 구분한다 · 원인을 모르면 상쇄하지 않는다 · 모르면 비워 둔다
+⭐ [2026-09-24 Caleb] **왕복을 줄인다 — 검증은 Claude Code 가 돌리고 결과를 함께 본다.** 「지금방식은 … 왕복이 많아져서 시간이 많이 걸리고 있어. 검증은 꼭 필요하고 확실하게 했으면 좋겠어. 클로드 코드가 검증까지 돌리고 그 결과물을 나와같이 니가 확인해 주는 방식은 어때?」
+   ⇒ 검증 파일을 만들면 **곧바로 테스트 DB 에서 시험 적용 + 검증을 돌린다**(§4) · 보고는 요약이 아니라 **원문**(exit · OK 수 · MISMATCH 줄 · 끝부분) + 재발행 diff + 토크나이저 + ⭐ **통과까지 몇 번 돌렸고 무엇이 걸려 어떻게 고쳤는지**(예상값을 바꿨으면 왜 DB 가 맞다고 보는지) · 대화 Claude 가 확인 → Caleb 이 실제 적용 + 확인 검증 한 번 + 커밋
 ```
 
 ---
@@ -112,7 +115,25 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⚠️ 적용 뒤에는 **실물로 확인한다** — 함수 개수·정책 수·반환 모양(「Success」 한 줄은 적용 증거가 아니다 · §11)
 
 ⭐ **마이그레이션 파일 시각은 UTC** — `date -u +%Y%m%d%H%M%S` (2026-09-22: 토론토 밤에 로컬 시각으로 지을 뻔했다 · UTC 로는 다음 날)
-⭐ **적용은 `psql -v ON_ERROR_STOP=1 -1 -f <파일>`** — 한 트랜잭션 · 도중 실패 시 전부 되돌아간다 · 파일에 트랜잭션 begin/commit 이 없는지 먼저 `grep -nE '^(begin|commit);'`(세미콜론까지)
+⭐⭐ [2026-09-24 Caleb] **Claude Code 가 돌려도 되는 것 = 테스트 DB(`~/.asung-testdb-url`)에서 「시험 적용 + 검증」 하나** — 한 트랜잭션: begin → 마이그레이션 파일 읽기 → 검증 → rollback → 번호 시퀀스 되돌리기(오더·인보이스 0 일 때만 setval)
+   ⚠️ 돌리기 전에: 검증 파일에 `commit;` 이 없고 `rollback;` 으로 끝나는지 `grep -nE '^(begin|commit|rollback);'` · 마이그레이션에 begin/commit 없음 · 주소는 `$(cat ~/.asung-testdb-url)` 만(운영 주소·`--linked`·SUPABASE_DB_URL 은 만들지도 않는다 · 메모리 no-direct-prod-requests)
+   ⚠️ 실제 적용(`-1 -f`) · `migration repair` · 커밋 · 푸시는 여전히 Caleb — Claude Code 의 실행은 **되돌아가는 것만**
+   ⭐ 검증 파일의 틀(시험 적용 장치 — psql 변수 `mig` 로 파일 경로를 받아 begin 뒤에 읽는다 · Caleb 의 확인 실행(이미 적용된 DB)은 `-v mig` 없이 → 건너뜀):
+     -- 머리: 시퀀스 현재값은 있을 때만 읽는다(시험 적용이 시퀀스를 만드는 차수도 있다)
+     select coalesce((select last_value from pg_sequences where schemaname = 'public' and sequencename = 'so_number_seq'), 0) as so_seq_last, … \gset
+     begin;
+     \if :{?mig}
+     \echo '── 시험 적용(rollback 됨):' :mig
+     \i :mig
+     \endif
+     create function pg_temp.chk(…) …            -- 도우미는 시험 적용 뒤·첫 호출 앞
+     … 검증 절 …
+     rollback;
+     select setval(to_regclass('public.so_number_seq'), :so_seq_last, :'so_seq_called'::boolean) where not exists (select 1 from public.so);   -- to_regclass: 시험 적용이 만든 시퀀스는 rollback 으로 사라져 있다
+     실행: Claude Code  psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -v mig=supabase/migrations/<파일>.sql -f <검증>.sql 2>&1 | tee /tmp/<이름>.out
+           Caleb(확인)  같은 명령에서 -v mig=… 만 뺀다 · 기대 OK 수는 검증 파일 머리에
+   ⭐ 기대값은 손으로 적지 말고 **파일 안에서 앞 절의 입력으로 계산**한다(단가·수량을 psql 변수로 두고 합계·세금은 so_detail/so_tax_preview 의 반환을 \gset 으로 받아 비교 · 잔액은 「앞 절 끝 잔액 ± 이 절의 입력」을 SQL 식으로) · 순서 대신 **집합·합**으로 판정(2026-09-24 T6i)
+⭐ **적용은 `psql -v ON_ERROR_STOP=1 -1 -f <파일>`**(Caleb) — 한 트랜잭션 · 도중 실패 시 전부 되돌아간다 · 파일에 트랜잭션 begin/commit 이 없는지 먼저 `grep -nE '^(begin|commit);'`(세미콜론까지)
    ⚠️ `^\s*(begin|commit)\b` 로 세면 함수 본문의 plpgsql `begin` 이 걸린다 — 2026-09-23 `20260923154749_price_tier.sql`(트리거 함수 하나)이 첫 사례
    `&& supabase migration repair --status applied <버전> --db-url …` 로 잇는다(적용이 실패하면 이력도 안 적힌다)
 ⭐ 표를 세우는 차수의 순서 — 프로브 → 판정 → 마이그레이션 → 적재 dryRun → Apply → Verify → SQL 눈 확인 (2026-09-22 손님 적재가 이 순서로 하루에 섰다)
@@ -132,6 +153,8 @@ Caleb         git · 배포 · SQL 실행 · 파일 옮기기 · ⭐ **눈으로
 ⚠️ **`format('%s', boolean)` 은 `t`/`f` 를 낸다** — 출력 함수를 쓴다(`boolean::text` 는 `true`/`false`) · 기대 문자열이 `manual=false` 면 `::text` 로 캐스트해 넣는다(2026-09-24 세금 ② v2 — 여덟 chk 가 글자만 같은 MISMATCH · DB 는 맞았다)
 ⚠️ **CHECK 시험은 한 번에 제약 하나만 어기는 자료로 · `get stacked diagnostics … = constraint_name` 으로 이름까지 판정** — 두 제약을 함께 어기면 Postgres 가 하나만 보고하고 나머지는 한 번도 안 돈다(2026-09-24 세금 ② 「tax_rule_id 만 null」이 pair_ck 대신 manual_ck 에 걸렸는데 OK 로 읽었다)
 ⚠️ **bash 에서 `grep $'\x00'` 은 빈 글자가 된다** — 널 바이트 검사는 `file <파일>` 또는 `grep -cP '\x00'` 로(2026-09-24 · Caleb 실측)
+⚠️ **RAISE 의 글자 % 는 %% — 형식 문자열의 % 자리 수와 넘기는 값 수를 주기 전에 센다** — 「50% COD & 50% N30」 같은 문구가 자리표시로 읽혀 do 블록 전체가 「too few parameters specified for RAISE」로 안 돈다(2026-09-24 ⓑ1 검증 v1 · 204행) ⇒ 토크나이저 검사에 RAISE 항목(`$$` 본문의 raise 마다 %(%% 제외) 수 = 값 수)을 더했다 — 마이그레이션(적용이 통과했으니 0)과 검증 파일 둘 다 돌린다
+⚠️ **BEFORE 트리거(문지기)는 CHECK 보다 먼저 막는다** — CHECK 만 시험하려면 `session_replication_role = replica` 로 문지기를 끄고, 그때도 다른 CHECK(closed_at 짝 등)를 함께 어기지 않는 자료로(2026-09-24 ⓑ2 T8a · invoiced 로 바꾸며 closed_at 을 남겨 so_closed_at_ck 가 먼저 걸렸다)
 ```
 
 ---
@@ -162,6 +185,9 @@ EOF
 ⚠️ **검증 파일은 주기 전에 괄호·따옴표·`$$` 를 센다**(토크나이저 · 문장마다 괄호 0 · 끝 상태 code) — 닫는 괄호 하나가 빠지면 psql 은 파일 끝에서 「syntax error at or near ;」만 말하고 **그 앞 절이 전부 안 돈다**(2026-09-24 ⓐ2 v1 · 9)·10)·rollback·setval 이 안 돌았다)
 ⚠️ **「줄마다 반올림」 예시는 줄 수를 함께** — 같은 30.15 가 한 줄이면 3.92 · 세 줄이면 3.93(2026-09-24 ⓐ1 v1 은 줄 하나를 3.93 으로 적어 틀렸다)
 ⚠️ **출력을 grep 으로 걸러 볼 때는 모든 절 번호를 넣거나 OK 수를 세라** — 절을 빼고 거르면 「안 돈 것」이 「통과」로 보인다(2026-09-24 대화 Claude 가 9·10 을 빼고 걸러 안 돈 것을 못 봤다)
+⚠️ **시험 예상은 앞 절이 남긴 상태를 따라가라** — 6) 에서 떼고 취소한 손 결제가 일반 잔액이 되어 뒤 절의 재발행 때 자동으로 쓰였는데 예상이 그것을 빠뜨렸다(2026-09-24 ⓑ2 T6i · DB 가 맞았다) ⇒ 절마다 「이 절이 끝난 뒤 잔액·상태」를 한 줄 적고 다음 절 예상은 그 줄에서 시작한다
+⚠️ **한 트랜잭션 안의 같은 날 결제는 순서가 id 로 갈린다** — paid_on·created_at 이 같아 `order by paid_on, created_at, id` 가 uuid 로 떨어진다(운영에선 요청마다 created_at 이 다르다) ⇒ 순서를 못 박지 말고 집합·합으로 판정하거나 paid_on 을 달리 준다(2026-09-24 ⓑ2 T6i)
+⚠️ **검증 결과는 파일로 받아 OK 수와 MISMATCH 를 센다** — `psql … -f <검증> 2>&1 | tee /tmp/<이름>.out` 뒤 `grep -c 'OK '` · `grep -n 'MISMATCH\|ERROR'` · 기대 OK 수를 검증 파일 머리에 적어 둔다(2026-09-24 ⓑ1 100 · ⓑ2 54)
 ```
 
 ---

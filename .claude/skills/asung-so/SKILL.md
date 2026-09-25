@@ -34,6 +34,7 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 쓰기 ③ 출고·백오더 ✅ 2026-09-24 — ③a 20260924141140(so_ship · inv_post_sale/inv_layer_post_sale · pick_short) · ③a′ 143507 · ③b 145105(so_backorder_close · 이어받기 · 다시 열기) · ③b′ 151719 · ③c 151038(만료 스윕 · so_backorder_list · cron 테스트 jobid 1) · ③b″ 153856(무상 줄 제외 · 만료 기간 supervisor 잠금) · 정본 §15
 세금 ①·②      ✅ 2026-09-24 — ① 20260924172351(ref_tax_rule 31 · ref_tax_region 14 · ref_region_alias 143 · ims_region_from_address · so_tax_rule_for · so_tax_amount · so_tax_preview · 세율 불변) · ② 175014(so.tax_rule_id · tax_rule_manual · so_tax_refresh · so_tax_set_manual · 창구 여덟 재발행) · 정본 §16
 인보이스 ⓐ      ✅ 2026-09-24 — ⓐ1 20260924200029(결제조건 34 · so_invoice 셋 · 60000 · so_invoice_issue/cancel/reissue · 문지기 짝 둘 · so.bill_to_customer_id · customer.invoice_split_by_store) · ⓐ2 202425(so_line.qty_removed 다섯 · so_finalize · so_ship·so_line_requote·so_detail·so_family_* 재발행) · 정본 §17 · ⓑ 결제·ⓒ 크레딧은 다음
+결제 ⓑ          ✅ 2026-09-24 — ⓑ1 20260924234250(so_payment · alloc · order · 계좌 기본값 22 · so_customer_balance · so_invoice_remaining · 창구 다섯) · ⓑ2 20260925001733(발행 때 auto_deposit·auto_balance · deposit_applied · balance_forward · fulfilled 곧장 · 취소 가드 · so_proforma) · 검증 1a OK 100 · 1b OK 54 · 정본 §18
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -196,8 +197,24 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 ⭐⭐ 손님이 뺀 줄만 자동 다시 견적(판정 6 · so_line_requote(…, false) · 할인만 · 시스템 줄만 · 사람이 정한 줄 무접촉) · pick_short 는 다시 견적 없음(판정 7 · 할인 그대로) · 모든 줄을 뺀 오더는 거부 + 길(WMS 되돌리기 → 취소 · 판정 9)
 ⭐⭐ 인보이스 금액은 보낸 수량 — round(qty_shipped × unit_price, 2)(so_line_total 은 주문 수량 · 초안까지만) · so_tax_preview(…, 'shipped') 식 한 곳 · 줄마다 반올림(§16 판정 3 · 예시는 줄 수를 함께: 3×10.05 한 줄 3.92 · 10.05 세 줄 3.93) · 오더별 세금 규칙은 so_invoice_order 에 굳는다(발행일 규칙 · manual 이면 오더 규칙)
 ⭐⭐ 번호 60000~(접두어 없음 · 재사용 금지 · 취소해도 남는다) · 취소·재발행은 manager(so_invoice_cancel · so_invoice_reissue) · 취소 = 문서 전체가 틀렸을 때(부분 문제는 크레딧) · 담긴 오더 invoiced→shipped · ⚠️ 결제·크레딧이 붙었으면 거부는 ⓑ·ⓒ 가 재발행해 더한다
-⭐⭐ balance_forward 는 ⓑ 전에 null(0 을 넣지 마라 — 「잔액 0 을 확인했다」로 읽힌다) · 기한 = 발행일 + net_days(판정 10 · 34 값 · null 이면 경고 due_date_unknown · split 이면 split_terms) · 조기결제 할인 기한은 안 찍는다
-⚠️  so_detail 은 shipped·invoiced·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본) · so_family_* 남은 수량 = 주문 − 뺀 것 − 보낸 것 · fulfilled 로 옮기는 때·발행 시점 잔액·취소 가드는 ⓑ(17-g)
+⭐⭐ balance_forward 는 ⓑ 전에 null(0 을 넣지 마라 — 「잔액 0 을 확인했다」로 읽힌다) → ⓑ2 부터 발행이 채운다(0 이하 · 봤는데 없으면 0 · 4-h) · 기한 = 발행일 + net_days(판정 10 · 34 값 · null 이면 경고 due_date_unknown · split 이면 split_terms) · 조기결제 할인 기한은 안 찍는다
+⚠️  so_detail 은 shipped·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본 · ⓑ2 부터 invoiced 상태 값 없음) · so_family_* 남은 수량 = 주문 − 뺀 것 − 보낸 것 · fulfilled 로 옮기는 때·발행 시점 잔액·취소 가드는 ⓑ → 4-h
+```
+
+## 4-h. ⭐⭐ 결제 · 손님 잔액 · 선결제(ⓑ) — 모르면 사고 (정본 §18)
+
+```
+⭐⭐ 권한: 넣기·붙이기·대상 오더 = ims_require_write('sales') · 떼기·취소·환불 = 거기에 so_require_role('manager') — ⚠️ 「sales」는 역할이 아니라 쓰기 열쇠(ims_role_rank 는 worker<manager<supervisor<admin · so_require_role('sales') 는 전원 거부)
+⭐⭐ 잔액 계산은 so_customer_balance 하나(통화별 · received = Σpayment 남은 금액 − Σrefund · reserved_deposit = 대상 오더가 아직 열린 선결제(so_payment_is_reserved) · owed_credit 0(ⓒ) · available = received + owed − reserved) — 화면·다른 함수가 식을 다시 짜지 않는다 · 별도 잔액 표 없음
+⭐⭐ 인보이스 남은 금액 = so_invoice_remaining = total − Σ활성 alloc — amount_due(= total − deposit_applied + balance_forward)는 종이에 찍힌 값일 뿐(발행 때 자동으로 붙은 것이 둘 다에 있어 amount_due − Σ 로 세면 두 번 뺀다)
+⭐⭐ 붙이기 한도 셋 = 인보이스 남은 금액 · 결제 남은 금액 · 그 통화의 받아 둔 돈(환불은 집계라 특정 결제에 안 매인다) · 같은 통화끼리만 · 같은 청구처 · 활성 짝(payment, invoice)은 하나 · 붙이는 것은 so_payment_alloc_add(속) 하나
+⭐⭐ 떼기 = void(행 유지 · voided_at/by/note · 생성 칸 active_invoice_id 가 비어 다시 붙일 수 있다) · 결제 취소 = status voided(활성 alloc 있으면 「먼저 떼라」 · payment 는 취소 뒤 received < 0 이면 거부) · 환불 = kind refund 한 줄(한도 received · 계좌 필수 · 기본값 없음) — 삭제 없음
+⭐⭐ 발행(so_invoice_issue) 순간 자동 둘: ① 담긴 오더를 대상으로 적어 둔 선결제(so_payment_order · auto_deposit · 받은 날 순 · 남는 돈은 잔액) ② 손님 일반 잔액(auto_balance · available 한도 · 다른 오더 예약분 제외 · 인보이스만큼만) → deposit_applied · balance_forward = −②(0 이하 · 봤는데 없으면 0 · null 은 ⓑ 전) · 사람이 보낸 결제는 제안(so_payment_propose)만 하고 사람이 붙인다
+⭐⭐ 취소(so_invoice_cancel): alloc 에 source manual 이 하나라도 있으면 거부(먼저 떼라 · 또는 크레딧) · auto_deposit·auto_balance 는 함께 void(void_note 「Invoice N cancelled: 사유」) → 돈은 잔액으로 · 대상 표시가 남아 재발행 때 다시 붙는다 · 떼고 취소한 결제도 일반 잔액이 되어 다음 발행 때 자동으로 쓰인다(판정 5·7)
+⭐⭐ invoiced 상태 값은 없다(so_status_ck 여덟) — 발행 순간 shipped → fulfilled 곧장(closed_at 짝) · 취소 → shipped(closed_at·invoiced_at null) · 돈은 오더 끝의 조건이 아니다(Net 30 미수 정상) · invoiced_at 은 시각 칸으로 남는다
+⭐  결제 계좌 후보 = is_active and (account_type = 'BANK' or code = '_5_') — ⚠️ for_payments 를 믿지 마라(_5_ 만 true · BANK 전부 false) · 기본값은 so_payment_account_default (method, warehouse_id, currency_code) 22행(판정 2 · 없는 조합 = 계좌를 요구 · admin 이 고친다) · 브랜치 = warehouse_id FK(ref_warehouse 에 code 없음)
+⚠️  선수금 = 붙지 않은 결제 + 대상 오더 표시(금액 없음) · 손님에게 주는 종이는 견적서 so_proforma(읽기 · 저장 안 함 · basis ordered · received = 대상 선결제 남은 금액 · 여러 오더 대상 결제는 남은 금액 전부 — 짐작) · AONE 오더는 method shopify 로 결제된 채 들어온다(유입 차수)
+⚠️  검증 시험 자료: 인보이스는 postgres 직접 insert(CHECK 여덟 만족) · 오더는 창구로 만들고 shipped/packed 만 replica 로 · 같은 트랜잭션의 같은 날 결제는 순서가 id 로 갈린다 — 예상은 집합·합으로 · 앞 절이 남긴 상태(떼고 푼 결제)를 따라가라
 ```
 
 ## 5. 이 스킬을 갱신할 때

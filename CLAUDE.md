@@ -174,6 +174,8 @@ git config core.hooksPath scripts/hooks
   집·회사 두 대에서 개발하므로 push 는 다른 머신의 작업 상태와 얽힌다(6절 참조).
   Claude 는 커맨드를 **제시만** 한다. `supabase db push`·`supabase functions deploy`·
   Cin7 API 호출·프로덕션 SQL 도 같다 — **되돌리기 어려운 것은 전부 사람이 실행한다.**
+  ⭐ 예외 하나(2026-09-24 Caleb): **테스트 DB(`~/.asung-testdb-url`)에서 begin → 마이그레이션 읽기 → 검증 → rollback 으로 끝나는
+  「시험 적용 + 검증」은 Claude 가 스스로 돌린다**(asung-workflow §4 「시험 적용 장치」) — 되돌아가는 것만 · 실제 적용·repair·커밋·운영은 그대로 사람.
 
 - **여러 파일을 고쳤으면 정합 확인을 함께 보고한다.** 같은 사실이 설계 문서·스킬·코드 주석에
   흩어져 있어 한 곳만 고치면 갈라진다. 고친 서술의 옛 문구를 `grep` 으로 전수 확인하고 결과를 낼 것.
