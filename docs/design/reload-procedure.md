@@ -15,7 +15,7 @@
 | `truncate inv_config;` | 함정 4의 처방 | ⚠️ **IMS 설정 2행이 사라진다**(`po_create` 가 멈춘다) |
 | `inv_ledger` | 빈 표에 붓는다 | ⚠️ **`id` 유니크 충돌로 막힌다** |
 | `inv_layer` 계열 | 운영 0행이라 무해 | ⚠️ **테스트 41,479행이 사라진다** |
-| `wms_` 표 | 넷만 제외 | **26개 전부 범위 밖**이어야 한다 |
+| `wms_` 표 | 넷만 제외 | **26개 전부 범위 밖**이어야 한다  → ⭐ [2026-09-26] 테스트에서는 wms_legacy(옛 26 · 재복사 대상 아님)와 public.wms_(IMS 표 14 · B 갈래처럼 지킨다)로 갈렸다(so-module §24-g) |
 
 ### 배경 — 두 홉
 
@@ -471,6 +471,14 @@ wms_waves · wms_zone_sequence
 ```
 (2026-09-21 레포 grep · `create table` 26건. 컷오버 설계 때 운영 `pg_class` 로 다시 센다.)
 ⬜ 이사 절차는 별도 항목(§O) — `wms_pallets` 순환 FK · `wms_staff` 와 `ims_staff` 의 관계 · `wms_rollback_archive` 보존 여부가 그때의 논점이다.
+```
+✅ [2026-09-26 · so-module §24-g] 테스트 DB 에서 옛 wms_ 26 + 뷰 + 함수 13 은 wms_legacy 로 옮겨졌다(행째 · 188,300행)
+   public 의 wms_ 14 표(② 13 + wms_worker_mistakes)는 IMS 표다 — 재복사 덤프 · truncate 목록에 넣지 마라(B 갈래처럼 지킨다)
+   wms_legacy 는 재복사 대상이 아니다(덤프는 --schema public 뿐)
+   논점 셋: wms_pallets 순환 FK — 닫힘(set schema 가 제약째 옮겼다) · wms_staff 와 ims_staff — 닫힘(판정 10~12 · 24-f) ·
+            wms_rollback_archive 보존 — 바뀜(옛 2,377행은 wms_legacy · 새 표는 빈 채 · append-only 정책 둘)
+⬜ 전환일: 승격된 테스트에 cron 이 서면 ⑤ 가드(판정 13)가 스스로 막는다 — 그날 마커 값을 바꾸고 가드가 허용하게 한다
+```
 
 ---
 
@@ -521,7 +529,7 @@ wms_waves · wms_zone_sequence
 - ⬜ **`wms_` 26개 이사 절차** — 논점: `wms_pallets` 순환 FK · `wms_staff` 와 `ims_staff` 의 관계 · `wms_rollback_archive` 보존 여부(§M).
 - ⬜ **`overriding user value` 전환** — post 의 15컬럼 INSERT 를 컬럼 수에 무관한 문장으로. 다음 회차 `begin; … rollback;` 확인 뒤(§E).
 - ⬜ **운영 일괄 배포 판단** — 운영 Remote 빈 줄 **53**(`20260911144606`~`20260921161933` · 2026-09-21 실측). 전부 올리면 IMS 모듈 전체가 운영 DB 에 빈 표로 선다.
-  **Caleb 판정 2026-09-21: 계속 보류**(`po_in` 순서 수정 `20260921161933` 도 IMS 모듈 53개와 함께 올라가므로 운영 배포 보류).
+  **Caleb 판정 2026-09-21: 계속 보류**(`po_in` 순서 수정 `20260921161933` 도 IMS 모듈 53개와 함께 올라가므로 운영 배포 보류).  → 📌 절대 조건(ims-principles) · 앞의 IMS 95 는 가드가 없다(so-module §24-g)
   ⚠️ 올리면 §B ② 의 기준값(운영 53 · 테스트 0)이 바뀐다 — 그때 이 문서를 함께 고친다.
 - ⬜ **월별 평가액 보존** — 컷오버 설계와 함께. `value` 의 출처가 Cin7 → IMS 레이어로 바뀌므로 출처 구분 장치가 필요(§K).
 - ✅ ~~단일판 리허설 한 번(컷오버 전)~~ — 2026-09-21 2차 실행(§N).

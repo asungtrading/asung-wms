@@ -42,7 +42,7 @@ Cin7 Core를 장기적으로 대체할 커스텀 IMS의 첫 모듈. 추측으로
 1. `supabase migration new <name>`
 2. SQL 작성
 3. `supabase db reset` — 로컬에서 처음부터 재생해 검증
-4. `supabase db push` — ⚠️ 사람이 직접만 실행. Claude는 명령만 제시한다.
+4. `supabase db push` — ⚠️ 사람이 직접만 실행. Claude는 명령만 제시한다.  → ⚠️⚠️ [2026-09-26] 운영에는 전환일까지 db push 금지 — 절대 조건(ims-principles) · ⑤ 파일은 가드가 막지만 앞의 IMS 95 는 막지 않는다(so-module §24-g)
 
 금지:
 - 대시보드 SQL Editor로 스키마 변경 — 로컬과 원격이 어긋나 이 체계가 무의미해진다.

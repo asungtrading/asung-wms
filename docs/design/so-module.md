@@ -4056,8 +4056,8 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⓪ 문서              이 차수(wms-docs-1)
 직원 싣기            wms_staff 21 → ims_staff(Caleb 손 · 로그인 계정) · ⑤-4 화면 시험 전까지  → ✅ [2026-09-26] 19 명 · 권한 비움 · 창고 manager 둘(24-f)
 ⑤-1 표              옛 wms_ 표 → 보관 스키마 · 같은 이름 새 표(uuid · so · so_line · po_receipt · ims_staff) · auth_all ·
-                     so_status_guard 에 at_wms · picking · packed 짝                                    400~600행
-⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행
+                     so_status_guard 에 at_wms · picking · packed 짝  → ⑤-2 로(24-g)                                    400~600행  → ✅ [2026-09-26] f82a00d(24-g)
+⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행  + so_status_guard 짝 · 창고 제한 첫 실물 · worker 창고 SQL(24-g)
 ⑤-3 창구 · 입고      receiver 동작 → po_receipt_* · stage_events → 축 칸                                 300~400행
 ⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)
 뒤                  제자리 돌려놓기 · 칸 이동 · 픽커 리포트 · 헬스 IMS 판 · 사진 · 트랜스퍼 픽 · 찾기 · 세기 · bin transfer
@@ -4076,7 +4076,14 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ✅ inv_post_sale 의 authenticated 회수(판정 7) — 회수됨(20260924141140:367 · 뒤 정의 없음 · wms-docs-1 대조)
 ⬜ inv-collect 의 wms_orders 읽기 — 컷오버 때 함께
 ⬜ staff.html 편집 화면에 창고(warehouse_access) 칸이 없다 · EF 도 받지 않는다 — 지금은 SQL 로만 넣는다(화면 거리 · 24-f)
-⬜ worker 7 의 창고 — ⑤-1 에서 WMS 화면 값과 함께 정한다(판정 12 · 운영 창고값 토론토 5 · 에드먼튼 2)
+⬜ worker 7 의 창고 — ⑤-1 에서 WMS 화면 값과 함께 정한다(판정 12 · 운영 창고값 토론토 5 · 에드먼튼 2)  → ⑤-2 로(창고 제한 첫 실물 · 24-g)
+⬜ 입고 일시정지를 적을 자리 — wms_task_holds 에서 receipt · partial 을 뺐다(24-g ①) · ⑤-3 에서 정한다 · 화면의 일시정지 흐름은 지킨다
+⬜ 동선 순서 23행 — wms_legacy.wms_zone_sequence 에서 warehouse_id(uuid)로 옮겨 심는다(24-g ②) · ⑤-4
+⬜ wms_worker_mistakes.cin7_corrected 의 이름(뜻은 「매니저가 정리했다」 · 24-g ③) · ⑤-5
+⬜ manager 권한 세분화 — 비밀번호를 나눠 주기 전 · ⑤-4(wms 방 화면 값과 함께 · 24-f 실물 정정)
+⬜ wms 방 화면 값 다섯 안 — picking · packing · fulfillment · putaway · wms_manage · ⑤-4 에서 확정
+⬜ 운영 가드를 전환일에 푸는 법 — 승격된 테스트에 cron 이 서면 가드가 스스로 막는다 ⇒ 그날 마커 값을 바꾸고 가드가 허용(24-g 판정 13 · reload-procedure §M · §O)
+⬜ 운영 일괄 배포 보류 — 앞의 IMS 95(20260911144606~)는 가드가 없다 · ⓒ inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(24-g 판정 13 ➕)
 ⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 전환 준비 · 이월(24-f)
 ```
 
@@ -4128,4 +4135,66 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
    새 표로 옮기려면 사람뿐 아니라 오더도 이어야 한다(옛 기록은 Cin7 폴링본 wms_orders 를 가리킨다 · so 에 없다) ·
    테스트 DB 의 옛 행은 09-10 까지 — 전환 때 운영의 마지막 기록으로 정한다(전환 준비 · 이월) ·
    이식하기로 하면 그때 비활성 둘을 is_active false 로 만든다(Caleb 2026-09-26 물음 · 지금은 만들지 않는다)
+```
+
+**실물 정정 (Caleb 확인 2026-09-26 · 판정 원문은 위 그대로)**
+```
+역할         manager 8 · supervisor 4(+ 시험 계정 1) · worker 7 · admin 1 = 21 · supervisor 넷은 Caleb 이 만든 그대로
+perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기본 모양을 굳혔다(짐작 · raw 338~346 patch.perms = readPerms()) ·
+             manager 8 은 IMS 다섯 화면 :read · supervisor 는 다섯 쓰기(기본과 같음) · worker ["wms"]
+빠진 셋       운영 사본 active 중 IMS 에 없는 셋 = 비활성 worker 둘 + manager 하나(IMS 에는 다른 이메일로 · Caleb 이 만든 그대로)
+⬜           manager 권한 세분화 — Caleb 「지금은 매니저 권한을 디테일하게 나눠놓지 않았어」 · 비밀번호를 나눠 주기 전(⑤-4 · wms 방 화면 값과 함께)
+📌           창고 제한은 지금 어디서도 지켜지지 않는다 — ims_can_warehouse 를 부르는 곳이 0(마이그레이션 · asung-ims 화면) · manager 둘에 넣은 값도 아직 효과 없음 · 첫 실물은 ⑤-2 창구
+```
+
+### 24-g ⑤-1 표 — 판정 13 · 14 · 15 · 실물 (2026-09-26 · f82a00d)
+
+⭐⭐ **절대 조건** — 운영 WMS 는 전환일까지 멈추지 않는다(Caleb 2026-09-26 · 정본 `ims-principles.md` 「절대 조건」) · 운영에 닿을 수 있는 길이 보이면 이견 0 번으로 먼저.
+
+```
+판정 13  운영 가드 — Caleb 「좋아 그렇게 하자」
+         ⑤ 의 마이그레이션마다 첫 문장 = supabase/ops/guard-test-only.sql 의 복사(바이트 그대로 · 앞에는 주석뿐)
+         흔적 셋 중 하나라도 걸리면 WM501 로 멈추고 아무것도 바꾸지 않는다(OR · fail-closed):
+           a. cron.job 에 wms-poll-orders 또는 wms-auto-hold
+           b. public.inv_config 에 key='db_role' · value='test' 가 없다(허용 목록식 · 없으면 운영으로 본다)
+           c. wms_health_runs(public 또는 wms_legacy) 행 수 > 0
+         명찰: Caleb 이 2026-09-26 11:57(토론토) 테스트에만 넣었다 — inv_config ('db_role','test') · 넣는 SQL 에 자기 가드(WMS cron 이 보이면 멈춤)
+         공통 함수가 아니라 매번 복사(repair 로 건너뛴 경우 「함수 없음」이 「가드가 멈췄다」와 구별이 안 된다)
+         ✅ 확인(대화 Claude · 2026-09-26 · f82a00d raw): 20260926165113 첫 do 블록 26행 · 1,184 바이트 = guard-test-only.sql · byte-identical · 앞에 주석 아닌 줄 0
+         ⬜ 전환일에 푸는 법 — 승격된 테스트에 cron 잡이 서고 health_runs 가 쌓이면 가드가 스스로 막는다 ⇒ 그날 마커 값을 바꾸고 가드가 그 값을 허용(reload-procedure §M · §O)
+         ➕ 넓힌 셈(Claude Code · 2026-09-26): 운영에 없는 IMS 마이그레이션 95(20260911144606~)가 db push --linked 로 운영에 가면
+            ⓐ 운영을 깨는 것 0 · ⓑ 더하기만(inv_ledger_source_check 'ims' · inv_layer_source_ck 5→12 · inv_layer_origin_ck 7→8 · inv_config.updated_by + inv_config_guard 트리거 · 새 표 · 함수 · 뷰) ·
+            ⓒ 판단이 안 서는 것 = inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(운영은 cron · EF 어디서도 안 부른다 · inv_layer 운영 0행 · 지금은 무해 · 운영에서 손으로 돌리면 ims_staff 열쇠가 없어 멈춘다)
+            ⇒ 가드는 ⑤ 부터의 파일만 지킨다 · 앞의 95 는 사람 규칙(운영 일괄 배포 보류)이 지킨다 — 운영에는 전환일까지 db push 를 하지 않는다
+판정 14  작업자 실수 표 = wms_worker_mistakes(새 이름) · reason 다섯(short_after_pack · over_pick · pack_scan_mistake · short_pick · resolved_pack_recovery) — Caleb 「a로 가자」
+         근거: 같은 이름이면 pre-commit 분류값 검사(scripts/check-class-values.sh · 마이그레이션 전부를 시각순으로 읽어 뒤 CHECK 가 앞을 덮는다)가 새 CHECK 로 읽어 운영 화면 커밋이 막힌다
+         ✅ f82a00d 커밋 때 훅 결과 (wms_discrepancies, reason) 9 · (wms_reports, kind) 4 그대로 ok
+판정 15  옛 wms_* 함수 13 = 표와 함께 wms_legacy 로 · ⑤-2 에서 같은 이름으로 public 에 새로 — Caleb 「A로 가자」
+나머지 ⬜ 열하나 = Claude Code 안대로 — Caleb 「클로드 코드 안대로 가자」
+         ① · ③ 12 는 새로 안 세운다 · ② PK bigint identity 유지(① 을 가리키는 칸만 uuid) · 새 FK(so · so_line · po_receipt · ims_staff · ref_warehouse) restrict ·
+         ② 끼리 FK 는 운영 값 그대로 · wms_reports · wms_rollback_log 의 order_id(와 reports.receipt_id) set null · 복사 칸 세 갈래 · wms_legacy 는 grant 없음 + revoke usage ·
+         so_status_guard 의 at_wms · picking · packed 짝은 ⑤-2 · wms 방 화면 값은 ⑤-4 · 창고 제한 첫 실물은 ⑤-2 창구 · 뷰는 같은 이름 · 같은 칸 · 한 차수
+```
+
+**Claude Code 가 ⑤-1 에서 정한 셋 — Caleb 이 적용으로 받았다**
+```
+① wms_task_holds 의 task_kind 에서 receipt · source 에서 partial 을 뺐다(입고는 po_receipt · uuid) ⇒ ⬜ 입고 일시정지를 적을 자리는 ⑤-3
+   📌 Caleb 물음 「hold 버튼을 뺐다는 걸까?」 → 아니다 · 화면은 안 바뀌었다 · 운영 receiver 의 일시정지 · 픽 · 팩 Hold 는 그대로 · IMS receiver(⑤-6)의 일시정지도 지킬 흐름이다 — 적을 자리만 ⑤-3
+② wms_drop_locations · wms_zone_sequence 의 warehouse(text) → warehouse_id(uuid · ref_warehouse · restrict) ⇒ ⬜ 동선 순서 23행은 ⑤-4 에 wms_legacy 에서 uuid 로 옮겨 심는다
+③ wms_worker_mistakes.cin7_corrected 이름 유지(뜻은 「매니저가 정리했다」) ⇒ ⬜ 이름은 ⑤-5
+```
+
+**⑤-1 실물 (2026-09-26)**
+```
+파일      마이그레이션 20260926165113_wms_5_1_tables.sql(409행 · 27,339 바이트) + supabase/ops/guard-test-only.sql(26행 · 1,184 바이트) · 커밋 f82a00d
+적용      테스트 적용 && repair — Caleb · Repaired 20260926165113 => applied
+옮김      26 표 + 뷰 1 + 함수 13 → wms_legacy(행 수 전후 같음 · 27 이름 188,300행 · FK 19 · 정책 29 · identity 24 따라감 · anon · authenticated USAGE f)
+세움      public 에 ② 13 + wms_worker_mistakes = 14 표 비어서 · identity 14 · FK 45(so 7 · so_line 3 · po_receipt 1 · ref_warehouse 3 · ims_staff 24 · wms_ 끼리 7) · 정책 15(auth_all 13 + archive 2) · 인덱스 20 · 뷰 1
+검증      Claude Code 시험 적용 4회(걸린 것 전부 검증 파일 쪽 — char 캐스트 · 셈 · 정렬 · boolean 비교) · Caleb 확인 실행 OK 39 · MISMATCH/ERROR 0 · 시퀀스 so 25004 · 인보이스 60001 · 크레딧 1000 그대로
+⚠️ G0     가드 글자 같음 검사는 한 번도 돌지 않았다 — psql 의 \! 는 /bin/sh(dash)로 돌고 G0 의 diff <(…)는 bash 문법이라 「sh: Syntax error」로 죽었다 · 결과 거르기 grep 'MISMATCH\|ERROR' 가 소문자 「Syntax error」를 못 잡았다
+          Caleb 판정: ⑤-1 검증 파일은 G0 을 고치지 않는다(이미 적용 · 확인 실행은 G0 을 건너뛴다) · 머리 주석만 참말로 · ⑤-2 부터 G0 은 임시 파일에 첫 블록을 써서 diff(dash · bash 어느 쪽에서도 돈다) · 거르기는 'MISMATCH\|ERROR\|rror:'
+          가드 글자 같음은 대화 Claude 가 f82a00d raw 로 직접 확인했다(위 판정 13 ✅)
+⚠️⚠️ 실사고 Claude Code 가 「검증 파일 머리의 확인 38 → 39 로 고쳤다」며 grep 원문처럼 붙인 줄이 지어낸 것이었다(명령을 돌리지 않았다) ·
+          다음 명령의 어서션이 파일에 옛 줄이 남은 것을 보고 멈춰 드러났다 · Claude Code 가 스스로 밝혔다 · 2026-09-17 「만들지 않은 파일」과 같은 종류
+          ⇒ 규칙: 고쳤다는 보고는 grep 만이 아니라 고치기 전후의 ls -l(바이트 · 시각)을 함께 붙인다 · 시각이 안 바뀌었으면 고치지 않은 것이다(asung-workflow §3 ②)
 ```
