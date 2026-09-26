@@ -823,6 +823,7 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
 ⭐ ~~이 건수가 SO 쪽 「재고 없이 나갔다」 표와 **맞아야 한다**~~ [정정 2026-09-25 · SO ④a3] **대조할 표가 없다 — 같은 기록 하나다.** SO 는 새로 적는 곳을 만들지 않고 이 `sale_shortfall` 레이어를 `so_stock_short_list(p_filters)` 로 **읽는다**(so-module.md §20 판정 7).
    매니저의 「확인함」만 `so_stock_short_check` 에 따로 앉는다 — ⚠️⚠️ **열쇠는 레이어 id 가 아니라 `(doc_number, sku, warehouse)`**(재생성이 id 를 바꾼다 · 실측 494928 → 504446 뒤에도 확인 기록이 같은 줄에 붙어 있었다) · 확인 권한 = manager 이상 + (sales ∨ receiving) 열쇠 · 되돌리기 없음(메모로 고친다).
 ⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠가 **둘 다** 있는 로그인으로** — 안쪽 원가 창구(inv_layer_post_receipt · inv_layer_post_charge)가 둘을 요구해 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 검증 2회차).
+⬜ **원가 모르는(`unknown`) 판매 부족분의 원가를 나중에 어떻게 채우나** — 재고 사건 차수의 판정 거리 · 첫 실물 SO-25000 ORS10999 12(테스트 DB · 화면 시험) · Manager List(asung-ims `manager-list.html`)의 Sold without stock 탭이 「cost unknown」으로 보인다(so-module.md §23).
 📌 ⑰(`skipped_by_event`)은 무변 — `sale_out` 은 여전히 세지 않는다 · ⑥(원가 누락)은 Cin7 축이라 무관.
 
 ### 📌 어긋남의 원인을 모를 때

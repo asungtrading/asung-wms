@@ -1105,7 +1105,7 @@ closed 오더도 롤백 대상(규칙 14 · WMS 의 status 용어)  ⇒ IMS 의 
 ```
 Confirm   라인이 굳고 금액이 **모니터에** 뜬다 · 재고를 잡는다(allocated) · ⚠️ 종이 없음
           ⇒ 이 뒤 Finish 전까지 추가 · 취소 · 재confirm 자유
-Finish    재고가 원장에서 빠진다(shipped) · 인보이스 발행(invoiced) · 인쇄  ⇒ fulfilled
+Finish    재고가 원장에서 빠진다(shipped) · 인보이스 발행(invoiced) · 인쇄  ⇒ fulfilled  → §23(pos.html v1 — Confirm · 결제 넷 · Finish · Park · Reopen · 인쇄는 다음 판)
 ```
 
 ⭐⭐ **왜 둘인가** — 그 사이에 실무가 있다. Caleb 의 실례(2026-09-21):
@@ -1216,7 +1216,7 @@ WMS 사건(픽 시작·팩 완료·출하·롤백)을 IMS 가 받는 방법 — 
 전이 허용 짝 목록의 실물(길별) · WMS 롤백으로 내려가는 짝을 목록에 넣는 방식                     6-g′ · 마이그레이션 차수
 Undo Finalize 가 Undo Fulfillment 와 같은 것인지 별 단계인지 — admin.html 확인(짐작만 있다)      6-e
 할당 풀기의 권한                                                                              6-h
-「재고 없이 나갔다」 표의 자리(라인 칸인가 별도 큐인가) · 매니저 목록                             6-f · 화면/③  → §20 ✅(둘 다 아니다 — 원장 레이어 + 확인 기록 표 하나)
+「재고 없이 나갔다」 표의 자리(라인 칸인가 별도 큐인가) · 매니저 목록                             6-f · 화면/③  → §20 ✅(둘 다 아니다 — 원장 레이어 + 확인 기록 표 하나)  · → §23(manager-list.html)
 packed 오래 머문 오더 목록 · 릴리스된 오더의 잠금 표시 · counter 오더 목록                        6-d · 6-e · 6-b · 화면  → §20(counter 오더 목록 ✅ · POS 는 so_pos_open_list)
 결제 선수금(인보이스 전 결제 · Shopify 결제 기록) · 인보이스 번호 · 반품·크레딧 노트             ④
 ```
@@ -1465,7 +1465,7 @@ credit_number   CR-01000 부터     여유 372
 ```
 ⚠️⚠️ **릴리스 뒤에는 안 된다.** 창고에 픽 배치가 이미 서 있다.
 📌 팩 이후에 「서류 하나」가 필요한 경우는 **병합이 아니라 인보이스 묶음**이 푼다(8-c).
-⚠️ **자동으로 합치지 않는다 — 화면이 알려 주고 사람이 고른다.** 근거: 손님이 일부러 나눠 보냈을 수 있고(배송지가 다르거나 급한 것을 가른 것), 시스템은 그것을 구분할 수 없다. 다섯 개가 다 들어올 때까지 기다릴지도 알 수 없다. ⇒ 목록에서 같은 손님의 릴리스 전 오더가 둘 이상이면 표시가 붙고, 누르면 고르는 화면이 뜬다(화면 일 — 여기서 정하지 않는다).
+⚠️ **자동으로 합치지 않는다 — 화면이 알려 주고 사람이 고른다.** 근거: 손님이 일부러 나눠 보냈을 수 있고(배송지가 다르거나 급한 것을 가른 것), 시스템은 그것을 구분할 수 없다. 다섯 개가 다 들어올 때까지 기다릴지도 알 수 없다. ⇒ 목록에서 같은 손님의 릴리스 전 오더가 둘 이상이면 표시가 붙고, 누르면 고르는 화면이 뜬다(화면 일 — 여기서 정하지 않는다).  → §23(so.html 2판 Merge…)
 ⭐ **지금 Cin7 에서 라인을 옮겨 적고 void 하시던 일이 이것으로 대체된다.** ⚠️ void 와 다른 점: **흔적이 남는다.** void 는 왜 사라졌는지 알 수 없지만 `merged_into_id` 는 「SO-25010 으로 합쳐졌다」를 답한다. 원본의 `ref`(손님 참조 · 5-d)도 원본에 그대로 남으므로 「그 참조번호 주문은 어떻게 됐나」에 `merged_into_id` 로 답한다 — 새 오더의 `ref` 칸 하나에 다섯을 담을 수 없다.
 📌 `merged_into_id` 는 5-d 에 없던 칸이다(8-j) — `split_from_id` 와 나란히 `so.id` 자기 참조.
 
@@ -2829,7 +2829,7 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
         원래 줄의 qty_ordered 는 안 고친다 · 이어받은 수량 = 새 오더에서 손님이 **주문한** 수량(나간 수량이 아니다) · 새 오더가 더 많으면(60→80) 60 전부 · 20 은 새 수요
 판정 4  새 오더는 같은 손님·같은 제품의 열린 백오더 줄을 전부 닫는다 — 「100개 … 80개 … 60개 … 손님의 수요는 240였다고 판단하면 안되는거야. … 100-->80-->60으로 줄어들고 있다는 흐름을 봐야 하는거지. 그러니 최종 시점의 우리에게 있어 손님 수요는 60이 맞는거지.」
         배정: 새 수량을 가장 오래된 줄부터 · 모자라면 나머지 줄은 더 원하지 않음 전량 · 5-g ⬜「60→80」 닫힘 · 「60·60·60 → 60」은 특수한 경우  → §20(POS·counter 확정은 이어받지 않는다 · 판정 13) · §21(병합 오더의 확정은 원본 형제를 뺀다 · 판정 1)
-판정 5  이어받기는 새 오더를 「확정할 때」(나갈 때가 아니다) — 「오더는 그대로 나누고, 백오더 화면이 따로 서야 한다고 생각해. … 손님별로 백오더 히스토리를 볼 수 있어야 하고, 서플라이어 별로도」 · 「손님별, 공급처별뿐만 아니라, 브랜드별, sku별, 기간별, 그리고 브랜치별로 … 이메일이 보내진것과 보내지지 않은 것들 입고되었으나 해당 sku가 아직 오더되지 않은 것들등등」
+판정 5  이어받기는 새 오더를 「확정할 때」(나갈 때가 아니다) — 「오더는 그대로 나누고, 백오더 화면이 따로 서야 한다고 생각해. … 손님별로 백오더 히스토리를 볼 수 있어야 하고, 서플라이어 별로도」 · 「손님별, 공급처별뿐만 아니라, 브랜드별, sku별, 기간별, 그리고 브랜치별로 … 이메일이 보내진것과 보내지지 않은 것들 입고되었으나 해당 sku가 아직 오더되지 않은 것들등등」  → §23(so-backorders.html)
         ⇒ 5-g ①「출하가 superseded 로 닫는다」 뒤집힘 · 언제 보아도 같은 손님·같은 제품의 열린 백오더 줄은 하나(마지막 것) · 실물 예: 1월 60 · 3월 40 + 오늘 30 → 3월 확정이 1월을 먼저 닫아(60/40/20) 30 은 3월 줄만(40/30/10) — 두 줄이 한 번에 닫히는 그림이 아니다  → §21(병합 예외 — 원본 형제와 합친 오더의 형제가 함께 열린다 · 0-1)
 판정 6  「입고됐다」는 사실로 본다 — 「입고는 PO나 트랜스퍼를 통한 입고만 허용이 되어야 한다고 생각해. stock adjustment나 리턴에 의해 스탁이 양수가 되는 것은 제외하는게 맞지 않을까? 그래서 난 a로 봐야 한다고 생각해」
         자격 = po_in · 다른 창고에서 온 transfer_in · 제외 = 조정 · 반품 · 조립 · ⭐ 출발 줄 없는 도착(§3-① 실측 no_out_leg 2 docs · 어디서 왔는지 모른다 · 모르면 비운다) · 지금 가용이 0 이어도 분류는 그대로(가용은 옆에)
@@ -2993,7 +2993,7 @@ so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IM
 ### 16-c 📌 회계사 확인 거리 여섯 · 연결 시작일 여섯 (Caleb · 말만 · 시작일은 공개 사실이지만 확인 거리)
 
 ```
-회계사 확인  ① 줄마다 반올림해 더한다 ② 세율은 인보이스 발행일로 고른다 ③ 운임에 제품과 같은 세율 ④ 옛 세율 규칙 셋(NB 13 · NL 13 · PE 14)을 Cin7 에서 비활성으로 ⑤ QC·BC·MB·SK 에서 GST 만 받는 지금 실무(PST·QST 미징수) ⑥ 해외 배송 Zero-rated  → §20(⑦ 매장에서 들고 간 판매의 세금 주 — 판정 9 · 대화 Claude 이견)
+회계사 확인  ① 줄마다 반올림해 더한다 ② 세율은 인보이스 발행일로 고른다 ③ 운임에 제품과 같은 세율 ④ 옛 세율 규칙 셋(NB 13 · NL 13 · PE 14)을 Cin7 에서 비활성으로 ⑤ QC·BC·MB·SK 에서 GST 만 받는 지금 실무(PST·QST 미징수) ⑥ 해외 배송 Zero-rated  → §20(⑦ 매장에서 들고 간 판매의 세금 주 — 판정 9 · 대화 Claude 이견)  · → §22(리스탁킹 피 계정 비어 있음 · 매니저가 고른다)
 연결 시작일  ON → HST ON (Sale) 13 · 2010-07-01 / NB → HST NB 2016 (Sale) 15 · 2016-07-01 / NL → HST NL 2016 (Sale) 15 · 2016-07-01 / PE → HST PE 2016 (Sale) 15 · 2016-10-01 / NS → HST NS 2025 (Sale) 14 · 2025-04-01 /
              QC · AB · BC · MB · SK · YT · NT · NU → GST (Sale) 5 · 2008-01-01 / 캐나다 밖('*','*') → Zero-rated (Sale) 0 · 2008-01-01 · ⚠️ 옛 연결(NS 15 등)은 싣지 않았다(이견 6 ✅ · 2025-03-31 로 NS 를 물으면 「연결 없음」 · IMS 인보이스는 2026 부터)
              ⚠️ 캐나다는 해외 폴백을 타지 않는다 — 주를 모르면 규칙 없음(0% 로 떨어뜨리지 않는다)
@@ -3238,7 +3238,7 @@ is_split   50% COD 둘 true
 ⓑ 결제·잔액  fulfilled 로 옮기는 때(발행 즉시 vs 결제 완료) · balance_forward 채우기(발행 시점 잔액 · 8-c 이월 잔액) · so_invoice_cancel 에 「결제가 붙었으면 거부」(재발행) · 선수금 영수증(번호 있는 종이 · 8-e) → ✅ [2026-09-24 §18] 전부 섰다 — 발행 순간 fulfilled 곧장(판정 1) · balance_forward 0 이하(봤는데 없으면 0) · 취소 가드 판정 7 · 선수금 영수증 = 견적서 so_proforma(판정 3)
 ⓒ 크레딧     so_invoice_cancel 에 「크레딧이 붙었으면 거부」(재발행) · credit_line.so_line_id → so_invoice_line(되짚기 8-g) · 뺀 몫이 아니라 반품인 것은 크레딧
 ⑤ WMS       WMS fulfillment 묶음·picks(칸별 수량 · 7-b ⬜)를 IMS 가 받는 길(8-k) — 지금은 so_finalize 입력 · ⭐ 제자리 돌려놓기 화면(Caleb 요청 2026-09-24): WMS 되돌리기 오더와 마무리 때 뺀 몫을 원래 칸에 돌려놓는 「거꾸로 픽」 · 선행 = WMS 픽 라인의 칸별 수량 · 원래 칸이면 원장 무접촉 · 다른 칸이면 칸 이동 기록 · inv_post_sale 첫 줄 sales(§15 ⬜ ⑤ 창고 직원 경로)
-화면         마무리 화면(묶음 미리 나누기 · 직원이 바꾸기 · 미리 보기 → 바뀐 단가 · 인보이스가 몇 장) · 인보이스 인쇄(재인쇄는 발행을 되돌리지 않는다 6-f) · 반환 단가 29자리 표시는 화면이 반올림(12-h) · _118_ 규칙 표시
+화면         마무리 화면(묶음 미리 나누기 · 직원이 바꾸기 · 미리 보기 → 바뀐 단가 · 인보이스가 몇 장) · 인보이스 인쇄(재인쇄는 발행을 되돌리지 않는다 6-f) · 반환 단가 29자리 표시는 화면이 반올림(12-h) · _118_ 규칙 표시  → §22(읽기 창구)
 연동         QBO(인보이스·결제 계정 · 8-f) · Cin7 인보이스 번호 49247 → 60000 전환 전 겹침 없음(하루 40건)
 정리 거리     손님 결제조건 옛 이름 Net30 6,305(비활성 · 값은 있다) · Cin7 Invoice_Date 2026-12-05 줄 하나(data-hygiene 밀린 일)
 ```
@@ -3382,7 +3382,7 @@ is_split   50% COD 둘 true
 마무리 반환   결제별 목록 applied 는 so_invoice_issue 반환에만 — so_finalize 가 실으려면 한 줄 재발행(화면 때)
 전환          Cin7 미수·선수금 이월(method 어휘에 opening 같은 값? · 인보이스 없는 미수를 어떻게 담나) — 전환 차수
 연동          QBO(받아 둔 돈·진 빚 계정 · 오버페이 차액 · 8-f) · _1150040029_ Clearing - Shopify 의 용도(회계사)
-화면          결제 넣기(기본 계좌 미리 채움 so_payment_default_account · 제안 so_payment_propose) · 붙이기·떼기 · 잔액 표시(received · reserved · available) · 인보이스 종이(받은 금액 · 이전 잔액 · 보내실 금액)
+화면          결제 넣기(기본 계좌 미리 채움 so_payment_default_account · 제안 so_payment_propose) · 붙이기·떼기 · 잔액 표시(received · reserved · available) · 인보이스 종이(받은 금액 · 이전 잔액 · 보내실 금액)  → §22(읽기 창구)
 정본 정리     6-a 본문 표에서 invoiced 줄 삭제는 파일 나누기 때 함께(지금은 줄 끝 포인터) · 검증 규칙(RAISE %% · 집합·합 판정)은 asung-workflow §4·§5
 ```
 
@@ -3506,7 +3506,7 @@ is_split   50% COD 둘 true
 전환 설계 거리(판정 6)   전환 뒤 Cin7 판매의 반품은 IMS 크레딧 — 종이 = Cin7 인보이스 번호(cin7_invoice_number) · 되짚기 = 오더 번호(cin7_order_number · 원장 Cin7 sale_out doc_number) · 원가 = 첫 소진 레이어 단가로 복원(inv_layer_apply_credit 규칙 그대로) · 오더 번호를 모르면 갈래 ②③ + 경고 · Cin7 크레딧은 tax_rule 을 명시(손님 저장값을 안 쓴다)
 회계사 확인 거리        리스탁킹 피 계정(비워 둠 · _94_ Surcharge · _47_ Miscellaneous Income · QBO 새 계정) · 수수료에 세금이 붙나(기본 = 같은 세율 음수 줄 → 크레딧 세금 = (물건 − 수수료) × 세율) · tax 줄(세액만 돌려줌)의 계정 = 규칙의 계정(_54_)
 ⬜ B급 칸                재고 쪽 장치(8-g ⬜ 그대로) — 서면 칸 목록에 「B급」 표시만 더한다(표·사건 무접촉) · 그동안 「안 돌아옴 · b_grade」 줄이 넣을 재료(저절로 장부에 안 들어온다)
-⬜ 화면                  크레딧 발행(미리 보기 → 제안 칸 · 원가 복원 예상 · 수수료 알림 · % 입력) · 인쇄·메일(인쇄 실패로 발행을 되돌리지 않는다) · 인보이스 종이의 「이전 잔액」 한 줄(크레딧 + 받아 둔 돈) · 잔액 화면 owed_credit
+⬜ 화면                  크레딧 발행(미리 보기 → 제안 칸 · 원가 복원 예상 · 수수료 알림 · % 입력) · 인쇄·메일(인쇄 실패로 발행을 되돌리지 않는다) · 인보이스 종이의 「이전 잔액」 한 줄(크레딧 + 받아 둔 돈) · 잔액 화면 owed_credit  → §22(읽기 창구)
 ⬜ 원 판매가 섞이는 크레딧  한 크레딧 안의 같은 SKU 가 서로 다른 원 판매에서 왔으면 첫 줄의 판매로 되짚고 경고 mixed_origin_sales(키 (doc, sku, wh)가 재생성 키와 같아야 해서) — 실물이 나오면 판정
 ⬜ QBO                   크레딧 라인 계정 복원 · 진 빚 계정 · 환불(크레딧 몫 vs 받아 둔 돈 몫)
 ⬜ 검증 재료             Cin7 반품 검증은 SO-16607 DUO56812 실물에 기댄다 — 원장이 재기준선되면 다른 실물로
@@ -3632,7 +3632,7 @@ a3  20260925144959_so_pos_a3_lists.sql(183행 · 커밋 69a44bc) — so_stock_sh
 
 ```
 📌 회계사 확인(판정 9)  매장에서 손님이 들고 간 판매의 세금 주 — 대화 Claude 의 이해는 「건넨 곳의 주」(확인 안 함) · 지금 구현은 손님 기본 배송지 · 틀리면 부족분을 우리가 낸다 · 16-c 의 일곱 번째
-⬜ 화면                POS 계산대(스캔 → Confirm → 결제 → Finish · 잠시 두기 Park 목록) · counter(칸을 바꾸는 줄) · 「재고 없이 나갔다」 관리(운영 WMS admin Discrepancy 모양 · 배지 · Resolve) · 보관용 표시 켜기/끄기(풋어웨이 · 재고 화면)
+⬜ 화면                POS 계산대(스캔 → Confirm → 결제 → Finish · 잠시 두기 Park 목록) · counter(칸을 바꾸는 줄) · 「재고 없이 나갔다」 관리(운영 WMS admin Discrepancy 모양 · 배지 · Resolve) · 보관용 표시 켜기/끄기(풋어웨이 · 재고 화면)  → §23(manager-list.html · so.html 2판 · pos.html)
 ⬜ 픽커 리포트         「평소 칸이 비어 보관용에서 계속 뽑는다」 — ⑤ IMS 안의 WMS 에서(판정 3 📌 · 운영 wms_reports kind 넷 선례)
 ⬜ 영수증 프린터       Finish 의 인쇄(발행과 갈라져 있다 · 6-f) · 실패해도 되돌리지 않는다
 ⬜ 여러 계산대 동시    같은 오더를 두 계산대에서 이어받는 그림(판정 16)은 확정 상태 하나로 이미 된다 — 동시에 Finish 를 누르는 경우는 CAS 플립이 막는다(§15 판정 1) · 화면이 무엇을 보여 줄지는 화면 차수
@@ -3760,4 +3760,195 @@ b  20260925151823_so_merge_b.sql(456행 · 커밋 fcb6865)
 ⬜ 자동 제안      「이 손님의 오더 다섯이 합칠 만하다」를 목록이 먼저 말해 주는 규칙(8-b 「자동으로 합치지 않는다」는 그대로 · 제안까지는 할 수 있다)
 ⬜ 운임 다시 넣기  판정 8 로 사람이 합친 뒤 넣는다 — 화면이 원본 운임(charges[])을 보여 주고 한 줄로 만들어 주는 편의는 화면 차수
 ⬜ 병합 뒤 프리오더 다시 고르기  0-5 의 경고를 받아 확정 화면이 p_preorder_line_ids 를 미리 체크해 주는 것(DB 는 만들 것 없음)
+```
+
+---
+
+## §22 SO 읽기 창구 넷 — 인보이스 · 결제 · 결제 식 일곱 · 크레딧 (2026-09-25 · 지시서 `so-inv-read-1` · `so-pay-read-1` · `so-pay-remaining-2` · `so-credit-read-1` · 판정 회신 · 정리 `so-docs-5`)
+
+⭐ **뜻 셋을 먼저** (Caleb 2026-09-25 · 화면이 서기 전에 DB 가 그릴 값을 다 준다)
+```
+남은 금액은 세 곳에만        = so_invoice_remaining(인보이스) · so_payment_remaining(결제) · so_credit_remaining(크레딧) — DB 전체에 복사 식 0(남은 하나 so_credit_prepare.qty_credited ⬜)
+목록은 뷰 · 한 장은 RPC      = 발주 읽기 선례(po_invoice_list · po_detail) — 뷰는 security_invoker · select 만(Supabase 기본 ALL 을 걷는다) · 상세는 jsonb 하나 · 없는 id → null
+화면은 그리기만              = 금액 · 붙임 · 연체 · 기한 · 반품 가능 수량을 화면이 다시 계산하지 않는다(§23 의 화면 전부가 이 위에 선다)
+```
+
+### 22-a 판정 회신 (✅ Caleb 2026-09-25 · 각 지시서의 이견 · ⬜ 전부 — 원문은 마이그레이션 머리 주석)
+
+```
+인보이스 읽기   이견 0-1 ~ 0-8 받음 · ⭐ 0-5 검증 방식(직접 insert · 번호 79001~ 고정 · 실물 없는 손님 · 전체 집계는 시험 전 \gset 값과의 차이 · 시퀀스 무접촉)
+                0-6 뷰의 기본 권한 ALL 을 걷어 select 만 · 0-3 기한 없는 인보이스(due_on null)는 days_overdue 0 + due_unknown true · 요약은 no_due_* 로 따로(연체에 섞지 않는다)
+                0-1 재발행 사슬 칸이 없다 → history 는 오더로 유도 · 0-2 credits_applied(이 인보이스에 붙은 크레딧) ≠ credits_against(이 인보이스를 원판매로 되짚은 크레딧)
+결제 읽기       이견 0-1 ~ 0-8 · ⬜1 ~ ⬜5 전부 · 환불은 붙일 돈이 아니다(remaining null) · 환불 줄 두 칸(0-2) · held_for_orders(0-5) · search_text(0-7)
+결제 식 일곱    0-1 앞 차수 5507e0c 뒤 · 0-2 셋 더해 일곱 · 0-3 붙임 합·개수는 대상 아님 · ⬜1 근거 표(마이그레이션 머리) · ⬜2 검증 A(번호 소모 0) · ⬜3 한 차수
+크레딧 읽기     이견 0-1 ~ 0-8 · ⬜1 ~ ⬜5 전부 · 한 차수 · 0-5 qty_credited 복사(⬜) · 0-7 수수료 제안 금액은 so_credit_prepare 가 아니라 미리 보기의 fee_suggested
+```
+
+### 22-b 창구 · 파일 · 검증 실측 (테스트 DB Asung-IMS · 원문 그대로)
+
+**인보이스 읽기 — `20260925191843_so_invoice_read.sql` · 154행 · 커밋 685c766 · 검증 so-inv-read-1-verify OK 17 · 2회(1회 마이그레이션 오타 — 뷰의 CTE 별칭 하나)**
+```
+뷰 so_invoice_list(security_invoker · select 만) — 한 장 한 행 · remaining = so_invoice_remaining(id) · paid · credited(붙임 조건은 so_invoice_remaining 과 같다) · due_unknown · days_overdue · is_open · so_numbers · search_text
+so_invoice_detail(p_invoice_id) — invoice · orders · lines · payments(+payment_remaining) · credits_applied / credits_against(둘은 다르다) · history(재발행 사슬 칸이 없어 오더로 유도) · customer_balance
+so_invoice_ar_summary(p_customer_id) — 통화별 · 버킷(기한 전 · 1–30 · 31–60 · 61–90 · 90+) · 기한 없음은 따로(연체에 섞지 않는다)
+실측 101행 — 뷰 8.1ms · remaining > 0 거르기 14.0ms · search_text 9.0ms · ⬜ 1만 장 1~2초 짐작 · pg_trgm 없음
+```
+**결제 읽기 — `20260925195701_so_payment_read.sql` · 217행 · 커밋 5507e0c · OK 14 · 1회 · 걸린 것 0**
+```
+so_payment_remaining(p_payment_id) — 결제 남은 금액의 정본 · 취소 0 · 환불 null · 그 밖 amount − Σ활성 붙임
+so_customer_balance 재발행(식 한 줄 → 함수) — 부르는 곳 25 · ⭐ 모든 손님 × 통화 여덟 칸이 재발행 전후 문자열까지 같다
+so_invoice_detail 재발행(payment_remaining → 함수)
+뷰 so_payment_list — attached · remaining · held_for_orders(boolean · 환불·취소는 null) · 환불 줄 두 칸 refund_credit_covered · refund_from_account(환불은 크레딧부터 갚는다 · so_payment_alloc 이 없다) · invoice_numbers · target_so_numbers · search_text
+so_payment_detail — allocations(취소 포함) · targets(invoiced) · refund_credits · open_invoices(같은 손님 · 통화 · 오래된 순 · attached_from_this_payment) · customer_balance
+```
+**결제 식 일곱 — `20260925201614_so_payment_remaining_all.sql` · 603행 · 커밋 c8cabf5 · OK 9 · 3회(검증 둘 — 가짜 직원 권한 · savepoint 되감기가 담아 둔 값도 지웠다)**
+```
+so_invoice_issue(①③) · so_proforma · so_pos_complete(둘) · so_pos_open_list · so_payment_alloc_add · so_payment_attach · so_payment_detach — 식 한 줄씩
+판정 회신: 일곱 자리 모두 이미 「active ∧ payment」로 걸러 값 무변(근거 표는 마이그레이션 머리) · ⭐ 검증 A = 발행은 부르지 않고 ①③ 커서 SELECT 를 떼어 옛 식 vs 함수 행 집합 대조 · 나머지는 같은 입력 → 같은 출력(바이트까지) · 인보이스 번호 소모 0
+⭐ 결과: DB 전체에 결제 남은 금액 복사 식 0(so_payment_remaining 자신만)
+📌 앞 차수 훑기가 p.id 꼴만 찾아 v_p.id 꼴 셋(alloc_add · attach · detach)을 놓쳤다 — 이 차수 첫 회신이 찾았다
+```
+**크레딧 읽기 — `20260925205011_so_credit_read.sql` · 618행 · 커밋 8f37651 · OK 17 · 2회(검증 기대 셋)**
+```
+so_credit_remaining(p_credit_id) — 취소 0 · total − Σ활성 붙임(인보이스 + 환불)
+복사 식 여섯 교체: so_credit_detail · so_credit_alloc_add · so_credit_attach · so_payment_refund · so_invoice_issue ② · so_customer_balance(owed = Σ함수 · 합의 분배로 같다) — 전후 같은 출력 · 여덟 칸 동일 · 복사 식 0
+뷰 so_credit_list — applied_to_invoices · refunded · remaining · invoice_number(원판매) · search_text
+so_credit_detail 키 넷 더함(credit_row · allocations_all · open_invoices · customer_balance) · 옛 키 아홉 그대로(부르는 곳 0 이지만 규칙대로)
+so_credit_prepare(p_invoice_id) — lines(qty_sold · qty_credited · qty_returnable · restock_bin_default = ims_last_bin) · restock_fee(days · pct · account_code · days_since_invoice · applies — 알림만 · 금액은 미리 보기 fee_suggested) · already_credited · vocab
+⚠️ 남은 복사 식 하나 — qty_credited 는 so_credit_issue :1055~1056 과 같은 식(다르면 화면은 된다는데 창구가 거부) · ⬜ so_credit_line_returned 로 떼고 발행 창구와 함께 부른다
+실측: 재생성 뒤에도 매니저 확인 기록이 (doc_number, sku, warehouse) 열쇠로 붙어 있다(④a3)
+```
+
+### 22-c ⭐ issue_contract — `so_credit_issue(p jsonb, p_commit boolean default true)` · 화면(so-credits.html)이 이대로 보낸다
+
+```
+p   issued_on(선택 · 기본 오늘 · 미래 거부) · reason 필수(customer_return | damaged | billing_error | other · other 면 note 필수) · note
+    invoice_id(IMS · issued 만) | cin7{invoice_number, order_number, invoice_date}(+ customer_id · currency · tax_rule — 전환 전 다음 판)
+    warehouse_id(선택 · 기본 원판매 첫 오더 창고 · 비활성 거부) · lines[] 필수
+줄  product        so_invoice_line_id · qty_returned > 0(이미 반품 + 이번 ≤ 판 수량) · restock_bin(비우면 ims_last_bin · '' 불허 · 그 창고 칸) | not_restocked_reason(damaged | b_grade | not_returned | other · other 면 note) — 둘 중 하나 · description? · account_id? · 단가·세율은 인보이스 줄에서 굳는다(보내지 않는다)
+    freight        so_invoice_line_id(charge 줄) · amount?(≤ 남은 몫)
+    tax            amount ≥ 0
+    other          amount ≥ 0 · description! · account_id!
+    restocking_fee 한 줄만 · pct?(기본 20) | amount ≤ 0 · account_id(없으면 설정 so_credit_restock_fee_account_code — ⚠️ 지금 비어 있다 · 매니저가 고른다 · 회계사 확인 거리)
+미리 보기(false)  committed false · origin · lines[] · totals{lines_amount · fee_amount(≤ 0) · tax_amount · total · restock_lines} · fee_suggested{days_since_invoice · pct · amount · account_code}|null(60일 넘고 수수료 줄 없고 제품 있을 때) · warnings
+실행(true)        + credit_id · credit_number(CR-01000~) · status issued · ledger(credit_in · 원가 복원)
+권한              발행 · 취소 · 떼기 = manager · 붙이기 = sales
+```
+
+### 22-d ⭐ 새 검증 규칙 — 화면 시험 실물이 생긴 뒤(2026-09-25~) (asung-workflow §4·§5 에 옮겼다)
+
+```
+읽기 창구  창구를 부르지 않고 직접 insert — 번호 고정(79001~) · 실물 없는 손님 · 전체 집계는 시험 전 \gset 값과의 차이 · 시퀀스 무접촉 · 되돌릴 것이 없다
+재발행     같은 입력 → 같은 출력 — 전 출력 담기 → \i → 후 출력 담기 · 쓰기 창구는 savepoint · ⚠️ 되감기는 블록 안 insert 도 지운다(값은 변수로) · 발행처럼 번호를 당기는 창구는 커서 SELECT 만 떼어 대조
+⚠️         「표가 비어 있을 때만 되돌린다」 시퀀스 가드는 이제 안 돈다(so · so_invoice 에 화면 시험 실물) — 번호를 당기는 검증은 하지 마라
+훑기       모든 꼴로 — p.id · v_p.id · v_c.id · c.id · credit_id = … · 마이그레이션 전수 + DB 함수·뷰 본문 둘(결제 읽기 차수가 v_p.id 꼴 셋을 놓쳤다)
+```
+
+### 22-e 뒤집은 것 · 닫은 것 — 앞 절 본문은 고치지 않았다(줄 끝 포인터만)
+
+| 자리 | 전 | 후(2026-09-25) |
+|---|---|---|
+| 17-g · 18-g · 19-g 「화면」 줄 | 화면이 그릴 값의 창구가 없었다 | ✅ 읽기 창구 넷이 섰다 — 목록 뷰 셋(so_invoice_list · so_payment_list · so_credit_list) · 상세 RPC 셋 · 미수 요약 · 크레딧 준비물 · 화면은 §23 |
+| 결제 남은 금액 | 식이 아홉 자리에 복사돼 있었다(so_customer_balance · so_invoice_detail + 일곱) | **so_payment_remaining 한 곳** · 복사 식 0 |
+| 크레딧 남은 금액 | 여섯 자리에 복사 | **so_credit_remaining 한 곳** · 복사 식 0 · 남은 하나 = so_credit_prepare.qty_credited(⬜) |
+| so_customer_balance | 식 인라인 | 두 함수를 부른다(owed_credit = Σso_credit_remaining · 합의 분배로 같은 값) · 모든 손님 × 통화 여덟 칸 전후 동일 |
+| 16-c 회계사 확인 · 19-g 리스탁킹 피 계정 | 비워 둠 | 그대로 비어 있다 — 화면(Credit Notes)은 「— pick an account」로 매니저가 고르고 안 고르면 DB 가 거부(issue_contract) |
+| asung-workflow §4 시퀀스 되돌리기 가드 | 「표가 비어 있을 때만」 | 화면 시험 실물(SO-25000~ · 60000~ · CR-01000)이 생겨 **더는 안 돈다** — 번호를 당기는 검증 금지(22-d) |
+
+### 22-f ⬜ 남는 것
+
+```
+⬜ qty_credited 식      so_credit_prepare 가 so_credit_issue :1055~1056 을 복사했다 — so_credit_line_returned(so_invoice_line_id) 로 떼고 발행 창구와 함께 부른다(다르면 화면은 된다는데 창구가 거부)
+⬜ 목록 속도            뷰가 행마다 so_*_remaining 을 부른다 — 1만 장 1~2초 짐작 · pg_trgm 없음(search_text 인덱스는 뒤)
+⬜ 뷰의 창고 칸         so_invoice_list 에 창고 칸이 없다 — Manager List 의 Unpaid 탭이 브랜치로 못 거른다(§23)
+📌 회계사 확인          리스탁킹 피 계정(so_credit_restock_fee_account_code 비어 있음 · 매니저가 고른다 · 19-g · 16-c)
+```
+
+---
+
+## §23 SO 오피스 화면(asung-ims) (2026-09-25 · 대화 Claude 가 화면 파일 · Claude Code 가 items · CHECKLIST · 판정 Caleb · 정리 `so-docs-5`)
+
+⭐ **뜻 셋을 먼저**
+```
+화면은 DB 값을 그리기만    = 계산 규칙의 정본은 DB(§12~§22) — 가격 · 할인 · 세금 · 합계 · 잔액 · 남은 금액 · 가용 · 입고 판정을 화면이 다시 짜지 않는다 · 쓰기는 전부 창구 · 거부 문장은 DB 것을 그대로
+탭은 묶음 · 모듈은 따로    = 「purchase invoices와 sales invoices는 다른건데」 — 모듈 · 표 · 화면 파일은 따로 · 탭 줄만 묶음으로
+미리 보기 먼저             = 되돌리기 어려운 쓰기(확정 · 보류 · 나누기 · 창고 · 진행 · 병합 · 크레딧 발행 · Finish)는 p_commit false 로 보이고 같은 입력으로 실행
+```
+
+### 23-a 판정 (✅ Caleb 2026-09-25 · 말 그대로)
+
+```
+탭 묶음        머리 아래 한 줄 = [IMS·WMS 모드] | [Purchasing · Sales] | [지금 묶음의 탭] · 공통 ims-auth.js items 여섯째 칸(묶음)
+               Caleb: 「purchase invoices와 sales invoices는 다른건데」 → 모듈 · 표 · 화면 파일은 따로 · 탭 줄만 묶음으로
+이름           Purchase Orders · Purchase Invoices · Charges · Supplier Payments · Receiving / Sales Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders
+               (「바꿀 수 있으면 바꾸는게 나을것 같긴 해」 · 파일 이름은 그대로 — invoices.html · payments.html)
+미룬 것        인쇄(「인쇄는 다음번으로 미루자」 · Cin7 인보이스 PDF 를 보고 모양) · Cin7 판매 반품 갈래(「니 제안대로 가자」 · 전환 전) · Release to WMS · 오피스 마무리(⑤ 뒤)
+Sales Orders   v1.3~1.4 세트는 검색에서 기본 숨김 — 「세트는 보일 필요가 없는데」 · 「낱개 sku에 36을 넣어」 → Include sets 는 manager 만 · 붙여넣기는 세트 SKU 를 그대로 받는다
+               v2.1 「not reserved가 직관적이고 좋겠어」 — hold → not reserved · on hold
+               v2.3 잡힐 것이 없으면 Proceed 를 막는다 — 「스탁이 들어오면 자동으로 reserve 한다고 오해할 것 같아서」
+Backorders     v1.2 무상 줄 필터 칸 없앰 — 「실제로는 거의 없는 상황이라서」 → 요약 숫자는 1 이상일 때만 · 줄 표시 그대로(무상 백오더는 만료 · 이어받기로 닫히지 않는다)
+POS            매장은 기기에 기억(localStorage 예외 — asung-wms CLAUDE.md §5 · 조건 셋 · a9422de)
+               ⭐ 사진 자리 — 「오른쪽 위에 사진이 크게 들어가게 하면 좋을 것 같아」(마스터 쓰기 차례)
+Manager List   Unpaid at hand-over = 즉시 결제 조건(ref_payment_term.net_days 0 — C.B.S · C.O.D · Due on receipt)인데 미수 — 「올리자」
+```
+
+### 23-b 화면마다 — 파일 · 판 · 빌드 표시 · 커밋 · CHECKLIST 절
+
+⚠️ 커밋은 `git -C ~/asung/asung-ims log --oneline` 과 각 커밋의 빌드 상수(`git show <커밋>:<파일>`)로 짝지었다 — 판 하나에 커밋 하나가 아닌 곳이 있다(아래 📌).
+
+| 화면 | 파일 | 판 · 빌드 표시(지금) | 커밋 | CHECKLIST |
+|---|---|---|---|---|
+| Sales Orders | `so.html` | v1 → v2.3 · 「2026-09-25 · so v2.3」 | v1 192c689 · v1.1 5d3ed62 · v1.2 4f9b43d · v1.3 8808192 · v1.4 0d0538d · v2 731b84c · v2.3 9bcd3c0 | 7-f |
+| Sales Invoices | `so-invoices.html` | v1 → v1.2 · 「2026-09-25 · inv v1.2」 | v1 5d3ed62 · v1.1 4f9b43d · v1.2 9bd4f66 | 7-g |
+| Customer Payments | `so-payments.html` | v1 · 「2026-09-25 · pay v1」 | 4f9b43d | 7-h |
+| Credit Notes | `so-credits.html` | v1 → v1.1 · 「2026-09-25 · cr v1.1」 | v1 9bd4f66 · v1.1 8292e9e | 7-i |
+| Backorders | `so-backorders.html` | v1 → v1.3 · 「2026-09-25 · bo v1.3」 | v1 8292e9e · v1.1 70b3de7 · v1.2 c799ac3 · v1.3 9bcd3c0 | 7-j |
+| POS | `pos.html` | v1 · 「2026-09-25 · pos v1」 · 메뉴에만 | a403276 · CHECKLIST 포인터 8ab6b4c | 7-k |
+| Manager List | `manager-list.html` | v1 · 「2026-09-25 · ml v1」 · 메뉴에만 | b79c151 | 7-l |
+
+📌 so v2.1 · v2.2 는 따로 커밋되지 않았다 — 731b84c 가 v2 · 9bcd3c0 이 v2.3(v2.1 · v2.2 는 그 사이 판 · 파일 주석에 v2.1 · v2.2 가 남아 있다).
+📌 탭 묶음 · 이름 둘 바꿈 · CHECKLIST §0 · 0-a · 7-b~7-f 는 192c689(Sales Orders v1 과 한 커밋).
+📌 asung-wms 쪽 커밋 a9422de = CLAUDE.md §5 localStorage 예외(POS 매장).
+
+### 23-c 화면마다 담은 것 (원문 그대로)
+
+```
+Sales Orders   v1 → v2.3 — 목록 · 새 오더 · 머리 · 줄(찾기 · 붙여넣기 · 무상) · 운임 · 확정 미리 보기 · counter 확정 · 나갔다 · 결제 넣기 · 뭉치
+               v1.3 줄 넣기에 가용 재고(so_available_many · 오더 창고 · 창고 잔고 − 열린 할당)
+               v1.3~1.4 세트는 검색에서 기본 숨김 → Include sets 는 manager 만 · 붙여넣기는 세트 SKU 를 그대로 받는다
+               v2 보류 · 풀기 · 나누기 · 창고 바꾸기 · 백오더 진행 · 병합(전부 미리 보기 먼저) · 줄의 Stock 칸(so_reserve 를 읽는다 — so_detail 에 없다) · 병합 초안의 견적 알림
+               v2.1 hold → not reserved · on hold
+               v2.2 Hold 는 잡힌 줄이 있을 때만(백오더 형제에 떠 있었다) · v2.3 잡힐 것이 없으면 Proceed 를 막는다
+Sales Invoices v1 → v1.2 — 목록(열린 · 기한 지남 · 기한 없음 · 다 받음 · 취소) · 미수 요약 · 한 장 · 결제 넣기 · 떼기 · 취소 · 재발행 · Raise a credit note · 크레딧 링크
+Customer Payments v1 — 받아 둔 돈 · 걸린 돈 · 환불 · 붙이기(so_payment_propose 제안 → 사람이 고친다 → so_payment_attach) · 떼기 · 취소 · 새 결제 · 환불
+Credit Notes   v1 → v1.1 — 목록 · 한 장 · 인보이스에서 발행(so_credit_prepare → 미리 보기 → 발행) · 붙이기 · 떼기 · 취소 · v1.1 머리 세율이 비면 줄의 세율
+Backorders     v1 → v1.3 — so_backorder_list(새 DB 창구 없음) · 분류 거르기 · 손님별 묶음 · 진행(미리 보기)
+               v1.1 다른 창고 가용을 이름별(NaN 이었다) · v1.2 무상 줄 필터 칸 없앰 → 요약 숫자는 1 이상일 때만 · v1.3 잡힐 것이 없으면 진행을 막는다
+POS            v1 — 매장은 기기에 기억(localStorage 예외) · 손님 먼저 · 스캔 한 번 = 1개 · 결제 넷 · 거스름돈 · Finish · Park · Reopen · 메뉴에만
+Manager List   v1 — 탭 넷(Sold without stock · Unpaid at hand-over · POS not finished · Counter orders) · 배지 · 메뉴에만 · 읽기 sales · 확인만 manager
+               ⚠️ Unpaid at hand-over 는 손님 결제조건 자료가 정리될 때까지 그만큼만 정확(Net30 6,305 · 17-g 정리 거리) · ⬜ 브랜치 거르기(뷰에 창고 칸)
+화면 시험 실물  Clore(SO-25000 · 60000 · wire 100 + cash 76.30) · JOJOJO(SO-25001 · 60001 · credit card 500 중 290.05 · CR-01000 30.14 · Available 240.09 · SO-25003/25003a 백오더 · POS) · 부족분 SO-25000 ORS10999 12 cost unknown
+```
+⚠️ 이 실물들 때문에 테스트 DB 의 so · so_invoice · so_credit 이 비어 있지 않다 — 시퀀스 되돌리기 가드가 안 돈다(22-d).
+
+### 23-d 뒤집은 것 · 닫은 것 — 앞 절 본문은 고치지 않았다(줄 끝 포인터만)
+
+| 자리 | 전 | 후(2026-09-25) |
+|---|---|---|
+| 6-f POS 의 두 단추 | 설계 | ✅ `pos.html` v1 — Confirm → 결제 넷(나눠 내기 · 거스름돈은 기록 안 함) → Finish(미리 보기 → 출고 + 발행) · Park · Reopen · 인쇄는 다음 판 |
+| 6-j 「재고 없이 나갔다」 매니저 목록 · counter 오더 목록 | §20 에서 창구만 | ✅ `manager-list.html` 탭 넷(Sold without stock · Unpaid at hand-over · POS not finished · Counter orders) |
+| 8-b 「화면이 알려 주고 사람이 고른다(화면 일)」 | 화면 일 | ✅ `so.html` v2 Merge…(같은 손님·창고·통화의 draft·confirmed warehouse 오더 · 미리 보기 · 병합 초안의 견적 알림) · ⬜ 목록의 자동 표시(21-f)는 아직 |
+| §15 판정 5 「백오더 화면이 따로 서야」 | 청취 | ✅ `so-backorders.html` — 손님 · 공급처 · 브랜드 · SKU · 기간 · 브랜치 거르기 · 입고됨 · ⬜ 메일 보냄 여부(아직 GAS·Cin7) |
+| 20-f ⬜ 화면(POS · 매니저 목록) | ⬜ | ✅ pos.html · manager-list.html · ⬜ counter 칸 바꾸기 줄 · 보관용 표시 켜기/끄기는 아직 |
+| CLAUDE.md §5 「localStorage 에 상태를 두지 마라」 | 예외 없음 | 예외 하나 — 기기의 자리(POS 매장 ims_pos_store · 조건 셋 · a9422de) |
+
+### 23-e ⬜ 남는 것
+
+```
+⬜ 인쇄              인보이스 · 크레딧 · 견적서 · POS 영수증 — Cin7 인보이스 PDF 를 보고 모양(「인쇄는 다음번으로」)
+⬜ Cin7 판매 반품    Credit Notes 의 cin7{…} 갈래(창구는 있다 · 전환 전)
+⬜ Release to WMS · 오피스 마무리 화면   ⑤ 뒤
+⬜ POS 사진          오른쪽 판 맨 위 · 선행 = 제품 마스터 사진 칸 · Cin7 사진 파일을 우리 저장소로(마스터 쓰기 차례 · CHECKLIST 7-k)
+⬜ Manager List      Unpaid 탭 브랜치 거르기(뷰에 창고 칸 · 22-f) · 기간 고르기 · 결제조건 정리 뒤 재검
+⬜ 손님 잔액 화면 · counter 칸 바꾸기 줄 · 보관용 표시 켜기/끄기 · 백오더 알림 표시
 ```

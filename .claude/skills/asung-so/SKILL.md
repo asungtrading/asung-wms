@@ -38,6 +38,8 @@ SO 쓰기 ① 초안  ✅ 2026-09-23 — ①a 20260923182231(sales 권한 · 표
 크레딧 ⓒ        ✅ 2026-09-25 — ⓒ1 20260925012354(so_credit 셋 · CR-01000 · 리스탁킹 피 설정 · 원장 credit_in 두 층 · inv_layer_apply 재발행 · 발행·취소·읽기) · ⓒ2 20260925014413(진 빚 · 발행 ② 크레딧 · 취소 가드 · 환불 크레딧부터 · 붙이기·떼기) · 검증 1a OK 53 · 1b OK 34 · 정본 §19 · ⭐ 새 일하는 방식 첫 실물
 POS · counter ④a ✅ 2026-09-25 — a1 20260925133147(product_bin_overflow · 창구 둘 · ims_last_bin 재발행 · so_pick_plan) · a2 142307(so_create·so_status_guard·so_ship·so_confirm·so_allocate_run·so_tier_warnings·so_hold·so_divide 재발행 + so_confirm_precheck·so_allocate_all·so_pos_confirm·so_pos_reopen·so_pos_complete·so_pos_finish·so_counter_ship) · a3 144959(so_stock_short_check·_confirm·_list · so_pos_open_list) · 검증 OK 28·36·20 · 정본 §20
 오더 병합 ④b    ✅ 2026-09-25 — 20260925151823(end_kind merged · so_line_merge_source · so_merge_chain_reaches · so_backorder_supersede 재발행 · so_merge_requote_calc·_hint · so_merge) · 검증 OK 22 · 정본 §21
+읽기 창구 넷    ✅ 2026-09-25 — 인보이스 20260925191843(685c766 · so_invoice_list · so_invoice_detail · so_invoice_ar_summary) · 결제 195701(5507e0c · so_payment_remaining · so_payment_list · so_payment_detail) · 결제 식 일곱 201614(c8cabf5 · 복사 식 0) · 크레딧 205011(8f37651 · so_credit_remaining · so_credit_list · so_credit_prepare) · 검증 OK 17·14·9·17 · 정본 §22
+오피스 화면     ✅ 2026-09-25 — asung-ims so.html v2.3 · so-invoices v1.2 · so-payments v1 · so-credits v1.1 · so-backorders v1.3 · pos v1 · manager-list v1 · 탭 묶음 Purchasing | Sales · CHECKLIST 7-f~7-l · 정본 §23
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -248,6 +250,16 @@ POS · counter ④a ✅ 2026-09-25 — a1 20260925133147(product_bin_overflow ·
 ⭐⭐ **병합 오더의 확정은 원본의 백오더 형제를 이어받지 않는다**(so_merge_chain_reaches — split 조상 전부에서 merged_into_id 사슬) ⇒ ⚠️ 한 손님·한 제품의 열린 백오더가 **두 줄**인 것이 정상인 경우가 있다(§15 판정 5 의 병합 예외 · 다음 오더가 오래된 줄부터 닫아 수요는 한 번만 센다)   (§21 판정 1 · 0-1·0-2)
 ⭐  병합 줄 모으기 열쇠 아홉(제품·단가·정가·할인%·무상 사유·override·부가 셋)이 **전부 같을 때만** 한 줄 — tax_rule 은 열쇠 밖 · 합친 오더 머리는 so_split 식 통째 복사(so_create 를 거치면 티어·오더 전체 할인이 손님 기본으로 되돌아간다)   (고침 ① · ⬜2)
 ⚠️  백오더 오더를 합치면 장부 end_kind **'merged'**(cancelled 로 적으면 백오더 화면이 취소로 센다) · 원본이 이어받은 남의 줄은 다시 열되 대상이 confirmed 일 때만(아니면 경고 superseded_not_reopenable) · 프리오더였던 줄은 표시가 없다(경고 preorder_lines_need_reflag)   (0-4·0-5·0-7)
+```
+
+## 4-k. ⭐⭐ 읽기 창구 · 오피스 화면 — 모르면 사고 (정본 §22 · §23)
+
+```
+⭐⭐ 남은 금액은 세 함수뿐 — so_invoice_remaining · so_payment_remaining · so_credit_remaining · DB 에 복사 식 0(남은 하나 so_credit_prepare.qty_credited = so_credit_issue 와 같은 식 ⬜ · 다르면 화면은 된다는데 창구가 거부)
+⭐⭐ 환불은 붙일 돈이 아니다 — so_payment_remaining 이 null · 환불 줄은 두 칸(refund_credit_covered · refund_from_account) · held_for_orders 는 boolean(금액은 손님 잔액 reserved_deposit)
+⭐  목록은 뷰(so_invoice_list · so_payment_list · so_credit_list · security_invoker · select 만 — Supabase 기본 ALL 을 걷었다) · 한 장은 RPC jsonb · so_credit_detail 은 키를 더하기만(옛 키 아홉 그대로) · issue_contract(크레딧 발행 입력 모양)는 정본 §22-c
+⭐⭐ 화면은 DB 값을 그리기만 · 세트는 기본 숨김(케이스도 낱개 × 수량 · Include sets 는 manager) · Proceed 는 기다려 주지 않는다(잡힐 것 없으면 막힘) · POS 매장은 기기 localStorage(CLAUDE.md §5 예외)
+⚠️  Manager List 의 즉시 결제 = ref_payment_term.net_days 0 — 손님 결제조건 자료만큼만 정확(Net30 6,305 정리 전) · Unpaid 탭은 브랜치로 못 거른다(뷰에 창고 칸 ⬜)
 ```
 
 ## 5. 이 스킬을 갱신할 때
