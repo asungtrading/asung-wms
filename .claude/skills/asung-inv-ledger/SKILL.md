@@ -106,6 +106,7 @@ from inv_missing_lines where resolved_at is null group by doc_number;
 where doc_number='<DOC>' group by 1,2;`
 ⭐ **⑩ 과 짝이다** — 한 번의 편집이 삭제(③)와 수량 변경(⑩)을 동시에 만든다.
 **어느 한쪽이 뜨면 반드시 다른 쪽도 같은 문서로 확인할 것.**
+⭐ **[2026-09-25] 발주 입고를 되돌렸다가 다시 승인하면 여기에 뜬다** — Cin7 이 라인 GUID 를 새로 발급해 옛 벌이 「사라진 라인」이 된다(`PO-01361` 10행 · 5 SKU) ⇒ 「📌 `undone` 계열」(⑫ 뒤)
 
 ### ⚠️⚠️ 원장을 조회할 때의 함정 둘 (2026-09-09 실측)
 
@@ -221,6 +222,7 @@ order by created desc limit 20;
 ⚠️⚠️ **[09-22] `TR-04496` 은 열하루째다** — `summary->'cursor_held_by'` = `{ "reason": "hold_status:ORDERED", "doc_number": "TR-04496" }` · `transfer` 커서 `TR-04495` · 09-12 부터. ⭐ `ST-01300`(DRAFT 13일)과 **같은 상황**이다 — 홀드만으로는 무해하지만 쌓인 문서(`list_total` 5,000건대)를 매 회차 다시 훑는다.
 **[실측] 부작용이 나타나기 시작했다** — `stockTransferList` **502**: 09-21 09:22(`ok=false` · `list_total 5,085`) · 09-21 17:37(`ok=false` · 5,126) · 09-22 05:47 `detail_capped` · `max_detail` · `remaining 3`(5,075). 502 누적 **다섯 번**(09-17 · 09-18 · 09-21 두 번 + 이전). 📌 목록이 5,000건대로 커진 것이 부담이라는 것은 **추론**이다. ⭐ 502 회차는 아무것도 안 쓴다(`ok=false` · `write_skipped`) — 설계대로.
 ⇒ ⭐ **처방: Cin7 에서 `TR-04496` 을 출고하거나 취소하면 커서가 풀린다**(실무 쪽 · 상쇄 아님). ⚠️ 두지 말 것 — 09-18 `TR-04730`(bin 해석 실패 · 24행 중복)이 정확히 이 상태에서 났다.
+⚠️⚠️ **[09-25] `TR-04496` 2주째** — `cursor_held_by` 그대로 · `transfer` 커서 `TR-04495`(09-12 부터) · `list_total` 5,048(09-18) → 5,075(09-22) → **5,231**(09-25) 계속 커진다 · 09-25 09:32 캡 한 번(`remaining 1` · 소진). 처방 그대로(출고 또는 취소) — `ST-01300` 도 홀드만으로는 무해했으나 캡과 겹쳐 터졌다.
 ⭐⭐ **커서 정체 — 두 사고의 공통 구조 (2026-09-16 · 09-18)**
 > **미확정 문서 하나가 커서를 붙잡으면, 그 뒤로 쌓인 문서를 매 회차 다시 훑게 된다. 그 자체는 무해하지만, 캡(40건 / 120초)이나 일시적 장애와 겹치면 사고가 된다.**
 
@@ -233,6 +235,7 @@ order by created desc limit 20;
 ⚠️ `cost` 의 `last_cursor` 는 UTC 원문, `last_run` 은 토론토 변환값이다(같은 시각).
 
 ### ⑥ 원가 누락 — 재고는 있는데 원가가 없나
+📌 [2026-09-25] 발주 재승인의 **새 벌**이 여기 뜬다(`PO-01361` 5행 · 25,344 · 원가 회차 전) ⇒ 「📌 `undone` 계열」(⑫ 뒤)
 ```sql
 select l.doc_number, min(l.occurred_on) as received,
        count(*) as ledger_rows, sum(l.qty_delta) as qty
@@ -299,6 +302,16 @@ order by ran_at desc limit 20;
 잔고 조회 실패(sbGet 502 · transfer-bin balance lookup)   "collection unaffected, WMS-value fallback" ⇒ **수집을 계속하고 WMS 폴백으로 넘어간다** · 폴백도 못 구하면 bin='' 로 쓴다(`bin_unresolved N`) — 09-18 `TR-04730` 24행이 그 결과
 ```
 ⇒ ⭐ **「목록 실패 = 중단」 · 「잔고 실패 = 계속 + 폴백」.** 후자가 뜬 회차(`bin_unresolved > 0`)는 ⑧ 이 아니라 **⑩-b 의 빈 bin 형태**로 확인한다(⑩-b 검사는 그 형태를 못 잡는다 — 그 절 ⚠️).
+⭐ **[2026-09-25] `detail_capped_reason` 은 넷이다 — 둘은 「캡」, 둘은 「실패」로 성격이 다르다** ([실측 · 레포 코드] `inv-collect/index.ts:1425-1434` · `:2189-2217`)
+```
+캡    max_detail    회차당 상세 건수 상한(40)에 닿았다 — 남은 것은 다음 회차가 이어받는다(remaining 이 줄면 정상)
+      time          남은 시간 5초 미만(120초 예산) — 같다
+실패  rate_limited  Cin7 429 — 그 자리에서 멈춘다
+      detail_error  상세 조회가 429 아닌 오류(503 등) — 날짜 커서 축(sale·purchase·creditnote)만 · 실패 지점에서 멈춘다
+```
+[실측] **`detail_error` 첫 관측 — `sale` 09-25 09:29** · `Cin7 GET /sale?ID=…8b0aee64… -> 503: Service Unavailable` · `remaining 2` · `docs_processed 10` · `rows_written 3` · `ok true` · 커서 12:14 → 13:24 **전진**.
+⇒ ⭐ **설계대로다** — 실패 지점에서 멈추고 쓴 것은 3행뿐 · 남은 2건은 다음 회차가 이어받는다. 📌 지금까지 관측은 `max_detail`·`time` 뿐이었다(코드에는 넷이 다 있었다).
+📌 Cin7 쪽 불안정이 이어진다 — `stockTransferList` 502 다섯 번 + 09-25 `sale` 상세 503. [추론] `transfer` 목록이 5,000건대로 커진 것이 영향일 수 있으나 확인 안 됐다.
 
 ### ⑦-b 표에 못 넣은 소멸 — `adjustment`·`assembly`
 ```sql
@@ -411,6 +424,7 @@ order by 1;
 정본 `docs/sessions/2026-09-11-boundary-reorder.md`(`SO-14986` 전문 · 상쇄 SQL 실행문).
 
 ### ⑩ 수량 변경 — 라인 수량이 Cin7 에서 바뀌었나
+⚠️ [2026-09-25] **발주 재승인은 여기 안 걸린다** — 수량이 바뀌어도(`PO-01361` `AS91603` 17,280 → 11,520) 재승인이 `line_ref` 를 새로 만들어 **키가 달라지니 충돌이 아니다** ⇒ ③·⑥ 을 본다 · 「📌 `undone` 계열」(⑫ 뒤)
 ```sql
 select id, doc_number, sku, warehouse, bin,
        existing_qty, incoming_qty,
@@ -477,6 +491,7 @@ group by 1,2 order by 1 desc;
 달라져 충돌이 아니라 **새 행**이 된다 — 어느 표에도 안 남는다). 같은 라인의 편집이 어느 쪽으로 들어왔는지는 `line_ref` 가 같은지로 가른다.
 
 ### ⑩-b bin 변경 이중 기입 — 같은 라인의 bin 이 바뀌었나 (2026-09-15 신설)
+⚠️ [2026-09-25] **`line_ref` 가 바뀌는 이중은 여기 안 걸린다** — 판별식이 같은 `line_ref` 안의 bin 둘을 찾기 때문이다(`PO-01361` 은 bin 이 같고 `line_ref` 가 다르다) · 키 일부가 바뀌어 충돌이 안 되는 **세 번째 실증**(bin `TR-04729`·`TR-04730` · `line_ref` `PO-01361`) ⇒ 「📌 `undone` 계열」(⑫ 뒤)
 
 **왜 필요한가** — 같은 라인의 bin 이 바뀌면 원장에 **두 벌**이 들어오는데 **③·⑩·⑪·⑫ 넷이 전부 못 본다.** 유니크 키
 `(doc_type, doc_number, line_ref, event_type, warehouse, bin, sku)` 에 `bin` 이 있어 **키 자체가 달라져** 충돌로 인식되지 않기 때문이다
@@ -600,6 +615,7 @@ order by first_detected_at;
 ⇒ ⬜ **그 행의 `collector`·`doc_type` 을 확인할 것** — EF 가 쓴 행은 `collector = inv-collect@2026-09-05.1` 이 박힌다. 다른 값이거나 null 이면 사람이 넣은 것이다. ⚠️ **확인 전까지 「`sale` VOID 는 ⑪ 이 잡는다」고 믿지 말 것** — 09-19 「`sale` 축 VOID 감시가 없다」는 **코드 기준으로 그대로 맞다**(지시서 9차는 이것을 「틀렸다」로 정정하려 했으나 코드 대조에서 근거가 서지 않아 **이의로 남긴다** · 실측 `docs/sessions/2026-09-22-ship-undone-vs-voided.md` §A).
 📌 회차 관측(`voided_seen`·`voided_in_ledger`)에 `sale` 이 안 나오는 것은 확실하다 — ②-b 는 그 카운터를 채우지 않는다. **회차 관측과 표를 혼동하지 말 것** — 표는 ⑪ 첫 SQL 로만 본다.
 ⚠️⚠️ **[2026-09-22] 판매 축의 확정 사각지대 — Ship-undone.** Ship 승인 뒤 **Shipping 만 되돌리면** 오더 `Status` 는 `AUTHORISED` 그대로라 **어떤 VOID 판정에도 안 걸린다.** 원장은 Ship 시점에 `sale_out` 을 이미 뺐다.
+📌 [2026-09-25] Ship-undone 은 발주 재승인과 한 계열(`undone`)이다 — 축마다 원장에 남는 모양이 다르다 ⇒ 「📌 `undone` 계열」(⑫ 뒤)
 [실측 `SO-16531`] 09-18 15:33:23 Ship 승인 → 15:34:06 수집(−112 · 8 SKU · **43초 뒤**) → 16:33:22 Shipping undone → 09-19 01:21 ⑧ 8칸 −112 → **09-22 01:21 사라짐 — 재출고되어 저절로 맞았다.** 8 SKU 합 112 = Cin7 라인 Total 112 = ⑧ 토론토 `abs_gap` 112. 📌 그동안 안 보였던 것은 **타이밍 운**이다(승인 43초 뒤 수집).
 ⭐ **판매 취소는 가장 빈번한 축이다**(Caleb 확인 · 손님 변심 · 결제 후 픽업 전 fulfillment 선생성 후 취소). 신호는 이미 도착한다 — `inv-collect` 2000행이 `CombinedShippingStatus !== "SHIPPED"` 를 `skip_not_shipped` 로 흘려보내는데 **「이 오더가 원장에 `sale_out` 을 갖고 있나」를 묻는 코드가 없다.** ⬜ 구현 전 **`CombinedShippingStatus` 어휘 실측 선행**(GAS 프로브로 `saleList` 분포) — `PARTIALLY SHIPPED` 가 있으면 부분 배송을 오탐한다.
 ⭐⭐ **판정 기준 — Ship-undone 으로 보이는 어긋남(판매 오더 한 건의 SKU 여러 칸이 「원장이 낮다」)은 오더 상태로 처방이 갈린다.**
@@ -680,6 +696,7 @@ where resolved_at is null
 order by first_detected_at;
 ```
 **0행이면 정상.** 뜨면 **그 문서에서 라인이 사라졌는데 원장이 아직 안 고친 것**이다.
+⚠️ [2026-09-25] 09-25 점검이 여기서 발주 `PO-01361`(`missing_qty 31,104`)을 보고했다 — 레포 코드로는 이 표에 발주가 들어오지 않는다(확인 전) ⇒ 「📌 `undone` 계열」(⑫ 뒤)
 `sample`(최대 20행 · `{sku,bin,warehouse,event_type,qty}`)로 상쇄 SQL 을 만들고,
 상쇄 후 `resolved_at`·`resolution_note` 로 닫는다.
 ⭐ **③ 이 못 보는 축이다** — ③(`inv_missing_lines`)은 유니크 키에 `last_modified_on` 이
@@ -701,6 +718,33 @@ order by first_detected_at;
 📌 [실측 09-05 배포 직후] `ST-01283` 1행이 들어왔고, `resolved_at` 으로 닫은 뒤 재검출에도
 `_new 0` · `last_seen_at` 만 갱신 · `resolved_at` 그대로였다 — **닫은 것이 다시 열리지 않는다**
 (⑩ 이 같은 건을 4행 쌓은 것과 다르다).
+
+### 📌 `undone` 계열 — Cin7 에서 되돌린 작업이 원장에 남기는 것 (2026-09-25 · 번호 없음 · ③·⑥·⑩·⑩-b·⑪·⑫ 에서 건다)
+
+> **Cin7 에서 승인된 작업을 되돌리면(`undone`), 원장은 이미 받은 사건을 들고 있다. 그 뒤 무엇이 남는지는 축마다 다르다.**
+
+| 축 | 조작 | Cin7 결과 | ⚠️ 원장에 남는 것 | 잡는 창구 |
+|---|---|---|---|---|
+| 판매 | `Shipping undone` | 오더 `Status` 는 `AUTHORISED` 유지 | 출고가 **남는다**(과다 차감) | ⚠️ **지금 없다** — 신호는 이미 도착해 있다: `inv-collect/index.ts:2000` 에서 `CombinedShippingStatus ≠ SHIPPED` 가 `skip_not_shipped` 로 세어진다 · ⬜ 어휘 실측 후 구현 가능(⑪ 09-22 블록) · 그동안은 ⑧ 판정 기준(오더가 살아 있으면 기다림) |
+| 판매 | 오더 **VOID** | `Status = VOIDED` | 출고가 남는다 | ⭐ ⑪ `inv_voided_docs`(⚠️ 09-22 코드 대조: `sale` 축 VOID 창구 코드 없음 · ⑪ 09-22 블록) |
+| 발주 | `Stock received undone` **+ 재승인** | 라인 GUID **재발급** | ⭐ 입고가 **두 벌**(과다 유입) | ⭐ ③ `inv_missing_lines` · ⑥ 원가 누락 · ⑫(⚠️ 아래 「확인 전」) |
+
+⚠️⚠️ **발주 쪽이 더 위험하다** — 재승인이 **새 `line_ref`** 를 만들어 **키가 달라지니** ⑩(`inv_conflicts`)도 ⑩-b(bin 변경)도 **전부 못 본다.**
+원장 유니크 키 `(doc_type, doc_number, line_ref, event_type, warehouse, bin, sku)` — `line_ref` 가 바뀌면 원장은 「같은 라인의 갱신」이 아니라 **「새 라인」**으로 보고 그대로 쓴다. 충돌이 아니니 `inv_conflicts` 도 안 만든다.
+📌 **설계대로다** — 2026-08-16 유니크 키 검토의 「가시적 이중 계상 > 조용한 누락」(⑩-b 와 같은 뿌리). 키 일부가 바뀌어 충돌이 안 되는 **세 번째 실증**: `bin`(`TR-04729`·`TR-04730`) · **`line_ref`**(`PO-01361`).
+⭐ **라인 전부가 새 GUID 를 받는다 — 수량이 바뀐 라인이 하나뿐이어도**(`PO-01361` 다섯 중 `AS91603` 하나만 17,280 → 11,520). ⇒ Cin7 은 `Stock received` 를 취소하면 기존 라인을 폐기하고 재승인 때 새 GUID 로 만든다.
+
+⭐⭐ **예상 가능하다 — 입고를 되돌렸다가 다시 승인하면 반드시 이중이 난다.** 입고 수량 정정은 드물지 않다 ⇒ **반복된다** ⇒ 다음에는 경위를 묻지 말고 **바로 ③ 을 보고 처방한다.**
+📌 「undone」 자체가 흔하다 — 관측: `SO-16461` `Sale undone`(09/17) · `SO-16531` `Shipping undone`(09/18) · `PO-01361` `Purchase order undone` + `Stock received undone`(09/25).
+
+**처방(발주 재승인 · 실행 `PO-01361` 09-25)**
+1. **어느 벌이 맞는지 Cin7 화면으로 정한다** — 현재 PO 라인 Total 과 같은 쪽(09-25 는 나중 벌). ⚠️ 원장 쪽 숫자로 고르지 말 것.
+2. 옛 벌(`source='cin7'` · `created_at` 으로 가른다)을 `line_ref || ':reversal'` · `-qty_delta` · 원래 `event_type`·`occurred_on`·`seq_hint` 유지로 `manual` 삽입 · `raw` 에 rule · reason · `original_line_ref` · `stale_written_at` · by · at(§상쇄 접미어 규칙).
+3. 검증 — `cin7` + `manual` 순액 = Cin7 총계 · `inv_balance_vs_cin7` 그 SKU 전부 `diff 0` · ⑧ 0칸.
+4. ⚠️⚠️ **감지 표를 닫는다 — 상쇄만으로는 안 닫힌다.** ③ `inv_missing_lines` 의 그 문서 `resolved_at` · `resolution_note`. ⑫ 에 행이 있으면 ⑫ 도(⑫ 는 `net` 을 보지 않아 `resolved_at` 이 유일한 종결 수단). 검증 = 둘 다 `still_open 0`.
+⚠️ **[확인 전 · 2026-09-25] ⑫ 가 발주를 잡았다는 실측이 레포 코드와 어긋난다** — [실측 · 레포 코드] `inv_missing_docs` 는 `detectMissingDocs: true` 축(adjustment·assembly)에만 쓰이고(`inv-collect/index.ts:215-233`) 날짜 커서 축(purchase)은 `insertMissingLines` 만 부른다(`:2613`). 그런데 09-25 점검은 ⑫ `missing_qty 31,104`(옛 벌과 일치)를 보고했다. ⬜ 운영 `select doc_type, count(*) from inv_missing_docs group by 1` 로 확인(배포판이 레포와 다른가 · 그날 엇갈린 조회였나).
+⚠️ **상쇄 직후 조회는 시점이 엇갈릴 수 있다** — 09-25 `inv_balance_vs_cin7` 이 −5,760 으로 보여 「과잉 상쇄」로 정정 SQL 을 만들 뻔했다 → 다시 조회하니 `diff 0`. 판정이 갈리는 값은 `count(*)`·`id` 로 다시 본다.
+📌 경위·실측 전문: `docs/sessions/2026-09-25-undone-re-keying.md` · 계약: `ledger-design.md` §「`undone` 계열」.
 
 ### ⑭ 두 프로젝트 동기화 — 매일 아니어도 된다
 
@@ -1934,7 +1978,14 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 
 ---
 
-## 다음에 할 일 (우선순위 — 2026-09-22 갱신)
+## 다음에 할 일 (우선순위 — 2026-09-22 갱신 · 09-25 맨 위 한 항목)
+
+0-0. ⬜ **[09-25 신규] `undone` 계열 — 남는 것** (실측 `docs/sessions/2026-09-25-undone-re-keying.md` · 「📌 `undone` 계열」)
+   · ⬜ **`TR-04496` 실무 처리** — **2주째**(09-12 부터) · `list_total` 5,231 · 출고 또는 취소(⑤)
+   · ⬜ `PO-01361` 원가 — 다음 원가 회차(00:33)에 ⑥ 5행이 닫히는지
+   · ⬜ ⑫ 가 발주를 잡은 실측과 레포 코드의 어긋남 확인(운영 `inv_missing_docs` doc_type 분포)
+   · ⬜ Ship-undone 감시(어휘 실측 선행 · 신호 `index.ts:2000` `skip_not_shipped`) · ⬜ `cursor_stalled_alert` 발화 조건
+   · ⬜ ⑩-b 사각지대 둘 — 빈 bin(`TR-04730`) · `line_ref` 재키잉(`PO-01361`) · ⬜ `transfer` 경고 4건(보름째 · 09-09 부터)
 
 0-a. ⭐⭐ **[09-19] 원장 이식 1·2차 — 원장이 IMS 안에서 섰다(테스트 DB · 49faf5d · 2d2219b).** 축은 텍스트 그대로 뷰로(`ims_inv_balance` · `ims_ledger_unlinked`) · `IN_TRANSIT` 이 마스터에 · `source 'ims'` · 입고 확정이 창구 `inv_post_receipt` 로 `po_in` 을 낸다(같은 트랜잭션 · 초과는 기준까지만) · `ims_last_bin` 속 = 원장(화면 무접촉).
    **정본 `ledger-design.md` 4부 「⭐⭐ 이식」 · 사건 모양 `po-module.md` §11-j · 남은 것 §13-f 「2026-09-19」 블록**(create or replace · 확정 취소는 상쇄 행 · 차이 닫기와 초과분 · SKU 별칭 표 · shadow 대조의 `ims` · 데이터 최신화는 **`inv_*` 표만** · RCV-00005 백필).
@@ -1948,7 +1999,7 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
    · ⬜ **`cursor_stalled_alert` 발화 조건** — 컬럼이 있고 ⑦ 에서 매일 보는데 `ST-01300` 13일 · `TR-04496` 이레 동안 한 번도 안 울렸다(코드 미확인). 대체 판정은 ⑤(커서 값 3일 같으면 `cursor_held_by`)
    · ⬜ **⑩-b 사각지대 확장** — 빈 bin 형태(`TR-04730`)를 못 잡는다 · 후보 둘 · ⚠️ 실측 없이 조건을 넓히지 말 것(⑩-b ⚠️⚠️ · 판단은 Caleb)
    · ⬜ **`inv-collect` 의 빈 bin 방지** — 빈 bin 행을 쓰기 전 「이 `line_ref` 에 bin 있는 행이 있나」 확인(범위 큼 · 별건)
-   · ⬜ **[09-22] `TR-04496` 실무 처리** — 열하루째 홀드 · `stockTransferList` 502 누적 다섯 번 · Cin7 에서 출고 또는 취소(⑤)
+   · ⬜ **[09-22] `TR-04496` 실무 처리**(→ [09-25] 2주째 · 0-0) — 열하루째 홀드 · `stockTransferList` 502 누적 다섯 번 · Cin7 에서 출고 또는 취소(⑤)
    · ⬜ `transfer` 경고 4건(열이틀째 · 09-22) · ⬜ `null_bin_nonzero` 6건(④)
    ⭐ 셋(09-16·17·18)이 **한 계열**이었다 — 「홀드는 무해 · 캡/장애와 겹치면 사고」. 상쇄로 풀 것이 아니었다(§아침 점검 ⑤ 표).
 
