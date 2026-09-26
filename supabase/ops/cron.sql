@@ -466,3 +466,19 @@ select cron.schedule(
   '17 9 * * *',
   $job$ select so_backorder_sweep() $job$
 );
+
+-- ⑤-2a2) 자동 보류 — IMS 안의 WMS (2분마다 · [테스트 · Asung-IMS] jobid 16 — 등록 뒤 cron.job 으로 실측해 적는다)
+--    ⚠️⚠️ 이 파일은 운영(asung-WMS) 기록인데 **이 잡은 테스트 DB 전용**이다 — 운영에는 등록하지 마라(public.wms_auto_hold 의 IMS 판이 없다 · 마이그레이션 20260926200918 은 테스트에만 · 절대 조건).
+--       전환 때 IMS 마이그레이션과 함께 올린다(그때 운영 jobid 는 새로 받는다 · 운영의 14 wms-auto-hold 는 그때 unschedule).
+--    ⚠️ 이름이 ims-wms-auto-hold 인 이유: 운영 가드(supabase/ops/guard-test-only.sql · 흔적 a)가 cron.job 의 wms-poll-orders/wms-auto-hold 를 「운영이다」의 증거로 본다 —
+--       테스트에 wms-auto-hold 라는 이름으로 등록하면 그 뒤의 ⑤ 마이그레이션이 전부 WM501 로 멈춘다. 검증 G5 가 이름이 안 부딪힘을 잰다.
+--     함수 public.wms_auto_hold() (마이그레이션 20260926200918 · 원본 wms_legacy.wms_auto_hold 20260824202539 · 정본 so-module §24)
+--     마지막 활동(줄 picked/verified_at · started_at · heartbeat_at · created_at) + 10분이 지난 in_progress 픽·팩·웨이브를 pending 으로(held_by = 그 사람 · wms_task_holds source auto) · 상한 20 · 오래된 것 먼저.
+--     DB 전용(Cin7 콜 0) · postgres 소유자만 부른다(authenticated revoke — 화면이 못 부른다 · 검증 A2 42501).
+--     ⚠️ 킬 스위치(즉시·배포 불필요): select cron.alter_job(16, active := false);   -- [테스트 · Asung-IMS] jobid 는 등록 뒤 실측 · 운영에 올릴 때는 그때 확정한 번호로
+--     확인: select * from public.wms_task_holds where source = 'auto' order by id desc limit 5;
+select cron.schedule(
+  'ims-wms-auto-hold',
+  '*/2 * * * *',
+  $job$ select public.wms_auto_hold() $job$
+);
