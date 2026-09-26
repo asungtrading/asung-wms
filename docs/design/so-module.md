@@ -4054,7 +4054,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 
 ```
 ⓪ 문서              이 차수(wms-docs-1)
-직원 싣기            wms_staff 21 → ims_staff(Caleb 손 · 로그인 계정) · ⑤-4 화면 시험 전까지
+직원 싣기            wms_staff 21 → ims_staff(Caleb 손 · 로그인 계정) · ⑤-4 화면 시험 전까지  → ✅ [2026-09-26] 19 명 · 권한 비움 · 창고 manager 둘(24-f)
 ⑤-1 표              옛 wms_ 표 → 보관 스키마 · 같은 이름 새 표(uuid · so · so_line · po_receipt · ims_staff) · auth_all ·
                      so_status_guard 에 at_wms · picking · packed 짝                                    400~600행
 ⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행
@@ -4075,6 +4075,9 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ 확인할 것: 함수 13 이 새 표를 보는가(판정 3) · 테스트 DB 재복사 절차가 wms_ 표를 다시 싣는가
 ✅ inv_post_sale 의 authenticated 회수(판정 7) — 회수됨(20260924141140:367 · 뒤 정의 없음 · wms-docs-1 대조)
 ⬜ inv-collect 의 wms_orders 읽기 — 컷오버 때 함께
+⬜ staff.html 편집 화면에 창고(warehouse_access) 칸이 없다 · EF 도 받지 않는다 — 지금은 SQL 로만 넣는다(화면 거리 · 24-f)
+⬜ worker 7 의 창고 — ⑤-1 에서 WMS 화면 값과 함께 정한다(판정 12 · 운영 창고값 토론토 5 · 에드먼튼 2)
+⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 전환 준비 · 이월(24-f)
 ```
 
 ### 24-e 판정 2 로 뒤집히거나 닫히는 옛 줄 (wms-move-1 F · 26 → wms-docs-1 에서 다시 셈)
@@ -4083,9 +4086,46 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 
 ```
 뒤집힌 줄   ims-principles 146 · 148 · 335 · so-module 508 · 1095 · 1098 · 1180 · 1206 · 1356 · 2054 · 2311 · po-module 3654 · asung-inv-ledger 스킬 30
-예고된 줄   ims-principles 197(⬜ 을 닫았다 · 본문 한 덩어리 더함) · so-module 1215 · 1362 · 1365 · 1420 · 2823 · 2935 · po-module 3048(제목 · 취소선)
+예고된 줄   ims-principles 198(⬜ 을 닫았다 · 본문 한 덩어리 더함) · so-module 1215 · 1362 · 1365 · 1420 · 2823 · 2935 · po-module 3048(제목 · 취소선)
 📌          ims-principles 170 — 지금도 맞다(운영 WMS 는 전환일까지 밖)
 달지 않음   so-module 344 · 345(「할당은 사건이 아니라 상태」 — 뜻이 안 바뀐다) · po-module 2997(「입고 줄 하나 = 원장 사건 하나」 — 원장 행이다 · 무관) ·
             po-module 3020(이미 ✅ 창구 호출로 고쳐져 있다) · asung-so 스킬 22(「출고 사건 so_out」 — 원장 행 · 무관)
 코드 주석   supabase/migrations/20260925142307_so_pos_a2_flow.sql 21(적용된 마이그레이션 · 참고만)
+```
+
+### 24-f 직원 싣기 — 판정 10 · 11 · 12 (2026-09-26)
+
+⚠️ `asung-wms` 는 PUBLIC 레포다 — 이 절에는 사람 이름 · 이메일을 적지 않는다(수 · 역할 · 창고만). 누가 누구인지는 테스트 DB 의 `ims_staff` 가 정본이다.
+
+```
+판정 10  창고 직원은 ims-staff-create(staff.html · + Add staff)로 한 명씩 싣는다 — Caleb 2026-09-26 「A로 갈께」
+         사람마다 역할 · 창고 · 권한을 보면서 정한다
+         기각: wms_staff 에서 한꺼번에 옮기는 적재(옮기는 규칙표를 새로 짜야 하고 로그인 계정은 결국 Supabase Auth 를 거친다)
+판정 11  역할은 운영 그대로(manager → manager · worker → worker) · 권한(perms)은 전원 빈 채로 — Caleb 「응 그 표대로 만들자」
+         근거: 운영 perms(split · admin · staff)는 기본값이라 거의 모두에게 붙어 있다 — 그대로 옮기면 staff(사람 추가)가 퍼진다 ·
+               wms 방 화면 값은 아직 하나도 없다(ims_perm_catalog 다섯이 전부 ims 방 · 20260923224900:371) · EF 도 perms [] 로 만든다
+         운영 perms 의 뜻: worker 의 perms 는 운영에서도 무시된다(wms-auth.js:178 · data.role==="manager") · apply 는 없어진다(판정 5) ·
+               stock 은 IMS 에 대응 화면이 아직 없다 · split · admin 은 앞으로 생길 wms 방 화면 값(⑤-1 · ⑤-4)
+판정 12  창고 제한은 지금 manager 둘만 SQL 로 넣고, worker 7 은 ⑤-1 에서 WMS 화면 값과 함께 정한다 — Caleb 「A로 가자」
+         근거: 창고 제한은 manager 에게 걸린다(ims_access) · worker 에게 걸리는지는 안 봤다(ims_can_warehouse 본문) — 모르면 비워 둔다
+         기각: 운영 값대로 전원 넣기(효과를 모르는 값)
+```
+
+**실물 (2026-09-26 · 테스트 DB · Caleb 실행)**
+```
+새로 19         manager 12 · worker 7(운영 창고값: 토론토 5 · 에드먼튼 2 — ⑤-1 에서 쓸 값)
+옮기지 않은 둘  운영 wms_staff 에서 비활성(worker · 토론토) · 테스트 DB 의 09-10 밤 복사본에는 active 로 보였다
+창고 제한 SQL   (Caleb · COMMIT 확인) manager 둘 — 하나는 Asung Trading Inc.(045e4ca6-b7a9-446e-9e6a-a5a0db56d456) ·
+                하나는 Asung - Edmonton(95caece3-cf3e-4832-a583-e233254feadc) · 나머지 manager 10 은 {}(전부)
+합              ims_staff 21 — 이 밖에 admin 하나 · supervisor 하나(시험 계정)
+비밀번호        EF 가 만든다(Asung-XXXX-XXXX · 한 번만 보인다 · 초대 메일 없음) · 나눠 주기는 WMS 화면이 선 뒤(⑤-4)
+```
+
+**⬜ 새로 생긴 거리**
+```
+⬜ staff.html 편집 화면에 창고(warehouse_access) 칸이 없다 — EF 도 받지 않는다 · 지금은 SQL 로만 넣는다(화면 거리)
+⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 보관 스키마(판정 3)에 이름 글자로 남는다 ·
+   새 표로 옮기려면 사람뿐 아니라 오더도 이어야 한다(옛 기록은 Cin7 폴링본 wms_orders 를 가리킨다 · so 에 없다) ·
+   테스트 DB 의 옛 행은 09-10 까지 — 전환 때 운영의 마지막 기록으로 정한다(전환 준비 · 이월) ·
+   이식하기로 하면 그때 비활성 둘을 is_active false 로 만든다(Caleb 2026-09-26 물음 · 지금은 만들지 않는다)
 ```
