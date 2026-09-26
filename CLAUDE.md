@@ -84,6 +84,7 @@ Edge Function secrets, Auth 설정(Site URL / Redirect), Storage 버킷 설정�
 - UI 문자열은 영어. 개발 대화·주석은 한국어 가능.
 - 건드리지 말 것: `CNAME`(`wms.asung.ca`), `.nojekyll`(supabase/ 폴더 때문에 필수), `wms-config.js`의 key
 - 상태를 `localStorage`에 저장하지 말 것 — 다른 태블릿에서 로그인하는 시나리오가 깨진다. 서버 저장(예: `held_by`).
+  - 예외 — 기기의 자리(계산대의 매장처럼 「이 기기가 어디에 있나」)만 둘 수 있다. 조건 셋: 다른 사람이 볼 필요가 없다 · 지워져도 다시 고르면 끝난다(잃는 기록이 없다) · 업무 값은 DB 에 굳는다(오더의 창고는 so 에). 선례 `asung-ims/pos.html` 의 `ims_pos_store`(Caleb 2026-09-25).
 - 전체 파일 교체를 선호. 부분 패치 지양.
 - Edge Function 배포: `supabase functions deploy <name>` (Docker 불필요)
 
