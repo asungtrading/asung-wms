@@ -29,6 +29,7 @@ description: >
 권한               ✅ 09-17 밤 — role 넷 worker<manager<supervisor<admin(§10-h) · 쓰기 RLS + RPC 첫머리 ims_require_write(§5 권한 규약 셋) · 화면은 ims_access() 하나(3-l)
 ⑥ 리시빙           ✅ 09-18 — ⭐ WMS 이관을 미루고 IMS 안에 PO 갈래로 먼저(§13-i) · 표 셋 + 차이 큐 · RPC 열 · 확정·자동 분할 **§11-i·§11-c** · updated_by + ims_touch(§5) · 탭 다섯
 ⑦ 원장·원가 이식    ✅ 09-19 — 입고 확정이 원장 사건(`inv_post_receipt` · **§11-j**)과 원가 레이어(`inv_layer_post_receipt`)를 · 비용 확정이 landed 를(`inv_layer_post_charge` · **§11-f**) · 차이 닫기 short 만 + 형제 합계 `po_family_*`(**§11-i·§11-c**) · Last bin 속 = 원장 · 머리 칸 편집·Add a line(§11-b·§11-d) · 원가 규칙 정본은 `ledger-design.md` 4부 「이식」·「원가 이식」 · ✅ 09-20 `inv_layer_apply()` 에 IMS 판(`20260920142635` · 아래 함정 — 남은 함정은 환율 없는 입고) · ✅ 09-20 오후 **over 닫기** `po_receipt_diff_settle_over`(**§11-i** · 이유 셋 free·billed·credited) · **매입 가격 이력** `po_price_history`(**§11-g** · 출처는 확정 인보이스 · 할인 반영)
+⑧ ⑤-3 입고(WMS)  ✅ 09-26 — 속/바깥(so-module §24-m · n) · 셸은 definer · 창고 검사 · 확정 셸 + wms_recv_state 경고 · so_current_staff 는 셸이 못 부른다
 화면 열하나        ✅ `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) — 마스터 다섯 · staff · po·invoices·charges·payments·receiving · 규칙 **§10-j**(3-g·3-i·3-j·3-k) · ⬜ 채울 칸 **§10-k** · 🔄 다음 **§13-f**
 ```
 - ⭐ **IMS 표 32 · 정책 116**(2026-09-18 실측 · Caleb psql) — 전부 **테스트 DB(Asung-IMS)에만** 있다. `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영.
@@ -119,6 +120,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 기준통화 아닌 발주·비용을 환율 없이 확정 · 환율로 **나눈다** | 원가 0 · 또는 **반값 — 에러 없음** | 확정 거부(게이트 ⑥ · 문장이 어디서 고치는지 말한다) · `exchange_rate` 는 **CAD per USD — 곱한다** · §11-j·§11-f · ledger-design 4부 |
 | 발주 머리의 Supplier·Currency 를 연다 | 라인의 단가 근거·통화 뜻이 통째로 바뀐다(USD 5.19 → CAD 5.19) | **열지 않는다** — 잘못 골랐으면 새 발주 · 언제나 여는 것은 Exchange rate·Note 뿐(원가가 매달린다) · §11-b |
 | ~~⚠️⚠️ `inv_layer_apply()` 를 돌린다~~ → ✅ 09-20 IMS 판(`20260920142635`) · 남은 함정: **환율 없는 입고가 있는 채** 돌린다 | 그 입고만 건너뛰어 원가가 빠진 채다 — 멈추지 않는다(옛 「통째로 사라진다」는 틀렸었다 · 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다) | 반환 `ims.receipts_skipped` 가 0 인지 본다 · 환율을 넣고 `inv_post_receipt` 재호출 또는 다시 돌린다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 스킬 asung-inv-ledger 함정 첫 줄 |
+| po_receipt_* 셸을 다시 내며 이름 · 시그니처를 바꾼다 | asung-ims receiving.html 이 그 이름으로 부른다 — 화면이 깨진다 | 셸은 이름 · 시그니처 그대로 · 속은 `_by`(p_staff · definer · authenticated 회수 · so-module §24-m) |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 32 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다** — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).

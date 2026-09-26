@@ -2972,6 +2972,7 @@ discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 
 ```
 
 ### 11-i. ⭐⭐ 입고
+⭐ [2026-09-26] 입고 창구는 속(_by · definer · 회수) + 바깥 셸(오피스 = 이름 그대로 · WMS = wms_recv_*) · 원장 둘은 문 없음 · 회수 · 확정 창구 둘(오피스 · WMS 스위치) — so-module §24-m · n
 ```
 ⭐ **인보이스를 기다리지 않는다.** Cin7 의 Invoice First 선승인 제약은 **Cin7 의 사정**이다.
    (WMS 규칙 20 의 유입 필터가 지금 그 제약에 맞춰져 있다 — `receiving` EF `PO_INVOICE_OK` = AUTHORISED/PAID 만 통과 · 코드 실측)
@@ -3444,7 +3445,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
      칸 81 중 「안 온다」 — WMS 만 있던 것: 기대치 스냅샷(expected_base — IMS 는 계산) · 인보이스 기준 칸 · 트랜스퍼 참조 · presence(held_by 계열 — 별 프로젝트) · 상품 이미지(product 에 칸 없음) · 미지 bin(Cin7 /ref/location 의 전 빈을 그대로 받던 것 — IMS 는 ref_bin 만)
      기능 49 중 그대로 건너온 것: 두 단계(검수 → 풋어웨이) · 라인별 수량·빈 · Placed/Place all · Change bin · Last bin 제안 · 축 칸 넷(누가 세었나 · 누가 놓았나) · 스캔/수동 구별 · 「전 라인 표시」(안 센 라인은 detail 의 PO 라인으로 그린다) · 초과·부족은 차이 큐 · 사람 판단 유지
      더해진 것(WMS 가 못 하던 것): 줄 쪼개기(한 라인을 두 빈에 · 실측 600 → 400 + 200) · 병합 · 되돌리기(빈까지 지운다) · 「누가 마지막에 고쳤나」(updated_by)
-     남은 것(WMS 이관 때): 같은 줄 동시 스캔의 병합(WMS 는 델타라 병합됨 · IMS 는 총량 저장 — 동시 편집 화면이 그 자리) · 창고 접근(ims_staff.warehouse_access 는 섰다 · 리시빙 RPC 가 아직 안 본다 · 짐작: ims_can_warehouse 로 잇는다) · 트랜스퍼
+     남은 것(WMS 이관 때): 같은 줄 동시 스캔의 병합(WMS 는 델타라 병합됨 · IMS 는 총량 저장 — 동시 편집 화면이 그 자리) · 창고 접근(ims_staff.warehouse_access 는 섰다 · 리시빙 RPC 가 아직 안 본다 · 짐작: ims_can_warehouse 로 잇는다) · 트랜스퍼  → ✅ wms_recv_scan 델타(so-module §24-m)  → 📌 셸 여섯 + 확정 ✅(24-m · n) · 나머지 아홉 ⬜
    ⚠️ 트랜스퍼: IMS 에 트랜스퍼 문서가 없어 지금 리시빙은 **PO 만** 받는다. [Caleb] 「IMS 에 트랜스퍼가 서면 그것도 같이 가져온다 — 순서의 문제다」 · 컷오버 전 필수 · ⚠️ 그때 풀어야 할 자국: 지금 코드가 「PO 가 반드시 있다」를 전제로 쌓인다(po_receipt.po_id NOT NULL · work.po_line_id NOT NULL · 기준 = po_line.qty_ea)
 ⭐ 오늘 선 것        표 셋 + 차이 큐(§11-i 「→ 표 셋」) · RPC 열 + 뷰 둘(§13-d 「리시빙」) · 분할 함수(§11-c 「→ 분할 함수」) · Receiving 탭 ims(§10-j 3-k·3-l) · 동시 편집 바닥(§5 트리거 · §10-j 3-i) · security definer 예외 하나(§5 권한 규약 ②)
    순서(차수)         133858 바닥 → 161537 표 셋 → 163552 2-a RPC → 165934 탭·room → 173042 되돌리기 → 174428 놓인 것 → 203805 2-b 확정. 화면 receiving.html(815행 · 대화 Claude)은 detail 하나로 그린다(sb.rpc("po_receipt_detail") · grep)
@@ -3497,12 +3498,12 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ 거부 문장에 「내가 넣으려던 값」이 없다
 리시빙
 ⬜ 차이를 닫는 RPC 와 화면      po_receipt_diff.resolved_by/at · note 는 있다 · 여러 건을 한 번에 닫기 · 닫는 이유 어휘(나눠 보냄 · 결품 · 분실·파손 · 오산)는 그때 정한다(§11-i short 를 담는 이유)
-⬜ off_po(PO 밖)               po_receipt_work.po_line_id nullable + product_id + 승인 칸 + po_receipt_line.po_line_id 도 nullable · 차이 큐 off_po 어휘는 미리 있다 · 약식 제품 등록(위 「입고 차수에 셋」)과 한 묶음
+⬜ off_po(PO 밖)               po_receipt_work.po_line_id nullable + product_id + 승인 칸 + po_receipt_line.po_line_id 도 nullable · 차이 큐 off_po 어휘는 미리 있다 · 약식 제품 등록(위 「입고 차수에 셋」)과 한 묶음  → 📌 큐에 적기 ✅(24-m) · 승인 · 투입 ⑤-6
 ⬜ 팩→낱개 환산                지금 work_save 는 낱개 총량을 받는다 · p_entered_qty · p_unit_product_id 로 **DB 가 곱하는** 안(화면이 곱하면 「계산은 DB」를 어긴다)
 ⬜ 확정 취소                   po_doc_cancel 에 'receipt' 가지(입고 줄·차이·분할을 어떻게 되돌리나 — 사건 차수와 함께) · 확정 전 「그만둔다」는 po_receipt_delete
 ⬜ po_receipt_line.receipt_id 를 NOT NULL 로   백필(09-16 검증 데이터 4행 · 짐작 — 실측 필요) 또는 정리 뒤
-⬜ WMS 이관                    조사가 찾은 것(§13-i): 트랜스퍼 입고 · 창고 접근(warehouse_access 를 리시빙 RPC 가 본다) · 상품 이미지 · 미지 bin · ~~라스트 빈을 원장에서~~(→ ✅ 09-19 ims_last_bin 속 = 원장 · §11-i) · 같은 줄 동시 스캔 병합
-⬜ WMS 창고 화면의 화면 값       'receiving' 을 같이 쓰면 카탈로그 room 은 하나라 worker 기본이 안 붙는다 — 값을 따로 둘지(`putaway` 등) 그때 정한다(§10-j 3-l)
+⬜ WMS 이관                    조사가 찾은 것(§13-i): 트랜스퍼 입고 · 창고 접근(warehouse_access 를 리시빙 RPC 가 본다) · 상품 이미지 · 미지 bin · ~~라스트 빈을 원장에서~~(→ ✅ 09-19 ims_last_bin 속 = 원장 · §11-i) · 같은 줄 동시 스캔 병합  → 📌 셸 여섯 + 확정 ✅(24-m · n) · 나머지 아홉 ⬜
+⬜ WMS 창고 화면의 화면 값       'receiving' 을 같이 쓰면 카탈로그 room 은 하나라 worker 기본이 안 붙는다 — 값을 따로 둘지(`putaway` 등) 그때 정한다(§10-j 3-l)  → ✅ wms_receiving(24-m)
 그 밖
 ⚠️⚠️ 크레딧 채번이 PO 번호 접두어를 읽는다   분할로 PO-02011 이 PO-02011a 가 되면 CN-<po> 접두어가 안 맞아 같은 번호가 다시 난다 · 실무는 크레딧이 입고 뒤라 드물다 — 그래도 적어 둔다(§11-c)
 ⚠️ po 표에 closed_by 칸이 없다   closed_at 만 · 확정 RPC 가 닫는 사람은 po_receipt.confirmed_by 로만 남는다

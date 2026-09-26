@@ -181,6 +181,12 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 📌 **화면 한 차수** = 대화 Claude 가 화면 파일 통째로(검사 넷: 단추↔처리 · id 실재 · `node --check` · CSS 클래스 실재) + Claude Code 가 `ims-auth.js` items · CHECKLIST · 한 커밋(asung-ims · 정본 §23)
 ⭐ ⑤ 부터의 마이그레이션은 첫 문장이 `supabase/ops/guard-test-only.sql` 의 바이트 복사 · 검증 G0 은 **임시 파일에 첫 블록을 써서 diff**(psql `\!` 는 /bin/sh = dash 로 돈다 · `diff <(…)` 는 bash 문법이라 죽는다 · 2026-09-26 ⑤-1) · `\!` 에 psql 변수는 안 들어간다 — 경로는 환경변수로
 ⚠️ `\gset` 으로 받은 boolean 은 t/f 다 — 글자로 비교하지 말고 `:'x'::boolean` 으로
+⚠️ **\i 앞에서 담는 옛 결과(D-pre)는 확인 실행에서 새 함수다** — pre/post 비교 기대는 처음부터 \if :{?mig} 두 갈래로(2026-09-26 ⑤-3b E2)
+⚠️ **invoker 셸은 회수된 속을 못 부른다** — 바깥 창구는 definer · 문은 첫 줄(⑤-3a 5회차) · 회수된 so_current_staff 도 셸이 못 부른다 — 사람 찾기는 원본 두 줄(4회차)
+⚠️ **information_schema 는 table_schema 를 붙여라** — wms_legacy 에 같은 이름 표가 있다(⑤-3a 3회차) · like 의 _ 는 한 글자 와일드카드 — \_ 로(⑤-2b 2회차)
+⚠️ **검사는 그 시점의 상태로** — 뒤 절이 바꿀 칸을 앞 검사가 기대하지 않게(⑤-3a 6회차)
+⚠️ **\gset 줄 끝에 주석을 달지 마라** — psql 이 인자로 읽는다(⑤-3b 3회차) · 검증 자료의 칸 이름은 짐작하지 말고 information_schema 로 · 숫자 비교는 round()(⑤-3b 1 · 2회차)
+⚠️ **원본의 security invoker 가 별줄이면 language 줄에 definer 를 붙이지 마라** — conflicting options(⑤-3a 1회차) · 다른 파일에서 검증 블록을 잘라 올 때 여러 줄 문장 끝을 토크나이저로(⑤-2b 1회차)
 ```
 
 ---

@@ -546,7 +546,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⚠️ **리시빙 검사는 아직 없다**(`wms_receipts`·`wms_receipt_lines` 무검증). 규칙 27 의 R3(중복 receipt)·R4(이중 Apply)는 지금은 Health 로 안 잡힌다 — 검사 추가는 백로그.
 - ⚠️ **`short_no_disc` 는 픽킹 전용이다** — `wms_pick_task_lines` 기준이라 **리시빙 discrepancy 가 한 건도 안 들어가고 있던 것을 못 잡았다**(규칙 29). 추가할 검사 2개: ①리시빙용 short/over ↔ `wms_discrepancies(source='receiving')` 대조 ②`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조(규칙 32) — 둘 다 백로그.
 
-## 규칙 20 — 리시빙 모듈: PO/트랜스퍼 입고 + 라스트 로케이션 풋어웨이 (⚠️ 2026-07-23)
+## 규칙 20 — 리시빙 모듈: PO/트랜스퍼 입고 + 라스트 로케이션 풋어웨이 (⚠️ 2026-07-23)  → ⭐ [2026-09-26] IMS 판(§24-m · n): PO 확정 수량 기준 · Partial 없음(판정 28) · off-PO = 차이 큐 · Complete = 창고 잠금 · Reopen(wms_manage) · 확정 = 오피스(판정 27) · Last bin 은 제안(판정 29) · Place all 뜻 같음
 
 **핵심 목적: Cin7 다이나믹 로케이션의 두 빈틈 — (1)sold-out 시 라스트 로케이션 망각 (2)매번 수동 풋어웨이 강제 — 를 메운다.** 우리 sticky bin 데이터(`asung_bin_stock` → `wms_sku_bins`)가 라스트 로케이션을 이미 보존하므로, 리시빙 시 자동으로 그 자리로 풋어웨이한다.
 
