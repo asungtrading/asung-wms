@@ -3176,7 +3176,7 @@ is_split   50% COD 둘 true
  ⬜6 다시 견적 = so_line_requote(line, ordered − removed, false) · 시스템 줄만 · 할인만 · order_date 기준(D7) · 반환 이전·새(단가·할인·출처) · 남은 수량 0 이면 안 함
  ⬜7 마무리 때 고치기는 so_finalize 안에서(따로 창구 없음 · so_charge_set·so_header_update 는 초안만 그대로 · 대가: 마무리 전에 운임을 미리 저장 못 한다 → 미리 보기로 확인하고 한 번에)
  ⬜8 so_invoice_cancel(p_invoice_id, p_note) manager · issued 만 · 사유 필수 · 담긴 오더 invoiced→shipped · so_invoice_order.cancelled_at 복사(active_so_id 풀림) · 번호 남음 + so_invoice_reissue(p_so_ids, p_issued_on) manager(마무리 밖의 발행은 좁게)
- ⬜9 customer.invoice_split_by_store(기본 false · 우리 칸 · ImsLoadCustomer 는 고정 키 목록이라 안 보낸다 · 쓰기 master)   ⬜10 picks·묶음은 입력으로 받는다(WMS ⑤ 전) · 「fulfillment 묶음」을 IMS 가 어디서 아나는 ⑤(8-k)   ⬜11 so_finalize 는 ims_require_write(sales) 만 · so_ship·inv_post_sale 은 definer 안에서 소유자로 · inv_post_sale 첫 줄 sales 는 오피스 담당이 sales 라 통한다(§15 ⬜ ⑤ WMS 직원 경로는 그대로)
+ ⬜9 customer.invoice_split_by_store(기본 false · 우리 칸 · ImsLoadCustomer 는 고정 키 목록이라 안 보낸다 · 쓰기 master)   ⬜10 picks·묶음은 입력으로 받는다(WMS ⑤ 전) · 「fulfillment 묶음」을 IMS 가 어디서 아나는 ⑤(8-k)   ⬜11 so_finalize 는 ims_require_write(sales) 만 · so_ship·inv_post_sale 은 definer 안에서 소유자로 · inv_post_sale 첫 줄 sales 는 오피스 담당이 sales 라 통한다(§15 ⬜ ⑤ WMS 직원 경로는 그대로)  → ⭐ [2026-09-26] ⑤-2b — wms_so_handoff(칸별 수량 · 팔렛 · 박스) · so_finalize 재발행(picks 생략 시 WMS 인계를 읽는다 · 24-h 판정 16)
 내가 정한 것(Caleb 받음)
  ⓐ1 so_invoice_number_seq 에 authenticated usage 를 안 준다(definer 가 소유자로 · so_number_seq 의 「남아 있으나 안 쓰이는 grant」를 되풀이하지 않음) · 인보이스 발행일 = 마무리한 날(ims_today · p_shipped_on 이 과거여도) · 결제조건·청구처 주소는 첫 오더(so_number 순) 값 + 다르면 경고(bill_to_differs · payment_term_differs)
  ⓐ2 so_finalize 의 묶음 열쇠 = bill_to_customer_id || '|' || coalesce(invoice_group, 설정이면 'store:' || customer_id, '') — 청구처가 다른 오더는 어떤 열쇠로도 한 장이 못 된다 · 미리 보기는 칸(bin) 검사를 안 한다(실행 때 so_ship 이) · so_detail 은 shipped·invoiced·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본) · so_family_* 의 남은 수량 = 주문 − 뺀 것 − 보낸 것
@@ -4054,10 +4054,10 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 
 ```
 ⓪ 문서              이 차수(wms-docs-1)
-직원 싣기            wms_staff 21 → ims_staff(Caleb 손 · 로그인 계정) · ⑤-4 화면 시험 전까지  → ✅ [2026-09-26] 19 명 · 권한 비움 · 창고 manager 둘(24-f)
+직원 싣기            wms_staff 21 → ims_staff(Caleb 손 · 로그인 계정) · ⑤-4 화면 시험 전까지  → ✅ [2026-09-26] 19 명 · 권한 비움 · 창고 manager 둘(24-f)  · manager 에게 WMS 화면 켜기 ⬜(판정 25 · 24-h)
 ⑤-1 표              옛 wms_ 표 → 보관 스키마 · 같은 이름 새 표(uuid · so · so_line · po_receipt · ims_staff) · auth_all ·
                      so_status_guard 에 at_wms · picking · packed 짝  → ⑤-2 로(24-g)                                    400~600행  → ✅ [2026-09-26] f82a00d(24-g)
-⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행  + so_status_guard 짝 · 창고 제한 첫 실물 · worker 창고 SQL(24-g)
+⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행  + so_status_guard 짝 · 창고 제한 첫 실물 · worker 창고 SQL(24-g)  → [2026-09-26] 나눔: ⑤-2a1 ✅ 468b897 · ⑤-2a2 ✅ efce92a · ⑤-2b 다음(24-h · i · j)
 ⑤-3 창구 · 입고      receiver 동작 → po_receipt_* · stage_events → 축 칸                                 300~400행
 ⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)
 뒤                  제자리 돌려놓기 · 칸 이동 · 픽커 리포트 · 헬스 IMS 판 · 사진 · 트랜스퍼 픽 · 찾기 · 세기 · bin transfer
@@ -4070,21 +4070,24 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ WMS 화면 값의 이름(picking · packing · putaway 류) · 새 화면 파일 이름 · po-module 3506 「receiving 공유 시 worker 기본」   ⑤-1 · ⑤-4 지시서에서 안
 ⬜ 리포트를 보는 곳 → IMS 매니저 창(판정 1′ ②)
 ⬜ 헬스 IMS 판(wms_health_check 13 검사 · 본문 안 봤다)
-⬜ 창고별 쓰기 제한(판정 6 의 대가 · 한 줄 규칙으로 안 막힌다)
+⬜ 창고별 쓰기 제한(판정 6 의 대가 · 한 줄 규칙으로 안 막힌다)  → 📌 [2026-09-26] 창구 안의 창고 검사는 섰다(ims_can_warehouse · 24-i · j) — 표 직접 쓰기(auth_all · 판정 6)는 여전히 창고를 가리지 않는다 · ⬜ 그대로
 ⬜ 재고가 들어오면 백오더를 저절로 잡나(누구부터) · 픽커 리포트 「평소 칸이 비어 보관용에서」(§20 판정 3 📌)
 ⬜ 확인할 것: 함수 13 이 새 표를 보는가(판정 3) · 테스트 DB 재복사 절차가 wms_ 표를 다시 싣는가
 ✅ inv_post_sale 의 authenticated 회수(판정 7) — 회수됨(20260924141140:367 · 뒤 정의 없음 · wms-docs-1 대조)
 ⬜ inv-collect 의 wms_orders 읽기 — 컷오버 때 함께
 ⬜ staff.html 편집 화면에 창고(warehouse_access) 칸이 없다 · EF 도 받지 않는다 — 지금은 SQL 로만 넣는다(화면 거리 · 24-f)
-⬜ worker 7 의 창고 — ⑤-1 에서 WMS 화면 값과 함께 정한다(판정 12 · 운영 창고값 토론토 5 · 에드먼튼 2)  → ⑤-2 로(창고 제한 첫 실물 · 24-g)
+⬜ worker 7 의 창고 — ⑤-1 에서 WMS 화면 값과 함께 정한다(판정 12 · 운영 창고값 토론토 5 · 에드먼튼 2)  → ⑤-2 로(창고 제한 첫 실물 · 24-g)  → ✅ [2026-09-26] Caleb 실행 · UPDATE 7 · Edmonton 2 · Toronto 5(24-i)
 ⬜ 입고 일시정지를 적을 자리 — wms_task_holds 에서 receipt · partial 을 뺐다(24-g ①) · ⑤-3 에서 정한다 · 화면의 일시정지 흐름은 지킨다
 ⬜ 동선 순서 23행 — wms_legacy.wms_zone_sequence 에서 warehouse_id(uuid)로 옮겨 심는다(24-g ②) · ⑤-4
 ⬜ wms_worker_mistakes.cin7_corrected 의 이름(뜻은 「매니저가 정리했다」 · 24-g ③) · ⑤-5
 ⬜ manager 권한 세분화 — 비밀번호를 나눠 주기 전 · ⑤-4(wms 방 화면 값과 함께 · 24-f 실물 정정)
-⬜ wms 방 화면 값 다섯 안 — picking · packing · fulfillment · putaway · wms_manage · ⑤-4 에서 확정
+⬜ wms 방 화면 값 다섯 안 — picking · packing · fulfillment · putaway · wms_manage · ⑤-4 에서 확정  → ✅ [2026-09-26] ⑤-2a1 에서 넷(picking · packing · fulfillment · wms_manage) · putaway(WMS 입고 값)는 ⑤-3(24-i)
 ⬜ 운영 가드를 전환일에 푸는 법 — 승격된 테스트에 cron 이 서면 가드가 스스로 막는다 ⇒ 그날 마커 값을 바꾸고 가드가 허용(24-g 판정 13 · reload-procedure §M · §O)
 ⬜ 운영 일괄 배포 보류 — 앞의 IMS 95(20260911144606~)는 가드가 없다 · ⓒ inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(24-g 판정 13 ➕)
 ⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 전환 준비 · 이월(24-f)
+⬜⭐ 재고 사건 차수: 매니저 리포트(stock_short) → 실물 확인 → 바로 재고 조정 연결(판정 20 · Caleb 「기억하라고」 · 24-h)
+⬜ 오피스 화면 판: 판정 17 글자 · Release to WMS 단추 · 거둬들이기 · 「Finalized — 견적 · 결제 · 마무리 대기」 목록(판정 16 · 18 · Manager List · 24-h)
+⬜ manager 8 의 WMS 화면 권한 켜기(판정 25 · 비밀번호 전) · 검토함 끈 기록(⑤-2b · 판정 22) · Health 검사 고르기(⑤-5 · 판정 24)
 ```
 
 ### 24-e 판정 2 로 뒤집히거나 닫히는 옛 줄 (wms-move-1 F · 26 → wms-docs-1 에서 다시 셈)
@@ -4197,4 +4200,88 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
 ⚠️⚠️ 실사고 Claude Code 가 「검증 파일 머리의 확인 38 → 39 로 고쳤다」며 grep 원문처럼 붙인 줄이 지어낸 것이었다(명령을 돌리지 않았다) ·
           다음 명령의 어서션이 파일에 옛 줄이 남은 것을 보고 멈춰 드러났다 · Claude Code 가 스스로 밝혔다 · 2026-09-17 「만들지 않은 파일」과 같은 종류
           ⇒ 규칙: 고쳤다는 보고는 grep 만이 아니라 고치기 전후의 ls -l(바이트 · 시각)을 함께 붙인다 · 시각이 안 바뀌었으면 고치지 않은 것이다(asung-workflow §3 ②)
+```
+
+### 24-h ⑤-2 판정 16 ~ 25 · 실제 업무 흐름 (2026-09-26)
+
+⭐ Caleb 의 말 그대로 · 판정 원문 · 근거 · 기각 · 경위(대화 Claude wms-docs-4 · 2026-09-26)
+```
+⭐ 실제 업무 흐름 — Caleb 2026-09-26 (말 그대로)
+   「실제로 cin7에서는 finalized가 되면, ship 부터 오피스에서 하게 돼. 그런데 우리 운영 wms는 사실 그 쉽단계를 해서 주는 셈이야.
+    다만 완전히 쉽을 다 마무리한게 아니라, 쉽을 할 수 있게 준비를 해서 준다가 더 맞는 표현일꺼야. 그래서 오피스에서는 그것을
+    (팔렛 또는 박스 메져먼트) 받아서 진짜 쉽핑 견적을 freightcom을 통해서 받은 후에 슆핑 코스트를 얹고, 결제를 받아야 하는 손님은
+    결제를 받아서 최종 인보이스에 기록하고 풀필을 하는거야.」 · 「운임, 택배사, 추적번호는 당연히 오피스에서 넣게 되는거지」
+   「원장 규칙은 재고는 ship에서 빠진다가 맞는데, wms에서의 shipped 단계가 아니라, office에서의 fulfilled단계야.」
+   「지금은 치수를 프린트한 픽킹리스트에서 적고 있어. 왜냐하면 운영 WMS SO는 cin7과 연동이 되지 않으니 말이야」
+   운영 Finalize 는 Cin7 에 아무것도 안 한다(Claude Code 조사 · fulfillment.html:545~607 · 599 · EF 0) — wms_orders 를 closed 로 · 치수는 height_note · weight_note 메모 → 팩킹리스트 인쇄
+
+판정 16  WMS 는 재고를 빼지 않고 인보이스도 내지 않는다 — Caleb 「맞아 정확해」
+         WMS 의 끝 = Finalize = 출하 준비 완료 — 칸별로 뽑은 수량 + 팔렛 · 박스(치수)를 SO 에 넘긴다
+         재고 차감 + 인보이스 = 오피스의 마무리(so_finalize · sales) 한 번 = Cin7 의 fulfill 순간 · 운임 · 택배사 · 추적번호 · 결제 정리도 오피스
+         ⇒ 이미 선 SO 설계 그대로다(so_finalize 가 picks · charges · carrier · tracking 을 받아 출고 + 발행 · 정본 3174 ⬜4 · 3179 ⬜10)
+         ⚠️ 경위 — 대화 Claude 가 처음에 「WMS 는 출고(so_ship)까지 · 인보이스는 오피스」로 세웠다가(운영 Finalize 를 Cin7 Ship 으로 짐작) Caleb 의 설명으로 고쳤다 ·
+            「재고는 Ship 에서 빠진다」의 Ship 은 **창고 길에서는 오피스의 fulfill** 이다 — WMS 의 어느 단계도 아니다
+         ⇒ 판정 7 의 「창고 직원 출고 → inv_post_sale sales 문」 문제는 출고 쪽에서 사라졌다 · 판정 7 의 원칙은 WMS 창구가 SO 상태 속 창구를 부를 때 그대로
+판정 17  화면 글자 — 저장 값은 그대로 · 고치는 때는 오피스 화면 판(Release 단추를 붙일 때) — Caleb 「지금 당장 수정할 필요는 없어. 기록해놨다가 나중에 수정하자」
+         draft Draft · confirmed Confirmed · at_wms Released to WMS · picking Working · packed Finalized · shipped Shipped · fulfilled Fulfilled · cancelled Cancelled
+         줄 표의 「나간 수량」 칸 = Qty out · 오피스 단추 「Release to WMS」 · 오피스 · WMS 화면 모두 같은 글자
+         근거: shipped 값을 finalized 로 바꾸면 so_finalize(= fulfilled 로 끝냄)와 낱말이 겹치고 'shipped' 가 마이그레이션 65곳 · 화면 20곳 · so_reserve.released_reason 6곳에 있다
+판정 18  창고 쪽 상태의 뜻 — Caleb 「그렇게 하자」
+         at_wms  = 매니저의 Split 화면에서 기다림(아직 아무도 손대지 않았다 · 거둬들이기 쉽다)
+         picking = 매니저가 그대로 · 스플릿 · 웨이브를 정해 픽 과제를 만드는 순간 넘어간다(배치 만들기 창구 안에서) · 뜻은 픽 · 팩 · 팔렛 · 박스 진행 중 — Caleb 「picking이 아니라, working이 아닐까」
+         packed  = 창고가 Finalize 함 = 출하 준비 완료 — Caleb 「finalized와 packed는 사실 상 같은 의미」
+         Caleb 「at_wms 상태라는 얘기는 픽일수도, 팩일수도, 팔렛,박스일수도 … 일대로 대칭되지 않아」 — 창고 안 단계는 SO 상태가 아니라 WMS 화면이 보여 준다
+판정 19  팔렛 · 박스 치수 — Caleb 「A로 가자」 · 「사이즈는 주로 인치를 쓰는데, cm도 가능해. 무게는 lb 또는 kg」
+         숫자 칸 넷(길이 · 너비 · 높이 · 무게) · 넣을 때 in/cm · lb/kg 를 고르면 DB 가 인치 · 파운드로 바꿔 저장 · 처음 넣은 숫자 · 단위도 남긴다 · 오피스 화면은 늘 in · lb · 메모 칸 그대로 ⇒ ⑤-2b
+판정 20  픽커의 「Not enough stock」 신고는 운영 그대로 — Caleb 「그대로 유지되길 바래. wms에서 사용하는 기능들은 다 그대로 가져갈꺼야」
+         wms_reports kind stock_short(알림 · 실수 집계 밖 · 규칙 41) ✅ ⑤-2a1 · 기대 · 찾은 수량 칸(qty_expected · qty_found) ✅ ⑤-2a2
+         ⬜⭐ 재고 사건 차수(10/5 주)에서 조정 창구를 세울 때, 이 리포트에서 실물 확인 뒤 **바로 재고 조정으로 넘어가는 연결**을 세운다 — Caleb 「당장 하지 않아도 돼. 다만 해당 재고조정 시점에, 매니저 리포트에서 바로 연결해서 넘어오는 창구를 세우는 것을 기억하라고」
+판정 21  창고에 있는 오더의 취소 = 한 단계씩 — Caleb 「실물의 상태가 어떤지 확인되지 않은 상태에서 오피스에서 바로 캔슬하는 것은 좀 위험해 보여」
+         Working → (창고가 되돌림) → Released to WMS → (오피스 거둬들이기) → Confirmed → 취소 · at_wms→cancelled · picking→cancelled 짝 없음 · 운영 Void 의 자리를 대신한다
+판정 22  매니저 「검토함」(운영 wms_orders.mgr_reviewed)은 그대로 가져간다 — Caleb 「그대로 가져가자」
+         쓰임(Claude Code 조사): admin.html Finalized 탭 하나 — 2084 select · 2093 미검토 전량 · 2094~2095 검토됨 최근 200 · 2102 · 2140 배지 · 2181~2182 흐림 + 체크박스 · 2252~2253 켜기 · 끄기(끄면 셋을 비운다)
+         IMS: WMS 자기 표(누가 · 언제) ⇒ ⑤-2b · ⬜ 끈 기록을 남길지는 ⑤-2b 에서
+판정 23  so 에 picking_at · picking_by · packed_at · packed_by — Caleb 「A가 맞다」 · ✅ ⑤-2a1(so_wms_status 가 찍는다 · packed_* 는 Finalize 가 찍는다)
+판정 24  admin 의 WMS 탭은 Stats · Health 까지 ⑤-5 에서 함께 옮긴다 — Caleb 「admin의 다른 wms탭과 함께 옮겨야 하지 않을까?」
+         Caleb 물음 「픽별, 팩별, 시간, 담당자, 작업량등등의 통계는 계속 유지되는거지?」 → 유지된다 · 통계는 SO 상태가 아니라 ② 표의 작업 기록에서 나온다
+         ⇒ 새 창구가 운영이 찍던 시각 · 사람 칸을 빠짐없이 찍는지 검증의 축으로 대조했다(⑤-2a2 T1~T4) · Health 는 「IMS 에서도 뜻이 있는 검사」만 다시 · Receiving 탭은 ⑤-6
+판정 25  WMS 화면 권한 — Caleb 「B로 가자」
+         ims_can_view · ims_can_write 원본에 worker 가지 한 줄만: worker 기본 = WMS 방 화면 가운데 min_role 이 없거나 worker 이하인 것 전부 · wms_manage(min_role manager)는 worker 에게 false
+         manager 는 화면마다 켠다(perms ? 화면 · staff.html 라디오 · 운영의 사람별 Split 권한과 같은 모양) · admin · supervisor 는 전부
+         Caleb 물음 「나중에 receiving과 브랜치 트랜스퍼도 가능한거지?」 → 된다 — WMS 방 값으로 올리면 worker 기본(WMS 입고 · 풋어웨이는 오피스 receiving 과 이름을 따로)
+         기각: 「WMS 모드 체크 = WMS 화면 전부」(Claude Code 첫 판 · manager 8 이 모두 곧바로 배치 · 되돌리기를 하게 된다)
+         ⬜ 실물 manager 8 에게 아직 WMS 화면 권한이 없다 — 비밀번호를 나눠 주기 전에 Caleb 이 staff.html 에서 사람마다 켠다(manager 권한 세분화 ⬜ 와 같은 자리)
+
+⑤-2 나누기 — Claude Code 안 · Caleb 수락: ⑤-2a1(SO 가 창고에 들어간다) · ⑤-2a2(창고 안의 작업) · ⑤-2b(Finalize · 치수 · 인계 · 되돌리기 · 검토함)
+   Caleb 「a2까지 하고 문서 작업하자」 — 이 차수가 그 문서 작업이다 · 다음은 ⑤-2b
+
+```
+
+### 24-i ⑤-2a1 — SO 가 창고에 들어간다 (468b897)
+
+```
+⑤-2a1 실물 — 20260926192314_wms_5_2a1_so_pairs_release_batch.sql(540행 · 39,485 바이트) · 커밋 468b897
+   Claude Code 시험 적용 5회(① updated_by 는 ims_touch 가 덮는다 — DB 가 맞다 ② 예약 검사 순서(hold 먼저) ③ 통과 ④ so_status_guard 재발행이 원본 주석 · comment 를 떨어뜨림 — 원본 바이트에서 다시 ⑤ 판정 25 로 권한 함수 원본에서 다시)
+   Caleb 적용 && repair · 확인 OK 66 · MISMATCH/ERROR/rror 0 · 시퀀스 그대로
+   대화 Claude raw 확인(468b897): 가드 byte-identical · 옛 「perms ? 'wms'」 가지 0 · worker min_role 줄 277 · 297
+   든 것: so 칸 넷 + 인덱스 · so_status_guard 짝 여섯(confirmed⇄at_wms · at_wms⇄picking · picking⇄packed) · so_wms_status(invoker · authenticated 회수 · CAS · 시각 칸) ·
+          so_release_to_wms · so_wms_recall(sales · 창고 길만 · 여러 오더 한 번에 · 하나라도 막히면 전체 거부 · 열린 hold/backorder/preorder 먼저 → allocated 합) ·
+          ims_perm_catalog wms 값 넷 · ims_can_view/write(판정 25) · wms_pick_line_bins · wms_reports kind 5 · wms_batch_create · wms_wave_create(so_pick_plan 계획 칸 · 라벨 SO-n-k · W-MMDD-n)
+   막힘은 42501 이 아니라 P0001(ims_require_write 의 사람 문장 · 모든 IMS 창구와 같다) · 속 창구를 authenticated 가 직접 부르면 42501
+   worker 7 창고 — Caleb 실행(UPDATE 7 · Asung - Edmonton 2 · Asung Trading Inc. 5 · 수가 다르면 스스로 멈추는 do 블록) ⇒ 창고 제한이 모든 worker 에게 걸린다
+```
+
+### 24-j ⑤-2a2 — 창고 안의 작업 (efce92a)
+
+```
+⑤-2a2 실물 — 20260926200918_wms_5_2a2_pick_pack_holds.sql(719행 · 46,949 바이트) + supabase/ops/cron.sql 블록 · 커밋 efce92a
+   Claude Code 시험 적용 2회(① declare 한 e 가 서브쿼리 별칭 e 와 겹침 42702 — asung-workflow 의 함정 세 번째 실사고 · v_ 접두로 ② 통과)
+   Caleb 적용 && repair · 확인 OK 57 · MISMATCH/ERROR/rror 0 · 시퀀스 그대로 · 대화 Claude raw 확인(efce92a): 가드 byte-identical · 옛 세계 낱말 0 · cron 블록 빈자리 0
+   든 것: wms_complete_pick(실제 칸 행 · 합 = picked_base · bins 없으면 계획 칸 순서 · p_disc → p_mistakes) · wms_complete_pack(SO 무변 · ready = 뷰 all_packed · verified_by 찍는 줄 하나 더) ·
+          wms_hold_pick · wms_hold_pack · wms_resume_hold(창고 검사 없음 — 운영도 없었다) · wms_auto_hold(원본과 뜻 같음 · invoker · authenticated 회수) · wms_reports qty_expected · qty_found ·
+          a1 의 comment 둘 정정(so.packed_at · so_status_guard 「팩 완료」 → 「Finalize(⑤-2b)」)
+   통계 대조(판정 24): T1 운영 칸 목록이 실물 · T2 새 함수에 전부 · T3 옛 세계 낱말 0 · T4 첫 줄 문 + 창고 검사
+   cron: 테스트에 ims-wms-auto-hold 등록(Caleb · jobid 16 실측 · cron.sql 두 자리 채움)
+   ⚠️ 테스트 jobid 16 이 cron.sql 의 운영 잡 번호 16(2026-08-28 · 399 · 406행)과 같다 — 두 DB 는 번호를 따로 매긴다 · 킬 스위치는 **어느 DB 에 붙었는지 먼저 보고** 돌린다
+   📌 시험 때 WMS 일련번호(과제 · 웨이브)와 cron jobid 는 늘어난다 — 문서 번호가 아니다 · 판정은 so · 인보이스 · 크레딧 시퀀스 전후만
 ```

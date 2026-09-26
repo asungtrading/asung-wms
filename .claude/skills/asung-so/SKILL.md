@@ -41,6 +41,7 @@ POS · counter ④a ✅ 2026-09-25 — a1 20260925133147(product_bin_overflow ·
 읽기 창구 넷    ✅ 2026-09-25 — 인보이스 20260925191843(685c766 · so_invoice_list · so_invoice_detail · so_invoice_ar_summary) · 결제 195701(5507e0c · so_payment_remaining · so_payment_list · so_payment_detail) · 결제 식 일곱 201614(c8cabf5 · 복사 식 0) · 크레딧 205011(8f37651 · so_credit_remaining · so_credit_list · so_credit_prepare) · 검증 OK 17·14·9·17 · 정본 §22
 오피스 화면     ✅ 2026-09-25 — asung-ims so.html v2.3 · so-invoices v1.2 · so-payments v1 · so-credits v1.1 · so-backorders v1.3 · pos v1 · manager-list v1 · 탭 묶음 Purchasing | Sales · CHECKLIST 7-f~7-l · 정본 §23
 ⑤ WMS 이관     ⬜ 2026-09-26 — 판정 아홉(옮겨 고친다 · 안의 모듈 · 창구 · uuid · ims_staff · asung-ims WMS 모드) · 조사 실측 · 차수 계획 → 정본 §24 · ⓪ 문서만 섰다
+⑤ WMS 창구 ⑤-2a ✅ 2026-09-26 — 상태 짝 WMS 여섯 · so_wms_status(authenticated 불가) · Release/거둬들이기(sales) · packed = Finalize(창고 출하 준비 완료) · 재고 · 인보이스는 so_finalize(§24-h · i · j)
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 

@@ -1481,7 +1481,7 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
 | `Adjustment` 가 증감분? | **아니다. 조정 후 목표 수량.** 증감 = `Adjustment − QuantityOnHand` |
 | `NewStockLines` 도 같은 규칙? | **아니다.** `Quantity` 가 그대로 증가분. 섞으면 원장이 통째로 틀림 |
 | `StockOnHand` 가 수량? | **아니다. 평가액.** 원장 기준값은 `OnHand` |
-| 재고가 픽/팩에 빠지나? | **아니다. Ship 시점.** 픽·팩·Finalize 는 `Allocated` 일 뿐 |
+| 재고가 픽/팩에 빠지나? | **아니다. Ship 시점.** 픽·팩·Finalize 는 `Allocated` 일 뿐 | → ⭐ [2026-09-26] 창고 길의 Ship = 오피스의 마무리(so_finalize · Cin7 fulfill 순간) — WMS 의 픽 · 팩 · Finalize 는 재고를 빼지 않는다(so-module §24-h 판정 16)
 | `sale_out` 부족은 short 인가? | ⚠️ **축마다 다르다(17-a · 2026-09-24 구현 17-h).** `cin7` 축은 그대로 short(수집이 못 따라간 것 · 따라잡히면 해소) · `ims` 축(IMS 판매 · so_ship)은 **부족분만큼 `sale_shortfall` 레이어를 세우고 즉시 전량 소진**(cost_source `layer_recent` · `layer_recent_other_wh` · `price_history` · 그것도 없으면 `unknown` 0) — 실물이 나갔으니 따라잡을 것이 없다. ⚠️ sale_shortfall 레이어는 다음 부족분의 원천에서 뺀다(추정의 추정 금지) · 이 레이어가 갑자기 늘면 재고 관리 신호(아침 점검 ⑲) |
 | 재생성이 IMS 판매 원가를 어떻게 재현하나? | **원장 판매 행의 `raw.cost.shortfall` 이 hint 다**(qty · unit_cost · cost_source · step · 원천 키) — `inv_layer_apply_sale_out`(20260924141140 재발행)이 `source='ims'` 키에서 첫 행의 hint 로 `inv_layer_post_sale` 을 불러 같은 자리에 같은 레이어를 세운다 · FIFO 는 qty − hint.qty 만. ⚠️ **레이어 id 는 근거가 아니다**(재생성이 바꾼다) — 값이 근거. 실시간·재생성이 **같은 함수** `inv_layer_post_sale` 을 부르고 키 `(doc_number, sku, warehouse)` 로 접어 한 번 소진하므로 consume 행 단위까지 같다(17-f ③ 「합으로만 대조」보다 낫다) · 실측 09-24 short_events 0 · 24,534 키 · 15~17초 |
 | 문서 번호로 순서를 정하면? | **안 된다.** 접두어가 달라 비교 무의미. **유입(+) 먼저, 유출(−) 나중** |
