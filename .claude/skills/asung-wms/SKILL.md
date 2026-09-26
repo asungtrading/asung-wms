@@ -19,6 +19,8 @@ description: >
 
 # Asung Trading WMS 스킬
 
+⭐ [2026-09-26] IMS 로 이관 중(so-module §24) — 이 스킬은 운영 WMS(wms.asung.ca · 전환일까지 그대로)다. IMS 안의 WMS 는 판정 아홉(uuid · ims_staff · 창구)을 따른다
+
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 
 ## 왜 만드나 (스코프의 근거)

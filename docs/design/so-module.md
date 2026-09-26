@@ -505,7 +505,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 - 가용 재고를 매번 계산할지 담아 둘지(성능 · 실측으로 정한다)
 - `so_family` 가 **사슬**을 어떻게 담나(형제가 형제를 낳는다) → ✅ **5-d 에서 닫혔다** — `split_from_id` + 재귀 함수(5-h 표에 있었으나 이 줄에 표시가 빠져 있었다 · 2026-09-22 ③)
 - 일부만 할당된 상태의 창고 이동
-- 픽 취소와 WMS 롤백의 관계 → ✅ **§6-e 에서 닫혔다** — IMS 는 되돌리지 않는다 · 되돌리기는 WMS Rollback 탭 하나 · 접점은 사건(2026-09-22)
+- 픽 취소와 WMS 롤백의 관계 → ✅ **§6-e 에서 닫혔다** — IMS 는 되돌리지 않는다 · 되돌리기는 WMS Rollback 탭 하나 · 접점은 사건(2026-09-22)  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 - 수요 표의 구조(오더와 어떻게 잇나 · 만료된 것도 같은 표인가) → ✅ **5-g 에서 닫혔다** — 수요 표를 만들지 않는다(5-h 표에 있었으나 이 줄에 표시가 빠져 있었다 · 2026-09-22)
 - 손님 계층을 어떻게 담나(연결만 · 상속 없음) · 자식의 설정이 실제로 각자인지 적재 때 확인 → ✅ **5-a·§2-m 정정에서 닫혔다** — `parent_id` + 손님별 기본값(5-h 표에 있었으나 표시 누락 · 2026-09-22 ③) · ⬜ 「각자인지 적재 때 확인」은 그대로
 - 브랜치 토글을 어디에 두나(설정 하나 · 나중에 권한으로 넓힐 자리)
@@ -1092,10 +1092,10 @@ hold        재고는 있지만 안 잡는다   ← 사람이 고른다
 Undo Fulfillment → Undo Pack → Reset Pick → Undo Split        (asung-wms 규칙 14 · 2026-07-21 문구)
 + Undo Finalize (2026-08-13 신설 · 착지 pack_complete · 규칙 14 「Rollback Finalize 단계 모델링」)
 wms_rollback_log 에 감사 기록 · 2026-08-06 부터 지우기 전에 wms_rollback_archive 로 복사(순서 불가침) + discrepancy 무효화
-closed 오더도 롤백 대상(규칙 14 · WMS 의 status 용어)  ⇒ IMS 의 fulfilled 오더도 WMS 가 되돌릴 수 있다 — IMS 는 그 사건을 받아야 한다
+closed 오더도 롤백 대상(규칙 14 · WMS 의 status 용어)  ⇒ IMS 의 fulfilled 오더도 WMS 가 되돌릴 수 있다 — IMS 는 그 사건을 받아야 한다  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 ```
 📌 실물 대조 2026-09-22(검토 이견 1 채택): 규칙 14 의 사슬 넷은 2026-07-21 문구이고 **2026-08-13 신설 `Undo Finalize` 가 하나 더 있다.** ⬜ `Undo Finalize` 가 `Undo Fulfillment` 와 같은 것인지 별 단계인지는 **모른다** — admin.html 을 보지 않았다. 규칙 14 의 「`STAGE.finalize=[finalized, pack_complete]` · 착지 pack_complete」로 보아 팔렛·Finalize 를 지우는 별 단계로 **짐작**하나 확인한 것이 아니다(⬜ 6-j).
-⚠️ **IMS 가 WMS 롤백을 직접 부르지 않는다** — `ims-principles.md` 「모듈은 서로를 직접 호출하지 않는다. 접점은 사건 하나」. 매니저가 WMS 에서 되돌리면 IMS 가 그 사건을 받아 `so.status` 를 내린다. ⬜ **받는 방법은 ③ 사건과 원장 접점에서 정한다**(6-j).
+⚠️ **IMS 가 WMS 롤백을 직접 부르지 않는다** — `ims-principles.md` 「모듈은 서로를 직접 호출하지 않는다. 접점은 사건 하나」. 매니저가 WMS 에서 되돌리면 IMS 가 그 사건을 받아 `so.status` 를 내린다. ⬜ **받는 방법은 ③ 사건과 원장 접점에서 정한다**(6-j).  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 
 ⭐ **이 선은 §2-h 의 「픽이 시작되면 누구도 바꿀 수 없다」보다 한 칸 앞이다.** 픽 시작이 아니라 **릴리스**가 선이다. 릴리스된 오더는 픽이 시작됐든 아니든 창고의 큐에 서 있고, 그걸 빼는 것도 창고의 일이다. ⇒ §2-h 의 창고 변경(풀고 다시 건다 · manager 이상)도 **릴리스 전에만** 한다(6-i).
 ⬜ 화면: 릴리스된 오더는 IMS 에서 잠기고 「이 오더는 창고에 있습니다」가 보인다. 모드를 넘으면 규칙이 다르다는 것이 사람에게도 보여야 한다(화면 일 · 6-j).
@@ -1177,7 +1177,7 @@ RPC       전이는 함수가 한다 — 화면은 RPC 만 부른다(so_confirm 
 ```
 - 근거: PO 는 CHECK + RPC 만 두고 표는 `auth_all` RLS 라 화면이 직접 update 할 수 있었고, 그 길로 사고가 났다(po-module 2489행 「`po.html setStatus` 가 status 만 바꿔 입고 붙은 발주도 취소되는 길이 열려 있었다」). **관례만으로는 막히지 않는다.**
 - 트리거가 **자기 행만** 보므로 po-module 1419행 원칙(「다른 행을 봐야 하는 제약은 트리거 대신 RPC」)과 충돌하지 않는다. 다른 행을 봐야 하는 판정(입고·할당 존재 여부 등)은 그대로 RPC 가 한다.
-- ⚠️ **시스템 전이도 같은 트리거를 지난다** — WMS 사건을 받아 `picking` · `packed` · `shipped` 로 옮기는 함수도 허용 짝 밖이면 거부된다. 「계산 규칙은 DB 에만」과 맞다.
+- ⚠️ **시스템 전이도 같은 트리거를 지난다** — WMS 사건을 받아 `picking` · `packed` · `shipped` 로 옮기는 함수도 허용 짝 밖이면 거부된다. 「계산 규칙은 DB 에만」과 맞다.  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 - ⬜ 허용 짝 목록의 실물(길별로 다르다 — `pos`·`counter` 는 `confirmed → shipped`) · WMS 롤백 사건으로 **내려가는** 짝(`packed → picking` 등)을 목록에 넣는 방식은 마이그레이션 차수에서(6-j).
 
 ### 6-h 권한 — manager 이상
@@ -1203,7 +1203,7 @@ WMS Rollback 탭      (기존 · WMS 쪽 · 규칙 14)
 | 5-d · 5-g | 「`closed_reason` 은 fulfilled · expired · superseded 셋」 | **`fulfilled` 가 빠진다** — 끝 상태가 `fulfilled`·`cancelled` 둘이고 `closed_reason` 은 `cancelled` 에만 선다(expired · superseded · voided · 그 밖은 ④). 5-d·5-g 본문은 고치지 않았다 | 6-a · Caleb 2026-09-22 |
 | §1-n 청취 | 「인보이스 선발행은 결제를 받은 뒤에만」(현행 실무) | 순서 고정은 유지 · 그 결제는 **인보이스가 아니라 선수금**으로 담는다(`packed` 상태와 맞물림) · 발행물은 ④ | 6-g · Caleb 2026-09-22 |
 | 6-b(이 절 안) | 유입 칸 이름 `source` | **`intake`** 로 바꿨다(2026-09-22 ③′) — IMS 관례(`source` = 어느 시스템이 만들었나)와 충돌 · 코드 0줄이라 지금이 가장 싸다 | 6-b · 7-b · Caleb ⬜④ |
-| §3-c 504행 | 「픽 취소와 WMS 롤백의 관계」 | ✅ **닫는다** — IMS 는 되돌리지 않는다 · WMS Rollback 하나 · 접점은 사건 | 6-e |  → §14
+| §3-c 504행 | 「픽 취소와 WMS 롤백의 관계」 | ✅ **닫는다** — IMS 는 되돌리지 않는다 · WMS Rollback 하나 · 접점은 사건 | 6-e |  → §14  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 | §3-c 505행 | 「수요 표의 구조」 | ✅ 5-g 에서 이미 닫혔다 — 5-h 표에는 있었고 §3-c 줄에 ✅ 가 빠져 있어 이번에 표시 | 5-g |
 
 §3-c 여덟 중 이번에 ✅ 표시한 것 **둘**(픽 취소·WMS 롤백 · 수요 표). 5-h 의 셋과 합쳐 ~~**다섯**~~ → **넷**이 닫혔다(⚠️ **2026-09-22 정정** — 수요 표를 5-h 와 6-i 에서 두 번 셌다 · 사슬 · 수요 표 · 손님 계층 · 픽 취소와 WMS 롤백). 남은 것 **넷**(5-h 「남은 것 다섯」에서 롤백을 뺀 수): 가용 재고 계산/저장 · 일부 할당 상태의 창고 이동 · 브랜치 토글 자리 · 메일 템플릿·자동 발송.
@@ -1212,7 +1212,7 @@ WMS Rollback 탭      (기존 · WMS 쪽 · 규칙 14)
 
 ```
 closed_reason 의 voided 가 어느 경우인지 · 그 밖의 이유                                          6-a · ④
-WMS 사건(픽 시작·팩 완료·출하·롤백)을 IMS 가 받는 방법 — WMS 쪽 사건 발행이 선행 · 접점은 「사건을 남긴다」 하나   6-e · §7-e (so_out 의 모양은 §7-b 에서 정했다)
+WMS 사건(픽 시작·팩 완료·출하·롤백)을 IMS 가 받는 방법 — WMS 쪽 사건 발행이 선행 · 접점은 「사건을 남긴다」 하나   6-e · §7-e (so_out 의 모양은 §7-b 에서 정했다)  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
 전이 허용 짝 목록의 실물(길별) · WMS 롤백으로 내려가는 짝을 목록에 넣는 방식                     6-g′ · 마이그레이션 차수
 Undo Finalize 가 Undo Fulfillment 와 같은 것인지 별 단계인지 — admin.html 확인(짐작만 있다)      6-e
 할당 풀기의 권한                                                                              6-h
@@ -1353,16 +1353,16 @@ event_type  'sale_out'
 
 ### 7-e 되돌리기 — 원장 쪽에서 받는다
 
-②에서 상태가 갈렸다(6-e — 되돌리기는 WMS Rollback 하나 · IMS 는 그 사건을 받아 `so.status` 를 내린다). §7 은 **그때 원장이 무엇을 하는지**만 적는다.
+②에서 상태가 갈렸다(6-e — 되돌리기는 WMS Rollback 하나 · IMS 는 그 사건을 받아 `so.status` 를 내린다). §7 은 **그때 원장이 무엇을 하는지**만 적는다.  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 ```
 다시 나갈 것이다  (packed 로 돌아온다)   → 원장을 상쇄하지 않는다. 재출고를 기다린다
 취소한다          (cancelled 로 닫는다)  → 원장을 상쇄한다
 ```
 ⚠️ **상쇄 방법**(접미어 · `resolved_at` · 원래 타입 유지 · 부호 반전)은 여기 적지 않는다 — 원장 정본의 관례다(`asung-inv-ledger` §상쇄 접미어 규칙 · ⑪ 09-22 「Ship-undone 판정 기준」 — 실증 `SO-16531`(기다려서 해소) · `SO-16464`(VOID · 상쇄)).
-⚠️ **시스템이 짐작하지 않는다 — 되돌릴 때 사람이 고른다.** ⚠️ §6 에는 이 갈림(「다시 나간다」 vs 「취소」)이 명시돼 있지 않다(6-e 는 WMS Rollback 만 말한다 · 검토 이견 4) — 이 절이 그 갈림을 처음 적는다. 6-j 의 「WMS 사건을 받는 방법」 ⬜ 에 딸린 물음이다.
+⚠️ **시스템이 짐작하지 않는다 — 되돌릴 때 사람이 고른다.** ⚠️ §6 에는 이 갈림(「다시 나간다」 vs 「취소」)이 명시돼 있지 않다(6-e 는 WMS Rollback 만 말한다 · 검토 이견 4) — 이 절이 그 갈림을 처음 적는다. 6-j 의 「WMS 사건을 받는 방법」 ⬜ 에 딸린 물음이다.  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
 ⚠️ 취소로 닫으면(`cancelled` · `closed_reason`) 할당도 함께 풀린다(5-f `released_at`) — 그것은 SO 안의 일이고, 원장 상쇄는 원장의 일이다. 둘이 한 동작에 딸려 나오되 **각자의 표에 각자의 규칙으로** 적힌다.
 
-⬜ **WMS Rollback 이 일어났을 때 IMS 가 그것을 어떻게 받는가** — 접점이 「사건을 남긴다」 하나여야 한다(`ims-principles.md`). ⚠️ 받는 방법은 이번에도 정하지 않는다 — **WMS 쪽 사건 발행이 선행**이다. 6-j 와 7-i 양쪽에 ⬜.
+⬜ **WMS Rollback 이 일어났을 때 IMS 가 그것을 어떻게 받는가** — 접점이 「사건을 남긴다」 하나여야 한다(`ims-principles.md`). ⚠️ 받는 방법은 이번에도 정하지 않는다 — **WMS 쪽 사건 발행이 선행**이다. 6-j 와 7-i 양쪽에 ⬜.  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
 
 ### 7-f 만들지 않는 것 — 정정 도구
 
@@ -1417,7 +1417,7 @@ event_type  'sale_out'
 [SO·WMS 쪽]
   WMS 픽 라인의 칸별 수량 — SO 가 선 뒤 · 그때까지 bin 은 빈 문자열 · 「언제부터 채워졌나」 기록                                   7-b
   pos·counter 의 bin — 사람이 고르나 비워 두나                                                                                   7-b
-  WMS Rollback 사건을 IMS 가 받는 방법 — WMS 쪽 사건 발행 선행 · 받은 뒤 「다시 나간다(packed)」 vs 「취소(cancelled)」는 사람이 고른다   7-e · 6-j
+  WMS Rollback 사건을 IMS 가 받는 방법 — WMS 쪽 사건 발행 선행 · 받은 뒤 「다시 나간다(packed)」 vs 「취소(cancelled)」는 사람이 고른다   7-e · 6-j  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
   RPC 한 트랜잭션의 쓰기 규모(라인 100 × 칸) — 실측은 RPC 가 선 뒤 테스트 DB 에서                                                   7-c · ⬜③   → ✅ §15(100줄 × 2칸 140ms · 원장 200행)
 [컷오버]
   IMS 자체 이상 감지 목록 — Cin7 을 끄기 전에 서 있어야 할 것                                                                    7-g
@@ -2051,7 +2051,7 @@ Verify  열두 가지 전부 일치
 ```
 ⬜1 Release to WMS 시각·사람   at_wms_at · at_wms_by(→ ims_staff · manager 이상 6-h) — ⚠️ released_* 아님 · so_reserve.released_at(할당을 풀었다)과 두 뜻(6-a 가 released→at_wms 로 바꾼 이유)
 ⬜2 그 밖 시각·사람           created_by · confirmed_at/by · closed_at(끝 상태 fulfilled·cancelled 에 선 시각 · so_family_members 반환 모양 · PO 와 같다) · cancelled_by
-                              picking·packed 시각은 WMS 사건이 들고 온다 — 두지 않았다(짐작 · RPC 차수) · PO 의 closed_at+cancelled_at 둘 대신 closed_at 하나(closed_reason 이 이유를 말한다)
+                              picking·packed 시각은 WMS 사건이 들고 온다 — 두지 않았다(짐작 · RPC 차수) · PO 의 closed_at+cancelled_at 둘 대신 closed_at 하나(closed_reason 이 이유를 말한다)  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 ⬜3 location 두 칸            location_id(→ ref_warehouse · nullable · PO ship_to_warehouse_id 와 같다) + location_name — customer.default_location_id/_name 과 짝
 ⬜4 NOT NULL                  customer_id · currency_id · status · channel · intake · order_date(so) · 그 밖은 draft 가 비어 있을 수 있다 · 원문 칸(currency_code 등)은 nullable(검산용)
 ⬜5 짝 CHECK 다섯             so_split_pair_ck · so_cancel_reason_ck · so_merge_reason_ck · so_self_ref_ck · so_closed_at_ck(추가 안 채택 — WMS 롤백으로 끝 상태에서 내려올 때 closed_at 을 함께 비우는 것은 RPC 차수)
@@ -2308,7 +2308,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 ### 12-a 순서 · 범위 (✅ Caleb 2026-09-23)
 
 ```
-쓰기 차수 다섯 + 할인   ① 초안(이 절) → 할인 규칙 차수(Cin7 Product Discounts · Deals) → ② 확정·할당 → ③ 출고(so_out · 백오더 형제) → ④ POS·counter·병합 → ⑤ Release to WMS · WMS 사건  → §14 R10(순서 고침)
+쓰기 차수 다섯 + 할인   ① 초안(이 절) → 할인 규칙 차수(Cin7 Product Discounts · Deals) → ② 확정·할당 → ③ 출고(so_out · 백오더 형제) → ④ POS·counter·병합 → ⑤ Release to WMS · WMS 사건  → §14 R10(순서 고침)  → ⭐ [2026-09-26] 뒤집혔다 — WMS 는 IMS 안의 모듈 · 본업은 창구를 부른다(so-module §24 판정 2)
 근거                    차수마다 앞 차수 결과로 시험한다 · 다른 모듈(원장 · WMS)을 건드리는 일이 뒤로 모인다
 ①a 바탕                 A 권한 sales · B 표 보정 · C 문지기 · D so_price_for · so_line_total · so_customer_is_company · so_copy_customer
 ①b 창구 열 개           so_create · so_header_update · so_line_add · so_lines_paste · so_line_update · so_line_remove · so_charge_set · so_charge_remove · so_delete · so_detail(읽기)
@@ -2820,7 +2820,7 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
 ### 15-a 판정 1~16 (✅ Caleb 2026-09-24 · 말 그대로)
 
 ```
-판정 1  ③ 에서 출고 엔진을 먼저 세운다(「그러면 니 제안대로 가로 가자」) — 부르는 쪽(④ POS·counter · ⑤ WMS 사건)은 아직 없다 · 그래도 세 길이 부르는 한 곳 · 인보이스가 그 위에 · R10 순서 그대로
+판정 1  ③ 에서 출고 엔진을 먼저 세운다(「그러면 니 제안대로 가로 가자」) — 부르는 쪽(④ POS·counter · ⑤ WMS 사건)은 아직 없다 · 그래도 세 길이 부르는 한 곳 · 인보이스가 그 위에 · R10 순서 그대로  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
         한 트랜잭션: ① 상태 플립이 첫 쓰기(CAS · 0행이면 무기록 「이미 나갔다」) ② 할당 닫기 ③ 원장 so_out 칸 단위 ④ 창고 단위 FIFO · 부족분 최근 원가(17번) ⑤ 덜 나간 몫 = 백오더 형제(할당 없이 · 재고 조정 자동 안 함)
 판정 2  백오더 줄의 끝남은 오더가 아니라 따로 적는다 · 문서를 나누지 않는다 — 「니 안대로 하면 계속 백오더파일이 엄청 늘어날꺼야. … 우리 손님들의 오더는 라인 아이템 수가 굉장히 많아. 도매상이라는 특성이 있어서 더 그래.
         어떤 경우에는 20개도 넘는 제품들이 백오더가 나기도 해. 백오더 난 제품들의 서플라이어도 다 제각각이고 말이야. … 영원히 백오더가 해소되지 않을 수도 있어. … 우리 손님들에게 우리는 우리의 현재 인벤토리 상황을 웹싸이트에 공개하기때문에
@@ -2932,7 +2932,7 @@ cron  [테스트 · Asung-IMS] jobid 1 · so-backorder-sweep · 17 9 * * * · ac
 
 ```
 ⑤ 원장 창구 권한 문 — inv_post_sale 첫 줄 ims_require_write('sales') · ⑤ 에서 출고를 일으키는 사람은 WMS 창고 직원(sales 권한이 없을 수 있다) · receiving 류로 할지 · 부르는 창구가 확인한 사람으로 할지 판정 필요(Caleb 2026-09-24)
-17-f ② reversal consume — 취소 상쇄(7-e · ⑤ WMS 사건) 때 · 줄별 COGS 비례 배분(인보이스 차수) · pos·counter 의 bin(④)
+17-f ② reversal consume — 취소 상쇄(7-e · ⑤ WMS 사건) 때 · 줄별 COGS 비례 배분(인보이스 차수) · pos·counter 의 bin(④)  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
 백오더 화면(대화 Claude) — 「우리가 줄 것」 따로 · days_waiting · 「IMS 알림 전」 표시(notified_state unknown_pre_ims 는 「안 보냄」이 아니다) · 오래된 무상 줄 정리(매니저) · 가용 음수 표시(so_backorder_list available_other 가 −10 을 그대로 낸다)
 so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IMS 로 옮길 때 backorder_notified_at 채우기(2-g ⬜ · GAS 정지와 동시)
 전환 때 — cron.sql 의 so-backorder-sweep 은 테스트 DB jobid 1 이다(운영에는 함수가 없다 · 함께 올린다) · so_number_seq 25000 · is_called f 점검(12-g)
@@ -3951,4 +3951,141 @@ Manager List   v1 — 탭 넷(Sold without stock · Unpaid at hand-over · POS n
 ⬜ POS 사진          오른쪽 판 맨 위 · 선행 = 제품 마스터 사진 칸 · Cin7 사진 파일을 우리 저장소로(마스터 쓰기 차례 · CHECKLIST 7-k)
 ⬜ Manager List      Unpaid 탭 브랜치 거르기(뷰에 창고 칸 · 22-f) · 기간 고르기 · 결제조건 정리 뒤 재검
 ⬜ 손님 잔액 화면 · counter 칸 바꾸기 줄 · 보관용 표시 켜기/끄기 · 백오더 알림 표시
+```
+
+---
+
+## §24 ⑤ WMS 를 IMS 안으로 옮긴다 — 판정 아홉 · 조사 실측 (2026-09-26)
+
+⭐ **뜻 셋을 먼저** (Caleb 2026-09-25 ~ 26)
+```
+옮겨 고친다          = 운영 WMS 화면을 새로 쓰지 않고 가져와 데이터 부분만 IMS 표 · 창구로 바꾼다 · 화면 로직은 지킨다
+WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 성공 · 함께 실패) · 사건은 리포트 · 통계 · 알림에만 · 남의 표에 직접 쓰지 않는다
+운영 WMS 는 그대로    = asung-WMS · wms.asung.ca 는 전환일까지 돈다 · 운영 화면 · 운영 표를 건드리지 않는다(복사해 옮긴다)
+```
+
+### 24-a 판정 아홉 (✅ Caleb 2026-09-25 ~ 26 · 말 그대로)
+
+```
+판정 1  운영 WMS 화면을 옮겨 고친다(새로 쓰지 않는다) — Caleb 「내 생각도 A야」
+        · 데이터 부분만 IMS 표 · 창구로 바꾼다 · 화면 로직(스캔 · 토트 · 웨이브 · 홀드 · presence · CAS · 인쇄)은 지킨다
+        · 이번에 한해 Claude Code 가 화면 파일을 고치는 예외(원본과 diff 대조)
+        · 입고도 WMS 에 세운다(Caleb 2026-09-25 「IMS에 입고 화면이 있어도 WMS에 세워야 해」)
+        · 운영 WMS(asung-WMS · wms.asung.ca)는 전환일까지 그대로 · 운영 화면 · 운영 표를 건드리지 않는다
+        📌 나중(⑤ 뒤): WMS 안에서 재고 찾기 · 세기 · 칸 옮기기(bin transfer) — Caleb 「일단은 wms를 IMS로 옮기는게 중요해」
+           조건: ⑤ 의 칸 이동은 화면에 박지 않고 원장 창구로 부른다(나중에 화면만 더하면 되게)
+판정 1′ 운영 wms_ 표 26 을 셋으로 가른다 — Caleb 2026-09-26
+        ① 다른 모듈이 정본 → 그 모듈의 창구 · 「세일즈 오더는 당연히 IMS SO가 정본 · 입고도 IMS PO가 정본 ·
+           wms_staff은 ims_staff에 통합 · 칸재고도 IMS에서 선 원장이 정본」
+        ② WMS 만 아는 작업 기록 → WMS 자기 표로 남는다 · ⬜ 「리포트 관련된 부분들은 IMS 매니저 창으로 옮겨가야」
+           (남기는 곳은 WMS 표 · 보는 곳이 IMS 매니저 창)
+        ③ Cin7 때문에 있던 것 → 옮기지 않는다 · 「기능적으로 IMS로 대체되는 것」
+판정 2  WMS 는 IMS 안의 모듈이다 · 본업은 창구를 부른다 · 사건은 리포트 · 통계 · 알림에만 — Caleb 「그렇게 하는게 맞겠네」
+        가르는 물음: 「저쪽이 실패했는데 이쪽은 성공으로 남아도 되나」
+          창구(함께 성공 · 함께 실패)  입고 · 풋어웨이 → PO 입고 창구 · Release 받기 · 픽 · 팩 · 출하 · 되돌리기 → SO 창구 ·
+                                       제자리 돌려놓기 · 칸 이동 → 원장 창구
+          사건(늦어도 본업은 선다)     픽커 리포트 · 통계 · 알림 → 나중에 IMS 매니저 창이 읽는다
+        ⚠️ 남의 표에 직접 쓰지 않는다(그대로)
+        ⇒ 옛 문장 26곳이 뒤집히거나 닫힌다(24-e)
+판정 3  테스트 DB 의 wms_ 표에 실린 운영 복사 행 → 옛 표를 행째 보관 스키마로 옮기고(alter table … set schema)
+        public 에 같은 이름의 빈 표를 IMS 모양으로 새로 세운다 — Caleb 「A로 가자」
+        기각: 그 자리에서 칸을 더한다(한 표에 두 시대의 뜻) · 비운다(물리적 삭제 금지와 부딪힌다)
+판정 4  WMS 표의 사람 칸은 ims_staff.id(uuid) — Caleb 「A로 가자」
+        화면은 id → 이름 표를 한 번 읽어 보여 줄 때만 이름 · CAS 도 id 로 비교
+        기각: 이름 글자 그대로(규칙 9 이름 드리프트를 들고 온다) · id + 이름 둘 다(두 칸이 어긋난다)
+판정 5  receiver 도 옮겨 고친다 · 기준이 바뀌는 셋만 발주 창구에 맞춰 다시 짠다 — Caleb 「A로 가자」
+        셋 = 받을 수량(인보이스 기준 → PO 확정 수량 · po_receipt_*) · off-PO(→ 발주 차이 큐 off_po · 모양은 ⑤-6 에서 판정) ·
+             끝맺음(Apply to Cin7 → 없어진다 · 확정은 po_receipt_confirm)
+        지키는 것 = 스캔 · 세기 · 줄 단위 저장 · 칸에 넣기 · Place all · 동시 작업 표시 · 차례는 맨 마지막(⑤-6)
+판정 6  WMS 자기 표만 쓰는 동작(② 만 쓰는 동작 전부 · 함수 단위 약 40 · 짐작)은 직접 쓰기 유지 · 쓰기 규칙도 auth_all 그대로 — Caleb 「A로 가자」
+        ⚠️ 알고 받아들인 대가: IMS 에 로그인한 누구나(오피스 · 회계 계정 포함) 브라우저에서 wms_ ② 표에 쓸 수 있다
+        기각된 안: 쓰기를 ims_can_enter('wms') 로 좁힌다(대화 Claude 권고였다) · 전부 창구로
+판정 7  권한 문은 사람이 누르는 바깥 창구에 하나 · 속 함수는 p_staff 를 넘겨받는다 — Caleb 「A로 가자」
+        오피스 창구(so_finalize · so_pos_complete) = sales · WMS 창구 = WMS 화면 값
+        속 함수(so_ship · inv_post_sale)는 문 대신 「부른 창구가 확인한 사람」(p_staff)
+        ⚠️ 조건: 문을 뺀 속 함수는 authenticated 에서 회수돼 있어야 한다 — ✅ 둘 다 회수됨(so_ship · inv_post_sale 20260924141140:367 · wms-docs-1 대조)
+        기각: 창고 직원에게 sales 를 준다(오피스 쓰기까지 열린다) · 문을 「sales 또는 WMS」로 넓힌다(원장이 부르는 쪽을 알게 된다)
+판정 8  옮긴 WMS 화면은 asung-ims(ims.asung.ca) 의 WMS 모드 · 공통 파일 ims-auth.js — Caleb 「A로 가자」
+        근거: po-module 2020 「모든 유저는 ims.asung.ca 에서 통합 관리 · WMS 모드와 IMS 모드」 · ims-auth.js 에 모드 둘이 이미 있다
+        대가: 화면마다 로그인을 wms-auth.js → ims-auth.js(imsAuth.start({…}, cb)) · 화면 값을 카탈로그에 새로 · 전환일에 창고 기기 주소가 바뀐다
+        기각: asung-wms 안에 IMS 판(운영 · IMS 화면이 한 레포 · wms_staff 와 ims_staff 로 다시 갈린다)
+판정 9  순서 — ⓪ 문서 → 직원 싣기 → ⑤-1 표 → ⑤-2 창구·출고 → ⑤-3 창구·입고 → ⑤-4 화면 picker · packer · manager
+        → ⑤-5 화면 fulfillment · admin WMS 쪽 → ⑤-6 화면 receiver → 뒤 — Caleb 「그러면 문서 작업을 하고, 계정작업으로 넘어가자.
+        wms staff들을 그대로 가져올 예정이야」
+```
+
+### 24-b 조사 실측 (Claude Code wms-move-1 회신 · 2026-09-26 · HEAD 7bcdee3 · 테스트 DB begin read only)
+
+**표 갈래 (26 + 뷰 1)** — ① 7 + wms_discrepancies(셋으로 갈림) 1 + ② 13 + ③ 5 = 26
+```
+① (7)  wms_orders · wms_order_lines → so · so_line · product(pack_factor) · product_barcode · 원장 ims_inv_balance
+       wms_receipts · wms_receipt_lines · wms_receipt_stage_events → po_receipt · po_receipt_work(축 칸 넷) · po_receipt_line
+       wms_sku_bins → 원장 ims_inv_balance · ims_last_bin · ref_bin      wms_staff → ims_staff
+       wms_discrepancies 는 셋으로 갈린다: recv_over · recv_short · recv_off_po → po_receipt_diff ·
+         stock_short → §20 판정 7(so_stock_short_check · so_stock_short_list) · 작업자 실수 넷(short_after_pack · over_pick ·
+         pack_scan_mistake · short_pick) → ② 로 남는다(IMS 대응 없음 · 규칙 41)
+② (13) wms_pick_tasks · wms_pick_task_lines · wms_pack_tasks · wms_pack_task_lines · wms_pallets · wms_pallet_items · wms_waves ·
+       wms_task_holds · wms_rollback_log · wms_rollback_archive · wms_reports · wms_drop_locations · wms_zone_sequence
+       + 뷰 wms_order_pack_progress
+③ (5)  wms_polled_sales(→ Release to WMS) · wms_refresh_requests(같은 DB 라 불필요) · wms_image_sync_runs · wms_sku_snapshot
+       (→ product · product_barcode · 사진 ⬜) · wms_health_runs(→ IMS 판 헬스 ⬜)
+```
+- ② 표에서 ① 을 가리키는 칸: FK 19(baseline) + FK 없는 bigint 넷(task_id · receipt_id · pick_task_id · pack_task_id) → uuid(so.id · so_line.id · po_receipt.id) · 사람 칸 전부(text wms_staff.name) → ims_staff.id(판정 4) · wms_waves.warehouse(text) → ref_warehouse.id
+- 함수 13: ② 창구 여덟(wms_complete_pick · wms_complete_pack · wms_hold_pick · wms_hold_pack · wms_resume_hold · wms_pause_receipt · wms_auto_hold · wms_reap_stale_claims) · ⚠️ wms_complete_pack 은 wms_orders 를 한 줄 update 한다(① 접촉 · 20260910230704:455) · ③ 다섯(wms_health_check · wms_health_snapshot · wms_warehouse_bins · wms_is_admin · wms_can_manage_staff) · wms_ 표 트리거 0
+- 📌 wms-move-1 회신의 ③ 6 · FK 20 · 동작 16 은 셈 실수였다 — wms-docs-1 대조에서 바로잡음(2026-09-26)
+
+**화면 동작**
+- (가) ① 에 닿는 동작 11 — 한 트랜잭션이어야 한다 ⇒ WMS 창구 하나(② 표 쓰기 + so_* · po_receipt_* · inv_* 호출)로 묶는다. 무거운 것: admin 되돌리기 넷(doRollback · doBatchRollback · doVoid · doUndoWave) · manager 배치 만들기 둘(printPickList · printWaveAll). toggleStockShort 셋은 (가)로 옮긴다.
+- (나) ② 만 쓰는 동작 전부(함수 단위 약 40 · 짐작) — 직접 쓰기 유지(판정 6)
+- 화면 크기 원문(grep · 주석 · 문자열 섞임): picker 104,840 · packer 105,433 · fulfillment 104,961 · manager 44,766 · admin 316,543 · receiver 130,727 = 807,270 바이트
+
+**화면 밖**
+- EF hello(cron 1) · receiving · product-images(cron 4 · 5) · staff-create · GAS WmsSync · cron 3 wms-health-snapshot → ③
+- EF inv-collect(cron 6~11)가 wms_orders · wms_order_lines 를 읽는다(트랜스퍼 출발 bin) · ③ 잠정 · ⑤ 에 트랜스퍼 픽이 없어 컷오버까지 남는다
+- cron 14 wms-auto-hold → ② 동작 · 그대로 옮긴다 · 테스트 DB 에 등록할 때 jobid 는 새로(cron.sql 규칙)
+
+**테스트 DB 실물 (2026-09-26)**
+- wms_ 표 26 + 뷰 1 이 전부 있고 운영 복사 행까지 실려 있다(예: wms_order_lines 44,871 · wms_pick_task_lines 42,641 · wms_orders 1,785 · wms_staff 22) ⇒ 판정 3
+- 시퀀스(직접 읽음): so 25004 · 인보이스 60001 · 크레딧 1000 · 전부 is_called t
+- ims_staff 에 있는 사람은 wms_staff 22 중 caleb@asung.ca 하나 ⇒ 직원 싣기(판정 9)
+- SO 실물 다섯 중 warehouse 길의 살아 있는 오더는 SO-25003(confirmed) 하나 ⇒ ⑤-2 검증은 오더를 세우는 도우미가 먼저
+
+### 24-c 차수 계획 (판정 9 · 크기는 짐작)
+
+```
+⓪ 문서              이 차수(wms-docs-1)
+직원 싣기            wms_staff 21 → ims_staff(Caleb 손 · 로그인 계정) · ⑤-4 화면 시험 전까지
+⑤-1 표              옛 wms_ 표 → 보관 스키마 · 같은 이름 새 표(uuid · so · so_line · po_receipt · ims_staff) · auth_all ·
+                     so_status_guard 에 at_wms · picking · packed 짝                                    400~600행
+⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행
+⑤-3 창구 · 입고      receiver 동작 → po_receipt_* · stage_events → 축 칸                                 300~400행
+⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)
+뒤                  제자리 돌려놓기 · 칸 이동 · 픽커 리포트 · 헬스 IMS 판 · 사진 · 트랜스퍼 픽 · 찾기 · 세기 · bin transfer
+```
+
+### 24-d ⬜ 남은 것
+
+```
+⬜ off-PO 의 모양(po-module 3500)                            ⑤-6 차례에 판정
+⬜ WMS 화면 값의 이름(picking · packing · putaway 류) · 새 화면 파일 이름 · po-module 3506 「receiving 공유 시 worker 기본」   ⑤-1 · ⑤-4 지시서에서 안
+⬜ 리포트를 보는 곳 → IMS 매니저 창(판정 1′ ②)
+⬜ 헬스 IMS 판(wms_health_check 13 검사 · 본문 안 봤다)
+⬜ 창고별 쓰기 제한(판정 6 의 대가 · 한 줄 규칙으로 안 막힌다)
+⬜ 재고가 들어오면 백오더를 저절로 잡나(누구부터) · 픽커 리포트 「평소 칸이 비어 보관용에서」(§20 판정 3 📌)
+⬜ 확인할 것: 함수 13 이 새 표를 보는가(판정 3) · 테스트 DB 재복사 절차가 wms_ 표를 다시 싣는가
+✅ inv_post_sale 의 authenticated 회수(판정 7) — 회수됨(20260924141140:367 · 뒤 정의 없음 · wms-docs-1 대조)
+⬜ inv-collect 의 wms_orders 읽기 — 컷오버 때 함께
+```
+
+### 24-e 판정 2 로 뒤집히거나 닫히는 옛 줄 (wms-move-1 F · 26 → wms-docs-1 에서 다시 셈)
+
+줄 끝 포인터만 달았다 — 옛 줄 본문은 고치지 않았다(예외: ims-principles 원칙 2 의 ⬜ → ✅ · po-module 11-j 제목의 취소선).
+
+```
+뒤집힌 줄   ims-principles 146 · 148 · 335 · so-module 508 · 1095 · 1098 · 1180 · 1206 · 1356 · 2054 · 2311 · po-module 3654 · asung-inv-ledger 스킬 30
+예고된 줄   ims-principles 197(⬜ 을 닫았다 · 본문 한 덩어리 더함) · so-module 1215 · 1362 · 1365 · 1420 · 2823 · 2935 · po-module 3048(제목 · 취소선)
+📌          ims-principles 170 — 지금도 맞다(운영 WMS 는 전환일까지 밖)
+달지 않음   so-module 344 · 345(「할당은 사건이 아니라 상태」 — 뜻이 안 바뀐다) · po-module 2997(「입고 줄 하나 = 원장 사건 하나」 — 원장 행이다 · 무관) ·
+            po-module 3020(이미 ✅ 창구 호출로 고쳐져 있다) · asung-so 스킬 22(「출고 사건 so_out」 — 원장 행 · 무관)
+코드 주석   supabase/migrations/20260925142307_so_pos_a2_flow.sql 21(적용된 마이그레이션 · 참고만)
 ```
