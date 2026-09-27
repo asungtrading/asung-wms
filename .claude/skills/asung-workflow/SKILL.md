@@ -187,6 +187,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **검사는 그 시점의 상태로** — 뒤 절이 바꿀 칸을 앞 검사가 기대하지 않게(⑤-3a 6회차)
 ⚠️ **\gset 줄 끝에 주석을 달지 마라** — psql 이 인자로 읽는다(⑤-3b 3회차) · 검증 자료의 칸 이름은 짐작하지 말고 information_schema 로 · 숫자 비교는 round()(⑤-3b 1 · 2회차)
 ⚠️ **원본의 security invoker 가 별줄이면 language 줄에 definer 를 붙이지 마라** — conflicting options(⑤-3a 1회차) · 다른 파일에서 검증 블록을 잘라 올 때 여러 줄 문장 끝을 토크나이저로(⑤-2b 1회차)
+⚠️ provolatile · prosecdef 는 "char" · boolean — || 앞에 ::text(⑤-4b)
 ```
 
 ---
@@ -245,6 +246,9 @@ EOF
    ③ 마지막 <script> 를 node --check 로 문법 검사
    ④ 쓰는 클래스가 공통 CSS 나 로컬에 있는가
    ⚠️ ①~④ 로도 「선언 순서」·「값이 없는 변수 참조」는 안 잡힌다 — 실제로 돌려야 드러난다
+
+⭐ **화면 차수(판정 1 의 예외 · ⑤-4)** — cp → 첫 손질 = 진입점 교체(ims-config · ims-auth) → 접점 짝표(원본 행 → 새 줄 · grep 수 = 표 줄 수) → 원본 diff 는 ~/asung/prompts 의 patch 파일 → 운영 원본 md5 전후
+⚠️ **화면 검사 다섯째 — 운영 흔적 grep 0**(wms-config · wms-auth · WMS_CONFIG · 운영 프로젝트 ref) · 옛 세계 낱말 0 · 남은 me.name 은 줄마다 표시용인지(소유권 비교는 me.id)
 
 ⭐ 빌드 표시를 헤더에 둔다 — 어느 판이 도는지 화면에서 읽는다(브라우저 캐시를 가른다)
 ⭐ 파일을 낼 때 **바이트 수를 함께 말한다**

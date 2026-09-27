@@ -4059,7 +4059,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
                      so_status_guard 에 at_wms · picking · packed 짝  → ⑤-2 로(24-g)                                    400~600행  → ✅ [2026-09-26] f82a00d(24-g)
 ⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행  + so_status_guard 짝 · 창고 제한 첫 실물 · worker 창고 SQL(24-g)  → [2026-09-26] 나눔: ⑤-2a1 ✅ 468b897 · ⑤-2a2 ✅ efce92a · ⑤-2b 다음(24-h · i · j)  → ⑤-2b ✅ be2ed5a(24-k)
 ⑤-3 창구 · 입고      receiver 동작 → po_receipt_* · stage_events → 축 칸                                 300~400행  → ✅ [2026-09-26] 3a 55678c1 · 3b d0ed9ee(24-l · m · n)
-⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)
+⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)  → ✅ [2026-09-26] ⑤-4 세 화면 섰다(24-o · p) · 남은 것 ⑤-5 · ⑤-6 · 오피스 판
 뒤                  제자리 돌려놓기 · 칸 이동 · 픽커 리포트 · 헬스 IMS 판 · 사진 · 트랜스퍼 픽 · 찾기 · 세기 · bin transfer
 ```
 
@@ -4067,7 +4067,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 
 ```
 ⬜ off-PO 의 모양(po-module 3500)                            ⑤-6 차례에 판정
-⬜ WMS 화면 값의 이름(picking · packing · putaway 류) · 새 화면 파일 이름 · po-module 3506 「receiving 공유 시 worker 기본」   ⑤-1 · ⑤-4 지시서에서 안
+⬜ WMS 화면 값의 이름(picking · packing · putaway 류) · 새 화면 파일 이름 · po-module 3506 「receiving 공유 시 worker 기본」   ⑤-1 · ⑤-4 지시서에서 안  → ✅ wms-manager · wms-picker · wms-packer.html(24-o)
 ⬜ 리포트를 보는 곳 → IMS 매니저 창(판정 1′ ②)
 ⬜ 헬스 IMS 판(wms_health_check 13 검사 · 본문 안 봤다)
 ⬜ 창고별 쓰기 제한(판정 6 의 대가 · 한 줄 규칙으로 안 막힌다)  → 📌 [2026-09-26] 창구 안의 창고 검사는 섰다(ims_can_warehouse · 24-i · j) — 표 직접 쓰기(auth_all · 판정 6)는 여전히 창고를 가리지 않는다 · ⬜ 그대로
@@ -4078,7 +4078,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ staff.html 편집 화면에 창고(warehouse_access) 칸이 없다 · EF 도 받지 않는다 — 지금은 SQL 로만 넣는다(화면 거리 · 24-f)
 ⬜ worker 7 의 창고 — ⑤-1 에서 WMS 화면 값과 함께 정한다(판정 12 · 운영 창고값 토론토 5 · 에드먼튼 2)  → ⑤-2 로(창고 제한 첫 실물 · 24-g)  → ✅ [2026-09-26] Caleb 실행 · UPDATE 7 · Edmonton 2 · Toronto 5(24-i)
 ⬜ 입고 일시정지를 적을 자리 — wms_task_holds 에서 receipt · partial 을 뺐다(24-g ①) · ⑤-3 에서 정한다 · 화면의 일시정지 흐름은 지킨다  → ✅ wms_task_holds receipt_id(24-m)
-⬜ 동선 순서 23행 — wms_legacy.wms_zone_sequence 에서 warehouse_id(uuid)로 옮겨 심는다(24-g ②) · ⑤-4
+⬜ 동선 순서 23행 — wms_legacy.wms_zone_sequence 에서 warehouse_id(uuid)로 옮겨 심는다(24-g ②) · ⑤-4  → ✅ [2026-09-26] Caleb 실행 · INSERT 0 23 · toronto 13 · edmonton 10(24-p)
 ⬜ wms_worker_mistakes.cin7_corrected 의 이름(뜻은 「매니저가 정리했다」 · 24-g ③) · ⑤-5
 ⬜ manager 권한 세분화 — 비밀번호를 나눠 주기 전 · ⑤-4(wms 방 화면 값과 함께 · 24-f 실물 정정)
 ⬜ wms 방 화면 값 다섯 안 — picking · packing · fulfillment · putaway · wms_manage · ⑤-4 에서 확정  → ✅ [2026-09-26] ⑤-2a1 에서 넷(picking · packing · fulfillment · wms_manage) · putaway(WMS 입고 값)는 ⑤-3(24-i)  → ✅ putaway 는 wms_receiving 하나(24-m)
@@ -4093,6 +4093,12 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ wms_receiving_confirm 은 아무에게도 켜지 않았다(판정 27 · B)
 ⬜ ⚠️ 재생성 계열 함수를 새로 만들거나 drop 뒤 다시 만들면 authenticated 에 열린다 — 그 차수에서 revoke 를 함께(판정 31 · 24-l) · 화면에서 돌리려면 문 있는 바깥 창구를 따로(판정 7)
 ⬜ 안 돌린 가지 둘(새 RCV 를 당긴다) — wms_recv_start 「초안 없음 → 새로」 · 오피스 po_receipt_create 성공 가지 · 처음 도는 때는 Caleb 이 테스트에서 새 입고를 만들 때(24-m)
+⑤-4 뒤의 ⬜
+  ims_staff 읽기 좁히기(worker 가 이메일까지 읽는다 · 비밀번호 전) · favicon.ico 404(모든 화면 · 아이콘 하나) · 「1lines · 12units」 띄어쓰기(운영에서 옴 · ⑤-5)
+  stock_short 의 「voided 만 제외」 구분이 wms_reports 엔 없다(resolved_at 하나 · admin 리포트 탭 ⑤-5 에서 필요한지)
+  ims-auth.js 머리 주석 2건(검사 다섯째 낱말 · 코드 줄 0 · 지울지는 ⬜) · wms-manager.html 의 zoneOf 는 so_pick_plan 이 존을 주는 날 지운다
+  오피스 판(so.html 본차수): 판정 17 글자 · Released · Working · Finalized 시각 줄(at_wms_at/by · picking_at/by · packed_at/by — 지금 화면에 없다) · 「Finalized — 견적 · 결제 · 마무리 대기」 목록 · receiving.html 의 「창고 작업 미완」 경고
+  시험 재료: SO-25003 all_packed(팩 완료) → ⑤-5 Finalize · 되돌리기 화면은 ⑤-5 가 선 뒤
 ```
 
 ### 24-e 판정 2 로 뒤집히거나 닫히는 옛 줄 (wms-move-1 F · 26 → wms-docs-1 에서 다시 셈)
@@ -4373,4 +4379,54 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
    오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)
    off-PO 승인 · 거절 · 투입 · 약식 등록(⑤-6) · 트랜스퍼 입고(재고 사건 · 전환 전 필수) · 리시빙 창구 나머지 아홉(split · unassign · delete · diff 셋 · _over 둘)의 창고 검사
    wms_receiving_confirm 은 아무에게도 켜지 않았다(판정 27 · B)
+```
+
+### 24-o ⑤-4 판정 — 안 열셋 · 판정 33 · 화면 짝표 (2026-09-26)
+
+```
+⑤-4 의 안 열셋 — Caleb 「13을 그대로 받고, 니가 제안한 순서대로 가자」
+  ① ⚠️ 운영 DB 에 붙는 길을 막는다(절대 조건): 운영 화면은 wms-config.js(운영 주소 + 키) · wms-auth.js 를 읽는다 — 복사본의 첫 손질 = 진입점 교체(ims-config.js · ims-auth.js 만) ·
+     asung-ims 에 wms-config.js 를 두지 않는다 · 화면 검사 다섯째: grep -c 'wms-config\|wms-auth\|WMS_CONFIG\|gftpcnkxbdjzzfvzwcfl' = 0
+  ② 파일 wms-manager.html · wms-picker.html · wms-packer.html(asung-ims 뿌리 · cp 뒤 고친다 · 원본 diff) · 공통 wms-picklist.js · wms-confirm-modal.js 복사 · ims-auth.js items 에 WMS 모드 줄(파일이 설 때마다 한 줄)
+  ③ imsAuth.start({requireScreen}) · sessionId 는 ims-auth.js 에 이미 있었다(키 ims_session_id) · 소유권 비교는 me.name 이 아니라 me.id(ims_staff.id)
+  ④ 접점 122(picker 57 · packer 46 · manager 19) = 창구로 12 · 직접 쓰기 유지 68 · 사라짐 42
+  ⑤ 읽기 창구 wms_pick_lines(⑤-4b) · ⑥ 사람 이름 = 로그인 뒤 ims_staff(id,name) 한 번 → nameOf(uuid)
+  ⑦ 사진 비움(판정 33) · ⑧ 동선 순서 23행 옮겨 심기 · ⑨ 시험 오더용 Release 단추를 so.html 에 먼저(대화 Claude) · ⑩ 판정 17 글자는 화면 안의 표 하나
+  ⑪ Cin7 흔적 지움(hold_state · cin7_void_state · voided 목록 · holdBelt · needs_review · notifyIfHeld · checkVoidBanner · ready_to_close) · 대신 「오피스가 거둬들인 오더」 배너(so.status ≠ picking)
+  ⑫ 창고 = ref_warehouse id · me.access.warehouses(null = 전부) · 최종 문은 창구 · ⑬ 화면마다 한 차수 — manager(⑤-4a) → picker(⑤-4b) → packer(⑤-4c)
+판정 33  픽 · 팩 화면의 제품 사진 — Caleb 「안 A로 가자」 · 이번에는 비워 둔다(HAS_IMAGES=false · 「Image differs」 단추도 숨김) · 마스터에 사진 칸(Storage)이 서면 읽기 창구에 한 칸 · 스위치를 켠다
+         기각: 운영의 사진 주소(Cin7 · wms_legacy.wms_sku_snapshot 09-10)를 임시로 쓴다
+⑤-4 조사 사실: ims_staff 의 읽기 규칙이 using true — worker 도 모든 직원의 이메일을 읽는다(⬜) · ref_bin.zone 2,675 칸 전부 null — 존은 칸 이름에서(에드먼튼 E 다음 글자 · 토론토 첫 글자 · 옛 자료로 전부 일치)
+
+운영 ↔ IMS 화면 짝표
+  manager.html(Order Splitting) → Split & Waves · wms-manager.html ✅ ⑤-4a
+  picker.html → Picking · wms-picker.html ✅ ⑤-4b      packer.html → Packing · wms-packer.html ✅ ⑤-4c
+  fulfillment.html · admin.html(Orders · Rollback · Discrepancy · Reports · Finalized · Stats · Health · Receiving) → ⑤-5 · receiver.html → ⑤-6
+  📌 IMS 오피스의 Manager List(manager-list.html)는 오피스 목록이다 — WMS 매니저 화면과 다르다(Caleb 물음 「manager 화면은 어딨어?」 2026-09-26)
+```
+
+### 24-p ⑤-4 실물 — so v2.4 · ⑤-4a · 4b · 4c (1b8c437 · 337c077 · 650f794 · 1593b64 · 20ef9cc)
+
+```
+실물
+  동선 순서 — Caleb 실행(2026-09-26) · wms_legacy.wms_zone_sequence 23 → public(창고 id) · INSERT 0 23 · toronto 13 · edmonton 10 · 수가 다르면 멈추는 do 블록
+  so v2.4 — asung-ims 1b8c437 · 대화 Claude 가 씀(108,196 바이트 · 레포 판과 바이트까지 같음 확인) · Release to WMS(창고 · Confirmed · sales 쓰기 · 보류 · 백오더/선주문이면 막힘) ·
+            Recall from WMS(at_wms 에서 · picking 이면 막힘) · CHECKLIST 7-f · Caleb 화면 확인(SO-25003 Release → Recall → Release)
+  ⑤-4a — asung-ims 337c077 · wms-manager.html 41,488 바이트 · 「Split & Waves」 · Caleb 화면 확인(배치 SO-25003-1 · 픽리스트 인쇄 · SO picking · wms_batch_create 200 — 테스트에만 있는 함수)
+          Claude Code 가 정한 것: 헤더 IMS 공통(사용자 · ☰ Menu · 🗺 Map · Sign Out) · 존 규칙 · 손님 이름 customer!so_customer_id_fkey(name)(FK 가 둘이라 이름을 박는다) · 창고 단추 = zone_sequence 창고 ∩ 내 창고
+  ⑤-4b — asung-wms 650f794(20260927010322_wms_5_4b_pick_lines.sql · 159행 · 가드 byte-identical · 쓰기 문장 0) · asung-ims 1593b64(wms-picker.html 103,037 바이트) · 확인 OK 35 · 속도 0.34 s(51 줄 · 51 제품)
+          wms_pick_lines(p_task_ids, p_pack_task_id) — stable · invoker · authenticated · 평평한 배열 · 존은 창구 한 곳(ref_bin.zone 우선) · available_ea 한 문장 · 잔고 없으면 0 · 팩 갈래
+          Claude Code 가 정한 것: 오더 배너(진행 중 빨간 배너 · 대기 풀에서 숨김) · 직원 불일치 = res.worker ≠ me.id 면 멈춤 · stock_short = wms_reports(qty_expected · qty_found · 열린 것 = resolved_at null) · 메뉴 = 작업 화면 먼저
+          Caleb 화면 확인: 「다 문제없이 잘 작동해」
+  ⑤-4c — asung-ims 20ef9cc(wms-packer.html 101,836 바이트) · 마이그레이션 0(팩 갈래로 충분) · wms-packing.js 는 packer 가 안 쓴다
+          Claude Code 가 정한 것: 완료 픽 풀 · 팩 목록 = so!inner · so.status picking · ready_to_close 쓰기 없앰(뷰 all_packed 읽기 · 안내만 · 판정 18) · 줄 = wms_pick_lines 두 갈래
+          Caleb 화면 확인: Pack Queue · 12 / 12 · Complete pack · 「All batches … packed! … ready to be finalized」 · so 는 picking 그대로 — 「셋다 맞아」
+  세 화면 모두: 운영 원본 md5 무접촉 · 운영 흔적 0(ims-auth.js 2 는 머리 주석 낱말) · 소유권 비교 me.id(picker 41 · packer 29) · 대화 Claude raw 확인(337c077 · 1593b64 · 20ef9cc)
+
+⑤-4 뒤의 ⬜
+  ims_staff 읽기 좁히기(worker 가 이메일까지 읽는다 · 비밀번호 전) · favicon.ico 404(모든 화면 · 아이콘 하나) · 「1lines · 12units」 띄어쓰기(운영에서 옴 · ⑤-5)
+  stock_short 의 「voided 만 제외」 구분이 wms_reports 엔 없다(resolved_at 하나 · admin 리포트 탭 ⑤-5 에서 필요한지)
+  ims-auth.js 머리 주석 2건(검사 다섯째 낱말 · 코드 줄 0 · 지울지는 ⬜) · wms-manager.html 의 zoneOf 는 so_pick_plan 이 존을 주는 날 지운다
+  오피스 판(so.html 본차수): 판정 17 글자 · Released · Working · Finalized 시각 줄(at_wms_at/by · picking_at/by · packed_at/by — 지금 화면에 없다) · 「Finalized — 견적 · 결제 · 마무리 대기」 목록 · receiving.html 의 「창고 작업 미완」 경고
+  시험 재료: SO-25003 all_packed(팩 완료) → ⑤-5 Finalize · 되돌리기 화면은 ⑤-5 가 선 뒤
 ```

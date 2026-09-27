@@ -19,7 +19,7 @@ description: >
 
 # Asung Trading WMS 스킬
 
-⭐ [2026-09-26] IMS 로 이관 중(so-module §24) — 이 스킬은 운영 WMS(wms.asung.ca · 전환일까지 그대로)다. IMS 안의 WMS 는 판정 아홉(uuid · ims_staff · 창구)을 따른다  → 테스트 DB 에서는 옛 wms_ 표가 wms_legacy 로 갔다 · public.wms_ 는 IMS 표 14(f82a00d · so-module §24-g) · 운영은 그대로 → ⑤-2a(468b897 · efce92a) — IMS WMS 창구는 첫 줄 ims_require_write(화면 값) + ims_can_warehouse · manager 는 화면마다 켠다(판정 25)
+⭐ [2026-09-26] IMS 로 이관 중(so-module §24) — 이 스킬은 운영 WMS(wms.asung.ca · 전환일까지 그대로)다. IMS 안의 WMS 는 판정 아홉(uuid · ims_staff · 창구)을 따른다  → 테스트 DB 에서는 옛 wms_ 표가 wms_legacy 로 갔다 · public.wms_ 는 IMS 표 14(f82a00d · so-module §24-g) · 운영은 그대로 → ⑤-2a(468b897 · efce92a) — IMS WMS 창구는 첫 줄 ims_require_write(화면 값) + ims_can_warehouse · manager 는 화면마다 켠다(판정 25)  → ⑤-4(20ef9cc) IMS 화면 셋 — Split & Waves · Picking · Packing(asung-ims wms-*.html · 운영 ↔ IMS 짝표 so-module §24-o)
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 
@@ -72,7 +72,7 @@ Cin7 키는 **양쪽에** 등록됨(별개 저장소): GAS Script Properties(`CI
 
 **저장소에 있어야 하는 파일 (루트, 모두 같은 폴더):**
 7개 화면 + 공유 2개 + 로고 2개 + 배포 파일.
-- 화면: `index.html`(런처) `picker.html` `packer.html` `manager.html` `admin.html` `staff-admin.html` `fulfillment.html`
+- 화면: `index.html`(런처) `picker.html` `packer.html` `manager.html` `admin.html` `staff-admin.html` `fulfillment.html`  → [2026-09-26] 운영 화면은 전환일까지 그대로 · IMS 판은 wms-*.html(asung-ims · so-module §24-o)
 - 공유: `wms-config.js`(anon key — ⚠️실제 key 든 버전 유지, 덮어쓰지 말 것) `wms-auth.js`(로그인 모듈)
 - 로고: `asung-logo-white.png`(런처=어두운 테마용) `asung-logo-dark.png`(6화면=밝은 헤더용, 흰로고 RGB를 잉크색으로 recolor해 생성)
 - 배포: `CNAME`(내용 `wms.asung.ca`, 건드리지 말 것) `.nojekyll`(Jekyll 빌드 스킵 — supabase/·.vscode/ 폴더 때문에 필수)
