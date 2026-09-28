@@ -330,6 +330,8 @@ SR 상태는 워크플로 중간 상태라 그 −90행은 **실재 입고를 �
 못한다. 창고 총량에는 영향이 없으나(왕복 상쇄) **자리 단위에서는 두 번의 이동으로 기록**된다.
 그것이 옳은지는 자리 단위 설계 때 판단한다.
 
+**IMS 축 칸 옮기기(2026-09-28 · so-module §26)** — 창구 `inv_post_move`(확정 `inv_move_confirm` 이 부른다 · 창고 스캔은 `inv_move_now` 가 한 트랜잭션에) · 같은 창고 안만 · 한 줄 = **행 둘**(`transfer_out` 출발 칸 −q seq_hint 2 · `transfer_in` 도착 칸 +q seq_hint 1 · doc_type `transfer` · doc_number `MV-…` · doc_task_id = 문서 id · line_ref = 줄 id · source `ims` · raw.kind `bin_move` · amount null) · **IN_TRANSIT 없음**(4행 구조가 아니다) · 옮길 수 있는 최대 = 장부 − P − 피커가 기다리는 몫(판정 62) · 기다리는(pending) 픽 과제의 출발 칸 계획은 도착 칸으로 따라간다(부분이면 행을 나눈다) · **원가 레이어 무접촉** — 레이어 · consume 은 (sku, warehouse) 단위라 같은 창고 안에서는 할 일이 없다 · 재생성 `inv_layer_apply` 도 이 행을 세지 않고 지나간다(반환 `ims.bin_moves_passed` · 20260928182712) · 되돌리기 창구 없음 — 반대 방향 새 옮기기(판정 53 모양) · 창고 간 트랜스퍼는 다음 차수(판정 60).
+
 **6. 조정 — 기존 재고** — 문서에 적힌 값은 증감분이 아니라 **조정 후 목표 수량**이다. 실제 변동은 목표수량에서 당시수량을 뺀 값이다. Cin7 화면의 차이 값과 일치하는 것을 확인했다.
 
 당시수량이 조정 시점 값으로 박제돼 있어서, 몇 달 전 조정도 정확히 계산할 수 있다.
@@ -3659,6 +3661,8 @@ credit       〃
   반환 `ims.skipped_by_event`(여덟 키가 항상 보인다 — 0 이 아니면 그 사건의 창구를 만들 때) · ⚠️ `transfer_out_unpaired`·`assembly_out_unpaired` 집계에서 ims 를 뺐다(안 하면 IMS out leg 가 「0 이면 정상」 감시 칸을 오염시켜 진짜 신호가 묻힌다) · sale_out 은 문이 없다(소진은 한 원장 FIFO 가 맞다).
   ⚠️ 마지막 판 함정 — `inv_layer_apply_transfer_in` 은 **다섯 판**(`174046`·`183253`·`190145`·`233729`·**`235347`**). 옛 판을 잡으면 IN_TRANSIT 결함 둘(문서 범위 · 날짜 범위) 수정이 사라진다. 원문 대조 전부 `<` 0.
   → ✅ [2026-09-28] **adjust 둘의 창구가 섰다**(`20260928142722` · so-module §25) — `inv_layer_apply` 본체가 source ims 인 adjust_existing · adjust_new 를 `inv_layer_apply_adjust_ims` 로 보낸다 ⇒ `ims.skipped_by_event` 의 adjust 두 키는 **0 이 정상**(이제 「창구가 없어 세는」 것이 아니라 창구가 처리한다) · 여덟 키 모양은 그대로 · `inv_layer_apply` 마지막 정의 = 20260928142722.
+
+  → ✅ [2026-09-28] **transfer 두 키: 칸 옮기기는 지나간다**(`20260928182712` · so-module §26) — `inv_layer_apply` 본체가 source ims · raw.kind `bin_move` 인 transfer_in/out 행을 레이어 갈래로 보내지 않고 `ims.bin_moves_passed` 로 센다 ⇒ `skipped_by_event` 의 transfer 두 키는 **0 이 정상** · 창고 간 IMS 트랜스퍼(raw.kind 가 다르다)는 뒤 차수의 갈래 · `inv_layer_apply` · `wms_health_check` 마지막 정의 = 20260928182712.
 
 ~~⬜ 원인 불명 — 같은 함수를 돌렸는데 Cin7 레이어가 늘었다(+1,330 · +2,894)~~ → ✅ **[2026-09-20 오후] 원인이 밝혀졌다 — 결함이 아니었다.** 09-10 밤 세션(`docs/sessions/2026-09-10-cin7-valuation-compare.md:52`)이 `inv_layer_apply('2026-09-09')` 로 **09-09 까지만 잘라** 돌렸다(Cin7 평가액 대조의 비교 시점에 맞춘 것).
 원장에는 09-10 사건이 **3,642행** 있었고 그 하루치가 레이어에 없었다 ⇒ 전량(p_until 없이) 돌리니 그 하루가 채워져 +1,330 이 된 것이다. 오전의 「같아야 할 숫자가 다르다」는 **범위를 안 맞춘 대조**였다. cost_add 316/434 가 같았던 것도 그래서다(09-10 에 운송비·landed 사건이 없었다).

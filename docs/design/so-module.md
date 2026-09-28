@@ -3972,7 +3972,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
         · 이번에 한해 Claude Code 가 화면 파일을 고치는 예외(원본과 diff 대조)
         · 입고도 WMS 에 세운다(Caleb 2026-09-25 「IMS에 입고 화면이 있어도 WMS에 세워야 해」)
         · 운영 WMS(asung-WMS · wms.asung.ca)는 전환일까지 그대로 · 운영 화면 · 운영 표를 건드리지 않는다
-        📌 나중(⑤ 뒤): WMS 안에서 재고 찾기 · 세기 · 칸 옮기기(bin transfer) — Caleb 「일단은 wms를 IMS로 옮기는게 중요해」
+        📌 나중(⑤ 뒤): WMS 안에서 재고 찾기 · 세기 · 칸 옮기기(bin transfer) — Caleb 「일단은 wms를 IMS로 옮기는게 중요해」  → ✅ [2026-09-28] 칸 옮기기 §26
            조건: ⑤ 의 칸 이동은 화면에 박지 않고 원장 창구로 부른다(나중에 화면만 더하면 되게)
 판정 1′ 운영 wms_ 표 26 을 셋으로 가른다 — Caleb 2026-09-26
         ① 다른 모듈이 정본 → 그 모듈의 창구 · 「세일즈 오더는 당연히 IMS SO가 정본 · 입고도 IMS PO가 정본 ·
@@ -4256,7 +4256,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
 판정 24  admin 의 WMS 탭은 Stats · Health 까지 ⑤-5 에서 함께 옮긴다 — Caleb 「admin의 다른 wms탭과 함께 옮겨야 하지 않을까?」
          Caleb 물음 「픽별, 팩별, 시간, 담당자, 작업량등등의 통계는 계속 유지되는거지?」 → 유지된다 · 통계는 SO 상태가 아니라 ② 표의 작업 기록에서 나온다
          ⇒ 새 창구가 운영이 찍던 시각 · 사람 칸을 빠짐없이 찍는지 검증의 축으로 대조했다(⑤-2a2 T1~T4) · Health 는 「IMS 에서도 뜻이 있는 검사」만 다시 · Receiving 탭은 ⑤-6
-판정 25  WMS 화면 권한 — Caleb 「B로 가자」
+판정 25  WMS 화면 권한 — Caleb 「B로 가자」  → stock_move(판정 63 · §26)
          ims_can_view · ims_can_write 원본에 worker 가지 한 줄만: worker 기본 = WMS 방 화면 가운데 min_role 이 없거나 worker 이하인 것 전부 · wms_manage(min_role manager)는 worker 에게 false
          manager 는 화면마다 켠다(perms ? 화면 · staff.html 라디오 · 운영의 사람별 Split 권한과 같은 모양) · admin · supervisor 는 전부
          Caleb 물음 「나중에 receiving과 브랜치 트랜스퍼도 가능한거지?」 → 된다 — WMS 방 값으로 올리면 worker 기본(WMS 입고 · 풋어웨이는 오피스 receiving 과 이름을 따로)
@@ -4739,7 +4739,7 @@ Caleb 요청(판정 번호 없음 · adj v1.1 · v1.2 로 반영)
          대화 Claude 안(미룸 · 판정 59): ① 팩커 「Found it? 몇 개 · 어느 칸」 선언 창(지금의 두 질문을 하나로) ② wms_reports 에 닫힌 방법 칸(팩에서 찾음 누가·몇·칸 / 조정 ADJ 번호 / Mark resolved) ③ WMS Admin Reports 칩 「Found at packing — 누가 found N in 칸」 · 「Adjusted — ADJ-…」 · 합계 「N (1 open · 1 found at pack)」 ④ Claude Code 한 차수
          Caleb 물음 「지금 내용을 하나로 묶어서 갈 수 있는거야? 급한것 같아 보이지는 않는데, 지금 꼭 해야 하는걸까?」 → 답: 묶을 수 있다 · 틀리게 쌓이는 데이터 없음 · 비밀번호 배포(실사용) 전에는 서 있어야 한다
 판정 59  판정 58 묶음은 미룬다 · 다음으로 넘어간다 · 미룬 수정은 반드시 기억했다가 나중에 순서대로 모두 적용 — Caleb 「미루자. 지금은 재고 조정이 문제없이 돌아가는 것을 확인했으니, 다른 것들로 넘어가는게 맞는것 같아. 그러나 지금 말한 수정은 꼭 기억했다가 나중에 순차적으로 다 적용하도록 하자」
-         뒤 차례 — Caleb 「문서 차수 마무리하고, 트랜스퍼로 바로 넘어가자」
+         뒤 차례 — Caleb 「문서 차수 마무리하고, 트랜스퍼로 바로 넘어가자」  → ① 칸 옮기기 ✅ §26 · 다음 창고 간
 ```
 
 ### 25-b 조사 · 실측
@@ -4801,6 +4801,8 @@ asung-ims  4b4d45a  stock-adjustments.html adj v1(대화 Claude · 753행 · md5
 ⑧ 판정 55 검증 한 줄(greatest) — Claude Code 보고를 받았는지 확인
 ⑨ 조정 문서의 메모 · 계정을 고치는 창구 · 화면이 없다(create 때만)
 ⑩ 검증 파일을 레포로(ims-principles §6-b ①)
+⑪ Wrong location 신고 → 칸 옮기기 연결 — 지금 wms_reports 에 칸 칼럼이 없고 note 글자뿐(wms-picker.html:1207 「Listed bin … · found at …」) · 판정 58 묶음(신고에 닫힌 방법 칸)을 할 때 from/to 칸 · 수량 칼럼을 함께 넣고 연결  → §26-f
+⑫ 피커가 계획과 다른 칸에서 실제로 뽑아도 wms_complete_pick 이 계획 칸을 실제 칸 행으로 적는다(피커 화면이 bins 를 안 보냄 · 원래 있던 빈틈) — 원장 칸이 틀어지는 길  → §26-f
 기존 그대로: 원가 모르는 판매 부족분 채우기(asung-inv-ledger ⑲ ⬜) · POS 가 어느 칸에서 빠지나(④ 판정 1)
 ```
 
@@ -4818,4 +4820,104 @@ asung-ims  4b4d45a  stock-adjustments.html adj v1(대화 Claude · 753행 · md5
 조정 ADJ-00002 confirmed(신고 16 · −34) · ADJ-00005 confirmed(found +5 · 0.50) · 빈 번호 00001 · 00003 · 00004 · 00006 ~ 00012(지운 초안 · 판정 55)
 SO-25005 fulfilled(인보이스 60003) · SO-25003b Working · 신고 37 열림 · 신고 16 · 38 닫힘 · CON00156 C070303 장부 4
 시퀀스 so 25005 t · inv 60003 t · adj 12 t · cr 1000 t · po 2027 t · rcv 29 t
+```
+
+## §26 재고 사건 ② 트랜스퍼 · 첫 몫 칸 옮기기 (2026-09-28 · 판정 60 ~ 63)
+
+→ 앞 사건 §25(재고 조정) · 다음 = 창고 간 트랜스퍼(보내기 + 받기 · 판정 60)
+
+### 26-a 판정 원문 (60 ~ 63 · 묶음 열)
+
+```
+판정 60  트랜스퍼는 칸 옮기기(같은 창고)부터 — Caleb 「좋아 같은 창고부터 시작하는 것에 동의해.」
+         올린 안: A 칸 옮기기부터(한 창고 · 운송 중 없음 · 빼서 넣기뿐 · 창구 모양을 먼저 세우기 좋다 · 창고 간 「받아서 칸에 놓기」 도 이 모양을 다시 쓴다) / B 창고 간(보내기 + 받기)부터
+         ⇒ 창고 간 트랜스퍼는 칸 옮기기 바로 다음
+         Caleb 이어서(판정 51 재강조 · 원문): 「그리고 컷오버뒤에는 cin7이 없으니라고 자꾸 얘기하는데, 난 이에 대해 수십번도 더 얘기한 것같아. 이 IMS에는 애초에 cin7은 없어. cin7은 cin7대로 돌아가는 것이고, cin7의 운영을 돕는 것은 운영 wms일뿐이야. 여기서는 무조건 독자적으로 돌아야 해. cin7에 의존적인 것처럼 얘기는 이제는 제발 그만해. cin7으로부터 필요한 것은 불러올 데이터 뿐이야.」
+         (대화 Claude 가 「컷오버 뒤 Cin7 이 없으니 칸 옮기기도 필수」 라고 말한 것이 발단 — 정정으로 남긴다: 칸 옮기기가 필요한 까닭은 IMS 창고에서 칸을 옮기는 일이 있기 때문이다)
+판정 61  칸 옮기기 = 창구 하나 · 화면 둘(창고 스캔 화면 먼저 · 오피스 화면 다음) — Caleb 「나도 C여야 한다고 생각해.」
+         올린 안: A WMS 화면(작업자 스캔 · 옮기는 사람이 그 자리에서 기록) / B 오피스 화면(조정 화면 모양) / C 둘 다 · 창구 하나
+판정 62  열린 픽 계획이 출발 칸을 가리키면 — 기다리는(pending) 과제의 계획은 도착 칸으로 바꾸고, 지금 뽑는 중인(in_progress) 과제가 그 칸에서 기다리는 수량만큼은 옮기지 못하게 막는다 — Caleb 「니 제안대로 가자」
+         (예: J01 24병을 C07 로 · 뽑는 중 과제가 J01 에서 6병을 기다리면 18병까지만 · 기다리는 과제의 J01 계획은 C07 로)
+         발단(trf-1 조사): 피커 완료 payload 는 bins 를 안 보낸다(wms-picker.html:1401~1405) · wms_complete_pick 은 계획 칸 순서로 실제 칸 행을 만든다(20260927214447:190~199) ⇒ 경고만이면 원장 칸이 틀어진다(옛 칸 음수 · 새 칸 과잉)
+         기각: A 모두 바꾸기(뽑는 중인 피커 화면이 옛 칸을 들고 있을 수 있다) · C 거부(보충이 픽 대기열에 막힌다)
+판정 63  열쇠 「Bin moves」(stock_move · room wms · min_role 없음) = 사람마다 켠다 · 창고 작업자(worker)도 켤 수 있다 · 처음엔 아무에게도 · admin · supervisor 는 역할로 — Caleb 「A로 가자」
+         (근거: 칸 옮기기는 합계 · 원가를 안 바꾼다 · 판정 39 B 모양 · 조정처럼 worker 를 아예 막을 까닭이 없다) · 기각: B worker 모두 기본 · C manager 이상만
+묶음 열(판정 63 뒤) — Caleb 「좋아 그래도 가자」
+         1 창구 하나 · 입구 둘(확정 길 inv_move_confirm 하나 · inv_move_now = create + line_set×n + confirm 한 트랜잭션)   2 창구는 여러 줄 · 창고 화면은 한 줄씩
+         3 최대 = 선반 기대량(장부 − P) − 피커가 기다리는 몫 · 같은 칸 · 다른 창고 칸 · 비활성 칸 · 세트 SKU 거부(낱개 EA · 환산은 화면)
+         4 원장: 한 줄 = 행 둘(transfer_out 출발 −q seq 2 · transfer_in 도착 +q seq 1) · doc_type transfer · doc_number MV-n · source ims · raw.kind 'bin_move' · IN_TRANSIT 없음 · 원가 · 레이어 무접촉
+         5 번호 MV-00001 · 창고 간은 뒤 차수에 따로   6 되돌리기 = 반대 방향 새 옮기기 · 메모에 원래 번호(판정 53 모양)
+         7 Health 셋: move_confirmed_no_ledger(critical) · planned_bin_short(warn) · bin_negative(warn)
+         8 Wrong location 신고 → 칸 옮기기 연결은 이번 아님(판정 59 미룬 목록 ⑪)   9 차례 ① 창구 → ② wms-mover → ③ stock-moves
+        10 피커가 계획과 다른 칸에서 실제로 뽑아도 계획 칸이 적히는 빈틈은 범위 밖(판정 59 미룬 목록 ⑫)
+```
+
+### 26-b 조사 요지 (trf-1 · 판정 62 의 셈)
+
+```
+trf-1(Claude Code · 파일 0 · 테스트 DB read only) — 레이어 · consume 에 칸이 없다(원가는 (sku, warehouse) 단위) · inv_layer_apply 가 source ims 인 transfer 행을 세고 지나갔다(skipped_by_event transfer_in/out)
+   · 계획을 굳히는 자리 = wms_pick_task_build(20260926192314:383 · planned=true insert) · so_pick_plan 은 stable 읽기라 다음 배치는 옮긴 뒤 칸을 따른다
+판정 62 의 셈(20260928182712:127~ inv_move_open_plans)
+열린 계획 = wms_pick_line_bins planned=true × 과제 pending/in_progress × 오더 at_wms/picking × (창고, 출발 칸, 낱개 제품)
+줄마다 unwritten = picked_base − 실제 칸 행 합 · 계획 행마다 covered = clamp(unwritten − 앞 행(id 순) 계획 합, 0, 계획)
+in_progress: 막는 몫 = 계획 − 이 칸에 이미 적힌 실제 · 옮길 계획 0 — 토트에 든 것도 완료 때 이 칸 행이 되므로 전부 남긴다
+pending(보류 포함 — wms_hold_pick 은 과제를 pending 으로 되돌리고 picked_base 만 남긴다): 막는 몫 = covered · 옮길 계획 = 계획 − covered → 도착 칸으로(부분이면 행을 나눈다 · 합 무변)
+최대 = 장부 − P − Σ막는 몫 · 거부 문장 예 「only 18 can move (ledger 24 − picked not shipped 0 − waiting for pickers 6: SO-79402-1 waits 6) — you asked 24」
+잠금: 머리 for update → 출발 칸을 가리키는 열린 픽 줄 for update → eval 한 번 → 계획 바꾸기 → 원장 · 남는 틈(받아들임): 확정 직전 새 배치가 출발 칸을 계획하면 바꿀 행이 없다 → planned_bin_short 가 잡는다
+```
+
+### 26-c 실물 — 커밋 · 창구 · 화면
+
+```
+asung-wms  1429943  20260928182712_inv_move_a.sql (1,318행 · md5 66a7aa95…) — inv_move · inv_move_line · inv_move_number_seq · inv_move_next_number · inv_move_require(ims_require_write('stock_move') + ims_can_warehouse)
+                    · inv_move_open_plans(판정 62) · inv_move_eval(materialized · eval 한 번) · create · line_set · line_remove · delete · preview · confirm · now · list · detail · inv_post_move
+                    · ims_perm_catalog 재발행(stock_move) · inv_layer_apply 재발행(raw.kind bin_move 갈래 · 반환 bin_moves_passed) · wms_health_check 재발행(175 · 180 · 185) · 시험 적용 4회 · OK 85 ×2
+asung-ims  1ecc602  wms-mover.html mv v1(대화 Claude · 550행 · md5 d17e86f7… · 운영 원본 없는 새 WMS 화면 · wms-receiver 모양)
+           7fca511  ims-auth.js 메뉴 「Bin Moves」(wms 탭 · Receiving 뒤 · Split & Waves 앞)
+           5ee9c47  stock-moves.html sm v1(대화 Claude · 569행 · md5 73acdac5… · stock-adjustments 모양)
+           c9b2ed0  ims-auth.js 메뉴 「Bin Moves (office)」(ims 메뉴에만 · Stock Adjustments 뒤 · 메뉴 필터는 screens 만 본다 — ims-auth.js:344 vis=items.filter(!it[2] || scr[it[2]]) · c9b2ed0 기준 · 확인 때는 342 였고 두 줄 더해져 밀렸다)
+레포 밖    ~/asung/prompts/trf-a-verify.sql(405행 · md5 b9b7f180… · 스스로 재료 · OK 85) — 회사 PC(chang)
+```
+
+### 26-d 끝에서 끝 시험 (Caleb(admin) 화면 · 2026-09-28 토론토 오후)
+
+```
+① 창고 스캔: C070303 → CON00156(장부 4 · 기다리는 과제 125 의 계획 1 「will follow」) → 1 → C070304 → Move = MV-00001 · 「1 pick plan(s) moved」
+   DB: transfer_out −1 C070303 seq 2 · transfer_in +1 C070304 seq 1 · kind bin_move · 잔고 3 / 1 · 과제 125 계획 → C070304 · 레이어 2장 무변 · 번호 1 t
+② 오피스: New move → C070304 → C070303 · 1 · 줄에 「SO-25003b-1 (waiting): 1 follows」 → Confirm = MV-00002 · 「Pick plans moved with this stock: SO-25003b-1 · CON00156 1 · C070304 → C070303」
+   DB: 네 줄(−1 C070303 · +1 C070304 · −1 C070304 · +1 C070303) · 잔고 C070303 4 · C070304 0 · 과제 125 계획 C070303 · 번호 2 t
+Health(trf-a 보고 · 테스트 DB): move_confirmed_no_ledger 0 · planned_bin_short 0 · bin_negative 1(에드먼튼 칸 하나 −3 · 원래 있던 실제 값 · 오탐 아님)
+```
+
+### 26-e 사고와 규칙
+
+```
+1 ⚠️ 말하는 틀 — IMS 기능의 필요를 「컷오버 뒤 Cin7 이 없으니」「Cin7 대신」처럼 Cin7 에 기대어 설명하지 않는다 · Cin7 은 「불러오는 데이터의 출처」로만 말한다(판정 60 Caleb 원문 · 판정 51)
+2 대화 Claude 지시서의 사실 둘이 실물과 달랐다 — 「과제 125 가 planned_bin_short 에 걸린다」(그 칸 장부 4 ≥ 계획 1 · 안 걸린다) · 「되돌리기 번호 MV-00002」(시험 안 create 가 번호를 먼저 쓴다 · 판정 55 빈 번호) ⇒ 지시서의 기대값은 실측으로 · 번호는 「앞 + 1」 모양으로
+3 숫자를 글자로 비교하면 틀린다(0.50 vs 0.500000) ⇒ numeric 으로 비교
+4 session_replication_role = replica 는 authenticated 역할에서 못 바꾼다 ⇒ reset role 뒤 소유자 역할에서
+5 Claude Code 셸의 cwd 가 되돌아가 조회 파일 둘이 0 바이트였다(trf-1) ⇒ 절대 경로 · 결과 파일 ls -l 로 크기 확인
+6 ⑤ 에서 드러난 빈틈의 이어짐 — 출고 · 원장을 칸 행으로 셈하는 IMS 에서는 「계획 칸 = 실제 칸」 으로 적는 길(wms_complete_pick 의 bins 없는 경로)이 칸 옮기기 · 다른 칸에서 뽑기와 만날 때마다 틀어질 자리다(판정 62 · ⑫)
+```
+
+### 26-f ⬜ 미룬 것 — 판정 59 목록 ⑪ ⑫ · §25-e 에 이어 붙임
+
+```
+⑪ Wrong location 신고 → 칸 옮기기 연결 — 지금 wms_reports 에 칸 칼럼이 없고 note 글자뿐(wms-picker.html:1207 「Listed bin … · found at …」) · 판정 58 묶음(신고에 닫힌 방법 칸)을 할 때 from/to 칸 · 수량 칼럼을 함께 넣고 연결
+⑫ 피커가 계획과 다른 칸에서 실제로 뽑아도 wms_complete_pick 이 계획 칸을 실제 칸 행으로 적는다(피커 화면이 bins 를 안 보냄 · 원래 있던 빈틈) — 원장 칸이 틀어지는 길
+그 밖: 에드먼튼 칸 하나 −3(bin_negative 가 잡음) — 조정으로 정리할 거리
+```
+
+### 26-g 컷오버 준비 목록에 더함
+
+```
+□ 칸 옮기기 열쇠(stock_move · Bin moves)를 켤 사람을 정한다(판정 63 · worker 도 가능 · 처음엔 아무에게도)
+```
+
+### 26-h 테스트 DB 지금 (2026-09-28 · Claude Code 읽기 확인 · begin read only)
+
+```
+칸 옮기기 MV-00001 · MV-00002 confirmed(각 계획 이동 1 · posted_on 2026-09-28) · 원장 source ims transfer 네 줄(−1 C070303 · +1 C070304 · −1 C070304 · +1 C070303 · 전부 raw.kind bin_move)
+CON00156 C070303 4 · C070304 0 · 과제 125(SO-25003b · pending) 계획 C070303 1
+시퀀스 mv 2 t · adj 12 t · so 25005 t · inv 60003 t
 ```

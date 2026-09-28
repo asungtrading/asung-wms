@@ -213,6 +213,11 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **pg_temp 함수 안 set_config(session_replication_role) 은 권한 오류** — Supabase postgres 는 슈퍼유저가 아니다 ⇒ 트랜잭션 문장으로 `set local session_replication_role = replica`
 ⚠️ **GitHub Pages 캐시 약 10분** — 링크로 넘어가면 옛 판이 열린다 ⇒ Ctrl+F5 · 빌드 표시 확인 · 창구가 옛 화면을 fail-closed 로 막는 것이 안전(pa v1.1 「Reload the packing screen」) · 컷오버 때 직원 화면 문제(판정 59 ③)
 ⚠️ **출고 · 원장을 칸 행으로 셈하기 시작하면 칸 행을 안 남기는 모든 길을 전수로 찾는다** — 팩 회복이 빠져 있었다(판정 57)
+⚠️⚠️ **[2026-09-28 칸 옮기기 · so-module §26-e] 말하는 틀** — IMS 기능의 필요를 「컷오버 뒤 Cin7 이 없으니」「Cin7 대신」처럼 Cin7 에 기대어 설명하지 않는다 · Cin7 은 「불러오는 데이터의 출처」로만 말한다(판정 60 Caleb 원문 · 판정 51) — 지시서 · 주석 · comment · 보고 모두
+⚠️ **지시서의 기대값은 실측으로** — 대화 Claude 지시서의 사실 둘이 실물과 달랐다(「과제 125 가 planned_bin_short 에 걸린다」 — 그 칸 장부 4 ≥ 계획 1 · 「되돌리기 번호 MV-00002」 — 시험 안 create 가 번호를 먼저 쓴다 · 판정 55 빈 번호) ⇒ 번호는 「앞 + 1」 모양으로 검사한다
+⚠️ **숫자를 글자로 비교하면 틀린다** — 0.50 vs 0.500000 ⇒ numeric 으로 비교
+⚠️ **session_replication_role = replica 는 authenticated 역할에서 못 바꾼다** ⇒ reset role 뒤 소유자 역할에서 바꾸고 다시 claims · role
+⚠️ **Claude Code 셸의 cwd 가 되돌아간다** — 상대 경로로 받은 조회 파일 둘이 0 바이트였다(trf-1) ⇒ 절대 경로 · 결과 파일은 ls -l 로 크기 확인
 ```
 
 ---
