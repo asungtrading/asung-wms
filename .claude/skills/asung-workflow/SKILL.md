@@ -114,6 +114,10 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ```
 ⚠️⚠️ **그 함수의 마지막 정의가 어디인지 먼저 찾는다**
    grep -rn 'function public\.<이름>' supabase/migrations | tail -3
+   ⚠️⚠️ [2026-09-27 ⑤-6c1 · 정정] 위 `| tail` 은 **폴더 순**이다 — inv_layer_apply · po_receipt_detail · resolve 가 틀린 파일을 가리켰다
+      ⇒ 정의 파일을 **이름(타임스탬프) 순으로 정렬**하거나(`grep -lE '^create (or replace )?function (public\.)?<이름>\(' … | xargs -n1 basename | sort | tail -1`)
+         **DB prosrc md5 와 맞는 파일**을 찾는다 · ⚠️ `public.` 접두 없는 선언(inv_layer_apply)은 `function public\.` 패턴이 놓친다
+      6c2 Z 점검: 9/26 이후 재발행 32 · 잃은 줄 0 · 재발행 주석의 「원본」 표기가 틀린 곳이 하나 있었다(ims_can_view) — 주석을 믿지 말고 정렬로 확인(so-module 24-r 사고 3)
    [실사고] po_invoice_create 지시서를 옛 파일 기준으로 썼다 — 그대로 갔으면 크레딧 자동 채번이 사라졌다
 
 ⚠️ **인자를 늘려 시그니처가 바뀌면** create or replace 가 덮지 못한다(같은 이름 함수가 둘이 된다)
@@ -190,6 +194,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **\gset 줄 끝에 주석을 달지 마라** — psql 이 인자로 읽는다(⑤-3b 3회차) · 검증 자료의 칸 이름은 짐작하지 말고 information_schema 로 · 숫자 비교는 round()(⑤-3b 1 · 2회차)
 ⚠️ **원본의 security invoker 가 별줄이면 language 줄에 definer 를 붙이지 마라** — conflicting options(⑤-3a 1회차) · 다른 파일에서 검증 블록을 잘라 올 때 여러 줄 문장 끝을 토크나이저로(⑤-2b 1회차)
 ⚠️ provolatile · prosecdef 는 "char" · boolean — || 앞에 ::text(⑤-4b)
+⚠️ **기대 OK 수는 통과한 실행에서 받아 적는다** — 머리에 짐작으로 적은 17 이 실제 16 이었다(⑤-6a2 확인 · so-module 24-r 사고 8)
+⚠️⚠️ **시험 안에서도 실제 행을 바꾸지 않는다** — rollback 되더라도(⑤-6a2 가 실제 worker 의 is_active 를 savepoint 에서 껐다 되돌렸다 · md5 로 증명) ⇒ 갈래는 가짜 직원 · 가짜 입고(RCV-79xxx) · savepoint 로(사고 9)
 ⚠️ **갈라진 표를 읽는 검사 · 창구는 양쪽 갈래를 각각 시험 자료로** — 운영의 한 표가 IMS 에서 둘로 갈렸으면(24-b · 실수 ↔ stock_short 신고) 한쪽만 시험하면 다른 쪽 빠짐이 안 보인다(⑤-5c1 short_no_disc → c3 · §24-q 사고 3)
 ```
 
@@ -254,6 +260,8 @@ EOF
 ⚠️ **화면 검사 여섯째 — 정의 없이 불리는 이름 0** · 도구 = eslint no-undef(범위를 본다 · env browser · es2022 · 공통 전역) + 「// 뒤에 코드가 이어지는 새 줄」 휴리스틱 · 구간을 빼거나 잘라 넣은 화면 차수마다 · acorn 식 「파일 어딘가에 선언」 은 못 잡는다(§24-q 사고 1 · 2 · asung-ims CHECKLIST 0-a)
 ⚠️ **화면 검사 다섯째 — 운영 흔적 grep 0**(wms-config · wms-auth · WMS_CONFIG · 운영 프로젝트 ref) · 옛 세계 낱말 0 · 남은 me.name 은 줄마다 표시용인지(소유권 비교는 me.id)
 
+⭐ **화면 차수에는 검증 SQL 이 없다** — DB 규칙은 앞 마이그레이션 차수의 시험 적용이 증명하고, 화면은 정적 검사(넷 · 다섯째 · 여섯째) + 창구 대조(rpc 인자 · 반환 = 마이그레이션 파일:행) +
+   Caleb 화면 시험(CHECKLIST 순서) + 시험 뒤 읽기 확인 쿼리(대화 Claude · begin read only)로 닫는다(Caleb 물음 「이번에는 왜 검증 코드가 없어?」 · so-module 24-r 사고 10)
 ⭐ 빌드 표시를 헤더에 둔다 — 어느 판이 도는지 화면에서 읽는다(브라우저 캐시를 가른다)
 ⭐ 파일을 낼 때 **바이트 수를 함께 말한다**
 ```
@@ -361,6 +369,11 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
 ⚠️ **「보고 오겠다」고 말만 하고 안 본다**
    [실사고 2026-09-21] "먼저 po_family 를 보고 오겠습니다" 하고 열지 않았다. Caleb 이 "PO 패밀리 보고 왔어?" 하고 물어서야 봤다
    ⇒ **말했으면 그 턴에 실행한다**
+   · [2026-09-27 ⑤-6] 권한 · 기본값을 함수 본문을 안 보고 단정했다(판정 39 경위 — 「worker 는 저절로 안 켜진다」 가 틀렸다) ⇒ 권한 주장은 ims_can_view/write 본문을 보고
+   · [2026-09-27 ⑤-6] 대화 Claude 가 Claude Code 보고의 사실 주장(「inv_compare_run 이 DB 에 없다」)을 확인 없이 다음 지시서에 옮겼다 ⇒ 지시서에 옮기는 사실은 원문 · 레포로 확인(사고 11)
+⚠️ **출력을 손으로 옮긴다**
+   [실사고 2026-09-27 ⑤-6a] md5 를 손으로 옮기다 틀렸다(…479f… · 실제 …485f… · Caleb 이 직접 md5sum 으로 확인) ⇒ **출력은 명령 출력 그대로 붙인다** · 다시 타이핑하지 않는다
+   [2026-09-27] 긴 출력은 채팅 붙여넣기에서 잘린다(확인 출력이 E 에서 끊겼다) ⇒ **긴 출력은 파일로** 주고받는다(so-module 24-r 사고 1 · 2)
 📌 긴 세션일수록 확인 없이 단정하는 경향이 는다 — Caleb 의 검증이 매번 잡아 왔다.
    ⭐ 스스로 「이건 본 것인가 짐작인가」를 묻는다
 ```

@@ -3022,7 +3022,7 @@ PO 밖     PO 에 없는 물건이 나오면 **매니저 승인 전까지 막는
 ⭐ 차이 큐        po_receipt_diff — kind **over · short · off_po** · expected_qty(기준) · received_qty · resolved_by/at · unique (receipt_id, po_line_id) · 열린 것 = resolved_at is null(뷰 po_receipt_diff_list · 부분 인덱스 없음)
                 ⭐ short 를 담는 이유(Caleb) — **분할은 남은 수량을 옮길 뿐 「왜 덜 왔나」를 아무도 안 본다.** 넷이 섞여 있고 분할은 구별하지 못한다: 공급사가 나눠 보냈다(다음 배에 온다) · 결품(PO 를 닫아야 한다) · 운송 중 분실·파손(크레딧) · 우리가 잘못 셌다(다시 세야 한다)
                 ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ~~⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f)~~ → ✅ [2026-09-19 `20260919175712`] 닫는 길이 섰다(아래 「→ 차이 닫기」 · 여러 건 한 번에는 ⬜) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」
-                ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)
+                ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)  → ✅ [2026-09-26 · 27] 이제 난다 — 창고 wms_recv_off_po 가 적고(24-m) · 결정 어휘 셋 accepted_free(받는다 · 원가 0) · accepted_billed(받는다 · PO 통화 단가 × PO 환율) · rejected(장부 없음 · 선반에서 뺀다 → removed_by/at) · 창구 po_receipt_diff_settle_off_po(receiving 문 · 판정 45) · 원장 line_ref <diff_id>:offpo(so-module 24-r)
 → 차이 닫기      ⭐ [2026-09-19 `20260919175712` · 9a5344a] `po_receipt_diff_resolve(diff, resolution, note)` · `po_receipt_diff_reopen(diff, note)` · 칸 resolution · resolution_note
                 ⭐ 이유 어휘 다섯 — split_shipment(나눠 왔다) · out_of_stock(공급사 결품) · lost_damaged(운송 중 분실·파손) · miscount(우리가 잘못 셌다) · other(⚠️ **메모 필수** — 셀 뜻이 없는 「그 밖」을 막는다)
                 ⭐ 왜 어휘인가 — 자유 메모는 셀 수 없다. 「이 공급처가 몇 번 결품했나」를 물으려면 어휘여야 한다(위 「short 를 담는 이유」의 완결)
@@ -3498,7 +3498,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ 거부 문장에 「내가 넣으려던 값」이 없다
 리시빙
 ⬜ 차이를 닫는 RPC 와 화면      po_receipt_diff.resolved_by/at · note 는 있다 · 여러 건을 한 번에 닫기 · 닫는 이유 어휘(나눠 보냄 · 결품 · 분실·파손 · 오산)는 그때 정한다(§11-i short 를 담는 이유)
-⬜ off_po(PO 밖)               po_receipt_work.po_line_id nullable + product_id + 승인 칸 + po_receipt_line.po_line_id 도 nullable · 차이 큐 off_po 어휘는 미리 있다 · 약식 제품 등록(위 「입고 차수에 셋」)과 한 묶음  → 📌 큐에 적기 ✅(24-m) · 승인 · 투입 ⑤-6
+⬜ off_po(PO 밖)               po_receipt_work.po_line_id nullable + product_id + 승인 칸 + po_receipt_line.po_line_id 도 nullable · 차이 큐 off_po 어휘는 미리 있다 · 약식 제품 등록(위 「입고 차수에 셋」)과 한 묶음  → 📌 큐에 적기 ✅(24-m) · 승인 · 투입 ⑤-6  → ✅ [2026-09-27] 판정 43 ~ 45 · diff 확장(po_receipt_diff 한 행에 bin_id · placed_by/at · unit_price · removed_by/at · 작업 줄 · 입고 줄은 그대로 NOT NULL) · 창고 바로 놓기 → 오피스 결정 · so-module 24-r · 약식 제품 등록은 그대로 ⬜
 ⬜ 팩→낱개 환산                지금 work_save 는 낱개 총량을 받는다 · p_entered_qty · p_unit_product_id 로 **DB 가 곱하는** 안(화면이 곱하면 「계산은 DB」를 어긴다)
 ⬜ 확정 취소                   po_doc_cancel 에 'receipt' 가지(입고 줄·차이·분할을 어떻게 되돌리나 — 사건 차수와 함께) · 확정 전 「그만둔다」는 po_receipt_delete
 ⬜ po_receipt_line.receipt_id 를 NOT NULL 로   백필(09-16 검증 데이터 4행 · 짐작 — 실측 필요) 또는 정리 뒤

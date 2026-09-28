@@ -4059,14 +4059,14 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
                      so_status_guard 에 at_wms · picking · packed 짝  → ⑤-2 로(24-g)                                    400~600행  → ✅ [2026-09-26] f82a00d(24-g)
 ⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행  + so_status_guard 짝 · 창고 제한 첫 실물 · worker 창고 SQL(24-g)  → [2026-09-26] 나눔: ⑤-2a1 ✅ 468b897 · ⑤-2a2 ✅ efce92a · ⑤-2b 다음(24-h · i · j)  → ⑤-2b ✅ be2ed5a(24-k)
 ⑤-3 창구 · 입고      receiver 동작 → po_receipt_* · stage_events → 축 칸                                 300~400행  → ✅ [2026-09-26] 3a 55678c1 · 3b d0ed9ee(24-l · m · n)
-⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)  → ✅ [2026-09-26] ⑤-4 세 화면 섰다(24-o · p) · 남은 것 ⑤-5 · ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-5 = a · b · c1 · c2 · c3(판정 34 · 24-q) · 남은 것 ⑤-6 · 오피스 판
+⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)  → ✅ [2026-09-26] ⑤-4 세 화면 섰다(24-o · p) · 남은 것 ⑤-5 · ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-5 = a · b · c1 · c2 · c3(판정 34 · 24-q) · 남은 것 ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-6 = 6a · 6a2 · 6b · 6c1 · 6c2 · 6c3(판정 38 · 24-r) · 남은 것 오피스 판
 뒤                  제자리 돌려놓기 · 칸 이동 · 픽커 리포트 · 헬스 IMS 판 · 사진 · 트랜스퍼 픽 · 찾기 · 세기 · bin transfer
 ```
 
 ### 24-d ⬜ 남은 것
 
 ```
-⬜ off-PO 의 모양(po-module 3500)                            ⑤-6 차례에 판정
+⬜ off-PO 의 모양(po-module 3500)                            ⑤-6 차례에 판정  → ✅ [2026-09-27] 판정 43 ~ 45 · po_receipt_diff 확장(24-r)
 ⬜ WMS 화면 값의 이름(picking · packing · putaway 류) · 새 화면 파일 이름 · po-module 3506 「receiving 공유 시 worker 기본」   ⑤-1 · ⑤-4 지시서에서 안  → ✅ wms-manager · wms-picker · wms-packer.html(24-o)
 ⬜ 리포트를 보는 곳 → IMS 매니저 창(판정 1′ ②)
 ⬜ 헬스 IMS 판(wms_health_check 13 검사 · 본문 안 봤다)  → ✅ [2026-09-27] ⑤-5c1 · c3 — public.wms_health_check() 열둘 + 정보 한 줄(판정 37 · 24-q) · 옛 마지막 정의는 20260825203457_receipt_pause.sql:92(검사 13 + info 1 — 「13 검사」 는 hold_leak 까지 센 수)
@@ -4089,8 +4089,8 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ 오피스 화면 판: 판정 17 글자 · Release to WMS 단추 · 거둬들이기 · 「Finalized — 견적 · 결제 · 마무리 대기」 목록(판정 16 · 18 · Manager List · 24-h)
 ⬜ manager 8 의 WMS 화면 권한 켜기(판정 25 · 비밀번호 전) · 검토함 끈 기록(⑤-2b · 판정 22) · Health 검사 고르기(⑤-5 · 판정 24)  → ✅ 검토함 끈 기록 = 판정 26(24-k) · 나머지 둘 ⬜  · Health 검사 고르기 → ✅ 판정 37(24-q)
 ⬜ 오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)
-⬜ off-PO 승인 · 거절 · 투입 · 약식 등록(⑤-6) · 트랜스퍼 입고(재고 사건 · 전환 전 필수) · 리시빙 창구 나머지 아홉(split · unassign · delete · diff 셋 · _over 둘)의 창고 검사
-⬜ wms_receiving_confirm 은 아무에게도 켜지 않았다(판정 27 · B)
+⬜ off-PO 승인 · 거절 · 투입 · 약식 등록(⑤-6) · 트랜스퍼 입고(재고 사건 · 전환 전 필수) · 리시빙 창구 나머지 아홉(split · unassign · delete · diff 셋 · _over 둘)의 창고 검사  → [2026-09-27] off-PO 승인 · 거절 · 투입 ✅(판정 43 ~ 45 · 창고 놓기 → 오피스 결정 · 24-r) · 아홉 가운데 delete 의 창고 길 = wms_recv_delete(89da967 · 오피스 po_receipt_delete 는 그대로) · Health hold_leak 입고 가지 ✅(20260928014844) · 약식 등록 · 트랜스퍼는 그대로 ⬜ (24-r)
+⬜ wms_receiving_confirm 은 아무에게도 켜지 않았다(판정 27 · B)  → [2026-09-27] 판정 42 · 42 A — 창고 화면 단추는 admin + 직접 켠 사람에게만 보인다 · 여전히 아무에게도 안 켰다(24-r)
 ⬜ ⚠️ 재생성 계열 함수를 새로 만들거나 drop 뒤 다시 만들면 authenticated 에 열린다 — 그 차수에서 revoke 를 함께(판정 31 · 24-l) · 화면에서 돌리려면 문 있는 바깥 창구를 따로(판정 7)
 ⬜ 안 돌린 가지 둘(새 RCV 를 당긴다) — wms_recv_start 「초안 없음 → 새로」 · 오피스 po_receipt_create 성공 가지 · 처음 도는 때는 Caleb 이 테스트에서 새 입고를 만들 때(24-m)
 ⑤-4 뒤의 ⬜
@@ -4277,7 +4277,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
    대화 Claude raw 확인(468b897): 가드 byte-identical · 옛 「perms ? 'wms'」 가지 0 · worker min_role 줄 277 · 297
    든 것: so 칸 넷 + 인덱스 · so_status_guard 짝 여섯(confirmed⇄at_wms · at_wms⇄picking · picking⇄packed) · so_wms_status(invoker · authenticated 회수 · CAS · 시각 칸) ·
           so_release_to_wms · so_wms_recall(sales · 창고 길만 · 여러 오더 한 번에 · 하나라도 막히면 전체 거부 · 열린 hold/backorder/preorder 먼저 → allocated 합) ·
-          ims_perm_catalog wms 값 넷 · ims_can_view/write(판정 25) · wms_pick_line_bins · wms_reports kind 5 · wms_batch_create · wms_wave_create(so_pick_plan 계획 칸 · 라벨 SO-n-k · W-MMDD-n)
+          ims_perm_catalog wms 값 넷 · ims_can_view/write(판정 25) · wms_pick_line_bins · wms_reports kind 5 · wms_batch_create · wms_wave_create(so_pick_plan 계획 칸 · 라벨 SO-n-k · W-MMDD-n)  → ⚠️ [2026-09-27] worker 기본 가지는 판정 39 로 뺐다(20260928010908 · 사람마다 켠다 · 24-r)
    막힘은 42501 이 아니라 P0001(ims_require_write 의 사람 문장 · 모든 IMS 창구와 같다) · 속 창구를 authenticated 가 직접 부르면 42501
    worker 7 창고 — Caleb 실행(UPDATE 7 · Asung - Edmonton 2 · Asung Trading Inc. 5 · 수가 다르면 스스로 멈추는 do 블록) ⇒ 창고 제한이 모든 worker 에게 걸린다
 ```
@@ -4331,7 +4331,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
    ⬜13 트랜스퍼 입고는 ⑤ 밖 — 운영 receipts 82 중 transfer 18 · 이관 뒤 IMS 에 트랜스퍼가 서기 전까지는 운영 WMS 로만(⚠️ 전환 전 필수)
 
 판정 27  입고 확정은 누가 — Caleb 「좋아 그렇게 가자」
-         지금 = B: 창고는 Complete 까지 · 확정은 오피스 receiving 쓰기 권한자 · 스위치 = 권한: WMS 확정 창구 wms_recv_confirm 을 화면 값 wms_receiving_confirm(min_role manager) 뒤에 세우고 아무에게도 안 켠다 ·
+         지금 = B: 창고는 Complete 까지 · 확정은 오피스 receiving 쓰기 권한자 · 스위치 = 권한: WMS 확정 창구 wms_recv_confirm 을 화면 값 wms_receiving_confirm(min_role manager) 뒤에 세우고 아무에게도 안 켠다 ·  → [2026-09-27] admin · supervisor 는 역할로 스위치를 받아 화면에서 샜다 → 판정 42 · 42 A(24-r)
          나중에 A 가 필요하면 staff.html 에서 사람마다 켠다 · 전원이면 min_role 을 푼다 — 코드 수정 없이
          Caleb 물음 「지금은 B였다가 나중에 필요에 의해서 A로 수정할 수 있나?」 → 위 스위치로 된다
          근거: 확정 = 원장 · 원가 레이어 · 문서 갈라짐 · 차이 큐를 한 번에 · 확정 취소 창구가 없다 · 운영은 Complete(창고) → Apply(apply 권한자) 두 손
@@ -4358,7 +4358,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
    든 것: 속 여섯 po_receipt_create_by · po_receipt_work_save_by · po_receipt_work_putaway_by · po_receipt_work_putaway_all_by · product_bin_overflow_set_by · _clear_by(definer · 회수 · 원본 diff = 문 · 사람 찾기 줄만) ·
           오피스 셸 여섯(이름 · 시그니처 그대로 · definer · 첫 줄 receiving · ims_can_warehouse · 같은 입력 → 같은 출력 E1~E4) ·
           WMS 셸 wms_recv_start · _scan(델타 · 잠금 아래 합침) · _count(본 값 CAS) · _putaway · _place_all · _off_po · _hold · _resume · _overflow_set/clear(wms_receiving 문 · 창고) ·
-          카탈로그 wms_receiving(worker 기본) · wms_receiving_confirm(min_role manager · 아무에게도 안 켬) · wms_task_holds receipt_id(uuid → po_receipt) + task_kind receipt · CHECK 짝 둘
+          카탈로그 wms_receiving(worker 기본) · wms_receiving_confirm(min_role manager · 아무에게도 안 켬) · wms_task_holds receipt_id(uuid → po_receipt) + task_kind receipt · CHECK 짝 둘  → ⚠️ 정정 [2026-09-27] 「worker 기본」 은 판정 39 로 없어졌다 — worker 도 사람마다 켠다(24-r)
    네가 정한 것(Caleb 받음): po_receipt* 속 넷 invoker → definer(표의 RLS 가 receiving 을 요구) · 셸 열여섯 definer(회수된 속을 부른다) · 셸의 사람 찾기는 원본 두 줄(so_current_staff 는 회수돼 셸이 못 부른다) ·
           Place all 은 운영 placeAllInBin 과 같은 뜻(그 칸에 이미 배정된 줄 · 이미 그 상태면 안 쓴다) · wms_recv_off_po 는 PO 에 있는 제품 거부
    ⚠️ 안 돌린 가지(새 RCV 를 당긴다): wms_recv_start 의 「초안 없음 → 새로」 · 오피스 po_receipt_create 성공 가지 — 처음 실제로 도는 때는 Caleb 이 테스트에서 새 입고를 만들 때(정상 사용)
@@ -4483,7 +4483,7 @@ Caleb(admin) 화면 시험 — SO-25003
 테스트 DB 지금  SO-25003 packed · 팔렛 1 · 아이템 1 · finalize 1 · stock_short 신고 1(열림 · 오피스 판 · 재고 조정 시험 재료) · 시퀀스 so 25004 · 인보이스 60001 · 크레딧 1000
 ```
 
-**사고 다섯 · 규칙**
+**사고 다섯 · 규칙**  → 사고 여섯째 「마지막 정의는 grep | tail -1 이 아니다」 는 24-r 사고 3
 ```
 1  화면 탭을 빼며 공용 함수가 함께 빠졌다 — renderFulfillStats(운영 Stats 구간에 있었다) → Finalized 탭 Loading 정지(wa v1 · v1.1 에서 되살림)
 2  조립이 주석을 **줄 가운데** 넣어 뒤 코드를 삼켰다(「v.pick++; const m=dur(p)」 → Stats 정지 · wa v1.4 에서 고침)
@@ -4504,4 +4504,105 @@ Caleb(admin) 화면 시험 — SO-25003
 ⬜ wms_pick_lines 팩 갈래를 여러 과제로(p_pack_task_ids[] · 지금은 팩 과제마다 한 번 · 콜드 4.87 s / 웜 0.12 s)
 ⬜ asung-ims 에 로고 그림 없음(인쇄 머리 「ASUNG」 글자) · so.html 목록 글자 「packed」 → 판정 17 대로 오피스 판에서 「Finalized」
 ⬜ 한 번에 되돌리기(판정 35 · 컷오버 뒤) · ⬜⭐ 재고 조정 연결(판정 20)
+```
+
+---
+
+### 24-r ⑤-6 판정 38 ~ 45 · 일곱 묶음 · 실물 — 입고(receiver · admin Receiving · off-PO) (0e53b2a · 89da967 · dd9a8d9 · asung-ims 3084851 ~ 80a98b9)
+
+⭐ Caleb 의 말 그대로 · 판정 원문 · 기각 · 경위(대화 Claude wms-5-6-docs · 2026-09-27)
+```
+판정 38  ⑤-6 나누기 — Caleb 「A로 가자」
+         6a receiver · 6b admin Receiving 탭 + Stats 입고 + 작은 마이그레이션 · 6c off-PO · 기각: 두 번(admin 탭 + off-PO 한꺼번에)
+         📌 실제로는 6a · 6a2(판정 39) · 6b · 6c 설계 · 6c1 마이그레이션 · 6c2 WMS 화면 둘 · 6c3 receiving.html(대화 Claude)
+판정 39  창고 worker 의 WMS 화면 권한 — Caleb 물음 「이것도 나중에 수정은 가능한거지?」 → 된다(A→B 는 가지 빼기 · ⚠️ 먼저 켜고 적용 / B→A 는 가지 다시 넣기) → 「그러면 지금은 B로 가자」
+         B = worker 도 사람마다 켠다(staff.html 에 보이는 대로 동작) · ims_can_view · ims_can_write 에서 「worker × wms 방 × min_role 없음 → true」 가지를 뺐다(20260928010908) ·
+         안전 문 WM502 — 활성 worker 가운데 wms 화면이 0 인 사람이 있으면 적용이 멈춘다
+         경위: ⑤-6a R8 에서 Claude Code 가 코드를 보고 「worker 는 perms 와 무관하게 창고 화면 넷을 저절로 본다」 를 찾았다 · 대화 Claude 는 코드를 안 보고 「저절로 켜지는 뜻이 아니다」 라고 틀리게 적었다
+         Caleb 이 staff.html 에서 worker 7 에게 PICKING · PACKING · FULFILLMENT · WMS_RECEIVING write 를 켰다(오피스 RECEIVING 은 대화 Claude 가 짚어 끔) · ⓪ 확인 workers_zero 0
+         기각(지금): A 저절로(대화 Claude 추천이었다) · ⇒ 판정 25(24-h)의 「worker 기본」 과 24-m 카탈로그 「wms_receiving(worker 기본)」 은 이 판정으로 닫혔다
+판정 40  두 Receiving 이름 — Caleb 「좋아 A로가자」
+         오피스 receiving.html 메뉴 이름 = 「Purchase Receipts」 · 창고 wms-receiver.html = 「Receiving」 · 화면 값 · 파일 이름 무변 · 기각: B Warehouse Receiving · C 그대로
+판정 41  + · − 로 채웠을 때 — 발견 「+버튼으로 계속 누르니까, 오더 숫자가 차면 자동으로 넘어가서 계속 숫자가 올라가」 → 「나도 B가 좋아. 그런데 지금 이것은 수정하는 것이 큰가?」
+         B = 스테퍼는 그 줄에 머문다(운영 receiver 1361 은 넘어갔다) · 스캔 · Enter quantity 는 그대로 넘어간다 · 한 줄 · 대화 Claude 가 고쳤다(rc v1.1)
+판정 42  창고 화면의 「Confirm into stock」 — Caleb 「나도 B가 좋아.」 → 물음 「그런데 아무리 그래도 admin은 할 수 있어야 하지 않겠어?」 → 「A로 하자」
+         최종 = admin 에게는 보인다 · supervisor 와 그 밖은 staff.html 에서 wms_receiving_confirm 을 직접 체크했을 때만 · 화면의 보이기 규칙(DB 문 무변 · 화면이 perms 를 읽는 예외 — 주석에 적었다)
+         까닭: admin · supervisor 는 역할로 모든 화면을 받아(ims_can_write) 판정 27 B 「아무에게도 안 켠다」 가 화면에서 샜다 · 확정은 되돌리는 창구가 없다
+판정 43  off-PO 흐름 — Caleb 「이게 좀 복잡하지 않아? 1단계에서 창고직원이 스캔하고, 2단계에서 창고 매니저가 판단, 그리고 다시 3단계에서 창고 직원이 선반에 놓고, 또 다시 오피스가 값을 정한다?
+         순서가 워커 매니저 워커 매니저로 흐름이 원활해 보이지 않아. 창고 직원이 스캔하고, 선반에 놓은 뒤에 창고 매니저가 판단해서 승인하고, 값을 정하는 방식으로 가야 하지 않겠어?」
+         = 직원 한 번(스캔 → 바로 놓기 · 운영의 승인 전 풋어웨이 차단 없앰) · 매니저 한 번(accepted_free · accepted_billed + 단가 · rejected)
+         대가: 거절이면 선반에서 다시 뺀다(화면이 칸을 알려 준다) · 정하기 전엔 「선반에는 있고 장부에는 없다」(Health 150 이 알린다)
+         기각: 두 손(창고 승인 → 오피스 settle) · 입고 줄로 · 승인만
+판정 44  정하는 화면 — Caleb 「wms화면에 판단해야 할 것이 생기되, 클릭하면, purchase receipts화면이 열리는 것이 가장 이상적으로 보여.」
+         = WMS Admin 목록(읽기) → receiving.html?receipt=<po_receipt.id>&diff=<po_receipt_diff.id>(같은 창) · 결정 단추는 Purchase Receipts 에만
+판정 45  정할 사람의 권한 — Caleb 「나도 a가 좋은데, 저 권한을 지금 설정하고 진행해야 하는 것은 아니지?」
+         A = 정할 manager 에게 RECEIVING write(사람마다 · 입고 확정 · 부족 · 초과 · 삭제도 함께 받는다) · 지금 안 켠다 — 비밀번호 전(컷오버 준비) · 기각: B 전용 화면 값 · C admin/supervisor 만
+일곱 묶음 — Caleb 「그래도 가자」(= 그대로 가자)
+   1 6c1 → 6c2 → 6c3 순서    2 청구 단가 = PO 통화로 사람이 입력 · CAD 는 그 PO 의 exchange_rate    3 거절 뒤 「뺐다」 단추(removed_by/at)
+   4 들어온 날 = po_receipt.received_on(결정한 날 아님 · over 선례)    5 cost_source manual    6 받은 뒤 되돌리기 없음(rejected 는 reopen 가능 · 뺀 뒤엔 안 된다)    7 한 제품 한 칸
+```
+
+**실물 (2026-09-27)**
+```
+asung-wms  0e53b2a  20260928010908_wms_5_6a2_worker_screens_per_person.sql(6,483 · 판정 39) · 시험 2회차 OK 26 · 확인 OK 16(머리의 17 은 틀린 기대값이었다)
+           89da967  20260928014844_wms_5_6b_recv_delete_health_receipt.sql(25,415) · wms_recv_delete(창고 초안 삭제 · wms_manage · 아카이브 다섯 표) · Health 15 행 · 시험 1회차 OK 28 · 확인 OK 26
+           dd9a8d9  20260928025627_wms_5_6c1_off_po_decide_ledger.sql(131,893 · 새로 쓰거나 바꾼 줄 306) · 시험 3회차 OK 46 · 확인 OK 44 · Health 17 행
+             off-PO = po_receipt_diff 한 행(bin_id · placed_by/at · unit_price · removed_by/at) · 원장 po_in · line_ref <diff_id>:offpo · occurred_on = received_on · raw.kind po_off_po ·
+             레이어 origin purchase · free 0 / billed unit_price × PO 환율 · cost_source manual
+             창구: wms_recv_off_po_putaway(창고 놓기) · wms_recv_off_po_removed(창고 뺐다) · po_receipt_diff_settle_off_po(오피스 결정 · receiving 문 · 한 트랜잭션) ·
+                   inv_post_receipt_off_po · inv_layer_post_receipt_off_po
+             재발행: settle_over · resolve · reopen · inv_layer_apply(ims_offpo 가지 · revoke 같은 파일 · 판정 31) · po_receipt_detail(diffs 키) · wms_health_check(150 off_po_undecided · 160 off_po_rejected_on_shelf)
+             ⭐ 훑기가 찾아 고친 둘: inv_post_receipt 멱등 검사 · inv_layer_post_receipt 루프가 :offpo 를 뺀다(없으면 off-PO 를 먼저 받은 입고의 확정이 깨진다)
+asung-ims  3084851  wms-receiver.html rc v1(창고 입고 · 새로 쓰거나 바꾼 줄 576)  → d106ad7 rc v1.1(판정 41)  → d4ab33e rc v1.2(판정 42)  → b4ab1ab rc v1.3(42 A)  →
+           dde6329  rc v1.4(off-PO 가짜 작업 줄 · 놓기 · 결정 뒤 칩 · 거절 빨간 그룹 · Removed)
+           4e8016f  wms-admin.html wa v1.5(Receiving 탭 · Stats 입고 · Health 15)  → d4ab33e wa v1.6  → b4ab1ab wa v1.7  →
+           dde6329  wa v1.8(off-PO 결정 대기 목록 · 딥링크 · 거절 선반 목록 · Stats 카드 · 두 화면 합쳐 새로 쓰거나 바꾼 줄 152)
+           a03af89  판정 40(ims-auth.js 메뉴 이름 · receiving.html 탭 제목) · 80a98b9 receiving.html 「2026-09-27 · off-PO decide」(대화 Claude · 6c3 · 딥링크 · Decide 창 · +143 −10)
+메뉴       WMS 탭 여섯 = Picking · Packing · Fulfillment · Receiving · Split & Waves · WMS Admin · wms-admin 탭 아홉(Receiving 이 Health 와 Finalized 사이)
+Caleb(admin) 화면 시험
+   6a  PO-02026 → RCV-00027 Complete · PO-02007 → RCV-00028 Putaway
+   6b  RCV-00027 오피스 확정 · RCV-00028 Complete → Reopen(WMS Admin 에 머문다 = 맞다) → 다시 Complete · 판정 42 A 확인
+   ⚠️ 안 한 것: 6b Delete(RCV-00029) · ⭐ 6c 끝까지 시험 — Caleb 「테스트는 나중에 할께」 · 시험 순서는 asung-ims CHECKLIST 7-r · 시험 뒤 확인 쿼리(대화 Claude · 읽기만 · 시험 전 0 행 확인됨)
+테스트 DB 지금  RCV-00027 confirmed · RCV-00028 draft · Complete · 미확정(시험 재료) · off_po 0 · 시퀀스 po 2027 · rcv 28 · so 25004 · inv 60001 · cr 1000 · SO-25003 packed(⑤-5)
+```
+
+**사고 열하나 · 규칙**
+```
+1  Claude Code 가 md5 를 손으로 옮기다 틀렸다(…479f… · 실제 …485f… · Caleb 직접 md5sum 으로 확인) ⇒ 출력은 명령 출력 그대로 붙인다
+2  긴 출력이 채팅 붙여넣기에서 잘렸다 ⇒ 긴 출력은 파일로(Caleb 이 확인 출력을 파일로 줬다)
+3  ⭐ 「마지막 정의 = grep … | tail -1」 은 폴더 순이라 틀린다(inv_layer_apply · po_receipt_detail · resolve 가 틀린 파일을 가리켰다)
+   ⇒ DB prosrc md5 로 파일을 맞추거나 정의 파일을 이름(타임스탬프) 순으로 정렬 · public. 접두 없는 선언(inv_layer_apply)은 grep 패턴이 놓친다
+   6c2 Z 점검: 2026-09-26 이후 재발행 32 · 잃은 줄 0 · ims_can_view(20260926192314)는 주석의 원본 표기만 틀림(20260917230000 → 진짜 직전 20260918020000 · 차이 줄은 재발행 · DB 에 있다)
+4  대화 Claude 가 권한을 코드 확인 없이 단정했다(판정 39 경위) ⇒ 권한 · 기본값 주장은 함수 본문을 보고
+5  perms 어휘: 맨 이름 = 쓰기 · '<screen>:read' = 읽기 · '<screen>:write' 는 없는 값(대화 Claude 의 R8 정정 글이 틀렸다)
+6  min_role 은 「저절로 줄 것」 만 고른다 — 사람이 켠 perms 를 막지 않는다(staff.html 이 worker 에게 WMS_MANAGE 라디오를 보인다 · ⬜)
+7  admin · supervisor 는 역할로 모든 화면 · 스위치를 받는다 — 「아무에게도 안 켠 스위치」 도 그들에게는 켜져 있다(판정 42)
+8  기대 OK 수는 통과한 실행에서 받아 적는다(6a2 확인 17 ≠ 16)
+9  시험 안에서도 실제 행을 바꾸지 않는다 — 6a2 가 실제 worker 7 의 is_active 를 savepoint 에서 껐다 되돌렸다(md5 로 증명) · 6b 부터 가짜 행만
+10 화면 차수에는 검증 SQL 이 없다 — DB 규칙은 앞 마이그레이션 차수가 증명하고, 화면은 정적 검사 + Caleb 화면 시험 + 시험 뒤 읽기 확인 쿼리(Caleb 물음 「이번에는 왜 검증 코드가 없어?」)
+11 대화 Claude 가 Claude Code 보고의 사실 주장(함수가 없다)을 확인 없이 다음 지시서에 옮겼다 ⇒ 지시서에 옮기는 사실은 원문 · 레포로 확인(아래 D8 · 이 문서 차수의 이견 1)
+```
+
+**D8 · 대조**
+```
+inv_balance_vs_cin7 는 IMS 에만 있는 po_in(po_line · :over · :offpo)을 똑같이 「원장 > Cin7」 로 본다(컷오버 전엔 IMS 입고 전체가 그렇다) · ims_ledger_unlinked 는 이어진다
+inv_compare_run 은 운영에 있다(20260824130759_inv_compare_run.sql:54 · supabase/ops/cron.sql inv-compare-run jobid 13) · 테스트 DB 에 없다면 복사 빈틈일 수 있다 → ⬜ 테스트 DB 에 있는지 확인
+   (6c1 보고의 「DB 에 없다」 가 확인 없이 지시서로 옮겨졌다 — 사고 11 · 정본 · 스킬의 기존 inv_compare_run 서술은 그대로 맞다)
+```
+
+**⬜ 남은 거리 (판정 아님 · 목록)**
+```
+⬜ 6c 끝까지 시험(CHECKLIST 7-r 순서) · 6b Delete 시험(RCV-00029) · 창고 기기에서 스캔 소리 · ⬜ 테스트 DB 에 inv_compare_run 이 있는지(D8)
+⬜ staff.html worker 의 WMS_MANAGE 라디오(min_role · 사고 6) · off-PO 두 칸에 나눠 놓기 · Enter quantity 자동 넘김(판정 41 에서 그대로 둠)
+⬜ 받은 off-PO 되돌리기(재고 사건 차수의 상쇄) · ⬜⭐ 재고 조정 연결(판정 20) · Health 창고 범위 · 고아 보류 행 · p_pack_task_ids[] · 로고 · Trace 되돌리기 로그 · Image differs 숨기기 · 한 번에 되돌리기(판정 35 · 컷오버 뒤)
+⬜ 오피스 판: so.html 본차수(오피스 마무리 · Finalized 대기 목록 · 판정 17 글자 「packed → Finalized」 · 시각 줄) · Purchase Receipts 의 「창고 작업 미완」 경고(wms_recv_state · warnings wms_not_completed)
+```
+
+**컷오버 준비 목록**
+```
+□ 정할 manager 에게 RECEIVING write(판정 45 A)
+□ 운영 창고 직원 전원의 IMS 권한(판정 39 · 안 켜면 그날 아침 창고 화면이 전부 막힌다)
+□ manager 의 WMS 화면 권한(판정 25)
+□ wms_receiving_confirm 은 아무에게도(판정 27 B · 42)
+□ 운영 가드 푸는 법(24-g 판정 13)
 ```
