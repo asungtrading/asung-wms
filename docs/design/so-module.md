@@ -4085,7 +4085,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ 운영 가드를 전환일에 푸는 법 — 승격된 테스트에 cron 이 서면 가드가 스스로 막는다 ⇒ 그날 마커 값을 바꾸고 가드가 허용(24-g 판정 13 · reload-procedure §M · §O)
 ⬜ 운영 일괄 배포 보류 — 앞의 IMS 95(20260911144606~)는 가드가 없다 · ⓒ inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(24-g 판정 13 ➕)
 ⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 전환 준비 · 이월(24-f)
-⬜⭐ 재고 사건 차수: 매니저 리포트(stock_short) → 실물 확인 → 바로 재고 조정 연결(판정 20 · Caleb 「기억하라고」 · 24-h)
+⬜⭐ 재고 사건 차수: 매니저 리포트(stock_short) → 실물 확인 → 바로 재고 조정 연결(판정 20 · Caleb 「기억하라고」 · 24-h)  → ✅ [2026-09-28] adj-b(0c96926) · §25
 ⬜ 오피스 화면 판: 판정 17 글자 · Release to WMS 단추 · 거둬들이기 · 「Finalized — 견적 · 결제 · 마무리 대기」 목록(판정 16 · 18 · Manager List · 24-h)  → ✅ [2026-09-28] Release · 거둬들이기는 so v2.4(24-p) · 글자 · Finalized 대기 목록(so.html 필터 · 판정 46)은 so v2.5 · Finalize 창은 so v3(24-s)
 ⬜ manager 8 의 WMS 화면 권한 켜기(판정 25 · 비밀번호 전) · 검토함 끈 기록(⑤-2b · 판정 22) · Health 검사 고르기(⑤-5 · 판정 24)  → ✅ 검토함 끈 기록 = 판정 26(24-k) · 나머지 둘 ⬜  · Health 검사 고르기 → ✅ 판정 37(24-q)
 ⬜ 오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)  → ✅ [2026-09-28] receiving.html 「WAREHOUSE WORK」 줄 · 확정 창 한 줄 · 확정 뒤 안내(b693d8c · 판정 30 막지 않음 · 목록 칩은 안 넣음 · 24-s)
@@ -4246,7 +4246,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
          숫자 칸 넷(길이 · 너비 · 높이 · 무게) · 넣을 때 in/cm · lb/kg 를 고르면 DB 가 인치 · 파운드로 바꿔 저장 · 처음 넣은 숫자 · 단위도 남긴다 · 오피스 화면은 늘 in · lb · 메모 칸 그대로 ⇒ ⑤-2b  → ✅ [2026-09-27] 입력 화면 wms-fulfillment(⑤-5a) — 유닛마다 L · W · H + in|cm · 무게 + lb|kg · 기본 in · lb · 실측 120×100×150 cm · 250 kg → 47.24 × 39.37 × 59.06 in · 551.16 lb(24-q)  → ✅ [2026-09-28] 오피스 쪽 = so v3 Finalize 창이 wms_so_handoff 를 따로 읽어 in · lb 를 보인다(so_finalize 는 picks 만 읽는다 · 24-s)
 판정 20  픽커의 「Not enough stock」 신고는 운영 그대로 — Caleb 「그대로 유지되길 바래. wms에서 사용하는 기능들은 다 그대로 가져갈꺼야」
          wms_reports kind stock_short(알림 · 실수 집계 밖 · 규칙 41) ✅ ⑤-2a1 · 기대 · 찾은 수량 칸(qty_expected · qty_found) ✅ ⑤-2a2
-         ⬜⭐ 재고 사건 차수(10/5 주)에서 조정 창구를 세울 때, 이 리포트에서 실물 확인 뒤 **바로 재고 조정으로 넘어가는 연결**을 세운다 — Caleb 「당장 하지 않아도 돼. 다만 해당 재고조정 시점에, 매니저 리포트에서 바로 연결해서 넘어오는 창구를 세우는 것을 기억하라고」
+         ⬜⭐ 재고 사건 차수(10/5 주)에서 조정 창구를 세울 때, 이 리포트에서 실물 확인 뒤 **바로 재고 조정으로 넘어가는 연결**을 세운다 — Caleb 「당장 하지 않아도 돼. 다만 해당 재고조정 시점에, 매니저 리포트에서 바로 연결해서 넘어오는 창구를 세우는 것을 기억하라고」  → ✅ [2026-09-28] adj-b(0c96926) · §25
 판정 21  창고에 있는 오더의 취소 = 한 단계씩 — Caleb 「실물의 상태가 어떤지 확인되지 않은 상태에서 오피스에서 바로 캔슬하는 것은 좀 위험해 보여」
          Working → (창고가 되돌림) → Released to WMS → (오피스 거둬들이기) → Confirmed → 취소 · at_wms→cancelled · picking→cancelled 짝 없음 · 운영 Void 의 자리를 대신한다
 판정 22  매니저 「검토함」(운영 wms_orders.mgr_reviewed)은 그대로 가져간다 — Caleb 「그대로 가져가자」
@@ -4684,5 +4684,138 @@ RCV-00028 draft · 창고 Complete(v2.5 시험에서 Reopen 12:42 UTC 뒤 다시
 ```
 ⬜ Finalize 창의 줄 빼기(removed · 판정 9) · 견적서 인쇄 단추(so_proforma) · 판정 17 표 공통화(ims-ui.js · manager-list · pos · so-backorders · 0-a 재점검) · Purchase Receipts 목록 칩
 ⬜ 6b Delete 시험(RCV-00029) · 창고 기기 스캔 소리
-⬜ 다음 = 재고 사건(새 대화 · Caleb 2026-09-28) — 판정 20 ⬜⭐ 재고 조정 연결 · 받은 off-PO 되돌리기 · 트랜스퍼 입고(전환 전 필수)
+⬜ 다음 = 재고 사건(새 대화 · Caleb 2026-09-28) — 판정 20 ⬜⭐ 재고 조정 연결 · 받은 off-PO 되돌리기 · 트랜스퍼 입고(전환 전 필수)  → ① 조정 ✅ §25 · 다음 트랜스퍼
+```
+
+---
+
+## §25 재고 사건 ① 재고 조정 (2026-09-28 · 판정 47 ~ 59)
+
+⭐ Caleb 의 말 그대로 · 판정 원문 · 기각 · 경위(대화 Claude adj-docs · 2026-09-28) · 차례: adj-1 조사 → adj-1b → adj-a → adj-c(화면) → adj-a2 → adj-b → adj-rec 조사 → adj-rec-a
+
+### 25-a 판정 원문 (47 ~ 59)
+
+```
+판정 47  재고 사건은 「재고 조정」부터 — Caleb 「a로 가자」
+         올린 안: A 조정부터(한 칸 · 한 창고 · 더하기/빼기 · 창구 모양을 처음 세우기 좋다 · 판정 20 의 10/5 주 · 시험 재료 있음) / B 트랜스퍼부터(전환 전 필수 · 가장 큼)
+         ⇒ 트랜스퍼는 조정 바로 다음
+판정 48  조정의 범위 = ① 조정 창구(DB) + ② 판정 20 연결(WMS Admin 신고 → 조정) + ③ 오피스 조정 화면 — Caleb 「B로 가자」
+         ④ 실사 · 창고 지도(WarehouseMap) 정정 연결은 범위 밖 — 창고 지도 통합 때 따로 판정
+판정 49  조정(초안 쓰기 · 확정) = admin(역할) + 열쇠를 직접 켠 사람 — supervisor 도 켜야 한다 — Caleb 「수퍼바이저에게는 수동으로 하게하는 방식인 B로 가자.」
+         Caleb 물음 「그런데 수퍼바이저 아래인 매니저 레벨에서도 스탁 조정을 할 수 있는 사람이 있을 수 있어. 이 경우도 권한을 켜면 할 수 있는거지?」
+         → 답: 된다 — ims_can_write(20260928010908)는 manager 에게 perms ? 열쇠만 본다(대화 Claude 원문 확인) · ⚠️ 같은 함수가 supervisor 에게 역할로 true ⇒ 조정은 ims_can_adjust() 를 따로 쓴다
+판정 50  worker 는 열쇠가 켜져 있어도 조정을 못 한다 — Caleb 「worker에게 조정 기능은 필요없어 보여.」
+         (이유로 말한 것: 픽커가 모자람을 신고하고 같은 사람이 조정까지 하면 확인하는 눈이 하나 빠진다 · min_role 은 사람이 켠 perms 를 막지 못한다)
+판정 51  IMS 조정은 IMS 안에서만 — Cin7 에 쓰지 않고, Cin7 과 맞춰 가는 규칙(건너뛰기 · 표시)도 두지 않는다
+         Caleb 「지금 IMS를 만드는 목적은 잘 알지? 이 IMS는 cin7와는 별개인거야. 우리가 컷오버시까지 cin7과 병행해서 운영한다는 것은 운영 wms만이야. 물론 우리는 데이터는 cin7으로부터 받을 수 있어. 그러나 IMS는 완전히 별개로 작동해야 하고, 어떤 주고받음 있어서는 안돼.」
+         (대화 Claude 가 「11월 병행 기간에 조정을 Cin7 / IMS 어디서 할까」를 물은 것이 잘못된 질문이었다 — 정정으로 남긴다 · Claude Code adj-1 H9 도 같은 틀이었다)
+판정 52  조정 사유 = 목록에서 고른다 — found · lost · damaged · count · other(other 는 메모 필수) — Caleb 「A로 가자」 · 목록은 뒤에 작은 마이그레이션으로 늘릴 수 있다
+판정 53  틀린 조정은 새 조정 문서로 바로잡는다 · 되돌리기 창구 없음 · 메모에 원래 문서 번호 — Caleb 「A로 가자」
+         (대가로 말한 것: 되돌아온 수량의 원가는 뺄 때의 원가가 아니라 그때의 평균 원가 · 두 문서의 이음은 메모에 기댄다)
+묶음 열둘(판정 53 뒤) — Caleb 「그대로 가자」
+         1 입력 = set(N 개로) · delta(± N) 둘 다 · 늘 한 칸 · 한 SKU · 창고 합계 입력 없음(부분 실사 사고)
+         2 동시성 = 줄에 본 값(장부 · P)을 적고 확정 때 다시 읽어 다르면 거부(CAS)
+         3 원가 = +(단가 없음) layer_avg · +(단가 줌) adjust_new manual · − FIFO adjust_out — Cin7 축 inv_layer_apply_adjust 와 같은 규칙
+         4 흐름 = 여러 줄 초안 → 미리 보기 → 확정 한 번   5 번호 ADJ-00001   6 음수 금지   7 칸 필수(bin '' 안 받음)   8 원장은 낱개 EA · 팩/세트 환산은 화면
+         9 신고에서 넘어올 때 = 픽 줄의 실제 칸(planned=false) · SKU · 목표 「이 칸 0」 을 채움 · 사람이 바꾼다 · 확정하면 그 신고가 닫힌다 · Mark resolved 는 그대로
+        10 계정 칸 = 둔다 · null 허용 · 회계 연결은 뒤   11 재생성 = credit_in IMS 축과 같은 셋(실시간 창구 · 원가 창구 · 재생성 갈래)   12 시험 재료 CON00156 C070303 34 → 0
+         ⭐ 묶음 뒤 대화 Claude 가 찾은 함정(판정 아님 · adj-a 에서 반영): 원장은 Ship 에 뺀다 ⇒ set 의 기준 = 선반 기대량(장부 − P · P = 뽑혔지만 안 나간 수량) — 장부 기준이면 두 번 빠진다
+판정 54  느림 고치기 = A + B + C — Caleb 「니 생각대로, A+B+C로 가자」
+         A inv_balance 셈 모양만 union all + group by(뜻 무변) · B inv_adjust_eval materialized · C preview/detail/confirm 이 eval 한 번
+판정 55  지운 초안의 번호는 비워 둔다(입고 RCV 와 같게) — Caleb 「나도 같은 생각이야. B로 하자」
+         (대화 Claude 지시서의 setval = max(실제 번호) 가 틀렸다 — Claude Code 가 짚었다 · 검증 끝 setval = greatest(실제 최대, 시작 last_value))
+판정 56  원가 0 경고 = 화면에서 — 확정 창 빨간 상자(원가 0 으로 들어갈 줄 이름) + 「I know these go in at cost 0」 체크해야 확정 · 줄 창 설명 글 — Caleb 「A로 가자」
+         Caleb 물음 「unit cost를 비워두면 average cost를 쓴다는데, 그러면 이것도 비워놔도 돼지?」 → 답: 이번 경우 아니다(남은 레이어 0 → 원가 0) · Caleb 「그러면 0으로 들어갈 확률이 있는 것들은 경고가 있어야 하지 않나?」
+         B(저장 전 평균 원가 표시 · DB 함수 하나)는 미룸(판정 59 목록 ④)
+Caleb 요청(판정 번호 없음 · adj v1.1 · v1.2 로 반영)
+         「이번에는 bin이 안보이는데? 이것이 자연스러운거야?」 → 0 인 칸 흐리게 · Last here(ims_last_bin) · 칸 목록 처음부터 — Caleb 「그렇게 수정해줘」
+         「adjust stock을 열었을때, 해당 sku(CON00156)을 다시 불러야 하네. add line을 하지 않고 해당 sku가 바로 added된 채로 열릴 수는 없는걸까?」 → 뽑은 칸이 없으면 Last bin 으로 set 0 줄 · 그것도 없으면 SKU 채운 줄 창
+판정 57  팩에서 회복한 물건은 가져온 칸을 남긴다(기본 = 픽 계획 칸 · 바꿀 수 있다) — Caleb 「a로 가자」
+         발단 Caleb 물음 「여기서 confirm을 누르면, 이 문제는 해결 된게 되잖아. 그런데 실제로 스탁이 0은 아니었던거고, 대신 수량이 좀 줄은걸로 adjust가 되는데, 매니저가 여기까지 해서 스탁 조정을 한다면, 실제로 물건을 몰라서 못뽑은걸텐데, 그 픽커의 not enough stock 선언은 해소되지만, 실제로 매니저가 찾은 물건은 어떻게 되는거야? 팩킹에서 스캔하면 되는건가?」
+         기각: B 칸 없음('')으로 내보내기(칸 잔고가 틀어진다) · C 팩 회복 없애기(현장이 느려진다 · 판정 20 「wms 기능은 다 그대로」 와 어긋난다)
+         묶음 셋 — Caleb 「그대로 가자」: 1 순서 규칙 없음(검증 R5 두 순서로 증명) 2 팩 화면 칸 기본 = 계획 칸 · 바꿀 수 있다 3 테스트 재료 그대로
+판정 58  팩에서 채워진 신고는 지금처럼 저절로 닫힌다 · 대신 매니저가 「팩 과정에서 검수자가 해결」을 분명히 알 수 있게
+         Caleb 「저절로 닫히게 두는게 좋아. 그런데 매니저는 알아야 하니 팩과정에서 검수자가 해결했음을 명확히 알려줬으면 좋겠어. 그리고, 이런 경우에는 대부분 팩커가 물건을 찾았음을 declare해야 앞뒤가 맞는게 아닐까?」
+         대화 Claude 안(미룸 · 판정 59): ① 팩커 「Found it? 몇 개 · 어느 칸」 선언 창(지금의 두 질문을 하나로) ② wms_reports 에 닫힌 방법 칸(팩에서 찾음 누가·몇·칸 / 조정 ADJ 번호 / Mark resolved) ③ WMS Admin Reports 칩 「Found at packing — 누가 found N in 칸」 · 「Adjusted — ADJ-…」 · 합계 「N (1 open · 1 found at pack)」 ④ Claude Code 한 차수
+         Caleb 물음 「지금 내용을 하나로 묶어서 갈 수 있는거야? 급한것 같아 보이지는 않는데, 지금 꼭 해야 하는걸까?」 → 답: 묶을 수 있다 · 틀리게 쌓이는 데이터 없음 · 비밀번호 배포(실사용) 전에는 서 있어야 한다
+판정 59  판정 58 묶음은 미룬다 · 다음으로 넘어간다 · 미룬 수정은 반드시 기억했다가 나중에 순서대로 모두 적용 — Caleb 「미루자. 지금은 재고 조정이 문제없이 돌아가는 것을 확인했으니, 다른 것들로 넘어가는게 맞는것 같아. 그러나 지금 말한 수정은 꼭 기억했다가 나중에 순차적으로 다 적용하도록 하자」
+         뒤 차례 — Caleb 「문서 차수 마무리하고, 트랜스퍼로 바로 넘어가자」
+```
+
+### 25-b 조사 · 실측
+
+```
+원장 크기(2026-09-28)  inv_ledger 41,615 · inv_snapshot 206,240(기초 13,844) · inv_balance 18,144 키
+느림(판정 54 전 → 후)  한 키 잔고 108~130 ms → 4 ms(직접 0.13 ms) · eval 줄 1 1,272 → 6.3 ms · detail ADJ-00002 1,264 → 8.2 ms · 초안 3줄 preview 7,576 → 11 ms · detail 9,634 → 10.5 ms
+   원인 셋: ① inv_balance Hash Full Join 뒤 키를 고름(술어가 안 내려감) ② SQL 함수 인라인 → CTE 참조마다 재계산(buffers 247,582 ÷ 18,995 ≈ 13회/줄) ③ preview 가 eval 4회 · detail 이 eval 1 + preview
+팩 회복 빈틈(판정 57 전) 회복은 팩 줄 verified 만 남김 · wms_so_handoff v_ship = least(Σ칸 planned=false, floor(verified/pack), target) ⇒ 회복분 잘림 → sale_out 안 빠짐 · pick_short 백오더 오탐 · 픽 0 전량 회복이면 so_finalize ① 「picks must be a JSON array…」 로 막힘 · P 도 못 셈
+   운영 WMS 에는 없던 문제(Cin7 이 오더 수량으로 뺐다) — IMS 가 칸 단위 픽 행으로 빼며 생긴 것 · 대화 Claude 가 24-s 「so_finalize 는 picks 만 읽는다」 를 적고도 짚지 못했다
+끝에서 끝 시험(Caleb(admin) 화면)  ① ADJ-00002: 신고 16 → Adjust → set 0 → −34 fifo · C070303 0 · 신고 닫힘 ② ADJ-00005: found +5 · 단가 0.50 ③ SO-25005: Pick found 0(신고 38) → Pack 1 스캔 · 칸 C070303 · 확인 문구 「+1 from C070303」 → 신고 38 저절로 닫힘 → Fulfillment Finalize → 오피스 Finalize(Shipped · Closed 13:25 EDT · Qty out 1 · 인보이스 60003) → SO-25005b 없음 · 칸 행 계획 1 + 회복 1(from_pack) · sale_out −1 C070303 · 잔고 4(45 −11 −34 +5 −1)
+```
+
+### 25-c 실물 — 커밋 · 창구 · 화면
+
+```
+asung-wms  4ac54e2  20260928142722_inv_adjust_a.sql (1,327행 · md5 ec69880c…) — inv_adjust · inv_adjust_line · inv_adjust_number_seq · inv_adjust_next_number · ims_can_adjust · ims_can_adjust_read · inv_adjust_require · inv_adjust_picked(P) · inv_adjust_ledger · inv_adjust_eval · 초안 창구 넷(create · line_set · line_remove · delete) · preview · confirm · inv_post_adjust · inv_layer_post_adjust · inv_layer_apply_adjust_ims · list · detail · from_report · ims_perm_catalog 재발행(stock_adjust · min_role manager) · inv_layer_apply 재발행(117 목록 + adjust 갈래) · wms_health_check 재발행(170 adjust_confirmed_no_ledger critical) · 시험 6회 OK 78
+           facc8c9  20260928151948_inv_adjust_a2_speed.sql (173행 · md5 fdb75d3b…) — 판정 54: inv_balance union all + group by(컬럼 · acl · 옵션 · 의존 뷰 무변 · except 양방향 0 · 18,144 키) · inv_adjust_eval x as materialized · inv_adjust_summary 신설 · preview · detail 재작성(eval 1회) · confirm eval 1회(거부 판정과 delta 굳힘을 같은 읽기로) · 시험 2회 OK 24
+           7af9175  20260928164832_wms_pack_recover_bins.sql (350행 · md5 0febf09e…) — 판정 57: wms_pick_line_bins.pack_task_id(FK wms_pack_tasks cascade · 부분 인덱스) · wms_complete_pack 재발행 p_recovered [{sku, bin|bin_id, qty}] → planned=false 칸 행(팩커 · pack_task_id) · 옛 문자열 모양 거부(「Reload the packing screen (Ctrl+F5) — …nothing was saved」) · 줄마다 verified = 픽 칸 합 + 회복 합 대조 · 다른 창고 칸 거부 · wms_rollback · wms_rollback_batch(pack) 재발행 — 회복 행 archive → 삭제(지시서 밖 · Undo Pack 짝 때문에 필요했다) · 시험 4회 OK 26
+asung-ims  4b4d45a  stock-adjustments.html adj v1(대화 Claude · 753행 · md5 c2932eea…)
+           8edadf5  adj v1.1 — 0 인 칸 흐리게 · Last here(ims_last_bin) · 칸 목록 처음부터(md5 cd140a02…)
+           0c96926  adj-b — wms-admin.html wa v1.9(Reports 열린 stock_short 줄 「Adjust stock」 → stock-adjustments.html?report=<id> 같은 창 · ims_can_adjust() 한 번 · fail-closed · Mark resolved 그대로) · ims-auth.js 메뉴 「Stock Adjustments」(Manager List 뒤 · ims · 탭 아님 · 열쇠 stock_adjust)
+           b6b5531  adj v1.2 — 판정 56 확정 창 원가 0 경고 + 체크 · 줄 창 설명 · 신고에 뽑은 칸 없으면 Last bin 으로 set 0 줄 · 없으면 SKU 채운 줄 창(md5 8c980e1c…)
+           0c28d44  wms-packer.html pa v1.1 — 채울 때 칸 prompt(기본 계획 칸) · p_recovered 새 모양 · 확인 문구 「+N from <bin>」
+레포 밖    ~/asung/prompts/adj-a-verify.sql v2(스스로 재료 · OK 78 · 세 번 같음) · adj-a-verify.v1.sql(옛 판) · adj-a2-verify.sql(OK 24) · adj-rec-a-verify.sql(OK 26) — 회사 PC
+화면 계약  stock-adjustments.html ?id= · ?report=<wms_reports.id>(같은 신고의 초안이 있으면 그것을 연다) · 단추는 ims_can_adjust() · 열쇠 없는 supervisor 는 메뉴 · 화면이 보이고 읽기만
+```
+
+### 25-d 사고와 규칙
+
+```
+1 옛 값 옮김 — adj-1 C2 「잔고 45」 는 앞 차수 출력이었고 그 차수의 잔고 쿼리는 앞 문장 오류로 abort 돼 안 돌았다 ⇒ 보고의 DB 값은 그 보고의 쿼리 출력에서만 · abort 된 트랜잭션의 뒷 문장은 「안 돌았다」
+2 `tee … | head` 가 psql 을 SIGPIPE 로 죽여 뒤 문장이 안 돌았다 ⇒ 파일로 받고 따로 읽는다
+3 한 트랜잭션 안 독립 검사는 문장 하나 실패로 전부 abort ⇒ 독립 검사는 트랜잭션을 나눈다
+4 declare 변수 e 가 eval 별칭 e 와 겹쳤다(「record e is not assigned yet」) — 네 번째 실사고 ⇒ 변수는 v_ 접두
+5 ims_touch 가 붙는 표는 updated_by 칸이 있어야 한다
+6 한 트랜잭션 안 now() 는 같다 ⇒ 시각 비교 시험은 전후 \gset
+7 SQL 함수 안 비싼 식을 여러 번 참조하면 인라인돼 그 수만큼 돈다 ⇒ as materialized · 배수는 buffers 로 잰다 · 뷰의 Full Join 은 키 술어를 못 내린다 ⇒ union all + group by
+8 뷰 재발행 = create or replace + except 양방향 + 옵션 · acl · 의존 뷰 md5 전후 대조
+9 검증이 실제 행에 기댔다(adj-a v1 · 확정 뒤 재료 34 → 0 으로 MISMATCH 10 · :avg_before 비어 문법 오류) ⇒ 검증은 트랜잭션 안에서 스스로 재료를 세운다 · 후보는 쿼리로 고른다
+10 setval = max(실제 번호) 가 지운 초안 번호를 재사용 ⇒ greatest(실제 최대, 시작 last_value)(판정 55)
+11 변환 스크립트가 파일을 안 썼는데 실행이 이어져 옛 검증이 두 번 돌았다(번호 14 까지) ⇒ 만든 뒤 ls -l · md5 로 새 판인지 보고 돌린다
+12 pg_temp 함수 안 set_config(session_replication_role) 은 권한 오류(Supabase postgres 는 슈퍼유저 아님) ⇒ 문장으로 SET LOCAL
+13 GitHub Pages 캐시 약 10분 — 링크로 넘어가면 옛 판이 열렸다(adj v1.1) ⇒ Ctrl+F5 · 빌드 표시 확인 · 창구가 옛 화면을 fail-closed 로 막는 것이 안전(pa v1.1 「Reload the packing screen」) · 컷오버 때 직원 화면 문제(판정 59 ③)
+14 대화 Claude 실수 다섯 — ① 판정 51 을 잘못된 틀로 물었다 ② Health 검사를 psql(로그인 없음)로 돌리게 했다(wms_manage 문에 막힘 · 검사가 옳게 막았다) ③ ADJ-00012 를 「set 3 그대로 확정」 이라 했다(회복 뒤 선반은 2) ④ 판정 55 의 setval 모양 ⑤ 인계서 §4 zip 명령이 asung-workflow §8(스킬 폴더 안에서 · 폴더 겹 없이)과 달랐다 — Claude Code 가 짚었다 ⇒ 사실 · 셈은 쓰기 전에 한 번 더
+15 ⑤ 설계 빈틈(팩 회복 · 판정 57) — 출고 · 원장을 칸 행으로 셈하기 시작하면, 칸 행을 안 남기는 모든 길(팩 회복 등)을 전수로 찾아야 한다
+```
+
+### 25-e ⬜ 미룬 것 — 판정 59 (Caleb 「꼭 기억했다가 나중에 순차적으로 다 적용」 · 이 순서 그대로)
+
+```
+① 판정 58 묶음 — ⚠️ 비밀번호 배포(실사용) 전 필수: 팩커 「Found it? 몇 개 · 어느 칸」 선언 창 · wms_reports 닫힌 방법 칸 · WMS Admin Reports 칩과 합계 갈라 보이기
+② 확정 순간 같은 칸 배송 · 입고 동시 커밋 — 원장 키 잠금(so_ship · 입고 창구까지 함께 잠가야) · 판정 거리
+③ GitHub Pages 캐시 10분 — 컷오버 때 직원 화면이 옛 판(판정 거리 · 화면 캐시 끄기 또는 판 확인)
+④ 조정 줄 창 저장 전 평균 원가 표시(판정 56 B · DB 함수 하나 · eval 과 같은 함수)
+⑤ 팩 칸 prompt 를 제대로 된 창으로 · 한 SKU 두 칸 나눠 채우기(서버는 이미 받는다)
+⑥ 조정 Edit 창에서 사유가 Found 로 보였다(표는 Count difference 였는지 확인 · 화면 선택 잘못일 수 있다)
+⑦ 테스트 재료 정리 — SO-25003b(Working · 픽 과제 125) · 신고 37 열림
+⑧ 판정 55 검증 한 줄(greatest) — Claude Code 보고를 받았는지 확인
+⑨ 조정 문서의 메모 · 계정을 고치는 창구 · 화면이 없다(create 때만)
+⑩ 검증 파일을 레포로(ims-principles §6-b ①)
+기존 그대로: 원가 모르는 판매 부족분 채우기(asung-inv-ledger ⑲ ⬜) · POS 가 어느 칸에서 빠지나(④ 판정 1)
+```
+
+### 25-f 컷오버 준비 목록에 더함
+
+```
+□ 조정 열쇠(stock_adjust)를 켤 manager · supervisor 를 정한다(판정 49 · worker 는 안 됨 판정 50)
+□ 판정 58 묶음이 섰는가(비밀번호 전)
+□ 직원 화면 캐시(판정 59 ③)
+```
+
+### 25-g 테스트 DB 지금 (2026-09-28 오후 · 시퀀스는 Claude Code 읽기 확인)
+
+```
+조정 ADJ-00002 confirmed(신고 16 · −34) · ADJ-00005 confirmed(found +5 · 0.50) · 빈 번호 00001 · 00003 · 00004 · 00006 ~ 00012(지운 초안 · 판정 55)
+SO-25005 fulfilled(인보이스 60003) · SO-25003b Working · 신고 37 열림 · 신고 16 · 38 닫힘 · CON00156 C070303 장부 4
+시퀀스 so 25005 t · inv 60003 t · adj 12 t · cr 1000 t · po 2027 t · rcv 29 t
 ```

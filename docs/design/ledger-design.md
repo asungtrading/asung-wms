@@ -336,6 +336,8 @@ SR 상태는 워크플로 중간 상태라 그 −90행은 **실재 입고를 �
 
 **7. 조정 — 신규 재고** — 구조가 다르다. 당시수량이 없고 수량 하나만 있으며, 그게 그대로 증가분이다. **6번 규칙을 여기 적용하면 틀린다.** 단가가 함께 들어 있다.
 
+**IMS 축 조정(2026-09-28 · so-module §25)** — 창구 `inv_post_adjust`(확정 `inv_adjust_confirm` 이 부른다) · 원장 줄 = 칸 하나(doc_type `adjustment` · doc_number `ADJ-…` · line_ref = 조정 줄 id · source `ims` · + 이고 단가 있음 = `adjust_new` · 그 밖 = `adjust_existing` · seq_hint + 1 · − 2) · `set`(N 개로)의 기준은 장부가 아니라 **선반 기대량 = 장부 − P** · P = 뽑혔지만 안 나간 수량 = `wms_pick_line_bins planned=false` 전부(팩 회복 행 포함 · 판정 57) × 오더 picking/packed · 원가 = + 단가 없음 `layer_avg` · + 단가 `manual` · − FIFO `adjust_out`(Cin7 축 6 · 7 과 같은 규칙) · 되돌리기 창구 없음 — 틀린 조정은 새 문서로(판정 53) · 재생성 = `inv_layer_apply_adjust_ims` → `inv_layer_post_adjust`(실시간과 같은 함수).
+
 **8. 조립** — 구성품 여러 줄이 빠지고 완제품 한 줄이 들어온다. 번들 판매를 하면 **오더가 만들어지는 시점에** Cin7 이 자동으로 조립 문서를 만들어 구성품을 차감한다. **그래서 우리가 번들 구성을 알 필요가 없다** — 조립 문서에 이미 다 들어 있다.
 
 조립일과 출고일은 다르다. 조립은 오더 생성 때, 출고는 배송 때다. 그 사이 **번들이 재고로 존재하는 구간**이 생긴다(실측 0~15일, 대부분 0~3일).
@@ -688,7 +690,7 @@ where l.source = 'manual'                                            -- 정정 =
 
 📌 ⭐ **[2026-09-19 `20260919151601`] IMS 가 읽는 얼굴은 `ims_inv_balance` 다** — `inv_balance` 를 **읽어** IMS 열쇠
 (`product_id`·`warehouse_id`·`bin_id`)와 마지막 사건일(`last_event_on` · `last_seen_on`)을 붙여 낼 뿐이다.
-**잔고 정의는 여전히 `inv_balance` 하나** — 숫자를 다시 계산하지 않는다(4부 「이식」 절).
+**잔고 정의는 여전히 `inv_balance` 하나** — 숫자를 다시 계산하지 않는다(4부 「이식」 절).  → [2026-09-28] 셈 모양만 union all + group by(판정 54 · 뜻 무변 · 기초 스냅샷 + 원장 전 행 · except 양방향 0 · 18,144 키 · 한 키 130 ms → 0.13 ms · 마지막 정의 20260928151948 · so-module §25)
 ⬜ ⭐ **shadow 대조 축과 `source='ims'`** — `inv_balance_vs_cin7` 은 IMS 사건(`po_in` · `doc_number` `RCV-…`)을 「원장만 있음」으로 잡는다.
 테스트 DB 는 Cin7 수집이 없어 지금은 문제없지만 **운영 이식 때 정해야 한다**(대조 축에서 제외인가 · 별도 축인가 —
 ⚠️ 여기서 설계하지 않는다 · 열어만 둔다). 수집기의 소멸·취소 감지는 `source=eq.cin7` 과 Cin7 문서번호 기준이라 `RCV-` 행에 닿지 않는다.
@@ -3656,6 +3658,7 @@ credit       〃
   고친 모양: 보조 넷에 문(po_in 과 같은 모양 · 조용히 return · 직접 호출·재귀 방어) · **세는 것은 본체 한 곳**(두 곳이면 두 번 잡힌다) — 본체가 po_in·sale_out 아닌 행의 source 를 보고 종류별로 세고 continue ·
   반환 `ims.skipped_by_event`(여덟 키가 항상 보인다 — 0 이 아니면 그 사건의 창구를 만들 때) · ⚠️ `transfer_out_unpaired`·`assembly_out_unpaired` 집계에서 ims 를 뺐다(안 하면 IMS out leg 가 「0 이면 정상」 감시 칸을 오염시켜 진짜 신호가 묻힌다) · sale_out 은 문이 없다(소진은 한 원장 FIFO 가 맞다).
   ⚠️ 마지막 판 함정 — `inv_layer_apply_transfer_in` 은 **다섯 판**(`174046`·`183253`·`190145`·`233729`·**`235347`**). 옛 판을 잡으면 IN_TRANSIT 결함 둘(문서 범위 · 날짜 범위) 수정이 사라진다. 원문 대조 전부 `<` 0.
+  → ✅ [2026-09-28] **adjust 둘의 창구가 섰다**(`20260928142722` · so-module §25) — `inv_layer_apply` 본체가 source ims 인 adjust_existing · adjust_new 를 `inv_layer_apply_adjust_ims` 로 보낸다 ⇒ `ims.skipped_by_event` 의 adjust 두 키는 **0 이 정상**(이제 「창구가 없어 세는」 것이 아니라 창구가 처리한다) · 여덟 키 모양은 그대로 · `inv_layer_apply` 마지막 정의 = 20260928142722.
 
 ~~⬜ 원인 불명 — 같은 함수를 돌렸는데 Cin7 레이어가 늘었다(+1,330 · +2,894)~~ → ✅ **[2026-09-20 오후] 원인이 밝혀졌다 — 결함이 아니었다.** 09-10 밤 세션(`docs/sessions/2026-09-10-cin7-valuation-compare.md:52`)이 `inv_layer_apply('2026-09-09')` 로 **09-09 까지만 잘라** 돌렸다(Cin7 평가액 대조의 비교 시점에 맞춘 것).
 원장에는 09-10 사건이 **3,642행** 있었고 그 하루치가 레이어에 없었다 ⇒ 전량(p_until 없이) 돌리니 그 하루가 채워져 +1,330 이 된 것이다. 오전의 「같아야 할 숫자가 다르다」는 **범위를 안 맞춘 대조**였다. cost_add 316/434 가 같았던 것도 그래서다(09-10 에 운송비·landed 사건이 없었다).

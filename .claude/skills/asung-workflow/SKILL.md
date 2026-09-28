@@ -199,6 +199,20 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️⚠️ **시험 안에서도 실제 행을 바꾸지 않는다** — rollback 되더라도(⑤-6a2 가 실제 worker 의 is_active 를 savepoint 에서 껐다 되돌렸다 · md5 로 증명) ⇒ 갈래는 가짜 직원 · 가짜 입고(RCV-79xxx) · savepoint 로(사고 9)
 ⚠️ **갈라진 표를 읽는 검사 · 창구는 양쪽 갈래를 각각 시험 자료로** — 운영의 한 표가 IMS 에서 둘로 갈렸으면(24-b · 실수 ↔ stock_short 신고) 한쪽만 시험하면 다른 쪽 빠짐이 안 보인다(⑤-5c1 short_no_disc → c3 · §24-q 사고 3)
 ⚠️ **`begin read only` 에서는 `for update` 가 든 창구가 안 돈다** — so_finalize 미리 보기(p_commit false)도 ① 검사가 잠근다 · 미리 보기 시험은 읽기 전용이 아니라 **begin … rollback** 트랜잭션으로(2026-09-28 office-1 조사 · so-module §24-s)
+⚠️ **[2026-09-28 재고 조정 · so-module §25-d] 보고의 DB 값은 그 보고의 쿼리 출력에서만** — 앞 차수 출력을 옮기지 않는다 · abort 된 트랜잭션의 뒷 문장은 「안 돌았다」(adj-1 「잔고 45」)
+⚠️ **`tee … | head` 금지** — psql 이 SIGPIPE 로 죽어 뒤 문장이 안 돈다 · 파일로 받고 따로 읽는다
+⚠️ **한 트랜잭션 안 독립 검사는 문장 하나 실패로 전부 abort** — 독립 검사는 트랜잭션을 나눈다
+⚠️ **declare 변수 ≠ 조회 별칭** — `e` 가 eval 별칭 `e` 와 겹쳐 「record e is not assigned yet」(네 번째 실사고) ⇒ 변수는 `v_` 접두
+⚠️ **ims_touch 가 붙는 표는 `updated_by` 칸이 있어야 한다** — 없으면 update 가 「record new has no field updated_by」
+⚠️ **한 트랜잭션 안 now() 는 같다** — 시각 비교 시험은 전후 값을 \gset 으로 받아 비교
+⚠️ **SQL 함수 안 비싼 식을 여러 번 참조하면 인라인돼 그 수만큼 돈다** — `as materialized` · 배수는 buffers 로 잰다 · 뷰의 Full Join 은 키 술어를 못 내린다 ⇒ union all + group by
+⚠️ **뷰 재발행** = create or replace + except 양방향 + 옵션 · acl · 의존 뷰 md5 전후 대조
+⚠️ **검증은 실제 행에 기대지 않는다** — 트랜잭션 안에서 스스로 재료(원장 · 레이어)를 세우고 후보는 쿼리로 고른다(adj-a v1 이 재료 34 → 0 뒤 MISMATCH 10)
+⚠️ **번호 되돌리기 = greatest(실제 최대, 시작 last_value)** — max(실제) 는 지운 초안 번호를 다시 쓴다(판정 55)
+⚠️ **만든 파일이 새 판인지 ls -l · md5 로 보고 돌린다** — 변환 스크립트가 파일을 안 썼는데 실행이 이어져 옛 검증이 두 번 돌았다(번호 14 까지)
+⚠️ **pg_temp 함수 안 set_config(session_replication_role) 은 권한 오류** — Supabase postgres 는 슈퍼유저가 아니다 ⇒ 트랜잭션 문장으로 `set local session_replication_role = replica`
+⚠️ **GitHub Pages 캐시 약 10분** — 링크로 넘어가면 옛 판이 열린다 ⇒ Ctrl+F5 · 빌드 표시 확인 · 창구가 옛 화면을 fail-closed 로 막는 것이 안전(pa v1.1 「Reload the packing screen」) · 컷오버 때 직원 화면 문제(판정 59 ③)
+⚠️ **출고 · 원장을 칸 행으로 셈하기 시작하면 칸 행을 안 남기는 모든 길을 전수로 찾는다** — 팩 회복이 빠져 있었다(판정 57)
 ```
 
 ---
