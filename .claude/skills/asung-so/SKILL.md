@@ -43,7 +43,8 @@ POS · counter ④a ✅ 2026-09-25 — a1 20260925133147(product_bin_overflow ·
 ⑤ WMS 이관     ⬜ 2026-09-26 — 판정 아홉(옮겨 고친다 · 안의 모듈 · 창구 · uuid · ims_staff · asung-ims WMS 모드) · 조사 실측 · 차수 계획 → 정본 §24 · ⓪ 문서만 섰다
 ⑤ WMS 창구 ⑤-2a ✅ 2026-09-26 — 상태 짝 WMS 여섯 · so_wms_status(authenticated 불가) · Release/거둬들이기(sales) · packed = Finalize(창고 출하 준비 완료) · 재고 · 인보이스는 so_finalize(§24-h · i · j)
 ⑤ WMS 창구 ⑤-2b ✅ be2ed5a — so_finalize 는 picks 가 없으면 wms_so_handoff · 미리 보기는 번호를 안 당긴다(F11) · Finalize = wms_finalize(§24-k)
-so v2.4(1b8c437) — Release to WMS · Recall from WMS(sales 쓰기 · 보류 · 백오더면 막힘 · picking 이면 Recall 막힘) · 오피스 판 ⬜(§24-p)
+so v2.4(1b8c437) — Release to WMS · Recall from WMS(sales 쓰기 · 보류 · 백오더면 막힘 · picking 이면 Recall 막힘) · 오피스 판 ⬜(§24-p)  → ✅ [2026-09-28] 오피스 판 섰다(§24-s)
+so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(SO_STATUS_LABEL · 공통화는 뒤) · Qty out · 시각 줄 Released · Working · Finalized · 필터 「Finalized — waiting for the office」(packed · 판정 46) · Finalize 창 = wms_so_handoff 로 팔렛 · 박스 in · lb(so_finalize 는 picks 만 읽는다) + 운임 · 택배사 · 추적 · 메모 → so_finalize 미리 보기 뒤 같은 입력으로만 실행 · ⚠️ packed 오더 운임은 이 창에서만(so_charge_set 은 draft 전용) · 줄 빼기(removed) ⬜ · ⭐ SO-25003 = Cin7 없이 IMS 만으로 닫힌 첫 창고 오더(§24-s)
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 

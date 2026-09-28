@@ -4059,7 +4059,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
                      so_status_guard 에 at_wms · picking · packed 짝  → ⑤-2 로(24-g)                                    400~600행  → ✅ [2026-09-26] f82a00d(24-g)
 ⑤-2 창구 · 출고      Release to WMS(새로) · 배치 만들기 · 픽 · 팩 · 출하(so_ship · p_picks) · 되돌리기 넷 · 권한 문   700~900행  + so_status_guard 짝 · 창고 제한 첫 실물 · worker 창고 SQL(24-g)  → [2026-09-26] 나눔: ⑤-2a1 ✅ 468b897 · ⑤-2a2 ✅ efce92a · ⑤-2b 다음(24-h · i · j)  → ⑤-2b ✅ be2ed5a(24-k)
 ⑤-3 창구 · 입고      receiver 동작 → po_receipt_* · stage_events → 축 칸                                 300~400행  → ✅ [2026-09-26] 3a 55678c1 · 3b d0ed9ee(24-l · m · n)
-⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)  → ✅ [2026-09-26] ⑤-4 세 화면 섰다(24-o · p) · 남은 것 ⑤-5 · ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-5 = a · b · c1 · c2 · c3(판정 34 · 24-q) · 남은 것 ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-6 = 6a · 6a2 · 6b · 6c1 · 6c2 · 6c3(판정 38 · 24-r) · 남은 것 오피스 판
+⑤-4 · ⑤-5 · ⑤-6     화면(판정 1 예외 · 원본과 diff)  → ✅ [2026-09-26] ⑤-4 세 화면 섰다(24-o · p) · 남은 것 ⑤-5 · ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-5 = a · b · c1 · c2 · c3(판정 34 · 24-q) · 남은 것 ⑤-6 · 오피스 판  → ✅ [2026-09-27] ⑤-6 = 6a · 6a2 · 6b · 6c1 · 6c2 · 6c3(판정 38 · 24-r) · 남은 것 오피스 판  → ✅ [2026-09-28] 오피스 판 = so v2.5 · so v3 · receiving 「warehouse state」(판정 46 · asung-ims b693d8c · f73b980 · 24-s)
 뒤                  제자리 돌려놓기 · 칸 이동 · 픽커 리포트 · 헬스 IMS 판 · 사진 · 트랜스퍼 픽 · 찾기 · 세기 · bin transfer
 ```
 
@@ -4086,9 +4086,9 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ 운영 일괄 배포 보류 — 앞의 IMS 95(20260911144606~)는 가드가 없다 · ⓒ inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(24-g 판정 13 ➕)
 ⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 전환 준비 · 이월(24-f)
 ⬜⭐ 재고 사건 차수: 매니저 리포트(stock_short) → 실물 확인 → 바로 재고 조정 연결(판정 20 · Caleb 「기억하라고」 · 24-h)
-⬜ 오피스 화면 판: 판정 17 글자 · Release to WMS 단추 · 거둬들이기 · 「Finalized — 견적 · 결제 · 마무리 대기」 목록(판정 16 · 18 · Manager List · 24-h)
+⬜ 오피스 화면 판: 판정 17 글자 · Release to WMS 단추 · 거둬들이기 · 「Finalized — 견적 · 결제 · 마무리 대기」 목록(판정 16 · 18 · Manager List · 24-h)  → ✅ [2026-09-28] Release · 거둬들이기는 so v2.4(24-p) · 글자 · Finalized 대기 목록(so.html 필터 · 판정 46)은 so v2.5 · Finalize 창은 so v3(24-s)
 ⬜ manager 8 의 WMS 화면 권한 켜기(판정 25 · 비밀번호 전) · 검토함 끈 기록(⑤-2b · 판정 22) · Health 검사 고르기(⑤-5 · 판정 24)  → ✅ 검토함 끈 기록 = 판정 26(24-k) · 나머지 둘 ⬜  · Health 검사 고르기 → ✅ 판정 37(24-q)
-⬜ 오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)
+⬜ 오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)  → ✅ [2026-09-28] receiving.html 「WAREHOUSE WORK」 줄 · 확정 창 한 줄 · 확정 뒤 안내(b693d8c · 판정 30 막지 않음 · 목록 칩은 안 넣음 · 24-s)
 ⬜ off-PO 승인 · 거절 · 투입 · 약식 등록(⑤-6) · 트랜스퍼 입고(재고 사건 · 전환 전 필수) · 리시빙 창구 나머지 아홉(split · unassign · delete · diff 셋 · _over 둘)의 창고 검사  → [2026-09-27] off-PO 승인 · 거절 · 투입 ✅(판정 43 ~ 45 · 창고 놓기 → 오피스 결정 · 24-r) · 아홉 가운데 delete 의 창고 길 = wms_recv_delete(89da967 · 오피스 po_receipt_delete 는 그대로) · Health hold_leak 입고 가지 ✅(20260928014844) · 약식 등록 · 트랜스퍼는 그대로 ⬜ (24-r)
 ⬜ wms_receiving_confirm 은 아무에게도 켜지 않았다(판정 27 · B)  → [2026-09-27] 판정 42 · 42 A — 창고 화면 단추는 admin + 직접 켠 사람에게만 보인다 · 여전히 아무에게도 안 켰다(24-r)
 ⬜ ⚠️ 재생성 계열 함수를 새로 만들거나 drop 뒤 다시 만들면 authenticated 에 열린다 — 그 차수에서 revoke 를 함께(판정 31 · 24-l) · 화면에서 돌리려면 문 있는 바깥 창구를 따로(판정 7)
@@ -4097,7 +4097,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
   ims_staff 읽기 좁히기(worker 가 이메일까지 읽는다 · 비밀번호 전) · favicon.ico 404(모든 화면 · 아이콘 하나) · 「1lines · 12units」 띄어쓰기(운영에서 옴 · ⑤-5)  → ✅ [2026-09-27] 띄어쓰기 = wms-manager 8곳(wm v1.1 · 24-q)
   stock_short 의 「voided 만 제외」 구분이 wms_reports 엔 없다(resolved_at 하나 · admin 리포트 탭 ⑤-5 에서 필요한지)  → ✅ [2026-09-27] 필요 없다 — 칸 안 더함(운영 stock_short 142 중 voided 0 · 다섯 묶음 2 · 24-q)
   ims-auth.js 머리 주석 2건(검사 다섯째 낱말 · 코드 줄 0 · 지울지는 ⬜) · wms-manager.html 의 zoneOf 는 so_pick_plan 이 존을 주는 날 지운다
-  오피스 판(so.html 본차수): 판정 17 글자 · Released · Working · Finalized 시각 줄(at_wms_at/by · picking_at/by · packed_at/by — 지금 화면에 없다) · 「Finalized — 견적 · 결제 · 마무리 대기」 목록 · receiving.html 의 「창고 작업 미완」 경고
+  오피스 판(so.html 본차수): 판정 17 글자 · Released · Working · Finalized 시각 줄(at_wms_at/by · picking_at/by · packed_at/by — 지금 화면에 없다) · 「Finalized — 견적 · 결제 · 마무리 대기」 목록 · receiving.html 의 「창고 작업 미완」 경고  → ✅ [2026-09-28] 전부 섰다 — so v2.5 · v3 · receiving 경고(24-s)
   시험 재료: SO-25003 all_packed(팩 완료) → ⑤-5 Finalize · 되돌리기 화면은 ⑤-5 가 선 뒤  → ✅ [2026-09-27] 한 바퀴 · 두 바퀴 돌았다(24-q)
 ```
 
@@ -4233,7 +4233,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
          ⚠️ 경위 — 대화 Claude 가 처음에 「WMS 는 출고(so_ship)까지 · 인보이스는 오피스」로 세웠다가(운영 Finalize 를 Cin7 Ship 으로 짐작) Caleb 의 설명으로 고쳤다 ·
             「재고는 Ship 에서 빠진다」의 Ship 은 **창고 길에서는 오피스의 fulfill** 이다 — WMS 의 어느 단계도 아니다
          ⇒ 판정 7 의 「창고 직원 출고 → inv_post_sale sales 문」 문제는 출고 쪽에서 사라졌다 · 판정 7 의 원칙은 WMS 창구가 SO 상태 속 창구를 부를 때 그대로
-판정 17  화면 글자 — 저장 값은 그대로 · 고치는 때는 오피스 화면 판(Release 단추를 붙일 때) — Caleb 「지금 당장 수정할 필요는 없어. 기록해놨다가 나중에 수정하자」
+판정 17  화면 글자 — 저장 값은 그대로 · 고치는 때는 오피스 화면 판(Release 단추를 붙일 때) — Caleb 「지금 당장 수정할 필요는 없어. 기록해놨다가 나중에 수정하자」  → ✅ [2026-09-28] 오피스 so.html 에 표 하나(SO_STATUS_LABEL · stLbl) · 줄 표 머리 Qty out(so v2.5 · 공통화는 뒤 · 24-s)
          draft Draft · confirmed Confirmed · at_wms Released to WMS · picking Working · packed Finalized · shipped Shipped · fulfilled Fulfilled · cancelled Cancelled
          줄 표의 「나간 수량」 칸 = Qty out · 오피스 단추 「Release to WMS」 · 오피스 · WMS 화면 모두 같은 글자
          근거: shipped 값을 finalized 로 바꾸면 so_finalize(= fulfilled 로 끝냄)와 낱말이 겹치고 'shipped' 가 마이그레이션 65곳 · 화면 20곳 · so_reserve.released_reason 6곳에 있다
@@ -4243,7 +4243,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
          packed  = 창고가 Finalize 함 = 출하 준비 완료 — Caleb 「finalized와 packed는 사실 상 같은 의미」
          Caleb 「at_wms 상태라는 얘기는 픽일수도, 팩일수도, 팔렛,박스일수도 … 일대로 대칭되지 않아」 — 창고 안 단계는 SO 상태가 아니라 WMS 화면이 보여 준다
 판정 19  팔렛 · 박스 치수 — Caleb 「A로 가자」 · 「사이즈는 주로 인치를 쓰는데, cm도 가능해. 무게는 lb 또는 kg」
-         숫자 칸 넷(길이 · 너비 · 높이 · 무게) · 넣을 때 in/cm · lb/kg 를 고르면 DB 가 인치 · 파운드로 바꿔 저장 · 처음 넣은 숫자 · 단위도 남긴다 · 오피스 화면은 늘 in · lb · 메모 칸 그대로 ⇒ ⑤-2b  → ✅ [2026-09-27] 입력 화면 wms-fulfillment(⑤-5a) — 유닛마다 L · W · H + in|cm · 무게 + lb|kg · 기본 in · lb · 실측 120×100×150 cm · 250 kg → 47.24 × 39.37 × 59.06 in · 551.16 lb(24-q)
+         숫자 칸 넷(길이 · 너비 · 높이 · 무게) · 넣을 때 in/cm · lb/kg 를 고르면 DB 가 인치 · 파운드로 바꿔 저장 · 처음 넣은 숫자 · 단위도 남긴다 · 오피스 화면은 늘 in · lb · 메모 칸 그대로 ⇒ ⑤-2b  → ✅ [2026-09-27] 입력 화면 wms-fulfillment(⑤-5a) — 유닛마다 L · W · H + in|cm · 무게 + lb|kg · 기본 in · lb · 실측 120×100×150 cm · 250 kg → 47.24 × 39.37 × 59.06 in · 551.16 lb(24-q)  → ✅ [2026-09-28] 오피스 쪽 = so v3 Finalize 창이 wms_so_handoff 를 따로 읽어 in · lb 를 보인다(so_finalize 는 picks 만 읽는다 · 24-s)
 판정 20  픽커의 「Not enough stock」 신고는 운영 그대로 — Caleb 「그대로 유지되길 바래. wms에서 사용하는 기능들은 다 그대로 가져갈꺼야」
          wms_reports kind stock_short(알림 · 실수 집계 밖 · 규칙 41) ✅ ⑤-2a1 · 기대 · 찾은 수량 칸(qty_expected · qty_found) ✅ ⑤-2a2
          ⬜⭐ 재고 사건 차수(10/5 주)에서 조정 창구를 세울 때, 이 리포트에서 실물 확인 뒤 **바로 재고 조정으로 넘어가는 연결**을 세운다 — Caleb 「당장 하지 않아도 돼. 다만 해당 재고조정 시점에, 매니저 리포트에서 바로 연결해서 넘어오는 창구를 세우는 것을 기억하라고」
@@ -4376,7 +4376,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
    원장 둘을 부르는 곳(Claude Code 표 · S4): po_receipt_confirm_by(definer) · inv_post_receipt → inv_layer_post_receipt · inv_layer_apply · inv_layer_apply_po_in(definer) · 코드 0곳 — 깨지는 곳 없음
    ⚠️ 확인 실행 MISMATCH 1(E2) → DB 가 맞았다: 확인 실행에서는 \i 앞의 D-pre 도 새 셸로 돌아 pre 에 이미 wms_not_completed 가 있었다 · E2 를 \if :{?mig} 두 갈래로 고쳐 OK 32
 ⑤-3 뒤의 ⬜
-   오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)
+   오피스 입고 화면(asung-ims receiving.html)이 확정 전에 wms_recv_state 로 「창고 작업 미완」 경고를 보이게 · 반환 warnings[wms_not_completed] 읽기(화면 차수 · 대화 Claude)  → ✅ [2026-09-28] b693d8c(24-s)
    off-PO 승인 · 거절 · 투입 · 약식 등록(⑤-6) · 트랜스퍼 입고(재고 사건 · 전환 전 필수) · 리시빙 창구 나머지 아홉(split · unassign · delete · diff 셋 · _over 둘)의 창고 검사
    wms_receiving_confirm 은 아무에게도 켜지 않았다(판정 27 · B)
 ```
@@ -4428,7 +4428,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
   ims_staff 읽기 좁히기(worker 가 이메일까지 읽는다 · 비밀번호 전) · favicon.ico 404(모든 화면 · 아이콘 하나) · 「1lines · 12units」 띄어쓰기(운영에서 옴 · ⑤-5)  → ✅ [2026-09-27] 띄어쓰기 = wms-manager 8곳(wm v1.1 · 24-q)
   stock_short 의 「voided 만 제외」 구분이 wms_reports 엔 없다(resolved_at 하나 · admin 리포트 탭 ⑤-5 에서 필요한지)  → ✅ [2026-09-27] 필요 없다 — 칸 안 더함(운영 stock_short 142 중 voided 0 · 다섯 묶음 2 · 24-q)
   ims-auth.js 머리 주석 2건(검사 다섯째 낱말 · 코드 줄 0 · 지울지는 ⬜) · wms-manager.html 의 zoneOf 는 so_pick_plan 이 존을 주는 날 지운다
-  오피스 판(so.html 본차수): 판정 17 글자 · Released · Working · Finalized 시각 줄(at_wms_at/by · picking_at/by · packed_at/by — 지금 화면에 없다) · 「Finalized — 견적 · 결제 · 마무리 대기」 목록 · receiving.html 의 「창고 작업 미완」 경고
+  오피스 판(so.html 본차수): 판정 17 글자 · Released · Working · Finalized 시각 줄(at_wms_at/by · picking_at/by · packed_at/by — 지금 화면에 없다) · 「Finalized — 견적 · 결제 · 마무리 대기」 목록 · receiving.html 의 「창고 작업 미완」 경고  → ✅ [2026-09-28] 시각 줄 = 상세 오른쪽 Released · Working · Finalized(이름은 ims_staff 한 번 읽기 · 창고 길 오더만) · so v2.5(24-s)
   시험 재료: SO-25003 all_packed(팩 완료) → ⑤-5 Finalize · 되돌리기 화면은 ⑤-5 가 선 뒤  → ✅ [2026-09-27] 한 바퀴 · 두 바퀴 돌았다(24-q)
 ```
 
@@ -4502,7 +4502,7 @@ Caleb(admin) 화면 시험 — SO-25003
 ⬜ Trace 에 되돌리기 로그 한 줄(wms_rollback_log · 누가 언제 되돌렸나 · Claude Code 안 찬성) · 「Image differs」 칸 숨기기(판정 33 · 사진 없음) — 화면 · 메뉴 정리 차수
 ⬜ Health 창고 범위(manager 가 자기 창고만?) · 고아 보류 행(wms_task_holds 32 — 지워진 과제를 가리키는 닫힌 보류 · 어디에도 안 보인다 · 기록만)
 ⬜ wms_pick_lines 팩 갈래를 여러 과제로(p_pack_task_ids[] · 지금은 팩 과제마다 한 번 · 콜드 4.87 s / 웜 0.12 s)
-⬜ asung-ims 에 로고 그림 없음(인쇄 머리 「ASUNG」 글자) · so.html 목록 글자 「packed」 → 판정 17 대로 오피스 판에서 「Finalized」
+⬜ asung-ims 에 로고 그림 없음(인쇄 머리 「ASUNG」 글자) · so.html 목록 글자 「packed」 → 판정 17 대로 오피스 판에서 「Finalized」  → ✅ [2026-09-28] so v2.5(24-s)
 ⬜ 한 번에 되돌리기(판정 35 · 컷오버 뒤) · ⬜⭐ 재고 조정 연결(판정 20)
 ```
 
@@ -4562,7 +4562,7 @@ asung-ims  3084851  wms-receiver.html rc v1(창고 입고 · 새로 쓰거나 �
 Caleb(admin) 화면 시험
    6a  PO-02026 → RCV-00027 Complete · PO-02007 → RCV-00028 Putaway
    6b  RCV-00027 오피스 확정 · RCV-00028 Complete → Reopen(WMS Admin 에 머문다 = 맞다) → 다시 Complete · 판정 42 A 확인
-   ⚠️ 안 한 것: 6b Delete(RCV-00029) · ⭐ 6c 끝까지 시험 — Caleb 「테스트는 나중에 할께」 · 시험 순서는 asung-ims CHECKLIST 7-r · 시험 뒤 확인 쿼리(대화 Claude · 읽기만 · 시험 전 0 행 확인됨)
+   ⚠️ 안 한 것: 6b Delete(RCV-00029) · ⭐ 6c 끝까지 시험 — Caleb 「테스트는 나중에 할께」 · 시험 순서는 asung-ims CHECKLIST 7-r · 시험 뒤 확인 쿼리(대화 Claude · 읽기만 · 시험 전 0 행 확인됨)  → ✅ [2026-09-27 밤] 6c 끝까지 시험 돌았다(RCV-00029 · 24-s) · 6b Delete 는 그대로 안 했다
 테스트 DB 지금  RCV-00027 confirmed · RCV-00028 draft · Complete · 미확정(시험 재료) · off_po 0 · 시퀀스 po 2027 · rcv 28 · so 25004 · inv 60001 · cr 1000 · SO-25003 packed(⑤-5)
 ```
 
@@ -4586,16 +4586,16 @@ Caleb(admin) 화면 시험
 **D8 · 대조**
 ```
 inv_balance_vs_cin7 는 IMS 에만 있는 po_in(po_line · :over · :offpo)을 똑같이 「원장 > Cin7」 로 본다(컷오버 전엔 IMS 입고 전체가 그렇다) · ims_ledger_unlinked 는 이어진다
-inv_compare_run 은 운영에 있다(20260824130759_inv_compare_run.sql:54 · supabase/ops/cron.sql inv-compare-run jobid 13) · 테스트 DB 에 없다면 복사 빈틈일 수 있다 → ⬜ 테스트 DB 에 있는지 확인
+inv_compare_run 은 운영에 있다(20260824130759_inv_compare_run.sql:54 · supabase/ops/cron.sql inv-compare-run jobid 13) · 테스트 DB 에 없다면 복사 빈틈일 수 있다 → ⬜ 테스트 DB 에 있는지 확인  → ✅ [2026-09-28] 테스트 DB 에 있다(count 1 · 24-s)
    (6c1 보고의 「DB 에 없다」 가 확인 없이 지시서로 옮겨졌다 — 사고 11 · 정본 · 스킬의 기존 inv_compare_run 서술은 그대로 맞다)
 ```
 
 **⬜ 남은 거리 (판정 아님 · 목록)**
 ```
-⬜ 6c 끝까지 시험(CHECKLIST 7-r 순서) · 6b Delete 시험(RCV-00029) · 창고 기기에서 스캔 소리 · ⬜ 테스트 DB 에 inv_compare_run 이 있는지(D8)
+⬜ 6c 끝까지 시험(CHECKLIST 7-r 순서) · 6b Delete 시험(RCV-00029) · 창고 기기에서 스캔 소리 · ⬜ 테스트 DB 에 inv_compare_run 이 있는지(D8)  → ✅ [2026-09-27 밤 · 2026-09-28] 6c 끝까지 시험 · inv_compare_run 있음(24-s) · 6b Delete · 스캔 소리는 그대로 ⬜
 ⬜ staff.html worker 의 WMS_MANAGE 라디오(min_role · 사고 6) · off-PO 두 칸에 나눠 놓기 · Enter quantity 자동 넘김(판정 41 에서 그대로 둠)
 ⬜ 받은 off-PO 되돌리기(재고 사건 차수의 상쇄) · ⬜⭐ 재고 조정 연결(판정 20) · Health 창고 범위 · 고아 보류 행 · p_pack_task_ids[] · 로고 · Trace 되돌리기 로그 · Image differs 숨기기 · 한 번에 되돌리기(판정 35 · 컷오버 뒤)
-⬜ 오피스 판: so.html 본차수(오피스 마무리 · Finalized 대기 목록 · 판정 17 글자 「packed → Finalized」 · 시각 줄) · Purchase Receipts 의 「창고 작업 미완」 경고(wms_recv_state · warnings wms_not_completed)
+⬜ 오피스 판: so.html 본차수(오피스 마무리 · Finalized 대기 목록 · 판정 17 글자 「packed → Finalized」 · 시각 줄) · Purchase Receipts 의 「창고 작업 미완」 경고(wms_recv_state · warnings wms_not_completed)  → ✅ [2026-09-28] 전부 섰다(24-s)
 ```
 
 **컷오버 준비 목록**
@@ -4605,4 +4605,84 @@ inv_compare_run 은 운영에 있다(20260824130759_inv_compare_run.sql:54 · su
 □ manager 의 WMS 화면 권한(판정 25)
 □ wms_receiving_confirm 은 아무에게도(판정 27 B · 42)
 □ 운영 가드 푸는 법(24-g 판정 13)
+```
+
+---
+
+### 24-s 오피스 판 — 판정 46 · 다섯 묶음 · 실물 · 첫 IMS 한 바퀴 (asung-ims b693d8c · f73b980 · 마이그레이션 0)
+
+⭐ Caleb 의 말 그대로 · 판정 원문 · 기각 · 경위(대화 Claude office-docs · 2026-09-28)
+```
+차례   Caleb 2026-09-27 「5-5, 5-6, 그리고 오피스 판까지 작업 이어가자.」 → ⑤-5 · ⑤-6(24-q · 24-r) · 오피스 판(이 절) 전부 섰다
+       Caleb 2026-09-28 「좋아. 그러면 문서 정리를 하고, 재고 사건으로 넘어가자. 그리고 재고 사건은 새로운 대화에서 할꺼야.」
+
+판정 46  「Finalized — 견적 · 결제 · 마무리 대기」 목록의 자리 — Caleb 「나도 a가 좋다고 생각해」
+         A = so.html 목록 필터 「Finalized — waiting for the office」(값 packed) · 넓은 · 좁은 목록 둘 다 · 기각: B Manager List 탭 · C 둘 다
+         까닭: 마무리 단추가 so.html 상세에 서고 창구 문이 sales · 같은 모집단이 창고용으로 wms-admin Finalized 탭에 이미 있다
+다섯 묶음 — Caleb 「그대로 가자」
+   1 판정 17 글자 표는 so.html 안에 하나(SO_STATUS_LABEL · stLbl) · 줄 표 머리 Shipped → Qty out · 공통 표(ims-ui.js)는 뒤의 정리 차수(manager-list · pos · so-backorders 와 함께)
+   2 견적서(so_proforma) 인쇄 단추는 이번에 안 넣는다(창구는 있다 · 다음 판 한 줄)
+   3 두 판: so v2.5(글자 · Qty out · 시각 줄 · Finalized 필터 · 검토함 읽기) → so v3(Finalize 창) · 둘 다 대화 Claude 가 썼다
+   4 Purchase Receipts 「창고 작업 미완」 경고는 v2.5 와 함께(상세 머리 · 확정 창 한 줄 · 확정 뒤 안내 · 막지 않음 판정 30) · 목록 칩은 안 넣는다
+   5 시험 순서: v2.5 · 경고 → v3 → SO-25003 마무리 실행(재료 소진 · 되돌릴 수 없다) → 확인 쿼리
+```
+
+**조사 실측 (오피스 판 조사 회신 · Claude Code office-1 · 2026-09-28 · HEAD 20c5aab · eacd353 · 테스트 DB begin read only · 요지)**
+```
+오피스 화면(so.html · manager-list · so-backorders · pos · so-invoices · so-payments · so-credits)에는 판정 17 글자 표가 없었다 — 저장값 그대로 · 표는 WMS 화면 다섯에만(wms-manager 는 둘 · 나머지 넷은 여덟)
+「시각 줄」 = 24-p 4431행 원문 — 상세 오른쪽 kv 에 Released · Working · Finalized(at_wms_at/by · picking_at/by · packed_at/by) · so_detail 이 to_jsonb(so) 로 이미 싣는다 · 이름은 ims_staff 한 번 읽기(so_detail 에 이름 칸 없음)
+so_finalize(20260926204246:259 · definer · ims_require_write('sales'))는 handoff 의 **picks 만** 읽는다 — 치수(units) · 부족분(shorts)은 안 받는다
+   ⇒ 오피스 화면이 wms_so_handoff(:142 · stable · invoker · authenticated)를 따로 불러 in · lb 를 보인다(판정 19 의 오피스 쪽 답)
+so_charge_set 은 so_require_draft — packed 오더의 운임은 so_finalize 의 charges 로만(마무리 창 안에서만 · 17-c ⬜7 의 대가가 화면에서 실물이 됐다)
+so_finalize 순서: ① 검사 ② 택배사 · 추적 · 메모 + 운임 ③ qty_removed + requote ④ so_ship(원장 inv_post_sale · 모자란 몫 pick_short 형제 · 글자 접미 · nextval 없음) ⑤ 묶음 ⑥ so_invoice_issue(번호 nextval · shipped → fulfilled 곧장 · auto_deposit) ⑦ 반환
+마지막 정의 — 이름 순 정렬 = DB prosrc md5 일치 14/14(so_finalize · wms_so_handoff · wms_finalize · so_release_to_wms · so_wms_recall · so_wms_status · po_receipt_confirm · wms_recv_state · so_ship · so_invoice_issue · so_proforma · so_detail · po_receipt_detail · wms_recv_confirm)
+⚠️ begin read only 에서는 for update 가 든 창구(so_finalize 미리 보기 포함)가 안 돈다 — 미리 보기 시험은 rollback 트랜잭션으로(조사 실사고)
+Purchase Receipts: po_receipt_detail 에 wms 가 없다 · wms_recv_state(p_receipt_id)(20260926232330:530 · stable · 문 없음)를 화면이 따로 읽는다 · po_receipt_confirm 반환 warnings 에 wms_not_completed(:578)
+테스트 DB 에 inv_compare_run 이 **있다**(실측 count 1) — 24-r D8 의 ⬜ 를 닫는다(운영 20260824130759 · cron jobid 13 과 같다)
+마이그레이션 0 — 오피스 판은 있는 창구 · 칸 · 정책으로 섰다
+```
+
+**실물 (2026-09-28)**
+```
+asung-ims  b693d8c  so.html so v2.5(111,544 바이트 · md5 dbaad3bc… · +57 −7) — SO_STATUS_LABEL · stChip · rowTags · 뭉치 표 · Qty out · 시각 줄 셋(창고 길 오더만 · 되돌리면 「—」) ·
+                      Finalized 줄 아래 packing list/direct · 유닛 수 · 치수 없는 유닛 · 검토함(wms_order_review · 읽기) · 필터 「Finalized — waiting for the office」
+                    receiving.html 「2026-09-28 · warehouse state」(66,134 바이트 · md5 fe95a39f… · +35 −4) — 상세 머리 「WAREHOUSE WORK」(Completed by · On hold · Not marked complete … reopened by) ·
+                      확정 창 한 줄 · WARN wms_not_completed · 확정 뒤 안내(위의 「WAREHOUSE」 는 창고 이름이라 이름을 겹치지 않게)
+           f73b980  so.html so v3(121,416 바이트 · md5 b994e180… · +121 −1) — packed 상세에 「Finalize — ship and invoice…」(canSales) · 창: wms_so_handoff 유닛 표(in · lb · 항목 수) · 치수 없음 · 부족분 경고 ·
+                      운임 이름 · 금액(비우면 운임 줄 없음) · 택배사 · 추적번호 · 배송 메모 · 미리 보기 자동 한 번(p_commit false · 아무것도 안 씀) · 입력을 바꾸면 실행 단추가 꺼진다 ·
+                      실행은 미리 본 입력 그대로일 때만 · 확인 창 「cannot be undone」 · 결과 = 인보이스 번호 · amount_due · remaining · 백오더 번호 · warnings
+                    📌 줄 빼기(removed · 판정 9 어휘)는 이 판에 없다 — 어휘 원문을 확인한 뒤 다음 판
+대화 Claude raw 확인: b693d8c · f73b980 의 파일 md5 = 준 파일 · eslint no-undef 0 · 운영 흔적 0 · 「// 뒤 코드」 0
+asung-wms  무접촉(마이그레이션 0)
+```
+
+**시험 결과 (Caleb(admin) · 2026-09-28)**
+```
+v2.5 · 경고  「다 잘 작동해」 — Finalized 필터 · 시각 줄 · Qty out · WAREHOUSE WORK · RCV-00028 Reopen 뒤 빨간 줄 · 확정 창 경고를 보고 취소
+v3 Finalize 실행 뒤 확인 쿼리 원문(읽기만):
+   so: SO-25003 fulfilled · shipped t · closed t / SO-25003a cancelled / SO-25003b confirmed(모자란 1 이어받음)
+   inv_ledger: 8948105 · sale · SO-25003 · sale_out · C070303 · CON00156 · −11 · ims
+   so_invoice_number_seq 60002 t
+⭐ 창고 오더 한 건이 처음부터 끝까지 IMS 만으로 돌았다(오피스 확정 → Release → Split → Pick(부족 신고) → Pack → Fulfillment · Finalize → 오피스 Finalize → 출하 · 인보이스 · 백오더) — Cin7 없이 닫힌 첫 오더
+```
+
+**닫은 줄 (어제 「안 했다」 로 적힌 것)**
+```
+24-r 「⭐ 6c 끝까지 시험」 → ✅ 2026-09-27 밤(RCV-00029 · ABE10612 5 accepted_billed 3.1 E020202 → 원장 po_in +5 · 레이어 4.319075 manual / ABE12006 3 rejected · removed t · 원장 · 레이어 0) · asung-ims CHECKLIST 7-e 같은 문장
+24-r D8 「테스트 DB 에 inv_compare_run 이 있는지」 → ✅ 있다
+⚠️ 6b Delete 시험(RCV-00029)은 여전히 안 했다 — 그대로 ⬜
+```
+
+**테스트 DB 지금 (2026-09-28 · Claude Code 읽기 확인)**
+```
+SO-25003 fulfilled(오피스 판 시험 재료 소진) · SO-25003a cancelled · SO-25003b confirmed 1 EA(pick_short 백오더) · 인보이스 60000 · 60001 · 60002 issued
+RCV-00028 draft · 창고 Complete(v2.5 시험에서 Reopen 12:42 UTC 뒤 다시 Complete 12:44 UTC) · 미확정 · RCV-00029 draft · Complete · 미확정
+시퀀스 so 25004 · inv 60002 · cr 1000 · po 2027 · rcv 29(전부 is_called t) · 다음 packed 재료는 새 오더로 한 바퀴(24-q 한 바퀴 절차)
+```
+
+**⬜ 남은 거리 (판정 아님 · 목록)**
+```
+⬜ Finalize 창의 줄 빼기(removed · 판정 9) · 견적서 인쇄 단추(so_proforma) · 판정 17 표 공통화(ims-ui.js · manager-list · pos · so-backorders · 0-a 재점검) · Purchase Receipts 목록 칩
+⬜ 6b Delete 시험(RCV-00029) · 창고 기기 스캔 소리
+⬜ 다음 = 재고 사건(새 대화 · Caleb 2026-09-28) — 판정 20 ⬜⭐ 재고 조정 연결 · 받은 off-PO 되돌리기 · 트랜스퍼 입고(전환 전 필수)
 ```

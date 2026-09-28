@@ -29,7 +29,7 @@ description: >
 권한               ✅ 09-17 밤 — role 넷 worker<manager<supervisor<admin(§10-h) · 쓰기 RLS + RPC 첫머리 ims_require_write(§5 권한 규약 셋) · 화면은 ims_access() 하나(3-l)
 ⑥ 리시빙           ✅ 09-18 — ⭐ WMS 이관을 미루고 IMS 안에 PO 갈래로 먼저(§13-i) · 표 셋 + 차이 큐 · RPC 열 · 확정·자동 분할 **§11-i·§11-c** · updated_by + ims_touch(§5) · 탭 다섯
 ⑦ 원장·원가 이식    ✅ 09-19 — 입고 확정이 원장 사건(`inv_post_receipt` · **§11-j**)과 원가 레이어(`inv_layer_post_receipt`)를 · 비용 확정이 landed 를(`inv_layer_post_charge` · **§11-f**) · 차이 닫기 short 만 + 형제 합계 `po_family_*`(**§11-i·§11-c**) · Last bin 속 = 원장 · 머리 칸 편집·Add a line(§11-b·§11-d) · 원가 규칙 정본은 `ledger-design.md` 4부 「이식」·「원가 이식」 · ✅ 09-20 `inv_layer_apply()` 에 IMS 판(`20260920142635` · 아래 함정 — 남은 함정은 환율 없는 입고) · ✅ 09-20 오후 **over 닫기** `po_receipt_diff_settle_over`(**§11-i** · 이유 셋 free·billed·credited) · **매입 가격 이력** `po_price_history`(**§11-g** · 출처는 확정 인보이스 · 할인 반영)
-⑧ ⑤-3 입고(WMS)  ✅ 09-26 — 속/바깥(so-module §24-m · n) · 셸은 definer · 창고 검사 · 확정 셸 + wms_recv_state 경고 · so_current_staff 는 셸이 못 부른다
+⑧ ⑤-3 입고(WMS)  ✅ 09-26 — 속/바깥(so-module §24-m · n) · 셸은 definer · 창고 검사 · 확정 셸 + wms_recv_state 경고 · so_current_staff 는 셸이 못 부른다  → [2026-09-28 b693d8c] 화면 — Purchase Receipts 상세 머리 「WAREHOUSE WORK」(wms_recv_state · po_receipt_detail 엔 wms 가 없다) · 확정 창 한 줄 · 확정 뒤 wms_not_completed 안내 · 막지 않는다(판정 30) · 목록 칩 ⬜(so-module §24-s)
 화면 열하나        ✅ `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) — 마스터 다섯 · staff · po·invoices·charges·payments·receiving · 규칙 **§10-j**(3-g·3-i·3-j·3-k) · ⬜ 채울 칸 **§10-k** · 🔄 다음 **§13-f**
 ```
 - ⭐ **IMS 표 32 · 정책 116**(2026-09-18 실측 · Caleb psql) — 전부 **테스트 DB(Asung-IMS)에만** 있다. `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영.
