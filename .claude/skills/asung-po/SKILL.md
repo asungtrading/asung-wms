@@ -33,6 +33,7 @@ description: >
 ⑨ 두 출처          ✅ 09-28 — 입고 문서 · 비용 문서가 PO 또는 트랜스퍼(정확히 하나 · so-module §27 · po-module §11-i · §11-f 머리) · 트랜스퍼 입고는 오피스 확정 없음 · tf_receipt_detail 로 읽는다 · 트랜스퍼 운임 = tf_charge_*
 화면 열하나        ✅ `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) — 마스터 다섯 · staff · po·invoices·charges·payments·receiving · 규칙 **§10-j**(3-g·3-i·3-j·3-k) · ⬜ 채울 칸 **§10-k** · 🔄 다음 **§13-f**
 ```
+- ⚠️⚠️ [2026-09-29] **판정 88 — 입고 기준 = 인보이스(정본 po-module §11-i 판정 88 블록 · ⑱ 미구현 · 지금 코드는 옛 규칙)** — 확정 인보이스가 붙은 PO 만 창고 · 오피스 입고에 보인다(인보이스 없으면 입고 불가) · 기준 = 확정 인보이스 수량 · PO 는 **인보이스 확정 순간** 갈라진다(원래 번호 = 청구된 몫 · 남은 몫 = 다음 글자 하나 · 입고 때는 안 갈라짐) · 더 온 것 = **Off-invoice 한 길**(무상 / 청구 / 거절) · 덜 온 것 = 「덜 옴」 · 크레딧은 인보이스 화면 단추(자동 아님) · Reopen 은 창고가 손대기 전만
 - ⭐ **IMS 표 32 · 정책 116**(2026-09-18 실측 · Caleb psql) — 전부 **테스트 DB(Asung-IMS)에만** 있다. `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영.
 - ⭐ **PO 를 Cin7 에도 쓰지 않는다.** 두 재고가 다른 것은 정상 — 컷오버 때 거래를 지우고 Cin7 재고를 가져온다(§2).
 
@@ -93,7 +94,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | ⭐⭐ 이름 서브쿼리에 별칭 없음(`where id = updated_by`) | ims_staff 에도 updated_by 가 있어 **자기 칸과 비교 — 에러 없이 null**(09-18 두 번) | 항상 `s.id = <바깥>.updated_by` · §5 트리거 |
 | 쓰기 RPC 를 security definer 로 | RLS 둘째 겹이 사라진다 | 전부 invoker · **예외 하나 po_receipt_confirm**(po·po_line 은 purchasing · 창고는 receiving 만) · 따라 하지 마라 · §5 권한 규약 ② |
 | 리시빙을 po_receipt_line 하나로 · 화면이 계산 · 빈 없이 확정 | 검수(빈 모름)→풋어웨이 두 단계가 안 담긴다 · bin NOT NULL | 표 셋(po_receipt · po_receipt_work · po_receipt_line) · 한 줄=한 빈 · **빈 없는 줄=라인당 하나(미배정 나머지)** · 같은 빈은 **병합** · 계산은 po_receipt_detail · 확정 게이트는 빠져나갈 길을 말한다 · §11-i |
-| 기준을 인보이스로 · 초과를 잘라 적는다 · 차이를 자동으로 닫는다 · 분할 번호를 겹쳐 쓴다 | 가짜 차이(WMS 08-05) · 초과가 안 보인다 · 사람 판단 소멸 · 족보 끊김 | 기준은 **PO 확정 수량**(인보이스는 표시만) · 입고 줄엔 그대로 · 차이 큐 over·short·off_po 는 사람이 · 번호는 알파벳을 잇는다(a·b → c·d) · 0 라인은 행을 b 로 · §11-i·§11-c |
+| 기준을 인보이스로 · 초과를 잘라 적는다 · 차이를 자동으로 닫는다 · 분할 번호를 겹쳐 쓴다 | 가짜 차이(WMS 08-05) · 초과가 안 보인다 · 사람 판단 소멸 · 족보 끊김 | 기준은 ~~**PO 확정 수량**(인보이스는 표시만)~~ → ⚠️ 판정 88: 확정 인보이스 수량(⑱ 미구현 · 지금 코드는 PO 기준) · 입고 줄엔 그대로 · 차이 큐 over·short·off_po 는 사람이 · 번호는 알파벳을 잇는다(a·b → c·d) · 0 라인은 행을 b 로 · §11-i·§11-c |
 | Last bin 을 po_receipt_line·wms_sku_bins 에서 직접 | 원장이 오면 고칠 곳이 여럿 | **ims_last_bin() 하나 뒤에** — 속만 갈아 끼운다 · §11-i |
 | `on delete cascade` | bin 2,047개 딸려 소멸 | `no action` |
 | `AdditionalAttribute1` 로 발주처를 거른다 | 판정과 어긋난다 | Caleb 판정이 정본(`is_purchasable`) |

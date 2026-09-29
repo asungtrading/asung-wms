@@ -28,6 +28,12 @@ description: >
 - 모자란 픽 = 뽑은 만큼만 보냄(`qty_sent` · 판정 74) · 보낸 ≠ 받은 = 받은 만큼만 도착 · 남은 운송 중은 `tf_settle`(lost / return) · 더 온 몫은 `tf_over_decide`(sent_more / found) — 둘 다 조정 열쇠(stock_adjust · 판정 75 · 76)
 - 권한: 트랜스퍼 **화면**은 transfer 열쇠 · 밑단 표 읽기는 판매 오더와 같게 창고 일 열쇠(picking · packing · fulfillment · wms_manage · wms_receiving · 판정 73)
 - 마지막 정의(이름 순 · 2026-09-28): 창고 창구 19 `20260928231355`(뷰 `wms_order_doc` 도) · 13 `20260928234815`(wms_batch_create · wms_pick_task_build · tf_release · tf_wms_recall …) · wms_finalize · tf_depart `20260929003624` · wms_recv_start · wms_recv_complete · tf_wms_status · tf_receipt_detail `20260929010938` · wms_health_check · tf_settle · tf_over_decide `20260929014246` · tf_arrive `20260929025719` — ⚠️ 재발행 전 DB prosrc md5 로 다시 확인
+⭐⭐ [2026-09-29] **창고 화면 여섯이 트랜스퍼를 보인다(so-module §28 · 판정 83 ~ 87)** — 모르면 사고:
+- 판매 조회 줄(`sb.from("so")` · so_line · `so(...)` 임베드)은 그대로 · 트랜스퍼 갈래를 옆에 · 읽기 = 「같은 모양 채우기」(soLike · docFill · tfDetailAsPo) · 쓰기 = 열 이름을 가른다(lineCols · docCols · docHome · CHECK 「정확히 하나」)
+- ⚠️ 판정 87: 창구의 coalesce 값으로 표의 원래 열을 **되찾는 조회 · 집계 열쇠**(order_line_id · po_line_id)도 쓰기처럼 가른다(pa v1.2 가 놓쳐 트랜스퍼 스캔이 한 번도 안 적혔다) · 번호표 없으면 조용히 건너뛰지 말고 빨간 「Reload — this line cannot be saved」
+- ⚠️ 옆 길 조회의 select 는 판매 임베드의 칸 목록을 그대로 복사한다(wa v1.12 가 마무리 기록 세 칸만 읽어 「no finalize record」 · tf-2d)
+- 판정 84: Fulfillment 작업대에 판매 · 트랜스퍼를 함께 못 올린다(화면 fu v1.2 + DB `wms_finalize` 섞인 목록 거부 · `20260929152617`) · 판정 85-1 「Ship to warehouse」 · 판정 86: Trace 는 TRF 번호로만 · 재출력은 Finalized 탭(트랜스퍼는 in_transit · receiving 동안) · 통계에 트랜스퍼를 센다
+- 빌드(2026-09-29): wm v1.2 · pk v1.1 · pa v1.3 · fu v1.2 · rc v1.5 · wa v1.13 · transfers.html tf v1
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 
@@ -554,7 +560,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⚠️ **리시빙 검사는 아직 없다**(`wms_receipts`·`wms_receipt_lines` 무검증). 규칙 27 의 R3(중복 receipt)·R4(이중 Apply)는 지금은 Health 로 안 잡힌다 — 검사 추가는 백로그.
 - ⚠️ **`short_no_disc` 는 픽킹 전용이다** — `wms_pick_task_lines` 기준이라 **리시빙 discrepancy 가 한 건도 안 들어가고 있던 것을 못 잡았다**(규칙 29). 추가할 검사 2개: ①리시빙용 short/over ↔ `wms_discrepancies(source='receiving')` 대조 ②`wms_receipt_lines.putaway_bin` ↔ `asung_bin_stock` 대조(규칙 32) — 둘 다 백로그.
 
-## 규칙 20 — 리시빙 모듈: PO/트랜스퍼 입고 + 라스트 로케이션 풋어웨이 (⚠️ 2026-07-23)  → ⭐ [2026-09-26] IMS 판(§24-m · n): PO 확정 수량 기준 · Partial 없음(판정 28) · off-PO = 차이 큐 · Complete = 창고 잠금 · Reopen(wms_manage) · 확정 = 오피스(판정 27) · Last bin 은 제안(판정 29) · Place all 뜻 같음
+## 규칙 20 — 리시빙 모듈: PO/트랜스퍼 입고 + 라스트 로케이션 풋어웨이 (⚠️ 2026-07-23)  → ⭐ [2026-09-26] IMS 판(§24-m · n): ~~PO 확정 수량 기준~~(⚠️ 2026-09-29 판정 88 로 **확정 인보이스 기준** · 인보이스 없으면 안 보인다 · 미구현 ⑱ · po-module §11-i) · Partial 없음(판정 28) · off-PO = 차이 큐 · Complete = 창고 잠금 · Reopen(wms_manage) · 확정 = 오피스(판정 27) · Last bin 은 제안(판정 29) · Place all 뜻 같음
 
 **핵심 목적: Cin7 다이나믹 로케이션의 두 빈틈 — (1)sold-out 시 라스트 로케이션 망각 (2)매번 수동 풋어웨이 강제 — 를 메운다.** 우리 sticky bin 데이터(`asung_bin_stock` → `wms_sku_bins`)가 라스트 로케이션을 이미 보존하므로, 리시빙 시 자동으로 그 자리로 풋어웨이한다.
 

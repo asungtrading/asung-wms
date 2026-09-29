@@ -759,7 +759,7 @@ SO-25001 (그대로 남는다 · 진행 쪽)
 - ⚠️ **b 를 또 나눠도 `ba` 가 아니라 `c` 다.** 번호는 **뭉치 안 순서**만 말하고(몇 번째로 갈라져 나왔나), **계보는 `split_from_id` 가 말한다**(누구에게서 갈라졌나 · `c.split_from_id = b`). 역할이 갈린다.
 - 접미어는 소문자 한 글자 · CHECK 는 PO 와 같은 모양(`^SO-[0-9]{5,}[a-z]*$` · po-module 2531행) · 두 글자 접미어는 만들지 않는다 ⇒ **최대 24번**(a~x · `y` 이상이면 거부 — PO 와 같은 문장).
 - 접미어를 붙이는 자리는 **시퀀스가 아니라 분할 함수**다 — PO 와 같이 base(`regexp_replace(so_number, '[a-z]+$', '')`)로 advisory lock 을 잡고, 그 base 의 접미어 최댓값 **다음 글자 하나**를 새 문서에 준다(PO `20260919192236` 348·432행의 모양 · 단 글자를 둘이 아니라 하나만 쓴다).
-- ⚠️ **PO 와 갈라지는 자리** — PO 실물은 갈라지는 문서 자신도 다음 글자로 바뀌었다(`b` 를 나누면 `c`·`d` · `b` 는 사라진다). Caleb 판단(2026-09-21): **PO 도 앞으로는 원래 번호를 지킨다**(SO 와 같은 방식). 이미 갈린 것(`PO-02001a`·`b` 등)은 그대로 둔다. ⬜ `po_receipt_confirm` 의 채번 두 줄과 po-module §11-c 문장을 고치는 일은 **PO 쪽 별건**이다 — 이 문서는 적어만 둔다.
+- ⚠️ **PO 와 갈라지는 자리** — PO 실물은 갈라지는 문서 자신도 다음 글자로 바뀌었다(`b` 를 나누면 `c`·`d` · `b` 는 사라진다). Caleb 판단(2026-09-21): **PO 도 앞으로는 원래 번호를 지킨다**(SO 와 같은 방식). 이미 갈린 것(`PO-02001a`·`b` 등)은 그대로 둔다. ⬜ `po_receipt_confirm` 의 채번 두 줄과 po-module §11-c 문장을 고치는 일은 **PO 쪽 별건**이다 — 이 문서는 적어만 둔다. → 미실행 확인 2026-09-29 · ⑱ 에서 고친다(po-module §11-i 판정 88 ⑤)
 
 **형제 조회 — `so_family_members` · `so_family_lines`**
 - `so_family_members(so_id)` 는 **닫힌 것까지 전부** 낸다(Caleb 2026-09-21) — fulfilled·expired·superseded·cancelled 를 가리지 않는다. 뿌리에서 내려온 모든 문서 · 자기 자신 포함 · 갈라진 적 없으면 하나. 모양은 PO 와 같다: `(so_id, so_number, status, closed_at, split_from_id, depth, is_self)` + ⭐ **`closed_reason` 한 칸 더**(Caleb 2026-09-21) — 형제 줄이 「나머지는 어떻게 됐나」에 답하려면 닫힌 이유가 보여야 한다(5-d).
@@ -5046,7 +5046,132 @@ d5c93cc  20260929025719_transfer_4b.sql (1,060행 · md5 80838d1b…) — tr-4b 
 
 ```
 순서(판정 80): 이 문서 차수 마무리 → ⑥ 화면까지 마무리 → 수정거리(⑬ ~ ⑰ · 치명 셋 ⑰ · ⑯ · ⑫) 정리 → 다음으로
-⑥ 화면 — ⑥-1 오피스 transfers.html(대화 Claude · 새 파일) · ⑥-2 창고 화면 다섯의 트랜스퍼 표시(판매 오더 표 직접 읽기 23곳) · ⑥-3 wms-receiver 대기 목록 · 트랜스퍼 입고 상세 — ⑥-2 · ⑥-3 을 누가 쓸지는 화면마다 고칠 곳 크기를 보고 판정
+⑥ 화면 — ⑥-1 오피스 transfers.html(대화 Claude · 새 파일) · ⑥-2 창고 화면 다섯의 트랜스퍼 표시(판매 오더 표 ~~직접 읽기 23곳~~ → 직접 23 + 끼워 읽기 11(2026-09-29 tf-scr-1 실측 → §28)) · ⑥-3 wms-receiver 대기 목록 · 트랜스퍼 입고 상세 — ⑥-2 · ⑥-3 을 누가 쓸지는 화면마다 고칠 곳 크기를 보고 판정
 → Caleb 화면 끝에서 끝 시험 → 인계서(대화 Claude · 문서가 선 뒤) · ⑰ 판정은 이른 순서
-화면이 쓸 창구 · 키(각 차수 보고 6): inv_transfer_detail(lines[] qty_sent · qty_received · qty_lost · qty_returned · qty_extra · carried{in_transit, arrived, returned, total} · freight{total_cad, posted_cad, charges[]}) · tf_receipt_detail · tf_settle · tf_over_decide · tf_charge_* · wms_recv_complete 반환 .freight{posted, errors} · 경고 어휘 transfer_not_arrived_yet · cost_not_on_stock_not_arrived_yet · cost_dropped_no_basis · alloc_on_cancelled_transfer · unit_cost_unknown_zero(판정 56 문구)
+화면이 쓸 창구 · 키(각 차수 보고 6): inv_transfer_detail(lines[] qty_sent · qty_received · qty_lost · qty_returned · qty_extra · carried{in_transit, arrived, returned, total} · freight{total_cad, posted_cad, charges[]}) · tf_receipt_detail · tf_settle · tf_over_decide · tf_charge_* · wms_recv_complete 반환 ~~.freight{posted, errors}~~ → `.arrived.freight{posted, errors}`(tf_arrive 반환이 arrived 아래 · tr-3a:831 · tr-4b:345 · 2026-09-29 정정 → §28) · 경고 어휘 transfer_not_arrived_yet · cost_not_on_stock_not_arrived_yet · cost_dropped_no_basis · alloc_on_cancelled_transfer · unit_cost_unknown_zero(판정 56 문구)
+```
+
+---
+
+## §28 ⑥ 트랜스퍼 화면 · 판정 82 ~ 87 · 90 · 91 (2026-09-29)
+
+⭐ §27 의 창구 위에 화면이 섰다 — 오피스 transfers.html(대화 Claude) · 창고 화면 여섯은 판매 줄을 그대로 두고 트랜스퍼 갈래를 옆에(Claude Code · 판정 83) · Caleb 끝에서 끝 시험 통과(TRF-00001 · TRF-00002).
+⭐ 큰 계획(판정 81) · 레이아웃 뜻(판정 82 원문은 아래에도)은 ims-principles §6-c · 입고 기준 = 인보이스(판정 88) · 순서(판정 89)는 **po-module §11-i 판정 88 블록**이 정본이다.
+
+### 28-a 판정 원문 (82 ~ 87 · 90 · 91 · 말 그대로)
+
+```
+판정 82 (2026-09-29) 「내가 말한 레이아웃은 ims.asung.ca의 레이 아웃이야. 지금은 계속 메뉴들을 추가해 와서 위치가 엉망이야.」
+  ⇒ 판정 81 의 레이아웃 = 화면 레이아웃(메뉴 · 탭 · 화면 배치 정리) · 창고 지도가 아니다(창고 지도는 「그 밖」)
+
+판정 83 (2026-09-29) Caleb 「A로 가자」 — 창고 화면 여섯은 Claude Code 가 데이터 갈래만 더한다 · 판매 조회 줄은 그대로 · 트랜스퍼 갈래를 옆에 · 차수 셋 ⑥-2a(Split & Waves · Picking · Packing · Fulfillment) → ⑥-3(Receiving) → ⑥-2b(WMS Admin)
+  기각 B 대화 Claude 가 통째로(운영 복사본 1만 줄 재작성 · 판매가 조용히 틀어질 위험) · C 입고만 대화 Claude(창구가 이미 받는다)
+  ⚠️ 대화 Claude 는 처음에 ⑥-3 먼저를 권했다 — Claude Code 가 반대(트랜스퍼가 in_transit 이 되는 길은 창고 Finalize 하나 · Split & Waves 가 트랜스퍼를 못 보면 시험 재료가 없다) · Claude Code 가 맞았다
+
+판정 84 (2026-09-29) 「fulfillment작업대에, SO와 TRF를 함께 올리는 것은 절대로 막아야지」
+  → 두 겹: 화면(Fulfillment 작업대에 판매 · 트랜스퍼를 함께 못 올린다 · 스캔 · 고르기 · 복원 · 마무리 앞) + DB 안전띠(wms_finalize 가 문서 종류가 섞인 목록을 거부 · tr-2b) · 기각 B 경고만
+
+판정 85 (2026-09-29) Caleb 「그대로 가자」 · 묶음 다섯
+  1 팩킹리스트 「Customer」 라벨 → 트랜스퍼면 「Ship to warehouse」 2 트랜스퍼 픽의 「Not enough stock」 신고는 판매와 같이 남긴다 3 트랜스퍼 입고의 Hold 는 PO 와 같이 4 입고 중 신고는 receipt_id 에(transfer_id 칸 비움) 5 Complete 한 트랜스퍼 입고는 Resume Receiving 목록에서 사라진다(기록은 transfers.html)
+
+판정 86 (2026-09-29)
+  ① Caleb 「1은 A로 가자」 — 도착 창고가 다른 트랜스퍼 둘을 한 작업대에: 지금은 코드 없음 · 셋째 창고가 설 때 판정 84 틀로 막는다(⇒ 「셋째 창고를 세울 때 할 일」 목록)
+  ② Caleb 「B로 가자」 — Trace 는 트랜스퍼를 TRF 번호로만 찾는다(손님 이름 검색을 도착 창고로 넓히지 않는다)
+  ③ 「운영 wms에서는 팩킹 리스트는 finalized에서 팩킹리스트를 뽑게 되어 있잖아. 그리고 trace에서는 팩킹 리스트 자체를 뽑을 수 없었는데....똑같이 finalized에서 처럼 해주고, trace에서는 packing list 뽑는 것은 없어도 될 것 같아. 세일즈 오더든 트랜스퍼든 말이야.」
+  ③-2 Caleb 「A가 맞아」 — 트랜스퍼는 창고 마무리부터 도착 Complete 까지(in_transit · receiving) Finalized 탭에 남고 같은 🖨 · PDF · CSV 로 다시 뽑는다 · 도착하면 빠진다 · 기각 B 계속 남기기
+  ④ Caleb 「나도 A야.」 — WMS Admin 통계 카드의 마무리 건수에 트랜스퍼를 센다(창고 일의 양)
+
+판정 87 (2026-09-29) Caleb 「그래 니 제안대로 하자」 — Packing 트랜스퍼 팩 결함(팩 줄 번호표를 order_line_id 로만 되찾아 트랜스퍼 스캔이 한 번도 저장 안 됨 · 목록에서 사라짐): A insert 반환으로 번호표를 바로 받고 order_line_id || transfer_line_id 로 짝 · C 번호표 없으면 조용히 건너뛰지 말고 빨간 「Reload — this line cannot be saved」 · 나머지 다섯 화면 「되찾기 조회」 훑기(→ wms-admin Stats 입고 · Receiving 탭도 고침)
+
+판정 90 (2026-09-29) Caleb 「A가 맞아」 — 운송 중 정리 Returned 창은 돌아갈 칸에 그 줄이 뽑혀 나간 칸을 미리 채운다(여러 칸이면 가장 많이 나간 칸 · 고쳐 쓸 수 있음 · 비우면 막는다) · 기각 B 비우면 저절로
+판정 91 (2026-09-29) Caleb 「A로 하자」 — 판정 84 섞기 막기 시험은 ⑱ 시험 때 새 재료로 · 지금 이 문서 차수 → ⑱ + ⑯
+
+판정 88 · 89 → po-module §11-i 「판정 88 — 입고 기준 = 인보이스」 블록(원문 여덟 · 판정 89 순서 포함)
+```
+
+### 28-b 실물 — 오늘 커밋 (asung-ims 여섯 · asung-wms 하나)
+
+```
+asung-ims  dc6c76f  transfers.html tf v1(대화 Claude · 70,691 B · md5 393503d2…) · 메뉴 Transfers(Bin Moves (office) 뒤 · 열쇠 transfer · ims · 메뉴에만 · 자리 임시 판정 82) · CHECKLIST 7-v · 0-a 메뉴 28 → 29
+asung-ims  d1d8a31  tf-2a 창고 화면 넷 — wm v1.2 · pk v1.1 · pa v1.2 · fu v1.1 · 판매 줄 − 32(전부 같은 값) · CHECKLIST 7-m ~ 7-p · 7-w
+asung-ims  afa69e0  tf-3 Receiving rc v1.5 — 도착 예정 트랜스퍼 목록 · tf_receipt_detail 을 po 상세 모양으로(tfDetailAsPo) · Complete .arrived.freight · 창고 Confirm · off-PO 스캔 숨김(창구가 둘 다 거부) · PO 쪽 − 4 · CHECKLIST 7-r · 7-x
+asung-wms  cf8878d  20260929152617_transfer_2b.sql(97행 · md5 0b2e0c57…) — wms_finalize 재발행 + 판매 · 트랜스퍼 섞인 목록 거부(다른 검사보다 먼저 · 뷰 wms_order_doc.doc_kind distinct > 1) · 더한 줄 4 만 · 시험 OK 12 · 확인 OK 8 · 판매 한 바퀴 OK 11 · 번호 무변 · 검증 파일 ~/asung/prompts/tf-2b-verify.sql(회사 PC)
+asung-ims  4cad78c  tf-2b wa v1.11 · fu v1.2 — Fulfillment 섞기 거부 · 「Ship to warehouse」 · WMS Admin 트랜스퍼(Status · Rollback · Trace · 팩킹리스트) · Finalized 탭에 운송 중 트랜스퍼(판정 86) · CHECKLIST 7-p · 7-q · 7-w · 7-y
+asung-ims  1a67eee  tf-2c pa v1.3 · wa v1.12 — 판정 87(팩 줄 번호표) · Stats 입고 줄 수 · Receiving 탭 트랜스퍼 번호
+asung-ims  35ef19a  tf-2d wa v1.13 — Finalized 탭 트랜스퍼 마무리 기록을 판매 임베드와 같은 칸으로(fulfillment_type · units · units_without_dims) · getPackingData maybeSingle
+```
+
+| 화면 | 빌드 | 차수 | 한 줄 |
+|---|---|---|---|
+| transfers.html | tf v1 | ⑥-1 · dc6c76f | 오피스 트랜스퍼 — 초안 · 확정 · Release · Recall · 취소 · 운임 · 운송 중 정리 · 더 온 몫 결정 |
+| wms-manager.html | wm v1.2 | ⑥-2a · d1d8a31 | 대기 목록에 at_wms 트랜스퍼 · 손님 자리 = 도착 창고 · 픽리스트 Ship To = 도착 창고 이름 |
+| wms-picker.html | pk v1.1 | ⑥-2a · d1d8a31 | 트랜스퍼 과제 임베드 · 배너 · 인쇄 · 신고 transfer_id |
+| wms-packer.html | pa v1.3 | ⑥-2a → tf-2c · 1a67eee | 팩 줄 번호표 = insert 반환 · order_line_id ‖ transfer_line_id · 번호표 없으면 빨간 Reload(판정 87) |
+| wms-fulfillment.html | fu v1.2 | ⑥-2a → tf-2b · 4cad78c | 판매 · 트랜스퍼 한 작업대 금지(판정 84) · 「Ship to warehouse」(판정 85-1) · 출발 토스트 |
+| wms-receiver.html | rc v1.5 | ⑥-3 · afa69e0 | 도착 예정 트랜스퍼 · tfDetailAsPo · Complete = 도착 · Confirm · off-PO 숨김 |
+| wms-admin.html | wa v1.13 | ⑥-2b → tf-2c · tf-2d · 35ef19a | Status · Rollback · Trace(TRF 번호) · Finalized 탭 운송 중 트랜스퍼 · 재출력(판정 86) · Stats 입고 줄 수 |
+| DB | 20260929152617_transfer_2b | cf8878d | wms_finalize 섞인 목록 거부(판정 84 안전띠) |
+
+### 28-c 끝에서 끝 시험 결과 (Caleb 화면 시험 · 2026-09-29)
+
+```
+통과  TRF-00001 · TRF-00002 둘 다 오피스 확정 → Release → Split & Waves → Picking → Packing → Fulfillment Finalize(출발 · in_transit) → 에드먼튼 Receiving Complete(도착 · received) → 운송 중 정리 · 더 온 몫 결정 · 운임
+      TRF-00001 운임은 도착 뒤 확정 · TRF-00002 운임은 도착 전 확정 → 도착 순간 세 레이어에 원가 금액 비례(판정 78 실물)
+결함 둘과 고침
+  ① Packing — 시작 갈래로 싼 트랜스퍼의 스캔이 DB 에 한 번도 안 적혔다(팩 줄 번호표를 order_line_id 로만 되찾음 · 조용한 return · work_started f 로 목록에서도 사라짐 · 팩 과제 553)
+     → 판정 87 · tf-2c pa v1.3(1a67eee) · 553 은 재개 갈래로 끝냈다(completed · 회복 칸 행 2094)
+  ② WMS Admin Finalized 탭 — TRF-00002 줄이 「no finalize record」 · 재출력 단추 없음(옆 길 조회가 마무리 기록을 세 칸만 읽음) → tf-2d wa v1.13(35ef19a)
+못 본 것  7-y(운송 중 Finalized 탭)는 TRF-00001 에서 놓치고 TRF-00002 로 봄(28-d 8) · 판정 84 섞기 막기 시험은 ⑱ 시험 때 새 재료로(판정 91)
+```
+
+### 28-d 사고와 규칙 (asung-workflow §4 · §6 에 규칙 줄로)
+
+```
+Claude Code
+  1 tf-2a — 쓰는 자리(insert)는 트랜스퍼 칸으로 갈랐는데 「되찾는」 조회(enterPack · order_line_id 로 번호표 찾기)를 놓쳤다 → 트랜스퍼 스캔이 DB 에 한 번도 안 적힘(조용한 return) · 목록에서 사라짐(work_started f) · 판정 87
+     ⇒ 규칙: 창구 coalesce 값으로 표의 원래 열을 되찾는 조회 · 집계 열쇠(po_line_id · order_line_id)도 쓰기 자리와 같이 훑고 가른다 · 조용한 return 금지(빨간 알림)
+  2 tf-2b — 옆 길 조회(loadTransferDocs)의 select 칸이 판매 임베드(FIN_SELECT)보다 적어 같은 렌더 줄이 반만 맞았다(「no finalize record」) · tf-2d
+     ⇒ 규칙: 옆 길의 select 는 판매 임베드의 칸 목록을 그대로 복사한다
+  3 사용 한도로 반영 도중 멈춤 → 이어받을 때 「이미 들어간 고침을 두 번 넣지 마라 · 먼저 상태 원문(status · diff --stat · ls -l · md5)」 — 두 번 넣은 것 0
+  4 eslint 가 스크래치 폴더의 flat config 때문에 오류를 결과로 센 무효 실행이 한 번 있었다 — 치우고 다시 돌림
+대화 Claude
+  5 ⑥-3 먼저를 권했다(틀림 · 판정 83 기록)
+  6 판정 88 — 정본 문장을 Caleb 판정으로 단정 · 「인보이스를 기다리지 않는다」를 「정해져 있다」로 답함
+  7 시험 뒤 읽기 쿼리에 칸 이름을 짐작으로 두 번(wms_pick_line_bins.qty → qty_base · inv_layer.qty_open → inv_layer_open.remaining_qty)
+     ⇒ 규칙: 읽기 확인 쿼리도 칸 이름은 마이그레이션(표 정의)에서 확인한 뒤 · 모르면 select *
+  8 7-y(운송 중 Finalized 탭)는 도착 전에 봐야 했는데 시험 순서에서 미리 짚지 않았다 — TRF-00001 은 놓치고 TRF-00002 로 봄
+     ⇒ 규칙: 끝에서 끝 시험 순서표에 「상태가 지나가면 다시 볼 수 없는 것」을 먼저 표시한다
+  9 앞서 준 명령을 「다시」라며 같은 것을 또 줘서 Caleb 이 찾지 못했다고 여김 — 명령은 한 번에 한 덩어리 · 다시 줄 때는 「앞서 준 것과 같다」고 밝힌다
+```
+
+### 28-e ⬜ 미룬 것 — 판정 59 목록 ⑱ ~ ㉓ · §27-e 에 이어 붙임
+
+```
+⑱ 판정 88 — 입고 기준 인보이스 · 인보이스 없는 PO 입고 불가(WMS · 오피스) · 인보이스 확정 순간 PO 분할(원래 번호 지키기 포함) · Reopen 되붙이기 · Off-invoice 한 길 · 창고 · 오피스 입고 화면 글자 · ⑯ 과 한 묶음 · 수정거리 맨 앞(판정 89) · 판정 84 섞기 막기 시험도 이때(판정 91)
+⑲ 트랜스퍼 줄 수량의 긴 소수 자리(qty_received 1.00000000000000000000 · tf_settle · tf_arrive 가 EA ÷ pack_factor 로 나눔 · 짐작)
+⑳ 판정 90 — Returned 창 돌아갈 칸 미리 채우기(transfers.html)
+㉑ 운임 창 둘 — 도착 전 트랜스퍼의 Confirm 확인 문장(「It is put onto the cost of the stock that arrived」 → 도착 전이면 「added the moment … arrival · until then it can still be reopened」) · 원가에 이미 얹힌 청구서의 Reopen 단추 숨김(창구는 막는다)
+㉒ 입고 화면 트랜스퍼 글자 둘 — ± 로 넘칠 때 대화 상자 「exceeds expected quantity (3 > 2). Continue?」 에 「Only what was sent is taken in — the office decides the rest」 가 안 붙음 · 스캔 칸 안내 「item not on this PO → off-PO …」 가 트랜스퍼에서도 보임(⑱ 의 Off-invoice 글자와 함께)
+㉓ 운임 · 더 보낸 몫 순서 — 운임이 도착 순간 먼저 얹히고 sent_more 가 뒤에 결정되면 더 보낸 레이어는 운임을 안 진다(배분 줄 단위 멱등 · 짐작 · TRF-00002 에서 「3 layers」) · 묶음 일곱 2 「포함 = 출발에서 더 보낸 물건」과 어긋남 · 결정이 먼저면 넷 · 합 90 은 재고에 다 있다 · ⑱ · ⑯ 과 함께 판정 거리
+셋째 창고를 세울 때 할 일(새 목록 · 판정 86 ①): 도착 다른 트랜스퍼 섞기 막기(판정 84 틀)
+```
+
+### 28-f 테스트 DB 지금 (2026-09-29 · 시험 뒤)
+
+```
+TRF-00001 received — 보냄 2 · 받음 1 · 되돌림 1(⚠️ Caleb 이 칸을 C030303 으로 적음 · 원래 C070303 — 판정 90 의 까닭) · 운임 test444 100 CAD(도착 뒤 확정 · 에드먼튼 레이어 1991706 에 100 · 남은 원가 100.5 · 되돌린 1991707 은 0.5)
+          원장 여섯 줄(leg 1 · 2 · 3 · 4 · return_out · return_in) · 팩 과제 553 completed(팩 회복 칸 행 2094 · C070303 1)
+TRF-00002 received — 줄 셋(AIA00206 · ABE56004 · ADO10086 · 각 2) · AIA 더 옴 1 → sent_more(B060903 → EB020201) · ABE 덜 옴 1 → lost · 운임 「before arrived」 90 CAD(도착 전 확정 → 도착 순간 세 레이어에 11.389425 · 25.185544 · 53.425031 = 90 · 원가 금액 비례 검산 맞음)
+PO-02017 closed — PO 12 · 인보이스 test po005 10(confirmed) · 옛 규칙으로 12 받음(RCV-00031) — ⑱ 의 「새 규칙 전에 닫힌 PO」 재료
+wms_reports 158 열림(TRF-00001 stock_short · picker)
+⚠️ [Claude Code 실측 · begin read only · 2026-09-29] wms_reports 158 은 **닫혀 있다** — resolved_at 2026-09-29 16:31:37 UTC · resolved_by = 그 worker(팩 553 의 회복이 stock_short 를 닫았다 · wms_complete_pack p_recovered) · 위 「158 열림」은 그 전 출력
+번호 일곱(Claude Code 실측 · begin read only · 2026-09-29): so 25005 t · inv 60003 t · trf 2 t · rcv 32 t · adj 12 t · mv 2 t · po 2027 t
+  inv_transfer TRF-00001 received · TRF-00002 received · PO-02017 closed
+```
+
+### 28-g 다음
+
+```
+순서(판정 89 · 91): 이 문서 차수 → 수정거리 맨 앞 ⑱(판정 88 · po-module §11-i) + ⑯ 한 묶음(같은 입고 · 원가 창구 · 판정 84 섞기 막기 시험도 이때) → ⑰ · ⑫ → 그 뒤 판정 81 1단계(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 비밀번호 배포 전 필수)
+⑲ ~ ㉓ 는 ⑱ 차수에서 함께 볼지 판정 거리(㉓ 운임 · 더 보낸 몫 순서는 ⑱ · ⑯ 과 함께)
 ```
