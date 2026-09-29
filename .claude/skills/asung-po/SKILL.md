@@ -30,6 +30,7 @@ description: >
 ⑥ 리시빙           ✅ 09-18 — ⭐ WMS 이관을 미루고 IMS 안에 PO 갈래로 먼저(§13-i) · 표 셋 + 차이 큐 · RPC 열 · 확정·자동 분할 **§11-i·§11-c** · updated_by + ims_touch(§5) · 탭 다섯
 ⑦ 원장·원가 이식    ✅ 09-19 — 입고 확정이 원장 사건(`inv_post_receipt` · **§11-j**)과 원가 레이어(`inv_layer_post_receipt`)를 · 비용 확정이 landed 를(`inv_layer_post_charge` · **§11-f**) · 차이 닫기 short 만 + 형제 합계 `po_family_*`(**§11-i·§11-c**) · Last bin 속 = 원장 · 머리 칸 편집·Add a line(§11-b·§11-d) · 원가 규칙 정본은 `ledger-design.md` 4부 「이식」·「원가 이식」 · ✅ 09-20 `inv_layer_apply()` 에 IMS 판(`20260920142635` · 아래 함정 — 남은 함정은 환율 없는 입고) · ✅ 09-20 오후 **over 닫기** `po_receipt_diff_settle_over`(**§11-i** · 이유 셋 free·billed·credited) · **매입 가격 이력** `po_price_history`(**§11-g** · 출처는 확정 인보이스 · 할인 반영)
 ⑧ ⑤-3 입고(WMS)  ✅ 09-26 — 속/바깥(so-module §24-m · n) · 셸은 definer · 창고 검사 · 확정 셸 + wms_recv_state 경고 · so_current_staff 는 셸이 못 부른다  → [2026-09-28 b693d8c] 화면 — Purchase Receipts 상세 머리 「WAREHOUSE WORK」(wms_recv_state · po_receipt_detail 엔 wms 가 없다) · 확정 창 한 줄 · 확정 뒤 wms_not_completed 안내 · 막지 않는다(판정 30) · 목록 칩 ⬜(so-module §24-s)
+⑨ 두 출처          ✅ 09-28 — 입고 문서 · 비용 문서가 PO 또는 트랜스퍼(정확히 하나 · so-module §27 · po-module §11-i · §11-f 머리) · 트랜스퍼 입고는 오피스 확정 없음 · tf_receipt_detail 로 읽는다 · 트랜스퍼 운임 = tf_charge_*
 화면 열하나        ✅ `ims.asung.ca`(레포 `asung-ims` · ⚠️ 공개) — 마스터 다섯 · staff · po·invoices·charges·payments·receiving · 규칙 **§10-j**(3-g·3-i·3-j·3-k) · ⬜ 채울 칸 **§10-k** · 🔄 다음 **§13-f**
 ```
 - ⭐ **IMS 표 32 · 정책 116**(2026-09-18 실측 · Caleb psql) — 전부 **테스트 DB(Asung-IMS)에만** 있다. `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영.
@@ -118,6 +119,8 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | latest/fixed 를 **입고**로 갱신한다 · 발주 확정이 갱신한다고 믿는다 | 공짜·초과분이 가격이 되어 latest 가 0 · 실물은 갱신 함수가 **0개**(11-d 정정) | 가격의 출처는 **확정 인보이스**(`po_price_history` · 할인 체인 반영 · net_unit) · 컷오버 뒤 갱신도 이 뷰가 재료 · §11-g 「매입 가격 이력」 |
 | 형제 문서 합계를 화면이 더한다 · 라인을 line_no 로 맞춘다 | 손 재귀가 뿌리를 중복 제거 못 해 **두 배(24)** 가 났다(09-19 실사고) · b 의 새 라인 line_no 가 a 의 다른 제품과 겹친다 | **`po_family_lines` · product_id** · 계산은 DB(순환 방어 path·깊이 50) · §11-c |
 | 확정된 비용을 되돌려 배분을 고치고 다시 확정 | landed 가 이미 얹힌 뒤라 멱등이 건너뛰어 **옛 금액이 남는다** | 되돌리기는 landed 있으면 **거부** · 고치려면 **상쇄 비용 문서**(append-only) · §11-f |
+| purchasing 만 가진 로그인으로 트랜스퍼 운임을 확정 | 트랜스퍼를 못 봐(RLS) 0 이 조용히 얹혔다 → 이제 거부 | 트랜스퍼 운임은 transfer 열쇠(`tf_charge_*`) · admin · supervisor · so-module §27-d 10 |
+| 입고 전 확정한 비용이 입고 때 얹힌다고 믿는다 | 안 얹힌다 — `no_layers` 로 남는다(백필 · 미룬 목록 ⑯) | 입고 뒤 `inv_layer_post_charge` 재호출 또는 재생성 · 트랜스퍼만 도착 순간 저절로(판정 78) · ⚠️ 얹힌 원가는 매출원가에 안 들어간다(⑰) |
 | 기준통화 아닌 발주·비용을 환율 없이 확정 · 환율로 **나눈다** | 원가 0 · 또는 **반값 — 에러 없음** | 확정 거부(게이트 ⑥ · 문장이 어디서 고치는지 말한다) · `exchange_rate` 는 **CAD per USD — 곱한다** · §11-j·§11-f · ledger-design 4부 |
 | 발주 머리의 Supplier·Currency 를 연다 | 라인의 단가 근거·통화 뜻이 통째로 바뀐다(USD 5.19 → CAD 5.19) | **열지 않는다** — 잘못 골랐으면 새 발주 · 언제나 여는 것은 Exchange rate·Note 뿐(원가가 매달린다) · §11-b |
 | ~~⚠️⚠️ `inv_layer_apply()` 를 돌린다~~ → ✅ 09-20 IMS 판(`20260920142635`) · 남은 함정: **환율 없는 입고가 있는 채** 돌린다 | 그 입고만 건너뛰어 원가가 빠진 채다 — 멈추지 않는다(옛 「통째로 사라진다」는 틀렸었다 · 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다) | 반환 `ims.receipts_skipped` 가 0 인지 본다 · 환율을 넣고 `inv_post_receipt` 재호출 또는 다시 돌린다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 스킬 asung-inv-ledger 함정 첫 줄 |

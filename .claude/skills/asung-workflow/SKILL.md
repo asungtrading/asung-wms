@@ -218,6 +218,21 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **숫자를 글자로 비교하면 틀린다** — 0.50 vs 0.500000 ⇒ numeric 으로 비교
 ⚠️ **session_replication_role = replica 는 authenticated 역할에서 못 바꾼다** ⇒ reset role 뒤 소유자 역할에서 바꾸고 다시 claims · role
 ⚠️ **Claude Code 셸의 cwd 가 되돌아간다** — 상대 경로로 받은 조회 파일 둘이 0 바이트였다(trf-1) ⇒ 절대 경로 · 결과 파일은 ls -l 로 크기 확인
+⚠️⚠️ **[2026-09-28 창고 간 트랜스퍼 · so-module §27-d] 실수 둘 갈래** — 대화 Claude 지시서: 부분 유니크(규칙 29) · wms_stage 로 P 세기(done ⊃ fulfilled) · 판정 73 을 화면과 밑단을 안 가르고 물음 / Claude Code 보고: mv 번호를 당겨진 시작 값 170 으로 되돌림(실제 최대 2) · 확인 기대 14(F10 옛/새 대조 빼기를 빠뜨림 · 13) ⇒ 확인 기대는 시험에서만 도는 검사를 **모두** 센다
+⚠️ **옛 검증을 다른 마이그레이션 위에서 다시 돌리면 번호를 당긴다** — 차수 끝마다 so · inv · trf · adj · mv · rcv 여섯을 **실제 최대 기준**으로 확인 · 되돌림(시작 값이 당겨진 값일 수 있다 · ⑬)
+⚠️ **검증의 고정값 기대(뷰 칸 수 · 정책 수 · Health 행 수 · 카탈로그 수)는 다음 차수마다 깨진다** — 「앞보다 늘어난 만큼」으로(⑮)
+⚠️ **union all 뷰 explain 은 표 크기에 따라 훑기를 고른다** — 술어가 내려가는지는 enable_seqscan off 로 증명
+⚠️ **null = null 은 짝이 안 된다** — 트랜스퍼 줄은 order_line_id 가 null · 조인 · 서브쿼리 짝 자리는 coalesce · **not in 은 null 키 행을 떨어뜨린다**(coalesce)
+⚠️ **별칭 line_id as id 는 상관 서브쿼리의 x.id 를 못 덮는다** — 뷰로 바꾸면 서브쿼리 안 참조도 훑는다
+⚠️ **배열 || 객체 || 객체 는 두 원소**(tr-2 · tr-4 재발) — 괄호로 묶는다 · declare 변수 ≠ CTE 별칭(다섯 번째)
+⚠️ **security_invoker 뷰를 읽는 invoker 창구는 아래 표 RLS 를 직원 신원으로 시험** — worker 로 빈 배열이 났다 · 문(ims_can_*)이 든 읽기 창구를 owner 로 부르면 null
+⚠️⚠️ **invoker 창구를 invoker 로 직접 부르면 RLS 로 행이 사라져 조용히 0** — definer 셸에서는 안 보인다 · null 로 온 참조는 거부로(tr-4 · purchasing 만 가진 로그인)
+⚠️ **invoker 창구가 부르는 속은 회수할 수 없다** — 불변식으로 안전한 함수만 authenticated 에 허용(tr-4b inv_layer_carry · 판정 31 예외)
+⚠️ **정규형 대조는 배열을 정렬한다** — 반환 배열이 uuid 순이면 md5 가 실행마다 갈린다(tr-4 확인 13/12)
+⚠️ **CHECK 가 판정을 들고 있으면 사실을 다른 칸에 둔다**(tr-3b qty_extra · 보낸 ≤ 요청 CHECK)
+⚠️ **FIFO 가 레이어 경계를 걸치면 레이어 수 기대는 실측으로** · 칸마다 행이면 행 수 기대는 칸 수로
+⚠️ **불러온 데이터 축 adjust 재생성은 (문서, SKU, 창고) 키마다 하나** — 씨앗은 문서를 가른다 · 테스트 DB 원가 층은 재생성 모양과 완전히 같지 않다(⑭) — 대조는 재생성 #1 기준
+⚠️ **PC 를 옮길 때 검증 파일(레포 밖 ~/asung/prompts)은 zip 으로** — 파이썬 zipfile 로 풀기 · 덮어쓰지 않기 · crc 대조(unzip 이 없을 수 있다)
 ```
 
 ---

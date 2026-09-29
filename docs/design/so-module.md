@@ -4256,7 +4256,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
 판정 24  admin 의 WMS 탭은 Stats · Health 까지 ⑤-5 에서 함께 옮긴다 — Caleb 「admin의 다른 wms탭과 함께 옮겨야 하지 않을까?」
          Caleb 물음 「픽별, 팩별, 시간, 담당자, 작업량등등의 통계는 계속 유지되는거지?」 → 유지된다 · 통계는 SO 상태가 아니라 ② 표의 작업 기록에서 나온다
          ⇒ 새 창구가 운영이 찍던 시각 · 사람 칸을 빠짐없이 찍는지 검증의 축으로 대조했다(⑤-2a2 T1~T4) · Health 는 「IMS 에서도 뜻이 있는 검사」만 다시 · Receiving 탭은 ⑤-6
-판정 25  WMS 화면 권한 — Caleb 「B로 가자」  → stock_move(판정 63 · §26)
+판정 25  WMS 화면 권한 — Caleb 「B로 가자」  → stock_move(판정 63 · §26)  → transfer 열쇠 · 창고 일 열쇠 읽기(판정 73 · §27)
          ims_can_view · ims_can_write 원본에 worker 가지 한 줄만: worker 기본 = WMS 방 화면 가운데 min_role 이 없거나 worker 이하인 것 전부 · wms_manage(min_role manager)는 worker 에게 false
          manager 는 화면마다 켠다(perms ? 화면 · staff.html 라디오 · 운영의 사람별 Split 권한과 같은 모양) · admin · supervisor 는 전부
          Caleb 물음 「나중에 receiving과 브랜치 트랜스퍼도 가능한거지?」 → 된다 — WMS 방 값으로 올리면 worker 기본(WMS 입고 · 풋어웨이는 오피스 receiving 과 이름을 따로)
@@ -4340,7 +4340,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
 판정 30  창고 Complete 와 오피스 확정 — Caleb 「a로 가자」 · 물음 「PO를 wms를 거치지 않고도, 바로 IMS 상에서 입고가 가능하게 하는거지?」 → 그렇다
          창고 Complete = WMS 기록 + 창고 쪽 잠금 · Reopen = wms_manage · 오피스 확정은 Complete 를 요구하지 않는다(오피스 혼자 받는 길 유지) · Complete 전이면 wms_not_completed 경고
          좁히려면 오피스 receiving 쓰기 권한을 확정자에게만(staff.html) · 기각: Complete 필수(WMS 화면 전 테스트 확정 길이 막힌다) · 표시만(창고가 확정 직전에 숫자를 바꿀 수 있다)
-판정 31  원가 재생성 도구 inv_layer_apply 를 authenticated 에서 회수 — Caleb 「안 A로 방금 준 프롬프트 줬어. 회수하는걸로」
+판정 31  원가 재생성 도구 inv_layer_apply 를 authenticated 에서 회수 — Caleb 「안 A로 방금 준 프롬프트 줬어. 회수하는걸로」  → 예외 inv_layer_carry · tr-4b · §27-d 11
          경위: ⑤-3b 로 inv_layer_post_receipt 의 receiving 문이 빠져, 재생성 도구(자기 문 없음 · authenticated 실행 가능)를 막던 문이 purchasing 하나만 남았다 · 도구는 사람이 psql(소유자)로만 쓴다
          Caleb 물음 「이것은 재고를 다룰때 또 건드려야 하는거야?」 → 회수는 create or replace 로 다시 내도 남는다 ·
          ⚠️ 규칙: 재생성 계열 함수를 **새로** 만들거나 drop 뒤 다시 만들면 Supabase 기본으로 authenticated 에 열린다 — 그 차수에서 revoke 를 함께 · 화면에서 돌리고 싶으면 문 있는 바깥 창구를 따로(판정 7)
@@ -4803,6 +4803,11 @@ asung-ims  4b4d45a  stock-adjustments.html adj v1(대화 Claude · 753행 · md5
 ⑩ 검증 파일을 레포로(ims-principles §6-b ①)
 ⑪ Wrong location 신고 → 칸 옮기기 연결 — 지금 wms_reports 에 칸 칼럼이 없고 note 글자뿐(wms-picker.html:1207 「Listed bin … · found at …」) · 판정 58 묶음(신고에 닫힌 방법 칸)을 할 때 from/to 칸 · 수량 칼럼을 함께 넣고 연결  → §26-f
 ⑫ 피커가 계획과 다른 칸에서 실제로 뽑아도 wms_complete_pick 이 계획 칸을 실제 칸 행으로 적는다(피커 화면이 bins 를 안 보냄 · 원래 있던 빈틈) — 원장 칸이 틀어지는 길  → §26-f
+⑬ 옛 검증 파일이 번호를 되돌리지 못한다 — 판매 so-* 여덟 · adj-a · trf-a(mv) · 판정 55 모양으로 고친다  → §27-e
+⑭ 테스트 DB 원가 층이 재생성 모양과 완전히 같지 않다(입고 over · off-PO 등) — 재생성 정합 점검  → §27-e
+⑮ 검증 파일의 고정값 기대(Health 행 수 · 정책 수 · 뷰 칸 수 · 카탈로그 수)를 「앞보다 늘어난 만큼」으로  → §27-e
+⑯ PO 입고 전에 확정한 비용(운임 · 관세)은 입고해도 저절로 안 얹힌다(백필) — 트랜스퍼(판정 78)처럼 입고 순간 저절로 얹을지 판정  → §27-e
+⑰ ⚠️ 전환 전 필수 · 이른 순서 — 얹힌 원가(PO 운임 · 관세 · 트랜스퍼 운임 · 따라간 원가)가 매출원가(소진 금액)에 들어가지 않는다 · 팔린 몫은 장부에서 사라진다 — 판정 거리 · ⑯ 과 한 묶음  → §27-e
 기존 그대로: 원가 모르는 판매 부족분 채우기(asung-inv-ledger ⑲ ⬜) · POS 가 어느 칸에서 빠지나(④ 판정 1)
 ```
 
@@ -4824,7 +4829,7 @@ SO-25005 fulfilled(인보이스 60003) · SO-25003b Working · 신고 37 열림 
 
 ## §26 재고 사건 ② 트랜스퍼 · 첫 몫 칸 옮기기 (2026-09-28 · 판정 60 ~ 63)
 
-→ 앞 사건 §25(재고 조정) · 다음 = 창고 간 트랜스퍼(보내기 + 받기 · 판정 60)
+→ 앞 사건 §25(재고 조정) · 다음 = 창고 간 트랜스퍼(보내기 + 받기 · 판정 60)  → ✅ §27
 
 ### 26-a 판정 원문 (60 ~ 63 · 묶음 열)
 
@@ -4920,4 +4925,128 @@ Health(trf-a 보고 · 테스트 DB): move_confirmed_no_ledger 0 · planned_bin_
 칸 옮기기 MV-00001 · MV-00002 confirmed(각 계획 이동 1 · posted_on 2026-09-28) · 원장 source ims transfer 네 줄(−1 C070303 · +1 C070304 · −1 C070304 · +1 C070303 · 전부 raw.kind bin_move)
 CON00156 C070303 4 · C070304 0 · 과제 125(SO-25003b · pending) 계획 C070303 1
 시퀀스 mv 2 t · adj 12 t · so 25005 t · inv 60003 t
+```
+
+## §27 재고 사건 ② 트랜스퍼 · 둘째 몫 창고 간 트랜스퍼 (2026-09-28 · 판정 64 ~ 79)
+
+→ 앞 몫 §26(칸 옮기기) · 다음 = ⑥ 화면(27-h · 판정 80)
+
+### 27-a 판정 원문 (64 ~ 80 · 묶음 셋)
+
+```
+판정 64  창고 간 트랜스퍼의 보내는 쪽 = 트랜스퍼 문서가 그대로 창고로 — 오피스가 트랜스퍼를 만들어 Release → Split & Waves → Picking → Packing 을 그대로 탄다 — Caleb 「A로 가자」
+         기각: B 운영의 「ASUNG EDM TRANSFER」 손님 판매 오더(트랜스퍼 픽용 SO) 편법(IMS 에서는 판매로 잡혀 매출 · 원가 · 세금 · 인보이스가 섞인다) · C 전용 간단 스캔(팩 검수 · 팔렛 · 박스 기록이 없다 · 수백 줄에 약하다)
+판정 65  출발 = 창고 마무리(Fulfillment Finalize) 순간 — 출발 창고에서 빠지고 운송 중 · 예약도 풀린다 · 운임은 오피스가 나중에 · 재고 움직임은 운임을 기다리지 않는다
+         Caleb 첫 답 「A로 가자」 → Caleb 물음 「그런데, 판정 64에서, freight을 정하게 돼. 팔렛 수, 무게등을 넣게 되는데, 그러면 어차피 오피스에서 transfer를 열고, 트랜스퍼 안에 쉽핑 코스트를 넣게 되지 않나? 그러면 fulfillment finalize를 눌렀어도 결국 한번은 더 transfer를 열어야 하는것 같은데? 판정 64는 좀 더 깊이 생각을 해봐야 하지 않아?」(실제로는 65 자리)
+         → 대화 Claude: 「재고가 언제 움직이나」와 「운임을 어디에 붙이나」를 가르자 · 운임 청구서는 보통 출발 뒤에 온다(짐작) → Caleb 「좋아 65도 A로 가자.」
+         Caleb 확인 물음 「packing 다음에 fulfillment에서 finalize를 하면 자동으로 토론토에서 빠지고, in transit이 됨. 그리고, 에드몬튼에서 wms receiving을 마무리하면, ims transfer는 스탁을 다 받으면 자동으로 complete된다. 그리고 나중에 운임을 추가로할 수 있다. 맞아?」 → 맞다(완료는 「다 받았으면」이 아니라 「도착 창고가 Complete 를 누르면」)
+         기각: B 오피스 「Dispatch」 = 출발
+판정 66  도착 창고는 지금의 입고 화면(wms-receiver)으로 — 대기 목록 · 보낸 수량과 대조하며 세고 · 바로 칸에 놓고 · Complete = 도착 — Caleb 「A로 가자」 · 기각 B 받는 칸 하나에 몰아 넣고 Bin Moves(운영 규칙 40 이 버린 집결 칸)
+판정 67  운임은 도착 창고 물건의 원가에 넣는다 — Caleb 「원가에 넣어야 한다고 생각해. A」 · 기각 B 비용으로만
+판정 68  보낸 ≠ 받은 — 받은 만큼만 도착 칸 · 모자란 몫은 운송 중에 남겨 매니저 정리(분실 / 출발 창고로 되돌리기) · 더 온 몫은 보낸 수량까지만 받고 넘는 몫은 매니저 결정 — Caleb 「A로 하자」 · 기각 B Complete 순간 저절로 분실
+판정 69  창고 작업을 「판매 또는 트랜스퍼」 두 종류 오더로 넓힌다 · 판매 표(so · so_line)에 판매가 아닌 줄을 섞지 않는다 — Caleb 「나는 B가 맞는것 같아.」
+         기각 A 「그림자 작업 오더」(so 에 channel='transfer' 줄 · 판매 목록 · 통계가 늘 빼야 한다 · 트랜스퍼가 판매 모듈의 표를 빌려 쓴다)
+판정 70  트랜스퍼 입고는 오피스 확정 없음 · 도착 창고 Complete = 확정 — Caleb 「필요없을 것 같아. A」
+묶음 아홉(판정 70 뒤) — Caleb 「그대로 가자」: 1 운임 원가 금액 비례 · 잔돈 마지막 줄 · 비용 문서가 PO 또는 트랜스퍼 2 운송 중 정리 = 문서 안 창구 하나(lost / return) 3 예약 = 확정 때 출발 창고 재고 · 가용에서 뺀다 4 TRF- · 상태 흐름 5 떠난 뒤 취소 없음 → return 6 창고 제한(보내기 = 출발 · 받기 = 도착 · 문서 = 둘 중 하나) 7 나눠 도착 = line_ref 접미어 8 열쇠 「Transfers」(transfer · ims 방 · 사람마다) 9 B 의 설계 조사 → 만들기
+판정 71  넓히는 모양 = b3 「칸 둘 + 공용 목록」 — 창고 작업 표마다 판매 칸 옆에 트랜스퍼 칸 · 둘 중 하나 · 창고 창구는 공용 목록(뷰 wms_order_doc · wms_order_doc_line)만 읽는다 — Caleb 「좋아 그렇다면 a로 가자」
+         기각 b2 「창고 작업 오더」(창고 모듈 자기 표 · 원칙상 가장 깨끗하나 ⑤ 창구 스무 개 · 화면 다섯 · 검증 둘 전면 재작성 · 상태 둘 · 회귀 위험 큼)
+묶음 열(판정 71 뒤) — Caleb 「그대로 가자」: 1 트랜스퍼 줄 = so_line 과 같은 셋 2 예약 = 확정된 줄 자체 · 가용 셈 한 곳 = 장부 − 판매 예약 − 트랜스퍼 예약 3 확정 때 가용 부족이면 거부(백오더 없음) 4 상태 draft · confirmed · at_wms · picking · in_transit · receiving · received · cancelled(창고로 보내기 전까지만) 5 떠난 뒤 되돌리기 없음 6 창고 창구 이름 · 인자 이름 무변 7 트랜스퍼 픽 리스트 인쇄 = 도착 창고 이름 8 Health 트랜스퍼 셋 9 창고 일 열쇠 넷 그대로 10 차례 ① ~ ⑦ · 차수마다 판매 한 바퀴
+판정 72  (tr-1b1 넷) — Caleb 「그대로 가자」: 1 「뽑혔지만 안 나감」 · 상태 검사는 뷰의 원문 status(wms_stage 금지 — done ⊃ fulfilled · 대화 Claude 지시서가 틀렸다) 2 picking_by 는 뷰 끝 칸으로 3 판매 오더 행 잠금 한 줄(perform 1 from so … for update)은 판정 71 「공용 목록만 읽는다」의 예외 4 inv_adjust_from_report 포함
+판정 73  창고 작업자는 IMS 트랜스퍼 **화면**에 들어갈 수 없다(화면 열쇠 transfer) · 밑단 표 읽기는 판매 오더와 같게 창고 일 열쇠(picking · packing · fulfillment · wms_manage · ④ 에서 wms_receiving)
+         Caleb 첫 말 「picking,packing,fulfillment가 아니라, wms admin access가 있어야 트랜스퍼를 읽을 수 있어. 왜냐하면, wms admin은 매니저 이상이고, 매니저는 ims와 wms 둘다 access가 가능하니까. 그러니까, 창고 작업자는 ims 안에 있는 트랜스퍼에는 access가 기본적으로 없어.」
+         Caleb 흐름 확인 「잠시만, 트랜스퍼도 역시 세일즈 오더와 같은 라인을 타는 것으로 알고 있어. 오피스에서 오피스 매니저가 트랜스퍼를 release to wms를 하면, 웨어하우스 매니저가 트랜스퍼를 스플릿 과정을 거쳐서 픽킹에 던져줘. 그러면 픽커들은 트랜스퍼를 잡아서 다른 세일즈 오더와 같은 방식으로 픽킹을 해. 그리고 팩킹, 풀필먼트를 하지. 다른 것은 fulfillment finalize를 하면 바로 스탁이 릴리즈 되고, in transit상태가 된다는거야. 내 말이 맞아?」 → 맞다
+         Caleb 물음 「그런데 왜 worker에게 트랜스퍼 문서를 읽을 권한을 줘야 할지를 묻는거지? worker들이 기본적으로 세일즈 오더 문서를 볼 필요 없는 것과 뭐가 다른지 내가 이해를 못했어.」
+         → 대화 Claude 정정: 질문이 잘못됐다 — 판매 오더도 화면은 막히고 밑단 표는 열려 있어 픽 창구가 작업자 권한으로 줄을 읽는다 · 트랜스퍼는 밑단을 닫아 빈 목록이 났다 · A 판매와 같게 밑단 열기 / B 밑단 닫고 창구가 꺼내 주기 → Caleb 「A로 가자」
+판정 74  트랜스퍼 픽에서 모자라면 뽑은 만큼만 보내고 모자란 몫은 그 트랜스퍼에서 닫는다 · 줄에 요청 · 보냄 · 「덜 보냄」 표시 · 더 보낼 것은 오피스가 새 트랜스퍼 — Caleb 「A로 하자」 · 기각 B 저절로 새 초안
+판정 75  운송 중 정리(분실 · 되돌리기)는 조정 열쇠(stock_adjust)를 가진 사람만(판정 49 · 50 규칙) — Caleb 「A로 가자」 · 까닭: 분실은 재고 합계 · 가치를 바꾸는 일 · 「가치를 바꿀 수 있는 사람」을 조정 열쇠 하나로 · 기각 B WMS Admin 누구나 · C Transfers 열쇠
+판정 76  더 온 몫 = 매니저가 고른다 — 「출발에서 더 보낸 것」(출발 칸(기본 픽 계획 칸)에서 빼 도착에 · 출발 원가 층) / 「도착에서 찾은 것」(도착 조정 found) · 결정은 조정 열쇠 — Caleb 「A로 가자」 · 기각 B 늘 출발 · C 늘 도착 찾음
+판정 77  분실된 물건 몫의 운임도 도착한 물건이 모두 떠안는다 — Caleb 「A로 가자」 · 기각 B 분실 몫 운임을 비용으로 따로
+묶음 일곱(판정 77 뒤) — Caleb 「그대로 가자」: 1 기준 = 도착 물건 원가 금액 비례 · 잔돈 마지막 · 여러 번 각각 2 제외 = 되돌린 물건 · 도착에서 찾은 물건 / 포함 = 도착 · 출발에서 더 보낸 물건 3 누가 = Transfers 열쇠 4 도착 전 청구서 = PO 규칙대로(뒤에 판정 78 로 바뀜) 5 팔린 뒤 = PO 규칙 6 고치기 · 지우기 = PO 규칙 7 「운임 오래 없음」 점검은 조사 뒤
+판정 78  도착 전에 확정한 트랜스퍼 운임은 에드먼튼 도착(Complete) 순간 저절로 원가에 얹는다 — Caleb 「A로 가자」 · 기각 B PO 처럼 두고 Health 가 알린다 · PO 입고의 같은 문제는 미룬 목록 ⑯
+판정 79  토론토 원가 층에 얹혀 있던 PO 운임 · 관세는 IMS 트랜스퍼를 따라간다(한 병당 비율 · 출발 · 도착 · 되돌리기 · 더 보낸 몫 · 불러온 데이터 축 무변) — Caleb 「A로 가자」 · 기각 B 지금대로
+그 밖 Caleb 말(판정 아님 · 순서) — 「그러면 tr-4b까지 하고, 마무리하자」 · 「인계서 나중에 해도 되지 않나? 문서 정리가 우선 일 것 같네」
+판정 80  순서: 이 문서 차수 마무리 → ⑥ 화면까지 마무리 → 그다음 수정거리(⑬ ~ ⑰ · 치명 셋 ⑰ · ⑯ · ⑫)를 정리하고 다음으로 — Caleb 「문서 작업 마무리하고 내일 화면 작업까지 마무리 한다음에, 수정거리들을 정리하고 다음으로 가자」
+```
+
+### 27-b 조사 · 실측
+
+```
+규모(불러온 데이터 · 2026-08-21 ~ 09-21): 토론토 → 에드먼튼 월 5 ~ 6건 · 대부분 100줄 넘는 문서(최대 195) · 운송 열흘 안팎(0 ~ 13일) · 반대 방향 1건
+판정 69 · 71 전 설계 조사(trf-2 · trf-3): 창고 작업 표 12 · FK 11 · 창구 20 · 화면 다섯이 so 에 묶여 있었다 · 안 (i) 칸 둘 (ii) 그림자 오더 (iii) 전용 표 / b1 · b2 · b3 비교
+판정 65 가 창구에 요구한 것: 판매는 창고 마무리에서 상태만(packed) · 원장은 오피스 마무리 · 트랜스퍼는 창고 마무리에서 곧바로 원장
+공용 목록 explain: 두 갈래 모두 술어가 내려간다(so_pkey · inv_transfer_pkey · enable_seqscan off 로 증명 — so 7행은 플래너가 훑기를 고른다)
+끝에서 끝(창구만 · 시험 적용): 보냄 20(칸 둘 −12 · −8 · 원가 층 0.50 · 0.75) → 운송 중 20 → 받음 17(에드먼튼 칸 둘 10 · 7) · 운송 중 3 → lost 3(소진 1.50) 또는 return 3 · 더 옴 22 → 20 도착 + over 2 결정(sent_more 네 행 / found ADJ) · 운임 $100 → 원가 금액 비례 66.67 · 33.33 · 트랜스퍼 한 장 원장 합 0(분실이면 −분실)
+tr-4b 조사(⚠️ 원래 있던 일): 소진 금액(inv_layer_consume.amount = 수량 × unit_cost)은 얹힌 금액(inv_layer_cost_add)을 모른다 · 남은 원가(inv_layer_open)만 안다 ⇒ PO 운임 · 관세 · 트랜스퍼 운임 · 따라간 원가 모두 팔린 몫은 매출원가에도 평가액에도 안 남고 사라진다 → 미룬 목록 ⑰
+tr-4b 보존 실측: 옮기기 전후 두 창고 + IN_TRANSIT 남은 원가 합 720 → 720 → (운임 뒤) 750 · 부모 남은 576 + 자식 144 = 720
+```
+
+### 27-c 실물 — 커밋 여덟 (asung-wms · 테스트 DB 적용 · 확인 · 커밋)
+
+```
+715f900  20260928201753_transfer_1a.sql (494행 · md5 5862e2e3…) — tr-1a ①: inv_transfer · inv_transfer_line · TRF- · 열쇠 transfer · create/line_set/line_remove/delete/confirm(가용)/unconfirm/cancel/list/detail · 창고 표 11 에 transfer 칸 + CHECK(정확히 하나 · 많아야 하나) · order_finalize · order_review 기본키 → 보통 유니크 둘씩(규칙 29 · 처음 판의 부분 유니크를 대화 Claude 가 잡았다) · 뷰 wms_order_doc · wms_order_doc_line · so_available_many(트랜스퍼 예약)
+4584bce  20260928231355_transfer_1b1.sql (1,706행 · md5 c4df718c…) — tr-1b1 ②-1: 창고 창구 19 가 공용 목록을 읽게(조인만 · 판매 행 잠금 유지 · 상태 술어 원문) · 뷰 끝 picking_by(19칸) · wms_order_pack_progress 문서 키 · 옛/새 대조 OK 12
+9642ec2  20260928234815_transfer_1b2.sql (1,195행 · md5 f07a4c66…) — tr-1b2 ②-2: tf_wms_status(허락 짝) · wms_doc_status · tf_release · tf_wms_recall · 창구 13 재발행(트랜스퍼 잠금 · 종류별 쓰기 · coalesce 읽기) · 창고 일 열쇠 읽기 정책(판정 73)
+ab37e70  20260929003624_transfer_2.sql (1,284행 · md5 daf258ea…) — tr-2 ③ 출발: tf_depart · inv_post_transfer_depart(leg 1 칸마다 · leg 2 IN_TRANSIT 줄마다 · raw.kind transfer) · inv_layer_post_transfer_depart(출발 FIFO → IN_TRANSIT · parent · 같은 원가 · 나이) · 재생성 갈래(done 키 ims_trd) · qty_sent · picking → in_transit · 떠난 트랜스퍼 되돌리기 거부 · Health transfer_departed_no_ledger
+aafb4b4  20260929010938_transfer_3a.sql (2,179행 · md5 ce32ce91…) — tr-3a ④-1 도착: 입고 표 넷 transfer 칸 · wms_recv_start 트랜스퍼 · 첫 세기 receiving · Complete = tf_arrive(leg 3 IN_TRANSIT out · leg 4 칸마다 · line_ref 줄:입고) · over/short 기록 · qty_received · received · 문서 범위 IN_TRANSIT FIFO · 오피스 확정 · inv_post_receipt 는 트랜스퍼 거부 · 읽기 정책 wms_receiving · tf_receipt_detail · Health 176 · 179 · PO 입고 옛/새 대조
+66bb493  20260929014246_transfer_3b.sql (1,307행 · md5 62c03cd9…) — tr-3b ④-2: tf_settle(lost · return · 조정 열쇠 · 잔고 상한 · inv_transfer_settle) · tf_over_decide(sent_more 네 행 · found 는 조정 창구를 불러 ADJ) · 소진 reason lost · qty_lost · qty_returned · qty_extra · 차이 어휘 · Health 177 · 정리 뒤 문서 상태 무변
+ba5ab79  20260929021949_transfer_4.sql (1,183행 · md5 f583478c…) — tr-4 ⑤ 운임: po_charge_alloc.transfer_id · inv_layer_post_charge 트랜스퍼 갈래(도착 · over_4 · :settle: 제외) · tf_charge_* 일곱(definer · transfer 열쇠 · 출발 또는 도착) · purchasing 만 가진 로그인은 트랜스퍼 운임 확정 거부(0 이 조용히 얹히던 것 막음) · PO 비용 옛/새 대조
+d5c93cc  20260929025719_transfer_4b.sql (1,060행 · md5 80838d1b…) — tr-4b ⑤-2: 도착 순간 운임(판정 78 · tf_arrive · 오류는 도착을 막지 않는다) · 얹힌 원가 따라가기(판정 79 · inv_layer_cost_add kind carried · inv_layer_carry · 판정 31 예외로 authenticated 허용 — 불변식으로 재생성이 넣을 행 외에 못 만든다) · inv_layer_post_charge 문에 wms_receiving(트랜스퍼만 문서) · 재생성 마지막 carry 바퀴 · detail lines carried
+화면 · 메뉴 · CHECKLIST: 이 사건에서는 아직 없다(⑥ 화면 차수)
+```
+
+### 27-d 사고와 규칙 (asung-workflow §4 에 규칙 줄로)
+
+```
+1 실수 — 대화 Claude 지시서: ① tr-1a 에 부분 유니크(규칙 29 위반 · 적용 전 잡음 · 보통 유니크 둘로) ② tr-1b1 에 wms_stage 로 P 를 세라(done ⊃ fulfilled · 이미 나간 것이 P 에 든다 · Claude Code 가 멈춰 잡음 · 판정 72-1) ③ 판정 73 을 「작업자에게 문서 권한을 줄까」로 잘못 물었다(화면과 밑단을 가르지 않음 · Caleb 이 짚음)
+        Claude Code 보고: ④ mv 번호를 당겨진 시작 값 170 으로 되돌리고 Caleb 명령에도 170(대화 Claude 가 커밋 전에 2 로 바로잡음 · 실제 최대 MV-00002) ⑤ tr-4 확인 기대 14(F10 옛/새 대조를 빼는 것을 빠뜨림 · 13 이 맞다)
+2 옛 검증을 다른 마이그레이션 위에서 다시 돌리면 번호를 당긴다 — 판매 so-* 여덟 · adj-a · trf-a 는 판정 55 이전 모양(되돌리지 못함 · 시작 값이 당겨진 값이면 그 값으로 되돌림) ⇒ 차수 끝마다 so · inv · trf · adj · mv · rcv 여섯을 실제 최대 기준으로 확인 · 되돌림(⑬)
+3 검증 파일의 고정값 기대(뷰 칸 수 · 정책 수 · Health 행 수 · 카탈로그 수)는 다음 차수마다 한 줄씩 고쳐야 했다(tr-1a V4 18 → 19 · G0 2 → 4 · tr-2 D8 22 → 24 → 25 · tr-3a A9 24 → 25) ⇒ 「앞보다 늘어난 만큼」으로 보게(⑮)
+4 union all 뷰 explain 은 표 크기에 따라 훑기를 고른다 — 술어가 내려가는지는 enable_seqscan off 로 증명한다
+5 null = null 은 짝이 안 된다 — 트랜스퍼 줄은 order_line_id 가 null 이라 조인 · 서브쿼리 짝 자리를 coalesce 로(tr-1b2 에서 셋 · tr-3a 에서 work 창구 셋)
+6 not in 은 null 행을 떨어뜨린다 — 실제 표에 null 키 행이 있으면 coalesce(tr-3a Z)
+7 별칭 line_id as id 는 상관 서브쿼리의 x.id 를 못 덮는다 — 뷰로 바꾸면 서브쿼리 안 참조도 훑는다(tr-1b1)
+8 declare 변수 ≠ CTE 별칭(다섯 번째 · tr-2 record g) · 배열 || 객체 || 객체 는 두 원소(tr-2 · tr-4 재발)
+9 security_invoker 뷰를 읽는 invoker 창구는 아래 표 RLS 를 직원 신원으로 시험한다(worker 로 빈 배열 · tr-1b2) · 문(ims_can_*)이 든 읽기 창구를 owner 로 부르면 null
+10 invoker 창구를 definer 셸에서 부르면 RLS 가 비껴가지만 invoker 로 직접 부르면 RLS 로 행이 사라져 조용히 0 이 된다 — null 로 온 참조는 거부로(tr-4 · purchasing 만 가진 로그인)
+11 invoker 창구가 부르는 속은 회수할 수 없다 — 불변식으로 안전한 함수만 authenticated 에 허용(tr-4b inv_layer_carry · 판정 31 예외 · 24-l)
+12 정규형 대조는 배열을 정렬한다 — 반환 배열이 uuid 순이면 md5 가 실행마다 갈린다(tr-4 확인 13/12)
+13 CHECK 가 판정을 들고 있으면 사실을 다른 칸에 둔다(tr-3b qty_extra · 보낸 ≤ 요청 CHECK)
+14 FIFO 가 레이어 경계를 걸치면 레이어 수 기대는 실측으로 · leg 1 은 칸마다라 행 수 기대는 칸 수로
+15 불러온 데이터 축 adjust 재생성은 (문서, SKU, 창고) 키마다 하나 — 씨앗은 문서를 가른다 · 실제 테스트 DB 원가 층은 재생성 모양과 완전히 같지 않다(⑭) — 대조는 재생성 #1 기준
+16 PC 를 옮길 때 검증 파일(레포 밖 ~/asung/prompts)을 zip 으로 옮긴다 — 파이썬 zipfile 로 풀기 · 덮어쓰지 않기 · crc 대조(unzip 이 없을 수 있다)
+```
+
+### 27-e ⬜ 미룬 것 — 판정 59 목록 ⑬ ~ ⑰ · §25-e 에 이어 붙임
+
+```
+⑬ 옛 검증 파일이 번호를 되돌리지 못한다 — 판매 so-* 여덟 · adj-a(확인 실행이 adj 번호를 30 씩 당김 · 짐작) · trf-a(mv) · 판정 55 모양(실제 최대 · 시작 값 중 큰 쪽 · 단 시작 값이 당겨진 값이면 실제 최대)으로 고친다
+⑭ 테스트 DB 원가 층이 재생성 모양과 완전히 같지 않다(입고 over · off-PO 등 · tr-2 D6 에서 드러남) — 재생성 정합 점검
+⑮ 검증 파일의 고정값 기대(Health 행 수 · 정책 수 · 뷰 칸 수 · 카탈로그 수)를 「앞보다 늘어난 만큼」으로
+⑯ PO 입고 전에 확정한 비용(운임 · 관세)은 입고해도 저절로 안 얹힌다(백필) — 트랜스퍼(판정 78)처럼 입고 순간 저절로 얹을지 판정
+⑰ ⚠️ 전환 전 필수 · 이른 순서 — 얹힌 원가(PO 운임 · 관세 · 트랜스퍼 운임 · 따라간 원가)가 매출원가(소진 금액)에 들어가지 않는다 · 팔린 몫은 장부에서 사라진다(이익이 실제보다 좋게 보인다) — 판정 거리 · ⑯ 과 한 묶음
+```
+
+### 27-f 컷오버 준비 목록에 더함
+
+```
+□ Transfers 열쇠를 켤 오피스 사람을 정한다(판정 64 · 73)
+□ ⑰ 이 풀렸는가(전환 전 필수)
+```
+
+### 27-g 테스트 DB 지금 (2026-09-28 · Claude Code 읽기 확인 · begin read only)
+
+```
+번호 so 25005 t · inv 60003 t · trf 1 f(실제 트랜스퍼 0) · adj 12 t · mv 2 t(실제 최대 MV-00002) · rcv 29 t · po 2027 t
+마이그레이션 이력: transfer_1a ~ 4b 여덟 모두 applied(20260928201753 · 231355 · 234815 · 20260929003624 · 010938 · 014246 · 021949 · 025719)
+검증 기준(확인 모드 · 집 PC ~/asung/prompts): tr-1a 48 · tr-1b1 9 · tr-1b2 28 · tr-2 16 · tr-3a 19 · tr-3b 13 · tr-4 13 · tr-4b 13 · wms-round 11 · adj-a 77(알려진 MM 1) · adj-rec-a 26 · trf-a 83(알려진 MM 2)
+⚠️ 검증 파일은 지금 집 PC(yoonh)에만 최신이다 — 회사 PC 로 옮길 때 zip(27-d 16)
+```
+
+### 27-h 다음
+
+```
+순서(판정 80): 이 문서 차수 마무리 → ⑥ 화면까지 마무리 → 수정거리(⑬ ~ ⑰ · 치명 셋 ⑰ · ⑯ · ⑫) 정리 → 다음으로
+⑥ 화면 — ⑥-1 오피스 transfers.html(대화 Claude · 새 파일) · ⑥-2 창고 화면 다섯의 트랜스퍼 표시(판매 오더 표 직접 읽기 23곳) · ⑥-3 wms-receiver 대기 목록 · 트랜스퍼 입고 상세 — ⑥-2 · ⑥-3 을 누가 쓸지는 화면마다 고칠 곳 크기를 보고 판정
+→ Caleb 화면 끝에서 끝 시험 → 인계서(대화 Claude · 문서가 선 뒤) · ⑰ 판정은 이른 순서
+화면이 쓸 창구 · 키(각 차수 보고 6): inv_transfer_detail(lines[] qty_sent · qty_received · qty_lost · qty_returned · qty_extra · carried{in_transit, arrived, returned, total} · freight{total_cad, posted_cad, charges[]}) · tf_receipt_detail · tf_settle · tf_over_decide · tf_charge_* · wms_recv_complete 반환 .freight{posted, errors} · 경고 어휘 transfer_not_arrived_yet · cost_not_on_stock_not_arrived_yet · cost_dropped_no_basis · alloc_on_cancelled_transfer · unit_cost_unknown_zero(판정 56 문구)
 ```

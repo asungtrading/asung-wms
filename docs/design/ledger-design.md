@@ -332,6 +332,8 @@ SR 상태는 워크플로 중간 상태라 그 −90행은 **실재 입고를 �
 
 **IMS 축 칸 옮기기(2026-09-28 · so-module §26)** — 창구 `inv_post_move`(확정 `inv_move_confirm` 이 부른다 · 창고 스캔은 `inv_move_now` 가 한 트랜잭션에) · 같은 창고 안만 · 한 줄 = **행 둘**(`transfer_out` 출발 칸 −q seq_hint 2 · `transfer_in` 도착 칸 +q seq_hint 1 · doc_type `transfer` · doc_number `MV-…` · doc_task_id = 문서 id · line_ref = 줄 id · source `ims` · raw.kind `bin_move` · amount null) · **IN_TRANSIT 없음**(4행 구조가 아니다) · 옮길 수 있는 최대 = 장부 − P − 피커가 기다리는 몫(판정 62) · 기다리는(pending) 픽 과제의 출발 칸 계획은 도착 칸으로 따라간다(부분이면 행을 나눈다) · **원가 레이어 무접촉** — 레이어 · consume 은 (sku, warehouse) 단위라 같은 창고 안에서는 할 일이 없다 · 재생성 `inv_layer_apply` 도 이 행을 세지 않고 지나간다(반환 `ims.bin_moves_passed` · 20260928182712) · 되돌리기 창구 없음 — 반대 방향 새 옮기기(판정 53 모양) · 창고 간 트랜스퍼는 다음 차수(판정 60).
 
+**IMS 축 창고 간 트랜스퍼(2026-09-28 · so-module §27 · 판정 64 ~ 79)** — 문서 `inv_transfer`(TRF-n) · 원장 doc_type `transfer` · doc_number `TRF-…` · source `ims` · raw.kind `transfer` · raw.leg 로 가른다 · **출발**(창고 마무리 = `tf_depart` → `inv_post_transfer_depart`): leg 1 출발 칸마다 `transfer_out` −q seq_hint 2 · leg 2 `IN_TRANSIT`(칸 '') 줄마다 `transfer_in` +q seq_hint 1 · **도착**(입고 Complete = `tf_arrive` → `inv_post_transfer_arrive`): leg 3 `IN_TRANSIT` 줄마다 `transfer_out` −q · leg 4 도착 칸마다 `transfer_in` +q · line_ref = 줄 id `:` 입고 번호(나눠 도착 = 접미어) · **운송 중 정리**(`tf_settle`): lost = IN_TRANSIT −q 한 행(raw.leg `lost` · 소진 reason `lost` · 레이어 없음) · return = IN_TRANSIT −q(`return_out`) + 출발 칸 +q(`return_in`) · line_ref = 줄 id `:settle:` 정리 id · **더 온 몫**(`tf_over_decide`): sent_more = 네 행(over_1 출발 칸 − · over_2 IN_TRANSIT + · over_3 IN_TRANSIT − · over_4 도착 칸 +) · line_ref = 줄 id `:over:` 차이 id · found 는 조정 창구를 불러 ADJ 문서로 · **원가**: 출발 창고 FIFO → IN_TRANSIT 레이어(parent · 같은 unit_cost · 나이) · 도착은 **문서 범위** IN_TRANSIT FIFO(`inv_layer_fifo_take` p_doc_scope = TRF-n) → 도착 창고 레이어 · 부족은 short(원가 미상 레이어를 세우지 않는다) · 재생성 done 키 셋 — `ims_trd`(doc, sku · 출발) · `ims_tra`(doc, sku, receipt · 도착) · `ims_trs`(doc, sku, line_ref · 정리) · **carried**(tr-4b · 판정 79): 부모에 얹힌 원가(landed · transfer_freight · carried)는 IMS 트랜스퍼 자식 레이어로 한 병당 비율로 따라간다(`inv_layer_cost_add` kind `carried` · `inv_layer_carry` · 불러온 데이터 축 트랜스퍼 무접촉) · 운임은 도착 레이어에 원가 금액 비례(판정 67 · 77 · 78). 칸 옮기기(raw.kind `bin_move`)와 달리 레이어를 움직인다.
+
 **6. 조정 — 기존 재고** — 문서에 적힌 값은 증감분이 아니라 **조정 후 목표 수량**이다. 실제 변동은 목표수량에서 당시수량을 뺀 값이다. Cin7 화면의 차이 값과 일치하는 것을 확인했다.
 
 당시수량이 조정 시점 값으로 박제돼 있어서, 몇 달 전 조정도 정확히 계산할 수 있다.
@@ -3664,6 +3666,8 @@ credit       〃
 
   → ✅ [2026-09-28] **transfer 두 키: 칸 옮기기는 지나간다**(`20260928182712` · so-module §26) — `inv_layer_apply` 본체가 source ims · raw.kind `bin_move` 인 transfer_in/out 행을 레이어 갈래로 보내지 않고 `ims.bin_moves_passed` 로 센다 ⇒ `skipped_by_event` 의 transfer 두 키는 **0 이 정상** · 창고 간 IMS 트랜스퍼(raw.kind 가 다르다)는 뒤 차수의 갈래 · `inv_layer_apply` · `wms_health_check` 마지막 정의 = 20260928182712.
 
+  → ✅ [2026-09-28] **transfer 두 키: 창고 간은 갈래다**(`20260929003624` · `010938` · `014246` · so-module §27) — source ims 인 transfer_in/out 은 raw.kind 로 가른다 · `bin_move` 는 세고 지나가고(레이어 무접촉) · `transfer` 는 창구 갈래(`inv_layer_apply_transfer_depart_ims` · `_arrive_ims` · `_settle_ims` → 레이어 창구 셋) · 반환 `ims.transfer_*` · over_2 는 세고 지나간다(`transfer_over_in_passed`).
+
 ~~⬜ 원인 불명 — 같은 함수를 돌렸는데 Cin7 레이어가 늘었다(+1,330 · +2,894)~~ → ✅ **[2026-09-20 오후] 원인이 밝혀졌다 — 결함이 아니었다.** 09-10 밤 세션(`docs/sessions/2026-09-10-cin7-valuation-compare.md:52`)이 `inv_layer_apply('2026-09-09')` 로 **09-09 까지만 잘라** 돌렸다(Cin7 평가액 대조의 비교 시점에 맞춘 것).
 원장에는 09-10 사건이 **3,642행** 있었고 그 하루치가 레이어에 없었다 ⇒ 전량(p_until 없이) 돌리니 그 하루가 채워져 +1,330 이 된 것이다. 오전의 「같아야 할 숫자가 다르다」는 **범위를 안 맞춘 대조**였다. cost_add 316/434 가 같았던 것도 그래서다(09-10 에 운송비·landed 사건이 없었다).
 ⭐ 오늘 전량 재생성을 실제로 돌렸다(commit · 9.78초) — 이제 원장과 레이어가 같은 날까지 온다. ⚠️ 그 김에 드러난 새 사실: **purchase / cost_source 'unknown' 85행 · 수량 14,274 · 금액 0** — 09-10 입고 중 85건이 `inv_cost` 에 원가가 없다(`inv_cost` 의 max(occurred_on) = 2026-09-09 · 테스트 DB 는 inv-cost 가 돌지 않는다 · 재적재 때 채워진다). ~~⚠️ 지금 14,274개가 0 원으로 재고에 있다 — 평가액이 그만큼 비어 있다(⬜ 「이식이 남긴 것」).~~ → ✅ [2026-09-21] 재적재로 채워졌다 — `cost_unknown_layers` 0.
@@ -3726,6 +3730,8 @@ ims: receipts_posted 3 · layers_created 3 · layers_cost_cad 258.342 · over_po
 - ⚠️⚠️ **되돌리기(`po_charge_confirm(…, false)`)에 게이트가 생겼다** — landed 가 얹혔으면 거부한다. 안 막으면 되돌려 배분을 고치고 다시 확정해도 멱등이 건너뛰어 **옛 금액이 남는다.**
   고치는 길은 **상쇄 비용 문서**다(append-only). ⭐ 음수 배분(정정)은 얹는다 — 음수 landed 가 곧 상쇄다 · 경고만.
 - ⭐ 실측 검증(2026-09-19): 배분 합 정확히 100.000000 · 재고 평가액 정확히 +100 · 금액 비율 손 검산 일치(비싼 라인 139.11 → 17.05 · 나머지 58.38 → 7.156) · USD 100 × 1.39 = 139.000000.
+
+⚠️⚠️ **[2026-09-28 · tr-4b 조사] 소진 금액은 얹힌 금액을 모른다 — 미룬 목록 ⑰(so-module §27-e)** — `inv_layer_consume.amount` = 수량 × 레이어 unit_cost 뿐이다(판매 · 조정 · 트랜스퍼 모두 `inv_layer_fifo_take` 한 손). 얹힌 금액(`inv_layer_cost_add` — landed · transfer_freight · carried)은 `inv_layer_open` 의 남은 원가((unit_cost × qty + Σ얹힌) / qty × 남은 수량)만 안다 ⇒ 팔린 몫의 얹힌 원가는 매출원가에도 평가액에도 남지 않고 사라진다(이익이 실제보다 좋게 보인다). 원래 있던 일이다(발주 landed 부터) · ⚠️ 전환 전 필수 · 판정 거리 · ⑯(입고 전 비용 백필)과 한 묶음.
 
 📌 차이 큐 닫기(`20260919175712` · 9a5344a · short 만 · 형제 문서 합계 `po_family_*`)는 발주 쪽 일이라 **po-module §11-i · §11-c 가 정본**이다. 원장과 닿는 자리는 하나 — over 를 닫을 때 초과분을 재고에 넣는 길(⬜ · 그 발주의 단가로 · 같은 창구).
 

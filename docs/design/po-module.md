@@ -2728,6 +2728,7 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
 ```
 
 ### 11-f. ⭐ 비용(운임·관세·통관) — 별도 문서가 PO 여럿을 가리킨다
+⭐ [2026-09-28 · so-module §27] **비용 문서가 PO 또는 트랜스퍼를 가리킨다** — `po_charge_alloc` 은 `po_id` 또는 `transfer_id`(정확히 하나 CHECK · 보통 유니크) · 트랜스퍼 운임 창구 `tf_charge_*`(transfer 열쇠 · 출발 또는 도착 창고) · `inv_layer_post_charge` 가 배분 줄마다 발주 입고 레이어 또는 트랜스퍼 도착 레이어로 갈라진다 · ⚠️ purchasing 만 가진 로그인은 트랜스퍼 운임을 확정할 수 없다(트랜스퍼를 못 보면 0 이 조용히 얹히던 것을 거부로) · ⬜ 입고 전 확정 비용은 입고해도 저절로 안 얹힌다(백필 · 미룬 목록 ⑯ — 트랜스퍼는 판정 78 로 도착 순간 얹는다) · ⚠️ 얹힌 원가가 매출원가에 안 들어간다(⑰ · ledger-design 「원가 이식 2차」 끝)
 ```
 실무 실측(Caleb · Cin7 화면): 운송·관세·통관은 **Service invoice 로 갈라서** 만들고 있다.
   [실물] Ampro 발주 옆에 CBSA(관세)·BBE(통관중개)가 각각 자기 문서로 선다 · Type=Service · Stock status=Not available
@@ -2972,6 +2973,7 @@ discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 
 ```
 
 ### 11-i. ⭐⭐ 입고
+⭐ [2026-09-28 · so-module §27] **입고 문서의 출처가 둘** — `po_receipt` 은 `po_id` 또는 `transfer_id`(정확히 하나 · 줄 · 작업 · 차이 표도 같게) · 트랜스퍼 입고는 오피스 확정이 없다(도착 창고 Complete = 확정 · 판정 70 · `tf_arrive`) · 오피스 확정 창구 · `inv_post_receipt` 는 트랜스퍼를 거부한다 · 트랜스퍼 입고는 `tf_receipt_detail` 로 읽는다 · `po_receipt_detail` 에는 트랜스퍼 갈래가 없다
 ⭐ [2026-09-26] 입고 창구는 속(_by · definer · 회수) + 바깥 셸(오피스 = 이름 그대로 · WMS = wms_recv_*) · 원장 둘은 문 없음 · 회수 · 확정 창구 둘(오피스 · WMS 스위치) — so-module §24-m · n
 ```
 ⭐ **인보이스를 기다리지 않는다.** Cin7 의 Invoice First 선승인 제약은 **Cin7 의 사정**이다.
