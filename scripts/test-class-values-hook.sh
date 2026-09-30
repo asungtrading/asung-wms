@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-class-values.sh 의 자기 검증 (ccv-fix-1 · 판정 127 · 미룬 ㉟)
 # ─────────────────────────────────────────────────────────────
-# ⚠️ 핵심은 **소급 검증**(T0)이다: 옛 판(HEAD 의 스크립트)이 20260930172829 의 짝 조건
+# ⚠️ 핵심은 **소급 검증**(T0)이다: 옛 판(d543404 의 스크립트)이 20260930172829 의 짝 조건
 #    `wms_reports_bins_kind_ck` 에서 exit 2 로 멈추던 결함을 재현하고, 새 판은 그 하나만 넘긴다.
 #    나머지는 「모르면 멈춤」이 약해지지 않았는지 — 값 목록 모양(kind = 'a' or kind = 'b') · 값 하나 빼기(kind <> 'x' 단독) ·
 #    is null · in · 함수 · 바깥 and 는 전부 exit 2 그대로 · 값이 목록 밖인 짝 조건은 exit 1.
@@ -16,7 +16,8 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 fail=0
 
 OLD="$TMP/old-check-class-values.sh"
-git -C "$ROOT" show HEAD:scripts/check-class-values.sh > "$OLD" || { echo "FAIL  옛 판(HEAD)을 읽지 못했다"; exit 1; }
+# 옛 판 = 짝 조건(판정 127) 고치기 직전 커밋 d543404 에 고정(판정 128) — HEAD 로 읽으면 고침 커밋 뒤 새 판끼리 비교가 된다
+git -C "$ROOT" show d543404:scripts/check-class-values.sh > "$OLD" || { echo "FAIL  옛 판(d543404)을 읽지 못했다"; exit 1; }
 
 expect(){ # expect <want:0|1|2> <label> <script> [fake-migration-sql]
   local want=$1 label=$2 script=$3 fake=${4-}
@@ -30,7 +31,7 @@ expect(){ # expect <want:0|1|2> <label> <script> [fake-migration-sql]
 }
 
 # ── T0 소급: 옛 판은 현재 마이그레이션(짝 조건 하나)에서 멈춘다 ──
-expect 2 "T0 옛 판(HEAD) · 가짜 없음 → 결함 재현(exit 2)" "$OLD"
+expect 2 "T0 옛 판(d543404) · 가짜 없음 → 결함 재현(exit 2)" "$OLD"
 
 # ── 새 판 ──
 expect 0 "T1 새 판 · 가짜 없음 → 통과(짝 조건 1개 · 값 확인 ok)" "$NEW"
