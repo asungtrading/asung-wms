@@ -128,6 +128,10 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 발주 머리의 Supplier·Currency 를 연다 | 라인의 단가 근거·통화 뜻이 통째로 바뀐다(USD 5.19 → CAD 5.19) | **열지 않는다** — 잘못 골랐으면 새 발주 · 언제나 여는 것은 Exchange rate·Note 뿐(원가가 매달린다) · §11-b |
 | ~~⚠️⚠️ `inv_layer_apply()` 를 돌린다~~ → ✅ 09-20 IMS 판(`20260920142635`) · 남은 함정: **환율 없는 입고가 있는 채** 돌린다 | 그 입고만 건너뛰어 원가가 빠진 채다 — 멈추지 않는다(옛 「통째로 사라진다」는 틀렸었다 · 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다) | 반환 `ims.receipts_skipped` 가 0 인지 본다 · 환율을 넣고 `inv_post_receipt` 재호출 또는 다시 돌린다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 스킬 asung-inv-ledger 함정 첫 줄 |
 | po_receipt_* 셸을 다시 내며 이름 · 시그니처를 바꾼다 | asung-ims receiving.html 이 그 이름으로 부른다 — 화면이 깨진다 | 셸은 이름 · 시그니처 그대로 · 속은 `_by`(p_staff · definer · authenticated 회수 · so-module §24-m) |
+| 상품의 SKU 를 고친다 | 원장은 product.id 가 아니라 **sku 글자로 잇는다** — 재고 · 레이어가 조용히 떨어진다 | 원장 · 레이어가 붙은 상품은 SKU 를 못 바꾼다(판정 136 · 표 트리거 · prod-2 부터) · 설계 정본 po-module §3-h |
+| IMS 에서 만든(manual) 상품과 같은 SKU 를 재적재한다 | ImsLoadProduct.gs merge-duplicates 가 행 전체를 덮는다(source cin7 · payload 밖 칸 비움) | 판정 132 — IMS 값이 이기고 cin7_id 만 붙인다 · 적재 코드를 먼저 고친다(판정 131 · prod-5 · §3-h) |
+| `is_active=false` 를 한 뜻으로 읽는다 | SO 줄 · 조정 · 트랜스퍼는 **거부** · PO 는 **경고** · 픽 · 팩 · 원장은 **안 본다** | 표마다 다르다 — 내리기 전 화면이 재고 · 열린 줄 수를 보인다(판정 139) |
+| 상품 계열 표에 PostgREST 로 직접 쓴다 | 검사(잠금 · 검증 규칙)를 지나지 않는다 | 창구로만(판정 141 · prod-2 부터 직접 쓰기 닫힘) · 설계 정본 po-module §3-h |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 32 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다** — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).

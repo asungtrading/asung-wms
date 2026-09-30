@@ -5351,7 +5351,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 
 - ㉝ 같은 날 크레딧이 판매보다 먼저 처리되는 재생성 순서(CR-01000 · 17-f ① 계열 · 금액 같음) — inv_post_credit 이 raw 에 되짚은 근거를 남기고 재생성이 재현하는 안
 - ㉞ 재생성 16 → 34초(fifo_take 가 후보마다 합 셋) · 검산 도구라 감당 · 합 들고 다니기는 「전량 재생성 가능」 조건과 부딪힘
-- ㉟ check-class-values.sh 가 `kind = '…' or (…)` 모양 CHECK 를 못 읽는다 — 다음 마이그레이션 커밋이 또 막히면 바로 · 전환 전
+- ㉟ check-class-values.sh 가 `kind = '…' or (…)` 모양 CHECK 를 못 읽는다 — 다음 마이그레이션 커밋이 또 막히면 바로 · 전환 전  → ✅ 닫힘 e53b5ad · 85629c5(§31)
 - ㊱ ⑫ 화면 시험(Caleb 미룸) — 두 칸 나눠 뽑기 · 보류 뒤 칸 보존 · Admin 칸 셋 · 출고 원장 두 칸
 - ㊲ ⑪ 뒤 절반 — Wrong location 보고 → 칸 옮기기 단추(매니저가 수량)
 - ㊳ 보류 창구(wms_hold_pick)는 칸을 모른다 — 마지막 줄 저장이 실패한 채 보류하면 다시 열 때 그 줄은 계획 칸으로(수량은 그대로)
@@ -5371,5 +5371,95 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 
 ```
 ⇒ 다음 = ⑫ 화면 시험 ㊱(두 칸 나눠 뽑기 · 보류 뒤 칸 보존 · Admin 칸 셋 · 출고 원장 두 칸) · 그 뒤는 Caleb 이 정한다
-다음 판정 번호: 126
+다음 판정 번호: 126  → §31
 ```
+
+## §31 ㉟ 닫힘 · 상품 마스터 만들기 설계 (2026-09-30 · 판정 126 ~ 146)
+
+⭐ 닫힌 것: ㉟(e53b5ad · 85629c5) · 상품 만들기 · 고치기의 판정(설계 정본 = po-module §3-h) · 만든 것은 아직 없다(prod-2 부터)
+
+### 31-a 판정 원문 (126 ~ 146 · 말 그대로)
+
+- **판정 126** (2026-09-30) Caleb 「문서와 스킬은 마무리짓고, 검증스크립트부터 다음 새 대화에서 고치는 걸로 시작하자」 — docs-0930 커밋(d543404)은 `--no-verify`(문서 · 스킬뿐 · ㉟ 가 asung-wms 의 모든 커밋을 막았다) · 새 대화 첫 일 = ㉟ `check-class-values.sh` 고침
+- **판정 127** Caleb 「가」 — ㉟ `check-class-values.sh` 는 「짝 조건」 모양만 좁게 알아본다. 대상 표 CHECK 안에서 그 칸이 딱 한 번, `칸 = '<값>'` 또는 `칸 <> '<값>'` 꼴로, 맨 바깥 `or` 의 한 갈래로만 나오고 다른 갈래에 그 칸이 없을 때만 「목록 정의 아님」으로 넘긴다. 적힌 값이 최종 허용 목록 안인지는 검사하고(밖이면 FAIL exit 1 · 목록이 drop 됐으면 exit 2), 그 밖의 모양은 전처럼 멈춘다. 자기 시험 스크립트를 붙인다 · 기각 (나) 제약 이름 허용 목록 — 다음 짝 조건마다 다시 고치고 그 제약이 값을 빼는 모양으로 바뀌어도 못 잡는다 · (다) `= any(array[…])` · or 나열까지 읽는 일반 파서 — 지금 없는 모양까지 짓는다
+- **판정 128** Caleb 「가로 하자」 — `test-class-values-hook.sh` T0 의 옛 판은 **d543404 에 못 박는다**(`git show d543404:scripts/check-class-values.sh` · 「고치기 직전 판」 주석). HEAD 로 읽으면 e53b5ad 커밋 뒤 새 판끼리 비교가 되어 T0 이 늘 실패한다(대화 Claude 가 e53b5ad 클론에서 재현) · 기각 (나) 짝 조건이 처음 들어간 커밋의 부모를 git log 로 찾기 — 찾는 코드가 또 틀릴 자리
+- **판정 129** Caleb 「마스터 만들기부터 하자」 — 판정 81 1단계 남은 것(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 판정 58 묶음) 중 마스터 만들기(상품 · 손님 · 공급업체를 IMS 안에서 만들고 고치는 화면 · 창구)를 먼저 · 근거(대화 Claude): 조립 · 번들은 완성품 · BOM 을 IMS 안에서 만들 수 있어야 선다 · 레이아웃은 맨 뒤(ims-principles §6-c 「그 사이 더하는 메뉴 자리는 임시다」)
+- **판정 130** Caleb 「상품가자」 — 마스터 만들기는 **상품**부터 · 공급업체 · 손님은 그 뒤
+- **판정 131** Caleb 「나는 나라고 봐. 양쪽에서 만들어봐야 제대로인지도 실물 검증이 되는거 아닌가?」 — 병행 기간 새 상품은 **IMS 와 Cin7 양쪽에서 만든다** · IMS 에서 만든 것(source 'manual')을 재적재가 덮지 않도록 적재 코드를 먼저 고친다 · 기각 (가) 병행 기간은 불러온 데이터로만 받고 IMS 만들기는 테스트 DB 로만 검증(대화 Claude 안이었다) · (다) IMS 에서만 — 병행 기간 주문 흐름이 모른다
+- **판정 132** Caleb 「좋아 가로 가자」 — 같은 SKU 가 IMS(manual)와 불러온 데이터 양쪽에 있으면 **IMS 값이 이긴다** — 적재는 cin7_id 만 붙이고 다른 칸은 건드리지 않는다 · 두 값이 다른 칸은 **차이 목록**으로 남긴다(이름 · 세트 계수 · 부모 · 바코드 · 가격 · 공급처 단가 등) · 그 목록이 판정 131 의 실물 검증 결과다 · 기각 (나) 불러온 데이터가 이긴다 — 잘못 만든 값이 조용히 고쳐져 검증이 안 된다 · (다) 건너뛰고 경고만 — cin7_id 가 안 붙어 경고가 되풀이되고 비교가 안 남는다
+- **판정 133** Caleb 「가로 가자」 — IMS 에서 만든 상품 계열 행의 source 는 지금 있는 **'manual'** · 새 값을 더하지 않는다 · 기각 (나) 'ims' 추가 — CHECK 일곱 · 문서 전부 고칠 뿐 얻는 것이 없다
+- **판정 134** Caleb 「나」 — 첫 만들기 차수 = **낱개 한 벌(상품 + 바코드 + 판매가 + 공급처 연결) + 세트 여러 개**(세트마다 계수 자유 · 세트 바코드는 선택) · family 는 뒤 차수 · 기각 (가) 낱개만 · (다) family 까지
+- **판정 135** Caleb 「가」 — 만들기 = **한 벌 창구 하나**(상품 · 바코드 · 공급처 · 가격 · 세트를 한 트랜잭션 · 하나라도 틀리면 전부 되돌림) · 고치기 = **줄마다 작은 창구**(재고 조정 화면과 같은 모양) · 기각 (나) 표마다 창구만 · 화면이 순서대로 — 중간 실패면 반쪽 상품
+- **판정 136** Caleb 「가」 — SKU 변경은 **표 트리거로** 막는다 — 원장이나 원가 레이어 행이 하나라도 있는 상품은 SKU 를 바꿀 수 없다(어느 길로도) · 사건이 없는 상품(만든 직후 오타)은 허용 · 기각 (나) 언제나 거부 · (다) 창구에서만
+- **판정 137** Caleb 「가로 했으면 좋겠어. 대신에 실수를 검증할 수 있는 단계가 있었으면 좋겠어. 예를 들어, 특정 브랜드 Creme of Nature라는 브랜드는 모두 CON으로 시작해. 그런데 실수로 CNO로 미스타입핑을 했다던가 아니면 lower case로 적었다든가 하는 실수, 그리고 우리는 UPC코드의 뒤의 6자리중에 체크 디짓을 뺀 다섯자리를 sku code로 적어. 예를들어 CON19912는 바코드가 075724199125야. EAN 13도 마찬가지야. 뒤에 6자리중에 마지막 체크디짓은 빼고 5자리를 숫자 코드로 쓰고 있지. 이런 규칙에 기반해서, 만들어. 그리고 세트의 경우에 CON19912-6인데, 판매 단위가 6이 아니라 1이 들어갔거나, 12로 들어간 경우들을 잡아내자는 거지. 공백도 마찬가지고 말이야.」
+  ⇒ ① 사건이 붙은 상품의 세트 계수(pack_factor) · 부모(parent_product_id) 변경은 창구가 **거부** ② 만들 때 실수를 잡는 **검증 단계**: 브랜드 앞글자(Creme of Nature = CON · CNO · 소문자는 잡는다) · SKU 숫자 = UPC-A · EAN-13 바코드 끝 6자리에서 체크 디짓을 뺀 5자리(075724199125 → 19912 → CON19912) · 세트 SKU 끝 `-N` = 계수 · 공백 · 기각 (나) 열린 줄이면 거부 + 지난 기록만이면 사유를 받고 허용(대화 Claude 안 · 9/13 AIA00207-6 같은 정정 길을 남기자는 근거였다)
+- **판정 138** Caleb 「그대로 가자」 — 검증 규칙의 무게: 1. **막기** — SKU 공백 · 소문자 · R3(세트 SKU = 부모 SKU-계수) · 만들 때와 고칠 때 · 지금 있는 행은 건드리지 않는다 2. **알리기 · R1** 브랜드 앞글자 — 그 브랜드가 이미 쓰는 앞글자 기준 · 만들 때 3. **알리기 · R2** SKU 숫자 = 바코드 끝 6자리 − 체크 디짓 — **만들 때만**(Caleb 「나중에 바코드가 바뀌어서 오는 제품들도 있어. 그런 경우 바코드만 수정한 경우들이 좀 있을거야.」) · 바코드 고치기에는 검사하지 않는다 4. **알리기 · R4** 바코드 체크 디짓(GTIN mod 10) — 만들 때와 바코드 더할 때 · 12 · 13자리만 5. 알리기 = **미리 보기 → 경고 → 사람이 확인해야 저장**
+  - R1 앞에 Caleb 「R1의 경우는 규칙을 정하기 전에 이미 만든 코드는 그대로 쓰고 있어서 그래. r2는 … 케이스 바코드도 있으니 그것은 다를거야. 그러나 낱개 베이스 바코드는 맞을거야.」
+- **판정 139** Caleb 「니 안대로 가자」 — 단위(unit · uom_name)는 막지 않고 고친다 · 세트의 단위가 계수와 다르면 알리기 · 비활성 내리기는 막지 않는다 — 내리기 전에 화면이 재고 · 열린 오더 · 열린 발주 수를 보여 주고 확인을 받는다 · 비활성 상품도 찾아 되살릴 수 있게 한다
+- **판정 140** Caleb 「가로 가자」 — 열쇠는 기존 `master` 하나 · 상품 만들기 · 고치기 창구와 SKU 잠금 트리거 함수는 **security definer + 첫 줄 문**(`ims_require_write('master')`) — 잠금 검사가 권한과 상관없이 원장 · 열린 줄을 모두 본다(invoker 면 master 만 가진 사람에게 판매 · 원장 표가 RLS 로 조용히 0행이 되어 잠금이 「붙은 것 없음」으로 통과할 수 있다 — 짐작 · 읽기 정책은 안 봤다) · 만들기 차수 검증에서 **master 만 가진 가짜 직원**으로 잠금이 거부하는지 시험한다 · 기각 (나) invoker + RLS(Claude Code prod-1 추천)
+- **판정 141** Caleb 「가」 — 상품 계열 표에 **직접 쓰는 길을 닫고 창구만 연다** — master 권한이 있는 사람은 지금처럼 만들고 고치되 반드시 창구(검사)를 거친다 · 권한 없는 사람은 그대로 못 쓴다 · 읽기는 그대로 · 불러오는 데이터 적재가 어떤 계정으로 쓰는지 만들기 차수에서 먼저 확인한다(직원 계정이면 적재 길을 함께 옮긴다)
+- **판정 142** Caleb 「조립, 번들 차로 넘기자」 — 콤보(product_bom) 만들기 · 고치기는 조립 · 번들 차수에서 조립 흐름과 함께 · 이번 차수는 콤보를 읽기만
+- **판정 143** ① Caleb 「니 제안대로 가자」 — 브랜드 · 분류 · 단위는 사람이 목록에서 고르기만 하고 창구가 그 id 의 이름을 이름 칸(brand_name · category_name · uom_name)에 자동으로 복사 ② Caleb 「2는 비워둔다」 — IMS 에서 만든 상품은 `cin7_` 원문 칸을 비워 둔다 · 판정 132 비교에서도 제외 · 기록만(2단계): 설명 글이 필요해지면 IMS 자기 칸을 세우고 cin7_description 을 한 번 옮겨 담는다 · 그 뒤 IMS 칸이 정본 · cin7_ 칸은 보관 기록
+- **판정 144** Caleb 「문서 차수를 돌리자」 — 판정 126 ~ 143 을 정본에 올리는 문서 차수를 만들기 차수들보다 먼저 · 뒤 순서는 **대화 Claude 안 · Caleb 확인 전**: prod-2 문(SKU 잠금 트리거 · 직접 쓰기 닫기 · 적재 계정 확인 먼저) → prod-3 만들기 한 벌 창구 → prod-3b family → prod-4 고치기 줄 창구 → prod-5 불러오기 적재 고침(병행 기간 IMS 실제 만들기 전에) → 화면(대화 Claude)
+- **판정 145** Caleb 「둘 다 자주하지. 패밀리 등록도 쉽고 복잡하지 않길 바래. 제품 등록이나 변경 수정이 쉽고 빨라야 해.」 — 요구: 상품 고치기는 한 SKU 씩과 여러 SKU 한꺼번에(표처럼 펼쳐 줄줄이 고치기 · 붙여 넣기) 둘 다 빠르고 쉬워야 한다 · family 등록도 쉽고 단순 · 등록 · 변경 · 수정 모두 쉽고 빨라야 한다 — 고치기 창구(prod-4)와 화면 차수의 **필수** · 앞선 물음에 대한 대화 Claude 답(사실): 막히는 것은 거래 기록이 붙은 상품의 SKU(136) · 세트 계수 · 부모(137) 둘뿐 · 가격 · 이름 · 브랜드 · 분류 · 바코드 · 공급처 단가 · 단종 · 무게 · 활성은 자유(단위 · 비활성은 경고 · 확인)
+- **판정 146** Caleb 「가」 — family 등록은 판정 134 대로 뒤 차수(prod-3b) · 다만 prod-3 만들기 창구를 처음부터 **「상품 여러 개를 한 번에」 받는 모양**으로 지어 family 가 머리 하나를 얹어 바로 따라오게 한다 · 기각 (나) prod-3 에 family 까지
+
+### 31-b 커밋 · 닫힌 것
+
+- ㉟ 닫힘 — **e53b5ad** `fix(hooks): check-class-values recognizes pair constraints (ruling 127) …`(3 files · +228 −1 · check-class-values.sh +150 · pre-commit 확인 줄 한 줄 · 새 `scripts/test-class-values-hook.sh`) · **85629c5** `fix(hooks): test-class-values-hook T0 reads the old script from d543404, not HEAD (ruling 128) …`(+4 −3) · 둘 다 `--no-verify` 없이 hook 통과 · 대화 Claude 가 85629c5 클론에서 19 PASS exit 0 · md5 check-class-values.sh `54730dca2cf63867a6fe560294b4d0e3` · test-class-values-hook.sh `c7e58ecb7a84930a0fc4e6c4c242dc8d`
+- 시험 T0 ~ T18(T0 = d543404 판으로 결함 재현 · T15 `or false` · T16 `kind in ('x') or …` · T17 `lower(kind)` 는 **한계 고정**)
+- 대화 Claude 추가 확인(e53b5ad · 경계 여섯): 다른 갈래에 reason 섞임 → 멈춤 · 대문자 KIND/OR → 통과 · 칸 틀림(wms_reports reason) → 멈춤 · 대상 아닌 표 인라인 → 통과 · drop 뒤 짝 조건 → 멈춤(exit 2) · 셋 갈래 → 통과
+
+### 31-c 조사 실측 (prod-1 · 검증 규칙)
+
+설계 정본은 po-module §3-h — 아래는 그 근거가 된 실측 원문이다.
+
+**prod-1 조사 실측** (Claude Code 조사 + 조회 · 테스트 DB · 2026-09-30 · asung-wms 85629c5 · asung-ims 681aee1)
+
+- 마스터를 **만드는** 창구 없음(product 로 시작하는 함수 = product_bin_overflow_set/_clear(_by) · product_price_set_touch 뿐) · 상품 화면 셋(products · families · supplier-products) 읽기만 · suppliers.html 쓰기 = `is_purchasable` 하나 · 손님 화면 없음
+- 직접 쓰기 길은 열려 있다 — RLS product_insert/update = `ims_can_write('master')`(20260917235000:131 ~ 133) · product · product_family · ref_price_tier DELETE 없음 · 관계 표 다섯(barcode · bom · supplier · price · tag) DELETE 열림(master) · overflow 는 select 만(창구로만 씀)
+- master 열쇠 라벨 = 「Settings, suppliers, products, families, supplier products, prices, product tags, deals」(ims_perm_catalog · 20260928201753:479)
+- ⭐ **원장은 product.id 가 아니라 sku 글자로 잇는다**(inv_ledger.sku · inv_layer.sku · ims_inv_balance `left join product p on p.sku = b.sku`) · SKU 를 막는 장치 없음(트리거 product_touch 하나) · 원장 행이 붙은 상품 4,686 · 레이어 8,087
+- product 를 FK 로 무는 곳 18 FK / 16 표(product self · barcode · bom ×2 · supplier · po_line ×2 · po_invoice_line · po_receipt_diff · so_line · price · tag · so_deal_target · so_credit_line · overflow · inv_adjust_line · inv_move_line · inv_transfer_line) · 전부 on delete no action
+- pack_factor 는 줄에 복사(so_line · po_line.entered_pack_factor · inv_transfer_line)와 실시간 읽기(so_price_for · wms_pick_lines 바코드 factor `coalesce(p.pack_factor, 1)` 20260930172829:400 · so_deal_best min · 뷰 coalesce)가 섞인다
+- 조용히 틀어지는 자리 셋: sku 변경 → 원장 이탈 · 세트인데 pack_factor null → 스캔 factor 1 · parent_product_id 잘못 → 재고 축(so_available_many coalesce(parent, id)) 이동
+- is_active=false 는 표마다 뜻이 다르다: SO 줄 · 조정 · 트랜스퍼 **거부**(「Product % is inactive — nothing was saved」) · PO **경고**(po_lines_paste 'inactive_product') · 픽 · 팩 · 원장 **안 본다**
+- 「쓸 수 있는 상품」 최소 한 벌 = product + product_barcode ≥ 1(없으면 픽 · 팩 · 리시빙 스캔 불가) + product_price sale 티어 ≥ 1(없으면 so_line_add no_price · unit_price null) + product_supplier 1(없으면 po_lines_paste no_link · 단가 0 · po.html 후보에 안 뜸) — 셋 다 막지 않고 알린다
+- 선례 보안 모드: so_create · so_line_add = **definer** + 첫 줄 문 · po_create · po_lines_paste = invoker
+- products.html 필터는 brand_name · category_name **원문 글자**로 거른다(판정 143 ① 의 근거)
+- **적재 코드**(`docs/probes/ImsLoadProduct.gs`): `ipr_upsert_('product', 'sku', rows)` merge-duplicates = **행 전체 덮어쓰기** · payload `source:'cin7'` · note 없음 ⇒ 같은 SKU manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지) · §3-f 의 1) ~ 3)(비활성 내리기 · manual 제외 · 로그)은 **미구현** · product_supplier(ImsLoadProductSupplier.gs)만 승격 규칙(manual 줄에 cin7_id · 단가 PATCH · source manual 유지)이 구현돼 있다
+- 실물: source='manual' 행은 모든 표 0 · product 18,714(cin7 활성 14,576 + 비활성 4,138) · product_bom 행 65(콤보 15) · 세트 6,347 중 4,992(79%)가 낱개와 같은 날 등록 · 일주일 뒤 410 · 활성 낱개 8,771 중 세트 0개 3,593 · 1개 4,584 · 2개 546 · 3개 48 · 세트 uom 분포 12(2,786) · 6(1,960) · 24 · 36 · 72 · 10 · 48 · 4 · 144 · 3 · 288 · 120 · 활성 세트 5,805 중 자기 바코드 없음 1,212 · uom ≠ pack 0 · 활성 낱개 결손: 바코드 89 · sale 가격 14 · 공급처 연결 39 · 브랜드 1 · family 없음 4,072(정상) · 열린 SO 줄의 상품 8 · 열린 PO 줄 19
+- SKU 모양: 길이 5 ~ 19 · 앞뒤 공백 0 · 가운데 공백 1(`ADA83721FAM - 004`) · 소문자 4(`AS00000blue` · `AS00000gold` · `AS00000silver` · `BSMirror` — BSMirror 만 사용 중 · 원장 행 있음) · 대소문자만 다른 무리 0
+
+**검증 규칙 실측** (대화 Claude 조회 · 테스트 DB · 2026-09-30)
+
+- R1 브랜드 앞글자(활성 낱개 · 대문자로 접음): 브랜드 312 중 앞글자 하나 298 · 여럿 14 · 벗어난 상품 179/8,770 · 여럿인 브랜드 예 Climax(ASSH 318 · ASH 72) · Kim & C(AS 906 · ASW 17 · LGL 15 …) · MAGIC COLLECTION(BS 202 · BSNC · BSHC …) · 진열대 · 콤보(FRODISP · APHCOMBO…) · 한 앞글자를 여러 브랜드가 씀 12(BS 다섯 브랜드 · ABE · AS · ASSH · BRI · EBI · GEN · HCL · JFM · KCA · MAG · MDP 각 둘)
+- R2 숫자 = 바코드 끝 6자리 − 체크 디짓(활성 낱개 · 활성 12/13자리 숫자 바코드): 12자리 7,489/8,045 · 13자리 560/661 · ⭐ `cin7_created_on` 은 2025 · 2026 뿐이고 2025 년 어긋남은 **2025-11-09 한 날**(일괄 등록 날로 짐작) · **2026 년 등록 372/382(97.4%)** · 2026 어긋남 10(HCL61169 · FST80132 은 실수로 보임 · SPO/MAR 색상 변형 · BTL 은 다른 번호 방식으로 보임 — 대화 Claude 짐작) · Caleb 확인 예 ANU73725 = 8809640737251 ✓
+- R2 바코드 모양(활성 전부): 12자리 11,560 · 14자리 4,547(케이스 코드로 짐작) · 13자리 893 · 그 밖 소수
+- R3 세트(활성 5,805): 끝 -N = 계수 5,803 · 계수 다름 0 · 앞부분 ≠ 부모 SKU 0 · 접미사 없음 2(`ANN05055-EA` · `ANN05056-EA` · 계수 1)
+- R4 체크 디짓(활성 12/13자리 12,453): 맞음 12,370 · 틀림 83(대부분 1 로 시작하는 13자리 · EBI…-6 · CRO…-6 — 케이스 코드를 잘못 넣은 모양으로 짐작)
+
+### 31-d 사고 · 교훈 (asung-workflow §4 · §11 에 규칙 줄로)
+
+1. [Claude Code · ccv-fix-1] 조립 스크립트의 비-raw 문자열에 정규식을 넣어 `\b` 가 백스페이스(\x08)로 들어갔다 ⇒ 정규식이 든 코드를 문자열로 조립할 때는 raw 문자열 · `python3 -W error` 로 컴파일
+2. [대화 Claude 지시서 · ccv-fix-1] 소급 시험의 옛 판을 `HEAD` 로 읽게 적었다 — 커밋 전에는 맞고 커밋 뒤에는 새 판 자신이 되어 T0 이 늘 실패 ⇒ 소급 시험의 옛 판은 **고정 커밋**으로 · 시험은 커밋 뒤에 한 번 더 돌린다(판정 128)
+3. [대화 Claude 조회 · prod-1] 제품 1만 8천 행 `upper(sku)` 자기 조인이 statement timeout(사고 9 와 같은 모양) — 파일을 주기 전에 비용을 재지 않았다 ⇒ 조회를 주기 전 **자기 조인 · 상관 서브쿼리 × 큰 표**를 찾아 group by 한 번 훑기로 · 독립 조회는 한 트랜잭션에 넣지 않는다(세션 `default_transaction_read_only = on`)
+4. [대화 Claude · 판정 138 앞] 어긋난 예 목록만 보고 「ANUA 는 규칙을 따르지 않는다」고 브랜드 전체로 넓혔다 — Caleb 이 ANU73725 로 반증 · 원인은 규칙 이전 코드(2025-11-09 일괄 등록) ⇒ 규칙 위반 비율은 **시기별로** 나눠 보고 말한다
+5. [대화 Claude · 앞 대화의 이견 6 · 미처리] asung-workflow §4 검증 틀 예시가 `pg_sequences` 를 읽어 같은 절의 「번호 시퀀스는 pg_sequences 가 아니라 시퀀스를 직접 읽는다」와 어긋난다 ⇒ 예시를 `select last_value, is_called from public.<seq>` 모양으로
+
+### 31-e 미룬 목록 — §30-e 에 이어 붙임
+
+- ㊵ ADD 정규식이 CHECK 식 전체가 아니라 앞머리 `kind in (…)` 만 보고 목록으로 읽는다(`kind in ('x') or …` · T16 · 목록이 좁게 읽혀 **막히는** 쪽)
+- ㊶ SIGNALS[0] 은 `check (` 바로 뒤의 칸만 신호다(`lower(kind)` · `check (found_bin is null or kind = 'x')` · T17 · **조용히 지나가는** 쪽)
+- ㊷ 판정 132 차이 목록을 누가 어디서 보고 닫나(Health 탭 후보 · 대화 Claude 짐작) — prod-5 에서 판정
+- ㊸ 가운데 공백 SKU `ADA83721FAM - 004`(비활성) · 테스트 변형 `AS00000blue` · `AS00000gold` · `AS00000silver`(DB 는 활성) — Caleb 「BSMirror만 active고 나머지는 현재 사용중인게 아니야. AS00000은 테스트 variants야」 · 「cin7에서 정리할게」
+- 닫힌 것: ㉟(판정 127 · 128 · e53b5ad · 85629c5 · T0 ~ T18 19 PASS)
+
+### 31-f 다음
+
+```
+순서(판정 144 · ⚠️ 대화 Claude 안 · Caleb 확인 전): prod-2 문(SKU 잠금 트리거 · 직접 쓰기 닫기 · 적재 계정 확인 먼저) → prod-3 만들기 한 벌 창구(상품 여러 개를 한 번에 · 판정 146) → prod-3b family → prod-4 고치기 줄 창구(판정 145 필수) → prod-5 불러오기 적재 고침(병행 기간 IMS 실제 만들기 전에 · 판정 131 · 132) → 화면(대화 Claude)
+⇒ 다음 = prod-2
+다음 판정 번호: 147
+```
+

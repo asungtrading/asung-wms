@@ -141,8 +141,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    ⚠️ 돌리기 전에: 검증 파일에 `commit;` 이 없고 `rollback;` 으로 끝나는지 `grep -nE '^(begin|commit|rollback);'` · 마이그레이션에 begin/commit 없음 · 주소는 `$(cat ~/.asung-testdb-url)` 만(운영 주소·`--linked`·SUPABASE_DB_URL 은 만들지도 않는다 · 메모리 no-direct-prod-requests)
    ⚠️ 실제 적용(`-1 -f`) · `migration repair` · 커밋 · 푸시는 여전히 Caleb — Claude Code 의 실행은 **되돌아가는 것만**
    ⭐ 검증 파일의 틀(시험 적용 장치 — psql 변수 `mig` 로 파일 경로를 받아 begin 뒤에 읽는다 · Caleb 의 확인 실행(이미 적용된 DB)은 `-v mig` 없이 → 건너뜀):
-     -- 머리: 시퀀스 현재값은 있을 때만 읽는다(시험 적용이 시퀀스를 만드는 차수도 있다)
-     select coalesce((select last_value from pg_sequences where schemaname = 'public' and sequencename = 'so_number_seq'), 0) as so_seq_last, … \gset
+     -- 머리: 시퀀스는 직접 읽는다(아래 「번호 시퀀스는 pg_sequences 가 아니라」 · 2026-09-30 예시 고침 · so-module §31-d 5) · 시험 적용이 시퀀스를 만드는 차수면 to_regclass 로 가른다
+     select last_value as so_seq_last, is_called as so_seq_called from public.so_number_seq \gset
      begin;
      \if :{?mig}
      \echo '── 시험 적용(rollback 됨):' :mig
@@ -180,6 +180,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **bash 에서 `grep $'\x00'` 은 빈 글자가 된다** — 널 바이트 검사는 `file <파일>` 또는 `grep -cP '\x00'` 로(2026-09-24 · Caleb 실측)
 ⚠️ **RAISE 의 글자 % 는 %% — 형식 문자열의 % 자리 수와 넘기는 값 수를 주기 전에 센다** — 「50% COD & 50% N30」 같은 문구가 자리표시로 읽혀 do 블록 전체가 「too few parameters specified for RAISE」로 안 돈다(2026-09-24 ⓑ1 검증 v1 · 204행) ⇒ 토크나이저 검사에 RAISE 항목(`$$` 본문의 raise 마다 %(%% 제외) 수 = 값 수)을 더했다 — 마이그레이션(적용이 통과했으니 0)과 검증 파일 둘 다 돌린다
 ⚠️ **BEFORE 트리거(문지기)는 CHECK 보다 먼저 막는다** — CHECK 만 시험하려면 `session_replication_role = replica` 로 문지기를 끄고, 그때도 다른 CHECK(closed_at 짝 등)를 함께 어기지 않는 자료로(2026-09-24 ⓑ2 T8a · invoiced 로 바꾸며 closed_at 을 남겨 so_closed_at_ck 가 먼저 걸렸다)
+⭐ [2026-09-30 · so-module §31-d 2] **소급 시험의 옛 판은 고정 커밋으로 읽는다** — `HEAD` 로 적으면 커밋 전에는 맞고 커밋 뒤에는 새 판 자신이 되어 늘 실패한다(판정 128 · `git show d543404:…`) · 시험은 커밋 뒤에 한 번 더 돌린다
+⭐ [2026-09-30 · §31-d 3] **조회를 주기 전에 비용을 잰다** — 자기 조인 · 상관 서브쿼리 × 큰 표(제품 1만 8천 `upper(sku)` 자기 조인이 statement timeout)는 group by 한 번 훑기로 · 독립 조회는 한 트랜잭션에 넣지 않는다(세션 `default_transaction_read_only = on`)
 ⚠️ **번호 시퀀스는 pg_sequences 가 아니라 시퀀스를 직접 읽는다** — pg_sequences.last_value 는 미리 당긴 값을 보이고 is_called 를 `last_value is not null` 로 짐작하면 틀린다 ⇒ `select last_value, is_called from public.<seq>` · 시험 적용이 만드는 시퀀스만 `to_regclass` + `\if` 로 가른다(2026-09-25 ⓒ1 2차 — setval 이 25001·60001 로 밀렸고 Claude Code 가 기준값으로 되돌렸다 · 전후 원문을 보고에)
    ⭐ **죽은 회차가 번호를 당겼으면 되돌리기 전후 원문(last_value · is_called)을 그대로 보고에 붙인다** — 요약하지 마라(2026-09-25 ④a3 · ④b 부터 규칙 · ④a2 보고에는 빠져 있었다) · 되돌리기는 `where not exists (select 1 from public.so)` 처럼 **표가 비어 있을 때만**
 ⚠️ **시험 적용이 만든 객체를 참조하는 문장은 `\if :{?mig}` 로 가른다** — rollback 뒤 그 표·시퀀스는 없어 파싱에서 죽는다(`relation "public.so_credit" does not exist` · 2026-09-25 ⓒ1 2차 끝 setval) · 확인 실행(-v mig 없음)에서는 반대로 있어야 한다 — 두 갈래를 다 적는다
@@ -439,4 +441,10 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    7 「이대로 가도 될까요?」가 무엇을 가리키는지 Caleb 이 되물었다 ⇒ §3 번호를 다시 적는다
    8 check-class-values.sh 가 `kind = '…' or (…)` CHECK 를 값 목록으로 못 읽어 커밋을 막았다 ⇒ --no-verify(판정 125) · 스크립트 고침은 미룬 ㉟
    9 Claude Code 가 pkill -f 로 자기 셸을 죽였다 ⇒ pid 로 · 23k × 31k 문자열 조인 진단이 멈췄다 ⇒ 접은 표 + 인덱스로
+⚠️ **[2026-09-30 오후 사고 · so-module §31-d]**
+   1 조립 스크립트의 비-raw 문자열에 정규식을 넣어 `\b` 가 백스페이스(\x08)로 들어갔다(ccv-fix-1) ⇒ 정규식이 든 코드를 문자열로 조립할 때는 raw 문자열 · `python3 -W error` 로 컴파일
+   2 소급 시험의 옛 판을 `HEAD` 로 읽게 적었다 — 커밋 뒤 새 판 자신이 되어 T0 이 늘 실패 ⇒ §4 고정 커밋(판정 128)
+   3 제품 1만 8천 행 `upper(sku)` 자기 조인이 statement timeout(사고 9 와 같은 모양) ⇒ §4 조회 비용을 먼저 잰다 · 세션 읽기 전용
+   4 어긋난 예 목록만 보고 「ANUA 는 규칙을 따르지 않는다」고 브랜드 전체로 넓혔다 — Caleb 이 ANU73725 로 반증 · 원인은 규칙 이전 코드(2025-11-09 일괄 등록) ⇒ **규칙 위반 비율은 시기별로 나눠 보고 말한다**
+   5 §4 검증 틀 예시가 pg_sequences 를 읽어 같은 절의 규칙과 어긋났다 ⇒ 예시를 직접 읽기로 고쳤다
 ```

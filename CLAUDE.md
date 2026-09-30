@@ -153,6 +153,7 @@ git config core.hooksPath scripts/hooks
   경고만 한다(무관한 커밋을 붙잡지 않는다).
 - `git commit --no-verify`로 우회 가능하지만 업로드는 여전히 거부된다.
 - PyYAML이 있으면 그걸로 파싱하고, 없으면 stdlib 폴백 파서를 쓴다(`>`/`|`/단일행 모두 동일 결과 검증됨).
+- hook 의 다른 두 검사에도 자기 시험이 있다: `scripts/test-caps-hook.sh`(1000행 캡) · `scripts/test-class-values-hook.sh`(분류 값 · 짝 조건 · 판정 127 · 128) — 검사 스크립트를 고치면 둘 다 전부 PASS 인지 본다.
 
 ## 8. 커밋 규칙
 
