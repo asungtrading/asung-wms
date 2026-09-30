@@ -2790,6 +2790,12 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
 반환          cost{layers_touched · amount_posted_cad · no_layers(입고 없는 발주 · 백필 창구) · no_basis(단가 0 · 버림) · allocs[]} · warnings cost_not_on_stock_no_receipt_yet · cost_dropped_no_basis
 ⚠️ 위 「박아 둔 배분은 다시 계산하지 않는다」와 한 쌍 — 얹힌 뒤에는 배분도 landed 도 고치지 않는다 · 정본(원가 규칙)은 ledger-design 4부 「원가 이식 2차」
 ```
+⭐ [2026-09-30 · 판정 114 · 2a10169 · so-module §30] **비용의 원가 자리 = 확정 순간** — `po_charge_alloc.posted_on`(토론토 날짜) · `posted_ledger_id`(그 순간 원장 최대 id)를 배분 줄마다 적는다(`inv_layer_post_charge` 가 실제로 얹을 때만)
+```
+확정 순간     금액이 실제로 레이어에 얹히는 순간 — 비용 확정(po_charge_confirm) · 입고 확정(판정 94 · 입고 전 확정 비용) · 트랜스퍼 도착(판정 78 · 운임) 중 늦은 쪽
+날짜          IMS 얹기 줄 · 매출원가 한 줄의 날짜 = 확정 날짜 · 청구서 날짜(charge_date)는 비용 문서에 그대로 · 재생성은 이 두 칸으로 같은 자리에서 재현(판정 119 쏟기 기준)
+늦은 비용     얹히는 순간 이미 팔렸거나 옮겨 간 몫이 있으면 셋으로 나눈다(판정 107 · 116): 남은 몫 → 레이어 · 옮겨 간 몫 → 자식 carried(cost_moved) · 팔린 몫 → 매출원가 한 줄(cost_late · split_basis) · 끝난 판매는 다시 열지 않는다(판정 108)
+```
 
 ### 11-g. ⭐⭐ 인보이스 — 자기 행으로 서고 PO 여럿을 가리킨다
 ```

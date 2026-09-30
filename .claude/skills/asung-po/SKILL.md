@@ -123,6 +123,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 확정된 비용을 되돌려 배분을 고치고 다시 확정 | landed 가 이미 얹힌 뒤라 멱등이 건너뛰어 **옛 금액이 남는다** | 되돌리기는 landed 있으면 **거부** · 고치려면 **상쇄 비용 문서**(append-only) · §11-f |
 | purchasing 만 가진 로그인으로 트랜스퍼 운임을 확정 | 트랜스퍼를 못 봐(RLS) 0 이 조용히 얹혔다 → 이제 거부 | 트랜스퍼 운임은 transfer 열쇠(`tf_charge_*`) · admin · supervisor · so-module §27-d 10 |
 | 입고 전 확정한 비용이 입고 때 얹힌다고 믿는다 | 안 얹힌다 — `no_layers` 로 남는다(백필 · 미룬 목록 ⑯) | 입고 뒤 `inv_layer_post_charge` 재호출 또는 재생성 · 트랜스퍼만 도착 순간 저절로(판정 78) · ⚠️ 얹힌 원가는 매출원가에 안 들어간다(⑰) |
+| 늦게 확정한 비용의 원가 자리를 청구서 날짜로 셈한다 · 배분 줄의 posted 칸을 손으로 채운다 | 재생성이 실시간과 다른 자리에 얹는다 · 팔린 몫이 사라진다 | **자리 = 확정 순간**(판정 114) — `po_charge_alloc.posted_on` · `posted_ledger_id` 는 `inv_layer_post_charge` 만 쓴다 · 늦은 비용은 셋으로 나뉜다(판정 107 · 116 · ledger-design 「⑰ 닫힘」 · po-module §11-f) |
 | 기준통화 아닌 발주·비용을 환율 없이 확정 · 환율로 **나눈다** | 원가 0 · 또는 **반값 — 에러 없음** | 확정 거부(게이트 ⑥ · 문장이 어디서 고치는지 말한다) · `exchange_rate` 는 **CAD per USD — 곱한다** · §11-j·§11-f · ledger-design 4부 |
 | 발주 머리의 Supplier·Currency 를 연다 | 라인의 단가 근거·통화 뜻이 통째로 바뀐다(USD 5.19 → CAD 5.19) | **열지 않는다** — 잘못 골랐으면 새 발주 · 언제나 여는 것은 Exchange rate·Note 뿐(원가가 매달린다) · §11-b |
 | ~~⚠️⚠️ `inv_layer_apply()` 를 돌린다~~ → ✅ 09-20 IMS 판(`20260920142635`) · 남은 함정: **환율 없는 입고가 있는 채** 돌린다 | 그 입고만 건너뛰어 원가가 빠진 채다 — 멈추지 않는다(옛 「통째로 사라진다」는 틀렸었다 · 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다) | 반환 `ims.receipts_skipped` 가 0 인지 본다 · 환율을 넣고 `inv_post_receipt` 재호출 또는 다시 돌린다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 스킬 asung-inv-ledger 함정 첫 줄 |

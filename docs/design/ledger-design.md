@@ -2660,6 +2660,7 @@ PO 의 모양   확정 트랜잭션에서 창구가 원장 행과 레이어를 �
 지금 판매    소진은 inv_layer_apply 전량 재생성(사람이 부르는 검산 도구 · cron 없음 · 9~10초)에서만 일어난다 — inv_layer_apply_sale_out(20260909174046:226)
 ⇒ so_out 도 같은 모양이어야 한다: 원장 행 + FIFO 소진(inv_layer_consume · reason 'sale') + 부족분 최근 원가 레이어를 한 트랜잭션에
 ```
+⭐ [2026-09-30 · 판정 114 · 119] **비용 얹기도 같은 모양이다** — 실시간이 남긴 근거(`po_charge_alloc.posted_on` · `posted_ledger_id`)로 재생성이 확정 순간의 자리에서 똑같이 재현한다 · 아래 4부 「⑰ 닫힘」
 - 왜: 실시간 창구가 없으면 **「나갔는데 원가가 없다」**가 다음 재생성까지 남는다. PO 는 이미 「확정은 됐는데 재고가 안 늘었다」가 생길 수 없게 했다(po-module 3070행) — 판매도 「나갔는데 COGS 가 없다」가 생길 수 없어야 한다.
 - 어디서: `so-module.md` §7-c 의 출고 RPC(오더 상태 플립이 첫 쓰기 · `wms_complete_pack` 구조)가 원장 창구를 부르고, 그 창구가 원장 행과 레이어 소진을 함께 낸다 — PO 와 같이 **SO 는 원장에 직접 쓰지 않는다**(원칙 2 · 창구 하나).
 - ⭐ **재생성 창구는 이미 있다** — `inv_layer_apply_sale_out` · 키 `(doc_number, sku, warehouse)` 순액 · **bin 을 접는다** · `line_ref` 는 키에 없어 `:reversal` 상쇄가 자동 흡수 · 순액 ≤ 0 이면 소진 없이 닫는다(`o_reversed`) · `sale_out` 이 `skipped_by_event` 여덟 키에 없는 이유 = 「소진은 출처를 안 보는 한 원장 FIFO 가 맞다」.
@@ -2695,7 +2696,7 @@ PO 의 모양   확정 트랜잭션에서 창구가 원장 행과 레이어를 �
 원장 SKU     낱개(세트 줄은 parent_product.sku · qty × pack_factor · inv_ledger 「base SKU」) · 키 (doc_number, sku, warehouse) 로 접어 한 번 소진(consume.line_ref = 첫 줄) — 재생성 키와 같아 행 단위까지 같다(17-f ③ 「허용」보다 낫게)
 순서         소진 먼저 → 결과(raw.cost)를 실어 원장 행 insert — inv_ledger 는 authenticated 에 update 가 없다 · 한 트랜잭션
 hint(가)     raw.cost.shortfall = {qty · unit_cost · cost_source · step · source{키}} — ⭐ 값이 근거다(레이어 id 는 재생성이 바꾼다) · 재생성(inv_layer_apply_sale_out 재발행 · source ims 키)은 첫 행의 hint 로 같은 자리에 같은 레이어 · FIFO 는 qty − hint.qty 만 · 덜 꺼내면 채우지 않고 fifo_short 로 보인다
-부족분 단가  17-e 네 단계 그대로 · sale_shortfall 레이어는 원천에서 뺀다(추정의 추정 금지) · landed 포함(unit_cost×qty + Σcost_add)/qty — ⚠️ 기존 FIFO consume.amount 는 종전대로 unit_cost(landed 제외) · 여기서 바꾸지 않았다
+부족분 단가  17-e 네 단계 그대로 · sale_shortfall 레이어는 원천에서 뺀다(추정의 추정 금지) · landed 포함(unit_cost×qty + Σcost_add)/qty — ⚠️ 기존 FIFO consume.amount 는 종전대로 unit_cost(landed 제외) → ✅ 판정 106 으로 닫힘(2026-09-30) · 여기서 바꾸지 않았다
 CHECK        inv_layer_source_ck +layer_recent · layer_recent_other_wh · price_history(④ 는 unknown 0 · 17-g 가 셋을 따로 센다) · inv_layer_origin_ck +sale_shortfall
 17-f ①③     ① 재현(가) 위와 같다 · ③ 접어서 같다 · ② reversal consume 은 미구현 — 취소 상쇄 길(so-module 7-e · ⑤)이 설 때(안 도는 코드 금지) → [2026-09-25 ⓒ1] ② reversal consume 첫 실물 = 크레딧 취소(so_credit_cancel) · credit_in 도 같은 두 층으로 섰다(inv_post_credit · inv_layer_post_credit · 재생성 inv_layer_apply_credit_ims · 5번 표 credit_in 줄)
 실측         ABC59130 12 = 두 칸 → consume 2 · cogs 52.722396 = FIFO 식 · 부족분 5 × 6.29(layer 367720 · 2026-08-20 · step 1 · 평가액 변화 0) · 재생성 short_events 0 · 24,534 키 · 15~17초 · 소진 합·부족분 레이어 동일 · 100줄 × 2칸 140~157ms
@@ -3735,7 +3736,36 @@ ims: receipts_posted 3 · layers_created 3 · layers_cost_cad 258.342 · over_po
   고치는 길은 **상쇄 비용 문서**다(append-only). ⭐ 음수 배분(정정)은 얹는다 — 음수 landed 가 곧 상쇄다 · 경고만.
 - ⭐ 실측 검증(2026-09-19): 배분 합 정확히 100.000000 · 재고 평가액 정확히 +100 · 금액 비율 손 검산 일치(비싼 라인 139.11 → 17.05 · 나머지 58.38 → 7.156) · USD 100 × 1.39 = 139.000000.
 
-⚠️⚠️ **[2026-09-28 · tr-4b 조사] 소진 금액은 얹힌 금액을 모른다 — 미룬 목록 ⑰(so-module §27-e)** · ⭐ [2026-09-29] ⑱ + ⑯ 뒤 **다음 차례**(판정 89 · so-module §29-g) — `inv_layer_consume.amount` = 수량 × 레이어 unit_cost 뿐이다(판매 · 조정 · 트랜스퍼 모두 `inv_layer_fifo_take` 한 손). 얹힌 금액(`inv_layer_cost_add` — landed · transfer_freight · carried)은 `inv_layer_open` 의 남은 원가((unit_cost × qty + Σ얹힌) / qty × 남은 수량)만 안다 ⇒ 팔린 몫의 얹힌 원가는 매출원가에도 평가액에도 남지 않고 사라진다(이익이 실제보다 좋게 보인다). 원래 있던 일이다(발주 landed 부터) · ⚠️ 전환 전 필수 · 판정 거리 · ⑯(입고 전 비용 백필)과 한 묶음.
+⚠️⚠️ **[2026-09-28 · tr-4b 조사] 소진 금액은 얹힌 금액을 모른다 — 미룬 목록 ⑰(so-module §27-e)** · ⭐ [2026-09-29] ⑱ + ⑯ 뒤 **다음 차례**(판정 89 · so-module §29-g) — `inv_layer_consume.amount` = 수량 × 레이어 unit_cost 뿐이다(판매 · 조정 · 트랜스퍼 모두 `inv_layer_fifo_take` 한 손). 얹힌 금액(`inv_layer_cost_add` — landed · transfer_freight · carried)은 `inv_layer_open` 의 남은 원가((unit_cost × qty + Σ얹힌) / qty × 남은 수량)만 안다 ⇒ 팔린 몫의 얹힌 원가는 매출원가에도 평가액에도 남지 않고 사라진다(이익이 실제보다 좋게 보인다). 원래 있던 일이다(발주 landed 부터) · ⚠️ 전환 전 필수 · 판정 거리 · ⑯(입고 전 비용 백필)과 한 묶음.  → ✅ 판정 106 으로 닫힘(2026-09-30 · 아래 「⑰ 닫힘」 · so-module §30)
+
+
+#### ⭐⭐ ⑰ 닫힘 — 얹힌 원가가 소진에 들어간다 (2026-09-30 · 4cb5305 · 2a10169 · eebe45c · 판정 105 ~ 120 · so-module §30)
+```
+식 한 곳      inv_layer_value(layer_id) → remaining_qty · remaining_value(= 단가 × 처음 수량 + Σ얹힌 − Σ나간) · unit_cost(= remaining_value ÷ remaining_qty) · full_unit(= (단가 × 처음 수량 + Σ얹힌) ÷ 처음 수량 · 다 나간 레이어에도 선다)
+              뷰 inv_layer_open · inv_layer_fifo_take · layer_avg 다섯 곳 · layer_recent 두 곳(full_unit · 판정 117) · 크레딧 취소가 모두 이것을 부른다(판정 111) · authenticated 읽기 열림(판정 118)
+소진          한 병 원가 = 남은 가치 ÷ 남은 수량(판정 106) · 레이어를 비우는 take 는 남은 가치 전부(끝수 없음) · 범위 = 재고가 빠지는 모든 reason(판정 105 · fifo_take 한 손)
+              소진 기록의 unit_cost 칸 = 실제로 빠진 한 병 원가 · 반품 되돌림 · 크레딧 취소 · 미리보기는 소진 기록을 따라 얹힌 몫까지 되돌린다
+늦은 얹기     얹히는 순간 셋으로(판정 107 · 116 · inv_layer_cost_add_settle): 남은 몫 → 그 레이어 · 트랜스퍼로 옮겨 간 몫 → 자식 레이어 carried + 부모 consume reason cost_moved(수량 0 · 매출원가 아님)
+              · 팔리거나 빠진 몫 → consume reason cost_late(수량 0 · 금액만 · 비용 확정 날짜의 매출원가 · 판정 108) · 둘 다 split_basis jsonb(나간 수량 · 비율 — 회계사가 오더별 배분이라고 하면 나눠 붙인다)
+              · CHECK: qty > 0 이거나 (reason in (cost_late, cost_moved) and qty = 0) · 다 나간 레이어도 이 길
+settle 세 문  ① 같은 트랜잭션(xmin · 서브트랜잭션 포함 · pg_xact_status) ② 이 트랜잭션에서 한 번(GUC inv.settled_adds) ③ 이미 쓴 나간 몫 줄 — 두 번 부르면 두 번째 0 행(판정 118 · authenticated 열림 · 함수 안에서 멱등)
+재생성 자리   얹기 셋(불러온 landed · transfer_freight · IMS 비용)을 날짜 사건으로 제자리에 — 같은 날 = 들어옴 → 얹기 → 나감(판정 109 · inv_layer_apply_flush_adds) · carry 바퀴는 맨 끝 그대로
+              불러온 트랜스퍼 자식 레이어에도 얹힌 원가가 따라간다(판정 110 · inv_layer_carry 의 IMS 트랜스퍼 문을 열었다) · 불러온 트랜스퍼 운임은 「그 문서의 도착이 다 선 뒤」 쏟기(판정 115-1)
+IMS 비용 자리 확정 순간(판정 114) — po_charge_alloc.posted_on(토론토 날짜) · posted_ledger_id(그 순간 원장 최대 id) · 「확정 순간」 = 금액이 실제로 레이어에 얹히는 순간(비용 확정 · 판정 94 입고 확정 · 판정 78 도착)
+              IMS 얹기 줄 · 매출원가 한 줄의 날짜 = 확정 날짜 · 청구서 날짜는 비용 문서에 그대로
+쏟기 기준     (판정 119 · eebe45c) 그날 id ≤ posted_ledger_id 인 원장 줄을 루프가 모두 지난 뒤(루프 키 = seq_hint · po_in 먼저 · id) · 안전띠 = 대상 레이어가 아직 없으면 done 을 쓰지 않고 다음 경계에서 다시
+              · 반환 새 키 ims.charge_allocs_late_boundary · charge_allocs_deferred(실물 0) · ⚠️ 옛 id 순 트리거는 같은 날 id 큰 po_in 이 앞에 와 IMS 트랜스퍼 운임 4줄 190.00 을 no_layers 로 잃었다(실시간 무영향)
+landed_amount 재생성 반환의 landed_amount = 불러온 landed 만(ref_number is null) — 얹기가 날짜 자리로 옮겨 간 뒤 뜻이 바뀌지 않게
+레이어 축     (판정 113-5 · cogs-1 조사의 식) IMS = cost_source in (po_line · free · layer_recent · layer_recent_other_wh · price_history) 이거나 origin_type sale_shortfall 이거나 (doc_number, sku) 가 inv_ledger source ims 에 있다 · 그 밖 = 불러온 축(Cin7)
+합격 불변식   모든 레이어 「처음 원가 + 얹힌 것 − 나간 것 − 남은 것 = 0」 · 실시간 = 재생성 · 얹힌 것 없는 레이어 무변(판정 113-6)
+```
+- ⭐ cogs-1 조사: 얹힌 금액 14,819.58 중 **2,716.01 이 샜다**(판매 1,704.89 · 불러온 트랜스퍼 1,000.75 · 조정 10.37) — 전부 불러온 축 · IMS 0 · 고친 규칙의 재생성이 닫는다(판정 112 · 정정 행 없음)
+- ⭐⭐ **재생성 커밋은 전환 때 한 번**(판정 120) — 테스트 DB 의 거래는 모두 시험용 · 옛 기록의 샌 몫은 새 식으로 남은 가치에 되돌아와 있다(흔적으로 둔다) · 판정 112 의 레이어 5개 금지는 풀렸다
+- ⚠️ 판정 106 뒤 **파생 레이어 단가가 바뀐다**(layer_avg 7 · return_restore 3 — 재생성 비교에서 「무변」 대상이 아니다)
+- ⚠️ **쌍둥이 레이어** — 같은 문서 · 줄 · 수량 · 부모 자연 키(TR-04782 · TR-04405) · 레이어 단위 대조는 자연 키만으로 짝을 못 짓는다(쌍둥이를 빼고 견준다)
+- ⚠️ 성능 — 재생성 16초 → 34초(fifo_take 가 후보마다 합 셋 · 미룬 ㉞) · 검산 도구라 감당
+- ⚠️ 원래 차이 둘(판정 115-2): 관세 1,949.88 은 입고 RCV-00029 확정(09-29 19:35 UTC)이 판정 94 창구(19:54 UTC)보다 19분 먼저라 실시간에 안 얹혔다(재생성은 얹는다) · 레이어 md5 차이 = CR-01000 AS93100 3 — 같은 날 크레딧(seq 1)이 판매(seq 2)보다 먼저라 재생성은 layer_avg · 실시간은 return_restore(단가 같음 · 미룬 ㉝)
+- 같은 날 얹기 뒤 그 레이어에서 트랜스퍼가 출발하면 총액은 같고 행 모양만 다르다(부모 cost_moved + 자식 carried · 실물 0 · cogs-4 이견 4)
 
 📌 차이 큐 닫기(`20260919175712` · 9a5344a · short 만 · 형제 문서 합계 `po_family_*`)는 발주 쪽 일이라 **po-module §11-i · §11-c 가 정본**이다. 원장과 닿는 자리는 하나 — over 를 닫을 때 초과분을 재고에 넣는 길(⬜ · 그 발주의 단가로 · 같은 창구).
 

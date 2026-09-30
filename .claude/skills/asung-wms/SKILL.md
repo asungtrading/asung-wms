@@ -36,6 +36,14 @@ description: >
 - ⚠️ 옆 길 조회의 select 는 판매 임베드의 칸 목록을 그대로 복사한다(wa v1.12 가 마무리 기록 세 칸만 읽어 「no finalize record」 · tf-2d)
 - 판정 84: Fulfillment 작업대에 판매 · 트랜스퍼를 함께 못 올린다(화면 fu v1.2 + DB `wms_finalize` 섞인 목록 거부 · `20260929152617`) · 판정 85-1 「Ship to warehouse」 · 판정 86: Trace 는 TRF 번호로만 · 재출력은 Finalized 탭(트랜스퍼는 in_transit · receiving 동안) · 통계에 트랜스퍼를 센다
 - 빌드(2026-09-29): wm v1.2 · pk v1.1 · pa v1.3 · fu v1.2 · rc v1.5 · wa v1.13 · transfers.html tf v1
+⭐⭐ [2026-09-30] **IMS 픽 줄의 실제 칸은 줄을 저장할 때마다 DB 에 적는다(so-module §30 · 판정 121 ~ 124 · 275820d · pk v1.2 · wa v1.15)** — 모르면 원장 칸이 틀어진다:
+- 창구 `wms_pick_line_save(p_line_id, p_picked_base, p_bins, p_status, p_verification_method, p_session_id)` — `p_bins` = `[{bin_id 또는 bin, qty_base}]`(합 = picked_base · 0 이면 행 없음 · null/[] 이면 계획 칸 순서) · 반환 `saved` · `reason`(`other_device` · `not_yours`) · `mode`(`given` · `kept` · `planned`) · `bins[].ledger_qty` · `is_active` · `warnings` · 과제 completed · 보류(pending)는 거부 문구
+- 쓰기 식은 속 함수 `wms_pick_line_bins_write` 한 곳(완료 창구 ③′ 도 부른다 · 판정 31 revoke) · 팩 회복 행(pack_task_id)은 손대지 않는다 · ⚠️ 옛 ③′ 는 팩 회복 행까지 지웠다
+- `wms_complete_pick` 은 bins 가 없고 저장이 적은 행의 합 = picked 면 **그대로 둔다(kept)** · 없으면 계획 칸(옛 화면 그대로) · 반환 `bins_kept`
+- `wms_pick_lines` 줄마다 `stock_bins[{bin_id, bin, zone, qty, is_active, planned}]` — 계획 칸 먼저 · 장부 내림 · ⚠️ `qty` · `ledger_qty` 는 **낱개 EA** · 가용 칩 `available_ea` 는 **창고 합계**(칸별 아님)
+- 판정 123: 장부 재고 없는 칸 · 비활성 칸도 **받고 경고만**(`ledger_short:` · `inactive_bin:`) · 창고 검사는 그대로 · 칸 음수는 Health `bin_negative` 로 보인다
+- 판정 124: `wms_reports.planned_bin` · `found_bin` · `bin_qty` 는 `wrong_location` 에만(CHECK) · 「Planned bin was empty」 체크 때만 자동 보고 · ⑪ 뒤 절반(보고 → 칸 옮기기)은 아직 · 원장 칸이 쓰이는 순간은 픽 완료가 아니라 Ship · 출발(`wms_so_handoff` picks)
+- 빌드(2026-09-30): pk v1.2 · wa v1.15
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 
