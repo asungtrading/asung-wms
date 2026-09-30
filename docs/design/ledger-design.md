@@ -3598,7 +3598,7 @@ source  cin7 27,324 · manual 1,579 · **wms 0**(CHECK 에는 있지만 쓴 적�
 `source` 에 **`'ims'`** 가 열렸고(1차 · 2부 ① 「출처」) 입고 확정이 **`po_in`** 사건을 낸다. 원장이 창구 **`inv_post_receipt(receipt_id)`** 를 내고
 `po_receipt_confirm` 이 ⓓ(묶음 confirmed) 뒤에 **같은 트랜잭션**으로 부른다 — PO 는 `inv_ledger` 에 직접 쓰지 않는다(원칙 2).
 원장 쪽이 실패하면 확정도 실패한다 — **그것이 맞다**(재고에 안 잡힐 거면 확정도 하면 안 된다).
-⚠️ [2026-09-29] **판정 88 로 기준이 인보이스로 바뀐다** — 인보이스 없는 PO 는 입고 불가 · 초과는 확정 인보이스 수량까지만 원장에 · 더 온 몫은 Off-invoice(po-module §11-i 판정 88 블록) · **미구현 ⑱**(지금 코드는 PO 확정 수량 기준)
+⚠️ [2026-09-29] **판정 88 로 기준이 인보이스로 바뀐다** — 인보이스 없는 PO 는 입고 불가 · 초과는 확정 인보이스 수량까지만 원장에 · 더 온 몫은 Off-invoice(po-module §11-i 판정 88 블록) · ~~**미구현 ⑱**(지금 코드는 PO 확정 수량 기준)~~  → ✅ [2026-09-29] 구현 — inv_basis_1 · 2 · 3(so-module §29) · 원장에 들어가는 수량은 확정 인보이스 − 앞선 입고까지 · 더 온 몫은 off_invoice 결정(accepted_free · accepted_billed)이 `inv_post_receipt_off_po` → `inv_layer_post_receipt_off_po`(line_ref `<diff>:offpo`)로 넣는다
 사건의 모양 · 초과 처리 · 배분 규칙 · 멱등은 **po-module §11-j 가 정본**이다(여기 되쓰지 않는다). 원장 쪽에서 알아야 할 것만:
 - `doc_type purchase` · `event_type po_in` · `source ims` · `seq_hint 1` · **`doc_number = RCV-…`**(PO 번호가 아니다 — 유니크 7키에 `doc_task_id` 가 없어
   같은 PO·같은 제품·같은 빈의 재입고가 겹친다 · 입고가 사건의 실제 단위다) · `doc_task_id = po_receipt.id` · **`line_ref = po_line_id`**(2부 line_ref 표) ·
@@ -3716,6 +3716,8 @@ ims: receipts_posted 3 · layers_created 3 · layers_cost_cad 258.342 · over_po
 📌 [Caleb] 「MTFX 로부터 사는 시점의 환율이 우리가 실제로 치른 값이다」 — ⬜ MTFX API 가 있는지 알아보는 중. 지금은 사람이 넣는다.
 
 #### ⭐⭐ 원가 이식 2차 — 비용이 landed 로 얹힌다 (`20260919200414` · 83b79f5)
+⭐ [2026-09-29 · 판정 94 · ⑯ · inv_basis_2 · so-module §29] **입고 전에 확정한 PO 비용은 입고 확정 순간 저절로 얹힌다** — `po_receipt_confirm_by` ⓕ 가 원장 뒤 그 발주의 확정 · 아직 안 얹힌(배분 줄 단위) 비용마다 `inv_layer_post_charge` 를 부른다 · 한 번만(멱등) · 오류는 반환 `charges{errors}` · 확정을 막지 않는다(tf_arrive 판정 78 모양) · 문 = 구매 열쇠 또는 입고 확정자(receiving · wms_receiving_confirm · 확정 입고가 있는 발주에만 배분된 비용)
+⭐ [2026-09-29 · 판정 95 · ㉓] **트랜스퍼 운임은 순서와 상관없이 도착한 물건에만** — 트랜스퍼 갈래가 `:over:`(sent_more) 레이어를 뺀다 · `inv_layer_apply` 의 같은 술어 둘도(재생성 = 라이브) · so-module 묶음 일곱 2 「포함 = 출발에서 더 보낸 물건」 을 고쳤다
 
 `inv_layer_post_charge(charge_id)` — 비용 확정(`po_charge_confirm`)과 같은 트랜잭션.
 - ⭐⭐ **kind 넷을 전부 `landed` 로** — freight · duty · brokerage · **other**. ⚠️ other 도 얹는다. [Caleb] 「중국 에이전트 수수료 같은 것을 other 로 잡는다」 —
@@ -3733,7 +3735,7 @@ ims: receipts_posted 3 · layers_created 3 · layers_cost_cad 258.342 · over_po
   고치는 길은 **상쇄 비용 문서**다(append-only). ⭐ 음수 배분(정정)은 얹는다 — 음수 landed 가 곧 상쇄다 · 경고만.
 - ⭐ 실측 검증(2026-09-19): 배분 합 정확히 100.000000 · 재고 평가액 정확히 +100 · 금액 비율 손 검산 일치(비싼 라인 139.11 → 17.05 · 나머지 58.38 → 7.156) · USD 100 × 1.39 = 139.000000.
 
-⚠️⚠️ **[2026-09-28 · tr-4b 조사] 소진 금액은 얹힌 금액을 모른다 — 미룬 목록 ⑰(so-module §27-e)** — `inv_layer_consume.amount` = 수량 × 레이어 unit_cost 뿐이다(판매 · 조정 · 트랜스퍼 모두 `inv_layer_fifo_take` 한 손). 얹힌 금액(`inv_layer_cost_add` — landed · transfer_freight · carried)은 `inv_layer_open` 의 남은 원가((unit_cost × qty + Σ얹힌) / qty × 남은 수량)만 안다 ⇒ 팔린 몫의 얹힌 원가는 매출원가에도 평가액에도 남지 않고 사라진다(이익이 실제보다 좋게 보인다). 원래 있던 일이다(발주 landed 부터) · ⚠️ 전환 전 필수 · 판정 거리 · ⑯(입고 전 비용 백필)과 한 묶음.
+⚠️⚠️ **[2026-09-28 · tr-4b 조사] 소진 금액은 얹힌 금액을 모른다 — 미룬 목록 ⑰(so-module §27-e)** · ⭐ [2026-09-29] ⑱ + ⑯ 뒤 **다음 차례**(판정 89 · so-module §29-g) — `inv_layer_consume.amount` = 수량 × 레이어 unit_cost 뿐이다(판매 · 조정 · 트랜스퍼 모두 `inv_layer_fifo_take` 한 손). 얹힌 금액(`inv_layer_cost_add` — landed · transfer_freight · carried)은 `inv_layer_open` 의 남은 원가((unit_cost × qty + Σ얹힌) / qty × 남은 수량)만 안다 ⇒ 팔린 몫의 얹힌 원가는 매출원가에도 평가액에도 남지 않고 사라진다(이익이 실제보다 좋게 보인다). 원래 있던 일이다(발주 landed 부터) · ⚠️ 전환 전 필수 · 판정 거리 · ⑯(입고 전 비용 백필)과 한 묶음.
 
 📌 차이 큐 닫기(`20260919175712` · 9a5344a · short 만 · 형제 문서 합계 `po_family_*`)는 발주 쪽 일이라 **po-module §11-i · §11-c 가 정본**이다. 원장과 닿는 자리는 하나 — over 를 닫을 때 초과분을 재고에 넣는 길(⬜ · 그 발주의 단가로 · 같은 창구).
 

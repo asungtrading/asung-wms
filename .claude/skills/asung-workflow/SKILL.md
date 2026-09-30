@@ -62,6 +62,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 맨 위   모델 — Opus(사실을 모으는 조사 · 정해 준 대로 옮기는 문서 · 스킬) · 「⚠️ Fable 필수」 + 이유 한 줄(판단이 든 조사 · 만들기 · 검증) · 애매하면 Fable
         📌 대화에만 있는 것 — 정본 · 레포에 아직 없는 판정 · 실측 · 결정을 **내용 그대로**(가리키지 않는다) · 없으면 「없음」
         ⚠️ PC 마다 ~/asung/prompts 가 다르다(집 · 회사 · 레포 밖) — 지시서는 앞 차수의 지시서 · 검증 파일을 가리키지 말고 필요한 것을 스스로 담는다(2026-09-28 office-1)
+        ⭐ [2026-09-29] **다른 PC 에 같은 차수의 지시서가 있으면 그 판이 기준 · 고칠 것만 그 위에** — 인계서만 보고 새로 쓰면 회사 판과 갈라진다(so-module §29-d)
 §0 「⭐ 먼저 — 검토하고 이견을 내라」
    · 「그대로 만들어라가 아니다 — 틀린 곳·빠진 곳·다르게 하는 편이 나은 곳을 먼저 말하라」
    · ⚠️ SQL 을 돌리지 마라(실행은 Caleb) · git 을 건드리지 마라 · 화면 파일을 고치지 마라
@@ -156,7 +157,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⭐ **날짜 기본값·비교는 `ims_today()`(토론토)** — `current_date` 는 UTC 라 토론토 저녁 8시(겨울 7시) 뒤 내일이다(2026-09-23 · so.order_date · 세일 기간 · 백오더 만료 같은 뿌리 · PO 일곱 · 화면 다섯 ✅ 2026-09-23 · po-module §14)
 ⭐ **화면의 날짜 기본값은 `torontoToday()`** — `new Date().toISOString().slice(0,10)` 은 UTC 날짜라 금지(2026-09-23 asung-ims 다섯 곳 고침) · 서버 비교(received_on_in_future 류)가 걸린 자리는 **화면 먼저 배포**(반대면 저녁마다 경고)
 ⚠️ **psql 백슬래시 명령(`\gset` · `\if` · `\echo` …) 줄 끝에 `-- 주석`을 두지 마라** — 인자로 읽는다(`invalid variable name: "--pb"` · 2026-09-23) · 주석은 윗줄로 · 검사 `grep -nE '^\s*\\[a-z]+.*--|\\gset.*--'` 0줄
-⚠️ **한 트랜잭션 안에서는 now() 가 전부 같다** — 시각으로 「손댐」을 판정하는 시험은 `updated_at` 을 명시로 뒤로 적는다(`session_replication_role = replica` 로 ims_touch 를 비껴서 · 2026-09-23 so_unconfirm) · 설계도 시각에만 기대지 마라(표시·사슬 먼저)
+⚠️ **한 트랜잭션 안에서는 now() 가 전부 같다** — 시각으로 「손댐」을 판정하는 시험은 `updated_at` 을 명시로 뒤로 적는다(`session_replication_role = replica` 로 ims_touch 를 비껴서 · 2026-09-23 so_unconfirm) · 설계도 시각에만 기대지 마라(표시·사슬 먼저)  → ⚠️⚠️ [2026-09-29 · 세 번째 실사고 · 판정 103] inv-basis-2 검증이 PO · 줄을 같은 트랜잭션에서 만들어 created_at = updated_at 이라 「통째로 옮긴 줄은 늘 손댔다」 결함을 못 잡았다 ⇒ **시각으로 손댐을 보는 창구는 재료 시각을 replica 로 과거에 적고 · 옛 함수로 결함 재현부터**(inv-basis-8 · so-module §29-d)
 ⚠️ **invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501** — postgres 로 `\timing` 을 재면 안 보인다 · 권한이 걸린 시험은 **가짜 직원 신원**(set role authenticated + claims)으로(2026-09-23 so_available → so_available_many)
 ⚠️ **시험 자료를 뷰 전체에서 고르지 마라** — 제품마다 `ims_inv_balance` 를 다시 계산해 statement timeout 2분(2026-09-23) · 후보를 싸게 좁힌 뒤(활성·가격·sku 순 300) 한 문장(`so_available_many`)으로 · timeout 을 늘려 덮지 마라 · 임시 표는 authenticated 구간에서 못 읽는다(`\gset` 으로 받아 둔다)
 ⚠️ **CHECK 를 넓힐 때 함수 본문의 같은 값 목록도 훑어라** — [실사고 2026-09-24 ③a′] so_split_reason_ck 만 다섯으로 넓혔는데 so_split 본문의 `p_reason not in (…)` 목록이 넷이라 pick_short 가 거부됐다 ⇒ 어휘를 늘리는 차수는 `grep -rn "'값1','값2'"` 로 제약·함수 본문을 함께 세고 마지막 정의를 재발행한다
@@ -188,7 +189,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 📌 **화면 한 차수** = 대화 Claude 가 화면 파일 통째로(검사 넷: 단추↔처리 · id 실재 · `node --check` · CSS 클래스 실재) + Claude Code 가 `ims-auth.js` items · CHECKLIST · 한 커밋(asung-ims · 정본 §23)
 ⭐ ⑤ 부터의 마이그레이션은 첫 문장이 `supabase/ops/guard-test-only.sql` 의 바이트 복사 · 검증 G0 은 **임시 파일에 첫 블록을 써서 diff**(psql `\!` 는 /bin/sh = dash 로 돈다 · `diff <(…)` 는 bash 문법이라 죽는다 · 2026-09-26 ⑤-1) · `\!` 에 psql 변수는 안 들어간다 — 경로는 환경변수로
 ⚠️ `\gset` 으로 받은 boolean 은 t/f 다 — 글자로 비교하지 말고 `:'x'::boolean` 으로
-⚠️ **\i 앞에서 담는 옛 결과(D-pre)는 확인 실행에서 새 함수다** — pre/post 비교 기대는 처음부터 \if :{?mig} 두 갈래로(2026-09-26 ⑤-3b E2)
+⚠️ **\i 앞에서 담는 옛 결과(D-pre)는 확인 실행에서 새 함수다** — pre/post 비교 기대는 처음부터 \if :{?mig} 두 갈래로(2026-09-26 ⑤-3b E2)  → ⚠️ [2026-09-29 · 두 번째] inv-basis-3 C2 「n_ck1 = n_ck0 + 1」 을 한 갈래로 써 확인 실행에서 MISMATCH(inv-basis-2 C2 와 같은 사고) · 대화 Claude 도 그 기대 수를 받아 옮겼다 ⇒ **증감 비교는 쓰는 순간 `\if :{?mig}` 두 갈래**(시험: +n · 확인: 같다)
 ⚠️ **invoker 셸은 회수된 속을 못 부른다** — 바깥 창구는 definer · 문은 첫 줄(⑤-3a 5회차) · 회수된 so_current_staff 도 셸이 못 부른다 — 사람 찾기는 원본 두 줄(4회차)
 ⚠️ **information_schema 는 table_schema 를 붙여라** — wms_legacy 에 같은 이름 표가 있다(⑤-3a 3회차) · like 의 _ 는 한 글자 와일드카드 — \_ 로(⑤-2b 2회차)
 ⚠️ **검사는 그 시점의 상태로** — 뒤 절이 바꿀 칸을 앞 검사가 기대하지 않게(⑤-3a 6회차)
@@ -367,6 +368,7 @@ description ⚠️ 키워드가 트리거다 — 자르면 필요할 때 스킬�
 자리   ~/asung/prompts/ims-handover-<날짜>.md — 다음 대화가 이것을 올린다
 담는 것
   §0 시작 순서 — ⭐ **정본을 curl 로 직접 받아 읽게 한다**(기억·캐시로 답하지 않게)
+     · ⭐ [2026-09-29] **두 레포 `git pull` 먼저 · 로컬 HEAD 원문을 붙이게** — 집 PC 에서 로컬이 옛 판인 것을 Claude Code 가 보고 막았다(so-module §29-d)
      · 「이것이 보이면 최신, 안 보이면 갱신이 커밋되지 않은 것」이라는 **판별법**을 준다
   선 것 · ⭐⭐ 어기면 되돌리기 어려운 것 · 일하는 방식(이 스킬이 대신한다) ·
   ⚠️ 그날 겪은 실수 · 지금 DB 실물(id·번호까지) · ⭐ 다음 할 일 · 밀린 것 · 환경

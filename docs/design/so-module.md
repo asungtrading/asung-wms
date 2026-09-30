@@ -3994,7 +3994,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
         화면은 id → 이름 표를 한 번 읽어 보여 줄 때만 이름 · CAS 도 id 로 비교
         기각: 이름 글자 그대로(규칙 9 이름 드리프트를 들고 온다) · id + 이름 둘 다(두 칸이 어긋난다)
 판정 5  receiver 도 옮겨 고친다 · 기준이 바뀌는 셋만 발주 창구에 맞춰 다시 짠다 — Caleb 「A로 가자」
-        셋 = 받을 수량(인보이스 기준 → PO 확정 수량 · po_receipt_*) · off-PO(→ 발주 차이 큐 off_po · 모양은 ⑤-6 에서 판정) ·
+        셋 = 받을 수량(인보이스 기준 → PO 확정 수량 · po_receipt_* · ⚠️ 2026-09-29 판정 88 로 다시 확정 인보이스 기준 · §29) · off-PO(→ 발주 차이 큐 off_po · 모양은 ⑤-6 에서 판정) ·
              끝맺음(Apply to Cin7 → 없어진다 · 확정은 po_receipt_confirm)
         지키는 것 = 스캔 · 세기 · 줄 단위 저장 · 칸에 넣기 · Place all · 동시 작업 표시 · 차례는 맨 마지막(⑤-6)
 판정 6  WMS 자기 표만 쓰는 동작(② 만 쓰는 동작 전부 · 함수 단위 약 40 · 짐작)은 직접 쓰기 유지 · 쓰기 규칙도 auth_all 그대로 — Caleb 「A로 가자」
@@ -4961,7 +4961,7 @@ CON00156 C070303 4 · C070304 0 · 과제 125(SO-25003b · pending) 계획 C0703
 판정 75  운송 중 정리(분실 · 되돌리기)는 조정 열쇠(stock_adjust)를 가진 사람만(판정 49 · 50 규칙) — Caleb 「A로 가자」 · 까닭: 분실은 재고 합계 · 가치를 바꾸는 일 · 「가치를 바꿀 수 있는 사람」을 조정 열쇠 하나로 · 기각 B WMS Admin 누구나 · C Transfers 열쇠
 판정 76  더 온 몫 = 매니저가 고른다 — 「출발에서 더 보낸 것」(출발 칸(기본 픽 계획 칸)에서 빼 도착에 · 출발 원가 층) / 「도착에서 찾은 것」(도착 조정 found) · 결정은 조정 열쇠 — Caleb 「A로 가자」 · 기각 B 늘 출발 · C 늘 도착 찾음
 판정 77  분실된 물건 몫의 운임도 도착한 물건이 모두 떠안는다 — Caleb 「A로 가자」 · 기각 B 분실 몫 운임을 비용으로 따로
-묶음 일곱(판정 77 뒤) — Caleb 「그대로 가자」: 1 기준 = 도착 물건 원가 금액 비례 · 잔돈 마지막 · 여러 번 각각 2 제외 = 되돌린 물건 · 도착에서 찾은 물건 / 포함 = 도착 · 출발에서 더 보낸 물건 3 누가 = Transfers 열쇠 4 도착 전 청구서 = PO 규칙대로(뒤에 판정 78 로 바뀜) 5 팔린 뒤 = PO 규칙 6 고치기 · 지우기 = PO 규칙 7 「운임 오래 없음」 점검은 조사 뒤
+묶음 일곱(판정 77 뒤) — Caleb 「그대로 가자」: 1 기준 = 도착 물건 원가 금액 비례 · 잔돈 마지막 · 여러 번 각각 2 제외 = 되돌린 물건 · 도착에서 찾은 물건 / 포함 = 도착 · ~~출발에서 더 보낸 물건~~ → ⚠️ 판정 95(2026-09-29 · §29-a): 운임은 순서와 상관없이 도착한 물건에만 · sent_more 는 운임 없음 3 누가 = Transfers 열쇠 4 도착 전 청구서 = PO 규칙대로(뒤에 판정 78 로 바뀜) 5 팔린 뒤 = PO 규칙 6 고치기 · 지우기 = PO 규칙 7 「운임 오래 없음」 점검은 조사 뒤
 판정 78  도착 전에 확정한 트랜스퍼 운임은 에드먼튼 도착(Complete) 순간 저절로 원가에 얹는다 — Caleb 「A로 가자」 · 기각 B PO 처럼 두고 Health 가 알린다 · PO 입고의 같은 문제는 미룬 목록 ⑯
 판정 79  토론토 원가 층에 얹혀 있던 PO 운임 · 관세는 IMS 트랜스퍼를 따라간다(한 병당 비율 · 출발 · 도착 · 되돌리기 · 더 보낸 몫 · 불러온 데이터 축 무변) — Caleb 「A로 가자」 · 기각 B 지금대로
 그 밖 Caleb 말(판정 아님 · 순서) — 「그러면 tr-4b까지 하고, 마무리하자」 · 「인계서 나중에 해도 되지 않나? 문서 정리가 우선 일 것 같네」
@@ -5147,12 +5147,12 @@ Claude Code
 ### 28-e ⬜ 미룬 것 — 판정 59 목록 ⑱ ~ ㉓ · §27-e 에 이어 붙임
 
 ```
-⑱ 판정 88 — 입고 기준 인보이스 · 인보이스 없는 PO 입고 불가(WMS · 오피스) · 인보이스 확정 순간 PO 분할(원래 번호 지키기 포함) · Reopen 되붙이기 · Off-invoice 한 길 · 창고 · 오피스 입고 화면 글자 · ⑯ 과 한 묶음 · 수정거리 맨 앞(판정 89) · 판정 84 섞기 막기 시험도 이때(판정 91)
+⑱ 판정 88 — 입고 기준 인보이스 · 인보이스 없는 PO 입고 불가(WMS · 오피스) · 인보이스 확정 순간 PO 분할(원래 번호 지키기 포함) · Reopen 되붙이기 · Off-invoice 한 길 · 창고 · 오피스 입고 화면 글자 · ⑯ 과 한 묶음 · 수정거리 맨 앞(판정 89) · 판정 84 섞기 막기 시험도 이때(판정 91)  → ✅ [2026-09-29] 닫힘 — inv_basis_1 · 2 · 3 · 화면 92c659b · §29
 ⑲ 트랜스퍼 줄 수량의 긴 소수 자리(qty_received 1.00000000000000000000 · tf_settle · tf_arrive 가 EA ÷ pack_factor 로 나눔 · 짐작)
 ⑳ 판정 90 — Returned 창 돌아갈 칸 미리 채우기(transfers.html)
 ㉑ 운임 창 둘 — 도착 전 트랜스퍼의 Confirm 확인 문장(「It is put onto the cost of the stock that arrived」 → 도착 전이면 「added the moment … arrival · until then it can still be reopened」) · 원가에 이미 얹힌 청구서의 Reopen 단추 숨김(창구는 막는다)
-㉒ 입고 화면 트랜스퍼 글자 둘 — ± 로 넘칠 때 대화 상자 「exceeds expected quantity (3 > 2). Continue?」 에 「Only what was sent is taken in — the office decides the rest」 가 안 붙음 · 스캔 칸 안내 「item not on this PO → off-PO …」 가 트랜스퍼에서도 보임(⑱ 의 Off-invoice 글자와 함께)
-㉓ 운임 · 더 보낸 몫 순서 — 운임이 도착 순간 먼저 얹히고 sent_more 가 뒤에 결정되면 더 보낸 레이어는 운임을 안 진다(배분 줄 단위 멱등 · 짐작 · TRF-00002 에서 「3 layers」) · 묶음 일곱 2 「포함 = 출발에서 더 보낸 물건」과 어긋남 · 결정이 먼저면 넷 · 합 90 은 재고에 다 있다 · ⑱ · ⑯ 과 함께 판정 거리
+㉒ 입고 화면 트랜스퍼 글자 둘 — ± 로 넘칠 때 대화 상자 「exceeds expected quantity (3 > 2). Continue?」 에 「Only what was sent is taken in — the office decides the rest」 가 안 붙음 · 스캔 칸 안내 「item not on this PO → off-PO …」 가 트랜스퍼에서도 보임(⑱ 의 Off-invoice 글자와 함께)  → ✅ rc v1.6(92c659b · §29)
+~~㉓ 운임 · 더 보낸 몫 순서 — 운임이 도착 순간 먼저 얹히고 sent_more 가 뒤에 결정되면 더 보낸 레이어는 운임을 안 진다(배분 줄 단위 멱등 · 짐작 · TRF-00002 에서 「3 layers」) · 묶음 일곱 2 「포함 = 출발에서 더 보낸 물건」과 어긋남 · 결정이 먼저면 넷 · 합 90 은 재고에 다 있다 · ⑱ · ⑯ 과 함께 판정 거리~~ → ✅ 판정 95 · inv_basis_2(78ef293 · §29)
 셋째 창고를 세울 때 할 일(새 목록 · 판정 86 ①): 도착 다른 트랜스퍼 섞기 막기(판정 84 틀)
 ```
 
@@ -5172,6 +5172,113 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 ### 28-g 다음
 
 ```
-순서(판정 89 · 91): 이 문서 차수 → 수정거리 맨 앞 ⑱(판정 88 · po-module §11-i) + ⑯ 한 묶음(같은 입고 · 원가 창구 · 판정 84 섞기 막기 시험도 이때) → ⑰ · ⑫ → 그 뒤 판정 81 1단계(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 비밀번호 배포 전 필수)
+순서(판정 89 · 91): 이 문서 차수 → 수정거리 맨 앞 ⑱(판정 88 · po-module §11-i) + ⑯ 한 묶음(같은 입고 · 원가 창구 · 판정 84 섞기 막기 시험도 이때) → ⑰ · ⑫ → 그 뒤 판정 81 1단계(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 비밀번호 배포 전 필수)  → ✅ ⑱ + ⑯ 닫힘(§29) · 다음 ⑰
 ⑲ ~ ㉓ 는 ⑱ 차수에서 함께 볼지 판정 거리(㉓ 운임 · 더 보낸 몫 순서는 ⑱ · ⑯ 과 함께)
+```
+
+## §29 ⑱ 입고 기준 = 확정 인보이스 · 판정 88 · 92 ~ 104 (2026-09-29)
+
+⭐ 판정 88(원문 여덟 · 판정 89 순서)은 **po-module §11-i 판정 88 블록**이 정본이다 · 이 절은 그 뒤 판정 92 ~ 104 원문 · 오늘 선 실물 · 화면 시험 · 사고 · 미룬 목록이다.
+⭐ 원칙 하나(판정 92): **오피스가 인보이스를 확정해 내려보내야 창고 작업이 시작된다** — 예외 · 갈래를 설계하지 않는다(ims-principles §4-c 끝 줄).
+⭐ 요지 — 인보이스 확정 = PO 분할(원래 번호 = 청구된 몫 · 남은 몫 · 빠진 줄 = 다음 글자 하나) · 입고 기준 = 확정 인보이스 − 앞선 입고 · 더 온 것 = Off-invoice 한 길(결정 둘 · 거절 없음) · 두 칸에 나뉜 초과는 창고 Complete 가 먼저 막는다 · 입고 순간 확정 비용이 원가에 얹힌다 · Reopen 은 손대기 전만 되붙인다.
+
+### 29-a 판정 원문 (92 ~ 104 · 말 그대로)
+
+```
+판정 92 (2026-09-29 · Caleb 원문) 「인보이스를 확정없이 창고는 PO를 셀 수 없어. 이렇게 수정하기로 한거야. 오피스에서 인보이스를 확정해서 내려보내야. 창고에서 작업이 시작되는 것을 하자. 복잡한 경우의 수를 열어놓으니까, 흔들리는게 한두개가 아니네」
+  → 원칙 하나: 오피스가 인보이스를 확정해 내려보내야 창고 작업이 시작된다 · 예외 · 갈래를 설계하지 않는다 · 옛 문서는 적용 전에 정리
+판정 93 (Caleb 「묶음은 그대로 가자」 · inv-basis-1 판정 거리 묶음 아홉)
+  ⓐ 세는 중 인보이스 확정 — 새 규칙에서 안 생긴다 · 옛 RCV-00029 는 적용 전 정리 ⓚ 인보이스 없이 받기 예외 없음
+  ⓑ 입고 기준 = 확정 인보이스 goods 수량(크레딧 · 초안 제외) ⓒ 둘째 인보이스는 갈라져 나온 PO 에서 ⓙ 줄 · 수량 둘 다 갈라짐
+  ⓛ 비용 배분 · 크레딧 연결은 원래 번호에 ⓘ 창고는 PO 번호 + 인보이스 번호 ⓓ Off-invoice 청구 단가 = 오피스 입력 · 기본 = 마지막 확정 인보이스 단가 ⓔ ⓕ 옛 차이 행 · 옛 닫힌 PO 그대로
+판정 94 (Caleb 「A로 하자」) ⑯ 입고 전에 확정한 PO 비용은 입고 확정 순간 저절로 원가에 얹는다(판정 78 모양 · 한 번만 · 오류는 경고) · 기각 B Charges 단추
+판정 95 (Caleb 「나도 B가 맞다고 생각해」) ㉓ 트랜스퍼 운임은 순서와 상관없이 도착한 물건에만 · sent_more 는 운임 없음 · 재생성도 같게 · 정본 묶음 일곱 2 의 「포함 = … 출발에서 더 보낸 물건」 을 고친다 · 기각 A 얹힌 운임 다시 나누기
+판정 96 (Caleb 원문) 「그런경우에는 po를 고치고, 인보이스를 넣어야 하지 않을까?」 — 인보이스가 PO 수량을 넘으면 인보이스는 거부되고 오피스가 PO 를 먼저 고친 뒤 넣는다 · 거부 문장이 그 순서를 말한다
+판정 97 (Caleb 「그대로 가자」 · ⑱-1 묶음 다섯) 1 RCV-00029 는 지우지 않고 옛 규칙으로 끝낸다 2 ㉕ 창고 입고 지우기가 받아들인 off-PO 를 안 봄 · ㉔ 오피스 Delete 날것 FK — 막는 문장 3 인보이스 저장 쪽 잔량 문장은 ⑱-3 4 형제에 초안 인보이스가 있으면 Reopen 거부 5 옛 트랜스퍼 검증 둘에 인보이스 여섯 줄은 문서 차수
+판정 98 (Caleb 「좋아. 그렇게 하자.」 · ⑱-2 묶음 여섯) 1 inv_basis_2 는 ⑱-3 · ⑱-4 화면과 같은 날 적용 · 커밋 2 더 온 몫이 두 칸에 나뉘면 입고 확정을 막는다 3 입고 확정자(receiving · wms_receiving_confirm)도 그 PO 의 확정 비용을 얹을 수 있다 4 옛 비용 10039192310530 은 그대로 5 옛 트랜스퍼 검증 기대값은 문서 차수 6 인보이스 저장 쪽 잔량 문장 · 옛 over_lines 키는 ⑱-3
+판정 99 (2026-09-29 · Caleb 원문) 「이것 역시 복잡한 경우의 수야. 거절 버튼은 차라리 없애는 것은 어때? 어차피 추가로 더 들어온 수량만큼 창고에서 이미 받은 거잖아. 그걸 궂이 거절할 이유는 뭐야? 만약에 해당 수량만큼 오피스에서 다시 리턴하기로 결정했다면, 그것은 따로 작업하는게 맞지 않아? 꼬리에 꼬리를 무는 수정은 오히려 불편할 것 같아.」
+  묶음(Caleb 「그 묶음대로 가자」) 1 Off-invoice 결정은 둘(accepted_free · accepted_billed · rejected 없음 · 인보이스 초과 · 주문에 없는 품목 둘 다) 2 돌려보내기는 입고와 따로 3 확정된 입고의 거절 Removed 자리 문제는 없어진다 4 off_invoice 에서 거절 · Removed · 「Rejected — still on a shelf」 · Health 161 을 뺀다 5 옛 off_po 행의 거절 · Removed · Health 160 은 그대로 6 inv_basis_2 적용 전 그 파일 안에서 고친다
+판정 100 (Caleb 「그래 니 생각대로 C로 가자」) 더 온 몫이 두 칸에 나뉘면 창고 Complete 때 먼저 막는다(창고가 그 자리에서 한 칸으로) · 오피스 확정의 같은 검사는 안전띠 · 기각 A 확정 거부 문장에 Reopen 안내 · B CHECKLIST 만 · 속 함수 po_receipt_over_bins 하나를 둘이 부른다
+판정 101 (Caleb 「A로 가자」) po_receipt_detail 합계 셋(totals.over_lines · short_lines · warnings.over_receipt)을 새 기준(lines[].expected = 확정 인보이스 − 앞선 입고)으로 · 기각 B 화면이 줄마다 센다
+판정 102 (Caleb 「A로 가자」) 옛 규칙 입고(RCV-00005 · 00006 · 00029 · 00031)의 합계가 새 기준으로 달라져도 그대로 둔다(테스트 재료 · 운영에는 옛 규칙 IMS 입고가 없다)
+판정 103 (Caleb 「고치자」) 인보이스 Reopen 의 「형제를 손댔다」 판정을 분할 순간(형제 PO 의 created_at)과 비교한다 — 통째로 옮긴 줄은 created_at 이 원래 PO 의 것이라 늘 「손댔다」로 읽혀 Reopen 이 늘 막혔다(PO-02028a 2번 줄 실측 · inv_basis_1 결함) · inv_basis_3 로 한 줄 고침
+판정 104 (Caleb 「A로 가자」) Reopen 으로 지운 형제 글자는 다시 갈라질 때 다시 쓴다(PO-02028a → 다시 PO-02028a) — Reopen 은 형제에 아무것도 붙지 않았을 때만 되니 지운 번호를 가리키는 기록이 없다 · 판정 55(초안 번호)와 다른 경우 · ⬜ 형제 PO 를 공급처에 「보냈는지」 기록되는지 확인(있으면 Reopen 조건 거리)
+
+```
+
+### 29-b 실물 — 커밋 · 적용 · 확인
+
+```
+⑱ 실물(커밋 · 적용 · 확인)
+  asung-wms 77d3c95 inv_basis_1(20260929190928 · 841행 · md5 3e7bf81a) — 인보이스 확정 = PO 분할 · 입고 기준 = 확정 인보이스 · 인보이스 없으면 입고 시작 거부 · po_list 두 칸 · po_receipt_detail expected
+  asung-wms 78ef293 inv_basis_2(20260929195458 · 2,479행 · md5 d702e192) — off_invoice 한 길(결정 둘) · ⑯ 입고 순간 비용(charges{posted, errors}) · ㉓ :over: 운임 없음 · wms_recv_complete 두 칸 거부 · po_receipt_over_bins(회수) · po_receipt_detail 합계 새 기준 · ㉔ ㉕ 문장 · Health 151
+  asung-wms 8e9e229 inv_basis_3(20260930021142 · 246행 · md5 1f736436) — 판정 103 한 줄
+  asung-ims 92c659b — rc v1.6 · wa v1.14 · receiving.html 「invoice basis」 · invoices.html 「invoice splits the PO」 · po.html 「invoice basis」 · CHECKLIST 7-a 7-b 7-e 7-q 7-r 7-z
+  asung-ims 853a7f9 — charges.html 「exchange rate」(외화 비용 초안에 환율 칸 · 확정 거부 문장이 가리키는 칸이 없었다 · 원래 있던 빈틈)
+확인 검증 기준(-v mig 없이): inv-basis-3 25(md5 1ce522b5 · C2 두 갈래로 고친 판) · inv-basis-2 17 · wms-round 11 · inv-basis-8 11
+
+```
+
+| 커밋 | 파일 · 화면 | 무엇 |
+|---|---|---|
+| asung-wms 77d3c95 | `20260929190928_inv_basis_1.sql` | po_invoice_confirm(확정 = 분할 · Reopen 되붙임 · 판정 96 거부) · po_receipt_confirm_by(인보이스 없으면 거부 · 기준 = 확정 인보이스 − 앞선 입고 · 입고 확정은 가르지 않는다) · po_receipt_create_by(인보이스 문) · po_list(has_confirmed_invoice · confirmed_invoiced_qty) · po_receipt_detail(lines[].expected) · po.split_by_invoice_id |
+| asung-wms 78ef293 | `20260929195458_inv_basis_2.sql` | off_invoice 어휘(PO 입고 행만) · po_receipt_diff_settle_off_invoice(accepted_free · accepted_billed · 기본 단가 = 마지막 확정 인보이스 단가) · ⑯ 입고 순간 비용(charges{posted, errors}) · ㉓ 트랜스퍼 운임 :over: 제외(창구 · 재생성) · wms_recv_complete 두 칸 거부 · po_receipt_over_bins(속 · authenticated 회수) · po_receipt_detail 합계 셋 새 기준 · ㉔ ㉕ 문장 · Health 151 |
+| asung-wms 8e9e229 | `20260930021142_inv_basis_3.sql` | po_invoice_confirm 한 줄(판정 103) |
+| asung-ims 92c659b | wms-receiver rc v1.6 · wms-admin wa v1.14 · receiving.html · invoices.html · po.html · CHECKLIST | 인보이스 기준 화면 |
+| asung-ims 853a7f9 | charges.html | 외화 비용 초안에 환율 칸 |
+
+### 29-c 화면 시험 결과 (Caleb · 2026-09-29 밤 · 테스트 DB)
+
+```
+화면 시험(Caleb · 2026-09-29 밤 · 테스트 DB) — 통과: 인보이스 없는 PO 창고에 안 보임 · 인보이스 확정 분할(PO-02028 → 02028a) · Reopen 전 되붙음(판정 103 고친 뒤) · 다시 분할 · Reopen 뒤(창고 시작) 거부 · 판정 96 거부 · 기대 = 인보이스 · 두 칸 Complete 거부(B041001 1 · B041002 1) → 한 칸으로 통과 · ⑯ 「1 confirmed charge(s) added to cost」(charge test02 · 10 USD @1.4) · off-invoice 초과(RCV-00033 ANN00028 +2) · 딥링크 · 청구 결정 기본 단가 0.504(0.36 × 1.4) · 전량 청구(PO-02028a 분할 없음) · 주문에 없는 품목 스캔(ANN02050) · ㉔ 지우기 거부 · 무상 결정 · 옛 RCV-00029 무변
+  남은 시험: 판정 84 섞기 막기(7-y · 판매 + 트랜스퍼 한 작업대) · 트랜스퍼 도착 무변(㉒ 글자) · PO 두 개를 인보이스 하나에 · ㉕
+
+```
+
+### 29-d 사고 · 교훈 (asung-workflow §3 · §4 · §9 에 규칙 줄로)
+
+```
+오늘의 사고 · 교훈
+  · 대화 Claude — 집 PC 에서 두 레포 pull 을 짚지 않았다(Claude Code 가 로컬이 옛 판인 것을 보고 레포에 안 쓰고 원격 raw 위에서 만들어 막았다) ⇒ 인계서 §0 에 「pull 먼저 · 로컬 HEAD 원문」
+  · 대화 Claude — 인계서만 보고 지시서를 새로 썼다(회사 판이 있었다) ⇒ 회사 판이 기준 · 고칠 것만 그 위에
+  · Claude Code — 확인 모드 pre/post 비교(C2 「n_ck1 = n_ck0 + 1」)를 또 한 갈래로 썼다(inv-basis-2 C2 와 같은 사고 · 두 번째) · 대화 Claude 도 「확인 25」 를 받아 옮겼다
+  · 한 트랜잭션 안 now() 가 같다 — 판정 103 결함을 검증이 못 잡았다(PO · 줄을 같은 트랜잭션에서 만들어 created_at = updated_at) · 세 번째 실사고 ⇒ 시각으로 손댐을 보는 창구는 재료 시각을 replica 로 뒤로 적어 시험(inv-basis-8 이 옛 함수 결함 재현부터)
+  · 대화 Claude — inv-basis-4 에 「판정 84 섞기 막기」 를 적어 Claude Code 가 7-z 에 「PO 두 개를 인보이스 하나에」 로 이름표를 잘못 붙였다(판정 84 는 판매 + 트랜스퍼 한 작업대 · 7-y)
+  · Claude Code — 7-z 에 「Reopen 뒤 다시 Confirm → 다음 글자」 를 짐작으로 적었다(DB 는 같은 글자 · 판정 104)
+  · 대화 Claude — 오피스 입고 화면의 확정 전 검사(Placed 표시)를 확인하지 않고 두었다 — DB 는 칸만 본다
+
+```
+
+### 29-e 미룬 목록 — §28-e 에 이어 붙임
+
+```
+미룬 목록 — 닫힌 것: ⑯(판정 94 · inv_basis_2) · ⑱(판정 88 · 92 ~ 104 · 적용 · 커밋 · 화면 시험 대부분) · ㉒(rc v1.6) · ㉓(판정 95) · ㉔ · ㉕(판정 97 · 문장)
+미룬 목록 — 새로(번호는 정본 마지막 번호 다음부터 · 판단하지 말고 그대로)
+  ㉖ 오피스 입고 Confirm 이 Placed 표시(totals.placed)로 먼저 막고 「… still has no bin」 이라고 틀리게 말한다 — DB 는 칸(bin_id)만 본다 · 창고 Change 로 합치면 Placed 가 풀린다(RCV-00033 실측) · 화면이 totals.allocated 를 보게(대화 Claude 화면)
+  ㉗ 「청구로 받은」 초과분의 공급처 청구서를 어디에 넣는가 — PO 는 closed · 줄 수량 = 인보이스 몫이라 더 청구하는 인보이스는 판정 96 으로 막힐 것(짐작 · 판정 거리)
+  ㉘ 오피스 확정 알림이 확정 전에 생긴 off-invoice(주문에 없는 품목 · 창고 스캔)를 안 센다(diffs.rows 는 확정 순간 행만) · 머리 경고에는 보인다
+  ㉙ 입고 머리 · 창고 화면에 인보이스 번호(판정 93 ⓘ) — po_receipt_detail header 에 키가 없다(DB)
+  ㉚ 테스트 재료 정리 — 비용 초안 「charge test」(Koah International · 쓰지 않음)
+  ㉛ 형제 PO 「보냄」 기록 유무 확인(판정 104)
+  ㉜ CHECKLIST 0-a eslint 전역에 ims-ui.js 다섯(dim · imsPage · imsParam · imsQ · imsTs) — 빠지면 옛 판도 20 · 28 · 35 로 나온다(inv-basis-7 보고)
+  그 밖 남은 것: 판정 97 5 · 98 5 — 옛 트랜스퍼 검증(tr-3a · tr-4 · tr-4b)에 「입고 전 전량 인보이스 확정」 여섯 줄 · 기대값 갱신(tr-3b Health 25 → 27 등) · ⚠️ 검증 파일은 레포 밖(~/asung/prompts)이라 이 차수에서는 **적는 것만**(파일 고침은 다음 차수)
+```
+
+### 29-f 테스트 DB 지금 (Claude Code 실측 · begin read only · 2026-09-29 밤)
+
+```
+번호 일곱(실제 최대 = last_value · is_called t): so 25011 · inv 60004 · trf 2 · rcv 34 · adj 12(실제 최대 5 · 시작값 12 를 지킨다) · mv 2 · po 2028
+이력(supabase_migrations 2026-09-29 이후): … 20260929152617 · 20260929190928 · 20260929195458 · 20260930021142
+재료  PO-02028 closed(줄 1) · PO-02028a closed(줄 2) · RCV-00033 confirmed(PO-02028) · RCV-00034 confirmed(PO-02028a)
+      인보이스 「TEST OFF Invoice」 confirmed · 「test 96」 confirmed · 비용 charge test02 confirmed 10 USD · test444 confirmed 100 CAD · FX-TEST-1 draft 100 CAD
+      ⚠️ 「charge test」(Koah International · 초안)는 charge_number ilike '%test%' 로는 안 찾혔다 — ㉚ 은 번호를 확인한 뒤(짐작)
+차이 행  off_invoice accepted_billed 1 · accepted_free 1 · off_po accepted_billed 1 · rejected 1(RCV-00029 · 옛 행) · over free 1 · sent_more 1 · short 열림 2 · lost 1 · returned 1 · split_shipment 1
+```
+
+### 29-g 다음
+
+```
+판정 89 순서(정본에 있음): ⑱ + ⑯ → ⑰ → ⑫ · 다음은 ⑰
+다음 판정 번호: 105
+⇒ 다음 = ⑰(소진 금액이 얹힌 원가를 모른다 · §27-e · ledger-design 3736)
 ```
