@@ -22,6 +22,18 @@
 #   ⇒ 좁혔다(끄지 않았다): 신호가 속한 **문장**(앞 ';' 부터)의 머리가 create/alter table 이고 그 표가 대상 둘이 아니면
 #   신호로 치지 않는다. 문장 머리에서 표를 못 읽으면(함수 본문 안 · 낯선 서식) 전과 같이 멈춘다 — "모르면 멈춤" 은 그대로다.
 #   IMS 에 reason·kind 칸이 또 생겨도 create/alter table 안에 있으면 훅을 고칠 일이 없다.
+#   ⚠️ [2026-09-30 · 판정 127 · 미룬 ㉟] **짝 조건** — 20260930172829 의 `wms_reports_bins_kind_ck`
+#   `check (kind = 'wrong_location' or (planned_bin is null and found_bin is null and bin_qty is null))` 은 값 목록이 아니고
+#   어떤 kind 값도 막지 않는데(세 칸이 비면 모든 kind 통과) 신호에 걸려 커밋 두 번을 --no-verify 로 지나갔다(판정 125 · 126).
+#   ⇒ 좁게 알아본다(끄지 않았다): SIGNALS[0] 이 대상 표 문장에서 구간 밖에 나타나면 멈추기 전에 ① 그 `check (` 부터 짝 괄호까지를 식으로
+#   뗀다(문자열 안 괄호 · '' 이스케이프 무시 · 짝 없으면 멈춤) ② 맨 바깥 깊이의 `or` 로 나눈다(감싼 괄호 한 겹은 벗긴다 · 문자열 안 or 무시 ·
+#   갈래가 하나면 멈춤) ③ 문자열을 지운 식에 그 칸이 **정확히 한 번** ④ 그 갈래가 괄호를 벗기면 정확히 `칸 = '값'` 또는 `칸 <> '값'`(`!=` 도)
+#   ⑤ 통과하면 구간으로 치고 (표, 칸, 값, 제약 이름)을 짝 조건으로 기록 — 값이 그 (표, 칸)의 **최종 허용 목록**에 없으면 FAIL(exit 1 ·
+#   파싱은 됐고 값이 확실히 틀렸다) · 목록이 drop 돼 없으면 exit 2. 그 밖은 전처럼 멈춘다 — 계속 멈추는 모양: `kind <> 'image_missing'` 단독(값 하나를
+#   조용히 뺀다) · `kind = 'a' or kind = 'b'`(모양만 다른 목록) · `kind is null` · `kind in (…) or …` · `lower(kind) = …` · 바깥 `and`.
+#   ⚠️ 한계: 다른 갈래가 늘 거짓인 식(`kind = 'x' or false`)은 사실상 값을 막지만 알아보지 못한다(갈래의 참·거짓을 셈하지 않는다 · 쓸 일 없음) ·
+#   SIGNALS[0] 은 칸이 `check (` 바로 뒤에 올 때만 신호라 `check (found_bin is null or kind = 'x')` 는 전부터 조용히 지나간다(넓히지 않았다).
+#   자기 시험: scripts/test-class-values-hook.sh (T0 = 옛 판으로 결함 재현 · T1 ~ T18).
 #
 # 판정:
 #   코드에 있는데 CHECK 에 없음  → FAIL (커밋 차단)
@@ -167,10 +179,127 @@ def is_signal(idx, text, m, spans):
 def norm_table(t):
     return t.strip().strip('"').split(".")[-1].strip('"')
 
+# ── 짝 조건(판정 127) — 대상 표의 CHECK 가 값 목록이 아니고 값을 하나도 막지 않는 한 모양만 넘긴다 ──
+TARGET_COL = dict(TARGETS)                                   # 표 → 대상 칸
+CNAME_BEFORE = re.compile(r'constraint\s+(\S+)\s*$', re.I | re.S)   # 신호 앞 … constraint <name>  (없으면 인라인 칸 제약)
+PAIR_BRANCH = re.compile(r"^\s*(reason|kind)\s*(?:=|<>|!=)\s*'((?:[^']|'')*)'\s*$", re.I | re.S)
+OR_TOKEN = re.compile(r'(?<![\w])or(?![\w])', re.I)
+COL_TOKEN = re.compile(r'\b(?:reason|kind)\b', re.I)
+
+def check_paren_span(text, pos):
+    """pos(= 'check' 의 위치) 뒤 첫 '(' 부터 짝이 맞는 ')' 까지 (i, j) — 문자열 안 괄호는 세지 않는다 · '' 이스케이프 · 짝 없으면 None."""
+    i = text.find("(", pos)
+    if i < 0:
+        return None
+    depth, j, in_str = 0, i, False
+    while j < len(text):
+        c = text[j]
+        if in_str:
+            if c == "'":
+                if j + 1 < len(text) and text[j + 1] == "'":
+                    j += 2
+                    continue
+                in_str = False
+        elif c == "'":
+            in_str = True
+        elif c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return (i, j + 1)
+        j += 1
+    return None
+
+def mask_strings(expr):
+    """작은따옴표 문자열의 속을 공백으로(길이 유지 · 위치 대응) — or · 괄호 · 칸 이름을 셀 때 쓴다."""
+    out, i, in_str = [], 0, False
+    while i < len(expr):
+        c = expr[i]
+        if in_str:
+            if c == "'" and i + 1 < len(expr) and expr[i + 1] == "'":
+                out.append("  "); i += 2; continue
+            if c == "'":
+                in_str = False; out.append(c)
+            else:
+                out.append(" ")
+        else:
+            if c == "'":
+                in_str = True
+            out.append(c)
+        i += 1
+    return "".join(out)
+
+def strip_outer(expr, masked):
+    """식 전체를 감싼 괄호 한 겹을 벗긴다(여는 괄호의 짝이 맨 끝일 때만) · (expr, masked) 를 함께 돌려준다."""
+    e, m = expr.strip(), masked.strip()
+    while e.startswith("(") and e.endswith(")"):
+        depth = 0
+        for k, c in enumerate(m):
+            if c == "(":
+                depth += 1
+            elif c == ")":
+                depth -= 1
+                if depth == 0 and k != len(m) - 1:
+                    return e, m
+        e, m = e[1:-1].strip(), m[1:-1].strip()
+    return e, m
+
+def split_top_or(expr, masked):
+    """맨 바깥 깊이의 or 로 나눈다 — [(갈래 원문, 갈래 마스크)] · 문자열 안 or 는 마스크에 없다."""
+    parts, cuts, depth, last, k = [], [], 0, 0, 0
+    while k < len(masked):
+        c = masked[k]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+        elif depth == 0 and c in "oO":
+            mo = OR_TOKEN.match(masked, k)
+            if mo:
+                cuts.append((k, mo.end()))
+                k = mo.end()
+                continue
+        k += 1
+    for a, b in cuts:
+        parts.append((expr[last:a], masked[last:a])); last = b
+    parts.append((expr[last:], masked[last:]))
+    return parts
+
+def pair_condition(text, m, path):
+    """SIGNALS[0] 매치 m 이 「짝 조건」이면 (span, record) · 아니면 None(= 전처럼 멈춘다)."""
+    table = signal_table(text, m.start())
+    if table is None or table not in TARGET_COL:
+        return None
+    col = TARGET_COL[table]
+    sp = check_paren_span(text, m.start())                       # ① 짝 괄호
+    if sp is None:
+        return None
+    expr = text[sp[0] + 1:sp[1] - 1]
+    expr, masked = strip_outer(expr, mask_strings(expr))
+    branches = split_top_or(expr, masked)                        # ② 맨 바깥 or
+    if len(branches) < 2:
+        return None
+    if len(COL_TOKEN.findall(masked)) != 1:                      # ③ 칸이 정확히 한 번(문자열 제외)
+        return None
+    hit = [b for b in branches if COL_TOKEN.search(b[1])]
+    if len(hit) != 1:
+        return None
+    be, bm = strip_outer(hit[0][0], hit[0][1])
+    pm = PAIR_BRANCH.match(be)                                   # ④ 정확히 칸 = '값' / 칸 <> '값'
+    if pm is None or pm.group(1).lower() != col:
+        return None
+    value = pm.group(2).replace("''", "'")
+    stmt_start = text.rfind(";", 0, m.start()) + 1
+    cm = CNAME_BEFORE.search(text[stmt_start:m.start()])
+    cname = cm.group(1).strip('"') if cm else "(이름 없음)"
+    return (m.start(), sp[1]), {"table": table, "col": col, "value": value, "src": path, "cname": cname}   # 구간은 신호(check) 부터 닫는 괄호까지 — is_signal 이 m.start() 로 본다
+
 def strip_sql_comments(text):
     return re.sub(r'--[^\n]*', '', text)
 
 checks, errors = {}, []          # (table,col) -> {"values":[...], "src":file, "cname":name}
+pairs = []                       # 짝 조건(판정 127): {"table","col","value","src","cname"} — 값은 최종 목록과 대조(아래 ③)
 for path in sorted(env_list("MIGS")):
     text = read(path)
     if text is None:
@@ -182,6 +311,12 @@ for path in sorted(env_list("MIGS")):
         inline_adds(text) +
         [(m.start(), "drop", m) for m in DROP.finditer(text)])
     spans = [m.span() for _, _, m in events]
+    for m in SIGNALS[0].finditer(text):                          # ⑤ 짝 조건이면 구간으로 치고 기록 — 그 밖은 아래 신호 판정으로(전처럼 멈춤)
+        if is_signal(0, text, m, spans):
+            pc = pair_condition(text, m, path)
+            if pc is not None:
+                spans.append(pc[0])
+                pairs.append(pc[1])
     if any(is_signal(i, text, m, spans)
            for i, sig in enumerate(SIGNALS) for m in sig.finditer(text)):
         errors.append(f"{path}: 이 파일의 CHECK 정의를 해석할 수 없다 "
@@ -269,6 +404,21 @@ for s in srcs:
     print(f"  CHECK 출처: {s}")
 
 bad = []
+if pairs:                        # 짝 조건 — 몇 개를 넘겼는지 · 값이 최종 목록 안인지
+    cnt = {}
+    for p in pairs:
+        k = f'{p["table"]}.{p["col"]}'
+        cnt[k] = cnt.get(k, 0) + 1
+    pair_bad = []
+    for p in pairs:
+        key = (p["table"], p["col"])
+        if key not in checks:
+            errors.append(f'{p["src"]}: 짝 조건 {p["cname"]} ({p["col"]} "{p["value"]}") 을 대조할 CHECK 목록이 없다(drop 됨) — 무엇과 대조할지 모른다')
+        elif p["value"] not in set(checks[key]["values"]):
+            pair_bad.append(f'  FAIL  {p["src"]}  {p["cname"]}  {p["col"]} "{p["value"]}" — 짝 조건의 값이 CHECK 목록에 없음')
+    state = "값 확인 ok" if not pair_bad else f"FAIL {len(pair_bad)}개"
+    print(f'  짝 조건 {len(pairs)}개 ({" · ".join(f"{k} {n}" for k, n in sorted(cnt.items()))}) — 목록 정의 아님 · {state}')
+    bad += pair_bad
 for col, (table, _) in COLS.items():
     key = (table, col)
     if key not in checks:

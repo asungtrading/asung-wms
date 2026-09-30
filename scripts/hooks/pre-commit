@@ -39,7 +39,7 @@ if [ -x "$CLASS" ]; then
     echo
     echo "커밋 중단: 코드의 분류 값이 DB CHECK 목록과 어긋난다 (또는 검사 불능)."
     echo "  고치기: CHECK 를 바꾸는 마이그레이션을 먼저 추가 (supabase migration new …, 규칙 41)"
-    echo "  확인  : scripts/check-class-values.sh"
+    echo "  확인  : scripts/check-class-values.sh   · 테스트: scripts/test-class-values-hook.sh"
     echo "  우회  : git commit --no-verify  (런타임 400 은 여전히 난다)"
     exit 1
   fi
