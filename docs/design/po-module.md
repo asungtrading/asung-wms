@@ -1309,7 +1309,7 @@ family           ✅ prod-3b(36673e3 · 판정 181 ~ 185) — 두 길을 한 창
 ### 창구 모양 · 권한 (판정 135 · 140 · 141)
 ```
 만들기           한 벌 창구 하나 — 상품 · 바코드 · 공급처 · 가격 · 세트를 한 트랜잭션 · 하나라도 틀리면 전부 되돌림(판정 135)
-고치기           줄마다 작은 창구(재고 조정 화면과 같은 모양 · 판정 135)
+고치기           ✅ 창구 하나 product_update · 바꿀 것 목록(판정 187 — 135 의 「줄마다 작은 창구」 글귀를 바꿨다 · 「줄마다」는 목록의 줄로) · 아래 「창구 — 실물」
 권한             열쇠 master 하나 · 창구는 security definer + 첫 줄 ims_require_write('master')(판정 140) · SKU 잠금 트리거 함수는 security definer · **문 없음**(판정 174 — 문은 auth.uid() 로 직원을 찾아 service_role 적재가 false · 트리거 첫 줄 문은 적재를 죽인다 · 잠금은 누구에게나 같다)
                  근거: 잠금 검사가 호출자 권한과 상관없이 원장 · 레이어를 다 본다 · ⚠️ [2026-10-01 정정] 오늘은 원장 · 레이어 읽기가 열려 있다(auth_all using (true) · master 만 가진 직원도 다 읽는다 · so-module §33-c) — definer 는 원장 읽기를 조이는 날 조용히 새지 않게 · 선례 so_create · so_line_add = definer · po_create · po_lines_paste = invoker
                  검증: master 만 가진 가짜 직원으로 잠금이 거부하는지 시험(판정 140)
@@ -1352,6 +1352,28 @@ family           ✅ prod-3b(36673e3 · 판정 181 ~ 185) — 두 길을 한 창
             낱개 공급처가 하나면 is_default true · 세트에는 공급처 · 무게 안 붙임(활성 세트 5,808 중 공급처 행 0) · 세트 판매가를 비우면 so_price_for 가 set_calc(낱개 × 계수 × (1 − set_discount_pct/100))
             product_gtin_ok(text) immutable(GTIN mod 10 · 8 · 12 · 13 · 14 자리 · 그 밖은 null)
 ⚠️ claims   claims 없는 postgres 세션(Caleb 의 psql)에서는 두 창구의 문이 막는다 — SQL 로 상품을 만들려면 직원 claims 를 먼저 세운다(트리거 · 판정 174 와 반대 성격)
+── 고치기 (prod-4a 2b3afa7 · 4b 0b2170d · img-1 7a4bed8 — 마지막 정의 20261001152712 · 판정 187 ~ 194) ──
+창구        product_update(p_changes jsonb, p_commit boolean default false, p_ack text[] default '{}') returns jsonb · definer · 첫 줄 ims_require_write('master') · 최대 1,000 줄 · 한 트랜잭션 · 막기 하나면 아무것도 안 바뀐다
+            두 번 부르기(판정 176) · 반환 {committed, changes:[{i, sku, op, field, applied}], blocks, warnings, unacked} · raise = 문 · 배열 아님 · 0 · 1,000 초과 · 모르는 op · 23505
+op 열일곱   set {sku, field, value, old}(한 줄에 칸 하나 · old 필수 스칼라 · 숫자 칸은 숫자 비교) — name · brand_id · category_id · unit_id · weight · weight_unit · note · is_discontinued · set_discount_pct(세트만) · sku · is_active · pack_factor(세트만) · parent_sku(세트만)
+            family_join {sku, family_sku, options[]} · family_leave {sku, old} · family_option {sku, options[], old[]} · family_head_set {family_sku, field, value, old}(name · brand_id · category_id · unit_id · note · is_active · option1~3_name)
+            barcode_add · barcode_off · barcode_primary {sku, barcode} · price_set {sku, tier_id, price, old?} · price_off {sku, tier_id, old} · supplier_set {sku, supplier_id, supplier_sku?, cost?, fixed_cost?, currency_id?, old{}?} · supplier_default · supplier_off {sku, supplier_id}
+            image_add {sku, storage_path, content_type, byte_size?, width?, height?, file_name?, primary?} · image_off · image_primary {sku, image_id} · image_order {sku, image_ids[]}
+막기 code   (49 · 20261001152712 의 product_update 본문 grep) already_in_family · axis_count_change · barcode_active_elsewhere · barcode_duplicate_in_call · barcode_empty · barcode_exists · barcode_not_found · brand_unknown · category_unknown · changed_elsewhere
+            · currency_unknown · family_unknown · field_duplicate_in_call · image_exists · image_not_found · image_object_missing · image_path_mismatch · image_path_missing · image_type_invalid · name_missing · not_a_set · not_in_family · old_missing
+            · option_count · option_duplicate_in_call · option_exists · parent_not_single · parent_unknown · price_not_found · price_not_positive · set_discount_invalid · set_factor_invalid · set_locked · set_not_family_member · set_sku_exists
+            · set_sku_managed · sku_duplicate_in_call · sku_exists · sku_locked · sku_locked_set · sku_lowercase · sku_space · sku_unknown · supplier_not_found · supplier_unknown · tier_invalid · unit_unknown · value_invalid · weight_invalid
+알리기 code (24) barcode_check_digit · barcode_inactive_elsewhere · barcode_missing · barcode_shape · default_off · image_primary_off · inactive_open_po · inactive_open_so · inactive_sets_on · inactive_stock · inactive_variants_on · option_inactive_exists
+            · option_name_case(판정 190) · option_name_unusual · price_missing · price_set_calc · primary_off · set_renamed(판정 189) · set_supplier · set_unit_mismatch · set_unit_unknown · sku_open_lines · supplier_missing · variants_follow(판정 191 · 192)
+열쇠        <SKU>:<code>(:<field 또는 값>) · 바코드 :<barcode> · 가격 :<tier code> · 공급처 :<supplier name> · family 머리 <family SKU>:<code>:<…> · variants_follow 는 :<field>:<따라갈 수>(검사 뒤 변형이 바뀌면 옛 확인이 안 맞는다)
+⭐ id 맵    검사 때 푼 SKU → id 로 저장 — 이 호출의 다른 줄은 화면이 본 옛 SKU 로 가리킨다(SKU 를 바꾼 뒤 같은 상품의 다음 줄 · 4a 이견 3 — 고치기 전엔 저장 0 행인데 applied true 였다)
+SKU         원장 · 레이어 있으면 sku_locked(창구 문장 · 트리거 IM136 은 마지막 문) · 세트가 따라 바뀐다(판정 189 · 이름은 그대로 · set_renamed) · 세트 SKU 는 손으로 못 바꾼다(set_sku_managed)
+사건        판정 137 ① = 원장 · 레이어(sku) 또는 거래 줄 아홉 자리(so_line · so_credit_line · po_line ×2 칸 · po_invoice_line.entered_unit_product_id · po_receipt_diff · inv_adjust_line · inv_move_line · inv_transfer_line) — product_has_events(uuid, text) · 모든 줄 · 계수 · 부모 잠금에만
+활성 끄기   재고(ims_inv_balance 합) · 열린 SO 줄(draft · confirmed · at_wms · picking · packed) · 열린 PO 줄(draft · confirmed) · 켜진 세트 수 — 0 이 아닌 것만 알리기(판정 139)
+끄기        바코드 · 판매가 · 공급처 · 사진 빼기는 is_active false(판정 188 · 줄은 남고 다시 더하면 같은 줄을 켠다) · 대표 · 기본을 끄면 올리지 않고 알린다(primary_off · default_off · image_primary_off) · 꺼진 줄 다시 켜기는 켜진 것이 없을 때만 대표
+source      IMS 가 값을 바꾼 줄은 manual(판정 133 · prod-5 가 본다) · 대표 · 기본 플래그만 바꾸면 그대로
+family 머리 브랜드 · 분류 · 단위를 고치면 옛 머리 값과 같던 변형만(null 끼리도) 따라 바뀐다 + 이름 칸 복사(판정 191 · 192) · 축 이름 바꾸기만(축 수 변경은 axis_count_change) · 대소문자만 다른 더 흔한 이름 → option_name_case(판정 190 · product_axis_case_hint(text) · product_family_create 에도)
+고칠 때     검증 R 절로 옛 · 새 반환 jsonb 등호를 다시 증명한다(4b R1 ~ R4 · img-1 R1 · R2)
 ```
 
 ### 이름 · SKU 짓기 (판정 177 · 180 · 182 · 183 · 184 · 비워 두면 창구가 · 넣으면 그대로)
@@ -1362,6 +1384,25 @@ family SKU    <첫 변형 SKU>FAM(p_items 의 첫 항목 · 판정 182) · FAM �
 변형 이름     <family 이름> - <V1>(판정 183) · 축 둘 · 셋은 <family 이름> - <V1> - <V2>( - <V3>)(판정 184) · 만든 뒤 고치기는 prod-4
 세트 멤버     세트는 family 멤버가 아니다(family_id null · 부모가 변형)
 브랜드 경고   새 family 머리에 브랜드가 없으면 머리 한 줄만 · 변형 쪽 접는다 · 있는 family 에 더하기는 변형 쪽 그대로(판정 185)
+```
+
+### 사진 — 실물 (img-1 7a4bed8 · img-2 ac02db7 · 판정 193 ~ 198 · 원문 so-module §34-a)
+```
+표          product_image — product_id FK · storage_path unique(CHECK ^<uuid>/.+) · is_primary(대표 하나 · 부분 유니크 없음 · 창구가 지킨다) · sort_order · cin7_attachment_id uuid unique · content_type(jpeg · png · webp CHECK) · byte_size · width · height · file_name · source cin7|manual · is_active
+            RLS select 만 · authenticated 쓰기 없음(창구 product_update 의 image_* 로만 · img-2 는 service_role 로 직접)
+상자        product-images — public(주소를 아는 사람은 본다 · <img> 로 바로) · 5 MB · jpeg/png/webp · 경로 <상품 id>/<파일>(SKU 를 고쳐도 안 끊긴다)
+            storage.objects 정책 insert/update/delete = authenticated ∧ master ∧ 첫 폴더가 실재 product.id · ⚠️ objects.name 으로 한정(안 하면 서브쿼리 안에서 product.name 으로 풀려 늘 거짓 · img-1 이견 1) · select 정책 없음(공개 상자)
+            Caleb 눈 확인(2026-10-01): PRO · image transformation 켜짐 · 전체 한도 50 MB(상자 5 MB 가 이긴다) · 공개 주소 로그인 없이 · 7 MB · PDF 거부
+대표 규칙   여러 장 + 대표 하나(판정 193) · 자동 대표는 켜진 사진이 하나도 없을 때만 · primary:true 면 대표(다른 대표 내림)
+읽기        product_image_primary(p_skus text[]) — invoker · 입력 SKU 마다 한 행 · 켜진 대표 → 없으면 켜진 첫 사진(sort_order) → 세트면 낱개의 것(from_parent true · 판정 194 · 표에는 복사 안 함) → null · 공개 주소는 화면이 짓는다
+img-2 표    ims_image_sync_runs(회차 · mode count|scan|move · diag · 쿨다운 · 90일) · ims_image_sync_queue(큐 = 이어 달리기 커서 · pending|done|skipped|failed) · ims_image_sync_skips(type|too_large|download_failed|upload_failed|insert_failed · times 는 트리거가 올림)
+            ims_image_sync_health() — image_sync_stale(마지막 성공 scan 48h 초과 또는 없음) · image_queue_stuck(24h 넘게 pending) · select 열림 · 쓰기 service_role 만
+EF          ims-product-images(테스트 프로젝트 fazgmyvzzhqybtvtktyg · 운영 product-images 와 다른 함수) · x-ims-cron-key(IMS_CRON_SECRET) · 시작마다 inv_config db_role = test 아니면 500 · 판단은 sync_core.ts(deno test 10)
+모드 셋     count(세기만 · 쿨다운 밖) · scan(Cin7 148 쪽 all-or-nothing → 처음 보는 첨부를 큐에 · 사라진 첨부 끄기 · 대표 옮기기 · 쿨다운 20h) · move(큐에서 회차 300 장 · Cin7 목록 없음 · 시간 가드는 쓰기 앞)
+            활성 상품만(판정 196) · SKU 정확 일치 · 5 MB 초과는 skips(판정 197 · 크기는 몸체를 받아 센다) · 내려받기 Product/Download?id=<첨부 id> 헤더 없이 → 401/403 이면 API 헤더로 한 번 더
+            이미 등록된 첨부는 켜짐 · 꺼짐 모두 무접촉(IMS 에서 끈 것을 되살리지 않는다) · manual 사진이 켜진 상품은 대표 무접촉 · failed 는 자동 재시도 없음
+cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-image-move 50,5,20,35 14,15 * * *(여덟 번 · 큐가 비면 0장) · supabase/ops/cron.sql 끝 절 · 2026-10-01 등록(Caleb)
+첫 채우기   2026-10-01 — 큐 10,344 → done 10,326 · skipped 18(too_large 1 · download_failed 17 = CON · scan 과 move 사이 Cin7 원천 교체) · type 4 · 판정 198(조금 먼저 → 눈으로 → 나머지)
 ```
 
 ### 잠금 (판정 136 · 137 · 139)

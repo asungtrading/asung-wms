@@ -5390,6 +5390,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 - **판정 133** Caleb 「가로 가자」 — IMS 에서 만든 상품 계열 행의 source 는 지금 있는 **'manual'** · 새 값을 더하지 않는다 · 기각 (나) 'ims' 추가 — CHECK 일곱 · 문서 전부 고칠 뿐 얻는 것이 없다
 - **판정 134** Caleb 「나」 — 첫 만들기 차수 = **낱개 한 벌(상품 + 바코드 + 판매가 + 공급처 연결) + 세트 여러 개**(세트마다 계수 자유 · 세트 바코드는 선택) · family 는 뒤 차수 · 기각 (가) 낱개만 · (다) family 까지
 - **판정 135** Caleb 「가」 — 만들기 = **한 벌 창구 하나**(상품 · 바코드 · 공급처 · 가격 · 세트를 한 트랜잭션 · 하나라도 틀리면 전부 되돌림) · 고치기 = **줄마다 작은 창구**(재고 조정 화면과 같은 모양) · 기각 (나) 표마다 창구만 · 화면이 순서대로 — 중간 실패면 반쪽 상품
+  - ⚠️ 글귀 바뀜(2026-10-01 · 판정 187 · §34-a): 고치기는 창구 하나 · 목록(한 줄 = SKU · 무엇을 · 새 값 · 옛 값) — 「줄마다 작은 창구」는 목록의 줄로 지킨다
 - **판정 136** Caleb 「가」 — SKU 변경은 **표 트리거로** 막는다 — 원장이나 원가 레이어 행이 하나라도 있는 상품은 SKU 를 바꿀 수 없다(어느 길로도) · 사건이 없는 상품(만든 직후 오타)은 허용 · 기각 (나) 언제나 거부 · (다) 창구에서만
 - **판정 137** Caleb 「가로 했으면 좋겠어. 대신에 실수를 검증할 수 있는 단계가 있었으면 좋겠어. 예를 들어, 특정 브랜드 Creme of Nature라는 브랜드는 모두 CON으로 시작해. 그런데 실수로 CNO로 미스타입핑을 했다던가 아니면 lower case로 적었다든가 하는 실수, 그리고 우리는 UPC코드의 뒤의 6자리중에 체크 디짓을 뺀 다섯자리를 sku code로 적어. 예를들어 CON19912는 바코드가 075724199125야. EAN 13도 마찬가지야. 뒤에 6자리중에 마지막 체크디짓은 빼고 5자리를 숫자 코드로 쓰고 있지. 이런 규칙에 기반해서, 만들어. 그리고 세트의 경우에 CON19912-6인데, 판매 단위가 6이 아니라 1이 들어갔거나, 12로 들어간 경우들을 잡아내자는 거지. 공백도 마찬가지고 말이야.」
   ⇒ ① 사건이 붙은 상품의 세트 계수(pack_factor) · 부모(parent_product_id) 변경은 창구가 **거부** ② 만들 때 실수를 잡는 **검증 단계**: 브랜드 앞글자(Creme of Nature = CON · CNO · 소문자는 잡는다) · SKU 숫자 = UPC-A · EAN-13 바코드 끝 6자리에서 체크 디짓을 뺀 5자리(075724199125 → 19912 → CON19912) · 세트 SKU 끝 `-N` = 계수 · 공백 · 기각 (나) 열린 줄이면 거부 + 지난 기록만이면 사유를 받고 허용(대화 Claude 안 · 9/13 AIA00207-6 같은 정정 길을 남기자는 근거였다)
@@ -5656,4 +5657,142 @@ e8e1d2c  prod-2  20261001123000_prod_2_product_door.sql (162행 · md5 8ab89dd48
 순서(판정 147 · 186): docs-1001(이 차수) → prod-4 고치기 줄 창구(판정 145 필수 · 한 SKU 씩과 여러 SKU 한꺼번에) → img-1 → img-2 → prod-5 → 화면(대화 Claude)
 ⇒ 다음 = prod-4
 다음 판정 번호: 187
+```
+→ §34-f
+
+
+---
+
+## §34 상품 고치기 · 사진 · 판정 187 ~ 198 (2026-10-01 · 회사 PC)
+
+⭐ 닫힌 것: prod-4a · 4b `product_update`(바꿀 것 목록 하나 · op 열일곱 · 옛 값 대조 · 두 번 부르기) · img-1 `product_image` 표 · 공개 상자 `product-images` · 사진 op · 대표 사진 읽기 · img-2 `ims-product-images` EF(테스트 프로젝트) · 첫 채우기 done 10,326 · 매일 cron 40 · 41 — 테스트 DB 적용 · repair 완료(34-b)
+⭐ 설계 정본 po-module §3-h 「창구 — 실물」 · 「사진 — 실물 (img-1 · img-2)」 · 다음 = Caleb 이 정한다(34-f)
+
+### 34-a 판정 원문 (187 ~ 198 · 말 그대로)
+
+- **판정 187** (2026-10-01) Caleb 「가」 — 고치기 창구는 **하나** · 바꿀 것을 **목록**으로(한 줄 = 「SKU · 무엇을 · 새 값」) · 한 SKU 한 칸이든 300 SKU 여러 칸이든 같은 모양 · prod-3 와 같은 두 번 부르기(판정 176) · 한 트랜잭션(하나라도 막기면 아무것도 안 바뀜) · 「줄마다」는 목록의 줄로 지킨다 ⇒ 판정 135 의 「고치기 = 줄마다 작은 창구」 글귀를 바꿨다 · 근거: 135 가 막으려던 것은 반쪽 상품인데 작은 창구 여럿으로 붙여 넣기(판정 145)를 하면 중간 막기에서 반쯤 바뀐 상태가 남고 경고 확인도 창구마다 따로 · 검사 규칙 한 곳 · 기각 (나) 135 글귀대로 작은 창구 여럿
+- **판정 188** Caleb 「가」 — 바코드 · 판매가 · 공급처 「빼기」는 **끄기**(is_active = false · 줄은 남는다 · 다시 붙이면 같은 줄을 켠다) · 근거: 창고 스캔 · prod-3 바코드 검사가 켜진 줄만 본다 · 적재도 없어진 줄을 끈다(po-module §3-f) · 꺼진 바코드를 다른 상품에 붙이면 판정 179 알리기로 잡힌다 · 마스터는 지우지 않고 물러나게(§5) · 이 세 표를 무는 FK 없음 · 기각 (나) 지우기 — 옛 바코드 이력이 사라진다
+- **판정 189** Caleb 「가」 — 세트가 딸린 낱개의 SKU 를 고치면 **세트 SKU 도 창구가 함께** 고친다(판정 177 과 같은 규칙 · R3 유지) · 세트 하나라도 기록이 붙어 있으면 전체 막기 · 세트 이름은 건드리지 않는다(알리기만) · 기각 (나) 사람이 다 적어야 · (다) 세트 딸린 낱개는 못 고침
+- **판정 190** Caleb 「나」 — 옵션 축 이름 흔들림(§33-e ㊹ · `Color` 467 · `color` 38 · `Flavor` 4 · `Flavour` 4): 새로 쓰거나 고칠 때 **대소문자만 다른 더 흔한 이름**이 있으면 알리기 + family 머리 칸 고치기(축 이름 포함)로 이미 있는 것을 고칠 길 · 철자 차이는 안 잡는다 · prod-3b 의 product_family_create 에도 · 기각 (가) 그대로 · (다) 막기 — `color` 38 family 에 변형 더하기가 멈춘다
+- **판정 191** Caleb 「나」 — family 머리의 **브랜드 · 분류**를 고치면 변형 중 **옛 머리 값과 같던 것만**(null 끼리도 같다) 따라 바꾼다 · 일부러 다른 값은 그대로 · 수를 알리기로 · 이름 칸 복사 · 기각 (가) 머리만 · (다) 언제나 전부
+- **판정 192** Caleb 「가」 — **단위(unit_id)** 도 판정 191 과 같은 규칙 · uom_name 복사 · 세트는 family 멤버가 아니라 안 걸린다 · 기각 (나) 단위는 머리만
+- **판정 193** Caleb 「가」 — 상품 한 개에 사진 **여러 장 + 대표 하나**(Cin7 과 같은 모양) · 창고 · POS · 픽 · 팩은 대표만 · Shopify · 상세는 여러 장 · img-2 는 Cin7 첨부를 그대로 · 기각 (나) 한 장만
+- **판정 194** Caleb 「가」 — 자기 사진이 없는 **세트는 보여 줄 때만 낱개 대표로 대신** · 표에는 복사하지 않는다 · 화면에 「낱개 사진」 표시 · 운영 WMS 는 SKU 정확 일치만(대신하지 않음) · 기각 (나) 대신하지 않음 · (다) 만들 때 복사
+- **판정 195** Caleb 「가」 — 사진은 **병행 기간 내내 매일 따라간다**(새로 붙거나 바뀐 Cin7 사진만 · manual 은 안 건드림 · 처음 한 번은 전부 · 나눠 돌리기) · 근거: 병행 기간에 IMS 화면을 써 봐야 하는데 사진이 묵으면 운영의 「7주 묵은 사진」과 같은 모양 · 기각 (나) 한 번만 · (다) 전환 직전 한 번
+- **판정 196** Caleb 「가」 — **활성 상품만**(비활성은 되살리면 다음 날 매일 회차가) · 기각 (나) 전부
+- **판정 197** Caleb 「가」 — Cin7 사진이 **5 MB 를 넘으면 건너뛰고 기록** · 먼저 세어 보고 많으면 다시 정한다 · 기각 (나) 상자 한도 올림 · (다) 옮기면서 줄임
+- **판정 198** Caleb 「가」 — 실제 옮기기는 **조금 먼저**: scan 한 번 → move 한 회차(300 장) → 못 옮긴 것과 사진 몇 장을 눈으로 → 이상 없으면 나머지 → 매일 cron · 근거: Cin7 사진 주소를 로그인 없이 받을 수 있는지 아무도 몰랐다 · 기각 (나) 바로 전부
+
+**묶음 확인**: prod-4 묶음 1 ~ 11 「그대로 가자」 · img-1 묶음 1 ~ 7 「그대로 가자」 · img-2 묶음 1 ~ 9 「그대로 가자」 — 묶음 원문은 회사 PC `~/asung/prompts/prod-4.md` · `img-1.md` · `img-2.md` 의 「대화에만 있는 것」 절(그대로 옮겨 실어라 · 정본 자리는 아래 §할 것)
+
+**prod-4 묶음 원문** (회사 PC `~/asung/prompts/prod-4.md` 「대화에만 있는 것」)
+
+**묶음 1 ~ 11** (대화 Claude 안 · Caleb 확인 2026-10-01 「그대로 가자」)
+1. 창구 하나 `product_update(바꿀 것 목록, 저장할지, 확인한 경고)` — 판정 187 · 176 · definer + 첫 줄 `ims_require_write('master')`(판정 140) · 한 트랜잭션 · 막기 하나면 아무것도 안 바뀜
+2. **옛 값 대조** — 화면이 본 옛 값을 줄마다 함께 보내고, 저장 때 지금 값이 다르면 그 줄 **막기**(「Someone just changed … — check again」) · 두 사람이 같은 상품을 고칠 때 뒤 사람이 모르고 덮는 것을 막는다
+3. **상품 칸** — 이름 · 브랜드 · 분류 · 단위 · 무게 · 무게 단위 · 메모 · 단종(is_discontinued) · 세트 할인%(세트만) · 이름 칸 복사(판정 143 ①) · 세트 단위 ≠ 계수면 알리기(판정 139)
+4. **SKU** — 기록(원장 · 레이어) 없을 때만(판정 136 · 트리거 IM136 이 마지막 문 · 창구가 먼저 문장으로) · 공백 · 소문자 · 이미 있는 SKU 막기(prod-3 와 같은 선) · 세트 SKU 따라 고침(판정 189)
+5. **활성 끄기 · 켜기** — 끌 때 그 상품의 재고 · 열린 SO 줄 · 열린 PO 줄 수를 **알리기**로 보이고 확인(판정 139) · 켤 때 경고 없음 · 낱개를 꺼도 세트는 자동으로 안 끈다(켜진 세트 수를 알리기)
+6. **세트 계수 · 부모** — 사건 붙으면 막기(판정 137 ①) · 없으면 허용 · SKU 는 창구가 따라 고침(R3 · 판정 189 같은 규칙) · 새 부모는 활성 낱개(세트 · family 머리 아님)
+7. **바코드** — 더하기(판정 179 막기 · 알리기 · R4 · 꺼진 같은 줄이 있으면 켜기) · 끄기(판정 188) · 대표 바꾸기 · R2 는 안 본다(판정 138 — 바코드 고치기에는 검사하지 않는다)
+8. **판매가** — 정하기(판매용 활성 티어 · 0 보다 큼 · price_set_by/at) · 끄기(세트는 계산 가격으로 돌아감을 알림 · 낱개의 마지막 판매가를 끄면 판정 178 알리기)
+9. **공급처** — 더하기 · 단가(cost · fixed_cost) · 공급처 SKU · 통화 고치기 · 기본 바꾸기 · 끄기(마지막 공급처를 끄면 178 알리기)
+10. **family** — 있는 상품을 family 에 넣기(옵션 값 · prod-3b 옵션 규칙) · 빼기 · 옵션 값 고치기 · family 머리 칸 고치기(이름 · 브랜드 · 분류 · 단위 · 축 이름 · 판정 190 알리기)
+11. **크기** — 900 줄을 넘을 것 같으면 **만들지 말고** 나누는 안을 먼저(예: prod-4a 상품 칸 · SKU · 활성 · 계수 · family / prod-4b 바코드 · 가격 · 공급처)
+
+
+**img-1 묶음 원문** (`~/asung/prompts/img-1.md`)
+
+**묶음 1 ~ 7** (대화 Claude 안 · Caleb 확인 2026-10-01 「그대로 가자」)
+1. 표 `product_image` — 상품 하나에 여러 줄 · 대표 하나 · 순서 · 끄기 = 비활성(판정 188 모양) · 출처(`manual` · `cin7`) · Cin7 첨부 id(img-2 의 짝 · 운영 실측 Attachments[] = {ID, ContentType, FileName, IsDefault, DownloadUrl}) · 파일 형식 · 크기
+2. 저장소 — **테스트 DB 프로젝트**의 Supabase Storage 상자 하나 · **읽기 공개**(주소를 아는 사람은 본다 · `<img>` 로 바로 · 상품 사진은 고객 포털 · Shopify 에도 공개되는 것) · **쓰기는 master 만** · 근거: 비공개면 화면이 사진마다 만료되는 서명 주소를 받아야 해 픽 · 팩이 느려지고 복잡해진다
+3. 파일 이름은 **상품 id** 로(`<상품 id>/<사진 id>.<확장자>`) — SKU 를 고쳐도(판정 136 · 189) 안 끊긴다
+4. 올리기 흐름 — 화면이 파일을 저장소에 올리고 → `product_update` 에 사진 op(더하기 · 끄기 · 대표 바꾸기 · 순서)를 더해 등록(창구 한 곳 · 두 번 부르기) · 등록이 실패해 저장소에 남는 파일 정리는 너의 안(⬜3)
+5. 형식 JPEG · PNG · WebP 만 · 크기 한도와 작은 그림(썸네일)은 우리 Supabase 요금제에서 되는 것을 확인해 안(⬜4)
+6. 읽기 한 곳 — 「이 SKU 의 대표 사진」을 내는 읽기 창구 하나에 판정 194 를 담는다(세트 → 낱개 대신 · 「낱개 사진」 표시 칸) · 픽 · 팩 · POS 스위치(판정 33 `HAS_IMAGES=false`)를 켜는 것은 화면 차수
+7. family 머리 사진은 이번에 두지 않는다 — Cin7 family 에 첨부가 있는지 확인만(⬜6 · 레포 · 정본 · cin7-api 스킬에서 · Cin7 호출은 하지 마라)
+
+
+**img-2 묶음 원문** (`~/asung/prompts/img-2.md`)
+
+**묶음 1 ~ 9** (대화 Claude 안 · Caleb 확인 2026-10-01 「그대로 가자」)
+1. 어디서 — **테스트 프로젝트(Asung-IMS · ref fazgmyvzzhqybtvtktyg)** 에 **새** Edge Function(운영 EF 와 다른 이름 · 운영 무접촉) · 테스트 DB pg_cron 매일 · 시각은 운영 EF(12:30 · 13:30 UTC) · GAS 적재 · Cin7 호출 한도(계정 공유 · 분당 60)와 안 겹치게 너의 안(⬜1)
+2. 흐름 — Cin7 `GET /product?Page=N&Limit=100&IncludeAttachments=true`(운영과 같은 148 쪽) → IMS **활성** 상품과 SKU 정확 일치(판정 196 · 운영 규칙 · base 폴백 없음) → 첨부 중 JPEG · PNG · WebP 만 → **처음 보는 첨부만**(cin7_attachment_id 로) 내려받아 `<상품 id>/<첨부 id>.<확장자>` 저장 → product_image 에 source `cin7` 줄(Cin7 IsDefault = is_primary)
+3. 나눠 돌리기 — 첫 회는 수만 장 · 회차마다 장수 한도 + 이어 달리기 · 매일 회차는 바뀐 것만 · 150 초 IDLE(waitUntil) · 400 초 wall-clock · 시간 가드는 쓰기 앞
+4. 바뀜 · 사라짐 — Cin7 에서 첨부가 사라지면 그 cin7 줄을 **끈다**(판정 188 · 파일은 남김) · Cin7 대표가 바뀌면 cin7 줄끼리 대표를 옮긴다 · **manual 사진이 있는 상품은 대표를 건드리지 않는다**(판정 132)
+5. 못 옮긴 것 목록 — 5 MB 넘음(197) · 형식 밖(PDF 등) · 내려받기 실패 → 표
+6. 기록 · 감시 — 회차 기록 표(운영 `wms_image_sync_runs` 모양 · diag jsonb · 쿨다운 가드 · 90 일 정리) + 「마지막 성공 48 시간 초과 또는 한 번도 없음」 검사 함수(IMS System Check 에 붙이는 것은 화면 차수)
+7. 인증 — 비밀 열쇠 + 쿨다운(운영 모양) · 열쇠 · Cin7 값은 Caleb 이 `supabase secrets set --project-ref fazgmyvzzhqybtvtktyg` 로만(시크릿 위치 규칙)
+8. **첫 실행은 세기만**(마른 실행) — 옮길 첨부 수 · 형식별 · 5 MB 넘는 수(크기를 미리 알 방법 ⬜3) · 대표 없는 상품 수 · IMS 에 없는 Cin7 SKU 수 → 그 숫자를 보고 Caleb 이 옮기기를 켠다
+9. 쓰는 길 — 적재는 **service_role** 로 표 · 저장소에 직접(창구 product_update 는 직원 신원이 있어야 열린다 — prod-3 이견 1) · 막기 규칙(경로 · 형식 · 대표 하나)은 표 제약과 적재 코드가 지킨다
+
+
+### 34-b 커밋 · 실물 (asung-wms · 테스트 DB 적용 · repair 완료)
+
+```
+2b3afa7  prod-4a  20261001143142_prod_4a_product_update.sql (703행 · md5 61bcbe118874692198ac36544e348f5c) · 확인 27
+0b2170d  prod-4b  20261001145316_prod_4b_product_update_children.sql (752행 · md5 895894f29a2188ee17048f9420828d7f) · 확인 21 · 4a 27 · 3b 26 · 3 29
+7a4bed8  img-1    20261001152712_img_1_product_image.sql (932행 · md5 85e02b9ba0efcba7585929420e0e1582) · 확인 17
+ac02db7  img-2    20261001161052_img_2_cin7_image_sync.sql (168행 · md5 e9f92cfd3c78e3adabee1dca57bad559) · 확인 10 · EF supabase/functions/ims-product-images/(index.ts 182 · sync_core.ts 137 · sync_core_test.ts 84 · deno test 10/10) · cron.sql +17 · config.toml +8
+검증 파일(회사 PC ~/asung/prompts · 레포 밖): prod-4a-verify.sql(346 · md5 0f6b4ba3… · 「4b 함수가 있으면」 갈래) · prod-4b-verify.sql(351 · md5 3835ba29…) · img-1-verify.sql(267 · md5 35ce4901… · 고침 1) · img-2-verify.sql(155 · md5 fde1d322… · 고침 1)
+```
+
+**product_update** (4a + 4b + img-1 · 마지막 정의 20261001152712) — op 열일곱: 4a `set`(한 줄에 칸 하나 · old 필수 스칼라 · 숫자는 숫자 비교 · name · brand_id · category_id · unit_id · weight · weight_unit · note · is_discontinued · set_discount_pct · sku · is_active · pack_factor · parent_sku) · `family_join` · `family_leave` · `family_option` · `family_head_set` / 4b `barcode_add` · `barcode_off` · `barcode_primary` · `price_set` · `price_off` · `supplier_set` · `supplier_default` · `supplier_off` / img-1 `image_add` · `image_off` · `image_primary` · `image_order`
+- code 표는 네 마이그레이션에서 grep 으로 세어 정확히 옮겨라(prod-4a · 4b 회신의 op 표 모양 · 막기 · 알리기)
+- 최대 1,000 줄 · 열쇠 `<SKU>:<code>(:<field 또는 값>)` · family 머리 `<family SKU>:<code>:<…>` · variants_follow 는 `:<field>:<수>`(검사 뒤 변형이 바뀌면 옛 확인이 안 맞는다)
+- 검사 때 푼 **id 맵**으로 저장(SKU 바꾼 뒤 같은 상품의 다른 줄 · 4a 이견 3 — 고치기 전엔 저장 0 행인데 applied true 였다)
+- 세트 SKU 는 손으로 못 바꾼다(`set_sku_managed`) · 사건(판정 137 ①) = 원장 · 레이어 또는 거래 줄 아홉 자리(`product_has_events`) · 열린 SO = draft · confirmed · at_wms · picking · packed · 열린 PO = draft · confirmed
+- 대표를 끄면 올리지 않고 알리기(`primary_off` · `default_off` · `image_primary_off`) · 꺼진 줄 다시 켜기는 켜진 것이 없을 때만 대표 · IMS 가 값을 바꾼 줄은 source manual(대표 · 기본 플래그만이면 그대로)
+- 도우미 `product_axis_case_hint(text)`(판정 190)
+
+**product_image · 상자 · 정책** (img-1) — 표 칸 · CHECK(경로 `^<uuid>/.+` · 형식 셋) · cin7_attachment_id unique · RLS select 만 · 상자 `product-images` public · 5 MB · jpeg/png/webp · storage.objects 정책 insert/update/delete = authenticated ∧ master ∧ 첫 폴더가 실재 product.id(⚠️ `objects.name` 으로 한정 — 안 하면 서브쿼리 안에서 product.name 으로 풀려 늘 거짓 · img-1 이견 1) · select 정책 없음(공개 상자) · 읽기 `product_image_primary(text[])` invoker · 세트 → 낱개(from_parent) · 대표 없으면 켜진 첫 사진 · 자동 대표는 켜진 사진이 하나도 없을 때만
+- Caleb 눈 확인(2026-10-01): 조직 **PRO** · Storage 「Enable image transformation」 **켜짐** · 전체 한도 50 MB(상자 5 MB 가 이긴다) · 공개 주소 로그인 없이 열림 · 7 MB 거부 「File size exceeds the bucket file size limit」 · PDF 거부 「Mime type application/pdf is not supported」
+
+**img-2** — 표 셋 `ims_image_sync_runs`(회차 · mode count|scan|move · diag) · `ims_image_sync_queue`(큐 = 이어 달리기 커서 · pending|done|skipped|failed) · `ims_image_sync_skips`(too_large|type|download_failed|… · times 는 DB 트리거가 올림) · `ims_image_sync_health()` 두 줄(image_sync_stale 48h · image_queue_stuck 24h pending)
+- EF `ims-product-images`(테스트 프로젝트 · 운영 EF 와 다른 함수) · 문: `x-ims-cron-key`(IMS_CRON_SECRET) · 시작마다 inv_config db_role = test 아니면 500 · count(세기만 · 쿨다운 밖) · scan(Cin7 148 쪽 all-or-nothing → 큐 · 끄기 · 대표 · 쿨다운 20h) · move(큐에서 회차 300 장 · Cin7 목록 없음) · 내려받기 `https://inventory.dearsystems.com/Product/Download?id=<첨부 id>` 헤더 없이 → 401/403 이면 API 헤더로 한 번 더 · 크기는 몸체를 받아 센다 · 이미 등록된 첨부는 켜짐 · 꺼짐 모두 건드리지 않는다(IMS 에서 끈 것을 되살리지 않는다) · manual 사진이 켜진 상품은 대표 무접촉 · failed 는 자동 재시도 없음
+- secrets(테스트 프로젝트 · 2026-10-01 Caleb): IMS_CRON_SECRET(회사 PC `~/.asung-ims-cron-key` · 600) · CIN7_ACCOUNT_ID · CIN7_APPLICATION_KEY · 배포 버전 1 · `supabase functions list` ACTIVE
+- **cron(테스트 DB · 2026-10-01 Caleb 등록 · 실측)**: **jobid 40** `ims-image-scan` `30 14 * * *` · **jobid 41** `ims-image-move` `50,5,20,35 14,15 * * *` — ⚠️ 41 은 주석의 「넷」이 아니라 **여덟 번**(14:05 · 14:20 · 14:35 · 14:50 · 15:05 · 15:20 · 15:35 · 15:50) 돈다 · 큐가 비면 Cin7 호출 없이 끝나 해는 없다(대화 Claude 판단 · 그대로 등록) · 열쇠는 잡 명령 안(운영 product-images 잡과 같은 방식) · 테스트 cron.job 은 1 · 16 · 40 · 41
+- **실행 결과(2026-10-01)**: count(run 9 · 3분 15초) — Cin7 상품 14,861 · IMS 활성 14,576 · 짝 14,210 · 그중 첨부 없음 5,733 · 첨부 10,348 · 옮길 10,344 · 형식 밖 4 · 대표 없음 7 · Cin7 에만 있는 SKU 651(예 `[:[OrderTotalDiscount]:]` · `_1_` · `_10767_` — 할인 줄 · 서비스 항목으로 짐작) · 중복 0 / scan(run 10) 큐 10,344 / move 회차 300 장 ≈ 2분 16초 · 첫 회차 Caleb 눈 확인(ADG13601 · AJA66612 · AJA66410 대표 사진 맞음) / 끝: **done 10,326** · skipped 18(too_large 1 = AS91767 PNG 5,433,144 B · download_failed 17 = 전부 CON) · type 4 · 평균 170 KB · 가장 큰 옮긴 것 1.25 MB(첫 300 기준)
+- **CON 17 장의 까닭(확인)**: 전부 HTTP 400 · Cin7 화면에는 사진이 뜬다 · Caleb 의 API 한 번 조회(16:51 scan 뒤)에서 CON64020 의 첨부가 `7b1b5fef-…` `CON64020_v01.jpg`(DownloadUrl `https://inventory.dearsystems.com/Attachment/Download?ID=…&isPublic=True&timeStamp=…`)로 바뀌어 있었다 · scan 때 큐에 든 것은 `1bc05236-…` `CON64020.jpg` · 옛 id 는 옛 서버 400 · `images.dearsystems.com/Product/DownloadImage?id=<옛 id>` 는 200 이지만 PNG 2,997 B(자리표 그림으로 짐작) · 새 id 는 두 서버 모두 JPEG 136 KB ⇒ **scan 과 move 사이에 Cin7 에서 CON 사진 17 장이 새 파일로 바뀌었다** · 프로그램 결함 아님 · 다음 scan(10/2 14:30 UTC)이 새 첨부를 가져올 것(확인 대기)
+- 일시 연결 오류 2 회(1만 장 중 · `http2 error: connection error received` · 한 번은 저장소 올리기 · 한 번은 Cin7 받기 · Supabase 대시보드에 「investigating a technical issue」 안내가 떠 있던 때) → 행 · 파일 0 확인 뒤 손으로 pending
+
+### 34-c 실측 (테스트 DB · 2026-10-01)
+
+- **count**(run 9 · 3분 15초) — Cin7 상품 14,861 · IMS 활성 14,576 · 짝 14,210 · 그중 첨부 없음 5,733 · 첨부 10,348 · 옮길 10,344 · 형식 밖 4 · 대표 없음 7 · Cin7 에만 있는 SKU 651(예 `[:[OrderTotalDiscount]:]` · `_1_` · `_10767_` — 할인 줄 · 서비스 항목으로 짐작) · 중복 0
+- **scan**(run 10) 큐 10,344 · **move** 회차 300 장 ≈ 2분 16초 · 끝: done 10,326 · skipped 18(too_large 1 = AS91767 PNG 5,433,144 B · download_failed 17 = 전부 CON) · type 4 · 평균 170 KB · 가장 큰 옮긴 것 1.25 MB(첫 300 기준)
+- **Caleb 눈 확인** — 첫 회차 ADG13601 · AJA66612 · AJA66410 대표 사진 맞음 · 조직 PRO · Storage 「Enable image transformation」 켜짐 · 전체 한도 50 MB(상자 5 MB 가 이긴다) · 공개 주소 로그인 없이 열림 · 7 MB 거부 · PDF 거부
+- **CON 17 장** — 전부 HTTP 400 · scan 과 move 사이에 Cin7 에서 새 파일로 바뀌었다(옛 id 400 · 새 id 는 JPEG 136 KB) · 프로그램 결함 아님 · 다음 scan 이 새 첨부를 가져올 것(확인 대기 · 34-e 53)
+- **일시 연결 오류 2 회**(1만 장 중 · `http2 error: connection error received` · Supabase 대시보드 「investigating a technical issue」 때) → 행 · 파일 0 확인 뒤 손으로 pending
+
+### 34-d 사고 · 교훈 (asung-workflow §4 · §11 에 규칙 줄로)
+
+1. [대화 Claude] 확인 반복 명령의 `exit=$?` 가 바로 앞 줄(`f=…`)의 값을 보였다(결과 영향 없음 · OK 수가 기대와 같았다) ⇒ `rc=$?` 를 psql 바로 뒤에
+2. [대화 Claude] 긴 한 줄 명령이 붙여 넣기에서 잘려 셸이 `>` 로 기다렸다 ⇒ 명령을 짧게 · 두 덩이로
+3. [대화 Claude] skips 칸 이름을 짐작(`detail`)해 오류 ⇒ 처음 보는 표는 `\d` 먼저
+4. [대화 Claude] CON 17 장 원인을 두 번 틀리게 짐작(깨진 첨부 → 첨부 둘) — 실제는 scan 과 move 사이 원천 교체 ⇒ **목록과 내려받기 사이에 시간이 있으면 원천이 바뀔 수 있다 · 400 은 「그 사이 지워짐」일 수 있다 · 원천을 다시 한 번 조회해 가른다**
+5. [Claude Code · img-1] storage.objects 정책 서브쿼리에서 `name` 이 product.name 으로 풀려 master 도 하나도 못 올릴 뻔 ⇒ 정책 안 상관 서브쿼리의 칸은 `objects.name` 처럼 표 이름으로(§4 「상관 서브쿼리의 칸은 별칭으로」의 storage 판)
+6. [Claude Code · prod-4a] SKU 를 바꾼 뒤 같은 상품의 다음 줄이 저장 0 행인데 applied true ⇒ 검사 때 푼 id 로 저장
+7. [검증 · 두 번째] 상태를 다 돌린 뒤 중간 상태를 기대(4a U5 · 4b B2a · B3) ⇒ 단계마다 `\gset`
+8. [검증 · 판정 59 ⑮ 재발] img-1 검증이 상자 전체 행 수를 7 로 박아, 적용 **뒤** Caleb 이 올린 시험 파일 한 장(`1e4d8bcb-…/CON19912.webp`)으로 확인 갈래가 깨졌다 · img-2 검증도 같은 모양(A1 · H1) ⇒ **검증은 이 시험이 만든 행만 센다(표식 · 경로) · 감시 함수는 실물 기준선에 상대적으로**
+9. [커밋] img-2 를 커밋하지 않은 채 다음 단계로 갔다 — Caleb 「한 것 같은데」 · 대화 Claude 가 원격 HEAD 로 잡았다 ⇒ **커밋 뒤 `git log -1` 원문과 원격(`ls-remote`)을 맞춰 본다**
+10. 이견 하나 정정: 4a 이견 6(머리 브랜드 → 변형 안 따라감)은 판정 191 · 192 로 바뀌었다
+
+### 34-e 미룬 것 — §33-e ㊾ 에 이어 붙임
+
+- ㊿ 고아 파일 — 저장소에만 있고 product_image 에 없는 파일(화면 중단 · 등록 실패) · 정리 안 함 · Health 후보 「등록 안 된 객체」(img-1 ⬜3) · 지금 하나: Caleb 시험 파일 `1e4d8bcb-7621-4543-965b-9df8fcf68750/CON19912.webp`(지워도 됨 · Caleb 몫)
+- 51 이미지 변환 요금 — PRO 에서도 원본 수 기준으로 일정량 넘으면 요금이 붙는 것으로 짐작(확인 안 함) · 1만 장 · 화면 차수에서 「변환 쓰기 · 작은 그림 미리 만들기」를 요금표와 함께 판정
+- 52 AS91767 — Cin7 PNG 5.43 MB · too_large · Cin7 에서 줄여 다시 올리면 다음 scan 이 가져온다
+- 53 CON 17 장 — 10/2 14:30 UTC scan 결과로 확인(새 첨부가 큐에 들어가고 move 가 옮기는지 · skips 의 옛 17 은 그대로 남는다)
+- 54 Cin7 에만 있는 SKU 651 — 할인 줄 · 서비스 항목 짐작 · prod-5(불러오기) 때 볼 것
+- 55 index.ts 는 네트워크 가짜 시험이 없다(판단은 sync_core.ts 에 · img-2 이견 8)
+- 56 failed 자동 재시도 없음 — 일시 오류 2/1만 · 잦아지면 「한 번 자동 재시도」 판정
+- 57 IMS System Check 에 `ims_image_sync_health()` 두 줄 · 픽 · 팩 · POS 의 사진 스위치(판정 33 `HAS_IMAGES=false`) — 화면 차수
+- 58 cron 41 의 일정을 「scan 20분 뒤부터 넷」으로 줄일지(`50 14` + `5,20,35 15` 두 잡) — 해 없음 · Caleb 이 원하면
+
+### 34-f 다음
+
+```
+순서(판정 147): prod-2 ✅ · prod-3 ✅ · prod-3b ✅ · prod-4(a · b) ✅ · img-1 ✅ · img-2 ✅ → 이 문서 차수 → prod-5 불러오기 적재 고침(판정 131 · 132) 또는 화면(대화 Claude · 판정 148 금요일 목표 = 레이아웃 ✅ + 상품 마스터)
+⇒ 다음 = Caleb 이 정한다(prod-5 와 화면 중 무엇 먼저)
+다음 판정 번호: 199
 ```

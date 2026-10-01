@@ -156,6 +156,9 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️  잠금 트리거 둘 — product_sku_lock(IM136 · SKU 변경) · product_delete_lock(IM175 · 지우기) · 원장 · 레이어가 붙은 상품이면 누구든(service_role · postgres 포함) 거부 · 트리거에는 문 없음(판정 174)
 ⚠️  claims 없는 postgres 세션에서는 창구가 안 열린다(문이 auth.uid() 로 직원을 찾는다) — psql 로 만들려면 직원 claims 를 먼저 · 시험도 가짜 직원 claims 로
 ⚠️  세트 SKU · 세트 이름 · family SKU · 변형 이름은 비우면 창구가 짓는다(판정 177 · 180 · 182 ~ 184) · 접미사 없는 세트는 이 창구로 못 만든다(prod-4)
+⭐⭐ 고치기는 창구 하나 product_update(p_changes, p_commit, p_ack) — 바꿀 것 목록(최대 1,000 줄) · op 열일곱(set · family_* 넷 · barcode_* 셋 · price_* 둘 · supplier_* 셋 · image_* 넷) · 줄마다 old(화면이 본 옛 값 · 다르면 changed_elsewhere)
+     빼기 = 끄기(is_active false · 판정 188) · family 머리 브랜드 · 분류 · 단위는 옛 값과 같던 변형이 따라간다(판정 191 · 192) · 검사 때 푼 id 맵으로 저장 · 고칠 때 검증 R 절로 옛 · 새 반환 jsonb 등호(마지막 정의 20261001152712)
+⭐  사진: product_image(여러 장 + 대표 하나 · 판정 193) · 공개 상자 product-images(<상품 id>/… · 5 MB · 쓰기 master) · 읽기 product_image_primary(text[])(세트 → 낱개 · from_parent · 판정 194) · Cin7 사진은 EF ims-product-images 가 매일(정본 po-module §3-h 「사진 — 실물」)
 ```
 
 ## 5. 이 스킬을 갱신할 때
