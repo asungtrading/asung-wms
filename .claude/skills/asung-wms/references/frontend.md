@@ -158,7 +158,8 @@ parcel(박스) 출고는 담으면서 맞추는 작업이라 집는 순간 스�
 
 ## 로고
 - 흰색만 존재(tools repo `asung-logo-white.png`). 어두운 버전은 PIL로 생성: alpha>0 픽셀 RGB를 (18,22,28)로 recolor → `asung-logo-dark.png`.
-- 헤더: `.logo{display:flex;align-items:center;gap:7px}` + `.logo .logo-img{height:15px}`. 런처: `.brand .logo-img{height:38px}`.
+- 헤더: `.logo{display:flex;align-items:center;gap:7px}` + `.logo .logo-img{height:28px}`(⚠️ [2026-09-30 정정] 실물 `picker.html:180` 이 28px — 이 줄의 옛 15px 는 낡은 값이었다 · so-module §32-d 2). 런처: `.brand .logo-img{height:38px}`.
+- IMS(asung-ims · 2026-09-30 lay-1): 로고 두 장을 이 레포에서 바이트 복사(md5 같음) · 헤더 높이는 ims-ui.css `--ims-logo-h` — IMS · POS 22px · WMS 28px · 로그인 카드 36px(dark)
 
 ## receiver.html (2026-07-23 — 리시빙 화면, requireManager:false)
 

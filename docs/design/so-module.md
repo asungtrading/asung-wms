@@ -5458,8 +5458,124 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 ### 31-f 다음
 
 ```
-순서(판정 144 · ⚠️ 대화 Claude 안 · Caleb 확인 전): prod-2 문(SKU 잠금 트리거 · 직접 쓰기 닫기 · 적재 계정 확인 먼저) → prod-3 만들기 한 벌 창구(상품 여러 개를 한 번에 · 판정 146) → prod-3b family → prod-4 고치기 줄 창구(판정 145 필수) → prod-5 불러오기 적재 고침(병행 기간 IMS 실제 만들기 전에 · 판정 131 · 132) → 화면(대화 Claude)
-⇒ 다음 = prod-2
-다음 판정 번호: 147
+순서(판정 147 · 레이아웃은 판정 148 로 그 앞 · §32): ① prod-2 문(SKU 잠금 트리거 · 직접 쓰기 닫기 · 불러오기 적재 계정 확인 먼저) → ② prod-3 만들기 한 벌 창구(상품 여러 개를 한 번에 · 판정 146) → ③ prod-3b family → ④ prod-4 고치기 줄 창구(판정 145 필수) → ⑤ img-1 사진 자리 · 올리기 창구 → ⑥ img-2 Cin7 사진 파일을 IMS 저장소로 → ⑦ prod-5 불러오기 적재 고침(병행 기간 IMS 실제 만들기 전에 · 판정 131 · 132) → ⑧ 화면(대화 Claude)
+(옛 줄 — 판정 144 · 대화 Claude 안 · Caleb 확인 전 — 은 판정 147 로 바뀌었다 · 사진 둘이 더해졌다)
+⇒ 다음 = 레이아웃(판정 148 · §32) 뒤 prod-2
+다음 판정 번호: 147 → §32-f
 ```
 
+---
+
+## §32 레이아웃 · 판정 147 ~ 173 (2026-09-30 밤 · 집 PC)
+
+⭐ 닫힌 것: ims.asung.ca 레이아웃(판정 82 · 148) — 헤더 한 줄(로고 · 모드 셋 · 윗줄 펼침) · 문 · Dashboard 자리 · System Check · 구역 색 띠 · 탭 줄(Purchasing · Sales) · 110%(IMS · POS) · 만든 레포는 asung-ims 하나(공통 js · css · 화면) · 이 레포(asung-wms)는 문서뿐
+⭐ 다음 = 판정 147 ① prod-2(32-f)
+
+### 32-a 판정 원문 (147 ~ 173 · 말 그대로)
+
+- **판정 147** Caleb 「그 순서로 가자」 — 상품 마스터 차수 순서: ① prod-2 문(SKU 잠금 트리거 · 직접 쓰기 닫기 · 불러오기 적재 계정 확인 먼저) ② prod-3 만들기 한 벌 창구(상품 여러 개를 한 번에 · 판정 146) ③ prod-3b family ④ prod-4 고치기 줄 창구(판정 145 필수 — 한 SKU 씩 · 여러 SKU 한꺼번에) ⑤ img-1 사진 자리 · 올리기 창구 ⑥ img-2 Cin7 사진 파일을 IMS 저장소로 옮겨 오기(1만 4천 상품 · 운영 EF 의 150초 제한 — 나눠 돌리기) ⑦ prod-5 불러오기 적재 고침(판정 131 · 132 · 병행 기간 IMS 실제 만들기 전에) ⑧ 화면(대화 Claude · 만들기 · 고치기 · 사진 올리기 한 번에 · 픽 · 팩 · POS 사진 스위치 켜기)
+  - 앞 물음 Caleb 「사진 적재도 이번 차수에 같이 했으면 좋겠어.」 · 사진 적재의 뜻(대화 Claude 이해 · Caleb 정정 없음): IMS 사진 자리(표 + 저장소) · Cin7 사진 **파일**을 옮겨 옴(주소를 빌려 쓰지 않는다 — 판정 33 기각안) · 만들기 · 고치기에서 올리기 · 화면이 보여 준다 · 근거 자리 so-module 판정 33(4397행 · HAS_IMAGES=false) · POS 사진 CHECKLIST 7-k(so-module 3951행) · 운영 사진 사슬 asung-wms 스킬 「상품 이미지 파이프라인」
+  - ⇒ so-module §31-f 의 「⚠️ 대화 Claude 안 · Caleb 확인 전」 순서를 이것으로 바꾼다
+- **판정 148** Caleb 「좋아 그러면 오늘 저녁때 레이아웃을 먼저 손보고 상품으로 넘어가자.」 — 레이아웃(ims.asung.ca 메뉴 · 탭 · 화면 배치 · 판정 82)을 판정 147 ① 앞에 · 까닭 Caleb 「현재 ims.asung.ca의 메뉴들이 엉망으로 흩어져 있어서 보기가 너무 흉해. 검증하는데도 불편하고, 화면 구성을 정리하고 다음으로 가고 싶어.」 · 목표 Caleb 「이번 주 금요일까지 Phase 1의 기본 골격을 완성」 → 「상품마스터를 마무리하고, 레이아웃을 수정할 계획」 · 뒤집은 것 판정 129 의 「레이아웃은 맨 뒤 · 그 사이 더하는 메뉴 자리는 임시다」 — 메우는 법: 앞으로 올 상품 · 사진 화면의 자리를 미리 비워 둔다
+- **판정 149** Caleb 「일단 이것은 우리 로고야. 이 로고는 asung-wms 레포에 있어. 그것을 썼으면 좋겠어. 이 로고는 wms.asung.ca의 로그인 페이지 와 로그인하면 상단 외면에 위치했으면 좋겠어. IMS와 WMS 그리고 POS는 모드 선택으로 분리해서 접근할 수 있겠어 로고 옆 상단에 위치하면 좋겠어. IMS를 선택하면, 첫 화면이 셋팅이야. 난 셋팅이 첫화면인게 마음에 안들어. 첫화면은 지금은 없지만, cin7 처럼 key performance를 알 수 있는 overview dashboard가 있으면 좋겠어. IMS 상에는 Purchase, Sales, Inventory,Setting이 왔으면 좋겠어.」 — 대화 Claude 이해(정정 없음): 로고는 **ims.asung.ca** 의 로그인 + 모든 화면 헤더 왼쪽 위(운영 wms.asung.ca 무접촉) · 모드 IMS · WMS · POS 는 로고 옆 · IMS 첫 화면 = Overview Dashboard
+- **판정 150** Caleb 「그리고 Purchasing에는 지금 서 있는 Purchase orders, Purchases Invoices, Charges, Supplier Payment, Purchase Receipts, Suppliers가 오길 바래. Sales에는 Sales Orders, Sales Invoices, Customer Payments, Credit Notes, Backorders, Customers가 오길 바라고, Inventory에는 오늘 작업을 처음 시작한, Products, Products Family, Stock Adjustment, Trasnfer 등이 오길 바래. WMS는 지금 서 있는 대로 오면되고, 그리고 setting인데, 할인 규칙도 여기에 들어가는게 맞는 것 같아.」
+- **판정 151** Caleb 「supplier products는 products서면 거기에 흡수되는게 맞지 않나? 각 서플라이어별로 공급 프러덕트를 바로보게 설정하면 될 것 같은데 말이야. Staff도 셋팅에에 가야 할 것 같아. bin moves(office)는 Inventory가 적절해 보여. Manager List는 따로 화면을 내는게 좋을 것 같아.」 — Supplier Products 는 상품 화면이 설 때까지 Inventory 의 Products 바로 뒤 · 그 뒤 메뉴에서 빠진다 · 「공급처별 바로 보기」 를 어느 화면에 둘지는 상품 화면 설계 때
+- **판정 152** Caleb 「셋팅과 인벤토리 사이에 두자」 — Manager List 는 IMS 갈래 줄에서 Inventory 와 Settings 사이 · 펼침 없는 링크 하나 · 건수 배지 없음 · 열쇠 그대로(sales) · 기각 헤더 알림 자리(건수 배지)
+- **판정 153** Caleb 「가가 나을것 같아.」 — IMS 는 **Cin7 식 윗줄 펼침**: 헤더 한 줄 `[로고] [IMS · WMS · POS] Purchasing ▾ · Sales ▾ · Inventory ▾ · Action Center · Settings ▾ … 이름 · Sign Out` · IMS 화면에서 ☰ Menu 와 탭 줄 없음(탭 줄은 판정 169 로 Purchasing · Sales 에서 되살아났다) · 기각 (나) 지금 뼈대(탭 줄 + ☰ 유지)
+- **판정 154** Caleb 「110% 상태가 default였으면 좋겠어. 100% 상태는 글씨가 너무 작아.」
+- **판정 155** Caleb 「지금은 바로 할필요는 없겠지만, Purchase order의 status가 Sales order에도 있었으면 좋겠어.」 — PO 목록의 상태 점 다섯 개를 SO 목록에도 · **미룬 일**
+- **판정 156** Caleb 「Discount, Receipt, Invoice, Credit같은 서브메뉴가 들어가는데, 좀 잘 안보여. 그러니 컬러포함한 메뉴표시가 있으면 좋겠어. 그리고 글씨는 bold인게 좋겠어.」
+- **판정 157** Caleb 「좋아 나도 가가 좋을 것 같애.」 — 110% 는 **IMS · POS 화면만** · WMS 일곱은 지금 크기 · 기각 (나) 전부 · 덧붙임 Caleb 「좋아 이대로 두고 나중에 다시 필요하면 요청할게」 — 창고는 주로 **태블릿**(대화 Claude 가 근거로 든 「폰 · 스캐너」 는 틀렸다) · WMS 110% 는 Caleb 이 태블릿에서 보고 필요할 때 요청 · 먼저 꺼내지 않는다
+- **판정 158** Caleb 「나로 가자」 — Dashboard 는 이번에 **자리만**(헤더 · 모드 · 윗줄 메뉴 + 「Overview — coming soon」) · 숫자 카드(셈 기준 판정 포함)는 상품 마스터 뒤 따로 한 차수 · 옛 index 의 점검 내용은 Settings 안으로 · 기각 (가) 이번에 숫자까지
+- **판정 159** Caleb 「가로 하자」 — POS 모드에는 `pos.html` 하나 · 헤더는 로고 · 모드 · 이름 · Sign Out 만 · IMS Sales 펼침에서 POS 는 빠진다 · 기각 (나) 두 길
+- **판정 160** Caleb 「지금 운영 WMS와 가장 비슷한 상태가 가야? 그러면 가로 가자.」 — WMS 일곱은 헤더 왼쪽에 로고 + 모드만 더한다 · WMS 탭 줄과 「☰ Menu 는 사용자 이름 바로 옆 · Map/Stock 앞」 규칙 그대로 · 기각 (나) WMS 도 헤더 한 줄
+- **판정 161** Caleb 「그래 그러면 그대로 가에 두자」 — Trace 는 WMS Admin 탭 그대로(④a 판정 8 · 창고 작업은 WMS 쪽) · 기각 Manager List 에서도 열기
+  - 앞 물음 Caleb(무게): 「지금 운영 WMS와 비교해서, 밧데리 소모가 더 많거나, 아니면 속도 저하되지는 않나?」 — 대화 Claude 실측(두 레포 대조 · 2026-09-30): 화면마다 따로 된 파일이라 WMS 화면은 IMS 화면을 내려받지 않는다 · picker 104,800 → 121,644 B · packer 105,378 → 111,924 · fulfillment 104,931 → 121,750 · admin 316,362 → 245,648 · 공통 js wms-auth 17,671 → ims-auth 33,120 + ims-ui.css 14,860 · setInterval(picker · packer · fulfillment) 0 = 0 · 실시간 channel 1 = 1 · 늘어난 것은 화면을 열 때 한 번 도는 ims_access · 결론(짐작 · 기기 실측 아님): 배터리 · 속도 차이는 눈에 띄지 않는다
+- **판정 162** Caleb 「좋아 나로 가자」 — 펼침에는 **서 있는 화면만** · 아직 없는 화면(Customers · 할인 규칙 · 상품 만들기 · 사진)은 items 배열 안에 **주석으로 순서 자리만** · 「빈 링크 없음」 원칙 그대로 · 기각 (가) 흐린 글씨
+- **판정 163** Caleb 「좋아 나로 가자」 — `index.html` 은 **문만**: 로그인 → 그 사람의 첫 모드 첫 화면 · 모드 순서 IMS · WMS · POS · IMS → dashboard.html · WMS 만 → 첫 보이는 WMS 화면 · POS 만 → pos.html · 기각 (가) index 를 Dashboard 로 · (판정 173 으로 WMS 첫 화면은 매니저 이상에게 Split & Waves)
+- **판정 164** Caleb 「가」 — 이름은 지금 그대로(갈래 Purchasing · Sales · Inventory · Manager List · Settings · 화면 이름은 화면 제목과 같게 복수형) · 기각 (나) Cin7 식 단수
+- **판정 165** Caleb 「다만 Manager List는 이름이 좀 그래」 · 「파일 이름을 바꿀 필요는 없어」 · 고른 이름 「Action Center」 — 펼침 안 순서 확정 · 보이는 이름만 **Action Center**(manager-list.html · 열쇠 sales 그대로) · 기각 이름 Manager Review · Review Queue · Issues · Exceptions · Needs Review · Alerts
+- **판정 166** Caleb 「좋아 System check」 — 옛 index 의 점검 화면 = **System Check** · Settings 맨 끝 · 기각 My Access · About
+- **판정 167** Caleb 「좋아 가로 하자」 — PO · SO 상세 구역 제목은 **구역마다 다른 색**(왼쪽 색 막대 + 그 색의 굵은 글씨) · 같은 구역은 PO · SO 같은 색 · 색은 공통 CSS 한 곳 · 기각 (나) 한 가지 색
+- **판정 168** Caleb 「가로 하자」 — 펼침을 **여는 일은 js 한 곳**: 마우스는 올리기(다른 갈래에 올리면 먼저 것이 닫힌다 · 나가면 잠깐 뒤 닫힘) · 터치는 클릭 · CSS :hover 여는 규칙 삭제 · 기각 (나) 어디서나 클릭만 · 원인 실사고는 아래 32-d 3
+- **판정 169** Caleb 「나로 해줘」 — 앞 물음 Caleb 「Purchase orders와 sales orders를 열었을때, 옆으로 인보이스, 페이먼트 chargese등이 있었잖아. 이게 없어지니까 꽤 불편하네. 다시 회복 할 순 없나? 어려운가?」 — IMS 의 **Purchasing · Sales 에만** 탭 줄을 되살린다 · 탭은 문서 화면만(Purchasing 다섯 · Sales 다섯) · 마스터(Suppliers · Customers) · Inventory · Action Center · Settings 는 펼침에만 · 지금 화면이 탭 화면일 때만 줄이 선다(lay-1 전 규칙) · 판정 153 의 「탭 줄 없음」 을 이 두 갈래에서 뒤집음 · 기각 (가) 모든 갈래에 탭
+- **판정 170** Caleb 「가로 가자」 — 앞 물음 Caleb 「Purchase Invoices는 Purchase Invoices & Credits가 맞지 않나? 너무 긴가?」 — invoices.html 의 보이는 이름 **「Purchase Invoices & Credits」**(화면 `<title>` 과 같다 · 크레딧도 다룬다 · Sales 는 화면 둘이라 무변) · 기각 (나) Invoices & Credits · (다) 그대로
+- **판정 171** Caleb 「상품 마스터 뒤로 미뤄서 추가해야 할 기능으로 기록해줘」 — 트랜스퍼 **Paste lines** 는 (나) DB 창구 `inv_transfer_lines_paste`(po_lines_paste · so_lines_paste 를 본뜬다 · 한 트랜잭션 · 정직한 거절 · 미리보기 p_commit) + 화면 「Paste lines」 창 · 시점 **상품 마스터 뒤** · 기각 (가) 화면만(한 줄 창구 `inv_transfer_line_set` 을 줄 수만큼 — 반만 들어갈 수 있다)
+- **판정 172** Caleb 「나도 가가 나을것 같애. 지금은 필요없고 나중에 할게 기록해줘.」 — CSV 가져오기는 **(가) 줄만**: PO · SO · 트랜스퍼의 Paste lines 창에 「CSV 파일 고르기」 · 지금 창구 `[{sku, qty}]` · 미리보기 그대로 · 단가 칸은 받지 않는다 · 트랜스퍼는 판정 171 창구 뒤 · 시점 **나중** · 기각 (나) 오더째(머리까지 · 새 설계) · (다) 둘 다
+  - 실측(대화 Claude · 2026-09-30): po_lines_paste 마지막 정의 20260918000000_ims_rpc_honest_refusal_po.sql · so_lines_paste 20260923232500_so_deal_rpc.sql · 둘 다 `(p_<doc>_id uuid, p_lines jsonb [{sku, qty}], p_commit boolean default false)`
+- **판정 173** Caleb 「가」 — 앞 요청 Caleb 「split & wave를 가장 왼쪽으로 옮겨줘.」 — WMS 표에서 **Split & Waves 줄을 맨 앞으로**(줄째) · 탭 · ☰ · WMS 첫 화면이 따른다 · 매니저 이상(wms_manage)은 WMS 첫 화면 = Split & Waves · 직원은 그대로 Picking · 기각 (나) 보이는 순서만
+- **(판정 번호 없음 · 대화 Claude 가 정함 · Caleb 이의 없음)**
+  - 로그인 로고 = asung-logo-dark.png(흰 카드) · Trace 의 자리 확인 · System Check 의 열쇠 null(WMS 만 가진 사람도 연다 · lay-1 보고 이견 7)
+  - Transfers New transfer 기본값(Caleb 요청 「transfer의 default from이 지금은 edmonton으로 되어 있고, to는 toronto로 되어 있는데 이것을 반대로 바꿔줄 수 있어. From의 default는 Asung Trading Inc. To는 Asung - Edmonton」) — 옛 기본은 이름 순 첫 줄(「Asung - Edmonton」 의 " -" 가 "T" 보다 앞) · 이름으로 고르고 못 찾으면 옛 규칙 · tf v1.1
+
+### 32-b 커밋 · 닫힌 것 (asung-ims · 2026-09-30 밤 · `git log --oneline -8` 원문)
+
+```
+93da13c feat(layout): lay-1d Split & Waves first in WMS tabs, menu and first screen for managers (ruling 173)
+99e4da8 fix(transfers): new transfer defaults from Asung Trading Inc. to Asung - Edmonton (tf v1.1)
+b303fda feat(layout): lay-1c tab bar back on Purchasing and Sales document screens, Purchase Invoices & Credits label (rulings 169 170)
+c8ffca0 feat(layout): lay-3 coloured bold section titles on PO and SO detail (rulings 156 167)
+12453fb fix(layout): lay-1b one opener for top nav dropdowns, mouse hover via pointer events, touch by click (ruling 168)
+8c4d869 feat(layout): lay-2 index door, dashboard placeholder, system check (rulings 158 163 166)
+159e58f feat(layout): lay-1 top nav, IMS/WMS/POS modes, logo, 110% for IMS and POS, section colour tokens (rulings 149-167)
+681aee1 docs: CHECKLIST 7-y ruling 84 mixing closed (SO-25012, TRF-00003), 7-za picker different bin screen test (pk v1.2, wa v1.15, deferred 36)
+```
+
+| 커밋 | 차수 | 무엇 | 누가 · 빌드 |
+|---|---|---|---|
+| 159e58f | lay-1 | ims-auth.js · ims-ui.css · 로고 둘 | Claude Code · nav v1 |
+| 8c4d869 | lay-2 | index.html 문 · dashboard.html · system-check.html | 대화 Claude · door v1 · db v1 · sc v1 |
+| 12453fb | lay-1b | 펼침 여는 곳 하나(판정 168) | Claude Code · nav v2 |
+| c8ffca0 | lay-3 | po.html · so.html 구역 색 띠 | 대화 Claude · po sec v1 · so v3.1 |
+| b303fda | lay-1c | 탭 줄(Purchasing · Sales) · Purchase Invoices & Credits | Claude Code · nav v3 |
+| 99e4da8 | — | transfers.html New transfer 기본값 | 대화 Claude · tf v1.1 |
+| 93da13c | lay-1d | Split & Waves 맨 앞(판정 173) | Claude Code · nav v4 |
+
+- 확인값(대화 Claude · Claude Code 보고): lay-1 ims-auth.js 41,853 B md5 fec1f9fc… · ims-ui.css 21,905 B ef610e5a… / lay-1b d0a642e4… · 98239659… / lay-1c bac1bcd4… · 707f5f74… / lay-1d ims-auth.js 46,273 B b349731f… / 로고 dark f3ef02f2… 8,654 B · white f87c6faf… 7,368 B / index 4,409 · dashboard 2,788 · system-check 6,970 / po 93,513 · so 122,003 / transfers 71,471 md5 69c58b70…
+- 화면 시험(Caleb 눈): ✅ lay-3 색 띠(스크린샷) · ✅ WMS 헤더 판정 160(스크린샷 pk v1.2 · nav v3) · ✅ 트랜스퍼 New transfer 창 nav v3(스크린샷 · 기본값 고치기 전) · ⬜ lay-1b 마우스 겹침 · ⬜ lay-1c 탭 + 목록 높이 · ⬜ 트랜스퍼 기본값 · ⬜ lay-1d — 순서는 asung-ims CHECKLIST 7-zb
+- Claude Code 렌더 시험(jsdom · 레포 밖 `/tmp/lay1-test` · 원문 `~/asung/prompts/lay-1*-render.out`): 가짜 사람 A admin · B 구매 · C 판매 · D 창고 · E 매니저 · F WMS 만 가진 매니저 × 화면 여덟 · lay-1b 시나리오 S1 ~ S16 22 OK(마우스 · 터치 pointer 이벤트) · ⚠️ jsdom 은 :hover · 레이아웃 높이를 못 본다(32-d 3)
+
+### 32-c 실측
+
+- **무게(판정 161 앞 물음 · 대화 Claude · 두 레포 대조 · 2026-09-30)**: 화면마다 따로 된 파일이라 WMS 화면은 IMS 화면을 내려받지 않는다 · picker 104,800 → 121,644 B · packer 105,378 → 111,924 · fulfillment 104,931 → 121,750 · admin 316,362 → 245,648 · 공통 js wms-auth 17,671 → ims-auth 33,120 + ims-ui.css 14,860 · setInterval(picker · packer · fulfillment) 0 = 0 · 실시간 channel 1 = 1 · 늘어난 것은 화면을 열 때 한 번 도는 ims_access · 결론(짐작 · 기기 실측 아님): 배터리 · 속도 차이는 눈에 띄지 않는다
+- **줄 붙여 넣기 창구 모양(판정 172)**: po_lines_paste 마지막 정의 20260918000000_ims_rpc_honest_refusal_po.sql · so_lines_paste 20260923232500_so_deal_rpc.sql · 둘 다 `(p_<doc>_id uuid, p_lines jsonb [{sku, qty}], p_commit boolean default false)`
+- **로고**: asung-wms 맨 위 `asung-logo-dark.png` 8,654 B · 400×91 · `asung-logo-white.png` 7,368 B · 400×91 → asung-ims 로 바이트 복사(md5 같음) · 운영 헤더 실물 `picker.html:180` `.logo .logo-img{height:28px}`(스킬 frontend.md 의 15px 는 낡은 값이었다 · 32-d 2) · IMS 쪽 = ims-ui.css `--ims-logo-h` 22px(IMS · POS) · WMS 28px · 로그인 카드 36px(dark)
+- **모드는 DB 에 둘뿐**: `ims_perm_catalog()->'modes'` = `["wms","ims"]`(마지막 정의 20260928201753_transfer_1a.sql) · POS 모드는 화면 쪽에서만(ims 모드 + pos.html 이 보이면) · 「POS 만 가진 사람」은 지금 열쇠로 못 만든다(32-e ③)
+- **화면 29 의 헤더(lay-1 조사 · 2026-09-30)**: 전부 `<header>` 하나 · 모양 셋 — (가) brand · sp · who · ☰ · Sign Out = families · products · settings · staff · supplier-products · suppliers(6) / (나) 가 + `#buildTag` = IMS 나머지 16 / (다) 나 + 🗺 Map = WMS 일곱(wms-mover · wms-receiver 는 `.dot` · receiver 는 `#alsoHere` 도) / 옛 index 만 ☰ 가 brand 앞 · wms-fulfillment 의 헤더 밖 `class="brand"` 둘은 인쇄 템플릿
+- **`imsAuth.start` 옵션**: `changePw:true` 22 화면(IMS 전부 · WMS 일곱만 안 줌) · `requireScreen` 11(receiving · transfers · stock-moves · stock-adjustments · wms-* 일곱) · `requireManager` 0
+- **`100vh` 화면 10** · 그중 `--ims-tabs-h` 를 빼는 다섯(po · so · so-invoices · so-payments · so-credits) · 빼지 않는 다섯(families · products · suppliers · staff · supplier-products 각 11행 · 32-e ①)
+- **zoom**: 표준 CSS zoom(Chrome 128+ · Firefox 126+)에서 px 는 1.1 배 · vh 는 영향 없음 — `calc(100vh - 230px)` 류가 그대로 맞는다(짐작 · 화면 시험으로 확인)
+- **items(ims-auth.js · nav v4 · 93da13c)**: 줄 30(Dashboard · System Check 포함 · Home 없음) · 갈래 다섯 · IMS 탭 true 10 · WMS 일곱(Split & Waves 맨 앞) · html 파일 31
+
+### 32-d 사고 · 교훈 (asung-workflow §6 · §11 에 규칙 줄로)
+
+1. lay-1 지시서가 「changePw:true 를 준 화면은 index 하나(짐작 · grep 안 함)」 라고 적었다 — 실제 22 화면 · Claude Code 가 짚었다 ⇒ **지시서의 전제는 짐작으로 적지 말고 그 턴에 grep** (짐작이라고 적은 것도 판정 거리를 만들면 안 된다)
+2. 스킬 frontend.md 「로고」 절의 15px 가 낡은 값이었다(실물 picker.html:180 28px) ⇒ 스킬의 실측값은 실물로 다시 읽는다(Rule 29 와 같은 뿌리) — 이 차수에서 고친다
+3. 윗줄 펼침이 두 개 함께 열렸다(Caleb 화면 · po.html · 크롬) — 여는 길이 둘(클릭 = js · 올리기 = CSS :hover) · lay-1 렌더 시험(jsdom)은 :hover 가 없어 못 잡았다 ⇒ **마우스 · 터치 동작은 jsdom 이 증명하지 못한다 — 화면 시험 항목으로 반드시 넣는다** · 여는 곳은 하나(판정 168)
+4. 트랜스퍼 기본 From 이 Edmonton 이었던 것은 누가 정한 값이 아니라 이름 순 정렬의 우연이었다 ⇒ 기본값은 정한 사람이 있게(이름 · 판정으로)
+5. 대화 Claude 가 판정 157 근거를 「폰 · 스캐너」 로 말했다 — 창고는 태블릿 · Caleb 이 바로잡았다 ⇒ 기기 · 쓰는 사람에 대한 전제는 묻거나 짐작이라고
+6. Caleb 이 파일만 올리고 md5 줄을 안 붙인 일이 두 번 — 커밋 명령 첫머리에 md5sum 을 넣어 커밋 출력에서 대조했다 ⇒ 대조할 값은 커밋 명령 안에서 찍는다
+
+### 32-e 미룬 것 — §31-e 에 이어 붙임
+
+- ① 100vh 다섯 화면(families · products · suppliers · staff · supplier-products 각 11행)이 헤더 두 줄일 때 넘친다 → `- var(--ims-tabs-h, 0px)` 한 줄씩(화면 · 대화 Claude)
+- ② 화면마다 `<html lang="en" data-ims-mode="…">` 한 줄(첫 그림 100% 번쩍임 없앰 · 새로 쓴 셋 + index 는 넣었다 · 나머지는 화면 차수 때)
+- ③ POS 만 가진 사람 — 카탈로그에 pos 모드 · 열쇠 · ims_can_enter(마이그레이션 차수 · lay-1 판정 거리 ① · 지금은 화면 쪽에서만: ims 모드 + pos.html 보임)
+- ④ 판정 155 SO 목록 상태 점
+- ⑤ 판정 157 WMS 110%(Caleb 요청 시)
+- ⑥ 판정 158 Dashboard 숫자 카드(상품 마스터 뒤 · 카드마다 셈 기준 판정)
+- ⑦ 판정 171 트랜스퍼 Paste lines(상품 마스터 뒤)
+- ⑧ 판정 172 CSV 줄 가져오기(나중)
+- ⑨ 판정 151 Supplier Products → Products 흡수 · 공급처별 바로 보기(상품 화면 때)
+- ⑩ 펼침 여는 지연 60 ~ 100ms(lay-1b 이견 3 · 거슬리면)
+- ⑪ 이름 옆 작은 펼침(Change Password · Sign Out · 헤더 자리 아끼는 안 · 이 차수 밖)
+
+### 32-f 다음
+
+```
+2026-10-01 회사 PC · 새 대화 · 판정 147 ① prod-2(SKU 잠금 트리거 · 직접 쓰기 닫기 · 불러오기 적재 계정 확인 먼저)
+설계 정본 po-module §3-h · 판정 원문 so-module §31-a(136 · 140 · 141)
+순서(판정 147): prod-2 → prod-3 → prod-3b → prod-4 → img-1 → img-2 → prod-5 → 화면
+⇒ 다음 = prod-2
+다음 판정 번호: 174
+```
