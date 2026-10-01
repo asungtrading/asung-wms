@@ -482,3 +482,20 @@ select cron.schedule(
   '*/2 * * * *',
   $job$ select public.wms_auto_hold() $job$
 );
+
+-- ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid ? — img-2 Cin7 상품 사진 따라가기 (2026-10-01 · 판정 195 ~ 197)
+--   ⚠️ 운영에는 등록하지 마라(운영에는 함수 · 표가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   ⚠️ 처음에는 등록하지 않는다 — count 모드 손 호출의 숫자를 보고 Caleb 이 판정한 뒤(img-2 묶음 8)
+--   시각(⬜1): scan 14:30 UTC(여름 토론토 10:30 · 겨울 9:30) — 운영 product-images 12:30 · 13:30 과 GAS 손 적재(아침)와 Cin7 분당 60 을 안 겹치게 한 시간 뒤 ·
+--            move 는 scan 20분 뒤부터 15분마다 넷(14:50 · 15:05 · 15:20 · 15:35 — 큐가 비면 각 회차가 0장으로 끝난다 · 첫 채우기 뒤에는 보통 첫 회차에 끝난다)
+--   x-ims-cron-key 실제 값은 이 파일에 넣지 말 것 — supabase secrets set IMS_CRON_SECRET=… --project-ref fazgmyvzzhqybtvtktyg 와 같은 문자열을 대시보드 SQL Editor 에서만(시크릿 위치 규칙 · asung-wms 스킬)
+select cron.schedule('ims-image-scan', '30 14 * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/ims-product-images?mode=scan',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'));
+$job$);
+select cron.schedule('ims-image-move', '50,5,20,35 14,15 * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/ims-product-images?mode=move',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'));
+$job$);
+-- 킬 스위치: select cron.alter_job(<jobid>, active := false);   -- 테스트 cron.job 의 번호로(운영 번호와 다르다)

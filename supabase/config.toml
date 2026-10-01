@@ -492,3 +492,11 @@ enabled = true
 #   브라우저 콘솔에서 원인이 안 보일 것.
 verify_jwt = false
 entrypoint = "./functions/ims-staff-create/index.ts"
+
+[functions.ims-product-images]
+enabled = true
+# img-2 (2026-10-01) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg) 전용 · 운영 product-images 와 다른 함수.
+# pg_cron 이 JWT 없이 x-ims-cron-key 시크릿 헤더로 부른다(secret IMS_CRON_SECRET · 미설정이면 500 fail-closed) · 시작 때 inv_config.db_role = test 확인.
+# verify_jwt=false 가 없으면 플랫폼 JWT 검사에 걸려 시크릿 호출이 401(product-images 와 같은 이유).
+verify_jwt = false
+entrypoint = "./functions/ims-product-images/index.ts"
