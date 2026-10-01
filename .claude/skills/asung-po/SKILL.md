@@ -145,6 +145,19 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️  po_create 는 화면이 p_order_date 를 안 보낸다 — 폴백이 늘 닿는 자리였다(저녁 발주가 내일 날짜) · 원장 inv_compare_run 3곳은 cron 01:36 토론토라 안 닿는다(⬜ · 손으로 저녁에 돌리지 마라)
 ```
 
+## 4-c. ⭐ 상품 만들기 창구 (prod-2 · 3 · 3b · 2026-10-01 · 정본 po-module §3-h 「창구 — 실물」 · 판정 원문 so-module §33-a)
+
+```
+⭐⭐ 상품 계열 여덟 표(product · product_family · product_barcode · product_bom · product_supplier · product_price · product_tag · ref_price_tier)는 직접 쓰기가 닫혔다(prod-2 · authenticated select 만)
+     ⇒ 만들기는 창구 둘로만: product_create(p_items, p_commit, p_ack) · product_family_create(p_family, p_items, p_commit, p_ack) · 둘 다 definer + 첫 줄 ims_require_write('master')
+⭐⭐ 몸통은 속 함수 product_create_core 하나 — 검사 규칙을 고칠 때는 이것을 고치고 검증 R 절로 옛 · 새 product_create 반환이 jsonb 로 같은지 다시 증명한다
+⭐  두 번 부르기(판정 176): p_commit false = 검사만 → 화면이 경고를 보이고 → p_commit true + p_ack(본 경고 열쇠) · 서버가 다시 검사해 확인 안 된 경고가 있으면 저장 안 함
+     막기는 raise 가 아니라 반환(blocks) · 경고 열쇠 <SKU>:<code> · 바코드 것은 <SKU>:<code>:<barcode>
+⚠️  잠금 트리거 둘 — product_sku_lock(IM136 · SKU 변경) · product_delete_lock(IM175 · 지우기) · 원장 · 레이어가 붙은 상품이면 누구든(service_role · postgres 포함) 거부 · 트리거에는 문 없음(판정 174)
+⚠️  claims 없는 postgres 세션에서는 창구가 안 열린다(문이 auth.uid() 로 직원을 찾는다) — psql 로 만들려면 직원 claims 를 먼저 · 시험도 가짜 직원 claims 로
+⚠️  세트 SKU · 세트 이름 · family SKU · 변형 이름은 비우면 창구가 짓는다(판정 177 · 180 · 182 ~ 184) · 접미사 없는 세트는 이 창구로 못 만든다(prod-4)
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 정본에 있는 것은 옮겨 적지 말고 가리킨다 · 실측 숫자는 두지 않는다 — 14KB 를 넘기면 정본으로.

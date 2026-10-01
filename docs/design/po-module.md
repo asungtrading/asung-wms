@@ -1301,7 +1301,8 @@ source 값        'manual' 그대로(판정 133 · 새 값 없음 · CHECK 일�
 ```
 첫 만들기 차수   낱개 한 벌(상품 + 바코드 + 판매가 + 공급처 연결) + 세트 여러 개(세트마다 계수 자유 · 세트 바코드는 선택)(판정 134)
                  실측: 세트 6,347 중 4,992(79%)가 낱개와 같은 날 등록 · 활성 낱개 8,771 중 세트 1개 이상 5,178 · 세트 uom 12 · 6 · 24 · 36 · 72 … · 활성 세트 5,805 중 자기 바코드 없음 1,212
-family           뒤 차수 prod-3b · 다만 만들기 창구는 처음부터 「상품 여러 개를 한 번에」 받는다 — family 가 머리 하나를 얹어 따라온다(판정 146)
+family           ✅ prod-3b(36673e3 · 판정 181 ~ 185) — 두 길을 한 창구로: 새 family + 변형 함께 만들기 · 있는 family 에 변형 더하기 · 변형마다 prod-3 와 같은 규칙 · 막기 하나면 family 도 변형도 안 생긴다
+                 (옛 줄: 뒤 차수 prod-3b · 다만 만들기 창구는 처음부터 「상품 여러 개를 한 번에」 받는다 — family 가 머리 하나를 얹어 따라온다 · 판정 146)
 콤보             product_bom 만들기 · 고치기는 조립 · 번들 차수(판정 142) · 이번에는 읽기만
 ```
 
@@ -1309,16 +1310,64 @@ family           뒤 차수 prod-3b · 다만 만들기 창구는 처음부터 �
 ```
 만들기           한 벌 창구 하나 — 상품 · 바코드 · 공급처 · 가격 · 세트를 한 트랜잭션 · 하나라도 틀리면 전부 되돌림(판정 135)
 고치기           줄마다 작은 창구(재고 조정 화면과 같은 모양 · 판정 135)
-권한             열쇠 master 하나 · 창구와 SKU 잠금 트리거 함수는 security definer + 첫 줄 ims_require_write('master')(판정 140)
-                 근거: 잠금 검사가 권한과 상관없이 원장 · 열린 줄을 다 본다(invoker 면 RLS 로 0행 → 「붙은 것 없음」으로 통과할 수 있다 · 짐작) · 선례 so_create · so_line_add = definer · po_create · po_lines_paste = invoker
+권한             열쇠 master 하나 · 창구는 security definer + 첫 줄 ims_require_write('master')(판정 140) · SKU 잠금 트리거 함수는 security definer · **문 없음**(판정 174 — 문은 auth.uid() 로 직원을 찾아 service_role 적재가 false · 트리거 첫 줄 문은 적재를 죽인다 · 잠금은 누구에게나 같다)
+                 근거: 잠금 검사가 호출자 권한과 상관없이 원장 · 레이어를 다 본다 · ⚠️ [2026-10-01 정정] 오늘은 원장 · 레이어 읽기가 열려 있다(auth_all using (true) · master 만 가진 직원도 다 읽는다 · so-module §33-c) — definer 는 원장 읽기를 조이는 날 조용히 새지 않게 · 선례 so_create · so_line_add = definer · po_create · po_lines_paste = invoker
                  검증: master 만 가진 가짜 직원으로 잠금이 거부하는지 시험(판정 140)
-직접 쓰기        상품 계열 표에 직접 쓰는 길을 닫고 창구만 연다 · 읽기 그대로(판정 141) · ⚠️ 지금은 열려 있다(RLS product_insert/update = ims_can_write('master') · 20260917235000:131 ~ 133 · 관계 표 다섯 DELETE 열림)
-                 적재가 어떤 계정으로 쓰는지 prod-2 에서 먼저 확인(직원 계정이면 적재 길을 함께 옮긴다)
+직접 쓰기        ✅ 닫힘(prod-2 · e8e1d2c) — 여덟 표 authenticated insert/update/delete revoke + 쓰기 정책 drop · 읽기 그대로(판정 141)
+                 적재 = service_role(ImsRefLoad.gs:46 ~ 60 ims_fetch_) ⇒ 닫아도 적재 무관 · 「직원 계정이면 적재 길을 옮긴다」는 해당 없음
+```
+
+### 창구 — 실물 (prod-2 · 3 · 3b · 2026-10-01 · 판정 원문 so-module §33-a)
+```
+커밋        e8e1d2c prod-2 20261001123000 · 4ce6f9d prod-3 20261001130106 · 36673e3 prod-3b 20261001134426 (테스트 DB 적용 · repair · 확인 36 · 29 · 26 OK)
+트리거      product_sku_lock    before update of sku · when (old.sku is distinct from new.sku) · IM136 「SKU % has stock or cost history and cannot be renamed — create a new product instead — nothing was saved」
+            product_delete_lock before delete · IM175 「SKU % has stock or cost history and cannot be deleted — make it inactive instead — nothing was saved」 · FK(23503)보다 먼저 거부
+            둘 다 함수 product_sku_lock()(definer · search_path · TG_OP 로 가름 · 실행 권한 없음 · 문 없음 판정 174) · 원래 있던 product_touch 그대로
+            검사 = inv_ledger.sku 또는 inv_layer.sku = old.sku 한 행이라도 · 글자 그대로(BSMirror → BSMIRROR 도 거부) · errcode 관례 IM + 판정 번호
+닫힌 표     product · product_family · product_barcode · product_bom · product_supplier · product_price · product_tag · ref_price_tier — authenticated 는 select 만
+            ⚠️ 정책만 지우면 update · delete 는 에러 없이 0행(조용한 실패) — revoke 라야 셋 다 42501 · 마이그레이션 끝 do 블록이 여덟 표 · 트리거 둘을 세어 어긋나면 되돌린다
+창구 둘     product_create(p_items jsonb, p_commit boolean default false, p_ack text[] default '{}') returns jsonb — 낱개 여럿(최대 200) · 낱개마다 sets[]
+            product_family_create(p_family jsonb, p_items jsonb, p_commit boolean default false, p_ack text[] default '{}') returns jsonb
+              p_family = {"id": …} → 있는 family 에 변형 더하기(머리 칸이 함께 오면 family_head_ambiguous) · 머리 칸 {sku?, name, brand_id, category_id, unit_id, option1_name, option2_name?, option3_name?, note?} → 새 family
+              변형 = 낱개 모양 + options[](축 순서의 값) · 머리의 브랜드 · 분류 · 단위를 물려받는다(단위는 다르면 알리기 없음 · 판정 139) · R1 은 그 family 의 기존 변형 앞글자도 기준
+            둘 다 definer · 첫 줄 ims_require_write('master') · 한 트랜잭션 · 막기 하나면 아무것도 저장 안 함(판정 135)
+⭐ 한 곳     몸통 = 속 함수 product_create_core(p_items, p_family_ctx, p_commit, p_ack)(definer · authenticated 실행 없음 · 문 없음) — product_create 는 ctx null 로 부른다
+            고칠 때는 검증 R 절로 옛 · 새 반환 jsonb 등호를 다시 증명한다(키 순서 · 메시지 글자까지 · 저장 갈래는 id · 시각 뺀 행 덤프)
+두 번 부르기 ① p_commit false = 검사만(행 0) → blocks · warnings ② p_commit true + p_ack = 화면이 보여 준 경고 열쇠 → 서버가 다시 검사 · (경고 열쇠 − p_ack) ≠ ∅ 면 committed false + unacked(판정 176)
+            p_ack 에만 있고 지금은 없는 열쇠는 무시 · 막기는 p_ack 로 넘어가지 않는다
+반환        { committed, items:[{sku, product_id, sets:[{sku, pack_factor, product_id}]}], blocks:[{key, sku, code, message}], warnings:[…], unacked:[key…] } · family 창구는 + family {id, sku, created}
+            message = 화면에 그대로 뜨는 영어 한 문장 · raise 는 셋뿐: 문 · 모양(배열 아님 · 0 · 200 초과 · p_family 가 객체 아님) · 23505(「Someone just created one of these SKUs or barcodes (…) — check again — nothing was saved」)
+열쇠        <SKU>:<code> · 바코드 code 는 <SKU>:<code>:<barcode>(바코드 여럿일 때 하나만 확인해 다른 하나가 지나가지 않게) · family 머리는 <family SKU>:<code>(SKU 가 비면 (family):<code>)
+막기 code   product_create(23): barcode_active_elsewhere · barcode_duplicate_in_call · barcode_empty · brand_unknown · category_unknown · currency_unknown · name_missing · price_not_positive · set_discount_invalid
+            · set_factor_duplicate · set_factor_invalid · set_sku_exists · sku_duplicate_in_call · sku_exists · sku_lowercase · sku_missing · sku_space · supplier_default_many · supplier_duplicate · supplier_unknown
+            · tier_duplicate · tier_invalid · unit_unknown
+            family 창구 더(14): family_head_ambiguous · family_name_missing · family_sku_exists(product_family.sku · product.sku 양쪽) · family_sku_lowercase · family_sku_missing · family_sku_space · family_sku_suffix
+            · family_unknown(없거나 비활성) · no_variants · option_count · option_duplicate_in_call · option_exists(대소문자 · 앞뒤 공백 접어 비교) · option_names_gap · option_names_missing
+            (name_missing 은 family 모드에서 안 낸다 — 이름을 짓는다 · 머리가 없거나 비활성이면 옵션 검사는 건너뛰고 나머지는 함께 돌려준다)
+알리기 code product_create(10): barcode_check_digit(R4) · barcode_digits(R2) · barcode_inactive_elsewhere(판정 179) · barcode_missing · barcode_shape(8 · 12 · 13 · 14 자리 숫자 밖) · brand_missing
+            · price_missing · set_unit_unknown(계수 이름의 ref_unit 이 없으면 uom_name 만) · sku_prefix(R1) · supplier_missing(판정 178)
+            family 창구 더(4): brand_differs_from_family · category_differs_from_family · option_inactive_exists(판정 139 되살리기) · option_name_unusual(활성 family 가 쓰는 축 이름에 없는 글자 · 글자 그대로)
+            (code 목록은 20261001130106 · 20261001134426 의 'code', '…' 를 grep 으로 센 것 · 2026-10-01)
+창구가 채움 brand_name · category_name · uom_name 은 id 의 이름 복사(판정 143 ①) · source manual 전부(판정 133) · registered_on = ims_today() · cin7_ 칸 · 회계 계정 넷 · 세금 규칙 둘 · costing_method 비움(IMS 로직이 product 의 이 칸을 읽는 곳 0)
+            낱개 공급처가 하나면 is_default true · 세트에는 공급처 · 무게 안 붙임(활성 세트 5,808 중 공급처 행 0) · 세트 판매가를 비우면 so_price_for 가 set_calc(낱개 × 계수 × (1 − set_discount_pct/100))
+            product_gtin_ok(text) immutable(GTIN mod 10 · 8 · 12 · 13 · 14 자리 · 그 밖은 null)
+⚠️ claims   claims 없는 postgres 세션(Caleb 의 psql)에서는 두 창구의 문이 막는다 — SQL 로 상품을 만들려면 직원 claims 를 먼저 세운다(트리거 · 판정 174 와 반대 성격)
+```
+
+### 이름 · SKU 짓기 (판정 177 · 180 · 182 · 183 · 184 · 비워 두면 창구가 · 넣으면 그대로)
+```
+세트 SKU      <낱개 SKU>-<계수> · 사람은 계수만(2 이상 정수) · uom = 계수 이름(ref_unit 에 있으면 unit_id 도)(판정 177) · 접미사 없는 세트(ANN05055-EA 류)는 이 창구로 못 만든다(prod-4)
+세트 이름     <낱개 이름>-<계수>(붙여 · 판정 180 · 2026 등록의 96%) · 변형의 세트도 지은 변형 이름 위에
+family SKU    <첫 변형 SKU>FAM(p_items 의 첫 항목 · 판정 182) · FAM 으로 안 끝나면 · 공백 · 소문자 막기 · 첫 변형이 막혀도 지어 보여 준다
+변형 이름     <family 이름> - <V1>(판정 183) · 축 둘 · 셋은 <family 이름> - <V1> - <V2>( - <V3>)(판정 184) · 만든 뒤 고치기는 prod-4
+세트 멤버     세트는 family 멤버가 아니다(family_id null · 부모가 변형)
+브랜드 경고   새 family 머리에 브랜드가 없으면 머리 한 줄만 · 변형 쪽 접는다 · 있는 family 에 더하기는 변형 쪽 그대로(판정 185)
 ```
 
 ### 잠금 (판정 136 · 137 · 139)
 ```
-SKU              원장 · 원가 레이어 행이 하나라도 있으면 표 트리거가 거부(어느 길로도) · 사건 없는 상품(만든 직후 오타)은 허용(판정 136) · 실물 원장 붙은 상품 4,686 · 레이어 8,087
+SKU              원장 · 원가 레이어 행이 하나라도 있으면 표 트리거가 거부(어느 길로도) · 사건 없는 상품(만든 직후 오타)은 허용(판정 136) · 실물 원장 붙은 상품 4,686 · 레이어 8,087 · ✅ prod-2 product_sku_lock(IM136)
+지우기           원장 · 원가 레이어가 붙은 상품은 누구도 못 지운다(before delete · 같은 검사 · IM175 · 판정 175) · 사건 없는 상품은 지울 수 있다 · 물러나는 길은 is_active = false · ✅ prod-2 product_delete_lock
 세트 계수 · 부모  사건이 붙은 상품이면 창구가 거부(판정 137 ①) · 실물 열린 SO 줄 상품 8 · 열린 PO 줄 19
 단위             막지 않고 고친다 · 세트 단위 ≠ 계수면 알리기(판정 139)
 비활성 내리기    막지 않는다 — 내리기 전에 화면이 재고 · 열린 오더 · 열린 발주 수를 보이고 확인을 받는다 · 비활성 상품도 찾아 되살릴 수 있게(판정 139)
