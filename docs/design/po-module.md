@@ -1476,6 +1476,18 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
 화면         price-2 = sheet v2a(이 절 「화면 — 실물 2」) · price-3 = Settings 환율 · 티어 규칙 · Suppliers 식 보기(⬜)
 ```
 
+### 관세 부가 요금 그룹 — 실물 (surcharge-4a · asung-wms eafcfe4 · 원문 so-module §37)
+```
+표          so_surcharge_group — name(unique · 대소문자 무시 중복 막기 · 줄의 surcharge_label 로 복사) · surcharge_pct | surcharge_amount 둘 중 하나(CHECK 는 so_line 과 같다) · is_active · source manual
+상품 칸      product.surcharge_group_id — nullable FK · 상품 하나 = 그룹 하나 · 세트는 못 단다 · 적재 ImsLoadProduct.gs 는 이 칸을 안 보낸다
+고치기       product_update op surcharge_group_set {sku, group_id | null, old} — master · 막기 surcharge_on_set · surcharge_group_unknown · surcharge_group_inactive · old_missing · changed_elsewhere · field_duplicate_in_call
+그룹 창구    so_surcharge_group_save(p_changes, p_commit, p_ack) — admin(ims_require_admin) · create · update{set, old} · off · on · 알리기 group_in_use:N · open_draft_lines:N
+             ⚠️ 종류를 바꿀 때(% ↔ $)는 set · old 에 두 칸을 다 보낸다
+읽기         뷰 so_surcharge_group_list — 상품 수 · 켜진 상품 수 · 열린 초안 줄 수(초안 + 그 이름 · 그 값)
+채우기       so_line_add · so_lines_paste 가 so_line_surcharge_defaults(상품, 무상?) 로 세 칸을 채운다 · 옮기는 길(so_split · so_merge)은 그대로 복사 · 꺼진 그룹 · 무상 줄은 비움
+화면         Settings → Surcharge Groups(sg v1) · Products(pr v3c) · Product Sheet(sheet v2b · 묶음 단추 Surcharge)
+```
+
 ### 잠금 (판정 136 · 137 · 139)
 ```
 SKU              원장 · 원가 레이어 행이 하나라도 있으면 표 트리거가 거부(어느 길로도) · 사건 없는 상품(만든 직후 오타)은 허용(판정 136) · 실물 원장 붙은 상품 4,686 · 레이어 8,087 · ✅ prod-2 product_sku_lock(IM136)

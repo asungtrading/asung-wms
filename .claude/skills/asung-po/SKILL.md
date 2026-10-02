@@ -161,6 +161,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  사진: product_image(여러 장 + 대표 하나 · 판정 193) · 공개 상자 product-images(<상품 id>/… · 5 MB · 쓰기 master) · 읽기 product_image_primary(text[])(세트 → 낱개 · from_parent · 판정 194) · Cin7 사진은 EF ims-product-images 가 매일(정본 po-module §3-h 「사진 — 실물」)
 ⭐  가격식(price-1 · 판정 215 ~ 223): 계산은 price_formula_calc 한 곳(저장 없음 · 미리 보기 price_formula_preview) · 식 · 환율 · 티어 규칙 쓰기는 price_formula_save · price_fx_save · price_tier_rule_save(admin · ims_require_admin · 두 번 부르기)
      가격을 식으로 저장 = product_update price_set 의 formula 칸(다시 계산해 같을 때만 source formula · 다르면 manual + formula_mismatch) · ⚠️ price_tier_rule 에 Wholesale 줄 금지(tier_rule_wholesale) · price_formula_id 는 IM223 이 다른 공급처 식을 막는다 · 정본 po-module §3-h 「가격식 — 실물」
+⭐  관세 부가 요금 그룹(surcharge-4a): product_update op 열여덟째 surcharge_group_set {sku, group_id | null, old}(master · 세트 막기 surcharge_on_set · 꺼진 그룹 막기) · 그룹 자체는 so_surcharge_group_save(admin) · 정본 po-module §3-h 「관세 부가 요금 그룹 — 실물」
 ```
 
 ## 5. 이 스킬을 갱신할 때

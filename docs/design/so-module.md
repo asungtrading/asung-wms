@@ -6031,3 +6031,109 @@ price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙(price_fx_
 ⬜ 10/2 14:30 UTC(토론토 10:30) scan 결과로 CON 17 장(§34-e 53)
 다음 판정 번호: 228
 ```
+
+---
+
+## §37 관세 부가 요금(surcharge) — 넣기 · 계산 · 문서 · 화면 · 그룹 자동 · 판정 228 ~ 232 (2026-10-02 · 회사 PC)
+
+⭐ 닫힌 것: surcharge-1(조사) → 2a(계산 · 쓰기) → 2b(인보이스 · 크레딧) → 3(SO · 인보이스 · 크레딧 · POS 화면) → 4a(그룹 · 자동 붙이기) → 4b(Surcharge Groups · Products · Sheet) — 테스트 DB 적용 · repair · Caleb 화면 시험 ✅(37-c)
+⭐ 다음 = 37-f
+
+### 37-a 판정 원문 (228 ~ 232 · 말 그대로)
+
+- **판정 228** (2026-10-02) Caleb 「가」 — 무상 줄(`free_reason` · 단가 0)에는 surcharge 를 **막는다**(% · 금액 모두 · 창구가 거부 · 문장 영어) · 조용히 0 으로 계산하지 않는다 · 기각 (나) 금액형만 허락 · (다) 막지 않음 · 근거 surcharge-1 보고 C1
+- **판정 229** (2026-10-02) Caleb 「가」 — 같은 SKU 를 더하면(`so_line_add`) 지금처럼 **있는 줄에 합치고, 더한 수량은 그 줄의 surcharge 를 물려받는다** · 근거: 관세는 SKU 에 붙는다 · (나) 자동 붙이기도 같은 값 · 기각 (나) surcharge 줄엔 합치지 않고 새 줄 · (다) 합치고 알리기 · 근거 surcharge-1 보고 C8
+- **판정 230** (2026-10-02) Caleb 「나」 — surcharge 는 초안 + **Finalize 단계(packed)에서도 고친다**(운임과 같은 자리 · `so_finalize`) · 출고(shipped) 뒤는 열지 않는다(인보이스 취소 → 재발행 길) · 기각 (가) 초안에서만(되돌리기가 무겁고 charge 가 있으면 거부) · (다) 어느 단계든 · 근거 surcharge-1 보고 C9
+- **판정 231** (2026-10-02) Caleb 「맞아. 3으로 가자」 — 관세 부가 요금의 자동 붙이기(판정 227 (나))는 **③ 상품에는 그룹 표시, 율은 한 곳**: 상품(SKU)에 「US Tariff」 같은 그룹을 달고, %·금액·끝은 Settings 의 그룹 한 줄 · 그룹이 붙은 SKU 는 SO · POS 에 줄이 들어오는 순간 저절로 붙는다 · 실무 원문 Caleb 「우리 실무는 관세를 내고 들어온 차수부터 관세를 부과할 계획이지만, 이미 관세이전에 들어와 있는 제품들은 같은 sku라 하더라도 관세적용을 하려고 해.」 ⇒ 단위는 입고분이 아니라 **SKU + 시작 시점**(관세 낸 첫 입고분부터 그 SKU 는 옛 재고까지 전부) · 기각 ① 상품마다 율(바뀌면 전부 고침) · ② 입고분마다(오더를 쓸 때 금액을 알 수 없다 · FIFO 는 출고 때 정해짐) · 이것으로 POS 물음(가 · 나 · 다)은 (다) — POS 는 자동으로 붙고 계산원은 넣지 않는다
+  - 계기 Caleb 「POS에서는 어떻게 활성화 되지?」 · 「어떻게 자동으로 달지? 자동으로 단다는 것은 입고때 타리프가 있는 제품들에게 표시를 해준다는 의미인가?」
+- **판정 232** (2026-10-02) Caleb 「니 제안대로 가자」 — SKU 를 그룹에 넣는 스위치는 **(가) 사람이 켠다**(관세 붙은 입고분이 들어오면 Sheet · Products 에서) · 써 보면서 **(다) 입고 확정 때 「그룹이 안 붙은 SKU N 개 — 넣을까요?」 알림**을 뒤에 더한다 · 기각 (나) 입고가 켠다(PO 비용 종류 `freight · duty · brokerage · other` 가 보통 관세와 보복 관세를 가르지 않는다 · PO 모듈 판정이 여럿 따라온다)
+
+**묶음 확인** (판정 번호 없음 · 원문 그대로)
+- **surcharge-2 묶음 1 ~ 9** Caleb 「그대로 가자」 — 1 %의 바탕은 `so_line.unit_price`(할인이 반영된 단가 · 손으로 바꾼 가격이면 그 값) · 2 반올림은 개당 먼저 — 개당 = (금액, 또는 단가 × %)를 센트로 반올림 · 줄 = 개당 × 수량 · 금액 입력은 센트 두 자리까지만(넘으면 거부) · 대가: %형이면 줄 전체로 한 번에 계산할 때보다 최대 「수량 × 0.5센트」 적게 · 대신 백오더로 나뉘어도 두 쪽 합이 늘 원래와 같다 · 3 surcharge 는 물건값(amount)에 섞지 않고 따로 — 오더 할인 기준 · 리스탁킹 피 기준에 안 들어간다(9/21 근거) · 4 세금은 줄마다 「surcharge 합 × 오더 세율」로 따로 반올림 · 회계사가 세금이 안 붙는다고 하면 한 곳(`so_tax_preview`)에서 0 · 5 인보이스 · 크레딧에는 별도 줄로 얼려 담는다(줄 종류 `surcharge` · 그 상품 줄 바로 뒤) · 머리 `surcharge_amount` + 합계 CHECK 셋 다시 · 6 계정은 `inv_config` `so_surcharge_account_code` = `_94_`(발행 때 얼림 · 없으면 막기 · 크레딧은 인보이스 줄 계정 복사) · 7 크레딧은 surcharge 줄을 자동으로(돌려주는 수량 × 개당) · 8 차수 2a → 2b → 3 · 인쇄 · PDF 는 인쇄 파일이 생길 때 · 9 (나) 자동 붙이기를 위한 출처 칸은 지금 만들지 않는다
+- **surcharge-2a 이견 1 ~ 12 승인** — 3 의 % 위 한계는 Caleb 「나도 한계를 굳이 두지 않아도 된다고 생각해.」 · CHECK 는 `surcharge_pct > 0` 만 · 100 초과는 알리기 `surcharge_pct_over_100`(화면이 확인을 묻는다) · 근거 2025-04 미국 ↔ 중국 관세 145%(Claude Code)
+- **surcharge-2b 이견 1 ~ 12 승인**(대화 Claude 가 승인 안을 냈고 Caleb 이 그 블록을 Claude Code 에 붙였다 · 따로 한 말은 없다) — 계정 code 키는 `ims_config_locked_keys()` 밖(잠금은 1 ~ 4 자리 숫자만 · 리스탁킹 피 키 선례) · 계정 검사는 인보이스 번호를 당기기 **전** · 크레딧 surcharge 줄은 자동만(손으로 보낸 줄 거부 · 인보이스 surcharge 금액을 넘지 못함) · 목록 뷰 둘 재발행
+- **surcharge-3 묶음 1 ~ 8** Caleb 「그대로 가자」 — 1 SO 줄 표에 Surcharge 열(Unit 뒤 · 이름 % 또는 개당 · 개당 · 줄 합) · 초안에서 누르면 작은 창 · 무상 줄 회색 · 2 이름은 자유 글 · 기본 비움 · 그 오더에서 쓴 이름 목록 · 3 여러 줄 한 번에(체크 + Set surcharge… · 줄마다 so_line_update · 몇 줄 됐고 안 됐는지) · 4 100% 넘으면 묻는다 · 5 합계에 Surcharge(있을 때만) · 6 Finalize 창에서도 고친다(판정 230) · 7 인보이스 · 크레딧은 표시만(`↳` 줄 · 크레딧은 「added automatically」) · 8 POS 는 표시만 · 빌드 표시 넷
+- **surcharge-4 묶음 1 ~ 9** Caleb 「좋아  그대로 가자」 — 1 그룹 표(이름 · % 또는 개당 · 켜짐) · 2 `product.surcharge_group_id`(상품 하나 = 그룹 하나 · product_update op · master) · 3 줄이 들어오는 순간 채운다(SO 더하기 · 붙여 넣기 · POS 스캔 · 무상 건너뜀 · 판정 229 그대로) · 4 채운 뒤에는 보통 줄 · 5 율을 바꾸거나 끄면 새 줄부터(열린 초안 줄은 옛 값 · 그 수를 알린다) · 6 손님 예외 없음(USWholesale 포함) · 7 Settings 「Surcharge groups」(admin) · 8 처음 표시는 Sheet · 9 차수 4a DB → 4b 화면 · 대가(Caleb 확인): 율을 바꾼 날 이미 써 둔 초안은 옛 값
+  - ⚠️ 「좋아」 뒤 공백 **두 칸**(Caleb 원문 그대로)
+- **surcharge-4a 이견 1 ~ 11 승인** Caleb 「그대로 가자」 — 세트에는 그룹 못 단다(`surcharge_on_set`) · 그룹을 꺼도 상품 포인터는 남는다 · 이름을 바꿔도 이미 복사된 줄 이름은 그대로 · 「열린 초안 줄」 = 초안 + 그 이름 · 그 값 · 줄이 새로 생기는 길은 넷(넣는 길 `so_line_add` · `so_lines_paste` 는 채움 / 옮기는 길 `so_split` · `so_merge` 는 그대로 복사)
+
+### 37-b 커밋 · 실물
+
+- asung-wms(오늘 · 이 차수 전): `git log --oneline a163287..eafcfe4` 원문
+```
+eafcfe4 feat(so): surcharge-4a - automatic tariff surcharge by group (rulings 231, 232, surcharge-4 bundles 1 to 9): so_surcharge_group table (name, percent or per-unit amount, on or off) with the admin window so_surcharge_group_save warning products in use and open draft lines, so_surcharge_group_list view, product.surcharge_group_id set through product_update op surcharge_group_set (master, sets and off groups refused), so_line_add and so_lines_paste fill the three line columns from the product's active group through so_line_surcharge_defaults (free lines skipped, merges keep the existing line, split and merge copies untouched) - trial applied and verified on the test DB, 34 OK, confirm 29
+0a0bdc9 feat(so): surcharge-2b - tariff surcharge on documents: invoice lines of kind surcharge right after their product line (values from so_tax_preview, account from inv_config so_surcharge_account_code = _94_, checked before the invoice number is taken), surcharge_amount on so_invoice, so_invoice_order and so_credit with the taxable and credit total CHECKs redefined, credits add surcharge lines automatically from the invoice line (hand lines refused, capped at the invoice amount, restocking fee base goods only), so_credit_prepare lists them, so_invoice_list and so_credit_list carry the column (bundles 3 to 7) - closes the 2a interim state (24.18) - trial applied and verified on the test DB, 33 OK, confirm 27
+bd5c71b feat(so): surcharge-2a - tariff surcharge computed in one place (so_line_surcharge_unit per unit in cents, so_line_surcharge_total, so_surcharge_check), so_line CHECKs (pct > 0, amount > 0 in cents, none on free lines), so_tax_preview / so_detail / so_proforma carry surcharge amount and per-line tax separately from goods (order discount base unchanged), so_line_update rejects surcharge on free lines and warns over 100 percent, so_finalize edits surcharges at packed (rulings 227 to 230, bundles 1 to 9) - trial applied and verified on the test DB, 47 OK, confirm 38
+c96bacb docs(warehouse photos, POS, price formula, surcharge): so-module §36 rulings 224 to 227 verbatim with bundles (price-1, price-2, Action Centre, surcharge), asung-ims commits 1f632d8..ad2460f, measurements, incidents 1 to 7, deferred 70 to 76, next ruling 228 - correction line under ruling 33 - po-module §3-h screens block 2 and price formula as built block (trigger product_supplier_formula_lock) - skills asung-po, asung-wms, asung-workflow bodies (descriptions unchanged)
+45f030f docs(inv-ledger): 조립 VOID 반복 · 상쇄 직후 조회 함정 · 09-25 정정
+```
+- asung-ims: `git -C ~/asung/asung-ims log --oneline ad2460f..24a9523` 원문(9 줄)
+```
+24a9523 fix(so): so sc v1.1 - Finalize could not preview when a line had a surcharge: the old values were put in a data attribute through esc, which does not escape double quotes, so the attribute was cut and JSON.parse stopped the preview; now encodeURIComponent (Caleb screen test SO-25020)
+525495b feat(product-sheet): sheet v2b - Surcharge group column in Edit mode, picked by name or pasted, sets locked, Surcharge column preset (surcharge-4b, bundle 8)
+188c961 feat(products): pr v3c - Surcharge group on the detail and in Edit through product_update op surcharge_group_set (surcharge-4b, none on sets)
+62dd7aa feat(surcharge-groups): sg v1 - new Settings screen for tariff surcharge groups (rulings 231, 232, surcharge-4 bundles 1, 5, 7): list from so_surcharge_group_list with product and open draft line counts, admin creates, changes, turns off and on through so_surcharge_group_save with Check then Save carrying the warnings seen
+5c19c25 feat(ui): Surcharge Groups line in the Settings menu (surcharge-4b, ruling 231; view for master, changes for admin through the window)
+118c990 feat(pos): pos v1.4 - surcharge in small print under the line and a Surcharge row in the totals, display only (surcharge-3 bundle 8)
+f860b2b feat(so-credits): cr sc v1 - surcharge credited by itself with the returned quantity is shown as added automatically, Surcharge in the preview and detail totals (surcharge-3 bundle 7, no hand entry)
+5b1df5e feat(so-invoices): inv sc v1 - surcharge lines shown right under their product line, Surcharge in the totals and the orders table when there is one (surcharge-3 bundle 7, values frozen on the invoice by surcharge-2b)
+8baeb9c feat(so): so sc v1 - tariff surcharge on lines (rulings 227 to 230, surcharge-3 bundles 1 to 6): Surcharge column with per-unit and line amounts from so_detail, + or edit per line and Set surcharge… for ticked lines through so_line_update one line at a time with a saved / not saved count, names used on the order offered, asks before saving over 100 percent, free lines cannot carry one, Surcharge in the totals, Finalize can change surcharges at packed through so_finalize with old and new in the preview
+```
+- 마이그레이션 셋(테스트 DB 적용 · repair · Caleb 확인 실행):
+
+| 차수 | 파일 | 시험 OK | 확인 OK | 무엇 |
+|---|---|---|---|---|
+| 2a | `20261002141516_surcharge_2a.sql` | 47 | 38 | 도우미 `so_line_surcharge_unit` · `_total` · `so_surcharge_check`(막기 문장 한 곳) · so_line CHECK 셋 · `so_tax_preview` · `so_detail` · `so_proforma` · `so_line_update` · `so_finalize`(surcharges) 재발행 |
+| 2b | `20261002144956_surcharge_2b.sql` | 33 | 27 | 인보이스 · 크레딧 줄 종류 `surcharge` · 머리 `surcharge_amount`(so_invoice · so_invoice_order · so_credit) · 합계 CHECK 셋 · `inv_config` `so_surcharge_account_code` = `_94_` · `so_invoice_issue` · `so_credit_issue` · `so_credit_prepare` · 목록 뷰 둘 |
+| 4a | `20261002155201_surcharge_4a.sql` | 34 | 29 | `so_surcharge_group` · `so_surcharge_group_save`(admin) · 뷰 `so_surcharge_group_list` · `product.surcharge_group_id` · product_update op `surcharge_group_set` · `so_line_surcharge_defaults` · `so_line_add` · `so_lines_paste` 재발행 |
+
+- 화면:
+
+| 파일 | 빌드 표시 | 무엇 |
+|---|---|---|
+| so.html | so sc v1 → v1.1 | Surcharge 열 · + / ✎ · Set surcharge…(체크 줄) · 합계 · Finalize 의 Surcharges · v1.1 = 속성 JSON 을 encodeURIComponent(37-d 7) |
+| so-invoices.html · so-credits.html · pos.html | inv sc v1 · cr sc v1 · pos v1.4 | 표시만(`↳` 줄 · 합계 · 「added automatically」 · POS 줄 아래 작은 글씨) |
+| surcharge-groups.html(새) · ims-auth.js | sg v1 · 메뉴 한 줄 | Settings → Surcharge Groups(보기 master · 고치기 admin · Check → Save) |
+| products.html · product-sheet.html | pr v3c · sheet v2b | Surcharge group 칸 · 열(세트 없음) · Sheet 묶음 단추 Surcharge |
+
+### 37-c 실측 (Caleb 화면 시험 · 테스트 DB · 2026-10-02)
+
+- SO-25020 손으로: AES31204 3.39 × 37% → 1.25/ea · AES15203 4.99 × 37% → 1.85/ea · 무상 줄 AD010079 「—」
+- 그룹 자동(US Tariff 37%): POS SO-25019 — AD010039 5.69 → `+ US Tariff 2.11/ea` · Items 13.50 · Surcharge 2.11 · Tax 2.03(0.74 + 1.02 + 0.27) · Total 17.64 · SALE 줄과 함께 / SO-25021 — Lines 16.08 · Surcharge 2.11 · Tax 2.36 · Total 20.55
+- Finalize(so sc v1.1 뒤) → 인보이스 **60005**: Lines 5.69 · Surcharge 2.11 · Tax 1.01 · Total 8.81 · 줄 product + `↳ US Tariff` 1 × 2.11(세금 0.27) · money on account 로 paid
+- 크레딧 **CR-01001**(60005 · 1 개 반품 · 발행): product 5.69(0.74 · `_98_`) + surcharge 2.11(0.27 · `_94_` 복사) · Total 8.81 · Fee 0
+- 시퀀스 사고 셋(37-d 1 · 3)은 모두 「그 위 번호 0 개」 확인 뒤 되돌림 · 오늘 끝 so 25021 이후 Caleb 시험분 · invoice 60005 · credit 1001
+
+### 37-d 사고 · 교훈 (asung-workflow §4 · §6 · §11 에 규칙 줄로)
+
+1. [Claude Code] 2a · 2b · 4a 검증에서 **중간에 멈춘 회차**가 rollback · setval 꼬리에 못 가 시퀀스가 밀렸다(so 25019 → 25034 · inv 60010 · cr 1002 · so 25023) — 매번 「그 위 번호 0 개」를 보고 되돌렸다 ⇒ 회차마다 머리 값을 찍고, 멈추면 그 값으로 되돌린 전후를 보고
+2. [Claude Code] 2b 확인 실행(Caleb)이 시험 갈래에서만 생기는 변수 `inv_n1` 을 써서 310 행에서 멈췄다 ⇒ 시험 전용 변수 · 행은 `\if :{?mig}` 안에만 · 확인 갈래도 한 번 돌린다 · 갈래마다 다른 수는 식으로
+3. [대화 Claude] 확인 명령의 `| tee` 가 psql 종료값을 가려 실패가 `exit 0` 으로 보였다 ⇒ `set -o pipefail` 판으로 · 멈춘 확인 실행의 시퀀스(inv 60008 · cr 1002)는 「그 위 0 개」 조건부 setval 로 되돌렸다
+4. [대화 Claude] 2b 지시서가 계정 code 키를 `ims_config_locked_keys()` 에 넣으라고 썼다 — 잠금은 1 ~ 4 자리 숫자만 받는다(Claude Code 이견 1 · 리스탁킹 피 키 선례) ⇒ 설정 키를 더할 때는 같은 종류의 선례 키를 먼저 본다
+5. [대화 Claude · 2a 보고] 「to_jsonb 가 새 칸을 저절로 나른다」가 줄에만 맞았다 — 목록 뷰는 명시 열이라 2b 에서 재발행 ⇒ 보고의 일반화를 다음 지시서에 사실로 옮기기 전에 정의를 본다
+6. [Claude Code] 4a 검증 Z2 가 Caleb 화면 시험 줄(US Tariff 37%)까지 셌다 · 변수 이름 충돌 · 고친 뒤 확인 없이 다음 회차 ⇒ 수는 이 시험이 만든 키로 묶는다 · 패치 확인은 `&&` 로 잇는다
+7. [대화 Claude] so sc v1 Finalize 의 Surcharges 칸이 줄의 옛 값(JSON)을 `esc` 로 속성에 넣었다 — 공통 `esc` 는 큰따옴표를 막지 않아 속성이 잘리고 미리 보기가 `JSON.parse` 에서 멈췄다(surcharge 가 있는 줄이 있으면 늘 · Caleb SO-25020 「이게 마무리가 왜 안되는거지?」) · DB 무접촉 · 번호 안 나감 ⇒ 속성에 넣는 JSON 은 `encodeURIComponent` · 화면 차수는 「창이 열리면 미리 보기가 끝까지 도는지」를 jsdom 으로 돌린다
+8. [대화 Claude] 다운로드 파일이 `so (1).html` 로 저장됐을 거라는 짐작이 틀렸다 — md5 조건(`grep -q '^…' &&`)이 옛 판을 막았다 ⇒ 잘 된 예 · 옮기기는 md5 로 거른다
+9. [대화 Claude] 확인 갈래는 적용 전에는 돌 수 없다(4a — 새 표가 없다) ⇒ 첫 통과는 Caleb 의 확인 실행 · 그래서 기대 OK 수로 커밋을 막지 않고 exit · MISMATCH 로만 막았다
+
+### 37-e 미룬 것 — §36-e 76 에 이어 붙임
+
+- 77 판정 232 (다) — 입고 확정 때 「그룹이 안 붙은 SKU N 개 — 넣을까요?」(PO 모듈 · 써 본 뒤)
+- 78 그룹 율을 바꾸거나 끄면 열린 초안 줄은 옛 값(surcharge-4 묶음 5 대가) — 자동으로 갈려면 줄에 출처 표시가 필요(surcharge-2 묶음 9 를 바꾸는 판정 거리)
+- 79 인쇄 · PDF 인보이스 · 크레딧에 surcharge 줄 — 인쇄 파일이 생길 때(surcharge-2 묶음 8)
+- 80 Sheet New 모드에는 Surcharge group 열이 없다(`product_create` 에 칸 없음) — 만든 뒤 Edit 에서
+- 81 크레딧 surcharge 상한 문장(인보이스 금액 초과)은 상품 수량 상한이 먼저 막아 시나리오로 닿지 않는다 — 두 겹 막기 · 그대로
+- 82 테스트 DB 시험 흔적: 그룹 US Tariff 37% · SO-25019 ~ 25021 · 인보이스 60005 · CR-01001 — Caleb 시험 재료
+- 76(회계사 확인 — surcharge 세금 · `_94_`)은 열린 채
+
+### 37-f 다음
+
+```
+순서(Caleb 이 정한다):
+화면 시험 남은 것(36-f) — 창고 넷(pk v1.3 · pa v1.4 · rc v1.7 · fu v1.3) · Sheet v2a 가격식(이제 sheet v2b)
+price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙 · Suppliers 의 그 공급처 식 보기
+보류: 36-e 73 · 74 · 37-e 77 · 78
+그 뒤 판정 147 순서: prod-5(판정 131 · 132 · 35-e 59 · 60 · 61 · 65) · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 금요일(10/2) 목표 점검
+⬜ CON 17 장(§34-e 53 · 10/2 scan 결과)
+다음 판정 번호: 233
+```

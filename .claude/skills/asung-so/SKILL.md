@@ -269,6 +269,17 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  Manager List 의 즉시 결제 = ref_payment_term.net_days 0 — 손님 결제조건 자료만큼만 정확(Net30 6,305 정리 전) · Unpaid 탭은 브랜치로 못 거른다(뷰에 창고 칸 ⬜)
 ```
 
+## 4-l. ⭐⭐ 관세 부가 요금(surcharge) — 모르면 사고 (정본 so-module §37)
+
+```
+⭐ 관세 부가 요금(surcharge · 판정 227 ~ 232 · 정본 so-module §37)
+   줄의 세 칸(surcharge_label · surcharge_pct | surcharge_amount) · 개당 = round(금액 또는 unit_price × %, 2) · 줄 = 개당 × 수량 — 계산은 so_line_surcharge_unit · _total 한 곳 · 막기 문장은 so_surcharge_check 한 곳
+   물건값(lines)에 안 섞인다 — 오더 할인 · 리스탁킹 피 바탕 밖 · 세금은 줄마다 따로(so_tax_preview 한 곳 · 0 으로 바꿀 자리 주석)
+   무상 줄 막기(판정 228) · 같은 SKU 합치기는 그 줄 값 그대로(229) · 고치기 = 초안 so_line_update + packed so_finalize surcharges(230)
+   문서: 인보이스 · 크레딧 줄 kind surcharge(상품 줄 바로 뒤 · 값은 so_tax_preview 에서 · 계정 inv_config so_surcharge_account_code = _94_ · 번호 당기기 전 검사) · 크레딧 surcharge 는 자동만
+   자동: 상품의 켜진 그룹(so_surcharge_group) → so_line_add · so_lines_paste 가 채운다 · POS 도 so_line_add · 옮기는 길은 복사
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).
