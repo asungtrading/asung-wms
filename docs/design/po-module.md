@@ -1421,6 +1421,18 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
 - 줄 사진: 화면은 `imsThumb(sku)` 를 SKU 칸 앞에 · 그린 뒤 `imsThumbFill(상자)` · 공통 js 가 옛 판으로 캐시돼 있으면 칸 없이 그린다(`typeof window.imsThumb` 검사) · 인쇄 · PDF 인보이스에는 넣지 않는다(판정 214)
 - Product Sheet 의 공급처 열은 기본 공급처 줄(판정 207 · 공급처로 걸렀을 때 주의)
 
+### 화면 — 실물 2 (2026-10-01 밤 · 판정 224 ~ 226 · 원문 so-module §36-a)
+
+| 파일 | 빌드 표시 | 무엇 |
+|---|---|---|
+| product-sheet.html | sheet v2a | 가격식 줄(Edit 모드 · 공급처로 걸렀을 때만) · 식 고르기 · 「이번만」 · admin Save as new · Update · Make default · 줄 고르기 · Preview(price_formula_preview) · Landed · GP · Save = price_set + formula · New 모드는 식 없음 |
+| pos.html | pos v1.3 | 큰 대표 사진 · 줄 · 찾기 사진(38px 고정) · 할인 표시(판정 225) |
+| ims-ui.js | (wms-img-1) | imsPhotoUrl · imsPhotoPrimary — thumb 도우미와 같은 캐시 · 같은 창구 · throw 없음 |
+| wms-picker · packer · receiver · fulfillment | pk v1.3 · pa v1.4 · rc v1.7 · fu v1.3 | 사진(판정 224) · 그려진 칸만 채움 · Image differs 살아남 |
+| manager-list · system-check · ims-auth.js | ml v1.1 · sc v1.1 | 보이는 글자 Action Centre |
+
+- 판매가 열을 숨기면 Preview 가 멈춘다(판정 226 · 그대로)
+
 ### 가격식 — 정한 것 (price-1 전 · 판정 215 ~ 223 · 222 · 223 이 앞을 고쳤다 · 원문 so-module §35-a)
 ```
 원가          Latest cost 하나(공급처 줄 cost) · 통화 USD / CAD 를 고른다 · USD = × 1.4(환율) · CAD = × 1(222)
@@ -1436,6 +1448,32 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
 세트          식 안 건다(계산 · 고정가 줄 그대로) · 원가 없거나 0 = No cost 넘어감 · GP = (W − 도착 원가) ÷ W · 도착 원가 = Latest × 환율 × 운임·기타 × (1 + 관세 %)(묶음)
 권한          식 걸어 저장 = master · 공급처 식 저장 · 티어 규칙 = admin 만(묶음 6)
 차수          price-1 DB(Claude Code) → price-2 · price-3 화면(대화 Claude) · price-1 묶음은 222 · 223 모양으로 다시 정한다
+```
+
+### 가격식 — 실물 (price-1 · asung-wms a163287 · 20261002012641_price_1_formula.sql · 테스트 DB 적용 · repair · 확인 37 OK)
+```
+표 셋        price_formula — 공급처 FK · name(공급처 안 unique · 꺼진 것 포함 · 창구가 대소문자 · 공백을 접어 막는다) · is_default(공급처당 켜진 기본 하나 — 부분 유니크 없음 · 창구가 지킨다)
+                             currency_id CAD | USD(창구 검사) · freight > 0 · duty_pct 0 ≤ d < 100 · margin 0 < m ≤ 1 · endings ⊆ {9, 19, …, 99} 비지 않음 · source 는 manual 하나
+             price_fx        통화마다 CAD 환율 하나 · rate > 0 · seed CAD 1 · USD 1.4 · CAD 는 창구가 못 바꾼다(fx_cad_fixed) · 대가: 공급처마다 다른 환율 없음
+             price_tier_rule sale 티어마다 op mul | div · factor > 0 · Wholesale(code 1)은 줄이 없다(식이 낸다) · seed Franchise ×1 · AONE ÷0.6 · Regular CAD ×1.05 · USWholesale USD ÷1.25 · 규칙 없는 sale 티어는 식이 안 채운다
+             셋 다 ims_touch · select 는 로그인한 모두 · 쓰기는 창구로만
+칸 하나      product_supplier.price_formula_id — 마지막으로 건 식 · nullable · FK · 인덱스 · 트리거 product_supplier_formula_lock(함수 price_formula_supplier_lock · IM223)이 다른 공급처의 식을 막는다(insert 와 그 칸이 SET 에 든 update 때 · null 은 통과)
+             적재 ImsLoadProductSupplier.gs 는 이 칸을 보내지 않는다
+계산         price_round_up(p_value, p_endings) immutable · price_formula_calc(p_formula, p_cost) stable — 식 id 또는 통째 식 → 끝자리 올림 → 티어 → 끝자리 올림
+             계산 중 반올림 없음(numeric) · landed · wholesale_raw · gp_pct 는 4 자리 · 가격은 센트 두 자리 · 저장 없음
+미리 보기    price_formula_preview(p_formula, p_skus) stable · 최대 1,000 SKU · flags unknown_sku · set_skipped · no_supplier_link · no_cost · currency_differs · manual_price · big_change
+저장 창구    price_formula_save(op create · update · default · off · on) · price_fx_save(USD 만) · price_tier_rule_save — (p_changes, p_commit, p_ack) definer · 두 번 부르기(product_update 모양)
+             첫 줄 ims_require_admin(p_what)(새 한 줄 함수 · ims_require_write 와 같은 모양) · 읽기는 로그인한 모두
+가격 저장    product_update 재발행(20261001152712 본문 바이트 그대로 + price_set 의 formula 칸) — 다시 계산해 그 티어 값과 numeric 등호면 source formula + price_formula_id
+             다르면 manual + 알리기 formula_mismatch · 통째 식이면 id null + formula_unsaved · 세트는 막기 formula_on_set · 저장 직전 재검사(판정 176)가 저장 때 Latest 로 판정
+             formula 칸 없는 줄은 옛 동작 그대로 · 열쇠는 master 그대로
+막기 code    price_formula_save: formula_unknown · formula_inactive · supplier_unknown · name_missing · name_duplicate · field_duplicate_in_call · formula_invalid · old_missing · changed_elsewhere · op_unknown
+             price_fx_save: currency_unknown · fx_cad_fixed · rate_not_positive · old_missing · changed_elsewhere · field_duplicate_in_call
+             price_tier_rule_save: tier_invalid · tier_rule_wholesale · op_invalid · factor_not_positive · old_missing · changed_elsewhere · field_duplicate_in_call
+             price_formula_calc(반환 blocks): formula_invalid · formula_unknown · formula_inactive · fx_missing · no_cost / product_update price_set: formula_on_set · formula_invalid
+알리기 code  price_formula_save: default_off · formula_in_use / price_fx_save: fx_big_change / product_update price_set: formula_mismatch · formula_unsaved
+⚠️           첫 문장은 guard-test-only 바이트 복사 — 운영에서는 멈춘다(컷오버 전 운영 적용 금지 · ims-principles)
+화면         price-2 = sheet v2a(이 절 「화면 — 실물 2」) · price-3 = Settings 환율 · 티어 규칙 · Suppliers 식 보기(⬜)
 ```
 
 ### 잠금 (판정 136 · 137 · 139)

@@ -4398,6 +4398,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
   ⑫ 창고 = ref_warehouse id · me.access.warehouses(null = 전부) · 최종 문은 창구 · ⑬ 화면마다 한 차수 — manager(⑤-4a) → picker(⑤-4b) → packer(⑤-4c)
 판정 33  픽 · 팩 화면의 제품 사진 — Caleb 「안 A로 가자」 · 이번에는 비워 둔다(HAS_IMAGES=false · 「Image differs」 단추도 숨김) · 마스터에 사진 칸(Storage)이 서면 읽기 창구에 한 칸 · 스위치를 켠다
          기각: 운영의 사진 주소(Cin7 · wms_legacy.wms_sku_snapshot 09-10)를 임시로 쓴다
+         ⇒ [정정 2026-10-01 · 판정 224 · §36-a] 「읽기 창구에 한 칸」 대신 화면이 product_image_primary 를 부른다(공통 imsPhotoPrimary · wms_pick_lines 칸 없음) · 스위치는 wms-img-1(pk v1.3 · pa v1.4 · rc v1.7 · fu v1.3)로 켜졌다
 ⑤-4 조사 사실: ims_staff 의 읽기 규칙이 using true — worker 도 모든 직원의 이메일을 읽는다(⬜) · ref_bin.zone 2,675 칸 전부 null — 존은 칸 이름에서(에드먼튼 E 다음 글자 · 토론토 첫 글자 · 옛 자료로 전부 일치)
 
 운영 ↔ IMS 화면 짝표
@@ -5931,4 +5932,102 @@ ba2a240 feat(products): pr v2h - primary photo shown large (300px) at the top ri
 그 뒤 prod-5(불러오기 적재 고침 · 판정 131 · 132 · 35-e 59 · 60 · 61 · 65 를 판정 거리로) · 메뉴에서 Supplier Products 빼기(판정 210 · Sheet 확인 뒤) · 판정 148 금요일 목표 점검
 ⬜ 10/2 14:30 UTC(토론토 10:30) scan 결과로 CON 17 장(§34-e 53)
 다음 판정 번호: 224
+```
+
+---
+
+## §36 창고 · POS 사진 · POS 할인 표시 · 가격식 실물 · 판정 224 ~ 227 (2026-10-01 밤 · 집 PC · 문서 차수 2026-10-02 회사 PC)
+
+⭐ 닫힌 것: price-1(가격식 DB · asung-wms a163287 · 테스트 DB 적용 · repair · 확인 37 OK) · price-2(Product Sheet 식 줄 · sheet v2a) · 창고 화면 넷 사진(wms-img-1 · 판정 224) · POS 사진 · 할인 표시(pos v1.1 ~ v1.3 · 판정 225) · Action Centre 철자 — Caleb 화면 시험은 POS ✅ · Sheet v2a · 창고 넷은 ⬜(36-f)
+⭐ 다음 = 화면 시험 남은 것 → price-3(화면) — 36-f
+
+### 36-a 판정 원문 (224 ~ 227 · 말 그대로)
+
+- **판정 224** (2026-10-01) Caleb 「가」 — WMS 화면(ims.asung.ca 의 WMS 모드 · 테스트 DB)의 사진은 **화면이 `product_image_primary` 를 부른다**(사무실 화면과 같은 읽기 창구 한 곳 · 오더 하나에 한 번 · 세트는 낱개 사진 — 판정 194) · DB 무접촉 · 판정 33 주석의 「wms_pick_lines 에 한 칸」은 이 판정으로 바뀌었다 · 기각 (나) `wms_pick_lines` 에 사진 칸 · 계기 Caleb 「지금 보니까, WMS와 POS는 아직 사진이 안보이는 것 같아.」
+  - 운영 WMS 와 다른 점(대화 Claude 설명 · Caleb 「오히려 사진이 바로바로 바뀐다니 더 좋은거네.」): 운영은 Cin7 주소를 `wms_sku_snapshot.image_url` 에 담고 픽 · 팩은 오더 들어올 때 얼린다 · 세트는 SKU 정확 일치만 · 대표 없으면 안 보임 / IMS 는 저장소 사본 · 화면 열 때 읽음(얼리지 않음) · 세트는 낱개 빌림 · 대표 없으면 첫 장
+- **판정 225** (2026-10-01) Caleb 「가」 — POS 할인은 **SO 화면과 같은 표시를 크게**: 딜 줄에 빨간 SALE · 원래 가격 줄 긋기 · 손님 기본 할인 · 손으로 · 무상은 작은 글씨 · 오른쪽 금액에 Order discount 줄 · 표시만(서버 일 없음) · 기각 (나) 계산원이 할인을 치는 칸 · (다) 지금대로 · 계기 Caleb 「POS에서 디스카운트는 어떻게 적용되지? 세일 아이템이 있으면 표시가 되나?」
+- **판정 226** (2026-10-01) Caleb 「일단 이것은 그대로 둘게」 — Sheet 는 **v2a 그대로**: 판매가 열을 숨기면 Preview 가 멈춘다(숨긴 열은 식에서 빼자는 Caleb 물음 「만약에 컬럼에서 가격 변동을 원치 않는 컬럼이 있다면 그것은 안보이게 하면 가격적용이 안되나?」 — 대화 Claude 안 「보이는 열만 채우고 숨긴 열은 지금 값」은 보류) · Latest 가 Fixed 의 절반 미만인 줄을 처음부터 끄는 안도 보류
+- **판정 227** (2026-10-02) Caleb 「좋아 가를 먼저하고, 나를 뒤에 더하는 방식으로 가자」 — 관세 부가 요금(surcharge)은 **(가) SO 줄마다 손으로 먼저 넣는다**(so_line 의 이미 있는 세 칸 · 화면과 청구 흐름을 짓는다) · **(나) 상품 마스터의 「부가 대상」 표시로 자동으로 붙이는 것은 뒤에 더한다**((가)의 칸과 흐름을 그대로 쓴다) · 기각 (다) 딜 규칙으로 걸기(D9 — 가산 딜은 옮기지 않는다) · 계기 Caleb 「IMS sales order에서 tariff surcharge를 넣을 수 있는 항목을 만들어 달라고 했었는데, 기억해?」 · 근거 원문 §5 「부가(surcharge) 세 칸 — Caleb 요청(2026-09-21)」
+  - 실물(대화 Claude grep · 2026-10-02 · a163287 · ad2460f): 칸 셋 · CHECK 둘(판정 7) · so_line_update 가 받는다 / so.html · pos.html 에 surcharge 0 곳 · 합계 · 세금 · 인보이스(so_invoice_a1) 에서 읽는 자리 못 찾음 — 짐작(시험 안 함)
+
+**묶음 확인** (판정 번호 없음 · 원문 그대로)
+- **price-1 묶음 1 ~ 8** — 대화 Claude 안 · Caleb 확인 2026-10-01 「그대로 가자.」
+  1. **공급처 식 표** — 공급처마다 여러 줄 · 그중 하나가 기본 · 칸: 이름 · 통화(USD / CAD) · 운임·기타(곱하기 · > 0) · 관세 %(≥ 0) · 마진(0 < m ≤ 1 · 나누기) · 끝자리 체크(최소 하나) · 통화의 처음 값 = 그 공급처의 통화
+  2. **환율은 한 곳** — Settings 에 「USD → CAD 1.4」 하나 · CAD 는 늘 1 · 환율이 바뀌면 식마다 안 고치고 한 곳만 · 대가: 공급처마다 다른 환율은 못 쓴다
+  3. **상품이 자기 식을 기억** — 공급처 줄(`product_supplier`)에 「마지막으로 건 식」 칸 하나(판정 223)
+  4. **티어 규칙 표** — Franchise ×1 · AONE ÷0.6 · Regular CAD ×1.05 · USWholesale USD ÷1.25 를 처음 값으로(판정 219)
+  5. **계산은 DB 함수 한 곳** — 식 → 끝자리 올림 → 티어 → 끝자리 올림 · 도착 원가 · GP 까지 · 저장은 안 한다 · Sheet Preview · New products · 다시 걸기가 모두 이 함수를 쓴다
+  6. **저장할 때 출처** — `price_set` 줄에 식 표시(어느 식)를 붙이면 창구가 5 의 함수로 **다시 계산해 같을 때만** 출처 `formula` 로 받고 3 의 칸을 채운다 · 다르면(사람이 Preview 에서 고친 값) `manual`
+  7. **권한** — 식 · 환율 · 티어 규칙 저장은 admin 만 하는 창구 · 읽기는 로그인한 모두 · 식을 걸어 가격을 저장하는 것은 지금처럼 `master` 열쇠
+  8. **검증과 크기** — 끝자리 올림 경계 시험: 5.60 → 5.99 · 5.49 → 5.49 · 5.491 → 5.99 · 9.99 넘김 → 10.49 · USD 7.35 → 7.39 · 판정 222 의 예 7.57 → 7.99 · 세트 · 원가 0 · 원가 없음 · 900 줄을 넘으면 price-1a(표 · 환율 · 계산 함수 · 저장 창구)와 price-1b(product_update 손질)로 나누는 안을 **먼저** 낸다
+- **price-2 묶음 1 ~ 8** Caleb 「그대로 가자」 — 1 Edit 모드에서 공급처로 걸렀을 때만 식 줄 · 2 식 고르기(기본 ★ 맨 앞) + 칸 넷 + 끝자리 체크 · 숫자를 바꾸면 「이번만」 · admin 단추 셋(Save as new · Update · Make default) · 3 줄 고르기(전체 체크 · manual 줄은 꺼진 채 · 세트 · 공급처 줄 없음 · 원가 없음은 못 고름) · 4 Preview → 판매가 다섯 열 노랑 + Landed · GP 열 · 10% 넘게 바뀜 · 통화 다름 표시 · 손으로 바꾼 칸은 manual · 5 저장은 Sheet 의 Save(price_set + formula) · 6 **New 모드는 식 안 씀**(product_create 에 formula 칸 없음) — 만든 뒤 「Open these in Edit」 · 7 price-3 으로: Settings 의 환율 · 티어 규칙 화면 · Suppliers 의 식 보기 · 8 sheet v2a 하나
+- **Action Centre** Caleb 「Action Center의 Center는 Centre로 바꿔줘.」 — 보이는 글자 넷(메뉴 줄 · 갈래 · System Check · 탭 제목) · 파일 · 열쇠 그대로 · 정본 · 주석의 옛 글자는 기록이라 그대로
+  - ⇒ **보이는 글자는 Centre**(캐나다 철자 · asung-ims bc7e9e7) · 앞으로 화면 · 정본의 새 글도 Centre · 옛 「Center」 줄은 고치지 않는다
+- **surcharge 묶음 1 ~ 8** Caleb 「그대로 가자」(2026-10-02) — 1 금액은 **개당**(% 는 그 줄의 할인 뒤 단가에 · 금액 칸은 개당 · 백오더로 줄이 나뉘면 수량을 따라 나뉜다) · 2 세금은 그 줄의 세율을 그대로(짐작 · 회계사 확인 거리) · 3 합계에서 물건값과 따로 「Surcharge」 줄(매출에 안 섞는다) · 4 인보이스 · PDF 에 줄마다 이름 · 금액 + 합계 한 줄 · 5 계정 `_94_ Surcharge`(INCOME · 회계사 확인 거리) · 6 크레딧 노트는 돌려주는 수량만큼 surcharge 도 · 7 화면 = SO 줄 표에 Surcharge 칸(이름 + % 또는 금액 · 초안에서만 · 이름 기본값 비움) · POS 는 표시만 · 8 차수 = Claude Code DB(먼저 조사 — 합계 · 인보이스가 surcharge 를 안 읽는지 실측 → 합계 · 세금 · 인보이스 · 크레딧 · 확정 때 고정) → 대화 Claude 화면(so.html 칸 · 표시 · 인보이스 · POS 표시)
+
+### 36-b 커밋 · 실물
+
+- asung-wms: **a163287** — `supabase/migrations/20261002012641_price_1_formula.sql`(1,588 행 · md5 `0fca12f67d22f73736c356881cfd4ac2`) · 실물은 po-module §3-h 「가격식 — 실물」
+- asung-ims: `git -C ~/asung/asung-ims log --oneline 1f632d8..HEAD` 원문(10 줄 · 2026-10-02 회사 PC)
+```
+ad2460f feat(fulfillment): fu v1.3 - pool card photos from the shared imsPhotoPrimary helper (ruling 224): one read per load after refresh, only the drawn boxes are filled so drag and dimension inputs are never interrupted
+c6291e2 feat(receiver): rc v1.7 - product photos from the shared imsPhotoPrimary helper (ruling 224): one read per receipt, only the drawn photo boxes are filled, photos survive the detail refresh and off-invoice lines get theirs, Image differs button and flags live
+d623238 feat(packer): pa v1.4 - product photos from the shared imsPhotoPrimary helper (ruling 224): one read per pack task after the lines are drawn, only the drawn photo boxes are filled, Image differs button and flags live
+a29969e feat(picker): pk v1.3 - product photos from the shared imsPhotoPrimary helper (ruling 224, no wms_pick_lines column): one read per batch after the lines are drawn, only the drawn photo boxes are filled so scanning and scrolling are never interrupted, Image differs button and flags live
+f313c3f feat(ui): wms-img-1 - imsPhotoUrl and imsPhotoPrimary for the warehouse screens (ruling 224): same cache, same product_image_primary read and same no-throw rule as the thumb helper, thumbLoad shared by imsThumbFill
+01e7228 feat(product-sheet): sheet v2a - price formula bar when filtered by a supplier (rulings 215 to 223): saved or one-off formula, pick rows, Preview through price_formula_preview, Landed and GP column, Save sends price_set with formula; admin save as new, update, make default; New mode Open these in Edit
+67a1b05 fix(pos): pos v1.3 - small photos on sale lines and in Find a product were filled but not drawn; fix their size in pixels and load them right away
+13325df feat(pos): pos v1.2 - discount shown like the SO screen (ruling 225): SALE tag and struck list price on deal lines, customer, by-hand and free notes, Order discount and Charges rows in the totals; v1.1 large photo at the top right, photos on lines and in Find a product
+0d20df7 feat(pos): pos v1.1 - large primary photo at the top right of the counter (last item scanned, or the line clicked), photos on sale lines and in Find a product
+bc7e9e7 fix(ui): Action Centre spelling in the menu, the tab title and System Check (Canadian spelling, file and key unchanged)
+```
+- 화면 판 · 빌드 표시 · 무엇:
+
+| 파일 | 빌드 표시 | 무엇 |
+|---|---|---|
+| ims-auth.js · manager-list.html · system-check.html | ml v1.1 · sc v1.1 | 보이는 글자 Action Centre(파일 · 열쇠 그대로) |
+| pos.html | pos v1.1 → v1.2 → v1.3 | v1.1 큰 대표 사진 오른쪽 위(마지막 스캔 · 누른 줄) · 줄 · Find a product 사진 / v1.2 할인 표시(판정 225 · SALE · 줄 긋기 · Order discount · Charges 줄) / v1.3 작은 사진 38px 고정(36-e 71) |
+| product-sheet.html | sheet v2a | 가격식 줄(price-2 묶음 1 ~ 8) · Preview = price_formula_preview · Landed · GP 열 · Save = price_set + formula · New 모드 「Open these in Edit」 |
+| ims-ui.js | (wms-img-1) | `imsPhotoUrl` · `imsPhotoPrimary` — thumb 도우미와 같은 캐시 · 같은 창구 · `thumbLoad` 공유 · throw 없음 · 못 읽은 SKU 는 Map 에도 캐시에도 없음 |
+| wms-picker · wms-packer · wms-receiver · wms-fulfillment.html | pk v1.3 · pa v1.4 · rc v1.7 · fu v1.3 | 사진 켜기(판정 224) — `HAS_IMAGES = typeof window.imsPhotoPrimary === "function"` · 줄을 그린 뒤 한 번 읽어 **그려진 칸만** 채운다(다시 그리지 않음) · 열쇠 = `order_sku`(픽 · 팩 · 리시빙) · `sku`(Fulfillment) · 리시빙은 새로 고침에도 보존 · 세트가 낱개 사진을 빌리면 title 만 · 「⚑ Image differs」 단추 · 표시 살아남(테스트 DB `wms_reports.kind` CHECK 에 `image_mismatch` 있음 · 20260926192314) |
+
+### 36-c 실측
+
+- price-1: Claude Code 시험 적용 + 검증 **45 OK**(테스트 DB · rollback) · Caleb 실제 적용 `apply_rc=0` · repair `applied` · 확인 검증 exit 0 · **OK 37**(기대 37) · MISMATCH · ERROR 없음 · `price_formula_table_now t` · `new_body_now t` · 시퀀스 일곱 `*_same t` · 시험 흔적 0
+- 테스트 DB 지금(인계서 1001-home §4): `price_formula` 0 줄(Save as new 하면 생김) · `price_fx` CAD 1 · USD 1.4 · `price_tier_rule` 넷 · POS 시험 판매 SO-25004 · 25016 · 25018 · 25019(JOJOJO · 25019 는 confirmed)
+- wms-img-1: jsdom **27 PASS**(레포 밖 `~/asung/prompts/wms-img-1-test.js`)
+- 회사 PC 받기(2026-10-02 아침): `asung-prompts-1001-home.zip` 206,356 B · md5 `bf18f16c34325d80e3ff6a3447029fe8` · 29 files · new 8 · same 21 · diff 0 · pull ab2f5a8 → a163287 · eefd622 → ad2460f(fast-forward)
+
+### 36-d 사고 · 교훈 (asung-workflow §11 에 규칙 줄로)
+
+1. [대화 Claude] docs-1001c 를 쓴 **뒤** 판정 222 · 223 이 나와 po-module 「가격식」 블록이 커밋 전에 이미 틀렸다 — 커밋 전에 docs-1001d 로 덧붙여 한 커밋에 ⇒ 문서 차수를 돌리는 동안 판정이 더 나오면 커밋 전에 대조
+2. [대화 Claude] 판정 220 줄에 「formula 를 **더한다**」로 썼다 — CHECK 에 이미 있었다(Claude Code 이견) ⇒ 판정 요약에 사실(표 · CHECK)을 쓸 때는 레포를 먼저 본다
+3. [대화 Claude] Claude Code 의 문서 차수 보고가 스킬 zip 자리를 `~/asung/` 로 적었다 — asung-workflow §8 은 Downloads ⇒ 보고의 명령도 규칙과 대조
+4. [대화 Claude] POS 의 작은 사진이 안 보였을 때 jsdom 으로는 재현이 안 됐다 — Caleb 콘솔 한 줄(`outerHTML`)로 「채워짐 · 안 그려짐」을 갈랐다 ⇒ 화면 결함은 **칸 상태를 콘솔로 먼저**(36-e 71)
+5. [대화 Claude] 「0 · 0」 두 줄 답을 어느 덩이의 결과인지 못 가렸다 ⇒ SQL 을 여러 덩이 줄 때는 덩이마다 무엇이 찍히는지 이름을 붙인다
+6. [대화 Claude · 2026-10-02] price-1 · wms-img-1 의 Claude Code 보고 원문이 대화에도 레포에도 남지 않아, 인계서가 「보고의 갱신 거리」를 재료로 꼽았는데 이 문서 차수가 보고의 이견(price-1 1 ~ 11) · 사고 셋 · 시험 거리를 옮기지 못했다(실물은 마이그레이션 · 화면 주석에서 옮김) ⇒ 보고에 「정본 갱신 거리」가 있으면 그 보고를 `~/asung/prompts/<차수>-report.md` 로 남겨 zip 에 넣고, 인계서는 「보고에」가 아니라 **그 파일 이름**을 가리킨다
+7. [Claude Code] wms-img-1 보고가 「다음 판정 번호 225」로 적었다 — 그 사이 225 · 226 이 나왔다 ⇒ 다음 판정 번호는 정본 · 인계서의 것을 쓴다(보고의 수는 그 보고를 쓸 때의 것)
+
+### 36-e 미룬 것 — §35-e 69 에 이어 붙임
+
+- 70 일부 상품의 Latest cost 가 **0.01**(Fixed 2.88 · Honey Hydrating Color 줄들 · Roux Laboratories · Caleb 캡처) — 식을 걸면 0.49 · 지금은 Preview 의 「moves more than 10%」 로만 잡힌다 · 판정 226 으로 보류
+- 71 POS 표 칸 안의 작은 사진(40px)이 칸은 `done` + `<img>` 인데 **안 그려졌다**(Caleb 콘솔 확인) · `max-width:100%` 가 표 칸 안에서 크기를 못 정한 것으로 짐작 · POS 만 38px 로 못 박아 고침(pos v1.3) · 다른 화면에서 같은 일이 보이면 공통 `ims-ui.css` 의 `.ims-thumb img` 를 픽셀로
+- 72 시험 딜 `TEST POS SALE 15`(manual · AAL19445 · 15% · 모든 손님 · 2026-10-01 ~ 10-08) — Caleb 「상관없어. 이것은 내가 나중에 다시 요청하거나 할게.」 · 켜 둔 채 · 끄기: `update public.so_deal set is_active = false where name = 'TEST POS SALE 15' and source = 'manual';`
+- 73 판정 226 의 보류 두 안 — 숨긴 판매가 열은 식에서 빼기(보이는 열만 채우고 숨긴 열은 지금 값) · Latest 가 Fixed 의 절반 미만인 줄을 처음부터 끄기(70)
+- 74 New 모드에서 식 — `product_create` 에 formula 칸이 없다(price-2 묶음 6) · 판정 거리
+- 75 §35-e 57 · 판정 33 의 사진 스위치(`HAS_IMAGES=false`) — 픽 · 팩 · 리시빙 · Fulfillment 는 wms-img-1 로 · POS 는 pos v1.1 로 닫힘 · 57 의 System Check `ims_image_sync_health()` 두 줄은 이 차수에서 확인 안 함
+- 76 회계사 확인 거리 — surcharge 에 세금이 붙나 · 계정 `_94_ Surcharge` 가 맞나(surcharge 묶음 2 · 5)
+
+### 36-f 다음
+
+```
+순서(Caleb 이 정한다):
+surcharge-1(판정 227 · surcharge 묶음 8) — Claude Code 조사 → DB → 대화 Claude 화면 · Caleb 「문서 작업은 완료하고 시작하자」
+화면 시험 남은 것 — 창고 넷(pk v1.3 · pa v1.4 · rc v1.7 · fu v1.3): 📱 사진이 늦게 와도 스캔 수량 · 포커스가 남는지 · 리시빙 새로 고침 뒤 사진이 남는지 · bin 고르기 창이 안 닫히는지
+                  Sheet v2a: Roux Laboratories 로 Load → 「— new formula —」 → Save as new → Preview → 손으로 한 칸 → Save → Products 에서 출처 formula / manual · ⚠️ 36-e 70 의 0.01 줄은 체크를 끄고
+price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙(price_fx_save · price_tier_rule_save · admin) · Suppliers 화면에 그 공급처의 식 보기
+보류: 36-e 73 · 74
+그 뒤 판정 147 순서: prod-5(불러오기 적재 고침 · 판정 131 · 132 · 35-e 59 · 60 · 61 · 65) · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 금요일(10/2) 목표 점검
+⬜ 10/2 14:30 UTC(토론토 10:30) scan 결과로 CON 17 장(§34-e 53)
+다음 판정 번호: 228
 ```
