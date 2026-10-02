@@ -6137,3 +6137,54 @@ price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙 · Suppli
 ⬜ CON 17 장(§34-e 53 · 10/2 scan 결과)
 다음 판정 번호: 233
 ```
+
+---
+
+## §38 트랜스퍼 붙여 넣기 — 판정 233 (판정 171 의 실행 · 2026-10-02 · 회사 PC)
+
+⭐ 닫힌 것: tf-paste-1(DB 창구 `inv_transfer_lines_paste`) · tf-paste-2(transfers.html Paste lines) — 테스트 DB 적용 · repair · Caleb 화면 시험 ✅
+
+### 38-a 판정 원문 (233 · 말 그대로)
+
+- **판정 233** (2026-10-02) Caleb 「나」 — 트랜스퍼 붙여 넣기는 **DB 창구를 새로 만든다**(`inv_transfer_lines_paste` · SO · PO 와 같은 모양 · 미리 보기 → 한 트랜잭션으로 전부 또는 하나도) · 화면은 그 창구를 부른다 · 기각 (가) 화면이 줄마다 `inv_transfer_line_set` 을 부르기(몇 줄만 빠진 채 반쯤 들어간다 · 미리 보기 없음) · 계기 Caleb 「트랜스퍼에는 paste lines가 없는데, 추가해줄 수 있어?」
+  - ⇒ **판정 233 = 판정 171 의 실행** — 판정 171 이 이미 「(나) DB 창구 inv_transfer_lines_paste · po_lines_paste · so_lines_paste 를 본뜬다」로 정해 두었다(시기 「상품 마스터 뒤」) · 대화 Claude 가 233 을 적을 때 171 을 찾아보지 않았다(38-d 1) · Claude Code 이견 10 이 찾았다
+
+**묶음 확인** (원문 그대로)
+- **tf-paste 묶음 1 ~ 8** Caleb 「가자」 — 1 모양은 `po_lines_paste` 와 같다(SKU · 수량 목록 · 미리 보기와 넣기가 같은 모양 · 500 줄 · 넘으면 「너무 많다」 판정) · 2 열쇠는 우리 SKU(앞뒤 공백 · 대소문자 무시로 한 번 더 · 바코드 안 받음) · 3 판정 여섯 `ok` · `not_found` · `inactive` · `duplicate`(합치지 않는다) · `exists`(더하지 않는다 · 그 줄을 고쳐라) · `bad_qty` — 넣을 때는 `ok` 만 · 한 트랜잭션 · 4 수량은 그 상품의 단위(세트는 세트 수 · 계수는 상품에서 굳힘) · 5 출발 창고 재고보다 많으면 알리기만(확정이 따로 막는다) · 6 초안에서만 · 권한은 트랜스퍼 창구들과 같은 첫 줄 문 · 7 화면 = Add line 옆 Paste lines · 8 차수 tf-paste-1 DB → tf-paste-2 화면
+  - PO 는 중복을 판정만 하고 SO 는 합친다 — 트랜스퍼는 PO 쪽(줄 하나 넣는 창구가 이미 「같은 상품 두 줄 거부」)
+- **tf-paste-1 이견 1 ~ 9 승인** Caleb 「그대로 가자. 붙여 넣었어.」 — 판정 순서 bad_qty → not_found → inactive → duplicate → exists → ok(PO 와 순서가 다르다 · 수량이 틀린 줄은 「본 것」으로 안 세어 뒤의 같은 SKU 는 ok) · 넣기는 `ok` 줄마다 `inv_transfer_line_set` 을 부른다(규칙 한 곳 · 한 줄이 raise 하면 전부 되돌아감 = 원자성이 구조로) · 미리 보기도 권한 문 · 가용 = `so_available_many`(확정의 `inv_transfer_shortage` 와 같은 식 · 세트는 부모 stock 상품으로 접고 이 초안의 기존 줄 + 붙인 줄을 EA 로 더한다) · 세트와 낱개는 다른 상품(둘 다 한 트랜스퍼에 가능)
+
+### 38-b 커밋 · 실물
+
+- asung-wms **ab4cd74** — `supabase/migrations/20261002174937_tf_paste_1.sql`(204 행 · md5 `c1e4418e7a0ec0c2c820c0493a7bf39c` · 새 함수 하나 · 기존 함수 재발행 0)
+- asung-ims **a013664** — transfers.html `tf paste v1`(md5 `dd14382b0a9e821d2f773ad5a08789f5`)
+- 창구 `inv_transfer_lines_paste(p_transfer_id uuid, p_lines jsonb, p_commit boolean default false)` — definer · 첫 줄 `inv_transfer_require(from, to)`(미리 보기도) · 초안만 · 반환 `summary{total, ok, not_found, inactive, duplicate, exists, bad_qty, short, inserted, too_many, limit, message}` · `lines[{n, input_sku, input_qty, verdict, product_id, sku, product_name, product_active, stock_product_id, pack_factor, qty_ea, available_ea, short_by, line_no, line_id, inserted, message}]`
+- ⭐ `inv_transfer_detail` 의 `shortage` 와 붙여 넣기의 `short_by` 는 **같은 식**(so_available_many · stock 상품으로 접기) — 붙일 때 보인 모자람 = 확정이 막을 모자람
+- 화면: 초안에 Paste lines · Check(미리 보기) → Add lines(Check 뒤 · 붙인 글이 그대로일 때만) · 판정 색(ok 초록 · 모자람 주황 · 이미 있음 회색 · 중복 주황 · 없음 · 꺼짐 · 수량 빨강) · EA · 가용 EA · 붙여 넣기 읽기는 so.html 과 같은 식
+
+### 38-c 실측
+
+- Claude Code 시험 갈래 2 회차 **31 OK** · Caleb 확인 실행 **27 OK**(exit 0 · `set -o pipefail` 판) · 시험이 보인 것: 한 번의 목록에 판정 여섯 · 넣기 도중 한 줄 실패 → 0 줄 · 미리 보기와 넣기 사이 끼어든 줄 → 그 줄만 exists · AS00963 가용 초과 5,320 → ok + short_by · 확정 거부 · 세트 + 낱개 + 기존 줄이 한 stock 상품으로 접힘 · 501 줄 → too_many
+- 화면: jsdom 11 PASS(열기 → Check → 고치면 꺼짐 → Add lines → Close 다시 그림 · 따옴표 든 이름 포함) · Caleb 「잘 작동해.」(2026-10-02)
+- 시퀀스: inv_transfer_number_seq 는 Caleb 화면 시험으로 10(TRF-00010 · 2026-10-02 15:49 토론토) · 확인 실행 머리 = 꼬리 = 10
+
+### 38-d 사고 · 교훈
+
+1. [대화 Claude] 판정 233 을 적을 때 같은 일을 이미 정한 판정 171 을 찾아보지 않았다 — Claude Code 가 지시서를 읽다 찾았다 ⇒ 새 일을 판정으로 올리기 전에 정본에서 그 창구 · 화면 이름을 grep 한다(이미 정한 계획이면 「○ 의 실행」으로 적는다)
+2. [대화 Claude] 화면 차수에서 jsdom 으로 창을 실제로 열어 돌렸다(37-d 7 의 교훈) — 처음부터 통과 ⇒ 잘 된 예 · 미리 보기 → 실행 창은 계속 이렇게
+
+### 38-e 미룬 것 — §37-e 82 에 이어 붙임
+
+- 83 바코드로 붙여 넣기 — 받지 않는다(PO 와 같다 · 묶음 2) · 필요하면 판정 거리
+
+### 38-f 다음
+
+```
+순서(Caleb 이 정한다):
+화면 시험 남은 것(36-f) — 창고 넷(pk v1.3 · pa v1.4 · rc v1.7 · fu v1.3) · Sheet 가격식(sheet v2b)
+price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙 · Suppliers 의 그 공급처 식 보기
+보류: 36-e 73 · 74 · 37-e 77 · 78
+그 뒤 판정 147 순서: prod-5(판정 131 · 132 · 35-e 59 · 60 · 61 · 65) · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목표 점검
+⬜ CON 17 장(§34-e 53 · 10/2 scan 결과)
+다음 판정 번호: 234
+```

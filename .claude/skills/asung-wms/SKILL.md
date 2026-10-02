@@ -36,6 +36,7 @@ description: >
 - ⚠️ 옆 길 조회의 select 는 판매 임베드의 칸 목록을 그대로 복사한다(wa v1.12 가 마무리 기록 세 칸만 읽어 「no finalize record」 · tf-2d)
 - 판정 84: Fulfillment 작업대에 판매 · 트랜스퍼를 함께 못 올린다(화면 fu v1.2 + DB `wms_finalize` 섞인 목록 거부 · `20260929152617`) · 판정 85-1 「Ship to warehouse」 · 판정 86: Trace 는 TRF 번호로만 · 재출력은 Finalized 탭(트랜스퍼는 in_transit · receiving 동안) · 통계에 트랜스퍼를 센다
 - 빌드(2026-09-29): wm v1.2 · pk v1.1 · pa v1.3 · fu v1.2 · rc v1.5 · wa v1.13 · transfers.html tf v1
+- ⭐ **트랜스퍼 붙여 넣기 — inv_transfer_lines_paste(판정 233 = 171 · ab4cd74)**: po_lines_paste 모양 · 판정 여섯(합치지 않음) · 넣기는 ok 줄마다 inv_transfer_line_set(전부 또는 하나도) · 가용 = so_available_many(확정의 shortage 와 같은 식 · 세트는 부모로 접기) · 모자람은 알리기만 · 화면 transfers.html Paste lines · 정본 so-module §38
 ⭐⭐ [2026-09-30] **IMS 픽 줄의 실제 칸은 줄을 저장할 때마다 DB 에 적는다(so-module §30 · 판정 121 ~ 124 · 275820d · pk v1.2 · wa v1.15)** — 모르면 원장 칸이 틀어진다:
 - 창구 `wms_pick_line_save(p_line_id, p_picked_base, p_bins, p_status, p_verification_method, p_session_id)` — `p_bins` = `[{bin_id 또는 bin, qty_base}]`(합 = picked_base · 0 이면 행 없음 · null/[] 이면 계획 칸 순서) · 반환 `saved` · `reason`(`other_device` · `not_yours`) · `mode`(`given` · `kept` · `planned`) · `bins[].ledger_qty` · `is_active` · `warnings` · 과제 completed · 보류(pending)는 거부 문구
 - 쓰기 식은 속 함수 `wms_pick_line_bins_write` 한 곳(완료 창구 ③′ 도 부른다 · 판정 31 revoke) · 팩 회복 행(pack_task_id)은 손대지 않는다 · ⚠️ 옛 ③′ 는 팩 회복 행까지 지웠다
