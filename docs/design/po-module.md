@@ -1405,6 +1405,39 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
 첫 채우기   2026-10-01 — 큐 10,344 → done 10,326 · skipped 18(too_large 1 · download_failed 17 = CON · scan 과 move 사이 Cin7 원천 교체) · type 4 · 판정 198(조금 먼저 → 눈으로 → 나머지)
 ```
 
+### 화면 — 실물 (2026-10-01 · 판정 199 ~ 214 · 원문 so-module §35-a)
+
+| 파일 | 빌드 표시 | 무엇 |
+|---|---|---|
+| products.html | pr v2g → v2h → v2i → v3a → v3b | 대표 사진 오른쪽 위 300px · Photos 맨 아래 · 숫자 열 머리 오른쪽 · 넓은 목록(판정 209) · 구역 색 띠 |
+| families.html | fam v2a | 넓은 목록 · 변형 · 세트 수 · ☰ List · ‹ All families · Active only 가 처음부터 켜짐(바뀐 점) |
+| supplier-products.html | spp v2a | 공급처 넓은 목록 · 연결 · 기본 · No price · Last supplied 수(켜진 연결 12,721 을 한 번 읽어 센다) |
+| ims-auth.js · ims-ui.css · ims-ui.js | (thumb-1) | 메뉴 Product Sheet · 구역 색 일곱 · imsThumb · imsThumbFill |
+| po.html | po thumb v2 | Lines 표 · Add a line 후보 사진(판정 208 · 212) |
+| so.html · transfers.html · stock-adjustments.html | so / tf / adj thumb v1 | 줄 표 · 고르기 후보 사진(208 · 213) |
+| invoices.html · receiving.html · so-invoices.html · so-credits.html | inv / rcv / inv / cr thumb v1 | 화면 줄 표 사진(214) · 화면이 바뀌면 저절로 채움(MutationObserver) |
+
+- 넓은 목록 · 좁은 목록이 **같은 필터 · 같은 쪽**(100 줄)을 쓴다(넓은 3 쪽에서 고르면 좁은 목록도 3 쪽)
+- 줄 사진: 화면은 `imsThumb(sku)` 를 SKU 칸 앞에 · 그린 뒤 `imsThumbFill(상자)` · 공통 js 가 옛 판으로 캐시돼 있으면 칸 없이 그린다(`typeof window.imsThumb` 검사) · 인쇄 · PDF 인보이스에는 넣지 않는다(판정 214)
+- Product Sheet 의 공급처 열은 기본 공급처 줄(판정 207 · 공급처로 걸렀을 때 주의)
+
+### 가격식 — 정한 것 (price-1 전 · 판정 215 ~ 223 · 222 · 223 이 앞을 고쳤다 · 원문 so-module §35-a)
+```
+원가          Latest cost 하나(공급처 줄 cost) · 통화 USD / CAD 를 고른다 · USD = × 1.4(환율) · CAD = × 1(222)
+              원산지 통화(KRW · CNY)는 하지 않는다 — 215 의 「다」 · 221 은 거둠(222) · Fixed cost 는 쓰지 않음(215)
+식 모양        Wholesale = Latest × 환율 × 운임·기타 × (1 + 관세 %) ÷ 마진 — 칸 넷 · 칸마다 × / ÷ 고르기 없음(216 → 222)
+              예 USD 3.00 · 1.1 · 관세 6.5% · ÷0.65 → 7.57 → 7.99(.49 · .99 올림)
+끝자리        .09 ~ .99 열 개 중 식마다 체크(묶음 .49 · .99 / .x9 all) · 올림 — 식 값 이상인 가장 가까운 끝자리(217)
+저장          공급처마다 이름 붙인 식 여럿 · 하나가 기본 · 식을 걸면 상품의 공급처 줄에 어느 식인지 남는다 · 다시 걸 때 「이 식을 쓴 상품」으로 거른다(223 · 218 을 고침)
+              식은 웬만하면 안 바꾸지만 바꿀 수 있다(정정) · Sheet 에서 「이번만」 또는 「저장」
+적용 대상      Preview 줄마다 체크 · 전체 체크(222) · manual 줄은 꺼진 채 시작 · cin7 · formula 는 켜진 채 · 10% 넘게 바뀌면 색(220)
+티어          모든 공급처에 한 벌(Settings) · Wholesale = 식 · Franchise = W · AONE = W ÷ 0.6 · Regular CAD = W × 1.05 · USWholesale USD = W ÷ 1.25 · 끝자리 올림 한 W 에서 계산해 다시 올림(219)
+출처          가격 줄 source 의 formula 는 9/23 가격표 차수가 CHECK 에 이미 넣어 두었다(cin7 · formula · manual) · 지금 product_update 의 price_set 은 늘 manual 로 쓴다 ⇒ price-1 에서 손질
+세트          식 안 건다(계산 · 고정가 줄 그대로) · 원가 없거나 0 = No cost 넘어감 · GP = (W − 도착 원가) ÷ W · 도착 원가 = Latest × 환율 × 운임·기타 × (1 + 관세 %)(묶음)
+권한          식 걸어 저장 = master · 공급처 식 저장 · 티어 규칙 = admin 만(묶음 6)
+차수          price-1 DB(Claude Code) → price-2 · price-3 화면(대화 Claude) · price-1 묶음은 222 · 223 모양으로 다시 정한다
+```
+
 ### 잠금 (판정 136 · 137 · 139)
 ```
 SKU              원장 · 원가 레이어 행이 하나라도 있으면 표 트리거가 거부(어느 길로도) · 사건 없는 상품(만든 직후 오타)은 허용(판정 136) · 실물 원장 붙은 상품 4,686 · 레이어 8,087 · ✅ prod-2 product_sku_lock(IM136)

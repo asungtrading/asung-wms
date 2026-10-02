@@ -2155,6 +2155,7 @@ Shopify 짝   「comparedPrice CAD와 Wholesalespecia CAD는 샤피파이에 있
             ⚠️ 이름과 달리 wholesalespecia 는 특가가 아니라 **비교가**다 — 대화 Claude 가 「특가」로 짐작했다가 화면으로 뒤집혔다
             ⭐ 짝은 티어가 아니라 **스토어 설정**이 정한다 — 티어 표에 짝 칸을 두지 않는다 · Shopify 연동 차수에서 스토어 설정(판매 티어 · 비교 티어)으로
 가격식(뒤 차수) 서플라이어별 가격식 · 신제품에만 자동 · 한 번 정해지면 안 바꿈 · GP 표시 · 튀는 것 손으로 · 매입가 바뀌면 일괄 재적용 창구 · 상품 쪽에서 서플라이어별로
+            ⚠️ [2026-10-01 정정 · §35-a] 「한 번 정해지면 안 바꿈」은 가격이 아니라 공급처의 **식**이고 「웬만하면 잘 안 바꾼다」는 뜻 · 가격은 식을 출발점으로 사람이 언제든 고친다(Caleb 원문 §35-a 정정 둘) · 식의 모양은 판정 215 ~ 223
             예: ((10 CNY ÷ 5) × 1.4) ÷ 0.5 = 5.6 → 5.49 또는 5.99 — 원가는 원산지 통화(KRW·CNY)일 때가 많다 · ÷5 는 계획 환율 · ×1.4 운임·비용 · ÷0.5 마진
             ⚠️ 이번 차수 범위 밖 — 다만 가격 줄의 「출처」 칸(product_price.source)은 이 요청 때문에 지금 선다(판정 ③)
 ```
@@ -2192,6 +2193,7 @@ Sellable   Active Stock 세트 5,832 중 true 1(BEL43475-12) · 낱개 8,609 중
 ③  가격표 = 제품 × 티어 → 가격 한 표(product_price) — 낱개: 줄이 있다 = 정본 가격 · 세트: 보통 줄이 없다 = 계산 · 줄이 있으면 = 고정가(계산값보다 줄이 이긴다)
     ⭐ 줄마다 출처를 남긴다 — 어디서 왔나(source) · 언제(price_set_at) · 누가(price_set_by)
        근거: 가격식 차수의 「한 번 정해지면 안 바꾼다」·「일괄 재적용 때 사람이 고친 값은 덮지 않는다」가 이 칸에 선다 · 나중에 더하면 옮겨 온 줄의 출처가 빈다
+       ⚠️ [2026-10-01 정정] 앞의 「한 번 정해지면 안 바꾼다」는 식에 대한 말(§35-a 정정 둘) · 「사람이 고친 값은 덮지 않는다」는 판정 220 으로 「Preview 에서 manual 줄은 꺼진 채 시작」이 되었다
 ④  BEL43475-12 는 16.99 고정가를 지킨다(계산값 16.68 을 따르지 않는다) ⇒ 세트 줄 셋(Wholesale · Franchise · wholesalespecia CAD = 16.99) · 나머지 티어는 계산
     대가: 낱개 BEL43475 가 바뀌어도 이 셋은 따라가지 않는다 — 가격 화면이 「고정가 세트」를 따로 보여야 한다(화면 차수)
 ```
@@ -5795,4 +5797,138 @@ ac02db7  img-2    20261001161052_img_2_cin7_image_sync.sql (168행 · md5 e9f92c
 순서(판정 147): prod-2 ✅ · prod-3 ✅ · prod-3b ✅ · prod-4(a · b) ✅ · img-1 ✅ · img-2 ✅ → 이 문서 차수 → prod-5 불러오기 적재 고침(판정 131 · 132) 또는 화면(대화 Claude · 판정 148 금요일 목표 = 레이아웃 ✅ + 상품 마스터)
 ⇒ 다음 = Caleb 이 정한다(prod-5 와 화면 중 무엇 먼저)
 다음 판정 번호: 199
+```
+
+---
+
+## §35 상품 화면 · 사진 화면 · 가격식 판정 · 판정 199 ~ 221 (2026-10-01 · 회사 PC 저녁 · 집 PC 밤)
+
+⭐ 닫힌 것: 화면 Products(pr v2a → v3b) · Product Sheet(sheet v1a → v1c) · Families(fam v2a) · Supplier Products(spp v2a) · 공통 썸네일 도우미 imsThumb(thumb-1) · 줄 사진 아홉 화면(판정 208 · 212 · 213 · 214) · 메뉴 Product Sheet · 가격식 판정 215 ~ 221 + 묶음 — 화면은 Caleb 시험 · 커밋(35-b)
+⭐ 다음 = price-1(DB · Claude Code) → price-2 · price-3(화면) — 35-f
+
+### 35-a 판정 원문 (199 ~ 221 · 말 그대로)
+
+- **판정 199** (2026-10-01) Caleb 「가」 — 다음은 **화면 먼저**(대화 Claude) · prod-5(불러오기 적재 고침)는 병행 운영(11 월) 전까지 · 근거: 판정 148 의 금요일(10/2) 목표 「상품 마스터」에서 남은 것이 화면 · 창구가 다 서 있다 · 기각 (나) prod-5 먼저
+- **판정 200** Caleb 「가」 — 화면은 **두 개**: ① **Products**(지금 화면을 키움 · 한 SKU 씩 — 그 자리에서 고치기 · 사진 · New product · New family) ② **Product Sheet**(새 화면 · 엑셀처럼 펼친 표 — 붙여 넣어 한꺼번에 만들기 · 걸러 펼쳐 한꺼번에 고치기) · Families 화면은 Products 안의 family 보기로 · Supplier Products 는 Products 의 「공급처로 거르기」로 흡수(판정 151) · 기각 (나) 한 화면에 다 · (다) 일마다 화면 · ⚠️ Families 부분은 판정 210 이 고쳤다
+- **판정 201** Caleb 「가」 — **Products 먼저**(경고 확인 대화상자를 여기서 처음 짓고 Sheet 가 빌려 씀) · 기각 (나) Sheet 먼저
+- **판정 202** Caleb 「가」 — 한 상품 고치기는 **「Edit」 한 번 → 여러 칸 → 「Save」 한 번**(바꾼 칸 노랗게 · Save 가 검사 → 경고 모아 보이고 확인 → product_update 한 번 · Cancel 은 통째 되돌림) · 기각 (나) 칸마다 바로 · (다) 섞기
+- **판정 203** Caleb 「다」 — Families · Supplier Products 를 메뉴에서 빼는 것은 **Product Sheet 가 선 뒤**(Sheet 가 family · 공급처 SKU · 단가 열을 받으면 그때 한 번에) · 기각 (가) 지금 둘 다 · (나) Supplier Products 만 지금 · ⚠️ 판정 210 이 고쳤다(Families 는 남는다)
+- **판정 204** Caleb 「가」 — Product Sheet 의 **한 줄 = 상품 하나**(낱개 · 세트 · 변형 각자) · 공급처 · 바코드가 여럿인 상품은 기본 · 대표 하나만 표에서 · 나머지는 Products · 기각 (나) 낱개 줄 + 세트는 그 줄 안의 칸 · (다) 표 여러 장
+- **판정 205** Caleb 「가」 — Sheet 는 **모드 둘**(「Edit products」 · 「New products」) · Edit: 모르는 SKU 줄은 막힘 · New: 있는 SKU 는 막힘(창구) · 근거: SKU 오타가 새 상품을 만드는 자리를 막는다 · 기각 (나) 있는 SKU 는 고치기 · 없는 SKU 는 만들기 자동
+- **판정 206** Caleb 「다」 — Sheet 의 **열 고르기** = 묶음 단추(Edit: Prices · Supplier · All / New: Basic · With supplier · All) + 열마다 체크 · 이 브라우저에 기억(localStorage) · SKU 는 늘 보임 · 붙여 넣기는 보이는 열 순서 · 기각 (가) 체크만 · (나) 묶음만
+- **판정 207** (2026-10-01) Caleb 「공급처문제는 매뉴얼리 수정해야 될 사항이니, 지금 수정사항은 아니야.」 — 물음: 공급처로 걸렀을 때 Sheet 의 공급처 열이 어느 줄을 보이고 고치나(대화 Claude 안 가 = 거른 그 공급처의 줄 / 나 = 언제나 기본 공급처) ⇒ **지금은 바꾸지 않는다** · Sheet 의 공급처 열은 v1c 그대로 기본 공급처 줄 · ⚠️ 공급처로 걸렀을 때 공급처 칸을 고치면 거른 공급처가 아니라 기본 공급처 줄이 바뀐다(실물: Roux Laboratories 로 거르면 AFRICAN PRIDE `APR…` 이 들어오는데 기본은 Strength of Nature)
+- **판정 208** (2026-10-01) Caleb 「가」 — PO · SO · 트랜스퍼 · Stock adjustment 의 썸네일은 **줄 표에** — 각 줄 SKU 왼쪽에 작은 사진(40px) · 누르면 크게 · 오더 하나의 사진을 **한 번에** 읽는다 · 고르는 목록에 붙이기는 써 본 뒤 · 기각 (나) 고르는 목록에만 · (다) 둘 다 · ⚠️ 고르는 목록은 판정 212 · 213 이 더했다
+- **판정 209** (2026-10-01) Caleb 「나는 세화면 모두 그렇게 바꿨으면 좋겠어.」 — Products · Supplier Products · Families 를 모두 PO 처럼: 처음은 **넓은 목록**(화면 전체 · 필터 한 줄) · 고르면 좁은 목록 + 상세 · 상세 머리에 ☰ List(왼쪽 목록 접기 · 펴기) · ‹ All …(넓은 목록으로) · 기각 (가) Products 만 · 요청 원문 Caleb 「Products, Supplier Products, Families 는 기본 디자인이 가운데가 비어 있어. 난 이 세 메뉴도, 다른 PO나 SO처럼 풀화면으로 나오는게 기본이었으면 좋겠어. 그리고 특정 제품을 선택했을때, 지금의 형태로 바뀌었으면 좋겠어. 그리고 List, All PO같은 버튼이 있어서, List만 누르면 해당 sku만 나오고, All Products를 누르면 다시 default product 화면으로 가면 좋겠어.」
+- **판정 210** (2026-10-01) Caleb 「좋아 그렇게 하자」 — 판정 203 을 고친다: **Families 는 메뉴에 남는다** · Sheet 가 선 뒤 빼는 것은 Supplier Products 하나 · 근거: family 를 family SKU · 이름으로 찾고 훑는 일을 대신할 화면이 없다(Products 는 변형 하나로 들어가야 family 가 보인다) · family 머리 고치기를 넣을 자리도 Families(뒤 일 · 창구 `family_head_set` 은 있다) · 물음의 계기 Caleb 「그런데, Products sheets가 서면 Supplier Products는 메뉴에서 빠져도 되지만, Families는 왜지?」
+- **판정 211** (2026-10-01) Caleb 「가로 하자」 — 가격식은 **그때 약속한 화면 일 다음**(세 화면 넓은 목록 · 썸네일 · 구역 색) · 문서 차수보다 먼저 판정부터 · 기각 (나) 지금 바로 · 요청 원문 Caleb 「이전에 내가 요청한 했던건데, 일괄적으로 가격을 고칠 수 있는 방법을 요구했었어. 그러니까, 예를 들어, Roux Laboratories는 USD니까, (Price *1.4(환율)*1.1(cost))/0.65 라는 공식을 넣으면 일괄적으로 신제품의 가격을 생성할 수 있고, 맨 끝자리는 .99나 .49등으로 맞출 수 있는지, 그렇게 그 가격을 적용할 수 없는지 물어봤었어. 지금이 그런 기능을 삽입할 때가 아닌가 싶어서 물어」
+- **판정 212** (2026-10-01) Caleb 「add a line에도 이미지가 나오게 해줄 수 있어?」 — PO 의 Add a line 후보 목록에도 SKU 왼쪽에 대표 사진 · 판정 208 이 미뤄 둔 「고르는 목록」 중 PO 부터 · 사진 클릭은 크게 보기만(담기로 안 번진다)
+- **판정 213** (2026-10-01) Caleb 「SO, 트랜스퍼, stock adjustment도 제품을 고르는 목록에도 사진을 붙여줘」 — 세 화면의 제품 고르기 후보 목록에도 사진 · 판정 212 와 같은 모양
+- **판정 214** (2026-10-01) Caleb 「인쇄인보이스에는 사진이 필요없고, 화면에서 보이는것을 말하는거야」 — 인보이스 쪽 **화면**의 줄 표에 사진(Purchase Invoices & Credits · Purchase Receipts · SO Invoices · Credit Notes) · 인쇄 · PDF 인보이스에는 넣지 않는다 · 계기 Caleb 「나중에 인보이스에도 썸네일이 보이나?」
+- **판정 215** (2026-10-01) Caleb 「나가 맞긴 해. 제일 많이 쓸거고, 그런데 다도 필요해」 — 가격식의 원가는 **Latest cost** 가 기본(가장 많이 쓴다) + **원산지 원가**(KRW · CNY 등 · 담을 칸 새로)도 고를 수 있게 · (가) Fixed cost 는 고르지 않음 · 짚어 둔 것: Latest 는 마지막 인보이스가 특가면 그 값을 따른다 ⇒ Preview 에 옛 원가 · 새 원가를 함께 · ⚠️ 판정 222 가 고쳤다 — 원가는 Latest 하나 · 원산지(다)는 거둠
+- **판정 216** (2026-10-01) Caleb 「가로 가자」 — 식은 **정해진 세 칸**(환율 · 비용 · 마진) · 칸마다 숫자와 `×` / `÷` · 화면에는 `Cost × 1.4 × 1.1 ÷ 0.65` 처럼 보임 · 마진 칸에서 GP 를 계산해 보인다 · 기각 (나) 엑셀처럼 자유 식(칸의 뜻이 없어 GP 를 못 읽고 오타 하나가 전체를 틀리게) · 두 예: USD(Roux) `원가 × 1.4(환율) × 1.1(비용) ÷ 0.65(마진)` · CNY(9/23) `원가 ÷ 5(환율) × 1.4(비용) ÷ 0.5(마진)` · ⚠️ 판정 222 로 칸마다 × / ÷ 는 필요 없어졌다(식 모양은 222)
+- **판정 217** (2026-10-01) Caleb 「가」 — 끝자리는 **올림**(식 값 이상인 끝자리 가운데 가장 가까운 것 · 마진이 식 아래로 안 내려간다) · 끝자리는 .09 · .19 · .29 · .39 · .49 · .59 · .69 · .79 · .89 · .99 열 개 가운데 **식마다 체크**(묶음 단추 `.49 · .99` · `.x9 all`) · 계기 Caleb 「.x9 중에서 고를 수 있나?」 · 실물: Wholesale 가격 끝이 .x9 전반(9.19 · 7.89 · 3.79 · 4.09 · 21.19 · 42.39 · 14.99 · 10.49 — 2026-10-01 캡처) · 기각 (나) 가까운 쪽 · (다) 내림
+- **판정 218** (2026-10-01) Caleb 「공급처마다」 — 식은 **공급처마다 하나** 저장(원가 출처 Latest · 원산지 · 세 칸 숫자와 × / ÷ · 끝자리 체크) · Sheet 에서 그 공급처로 거르면 식이 저절로 · 그 자리에서 「이번만」 바꿔 쓰거나 「저장」 · 기각 (나) 저장 안 함 · (다) 이름 붙인 식 목록 · 대가: 한 공급처 안에서 품목군마다 마진이 다르면 식 하나로 모자람(「이번만」 · 뒤에 넓힘) · ⚠️ 판정 223 이 고쳤다 — 공급처마다 이름 붙인 식 여럿 + 상품이 자기 식을 기억
+- **판정 219** (2026-10-01) Caleb 「판정219-가」 — 티어 규칙은 **모든 공급처에 한 벌**(Settings) · 공급처 식은 Wholesale 만 낸다 · 나머지 넷은 그 Wholesale(끝자리 올림한 값)에서 따라가고 끝자리는 그 공급처 식의 체크대로 올림(이의 없음) · 기각 (나) 공급처마다 식과 함께
+  - 청취 원문 Caleb 「지금 식은 wholesale price를 구하는 식이야. 여기에 Aone은 /0.6을 한 거고, RegularCAD는 1.05를 한거고, US는 /1.25를 한거야. Franchise는 wholesale과 같아.」
+  - 규칙 표: Wholesale = 공급처 식 · Franchise = Wholesale · AONE = Wholesale ÷ 0.6 · Regular CAD = Wholesale × 1.05 · USWholesale USD = Wholesale ÷ 1.25
+  - 실물 대조(AAL19445 · 2026-10-01 화면): Wholesale 9.19 · Franchise 9.19 · AONE 14.19 · Regular CAD 9.19 · USWholesale USD 7.39 — US 는 9.19 ÷ 1.25 = 7.35 → 올림 7.39 로 맞음 · AONE(15.32 예상) · Regular(9.65 예상)는 안 맞음(규칙 이전 값이거나 손으로 고친 값 · 짐작) ⇒ 35-e 66
+- **정정 둘** (판정 220 앞 · 2026-10-01 · 9/23 청취 기록을 고친다)
+  - Caleb 「가격 수식은 기본적으로 공식을 따르지만, 제품에 따라서, 시장에 따라서 가격을 인위적으로 조정해. 그러니 수정이 가능해야 해. 아까 한번 정해진 가격은 수정하지 않는다는 말이 있던데, 그것은 내 말을 오해했던 것 같아. 내 말은 수정이 가능해야 해.」
+  - Caleb 「한번 정해지면 안바꾼다는 것은 수식이고, 절대적이라는 의미가 아니라 웬만하면 잘 안바꾼다는 의미였을거야.」
+  - ⇒ 9/23 의 「한 번 정해지면 안 바꿈」은 **가격이 아니라 공급처의 식**이고 「웬만하면 잘 안 바꾼다」는 뜻 · 가격은 식이 낸 값을 출발점으로 제품 · 시장에 따라 사람이 언제든 고친다 · 대화 Claude 의 오해(35-d 3)
+- **판정 220** (2026-10-01) Caleb 「가」 — 식을 다시 걸 때는 **Preview 에서 줄마다 고른다** · `manual`(사람이 고친 값) 줄은 체크가 꺼진 채 시작 · `cin7` · `formula` 줄은 켜진 채 · 옛 값과 새 값의 차이가 큰 줄은 색 · 가격 줄 출처 `formula` 를 쓴다(CHECK 에는 9/23 가격표 차수부터 있다 · 지금 product_update 의 price_set 은 늘 manual 로 써서 price-1 에서 손질 · 저장 뒤 사람이 고치면 `manual`) · ⚠️ Cin7 시절에 손댄 값은 전부 `cin7` 이라 구별이 안 된다 — 색 표시로 눈으로 거른다 · 기각 (나) 전부 켜 두고 사람이 끈다 · (다) 가격이 없는 상품에만
+- **판정 221** (2026-10-01) Caleb 「가」 — 원산지 원가는 **상품 × 공급처 줄마다**(`product_supplier` 에 「원산지 원가」 · 「그 통화」 두 칸) · 통화에 KRW · CNY 를 더한다 · IMS 에서만 입력(Cin7 에 없는 값 · Products 의 Suppliers 칸 · Sheet 의 열) · 근거: 원산지 값은 그 공급처의 견적이고 판정 218 의 공급처 식(환율 칸)과 짝 · 기각 (나) 상품마다 하나(공급처가 둘인 상품에서 어느 견적인지 모른다) · 9/23 청취 원문은 so-module 2157 근처 「가격식(뒤 차수)」 줄과 그 위 「H: 매입가는 USD 아니면 CAD야 …」(⚠️ 이 문장은 정본에 없음 — `grep -rnF 매입가는 docs/ .claude/skills/` 0 줄 · 2026-10-01) · ⚠️ 판정 222 로 거둠(원산지 통화는 하지 않는다)
+- **판정 222** (2026-10-01) Caleb 「가격식을 정할때 말이야. 아까 서플라이별이라고 했는데, 생각해보니, 서플라이별로도, 제품에 따라서 가격식을 다르게 해야 하는 것들이 있는 것 같아.  그래서 가격식을 적용할 제품들을 선택할 수 있으면 좋겠어. 일부를 선택하거나, 아니면 전체를 체크마크로 선택하거나 말이야. 그리고, 가격은 latest Price를 가져오는게 맞아. 그게 USD, 또는 CAD는 선택할 수 있어야 할 것 같고, 만약 USD면, 1.4(환율), CAD면(1)을 곱하는거지. 그리고, 여기에 쉽핑 및, 기타 비용에다가, 관세 %가 들어갈 수 있으면 좋겠어. 대신에 USD나 CAD가 아닌 원산지 통화를 사용하는 것은 무시하기로 하자. 너무 복잡해.」
+  - ⚠️ 「것 같아.」 뒤 공백은 **두 칸**이다(Caleb 원문 그대로)
+  - 뜻: ① 적용할 상품을 고른다(줄마다 체크 · 전체 체크) — 같은 공급처 안에서도 상품마다 다른 식 ② 원가는 **Latest cost 하나** ③ 통화 USD / CAD 를 고르고 USD = × 1.4(환율) · CAD = × 1 ④ 운임 · 기타 비용(곱하기) + **관세 %** ⑤ **원산지 통화(KRW · CNY)는 하지 않는다** — 판정 215 의 「다」와 판정 221 을 거둔다 ⑥ 판정 216 의 「칸마다 × / ÷ 고르기」는 필요 없어진다(환율 ÷5 같은 경우가 사라졌다)
+  - 식: `Wholesale = Latest cost × 환율(USD 1.4 · CAD 1) × 운임·기타(예 1.1) × (1 + 관세 %) ÷ 마진(예 0.65) → 끝자리 올림(217) → 나머지 티어(219)`
+  - 예(대화 Claude 계산): Roux · USD 3.00 · 관세 6.5% → 3.00 × 1.4 × 1.1 × 1.065 ÷ 0.65 = 7.57 → `.49 · .99` 올림 = 7.99
+- **판정 223** (2026-10-01) Caleb 「나가 좋아.」 — 식은 **공급처마다 이름 붙인 식 여럿**(예 「Roux · Hair 35%」 · 「Roux · Tools 30%」) · 그중 하나가 기본 · 식을 걸면 그 상품의 **공급처 줄에 어느 식인지** 남는다 · 다시 걸 때 「이 식을 쓴 상품」으로 거른다 · 판정 218(공급처마다 하나)을 고친다 · 기각 (가) 공급처마다 기본 식 하나만(어느 상품에 어느 식인지 안 남는다) · (다) 상품마다 숫자를 그대로(식 하나를 고쳐 여러 상품에 다시 걸 수 없다)
+
+**묶음 확인** (판정 번호 없음 · 원문 그대로)
+- Products 화면 묶음 1 ~ 9 「그대로 가자」(Edit · Save · 경고 대화상자 하나 · New product · New family · family 보기 · 공급처 거르기 · 사진 칸 · 권한 · v2a/v2b 나눔) · Product Sheet 묶음 1 ~ 7 「그대로 가자」(새 화면 · Edit 모드 300 줄 · 고칠 열 · New 모드 200 줄 · 붙여 넣기 이름 → id · 브랜드 · 분류 글자로 좁히기 · v1a/v1b 나눔) · v1c(통화 · Fixed cost · Latest cost 이름) 「그대로 넣자」
+- **thumb-1 묶음 1 ~ 5** Caleb 「좋아 1에서 5번 작업 알겠어」 — 1 메뉴에 Product Sheet 줄을 지금 더하기만(빼기는 판정 203 · 210) · 2 products 구역 일곱에 새 색(Same family 는 `variants` — SO 의 `family` 와 뜻이 다르다) · 3 썸네일 도우미를 `ims-ui.js` · `ims-ui.css` 한 곳에 · 4 썸네일은 네 화면의 Lines 표(보기 · 고치기)만 · 대화상자 · 입고 · 인보이스 · 미리 보기 표 빼고(⚠️ 고르는 목록은 212 · 213 · 인보이스 쪽 화면은 214 가 더했다) · 5 Claude Code 가 1 ~ 3 커밋 뒤 대화 Claude 가 화면
+- **pr v3a 묶음 1 ~ 7** Caleb 「그대로 가자」 — 1 처음 화면 = 넓은 표 + 필터 한 줄(검색 · Brand · Category · Supplier · Kind · Active only · 오른쪽 New product · New family · Open sheet · 필터 값은 좁은 목록과 함께) · 2 열 SKU · Name · Brand · Category · Kind(single · ×6 · 2 sets) · Default supplier · Wholesale(세트는 줄 없으면 calculated) · Active · 3 사진 열은 thumb-1 도우미가 들어오면 저절로 · 4 100 줄씩 · 5 줄을 누르면 좁은 목록 + 상세 · 세트 펼치기는 좁은 목록에만 · 6 상세 머리에 ☰ List · ‹ All products(고치는 중이면 버릴지 먼저 묻는다) · 7 Products → Supplier Products → Families 하나씩(⚠️ 실제로는 판정 210 뒤 Families 를 먼저 했다)
+- **가격식 묶음 1 ~ 8** Caleb 「좋아 그대로 가자」 — 1 세트는 식을 걸지 않는다(계산 가격 · 고정가 줄도 안 건드림) · 2 원가가 없거나 0 인 줄은 「No cost」 빨강 · 넘어감 · 3 New products 모드: 새 줄의 Latest cost(또는 원산지 원가)로 같은 식 · 공급처 칸이 정해진 줄만 · 4 GP 표시: 도착 원가 = 원가 × 환율 × 비용(마진 칸 앞까지 · CAD · ⚠️ 판정 222 로 × (1 + 관세 %) 도 들어간다 — po-module 「가격식」 블록) · Wholesale GP % = (Wholesale − 도착 원가) ÷ Wholesale · 끝자리 올림 때문에 식의 마진보다 조금 높게 나온다 · 5 「차이가 큰 줄」 = 새 Wholesale 이 옛 값보다 10% 넘게 오르거나 내림 · 6 권한: 식을 걸어 저장 = `master` 열쇠(지금 가격 고치기와 같다) · 공급처 식 저장 · 티어 규칙 바꾸기 = admin 만 · 7 자리: 티어 규칙 = Settings · 공급처 식 = Sheet 의 식 줄에서 저장 + Suppliers 화면 공급처 상세에 보이기 · 원산지 원가 = Products 의 Suppliers 칸 · Sheet 의 열 · 8 차수: price-1(Claude Code · DB: 공급처 식 표 · 티어 규칙 표 · 가격 출처 `formula` 쓰기(price_set 손질) · 원산지 원가 두 칸 · KRW · CNY · 창구가 원산지 원가를 받게) · price-2(대화 Claude · Sheet 식 줄 · Preview · Products 원산지 칸) · price-3(대화 Claude · Settings 티어 규칙 · Suppliers 식 보기) · 그 앞에 이 문서 차수 · ⚠️ 3 · 7 · 8 의 원산지 원가 부분은 판정 222 로 빠졌다
+
+**Caleb 화면 요청 원문** (판정 번호 없음 · 그대로)
+- 「Sale Prices, Suppliers, Barcodes, Sets of this product가튼 서브 메뉴도 SO나 PO처럼 색깔과 bold처리를 해줄 수 있나?」 → thumb-1 B · pr v3b
+- 「지금 Product 사진이 두번째에 나오고 있어. 맨 아래로 내려 보내줬으면 좋겠어. 그리고, 프러덕트 디테일 정보가 있는 오른쪽 상단에 기본 사진이 큼지막하게  Thumbnail로 보이게 해줄 수 있어?」 → pr v2g
+- 「사진 사이즈를 좀 더 키울 수 있어? 상단에 내 이름 Seungchill가운데 정도까지는 키워졌으면 좋겠어.  그리고, PO나, SO, 트랜스퍼, stock adjustment도 제품을 선택하면 Thumbnail이 나와야 하지 않을까?」 → pr v2h(300px) · 판정 208
+- 「fixed, Latest 글씨와 금액이 정렬이 안맞아.」 → pr v2i
+- 「Product-sheet에서 수정이 되는 것들이 여기서는 수정이 안되는데, Product details에서 수정하는 것도 가능해야 하는게 아닌가?」 → 대화 Claude 확인: Sheet 의 고칠 칸은 Products 의 「Edit」 뒤에 모두 열린다(판정 202) · Caleb 「edit을 눌러야 수정이 가능하다는 것 잘 알겠어.」 · 어디서도 못 고치는 칸 = 계정 셋 · Purchase tax · Costing · HS code · Origin(창구에 없음 · 판정 거리 · 35-e 67)
+
+### 35-b 커밋 · 실물
+
+- asung-wms: 이 문서 차수 전 마지막 **ab2f5a8**(§34)
+- asung-ims: `git -C ~/asung/asung-ims log --oneline eefd622..HEAD` 원문(2026-10-01 밤 · 집 PC · 17 줄 · sheet v1a ~ v1c · pr v2a ~ v2f 는 eefd622 와 그 앞이라 이 범위 밖)
+```
+1f632d8 feat(so-credits): cr thumb v1 - primary photo next to each SKU in the credit lines and the new-credit products table (ruling 214)
+32fff32 feat(so-invoices): inv thumb v1 - primary photo next to each product SKU in the invoice lines (ruling 214, screen only)
+e769b56 feat(receiving): rcv thumb v1 - primary photo next to each SKU in the received, differences, count and put-away tables (ruling 214)
+40d5fa7 feat(invoices): inv thumb v1 - primary photo next to each product SKU in the invoice lines (ruling 214, screen only, not on printed invoices)
+ed2c48d feat(stock-adjustments): adj thumb v1 - primary photo next to each SKU in the lines table and the product picker (rulings 208, 213), clicking a photo only zooms
+5febcbd feat(transfers): tf thumb v1 - primary photo next to each SKU in the lines table and the product picker (rulings 208, 213), clicking a photo only zooms
+09ccc71 feat(so): so thumb v1 - primary photo next to each SKU in the Lines table and the Add a line candidates (rulings 208, 213), clicking a photo only zooms
+73d7b75 feat(po): po thumb v2 - photos in the Add a line candidate list too (ruling 212), clicking a photo only zooms; Lines table photos from v1 (ruling 208)
+2b7c6f9 feat(po): po thumb v1 - primary photo next to each SKU in the Lines table (ruling 208), read once per PO through imsThumbFill, zoom on click
+60f5acf feat(products): pr v3b - section bars with colour and bold titles like PO and SO (prices, suppliers, barcodes, components, sets, variants, photos from ims-ui.css)
+2b2f515 feat(ui): thumb-1 - Product Sheet menu line after Products (ruling 200; Supplier Products leaves later, Families stays per ruling 210), seven products section colours prices suppliers barcodes components sets variants photos (components and variants darkened for contrast), imsThumb and imsThumbFill helpers with product_image_primary batch read, page cache, own zoom overlay, never throws (ruling 208)
+14e6faa feat(supplier-products): spp v2a - wide supplier list by default (ruling 209) with linked, default, no-price counts and last supplied; picking a supplier opens the narrow list and its products with List toggle and All suppliers
+540945e feat(families): fam v2a - wide list by default (ruling 209) with brand, axis and active filters, variant and set counts; picking a row opens the narrow list and detail with List toggle and All families; section bars on Members and Sets
+e3fde19 feat(products): pr v3a - wide list by default like PO (ruling 209): filters, Kind, Default supplier, Wholesale columns, photo column when the shared thumb helper lands; picking a row opens the narrow list and detail with List toggle and All products
+d2c5cd8 fix(products): pr v2i - numeric column headers right-aligned to match their values (Price, Fixed, Latest, Qty, Pack factor)
+ba2a240 feat(products): pr v2h - primary photo shown large (300px) at the top right of the detail card (zoom on click, single photo for sets), Photos card moved to the bottom
+58d37da feat(products): pr v2g - primary photo shown large at the top right of the detail card (zoom on click, single photo for sets), Photos card moved to the bottom
+```
+- 화면 판 · 빌드 표시 · 무엇:
+
+| 파일 | 빌드 표시 | 무엇 |
+|---|---|---|
+| products.html | pr v2g → v2h → v2i → v3a → v3b | 대표 사진 오른쪽 위 300px · Photos 맨 아래 · 숫자 열 머리 오른쪽 · 넓은 목록(판정 209) · 구역 색 띠 |
+| families.html | fam v2a | 넓은 목록 · 변형 · 세트 수 · ☰ List · ‹ All families · Active only 가 처음부터 켜짐(바뀐 점) |
+| supplier-products.html | spp v2a | 공급처 넓은 목록 · 연결 · 기본 · No price · Last supplied 수(켜진 연결 12,721 을 한 번 읽어 센다) |
+| ims-auth.js · ims-ui.css · ims-ui.js | (thumb-1) | 메뉴 Product Sheet · 구역 색 일곱 · imsThumb · imsThumbFill |
+| po.html | po thumb v2 | Lines 표 · Add a line 후보 사진(판정 208 · 212) |
+| so.html · transfers.html · stock-adjustments.html | so / tf / adj thumb v1 | 줄 표 · 고르기 후보 사진(208 · 213) |
+| invoices.html · receiving.html · so-invoices.html · so-credits.html | inv / rcv / inv / cr thumb v1 | 화면 줄 표 사진(214) · 화면이 바뀌면 저절로 채움(MutationObserver) |
+
+- **thumb-1 실물**(Claude Code 보고 · 2026-10-01): 색 일곱 `prices #a16207/#fdf7e3 · suppliers #0369a1/#e8f4fb · barcodes #57534e/#f3f1ef · components #4d7c0f/#f1f8e6 · sets #c2410c/#fdeee6 · variants #0e7490/#e0f7fa · photos #db2777/#fdebf3`(components · variants 는 대비 때문에 대화 Claude 안에서 어둡게 · 대비 4.02 ~ 6.77) · 도우미 약속 `imsThumb(sku)` → `<span class="ims-thumb" data-thumb="SKU">` · `imsThumbFill(root)` → 안 채운 칸을 모아 `product_image_primary` 한 번(500 씩) · 페이지 캐시 · 실패 SKU 는 캐시 · done 에 안 남김(다음 fill 이 다시 묻는다) · 자기 덮개 `#imsThumbZoom`(z 9000) · 클릭 · Esc capture 로 번짐 막기 · throw 없음 · jsdom 39 PASS · 커밋 전 대화 Claude 가 63행 주석의 판정 203 글귀를 210 으로 고침(35-d 1)
+
+### 35-c 실측 (테스트 DB · 2026-10-01 · Caleb 실행)
+
+- Energizer Canada(공급처 꺼짐 `is_active false`): 연결 줄 **62 · 모두 켜짐 · 기본(is_default) 0** · 상품 62 · supplier 읽기 정책 3 개 · 읽기 규칙 `true`(이름을 가리지 않는다) ⇒ Products 넓은 목록의 Default supplier 「—」는 데이터대로 · Cin7 화면에는 이 공급처가 그 상품의 하나뿐인 공급처(AAL18827 · Latest 11.99 CAD · Last supplied 2025-10-02) ⇒ 35-e 65
+- 집 PC 받기: asung-prompts-1001.zip 240,966 B · md5 `79ec66b6659404de4051129697f7111e` · 44 파일 · new 21 · same 23 · diff 0(회사 쪽 원래 md5 는 인계서에 없었다 · 35-d 5)
+
+### 35-d 사고 · 교훈 (asung-workflow §11 에 규칙 줄로)
+
+1. [대화 Claude] thumb-1 지시서를 판정 210 **전에** 써서 ims-auth.js 주석에 「Families · Supplier Products 빼기는 Sheet 가 선 뒤(판정 203)」가 들어갔다 — 커밋 전 대화 Claude 가 잡아 고쳤다 ⇒ **지시서를 준 뒤 새 판정이 나오면, 보고를 받을 때 지시서의 판정 글귀를 새 판정과 대조한다**
+2. [대화 Claude] thumb-1 지시서 T1 의 기대 「img 둘」이 틀렸다(중복 SKU 줄도 사진을 받는다 → 셋) — Claude Code 가 바로잡았다 ⇒ 기대 수는 「서로 다른 SKU」와 「칸」을 갈라 적는다
+3. [대화 Claude · 9/23] 청취 「한 번 정해지면 안 바꿈」을 **가격**으로 읽었다 — 실제는 **식**이고 「웬만하면 잘 안 바꾼다」 ⇒ 청취를 정본에 옮길 때 **무엇이(주어)** 안 바뀌는지 · 절대인지 대개인지를 되묻는다
+4. [대화 Claude] 넓은 목록의 Default supplier 「—」를 화면 결함일 수도 있다고 보고 SQL 둘로 갈랐다 — 데이터였다(기본 0) ⇒ 잘 된 예 · 화면 값이 이상하면 **데이터 · 권한 · 질의 셋을 SQL 로 먼저 가른다**
+5. [인계서] 회사 PC zip 의 크기 · md5 원문이 인계서에 없어 집에서 대조를 못 했다(unzip -t 와 파일 수로 대신) ⇒ asung-workflow §9 「zip 은 ls -l · md5 원문으로」가 지켜지지 않았다 — 인계서를 쓸 때 zip 출력을 **받은 뒤** 적는다
+6. [인계서] §0 의 §33 줄 번호를 5587 로 적었다(실제 5588 · 5587 은 빈 줄) ⇒ 판별값 줄 번호는 `grep -n` 원문으로
+
+### 35-e 미룬 것 — §34-e 58 에 이어 붙임
+
+- 59 상품 행의 `source` 는 화면으로 고쳐도 `cin7` 그대로(가격 · 바코드 · 공급처 줄만 manual) — prod-5(판정 132 「IMS 값이 이긴다」)가 「IMS 가 고친 상품 칸」을 가를 표시가 없다 · 판정 거리
+- 60 새로 만든 행에 만든 사람이 안 남는다(`updated_by` 는 고칠 때만 · `created_at` 만) — 59 와 같은 줄기 · 판정 거리
+- 61 Cin7 에서 지운 공급처 연결을 적재가 IMS 쪽에서 끄지 않는다(`ImsLoadProductSupplier.gs` 는 받은 줄만 · po-module §3-f 의 2) 단계 미구현) ⇒ 유령 줄 · prod-5
+- 62 AFRICAN PRIDE 상품에 공급처 둘(Strength of Nature ★ + Roux Laboratories) — Caleb 「cin7에서 african pride 제품이 공급처가 두군데로 되었네」 · 정리 순서: Cin7 에서 먼저 지우고 → IMS 에서 끄기(거꾸로면 다음 적재가 다시 켠다 · 61) · 판정 207 로 지금은 손으로
+- 63 화면 손질 거리 — Sheet: 셀 복사(Ctrl+C) · 줄 지우기 · Edit 모드에서 줄 더하기 없음(만들기는 New 모드) · (Caleb 이 말하면)
+- 64 사진 변환 요금 · 고아 파일(㊿ · 51 그대로) — Caleb 시험 파일 `1e4d8bcb-…/CON19912.webp` 지웠는지 확인 안 됨
+- 65 Energizer Canada — 꺼진 공급처의 연결 62 줄에 기본이 하나도 없다(35-c) · 원인 확인 안 함(적재가 꺼진 공급처 줄을 기본으로 안 두는 규칙인지 · 공급처를 끌 때 기본이 풀린 것인지) · prod-5 판정 거리: 꺼진 공급처가 유일한 공급처일 때 기본으로 둘지 · 적재가 Cin7 의 기본을 어떻게 옮기는지
+- 66 티어 규칙(판정 219)을 따르지 않는 기존 가격 — AAL19445 의 AONE · Regular CAD · 몇 개인지 **일괄 재적용 전에 SQL 로 잰다**(price-2 앞)
+- 67 어디서도 못 고치는 상품 칸 — Inventory · COGS · Revenue 계정 · Purchase tax · Costing · HS code · Origin(product_update 에 op 없음) · Family · Options 는 창구에 op 가 있지만(family_join · family_option) 두 화면이 칸을 안 냄 · 판정 거리
+- 68 옛 Supplier Products 제품 쪽 위 「No price」 숫자 칸은 「둘 다 0」만 센다 · 넓은 목록(spp v2a)과 체크 필터는 「둘 다 비었거나 둘 다 0」 — 숫자가 다를 수 있다 · 곧 빠질 화면이라 안 고침
+- 69 products.html 은 자기 `photoUrl` 을 쓴다(공통 도우미의 주소 짓기와 두 벌) — 상자 이름이 바뀌면 두 곳 · 뒤에 도우미로 모을지
+
+### 35-f 다음
+
+```
+순서(판정 211 · 가격식 묶음 8): 이 문서 차수 → price-1(Claude Code · DB) → price-2(대화 Claude · Sheet 식 줄 · Preview · Products 원산지 칸) → price-3(대화 Claude · Settings 티어 규칙 · Suppliers 식 보기)
+⚠️ 가격식 묶음 8 의 price-1 내용(원산지 원가 두 칸 · KRW · CNY)은 판정 222 로 빠졌다 · price-1 묶음은 판정 222 · 223 모양으로 다시 정한다
+그 뒤 prod-5(불러오기 적재 고침 · 판정 131 · 132 · 35-e 59 · 60 · 61 · 65 를 판정 거리로) · 메뉴에서 Supplier Products 빼기(판정 210 · Sheet 확인 뒤) · 판정 148 금요일 목표 점검
+⬜ 10/2 14:30 UTC(토론토 10:30) scan 결과로 CON 17 장(§34-e 53)
+다음 판정 번호: 224
 ```
