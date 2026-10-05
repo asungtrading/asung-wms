@@ -6413,3 +6413,62 @@ cs-4 적재 고침(prod-5 와 한 묶음 · 41-e 92 clasp pull 먼저) — IMS �
 화면 시험 남은 것 — 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210)
 다음 판정 번호: 242
 ```
+
+---
+
+## §42 손님 · 공급처 화면 · Action Centre 새 손님 탭 · 목록 화면은 두 모드 — 판정 242 · 243 (2026-10-05 · 회사 PC)
+
+⭐ 닫힌 것: cs-5 ① customers.html(새 · cs v1 → v2) · ③ suppliers.html(sup v2 · 두 모드 + 만들기 · 고치기) · ② manager-list.html(ml v1.2 · 「New customers to review」) — Caleb 화면 확인(sup v2 Purchasable 저장 「Saved」)
+
+### 42-a 판정 원문 (242 · 243 · 말 그대로)
+
+- **판정 242** (2026-10-05) Caleb 「customer도 그렇고, supplier도 그렇고, 모두 Product, so,po등 처럼 화면이 전체가 나오고, 검색이 가능하게 해줘. 그리고 특정 손님이나, 공급처를 누르면, 지금 화면처럼 보이게 해줘. 그리고, 리스트와, all customer, all suppliers로 가는 버튼을 여기에도 넣어줘.」 — Customers · Suppliers 화면은 **판정 209 의 두 모드**(처음엔 넓은 목록이 화면 전체 · 검색 · 거르기 → 하나를 고르면 좁은 목록 + 상세 · 상세 머리에 「☰ List」(좁은 목록 접기) · 「‹ All customers」 / 「‹ All suppliers」(넓은 목록으로)) · 계기: cs v1 이 좁은 목록 + 상세 한 모드로 섰다 · Caleb 이 products 화면을 보이며 요청
+- **판정 243** (2026-10-05) Caleb 「suppliers도 그렇게 수정해줄거지? 그리고 앞으로 서는 모든 화면들은 모두 이 형식을 지켜줘.」 — 앞으로 만드는 **목록이 있는 IMS 화면은 모두 두 모드**(판정 209 · 242): 처음엔 넓은 목록이 화면 전체(검색 · 거르기 · 만들기 단추) · 줄을 고르면 좁은 목록 + 상세 · 상세 머리에 「☰ List」와 「‹ All ○○」 · `?id=` 로 바로 열기 · 공통 `#wide` · `.wfilt`(ims-ui.css)를 같은 id 로 쓴다
+
+**묶음 확인**
+- **cs-5 묶음 1 ~ 7** Caleb 「그대로 가자.」(2026-10-05) — 1 customers.html 은 products 모양(목록 · 검색 · 거르기 · 「New — not reviewed」 · 상세) · 메뉴 Sales → Customers · 2 「+ New customer」 — sales 에게는 돈 칸이 아예 없다(「기본값 — 매니저가 확인」) · master 는 돈 칸 · 비우면 기본값 · 같은 이름이면 목록과 「그래도 만들기」 · 3 「Edit」 — 바꾼 칸만(옛 값과 함께) · 돈 칸 · 끄기 · 켜기는 master 화면만 · 저장 전 경고와 확인 · 4 주소 · 연락처는 상세 안의 표(더하기 · 고치기 · 끄기 · 기본으로) · 5 Action Centre 「New customers to review」(만든 사람 · 날짜 · 첫 오더 · 줄 → customers.html 상세 · master 가 Reviewed 또는 돈 칸 고치기) · 6 suppliers.html 에 같은 모양의 만들기 · 고치기(purchasing 에게 돈 칸 · 끄기 없음 · 이름 바꾸기는 「Cin7 에서도」 확인) · 7 차수 ① customers → ② Action Centre → ③ suppliers · 화면마다 jsdom · Caleb 화면 시험
+
+### 42-b 커밋 · 실물
+
+- asung-ims — `git -C ~/asung/asung-ims log --oneline 8f52ab2..64ae060` 원문
+```
+64ae060 feat(action-centre): ml v1.2 - New customers to review tab (cs-5 part 2, ruling 240): badge count and rows from customer_review_list (customers made by sales on the default terms, oldest first) with city, created by, terms now, orders and first order, each linking to customers.html?id= where a master changes the terms or presses Reviewed; ?tab=newcust opens it
+ce69d0c feat(suppliers): sup v2 - two modes like products, so, po and customers (rulings 242, 243) and create and edit (cs-5 part 3, rulings 237, 238, 241): wide list with search, Active only, Hide discontinued, Purchasable and + New supplier, a row opens the narrow list and the detail with List and All suppliers, ?id= opens a supplier; New supplier through supplier_create with no money fields for purchasing (defaults note), Edit, addresses and contacts through supplier_update with only changed fields and their old values (an inactive current term is kept), Purchasable saves at once for the purchasing or master key, Deactivate, Activate and discounts for master; view-only staff keep the curated list
+7035a66 feat(customers): cs v2 - two modes like products, so and po (ruling 242): the wide list fills the screen with search, Active only, New - not reviewed, Clear and + New customer; a row opens the narrow list and the detail with List and All customers buttons; ?id= opens a customer directly; create, edit, address and contact changes, Deactivate, Activate and Reviewed as in cs v1 (rulings 236 to 241); menu Sales - Customers switched on
+a1fceec feat(customers): cs v1 - new Customers screen (cs-5 part 1, rulings 236 to 241): list with Active only and New - not reviewed, detail with money terms, open orders, created and reviewed by, addresses and contacts; New customer through customer_create (no money fields at all for sales, defaults note; master sets them), Edit and address and contact changes through customer_update with only changed fields and their old values (an inactive current term is kept and shown, so nothing changes by accident), Deactivate, Activate and Reviewed for master, warnings shown with matches and Confirm and save sends the ack; menu Sales - Customers switched on
+```
+
+| 파일 | 빌드 표시 | md5(앞 8) | 무엇 |
+|---|---|---|---|
+| customers.html(새) | cs v2 | `7dbc1025` | 두 모드(넓은 목록: 이름 · 표시 이름 검색 · Active only · New — not reviewed · Clear · + New customer / 줄 → 좁은 목록 + 상세 · ☰ List · ‹ All customers · `?id=` · `?new=1`) · 만들기 `customer_create`(sales 요청에 돈 칸 0) · 고치기 · 주소 · 연락처 `customer_update`(바꾼 칸만 · 옛 값) · Deactivate · Activate · Reviewed 는 master · 꺼진 참조(예 `Net30`)는 「(current · inactive)」로 지켜 안 바꾼 칸이 바뀐 것으로 읽히지 않는다 · 알리기는 Confirm and save 로 ack |
+| suppliers.html | sup v2 | `a16e064f` | 두 모드(검색 · Active only · Hide discontinued · Purchasable · + New supplier / ☰ List · ‹ All suppliers · `?id=`) · 만들기 `supplier_create`(purchasing 요청에 돈 칸 0) · 고치기 · 주소 · 연락처 · 할인(master) `supplier_update` · Purchasable 고르면 바로 저장(purchasing 또는 master) · 보기만 하는 직원은 정돈된 목록(활성 · 살 수 있음 · 거래 중) |
+| manager-list.html | ml v1.2 | `2b9c3d82` | 탭 「New customers to review」(뷰 `customer_review_list` · 배지 · 오래된 것부터 · 줄 → `customers.html?id=` · `?tab=newcust`) |
+| ims-auth.js | nav v4 | `2ca71bd9` | 메뉴 Sales → Customers 켬(판정 150 · 162 의 주석 자리) |
+
+### 42-c 시험
+
+- jsdom: customers cs v1 **20 PASS** → cs v2 **25 PASS**(두 모드 다섯 더함) · suppliers sup v2 **12 PASS** · manager-list ml v1.2 **4 PASS**
+- Caleb 화면(2026-10-05): sup v2 — ALLDAY LOCKS 의 Purchasable 을 No 로 → 「Saved」 · 칩 not purchasable(테스트 DB) · ☰ List · ‹ All suppliers · Deactivate 보임(admin)
+- ⬜ 남은 화면 시험: customers 만들기(같은 이름 경고) · Net30 손님 Edit 「Nothing changed」 · Action Centre 탭은 sales 열쇠만 가진 직원 계정으로 손님을 만든 뒤(admin 이 만들면 바로 확인됨이라 목록에 안 오른다)
+
+### 42-d 사고 · 교훈
+
+1. [대화 Claude] cs v1 을 좁은 목록 + 상세 한 모드로 지었다 — 판정 209(products 두 모드)가 이미 있었는데 따르지 않았다 · Caleb 이 products 화면을 보이며 바로잡았다(판정 242) ⇒ **목록 화면은 두 모드가 기본**(판정 243) · 새 화면을 쓰기 전에 가장 가까운 화면(products · so · po)의 모양을 먼저 연다
+2. [대화 Claude] 꺼진 참조를 가리키는 칸(손님 6,305 명의 `Net30`)이 고르기 칸에 없으면 첫 줄이 골라져 「안 바꾼 칸이 바뀐 것」으로 저장될 뻔했다 — 화면을 쓰며 jsdom 으로 잡았다(「Nothing changed」) ⇒ 고르기 칸은 지금 값이 목록에 없으면 「(current · inactive)」 줄을 더해 그대로 보인다
+- 모양 거리(Caleb 화면 sup v2): 상세 머리의 「Purchasable」 글자가 단추 글자보다 크다 · 표 제목의 「+ Add」가 오른쪽 끝이 아니라 제목 옆에 붙는다 — 다음 화면 손질 때
+
+### 42-e 미룬 것 — §41-e 94 에 이어 붙임
+
+- 95 화면 모양 둘(42-d 끝) — suppliers · customers 공통
+- 96 customers 의 `parent_id` · `default_bill_to_customer_id` · `default_ship_to_customer_id` 고치기 칸이 화면에 없다(창구는 받는다) — 체인 매장 손님이 생길 때
+- 97 Action Centre 새 손님 탭의 실제 흐름 시험(42-c ⬜)
+
+### 42-f 다음
+
+```
+순서(Caleb 이 정한다):
+1단계 남은 큰 일(판정 81 · ims-principles §6-c): 조립 · 번들(창구 · 화면 0) · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)
+cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저) — IMS 에서 만든 손님 · 공급처 · 상품을 Cin7 적재가 덮지 않게(판정 131 · 132)
+화면 시험 남은 것 — 42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210)
+다음 판정 번호: 244
+```

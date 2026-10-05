@@ -510,6 +510,7 @@ WMS      헤더에 로고 + 모드만 더한다 · 탭 줄 · ☰ Menu 그대로
 문       index.html = 로그인 → 그 사람의 첫 모드 첫 화면(판정 163) · 비밀번호 복구 중에는 머문다
 자리      Dashboard = 「Overview — coming soon」(판정 158 · 숫자 카드는 상품 마스터 뒤) · 옛 index 점검 = System Check(판정 166)
 ```
+⭐ [2026-10-05 · 판정 242 · 243 · so-module §42] 목록이 있는 IMS 화면은 모두 두 모드 — 넓은 목록(화면 전체 · 검색 · 거르기 · 만들기) → 고르면 좁은 목록 + 상세(☰ List · ‹ All ○○ · ?id=) · 공통 #wide · .wfilt 를 같은 id 로 · 판정 209(products)가 처음 · customers · suppliers 가 따랐다
 
 ---
 
