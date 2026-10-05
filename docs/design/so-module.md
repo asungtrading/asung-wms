@@ -6188,3 +6188,67 @@ price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙 · Suppli
 ⬜ CON 17 장(§34-e 53 · 10/2 scan 결과)
 다음 판정 번호: 234
 ```
+
+---
+
+## §39 칸 옮기기 여러 SKU — 판정 234 · mv-multi (2026-10-02 저녁 · 2026-10-05 회사 PC)
+
+⭐ 닫힌 것: mv-multi-1(DB 읽기 창구 `inv_move_bin_contents`) · mv-multi-2(wms-mover.html mv v2 → v2.3) — 테스트 DB 적용 · repair · Caleb 화면 「좋아 잘 작동해.」(2026-10-05)
+
+### 39-a 판정 원문 (234 · 말 그대로)
+
+- **판정 234** (2026-10-02) Caleb 「다로」 — WMS Bin Moves 에서 여러 SKU 를 한 번에: **목록에 담아 한 번에 옮기기 + 「이 칸 전부 담기」 단추** · 도착 칸은 목록 전체에 하나 · Move all = MV 하나에 여러 줄 · 판정 62(피커가 기다리는 몫)와 「Can move」 최대는 상품마다 · 지금의 한 상품씩 바로 옮기기도 남긴다 · 기각 (가) 목록만(팔레트 통째로가 번거롭다) · (나) 칸 통째로만(골라 옮기기가 안 된다) · 계기 Caleb 「wms bin moves에서 여러 sku들을 한번에 옮길 수 있으면 좋겠어. 그리고 수량을 넣는 칸도 있으면 좋을 것 같아.」
+  - 계기 앞 물음 Caleb 「wms에서 빈트랜스퍼할때, multiples products들의 빈트랜스퍼도 되는거지?」 — 대화 Claude 답: 창구 `inv_move_now` 는 여러 줄을 받지만 창고 화면(mv v1)은 한 줄씩(판정 63 묶음 열 2) · 오피스 화면 Stock Moves(sm v1)는 MV 하나에 여러 줄
+  - 수량 칸은 이미 있었다(상품을 스캔하면 나타난다 · `qIn` · − · + · All)
+
+**묶음 확인** (원문 그대로)
+- **mv-multi 묶음 1 ~ 7** Caleb 「그대로 가자.」 — 1 DB 읽기 창구 하나를 새로 — 그 칸의 상품마다 장부 · 집은 것 · 기다리는 몫 · 옮길 수 있는 최대 · 따라 옮겨질 픽 계획 수를 한 번에 · 쓰기 없음(mv v1 은 상품마다 요청 셋 — 30 가지면 90 번) · 2 흐름: 출발 칸 → (상품 스캔 · 수량 → Add) 반복 또는 「Add all in this bin」 → 목록(줄마다 고치기 · 빼기) → 도착 칸 → Move all · 3 줄마다 최대를 넘으면 막고 · 전부 담기는 최대 > 0 만 · 옮길 게 없는 상품은 회색 · 4 Move all = `inv_move_now` 한 번(전부 또는 하나도) · 실패하면 그 줄과 이유 · 5 한 상품 바로 옮기기도 남긴다 · 6 수량은 EA · 세트 바코드는 낱개로(판정 63 묶음 3) · 7 차수 mv-multi-1 DB → mv-multi-2 화면
+- **mv-multi-1 이견 1 ~ 10**(Claude Code · 보고 `~/asung/prompts/mv-multi-1-report.md` §1 · 대화 Claude 가 받아들임 · Caleb 은 그 보고를 붙여 적용 · 확인 · 커밋을 돌렸다) — 1 막는 셈은 `inv_move_line_set` 이 아니라 `inv_move_eval`(max_qty = ledger − picked − waiting) · 확정이 적용 · 2 ⭐ **mv v1 의 화면 셈은 식은 같지만 눈이 달랐다** — 세 조각을 invoker(직원 RLS)로 읽어 `inv_transfer` · `inv_transfer_line` 읽기 정책에 걸리는 사람(stock_move 는 있고 창고 일 열쇠가 없는 manager 모양)에게는 그 칸을 기다리는 트랜스퍼 픽이 안 보여 max 가 커 보이고 Move 가 거부됐다(검증 E8: 화면 조각 waiting 0 · max 10 / 창구 waiting 3 · max 7 / 8 을 옮기면 거부) · 새 창구는 definer = 확정과 같은 눈 · 3 definer · 4 첫 줄 `inv_move_require` · 5 장부는 `inv_balance` 를 한 번 · 6 반환에 `blocked` · `item_count` · 7 장부 0 인데 waiting 만 있는 상품은 넣지 않는다 · 음수 장부는 넣고 max 0 · 8 유령 SKU(제품 표에 없는 장부 행)도 넣는다 · 9 `inv_move_open_plans` · `inv_adjust_picked` 의 마지막 정의는 `20260928231355_transfer_1b1.sql` · 10 화면 일 넘김(반환 열쇠 · 거부 문장 모양)
+- **mv v2 화면 손질** Caleb — v2.1(단추를 스캔 칸 바로 아래 · 대화 Claude 가 카드 자리를 잘못 골랐다) · v2.2 Caleb 「로케이션을 선택했을때, 이상태가 default인게 더 나을 것 같아. 그리고, item이 있는 부분들이 2번에 떠야 하는게 더 낫지 않아? 1번 바로 아래 말이야.」 · v2.3 Caleb 「펼쳐지지 않아도 돼. 오히려 접혀져 있는게 나아. 그리고 갯수는 6개가 아니라 10개로 하자. 그 이상이면 스크롤되게 말이야.」
+
+### 39-b 커밋 · 실물
+
+- asung-wms **c79c50c** — `supabase/migrations/20261005122635_mv_multi_1.sql`(82 행 · 8,137 B · md5 `4c68f3394175829b5b7e0f2a5f484002` · 새 함수 하나 · 기존 함수 재발행 0)
+- asung-ims — `git -C ~/asung/asung-ims log --oneline a013664..HEAD` 원문
+```
+0054b9b fix(wms-mover): mv v2.3 - In this bin stays right under From bin but starts closed, and when opened shows ten rows with the rest scrolling inside, cut at the eleventh row so long names do not change the count (Caleb: closed is better, ten rows then scroll)
+066768d fix(wms-mover): mv v2.1 - Start over and Move sit right under the scan box, the To move list and In this bin cards below them, so a bin with many products no longer pushes the buttons down (Caleb screen A010103)
+84805ef feat(wms-mover): mv v2 - several SKUs in one move (ruling 234, mv-multi bundles 2 to 6): the FROM bin is read once through inv_move_bin_contents (max from the confirm count, so staff without warehouse keys no longer see a larger max than Move allows), Add to list or scan the next product, In this bin with grey reasons and Add per line, Add all in this bin (movable only, at max), list quantities capped at max, one TO bin and Move all as one inv_move_now (all or nothing, the list stays on refusal and the refused SKU is named), single-item move unchanged
+```
+- 창구 `inv_move_bin_contents(p_warehouse_id uuid, p_bin_id uuid) returns jsonb` — stable · definer · 첫 줄 `inv_move_require` · 반환 `{warehouse_id, warehouse, bin_id, bin_name, item_count, items[{product_id, sku, product_name, book, picked, waiting, max, plans, follow, blocked}]}` · max = `greatest(book − picked − waiting, 0)` · blocked(not in product master · inactive · set or pack)면 0
+- 화면 wms-mover.html — v2: 출발 칸 스캔 = 창구 한 번(옛 세 조각 호출 0) · Add to list · 다음 상품 스캔 = 앞 상품이 목록으로 · In this bin(회색 이유 · 줄마다 Add N) · Add all in this bin · 목록 수량 최대 막기 · Move all = `inv_move_now` 한 번(거부되면 목록 그대로 · 거부 SKU 짚기) · 한 상품 길 그대로 / v2.1 단추 자리 / v2.2 In this bin 을 1 번 바로 아래 / **v2.3** 처음에 접힘 · 펼치면 열 줄 · 그 넘으면 안에서 스크롤(열한째 줄 위치로 자름)
+
+### 39-c 실측
+
+- 시험 갈래 3 회 **36 OK** · Caleb 확인 실행 **32 OK**(exit 0 · `set -o pipefail`) · 칸 하나 읽기 73 상품 104 ms · 159 상품 99 ms(mv v1 이면 219 번 호출)
+- 화면: jsdom 전체 흐름 **22 PASS**(v2 · v2.1 · v2.2 · v2.3 마다) · 열 줄 자르기 따로 시험(접힘 무접촉 · 14 줄 → 10 줄 높이 · 9 줄 → 한도 없음) · Caleb 화면 A010103(5 상품) — 「잘 작동하고 있는 것 같아.」 → v2.3 「좋아 잘 작동해.」
+- 테스트 DB(2026-10-05 아침): 마지막 마이그레이션 20261005122635 · 시퀀스 so 25023 · invoice 60005 · credit 1001 · transfer 11 · move 2(금요일 저녁 뒤 SO 하나 · 트랜스퍼 하나가 더 생겼다 — 누가 만들었는지 확인 안 함)
+
+### 39-d 사고 · 교훈
+
+1. [Claude Code · E8] 화면이 invoker 로 부르는 읽기 조각들을 모아 셈하면, RLS 가 걸린 표(inv_transfer)에서 사람마다 눈이 갈려 확정(definer)과 다른 값이 나온다 ⇒ **판정 값(최대 · 모자람 · 가용)은 definer 창구 하나에서** 받는다
+2. [대화 Claude] mv v2 에서 새 카드를 스캔 칸과 Move 단추 사이에 넣어, 상품이 많은 칸에서 단추가 밀려 내려갔다(Caleb 화면) ⇒ 휴대폰 창고 화면은 **스캔 칸 · 주 단추가 늘 첫 화면에** — 목록은 그 아래 또는 높이 한도 안
+3. [대화 Claude · 2026-10-02 저녁] 인계서를 낸 뒤 같은 대화에서 새 판정(234)이 나왔다 — 인계서 v2 로 덧붙였다 ⇒ 인계서를 낸 뒤 판정이 나오면 바로 덧붙임 판
+4. [대화 Claude · 2026-10-02 저녁] `/model` 명령과 지시 문장을 한 블록에 줬다 — Claude Code 가 한 입력으로 받아 모델 이름 오류 ⇒ 슬래시 명령과 지시 문장은 따로따로
+5. [Claude Code · docs-1002c 보고] 스킬 zip 명령이 폴더째 묶는 모양이었다 — 대화 Claude 가 asung-workflow §8 과 대조해 바꿨다 ⇒ 잘 잡힌 예(정본 36-d 3)
+6. [대화 Claude · 2026-10-05] Caleb 이 「미뤄놓은 일 · 해야 할 일」 목록을 물었을 때, 정본 미룬 목록 · 프로젝트 메모만 보고 **1단계 남은 큰 일(손님 · 공급업체 만들고 고치기 창구 · 조립 · 번들)을 빠뜨렸다** — Caleb 「아직 supplier, customer,쓰기가 안되어 있어. 그리고 조립, 모듈도 안되어 있고, 그런 내용을 기억 못하나?」 · 그 전날 IMS 진척 짐작(1단계 약 85%)도 이것을 빼고 셌다 ⇒ 남은 일 · 진척을 말할 때는 **ims-principles §6-c 의 1단계 목록(판정 81)부터** 대조한다 · 레포 확인: `supplier_*` · `customer_*` 쓰기 창구 0 · 조립 창구 · 화면 0(suppliers.html 은 읽기 · 고치는 것은 `is_purchasable` 한 칸뿐 — 창구 없이 표를 직접 update · 정책 `ims_can_write('master')` · docs-1005 확인)
+
+### 39-e 미룬 것 — §38-e 83 에 이어 붙임
+
+- 84 유령 SKU — 장부에는 있고 제품 표에 없는 행(테스트 DB 실물 CRO85680 912 @ C020201) · 칸 옮기기 창구는 회색(not in product master)으로 보인다 · 정리는 원장 쪽(`ims_ledger_unlinked`)
+- 85 mv v1 의 RLS 눈 차이(39-d 1)는 mv v2 로 닫혔다 — 같은 모양(화면이 invoker 조각을 모아 판정 값을 셈)이 다른 화면에 있는지는 확인 안 함
+
+### 39-f 다음 — ⭐ 1단계(판정 81) 남은 것을 앞에
+
+```
+순서(Caleb 이 정한다):
+1단계 남은 큰 일(ims-principles §6-c · 판정 81):
+  · 손님 · 공급업체 만들고 고치기(창구 · 화면 — 지금 읽기만)
+  · 조립 · 번들(창구 · 화면 0)
+  · 비밀번호 배포 전 필수(판정 58 묶음 · 판정 59 ① — 상태 확인)
+  · prod-5 불러오기 적재 고침(판정 131 · 132 · 35-e 59 · 60 · 61 · 65 · 34-e 54)
+화면 시험 남은 것 — ⑫ ㊱(두 칸 나눠 뽑기 · 보류 뒤 칸 보존 · Admin 칸 셋 · 출고 원장 두 칸) · 창고 넷 사진 · Sheet 가격식
+price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목표 점검
+⬜ CON 17 장(§34-e 53)
+다음 판정 번호: 235
+```
