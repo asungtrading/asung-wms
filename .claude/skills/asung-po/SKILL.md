@@ -162,6 +162,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  가격식(price-1 · 판정 215 ~ 223): 계산은 price_formula_calc 한 곳(저장 없음 · 미리 보기 price_formula_preview) · 식 · 환율 · 티어 규칙 쓰기는 price_formula_save · price_fx_save · price_tier_rule_save(admin · ims_require_admin · 두 번 부르기)
      가격을 식으로 저장 = product_update price_set 의 formula 칸(다시 계산해 같을 때만 source formula · 다르면 manual + formula_mismatch) · ⚠️ price_tier_rule 에 Wholesale 줄 금지(tier_rule_wholesale) · price_formula_id 는 IM223 이 다른 공급처 식을 막는다 · 정본 po-module §3-h 「가격식 — 실물」
 ⭐  관세 부가 요금 그룹(surcharge-4a): product_update op 열여덟째 surcharge_group_set {sku, group_id | null, old}(master · 세트 막기 surcharge_on_set · 꺼진 그룹 막기) · 그룹 자체는 so_surcharge_group_save(admin) · 정본 po-module §3-h 「관세 부가 요금 그룹 — 실물」
+⭐  공급처 쓰기(판정 237 · 238 · 241 · so-module §41): 표 직접 쓰기 닫힘 · supplier_create · supplier_update(purchasing 또는 master) · 돈 칸(통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인)과 끄기는 master · 같은 이름 막기 · is_purchasable 은 일반 칸(suppliers.html 토글이 창구로) · 공급처 적재는 Apps Script ProbeIMS.gs 의 imsLoadSupplier(관리 키)
 ```
 
 ## 5. 이 스킬을 갱신할 때

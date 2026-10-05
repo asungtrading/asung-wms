@@ -280,6 +280,12 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
    자동: 상품의 켜진 그룹(so_surcharge_group) → so_line_add · so_lines_paste 가 채운다 · POS 도 so_line_add · 옮기는 길은 복사
 ```
 
+## 4-m. ⭐⭐ 손님 쓰기(만들기 · 고치기 · 확인 · 끄기) — 모르면 사고 (정본 so-module §41)
+
+```
+⭐ 손님 쓰기(판정 236 ~ 241 · 정본 so-module §41) — 표 직접 쓰기 닫힘(customer 는 「잠금만」 — so_invoice_issue 의 for update 때문) · 쓰기는 customer_create · customer_update(두 번 부르기 · op · old) · 문 sales 또는 master · 돈 칸 아홉(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 셋)과 끄기 · 켜기는 master 만 · sales 가 만들면 기본값 키 일곱 + customer_review_list(확인 전) · 같은 이름은 알리기 + ack · 열린 SO 는 복사해 굳힌 값(고쳐도 안 바뀜) · 적재는 관리 키(RLS 무관)
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).

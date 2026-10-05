@@ -6319,3 +6319,97 @@ price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목�
 price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목표 점검
 다음 판정 번호: 236
 ```
+
+---
+
+## §41 손님 · 공급처 마스터 — 만들기 · 고치기 · 확인 · 끄기 · 판정 236 ~ 241 (2026-10-05 · 회사 PC)
+
+⭐ 닫힌 것: master-cs-0(조사) · cs-1(손님 표 셋 닫기 · created_by · 공급처 연락처 기본 하나) · cs-2a(손님 만들기 · 확인) · cs-2b(손님 고치기) · cs-3(공급처 창구 · 공급처 표 넷 닫기 · 판정 241) · suppliers.html 토글을 창구로 — 테스트 DB 적용 · repair · Caleb 확인 실행 · 공급처 적재 실측
+⭐ 남은 것: cs-5 화면(customers.html · suppliers.html 패널 · Action Centre 줄) · cs-4 적재 고침(prod-5 와 한 묶음) — 41-f
+
+### 41-a 판정 원문 (236 ~ 241 · 말 그대로)
+
+- **판정 236** (2026-10-05) Caleb 「좋아 손님, 공급업체 먼저 가자」 — 판정 81 1단계 남은 큰 일 중 **손님 · 공급업체 만들고 고치기(창구 · 화면)를 조립 · 번들보다 먼저** · 근거(대화 Claude): 상품 마스터(prod-2 ~ 4)와 같은 틀(직접 쓰기 닫기 · 창구 · 두 번 부르기 · 고치기 op)이라 길이 나 있다 · 병행 운영 때 새 손님 · 공급처를 IMS 에서 만들어야 한다 · 조립 · 번들은 판정 거리가 많아 그 뒤 · 판정 130 「공급업체 · 손님은 그 뒤」의 차례가 왔다
+- **판정 237** (2026-10-05) Caleb 「다로 가자」 — 손님 · 공급처 쓰기 권한: **만들기 · 일반 칸은 일하는 열쇠**(손님 = `sales` 쓰기 · 공급처 = `purchasing` 쓰기 · 둘 다 `master` 도), **돈 조건 칸은 `master` 만**(손님 = 가격 티어 · 할인 · 결제조건 · 공급처 = 통화 · 결제조건 · 계정 · 대화 Claude 안 — 칸 목록은 묶음에서 확정) · 기각 (가) 일하는 열쇠로 전부 · (나) master 만 · 근거(대화 Claude): 새 손님은 영업이 바로 만들어야 일이 안 멈추고, 할인 · 외상 조건은 회사 돈에 바로 닿는다 · 실측(테스트 DB 2026-10-05): supervisor 5 명은 master · sales · purchasing 쓰기 · manager 8 명은 셋 다 읽기만 — 매니저가 만들려면 직원 화면에서 열쇠를 올려야 한다
+- **판정 238** (2026-10-05) Caleb 「가」 — 같은 이름(띄어쓰기 하나로 접고 대소문자 무시)으로 새로 만들 때: **손님은 알리고 확인**(「같은 이름의 손님이 이미 있다 — 정말 새 손님인가?」 · 확인하면 만든다 · 다른 가게가 같은 이름일 수 있다), **공급처는 막는다**(이름이 열쇠 · Cin7 이 이름으로 가리킨다) · 기각 (나) 둘 다 막기(손님에 이미 그런 쌍 2) · (다) 둘 다 알리기만(공급처 유니크를 풀어야 한다) · 실측: 손님 접은 이름 겹침 2 쌍(`Christina  Spataro` · `Marie Pascale  Saint fleur` — 띄어쓰기 두 칸 · 오타 중복으로 짐작) · 공급처 0(비슷한 쌍 `Intervision Trading` · `… (Supplier)` 1)
+- **판정 239** (2026-10-05) Caleb 「가로 하는데」 — sales 열쇠로 새 손님을 만들 때 돈 조건 칸은 **정해 둔 기본값**으로 들어가고 master 가 나중에 바꾼다 · 기본값(대화 Claude 안 · Caleb 정정 없음): 가격 티어 Wholesale · 할인 0 · 결제조건 **C.B.S(선결제)** · 통화 CAD · 기본 계정 · 기본값은 Settings 한 곳 · master 가 만들 때는 처음부터 돈 칸을 정한다 · 기각 (나) 만들 때만 sales 도 돈 칸(할인을 막을 길이 없다) · (다) 승인 대기(주문이 멈춘다) · 덧붙임 Caleb 「새로만든 손님의 정보를 업데이트해야 하는 것에 대해 manager가 알아야 하지 않을까?」 → 판정 240
+- **판정 240** (2026-10-05) Caleb 「가」 — sales 가 IMS 에서 만든 새 손님은 **Action Centre 에 「New customers to review」** 로 오른다(만든 사람 · 날짜 · 첫 오더 여부) · master 가 열어 돈 칸을 보고 **Reviewed** 를 누르면 빠진다 · 돈 칸을 바꾸면 그것도 확인으로 친다 · 손님 표에 확인한 사람 · 시각 칸 둘 · Reviewed 는 master 열쇠만 · 대상은 IMS 에서 sales 가 만든 손님만(Cin7 에서 온 손님 · master 가 만든 손님은 아님) · 기각 (나) 이메일(놓치기 쉽고 확인이 안 남는다) · (다) 목록 거르기만(일부러 열어 봐야 한다)
+- **판정 241** (2026-10-05) Caleb 「가」 — 손님 **끄기 · 켜기는 master 만** · 근거(대화 Claude): 거래를 끊는 일이고 미수가 남은 손님을 영업이 끄면 수금 흐름이 헷갈린다 · 판정 237 「돈에 닿는 칸은 master」와 같은 결 · 기각 (나) sales 도(알리기 + ack) · 실물 변경: master-cs-2b 의 `customer_update` 에서 `is_active` 를 돈 칸 목록으로 옮기는 한 줄 — cs-3 마이그레이션에서 재발행으로
+
+**묶음 확인**
+**master-cs 묶음 1 ~ 9** — 대화 Claude 안 · Caleb 확인 2026-10-05 「그대로 가자」
+1. 틀은 상품 마스터와 같다 — 표 직접 쓰기를 닫고 → 만들기 창구 → 고치기 창구(op 목록 · 두 번 부르기 · old 대조) · 다시 낼 기존 함수 없음
+2. 열쇠: 손님은 내부 번호(이름 유니크 없음) · 공급처는 지금처럼 이름이 열쇠(판정 238)
+3. 권한(판정 237): 만들기 · 일반 칸은 손님 `sales` · 공급처 `purchasing`(둘 다 `master` 도) · **돈 조건 칸은 `master` 만** — 손님 돈 칸: 가격 티어 · 할인 · 결제조건 · 통화 · 매출채권 계정 / 공급처 돈 칸: 통화 · 결제조건 · 매입채무 계정 · 공급처 할인 — 대화 Claude 안 · 표 칸에서 정확히 고르는 건 첫 차수 보고로 확정
+4. 여러 줄(주소 · 연락처)은 한 요청에 모은다 · 「기본 하나」는 창구가 지킨다 · 공급처 연락처에도 손님처럼 「기본 하나」 장치를 더한다(지금 둘 이상인 곳 0)
+5. 지우지 않고 끈다 · 열린 SO · PO · 미수 · 잔액이 있으면 경고하고 확인
+6. 만든 사람을 남긴다 — 두 마스터에 `created_by`(35-e 60 과 같은 줄기)
+7. 병행 기간은 판정 131 · 132 그대로 — 양쪽(IMS · Cin7)에서 만들고 같은 손님 · 공급처면 IMS 값이 이기고 차이 목록 · 적재 셋(손님 · 공급처 · 구매 가능 여부) 고침은 **prod-5 와 한 묶음** · 그 전에 **공급처 적재 스크립트를 clasp pull 로 레포에 담는다**(지금 레포에 없다)
+8. 화면: `customers.html` 새로(지금 없다) · `suppliers.html` 에 만들기 · 고치기 패널 + `is_purchasable` 직접 쓰기 한 줄을 창구로 · Sheet 는 지금 만들지 않는다
+9. 차수: **cs-1 문(손님 표 셋 닫기 · created_by · 공급처 연락처 기본 장치)** → cs-2a 손님 만들기 → cs-2b 손님 고치기 → cs-3 공급처 창구 + 공급처 표 넷 닫기 + suppliers.html 한 줄(같은 날) → cs-4 적재 셋 고침(prod-5 와 · clasp pull 먼저) → cs-5 화면(대화 Claude)
+- **cs-1 이견 1 ~ 6 · cs-2a 이견 1 ~ 10 · cs-2b 이견 1 ~ 9 · cs-3 이견 1 ~ 10**(Claude Code · 보고 `~/asung/prompts/master-cs-{1,2a,2b,3}-report.md` §1 · 대화 Claude 가 받아들임 · Caleb 이 보고를 붙여 적용 · 확인 · 커밋) — 요지는 41-b · 41-d
+
+### 41-b 커밋 · 실물
+
+- asung-wms — `git log --oneline 3da184b..7df5a65` 원문
+```
+7df5a65 feat(master): master-cs-3 - supplier_create and supplier_update (rulings 237, 238, 241, master-cs bundles 1 to 9): two-call windows for the purchasing or master write key, money fields (currency, payment term, accounts payable, tax rule, discounts) and activation for master only, same folded name refused, purchasing creations filled from four inv_config defaults measured from current suppliers, is_purchasable a general field, supplier tables closed to direct writes (no invoker lock, so fully closed; the unused supplier branch of po_discount_save now refuses), customer_update reissued byte for byte with is_active moved to master only (ruling 241) - trial applied and verified on the test DB, 23 OK, confirm 19
+d9d8743 feat(master): master-cs-2b - customer_update (rulings 237 and 240, master-cs bundles 3 to 5): one two-call window with nine ops (set for twelve general fields for sales or master and nine money fields for master only, address add set off default, contact add set off default), every change carries its old value (changed_elsewhere, field_duplicate_in_call), only the new value of a changed field is checked so customers pointing at an inactive term still edit, the default moves in one statement inside the deferrable one-default rule, deactivating warns with open orders, unpaid invoices, balance and children and needs ack, a master money change marks a sales-made customer reviewed without overwriting an earlier review, open orders keep their copied values and are counted in a warning - trial applied and verified on the test DB, 19 OK, confirm 15
+f7b0027 feat(master): master-cs-2a - customer_create (rulings 237 to 240): two-call window for the sales or master write key, money fields (price tier, discount, payment term, currency, AR and sale accounts, bill-to structure) refused from sales and filled from seven inv_config defaults measured from current customers (payment term C.B.S), same folded name warns with the matches and needs ack, addresses and contacts in one call with one default each, CASL consent as 0 to 3, created_by and reviewed_by and reviewed_at (master creations are reviewed at once); customer_review for master and the customer_review_list view for the Action Centre - trial applied and verified on the test DB, 26 OK, confirm 22
+4407fdd feat(master): master-cs-1 - customer tables closed to direct writes (rulings 236 to 238, master-cs bundles 1 to 9): customer_address and customer_contact insert, update and delete revoked with their policies, customer insert revoked and its update policy turned lock-only (using true, with check false) because so_invoice_issue is invoker and locks the customer row for update, so a lock still works while any change is refused; the Cin7 loader writes with the service key and is untouched; created_by on customer and supplier; supplier_contact one active default per supplier, deferrable like customer_contact, no partial unique index; supplier tables stay open until master-cs-3 - trial applied and verified on the test DB, 21 OK, confirm 17
+```
+- asung-ims — `git -C ~/asung/asung-ims log --oneline 2782cb0..8f52ab2` 원문
+```
+8f52ab2 fix(suppliers): Purchasable saves through supplier_update (master-cs-3, ruling 237): the supplier table is closed to direct writes, the window checks the old value and opens the toggle to the purchasing key; the row is read back for the chip and Updated
+```
+
+| 차수 | 마이그레이션(바이트 · md5) | 시험 OK | 확인 OK | 무엇 |
+|---|---|---|---|---|
+| cs-1 | `20261005154716_master_cs_1.sql`(13,035 · `78448a392fe70edc1b161002b198b691`) | 21 | 17 | 손님 주소 · 연락처 insert · update · delete 회수 · customer insert 회수 · **customer update 는 「잠금만」 정책**(`customer_update_lock_only` · using true · with check false — `so_invoice_issue` 가 invoker 로 손님 행을 for update) · `created_by`(customer · supplier) · `supplier_contact` 기본 하나(deferrable · 생성 칸 + 유니크 · 부분 유니크 아님) |
+| cs-2a | `20261005161145_master_cs_2a.sql`(38,747 · `12f736aaeea3c0b8e98c8d83d9681b81`) | 26 | 22 | `customer_create`(sales 또는 master · 두 번 부르기) · 돈 칸 아홉은 sales 요청이면 `money_field_not_allowed` · 기본값 키 일곱(`inv_config` · 잠금 밖 · 실측 최빈값 · 결제조건만 C.B.S) · 같은 이름 알리기 + ack · 주소 · 연락처 한 호출 · CASL 0 ~ 3 · `reviewed_by` · `reviewed_at` · `customer_review`(master) · 뷰 `customer_review_list` |
+| cs-2b | `20261005163039_master_cs_2b.sql`(48,574 · `8b38476d25519d79c9603605bf131438`) | 19 | 15 | `customer_update` op 아홉(set 일반 12 · 돈 9 · 주소 · 연락처 add · set · off · default) · 줄마다 old · 바꾸는 칸의 새 값만 검사(꺼진 `Net30` 손님도 다른 칸은 고친다) · 끄기 알리기(열린 SO · 미수 · 잔액 · 자식) · master 돈 칸 변경 = 확인(처음 확인은 덮지 않음) · 열린 SO 는 옛 값(`open_so_keep_old`) |
+| cs-3 | `20261005164835_master_cs_3.sql`(101,761 · `24d7c3d6b94dee5e6b336d2b889a1e20`) | 23 | 19 | `supplier_create` · `supplier_update`(purchasing 또는 master · 돈 칸 = 통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인 · 끄기는 master) · 같은 이름 막기(꺼진 것 포함) · `(Supplier)` 짝 알리기 · 이름 바꾸기 `rename_sync_cin7` · 기본값 키 넷 · `is_purchasable` 일반 칸 · 공급처 표 넷 완전히 닫음(잠그는 invoker 없음) · **`customer_update` 재발행(판정 241 · `is_active` 를 master 로)** |
+
+- 화면: asung-ims `8f52ab2` suppliers.html — Purchasable 저장이 `supplier_update`(op set · old) · 되읽기 · purchasing 열쇠로도 된다
+
+### 41-c 실측
+
+- 조사 S(Caleb · 테스트 DB): **S 실측(Caleb · 테스트 DB · 2026-10-05 · master-cs-0 보고 §S)**
+- 행: customer cin7 활성 9,461 · 꺼짐 8 · customer_address 19,002 · customer_contact 9,913 · supplier 활성 226 · 꺼짐 31 · supplier_address 87 · supplier_contact 237 · supplier_discount 0 행(결과에 없음) · **manual 0**(모두 cin7)
+- 기본 둘 이상: supplier_contact 0 · customer_contact 0 · customer_address(type 별) 0
+- RLS 일곱 표 모두 켜짐 · 정책 26(customer 셋 · supplier 셋 · 주소 · 연락처 · 할인은 넷씩) · authenticated grant: 일곱 표 모두 INSERT · UPDATE(· DELETE) 열림
+- 열린 SO 손님 2 · 열린 PO 공급처 6 · `is_purchasable` null 공급처 38 · 티어가 ref_price_tier 에 없는 손님 0
+- 직원: admin 1(perms []) · manager 8(`wms ims sales:read staff:read master:read receiving:read purchasing:read`) · manager 1(perms []) · supervisor 3(창고 일 + sales · master · purchasing …) · supervisor 2(sales · master · purchasing · staff · receiving) · worker 7(창고 일만)
+- 기본값 seed(보고 실측): 손님 — Wholesale 7,413 · 할인 0 9,389 · CAD 9,458 · `_61_` 9,454 · `_98_` 9,459 · 창고 Asung Trading Inc. 9,320 · 결제조건 C.B.S(판정 239) / 공급처 — Due on receipt 92 · `_109_` 183 · USD 159 · Zero-rated (Purchase) 149
+- **공급처 적재 실측**(Caleb · 2026-10-05 · 공급처 표를 닫은 뒤): Apps Script `System_Automation` · 파일 `ProbeIMS.gs`(머리말 `ImsLoad.gs`)의 `ims_fetch_` 가 `getProp('SUPABASE_IMS_SERVICE_KEY')` — 관리 키 · `imsLoadSupplier`(dry) → `imsLoadSupplierApply` · Cin7 활성 227 · FK 못 붙은 곳 0 · 이름 중복 0 · 「거래 중단」 28(정본 기대치 24) · **HTTP 201 · 쓰인 행 227** ⇒ 표를 닫아도 적재는 산다(RLS 를 지나는 관리 키)
+
+### 41-d 사고 · 교훈 · 발견
+
+1. [Claude Code · cs-1 이견 1] 손님 표를 prod-2 모양으로 완전히 닫으면 `so_invoice_issue`(invoker)의 손님 행 잠금이 죽는다(권한 회수 → 오류 · 정책만 지움 → 잠금이 0 행으로 조용히 지나 동시 발행 보호가 사라짐) ⇒ 「잠금만」 정책 · 근본 처방(그 함수를 definer 로)은 미룸(41-e 88) · ⇒ **표를 닫기 전에 그 표의 행을 for update 로 잠그는 invoker 함수를 찾는다**
+2. [Claude Code · cs-3 이견 1] `po_discount_save` · `po_discount_delete`(invoker)의 `supplier` 갈래가 공급처 할인 표에 쓴다 — 화면 호출 0 · 닫힌 뒤 42501 로 죽는다 ⇒ 갈래 정리는 미룸(41-e 89)
+3. [대화 Claude · Claude Code · master-cs-0 이견 1] 공급처 적재 스크립트가 GAS 레포 클론에 「없다」로 보였다 — 실제로는 Apps Script 의 `ProbeIMS.gs` 안 `imsLoadSupplier` · `Imsloadproductsupplier.gs` 안 `imsLoadSupplierExtra(Apply)` 였다(파일 이름이 정본 · 짐작과 다름 · 클론이 낡음) ⇒ **GAS 는 Apps Script 편집기가 원본** · 클론을 근거로 「없다」고 하지 않는다 · cs-4 전에 clasp pull
+   - [docs-1005c 확인] `imsLoadSupplierExtra(Apply)` 는 asung-wms 레포 `docs/probes/ImsLoadProductSupplier.gs`(87 · 88)에 사본이 있다 — 「없다」였던 것은 `imsLoadSupplier`(본체 · 주소 · 연락처 · 구매 가능) 쪽 · 레포 사본이 Apps Script 원본과 같은지는 안 봤다
+4. [대화 Claude] 판정 236 글을 대화에서 「공업체」로 잘못 쳤다 — 지시서 파일에는 바르게 넣었다 ⇒ 판정 원문은 파일에서 옮긴다(이 차수의 📌 규칙)
+5. [Caleb · 2026-10-05] 「앞으로 터미날 명령어 줄때, 옮기고 나면 다운로드 폴더에 있는 파일은 삭제하는 것까지 포함하는 명령어를 줘.」 — 옮기기 명령은 다운로드 md5 → 복사 → 복사본 md5 → 다운로드 삭제(md5 가 다르면 아무것도 지우지 않음)
+- 발견: `ref_payment_term` 의 `Net30` 꺼짐 · 활성 손님 6,305 명이 가리킴(켜진 것 `Net 30` 108) · 공급처 「거래 중단」 28(정본 기대치 24) · SO 번호 25028 은 시험 회차가 쓰고 비었다(해 없음)
+
+### 41-e 미룬 것 — §40-e 87 에 이어 붙임
+
+- 88 `so_invoice_issue` 를 definer 로 재발행하면 손님 표를 「잠금만」 없이 완전히 닫는다(41-d 1)
+- 89 `po_discount_save` · `po_discount_delete` 의 `supplier` 갈래 들어내기(41-d 2)
+- 90 `Net30`(꺼짐 · 손님 6,305) 과 `Net 30`(켜짐 · 108) — 어느 이름이 맞는지 정해 Cin7 · IMS 정리(Caleb 판단)
+- 91 공급처 「거래 중단」 정본 기대치 24 → 실측 28 로 고칠 자리(po-module 의 그 숫자 · grep)
+- 92 GAS clasp pull — `ProbeIMS.gs`(imsLoadSupplier) · `Imsloadproductsupplier.gs`(imsLoadSupplierExtra) · `Imsloadcustomer.gs` 등을 레포로(cs-4 앞)
+- 93 cs-2a · cs-3 의 같은 검사(돈 칸 · 주소 · 연락처 · 동의)를 도우미로 모을지(cs-2b 이견 7 · 재발행 필요)
+- 94 매니저 8 명은 sales · purchasing · master 가 읽기만 — 손님 · 공급처를 만들려면 직원 화면에서 열쇠를 올린다(판정 237 근거 실측)
+
+### 41-f 다음
+
+```
+순서(Caleb 이 정한다):
+cs-5 화면(대화 Claude) — customers.html(새 · 목록 · 만들기 · 고치기 · 돈 칸은 master 화면만) · suppliers.html 만들기 · 고치기 패널 · Action Centre 「New customers to review」(customer_review_list · Reviewed 단추)
+cs-4 적재 고침(prod-5 와 한 묶음 · 41-e 92 clasp pull 먼저) — IMS 에서 만든 손님 · 공급처를 Cin7 적재가 덮지 않게(판정 131 · 132)
+1단계 남은 큰 일: 조립 · 번들 · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)
+화면 시험 남은 것 — 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210)
+다음 판정 번호: 242
+```
