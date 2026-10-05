@@ -4795,6 +4795,7 @@ asung-ims  4b4d45a  stock-adjustments.html adj v1(대화 Claude · 753행 · md5
 
 ```
 ① 판정 58 묶음 — ⚠️ 비밀번호 배포(실사용) 전 필수: 팩커 「Found it? 몇 개 · 어느 칸」 선언 창 · wms_reports 닫힌 방법 칸 · WMS Admin Reports 칩과 합계 갈라 보이기
+  ⇒ [닫힘 2026-10-05 · §43] rep-close-1(b32098e) · pa v1.5 · wa v1.17 · Caleb 화면 시험 SO-25031
 ② 확정 순간 같은 칸 배송 · 입고 동시 커밋 — 원장 키 잠금(so_ship · 입고 창구까지 함께 잠가야) · 판정 거리
 ③ GitHub Pages 캐시 10분 — 컷오버 때 직원 화면이 옛 판(판정 거리 · 화면 캐시 끄기 또는 판 확인)
 ④ 조정 줄 창 저장 전 평균 원가 표시(판정 56 B · DB 함수 하나 · eval 과 같은 함수)
@@ -4819,6 +4820,7 @@ asung-ims  4b4d45a  stock-adjustments.html adj v1(대화 Claude · 753행 · md5
 ```
 □ 조정 열쇠(stock_adjust)를 켤 manager · supervisor 를 정한다(판정 49 · worker 는 안 됨 판정 50)
 □ 판정 58 묶음이 섰는가(비밀번호 전)
+  ⇒ [섰다 2026-10-05 · §43]
 □ 직원 화면 캐시(판정 59 ③)
 ```
 
@@ -6470,5 +6472,62 @@ a1fceec feat(customers): cs v1 - new Customers screen (cs-5 part 1, rulings 236 
 1단계 남은 큰 일(판정 81 · ims-principles §6-c): 조립 · 번들(창구 · 화면 0) · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)
 cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저) — IMS 에서 만든 손님 · 공급처 · 상품을 Cin7 적재가 덮지 않게(판정 131 · 132)
 화면 시험 남은 것 — 42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210)
+다음 판정 번호: 244
+```
+
+## §43 신고가 어떻게 닫혔나 — 판정 58 묶음 닫힘(비밀번호 배포 전 필수) (2026-10-05 · 회사 PC)
+
+⭐ 닫힌 것: 판정 58 · 59 의 미룬 묶음(정본 §26 판정 58 · 59 · 판정 59 목록 ①) — rep-close-1(DB) · rep-close-2(pa v1.5 · wa v1.16 → v1.17) · Caleb 화면 시험 SO-25031 「확인했어. 잘 수정됐어.」
+⭐ 새 판정 없음 — 다음 판정 번호 244 그대로
+
+### 43-a 묶음 원문
+
+**판정 58 묶음 1 ~ 5** — 대화 Claude 안 · Caleb 확인 2026-10-05 「좋아 그대로 가자」
+1. 팩커의 「Found it?」 선언 창 — 신고가 걸린 줄을 팩에서 채울 때 지금의 질문 둘(채울까? · 어느 칸에서?)을 창 하나로 「Found it — 몇 개 · 어느 칸」(칸 기본 = 픽 계획 칸 · 판정 57)
+2. 신고에 「어떻게 닫혔는지」를 남긴다 — found at pack(누가 · 몇 개 · 어느 칸) · adjusted(재고 조정 번호 ADJ-…) · resolved(매니저가 「Mark resolved」) · 누가 · 언제는 지금 칸(`resolved_by` · `resolved_at`)
+3. WMS Admin Reports 에 칩과 갈라 본 합계 — 「Found at packing — Ted found 3 in F020201」 · 「Adjusted — ADJ-00015」 · 합계 「5 (1 open · 3 found at pack · 1 adjusted)」
+4. 옛 신고(이미 닫힌 것)는 손대지 않는다 — 닫힌 방법 칸은 비어 있는 채 「—」
+5. 차수: DB(Claude Code · 칸 + 닫는 길에서 그 칸 채우기 · 먼저 지금 닫는 자리를 조사해서 이견) → 화면 둘(대화 Claude · jsdom)
+- 그 앞 상태 확인(대화 Claude · 2026-10-05): 정본 §26 판정 58 · 59 뒤로 이 묶음이 선 기록 없음 · 팩 화면 pa v1.4 · Admin wa v1.15 · `wms_reports` 에 닫힌 방법 칸 없음
+- **rep-close-1 이견 1 ~ 7**(Claude Code · 보고 `~/asung/prompts/rep-close-1-report.md` §1 · 대화 Claude 가 받아들임 · Caleb 이 적용 · 확인 · 커밋) — 1 팩 회복의 닫기는 `p_short_resolve`(`wms_complete_pack` ④가 sku 목록으로 열린 stock_short 를 팩커 이름으로 닫는다 · 이미 창구 안) · 수량 · 칸은 같은 호출 ②′ 의 회복 칸 행에서 합산 · 2 회복 행 없이 닫히는 sku 가 있다(픽은 다 됐는데 팩커가 선언했다가 토트에서 찾음) ⇒ 「found_at_pack 이면 qty > 0 · bin 있음」은 못 지킨다 · CHECK 는 둘 다 있거나 둘 다 없거나 · 3 `inv_adjust_from_report` 는 읽기 창구 · 조정의 닫는 자리는 `inv_adjust_confirm` 하나 · 4 Mark resolved 는 화면이 표에 직접 update(wa v1.15) — 트리거(방법 없이 닫히면 resolved) + 창구 `wms_report_resolve` 둘 다 · 5 발견: 옛 화면은 이미 닫힌 신고를 다시 눌러도 누가 · 언제를 덮어썼다 · 창구는 거부 · 6 다시 여는 길 없음 · 팩 롤백 뒤 found_at_pack 신고는 닫힌 채 남는다(이 차수 전부터 · 미룸) · 7 새로 쓰거나 바꾼 줄 약 91
+- 화면 손질 Caleb 「이름이 두번 나오는 것은 지금 수정하자. 작은 거라 나중에도 안한게 될꺼야.」 → wa v1.17 · Caleb 「확인했어. 잘 수정됐어.」
+
+### 43-b 커밋 · 실물
+
+- asung-wms **b32098e** — `supabase/migrations/20261005182435_rep_close_1.sql`(326 행 · 27,953 B · md5 `9515ea986212d4ab83b7530f1c76fe47`)
+  - `wms_reports` 칸 넷: `resolved_how`(found_at_pack · adjusted · resolved) · `resolved_qty` · `resolved_bin` · `resolved_doc` + CHECK 둘(옛 행 = 넷 다 null 통과)
+  - 재발행 둘(바이트 복사 · 닫는 문장 한 곳만): `wms_complete_pack`(found_at_pack · 회복 수량 · 칸) · `inv_adjust_confirm`(adjusted · ADJ 번호)
+  - 트리거 `wms_reports_resolved_how_stamp`(BEFORE UPDATE OF resolved_at · 방법 없이 닫히면 resolved · 다시 열면 넷을 비움) · 창구 `wms_report_resolve(bigint)`(문 wms_manage · 이미 닫힌 신고 거부)
+- asung-ims — `git -C ~/asung/asung-ims log --oneline 64ae060..9041c43` 원문
+```
+9041c43 fix(wms-admin): wa v1.17 - the Found at packing chip already names who found it, so the line under it drops the name (Adjusted and Resolved by hand keep who closed it)
+db6adbb feat(wms): pa v1.5 and wa v1.16 - how a report was closed (ruling 58 bundles 1 and 3, rep-close-2): the packer gets one Found it? window when filling beyond the pick (found or stop, and the bin, planned bin by default) and the line shows Found +N and the bin; Admin Reports shows the closing method on closed reports (Found at packing - who found N in which bin, Adjusted - ADJ number, Resolved by hand), splits the Not enough stock total, and Mark resolved goes through wms_report_resolve, which refuses a report that is already closed
+```
+  - wms-packer.html **pa v1.5**(`095de8ff`) — 픽을 넘겨 채울 때 「FOUND IT?」 창 하나(찾았나 + 어느 칸 · 기본 = 픽 계획 칸) · 채운 줄 `Found +N · 칸`
+  - wms-admin.html **wa v1.16**(`d0030652`) → **v1.17**(`661831ff`) — 닫힌 방법 칩(Found at packing — 누가 found N in 칸 · Adjusted — ADJ-… · Resolved by hand) · 「Not enough stock — N (… open · … found at pack · … adjusted · … resolved by hand · … closed earlier)」 · Mark resolved = `wms_report_resolve` · v1.17 은 Found at packing 칩 아래 줄에서 이름을 뺀다
+
+### 43-c 실측 · 시험
+
+- rep-close-1: 시험 갈래 3 회차 **31 OK** · Caleb 확인 **27 OK**(exit 0) · 실제 신고 7 행 지문 전후 같음 · 시퀀스 무변
+- rep-close-2: jsdom **11 PASS**(Found it 창 하나 · Cancel · 계획 칸 기본 · 다시 안 묻기 · 칩 셋 · 옛 행 칩 없음 · 합계 · 직접 쓰기 남지 않음)
+- Caleb 화면(2026-10-05 · 테스트 DB): SO-25031 ORS11023 픽 3 / 5 · 「Not enough stock」 선언 → 팩에서 「FOUND IT? — Picker pulled 3, ordered 5 — 2 missing · declared by Seungchill Chang」 · 칸 F030303(계획 칸) → `Found +2 · F030303` → 완료 「ORS11023 +2 from F030303」 → Admin 「Not enough stock — 2 (1 open · 1 found at pack)」 · 칩 「Found at packing — Seungchill Chang found 2 in F030303」 · 「resolved in 1m」
+
+### 43-d 일하는 방식 · 교훈
+
+1. **[Caleb · 2026-10-05] DB 커밋은 확인 뒤에** — Caleb 「난 db 커밋은 항상 일부러 안올려. 3개중 두개만 먼저 확인하고 문제 없으면 db커밋을 하는데, 그것은 니가 좀 챙겼으면 좋겠네」 · 대화 Claude 는 이것을 두 번(pick-shelf-1 · rep-close-1) 「커밋을 빠뜨린 일」로 잘못 읽었다 ⇒ 셋째 덩이(커밋)는 Caleb 이 화면까지 확인한 뒤 · **대화 Claude 가 「⏳ DB 커밋 대기」 목록을 챙겨** 답 끝에 한 줄로 보이고, 화면 시험이 끝나거나 문서 차수 · 하루 정리 때 숫자를 넣은 커밋 명령(`$RC` · `$N` 없이)을 먼저 낸다 · 올라가면 원격으로 확인하고 지운다
+2. **[Caleb · 2026-10-05] 작은 손질은 바로** — 「작은 거라 나중에도 안한게 될꺼야.」 ⇒ 화면 시험에서 나온 작은 모양 거리는 미룬 목록에 넣지 말고 그 자리에서 고친다
+
+### 43-e 미룬 것 — §42-e 97 에 이어 붙임
+
+- 98 팩 롤백 뒤에도 found_at_pack 신고는 닫힌 채 남는다(rep-close-1 이견 6 · 이 차수 전부터) — 롤백이 그 신고를 다시 열지 · 판정 거리
+- 99 테스트 DB 의 열린 중복 신고(SO-25026 EBI03709 Wrong location 둘 · §40-e 86) — Mark resolved 로 닫아도 된다(테스트 재료)
+
+### 43-f 다음
+
+```
+순서(Caleb 이 정한다):
+1단계 남은 큰 일(판정 81): 조립 · 번들 — Cin7 조립 실물 조사(Claude Code)부터
+cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
+화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
 다음 판정 번호: 244
 ```
