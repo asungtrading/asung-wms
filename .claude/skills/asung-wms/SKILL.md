@@ -45,6 +45,7 @@ description: >
 - `wms_pick_lines` 줄마다 `stock_bins[{bin_id, bin, zone, qty, is_active, planned}]` — 계획 칸 먼저 · 장부 내림 · ⚠️ `qty` · `ledger_qty` 는 **낱개 EA** · 가용 칩 `available_ea` 는 **창고 합계**(칸별 아님)
 - 판정 123: 장부 재고 없는 칸 · 비활성 칸도 **받고 경고만**(`ledger_short:` · `inactive_bin:`) · 창고 검사는 그대로 · 칸 음수는 Health `bin_negative` 로 보인다
 - 판정 124: `wms_reports.planned_bin` · `found_bin` · `bin_qty` 는 `wrong_location` 에만(CHECK) · 「Planned bin was empty」 체크 때만 자동 보고 · ⑪ 뒤 절반(보고 → 칸 옮기기)은 아직 · 원장 칸이 쓰이는 순간은 픽 완료가 아니라 Ship · 출발(`wms_so_handoff` picks)
+- ⭐ **픽 화면 on shelf — wms_pick_shelf(판정 235 · pick-shelf-1)**: 과제의 base_sku 들을 한 번에 → 칸마다 book · picked · on_shelf(= book − picked · 판정 62 선반 기대량) · planned · definer · 피커 문(picking 쓰기 · 창고) · 표시만 / ⭐ **빈 계획 칸 보고 한 번만**: wms_reports BEFORE INSERT 트리거 + 자문 잠금 — 같은 문서 · sku · planned_bin · found_bin 의 열린 wrong_location 이 있으면 「already reported」 거부 · 부분 유니크 인덱스 아님 · 화면 pk v1.4 · 정본 so-module §40
 - 빌드(2026-09-30): pk v1.2 · wa v1.15
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.

@@ -5356,6 +5356,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 - ㉞ 재생성 16 → 34초(fifo_take 가 후보마다 합 셋) · 검산 도구라 감당 · 합 들고 다니기는 「전량 재생성 가능」 조건과 부딪힘
 - ㉟ check-class-values.sh 가 `kind = '…' or (…)` 모양 CHECK 를 못 읽는다 — 다음 마이그레이션 커밋이 또 막히면 바로 · 전환 전  → ✅ 닫힘 e53b5ad · 85629c5(§31)
 - ㊱ ⑫ 화면 시험(Caleb 미룸) — 두 칸 나눠 뽑기 · 보류 뒤 칸 보존 · Admin 칸 셋 · 출고 원장 두 칸
+  ⇒ [닫힘 2026-10-05 · §40-c] ① ~ ④ 모두 확인(SO-25024 · 25025 · 25026) · 치명 셋 ⑰ · ⑯ · ⑫ 닫힘
 - ㊲ ⑪ 뒤 절반 — Wrong location 보고 → 칸 옮기기 단추(매니저가 수량)
 - ㊳ 보류 창구(wms_hold_pick)는 칸을 모른다 — 마지막 줄 저장이 실패한 채 보류하면 다시 열 때 그 줄은 계획 칸으로(수량은 그대로)
 - ㊴ (짐작 · 확인 필요) 피커의 옛 「⚑ Wrong location」 단추(reportIssue)는 트랜스퍼 줄에도 order_id 로 insert 한다 — repDoc 을 안 쓴다
@@ -5786,6 +5787,7 @@ ac02db7  img-2    20261001161052_img_2_cin7_image_sync.sql (168행 · md5 e9f92c
 - 51 이미지 변환 요금 — PRO 에서도 원본 수 기준으로 일정량 넘으면 요금이 붙는 것으로 짐작(확인 안 함) · 1만 장 · 화면 차수에서 「변환 쓰기 · 작은 그림 미리 만들기」를 요금표와 함께 판정
 - 52 AS91767 — Cin7 PNG 5.43 MB · too_large · Cin7 에서 줄여 다시 올리면 다음 scan 이 가져온다
 - 53 CON 17 장 — 10/2 14:30 UTC scan 결과로 확인(새 첨부가 큐에 들어가고 move 가 옮기는지 · skips 의 옛 17 은 그대로 남는다)
+  ⇒ [닫힘 2026-10-05 · §40-c] 17 상품 모두 대표 사진 있음 · 새 첨부 17 장 done
 - 54 Cin7 에만 있는 SKU 651 — 할인 줄 · 서비스 항목 짐작 · prod-5(불러오기) 때 볼 것
 - 55 index.ts 는 네트워크 가짜 시험이 없다(판단은 sync_core.ts 에 · img-2 이견 8)
 - 56 failed 자동 재시도 없음 — 일시 오류 2/1만 · 잦아지면 「한 번 자동 재시도」 판정
@@ -6251,4 +6253,69 @@ price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙 · Suppli
 price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목표 점검
 ⬜ CON 17 장(§34-e 53)
 다음 판정 번호: 235
+```
+
+---
+
+## §40 픽 화면 on shelf · 빈 계획 칸 보고 한 번만 — 판정 235 · ⑫ 화면 시험 ㊱ 닫힘 (2026-10-05 · 회사 PC)
+
+⭐ 닫힌 것: pick-shelf-1(DB 읽기 창구 `wms_pick_shelf` + 보고 중복 막기 트리거) · pick-shelf-2(wms-picker.html pk v1.4) · **⑫ 화면 시험 ㊱**(치명 셋 ⑰ · ⑯ · ⑫ 모두 닫힘) · **CON 17 장**(§34-e 53) — 테스트 DB · Caleb 화면 「잘 작동하는 것 같아.」
+
+### 40-a 판정 원문 (235 · 말 그대로)
+
+- **판정 235** (2026-10-05) Caleb 「가로 수정하자.」 — WMS 픽 화면의 칸 옆에 **선반 기대량**(그 칸의 장부 − 집었지만 아직 출고 안 된 몫 · 판정 62 의 「선반 기대량」)을 보인다(예 `F030402 · on shelf 24`) · 「Different bin」 칸 목록에도 칸마다 같은 숫자 · 숫자는 확정 검사와 같은 식으로 **DB 창구 하나에서**(definer · 정본 §39-d 1) · 피커에게는 옮기기 열쇠가 없어 칸 옮기기 창구를 빌리지 않는다 — 작은 읽기 창구 + 화면 · 표시만(막지 않는다 · 판정 123) · 기각 (나) 장부 수량 그대로(집어 간 몫이 있으면 선반과 안 맞는다) · (다) 지금대로 · 계기 Caleb 「우리 wms에서는 계획칸에 몇개가 있는지를 알 수가 없어.」 · 그때 화면의 `Avail 35` 는 창고 전체(F030402 29 + F030501 6)
+
+**묶음 확인** (원문 그대로)
+- **pick-shelf 묶음 1 ~ 5** Caleb 「그대로 가자」 — 그 앞 Caleb 「체크칸이 planned 칸 바로 밑에 있어야 하지 않나?」 로 2 를 고친 판 · 1 선반 기대량을 계획 칸 옆과 Different bin 목록의 칸마다 `on shelf N` · DB 읽기 창구 하나에서(definer) · 2 Different bin 창 = 맨 위 계획 칸 + 바로 밑 「This bin was empty」 · 그 아래 다른 칸 목록(계획 칸 빠짐) · 맨 아래 「Pick from ○○」 · 칸을 눌러도 닫히지 않고 고르기만 · 체크는 언제든 · 단추로 정한다 · 3 창이 닫힌 뒤 줄에 `picking from …` · `planned bin reported empty ✓` · 4 보고는 같은 줄 · 같은 칸이면 한 번만(화면 한 곳 + DB 한 곳) · 5 차수 DB → 화면
+  - 계기: ⑫ ㊱ 시험에서 보고가 둘(id 175 · 176 · 10 초 차) — Caleb 「맞아 칸고르기를 두번 열었어. 왜냐하면 빈을 먼저 선택하고, 체크마크를 누르면 제대로 됐는지 모르겠더라고. 그래서 다시 열게돼」 · 원인(대화 Claude 가 pk v1.3 코드로 확인): 옛 창은 칸을 누르는 순간 닫히며 그때의 체크로 정했고, 보고는 고를 때마다 `wms_reports` 에 직접 insert(같은 줄 · 같은 칸도 거르지 않음)
+- **pick-shelf-1 이견 1 ~ 8**(Claude Code · 보고 §1 · 대화 Claude 가 받아들임 · Caleb 이 적용 · 확인 · 커밋) — 1 입력은 `p_skus text[]`(화면 줄에 product_id 가 없고 장부 열쇠가 sku · 세트는 낱개로 접힘) · 2 피커 문 = `wms_pick_line_save` 와 같은 두 줄(`ims_require_write('picking')` · `ims_can_warehouse`) · 3 장부 0 이어도 열린 픽 계획 칸은 넣는다(`on shelf 0` · `planned` 열쇠) · 4 picked 는 `inv_adjust_picked` 와 같은 술어를 (칸, 상품)으로 한 번에(칸마다 부르면 2 초 넘음) · 5 중복 막기 = BEFORE INSERT 트리거 + 트랜잭션 자문 잠금(두 기기 동시 insert) · 부분 유니크 인덱스 없음 · 6 「열린」 = `resolved_at is null`(닫은 뒤 같은 보고는 다시 받는다) · 7 거부된 insert 도 `wms_reports.id` 를 하나 쓴다(번호가 빈다 · 해 없음) · 8 옛 행 175 · 176 무접촉
+
+### 40-b 커밋 · 실물
+
+- asung-wms — `git log --oneline 9bb5370..HEAD` 원문
+```
+139d950 feat(pick): pick-shelf-1 - wms_pick_shelf read window and one open planned-empty report per bin (ruling 235, pick-shelf bundles 1 and 4): one call with the task SKUs gives every bin of each single product with book, picked not shipped and on shelf = book - picked, planned bins with no book shown at 0, the picker door of wms_pick_line_save (picking write key and warehouse), picked counted in one pass with the inv_adjust_picked predicate; a before insert trigger with an advisory lock refuses a second open wrong_location report for the same document, SKU, planned bin and found bin (already reported, open = resolved_at null), no partial unique index, old rows untouched - trial applied and verified on the test DB, 30 OK, confirm 26
+```
+- asung-ims — `git -C ~/asung/asung-ims log --oneline 0054b9b..HEAD` 원문
+```
+2782cb0 feat(wms-picker): pk v1.4 - on shelf next to the bin and in the Different bin list from one wms_pick_shelf call (ruling 235, pick-shelf bundles 1 to 4, late reads never block picking); Different bin shows the planned bin with This bin was empty right under it, the other bins below without the planned one, a click only selects and Pick from confirms; the line keeps picking from and planned bin reported empty; one report per line and bin on the screen and already reported from the database is taken as reported
+```
+- 마이그레이션 `20261005143203_pick_shelf_1.sql`(145 행 · 13,584 B · md5 `c56e52289e6b6da5647d39eabaf9bd6e`)
+  - `wms_pick_shelf(p_warehouse_id uuid, p_skus text[]) returns jsonb` — stable · definer · 반환 `{warehouse_id, warehouse, items[{product_id, sku, product_name, bins[{bin_id, bin, book, picked, on_shelf, planned}]}]}` · on_shelf = book − picked(음수 그대로 · 판정 123)
+  - 트리거 `wms_reports_planned_empty_once`(BEFORE INSERT · 자문 잠금) — 같은 문서 · sku · planned_bin · found_bin(공백 · 대소문자 무시)의 열린 `wrong_location` 이 있으면 거부: `Planned bin … for … (found at …) on … was already reported — report #… is still open — nothing was saved`
+- 화면 wms-picker.html **pk v1.4** — 과제 들어갈 때 `wms_pick_shelf` 한 번(늦게 와도 픽을 막지 않는다 · 받으면 한 번 다시 그림) · 칸 옆 on shelf 칩(남은 수보다 적으면 주황 · 0 이하 빨강) · Different bin 창 묶음 2 모양 · 줄에 결과 · 보고 한 번만(화면이 거르고 DB 의 already reported 는 「보고됨」으로 받음)
+
+### 40-c 실측 · 시험
+
+- pick-shelf-1: 시험 갈래 2 · 3 회차 **30 OK**(1 회차 MISMATCH 1 = 검증 기대 글자 · DB 가 맞음) · Caleb 확인 **26 OK**(exit 0 · `set -o pipefail`) · 실제 SKU 10 개 한 호출 90 ~ 94 ms
+- pick-shelf-2: jsdom **17 PASS**(칸을 고른 뒤 체크해도 보고 · 다시 열어 같은 칸 → 두 번째 안 보냄 · DB 거부 → 보고됨 · 계획 칸 이름 치기 막기 등) · Caleb 화면(SO-25027 · EBI03709) — 계획 F020201 on shelf 35 · F021001 on shelf 53 · 보고 한 줄(id 177 · F020201 → F021001 · 2)
+- **⑫ 화면 시험 ㊱**(Caleb · 2026-10-05 · 테스트 DB) — ① 두 칸 나눠 뽑기: SO-25024 ORS11032 계획 F030402 5 → 실제 F030402 2 · F030501 3 · ② 보류 뒤 칸 보존: SO-25025 보류 중 ORS11176 실제 F030503 2 · F030502 1(`in_progress` 3/5) · ③ Admin 칸 셋: SO-25026 보고 F020201 → F021001 · 1 · ④ 출고 원장 두 칸: SO-25024 `sale_out` F030402 −2 · F030501 −3 · EBI03709 는 찾은 칸 F020201 −3
+  - 실제 칸 행의 `picked_at` 이 모두 같은 것은 정상 — `wms_pick_line_save` 가 저장마다 실제 칸 행을 지우고 다시 쓴다 ⇒ ② 는 보류 중 DB 의 실제 칸 행으로 확인했다
+- **CON 17 장**(§34-e 53 · 2026-10-05 K1 ~ K4): 옛 실패 17 줄(`download_failed` · 2026-10-01)은 정해 둔 대로 남음 · 그 17 상품은 지금 **모두 대표 사진 있음**(17 / 17) · 새 첨부 17 장 큐 `done` · move 회차는 10/4 까지 매일(할 일 0)
+- 원장 `bin = ''` 은 「칸 없음」 표기(inv_ledger 정의) — EBI03960 의 이름 없는 칸 8 은 결함 아님(Cin7 에서 칸 없이 들어온 재고 · 칸 옮기기 · 조정으로 정리할 대상)
+
+### 40-d 사고 · 교훈
+
+1. [대화 Claude] ③ 시험 안내에서 칸 이름(F020201)을 박아 줬다 — 지난 출고로 계획 칸이 바뀌어 계획 칸과 같은 칸을 「다른 칸」으로 고르게 했다(보고 0) ⇒ 시험 안내는 화면이 보여 주는 값(계획 칸)을 보고 고르게 한다 · 이름을 박지 않는다
+2. [대화 Claude] 확인 SQL 에 칸 이름을 짐작으로 넣었다(`sku` · `order_sku`) — 0 줄이 나와 시험이 실패한 것처럼 보였다(픽 줄은 `order_line_id` 로 SO 줄에 잇는다) ⇒ 확인 SQL 을 쓰기 전에 그 표의 정의(마이그레이션)를 grep 한다
+3. [대화 Claude] psql 의 페이저(less)가 여러 덩이 결과를 가렸다 ⇒ 여러 덩이 SQL 은 `PAGER=cat psql … -P pager=off`
+4. [화면 · pk v1.3] 고르는 순간 닫히는 창은 「됐는지」를 보여 주지 않아 사람이 다시 열고, 다시 연 만큼 쓰기가 쌓였다 ⇒ 쓰기가 따르는 고르기 창은 「고르기 → 확인」 두 걸음 · 닫힌 뒤 결과가 남는다 · 쓰기는 한 번만(화면 + DB)
+
+### 40-e 미룬 것 — §39-e 85 에 이어 붙임
+
+- 86 테스트 DB 의 옛 중복 보고 175 · 176(SO-25026) — pick-shelf 전에 생긴 것 · 고치지 않음 · 테스트 재료
+- 87 Different bin 목록은 아직 `wms_pick_lines` 의 `stock_bins`(장부 칸)에서 온다 · on shelf 숫자만 `wms_pick_shelf` — 두 목록이 다르면(장부 0 인 계획 칸 등) 화면은 장부 칸 목록을 따른다 · 하나로 모을지는 써 본 뒤
+
+### 40-f 다음 — ⭐ 1단계(판정 81) 남은 것
+
+```
+순서(Caleb 이 정한다):
+1단계 남은 큰 일(ims-principles §6-c · 판정 81):
+  · 손님 · 공급업체 만들고 고치기(창구 · 화면 — 지금 읽기만 · suppliers.html 의 is_purchasable 직접 update 도 창구로)
+  · 조립 · 번들(창구 · 화면 0)
+  · 비밀번호 배포 전 필수(판정 58 묶음 · 판정 59 ① — 상태 확인)
+  · prod-5 불러오기 적재 고침(판정 131 · 132 · 35-e 59 · 60 · 61 · 65 · 34-e 54)
+화면 시험 남은 것 — 창고 넷 사진(pk · pa · rc · fu) · Sheet 가격식
+price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목표 점검
+다음 판정 번호: 236
 ```
