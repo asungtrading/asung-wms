@@ -69,6 +69,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      customer_id 는 Cin7 손님 GUID 가 아니라 우리 customer.id — 1단계 뒤 cin7_id → id 조회해 바꿔 보낸다      (9-i ⑫)
 ⭐⭐ 부모는 두 단계 — 1단계 손님 전부(parent_id 없이) · 2단계 부모 있는 손님만 PATCH(CustomerParentID → customer.id) · 없어진 부모는 비움
      자기 참조 FK 는 줄마다 즉시 검사 — 자식이 먼저 들어가면 거부                                          (9-i ⑫)
+     ⚠️ [2026-10-06] 2단계 잇기 · 비우기는 parent_source='cin7' 줄만 — 지금 GAS 는 이 조건이 없어 IMS 에서 세운 부모를 덮거나 지운다 · 고치기 전까지 손님 재적재 금지(정본 §45 · 미룬 109)
 ⭐⭐ 적재 안전장치 둘 — 받은 행 ≠ API Total 이면 멈춤 · 한 번에 내리는 줄 > max(20, 1%) 면 멈춤(ILC_ALLOW_BIG_DOWN=1 로 한 번만 통과)
      계기: 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다 · ⚠️ 끝 판단은 Total 이 아니라 받은 행 수     (9-j)
 ⭐  멈춤 조건(추정해 넣지 않는다 · 로그에 적고 throw) — Status 가 Active·Deprecated 밖 · MarketingConsent 0~3 밖 · Type 이 Billing·Business·Shipping·빈 값 밖 ·
@@ -284,7 +285,11 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ## 4-m. ⭐⭐ 손님 쓰기(만들기 · 고치기 · 확인 · 끄기) — 모르면 사고 (정본 so-module §41)
 
 ```
-⭐ 손님 쓰기(판정 236 ~ 241 · 정본 so-module §41) — 표 직접 쓰기 닫힘(customer 는 「잠금만」 — so_invoice_issue 의 for update 때문) · 쓰기는 customer_create · customer_update(두 번 부르기 · op · old) · 문 sales 또는 master · 돈 칸 아홉(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 셋)과 끄기 · 켜기는 master 만 · sales 가 만들면 기본값 키 일곱 + customer_review_list(확인 전) · 같은 이름은 알리기 + ack · 열린 SO 는 복사해 굳힌 값(고쳐도 안 바뀜) · 적재는 관리 키(RLS 무관)
+⭐ 손님 쓰기(판정 236 ~ 241 · 정본 so-module §41) — 표 직접 쓰기 닫힘(customer 는 「잠금만」 — so_invoice_issue 의 for update 때문) · 쓰기는 customer_create · customer_update(두 번 부르기 · op · old) · 문 sales 또는 master · ~~돈 칸 아홉(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 셋)~~ [2026-10-06] 돈 칸 여덟(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 둘 = default_bill_to_customer_id · invoice_split_by_store)과 끄기 · 켜기는 master 만 · sales 가 만들면 기본값 키 일곱 + customer_review_list(확인 전) · 같은 이름은 알리기 + ack · 열린 SO 는 복사해 굳힌 값(고쳐도 안 바뀜) · 적재는 관리 키(RLS 무관)
+⭐⭐ 부모 · 청구처는 IMS 창구에서 세운다(판정 251 ~ 256 · 정본 §45) — parent_id 도 master 만(v_struct · 검토 찍기 · 열린 오더 경고 없음) · 저장하면 parent_source='ims'(비우면 null) ·
+     청구처 규칙은 default_bill_to_customer_id 한 칸(null = 자기) · ⚠️ is_bill_parent 는 규칙이 아니다 · 창구가 안 받는다(field_unknown) ·
+     깊이 하나 · 자기 참조 금지는 트리거 customer_parent_guard + CHECK 셋(창구 · 적재 · 손 SQL 모두) · 부모를 비우거나 바꾸면 옛 부모를 가리키던 청구처는 null(트리거 · 창구는 bill_to_reset_with_parent ack) ·
+     Add store · Detach · 부모 바꾸기는 자식에 대한 customer_update 한 호출 · 청구는 부모 + 배송은 자기(null) 조합은 된다(판정 255)
 ```
 
 ## 4-n. ⭐⭐ 콤보(번들) — 모르면 사고 (정본 so-module §44 · 판정 244 ~ 250)

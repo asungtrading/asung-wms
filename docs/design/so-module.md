@@ -618,7 +618,8 @@ default_ship_to_customer_id · default_bill_to_customer_id
   ⚠️ 자식마다 부모 주소를 **복제해 넣지 않는** 이유: 부모 주소가 바뀌면 자식 수만큼 고쳐야 하고 하나를 빠뜨리면 조용히 어긋난다.
   주소가 아니라 **주소록의 주인**을 가리킨다.
   ⚠️ 기본값일 뿐이다 — 오더에서는 세 길 중 어느 것으로도 채울 수 있다(5-d 「드롭십」). 가리키는 손님이 부모일 필요도 없다(자유 연결).
-- `is_bill_parent` · `is_legal_entity` 는 Cin7 값을 **받아만 둔다**. IMS 규칙은 아직 안 건다(위 두 기본값 칸이 그 일을 한다).
+- ~~`is_bill_parent` · `is_legal_entity` 는 Cin7 값을 **받아만 둔다**. IMS 규칙은 아직 안 건다(위 두 기본값 칸이 그 일을 한다).~~ [2026-10-06 정정]
+  `is_bill_parent` 는 **규칙이 아니다**(판정 251) · 창구에서 고칠 수 없다(판정 254 — 적재가 매 upsert 마다 덮는다) · 청구처 규칙은 `default_bill_to_customer_id` **한 칸** · `is_legal_entity` 는 받아만 둔다 그대로 · §45
 
 **그 밖**
 ```
@@ -1862,7 +1863,7 @@ Location        Asung Trading Inc. 9,327 · Asung - Edmonton 136 · 빈 값 5
 TaxRule 7종     GST (Sale) 291 · HST NB (Sale) 1 · HST NB 2016 (Sale) 6,472 · HST NS 2025 (Sale) 9 · HST ON (Sale) 564 · HST PE 2016 (Sale) 1 · Zero-rated (Sale) 2,130
 PriceTier 4종   Wholesale 7,421 · AONE 2,044 · Regular CAD 2 · USWholesale USD 1
 Discount ≠ 0    72명(7% 50 · 13% 8 · 3% 5 · 5% 4 · 10% 3 · 2% 1 · 4% 1)
-부모            부모 있는 손님 13 · 없는 부모 0 · 깊이 2+ 0 · 자기 참조 0 · ChildCustomers 있는 부모 5 · IsBillParent true 12
+부모            부모 있는 손님 13 · 없는 부모 0 · 깊이 2+ 0 · 자기 참조 0 · ChildCustomers 있는 부모 5 · IsBillParent true 12   ← [2026-10-06 실측] 전체 13 · 부모 있는 12 · 부모 없는 1 Clore Inc. (BLW) · §45
 빈 값           "" 와 null 이 섞여 온다(Address Line2 "" 13,764 · Contact Phone null 6,216 · DisplayName "" 870 · null 8,589 …)
 이름 중복        원문 0 · 정규화 뒤 2
 ```
@@ -1870,7 +1871,7 @@ Discount ≠ 0    72명(7% 50 · 13% 8 · 3% 5 · 5% 4 · 10% 3 · 2% 1 · 4% 1)
 - **「Shipping 없는 손님 711」의 정의(계산)**: 주소가 **있으면서** Shipping 이 없는 손님. 주소 0개 18 은 따로다 — Shipping 가진 손님 8,687+44+7+1 = 8,739 · 8,739+711 = 9,450 · 9,468−9,450 = 18.
 - **「기본 Billing 있음 708」은 체크 기준(계산)**: 「Billing 은 있는데 기본 없음 1」은 Billing 이 「체크 없고 여럿 0」이므로 「체크 없고 하나」(전체 5)에 속한다 → 판정 ③·⑦ 이 메운 뒤에는 **709**.
 - **합계 대조(계산)**: 주소 개수 분포 합 9,468 · Type 합 19,001 · DefaultForType 18,122+879 = 19,001 · 연락처 분포 합 9,468 · Default 9,454+458 = 9,912 · IncludeInEmail 869+9,043 = 9,912 · MarketingConsent 13+9,898+1 = 9,912 · TaxRule 합 9,468 · PriceTier 합 9,468 · Discount 합 72 · Currency 합 9,468 · Location 합 9,468 — 전부 맞는다.
-- 📌 `IsBillParent true 12` 와 `ChildCustomers 있는 부모 5` 는 다른 수다 — 뜻은 안 봤다 · ⬜ · `is_bill_parent` 는 「받아만 둔다」 그대로(마이그레이션 ① 주석).
+- 📌 `IsBillParent true 12` 와 `ChildCustomers 있는 부모 5` 는 다른 수다 — 뜻은 안 봤다 · ⬜ · `is_bill_parent` 는 「받아만 둔다」 그대로(마이그레이션 ① 주석). [2026-10-06 실측] `is_bill_parent` true 는 전체 **13** — 부모 있는 12 · 부모 없는 1(Clore Inc. (BLW) · 활성 · 자식 0) · 「받아만 둔다」 → 규칙 아님 · 창구 밖(판정 251 · 254 · §45)
 
 **⭐⭐ MarketingConsent 숫자 ↔ 화면 — 네 값 모두 Caleb 이 Cin7 화면에서 대조했다**
 ```
@@ -1957,10 +1958,11 @@ Discount ≠ 0    72명(7% 50 · 13% 8 · 3% 5 · 5% 4 · 10% 3 · 2% 1 · 4% 1)
 **판정 ⑫ 부모 손님은 두 단계로 · 적재가 보내지 않는 칸**
 ```
 1단계  손님 9,468명 upsert — ⚠️ parent_id 칸을 아예 보내지 않는다
-2단계  부모가 있는 13명에게만 parent_id 를 채운다(부모는 1단계로 이미 있다)
+2단계  부모가 있는 13명에게만 parent_id 를 채운다(부모는 1단계로 이미 있다)   ⚠️ [2026-10-06] parent_source='cin7' 인 줄만 — IMS 가 세운 부모를 덮지 않게(§45 · 미룬 109)
        CustomerParentID(GUID) → 우리 customer.id 조회가 한 번 필요하다(cin7_id 로)
        + 재적재: Cin7 에서 부모가 없어진 손님은 parent_id 를 비운다
          = source='cin7' and parent_id is not null and cin7_id not in (이번 회차 부모 있는 13명) → PATCH parent_id=null
+         ⚠️ [2026-10-06] parent_source='cin7' 조건이 빠졌다 — 이대로 돌리면 IMS 에서 세운 관계를 지운다 · GAS 차수 전까지 손님 재적재 금지(§45 · 미룬 109)
 ```
 - 근거: 자기 참조 FK 는 줄마다 즉시 검사 — 자식이 부모보다 먼저 들어가면 거부된다. 순서를 따지는 것보다 두 단계가 단순하다(깊이 2+ 0 · 9-g).
 - ⚠️⚠️ **「보내지 않는다」 ≠ 「null 로 보낸다」** — PostgREST upsert 는 보낸 칸을 덮는다. 1단계가 `parent_id: null` 을 실으면 재적재마다 2단계가 채운 부모를 지운다.
@@ -2017,7 +2019,7 @@ Verify  열두 가지 전부 일치
 ```
 - **SQL 눈 확인(Caleb)** — 화면으로 본 손님 넷(DALIANA · Korean Aura · Jason Lee · JOJOJO)의 주소·연락처·동의·직책이 화면과 같다 · 부모 13줄 · 사람이 정할 7명 모두 기본 배송지 0.
 - 동의 `false 1` = JOJOJO(9-h 판정 ⑥ 「적재 첫 회 예상 1」 그대로) · `true 1` = Jason Lee.
-- 📌 9-g 의 「IsBillParent true 12 · 자식 13」 → **풀림**: `IsBillParent` 는 **자식 쪽** 표시 · 13명 중 `Asung Employee - Sungeun Lee` 하나만 false.
+- 📌 9-g 의 「IsBillParent true 12 · 자식 13」 → **풀림**: `IsBillParent` 는 **자식 쪽** 표시 · 13명 중 `Asung Employee - Sungeun Lee` 하나만 false. [2026-10-06 정정] 「자식 쪽 표시」가 전부는 아니다 — 부모 없이 true 인 손님이 하나 있다(Clore Inc. (BLW)) · 전체 true 13 = 자식 12 + 부모 없는 1(§45-c)
 - 📌 DALIANA 청구지 — 20:51 재읽기 때는 `B / 39    CLERMONT        BOUL` 였으나 적재 값은 `39B Boul Clermont` · Caleb 이 그 사이 Cin7 에서 고쳤다(확인).
 - ⚠️ **적재 스크립트 안전장치 둘** — 가짜 데이터 시험에서 수집이 짧게 끝나자 받지 못한 151명을 내렸다 → ① 받은 행 ≠ API Total 이면 멈춤 · ② 한 번에 내리는 줄이 max(20, 1%) 넘으면 멈춤(`ILC_ALLOW_BIG_DOWN=1` 로만 한 번 통과).
 - ⬜ 그대로: PostgREST 벌크 = 한 문장(첫 적재는 교대가 없어 아직 실측 아님 · 재적재 때) · 사람이 정할 7명(기본 배송지 0 · 화면에서 사람이 고른다) · 직원 계정 표시.
@@ -3121,7 +3123,7 @@ so_create 의 반환 tax_rule 이 null 일 때 화면 안내(배송지 비었거
         ⇒ 오피스 담당이 packed 오더를 fulfillment 묶음 단위로 골라 운임·택배사·추적번호를 넣고 「마무리」 한 번 → so_ship + 발행이 한 트랜잭션 · 막힌 오더는 묶음에서 빼고 나머지를 마무리
 판정 2  한 출하 · 매장별 인보이스 — 「프랜차이즈 스토어의 경우에 여러 스토어를 한 쉽먼트에 모두 모아서 보내오길 바래. 그리고 인보이스는 각 스토어별로 따로 뽑길 원할 수 있어.」 · 「(Clore) 거기는 각 스토어 별로 인보이스를 만들어주길 바래. 쉽먼트는 하나지만, 인보이스는 각 스토어별로인거지」
         ⇒ 기본 = 청구처별 한 장(8-c) · 청구처 손님에 「매장별로 나눈다」 설정(customer.invoice_split_by_store) — 켜져 있으면 오더의 손님(매장)별로 · 마무리 화면이 설정대로 미리 나누고 직원이 바꿀 수 있다(invoice_group)
-        📌 [실측 2026-09-24] default_bill_to_customer_id 채운 손님 0/9,461 · is_bill_parent 12 · parent_id 13 ⇒ 지금은 모든 손님이 자기 청구처(설정은 나중을 위해 · Clore 14 매장도 본사로 안 이어졌다 12-h)
+        📌 [실측 2026-09-24 · ⚠️ 2026-10-06 이어 적음: is_bill_parent 전체 13 · 부모 있는 12 · 판정 251 로 청구처 = 부모 12 채움 · §45] default_bill_to_customer_id 채운 손님 0/9,461 · is_bill_parent 12 · parent_id 13 ⇒ 지금은 모든 손님이 자기 청구처(설정은 나중을 위해 · Clore 14 매장도 본사로 안 이어졌다 12-h)
 판정 3  「가로 가자」 — ⓐ 인보이스 → ⓑ 결제·잔액 → ⓒ 크레딧(원장 credit_in · B급 칸 미정이라 맨 뒤)
 판정 4  「기본적으로 a라고 생각해. 그런데 예외적인 경우들이 생기면 어떻하지? … 이미 포장까지 마무리한 오더인데, 손님이 특정 물건을 빼달라고 요청하는 상황 … 방책은 있어야 하지 않을까?」
         ⇒ 마무리 때 고칠 수 있는 것 = 운임 줄(더하기·금액·지우기) · 택배사 · 추적번호 · 배송 메모 + 줄의 「손님이 뺀 수량」(판정 5) — 수량 늘리기 · 단가 · 할인은 못 고친다
@@ -6462,7 +6464,7 @@ a1fceec feat(customers): cs v1 - new Customers screen (cs-5 part 1, rulings 236 
 ### 42-e 미룬 것 — §41-e 94 에 이어 붙임
 
 - 95 화면 모양 둘(42-d 끝) — suppliers · customers 공통
-- 96 customers 의 `parent_id` · `default_bill_to_customer_id` · `default_ship_to_customer_id` 고치기 칸이 화면에 없다(창구는 받는다) — 체인 매장 손님이 생길 때
+- ~~96 customers 의 `parent_id` · `default_bill_to_customer_id` · `default_ship_to_customer_id` 고치기 칸이 화면에 없다(창구는 받는다) — 체인 매장 손님이 생길 때~~ → ✅ [2026-10-06 닫힘] DB cs-par-1(asung-wms 6f5f716) · 화면 cs v3(asung-ims ea3cf69) · §45
 - 97 Action Centre 새 손님 탭의 실제 흐름 시험(42-c ⬜)
 
 ### 42-f 다음
@@ -6715,4 +6717,85 @@ cs-4 적재 고침 + 미룬 103(같은 GAS 적재 · §41-e 92 · clasp pull 먼
 화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
 판정 81 1단계 목록 대조(ims-principles §6-c) — 조립 · 번들은 판정 244 로 닫혔다 · 남은 큰 일: 비밀번호 배포 전 필수(판정 58 묶음 ✅ §43) 뒤 무엇이 남았나
 다음 판정 번호: 251
+```
+
+## §45 손님 부모 · 청구처를 IMS 에서 — cs-par-1 · 판정 251 ~ 256 (2026-10-06 · 회사 PC)
+
+⭐ 닫힌 것: 미룬 96(손님 부모 · 청구처 고치기 칸) — DB cs-par-1(asung-wms 6f5f716) · 화면 cs v3(asung-ims ea3cf69) · Caleb 화면 시험 통과(「잘 작동하는 것 확인했어.」)
+⭐ 새 판정 251 ~ 256(아래 45-a) · 원문은 지시서 `~/asung/prompts/cs-par-1.md` · `docs-1006a.md` 📌 절 · 다음 판정 번호 257
+
+### 45-a 원칙 재확인 · 판정 원문
+
+**A. 원칙 재확인 — Caleb 2026-10-06 (원문)**
+> 「아 나 미치겠네. 내가 데이터는 cin7에서 가져오지만, 우리 IMS는 cin7과는 독립적으로 작동한다는 얘기 문서에 안박혀있나? 내가 이 얘기를 도대체 몇번을 해야 하는걸까? 내가 말하고 싶은 것은 IMS에서 부모자식관계설정에 대한 얘기야.」
+
+- 계기: 대화 Claude 가 「부모 · 자식 관계는 컷오버 전까지 Cin7 에서 정하라 · 적재가 IMS 값을 되돌린다」고 답했다. 원칙(ims-principles 원칙 1 · 판정 51 · 60 「IMS 에는 애초에 Cin7 이 없다」)이 이미 있는데 또 어겼다(세 번째 재발 · asung-workflow §4 「말하는 틀」 · §11).
+- ⭐ 넓힘 — Caleb 2026-10-06 「부모, 자식 관계에 한정된게 아니라, 전 시스템에 관련된 내용이잖아. cin7은 데이터만 받아오는 소스고, 그마저도, 컷오버 이후에는 영원히 다시 볼 일 없는데인데, 다른 작업에서도 그 얘기가 컷오버때까지 계속 나올까봐 걱정이야.」 ⇒ 아래 문장을 ims-principles 원칙 1 첫머리(굵게) · asung-workflow description · CLAUDE.md 머리 세 곳에 같은 뜻으로 넣었다:
+  「⚠️ IMS 는 Cin7 없이 독자적으로 돈다. Cin7 은 컷오버 전까지 데이터를 불러오는 원천일 뿐이고, 컷오버 뒤에는 다시 보지 않는다. IMS 의 기능 · 화면 · 규칙을 설명하거나 설계할 때 Cin7 을 근거나 주체로 쓰지 않는다(「Cin7 에서 정하라」 · 「컷오버 뒤에」 · 「Cin7 대신」 금지). 적재가 IMS 에서 정한 값을 덮으면 그것은 적재의 결함이므로 적재를 고친다.」
+- ⇒ 관계 · 청구처는 **IMS 에서** 세우고 없앤다. 적재는 불러오는 데이터일 뿐이고, IMS 에서 정한 값을 덮으면 그것은 **적재의 결함**이다.
+
+**B. 판정 251 ~ 256 (2026-10-06 · Caleb)**
+
+| 번호 | Caleb 원문 | 내용 |
+|---|---|---|
+| 251 | 「A.」 | 청구처 규칙은 `customer.default_bill_to_customer_id` **한 칸**(null = 자기 자신). `is_bill_parent` 는 규칙에 쓰지 않는다. 그때 `is_bill_parent = true` · `parent_id` 있음 · `default_bill_to` null 인 손님은 청구처를 부모로 한 번 채운다 |
+| 252 | 「마스터 권한」 | `parent_id` · `default_bill_to_customer_id` 고치기는 master. (이견 5 채택) `parent_id` 는 돈 칸 목록(v_money)이 아니라 **별도 목록(v_struct)** — 검토 찍기(reviewed) · 열린 오더 경고(open_so_keep_old)가 붙지 않는다 |
+| 253 | 「253,254는 그대로 받는데」 | `customer.parent_source text check in ('cin7','ims')` nullable — 창구가 세우거나 바꾸면 'ims' · 비우면 null · 채우기는 그때 부모 있던 13행 'cin7' |
+| 254 | 〃 | `is_bill_parent` 를 `customer_update` · `customer_create` 에서 뺀다(이견 4 안 A) — 적재가 매 upsert 마다 보내므로 IMS 에서 고칠 수 있다는 것은 거짓 약속이었다 |
+| 255 | 「그렇다면 좋아.」(설명 뒤) | `default_ship_to_customer_id <> id` 도 CHECK. 자기 자신은 null 하나로 표기한다는 뜻일 뿐 — **청구는 부모 · 배송은 자식(null)** 조합은 그대로 된다(Caleb 물음 「빌은 parent에게 가더라도, 배송은 자식한테 갈 수 있어야 하는데, 혹시 그것을 제한하는건가?」 → 아니다) |
+| 256 | 「256은 받을게.」 | (Claude Code 덧붙임을 받음) 트리거가 `parent_id` 가 비면 `parent_source` 도 비운다 — 어느 길로 비워도 · 253 「비우면 null」을 적재 길에서도 지킨다 |
+
+**C. 규칙 (cs-par-1 에서 굳은 것)**
+1. 깊이 하나 — 자식은 부모가 될 수 없고, 자식이 있는 손님은 자식이 될 수 없다 · 창구 `parent_has_parent`(cs-3 에 이미 있었다) + **트리거** `customer_parent_guard`(before insert or update of parent_id · 창구 · 적재 PATCH · 손 SQL 어느 길로 써도)
+2. 자기 참조 금지 — CHECK 셋 `customer_parent_not_self_ck` · `customer_bill_to_not_self_ck` · `customer_ship_to_not_self_ck` · 창구는 `parent_self` · `bill_to_self` · `ship_to_self` 로 먼저 막는다(조용히 null 로 바꾸지 않는다 · 이견 6)
+3. 꺼진 손님은 부모 · 청구처 · 배송지로 새로 고를 수 없다 — 창구 `parent_unknown` · `bill_to_unknown` · `ship_to_unknown`(cs-3 에 이미 있었다 · 트리거는 보지 않는다 = 업무 규칙)
+4. 부모를 비우거나 바꿀 때 청구처가 **옛 부모**를 가리키면 null — 트리거가 모든 길에서(적재 2단계 「비우기」 PATCH 도) · 창구는 알림 `bill_to_reset_with_parent`(ack) · 모순 입력(부모 A→B 이면서 청구처 A)은 `bill_to_is_old_parent` 로 막는다 · 한 호출에 parent_id 와 청구처를 함께 보내면 순서와 무관하게 둘 다 들어간다(이견 7)
+5. 청구처를 바꿔도 이미 만든 오더는 그대로 — `so_copy_customer`(20260924200029:147 · 203)가 `coalesce(default_bill_to_customer_id, id)` 를 `so.bill_to_customer_id` 에 굳힌다 · 부르는 곳은 `so_create` · `so_header_update` 뿐(오더의 손님을 다시 고르면 그때 값으로 다시 복사 — 의도된 동작)
+- 청구처 자격 = 아무 활성 손님 + 자기 아님(다른 회사가 대신 내는 경우를 막지 않는다 · 이견 8)
+- 돈 칸은 **아홉 → 여덟** + is_active(판정 241): `is_bill_parent` 가 빠졌다(판정 254) · `parent_id` 는 v_struct(판정 252) — §41 · 6371 · 6372행의 「돈 칸 아홉」은 그날 커밋의 기록이다
+
+**D. 이견 1 ~ 13 (Claude Code · 채택 전부)**
+1 규칙 1~3 은 창구에 이미 있었다(지시서 전제 정정) · 2 자기 참조는 CHECK, 깊이는 트리거 · 3 규칙 4 는 트리거 + 창구 알림(창구만이면 적재 길이 샌다) · 4 is_bill_parent 창구에서 빼기 · 5 parent_id 는 v_struct · 6 bill_to_self 막기(조용히 null 로 바꾸지 않는다) · 7 한 호출 두 칸 — 순서 무관 · 모순은 막기 · 8 청구처 자격 = 아무 활성 손님 + 자기 아님(ⓐ ⓑ 는 미룬 107 · 108) · 9 채우기는 같은 마이그레이션 끝 · 변경 기록 표 없음(grep 0) · 10 parent_source(253) · 11 검증 파일 자리 `~/asung/prompts/<차수>-verify.sql`(`docs/verify/` 는 없다) · 12 저장 시나리오는 가짜 행으로 · 13 줄 수 900 안(새로 쓰거나 바꾼 줄 362)
+- 문서 차수 docs-1006a 이견 1 ~ 12 채택 — 옛 뜻이 남은 줄(1865 · 2020 · 3124 · asung-so §4-m) 정정 · 1960 · 1963 꼬리 · 8번은 넓혀서 — 위 A 의 문장을 ims-principles 원칙 1 · asung-workflow description · CLAUDE.md 세 곳에(Caleb)
+
+### 45-b 커밋 · 실물
+
+| 것 | 값 |
+|---|---|
+| 마이그레이션 | `supabase/migrations/20261006131814_master_cs_par_1.sql` · 861행 · 87,731 바이트 · md5 `7b08654d44fc914f50e27299b753eb17` · asung-wms **6f5f716** 「master-cs-par-1 — customer parent/bill-to rules (rulings 251-256)」 |
+| 담긴 것 | `parent_source` 칸 + CHECK · 자기 참조 CHECK 셋 · 트리거 `customer_parent_guard` · `customer_update` 재발행(원본 20261005164835:46 ~ 471 · 바뀐 9 · 뺀 1 · 더한 13) · `customer_create` 재발행(원본 20261005161145:71 ~ 357 · 바뀐 4 · 더한 1) · 채우기 · 칸 주석 셋 · 끝 실물 확인(IM253) |
+| 검증 파일 | `~/asung/prompts/cs-par-1-verify.sql` · 275행 · md5 `51ee0c9e46d3c987614e64ebee3c4ab3` · 시험 적용 OK 25 · **확인 실행 OK 21** · MISMATCH 0 |
+| 화면 | asung-ims `customers.html` cs v3 · 707행 · md5 `3b6c0a33575ba69e4711242f9bf056ad` · **ea3cf69** 「cs v3 — customer parent/stores/bill-to (cs-par-1 · rulings 251-256)」 |
+| 화면이 하는 일 | 상세 Bill to(실제 청구처 · Change) · Parent 링크 · Set parent / Change / Detach · 부모 상세 Stores 카드(청구처 · 열린 오더 · Detach · + Add store) · 목록 Family 꼬리표 · Edit/New 에서 is_bill_parent 체크 제거 — Add store · Detach · 부모 바꾸기는 모두 **자식에 대한 customer_update 한 호출** |
+
+- 📌 6f5f716 의 커밋 글은 CLAUDE.md 8절 형식(`feat(범위): 한국어 상세`)과 다르다 — 원격에 있어 그대로 둔다(docs-1006a 이견 12).
+
+### 45-c 실측 · 시험
+
+- [2026-10-06 · 테스트 DB] 부모 5 · 자식 13 · `is_bill_parent` true **13** — 그중 12 는 부모 있음(채우기 12) · **1 은 부모 없음 = Clore Inc. (BLW)**(활성 · cin7 · 자식 0 · Caleb 점검) · 깊이 2+ 0 · 자기 참조 0 · bill_to · ship_to 채운 손님 0
+- 정본 1865 · 1873행의 「IsBillParent true 12」는 부모 있는 수였다 — 전체는 13(2020행 「자식 쪽 표시」는 BLW 로 깨진다)
+- Kevin Myers → Asung Employee - Sungeun Lee: 부모 관계 있음 · is_bill_parent false · 청구처 null 그대로
+- 채우기 결과(적용 NOTICE 원문): 「ruling 251 bill-to set to parent: 12 row(s) · ruling 253 parent_source = cin7: 13 row(s)」
+- 시험 적용 다섯 번 — 걸린 셋은 모두 검증 쪽(DB 가 맞았다): ① 끝 실물 확인이 재발행에 단 **주석**의 낱말 `is_bill_parent` 를 잡았다 → 따옴표 열쇠 · 칸 목록 모양으로 좁힘 ② `\gset` 이 null 을 받아 변수가 안 섰다 → coalesce ③ customer_create 주소 없음 알림 둘이 unacked → ack · 죽은 2회차가 so 번호를 25037 로 당겨 세션 머리 25036 으로 되돌림(전후 원문은 cs-par-1 보고)
+
+### 45-d 일하는 방식 · 교훈
+
+1. [대화 Claude] IMS 기능을 「Cin7 에서 정하라 · 컷오버 뒤」로 설명했다 — 판정 51 · 60 의 세 번째 재발 ⇒ 전 시스템 원칙 한 문장(위 A · ims-principles 원칙 1 · asung-workflow description · §4 · §11 · CLAUDE.md)
+2. [Claude Code] 재발행 본문에서 「칸 이름이 빠졌는지」를 낱말로 찾으면 그 재발행에 단 주석이 걸린다 ⇒ 따옴표 열쇠(`'is_bill_parent'`) · 칸 목록 모양(`, is_bill_parent,`)으로(asung-workflow §3 ③)
+3. claude.ai 는 스킬을 올릴 때 머리말(description)을 다시 쓴다 ⇒ 파일 md5 가 아니라 머리말을 뺀 본문 md5 로 대조(asung-workflow §8 ⑥)
+
+### 45-e 미룬 것 — §44-e 106 에 이어 붙임
+
+- 107 청구처의 청구처 사슬 — `so_copy_customer` 는 한 번만 따라간다(실측 0 · 막을지 판정 거리 · cs-par-1 이견 8 ⓐ)
+- 108 꺼진 손님에게 청구 — `so_copy_customer` 가 청구처의 is_active 를 안 본다(cs-par-1 이견 8 ⓑ)
+- 109 ⚠️ 적재 2단계가 IMS 에서 세운 관계를 덮는다 — ImsLoadCustomer 2단계(GAS 사본 147 ~ 165행)는 Cin7 부모가 없는 손님의 parent_id 를 비우고, 잇기 PATCH 도 IMS 가 세운 다른 부모를 덮는다 ⇒ 잇기 · 비우기 모두 `parent_source=eq.cin7` 로 한정 · GAS 차수(cs-4 적재 고침 · 미룬 103 · prod-5 와 한 덩이 · §41-e 92 · clasp pull 먼저) · **그 전까지 손님 재적재를 돌리지 않는다** · 적재가 시간 트리거로 도는지: 레포 사본 머리 「트리거를 걸지 마라(손으로 실행)」 · 코드에 ScriptApp 0 · Apps Script 편집기 실물은 안 봤다
+
+### 45-f 다음
+
+```
+순서(Caleb 이 정한다):
+cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp pull 먼저) — 그 전까지 손님 재적재 금지
+화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
+판정 81 1단계 목록 대조(ims-principles §6-c)
+다음 판정 번호: 257
 ```
