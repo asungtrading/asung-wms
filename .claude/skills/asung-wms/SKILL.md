@@ -10,7 +10,7 @@ description: >
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼", "Invoice First", "held_by", "presence", "bcMap",
   "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄",
-  "inventory.html", "재고 마스터", "merge-duplicates" 등이
+  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back" 등이
   나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~46 을 확인하세요.
   특히 ⚠️factor는 unit 컬럼, ⚠️bin은 base_sku 기준, ⚠️service_role 금지,
   ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
@@ -48,6 +48,11 @@ description: >
 - ⭐ **픽 화면 on shelf — wms_pick_shelf(판정 235 · pick-shelf-1)**: 과제의 base_sku 들을 한 번에 → 칸마다 book · picked · on_shelf(= book − picked · 판정 62 선반 기대량) · planned · definer · 피커 문(picking 쓰기 · 창고) · 표시만 / ⭐ **빈 계획 칸 보고 한 번만**: wms_reports BEFORE INSERT 트리거 + 자문 잠금 — 같은 문서 · sku · planned_bin · found_bin 의 열린 wrong_location 이 있으면 「already reported」 거부 · 부분 유니크 인덱스 아님 · 화면 pk v1.4 · 정본 so-module §40
 - ⭐ **신고가 어떻게 닫혔나(판정 58 묶음 · rep-close-1 · so-module §43)**: wms_reports.resolved_how = found_at_pack(팩 완료 p_short_resolve · 수량 · 칸은 같은 호출의 회복 칸 행) · adjusted(inv_adjust_confirm · ADJ 번호) · resolved(wms_report_resolve · 문 wms_manage · 이미 닫힌 것 거부 · 직접 update 는 트리거가 resolved) · 옛 행은 null · 팩 화면 pa v1.5 「FOUND IT?」 창 하나 · Admin wa v1.17 칩 · 합계
 - 빌드(2026-09-30): pk v1.2 · wa v1.15
+⭐⭐ [2026-10-05] **콤보(번들)는 창고에 보이지 않는다 — 구성품만 뽑는다(so-module §44 · 판정 244 · 246 · 249)** — 모르면 사고:
+- 공용 줄 뷰 `wms_order_doc_line` 이 콤보 줄을 **빼고** 구성품 줄 끝에 `combo_line_id · combo_qty · combo_sku` 를 싣는다 — 창고 창구는 이 뷰만 읽으므로(판정 71) 픽 계획 · 과제 · 팩 · 인계 · 마무리가 전부 구성품만 본다 · 창고 조립 없음 · `wms_pick_lines` 줄에 같은 셋
+- 반쪽 콤보 픽 — `so_finalize` 가 구성품 픽을 통째 콤보 수로 줄인다(그 줄 picks 의 마지막 칸부터) · 덜어낸 것은 `put_back[]`(반환 + `wms_order_finalize.put_back`) — 실물만 제자리에 · 원장은 출고 때만이라 닿지 않는다 · `so_ship` 의 반쪽 거부는 안전망
+- 화면: 픽 「for combo ○○ · N per combo」 · 팩 「for combo」 + 맨 위 「Combo ○○ — n of m complete」(min(verified ÷ (combo_qty × pack_factor))) · 줄 순서 · 스캔 흐름은 그대로(판정 249) · Fulfillment 는 콤보 표시 없음
+- 빌드(2026-10-05): pk v1.5a · pa v1.6a
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 

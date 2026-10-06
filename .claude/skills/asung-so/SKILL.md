@@ -2,11 +2,11 @@
 name: asung-so
 description: >
   Asung Trading IMS 의 SO(판매) 모듈 — Cin7 Core 판매 오더·손님을 대체하는 네 번째 모듈. 손님·가격·딜·SO 거래 표를 다룰 때 먼저 읽으세요.
-  "SO 모듈", "판매 오더", "세일즈 오더", "customer", "customer_address", "customer_contact", "손님 표", "손님 적재",
+  "SO 모듈", "판매 오더", "customer", "customer_address", "customer_contact", "손님 표", "손님 적재",
   "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소", "기본 배송지",
   "청구지", "parent_id", "부모 손님", "so.status", "so.intake",
-  "Release to WMS", "at_wms", "재적재", "내리기",
-  "deferrable", "딜", "so_deal", "product_tag", "케이스 할인", "GM20UOM12", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고"
+  "at_wms", "재적재", "내리기",
+  "deferrable", "딜", "so_deal", "product_tag", "케이스 할인", "GM20UOM12", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "combo", "구성품", "put_back"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/so-module.md 를 확인하세요.
   ⚠️MarketingConsent 는 숫자다(2 Opt in · 3 Opt out · 0·1 둘 다 Unknown) — 순서·소거 추론으로 옮기지 마라,
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
@@ -45,6 +45,7 @@ POS · counter ④a ✅ 2026-09-25 — a1 20260925133147(product_bin_overflow ·
 ⑤ WMS 창구 ⑤-2b ✅ be2ed5a — so_finalize 는 picks 가 없으면 wms_so_handoff · 미리 보기는 번호를 안 당긴다(F11) · Finalize = wms_finalize(§24-k)
 so v2.4(1b8c437) — Release to WMS · Recall from WMS(sales 쓰기 · 보류 · 백오더면 막힘 · picking 이면 Recall 막힘) · 오피스 판 ⬜(§24-p)  → ✅ [2026-09-28] 오피스 판 섰다(§24-s)
 so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(SO_STATUS_LABEL · 공통화는 뒤) · Qty out · 시각 줄 Released · Working · Finalized · 필터 「Finalized — waiting for the office」(packed · 판정 46) · Finalize 창 = wms_so_handoff 로 팔렛 · 박스 in · lb(so_finalize 는 picks 만 읽는다) + 운임 · 택배사 · 추적 · 메모 → so_finalize 미리 보기 뒤 같은 입력으로만 실행 · ⚠️ packed 오더 운임은 이 창에서만(so_charge_set 은 draft 전용) · 줄 빼기(removed) ⬜ · ⭐ SO-25003 = Cin7 없이 IMS 만으로 닫힌 첫 창고 오더(§24-s)
+콤보(번들) asm ✅ 2026-10-05 — 4a9a9d8(asm-1 product_bom_set · 2a 콤보 줄 · 2b1 창고 길 · 2b2 돈 · 마무리) · 화면 asm-3 · 판정 244 ~ 250 · 조립 문서 없음 · 정본 §44
 ```
 - ⭐ 전부 **테스트 DB(Asung-IMS)** 에만 있다 — `--db-url …testdb-url` 이 보이면 테스트 · 없으면 운영(CLAUDE.md 1절).
 
@@ -284,6 +285,25 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ```
 ⭐ 손님 쓰기(판정 236 ~ 241 · 정본 so-module §41) — 표 직접 쓰기 닫힘(customer 는 「잠금만」 — so_invoice_issue 의 for update 때문) · 쓰기는 customer_create · customer_update(두 번 부르기 · op · old) · 문 sales 또는 master · 돈 칸 아홉(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 셋)과 끄기 · 켜기는 master 만 · sales 가 만들면 기본값 키 일곱 + customer_review_list(확인 전) · 같은 이름은 알리기 + ack · 열린 SO 는 복사해 굳힌 값(고쳐도 안 바뀜) · 적재는 관리 키(RLS 무관)
+```
+
+## 4-n. ⭐⭐ 콤보(번들) — 모르면 사고 (정본 so-module §44 · 판정 244 ~ 250)
+
+```
+⭐⭐ 콤보는 팔 때 구성품을 뺀다 — 조립 문서 · 완성품 재고 없음(판정 244) · 콤보 SKU 는 원장에 한 번도 닿지 않는다
+⭐⭐ 오더의 콤보 = 콤보 줄 하나(값 · 티어 · 할인 · surcharge · 세금) + 구성품 줄(so_line.combo_line_id = 콤보 줄 · combo_qty = 콤보 하나의 구성품 수 · qty_ordered = 콤보 qty × combo_qty)
+     구성품 줄은 값 0 이지만 **무상 줄이 아니다**(free_reason null · so_line_free_pair_ck · so_line_combo_values_ck) · 따로 못 고치고 못 지운다(콤보 줄만 · 구성품은 따라간다) · combo_qty 는 저장값 — 정의가 바뀌어도 열린 오더는 그대로
+     매듭 검사는 deferred 제약 트리거 so_line_combo_parent_ck(같은 오더 · 부모는 콤보 줄 · 콤보 안 콤보 없음 · 문장 끝에)
+⭐  같은 SKU 합치기(판정 229) — 콤보 SKU 는 콤보 줄에 합친다 · 보통 줄 찾기는 combo_line_id is null(구성품 줄과 절대 안 합친다) · 프리오더는 콤보 줄을 고른다(구성품만 고르면 거부)
+⭐  가용 — 줄마다 so_lines_available(콤보 줄 = min(구성품 재고 키마다 floor(가용 ÷ 콤보 하나의 낱개))) · so_available_many 는 재고 키 단위 그대로
+⭐⭐ 확정 = **구성품 줄만 예약**(콤보 줄 예약 없음) · 모자라면 콤보 단위 백오더(콤보 줄 + 구성품 줄이 비례로 형제에 · 반쪽 콤보 없음 · 묶음 4)
+⭐⭐ 백오더 — 예약은 구성품 줄에 있지만 **장부 · 목록 · 이어받기 · 만료 · proceed · 취소 · 병합은 수요 줄(보통 줄 또는 콤보 줄 · combo_line_id is null) 단위**(콤보 수 = min(구성품 예약 ÷ combo_qty)) · reopen 은 구성품 줄에 콤보 수 × combo_qty
+     이어받기: 보통 줄 A 는 옛 콤보의 구성품 A 를 · 콤보의 구성품은 옛 보통 줄을 이어받지 않는다(product_id 가 가른다) · 목록은 콤보 한 줄(is_combo · components) · arrived = 구성품 입고 사건 ∧ 통째 콤보 ≥ 1
+⭐⭐ 출고 — 콤보 줄 qty_shipped = 나간 콤보 수 · 반쪽 콤보 픽은 so_ship 이 **거부**(안전망) · Finalize 가 먼저 구성품 픽을 통째 콤보로 줄이고 put_back(SKU · 칸 · 수량 · 원장 무접촉 · 판정 246) · removed 는 콤보 줄에만(구성품 removed 거부 · derived 로 펼친다)
+⭐⭐ 문서 — 인보이스 · 견적서에 구성품 줄 없음 · 콤보 product 줄의 so_invoice_line.combo_components 가 「includes」 를 굳힌다 · so_tax_preview 는 줄 목록을 빼지 않고 표시(combo · combo_line_id)만 · 합계 불변
+⭐⭐ 크레딧 — 콤보 단위(판정 245): 콤보 크레딧 줄(금액 · qty = 콤보 수 · 칸 · 사유 없음) + 구성품 크레딧 줄(금액 0 · 제 칸 또는 사유 · combo_credit_line_id · 재고는 이 줄) · 요청 lines[].components[] · 구성품 하나만 = 「other」 금액 줄(재고 안 움직임) · 멀쩡한 하나가 돌아오면 재고 조정
+⚠️  so_line_requote 는 구성품 줄을 거부 · so_reprice 는 kept(combo_component) · so_merge 는 열쇠 + combo_sig(정의가 다른 같은 콤보는 따로) · 구성품을 다시 매단다
+⭐  콤보 정의는 product_bom_set(asung-po §4-c) · 새 콤보 SKU 는 「+ New product」 → 「Make combo」(판정 250)
 ```
 
 ## 5. 이 스킬을 갱신할 때

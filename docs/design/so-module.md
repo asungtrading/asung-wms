@@ -5177,7 +5177,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 ### 28-g 다음
 
 ```
-순서(판정 89 · 91): 이 문서 차수 → 수정거리 맨 앞 ⑱(판정 88 · po-module §11-i) + ⑯ 한 묶음(같은 입고 · 원가 창구 · 판정 84 섞기 막기 시험도 이때) → ⑰ · ⑫ → 그 뒤 판정 81 1단계(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 비밀번호 배포 전 필수)  → ✅ ⑱ + ⑯ 닫힘(§29) · 다음 ⑰
+순서(판정 89 · 91): 이 문서 차수 → 수정거리 맨 앞 ⑱(판정 88 · po-module §11-i) + ⑯ 한 묶음(같은 입고 · 원가 창구 · 판정 84 섞기 막기 시험도 이때) → ⑰ · ⑫ → 그 뒤 판정 81 1단계(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 비밀번호 배포 전 필수)  → ✅ ⑱ + ⑯ 닫힘(§29) · 다음 ⑰  → [2026-10-05 판정 244 로 닫힘 §44]
 ⑲ ~ ㉓ 는 ⑱ 차수에서 함께 볼지 판정 거리(㉓ 운임 · 더 보낸 몫 순서는 ⑱ · ⑯ 과 함께)
 ```
 
@@ -5389,7 +5389,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 - **판정 126** (2026-09-30) Caleb 「문서와 스킬은 마무리짓고, 검증스크립트부터 다음 새 대화에서 고치는 걸로 시작하자」 — docs-0930 커밋(d543404)은 `--no-verify`(문서 · 스킬뿐 · ㉟ 가 asung-wms 의 모든 커밋을 막았다) · 새 대화 첫 일 = ㉟ `check-class-values.sh` 고침
 - **판정 127** Caleb 「가」 — ㉟ `check-class-values.sh` 는 「짝 조건」 모양만 좁게 알아본다. 대상 표 CHECK 안에서 그 칸이 딱 한 번, `칸 = '<값>'` 또는 `칸 <> '<값>'` 꼴로, 맨 바깥 `or` 의 한 갈래로만 나오고 다른 갈래에 그 칸이 없을 때만 「목록 정의 아님」으로 넘긴다. 적힌 값이 최종 허용 목록 안인지는 검사하고(밖이면 FAIL exit 1 · 목록이 drop 됐으면 exit 2), 그 밖의 모양은 전처럼 멈춘다. 자기 시험 스크립트를 붙인다 · 기각 (나) 제약 이름 허용 목록 — 다음 짝 조건마다 다시 고치고 그 제약이 값을 빼는 모양으로 바뀌어도 못 잡는다 · (다) `= any(array[…])` · or 나열까지 읽는 일반 파서 — 지금 없는 모양까지 짓는다
 - **판정 128** Caleb 「가로 하자」 — `test-class-values-hook.sh` T0 의 옛 판은 **d543404 에 못 박는다**(`git show d543404:scripts/check-class-values.sh` · 「고치기 직전 판」 주석). HEAD 로 읽으면 e53b5ad 커밋 뒤 새 판끼리 비교가 되어 T0 이 늘 실패한다(대화 Claude 가 e53b5ad 클론에서 재현) · 기각 (나) 짝 조건이 처음 들어간 커밋의 부모를 git log 로 찾기 — 찾는 코드가 또 틀릴 자리
-- **판정 129** Caleb 「마스터 만들기부터 하자」 — 판정 81 1단계 남은 것(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 판정 58 묶음) 중 마스터 만들기(상품 · 손님 · 공급업체를 IMS 안에서 만들고 고치는 화면 · 창구)를 먼저 · 근거(대화 Claude): 조립 · 번들은 완성품 · BOM 을 IMS 안에서 만들 수 있어야 선다 · 레이아웃은 맨 뒤(ims-principles §6-c 「그 사이 더하는 메뉴 자리는 임시다」)
+- **판정 129** Caleb 「마스터 만들기부터 하자」 — 판정 81 1단계 남은 것(조립 · 번들 · POS 칸 · 마스터 만들기 · 레이아웃 · 판정 58 묶음) 중 마스터 만들기(상품 · 손님 · 공급업체를 IMS 안에서 만들고 고치는 화면 · 창구)를 먼저 · 근거(대화 Claude): 조립 · 번들은 완성품 · BOM 을 IMS 안에서 만들 수 있어야 선다 · 레이아웃은 맨 뒤(ims-principles §6-c 「그 사이 더하는 메뉴 자리는 임시다」)  → [2026-10-05 판정 244 로 닫힘 §44]
 - **판정 130** Caleb 「상품가자」 — 마스터 만들기는 **상품**부터 · 공급업체 · 손님은 그 뒤
 - **판정 131** Caleb 「나는 나라고 봐. 양쪽에서 만들어봐야 제대로인지도 실물 검증이 되는거 아닌가?」 — 병행 기간 새 상품은 **IMS 와 Cin7 양쪽에서 만든다** · IMS 에서 만든 것(source 'manual')을 재적재가 덮지 않도록 적재 코드를 먼저 고친다 · 기각 (가) 병행 기간은 불러온 데이터로만 받고 IMS 만들기는 테스트 DB 로만 검증(대화 Claude 안이었다) · (다) IMS 에서만 — 병행 기간 주문 흐름이 모른다
 - **판정 132** Caleb 「좋아 가로 가자」 — 같은 SKU 가 IMS(manual)와 불러온 데이터 양쪽에 있으면 **IMS 값이 이긴다** — 적재는 cin7_id 만 붙이고 다른 칸은 건드리지 않는다 · 두 값이 다른 칸은 **차이 목록**으로 남긴다(이름 · 세트 계수 · 부모 · 바코드 · 가격 · 공급처 단가 등) · 그 목록이 판정 131 의 실물 검증 결과다 · 기각 (나) 불러온 데이터가 이긴다 — 잘못 만든 값이 조용히 고쳐져 검증이 안 된다 · (다) 건너뛰고 경고만 — cin7_id 가 안 붙어 경고가 되풀이되고 비교가 안 남는다
@@ -5406,7 +5406,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 - **판정 140** Caleb 「가로 가자」 — 열쇠는 기존 `master` 하나 · 상품 만들기 · 고치기 창구와 SKU 잠금 트리거 함수는 **security definer + 첫 줄 문**(`ims_require_write('master')`) — 잠금 검사가 권한과 상관없이 원장 · 열린 줄을 모두 본다(invoker 면 master 만 가진 사람에게 판매 · 원장 표가 RLS 로 조용히 0행이 되어 잠금이 「붙은 것 없음」으로 통과할 수 있다 — 짐작 · 읽기 정책은 안 봤다) · 만들기 차수 검증에서 **master 만 가진 가짜 직원**으로 잠금이 거부하는지 시험한다 · 기각 (나) invoker + RLS(Claude Code prod-1 추천)
   - ⚠️ 근거 정정(2026-10-01 · §33-c): 「invoker 면 RLS 로 0행 → 통과할 수 있다(짐작)」는 **오늘은 일어나지 않는다** — 원장 · 레이어 읽기 정책이 `auth_all … using (true)` 라 master 만 가진 직원도 다 읽는다(S7 실측) · 판정은 그대로(원장 읽기를 조이는 날 조용히 새지 않게 · 호출자 무관) · 트리거 함수의 「+ 첫 줄 문」은 판정 174 로 바뀌었다
 - **판정 141** Caleb 「가」 — 상품 계열 표에 **직접 쓰는 길을 닫고 창구만 연다** — master 권한이 있는 사람은 지금처럼 만들고 고치되 반드시 창구(검사)를 거친다 · 권한 없는 사람은 그대로 못 쓴다 · 읽기는 그대로 · 불러오는 데이터 적재가 어떤 계정으로 쓰는지 만들기 차수에서 먼저 확인한다(직원 계정이면 적재 길을 함께 옮긴다)
-- **판정 142** Caleb 「조립, 번들 차로 넘기자」 — 콤보(product_bom) 만들기 · 고치기는 조립 · 번들 차수에서 조립 흐름과 함께 · 이번 차수는 콤보를 읽기만
+- **판정 142** Caleb 「조립, 번들 차로 넘기자」 — 콤보(product_bom) 만들기 · 고치기는 조립 · 번들 차수에서 조립 흐름과 함께 · 이번 차수는 콤보를 읽기만  → [2026-10-05 판정 244 로 닫힘 §44]
 - **판정 143** ① Caleb 「니 제안대로 가자」 — 브랜드 · 분류 · 단위는 사람이 목록에서 고르기만 하고 창구가 그 id 의 이름을 이름 칸(brand_name · category_name · uom_name)에 자동으로 복사 ② Caleb 「2는 비워둔다」 — IMS 에서 만든 상품은 `cin7_` 원문 칸을 비워 둔다 · 판정 132 비교에서도 제외 · 기록만(2단계): 설명 글이 필요해지면 IMS 자기 칸을 세우고 cin7_description 을 한 번 옮겨 담는다 · 그 뒤 IMS 칸이 정본 · cin7_ 칸은 보관 기록
 - **판정 144** Caleb 「문서 차수를 돌리자」 — 판정 126 ~ 143 을 정본에 올리는 문서 차수를 만들기 차수들보다 먼저 · 뒤 순서는 **대화 Claude 안 · Caleb 확인 전**: prod-2 문(SKU 잠금 트리거 · 직접 쓰기 닫기 · 적재 계정 확인 먼저) → prod-3 만들기 한 벌 창구 → prod-3b family → prod-4 고치기 줄 창구 → prod-5 불러오기 적재 고침(병행 기간 IMS 실제 만들기 전에) → 화면(대화 Claude)
 - **판정 145** Caleb 「둘 다 자주하지. 패밀리 등록도 쉽고 복잡하지 않길 바래. 제품 등록이나 변경 수정이 쉽고 빨라야 해.」 — 요구: 상품 고치기는 한 SKU 씩과 여러 SKU 한꺼번에(표처럼 펼쳐 줄줄이 고치기 · 붙여 넣기) 둘 다 빠르고 쉬워야 한다 · family 등록도 쉽고 단순 · 등록 · 변경 · 수정 모두 쉽고 빨라야 한다 — 고치기 창구(prod-4)와 화면 차수의 **필수** · 앞선 물음에 대한 대화 Claude 답(사실): 막히는 것은 거래 기록이 붙은 상품의 SKU(136) · 세트 계수 · 부모(137) 둘뿐 · 가격 · 이름 · 브랜드 · 분류 · 바코드 · 공급처 단가 · 단종 · 무게 · 활성은 자유(단위 · 비활성은 경고 · 확인)
@@ -5816,7 +5816,7 @@ ac02db7  img-2    20261001161052_img_2_cin7_image_sync.sql (168행 · md5 e9f92c
 - **판정 199** (2026-10-01) Caleb 「가」 — 다음은 **화면 먼저**(대화 Claude) · prod-5(불러오기 적재 고침)는 병행 운영(11 월) 전까지 · 근거: 판정 148 의 금요일(10/2) 목표 「상품 마스터」에서 남은 것이 화면 · 창구가 다 서 있다 · 기각 (나) prod-5 먼저
 - **판정 200** Caleb 「가」 — 화면은 **두 개**: ① **Products**(지금 화면을 키움 · 한 SKU 씩 — 그 자리에서 고치기 · 사진 · New product · New family) ② **Product Sheet**(새 화면 · 엑셀처럼 펼친 표 — 붙여 넣어 한꺼번에 만들기 · 걸러 펼쳐 한꺼번에 고치기) · Families 화면은 Products 안의 family 보기로 · Supplier Products 는 Products 의 「공급처로 거르기」로 흡수(판정 151) · 기각 (나) 한 화면에 다 · (다) 일마다 화면 · ⚠️ Families 부분은 판정 210 이 고쳤다
 - **판정 201** Caleb 「가」 — **Products 먼저**(경고 확인 대화상자를 여기서 처음 짓고 Sheet 가 빌려 씀) · 기각 (나) Sheet 먼저
-- **판정 202** Caleb 「가」 — 한 상품 고치기는 **「Edit」 한 번 → 여러 칸 → 「Save」 한 번**(바꾼 칸 노랗게 · Save 가 검사 → 경고 모아 보이고 확인 → product_update 한 번 · Cancel 은 통째 되돌림) · 기각 (나) 칸마다 바로 · (다) 섞기
+- **판정 202** Caleb 「가」 — 한 상품 고치기는 **「Edit」 한 번 → 여러 칸 → 「Save」 한 번**(바꾼 칸 노랗게 · Save 가 검사 → 경고 모아 보이고 확인 → product_update 한 번 · Cancel 은 통째 되돌림) · 기각 (나) 칸마다 바로 · (다) 섞기  → [2026-10-05 판정 247 — 콤보 구성품은 따로 고친다(예외) §44]
 - **판정 203** Caleb 「다」 — Families · Supplier Products 를 메뉴에서 빼는 것은 **Product Sheet 가 선 뒤**(Sheet 가 family · 공급처 SKU · 단가 열을 받으면 그때 한 번에) · 기각 (가) 지금 둘 다 · (나) Supplier Products 만 지금 · ⚠️ 판정 210 이 고쳤다(Families 는 남는다)
 - **판정 204** Caleb 「가」 — Product Sheet 의 **한 줄 = 상품 하나**(낱개 · 세트 · 변형 각자) · 공급처 · 바코드가 여럿인 상품은 기본 · 대표 하나만 표에서 · 나머지는 Products · 기각 (나) 낱개 줄 + 세트는 그 줄 안의 칸 · (다) 표 여러 장
 - **판정 205** Caleb 「가」 — Sheet 는 **모드 둘**(「Edit products」 · 「New products」) · Edit: 모르는 SKU 줄은 막힘 · New: 있는 SKU 는 막힘(창구) · 근거: SKU 오타가 새 상품을 만드는 자리를 막는다 · 기각 (나) 있는 SKU 는 고치기 · 없는 SKU 는 만들기 자동
@@ -6248,7 +6248,7 @@ price-3(대화 Claude 화면) — Settings 에 환율 · 티어 규칙 · Suppli
 순서(Caleb 이 정한다):
 1단계 남은 큰 일(ims-principles §6-c · 판정 81):
   · 손님 · 공급업체 만들고 고치기(창구 · 화면 — 지금 읽기만)
-  · 조립 · 번들(창구 · 화면 0)
+  · 조립 · 번들(창구 · 화면 0)  → [2026-10-05 판정 244 로 닫힘 §44]
   · 비밀번호 배포 전 필수(판정 58 묶음 · 판정 59 ① — 상태 확인)
   · prod-5 불러오기 적재 고침(판정 131 · 132 · 35-e 59 · 60 · 61 · 65 · 34-e 54)
 화면 시험 남은 것 — ⑫ ㊱(두 칸 나눠 뽑기 · 보류 뒤 칸 보존 · Admin 칸 셋 · 출고 원장 두 칸) · 창고 넷 사진 · Sheet 가격식
@@ -6314,7 +6314,7 @@ price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 판정 148 목�
 순서(Caleb 이 정한다):
 1단계 남은 큰 일(ims-principles §6-c · 판정 81):
   · 손님 · 공급업체 만들고 고치기(창구 · 화면 — 지금 읽기만 · suppliers.html 의 is_purchasable 직접 update 도 창구로)
-  · 조립 · 번들(창구 · 화면 0)
+  · 조립 · 번들(창구 · 화면 0)  → [2026-10-05 판정 244 로 닫힘 §44]
   · 비밀번호 배포 전 필수(판정 58 묶음 · 판정 59 ① — 상태 확인)
   · prod-5 불러오기 적재 고침(판정 131 · 132 · 35-e 59 · 60 · 61 · 65 · 34-e 54)
 화면 시험 남은 것 — 창고 넷 사진(pk · pa · rc · fu) · Sheet 가격식
@@ -6411,7 +6411,7 @@ f7b0027 feat(master): master-cs-2a - customer_create (rulings 237 to 240): two-c
 순서(Caleb 이 정한다):
 cs-5 화면(대화 Claude) — customers.html(새 · 목록 · 만들기 · 고치기 · 돈 칸은 master 화면만) · suppliers.html 만들기 · 고치기 패널 · Action Centre 「New customers to review」(customer_review_list · Reviewed 단추)
 cs-4 적재 고침(prod-5 와 한 묶음 · 41-e 92 clasp pull 먼저) — IMS 에서 만든 손님 · 공급처를 Cin7 적재가 덮지 않게(판정 131 · 132)
-1단계 남은 큰 일: 조립 · 번들 · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)
+1단계 남은 큰 일: 조립 · 번들 · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)  → [2026-10-05 판정 244 로 닫힘 §44]
 화면 시험 남은 것 — 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210)
 다음 판정 번호: 242
 ```
@@ -6469,7 +6469,7 @@ a1fceec feat(customers): cs v1 - new Customers screen (cs-5 part 1, rulings 236 
 
 ```
 순서(Caleb 이 정한다):
-1단계 남은 큰 일(판정 81 · ims-principles §6-c): 조립 · 번들(창구 · 화면 0) · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)
+1단계 남은 큰 일(판정 81 · ims-principles §6-c): 조립 · 번들(창구 · 화면 0) · 비밀번호 배포 전 필수(판정 58 묶음 — 상태 확인)  → [2026-10-05 판정 244 로 닫힘 §44]
 cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저) — IMS 에서 만든 손님 · 공급처 · 상품을 Cin7 적재가 덮지 않게(판정 131 · 132)
 화면 시험 남은 것 — 42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210)
 다음 판정 번호: 244
@@ -6530,4 +6530,189 @@ db6adbb feat(wms): pa v1.5 and wa v1.16 - how a report was closed (ruling 58 bun
 cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
 화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
 다음 판정 번호: 244
+```
+
+## §44 콤보(번들) — 팔 때 구성품을 뺀다 · asm-0 ~ 3 · 판정 244 ~ 250 (2026-10-05 · 회사 PC → 집 PC)
+
+⭐ 닫힌 것: 판정 81 1단계의 「조립 · 번들」 — 조립 문서는 만들지 않는다(판정 244) · 콤보는 오더에서 콤보 줄 + 구성품 줄로 펼친다 · DB asm-1 · 2a · 2b1 · 2b2(asung-wms 4a9a9d8) · 화면 asm-3(asung-ims ad45c7e ~ ae130cf) · Caleb 화면 시험 2026-10-05 밤
+⭐ 새 판정 244 ~ 250(아래 44-a) · 원문은 지시서 `~/asung/prompts/docs-1005h.md` 📌 절
+
+### 44-a 판정 · 묶음 원문
+
+**판정 244** (2026-10-05 · 회사 PC) Caleb 「코보, 세트는 미리 묶어 팔지 않아. 주문이 오면 그때 구성품을 꺼내 묶어 보내」 — 번들 · 콤보는 **팔 때 구성품을 바로 뺀다**(asm-0 C1 의 (가)) · 미리 조립해 완성품 재고로 두지 않는다 ⇒ IMS 에는 **조립 문서가 필요 없다** · 창고는 구성품을 뽑아 팩에서 묶는다 · 근거 asm-0 실측: 콤보 15 중 움직인 것 3 · 판매 4 건 모두 주문 뒤 1 ~ 3 일 안에 조립 → 출고 · 완성품 재고 상시 0(Cin7 의 조립 문서는 재고 모델 때문에 끼운 중간 서류) · 기각 (나) 미리 조립 · (다) 콤보마다 설정
+
+**asm 묶음 1 ~ 8** — 대화 Claude 안(asm-0 권고 바탕) · Caleb 「그대로 가자」(2026-10-05)
+1. 콤보 정의 만들기 · 고치기: master 창구 하나로 콤보 SKU 와 구성품 · 수량을 정한다 · products.html 상세에 「Combo」 칸 · 콤보 안에 콤보는 안 된다
+2. 오더에 콤보를 넣으면(SO 줄 더하기 · 붙여 넣기 · POS 스캔) 콤보 줄 하나 + 구성품 줄 여럿 — 콤보 줄에 값(콤보 SKU 의 가격 티어 · 할인 · surcharge) · 구성품 줄은 값 0 으로 콤보 줄에 매달린다 · 재고 · 예약 · 픽 · 출고 · 원가는 구성품 줄이 기존 식 그대로
+3. 수량을 바꾸거나 지우면 콤보 줄만 손댄다 · 구성품 줄은 따라 바뀐다 · 구성품 줄을 따로 고치지 못한다
+4. 구성품 하나가 모자라면 콤보 전체를 하나로 — 예 콤보 3 주문에 구성품 하나가 2 개분이면 콤보 2 출고 · 1 백오더 · 「반쪽 콤보」는 내보내지 않는다
+5. 인보이스 · 손님에게 보이는 문서에는 콤보 줄만 · 구성품은 그 아래 작은 글씨 「includes …」
+6. 창고: 픽 화면은 구성품을 뽑는다(줄에 「for combo ○○」) · 팩 화면은 콤보 단위로 묶어 보인다 · 창고 조립 없음
+7. 반품 · 크레딧은 콤보 단위 — 콤보 1 을 돌려받으면 구성품이 재고로 · 금액은 콤보 줄 값
+8. 차수: asm-1 DB → asm-2 DB → asm-3 화면 (대화 Claude 가 asm-2 를 2a · 2b1 · 2b2 로 나눴다)
+- 미룸(asm-0): 사 오는 콤보(디스플레이 1 → 낱개 24 · 입고 실측 0) · 콤보 방향 칸 → 44-e 100
+
+**판정 245** (2026-10-05 · 집 PC) Caleb 「첫번째로 가자」 — 묶음 7 의 구체화: 크레딧의 **상품 줄은 콤보 단위로만**(콤보 1 개 = 구성품 전부 재고로 · 금액은 콤보 줄 값) · 구성품 **한 개만** 문제인 경우(깨짐 등)는 크레딧의 **「other」 금액 줄**(재고 안 움직임) · 멀쩡한 구성품 하나가 실제로 돌아오는 드문 경우는 **재고 조정** · 기각: 구성품 한 개 반품을 상품 줄로 허락(금액을 사람이 정해야 하고 묶음 7 에 예외)
+
+**판정 246** (2026-10-05 · 집 PC) Caleb 「첫째」 — 반쪽 콤보 픽은 **Finalize 가 자동으로 줄인다**: 구성품 픽을 통째 콤보 수에 맞춰 줄이고 모자란 콤보는 콤보 단위 백오더 · 미리 보기와 결과에 **「되돌려 놓을 것(SKU · 칸 · 수량)」**(장부는 출고 때 빠지므로 그대로 맞고 실물만 제자리에) · 기각: 일반 과다 픽처럼 거부(콤보가 덜 뽑힐 때마다 창고 · 오피스가 한 번 더 오간다)
+
+**판정 247** (2026-10-05 · 집 PC) Caleb 「첫째」 — 콤보 구성품은 상품 Edit 와 **따로** 고친다: Components 카드 「Edit components」 · 낱개 머리 「Make combo」 → 작은 창에서 구성품 전체 목록을 고쳐 그 창에서 저장(product_bom_set · p_old) · **판정 202(Edit 한 번 → Save 한 번 · §35-a)의 예외** · 까닭: 창구가 둘이라 한 Save 로 묶으면 「반만 저장」 이 생긴다 · 기각: Edit 모드 안에 넣어 Save 한 번
+
+**판정 248** (2026-10-05 · 집 PC) Caleb 「첫째」 — **초안 오더 Lines 표의 줄마다 가용**(수량 아래 작은 글씨 · so_lines_available 한 번 · 콤보 줄 = 「available N combos」 · 구성품 · 보통 줄 = 자기 단위 · 모자라면 빨강) · 콤보뿐 아니라 모든 줄 · 기각: 줄 더하기 창에서만 · 콤보 줄에만
+
+**판정 249** (2026-10-05 · 집 PC) Caleb 「첫째안으로 가자」 — 팩 화면은 **줄 순서 · 스캔 흐름 그대로**(칸 순서) · 구성품 줄마다 「for combo ○○」 · 목록 맨 위 콤보마다 「Combo ○○ — n of m complete」(구성품이 다 찬 콤보 수 = min(verified ÷ (combo_qty × pack_factor))) · 기각: 목록을 콤보별로 다시 묶기(칸 순서 · 자동 넘김이 바뀐다)
+
+**판정 250** (2026-10-05 · 집 PC) Caleb 「지금으로 충분할 것 같아」 — 새 콤보의 SKU 는 **「+ New product」 로 먼저 만들고 → 그 상품에서 「Make combo」**(두 걸음) · 콤보 SKU 짓는 규칙 없음 · 기각: 구성품을 고르며 콤보 상품까지 한 번에 만드는 「New combo」 창
+
+**staff 화면(판정 번호 없음 · asung-ims · 회사 PC)**
+- st v2 `4537f93` Caleb 「조립, 번들을 진행하기 전에, staff권한에 location을 넣어줄 수 있나?」 → Location(창고 체크 · `ims_staff.warehouse_access` · 판정 함수 `ims_can_warehouse` 그대로: admin · supervisor = 모든 창고 · manager · worker = 체크한 창고 · 하나도 안 체크 = 모든 창고) · 자기 행 잠김 · 목록 꼬리표 · jsdom 8
+- st v3 `3ed8b4c` Caleb 「wms만 선택하면,wms에 해당되는것만 보이고, IMS를 선택하면 IMS에 해당되는 것만 보이게도 해줄 수 있어?」 → 방 체크가 그 방 화면만 보이게(방 = `ims_perm_catalog` 의 room) · 숨긴 방의 화면은 저장 때 none · 몇 개 빠지는지 노란 글 · 둘 다 안 체크 = 전부 · jsdom 6 · Caleb 집 PC 화면 확인 「이제 다 됐어」
+- Caleb 물음 답(기록용): manager 도 화면 권한을 전부 write 로 주면 직원 관리(자기보다 아래만) · 창고 범위(Location) 말고는 다 된다 · read = 보기만 · write = 저장까지 · 진짜 문은 DB 창구
+
+#### 44-a′ 차수마다 이견 · ⬜ 판단(Claude Code 보고 §1 · §2 · 번호째 · 대화 Claude 가 받아들임 · Caleb 이 적용 · 확인 · 커밋)
+
+**asm-1**(보고 `~/asung/prompts/asm-1-report.md`)
+1. `p_old` 에 `default null` — 새 콤보(켜진 줄 0)는 화면이 본 목록이 없다 · 줄이 있는데 null 이면 `old_missing` 으로 막는다
+2. 「콤보 안의 콤보」를 양방향으로 막았다 — 부모가 이미 다른 콤보의 구성품이면 `parent_is_component`
+3. `no_change` 를 막기로 — 새 목록 = 지금 목록(해제인데 켜진 줄 0 포함)이면 `nothing to change — nothing was saved`
+4. `quantity_invalid` 는 두 if 로 갈랐다 — SQL 의 `or` 는 짧게 끊지 않아 `'abc'::numeric` 이 먼저 터진다
+5. GAS 적재가 product_bom 을 어떻게 쓰나 확인 못함(클론에 0 건) — 원본 적재가 재적재 때 `source='manual'` 줄을 덮지 않게 고쳐야 한다(판정 131 · 132 · 44-e 103) · 창구는 손댄 줄을 manual 로 표시해 신호를 남긴다
+6. 뷰는 만들지 않았다 — products.html 이 product_bom 을 직접 읽는다(select 정책 그대로) · 낱개 환산은 오더 길의 셈
+- ⬜ 판단: 부모가 세트 = 막는다(`parent_is_set` · 같은 낱개를 두 번 센다) · 구성품이 세트 = 막지 않고 알린다(`component_is_set` · ack · 오더 길은 이미 `coalesce(parent_product_id, id) × pack_factor` 로 센다) · 구성품 하나뿐 = 막는다(`component_single` · po-module 「구성품 2 개 이상」) · p_old 비교 = `sku|round(qty, 6)` 를 sku 순으로 통째 · Cin7 줄을 고치면 **손댄 줄만** source manual · 읽기 뷰 없음
+
+**asm-2a**(보고 `asm-2a-report.md`)
+1. 확정(예약)을 2a 에 넣었다 — 안 넣으면 `so_allocate_run` 이 콤보 줄에 재고 키로 예약을 시도하고 구성품 줄도 따로 돌아 반쪽 콤보가 선다 ⇒ `so_allocate_run` · `so_allocate_all` · **`so_split`**(형제에 새 줄을 넣을 때 매듭 두 칸을 복사하지 않았다 · 목록 밖) 함께 재발행
+2. 묶음 4 의 확정 쪽 — 콤보 단위 = `min(구성품 재고 키마다 floor(가용 ÷ 콤보 하나에 드는 낱개))` · 모자라면 콤보 줄 + 구성품 줄이 비례로 형제(backorder)에 · so_split 이 형제의 새 콤보 줄에 구성품을 다시 매단다
+3. 「부모는 같은 오더 · 부모는 콤보 줄」은 CHECK 로 못 쓴다 ⇒ DEFERRABLE INITIALLY DEFERRED 제약 트리거 `so_line_combo_parent_ck` · ⚠️ 1 회차에 그 사이 지워진 행의 묵은 사건에도 돌았다 ⇒ 지금 행을 다시 읽어 판정 · 없으면 지나간다
+4. 구성품 줄은 무상 줄(free_reason)을 쓰지 않는다 — `so_line_free_pair_ck` 를 「무상 = 단가 0 **이고 구성품 줄이 아님**」으로 다시 · `so_line_combo_values_ck`(값 0 · list null · 할인 · 딜 · surcharge · 덮어쓰기 없음)
+5. 콤보 하나에 드는 구성품 수를 줄에 저장(`combo_qty`) — 정의가 바뀌어도 열린 오더는 그대로
+6. `so_available_many` 는 그대로 — 새 읽기 창구 `so_lines_available(p_so_id)`(콤보 줄 = min 식)
+7. 2a 만 적용된 상태의 구멍(테스트 DB) — 출고 · 인보이스는 2b 몫(소리 나게 거부 · 잘못 쓰지 않는다)
+8. `so_line_remove` · `so_allocate_all` 원본이 `create function` 이라 재발행 머리를 `create or replace` 로(컴파일 점검에서 「already exists」)
+- ⬜ 판단: 칸 = `so_line.combo_line_id uuid references so_line(id) on delete cascade` + `combo_qty numeric` · 무상 칸 안 씀 · CHECK 다섯 + deferred 트리거 · 확정을 2a 에 · so_detail 줄 `is_combo · combo_sku` · totals `lines`(구성품 뺀 수) · `combo_lines` · `component_lines` · 같은 SKU 합치기(판정 229)는 콤보 줄에 · 보통 줄 찾기 셋이 전부 `combo_line_id is null` · 프리오더는 콤보 줄을 고르면 구성품이 따라가고 구성품 줄을 고르면 거부
+- 줄 모양 — 콤보 줄: 콤보 SKU · 값(티어 · 할인 · surcharge · 세금 · 덮어쓰기 · 무상까지 보통 줄과 같은 길) · `combo_line_id null` · **예약 없음** / 구성품 줄: `qty_ordered = 콤보 qty × combo_qty` · 값 0 · 콤보 줄 바로 뒤(sku 순) · 예약 · 가용 · 픽 · 출고는 보통 줄과 같은 길 · 따로 못 고치고 못 지운다
+
+**asm-2b1**(보고 `asm-2b1-report.md`)
+1. 한 자리로 거의 다 닫혔다 — 공용 줄 뷰 `wms_order_doc_line` 이 창고 쪽 함수 열넷의 유일한 줄 출처(판정 71) ⇒ 뷰에서 콤보 줄을 빼고 끝에 `combo_line_id · combo_qty · combo_sku` 를 더하니 픽 계획 · 과제 · 팩 · 인계 · 마무리 · 칸 옮기기가 구성품만 본다 · 재발행은 여섯
+2. 출고의 반쪽 콤보는 거부(2b1) · 줄이는 것은 2b2 Finalize — `Combo % (line %) of %: components picked beyond whole combos (…) — a combo ships whole or not at all; put the extra back — nothing was saved` · 비례로 모자라면 정상 출고 + 콤보 단위 pick_short 형제
+3. 콤보 줄의 「출고됨」 = `qty_shipped` 에 구성품이 다 나간 콤보 수(③′)
+4. so_merge 는 콤보 오더를 분명한 문장으로 거부(2b2 에서 풀었다)
+5. so_divide 는 콤보 단위로만 — 콤보 줄 몫 × combo_qty 로 구성품이 따라가고 구성품 줄 직접 가르기는 거부
+6. so_release_to_wms 재발행 — 할당 검사가 콤보 줄(예약 없음)에서 막혔다
+7. inv_post_sale 에도 콤보 줄 픽 거부(겹문)
+8. 손대지 않아도 되는 자리 — wms_complete_pack · wms_complete_pick · so_pos_complete · so_pos_finish · so_pos_reopen · so_cancel · so_delete · so_hold(뷰 · 줄 · 예약 단위로 저절로) · 픽 부족 신고는 구성품 SKU 로 선다
+9. 1 회차 사고 — `inv_post_sale` 의 `declare k record` 와 별칭 `k` 가 겹쳤다(「declare 변수 ≠ 조회 별칭」 여섯 번째) ⇒ 별칭 `kk` · 여섯 본문 declare ∩ 별칭을 스크립트로 훑어 0
+- ⬜ 판단: 「for combo ○○」 자리 = 뷰 칸 셋 → `wms_pick_lines` 줄에 그대로 · 창고 문서 줄에서 콤보 줄은 **뺀다**(합이 틀어진다) · 콤보 줄 출고됨 = `min(구성품 shipped ÷ combo_qty)` · so_merge 거부(2b2) · 반쪽은 so_ship 거부 · 비례 부족은 콤보 단위 백오더
+
+**asm-2b2**(보고 `asm-2b2-report.md`)
+1. 한 차수로 만들었다(2b2a · 2b2b 로 안 나눔) — 새로 쓰거나 바꾼 줄 326(한도 900)
+2. 「수요 줄」 하나로 백오더 여섯 · 취소 · 병합을 닫았다 — 수요 줄 = 보통 줄 또는 콤보 줄(`combo_line_id is null`) · 백오더 **예약은 그대로 구성품 줄** · 장부 · 목록 · 이어받기 · 만료 · proceed · 취소 · 병합은 수요 줄 단위(콤보 수 = `min(구성품 예약 ÷ combo_qty)`) · 다시 열면 구성품 줄에 콤보 수 × combo_qty · 같은 lateral 식 하나가 보통 줄(제 예약)과 콤보 줄을 함께 다뤄 보통 줄 셈은 같은 값 · 예약을 콤보 줄로 옮기는 안은 기각(2a · 2b1 을 다시 손대야 한다)
+3. 목록 밖 셋 재발행 — so_cancel(취소 장부가 구성품마다 섰다) · so_proforma(견적서에 구성품 0 원 줄 · 묶음 5) · so_tax_preview(줄 목록은 빼지 않고 표시만 · 문서 창구 둘이 표시로 뺀다)
+4. 구성품의 과다 픽은 「주문 넘김」도 줄인다(거부 아님 · 판정 246 의 까닭이 같다) · 보통 줄의 과다 픽 거부는 그대로
+5. put_back 을 `wms_order_finalize.put_back` 에도 남긴다 — 되돌려 놓는 일은 창고의 일인데 반환은 오피스 화면에서 사라진다 · 원장 · 칸 행 · stock_short 는 닿지 않는다(sale_out 은 so_ship 이 받은 picks 만)
+6. 콤보 백오더 arrived = 어느 구성품이든 자격 있는 입고 사건 ∧ 지금 통째 콤보 ≥ 1 가용 — 가용만 보면 반품 · 조정도 알린다(§15 판정 6) · 입고만 보면 반쪽(묶음 4)
+7. 「includes …」 는 jsonb `so_invoice_line.combo_components`(`[{so_line_id, product_id, sku, description, unit, qty_per_combo, qty}]`) — description 에 글로 붙이면 크레딧 줄이 복사해 두 번 뜨고 구성품 so_line_id 가 없다
+8. 크레딧 줄은 so_line 과 같은 매듭 — `so_credit_line.combo_credit_line_id · combo_qty`(구성품 크레딧 줄) · `combo_components`(콤보 크레딧 줄 표식) · 콤보 줄 = 금액 · qty = 콤보 수 · 칸 · 사유 둘 다 null(restock_ck 다시) · 구성품 줄 = 금액 0 · 제 칸 또는 사유 · 옛 행은 전부 null · `inv_post_credit` 은 재발행 없이 맞다(bin 있는 product 줄만 걸린다 · 원 판매는 so_line_id → so)
+9. 요청 모양 — 콤보 상품 줄의 `restock_bin` / `not_restocked_reason` 은 구성품 전부의 기본값 · `components: [{sku, restock_bin | not_restocked_reason, not_restocked_note}]` 가 구성품마다 덮는다 · 콤보에 없는 sku 거부 · 「구성품 하나만」 거부는 so_line_id / sku 로 그 인보이스 오더의 구성품을 가리킬 때(구성품은 인보이스 줄이 없어 그 밖은 저절로 막힌다)
+10. `so_line_requote(구성품)` 은 조용한 무시가 아니라 거부 · so_reprice 는 `kept true · reason combo_component`
+11. so_merge 「예약도 따라간다」 = 합친 오더를 확정하면 구성품에 예약이 선다(병합은 원본 예약을 풀고 초안을 낳는다 · 짐작 그대로 · Caleb 판정 없음)
+12. 병합 열쇠에 구성품 모양 `combo_sig`(`sku:combo_qty,…`) — 정의가 바뀐 같은 콤보 SKU 는 따로(`differs_in` 에 `combo_definition`) · 구성품은 첫 원본 콤보 줄의 것을 저장된 combo_qty 로 · 줄 번호는 끝에 · 짝 표에 원본 구성품 줄도
+13. 무상 콤보 줄의 만료 · 이어받기는 수요 줄의 free_reason 으로 가른다 · sweep 의 오더 고르기 조건은 옛 식 그대로라 무상 콤보만 남은 오더가 밤마다 후보에 들었다 나온다(44-e 101)
+14. 검증 회차에서 걸린 것은 전부 검증 파일 쪽(6 회 · 함수 결함 0) — psql 변수 이름 겹침 · 숫자를 글자로 비교 · 확정 뒤에 센 줄 · 2b1 주석 글자가 G0 마커에 걸림 · 같은 손님 확정의 이어받기 · `inv_layer.origin_type` 은 `purchase`
+15. 2b2 전 테스트 DB 의 콤보 인보이스 · 콤보 크레딧 0 · 실제 confirmed 오더 0(sweep 이 닿는 실제 행 없음)
+- ⬜ 판단: 덜어내는 순서 = 그 줄 picks 의 마지막 칸부터(wms_so_handoff 의 cut 모양) · 덜어낸 실물 = `wms_order_finalize.put_back`(원장 · 칸 행 무접촉) · 알림 = arrived AND 식 · 콤보 가용 = `min(구성품 가용 ÷ (combo_qty × pack_factor))` · includes = jsonb · so_tax_preview 줄 목록은 빼지 않는다(합계 불변 · 문서 둘이 표시로 뺀다) · 크레딧 = so_line 과 같은 매듭 · 정의가 다른 같은 콤보 = 따로(combo_sig) · 병합 예약 = 확정 때(짐작)
+
+### 44-b 커밋 · 실물
+
+- asung-wms **4a9a9d8** — 마이그레이션 넷(테스트 DB 적용 · repair · Caleb 확인 뒤 한 커밋 · §43-d 1)
+```
+-rw------- 1 caleb caleb  23407 Oct  5 19:21 supabase/migrations/20261005192944_asm_1_product_bom_set.sql
+-rw------- 1 caleb caleb  81648 Oct  5 19:21 supabase/migrations/20261005195104_asm_2a_combo_lines.sql
+-rw------- 1 caleb caleb  71265 Oct  5 19:21 supabase/migrations/20261005201634_asm_2b1_combo_warehouse_path.sql
+-rw-r--r-- 1 caleb caleb 194373 Oct  5 20:08 supabase/migrations/20261006000805_asm_2b2_combo_money_finalize.sql
+   261 · 1124 · 907 · 2105 행(합 4397)
+ac87fc08ae1ca783125a79ee8ee918b7  supabase/migrations/20261005192944_asm_1_product_bom_set.sql
+c3d71d8f371166a63c475550a6eb45bc  supabase/migrations/20261005195104_asm_2a_combo_lines.sql
+17b35c9a0cb2a38ecd89dce45c280388  supabase/migrations/20261005201634_asm_2b1_combo_warehouse_path.sql
+3cd8f09f148414143b16d126788ad640  supabase/migrations/20261006000805_asm_2b2_combo_money_finalize.sql
+```
+  - **asm-1** `20261005192944`(새로 쓴 줄 235 · 재발행 0) — 창구 `product_bom_set(p_parent_sku text, p_lines jsonb, p_old jsonb default null, p_commit boolean default false, p_ack text[] default '{}')`(definer · 첫 줄 `ims_require_write('master')` · authenticated) · 두 번 부르기 · 막기 15(`parent_unknown` · `parent_inactive` · `parent_is_set` · `parent_is_component` · `lines_invalid` · `component_unknown` · `component_inactive` · `component_is_parent` · `component_is_combo` · `component_duplicate_in_call` · `quantity_invalid` · `component_single` · `old_missing` · `changed_elsewhere` · `no_change`) · 알리기 4(`component_is_set` · `open_orders` · `parent_stock` · `cin7_combo` · ack 열쇠 `combo:<부모 SKU>:<code>[:<구성품 SKU>]`) · 쓰기 = 더하기 · 수량 바꾸기 · 되살리기 · 끄기(지우지 않음) · 손댄 줄만 manual · 빈 목록 = 해제(전부 끔) · product_bom 직접 쓰기는 닫힌 채
+  - **asm-2a** `20261005195104`(바꾼 줄 약 224) — `so_line.combo_line_id`(cascade) · `combo_qty` · 부분 인덱스 · CHECK 다섯(`so_line_free_pair_ck` 다시 · `combo_self` · `combo_pair` · `combo_qty` · `combo_values`) · deferred 제약 트리거 `so_line_combo_parent_ck` · 도우미 `so_combo_is`(authenticated) · `so_combo_children_insert` · `_sync` · `_json`(속 · 회수) · 읽기 창구 `so_lines_available` · 재발행 여덟(so_line_add · so_lines_paste · so_line_update · so_line_remove · so_detail · so_allocate_run · so_allocate_all · so_split)
+  - **asm-2b1** `20261005201634`(바꾼 줄 약 116) — 뷰 `wms_order_doc_line` 재정의(so 갈래 콤보 줄 제외 · 끝에 `combo_line_id · combo_qty · combo_sku` · security_invoker) · 재발행 여섯(wms_pick_lines · so_ship · inv_post_sale · so_release_to_wms · so_divide · so_merge)
+  - **asm-2b2** `20261006000805`(바꾼 줄 326) — 칸 `so_invoice_line.combo_components` + CHECK · `so_credit_line.combo_credit_line_id · combo_qty · combo_components` + 부분 인덱스 + restock_ck 다시 + CHECK 넷 · `wms_order_finalize.put_back` · 재발행 열다섯(so_finalize · so_backorder_proceed · _sweep · _supersede · _reopen · _list · so_cancel · so_tax_preview · so_invoice_issue · so_proforma · so_credit_prepare · so_credit_issue · so_reprice · so_line_requote · so_merge) · 확인 do 블록 IM246
+  - 새 문장(영어)은 각 보고 §3 — 대표: `Line % is a component of combo % (line %) — change the combo line instead — nothing was saved` · `Combo % (line %) of %: components picked beyond whole combos (…) — a combo ships whole or not at all; put the extra back — nothing was saved` · `Order %: line % is a component of combo % (line %) — remove from the combo line instead — nothing was saved` · `Line % is a component of a combo on invoice % — a combo is credited whole (credit the combo line); for one component use an other line (amount only, no stock) — nothing was saved` · `Line % (%) is a combo component — it carries no price of its own; quote the combo line — nothing was saved`
+- asung-ims — 화면(asm-3 · 대화 Claude · Caleb 화면 시험 2026-10-05 밤)
+```
+ad45c7e products.html pr v4      Edit components · Make combo · Release combo · Used in combos · 켜진 bom 줄만 읽기(판정 247)
+60365a9 so.html so v4a           콤보 줄 아래 구성품 들여 그리기(입력 · 지우기 없음) · 초안 줄마다 가용(판정 248) · 줄 더하기 창 콤보 가용 = 구성품으로 · 확정 · 붙여 넣기 콤보 표시
+fc34d6b so.html so v4b           Finalize 미리 보기 · 결과 콤보 묶음 + Put back 표(판정 246) · Divide 콤보 줄에만 입력 · Merge 콤보 표시 · ⚠️ 결함 고침: Merge 미리 보기가 서버에 없는 열쇠 kept_apart_by 를 읽어 「kept apart」 가 한 번도 안 보였다 → kept_apart + differs_in
+ae130cf so.html so v4b1          Put back 상자 글씨 줄임(Caleb 화면 시험 SO-25035)
+e915a6d wms-picker.html pk v1.5  구성품 줄 「for combo ○○ · N per combo」
+1e168e0 wms-packer.html pa v1.6  「for combo」 · 맨 위 「n of m complete」(판정 249)
+8c830fb pk v1.5a · pa v1.6a      꼬리표 폭 = 글자 폭(Caleb 화면 시험)
+ccb500b so-invoices.html inv v2  콤보 줄 「Includes (each): …」(so_invoice_line.combo_components)
+6ceac9c so-credits.html cr v2    콤보 줄 반품 + 구성품마다 칸 · 안 돌아옴(lines[].components[]) · 구성품 크레딧 줄 들여 그리기(판정 245)
+626f72c so-backorders.html bo v2 콤보 한 줄 · each: 구성품 · 콤보 단위 가용 · arrived 규칙 각주
+79c5c7d pos.html pos v1.5        스캔한 콤보 아래 구성품 작게 · 구성품 −/+ · 지우기 없음
+afbafca (빈 커밋)                3ed8b4c(st v3) Pages 배포가 GitHub Actions 장애로 21 분 뒤 실패 · 재실행은 queued 에 끼임 → 빈 커밋으로 새로 배포
+```
+- staff — st v2 `4537f93` · st v3 `3ed8b4c`(44-a staff 줄)
+
+### 44-c 실측 · 시험
+
+- **asm-0 실측**(보고 `asm-0-report.md` · 테스트 DB 원장 2026-08-24 ~ 09-17 · 운영 원장도 약 7 주뿐 · 12 개월은 Cin7 finishedGoodsList 에만)
+  - 조립 7 문서 · 31 행 · VOID 3(FG-00131 · 00133 · 00134 · 기제 ① SO 편집 재생성 ② 트랜스퍼 픽용 SO VOID) · 완성품 3 종 전부 product_bom 부모(「조립만 쓰는 완성품」 0)
+  - 판매 ↔ 조립 짝 4/4 — 조립 1 ~ 3 일 뒤 출고 · 수량 1 · 완성품 재고 상시 0 · 「미리 조립해 재고로」 0
+  - 콤보 15 — 원장에 나타난 것 3(UNF18261 · UNF18259 · JAL99890CB) · 12 는 조립 · 판매 · 입고 0 · 콤보 부모 `purchase` 0 · IMS `so_line` 콤보 0(그때)
+  - 조립 완성품 행에 칸이 없다(`assemble_in` 10 행 전부 bin null) — 콤보 SKU 를 픽하려면 칸이 없다 ⇒ 판정 244 의 (가) 근거
+  - AutoAssembly 는 DB 칸 없음 · po-module 실측(15/15 true · AutoDisassembly false) 그대로
+  - 이견 7: 1 「12 개월」은 테스트 DB 로 못 잰다 · 2 A · B 측정은 select 만 돌렸다(pooler 에서 read_only 가 안 먹었다) · 3 콤보 방향의 근거(공급처 줄 3 → 7)가 흔들렸다(짐작 · 다시 잰다) · 4 AutoAssembly 칸 없음 · 재프로브 불필요 · 5 쓰는 콤보 = 립오일 세트 가설(7 주 표본) · 6 완성품 행 칸 없음 · 7 사 오는 콤보 입고 0
+- **시험 갈래 / 확인 갈래 OK**(시험 적용 = Claude Code · 확인 = Caleb · 테스트 DB)
+```
+asm-1   23 / 19   (시험 2 회 · 마른 확인 1)
+asm-2a  23 / 19   (컴파일 2 · 시험 3 · 마른 확인 1)
+asm-2b1 17 / 13   (컴파일 1 · 시험 4 · 마른 확인 1)
+asm-2b2 32 / 27   (시험 6 · 마른 확인 1 · 함수 결함 0)
+```
+- **Caleb 화면 시험**(2026-10-05 밤 · 테스트 DB): SO-25033 · SO-25034(POS) · SO-25035 → 인보이스 60008 · SO-25035a(백오더 형제) · Put back 실행까지 본 뒤 DB 커밋 4a9a9d8
+
+### 44-d 일하는 방식 · 교훈
+
+1. **GitHub Actions 장애**(githubstatus 의 Actions 「Today」 빨강) — 3ed8b4c 배포가 21 분 뒤 실패 · Re-run 은 queued 에 끼어 안 풀렸다 ⇒ 사이트 빌드 표시 → `actions/runs` API 로 실행 상태 → 장애 뒤 queued 면 빈 커밋으로 새 실행(재실행은 같은 실행에 묶인다)
+2. **화면이 서버에 없는 열쇠를 읽었다**(Merge `kept_apart_by` · so v2 부터) — 그리는 열쇠는 창구의 반환(마이그레이션 jsonb_build_object)과 대조하고 쓴다(asung-workflow §6 · §11)
+3. **asm-2a 보고 파일에 잘린 UTF-8 바이트 7 곳** — diff 줄을 바이트로 잘라(cut -c) 한글 가운데가 끊겼다 ⇒ 보고의 긴 줄은 글자 단위로 자르거나 자르지 않는다
+4. **테스트 DB 의 실제 사람 행** — SO-25032 를 시험 잔여물로 의심했지만 created_by = Stephen Kim(17:01 토론토) ⇒ 의심되는 행은 `created_by` · `created_at` 으로 먼저 가른다 · 시퀀스 되돌림 greatest(실제 최대, 머리)가 맞았다
+5. **콤보 화면은 커밋 전 DB 위에서 시험했다** — DB 커밋 4a9a9d8 은 화면 시험(Put back 실행)까지 본 뒤(§43-d 1 그대로)
+6. [Claude Code · 검증 · asm-1 ~ 2b2 보고 「갱신 거리」 → asung-workflow §4 · §11]
+   - SQL 의 `or` 는 짧게 끊지 않는다 — `if a or b::numeric` 은 캐스트가 먼저 터진다 · 글자 검사와 캐스트는 if 를 가른다(asm-1)
+   - 원본이 `create function` 이면 재발행 머리를 `create or replace` 로 · 컴파일 점검(begin · \i · rollback)을 검증 전에 한 번(asm-2a · 2b1)
+   - deferred 제약 트리거는 그 사이 지워진 행의 묵은 사건에도 돈다 — 지금 행을 다시 읽어 판정(asm-2a)
+   - 여러 함수가 한 뷰를 읽으면 뷰를 고치는 쪽이 재발행보다 싸다 — `select *` · `%rowtype` · 의존 뷰 · 열은 끝에만을 먼저 확인(asm-2b1)
+   - 「declare 변수 ≠ 조회 별칭」 **여섯 번째**(asm-2b1 `k`) — 재발행 전 declare ∩ 별칭을 스크립트로 훑는다
+   - 문장에 넣는 수량은 `trim_scale`(「2.000000」 · asm-2b1)
+   - psql 변수 공간은 하나 — 결과 변수 `c1` 이 재료 변수(칸 이름) `c1` 을 덮어 검사 넷이 함께 어긋났다 ⇒ 접두 · 접미(asm-2b2)
+   - so_split 이 옮기는 줄은 확정 · 출고 「전」에 센다(asm-2b2)
+   - G0 「아직 없다」 마커는 주석 머리 모양(`-- asm-2b2`) — 앞 차수 주석의 글자가 걸린다(asm-2b2)
+   - 같은 손님의 같은 콤보 확정은 앞 시나리오 백오더를 이어받는다 — 시나리오를 가르려면 손님을 가른다(asm-2b2)
+   - 죽은 회차가 머리를 당기면 차수 끝에 세션 시작 머리로 한 번 더 되돌리고 전후를 보고(asm-2b2)
+   - 「검사는 그 시점의 상태로」 **네 번째**(asm-1 R1 — 다음 단계 뒤에 앞 단계 상태를 읽음) · **다섯 번째**(asm-2a P1 — 미리 보기 뒤 상태를 저장 뒤에 읽음) ⇒ 뒤 단계가 있는 상태 비교는 그 자리에서 `\gset`
+
+### 44-e 미룬 것 — §43-e 99 에 이어 붙임
+
+- 100 사 오는 콤보(디스플레이 1 → 낱개 24) · 콤보 방향 칸(asm-0 · 묶음 8)
+- 101 무상 콤보 줄만 남은 오더가 sweep 후보에 밤마다 들었다 나온다(닫히지는 않음 · asm-2b2 이견 13)
+- 102 콤보 백오더 입고 알림 쓰기(backorder_notified_at 은 아직 아무도 안 쓴다 · arrived 식은 섰다)
+- 103 GAS 상품 적재가 product_bom 의 `source = manual` 줄을 덮지 않게(asm-1 이견 5 · cs-4 · prod-5 묶음 §41-e 92 와 한 덩이 · Apps Script 편집기 원본)
+- 104 Fulfillment 화면(wms-fulfillment fu v1.3)은 콤보 표시 없음 — 박스에 구성품이 그대로 담긴다(묶음 6 으로 충분 · 표시가 필요하면 판정 거리)
+- 105 counter 오더 출고(so_counter_ship · so.html 「Hand over」)의 콤보는 시험 안 함 · POS 완료(so_pos_finish)는 2b1 P1 이 통과
+- 106 인보이스 인쇄 · PDF 의 「Includes」(화면만 섰다 · 인쇄 판이 생길 때)
+
+### 44-f 다음
+
+```
+순서(Caleb 이 정한다):
+cs-4 적재 고침 + 미룬 103(같은 GAS 적재 · §41-e 92 · clasp pull 먼저)
+화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
+판정 81 1단계 목록 대조(ims-principles §6-c) — 조립 · 번들은 판정 244 로 닫혔다 · 남은 큰 일: 비밀번호 배포 전 필수(판정 58 묶음 ✅ §43) 뒤 무엇이 남았나
+다음 판정 번호: 251
 ```
