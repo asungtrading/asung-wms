@@ -2728,7 +2728,7 @@ so_cancel(so, p_note, p_keep, p_commit)                  manager · draft·confi
 so_change_location(so, location, p_commit)               manager · confirmed · 활성 창고 · 할당 있으면 전부 풀고 새 창고에서 엔진(모자란 몫 stock_short) · hold·백오더·프리오더 오더는 창고 칸만 · 미리 보기(하위 블록에서 풀고 엔진 돌린 뒤 되돌린다 — 식 한 곳)
 so_backorder_proceed(so, p_commit)                       manager · confirmed · 열린 backorder(·preorder) 풀고 엔진 · 못 잡은 줄은 다음 글자 · 미리 보기 같은 방법
 so_divide(so, p_moves, p_commit)                         manager · draft·confirmed · [{line_id, qty}] · manual · 형제는 원래와 같은 상태 · confirmed 면 예약이 같은 kind 로 따라간다(줄째 = 행과 함께 · 일부 = 풀고 다시) · 엔진 안 거침 · 전부 떼기 거부
-so_available(product, location) → EA · so_available_many(pids[], location)(⭐ 식 한 곳 · 뷰 한 번 · authenticated) · so_family_members · so_family_lines(합계는 cancelled 문서 제외 · fragments 전부)
+so_available(product, location) → EA · so_available_many(pids[], location)(⭐ 식 한 곳 · 뷰 한 번 · authenticated) · so_family_members · so_family_lines(합계는 cancelled 문서 제외 · fragments 전부) → [2026-10-06 · 판정 264 · 265] 식은 `inv_available_base`(stk-1 · §46 · definer) · so_available_many 는 껍데기
 so_detail 재발행 — family · 줄마다 reserve_kind·qty · available_ea(so_available_many 한 번 — 줄마다 부르지 않는다 · 100줄 = 15초) · so_delete 문장 「cancel it instead」
 칸 — so.split_reason CHECK 넷(stock_short · warehouse(비어 있다) · preorder · manual) · so.closed_note · so.unconfirmed_at/by · so_line.split_from_line_id · so_status_guard 짝 넷
 ```
@@ -2746,9 +2746,9 @@ so_detail 재발행 — family · 줄마다 reserve_kind·qty · available_ea(so
 
 ```
 ① 검증 1) 이 제품마다 ims_inv_balance 를 다시 계산(상관 서브쿼리 × 후보) → statement timeout 2분 · so_available 한 번은 16 · 194.8ms / 23 · 167.6ms
-   ⇒ 20260924015859_so_confirm_fast.sql — so_available_many(pids[], wh) 식 한 곳(뷰 한 번) · so_available · so_allocate_run 이 이것을 부른다(잠금 뒤 한 문장) · 검증은 후보 300 → 한 문장(cand 300 · plenty 248 · partial 36 · zero 16)
+   ⇒ 20260924015859_so_confirm_fast.sql — so_available_many(pids[], wh) 식 한 곳(뷰 한 번) · so_available · so_allocate_run 이 이것을 부른다(잠금 뒤 한 문장) · 검증은 후보 300 → 한 문장(cand 300 · plenty 248 · partial 36 · zero 16) → [2026-10-06 · 판정 264 · 265] 식은 `inv_available_base`(stk-1 · §46 · definer) · so_available_many 는 껍데기
 ② 화면용 so_available(invoker · 직원 실행)이 revoke 된 속 함수 so_available_many 를 불러 42501 — postgres 로 잰 \timing 에서는 안 드러났다 · 가짜 직원 신원에서 처음
-   ⇒ 20260924020852_so_available_grant.sql — grant execute to authenticated(읽기 계산 · definer 로 바꾸지 않는다) · 같은 모양 점검: 이것 하나(so_family_lines → so_family_members 는 둘 다 authenticated)
+   ⇒ 20260924020852_so_available_grant.sql — grant execute to authenticated(읽기 계산 · definer 로 바꾸지 않는다) · 같은 모양 점검: 이것 하나(so_family_lines → so_family_members 는 둘 다 authenticated) [2026-10-06 정정 · 판정 264] 트랜스퍼 표(09-28) 뒤 결함 — inv_transfer 정책이 transfer 열쇠라 invoker 면 그 열쇠 없는 직원에게 트랜스퍼 예약이 0 · 속 함수 inv_available_base 를 definer 로(§46)
 ③ 두 번째 되돌리기가 늘 거부됐다 — 첫 되돌리기에서 merged 로 닫힌 a·b 가 검사에 다시 걸림(「is cancelled」) → 20260924021413 닫힌 형제 무시 ·
    그 뒤 「SO-25000c was changed after the split」(c 는 아무도 안 고쳤다) — 첫 되돌리기에서 C 줄이 a → 원래로 줄째 돌아오며 a 시절 풀린 예약을 달고 왔고 다시 확정에서 c 로 가자 옛 풀림 이력에 걸림
    ⇒ 20260924021759 「손대지 않았다」 검사는 열린 예약만(풀린 이력 무시)
@@ -2784,7 +2784,7 @@ so_detail 재발행 — family · 줄마다 reserve_kind·qty · available_ea(so
 
 ```
 ②a  20260924014219_so_confirm.sql        636행  칸 넷 · 문지기 짝 넷 · so_require_role · so_available · so_split · so_allocate_run · so_family_members/lines · so_confirm · so_unconfirm
-    20260924015859_so_confirm_fast.sql   210행  so_available_many(식 한 곳) · so_available·so_allocate_run 재발행(잠금 뒤 한 문장)
+    20260924015859_so_confirm_fast.sql   210행  so_available_many(식 한 곳) · so_available·so_allocate_run 재발행(잠금 뒤 한 문장) → [2026-10-06 · 판정 264 · 265] 식은 `inv_available_base`(stk-1 · §46 · definer) · so_available_many 는 껍데기
     20260924020852_so_available_grant.sql 12행  grant execute to authenticated
     20260924021413_so_unconfirm_fix.sql   98행  닫힌 형제 무시 · 20260924021759_so_unconfirm_fix2.sql 100행 열린 예약만
     검증 ~/asung/prompts/so-write-2a-verify.sql — 확정 셋(원래 A 5·B 1 allocated · a B 3 partial·C 2 backorder · b D 1 preorder) · 가용 2599→2594 · 1→0 · 전부 없음 = 원래가 백오더 · p_hold 전부 hold · 세트 floor(BEL43475-12 150EA → 12세트 · 988 백오더) ·
@@ -3918,7 +3918,7 @@ Manager List   Unpaid at hand-over = 즉시 결제 조건(ref_payment_term.net_d
 
 ```
 Sales Orders   v1 → v2.3 — 목록 · 새 오더 · 머리 · 줄(찾기 · 붙여넣기 · 무상) · 운임 · 확정 미리 보기 · counter 확정 · 나갔다 · 결제 넣기 · 뭉치
-               v1.3 줄 넣기에 가용 재고(so_available_many · 오더 창고 · 창고 잔고 − 열린 할당)
+               v1.3 줄 넣기에 가용 재고(so_available_many · 오더 창고 · 창고 잔고 − 열린 할당)   [이어 적음: 2026-09-28 트랜스퍼 예약도 뺀다 · 2026-10-06 식은 inv_available_base · §46]
                v1.3~1.4 세트는 검색에서 기본 숨김 → Include sets 는 manager 만 · 붙여넣기는 세트 SKU 를 그대로 받는다
                v2 보류 · 풀기 · 나누기 · 창고 바꾸기 · 백오더 진행 · 병합(전부 미리 보기 먼저) · 줄의 Stock 칸(so_reserve 를 읽는다 — so_detail 에 없다) · 병합 초안의 견적 알림
                v2.1 hold → not reserved · on hold
@@ -6798,4 +6798,107 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
 판정 81 1단계 목록 대조(ims-principles §6-c)
 다음 판정 번호: 257
+```
+
+## §46 브랜치별 재고 화면 — stk-0 ~ stk-4 · stock.html · 판정 257 ~ 276 (2026-10-06 · 회사 PC)
+
+⭐ 닫힌 것: 「브랜치별 stock availability · stock movement 화면이 없다」 — DB stk-1 · stk-2(asung-wms 6712b24) · stk-4(0c85e32) · 화면 stock.html stk v1 ~ v1c(asung-ims 15b9660 · 2a5979e · 3dfd7b8 · ddb2eb6) · Caleb 화면 시험 통과
+⭐ 새 판정 257 ~ 276(아래 46-a) · 원문은 지시서 `~/asung/prompts/stk-0.md` · `stk-1.md` · `stk-2.md` · `stk-4.md` · `docs-1006b.md` 📌 절 · 다음 판정 번호 277
+
+### 46-a 계기 · 판정 원문
+
+**A. 계기 · Caleb 원문 (2026-10-06)**
+- 「지금 우리 IMS안에 가장 중요하다고 할 수 있는 stock movement/ stock availability를 브랜치별로 볼 수 있는 화면이 없네」
+- 화면 초안에 「맞아. 그리고, 제품 사진도 같이 볼 수 있으면 좋겠어.」
+- 판정 묶음(257 ~ 263)에 「좋아 그렇게 진행하자」 · 「그런데 재고가 0인줄은 숨김인데, 보이게도 할 수 있어?」 → 된다(토글)
+- stk-1 이견(264 ~ 268)에 대화 Claude 안 그대로 보냄 · stk-2 이견(269 ~ 272)도 · 272 는 Caleb 물음 「272번은 in transit 중인 스탁이 안보인다는 의미는 아니지?」 뒤 정정 문구로
+- 화면 시험 뒤 「다 잘 작동해」 · 「메인 stock availability에 bin location도 보이게 해줄 수 있어?」 → 대화 Claude 안에 「그대로 가자」(bin 검색은 넣지 않음) · stk-4 뒤 「잘 작동하고 있어.」
+- Caleb 물음 「Transfer Res.는 뭐지?」 · 「그러면 allocated는 세일즈 오더만 계산하나?」 — 대화 Claude 답: Transfer res. = 확정 · WMS 전달 · 피킹 상태 트랜스퍼 줄의 출발 창고 몫(물건은 아직 선반 · Available 에서 뺀다 · 출발하면 On hand 가 줄고 도착 브랜치 In transit 으로) · Allocated = 판매 오더만(확정 · 배정 · 출고 전 · 세트는 × pack_factor · 콤보는 구성품 · draft · 백오더 · 출고된 것 제외) · Available = On hand − Allocated − Transfer res. (칸 이름 바꾸기는 Caleb 이 정하지 않았다 — 그대로)
+
+**H. Caleb 물음과 답**
+- 「보여지는 인벤토리 수는 set을 적용한 것은 아니겠지?」 → 아니다 · 모든 수량은 낱개(EA) · 세트 줄의 예약 · 트랜스퍼도 × pack_factor 로 낱개로 바꿔 센다.
+- 「그러면 여기 set 설명은 그냥 레퍼런스인거지?」 → 그렇다 · 숫자에 영향 없음 · 검색어가 세트 sku 에 걸려 붙던 표시(→ v1c 에서 정확히 칠 때만).
+
+**B. 판정 257 ~ 276**
+
+| 번호 | 내용 |
+|---|---|
+| 257 | 화면 **하나**(stock.html) · 판정 243 두 모드 · 넓은 목록 = 가용표 · 상세 = 사진 · Bins · Movements · `?id=<product_id>&wh=<warehouse_id>` |
+| 258 | 보기 = 로그인한 직원 누구나(메뉴 열쇠 null · Inventory 맨 앞 「Stock Availability」) |
+| 259 | 화면 창구 접두 `stk_` |
+| 260 | On order = 확정 발주 줄 qty_ea − 확정 입고 줄 qty_ea(0 아래 0 · 창고 = po.ship_to_warehouse_id) · draft 제외 |
+| 261 | 기본 0 줄 숨김 · 「Show zero stock」 · 세트 sku 검색 → 낱개 줄 + 세트 표시 · 콤보 줄 없음 |
+| 262 | 원가(amount · 발주 단가)는 이 창구들이 절대 내지 않는다 — 권한과 무관한 불변식 |
+| 263 | 같은 날 하루 안 순서는 알 수 없다 ⇒ 누적 잔고는 날짜별 마지막 줄(is_day_end)에만 보인다 |
+| 264 | 가용 속 함수는 **definer** — transfer 열쇠 없는 직원도 트랜스퍼 예약을 뺀 같은 가용을 본다(20260924020852 「definer 로 바꾸지 않는다」 정정 · 트랜스퍼 표가 09-28 에 생겨 생긴 결함) |
+| 265 | 속 함수 이름 `inv_available_base` (속 = inv_ · 화면 = stk_ · 판매 껍데기 = so_) |
+| 266 | `p_include_zero=false` = 다섯 숫자(on_hand · sales · transfer · on_order · in_transit) 모두 0 인 줄만 뺀다 |
+| 267 | 세트 여러 개가 맞는 낱개 줄 = 첫 세트(sku 순) + matched_set_count |
+| 268 | 새 창구의 문 = 로그인 + 활성 직원 |
+| 269 | 문서 링크 `doc_href` 는 창구가 만든다(so.html 은 `?so=<번호>` · 나머지 `?id=<uuid>`) |
+| 270 | 상쇄 줄은 합치지 않는다 · `is_reversal` · `line_ref` · 화면은 흐리게 |
+| 271 | 움직임은 쪽 없음 · 상한 2,000(`p_max`) · 넘으면 「Narrow the date range」 |
+| 272 | 움직임 이력에는 가상 창고 IN_TRANSIT 의 중간 두 줄을 보이지 않는다(출발 브랜치의 나감 · 도착 브랜치의 들어옴은 보인다) · 운송 중 수량은 `stk_availability.in_transit`(도착 브랜치) · 중간 줄 따로 보기는 미룬 112 |
+| 273 | 목록 bin 칸 = 새 창구 `stk_bins_many` · 쪽마다 한 번 · `stk_availability` 무변 |
+| 274 | 크레딧 링크 = `so-credits.html?cr=<credit_number>`(그 화면이 이미 `imsParam("cr")` 로 연다 — 269 의 「?id= 가 생기면」을 대체) |
+| 275 | `stk_bins_many` 배열: null · 중복 제거 → 500 초과 거부 · 0 이면 빈 결과(문은 먼저) · 모르는 id 는 줄 없음 |
+| 276 | `stk_bins_many` 반환 줄 그대로(product_id · bin_id · bin · bin_zone · bin_is_active · qty) · 정렬 product_id, qty desc, bin, bin_id |
+
+### 46-b 커밋 · 실물
+
+| 것 | 값 |
+|---|---|
+| stk-1 | `20261006143300_stk_1_availability.sql` md5 `d4964c75fee0b64ac67c9c587f66118a` · 검증 `~/asung/prompts/stk-1-verify.sql` `ca5fa2e99d74e8a35f27fd995d10811f` · 시험 OK 25 · 확인 OK 18 — `inv_available_base(p_location_id, p_stock_pids default null)` definer · `so_available_many` 껍데기 재발행 · `stk_availability` · `stk_bins` |
+| stk-2 | `20261006152050_stk_2_movements.sql` md5 `d2cfaf18138f880d4112489bc99ad345` · 검증 `7cb145771c58a437f3a9854a9fa3bd7d` · 시험 16 · 확인 14 — `stk_movements` |
+| stk-1 · 2 커밋 | asung-wms **6712b24** |
+| stk-4 | `20261006161309_stk_4_bins_many.sql` md5 `95aa63f0b342cc248fab086db75c35e7` · 검증 `9c5cddf736e7416d93df34dcbf70e0c2` · 시험 13 · 확인 9 · asung-wms **0c85e32** — `stk_bins_many` · `stk_movements` 크레딧 링크 재발행 |
+| 화면 stk v1 | asung-ims **15b9660** · stock.html + ims-auth.js 메뉴 한 줄(md5 `dfe88f7028344ffc4804e8afc5300403`) |
+| 화면 stk v1a | **2a5979e** |
+| 화면 stk v1b | **3dfd7b8** · Bin 칸 · stock.html md5 `fcaa839f6bedbad6b90446bf29871144` |
+| 화면 stk v1c | **ddb2eb6** · stock.html md5 `a93754f1ebe759619796a4b6b7512ea4` |
+
+**G. 화면 뒤 판 둘 (asung-ims · Caleb 화면 시험 통과)**
+- stk v1a 2a5979e — 사건 이름표에 adjust_existing · 목록 밖 종류는 밑줄을 띄어 보인다(작은 손질)
+- stk v1c ddb2eb6 · stock.html md5 a93754f1ebe759619796a4b6b7512ea4 — Caleb 「세트도 그렇고, 무브먼트가, 운영 Wms처럼 캐럿으로도 보이게 해줄 수 있나?」 → 대화 Claude 안에 「좋아」 → 시험 뒤 「아주 잘 작동해」. 목록 줄 캐럿(▸) 펼침: Sets(그 낱개의 세트 전부 · 「Available N EA = a × 6 · b × 12」) · Bins(bin 줄 캐럿 = 그 bin 의 사건만 · 잔고 칸 없음 — 기초와 잔고가 브랜치 단위로만 정확해서) · 최근 20 사건(최신 순 · 날짜별 잔고) · 「Full history ›」 = 상세. 노란 세트 표시는 세트 sku 를 정확히 쳤을 때만. DB 무변.
+
+**문서 링크(판정 269 · 274)**
+```
+sale  SO-…   so.html?so=<번호>                 transfer TRF-…  transfers.html?id=<uuid>
+transfer MV-… stock-moves.html?id=<uuid>       purchase RCV-…  receiving.html?id=<uuid>
+adjustment ADJ-… stock-adjustments.html?id=    creditnote CR-… so-credits.html?cr=<번호>
+cin7 · manual 사건 = 번호만(링크 없음)
+```
+
+### 46-c 실측 · 시간
+
+- **stk-0**: `inv_balance` · `ims_inv_balance` 는 뷰 · 18,151행(bin 없음 3,466 · 음수 224(222 는 IN_TRANSIT 영구 음수) · 0 3,513) · 창고 넷(Asung Trading Inc. 기본 · Edmonton · IN_TRANSIT 비활성 · Production Facility 비활성) · 원장 41,670행 · source='ims' 사건은 번호로 IMS 문서 100% 매핑 · 재고 키는 전부 낱개
+- **결함(264)**: `so_available_many` 가 invoker 라 transfer 열쇠 없는 직원에게 트랜스퍼 예약이 0 으로 보였다(실측 소유자 468/2/466 · sales 직원 468/0/468) — stk-1 이 속 함수 definer 로 고침 · 적용 뒤 세 신원 모두 소유자와 같다
+- **시간**(ms · 적용 전 → 후): so_available_many 1키 178 → 82 · 100키 455 → 186 · so_lines_available(45줄) 306 → 133 · inv_transfer_shortage 182 → 87 · so_confirm 미리보기 209 → 120 · 창고 전체 7,663 키(옛 배열 20 s timeout) → 219 · stk_availability 한 쪽 ~410 · stk_bins 30 · stk_movements 최다 쌍 34 · stk_bins_many 100 제품 58 · 500 제품 73
+- **stk-1 회귀 손질**: 처음 판은 1키도 창고 전체를 세어 306 ms 고정비 → 줄마다 부르는 곳(inv_transfer_lines_paste · transfers.html) 확인 뒤 `inv_available_base(p_location_id, p_stock_pids default null)` 로 키만 세게
+- **stk-4 2회차**: 뷰 밖 조인 열 조건(product_id = any)을 sku = any 와 겹치자 계획이 뷰 전체를 셌다(100 → 310 · 500 → 1,335 ms) → sku 가 유니크라 조인 열 조건을 빼서 58 / 73 ms
+
+### 46-d 일하는 방식 · 교훈
+
+1. 뷰를 거를 때는 **그룹 열(sku · 창고 이름)** 로 — 조인으로 붙은 열(product_id · warehouse_id)로 거르거나 겹치면 뷰 전체를 센다 · 유니크 열로 대신할 수 있으면 조인 열 조건은 빼라 · `= any(배열)` 은 인덱스로 내려가지만 `= any((select …))` 괄호만은 서브쿼리 꼴
+2. 식을 한 곳으로 모으며 「창고 전체」를 세게 바꿀 때는 **줄마다 부르는 곳의 1키 고정비**를 적용 전 · 후로 잰다
+3. `set local role authenticated` 안에서는 임시 표를 못 읽는다 — 변수(jsonb)로 넘긴다 · 가짜 문서는 그 표의 번호 CHECK · 상태 CHECK(confirmed_at 짝)를 먼저 본다
+4. 화면이 문서를 여는 모양은 `location.search` 만이 아니라 **공통 `imsParam(`** 으로도 훑는다(so-credits.html 을 놓쳤다)
+5. invoker 창구가 RLS 걸린 표(열쇠 정책)를 읽으면 **보는 사람마다 판정 값이 갈린다** — 판정 값은 definer 한 곳(§39-d 1 의 실사고 · 264)
+- 옛 뜻을 정정한 줄: 2731 · 2749 · 2787(식 한 곳 → inv_available_base) · 2751(definer 로 바꾸지 않는다 → 판정 264) · 3921(so v1.3 가용 식) · asung-so 170 · 171 · asung-inv-ledger 1136(운송 중 재고 표시) · 「운영 기능의 완성」 표
+
+### 46-e 미룬 것 — §45-e 109 에 이어 붙임
+
+- 110 콤보 부모 8행의 잔고(옛 조립 사건)
+- 111 CRO85680 912개가 product 에 없다
+- 112 IN_TRANSIT 중간 줄 따로 보기(판정 272)
+- (번호 없음 · 메모) bin 으로 검색 — 넣지 않음(Caleb 이 범위를 정하지 않았다 · 필요하면 stk_availability 재발행과 함께)
+
+### 46-f 다음
+
+```
+순서(Caleb 이 정한다):
+cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp pull 먼저) — 그 전까지 손님 재적재 금지
+화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
+판정 81 1단계 목록 대조(ims-principles §6-c)
+다음 판정 번호: 277
 ```

@@ -166,6 +166,7 @@ delta AS (
 정본 `docs/sessions/2026-09-09-reversal-conventions.md` · 계약 `ledger-design.md` §「상쇄(정정) 계약」.
 
 ⭐ **[2026-09-19] IMS 가 읽는 얼굴은 `ims_inv_balance`** — `inv_balance` 를 **읽어** 열쇠(`product_id`·`warehouse_id`·`bin_id`)와 마지막 사건일(`last_event_on`·`last_seen_on`)을 붙인 것이다.
+⭐ **[2026-10-06 · so-module §46] 화면이 읽는 창구** — `stk_availability` · `stk_bins` · `stk_bins_many` · `stk_movements`(definer · 원가 없음 · 상쇄는 `is_reversal` 로 표시하되 합치지 않음 · IN_TRANSIT 중간 줄은 안 보임 · 운송 중 수량은 `in_transit` 칸 = 트랜스퍼 문서로 센다) · 가용 식은 `inv_available_base` 한 곳 · ⚠️ 뷰는 sku · 창고 이름(그룹 열)으로 걸러라 — `product_id` · `warehouse_id` 로 거르면 뷰 전체를 센다
 ⚠️ **잔고 정의는 여전히 `inv_balance` 하나.** 같은 식(기초선 + 원장 합)을 다시 쓰지 마라 — 그 뷰가 생긴 이유가 「정의가 세 곳에 흩어져 어느 것이 맞는지 알 수 없었다」다.
 행 수·숫자가 `inv_balance` 와 같아야 한다(다르면 조인이 행을 늘리거나 줄인 것). 정본 3부 컷오프 절 · 4부 「이식」.
 
@@ -1133,7 +1134,7 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
   · ⚠️⚠️ **결정(2026-08-28): 상쇄하지 않고 그대로 둔다.**
     `FINAL-SALE`·`TR-04175` 상쇄는 **잘못을 정정**한 것이지만 이것은 **기초 스냅샷 경계의
     설계상 예정된 결손**이다 — 상쇄하면 **없던 사건을 만드는** 셈이다.
-    ⚠️ **IN_TRANSIT 잔고는 영구히 음수로 남는다.** 언젠가 「운송 중 재고」를 화면에 띄울 때
+    ⚠️ **IN_TRANSIT 잔고는 영구히 음수로 남는다.** 언젠가 「운송 중 재고」를 화면에 띄울 때 [2026-10-06 · 판정 272 · so-module §46 — 띄웠다: 원장 IN_TRANSIT 이 아니라 트랜스퍼 문서(sent − received − lost − returned)로 센다 · 영구 음수는 화면에 안 닿는다]
     **8/20 이전 출발분은 음수**임을 알고 처리할 것. **버그가 아니다.**
   · 📌 **[2026-09-09 실측] 트랜스퍼 `manual` 상쇄의 실체 — 세 묶음** (`source='manual'` · `doc_type='transfer'`):
     **① `TR-04175` 라인 138줄 삭제 정정** — 08-25 09:45 · 276행 · 접미어 있음. `transfer_out` TOR(빈 bin) 138행 **+1,247** /
@@ -2236,7 +2237,7 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 | | 상태 |
 |---|---|
 | **원장의 정확성** | ⭐ 사실상 입증됨(위 ①·②) |
-| **운영 기능의 완성** | ⚠️ **시작 전** — 가용 재고 · 할당 · 음수 게이트 · 동시성 · 성능 · 되돌리기 |
+| **운영 기능의 완성** | ◐ **가용 재고 — 읽기 화면 섰다**(stk · so-module §46 · 테스트 DB · 2026-10-06) · 할당 · 음수 게이트 · 동시성 · 성능 · 되돌리기는 그대로 ⚠️ 시작 전 |
 
 ⇒ ⚠️ **「원장이 정확하다」가 「Cin7 을 덜어낼 수 있다」는 아니다.** 지금 원장은 **장부**이고 그 위의 **운영 층**이 없다. 없어서 에러도 안 났다.
 ⇒ 정본: **IMS 부착 지시서**(「IMS 에 원장을 붙일 때 — 할 일과 뒤따라야 할 검증」 · 09-19 작성 · ✅ Caleb 승인 09-22 — 레포 `docs/design/ims-ledger-attach.md` 로 복사 + 정본 포인터 · ⚠️ **복사 대기**: 09-22 시점 이 머신(`~/asung/prompts/` · Downloads)에 파일이 없어 못 옮겼다 · 넣을 때 그 문서 §6 경고 「원장 축만 봤다 · WMS·PO+원가에 확인할 것」이 살아 있는지 확인) · 이관 자체는 `ledger-design.md` 4부 「플립 — 이관」.

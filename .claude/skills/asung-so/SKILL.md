@@ -167,8 +167,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 보류는 늘 오더 전체(Caleb 「보류는 특정 제품에만 한한 경우는 없어」) — so_hold 는 열린 allocated 전부를 풀고 kind hold · 줄 단위 보류 없음 · 처음부터 보류는 so_confirm(p_hold) · 풀기는 so_reallocate(모자라면 그때 나뉜다) · 「특정 제품만 나중에」는 so_divide 로 떼어 so_hold   (R3 · 이견 2)
 ⭐⭐ 역할 선 — 오더 담당(sales) = 초안까지 · manager 이상 = 확정부터(확정·보류·풀기·취소·창고 바꾸기·백오더 진행·나누기) · ⭐ 확정 되돌리기(so_unconfirm)는 supervisor 이상 · 창구는 ims_require_write('sales') + so_require_role 둘 다(sales 열쇠 없는 manager 는 막힌다)   (R5 · R9 · ⬜2)
 ⭐⭐ 되돌리기는 표시와 사슬로 먼저 거른다 — manual 형제 있으면 거부 · 대상은 stock_short·preorder ∧ 같은 시각 · 형제가 또 나뉘었으면(손자) 거부 · 그 뒤 「손대지 않았다」(열린 예약만 · 풀린 이력 무시) · ⚠️ 「같은 시각」은 다른 트랜잭션일 때만 뜻이 있다 · 돌아온 줄은 옛 예약 이력을 달고 다닌다   (14-f)
-⭐  가용은 EA(so_available_many 식 한 곳 · 뷰 한 번 ~150ms) — 줄마다 so_available 을 부르지 마라(100줄 = 15초) · 세트 줄은 낱개 재고 × pack_factor(floor) · 취소는 열린 자손 전부 함께(p_keep 으로 살린다 · 그 아래도) · 미리 보기는 p_commit false(풀어야 계산되는 것은 하위 블록에서 되돌린다)   (14-c · 14-e)
-⭐⭐ [2026-09-28] 가용 = 장부 − 판매 예약 − **트랜스퍼 예약**(확정된 트랜스퍼 줄 자체가 예약 · 출발 창고 · so_available_many 한 곳 · 20260928201753 · so-module §27 묶음 열 2) · 트랜스퍼는 판매 표(so · so_line)에 줄을 넣지 않는다(판정 69) · 창고 창구는 공용 목록을 읽는다 — 판매 창구 쪽 셈을 따로 만들지 마라
+⭐  가용은 EA(so_available_many 식 한 곳 · 뷰 한 번 ~150ms) — 줄마다 so_available 을 부르지 마라(100줄 = 15초) · 세트 줄은 낱개 재고 × pack_factor(floor) · 취소는 열린 자손 전부 함께(p_keep 으로 살린다 · 그 아래도) · 미리 보기는 p_commit false(풀어야 계산되는 것은 하위 블록에서 되돌린다)   (14-c · 14-e) → [2026-10-06 · 판정 264 · 265] 식은 inv_available_base(definer · 키 배열이면 그 키만) · so_available_many 는 껍데기(값 · 모양 무변)
+⭐⭐ [2026-09-28] 가용 = 장부 − 판매 예약 − **트랜스퍼 예약**(확정된 트랜스퍼 줄 자체가 예약 · 출발 창고 · so_available_many 한 곳 · 20260928201753 · so-module §27 묶음 열 2) · 트랜스퍼는 판매 표(so · so_line)에 줄을 넣지 않는다(판정 69) · 창고 창구는 공용 목록을 읽는다 — 판매 창구 쪽 셈을 따로 만들지 마라 → 식은 inv_available_base(§46)
 ⭐ [2026-09-29] ⑥ 트랜스퍼 화면 · 판정 82 ~ 87 · 90 · 91 · 끝에서 끝 시험 · 미룬 ⑱ ~ ㉓ → 정본 **§28**(판정 88 입고 기준 = 인보이스는 po-module §11-i)
 ⚠️  invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501(postgres 로 재면 안 보인다) · 시험 자료를 뷰 전체에서 고르지 마라(후보 300 → 한 문장) · psql 백슬래시 줄 끝 주석 금지   (14-e · asung-workflow §4)
 ```
@@ -269,6 +269,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  목록은 뷰(so_invoice_list · so_payment_list · so_credit_list · security_invoker · select 만 — Supabase 기본 ALL 을 걷었다) · 한 장은 RPC jsonb · so_credit_detail 은 키를 더하기만(옛 키 아홉 그대로) · issue_contract(크레딧 발행 입력 모양)는 정본 §22-c
 ⭐⭐ 화면은 DB 값을 그리기만 · 세트는 기본 숨김(케이스도 낱개 × 수량 · Include sets 는 manager) · Proceed 는 기다려 주지 않는다(잡힐 것 없으면 막힘) · POS 매장은 기기 localStorage(CLAUDE.md §5 예외)
 ⚠️  Manager List 의 즉시 결제 = ref_payment_term.net_days 0 — 손님 결제조건 자료만큼만 정확(Net30 6,305 정리 전) · Unpaid 탭은 브랜치로 못 거른다(뷰에 창고 칸 ⬜)
+⭐  [2026-10-06 · §46] 재고 화면 창구 stk_availability · stk_bins · stk_bins_many · stk_movements(definer · 로그인 + 활성 직원 · 원가 없음) · 모든 수량은 낱개(EA · 세트 표시는 참고만) · so.html 은 ?so=<번호> 로 연다(?id= 아님) · so-credits.html 은 ?cr=<번호>
 ```
 
 ## 4-l. ⭐⭐ 관세 부가 요금(surcharge) — 모르면 사고 (정본 so-module §37)
