@@ -51,7 +51,7 @@ description: >
 | `supplier` | `name` | `cin7_id` 도 unique · `is_purchasable` 은 우리 칸 |
 | `supplier_address` · `supplier_contact` · `supplier_discount` | `cin7_id` · `cin7_id` · `(supplier_id, seq)` | 관계 표 · DELETE 열림 |
 | `product_family` | `sku`(…FAM) | ⚠️ `name` 유니크 없음 · 옵션 축 이름만 |
-| `product` | `sku` | ⚠️⚠️ `name` 유니크 **금지** · ⭐ `pack_factor`=BOM Quantity · `parent_product_id`=BOM ComponentProductID |
+| `product` | `sku` | ⚠️⚠️ `name` 유니크 **금지** · ⭐ `pack_factor`=BOM Quantity · `parent_product_id`=BOM ComponentProductID · ⭐ `sellable` 은 IMS 칸(2026-10-06 · 판정 281 · 291 ~ 295 · so-module §47) — 판매 안 함 세트는 넣기에서 낱개로 바뀌고 낱개는 거부 · 기본값 트리거 product_sellable_default(낱개 true · 세트 false) · product_update(master) · `sellable_source` cin7\|ims · ⚠️ 재적재가 덮는다(미룬 113) |
 | `product_barcode` | `(product_id, barcode)` | 관계 표 · DELETE 열림 · ⚠️ `is_primary` 부분 유니크 금지 · 바코드 중복은 카운터로 |
 | `product_bom` | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만 · ⚠️ 콤보 방향 칸은 여기 아님(§3-g) |
 | `product_supplier` | `(product_id, supplier_id)` · ⭐ **충돌 키는 `cin7_id`** | 관계 표 · manual 승격(§3-g) · ⚠️ `is_default` 부분 유니크 금지 · 단가 `numeric(18,7)` |

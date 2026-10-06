@@ -506,7 +506,7 @@ product_bom      콤보 구성 — 다른 물건들을 묶은 것만(15건) · �
 | 표 | 마이그레이션 | 칸 | 자연키 | 이 표만의 판단 |
 |---|---|---|---|---|
 | `product_family` | `20260913225935` | 21 | `sku`(…FAM · 1,141/1,141) | ⚠️ `name` 유니크 없음(변형 이름 중복의 뿌리 · 제품군 이름 중복은 미측정) · 가격 10단계 안 담는다(제품군↔변형 950/4,884 어긋남) · 옵션 축 **이름**만(33종 · 값은 product) |
-| `product` | `20260913230500` | 46 | `sku` | ⚠️ `name` 유니크 금지 · `barcode` 칸 없음 · 계정 넷 nullable · `cin7_type` 원문 · `is_discontinued`+`cin7_project_name`(❌ `product_channel` 뺐다) · `sellable` 원문 보존 · ⭐ `pack_factor` = BOM Quantity · `parent_product_id` = BOM ComponentProductID |
+| `product` | `20260913230500` | 46 | `sku` | ⚠️ `name` 유니크 금지 · `barcode` 칸 없음 · 계정 넷 nullable · `cin7_type` 원문 · `is_discontinued`+`cin7_project_name`(❌ `product_channel` 뺐다) · `sellable` 원문 보존(→ IMS 칸 [2026-10-06 정정 · 판정 281 · 291 ~ 295 · so-module §47]) · ⭐ `pack_factor` = BOM Quantity · `parent_product_id` = BOM ComponentProductID |
 | `product_barcode` | `20260913230600` | 11 | `(product_id, barcode)` | 관계 표 · `cin7_id` = 흡수한 대체 UPC 행의 ProductID(⭐ null 아님) · `is_primary` 부분 유니크 금지(카운터) · `valid_from` · DELETE 열림 |
 | `product_bom` | `20260913230700` | 13 | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만(15건) · `quantity > 0` · `cin7_id` 항상 null(규약대로 둠) · DELETE 열림 |
 
@@ -596,11 +596,11 @@ BOM ×12 인 EA-ALT-UPC 1건 · `AMP41108-12` 접미사 · 구성품 0인 채 As
 ```
 is_active          Cin7 Status                       비활성 4,152
 is_discontinued    슬롯3 'Project Name' = Discontinued  4,662   ⭐ 우리 칸으로 승격 (제품의 성질)
-sellable           Cin7 Sellable 원문                 false 9,974
+sellable           Cin7 Sellable 원문                 false 9,974   → [2026-10-06 정정 · 판정 281 · 291 ~ 295 · so-module §47] IMS 칸 · 트리거 기본 · sellable_source
 교차  Discontinued × Active 1,141(단종 정했는데 재고가 남아 판다) · Discontinued × Deprecated 3,521 · (빈값) × Deprecated 617
       Sellable=false × Active 5,879 중 98.7% 가 숫자 UOM(세트) ⇒ 진짜 안 파는 것은 78곳뿐
 ```
-⭐ **`sellable` 은 원문 보존용이다. 우리 논리가 이 칸을 읽지 않는다** — 사실상 「세트인가」의 그림자다.
+⭐ **`sellable` 은 원문 보존용이다. 우리 논리가 이 칸을 읽지 않는다** — 사실상 「세트인가」의 그림자다. [2026-10-06 정정 · 판정 281 · 291 ~ 295 · so-module §47] **IMS 칸이 됐다** — so_line_add · so_lines_paste · POS 가 읽는다(판매 안 함 세트 → 낱개 × pack_factor · 판매 안 함 낱개 거부) · 기본값 트리거 product_sellable_default · product_update(master) · sellable_source cin7|ims · 낱개/세트 판정은 여전히 pack_factor · parent_product_id · ⚠️ 적재가 IMS 에서 바꾼 값을 덮는 문제는 so-module 미룬 113
 낱개/세트 판정은 `pack_factor` 와 관계(`parent_product_id`)로 한다(검토 회신 1-d).
 
 **슬롯3 `Project Name` 의 세 값은 전부 「팔 수 있는가」를 말한다** (Caleb 2026-09-13):
