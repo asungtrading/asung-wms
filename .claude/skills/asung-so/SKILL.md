@@ -157,7 +157,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      바깥 조건(order_date · price_tier · discount_pct)이 바뀌면 줄은 그대로 + so.reprice_suggested_at + 경고 reprice_suggested   (판정 3)
 ⭐⭐ 기간은 so.order_date 로 판정(D7) · 「오늘」= ims_today()(토론토 · current_date 는 UTC 라 저녁 8시 뒤 내일) · 세일 끝난 뒤 넣은 줄은 경고 deal_ended_before_line_added   (13-h)
 ⭐⭐ 오더 전체 할인(D6) — 줄 할인 뒤 제품 줄 합계에 한 번 · round(합계 × pct/100, 2) · 운임(so_charge) 제외 · so.order_discount_pct/deal_id/source 에 굳는다(deal|manual) · manual 은 자동 재계산이 덮지 않는다 · 0 = 사람이 껐다 · 지금은 손님 목록이면 자동(쿠폰 코드는 원문만) [2026-10-06 정정 · 판정 282 · 308 · 323 · §48 · §49] 출처 deal|manual|coupon · 자동은 손님 목록이 아니라 so_deal_customer_rule + 단계 · 쿠폰은 so_coupon
-⭐⭐ 오더 전체 딜은 so_deal.order_pct 하나 · 줄이 없다(문지기 둘) · so_deal_target 유니크는 전체 하나(nulls not distinct · 부분 유니크 금지 규칙 29) · 딜·태그 쓰기 = master RLS(거래 표 넷의 「창구만」과 다르다 — 이유 §13-e ⬜5) [2026-10-06 정정 · 판정 309 · §48] order_pct 는 지웠다 → so_deal_tier(min_amount · pct) · 문지기 셋(줄은 줄 딜에만 · 단계는 오더 딜에만 · 단계가 있으면 오더 딜을 끌 수 없다)
+⭐⭐ 오더 전체 딜은 so_deal.order_pct 하나 · 줄이 없다(문지기 둘) · so_deal_target 유니크는 전체 하나(nulls not distinct · 부분 유니크 금지 규칙 29) · 딜·태그 쓰기 = master RLS(거래 표 넷의 「창구만」과 다르다 — 이유 §13-e ⬜5) [2026-10-06 정정 · 판정 309 · §48] order_pct 는 지웠다 → so_deal_tier(min_amount · pct) · 문지기 셋(줄은 줄 딜에만 · 단계는 오더 딜에만 · 단계가 있으면 오더 딜을 끌 수 없다) [2026-10-06 정정 · 판정 335 · 336 · §50] 쓰기는 창구만 — so_deal_save(master) · 일곱 표 읽기 RLS 만 · 태그 = product_update tag_add · tag_off
 ⭐  케이스(case) 모드 줄은 미리 보기 화면 뒤에(D3) — Cin7 UOM Discount 25줄은 qty 모드로 옮긴다(태그 이름 GM20UOM12 = 20% · 12 이상 · 단계 할인 8개) · set_discount_pct 는 「세트 SKU 자체」 할인만(D8 · 11-c ② 뒤집힘) [2026-10-06 정정 · 판정 280 · 303 · §48] case = 낱개의 켜진 세트 중 최소 pf · 낱개 EA · set_discount_pct 는 계산 판매 세트의 줄 층 후보
 ⚠️  Deals Export CSV 에는 % 칸·수량 칸이 없다 — DiscountName 글자에서만(Case Discount 7줄은 못 옮긴다) · 쿠폰 코드 EXTRA10·EXTRA5 는 실재(「비어 있음」이 틀렸다) · 100% 딜 줄은 so_line_free_pair_ck 에 걸린다(⬜)   (13-b · 13-k)
 ⭐⭐ [2026-10-06 · 판정 277 · §47 ~ §49] 할인은 두 층 — 줄 층(손님 기본 · 딜 · 세트 중 큰 하나) · 오더 층(상시 · 금액 단계 · 쿠폰 중 큰 하나 · manual 우선) · 두 층은 겹친다(7% 뒤 5% = 실효 11.65%)
@@ -166,11 +166,14 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  후보 so_deal_candidates(진 이유 어휘 · plpgsql) · so_deal_best = 그 won 한 줄(p_tier_id) · 미리 보기 so_quote_preview = 같은 so_line_quote(won 은 하나 · sales 읽기)(판정 287 · 300 · 304)
 ⭐⭐ 오더 할인 = so_order_discount(단계 min_amount ≤ so_lines_total · 큰 pct) · ⚠️ so 에 쓰는 곳은 so_order_discount_apply 한 곳 — 새 창구가 order_discount_* 를 직접 쓰지 마라(판정 308)
 ⭐⭐ 줄이 바뀌면 so_line 트리거가 오더 할인을 다시 고른다(draft ∧ source ≠ manual ∧ 안 잠김) · manual(0 포함)은 그대로 + so_detail 경고 order_discount_rule_now_better · 나뉜 오더(so_split · so_divide)는 order_discount_locked_at 으로 처음 % 를 지킨다(판정 311 · 312)
-⭐  딜 표 다섯(딜 · 단계 · 줄 · 대상 · 손님 조건)이 바뀌면 열린 오더(draft · confirmed · 기간 · 손님 조건)에 reprice_suggested_at — 손님 조건 표의 변경은 기간만(판정 286 · 313)
-⭐⭐ 쿠폰 = so_coupon(코드 하나 = 손님 하나 · 한 번 · 오더 할인만) · 발행 · 무효 master · 넣기 · 빼기 sales · 표는 읽기 RLS 만 · 유효 판정 so_coupon_check 한 곳 · ⚠️ 기한은 so.order_date ≤ expires_on(오늘 아님 · null = 기한 없음)(판정 322 · 326 · 328)
+⭐  딜 표 다섯(딜 · 단계 · 줄 · 대상 · 손님 조건)이 바뀌면 열린 오더(draft · confirmed · 기간 · 손님 조건)에 reprice_suggested_at — 손님 조건 표의 변경은 기간만(판정 286 · 313) [2026-10-06 · 판정 333 · 344 · §50] coupon_required 도 · 제품 속성(brand · category · 낱개 · 태그)이 바뀌면 그 제품(과 세트)이 든 열린 오더도(문장 트리거 · 화면 · 적재 공통)
+⭐⭐ 쿠폰 = so_coupon(코드 하나 = 손님 하나 · 한 번 · 오더 할인만) · 발행 · 무효 master · 넣기 · 빼기 sales · 표는 읽기 RLS 만 · 유효 판정 so_coupon_check 한 곳 · ⚠️ 기한은 so.order_date ≤ expires_on(오늘 아님 · null = 기한 없음)(판정 322 · 326 · 328) [2026-10-06 · 판정 335] 표 권한도 닫힘(anon 0 · authenticated select 만 · dsc-4a)
 ⚠️  쿠폰을 떼는 곳은 so_coupon_detach 한 곳 — coupon_id 만 비우면 짝 CHECK so_order_discount_coupon_ck 에 걸린다(출처 coupon 이 남는다)
 ⭐⭐ 쿠폰은 Confirm(so_confirm · so_pos_confirm)에서 쓴 것으로(so_coupon_settle · 가족이 썼으면 그대로 · 지면 떼고 남김 coupon_detached_not_used) · 취소 · 되돌리기 → 가족에 confirmed 이상이 없을 때만 되살림(so_coupon_release · 가족 집합) · 합치기 = 큰 쪽 · 크레딧은 되살리지 않는다(판정 319 · 321 · 324)
 ⭐⭐ 크레딧 = 인보이스 거울 — 인보이스-오더마다 order_discount 음수 줄 하나(−round(제품 환불액 × pct/100, 2) · 세금 따로) · so_credit.order_discount_amount · 리스탁킹 피 기준 = 제품 − 할인 몫(손님이 실제 낸 값) · 이미 낸 크레딧은 그대로(미룬 116)(판정 325)
+⭐⭐ [2026-10-06 · §50] 딜 저장 = so_deal_save(p_deal 덩이, p_old = 머리 updated_at 글자, p_commit, p_ack) 하나 — 판 = 머리 updated_at(자식을 고쳐도 오른다 · 331) · 짝 = 줄 id · 단계 tier_no · 대상 · 조건 내용 전체(340) · 덩이 계약: 없는 열쇠 = 그대로 · [] = 지움(줄은 끔) · 모르는 열쇠 field_unknown(343)
+⭐⭐ 딜 줄은 지우지 않고 끈다(is_active · 330) · 꺼진 줄도 line_no 를 쥔다(새 번호 = 꺼진 줄 포함 최대 + 1 · 342) · 걸기 손님 조건 ≥ 1 → 0 은 ack rules_open_to_all · 대소문자만 다른 태그는 막기 tag_case_conflict(332)
+⭐  딜 읽기 = so_deal_list() · so_deal_detail(deal, limit) — detail.deal 을 그대로 되돌리면 no_change · 셈은 속 함수 so_deal_products · so_deal_customers(candidates · customer_ok 와 같음은 검증이 증명 · 337)
 ⭐  인보이스 단가 표시는 inv_config so_invoice_unit_display(both · discounted · net · master) — 실제 단가는 그릴 때 계산(판정 284 · 314)
 ```
 

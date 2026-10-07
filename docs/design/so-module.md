@@ -2572,7 +2572,7 @@ D9  옮기지 않는 것 — 금액 할인 · 가산(Tariff Surcharge — 오더
 ⬜3  계산 창구 so_deal_best(product, customer, qty, on) → (pct, deal_id, line_id) · so_line_quote 가 greatest(손님 기본, best.pct) · 큰 쪽의 출처(같으면 customer) · so_order_discount(so_id) → (pct, deal_id) [2026-10-06 정정 · 판정 297 · 300 · 302 · §48] so_deal_best(…, p_tier_id default null) = so_deal_candidates 의 won 한 줄 · 세트 줄은 세트와 낱개 둘 다
 ⬜4  so.order_discount_pct · order_discount_deal_id · order_discount_source(deal|manual) 굳힘 · so_create · 손님·오더 날짜 바꾸기(source deal 일 때만) · so_header_update 열쇠 order_discount_pct(값 → manual · null → 다시 · 0 = 사람이 껐다) [2026-10-06 정정 · 판정 308 · 311 · 323 · §48 · §49] 출처 어휘 deal|manual|coupon · 쓰기는 so_order_discount_apply 한 곳 · 줄이 바뀌면 트리거가 다시 고른다(manual · 잠김 제외)
 ⬜5  딜·태그 쓰기 = master · 방식 = RLS 쓰기 정책(product_price 선례) · 창구는 화면 차수 · ⚠️ 거래 표 넷의 「창구만」(12-b 판정 5)과 다른 이유: 딜·태그는 마스터(설정)다 — 화면 사고가 난 자리는 거래 상태 전이였고,
-     표 사이 규칙은 이견 6 으로 트리거 하나에 들어갔다 · 적재는 service_role 이라 창구를 타지 않는다 · 900행 한도
+     표 사이 규칙은 이견 6 으로 트리거 하나에 들어갔다 · 적재는 service_role 이라 창구를 타지 않는다 · 900행 한도 [2026-10-06 정정 · 판정 335 · §50] ⬜5 를 뒤집었다 — 딜 · 태그 쓰기는 창구만(so_deal_save master · product_update tag_add/tag_off) · 일곱 표는 읽기 RLS 만 · 이유 ① 표 사이 규칙이 트리거 하나 → 문지기 셋으로 늘었다 ② 「적재는 service_role」은 닫아도 안 깨진다는 뜻일 뿐
 ⬜6  인덱스 so_deal_target(product_id · brand_id · tag) · so_deal_customer(customer_id) · product_tag(tag) · 딜 후보(켜짐·기간·손님)를 먼저 좁히면 작다 — 실측 so_deal_best 2.5ms [2026-10-06 정정 · 판정 296 · §48] so_deal_customer 인덱스는 표와 함께 없어졌다 · so_deal_customer_rule 인덱스 다섯
 ⬜7  둘로 나눔(13-a) · ⬜8 적재는 이 차수 밖 · CSV 사실은 13-k
 ```
@@ -2580,14 +2580,14 @@ D9  옮기지 않는 것 — 금액 할인 · 가산(Tariff Surcharge — 오더
 ### 13-f 표 다섯 · 함수 · 칸 (②-0a · ②-0b · 정본은 파일 주석)
 
 ```
-product_tag        관계 표 규약 · product_id · tag(글자 그대로 · btrim · 빈 문자열 금지) · unique (product_id, tag) · index (tag) · cin7_id 늘 null · source cin7|manual · DELETE 열림
+product_tag        관계 표 규약 · product_id · tag(글자 그대로 · btrim · 빈 문자열 금지) · unique (product_id, tag) · index (tag) · cin7_id 늘 null · source cin7|manual · DELETE 열림 [2026-10-06 정정 · 판정 335 · 336 · §50] 직접 쓰기 닫힘(prod-2 · dsc-4a) · 문 = product_update 의 tag_add · tag_off(떼기는 삭제 · 대소문자 충돌 막기)
 so_deal            마스터 규약 · cin7_id = Export TaskID(적재 열쇠) · name(유니크 없음) · is_active · date_from · date_to(null = 열림 · from <= to) · customer_scope all|selected · [2026-10-06 정정 · 판정 315 · 317 · §48 · §49] customer_scope 지움 · kind · coupon_required 칸
                    is_order_level · order_pct 짝 CHECK(is_order_level = (order_pct is not null)) · coupon_code 원문(계산 안 씀) · DELETE 없음 [2026-10-06 정정 · 판정 309 · 317 · §48 · §49] order_pct · 짝 CHECK 지움(so_deal_tier) · 쿠폰은 so_coupon
 so_deal_customer   deal_id · customer_id · unique 둘 · scope all 이면 뜻 없음(막지 않는다) · selected 인데 비면 아무에게도 안 걸린다(안전한 쪽) [2026-10-06 정정 · 판정 296 · 299 · §48] 표를 지웠다 → so_deal_customer_rule(kind include|exclude · target customer|branch|tier)
-so_deal_line       deal_id · line_no · pct(0 < pct <= 100) · min_qty_mode none|qty|case · min_qty 짝 CHECK((mode = qty) = (min_qty 있음)) · unique (deal_id, line_no)
+so_deal_line       deal_id · line_no · pct(0 < pct <= 100) · min_qty_mode none|qty|case · min_qty 짝 CHECK((mode = qty) = (min_qty 있음)) · unique (deal_id, line_no) [2026-10-06 정정 · 판정 330 · 340 · 342 · §50] is_active(지우지 않고 끈다 · 꺼진 줄도 line_no 를 쥔다) · unique (deal_id, line_no) 는 deferrable initially immediate(창구 안 번호 맞바꾸기)
 so_deal_target     line_id · kind include|exclude · target tag|brand|product · 값 칸 셋 중 하나만(so_deal_target_value_ck) · exclude 는 brand 금지 · ⭐ 유니크 하나 so_deal_target_uq unique nulls not distinct (line_id, kind, target, tag, brand_id, product_id)
                    ⚠️ 부분 유니크 인덱스 금지(asung-wms 규칙 29 · PostgREST on_conflict · 2026-07-29 실사고) — 처음 낸 partial unique 셋을 적용 전에 바꿨다 · nulls not distinct 는 PG15 부터(테스트 DB 17.6)
-문지기 둘          so_deal_line_order_level_guard(BEFORE INSERT/UPDATE OF deal_id · 부모가 오더 전체 딜이면 거부) · so_deal_order_level_guard(줄이 있는 딜을 오더 전체로 바꾸면 거부)
+문지기 둘          so_deal_line_order_level_guard(BEFORE INSERT/UPDATE OF deal_id · 부모가 오더 전체 딜이면 거부) · so_deal_order_level_guard(줄이 있는 딜을 오더 전체로 바꾸면 거부) [2026-10-06 정정 · 판정 309 · 330 · §48 · §50] 문지기 셋(단계는 오더 딜에만 더함) · 「줄이 있으면」은 켜진 줄만 센다
 so 새 칸           order_discount_pct(0~100) · order_discount_deal_id · order_discount_source deal|manual · 짝 CHECK 둘(pct ⇔ source · deal_id ⇔ source = deal) · reprice_suggested_at [2026-10-06 정정 · 판정 312 · 323 · §48 · §49] source + coupon · deal_ck ⇔ (deal, coupon) · coupon_ck · 새 칸 order_discount_locked_at · coupon_id
 so_line 새 칸      discount_source customer|deal|manual · deal_line_id · 짝 CHECK 둘(discount_pct ⇔ source · deal_line_id ⇔ source = deal) · 덮어쓴 줄(price_override)은 둘 다 null [2026-10-06 정정 · 판정 298 · §48] discount_source + set(deal_line_id null)
 함수               so_deal_best · so_order_discount(늘 한 행 · 없으면 null) · so_line_quote(so, uuid, numeric) → 6칸 · so_deal_line_ended(deal_line_id, on) · so_line_requote(속 함수) · so_reprice(창구) · ims_today()
@@ -2662,7 +2662,7 @@ so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음
 딜·태그 적재 차수 — 태그(Cin7 제품 Tags · 새 GAS · 대소문자만 다른 짝이면 멈춤) · 딜(Export CSV 를 Drive 에 · % 는 DiscountName 이름에서만 · Case Discount 7줄 % 없음 = 못 옮긴다 · 몇 개 이상은 UOM 태그 이름에서만 ·
    손님은 이름 콤마 목록 → customer.name(유니크 아님 · 겹치면 멈춤) · SKU → product.sku · BrandName → ref_brand.name · 못 맞추면 멈춤 · 어느 딜을 옮길지(전부 · 켜져 있고 끝나지 않은 것만)는 Caleb 판정)
 손님 정리 거리 — 쓰레기 손님(';6 · €)이 시험에 뽑혔다(12-h 목록에 더한다) · 쿠폰 코드 방식(손님이 코드를 넣으면 걸린다) — Shopify 연동 차수 · so_deal.coupon_code 원문은 있다 ✅ [2026-10-06 정정 · 판정 283 · §49] 쿠폰 코드 방식은 so_coupon(Shopify 차수가 아니라 IMS 창구)
-케이스(case) 모드 줄 — 미리 보기 화면 뒤에(D3) · 딜·태그 편집 창구 · 미리 보기 — 화면 차수 · 딜 표는 지금 master RLS 로만 쓴다 [2026-10-06 정정 · 판정 303 · §48] case 기준 = 낱개의 켜진 세트 중 최소 pack_factor · 낱개 EA 비교
+케이스(case) 모드 줄 — 미리 보기 화면 뒤에(D3) · 딜·태그 편집 창구 · 미리 보기 — 화면 차수 · 딜 표는 지금 master RLS 로만 쓴다 [2026-10-06 정정 · 판정 303 · §48] case 기준 = 낱개의 켜진 세트 중 최소 pack_factor · 낱개 EA 비교 [2026-10-06 정정 · 판정 335 · §50] 딜 표는 창구 so_deal_save 로만 쓴다 · 읽기 창구 so_deal_list · so_deal_detail · 화면은 discount-rules.html 차수
 so_header_update 의 reprice 표시에 discount_pct(손님 기본 할인)도 넣었다(판정문은 order_date · price_tier) — 빼려면 한 줄
 asung-so description 에서 뺀 키워드 so_out · credit_in · so_invoice · so_payment_alloc · so_credit_alloc(D · 2026-09-23 · 1024자 한도) — 그 차수(인보이스 · 원장 접점)에서 다시 넣는다 · IsBillParent·DefaultForType·job_title·CustomerProbe 는 정본 9-g~9-i 가 갖는다
 ```
@@ -6937,12 +6937,12 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 282 | 오더 할인 — 손님 조건 · 최소 금액 단계 · 기준 = 줄 할인 뒤 제품 합계 · 큰 하나 · 줄이 바뀌면 다시 고르기(규칙에서 온 것만) · manual 이면 경고 |
 | 283 | 쿠폰 — 오더 전체만 · 손님 하나 · 한 번 · 기한 · 하나씩/한꺼번에 발행 · 자동과 큰 쪽 · Confirm 에 씀 · 취소 되살림 · 합치기 큰 쪽 · 나누기 같은 % · 크레딧 안 되살림 |
 | 284 | 표시 — 줄 DISC % 는 줄 할인만 + 오더 할인 뒤 실제 단가 칸 · 인보이스는 회사 설정 하나(둘 다 · 할인가 · 실제 단가) · 그릴 때 계산 |
-| 285 | 규칙 · 쿠폰 발행은 master · 쓰기는 창구로만(dsc-4) |
+| 285 | 규칙 · 쿠폰 발행은 master · 쓰기는 창구로만(dsc-4) [2026-10-06 정정 · 판정 330 ~ 344 · §50] dsc-4a ~ 4c 로 닫힘 |
 | 286 | 규칙이 바뀌면 열린 오더는 그대로 + 다시 매기기 권함 |
 | 287 | 미리 보기 첫 판 · 오더와 같은 DB 식 |
 | 288 | 덤 첫 판 제외 · kind 자리 · 할인 % < 100 |
 | 289 | D9 정정 — 카테고리 · 쿠폰 · 금액 기준 · 덤을 다시 연다 |
-| 290 | 차수 순서 dsc-1 → dsc-2 → dsc-3 → dsc-4 → 화면 · 문서 |
+| 290 | 차수 순서 dsc-1 → dsc-2 → dsc-3 → dsc-4 → 화면 · 문서 [2026-10-06 정정 · 판정 330 ~ 344 · §50] dsc-4 는 4a · 4b · 4c 로 섰다 · 다음 화면 묶음 |
 | 291 | 판매 가능 기본값은 트리거 `product_sellable_default`(BEFORE INSERT OR UPDATE OF parent_product_id) — 명시 null 은 종류 기본(낱개 true · 세트 false) · 낱개가 세트가 되면 false · 칸 NOT NULL default true |
 | 292 | 판매 안 함 세트를 바꿔 넣는 길에서는 손으로 준 단가 · 할인 %를 거부 — 「enter the base SKU with its own price」 |
 | 293 | 붙여넣기는 판정 꼬리표 `not_sellable` · 바꾼 줄에 `converted` · summary 에 converted · not_sellable 셈 |
@@ -7022,7 +7022,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 후보        so_deal_candidates — so_deal_best 는 그 won 한 줄 · so_quote_preview 가 목록을 그대로(판정 287 · 300 · 304)
 오더 층     so_order_discount = 켜짐 ∧ 오더 딜 ∧ kind pct ∧ 기간 ∧ 손님 조건 ∧ 단계 min_amount ≤ so_lines_total → 큰 pct · 쓰기는 so_order_discount_apply 한 곳
 다시 고르기 so_line 트리거(qty_ordered · unit_price · free_reason · qty_removed · insert · delete) · manual(0 포함) · 잠김은 건너뜀 · null 넣기 = 다시 찾기(잠금도 넘는다)
-경고        so_detail: order_discount_rule_now_better + order_discount_rule{rule_pct · rule_deal_id · manual_pct} · 딜 표 다섯이 바뀌면 열린 오더 reprice_suggested_at
+경고        so_detail: order_discount_rule_now_better + order_discount_rule{rule_pct · rule_deal_id · manual_pct} · 딜 표 다섯이 바뀌면 열린 오더 reprice_suggested_at [2026-10-06 정정 · 판정 333 · 344 · §50] coupon_required 도 표시 · 제품 속성(brand · category · 낱개 · 태그)이 바뀌어도 그 제품이 든 열린 오더에 표시(문장 트리거)
 ```
 **만들며 정한 것(판정 아님 · dsc-3a 회신)**
 - so_header_update 의 `order_discount_pct: null`(다시 찾기)은 잠긴 오더에서도 지금 기준 금액으로 다시 고른다(잠금 칸은 남는다) — 사람의 뜻으로 봤다
@@ -7123,14 +7123,122 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 - 116 이미 낸 크레딧의 오더 할인 초과 환불 — 테스트 DB 1건 2.14 + 세금 0.28 · 운영 확인 필요 · 고치지 않음(판정 325)
 - 117 Cin7 Deals 26건 적재(13-k 딜·태그 적재 차수)
 - 118 덤(free item) — kind 자리만(판정 288)
-- 119 dsc-4 쓰기 창구 — 딜 · 단계 · 손님 조건 · 쿠폰 표를 창구로만(판정 285 · 지금 master RLS)
+- 119 dsc-4 쓰기 창구 — 딜 · 단계 · 손님 조건 · 쿠폰 표를 창구로만(판정 285 · 지금 master RLS) ✅ 닫힘 [2026-10-06 정정 · 판정 330 ~ 344 · §50]
 - 120 화면 묶음 — 딜 · 쿠폰 · 미리 보기 · 오더 할인 표시(판정 284 실제 단가 칸) · 인보이스 단가 표시 설정
 - 121 문서 — 화면 묶음 뒤 정본 · 스킬
 
 ### 49-f 다음
 
 ```
-순서(Caleb 이 정한다 · 판정 290): dsc-4 쓰기 창구 → 화면 묶음 → 문서
+순서(Caleb 이 정한다 · 판정 290): dsc-4 쓰기 창구 → 화면 묶음 → 문서 [2026-10-06 정정 · 판정 330 ~ 344 · §50] dsc-4 ✅ → 다음 화면 묶음(discount-rules.html)
 그 전에 걸린 것: 113 적재 sellable 고침(그 전까지 제품 재적재가 IMS 에서 바꾼 sellable 을 덮는다) · cs-4 적재 고침 + 미룬 103 · 109(§46-f)
 다음 판정 번호: 330
+```
+
+
+## §50 할인 규칙 쓰기 · 읽기 창구 · 제품 속성 표시 — dsc-4-0 · 4a · 4b · 4c · 판정 330 ~ 344 (2026-10-06 · 집 PC)
+
+⭐ 닫힌 것: 「딜 · 단계 · 줄 · 대상 · 손님 조건 · 태그를 RLS 로 직접 쓴다(§13-e ⬜5)」 · 「쿠폰 표 권한이 기본 권한 그대로 열려 있다」 · 「태그를 붙이는 길이 없다」 · 「딜 목록 · 상세를 화면이 조각으로 센다」 · 「제품 속성이 바뀌어도 열린 오더가 모른다」 — asung-wms **b628235**(4a) · **efca657**(4b) · **4023c50**(4c)
+⭐ 새 판정 330 ~ 338 · 340 · 342 ~ 344(339 · 341 · 345 는 미룸) · 원문 지시서 `~/asung/prompts/dsc-4-0.md` · `dsc-4a.md` · `dsc-4b.md` · `dsc-4c.md` · `docs-1006d.md` 📌 · 판정 날짜는 전부 **2026-10-06**(마이그레이션 이름 20261007… 은 UTC)
+
+### 50-a 차수 · 판정 원문
+
+**A. 차수**
+
+| 차수 | 커밋 | 마이그레이션 | 검증 · 시험 · 확인 OK |
+|---|---|---|---|
+| dsc-4-0 조사 | — | — | 카탈로그 `~/asung/prompts/dsc-4-0-{catalog,rls,more}.out`(레포 밖 · Caleb 실행) |
+| dsc-4a | **b628235** | `20261007001229_dsc_4a_deal_save.sql` | `supabase/tests/dsc-4a-verify.sql` · 시험 58 · 확인 58 · 시험 6회 |
+| dsc-4b | **efca657** | `20261007003838_dsc_4b_tags_deal_read.sql` | `supabase/tests/dsc-4b-verify.sql` · 시험 41 · 확인 39 · 시험 4회 |
+| dsc-4c | **4023c50** | `20261007005851_dsc_4c_product_flag.sql` | `supabase/tests/dsc-4c-verify.sql` · 시험 24 · 확인 23 · 시험 4회 |
+
+**B. 판정 330 ~ 344 (Caleb · 2026-10-06 · 기각 안과 이유까지)**
+
+| 번호 | 내용 | 기각 · 이유 |
+|---|---|---|
+| 330 | 딜 줄은 지우지 않고 끈다 — `so_deal_line.is_active` 신설 · 꺼진 줄은 후보에서 `line_inactive` 로 진다 · 「오더 딜에는 줄 없음」 문지기는 켜진 줄만 센다 · 표시 트리거 WHEN 에 is_active · 이유: so_line.deal_line_id 가 가리킨다(영수증의 출처) | 참조 없으면 지우고 있으면 막기 — 쓰인 딜은 줄 하나를 고칠 수 없게 된다 |
+| 331 | 딜의 판 = `so_deal.updated_at` 하나 — 화면은 읽은 글자를 손대지 않고 p_old 로 되돌린다 · 다르면 changed_elsewhere · 없으면 old_missing · ⭐ 창구가 자식을 고치면 머리도 건드린다(ims_touch 는 자기 행만 · 이 전제가 없으면 자식 변경을 못 알아챈다) | 판 번호 칸 — 선례 없음 |
+| 332 | 딜 대상 태그가 어느 제품에도 없으면 ack `tag_unused` 로 허용 · 대소문자만 다른 태그는 막기 `tag_case_conflict`(product_tag · 다른 딜 대상 · 같은 호출) · 소문자로 바꾸지 않는다(btrim 만) | 제품 태그가 먼저 있어야 저장 — 일하는 순서를 묶는다 |
+| 333 | `so_deal_changed_u` 의 WHEN 에 coupon_required — 켜면 자동 후보에서 빠지므로 표시가 찍혀야 한다(빠져 있던 결함) · 이름 · 메모는 표시 안 함 | 경고만 |
+| 334 | 쿠폰 딜을 끄거나 coupon_required 를 끌 때 쓰지 않은 쿠폰은 그대로 · ack `deal_off_with_coupons{n}` — 다시 켜면 살아난다 | 같이 무효 — 되돌릴 수 없다 |
+| 335 | dsc-4a 가 닫은 권한 — 일곱 표(so_deal · so_deal_tier · so_deal_line · so_deal_target · so_deal_customer_rule · product_tag · so_coupon): anon 전부 회수 · authenticated SELECT 만(쓰기 정책 drop · insert/update/delete/truncate 회수) · so_coupon_key anon 회수 · 끝에 세는 do 블록 · 새 창구는 public · anon 회수 + authenticated grant · 속 함수는 authenticated 까지 회수 · ⭐ §13-e ⬜5(딜 · 태그 쓰기 = master RLS)를 **뒤집는다** — 그때 이유 ① 표 사이 규칙이 트리거 하나 → 문지기 셋으로 늘었다 ② 적재는 service_role → 닫아도 안 깨진다는 뜻일 뿐 | 25 표까지 한 번에 — 할인과 무관한 범위로 번진다 |
+| 336 | 태그 쓰기 = `product_update` 의 op `tag_add {sku, tag}` · `tag_off {sku, tag}` — 제품 문은 하나(판정 140) · barcode_add/off 결 · btrim 만 · tag_case_conflict · 떼기는 삭제 · 마지막 제품에서 떼고 켜진 딜이 쓰면 ack `tag_off_used_by_deal` | 따로 product_tag_set — 제품 문이 둘 |
+| 337 | 목록 셈은 새 집합 함수로 따로 · 같음은 검증으로 — `so_deal_products` · `so_deal_customers`(속 함수) · so_deal_candidates · so_deal_customer_ok 는 무접촉 · 이유: 어긋나면 틀리는 것이 A 는 목록 숫자 · B(심장 재구성)는 손님 가격 | candidates 를 집합 함수 위에 재구성 |
+| 338 | 통째 저장 때 행 트리거가 행 수만큼 표시를 도는 것은 둔다 — 두 번째부터 이미 표시된 오더를 건너뛴다 · 열린 오더 수십 | 문장 트리거로 — 잘 도는 장치 열을 뜯는다 |
+| 340 | 통째 저장 짝짓기 열쇠 — 줄 = id(없으면 새 줄 · 덩이에 없는 기존 줄은 끔) · 단계 = tier_no(덩이에 없으면 지움) · 대상 · 손님 조건 = 내용 전체(빠지면 지움) · 쓰기 순서 지우기 → 고치기 → 넣기 · ⭐ 맞바꾸기(단계 금액 · 줄 번호)는 성공해야 한다 → 두 유니크(so_deal_tier (deal_id, min_amount) · so_deal_line (deal_id, line_no))를 deferrable initially immediate 로 · 창구 안에서 set constraints deferred | 모두 id — 대상 · 조건은 고칠 칸이 없어 얻는 것이 없다 |
+| 342 | 꺼진 줄도 line_no 를 쥔다 — 그대로 · 새 번호는 화면이 「꺼진 줄 포함 최대 + 1」 | 끄면 번호 비움(NOT NULL 풀기 · 옛 오더의 「3번 줄」 뜻이 바뀐다) · 켜진 줄끼리만 유니크(부분 유니크 금지 규칙 29) |
+| 343 | 덩이 계약 — 없는 열쇠 = 그대로 · 빈 배열 [] = 전부 지움(줄은 끔) · is_active false 로 돌아온 줄 = 없는 줄 · 읽기 전용 칸(cin7_id · source · created_at · updated_at · updated_by · coupon_code · 자식의 deal_id/line_id)은 지나침 · 모르는 열쇠 field_unknown · ⭐ 저장 전 걸기(include) 손님 조건 ≥ 1 이고 저장 뒤 0 이면 ack `rules_open_to_all{n_before}`(만들기 · rules 열쇠 없음은 묻지 않음) | 확인 없음 — 「Edmonton 만 15%」가 화면 실수 하나로 전 손님 15% 가 된다(돈이 새는 조용한 실수) |
+| 344 | 제품 속성이 바뀌면 그 제품(과 그 제품을 낱개로 둔 세트)이 든 열린 오더에 reprice 표시 — **트리거** · 일으키는 칸 = product.brand_id · category_id · parent_product_id · product_tag insert/delete/update(걸림 판정이 읽는 전부 · is_active · sellable 은 안 읽는다) · 켜진 딜의 켜진 줄 대상에 그 종류(옛 · 새 값)가 있을 때만 · **문장 트리거**(transition table) · 열린 집합은 so_deal_flag_open_orders 한 곳(p_product_ids 인자 추가) · 화면 · 적재 공통 · 판정 338 과 다른 이유: 딜 표는 한 번에 수십 행 · 제품 표는 수만 행 | product_update 안에서만 — 재적재를 놓친다 |
+
+### 50-b 창구 · 실물
+
+| 것 | 모양 |
+|---|---|
+| `so_deal_save(p_deal jsonb, p_old jsonb default null, p_commit boolean default false, p_ack text[] default '{}') returns jsonb` | definer · 첫 줄 ims_require_write('master','saved') · ⭐ 미리 보기도 실제로 쓰고 센 뒤 `raise errcode 'ZZ990'` 로 되돌린다(표시 수가 쓰기와 같은 길 · ack 안 된 저장도 같다) · ⭐ 만들기는 머리를 꺼진 채 넣고 자식 뒤에 켠다(켠 채 넣으면 손님 조건 없는 순간에 「전체」로 열린 오더를 모두 표시) · 반환 {committed · deal_id · updated_at · changes[{part head\|tier\|line\|target\|rule · action added\|changed\|removed\|turned_off\|turned_on\|unchanged}] · blocks[] · warnings[] · unacked[] · open_orders_to_flag} · 덩이 예시와 막기 · 알리기 어휘 전체는 dsc-4a 마이그레이션 주석 · 함수 comment |
+| 알리기(ack) | open_orders_flagged{n} · line_off_with_order_lines{n} · tag_unused{tags} · deal_off_with_coupons{n} · line_no_targets · rules_open_to_all{n_before}(4b) |
+| `so_deal_list()` | definer · 문 = sales 보기 ∨ master 쓰기(so_quote_preview 와 같다) · 딜마다 lines_on · lines_off · tiers · product_n(활성) · product_n_all · all_customers · customer_n · coupons_unused · open_orders_n(열린 오더 중 이 딜의 할인을 받은 것 — reprice 에 딜 id 가 없어 「이 딜로 표시된 수」는 못 센다) · updated_at(글자) |
+| `so_deal_detail(p_deal_id, p_limit default 200)` | definer · 같은 문 · deal = so_deal_save 가 받는 덩이 그대로(꺼진 줄 포함) — ⭐ 그대로 되돌리면 no_change(왕복 증명 · 4b T6f) · 이름표는 덩이 밖 labels{brands · categories · products · customers · warehouses · tiers} · products{n · n_all · items ≤ p_limit} · customers{all_customers · n · items} · coupons · open_orders_n |
+| 속 함수 | `so_deal_products(deal)` → (product_id · line_id · line_no · matched_by[product\|brand\|category\|tag(:base)]) · `so_deal_customers(deal)` → 활성 손님(티어 = 손님 price_tier 이름 → sale 티어 · so_deal_best 의 null 폴백과 같다) · public · anon · authenticated 회수 |
+| product_update | op 스물 — tag_add · tag_off(막기 tag_empty · tag_exists · tag_not_found · tag_case_conflict · field_duplicate_in_call · 알리기 tag_off_used_by_deal) |
+| 트리거(4c) | `product_deal_hit_changed`(product AFTER UPDATE 문장 · o·n 비교로 세 칸) · `product_tag_deal_hit_changed_i/_d/_u` · helper `so_product_flag_open_orders(uuid[])`(범위 = 제품 + 그 세트들) · `so_deal_flag_open_orders(…, p_product_ids uuid[] default null)` 5인자(부르는 so_deal_changed · so_deal_part_changed 는 4인자 그대로) |
+
+**so_deal_products 와 so_deal_candidates 가 갈라지는 곳(4b 회신 3)**
+
+| 축 | so_deal_candidates | so_deal_products |
+|---|---|---|
+| 걸기 ∧ ¬빼기(그 줄에서만) · 제품 · 브랜드 · 카테고리 · 태그 | hit CTE | 같다(4b T4 양방향 차집합 0) |
+| 세트 줄 = 세트 SKU 와 그 낱개(판정 302) · 콤보는 자기 자신 | p 둘째 가지 | 같다(`:base` 표시) |
+| 꺼진 줄 | 후보에 남기고 line_inactive 로 진다 | 집합에서 뺀다(결과 같음) |
+| 딜 켜짐 · kind · 기간 | inactive · kind_not_pct · period_* | 보지 않는다(손댈 수 있는 제품) |
+| 손님 조건 · 수량 | customer_* · below_min_qty | 보지 않는다 |
+| 제품 필터(활성 · 판매 가능) | 없음 | 없음 — 목록은 product_n(활성) / product_n_all 로 가른다 |
+| 승패 | won · lower_pct | 없음 · matched_by |
+
+**344 의 일으키는 칸 · 범위**
+
+| 표 · 칸 | 걸림이 읽는 곳 | 선검사(켜진 줄 딜의 켜진 줄 대상) |
+|---|---|---|
+| product.brand_id | hit `t.brand_id = p.brand_id` | target=brand ∧ brand_id ∈ {옛, 새} |
+| product.category_id | hit `t.category_id = p.category_id` | target=category ∧ category_id ∈ {옛, 새} |
+| product.parent_product_id | p 둘째 가지(세트의 낱개) | 걸기 대상이 하나라도 있으면 |
+| product_tag (product_id, tag) | hit `pt.tag = t.tag` | target=tag ∧ tag ∈ {옛 글자, 새 글자} |
+| is_active · sellable · sku · name … | 읽지 않는다 | — |
+
+범위 = {바뀐 제품 X} ∪ {X 를 낱개로 둔 세트들} · 열린 집합(draft · confirmed · 이미 표시된 오더 건너뜀)은 so_deal_flag_open_orders 한 곳
+
+### 50-c 실측 · 시험
+
+- RLS 일곱 표 모두 켜짐 · RLS 꺼진 public 표 0 · postgres · service_role bypassrls(검증 · 적재는 RLS 를 닫아도 안 깨진다)
+- ⚠️ 기본 권한(pg_default_acl): postgres 가 public 에 만든 **새 표 → anon · authenticated · service_role 에 전부(arwdDxtm)** · **새 함수 → anon 에 EXECUTE** — dsc-2 · 3a · 3b 의 so_deal_customer_rule · so_deal_tier · so_coupon 과 so_coupon_key 가 그대로 열려 있었다(dsc-4a 가 닫음) · anon INSERT 를 가진 public 표 28 → dsc-4a 뒤 25(inv_adjust · inv_adjust_line · inv_move · inv_move_line · inv_transfer · inv_transfer_line · wms_ 19 · 미룬 124)
+- 크기: 활성 제품 14,583(전체 18,722 · 세트 6,350) · 활성 손님 9,459 · 브랜치 2 · 티어 4 · 열린 오더 19 · product_tag 0행
+- 실제 딜 「TEST POS SALE 15」(so_deal 7a6b411a… · 10-02 POS 시험 · 기한 10-08)의 줄을 so_line 3개가 가리킨다 — dsc-4a ~ 4c 검증은 Z 절 md5 로 무변 증명
+- 잰 값: so_deal_customer_ok 손님마다 9,459 회 = 0.55 s · 집합 so_deal_customers = 0.07 ~ 0.09 s(첫 판 68 s) · so_deal_products 0.04 s(첫 판 0.17 s) · so_deal_list(딜 5) 0.33 s(첫 판 40 s) · 제품 2,000 행 갱신: 문장 트리거 ≈ +0 · 행 트리거 +0.85 s(트리거 끈 바닥값과 함께 잼)
+- 확인 갈래의 기대 OK = 시험 갈래 수 − 시험에서만 도는 G0(58/58 · 41/39 · 24/23)
+
+### 50-d 일하는 방식 · 교훈
+
+1. [Caleb · 2026-10-06] **판정을 이해하지 못한 채 제안대로 골랐다** — 대화 Claude 가 판정을 물을 때 쉬운 말 · 실제 업무 예(「Edmonton 손님만 15%」) · 「틀렸을 때 무엇이 틀리나」(목록 숫자 대 손님 가격)를 붙인다 · 기술 용어는 처음 나올 때 풀어서(asung-workflow §2)
+2. 판정 질문과 커밋 명령을 한 회신에 섞지 마라 — dsc-4b 커밋 명령 뒤에 판정 344 를 물어 Caleb 이 답만 하고 커밋은 건너뛰었다(테스트 DB 적용 · git 미커밋) · Claude Code 가 dsc-4c §0 이견 1 로 잡았다
+3. 확인 명령은 다음 명령에 && 로 묶는다 — md5 확인 줄을 따로 주었더니 건너뛰고 적용했다 → `md5sum … | grep -c … | grep -qx 2 &&`
+4. [대화 Claude] 340 을 설명하며 「지우기 → 고치기 → 넣기 순서면 맞바꾸기가 안 걸린다」고 틀리게 말했다 — 고치기 단계 안에서 걸린다 · 지시서에서 deferrable 로 바로잡았다
+5. [대화 Claude] 카탈로그 SQL 에 relrowsecurity 가 빠져 한 번 더 조회했다 — 권한을 볼 때는 **정책 · 표 권한 · RLS 켜짐 · 기본 권한** 넷을 한 번에
+6. [Claude Code] dsc-4a 에서 검증 파일 밖 읽기 조회 3회(쓰기 없음 · 스스로 밝힘) — 다음 지시서에 「밖 조회는 읽기라도 요청」을 다시 적었고 4b · 4c 는 0회
+7. 검증이 「값은 맞다」로 68 s 를 지나칠 뻔했다 — 집합 함수 · 트리거는 검증 안에서 clock_timestamp() 로 재고 「끈 바닥값」과 함께 보고한다
+8. 두 번 참조된 CTE(materialized) 위에 상관 not exists 를 겹치면 제곱 — left join 꼴로 · `array_agg(distinct … order by 1)` 불가 — 서브쿼리로
+9. 문장 트리거 + transition table 은 `UPDATE OF <칸>` 과 양립 불가 — 칸 판정은 함수 안(o·n 비교) · 트리거 함수는 직접 실행 시험이 안 된다(권한보다 「only as triggers」가 먼저) → has_function_privilege 로
+10. 창구 호출을 묶어 부르면 「그대로인가」 검사는 호출 사이에(dsc-4a 세 번) · jsonb 글자 인자는 `to_jsonb(text)` · 가짜 닫힌 오더는 shipped 로(fulfilled · cancelled 는 so_closed_at_ck)
+
+### 50-e 미룬 것 — §49-e 121 에 이어 붙임
+
+- 119 dsc-4 쓰기 창구 ✅ 닫힘(dsc-4a ~ 4c · 판정 330 ~ 344)
+- 122 (판정 후보 339) Cin7 딜 적재와 source — 지금 창구는 고친 행 source 그대로 · 새 행만 manual(product_bom_set 은 손댄 줄을 manual 로 바꾸므로 선례와 다르다) · 적재(117)를 지을 때 함께
+- 123 (판정 후보 341) 나머지 25 표(inv_ 6 · wms_ 19) anon · authenticated 기본 권한 회수 + 「새 표 · 새 함수는 만든 파일에서 anon 회수」 규약
+- 124 (판정 후보 345) 딜이 많아져 so_deal_list 가 느려지면 p_counts boolean 또는 캐시(딜 30 ≈ 1 ~ 2 s 짐작)
+
+### 50-f 다음
+
+```
+순서(Caleb 이 정한다 · 판정 290): 화면 묶음(discount-rules.html — 목록 · 규칙 편집 · 금액 단계 · 손님 조건 · 미리 보기 · 쿠폰 발행 · ims-auth.js 「Discount Rules」 자리) → 문서
+그 전에 걸린 것: 113 적재 sellable 고침 · cs-4 적재 고침 + 미룬 103 · 109(§46-f)
+다음 판정 번호: 346
 ```

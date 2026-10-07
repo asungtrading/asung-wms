@@ -52,6 +52,9 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ 「못 봤다」와 「없다」를 구분한다 · 원인을 모르면 상쇄하지 않는다 · 모르면 비워 둔다
 ⭐ [2026-09-24 Caleb] **왕복을 줄인다 — 검증은 Claude Code 가 돌리고 결과를 함께 본다.** 「지금방식은 … 왕복이 많아져서 시간이 많이 걸리고 있어. 검증은 꼭 필요하고 확실하게 했으면 좋겠어. 클로드 코드가 검증까지 돌리고 그 결과물을 나와같이 니가 확인해 주는 방식은 어때?」
    ⇒ 검증 파일을 만들면 **곧바로 테스트 DB 에서 시험 적용 + 검증을 돌린다**(§4) · 보고는 요약이 아니라 **원문**(exit · OK 수 · MISMATCH 줄 · 끝부분) + 재발행 diff + 토크나이저 + ⭐ **통과까지 몇 번 돌렸고 무엇이 걸려 어떻게 고쳤는지**(예상값을 바꿨으면 왜 DB 가 맞다고 보는지) · 대화 Claude 가 확인 → Caleb 이 실제 적용 + 확인 검증 한 번 + 커밋
+⭐ [2026-10-06 Caleb · so-module §50-d 1] **판정을 물을 때 쉬운 말 · 실제 업무 예 · 「틀렸을 때 무엇이 틀리나」를 붙인다** — Caleb 이 판정을 이해하지 못한 채 제안대로 골랐다 · 예 「Edmonton 손님만 15%」 · 「어긋나면 목록 숫자가 틀린다 vs 손님 가격이 틀린다」 · 기술 용어는 처음 나올 때 풀어서
+⚠️ [2026-10-06 · §50-d 2] **판정 질문과 커밋 명령을 한 회신에 섞지 마라** — 판정 344 만 답하고 dsc-4b 커밋은 건너뛰었다
+⚠️ [2026-10-06 · §50-d 3] **확인 명령은 다음 명령에 && 로 묶는다** — 따로 준 md5 확인을 건너뛰고 적용했다 → `md5sum … | grep -c … | grep -qx 2 && <적용>`
 ```
 
 ---
@@ -216,7 +219,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **declare 변수 ≠ 조회 별칭** — `e` 가 eval 별칭 `e` 와 겹쳐 「record e is not assigned yet」(네 번째 실사고) ⇒ 변수는 `v_` 접두
 ⚠️ **ims_touch 가 붙는 표는 `updated_by` 칸이 있어야 한다** — 없으면 update 가 「record new has no field updated_by」
 ⚠️ **한 트랜잭션 안 now() 는 같다** — 시각 비교 시험은 전후 값을 \gset 으로 받아 비교
-⚠️ **SQL 함수 안 비싼 식을 여러 번 참조하면 인라인돼 그 수만큼 돈다** — `as materialized` · 배수는 buffers 로 잰다 · 뷰의 Full Join 은 키 술어를 못 내린다 ⇒ union all + group by
+⚠️ **SQL 함수 안 비싼 식을 여러 번 참조하면 인라인돼 그 수만큼 돈다** — `as materialized` · 배수는 buffers 로 잰다 · 뷰의 Full Join 은 키 술어를 못 내린다 ⇒ union all + group by [2026-10-06 · so-module §50-d 8] 두 번 참조된 CTE(materialized) 위에 상관 not exists 를 겹치면 제곱(so_deal_customers 68 s → left join 꼴 0.09 s)
 ⚠️ **뷰 재발행** = create or replace + except 양방향 + 옵션 · acl · 의존 뷰 md5 전후 대조
 ⚠️ **검증은 실제 행에 기대지 않는다** — 트랜잭션 안에서 스스로 재료(원장 · 레이어)를 세우고 후보는 쿼리로 고른다(adj-a v1 이 재료 34 → 0 뒤 MISMATCH 10)
 ⚠️ **번호 되돌리기 = greatest(실제 최대, 시작 last_value)** — max(실제) 는 지운 초안 번호를 다시 쓴다(판정 55)
@@ -252,7 +255,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **끝에서 끝 시험 순서표에 「상태가 지나가면 다시 볼 수 없는 것」을 먼저 표시한다**(운송 중 Finalized 탭을 TRF-00001 에서 놓쳤다)
 ⚠️ **명령은 한 번에 한 덩어리 · 다시 줄 때는 「앞서 준 것과 같다」고 밝힌다**(같은 것을 「다시」라며 또 줘서 Caleb 이 못 찾았다고 여겼다)
 ⭐ [Caleb 2026-09-29] **지시서를 줄 때 대화 안에서도 「모델 판단(Fable · Opus) + 한 줄 까닭」과 「붙일 짧은 프롬프트」를 함께 준다** — 「이전 대화에서는 클로드 코드에 줄 짧은 프롬프트도 같이 줬어. 그리고 클로드 코드에게 줄 지시가, 모델이 fable을 요하는지, opus로 충분한지도 판단해서 알려줬었어. 너도 그렇게 해줘」
-⚠️ **[2026-10-01 · so-module §33-d 1] 칸 트리거(`before update of <칸>`)를 시험할 때는 그 칸을 SET 목록에 넣는다** — 넣지 않으면 트리거가 아예 안 돌아 아무것도 증명하지 못한다(prod-2 S8 · 적재 모양은 `on conflict … do update set sku = excluded.sku, …` · PostgREST merge-duplicates 는 payload 칸을 전부 SET — 짐작)
+⚠️ **[2026-10-01 · so-module §33-d 1] 칸 트리거(`before update of <칸>`)를 시험할 때는 그 칸을 SET 목록에 넣는다** — 넣지 않으면 트리거가 아예 안 돌아 아무것도 증명하지 못한다(prod-2 S8 · 적재 모양은 `on conflict … do update set sku = excluded.sku, …` · PostgREST merge-duplicates 는 payload 칸을 전부 SET — 짐작) [2026-10-06 · §50-d 9] 문장 트리거 + transition table 은 UPDATE OF 칸 목록과 양립 불가 — 칸 판정은 함수 안(o·n 비교)
 ⚠️ **[2026-10-01 · §33-d 3] 문이 있는 definer 창구는 claims 없는 postgres 세션에서 문에 막힌다** — 창구 시험은 가짜 직원 claims(`set_config('request.jwt.claims', …)`)를 먼저 세운다(prod-3 1회차)
 ⚠️ **[2026-10-01 · §33-d 4] 트리거 · 정책의 실물은 pg_trigger · pg_policies 로 본다** — 마이그레이션 grep 은 루프로 만든 트리거(product_touch)를 놓친다 · 근거가 정책이면 pg_policies 를 먼저(§33-d 2)
 ⭐ **[2026-10-01 · §33-d 5] 실물 규칙(이름 · SKU 모양)은 처음부터 연도별로 센다** — 전체 비율은 일괄 등록이 끌어올린다(세트 이름 ` - N` 47% → 2026 은 `-N` 96% · §31-d 4 에 이어 두 번째)
@@ -266,7 +269,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⭐ [2026-10-02 · so-module §37-d 1 · 2 · 3 · 9] 시험 · 확인 두 갈래
    · 실행은 set -o pipefail 판으로(| tee 가 psql 종료값을 가린다)
    · 회차마다 시퀀스 머리 값을 찍는다 — 멈춘 회차는 꼬리의 setval 에 못 간다 ⇒ 「그 위 번호 0 개」를 보고 머리 값으로 되돌리고 전후를 보고
-   · 시험 전용 변수 · 행은 \if :{?mig} 안에만 · 갈래마다 다른 수는 식으로 · 확인 갈래는 적용 전에는 못 돈다 — 첫 통과는 Caleb 의 확인 실행(그래서 커밋 조건은 exit · MISMATCH)
+   · 시험 전용 변수 · 행은 \if :{?mig} 안에만 · 갈래마다 다른 수는 식으로 · 확인 갈래는 적용 전에는 못 돈다 — 첫 통과는 Caleb 의 확인 실행(그래서 커밋 조건은 exit · MISMATCH) [2026-10-06 · §50-c] 확인 기대 OK = 시험 수 − 시험에서만 도는 G0(58/58 · 41/39 · 24/23)
 ⭐ [2026-10-05 · so-module §39-d 1] 판정 값(최대 · 모자람 · 가용)은 definer 창구 하나에서 — 화면이 invoker 읽기 조각을 모아 셈하면 RLS 걸린 표에서 사람마다 눈이 갈린다(mv v1 · E8) → [2026-10-06 · 두 번째 실사고 · 판정 264] so_available_many 가 invoker 라 transfer 열쇠 없는 직원에게 트랜스퍼 예약이 0(468/2/466 → 468/0/468) — 속 함수 inv_available_base 를 definer 로(so-module §46)
 ⚠️ [2026-10-05 · so-module §44-d 6 · asm-1 ~ 2b2] 콤보 차수의 검증 · 재발행 교훈
    · SQL 의 `or` 는 짧게 끊지 않는다 — `if a or b::numeric` 은 캐스트가 먼저 터진다 · 글자 검사와 캐스트는 if 를 가른다
@@ -291,6 +294,11 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ [2026-10-06 · §49-d 2] **가족 단위 되살림은 가족 집합으로** — used_so_id 하나로 보면 형제를 취소할 때 모체가 쓴 쿠폰을 못 본다
 ⚠️ [2026-10-06 · §47-c] `pg_temp.attempt()` 는 **되돌리는** 도우미(ZZ999) — 남아야 하는 쓰기(합치기 다음 단계 등)는 직접 부른다 · 상태는 저장 직후 `\gset`(끝에서 한꺼번에 읽으면 중간 값이 사라진다)
 ⚠️⚠️ [2026-10-06 · §47-d 1] **시험 재료는 가짜만** — dsc-0 조사 중 실제 초안 SO-25039 에 rollback 되는 트랜잭션 안에서 줄을 넣었다(Caleb 지적) ⇒ 가짜 오더 · 제품 · 딜 · 쿠폰(SO-79xxx · DSC*-) · 가짜 딜은 꺼진 채 만들고 가짜 손님 걸기 줄 → 켜기(딜 변경 트리거가 실제 오더를 표시하지 않게)
+⚠️ [2026-10-06 · so-module §50-d 5] **권한을 볼 때는 넷을 한 번에** — 정책(pg_policies) · 표 권한 · RLS 켜짐(relrowsecurity) · 기본 권한(pg_default_acl) · ⚠️ postgres 가 만든 새 표 = anon 전부 · 새 함수 = anon EXECUTE(기본 권한) — 만든 파일에서 회수한다
+⚠️ [2026-10-06 · §50-d 7] **집합 함수 · 트리거는 검증 안에서 clock_timestamp() 로 재고 「트리거 끈 바닥값」과 함께 보고** — 「값은 맞다」로 68 s 를 지나칠 뻔했다
+⚠️ [2026-10-06 · §50-d 8] `array_agg(distinct … order by 1)` 불가 — distinct 서브쿼리로
+⚠️ [2026-10-06 · §50-d 9] **트리거 함수는 직접 실행 시험이 안 된다**(권한보다 「only as triggers」가 먼저) — has_function_privilege 로
+⚠️ [2026-10-06 · §50-d 10] **창구 호출을 묶어 부르면 「그대로인가」 검사는 호출 사이에**(dsc-4a 세 번) · jsonb 글자 인자는 `to_jsonb(text)` · 가짜 닫힌 오더는 shipped 로(fulfilled · cancelled 는 so_closed_at_ck)
 ```
 
 ---

@@ -1324,7 +1324,7 @@ family           ✅ prod-3b(36673e3 · 판정 181 ~ 185) — 두 길을 한 창
             product_delete_lock before delete · IM175 「SKU % has stock or cost history and cannot be deleted — make it inactive instead — nothing was saved」 · FK(23503)보다 먼저 거부
             둘 다 함수 product_sku_lock()(definer · search_path · TG_OP 로 가름 · 실행 권한 없음 · 문 없음 판정 174) · 원래 있던 product_touch 그대로
             검사 = inv_ledger.sku 또는 inv_layer.sku = old.sku 한 행이라도 · 글자 그대로(BSMirror → BSMIRROR 도 거부) · errcode 관례 IM + 판정 번호
-닫힌 표     product · product_family · product_barcode · product_bom · product_supplier · product_price · product_tag · ref_price_tier — authenticated 는 select 만
+닫힌 표     product · product_family · product_barcode · product_bom · product_supplier · product_price · product_tag · ref_price_tier — authenticated 는 select 만 [2026-10-06 · so-module 판정 336 · §50] product_tag 의 문 = product_update 의 tag_add · tag_off
             ⚠️ 정책만 지우면 update · delete 는 에러 없이 0행(조용한 실패) — revoke 라야 셋 다 42501 · 마이그레이션 끝 do 블록이 여덟 표 · 트리거 둘을 세어 어긋나면 되돌린다
 창구 둘     product_create(p_items jsonb, p_commit boolean default false, p_ack text[] default '{}') returns jsonb — 낱개 여럿(최대 200) · 낱개마다 sets[]
             product_family_create(p_family jsonb, p_items jsonb, p_commit boolean default false, p_ack text[] default '{}') returns jsonb
