@@ -1582,7 +1582,7 @@ credit_applied   이 크레딧이 어느 인보이스에 얼마씩 붙었나  (p
 ```
 credit_note   머리 — 번호(CR-01000~) · 손님 · 날짜 · 원본 인보이스 · 사유 · 합계 · 상태
 credit_line   무엇을 깎나
-                kind        product · freight · tax · other
+                kind        product · freight · tax · other [2026-10-07 정정 · surcharge-2b · dsc-3b · fr-3 · §52] + restocking_fee · surcharge · order_discount · freight_discount(fr-3 · 자동 · 운임 되돌림 줄 뒤 · 같은 비율)
                 account     계정과목 — 기본값은 kind 로 채우고 바꿀 수 있게 (FK + 원문 · 5-a 계정과 같은 모양)
                 so_line_id  ⭐ 원 판매 라인(nullable — 파손·other·운임은 없다 · ✅ 검토 이견 4 채택 · 아래 「원장 짝」)
                 sku · qty   product 일 때
@@ -2606,7 +2606,7 @@ ims_perm_catalog   master 라벨에 product tags · deals(바뀐 줄 1)
 다시 매기기    할인만 — 들어간 줄의 list_price 는 그대로(⬜5 「가격표가 바뀌어도 따라가지 않는다」 유지) · unit = 그 줄 list × (1 − 새 d/100) · 새로 넣는 줄만 quote 의 list 를 받는다 · 티어를 바꿔도 list 는 안 바뀐다(lines_keep_prices)
               자동: so_line_add 합치기 · so_lines_paste 합치기 · so_line_update qty(시스템 줄만) · discount_pct 비움(시스템으로) · 수동: so_reprice · 표시: so_header_update 가 order_date · price_tier · discount_pct 를 바꿀 때 줄이 있으면 reprice_suggested_at
 오더 전체      so_order_discount(so_id) — 켜짐 ∧ is_order_level ∧ 기간(order_date) ∧ 손님 → 가장 큰 order_pct · so_create 가 굳힌다(source deal) · 손님·오더 날짜 바꾸기·so_reprice 는 source deal 일 때만 다시 · manual 은 덮지 않는다 [2026-10-06 정정 · 판정 282 · 308 · 309 · 323 · §48 · §49] 단계(so_deal_tier min_amount ≤ so_lines_total) · 쿠폰 딜 · 출처 deal|coupon · 쓰기는 so_order_discount_apply(manual · 잠김 건너뜀)
-              so_detail totals: order_discount_amount = round(lines_total × pct/100, 2) · lines_after_discount · order_total = lines_total − amount + charges_total(운임은 기준에 없다)
+              so_detail totals: order_discount_amount = round(lines_total × pct/100, 2) · lines_after_discount · order_total = lines_total − amount + charges_total(운임은 기준에 없다) [2026-10-07 정정 · 판정 352 · 354 · fr-1 · §52] 운임 할인은 totals 의 새 열쇠(charges_discount_amount · charges_net_total) · 기존 charges_total 은 정가 · order_total 둘은 할인을 뺀 값
 경고           deal_ended_before_line_added(줄의 딜 date_to < 줄 넣은 날(ims_today) · so_detail 은 줄 created_at 의 토론토 날짜) · reprice_suggested(so.reprice_suggested_at) · no_price · comments_not_merged
 ```
 
@@ -2658,7 +2658,7 @@ so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음
 100% 딜 줄 함정 — unit_price 0 → so_line_free_pair_ck(무상 사유)에 걸린다 · 실물 최대 50% · 막을지 무상으로 볼지 판정 ✅ [2026-10-06 정정 · 판정 288 · §48] so_deal_line_pct_ck 0 < pct < 100 · 무상은 free_reason
 무상·덮어쓴 줄이 오더 전체 할인 소계에 드는가 — 든다(짐작 · 청취 「sub total」 · SO-10842 로는 못 봤다)
 인보이스·세금 차수 — Cin7 은 제품 줄 세금과 할인 줄 세금을 따로 매겨 더한다(SO-10842 439.36 vs 한 번에 439.35 · 1센트) → ✅ [2026-09-24 §16 판정 3] 줄마다 반올림(so_tax_amount) · 세금 ①·② 섰다
-운임 할인 칸 — Cin7 은 「운임 174.26 · 할인 100% · 합계 0」으로 무료 배송을 남긴다 · so_charge 에는 할인 칸이 없다(무료 배송 측정이 필요하면 칸 판정)
+운임 할인 칸 — Cin7 은 「운임 174.26 · 할인 100% · 합계 0」으로 무료 배송을 남긴다 · so_charge 에는 할인 칸이 없다(무료 배송 측정이 필요하면 칸 판정) [2026-10-07 정정 · 판정 353 · fr-1 · §52] 칸 둘이 생겼다 — so_charge.discount_pct · discount_amount(하나만) · 식 so_charge_discount 한 곳 · 100% = 무료 배송
 딜·태그 적재 차수 — 태그(Cin7 제품 Tags · 새 GAS · 대소문자만 다른 짝이면 멈춤) · 딜(Export CSV 를 Drive 에 · % 는 DiscountName 이름에서만 · Case Discount 7줄 % 없음 = 못 옮긴다 · 몇 개 이상은 UOM 태그 이름에서만 ·
    손님은 이름 콤마 목록 → customer.name(유니크 아님 · 겹치면 멈춤) · SKU → product.sku · BrandName → ref_brand.name · 못 맞추면 멈춤 · 어느 딜을 옮길지(전부 · 켜져 있고 끝나지 않은 것만)는 Caleb 판정)
 손님 정리 거리 — 쓰레기 손님(';6 · €)이 시험에 뽑혔다(12-h 목록에 더한다) · 쿠폰 코드 방식(손님이 코드를 넣으면 걸린다) — Shopify 연동 차수 · so_deal.coupon_code 원문은 있다 ✅ [2026-10-06 정정 · 판정 283 · §49] 쿠폰 코드 방식은 so_coupon(Shopify 차수가 아니라 IMS 창구)
@@ -3023,7 +3023,7 @@ so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IM
  ⬜3 ims_region_from_address(p_country, p_state) → (country_code, region_code, how) — ① country 정규화(CA·CANADA → CA · US·USA·UNITED STATES → US · 그 밖 원문 있으면 '*' · 비면 ②) ② state 를 별칭 표에서(country 가 정해졋으면 그 나라 안에서만) ③ 'CA' 는 country 가 Canada 면 나라 전체 · US 면 캘리포니아 · 비면 null ④ 못 찾으면 null → tax_region_unknown ·
      how 일곱(address · country_other · region_missing · region_unknown · inferred_from_region · ambiguous · unknown) · 표기 목록은 표로(ref_region_alias · kind country|region · alias_norm = upper(trim) · 유니크 (kind, alias_norm) · 관계 표 · DELETE 열림 · 씨앗 143 = 캐나다 13 + 미국 50 코드·이름 + §3 조사 실물 표기)
  ⬜4 계산 창구 셋(읽기 · invoker · authenticated) — so_tax_rule_for(country, state, on, direction) → jsonb(rule_id · rule · rate_pct · effective_from · region(how) · matched region|country|world · warnings tax_region_unknown|tax_rule_not_linked) · so_tax_amount(amount, rate_pct) = round(amount × rate_pct/100, 2) immutable ·
-     so_tax_preview(so, on, rule_id) → 줄마다 · 오더 전체 할인 줄(−round(Σ × pct/100, 2)) · 운임 줄마다 · totals · source · ⬜4 「사람이 바꿨다 표시」 → 세금 ② tax_rule_manual(판정 7 로 뜻이 바뀜)
+     so_tax_preview(so, on, rule_id) → 줄마다 · 오더 전체 할인 줄(−round(Σ × pct/100, 2)) · 운임 줄마다 · totals · source [2026-10-07 정정 · 판정 354 · fr-1 · §52] 운임 할인 줄 charge_discounts[] · totals charges_discount_amount · charges_discount_tax · charges_net_amount(기존 charges_amount · charges_tax 는 정가 · taxable · tax · total 은 할인을 뺀 값) · ⬜4 「사람이 바꿨다 표시」 → 세금 ② tax_rule_manual(판정 7 로 뜻이 바뀜)
  ⬜5 나눈다 — 세금 ① = 표 셋 · 씨앗 · 알아보기 · 찾기 · 계산 · 세율 불변(창구 무접촉) · 세금 ② = so.tax_rule_id · tax_rule_manual · 창구 재발행 · 판정 7
  ⬜6 customer.tax_rule 은 원문 그대로 · 계산에 안 씀 · 주석 「계산에 쓰지 않는다 · 91% 틀림 · 2026-09-24」(세금 ② 에서 갱신) · FK 칸은 만들지 않는다(쓸 곳이 없다) · 재적재가 계속 덮는 것도 그대로(사실 기록)
  ⬜7 CSV 시드를 마이그레이션에(31줄 그대로 · on conflict (name) do nothing · 계정은 code 로 조회 · 「판정 값은 마이그레이션이 넣는다」 ref_price_tier 선례) · QBO 는 자리만
@@ -3412,7 +3412,7 @@ is_split   50% COD 둘 true
 판정 5  「보통 60일 이상이 지나면 20%를 부과하는데, 이것은 자동으로 붙이지 말아줘」 — 알림만(restock_fee_window:N · fee_suggested) · 넣으면 Restocking fee 줄 20% 미리 채움 · % 바꿀 수 있다 · 60·20 은 설정(inv_config 잠금) · 기준일 = 원 인보이스 발행일(IMS 는 손님이 받은 날을 모른다)
 판정 6  「불가피한 일이야. a로 가자」 — 전환 전 Cin7 판매의 반품도 IMS 크레딧 · 원본 = Cin7 번호 원문 · 줄은 SKU·수량·그때 단가를 손으로 · 원가는 원장 Cin7 sale_out 되짚기 · 📌 전환 설계 거리(19-g)
 판정 7  「a로 가자」 — 리스탁킹 피 계정은 비워 둔다(so_credit_restock_fee_account_code 빈 값) · 수수료 줄을 넣을 때 매니저가 고른다(없으면 거부) · 회계사가 정하면 값만 · 계정 코드 키는 잠금 밖
-이미 정해진 것(8-e · 8-g · §18): 번호 CR-01000~ · 줄 kind product · freight · tax · other(+ restocking_fee 가 더해졌다 · ⬜2) · so_line_id nullable · restock 줄이 credit_in(so_out 의 반대 · 칸 단위) · 리스탁 칸 = 그 SKU 가 지금 있는 칸 · 손님 서류 · 취소 manager · 번호 재사용 금지 · 발행 순간 진 빚 · 소진 = 다음 인보이스에서 먼저 · 환불은 잔액을 넘지 못한다
+이미 정해진 것(8-e · 8-g · §18): 번호 CR-01000~ · 줄 kind product · freight · tax · other(+ restocking_fee 가 더해졌다 · ⬜2) [2026-10-07 정정 · fr-3 · §52] + surcharge · order_discount · freight_discount(자동) · so_line_id nullable · restock 줄이 credit_in(so_out 의 반대 · 칸 단위) · 리스탁 칸 = 그 SKU 가 지금 있는 칸 · 손님 서류 · 취소 manager · 번호 재사용 금지 · 발행 순간 진 빚 · 소진 = 다음 인보이스에서 먼저 · 환불은 잔액을 넘지 못한다
 ```
 
 ### 19-b 실측 (§3 · Claude Code 가 테스트 DB 읽기만 · 2026-09-24)
@@ -7351,4 +7351,92 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 순서(Caleb 이 정한다 · 대화 Claude 안):
   미룬 125 할인 겹침 규칙 결정 → 인보이스 인쇄 차수(127) → 적재 고침 묶음(113 · 130 · cs-4 + 103 · 109 · 판정 294) → 판정 81 1단계 남은 것(ims-principles §6-c) → description 일거리(126)
 다음 판정 번호: 350
+```
+
+## §52 2026-10-07 오후 — 목록 · 프리오더 · 운임 할인 · 상태 색 · 세일 — so-tot-1 · bo-pre-1 · fr-0 ~ 3 · sale-1 · 판정 350 ~ 361 (2026-10-07 · 회사 PC)
+
+⭐ 닫힌 것: 「SO 목록에 금액이 없다」 · 「프리오더는 입고를 알 길이 없다」 · 「운임이 두 번 들어간다」 · 「운임 할인을 적을 자리가 없다」 · 「상태 · 결제가 목록에서 안 보인다」 · 「세일 제품을 모른다」 — asung-wms **c0aa3e2** · **44af921** · **1e77d5b** · **9ac1f7a** · sale-1(아직 커밋 전) · 화면 asung-ims **89e2784** ~ **2d4ecc5**(아래 52-c)
+⭐ 새 판정 350 ~ 361 · 원문 지시서 `~/asung/prompts/so-tot-1.md` · `bo-pre-1.md` · `freight-0.md` · `fr-1.md` · `fr-2.md` · `fr-3.md` · `sale-1.md` · `docs-1007b.md` · 판정 날짜는 전부 **2026-10-07**(회사) · 다음 판정 번호 **362**
+
+### 52-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 350 | 「세일즈 오더 화면에도 오더 토탈 금액이 나오게」 | 안 A — 목록 Total = 오더 화면 Total(세금 포함 · 나간 뒤 보낸 수량) · 서버 한 곳 so_totals_many |
+| 351 | 「pre order도 back order화면에 보이게 · 입고 확인」 | 안 A — 같은 목록 · Pre-order 이름표 · Kind 거르기 · 판정 9(만료 · 이어받기 없음) 그대로 · 끝난 프리오더는 안 싣는다 |
+| 352 | 「운임 매출과 운임 할인이 따로 보여지게」 | B — 인보이스 · 크레딧에 운임 줄 + 운임 할인 줄 |
+| 353 | 「할인이 두개 필요한 경우는 없을 것 같아」 | ㉠ so_charge 에 할인 칸(discount_pct · discount_amount 하나) · 발행 때 두 줄로 |
+| 354 | 「가」 | 세금은 줄마다(운임 세금 − 할인 세금 · 각각 반올림) · 예 174.26 · 13% · 50% → 11.32 |
+| 355 | 「가」 | 크레딧은 할인도 같은 비율로(마지막 줄이 남은 할인 전부 · 순액 한도) |
+| 356 | 「가」 | % 또는 금액 하나 · 금액 > 운임 막기 |
+| 357 | 「위 안대로 가자」 | 4 다른 할인과 무관 · 6 인보이스에서 운임은 합계 가까이(화면) · 7 견적 칸 없음(Finalize 전 운임에 「estimate」 글자만) |
+| 358 | 「A로 가자」 | 운임 할인 계정 `_6_` Sales Discounts · inv_config `so_freight_discount_account_code` |
+| 359 | 「지금 단계로 가고 색으로 · 라인 말고 색을 채워」 | SO 상태 칩 채운 색(Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강) · Shipped 는 거르기에서 빼고 칩 「Invoice cancelled」(인보이스 취소 뒤에만 생긴다 · §17) |
+| 360 | 「PO status 도 SO 처럼」 · 「closed 보다 completed」 · 「현재 status(점 다섯)는 필요없다」 | PO 칩 Draft · Ordered · Receiving · Received(주황 = 사무실 마무리) · Completed(저장값 closed) · Cancelled · 국면 점 다섯 지움 · 거르기 = 칩 이름 · 판정은 뷰 receipt_phase |
+| 361 | 「세일 라벨」 · 「products 에도 · 세일만 필터」 | 세일 = 오늘 · 켜짐 · 쿠폰 없는 줄 딜 · 조건 있으면 * · 가장 큰 % · Stock · Products 둘 다 · 서버가 거른다 |
+| — | 그 밖(판정 번호 없이 화면만 · Caleb 요청 그대로) | SO 브랜치 거르기 · 결제 태그(unpaid · partly paid · paid · overdue Nd)와 결제 거르기(SO · PO) · SO 목록 Invoice 열 · 인보이스 번호 검색(취소 포함) · Fulfilled 날짜 + 걸린 날 수(같은 날 초록 · 1 ~ 3 일 호박 · 넘음 빨강) · SO 목록 열 순서 Status 먼저 · Confirm 결과에 알릴 것 없으면 창 저절로 닫기 · Release to WMS 확인 창 없앰(되돌릴 수 있다) · Finalize 창이 견적 운임을 미리 채워 고친다(중복 운임 원인) · Stock Movements 순서 단추 |
+
+판정 9(§16 2992행)의 원문 「운임 세금도 cin7이 계산해」는 그대로 둔다 — 옮겨 적을 때는 「운임도 오더 규칙 하나」로(원칙 1 · freight-0 회신)
+
+### 52-b DB 차수 (마이그레이션 · 시험/확인 · 커밋 — git log 원문)
+
+| 차수 | 파일 | 시험 / 확인 | 커밋 |
+|---|---|---|---|
+| so-tot-1 | `20261007161321_so_tot_1_totals_many.sql` | 16/0 · 13/0 | **c0aa3e2** |
+| bo-pre-1 | `20261007163823_bo_pre_1_preorder_list.sql` | 26/0 · 25/0 | **44af921** |
+| fr-1 | `20261007171939_fr_1_freight_discount.sql` | 42/0 · 36/0 | **1e77d5b** |
+| fr-2 | `20261007173939_fr_2_freight_discount_invoice.sql` | 22/0 · 20/0 | **9ac1f7a** |
+| fr-3 | `20261007181109_fr_3_freight_discount_credit.sql` | 25/0 · 22/0 | **9ac1f7a**(fr-2 와 한 커밋) |
+| sale-1 | `20261007202707_sale_1_sale_now.sql` | 28/0 · 26/0 | 0ae88fd(git status 미추적 · 2026-10-07 docs-1007b 시점) · 화면 2d4ecc5 가 product_list 를 부른다 — 테스트 DB 적용 여부는 짐작 |
+
+조사 fr-0(만든 것 없음 · 운임이 지나가는 곳 전수 · 판정 거리 일곱)
+
+**각 차수의 핵심 사실(Claude Code 회신)**
+- so-tot-1: so_detail 과 같은 식을 새 함수에 둠(식 한 곳으로 모으지 않은 까닭 = 살아 있는 so_detail 을 크게 흔든다) · ⭐ **so_detail 의 totals 를 고치면 so_totals_many 도 · 검증 so-tot-1 다시**(fr-1 이 실제로 둘을 함께 고쳤다) · 61 오더 128 ~ 129 ms(so_detail × 61 = 506 ~ 512 ms · 시간의 약 97% 가 so_tax_preview)
+- bo-pre-1: 한 수요 줄의 kind = min(kind) · 끝난 프리오더 없음(so_backorder_proceed 가 프리오더 줄에 장부를 안 적는다 — 판정 후보 · 미룬 132) · 머리 open_backorder · open_preorder · 프리오더 행 notified_at 은 늘 null
+- fr-1: 식 한 곳 so_charge_discount + 검사 so_charge_discount_check · so_charge_set 은 칸 전부 모양(할인 둘 다 null = 없음) · so_finalize 는 열쇠 없으면 그대로 · "" 지움 · 경고 charge_added_beside_existing · so_tax_preview 의 charges_amount · charges_tax 는 정가 · 새 열쇠 charges_discount_amount · charges_discount_tax · charges_net_amount · charge_discounts[] · so_totals_many 반환 열 charges_discount_amount(drop + create)
+- fr-2: 인보이스 줄 kind charge_discount(운임 줄 바로 뒤 · 계정 키 · 설명 「Freight discount 50%」) · 머리 · 오더 charges_discount_amount · taxable CHECK 둘 · so_invoice_list 뷰 열 · fr-1 발행 가드 지움 · 크레딧 가드 넣음
+- fr-3: 크레딧 줄 kind freight_discount(자동) · 머리 freight_discount_amount · 끝수 = 매번 least(round(x × 비율, 2), 남은 할인) · 마지막은 남은 할인 전부 · 순액 한도 · ⭐ 「남은 할인 > 이번 운임」 거부(시험이 잡은 창구 결함 — 옛 모양 크레딧 뒤 음수 순액)
+- 가드 표: fr-1 발행 가드(so_invoice_order BEFORE INSERT) → fr-2 가 지움 · fr-2 크레딧 가드(so_credit_line BEFORE INSERT) → fr-3 가 지움 · 지금 남은 임시 가드 0
+- sale-1: 딜 대상 식 한 곳 so_deal_products_all(so_deal_products 는 껍데기 · 16 딜 같음) · so_sale_now · stk_availability p_sale_only + sale_pct · sale_conditional(세트만 대상인 딜은 낱개 재고 줄에 안 보인다) · product_list(Products 목록 거르기 일곱 + 세일만) · 비용 306 제품 41 ms
+
+### 52-c 화면 (asung-ims · git log 원문)
+
+| 화면 | 판 · 커밋 | 내용 |
+|---|---|---|
+| so.html | v5c 89e2784 · v5d cdd6f34 · v5e 911546a · v5f 702e56c · v5g 93f45b4 · v5h f611867 · v5i 623f678 · v5j a8bc2b4 · v5k 487d457 · v5l 07a47b2 · v5m 7d267c3 · v5n · v5o · v5p ec7d5ac(n · o 는 따로 커밋 없이 p 에 함께) | 목록 Total · Finalize 운임 미리 채움 · 미리 보기 운임 글 · 운임 할인 칸 · estimate · 확정 창 저절로 닫기 · Release 확인 없음 · superseded JSON 고침 · 상태 색 · 브랜치 · 결제 태그 · 열 순서 · Shipped 정리 · 결제 거르기 · Invoice 열 · 인보이스 번호 검색 · Fulfilled 날짜 · 걸린 날 수 |
+| so-invoices.html | inv v2b 702e56c · v2c a824097 · v2d 96f6055 | 운임 · 할인 줄을 제품 표 밖 「Freight and charges」로 · 오더 표 Charges 순액 · 「money on account applied」(= −balance_forward − credit_applied) |
+| so-credits.html | cr v2c 702e56c · v2d a824097 | 할인 · 순액 · 남은 순액 · 「freight discount」 · 「Lines」(Products 아님) |
+| so-backorders.html | bo v3 3a7de42 | 프리오더 · Kind 거르기 |
+| po.html | po st v1 8b758bf · v2 · v3 623f678 · v4 07a47b2(v2 는 v3 커밋에 함께) | 상태 칩 · 점 지움 · 거르기 · 결제 태그 · 결제 거르기 |
+| products.html | pr v4d 2d4ecc5 | product_list · 세일 라벨 · On sale |
+| stock.html | stk v1d db31e25 · v1e 2d4ecc5 | Movements 순서 · 세일 라벨 · On sale |
+
+### 52-d ⚠️ 그날 겪은 실수 — 원인 · 처방
+
+1. [대화 Claude] 상태 뜻을 정본을 안 보고 설명했다 — Shipped 를 「돈 받을 차례」라 했으나 Shipped 는 인보이스 취소 뒤에만 생긴다(§17) ⇒ 상태 · 값의 뜻을 말하기 전에 정본을 grep
+2. [대화 Claude] so v5d 미리 보기가 「No freight line.」 — 화면은 바뀐 운임만 보내고 미리 보기는 보낸 것만 그렸다 ⇒ 미리 보기는 「보낸 것」이 아니라 「결과」를 그린다
+3. [대화 Claude] 인보이스 오더 표 Charges 가 정가라 그 줄이 Total 로 더해지지 않았다 · 크레딧 「Products」 가 실은 운임을 담은 Lines 였다 ⇒ 합계 칸을 새로 나눌 때 같은 값을 쓰는 다른 표 · 칸 이름도 본다(asung-workflow §11 「한 곳만 고친다」 재발)
+4. [대화 Claude] 인보이스 「money on account」 가 balance_forward(크레딧을 이미 담은 「이전 잔액」 한 줄)를 그대로 보여 크레딧이 두 번 · 음수로 보였다 ⇒ 칸 이름과 저장 칸의 뜻을 comment 로 확인
+5. [대화 Claude] Confirm 결과 「Backorders taken over」 가 비었을 때 JSON 글자 ⇒ 객체를 글로 그리지 않는다
+6. [대화 Claude] po.html 점 스타일을 줄 단위로 지우다 이어진 줄 하나가 남아 다음 CSS 규칙을 삼킬 뻔했다 ⇒ CSS 를 지울 때 괄호 수를 센다
+7. [Claude Code] fr-1 회신 이견 7 「so_totals_many 를 부르는 화면이 없다」 는 틀렸다(so v5c 89e2784 가 fr-1 보다 먼저 부르고 있었다) — 열을 이름으로 읽어 깨지지 않음 ⇒ 반환 모양을 바꾸는 차수는 화면 grep 을 보고에
+8. [대화 Claude] 커밋 명령의 md5 확인이 「이미 올라간 판」에서 멈췄다(Caleb 이 앞 명령을 이미 돌림) · GitHub push 500 두 번 ⇒ 확인 조건은 가능한 옛 판을 모두 받는다 · push 실패는 재시도 고리
+9. [Claude Code] 검증 쪽 함정 여섯 — ① 비용 재기에 안 쓰는 stable 출력은 계획기가 지운다(so_detail × 61 = 29 ms 로 보였다 → 반환값을 쓴다) ② 같음 대조를 두 문장으로 받다 그 사이 다른 세션이 오더를 고쳤다(한 문장 = 같은 스냅샷) ③ 끝 do 블록의 단어 검사가 앞 차수 주석의 글자(fr-2)에 걸렸다(무접촉은 md5 로) ④ authenticated 구간의 pg_temp 도우미가 임시 표에 못 썼다(definer 로) ⑤ 정리 재료가 시험 길에 걸렸다(dsc-4e · 손님 · 제품을 가른다) ⑥ 반환 jsonb 열쇠 이름 짐작(so_deal_list 의 id ≠ deal_id)
+
+### 52-e 미룬 것 — §51-e 131 에 이어 붙임
+
+- 131 CHECKLIST 에 surcharge-groups · stock · customers 화면 절이 없다 [2026-10-07 · §52] stock 은 7-zd 로 섰다 · 나머지 둘은 137 로
+- 132 끝난 프리오더를 목록에 남기려면 so_backorder_proceed 가 프리오더 줄에도 장부를 적어야 한다(판정 후보)
+- 133 Finalize 경고 charge_added_beside_existing 의 화면 문장 — so.html WARN 표에 없다(grep 0 · 짐작 아님) · 지금은 warnText 가 코드 글자 그대로 보인다
+- 134 「되돌릴 수 있으면 묻지 않는다」를 다른 단추(Hold 등)에도 — Caleb 판단 거리
+- 135 걸린 날 수 색 문턱(3 일)은 대화 Claude 안 — Caleb 이 바꿀 수 있다
+- 136 세트만 대상인 딜은 Stock availability 낱개 줄에 라벨이 없다(Products 에는 있다)
+- 137 CHECKLIST 옛 판 빈자리(pr v4a · so v4 · pos v1.5 · v1.6 · inv v2 · cr v2 콤보 등) · surcharge-groups · customers 절(미룬 131 과 같은 결)
+
+### 52-f 다음
+
+```
+순서(Caleb 이 정한다): §51-f 의 순서 그대로 + sale-1 커밋 · 화면 시험 기록
+다음 판정 번호: 362
 ```

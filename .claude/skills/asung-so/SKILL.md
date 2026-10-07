@@ -178,6 +178,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 딜 줄은 지우지 않고 끈다(is_active · 330) · 꺼진 줄도 line_no 를 쥔다(새 번호 = 꺼진 줄 포함 최대 + 1 · 342) · 걸기 손님 조건 ≥ 1 → 0 은 ack rules_open_to_all · 대소문자만 다른 태그는 막기 tag_case_conflict(332)
 ⭐  딜 읽기 = so_deal_list() · so_deal_detail(deal, limit) — detail.deal 을 그대로 되돌리면 no_change · 셈은 속 함수 so_deal_products · so_deal_customers(candidates · customer_ok 와 같음은 검증이 증명 · 337)
 ⭐  인보이스 단가 표시는 inv_config so_invoice_unit_display(both · discounted · net · master) — 실제 단가는 그릴 때 계산(판정 284 · 314)
+⭐  [2026-10-07 · §52] 딜 대상 식 한 곳 = so_deal_products_all(딜 여럿 · so_deal_products 는 그 껍데기) · 지금 세일 = so_sale_now(오늘 · 켜짐 · 쿠폰 없는 줄 딜 · best_pct · conditional · deals[]) · 제품 목록 = product_list(화면 거르기 일곱 + p_sale_only · 서버가 거른다 — 세일 제품이 수천) · stk_availability p_sale_only + sale_pct(세트만 대상인 딜은 낱개 줄에 안 보인다)(판정 361)
 ```
 
 ## 4-d. ⭐⭐ 확정·할당(②a·②b) — 모르면 사고 (정본 §14)
@@ -206,6 +207,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ sweep 은 cron(postgres)만 부른다(authenticated 42501) · 만료 기간은 supervisor 이상만(inv_config_guard · 잠긴 키 목록 ims_config_locked_keys · 값은 양의 정수)   (판정 14)
 ⭐  「입고됨」 = 백오더 뒤 그 창고에 po_in 또는 다른 창고에서 온 transfer_in(출발 줄 있고 출발 ≠ 도착 · IN_TRANSIT 제외) · 조정·반품·조립·출발 줄 없는 도착은 아니다 · notified_state unknown_pre_ims 는 「안 보냄」이 아니다(GAS 가 Cin7 에서 보낸다)   (판정 6·7 · 이견 8)
 ⚠️  CHECK 를 넓히면 함수 본문의 같은 값 목록도 훑어라(so_split 실사고 ③a′) · 쓰기 창구를 FROM 의 lateral 에서 부르지 마라(③a 검증 v1) · 시험은 order_date 를 과거로(시간은 못 바꾼다) · cron.sql 의 이 잡은 테스트 DB jobid 1(운영엔 함수 없음)
+⭐  [2026-10-07 · §52] Backorders 목록에 프리오더도(행 kind backorder | preorder · 거르기 kind · 머리 open_backorder · open_preorder) — 프리오더는 만료 · 이어받기 · 알림 없음(판정 9) · 끝난 목록은 백오더만(proceed 가 프리오더 줄에 장부를 안 적는다 · 미룬 132)(판정 351)
 ```
 
 ## 4-f. ⭐⭐ 세금(세금 ①·②) — 모르면 사고 (정본 §16)
@@ -233,6 +235,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 번호 60000~(접두어 없음 · 재사용 금지 · 취소해도 남는다) · 취소·재발행은 manager(so_invoice_cancel · so_invoice_reissue) · 취소 = 문서 전체가 틀렸을 때(부분 문제는 크레딧) · 담긴 오더 invoiced→shipped · ⚠️ 결제·크레딧이 붙었으면 거부는 ⓑ·ⓒ 가 재발행해 더한다
 ⭐⭐ balance_forward 는 ⓑ 전에 null(0 을 넣지 마라 — 「잔액 0 을 확인했다」로 읽힌다) → ⓑ2 부터 발행이 채운다(0 이하 · 봤는데 없으면 0 · 4-h) · 기한 = 발행일 + net_days(판정 10 · 34 값 · null 이면 경고 due_date_unknown · split 이면 split_terms) · 조기결제 할인 기한은 안 찍는다
 ⚠️  so_detail 은 shipped·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본 · ⓑ2 부터 invoiced 상태 값 없음) · so_family_* 남은 수량 = 주문 − 뺀 것 − 보낸 것 · fulfilled 로 옮기는 때·발행 시점 잔액·취소 가드는 ⓑ → 4-h
+⭐⭐ [2026-10-07 · §52] 운임 할인 — so_charge.discount_pct | discount_amount(하나 · 식 so_charge_discount) · 세금은 줄마다 · 인보이스 줄 kind 다섯(product · charge · order_discount · surcharge · charge_discount — 운임 줄 바로 뒤 · 음수) · 머리 · 오더 charges_discount_amount(charges_amount 는 정가) · 계정 inv_config so_freight_discount_account_code(_6_ · 비면 할인 운임 발행만 막는다)(판정 352 ~ 358)
+⭐  [2026-10-07 · §52] 상태 칩 색 — SO(판정 359): Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강 · Shipped 는 인보이스 취소 뒤에만(칩 「Invoice cancelled」) · PO(판정 360)는 asung-po §0
 ```
 
 ## 4-h. ⭐⭐ 결제 · 손님 잔액 · 선결제(ⓑ) — 모르면 사고 (정본 §18)
@@ -265,6 +269,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 환불은 크레딧부터 — 한도 received + owed_credit · so_credit_alloc.refund_payment_id · received 는 크레딧이 갚은 몫만큼 안 준다 · 환불 취소가 그 몫을 함께 void
 ⭐  남은 금액(so_invoice_remaining) = total − 결제 붙임 − 크레딧 붙임 · 잔액 owed_credit = Σissued total − Σ활성 alloc(인보이스·환불) · 식은 so_customer_balance 하나
 ⚠️  inv_layer_apply_done 은 inv_layer_apply 가 만드는 임시 표 — 보조 함수에서 스키마 접두를 붙이지 마라(2026-09-25 실사고 · 1차 실행 실패) · 한 크레딧에 같은 SKU 가 다른 원 판매에서 오면 첫 줄의 판매로 되짚고 경고 mixed_origin_sales
+⭐⭐ [2026-10-07 · §52] 운임 할인 되돌림 — 크레딧 줄 kind freight_discount(자동 · 보내면 거부 · 운임 줄 바로 뒤 · 계정 = 인보이스 할인 줄 것) · 같은 비율 least(round(x × 할인/정가, 2), 남은 할인) · 정가를 다 돌려주는 마지막 줄은 남은 할인 전부 · 순액 한도 · 「남은 할인 > 이번 운임」 거부 · 머리 freight_discount_amount(≤ 0)(판정 355)
 ```
 
 ## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
@@ -290,6 +295,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 화면은 DB 값을 그리기만 · 세트는 기본 숨김(케이스도 낱개 × 수량 · Include sets 는 manager) · Proceed 는 기다려 주지 않는다(잡힐 것 없으면 막힘) · POS 매장은 기기 localStorage(CLAUDE.md §5 예외)
 ⚠️  Manager List 의 즉시 결제 = ref_payment_term.net_days 0 — 손님 결제조건 자료만큼만 정확(Net30 6,305 정리 전) · Unpaid 탭은 브랜치로 못 거른다(뷰에 창고 칸 ⬜)
 ⭐  [2026-10-06 · §46] 재고 화면 창구 stk_availability · stk_bins · stk_bins_many · stk_movements(definer · 로그인 + 활성 직원 · 원가 없음) · 모든 수량은 낱개(EA · 세트 표시는 참고만) · so.html 은 ?so=<번호> 로 연다(?id= 아님) · so-credits.html 은 ?cr=<번호>
+⭐⭐ [2026-10-07 · §52] 목록 금액 = so_totals_many(p_so_ids ≤ 200) — so_detail.totals 와 같은 식이 두 곳에 있다 ⇒ so_detail 의 totals 를 고치면 so_totals_many 도 · 검증 so-tot-1 다시(판정 350)
 ```
 
 ## 4-l. ⭐⭐ 관세 부가 요금(surcharge) — 모르면 사고 (정본 so-module §37)
