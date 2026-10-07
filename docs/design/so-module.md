@@ -6938,7 +6938,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 283 | 쿠폰 — 오더 전체만 · 손님 하나 · 한 번 · 기한 · 하나씩/한꺼번에 발행 · 자동과 큰 쪽 · Confirm 에 씀 · 취소 되살림 · 합치기 큰 쪽 · 나누기 같은 % · 크레딧 안 되살림 |
 | 284 | 표시 — 줄 DISC % 는 줄 할인만 + 오더 할인 뒤 실제 단가 칸 · 인보이스는 회사 설정 하나(둘 다 · 할인가 · 실제 단가) · 그릴 때 계산 |
 | 285 | 규칙 · 쿠폰 발행은 master · 쓰기는 창구로만(dsc-4) [2026-10-06 정정 · 판정 330 ~ 344 · §50] dsc-4a ~ 4c 로 닫힘 |
-| 286 | 규칙이 바뀌면 열린 오더는 그대로 + 다시 매기기 권함 |
+| 286 | 규칙이 바뀌면 열린 오더는 그대로 + 다시 매기기 권함 [2026-10-07 정정 · 판정 349 · §51] 다시 매기기 권함(깃발)은 **초안**에만 — Confirmed 는 찍지 않는다 · 초안을 떠나면 지운다 |
 | 287 | 미리 보기 첫 판 · 오더와 같은 DB 식 |
 | 288 | 덤 첫 판 제외 · kind 자리 · 할인 % < 100 |
 | 289 | D9 정정 — 카테고리 · 쿠폰 · 금액 기준 · 덤을 다시 연다 |
@@ -7000,7 +7000,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 310 | 기준 금액 = `so_lines_total(p_so_id)` 한 곳 · so_detail 이 부른다 |
 | 311 | 다시 고르기 = so_line 행 트리거 · draft ∧ source ≠ manual ∧ 안 잠김 · 경고 `order_discount_rule_now_better {rule_pct · manual_pct}` 는 so_detail |
 | 312 | `so.order_discount_locked_at` — so_split 이 모체 · 형제에 · 백오더뿐 아니라 so_divide 도(Caleb 「가」 — 손님이 주문한 금액으로 정하고 나눠도 바뀌지 않는다) · 잠긴 오더는 트리거 · so_reprice 가 오더 할인을 건드리지 않음 · manual 은 덮을 수 있음 · so_merge 새 머리 null |
-| 313 | 딜 변경 경고 = 행 트리거 + WHEN 뜻 있는 칸 · 범위 draft · confirmed ∧ 기간 ∧ 손님 조건 · 손님 조건 표의 변경은 기간만 보고 전부 |
+| 313 | 딜 변경 경고 = 행 트리거 + WHEN 뜻 있는 칸 · 범위 draft · confirmed ∧ 기간 ∧ 손님 조건 · 손님 조건 표의 변경은 기간만 보고 전부 [2026-10-07 정정 · 판정 346 · 349 · §51] 범위는 **초안**만(349) · 줄 딜은 창구 so_deal_save 가 전 ∪ 뒤 제품이 든 오더만 찍는다(346 · ims.deal_flag_door) · 창구 밖 쓰기(적재 · 직접 SQL)는 트리거가 지금처럼 넓게 |
 | 314 | inv_config `so_invoice_unit_display` = both(both · discounted · net) · inv_config_guard 를 키마다 규칙으로 · 이 키는 어휘 검사 + master |
 | 315 | so_deal.customer_scope 와 CHECK 삭제 |
 
@@ -7022,7 +7022,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 후보        so_deal_candidates — so_deal_best 는 그 won 한 줄 · so_quote_preview 가 목록을 그대로(판정 287 · 300 · 304)
 오더 층     so_order_discount = 켜짐 ∧ 오더 딜 ∧ kind pct ∧ 기간 ∧ 손님 조건 ∧ 단계 min_amount ≤ so_lines_total → 큰 pct · 쓰기는 so_order_discount_apply 한 곳
 다시 고르기 so_line 트리거(qty_ordered · unit_price · free_reason · qty_removed · insert · delete) · manual(0 포함) · 잠김은 건너뜀 · null 넣기 = 다시 찾기(잠금도 넘는다)
-경고        so_detail: order_discount_rule_now_better + order_discount_rule{rule_pct · rule_deal_id · manual_pct} · 딜 표 다섯이 바뀌면 열린 오더 reprice_suggested_at [2026-10-06 정정 · 판정 333 · 344 · §50] coupon_required 도 표시 · 제품 속성(brand · category · 낱개 · 태그)이 바뀌어도 그 제품이 든 열린 오더에 표시(문장 트리거)
+경고        so_detail: order_discount_rule_now_better + order_discount_rule{rule_pct · rule_deal_id · manual_pct} · 딜 표 다섯이 바뀌면 열린 오더 reprice_suggested_at [2026-10-06 정정 · 판정 333 · 344 · §50] coupon_required 도 표시 · 제품 속성(brand · category · 낱개 · 태그)이 바뀌어도 그 제품이 든 열린 오더에 표시(문장 트리거) [2026-10-07 정정 · 판정 346 · 349 · §51] 열린 오더 → **초안**에만(349 · 초안을 떠나면 트리거 so_reprice_flag_draft_only 가 지운다) · 줄 딜은 창구가 제품까지 보고(346)
 ```
 **만들며 정한 것(판정 아님 · dsc-3a 회신)**
 - so_header_update 의 `order_discount_pct: null`(다시 찾기)은 잠긴 오더에서도 지금 기준 금액으로 다시 고른다(잠금 칸은 남는다) — 사람의 뜻으로 봤다
@@ -7124,8 +7124,8 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 - 117 Cin7 Deals 26건 적재(13-k 딜·태그 적재 차수)
 - 118 덤(free item) — kind 자리만(판정 288)
 - 119 dsc-4 쓰기 창구 — 딜 · 단계 · 손님 조건 · 쿠폰 표를 창구로만(판정 285 · 지금 master RLS) ✅ 닫힘 [2026-10-06 정정 · 판정 330 ~ 344 · §50]
-- 120 화면 묶음 — 딜 · 쿠폰 · 미리 보기 · 오더 할인 표시(판정 284 실제 단가 칸) · 인보이스 단가 표시 설정
-- 121 문서 — 화면 묶음 뒤 정본 · 스킬
+- 120 화면 묶음 — 딜 · 쿠폰 · 미리 보기 · 오더 할인 표시(판정 284 실제 단가 칸) · 인보이스 단가 표시 설정 ✅ 닫힘 [2026-10-07 정정 · 판정 346 · 347 · 349 · §51] dr v1 ~ v2 · so v5a · v5b · inv · cr v2a · v2b · pos v1.7 · v1.8 · pr v4b · v4c — 단 「인보이스 단가 표시 설정」은 미룬 127 로 옮김
+- 121 문서 — 화면 묶음 뒤 정본 · 스킬 ✅ 닫힘 [2026-10-07 · §51] docs-1007
 
 ### 49-f 다음
 
@@ -7160,7 +7160,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 331 | 딜의 판 = `so_deal.updated_at` 하나 — 화면은 읽은 글자를 손대지 않고 p_old 로 되돌린다 · 다르면 changed_elsewhere · 없으면 old_missing · ⭐ 창구가 자식을 고치면 머리도 건드린다(ims_touch 는 자기 행만 · 이 전제가 없으면 자식 변경을 못 알아챈다) | 판 번호 칸 — 선례 없음 |
 | 332 | 딜 대상 태그가 어느 제품에도 없으면 ack `tag_unused` 로 허용 · 대소문자만 다른 태그는 막기 `tag_case_conflict`(product_tag · 다른 딜 대상 · 같은 호출) · 소문자로 바꾸지 않는다(btrim 만) | 제품 태그가 먼저 있어야 저장 — 일하는 순서를 묶는다 |
 | 333 | `so_deal_changed_u` 의 WHEN 에 coupon_required — 켜면 자동 후보에서 빠지므로 표시가 찍혀야 한다(빠져 있던 결함) · 이름 · 메모는 표시 안 함 | 경고만 |
-| 334 | 쿠폰 딜을 끄거나 coupon_required 를 끌 때 쓰지 않은 쿠폰은 그대로 · ack `deal_off_with_coupons{n}` — 다시 켜면 살아난다 | 같이 무효 — 되돌릴 수 없다 |
+| 334 | 쿠폰 딜을 끄거나 coupon_required 를 끌 때 쓰지 않은 쿠폰은 그대로 · ack `deal_off_with_coupons{n}` — 다시 켜면 살아난다 [2026-10-07 정정 · 판정 347 · §51] 경고는 「쿠폰이 먹히던 상태(is_active ∧ coupon_required ∧ is_order_level) → 안 먹히는 상태」로 넘어가는 저장에서만 | 같이 무효 — 되돌릴 수 없다 |
 | 335 | dsc-4a 가 닫은 권한 — 일곱 표(so_deal · so_deal_tier · so_deal_line · so_deal_target · so_deal_customer_rule · product_tag · so_coupon): anon 전부 회수 · authenticated SELECT 만(쓰기 정책 drop · insert/update/delete/truncate 회수) · so_coupon_key anon 회수 · 끝에 세는 do 블록 · 새 창구는 public · anon 회수 + authenticated grant · 속 함수는 authenticated 까지 회수 · ⭐ §13-e ⬜5(딜 · 태그 쓰기 = master RLS)를 **뒤집는다** — 그때 이유 ① 표 사이 규칙이 트리거 하나 → 문지기 셋으로 늘었다 ② 적재는 service_role → 닫아도 안 깨진다는 뜻일 뿐 | 25 표까지 한 번에 — 할인과 무관한 범위로 번진다 |
 | 336 | 태그 쓰기 = `product_update` 의 op `tag_add {sku, tag}` · `tag_off {sku, tag}` — 제품 문은 하나(판정 140) · barcode_add/off 결 · btrim 만 · tag_case_conflict · 떼기는 삭제 · 마지막 제품에서 떼고 켜진 딜이 쓰면 ack `tag_off_used_by_deal` | 따로 product_tag_set — 제품 문이 둘 |
 | 337 | 목록 셈은 새 집합 함수로 따로 · 같음은 검증으로 — `so_deal_products` · `so_deal_customers`(속 함수) · so_deal_candidates · so_deal_customer_ok 는 무접촉 · 이유: 어긋나면 틀리는 것이 A 는 목록 숫자 · B(심장 재구성)는 손님 가격 | candidates 를 집합 함수 위에 재구성 |
@@ -7168,7 +7168,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 340 | 통째 저장 짝짓기 열쇠 — 줄 = id(없으면 새 줄 · 덩이에 없는 기존 줄은 끔) · 단계 = tier_no(덩이에 없으면 지움) · 대상 · 손님 조건 = 내용 전체(빠지면 지움) · 쓰기 순서 지우기 → 고치기 → 넣기 · ⭐ 맞바꾸기(단계 금액 · 줄 번호)는 성공해야 한다 → 두 유니크(so_deal_tier (deal_id, min_amount) · so_deal_line (deal_id, line_no))를 deferrable initially immediate 로 · 창구 안에서 set constraints deferred | 모두 id — 대상 · 조건은 고칠 칸이 없어 얻는 것이 없다 |
 | 342 | 꺼진 줄도 line_no 를 쥔다 — 그대로 · 새 번호는 화면이 「꺼진 줄 포함 최대 + 1」 | 끄면 번호 비움(NOT NULL 풀기 · 옛 오더의 「3번 줄」 뜻이 바뀐다) · 켜진 줄끼리만 유니크(부분 유니크 금지 규칙 29) |
 | 343 | 덩이 계약 — 없는 열쇠 = 그대로 · 빈 배열 [] = 전부 지움(줄은 끔) · is_active false 로 돌아온 줄 = 없는 줄 · 읽기 전용 칸(cin7_id · source · created_at · updated_at · updated_by · coupon_code · 자식의 deal_id/line_id)은 지나침 · 모르는 열쇠 field_unknown · ⭐ 저장 전 걸기(include) 손님 조건 ≥ 1 이고 저장 뒤 0 이면 ack `rules_open_to_all{n_before}`(만들기 · rules 열쇠 없음은 묻지 않음) | 확인 없음 — 「Edmonton 만 15%」가 화면 실수 하나로 전 손님 15% 가 된다(돈이 새는 조용한 실수) |
-| 344 | 제품 속성이 바뀌면 그 제품(과 그 제품을 낱개로 둔 세트)이 든 열린 오더에 reprice 표시 — **트리거** · 일으키는 칸 = product.brand_id · category_id · parent_product_id · product_tag insert/delete/update(걸림 판정이 읽는 전부 · is_active · sellable 은 안 읽는다) · 켜진 딜의 켜진 줄 대상에 그 종류(옛 · 새 값)가 있을 때만 · **문장 트리거**(transition table) · 열린 집합은 so_deal_flag_open_orders 한 곳(p_product_ids 인자 추가) · 화면 · 적재 공통 · 판정 338 과 다른 이유: 딜 표는 한 번에 수십 행 · 제품 표는 수만 행 | product_update 안에서만 — 재적재를 놓친다 |
+| 344 | 제품 속성이 바뀌면 그 제품(과 그 제품을 낱개로 둔 세트)이 든 열린 오더에 reprice 표시 [2026-10-07 정정 · 판정 349 · §51] 열린 오더 → 초안 — **트리거** · 일으키는 칸 = product.brand_id · category_id · parent_product_id · product_tag insert/delete/update(걸림 판정이 읽는 전부 · is_active · sellable 은 안 읽는다) · 켜진 딜의 켜진 줄 대상에 그 종류(옛 · 새 값)가 있을 때만 · **문장 트리거**(transition table) · 열린 집합은 so_deal_flag_open_orders 한 곳(p_product_ids 인자 추가) · 화면 · 적재 공통 · 판정 338 과 다른 이유: 딜 표는 한 번에 수십 행 · 제품 표는 수만 행 | product_update 안에서만 — 재적재를 놓친다 |
 
 ### 50-b 창구 · 실물
 
@@ -7204,7 +7204,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | product_tag (product_id, tag) | hit `pt.tag = t.tag` | target=tag ∧ tag ∈ {옛 글자, 새 글자} |
 | is_active · sellable · sku · name … | 읽지 않는다 | — |
 
-범위 = {바뀐 제품 X} ∪ {X 를 낱개로 둔 세트들} · 열린 집합(draft · confirmed · 이미 표시된 오더 건너뜀)은 so_deal_flag_open_orders 한 곳
+범위 = {바뀐 제품 X} ∪ {X 를 낱개로 둔 세트들} · 열린 집합(draft · confirmed · 이미 표시된 오더 건너뜀)은 so_deal_flag_open_orders 한 곳 [2026-10-07 정정 · 판정 349 · §51] 열린 집합 = draft 하나(dsc-4e)
 
 ### 50-c 실측 · 시험
 
@@ -7241,4 +7241,114 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 순서(Caleb 이 정한다 · 판정 290): 화면 묶음(discount-rules.html — 목록 · 규칙 편집 · 금액 단계 · 손님 조건 · 미리 보기 · 쿠폰 발행 · ims-auth.js 「Discount Rules」 자리) → 문서
 그 전에 걸린 것: 113 적재 sellable 고침 · cs-4 적재 고침 + 미룬 103 · 109(§46-f)
 다음 판정 번호: 346
+```
+
+## §51 할인 화면 묶음 · 표시 좁히기 · 깃발 초안만 — dsc-4d · 4e · 판정 346 · 347 · 349 (2026-10-06 밤 집 PC ~ 10-07 회사 PC)
+
+⭐ 닫힌 것: 「줄 딜 하나를 고치면 열린 오더가 전부 표시된다」 · 「Confirmed 오더의 깃발을 지울 길이 없다」 · 「쿠폰 경고가 두 번 뜬다」 · 「막힌 저장에 대상 없음 오표시」 · 미룬 120(화면 묶음) · 121(문서) — asung-wms **7b1dae1**(dsc-4d) · **ec49ca3**(dsc-4e) · 화면 asung-ims **3eace0c** ~ **5d4af74**(아래 51-b)
+⭐ 새 판정 346 · 347 · 349(348 은 판정 후보 번호로 썼다 — 미룬 126) · 원문 `~/asung/prompts/dsc-4d.md` · `dsc-4e.md` · `docs-1007.md` 📌 · 판정 날짜 2026-10-07(회사) · 다음 판정 번호 **350**
+
+### 51-a 판정 원문
+
+**A. 판정 (Caleb)**
+
+| 번호 | 내용 | 근거 |
+|---|---|---|
+| 346 | **줄 딜 변경의 열린 오더 표시를 그 제품이 든 오더로 좁힌다** — 표시 = 「지금 트리거가 이 저장에 찍었을 오더」 ∩ 「바꾸기 전 ∪ 뒤 걸리는 제품(so_deal_products · 세트 포함)이 든 오더」 · 전은 저장 전 켜졌을 때만 · 뒤는 저장 뒤 켜졌을 때만 · 오더 딜(단계 · 쿠폰)과 오더 딜 ↔ 줄 딜 전환은 지금처럼 넓게 · 손님 조건이 바뀐 저장은 손님으로 거르지 않는다(313) · **창구 so_deal_save 안에서 센다**(트랜잭션 지역 설정 `ims.deal_flag_door` = 딜 id 로 so_deal_changed · so_deal_part_changed 가 그 딜만 건너뜀 · 창구 밖 쓰기(적재 · 직접 SQL)는 트리거가 넓게) · 기각: 트리거 안에서 세기(한 저장에서 표가 차례로 바뀌어 덜 찍을 수 있다) | 10-06 화면 시험 「DR TEST line」(ALLDAY LOCKS 한 브랜드)을 만들자 열린 오더 19 개 전부 표시 · 「영업이 깃발을 무시하게 된다」 |
+| 347 | **deal_off_with_coupons 는 「쿠폰이 먹히던 상태 → 안 먹히는 상태」로 넘어가는 저장에서만** — 먹힘 = is_active ∧ coupon_required ∧ is_order_level(so_coupon_check 와 같은 뜻 · dsc-4d 이견 3) · 기간은 넣지 않는다 | coupon_required 를 끈 다음 저장에서 Active 를 끄자 같은 경고가 또 떴다 |
+| 349 | **「가격 다시 매겨 보세요」 깃발(so.reprice_suggested_at)은 초안에만** — Confirm = 손님과 가격이 정해진 순간 · 그 뒤 딜이 바뀌어도 찍지 않는다 · 다시 매기려면 Unconfirm → Reprice · 초안을 떠나는 순간 깃발을 지운다(트리거 so_reprice_flag_draft_only) · 적용 때 비초안 깃발 정리(updated_at 무접촉) · 대가: 딜 % 를 잘못 넣었다 고친 경우 그 사이 Confirm 된 오더는 알려 주지 않는다 | 깃발을 지우는 길은 so_reprice 하나 · 초안에서만 → Confirmed 오더의 깃발은 지울 길이 없었다 |
+| — | 판정 아님 · Caleb 결정: tag_unused 반복 확인(손질 a)은 **지금대로**(제품 화면에 태그 칸이 생기면 「제품에 태그 먼저 → 딜」 순서가 되어 거의 안 뜬다) · 막힌 저장의 「Line N has no targets」 오표시(c)와 min_qty 문구(d)는 고장 · 문구로 고쳤다(dsc-4d) | |
+| — | 인보이스 단가 표시 설정(판정 314)의 화면 · 반영은 **인보이스 인쇄 차수에서**(Caleb 「가」 — 인쇄가 없어 지금은 손님 쪽 효과가 없다) · 지금은 so-invoices 화면에 Net unit 칸만 | |
+| — | POS 쿠폰 칸은 **쓸 수 있는 쿠폰이 있는 손님에게만**, 코드까지 보이고 Use 로 한 번에(Caleb 「B」 — 판정 283 「코드 하나에 손님 하나」) | |
+| — | 다음 판정 번호 **350**(348 은 description 판정 후보 번호로 썼다 · 미룬 126) | |
+
+### 51-b 커밋 · 실물
+
+| 차수 | 실물 · 시험 |
+|---|---|
+| dsc-4d | asung-wms **7b1dae1** · `20261007125617_dsc_4d_deal_flag_narrow.sql` md5 `f62297dc89aca8048106432f4f6decf8` · 769행 · 검증 `supabase/tests/dsc-4d-verify.sql` 502행 · 시험 OK 51 · 확인 46 · 1회차 통과 · 재발행 so_deal_save(+31 · 바꾼 5) · so_deal_changed · so_deal_part_changed(각 +1) · 이견 1 ~ 7 받음(이견 1: 대화 Claude 짐작 「더 찍는다」의 방향이 반대 — 그대로면 **덜 찍는** 곳이 있어 전 ∪ 뒤 한 집합으로 옛 · 새 기간 둘 다 찍게 고침 / 2: 트리거 WHEN 과 같은 v_flag_head · v_flag_child — 이름 · 메모만 바뀐 저장은 안 찍음 / 3: 347 먹힘에 is_order_level / 4: 트리거 함수 둘 authenticated EXECUTE 회수 / 5: 창구 밖 · 다른 딜은 넓게(N11 로 증명) / 6: 시나리오 N4 · N5 차례를 고쳐 기대를 세움 / 7: 「덜 찍지 않음」 = 옛 함수(D-pre) 대조 · 새 ⊆ 옛) · 칸 이름이 사람 문장에 그대로 나오는 곳 so_deal_save 에 23 곳(고치지 않음 · 미룬 129) |
+| dsc-4e | asung-wms **ec49ca3** · `20261007142513_dsc_4e_reprice_flag_draft_only.sql` md5 `d354c266e4427ceb5e405e26c3b698b4` · 100행 · 검증 `supabase/tests/dsc-4e-verify.sql` 166행 · 시험 OK 21 · 확인 20 · 2회차 통과(1회차 MISMATCH 9 = 검증 재료가 시험 길에 걸림 → 손님 · 제품을 갈랐다) · 재발행 so_deal_flag_open_orders(바뀐 줄 하나 · 상태 목록) · 새 트리거 so_reprice_flag_draft_only(BEFORE UPDATE OF status · WHEN) · 적용 때 실제 Confirmed **5** 건 깃발 정리(초안 14 그대로) · 이견 1 ~ 6 받음(1: 정리 문장은 replica 로 updated_at 무접촉 / 2: BEFORE UPDATE OF status + WHEN / 3: 상태 변경 시험은 표 직접 update — so_confirm 이 시퀀스를 당긴다 / 4: create or replace(시그니처 같음) / 5: 「so_create 가 깃발을 세운다」는 대화 Claude 오독 — 세우는 곳은 so_header_update(초안) · so_merge(새 초안) · so_deal_flag_open_orders 셋 · 정본에 그 말은 없었다(grep 0) / 6: open_orders_to_flag 도 저절로 초안만) |
+| 화면 dr v1 · v1a · v1b (10-06 밤) | asung-ims **3eace0c** · **a61b7a9** · **124da1f** — discount-rules.html 새로(목록 두 모드 · 상세 · Edit 한 번 → Save · 서버 검사 → 확인 창 · 쿠폰 발행 · 무효) · v1a changed_elsewhere 막기에 토론토 시각 + 「Load the latest version」 · v1b 손님 검색 칸 type=search · autocomplete=off · Enter = 찾기 · 화면 시험 7-zc 11 단계 통과(10-06 21:30 ~ 22:20 · 제품 수 81 / 85 = SQL · Edmonton 조건 손님 135 = SQL) · nav v5(Settings > Discount Rules · master) |
+| 화면 dr v2 | asung-ims **4e6e4f4** — 넓은 목록 「Price check…」 — 손님 · 제품 · 수량 · 날짜 · 티어 → so_quote_preview · 정가 · 할인 · 출처 · 단가 · 줄 합계 + 후보 표(이김 / 진 까닭) · 「오더 할인은 여기 없다」 안내 · 시험 통과(JOJOJO · AD010069 → 15% deal · 4.8365 · customer 7% lower) |
+| 화면 pr v4b · v4c | asung-ims **93d5c31** · **c750a8b** — products.html 상세 Tags 카드 · Edit 에서 태그 붙이기(product_update tag_add) · 떼기(tag_off · ✕ → Save · undo) · 대소문자만 다른 글자는 기존 철자로 바꿔 다시 Add · v4c 태그 목록 = 제품 태그 ∪ 딜 대상 태그 · 저장한 태그는 목록에 바로(v4b 는 화면을 연 동안 한 번만 읽어 방금 붙인 태그가 자동 완성에 없었다) · 시험 통과 |
+| 화면 so v5a | asung-ims **afa18e1** — so.html 머리 Coupon 줄(apply · replace · ✕ · applied / not used + 까닭) · Order discount 출처 이름표(rule · 딜 이름 / coupon 코드 / set by hand) · locked(312) · 「a rule would give N%」 · 줄 표 Net unit 칸(판정 284 · 오더 할인 % 있을 때만) · Price from 에 set discount · 딜 이름 · 경고 글 셋 · 시험 통과(SO-25053 지움 · SO-25054 · 쿠폰 9MGKPT8X · 20% · manual 1% → not used · 비우면 쿠폰 · ✕) |
+| 화면 so v5b | asung-ims **6c91244** — 목록 · 넓은 목록 「reprice」 이름표(초안 ∧ 깃발) · 상태 거르기 「Draft — reprice suggested」 · 경고 글이 원인 전부 + since 시각 · 깃발이면 Reprice ● · 시험 통과(10-02 초안 · Adore 줄 customer 0% → Reprice → deal 15% · surcharge 37% 가 새 단가를 따라 1.79) |
+| 화면 inv v2a · cr v2a · cr v2b | asung-ims **9a23633** · **61e0ac7** — so-invoices Net unit 칸(줄의 오더의 order_discount_pct) · 종류 「order discount」 · **원래 결함 고침**: 인보이스 오더 할인 금액은 음수 저장(so_invoice_taxable_ck)인데 화면이 「−」 를 또 붙여 「−-0.97」 · so-credits 종류 「order discount」 · 합계에 Order discount · cr v2b 만들기 창 미리 보기 표도(v2a 는 상세 표만 고쳤다) · 시험 통과(SO-25056 Counter · 쿠폰 9MGKPT8X → 인보이스 60018 −1.95 · Net unit 3.8692 · 3.9358 → CR-01005 −0.97 · 세금 −0.13 · total 4.37) |
+| 화면 pos v1.7 · v1.8 | asung-ims **7801ae6** · **5d4af74** — 초안 쿠폰 칸 · 확정 뒤 「Order discount · coupon 코드 · %」 · 확정이 진 쿠폰을 떼면 알림 · Set discount · v1.8 쓸 수 있는 쿠폰(안 쓰임 · 무효 아님 · 기한 ≥ 판매일 · 켜진 쿠폰 딜)이 있거나 붙었을 때만 칸 · 코드 · 딜 · 기한 · Use · no_lines 칩 뺌 · 시험 통과(9MGKPT8X used on SO-25056 막힘 · AS-ZPZC4BFM · 확정 · AS-YWC426GE Use · 쿠폰 없는 손님 칸 없음) |
+
+**C. 규칙 (창구 · 트리거가 지킨다)**
+```
+깃발 세우기   so_header_update(초안 · 바깥 조건 · 판정 3) · so_merge(새 초안) · so_deal_flag_open_orders(초안 · 딜 · 제품 속성) — 셋뿐(dsc-4e 훑기 · so_create 는 세우지 않는다)
+깃발 지우기   so_reprice(초안) · 트리거 so_reprice_flag_draft_only(초안을 떠날 때 · confirmed · cancelled …) · Unconfirm 으로 돌아와도 다시 세우지 않는다
+줄 딜 표시    so_deal_save 안: 쓰기 전 「전」 제품(켜져 있었으면) → 쓰기 동안 ims.deal_flag_door = 딜 id → 쓰기 뒤 「뒤」 제품(켜져 있으면) → 전 ∪ 뒤 로 옛 기간 · 새 기간 → 설정 비움
+              트리거 WHEN 과 같은 칸이 바뀐 저장만(이름 · 메모 · 줄 번호만이면 안 찍는다) · 미리 보기 수 = 저장 수(ZZ990 되돌림은 설정도 되돌린다)
+넓게 남는 곳  오더 딜(저장 전 · 뒤 어느 한쪽이라도) · 창구 밖 쓰기(적재 · 직접 SQL) · 다른 딜(설정은 그 딜 id 만)
+쿠폰 경고     deal_off_with_coupons = 저장 전 (is_active ∧ coupon_required ∧ is_order_level) ∧ 저장 뒤 ¬(같은 셋) ∧ 안 쓴 쿠폰 > 0
+line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(막혀서 빠진 대상은 세지 않는다)
+```
+
+### 51-c 실측 · 시험
+
+- **dsc-4d 시험(51/0 · 1회차)**: N1 줄 딜 만들기 → 새 A · C(제품 X · X 의 세트) · 옛 A · B · C · 미리 보기 2 = 저장 2 / N3 대상 X → Y + % 한 저장 → A · B · C(A 가 빠지지 않음 — 판정 346 의 핵심 사고) · 미리 보기 3 = 저장 3 / N4 줄 끄기 · N5 딜 끄기 · N6 기간 옮기기 · N7 손님 조건 바꿈 → 전부 A · C / N8 오더 딜 옛 = 새 / N10 창구 밖 직접 update → 넓게 / N11 다른 딜 안 눌림 넷 / K1 ~ K6(347) / C1(c) / D1(d) · 저장 시간 옛 47 ms = 새 47 ms(N1) · 42 / 44 ms(N3)
+- **dsc-4e 시험(21/0 · 2회차)**: E1 딜 길 · E2 태그 길 → 초안만 · E3 draft → confirmed → null · E4 Unconfirm 꼴 → 안 섬 · 다시 딜 변경 → 초안이라 섬 · E5 정리 · E6 draft → cancelled 지움 · draft → draft 그대로 · E7 깃발 실은 초안 insert(so_merge 꼴) 그대로
+- **화면으로 확인한 층 규칙(판정 277)**: SO-25056 — 손님 기본 7% 와 딜 15% 중 15%(줄 층) · 다른 줄은 7% · 쿠폰 20% 가 두 줄 합계에(오더 층) · Net unit 4.8365 × 0.8 = 3.8692
+- 쿠폰은 확정 전에는 「쓰임」이 아니다 — SO-25053 을 지운 뒤 9MGKPT8X 를 SO-25054 에 다시 넣었다 · SO-25056 확정 뒤 POS 에서 「already used on order SO-25056」
+- 크레딧은 낸 인보이스에 저절로 붙지 않는다 — CR-01005(4.37)를 붙이지 않고 두자 POS 판매 SO-25058 확정 화면에 「Credit / on account 4.37 · To pay 0.00」(다음 인보이스 발행 때 저절로)
+- 테스트 DB 깃발: 적용 전 confirmed 5 · draft 14 → 적용 뒤 draft 14 만
+- **다음 시험이 알아야 할 실물(테스트 DB)** — [테스트 · Asung-IMS] 2026-10-07 Caleb 조회 원문(docs-1007 회신의 SQL)
+
+| 종류 | 이름 · 번호 | 값 |
+|---|---|---|
+| 딜 | Coupon Test | 켜짐 · 오더 딜 · coupon_required · 기간 없음 |
+| 딜 | COUPON TEST 2 | 켜짐 · 오더 딜 · coupon_required · 기간 없음 |
+| 딜 | DR TEST line | 켜짐 · 줄 딜 · 줄 1 10%(꺼짐) · 줄 2 15% |
+| 딜 | DR TEST order | 꺼짐 · 오더 딜 · coupon_required |
+| 딜 | TEST POS SALE 15 | 켜짐 · 줄 딜 · 2026-10-01 ~ 10-08 · 줄 1 15% |
+| 쿠폰 | 9MGKPT8X | Coupon Test · JOJOJO - Joel Chang · 기한 없음 · used SO-25056 |
+| 쿠폰 | AS-YWC426GE | COUPON TEST 2 · JOJOJO · 안 씀 |
+| 쿠폰 | AS-ZPZC4BFM | COUPON TEST 2 · JOJOJO · used SO-25058 |
+| 오더 | SO-25053 | 없음(지운 초안) |
+| 오더 | SO-25054 | fulfilled · warehouse · 쿠폰 없음 · 깃발 없음 |
+| 오더 | SO-25056 | fulfilled · counter · 쿠폰 · 깃발 없음 |
+| 오더 | SO-25058 | confirmed · pos · 쿠폰 · 깃발 없음 |
+| 인보이스 | 60017 | issued · 5.47 · SO-25054 |
+| 인보이스 | 60018 | issued · 8.83 · SO-25056 |
+| 크레딧 | CR-01005 | issued · 4.37 · 붙임 0 |
+| 깃발 | so.reprice_suggested_at | draft 15 · 그 밖 0 |
+
+  ⚠️ AS-ZPZC4BFM 은 Coupon Test 가 아니라 **COUPON TEST 2** 의 쿠폰이다(지시서 docs-1007 G 의 문구가 틀렸다). SO-25058 은 아직 confirmed 지만 이 쿠폰은 이미 used 다. 확정하는 순간 쓰인 것이다(판정 321). 초안 깃발은 지시서의 14 가 아니라 15 다.
+
+### 51-d 일하는 방식 · 교훈
+
+1. 대화 Claude 의 집합 짐작 방향이 반대였다(dsc-4d 「더 찍는다」 → 실제 덜 찍는 곳) ⇒ **집합 식은 짐작하지 말고 시나리오로 지어서 센다**(시험이 잡았다 · 잘 된 예)
+2. 대화 Claude 가 grep 결과를 오독해 「so_create 가 깃발을 세운다」를 지시서에 적었다 ⇒ 지시서의 사실은 그 줄을 열어 본 것만
+3. Claude Code 의 dsc-4e 보고가 「dsc-4d 두 파일 미추적」이라고 했으나 이미 커밋돼 있었다(7b1dae1 · 같은 보고의 git status 출력에도 4e 두 파일만 있었다) ⇒ **보고의 git 상태 주장은 git 출력으로 확인**(대화 Claude 가 확인 명령 끝에 git log · status 를 붙여 잡았다)
+4. 대화 Claude 가 판정 349 근거에 「Cin7 도 확정 오더를 다시 매기지 않았다」를 썼다 — 원칙 1 위반(IMS 규칙을 Cin7 에 기대어 설명) · 그 턴에 스스로 정정 ⇒ 근거는 IMS 의 뜻(「Confirm = 가격이 정해진 순간」) 하나로
+5. 대화 Claude 가 Products 차례에 description 을 묶어 디스카운트 흐름을 끊었다 — Caleb 「디스카운트와 관련 있어?」 ⇒ **진행 중인 묶음과 무관한 일거리는 미룬 목록에 적고 흐름을 끊지 않는다**
+6. pr v4b 태그 목록을 화면을 연 동안 한 번만 읽었다 — 방금 붙인 태그가 자동 완성에 없었다(Caleb 화면 시험) ⇒ 고르기 목록은 저장한 값을 바로 더한다
+7. cr v2a 가 종류 글자를 상세 표 한 곳만 고쳤다 — 만들기 창 미리 보기에 「order_discount」 가 남았다(Caleb 화면 시험) ⇒ asung-workflow §11 「한 곳만 고친다」 재발 · 화면 글자를 고칠 때도 같은 모양을 grep 으로 센다
+8. 순서를 물을 때 ①(인보이스 단가 설정)의 전제(인쇄 없음 · 설정 화면 없음)를 열어 보지 않고 「손님이 받는 인보이스」라고 말했다 ⇒ 화면 차례를 제안하기 전에 그 화면을 연다
+9. inv v2 의 「−-0.97」 — 음수로 저장되는 금액에 화면이 부호를 또 붙였다 ⇒ 금액 칸을 그릴 때 저장 부호(CHECK)를 본다
+10. (10-06 밤) dr v1 손님 검색 칸에 autocomplete 를 안 꺼 크롬 주소 자동 완성이 가로챘다 · jsdom 은 못 본다 ⇒ **검색 · 이름 칸은 처음부터 type=search · autocomplete=off**
+11. (10-06 밤) dr v1 changed_elsewhere 막기 창에 「닫기」만 있었다 ⇒ **막기 창에는 다음 걸음 단추**(Load the latest version)
+12. (10-06 밤) 대화 Claude 가 판정 340 설명에서 「지우기 → 고치기 → 넣기 순서면 맞바꾸기가 안 걸린다」고 틀리게 말했다(§50-d 4) — 같은 결로 화면 시험 전 짐작은 짐작이라고
+13. [Claude Code] 트랜잭션 지역 설정(set_config …, true)은 서브트랜잭션 되돌림(ZZ990)에 같이 되돌아간다 · 그래도 블록 안에서 명시로 비운다(dsc-4d) / 검증의 데이터 정리 재료(E5)는 시험 길(딜 · 태그)에 안 걸리는 손님 · 제품으로(dsc-4e 1회차)
+
+### 51-e 미룬 것 — §50-e 124 에 이어 붙임
+
+- 120 화면 묶음 ✅ 닫힘(위 51-b) — 「인보이스 단가 표시 설정」만 127 로 · 121 문서 ✅ 닫힘(docs-1007)
+- 125 ⏸ **할인 겹침 규칙 재검토**(Caleb 「일단 보류 · 기록해줘 · 좀 더 생각」) — 지금: 층 안은 큰 하나 · 줄 층과 오더 층은 겹친다(277 · Adore 15% + 쿠폰 20% → 약 32%) · Caleb 물음 「줄 층 + 오더 층도 큰 하나로」 · 대화 Claude 가 보인 두 뜻: ① 줄마다 줄 % 와 오더 % 중 큰 쪽(오더 할인이 줄마다 다른 % — 인보이스 · 크레딧 비례 · 화면 재설계) ② 세일 줄은 오더 할인 기준에서 뺀다(기준 금액 식 한 곳 + 크레딧 비례) · 어느 쪽이든 딜마다 「줄 할인과 겹침」 켜기 · 끄기 가능 · 정하지 않음
+- 126 **description(판정 후보 348)** — `product.cin7_description` · `product_family.cin7_description` 만 · 18,722 중 17,894 채움 · 17,890 HTML(h1 · h2 · strong) · 세트 5,924 · family 1,130 · 평균 881 · 최대 16,242 글자 · product_update 가 받지 않음 · 화면 없음 · Caleb 「내용을 넣어야 하고 그 내용이 Shopify 에 연동」 — 할인과 무관한 별도 일거리
+- 127 **인보이스 인쇄 + so_invoice_unit_display 설정 화면 · 반영**(판정 314 · 미룬 120 에서 옮김) — 인쇄 차수
+- 128 크레딧을 낸 인보이스가 열려 있으면 거기 바로 붙이기를 기본으로 할지(대화 Claude 짐작 · Caleb 결정 없음 · 판정 후보)
+- 129 so_deal_save 막기 · 경고 문장에 칸 이름 · 어휘 값이 그대로 나오는 23 곳(dsc-4d 보고 목록)
+- 130 제품 재적재가 IMS 에서 뗀 Cin7 출처 태그(product_tag source cin7)를 다시 붙인다 — 미룬 113(sellable)과 같은 뿌리 · 적재를 고친다
+- 131 CHECKLIST 에 surcharge-groups · stock · customers 화면 절이 없다(10-06 dr-1 Claude Code 이견 4)
+
+### 51-f 다음
+
+```
+순서(Caleb 이 정한다 · 대화 Claude 안):
+  미룬 125 할인 겹침 규칙 결정 → 인보이스 인쇄 차수(127) → 적재 고침 묶음(113 · 130 · cs-4 + 103 · 109 · 판정 294) → 판정 81 1단계 남은 것(ims-principles §6-c) → description 일거리(126)
+다음 판정 번호: 350
 ```

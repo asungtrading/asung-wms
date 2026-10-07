@@ -148,7 +148,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ## 4-c. ⭐ 상품 만들기 창구 (prod-2 · 3 · 3b · 2026-10-01 · 정본 po-module §3-h 「창구 — 실물」 · 판정 원문 so-module §33-a)
 
 ```
-⭐⭐ 상품 계열 여덟 표(product · product_family · product_barcode · product_bom · product_supplier · product_price · product_tag · ref_price_tier)는 직접 쓰기가 닫혔다(prod-2 · authenticated select 만) [2026-10-06 · so-module 판정 336 · §50] product_tag 의 문은 product_update 의 tag op(tag_add · tag_off)
+⭐⭐ 상품 계열 여덟 표(product · product_family · product_barcode · product_bom · product_supplier · product_price · product_tag · ref_price_tier)는 직접 쓰기가 닫혔다(prod-2 · authenticated select 만) [2026-10-06 · so-module 판정 336 · §50] product_tag 의 문은 product_update 의 tag op(tag_add · tag_off) [2026-10-07 · §51] 화면 products.html Tags(pr v4b · v4c — 목록 = 제품 태그 ∪ 딜 대상 태그) · ⚠️ 제품 재적재가 IMS 에서 뗀 cin7 태그를 다시 붙인다(미룬 130 · 적재를 고친다)
      ⇒ 만들기는 창구 둘로만: product_create(p_items, p_commit, p_ack) · product_family_create(p_family, p_items, p_commit, p_ack) · 둘 다 definer + 첫 줄 ims_require_write('master')
 ⭐⭐ 몸통은 속 함수 product_create_core 하나 — 검사 규칙을 고칠 때는 이것을 고치고 검증 R 절로 옛 · 새 product_create 반환이 jsonb 로 같은지 다시 증명한다
 ⭐  두 번 부르기(판정 176): p_commit false = 검사만 → 화면이 경고를 보이고 → p_commit true + p_ack(본 경고 열쇠) · 서버가 다시 검사해 확인 안 된 경고가 있으면 저장 안 함
