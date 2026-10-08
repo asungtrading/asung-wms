@@ -513,6 +513,7 @@ WMS      헤더에 로고 + 모드만 더한다 · 탭 줄 · ☰ Menu 그대로
 문       index.html = 로그인 → 그 사람의 첫 모드 첫 화면(판정 163) · 비밀번호 복구 중에는 머문다
 자리      Dashboard = 「Overview — coming soon」(판정 158 · 숫자 카드는 상품 마스터 뒤) · 옛 index 점검 = System Check(판정 166)
 ```
+⭐ [2026-10-08 · 판정 362 ~ 381 · so-module §53] **판정 81 순서 바뀜** — Caleb 이 1단계가 끝나기 전에 2단계 Shopify 연동 **설계**를 시작했다(「샤피파이와 ims를 인테그레이션 해서 … 먼저 만들어 놓고 싶어」) · 정본 `docs/design/shopify-integration.md` · 만들기 순서는 매입 세금 → 할인 원가 → 상품 설명 칸 → Shopify(판정 381 · 397)
 ⭐ [2026-10-05 · 판정 242 · 243 · so-module §42] 목록이 있는 IMS 화면은 모두 두 모드 — 넓은 목록(화면 전체 · 검색 · 거르기 · 만들기) → 고르면 좁은 목록 + 상세(☰ List · ‹ All ○○ · ?id=) · 공통 #wide · .wfilt 를 같은 id 로 · 판정 209(products)가 처음 · customers · suppliers 가 따랐다
 
 ---

@@ -7440,3 +7440,117 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 순서(Caleb 이 정한다): §51-f 의 순서 그대로 + sale-1 커밋 · 화면 시험 기록
 다음 판정 번호: 362
 ```
+
+---
+
+## §53 2026-10-08 — Shopify 연동 설계 · 단추 이름 · PO 매입 세금 · 할인 → 재고 원가 — po-tax-0 ~ 2 · po-disc-1 · po-disc-2-0 · 판정 362 ~ 397 (2026-10-08 · 회사 PC)
+
+⭐ 닫힌 것: 「PO 에 세금 계산이 없다」 · 「비용 청구서에 세금 칸이 없다」 · 「비용 청구서 결제가 세금만큼 막힌다」 · 「입고 원가가 PO 할인을 무시한다」 · 「오피스 Finalize 단추와 상태 Finalized 가 같은 말」
+⭐ 새로 선 것: Shopify 연동 설계 정본 `docs/design/shopify-integration.md`(판정 362 ~ 381 · 판정 81 의 순서를 Caleb 이 바꿨다 · ims-principles §6-c)
+⭐ 새 판정 362 ~ 397 · 원문 지시서 `~/asung/prompts/po-tax-0.md` · `po-tax-1.md` · `po-tax-2.md` · `po-disc-1.md` · `po-disc-2-0.md` · `docs-1008.md` · 보고 `po-tax-0-report.md` ~ `po-disc-2-0-report.md`(회사 PC) · 판정 날짜는 전부 **2026-10-08**(회사) · 다음 판정 번호 **398**
+
+### 53-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 362 | 「시험 스토어는 하나로 충분해」 | 시험 스토어 하나로 시험 · 컷오버 때 실제 스토어 둘(asung.ca · aonebeauty.com) · 스토어는 IMS 안의 설정 한 줄(주소 · 열쇠 · 판매/비교 티어 짝 · 브랜치 규칙) |
+| 363 | — | 오더 받기 = 웹훅 + 주기적 확인 함께 · Shopify 오더 번호로 두 번 들어가지 않게 |
+| 364 | 「체인매장도 각각의 스토어 어카운트를 지녀」 | 손님 찾기 4단계 — ① Shopify 계정 번호 ② 이메일 하나면 그 손님(계정 번호를 이어 둠) ③ 여럿이면 「확인 필요」로 멈추고 직원이 고름 ④ 없으면 새 손님(스토어 티어) · 실측 활성 연락처 이메일 9,414 중 66 개가 손님 237 명에 겹침(최대 18) |
+| 365 | 「인벤토리로 하게 되면 오더도 갈라지고 복잡한게 너무 많아서」 | 브랜치 — asung.ca 는 손님 기본 브랜치 · 비면 AB · BC · SK → Edmonton · 나머지 → Toronto · aonebeauty.com 은 늘 Toronto · 재고로 고르지 않는다 · 바꿔 달라면 확정 되돌리기 → 창고 변경 → 다시 확정(끝에서 끝 시험 안 함) |
+| 366 | — | 상품 = SKU 글자 그대로 · Shopify 에서 상품을 만들지 않는다 · 못 찾은 줄(없음 · 꺼짐 · 판매 안 함)이 있으면 초안 + 확인 필요 |
+| 367 | 앱 「Wholesale All In One」 이 웹에 같은 규칙으로 건다 | 가격 = Shopify 금액 · 정가 · 할인을 갈라 담고 IMS 계산과 다르면 경고 · 앱이 할인을 남기는 모양은 시험 스토어에서 |
+| 368 | 「샤피파이도 줄마다 계산해」 | 세금 = IMS 가 계산(줄마다) · Shopify 세금과 다르면 경고 |
+| 369 | 「다로 하자」 | 운임 — asung.ca 는 운임 없이 내려오고 출고 때 IMS 에서 · aonebeauty.com 은 손님이 낸 배송비를 확정 값으로 · 무료 배송 = 「운임 + 운임 할인 100%」 · Shopify 「$50 이상 Free」 요금 줄을 무료 배송 자동 할인으로 바꾼다(방법은 대화 Claude 가 나중에) |
+| 370 | — | 결제 — AONE 카드 결제는 「이미 받은 돈」 · 수수료 묶음 입금 맞추기는 회계(QBO 때) · 환불도 읽는다 |
+| 371 | — | 상태 — 깨끗하면 저절로 확정 · 재고 없는 줄은 확정이 백오더로 갈라낸다 |
+| 372 | 「오더 변경은 원칙적으로 불가 · 캔슬하고 다시 넣거나 추가오더」 | Shopify 취소 — Release 전이고 IMS 에서 손대지 않았으면 IMS 도 저절로 취소 · 아니면 Action Center 알림 · 웹 오더는 고치지 않는다 |
+| 373 | 「샤피파이에서 직접 고치는 것은 거의 없어」 | 칸의 주인 — IMS: 제목 · 설명 · 사진 · Vendor · Type · 태그 · SKU · 바코드 · 무게 · 가격 · 비교가 · 위치별 재고 · Active/Draft · 품절 판매 · 변형 구조 / Shopify(사람): Collections · 메타필드 · SEO · Category · Theme · 퍼블리시 |
+| 374 | — | Shopify 상품 하나 = IMS family 하나 · family 에 「웹 대표 사진」 칸(없으면 첫 변형의 대표 사진) · 변형마다 대표 사진을 지정해 올린다 |
+| 375 | 「listed, unlisted는 cin7에서 샤피파이로 제품을 보냈냐 안보냈냐 아닌가?」 | 상품마다 스토어별 「이 스토어로 보냄」 표시를 직원이 켠다 · 퍼블리시(웹에 보이기)는 Shopify 에서 사람이 |
+| 376 | — | 재고 올리기 = 바뀐 SKU 즉시 + 하루 몇 번 전체 · 위치별(Edmonton · Toronto) · Shopify Available 에 맞춘다(On hand 면 두 번 빠진다 · 시험 스토어에서 대조) |
+| 377 | — | 상품 정보 올리기 = 바뀌면 즉시 + 새벽 전체(IMS 가 주인인 칸은 새벽에 IMS 값으로) |
+| 378 | — | asung.ca 오더 상태 — 들어오는 순간 주인은 IMS · 운송사 + 송장번호를 넣는 순간 Shopify 「발송 + 송장번호」(메일은 Shopify) · 운송사 칸 Pickup · Delivery(우리 차량) — 송장 없이 「발송됨」만 · 메일 없음 · 백오더 몫은 같은 오더에 두 번째 발송 |
+| 379 | — | aonebeauty.com — Pickup 오더는 운송사 Pickup 을 미리 채움 · Ship & invoice 순간 Shopify 「Ready for pickup」(손님 메일) · 「Waiting for pickup」 칩 · 「Picked up」 단추(메일 없음) · 안 찾아가면 크레딧 노트 · 환불은 Shopify 에서 직원이 하고 IMS 가 읽어 크레딧에 붙인다 |
+| 380 | — | asung.ca 직원은 오더 안에서 최종 인보이스 · 결제 요청 · 패킹 리스트를 메일로 — IMS 오더 문서 메일이 컷오버 전에 필요(인보이스 인쇄 미룬 127 이 먼저) |
+| 381 | 「어서 세워야 해」 | 상품 설명 — IMS 자기 설명 칸(상품 · family) · 서식 편집기(위험한 태그는 거른다) · 처음 내용은 cin7_description 에서 한 번 · 재적재도 채운다 · 그 뒤 IMS 가 주인 · 순서: 매입 세금 → 할인 원가 → 설명 칸 → Shopify |
+| 382 | 「우리 IMS에서의 Finalized는 물건이 준비가 됐다고, fulfilled가 물건이 우리 손을 떠났다야」 | so.html 오피스 단추 「Finalize — ship and invoice」 → **「Ship & invoice」** · 창고의 Finalize · 상태 Finalized · 창구 so_finalize 이름은 그대로(so v5q da58c81) |
+| 383 | — | PO 세금 규칙 출처 = 공급처 규칙 → PO 머리 · 줄은 머리를 따른다 · 특별한 줄만 줄에서 |
+| 384 | 「SO와 PO의 세금 계산 방식이 다르게 하는 것은 좀 불편해」 | 반올림 = SO · PO 모두 줄마다 · PO 문서 할인 체인은 「할인 줄」로 보고 그 세금을 한 번 뺀다(모양 A) · 기각 C(소계에 한 번) · B(줄마다 할인 먼저) |
+| 385 | — | 매입 세금은 원가에 넣지 않는다 · 낼 돈 = 세금 전 + 세금 |
+| 386 | — | 공급처 인보이스 — 찍힌 총액이 낼 돈의 정본 · 계산값(줄 합 체인 뒤 + 세금)과 다르면 기존 경고 total_differs_from_lines |
+| 387 | — | 비용 청구서 — total_amount 는 세금 전(뜻 고침) + tax_amount(청구서에 찍힌 값 · 수입 GST 는 비율로 못 만든다) · 원가 배분은 세금 전만 · 세금을 안 보내면 0 저장 + 경고(제안값은 반환만) |
+| 388 | Caleb 「USD 로 결제하지만 HST 를 내는 공급처가 맞다」(King Research) | 「USD 공급처인데 세율 > 0」 경고는 넣지 않는다 · 공급처 세금 데이터 22 곳은 북키퍼가 정리(H&M Kwik Stop · Nous Research 는 판매용 표시인데 USD + HST PE) |
+| 389 | — | 조기 결제 할인(예 P&G 2.1% · 세금 전 · 할인 자체에 세금 없음)은 인보이스 할인 체인에 넣지 않고 결제의 Discount taken 으로 — 실물 총액 51,230.76 · Paid 50,278.68 + Discount 952.08 |
+| 390 | 「예」(조기 결제 할인도 원가를 낮추나) | 공급처 할인은 재고 원가를 낮춘다 · 셋 — (가) 입고 때 PO 할인(po-disc-1 끝) · (나) 인보이스 실제 단가 · (다) 결제 때 받은 할인 · 조기 결제 할인도 원가를 낮춘다 · ⚠️ po-module §3 · §11-e 「조기결제 할인은 원가로 안 내려간다」를 뒤집는다 |
+| 391 | — | (다)의 모양 — 인보이스에 「조기 결제 할인 금액(또는 %) · 기준(세금 전/포함) · 기한」 · 결제 화면 「To pay」 → 「Pay selected」 가 Paid · Discount taken · 문서별 충당을 채운다(기한 지나면 할인 없이) · 결제 저장 순간 원가를 낮춘다(레이어 없으면 입고 확정 때 저절로) · 이유: 인보이스를 넣는 사람과 돈 내는 사람이 다르다 · 기각: 결제 초안(「낸 돈」을 세는 모든 자리가 바뀐다) |
+| 392 | — | (나) = 입고 원가를 처음부터 확정된 인보이스의 실제 단가(인보이스 단가 × 인보이스 체인 × 인보이스 환율)로 · 입고 뒤 바뀌는 길만 공통 조정 장치로(po-disc-2-0 실측: 판정 88 뒤 입고 9/9 가 인보이스 확정 뒤 · PO 줄 ↔ 인보이스 줄 75/75 1:1) |
+| 393 | — | 비용 청구서(관세 · 운임)에 받은 할인도 landed 를 낮춘다(실물 CBSA 50.95) |
+| 394 | — | 입고 뒤 PO 환율을 고쳐도 원가는 저절로 안 바뀐다 — 입고 순간 값으로 못 박고 · 경고 + 「차액 반영」 단추(사람이 누른다) · 기각: 자동(오타 수정까지 원가 사건) |
+| 395 | — | 세금 포함 총액에 받은 할인은 상품 몫만 원가에서 뺀다 · 세금 몫은 갈라 기록(회계사 확인) |
+| 396 | — | 입고가 있는 공급처 인보이스는 취소를 막는다 — 크레딧으로 바로잡는다 |
+| 397 | 「줄일 필요는 없고」 | 만들기 순서 ② po-disc-2 입고 기준 단가 = 인보이스(+ 396) → ③ po-disc-3 공통 조정 장치 → ④ po-disc-4 결제 할인 · To pay → ⑤ po-disc-5 입고 뒤 바뀜 → ⑥ 화면 |
+
+Shopify 판정(362 ~ 381)의 주제별 정리 · 열린 확인 거리는 `docs/design/shopify-integration.md` 가 정본이다 — 여기는 표만.
+
+### 53-b DB 차수 (마이그레이션 · 시험/확인 · 커밋 — git log 원문)
+
+| 차수 | 파일 | 시험 / 확인 | 커밋 |
+|---|---|---|---|
+| po-tax-0 | (조사 · 만든 것 없음 · 보고 `po-tax-0-report.md`) | — | — |
+| po-tax-1 | `20261008170700_po_tax_1.sql` | 36/0 · 33/0 | **51971d0** |
+| po-tax-2 | `20261008174126_po_tax_2.sql` | 20/0 · 19/0 | **8c3343d** |
+| po-disc-1 | `20261008193337_po_disc_1.sql` | 14/0 · 13/0(확인 갈래 B0 고침 — D0 가짜 입고가 새 창구에 계수가 적혀 「모든 입고 null」 기대가 틀렸다) | **cc67e94** |
+| po-disc-2-0 | (조사 · 만든 것 없음 · 보고 `po-disc-2-0-report.md`) | — | — |
+
+**각 차수의 핵심 사실(Claude Code 회신)**
+- po-tax-0: PO 머리 복사(po_create)는 09-16 부터 이미 돌았다 · 세금 계산 · FK · 검증만 없었다 · 원가 창구는 이미 세금 전(po_line.unit_price × 환율) — 대신 **PO 할인을 무시하고 있었다**(PO-02002a 3.538855 · 맞는 값 3.1849695 · po-disc-1 로) · 「지금은 늘 세금만큼 어긋난다」는 테스트 DB 에 그런 장이 0(HST 인보이스 둘 다 총액 0) · 반올림 세 식 비교(1030266656 13줄 · A 5,770.03 · B 5,770.04 · C 5,770.03)
+- po-tax-1: 칸 넷(po · po_line · po_invoice · po_invoice_line 의 tax_rule_id + 원문 짝 CHECK) · 짝 트리거 `po_tax_rule_pair`(id ↔ 이름 · purchase · 활성 · 바뀐 쪽만 · 둘 다 바뀌면 id) · 식 한 곳 뷰 `po_tax_group`(규칙 묶음마다 · 줄 세금 so_tax_amount 재사용 · 할인 줄 세금 한 번) · po_invoice_money 의 computed_total · payable_net 이 세금 포함(+ 뒤 아홉 칸 · 옛 값은 taxable_amount · payable_taxable) · 세금 전 돈은 문서 한 번 반올림 그대로 · backfill po 29 · po_invoice 18(지시서 밖 · 없으면 18장 전부 tax_rule_missing) · 경고 tax_rule_unknown:<원문> · tax_rule_missing · tax_rule_differs_between_pos · tax_inclusive_not_supported · ⚠️ 적용 뒤 HST 인보이스 둘(CAD test · 1030266656)과 걸린 PO 둘(PO-02026 · PO-02045)의 낼 돈이 세금만큼 움직였다(1회차 MISMATCH 는 기대가 틀렸다)
+- po-tax-2: po_charge 칸 셋(tax_amount not null default 0 · tax_rule_id + 원문 · 짝 트리거 재사용) · total_amount 뜻 = 세금 전(comment) · po_charge_money unpaid = 세금 포함(+ 여섯 칸 · tax_suggested) · po_charge_create · tf_charge_create 인자 둘(drop + create · 이름 인자라 화면 무변) · **제안값 ㉡** — 안 보내면 0 저장 + 경고 tax_amount_not_given(㉠ 은 틀린 마스터 규칙이 조용히 저장된다 — 기각) · 경고 tax_amount_zero_with_rate · po_payment_target_check · po_payment_detail 의 비용 doc_total = total_with_tax · 목록 밖 재발행 po_detail · inv_transfer_detail · landed 세금 전 증명(W2 관세 1,000 + GST 87.50 → 1,000 · W4 운임 · W5 USD) · PO 비용 머리 고치기 창구는 없다(charges.html 이 PostgREST)
+- po-disc-1: 입고 레이어 단가 = po_line.unit_price × `po_discount_factor`(새 함수 · po_mul 체인 한 곳) × 환율 · 입고 확정 순간의 계수를 `po_receipt.discount_factor` 에 적고 재생성이 그 값을 읽는다(판정 114 posted_on 과 같은 결) · 반올림 없음(할인 없는 레이어 14 무변) · 재생성은 같은 창구 `inv_layer_post_receipt` 를 부른다 · off-PO · over · 크레딧 창구 무접촉 · 기존 레이어(PO-02002a)는 전환 때 재생성으로 · 재생성 전체 가치는 이 차수와 무관하게 +2.73 CAD(불러온 레이어 · ⑭)
+- po-disc-2-0: 판정 88 뒤 PO 입고 9/9 가 인보이스 확정 뒤 · 입고 먼저 0 · PO 줄 ↔ 확정 인보이스 줄 75/75 1:1 · po_price_history 75행 net_unit_cad null 0 · 창구는 아직 po.exchange_rate 를 실시간으로 읽는다(입고 뒤 환율 수정 = 재생성 드리프트 → 판정 394) · discount_taken 은 결제 단위(문서별 몫 없음) · P&G 는 결제 끝 · 입고 0 · 레이어 0(할인이 레이어보다 먼저 온다) · inv_layer_cost_add 에 부호 CHECK 없음 · settle 이 음수 얹기를 cost_late 로 보낼 수 있다 · 인보이스 취소에 입고 검사 없음(→ 판정 396) · ref_payment_term 에 할인 % 11 · 일수 10 채워짐
+
+### 53-c 화면 (asung-ims · git log 원문)
+
+| 화면 | 판 · 커밋 | 내용 |
+|---|---|---|
+| so.html | so v5q da58c81 | 오피스 단추 Finalize → Ship & invoice(메뉴 · 창 제목 · 실행 단추 · 확인 · 안내 · packed 상태 글 · estimate 글자) · 창고 Finalize · 상태 Finalized · so_finalize 그대로(판정 382) |
+| po.html | po tx v1 324596e · v1a 149cdc8 | 머리 Tax rule 고르기(초안) · Tax · Total with tax 카드 · 줄 Tax rule 열 · 경고 · 인보이스 Computed/Payable incl. tax · 비용 총액 세금 포함 · 넓은 목록 Net 아래 세금 / v1a 확정 PO 의 Ship to 가 창고 id 로 보이던 옛 결함 |
+| invoices.html | inv tx v1 58adb7d · v1a 64f5db5 | 머리 Tax rule(초안 · PostgREST · 짝 트리거) · Before tax / Tax / Computed incl. tax 카드 · 줄 Tax rule · Tax 열 · tax_rule_missing / v1a Discount 카드가 계수를 보였다 → 금액(계수는 작은 글씨 · 조기 결제 할인은 결제에서 넣는다는 안내) |
+| charges.html | chg tx v1 429afbb | Before tax + Tax · 만들기 Tax · Tax rule · Check 가 빈 Tax 를 제안값으로 · 초안 머리 Tax 고치기 · 배분은 세금 전 · 경고 문장 · 넓은 목록 Total incl. tax |
+| transfers.html | tf tx v1 a080958 | 운임 만들기 · 고치기 Before tax + Tax + Tax rule · 상세 Before tax / Tax / Total with tax · 운임 표 세금 포함 |
+| suppliers.html | sup tx v1 6f3ddfa · v1a 9a5d453 | Tax rule 을 활성 purchase 규칙 고르기로(지금 값이 꺼진 규칙이면 그대로 둠) / v1a 고치기 창이 옆으로 넘치던 것(.cgrid minmax(0,1fr)) |
+| payments.html | 고칠 곳 없음 | 뷰 값이 세금 포함으로 바뀌었을 뿐 |
+
+### 53-d ⚠️ 그날 겪은 실수 — 원인 · 처방
+
+1. [대화 Claude] Shopify 「Listed」를 「웹에 보임」으로 말했다 — Caleb 정정: 보냄일 뿐 · 퍼블리시는 따로(판정 375) ⇒ 남의 시스템 낱말은 그 뜻을 사람에게 되묻는다
+2. [대화 Claude] 「IMS 가 출고 메일을 보낸다」로 두 번 잘못 읽었다 — 발송 메일은 Shopify · 문서 메일은 오더 안에서 직원(판정 378 · 380) ⇒ 「누가 보내나」를 주어로 다시 적어 확인
+3. [대화 Claude] 오피스 단추 「Finalize」와 상태 Finalized 를 섞었다 → 판정 382 로 이름을 바꿨다 ⇒ 단추 이름과 상태 이름이 같으면 먼저 가른다
+4. [대화 Claude] 설계에 Cin7 을 끌어들였다 — Caleb 「지금 설계에는 cin7을 개입시키지 말아줘」 · 원칙 1 재발 ⇒ ims-principles 원칙 1 첫 문장
+5. [대화 Claude] 미룬 목록 순위에서 「재적재가 IMS 값을 덮는 것」을 치명으로 올렸다 — 테스트 단계 · 데이터 원천 기간에는 의도된 동작 ⇒ 순위는 「지금 단계에서 무엇이 틀리나」로
+6. [대화 Claude] 지시서 손풀이 V2 를 27.13 으로 썼다(27.135 → 27.14 · 보내기 전 고침) ⇒ 반올림 손풀이는 세 자리 이상 적고 끝자리를 본다
+7. [대화 Claude] po-disc-1 B0 확인 갈래 실패 때 「입고 하나가 지워졌다」고 짐작했다 — 실제는 D0 가짜 입고가 시험 19 안에 들어 있었다 ⇒ 확인 갈래의 기대는 「시험이 만든 행이 적용 뒤 어떻게 보이나」까지 센다(asung-workflow §4)
+8. [대화 Claude] 화면 결함 둘을 그 자리에서 고쳤다(po tx v1a Ship to id · sup tx v1a 고르기 칸이 창을 밀어냄 — .cgrid minmax(0,1fr)) ⇒ 잘한 예(§43-d 2 「작은 거라 나중에도 안한게 될꺼야」)
+
+### 53-e 미룬 것 — §52-e 137 에 이어 붙임
+
+- 138 크레딧을 만들 때 인보이스 할인 체인을 복사할지 묻기(po-tax-1 V6 — 같은 세 줄을 되돌려도 세금이 3.93 vs 3.46)
+- 139 비용 청구서 확정 뒤 잠금 — total_amount 만 잠그고 tax_amount 는 열어 둘지(po-tax-2 이견 6)
+- 140 supplier_update 가 세금 규칙 이름을 검사하지 않는다(화면 고르기만 · sup tx v1)
+- 141 po_list · po_detail · po_tax_group 의 할인 식을 po_discount_factor 로 모으기(재발행 때)
+- 142 off-PO billed 단가 — 인보이스 단가 × 환율 · 체인 없음((나) 차수에서 대조)
+- 143 payments.html 「gap_not_zero」 가 코드 글자로 보인다
+- 144 Still owed 를 할인으로 끝내는 도움(「할인으로 끝낼까요?」)
+- 145 결제조건 표의 할인 % · 일수로 인보이스 할인 조건 제안 — ⚠️ P&G 는 이름 「2%19 Net30」 인데 실제 2.1% · 13일
+- 146 불러온 레이어 재생성 드리프트 +2.73 CAD(⑭ · po-disc-1 D8b)
+- 147 IMS 오더 문서 메일(판정 380 · 인보이스 인쇄 127 먼저)
+- 148 Shopify 무료 배송 설정을 「무료 배송 자동 할인」으로 바꾸는 법 — 대화 Claude 가 단계별로(판정 369)
+- 149 컷오버 뒤 앱 규칙(딜 · 손님 할인)을 IMS 와 앱에 두 번 입력
+- 150 시험 재료 정리 — Test1(BBE 90 · 세금 전/포함 모름) · Showtime 222 · P&G 1030266656 결제 · PO-02046 · PO-02047
+
+### 53-f 다음
+
+```
+순서(판정 397 · 381): ② po-disc-2 입고 기준 단가 = 인보이스(+ 판정 396 인보이스 취소 막기) → ③ po-disc-3 공통 조정 장치 → ④ po-disc-4 결제 할인 · To pay · Pay selected → ⑤ po-disc-5 입고 뒤 바뀜 → ⑥ 화면(대화 Claude) → 상품 설명 칸 → Shopify(docs/design/shopify-integration.md)
+다음 판정 번호: 398
+```

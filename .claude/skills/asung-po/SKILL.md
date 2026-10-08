@@ -167,6 +167,17 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  공급처 쓰기(판정 237 · 238 · 241 · so-module §41): 표 직접 쓰기 닫힘 · supplier_create · supplier_update(purchasing 또는 master) · 돈 칸(통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인)과 끄기는 master · 같은 이름 막기 · is_purchasable 은 일반 칸(suppliers.html 토글이 창구로) · 공급처 적재는 Apps Script ProbeIMS.gs 의 imsLoadSupplier(관리 키)
 ```
 
+## 4-d. ⭐⭐ 매입 세금 · 할인 원가 — 모르면 사고 (2026-10-08 · 정본 po-module §11-e 끝 · §11-f · §11-g 「세금」 · §11-h · §13-j · 판정 383 ~ 397 · so-module §53)
+
+```
+⭐⭐ 매입 세금은 줄마다 반올림(SO 와 같은 so_tax_amount) · 문서 할인 체인은 「할인 줄」 한 번 · 식 한 곳 = 뷰 po_tax_group — 화면 · 창구에서 다시 짜지 마라
+⭐⭐ 매입 세금은 원가에 안 간다 — 입고 · off-PO · over · landed 창구에 세금을 넣지 마라 · 낼 돈 = 세금 전 + 세금(po_invoice_money.payable_net · po_charge_money.unpaid)
+⭐  규칙은 FK + 원문 짝(po · po_line · po_invoice · po_invoice_line · po_charge) — 트리거 po_tax_rule_pair 가 채운다(purchase · 활성만) · 줄 null = 머리
+⚠️⚠️ po_charge.total_amount = **세금 전** · tax_amount = 청구서에 찍힌 세금(비율로 만들지 마라 — 수입 GST) · 배분 합 = total_amount · 안 보내면 0 + 경고(제안값은 반환만)
+⚠️⚠️ 조기 결제 할인(텀 디스카운트)은 인보이스 할인 체인에 넣지 마라 — 결제의 Discount taken(판정 389) · 그래도 원가는 낮춘다(판정 390 · ⬜ po-disc-4)
+⚠️  입고 원가 = po_line.unit_price × po_discount_factor × 환율 · 계수는 입고 확정 순간 po_receipt.discount_factor 에 못 박힌다(재생성이 읽는다 · 입고 뒤 PO 할인을 바꿔도 레이어 무변) · ⬜ (나) 인보이스 단가 · (다) 결제 할인 · 입고 뒤 환율 수정은 판정 397 순서로
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 정본에 있는 것은 옮겨 적지 말고 가리킨다 · 실측 숫자는 두지 않는다 — 14KB 를 넘기면 정본으로.

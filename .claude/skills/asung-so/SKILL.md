@@ -236,6 +236,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ balance_forward 는 ⓑ 전에 null(0 을 넣지 마라 — 「잔액 0 을 확인했다」로 읽힌다) → ⓑ2 부터 발행이 채운다(0 이하 · 봤는데 없으면 0 · 4-h) · 기한 = 발행일 + net_days(판정 10 · 34 값 · null 이면 경고 due_date_unknown · split 이면 split_terms) · 조기결제 할인 기한은 안 찍는다
 ⚠️  so_detail 은 shipped·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본 · ⓑ2 부터 invoiced 상태 값 없음) · so_family_* 남은 수량 = 주문 − 뺀 것 − 보낸 것 · fulfilled 로 옮기는 때·발행 시점 잔액·취소 가드는 ⓑ → 4-h
 ⭐⭐ [2026-10-07 · §52] 운임 할인 — so_charge.discount_pct | discount_amount(하나 · 식 so_charge_discount) · 세금은 줄마다 · 인보이스 줄 kind 다섯(product · charge · order_discount · surcharge · charge_discount — 운임 줄 바로 뒤 · 음수) · 머리 · 오더 charges_discount_amount(charges_amount 는 정가) · 계정 inv_config so_freight_discount_account_code(_6_ · 비면 할인 운임 발행만 막는다)(판정 352 ~ 358)
+⚠️  [2026-10-08 · 판정 382 · §53] 오피스 단추 이름 = **Ship & invoice**(so v5q) — 상태 Finalized = 물건이 준비됨 · Fulfilled = 우리 손을 떠남 · 창고 단추 Finalize · 창구 so_finalize 이름은 그대로 — 단추와 상태를 같은 말로 부르지 마라
+📌  [2026-10-08 · 판정 362 ~ 381] Shopify 연동 설계 정본 = docs/design/shopify-integration.md(설계만 · 손님 찾기 4단계 · 브랜치 라우팅 · 무료 배송 = 운임 + 할인 100% · 칸의 주인 · Available 에 맞춘다)
 ⭐  [2026-10-07 · §52] 상태 칩 색 — SO(판정 359): Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강 · Shipped 는 인보이스 취소 뒤에만(칩 「Invoice cancelled」) · PO(판정 360)는 asung-po §0
 ```
 
