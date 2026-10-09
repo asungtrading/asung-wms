@@ -3056,7 +3056,7 @@ so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IM
 | so_tax_preview 20260924172351:478 | 배송지에서 고름 | **바꿨다** — so.tax_rule_id 먼저 |
 | so_detail 20260923232500:970 | `to_jsonb(v_so)` 에 실림 | 세금 합계 더함 |
 | so_reprice · so_unconfirm · so_cancel · so_ship · so_hold · so_allocate_run · so_backorder_* | — | tax_rule 등장 0(grep) |
-| PO·공급처·제품 쪽 tax_rule(po · po_line · supplier · product 둘) | 원문 | 무접촉 — 매입(purchase) 연결은 없다 · PO 세금 계산은 여전히 없다(po-module §7 · 3535) |
+| PO·공급처·제품 쪽 tax_rule(po · po_line · supplier · product 둘) | 원문 | 무접촉 — 매입(purchase) 연결은 없다 · PO 세금 계산은 여전히 없다(po-module §7 · 3535) → ✅ [2026-10-08 · po-tax-1 51971d0 · §53] 섰다 |
 
 ### 16-f 파일 · 검증 실측 (✅ Caleb 2026-09-24 · 테스트 DB Asung-IMS · 커밋 74d4838 세금 ① · 6bf8e63 세금 ②)
 
@@ -3099,7 +3099,7 @@ so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IM
 QBO 에서 규칙 불러오기(청취 · qbo_id · source 'qbo') — QBO 연동 때 · 지금은 자리만 · cin7_id 채우기 프로브(GET /ref/tax · 응답 모양 문서 없음)
 옛 세율 규칙 셋(NB 13 · NL 13 · PE 14) Cin7 비활성 — Caleb·회계사(16-c ④) · IMS 에는 기록으로만(연결 없음)
 PST·QST 미징수 실무(QC·BC·MB·SK 는 GST 5 만) — 회계사 확인 거리(16-c ⑤) · 바뀌면 새 규칙 + 연결 시작일(판정 4)
-매입(purchase) 연결 없음 — ref_tax_region 은 sale 만 씨앗 · PO 세금 계산은 여전히 없다(po-module §7 · 3535 발주 머리 Tax rule 드롭다운의 재료만 섰다)
+매입(purchase) 연결 없음 — ref_tax_region 은 sale 만 씨앗 · PO 세금 계산은 여전히 없다(po-module §7 · 3535 발주 머리 Tax rule 드롭다운의 재료만 섰다) → ✅ [2026-10-08 · po-tax-1 51971d0 · po-tax-2 8c3343d · §53] PO · 인보이스 · 비용 청구서 세금 계산 섰다(po-module §11-g 「세금」)
 BigQuery Total 세금 포함 적재(SO-05606 · 약 700 오더 13%) — asung-bq-data-model data-hygiene 「밀린 일」 · 원인·범위 조사 전 숫자를 고치지 마라
 화면 차수 — 초안 화면의 규칙 표시(ship_to|manual · 경고 tax_region_unknown · tax_rule_reset_by_ship_to) · tax_rule 드롭다운(활성 sale 규칙) · 주 표기 별칭 추가(ref_region_alias · 새 실물이 나오면 표에 · 마이그레이션 아님) · _118_ 규칙 셋 표시 여부(⬜8)
 so_create 의 반환 tax_rule 이 null 일 때 화면 안내(배송지 비었거나 주 모름 — ship_to_empty 와 함께 온다)
@@ -7552,5 +7552,87 @@ Shopify 판정(362 ~ 381)의 주제별 정리 · 열린 확인 거리는 `docs/d
 
 ```
 순서(판정 397 · 381): ② po-disc-2 입고 기준 단가 = 인보이스(+ 판정 396 인보이스 취소 막기) → ③ po-disc-3 공통 조정 장치 → ④ po-disc-4 결제 할인 · To pay · Pay selected → ⑤ po-disc-5 입고 뒤 바뀜 → ⑥ 화면(대화 Claude) → 상품 설명 칸 → Shopify(docs/design/shopify-integration.md)
-다음 판정 번호: 398
+다음 판정 번호: 398 → §54(401)
+```
+
+## §54 2026-10-08 밤 — 공급처 할인 → 재고 원가 ② ~ ⑥ · 판정 398 ~ 400 (집 PC)
+
+⭐ 닫힌 것: 「입고 원가가 인보이스 단가를 모른다」 · 「입고 뒤 PO 환율을 고치면 재생성이 원가를 바꾼다」 · 「조기 결제 할인이 원가에 안 간다」 · 「비용 청구서 할인이 landed 에 안 간다」 · 「가격 크레딧이 원가를 모른다」 · 「입고 있는 인보이스를 취소할 수 있다」
+⭐ 새로 선 것: 입고 원가 재료 핀 `po_receipt_cost` · 공통 조정 장치 `inv_cost_adjust`(조정 사건 · 보류 · 되돌림 · 재생성) · To pay · Adjust discount · 크레딧 Reason · 환율 차액 단추
+⭐ 새 판정 398 ~ 400 · 원문 지시서 `~/asung/prompts/po-disc-2.md` ~ `po-disc-5.md` · `docs-1008b.md` · 보고 `po-disc-2-report.md` ~ `po-disc-5b-report.md`(집 PC) · 판정 날짜는 전부 **2026-10-08**(집) · 다음 판정 번호 **401**
+⚠️ 회사 인계서(2026-10-08)가 「인보이스 취소 막기 = 판정 395」라고 적었다 — **판정 396 이 맞다**(§53-a) · §53-a 는 그대로
+
+### 54-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 398 | 「안 1로 하자」 · 「그렇다고 latest price가 0이 되는 것은 아니지?」 | 확정 인보이스에서 돈을 내지 않은 줄(is_payable false · 단가 0)로 온 물건의 재고 원가는 0 · 같은 PO 줄에 섞이면 낸 돈 ÷ 받은 개수(레이어는 PO 줄마다 하나) · 가격 이력(po_price_history)의 거름은 그대로 — latest price 무변 |
+| 399 | 「안1」 | 할인 · 차액이 그 레이어의 원가보다 크면 사건 전체를 거부한다(입력 실수 · 재고와 무관한 리베이트는 장부 쪽) · 기각: 0 까지만 빼고 넘는 몫 따로 기록(입력 실수를 조용히 받는다) |
+| 400 | 「안 1」 | 크레딧 노트의 goods 줄마다 Not received(원가 무변) / Price difference(받은 물건의 원가를 낮춘다) — 시스템이 제안하고 직원이 확정 전에 줄마다 바꾼다 · 걸치는 줄은 확정 거부(줄을 나눈다) · 기각: 숫자로만 가르기(100 × 0.30 이 가격 차액인지 못 가른다) |
+
+그 밖에 Caleb 이 정한 것(판정 번호 없이):
+- ④ 를 셋으로(④-a1 · ④-a2 · ④-b) · ⑤ 를 둘로(⑤-a · ⑤-b) — 900 줄 규칙(po-disc-4 · 5 보고의 크기 표)
+- P&G 인보이스 1030266656 — 조건 2.1% · pre_tax · until 2026-10-21 백필 · due_date 2026-11-07 로 정정(「넣는 쪽으로」 · po-disc-4a2)
+- 「그냥 그대로 가」 — 지시서 쓰는 방식(대화 Claude 가 판정에 걸리는 사실은 직접 열어 본다)을 바꾸지 않는다(54-d 6)
+
+### 54-b DB 차수 (마이그레이션 · 시험/확인 · 커밋 — git log 원문)
+
+| 차수 | 파일 | 시험 / 확인 | 커밋 |
+|---|---|---|---|
+| po-disc-2 입고 기준 단가 = 확정 인보이스 + 판정 396 | `20261008234826_po_disc_2.sql` | 34/0 · 31/0(확인 갈래 전용 210 행 괄호 — 1회 다시) | **ec38429** |
+| po-disc-3 공통 원가 조정 장치 | `20261009002744_po_disc_3.sql` | 30/0 · 26/0 | **ac09e2e** |
+| po-disc-4 | (조사 · 900 넘음 → 셋으로 · 보고 `po-disc-4-report.md`) | — | — |
+| po-disc-4a1 조건 칸 · 충당별 할인 · 문지기 | `20261009011457_po_disc_4a1.sql` | 21/0 · 19/0 | **9bb79d7** |
+| po-disc-4a2 결제 할인 → 원가 사건 · 되돌림 · P&G 백필 | `20261009013612_po_disc_4a2.sql` | 20/0 · 18/0(C13a 확인 갈래 증감 기대 — 1회 다시) | **729dad2** |
+| po-disc-4b To pay · 비용 청구서 할인 · 할인 고치기 · CBSA 보류 | `20261009020052_po_disc_4b.sql` | 17/0 · 15/0 | **cc95c24** |
+| po-disc-5 | (조사 · 900 넘음 → 둘로 · 보고 `po-disc-5-report.md`) | — | — |
+| po-disc-5a 가격 크레딧(판정 400) | `20261009023028_po_disc_5a.sql` | 16/0 · 14/0 | **7454253** |
+| po-disc-5b 환율 차액(판정 394) | `20261009025008_po_disc_5b.sql` | 13/0 · 12/0 | **4c134f7** |
+
+**각 차수의 핵심 사실(Claude Code 보고)**
+- po-disc-2: 입고 단가 순서 = 핀(`po_receipt_cost` · 입고 × PO 줄 · append-only · 레이어를 처음 세울 때만) → 확정 인보이스(confirmed_at 가장 늦은 것 · 낸 돈 ÷ 받은 개수 × 인보이스 체인 · 환율 인보이스 → 같은 통화 PO → 거부) → PO 기준(경고 no_invoice_line) · 판정 398 · 식 한 곳 `po_invoice_discount_factor` · `po_invoice_line_cost`(po_price_history 가 부른다 · 26 칸 바이트 같음) · `po_doc_cancel` 이 입고 있는 인보이스 취소 거부(판정 396) · 재생성은 핀을 읽어 환율 · 가격 수정이 원가를 안 움직인다(판정 394) · 재생성 가치 차이 +2.7309 그대로
+- po-disc-3: `inv_cost_adjust`(kind price_adjust · settlement_discount · target po_line · charge_alloc · 부호 있는 CAD · pending | posted · posted_on/posted_ledger_id · reverses_id) · 창구 `inv_layer_post_cost_adjust`(속 · unit_cost × qty 비례 · 끝수 마지막 · line_ref adj:<id> · settle · 레이어 없으면 pending · 판정 399 거부) · `inv_cost_adjust_reverse` · cost_add kind CHECK 에 두 낱말 · 입고 확정 ⓖ 가 pending 을 ⓕ 비용 뒤에 · 재생성 IMS 조정 갈래(done cogs_adj · deferred) · inv_layer_apply 같은 날 자리 조회 넷 · ⚠️ 이름 `inv_layer_post_adjust` 는 재고 조정 창구가 이미 써서 `inv_layer_post_cost_adjust` · 재생성 +2.7309 그대로
+- po-disc-4(조사): 전체 ~950 ~ 1050 줄 → 셋으로 · 사실 정정 — payments.html 380 행은 충당 **메모**만 고친다(금액은 po_payment_alloc_set) · 칸 권한 revoke 는 42501 만 낸다 → 트리거 문지기 · CBSA 할인만 먼저 얹으면 판정 399(PO-02002a 레이어 35.39 < 몫 39.00)
+- po-disc-4a1: po_invoice 조건 칸 넷(짝 CHECK 다섯) · po_invoice_create 가 결제조건에서 제안(early_discount_no_deadline) · 식 한 곳 `po_early_discount_calc` · `po_invoice_early_discount` · po_invoice_list 뒤 여섯 칸 · 잠금 `po_invoice_early_lock` · 충당 `discount_amount` 정본 · `po_payment_alloc_discount_sync`(discount_taken = Σ) · 문지기 `po_payment_guard` · `po_payment_alloc_guard`(플래그 po.payment_door) · po_payment_create 최소 재발행(옛 모양 대상 하나 · 둘 이상 거부 · 원소 discount 는 ④-a2 까지 거부) · 백필 충당 둘(P&G 952.08 · CBSA 50.95) · 사건 없음
+- po-disc-4a2: po_payment_create 원소 discount(제안 · 경고 넷 · legacy_shape) · 식 한 곳 `po_invoice_discount_parts`(판정 395 · 끝수는 원가 몫) · 충당 칸 discount_tax_part · discount_other_part · 속 `po_payment_alloc_cost_events`(PO 줄마다 · 줄 금액 비율 · 무상 줄 몫 없음 · 환율 po_invoice_line_cost) · 되돌림 `po_payment_alloc_cost_reverse` · 세 창구 definer(po_payment_create · po_payment_alloc_delete · po_doc_delete) · 문지기 문장(uuid 없이 · ADJUST-DISCOUNT-BUTTON) · P&G 백필(사건 13 pending · Σ −952.08 · 잠금 트리거를 한 문장만 끄고) · 되돌림은 그 순간 소비로 나뉜다(347.20 vs 350 · 미룬 151)
+- po-disc-4b: `po_pay_candidates`(21 칸 · 결제일 기준 할인 · 문 purchasing · 69 ms) · 비용 청구서 원소 discount + discount_basis(`po_charge_discount_parts` · 배분 줄마다 target charge_alloc · landed 가 레이어에 없는 배분 줄은 held pending) · `po_payment_alloc_discount_set`(낸 돈 고정 · 충당 이동 · 다 갚은 문서는 올리지 못한다 · 되돌림 + 새 사건 · 0 이면 잠금 풀림) · cost_events 시그니처 drop + create · CBSA 사건 둘 pending(−39.00 · −11.95) · CBSA 조사: 청구서 확정 09-16 이 ⓕ(09-29 19:54 UTC)보다 앞 · RCV-00029 확정은 ⓕ 19분 전 · PO-02001a 입고 0 · 비용 할인만으로는 399 에 안 닿는다(할인 ≤ 충당 ≤ landed)
+- po-disc-5(조사): 전체 ~940 줄 → 둘로 · 이견 12(definer · 복구 재생성 · 사건 단위 = 크레딧 줄 · ⬜1 ~ ⬜6)
+- po-disc-5a: `po_invoice_line.credit_reason` + 트리거 · 제안 식 `po_credit_reason_suggest` · 속 `po_credit_cost_events`(price_difference 줄마다 · 크레딧 체인만 · 핀 환율 가중 · credit_fx_mixed / unpinned · price_credit_qty_above_received) · `po_credit_cost_reverse` · 재발행 여섯(po_invoice_create · line_add · line_update · po_invoice_detail · po_invoice_confirm · po_doc_cancel — 뒤 둘 definer) · 확정 거부 둘(뜻 없음 · 걸침) · 다시 열기 · 취소 되돌림 · 복구 재생성 · 실물 확정 크레딧 0
+- po-disc-5b: 식 한 곳 `po_fx_cost_lines` · `po_fx_cost_status` · `po_fx_cost_apply`(definer · 미리 보기 · fx_fix · append · 멱등 · 되돌리면 반대 부호 · 399) · 핀 출처 invoice · 핀 없는 레이어 제외 · 기준통화 0 · po_detail 무재발행 · ⚠️ 테스트 DB 실물 핀 0(옛 입고) → 실제 PO 는 전환 재생성 뒤에 뜻이 생긴다
+
+### 54-c 화면 (asung-ims · git log 원문)
+
+| 화면 | 판 · 커밋 | 내용 |
+|---|---|---|
+| invoices.html | inv tx v1b 066d2e2 | 판정 396 — 입고 있는 확정 인보이스는 Reopen · Cancel 흐림 + credit note 한 줄(서버 거부는 그대로) |
+| invoices.html | inv disc v2 e110bc3 · v2a ba182c9 · v2b a666920 | Early-pay discount 줄(조건 · 오늘 금액 · 남은 일수 · Edit 가 네 칸 한 번에 · 잠금 문장) · 크레딧 Reason 칸(Not received / Price difference · 제안 · split-the-line 경고) · Cost changes 표 · 확정 요약 / v2a 크레딧 만들기 창 Billed 가 늘 「—」(서버 invoice_qty · 화면 invoiced_qty — 옛 결함) / v2b 크레딧 창 경고를 사람 말로 |
+| payments.html | pay disc v1 51c55c1 · v1a 379cbef · v1b 81c4176 | To pay(po_pay_candidates · 결제일 기준 할인) → Pay selected(문서별 금액 · 할인 · 비용 기준) · Paid · Discount taken 읽기 전용 · Adjust discount(Check → Save) · Settle with discount(미룬 144) · 경고 말(미룬 143) / v1a 할인 0 Check 의 「Lowers stock cost by —」 → 되돌림 · 대체 · 무변 문장 / v1b To pay 검색 칸 너비 |
+| po.html | po fx v1 bf94422 | 환율 칸 아래 환율 차액 경고 · Apply FX difference(미리 보기 → 반영) · invoice 환율 줄 · 핀 없는 옛 lot 안내 · 환율은 그대로 고칠 수 있다 |
+
+### 54-d ⚠️ 그날 겪은 실수 — 원인 · 처방
+
+1. [대화 Claude] ⑤ 를 「한 차수로 끝날 크기」라 했다 → 실제 ~940(둘로 나눔) — 손댈 함수의 줄 수를 안 재고 옛 어림에서 뺐다 · 판정 400 이 늘린 몫을 다시 안 셌다 ⇒ **크기를 말하기 전에 다시 낼 함수의 prosrc 줄 수를 잰다**
+2. [대화 Claude] po-disc-4 지시서의 사실 틀림 — 「payments.html 380 행이 충당 금액을 고친다」(실제는 메모 · 금액은 po_payment_alloc_set) ⇒ 지시서에 적는 화면 줄은 그 줄을 열어 본 것만
+3. [Claude Code] 확인 갈래 전용 줄 사고 둘 — po-disc-2 210 행 괄호(시험 4회가 한 번도 안 돈 줄) · po-disc-4a2 C13a 「머리 + 13」을 한 갈래로(증감 기대 · 네 번째 재발) ⇒ 확인 갈래 전용 줄은 만들 때 `psql -c` 로 따로 문법 확인 · 증감은 쓰는 순간 두 갈래(4b 부터 지시서에 명시 · 통과)
+4. [인계서] 판정 번호 틀림(395 ↔ 396) — 정본이 막았다 ⇒ 판정 번호는 정본 표에서 옮긴다
+5. [대화 Claude · 화면] Early-pay discount 의 Edit 단추가 작아 Caleb 이 못 찾았다 · 크레딧 창 Billed 옛 결함 · 할인 0 원가 문장 「—」 · 검색 칸 너비 — 모두 그 자리에서 고침(v2a · v2b · v1a · v1b · Edit 크기는 미룬 157)
+6. Caleb 「이게 이렇게 시간이 많이 걸리고 토큰을 많이 먹은 일이야?」 — 대화 Claude 가 원인(세션 시작 전문 읽기 · 지시서 전 코드 읽기 겹침 · 안내 부족 왕복)을 말했고 Caleb 은 「그냥 그대로 가」
+7. [Claude Code] 검증 회차를 먹은 검증 쪽 실수(보고 원문) — 다바이트 거부 문장을 `left(n)` 글자 수로 비교(4a1) · 다 갚은 문서로 거부 시험(4a1 · 4a2 · 4b 세 번) · 손 계산 기대(4b E1 with_tax 값 · 5b G4 14 ≠ 10) · numeric 글자 비교(2) · 직접 실행권 없는 속 창구를 authenticated 로 부름(2 · 3) · RAISE `%%`(4a2) ⇒ asung-workflow §4
+
+### 54-e 미룬 것 — §53-e 150 에 이어 붙임
+
+- 151 되돌림을 원래 나눈 비율로(po-disc-4a2 보고 이견 9 · 할인 뒤 더 팔린 다음 되돌리면 재고 ↔ 매출원가 사이 몇 달러 · 합계는 맞음 · 시험 347.20 vs 350)
+- 152 트랜스퍼 운임 청구서의 보류 사건을 트랜스퍼 도착 때도 얹기(po-disc-3 이견 3)
+- 153 CBSA landed 백필(아침 점검 ⑯) + 보류 할인 둘 함께
+- 154 입고 전 가격 크레딧의 CAD 가 뒤 핀 환율과 몇 센트 어긋날 수 있음(po-disc-5a 이견 5)
+- 155 문지기 문장 표식 ADJUST-DISCOUNT-BUTTON — 화면에 Adjust discount 가 생겼으니 문장을 단추 이름으로(지금은 「delete … and enter it again」)
+- 156 po_invoice_money 를 po_invoice_discount_factor 로(141 확장) · po_price_history comment 의 「factor 는 po_invoice_money」 문구 정정
+- 157 invoices.html Early-pay discount Edit 단추 크기(다른 단추와 같게)
+- 158 ⭐ 끝에서 끝 시험(내일 회사 · Caleb): 새 USD PO → 인보이스 할인 조건 → 확정 → 입고(핀) → To pay · Pay selected(할인 → 원가) → PO 환율 변경 → Apply FX difference — 단계마다 원가 확인 쿼리(대화 Claude)
+
+### 54-f 다음
+
+```
+끝에서 끝 시험(158) → 상품 설명 칸(판정 381) → Shopify(docs/design/shopify-integration.md)
+다음 판정 번호: 401
 ```

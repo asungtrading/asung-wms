@@ -309,6 +309,7 @@ Invoice Total      16,522.58   ✅ 인보이스와 정확히 일치
 매입가 할인   물건을 받는 순간 확정 · 인보이스에 이미 찍혀 온다 ⇒ 재고 원가로 내려간다  ⇒ 이 표
 조기결제 할인 돈을 낼 때 확정 · 기한을 놓치면 안 생긴다      ⇒ 원가로 내려가지 않는다 ⇒ ref_payment_term
 ```
+→ ⚠️ [2026-10-08 · 판정 390 · so-module §53 · §54] 위 「⇒ 원가로 내려가지 않는다」는 **뒤집힘** — 조기 결제 할인도 재고 원가를 낮춘다(결제 저장 순간 · po-disc-4a2 729dad2 · §11-h) · 「이 표에 안 섞는다」 · 「ref_payment_term 이 정본」은 그대로(인보이스 조건은 결제조건에서 제안만)
 ⚠️ 조기결제 비율을 이 표에도 적으면 **같은 값이 두 곳에 살고 어긋나면 어느 쪽이 맞는지 알 수 없다.**
    `ref_payment_term.discount_days`·`discount_percent` 가 이미 그 값을 갖고 있다(§4-②).
 ⚠️ 층 칸(bool/enum)은 두지 않는다 — 종류가 하나뿐이면 아무것도 구별하지 못한다(`Method` 를 안 만든 판단).
@@ -340,7 +341,7 @@ IMS 에 있어야 한다 — 발주에 붙는 운임을 우리 PO 가 배분하�
 1. **할인은 문서에 여러 줄로, 순서를 갖고 선다.** 실제 금액이 정본이고 비율은 검증용이다
    (비율만 저장해 다시 계산하면 반올림이 단계마다 끼어들어 센트가 어긋난다 — 그것이 애초에
    라인 할인을 포기하고 총액을 아래에서 빼게 만든 원인이다).
-2. **⚠️⚠️ 조기결제 할인은 재고 원가로 내려가지 않는다.** → ⚠️ [2026-10-08 · 판정 390 · so-module §53] **뒤집힘 — 조기 결제 할인도 재고 원가를 낮춘다**(결제 저장 순간 · §11-h 「조기 결제 할인 — 결제에서」)
+2. **⚠️⚠️ 조기결제 할인은 재고 원가로 내려가지 않는다.** → ⚠️ [2026-10-08 · 판정 390 · so-module §53] **뒤집힘 — 조기 결제 할인도 재고 원가를 낮춘다**(결제 저장 순간 · §11-h 「조기 결제 할인 — 결제에서」) · ✅ po-disc-4a2 729dad2 · 4b cc95c24(so-module §54)
    [실물 E.T Browne INV 2142773 · 2026-07-16] 품목 10,036.02 + HST 1,304.68 = Net Due 11,340.70,
    결제 11,113.89 → 차액 **226.81 = 총액(세금 포함)의 2%** (조건 2% 10 Net 30).
    ⚠️ Cin7 에는 이것이 additional cost 한 줄(`HST ON (Purchase)`)로 들어가 **세금을 29.49 더 깎아**
@@ -2959,7 +2960,7 @@ SKU 다듬기  앞뒤 공백(비분리 공백 포함)만 자른다 · 정확히 
       ② 「마지막 줄」은 정렬에 따라 바뀐다 — 가장 큰 줄은 정렬과 무관하게 같다(결정론적)
    ⚠️ 동점이면 SKU 순으로 앞선 줄(규칙이 없으면 매번 결과가 달라진다)
 
-⭐ **조기결제 할인은 여기 안 섞는다** — 돈 낼 때 생기고 원가로 안 내려간다. `ref_payment_term` 이 정본(§3-b D · §4-②) → ⚠️ [2026-10-08 · 판정 389 · 390] 「여기(할인 체인) 안 섞는다」는 그대로 · 「원가로 안 내려간다」는 **뒤집힘** — 결제의 Discount taken 으로 받고 그 순간 원가를 낮춘다(§11-h)
+⭐ **조기결제 할인은 여기 안 섞는다** — 돈 낼 때 생기고 원가로 안 내려간다. `ref_payment_term` 이 정본(§3-b D · §4-②) → ⚠️ [2026-10-08 · 판정 389 · 390] 「여기(할인 체인) 안 섞는다」는 그대로 · 「원가로 안 내려간다」는 **뒤집힘** — 결제의 Discount taken 으로 받고 그 순간 원가를 낮춘다(§11-h) · ✅ po-disc-4a2 729dad2
 ⭐ **문서 분할이 뜻밖에 여기서 돕는다** — §3-b ③ 「할인은 인보이스 단위인데 Cin7 은 PO 단위로 배분해서 아직 인보이스 안 된 부분의
    원가까지 내린다」(실물 PO-01010 의 498.33). 부분입고마다 문서가 갈라지면 **문서 하나가 대체로 인보이스 하나와 맞아떨어진다.**
    그 문제가 구조적으로 줄어든다(⚠️ 없어지는 것은 아니다 — 한 인보이스가 여러 쉽먼트로 오는 경우는 11-g 가 받는다).
@@ -2990,8 +2991,8 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
                               · po_discount_factor = po_mul 체인 한 곳(새 함수 · po_list · po_detail · po_tax_group 은 아직 같은 식을 각자 — 미룬 141)
                               · 입고 확정 순간의 계수를 po_receipt.discount_factor 에 적고 재생성(inv_layer_apply → inv_layer_post_receipt)이 그 값을 읽는다
                               · 반올림 없음 · 기존 레이어(PO-02002a 3.538855 → 3.1849695)는 전환 때 재생성으로
-(나) 인보이스 실제 단가       ⬜ po-disc-2 — 판정 392: 입고 원가를 처음부터 확정 인보이스 단가 × 인보이스 체인 × 인보이스 환율로 · 입고 뒤 바뀌는 길만 공통 조정 장치(po-disc-3 · po-disc-5)
-(다) 결제 때 받은 할인        ⬜ po-disc-4 — 판정 389 · 391: 조기 결제 할인은 결제의 Discount taken · 저장 순간 원가를 낮춘다(§11-h)
+(나) 인보이스 실제 단가       ✅ po-disc-2 ec38429 `20261008234826` — 판정 392: 입고 원가를 처음부터 확정 인보이스 단가 × 인보이스 체인 × 인보이스 환율로(핀 po_receipt_cost · §11-i) · 입고 뒤 바뀌는 길만 공통 조정 장치(po-disc-3 ac09e2e · po-disc-5a 7454253 가격 크레딧 · 5b 4c134f7 환율 차액)
+(다) 결제 때 받은 할인        ✅ po-disc-4a1 9bb79d7 · 4a2 729dad2 · 4b cc95c24 — 판정 389 · 391 · 393 · 395: 조기 결제 할인은 결제의 Discount taken(충당마다) · 저장 순간 원가를 낮춘다 · 비용 청구서 할인은 landed 를 낮춘다(§11-h 「조기 결제 할인 — 실물」)
 순서                          판정 397 — ② po-disc-2 → ③ po-disc-3 → ④ po-disc-4 → ⑤ po-disc-5 → ⑥ 화면
 ```
 
@@ -3225,7 +3226,20 @@ tax_inclusive 기록만 · true 면 po_detail 경고 tax_inclusive_not_supported
 total_amount  주석 정정 — 「크레딧성 음수 인보이스(짐작)」 → 세금 포함 · 크레딧은 doc_kind credit 의 양수 금액(po-tax-1 comment)
 ⚠️ 적용 뒤     HST 인보이스 둘(CAD test · 1030266656)과 걸린 PO 둘(PO-02026 · PO-02045)의 낼 돈이 세금만큼 움직였다 · 나머지 무변
 ```
-⭐ [2026-10-08 · 판정 392] 확정 ① 「인보이스에 걸린 할인이 원가로 내려간다」 — ⬜ 아직이다(입고 레이어는 PO 단가 × PO 체인 × 환율 · (나) po-disc-2 가 인보이스 단가로) · §11-e 끝 「할인 → 재고 원가」
+⭐ [2026-10-08 · 판정 392] 확정 ① 「인보이스에 걸린 할인이 원가로 내려간다」 — ⬜ 아직이다(입고 레이어는 PO 단가 × PO 체인 × 환율 · (나) po-disc-2 가 인보이스 단가로) · §11-e 끝 「할인 → 재고 원가」 → ✅ po-disc-2 ec38429(§11-i 「입고 원가의 재료 — 핀」)
+⭐ [2026-10-08 밤 · po-disc-5a 7454253 · 판정 400 · 399 · so-module §54] **크레딧 원가 — Not received / Price difference**
+```
+칸          po_invoice_line.credit_reason not_received(안 온 물건 · 원가 무변) | price_difference(받은 물건의 원가를 낮춘다) · 크레딧 goods 줄만(트리거 po_invoice_line_credit_reason_guard · 인보이스 줄이면 거부)
+제안        자동 채운 줄(po_invoice_create · 인보이스 − 입고 차이) = not_received · 사람이 더한 줄 = po_credit_reason_suggest — 남은 안 온 수량(Σ확정 인보이스 청구 − Σ입고 − Σ not_received(확정 크레딧 + 이 크레딧의 다른 줄)) ≥ qty/2 → not_received · 아니면 price_difference
+            경고 credit_reason_suggested · credit_reason_differs_from_suggestion · credit_line_spans_both(0 < 남은 < qty) · 직원이 초안에서 바꾼다(po_invoice_line_add · _update 열쇠 credit_reason)
+확정 거부   goods 줄에 뜻이 없다 · not_received 줄이 남은 안 온 수량을 넘는다(「… split the line; the rest is a price difference」 — 자동으로 줄을 나누지 않는다)
+원가 사건   price_difference 줄마다 하나(kind price_adjust · target po_line · source_type po_credit · source_id = 크레딧 줄 · source_number = 크레딧 번호) · 몫 = round(qty × 단가 × 크레딧 자신의 체인, 2) · 세금 전
+            환율 = 그 PO 줄의 핀 환율(레이어 수량 가중 · 섞이면 credit_fx_mixed · 핀 없으면 po_invoice_line_cost 출처 + credit_fx_unpinned) · 받은 수량보다 많으면 경고 price_credit_qty_above_received(입고 전 가격 크레딧은 정상 — pending → ⓖ)
+            곧바로 얹기 · 판정 399 거부면 크레딧 확정 전체가 안 된다
+되돌림      다시 열기(po_invoice_confirm false) · 취소(po_doc_cancel)가 사건을 먼저 되돌린다 · 복구(cancel false → confirmed)는 다시 만든다 · 두 창구 definer · 결제가 쓴 크레딧의 거부는 그대로(그 검사 뒤에 되돌림)
+읽기        po_invoice_detail lines[] credit_reason · credit_reason_suggested · credit_not_received_left · credit_spans_both · credit_cost_events[] · 경고 credit_reason_missing · credit_line_spans_both
+⚠️          크레딧에는 인보이스 할인 체인을 복사하지 않는다(미룬 138) — 원가 몫은 크레딧 자신의 체인만 · 입고 전 가격 크레딧의 CAD 가 뒤 핀 환율과 몇 센트 어긋날 수 있다(미룬 154)
+```
 
 ### 11-h. ⭐ 결제 — IMS 가 든다
 ```
@@ -3276,18 +3290,40 @@ discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 
 ❌ 크레딧을 결제에 쓰는 길은 이번에 없다   위 「안 붙은 크레딧만 이 길」이 190000 의 p_targets(kind invoice | charge)에 빠졌다 — 지시서의 누락(대화 Claude). 검산 부호가 뒤집혀(Σ인보이스 + Σ비용 = amount + discount_taken + Σ크레딧) 섞을 수 없어 **거부**한다(「… is a credit note — a later step」) · 조용히 통과시키지 않는다 · §13-f
 검사 한 곳   po_payment_target_check(존재 · 종류 · confirmed · 통화 · 초과 — 고치는 줄의 금액은 미지급에 되돌려 놓고) — 만들기(po_payment_create · 미리 보기 두 단계 · amount 없으면 미지급 전액 제안)와 충당 편집(po_payment_alloc_set 은 있으면 고치고 없으면 더한다 · unique (payment, invoice)·(payment, charge) 가 축 · _delete)이 같이 쓴다
 읽기          뷰 po_payment_list(alloc_sum · balanced = Σ충당 = amount + discount · doc_numbers · supplier_names · 충당 없는 결제도 보인다) · RPC po_payment_detail(allocs[] 에 doc_total · doc_paid_total · doc_unpaid — 부분 결제가 정상이라 「지금 얼마 남았나」를 보고 정한다)
-머리 칸        paid_on · amount · discount_taken · account_id · reference · note 는 화면이 PostgREST 로 쓴다 — 결제는 상태가 없어 잠금 지점이 없다. gap 은 목록 balanced · 상세가 보여 준다 · ⚠️ currency_id 는 충당이 있으면 **화면이 잠근다**(대화 Claude)
+머리 칸        paid_on · amount · discount_taken · account_id · reference · note 는 화면이 PostgREST 로 쓴다 — 결제는 상태가 없어 잠금 지점이 없다. gap 은 목록 balanced · 상세가 보여 준다 · ⚠️ currency_id 는 충당이 있으면 **화면이 잠근다**(대화 Claude) → ⚠️ [2026-10-08 밤 · po-disc-4a1] amount · discount_taken 은 문지기가 직접 쓰기를 막는다(아래 「조기 결제 할인 — 실물」)
 ```
 
 ⭐ [2026-10-08 · 판정 389 · 390 · 391 · 393 · 395 · so-module §53] **조기 결제 할인 — 결제에서**
 ```
 어디에        인보이스 할인 체인에 넣지 않는다 — 결제의 Discount taken(판정 389) · 실물 P&G 1030266656: 총액 51,230.76 = 세금 전 45,336.96 + 세금 5,893.80 · Paid 50,278.68 + Discount 952.08(= 45,336.96 × 2.1%)
 원가          ⭐ 조기 결제 할인도 재고 원가를 낮춘다(판정 390 · §3 의 「내려가지 않는다」를 뒤집음) — 결제 저장 순간 · 재고에 남은 몫은 레이어 · 팔린 몫은 매출원가(늦은 비용 장치와 같은 모양 · 부호만 반대) · 레이어가 아직 없으면 입고 확정 때 저절로
-⬜ 모양(④ po-disc-4) 인보이스에 「조기 결제 할인 금액(또는 %) · 기준(세금 전/포함) · 기한」 · 결제 화면 「To pay」 → 「Pay selected」 가 Paid · Discount taken · 문서별 충당을 채운다(기한 지나면 할인 없이)
+⬜ 모양(④ po-disc-4) 인보이스에 「조기 결제 할인 금액(또는 %) · 기준(세금 전/포함) · 기한」 · 결제 화면 「To pay」 → 「Pay selected」 가 Paid · Discount taken · 문서별 충당을 채운다(기한 지나면 할인 없이) → ✅ po-disc-4a1 · 4a2 · 4b(아래 「실물」)
               이유: 인보이스를 넣는 사람과 돈 내는 사람이 다르다 · 기각: 결제 초안(「낸 돈」을 세는 모든 자리가 바뀐다)
               ⚠️ discount_taken 은 지금 결제 단위 — 문서별 칸이 필요하다(po-disc-2-0 §0-5) · 결제조건 표에 할인 % · 일수가 있다(제안 · 미룬 145)
 세금 섞인 할인 세금 포함 총액에 받은 할인은 상품 몫만 원가에서 뺀다 · 세금 몫은 갈라 기록(판정 395 · 회계사 확인)
 비용 청구서    받은 할인도 landed 를 낮춘다(판정 393 · CBSA 50.95)
+```
+→ ✅ [2026-10-08 밤 · po-disc-4a1 9bb79d7 · 4a2 729dad2 · 4b cc95c24 · so-module §54] **조기 결제 할인 — 실물**
+```
+조건 칸     po_invoice.early_discount_pct | early_discount_amount(둘 중 하나) · early_discount_basis pre_tax | with_tax · early_discount_until(기한 · ⚠️ due_date 와 다르다) · 짝 CHECK 다섯 · 둘 다 비면 basis null
+            po_invoice_create 가 결제조건(discount_percent · discount_days)에서 제안(제안일 뿐 · P&G 「2%19 Net30」 실제 2.1% · 13일) · 일수 없으면 경고 early_discount_no_deadline
+            식 한 곳 po_early_discount_calc · po_invoice_early_discount(인보이스 · 결제일) · po_invoice_list 뒤 여섯 칸(early_discount_value · early_discount_valid_today)
+            잠금 — 그 인보이스에 할인을 쓴 충당이 있으면 조건 수정 거부(po_invoice_early_lock) · 할인을 0 으로 고치면 저절로 풀린다
+충당 할인   ⭐ 정본 = po_payment_alloc.discount_amount · po_payment.discount_taken 은 Σ 트리거(po_payment_alloc_discount_sync) — 뜻은 「결제 단위 합」 그대로라 읽는 곳(함수 7 · 뷰 1 · 화면 10줄) 무재발행
+            세 몫(판정 395 · 식 한 곳 po_invoice_discount_parts) — 원가 몫(끝수) · 세금 몫(with_tax 일 때만 · discount_tax_part · 기록만) · 그 밖의 몫(payable other · charge 줄 · discount_other_part · 기록만)
+문지기      po_payment_guard · po_payment_alloc_guard — 결제 머리 amount · discount_taken · 충당 amount · discount_amount 의 직접 update · 두 표의 직접 insert 거부(칸 권한 revoke 는 42501 만 낸다 → 트리거 문장) · 창구만 플래그 po.payment_door 로 지난다
+            ⚠️ 위 「머리 칸 … PostgREST 로 쓴다」 중 amount · discount_taken 은 이제 창구만 · paid_on · reference · note · account_id 는 그대로 열려 있다(paid_on 을 고치면 po_payment_detail 경고 paid_on_after_discount_deadline · 사건은 그대로)
+            문장은 uuid 없이 결제일 · 금액 · 통화 · reference 로 · 표식 ADJUST-DISCOUNT-BUTTON(미룬 155 — 단추 이름으로 고칠 자리)
+To pay      po_pay_candidates(supplier, currency, on) — 확정 인보이스 + 확정 비용 청구서의 미지급(세금 포함) · discount_available = 결제일 기준(기한 지나면 0 · 조건 없으면 null · 비용 청구서는 null) · 정렬 유효 할인 → 기한 → 만기 → 번호 · 문 purchasing
+Pay         po_payment_create(definer) 원소 discount — 열쇠 null = 조건으로 제안 · 경고 discount_suggested · discount_expired · discount_after_deadline · discount_without_terms · 옛 모양(열쇠 없음)은 p_discount_taken 이 대상 하나에만(둘 이상이면 거부 「Say which document …」 · discount_available 경고)
+            저장 순간 인보이스 충당마다 원가 사건(PO 줄마다 · 줄 금액 qty × 단가 × 인보이스 체인 비율 · 무상 줄 몫 없음 · 환율 = po_invoice_line_cost) → 곧바로 얹기 · 레이어 없으면 pending(입고 확정 ⓖ) · 399 거부면 결제 전체 안 저장
+비용 청구서 원소 discount + discount_basis(pre_tax | with_tax · tax 0 이면 같다 · 식 한 곳 po_charge_discount_parts) · 배분 줄마다 사건(target charge_alloc · 환율 = 청구서)
+            ⚠️ 그 배분 줄의 landed 가 아직 레이어에 없으면(posted_on null · landed cost_add 없음) 사건은 pending(레이어가 있어도 · held) → landed 가 얹히는 순간(입고 확정 ⓕ) 뒤 ⓖ 가 얹는다
+Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — 낸 돈 고정 · 충당 amount 가 할인 차이만큼(⇒ 다 갚은 문서의 할인은 올릴 수 없다 · 미지급 초과 거부) · 옛 사건 전부 되돌림 + 새 사건 · 0 이면 되돌림만 · 미리 보기
+되돌림      po_payment_alloc_delete · po_doc_delete('payment')(definer)가 지우기 전에 그 충당의 사건을 되돌린다(같은 트랜잭션 · pending 은 둘 다 pending · 사건은 남는다 — source_id FK 없음)
+            ⚠️ 되돌림은 그 순간의 소비로 나뉜다 — 할인 뒤 더 팔린 다음 되돌리면 재고 ↔ 매출원가 사이 몇 달러(시험 347.20 vs 350 · 합계는 맞다 · 미룬 151)
+실물        P&G 1030266656: 조건 2.1 · pre_tax · 2026-10-21 · due_date 10-21 → 11-07(Net30 · 할인 기한을 넣어 둔 값이었다) · 보류 사건 13 · Σ −952.08(PO-02045 입고 때 저절로)
+            CBSA 10039192310530(EFT-20260916-02 · 50.95): 보류 사건 둘 −39.00(PO-02002a) · −11.95(PO-02001a) — landed 자체가 레이어에 없다 → landed 백필 ⑯ 과 함께(미룬 153)
 ```
 
 ### 11-i. ⭐⭐ 입고
@@ -3408,6 +3444,20 @@ discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 
                 ⚠️ wms_sku_bins(Cin7 스냅샷)는 읽지 않는다(원칙 1) · 시드하지 않는다(컷오버 때 채워진다 · 초기에는 거의 비어 있다) · 화면이 po_receipt_line 을 직접 조회해 라스트 빈을 만들지 마라
 ⭐ 계산은 DB 에만  po_receipt_detail 이 정본 — lines[] 는 PO 라인 전부(안 센 라인도 · 「센 것만 줄」이라 안 센 라인은 여기서 그린다) · ordered · invoiced · received_before · received_here · remaining · counted · allocated · unallocated · placed · over · work[] · receipt_lines[] · diffs[] · totals · warnings · 목록은 뷰 po_receipt_list · 화면은 저장 뒤 detail 을 되읽는다
 ⚠️ 환산          work_save 는 **낱개 총량**을 받는다 — 팩→낱개 환산 RPC 는 없다(화면이 곱하면 「계산은 DB」를 어긴다 · p_entered_qty·p_unit_product_id 로 DB 가 곱하는 안 · §13-f)
+```
+
+⭐ [2026-10-08 밤 · po-disc-2 ec38429 · po-disc-5b 4c134f7 · 판정 392 · 394 · 398 · so-module §54] **입고 원가의 재료 — 핀**
+```
+순서       inv_layer_post_receipt(@2026-10-08.3): ① 핀(po_receipt_cost · 이 입고 × 이 PO 줄) → ② 확정 인보이스(confirmed_at 가장 늦은 것 · 낸 돈 ÷ 받은 개수 × 인보이스 체인 × 환율) → ③ PO 기준(po_line.unit_price × po_discount_factor × PO 환율 · 경고 no_invoice_line)
+환율       인보이스 환율 → 같은 통화 PO 환율 → 없으면 거부(남의 환율은 쓰지 않는다) · 식 한 곳 po_invoice_line_cost
+판정 398   돈 안 낸 줄(is_payable false · 단가 0)로 온 물건은 원가 0 · 같은 PO 줄에 섞이면 낸 돈 ÷ 받은 개수(레이어는 PO 줄마다 하나) · po_price_history 거름은 그대로(latest price 무변)
+핀         레이어를 처음 세울 때만 한 행(append-only) · 재생성은 핀을 읽는다 ⇒ 입고 뒤 인보이스 단가 · PO 환율 · PO 할인을 고쳐도 레이어 무변(판정 394)
+           ⚠️ 테스트 DB 의 옛 레이어에는 핀이 없다(po-disc-2 전 입고) — 전환 재생성 때 inv_layer_post_receipt 가 핀을 쓴다
+입고 뒤    바뀌는 길은 공통 조정 장치로만(§12-c) — 가격 크레딧(§11-g 「크레딧 원가」) · 환율 차액(아래)
+환율 차액  판정 394 「경고 + 차액 반영 단추」 — po_fx_cost_status(po)(줄마다 목표 = 레이어 qty × 핀 unit_price_net × 지금 PO 환율 · 이미 = 레이어 qty × 핀 unit_cost_cad + fx_fix 사건과 그 되돌림 · 남은 = round 2)
+           · 핀 출처 invoice 레이어는 제외(인보이스 환율이 원가 환율) · 핀 없는 레이어 제외 + 수 · 기준통화 PO 는 늘 0 · 환율 없으면 경고 po_exchange_rate_missing
+           po_fx_cost_apply(po, commit)(미리 보기 → 반영 · 사건 price_adjust · source_type fx_fix · append · 같은 환율로 또 누르면 0 · 되돌리면 반대 부호 · 399 거부면 전체 안 저장 · 문 purchasing)
+           ⚠️ po.exchange_rate 는 확정 뒤에도 PostgREST 로 고친다(po.html HEAD_ALWAYS) — 막지 않는다 · po_detail 은 무재발행(화면이 상태 창구를 따로 부른다)
 ```
 
 ### 11-j. ⭐⭐ 내보내는 사건 — ~~PO 는 원장을 직접 부르지 않는다~~ → 원장 창구를 부른다(3020 · so-module §24 판정 2)
@@ -3574,6 +3624,17 @@ psql "$(cat ~/.asung-testdb-url)" -P pager=off -c "\dt public.inv_*" -c "\dt pub
 📌 **회계사에게 물을 것이 둘로 모였다** — ① 이 차액의 회계 처리 ② 조기결제 할인의 HST 매입세액(11-h). 한 번에 묶어 물으면 된다.
 
 ⭐ [2026-10-08 · 판정 390 · 392 · so-module §53] 차액이 붙는 장치는 아직 없다(po-disc-2-0 실측 — inv_layer_cost_add 에 부호 CHECK 없음 · settle 이 음수 얹기를 cost_late 로 보낼 수 있다 · kind 어휘 둘 · 레이어 없을 때 보류 · 재생성 마커가 필요) · ③ po-disc-3 공통 조정 장치가 (나)의 입고 뒤 바뀜 · (다)의 결제 할인 · 비용 할인을 함께 받는다 · 📌 회계사 질문에 「세금 섞인 할인의 세금 몫」(판정 395)을 더한다
+→ ✅ [2026-10-08 밤 · po-disc-3 ac09e2e · so-module §54] **공통 조정 장치가 섰다**(ledger-design ⑰ 뒤 「조정 얹기」)
+```
+사건       inv_cost_adjust 한 행 = 「이 원가 대상에 이 금액(CAD · 부호 있음 · 할인 = 음수)을 얹어라」 · kind price_adjust(입고 뒤 단가 차액 · 가격 크레딧 · 환율 차액) | settlement_discount(결제 할인 · 비용 청구서 할인)
+           target po_line(그 PO 줄의 구매 레이어 전부) | charge_alloc(그 배분 줄이 landed 를 얹는 레이어 집합 — inv_layer_post_charge 와 같은 술어 두 벌 · po-disc-3 A7 이 같음 증명)
+창구       inv_layer_post_cost_adjust(속 · definer) — unit_cost × qty 비례 · 6자리 · 끝수 마지막 · cost_add(kind = 사건 kind · line_ref adj:<사건 id>) · 줄마다 settle(남은 몫 · 팔린 몫 cost_late · 옮겨 간 몫 carried)
+보류       레이어가 없으면 pending 그대로(no_layers) → 입고 확정 po_receipt_confirm_by ⓖ(ⓕ 비용 뒤)가 그 PO 의 pending 을 저절로 얹는다(판정 391)
+거부       판정 399 — 레이어마다 「단가 × 수량 + Σ얹기 + 이번 몫 < 0」 이면 사건 전체 거부(부른 쪽의 저장 전체가 안 된다)
+되돌림     inv_cost_adjust_reverse — 반대 부호 사건 · reverses_id 유니크(한 번만) · 되돌림의 되돌림 거부 · 키가 다르다(line_ref adj:<새 id> · settle 「already_written」에 안 걸린다) · 지우지 않는다
+재생성     inv_layer_apply_flush_adds 의 IMS 조정 갈래(done kind cogs_adj · posted_on · posted_ledger_id 자리 · pending 은 안 쏟는다) · inv_layer_apply 같은 날 자리 조회 넷이 배분 줄 ∪ 조정 사건
+부르는 쪽  결제 할인(④-a2 · po_payment_alloc) · 비용 청구서 할인(④-b) · 가격 크레딧(⑤-a · po_credit) · 환율 차액(⑤-b · fx_fix)
+```
 
 ---
 
@@ -3919,6 +3980,16 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 뷰     po_tax_group(세금 식 한 곳 · doc_kind po|invoice · 규칙 묶음) · po_invoice_money(+ taxable_amount · tax_amount · payable_taxable · payable_tax · tax_rule_id · tax_rule · rate_pct · tax_rule_groups · tax_rule_missing · 27 칸)
        po_charge_money(unpaid 세금 포함 · + tax_amount · total_with_tax · tax_rule_id · tax_rule · rate_pct · tax_suggested · 13 칸) · po_list(+ tax_rule_id · tax_rule · tax_amount · total_with_tax · 42 칸) · po_invoice_list(+4) · po_charge_list(+4 · 28 칸)
 함수   po_discount_factor(po_id)(PO 할인 체인 한 곳) · inv_layer_post_receipt(@2026-10-08.2 · 단가 × 계수 × 환율) · 재발행 po_detail · po_invoice_detail · po_create · po_invoice_create · po_line_update · po_invoice_line_add/update · po_invoice_add_po_lines · po_charge_create · tf_charge_create(인자 둘 · drop + create) · tf_charge_update · po_charge_confirm · tf_charge_confirm · po_charge_detail · po_payment_target_check · po_payment_detail · inv_transfer_detail
+── [2026-10-08 밤 · 집 PC · po-disc-2 ~ 5b · so-module §54] 공급처 할인 → 재고 원가 ② ~ ⑤ ──
+표     po_receipt_cost(입고 원가 재료 핀 · receipt × po_line · append-only · source invoice|po · unit_price_net · discount_factor · exchange_rate · exchange_rate_source · unit_cost_cad · po-disc-2)
+       inv_cost_adjust(원가 조정 사건 · kind price_adjust|settlement_discount · target po_line|charge_alloc · amount_cad 부호 · amount_doc · currency_id · exchange_rate · source_type po_payment_alloc|po_credit|fx_fix|reversal|test · source_id · source_number · reverses_id 유니크 · status pending|posted · posted_on · posted_ledger_id · 지우지 않는다 · po-disc-3)
+칸     po_invoice.early_discount_pct · early_discount_amount · early_discount_basis(pre_tax|with_tax) · early_discount_until(짝 CHECK 다섯 · 4a1) · po_payment_alloc.discount_amount(정본 · 4a1) · discount_tax_part · discount_other_part(4a2)
+       po_invoice_line.credit_reason(not_received|price_difference · 크레딧 goods 줄만 · 5a) · inv_layer_cost_add.kind 에 price_adjust · settlement_discount(po-disc-3)
+트리거 po_invoice_early_lock(할인 쓴 충당이 있으면 조건 잠금) · po_payment_alloc_discount_sync(discount_taken = Σ) · po_payment_guard · po_payment_alloc_guard(문지기 · 플래그 po.payment_door) · po_invoice_line_credit_reason_guard · inv_cost_adjust_touch
+함수   po_invoice_discount_factor · po_invoice_line_cost · po_early_discount_calc · po_invoice_early_discount · po_invoice_discount_parts · po_charge_discount_parts · po_credit_reason_suggest · po_fx_cost_lines(식 한 곳들)
+       창구 po_pay_candidates · po_payment_alloc_discount_set · po_fx_cost_status · po_fx_cost_apply · 속 inv_layer_post_cost_adjust · inv_cost_adjust_reverse(창구) · po_payment_alloc_cost_events · po_payment_alloc_cost_reverse · po_credit_cost_events · po_credit_cost_reverse
+       재발행 inv_layer_post_receipt(@2026-10-08.3) · po_price_history(뷰) · po_doc_cancel(2 · 5a) · po_receipt_confirm_by(ⓖ) · inv_layer_apply · inv_layer_apply_flush_adds(cogs_adj) · po_invoice_create(4a1 · 5a) · po_invoice_list(4a1 +6 칸) · po_payment_create(4a1 · 4a2 · 4b) · po_payment_alloc_set · po_payment_detail · po_payment_alloc_delete · po_doc_delete · po_invoice_line_add · po_invoice_line_update · po_invoice_detail · po_invoice_confirm
+       definer 로 바뀐 창구 다섯(속 함수를 부른다 · 문은 첫 줄 그대로) — po_payment_create · po_payment_alloc_delete · po_doc_delete(4a2) · po_invoice_confirm · po_doc_cancel(5a)
 정본   §11-g 「세금」 · §11-f 「두 칸」 · §11-h 「조기 결제 할인」 · §11-e 끝 「할인 → 재고 원가」 · 판정 원문 so-module §53
 ```
 

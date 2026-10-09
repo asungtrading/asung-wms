@@ -3781,6 +3781,25 @@ landed_amount 재생성 반환의 landed_amount = 불러온 landed 만(ref_numbe
 - ⚠️ 원래 차이 둘(판정 115-2): 관세 1,949.88 은 입고 RCV-00029 확정(09-29 19:35 UTC)이 판정 94 창구(19:54 UTC)보다 19분 먼저라 실시간에 안 얹혔다(재생성은 얹는다) · 레이어 md5 차이 = CR-01000 AS93100 3 — 같은 날 크레딧(seq 1)이 판매(seq 2)보다 먼저라 재생성은 layer_avg · 실시간은 return_restore(단가 같음 · 미룬 ㉝)
 - 같은 날 얹기 뒤 그 레이어에서 트랜스퍼가 출발하면 총액은 같고 행 모양만 다르다(부모 cost_moved + 자식 carried · 실물 0 · cogs-4 이견 4)
 
+#### ⭐⭐ 조정 얹기 — 음수도 얹는다 · 보류 · 재생성 · 되돌림 (2026-10-08 밤 · po-disc-3 ac09e2e ~ po-disc-5b 4c134f7 · 판정 391 · 394 · 399 · 400 · so-module §54)
+```
+사건          inv_cost_adjust 한 행(부호 있는 CAD · 할인 = 음수) — 결제 할인(source_type po_payment_alloc) · 비용 청구서 할인 · 가격 크레딧(po_credit · 크레딧 줄 단위) · 환율 차액(fx_fix) · 되돌림(reversal)
+얹기          inv_layer_post_cost_adjust(속 · definer) — 대상 레이어(po_line: 그 줄의 구매 레이어 · charge_alloc: post_charge 와 같은 집합) · unit_cost × qty 비례 · 6자리 · 끝수 마지막
+              cost_add kind = 사건 kind(price_adjust | settlement_discount · CHECK 에 더함) · doc_number = source_number · line_ref = 'adj:' || 사건 id · occurred_on = 얹히는 날
+settle        위 「늦은 얹기」 그대로 — 음수도 같은 길: 남은 몫 → 레이어 · 팔린 몫 → cost_late 음수(split_basis.kind = 사건 kind) · 옮겨 간 몫 → 자식 carried(ref_number layer:<부모>:<kind>) + 부모 cost_moved · 다 팔린 레이어는 전부 cost_late(판정 107)
+거부          판정 399 — 레이어마다 「단가 × 처음 수량 + Σ얹기 + 이번 몫 < 0」 이면 사건 전체 거부 · 부른 쪽의 저장 전체가 되돌아간다(결제 · 크레딧 확정 · 환율 반영) · 할인 ≤ 낸 돈이라 보통은 앞선 다른 조정이 낮춘 레이어에서만 걸린다
+보류          대상 레이어가 없으면 status pending(no_layers) · 비용 청구서 할인은 그 배분 줄의 landed 가 아직 레이어에 없으면 레이어가 있어도 pending(held · 할인만 먼저 빠지지 않게)
+              → 입고 확정 po_receipt_confirm_by ⓖ 가 그 PO 의 pending 을 ⓕ(비용) 뒤에 얹는다 · ⚠️ 닫힌 PO 의 옛 입고(CBSA)는 ⓖ 가 안 온다 — landed 백필 ⑯ 창구 때 함께(so-module §54-e 153)
+자리 · 재생성 posted_on(토론토 날) · posted_ledger_id(그 순간 원장 최대 id) — 비용의 posted_on 과 같은 모양 · inv_layer_apply_flush_adds 의 IMS 조정 갈래(done kind cogs_adj · pending 은 안 쏟는다 · 레이어가 아직 없으면 deferred)
+              inv_layer_apply 의 같은 날 쏟기 자리 조회 넷 = 배분 줄 ∪ 조정 사건 · 반환 ims.adjusts{posted · rows · amount_cad · no_layers · skipped · deferred}(deferred · skipped 0 이어야)
+되돌림        inv_cost_adjust_reverse — 반대 부호 새 사건(reverses_id 유니크 · 되돌림의 되돌림 거부) · 원래 posted 면 곧바로 얹고 pending 이면 둘 다 pending · 사건은 지우지 않는다
+              ⚠️ 키가 달라야 settle 이 건너뛰지 않는다 — settle 문 ③ 「이미 쓴 나간 몫」의 키(layer · doc_number · line_ref · occurred_on · split_basis.kind)가 원래와 같으면 already_written · 되돌림은 line_ref adj:<새 id> 라 다르다
+              ⚠️ 되돌림은 그 순간의 소비로 나뉜다 — 사이에 더 팔렸으면 재고 ↔ 매출원가 사이 몇 달러(합계는 맞다 · 미룬 151)
+입고 핀       po_receipt_cost(입고 × PO 줄 · append-only) — inv_layer_post_receipt 가 레이어를 처음 세울 때만 쓰고 재생성은 핀을 읽는다 ⇒ 입고 뒤 PO 환율 · 인보이스 단가 수정이 원가를 안 움직인다(판정 394) · 바뀐 몫은 위 사건으로만
+              ⚠️ 테스트 DB 옛 레이어에는 핀이 없다 — 전환 재생성 때 선다(그 전에는 환율 차액 창구가 unpinned 로 센다)
+불변식        재생성 가치 차이 +2.7309(불러온 레이어 · ⑭) 는 po-disc-2 ~ 5b 내내 그대로 · 실시간 = 재생성(사건 posted_on 자리)
+```
+
 📌 차이 큐 닫기(`20260919175712` · 9a5344a · short 만 · 형제 문서 합계 `po_family_*`)는 발주 쪽 일이라 **po-module §11-i · §11-c 가 정본**이다. 원장과 닿는 자리는 하나 — over 를 닫을 때 초과분을 재고에 넣는 길(⬜ · 그 발주의 단가로 · 같은 창구).
 
 #### ⬜ 이식이 남긴 것

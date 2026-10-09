@@ -167,15 +167,22 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  공급처 쓰기(판정 237 · 238 · 241 · so-module §41): 표 직접 쓰기 닫힘 · supplier_create · supplier_update(purchasing 또는 master) · 돈 칸(통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인)과 끄기는 master · 같은 이름 막기 · is_purchasable 은 일반 칸(suppliers.html 토글이 창구로) · 공급처 적재는 Apps Script ProbeIMS.gs 의 imsLoadSupplier(관리 키)
 ```
 
-## 4-d. ⭐⭐ 매입 세금 · 할인 원가 — 모르면 사고 (2026-10-08 · 정본 po-module §11-e 끝 · §11-f · §11-g 「세금」 · §11-h · §13-j · 판정 383 ~ 397 · so-module §53)
+## 4-d. ⭐⭐ 매입 세금 · 할인 원가 — 모르면 사고 (2026-10-08 · 정본 po-module §11-e 끝 · §11-f · §11-g 「세금」 · 「크레딧 원가」 · §11-h · §11-i 「핀」 · §12-c · §13-j · 판정 383 ~ 400 · so-module §53 · §54)
 
 ```
 ⭐⭐ 매입 세금은 줄마다 반올림(SO 와 같은 so_tax_amount) · 문서 할인 체인은 「할인 줄」 한 번 · 식 한 곳 = 뷰 po_tax_group — 화면 · 창구에서 다시 짜지 마라
 ⭐⭐ 매입 세금은 원가에 안 간다 — 입고 · off-PO · over · landed 창구에 세금을 넣지 마라 · 낼 돈 = 세금 전 + 세금(po_invoice_money.payable_net · po_charge_money.unpaid)
 ⭐  규칙은 FK + 원문 짝(po · po_line · po_invoice · po_invoice_line · po_charge) — 트리거 po_tax_rule_pair 가 채운다(purchase · 활성만) · 줄 null = 머리
 ⚠️⚠️ po_charge.total_amount = **세금 전** · tax_amount = 청구서에 찍힌 세금(비율로 만들지 마라 — 수입 GST) · 배분 합 = total_amount · 안 보내면 0 + 경고(제안값은 반환만)
-⚠️⚠️ 조기 결제 할인(텀 디스카운트)은 인보이스 할인 체인에 넣지 마라 — 결제의 Discount taken(판정 389) · 그래도 원가는 낮춘다(판정 390 · ⬜ po-disc-4)
-⚠️  입고 원가 = po_line.unit_price × po_discount_factor × 환율 · 계수는 입고 확정 순간 po_receipt.discount_factor 에 못 박힌다(재생성이 읽는다 · 입고 뒤 PO 할인을 바꿔도 레이어 무변) · ⬜ (나) 인보이스 단가 · (다) 결제 할인 · 입고 뒤 환율 수정은 판정 397 순서로
+⚠️⚠️ 조기 결제 할인(텀 디스카운트)은 인보이스 할인 체인에 넣지 마라 — 인보이스 조건 칸(early_discount_*) + 결제의 충당 할인(판정 389 · 391) · 원가를 낮춘다(판정 390 · ✅ po-disc-4a2)
+~~⚠️  입고 원가 = po_line.unit_price × po_discount_factor × 환율 …~~ → [2026-10-08 밤 · so-module §54] 아래로
+⭐⭐ 입고 단가 순서 = 핀(po_receipt_cost) → 확정 인보이스(낸 돈 ÷ 받은 개수 × 인보이스 체인 × 인보이스 환율) → PO 기준 · 레이어를 처음 세울 때만 핀을 쓴다 — 핀을 고치지 마라(append-only · 재생성이 읽는다)
+⚠️⚠️ 입고 뒤 PO 환율 · 인보이스 단가 · PO 할인을 고쳐도 원가는 안 움직인다(판정 394) — 바뀐 몫은 사건으로만: 가격 크레딧(credit_reason) · Apply FX difference(po_fx_cost_apply) · 재생성이 맞춰 주리라 기대하지 마라
+⚠️  판정 398 — 돈 안 낸 줄(is_payable false · 단가 0)로 온 물건 원가 0 · 섞이면 평균 · 가격 이력(latest price)은 무변
+⭐⭐ 결제 할인의 정본 = po_payment_alloc.discount_amount(충당마다) · po_payment.discount_taken 은 Σ 트리거 — Paid · Discount taken · 충당 금액 · 할인을 PostgREST 로 고치지 마라(문지기가 거부) · 창구로: po_payment_create · po_payment_alloc_set · po_payment_alloc_discount_set
+⚠️⚠️ 결제 저장 · 할인 고치기 · 충당 떼기 · 결제 지우기가 원가 사건을 함께 만들고 되돌린다 — 충당을 직접 지우거나 사건을 손으로 넣지 마라 · 판정 399(할인 > 레이어 원가)면 저장 전체가 거부된다
+⚠️  Adjust discount 는 낸 돈 고정 · 충당이 움직인다 — 다 갚은 문서의 할인은 올릴 수 없다(미지급 초과) · 비용 청구서 할인은 landed 가 레이어에 없으면 pending(held)
+⭐⭐ 크레딧 goods 줄은 확정 전에 credit_reason(Not received = 원가 무변 / Price difference = 원가를 낮춘다 · 판정 400) — 걸치는 줄은 확정 거부(줄을 나눈다) · 원가 몫은 크레딧 자신의 체인만 · 환율은 핀
 ```
 
 ## 5. 이 스킬을 갱신할 때
