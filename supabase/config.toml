@@ -493,6 +493,15 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/ims-staff-create/index.ts"
 
+[functions.shopify]
+enabled = true
+# shop-1b (2026-10-09 · 판정 362 · shop-0 ⬜4) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg) 전용 · 시작 때 inv_config.db_role = test 확인.
+#   배포: supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg
+# 한 함수에 두 길 — 직원 길(asung-ims 화면 · 세션 JWT → 함수 안에서 rpc/ims_can_write('shopify')) · cron 길(x-ims-cron-key · 건강 점검 · ②③④ 주기 일).
+# cron 길은 JWT 가 없으니 verify_jwt=false 가 없으면 게이트웨이 401 — 문은 함수 안 action 마다(ims-staff-create · ims-product-images 와 같은 이유).
+verify_jwt = false
+entrypoint = "./functions/shopify/index.ts"
+
 [functions.ims-product-images]
 enabled = true
 # img-2 (2026-10-01) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg) 전용 · 운영 product-images 와 다른 함수.
