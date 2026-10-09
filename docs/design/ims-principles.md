@@ -515,6 +515,8 @@ WMS      헤더에 로고 + 모드만 더한다 · 탭 줄 · ☰ Menu 그대로
 ```
 ⭐ [2026-10-08 · 판정 362 ~ 381 · so-module §53] **판정 81 순서 바뀜** — Caleb 이 1단계가 끝나기 전에 2단계 Shopify 연동 **설계**를 시작했다(「샤피파이와 ims를 인테그레이션 해서 … 먼저 만들어 놓고 싶어」) · 정본 `docs/design/shopify-integration.md` · 만들기 순서는 매입 세금 → 할인 원가 → 상품 설명 칸 → Shopify(판정 381 · 397)
 ⭐ [2026-10-08 밤 · 집 PC · 판정 398 ~ 400 · so-module §54] **할인 원가 ② ~ ⑥ 끝** — 입고 기준 단가 = 확정 인보이스(핀) · 공통 조정 장치 · 결제 할인 · To pay · 비용 청구서 할인 · 가격 크레딧 · 환율 차액 · 화면 넷(asung-wms ec38429 ~ 4c134f7 · asung-ims 066d2e2 ~ bf94422) · 다음 = 끝에서 끝 시험(미룬 158) → 상품 설명 칸(판정 381) → Shopify
+⭐ [2026-10-09 · 회사 PC · 판정 401 · so-module §55] **상품 설명은 IMS 가 고친 것만 IMS 가 주인** — 손대지 않은 설명은 재적재가 Cin7 원문을 따라 채우고, 한 번 고친 설명은 재적재가 건드리지 않는다 · 고친 기록은 시각과 사람으로(솎아내기 · 되돌리기) · DB desc-1b 9184853 · 화면 desc v1 · v1a
+⭐ [2026-10-09 · 판정 402 · so-module §55] **설명 HTML 거르기** — 허락 유튜브 · 페이스북 iframe · 모든 img · 서식 / 거름 그 밖의 iframe(POWR) · script · on…= · javascript: · object · embed · form · meta · link · base · 허락 출처는 설정 표 ref_embed_host 에 한 줄씩 · Cin7 원문은 늘 남는다 · 끝에서 끝 시험(미룬 158) 닫힘 · 다음 = Shopify 연동 · 다음 판정 번호 403
 ⭐ [2026-10-05 · 판정 242 · 243 · so-module §42] 목록이 있는 IMS 화면은 모두 두 모드 — 넓은 목록(화면 전체 · 검색 · 거르기 · 만들기) → 고르면 좁은 목록 + 상세(☰ List · ‹ All ○○ · ?id=) · 공통 #wide · .wfilt 를 같은 id 로 · 판정 209(products)가 처음 · customers · suppliers 가 따랐다
 
 ---

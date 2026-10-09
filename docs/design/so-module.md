@@ -7627,12 +7627,100 @@ Shopify 판정(362 ~ 381)의 주제별 정리 · 열린 확인 거리는 `docs/d
 - 154 입고 전 가격 크레딧의 CAD 가 뒤 핀 환율과 몇 센트 어긋날 수 있음(po-disc-5a 이견 5)
 - 155 문지기 문장 표식 ADJUST-DISCOUNT-BUTTON — 화면에 Adjust discount 가 생겼으니 문장을 단추 이름으로(지금은 「delete … and enter it again」)
 - 156 po_invoice_money 를 po_invoice_discount_factor 로(141 확장) · po_price_history comment 의 「factor 는 po_invoice_money」 문구 정정
-- 157 invoices.html Early-pay discount Edit 단추 크기(다른 단추와 같게)
-- 158 ⭐ 끝에서 끝 시험(내일 회사 · Caleb): 새 USD PO → 인보이스 할인 조건 → 확정 → 입고(핀) → To pay · Pay selected(할인 → 원가) → PO 환율 변경 → Apply FX difference — 단계마다 원가 확인 쿼리(대화 Claude)
+- 157 invoices.html Early-pay discount Edit 단추 크기(다른 단추와 같게) → ✅ 닫힘(§55 · inv disc v2c 292d684)
+- 158 ⭐ 끝에서 끝 시험(내일 회사 · Caleb): 새 USD PO → 인보이스 할인 조건 → 확정 → 입고(핀) → To pay · Pay selected(할인 → 원가) → PO 환율 변경 → Apply FX difference — 단계마다 원가 확인 쿼리(대화 Claude) → ✅ 닫힘(§55-b · PO-02048 · ④ 환율 변경은 해당 없음으로 닫음)
 
 ### 54-f 다음
 
 ```
 끝에서 끝 시험(158) → 상품 설명 칸(판정 381) → Shopify(docs/design/shopify-integration.md)
 다음 판정 번호: 401
+```
+
+## §55 2026-10-09 — 상품 설명 칸 · 끝에서 끝 시험(158) · 무상 물건 사실 — desc-1 · desc-1b · 판정 401 · 402 (회사 PC)
+
+⭐ 닫힌 것: 미룬 157(Edit 단추 크기) · 158(끝에서 끝 시험 · 환율 변경 단계는 해당 없음) · 「IMS 에 자기 설명 칸이 없다」(판정 381)
+⭐ 새로 선 것: 설명 칸 셋 × 2(product · product_family) · 허락 출처 표 `ref_embed_host` · 판별 함수 `ims_html_forbidden` · 문지기 `product_description_guard` · `product_update` op 둘 · 뷰 둘 · 공통 화면 파일 `ims-desc.js`
+⭐ 새 판정 401 · 402 · 원문 지시서 `~/asung/prompts/desc-1.md` · `desc-1b.md` · `docs-1009.md`(회사 PC) · 판정 날짜는 전부 **2026-10-09**(회사) · 다음 판정 번호 **403**
+
+### 55-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 401 | 「안 2로 가자. 그런데 나중에 손댄 것은 솎아낼 수 있지?」 | 재적재는 IMS 에서 손대지 않은 설명만 Cin7 을 따라 채운다 · IMS 에서 한 번이라도 고친 설명은 그 뒤 재적재가 건드리지 않는다 · 고친 기록은 시각과 사람으로(솎아내기 · 되돌리기) · 기각: 안 1 「비어 있을 때만」(컷오버 전 Cin7 고침이 안 온다) · 안 3 「늘 덮는다」(판정 381 의 IMS 주인과 어긋남) |
+| 402 | 「그대로 가자」 | 허락: 유튜브 · 페이스북 iframe · 모든 출처 img · 글 서식(굵게 · 제목 · 목록 · 링크 · 표 · style=) / 거름: 그 밖의 iframe(POWR 포함) · script · on…= · javascript: · **object · embed · form · meta · link · base**(desc-1 이견 3 — 판정 402 의 뜻 안 · 대화 Claude 가 넣음) / 허락 출처는 설정 표에 한 줄씩 · Cin7 원문은 늘 남는다 / 기각: POWR 허락(우리 것이 아니다 — 브랜드 Design Essentials 의 BigCommerce 채팅 위젯이 설명 복사 때 딸려 옴 · 실측 상품 227 · family 12) |
+
+그 밖에 Caleb 이 정한 것(판정 번호 없이):
+- 「손대지 않았으면 cin7 버전으로 재적재할때, 누락되지 말아야」 — 편집 창에서 글을 손대지 않고 Save 하면 저장하지 않는다(거른 몫만 다를 때도) → 화면 desc v1a
+- 입고 뒤 PO 환율은 바꾸지 않는다 · 「환율 자체는 건드리지 않아」 · 앞으로 환율은 USD 를 사는 곳에서 가져와 붙인다(지금은 수동) → po-disc-5b 의 「인보이스 환율로 세운 줄은 FX 차액 대상 밖」이 업무와 맞다 · Apply FX difference 는 평소 안 켜지는 안전장치
+- 다른 업체(브랜드) 자료를 설명에 쓰는 것 — 대화 Claude 가 저작권 · 유통 계약 확인을 권했고 Caleb 이 들었다(결정 아님 · 기록만)
+
+### 55-b DB 차수 (마이그레이션 · 시험/확인 · 커밋 — git log 원문)
+
+| 차수 | 파일 | 시험 / 확인 | 커밋 |
+|---|---|---|---|
+| desc-1 상품 설명 칸 조사 | (조사 · 만든 것 없음 · 회신만) | — | — |
+| desc-1b 상품 설명 칸 | `20261009151435_desc_1b_description.sql` | 35/0(2 회차) · 33/0 | **9184853** |
+
+**desc-1b 의 핵심(Claude Code 회신)**
+- 칸 셋 × 2(`description_html` · `description_edited_at` · `description_edited_by`) + 짝 CHECK — null = Cin7 을 따른다 · 값 = `coalesce(description_html, cin7_description)` · `''` = 일부러 비움 · 복사 · 백필 없음
+- `ref_embed_host`(kind iframe | img · host lower 정확 일치 · 시작값 iframe 다섯 www.youtube.com · youtube.com · www.youtube-nocookie.com · www.facebook.com · facebook.com · 쓰기 창구 없음 — SQL)
+- `ims_html_forbidden(html)` — 판별만 · 코드 script · event_attr · javascript_link · object/embed/form/meta/link/base · iframe_no_src · iframe_host:<host>
+- 문지기 `product_description_guard` — 문 `ims.description_door` · 아니면 셋을 되돌린다 · INSERT 는 null · raise 아님 · ⚠️ 손 SQL 도 조용히 되돌아간다 — 고치려면 같은 트랜잭션에서 `select set_config('ims.description_door','1',true);` 먼저
+- `product_update` op `description_set` · `description_follow_cin7`(blocks description_forbidden:<code> · html_missing · description_not_edited · changed_elsewhere)
+- 뷰 `product_description` · `product_description_edited`(edited_by_name · differs_from_cin7)
+- 원문 중 거름에 걸리는 것 상품 102 · family 6 · object 류 4 는 전부 meta(ABE13315 · ABE51308 · ABE51501 · ABE56604)
+- ⚠️ 「적재가 payload 밖 칸을 비운다」(asung-wms 규칙 45 · po-module:900 · asung-po 함정 표 · 이 파일 5440)는 **여전히 추정** — pg_stat_statements 0 행으로 확정 못 했고, desc-1b 는 확정하지 않은 채 문지기로 막았다
+
+**158 끝에서 끝 시험** (PO-02048 · ALLDAY LOCKS · USD 1.42 · 2 줄 2 × 6.95 · 2 × 4.65 = 23.20 · Caleb 회사)
+
+| 단계 | 결과 |
+|---|---|
+| ① 인보이스 E2E-158-1 할인 조건 2% · pre_tax · until 2026-10-19 → 확정 | ✅ 원가 무변 · 인보이스 환율 1.42(PO 에서 받아 옴 · 화면에서 못 고침) |
+| ② 입고 RCV-00042 | ✅ 핀 source invoice · exchange_rate_source invoice · 9.869 / 6.603 · 레이어 합 32.944 |
+| ③ To pay · Pay selected(BMO USD CHEQUING · 결제 환율 칸 없음) | ✅ 할인 0.46 USD → 줄 비율 −0.28 / −0.18 → 핀 환율 1.42 로 −0.3976 / −0.2556 = −0.6532 CAD · 레이어 32.2908 · 얹기 키 adj:<사건 id> |
+| ④ PO 환율 변경 | 해당 없음으로 닫음 — 두 줄 모두 excluded_invoice_layers(경고 없음이 정답) · 위 55-a 의 Caleb 결정 |
+| 곁에서 본 것 | po_invoice.total_amount 는 확정 인보이스에서도 0(다른 9 건 · 확정 7 건 포함) — 돈은 줄에서 셈 · 칸 정의는 안 봄(짐작) |
+
+**무상 물건(free goods) — Caleb 질문에 함수로 확인한 사실**(판정 아님 · 정본 po-module §11 「입고 원가의 재료 — 핀」 블록)
+- `inv_layer_post_receipt` 118 행: 낸 돈 = `sum(unit_price × qty_ea) filter (where is_payable and unit_price > 0)` × 할인 계수 · 받은 개수 = 모든 물건 줄 합 → 물건 줄에서 단가 0 과 Payable 끄기는 원가에서 똑같이 무상(판정 398 의 뜻대로)
+- 가격 이력 뷰 거름(60 행): doc_kind invoice · confirmed · goods · is_payable · unit_price > 0 · qty_ea > 0 → 두 경우 모두 latest price 무변 · 빠진 줄은 이유(zero_price · not_payable …)와 함께 둘째 뷰에 남는다
+- 차이는 기록뿐 — Payable 끄기는 공급처가 적은 값이 인보이스에 남는다(무상으로 받은 금액을 셀 수 있다)
+- ⚠️ 물건 줄의 Payable 을 「물건값은 다른 길로 냈다」는 뜻으로 끄면 원가가 0 으로 선다(Payable 끄기는 원래 운임용)
+- 같은 PO 줄에 인보이스 줄 둘 이상 가능(값이 달라도 원가는 평균) · 무상도 PO 줄 수량에 넣어야 한다(없으면 확정 때 형제 PO 로 빠진다)
+- ⬜ 같은 인보이스 · 같은 상품 · 돈 낸 줄 둘의 값이 다르면 latest price 가 어느 쪽이 될지 확인 안 함(→ 미룬 161)
+
+### 55-c 화면 (asung-ims · git log 원문)
+
+| 화면 | 판 · 커밋 | 내용 |
+|---|---|---|
+| invoices.html | inv disc v2c 292d684 | Early-pay discount Edit 단추를 다른 단추와 같은 크기로(미룬 157 닫힘) |
+| ims-desc.js(새 파일) · products.html · families.html | desc v1 · pr v4e · fam v2b 8966716 | 상품 설명 카드 — 공통 ims-desc.js(DOMPurify 3.1.6 고정 · iframe host 는 ref_embed_host 에서 · 편집기 도구 줄 + HTML 모드 · 붙여 넣기 정리 · 두 번 부르기 저장 description_set / description_follow_cin7 · Cin7 원문 보기) · products.html 은 Photos 위 · families.html 은 머리 아래(이 화면의 첫 쓰기 · master 만) |
+| ims-desc.js | desc v1a 439fb69 | 글을 손대지 않은 Save 는 저장하지 않는다 — 비교 기준을 원문이 아니라 편집 창이 열린 직후의 글로(55-d 5) |
+
+화면 시험(Caleb · DES00948 · DES00905): 손대지 않은 Save 는 저장 안 함 · 고쳐 저장(Barcode 줄 삭제) → edited · POWR 없음 · edited_by_name Seungchill Chang · differs_from_cin7 t · Cin7 original 보기 · Follow Cin7 again 되돌림 — 모두 확인
+
+### 55-d ⚠️ 그날 겪은 실수 — 원인 · 처방
+
+1. [대화 Claude] desc-1b 지시서에 「SQL 을 직접 돌리지 마라」 — Caleb 의 기존 지시(2026-09-24 · 테스트 DB begin → rollback 시험은 Claude Code)와 어긋났다 · Claude Code 가 서 있는 규칙을 따랐다 ⇒ 지시서는 「시험은 Claude Code · 적용부터 Caleb」
+2. [대화 Claude] 157 의 방향(「다른 단추와 같게」)이 §54-e 에 이미 있었는데 Caleb 에게 다시 물었다 — §54 를 받기 전에 물었다 ⇒ 정본의 해당 절을 받은 뒤에 묻는다
+3. [대화 Claude] invoices.html 판 글자 줄을 바꾸며 뒤의 이력 주석을 통째로 덮어썼다 — 크기가 2,116 바이트 준 것을 보고 커밋 전에 바로잡음 ⇒ 판 글자 줄은 앞부분만 바꾸고 옛 주석을 뒤에 잇는다 · 바꾼 뒤 크기 차이를 본다
+4. [대화 Claude] 회신 몇 개를 영어로 썼다 · 파일을 만들고 present_files 를 빠뜨렸다(Caleb 이 짚음)
+5. [대화 Claude] ims-desc.js 첫 판의 「바뀐 것 없음」 비교 기준이 원문이라, 거른 몫(POWR)만큼 늘 달라 손대지 않은 Save 가 IMS 소유로 바뀌었다 — Caleb 질문으로 발견 · desc v1a 로 고침 ⇒ 비교는 같은 길로 만든 두 값끼리
+6. [대화 Claude] 쿼리 실수 둘(substring 괄호가 낱말만 돌려줌 · text || "char" 연산자) — 다시 돌려 확인
+7. [Claude Code] desc-1b 시험 1 회차 MISMATCH 넷 — 전부 기대 쪽(BEFORE DELETE 트리거까지 셈 · 미리 보기 직후가 아니라 저장 뒤에 읽음 · 한 트랜잭션 now() · definer 도우미가 RLS 를 못 봄) · DB 는 맞았다 ⇒ asung-workflow §4 의 이미 있는 함정들(재발)
+
+### 55-e 미룬 것 — §54-e 158 에 이어 붙임(157 · 158 닫힘)
+
+- 159 뷰 product_description · product_description_edited 에 authenticated 의 INSERT · UPDATE · DELETE · TRUNCATE 가 붙어 있다(UNION 뷰라 실제 쓰기 불가 · 아래 표는 닫힘) — 다음 DB 차수에 select 만 남기기 · ims_html_forbidden 의 PUBLIC · anon 실행권도 같이 볼 것
+- 160 설명 끝의 「(Barcode: …)」 줄 정리(Caleb 「어차피 나중에 정리해야 하는 거라」) — 몇 개인지 · 한꺼번에 정리할지는 그때
+- 161 한 인보이스에서 같은 상품을 두 값(돈 낸 줄 둘)으로 받으면 latest price 가 어느 쪽인지 — 정렬 규칙 확인
+- 162 환율을 USD 구매처에서 자동으로 가져오기(Caleb 계획) — 어느 순간의 환율을 PO 에 붙일지 그때 정한다
+- (148 Shopify 무료 배송 자동 할인 단계별 안내는 그대로 열림)
+
+### 55-f 다음
+
+```
+Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 열린 확인 거리부터
+다음 판정 번호: 403
 ```

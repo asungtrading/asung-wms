@@ -898,6 +898,7 @@ Caleb 확인(2026-09-14): **공백이 든 SKU 와 이름이 틀린 SKU 는 적�
 ### ⭐ 한 규칙 — upsert 하고, 이번에 안 들어온 `source='cin7'` 행은 `is_active=false` 로 내린다
 
 ⚠️ [2026-09-30 · prod-1 실물] **지금 코드는 이 규칙과 다르다** — ImsLoadProduct.gs 의 `ipr_upsert_('product', 'sku', rows)` 는 merge-duplicates = 행 전체 덮어쓰기 · payload `source:'cin7'` ⇒ 같은 SKU 의 manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지) · 아래 1) ~ 3) 은 미구현 · 승격 규칙은 product_supplier(ImsLoadProductSupplier.gs)만 구현 ⇒ 판정 132(IMS 값이 이긴다 · cin7_id 만 붙인다 · 차이 목록) · prod-5 · §3-h
+⚠️ [2026-10-09 · desc-1b 9184853 · so-module §55-b] 위 「payload 밖 칸은 비워진다」는 **여전히 추정**이다(asung-wms 규칙 45 · pg_stat_statements 0 행으로 확정 못 함) — 설명 칸 셋은 확정하지 않은 채 문지기 product_description_guard 로 막았다(§3-h 「설명 — 실물」)
 
 | 표 | 충돌 키 | 규칙 |
 |---|---|---|
@@ -1489,6 +1490,29 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
 화면         Settings → Surcharge Groups(sg v1) · Products(pr v3c) · Product Sheet(sheet v2b · 묶음 단추 Surcharge)
 ```
 
+### 설명 — 실물 (desc-1b · asung-wms 9184853 · 20261009151435_desc_1b_description.sql · 시험 35/0 · 확인 33/0 · 판정 381 · 401 · 402 · 원문 so-module §55)
+```
+칸            product · product_family 에 셋씩 — description_html text · description_edited_at timestamptz · description_edited_by uuid → ims_staff(id) · 짝 CHECK *_description_pair_ck(셋이 함께 null 이거나 함께 채움)
+⭐ 뜻          description_html null = Cin7 원문(cin7_description)을 따른다 · 실제 값 = coalesce(description_html, cin7_description) · '' = 일부러 비움 · 복사 · 백필 없음(판정 401)
+               ⇒ 재적재가 cin7_description 을 바꾸면 손대지 않은 설명은 저절로 따라가고 · IMS 에서 고친 설명(not null)은 그대로다
+창구          product_update op 둘 — description_set {sku | family_sku, html, old} · description_follow_cin7 {sku | family_sku, old}(= 셋을 null · 되돌리기)
+               old = 화면이 본 description_html(고친 적 없으면 null) · 문 master · edited_by = v_staff(ims_staff.id) · 두 번 부르기 · 1,000 줄 상한 그대로
+               막기 description_forbidden:<code>(detail = 코드 · 코드마다 하나) · html_missing(비우려면 '' · Cin7 을 따르려면 follow) · description_not_edited(안 고친 행을 되돌림) · changed_elsewhere · old_missing · field_duplicate_in_call
+판별          ims_html_forbidden(html) → text[] — 판별만 · 고쳐 쓰지 않는다 · 코드 script · event_attr · javascript_link · object · embed · form · meta · link · base · iframe_no_src · iframe_host:<host>
+               대소문자 무시 · 엔티티 인코딩 우회는 잡지 않는다(받아들임 · 쓰는 사람은 master · 화면이 다시 거른다) · authenticated 실행권(화면 미리 보기)
+허락 출처     ref_embed_host(kind iframe | img · host lower 정확 일치 · unique(kind, host) · authenticated select 만) · 시작값 iframe 다섯 www.youtube.com · youtube.com · www.youtube-nocookie.com · www.facebook.com · facebook.com
+               ⭐ 쓰기 창구 없음 — 더하고 빼는 것은 SQL 한 줄(insert · is_active=false · ref_region_alias 선례) · img 는 「모든 출처」라 행 없음
+⚠️ 문지기     product_description_guard(BEFORE INSERT OR UPDATE · 두 표 · 함수 하나) — 트랜잭션 지역 설정 ims.description_door = '1' 이 아니면 셋을 old 로 되돌린다 · INSERT 는 셋을 null · raise 아님
+               ⇒ 적재(service_role · merge-duplicates)가 어떻게 보내든 IMS 설명이 안 지워진다(「payload 밖 칸 비움」 추정을 확정하지 않은 채 막았다 · 위 3-f)
+               ⚠️ 대가: 손 SQL 도 조용히 되돌아간다 — SQL 로 고치려면 같은 트랜잭션에서 select set_config('ims.description_door','1',true); 를 먼저
+               이름순으로 product_touch · product_sku_lock 보다 먼저 돈다 · product_deal_hit_changed(AFTER · statement)는 설명 칸을 안 본다
+읽기          뷰 product_description(kind · id · sku · name · is_active · html_effective · is_edited · edited_at · edited_by) — ⭐ 화면 · Shopify 보내기는 이것만
+               뷰 product_description_edited(고친 것만 · 본문 없음 · edited_by_name · differs_from_cin7) — 솎아내기(판정 401) · 둘 다 security_invoker · anon 회수
+화면          asung-ims ims-desc.js 의 imsDesc 로만 그린다(DOMPurify · ref_embed_host) · 원문 칸을 innerHTML 로 직접 그리지 않는다(CHECKLIST 7-zg)
+실측          원문 중 거름에 걸리는 것 상품 102 / 17,894 · family 6 / 1,130 · object 류 4 는 전부 meta(ABE13315 · ABE51308 · ABE51501 · ABE56604) — 원문은 그대로 · IMS 에서 고쳐 저장하려면 그 태그를 뺀다
+⬜            뷰 둘의 authenticated 쓰기 권한 · ims_html_forbidden 의 PUBLIC · anon 실행권 정리(미룬 159)
+```
+
 ### 잠금 (판정 136 · 137 · 139)
 ```
 SKU              원장 · 원가 레이어 행이 하나라도 있으면 표 트리거가 거부(어느 길로도) · 사건 없는 상품(만든 직후 오타)은 허용(판정 136) · 실물 원장 붙은 상품 4,686 · 레이어 8,087 · ✅ prod-2 product_sku_lock(IM136)
@@ -1513,6 +1537,7 @@ SKU              원장 · 원가 레이어 행이 하나라도 있으면 표 �
 ```
 브랜드 · 분류 · 단위   사람은 목록에서 고르기만 · 창구가 그 id 의 이름을 brand_name · category_name · uom_name 에 자동 복사 — products.html 필터가 원문 글자로 거른다
 cin7_ 원문 칸          IMS 에서 만든 상품은 비워 둔다 · 판정 132 비교에서도 제외 · 설명 글이 필요해지면 IMS 자기 칸을 세우고 cin7_description 을 한 번 옮긴다(그 뒤 IMS 칸이 정본)
+                       → [2026-10-09 · 판정 401 · desc-1b] 옮기지 않는다 — description_html null = cin7_description 을 따른다(위 「설명 — 실물」)
 ```
 
 ### 쉬움 요구 (판정 145)
@@ -3451,6 +3476,13 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
 순서       inv_layer_post_receipt(@2026-10-08.3): ① 핀(po_receipt_cost · 이 입고 × 이 PO 줄) → ② 확정 인보이스(confirmed_at 가장 늦은 것 · 낸 돈 ÷ 받은 개수 × 인보이스 체인 × 환율) → ③ PO 기준(po_line.unit_price × po_discount_factor × PO 환율 · 경고 no_invoice_line)
 환율       인보이스 환율 → 같은 통화 PO 환율 → 없으면 거부(남의 환율은 쓰지 않는다) · 식 한 곳 po_invoice_line_cost
 판정 398   돈 안 낸 줄(is_payable false · 단가 0)로 온 물건은 원가 0 · 같은 PO 줄에 섞이면 낸 돈 ÷ 받은 개수(레이어는 PO 줄마다 하나) · po_price_history 거름은 그대로(latest price 무변)
+무상 물건  [2026-10-09 · 함수로 확인한 사실 · 판정 아님 · so-module §55-b] inv_layer_post_receipt 118 행: 낸 돈 = sum(unit_price × qty_ea) filter (where is_payable and unit_price > 0) × 할인 계수 · 받은 개수 = 모든 물건 줄 합
+           ⇒ 물건 줄에서 단가 0 과 Payable 끄기는 원가에서 똑같이 무상(판정 398 의 뜻대로)
+           가격 이력 뷰 거름(60 행): doc_kind invoice · confirmed · goods · is_payable · unit_price > 0 · qty_ea > 0 ⇒ 두 경우 모두 latest price 무변 · 빠진 줄은 이유(zero_price · not_payable …)와 함께 둘째 뷰에 남는다
+           차이는 기록뿐 — Payable 끄기는 공급처가 적은 값이 인보이스에 남는다(무상으로 받은 금액을 셀 수 있다)
+           ⚠️ 물건 줄의 Payable 을 「물건값은 다른 길로 냈다」는 뜻으로 끄면 원가가 0 으로 선다(Payable 끄기는 원래 운임용)
+           같은 PO 줄에 인보이스 줄 둘 이상 가능(값이 달라도 원가는 평균) · 무상도 PO 줄 수량에 넣어야 한다(없으면 확정 때 형제 PO 로 빠진다)
+           ⬜ 같은 인보이스 · 같은 상품 · 돈 낸 줄 둘의 값이 다르면 latest price 가 어느 쪽이 될지 확인 안 함(미룬 161)
 핀         레이어를 처음 세울 때만 한 행(append-only) · 재생성은 핀을 읽는다 ⇒ 입고 뒤 인보이스 단가 · PO 환율 · PO 할인을 고쳐도 레이어 무변(판정 394)
            ⚠️ 테스트 DB 의 옛 레이어에는 핀이 없다(po-disc-2 전 입고) — 전환 재생성 때 inv_layer_post_receipt 가 핀을 쓴다
 입고 뒤    바뀌는 길은 공통 조정 장치로만(§12-c) — 가격 크레딧(§11-g 「크레딧 원가」) · 환율 차액(아래)

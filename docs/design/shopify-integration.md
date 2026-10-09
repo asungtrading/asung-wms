@@ -94,9 +94,12 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 ### 3-e. 상품 정보 올리기 (판정 377)
 - 바뀌면 즉시 + 새벽 전체 맞추기 · IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다
 
-### 3-f. 상품 설명 (판정 381)
+### 3-f. 상품 설명 (판정 381 · 401 · 402)
 - IMS 자기 설명 칸(상품 · family) · 서식 편집기(굵게 · 제목 · 목록 · 링크 · 위험한 태그는 거른다)
-- 처음 내용은 IMS 안의 cin7_description 에서 한 번 · 재적재도 이 칸을 채운다 · 그 뒤 IMS 가 주인
+- ~~처음 내용은 IMS 안의 cin7_description 에서 한 번 · 재적재도 이 칸을 채운다 · 그 뒤 IMS 가 주인~~ → [2026-10-09 · 판정 401 · desc-1b 9184853] **복사하지 않는다** — 값 = `coalesce(description_html, cin7_description)` · description_html null = Cin7 원문을 따른다(재적재가 바꾸면 저절로 따라감) · IMS 에서 한 번 고치면 IMS 가 주인(재적재가 안 건드린다 · 문지기 product_description_guard) · '' = 일부러 비움 · 고친 시각 · 사람이 남아 솎아내기(뷰 product_description_edited) · 되돌리기(op description_follow_cin7)
+- ⭐ 보내기는 뷰 `product_description` 의 `html_effective` 만 읽는다 · 원문 칸을 직접 보내지 않는다
+- ⭐ 거르기(판정 402)는 화면(asung-ims `ims-desc.js` · DOMPurify)과 **같은 규칙을 Shopify 보내기에서도** — 허락: 서식 · 표 · style= · 모든 출처 img · `ref_embed_host` 에 있는 host 의 iframe(유튜브 · 페이스북) / 거름: 그 밖의 iframe(POWR) · script · on…= · javascript: · object · embed · form · meta · link · base · 허락 출처는 표에서 읽는다(코드에 박지 않는다)
+- DB 는 판별만(`ims_html_forbidden` · 창구가 저장을 막는다) · 원문(cin7_description)은 POWR 가 든 채 그대로 남는다 — 그래서 보내는 쪽이 반드시 거른다
 - Caleb 「어서 세워야 해」 · 순서: 매입 세금 → 할인 원가 → 설명 칸 → Shopify
 
 ---
@@ -140,3 +143,4 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 
 - 새 판정은 so-module 의 그날 절에 원문 표 · 이 파일에는 주제별로 옮긴다(판정 번호를 단다)
 - 이 문서와 so-module 표가 어긋나면 **판정 원문(so-module)이 맞다**
+- [2026-10-09 · so-module §55] §3-f 를 판정 401 · 402 · desc-1b(9184853) 실물로 고침 — 복사 없음 · 보내기는 product_description 뷰만 · 거르기는 ims-desc.js 와 같은 규칙
