@@ -117,6 +117,8 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
    (6분 제한 대비 · 429 가 오면 쉬고 이어 받는다 · 끝 판단은 Total 이 아니라 받은 행 수 < Limit)
 ⭐ 대량 비활성 안전장치 — 받은 행 수 ≠ API Total 이면 멈춤(수집이 짧게 끝난 것) · 한 번에 내리는(is_active=false) 줄 > max(20, 1%) 면 멈춤
    맞으면 허락 속성(예 ILC_ALLOW_BIG_DOWN=1)을 넣고 **한 번만** 통과 · 계기: 2026-09-22 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다
+⭐ [2026-10-10 · so-module §57-c] ImsLoadProductTag.gs(접두 ipt · c61ba04) — 관계 표(product_tag) 맞추기: 원하는 집합 − cin7 줄 = 넣기 · cin7 줄 − 원하는 집합 = 지우기(행 삭제 · 먼저) · manual 무접촉 · **커서 없음**(매번 Cin7 을 새로 훑어 diff — 다시 돌리면 남은 것만 · Next run 도 같은 함수) · 큰 지우기 안전장치(> max(20, 1%) · IPT_ALLOW_BIG_DELETE=1 한 번만) · 지우기는 id 40 개씩(UrlFetch URL 2 KB)
+   ⚠️ 틈: 넣기가 ipr_upsert_(merge-duplicates)라 적재 도중 직원이 같은 태그를 붙이면 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicates 로(so-module 미룬 175)
 ⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc · ilp · ptp …)로 겹침을 막는다
 ```
 

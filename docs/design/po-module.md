@@ -898,6 +898,8 @@ Caleb 확인(2026-09-14): **공백이 든 SKU 와 이름이 틀린 SKU 는 적�
 ### ⭐ 한 규칙 — upsert 하고, 이번에 안 들어온 `source='cin7'` 행은 `is_active=false` 로 내린다
 
 ⚠️ [2026-09-30 · prod-1 실물] **지금 코드는 이 규칙과 다르다** — ImsLoadProduct.gs 의 `ipr_upsert_('product', 'sku', rows)` 는 merge-duplicates = 행 전체 덮어쓰기 · payload `source:'cin7'` ⇒ 같은 SKU 의 manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지) · 아래 1) ~ 3) 은 미구현 · 승격 규칙은 product_supplier(ImsLoadProductSupplier.gs)만 구현 ⇒ 판정 132(IMS 값이 이긴다 · cin7_id 만 붙인다 · 차이 목록) · prod-5 · §3-h
+→ [2026-10-10 · so-module §57-d 3] **tag-0 ⬜6 코드로 확정(덮는다)** — `ipr_row_`(290 ~ 336 행)가 name · is_active · source:'cin7' · family · 옵션 · brand · category · unit · 계정 · 세금 · sellable · weight … 를 보내고 on_conflict=sku merge-duplicates 로 쓴다 ⇒ 사람이 고친 이름 · sellable · manual 행의 source 가 Cin7 값으로 덮인다(설명 셋만 product_description_guard) · 이 파일 커밋은 10ce922 하나 · **컷오버 전 한 차수**(판정 418 · 미룬 164 · 176)
+📌 [2026-10-10] 태그 적재는 따로 — `docs/probes/ImsLoadProductTag.gs`(asung-wms `c61ba04` · product_tag 관계 표 맞추기 · 열쇠 cin7_id · manual 무접촉 · 63,501 줄 · so-module §57-c)
 ⚠️ [2026-10-09 · desc-1b 9184853 · so-module §55-b] 위 「payload 밖 칸은 비워진다」는 **여전히 추정**이다(asung-wms 규칙 45 · pg_stat_statements 0 행으로 확정 못 함) — 설명 칸 셋은 확정하지 않은 채 문지기 product_description_guard 로 막았다(§3-h 「설명 — 실물」)
 
 | 표 | 충돌 키 | 규칙 |

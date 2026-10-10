@@ -20,6 +20,11 @@
 - 설정 한 줄 = 표 `shop_store`(code · shop_domain · kind asung | aone · sale_tier_id · compare_tier_id · send_tags) · 위치 짝 = `shop_location`(Shopify 위치 GID ↔ warehouse_id · 대조는 GID 로만) · 쓰기는 admin 창구 `shop_store_save` · 화면 Settings → Shopify Stores · 위치 짝 Toronto ↔ Asung Trading Inc. · Edmonton ↔ Asung - Edmonton
 - 연결 확인 = EF `shopify` action ping(scope 10 대조 · 위치 대조) · 호출 기록 `shop_call_log`(90 일)
 
+### 1-a. 컷오버 — 보냄의 첫 상태 (판정 420)
+- 스토어별 보냄(`shop_listing`)의 첫 상태 = **지금 실제 스토어** — asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로
+- **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다**(Caleb 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」) — 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤
+- 지금 받는 CSV 는 판정용 · **컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어** 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」)
+
 ## 2. 오더 들어오기
 
 ### 2-a. 받는 길 (판정 363)
@@ -117,6 +122,8 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - 보낼 내용 = `shop_product_payload(store, family | product)` → jsonb 한 곳(title · description_html 원문 · vendor · product_type · tags · status · options · variants · files · blocks · hash) · hash = blocks · listing_on 을 뺀 payload 의 md5 · `shop_product.last_hash` 와 같으면 안 보낸다(push `--force` 만 예외)
 - ⭐ productSet 의 목록 칸(variants · files · tags …)은 **보낸 대로 맞추고 빠진 것은 지운다** — 그래서 사람 칸(collections · metafields · seo · category · templateSuffix)은 절대 보내지 않고 · 꺼진 구성원도 variants 에 담는다(판정 406)
 - 판정 408 Compare-at 이 Price 와 같아도 보낸다(null 이면 안 보냄) · 판정 409 사진은 IMS 목록대로(3-b) · 판정 410 태그는 IMS 가 주인 — 지금 product_tag 0 행이라 `shop_store.send_tags` false = tags 칸을 아예 안 보낸다 · ⚠️ **Cin7 태그를 IMS 로 적재한 뒤에** SQL 로 켠다(켜면 빈 목록이 스토어 태그를 전부 지운다)
+- ⭐ [2026-10-10 · 판정 417 · 418 · so-module §57] **태그 적재 실물**(테스트 DB) — `docs/probes/ImsLoadProductTag.gs`(asung-wms `c61ba04`) · product_tag **63,501 줄 · 전부 source cin7** · 종류 1,193 · 제품 12,321 · 대소문자만 다른 묶음 50 은 제품 수가 가장 많은 철자 하나로 합쳤다(판정 417 · manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순 · 공백 · 빈 조각 · 중복 정리 · Cin7 원본은 안 바꾼다) · IMS 에 없는 Cin7 제품 679 의 태그 2,727 줄은 버리고 목록만(판정 418 · 제품 적재를 고친 뒤 다시 돌린다) · send_tags 는 아직 false
+- ⚠️ **운영 순서: 태그 적재 → send_tags 켜기 → 보냄 켜기** — payload 는 send_tags 와 상관없이 tags · send_tags 를 담고 hash 에 넣는다(shop_2a1 267 · 270 행) ⇒ 보냄을 먼저 켜면 태그 적재 · send_tags 켜기가 켜진 상품 전부를 다시 보낸다(실물: 적재 직후 큐 17 · 18 reason product_tag) · 보낼 태그의 범위(ASS · AOS · 내부 표식 · 케이스 태그)는 스토어 CSV 를 본 뒤(판정 420 · so-module 미룬 179)
 - 판정 412 설명 거르기 → 3-f
 - 큐 = `shop_push_queue`(대상마다 열린 줄 하나 · `shop_queue_add` 한 곳) · 큐 트리거 `*_shop_queue` 16(product · product_family · product_price · product_image · product_tag · product_barcode · ref_brand · ref_category · AFTER STATEMENT) · ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다(진단할 때 reason 만 믿지 않는다)
 - cron [테스트 DB] **jobid 42 ims-shop-drain 1 분마다**(열린 큐가 없으면 EF 를 부르지 않는다 · 한 회차 ≤ 20 건) · **jobid 43 ims-shop-nightly 08:00 UTC**(= 토론토 04:00 EDT · 03:00 EST · shop_queue_all) · 킬 스위치 `select cron.alter_job(42, active := false);` · `(43, …)` · 기록 `supabase/ops/cron.sql`
@@ -203,3 +210,4 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 - [2026-10-09 · so-module §55] §3-f 를 판정 401 · 402 · desc-1b(9184853) 실물로 고침 — 복사 없음 · 보내기는 product_description 뷰만 · 거르기는 ims-desc.js 와 같은 규칙(→ 목록만 같고 엔진은 판정 412)
 - [2026-10-10 · so-module §56 · docs-1010] 상태 줄 · §1 시험 스토어 실물 · §3-a 판정 413 · §3-b 사진 실물 · §3-c 판정 404 ~ 407 · 413 · 퍼블리시 유지 · §3-e 판정 408 ~ 410 · 412 · 큐 · cron 42 · 43 · 「새벽에 되돌림」 어긋남 열림 · §3-f 판정 412 · §3-g 가격(판정 403 · 403 고침 · 408) 새로
 - [2026-10-10 · so-module §56 이어 붙임 · tag-0] 상태 줄에 shop-2c · §3-e 「새벽에 되돌림」 어긋남을 판정 414 로 닫음(새벽 맞추기 = 안전망) · §3-h 화면 새로(shop-2c · 판정 415 Send now 바로 · 416 Edit 안 읽기만)
+- [2026-10-10 오후 · so-module §57 · stock-0] §3-e 태그 적재 실물(c61ba04 · 63,501 · 판정 417 · 418) · 운영 순서(태그 적재 → send_tags → 보냄) · §1-a 컷오버 보냄 첫 상태 새로(판정 420)

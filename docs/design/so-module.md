@@ -2544,7 +2544,7 @@ D2  딜 = 이름 · 기간(from · to · 둘 다 선택) · 켜짐 · 대상 손
     판정 = 「걸기에 들고 · 빼기에 없고 · 줄 수량이 기준 이상」 · ⭐ 빼기는 그 딜 줄에서만 — 다른 딜이 같은 제품을 따로 걸면 그쪽은 산다(②-0a 검증 T5b = 25 · 대화 Claude 지시서 §5 「뺀 둘은 손님 기본」은 틀렸다)
 D3  몇 개 이상 = 비움(수량 무관) | 숫자 N(N 이상) | 케이스(그 낱개의 켜진 세트 중 가장 작은 계수 이상 · 세트가 없으면 걸리지 않는다)
     ⚠️ 「케이스」 줄은 미리 보기 화면(걸리는 제품 N · 지금 할인 없는 M · 다른 % 태그 K · 뺀 제품)이 서기 전에는 만들지 않는다 — 표만 · Cin7 UOM Discount 25줄은 qty 모드(단계 할인 8개는 144 줄이 「가장 작은 세트」가 아니다)
-D4  태그 방식을 유지한다 — product_tag(1,245종 전부 옮긴다 · Shopify 쪽 쓰임도 있다 · IMS 에서 붙이고 뗀다) · 글자 그대로 unique · 대소문자만 다른 짝은 적재가 멈추고 보고
+D4  태그 방식을 유지한다 — product_tag(1,245종 전부 옮긴다 · Shopify 쪽 쓰임도 있다 · IMS 에서 붙이고 뗀다) · 글자 그대로 unique · 대소문자만 다른 짝은 적재가 멈추고 보고 → [2026-10-10 · §57-a 판정 417] **합친다** — 제품 수가 가장 많은 철자 하나로(manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순) · 공백 · 빈 조각 · 중복 정리 · Cin7 원본은 안 바꾼다
 D5  줄 할인 = greatest(손님 기본, 그 줄에 맞는 딜 줄들의 %) — 더하지 않는다(12-b 판정 4 · SO-10842 21%) · mix & match 없음 — 그 줄(같은 SKU 한 줄)의 수량만 · 같은 SKU 두 줄(p_force_new)은 줄마다 따로 [2026-10-06 정정 · 판정 277 · 279 · 298 · §48] greatest 후보 셋(손님 · 딜 · 세트) · 세트 줄의 수량은 낱개 EA
 D6  오더 전체 할인 — D5 의 예외 · 줄 할인이 끝난 제품 줄 합계에 한 번 더 · 세금 전 · ⚠️ 운임(so_charge) 제외 · 금액 = round(합계 × pct/100, 2)(SO-10842) · 제품 줄 합계 → − 전체 할인 → + 운임 → 세금
     지금은 대상 손님 목록이면 자동(코드는 보지 않는다) · so_deal.coupon_code 원문 칸은 두되 계산에 안 쓴다 · 손님이 코드를 넣는 방식은 Shopify 연동 차수 [2026-10-06 정정 · 판정 283 · 296 · 299 · 317 · §48 · §49] 손님 목록은 so_deal_customer_rule(손님 · 브랜치 · 티어 · 빼기) · 쿠폰은 so_coupon(코드 하나 = 손님 하나 · 한 번) · coupon_code 원문 칸은 여전히 계산에 안 쓴다
@@ -2659,7 +2659,7 @@ so_deal_best 의 coalesce(p_on, current_date) 둘 — 적용됨 · 닿지 않음
 무상·덮어쓴 줄이 오더 전체 할인 소계에 드는가 — 든다(짐작 · 청취 「sub total」 · SO-10842 로는 못 봤다)
 인보이스·세금 차수 — Cin7 은 제품 줄 세금과 할인 줄 세금을 따로 매겨 더한다(SO-10842 439.36 vs 한 번에 439.35 · 1센트) → ✅ [2026-09-24 §16 판정 3] 줄마다 반올림(so_tax_amount) · 세금 ①·② 섰다
 운임 할인 칸 — Cin7 은 「운임 174.26 · 할인 100% · 합계 0」으로 무료 배송을 남긴다 · so_charge 에는 할인 칸이 없다(무료 배송 측정이 필요하면 칸 판정) [2026-10-07 정정 · 판정 353 · fr-1 · §52] 칸 둘이 생겼다 — so_charge.discount_pct · discount_amount(하나만) · 식 so_charge_discount 한 곳 · 100% = 무료 배송
-딜·태그 적재 차수 — 태그(Cin7 제품 Tags · 새 GAS · 대소문자만 다른 짝이면 멈춤) · 딜(Export CSV 를 Drive 에 · % 는 DiscountName 이름에서만 · Case Discount 7줄 % 없음 = 못 옮긴다 · 몇 개 이상은 UOM 태그 이름에서만 ·
+딜·태그 적재 차수 — 태그(Cin7 제품 Tags · 새 GAS · 대소문자만 다른 짝이면 멈춤 → [2026-10-10 · 판정 417] 합친다 · ImsLoadProductTag.gs c61ba04 · §57) · 딜(Export CSV 를 Drive 에 · % 는 DiscountName 이름에서만 · Case Discount 7줄 % 없음 = 못 옮긴다 · 몇 개 이상은 UOM 태그 이름에서만 ·
    손님은 이름 콤마 목록 → customer.name(유니크 아님 · 겹치면 멈춤) · SKU → product.sku · BrandName → ref_brand.name · 못 맞추면 멈춤 · 어느 딜을 옮길지(전부 · 켜져 있고 끝나지 않은 것만)는 Caleb 판정)
 손님 정리 거리 — 쓰레기 손님(';6 · €)이 시험에 뽑혔다(12-h 목록에 더한다) · 쿠폰 코드 방식(손님이 코드를 넣으면 걸린다) — Shopify 연동 차수 · so_deal.coupon_code 원문은 있다 ✅ [2026-10-06 정정 · 판정 283 · §49] 쿠폰 코드 방식은 so_coupon(Shopify 차수가 아니라 IMS 창구)
 케이스(case) 모드 줄 — 미리 보기 화면 뒤에(D3) · 딜·태그 편집 창구 · 미리 보기 — 화면 차수 · 딜 표는 지금 master RLS 로만 쓴다 [2026-10-06 정정 · 판정 303 · §48] case 기준 = 낱개의 켜진 세트 중 최소 pack_factor · 낱개 EA 비교 [2026-10-06 정정 · 판정 335 · §50] 딜 표는 창구 so_deal_save 로만 쓴다 · 읽기 창구 so_deal_list · so_deal_detail · 화면은 discount-rules.html 차수
@@ -7829,7 +7829,7 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 ### 56-g 미룬 것 — §55-e 162 에 이어 붙임
 
 - ~~163 Edit 의 Save · Cancel 위치(위 56-f 7) — shop-2c 화면 때 아래에도 · 또는 떠 있게~~ → ✅ 닫힘 `32dae11`(pr v5 · Edit 아래에도 Save · Cancel)
-- 164 product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인
+- 164 product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인 → **확정: 덮는다**(tag-0 ⬜6 · §57-d 3) · 컷오버 전 한 차수(§57-e 176)
 - ~~165 판정 377 「새벽에 되돌림」 ↔ hash 건너뜀(위 56-f 9) — 판정 거리~~ → ✅ 닫힘 → **판정 414**
 - 166 products.html escQ 정리(이제 esc 와 같다)
 - 167 shopify-push.sh 5 행 옛 주석(위 56-f 10) · shop_product_payload comment 의 「DOMPurify」(다음에 그 함수를 다시 낼 때)
@@ -7849,4 +7849,66 @@ shop-2c 화면 ✅ 끝남(asung-ims 32dae11 · f3fabf9 · e563a8e · 판정 415 
 Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ 재고 올리기
 → ④ 오더 받기 전에: Dev Dashboard 에서 보호된 손님 정보 신청 · Wholesale All In One 앱을 시험 스토어에 설치
 다음 판정 번호: 417
+```
+
+→ [2026-10-10 오후] §57 — Shopify 태그(판정 417 ~ 420 · tag-0 프로브 · tag-1 적재 c61ba04) · 다음 판정 번호 421
+
+## §57 2026-10-10 오후 — Shopify 태그 적재 · 모델 규칙 · 보냄 첫 상태 — tag-0 · tag-1 · 판정 417 ~ 420 (집 PC)
+
+⭐ 닫힌 것: Cin7 태그 → IMS product_tag 첫 적재(테스트 DB · 63,501 줄) — 판정 410 의 「적재한 뒤에 보낸다」 앞 절반
+⭐ 새 판정 417 ~ 420 · 원문 지시서 `~/asung/prompts/stock-0.md` ⓐ(이 절의 원천) · 다음 판정 번호 **421**
+⭐ 아직: send_tags 는 꺼짐 · 스토어 CSV(asung.ca · aonebeauty.com)는 Caleb 이 내보내기를 요청함(메일 대기) — Shopify 로 보낼 태그의 범위는 그 CSV 를 본 뒤
+
+### 57-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 417 | 대화 Claude: 「대소문자만 다른 태그 50 묶음 — A 많이 쓴 철자로 합친다 · B 묶음마다 사람이 · C 그대로」 → Caleb 「A」 | 적재 때 대소문자만 다른 묶음은 **제품 수가 가장 많은 철자 하나로** · 같으면 앞글자 대문자 · (적재 규칙: manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순) · 앞뒤 공백 · 안의 연속 공백(한 칸) · 빈 조각 · 한 제품 안 중복 정리 · 바꾼 짝은 로그로 · Cin7 원본은 바꾸지 않는다 · **정본 13 절 D4 의 「대소문자만 다른 짝은 적재가 멈추고 보고」를 이것으로 바꾼다** · 기각 B · C |
+| 418 | 대화 Claude: 「IMS 에 없는 Cin7 제품 678 — A 제품 적재(미룬 164)부터 · B 태그 먼저, 678 의 태그는 버리고 목록만」 → Caleb 「B」 | 태그 적재를 먼저 · IMS 에 없는 SKU 의 태그는 버리고 목록만 · 태그 적재는 다시 돌릴 수 있게 · 678(실행 때 679) + 미룬 164 는 컷오버 전 따로 한 차수 |
+| 419 | Caleb 「계속 opus를 주는것은 실제로 fable보다 opus가 적절해서인거지?」 · 「결과가 쓸만 했다면 계속 opus를 써도 문제는 없는것 아닌가?」 → 대화 Claude A(규칙대로) · B(기본 Opus · Fable 은 쓰기 · 지우기 코드만) → Caleb 「좋아. 그렇게 하자」(B) | Claude Code 모델 기본 = **Opus**(조사 — 판단이 든 것 포함 · 문서 · 스킬) · **Fable 은 DB 에 쓰거나 지우는 코드를 만들 때만**(마이그레이션 · 창구 함수 · 적재 스크립트의 쓰기 · 지우기) · 그 밖의 애매한 것은 Opus · 안전망 = 조사의 쓰기 0 + 대화 Claude 의 회신 평가 · 조사 결론이 판정의 근거가 될 때는 근거 원문(쿼리 · grep)을 반드시 확인 · **asung-workflow 「판단이 든 조사 · 검증 → Fable · 애매하면 Fable」을 이것으로 바꾼다** |
+| 420 | Caleb 「ASS는 asung.ca shopify, AOS는 aonebeauty.com shipify」 → 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」 → 「보냄의 첫 상태는 태그가 아니라 지금 실제 스토어에서 가져온다가 맞아」 | 컷오버 때 **스토어별 보냄(shop_listing)의 첫 상태 = 지금 실제 스토어**(asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로) · **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다** · 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤 정한다 · 지금 받는 CSV 는 판정용 · 컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」) |
+
+### 57-b tag-0 프로브 실물 (2026-10-10 13:08 · Caleb 실행 · `~/asung/prompts/tag-0-ImsTagProbe.gs` · 쓰기 0 · 78 초)
+
+```
+(0) Cin7 제품 19392 · API Total 19392 · 페이지 20
+(1) Tags 있는 제품 12770 · 종류 1248 · (제품, 태그) 줄 66290 · 빈 조각 45 · 앞뒤 공백(한 칸 앞 말고) 3347 · 한 제품 안 같은 태그 두 번 99
+(2) 상위: ASS 9525 · AOS 8163 · EDM_NoSale 2401 · BOTH_NoSale_Stock 1382 · Eyelashes & Cosmetics 958 · Conditioner 930 · GM20UOM12 808 · … · Q3 2026 490 · Clearance 472 · … · BEST SELLERS 355
+(3) 케이스 태그 제품 1219 · 종류 25 · 형식 어긋남 0
+(4) 대소문자만 다른 짝 50 묶음(예 AOS 8163/aos 1 · Conditioner 930/conditioner 29 · Rinse-out conditioners 247/Rinse-Out Conditioners 25/Rinse-Out conditioners 13 · Serum 10/serum 2/SeRUM 1 · headbands 33/Headbands 33) · 안에 공백 든 태그 864 종 · 따옴표 든 태그 19 종(Men's … · Kid's … · Kids' …)
+(5) ASS · AOS: both 8151 · assOnly 1374 · aosOnly 12 · neither 9855
+(6) IMS product 18722 · 적재될 줄 63563(제품 12321) · IMS 에 없는 Cin7 제품 678 · 그중 Tags 449 · 버려질 줄 2727 · Cin7 응답에 없는 IMS SKU 8
+```
+- ⚠️ 「Hair  Accessories」 처럼 안에 두 칸 공백이 실물로 있다 → 판정 417 의 「안의 연속 공백 한 칸」
+- 비교(so-module 2518 행 · 2026-09-23 케이스 프로브): 제품 18,989 → 19,392 · Tags 있는 12,372 → 12,770 · 종류 1,245 → 1,248 · ASS 9,127 → 9,525 · AOS 7,766 → 8,163
+
+### 57-c tag-1 실물 — 태그 적재 (테스트 DB)
+
+- 스크립트 `docs/probes/ImsLoadProductTag.gs` — asung-wms **`c61ba04`** · 함수 imsLoadProductTag(드라이런) · imsLoadProductTagApply · 접두어 ipt_ · ipr_cin7_ · ipr_upsert_ · ims_fetch_ 재사용 · 커서 없음(매번 diff · 다시 돌리면 남은 것만) · 지우기는 `source=eq.cin7&id=in.(…)` 40 개씩 · 넣기 1,000(안에서 500) · 받은 행 수 ≠ API Total 이면 멈춤 · 지우기 > max(20, cin7 줄 1%) 면 멈춤(IPT_ALLOW_BIG_DELETE=1 한 번만)
+- 드라이런 13:29 · Apply 14:50 ~ 14:52(토론토) — Cin7 19,393 · Tags 있는 제품 12,770 · 정리 전 66,389 → 뒤 66,290 · 빈 조각 45 · 앞뒤 공백 3,347 · 안 연속 공백 37 · 한 제품 안 중복 99 · 철자 합치기 50 묶음(manual 이 이긴 것 0 · 같은 수 셋 → Cocoa Butter · Headbands · Wrap) · 정본 철자 1,195 · **넣기 63,501 · 지우기 0** · 123 초 · IMS 에 없는 제품 679 · 태그 있는 449 · 버린 줄 2,727(SKU AS85139 … · 상위 ASS · AOS · Q3 2026 · Makeups …) · SKU 로만 찾힘 0
+- 확인 SQL(`~/asung/prompts/tag-1-check.sql`): product_tag 63,501 · 전부 cin7 · 종류 1,193 · 제품 12,321 · 대소문자 짝 0 · 공백 · 빈 태그 0 · (product_id, tag) 중복 0 · 큐 17 ANN01001FAM · 18 ANN03907 reason product_tag → cron 이 40 초 안에 처리 · 사람이 고친 cin7 줄 0
+- 보인 것: 판정 417 의 「많이 쓴 철자」 라 소문자가 이긴 묶음이 있다(gel 33:2 · oil 83:1 · cream 26:17 · lotion · cleanser · mask · comb · eyelash · face makeups …) — 판정대로 · IMS 화면에서 고칠 수 있다 · Shopify 로 보낼 때 다시 본다
+- 정본 철자 1,195 ↔ 표 종류 1,193 — 둘은 IMS 에 없는 제품에만 붙은 철자(짐작 · 버린 줄)
+
+### 57-d tag-0 ⓑ 의 발견 (Claude Code · 코드로 확인)
+
+1. `shop_product_payload` 는 send_tags 와 상관없이 tags · send_tags 를 담고 hash 도 포함(`20261009200731_shop_2a1_listing.sql` 267 · 270 행) → 태그를 적재하면 켜진 상품의 hash 가 바뀌어 다시 보낸다(tags 칸은 send_tags false 면 빠짐 · `_shared/shopify-product.ts` 62 행 · 실물 = 위 57-c 큐 17 · 18) ⇒ 운영 순서: **태그 적재 → send_tags 켜기 → 보냄 켜기**
+2. **drain 의 20 칸(DRAIN_MAX · `functions/shopify/index.ts` 21 행)에 skipped_same_hash 줄도 센다** — 운영 새벽 맞추기는 N/20 분 동안 큐를 차지(4,000 이면 약 200 분) · 그 사이 IMS 에서 바뀐 상품이 뒤에 선다 ⇒ ③ 재고 설계의 판정 거리
+3. 미룬 164 확정: `ImsLoadProduct.gs` 의 ipr_row_(290 ~ 336 행) + on_conflict=sku merge-duplicates → 사람이 고친 이름 · sellable · manual 행의 source 를 Cin7 값으로 덮는다(설명만 product_description_guard 가 막는다) · 이 파일 커밋은 10ce922 하나
+4. 창구 shop_listing_set 의 op push_now 를 지금 부르는 곳 0(화면 Send now · tools push 는 EF) — 남길지는 정하지 않음
+5. ASS · AOS 의 뜻은 코드 · 문서 · Apps Script 어디에도 없었다(grep) → Caleb 이 판정 420 에서 답함
+
+### 57-e 미룬 것 — 56-g 174 에 이어 붙임
+
+- 175 태그 적재의 넣기가 `ipr_upsert_`(merge-duplicates)라 적재가 도는 몇 분 사이 직원이 같은 태그를 붙이면 그 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicates 로
+- 176 IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다
+- 177 shop_listing_set op push_now — 부르는 곳 0 · 남길지 정하지 않음(57-d 4)
+- 178 drain 20 칸에 skipped 줄도 센다(57-d 2) — ③ 재고 설계 때 판정
+- 179 Shopify 로 보낼 태그의 범위(내부 표식 · ASS · AOS · 케이스 태그) — 스토어 CSV 를 본 뒤(판정 420)
+
+### 57-f 다음 (Caleb 이 고른다)
+
+```
+③ 재고 올리기 조사(stock-0 ⓑ) · 스토어 CSV 가 오면 보낼 태그 범위 판정 → send_tags 켜기
+다음 판정 번호: 421
 ```
