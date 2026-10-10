@@ -2,13 +2,16 @@
 # tools/shopify-push.sh — Caleb 이 터미널에서 직원 길로 Shopify ② 를 돌린다 (shop-2b · 2026-10-09)
 #   로그인(이메일 · 비밀번호는 화면 · 기록 · 파일에 남기지 않는다 · tools/shopify-ping.sh 와 같은 길) → 아래 갈래 하나 → 응답 json.tool
 #   ⚠️ 테스트 프로젝트만 — 주소에 운영 ref(gftpcnkxbdjzzfvzwcfl)가 보이면 멈춘다
-#   쓰기:  bash tools/shopify-push.sh clean-check                       # jsdom 이 Edge Runtime 에서 도는지 + 샘플 거르기(engine dompurify 기대)
+#   쓰기:  bash tools/shopify-push.sh clean-check                       # 샘플 거르기(engine rules · 판정 412) + DB 판별 안전장치
 #          bash tools/shopify-push.sh on --family ANN01001FAM           # 보냄 켜기(shop_listing_set listing_on · 두 번 부르기 · 경고는 보이고 ack)
 #          bash tools/shopify-push.sh on --sku ANN01291
 #          bash tools/shopify-push.sh off --sku ANN01291                # 보냄 끄기(큐 한 줄 · drain 이 ARCHIVED 로 보낸다)
 #          bash tools/shopify-push.sh push --family ANN01001FAM [--force]   # 바로 보내기(큐를 거치지 않는다 · hash 같으면 skipped_same_hash · --force 로 강제)
 #          bash tools/shopify-push.sh push --sku ANN03907
-#          bash tools/shopify-push.sh drain                             # 열린 큐를 손으로 비운다(직원 길 · ≤ 20 건)
+#          bash tools/shopify-push.sh drain                             # 열린 큐를 손으로 비운다(직원 길 · 보낸 건 ≤ 20 · skipped 는 안 센다 · 판정 424 ②)
+#          bash tools/shopify-push.sh stock-drain                       # ⭐ stock-1b 재고 큐(shop_stock_queue)를 손으로 비운다(직원 길 · 시간 한도 40 s)
+#          bash tools/shopify-push.sh stock-push --family ANN01001FAM   # ⭐ 대상 하나의 변형 전부를 force 로 바로(위치별 숫자 · 판정 415 결)
+#          bash tools/shopify-push.sh stock-push --sku ANN03907
 #   환경:  STORE(기본 test) · SUPABASE_URL · SUPABASE_ANON_KEY 를 주면 그것을 · 없으면 asung-ims/ims-config.js 의 테스트 값
 set -euo pipefail
 CMD="${1:-}"; shift || true
@@ -22,8 +25,8 @@ while [ $# -gt 0 ]; do
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
-case "$CMD" in clean-check|on|off|push|drain) ;; *) echo "usage: $0 clean-check | on --family X | on --sku X | off … | push … [--force] | drain" >&2; exit 2 ;; esac
-if [ "$CMD" != "clean-check" ] && [ "$CMD" != "drain" ] && { [ -z "$FAM" ] && [ -z "$SKU" ] || [ -n "$FAM" ] && [ -n "$SKU" ]; }; then echo "give exactly one of --family or --sku" >&2; exit 2; fi
+case "$CMD" in clean-check|on|off|push|drain|stock-drain|stock-push) ;; *) echo "usage: $0 clean-check | on --family X | on --sku X | off … | push … [--force] | drain | stock-drain | stock-push --family X | --sku X" >&2; exit 2 ;; esac
+if [ "$CMD" != "clean-check" ] && [ "$CMD" != "drain" ] && [ "$CMD" != "stock-drain" ] && { [ -z "$FAM" ] && [ -z "$SKU" ] || [ -n "$FAM" ] && [ -n "$SKU" ]; }; then echo "give exactly one of --family or --sku" >&2; exit 2; fi
 CFG="${IMS_CONFIG_JS:-$HOME/asung/asung-ims/ims-config.js}"
 URL="${SUPABASE_URL:-}"; ANON="${SUPABASE_ANON_KEY:-}"
 if [ -z "$URL" ] && [ -f "$CFG" ]; then URL=$(grep -oE 'SUPABASE_URL: *"[^"]+"' "$CFG" | head -1 | sed -E 's/.*"([^"]+)"/\1/'); fi
@@ -55,6 +58,8 @@ target_json() { if [ -n "$FAM" ]; then printf '"family_sku":"%s"' "$FAM"; else p
 case "$CMD" in
   clean-check) call_ef '{"action":"clean_check"}' ;;
   drain)       call_ef '{"action":"drain"}' ;;
+  stock-drain) call_ef '{"action":"stock_drain"}' ;;
+  stock-push)  call_ef "{\"action\":\"stock_push\",\"store\":\"$STORE\",$(target_json)}" ;;
   push)        call_ef "{\"action\":\"push\",\"store\":\"$STORE\",$(target_json),\"force\":$FORCE}" ;;
   on|off)
     OP="listing_on"; [ "$CMD" = "off" ] && OP="listing_off"

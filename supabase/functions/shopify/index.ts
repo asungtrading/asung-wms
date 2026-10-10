@@ -1,11 +1,15 @@
 // ============================================================
-// ASUNG IMS — Edge Function: shopify (shop-1b ping · shop-2b push · drain · clean_check · 2026-10-09 · 판정 362 · 403 ~ 411)
+// ASUNG IMS — Edge Function: shopify (shop-1b ping · shop-2b push · drain · clean_check · 2026-10-09 · 판정 362 · 403 ~ 411 · ⭐ stock-1b stock_drain · stock_push · 2026-10-10 · 판정 421 ~ 425)
 //   ⚠️ 테스트 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg) 전용 — 시작 때 inv_config.db_role = 'test' 가 아니면 멈춘다.
 //   POST JSON {action, store, …} · 응답은 json(status) · CORS.
 //   문(action 마다 · verify_jwt=false 라 함수 안에서):
 //     직원 길  Authorization: Bearer <세션 JWT> → rpc/ims_can_write('shopify')(ims-staff-create 모양 · 401 세션 · 403 권한) → /auth/v1/user 로 by_staff
 //     cron 길  x-ims-cron-key == secret IMS_CRON_SECRET(미설정 500 fail-closed) · by_staff null
-//     ping      직원 · cron / push · clean_check 직원만 / drain cron 만(직원도 허락 — 손으로 비울 때)
+//     ping      직원 · cron / push · clean_check · stock_push 직원만 / drain · stock_drain cron 길(직원도 허락 — 손으로 비울 때)
+//   ⭐ 재고(stock-1b · 판정 421 ~ 425): stock_drain = shop_stock_queue 열린 줄(오래된 것부터 ≤ STOCK_FETCH)을 스토어마다 묶어 rpc/shop_stock_payload 한 번 → 줄 판정(../_shared/shopify-stock.ts planRows: 변형 없음 skipped_off · blocks error · 같으면 skipped_same · force 면 전부)
+//      → (아이템 · 위치) 활성 여부를 nodes(ids) 로 한 번 읽어 없는 짝은 inventoryActivate → inventorySetQuantities(name available · reason correction · changeFromQuantity null · @idempotent 결정적 키 · STOCK_BATCH 개씩) → shop_stock_sent upsert · 줄 result · 한도 적으면 멈춤 · 시간 한도 STOCK_DRAIN_MS
+//      stock_push = 직원 · 대상 하나(family_sku | sku)의 변형 전부를 force 로 바로(큐 없이 · 판정 415 결) · 위치별 결과를 돌려준다
+//   ⭐ 상품 drain(판정 424 ②): skipped_same_hash 줄은 DRAIN_MAX 20 칸에 세지 않는다 — 보낸(또는 error) 건이 20 이거나 DRAIN_TIME_MS 를 넘으면 멈춘다 · 한 회차에 읽는 열린 줄은 DRAIN_FETCH
 //   표 읽기 · 대응 표 갱신 · 큐 · call_log 는 service_role(세 표는 authenticated 직접 쓰기가 닫혀 있다) · payload 는 rpc/shop_product_payload(2a1) · 거르기는 ../_shared/shopify-clean.ts(규칙 기반 · 판정 412) · 조립은 ../_shared/shopify-product.ts
 //   ⭐ 사진 짝(fix2 · 실물 media_matched 0): 보내기 직전 product.media 를 읽어 READY + url 인 사진만 줄기(= product_image id)로 shop_media 에 짝 → 그 사진은 {id} 로 · 처리 중은 URL + REPLACE(쌓이지 않음) · 줄기가 IMS 에 없는 사진은 지워진다(판정 409 · media_removed_unknown) · 직원 push 는 응답이 처리 중이면 2 초 × 2 회 다시 읽는다 · hash 가 같으면 직전 읽기도 안 한다
 //   ⭐ 안전장치(판정 412): 거른 html 을 rpc/ims_html_forbidden 에 넣어 하나라도 걸리면 productSet 을 부르지 않는다(result error · description_forbidden_after_clean:<코드> · 직원 길 push 는 422 · drain 은 다음 건 계속) — IMS 에서 그 설명을 한 번 고쳐 저장하면 풀린다
@@ -16,14 +20,16 @@ import { API_VERSION, compareLocations, getToken, missingScopes, shopifyGql, typ
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
 import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
+import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
-const DRAIN_MAX = 20;
+const DRAIN_MAX = 20;                                                                              // 보낸(ok · error) 건의 칸 — skipped_same_hash 는 세지 않는다(판정 424 ②)
+const DRAIN_FETCH = 200;                                                                           // 한 회차에 읽는 열린 상품 줄(건너뛸 줄이 많아도 20 건은 보내게)
 const DRAIN_MIN_AVAILABLE = 500;
 const MEDIA_REREAD_MAX = 2;                                                                        // 직원 push 만 · 응답 사진이 처리 중이면 2 초 뒤 다시 읽기(최대 2 회) · drain 은 안 한다(회차 시간 · 다음 push 의 직전 읽기가 잡는다)
 const MEDIA_REREAD_WAIT_MS = 2000;                                                                   // 한도 남은 점수가 이 아래면 이번 회차를 멈춘다(다음 분에 이어서)
 const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ims-cron-key", "Access-Control-Allow-Methods": "POST, OPTIONS" };
-const ACTIONS = ["ping", "push", "drain", "clean_check"];
+const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push"];
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -219,6 +225,131 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
   return { ok: true, result: "ok", error: null, product_gid: m.productGid, handle: m.handle, status: m.status, variants: m.variants.length, media: m.media.length, media_matched_before: matchedBefore, media_reused_ids: reusedIds, media_removed_unknown: removedUnknown, media_matched: Object.keys(matched).length, media_rereads: rereads, clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash, cost: g.cost, query_cost_total: costTotal, ms: Date.now() - t0, blocks: [] };
 }
 
+// ── 재고 보내기(stock-1b · 판정 421 ~ 425) — plans(줄 판정 결과)를 받아 Shopify 에 보내고 sent · 큐 줄을 적는다 ──
+type ItemResult = { queue_id: number; sku: string | null; product_id: string; warehouse_id: string; location_gid: string; quantity: number; result: "ok" | "error"; error: string | null; activated: boolean };
+type SendOut = { items: ItemResult[]; rowResult: Map<number, { result: "ok" | "error"; error: string | null }>; cost: number; calls: number; available: number | null; stopped: string | null };
+async function sendStock(store: StoreRow, plans: RowPlan[], refId: number | string, t0: number, timeMs: number): Promise<SendOut> {
+  const out: SendOut = { items: [], rowResult: new Map(), cost: 0, calls: 0, available: null, stopped: null };
+  const all: SendItem[] = plans.filter((p) => p.result === "send").flatMap((p) => p.items);
+  const itemErr = new Map<string, string>();                                                       // item|loc → error(activate 실패 · userErrors)
+  const activated = new Set<string>();
+  for (const batch of chunk(all, STOCK_BATCH)) {
+    if (Date.now() - t0 > timeMs) { out.stopped = "time limit (" + Math.round(timeMs / 1000) + " s)"; break; }
+    // 1) (아이템 · 위치) 활성 여부 — nodes(ids) 한 번 · 없는 짝은 inventoryActivate(결정적 키)
+    const ids = [...new Set(batch.map((i) => i.inventory_item_gid))];
+    const gl = await shopifyGql(store, INVENTORY_LEVELS_QUERY, { ids });
+    out.calls++; out.cost += gl.cost.actual ?? 0; if (gl.cost.available !== null) out.available = gl.cost.available;
+    if (!gl.ok) { out.stopped = "inventory levels read failed: HTTP " + gl.status + (gl.errors ? " · " + JSON.stringify(gl.errors).slice(0, 200) : ""); break; }
+    const active = activeLevels(((gl.data as { nodes?: LevelsNode[] } | null)?.nodes ?? []) as LevelsNode[]);
+    for (const a of needActivation(batch, active)) {
+      const ga = await shopifyGql(store, INVENTORY_ACTIVATE_MUTATION, { item: a.inventory_item_gid, loc: a.location_gid, key: await idemKey(activateKeyParts(a.inventory_item_gid, a.location_gid)) });
+      out.calls++; out.cost += ga.cost.actual ?? 0; if (ga.cost.available !== null) out.available = ga.cost.available;
+      const ue = (ga.data as { inventoryActivate?: { userErrors?: Array<{ message?: string }> } } | null)?.inventoryActivate?.userErrors ?? [];
+      if (!ga.ok || ue.length) itemErr.set(a.inventory_item_gid + "|" + a.location_gid, "activate failed: " + (ue.length ? ue.map((e) => e.message).join(" · ") : "HTTP " + ga.status + (ga.errors ? " · " + JSON.stringify(ga.errors).slice(0, 200) : "")));
+      else activated.add(a.inventory_item_gid + "|" + a.location_gid);
+    }
+    // 2) inventorySetQuantities — activate 에 실패한 짝은 뺀다
+    const sendable = batch.filter((i) => !itemErr.has(i.inventory_item_gid + "|" + i.location_gid));
+    const sorted = sortedForSet(sendable);
+    if (sorted.length) {
+      const g = await shopifyGql(store, INVENTORY_SET_MUTATION, { input: setInput(sorted, refId), key: await idemKey(setKeyParts(sorted, refId)) });
+      out.calls++; out.cost += g.cost.actual ?? 0; if (g.cost.available !== null) out.available = g.cost.available;
+      const ue = (g.data as { inventorySetQuantities?: { userErrors?: Array<{ field?: string[] | null; message?: string; code?: string | null }> } } | null)?.inventorySetQuantities?.userErrors ?? [];
+      const split = splitUserErrors(ue, sorted);
+      const whole = !g.ok ? "graphql HTTP " + g.status + (g.errors ? " · " + JSON.stringify(g.errors).slice(0, 300) : "") + (g.raw ? " · " + g.raw.slice(0, 100) : "") : split.whole;
+      sorted.forEach((i, idx) => { const e = whole ?? split.perItem.get(idx) ?? null; if (e) itemErr.set(i.inventory_item_gid + "|" + i.location_gid, "Shopify refused: " + e); });
+    }
+    for (const i of batch) {
+      const k = i.inventory_item_gid + "|" + i.location_gid; const e = itemErr.get(k) ?? null;
+      out.items.push({ queue_id: i.queue_id, sku: i.sku, product_id: i.product_id, warehouse_id: i.warehouse_id, location_gid: i.location_gid, quantity: i.quantity, result: e ? "error" : "ok", error: e ? e.slice(0, 400) : null, activated: activated.has(k) });
+    }
+    if (typeof out.available === "number" && out.available < DRAIN_MIN_AVAILABLE) { out.stopped = "throttle budget low (" + out.available + ")"; break; }
+  }
+  // 3) sent upsert(unique store × product × warehouse) · 줄 결과(한 줄의 위치가 하나라도 error 면 error)
+  const now = new Date().toISOString();
+  const sentRows = out.items.map((i) => ({ store_id: store.id, product_id: i.product_id, warehouse_id: i.warehouse_id, quantity: i.quantity, sent_at: now, last_status: i.result, last_error: i.error }));
+  if (sentRows.length) {
+    const r = await fetch(SB_URL() + "/rest/v1/shop_stock_sent?on_conflict=store_id,product_id,warehouse_id", { method: "POST", headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }), body: JSON.stringify(sentRows) });
+    if (!r.ok) throw new Error("shop_stock_sent upsert " + r.status + ": " + (await r.text()).slice(0, 300));
+  }
+  for (const p of plans) {
+    if (p.result !== "send") continue;
+    const mine = out.items.filter((i) => i.queue_id === p.queue_id);
+    if (!mine.length) continue;                                                                    // 시간 한도 · 멈춤으로 못 보낸 줄 — 열어 둔다(다음 회차)
+    const errs = mine.filter((i) => i.result === "error");
+    out.rowResult.set(p.queue_id, errs.length ? { result: "error", error: errs.map((e) => e.sku + "@" + e.location_gid.split("/").pop() + ": " + e.error).join(" · ").slice(0, 400) } : { result: "ok", error: null });
+  }
+  return out;
+}
+async function patchQueue(ids: number[], body: Record<string, unknown>): Promise<void> { if (ids.length) await sbWrite("PATCH", "shop_stock_queue?id=in.(" + ids.join(",") + ")", body); }
+
+async function stockDrain(caller: Caller, t0: number): Promise<Response> {
+  const rows: QueueRow[] = await sbGet("shop_stock_queue?select=id,store_id,product_id,reason,force&done_at=is.null&order=queued_at.asc,id.asc&limit=" + STOCK_FETCH);
+  const byStore = new Map<string, QueueRow[]>();
+  for (const q of rows) { const a = byStore.get(q.store_id) ?? []; a.push(q); byStore.set(q.store_id, a); }
+  const summary: Record<string, number> = { ok: 0, skipped_same: 0, skipped_off: 0, error: 0 };
+  const stores: Array<Record<string, unknown>> = [];
+  let stopped: string | null = null;
+  for (const [storeId, qs] of byStore) {
+    if (stopped) break;
+    const store: StoreRow | undefined = (await sbGet("shop_store?select=id,code,shop_domain,secret_prefix,is_active,label,kind&id=eq." + storeId + "&limit=1"))[0];
+    const now = new Date().toISOString();
+    if (!store || !store.is_active) { await patchQueue(qs.map((q) => q.id), { started_at: now, done_at: now, result: "error", error: "store missing or switched off" }); summary.error += qs.length; continue; }
+    await patchQueue(qs.map((q) => q.id), { started_at: now });
+    const pids = [...new Set(qs.map((q) => q.product_id))];
+    let payload: StockPayloadRow[];
+    try { payload = (await sbRpc("shop_stock_payload", { p_store_id: store.id, p_product_ids: pids })) as StockPayloadRow[]; }
+    catch (e) {
+      const msg = "payload: " + String((e as Error)?.message ?? e).slice(0, 300);
+      await patchQueue(qs.map((q) => q.id), { done_at: new Date().toISOString(), result: "error", error: msg }); summary.error += qs.length;
+      await recordCall({ store_id: store.id, action: "stock_drain", ok: false, http_status: null, query_cost: null, throttle_available: null, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+      continue;
+    }
+    const sent: SentRow[] = await sbGet("shop_stock_sent?select=product_id,warehouse_id,quantity,last_status&store_id=eq." + store.id + "&product_id=in.(" + pids.join(",") + ")");
+    const plans = planRows(qs, payload, sent);
+    const done = new Date().toISOString();
+    for (const r of ["skipped_same", "skipped_off"] as const) { const ids = plans.filter((p) => p.result === r).map((p) => p.queue_id); await patchQueue(ids, { done_at: done, result: r, error: null }); summary[r] += ids.length; }
+    for (const p of plans.filter((x) => x.result === "error")) { await patchQueue([p.queue_id], { done_at: done, result: "error", error: p.error }); summary.error++; }
+    const toSend = plans.filter((p) => p.result === "send");
+    let so: SendOut | null = null;
+    if (toSend.length) {
+      try { so = await sendStock(store, toSend, toSend[0].queue_id, t0, STOCK_DRAIN_MS); }
+      catch (e) {
+        const msg = String((e as Error)?.message ?? e).slice(0, 300);
+        await patchQueue(toSend.map((p) => p.queue_id), { done_at: new Date().toISOString(), result: "error", error: msg }); summary.error += toSend.length;
+        await recordCall({ store_id: store.id, action: "stock_drain", ok: false, http_status: null, query_cost: null, throttle_available: null, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+        stores.push({ store: store.code, rows: qs.length, error: msg }); continue;
+      }
+      const fin = new Date().toISOString();
+      for (const [qid, r] of so.rowResult) { await patchQueue([qid], { done_at: fin, result: r.result, error: r.error }); summary[r.result]++; }
+      const left = toSend.filter((p) => !so!.rowResult.has(p.queue_id)).map((p) => p.queue_id);
+      if (left.length) await patchQueue(left, { started_at: null });                                // 못 보낸 줄은 열어 둔다
+      stopped = so.stopped;
+    }
+    const note = "rows " + qs.length + " · ok " + (so ? [...so.rowResult.values()].filter((r) => r.result === "ok").length : 0) + " · skipped_same " + plans.filter((p) => p.result === "skipped_same").length + " · skipped_off " + plans.filter((p) => p.result === "skipped_off").length + " · error " + (plans.filter((p) => p.result === "error").length + (so ? [...so.rowResult.values()].filter((r) => r.result === "error").length : 0)) + (so ? " · items " + so.items.length + " · activated " + so.items.filter((i) => i.activated).length + " · calls " + so.calls : "") + (stopped ? " · stopped: " + stopped : "");
+    await recordCall({ store_id: store.id, action: "stock_drain", ok: !so || !so.items.some((i) => i.result === "error"), http_status: null, query_cost: so?.cost ?? 0, throttle_available: so?.available ?? null, error: note, by_staff: caller.staffId, ms: Date.now() - t0 });
+    stores.push({ store: store.code, rows: qs.length, sent_items: so?.items.length ?? 0, activated: so?.items.filter((i) => i.activated).length ?? 0, calls: so?.calls ?? 0, cost: so?.cost ?? 0, errors: so?.items.filter((i) => i.result === "error").map((i) => ({ sku: i.sku, location: i.location_gid, error: i.error })) ?? [] });
+  }
+  const open = (await sbGet("shop_stock_queue?select=id&done_at=is.null&limit=1")).length > 0;
+  return json(200, { ok: true, drained: rows.length, ...summary, stores, stopped, more_open: open, ms: Date.now() - t0 });
+}
+
+// stock_push — 직원 · 대상 하나의 변형 전부를 force 로 바로(큐 없이) · 위치별 결과
+async function stockPush(store: StoreRow, target: Target, label: string, caller: Caller, t0: number): Promise<Response> {
+  const pids: string[] = target.family_id
+    ? (await sbGet("product?select=id&family_id=eq." + target.family_id + "&parent_product_id=is.null")).map((r: { id: string }) => r.id)
+    : [target.product_id as string];
+  const payload = (await sbRpc("shop_stock_payload", { p_store_id: store.id, p_product_ids: pids })) as StockPayloadRow[];
+  const fake: QueueRow[] = pids.map((pid, i) => ({ id: -(i + 1), store_id: store.id, product_id: pid, reason: "push", force: true }));
+  const plans = planRows(fake, payload, []);
+  const so = await sendStock(store, plans, "push-" + Date.now(), t0, STOCK_DRAIN_MS);
+  const blocked = plans.filter((p) => p.result !== "send").map((p) => ({ product_id: p.product_id, sku: p.sku, result: p.result, error: p.error }));
+  const ok = !so.items.some((i) => i.result === "error") && !so.stopped;
+  await recordCall({ store_id: store.id, action: "stock_push", ok, http_status: null, query_cost: so.cost, throttle_available: so.available, error: ok ? "items " + so.items.length + (blocked.length ? " · blocked " + blocked.length : "") : (so.stopped ?? so.items.filter((i) => i.result === "error").map((i) => i.sku + ": " + i.error).join(" · ")), by_staff: caller.staffId, ms: Date.now() - t0 });
+  return json(ok ? 200 : 502, { ok, result: ok ? "ok" : "error", store: store.code, target: label, variants: pids.length, sent_items: so.items.length, activated: so.items.filter((i) => i.activated).length, calls: so.calls, cost: so.cost, stopped: so.stopped,
+    items: so.items.map((i) => ({ sku: i.sku, location_gid: i.location_gid, warehouse_id: i.warehouse_id, quantity: i.quantity, result: i.result, error: i.error, activated: i.activated })), blocked, api_version: API_VERSION, ms: Date.now() - t0 });
+}
+
 Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
@@ -232,7 +363,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     if (!ACTIONS.includes(action)) return json(400, { ok: false, error: "action must be one of: " + ACTIONS.join(", ") });
-    if ((action === "push" || action === "clean_check") && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping and drain" });
+    if ((action === "push" || action === "clean_check" || action === "stock_push") && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain and stock_drain" });
 
     if (action === "clean_check") {                                                                 // 규칙 거르기 샘플 + DB 판별(안전장치) 결과
       const hosts = await loadHosts();
@@ -242,13 +373,16 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, engine: r.engine, hosts: [...hosts], removed: r.removed, forbidden_after_clean: codes, html: r.html, ms: Date.now() - t0 });
     }
 
-    if (action === "drain") {                                                                       // 열린 큐 ≤ 20 건 · 오래된 것부터 · 실패해도 다음 건 · 한도가 적으면 멈춤
-      const rows = await sbGet("shop_push_queue?select=id,store_id,family_id,product_id,reason&done_at=is.null&order=queued_at.asc,id.asc&limit=" + DRAIN_MAX);
+    if (action === "drain") {                                                                       // 열린 큐 · 오래된 것부터 · 실패해도 다음 건 · 한도가 적으면 멈춤 · ⭐ 판정 424 ②: skipped_same_hash 는 20 칸에 안 센다 · 시간 한도
+      const rows = await sbGet("shop_push_queue?select=id,store_id,family_id,product_id,reason&done_at=is.null&order=queued_at.asc,id.asc&limit=" + DRAIN_FETCH);
       const hosts = rows.length ? await loadHosts() : new Set<string>();
       const stores: Record<string, StoreRow> = {};
       const out: Array<{ id: number; result: string; error: string | null; product_gid: string | null }> = [];
       let stopped: string | null = null;
+      let sent = 0;                                                                                  // 칸에 센 건(ok · error) · skipped_same_hash 는 안 센다
       for (const q of rows) {
+        stopped = drainShouldStop(sent, DRAIN_MAX, Date.now() - t0, DRAIN_TIME_MS);
+        if (stopped) break;
         if (!stores[q.store_id]) stores[q.store_id] = (await sbGet("shop_store?select=id,code,shop_domain,secret_prefix,is_active,label,kind&id=eq." + q.store_id + "&limit=1"))[0];
         const store = stores[q.store_id];
         await sbWrite("PATCH", "shop_push_queue?id=eq." + q.id, { started_at: new Date().toISOString() });
@@ -257,12 +391,15 @@ Deno.serve(async (req) => {
         else r = await pushOne(store, { family_id: q.family_id, product_id: q.product_id }, caller, false, hosts, "drain");
         await sbWrite("PATCH", "shop_push_queue?id=eq." + q.id, { done_at: new Date().toISOString(), result: r.result, error: r.error });
         out.push({ id: q.id, result: r.result, error: r.error, product_gid: r.product_gid });
+        if (countsToward(r.result)) sent++;
         const avail = (r.cost as { available?: number | null } | null)?.available;
         if (typeof avail === "number" && avail < DRAIN_MIN_AVAILABLE) { stopped = "throttle budget low (" + avail + ")"; break; }
       }
       const open = (await sbGet("shop_push_queue?select=id&done_at=is.null&limit=1")).length > 0;
-      return json(200, { ok: true, drained: out.length, results: out, stopped, more_open: open, ms: Date.now() - t0 });
+      return json(200, { ok: true, drained: out.length, sent, skipped: out.length - sent, results: out, stopped, more_open: open, ms: Date.now() - t0 });
     }
+
+    if (action === "stock_drain") return await stockDrain(caller, t0);
 
     // ping · push — 스토어 필요
     const code = String(body?.store ?? "").trim().toLowerCase();
@@ -276,12 +413,13 @@ Deno.serve(async (req) => {
     if (!store.is_active) return json(409, { ok: false, error: `Store "${code}" (${store.label ?? store.shop_domain}) is switched off — turn it on under Settings → Shopify Stores first` });
     if (action === "ping") return await ping(store, caller, t0);
 
-    // push {store, family_sku | sku, force?} — 켜진 listing 만 · 큐를 거치지 않고 바로
+    // push · stock_push {store, family_sku | sku, force?} — 켜진 listing 만 · 큐를 거치지 않고 바로
     const fsku = String(body?.family_sku ?? "").trim(), psku = String(body?.sku ?? "").trim();
     if ((fsku === "") === (psku === "")) return json(400, { ok: false, error: "give exactly one of family_sku, sku" });
     const l = (await sbGet("shop_listing_list?select=family_id,product_id,is_on,sku,kind&store_id=eq." + store.id + "&sku=eq." + encodeURIComponent(fsku || psku) + "&kind=eq." + (fsku ? "family" : "product") + "&limit=1"))[0];
     if (!l) return json(404, { ok: false, error: `${fsku || psku} is not listed on store ${code} — switch it on first (Send to Shopify)` });
     if (!l.is_on) return json(409, { ok: false, error: `${fsku || psku} is switched off on store ${code} — it stays ARCHIVED until switched on` });
+    if (action === "stock_push") return await stockPush(store, { family_id: l.family_id, product_id: l.product_id }, fsku || psku, caller, t0);
     const hosts = await loadHosts();
     const r = await pushOne(store, { family_id: l.family_id, product_id: l.product_id }, caller, !!body?.force, hosts, "push");
     return json(r.ok ? 200 : (r.error?.startsWith(FORBIDDEN_AFTER_CLEAN) ? 422 : 502), { ...r, store: code, target: fsku || psku, api_version: API_VERSION });
