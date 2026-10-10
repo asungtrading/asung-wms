@@ -81,6 +81,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 조사   무엇을 어떤 명령으로 확인할지. SQL 은 문장까지 적고 「Caleb 에게 요청하라」
 예상값 Caleb 이 실행해 대조한다 · ⚠️ **psql heredoc 으로** 적어라(§5)
 끝     git 을 건드리지 마라 · git diff --stat 과 행 수만 보여주고 멈춰라 · 이견에 번호를 붙여라
+       ⭐ [2026-10-10 · so-module §59-f 1] 마이그레이션 차수의 「끝」 에 박는다: **적용 명령은 `psql -1 -f <파일 하나>` + `supabase migration repair --status applied <버전>`** — `supabase db push`(특히 `--include-all`)는 아직 적용 안 된 다른 마이그레이션까지 민다
        정본·CHECKLIST·스킬 갱신은 **말만** 한다
 ```
 
@@ -286,6 +287,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    · 죽은 회차가 시퀀스 머리를 당기면 차수 끝에 세션 시작 머리로 한 번 더 되돌리고 전후를 보고한다
 ⭐ [2026-10-05 · Caleb · so-module §43-d 1] DB 커밋은 Caleb 이 화면까지 확인한 뒤 — 셋째 덩이를 바로 돌리지 않는다 · 대화 Claude 가 「⏳ DB 커밋 대기」 목록을 챙겨 답 끝에 한 줄 · 화면 시험 끝 · 문서 차수 · 하루 정리 때 숫자를 넣은 커밋 명령을 먼저 · 올라가면 원격 확인 뒤 지운다
 ⭐ [2026-10-10 · so-module §58-d 3] **자동 경로 시험(트리거 → 큐 → cron → 바깥 반영)은 cron 등록 덩이 뒤에** — 앞에 두면 손 drain 으로만 확인되고 「사람 손 없이 1 분 안에」는 못 본다(stock-1b: 원장 시험을 cron 등록 뒤로 옮겨 48 초 실물)
+⚠️⚠️ [2026-10-10 · so-module §59-f 1] **회신의 적용 명령이 `supabase db push` · `--include-all` 이면 대화 Claude 가 바꾼다** — 파일 하나 `psql "$(cat ~/.asung-testdb-url)" -1 -v ON_ERROR_STOP=1 -f <파일>` → `supabase migration repair --status applied <버전> --db-url "$(cat ~/.asung-testdb-url)"` · Claude Code(shop-pol 회신)가 db push --include-all 을 줬고 Caleb 이 그대로 적용 — 이력 확인으로 다른 마이그레이션은 안 들어갔지만 운이었다 · 이미 적용된 뒤 고친 명령을 돌리면 「already exists」 로 실패(-1 이라 변경 0) — 적용 여부를 먼저 본다
 ⚠️ [2026-10-06 · so-module §46-d] 뷰를 거를 때는 **그룹 열(sku · 창고 이름)** 로 — 조인으로 붙은 열(product_id · warehouse_id)로 거르거나 겹치면 뷰 전체를 센다(stk-4 100 → 310 · 500 → 1,335 ms) · 유니크 열로 대신할 수 있으면 조인 열 조건은 빼라 · `= any(배열)` 은 인덱스로 내려가지만 `= any((select …))` 괄호만은 서브쿼리 꼴
 ⚠️ [2026-10-06 · §46-d] 식을 한 곳으로 모으며 「창고 전체」를 세게 바꿀 때는 **줄마다 부르는 곳의 1키 고정비**를 적용 전 · 후로 잰다(stk-1 처음 판 1키 306 ms → 키 배열 갈래로 82 ms)
 ⚠️ [2026-10-06 · §46-d] `set local role authenticated` 안에서는 임시 표를 못 읽는다(42501) — 변수(jsonb)로 넘긴다 · 가짜 문서는 그 표의 번호 CHECK(po_number_ck) · 상태 CHECK(confirmed_at 짝)를 먼저 본다
@@ -648,6 +650,10 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    12 [10-09] **대화형 스크립트(비밀번호를 묻는 tools/*.sh)는 다른 명령과 묶지 않는다** — 덩이 맨 끝 한 줄로 따로 · **긴 커밋 글은 파일로** 쓰고 `git commit -F <파일>`(따옴표 · 줄바꿈이 셸에서 깨지지 않게) · 옮기기 명령 끝에 `MOVED_OK`(§7) · 영어 글을 붙여도 한국어로 답한다(§10)
    13 [10-10 · 대화 Claude] 옮기기 명령의 `cp -n` 이 coreutils 경고(「non-portable」) ⇒ `cp --update=none`(§7)
    14 [10-10 · 대화 Claude] 샌드박스 sh 에서 `{a,b}` 중괄호 펼침이 안 된다 ⇒ 파일을 하나씩 적는다(§7)
+⚠️ **[2026-10-10 밤 태그 · 품절 판매 · so-module §59-f]**
+   1 [Claude Code] 적용 명령에 db push --include-all ⇒ §4 psql -1 -f + migration repair
+   4 [Claude Code] inv_available_base(창고, array[null]) 은 전부를 돌려준다 — IMS 에 없는 SKU 를 넘기면 「more than one row」 ⇒ p.id is not null · stock_pid = p.id 로 거른다
+   5 [Claude Code] begin transaction read only 는 temp 표도 막는다 · \copy 는 psql 변수를 풀지 않는다 ⇒ begin → rollback · \copy … from pstdin / to pstdout
 ⚠️ **[2026-10-10 저녁 ③ 재고 · so-module §58-d]**
    1 [대화 Claude] inv_available_base 결과 칸을 짐작(b.warehouse_id) ⇒ §5 returns table 을 먼저
    2 [Claude Code] 시험 SQL 에 current_date(토론토 저녁엔 UTC 가 내일) ⇒ ims_today()(§4 날짜 줄)

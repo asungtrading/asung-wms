@@ -7744,7 +7744,7 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 | 404 | 「그렇게 가자」 | 세트는 기본으로 보내지 않는다 · **sellable 세트만**(지금 BEL43475-12 하나) 사람이 보냄을 켤 수 있다 |
 | 405 | 「그렇게 가자」 | 보냄을 끄면 Shopify 상품 **ARCHIVED**(지우지 않는다 · 다시 켜면 ACTIVE) · 낱개 상품 · family 의 활성 구성원이 0 이 돼도 ARCHIVED |
 | 406 | 「family 구성원 하나를 끄면, 샤피파이 변형을 지우진 않더라도 퍼블리시를 꺼야 해. 왜냐하면 우리는 재고가 없는 sku도 오더를 받는 구조야」 → 대화 Claude: 퍼블리시는 상품 단위라 변형 하나만 못 끈다 · 대신 변형마다 inventoryPolicy → 「그렇게 가자」 | 꺼진 구성원(`not (is_active and sellable)`)은 **변형을 지우지 않고**(productSet 목록에서 빼지 않는다) 그 변형만 **inventoryPolicy DENY** + 재고 0(수량은 ③) → Sold out · 장바구니 불가 · 이력 유지 |
-| 407 | 「품절된 제품도 오더를 받아」 | 켜진 변형은 **inventoryPolicy CONTINUE** |
+| 407 | 「품절된 제품도 오더를 받아」 | 켜진 변형은 **inventoryPolicy CONTINUE** → 판정 427 · 428(§59-a — 품절 판매는 스토어마다 · 단종은 DENY) |
 | 408 | 「그렇게 가자」 | Compare-at 이 Price 와 같은 값이어도 그대로 보낸다(null 이면 안 보냄) |
 | 409 | 「그렇게 가자」 | 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(Shopify 에서 사람이 더 올린 사진은 사라진다) |
 | 410 | 「우리가 태그를 cin7에서 가져온다면 IMS 태그가 샤피파이와 연동이 되어야 해. 현재 샤피파이의 태그는 전부 cin7 통해서 업로드된거야」 | 태그는 **IMS 가 주인** · 지금 IMS product_tag 0 행 → **Cin7 태그를 IMS 로 적재한 뒤에** 보낸다 · 그전엔 tags 칸을 보내지 않는다(shop_store.send_tags false · SQL 로 켬) · Cin7 Tags 1,245 종 · 케이스 태그 `GM\|HS<%>UOM<수량>` 1,217 제품 · 적재는 따로 한 차수 |
@@ -7866,7 +7866,7 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 | 417 | 대화 Claude: 「대소문자만 다른 태그 50 묶음 — A 많이 쓴 철자로 합친다 · B 묶음마다 사람이 · C 그대로」 → Caleb 「A」 | 적재 때 대소문자만 다른 묶음은 **제품 수가 가장 많은 철자 하나로** · 같으면 앞글자 대문자 · (적재 규칙: manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순) · 앞뒤 공백 · 안의 연속 공백(한 칸) · 빈 조각 · 한 제품 안 중복 정리 · 바꾼 짝은 로그로 · Cin7 원본은 바꾸지 않는다 · **정본 13 절 D4 의 「대소문자만 다른 짝은 적재가 멈추고 보고」를 이것으로 바꾼다** · 기각 B · C |
 | 418 | 대화 Claude: 「IMS 에 없는 Cin7 제품 678 — A 제품 적재(미룬 164)부터 · B 태그 먼저, 678 의 태그는 버리고 목록만」 → Caleb 「B」 | 태그 적재를 먼저 · IMS 에 없는 SKU 의 태그는 버리고 목록만 · 태그 적재는 다시 돌릴 수 있게 · 678(실행 때 679) + 미룬 164 는 컷오버 전 따로 한 차수 |
 | 419 | Caleb 「계속 opus를 주는것은 실제로 fable보다 opus가 적절해서인거지?」 · 「결과가 쓸만 했다면 계속 opus를 써도 문제는 없는것 아닌가?」 → 대화 Claude A(규칙대로) · B(기본 Opus · Fable 은 쓰기 · 지우기 코드만) → Caleb 「좋아. 그렇게 하자」(B) | Claude Code 모델 기본 = **Opus**(조사 — 판단이 든 것 포함 · 문서 · 스킬) · **Fable 은 DB 에 쓰거나 지우는 코드를 만들 때만**(마이그레이션 · 창구 함수 · 적재 스크립트의 쓰기 · 지우기) · 그 밖의 애매한 것은 Opus · 안전망 = 조사의 쓰기 0 + 대화 Claude 의 회신 평가 · 조사 결론이 판정의 근거가 될 때는 근거 원문(쿼리 · grep)을 반드시 확인 · **asung-workflow 「판단이 든 조사 · 검증 → Fable · 애매하면 Fable」을 이것으로 바꾼다** |
-| 420 | Caleb 「ASS는 asung.ca shopify, AOS는 aonebeauty.com shipify」 → 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」 → 「보냄의 첫 상태는 태그가 아니라 지금 실제 스토어에서 가져온다가 맞아」 | 컷오버 때 **스토어별 보냄(shop_listing)의 첫 상태 = 지금 실제 스토어**(asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로) · **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다** · 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤 정한다 · 지금 받는 CSV 는 판정용 · 컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」) |
+| 420 | Caleb 「ASS는 asung.ca shopify, AOS는 aonebeauty.com shipify」 → 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」 → 「보냄의 첫 상태는 태그가 아니라 지금 실제 스토어에서 가져온다가 맞아」 | 컷오버 때 **스토어별 보냄(shop_listing)의 첫 상태 = 지금 실제 스토어**(asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로) · **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다** · 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤 정한다 · 지금 받는 CSV 는 판정용 · 컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」) · 태그 범위 → 판정 426(§59-a · IMS 태그 전부) |
 
 ### 57-b tag-0 프로브 실물 (2026-10-10 13:08 · Caleb 실행 · `~/asung/prompts/tag-0-ImsTagProbe.gs` · 쓰기 0 · 78 초)
 
@@ -7904,7 +7904,7 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 - 176 IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다
 - 177 shop_listing_set op push_now — 부르는 곳 0 · 남길지 정하지 않음(57-d 4)
 - 178 drain 20 칸에 skipped 줄도 센다(57-d 2) — ③ 재고 설계 때 판정 → ✅ 판정 424 · stock-1a ① · stock-1b ②(§58)
-- 179 Shopify 로 보낼 태그의 범위(내부 표식 · ASS · AOS · 케이스 태그) — 스토어 CSV 를 본 뒤(판정 420)
+- 179 Shopify 로 보낼 태그의 범위(내부 표식 · ASS · AOS · 케이스 태그) — 스토어 CSV 를 본 뒤(판정 420) → ✅ 판정 426(§59 · IMS 태그 전부)
 
 ### 57-f 다음 (Caleb 이 고른다)
 
@@ -7967,7 +7967,7 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 
 ### 58-e 미룬 것 — 57-e 179 에 이어 붙임(178 닫힘)
 
-- 180 Shopify 테마 「Sold out」 → 「Not available」(판정 425 · ⭐ **Caleb 할 일 · 리마인드** · Online Store → Themes → Edit default theme content · 시험 스토어 먼저 → 컷오버 때 asung.ca · aonebeauty.com)
+- 180 Shopify 테마 「Sold out」 → 「Not available」(판정 425 · ⭐ **Caleb 할 일 · 리마인드** · Online Store → Themes → Edit default theme content · 시험 스토어 먼저 → 컷오버 때 asung.ca · aonebeauty.com) → [§59 · 판정 427] **asung.ca 에만**(aone 은 DENY 스토어라 「Sold out」 이 맞는 표시)
 - 181 HS · 원산지가 IMS 에 비어 있다(58-c 끝) → 제품 재적재 차수(176 · 미룬 164)
 - 182 stock-1b 상수(묶음 100 · 한 회차 500 · 40 s) 운영 cost 로 다시 재기(시험 첫 회차 22 숫자 cost 147) · 첫날 위치 붙이기(activate) 부하
 - 183 상품 shop_queue_all 운영 4,000 대상 ≈ 1 분(stock-1a 이견 11) — 더 빠르게 할지(EF 로 나누기 · hash 만 가벼운 판)
@@ -7979,4 +7979,82 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 ```
 ④ 오더 받기 · 스토어 CSV 가 오면 보낼 태그 범위 판정(179) → send_tags 켜기 · 테마 글자(180 · Caleb)
 다음 판정 번호: 426
+```
+
+## §59 2026-10-10 밤 — Shopify 태그 보내기 · 스토어별 품절 판매 · 단종 DENY — shop-pol · ss v2 · 판정 426 ~ 429 (집 PC)
+
+⭐ 닫힌 것: 보낼 태그 범위(판정 420 이 미룬 것 · 미룬 179) → IMS 태그 전부 · 품절 판매를 스토어마다(shop_store.oos_policy) · 단종 변형 DENY
+⭐ 새 판정 426 ~ 429 · 원문 지시서 `~/asung/prompts/docs-1010d.md`(이 절의 원천) · 설계 정본 `shopify-integration.md` §1-a · §3-c · §3-e · 다음 판정 번호 **430**
+⭐ 아직(컷오버 전): 171 개 정리(판정 429 · 검토 CSV `~/asung/prompts/csv/review-deny-171.csv`) · aone 스토어 행 · 위치 짝 · asung.ca 재고 상태 태그 구현 끄기
+
+### 59-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 426 | 두 스토어 CSV 분석(59-c) → Caleb 「asung.ca에서는 meta field에 스탁 상태를 적도록 하는 것을 구현해 놔서 그래. 이제는 필요없을 듯 해」 → 「응 그대로 기록하자」 | Shopify 로 보내는 태그 = **IMS 태그 전부**(판정 420 이 미룬 답 · 지금 Cin7 도 내부 표식까지 전부 올린다) · asung.ca 의 재고 상태 태그(`outofstock-edm` 656 · `outofstock-tor` 624 · `instock-edm` 95 · `instock-tor` 56)와 재고 메타필드(Toronto/Edmonton Restock Date · out of stock date)는 지난 구현의 것 — 더 쓰지 않는다 · IMS 가 태그를 보내면 사라진다(그대로 둔다) · **그 구현은 컷오버 때 끈다**(Caleb 할 일 · 안 끄면 지운 태그를 다시 붙인다) · 메타필드는 사람 칸이라 IMS 무접촉 |
+| 427 | aone CSV deny 7,164 · continue 21 / asung.ca continue 7,990 · deny 493 → Caleb 「aonebeauty.com에서는 스탁이 없으면 주문이 안돼」 · 「다만 그 스탁은 토론토 스탁을 기준으로 해」 → 「응 그대로 기록하자」 | 품절 판매는 **스토어마다**(shop_store.oos_policy) · asung.ca continue · aonebeauty.com deny · 시험 스토어 continue · 꺼진 구성원은 어느 스토어든 DENY + 0 · **aone 은 Toronto 재고만** — 위치 짝은 Toronto 하나(Shopify 는 DENY 에서 모든 위치 Available 을 합쳐 본다) · 컷오버 때 aone Shopify 의 Edmonton 위치 숫자는 비우거나 판매에서 뺀다 · 테마 글자(425)는 **asung.ca 에만** · 판정 407 은 이것으로 바뀐다 |
+| 428 | Caleb 「내가 테스트로 ann01001을 discontinued를 켰어 …」 → 대화 Claude A 단종은 DENY · B 지금대로 → Caleb 「단종 sku라면 discontinued를 말하는거지? 그렇다면 A」 | **단종(is_discontinued) 변형은 스토어 설정과 상관없이 DENY** — 남은 재고까지만 · 재고 숫자는 그대로(0 으로 만들지 않음) |
+| 429 | shop-pol ⓑ 대조(59-b) → 대화 Claude A 컷오버 전 IMS 에서 정리 · B 그냥 둔다 → Caleb 「A」 | asung.ca 에서 **단종이 아닌데 deny 인 SKU 171 개**는 **컷오버 전에 IMS 에서 하나씩 정리**(단종 켜기 · sellable 끄기 · 그냥 두기 중 하나) · 그대로 두면 컷오버 날 CONTINUE 로 풀린다 · 단종 712 개 continue → DENY 는 판정 428 대로 · aone 의 continue 21 개는 스토어 설정대로 DENY |
+
+### 59-b 차수 · 커밋 (git log 원문)
+
+| 차수 | 레포 · 커밋 | 내용 |
+|---|---|---|
+| shop-pol | asung-wms `8cd08a7` | 마이그레이션 `20261010220500_shop_pol_oos_policy.sql`(md5 2494aae1…) — shop_store.oos_policy(continue · deny · CHECK) · shop_variant_payload 재발행(꺼진 구성원 → DENY · 단종 → DENY · deny 스토어 → DENY · 그 밖 CONTINUE) · shop_product_payload blocks 고침(가격 없는 켜진 변형을 `is_active and sellable` 로 — 옛 코드는 DENY 스토어 · 단종에서 놓쳤다) · shop_store_save(oos_policy 받기 · old 에 있을 때만 대조 · oos_policy_invalid) · 뷰 shop_store_list 끝에 oos_policy · send_tags · **새 트리거 shop_store_shop_queue_u**(스토어의 oos_policy · send_tags · sale_tier_id · compare_tier_id 가 바뀌면 그 스토어의 켜진 대상 전부를 상품 큐에 · reason store) · 시험 2 회차 OK 17 · 적용 확인 OK 14 · EF 무접촉(shopify-product.ts 46 행이 payload 값을 그대로) |
+| ss v2 | asung-ims `34ea859` | shopify-stores.html — 「Sell when out of stock」(Allow · Don't allow) 목록 · 상세 · 만들기/고치기(창구로 저장 · 「바꾸면 이 스토어 상품이 전부 다시 보내진다」 안내) · 「Send tags」 목록 · 상세에 **읽기만**(창구 shop_store_save 가 아직 send_tags 를 받지 않는다 — 켜기는 관리자 SQL) · Caleb 화면 확인 전부 맞음 |
+
+- shop-pol ⓑ 대조(쓰기 0 · `~/asung/prompts/shop-pol-check.sql`): asung.ca deny 493 = 단종 320 · 단종 아님 171 · IMS 에 없음 2(AS85201 · AS85202) / asung.ca continue 7,990 = 평범 7,202 · 단종 712 · 없음 49 · 그 밖 12 / IMS 단종 4,660 중 asung.ca 에 1,040 · 그중 deny 320(31 %) ⇒ 지금 Cin7 은 단종을 deny 로 보내지 않는다(짐작: Shopify 에서 사람이 하나씩 끈 것) / aone continue 21 = 전부 평범(AS9283x 7 · UNF1841x 8 · WTA… 6) / aone deny 7,164 = 평범 6,529 · 단종 582 · 없음 51
+- 171 검토 CSV(docs-1010d ⓑ · 읽기만 · 쿼리 `~/asung/prompts/review-deny-171.sql`): `~/asung/prompts/csv/review-deny-171.csv` 173 줄(171 + IMS 에 없음 2) · 전부 active · sellable · 브랜드 China Glaze 77 · Climax 64 · 나머지 30 · 가용 Toronto > 0 이 152 · Edmonton > 0 이 62 · 둘 다 0 이하 18 · 원장 창(2026-08-21 ~) 안 마지막 판매 출고(sale_out) 43 · 마지막 입고(po_in) 9 · 칸 「Decision」 은 Caleb 이 채운다(discontinue | unsell | keep)
+
+### 59-c 두 스토어 CSV (2026-10-10 Caleb 내보내기 · `~/asung/prompts/csv/` 넷 · 판정 420 의 기준 자료 — 컷오버 날은 앱이 직접 읽는다)
+
+| | asung.ca | aonebeauty.com |
+|---|---|---|
+| 상품(handle) | 5,019(전부 active · 퍼블리시 5,004) | 4,456(active · 퍼블리시 4,441) |
+| 변형 SKU | 8,468 | 7,183 |
+| 여러 변형 상품 | 1,026 | 830 |
+| 태그 있는 상품 · 종류 | 5,016 · 974 | 4,452 · 891 |
+| 내부 표식 상위 | ASS 4,954 · AOS 4,383 · EDM_NoSale 1,349 · BOTH_NoSale_Stock 730 · GM20UOM12 358 · DISC_NoSale_Stock 245 · DISC_YesSale 228 | ASS 4,400 · AOS 4,367 · GM20UOM12 282 · EDM_NoSale 133 · BOTH_NoSale_Stock 78 |
+| Variant Inventory Policy | continue 7,990 · deny 493 | deny 7,164 · continue 21 |
+| 사람 칸 메타필드(asung.ca) | Edmonton out of Stock date 1,458 · Edmonton Restock Date 2,107 · Promotions 840 · Toronto Restock Date 2,661 · Sales Restrictions 94 · Toronto out of stock date 1,842 | — |
+
+- Claude Code 가 CSV 에서 다시 셈(docs-1010d · python csv 모듈): handle · 퍼블리시 · SKU · 여러 변형 · 태그 · 종류 · 내부 표식 · 재고 상태 태그 넷 전부 위 표와 같음 · aone 은 재고 상태 태그 0 · DISC_NoSale_Stock 29 · DISC_YesSale 19
+
+### 59-d 시험 스토어 실물 (2026-10-10 밤)
+
+- `update public.shop_store set send_tags = true where code = 'test'` → 화면 Send now(ANN01001FAM · ANN03907) → Shopify Tags 들어옴(Caleb 확인): ANN01001FAM 7(AOS · ASS · BOTH_NoSale_Stock · EDM_NoSale · Hair Rollers & Rods · Hair Tools & Accessories · Snap-On Roller) · ANN03907 11(AOS · Aprons · Aprons & Capes · ASS · Cape · Capes & Jackets · Cutting Cape · Nylon · Q3 2026 · Salon Essentials · Velcro Closure) — 판정 426 첫 실물 · 시험 스토어 send_tags 는 **켜진 채로** 둔다
+- 단종 → Shopify 「Sell when out of stock」 Off 의 화면 실물은 아직(Caleb 선택 · 검증 파일 T3 가 DB 안에서 증명)
+
+### 59-e 직원 안내 (Caleb 「active를 끌게 아니라, sellable을 끄는게 훨씬 유용한 방법 아닐까?」 → 대화 Claude 동의)
+
+```
+잠시 팔지 않음 / 웹에서 내림   → sellable 끄기 (SKU · 재고 · 원장 · 발주 · 이력 그대로 · 다시 켜면 1 분 안에 Shopify 도 돌아옴)
+SKU 정리(완전 퇴장)          → active 끄기
+단종(더 안 들여옴 · 남은 것은 판매) → discontinued 켜기
+셋 다 모든 스토어와 IMS 오더에 함께 걸린다 · 스토어 하나에서만 변형을 끄는 길은 없다(보냄은 family 전체 단위)
+family 구성원은 families.html 에서 보낸다(켜기 · 끄기 · Send now · 첫 사진) · 낱개 · sellable 세트는 products.html
+내용(가격 · 이름 · 재고)은 products.html 에서 구성원을 고치면 family 가 저절로 간다(1 분)
+```
+
+### 59-f ⚠️ 그날 겪은 실수 · 발견 — 원인 · 처방
+
+1. [Claude Code · shop-pol 회신] 적용 명령으로 `supabase db push --include-all` 을 줬다 — 아직 적용 안 된 다른 마이그레이션까지 밀어 넣을 수 있다 · 대화 Claude 가 「파일 하나 psql -1 → migration repair」로 바꿨으나 Caleb 이 이미 회신 명령으로 적용 → 고친 명령이 「column already exists」 로 실패(-1 이라 변경 0) · 이력 확인 결과 다른 마이그레이션은 안 들어감 ⇒ **회신의 적용 명령이 db push · --include-all 이면 대화 Claude 가 바꾼다 · 지시서 「끝」 에 「적용 명령은 psql -1 -f + migration repair」 를 박는다**
+2. [대화 Claude · 10-10 저녁] `inv_available_base` 결과 칸 짐작(이미 §58-d 1 · 다시 쓰지 마라)
+3. [발견] 창구 shop_store_save 가 send_tags 를 받지 않는다(shop-2a1 이 칸만 더함) — 화면은 읽기만 · 켜기는 관리자 SQL ⇒ 미룬 189
+4. [발견 · Claude Code · docs-1010d ⓑ] `inv_available_base(창고, array[null])` 은 **전부**를 돌려준다(sku 배열이 null 이 되어 「전부」 갈래로) — IMS 에 없는 SKU 를 넘기면 스칼라 서브쿼리가 「more than one row」 로 죽는다 ⇒ 부를 때 `p.id is not null` · `stock_pid = p.id` 로 거른다 · 함수는 그대로(부르는 쪽 규칙)
+5. [Claude Code · docs-1010d ⓑ] `begin transaction read only` 는 temp 표도 막는다 · `\copy` 는 psql 변수(:'x')를 풀지 않는다 ⇒ 보통 begin → rollback · `\copy … from pstdin` / `to pstdout`
+
+### 59-g 미룬 것 — 58-e 185 에 이어 붙임(179 닫힘 → 판정 426)
+
+- 186 171 개 정리(판정 429 · 컷오버 전 · 검토 CSV `~/asung/prompts/csv/review-deny-171.csv` 의 Decision 칸 · Caleb)
+- 187 asung.ca 재고 상태 태그 · 메타필드 구현 끄기(판정 426 · 컷오버 · Caleb)
+- 188 aone 스토어 행 · 위치 짝 Toronto 하나 · aone Shopify Edmonton 위치 비우기(판정 427 · 컷오버)
+- 189 shop_store_save 가 send_tags 받기(화면에서 켜기 · 짧은 Fable 차수 — 컷오버 전 아무 때나)
+- 190 단종 → Off 의 Shopify 화면 실물(시험 스토어 · Caleb 선택)
+
+### 59-h 다음 (Caleb 이 고른다)
+
+```
+④ 오더 받기 · 171 정리(186) · send_tags 창구(189)
+다음 판정 번호: 430
 ```

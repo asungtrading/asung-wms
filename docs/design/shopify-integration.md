@@ -6,6 +6,7 @@
 ⭐ 상태 [2026-10-10 · so-module §56] **① 바탕 · ② 상품 보내기 실물(테스트 DB · 시험 스토어)** — DB shop-1a `584aaf0` · shop-2a1 `81d779c` · shop-2a2 `0d3eb6e` · EF shop-1b `9d67484` · shop-2b `2f6136f` · 화면 Settings → Shopify Stores(asung-ims ss v1 · v1a) · cron jobid 42 · 43 · 순서(Caleb 「그 순서로 가자」 · 2026-10-09) ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 · 판정 403 ~ 413(원문 so-module §56-a)
 ⭐ [2026-10-10 · tag-0] 화면 shop-2c(asung-ims shop v1 · pr v5 · fam v3 `32dae11` · v1a `f3fabf9` · v1b `e563a8e` · 아래 §3-h) · 판정 414 ~ 416 · 다음 판정 번호 417
 ⭐ [2026-10-10 저녁 · so-module §58] **③ 재고 올리기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB stock-1a `8feb7b3` · EF stock-1b `0192bf3` · 화면 stock-1c(asung-ims shop v2 `8f41b93`) · cron jobid 44 · 45 · 46 · 판정 421 ~ 425(아래 §3-d) · 다음 판정 번호 **426** · 할 일 §7(테마 글자 · Caleb)
+⭐ [2026-10-10 밤 · so-module §59] 태그 보내기 = IMS 태그 전부(판정 426) · 품절 판매를 스토어마다 `shop_store.oos_policy`(판정 427) · 단종 DENY(판정 428) · 171 정리(판정 429) — DB shop-pol `8cd08a7` · 화면 ss v2(asung-ims `34ea859`) · 다음 판정 번호 **430**
 
 ---
 
@@ -25,6 +26,10 @@
 - 스토어별 보냄(`shop_listing`)의 첫 상태 = **지금 실제 스토어** — asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로
 - **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다**(Caleb 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」) — 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤
 - 지금 받는 CSV 는 판정용 · **컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어** 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」)
+- ⭐ [2026-10-10 밤 · 판정 426 · 427 · 429 · so-module §59] 컷오버 때 함께 할 것:
+  - **aone 스토어 행** — `oos_policy = 'deny'` · **위치 짝은 Toronto ↔ Asung Trading Inc. 하나**(Shopify 는 DENY 에서 스토어의 모든 위치 Available 을 합쳐 본다 — Edmonton 을 짝지으면 Toronto 에 없는 것도 팔린다) · aone Shopify 의 Edmonton 위치 숫자는 비우거나 판매에서 뺀다(미룬 188)
+  - **asung.ca 재고 상태 태그 · 메타필드 구현을 끈다**(Caleb · `outofstock-edm` · `outofstock-tor` · `instock-edm` · `instock-tor` 태그와 Restock Date · out of stock date 메타필드를 쓰던 것) — 안 끄면 IMS 가 지운 태그를 다시 붙인다 · 메타필드는 사람 칸이라 IMS 무접촉(미룬 187)
+  - **171 정리** — asung.ca 에서 단종이 아닌데 deny 인 SKU 171 개를 IMS 에서 하나씩(단종 켜기 · sellable 끄기 · 그냥 두기) · 그대로 두면 컷오버 날 CONTINUE 로 풀린다 · 검토 CSV `~/asung/prompts/csv/review-deny-171.csv`(미룬 186) · 단종 712 개 continue → DENY 는 판정 428 대로 · aone continue 21 은 스토어 설정대로 DENY
 
 ## 2. 오더 들어오기
 
@@ -110,10 +115,14 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 판정 405  보냄을 끄면 ARCHIVED(지우지 않는다 · 다시 켜면 ACTIVE) · family 의 활성 구성원이 0 이 돼도 ARCHIVED · 끄기 전에 큐(shop-2a2 · 실물 큐 8)
 판정 406  꺼진 구성원(not (is_active and sellable))은 변형을 지우지 않는다 — variants 목록에 그대로 담고 그 변형만 inventoryPolicy DENY + 재고 0(③) → Sold out · 이력 유지
           → [판정 425] 재고 0 은 IMS 가용과 상관없이(stock-1b 실물) · 손님 글자는 테마 「Sold out」 → 「Not available」(§7 · 사람 몫)
-판정 407  켜진 변형은 inventoryPolicy CONTINUE(품절이어도 오더를 받는다)
+판정 407  ~~켜진 변형은 inventoryPolicy CONTINUE(품절이어도 오더를 받는다)~~ → 판정 427 · 428 로 바뀜(아래)
+판정 427  품절 판매는 스토어마다 — shop_store.oos_policy · asung.ca continue · aonebeauty.com deny(Toronto 재고만) · 시험 스토어 continue
+판정 428  단종(is_discontinued) 변형은 스토어 설정과 상관없이 DENY — 남은 재고까지만 · 재고 숫자는 그대로(0 으로 만들지 않음)
+          ⇒ inventoryPolicy = 꺼진 구성원 DENY(+ 재고 0 · 406) → 단종 DENY(428) → 스토어 deny → DENY → 그 밖 CONTINUE(shop_variant_payload · shop-pol 8cd08a7)
 판정 413  status 도 IMS(위 3-a) · 숨기는 정식 길 = 보냄 끄기 하나
 ```
 - ⭐ 실물(so-module §56-d 5) — 퍼블리시된 상품도 IMS 를 따라간다: 시험 스토어에서 ANN01001 을 Online Store 에 퍼블리시 → IMS 가격 바꾸기 두 번 → 온라인 스토어에 20 ~ 30 초 뒤 반영 · **퍼블리시 유지**(productSet 이 퍼블리시를 풀지 않는다) · EF 는 publish 를 부르지 않는다(payload 에 퍼블리시 칸 없음) · 퍼블리시 확인은 상품 목록 Channels 칸 · 상품의 Publishing 칸(변형 표의 「All channels」 가 아니다 · §56-f 2)
+- ⭐ [shop-pol `8cd08a7`] 스토어 칸(oos_policy · send_tags · sale_tier_id · compare_tier_id)을 바꾸면 트리거 `shop_store_shop_queue_u` 가 그 스토어의 켜진 대상 전부를 상품 큐에(reason store) · 화면 Settings → Shopify Stores(ss v2)의 「Sell when out of stock」 Allow | Don't allow · blocks no_price 의 「켜진 변형」 = is_active and sellable(inventoryPolicy 가 아니다)
 
 ### 3-d. 재고 올리기 (판정 376 → 421 ~ 425 · so-module §58)
 - ~~바뀐 SKU 는 즉시 + 하루 몇 번 전체 맞추기 · 위치별(Shopify 위치 Edmonton · Toronto)~~ → 아래 판정 421 ~ 423
@@ -144,6 +153,7 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - 판정 408 Compare-at 이 Price 와 같아도 보낸다(null 이면 안 보냄) · 판정 409 사진은 IMS 목록대로(3-b) · 판정 410 태그는 IMS 가 주인 — 지금 product_tag 0 행이라 `shop_store.send_tags` false = tags 칸을 아예 안 보낸다 · ⚠️ **Cin7 태그를 IMS 로 적재한 뒤에** SQL 로 켠다(켜면 빈 목록이 스토어 태그를 전부 지운다)
 - ⭐ [2026-10-10 · 판정 417 · 418 · so-module §57] **태그 적재 실물**(테스트 DB) — `docs/probes/ImsLoadProductTag.gs`(asung-wms `c61ba04`) · product_tag **63,501 줄 · 전부 source cin7** · 종류 1,193 · 제품 12,321 · 대소문자만 다른 묶음 50 은 제품 수가 가장 많은 철자 하나로 합쳤다(판정 417 · manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순 · 공백 · 빈 조각 · 중복 정리 · Cin7 원본은 안 바꾼다) · IMS 에 없는 Cin7 제품 679 의 태그 2,727 줄은 버리고 목록만(판정 418 · 제품 적재를 고친 뒤 다시 돌린다) · send_tags 는 아직 false
 - ⚠️ **운영 순서: 태그 적재 → send_tags 켜기 → 보냄 켜기** — payload 는 send_tags 와 상관없이 tags · send_tags 를 담고 hash 에 넣는다(shop_2a1 267 · 270 행) ⇒ 보냄을 먼저 켜면 태그 적재 · send_tags 켜기가 켜진 상품 전부를 다시 보낸다(실물: 적재 직후 큐 17 · 18 reason product_tag) · 보낼 태그의 범위(ASS · AOS · 내부 표식 · 케이스 태그)는 스토어 CSV 를 본 뒤(판정 420 · so-module 미룬 179)
+- ⭐ [2026-10-10 밤 · **판정 426**] 보내는 태그 = **IMS 태그 전부**(내부 표식 ASS · AOS · EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그 포함 — 지금 Cin7 도 전부 올린다 · 판정 420 이 미룬 답) · asung.ca 의 재고 상태 태그(outofstock-edm 656 · outofstock-tor 624 · instock-edm 95 · instock-tor 56)는 IMS 가 태그를 보내면 사라진다(그대로 둔다 · 그 구현은 컷오버 때 끈다 §1-a) · 시험 스토어 send_tags **켜짐**(실물: ANN01001FAM 7 · ANN03907 11 태그 · so-module §59-d) · ⚠️ 창구 shop_store_save 는 send_tags 를 받지 않는다 — 화면(ss v2)은 읽기만 · 켜기는 관리자 SQL(미룬 189)
 - 판정 412 설명 거르기 → 3-f
 - 큐 = `shop_push_queue`(대상마다 열린 줄 하나 · `shop_queue_add` 한 곳) · 큐 트리거 `*_shop_queue` 16(product · product_family · product_price · product_image · product_tag · product_barcode · ref_brand · ref_category · AFTER STATEMENT) · ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다(진단할 때 reason 만 믿지 않는다)
 - ⭐ [판정 424 · stock-1a ① · stock-1b ②] 상품 줄 20 칸 — ① 새벽 맞추기(shop_queue_all)는 hash 를 미리 비교해 **바뀐 것만** 줄에(실물: 바뀐 것 없으면 0) ② skipped_same_hash 는 drain 20 칸에 세지 않는다(한 회차 20 건 보냄 또는 40 s) · 판정 414 그대로
@@ -235,12 +245,15 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 - [2026-10-10 · so-module §56 이어 붙임 · tag-0] 상태 줄에 shop-2c · §3-e 「새벽에 되돌림」 어긋남을 판정 414 로 닫음(새벽 맞추기 = 안전망) · §3-h 화면 새로(shop-2c · 판정 415 Send now 바로 · 416 Edit 안 읽기만)
 - [2026-10-10 오후 · so-module §57 · stock-0] §3-e 태그 적재 실물(c61ba04 · 63,501 · 판정 417 · 418) · 운영 순서(태그 적재 → send_tags → 보냄) · §1-a 컷오버 보냄 첫 상태 새로(판정 420)
 - [2026-10-10 저녁 · so-module §58 · docs-1010c] 상태 줄에 ③ 끝 · §3-c 판정 406 옆 425 · §3-d 재고를 판정 421 ~ 425 · stock-1a · 1b · 1c 실물 · cron 44 · 45 · 46 으로 채움 · §3-e 판정 424 · §3-h shop v2 · §5 ③ 닫힘 · §7 할 일 새로
+- [2026-10-10 밤 · so-module §59 · docs-1010d] 상태 줄 · §1-a 컷오버 할 것(aone 위치 짝 Toronto 하나 · 재고 상태 태그 구현 끄기 · 171 정리) · §3-c 판정 427 · 428(407 바뀜) · 스토어 트리거 · §3-e 판정 426 · §7 테마 글자 asung.ca 에만 · 할 일 둘
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
 ```
 [ ] 테마 글자 「Sold out」 → 「Not available」 (판정 425 · ⭐ Caleb 할 일 · 리마인드 요청 · so-module 미룬 180)
     Online Store → Themes → Edit default theme content → 「Sold out」 검색 → Not available
-    시험 스토어 먼저 → 컷오버 때 asung.ca · aonebeauty.com
-    까닭: 우리 스토어는 0 에서도 판다(CONTINUE · 판정 407) → 그 글자는 꺼진 구성원(DENY · 재고 0)에게만 뜬다
+    시험 스토어 먼저 → 컷오버 때 ~~asung.ca · aonebeauty.com~~ → **asung.ca 에만**(판정 427 · aone 은 DENY 스토어라 「Sold out」 이 맞는 표시)
+    까닭: asung.ca 는 0 에서도 판다(CONTINUE · 판정 427) → 그 글자는 꺼진 구성원 · 단종(DENY)에게만 뜬다
+[ ] asung.ca 재고 상태 태그 · 메타필드 구현 끄기 (판정 426 · Caleb · 컷오버 때 · so-module 미룬 187)
+[ ] 171 정리 — review-deny-171.csv 의 Decision 칸(discontinue | unsell | keep) (판정 429 · Caleb · 컷오버 전 · 미룬 186)
 ```
