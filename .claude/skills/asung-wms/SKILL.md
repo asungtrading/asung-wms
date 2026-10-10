@@ -373,9 +373,11 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - **status 도 IMS**(판정 413 · IMS 주권): 보냄 켜짐 + 켜진 변형 ≥ 1 = ACTIVE · 아니면 ARCHIVED(지우지 않는다 · 판정 405) · Shopify 에서 손으로 바꾼 Draft 는 다음 보내기 때 덮인다 · 숨기는 길은 보냄 끄기(shop_listing_set listing_off · 끄기 전에 큐) 하나 · EF 는 publish 를 부르지 않는다(퍼블리시는 사람 몫 · productSet 이 퍼블리시를 풀지 않는다 — 실물)
 - **설명 거르기 = 규칙 기반 + 판별 안전장치**(판정 412): DOMPurify + jsdom 은 **Supabase Edge Runtime 에서 안 돈다**(실측 「Requires run access, run again with the --allow-run flag」 · linkedom 은 조용히 안 거른다) → `_shared/shopify-clean.ts` 규칙 거르기 → 거른 결과를 보내기 직전 DB `ims_html_forbidden` 에 넣어 **하나라도 걸리면 그 상품은 보내지 않는다**(error · 다음 상품 계속) · ⚠️ EF 에 DOMPurify · jsdom 을 다시 넣지 마라(번들 1.5 MB → 28 kB 로 뺐다)
 - **사진 짝 = 보내기 직전 읽기**(shop-2b-fix2 · productSet 응답 때는 사진이 처리 중이라 url 이 비어 짝이 0 이었다): 보내기 직전 product.media 를 읽어 READY + url 인 것만 **파일 이름 줄기 = product_image id** 로 짝(shop_media) → 짝이 있으면 `{id}` 만 · 없으면 originalSource + `duplicateResolutionMode REPLACE`(쌓이지 않는다) · hash 가 같으면 읽기도 없다 · ⚠️ 짝지은 사진은 `{id}` 만 가므로 alt(= product.name)를 고쳐도 Shopify alt 는 안 바뀐다
-- **hash**: payload(shop_product_payload · blocks · listing_on 제외)의 md5 가 `shop_product.last_hash` 와 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash · `--force` 만 예외) ⇒ ⚠️ nightly 는 Shopify 에서 사람이 고친 칸을 **되돌리지 않는다** — 판정 377 「새벽에 되돌림」과 어긋남 · 열림(so-module 미룬 165)
+- **hash**: payload(shop_product_payload · blocks · listing_on 제외)의 md5 가 `shop_product.last_hash` 와 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash · `--force` 만 예외) ⇒ ⚠️ nightly 는 Shopify 에서 사람이 고친 칸을 **되돌리지 않는다** — ~~판정 377 「새벽에 되돌림」과 어긋남 · 열림(so-module 미룬 165)~~ → 판정 414 로 닫힘(아래)
 - **cron [테스트 DB]**: jobid **42** ims-shop-drain `* * * * *`(열린 큐가 없으면 EF 를 안 부른다 · where exists · 한 회차 ≤ 20 건) · jobid **43** ims-shop-nightly `0 8 * * *`(08:00 UTC · shop_queue_all) · 열쇠는 명령 글에 들어 있다(vault 는 미룬 170) · 킬 스위치 `select cron.alter_job(42, active := false);` · `select cron.alter_job(43, active := false);` · 기록 `supabase/ops/cron.sql` 끝 절
 - 큐 reason 은 「대상의 첫 트리거」 — 원인 진단에 reason 만 믿지 않는다(이름 + 가격이 함께 바뀌면 product 만)
+- **새벽 맞추기 = 안전망**(판정 414 · 2026-10-10 Caleb 「A」): nightly 는 IMS 쪽 바뀜을 트리거가 놓친 것을 잡는다 — hash 가 같으면 Shopify 를 읽지도 쓰지도 않는 지금 구현이 정답이다 · Shopify 에서 사람이 손으로 고친 값은 그 상품이 IMS 에서 다음에 바뀔 때 덮인다(판정 413) ⇒ 새벽에 Shopify 를 읽어 대조하거나 hash 를 무시하고 전부 보내게 「고치지」 마라(매일 4 천여 상품 · 기각)
+- **Send now 는 큐를 거치지 않는다**(판정 415): 화면(asung-ims `ims-shop.js` · shop-2c `32dae11`)의 Send now = EF action push 직원 길(서버가 ims_can_write('shopify')) · 결과를 그 자리에 · 켜기 · 끄기 · 첫 사진 고르기는 shop_listing_set → 큐 → cron · 창구 op push_now(큐)는 지금 화면 · tools 가 부르지 않는다
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)
 

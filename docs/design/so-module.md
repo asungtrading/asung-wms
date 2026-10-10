@@ -7468,7 +7468,7 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 | 374 | — | Shopify 상품 하나 = IMS family 하나 · family 에 「웹 대표 사진」 칸(없으면 첫 변형의 대표 사진) · 변형마다 대표 사진을 지정해 올린다 |
 | 375 | 「listed, unlisted는 cin7에서 샤피파이로 제품을 보냈냐 안보냈냐 아닌가?」 | 상품마다 스토어별 「이 스토어로 보냄」 표시를 직원이 켠다 · 퍼블리시(웹에 보이기)는 Shopify 에서 사람이 |
 | 376 | — | 재고 올리기 = 바뀐 SKU 즉시 + 하루 몇 번 전체 · 위치별(Edmonton · Toronto) · Shopify Available 에 맞춘다(On hand 면 두 번 빠진다 · 시험 스토어에서 대조) |
-| 377 | — | 상품 정보 올리기 = 바뀌면 즉시 + 새벽 전체(IMS 가 주인인 칸은 새벽에 IMS 값으로) → ⚠️ [2026-10-10 · §56-f 9 · 미룬 165 · 열림] 구현은 새벽에 되돌리지 않는다 — nightly 가 큐에 넣어도 hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 고친 칸은 IMS 에서 그 상품이 다시 바뀔 때 덮인다(판정 413) · 판정 거리 |
+| 377 | — | 상품 정보 올리기 = 바뀌면 즉시 + 새벽 전체(IMS 가 주인인 칸은 새벽에 IMS 값으로) → [2026-10-10 · §56-a 판정 414] 새벽 맞추기는 **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망** — hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 「새벽에 IMS 값으로」 는 이 뜻(어긋남 발견 §56-f 9 · 미룬 165 닫힘) |
 | 378 | — | asung.ca 오더 상태 — 들어오는 순간 주인은 IMS · 운송사 + 송장번호를 넣는 순간 Shopify 「발송 + 송장번호」(메일은 Shopify) · 운송사 칸 Pickup · Delivery(우리 차량) — 송장 없이 「발송됨」만 · 메일 없음 · 백오더 몫은 같은 오더에 두 번째 발송 |
 | 379 | — | aonebeauty.com — Pickup 오더는 운송사 Pickup 을 미리 채움 · Ship & invoice 순간 Shopify 「Ready for pickup」(손님 메일) · 「Waiting for pickup」 칩 · 「Picked up」 단추(메일 없음) · 안 찾아가면 크레딧 노트 · 환불은 Shopify 에서 직원이 하고 IMS 가 읽어 크레딧에 붙인다 |
 | 380 | — | asung.ca 직원은 오더 안에서 최종 인보이스 · 결제 요청 · 패킹 리스트를 메일로 — IMS 오더 문서 메일이 컷오버 전에 필요(인보이스 인쇄 미룬 127 이 먼저) |
@@ -7724,13 +7724,14 @@ Shopify 판정(362 ~ 381)의 주제별 정리 · 열린 확인 거리는 `docs/d
 Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 열린 확인 거리부터
 다음 판정 번호: 403
 ```
-→ [2026-10-09 오후 ~ 10-10] §56 — Shopify ① 바탕 · ② 상품 보내기 끝 · 판정 403 ~ 413 · 다음 판정 번호 414
+→ [2026-10-09 오후 ~ 10-10] §56 — Shopify ① 바탕 · ② 상품 보내기 끝 · 판정 403 ~ 413 · 다음 판정 번호 414 · [tag-0 이어 붙임] shop-2c 화면 · 판정 414 ~ 416 · 다음 판정 번호 417
 
-## §56 2026-10-09 오후 ~ 10-10 — Shopify 연동 ① 바탕 · ② 상품 보내기 · 큰따옴표 결함 — shop-0 ~ shop-2b · 판정 403 ~ 413 (회사 PC → 집 PC)
+## §56 2026-10-09 오후 ~ 10-10 — Shopify 연동 ① 바탕 · ② 상품 보내기 · 큰따옴표 결함 — shop-0 ~ shop-2c · 판정 403 ~ 416 (회사 PC → 집 PC)
 
 ⭐ 닫힌 것: Shopify 연동 순서 ①(바탕) · ②(상품 보내기) — 시험 스토어에서 끝에서 끝(가격 → 큐 → cron → Shopify · 끄기 → ARCHIVED · 퍼블리시된 상품도 따라감) · 큰따옴표 결함(찾고 → 조사 → 고침 → 복구)
 ⭐ 새로 선 것: 표 shop_store · shop_location · shop_call_log · shop_listing · shop_product · shop_variant · shop_media · shop_push_queue · 권한 키 `shopify` · 창구 shop_store_save · shop_listing_set · EF `shopify`(ping · push · drain · clean_check) · cron jobid 42 · 43(테스트 DB) · 화면 Settings → Shopify Stores
-⭐ 새 판정 403 ~ 413 · 원문 지시서 `~/asung/prompts/docs-1010.md`(이 절의 원천) · 판정 403 ~ 412 = **2026-10-09**(회사 PC) · 413 = **2026-10-10**(집 PC) · 다음 판정 번호 **414**
+⭐ 새 판정 403 ~ 413 · 원문 지시서 `~/asung/prompts/docs-1010.md`(이 절의 원천) · 판정 403 ~ 412 = **2026-10-09**(회사 PC) · 413 = **2026-10-10**(집 PC) · ~~다음 판정 번호 **414**~~
+⭐ [이어 붙임 · 원문 지시서 `~/asung/prompts/tag-0.md` ⓐ] 판정 414 ~ 416 = **2026-10-10**(집 PC) · 화면 shop-2c(asung-ims `32dae11` · `f3fabf9` · `e563a8e` · 전부 Caleb 화면 시험 통과) · 다음 판정 번호 **417**
 ⭐ 정한 순서(Caleb 「그 순서로 가자」 · 2026-10-09): ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 — ①② 끝남
 ⭐ 설계 정본 `docs/design/shopify-integration.md`(주제별로 옮김 · 어긋나면 이 표가 맞다)
 
@@ -7750,6 +7751,9 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 | 411 | 「그렇게 가자」 | 첫 시험 셋: family **ANN01001FAM**(변형 10) + 낱개 **ANN01291**(사진 5) + **ANN03907**(무게 g) |
 | 412 | 「니 안대로 고치자」 | Shopify 로 보낼 때 설명은 **규칙 기반**으로 거른다(DOMPurify + jsdom 은 Supabase Edge Runtime 에서 안 돈다 — 실측 「Requires run access, run again with the --allow-run flag」 · linkedom 은 조용히 안 거른다) · **안전장치**: 거른 결과를 보내기 직전 `ims_html_forbidden` 에 넣어 하나라도 걸리면 그 상품은 보내지 않는다(error · 다음 상품 계속) · jsdom · DOMPurify 경로는 뺀다(번들 1.5 MB → 28 kB) · 이유: IMS 에서 고친 설명은 저장 때 화면 DOMPurify + 서버 판별을 거쳤다 · Cin7 원문 전수 실측 script · on…= · javascript: 0, iframe · meta 4 뿐 · 걸린 상품은 IMS 에서 설명을 한 번 고쳐 저장하면 풀린다 |
 | 413 | 대화 Claude: 「IMS 는 보낼 때마다 status 를 ACTIVE 로 보낸다 — Shopify 에서 손으로 Draft 로 숨긴 상품은 다음 IMS 보내기 때 다시 보인다 · 숨기는 정식 길을 IMS 보냄 끄기 하나로?」 → Caleb 「데이터를 주권은 IMS에 있는거고, 나는 그렇게 설계되기를 원해. 내가 원하던 바야.」 | **상품 데이터의 주인은 IMS** — Shopify status 도 IMS 가 정한다(보냄 켜짐 + 켜진 변형 ≥ 1 = ACTIVE · 아니면 ARCHIVED · 판정 405) · Shopify 에서 손으로 바꾼 Draft/Active 는 다음 IMS 보내기 때 덮인다 · **상품을 숨기는 정식 길 = IMS 「보냄 끄기」 하나** · 판매 채널 퍼블리시만 사람 몫(IMS 는 보내지도 건드리지도 않는다) · 판정 409(사진) · 410(태그)와 한 원칙(「IMS 주권」) · 실물: 아래 56-d 5 |
+| 414 | 대화 Claude: 「판정 377 은 새벽에 IMS 값으로 되돌린다인데 구현은 hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다 — A 지금대로 · B 새벽에 Shopify 를 읽어 대조 · C 새벽에 hash 무시하고 전부 보냄」 → Caleb 「A」 | 새벽 맞추기(ims-shop-nightly)는 지금대로 — IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · 새벽 맞추기의 역할 = **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망** · Shopify 에서 사람이 손으로 고친 값은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 판정 377 의 「새벽에 IMS 값으로 되돌린다」는 이 뜻으로 고친다 · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각 B · C(매일 4 천여 상품을 읽거나 쓰는 비용) |
+| 415 | 대화 Claude: 「Send now — A 바로 보낸다(EF push · 결과 그 자리) · B 큐에 넣는다(cron 1 분)」 → Caleb 「A」 | 화면의 **Send now 는 큐를 거치지 않고 바로**(EF shopify action push · 직원 길 · 서버가 ims_can_write('shopify')) · 결과(ok · 바뀐 것 없음 · 에러)를 그 자리에 · 켜기 · 끄기 · 첫 사진 고르기는 큐 → cron |
+| 416 | Caleb 「에디트 안의 화면을 보고 있었어. 그런데 이것은 좀 헤갈릴 수 있을 것 같아. 디스크립션도 그렇고, 샤피파이도 에디트 화면 안에서는 안보이니까」 → 대화 Claude A(읽기만으로 보인다) · B(안내 한 줄만) → Caleb 「A로 가자」 | products.html **Edit 안에서도 Shopify · Description · Photos 카드를 보인다 — 단추 없이 읽기만**(제목 옆 「Save or Cancel first to change this」) · 이유: 세 카드는 Edit 의 Save 와 따로 저장된다(사진은 올리는 순간 Storage · 설명은 자기 편집기와 비교 규칙 · Shopify 는 행동이고 늘 DB 에 저장된 값을 보낸다 — Edit 중 저장 전에 Send now 를 누르면 옛 값이 간다) · 기각 B(「없어진 것처럼 보인다」) |
 
 ### 56-b DB · EF 차수 (커밋 — git log 원문 · asung-wms)
 
@@ -7771,8 +7775,18 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 | shopify-stores.html(새 화면) · ims-auth.js | ss v1 · nav v6 `1761e27` | Settings → Shopify Stores(목록 · 위치 짝 · 새로/고침/끄기/켜기 · Check connection = EF ping) · 메뉴 줄(화면 값 shopify) |
 | shopify-stores.html | ss v1a `f17f848` | 짝 저장 · 풀기 · 고침 · 켜기 뒤 연결을 다시 확인(옛 경고가 남던 것 · Caleb 시험 2026-10-09) · 끄면 마지막 확인 결과를 지운다 · 위치 짝 Toronto ↔ Asung Trading Inc. · Edmonton ↔ Asung - Edmonton |
 | ims-ui.js · invoices.html | esc v1 · inv esc v1 `5f66c91` | 공통 esc 가 `"` → `&quot;` · `'` → `&#39;` · invoices.html 크레딧 번호 칸 textContent 에서 esc 를 뺐다(아래 56-e) |
+| ims-shop.js(새 공통 파일) · products.html · families.html | shop v1 · pr v5 · fam v3 `32dae11` | **shop-2c** — ims-shop.js(imsShop.card · imsShop.wire) — 스토어마다 한 줄(보냄 · 켠/끈 사람과 시각 · Shopify 상태 · 마지막 결과 · 에러 · 「Sending…」) · Turn on / Turn off(shop_listing_set 두 번 부르기 · old = 화면이 본 is_on 글자) · Send now(판정 415) · Open in Shopify(`https://admin.shopify.com/store/<도메인 앞부분>/products/<gid 숫자>`) · 켜기 · 끄기 뒤 큐가 빌 때까지 4 초마다 다시 읽기(최대 2 분) · 단추는 권한 shopify 만 · family 구성원은 family 링크만 · 꺼진 구성원은 sold out 안내(406) · sellable 아닌 세트는 안내만(404) · families.html 「First photo on Shopify」(family_web_image_set · 구성원의 켜진 사진 · Default = 첫 변형 대표) · products.html Edit 아래에도 Save · Cancel(**미룬 163 닫힘**) · DB · EF 무접촉 |
+| ims-shop.js · products.html | shop v1a · pr v5a `f3fabf9` | Open in Shopify 링크 밑줄 없앰 · Edit 아래 Save 줄 안내 글 크기(`.hint` 모양이 `.head` 안에만 묶여 있었다) |
+| products.html · ims-shop.js · ims-desc.js | pr v5b · shop v1b · desc v1b `e563a8e` | 판정 416 — card(kind, …, { readOnly }) · wire opts.readOnly · photoCard(ro) |
 
 점검 항목은 asung-ims `CHECKLIST.md` 7-zh
+
+**shop-2c 화면 시험 실물**(2026-10-10 · 테스트 DB · 시험 스토어 · Caleb · 전부 통과):
+- ANN01001FAM 카드 Sent · ACTIVE · last send ok · Send now → call_log `push` skipped_same_hash(14:36:38 UTC) · Open in Shopify 새 탭
+- 첫 사진 ANN01002(노랑) 고름 → 1 분 안에 온라인 스토어 상품 사진 노랑 · 관리자 목록 썸네일 노랑 → Default 로 되돌림 · ⚠️ 첫 시도는 저장 안 됨(고르기 창을 열고 사진을 누르지 않음 — product_family.updated_at 2026-09-14 그대로 · 큐 줄 없음으로 확인 · 결함 아님)
+- ANN01291 Turn on(큐 13 · listing_on · ok) → ACTIVE → Turn off(큐 14 · listing_off · ok) → ARCHIVED · 그 사이 큐 줄 더 없음 · 카드에 「last send ok」 와 「Sending…」 이 함께 보인 순간 = EF 가 Shopify 결과를 적은 시각(14:39:02.78)과 큐 줄을 닫은 시각(14:39:02.95) 사이를 읽은 것 · 4 초 뒤 사라짐
+- ANN01001 상품 화면: family 링크만 · 단추 없음
+- 발견: 퍼블리시한 ANN01001FAM 의 Shopify Category 가 「Uncategorized」 로 보인다(다른 두 상품은 빈칸) — Category 는 사람 칸이라 IMS 가 보내지 않는다 · 퍼블리시 때 Shopify 가 채운 것으로 본다(짐작) · 기록만
 
 ### 56-d 실물 시험 — shop-2b 덩이 8 ~ 12 (2026-10-10 집 PC · Caleb · 전부 통과)
 
@@ -7802,18 +7816,21 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 4. [인계서 · 대화 Claude 10-09] 「7 티어 전부 1.49」(위 56-d 6) ⇒ 숫자는 출력 원문으로
 5. [화면 결함 · 오래된 것] 위 56-e ⇒ **화면 규칙**: 속성 값(`value=` · `title=` · `data-*=`)에 넣는 글은 esc 로(이제 공통 esc 가 따옴표를 막는다) · **esc 는 HTML 에 넣을 때만** — textContent · `.value =` · confirm/alert 에 쓰면 `&quot;` 가 글자로 보인다 · 화면 시험에 「이름에 `"` 가 든 상품으로 Edit 를 열어 칸이 끝까지 보이는지 · No changes yet」 을 넣는다
 6. [발견] 큐 reason 은 「그 대상의 첫 트리거」라 실제 원인을 가리킬 수 있다(대상마다 열린 줄 하나 · 이름 + 가격이 함께 바뀌면 product 만 남음) — 결함 아님 · 진단할 때 reason 만 믿지 않는다
-7. [발견] Edit 의 Save · Cancel 이 편집 칸 맨 위에만 있다 — 아래 칸(Sale prices · Suppliers · Tags)을 고치고 지나치기 쉽다(덩이 8 의 원인으로 본다 · 짐작)
+7. [발견] Edit 의 Save · Cancel 이 편집 칸 맨 위에만 있다 — 아래 칸(Sale prices · Suppliers · Tags)을 고치고 지나치기 쉽다(덩이 8 의 원인으로 본다 · 짐작) → ✅ [2026-10-10] pr v5 `32dae11` Edit 아래에도 Save · Cancel(미룬 163 닫힘)
 8. [발견] 사람이 화면에서 이름을 바꿔도 `product.source` 는 cin7 그대로 — 이 칸은 「행의 출처」라 값의 출처는 남지 않는다 · 다음 Cin7 재적재(ImsLoadProduct)가 사람이 고친 이름을 덮는지 안 봤다 ⇒ 미룬 164(규칙 「적재가 IMS 값을 덮으면 적재를 고친다」)
-9. [발견 · 판정 377 과 구현의 어긋남 · ⬜ 열림] 판정 377 · 설계 §3-e 는 「새벽 전체 맞추기 — IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다」 · 구현은 nightly 가 큐에 넣고 drain 이 **hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다**(skipped_same_hash · EF index.ts 144 행) ⇒ Shopify 에서 사람이 직접 고친 칸(가격 · Draft 등)은 **새벽에 돌아가지 않고**, IMS 에서 그 상품이 다시 바뀔 때 덮인다 · 판정 413(「다음 IMS 보내기 때 덮인다」)과는 맞고 판정 377 의 「새벽에」 와는 어긋난다 ⇒ **판정 거리**(대화 Claude 가 Caleb 에게 묻는다 · 미룬 165)
+9. [발견 · 판정 377 과 구현의 어긋남 · ~~⬜ 열림~~ ✅ 판정 414 로 닫힘] 판정 377 · 설계 §3-e 는 「새벽 전체 맞추기 — IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다」 · 구현은 nightly 가 큐에 넣고 drain 이 **hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다**(skipped_same_hash · EF index.ts 144 행) ⇒ Shopify 에서 사람이 직접 고친 칸(가격 · Draft 등)은 **새벽에 돌아가지 않고**, IMS 에서 그 상품이 다시 바뀔 때 덮인다 · 판정 413(「다음 IMS 보내기 때 덮인다」)과는 맞고 판정 377 의 「새벽에」 와는 어긋난다 ⇒ **판정 거리**(대화 Claude 가 Caleb 에게 묻는다 · 미룬 165) → ✅ [2026-10-10] **판정 414**(A 지금대로 — 새벽 맞추기는 안전망 · 판정 377 의 「새벽에」 를 그 뜻으로 고침)
 10. [발견] tools/shopify-push.sh 5 행 주석 「jsdom 이 Edge Runtime 에서 도는지 + 샘플 거르기(engine dompurify 기대)」 는 판정 412 뒤 옛말(기대는 engine rules) — 고치는 것은 다음 EF/tools 차수(말만 · 미룬 167) · 같은 옛말이 적용된 마이그레이션 `20261009200731_shop_2a1_listing.sql` 274 행 comment 에도 「거르기는 EF 가 DOMPurify 로」(적용된 파일 — 고치지 않는다 · 다음에 그 함수를 다시 낼 때 comment 를 고친다)
 11. [잘 된 것] 큐 8 이 생긴 것 = shop-2a2 의 「끄기 전에 큐」 가 지켜졌다 · 사람이 붙인 Collection 이 productSet 뒤에도 남음 = 사람 칸 안 보냄이 지켜졌다 · 대화형 스크립트는 덩이마다 한 줄씩 따로(10-09 사고 처방이 지켜졌다)
 12. [10-09 회사 PC · 대화 Claude] 대화형 스크립트를 다른 명령과 묶었다 ⇒ 대화형 스크립트는 덩이 맨 끝 한 줄로 따로 · 긴 커밋 글은 파일로 `git commit -F` · 옮기기 명령 끝에 `MOVED_OK` · 대화 Claude 는 늘 한국어로 답한다(붙인 영어 글을 따라가지 않는다 · 여러 번) — 스킬 asung-workflow §11
+13. [대화 Claude · 10-10] 옮기기 명령의 `cp -n` 이 coreutils 경고(「non-portable」) ⇒ 다음부터 `cp --update=none`(스킬 asung-workflow §7 · §11)
+14. [대화 Claude · 10-10] 샌드박스 sh 에서 `{a,b}` 중괄호 펼침이 안 된다 ⇒ 파일을 하나씩 적는다
+15. [발견 · 10-10] ImsLoadProduct.gs 는 `ipr_upsert_('product', 'sku', rows)` = 행 전체 덮어쓰기(po-module 900 행 「⚠️ 지금 코드는 이 규칙과 다르다」) ⇒ 미룬 164(사람이 고친 이름을 재적재가 덮는가)의 답은 「덮는다」일 가능성이 크다(짐작 — tag-0 ⓑ 에서 함께 확인)
 
 ### 56-g 미룬 것 — §55-e 162 에 이어 붙임
 
-- 163 Edit 의 Save · Cancel 위치(위 56-f 7) — shop-2c 화면 때 아래에도 · 또는 떠 있게
-- 164 product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8)
-- 165 판정 377 「새벽에 되돌림」 ↔ hash 건너뜀(위 56-f 9) — 판정 거리
+- ~~163 Edit 의 Save · Cancel 위치(위 56-f 7) — shop-2c 화면 때 아래에도 · 또는 떠 있게~~ → ✅ 닫힘 `32dae11`(pr v5 · Edit 아래에도 Save · Cancel)
+- 164 product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인
+- ~~165 판정 377 「새벽에 되돌림」 ↔ hash 건너뜀(위 56-f 9) — 판정 거리~~ → ✅ 닫힘 → **판정 414**
 - 166 products.html escQ 정리(이제 esc 와 같다)
 - 167 shopify-push.sh 5 행 옛 주석(위 56-f 10) · shop_product_payload comment 의 「DOMPurify」(다음에 그 함수를 다시 낼 때)
 - 168 상품 이름이 Shopify payload 의 어디로 가는지 — ✅ 코드로 확인(56-e: files[].alt · hash) · 남은 것: Shopify 에 이미 있는 사진의 alt 는 이름이 바뀌어도 따라가지 않는다(`{id}` 만 보냄) — 따라가게 할지는 판정 거리(판정 409 「IMS 사진 목록으로 맞춘다」 의 범위)
@@ -7828,7 +7845,8 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 ### 56-h 다음 (Caleb 이 고른다)
 
 ```
-shop-2c 화면(products.html · families.html 에 Shopify 칸 · Save 위치) · Cin7 태그 적재(판정 410 → send_tags 켜기) · ③ 재고 올리기
+shop-2c 화면 ✅ 끝남(asung-ims 32dae11 · f3fabf9 · e563a8e · 판정 415 · 416)
+Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ 재고 올리기
 → ④ 오더 받기 전에: Dev Dashboard 에서 보호된 손님 정보 신청 · Wholesale All In One 앱을 시험 스토어에 설치
-다음 판정 번호: 414
+다음 판정 번호: 417
 ```

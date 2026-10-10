@@ -4,6 +4,7 @@
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 Shopify 둘뿐이다. Cin7 은 「지금까지 상품을 Shopify 로 보내던 것」의 참고일 뿐이다(Caleb 「지금 설계에는 cin7을 개입시키지 말아줘」).
 ~~⚠️ 상태: **설계만** — 마이그레이션 · EF · 화면 없음. 만들기 순서는 매입 세금 → 할인 원가 → 상품 설명 칸 → Shopify(판정 381).~~
 ⭐ 상태 [2026-10-10 · so-module §56] **① 바탕 · ② 상품 보내기 실물(테스트 DB · 시험 스토어)** — DB shop-1a `584aaf0` · shop-2a1 `81d779c` · shop-2a2 `0d3eb6e` · EF shop-1b `9d67484` · shop-2b `2f6136f` · 화면 Settings → Shopify Stores(asung-ims ss v1 · v1a) · cron jobid 42 · 43 · 순서(Caleb 「그 순서로 가자」 · 2026-10-09) ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 · 판정 403 ~ 413(원문 so-module §56-a)
+⭐ [2026-10-10 · tag-0] 화면 shop-2c(asung-ims shop v1 · pr v5 · fam v3 `32dae11` · v1a `f3fabf9` · v1b `e563a8e` · 아래 §3-h) · 판정 414 ~ 416 · 다음 판정 번호 417
 
 ---
 
@@ -111,8 +112,8 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - 바뀐 SKU 는 즉시 + 하루 몇 번 전체 맞추기 · 위치별(Shopify 위치 Edmonton · Toronto)
 - Shopify 의 **Available** 에 맞춘다 — On hand 로 올리면 웹 오더가 두 번 빠진다 · ⬜ 시험 스토어에서 숫자 대조
 
-### 3-e. 상품 정보 올리기 (판정 377 · 408 · 409 · 410 · 412)
-- 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · **열림 · 판정 거리**] 구현은 새벽에 되돌리지 않는다 — nightly 가 큐에 넣어도 drain 은 **hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다**(skipped_same_hash) ⇒ Shopify 에서 사람이 직접 고친 칸(가격 · Draft 등)은 IMS 에서 그 상품이 다시 바뀔 때 덮인다(판정 413 과는 맞다 · 판정 377 의 「새벽에」 와는 어긋난다)
+### 3-e. 상품 정보 올리기 (판정 377 · 408 · 409 · 410 · 412 · 414)
+- 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ~~⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · 열림 · 판정 거리] 구현은 새벽에 되돌리지 않는다~~ → ⭐ [2026-10-10 · **판정 414** · Caleb 「A」] 새벽 맞추기(ims-shop-nightly)는 지금대로 — **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망**이다 · IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값(가격 · Draft 등)은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각: 새벽에 Shopify 를 읽어 대조 · 새벽에 hash 무시하고 전부 보냄(매일 4 천여 상품을 읽거나 쓰는 비용)
 - 보낼 내용 = `shop_product_payload(store, family | product)` → jsonb 한 곳(title · description_html 원문 · vendor · product_type · tags · status · options · variants · files · blocks · hash) · hash = blocks · listing_on 을 뺀 payload 의 md5 · `shop_product.last_hash` 와 같으면 안 보낸다(push `--force` 만 예외)
 - ⭐ productSet 의 목록 칸(variants · files · tags …)은 **보낸 대로 맞추고 빠진 것은 지운다** — 그래서 사람 칸(collections · metafields · seo · category · templateSuffix)은 절대 보내지 않고 · 꺼진 구성원도 variants 에 담는다(판정 406)
 - 판정 408 Compare-at 이 Price 와 같아도 보낸다(null 이면 안 보냄) · 판정 409 사진은 IMS 목록대로(3-b) · 판정 410 태그는 IMS 가 주인 — 지금 product_tag 0 행이라 `shop_store.send_tags` false = tags 칸을 아예 안 보낸다 · ⚠️ **Cin7 태그를 IMS 로 적재한 뒤에** SQL 로 켠다(켜면 빈 목록이 스토어 태그를 전부 지운다)
@@ -141,6 +142,22 @@ aonebeauty.com  Price AONE · Compare-at ComparedPrice CAD
 ```
 - 값 = `shop_tier_price`(so_price_for 와 같은 식 · purpose 를 가리지 않음 · ⬜ 같은 식 두 곳 — so-module 미룬 171) · 판정 408 같은 값이어도 보낸다
 - 실물: **Compare-at < Price 도 Shopify 가 경고 없이 받는다**(ANN01001 Blue/Small Price 1.59 · Compare-at 1.49 · so-module §56-d 1)
+
+### 3-h. 화면 — 상품 · family 의 Shopify 카드 (shop-2c · 판정 404 ~ 407 · 413 · 415 · 416)
+```
+자리       products.html · families.html 의 Shopify 카드(공통 파일 asung-ims ims-shop.js · imsShop.card · imsShop.wire)
+한 줄      스토어마다 — 보냄 · 켠/끈 사람과 시각 · Shopify 상태 · 마지막 결과 · 에러 · 「Sending…」
+Turn on / Turn off   창구 shop_listing_set 두 번 부르기(old = 화면이 본 is_on 글자) → 큐 → cron · 그 뒤 큐가 빌 때까지 4 초마다 다시 읽기(최대 2 분)
+Send now   판정 415 — 큐를 거치지 않고 바로(EF shopify action push · 직원 길 · 서버가 ims_can_write('shopify')) · 결과(ok · 바뀐 것 없음 · 에러)를 그 자리에
+Open in Shopify      https://admin.shopify.com/store/<도메인 앞부분>/products/<gid 숫자>
+First photo on Shopify   families.html — family_web_image_set(구성원의 켜진 사진 · Default = 첫 변형 대표) → 큐 → cron
+단추       권한 shopify 만 · family 구성원 상품은 family 링크만(family 로만 보낸다) · 꺼진 구성원은 sold out 안내(406) · sellable 아닌 세트는 안내만(404)
+Edit 안    판정 416 — Shopify · Description · Photos 카드를 단추 없이 읽기만(제목 옆 「Save or Cancel first to change this」)
+```
+- 판정 416 의 이유: 세 카드는 Edit 의 Save 와 **따로 저장된다** — 사진은 올리는 순간 Storage · 설명은 자기 편집기와 비교 규칙 · Shopify 는 행동이고 늘 DB 에 저장된 값을 보낸다(Edit 중 저장 전에 Send now 를 누르면 옛 값이 간다) · 기각: 안내 한 줄만(「없어진 것처럼 보인다」)
+- 켜기 · 끄기 직후 카드에 「last send ok」 와 「Sending…」 이 잠깐 함께 보일 수 있다 — EF 가 Shopify 결과를 적은 시각과 큐 줄을 닫은 시각 사이를 읽은 것 · 다음 다시 읽기(4 초)에 사라진다(결함 아님 · so-module §56-c)
+- ⚠️ 창구 shop_listing_set 의 op push_now(큐에 넣기)는 남아 있지만 지금 화면 · tools 는 부르지 않는다(Send now 는 EF push · tools/shopify-push.sh push 도 EF)
+- 시험 실물(2026-10-10 · 전부 통과)은 so-module §56-c · 점검 항목은 asung-ims CHECKLIST 7-zh
 
 ---
 
@@ -185,3 +202,4 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 - 이 문서와 so-module 표가 어긋나면 **판정 원문(so-module)이 맞다**
 - [2026-10-09 · so-module §55] §3-f 를 판정 401 · 402 · desc-1b(9184853) 실물로 고침 — 복사 없음 · 보내기는 product_description 뷰만 · 거르기는 ims-desc.js 와 같은 규칙(→ 목록만 같고 엔진은 판정 412)
 - [2026-10-10 · so-module §56 · docs-1010] 상태 줄 · §1 시험 스토어 실물 · §3-a 판정 413 · §3-b 사진 실물 · §3-c 판정 404 ~ 407 · 413 · 퍼블리시 유지 · §3-e 판정 408 ~ 410 · 412 · 큐 · cron 42 · 43 · 「새벽에 되돌림」 어긋남 열림 · §3-f 판정 412 · §3-g 가격(판정 403 · 403 고침 · 408) 새로
+- [2026-10-10 · so-module §56 이어 붙임 · tag-0] 상태 줄에 shop-2c · §3-e 「새벽에 되돌림」 어긋남을 판정 414 로 닫음(새벽 맞추기 = 안전망) · §3-h 화면 새로(shop-2c · 판정 415 Send now 바로 · 416 Edit 안 읽기만)

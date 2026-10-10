@@ -135,6 +135,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | 상품 계열 표에 PostgREST 로 직접 쓴다 | 검사(잠금 · 검증 규칙)를 지나지 않는다 | 창구로만(판정 141 · prod-2 부터 직접 쓰기 닫힘) · 설계 정본 po-module §3-h |
 | 화면 Edit 칸의 속성 값(`value="${…}"`)에 따옴표 든 이름을 넣는다 · esc 를 textContent · `.value =` 에 쓴다 | 옛 공통 esc 는 `"` 를 안 막아 칸이 따옴표에서 끊기고 **이름을 안 건드린 Save 가 잘린 이름을 저장**했다(ANN01001 · 이름에 `"` 든 상품 587) · 반대로 HTML 아닌 곳의 esc 는 `&quot;` 를 글자로 보인다 | 속성 값은 esc(esc v1 부터 `" '` 도 막는다) · esc 는 HTML 에 넣을 때만 · 따옴표 든 상품(ANN01002)으로 Edit 시험 · so-module §56-e · CHECKLIST 7-zh |
 | 상품 계열 표(product · family · price · image · tag · barcode · ref_brand · ref_category)를 고치며 Shopify 를 잊는다 · 웹 대표 사진을 product_update 로 찾는다 | 켜진 listing 이면 큐 트리거 `*_shop_queue` 16 이 Shopify 보내기 큐에 넣는다(다음 분 cron 이 보낸다) · reason 은 첫 트리거라 원인과 다를 수 있다 | Shopify 로 가는 값이면 트리거 목록을 본다 · `product_family.web_image_id`(구성원 사진만)는 `shop_listing_set` op family_web_image_set 로만 · po-module §3-h 「Shopify 로 보내기와 맞닿는 칸」 |
+| products.html Edit 안의 따로 저장되는 카드(사진 · 설명 · Shopify)에 단추를 붙인다 | 세 카드는 Edit 의 Save 와 따로 저장된다(사진 = 올리는 순간 Storage · 설명 = 자기 편집기 · Shopify = 늘 DB 에 저장된 값을 보낸다) — Edit 중 저장 전에 Send now 를 누르면 **옛 값이 간다** | 판정 416 — Edit 안에서는 단추 없이 읽기만(「Save or Cancel first to change this」 · `card(…, { readOnly })` · so-module §56-a) |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 32 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다** — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).
