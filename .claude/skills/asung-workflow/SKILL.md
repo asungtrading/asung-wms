@@ -285,6 +285,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    · 같은 손님의 같은 콤보 확정은 앞 시나리오 백오더를 이어받는다 — 시나리오를 가르려면 손님을 가른다
    · 죽은 회차가 시퀀스 머리를 당기면 차수 끝에 세션 시작 머리로 한 번 더 되돌리고 전후를 보고한다
 ⭐ [2026-10-05 · Caleb · so-module §43-d 1] DB 커밋은 Caleb 이 화면까지 확인한 뒤 — 셋째 덩이를 바로 돌리지 않는다 · 대화 Claude 가 「⏳ DB 커밋 대기」 목록을 챙겨 답 끝에 한 줄 · 화면 시험 끝 · 문서 차수 · 하루 정리 때 숫자를 넣은 커밋 명령을 먼저 · 올라가면 원격 확인 뒤 지운다
+⭐ [2026-10-10 · so-module §58-d 3] **자동 경로 시험(트리거 → 큐 → cron → 바깥 반영)은 cron 등록 덩이 뒤에** — 앞에 두면 손 drain 으로만 확인되고 「사람 손 없이 1 분 안에」는 못 본다(stock-1b: 원장 시험을 cron 등록 뒤로 옮겨 48 초 실물)
 ⚠️ [2026-10-06 · so-module §46-d] 뷰를 거를 때는 **그룹 열(sku · 창고 이름)** 로 — 조인으로 붙은 열(product_id · warehouse_id)로 거르거나 겹치면 뷰 전체를 센다(stk-4 100 → 310 · 500 → 1,335 ms) · 유니크 열로 대신할 수 있으면 조인 열 조건은 빼라 · `= any(배열)` 은 인덱스로 내려가지만 `= any((select …))` 괄호만은 서브쿼리 꼴
 ⚠️ [2026-10-06 · §46-d] 식을 한 곳으로 모으며 「창고 전체」를 세게 바꿀 때는 **줄마다 부르는 곳의 1키 고정비**를 적용 전 · 후로 잰다(stk-1 처음 판 1키 306 ms → 키 배열 갈래로 82 ms)
 ⚠️ [2026-10-06 · §46-d] `set local role authenticated` 안에서는 임시 표를 못 읽는다(42501) — 변수(jsonb)로 넘긴다 · 가짜 문서는 그 표의 번호 CHECK(po_number_ck) · 상태 CHECK(confirmed_at 짝)를 먼저 본다
@@ -357,6 +358,7 @@ EOF
    재발행    = **같은 입력 → 같은 출력** — 전 출력 담기 → `\i` → 후 출력 담기 · 쓰기 창구는 savepoint 안에서 · ⚠️ 되감기는 블록 안 insert 도 지운다(담아 둘 값은 변수로 · 2026-09-25 so-pay-remaining-2 3회차) · 발행처럼 번호를 당기는 창구는 **커서 SELECT 만 떼어** 옛 식 vs 새 함수 행 집합을 대조(인보이스 번호 소모 0)
    ⚠️ 「표가 비어 있을 때만 되돌린다」 시퀀스 가드(§4)는 **이제 안 돈다** — so · so_invoice · so_credit 에 화면 시험 실물(SO-25000~ · 60000~ · CR-01000)이 있다 ⇒ **번호를 당기는 검증은 하지 마라**
 ⚠️ [2026-10-05 · so-module §40-d 2 · 3] 확인 SQL 을 쓰기 전에 그 표의 정의(마이그레이션)를 grep 한다 — 칸 이름 짐작은 0 줄을 「실패」로 보이게 한다 · 여러 덩이 SQL 은 PAGER=cat psql … -P pager=off
+⚠️ [2026-10-10 · so-module §58-d 1] **함수 결과 칸은 짐작하지 말고 정의(returns table)를 먼저 본다** — 대화 Claude 가 inv_available_base 결과에 `b.warehouse_id` 를 썼다(ERROR column b.warehouse_id does not exist · 창고는 첫 인자이고 결과에 없다) · 고친 모양 = ref_warehouse × lateral inv_available_base(w.id, keys) · 날짜는 current_date 가 아니라 ims_today()(§4 · §58-d 2 에서 또)
 ```
 
 ---
@@ -646,3 +648,8 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    12 [10-09] **대화형 스크립트(비밀번호를 묻는 tools/*.sh)는 다른 명령과 묶지 않는다** — 덩이 맨 끝 한 줄로 따로 · **긴 커밋 글은 파일로** 쓰고 `git commit -F <파일>`(따옴표 · 줄바꿈이 셸에서 깨지지 않게) · 옮기기 명령 끝에 `MOVED_OK`(§7) · 영어 글을 붙여도 한국어로 답한다(§10)
    13 [10-10 · 대화 Claude] 옮기기 명령의 `cp -n` 이 coreutils 경고(「non-portable」) ⇒ `cp --update=none`(§7)
    14 [10-10 · 대화 Claude] 샌드박스 sh 에서 `{a,b}` 중괄호 펼침이 안 된다 ⇒ 파일을 하나씩 적는다(§7)
+⚠️ **[2026-10-10 저녁 ③ 재고 · so-module §58-d]**
+   1 [대화 Claude] inv_available_base 결과 칸을 짐작(b.warehouse_id) ⇒ §5 returns table 을 먼저
+   2 [Claude Code] 시험 SQL 에 current_date(토론토 저녁엔 UTC 가 내일) ⇒ ims_today()(§4 날짜 줄)
+   3 [대화 Claude] 원장 시험 덩이를 cron 등록 뒤로 ⇒ §4 자동 경로 시험은 cron 등록 뒤에
+   4 [잘 된 것] 멱등 키에 수량만 쓰면 새벽 덮기가 「이미 처리됨」으로 막힌다는 것을 Claude Code 가 스스로 잡았다(큐 줄 id 를 넣음) · 문서로 확인 못 한 「또 불러도 무해」에 기대지 않고 읽어서 판단(위치 활성)

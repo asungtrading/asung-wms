@@ -7467,7 +7467,7 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 | 373 | 「샤피파이에서 직접 고치는 것은 거의 없어」 | 칸의 주인 — IMS: 제목 · 설명 · 사진 · Vendor · Type · 태그 · SKU · 바코드 · 무게 · 가격 · 비교가 · 위치별 재고 · Active/Draft · 품절 판매 · 변형 구조 / Shopify(사람): Collections · 메타필드 · SEO · Category · Theme · 퍼블리시 |
 | 374 | — | Shopify 상품 하나 = IMS family 하나 · family 에 「웹 대표 사진」 칸(없으면 첫 변형의 대표 사진) · 변형마다 대표 사진을 지정해 올린다 |
 | 375 | 「listed, unlisted는 cin7에서 샤피파이로 제품을 보냈냐 안보냈냐 아닌가?」 | 상품마다 스토어별 「이 스토어로 보냄」 표시를 직원이 켠다 · 퍼블리시(웹에 보이기)는 Shopify 에서 사람이 |
-| 376 | — | 재고 올리기 = 바뀐 SKU 즉시 + 하루 몇 번 전체 · 위치별(Edmonton · Toronto) · Shopify Available 에 맞춘다(On hand 면 두 번 빠진다 · 시험 스토어에서 대조) |
+| 376 | — | 재고 올리기 = 바뀐 SKU 즉시 + 하루 몇 번 전체 · 위치별(Edmonton · Toronto) · Shopify Available 에 맞춘다(On hand 면 두 번 빠진다 · 시험 스토어에서 대조) → 판정 421 ~ 423(§58-a · 시험 스토어 대조 끝 §58-c) |
 | 377 | — | 상품 정보 올리기 = 바뀌면 즉시 + 새벽 전체(IMS 가 주인인 칸은 새벽에 IMS 값으로) → [2026-10-10 · §56-a 판정 414] 새벽 맞추기는 **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망** — hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 「새벽에 IMS 값으로」 는 이 뜻(어긋남 발견 §56-f 9 · 미룬 165 닫힘) |
 | 378 | — | asung.ca 오더 상태 — 들어오는 순간 주인은 IMS · 운송사 + 송장번호를 넣는 순간 Shopify 「발송 + 송장번호」(메일은 Shopify) · 운송사 칸 Pickup · Delivery(우리 차량) — 송장 없이 「발송됨」만 · 메일 없음 · 백오더 몫은 같은 오더에 두 번째 발송 |
 | 379 | — | aonebeauty.com — Pickup 오더는 운송사 Pickup 을 미리 채움 · Ship & invoice 순간 Shopify 「Ready for pickup」(손님 메일) · 「Waiting for pickup」 칩 · 「Picked up」 단추(메일 없음) · 안 찾아가면 크레딧 노트 · 환불은 Shopify 에서 직원이 하고 IMS 가 읽어 크레딧에 붙인다 |
@@ -7903,7 +7903,7 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 - 175 태그 적재의 넣기가 `ipr_upsert_`(merge-duplicates)라 적재가 도는 몇 분 사이 직원이 같은 태그를 붙이면 그 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicates 로
 - 176 IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다
 - 177 shop_listing_set op push_now — 부르는 곳 0 · 남길지 정하지 않음(57-d 4)
-- 178 drain 20 칸에 skipped 줄도 센다(57-d 2) — ③ 재고 설계 때 판정
+- 178 drain 20 칸에 skipped 줄도 센다(57-d 2) — ③ 재고 설계 때 판정 → ✅ 판정 424 · stock-1a ① · stock-1b ②(§58)
 - 179 Shopify 로 보낼 태그의 범위(내부 표식 · ASS · AOS · 케이스 태그) — 스토어 CSV 를 본 뒤(판정 420)
 
 ### 57-f 다음 (Caleb 이 고른다)
@@ -7911,4 +7911,72 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 ```
 ③ 재고 올리기 조사(stock-0 ⓑ) · 스토어 CSV 가 오면 보낼 태그 범위 판정 → send_tags 켜기
 다음 판정 번호: 421
+```
+
+## §58 2026-10-10 저녁 — Shopify 연동 ③ 재고 올리기 — stock-0 ~ stock-1c · 판정 421 ~ 425 (집 PC)
+
+⭐ 닫힌 것: ③ 재고 올리기(테스트 DB · 시험 스토어 · 끝에서 끝) — 원장 사건 하나가 사람 손 없이 **48 초** 뒤 Shopify Available 에 반영
+⭐ 새 판정 421 ~ 425 · 원문 지시서 `~/asung/prompts/docs-1010c.md`(이 절의 원천) · 설계 정본 `shopify-integration.md` §3-d · 다음 판정 번호 **426**
+⭐ 아직: Shopify 테마 「Sold out」 → 「Not available」(판정 425 · **Caleb 할 일** · 58-e 180) · 운영 cost 로 상수 다시 재기
+
+### 58-a 판정
+
+| 번호 | 원문 요지 | 정한 것 |
+|---|---|---|
+| 421 | Caleb 「asung.ca 재고는 브랜치별로 available stock이 가고 있어 · 손님 화면에 재고가 브랜치별로 보여」 + Cin7 Asung-Trading 탭 캡처(Update stock levels in Shopify 켜짐 · Use buffer inventory 꺼짐 · 위치 짝 Toronto ↔ Asung Trading Inc. · Edmonton ↔ Asung - Edmonton · Allow users to purchase out of stock 켜짐) + asung.ca 상품 페이지 캡처(「Toronto - 966 available · Edmonton - 14 available」) → 「그렇게 하자」 | Shopify 재고 = **위치별 IMS 가용**(inv_available_base = 장부 − 판매 예약 − 트랜스퍼 예약) · 음수 0 · 버퍼 없음 · 세트 ⌊낱개 가용 ÷ pack_factor⌋ · **Available 직접**(On hand 아님 — 두 번 빠짐) · 비교 없이(changeFromQuantity null · IMS 주권) · **바뀌면 즉시**(cron 1 분) |
+| 422 | 대화 Claude A 따로 · B 같은 줄 → Caleb 「A」 | 재고는 상품과 **따로 줄** · 묶어 보낸다 · 마지막으로 보낸 숫자와 같으면 안 보냄 |
+| 423 | 대화 Claude A 낮 다른 것만 + 새벽 전부 덮기 · B 늘 다른 것만 → Caleb 「A」 | 낮 몇 번 diff(다른 것만) · 새벽 한 번 전부 IMS 값으로 덮기(웹 오더 · 사람 손으로 생긴 Shopify 쪽 어긋남을 바로잡는 안전망) · 상품 새벽(판정 414 · 덮지 않음)과 다른 까닭 = 재고는 Shopify 가 오더마다 스스로 바꾼다 |
+| 424 | 대화 Claude A 새벽에 바뀐 것만 줄에 · B 건너뛰기는 칸에 안 셈 · C 둘 다 → Caleb 「c」 | 상품 줄 20 칸: ① 상품 새벽 맞추기는 hash 를 미리 비교해 바뀐 것만 줄에 ② skipped_same_hash 는 drain 20 칸에 세지 않는다(시간 한도로만) · 판정 414 그대로 |
+| 425 | Caleb 「꺼진 구성원과 ARCHIVED 상품의 차이가 뭐야?」 → 대화 Claude 설명 → Caleb 「꺼진 구성원의 경우는 Sold out으로 보이기 보다는 N/A등으로 보여야 하지 않을까」 → 대화 Claude 테마 글자 바꾸기 → Caleb 「니말 대로 하는게 좋겠어. 샤피파이에서 default theme content를 sold out을 not available로 고치는게 좋을 것 같네. 이 것은 내가 까먹을 수도 있으니 기억하고 있다가 나중에 해야 할일에 리마인드 부탁해」 | 꺼진 구성원 = DENY + **재고 0**(IMS 가용과 상관없이 · 판정 406 그대로) · 손님 글자는 **Shopify 테마 「Sold out」 → 「Not available」**(Online Store → Themes → Edit default theme content · 사람 몫 · 시험 스토어 먼저 → 컷오버 때 asung.ca · aonebeauty.com — ⭐ **Caleb 할 일 · 리마인드 요청**) · 우리 스토어는 0 에서도 팔므로 「살 수 없음」 글자는 꺼진 구성원에게만 뜬다 · **ARCHIVED 는 재고 안 보냄** · 끄는 순간에도 안 보냄 · 다시 켜면 전부 · IMS 카드 안내 글 not available |
+
+### 58-b 차수 · 커밋 (git log 원문)
+
+| 차수 | 레포 · 커밋 | 내용 |
+|---|---|---|
+| stock-0 | — | 조사 · 쓰기 0 · ⬜1 ~ ⬜8(asung-wms §57 에 문서 ⓐ · 조사 ⓑ 는 이 절이 옮긴다) |
+| stock-1a | asung-wms `8feb7b3` | 마이그레이션 `20261010194732_stock_1a_queue.sql`(md5 26fe92f1…) — shop_stock_sent · shop_stock_queue(result ok · skipped_same · skipped_off · error) · shop_stock_targets · shop_stock_payload(sql stable · 위치마다 inv_available_base 한 번) · shop_stock_queue_add · 트리거 13(inv_ledger i/u/d · so_reserve i/u/d · inv_transfer u · inv_transfer_line i/u/d · product u · shop_listing i/u) · shop_stock_queue_diff · shop_stock_queue_all · shop_queue_all 재발행(판정 424 ① · hash 다른 것 + last_status error) · 뷰 shop_stock_list · 시험 2 회차 OK 30 · 적용 확인 OK 29 · 비용 원장 5,000 행 insert 452 ms · diff 424 ms · all 100 ms · 상품 shop_queue_all 대상 4 개 98 ms(운영 4,000 대상 ≈ 1 분 · 짐작) — 시험 적용(rollback) 때 잰 값은 372 · 430 · 42 · 64 ms(커밋 글) · 이견 12(원장에는 product_id · warehouse_id 가 없다 — sku 로 · 창고는 안 본다 / so_reserve 에는 창고가 없다 / skipped_off 추가 / 세션 스위치 없이) |
+| stock-1b | asung-wms `0192bf3` | EF `shopify` action stock_drain · stock_push · `_shared/shopify-stock.ts`(새) · 상품 drain 칸 셈(판정 424 ② · DRAIN_FETCH 200 · sent 만 칸에 · 20 건 또는 40 s) · tools/shopify-push.sh stock-drain · stock-push · 5 행 옛 주석 고침(미룬 167) · cron.sql 기록 · deno test 16/0 · 이견: 멱등 키에 큐 줄 id(새벽 force 가 「이미 처리됨」으로 막히지 않게) · 위치는 nodes 로 읽어 없는 짝만 inventoryActivate · force 아니면 다른 위치만 · 상수 묶음 100 · 한 회차 500 · 40 s(짐작 — 첫 cost 로 조정) · 못 보낸 줄은 열어 둠 |
+| stock-1c | asung-ims `8f41b93` | ims-shop.js shop v2 — 스토어 줄마다 「Stock on Shopify」 표(뷰 shop_stock_list · 낱개 한 줄 · family 는 변형마다 · 보낸 시각 · 에러 · sending…) · 「Send stock now」(EF stock_push · 권한 shopify) · family 구성원 화면에도 위치별 숫자 · 안내 글 「not available, with stock 0」(판정 425) · Edit 안에서는 표만(판정 416) · products.html · families.html 무접촉(커밋 stat = ims-shop.js 하나) |
+
+### 58-b2 stock-0 ⓑ 조사 요지 (Claude Code · 쓰기 0 · 쿼리 원문 `~/asung/prompts/stock-0-queries.sql`)
+
+- ⬜1 보낼 숫자 — 식은 `inv_available_base` 한 곳(마지막 정의 `20261006143300_stk_1_availability.sql` 41 행 · stk-1 `6712b24`) · 장부(ims_inv_balance 의 그 창고 bin 합) − 판매 예약(열린 allocated so_reserve × pack_factor) − 트랜스퍼 예약(confirmed · at_wms · picking 의 from 창고) · IN_TRANSIT 은 따로 된 비활성 창고라 위치 짝에 없다 · 음수 실물(Toronto 7 줄 · Edmonton 1 줄) ⇒ 0 으로 자름 · 세트 = ⌊낱개 ÷ pack_factor⌋(so_confirm_fast 135 행과 같은 식) · 콤보 식은 못 찾음(→ 184) → 판정 421
+- ⬜2 Cin7 → Shopify 재고 설정은 문서 · 코드 어디에도 없었다 → Caleb 캡처(판정 421 원문)
+- ⬜3 Shopify — productSet 은 tracked 만 보내 Edmonton 이 안 붙어 있었다 ⇒ `inventoryActivate` 먼저 · `inventorySetQuantities` 의 compareQuantity · ignoreCompareQuantity 는 2026-04 에 없어졌다(비교 끄기 = changeFromQuantity null) · 2026-04 부터 `@idempotent(key:)` 필수(activate 도) · 한 번 최대 개수 · cost 는 문서에 없음 · on_hand 로 쓰면 committed 가 두 번 빠진다 ⇒ available 직접
+- ⬜4 바뀜을 잡는 표 = inv_ledger · so_reserve · inv_transfer(+ line) · 세트는 낱개의 바뀜 · 규모(테스트 복사분) 평일 하루 원장 1,905 줄 · SKU 1,045 · 최대 날 4,709 줄 ⇒ 재고 큐를 따로(판정 422)
+- ⬜5 · ⬜6 전체 맞추기 · drain 20 칸(index.ts 21 · 246 행) → 판정 423 · 424 · ⬜7 꺼진 구성원 0 · ARCHIVED 안 보냄 → 판정 425 · ⬜8 짓기 나누기 stock-1a DB · 1b EF · 1c 화면 · 끝에서 끝 시험(= 판정 376 의 ⬜ 숫자 대조)
+
+### 58-c 실물 (2026-10-10 · 테스트 DB · 시험 스토어 · 전부 Caleb 확인)
+
+- 배포(테스트 프로젝트) → `shop_stock_queue_all(null)` 11 줄 → 손 stock-drain: ok 11 · sent_items 22 · activated 11(Edmonton 이 11 아이템에 새로 붙음) · calls 13 · **cost 147** · 6 s · errors 0
+- Shopify 관리자: ANN03907 Toronto 43 · Edmonton 1(Available = On hand · Committed 0) · ANN01001 Blue/Small Toronto 32 · Edmonton 8 · Snap-On Rollers 합계 Toronto 349 + Edmonton 90 = 439 · Orange(ANN01005) Toronto 0 = Toronto 에 장부 줄이 아예 없음(음수 잘림 아님 — payload 가 coalesce 0)
+- 같은 숫자 다시(force 없이 · ANN03907) → skipped_same 1 · calls 0
+- cron 등록(테스트 DB · 열쇠는 jobid 42 줄에서 · 이미 있으면 멈춤): **44 ims-stock-drain `* * * * *` · 45 ims-stock-diff `0 * * * *` · 46 ims-stock-nightly `15 8 * * *`** · 킬 스위치 `select cron.alter_job(<jobid>, active := false);`
+- 원장 −1(ANN03907 · ims_today()) 20:33:14 → 큐 13 → cron 20:34:00 `1 row` → 20:34:02 Toronto 42 ok(**48 초**) · Edmonton sent_at 옛 시각 그대로(위치 단위) · 빈 분 `0 rows` · Shopify 42 확인
+- 반대 사건 +1 + ANN01015 sellable 끄기 → 같은 cron 회차 한 호출로 묶여 ok · ANN03907 Toronto 43 · ANN01015 0 · 0 · 상품 줄 19 ANN01001FAM 2 초 뒤 ok → Shopify Black/Jumbo 0 · 0 · Sell when out of stock **Off** → 다시 켜기 → Toronto 57 · Edmonton 5 · **On**
+- 상품 새벽 맞추기 `shop_queue_all(null)` = **0**(바뀐 것 없으면 줄에 안 섬 · 판정 424 ① 실물)
+- 화면(shop v2): ANN01001FAM 변형 10 줄 표 · Send stock now 「Stock sent · 20 numbers」 · ANN03907 43 · 1 · ANN01001 구성원 화면 32 · 8 — 전부 맞음
+- 새 발견: **HS Code · Country of origin 이 Shopify 에 비어 있다** — 보내는 코드는 맞다(shop_2a1 293 · 294 행 · shopify-product.ts 48 행 · 값 있을 때만) · **IMS product 의 hs_code · country_of_origin_code 가 비어 있다**(ANN01001 · ANN01015 · ANN01291 · ANN03907 · Caleb 확인) ⇒ 제품 재적재 차수(미룬 164 · 678/679)에서 Cin7 값을 함께 본다 · 결함 아님
+
+### 58-d ⚠️ 그날 겪은 실수 · 발견 — 원인 · 처방
+
+1. [대화 Claude] `inv_available_base` 의 결과 칸을 짐작해 `b.warehouse_id` 로 SQL 을 줬다 — 창고는 첫 인자이고 결과에 없다(ERROR column b.warehouse_id does not exist) ⇒ **함수 결과 칸은 짐작하지 말고 정의(returns table)를 먼저 본다** · 고친 모양 = ref_warehouse × lateral inv_available_base(w.id, keys)
+2. [Claude Code · stock-1b 회신] 시험 SQL 에 `current_date` — 토론토 저녁엔 UTC 가 내일 ⇒ 대화 Claude 가 `ims_today()` 로 고쳐 줌(규칙 「오늘은 ims_today」)
+3. [대화 Claude] 덩이 순서: 원장 시험(덩이 6)을 cron 등록(덩이 7) 뒤로 옮겼다 — 사람 손 없이 1 분 안에 반영되는 것까지 보려고 ⇒ 자동 경로 시험은 cron 등록 뒤에
+4. [잘 된 것] 멱등 키 결함(수량만 쓰면 새벽 덮기가 막힘)을 Claude Code 가 스스로 잡음 · 위치 활성은 문서로 확인 못 한 「또 불러도 무해」에 기대지 않고 읽어서 판단
+
+### 58-e 미룬 것 — 57-e 179 에 이어 붙임(178 닫힘)
+
+- 180 Shopify 테마 「Sold out」 → 「Not available」(판정 425 · ⭐ **Caleb 할 일 · 리마인드** · Online Store → Themes → Edit default theme content · 시험 스토어 먼저 → 컷오버 때 asung.ca · aonebeauty.com)
+- 181 HS · 원산지가 IMS 에 비어 있다(58-c 끝) → 제품 재적재 차수(176 · 미룬 164)
+- 182 stock-1b 상수(묶음 100 · 한 회차 500 · 40 s) 운영 cost 로 다시 재기(시험 첫 회차 22 숫자 cost 147) · 첫날 위치 붙이기(activate) 부하
+- 183 상품 shop_queue_all 운영 4,000 대상 ≈ 1 분(stock-1a 이견 11) — 더 빠르게 할지(EF 로 나누기 · hash 만 가벼운 판)
+- 184 콤보(활성 15)의 가용 식(stock-0 ⬜1 · 못 찾음)
+- 185 재고 큐가 운영 원장 재적재 · 원장 이식 때 만드는 줄 수(세션 스위치 없이 감 · 큰 갱신 실측 5,000 행 452 ms)
+
+### 58-f 다음 (Caleb 이 고른다)
+
+```
+④ 오더 받기 · 스토어 CSV 가 오면 보낼 태그 범위 판정(179) → send_tags 켜기 · 테마 글자(180 · Caleb)
+다음 판정 번호: 426
 ```

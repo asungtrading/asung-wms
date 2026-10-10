@@ -5,6 +5,7 @@
 ~~⚠️ 상태: **설계만** — 마이그레이션 · EF · 화면 없음. 만들기 순서는 매입 세금 → 할인 원가 → 상품 설명 칸 → Shopify(판정 381).~~
 ⭐ 상태 [2026-10-10 · so-module §56] **① 바탕 · ② 상품 보내기 실물(테스트 DB · 시험 스토어)** — DB shop-1a `584aaf0` · shop-2a1 `81d779c` · shop-2a2 `0d3eb6e` · EF shop-1b `9d67484` · shop-2b `2f6136f` · 화면 Settings → Shopify Stores(asung-ims ss v1 · v1a) · cron jobid 42 · 43 · 순서(Caleb 「그 순서로 가자」 · 2026-10-09) ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 · 판정 403 ~ 413(원문 so-module §56-a)
 ⭐ [2026-10-10 · tag-0] 화면 shop-2c(asung-ims shop v1 · pr v5 · fam v3 `32dae11` · v1a `f3fabf9` · v1b `e563a8e` · 아래 §3-h) · 판정 414 ~ 416 · 다음 판정 번호 417
+⭐ [2026-10-10 저녁 · so-module §58] **③ 재고 올리기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB stock-1a `8feb7b3` · EF stock-1b `0192bf3` · 화면 stock-1c(asung-ims shop v2 `8f41b93`) · cron jobid 44 · 45 · 46 · 판정 421 ~ 425(아래 §3-d) · 다음 판정 번호 **426** · 할 일 §7(테마 글자 · Caleb)
 
 ---
 
@@ -108,14 +109,33 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 판정 404  세트는 기본으로 보내지 않는다 · sellable 세트만(지금 BEL43475-12 하나) 사람이 보냄을 켤 수 있다
 판정 405  보냄을 끄면 ARCHIVED(지우지 않는다 · 다시 켜면 ACTIVE) · family 의 활성 구성원이 0 이 돼도 ARCHIVED · 끄기 전에 큐(shop-2a2 · 실물 큐 8)
 판정 406  꺼진 구성원(not (is_active and sellable))은 변형을 지우지 않는다 — variants 목록에 그대로 담고 그 변형만 inventoryPolicy DENY + 재고 0(③) → Sold out · 이력 유지
+          → [판정 425] 재고 0 은 IMS 가용과 상관없이(stock-1b 실물) · 손님 글자는 테마 「Sold out」 → 「Not available」(§7 · 사람 몫)
 판정 407  켜진 변형은 inventoryPolicy CONTINUE(품절이어도 오더를 받는다)
 판정 413  status 도 IMS(위 3-a) · 숨기는 정식 길 = 보냄 끄기 하나
 ```
 - ⭐ 실물(so-module §56-d 5) — 퍼블리시된 상품도 IMS 를 따라간다: 시험 스토어에서 ANN01001 을 Online Store 에 퍼블리시 → IMS 가격 바꾸기 두 번 → 온라인 스토어에 20 ~ 30 초 뒤 반영 · **퍼블리시 유지**(productSet 이 퍼블리시를 풀지 않는다) · EF 는 publish 를 부르지 않는다(payload 에 퍼블리시 칸 없음) · 퍼블리시 확인은 상품 목록 Channels 칸 · 상품의 Publishing 칸(변형 표의 「All channels」 가 아니다 · §56-f 2)
 
-### 3-d. 재고 올리기 (판정 376)
-- 바뀐 SKU 는 즉시 + 하루 몇 번 전체 맞추기 · 위치별(Shopify 위치 Edmonton · Toronto)
-- Shopify 의 **Available** 에 맞춘다 — On hand 로 올리면 웹 오더가 두 번 빠진다 · ⬜ 시험 스토어에서 숫자 대조
+### 3-d. 재고 올리기 (판정 376 → 421 ~ 425 · so-module §58)
+- ~~바뀐 SKU 는 즉시 + 하루 몇 번 전체 맞추기 · 위치별(Shopify 위치 Edmonton · Toronto)~~ → 아래 판정 421 ~ 423
+- Shopify 의 **Available** 에 맞춘다 — On hand 로 올리면 웹 오더가 두 번 빠진다 · ~~⬜ 시험 스토어에서 숫자 대조~~ → ✅ 대조 끝(2026-10-10 · 아래 실물)
+```
+숫자 (421)   위치마다 IMS 가용 = inv_available_base(장부 − 판매 예약 − 트랜스퍼 예약) · 음수 0 · 버퍼 없음
+            세트 ⌊낱개 가용 ÷ pack_factor⌋ · 꺼진 구성원 0(IMS 가용과 상관없이 · 425)
+보내기 (421)  Shopify Available 에 직접(name available · On hand 아님) · 비교 없이 changeFromQuantity null(IMS 주권)
+            · @idempotent 키(큐 줄 id 포함 — 새벽에 같은 수량을 다시 보내도 「이미 처리됨」으로 막히지 않게)
+            · 위치가 아이템에 안 붙었으면 inventoryActivate 먼저(nodes 로 읽어 없는 짝만)
+줄 (422)     상품 큐와 따로 shop_stock_queue(스토어 × 변형) · 묶어 보낸다(한 호출 100 · 짐작) · 마지막으로 보낸 숫자(shop_stock_sent · 위치 단위)와 같으면 안 보냄
+즉시 (421)   inv_ledger · so_reserve · inv_transfer(+ line) · product · shop_listing 트리거 13 → 큐 → cron 1 분(ims-stock-drain)
+낮 (423)     매시 정각 diff — 지금 가용 vs 보낸 숫자 · 다른 것만 줄에(Shopify 호출 0)
+새벽 (423)   08:15 UTC 전부 force — Shopify 쪽 어긋남(웹 오더 · 사람 손)을 IMS 값으로 덮는 안전망
+            · 상품 새벽(414 · 덮지 않음)과 다른 까닭 = 재고는 Shopify 가 오더마다 스스로 바꾼다
+꺼짐 (425)   꺼진 구성원 = DENY + 재고 0 · ARCHIVED(보냄 꺼짐)는 재고를 안 보낸다 · 끄는 순간에도 안 보냄 · 다시 켜면 전부(force)
+```
+- 큐 넣기 한 곳 `shop_stock_queue_add`(낱개 → 그 sellable 세트로 펼침 · 열린 줄 하나) · 보낼 숫자 한 곳 `shop_stock_payload(store, pids)` · 화면 뷰 `shop_stock_list` · 마이그레이션 `20261010194732_stock_1a_queue.sql`
+- EF `shopify` action **stock_drain**(cron · 한 회차 열린 줄 ≤ 500 · 40 s · 못 보낸 줄은 열어 둠) · **stock_push**(직원 · 화면 「Send stock now」 · 대상 하나 force) · 순수 함수 `_shared/shopify-stock.ts`
+- cron [테스트 DB] **jobid 44 ims-stock-drain `* * * * *`**(열린 재고 줄이 없으면 EF 를 안 부른다) · **45 ims-stock-diff `0 * * * *`** · **46 ims-stock-nightly `15 8 * * *`**(상품 nightly 43 · 08:00 뒤 15 분) · 킬 스위치 `select cron.alter_job(44, active := false);` · `(45, …)` · `(46, …)` · 기록 `supabase/ops/cron.sql`
+- ⭐ 실물(2026-10-10 · so-module §58-c): 첫 손 drain ok 11 · 22 숫자 · activate 11(Edmonton) · calls 13 · cost 147 · 6 s · ANN03907 Toronto 43 · Edmonton 1(Available = On hand · Committed 0) · ANN01001 Blue/Small 32 · 8 · **원장 −1 → 48 초 뒤 Shopify 42**(사람 손 없이 · Edmonton 은 안 보냄 = 위치 단위) · 구성원 끄기 → 0 · 0 · Sell when out of stock Off → 켜기 → 57 · 5 · On
+- 화면 = §3-h(shop v2)
 
 ### 3-e. 상품 정보 올리기 (판정 377 · 408 · 409 · 410 · 412 · 414)
 - 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ~~⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · 열림 · 판정 거리] 구현은 새벽에 되돌리지 않는다~~ → ⭐ [2026-10-10 · **판정 414** · Caleb 「A」] 새벽 맞추기(ims-shop-nightly)는 지금대로 — **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망**이다 · IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값(가격 · Draft 등)은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각: 새벽에 Shopify 를 읽어 대조 · 새벽에 hash 무시하고 전부 보냄(매일 4 천여 상품을 읽거나 쓰는 비용)
@@ -126,7 +146,8 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - ⚠️ **운영 순서: 태그 적재 → send_tags 켜기 → 보냄 켜기** — payload 는 send_tags 와 상관없이 tags · send_tags 를 담고 hash 에 넣는다(shop_2a1 267 · 270 행) ⇒ 보냄을 먼저 켜면 태그 적재 · send_tags 켜기가 켜진 상품 전부를 다시 보낸다(실물: 적재 직후 큐 17 · 18 reason product_tag) · 보낼 태그의 범위(ASS · AOS · 내부 표식 · 케이스 태그)는 스토어 CSV 를 본 뒤(판정 420 · so-module 미룬 179)
 - 판정 412 설명 거르기 → 3-f
 - 큐 = `shop_push_queue`(대상마다 열린 줄 하나 · `shop_queue_add` 한 곳) · 큐 트리거 `*_shop_queue` 16(product · product_family · product_price · product_image · product_tag · product_barcode · ref_brand · ref_category · AFTER STATEMENT) · ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다(진단할 때 reason 만 믿지 않는다)
-- cron [테스트 DB] **jobid 42 ims-shop-drain 1 분마다**(열린 큐가 없으면 EF 를 부르지 않는다 · 한 회차 ≤ 20 건) · **jobid 43 ims-shop-nightly 08:00 UTC**(= 토론토 04:00 EDT · 03:00 EST · shop_queue_all) · 킬 스위치 `select cron.alter_job(42, active := false);` · `(43, …)` · 기록 `supabase/ops/cron.sql`
+- ⭐ [판정 424 · stock-1a ① · stock-1b ②] 상품 줄 20 칸 — ① 새벽 맞추기(shop_queue_all)는 hash 를 미리 비교해 **바뀐 것만** 줄에(실물: 바뀐 것 없으면 0) ② skipped_same_hash 는 drain 20 칸에 세지 않는다(한 회차 20 건 보냄 또는 40 s) · 판정 414 그대로
+- cron [테스트 DB] **jobid 42 ims-shop-drain 1 분마다**(열린 큐가 없으면 EF 를 부르지 않는다 · 한 회차 ≤ 20 건 — 보낸 것만 센다 · 424 ②) · **jobid 43 ims-shop-nightly 08:00 UTC**(= 토론토 04:00 EDT · 03:00 EST · shop_queue_all) · 킬 스위치 `select cron.alter_job(42, active := false);` · `(43, …)` · 기록 `supabase/ops/cron.sql`
 - 실물 끝에서 끝(so-module §56-d 4): 가격 저장 → 큐 → 다음 분 cron → EF 3 초 → Shopify 반영
 
 ### 3-f. 상품 설명 (판정 381 · 401 · 402)
@@ -158,7 +179,9 @@ Turn on / Turn off   창구 shop_listing_set 두 번 부르기(old = 화면이 �
 Send now   판정 415 — 큐를 거치지 않고 바로(EF shopify action push · 직원 길 · 서버가 ims_can_write('shopify')) · 결과(ok · 바뀐 것 없음 · 에러)를 그 자리에
 Open in Shopify      https://admin.shopify.com/store/<도메인 앞부분>/products/<gid 숫자>
 First photo on Shopify   families.html — family_web_image_set(구성원의 켜진 사진 · Default = 첫 변형 대표) → 큐 → cron
-단추       권한 shopify 만 · family 구성원 상품은 family 링크만(family 로만 보낸다) · 꺼진 구성원은 sold out 안내(406) · sellable 아닌 세트는 안내만(404)
+단추       권한 shopify 만 · family 구성원 상품은 family 링크만(family 로만 보낸다) · 꺼진 구성원은 ~~sold out~~ → not available 안내(406 · 425 · shop v2) · sellable 아닌 세트는 안내만(404)
+Stock on Shopify   shop v2(stock-1c `8f41b93`) — 스토어 줄마다 위치별 표(뷰 shop_stock_list 만 읽는다 · 낱개 한 줄 · family 는 변형마다 · 보낸 시각 · 에러 · sending…) · family 구성원 화면에도 숫자
+Send stock now     EF stock_push(권한 shopify · 대상 하나 force · 결과 「Stock sent · N numbers」 그 자리에) · Edit 안에서는 표만(416)
 Edit 안    판정 416 — Shopify · Description · Photos 카드를 단추 없이 읽기만(제목 옆 「Save or Cancel first to change this」)
 ```
 - 판정 416 의 이유: 세 카드는 Edit 의 Save 와 **따로 저장된다** — 사진은 올리는 순간 Storage · 설명은 자기 편집기와 비교 규칙 · Shopify 는 행동이고 늘 DB 에 저장된 값을 보낸다(Edit 중 저장 전에 Send now 를 누르면 옛 값이 간다) · 기각: 안내 한 줄만(「없어진 것처럼 보인다」)
@@ -198,7 +221,7 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 ```
 ① 앱(Wholesale All In One)이 할인을 오더 데이터에 남기는 모양(2-e)
 ② 무료 배송 자동 할인과 앱 할인의 겹침 · Shopify 설정 바꾸는 법(2-g · 대화 Claude)
-③ Available 숫자 대조 — 위치별 · 웹 오더 직후(3-d)
+~~③ Available 숫자 대조 — 위치별 · 웹 오더 직후(3-d)~~ → ✅ 위치별 대조 끝(2026-10-10 · 3-d 실물) · 웹 오더 직후는 ④ 오더 받기 때
 ④ 다른 브랜치로 바꾸기 장면 끝에서 끝(2-c)
 ⑤ 컷오버 뒤 앱 규칙(딜 · 손님 할인) 두 번 입력 — IMS 와 앱(so-module 미룬 149)
 ```
@@ -211,3 +234,13 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 - [2026-10-10 · so-module §56 · docs-1010] 상태 줄 · §1 시험 스토어 실물 · §3-a 판정 413 · §3-b 사진 실물 · §3-c 판정 404 ~ 407 · 413 · 퍼블리시 유지 · §3-e 판정 408 ~ 410 · 412 · 큐 · cron 42 · 43 · 「새벽에 되돌림」 어긋남 열림 · §3-f 판정 412 · §3-g 가격(판정 403 · 403 고침 · 408) 새로
 - [2026-10-10 · so-module §56 이어 붙임 · tag-0] 상태 줄에 shop-2c · §3-e 「새벽에 되돌림」 어긋남을 판정 414 로 닫음(새벽 맞추기 = 안전망) · §3-h 화면 새로(shop-2c · 판정 415 Send now 바로 · 416 Edit 안 읽기만)
 - [2026-10-10 오후 · so-module §57 · stock-0] §3-e 태그 적재 실물(c61ba04 · 63,501 · 판정 417 · 418) · 운영 순서(태그 적재 → send_tags → 보냄) · §1-a 컷오버 보냄 첫 상태 새로(판정 420)
+- [2026-10-10 저녁 · so-module §58 · docs-1010c] 상태 줄에 ③ 끝 · §3-c 판정 406 옆 425 · §3-d 재고를 판정 421 ~ 425 · stock-1a · 1b · 1c 실물 · cron 44 · 45 · 46 으로 채움 · §3-e 판정 424 · §3-h shop v2 · §5 ③ 닫힘 · §7 할 일 새로
+
+## 7. 할 일 — 사람 몫 (리마인드)
+
+```
+[ ] 테마 글자 「Sold out」 → 「Not available」 (판정 425 · ⭐ Caleb 할 일 · 리마인드 요청 · so-module 미룬 180)
+    Online Store → Themes → Edit default theme content → 「Sold out」 검색 → Not available
+    시험 스토어 먼저 → 컷오버 때 asung.ca · aonebeauty.com
+    까닭: 우리 스토어는 0 에서도 판다(CONTINUE · 판정 407) → 그 글자는 꺼진 구성원(DENY · 재고 0)에게만 뜬다
+```

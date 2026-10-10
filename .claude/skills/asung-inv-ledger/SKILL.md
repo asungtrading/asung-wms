@@ -167,6 +167,7 @@ delta AS (
 
 ⭐ **[2026-09-19] IMS 가 읽는 얼굴은 `ims_inv_balance`** — `inv_balance` 를 **읽어** 열쇠(`product_id`·`warehouse_id`·`bin_id`)와 마지막 사건일(`last_event_on`·`last_seen_on`)을 붙인 것이다.
 ⭐ **[2026-10-06 · so-module §46] 화면이 읽는 창구** — `stk_availability` · `stk_bins` · `stk_bins_many` · `stk_movements`(definer · 원가 없음 · 상쇄는 `is_reversal` 로 표시하되 합치지 않음 · IN_TRANSIT 중간 줄은 안 보임 · 운송 중 수량은 `in_transit` 칸 = 트랜스퍼 문서로 센다) · 가용 식은 `inv_available_base` 한 곳 · ⚠️ 뷰는 sku · 창고 이름(그룹 열)으로 걸러라 — `product_id` · `warehouse_id` 로 거르면 뷰 전체를 센다
+⭐ **[2026-10-10 · so-module §58] `inv_ledger` 에 Shopify 재고 큐 트리거 셋이 붙었다**(stock-1a `8feb7b3` · `inv_ledger_shop_stock_i` · `_u` · `_d` · AFTER STATEMENT · transition table · sku → product → 켜진 listing 의 변형마다 `shop_stock_queue` 열린 줄 하나) — 원장을 대량으로 쓰면(재적재 · 이식 · 상쇄) **켜진 대상만큼** 재고 줄이 선다(행 수만큼이 아니다 · 실측 5,000 행 insert → 11 줄 · 452 ms) · 세션 스위치 없음 · 테스트 DB 에만(운영에는 표 · 트리거가 없다) · 보낼 숫자는 그대로 `inv_available_base` 한 곳(shop_stock_payload 가 위치마다 부른다) · 운영 재적재 때의 줄 수는 미룬 185
 ⚠️ **잔고 정의는 여전히 `inv_balance` 하나.** 같은 식(기초선 + 원장 합)을 다시 쓰지 마라 — 그 뷰가 생긴 이유가 「정의가 세 곳에 흩어져 어느 것이 맞는지 알 수 없었다」다.
 행 수·숫자가 `inv_balance` 와 같아야 한다(다르면 조인이 행을 늘리거나 줄인 것). 정본 3부 컷오프 절 · 4부 「이식」.
 

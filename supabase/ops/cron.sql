@@ -518,12 +518,12 @@ select cron.schedule('ims-shop-nightly', '0 8 * * *', $job$ select public.shop_q
 --                                       select cron.alter_job(43, active := false);   -- [실측] jobid 43 ims-shop-nightly
 -- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-shop-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (42) order by start_time desc limit 5;
 
--- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid ⬜ · ⬜ · ⬜ [등록 뒤 cron.job 으로 실측해 적는다] stock-1b (2026-10-10 · 판정 421 ~ 425 · 설계 shopify-integration §3-d · DB stock-1a 20261010194732) — Shopify ③ 재고 올리기
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 44 · 45 · 46 [실측 · 2026-10-10 Caleb 등록 · 열쇠는 jobid 42 줄에서 · so-module §58-c] stock-1b (2026-10-10 · 판정 421 ~ 425 · 설계 shopify-integration §3-d · DB stock-1a 20261010194732) — Shopify ③ 재고 올리기
 --   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
 --   열쇠: 이미 도는 ims-shop-drain(jobid 42) 줄에서 꺼내 format(%L) 로 넣는다(아래 등록 SQL · 2026-10-10 덩이 11 과 같은 결 · 같은 비밀 IMS_CRON_SECRET) — 이 파일에는 넣지 않는다 · ⬜ vault 는 so-module 미룬 170
---   ims-stock-drain   : 1 분마다 — ⭐ 열린 재고 줄(shop_stock_queue.done_at is null)이 0 이면 net.http_post 를 하지 않는다(where exists · EF 호출 0) · EF stock_drain 은 한 회차 시간 한도 40 s · 묶음 100 · 판정 421 즉시
---   ims-stock-diff    : 매시 정각(0 * * * *) — IMS 안에서 지금 가용 vs 마지막으로 보낸 숫자 · 다른 것만 줄에(판정 423 낮 · Shopify 호출 0 · 08:00 은 상품 nightly 와 겹쳐도 무해 — sent 와 비교하므로)
---   ims-stock-nightly : 매일 08:15 UTC(= 토론토 04:15 EDT · 03:15 EST) — 켜진 변형 전부를 force 로(판정 423 새벽 덮기) · 상품 nightly(jobid 43 · 08:00)가 **먼저** 돌아 새 상품의 inventory_item 이 먼저 생기게 15 분 뒤
+--   ims-stock-drain   : [jobid 44] 1 분마다 — ⭐ 열린 재고 줄(shop_stock_queue.done_at is null)이 0 이면 net.http_post 를 하지 않는다(where exists · EF 호출 0) · EF stock_drain 은 한 회차 시간 한도 40 s · 묶음 100 · 판정 421 즉시
+--   ims-stock-diff    : [jobid 45] 매시 정각(0 * * * *) — IMS 안에서 지금 가용 vs 마지막으로 보낸 숫자 · 다른 것만 줄에(판정 423 낮 · Shopify 호출 0 · 08:00 은 상품 nightly 와 겹쳐도 무해 — sent 와 비교하므로)
+--   ims-stock-nightly : [jobid 46] 매일 08:15 UTC(= 토론토 04:15 EDT · 03:15 EST) — 켜진 변형 전부를 force 로(판정 423 새벽 덮기) · 상품 nightly(jobid 43 · 08:00)가 **먼저** 돌아 새 상품의 inventory_item 이 먼저 생기게 15 분 뒤
 --   x-ims-cron-key 실제 값은 이 파일에 넣지 말 것 — 등록은 대시보드 SQL Editor 에서 아래 do 블록 그대로(42 번 줄의 열쇠를 읽어 넣는다 · 화면 · 대화에 찍지 않음)
 --   do $$ declare k text; begin
 --     select substring(command from 'x-ims-cron-key'', ''([^'']+)') into k from cron.job where jobid = 42;
@@ -537,6 +537,7 @@ select cron.schedule('ims-shop-nightly', '0 8 * * *', $job$ select public.shop_q
 --     perform cron.schedule('ims-stock-diff', '0 * * * *', 'select public.shop_stock_queue_diff(null);');
 --     perform cron.schedule('ims-stock-nightly', '15 8 * * *', 'select public.shop_stock_queue_all(null);');
 --   end $$;
+--   ⚠️ 2026-10-10 실제 등록은 위 블록에 「이미 있으면 멈춤」 가드를 더한 판(대화 Claude) — 다시 등록할 때는 같은 이름의 job 이 있는지 먼저 본다(cron.schedule 은 같은 이름이면 덮어쓴다 · 짐작)
 select cron.schedule('ims-stock-drain', '* * * * *', $job$
   select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
@@ -545,5 +546,7 @@ select cron.schedule('ims-stock-drain', '* * * * *', $job$
 $job$);
 select cron.schedule('ims-stock-diff', '0 * * * *', $job$ select public.shop_stock_queue_diff(null); $job$);
 select cron.schedule('ims-stock-nightly', '15 8 * * *', $job$ select public.shop_stock_queue_all(null); $job$);
--- 킬 스위치(테스트 DB · 등록 뒤 jobid 를 실측해 적는다): select cron.alter_job(<ims-stock-drain jobid>, active := false);  · (<ims-stock-diff jobid>, …) · (<ims-stock-nightly jobid>, …)
+-- 킬 스위치(테스트 DB · 운영 번호와 다르다): select cron.alter_job(44, active := false);   -- [실측] jobid 44 ims-stock-drain
+--                                       select cron.alter_job(45, active := false);   -- [실측] jobid 45 ims-stock-diff
+--                                       select cron.alter_job(46, active := false);   -- [실측] jobid 46 ims-stock-nightly
 -- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-stock-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname like 'ims-stock-%') order by start_time desc limit 10;
