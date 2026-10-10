@@ -1507,10 +1507,24 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
                ⚠️ 대가: 손 SQL 도 조용히 되돌아간다 — SQL 로 고치려면 같은 트랜잭션에서 select set_config('ims.description_door','1',true); 를 먼저
                이름순으로 product_touch · product_sku_lock 보다 먼저 돈다 · product_deal_hit_changed(AFTER · statement)는 설명 칸을 안 본다
 읽기          뷰 product_description(kind · id · sku · name · is_active · html_effective · is_edited · edited_at · edited_by) — ⭐ 화면 · Shopify 보내기는 이것만
+               → [2026-10-10 실물] Shopify 보내기(shop_product_payload)는 뷰 대신 같은 식 coalesce(description_html, cin7_description) 을 표에서 직접 읽는다(shop-2a1 224 · 250 행 · 값 같음) · 보내기 거르기는 EF 규칙 기반 + ims_html_forbidden 안전장치(판정 412 · shopify-integration §3-f)
                뷰 product_description_edited(고친 것만 · 본문 없음 · edited_by_name · differs_from_cin7) — 솎아내기(판정 401) · 둘 다 security_invoker · anon 회수
 화면          asung-ims ims-desc.js 의 imsDesc 로만 그린다(DOMPurify · ref_embed_host) · 원문 칸을 innerHTML 로 직접 그리지 않는다(CHECKLIST 7-zg)
 실측          원문 중 거름에 걸리는 것 상품 102 / 17,894 · family 6 / 1,130 · object 류 4 는 전부 meta(ABE13315 · ABE51308 · ABE51501 · ABE56604) — 원문은 그대로 · IMS 에서 고쳐 저장하려면 그 태그를 뺀다
 ⬜            뷰 둘의 authenticated 쓰기 권한 · ims_html_forbidden 의 PUBLIC · anon 실행권 정리(미룬 159)
+```
+
+### Shopify 로 보내기와 맞닿는 칸 — 실물 (shop-2a1 81d779c · shop-2a2 0d3eb6e · 2026-10-09 · 판정 403 ~ 413 · 원문 so-module §56 · 설계 shopify-integration.md)
+```
+웹 대표 사진   product_family.web_image_id → product_image(id) — 구성원 사진만 · 쓰기는 shop_listing_set op family_web_image_set(product_update 가 아니다) · 비우면 구성원(낱개) 켜진 대표 사진 중 SKU 순 첫 장(shop_product_payload 233 ~ 236 행)
+               Shopify 사진 순서 web_image_id → 변형 대표 → 나머지 · 사진 alt = product.name(payload files[].alt)
+큐 트리거      *_shop_queue 16 — product(u) · product_family(u) · product_price(i · u · d) · product_image(i · u · d) · product_tag(i · u · d) · product_barcode(i · u · d) · ref_brand(u) · ref_category(u)
+               AFTER STATEMENT · transition table · 켜진 listing 의 대상마다 shop_push_queue 열린 줄 하나(shop_queue_add 한 곳) · 실측 1,516 행 293 ms · 4,871 행 680 ms
+               ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다 · 원인 진단에 reason 만 믿지 않는다(so-module §56-f 6)
+               ⇒ 상품 계열 표에 새 칸 · 새 표를 더할 때 Shopify 로 가는 값이면 트리거 목록도 본다
+⚠️ Edit 이름 칸 결함(2026-10-10 · so-module §56-e · 끝남) — products.html Edit 의 value="${esc(r.name)}" 가 이름의 큰따옴표에서 끊겨 이름을 안 건드린 Save 에도 잘린 이름을 저장했다(실제 피해 ANN01001 하나 · 되살림)
+               고침 asung-ims 5f66c91 esc v1 — 공통 esc 가 " ' 도 막는다 · 화면 규칙은 asung-ims CHECKLIST 7-zh · 스킬 asung-workflow §6
+⚠️ product.source 는 「행의 출처」 — 화면에서 이름 · 가격을 고쳐도 cin7 그대로 · 값의 출처는 남지 않는다 · 재적재가 사람이 고친 이름을 덮는지 안 봤다(so-module 미룬 164 · 위 3-f · 900 행)
 ```
 
 ### 잠금 (판정 136 · 137 · 139)

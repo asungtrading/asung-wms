@@ -133,6 +133,8 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | IMS 에서 만든(manual) 상품과 같은 SKU 를 재적재한다 | ImsLoadProduct.gs merge-duplicates 가 행 전체를 덮는다(source cin7 · payload 밖 칸 비움) | 판정 132 — IMS 값이 이기고 cin7_id 만 붙인다 · 적재 코드를 먼저 고친다(판정 131 · prod-5 · §3-h) · ⚠️ 「payload 밖 칸 비움」은 여전히 **추정**(asung-wms 규칙 45) — 설명 칸은 desc-1b 문지기로 막았다 |
 | `is_active=false` 를 한 뜻으로 읽는다 | SO 줄 · 조정 · 트랜스퍼는 **거부** · PO 는 **경고** · 픽 · 팩 · 원장은 **안 본다** | 표마다 다르다 — 내리기 전 화면이 재고 · 열린 줄 수를 보인다(판정 139) |
 | 상품 계열 표에 PostgREST 로 직접 쓴다 | 검사(잠금 · 검증 규칙)를 지나지 않는다 | 창구로만(판정 141 · prod-2 부터 직접 쓰기 닫힘) · 설계 정본 po-module §3-h |
+| 화면 Edit 칸의 속성 값(`value="${…}"`)에 따옴표 든 이름을 넣는다 · esc 를 textContent · `.value =` 에 쓴다 | 옛 공통 esc 는 `"` 를 안 막아 칸이 따옴표에서 끊기고 **이름을 안 건드린 Save 가 잘린 이름을 저장**했다(ANN01001 · 이름에 `"` 든 상품 587) · 반대로 HTML 아닌 곳의 esc 는 `&quot;` 를 글자로 보인다 | 속성 값은 esc(esc v1 부터 `" '` 도 막는다) · esc 는 HTML 에 넣을 때만 · 따옴표 든 상품(ANN01002)으로 Edit 시험 · so-module §56-e · CHECKLIST 7-zh |
+| 상품 계열 표(product · family · price · image · tag · barcode · ref_brand · ref_category)를 고치며 Shopify 를 잊는다 · 웹 대표 사진을 product_update 로 찾는다 | 켜진 listing 이면 큐 트리거 `*_shop_queue` 16 이 Shopify 보내기 큐에 넣는다(다음 분 cron 이 보낸다) · reason 은 첫 트리거라 원인과 다를 수 있다 | Shopify 로 가는 값이면 트리거 목록을 본다 · `product_family.web_image_id`(구성원 사진만)는 `shop_listing_set` op family_web_image_set 로만 · po-module §3-h 「Shopify 로 보내기와 맞닿는 칸」 |
 
 - ⭐ **매니저는 정돈된 목록만 · admin 만 토글** — 감추는 것이지 막는 것이 아니다. 막는 것은 **RLS**(표 32 · §5 권한 규약).
 - ⭐ **화면을 새로 만들면 `asung-ims/CHECKLIST.md` 에 항목을 더한다** — 낡은 점검 목록은 거짓 안심만 준다(§10-j 3-h).

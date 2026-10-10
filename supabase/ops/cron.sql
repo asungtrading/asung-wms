@@ -501,8 +501,9 @@ $job$);
 -- 킬 스위치(테스트 DB · 운영 번호와 다르다): select cron.alter_job(40, active := false);   -- [실측] jobid 40 ims-image-scan
 --                                       select cron.alter_job(41, active := false);   -- [실측] jobid 41 ims-image-move
 
--- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] shop-2b (2026-10-09 · 판정 362 · 설계 shopify-integration §3-e) — Shopify ② 상품 보내기 큐 비우기 · 새벽 전체 맞추기
---   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · 테스트 jobid 는 등록 뒤 cron.job 으로 실측해 적는다(⬜ jobid)
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 42 · 43 [실측 2026-10-10 cron.job · Caleb 등록 · so-module §56-d 3] shop-2b (2026-10-09 · 판정 362 · 설계 shopify-integration §3-e) — Shopify ② 상품 보내기 큐 비우기 · 새벽 전체 맞추기
+--   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · ~~테스트 jobid 는 등록 뒤 cron.job 으로 실측해 적는다(⬜ jobid)~~ → ✅ 2026-10-10 등록(Caleb · 집 PC) — jobid 42 ims-shop-drain `* * * * *` active · has_key t · jobid 43 ims-shop-nightly `0 8 * * *` active
+--   열쇠: 이미 도는 ims-image-scan(jobid 40) 줄에서 꺼내 format(%L) 로 넣었다(64 자 · 화면 · 대화에 찍지 않음 · 같은 비밀 IMS_CRON_SECRET) — 이 파일에는 여전히 넣지 않는다 · ⬜ vault 로 옮기기(so-module 미룬 170)
 --   ims-shop-drain : 1 분마다 — ⭐ 열린 큐(shop_push_queue.done_at is null)가 0 이면 net.http_post 를 **하지 않는다**(where exists · EF 호출 0) · EF drain 은 한 회차 ≤ 20 건 · 한도가 적으면 멈추고 다음 분에
 --   ims-shop-nightly : 매일 08:00 UTC = 토론토 04:00 EDT(여름) · 03:00 EST(겨울) — pg_cron 1.6 은 UTC 뿐(cron.job 에 timezone 칸 없음 · 실측) · 두 계절 다 새벽이라 그대로 둔다(so-backorder-sweep 09:17 UTC 와 같은 태도) · shop_queue_all(null) = 켜진 listing 전부 큐에(열린 줄 있으면 건너뜀) → 다음 분의 drain 이 보낸다
 --   x-ims-cron-key 실제 값은 이 파일에 넣지 말 것 — supabase secrets set IMS_CRON_SECRET=… --project-ref fazgmyvzzhqybtvtktyg 와 같은 문자열을 대시보드 SQL Editor 에서만
@@ -513,5 +514,6 @@ select cron.schedule('ims-shop-drain', '* * * * *', $job$
   where exists (select 1 from public.shop_push_queue q where q.done_at is null);
 $job$);
 select cron.schedule('ims-shop-nightly', '0 8 * * *', $job$ select public.shop_queue_all(null); $job$);
--- 킬 스위치(테스트 DB · 등록 뒤 jobid 실측): select cron.alter_job(<jobid>, active := false);   -- ims-shop-drain · ims-shop-nightly
--- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-shop-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (<drain jobid>) order by start_time desc limit 5;
+-- 킬 스위치(테스트 DB · 운영 번호와 다르다): select cron.alter_job(42, active := false);   -- [실측] jobid 42 ims-shop-drain
+--                                       select cron.alter_job(43, active := false);   -- [실측] jobid 43 ims-shop-nightly
+-- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-shop-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (42) order by start_time desc limit 5;

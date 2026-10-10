@@ -2,7 +2,8 @@
 
 작성: 2026-10-08 · 회사 PC · 판정 362 ~ 381(원문 표는 `so-module.md` §53-a) · Caleb 이 판정 81 의 순서를 바꿔 1단계가 끝나기 전에 2단계 Shopify 연동 설계를 시작했다(「샤피파이와 ims를 인테그레이션 해서 … 먼저 만들어 놓고 싶어」 · `ims-principles.md` §6-c)
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 Shopify 둘뿐이다. Cin7 은 「지금까지 상품을 Shopify 로 보내던 것」의 참고일 뿐이다(Caleb 「지금 설계에는 cin7을 개입시키지 말아줘」).
-⚠️ 상태: **설계만** — 마이그레이션 · EF · 화면 없음. 만들기 순서는 매입 세금 → 할인 원가 → 상품 설명 칸 → Shopify(판정 381).
+~~⚠️ 상태: **설계만** — 마이그레이션 · EF · 화면 없음. 만들기 순서는 매입 세금 → 할인 원가 → 상품 설명 칸 → Shopify(판정 381).~~
+⭐ 상태 [2026-10-10 · so-module §56] **① 바탕 · ② 상품 보내기 실물(테스트 DB · 시험 스토어)** — DB shop-1a `584aaf0` · shop-2a1 `81d779c` · shop-2a2 `0d3eb6e` · EF shop-1b `9d67484` · shop-2b `2f6136f` · 화면 Settings → Shopify Stores(asung-ims ss v1 · v1a) · cron jobid 42 · 43 · 순서(Caleb 「그 순서로 가자」 · 2026-10-09) ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 · 판정 403 ~ 413(원문 so-module §56-a)
 
 ---
 
@@ -13,6 +14,10 @@
 컷오버   실제 스토어 둘을 붙인다 — asung.ca(도매) · aonebeauty.com(매장 픽업 · 카드 결제)
 설정     스토어는 IMS 안의 「설정 한 줄」 — 주소 · 열쇠 · 판매 티어 / 비교 티어 짝 · 브랜치 규칙(§4)
 ```
+- ⭐ 실물 [2026-10-09 · so-module §56-b] 시험 스토어 **asung-ims-test.myshopify.com**(organization 「Asung Trading」 · Advanced) · Dev Dashboard 앱 **Asung IMS**(수동 · v1scopes · 권한 10 · embedded false · client credentials 24h 토큰) · 위치 Toronto · Edmonton
+- ⚠️ 비밀 SHOPIFY_IMS_CLIENT_ID · SECRET 은 **테스트 프로젝트 `fazgmyvzzhqybtvtktyg`** 에만(운영 `gftpcnkxbdjzzfvzwcfl` 과 다르다)
+- 설정 한 줄 = 표 `shop_store`(code · shop_domain · kind asung | aone · sale_tier_id · compare_tier_id · send_tags) · 위치 짝 = `shop_location`(Shopify 위치 GID ↔ warehouse_id · 대조는 GID 로만) · 쓰기는 admin 창구 `shop_store_save` · 화면 Settings → Shopify Stores · 위치 짝 Toronto ↔ Asung Trading Inc. · Edmonton ↔ Asung - Edmonton
+- 연결 확인 = EF `shopify` action ping(scope 10 대조 · 위치 대조) · 호출 기록 `shop_call_log`(90 일)
 
 ## 2. 오더 들어오기
 
@@ -77,30 +82,65 @@ IMS           제목 · 설명 · 사진(변형별 사진 지정) · Vendor · T
 Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme · 판매 채널 퍼블리시
 ```
 - Caleb 「샤피파이에서 직접 고치는 것은 거의 없어」
+- ⭐ [2026-10-10 · 판정 413] **Active/Draft 도 IMS** — 상품 데이터의 주인은 IMS(「IMS 주권」 · 판정 409 사진 · 410 태그 · 413 status 가 한 원칙) · status = 보냄 켜짐 + 켜진 변형 ≥ 1 이면 ACTIVE · 아니면 ARCHIVED(판정 405) · Shopify 에서 손으로 바꾼 Draft/Active 는 다음 IMS 보내기 때 덮인다 · **상품을 숨기는 정식 길 = IMS 「보냄 끄기」 하나** · 판매 채널 퍼블리시만 사람 몫(IMS 는 보내지도 건드리지도 않는다)
+- ⭐ 실물(shop-2b · `_shared/shopify-product.ts` FORBIDDEN_INPUT_KEYS) — 사람 칸(collections · metafields · seo · category · templateSuffix 등)은 productSet 에 **절대 넣지 않는다**(deno test 가 증명) · 사람이 붙인 Collection 「Home page」 가 productSet 뒤에도 남았다(so-module §56-d 1)
 
 ### 3-b. 상품 모양 · 사진 (판정 374)
 - Shopify 상품 하나 = IMS family 하나(옵션 · 변형)
 - family 에 「웹 대표 사진」 칸 — 고르지 않으면 첫 변형의 대표 사진
 - 변형마다 그 변형의 대표 사진을 지정해 올린다(지금은 변형 사진이 비어 손으로 지정 중)
+- ⭐ 실물 [2026-10-09 · shop-2a1 · shop-2b] 「웹 대표 사진」 = `product_family.web_image_id`(→ product_image · 구성원 사진만 · 쓰기 shop_listing_set op family_web_image_set) · 사진 순서 web_image_id → 변형 대표 → 나머지
+- ⭐ 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(판정 409) — 목록에 없는 Shopify 사진(사람이 올린 것 · 옛 파일)은 지워진다(media_removed_unknown)
+- 사진 짝: Shopify 에 올릴 때 파일 이름 = `<product_image id>.<확장자>` → Shopify CDN 주소의 **파일 이름 줄기 = product_image id** · **보내기 직전에 Shopify 상품 media 를 읽어** READY + url 인 것만 줄기로 짝(shop_media) → 짝이 있으면 `{id}` 만 보낸다 · 처리 중이거나 짝이 없으면 originalSource + `duplicateResolutionMode REPLACE`(같은 이름이면 바꿔치기 — 쌓이지 않는다 · 실물) · 직원 push 는 2 초 × 2 다시 읽기 · hash 가 같으면 직전 읽기도 없다
+- alt = IMS `product.name`(payload files[].alt) — Shopify 에서 `<상품명> - <옵션 값>` 꼴로 보이는 것은 IMS 상품 이름이 그 꼴이라서 · ⚠️ 이미 짝지은 사진은 `{id}` 만 보내므로 이름을 고쳐도 Shopify alt 는 따라가지 않는다(so-module 미룬 168)
 
 ### 3-c. 보냄 · 퍼블리시 (판정 375)
 - 상품마다 스토어별 「이 스토어로 보냄」 표시를 직원이 켠다
 - **퍼블리시(웹에 보이기)는 Shopify 에서 사람이** — Caleb 정정 「listed, unlisted는 … 샤피파이로 제품을 보냈냐 안보냈냐 아닌가?」(보냄 ≠ 보임)
+- ⭐ 실물 = 표 `shop_listing`(스토어 × family | 낱개 · is_on) · 창구 `shop_listing_set`(ims_require_write(shopify) · op listing_on · listing_off · push_now · family_web_image_set) · Shopify 쪽 짝 `shop_product` · `shop_variant` · `shop_media`
+```
+판정 404  세트는 기본으로 보내지 않는다 · sellable 세트만(지금 BEL43475-12 하나) 사람이 보냄을 켤 수 있다
+판정 405  보냄을 끄면 ARCHIVED(지우지 않는다 · 다시 켜면 ACTIVE) · family 의 활성 구성원이 0 이 돼도 ARCHIVED · 끄기 전에 큐(shop-2a2 · 실물 큐 8)
+판정 406  꺼진 구성원(not (is_active and sellable))은 변형을 지우지 않는다 — variants 목록에 그대로 담고 그 변형만 inventoryPolicy DENY + 재고 0(③) → Sold out · 이력 유지
+판정 407  켜진 변형은 inventoryPolicy CONTINUE(품절이어도 오더를 받는다)
+판정 413  status 도 IMS(위 3-a) · 숨기는 정식 길 = 보냄 끄기 하나
+```
+- ⭐ 실물(so-module §56-d 5) — 퍼블리시된 상품도 IMS 를 따라간다: 시험 스토어에서 ANN01001 을 Online Store 에 퍼블리시 → IMS 가격 바꾸기 두 번 → 온라인 스토어에 20 ~ 30 초 뒤 반영 · **퍼블리시 유지**(productSet 이 퍼블리시를 풀지 않는다) · EF 는 publish 를 부르지 않는다(payload 에 퍼블리시 칸 없음) · 퍼블리시 확인은 상품 목록 Channels 칸 · 상품의 Publishing 칸(변형 표의 「All channels」 가 아니다 · §56-f 2)
 
 ### 3-d. 재고 올리기 (판정 376)
 - 바뀐 SKU 는 즉시 + 하루 몇 번 전체 맞추기 · 위치별(Shopify 위치 Edmonton · Toronto)
 - Shopify 의 **Available** 에 맞춘다 — On hand 로 올리면 웹 오더가 두 번 빠진다 · ⬜ 시험 스토어에서 숫자 대조
 
-### 3-e. 상품 정보 올리기 (판정 377)
-- 바뀌면 즉시 + 새벽 전체 맞추기 · IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다
+### 3-e. 상품 정보 올리기 (판정 377 · 408 · 409 · 410 · 412)
+- 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · **열림 · 판정 거리**] 구현은 새벽에 되돌리지 않는다 — nightly 가 큐에 넣어도 drain 은 **hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다**(skipped_same_hash) ⇒ Shopify 에서 사람이 직접 고친 칸(가격 · Draft 등)은 IMS 에서 그 상품이 다시 바뀔 때 덮인다(판정 413 과는 맞다 · 판정 377 의 「새벽에」 와는 어긋난다)
+- 보낼 내용 = `shop_product_payload(store, family | product)` → jsonb 한 곳(title · description_html 원문 · vendor · product_type · tags · status · options · variants · files · blocks · hash) · hash = blocks · listing_on 을 뺀 payload 의 md5 · `shop_product.last_hash` 와 같으면 안 보낸다(push `--force` 만 예외)
+- ⭐ productSet 의 목록 칸(variants · files · tags …)은 **보낸 대로 맞추고 빠진 것은 지운다** — 그래서 사람 칸(collections · metafields · seo · category · templateSuffix)은 절대 보내지 않고 · 꺼진 구성원도 variants 에 담는다(판정 406)
+- 판정 408 Compare-at 이 Price 와 같아도 보낸다(null 이면 안 보냄) · 판정 409 사진은 IMS 목록대로(3-b) · 판정 410 태그는 IMS 가 주인 — 지금 product_tag 0 행이라 `shop_store.send_tags` false = tags 칸을 아예 안 보낸다 · ⚠️ **Cin7 태그를 IMS 로 적재한 뒤에** SQL 로 켠다(켜면 빈 목록이 스토어 태그를 전부 지운다)
+- 판정 412 설명 거르기 → 3-f
+- 큐 = `shop_push_queue`(대상마다 열린 줄 하나 · `shop_queue_add` 한 곳) · 큐 트리거 `*_shop_queue` 16(product · product_family · product_price · product_image · product_tag · product_barcode · ref_brand · ref_category · AFTER STATEMENT) · ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다(진단할 때 reason 만 믿지 않는다)
+- cron [테스트 DB] **jobid 42 ims-shop-drain 1 분마다**(열린 큐가 없으면 EF 를 부르지 않는다 · 한 회차 ≤ 20 건) · **jobid 43 ims-shop-nightly 08:00 UTC**(= 토론토 04:00 EDT · 03:00 EST · shop_queue_all) · 킬 스위치 `select cron.alter_job(42, active := false);` · `(43, …)` · 기록 `supabase/ops/cron.sql`
+- 실물 끝에서 끝(so-module §56-d 4): 가격 저장 → 큐 → 다음 분 cron → EF 3 초 → Shopify 반영
 
 ### 3-f. 상품 설명 (판정 381 · 401 · 402)
 - IMS 자기 설명 칸(상품 · family) · 서식 편집기(굵게 · 제목 · 목록 · 링크 · 위험한 태그는 거른다)
 - ~~처음 내용은 IMS 안의 cin7_description 에서 한 번 · 재적재도 이 칸을 채운다 · 그 뒤 IMS 가 주인~~ → [2026-10-09 · 판정 401 · desc-1b 9184853] **복사하지 않는다** — 값 = `coalesce(description_html, cin7_description)` · description_html null = Cin7 원문을 따른다(재적재가 바꾸면 저절로 따라감) · IMS 에서 한 번 고치면 IMS 가 주인(재적재가 안 건드린다 · 문지기 product_description_guard) · '' = 일부러 비움 · 고친 시각 · 사람이 남아 솎아내기(뷰 product_description_edited) · 되돌리기(op description_follow_cin7)
 - ⭐ 보내기는 뷰 `product_description` 의 `html_effective` 만 읽는다 · 원문 칸을 직접 보내지 않는다
-- ⭐ 거르기(판정 402)는 화면(asung-ims `ims-desc.js` · DOMPurify)과 **같은 규칙을 Shopify 보내기에서도** — 허락: 서식 · 표 · style= · 모든 출처 img · `ref_embed_host` 에 있는 host 의 iframe(유튜브 · 페이스북) / 거름: 그 밖의 iframe(POWR) · script · on…= · javascript: · object · embed · form · meta · link · base · 허락 출처는 표에서 읽는다(코드에 박지 않는다)
+  → [2026-10-10 · docs-1010 실물 확인] shop-2a1 `shop_product_payload` 는 뷰를 거치지 않고 **같은 식** `coalesce(description_html, cin7_description)` 을 표에서 직접 읽는다(`20261009200731_shop_2a1_listing.sql` 224 · 250 행) — 값은 같다 · 거르기는 EF(아래)
+- ⭐ 거르기(판정 402)의 허락 · 거름 목록은 화면과 Shopify 보내기가 같다 — ~~화면(asung-ims `ims-desc.js` · DOMPurify)과 **같은 규칙을 Shopify 보내기에서도**~~ → [2026-10-09 · 판정 412] **엔진은 다르다**: 화면 = DOMPurify(`ims-desc.js`) · Shopify 보내기 = EF 의 **규칙 기반** 거르기(`_shared/shopify-clean.ts` · DOMPurify + jsdom 은 Supabase Edge Runtime 에서 안 돈다 — 실측 「Requires run access」 · linkedom 은 조용히 안 거른다) + **안전장치** 거른 결과를 보내기 직전 DB `ims_html_forbidden` 에 넣어 하나라도 걸리면 그 상품은 보내지 않는다(error · 다음 상품 계속 · IMS 에서 설명을 한 번 고쳐 저장하면 풀린다) — 허락: 서식 · 표 · style= · 모든 출처 img · `ref_embed_host` 에 있는 host 의 iframe(유튜브 · 페이스북) / 거름: 그 밖의 iframe(POWR) · script · on…= · javascript: · object · embed · form · meta · link · base · 허락 출처는 표에서 읽는다(코드에 박지 않는다)
 - DB 는 판별만(`ims_html_forbidden` · 창구가 저장을 막는다) · 원문(cin7_description)은 POWR 가 든 채 그대로 남는다 — 그래서 보내는 쪽이 반드시 거른다
 - Caleb 「어서 세워야 해」 · 순서: 매입 세금 → 할인 원가 → 설명 칸 → Shopify
+
+### 3-g. 가격 · 비교가 (판정 403 · 403 고침 · 408)
+```
+Price       스토어의 sale_tier_id — purpose sale 티어만(창구가 막는다)
+Compare-at  스토어의 compare_tier_id — purpose 를 묶지 않는다(sale · compare · Price 와 같은 티어도) · 비워도 된다(null = 안 보냄) · reference 티어는 둘 다 막기
+asung.ca        Price Wholesale · Compare-at wholesalespecia CAD
+aonebeauty.com  Price AONE · Compare-at ComparedPrice CAD
+시험 스토어     asung.ca 를 흉내(Wholesale · wholesalespecia CAD)
+세일가          Wholesale All In One 앱이 정한다 — IMS 가 Compare-at 으로 세일을 표현하지 않는다
+```
+- 값 = `shop_tier_price`(so_price_for 와 같은 식 · purpose 를 가리지 않음 · ⬜ 같은 식 두 곳 — so-module 미룬 171) · 판정 408 같은 값이어도 보낸다
+- 실물: **Compare-at < Price 도 Shopify 가 경고 없이 받는다**(ANN01001 Blue/Small Price 1.59 · Compare-at 1.49 · so-module §56-d 1)
 
 ---
 
@@ -143,4 +183,5 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 
 - 새 판정은 so-module 의 그날 절에 원문 표 · 이 파일에는 주제별로 옮긴다(판정 번호를 단다)
 - 이 문서와 so-module 표가 어긋나면 **판정 원문(so-module)이 맞다**
-- [2026-10-09 · so-module §55] §3-f 를 판정 401 · 402 · desc-1b(9184853) 실물로 고침 — 복사 없음 · 보내기는 product_description 뷰만 · 거르기는 ims-desc.js 와 같은 규칙
+- [2026-10-09 · so-module §55] §3-f 를 판정 401 · 402 · desc-1b(9184853) 실물로 고침 — 복사 없음 · 보내기는 product_description 뷰만 · 거르기는 ims-desc.js 와 같은 규칙(→ 목록만 같고 엔진은 판정 412)
+- [2026-10-10 · so-module §56 · docs-1010] 상태 줄 · §1 시험 스토어 실물 · §3-a 판정 413 · §3-b 사진 실물 · §3-c 판정 404 ~ 407 · 413 · 퍼블리시 유지 · §3-e 판정 408 ~ 410 · 412 · 큐 · cron 42 · 43 · 「새벽에 되돌림」 어긋남 열림 · §3-f 판정 412 · §3-g 가격(판정 403 · 403 고침 · 408) 새로

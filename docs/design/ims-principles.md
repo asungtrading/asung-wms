@@ -517,6 +517,8 @@ WMS      헤더에 로고 + 모드만 더한다 · 탭 줄 · ☰ Menu 그대로
 ⭐ [2026-10-08 밤 · 집 PC · 판정 398 ~ 400 · so-module §54] **할인 원가 ② ~ ⑥ 끝** — 입고 기준 단가 = 확정 인보이스(핀) · 공통 조정 장치 · 결제 할인 · To pay · 비용 청구서 할인 · 가격 크레딧 · 환율 차액 · 화면 넷(asung-wms ec38429 ~ 4c134f7 · asung-ims 066d2e2 ~ bf94422) · 다음 = 끝에서 끝 시험(미룬 158) → 상품 설명 칸(판정 381) → Shopify
 ⭐ [2026-10-09 · 회사 PC · 판정 401 · so-module §55] **상품 설명은 IMS 가 고친 것만 IMS 가 주인** — 손대지 않은 설명은 재적재가 Cin7 원문을 따라 채우고, 한 번 고친 설명은 재적재가 건드리지 않는다 · 고친 기록은 시각과 사람으로(솎아내기 · 되돌리기) · DB desc-1b 9184853 · 화면 desc v1 · v1a
 ⭐ [2026-10-09 · 판정 402 · so-module §55] **설명 HTML 거르기** — 허락 유튜브 · 페이스북 iframe · 모든 img · 서식 / 거름 그 밖의 iframe(POWR) · script · on…= · javascript: · object · embed · form · meta · link · base · 허락 출처는 설정 표 ref_embed_host 에 한 줄씩 · Cin7 원문은 늘 남는다 · 끝에서 끝 시험(미룬 158) 닫힘 · 다음 = Shopify 연동 · 다음 판정 번호 403
+⭐ [2026-10-09 오후 ~ 10-10 · 판정 403 ~ 413 · so-module §56] **Shopify ① 바탕 · ② 상품 보내기 끝**(테스트 DB · 시험 스토어 asung-ims-test · asung-wms 584aaf0 ~ 2f6136f · asung-ims ss v1 · v1a · cron 42 · 43) · 순서 ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 · 다음 판정 번호 414
+⭐⭐ [2026-10-10 · 판정 413 · 409 · 410] **IMS 주권 — 데이터의 주인은 IMS · 바깥 시스템은 IMS 를 따른다 · 사람 몫은 이름을 붙여 따로 둔다** — Caleb 「데이터를 주권은 IMS에 있는거고, 나는 그렇게 설계되기를 원해. 내가 원하던 바야.」 · Shopify 의 status(Active/Draft · 413) · 사진(IMS 목록대로 · 409) · 태그(IMS 가 주인 · 410)는 IMS 값으로 덮인다 · 상품을 숨기는 정식 길은 IMS 「보냄 끄기」 하나 · 사람 몫은 판매 채널 퍼블리시 · Collections · 메타필드 · SEO · Category · Theme 로 이름 붙여 따로(IMS 는 보내지도 건드리지도 않는다 · shopify-integration §3-a)
 ⭐ [2026-10-05 · 판정 242 · 243 · so-module §42] 목록이 있는 IMS 화면은 모두 두 모드 — 넓은 목록(화면 전체 · 검색 · 거르기 · 만들기) → 고르면 좁은 목록 + 상세(☰ List · ‹ All ○○ · ?id=) · 공통 #wide · .wfilt 를 같은 id 로 · 판정 209(products)가 처음 · customers · suppliers 가 따랐다
 
 ---
