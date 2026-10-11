@@ -589,7 +589,7 @@ $job$);
 --                                       select cron.alter_job(48, active := false);   -- [실측] jobid 48 ims-orders-poll
 -- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-orders-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname like 'ims-orders-%') order by start_time desc limit 10;
 
--- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 42 · 44 · 47 · 48 고침 [⬜ Caleb 이 돌린 뒤 날짜를 적는다] ord-1b2 (2026-10-10 밤 · 판정 363 · EF ord-1b2 · DB 20261011020000) — pg_net 기다림 · orders-drain 조건
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 42 · 44 · 47 · 48 고침 [✅ 2026-10-11 01 시 UTC 무렵 · Caleb 실행 · 아래 do 블록 · so-module §60-d] ord-1b2 (2026-10-10 밤 · 판정 363 · EF ord-1b2 · DB 20261011020000) — pg_net 기다림 · orders-drain 조건
 --   ① pg_net 기다림: net.http_post 의 timeout_milliseconds 는 기본 5000(pg_net 0.20.4 · 테스트 DB pg_proc 실측 · 문서 github.com/supabase/pg_net README「net.http_post(url, body, params, headers, timeout_milliseconds)」) — EF 한 회차가 5 초를 넘으면(orders_drain 6 초 실측 · 시간 한도 40 s)
 --      net._http_response 가 status_code · content 비어 있고 error_msg 가 「Timeout was reached」 로 남는다(EF 자체는 끝까지 돈다 · 짐작) ⇒ EF 를 부르는 넷(42 ims-shop-drain · 44 ims-stock-drain · 47 ims-orders-drain · 48 ims-orders-poll)에 45000 을 준다
 --      (drain 셋의 시간 한도 40 s + 마지막 건 + 응답 — 30000 이면 긴 회차의 응답을 또 잃는다 · 1 분 주기 안)

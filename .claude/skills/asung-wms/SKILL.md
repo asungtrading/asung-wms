@@ -387,6 +387,13 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - **상품 drain 칸 셈**(판정 424 ②): DRAIN_FETCH 200 을 읽고 **보낸 것(ok · error)만** DRAIN_MAX 20 에 센다 · skipped_same_hash 는 안 센다 · 20 건 또는 40 s(DRAIN_TIME_MS) · 새벽 상품 맞추기(shop_queue_all)는 hash 가 다른 것만 줄에(424 ① · 실물 0)
   - **cron [테스트 DB]**: jobid **44** ims-stock-drain `* * * * *`(열린 재고 줄이 없으면 EF 를 안 부른다) · **45** ims-stock-diff `0 * * * *`(낮 다른 것만 · Shopify 호출 0) · **46** ims-stock-nightly `15 8 * * *`(전부 force · 상품 nightly 43 뒤 15 분) · 킬 스위치 `select cron.alter_job(44, active := false);` · `(45, …)` · `(46, …)` · 열쇠는 jobid 42 줄에서 꺼내 등록(파일에 없음 · cron.sql)
   - 실물: 원장 −1 → **48 초** 뒤 Shopify Toronto 42(위치 단위 · Edmonton 은 안 보냄) · 첫 손 drain 22 숫자 cost 147 · 상수 100 · 500 · 40 s 는 운영 cost 로 다시 잰다(so-module 미룬 182)
+- **④ 오더 받기**(판정 363 · 430 ~ 435 · DB ord-1a1 `901e4c7` · 1a2 `98b92bd` · 받은 일 표 + EF ord-1b · 1b2 `7eeaf3a` · 1b3 `e425d3e` · 화면 asung-ims wo v1a · so-module §60 · 정본 shopify-integration §2):
+  - **웹훅 문 = 셋째 문**(Bearer · cron 열쇠 **앞에서** · 헤더 `X-Shopify-Topic` 이 있으면 이 길): 원문 바이트의 HMAC-SHA256 = 그 스토어(`X-Shopify-Shop-Domain`) secret_prefix 의 **CLIENT_SECRET** · base64 · 상수 시간 비교 → 실패 401 · 모르는 스토어 200(기록만) · 몸(REST 모양)에서 오더 GID 만 `shop_order_inbox_add` → **바로 200**(5 초 시한 · ingest 는 drain 이) · 구독 = shop-specific `webhooks_subscribe`(ORDERS_CREATE · UPDATED · CANCELLED · 권한 manager = shopify)
+  - **orders_drain**: 받은 일 열린 줄 → GraphQL 로 다시 읽기(order_read 쿼리) → `shop_order_ingest`(원문 먼저) → received 면 `shop_order_process` → 줄 닫기 · 그 뒤 **sweep** = 받은 일 없이 status received 인 오더(직원이 resolve 로 푼 것)를 **다시 읽지 않고** process(다시 읽어 ingest 하면 줄을 다시 풀어 resolve_lines 가 지워진다) · 시간 한도 40 s
+  - **orders_poll**: 스토어마다 `updated_at:>` orders_polled_at − 5 분 · **바뀐 오더만** 받은 일에(updatedAt 을 shop_order.shopify_updated_at 과 **ms 로** 견줌 — Shopify `Z` · PostgREST `+00:00` · 글자로 견주면 전부 다름) · skipped_same · skipped_open — ⚠️ 견주지 않으면 겹침 5 분 때문에 마지막 오더들이 15 분마다 다시 들어가 resolve_lines 로 고른 줄을 지운다(ord-1b3)
+  - **order_read**(직원 · 쓰기 0): 오더 하나(GID · 숫자 · #1001) 원문 + 가림 보고 — 보호된 손님 정보는 신청 없이 된다(2026-10-11 확정)
+  - ⚠️ EF 는 `shop_system_enter · leave` 를 부르지 않는다(시스템 창구 안에서만) · ingest · process · inbox_add 는 service_role rpc
+  - **cron [테스트 DB]**: jobid **47** ims-orders-drain `* * * * *`(받은 일 열린 줄 **또는** received 인 shop_order 가 있을 때만) · **48** ims-orders-poll `*/15 * * * *` · ⚠️ EF 를 부르는 넷(42 · 44 · 47 · 48)은 `net.http_post(…, timeout_milliseconds := 45000)` — pg_net 0.20.4 기본 5000 이라 긴 회차의 응답을 잃었다 · 킬 스위치 `select cron.alter_job(47, active := false);` · `(48, …)` · 열쇠는 jobid 42
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)
 

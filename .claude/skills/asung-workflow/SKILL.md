@@ -404,6 +404,7 @@ EOF
 ⭐ [2026-10-05 · 판정 243] 목록 화면은 두 모드가 기본 — 새 화면을 쓰기 전에 products · so · po 의 #wide · 좁은 목록 · navBtns(☰ List · ‹ All ○○) · ?id= 모양을 먼저 연다
 ⭐ [2026-10-05 · so-module §42-d 2] 고르기 칸은 지금 값이 목록(켜진 참조)에 없으면 「(current · inactive)」 줄을 더해 그대로 — 안 바꾼 칸이 바뀐 것으로 저장되지 않게(손님 Net30 6,305)
 ⚠️ [2026-10-06 · so-module §46-d 4] 화면이 문서를 여는 모양은 `location.search` 만이 아니라 **공통 `imsParam(`** 으로도 훑는다 — so-credits.html(`?cr=<번호>`)을 놓쳤다 · so.html 은 `?so=<번호>`(?id= 아님)
+⚠️⚠️ [2026-10-11 · so-module §60-e 1] **다른 화면으로 가는 링크를 쓰기 전에 그 화면이 받는 인자를 grep** — 재발(Web Orders 의 Open SO 를 `so.html?id=` 로 · wo v1a 고침) · 이름이 같아도 값의 뜻이 다르다: so.html `?so=<SO 번호>` ↔ shopify-orders.html `?so=<so id(uuid)>`
 ⚠️ [2026-10-06 · docs-1006c] **화면 옮기기 명령에는 커밋 · 푸시까지 붙인다** — 옛 판을 보고 「칸이 없다」고 물었다(대화 Claude 📌)
 ⭐ [2026-10-07 · so-module §51-d 10] **검색 · 이름 칸은 처음부터 `type=search` · `autocomplete=off`** — dr v1 손님 검색 칸을 크롬 주소 자동 완성이 가로챘다 · jsdom 은 못 본다
 ⭐ [2026-10-07 · §51-d 11] **막기 창에는 다음 걸음 단추** — changed_elsewhere 창에 「닫기」만 있었다 → Load the latest version(dr v1a)
@@ -659,3 +660,10 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    2 [Claude Code] 시험 SQL 에 current_date(토론토 저녁엔 UTC 가 내일) ⇒ ims_today()(§4 날짜 줄)
    3 [대화 Claude] 원장 시험 덩이를 cron 등록 뒤로 ⇒ §4 자동 경로 시험은 cron 등록 뒤에
    4 [잘 된 것] 멱등 키에 수량만 쓰면 새벽 덮기가 「이미 처리됨」으로 막힌다는 것을 Claude Code 가 스스로 잡았다(큐 줄 id 를 넣음) · 문서로 확인 못 한 「또 불러도 무해」에 기대지 않고 읽어서 판단(위치 활성)
+⚠️ **[2026-10-10 밤 ~ 10-11 ④ 오더 받기 · so-module §60-e]**
+   1 [대화 Claude] Web Orders 의 Open SO 링크를 so.html?id= 로 — so.html 은 ?so=<SO 번호> ⇒ 다른 화면으로 가는 링크는 그 화면이 받는 인자를 먼저 grep(§6 · 값의 뜻도)
+   2 [대화 Claude] so 표 칸 이름 짐작(ship_state — 없다) — inv_available_base 결과 칸 짐작과 같은 뿌리 ⇒ 칸은 정의를 보고(§5)
+   3 [대화 Claude] Shopify 관리자 「Create order」 는 Draft 로 저장된다 — Payment due later 를 눌러야 오더가 되고 웹훅이 간다 · 말하지 않아 주기 확인 seen 0 을 원인 찾기에 썼다 ⇒ 시험 절차의 상대 시스템 화면 걸음은 「저장 뒤 무엇이 되는가」까지 적는다
+   4 [대화 Claude] ord-1b 커밋 출력을 받지 않고 다음 차수로 넘어가 1b2 와 같은 파일이 섞였다(한 커밋 7eeaf3a) ⇒ 커밋 출력(해시)을 받기 전에 다음 차수로 가지 않는다
+   5 [Claude Code · ord-1b2] verify 1 회차가 멈춰 꼬리의 setval 이 안 돌았다(so_number_seq 25081 → 25084 · 되돌림) ⇒ 시퀀스를 쓰는 verify 가 중간에 멈추면 그 자리에서 setval greatest 로 되돌리고 보고에 적는다
+   7 [발견 · 고침] 주기 확인이 바뀌지 않은 오더를 다시 넣었다 — 겹침 창 + 견주기 없음 ⇒ 시각은 ms 로 견준다(Z ↔ +00:00 · ord-1b3)

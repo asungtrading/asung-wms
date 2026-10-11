@@ -239,7 +239,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  so_detail 은 shipped·fulfilled 에서 basis shipped(보낸 수량 · 인보이스가 정본 · ⓑ2 부터 invoiced 상태 값 없음) · so_family_* 남은 수량 = 주문 − 뺀 것 − 보낸 것 · fulfilled 로 옮기는 때·발행 시점 잔액·취소 가드는 ⓑ → 4-h
 ⭐⭐ [2026-10-07 · §52] 운임 할인 — so_charge.discount_pct | discount_amount(하나 · 식 so_charge_discount) · 세금은 줄마다 · 인보이스 줄 kind 다섯(product · charge · order_discount · surcharge · charge_discount — 운임 줄 바로 뒤 · 음수) · 머리 · 오더 charges_discount_amount(charges_amount 는 정가) · 계정 inv_config so_freight_discount_account_code(_6_ · 비면 할인 운임 발행만 막는다)(판정 352 ~ 358)
 ⚠️  [2026-10-08 · 판정 382 · §53] 오피스 단추 이름 = **Ship & invoice**(so v5q) — 상태 Finalized = 물건이 준비됨 · Fulfilled = 우리 손을 떠남 · 창고 단추 Finalize · 창구 so_finalize 이름은 그대로 — 단추와 상태를 같은 말로 부르지 마라
-📌  [2026-10-08 · 판정 362 ~ 381] Shopify 연동 설계 정본 = docs/design/shopify-integration.md(설계만 · 손님 찾기 4단계 · 브랜치 라우팅 · 무료 배송 = 운임 + 할인 100% · 칸의 주인 · Available 에 맞춘다)
+📌  [2026-10-08 · 판정 362 ~ 381] Shopify 연동 설계 정본 = docs/design/shopify-integration.md(~~설계만~~ → ①~④ 테스트 DB 실물 · 손님 찾기 4단계 · 브랜치 라우팅 · 무료 배송 = 운임 + 할인 100% · 칸의 주인 · Available 에 맞춘다) · 웹 오더는 4-o
 ⭐  [2026-10-07 · §52] 상태 칩 색 — SO(판정 359): Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강 · Shipped 는 인보이스 취소 뒤에만(칩 「Invoice cancelled」) · PO(판정 360)는 asung-po §0
 ```
 
@@ -340,6 +340,21 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 크레딧 — 콤보 단위(판정 245): 콤보 크레딧 줄(금액 · qty = 콤보 수 · 칸 · 사유 없음) + 구성품 크레딧 줄(금액 0 · 제 칸 또는 사유 · combo_credit_line_id · 재고는 이 줄) · 요청 lines[].components[] · 구성품 하나만 = 「other」 금액 줄(재고 안 움직임) · 멀쩡한 하나가 돌아오면 재고 조정
 ⚠️  so_line_requote 는 구성품 줄을 거부 · so_reprice 는 kept(combo_component) · so_merge 는 열쇠 + combo_sig(정의가 다른 같은 콤보는 따로) · 구성품을 다시 매단다
 ⭐  콤보 정의는 product_bom_set(asung-po §4-c) · 새 콤보 SKU 는 「+ New product」 → 「Make combo」(판정 250)
+```
+
+## 4-o. ⭐⭐ 웹 오더(Shopify ④ 오더 받기) — 모르면 사고 (정본 shopify-integration §2 · so-module §60 · 판정 430 ~ 435)
+
+```
+⭐⭐ 웹 오더 SO = 시스템 창구 shop_order_process 가 만든다 — so_create(**intake shopify · 채널 warehouse 만** · 다른 채널이면 거부) · 만든 사람 = 시스템 직원(ims_staff.is_system · 로그인 불가)
+     시스템 창구 안에서만 shop_system_enter ↔ shop_system_leave(짝 · set_config local) — 기존 창구(customer_create · so_* )를 그대로 부른다 · EF · 화면은 enter 를 부르지 않는다
+⭐⭐ 채널은 Warehouse 그대로 · 들어온 길 = so.intake shopify(판정 435) — **통계 · 보고서는 「채널 × 들어온 길(intake) × 웹 스토어」 로 나눈다**(채널만 세면 웹 오더가 창고 오더에 섞인다)
+⭐⭐ 줄 할인 출처 discount_source **shopify**(손님이 본 정가 · 할인 그대로 · 판정 431) — IMS 규칙과 다르면 경고 discount_mismatch · list_price_mismatch(값은 안 바꾼다)
+     **shopify 줄은 다시 매기기에서 건너뛴다**(판정 433 · so_line_requote · so_line_update · so_reprice reason shopify_discount) — 수량 · 손님을 바꿔도 할인 % 그대로 · 같은 SKU 를 직원이 더 넣으면 그 줄에 합쳐진다
+⭐⭐ Shopify 취소(판정 434) — SO 가 만들어진 뒤(shop_order.so_baseline_at) so · 줄 · 운임이 한 번도 안 바뀌었고 draft | confirmed 면 시스템이 so_cancel(자동 취소) · 바뀌었거나 창고 뒤면 경고 cancel_needs_review 만(SO 무접촉)
+     ⇒ 직원이 웹 오더 SO 를 고치면 그 뒤 Shopify 취소는 사람 몫이 된다 · Shopify 에서 바뀐 오더(취소 아님)도 SO 무접촉 + 경고 updated_after_so
+⭐  브랜치 = 배송지 주 먼저(판정 430 · AB · BC · SK → Edmonton · 주가 없으면 손님 기본 · aone 늘 Toronto) · 세금은 배송지(Shopify 배송지를 so_header_update 로 그대로) — 주가 없으면 no tax rule → draft + confirm_blocked
+⭐  웹으로 처음 온 손님은 시스템이 만들고 바로 검토 완료(판정 432) · 첫 오더도 자동 확정 · 이메일이 손님 여럿에 있으면 needs_review → 직원이 shop_order_resolve_customer · 못 찾은 줄은 shop_order_resolve_lines
+⚠️ 운임 — asung.ca 는 SO 운임 줄을 만들지 않는다(경고 freight_not_applied · 웹 결제 오더 운임은 열어 둠) · 오더 전체 할인은 0 + 경고 order_discount_dropped
 ```
 
 ## 5. 이 스킬을 갱신할 때

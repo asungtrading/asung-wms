@@ -7,6 +7,7 @@
 ⭐ [2026-10-10 · tag-0] 화면 shop-2c(asung-ims shop v1 · pr v5 · fam v3 `32dae11` · v1a `f3fabf9` · v1b `e563a8e` · 아래 §3-h) · 판정 414 ~ 416 · 다음 판정 번호 417
 ⭐ [2026-10-10 저녁 · so-module §58] **③ 재고 올리기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB stock-1a `8feb7b3` · EF stock-1b `0192bf3` · 화면 stock-1c(asung-ims shop v2 `8f41b93`) · cron jobid 44 · 45 · 46 · 판정 421 ~ 425(아래 §3-d) · 다음 판정 번호 **426** · 할 일 §7(테마 글자 · Caleb)
 ⭐ [2026-10-10 밤 · so-module §59] 태그 보내기 = IMS 태그 전부(판정 426) · 품절 판매를 스토어마다 `shop_store.oos_policy`(판정 427) · 단종 DENY(판정 428) · 171 정리(판정 429) — DB shop-pol `8cd08a7` · 화면 ss v2(asung-ims `34ea859`) · 다음 판정 번호 **430**
+⭐ [2026-10-11 · so-module §60] **④ 오더 받기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ord-1a1 `901e4c7` · ord-1a2 `98b92bd` · EF + 받은 일 표 ord-1b · 1b2 `7eeaf3a` · ord-1b3 `e425d3e` · 화면 ord-1c(asung-ims wo v1 · so v5r · nav v7 `f66419f` · wo v1a `8df43b7`) · cron 47 · 48 · 판정 430 ~ 435(아래 §2) · 다음 판정 번호 **436**
 
 ---
 
@@ -33,8 +34,19 @@
 
 ## 2. 오더 들어오기
 
-### 2-a. 받는 길 (판정 363)
+### 2-a. 받는 길 (판정 363 · 431 ① · 실물 ord-1b · 1b3)
 - 웹훅 + 주기적 확인을 함께 쓴다(웹훅이 빠져도 확인이 줍는다) · Shopify 오더 번호로 두 번 들어가지 않게 한다
+- [2026-10-11 · so-module §60] 실물 모양:
+```
+웹훅          Shopify → EF shopify(헤더 X-Shopify-Topic 이 있으면 이 길) · HMAC = 그 스토어 secret_prefix 의 CLIENT_SECRET · 몸(REST 모양)에서 오더 GID 만 → 받은 일 표(shop_order_inbox) → 바로 200
+              구독 셋 ORDERS_CREATE · UPDATED · CANCELLED(shop-specific · webhooks_subscribe · 권한 manager = shopify)
+              orders/updated 가 orders/create 보다 먼저 오기도 한다 → 받은 일은 오더마다 열린 줄 하나라 한 줄로 합쳐진다
+주기 확인      cron 48 · 15 분 · orders(updated_at:> 마지막 − 5 분) → **바뀐 오더만** 받은 일에(updatedAt 을 shop_order.shopify_updated_at 과 견줌 · ord-1b3)
+drain         cron 47 · 1 분 · 받은 일 → GraphQL 로 다시 읽기 → shop_order_ingest(원문 먼저 · 판정 431 ①) → received 면 shop_order_process → SO
+              그 뒤 받은 일 없이 received 인 오더(직원이 풀었다)를 저장된 원문으로 process(sweep)
+60 일          지난 오더는 끌어오지 않는다(read_all_orders 신청 안 함)
+```
+- **보호된 손님 정보는 신청 없이 된다(확정 · 2026-10-11 · order-read #1001)** — 손님 · 이메일 · 전화 · 주소가 다 읽힌다 · Dev Dashboard 에 신청 칸 없음
 
 ### 2-b. 손님 찾기 4단계 (판정 364)
 ```
@@ -46,10 +58,13 @@
 - 근거 실측(테스트 DB · Caleb 2026-10-08): 활성 연락처 이메일 9,414 중 66 개가 손님 237 명에 겹친다 · 최대 18(herabeauty) · clorebeauty 14 · bswcanada 13 · bci 6 — 체인의 회계 · 구매 이메일
 - Caleb 「체인매장도 각각의 스토어 어카운트를 지녀」 — 그래서 ① 이 첫째다
 
-### 2-c. 브랜치 (판정 365)
+### 2-c. 브랜치 (판정 365 → 430)
 ```
-asung.ca          손님의 기본 브랜치 · 비었으면 주소로 — AB · BC · SK → Edmonton · 나머지 → Toronto
-aonebeauty.com    늘 Toronto
+~~asung.ca          손님의 기본 브랜치 · 비었으면 주소로 — AB · BC · SK → Edmonton · 나머지 → Toronto~~ → 판정 430
+asung.ca          **배송지 주 먼저** — AB · BC · SK → Edmonton · 그 밖 → Toronto · 주가 없으면 손님 기본(Caleb 「배송지 주를 먼저 본다 A가 맞아 보여」)
+                  근거: 손님 9,469 중 기본 Edmonton 135 뿐 · 배송지 AB 손님도 기본 Toronto 667 · Edmonton 86 — 손님 기본은 지역을 말하지 않는다
+aonebeauty.com    늘 Toronto(위치 짝이 하나뿐인 스토어는 그것 · 판정 427)
+⚠️ Edmonton 은 창고 이름(%edmonton%)으로 찾는다 — ref_warehouse 에 지역 칸이 없다(so-module 미룬 192)
 재고로 고르지 않는다   Caleb 「인벤토리로 하게 되면 오더도 갈라지고 복잡한게 너무 많아서」
 다른 브랜치 요청   IMS 의 확정 되돌리기(supervisor) → 창고 변경 → 다시 확정 — ⬜ 이 장면은 끝에서 끝 시험을 아직 안 했다
 ```
@@ -58,9 +73,17 @@ aonebeauty.com    늘 Toronto
 - SKU 글자 그대로 찾는다(Shopify SKU = 우리 SKU) · Shopify 에서 상품을 만들지 않는다 · 웹 세트 판매는 하나뿐
 - 못 찾은 줄(없음 · 꺼짐 · 판매 안 함)이 있으면 자동 확정하지 않고 **초안 + 확인 필요**
 
-### 2-e. 가격 (판정 367)
+### 2-e. 가격 · 할인 어긋남 (판정 367 · 431 · 433)
 - Shopify 금액을 쓰되 정가 · 할인을 갈라 담는다 · IMS 계산과 다르면 경고
-- Shopify 가격 · 손님 기본 할인 · 딜은 앱 「Wholesale All In One」 이 웹에 같은 규칙으로 건다(Caleb) · ⬜ 앱이 할인을 오더 데이터에 남기는 모양은 시험 스토어에서 확인
+- Shopify 가격 · 손님 기본 할인 · 딜은 앱 「Wholesale All In One」 이 웹에 같은 규칙으로 건다(Caleb) · ~~⬜ 앱이 할인을 오더 데이터에 남기는 모양은 시험 스토어에서 확인~~ → ✅ asung.ca 오더 CSV 50(so-module §60-b): 앱 오더 47 은 **할인을 줄마다**(Lineitem price = 정가 · Lineitem discount) · 할인 코드 0 · 운임 0 · NetTerm · pending · 앱은 시험 스토어에 설치할 수 없었다
+```
+판정 431    Caleb 「할인은 현재는 cin7과 샤피파이 wholesale all in one을 동기화하기 어려워서 양쪽에 똑같이 만들어서 쓰고 있어」 → 「그대로 짓자」
+            줄 = 손님이 본 정가 · 할인 그대로 · discount_source **shopify** · 만든 사람 = 시스템 직원(Shopify)
+            IMS 규칙 계산과 다르면 경고 discount_mismatch(SKU · Shopify % · IMS %) · 정가가 다르면 list_price_mismatch — 두 곳 손 맞추기의 안전망 · 값은 바꾸지 않는다
+판정 433    shopify 줄은 다시 매기기(so_line_requote · so_line_update · so_reprice)에서 건너뛴다 — 직원이 수량 · 손님을 바꿔도 할인 % 그대로
+            ⚠️ 같은 SKU 를 직원이 더 넣으면 shopify 줄에 합쳐진다(할인 % 그대로 · 수량만 · 미룬 194)
+오더 전체 할인  0 으로 두고 경고 order_discount_dropped(ord-1a2 이견 6 · 기본으로 둔 것)
+```
 
 ### 2-f. 세금 (판정 368)
 - IMS 가 계산한다(줄마다 · so-module §16) · Shopify 세금과 다르면 경고 · Caleb 「샤피파이도 줄마다 계산해」
@@ -68,6 +91,7 @@ aonebeauty.com    늘 Toronto
 ### 2-g. 운임 (판정 369)
 ```
 asung.ca          운임 없이 내려온다 · 출고 때 IMS 에서 넣는다
+                  ⚠️ [2026-10-11 · CSV] 앱 오더(NetTerm)는 운임 0 이 맞지만 **일반 웹 결제 3 중 2 가 운임을 받았다**(AS-6994 Expedited Parcel 11.69 · AS-6995 13.92) — 판정은 열어 둠(Caleb 조사 · 미룬 191) · 지금은 받은 오더에 금액 · 제목만 · SO 운임 줄 없음 · 경고 freight_not_applied
 aonebeauty.com    손님이 낸 배송비를 확정 값으로 — Ship & invoice 가 고치지 않는다
 무료 배송          「운임 + 운임 할인 100%」로 담는다(so-module §52 운임 할인)
                   ⚠️ 그러려면 Shopify 의 「$50 이상 Free」 배송 요금 줄을 「무료 배송 자동 할인」으로 바꿔야 한다 — 지금은 요금 조건 방식이라 원래 운임이 데이터에 없다
@@ -80,9 +104,27 @@ aonebeauty.com    손님이 낸 배송비를 확정 값으로 — Ship & invoice
 ### 2-i. 상태 (판정 371)
 - 깨끗하면 저절로 확정 · 재고 없는 줄은 확정이 백오더로 저절로 갈라낸다(되돌리고 나누고 다시 확정할 일이 없다)
 
-### 2-j. Shopify 에서 취소 (판정 372)
+### 2-j. Shopify 에서 취소 (판정 372 → 434)
 - Release 전이고 IMS 에서 손대지 않았으면 IMS 도 저절로 취소 · 아니면 Action Center 알림
 - 웹 오더는 원칙상 고치지 않는다 — Caleb 「오더 변경은 원칙적으로 불가 · 캔슬하고 다시 넣거나 추가오더」
+- [판정 434 · Caleb 「그렇게 정하자」] **「손대지 않았음」 = SO 가 만들어진 뒤(so_baseline_at) IMS 에서 so · 줄 · 운임이 한 번도 안 바뀜** — 조심스러운 쪽
+```
+SO 전(received · needs_review · error)   그냥 닫는다(closed_before_so · error 도 — ord-1b2)
+SO draft | confirmed + 안 바뀜          시스템이 so_cancel → 자동 취소(경고 auto_cancelled 하나 · 「손으로 확인」 경고는 붙이지 않는다 — ord-1b2) · 실물 18 초
+바뀜(changed_in_ims) · 창고 뒤(in_warehouse)   경고만 cancel_needs_review(+ updated_after_so · cancelled_in_shopify) · SO 무접촉
+취소 실패                               cancel_failed
+```
+- Shopify 에서 오더가 바뀌면(취소 아님) SO 는 무접촉 · 경고 updated_after_so(실물 #1002 메모 고침)
+
+### 2-k. 화면 — Web Orders · 채널 × 들어온 길 (판정 432 · 435 · asung-ims ord-1c)
+```
+Web Orders(shopify-orders.html · Sales 탭 · 열쇠 sales)   받은 웹 오더 목록 · 상세(손님 · 브랜치 · 줄 · 까닭 · 경고 · SO 링크 · Shopify 관리자 링크) · 손님 고르기 · 못 찾은 줄 고르기 · 지금 처리(shopify)
+                                                          Open SO = so.html?so=<SO 번호>(wo v1a)
+새 손님(판정 432)   웹으로 처음 온 손님은 시스템 직원이 만들고 바로 검토 완료 · 첫 오더도 자동 확정
+채널(판정 435)      **Warehouse 그대로** · 들어온 길 = so.intake shopify — Caleb 「B가 맞을 것 같아」 → 「A로 바꾸자」(대화 Claude 「A 로도 통계는 intake 로 가른다」)
+                   Sales Orders 목록 Channel 「Warehouse · Shopify」 · 필터 Shopify (web) · 상세 칩 「From Shopify · #ref」(→ Web Orders)
+통계 · 보고서       「채널 × 들어온 길(intake) × 웹 스토어」 로 나눈다 — 예: asung.ca 웹 매출 = intake shopify + 스토어 asung
+```
 
 ---
 
@@ -229,11 +271,13 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 ## 5. ⬜ 열린 확인 거리 (시험 스토어에서)
 
 ```
-① 앱(Wholesale All In One)이 할인을 오더 데이터에 남기는 모양(2-e)
+~~① 앱(Wholesale All In One)이 할인을 오더 데이터에 남기는 모양(2-e)~~ → ✅ 줄마다(asung.ca CSV · so-module §60-b · 앱은 시험 스토어에 설치 못 함)
 ② 무료 배송 자동 할인과 앱 할인의 겹침 · Shopify 설정 바꾸는 법(2-g · 대화 Claude)
-~~③ Available 숫자 대조 — 위치별 · 웹 오더 직후(3-d)~~ → ✅ 위치별 대조 끝(2026-10-10 · 3-d 실물) · 웹 오더 직후는 ④ 오더 받기 때
+~~③ Available 숫자 대조 — 위치별 · 웹 오더 직후(3-d)~~ → ✅ 위치별 대조 끝(2026-10-10 · 3-d 실물) · ✅ 웹 오더 직후도(2026-10-11 · #1001 확정 → 재고 drain 이 Available 을 줄임)
 ④ 다른 브랜치로 바꾸기 장면 끝에서 끝(2-c)
-⑤ 컷오버 뒤 앱 규칙(딜 · 손님 할인) 두 번 입력 — IMS 와 앱(so-module 미룬 149)
+⑤ 컷오버 뒤 앱 규칙(딜 · 손님 할인) 두 번 입력 — IMS 와 앱(so-module 미룬 149) · 어긋나면 discount_mismatch 경고가 잡는다(판정 431)
+~~⑥ 보호된 손님 정보(ord-0 ⬜1)~~ → ✅ 신청 없이 된다(2026-10-11 · 2-a)
+⑦ asung.ca 웹 결제 오더 운임 — 지금은 받은 오더에 금액 · 제목만 · 경고 freight_not_applied(Caleb 조사 중 · so-module 미룬 191)
 ```
 
 ## 6. 갱신
@@ -246,6 +290,7 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 - [2026-10-10 오후 · so-module §57 · stock-0] §3-e 태그 적재 실물(c61ba04 · 63,501 · 판정 417 · 418) · 운영 순서(태그 적재 → send_tags → 보냄) · §1-a 컷오버 보냄 첫 상태 새로(판정 420)
 - [2026-10-10 저녁 · so-module §58 · docs-1010c] 상태 줄에 ③ 끝 · §3-c 판정 406 옆 425 · §3-d 재고를 판정 421 ~ 425 · stock-1a · 1b · 1c 실물 · cron 44 · 45 · 46 으로 채움 · §3-e 판정 424 · §3-h shop v2 · §5 ③ 닫힘 · §7 할 일 새로
 - [2026-10-10 밤 · so-module §59 · docs-1010d] 상태 줄 · §1-a 컷오버 할 것(aone 위치 짝 Toronto 하나 · 재고 상태 태그 구현 끄기 · 171 정리) · §3-c 판정 427 · 428(407 바뀜) · 스토어 트리거 · §3-e 판정 426 · §7 테마 글자 asung.ca 에만 · 할 일 둘
+- [2026-10-11 · so-module §60 · docs-1011] 상태 줄에 ④ 끝 · §2-a 실물 모양 · 보호된 손님 정보 확정 · §2-c 판정 430(365 바뀜) · §2-e 판정 431 · 433 · CSV · §2-j 판정 434 · §2-k 화면 · 채널 × intake(판정 432 · 435) 새로 · §5 ① ③ 닫힘 · ⑥ 닫힘 · ⑦ 운임 · §7 그대로
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
