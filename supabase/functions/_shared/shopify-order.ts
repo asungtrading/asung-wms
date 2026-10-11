@@ -7,6 +7,7 @@
 //   · drain 순서(DB 가 정한 것): ingest → status received 면 process · 그 밖은 멈춤 · 같은 오더를 몇 번 읽어도 된다
 //   · ord-1b2: 받은 일 줄 없이 status = received 인 shop_order(직원이 resolve 로 풀었거나 앞 회차가 시간 한도로 process 전에 멈춘 것)도 drain 이 줍는다 — Shopify 를 다시 읽지 않고 저장된 원문으로 process 만
 //     (다시 읽어 ingest 하면 줄을 다시 풀어 resolve_lines 로 고른 SKU · 뺀 줄이 사라진다) · 열린 받은 일 줄이 있는 오더는 그 길이 맡는다(sweepPick)
+//   · ord-1b3: 주기 확인은 바뀐 오더만 받은 일에 — 페이지마다 shop_order 를 한 번 읽어 updatedAt 을 견준다(pollPick · 같으면 skipped_same) · 받은 일 열린 줄이 이미 있으면 inbox_add 가 null(skipped_open)
 // ============================================================
 import { API_VERSION } from "./shopify.ts";
 
@@ -115,6 +116,20 @@ export function maxUpdatedAt(nodes: Array<{ updatedAt?: string | null }>, curren
   for (const n of nodes) { const u = n.updatedAt ?? null; if (u && (!best || u > best)) best = u; }
   return best;
 }
+// ord-1b3 — 바뀐 오더만: 페이지의 오더마다 updatedAt 을 shop_order.shopify_updated_at(같은 스토어 · 같은 GID)과 견줘 없거나(모르는 GID · 저장된 시각 없음) 더 새것만 받은 일에 · 같거나 오래된 것은 건너뜀(same)
+//   since = orders_polled_at − 5 분 겹침이라 새 활동이 없으면 마지막 몇 오더가 15 분마다 계속 보인다(실물 2026-10-11 01:15 · 01:30 seen 2 · 3 added 2 · 3) — 다시 ingest 하면 received · needs_review 의 줄을 다시 풀어 resolve_lines 가 지워진다
+//   시각은 Date.parse 로 견준다(Shopify 'Z' · PostgREST '+00:00') · 못 읽으면 줍는다(안전 쪽)
+export type KnownOrder = { shopify_order_gid: string; shopify_updated_at: string | null };
+export function pollPick<T extends { id: string; updatedAt?: string | null }>(nodes: T[], known: KnownOrder[]): { add: T[]; same: T[] } {
+  const have = new Map<string, number>(known.map((o) => [o.shopify_order_gid, o.shopify_updated_at ? Date.parse(o.shopify_updated_at) : NaN]));
+  const add: T[] = [], same: T[] = [];
+  for (const n of nodes) {
+    const h = have.get(n.id), u = n.updatedAt ? Date.parse(n.updatedAt) : NaN;
+    if (h === undefined || !Number.isFinite(h) || !Number.isFinite(u) || u > h) add.push(n); else same.push(n);
+  }
+  return { add, same };
+}
+export const gidInFilter = (gids: string[]) => 'in.(' + gids.map((g) => '"' + g + '"').join(",") + ")";   // PostgREST in.("gid://…","gid://…") · 부르는 쪽이 encodeURIComponent
 
 // ── drain 판정 — DB 가 돌려준 status 로 다음 걸음 ──
 export type IngestOut = { shop_order_id?: string; status?: string; action?: string };

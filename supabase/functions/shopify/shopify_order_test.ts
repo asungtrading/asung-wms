@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_order_test.ts — Shopify · DB 무접촉 (ord-1b ① ~ ⑥ · _shared/shopify-order.ts 의 순수 함수)
-import { drainNext, drainStop, findStoreByDomain, hmacBase64, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, POLL_FIRST_WINDOW_MS, POLL_OVERLAP_MS, pollQuery, pollSince, redactionReport, sweepPick, timingSafeEqual, verifyWebhookHmac, webhookHead, webhookUri } from "../_shared/shopify-order.ts";
+import { drainNext, drainStop, findStoreByDomain, gidInFilter, hmacBase64, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, POLL_FIRST_WINDOW_MS, POLL_OVERLAP_MS, pollPick, pollQuery, pollSince, redactionReport, sweepPick, timingSafeEqual, verifyWebhookHmac, webhookHead, webhookUri } from "../_shared/shopify-order.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -73,4 +73,30 @@ Deno.test("⑦ ord-1b2 sweep — 받은 일 줄 없는 received 만 줍는다 ·
   let processed = 0, stopped: string | null = null;
   for (const _o of picked) { stopped = drainStop(ORDERS_DRAIN_MS + 5); if (stopped) break; processed++; }
   eq([processed, stopped], [0, "time limit (40 s)"], "time limit reached before the sweep → nothing processed");
+});
+
+Deno.test("⑧ ord-1b3 주기 확인 — 같은 updatedAt 건너뜀('Z' vs '+00:00' 같은 시각) · 더 새것 줍기 · 오래된 것 건너뜀 · 모르는 GID 줍기 · 저장된 시각 없음 줍기 · 못 읽는 시각 줍기 · 셈 · in 필터 모양", () => {
+  const nodes = [
+    { id: "gid://shopify/Order/1", updatedAt: "2026-10-11T00:58:43Z" },          // 같음(저장 +00:00)
+    { id: "gid://shopify/Order/2", updatedAt: "2026-10-11T01:10:00Z" },          // 더 새것
+    { id: "gid://shopify/Order/3", updatedAt: "2026-10-11T00:50:00Z" },          // 더 오래된 것(저장이 더 새것)
+    { id: "gid://shopify/Order/4", updatedAt: "2026-10-11T01:00:00Z" },          // 모르는 GID
+    { id: "gid://shopify/Order/5", updatedAt: "2026-10-11T01:00:00Z" },          // 저장된 시각 없음
+    { id: "gid://shopify/Order/6", updatedAt: "not-a-date" },                     // 못 읽는 시각
+  ];
+  const known = [
+    { shopify_order_gid: "gid://shopify/Order/1", shopify_updated_at: "2026-10-11T00:58:43+00:00" },
+    { shopify_order_gid: "gid://shopify/Order/2", shopify_updated_at: "2026-10-11T00:56:31+00:00" },
+    { shopify_order_gid: "gid://shopify/Order/3", shopify_updated_at: "2026-10-11T00:55:00+00:00" },
+    { shopify_order_gid: "gid://shopify/Order/5", shopify_updated_at: null },
+    { shopify_order_gid: "gid://shopify/Order/6", shopify_updated_at: "2026-10-11T00:55:00+00:00" },
+  ];
+  const p = pollPick(nodes, known);
+  eq(p.add.map((n) => n.id.split("/").pop()), ["2", "4", "5", "6"], "newer · unknown · no stored time · unparseable are picked");
+  eq(p.same.map((n) => n.id.split("/").pop()), ["1", "3"], "same and older are skipped");
+  eq([p.add.length, p.same.length], [4, 2], "counts");
+  eq(pollPick([], known), { add: [], same: [] }, "empty page");
+  eq(pollPick(nodes.slice(0, 1), []), { add: nodes.slice(0, 1), same: [] }, "nothing known → pick");
+  eq(gidInFilter(["gid://shopify/Order/1", "gid://shopify/Order/2"]), 'in.("gid://shopify/Order/1","gid://shopify/Order/2")', "PostgREST in filter");
+  eq(decodeURIComponent(encodeURIComponent(gidInFilter(["gid://shopify/Order/1"]))), 'in.("gid://shopify/Order/1")', "round-trips through encodeURIComponent");
 });

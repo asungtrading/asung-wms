@@ -18,6 +18,7 @@
 //      orders_drain = cron · 직원 — 받은 일 열린 줄(오래된 것부터 ≤ INBOX_FETCH)을 GraphQL 로 다시 읽어 rpc/shop_order_ingest → received 면 rpc/shop_order_process → 줄 닫기(result = status) · 한 건 실패해도 다음 · 시간 한도 ORDERS_DRAIN_MS
 //                     ⭐ ord-1b2: 그 뒤 받은 일 줄 없이 status = received 인 shop_order(직원이 resolve_customer · resolve_lines 로 푼 것 · 앞 회차가 시간 한도로 멈춘 것)를 ≤ INBOX_FETCH 줍는다 — Shopify 를 다시 읽지 않고 rpc/shop_order_process 만(다시 읽으면 줄을 다시 풀어 resolve_lines 가 사라진다) · 열린 받은 일 줄이 있는 오더는 그 길이 맡는다 · 응답 swept · cron 47 의 where 조건도 received 를 본다
 //      orders_poll  = cron · 직원 — 스토어마다 orders(updated_at:> orders_polled_at − 5 분) 50 개씩 ≤ 5 쪽 → 받은 일(topic poll · 웹훅이 빠진 것 줍기) → orders_polled_at = 본 것 중 최댓값
+//                     ⭐ ord-1b3: 바뀐 오더만 — 페이지마다 shop_order(같은 스토어 · GID)를 한 번 읽어 updatedAt 이 같거나 오래된 오더는 건너뛴다(skipped_same · pollPick) · 열린 받은 일 줄이 있으면 skipped_open(inbox_add null) — 겹침 5 분 때문에 새 활동이 없으면 마지막 오더들이 15 분마다 다시 보여 received · needs_review 의 줄(resolve_lines)을 지우던 결함(실물 2026-10-11 01:15 · 01:30)
 //      order_read   = 직원 · 쓰기 0 — 오더 하나(GID · 숫자 · 이름 #1001)를 ① 쿼리로 읽어 원문 · errors · 가림 보고(customer · email · 주소 null · 「not approved」) — 보호된 손님 정보 확정용(ord-0 ⬜1)
 //      webhooks_subscribe · webhooks_list = 직원 — 스토어의 shop-specific 구독(ORDERS_CREATE · UPDATED · CANCELLED → 이 함수 주소) · 있으면 그대로 · 목록
 //      ⚠️ EF 는 shop_system_enter · leave 를 부르지 않는다(시스템 창구 안에서만) · ingest · process 는 service_role rpc
@@ -28,7 +29,7 @@ import { API_VERSION, compareLocations, getToken, missingScopes, shopifyGql, typ
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
 import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
-import { drainNext, drainStop, findStoreByDomain, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
+import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
@@ -455,21 +456,26 @@ async function ordersPoll(caller: Caller, t0: number): Promise<Response> {
   const out: Array<Record<string, unknown>> = [];
   for (const store of stores) {
     const since = pollSince(store.orders_polled_at ?? null);
-    let after: string | null = null, pages = 0, seen = 0, added = 0, cost = 0, err: string | null = null, maxSeen: string | null = store.orders_polled_at ?? null;
+    let after: string | null = null, pages = 0, seen = 0, added = 0, skippedSame = 0, skippedOpen = 0, cost = 0, err: string | null = null, maxSeen: string | null = store.orders_polled_at ?? null;
     for (;;) {
       const g = await shopifyGql(store, ORDERS_SINCE_QUERY, { q: pollQuery(since), after });
       cost += g.cost.actual ?? 0; pages++;
       if (!g.ok) { err = gqlErr(g); break; }
       const d = (g.data as { orders?: { pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }; nodes?: Array<{ id: string; updatedAt?: string | null }> } } | null)?.orders;
       const nodes = d?.nodes ?? [];
-      for (const n of nodes) { seen++; if ((await sbRpc("shop_order_inbox_add", { p_store_id: store.id, p_order_gid: n.id, p_topic: "poll", p_webhook_id: null, p_event_id: null })) !== null) added++; }
+      seen += nodes.length;
+      // ord-1b3 — 바뀐 오더만: 이 페이지의 GID 들을 shop_order 에서 한 번 읽어 updatedAt 을 견준다 · 같으면 skipped_same · 열린 받은 일 줄이 있으면 inbox_add 가 null → skipped_open
+      const known: KnownOrder[] = nodes.length ? (await sbGet("shop_order?select=shopify_order_gid,shopify_updated_at&store_id=eq." + store.id + "&shopify_order_gid=" + encodeURIComponent(gidInFilter(nodes.map((n) => n.id))))) as KnownOrder[] : [];
+      const pick = pollPick(nodes, known);
+      skippedSame += pick.same.length;
+      for (const n of pick.add) { if ((await sbRpc("shop_order_inbox_add", { p_store_id: store.id, p_order_gid: n.id, p_topic: "poll", p_webhook_id: null, p_event_id: null })) !== null) added++; else skippedOpen++; }
       maxSeen = maxUpdatedAt(nodes, maxSeen);
       if (!d?.pageInfo?.hasNextPage || !d.pageInfo.endCursor || pages >= POLL_PAGES_MAX) break;
       after = d.pageInfo.endCursor;
     }
     if (!err) await sbWrite("PATCH", "shop_store?id=eq." + store.id, { orders_polled_at: maxSeen ?? new Date().toISOString() });
-    await recordCall({ store_id: store.id, action: "orders_poll", ok: !err, http_status: null, query_cost: cost, throttle_available: null, error: err ?? ("since " + since + " · seen " + seen + " · added " + added + " · pages " + pages), by_staff: caller.staffId, ms: Date.now() - t0 });
-    out.push({ store: store.code, since, seen, added, pages, cost, polled_at: err ? store.orders_polled_at ?? null : maxSeen, error: err });
+    await recordCall({ store_id: store.id, action: "orders_poll", ok: !err, http_status: null, query_cost: cost, throttle_available: null, error: err ?? ("since " + since + " · seen " + seen + " · added " + added + " · skipped_same " + skippedSame + " · skipped_open " + skippedOpen + " · pages " + pages), by_staff: caller.staffId, ms: Date.now() - t0 });
+    out.push({ store: store.code, since, seen, added, skipped_same: skippedSame, skipped_open: skippedOpen, pages, cost, polled_at: err ? store.orders_polled_at ?? null : maxSeen, error: err });
   }
   return json(200, { ok: out.every((o) => !o.error), stores: out, ms: Date.now() - t0 });
 }
