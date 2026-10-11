@@ -13,6 +13,14 @@
 //   표 읽기 · 대응 표 갱신 · 큐 · call_log 는 service_role(세 표는 authenticated 직접 쓰기가 닫혀 있다) · payload 는 rpc/shop_product_payload(2a1) · 거르기는 ../_shared/shopify-clean.ts(규칙 기반 · 판정 412) · 조립은 ../_shared/shopify-product.ts
 //   ⭐ 사진 짝(fix2 · 실물 media_matched 0): 보내기 직전 product.media 를 읽어 READY + url 인 사진만 줄기(= product_image id)로 shop_media 에 짝 → 그 사진은 {id} 로 · 처리 중은 URL + REPLACE(쌓이지 않음) · 줄기가 IMS 에 없는 사진은 지워진다(판정 409 · media_removed_unknown) · 직원 push 는 응답이 처리 중이면 2 초 × 2 회 다시 읽는다 · hash 가 같으면 직전 읽기도 안 한다
 //   ⭐ 안전장치(판정 412): 거른 html 을 rpc/ims_html_forbidden 에 넣어 하나라도 걸리면 productSet 을 부르지 않는다(result error · description_forbidden_after_clean:<코드> · 직원 길 push 는 422 · drain 은 다음 건 계속) — IMS 에서 그 설명을 한 번 고쳐 저장하면 풀린다
+//   ⭐ 오더 받기(ord-1b · 판정 363 ~ 372 · 430 ~ 434 · DB ord-1a1 · 1a2 · 받은 일 표 20261011013000 · 순수 함수 ../_shared/shopify-order.ts):
+//      webhook   = 문 셋째(HMAC · 헤더 X-Shopify-Topic 이 있으면 이 길 · 문 앞에서 가른다) — 원문 바이트의 HMAC-SHA256(스토어의 client secret) 과 X-Shopify-Hmac-SHA256 상수 시간 비교 · 스토어는 X-Shopify-Shop-Domain · 몸(REST 모양)에서 오더 GID 만 → rpc/shop_order_inbox_add → 바로 200 · 검증 실패 401 · 모르는 스토어 200(기록만 · 재시도 폭주 막기)
+//      orders_drain = cron · 직원 — 받은 일 열린 줄(오래된 것부터 ≤ INBOX_FETCH)을 GraphQL 로 다시 읽어 rpc/shop_order_ingest → received 면 rpc/shop_order_process → 줄 닫기(result = status) · 한 건 실패해도 다음 · 시간 한도 ORDERS_DRAIN_MS
+//                     ⭐ ord-1b2: 그 뒤 받은 일 줄 없이 status = received 인 shop_order(직원이 resolve_customer · resolve_lines 로 푼 것 · 앞 회차가 시간 한도로 멈춘 것)를 ≤ INBOX_FETCH 줍는다 — Shopify 를 다시 읽지 않고 rpc/shop_order_process 만(다시 읽으면 줄을 다시 풀어 resolve_lines 가 사라진다) · 열린 받은 일 줄이 있는 오더는 그 길이 맡는다 · 응답 swept · cron 47 의 where 조건도 received 를 본다
+//      orders_poll  = cron · 직원 — 스토어마다 orders(updated_at:> orders_polled_at − 5 분) 50 개씩 ≤ 5 쪽 → 받은 일(topic poll · 웹훅이 빠진 것 줍기) → orders_polled_at = 본 것 중 최댓값
+//      order_read   = 직원 · 쓰기 0 — 오더 하나(GID · 숫자 · 이름 #1001)를 ① 쿼리로 읽어 원문 · errors · 가림 보고(customer · email · 주소 null · 「not approved」) — 보호된 손님 정보 확정용(ord-0 ⬜1)
+//      webhooks_subscribe · webhooks_list = 직원 — 스토어의 shop-specific 구독(ORDERS_CREATE · UPDATED · CANCELLED → 이 함수 주소) · 있으면 그대로 · 목록
+//      ⚠️ EF 는 shop_system_enter · leave 를 부르지 않는다(시스템 창구 안에서만) · ingest · process 는 service_role rpc
 //   호출 한 번 = shop_call_log 한 줄(drain 은 건마다) · 90 일 지난 줄은 호출 끝에 지운다.
 //   배포: supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.shopify] verify_jwt=false)
 // ============================================================
@@ -20,6 +28,8 @@ import { API_VERSION, compareLocations, getToken, missingScopes, shopifyGql, typ
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
 import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
+import { drainNext, drainStop, findStoreByDomain, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
+import { secretNames } from "../_shared/shopify.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -29,7 +39,7 @@ const DRAIN_MIN_AVAILABLE = 500;
 const MEDIA_REREAD_MAX = 2;                                                                        // 직원 push 만 · 응답 사진이 처리 중이면 2 초 뒤 다시 읽기(최대 2 회) · drain 은 안 한다(회차 시간 · 다음 push 의 직전 읽기가 잡는다)
 const MEDIA_REREAD_WAIT_MS = 2000;                                                                   // 한도 남은 점수가 이 아래면 이번 회차를 멈춘다(다음 분에 이어서)
 const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ims-cron-key", "Access-Control-Allow-Methods": "POST, OPTIONS" };
-const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push"];
+const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain"];
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -350,6 +360,186 @@ async function stockPush(store: StoreRow, target: Target, label: string, caller:
     items: so.items.map((i) => ({ sku: i.sku, location_gid: i.location_gid, warehouse_id: i.warehouse_id, quantity: i.quantity, result: i.result, error: i.error, activated: i.activated })), blocked, api_version: API_VERSION, ms: Date.now() - t0 });
 }
 
+
+// ── 오더 받기(ord-1b) ──────────────────────────────────────────────────────────────
+const STORE_SELECT = "shop_store?select=id,code,shop_domain,secret_prefix,is_active,label,kind,orders_polled_at";
+type StoreRowO = StoreRow & { orders_polled_at?: string | null };
+function gqlErr(g: { status: number; errors: unknown; raw: string | null }): string { return "graphql HTTP " + g.status + (g.errors ? " · " + JSON.stringify(g.errors).slice(0, 300) : "") + (g.raw ? " · " + g.raw.slice(0, 100) : ""); }
+
+// 웹훅 — 문 셋째 · 원문 바이트로 HMAC · 오더 GID 만 받은 일 표에 · 바로 200
+async function webhook(req: Request, t0: number): Promise<Response> {
+  const head = webhookHead(req.headers)!;
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  const stores: StoreRowO[] = await sbGet(STORE_SELECT);
+  const store = findStoreByDomain(stores, head.domain);
+  if (!store) {                                                                                     // 모르는 스토어 — 기록만 · 200(재시도 폭주를 막는다 · 검증은 못 한다: 열쇠를 모른다)
+    await recordCall({ store_id: null, action: "webhook", ok: false, http_status: 200, query_cost: null, throttle_available: null, error: "unknown shop domain " + head.domain + " · topic " + head.topic, by_staff: null, ms: Date.now() - t0 });
+    return json(200, { ok: false, ignored: "unknown store" });
+  }
+  const secret = Deno.env.get(secretNames(store.secret_prefix).secret) ?? "";
+  if (!(await verifyWebhookHmac(secret, bytes, req.headers.get("x-shopify-hmac-sha256")))) {
+    await recordCall({ store_id: store.id, action: "webhook", ok: false, http_status: 401, query_cost: null, throttle_available: null, error: "hmac mismatch · topic " + head.topic + " · webhook " + (head.webhookId ?? "-"), by_staff: null, ms: Date.now() - t0 });
+    return json(401, { ok: false, error: "unauthorized" });
+  }
+  if (!isOrderTopic(head.topic)) {
+    await recordCall({ store_id: store.id, action: "webhook", ok: true, http_status: 200, query_cost: null, throttle_available: null, error: "ignored topic " + head.topic, by_staff: null, ms: Date.now() - t0 });
+    return json(200, { ok: true, ignored: head.topic });
+  }
+  let body: unknown = null;
+  try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch { body = null; }
+  const gid = orderGidFromWebhook(body);
+  if (!gid) {
+    await recordCall({ store_id: store.id, action: "webhook", ok: false, http_status: 200, query_cost: null, throttle_available: null, error: "no order id in body · topic " + head.topic, by_staff: null, ms: Date.now() - t0 });
+    return json(200, { ok: false, ignored: "no order id" });
+  }
+  const inboxId = await sbRpc("shop_order_inbox_add", { p_store_id: store.id, p_order_gid: gid, p_topic: head.topic, p_webhook_id: head.webhookId, p_event_id: head.eventId });
+  await recordCall({ store_id: store.id, action: "webhook", ok: true, http_status: 200, query_cost: null, throttle_available: null, error: head.topic + " " + gid.split("/").pop() + (inboxId === null ? " · duplicate (already open or same delivery)" : " · inbox " + inboxId), by_staff: null, ms: Date.now() - t0 });
+  return json(200, { ok: true, inbox_id: inboxId, duplicate: inboxId === null, topic: head.topic, order_gid: gid, ms: Date.now() - t0 });
+}
+
+// 오더 하나 읽기 — GID · 숫자 · 이름(#1001) → ① 쿼리 원문 · errors 그대로
+async function readOrder(store: StoreRow, ref: string): Promise<{ gid: string | null; order: Record<string, unknown> | null; errors: Array<{ message?: string }> | null; cost: number; status: number; raw: string | null; notFound: boolean }> {
+  const r = orderRef(ref);
+  if (!r) return { gid: null, order: null, errors: [{ message: "give an order GID, id or name" }], cost: 0, status: 400, raw: null, notFound: false };
+  let gid: string | null = "gid" in r ? r.gid : null, cost = 0;
+  if (!gid) {
+    const gq = await shopifyGql(store, ORDER_BY_NAME_QUERY, { q: "query" in r ? r.query : "" });
+    cost += gq.cost.actual ?? 0;
+    if (!gq.ok) return { gid: null, order: null, errors: gq.errors ?? [{ message: gqlErr(gq) }], cost, status: gq.status, raw: gq.raw, notFound: false };
+    gid = (gq.data as { orders?: { nodes?: Array<{ id: string }> } } | null)?.orders?.nodes?.[0]?.id ?? null;
+    if (!gid) return { gid: null, order: null, errors: null, cost, status: gq.status, raw: null, notFound: true };
+  }
+  const g = await shopifyGql(store, ORDER_READ_QUERY, { id: gid });
+  cost += g.cost.actual ?? 0;
+  const order = ((g.data as { order?: Record<string, unknown> | null } | null)?.order ?? null);
+  return { gid, order, errors: g.errors, cost, status: g.status, raw: g.raw, notFound: g.ok && !order };
+}
+async function orderRead(store: StoreRow, ref: string, caller: Caller, t0: number): Promise<Response> {
+  const r = await readOrder(store, ref);
+  const report = redactionReport(r.order, r.errors);
+  const ok = !!r.order;
+  await recordCall({ store_id: store.id, action: "order_read", ok, http_status: r.status, query_cost: r.cost, throttle_available: null, error: ok ? (report.not_approved ? "not approved for customer data" : null) : (r.notFound ? "not found: " + ref : JSON.stringify(r.errors ?? "").slice(0, 300)), by_staff: caller.staffId, ms: Date.now() - t0 });
+  return json(ok ? 200 : (r.notFound ? 404 : 502), { ok, store: store.code, ref, gid: r.gid, redaction: report, order: r.order, errors: r.errors, cost: r.cost, api_version: API_VERSION, ms: Date.now() - t0 });
+}
+
+// 구독 — 목록 · 없는 주제만 만든다(shop-specific · 이 함수 주소)
+async function webhooksList(store: StoreRow, caller: Caller, t0: number): Promise<Response> {
+  const g = await shopifyGql(store, WEBHOOK_LIST_QUERY);
+  const nodes = ((g.data as { webhookSubscriptions?: { nodes?: SubNode[] } } | null)?.webhookSubscriptions?.nodes ?? []) as SubNode[];
+  await recordCall({ store_id: store.id, action: "webhooks_list", ok: g.ok, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: g.ok ? "subscriptions " + nodes.length : gqlErr(g), by_staff: caller.staffId, ms: Date.now() - t0 });
+  if (!g.ok) return json(502, { ok: false, store: store.code, error: gqlErr(g) });
+  const uri = webhookUri(SB_URL());
+  return json(200, { ok: true, store: store.code, uri, subscriptions: nodes, missing: missingSubscriptions(nodes, uri), api_version: API_VERSION, ms: Date.now() - t0 });
+}
+async function webhooksSubscribe(store: StoreRow, caller: Caller, t0: number): Promise<Response> {
+  const uri = webhookUri(SB_URL());
+  const gl = await shopifyGql(store, WEBHOOK_LIST_QUERY);
+  if (!gl.ok) { await recordCall({ store_id: store.id, action: "webhooks_subscribe", ok: false, http_status: gl.status, query_cost: gl.cost.actual, throttle_available: null, error: gqlErr(gl), by_staff: caller.staffId, ms: Date.now() - t0 }); return json(502, { ok: false, store: store.code, error: gqlErr(gl) }); }
+  let nodes = ((gl.data as { webhookSubscriptions?: { nodes?: SubNode[] } } | null)?.webhookSubscriptions?.nodes ?? []) as SubNode[];
+  const created: SubNode[] = [], failed: Array<{ topic: string; error: string }> = [];
+  let cost = gl.cost.actual ?? 0;
+  for (const topic of missingSubscriptions(nodes, uri)) {
+    const g = await shopifyGql(store, WEBHOOK_SUBSCRIBE_MUTATION, { topic, uri });
+    cost += g.cost.actual ?? 0;
+    const d = (g.data as { webhookSubscriptionCreate?: { webhookSubscription?: SubNode | null; userErrors?: Array<{ message?: string }> } } | null)?.webhookSubscriptionCreate;
+    if (!g.ok || !d?.webhookSubscription || (d.userErrors ?? []).length) failed.push({ topic, error: (d?.userErrors ?? []).map((e) => e.message).join(" · ") || gqlErr(g) });
+    else { created.push(d.webhookSubscription); nodes = [...nodes, d.webhookSubscription]; }
+  }
+  await recordCall({ store_id: store.id, action: "webhooks_subscribe", ok: !failed.length, http_status: gl.status, query_cost: cost, throttle_available: null, error: "created " + created.map((c) => c.topic).join(",") + (failed.length ? " · failed " + failed.map((f) => f.topic + ": " + f.error).join(" · ") : ""), by_staff: caller.staffId, ms: Date.now() - t0 });
+  return json(failed.length ? 502 : 200, { ok: !failed.length, store: store.code, uri, created, failed, subscriptions: nodes, missing: missingSubscriptions(nodes, uri), wanted: ORDER_TOPICS, api_version: API_VERSION, ms: Date.now() - t0 });
+}
+
+// 주기 확인 — 스토어마다 updated_at 뒤의 오더를 받은 일 표에(웹훅이 빠진 것 줍기)
+async function ordersPoll(caller: Caller, t0: number): Promise<Response> {
+  const stores: StoreRowO[] = (await sbGet(STORE_SELECT + "&is_active=eq.true")) as StoreRowO[];
+  const out: Array<Record<string, unknown>> = [];
+  for (const store of stores) {
+    const since = pollSince(store.orders_polled_at ?? null);
+    let after: string | null = null, pages = 0, seen = 0, added = 0, cost = 0, err: string | null = null, maxSeen: string | null = store.orders_polled_at ?? null;
+    for (;;) {
+      const g = await shopifyGql(store, ORDERS_SINCE_QUERY, { q: pollQuery(since), after });
+      cost += g.cost.actual ?? 0; pages++;
+      if (!g.ok) { err = gqlErr(g); break; }
+      const d = (g.data as { orders?: { pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }; nodes?: Array<{ id: string; updatedAt?: string | null }> } } | null)?.orders;
+      const nodes = d?.nodes ?? [];
+      for (const n of nodes) { seen++; if ((await sbRpc("shop_order_inbox_add", { p_store_id: store.id, p_order_gid: n.id, p_topic: "poll", p_webhook_id: null, p_event_id: null })) !== null) added++; }
+      maxSeen = maxUpdatedAt(nodes, maxSeen);
+      if (!d?.pageInfo?.hasNextPage || !d.pageInfo.endCursor || pages >= POLL_PAGES_MAX) break;
+      after = d.pageInfo.endCursor;
+    }
+    if (!err) await sbWrite("PATCH", "shop_store?id=eq." + store.id, { orders_polled_at: maxSeen ?? new Date().toISOString() });
+    await recordCall({ store_id: store.id, action: "orders_poll", ok: !err, http_status: null, query_cost: cost, throttle_available: null, error: err ?? ("since " + since + " · seen " + seen + " · added " + added + " · pages " + pages), by_staff: caller.staffId, ms: Date.now() - t0 });
+    out.push({ store: store.code, since, seen, added, pages, cost, polled_at: err ? store.orders_polled_at ?? null : maxSeen, error: err });
+  }
+  return json(200, { ok: out.every((o) => !o.error), stores: out, ms: Date.now() - t0 });
+}
+
+// drain — 받은 일 열린 줄 → GraphQL 다시 읽기 → ingest → (received) process → 줄 닫기
+type InboxRow = { id: number; store_id: string; order_gid: string; topic: string };
+async function ordersDrain(caller: Caller, t0: number): Promise<Response> {
+  const rows: InboxRow[] = await sbGet("shop_order_inbox?select=id,store_id,order_gid,topic&done_at=is.null&order=received_at.asc,id.asc&limit=" + INBOX_FETCH);
+  const stores: Record<string, StoreRowO | undefined> = {};
+  const out: Array<Record<string, unknown>> = [];
+  const summary: Record<string, number> = {};
+  const doneGids = new Set<string>();
+  let stopped: string | null = null;
+  for (const q of rows) {
+    stopped = drainStop(Date.now() - t0, ORDERS_DRAIN_MS);
+    if (stopped) break;
+    const tq = Date.now();
+    if (doneGids.has(q.order_gid)) {                                                                // 같은 오더의 다른 열린 줄 — 방금 읽었다
+      await sbWrite("PATCH", "shop_order_inbox?id=eq." + q.id, { started_at: new Date().toISOString(), done_at: new Date().toISOString(), result: "dup", error: null });
+      summary.dup = (summary.dup ?? 0) + 1; out.push({ id: q.id, order_gid: q.order_gid, result: "dup" }); continue;
+    }
+    await sbWrite("PATCH", "shop_order_inbox?id=eq." + q.id, { started_at: new Date().toISOString() });
+    if (!stores[q.store_id]) stores[q.store_id] = ((await sbGet(STORE_SELECT + "&id=eq." + q.store_id + "&limit=1")) as StoreRowO[])[0];
+    const store = stores[q.store_id];
+    let result = "error", error: string | null = null, cost = 0, shopOrderId: string | null = null, soNumber: string | null = null;
+    try {
+      if (!store || !store.is_active) throw new Error("store missing or switched off");
+      const r = await readOrder(store, q.order_gid);
+      cost = r.cost;
+      if (r.notFound) { result = "not_found"; error = "order not in Shopify (or older than 60 days)"; }
+      else if (!r.order) throw new Error(JSON.stringify(r.errors ?? r.raw ?? "read failed").slice(0, 300));
+      else {
+        const ing = (await sbRpc("shop_order_ingest", { p_store_id: store.id, p_order: r.order })) as { shop_order_id?: string; status?: string; action?: string };
+        shopOrderId = ing.shop_order_id ?? null; result = String(ing.status ?? "error");
+        if (drainNext(ing) === "process") {
+          const pr = (await sbRpc("shop_order_process", { p_shop_order_id: ing.shop_order_id })) as { status?: string; so_number?: string; error?: string; warnings?: unknown[] };
+          result = String(pr.status ?? result); soNumber = pr.so_number ?? null; error = pr.error ?? null;
+        }
+      }
+    } catch (e) { result = "error"; error = String((e as Error)?.message ?? e).slice(0, 400); }
+    await sbWrite("PATCH", "shop_order_inbox?id=eq." + q.id, { done_at: new Date().toISOString(), result, error });
+    doneGids.add(q.order_gid);
+    summary[result] = (summary[result] ?? 0) + 1;
+    await recordCall({ store_id: store?.id ?? null, action: "orders_drain", ok: result !== "error", http_status: null, query_cost: cost, throttle_available: null, error: q.topic + " " + q.order_gid.split("/").pop() + " → " + result + (soNumber ? " " + soNumber : "") + (error ? " · " + error : ""), by_staff: caller.staffId, ms: Date.now() - tq });
+    out.push({ id: q.id, order_gid: q.order_gid, topic: q.topic, result, shop_order_id: shopOrderId, so_number: soNumber, error, cost, ms: Date.now() - tq });
+  }
+  // ord-1b2 — 받은 일 줄 없는 received(직원이 resolve 로 푼 것 · 앞 회차가 멈춘 것): 다시 읽지 않고 저장된 원문으로 process 만
+  const swept: Array<Record<string, unknown>> = [];
+  if (!stopped) {
+    const received: Array<ReceivedRow & { store_id: string; name: string }> = await sbGet("shop_order?select=id,store_id,shopify_order_gid,name&status=eq.received&order=received_at.asc,id.asc&limit=" + INBOX_FETCH);
+    const openGids = new Set<string>(received.length ? (await sbGet("shop_order_inbox?select=order_gid&done_at=is.null&limit=1000") as Array<{ order_gid: string }>).map((r) => r.order_gid) : []);
+    for (const o of sweepPick(received, openGids, doneGids)) {
+      stopped = drainStop(Date.now() - t0, ORDERS_DRAIN_MS);
+      if (stopped) break;
+      const tq = Date.now();
+      let result = "error", error: string | null = null, soNumber: string | null = null;
+      try {
+        const pr = (await sbRpc("shop_order_process", { p_shop_order_id: o.id })) as { status?: string; so_number?: string; error?: string; skipped?: boolean };
+        result = String(pr.status ?? "error"); soNumber = pr.so_number ?? null; error = pr.error ?? (pr.skipped ? "skipped (no longer received)" : null);
+      } catch (e) { result = "error"; error = String((e as Error)?.message ?? e).slice(0, 400); }
+      summary["swept_" + result] = (summary["swept_" + result] ?? 0) + 1;
+      await recordCall({ store_id: o.store_id, action: "orders_drain", ok: result !== "error", http_status: null, query_cost: null, throttle_available: null, error: "sweep " + o.name + " → " + result + (soNumber ? " " + soNumber : "") + (error ? " · " + error : ""), by_staff: caller.staffId, ms: Date.now() - tq });
+      swept.push({ shop_order_id: o.id, order_gid: o.shopify_order_gid, name: o.name, result, so_number: soNumber, error, ms: Date.now() - tq });
+    }
+  }
+  const open = (await sbGet("shop_order_inbox?select=id&done_at=is.null&limit=1")).length > 0;
+  const receivedLeft = (await sbGet("shop_order?select=id&status=eq.received&limit=1")).length > 0;
+  return json(200, { ok: true, drained: out.length, ...summary, results: out, swept, stopped, more_open: open || receivedLeft, ms: Date.now() - t0 });
+}
+
 Deno.serve(async (req) => {
   const t0 = Date.now();
   try {
@@ -358,12 +548,13 @@ Deno.serve(async (req) => {
     let dbRole: string | null = null;
     try { dbRole = String((await sbGet("inv_config?select=value&key=eq.db_role"))[0]?.value ?? ""); } catch { dbRole = null; }
     if (dbRole !== "test") return json(500, { ok: false, error: "inv_config.db_role is " + String(dbRole ?? "missing") + " - this function runs on the test project only (Asung-IMS) - refusing" });
+    if (webhookHead(req.headers)) return await webhook(req, t0);                                     // ord-1b: 문 셋째 — Shopify 웹훅(HMAC) · Bearer · cron 열쇠 앞에서
     const caller = await gate(req);
     if (caller instanceof Response) return caller;
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     if (!ACTIONS.includes(action)) return json(400, { ok: false, error: "action must be one of: " + ACTIONS.join(", ") });
-    if ((action === "push" || action === "clean_check" || action === "stock_push") && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain and stock_drain" });
+    if (["push", "clean_check", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list"].includes(action) && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain, stock_drain, orders_poll and orders_drain" });
 
     if (action === "clean_check") {                                                                 // 규칙 거르기 샘플 + DB 판별(안전장치) 결과
       const hosts = await loadHosts();
@@ -400,6 +591,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === "stock_drain") return await stockDrain(caller, t0);
+    if (action === "orders_drain") return await ordersDrain(caller, t0);
+    if (action === "orders_poll") return await ordersPoll(caller, t0);
 
     // ping · push — 스토어 필요
     const code = String(body?.store ?? "").trim().toLowerCase();
@@ -412,6 +605,9 @@ Deno.serve(async (req) => {
     }
     if (!store.is_active) return json(409, { ok: false, error: `Store "${code}" (${store.label ?? store.shop_domain}) is switched off — turn it on under Settings → Shopify Stores first` });
     if (action === "ping") return await ping(store, caller, t0);
+    if (action === "order_read") return await orderRead(store, String(body?.order ?? ""), caller, t0);
+    if (action === "webhooks_list") return await webhooksList(store, caller, t0);
+    if (action === "webhooks_subscribe") return await webhooksSubscribe(store, caller, t0);
 
     // push · stock_push {store, family_sku | sku, force?} — 켜진 listing 만 · 큐를 거치지 않고 바로
     const fsku = String(body?.family_sku ?? "").trim(), psku = String(body?.sku ?? "").trim();

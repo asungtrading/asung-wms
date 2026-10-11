@@ -550,3 +550,105 @@ select cron.schedule('ims-stock-nightly', '15 8 * * *', $job$ select public.shop
 --                                       select cron.alter_job(45, active := false);   -- [실측] jobid 45 ims-stock-diff
 --                                       select cron.alter_job(46, active := false);   -- [실측] jobid 46 ims-stock-nightly
 -- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-stock-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname like 'ims-stock-%') order by start_time desc limit 10;
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 47 · 48 [실측 2026-10-11 00:4x UTC cron.job · Caleb 등록 · 열쇠는 jobid 42 줄에서 · 아래 do 블록(이미 있으면 멈춤 가드)] ord-1b (2026-10-10 밤 · 판정 363 · 설계 shopify-integration §2 · DB ord-1a1 20261010233000 · 1a2 20261011003000 · 받은 일 표 20261011013000) — Shopify ④ 오더 받기
+--   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   열쇠: 이미 도는 ims-shop-drain(jobid 42) 줄에서 꺼내 format(%L) 로 넣는다(아래 do 블록 · stock-1b 와 같은 결) — 이 파일에는 넣지 않는다
+--   ims-orders-drain : [jobid 47] 1 분마다 — ⭐ 받은 일 열린 줄(shop_order_inbox.done_at is null)이 0 이면 net.http_post 를 하지 않는다(where exists · EF 호출 0 · ⚠️ ord-1b2 가 조건을 「또는 status = received 인 shop_order」 로 넓혔다 — 아래 ord-1b2 블록) · EF orders_drain 은 줄마다 GraphQL 로 오더를 다시 읽어 shop_order_ingest → received 면 shop_order_process · 시간 한도 40 s
+--   ims-orders-poll  : [jobid 48] 15 분마다(*/15) — 스토어마다 orders(updated_at:> orders_polled_at − 5 분) 50 개씩 ≤ 5 쪽 → 받은 일(topic poll) · 웹훅이 빠진 오더를 줍는다 · 60 일 넘은 오더는 안 온다(read_orders)
+--   웹훅 자체는 cron 이 아니다 — Shopify 가 EF 주소(https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify · 헤더 X-Shopify-Topic)로 바로 보낸다 · 구독은 tools/shopify-push.sh webhooks-subscribe
+--   x-ims-cron-key 실제 값은 이 파일에 넣지 말 것 — 등록은 대시보드 SQL Editor 에서 아래 do 블록 그대로(42 번 줄의 열쇠를 읽어 넣는다 · 이미 있으면 멈춤)
+--   do $$ declare k text; begin
+--     if exists (select 1 from cron.job where jobname in ('ims-orders-drain', 'ims-orders-poll')) then raise exception 'ims-orders-* already scheduled — alter or unschedule first'; end if;
+--     select substring(command from 'x-ims-cron-key'', ''([^'']+)') into k from cron.job where jobid = 42;
+--     if k is null or length(k) < 32 then raise exception 'cron key not found on jobid 42'; end if;
+--     perform cron.schedule('ims-orders-drain', '* * * * *', format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"orders_drain"}'::jsonb)
+--       where exists (select 1 from public.shop_order_inbox q where q.done_at is null);
+--     $j$, k));
+--     perform cron.schedule('ims-orders-poll', '*/15 * * * *', format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"orders_poll"}'::jsonb);
+--     $j$, k));
+--   end $$;
+select cron.schedule('ims-orders-drain', '* * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"orders_drain"}'::jsonb)
+  where exists (select 1 from public.shop_order_inbox q where q.done_at is null);
+$job$);
+select cron.schedule('ims-orders-poll', '*/15 * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"orders_poll"}'::jsonb);
+$job$);
+-- 킬 스위치(테스트 DB · 운영 번호와 다르다): select cron.alter_job(47, active := false);   -- [실측] jobid 47 ims-orders-drain
+--                                       select cron.alter_job(48, active := false);   -- [실측] jobid 48 ims-orders-poll
+-- 확인: select jobid, jobname, schedule, active from cron.job where jobname like 'ims-orders-%';  · 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname like 'ims-orders-%') order by start_time desc limit 10;
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 42 · 44 · 47 · 48 고침 [⬜ Caleb 이 돌린 뒤 날짜를 적는다] ord-1b2 (2026-10-10 밤 · 판정 363 · EF ord-1b2 · DB 20261011020000) — pg_net 기다림 · orders-drain 조건
+--   ① pg_net 기다림: net.http_post 의 timeout_milliseconds 는 기본 5000(pg_net 0.20.4 · 테스트 DB pg_proc 실측 · 문서 github.com/supabase/pg_net README「net.http_post(url, body, params, headers, timeout_milliseconds)」) — EF 한 회차가 5 초를 넘으면(orders_drain 6 초 실측 · 시간 한도 40 s)
+--      net._http_response 가 status_code · content 비어 있고 error_msg 가 「Timeout was reached」 로 남는다(EF 자체는 끝까지 돈다 · 짐작) ⇒ EF 를 부르는 넷(42 ims-shop-drain · 44 ims-stock-drain · 47 ims-orders-drain · 48 ims-orders-poll)에 45000 을 준다
+--      (drain 셋의 시간 한도 40 s + 마지막 건 + 응답 — 30000 이면 긴 회차의 응답을 또 잃는다 · 1 분 주기 안)
+--   ② ims-orders-drain(47) 조건: 받은 일 열린 줄 **또는 status = received 인 shop_order**(직원이 resolve 로 푼 것 · EF 의 sweep 이 process) — 둘 다 0 이면 EF 호출 0 그대로
+--   ③ 45 · 46(SQL 만 · EF 호출 없음) · 43 은 그대로
+--   x-ims-cron-key 실제 값은 이 파일에 넣지 말 것 — 고침은 대시보드 SQL Editor 에서 아래 do 블록 그대로(42 번 줄의 열쇠를 읽어 넣는다 · 화면 · 대화에 찍지 않음 · jobname 이 기대와 다르면 멈춤)
+--   do $$ declare k text; begin
+--     select substring(command from 'x-ims-cron-key'', ''([^'']+)') into k from cron.job where jobid = 42;
+--     if k is null or length(k) < 32 then raise exception 'cron key not found on jobid 42'; end if;
+--     if (select string_agg(jobid || ':' || jobname, ',' order by jobid) from cron.job where jobid in (42, 44, 47, 48)) <> '42:ims-shop-drain,44:ims-stock-drain,47:ims-orders-drain,48:ims-orders-poll' then raise exception 'jobid / jobname mismatch — check cron.job first'; end if;
+--     perform cron.alter_job(42, command := format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"drain"}'::jsonb, timeout_milliseconds := 45000)
+--       where exists (select 1 from public.shop_push_queue q where q.done_at is null);
+--     $j$, k));
+--     perform cron.alter_job(44, command := format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"stock_drain"}'::jsonb, timeout_milliseconds := 45000)
+--       where exists (select 1 from public.shop_stock_queue q where q.done_at is null);
+--     $j$, k));
+--     perform cron.alter_job(47, command := format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"orders_drain"}'::jsonb, timeout_milliseconds := 45000)
+--       where exists (select 1 from public.shop_order_inbox q where q.done_at is null)
+--          or exists (select 1 from public.shop_order o where o.status = 'received');
+--     $j$, k));
+--     perform cron.alter_job(48, command := format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"orders_poll"}'::jsonb, timeout_milliseconds := 45000);
+--     $j$, k));
+--   end $$;
+--   확인: select jobid, jobname, schedule, active, command like '%timeout_milliseconds := 45000%' as has_timeout, command like '%status = ''received''%' as has_received from cron.job where jobid in (42, 44, 47, 48) order by jobid;
+--   기록(열쇠 자리는 placeholder · 위 do 블록이 실물):
+select cron.alter_job(42, command := $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_push_queue q where q.done_at is null);
+$job$);
+select cron.alter_job(44, command := $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"stock_drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_stock_queue q where q.done_at is null);
+$job$);
+select cron.alter_job(47, command := $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"orders_drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_order_inbox q where q.done_at is null)
+     or exists (select 1 from public.shop_order o where o.status = 'received');
+$job$);
+select cron.alter_job(48, command := $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"orders_poll"}'::jsonb, timeout_milliseconds := 45000);
+$job$);
+-- 되돌리기: 위 ord-1b · stock-1b · shop-2b 블록의 등록 do 블록(timeout 없는 판)으로 cron.alter_job(…, command := …) · 킬 스위치는 각 블록 그대로

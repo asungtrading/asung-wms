@@ -1,7 +1,7 @@
 -- ord-1a2-verify.sql — Shopify ④ 오더 받기 DB 둘째 차수: discount_source shopify · 다시 매기기 건너뛰기 · process · cancelled · resolve_lines · ingest 재발행 (Asung-IMS · 테스트)
 --   기대: 시험 갈래(-v mig) OK 16 · 확인 갈래 OK 14(= 16 − 시험 전용 2: G0a · T1b) · MISMATCH 0 · 확인 갈래 전용 줄(\else)은 없다
 --   시험 적용(Claude Code): set -o pipefail; psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -v mig=supabase/migrations/20261011003000_ord_1a2_shop_order_process.sql -f supabase/tests/ord-1a2-verify.sql > /tmp/ord-1a2.out 2>&1; echo exit=$?
---   확인(Caleb · 적용된 DB): 같은 명령에서 -v mig=… 만 뺀다
+--   확인(Caleb · 적용된 DB): 같은 명령에서 -v mig=… 만 뺀다 · ⚠️ T6a 의 기대값은 ord-1b2(20261011020000 · ingest 재발행) 뒤의 것 — 1b2 전 DB 에서는 T6a 가 MISMATCH(경고 넷)
 --   재료: 오더 원문은 pg_temp.ord() 가 손으로 만든 jsonb · 실제 손님 Debi Blair(72cf6eba · 이메일 하나 · Wholesale · Net30 · 할인 0)는 읽기만 · 20 % 케이스 딜(AAL10850 · 12 개 이상)은 시험 안에서 insert · 가짜 aone 스토어 · 가짜 직원 · 만들어지는 SO 는 전부 rollback
 --   ⚠️ so_number_seq 는 rollback 되지 않는다 — 머리를 읽고 끝에서 greatest(실제 최대, 머리)로 되돌린다 · 실제 행 변경 0
 \set ON_ERROR_STOP on
@@ -174,11 +174,11 @@ select pg_temp.chk('T5b (판정 433) staff changes qty of a shopify line 1 → 5
 select public.shop_order_ingest(:'store'::uuid, pg_temp.ord('gid://shopify/Order/900000000021', 'AS-T0021', '03.novelty.plosive@icloud.com', 'gid://shopify/Customer/700000000001', 'AB',
   '[{"sku":"AAL10850","qty":12,"list":"7.89","unit":"6.31"},{"sku":"AAL10925","qty":1,"list":"7.89","unit":"7.89"},{"sku":"AAL10850","qty":1,"list":"7.89","unit":"7.89"}]'::jsonb, :'tax_ab_9150', 'PENDING', '{"orig":"11.69","disc":"11.69","title":"Expedited Parcel"}'::jsonb,
   '{"updatedAt":"2026-10-10T21:00:00Z","cancelledAt":"2026-10-10T21:00:00Z"}'::jsonb))::text as t6_a \gset
-select pg_temp.chk('T6a untouched confirmed SO + Shopify cancel → auto cancelled: shop_order cancelled · SO (and its stock-short sibling) cancelled · reserves released · warnings cancelled_in_shopify + auto_cancelled · so_id kept',
+select pg_temp.chk('T6a untouched confirmed SO + Shopify cancel → auto cancelled: shop_order cancelled · SO (and its stock-short sibling) cancelled · reserves released · warnings auto_cancelled only (ord-1b2 20261011020000: updated_after_so · cancelled_in_shopify are not kept after an automatic cancel) · so_id kept',
   (:'t6_a'::jsonb->>'action') || '/' || (select status || '/' || (so_id is not null)::text from public.shop_order where id = :'o21'::uuid) || '/' ||
   (select string_agg(status, ',' order by so_number) from public.so where id = :'so21'::uuid or split_from_id = :'so21'::uuid) || '/' ||
   (select count(*)::text from public.so_reserve r join public.so_line l on l.id = r.so_line_id join public.so s on s.id = l.so_id where (s.id = :'so21'::uuid or s.split_from_id = :'so21'::uuid) and r.released_at is null) || '/' || pg_temp.warns(:'o21'::uuid),
-  'updated_after_created/cancelled/true/cancelled,cancelled/0/auto_cancelled,cancelled_in_shopify,freight_not_applied,updated_after_so');
+  'updated_after_created/cancelled/true/cancelled,cancelled/0/auto_cancelled,freight_not_applied');
 savepoint t6;
 update public.shop_order set so_baseline_at = now() - interval '1 minute' where id = :'o41'::uuid;                                -- 한 트랜잭션 안에서는 now() 가 멈춰 있다 — SO 를 1 분 전에 만든 것으로(ims_touch 의 updated_at = now() 가 기준 뒤가 되게)
 set local role authenticated;
