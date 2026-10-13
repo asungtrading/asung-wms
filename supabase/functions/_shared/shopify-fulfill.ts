@@ -1,5 +1,5 @@
 // ============================================================
-// ASUNG IMS — 발송 보내기 순수 함수 · 쿼리 (_shared · ful-2 · 2026-10-13 · 판정 436 ~ 453 · DB ful-1a 20261013170000 · ful-2a 20261013193000 · ful-1b 20261013210000)
+// ASUNG IMS — 발송 보내기 순수 함수 · 쿼리 (_shared · ful-2 · 2026-10-13 · 판정 436 ~ 453 · DB ful-1a 20261013170000 · ful-2a 20261013193000 · ful-1b 20261013210000 · ful-2c)
 //   fulfill_drain 이 쓴다 — 네트워크 · DB 없음(deno test). 흐름(index.ts fulfillDrain):
 //   · 큐 ship 줄 → 그 SO 의 결과 표 머리(shop_fulfillment · pending | error)마다 ① Shopify 오더의 fulfillmentOrders(줄 · remainingQuantity · 위치 · 배송 방식) + fulfillments 를 읽고
 //     ② planLines: 결과 표 줄(line_gid · 수량)을 열린 FO 줄에 짝 맞춤 · 보낼 수량은 Shopify 남은 수량으로 자른다(미룬 201 b · 자르면 quantity_sent < quantity · 경고 fulfill_cut)
@@ -10,8 +10,11 @@
 //     ⑥ 보낼 것이 0 이면 adoptExisting: 우리 송장과 같은 발송(carrier) · 큐에 넣은 뒤 만든 송장 없는 발송(pickup · delivery)이 있으면 그 GID 를 받아 적는다(「보냈는데 못 적은」 구멍 · fulfillmentCreate 에 @idempotent 없음) · 없으면 skipped + fulfill_nothing_left
 //   📌 스키마(2026-10-13 MCP graphql_schema): FulfillmentOrderMovePayload.movedFulfillmentOrder — 「원래 FO 에 일부라도 발송된 줄이 없으면 원래 FO 가 옮겨진다 · 있으면 옮겨진 FO 는 원래 것과 다르다」 · remainingFulfillmentOrder 는 deprecated
 //   📌 문서: move 실패 = FO closed · 진행 보고됨 · 새 위치가 그 품목을 stock 하지 않음 · 권한 · requestStatus SUBMITTED 등 · 발송된 줄은 못 옮긴다(FulfillmentOrderMovePayload)
-//   ful-1b(판정 438 · 443 · 447): 큐 kind 셋 — ship(위) · picked_up(창구 shop_fulfill_picked_up → 픽업 FO 에 fulfillmentCreate notify false → GID · 짐작: 「Picked up」 전용 mutation 은 문서에 없다) ·
+//   ful-1b(판정 438 · 443 · 447): 큐 kind 셋 — ship(위) · picked_up(창구 so_picked_up(ful-1c · 옛 shop_fulfill_picked_up) → 픽업 FO 에 fulfillmentCreate notify false → GID · 짐작: 「Picked up」 전용 mutation 은 문서에 없다) ·
 //     tracking_fix(창구 so_tracking_fix → GID 있는 carrier 머리마다 fulfillmentTrackingInfoUpdate notify false) · 쓸 때마다 last_push_at(ingest 의 메아리 ⓑ 2 분 창)
+//   ful-2c(실물 #1008): 직원이 Shopify 에서 먼저 「Mark as ready for pickup」 을 누른 FO 에 PreparedForPickup 을 보내면 userErrors 코드 NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER 로 돌아온다(enum 셋 중 하나 · 문서 설명 「준비할 줄이 없다」)
+//     → 우리가 보내는 조건(열린 PICK_UP FO · 남은 수량 > 0)이 발송됨 · 닫힘 · 보류를 먼저 걸러내므로 이 코드 = 「이미 Ready」 — 보낸 FO 전부가 그 코드면 받아 적는다(sent · ready_at = FO updatedAt(없으면 지금) · last_push_at 없음 · 경고 없음) · 일부만이면 error
+//     FO 상태 IN_PROGRESS 로 미리 가르지 않는다(「준비됨」의 표시가 아니다 · 짐작이 틀리면 Ready 메일이 한 번도 안 간다 · Caleb) — Shopify 가 판정한다
 // ============================================================
 
 export const FULFILL_FETCH = 20;                                          // 한 회차에 집는 큐 줄
@@ -24,7 +27,7 @@ export type FulfillKind = typeof FULFILL_KINDS[number];
 
 // ── GraphQL(2026-10 · MCP validate ✅ VALID · 필요 권한은 지금 앱(v1scopes)으로 된다 — read_orders · read/write_merchant_managed_fulfillment_orders · read_locations · read_inventory) ──
 export const FULFILL_ORDERS_QUERY = `query ImsFulfillmentOrders($id: ID!) { order(id: $id) { id name displayFulfillmentStatus
-  fulfillmentOrders(first: 20) { nodes { id status requestStatus assignedLocation { location { id name } } deliveryMethod { methodType } lineItems(first: 100) { nodes { id totalQuantity remainingQuantity lineItem { id sku } } } } }
+  fulfillmentOrders(first: 20) { nodes { id status requestStatus updatedAt assignedLocation { location { id name } } deliveryMethod { methodType } lineItems(first: 100) { nodes { id totalQuantity remainingQuantity lineItem { id sku } } } } }
   fulfillments(first: 20) { id status createdAt trackingInfo(first: 10) { number } } } }`;
 export const FULFILLMENT_CREATE_MUTATION = `mutation ImsFulfillmentCreate($fulfillment: FulfillmentInput!) { fulfillmentCreate(fulfillment: $fulfillment) { fulfillment { id status createdAt trackingInfo(first: 10) { company number url } } userErrors { field message } } }`;
 export const FULFILLMENT_ORDER_MOVE_MUTATION = `mutation ImsFulfillmentOrderMove($id: ID!, $newLocationId: ID!, $items: [FulfillmentOrderLineItemInput!]) { fulfillmentOrderMove(id: $id, newLocationId: $newLocationId, fulfillmentOrderLineItems: $items) { movedFulfillmentOrder { id status assignedLocation { location { id name } } lineItems(first: 100) { nodes { id remainingQuantity lineItem { id } } } } originalFulfillmentOrder { id status } userErrors { field message } } }`;
@@ -33,7 +36,7 @@ export const PREPARED_FOR_PICKUP_MUTATION = `mutation ImsFulfillmentReadyForPick
 
 // ── 모양 ──
 export type FoLine = { id: string; totalQuantity?: number | null; remainingQuantity: number | null; lineItem: { id: string; sku?: string | null } | null };
-export type FoNode = { id: string; status: string; requestStatus?: string | null; assignedLocation?: { location?: { id: string; name?: string | null } | null } | null; deliveryMethod?: { methodType?: string | null } | null; lineItems?: { nodes?: FoLine[] } | null };
+export type FoNode = { id: string; status: string; requestStatus?: string | null; updatedAt?: string | null; assignedLocation?: { location?: { id: string; name?: string | null } | null } | null; deliveryMethod?: { methodType?: string | null } | null; lineItems?: { nodes?: FoLine[] } | null };
 export type FulfillmentNode = { id: string; status?: string | null; createdAt?: string | null; trackingInfo?: Array<{ number?: string | null }> | null };
 export type FulRow = { id: string; so_id: string; shop_order_id: string; store_id: string; carrier_id: string | null; carrier_name: string | null; carrier_kind: "carrier" | "pickup" | "delivery" | null; shopify_company: string | null; tracking_numbers: string[]; notify_customer: boolean; status: string; attempts: number; created_at: string;
   shopify_fulfillment_gid?: string | null; fulfillment_order_gid?: string | null; ready_at?: string | null; picked_up_at?: string | null };   // ful-1b: picked_up · tracking_fix 가 읽는 칸
@@ -159,6 +162,23 @@ export const needsTrackingFix = (row: FulRow): boolean => row.carrier_kind === "
 export function pickupFo(row: FulRow, fos: FoNode[]): FoNode | null {
   const fo = fos.find((f) => f.id === row.fulfillment_order_gid) ?? null;
   return fo && isOpenFo(fo) ? fo : null;
+}
+// ful-2c: 「이미 Ready」 판정 — userErrors 가 하나 이상이고 전부 NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER 일 때만(일부만 그 코드 · 다른 코드 · 코드 없음 → false = error 재시도)
+export const READY_ALREADY_CODE = "NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER";
+export function adoptReadyError(errs: UserErr[] | null | undefined): boolean {
+  const e = errs ?? [];
+  return e.length > 0 && e.every((x) => String(x.code ?? "").toUpperCase() === READY_ALREADY_CODE);
+}
+// ful-2c: 받아 적는 ready_at — 보낸 FO 들의 updatedAt 중 가장 늦은 것(Mark as ready 가 FO 를 바꾼 시각 · 짐작) · 없거나 못 읽으면 fallback(지금)
+export function readyAtFromFos(fos: FoNode[], foIds: string[], fallback: string): string {
+  const used = new Set(foIds);
+  let best: string | null = null;
+  for (const fo of fos) {
+    if (!used.has(fo.id)) continue;
+    const u = String(fo.updatedAt ?? "");
+    if (u && Number.isFinite(Date.parse(u)) && (!best || u > best)) best = u;
+  }
+  return best ? new Date(best).toISOString() : fallback;
 }
 export const preparedForPickupInput = (foIds: string[]) => ({ lineItemsByFulfillmentOrder: [...new Set(foIds)].map((fulfillmentOrderId) => ({ fulfillmentOrderId })) });
 

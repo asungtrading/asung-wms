@@ -26,7 +26,8 @@
 //      fulfill_drain = cron · 직원 — shop_fulfill_queue 의 열린 ship 줄(오래된 것부터 ≤ FULFILL_FETCH)마다 그 SO 의 결과 표 머리(shop_fulfillment · pending | error)를 하나씩: Shopify 오더의 fulfillmentOrders + fulfillments 읽기 →
 //                      줄 짝(planLines · 남은 수량으로 자름 → quantity_sent · 경고 fulfill_cut) → 위치 맞추기(SO 창고의 shop_location ≠ FO 위치면 fulfillmentOrderMove · 실패면 그대로 보내고 경고 fulfill_location_mismatch · 판정 445 · 453) →
 //                      kind pickup + FO PICK_UP 이면 fulfillmentOrderLineItemsPreparedForPickup(ready_at · 판정 379) · 그 밖은 fulfillmentCreate(carrier = 송장 · 메일 / pickup · delivery = 송장 없음 · 메일 없음 · 판정 378) → 머리 sent(GID) · 줄 quantity_sent · fulfillment_order_line_item_gid
-//                      ful-1b(DB 20261013210000 · 판정 438 · 443 · 447): 큐 kind picked_up(창구 shop_fulfill_picked_up → 픽업 FO 에 fulfillmentCreate notify false → GID) · tracking_fix(창구 so_tracking_fix → fulfillmentTrackingInfoUpdate notify false) · Shopify 에 쓸 때마다 last_push_at(ingest 메아리 ⓑ)
+//                      ful-1b(DB 20261013210000 · 판정 438 · 443 · 447): 큐 kind picked_up(창구 so_picked_up(ful-1c · 옛 shop_fulfill_picked_up) → 픽업 FO 에 fulfillmentCreate notify false → GID) · tracking_fix(창구 so_tracking_fix → fulfillmentTrackingInfoUpdate notify false) · Shopify 에 쓸 때마다 last_push_at(ingest 메아리 ⓑ)
+//                      ful-2c: Ready for pickup 을 보냈는데 Shopify 가 NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER 로 거절하면(직원이 Shopify 에서 먼저 Mark as ready · 실물 #1008) 받아 적는다 — sent · ready_at = FO updatedAt · last_error 「adopted: already ready in Shopify」 · last_push_at · 경고 없음
 //                      보낼 것이 0 이면 우리 발송을 받아 적는다(adoptExisting · 송장 겹침 / 큐 뒤 송장 없는 발송) · 아니면 skipped + 경고 fulfill_nothing_left · 머리 하나라도 error 면 큐를 열어 두고 attempts + 1 · 5 회면 큐 done error + 경고 fulfill_failed
 //                      쓰기 = 세 표(shop_fulfillment · line · 큐)는 service_role REST PATCH(stock_drain 의 patchQueue 와 같은 길) · shop_order 경고는 rpc/shop_order_warn(ful-2a · 한 문장 || 라 ingest 경고와 안 겹친다) · shop_system_enter 는 안 부른다
 //   호출 한 번 = shop_call_log 한 줄(drain 은 건마다) · 90 일 지난 줄은 호출 끝에 지운다.
@@ -38,7 +39,7 @@ import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, m
 import { sleep } from "../_shared/shopify.ts";
 import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
-import { adoptExisting, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
+import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -618,8 +619,15 @@ async function sendFulfillment(store: StoreRow, f: FulRow): Promise<FulOut> {
     const gp = await shopifyGql(store, PREPARED_FOR_PICKUP_MUTATION, { input: preparedForPickupInput(foIds) });
     out.cost += gp.cost.actual ?? 0;
     const ue = (gp.data as { fulfillmentOrderLineItemsPreparedForPickup?: { userErrors?: UserErr[] } } | null)?.fulfillmentOrderLineItemsPreparedForPickup?.userErrors ?? [];
-    if (!gp.ok || ue.length) throw new Error("ready for pickup: " + (ue.length ? userErrorsText(ue) : gqlErr(gp)));
-    await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", ready_at: stamp, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: null, attempts: f.attempts + 1, last_push_at: stamp });
+    if (!gp.ok) throw new Error("ready for pickup: " + gqlErr(gp));
+    if (ue.length && adoptReadyError(ue)) {                                                       // ful-2c: Shopify 가 「준비할 줄이 없다」 = 이미 Ready(직원이 Shopify 에서 먼저) → 받아 적는다(쓴 것 없음 · last_push_at 없음 · 경고 없음)
+      const readyAt = readyAtFromFos(fos, foIds, stamp);
+      await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", ready_at: readyAt, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: "adopted: already ready in Shopify (Ready for pickup was done in Shopify before IMS) — " + userErrorsText(ue).slice(0, 200), attempts: f.attempts + 1 });
+      out.path = "ready_adopt";
+    } else {
+      if (ue.length) throw new Error("ready for pickup: " + userErrorsText(ue));
+      await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", ready_at: stamp, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: null, attempts: f.attempts + 1, last_push_at: stamp });
+    }
   } else {
     const gc = await shopifyGql(store, FULFILLMENT_CREATE_MUTATION, { fulfillment: buildFulfillmentInput(f, items, template) });
     out.cost += gc.cost.actual ?? 0;

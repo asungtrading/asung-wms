@@ -1,5 +1,5 @@
-// deno test supabase/functions/shopify/shopify_fulfill_test.ts — Shopify · DB 무접촉 (ful-2 ① ~ ⑧ · ful-1b ⑨ ~ ⑫ · _shared/shopify-fulfill.ts 의 순수 함수)
-import { adoptExisting, buildFulfillmentInput, buildTrackingInput, FULFILL_KINDS, FULFILL_MAX_ATTEMPTS, movesNeeded, needsPickedUp, needsTrackingFix, pickupFo, pickupPath, planLines, preparedForPickupInput, queueOutcome, remapAfterMove, trackingUrls, userErrorsText, type FoNode, type FulfillmentNode, type FulLine, type FulRow } from "../_shared/shopify-fulfill.ts";
+// deno test supabase/functions/shopify/shopify_fulfill_test.ts — Shopify · DB 무접촉 (ful-2 ① ~ ⑧ · ful-1b ⑨ ~ ⑫ · ful-2c ⑬ ~ ⑭ · _shared/shopify-fulfill.ts 의 순수 함수)
+import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_KINDS, FULFILL_MAX_ATTEMPTS, movesNeeded, needsPickedUp, needsTrackingFix, pickupFo, pickupPath, planLines, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, trackingUrls, userErrorsText, type FoNode, type FulfillmentNode, type FulLine, type FulRow } from "../_shared/shopify-fulfill.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -141,4 +141,33 @@ Deno.test("⑫ Picked up 받아 적기 · 큐 셈 — adopt 는 Ready 뒤의 송
   eq(queueOutcome(["sent", "error"], 3), { done: false, result: null, attempts: 4, warn: false }, "⑫ 하나 error → 다시");
   eq(queueOutcome(["error"], FULFILL_MAX_ATTEMPTS - 1), { done: true, result: "error", attempts: FULFILL_MAX_ATTEMPTS, warn: true }, "⑫ 5 회째 닫고 경고");
   eq([...FULFILL_KINDS], ["ship", "picked_up", "tracking_fix"], "⑫ kind 셋");
+});
+
+// ── ful-2c ──
+Deno.test("⑬ adoptReadyError · readyAtFromFos — 전부 NO_LINE_ITEMS_… 면 받아 적음(#1008 실물 문장) · 다른 코드 · 섞임 · 코드 없음 · 빈 목록 → error 재시도 · ready_at = 보낸 FO 의 updatedAt 중 늦은 것 · 없으면 지금", () => {
+  const already = { field: ["input", "lineItemsByFulfillmentOrder", "0", "fulfillmentOrderId"], message: "The fulfillment order does not have any line items that can be prepared.", code: "NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER" };
+  eq(adoptReadyError([already]), true, "⑬ 실물 한 FO");
+  eq(adoptReadyError([already, { ...already, field: ["input", "lineItemsByFulfillmentOrder", "1", "fulfillmentOrderId"] }]), true, "⑬ FO 둘 다");
+  eq(adoptReadyError([already, { message: "Invalid fulfillment order ID provided.", code: "FULFILLMENT_ORDER_INVALID" }]), false, "⑬ 섞임 → error");
+  eq(adoptReadyError([{ message: "Unable to prepare quantity.", code: "UNABLE_TO_PREPARE_QUANTITY" }]), false, "⑬ 다른 코드");
+  eq(adoptReadyError([{ message: "x" }]), false, "⑬ 코드 없음");
+  eq(adoptReadyError([]), false, "⑬ 빈 목록"); eq(adoptReadyError(null), false, "⑬ null");
+  const f1 = fo(1, L_TO, [[1, 1]], { deliveryMethod: { methodType: "PICK_UP" }, updatedAt: "2026-10-13T17:53:23Z" });
+  const f2 = fo(2, L_TO, [[2, 1]], { deliveryMethod: { methodType: "PICK_UP" }, updatedAt: "2026-10-13T17:50:00Z" });
+  eq(readyAtFromFos([f1, f2], [f1.id, f2.id], "NOW"), "2026-10-13T17:53:23.000Z", "⑬ 늦은 updatedAt");
+  eq(readyAtFromFos([f1, f2], [f2.id], "NOW"), "2026-10-13T17:50:00.000Z", "⑬ 보낸 FO 만");
+  eq(readyAtFromFos([fo(3, L_TO, [[1, 1]])], [FOL(3, 1).replace("LineItem/301", "/3")], "NOW"), "NOW", "⑬ 없으면 지금");
+  eq(readyAtFromFos([{ ...f1, updatedAt: "bogus" }], [f1.id], "NOW"), "NOW", "⑬ 못 읽으면 지금");
+});
+Deno.test("⑭ 이미 Picked up(직원이 Shopify 에서 먼저) — 픽업 FO 가 CLOSED 라 pickupFo null → Ready 뒤의 송장 없는 발송을 받아 적는다 · Ready 전 것 · 송장 있는 것은 아니다", () => {
+  const pk = { ...row("pickup"), status: "sent", created_at: "2026-10-13T15:00:00Z", ready_at: "2026-10-13T17:53:23Z", picked_up_at: "2026-10-13T18:46:01Z", fulfillment_order_gid: "gid://shopify/FulfillmentOrder/77" };
+  const closed = fo(77, L_TO, [[1, 0]], { status: "CLOSED", deliveryMethod: { methodType: "PICK_UP" } });
+  eq(pickupFo(pk, [closed]), null, "⑭ 닫힌 FO");
+  const fuls: FulfillmentNode[] = [
+    { id: "gid://shopify/Fulfillment/1", status: "SUCCESS", createdAt: "2026-10-13T15:30:00Z", trackingInfo: [] },
+    { id: "gid://shopify/Fulfillment/2", status: "SUCCESS", createdAt: "2026-10-13T18:40:00Z", trackingInfo: [{ number: "X" }] },
+    { id: "gid://shopify/Fulfillment/3", status: "SUCCESS", createdAt: "2026-10-13T18:45:00Z", trackingInfo: [] },
+  ];
+  eq(adoptExisting({ ...pk, created_at: pk.ready_at ?? pk.created_at }, fuls), "gid://shopify/Fulfillment/3", "⑭ Ready 뒤 · 송장 없는 것");
+  eq(adoptExisting({ ...pk, created_at: pk.ready_at ?? pk.created_at }, fuls.slice(0, 2)), null, "⑭ Ready 전 · 송장 있는 것은 안 받는다");
 });
