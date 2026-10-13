@@ -416,6 +416,8 @@ EOF
 ⚠️ [2026-10-07 · §52-d 4] **칸 이름과 저장 칸의 뜻을 comment 로 확인** — balance_forward 는 크레딧을 이미 담은 「이전 잔액」이라 money on account 로 그리면 두 번 · 음수
 ⚠️ [2026-10-07 · §52-d 5] **객체를 글로 그리지 않는다** — 빈 Backorders taken over 가 JSON 글자
 ⚠️ [2026-10-07 · §52-d 6] **CSS 를 지울 때 괄호 수를 센다** — 줄 단위로 지우다 이어진 줄 하나가 다음 규칙을 삼킬 뻔했다(po.html)
+⚠️ [2026-10-13 · §62-d 3] **같은 정보를 그리는 자리를 grep 으로 다 센다** — so v5s 가 꼬리표를 좁은 목록(rowTags)에만 넣어 넓은 목록에 칩이 안 붙었다(v5s1) · 「한 곳만 고친다」 재발
+⚠️ [2026-10-13 · §62-d 4] **Promise.all 에 질의 자리를 더하면 받는 이름 순서를 질의 순서와 하나씩 대조** — wo v2a 가 둘째 자리에 질의 · 이름은 셋째 → 모든 오더 상세가 Loading 에서 멈춤(문법 검사로 안 잡힘 · wo v2b)
 ```
 
 ---
@@ -427,6 +429,9 @@ EOF
   curl -s https://raw.githubusercontent.com/asungtrading/asung-wms/main/<경로> -o /tmp/x.raw
   ⚠️ **커밋돼 push 된 것만 보인다** — 로컬에서 고치고 안 올린 것은 안 보인다
   ⚠️ [실사고 2026-09-21] 「레포를 못 읽는다」고 두 번 말하고 첨부를 요청했다. Caleb 이 "public인데?" 하고 물어서야 재 보고 읽혔다
+  ⭐ [2026-10-13 · so-module §62-d 5] **asung-ims(화면)도 공개 · raw 로 읽힌다**(curl 200) — 화면 파일을 Caleb 에게 복사 · 업로드시키지 마라(이번에 grep 이 넓어 15 파일을 복사시켰다)
+    curl -s https://raw.githubusercontent.com/asungtrading/asung-ims/main/<파일> -o /tmp/x.raw
+    여러 파일이면 레포 tarball: curl -sL https://codeload.github.com/asungtrading/asung-ims/tar.gz/main | tar xz -C /tmp
 
 쓰기 — 대화 Claude 가 파일을 만들면 Caleb 이 내려받아 옮긴다
   집 PC  /mnt/c/Users/yoonh/Downloads/     회사  /mnt/c/Users/chang/Downloads/
@@ -672,3 +677,7 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    1 [대화 Claude] ful-0 지시서가 이미 바뀐 판정을 옛 번호로 적었다(「판정 365 로 Edmonton」 → 430) ⇒ 지시서에 판정을 적을 때 정본의 「→ 바뀐 판정」 표시를 따라간다
    2 [대화 Claude] 조사 지시서에 「DB 는 select 만」과 「쿼리는 Caleb 이 돌릴 것」을 함께 — §55-d 1 재발 ⇒ 조사 차수도 「테스트 DB 읽기(begin → rollback)는 Claude Code」
    3 [대화 Claude · docs-1011] CSV 의 Payment Method custom 을 「일반 웹 결제」 로 읽었다 — Financial Status 는 50 모두 pending ⇒ 돈을 받았는지는 Financial Status 로 · 결제 방식 이름으로 읽지 않는다
+⚠️ **[2026-10-13 ⑤ 짓기 · 시험 · so-module §62-d]**
+   1 [대화 Claude] SQL 칸 이름을 짐작해 두 번 틀렸다(so.ship_to_province 없음 · status 모호 — so 와 shop_fulfillment 둘에 있다) ⇒ 칸은 정의를 보고(§5) · 조인하면 표 이름을 붙인다
+   2 [대화 Claude] ful-0b 지시서의 짐작 「취소 → 운임 → 재발행이 기존 기계로 된다」 — 운임 창구가 draft 만이라 틀림(Claude Code 이견) ⇒ 기존 기계로 된다고 적기 전에 그 창구의 첫 줄(문 · draft 검사)을 grep
+   3 · 4 · 5 → §6 · §7(꼬리표 한 곳만 · Promise.all 순서 · asung-ims raw)

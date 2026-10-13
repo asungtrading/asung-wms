@@ -653,7 +653,7 @@ select cron.alter_job(48, command := $job$
 $job$);
 -- 되돌리기: 위 ord-1b · stock-1b · shop-2b 블록의 등록 do 블록(timeout 없는 판)으로 cron.alter_job(…, command := …) · 킬 스위치는 각 블록 그대로
 
--- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid ⬜(등록 뒤 Caleb 출력으로 적는다 · 짐작 금지) ful-2 (2026-10-13 · 판정 436 ~ 453 · 설계 shopify-integration §4 · DB ful-1a 20261013170000 · ful-2a 20261013193000) — Shopify ⑤ 발송 보내기
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 49(등록 뒤 Caleb 출력 · cron.job 실측 2026-10-13 · docs-1013b) ful-2 (2026-10-13 · 판정 436 ~ 453 · 설계 shopify-integration §4 · DB ful-1a 20261013170000 · ful-2a 20261013193000) — Shopify ⑤ 발송 보내기
 --   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
 --   ims-fulfill-drain : [jobid 49] 1 분마다 — ⭐ 발송 큐 열린 줄(shop_fulfill_queue.done_at is null)이 0 이면 net.http_post 를 하지 않는다(where exists · EF 호출 0) · EF fulfill_drain 은 큐 ship 줄 ≤ 20 · 시간 한도 40 s ·
 --                       줄마다 결과 표 머리(pending | error)를 Shopify 에 보낸다(FO 읽기 → 위치 맞추기 fulfillmentOrderMove(판정 445 · 실패면 그대로 보내고 경고 · 453) → fulfillmentCreate 또는 Ready for pickup(판정 378 · 379)) · 5 회 실패면 큐 닫고 경고 fulfill_failed

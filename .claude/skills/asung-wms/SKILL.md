@@ -394,6 +394,12 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - **order_read**(직원 · 쓰기 0): 오더 하나(GID · 숫자 · #1001) 원문 + 가림 보고 — 보호된 손님 정보는 신청 없이 된다(2026-10-11 확정)
   - ⚠️ EF 는 `shop_system_enter · leave` 를 부르지 않는다(시스템 창구 안에서만) · ingest · process · inbox_add 는 service_role rpc
   - **cron [테스트 DB]**: jobid **47** ims-orders-drain `* * * * *`(받은 일 열린 줄 **또는** received 인 shop_order 가 있을 때만) · **48** ims-orders-poll `*/15 * * * *` · ⚠️ EF 를 부르는 넷(42 · 44 · 47 · 48)은 `net.http_post(…, timeout_milliseconds := 45000)` — pg_net 0.20.4 기본 5000 이라 긴 회차의 응답을 잃었다 · 킬 스위치 `select cron.alter_job(47, active := false);` · `(48, …)` · 열쇠는 jobid 42
+- **⑤ 오더 상태 · 발송**(판정 436 ~ 456 · DB ful-1a `be5688c` · ful-2a(ful-2 `113df27`) · ful-1b `021ecc6` · ful-1c `4c476b2` · EF ful-2 · 1b · ful-2c `20ec11d` · so-module §62 · 정본 shopify-integration §4-h):
+  - **fulfill_drain**(cron · 직원): 큐 `shop_fulfill_queue` 열린 줄 ≤ 20 · 40 s · kind **셋** — ship(결과 표 머리 pending | error → FO 읽기 → 짝(Shopify 남은 수량으로 자름 · fulfill_cut) → 위치 맞추기 fulfillmentOrderMove(옮겨진 FO 의 줄 id 로 다시 짝 · 실패면 그대로 보내고 fulfill_location_mismatch · 판정 453) → pickup + PICK_UP FO = PreparedForPickup(ready_at) · 그 밖 fulfillmentCreate(carrier 만 송장 · 메일)) · picked_up(픽업 FO 에 fulfillmentCreate notify false) · tracking_fix(fulfillmentTrackingInfoUpdate notify false) · ready_pickup 은 검사 조건에만 있고 안 쓴다
+  - **받아 적기 둘**: ① 보낼 것이 0 이면 우리 발송(송장 겹침 · 큐 뒤 송장 없는 발송)을 GID 로 받아 적는다(fulfillmentCreate 에 @idempotent 없음 · 「보냈는데 못 적은」 구멍) · ② 이미 Ready — PreparedForPickup 이 `NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER` 면 sent · ready_at = FO updatedAt(짐작) · 「adopted: already ready in Shopify」 · 경고 없음 · ⚠️ FO 상태 IN_PROGRESS 로 미리 가르지 않는다(「준비됨」의 표시가 아니다 · 틀리면 Ready 메일이 한 번도 안 간다)
+  - **메아리 거르기**(판정 447 · ful-1b): Shopify 에 쓸 때마다 `last_push_at` · ingest 가 ⓐ 새로 보인 fulfillment GID 가 모두 우리 것 · ⓑ updatedAt 이 last_push_at −5 s ~ +2 min 이면 updated_after_so 를 안 붙인다 · Shopify updatedAt 은 **초 단위로 잘린다**(음수 지연이 나온다) · 실측 0.12 · 0.49 · 0.51 s · 「Ready for pickup」 은 updatedAt 을 안 바꾼다 · 모르는 GID = fulfilled_in_shopify · 새 환불 = refunded_in_shopify
+  - 쓰기는 service_role REST PATCH(결과 표 · 줄 · 큐) + rpc `shop_order_warn`(경고 한 줄 `warnings ||` · 코드 일곱) · 5 회 실패면 큐 done error + fulfill_failed · pickup_failed · tracking_fix_failed
+  - **cron [테스트 DB]**: jobid **49** ims-fulfill-drain `* * * * *`(열린 큐 줄이 없으면 EF 호출 0 · timeout 45000) · 킬 스위치 `select cron.alter_job(49, active := false);`
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)
 

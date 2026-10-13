@@ -357,12 +357,12 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️ 운임 — asung.ca 는 SO 운임 줄을 만들지 않는다(경고 freight_not_applied · ~~웹 결제 오더 운임~~ → custom 결제 방식 오더의 운임은 열어 둠 · → so-module §61-c) · 오더 전체 할인은 0 + 경고 order_discount_dropped
 ```
 
-## 4-p. ⭐⭐ SO 출고와 Shopify(⑤ 오더 상태 · 판정만 · 짓기 전) — 모르면 사고 (정본 shopify-integration §4 · so-module §61 · 판정 436 ~ 449)
+## 4-p. ⭐⭐ SO 출고와 Shopify(⑤ 오더 상태 · ~~판정만 · 짓기 전~~ → [2026-10-13] 짓기 끝 ful-1a ~ 2c) — 모르면 사고 (정본 shopify-integration §4 · §4-h · so-module §61 · §62 · 판정 436 ~ 456)
 
 ```
 ⭐⭐ 한 SO 는 한 번만 출고된다 — shipped → packed 길 없음 · 백오더 · 부족분은 so_split 형제 SO · 인보이스 취소는 fulfilled → shipped(재발행은 다시 fulfilled · 출고는 다시 안 일어난다)
 ⭐⭐ Shopify 로 보내는 방아쇠 = so.shipped_at 이 null → 값 · 상태(fulfilled)가 아니다 — 상태를 쓰면 인보이스 취소 · 재발행 때 발송(메일)이 두 번 간다
-⭐⭐ 넣는 창구는 so_finalize(Ship & invoice) 하나 · so.carrier · tracking_number 는 아직 자유 글자(「PICKUP TOR」 류) — 판정 436 으로 운송사 표가 된다
+⭐⭐ 넣는 창구는 so_finalize(Ship & invoice) 하나 · ~~so.carrier · tracking_number 는 아직 자유 글자(「PICKUP TOR」 류) — 판정 436 으로 운송사 표가 된다~~ → [2026-10-13] 운송사는 표 ref_carrier(so.carrier_id · 글자 칸은 그 순간 이름 · ful-1a)
 ⭐  판정 한 줄씩:
      436 운송사 = 작은 표(우리 이름 · Shopify 이름 · 종류 carrier | pickup | delivery) · 손님 기본도 이 표 · 종류가 메일을 정한다(carrier 만 메일)
      437 송장 칸 하나 · 쉼표 · 줄바꿈으로 여럿 → numbers[]
@@ -379,6 +379,21 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      448 Shopify 발송 되돌리기는 짓지 않는다 · 인보이스 취소와 묶지 않는다
      449 Net 오더가 IMS 에서 다 결제되면 Shopify 오더를 Paid 로(orderMarkAsPaid · 남은 금액 전부만 · ⑤ 와 따로 한 차수)
 ⚠️ 돈을 받았는지는 Financial Status(paid · pending)로 — 결제 방식 이름(custom · manual)으로 읽지 않는다(so-module §61-c · 61-d 3)
+⭐  판정 450 ~ 456(so-module §62-a):
+     450 운송사 표 시작 7(Pickup · Delivery · Canada Post · Purolator · UPS · Canpar · FedEx) · 그 밖은 Settings · 끄기(지우지 않음) · Pickup 을 창고로 나누지 않는다
+     451 손님 기본 운송사 — 표에 없는 글자는 id 만 비우고 글자는 남긴다(억지로 맞추면 Pickup 손님에게 발송 메일)
+     452 Ship & invoice — Shopify 계보 SO 만 운송사 필수 · 켜진 표 행 · carrier 면 모든 SO 송장 필수 · pickup · delivery 면 송장 비움 · PICK_UP 오더에 carrier 막음
+     453 Shopify 위치 옮기기 실패 → 원래 FO 로 그대로 보내고 경고 fulfill_location_mismatch
+     454 Shopify 픽업 오더 받기 — 브랜치 = 픽업 위치 짝 창고 · 세금 = 손님 주소의 주 먼저 · 없으면 픽업 창고 · 운송사 Pickup 미리 · 깨끗하면 자동 확정
+     455 픽업 칩 waiting for pickup → picked up(채널 warehouse ∧ 종류 pickup ∧ 출고됨 · counter · pos 없음)
+     456 Ready 뒤 손님이 배송을 원하면 취소하고 다시 주문(짓는 것 없음 · 출고 뒤 운임 창구가 없다)
+⭐⭐ 창구 실물(ful-1a ~ 1c):
+     so_finalize ① — 운송사 carrier_id(또는 표 이름과 같은 글자) · 452 검사 · ② 에서 씀 · 출고 순간 so_ship 끝 shop_fulfill_enqueue → 큐 ship + 결과 표(unique(so_id, kind))
+     so_header_update — 초안만 · 열쇠 carrier_id(켜진 행 · 글자 = 표 이름 · '' = 비움 · 두 열쇠가 다르면 거절) · so_merge 는 carrier_id 도 비운다
+     so_tracking_fix(so, carrier_id, tracking, commit) — 출고된 SO 의 운송사 · 송장만 · 종류 바뀜 거절 · pickup · delivery 거절 · 큐 tracking_fix(메일 없음)
+     so_picked_up(so) — so.picked_up_at · by(SO 상태 무접촉) · 채널 warehouse · 종류 pickup · 출고됨 · Shopify 행 sent + Ready → 큐 picked_up · pending → 거절 · error · skipped → IMS 만 + pickup_not_sent
+⚠️ 출고 뒤 운임을 붙이는 창구는 없다 — so_charge_set · so_charge_remove 는 draft 만 · 인보이스 취소 · 재발행은 manager(ful-0b · 판정 456 의 근거)
+⚠️ 큐 kind 는 셋을 쓴다(ship · picked_up · tracking_fix) · ready_pickup 은 검사 조건에만 · Ready for pickup 은 ship 갈래(EF · asung-wms 스킬)
 ```
 
 ## 5. 이 스킬을 갱신할 때

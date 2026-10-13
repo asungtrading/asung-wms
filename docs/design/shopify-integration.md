@@ -9,6 +9,7 @@
 ⭐ [2026-10-10 밤 · so-module §59] 태그 보내기 = IMS 태그 전부(판정 426) · 품절 판매를 스토어마다 `shop_store.oos_policy`(판정 427) · 단종 DENY(판정 428) · 171 정리(판정 429) — DB shop-pol `8cd08a7` · 화면 ss v2(asung-ims `34ea859`) · 다음 판정 번호 **430**
 ⭐ [2026-10-11 · so-module §60] **④ 오더 받기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ord-1a1 `901e4c7` · ord-1a2 `98b92bd` · EF + 받은 일 표 ord-1b · 1b2 `7eeaf3a` · ord-1b3 `e425d3e` · 화면 ord-1c(asung-ims wo v1 · so v5r · nav v7 `f66419f` · wo v1a `8df43b7`) · cron 47 · 48 · 판정 430 ~ 435(아래 §2) · 다음 판정 번호 **436**
 ⭐ [2026-10-13 · so-module §61] **⑤ 오더 상태 판정**(조사 ful-0 · 쓰기 0 · 짓기는 아직) — 판정 436 ~ 449(아래 §4 · 4-d ~ 4-g 새로) · 다음 판정 번호 **450** · 할 일 §7(Caleb 넷)
+⭐ [2026-10-13 · so-module §62] **⑤ 오더 상태 짓기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ful-1a `be5688c` · ful-2a(ful-2 `113df27`) · ful-1b `021ecc6` · ful-1c `4c476b2` · EF fulfill_drain ful-2 · 1b · ful-2c `20ec11d` · cron jobid 49 · 화면 ful-3a(asung-ims so v5s `716397d` · v5s1 `f5ac4ab`) · ful-3b(set v2 · wo v2 · bo v3a `e7409fd` · wo v2a `4a242e3` · v2b `8402402`) · 판정 450 ~ 456(아래 §4-h) · 다음 판정 번호 **457**
 
 ---
 
@@ -263,7 +264,7 @@ Edit 안    판정 416 — Shopify · Description · Photos 카드를 단추 없
 ```
 가르기            Shopify 오더의 배송 방식(deliveryMethod)으로 — PICK_UP = 아래 픽업 흐름 · 그 밖(SHIPPING 등) = 4-a(378) 그대로(판정 444 · 446)
                   aone 은 배송 오더가 픽업보다 훨씬 많다(Caleb) — 시험도 aone 배송 장면을 픽업보다 먼저
-Pickup 오더       운송사 Pickup 을 미리 채운다
+Pickup 오더       운송사 Pickup 을 미리 채운다 → [2026-10-13] 받을 때 IMS 가 채운다(판정 454 · ful-1b · 4-h)
 Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일) — 서류까지 끝나 픽업 스테이션에 놓기 바로 전 (단추 이름 판정 382)
 그 뒤             「Waiting for pickup」 칩 · 손님이 찾아가면 「Picked up」 단추(메일 없음)
                   SO 상태는 건드리지 않는다(Ship & invoice 로 이미 fulfilled) · Shopify 로 보낸 발송 기록에 준비됨 · 찾아감 시각 · 칩 · 단추는 그 칸으로(판정 443)
@@ -280,11 +281,11 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 ```
 운송사            작은 표에서 고른다(자유 글자 금지) · 항목 = 우리 이름 · Shopify 이름 · 종류(carrier · pickup · delivery) · 손님 기본 운송사도 이 표에서(판정 436)
                   종류가 손님 메일을 정한다 — carrier = 메일 · pickup · delivery = 메일 없음
-                  Shopify 이름은 Shopify 운송사 목록의 이름을 대소문자 그대로(목록에 없으면 글자만 실리고 링크가 없다) · Purolator · UPS 는 못 봤다(§7)
-                  지금은 so.carrier · customer.default_carrier 가 자유 글자다(테스트 DB 「PICKUP TOR」 류) — 판정 436 으로 표가 된다
+                  Shopify 이름은 Shopify 운송사 목록의 이름을 대소문자 그대로(목록에 없으면 글자만 실리고 링크가 없다) · ~~Purolator · UPS 는 못 봤다(§7)~~ → [2026-10-13] Purolator 는 있다(실물 · 판정 450) · UPS 는 못 봤다(§7)
+                  ~~지금은 so.carrier · customer.default_carrier 가 자유 글자다(테스트 DB 「PICKUP TOR」 류) — 판정 436 으로 표가 된다~~ → [2026-10-13] 표 ref_carrier 가 섰다(ful-1a · 4-h) · 글자 칸은 그 순간의 이름으로 남는다
 송장              칸은 하나 그대로 · 쉼표 · 줄바꿈으로 여럿을 받아 Shopify numbers[] 로 나눠 보낸다 · 보통은 대표 번호 하나(Freightcom 도 대표 번호 하나 · 판정 437)
 고침              Ship & invoice 뒤에도 운송사 · 송장번호만 고치는 창구 → Shopify fulfillmentTrackingInfoUpdate · 손님 메일 다시 안 보냄(판정 438)
-                  종류가 바뀌는 고침(carrier ↔ pickup · delivery)은 막는다 · 발송 뒤 송장 「넣기」 창구는 짓지 않는다(빈 송장을 처음 채우는 경계 — so-module 미룬 208)
+                  종류가 바뀌는 고침(carrier ↔ pickup · delivery)은 막는다 · 발송 뒤 송장 「넣기」 창구는 짓지 않는다(빈 송장을 처음 채우는 경계 — so-module 미룬 208 → 판정 452 로 닫힘 · carrier 면 Ship & invoice 때 송장 필수)
 ```
 
 ### 4-e. 나가지 않을 몫 · 환불 · 결제 상태 (판정 439 · 440 · 441 · 449)
@@ -309,11 +310,48 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 ### 4-g. 메아리 · 되돌리기 (판정 447 · 448)
 ```
 메아리            IMS 가 보낸 발송마다 Shopify 가 돌려주는 GID 를 저장 · 오더를 다시 받을 때 견준다 — 우리 것 = 경고 없음 · 모르는 발송 = 「Shopify 에서 발송됨」 경고(SO 무접촉)(판정 447)
-                  받기 쿼리에 fulfillments · refunds 를 더한다 · 환불은 4-e(판정 440) · 지금은 SO 뒤 바뀜이면 종류 없이 updated_after_so 하나
+                  받기 쿼리에 fulfillments · refunds 를 더한다 · 환불은 4-e(판정 440) · ~~지금은 SO 뒤 바뀜이면 종류 없이 updated_after_so 하나~~ → [2026-10-13] 지어졌다(ful-1b · 4-h 메아리)
 되돌리기          Shopify 발송 되돌리기는 짓지 않는다 · 드물게 생기면 직원이 Shopify 에서 취소(447 경고로 보인다) · 인보이스 취소와 묶지 않는다(재발행 때 발송 메일 두 번)(판정 448)
 ```
 
 ---
+
+### 4-h. 짓기 실물 (판정 450 ~ 456 · ful-1a · 2 · 1b · 1c · 2c · ful-3a · 3b · so-module §62)
+```
+운송사 표        ref_carrier(이름 · Shopify 이름 · 종류 carrier | pickup | delivery · 켜기 · 끄기) · 시작 7 = Pickup · Delivery · Canada Post · Purolator · UPS · Canpar · FedEx(판정 450)
+                 그 밖은 Settings 의 Carrier 표에서 직원이 더한다(set v2 · master 쓰기 · 종류는 못 바꿈 · 지우지 않고 끈다) · Pickup 을 창고로 나누지 않는다
+                 so.carrier_id · customer.default_carrier_id(FK) · 글자 칸은 그 순간 이름 · 손님 기본 글자가 표에 없으면 id 만 비우고 글자는 남긴다(판정 451)
+                 so_header_update 는 carrier_id 열쇠(또는 표 이름과 같은 글자)만 받는다 · 초안만 · so_merge 는 carrier_id 도 비운다(ful-1c)
+Ship & invoice   so_finalize(판정 452) — 계보가 Shopify 에 닿는 SO 만 운송사 필수 · 고르면 켜진 표 행 · 종류 carrier 면 모든 SO 송장 필수 · pickup · delivery 면 송장 비움
+                 쉼표 · 줄바꿈으로 나눔(437) · Shopify 배송 방식 PICK_UP 오더에 종류 carrier 는 막음 · 운송사를 고르는 것은 오피스
+방아쇠            so_ship 끝(shipped_at · qty_shipped · 형제 split 뒤)에서 shop_fulfill_enqueue → 큐 ship + 결과 표 shop_fulfillment(SO × Shopify 오더) · 줄 shop_fulfillment_line(계보 함수)
+                 unique(so_id, kind) — 인보이스 취소 · 재발행이 두 번 넣지 못한다
+큐 · 비우기       shop_fulfill_queue kind 셋을 쓴다 — ship · picked_up · tracking_fix(ready_pickup 은 검사 조건에만 있고 안 쓴다 · Ready 는 ship 갈래)
+                 EF shopify action fulfill_drain · cron jobid 49 ims-fulfill-drain(1 분 · 열린 줄이 없으면 EF 호출 0 · timeout 45000) · 킬 스위치 select cron.alter_job(49, active := false);
+                 한 회차 ≤ 20 줄 · 40 s · 5 회 실패면 큐 done error + 경고 fulfill_failed
+보내기(ship)      FO 읽기 → 짝(Shopify 남은 수량으로 자름 · 경고 fulfill_cut) → 위치 맞추기 fulfillmentOrderMove(옮겨진 FO 의 줄 id 로 다시 짝)
+                 → 실패면 원래 FO 로 그대로 보내고 경고 fulfill_location_mismatch(판정 453)
+                 → 종류 pickup + PICK_UP FO = fulfillmentOrderLineItemsPreparedForPickup(손님 Ready 메일 · ready_at) · 그 밖 fulfillmentCreate(carrier = 송장 · 메일 / pickup · delivery = 송장 없음 · 메일 없음)
+받아 적기 둘       ① 보냈는데 못 적은 것 — 보낼 것이 0 이면 우리 발송(송장 겹침 · 큐 뒤 송장 없는 발송)을 GID 로 받아 적는다(fulfillmentCreate 에 @idempotent 없음) · 없으면 skipped + fulfill_nothing_left
+                 ② 이미 Ready — 직원이 Shopify 에서 먼저 Mark as ready 면 PreparedForPickup 이 NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER 로 거절 → sent · ready_at = FO updatedAt(짐작) · 「adopted: already ready in Shopify」 · 경고 없음(ful-2c)
+                 FO 상태 IN_PROGRESS 로 미리 가르지 않는다 — 「준비됨」의 표시가 아니다 · 틀리면 Ready 메일이 한 번도 안 간다
+픽업 오더 받기     Shopify 배송 방식 PICK_UP(판정 454) — 브랜치 = 픽업 위치와 짝인 IMS 창고 · 세금 = 손님 주소의 주 먼저(오더 배송지 → 청구지 → Shopify 손님 기본 → IMS 손님 주소) · 없으면 픽업 창고의 주
+                 tax_rule manual · 배송지 주소 비움(contact · phone 만) · 운송사 Pickup 미리 채움 · 깨끗하면 자동 확정
+                 섞임(SHIPPING + PICK_UP) · 픽업 위치 둘 · 짝 없는 픽업 위치 = needs_review · shop_order.delivery_method · pickup_location_gid
+Picked up         창구 so_picked_up(판정 443 · 455 · ful-1c) — so.picked_up_at · picked_up_by(SO 상태 무접촉)
+                 Shopify 픽업 행이 sent + Ready 면 큐 picked_up → 픽업 FO 에 fulfillmentCreate(notify false) → Shopify 「Picked up on …」 · 메일 없음(실물)
+                 pending 이면 거절(1 분 뒤) · error · skipped 면 IMS 만 + 경고 pickup_not_sent · Shopify 에서 먼저 Picked up 했으면 받아 적는다(adopt)
+픽업 칩           목록 Status 칸 「waiting for pickup」 → 「picked up」(판정 455) — 채널 warehouse ∧ 운송사 종류 pickup ∧ shipped_at ∧ picked_up_at · counter · pos 는 칩 없음
+                 목록은 so 표를 직접 읽고 운송사 종류는 carrier:carrier_id(kind,name) 로 끼워 읽는다 · 거르기 「Waiting for pickup」 때만 !inner
+송장 고치기        창구 so_tracking_fix(판정 438) — 출고된 SO · 켜진 표 행 · 종류가 바뀌는 고침 거절 · pickup · delivery 는 고칠 송장이 없다 · 큐 tracking_fix → fulfillmentTrackingInfoUpdate(notify false · 실물 「updated tracking info」 · 메일 없음)
+메아리(447)       우리 쓰기마다 last_push_at · 다시 받을 때 ⓐ 새로 보인 fulfillment GID 가 모두 우리 것 · 또는 ⓑ updatedAt 이 last_push_at −5 s ~ +2 min → updated_after_so 없음
+                 Shopify updatedAt 은 초 단위로 잘린다 · 실측 지연 0.12 s · 0.49 s · 0.51 s · 모르는 GID = fulfilled_in_shopify · 새 환불 = refunded_in_shopify(원문은 raw · 판정 440)
+                 「Ready for pickup」 은 updatedAt 을 안 바꾼다(실물)
+Ready 뒤 배송     판정 456 — 손님이 픽업 대신 배송을 원하면 지금처럼 취소하고 다시 주문(IMS 크레딧 노트 + Shopify 취소 · 새 오더는 손님이 배송으로) · 짓는 것 없음
+                 근거: Shopify Ready 화면엔 Mark as picked up 하나 · Edit 로 운임은 되지만 배송 방식은 그대로 · IMS 는 출고 뒤 운임 창구가 없다(so_charge_set 은 draft 만)
+경고 코드          ⑤ 가 더한 15(Web Orders WARN_LBL · wo v2 · 전체 27) — 발송 fulfill_failed · fulfill_cut · fulfill_location_mismatch · fulfill_nothing_left · 밖의 변화 fulfilled_in_shopify · refunded_in_shopify
+                 픽업 · 송장 pickup_failed · pickup_not_sent · tracking_fix_failed · 픽업 받기 pickup_tax_from_location · pickup_tax_unknown · pickup_carrier_missing · pickup_locations_differ · pickup_location_unpaired · delivery_mixed
+```
 
 ## 5. ⬜ 열린 확인 거리 (시험 스토어에서)
 
@@ -325,9 +363,11 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 ⑤ 컷오버 뒤 앱 규칙(딜 · 손님 할인) 두 번 입력 — IMS 와 앱(so-module 미룬 149) · 어긋나면 discount_mismatch 경고가 잡는다(판정 431)
 ~~⑥ 보호된 손님 정보(ord-0 ⬜1)~~ → ✅ 신청 없이 된다(2026-10-11 · 2-a)
 ⑦ ~~asung.ca 웹 결제 오더 운임~~ → asung.ca custom 결제 방식 오더의 운임(→ so-module §61-c) — 지금은 받은 오더에 금액 · 제목만 · 경고 freight_not_applied(Caleb 조사 중 · so-module 미룬 191)
-⑧ ⑤ 시험 — ful-0 보고 ⬜8 ① 운송사 + 송장 둘 → 발송 메일 · 위치 옮김 · 메아리 없음 ② Delivery → 메일 없음 ③ 백오더 두 번째 발송 ④ 픽업 Ready → Picked up ⑤ 송장 고침 → 메일 없음(aone 배송 장면을 픽업보다 먼저 · 판정 446 · ful-4)
-⑨ 「Picked up」 mutation — 전용은 못 봤다 · 짐작: 픽업 FO 에 fulfillmentCreate(notifyCustomer false) · ⑧ ④ 에서(so-module 미룬 209)
-⑩ 오더 고치기(orderEdit) 의 손님 메일 끄기 · 환불이 남은 몫을 지우는가 · orderMarkAsPaid 의 사용자 권한이 앱 토큰에 걸리는가(판정 441 · 439 · 449 · so-module 미룬 209)
+~~⑧ ⑤ 시험 — ful-0 보고 ⬜8 ① 운송사 + 송장 둘 → 발송 메일 · 위치 옮김 · 메아리 없음 ② Delivery → 메일 없음 ③ 백오더 두 번째 발송 ④ 픽업 Ready → Picked up ⑤ 송장 고침 → 메일 없음(aone 배송 장면을 픽업보다 먼저 · 판정 446 · ful-4)~~ → ✅ 다섯 다 끝(2026-10-13 · so-module §62-c) · aone 스토어 장면은 컷오버 때
+~~⑨ 「Picked up」 mutation — 전용은 못 봤다 · 짐작: 픽업 FO 에 fulfillmentCreate(notifyCustomer false) · ⑧ ④ 에서(so-module 미룬 209)~~ → ✅ 그 길이 맞다 · 「Picked up on …」 · 메일 없음(§62-c)
+⑩ 오더 고치기(orderEdit) 의 손님 메일 끄기 · 환불이 남은 몫을 지우는가 · orderMarkAsPaid 의 사용자 권한이 앱 토큰에 걸리는가(판정 441 · 439 · 449 · so-module 미룬 209 → 210 · 211 · 212)
+⑪ 이미 Ready 로 받아 적은 ready_at(FO updatedAt)이 Mark as ready 시각과 같은가(so-module 미룬 217)
+⑫ UPS 가 Shopify 운송사 목록에 있는가(판정 450 · 미룬 218)
 ```
 
 ## 6. 갱신
@@ -342,6 +382,7 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 - [2026-10-10 밤 · so-module §59 · docs-1010d] 상태 줄 · §1-a 컷오버 할 것(aone 위치 짝 Toronto 하나 · 재고 상태 태그 구현 끄기 · 171 정리) · §3-c 판정 427 · 428(407 바뀜) · 스토어 트리거 · §3-e 판정 426 · §7 테마 글자 asung.ca 에만 · 할 일 둘
 - [2026-10-11 · so-module §60 · docs-1011] 상태 줄에 ④ 끝 · §2-a 실물 모양 · 보호된 손님 정보 확정 · §2-c 판정 430(365 바뀜) · §2-e 판정 431 · 433 · CSV · §2-j 판정 434 · §2-k 화면 · 채널 × intake(판정 432 · 435) 새로 · §5 ① ③ 닫힘 · ⑥ 닫힘 · ⑦ 운임 · §7 그대로
 - [2026-10-13 · so-module §61 · docs-1013] 상태 줄에 ⑤ 판정 · §2-h 에 440 · 449 포인터 · §2-g 「일반 웹 결제」 정정(→ §61-c) · §4-a · 4-b 를 판정 436 ~ 449 로(옛 글귀 ~~ ~~ · 4-b 크레딧 줄 → 440 바뀜) · §4-c 미룬 줄 하나 · §4-d 운송사 · 송장 · 고침 · §4-e 나가지 않을 몫 · 환불 · 결제 상태 · §4-f 위치 · 합친 오더 · §4-g 메아리 · 되돌리기 새로 · §5 ⑦ 정정 · ⑧ ~ ⑩ 새로 · §7 Caleb 넷
+- [2026-10-13 · so-module §62 · docs-1013b] 상태 줄에 ⑤ 짓기 끝 · §4-b Pickup 오더 줄 · §4-d Purolator · 운송사 표 · 미룬 208 닫힘 · §4-g 메아리 지어짐 · §4-h 짓기 실물 새로(판정 450 ~ 456 · cron 49 · kind 셋 · 받아 적기 둘) · §5 ⑧ ⑨ 닫힘 · ⑪ ⑫ 새로 · §7 갱신
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
@@ -352,8 +393,10 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
     까닭: asung.ca 는 0 에서도 판다(CONTINUE · 판정 427) → 그 글자는 꺼진 구성원 · 단종(DENY)에게만 뜬다
 [ ] asung.ca 재고 상태 태그 · 메타필드 구현 끄기 (판정 426 · Caleb · 컷오버 때 · so-module 미룬 187)
 [ ] 171 정리 — review-deny-171.csv 의 Decision 칸(discontinue | unsell | keep) (판정 429 · Caleb · 컷오버 전 · 미룬 186)
-[ ] Shopify 운송사 목록에 Purolator · UPS 가 있는지 (판정 436 · Caleb · 관리자 발송 화면의 운송사 고르기 · so-module 미룬 202)
-[ ] 시험 스토어 Local pickup 켜기 (판정 443 · 444 · Caleb · ful-4 ④ 전 · Settings → Shipping and delivery → Local pickup · 미룬 203)
-[ ] 앱 권한 write_order_edits 더하기 (판정 441 · Caleb · Dev Dashboard · 짓는 차수에서 · 미룬 200)
+[ ] Shopify 운송사 목록에 ~~Purolator ·~~ UPS 가 있는지 (판정 436 · 450 · Caleb · 관리자 발송 화면의 운송사 고르기 · Purolator ✅ 실물 · so-module 미룬 202 → 218)
+[x] 시험 스토어 Local pickup 켜기 (판정 443 · 444 · Caleb · Toronto 만 켬 · 2026-10-13 · 미룬 203 닫힘)
+[ ] 앱 권한 write_order_edits 더하기 (판정 441 · Caleb · Dev Dashboard · 짓는 차수에서 · 미룬 200 · 210)
+[ ] ImsLoadCustomer(GAS) 편집기 원본이 default_carrier 글자만 보내는지 (판정 451 · Caleb · 미룬 219)
+[x] 시험 운송사 「Test Freight」 끄기 (Settings · 꺼짐 확인 ref_carrier is_active f · 2026-10-13 18:52:25 UTC)
 [ ] asung.ca `custom` 결제 방식의 실제 이름 (Caleb · Settings → Payments → Manual payment methods · 운임 191 과 함께 · 미룬 205)
 ```
