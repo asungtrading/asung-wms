@@ -1,5 +1,5 @@
-// deno test supabase/functions/shopify/shopify_edit_test.ts — Shopify · DB 무접촉 (ful-4b ① ~ ⑤ · _shared/shopify-edit.ts 의 순수 함수)
-import { clampEditable, isPaid, matchCalcLine, planOrderEdit, removedQty, type CalcLine, type DbLine, type LiveLine } from "../_shared/shopify-edit.ts";
+// deno test supabase/functions/shopify/shopify_edit_test.ts — Shopify · DB 무접촉 (ful-4b ① ~ ⑥ · _shared/shopify-edit.ts 의 순수 함수)
+import { clampEditable, isPaid, matchCalcLine, NoChangeError, planOrderEdit, removedQty, setQuantityFor, type CalcLine, type DbLine, type LiveLine } from "../_shared/shopify-edit.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -42,4 +42,17 @@ Deno.test("⑤ removedQty · isPaid — 원래 5 · 지금 3 → 2 · 지금이 
   eq(removedQty(5, 3), 2, "⑤ 2"); eq(removedQty("5", "5"), 0, "⑤ 0"); eq(removedQty(2, 3), 0, "⑤ 음수 없음");
   eq(["PAID", "PARTIALLY_PAID", "PARTIALLY_REFUNDED", "paid"].map(isPaid), [true, true, true, true], "⑤ 받음");
   eq(["PENDING", "AUTHORIZED", "REFUNDED", "VOIDED", "EXPIRED", null, undefined].map(isPaid), [false, false, false, false, false, false, false], "⑤ 안 받음");
+});
+
+Deno.test("⑥ 실물 #1011 — 줄 2 · 1 나감(live current 2 · unfulfilled 1) · can_ship 0 → to_remove 1 · setQuantity 는 calc 기준: calc {1 · editable 1} → 0(change 1) · calc {2 · editable 1} → 1(change 1) · to_remove 0 → change 0(보내지 않음) · 바닥 자름", () => {
+  const plan = planOrderEdit([db(1, 2, 0)], [live(1, 2, 2, 1, "ANN01015")]);
+  eq(plan.edits[0].to_remove, 1, "⑥ to_remove 1"); eq(plan.total_remove, 1, "⑥ 합 1");
+  const c1 = calc(1, 1, 1, "ANN01015");                                                   // 짐작: 일부 발송 줄의 CalculatedLineItem 은 안 나간 몫만 quantity 로 보인다
+  eq(setQuantityFor(c1, 1), { quantity: 0, change: 1, clamped: false }, "⑥ calc 1/1 → 0 (첫 판은 current − 1 = 1 을 보내 변화 0 → commit 거절)");
+  const c2 = calc(1, 2, 1, "ANN01015");                                                   // calc 가 전체(2)를 보이는 경우도 같은 식으로 맞다
+  eq(setQuantityFor(c2, 1), { quantity: 1, change: 1, clamped: false }, "⑥ calc 2/1 → 1");
+  eq(setQuantityFor(c2, 5), { quantity: 1, change: 1, clamped: true }, "⑥ 바닥(이미 나간 1)에서 자른다");
+  eq(setQuantityFor(c1, 0), { quantity: 1, change: 0, clamped: false }, "⑥ to_remove 0 → change 0 → 그 줄은 setQuantity 를 안 보낸다");
+  const e = new NoChangeError("x"); eq(e instanceof NoChangeError && e.name === "NoChangeError", true, "⑥ NoChangeError = 다시 시도하지 않는 error");
+  eq(matchCalcLine(live(1, 2, 2, 1, "ANN01015"), [c1])?.id, c1.id, "⑥ 줄 하나 짝");
 });

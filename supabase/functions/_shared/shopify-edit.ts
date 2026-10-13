@@ -8,6 +8,8 @@
 //     ⑥ removed_qty = shop_order_line.quantity − currentQuantity(commit 뒤) · shop_order.last_push_at(메아리 ⓑ) · 큐 done · 5 회 실패면 경고 order_edit_failed
 //   📌 문서(2026-10-13 MCP): orderEditCommit 「If notifyCustomer is set to true, then an email invoice … is sent」 · 「You can only edit unfulfilled line items」 · 세션은 「until you commit or abandon them」(버리는 mutation 없음 · 안 commit 하면 끝 · 짐작)
 //   📌 짐작(Caleb 시험에서 확인): unfulfilledQuantity = currentQuantity − 보낸 수량 · CalculatedLineItem 숫자 id = LineItem 숫자 id · 안 commit 한 세션은 오더에 영향 없음
+//   ⚠️ 실물 #1011(2026-10-13 · 일부 발송 줄 2 중 1 나감): currentQuantity − to_remove(= 1) 을 setQuantity 로 보냈더니 commit 이 「There must be at least one change」 — CalculatedLineItem.quantity 가 전체(2)가 아니라 1 이었다고 본다(짐작 · order_edit_preview 로 확인)
+//     → setQuantity 값은 calc 기준(setQuantityFor: calc.quantity − to_remove · 바닥 = calc.quantity − editableQuantity) · 바뀌는 줄이 0 이면 commit 을 보내지 않고 NoChangeError(큐 done error 한 번 · 경고 order_edit_failed · retry 아님)
 // ============================================================
 
 export const ORDER_EDIT_FETCH = 20;
@@ -63,7 +65,15 @@ export function matchCalcLine(live: LiveLine, calc: CalcLine[]): CalcLine | null
   const byId = pool.filter((c) => num(c.id) === num(live.id));
   return byId.length === 1 ? byId[0] : null;
 }
-// editableQuantity 로 한 번 더 자른다 — 이미 발송된 몫(quantity − editable)보다 아래로는 못 줄인다(문서 「only unfulfilled line items」)
+// ⑤ setQuantity 에 보낼 값 — calc 기준: calc.quantity − to_remove · 바닥 = calc.quantity − editableQuantity(이미 나간 몫 · 문서 「only unfulfilled line items」) · change = 실제로 줄어드는 양(0 이면 그 줄은 안 보낸다)
+export function setQuantityFor(calc: CalcLine, toRemove: number): { quantity: number; change: number; clamped: boolean } {
+  const cq = Math.max(Math.floor(n(calc.quantity)), 0), floor = Math.max(cq - Math.floor(n(calc.editableQuantity)), 0);
+  const want = Math.max(cq - Math.max(Math.floor(toRemove), 0), 0);
+  const quantity = Math.max(want, floor);
+  return { quantity, change: cq - quantity, clamped: quantity !== want };
+}
+export class NoChangeError extends Error { constructor(msg: string) { super(msg); this.name = "NoChangeError"; } }
+// (ful-4b 첫 판 · 남겨 둠) editableQuantity 로 한 번 더 자른다 — 이미 발송된 몫(quantity − editable)보다 아래로는 못 줄인다
 export function clampEditable(newQuantity: number, calc: CalcLine): { quantity: number; clamped: boolean } {
   const floor = Math.max(n(calc.quantity) - n(calc.editableQuantity), 0);
   return newQuantity < floor ? { quantity: floor, clamped: true } : { quantity: newQuantity, clamped: false };
