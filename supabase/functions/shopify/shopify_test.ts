@@ -5,15 +5,17 @@ function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
   if (a !== b) throw new Error(msg + "\n  expected: " + b + "\n  got:      " + a);
 }
-const GRANTED6 = "write_products,write_inventory,read_locations,write_orders,write_merchant_managed_fulfillment_orders,read_customers";   // 실측(shop-0 D · 토큰 응답 scope)
+const GRANTED6 = "write_products,write_inventory,read_locations,write_orders,write_merchant_managed_fulfillment_orders,read_customers";   // 실측(shop-0 D · 토큰 응답 scope · v1scopes)
+const GRANTED7 = GRANTED6 + ",write_order_edits";                                                                                           // ful-4b: 새 버전(write_order_edits)
 
-Deno.test("① scope 대조 — 실측 6 개 → missing 0 · read_locations 를 빼면 1 · write_orders 를 빼면 read_orders · write_orders 둘 · 빈 글자 → 10", () => {
-  eq(REQUIRED_SCOPES.length, 10, "required 10");
-  eq(missingScopes(GRANTED6), [], "measured six → nothing missing");
-  eq(missingScopes(GRANTED6.replace("read_locations", "")), ["read_locations"], "one read scope gone");
-  eq(missingScopes(GRANTED6.replace("write_orders", "")), ["read_orders", "write_orders"], "write gone → both");
+Deno.test("① scope 대조 — 실측 6 + write_order_edits → missing 0 · v1scopes 6 만이면 write_order_edits 하나(ful-4b) · read_locations 를 빼면 1 · write_orders 를 빼면 read_orders · write_orders 둘 · 빈 글자 → 11", () => {
+  eq(REQUIRED_SCOPES.length, 11, "required 11");
+  eq(missingScopes(GRANTED7), [], "measured six + order edits → nothing missing");
+  eq(missingScopes(GRANTED6), ["write_order_edits"], "v1scopes only → write_order_edits missing (before the new version is released)");
+  eq(missingScopes(GRANTED7.replace("read_locations", "")), ["read_locations"], "one read scope gone");
+  eq(missingScopes(GRANTED7.replace("write_orders", "")), ["read_orders", "write_orders"], "write gone → both");
   eq(missingScopes(" write_products , read_customers "), REQUIRED_SCOPES.filter((s) => !["read_products", "write_products", "read_customers"].includes(s)), "spaces trimmed");
-  eq(missingScopes("").length, 10, "empty → all");
+  eq(missingScopes("").length, 11, "empty → all");
   eq(secretNames("SHOPIFY_IMS"), { id: "SHOPIFY_IMS_CLIENT_ID", secret: "SHOPIFY_IMS_CLIENT_SECRET" }, "secret names");
 });
 

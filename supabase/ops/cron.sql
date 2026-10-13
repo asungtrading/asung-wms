@@ -683,7 +683,7 @@ $job$);
 -- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 50(등록 뒤 Caleb 출력 · cron.job 실측 2026-10-13) ful-4a (2026-10-13 · 판정 439 · 441 · 457 ~ 462 · 설계 shopify-integration §4-e · so-module §63 · DB 20261014000000_ful_4a_unshipped.sql)
 --   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
 --   ims-unshipped-scan : 15 분마다(분 3 · 18 · 33 · 48 — orders_poll */15 와 어긋나게) — DB 함수 shop_unshipped_scan() 을 postgres 가 직접(EF · Shopify 호출 0 · so-backorder-sweep 과 같은 결)
---                        created 웹 오더마다 Shopify 줄의 「나가지 않을 몫」 gap = quantity − sent − removed − can_ship 을 다시 세고 → 돈 받음(PAID · PARTIALLY_PAID · PARTIALLY_REFUNDED)이면 경고 refund_due · 아니면 큐 shop_order_queue(order_edit) → EF order_drain(ful-4b · cron ⬜)이 orderEdit 로 지운다
+--                        created 웹 오더마다 Shopify 줄의 「나가지 않을 몫」 gap = quantity − sent − removed − can_ship 을 다시 세고 → 돈 받음(PAID · PARTIALLY_PAID · PARTIALLY_REFUNDED)이면 경고 refund_due · 아니면 큐 shop_order_queue(order_edit) → EF order_drain(ful-4b · cron 51)이 orderEdit 로 지운다
 --   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-unshipped-scan';  → jobid 를 이 블록의 ⬜ 에 적는다
 --         select jobid, status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-unshipped-scan') order by start_time desc limit 5;
 --   킬 스위치: select cron.alter_job(50, active := false);   -- ims-unshipped-scan
@@ -692,3 +692,18 @@ select cron.schedule(
   '3,18,33,48 * * * *',
   $job$ select public.shop_unshipped_scan() $job$
 );
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 51(등록 뒤 Caleb 출력 · cron.job 실측 2026-10-13) ful-4b (2026-10-13 · 판정 441 · 457 ~ 462 · 설계 shopify-integration §4-e · DB ful-4a 20261014000000 · EF order_drain)
+--   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   ims-order-drain : 5 분마다 — ⭐ 오더 큐 열린 줄(shop_order_queue.done_at is null)이 0 이면 net.http_post 를 하지 않는다(where exists · EF 호출 0) · EF order_drain 은 kind order_edit 줄 ≤ 20 · 40 s
+--                     오더마다 Shopify 줄을 실시간으로 읽고(currentQuantity · unfulfilledQuantity) can_ship 을 DB 에서 다시 센 뒤 orderEditBegin → SetQuantity(restock true) → Commit(notifyCustomer false) · removed_qty · last_push_at · 5 회 실패면 경고 order_edit_failed
+--   열쇠: 이미 도는 ims-shop-drain(jobid 42) 줄에서 꺼내 format(%L) 로 넣는다 — 실행 가능한 do 블록은 ~/asung/prompts/ful-4b-cron.sql(이 파일에는 열쇠를 넣지 않는다)
+--   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-order-drain';  → jobid 를 이 블록의 ⬜ 에 적는다
+--   최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-order-drain') order by start_time desc limit 5;
+--   킬 스위치: select cron.alter_job(51, active := false);   -- ims-order-drain
+select cron.schedule('ims-order-drain', '*/5 * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"order_drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_order_queue q where q.done_at is null);
+$job$);

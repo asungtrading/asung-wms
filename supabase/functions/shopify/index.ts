@@ -28,6 +28,9 @@
 //                      kind pickup + FO PICK_UP 이면 fulfillmentOrderLineItemsPreparedForPickup(ready_at · 판정 379) · 그 밖은 fulfillmentCreate(carrier = 송장 · 메일 / pickup · delivery = 송장 없음 · 메일 없음 · 판정 378) → 머리 sent(GID) · 줄 quantity_sent · fulfillment_order_line_item_gid
 //                      ful-1b(DB 20261013210000 · 판정 438 · 443 · 447): 큐 kind picked_up(창구 so_picked_up(ful-1c · 옛 shop_fulfill_picked_up) → 픽업 FO 에 fulfillmentCreate notify false → GID) · tracking_fix(창구 so_tracking_fix → fulfillmentTrackingInfoUpdate notify false) · Shopify 에 쓸 때마다 last_push_at(ingest 메아리 ⓑ)
 //                      ful-2c: Ready for pickup 을 보냈는데 Shopify 가 NO_LINE_ITEMS_TO_PREPARE_FOR_FULFILLMENT_ORDER 로 거절하면(직원이 Shopify 에서 먼저 Mark as ready · 실물 #1008) 받아 적는다 — sent · ready_at = FO updatedAt · last_error 「adopted: already ready in Shopify」 · last_push_at · 경고 없음
+//   · order_drain(cron 5 분 · 직원 · ful-4b · DB ful-4a 20261014000000 · 판정 439 · 441 · 457 ~ 462): 오더 큐 shop_order_queue(kind order_edit · 15 분 스캔 shop_unshipped_scan 이 넣는다) ≤ 20 · 40 s —
+//                      오더마다 Shopify 줄(currentQuantity · unfulfilledQuantity)을 실시간으로 · can_ship 은 rpc shop_order_can_ship 으로 그 순간 다시(장부 값은 스캔 때 것) · 취소 · 돈 받음(PAID · PARTIALLY_PAID · PARTIALLY_REFUNDED)은 skipped
+//                      to_remove = max(unfulfilled − can_ship, 0) · 전부 0 이면 받아 적기(removed_qty 만) · 아니면 orderEditBegin → SetQuantity(restock true) → Commit(notifyCustomer false) → removed_qty = 원래 − 지금 · shop_order.last_push_at(메아리 ⓑ) · 5 회 실패면 경고 order_edit_failed
 //                      보낼 것이 0 이면 우리 발송을 받아 적는다(adoptExisting · 송장 겹침 / 큐 뒤 송장 없는 발송) · 아니면 skipped + 경고 fulfill_nothing_left · 머리 하나라도 error 면 큐를 열어 두고 attempts + 1 · 5 회면 큐 done error + 경고 fulfill_failed
 //                      쓰기 = 세 표(shop_fulfillment · line · 큐)는 service_role REST PATCH(stock_drain 의 patchQueue 와 같은 길) · shop_order 경고는 rpc/shop_order_warn(ful-2a · 한 문장 || 라 ingest 경고와 안 겹친다) · shop_system_enter 는 안 부른다
 //   호출 한 번 = shop_call_log 한 줄(drain 은 건마다) · 90 일 지난 줄은 호출 끝에 지운다.
@@ -40,6 +43,7 @@ import { sleep } from "../_shared/shopify.ts";
 import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
+import { clampEditable, isPaid, matchCalcLine, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_EDIT_SET_QTY_MUTATION, ORDER_EDIT_STAFF_NOTE, ORDER_LINES_QUERY, planOrderEdit, removedQty, userErrorsText as editErrorsText, type CalcLine, type DbLine, type LiveLine } from "../_shared/shopify-edit.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -49,7 +53,7 @@ const DRAIN_MIN_AVAILABLE = 500;
 const MEDIA_REREAD_MAX = 2;                                                                        // 직원 push 만 · 응답 사진이 처리 중이면 2 초 뒤 다시 읽기(최대 2 회) · drain 은 안 한다(회차 시간 · 다음 push 의 직전 읽기가 잡는다)
 const MEDIA_REREAD_WAIT_MS = 2000;                                                                   // 한도 남은 점수가 이 아래면 이번 회차를 멈춘다(다음 분에 이어서)
 const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ims-cron-key", "Access-Control-Allow-Methods": "POST, OPTIONS" };
-const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain", "fulfill_drain"];
+const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain", "fulfill_drain", "order_drain"];
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -696,6 +700,107 @@ async function sendTrackingFix(store: StoreRow, f: FulRow): Promise<FulOut> {
   await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { last_error: null, last_push_at: stamp });
   return { ...out, status: "sent" };
 }
+// ── 나가지 않을 몫 · Shopify 오더 고치기(ful-4b) ───────────────────────────────────────────────────────
+type OrderQueueRow = { id: number; shop_order_id: string; kind: string; attempts: number; queued_at: string; payload: Record<string, unknown> };
+type EditOut = { status: "done" | "skipped" | "error"; removed: number; lines: number; reason: string | null; cost: number; error: string | null };
+const patchOrderQueue = (id: number, body: Record<string, unknown>) => sbWrite("PATCH", "shop_order_queue?id=eq." + id, body);
+// 오더 하나 — 실시간 읽기 → 가르기(취소 · 돈 받음) → can_ship 다시 세기 → 계획 → (0 이면 받아 적기) → begin → setQuantity → commit → 장부 · last_push_at · 실패는 예외로(부르는 쪽이 error 로 적는다)
+async function editShopOrder(store: StoreRow, o: { id: string; shopify_order_gid: string; name: string }): Promise<EditOut> {
+  const out: EditOut = { status: "error", removed: 0, lines: 0, reason: null, cost: 0, error: null };
+  const dbLines: Array<{ id: string; line_gid: string; quantity: number | string }> = await sbGet("shop_order_line?select=id,line_gid,quantity&shop_order_id=eq." + o.id + "&order=line_no.asc");
+  const can = (await sbRpc("shop_order_can_ship", { p_shop_order_id: o.id })) as Array<{ shop_order_line_id: string; can_ship: number | string }>;   // §0 이견 2: 그 순간 다시 센다
+  const canBy = new Map(can.map((c) => [c.shop_order_line_id, c.can_ship]));
+  const lines: DbLine[] = dbLines.map((l) => ({ shop_order_line_id: l.id, line_gid: l.line_gid, quantity: l.quantity, can_ship: canBy.get(l.id) ?? 0 }));
+  const g = await shopifyGql(store, ORDER_LINES_QUERY, { id: o.shopify_order_gid });
+  out.cost += g.cost.actual ?? 0;
+  if (!g.ok) throw new Error("read: " + gqlErr(g));
+  const order = (g.data as { order?: { cancelledAt?: string | null; displayFinancialStatus?: string | null; lineItems?: { nodes?: LiveLine[] } } | null } | null)?.order;
+  if (!order) throw new Error("order " + o.name + " not in Shopify (or older than 60 days)");
+  const stamp = nowIso();
+  const writeRemoved = async (live: LiveLine[]) => {                                               // ⑥ removed_qty = 원래 − 지금(우리가 지운 것 · Shopify 에서 지워진 것 같이)
+    const byGid = new Map(live.map((l) => [l.id, l]));
+    for (const l of lines) { const v = byGid.get(l.line_gid); if (v) await sbWrite("PATCH", "shop_order_line_unshipped?shop_order_line_id=eq." + l.shop_order_line_id, { removed_qty: removedQty(l.quantity, v.currentQuantity), computed_at: stamp }); }
+  };
+  if (order.cancelledAt) return { ...out, status: "skipped", reason: "cancelled in Shopify (" + order.cancelledAt + ") — nothing to edit" };   // 판정 456 · 434
+  if (isPaid(order.displayFinancialStatus)) return { ...out, status: "skipped", reason: "paid now (" + order.displayFinancialStatus + ") — the next scan takes the refund_due path" };   // 판정 457
+  const live = order.lineItems?.nodes ?? [];
+  const plan = planOrderEdit(lines, live);
+  out.lines = plan.edits.filter((e) => e.to_remove > 0).length;
+  if (plan.total_remove <= 0) {                                                                     // 받아 적기 — 이미 지워졌거나(직원이 Shopify 에서) 그 사이 나가게 됐다
+    await writeRemoved(live);
+    return { ...out, status: "done", removed: 0, reason: "nothing to remove now" + (plan.missing.length ? " · " + plan.missing.length + " line(s) not in Shopify" : "") };
+  }
+  const gb = await shopifyGql(store, ORDER_EDIT_BEGIN_MUTATION, { id: o.shopify_order_gid });
+  out.cost += gb.cost.actual ?? 0;
+  const db = (gb.data as { orderEditBegin?: { calculatedOrder?: { id: string; lineItems?: { nodes?: CalcLine[] } } | null; userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null)?.orderEditBegin;
+  if (!gb.ok || db?.userErrors?.length || !db?.calculatedOrder?.id) throw new Error("orderEditBegin: " + (db?.userErrors?.length ? editErrorsText(db.userErrors) : gqlErr(gb)));
+  const calcId = db.calculatedOrder.id, calc = db.calculatedOrder.lineItems?.nodes ?? [];
+  const notes: string[] = [];
+  for (const e of plan.edits) {
+    if (e.to_remove <= 0) continue;
+    const lv = live.find((l) => l.id === e.line_gid)!;
+    const c = matchCalcLine(lv, calc);
+    if (!c) throw new Error("line " + e.line_gid.split("/").pop() + " (" + (lv.sku ?? "?") + "): cannot tell which calculated line it is (same product twice?) — edit the order in Shopify by hand");
+    const q = clampEditable(e.new_quantity, c);
+    if (q.clamped) notes.push(e.line_gid.split("/").pop() + ": wanted " + e.new_quantity + " · editable floor " + q.quantity);
+    const gs = await shopifyGql(store, ORDER_EDIT_SET_QTY_MUTATION, { id: calcId, lineItemId: c.id, quantity: q.quantity, restock: true });   // 판정 459
+    out.cost += gs.cost.actual ?? 0;
+    const ds = (gs.data as { orderEditSetQuantity?: { userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null)?.orderEditSetQuantity;
+    if (!gs.ok || ds?.userErrors?.length) throw new Error("orderEditSetQuantity " + e.line_gid.split("/").pop() + " → " + q.quantity + ": " + (ds?.userErrors?.length ? editErrorsText(ds.userErrors) : gqlErr(gs)));
+  }
+  const gc = await shopifyGql(store, ORDER_EDIT_COMMIT_MUTATION, { id: calcId, notify: false, note: ORDER_EDIT_STAFF_NOTE });   // 판정 441 · 메일 없음
+  out.cost += gc.cost.actual ?? 0;
+  const dc = (gc.data as { orderEditCommit?: { order?: { lineItems?: { nodes?: Array<{ id: string; quantity: number; currentQuantity: number }> } } | null; userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null)?.orderEditCommit;
+  if (!gc.ok || dc?.userErrors?.length || !dc?.order) throw new Error("orderEditCommit: " + (dc?.userErrors?.length ? editErrorsText(dc.userErrors) : gqlErr(gc)));
+  const after = (dc.order.lineItems?.nodes ?? []).map((l) => ({ id: l.id, quantity: l.quantity, currentQuantity: l.currentQuantity, unfulfilledQuantity: 0 }));
+  await writeRemoved(after);
+  await sbWrite("PATCH", "shop_order?id=eq." + o.id, { last_push_at: stamp });                     // 메아리 ⓑ(ful-4a ingest)
+  return { ...out, status: "done", removed: plan.total_remove, reason: notes.length ? "clamped: " + notes.join("; ") : null };
+}
+async function orderDrain(caller: Caller, t0: number): Promise<Response> {
+  const rows: OrderQueueRow[] = await sbGet("shop_order_queue?select=id,shop_order_id,kind,attempts,queued_at,payload&done_at=is.null&kind=eq.order_edit&order=queued_at.asc,id.asc&limit=" + ORDER_EDIT_FETCH);
+  const stores: Record<string, StoreRow | undefined> = {};
+  const out: Array<Record<string, unknown>> = [];
+  const summary: Record<string, number> = {};
+  let stopped: string | null = null;
+  for (const q of rows) {
+    stopped = drainStop(Date.now() - t0, ORDER_EDIT_MS);
+    if (stopped) break;
+    const tq = Date.now();
+    await patchOrderQueue(q.id, { started_at: nowIso() });
+    const o: { id: string; store_id: string; shopify_order_gid: string; name: string } | undefined = (await sbGet("shop_order?select=id,store_id,shopify_order_gid,name&id=eq." + q.shop_order_id + "&limit=1"))[0];
+    let r: EditOut;
+    try {
+      if (!o) throw new Error("shop_order " + q.shop_order_id + " not found");
+      if (!stores[o.store_id]) stores[o.store_id] = (await sbGet("shop_store?select=id,code,shop_domain,secret_prefix,is_active,label,kind&id=eq." + o.store_id + "&limit=1"))[0];
+      const store = stores[o.store_id];
+      if (!store || !store.is_active) throw new Error("store missing or switched off");
+      r = await editShopOrder(store, o);
+    } catch (e) {
+      r = { status: "error", removed: 0, lines: 0, reason: null, cost: 0, error: String((e as Error)?.message ?? e).slice(0, 400) };
+    }
+    const attempts = q.attempts + 1;
+    let resultKey: string;
+    if (r.status === "error") {
+      if (attempts >= ORDER_EDIT_MAX_ATTEMPTS) {
+        await patchOrderQueue(q.id, { done_at: nowIso(), result: "error", attempts, error: r.error });
+        if (o) await warnOrder(o.id, "order_edit_failed", "IMS could not remove the unshipped quantity from Shopify order " + o.name + " after " + attempts + " tries — last error: " + (r.error ?? "?") + " — edit the order in Shopify by hand or ask IT");
+        resultKey = "error";
+      } else { await patchOrderQueue(q.id, { started_at: null, attempts, error: r.error }); resultKey = "retry"; }
+    } else {
+      await patchOrderQueue(q.id, { done_at: nowIso(), result: r.status === "skipped" ? "skipped" : "ok", attempts, error: r.reason });
+      resultKey = r.status === "skipped" ? "skipped" : "ok";
+    }
+    summary[resultKey] = (summary[resultKey] ?? 0) + 1;
+    await recordCall({ store_id: o?.store_id ?? null, action: "order_drain", ok: resultKey !== "error", http_status: null, query_cost: r.cost, throttle_available: null,
+      error: "queue " + q.id + " " + (o?.name ?? q.shop_order_id.slice(0, 8)) + " → " + resultKey + " · removed " + r.removed + " on " + r.lines + " line(s)" + (r.reason ? " · " + r.reason.slice(0, 160) : "") + (r.error ? " · " + r.error.slice(0, 160) : ""),
+      by_staff: caller.staffId, ms: Date.now() - tq });
+    out.push({ queue_id: q.id, shop_order_id: q.shop_order_id, name: o?.name ?? null, result: resultKey, attempts, removed: r.removed, lines: r.lines, reason: r.reason, error: r.error, cost: r.cost, ms: Date.now() - tq });
+  }
+  const open = (await sbGet("shop_order_queue?select=id&done_at=is.null&kind=eq.order_edit&limit=1")).length > 0;
+  return json(200, { ok: true, drained: out.length, ...summary, results: out, stopped, more_open: open, ms: Date.now() - t0 });
+}
+
 const FUL_SELECT = "shop_fulfillment?select=id,so_id,shop_order_id,store_id,carrier_id,carrier_name,carrier_kind,shopify_company,tracking_numbers,notify_customer,status,attempts,created_at,shopify_fulfillment_gid,fulfillment_order_gid,ready_at,picked_up_at";
 // 큐 종류마다 — 어느 머리를 집는가 · 실패하면 머리에 무엇을 적는가 · 5 회 뒤 경고 코드(ful-1b)
 const FUL_KIND: Record<FulfillKind, { filter: string; send: (store: StoreRow, f: FulRow) => Promise<FulOut>; warn: string; failPatch: (msg: string, f: FulRow) => Record<string, unknown> }> = {
@@ -768,7 +873,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     if (!ACTIONS.includes(action)) return json(400, { ok: false, error: "action must be one of: " + ACTIONS.join(", ") });
-    if (["push", "clean_check", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list"].includes(action) && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain, stock_drain, orders_poll and orders_drain" });
+    if (["push", "clean_check", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list"].includes(action) && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain, stock_drain, orders_poll, orders_drain, fulfill_drain and order_drain" });
 
     if (action === "clean_check") {                                                                 // 규칙 거르기 샘플 + DB 판별(안전장치) 결과
       const hosts = await loadHosts();
@@ -808,6 +913,7 @@ Deno.serve(async (req) => {
     if (action === "orders_drain") return await ordersDrain(caller, t0);
     if (action === "orders_poll") return await ordersPoll(caller, t0);
     if (action === "fulfill_drain") return await fulfillDrain(caller, t0);                       // ful-2
+    if (action === "order_drain") return await orderDrain(caller, t0);                           // ful-4b
 
     // ping · push — 스토어 필요
     const code = String(body?.store ?? "").trim().toLowerCase();

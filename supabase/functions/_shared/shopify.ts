@@ -13,9 +13,10 @@ export const API_VERSION = "2026-10";                                    // 판 
 export const TOKEN_REFRESH_BEFORE_MS = 3_600_000;                        // 남은 시간 1 시간 아래면 다시 받는다
 export const THROTTLE_MAX_RETRY = 3;
 export const THROTTLE_WAIT_CAP_MS = 10_000;
-export const REQUIRED_SCOPES = [                                          // 앱 Asung IMS 버전 v1scopes 의 10 개(shop-0 B)
+export const REQUIRED_SCOPES = [                                          // 앱 Asung IMS 버전 v1scopes 의 10 개(shop-0 B) + ful-4b 의 write_order_edits(판정 441 · 새 버전에 더한다 — Release 전엔 ping 이 missing_scopes 로 알린다)
   "read_products", "write_products", "read_inventory", "write_inventory", "read_locations",
   "read_orders", "write_orders", "read_merchant_managed_fulfillment_orders", "write_merchant_managed_fulfillment_orders", "read_customers",
+  "write_order_edits",
 ];
 
 export type StoreRow = { id: string; code: string; shop_domain: string; secret_prefix: string; is_active: boolean; label?: string; kind?: string };
