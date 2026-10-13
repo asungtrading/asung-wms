@@ -26,6 +26,7 @@
 //      fulfill_drain = cron · 직원 — shop_fulfill_queue 의 열린 ship 줄(오래된 것부터 ≤ FULFILL_FETCH)마다 그 SO 의 결과 표 머리(shop_fulfillment · pending | error)를 하나씩: Shopify 오더의 fulfillmentOrders + fulfillments 읽기 →
 //                      줄 짝(planLines · 남은 수량으로 자름 → quantity_sent · 경고 fulfill_cut) → 위치 맞추기(SO 창고의 shop_location ≠ FO 위치면 fulfillmentOrderMove · 실패면 그대로 보내고 경고 fulfill_location_mismatch · 판정 445 · 453) →
 //                      kind pickup + FO PICK_UP 이면 fulfillmentOrderLineItemsPreparedForPickup(ready_at · 판정 379) · 그 밖은 fulfillmentCreate(carrier = 송장 · 메일 / pickup · delivery = 송장 없음 · 메일 없음 · 판정 378) → 머리 sent(GID) · 줄 quantity_sent · fulfillment_order_line_item_gid
+//                      ful-1b(DB 20261013210000 · 판정 438 · 443 · 447): 큐 kind picked_up(창구 shop_fulfill_picked_up → 픽업 FO 에 fulfillmentCreate notify false → GID) · tracking_fix(창구 so_tracking_fix → fulfillmentTrackingInfoUpdate notify false) · Shopify 에 쓸 때마다 last_push_at(ingest 메아리 ⓑ)
 //                      보낼 것이 0 이면 우리 발송을 받아 적는다(adoptExisting · 송장 겹침 / 큐 뒤 송장 없는 발송) · 아니면 skipped + 경고 fulfill_nothing_left · 머리 하나라도 error 면 큐를 열어 두고 attempts + 1 · 5 회면 큐 done error + 경고 fulfill_failed
 //                      쓰기 = 세 표(shop_fulfillment · line · 큐)는 service_role REST PATCH(stock_drain 의 patchQueue 와 같은 길) · shop_order 경고는 rpc/shop_order_warn(ful-2a · 한 문장 || 라 ingest 경고와 안 겹친다) · shop_system_enter 는 안 부른다
 //   호출 한 번 = shop_call_log 한 줄(drain 은 건마다) · 90 일 지난 줄은 호출 끝에 지운다.
@@ -37,7 +38,7 @@ import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, m
 import { sleep } from "../_shared/shopify.ts";
 import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
-import { adoptExisting, buildFulfillmentInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, remapAfterMove, userErrorsText, type FoNode, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
+import { adoptExisting, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -618,7 +619,7 @@ async function sendFulfillment(store: StoreRow, f: FulRow): Promise<FulOut> {
     out.cost += gp.cost.actual ?? 0;
     const ue = (gp.data as { fulfillmentOrderLineItemsPreparedForPickup?: { userErrors?: UserErr[] } } | null)?.fulfillmentOrderLineItemsPreparedForPickup?.userErrors ?? [];
     if (!gp.ok || ue.length) throw new Error("ready for pickup: " + (ue.length ? userErrorsText(ue) : gqlErr(gp)));
-    await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", ready_at: stamp, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: null, attempts: f.attempts + 1 });
+    await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", ready_at: stamp, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: null, attempts: f.attempts + 1, last_push_at: stamp });
   } else {
     const gc = await shopifyGql(store, FULFILLMENT_CREATE_MUTATION, { fulfillment: buildFulfillmentInput(f, items, template) });
     out.cost += gc.cost.actual ?? 0;
@@ -626,7 +627,7 @@ async function sendFulfillment(store: StoreRow, f: FulRow): Promise<FulOut> {
     const ue = d?.userErrors ?? [];
     if (!gc.ok || ue.length || !d?.fulfillment?.id) throw new Error("fulfillmentCreate: " + (ue.length ? userErrorsText(ue) : gqlErr(gc)));
     out.gid = d.fulfillment.id;
-    await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", shopify_fulfillment_gid: out.gid, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: null, attempts: f.attempts + 1 });
+    await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "sent", shopify_fulfillment_gid: out.gid, sent_at: stamp, fulfillment_order_gid: out.fo, last_error: null, attempts: f.attempts + 1, last_push_at: stamp });
   }
   for (const l of lines) {
     const foLine = items.find((i) => i.line_id === l.id)?.fo_line_id ?? null;
@@ -641,8 +642,61 @@ async function sendFulfillment(store: StoreRow, f: FulRow): Promise<FulOut> {
   out.status = "sent";
   return out;
 }
+// ful-1b 판정 443: Picked up — 창구가 적은 픽업 머리(ready_at · picked_up_at · GID 없음)의 픽업 FO 에 fulfillmentCreate(notify false · 송장 없음) → GID · FO 가 닫혔거나 없으면 받아 적기(adopt · Ready 이후의 송장 없는 발송)
+async function sendPickedUp(store: StoreRow, f: FulRow): Promise<FulOut> {
+  const out: FulOut = { status: "error", gid: null, fo: f.fulfillment_order_gid ?? null, path: "picked_up", cut: 0, warns: [], cost: 0, error: null };
+  const so: Array<{ id: string; shopify_order_gid: string; name: string }> = await sbGet("shop_order?select=id,shopify_order_gid,name&id=eq." + f.shop_order_id + "&limit=1");
+  if (!so[0]) throw new Error("shop_order " + f.shop_order_id + " not found");
+  const lines: FulLine[] = await sbGet("shop_fulfillment_line?select=id,line_gid,so_line_id,quantity,quantity_sent&fulfillment_id=eq." + f.id + "&order=line_gid.asc");
+  const g = await shopifyGql(store, FULFILL_ORDERS_QUERY, { id: so[0].shopify_order_gid });
+  out.cost += g.cost.actual ?? 0;
+  if (!g.ok) throw new Error("read: " + gqlErr(g));
+  const order = (g.data as { order?: { fulfillmentOrders?: { nodes?: FoNode[] }; fulfillments?: FulfillmentNode[] } | null } | null)?.order;
+  if (!order) throw new Error("order " + so[0].name + " not in Shopify (or older than 60 days)");
+  const stamp = nowIso();
+  const fo = pickupFo(f, order.fulfillmentOrders?.nodes ?? []);
+  if (fo) {
+    const plan = planLines(lines.map((l) => ({ ...l, quantity: l.quantity_sent ?? l.quantity })), [fo]);         // Ready 때 보낸 수량만(자른 뒤) · 남은 것이 없으면 아래 adopt
+    if (plan.items.length) {
+      const gc = await shopifyGql(store, FULFILLMENT_CREATE_MUTATION, { fulfillment: buildFulfillmentInput(f, plan.items, "") });   // kind pickup → trackingInfo 없음 · notifyCustomer false
+      out.cost += gc.cost.actual ?? 0;
+      const d = (gc.data as { fulfillmentCreate?: { fulfillment?: { id: string } | null; userErrors?: UserErr[] } } | null)?.fulfillmentCreate;
+      const ue = d?.userErrors ?? [];
+      if (!gc.ok || ue.length || !d?.fulfillment?.id) throw new Error("picked up (fulfillmentCreate): " + (ue.length ? userErrorsText(ue) : gqlErr(gc)));
+      await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { shopify_fulfillment_gid: d.fulfillment.id, last_error: null, attempts: f.attempts + 1, last_push_at: stamp });
+      return { ...out, status: "sent", gid: d.fulfillment.id };
+    }
+  }
+  const adopt = adoptExisting({ ...f, created_at: f.ready_at ?? f.created_at }, order.fulfillments ?? []);
+  if (adopt) {
+    await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { shopify_fulfillment_gid: adopt, last_error: "adopted: pickup fulfillment already in Shopify (recorded on retry)", attempts: f.attempts + 1 });
+    return { ...out, status: "sent", gid: adopt, path: "adopt" };
+  }
+  throw new Error("pickup fulfillment order " + (f.fulfillment_order_gid ?? "?") + " is not open in Shopify and no fulfillment to adopt — mark it picked up in Shopify by hand");
+}
+// ful-1b 판정 438: 송장 고침 — GID 있는 carrier 머리마다 fulfillmentTrackingInfoUpdate(company · numbers · urls · notifyCustomer false) · 값은 창구 so_tracking_fix 가 결과 표에 적어 둔 것
+async function sendTrackingFix(store: StoreRow, f: FulRow): Promise<FulOut> {
+  const out: FulOut = { status: "error", gid: f.shopify_fulfillment_gid ?? null, fo: f.fulfillment_order_gid ?? null, path: "tracking_fix", cut: 0, warns: [], cost: 0, error: null };
+  if (!f.shopify_fulfillment_gid) throw new Error("fulfillment " + f.id + " has no Shopify fulfillment GID — nothing to update");
+  const template = f.carrier_id ? String((await sbGet("ref_carrier?select=tracking_url_template&id=eq." + f.carrier_id + "&limit=1"))[0]?.tracking_url_template ?? "") : "";
+  const stamp = nowIso();
+  const gt = await shopifyGql(store, TRACKING_UPDATE_MUTATION, { fulfillmentId: f.shopify_fulfillment_gid, trackingInfoInput: buildTrackingInput(f, template), notifyCustomer: false });
+  out.cost += gt.cost.actual ?? 0;
+  const d = (gt.data as { fulfillmentTrackingInfoUpdate?: { fulfillment?: { id: string } | null; userErrors?: UserErr[] } } | null)?.fulfillmentTrackingInfoUpdate;
+  const ue = d?.userErrors ?? [];
+  if (!gt.ok || ue.length || !d?.fulfillment?.id) throw new Error("fulfillmentTrackingInfoUpdate: " + (ue.length ? userErrorsText(ue) : gqlErr(gt)));
+  await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { last_error: null, last_push_at: stamp });
+  return { ...out, status: "sent" };
+}
+const FUL_SELECT = "shop_fulfillment?select=id,so_id,shop_order_id,store_id,carrier_id,carrier_name,carrier_kind,shopify_company,tracking_numbers,notify_customer,status,attempts,created_at,shopify_fulfillment_gid,fulfillment_order_gid,ready_at,picked_up_at";
+// 큐 종류마다 — 어느 머리를 집는가 · 실패하면 머리에 무엇을 적는가 · 5 회 뒤 경고 코드(ful-1b)
+const FUL_KIND: Record<FulfillKind, { filter: string; send: (store: StoreRow, f: FulRow) => Promise<FulOut>; warn: string; failPatch: (msg: string, f: FulRow) => Record<string, unknown> }> = {
+  ship:         { filter: "&status=in.(pending,error)", send: sendFulfillment, warn: "fulfill_failed", failPatch: (msg, f) => ({ status: "error", attempts: f.attempts + 1, last_error: msg }) },
+  picked_up:    { filter: "&carrier_kind=eq.pickup&ready_at=not.is.null&picked_up_at=not.is.null&shopify_fulfillment_gid=is.null", send: sendPickedUp, warn: "pickup_failed", failPatch: (msg, f) => ({ attempts: f.attempts + 1, last_error: msg }) },   // 상태는 sent 그대로(Ready 가 됐다)
+  tracking_fix: { filter: "&carrier_kind=eq.carrier&shopify_fulfillment_gid=not.is.null", send: sendTrackingFix, warn: "tracking_fix_failed", failPatch: (msg) => ({ last_error: msg }) },
+};
 async function fulfillDrain(caller: Caller, t0: number): Promise<Response> {
-  const rows: FulQueueRow[] = await sbGet("shop_fulfill_queue?select=id,so_id,kind,attempts,queued_at&done_at=is.null&kind=eq.ship&order=queued_at.asc,id.asc&limit=" + FULFILL_FETCH);
+  const rows: FulQueueRow[] = await sbGet("shop_fulfill_queue?select=id,so_id,kind,attempts,queued_at&done_at=is.null&kind=in.(" + FULFILL_KINDS.join(",") + ")&order=queued_at.asc,id.asc&limit=" + FULFILL_FETCH);
   const stores: Record<string, StoreRow | undefined> = {};
   const out: Array<Record<string, unknown>> = [];
   const summary: Record<string, number> = {};
@@ -651,8 +705,10 @@ async function fulfillDrain(caller: Caller, t0: number): Promise<Response> {
     stopped = drainStop(Date.now() - t0, FULFILL_DRAIN_MS);
     if (stopped) break;
     const tq = Date.now();
+    const kind = (q.kind in FUL_KIND ? q.kind : "ship") as FulfillKind;
+    const K = FUL_KIND[kind];
     await patchFulQueue(q.id, { started_at: nowIso() });
-    const fuls: FulRow[] = await sbGet("shop_fulfillment?select=id,so_id,shop_order_id,store_id,carrier_id,carrier_name,carrier_kind,shopify_company,tracking_numbers,notify_customer,status,attempts,created_at&so_id=eq." + q.so_id + "&status=in.(pending,error)&order=created_at.asc");
+    const fuls: FulRow[] = await sbGet(FUL_SELECT + "&so_id=eq." + q.so_id + K.filter + "&order=created_at.asc");
     const results: Array<Record<string, unknown>> = [];
     let cost = 0;
     for (const f of fuls) {
@@ -661,29 +717,30 @@ async function fulfillDrain(caller: Caller, t0: number): Promise<Response> {
       let r: FulOut;
       try {
         if (!store || !store.is_active) throw new Error("store missing or switched off");
-        r = await sendFulfillment(store, f);
+        r = await K.send(store, f);
       } catch (e) {
         const msg = String((e as Error)?.message ?? e).slice(0, 400);
         r = { status: "error", gid: null, fo: null, path: null, cut: 0, warns: [], cost: 0, error: msg };
-        await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, { status: "error", attempts: f.attempts + 1, last_error: msg });
+        await sbWrite("PATCH", "shop_fulfillment?id=eq." + f.id, K.failPatch(msg, f));
       }
       cost += r.cost;
       results.push({ fulfillment_id: f.id, shop_order_id: f.shop_order_id, kind: f.carrier_kind, status: r.status, gid: r.gid, fo: r.fo, path: r.path, cut: r.cut, warns: r.warns, error: r.error });
     }
-    const allStatus: string[] = (await sbGet("shop_fulfillment?select=status&so_id=eq." + q.so_id) as Array<{ status: string }>).map((x) => x.status);
-    const oc = queueOutcome(allStatus, q.attempts);
+    // 큐 셈 — ship 은 그 SO 의 머리 상태 전부(pending · error 가 남으면 다시) · picked_up · tracking_fix 는 이번 결과(집은 머리가 0 이면 할 일 없음 = ok)
+    const statuses: string[] = kind === "ship" ? ((await sbGet("shop_fulfillment?select=status&so_id=eq." + q.so_id)) as Array<{ status: string }>).map((x) => x.status) : results.map((x) => String(x.status));
+    const oc = queueOutcome(statuses, q.attempts);
     const firstErr = results.find((x) => x.error)?.error as string | undefined;
-    if (oc.done) await patchFulQueue(q.id, { done_at: nowIso(), result: oc.result, attempts: oc.attempts, error: oc.result === "ok" ? null : (firstErr ?? "fulfillment(s) still not sent") });
+    if (oc.done) await patchFulQueue(q.id, { done_at: nowIso(), result: oc.result, attempts: oc.attempts, error: oc.result === "ok" ? (fuls.length ? null : "nothing to send for " + kind) : (firstErr ?? "fulfillment(s) still not sent") });
     else await patchFulQueue(q.id, { started_at: null, attempts: oc.attempts, error: firstErr ?? "fulfillment(s) still not sent" });
     if (oc.warn) for (const so of new Set(fuls.filter((f) => results.find((x) => x.fulfillment_id === f.id && x.status === "error")).map((f) => f.shop_order_id))) {
-      await warnOrder(so, "fulfill_failed", "IMS could not send the shipment to Shopify after " + oc.attempts + " tries — last error: " + (firstErr ?? "?") + " — fulfil it in Shopify by hand or ask IT");
+      await warnOrder(so, K.warn, "IMS could not " + (kind === "ship" ? "send the shipment to" : kind === "picked_up" ? "mark the pickup as picked up in" : "update the tracking in") + " Shopify after " + oc.attempts + " tries — last error: " + (firstErr ?? "?") + " — do it in Shopify by hand or ask IT");
     }
     const resultKey = oc.done ? (oc.result as string) : "retry";
     summary[resultKey] = (summary[resultKey] ?? 0) + 1;
     await recordCall({ store_id: fuls[0]?.store_id ?? null, action: "fulfill_drain", ok: resultKey !== "error", http_status: null, query_cost: cost, throttle_available: null,
-      error: "queue " + q.id + " so " + q.so_id.slice(0, 8) + " → " + resultKey + " · " + results.map((x) => x.status + (x.path ? "/" + x.path : "") + (x.gid ? " " + String(x.gid).split("/").pop() : "") + (x.warns && (x.warns as string[]).length ? " ⚠" + (x.warns as string[]).join(",") : "")).join(" · ") + (firstErr ? " · " + firstErr.slice(0, 160) : ""),
+      error: "queue " + q.id + " " + kind + " so " + q.so_id.slice(0, 8) + " → " + resultKey + " · " + results.map((x) => x.status + (x.path ? "/" + x.path : "") + (x.gid ? " " + String(x.gid).split("/").pop() : "") + (x.warns && (x.warns as string[]).length ? " ⚠" + (x.warns as string[]).join(",") : "")).join(" · ") + (firstErr ? " · " + firstErr.slice(0, 160) : ""),
       by_staff: caller.staffId, ms: Date.now() - tq });
-    out.push({ queue_id: q.id, so_id: q.so_id, result: resultKey, attempts: oc.attempts, fulfillments: results, cost, ms: Date.now() - tq });
+    out.push({ queue_id: q.id, so_id: q.so_id, kind, result: resultKey, attempts: oc.attempts, fulfillments: results, cost, ms: Date.now() - tq });
   }
   const open = (await sbGet("shop_fulfill_queue?select=id&done_at=is.null&limit=1")).length > 0;
   return json(200, { ok: true, drained: out.length, ...summary, results: out, stopped, more_open: open, ms: Date.now() - t0 });

@@ -1,5 +1,5 @@
-// deno test supabase/functions/shopify/shopify_fulfill_test.ts — Shopify · DB 무접촉 (ful-2 ① ~ ⑧ · _shared/shopify-fulfill.ts 의 순수 함수)
-import { adoptExisting, buildFulfillmentInput, FULFILL_MAX_ATTEMPTS, movesNeeded, pickupPath, planLines, preparedForPickupInput, queueOutcome, remapAfterMove, trackingUrls, userErrorsText, type FoNode, type FulfillmentNode, type FulLine, type FulRow } from "../_shared/shopify-fulfill.ts";
+// deno test supabase/functions/shopify/shopify_fulfill_test.ts — Shopify · DB 무접촉 (ful-2 ① ~ ⑧ · ful-1b ⑨ ~ ⑫ · _shared/shopify-fulfill.ts 의 순수 함수)
+import { adoptExisting, buildFulfillmentInput, buildTrackingInput, FULFILL_KINDS, FULFILL_MAX_ATTEMPTS, movesNeeded, needsPickedUp, needsTrackingFix, pickupFo, pickupPath, planLines, preparedForPickupInput, queueOutcome, remapAfterMove, trackingUrls, userErrorsText, type FoNode, type FulfillmentNode, type FulLine, type FulRow } from "../_shared/shopify-fulfill.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -100,4 +100,45 @@ Deno.test("⑧ queueOutcome · userErrorsText — 전부 sent/skipped → done o
   eq(queueOutcome(["pending"], 0), { done: false, result: null, attempts: 1, warn: false }, "pending (not reached) counts as not done");
   eq(userErrorsText([{ field: ["fulfillment", "trackingInfo"], message: "bad", code: "INVALID" }, { message: "x" }]), "fulfillment.trackingInfo: bad (INVALID) · x", "text");
   eq(userErrorsText(null), "", "null");
+});
+
+// ── ful-1b ──
+Deno.test("⑨ buildTrackingInput — company · numbers · urls(틀) / 목록 밖 운송사는 company 없이 번호만 / 빈 조각은 뺀다", () => {
+  const t = buildTrackingInput(row("carrier", ["NEW-1", " NEW-2 ", ""]), "https://t.example/{number}");
+  eq(t, { numbers: ["NEW-1", "NEW-2"], company: "Canada Post", urls: ["https://t.example/NEW-1", "https://t.example/NEW-2"] }, "⑨ carrier");
+  eq(buildTrackingInput(row("carrier", ["X1"], null), null), { numbers: ["X1"] }, "⑨ 목록 밖 · 틀 없음");
+});
+Deno.test("⑩ needsPickedUp · needsTrackingFix · pickupFo — Ready 뒤 찾아감 · GID 없음만 / carrier + GID 만 / 픽업 FO 는 열린 것만", () => {
+  const pk = { ...row("pickup"), status: "sent", ready_at: "2026-10-13T16:36:01Z", fulfillment_order_gid: "gid://shopify/FulfillmentOrder/7663348089015" };
+  eq(needsPickedUp(pk), false, "⑩ 아직 안 찾아감");
+  eq(needsPickedUp({ ...pk, picked_up_at: "2026-10-13T17:00:00Z" }), true, "⑩ 찾아감 · GID 없음");
+  eq(needsPickedUp({ ...pk, picked_up_at: "2026-10-13T17:00:00Z", shopify_fulfillment_gid: "gid://shopify/Fulfillment/1" }), false, "⑩ 이미 GID");
+  eq(needsPickedUp({ ...row("delivery"), ready_at: "x", picked_up_at: "y" }), false, "⑩ delivery 는 아니다");
+  eq(needsTrackingFix({ ...row("carrier", ["A"]), shopify_fulfillment_gid: "gid://shopify/Fulfillment/1" }), true, "⑩ carrier + GID");
+  eq(needsTrackingFix(row("carrier", ["A"])), false, "⑩ GID 없음");
+  eq(needsTrackingFix({ ...pk, shopify_fulfillment_gid: "gid://shopify/Fulfillment/1" }), false, "⑩ pickup 은 아니다");
+  const pfo = fo(7663348089015, L_TO, [[1, 1]], { deliveryMethod: { methodType: "PICK_UP" } });
+  eq(pickupFo(pk, [fo(1, L_TO, [[1, 1]]), pfo])?.id, pfo.id, "⑩ 저장한 FO 를 찾는다");
+  eq(pickupFo(pk, [{ ...pfo, status: "CLOSED" }]), null, "⑩ 닫힌 FO 는 null");
+  eq(pickupFo(pk, []), null, "⑩ 없으면 null");
+});
+Deno.test("⑪ Picked up 입력 — 픽업 머리로 fulfillmentCreate: Ready 때 보낸 수량(quantity_sent)만 · trackingInfo 없음 · notifyCustomer false · quantity_sent 0 이면 보낼 것 없음(adopt 로)", () => {
+  const pfo = fo(70, L_TO, [[1, 2], [2, 5]], { deliveryMethod: { methodType: "PICK_UP" } });
+  const lines: FulLine[] = [{ ...line(1, 2), quantity_sent: 2 }, { ...line(2, 5), quantity_sent: 3 }];
+  const plan = planLines(lines.map((l) => ({ ...l, quantity: l.quantity_sent ?? l.quantity })), [pfo]);
+  eq(plan.items.map((i) => [i.fo_line_id, i.qty]), [[FOL(70, 1), 2], [FOL(70, 2), 3]], "⑪ quantity_sent 만큼");
+  const input = buildFulfillmentInput({ ...row("pickup"), ready_at: "r", picked_up_at: "p" }, plan.items, "") as { notifyCustomer: boolean; trackingInfo?: unknown; lineItemsByFulfillmentOrder: unknown[] };
+  eq(input.notifyCustomer, false, "⑪ 메일 없음"); eq(input.trackingInfo, undefined, "⑪ 송장 없음"); eq(input.lineItemsByFulfillmentOrder.length, 1, "⑪ FO 하나");
+  eq(planLines([{ ...line(1, 2), quantity_sent: 0 }].map((l) => ({ ...l, quantity: l.quantity_sent ?? l.quantity })), [pfo]).items.length, 0, "⑪ 0 이면 없음");
+});
+Deno.test("⑫ Picked up 받아 적기 · 큐 셈 — adopt 는 Ready 뒤의 송장 없는 발송만(ready_at 을 기준으로) · picked_up · tracking_fix 큐는 이번 결과로(집은 머리 0 = ok) · kind 셋", () => {
+  const pk = { ...row("pickup"), created_at: "2026-10-13T15:00:00Z", ready_at: "2026-10-13T16:36:01Z", picked_up_at: "2026-10-13T17:00:00Z" };
+  const fuls: FulfillmentNode[] = [{ id: "gid://shopify/Fulfillment/1", status: "SUCCESS", createdAt: "2026-10-13T15:30:00Z", trackingInfo: [] }, { id: "gid://shopify/Fulfillment/2", status: "SUCCESS", createdAt: "2026-10-13T17:00:05Z", trackingInfo: [] }];
+  eq(adoptExisting({ ...pk, created_at: pk.ready_at ?? pk.created_at }, fuls), "gid://shopify/Fulfillment/2", "⑫ Ready 뒤 것만");
+  eq(adoptExisting({ ...pk, created_at: pk.ready_at ?? pk.created_at }, [fuls[0]]), null, "⑫ Ready 전 것은 안 받는다");
+  eq(queueOutcome([], 0), { done: true, result: "ok", attempts: 0, warn: false }, "⑫ 집은 머리 0 → ok");
+  eq(queueOutcome(["sent", "sent"], 0), { done: true, result: "ok", attempts: 0, warn: false }, "⑫ 전부 sent");
+  eq(queueOutcome(["sent", "error"], 3), { done: false, result: null, attempts: 4, warn: false }, "⑫ 하나 error → 다시");
+  eq(queueOutcome(["error"], FULFILL_MAX_ATTEMPTS - 1), { done: true, result: "error", attempts: FULFILL_MAX_ATTEMPTS, warn: true }, "⑫ 5 회째 닫고 경고");
+  eq([...FULFILL_KINDS], ["ship", "picked_up", "tracking_fix"], "⑫ kind 셋");
 });

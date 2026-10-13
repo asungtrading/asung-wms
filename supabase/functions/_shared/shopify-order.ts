@@ -18,7 +18,7 @@ export const POLL_OVERLAP_MS = 5 * 60_000;                                      
 export const POLL_FIRST_WINDOW_MS = 24 * 3_600_000;                                 // orders_polled_at 이 없으면 하루 전부터
 export const POLL_PAGES_MAX = 5;                                                    // 50 × 5 = 한 회차 250 오더까지
 
-// ── GraphQL(2026-10 · MCP validate ✅ VALID · ord-0-shopify.graphql ① 과 같은 칸 + customAttributes · taxLines · transactions · fulfillmentOrders) ──
+// ── GraphQL(2026-10 · MCP validate ✅ VALID · ord-0-shopify.graphql ① 과 같은 칸 + customAttributes · taxLines · transactions · fulfillmentOrders · ful-1b 판정 447 · 440: fulfillments(메아리 거르기 — ingest 가 GID 를 shop_fulfillment 와 견준다) · refunds(원문은 shop_order.raw 에 · 경고 refunded_in_shopify)) ──
 export const ORDER_READ_QUERY = `query ImsOrderRead($id: ID!) { order(id: $id) {
   id name createdAt updatedAt processedAt cancelledAt cancelReason closed test
   displayFinancialStatus displayFulfillmentStatus sourceName tags note poNumber email phone
@@ -37,6 +37,8 @@ export const ORDER_READ_QUERY = `query ImsOrderRead($id: ID!) { order(id: $id) {
   transactions(first: 20) { id kind status gateway amountSet { shopMoney { amount currencyCode } } processedAt test }
   retailLocation { id name }
   fulfillmentOrders(first: 10) { nodes { id status assignedLocation { location { id name } } deliveryMethod { methodType } } }
+  fulfillments(first: 20) { id status createdAt updatedAt trackingInfo(first: 10) { number } }
+  refunds(first: 20) { id createdAt note totalRefundedSet { shopMoney { amount currencyCode } } refundLineItems(first: 50) { nodes { quantity restockType lineItem { id sku } } } }
 } }`;
 export const ORDER_BY_NAME_QUERY = `query ImsOrderByName($q: String!) { orders(first: 1, query: $q) { nodes { id name } } }`;
 export const ORDERS_SINCE_QUERY = `query ImsOrdersSince($q: String!, $after: String) { orders(first: 50, after: $after, sortKey: UPDATED_AT, query: $q) { pageInfo { hasNextPage endCursor } nodes { id name updatedAt cancelledAt displayFinancialStatus test } } }`;

@@ -1,5 +1,5 @@
 // ============================================================
-// ASUNG IMS — 발송 보내기 순수 함수 · 쿼리 (_shared · ful-2 · 2026-10-13 · 판정 436 ~ 453 · DB ful-1a 20261013170000 · ful-2a 20261013193000)
+// ASUNG IMS — 발송 보내기 순수 함수 · 쿼리 (_shared · ful-2 · 2026-10-13 · 판정 436 ~ 453 · DB ful-1a 20261013170000 · ful-2a 20261013193000 · ful-1b 20261013210000)
 //   fulfill_drain 이 쓴다 — 네트워크 · DB 없음(deno test). 흐름(index.ts fulfillDrain):
 //   · 큐 ship 줄 → 그 SO 의 결과 표 머리(shop_fulfillment · pending | error)마다 ① Shopify 오더의 fulfillmentOrders(줄 · remainingQuantity · 위치 · 배송 방식) + fulfillments 를 읽고
 //     ② planLines: 결과 표 줄(line_gid · 수량)을 열린 FO 줄에 짝 맞춤 · 보낼 수량은 Shopify 남은 수량으로 자른다(미룬 201 b · 자르면 quantity_sent < quantity · 경고 fulfill_cut)
@@ -10,13 +10,17 @@
 //     ⑥ 보낼 것이 0 이면 adoptExisting: 우리 송장과 같은 발송(carrier) · 큐에 넣은 뒤 만든 송장 없는 발송(pickup · delivery)이 있으면 그 GID 를 받아 적는다(「보냈는데 못 적은」 구멍 · fulfillmentCreate 에 @idempotent 없음) · 없으면 skipped + fulfill_nothing_left
 //   📌 스키마(2026-10-13 MCP graphql_schema): FulfillmentOrderMovePayload.movedFulfillmentOrder — 「원래 FO 에 일부라도 발송된 줄이 없으면 원래 FO 가 옮겨진다 · 있으면 옮겨진 FO 는 원래 것과 다르다」 · remainingFulfillmentOrder 는 deprecated
 //   📌 문서: move 실패 = FO closed · 진행 보고됨 · 새 위치가 그 품목을 stock 하지 않음 · 권한 · requestStatus SUBMITTED 등 · 발송된 줄은 못 옮긴다(FulfillmentOrderMovePayload)
+//   ful-1b(판정 438 · 443 · 447): 큐 kind 셋 — ship(위) · picked_up(창구 shop_fulfill_picked_up → 픽업 FO 에 fulfillmentCreate notify false → GID · 짐작: 「Picked up」 전용 mutation 은 문서에 없다) ·
+//     tracking_fix(창구 so_tracking_fix → GID 있는 carrier 머리마다 fulfillmentTrackingInfoUpdate notify false) · 쓸 때마다 last_push_at(ingest 의 메아리 ⓑ 2 분 창)
 // ============================================================
 
 export const FULFILL_FETCH = 20;                                          // 한 회차에 집는 큐 줄
 export const FULFILL_DRAIN_MS = 40_000;                                   // 한 회차 시간 한도(cron 1 분 안에)
 export const FULFILL_MAX_ATTEMPTS = 5;                                    // 넘으면 큐 done error + 경고 fulfill_failed(다시 여는 길은 ful-1b/3)
 export const OPEN_FO_STATUS = ["OPEN", "IN_PROGRESS"] as const;          // 보낼 수 있는 FO(짐작 · SCHEDULED · ON_HOLD 는 안 보낸다)
-export const WARN_CODES = ["fulfill_failed", "fulfill_cut", "fulfill_location_mismatch", "fulfill_nothing_left"] as const;
+export const WARN_CODES = ["fulfill_failed", "fulfill_cut", "fulfill_location_mismatch", "fulfill_nothing_left", "pickup_failed", "tracking_fix_failed"] as const;
+export const FULFILL_KINDS = ["ship", "picked_up", "tracking_fix"] as const;   // ful-1b: drain 이 집는 큐 종류(queued_at 순)
+export type FulfillKind = typeof FULFILL_KINDS[number];
 
 // ── GraphQL(2026-10 · MCP validate ✅ VALID · 필요 권한은 지금 앱(v1scopes)으로 된다 — read_orders · read/write_merchant_managed_fulfillment_orders · read_locations · read_inventory) ──
 export const FULFILL_ORDERS_QUERY = `query ImsFulfillmentOrders($id: ID!) { order(id: $id) { id name displayFulfillmentStatus
@@ -24,13 +28,15 @@ export const FULFILL_ORDERS_QUERY = `query ImsFulfillmentOrders($id: ID!) { orde
   fulfillments(first: 20) { id status createdAt trackingInfo(first: 10) { number } } } }`;
 export const FULFILLMENT_CREATE_MUTATION = `mutation ImsFulfillmentCreate($fulfillment: FulfillmentInput!) { fulfillmentCreate(fulfillment: $fulfillment) { fulfillment { id status createdAt trackingInfo(first: 10) { company number url } } userErrors { field message } } }`;
 export const FULFILLMENT_ORDER_MOVE_MUTATION = `mutation ImsFulfillmentOrderMove($id: ID!, $newLocationId: ID!, $items: [FulfillmentOrderLineItemInput!]) { fulfillmentOrderMove(id: $id, newLocationId: $newLocationId, fulfillmentOrderLineItems: $items) { movedFulfillmentOrder { id status assignedLocation { location { id name } } lineItems(first: 100) { nodes { id remainingQuantity lineItem { id } } } } originalFulfillmentOrder { id status } userErrors { field message } } }`;
+export const TRACKING_UPDATE_MUTATION = `mutation ImsFulfillmentTrackingUpdate($fulfillmentId: ID!, $trackingInfoInput: FulfillmentTrackingInput!, $notifyCustomer: Boolean) { fulfillmentTrackingInfoUpdate(fulfillmentId: $fulfillmentId, trackingInfoInput: $trackingInfoInput, notifyCustomer: $notifyCustomer) { fulfillment { id status trackingInfo(first: 10) { company number url } } userErrors { field message } } }`;   // ful-1b 판정 438 · ✅ VALID
 export const PREPARED_FOR_PICKUP_MUTATION = `mutation ImsFulfillmentReadyForPickup($input: FulfillmentOrderLineItemsPreparedForPickupInput!) { fulfillmentOrderLineItemsPreparedForPickup(input: $input) { userErrors { field message code } } }`;
 
 // ── 모양 ──
 export type FoLine = { id: string; totalQuantity?: number | null; remainingQuantity: number | null; lineItem: { id: string; sku?: string | null } | null };
 export type FoNode = { id: string; status: string; requestStatus?: string | null; assignedLocation?: { location?: { id: string; name?: string | null } | null } | null; deliveryMethod?: { methodType?: string | null } | null; lineItems?: { nodes?: FoLine[] } | null };
 export type FulfillmentNode = { id: string; status?: string | null; createdAt?: string | null; trackingInfo?: Array<{ number?: string | null }> | null };
-export type FulRow = { id: string; so_id: string; shop_order_id: string; store_id: string; carrier_id: string | null; carrier_name: string | null; carrier_kind: "carrier" | "pickup" | "delivery" | null; shopify_company: string | null; tracking_numbers: string[]; notify_customer: boolean; status: string; attempts: number; created_at: string };
+export type FulRow = { id: string; so_id: string; shop_order_id: string; store_id: string; carrier_id: string | null; carrier_name: string | null; carrier_kind: "carrier" | "pickup" | "delivery" | null; shopify_company: string | null; tracking_numbers: string[]; notify_customer: boolean; status: string; attempts: number; created_at: string;
+  shopify_fulfillment_gid?: string | null; fulfillment_order_gid?: string | null; ready_at?: string | null; picked_up_at?: string | null };   // ful-1b: picked_up · tracking_fix 가 읽는 칸
 export type FulLine = { id: string; line_gid: string; so_line_id: string; quantity: number | string; quantity_sent?: number | string | null };
 export type PlanItem = { line_id: string; line_gid: string; fo_id: string; fo_line_id: string; qty: number };
 export type Plan = { items: PlanItem[]; sent_by_line: Record<string, number>; cut: Array<{ line_id: string; line_gid: string; wanted: number; sent: number }>; nothing: string[] };
@@ -137,6 +143,22 @@ export function buildFulfillmentInput(row: FulRow, items: PlanItem[], urlTemplat
     input.trackingInfo = tracking;
   }
   return input;
+}
+// ful-1b 판정 438: 송장 고침 입력 — company(목록 이름 · 없으면 뺌) · numbers · urls(틀) · notifyCustomer 는 부르는 쪽이 false 로
+export function buildTrackingInput(row: FulRow, urlTemplate: string | null | undefined): Record<string, unknown> {
+  const numbers = (row.tracking_numbers ?? []).map((x) => String(x).trim()).filter(Boolean);
+  const tracking: Record<string, unknown> = { numbers };
+  if (row.shopify_company) tracking.company = row.shopify_company;
+  const urls = trackingUrls(urlTemplate, numbers);
+  if (urls.length) tracking.urls = urls;
+  return tracking;
+}
+// ful-1b 판정 443: Picked up — 창구가 적은 픽업 머리(ready_at · picked_up_at 있고 GID 없음)만 · 그 머리의 픽업 FO(fulfillment_order_gid)를 찾는다 · 없거나 닫혔으면 null(받아 적기 adoptExisting 으로)
+export const needsPickedUp = (row: FulRow): boolean => row.carrier_kind === "pickup" && !!row.ready_at && !!row.picked_up_at && !row.shopify_fulfillment_gid;
+export const needsTrackingFix = (row: FulRow): boolean => row.carrier_kind === "carrier" && !!row.shopify_fulfillment_gid;
+export function pickupFo(row: FulRow, fos: FoNode[]): FoNode | null {
+  const fo = fos.find((f) => f.id === row.fulfillment_order_gid) ?? null;
+  return fo && isOpenFo(fo) ? fo : null;
 }
 export const preparedForPickupInput = (foIds: string[]) => ({ lineItemsByFulfillmentOrder: [...new Set(foIds)].map((fulfillmentOrderId) => ({ fulfillmentOrderId })) });
 
