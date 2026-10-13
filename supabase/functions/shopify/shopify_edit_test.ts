@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_edit_test.ts — Shopify · DB 무접촉 (ful-4b ① ~ ⑥ · _shared/shopify-edit.ts 의 순수 함수)
-import { clampEditable, isPaid, matchCalcLine, NoChangeError, planOrderEdit, removedQty, setQuantityFor, type CalcLine, type DbLine, type LiveLine } from "../_shared/shopify-edit.ts";
+import { clampEditable, isPaid, matchCalcLine, NoChangeError, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_SET_QTY_MUTATION, planOrderEdit, removedQty, runTrySet, setQuantityFor, trySetCandidates, type CalcLine, type DbLine, type GqlLike, type LiveLine } from "../_shared/shopify-edit.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -55,4 +55,58 @@ Deno.test("⑥ 실물 #1011 — 줄 2 · 1 나감(live current 2 · unfulfilled 
   eq(setQuantityFor(c1, 0), { quantity: 1, change: 0, clamped: false }, "⑥ to_remove 0 → change 0 → 그 줄은 setQuantity 를 안 보낸다");
   const e = new NoChangeError("x"); eq(e instanceof NoChangeError && e.name === "NoChangeError", true, "⑥ NoChangeError = 다시 시도하지 않는 error");
   eq(matchCalcLine(live(1, 2, 2, 1, "ANN01015"), [c1])?.id, c1.id, "⑥ 줄 하나 짝");
+});
+
+// ── ful-4b2 try-set — 가짜 gql: 호출된 쿼리 · 변수를 모은다 · begin 마다 새 CalculatedOrder id(또는 같은 id · 시험 ⑧) ──
+type Call = { query: string; vars: Record<string, unknown> };
+function fakeGql(calcLines: CalcLine[], opt: { sameSession?: boolean; stagedAtBegin?: number } = {}): { gql: GqlLike; calls: Call[] } {
+  const calls: Call[] = []; let begins = 0;
+  const gql: GqlLike = (query, vars) => {
+    calls.push({ query, vars });
+    const cost = { actual: 10 };
+    if (query.includes("orderEditBegin")) {
+      begins++;
+      const id = "gid://shopify/CalculatedOrder/" + (opt.sameSession ? 777 : 1000 + begins);
+      return Promise.resolve({ ok: true, status: 200, errors: null, raw: null, cost, data: { orderEditBegin: { calculatedOrder: { id, stagedChanges: { nodes: Array.from({ length: opt.stagedAtBegin ?? 0 }, () => ({ __typename: "OrderStagedChangeDecrementItem" })) }, lineItems: { nodes: calcLines } }, userErrors: [] } } });
+    }
+    if (query.includes("orderEditSetQuantity")) {
+      const q = Number(vars.quantity);
+      return Promise.resolve({ ok: true, status: 200, errors: null, raw: null, cost, data: { orderEditSetQuantity: { calculatedLineItem: { id: vars.lineItemId, quantity: q, editableQuantity: q, editableQuantityBeforeChanges: 1, restocking: true },
+        calculatedOrder: { id: vars.id, subtotalLineItemsQuantity: q, stagedChanges: { nodes: q === 0 ? [{ __typename: "OrderStagedChangeDecrementItem", delta: 1, restock: true, lineItem: { id: LI(1) } }] : [] }, lineItems: { nodes: calcLines } }, userErrors: [] } } });
+    }
+    throw new Error("unexpected query: " + query.slice(0, 40));
+  };
+  return { gql, calls };
+}
+Deno.test("⑦ try-set 실물 #1011 — 후보 ⓐ editable 1 − 1 = 0 · ⓑ calc 2 − 1 = 1 · begin 둘(세션 따로 · id 다름 · contaminated 아님) · setQuantity 둘(restock true) · commit 문자열은 호출 목록에 없다 · 음수는 0 으로 자른다", async () => {
+  const c = calc(1, 2, 1, "ANN01015");
+  eq(trySetCandidates(c, 1), { a: { quantity: 0, clamped: false }, b: { quantity: 1, clamped: false } }, "⑦ 후보 둘");
+  eq(trySetCandidates(c, 5), { a: { quantity: 0, clamped: true }, b: { quantity: 1, clamped: true } }, "⑦ 넘치면 자른다(ⓐ 0 · ⓑ 바닥 1)");
+  const plan = planOrderEdit([db(1, 2, 0)], [live(1, 2, 2, 1, "ANN01015")]);
+  const { gql, calls } = fakeGql([c]);
+  const rs = await runTrySet(gql, "gid://shopify/Order/1011", plan, [live(1, 2, 2, 1, "ANN01015")], ["gid://shopify/CalculatedOrder/999"]);
+  eq(rs.map((r) => [r.key, r.calculated_order_id, r.staged_at_begin, r.contaminated, r.sends.map((s) => s.quantity_sent)]), [["a", "gid://shopify/CalculatedOrder/1001", 0, false, [0]], ["b", "gid://shopify/CalculatedOrder/1002", 0, false, [1]]], "⑦ ⓐ 0 · ⓑ 1 · 세션 둘");
+  eq(calls.map((x) => x.query === ORDER_EDIT_BEGIN_MUTATION ? "begin" : x.query === ORDER_EDIT_SET_QTY_MUTATION ? "set" : "?"), ["begin", "set", "begin", "set"], "⑦ 호출 순서 begin → set → begin → set");
+  eq(calls.filter((x) => x.query.includes("orderEditCommit") || x.query === ORDER_EDIT_COMMIT_MUTATION).length, 0, "⑦ commit 은 부르지 않는다");
+  eq(calls.filter((x) => x.query === ORDER_EDIT_SET_QTY_MUTATION).map((x) => [x.vars.id, x.vars.lineItemId, x.vars.quantity, x.vars.restock]), [["gid://shopify/CalculatedOrder/1001", CL(1), 0, true], ["gid://shopify/CalculatedOrder/1002", CL(1), 1, true]], "⑦ 보낸 변수(restock true · 판정 459)");
+  eq(rs[0].sends[0].response?.staged_count, 1, "⑦ ⓐ 응답의 staged 수를 그대로"); eq(rs[1].sends[0].response?.staged_count, 0, "⑦ ⓑ 응답 staged 0");
+  eq(rs[0].sends[0].response?.calculated_line_item, { id: CL(1), quantity: 0, editableQuantity: 0, editableQuantityBeforeChanges: 1, restocking: true }, "⑦ calculatedLineItem 원문");
+  eq(rs.reduce((a, r) => a + r.cost, 0), 40, "⑦ cost 합");
+});
+Deno.test("⑧ try-set — 같은 세션이 돌아오면 contaminated(그대로 돌린다 · 숨기지 않는다) · staged 가 0 이 아니어도 contaminated · 발송분 0 이면(ⓐ = ⓑ) ⓑ 는 열지 않고 same_as_a · to_remove 0 이면 빈 결과", async () => {
+  const c = calc(1, 2, 1, "ANN01015"), lv = [live(1, 2, 2, 1, "ANN01015")], plan = planOrderEdit([db(1, 2, 0)], lv);
+  const same = fakeGql([c], { sameSession: true });
+  const rs = await runTrySet(same.gql, "gid://shopify/Order/1011", plan, lv, ["gid://shopify/CalculatedOrder/777"]);
+  eq(rs.map((r) => [r.key, r.contaminated, r.sends.map((s) => s.quantity_sent)]), [["a", true, [0]], ["b", true, [1]]], "⑧ 같은 id → 둘 다 contaminated · 그래도 보낸다");
+  eq(rs[0].contaminated_reason?.startsWith("orderEditBegin returned a calculated order already seen"), true, "⑧ 이유");
+  const staged = fakeGql([c], { stagedAtBegin: 1 });
+  const rs2 = await runTrySet(staged.gql, "gid://shopify/Order/1011", plan, lv, []);
+  eq(rs2.map((r) => [r.contaminated, r.contaminated_reason]), [[true, "stagedChanges not empty right after begin (1)"], [true, "stagedChanges not empty right after begin (1)"]], "⑧ staged ≠ 0 → contaminated");
+  const full = calc(1, 2, 2, "ANN01015"), lvFull = [live(1, 2, 2, 2, "ANN01015")], planFull = planOrderEdit([db(1, 2, 0)], lvFull);   // 안 나간 줄: ⓐ = 2 − 2 = 0 · ⓑ = 2 − 2 = 0
+  const f = fakeGql([full]);
+  const rs3 = await runTrySet(f.gql, "gid://shopify/Order/1012", planFull, lvFull);
+  eq(rs3.map((r) => [r.key, r.same_as_a ?? false, r.sends.map((s) => s.quantity_sent)]), [["a", false, [0]], ["b", true, []]], "⑧ ⓐ = ⓑ → ⓑ 는 same_as_a");
+  eq(f.calls.filter((x) => x.query === ORDER_EDIT_BEGIN_MUTATION).length, 1, "⑧ begin 은 하나만");
+  eq(await runTrySet(f.gql, "gid://shopify/Order/1013", planOrderEdit([db(1, 2, 2)], lvFull), lvFull), [], "⑧ to_remove 0 → 빈 결과 · 호출 없음");
+  eq(f.calls.length, 2, "⑧ 위 줄에서 호출이 늘지 않았다");
 });

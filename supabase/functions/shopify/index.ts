@@ -43,7 +43,7 @@ import { sleep } from "../_shared/shopify.ts";
 import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
-import { isPaid, matchCalcLine, NoChangeError, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_EDIT_SET_QTY_MUTATION, ORDER_EDIT_STAFF_NOTE, ORDER_LINES_QUERY, planOrderEdit, removedQty, setQuantityFor, userErrorsText as editErrorsText, type CalcLine, type DbLine, type LiveLine, type Plan } from "../_shared/shopify-edit.ts";
+import { isPaid, matchCalcLine, NoChangeError, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_EDIT_SET_QTY_MUTATION, ORDER_EDIT_STAFF_NOTE, ORDER_LINES_QUERY, planOrderEdit, removedQty, runTrySet, setQuantityFor, userErrorsText as editErrorsText, type CalcLine, type DbLine, type LiveLine, type Plan, type TrySetResult } from "../_shared/shopify-edit.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -779,7 +779,8 @@ async function editShopOrder(store: StoreRow, o: { id: string; shopify_order_gid
   return { ...out, status: "done", removed: changed, reason: notes.length ? notes.join("; ") : null };
 }
 // 직원 · 쓰기 0(begin 까지 · commit 없음 · 세션은 버린다) — 실물을 그대로 돌려준다: DB 줄 · can_ship · live 줄 · 계획 · calc 줄 · 짝 · setQuantity 에 보낼 값
-async function orderEditPreview(ref: string, caller: Caller, t0: number): Promise<Response> {
+// ful-4b2 try_set: preview 가 begin 하는 조건과 같을 때 후보 ⓐ · ⓑ 를 세션 따로 열어 setQuantity 까지 보내고(commit 없음 · 큐 · 장부 · 경고 · shop_order* 무접촉) 응답을 그대로 try_set 에 싣는다 · try_set 없으면 응답은 전과 같다
+async function orderEditPreview(ref: string, trySet: boolean, caller: Caller, t0: number): Promise<Response> {
   const key = ref.trim();
   if (!key) return json(400, { ok: false, error: "order is required — shop_order id (uuid) or Shopify name like #1011" });
   const filter = /^[0-9a-f-]{36}$/i.test(key) ? "id=eq." + key : "name=eq." + encodeURIComponent(key);
@@ -789,13 +790,18 @@ async function orderEditPreview(ref: string, caller: Caller, t0: number): Promis
   if (!store) return json(404, { ok: false, error: "store not found" });
   const ctx = await readEditContext(store, o);
   let begun: Record<string, unknown> | null = null;
+  let tried: TrySetResult[] | null = null;
   if (ctx.plan.total_remove > 0 && !ctx.order.cancelledAt) {
     const b = await beginEdit(store, o.shopify_order_gid, ctx.plan, ctx.live);
     begun = { calculated_order_id: b.calcId, calc_lines: b.calc, steps: b.steps.map((st) => ({ line_gid: st.line_gid, sku: st.sku, to_remove: st.to_remove, matched_calc_id: st.calc?.id ?? null, would_set: st.set })), cost: b.cost };
+    if (trySet) tried = await runTrySet((q, v) => shopifyGql(store, q, v), o.shopify_order_gid, ctx.plan, ctx.live, [b.calcId]);   // ful-4b2 · preview 의 세션 id 를 앞선 것으로 넘긴다(contaminated 판정)
   }
-  await recordCall({ store_id: store.id, action: "order_edit_preview", ok: true, http_status: null, query_cost: ctx.cost + Number((begun?.cost as number) ?? 0), throttle_available: null, error: o.name + " · to_remove " + ctx.plan.total_remove + (begun ? " · begun (not committed)" : " · no begin"), by_staff: caller.staffId, ms: Date.now() - t0 });
+  const triedCost = (tried ?? []).reduce((a, r) => a + r.cost, 0);
+  const triedText = tried ? " · try_set " + tried.map((r) => r.key + "=" + (r.same_as_a ? "same_as_a" : r.sends.map((x) => x.quantity_sent ?? "-").join("/") + (r.contaminated ? "!" : ""))).join(" ") + " (not committed)" : "";
+  await recordCall({ store_id: store.id, action: "order_edit_preview", ok: true, http_status: null, query_cost: ctx.cost + Number((begun?.cost as number) ?? 0) + triedCost, throttle_available: null, error: o.name + " · to_remove " + ctx.plan.total_remove + (begun ? " · begun (not committed)" : " · no begin") + triedText, by_staff: caller.staffId, ms: Date.now() - t0 });
   return json(200, { ok: true, order: { id: o.id, name: o.name, gid: o.shopify_order_gid, financial_status_db: o.financial_status, financial_status_live: ctx.order.displayFinancialStatus ?? null, cancelled_at: ctx.order.cancelledAt ?? null, paid: isPaid(ctx.order.displayFinancialStatus) },
-    db_lines: ctx.lines, live_lines: ctx.live, plan: ctx.plan, edit: begun, note: "preview only — orderEditBegin was " + (begun ? "called and NOT committed (session abandoned)" : "not called"), ms: Date.now() - t0 });
+    db_lines: ctx.lines, live_lines: ctx.live, plan: ctx.plan, edit: begun, note: "preview only — orderEditBegin was " + (begun ? "called and NOT committed (session abandoned)" : "not called"), ms: Date.now() - t0,
+    ...(trySet ? { try_set: tried, try_set_note: tried ? "a = editableQuantity - to_remove · b = calc.quantity - to_remove · each in its own orderEditBegin · setQuantity sent with restock true · NOTHING committed" : "try_set requested but preview did not begin (nothing to remove or cancelled)" } : {}) });
 }
 async function orderDrain(caller: Caller, t0: number): Promise<Response> {
   const rows: OrderQueueRow[] = await sbGet("shop_order_queue?select=id,shop_order_id,kind,attempts,queued_at,payload&done_at=is.null&kind=eq.order_edit&order=queued_at.asc,id.asc&limit=" + ORDER_EDIT_FETCH);
@@ -954,7 +960,7 @@ Deno.serve(async (req) => {
     if (action === "orders_poll") return await ordersPoll(caller, t0);
     if (action === "fulfill_drain") return await fulfillDrain(caller, t0);                       // ful-2
     if (action === "order_drain") return await orderDrain(caller, t0);                           // ful-4b
-    if (action === "order_edit_preview") return await orderEditPreview(String(body.order ?? ""), caller, t0);   // ful-4b: begin 까지만 · commit 없음 · 원문 보기
+    if (action === "order_edit_preview") return await orderEditPreview(String(body.order ?? ""), body.try_set === true, caller, t0);   // ful-4b: begin 까지만 · commit 없음 · 원문 보기 · ful-4b2 try_set: 후보 ⓐ · ⓑ setQuantity 까지(commit 없음)
 
     // ping · push — 스토어 필요
     const code = String(body?.store ?? "").trim().toLowerCase();
