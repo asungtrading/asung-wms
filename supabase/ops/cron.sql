@@ -679,3 +679,16 @@ select cron.schedule('ims-fulfill-drain', '* * * * *', $job$
 $job$);
 -- 킬 스위치(테스트 DB · 운영 번호와 다르다): select cron.alter_job(49, active := false);   -- jobid 는 등록 뒤 실측해서 적는다(ims-fulfill-drain)
 -- 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-fulfill-drain') order by start_time desc limit 10;
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 50(등록 뒤 Caleb 출력 · cron.job 실측 2026-10-13) ful-4a (2026-10-13 · 판정 439 · 441 · 457 ~ 462 · 설계 shopify-integration §4-e · so-module §63 · DB 20261014000000_ful_4a_unshipped.sql)
+--   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   ims-unshipped-scan : 15 분마다(분 3 · 18 · 33 · 48 — orders_poll */15 와 어긋나게) — DB 함수 shop_unshipped_scan() 을 postgres 가 직접(EF · Shopify 호출 0 · so-backorder-sweep 과 같은 결)
+--                        created 웹 오더마다 Shopify 줄의 「나가지 않을 몫」 gap = quantity − sent − removed − can_ship 을 다시 세고 → 돈 받음(PAID · PARTIALLY_PAID · PARTIALLY_REFUNDED)이면 경고 refund_due · 아니면 큐 shop_order_queue(order_edit) → EF order_drain(ful-4b · cron ⬜)이 orderEdit 로 지운다
+--   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-unshipped-scan';  → jobid 를 이 블록의 ⬜ 에 적는다
+--         select jobid, status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-unshipped-scan') order by start_time desc limit 5;
+--   킬 스위치: select cron.alter_job(50, active := false);   -- ims-unshipped-scan
+select cron.schedule(
+  'ims-unshipped-scan',
+  '3,18,33,48 * * * *',
+  $job$ select public.shop_unshipped_scan() $job$
+);
