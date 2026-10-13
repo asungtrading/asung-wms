@@ -1,5 +1,5 @@
-// deno test supabase/functions/shopify/shopify_edit_test.ts — Shopify · DB 무접촉 (ful-4b ① ~ ⑥ · _shared/shopify-edit.ts 의 순수 함수)
-import { clampEditable, isPaid, matchCalcLine, NoChangeError, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_SET_QTY_MUTATION, planOrderEdit, removedQty, runTrySet, setQuantityFor, trySetCandidates, type CalcLine, type DbLine, type GqlLike, type LiveLine } from "../_shared/shopify-edit.ts";
+// deno test supabase/functions/shopify/shopify_edit_test.ts — Shopify · DB 무접촉 (ful-4b ~ 4b3 ① ~ ⑨ · _shared/shopify-edit.ts 의 순수 함수 · gql 주입 다리)
+import { isPaid, matchCalcLine, NoChangeError, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_SET_QTY_MUTATION, planEditSteps, planOrderEdit, removedQty, runOrderEdit, runTrySet, setQuantityFor, trySetCandidates, verifySetResponse, type CalcLine, type DbLine, type GqlLike, type LiveLine, type StagedChange } from "../_shared/shopify-edit.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -24,10 +24,12 @@ Deno.test("② planOrderEdit — 줄 둘 · 하나는 Shopify 에 없음(missing
   eq(p.missing, [LI(3)], "② Shopify 에 없는 줄");
   eq(planOrderEdit([db(1, 5, 3)], [live(1, 5, 3, 3)]).total_remove, 0, "② 직원이 이미 줄였으면 0 → 받아 적기");
 });
-Deno.test("③ 일부 발송 줄 — clampEditable: quantity 5 · editable 2(3 은 이미 나감) → new 1 은 3 으로 올려 자른다(clamped) · new 4 는 그대로", () => {
-  eq(clampEditable(1, calc(1, 5, 2)), { quantity: 3, clamped: true }, "③ 바닥");
-  eq(clampEditable(4, calc(1, 5, 2)), { quantity: 4, clamped: false }, "③ 그대로");
-  eq(clampEditable(0, calc(1, 5, 5)), { quantity: 0, clamped: false }, "③ 전부 안 나갔으면 0 까지");
+Deno.test("③ setQuantityFor 가장자리(ful-4b3 · 고칠 수 있는 몫 기준) — 발송분 0 인 줄(editable = quantity 5 · to_remove 2 → 3 · change 2 · 값이 전과 같다) · to_remove > editable(quantity 5 · editable 2 · to_remove 3 → 0 · change 2 · clamped) · editable 0 → 0 · change 0", () => {
+  eq(setQuantityFor(calc(1, 5, 5), 2), { quantity: 3, change: 2, clamped: false }, "③ 안 나간 줄은 전과 같은 값");
+  eq(setQuantityFor(calc(1, 5, 2), 3), { quantity: 0, change: 2, clamped: true }, "③ 이미 나간 3 은 못 지운다 → 0 · clamped");
+  eq(setQuantityFor(calc(1, 5, 2), 1), { quantity: 1, change: 1, clamped: false }, "③ editable 2 에서 1 지움 → 1");
+  eq(setQuantityFor(calc(1, 5, 0), 1), { quantity: 0, change: 0, clamped: true }, "③ 다 나간 줄 → change 0(보내지 않는다)");
+  eq(setQuantityFor(calc(1, 5, 5), 0), { quantity: 5, change: 0, clamped: false }, "③ to_remove 0 → change 0");
 });
 Deno.test("④ matchCalcLine — variant + sku 하나 → 그것 · 같은 상품 둘 → 숫자 id 가 같은 것 · 둘 다 못 고르면 null · variant 없는 줄(custom)은 sku 만", () => {
   const cs = [calc(1, 5, 5), calc(2, 2, 2)];
@@ -44,17 +46,25 @@ Deno.test("⑤ removedQty · isPaid — 원래 5 · 지금 3 → 2 · 지금이 
   eq(["PENDING", "AUTHORIZED", "REFUNDED", "VOIDED", "EXPIRED", null, undefined].map(isPaid), [false, false, false, false, false, false, false], "⑤ 안 받음");
 });
 
-Deno.test("⑥ 실물 #1011 — 줄 2 · 1 나감(live current 2 · unfulfilled 1) · can_ship 0 → to_remove 1 · setQuantity 는 calc 기준: calc {1 · editable 1} → 0(change 1) · calc {2 · editable 1} → 1(change 1) · to_remove 0 → change 0(보내지 않음) · 바닥 자름", () => {
+Deno.test("⑥ 실물 #1011(2026-10-13 try-set 세션 97462157495) — 줄 2 · 1 나감(live current 2 · unfulfilled 1) · can_ship 0 → to_remove 1 · calc {quantity 2 · editable 1} → 보낼 값 0 · change 1(0 을 보내니 editable 0 · delta 1 · 잔액 2.98 → 1.49) · 1 을 보내면(ful-4b · 4b1) staged 0 → commit 거절 · planEditSteps · verifySetResponse 실물 응답", () => {
   const plan = planOrderEdit([db(1, 2, 0)], [live(1, 2, 2, 1, "ANN01015")]);
   eq(plan.edits[0].to_remove, 1, "⑥ to_remove 1"); eq(plan.total_remove, 1, "⑥ 합 1");
-  const c1 = calc(1, 1, 1, "ANN01015");                                                   // 짐작: 일부 발송 줄의 CalculatedLineItem 은 안 나간 몫만 quantity 로 보인다
-  eq(setQuantityFor(c1, 1), { quantity: 0, change: 1, clamped: false }, "⑥ calc 1/1 → 0 (첫 판은 current − 1 = 1 을 보내 변화 0 → commit 거절)");
-  const c2 = calc(1, 2, 1, "ANN01015");                                                   // calc 가 전체(2)를 보이는 경우도 같은 식으로 맞다
-  eq(setQuantityFor(c2, 1), { quantity: 1, change: 1, clamped: false }, "⑥ calc 2/1 → 1");
-  eq(setQuantityFor(c2, 5), { quantity: 1, change: 1, clamped: true }, "⑥ 바닥(이미 나간 1)에서 자른다");
-  eq(setQuantityFor(c1, 0), { quantity: 1, change: 0, clamped: false }, "⑥ to_remove 0 → change 0 → 그 줄은 setQuantity 를 안 보낸다");
+  const c = calc(1, 2, 1, "ANN01015");                                                             // 실물: CalculatedLineItem 은 전체 2 를 quantity 로 · 고칠 수 있는 몫 1 을 editableQuantity 로 보인다
+  eq(setQuantityFor(c, 1), { quantity: 0, change: 1, clamped: false }, "⑥ 보낼 값 0(첫 판 · 4b1 은 1 을 보내 변화 0 → commit 거절)");
+  eq(setQuantityFor(c, 0), { quantity: 1, change: 0, clamped: false }, "⑥ to_remove 0 → change 0 → 그 줄은 setQuantity 를 안 보낸다");
+  const steps = planEditSteps([c], plan, [live(1, 2, 2, 1, "ANN01015")]);
+  eq(steps.map((st) => [st.line_gid, st.sku, st.to_remove, st.calc?.id, st.set]), [[LI(1), "ANN01015", 1, CL(1), { quantity: 0, change: 1, clamped: false }]], "⑥ planEditSteps(preview would_set 와 drain 이 같은 것)");
+  const dec: StagedChange = { __typename: "OrderStagedChangeDecrementItem", delta: 1, restock: true, lineItem: { id: LI(1) } };
+  eq(verifySetResponse({ line_gid: LI(1), quantity: 0, change: 1 }, { id: CL(1), quantity: 1, editableQuantity: 0, restocking: true, stagedChanges: [dec] }), { ok: true, why: null, restock: true }, "⑥ 실물 ⓐ 응답 → 맞음");
+  const v = verifySetResponse({ line_gid: LI(1), quantity: 1, change: 1 }, { id: CL(1), quantity: 2, editableQuantity: 1, restocking: false, stagedChanges: [] });
+  eq([v.ok, v.restock, v.why?.startsWith("no DecrementItem for this line")], [false, null, true], "⑥ 실물 ⓑ 응답(1 을 보냄 · staged 없음) → 어긋남");
+  eq(verifySetResponse({ line_gid: LI(1), quantity: 0, change: 1 }, { id: CL(1), quantity: 1, editableQuantity: 1, stagedChanges: [dec] }).why?.startsWith("editableQuantity is not the sent 0"), true, "⑥ editableQuantity 가 보낸 값과 다르면 어긋남");
+  eq(verifySetResponse({ line_gid: LI(1), quantity: 0, change: 1 }, { id: CL(1), quantity: 1, editableQuantity: 0, stagedChanges: [{ ...dec, delta: 2 }] }).why?.startsWith("delta is not the expected 1"), true, "⑥ delta 가 다르면 어긋남");
+  eq(verifySetResponse({ line_gid: LI(1), quantity: 0, change: 1 }, { id: CL(1), quantity: 1, editableQuantity: 0, stagedChanges: [{ ...dec, lineItem: { id: LI(2) } }] }).ok, false, "⑥ 다른 줄의 DecrementItem 은 안 친다");
+  eq(verifySetResponse({ line_gid: LI(1), quantity: 0, change: 1 }, { id: CL(1), quantity: 1, editableQuantity: 0, stagedChanges: [{ ...dec, restock: false }] }), { ok: true, why: null, restock: false }, "⑥ restock false 는 막지 않고 돌려준다");
+  eq(verifySetResponse({ line_gid: LI(1), quantity: 0, change: 1 }, null).ok, false, "⑥ 응답에 줄이 없으면 어긋남");
   const e = new NoChangeError("x"); eq(e instanceof NoChangeError && e.name === "NoChangeError", true, "⑥ NoChangeError = 다시 시도하지 않는 error");
-  eq(matchCalcLine(live(1, 2, 2, 1, "ANN01015"), [c1])?.id, c1.id, "⑥ 줄 하나 짝");
+  eq(matchCalcLine(live(1, 2, 2, 1, "ANN01015"), [c])?.id, c.id, "⑥ 줄 하나 짝");
 });
 
 // ── ful-4b2 try-set — 가짜 gql: 호출된 쿼리 · 변수를 모은다 · begin 마다 새 CalculatedOrder id(또는 같은 id · 시험 ⑧) ──
@@ -109,4 +119,59 @@ Deno.test("⑧ try-set — 같은 세션이 돌아오면 contaminated(그대로 
   eq(f.calls.filter((x) => x.query === ORDER_EDIT_BEGIN_MUTATION).length, 1, "⑧ begin 은 하나만");
   eq(await runTrySet(f.gql, "gid://shopify/Order/1013", planOrderEdit([db(1, 2, 2)], lvFull), lvFull), [], "⑧ to_remove 0 → 빈 결과 · 호출 없음");
   eq(f.calls.length, 2, "⑧ 위 줄에서 호출이 늘지 않았다");
+});
+
+// ── ful-4b3 runOrderEdit — 가짜 gql: begin → set(줄마다 staged 를 줄지 말지 · restock) → commit · 호출 목록으로 commit 횟수를 본다 ──
+function fakeEditGql(calcLines: CalcLine[], staged: Record<string, boolean>, restock = true): { gql: GqlLike; calls: Call[] } {
+  const calls: Call[] = [];
+  const lineGid = (calcId: string) => "gid://shopify/LineItem/" + calcId.split("/").pop();
+  const gql: GqlLike = (query, vars) => {
+    calls.push({ query, vars });
+    const cost = { actual: 10 };
+    if (query === ORDER_EDIT_BEGIN_MUTATION) return Promise.resolve({ ok: true, status: 200, errors: null, raw: null, cost, data: { orderEditBegin: { calculatedOrder: { id: "gid://shopify/CalculatedOrder/5000", stagedChanges: { nodes: [] }, lineItems: { nodes: calcLines } }, userErrors: [] } } });
+    if (query === ORDER_EDIT_SET_QTY_MUTATION) {
+      const c = calcLines.find((x) => x.id === vars.lineItemId)!, q = Number(vars.quantity), gid = lineGid(c.id), delta = c.editableQuantity - q;
+      const st = staged[gid] ? [{ __typename: "OrderStagedChangeDecrementItem", delta, restock, lineItem: { id: gid } }] : [];
+      return Promise.resolve({ ok: true, status: 200, errors: null, raw: null, cost, data: { orderEditSetQuantity: { calculatedLineItem: { id: c.id, quantity: c.quantity - (staged[gid] ? delta : 0), editableQuantity: q, restocking: restock, stagedChanges: st }, calculatedOrder: { id: vars.id, stagedChanges: { nodes: st } }, userErrors: [] } } });
+    }
+    if (query === ORDER_EDIT_COMMIT_MUTATION) return Promise.resolve({ ok: true, status: 200, errors: null, raw: null, cost, data: { orderEditCommit: { order: { id: "gid://shopify/Order/1011", lineItems: { nodes: calcLines.map((c) => ({ id: lineGid(c.id), quantity: c.quantity, currentQuantity: c.quantity - 1 })) } }, userErrors: [] } } });
+    throw new Error("unexpected query: " + query.slice(0, 40));
+  };
+  return { gql, calls };
+}
+const kinds = (calls: Call[]) => calls.map((x) => x.query === ORDER_EDIT_BEGIN_MUTATION ? "begin" : x.query === ORDER_EDIT_SET_QTY_MUTATION ? "set" : x.query === ORDER_EDIT_COMMIT_MUTATION ? "commit" : "?");
+Deno.test("⑨ runOrderEdit 세 갈래 — 어긋남(staged 없음) → commit 0 · NoChangeError(보낸 값 · 응답 값 원문) / 맞음 → commit 1 · 돌려준 줄(currentQuantity 1 → removed_qty 1) · changed 1 / 줄 둘 중 하나만 어긋남 → commit 0 · restock false 는 notes · no_restock 에만", async () => {
+  const lv = [live(1, 2, 2, 1, "ANN01015")], plan = planOrderEdit([db(1, 2, 0)], lv), c = calc(1, 2, 1, "ANN01015");
+  // ⓐ 어긋남 — Shopify 가 변화를 안 쌓았다(ful-4b 첫 판의 모양)
+  const bad = fakeEditGql([c], { [LI(1)]: false });
+  let err: unknown = null;
+  try { await runOrderEdit(bad.gql, "gid://shopify/Order/1011", plan, lv); } catch (e) { err = e; }
+  eq(err instanceof NoChangeError, true, "⑨ 어긋남 → NoChangeError");
+  eq(String((err as Error).message).includes("sent quantity 0 expecting −1") && String((err as Error).message).includes("no DecrementItem for this line") && String((err as Error).message).includes("NOT committed"), true, "⑨ 문장에 보낸 값 · 응답 값");
+  eq(kinds(bad.calls), ["begin", "set"], "⑨ commit 0");
+  // ⓑ 맞음 — 실물 모양 → commit 한 번 · 돌려준 줄
+  const good = fakeEditGql([c], { [LI(1)]: true });
+  const r = await runOrderEdit(good.gql, "gid://shopify/Order/1011", plan, lv);
+  eq(kinds(good.calls), ["begin", "set", "commit"], "⑨ commit 1");
+  eq(good.calls[1].vars, { id: "gid://shopify/CalculatedOrder/5000", lineItemId: CL(1), quantity: 0, restock: true }, "⑨ 보낸 변수(0 · restock true)");
+  eq(good.calls[2].vars, { id: "gid://shopify/CalculatedOrder/5000", notify: false, note: "IMS: not shipping — backorder closed (quantity reduced by IMS)" }, "⑨ commit 변수(메일 없음 · staffNote)");
+  eq([r.calc_id, r.changed, r.notes, r.no_restock, r.cost, r.after], ["gid://shopify/CalculatedOrder/5000", 1, [], [], 30, [{ id: LI(1), quantity: 2, currentQuantity: 1, unfulfilledQuantity: 0 }]], "⑨ 돌려준 것");
+  eq(removedQty(2, r.after[0].currentQuantity), 1, "⑨ #1011 → removed_qty 1(짐작 · 실물로 본다)");
+  // ⓒ 줄 둘 중 하나만 어긋남 → commit 하지 않는다
+  const lv2 = [live(1, 2, 2, 1, "ANN01015"), live(2, 3, 3, 3)], plan2 = planOrderEdit([db(1, 2, 0), db(2, 3, 1)], lv2), c2 = calc(2, 3, 3);
+  const half = fakeEditGql([c, c2], { [LI(1)]: true, [LI(2)]: false });
+  err = null;
+  try { await runOrderEdit(half.gql, "gid://shopify/Order/1011", plan2, lv2); } catch (e) { err = e; }
+  eq(err instanceof NoChangeError && String((err as Error).message).includes("line " + LI(2).split("/").pop()), true, "⑨ 둘째 줄이 어긋남");
+  eq(kinds(half.calls), ["begin", "set", "set"], "⑨ 하나라도 어긋나면 commit 0");
+  // ⓓ restock false → 막지 않는다 · notes · no_restock
+  const nr = fakeEditGql([c], { [LI(1)]: true }, false);
+  const r2 = await runOrderEdit(nr.gql, "gid://shopify/Order/1011", plan, lv);
+  eq(kinds(nr.calls), ["begin", "set", "commit"], "⑨ restock false 도 commit");
+  eq([r2.changed, r2.no_restock.length, r2.notes[0]?.includes("will NOT restock 1")], [1, 1, true], "⑨ notes · no_restock");
+  // ⓔ 전부 change 0(다 나간 줄) → set 0 · commit 0 · NoChangeError
+  const none = fakeEditGql([calc(1, 2, 0, "ANN01015")], {});
+  err = null;
+  try { await runOrderEdit(none.gql, "gid://shopify/Order/1011", plan, lv); } catch (e) { err = e; }
+  eq(err instanceof NoChangeError && kinds(none.calls).join(",") === "begin", true, "⑨ 바꿀 줄 0 → begin 만 · NoChangeError");
 });

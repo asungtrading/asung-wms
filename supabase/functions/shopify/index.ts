@@ -43,7 +43,7 @@ import { sleep } from "../_shared/shopify.ts";
 import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
-import { isPaid, matchCalcLine, NoChangeError, ORDER_EDIT_BEGIN_MUTATION, ORDER_EDIT_COMMIT_MUTATION, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_EDIT_SET_QTY_MUTATION, ORDER_EDIT_STAFF_NOTE, ORDER_LINES_QUERY, planOrderEdit, removedQty, runTrySet, setQuantityFor, userErrorsText as editErrorsText, type CalcLine, type DbLine, type LiveLine, type Plan, type TrySetResult } from "../_shared/shopify-edit.ts";
+import { beginOrderEdit, isPaid, NoChangeError, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_LINES_QUERY, planEditSteps, planOrderEdit, removedQty, runOrderEdit, runTrySet, type DbLine, type LiveLine, type Plan, type TrySetResult } from "../_shared/shopify-edit.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -718,21 +718,7 @@ async function readEditContext(store: StoreRow, o: { id: string; shopify_order_g
   const live = order.lineItems?.nodes ?? [];
   return { lines, order, live, plan: planOrderEdit(lines, live), cost: g.cost.actual ?? 0 };
 }
-// begin → calc 줄 · 짝 · setQuantity 값(calc 기준 · 실물 #1011) — 보내지는 않는다
-type EditStep = { line_gid: string; sku: string | null; to_remove: number; calc: CalcLine | null; set: { quantity: number; change: number; clamped: boolean } | null };
-async function beginEdit(store: StoreRow, gid: string, plan: Plan, live: LiveLine[]): Promise<{ calcId: string; calc: CalcLine[]; steps: EditStep[]; cost: number }> {
-  const gb = await shopifyGql(store, ORDER_EDIT_BEGIN_MUTATION, { id: gid });
-  const db = (gb.data as { orderEditBegin?: { calculatedOrder?: { id: string; lineItems?: { nodes?: CalcLine[] } } | null; userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null)?.orderEditBegin;
-  if (!gb.ok || db?.userErrors?.length || !db?.calculatedOrder?.id) throw new Error("orderEditBegin: " + (db?.userErrors?.length ? editErrorsText(db.userErrors) : gqlErr(gb)));
-  const calc = db.calculatedOrder.lineItems?.nodes ?? [];
-  const steps: EditStep[] = plan.edits.filter((e) => e.to_remove > 0).map((e) => {
-    const lv = live.find((l) => l.id === e.line_gid)!;
-    const c = matchCalcLine(lv, calc);
-    return { line_gid: e.line_gid, sku: lv.sku ?? null, to_remove: e.to_remove, calc: c, set: c ? setQuantityFor(c, e.to_remove) : null };
-  });
-  return { calcId: db.calculatedOrder.id, calc, steps, cost: gb.cost.actual ?? 0 };
-}
-// 오더 하나 — 실시간 읽기 → 가르기(취소 · 돈 받음) → 계획 → (0 이면 받아 적기) → begin → setQuantity(바뀌는 줄만) → commit → 장부 · last_push_at · 실패는 예외로(부르는 쪽이 error 로 적는다)
+// 오더 하나 — 실시간 읽기 → 가르기(취소 · 돈 받음) → 계획 → (0 이면 받아 적기) → runOrderEdit(_shared: begin → set → 응답 확인 → commit) → 장부 · last_push_at · 실패는 예외로(부르는 쪽이 error 로 적는다)
 async function editShopOrder(store: StoreRow, o: { id: string; shopify_order_gid: string; name: string }): Promise<EditOut> {
   const out: EditOut = { status: "error", removed: 0, lines: 0, reason: null, cost: 0, error: null };
   const ctx = await readEditContext(store, o);
@@ -750,30 +736,8 @@ async function editShopOrder(store: StoreRow, o: { id: string; shopify_order_gid
     await writeRemoved(live);
     return { ...out, status: "done", removed: 0, reason: "nothing to remove now" + (plan.missing.length ? " · " + plan.missing.length + " line(s) not in Shopify" : "") };
   }
-  const b = await beginEdit(store, o.shopify_order_gid, plan, live);
-  out.cost += b.cost;
-  const notes: string[] = [];
-  let changed = 0;
-  for (const st of b.steps) {
-    const short = st.line_gid.split("/").pop();
-    if (!st.calc || !st.set) throw new Error("line " + short + " (" + (st.sku ?? "?") + "): cannot tell which calculated line it is (same product twice?) — edit the order in Shopify by hand");
-    if (st.set.clamped) notes.push(short + ": wanted −" + st.to_remove + " · editable floor " + st.set.quantity);
-    if (st.set.change <= 0) { notes.push(short + ": no change (calc " + st.calc.quantity + " · editable " + st.calc.editableQuantity + " · to_remove " + st.to_remove + ")"); continue; }
-    const gs = await shopifyGql(store, ORDER_EDIT_SET_QTY_MUTATION, { id: b.calcId, lineItemId: st.calc.id, quantity: st.set.quantity, restock: true });   // 판정 459
-    out.cost += gs.cost.actual ?? 0;
-    const ds = (gs.data as { orderEditSetQuantity?: { userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null)?.orderEditSetQuantity;
-    if (!gs.ok || ds?.userErrors?.length) throw new Error("orderEditSetQuantity " + short + " → " + st.set.quantity + ": " + (ds?.userErrors?.length ? editErrorsText(ds.userErrors) : gqlErr(gs)));
-    changed += st.set.change;
-  }
-  if (changed <= 0) {                                                                               // 바꿀 줄이 0 — commit 을 보내지 않는다(세션은 버림) · 다시 시도하지 않는 error
-    const detail = b.steps.map((st) => st.line_gid.split("/").pop() + " live current " + (live.find((l) => l.id === st.line_gid)?.currentQuantity ?? "?") + " unfulfilled " + (live.find((l) => l.id === st.line_gid)?.unfulfilledQuantity ?? "?") + " · calc " + (st.calc?.quantity ?? "?") + "/" + (st.calc?.editableQuantity ?? "?") + " · to_remove " + st.to_remove).join("; ");
-    throw new NoChangeError("nothing would change in Shopify (" + detail + ") — the calculated line already has that quantity; check the order in Shopify by hand");
-  }
-  const gc = await shopifyGql(store, ORDER_EDIT_COMMIT_MUTATION, { id: b.calcId, notify: false, note: ORDER_EDIT_STAFF_NOTE });   // 판정 441 · 메일 없음
-  out.cost += gc.cost.actual ?? 0;
-  const dc = (gc.data as { orderEditCommit?: { order?: { lineItems?: { nodes?: Array<{ id: string; quantity: number; currentQuantity: number }> } } | null; userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null)?.orderEditCommit;
-  if (!gc.ok || dc?.userErrors?.length || !dc?.order) throw new Error("orderEditCommit: " + (dc?.userErrors?.length ? editErrorsText(dc.userErrors) : gqlErr(gc)));
-  const after = (dc.order.lineItems?.nodes ?? []).map((l) => ({ id: l.id, quantity: l.quantity, currentQuantity: l.currentQuantity, unfulfilledQuantity: 0 }));
+  const { after, changed, notes, cost } = await runOrderEdit((q, v) => shopifyGql(store, q, v), o.shopify_order_gid, plan, live);   // ful-4b3: Shopify 다리(begin → 짝 → set → 응답 확인 → commit · _shared · 어긋나면 NoChangeError)
+  out.cost += cost;
   await writeRemoved(after);
   await sbWrite("PATCH", "shop_order?id=eq." + o.id, { last_push_at: stamp });                     // 메아리 ⓑ(ful-4a ingest)
   return { ...out, status: "done", removed: changed, reason: notes.length ? notes.join("; ") : null };
@@ -792,8 +756,9 @@ async function orderEditPreview(ref: string, trySet: boolean, caller: Caller, t0
   let begun: Record<string, unknown> | null = null;
   let tried: TrySetResult[] | null = null;
   if (ctx.plan.total_remove > 0 && !ctx.order.cancelledAt) {
-    const b = await beginEdit(store, o.shopify_order_gid, ctx.plan, ctx.live);
-    begun = { calculated_order_id: b.calcId, calc_lines: b.calc, steps: b.steps.map((st) => ({ line_gid: st.line_gid, sku: st.sku, to_remove: st.to_remove, matched_calc_id: st.calc?.id ?? null, would_set: st.set })), cost: b.cost };
+    const b = await beginOrderEdit((q, v) => shopifyGql(store, q, v), o.shopify_order_gid);
+    const steps = planEditSteps(b.calc, ctx.plan, ctx.live);                                       // ful-4b3: drain 과 같은 함수(would_set = setQuantityFor)
+    begun = { calculated_order_id: b.calcId, calc_lines: b.calc, steps: steps.map((st) => ({ line_gid: st.line_gid, sku: st.sku, to_remove: st.to_remove, matched_calc_id: st.calc?.id ?? null, would_set: st.set })), cost: b.cost };
     if (trySet) tried = await runTrySet((q, v) => shopifyGql(store, q, v), o.shopify_order_gid, ctx.plan, ctx.live, [b.calcId]);   // ful-4b2 · preview 의 세션 id 를 앞선 것으로 넘긴다(contaminated 판정)
   }
   const triedCost = (tried ?? []).reduce((a, r) => a + r.cost, 0);
