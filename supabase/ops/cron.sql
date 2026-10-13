@@ -652,3 +652,30 @@ select cron.alter_job(48, command := $job$
     body := '{"action":"orders_poll"}'::jsonb, timeout_milliseconds := 45000);
 $job$);
 -- 되돌리기: 위 ord-1b · stock-1b · shop-2b 블록의 등록 do 블록(timeout 없는 판)으로 cron.alter_job(…, command := …) · 킬 스위치는 각 블록 그대로
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid ⬜(등록 뒤 Caleb 출력으로 적는다 · 짐작 금지) ful-2 (2026-10-13 · 판정 436 ~ 453 · 설계 shopify-integration §4 · DB ful-1a 20261013170000 · ful-2a 20261013193000) — Shopify ⑤ 발송 보내기
+--   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께 · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   ims-fulfill-drain : [jobid 49] 1 분마다 — ⭐ 발송 큐 열린 줄(shop_fulfill_queue.done_at is null)이 0 이면 net.http_post 를 하지 않는다(where exists · EF 호출 0) · EF fulfill_drain 은 큐 ship 줄 ≤ 20 · 시간 한도 40 s ·
+--                       줄마다 결과 표 머리(pending | error)를 Shopify 에 보낸다(FO 읽기 → 위치 맞추기 fulfillmentOrderMove(판정 445 · 실패면 그대로 보내고 경고 · 453) → fulfillmentCreate 또는 Ready for pickup(판정 378 · 379)) · 5 회 실패면 큐 닫고 경고 fulfill_failed
+--   열쇠: 이미 도는 ims-shop-drain(jobid 42) 줄에서 꺼내 format(%L) 로 넣는다(stock-1b · ord-1b 와 같은 결 · 이미 있으면 멈춤 가드) — 이 파일에는 넣지 않는다 · timeout_milliseconds := 45000(pg_net 기본 5000 은 응답을 잃는다 · ord-1b 실물)
+--   등록(대시보드 SQL Editor · 테스트 프로젝트):
+--   do $$ declare k text; begin
+--     if exists (select 1 from cron.job where jobname = 'ims-fulfill-drain') then raise exception 'ims-fulfill-drain already scheduled — alter or unschedule first'; end if;
+--     select substring(command from 'x-ims-cron-key'', ''([^'']+)') into k from cron.job where jobid = 42;
+--     if k is null or length(k) < 32 then raise exception 'cron key not found on jobid 42'; end if;
+--     perform cron.schedule('ims-fulfill-drain', '* * * * *', format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"fulfill_drain"}'::jsonb, timeout_milliseconds := 45000)
+--       where exists (select 1 from public.shop_fulfill_queue q where q.done_at is null);
+--     $j$, k));
+--   end $$;
+--   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-fulfill-drain';  → jobid 를 이 블록의 ⬜ 에 적는다
+select cron.schedule('ims-fulfill-drain', '* * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"fulfill_drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_fulfill_queue q where q.done_at is null);
+$job$);
+-- 킬 스위치(테스트 DB · 운영 번호와 다르다): select cron.alter_job(49, active := false);   -- jobid 는 등록 뒤 실측해서 적는다(ims-fulfill-drain)
+-- 최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-fulfill-drain') order by start_time desc limit 10;
