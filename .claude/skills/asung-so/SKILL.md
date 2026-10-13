@@ -354,7 +354,31 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      ⇒ 직원이 웹 오더 SO 를 고치면 그 뒤 Shopify 취소는 사람 몫이 된다 · Shopify 에서 바뀐 오더(취소 아님)도 SO 무접촉 + 경고 updated_after_so
 ⭐  브랜치 = 배송지 주 먼저(판정 430 · AB · BC · SK → Edmonton · 주가 없으면 손님 기본 · aone 늘 Toronto) · 세금은 배송지(Shopify 배송지를 so_header_update 로 그대로) — 주가 없으면 no tax rule → draft + confirm_blocked
 ⭐  웹으로 처음 온 손님은 시스템이 만들고 바로 검토 완료(판정 432) · 첫 오더도 자동 확정 · 이메일이 손님 여럿에 있으면 needs_review → 직원이 shop_order_resolve_customer · 못 찾은 줄은 shop_order_resolve_lines
-⚠️ 운임 — asung.ca 는 SO 운임 줄을 만들지 않는다(경고 freight_not_applied · 웹 결제 오더 운임은 열어 둠) · 오더 전체 할인은 0 + 경고 order_discount_dropped
+⚠️ 운임 — asung.ca 는 SO 운임 줄을 만들지 않는다(경고 freight_not_applied · ~~웹 결제 오더 운임~~ → custom 결제 방식 오더의 운임은 열어 둠 · → so-module §61-c) · 오더 전체 할인은 0 + 경고 order_discount_dropped
+```
+
+## 4-p. ⭐⭐ SO 출고와 Shopify(⑤ 오더 상태 · 판정만 · 짓기 전) — 모르면 사고 (정본 shopify-integration §4 · so-module §61 · 판정 436 ~ 449)
+
+```
+⭐⭐ 한 SO 는 한 번만 출고된다 — shipped → packed 길 없음 · 백오더 · 부족분은 so_split 형제 SO · 인보이스 취소는 fulfilled → shipped(재발행은 다시 fulfilled · 출고는 다시 안 일어난다)
+⭐⭐ Shopify 로 보내는 방아쇠 = so.shipped_at 이 null → 값 · 상태(fulfilled)가 아니다 — 상태를 쓰면 인보이스 취소 · 재발행 때 발송(메일)이 두 번 간다
+⭐⭐ 넣는 창구는 so_finalize(Ship & invoice) 하나 · so.carrier · tracking_number 는 아직 자유 글자(「PICKUP TOR」 류) — 판정 436 으로 운송사 표가 된다
+⭐  판정 한 줄씩:
+     436 운송사 = 작은 표(우리 이름 · Shopify 이름 · 종류 carrier | pickup | delivery) · 손님 기본도 이 표 · 종류가 메일을 정한다(carrier 만 메일)
+     437 송장 칸 하나 · 쉼표 · 줄바꿈으로 여럿 → numbers[]
+     438 Ship & invoice 뒤 운송사 · 송장만 고치는 창구 → fulfillmentTrackingInfoUpdate · 메일 다시 안 감 · 종류가 바뀌는 고침은 막는다
+     439 나가지 않을 몫은 「Shopify 가 돈을 받았느냐」로(스토어 아님) · 받은 오더(aone 카드) = 「환불할 몫」 경고 · 직원이 Shopify 에서 환불
+     440 Shopify 환불은 다시 받을 때 읽어 원문 + 경고 · 크레딧 노트는 직원이(자동 크레딧 없음)
+     441 받지 않은 오더(Net)의 나가지 않을 몫은 닫히는 순간 Shopify 오더에서 지운다(orderEdit · write_order_edits 필요) · 지금 asung.ca 는 모두 이 길
+     442 합친 SO = 줄 계보로 원래 Shopify 오더마다 따로 발송 · 이어받은 몫은 받은 쪽 오더로(이어받기는 같은 손님 · 같은 제품의 유상 줄이 있을 때만)
+     443 픽업 진행(Waiting for pickup · Picked up)은 SO 상태를 건드리지 않는다 — 발송 기록 칸에
+     444 픽업 흐름(379)은 Shopify 오더의 deliveryMethod 로 가른다(스토어 아님)
+     445 출고 위치는 보내는 순간 한 곳에서 맞춘다(fulfillmentOrderMove → 보냄) · 옮기는 것은 Shopify 기록뿐(실제 창고는 판정 430)
+     446 aone 배송 오더(픽업 아님)는 378 그대로
+     447 보낸 발송의 Shopify GID 를 저장 · 다시 받을 때 견준다(우리 것 = 경고 없음 · 모르는 발송 = 경고 · SO 무접촉)
+     448 Shopify 발송 되돌리기는 짓지 않는다 · 인보이스 취소와 묶지 않는다
+     449 Net 오더가 IMS 에서 다 결제되면 Shopify 오더를 Paid 로(orderMarkAsPaid · 남은 금액 전부만 · ⑤ 와 따로 한 차수)
+⚠️ 돈을 받았는지는 Financial Status(paid · pending)로 — 결제 방식 이름(custom · manual)으로 읽지 않는다(so-module §61-c · 61-d 3)
 ```
 
 ## 5. 이 스킬을 갱신할 때

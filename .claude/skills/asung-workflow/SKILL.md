@@ -667,3 +667,8 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    4 [대화 Claude] ord-1b 커밋 출력을 받지 않고 다음 차수로 넘어가 1b2 와 같은 파일이 섞였다(한 커밋 7eeaf3a) ⇒ 커밋 출력(해시)을 받기 전에 다음 차수로 가지 않는다
    5 [Claude Code · ord-1b2] verify 1 회차가 멈춰 꼬리의 setval 이 안 돌았다(so_number_seq 25081 → 25084 · 되돌림) ⇒ 시퀀스를 쓰는 verify 가 중간에 멈추면 그 자리에서 setval greatest 로 되돌리고 보고에 적는다
    7 [발견 · 고침] 주기 확인이 바뀌지 않은 오더를 다시 넣었다 — 겹침 창 + 견주기 없음 ⇒ 시각은 ms 로 견준다(Z ↔ +00:00 · ord-1b3)
+
+⚠️ **[2026-10-13 ⑤ 조사 · so-module §61-d]**
+   1 [대화 Claude] ful-0 지시서가 이미 바뀐 판정을 옛 번호로 적었다(「판정 365 로 Edmonton」 → 430) ⇒ 지시서에 판정을 적을 때 정본의 「→ 바뀐 판정」 표시를 따라간다
+   2 [대화 Claude] 조사 지시서에 「DB 는 select 만」과 「쿼리는 Caleb 이 돌릴 것」을 함께 — §55-d 1 재발 ⇒ 조사 차수도 「테스트 DB 읽기(begin → rollback)는 Claude Code」
+   3 [대화 Claude · docs-1011] CSV 의 Payment Method custom 을 「일반 웹 결제」 로 읽었다 — Financial Status 는 50 모두 pending ⇒ 돈을 받았는지는 Financial Status 로 · 결제 방식 이름으로 읽지 않는다
