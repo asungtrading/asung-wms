@@ -10,6 +10,7 @@
 ⭐ [2026-10-11 · so-module §60] **④ 오더 받기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ord-1a1 `901e4c7` · ord-1a2 `98b92bd` · EF + 받은 일 표 ord-1b · 1b2 `7eeaf3a` · ord-1b3 `e425d3e` · 화면 ord-1c(asung-ims wo v1 · so v5r · nav v7 `f66419f` · wo v1a `8df43b7`) · cron 47 · 48 · 판정 430 ~ 435(아래 §2) · 다음 판정 번호 **436**
 ⭐ [2026-10-13 · so-module §61] **⑤ 오더 상태 판정**(조사 ful-0 · 쓰기 0 · 짓기는 아직) — 판정 436 ~ 449(아래 §4 · 4-d ~ 4-g 새로) · 다음 판정 번호 **450** · 할 일 §7(Caleb 넷)
 ⭐ [2026-10-13 · so-module §62] **⑤ 오더 상태 짓기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ful-1a `be5688c` · ful-2a(ful-2 `113df27`) · ful-1b `021ecc6` · ful-1c `4c476b2` · EF fulfill_drain ful-2 · 1b · ful-2c `20ec11d` · cron jobid 49 · 화면 ful-3a(asung-ims so v5s `716397d` · v5s1 `f5ac4ab`) · ful-3b(set v2 · wo v2 · bo v3a `e7409fd` · wo v2a `4a242e3` · v2b `8402402`) · 판정 450 ~ 456(아래 §4-h) · 다음 판정 번호 **457**
+⭐ [2026-10-13 밤 ~ 10-14 · so-module §63] **⑤ 나가지 않을 몫 · 경고 확인함 · 결제 상태 끝**(테스트 DB · 시험 스토어) — DB ful-4a `8ae674d` · ful-4b4 `cc51dce` · ful-4b5 `4a54ee1` · ful-5a `a283ff9` · pay-1a `1971887` · pay-2a · 2b `9afa520` · EF order_drain ful-4b `71c4e13` · 4b1 `b2b4220` · 4b2 `5fce768` · 4b3 `70f1c18` · paid_drain pay-2b · cron jobid 50 · 51 · 52 · 53 · 화면 안 A(asung-ims wo v3 `8d84c68` · so v5t `b00ae2b` ~ v5t4 `7482e4b` · inv v2e `c8d0a8d` · v2e1 `3c61b75` · wo v4 `25bbeba` · v4a `2e1a3cf` · v4b `7482e4b`) · 판정 457 ~ 469(아래 §4-e · 4-g · 4-i) · 다음 판정 번호 **470**
 
 ---
 
@@ -103,6 +104,7 @@ aonebeauty.com    손님이 낸 배송비를 확정 값으로 — Ship & invoice
 ### 2-h. 결제 (판정 370)
 - AONE 카드 결제는 「이미 받은 돈」으로 읽는다 · Shopify 가 수수료를 떼고 묶어 입금한 것을 맞추는 일은 회계(QBO 때) · 환불도 읽는다
 - [2026-10-13] 환불을 읽은 뒤 = 판정 440(4-e) · Net 오더를 IMS 가 Paid 로 알리기 = 판정 449(4-e · 옆 길)
+- [2026-10-14] 결제는 IMS 에서만 기록한다 — Shopify 에서만 결제 표시되면 경고 paid_in_shopify(판정 468) · IMS 에서 다 결제되면 IMS 가 Shopify 를 Paid 로(판정 469 · 4-e)
 
 ### 2-i. 상태 (판정 371)
 - 깨끗하면 저절로 확정 · 재고 없는 줄은 확정이 백오더로 저절로 갈라낸다(되돌리고 나누고 다시 확정할 일이 없다)
@@ -296,7 +298,18 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
                   앱 권한 write_order_edits 를 더한다(짓는 차수에서 Caleb · §7) · 지금 asung.ca 는 모두 이 길(so-module §61-c — Shopify 가 받은 돈 0)
 환불 읽기          IMS 가 오더를 다시 받을 때 Shopify 환불을 읽어 원문 + 「Shopify 에서 환불됨」 경고 · 크레딧 노트는 직원이 화면에서(자동 크레딧 없음 — 재고 복원 · 재입고 수수료는 금액으로 알 수 없다)(판정 440)
 결제 상태          Net 오더가 IMS 에서 다 결제되는 순간 IMS 가 Shopify 오더를 Paid 로(판정 449 · ⑤ 와 따로 한 차수 · 「다 결제」 규칙은 그때)
-                  orderMarkAsPaid ✅ VALID(write_orders · 남은 금액 전부만 · 사용자 권한 mark_orders_as_paid 가 앱 토큰에 걸리는지는 시험 · so-module §61-b) · 판정 370(aone 카드 읽기)과 옆 길
+                  orderMarkAsPaid ~~✅ VALID~~(write_orders · 남은 금액 전부만 · ~~사용자 권한 mark_orders_as_paid 가 앱 토큰에 걸리는지는 시험~~ · so-module §61-b) · 판정 370(aone 카드 읽기)과 옆 길
+                  → [2026-10-14 · so-module §63] 「VALID」 의 근거였던 MCP validate 도구는 지금 no-op(pay-0) · 실물로 확인: 앱 토큰에서 mark_orders_as_paid 가 막히지 않았다 · 손님 메일 없음(#1007)
+돈 받음 가르기      PAID · PARTIALLY_PAID · PARTIALLY_REFUNDED = 받은 오더(경고 refund_due) · 그 밖 = 오더 고치기(판정 457) · 방아쇠 15 분 스캔(458) · restock true(459) · 되돌리기 뒤 되살리지 않음(460 · 경고 shopify_qty_removed) · warned_qty(461) · 큐 shop_order_queue(462)
+IMS 가 시킨 환불    refund_due 로 시킨 환불을 직원이 Shopify 에서 하면 받기가 알아본다 — refunded_in_shopify 없음 · 그 줄의 gap 을 닫음 · refund_due 는 「처리됨」(settled_at · settled_refunds)(판정 466)
+                  짝은 금액이 아니라 Shopify 줄 GID · 수량(IMS 1.68 vs Shopify 1.49 — 세금) · 받기가 removed_qty = quantity − currentQuantity 를 적는다(상한 quantity − sent — 반품 RETURN 도 currentQuantity 를 줄인다 · 수량 0 인 줄도 lineItems 에 남는다)
+결제는 IMS 에서만   직원은 Shopify 에서 Mark as paid 를 하지 않는다(판정 468 ① · Shopify 직원 권한에서 뺄 수 있으면 뺀다 · Caleb)
+                  안전망: SO 가 생긴 뒤 Shopify 결제 상태가 PAID · PARTIALLY_PAID 로 바뀌었는데 IMS 가 시킨 것이 아니면 경고 paid_in_shopify {from, to, ims_remaining} · IMS 인보이스가 다 갚아졌으면 없음 · IMS 장부 무접촉(판정 468 ② · pay-1a)
+「다 결제」         웹 오더 SO 뭉치(shop_so_family)에 열린 오더가 없고 살아 있는 인보이스 남은 돈이 모두 0(인보이스 ≥ 1) — 0 이 된 길은 묻지 않는다(판정 469 · shop_order_paid_state)
+                  15 분 스캔 shop_paid_scan(cron 52 · 8 · 23 · 38 · 53 분) → 큐 mark_paid → EF paid_drain(cron 53 · */5) — Shopify 읽기 → IMS 다시 판정 → paid_push_at 을 보내기 전에 → orderMarkAsPaid → PAID 확인
+                  대상 PENDING · PARTIALLY_PAID · EXPIRED · 빈 값 · **AUTHORIZED 제외**(orderMarkAsPaid 가 승인 카드를 capture 한다) · 권한으로 보이는 오류는 한 번에 · 5 회면 경고 mark_paid_failed
+                  Paid 뒤 IMS 가 다시 미수면 경고 shopify_paid_ims_owed(Shopify 는 되돌릴 명령이 없다) · 실물 #1007: Shopify 타임라인 「Asung IMS manually marked $1.49 CAD as paid」 · Gateway Manual · 손님 메일 없음 · 끝난 오더는 Shopify 가 자동 보관
+                  기각: 열린 백오더가 있어도 Paid(457 이 거짓 refund_due) · orderCreateManualPayment(금액 칸 Shopify Plus 전용 · 메모 · 멱등 · 지우기 없음 · 시험 스토어는 Advanced)
 ```
 
 ### 4-f. 위치 · 합친 오더 (판정 445 · 442)
@@ -312,6 +325,10 @@ Ship & invoice    누르는 순간 Shopify 「Ready for pickup」(손님 메일)
 메아리            IMS 가 보낸 발송마다 Shopify 가 돌려주는 GID 를 저장 · 오더를 다시 받을 때 견준다 — 우리 것 = 경고 없음 · 모르는 발송 = 「Shopify 에서 발송됨」 경고(SO 무접촉)(판정 447)
                   받기 쿼리에 fulfillments · refunds 를 더한다 · 환불은 4-e(판정 440) · ~~지금은 SO 뒤 바뀜이면 종류 없이 updated_after_so 하나~~ → [2026-10-13] 지어졌다(ful-1b · 4-h 메아리)
 되돌리기          Shopify 발송 되돌리기는 짓지 않는다 · 드물게 생기면 직원이 Shopify 에서 취소(447 경고로 보인다) · 인보이스 취소와 묶지 않는다(재발행 때 발송 메일 두 번)(판정 448)
+0 원 메아리        [2026-10-13 · 판정 463] 새 환불이 금액 0 그리고 createdAt 이 v_push − 5 초 ~ + 2 분이면 refunded_in_shopify 없음(Shopify 는 restock 한 줄 지우기를 금액 0 Refund 로 남긴다 · #1011) · 0 이 아니면 창 안이어도 경고
+환불 흡수          [2026-10-14 · 판정 466] IMS 가 refund_due 로 시킨 환불(줄 GID · 수량이 흡수 몫 안)은 경고 없음 · 흡수된 환불이 있는 받기는 updated_after_so 도 없음(4-e)
+결제 표시 창       [2026-10-14 · 판정 468] IMS 가 보낸 결제 표시는 shop_order.paid_push_at −5 초 ~ +2 분(받는 오더의 updatedAt) 창으로 거른다 — paid_in_shopify · updated_after_so 둘 다 없음
+                  last_push_at(오더 고치기 · 발송 메아리 447 ⓑ · 463)과 칸을 나눈다 — 같이 쓰면 그 2 분의 직원 Mark as paid · 0 원 환불 판정이 섞인다 · 실물 #1007 paid_push_at 이 updatedAt 보다 먼저
 ```
 
 ---
@@ -353,6 +370,20 @@ Ready 뒤 배송     판정 456 — 손님이 픽업 대신 배송을 원하면 
                  픽업 · 송장 pickup_failed · pickup_not_sent · tracking_fix_failed · 픽업 받기 pickup_tax_from_location · pickup_tax_unknown · pickup_carrier_missing · pickup_locations_differ · pickup_location_unpaired · delivery_mixed
 ```
 
+### 4-i. 경고 확인함 · 화면 안 A (판정 467 · 화면 안 A · so-module §63)
+```
+확인함            웹 오더 경고마다 「확인함」 — 지우지 않고 acked_at · acked_by · acked_by_name · acked_note · 화면 회색(판정 467 · 창구 shop_order_warning_ack · ful-5a)
+                  목록 숫자는 열린 것만 — shop_order_list.open_warning_count(처리됨 settled · 확인함 acked 제외) · 처리됨은 손으로 못 바꾼다 · 열린 refund_due 는 메모 필수 · 다시 열기(Reopen) 된다
+                  원소는 자리(1 부터) + code + at 셋으로 찾는다(옛 목록으로 누르면 「changed elsewhere — reload」)
+화면 안 A          Web Orders 를 SO 로 합친다(Caleb · 판정 번호 없음) — Web Orders = SO 가 안 된 것의 받은 편지함(기본 Open · 검토 필요 · 오류 · SO 전 취소 · 손님 고르기 · 줄 짝 맞추기는 여기만)
+                  SO 가 생긴 오더는 Web Orders 머리 아래 「handled on SO-…」(경고 · 결제 · 발송은 SO 에서)
+                  SO 상세 「Shopify」 칸 — 웹 번호 · 결제 상태 · Total = ordered · refunded · kept vs IMS · Paid in Shopify 줄(IMS 가 표시한 시각 · 아직이면 까닭 shop_order_paid_state) · 배송 · 경고 + Mark checked / Reopen
+                  형제 SO 는 뭉치로 찾는다 · SO 목록 「N web warnings」 · 인보이스 목록 web #… · 상세 Web order 줄 · 검색은 search_text 가 오더 ref 를 이미 담는다
+                  기각 안 B(SO 목록에 SO 없는 줄까지 섞기) · 화면 asung-ims wo v3 · v4 · v4a · v4b · so v5t ~ v5t4 · inv v2e · v2e1
+Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 만드는 cron(1 분)을 지금 돌리는 단추 · Shopify 에서 당겨오는 단추가 아니다
+                  손님은 받기 단계가 저절로 만든다(계정 → 이메일 → 없으면 새로 · Needs review 는 같은 이메일 여럿 · 정보 없음 · 생성 막힘 · 비활성 · SKU 못 찾음)
+```
+
 ## 5. ⬜ 열린 확인 거리 (시험 스토어에서)
 
 ```
@@ -365,9 +396,11 @@ Ready 뒤 배송     판정 456 — 손님이 픽업 대신 배송을 원하면 
 ⑦ ~~asung.ca 웹 결제 오더 운임~~ → asung.ca custom 결제 방식 오더의 운임(→ so-module §61-c) — 지금은 받은 오더에 금액 · 제목만 · 경고 freight_not_applied(Caleb 조사 중 · so-module 미룬 191)
 ~~⑧ ⑤ 시험 — ful-0 보고 ⬜8 ① 운송사 + 송장 둘 → 발송 메일 · 위치 옮김 · 메아리 없음 ② Delivery → 메일 없음 ③ 백오더 두 번째 발송 ④ 픽업 Ready → Picked up ⑤ 송장 고침 → 메일 없음(aone 배송 장면을 픽업보다 먼저 · 판정 446 · ful-4)~~ → ✅ 다섯 다 끝(2026-10-13 · so-module §62-c) · aone 스토어 장면은 컷오버 때
 ~~⑨ 「Picked up」 mutation — 전용은 못 봤다 · 짐작: 픽업 FO 에 fulfillmentCreate(notifyCustomer false) · ⑧ ④ 에서(so-module 미룬 209)~~ → ✅ 그 길이 맞다 · 「Picked up on …」 · 메일 없음(§62-c)
-⑩ 오더 고치기(orderEdit) 의 손님 메일 끄기 · 환불이 남은 몫을 지우는가 · orderMarkAsPaid 의 사용자 권한이 앱 토큰에 걸리는가(판정 441 · 439 · 449 · so-module 미룬 209 → 210 · 211 · 212)
+~~⑩ 오더 고치기(orderEdit) 의 손님 메일 끄기 · 환불이 남은 몫을 지우는가 · orderMarkAsPaid 의 사용자 권한이 앱 토큰에 걸리는가(판정 441 · 439 · 449 · so-module 미룬 209 → 210 · 211 · 212)~~ → ✅ 셋 다(so-module §63-c) — 오더 고치기 메일 없음(#1011) · Unfulfilled 환불이 currentQuantity 를 줄인다(③-b · 466) · mark_orders_as_paid 가 앱 토큰에서 막히지 않았다(#1007 · 메일 없음)
 ⑪ 이미 Ready 로 받아 적은 ready_at(FO updatedAt)이 Mark as ready 시각과 같은가(so-module 미룬 217)
 ⑫ UPS 가 Shopify 운송사 목록에 있는가(판정 450 · 미룬 218)
+⑬ [판정 후보 470] Shopify Restock(CANCEL · RETURN)이 Shopify available 만 +1 — IMS 재고 밀기는 「지난번 보낸 값과 같으면 건너뜀」이라 다음 IMS 재고 변동까지 Shopify 가 더 판다(Toronto ANN01002 IMS 34 · Shopify 35 → 반품 환불 뒤 36) · order_drain 의 restock true 도 같다(so-module 미룬 222)
+⑭ 468 거르기가 PARTIALLY_PAID → PARTIALLY_PAID(상태가 안 바뀐 두 번째 결제 표시)를 못 잡는다(so-module 미룬 225) · AUTHORIZED 오더 시험(미룬 228 ③)
 ```
 
 ## 6. 갱신
@@ -383,6 +416,7 @@ Ready 뒤 배송     판정 456 — 손님이 픽업 대신 배송을 원하면 
 - [2026-10-11 · so-module §60 · docs-1011] 상태 줄에 ④ 끝 · §2-a 실물 모양 · 보호된 손님 정보 확정 · §2-c 판정 430(365 바뀜) · §2-e 판정 431 · 433 · CSV · §2-j 판정 434 · §2-k 화면 · 채널 × intake(판정 432 · 435) 새로 · §5 ① ③ 닫힘 · ⑥ 닫힘 · ⑦ 운임 · §7 그대로
 - [2026-10-13 · so-module §61 · docs-1013] 상태 줄에 ⑤ 판정 · §2-h 에 440 · 449 포인터 · §2-g 「일반 웹 결제」 정정(→ §61-c) · §4-a · 4-b 를 판정 436 ~ 449 로(옛 글귀 ~~ ~~ · 4-b 크레딧 줄 → 440 바뀜) · §4-c 미룬 줄 하나 · §4-d 운송사 · 송장 · 고침 · §4-e 나가지 않을 몫 · 환불 · 결제 상태 · §4-f 위치 · 합친 오더 · §4-g 메아리 · 되돌리기 새로 · §5 ⑦ 정정 · ⑧ ~ ⑩ 새로 · §7 Caleb 넷
 - [2026-10-13 · so-module §62 · docs-1013b] 상태 줄에 ⑤ 짓기 끝 · §4-b Pickup 오더 줄 · §4-d Purolator · 운송사 표 · 미룬 208 닫힘 · §4-g 메아리 지어짐 · §4-h 짓기 실물 새로(판정 450 ~ 456 · cron 49 · kind 셋 · 받아 적기 둘) · §5 ⑧ ⑨ 닫힘 · ⑪ ⑫ 새로 · §7 갱신
+- [2026-10-14 · so-module §63 · docs-1014] 상태 줄에 ⑤ 나가지 않을 몫 · 확인함 · 결제 상태 끝 · §2-h 468 · 469 포인터 · §4-e 457 ~ 462 · 466 · 468 · 469 · orderMarkAsPaid 실물(옛 「✅ VALID」 · 「시험」 ~~ ~~) · §4-g 463 · 466 · 468(paid_push_at 창) · §4-i 경고 확인함 · 화면 안 A 새로 · §5 ⑩ 닫힘 · ⑬ ⑭ 새로 · §7 write_order_edits 닫힘
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
@@ -395,7 +429,7 @@ Ready 뒤 배송     판정 456 — 손님이 픽업 대신 배송을 원하면 
 [ ] 171 정리 — review-deny-171.csv 의 Decision 칸(discontinue | unsell | keep) (판정 429 · Caleb · 컷오버 전 · 미룬 186)
 [ ] Shopify 운송사 목록에 ~~Purolator ·~~ UPS 가 있는지 (판정 436 · 450 · Caleb · 관리자 발송 화면의 운송사 고르기 · Purolator ✅ 실물 · so-module 미룬 202 → 218)
 [x] 시험 스토어 Local pickup 켜기 (판정 443 · 444 · Caleb · Toronto 만 켬 · 2026-10-13 · 미룬 203 닫힘)
-[ ] 앱 권한 write_order_edits 더하기 (판정 441 · Caleb · Dev Dashboard · 짓는 차수에서 · 미룬 200 · 210)
+[x] 앱 권한 write_order_edits 더하기 (판정 441 · Caleb · Dev Dashboard · 짓는 차수에서 · 미룬 200 · 210) — v2orderedits Active · 시험 스토어 Install app → Update data access(2026-10-13 · so-module §63-c)
 [ ] ImsLoadCustomer(GAS) 편집기 원본이 default_carrier 글자만 보내는지 (판정 451 · Caleb · 미룬 219)
 [x] 시험 운송사 「Test Freight」 끄기 (Settings · 꺼짐 확인 ref_carrier is_active f · 2026-10-13 18:52:25 UTC)
 [ ] asung.ca `custom` 결제 방식의 실제 이름 (Caleb · Settings → Payments → Manual payment methods · 운임 191 과 함께 · 미룬 205)

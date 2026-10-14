@@ -708,7 +708,7 @@ select cron.schedule('ims-order-drain', '*/5 * * * *', $job$
   where exists (select 1 from public.shop_order_queue q where q.done_at is null);
 $job$);
 
--- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid ⬜ · ⬜(등록 뒤 Caleb 출력 · cron.job 실측) pay-2b (2026-10-14 · 판정 449 · 469 · 468 · 설계 shopify-integration §4-e · so-module §61 · DB pay-2a 20261014162538 · pay-2b 마이그레이션 · EF paid_drain)
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 52 ims-paid-scan · 53 ims-paid-drain(등록 뒤 Caleb 출력 · cron.job 실측 2026-10-14 · docs-1014 · 51 은 조건이 kind = 'order_edit' 로 좁혀짐) pay-2b (2026-10-14 · 판정 449 · 469 · 468 · 설계 shopify-integration §4-e · so-module §61 · DB pay-2a 20261014162538 · pay-2b 마이그레이션 · EF paid_drain)
 --   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께(asung-workflow §4) · 테스트 jobid 는 운영 번호와 따로 매겨진다
 --   세 문장 — 순서대로 · 셋 다 EF paid_drain 배포(supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg) 와 pay-2b 마이그레이션 뒤에
 --   ① ims-order-drain(jobid 51) 의 거름 조건을 kind = 'order_edit' 로 좁힌다 — 지금은 shop_order_queue 의 열린 줄이면 kind 를 안 보고 EF 를 부르는데 EF order_drain 은 order_edit 만 집으므로 mark_paid 열린 줄이 있으면 5 분마다 헛걸음(pay-0 · pay-2a §3)
@@ -738,6 +738,7 @@ $job$);
 --   확인: select jobid, jobname, schedule, active, command from cron.job where jobname in ('ims-order-drain', 'ims-paid-scan', 'ims-paid-drain') order by jobid;  → 새 jobid 둘을 이 블록의 ⬜ 에 적는다 · 51 의 command 끝이 and q.kind = 'order_edit' 인지
 --   최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname in ('ims-paid-scan', 'ims-paid-drain')) order by start_time desc limit 10;
 --   킬 스위치: select cron.alter_job(<jobid>, active := false);   -- ims-paid-scan · ims-paid-drain(jobid 는 등록 뒤 실측해서 적는다)
+--   킬 스위치(테스트 DB · 실측 jobid · 운영 번호와 다르다): select cron.alter_job(52, active := false);   -- ims-paid-scan  ·  select cron.alter_job(53, active := false);   -- ims-paid-drain
 select cron.alter_job(51, command := $job$
   select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),

@@ -8161,7 +8161,7 @@ Caleb 이 준 업무 사실 (이 대화)
 | 446 | D10 | aonebeauty 의 배송 오더(픽업 아닌 것)는 378 그대로 · aone 은 배송이 훨씬 많다(Caleb) — 시험도 aone 배송 장면을 픽업보다 먼저 |
 | 447 | D11 | IMS 가 보낸 발송마다 Shopify 가 돌려주는 GID 를 저장 · 오더를 다시 받을 때 견준다 — 우리 것 = 경고 없음 · 모르는 발송 = 「Shopify 에서 발송됨」 경고(SO 무접촉) · 환불 = 440 · 받기 쿼리에 fulfillments · refunds 를 더한다 |
 | 448 | D12 | Shopify 발송 되돌리기는 짓지 않는다 · 드물게 생기면 직원이 Shopify 에서 취소(447 경고로 보인다) · 인보이스 취소와 묶지 않는다(재발행 때 발송 메일 두 번) |
-| 449 | 결제 | Net 오더가 IMS 에서 다 결제되는 순간 IMS 가 Shopify 오더를 Paid 로 바꾼다(orderMarkAsPaid 짐작 · write_orders) · 까닭 = 손님이 계정을 본다(441 과 같은 까닭) · 「다 결제」의 규칙(한 송금 여러 오더 · 일부 · 크레딧)은 짓는 차수에서 · ⑤ 짓기와 따로 한 차수 · 판정 370 은 aone 카드 읽기만 정했다 |
+| 449 | 결제 | Net 오더가 IMS 에서 다 결제되는 순간 IMS 가 Shopify 오더를 Paid 로 바꾼다(~~orderMarkAsPaid 짐작~~ → orderMarkAsPaid 확인함(§63) · write_orders) · 까닭 = 손님이 계정을 본다(441 과 같은 까닭) · 「다 결제」의 규칙(한 송금 여러 오더 · 일부 · 크레딧)은 짓는 차수에서 · ⑤ 짓기와 따로 한 차수 · 판정 370 은 aone 카드 읽기만 정했다 | · → [2026-10-14] 469 가 「다 결제」 규칙을 채움 · §63
 
 - 채우는 것 · 바뀌는 것: 378 → 436 · 437 · 438 · 439 · 441 · 442 · 445 · 446 · 447 · 448 · 379 → 439 · 443 · 444 · 446 · **440 바뀜**(「IMS 가 읽어 크레딧에 붙인다」 → 경고 + 직원이 크레딧 노트) · 370 → 449(옆 길 — 370 을 바꾸지 않는다)
 - ⬜9 표 D1 ~ D12 의 「추천」(ful-0 보고)은 판정이 아니다 — 판정은 위 표뿐(D4 는 대화에서 439 → 441 로 바뀌었다)
@@ -8315,4 +8315,118 @@ Caleb 이 준 업무 사실 (이 대화)
 ```
 판정 439 · 441(나가지 않을 몫 · orderEdit) 짓기 · 판정 449 결제 상태 차수 · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
 다음 판정 번호: 457
+```
+
+→ [2026-10-13 밤 ~ 10-14] §63 — 나가지 않을 몫 · 경고 확인함 · 결제 상태 · 판정 457 ~ 469 · 다음 판정 번호 470
+
+## §63 2026-10-13 밤 ~ 10-14 — Shopify 연동 ⑤ 나가지 않을 몫 · 경고 확인함 · 결제 상태 — ful-4a ~ 4b5 · ful-5a · pay-0 ~ 2b · 화면 안 A · 판정 457 ~ 469 (회사 PC → 집 PC → 회사 PC)
+
+⭐ 닫힌 것: **나가지 않을 몫**(장부 · 15 분 스캔 · 오더 고치기 · 환불 경고 · 환불 메아리 · IMS 가 시킨 환불 흡수) · **웹 오더 경고 확인함**(Mark checked / Reopen · 열린 경고 수) · **결제 상태**(Shopify 에서만 결제 표시 경고 · 「다 결제」 판정 · Shopify 를 Paid 로) · **화면 안 A**(Web Orders 를 SO 로 합침)
+⭐ 새 판정 457 ~ 469 · 원천: 457 ~ 462 = `~/asung/prompts/ims-handover-2026-10-13-office.md` §1 · 463 ~ 465 · 화면 안 A = `ims-handover-2026-10-13-home.md` §1 · 466 ~ 469 = 지시서 `docs-1014.md` 📌 B(이 절의 원천) · 설계 정본 `shopify-integration.md` §4-e · 4-g · 4-i · 다음 판정 번호 **470**
+⭐ 아직: 판정 후보 470(Shopify Restock 재고 · 63-f) · Backorders 탭 재구성(464 · 465 구현 · 미룬 220) · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
+
+### 63-a 판정
+
+| 번호 | 원천 | 판정 |
+|---|---|---|
+| 457 | office §1 | [Caleb] 돈 받음 = financial_status PAID · PARTIALLY_PAID · PARTIALLY_REFUNDED → 경고 refund_due(고치지 않음 · 직원이 Shopify 에서 환불 · 439) · 그 밖(PENDING · AUTHORIZED · EXPIRED · VOIDED · REFUNDED) → 오더 고치기(441 · notifyCustomer false) · AUTHORIZED 는 걷을 금액이 같이 줄어든다고 짐작(시험 전) |
+| 458 | office §1 | 방아쇠 = 15 분 스캔(창구 무접촉 — 나가지 않을 몫이 생기는 순간이 아홉 · 되돌리기 둘) |
+| 459 | office §1 | restock true |
+| 460 | office §1 | [Caleb] 되돌리기(reopen · unconfirm) 뒤 이미 지운 Shopify 수량은 되살리지 않는다 · 경고 shopify_qty_removed 만 · 직원이 Shopify 에서 손으로 |
+| 461 | office §1 | 장부 warned_qty(같은 수량에 경고 한 번) |
+| 462 | office §1 | 새 큐 shop_order_queue(441 · 449 함께) |
+| 463 | home §1 | [Caleb · 안 1] 새 환불이 ① 금액 0 **그리고** ② createdAt 이 우리 마지막 Shopify 쓰기(v_push) − 5 초 ~ + 2 분이면 refunded_in_shopify 를 붙이지 않는다 · 금액이 0 이 아니면 창 안이어도 경고 · 까닭 = Shopify 는 restock 한 줄 지우기를 금액 0 Refund 로 남긴다(#1011 이 거짓 경고를 받았다 · 그 한 줄은 시험 기록으로 남겨 둠) · 기각 안 2(0 원 늘 거름 — 넓다) · 안 3(환불 줄 × removed_qty 대조 — 크다) |
+| 464 | home §1 | [Caleb] 백오더 수요는 **줄(손님 × 제품)마다** 센다 — ① 원래 수요 = 처음 주문 수량 · 백오더가 열린 동안의 다시 주문은 「못 받았다」는 확인(이어받는 만큼 더하지 않음 · 넘친 몫만 새 수요 — 판정 3 · 4 · 5) ② 끝날 때 둘: 판 것(진행해서 나감 · 이어받은 새 오더에서 나감) / 잃은 판매(더 원하지 않음 · 만료 · 취소) ③ **취소는 기본이 잃은 판매** — 「진짜 수요 아님」(직원 실수 · 중복 입력 · 시험) **표식**을 단 줄만 뺀다 · 표식은 닫기와 따로(취소 때나 나중에 매니저가 Backorders 탭에서 달고 뗀다) · 수요 셈만 바꾸고 오더 · 재고 · Shopify 무영향 ④ 숫자 둘: 그때의 수요(발주 판단) · 지금 남은 수요(알림 · 진행) ⑤ 무상 줄 · POS/카운터 제외(판정 15 · 16 · 13) · Caleb 예: 100 주문 · 60 나감 · 40 백오더 → 40 · 40 다시 주문 → 20 주문 · 20 나감 ⇒ 수요 100 · 판 것 80 · 잃은 판매 20 · 구현은 Shopify 뒤(Backorders 탭 재구성 때) |
+| 465 | home §1 | [Caleb · 안 1] 상태 칩은 실제 모습대로 — DB status 그대로 · 화면 칩 · Status 거르기만: SO = Confirmed(다 잡힘) · Backorder · Pre-order · On hold / **PO 도 같이** — 인보이스 확정으로 떼어져 나온 남은 몫(아직 confirmed)은 Backorder · 기각 안 2(새 status — 상태를 보는 함수가 많아 위험) · 구현은 Backorders 탭 재구성 때 |
+| 466 | docs-1014 B | [Caleb · 안 1] IMS 가 refund_due 로 시킨 환불을 직원이 Shopify 에서 하면 받기가 알아본다 — ① refunded_in_shopify 를 붙이지 않는다 ② 그 줄의 gap 을 닫는다 ③ refund_due 는 지우지 않고 「처리됨」(settled_at · settled_refunds) · 짝은 **금액이 아니라 Shopify 줄 GID · 수량**(금액은 세금으로 어긋난다 — IMS 1.68 vs Shopify 1.49) · 기각 안 2(문구만 — refund_due 가 영원히 열림) · 안 3(금액 대조 — 세금 · 같은 금액 다른 줄) · 구현 모양(ful-4b5): 새 칸 없이 **removed_qty = quantity − currentQuantity** 를 받기도 적는다(EF 와 같은 식 · 상한 quantity − sent — 나간 물건 반품 RETURN 도 currentQuantity 를 줄이기 때문) · 줄어든 몫만큼 warned_qty 를 내린다 · 흡수된 환불이 있는 받기는 updated_after_so 도 안 붙인다 |
+| 467 | docs-1014 B | [Caleb · 안 1] 웹 오더 경고마다 「확인함」 — 지우지 않고 acked_at · acked_by · acked_by_name · acked_note · 화면 회색 · 목록 숫자는 **열린 것만**(shop_order_list.open_warning_count = 처리됨 · 확인함 제외) · 처리됨은 손으로 못 바꾼다 · 열린 refund_due 의 확인함은 메모 필수 · 기각 안 2(처리됨만 빼고 세기) · 안 3(기간으로 자르기) |
+| 468 | docs-1014 B | [Caleb · 안 3 + 안 1 · 449 의 반대 방향] 결제는 IMS 에서만 기록 — ① 운영 규칙: 직원은 Shopify 에서 Mark as paid 를 하지 않는다(Shopify 직원 권한에서 뺄 수 있으면 뺀다 · Caleb) ② 안전망: SO 가 생긴 뒤 Shopify 결제 상태가 PAID · PARTIALLY_PAID 로 바뀌었는데 IMS 가 시킨 것이 아니면(새 칸 shop_order.paid_push_at ± 창) 경고 paid_in_shopify {from, to, ims_remaining} · IMS 인보이스가 이미 다 갚아졌으면 경고 없음 · IMS 장부 무접촉 · 기각 안 2(Shopify 표시로 IMS 결제 자동 기록 — 실제 돈의 증거가 아니고 두 번 기록) |
+| 469 | docs-1014 B | [Caleb · 안 1 · 449 의 「다 결제」 규칙] 웹 오더의 SO 뭉치(shop_so_family)에 열린 오더가 없고 살아 있는 인보이스 남은 돈이 모두 0(인보이스 ≥ 1)이면 IMS 가 Shopify 를 Paid 로(orderMarkAsPaid) · 0 이 된 길은 묻지 않는다 · 대상 PENDING · PARTIALLY_PAID · EXPIRED · 빈 값(**AUTHORIZED 제외 — orderMarkAsPaid 가 승인 카드를 capture 한다**) · Paid 뒤 IMS 가 다시 미수면 경고 shopify_paid_ims_owed(Shopify 는 되돌릴 명령이 없다) · 기각 안 2(열린 백오더가 있어도 Paid — 판정 457 이 거짓 refund_due · 되돌릴 길 없음) · 안 3(orderCreateManualPayment — 금액 칸 Shopify Plus 전용 · 메모 · 멱등 · 지우기 없음) |
+| 안 A | home §1 | 화면 안 A [Caleb · 판정 번호 없음] Web Orders 를 SO 로 합친다 — SO 상세에 「Shopify」 칸(웹 번호 · 스토어 · 받은 상태 · Shopify 결제 상태 · Shopify 합계를 IMS 합계와 나란히 · 받은/처리 시각 · 배송 방식 · 픽업 브랜치 · 줄 대조 ✓ · 경고 이름표 · Open in Shopify) · SO 목록에 웹 번호 · 경고 수 · 「웹 오더만」 거르기 · Web Orders 탭은 **SO 가 안 된 것만**(검토 필요 · 오류 · SO 전 취소)의 받은 편지함(손님 고르기 · 줄 짝 맞추기 단추는 여기만) · 인보이스 머리 · 목록 · 검색에 웹 번호(#1012 · Web Orders 링크) · 기각 안 B(SO 목록에 SO 없는 줄까지 섞기) |
+
+- 457 ~ 462 를 정할 때 Caleb 이 「알기 쉽게」 를 청해 대화 Claude 가 전체를 풀어 설명한 뒤 「니 제안대로 가자」(office §1)
+- 채우는 것 · 바뀌는 것: 439 · 441 → 457 ~ 462 · 440 → 463 · 466(환불 읽기에 메아리 · 흡수) · 449 → 468(반대 방향) · 469(「다 결제」 규칙 · §61 449 줄에 포인터) · 370(aone 카드 읽기)은 바꾸지 않는다
+- **판정 후보 470**(아직 판정 아님 · docs-1014 B): Shopify 의 Restock(CANCEL · RETURN)이 Shopify available 만 +1 한다 — IMS 재고 밀기는 「지난번 보낸 값과 같으면 건너뜀」이라 다음 IMS 재고 변동까지 Shopify 가 IMS 보다 많게 판다(실측: Toronto ANN01002 IMS 보냄 34 · Shopify 35 → 반품 환불 뒤 36) · 우리 order_drain 의 restock true 도 같은 일
+
+### 63-b 쉬운 말 — Caleb 이 헷갈렸던 자리 (home §1 · docs-1014 C)
+
+- **「나가지 않을 몫」** = Shopify 줄 수량 − 나감(sent) − 지움(removed) − 나갈 수 있는 몫(can_ship) · **백오더가 살아 있는 동안 Shopify 오더는 그대로**(backorder 예약도 can_ship 에 든다 — so_line_can_ship 확인) · IMS 가 그 몫을 안 보내기로 **닫을 때만**(이어받음 · 더 원하지 않음 · 만료 · 취소) 15 분 스캔 + 5 분 drain 으로 자동 · 돈 받은 오더는 경고만 · Caleb 의 100 개 예와 #1 ~ #4 Shopify 표
+- 사람이 지우는 곳은 IMS 하나 · Shopify 는 따라온다 · Shopify 를 고쳐도 IMS 의 수요 기록(SO 줄 qty_ordered · 백오더 장부 · shop_order_line.quantity)은 그대로
+- 백오더 입고 알림: 지금은 GAS 가 Cin7 API 로 자동 메일 — **⬜ IMS 로 옮기기(정본 400 · 518 행) · 컷오버 전 필수** · 백오더는 입고돼도 자동 할당 안 함(설계) · 보통 길은 이어받기(손님 새 오더)
+- **「Process waiting now」** = 받은 오더(Waiting)를 SO 로 만드는 cron(1 분)을 지금 돌리는 단추다 · Shopify 에서 오더를 당겨오는 단추가 아니다
+- 손님은 받기 단계가 저절로 만든다 — Shopify 계정 → 이메일 → 없으면 새로 · Needs review 로 서는 경우는 같은 이메일이 여럿 · 정보 없음 · 생성 막힘 · 비활성 · SKU 못 찾음
+
+### 63-c 실물 사실 (테스트 DB · 시험 스토어)
+
+- **try-set 으로 확정된 Shopify 사실**(2026-10-13 · #1011 · 세션 97462157495 · home §1): 일부 발송된 줄(quantity 2 · editableQuantity 1)에 setQuantity 0 → editable 0 · DecrementItem delta 1 · 걷을 금액 2.98 → 1.49 · 1 을 보내면 변화 0 인데 userErrors 없이 지나가고 commit 에서야 「There must be at least one change」 ⇒ **setQuantity 의 quantity 는 「고칠 수 있는 몫 중 남길 수」** · 문서 문장(「The total number of items」)은 이것을 말하지 않는다
+- 시험 ① #1011(2026-10-13 · home §3): Shopify 2 → 1 · Fulfilled · 1.49 · **메일 없음** · 큐 done ok · removed_qty 1 · gap 0
+- 시험 ③ #1012(home §3): 장부 gap 1 · warned_qty 1 · 경고 refund_due · 큐 0 행 · Shopify 무접촉
+- 앱 권한(office §1): Dev Dashboard **v2orderedits**(Active · write_order_edits 더함) · 시험 스토어 승인 = Dev Dashboard Overview → **Install app** → asung-ims-test → 「Update data access」 → Update(Release 만으로는 승인 안 됐다 · Open app 도 아님) · ping missing_scopes []
+- 시험 ③-b(2026-10-14 · #1012 · Unfulfilled 1 환불 · Restock 기본 체크): refund 줄 qty 1 · restockType **CANCEL** · currentQuantity 2 → 1 · ful-4b5 뒤 #1012 받기에서 removed 1 · gap 0 · warned 0 · refund_due settled_at
+- 시험 ③-c(#1012 · Fulfilled 1 반품 환불 · Restock 기본 체크 「Restock item at Toronto」): restockType **RETURN** · currentQuantity 1 → **0** · **수량 0 인 줄도 lineItems 에 남는다** · 상한으로 removed 1 그대로 · refunded_in_shopify 하나 더 · REFUNDED 오더를 스캔이 큐에 안 넣음
+- 시험 #1005 Mark as paid(Shopify) → paid_in_shopify · ims_remaining 3.36(형제 인보이스 합) · updated_after_so 없음
+- 시험 #1007(60062 IMS 결제 1.68 → 손 스캔 queued 1 → paid_drain 16:55:02 UTC ok 「PAID · outstanding 0.0」 → 웹훅 받기 PAID · 경고 0 · paid_push_at 이 updatedAt 보다 먼저) · **mark_orders_as_paid 사용자 권한은 앱 토큰에서 막히지 않았다**(시험 항목 209 · 212 해소) · Shopify 타임라인 「Asung IMS manually marked $1.49 CAD as paid」 · Gateway Manual · **손님 메일 없음** · 발송 · 결제가 끝난 오더는 Shopify 가 자동 보관(archived)
+- pay-0 조사(쓰기 0): orderCreateManualPayment(id, amount, paymentMethodName, processedAt) 있음 · 「amount 는 Shopify Plus 스토어만」 · 오류 코드 AMOUNT_EXCEEDS_BALANCE · AMOUNT_NOT_POSITIVE … · 멱등 없음 · 지우기 없음(수동 환불만) · 시험 스토어 요금제 Advanced · Shopify MCP validate 도구는 지금 no-op(「VALID」 근거로 쓰지 않는다 · §61-b 의 「✅ VALID」 가 그때 같은 도구로 나왔는지는 못 봤다)
+- cron(테스트 DB): 49 ims-fulfill-drain · 50 ims-unshipped-scan · **51 ims-order-drain 조건이 kind = 'order_edit' 로 좁혀짐** · **52 ims-paid-scan `8,23,38,53 * * * *`** · **53 ims-paid-drain `*/5`**(cron.sql pay-2b 절 · 운영 미등록)
+- 화면(asung-ims): Web Orders = SO 가 안 된 것의 받은 편지함(기본 Open) · SO 가 생긴 오더는 머리 아래 「handled on SO-…」 · SO 상세 「Shopify」 칸(웹 번호 · 결제 상태 · Total = ordered · refunded · kept vs IMS · Paid in Shopify 줄 · 배송 · 경고 + Mark checked / Reopen) · 형제 SO 는 뭉치로 찾는다 · SO 목록 「N web warnings」 · 인보이스 목록 web #… · 상세 Web order 줄 · 검색은 search_text 가 오더 ref 를 이미 담는다
+
+### 63-d 짓기 · 커밋 (git log 원문 · 두 레포)
+
+| 차수 | 레포 · 커밋 | 요지 |
+|---|---|---|
+| ful-4a | asung-wms `8ae674d` · `20261014000000_ful_4a_unshipped.sql` | 큐 shop_order_queue(order_edit · mark_paid · 462) · 장부 shop_order_line_unshipped(warned_qty · 461) · shop_order.last_push_at · shop_so_family · so_line_can_ship · shop_unshipped_scan(15 분 · 457 · 458) · shop_order_warn 코드 셋 · 확인 OK 21 |
+| ful-4b | asung-wms `71c4e13` · EF order_drain | _shared/shopify-edit.ts · orderEditBegin → SetQuantity(restock true · 459) → Commit(notifyCustomer false) · cron 51 ims-order-drain 블록 · REQUIRED_SCOPES 에 write_order_edits · deno 62/0 |
+| ful-4b1 | asung-wms `b2b4220` · EF | 실물 #1011 첫 시험 실패(「There must be at least one change」) → setQuantity 값 calc 기준 · NoChangeError · order_edit_preview · deno 63/0 |
+| ful-4b2 | asung-wms `5fce768` · EF | order_edit_preview 에 try_set(후보 ⓐ · ⓑ 를 세션 따로 · commit 없음 · 원인 확인만) |
+| ful-4b3 | asung-wms `70f1c18` · EF | setQuantity = editableQuantity − to_remove · commit 전 줄 단위 calculatedLineItem.stagedChanges 확인 · Shopify 다리를 `_shared` runOrderEdit 로 · deno 66/0 |
+| ful-4b4 | asung-wms `cc51dce` · `20261014010000_ful_4b4_refund_echo.sql` | 판정 463 — 0 원 환불 메아리 거름 · 확인 OK 9 |
+| ful-4b5 | asung-wms `4a54ee1` · `20261014133038_ful_4b5_refund_settle.sql` | 판정 466 — 받기가 removed_qty(상한 quantity − sent) · warned_qty 내림 · 흡수 · refund_due settled · 시험 OK 26 · 확인 25 |
+| ful-5a | asung-wms `a283ff9` · `20261014141305_ful_5a_warning_ack.sql` | 판정 467 — shop_order_warning_ack · 뷰 open_warning_count · 시험 OK 19 · 확인 18 |
+| wo v3 | asung-ims `8d84c68` | 경고마다 Mark checked / Reopen · 처리됨 초록 · 목록 숫자 · 거르기는 열린 경고만 · 이름표 셋(refund_due · order_edit_failed · shopify_qty_removed) |
+| so v5t ~ v5t2 | asung-ims `b00ae2b` · `8dc844a` · `3eb0f63` | 화면 안 A 첫 판 — SO 상세 Shopify 칸 · 형제는 뭉치로 · 목록 꼬리표 · v5t1 Total = ordered · refunded · kept · v5t2 확인함 뒤 목록 꼬리표 다시 채움 |
+| inv v2e · v2e1 | asung-ims `c8d0a8d` · `3c61b75` | 인보이스 목록 web #… 꼬리표 · 상세 Web order 줄 · v2e1 좁은 목록 꼬리표를 따로 한 줄 |
+| wo v4 | asung-ims `25bbeba` | 상세 Totals 를 SO 화면과 같게 · SO 가 생긴 오더는 머리 아래 SO 안내 |
+| pay-0 | — | 조사 · 쓰기 0 · orderCreateManualPayment(Plus 전용 amount) · 멱등 · 지우기 없음 |
+| pay-1a | asung-wms `1971887` · `20261014154103_pay_1a_paid_in_shopify.sql` | 판정 468 — shop_order.paid_push_at · ingest 경고 paid_in_shopify · 시험 OK 22 · 확인 21 |
+| wo v4a · so v5t3 | asung-ims `2e1a3cf` | 이름표 paid_in_shopify |
+| pay-2a · pay-2b | asung-wms `9afa520` · `20261014162538_pay_2a_mark_paid_scan.sql` · `20261014164407_pay_2b_mark_paid_warn.sql` · EF paid_drain | 판정 449 · 469 — shop_order_paid_state · shop_paid_scan · EF paid_drain(Shopify 읽기 → IMS 다시 판정 → paid_push_at 먼저 → orderMarkAsPaid) · 경고 shopify_paid_ims_owed · mark_paid_failed · cron 51 좁힘 · 52 · 53 · deno 55/0 · 시험 OK 25 / 5 · 확인 24 / 4 |
+| so v5t4 · wo v4b | asung-ims `7482e4b` | SO Shopify 칸에 Paid in Shopify 줄(IMS 가 표시한 시각 · 아직이면 까닭 shop_order_paid_state) · 이름표 둘(shopify_paid_ims_owed · mark_paid_failed) |
+
+### 63-e ⚠️ 실수 · 발견 — 원인 · 처방
+
+1. [대화 Claude · home §5] 전 인계서 §4 의 짧은 답은 회사 Claude Code 세션용이었다 — 집 세션은 대화를 못 봤다 ⇒ 다른 PC 의 새 Claude Code 세션에는 📌 를 다 담은 지시서 파일로(ful-4b2 · 잘 된 예)
+2. [대화 Claude · home §5] 「Shopify 에서 지운다」 를 주어로 섞어 Caleb 이 헷갈렸다 ⇒ 사람이 지우는 곳은 IMS 하나 · Shopify 는 결과
+3. [대화 Claude · home §5] 백오더 「진행해서 나감」 을 보통 길이라 말했다 — 정본은 이어받기가 보통 길(§14 판정 5) ⇒ 업무 흐름은 말하기 전에 정본 grep
+4. [대화 Claude · home §5] 「원치 않음은 수요에서 뺀다」 — 그때의 수요와 지금 남은 수요를 섞었다(Caleb 정정 → 464)
+5. [대화 Claude · home §5] 확인 덩이 grep 이 머리글 줄만 잡고 값 줄을 놓쳤다(db_role · schema_migrations) ⇒ 값이 다음 줄에 오는 출력은 `-A -t` 나 grep -A1
+6. [잘 된 것 · Claude Code · home §5] 오더 단위 stagedChanges(first: 20)의 페이지 밖 거짓 실패를 잡아 줄 단위로 · 세션 공유 가능성(contaminated) · `is not true`(금액 null 이 조용히 사라질 뻔 · 463 이 막으려던 바로 그것)
+7. [대화 Claude · 10-14] 시험 ③-c 안내에 「Unfulfilled 0」 — 이미 지워져 그 칸이 없었다 ⇒ Shopify 화면 안내는 지금 상태를 먼저 본다
+8. [대화 Claude · 10-14] 확인 덩이에 shop_call_log.created_at — 칸 이름 미확인(실제 called_at) · 보고서 문장을 그대로 옮겼다 ⇒ 칸 이름은 정의를 보고(62-d 1 재발)
+9. [대화 Claude · 10-14] 좁은 목록 꼬리표를 날짜 줄 끝에 붙여 말줄임에 가려졌다(inv v2e → v2e1) · 확인함 뒤 목록 꼬리표를 다시 안 채웠다(so v5t → v5t2) ⇒ 같은 정보를 그리는 자리를 다 센다(62-d 3 재발)
+10. [대화 Claude · 10-14] Total 대조를 처음 주문 금액으로 했다(환불 뒤 오해 · so v5t1)
+11. [GitHub · 10-14] asung-ims 푸시 500 — 로컬 커밋 뒤 `git push` 만 다시
+12. [잘 된 것 · Claude Code · 10-14] AUTHORIZED 제외(카드 capture 위험) · paid_push_at 을 보내기 전에 · last_push_at 과 칸을 나눔 · 반품 RETURN 상한 · 468 거르기가 상태 안 바뀐 두 번째 결제를 못 잡는다는 지적(pay-0)
+
+### 63-f 미룬 것 — 62-e 219 에 이어 붙임(210 · 211 · 212 닫힘)
+
+- 220 Backorders 탭 재구성(⭐ Caleb 「꼭 구현」 — 464 · 465 구현 포함 · 공급처 · 기간 · 반 나눈 화면: 왼쪽 입고 SKU · 오른쪽 그 SKU 백오더 · 끝난 방식 · 「없던 기간」 자동/수동 · 공급처 기준 기본 vs 입고 PO · 원래 백오더 상세에 「이어받아 닫힘 → SO-…」 표시가 있는지 · home §4-6)
+- 221 백오더 입고 알림 IMS 이관(컷오버 전 필수 · 이 정본 400 · 518 행 · 지금은 GAS 가 Cin7 API 로)
+- 222 restock 재고 — 판정 후보 470(63-a 끝) · Shopify Restock 이 Shopify available 만 올려 다음 IMS 재고 변동까지 Shopify 가 더 판다 · order_drain 의 restock true 도 같다
+- 223 aone 카드 AUTHORIZED → PAID(capture) 를 받기가 자동으로 읽을지(판정 370 은 받는 순간 PAID 만 · 469 는 AUTHORIZED 를 건드리지 않는다)
+- 224 order_drain 이 last_push_at 을 commit 뒤에 쓰는 순서 — 웹훅이 먼저 오면 메아리 창을 못 찾는다(짐작 · 발생 실측 없음 · pay-2b 이견 2 · paid_drain 은 보내기 전에 쓴다)
+- 225 468 거르기가 PARTIALLY_PAID → PARTIALLY_PAID(상태가 안 바뀐 두 번째 결제 표시)를 못 잡는다 — 지금은 IMS 가 orderCreateManualPayment 를 안 써서 해 없음(pay-0)
+- 226 환불 고리의 ::numeric 캐스팅 — 숫자 아닌 금액이면 받기 전체 실패(home §4-6)
+- 227 「restock 안 함」 직원 경고 코드(마이그레이션 · 470 과 함께 · ful-4b3 커밋 글 — 지금은 notes 까지)
+- 228 확인 거리 셋(home §4-5): ① 웹 오더 확정이 이어받기(so_backorder_supersede)를 하는지 — 안 하면 Caleb 예가 웹에서 40 + 40 + 40 으로 쌓인다 ② 모든 줄이 지워져 0 개가 되는 Shopify 오더를 Shopify 가 받는지 ③ 시험 ② AUTHORIZED(만들 수 있으면)
+- 229 백오더 줄 하나만 취소하는 길
+- (닫힘) 미룬 210 판정 439 · 441 나가지 않을 몫 짓기 — ful-4a ~ 4b3 · 시험 ① #1011 통과(메일 없음 · 63-c)
+- (닫힘) 미룬 211 Shopify 환불이 남은 몫을 지우는가 — 지운다(③-b · Unfulfilled 환불이 currentQuantity 2 → 1 · 466 이 받아 적는다)
+- (닫힘) 미룬 212 판정 449 결제 상태 알리기 짓기 · mark_orders_as_paid 가 앱 토큰에 걸리는가 — pay-2a · 2b · #1007 실물(막히지 않았다 · 메일 없음 · 63-c)
+- (닫힘) 미룬 200 앱 권한 write_order_edits 더하기 — v2orderedits Active · 시험 스토어 승인(office §1 · 63-c)
+
+### 63-g 다음 (Caleb 이 고른다)
+
+```
+판정 후보 470(Restock 재고) · Backorders 탭 재구성(464 · 465 · 미룬 220) · 백오더 입고 알림 이관(221) · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
+다음 판정 번호: 470
 ```
