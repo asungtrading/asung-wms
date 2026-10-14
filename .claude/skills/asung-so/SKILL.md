@@ -396,6 +396,16 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️ 큐 kind 는 셋을 쓴다(ship · picked_up · tracking_fix) · ready_pickup 은 검사 조건에만 · Ready for pickup 은 ship 갈래(EF · asung-wms 스킬)
 ```
 
+## 4-q. ⭐⭐ 웹 오더 결제 상태 · 환불 흡수 · 경고 확인함 — 모르면 사고 (정본 so-module §63 · shopify-integration §4-e · 4-g · 4-i · 판정 466 ~ 469)
+
+```
+⭐⭐ 결제는 IMS 에서만 기록한다 — Shopify 에서 Mark as paid 를 누르면 받기가 경고 paid_in_shopify 를 붙인다 · Shopify 결제 표시를 근거로 IMS 결제를 자동으로 만들지 마라(실제 돈의 증거가 아니고 두 번 기록된다)(판정 468 · so-module §63)
+⭐⭐ AUTHORIZED 오더에 orderMarkAsPaid 를 보내지 마라 — 승인된 카드를 capture 해 IMS 가 이미 받은 돈을 한 번 더 받는다 · 「다 결제」 스캔 대상은 PENDING · PARTIALLY_PAID · EXPIRED · 빈 값만(판정 469 · so-module §63)
+⭐⭐ paid_push_at 과 last_push_at 을 섞지 마라 — last_push_at 은 오더 고치기 · 발송 메아리(447 ⓑ · 463) 표지 · paid_push_at 은 IMS 가 결제 표시를 보낸 시각(468 거르기) · 같은 칸을 쓰면 2 분 창 안의 직원 Mark as paid · 0 원 환불 판정이 섞인다 · paid_push_at 은 보내기 전에 적는다(판정 468 · 469 · so-module §63)
+⭐⭐ removed_qty 에는 상한 quantity − sent 가 있다 — 나간 물건 반품(restockType RETURN)도 Shopify currentQuantity 를 줄이므로 상한 없이 quantity − currentQuantity 를 쓰면 gap 이 음수가 되어 거짓 shopify_qty_removed(판정 466 · ful-4b5 · so-module §63)
+⭐⭐ 웹 오더 경고는 지우지 않는다 — 확인함(acked_*) · 처리됨(settled_*) 열쇠를 원소에 덧붙이고(warnings || … · jsonb_agg … order by ord) 열린 수는 open_warning_count · warnings 를 통째로 다시 쓰거나 비우면 누가 · 언제 확인했는지가 사라진다(판정 467 · so-module §63)
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).
