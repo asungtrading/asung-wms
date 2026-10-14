@@ -404,6 +404,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ paid_push_at 과 last_push_at 을 섞지 마라 — last_push_at 은 오더 고치기 · 발송 메아리(447 ⓑ · 463) 표지 · paid_push_at 은 IMS 가 결제 표시를 보낸 시각(468 거르기) · 같은 칸을 쓰면 2 분 창 안의 직원 Mark as paid · 0 원 환불 판정이 섞인다 · paid_push_at 은 보내기 전에 적는다(판정 468 · 469 · so-module §63)
 ⭐⭐ removed_qty 에는 상한 quantity − sent 가 있다 — 나간 물건 반품(restockType RETURN)도 Shopify currentQuantity 를 줄이므로 상한 없이 quantity − currentQuantity 를 쓰면 gap 이 음수가 되어 거짓 shopify_qty_removed(판정 466 · ful-4b5 · so-module §63)
 ⭐⭐ 웹 오더 경고는 지우지 않는다 — 확인함(acked_*) · 처리됨(settled_*) 열쇠를 원소에 덧붙이고(warnings || … · jsonb_agg … order by ord) 열린 수는 open_warning_count · warnings 를 통째로 다시 쓰거나 비우면 누가 · 언제 확인했는지가 사라진다(판정 467 · so-module §63)
+⭐⭐ Shopify 카드 캡처는 받기가 IMS 결제로 적는다 — 거래 GID 표지(shop_order_transaction)로 두 번 적지 않는다 · gateway manual 은 적지 않고 경고(468) · 받기는 새 거래 GID 만 적으므로 손 결제와 카드 자동 결제가 같은 돈을 두 번 적을 수 있다 — 카드 캡처 오더에 직원이 Take a payment 를 하지 마라(Capture 전이든 뒤든)(판정 470 · so-module §63)
 ```
 
 ## 5. 이 스킬을 갱신할 때

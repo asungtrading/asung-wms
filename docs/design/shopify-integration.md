@@ -11,6 +11,7 @@
 ⭐ [2026-10-13 · so-module §61] **⑤ 오더 상태 판정**(조사 ful-0 · 쓰기 0 · 짓기는 아직) — 판정 436 ~ 449(아래 §4 · 4-d ~ 4-g 새로) · 다음 판정 번호 **450** · 할 일 §7(Caleb 넷)
 ⭐ [2026-10-13 · so-module §62] **⑤ 오더 상태 짓기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ful-1a `be5688c` · ful-2a(ful-2 `113df27`) · ful-1b `021ecc6` · ful-1c `4c476b2` · EF fulfill_drain ful-2 · 1b · ful-2c `20ec11d` · cron jobid 49 · 화면 ful-3a(asung-ims so v5s `716397d` · v5s1 `f5ac4ab`) · ful-3b(set v2 · wo v2 · bo v3a `e7409fd` · wo v2a `4a242e3` · v2b `8402402`) · 판정 450 ~ 456(아래 §4-h) · 다음 판정 번호 **457**
 ⭐ [2026-10-13 밤 ~ 10-14 · so-module §63] **⑤ 나가지 않을 몫 · 경고 확인함 · 결제 상태 끝**(테스트 DB · 시험 스토어) — DB ful-4a `8ae674d` · ful-4b4 `cc51dce` · ful-4b5 `4a54ee1` · ful-5a `a283ff9` · pay-1a `1971887` · pay-2a · 2b `9afa520` · EF order_drain ful-4b `71c4e13` · 4b1 `b2b4220` · 4b2 `5fce768` · 4b3 `70f1c18` · paid_drain pay-2b · cron jobid 50 · 51 · 52 · 53 · 화면 안 A(asung-ims wo v3 `8d84c68` · so v5t `b00ae2b` ~ v5t4 `7482e4b` · inv v2e `c8d0a8d` · v2e1 `3c61b75` · wo v4 `25bbeba` · v4a `2e1a3cf` · v4b `7482e4b`) · 판정 457 ~ 469(아래 §4-e · 4-g · 4-i) · 다음 판정 번호 **470**
+⭐ [2026-10-14 오후 · so-module §63-h] **카드 캡처 자동 기록 · Restock 다시 보내기**(테스트 DB · 시험 스토어) — DB pay-3a `760c0d7` · stk-r1 `45a1e15` · 화면 asung-ims so v5t5 · wo v4c `26db7ef` · 판정 470 ~ 472(아래 §2-h · §3-d · §4-e · §4-g) · 다음 판정 번호 **473**
 
 ---
 
@@ -105,6 +106,7 @@ aonebeauty.com    손님이 낸 배송비를 확정 값으로 — Ship & invoice
 - AONE 카드 결제는 「이미 받은 돈」으로 읽는다 · Shopify 가 수수료를 떼고 묶어 입금한 것을 맞추는 일은 회계(QBO 때) · 환불도 읽는다
 - [2026-10-13] 환불을 읽은 뒤 = 판정 440(4-e) · Net 오더를 IMS 가 Paid 로 알리기 = 판정 449(4-e · 옆 길)
 - [2026-10-14] 결제는 IMS 에서만 기록한다 — Shopify 에서만 결제 표시되면 경고 paid_in_shopify(판정 468) · IMS 에서 다 결제되면 IMS 가 Shopify 를 Paid 로(판정 469 · 4-e)
+- [2026-10-14 오후] SO 가 생긴 뒤의 Shopify 카드 캡처(CAPTURE · SALE · gateway 가 manual 아님)는 받기가 IMS 결제로 적는다 — 거래 GID 표지로 두 번 적지 않음 · manual 은 그대로 468 경고(판정 470 · 4-e) · 운영 사실: asung.ca 는 전부 Net · aone 은 카드 · PayPal 을 직원이 수동 Capture → aone 결제는 470 이 덮고 370 ⑦ 은 그대로 · ⑦ 을 gateway 로 가르는 것은 조건 셋 전에(판정 471 · 4-e · so-module 미룬 230)
 
 ### 2-i. 상태 (판정 371)
 - 깨끗하면 저절로 확정 · 재고 없는 줄은 확정이 백오더로 저절로 갈라낸다(되돌리고 나누고 다시 확정할 일이 없다)
@@ -192,6 +194,17 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - cron [테스트 DB] **jobid 44 ims-stock-drain `* * * * *`**(열린 재고 줄이 없으면 EF 를 안 부른다) · **45 ims-stock-diff `0 * * * *`** · **46 ims-stock-nightly `15 8 * * *`**(상품 nightly 43 · 08:00 뒤 15 분) · 킬 스위치 `select cron.alter_job(44, active := false);` · `(45, …)` · `(46, …)` · 기록 `supabase/ops/cron.sql`
 - ⭐ 실물(2026-10-10 · so-module §58-c): 첫 손 drain ok 11 · 22 숫자 · activate 11(Edmonton) · calls 13 · cost 147 · 6 s · ANN03907 Toronto 43 · Edmonton 1(Available = On hand · Committed 0) · ANN01001 Blue/Small 32 · 8 · **원장 −1 → 48 초 뒤 Shopify 42**(사람 손 없이 · Edmonton 은 안 보냄 = 위치 단위) · 구성원 끄기 → 0 · 0 · Sell when out of stock Off → 켜기 → 57 · 5 · On
 - 화면 = §3-h(shop v2)
+- ⭐ [2026-10-14 오후 · **판정 472** · stk-r1 · so-module §63-h] **Shopify 안에서 재고가 돌아오면 그 SKU 를 IMS 값으로 다시 보낸다** — 밀기는 IMS 가 움직일 때만 줄에 들어가고 보낸 숫자와 같으면 안 보내므로(422) Shopify 의 Restock(+1)이 다음 IMS 변동까지 남았다(실측 ANN01002 Toronto 보냄 34 · Shopify 35)
+```
+받기가 넣는다   ① 새 환불의 restockType CANCEL · RETURN · LEGACY_RESTOCK 줄(NO_RESTOCK 만 뺌 · 463 0 원 메아리 · 466 흡수와 무관)
+              ② IMS 오더 고치기(order_drain · restock true) — Shopify 가 0 원 Refund 의 CANCEL 줄로 남겨 ① 에 잡힌다(실측 #1009 · #1011)
+              ③ 처음 본 Shopify 취소 — 취소 원문에 restock 표지가 없어 그 오더 줄 제품 전부 · SO 생기기 전 취소는 넣지 않음(IMS 예약이 없었다 · 짐작)
+넣기           shop_stock_queue_add(스토어 · 제품들 · reason shopify_restock · force) 그대로 — 열린 줄 하나 · 낱개면 sellable 세트 더함 · 켜진 listing 만 · 다음 ims-stock-drain(1 분)이 Available 을 IMS 값으로 덮는다(force 는 skipped_same 을 넘는다)
+안전망         새벽 force(423 · cron 46 ims-stock-nightly 08:15 UTC)가 이미 있었다 — 어긋남은 길어야 다음 새벽까지였고 472 는 그 공백을 메운다
+물건이 돌아왔다  IMS 크레딧 노트로 IMS 재고를 올리는 것이 맞는 길(그러면 저절로 다시 보내진다)
+손으로         제품 화면 Shopify 카드 「Send stock now」(stock_push · force · 큐 없이)는 **family 단위**(ANN01001 ~ 01015 한 번에)
+실물           #1013 Shopify 취소(Restock) 19:41:56 → ANN01005 Toronto +1 → 19:42:01 큐 shopify_restock force → 19:43:06 drain ok → Toronto 0(IMS 값)
+```
 
 ### 3-e. 상품 정보 올리기 (판정 377 · 408 · 409 · 410 · 412 · 414)
 - 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ~~⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · 열림 · 판정 거리] 구현은 새벽에 되돌리지 않는다~~ → ⭐ [2026-10-10 · **판정 414** · Caleb 「A」] 새벽 맞추기(ims-shop-nightly)는 지금대로 — **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망**이다 · IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값(가격 · Draft 등)은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각: 새벽에 Shopify 를 읽어 대조 · 새벽에 hash 무시하고 전부 보냄(매일 4 천여 상품을 읽거나 쓰는 비용)
@@ -310,6 +323,13 @@ IMS 가 시킨 환불    refund_due 로 시킨 환불을 직원이 Shopify 에�
                   대상 PENDING · PARTIALLY_PAID · EXPIRED · 빈 값 · **AUTHORIZED 제외**(orderMarkAsPaid 가 승인 카드를 capture 한다) · 권한으로 보이는 오류는 한 번에 · 5 회면 경고 mark_paid_failed
                   Paid 뒤 IMS 가 다시 미수면 경고 shopify_paid_ims_owed(Shopify 는 되돌릴 명령이 없다) · 실물 #1007: Shopify 타임라인 「Asung IMS manually marked $1.49 CAD as paid」 · Gateway Manual · 손님 메일 없음 · 끝난 오더는 Shopify 가 자동 보관
                   기각: 열린 백오더가 있어도 Paid(457 이 거짓 refund_due) · orderCreateManualPayment(금액 칸 Shopify Plus 전용 · 메모 · 멱등 · 지우기 없음 · 시험 스토어는 Advanced)
+카드 캡처          [2026-10-14 오후 · 판정 470 · pay-3a] SO 가 생긴 뒤 Shopify 결제 상태가 바뀌면 거래(transaction)의 gateway 로 가른다 — 카드 거래(CAPTURE · SALE · SUCCESS · gateway 가 manual 아님)는 받기가 IMS 결제를 적는다(370 과 같은 창구 so_payment_add · method shopify)
+                  두 번 적지 않기 = 표지 표 shop_order_transaction(거래 GID 유니크 · 370 ⑦ 도 남긴다) · 손 표시 = gateway manual · gift_card · store_credit · 빈 값 → 지금처럼 paid_in_shopify(468) · test 거래는 오더 test 와 같을 때만
+                  결제 손님 = 청구처 · 붙이기 = 인보이스 남은 돈 → 열린 가족 SO 보증금 → 받아 둔 돈(창구 규칙 그대로) · 정보 card_payment_recorded(settled — 열린 경고 아님) · 금액 · 통화 어긋남 · 창구 거부 = card_payment_failed(받기는 끝까지)
+                  실물 #1015 Bogus 13.49 Capture → IMS 결제 13.49(계좌 _104_ · 보증금 SO-25094) · 표지 1 · 경고 없음 · 재받기에 두 번 안 적음 · 기각: 경고만(카드 캡처마다 손일 · 빠뜨리면 손님이 미수 · 연체로 보이고 독촉)
+운영 결제 사실      [판정 471] asung.ca = 전부 Net(Shopify 결제 없음 · 운임은 IMS 에서 나중) · aonebeauty.com = 카드 · PayPal · 직원이 Shopify 에서 수동 Capture · 운임은 Shopify 에서 따로 → aone 결제는 470 이 덮는다
+                  370 ⑦(받는 순간 PAID · aone 만 · gateway 안 봄)은 그대로 · ⑦ 을 gateway 로 가르는 차수는 **asung.ca 에 checkout 결제를 켤 때 · aone 을 자동 캡처로 바꿀 때 · aone 드래프트에 Mark as paid 를 쓰게 될 때** 가운데 하나보다 먼저(so-module 미룬 230)
+                  시험 스토어 결제 캡처 = Manually(aone 과 같은 조건 · 되돌리지 않는다 — Automatically 면 asung 종류 시험 스토어의 checkout 카드 주문이 이 미룬 틈으로 들어간다) · PayPal 거래 모양은 못 봤다(미룬 231)
 ```
 
 ### 4-f. 위치 · 합친 오더 (판정 445 · 442)
@@ -329,6 +349,7 @@ IMS 가 시킨 환불    refund_due 로 시킨 환불을 직원이 Shopify 에�
 환불 흡수          [2026-10-14 · 판정 466] IMS 가 refund_due 로 시킨 환불(줄 GID · 수량이 흡수 몫 안)은 경고 없음 · 흡수된 환불이 있는 받기는 updated_after_so 도 없음(4-e)
 결제 표시 창       [2026-10-14 · 판정 468] IMS 가 보낸 결제 표시는 shop_order.paid_push_at −5 초 ~ +2 분(받는 오더의 updatedAt) 창으로 거른다 — paid_in_shopify · updated_after_so 둘 다 없음
                   last_push_at(오더 고치기 · 발송 메아리 447 ⓑ · 463)과 칸을 나눈다 — 같이 쓰면 그 2 분의 직원 Mark as paid · 0 원 환불 판정이 섞인다 · 실물 #1007 paid_push_at 이 updatedAt 보다 먼저
+재고 메아리        [2026-10-14 오후 · 판정 472] 0 원 메아리 환불(463 이 경고를 거르는 것)도 restockType CANCEL 이면 재고 다시 보내기로 잡힌다 — 경고는 걸러도 Shopify 재고는 움직였다(오더 고치기 restock true · 실측 #1009 · #1011 · §3-d)
 ```
 
 ---
@@ -399,8 +420,10 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 ~~⑩ 오더 고치기(orderEdit) 의 손님 메일 끄기 · 환불이 남은 몫을 지우는가 · orderMarkAsPaid 의 사용자 권한이 앱 토큰에 걸리는가(판정 441 · 439 · 449 · so-module 미룬 209 → 210 · 211 · 212)~~ → ✅ 셋 다(so-module §63-c) — 오더 고치기 메일 없음(#1011) · Unfulfilled 환불이 currentQuantity 를 줄인다(③-b · 466) · mark_orders_as_paid 가 앱 토큰에서 막히지 않았다(#1007 · 메일 없음)
 ⑪ 이미 Ready 로 받아 적은 ready_at(FO updatedAt)이 Mark as ready 시각과 같은가(so-module 미룬 217)
 ⑫ UPS 가 Shopify 운송사 목록에 있는가(판정 450 · 미룬 218)
-⑬ [판정 후보 470] Shopify Restock(CANCEL · RETURN)이 Shopify available 만 +1 — IMS 재고 밀기는 「지난번 보낸 값과 같으면 건너뜀」이라 다음 IMS 재고 변동까지 Shopify 가 더 판다(Toronto ANN01002 IMS 34 · Shopify 35 → 반품 환불 뒤 36) · order_drain 의 restock true 도 같다(so-module 미룬 222)
-⑭ 468 거르기가 PARTIALLY_PAID → PARTIALLY_PAID(상태가 안 바뀐 두 번째 결제 표시)를 못 잡는다(so-module 미룬 225) · AUTHORIZED 오더 시험(미룬 228 ③)
+~~⑬ [판정 후보 470] Shopify Restock(CANCEL · RETURN)이 Shopify available 만 +1 — IMS 재고 밀기는 「지난번 보낸 값과 같으면 건너뜀」이라 다음 IMS 재고 변동까지 Shopify 가 더 판다(Toronto ANN01002 IMS 34 · Shopify 35 → 반품 환불 뒤 36) · order_drain 의 restock true 도 같다(so-module 미룬 222)~~ → ✅ 판정 472(후보 470 의 답 · stk-r1 · #1013 취소 실물 · §3-d)
+~~⑭ 468 거르기가 PARTIALLY_PAID → PARTIALLY_PAID(상태가 안 바뀐 두 번째 결제 표시)를 못 잡는다(so-module 미룬 225) · AUTHORIZED 오더 시험(미룬 228 ③)~~ → ⑭ 468 거르기의 PARTIALLY_PAID → PARTIALLY_PAID(미룬 225)는 그대로 열림 · ✅ AUTHORIZED 오더 시험(#1014 · Capture → PAID · so-module §63-h-2)
+✅ [2026-10-14 오후] so-module 미룬 228 확인 거리 셋 — ① 웹 오더 확정이 이어받기를 한다(#1013 → SO-25092 · SO-25088 백오더 superseded) ② 0 개 Shopify 오더는 Voided · Fulfillment not required · $0.00(#1009 · 취소 아님 · 메일 없음) ③ AUTHORIZED(#1014)
+⑮ aone 첫 PayPal 오더의 거래 원문 — gateway 글자 · AUTHORIZATION → CAPTURE 로 오는지(판정 471 · so-module 미룬 231) · 수동 결제 방식(현금 · 수표)의 gateway 글자(미룬 233 · manual 로 짐작)
 ```
 
 ## 6. 갱신
@@ -417,6 +440,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-13 · so-module §61 · docs-1013] 상태 줄에 ⑤ 판정 · §2-h 에 440 · 449 포인터 · §2-g 「일반 웹 결제」 정정(→ §61-c) · §4-a · 4-b 를 판정 436 ~ 449 로(옛 글귀 ~~ ~~ · 4-b 크레딧 줄 → 440 바뀜) · §4-c 미룬 줄 하나 · §4-d 운송사 · 송장 · 고침 · §4-e 나가지 않을 몫 · 환불 · 결제 상태 · §4-f 위치 · 합친 오더 · §4-g 메아리 · 되돌리기 새로 · §5 ⑦ 정정 · ⑧ ~ ⑩ 새로 · §7 Caleb 넷
 - [2026-10-13 · so-module §62 · docs-1013b] 상태 줄에 ⑤ 짓기 끝 · §4-b Pickup 오더 줄 · §4-d Purolator · 운송사 표 · 미룬 208 닫힘 · §4-g 메아리 지어짐 · §4-h 짓기 실물 새로(판정 450 ~ 456 · cron 49 · kind 셋 · 받아 적기 둘) · §5 ⑧ ⑨ 닫힘 · ⑪ ⑫ 새로 · §7 갱신
 - [2026-10-14 · so-module §63 · docs-1014] 상태 줄에 ⑤ 나가지 않을 몫 · 확인함 · 결제 상태 끝 · §2-h 468 · 469 포인터 · §4-e 457 ~ 462 · 466 · 468 · 469 · orderMarkAsPaid 실물(옛 「✅ VALID」 · 「시험」 ~~ ~~) · §4-g 463 · 466 · 468(paid_push_at 창) · §4-i 경고 확인함 · 화면 안 A 새로 · §5 ⑩ 닫힘 · ⑬ ⑭ 새로 · §7 write_order_edits 닫힘
+- [2026-10-14 오후 · so-module §63-h · docs-1014b] 상태 줄 · §2-h 470 · 471 포인터 · §3-d 판정 472(받기의 다시 보내기 · nightly 안전망 · family 단위 Send stock now) · §4-e 카드 캡처(470) · 운영 결제 사실(471 · ⑦ 미룬 조건 셋) · §4-g 재고 메아리(472) · §5 ⑬ 닫힘 · ⑭ 반 닫힘 · 미룬 228 ① ② ③ 닫힘 · ⑮ 새로
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 

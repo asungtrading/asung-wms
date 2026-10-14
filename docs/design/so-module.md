@@ -8428,5 +8428,63 @@ Caleb 이 준 업무 사실 (이 대화)
 
 ```
 판정 후보 470(Restock 재고) · Backorders 탭 재구성(464 · 465 · 미룬 220) · 백오더 입고 알림 이관(221) · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
-다음 판정 번호: 470
+~~다음 판정 번호: 470~~ → 63-h(판정 470 ~ 472 · 다음 판정 번호 473)
 ```
+
+### 63-h 2026-10-14 오후 — 판정 470 ~ 472 · 카드 캡처 자동 기록 · 운영 결제 사실 · Restock 다시 보내기 (pay-3a · stk-r1 · so v5t5 · wo v4c · 회사 PC)
+
+⭐ 닫힌 것: **Shopify 카드 캡처 → IMS 결제 자동 기록**(판정 470 · pay-3a) · **Shopify Restock → 그 SKU 를 IMS 값으로 다시 보냄**(판정 472 · stk-r1 · 63-a 끝 「판정 후보 470」 의 답 — 번호는 472) · 확인 거리 셋(미룬 228 ① ② ③)
+⭐ 새 판정 470 ~ 472 · 원천 = 지시서 `~/asung/prompts/docs-1014b.md` 📌 A ~ D(이 절의 원천) · 설계 정본 `shopify-integration.md` §2-h · §3-d · §4-e · §4-g · 다음 판정 번호 **473**
+⚠️ 번호 주의: 63-a 끝 · 63-f 222 · 63-g 의 「판정 후보 470(Restock)」 은 판정 **472** 가 되었다 · 판정 470 은 카드 캡처다(옛 글은 그대로 둔다)
+
+#### 63-h-1 판정
+
+| 번호 | 원천 | 판정 |
+|---|---|---|
+| 470 | docs-1014b A | [Caleb · 안 1 · 판정 370 을 넓힘] SO 가 생긴 뒤 Shopify 결제 상태가 바뀌었을 때 **거래(transaction)의 gateway 로 가른다** — 카드 거래(manual 이 아닌 CAPTURE · SALE 성공)는 IMS 가 결제를 자동으로 적는다(370 과 같은 모양 · 거래 GID 로 두 번 적지 않음) · 경고 대신 처리된 정보 한 줄 · manual 게이트웨이(Mark as paid · 현금 · 수표 표시)는 지금처럼 경고 paid_in_shopify(468) · 기각 안 2(경고만 — 카드 캡처마다 손일 · 빠뜨리면 손님이 미수 · 연체로 보이고 독촉이 간다) · 실측 근거: #1014 Bogus AUTHORIZATION → CAPTURE · gateway bogus vs #1007 Mark as paid · Shopify 타임라인 Gateway Manual |
+| 471 | docs-1014b A | [Caleb · 안 2] 운영 사실: **asung.ca 는 전부 Net 조건**이라 Shopify 에서 결제가 일어나지 않고 운임은 IMS 에서 나중에 넣는다 · **aonebeauty.com 은 신용카드 · PayPal** 이고 직원이 Shopify 에서 **수동으로 Capture** 하며 운임은 Shopify 에서 따로 내려온다 ⇒ aone 결제는 판정 470 이 덮는다 · 판정 370 ⑦(받는 순간 PAID · aone 만 · gateway 를 안 봄)은 그대로 · **⑦ 을 gateway 로 가르는 차수는 다음 셋 가운데 하나가 생기기 전에 먼저 한다**: asung.ca 에 checkout 결제를 켤 때 · aone 을 자동 캡처로 바꿀 때 · aone 드래프트에 Mark as paid 를 쓰게 될 때 · 기각 안 1(지금 고치기 — 지금 운영에서 그 틈을 밟는 길이 거의 없다) |
+| 472 | docs-1014b A | [Caleb · 안 1] Shopify 안에서 재고가 돌아오는 일(Restock)이 생기면 **그 SKU 를 IMS 값으로 다시 보낸다** — 받기가 ① 새 환불의 restockType CANCEL · RETURN · LEGACY_RESTOCK(NO_RESTOCK 만 뺌) ② IMS 오더 고치기(0 원 Refund 의 CANCEL 줄로 잡힘 · 실측 #1009 · #1011) ③ 처음 본 Shopify 취소(취소 원문에 restock 표지가 없어 그 오더 줄 제품 전부)를 재고 큐에 force 로(shop_stock_queue_add · reason shopify_restock) · 물건이 실제로 돌아왔다면 IMS 크레딧 노트로 IMS 재고를 올리는 것이 맞는 길 · 기각 안 2(restock false · 직원이 체크 끄기 — 기본 켜짐) · 안 3(정기 전체 대조 — **이미 있다**: cron 46 ims-stock-nightly 매일 08:15 UTC 가 켜진 변형 전부를 force 로 덮는다 · 그래서 어긋남은 길어야 다음 새벽까지였고 472 는 그 공백을 메운다) · SO 생기기 전 취소는 넣지 않음(IMS 예약이 없었다 · 짐작) |
+
+- 470 구현(pay-3a): 표지 표 `shop_order_transaction`(거래 GID 유니크) · 손 표시 = gateway manual · gift_card · store_credit · 빈 값 · test 거래는 오더 test 와 같을 때만 · 결제 손님 = 청구처 · 붙이기 = 인보이스 남은 돈 → 열린 가족 SO 보증금 → 받아 둔 돈(창구 규칙 그대로) · 정보 `card_payment_recorded`(settled) · 거부 `card_payment_failed` · 370 ⑦ 도 표지를 남김
+- 471 Caleb: 「paypal 의 작동방식은 잘 모르겠지만 캡쳐 페이먼트를 해야 하는 것은 맞다」 ⇒ PayPal 거래의 gateway 글자 · AUTHORIZATION → CAPTURE 로 오는지는 **못 봤다**(aone 운영 첫 PayPal 오더에서 확인 · 미룬 231)
+- 471 시험 스토어 결제 캡처 설정 = **Manually**(aone 과 같은 조건 · 되돌리지 않는다 · 「Automatically at checkout」 이면 시험 스토어(asung 종류) checkout 카드 주문이 471 의 미룬 틈으로 들어간다)
+- 채우는 것 · 바뀌는 것: 370 → 470(넓힘 · ⑦ 은 그대로 · 471) · 468 의 「Shopify 표시로 IMS 결제 자동 기록 금지」 는 **manual 표시**에 남는다(카드 거래는 470) · 63-a 판정 후보 470 · 미룬 222 · 227 → 472 · 423(새벽 force)은 472 의 안전망으로 그대로
+
+#### 63-h-2 실물 사실 (테스트 DB · 시험 스토어 · 10-14 오후)
+
+- 확인 거리 ①(웹 오더 확정의 이어받기 · 미룬 228 ①): #1013 → SO-25092 확정 17:33:01 · 같은 순간 SO-25088 ANN01005 백오더 예약 released_reason closed · 장부 so_backorder_close end_kind superseded · qty_open 1 · qty_taken 1 · taken_by SO-25092 · SO-25088 은 confirmed 그대로(판정 11 — 이어받음으로 오더를 닫지 않음 · 석 달 만료 스윕)
+- 확인 거리 ②(0 개 Shopify 오더 · 미룬 228 ②): 이어받기 뒤 #1009 에 나가지 않을 몫 1 → 17:48 스캔 큐 · 17:50:17 order_drain ok → Shopify #1009 **Voided · Fulfillment not required · 0 items · $0.00**(취소 아님 · 줄 그어지지 않음) · 손님 메일 없음 · 거짓 경고 없음(VOIDED 는 468 · 469 대상 밖)
+- 확인 거리 ③(AUTHORIZED · 미룬 228 ③): Bogus 켬 · 결제 캡처 Manually · #1014 Online Store · **Test order**(is_test t — test 오더도 SO 가 된다 · 운영 test 오더 처리는 미룸 232) · Pickup Toronto → AUTHORIZED · SO-25093 · IMS 결제 0 · 469 대상 밖 → Capture → PAID · paid_in_shopify(470 전) · 거래 raw AUTHORIZATION / CAPTURE · SUCCESS · bogus · test true
+- 470 실물: #1015(Bogus 13.49 = 상품 1.49 + Shopify 운임 12.00 · 시험 스토어가 asung 종류라 운임이 SO 에 안 들어감 → freight_not_applied) Capture → IMS 결제 13.49(shopify · 계좌 _104_ · 보증금 SO-25094) · 표지 1(CAPTURE · bogus · ingest) · card_payment_recorded(settled · 18:51) · 그 받기에 paid_in_shopify · updated_after_so 없음 · 태그 저장 재받기 → 결제 1 그대로(그 받기에는 지금 규칙대로 updated_after_so 하나 · 18:56 — 결제와 무관한 바뀜)
+- 472 실물: 「Send stock now」(제품 화면 Shopify 카드)는 **family 단위**(ANN01001 ~ 01015 한 번에) · #1013 Shopify 취소(Restock) 19:41:56 → Orange(ANN01005) Toronto **+1** → 19:42:01 큐 shopify_restock force → 19:43:06 drain ok → Toronto **0**(IMS 값) · SO-25092 자동 취소(voided · 434 는 so_cancel(…, reopen_superseded false) — 이어받은 SO-25088 백오더는 다시 열지 않음 · 464 기준 「잃은 판매」)
+- Shopify 쪽: 발송 · 결제가 끝난 오더는 Shopify 가 자동 보관(archived) · orderMarkAsPaid · 오더 고치기 · 결제 캡처 어느 것도 손님 메일 없음(확인 메일 · 픽업 메일만 있었다)
+
+#### 63-h-3 짓기 · 커밋 (git log 원문 · 두 레포)
+
+| 차수 | 레포 · 커밋 | 요지 |
+|---|---|---|
+| pay-3a | asung-wms `760c0d7` · `20261014183133_pay_3a_card_capture.sql` | 판정 470 — 표지 표 shop_order_transaction · ingest 재발행(카드 거래 → so_payment_add · card_payment_recorded · card_payment_failed · 반환 card_payments) · shop_order_process ⑦ 재발행(표지) · 시험 OK 28 · 확인 27 · 실물 #1015(pay-2a · 2b `9afa520` 위에) |
+| stk-r1 | asung-wms `45a1e15` · `20261014192303_stk_r1_restock_resend.sql` | 판정 472 — ingest 재발행(restock 줄 · 처음 본 취소 → shop_stock_queue_add · reason shopify_restock · force · 반환 stock_resend · stock_resend_queued) · 시험 OK 19 · 확인 18 · 실물 #1013 취소 |
+| so v5t5 · wo v4c | asung-ims `26db7ef` | 웹 경고 이름표 card_payment_recorded(처리됨) · card_payment_failed |
+
+#### 63-h-4 미룬 것 — 63-f 229 에 이어 붙임(222 · 223 · 227 · 228 닫힘)
+
+- 230 판정 471 의 ⑦ gateway 가르기 — 판정 370 ⑦(받는 순간 PAID · aone 만 · gateway 를 안 봄)을 거래 gateway 로 · **다음 셋 가운데 하나가 생기기 전에 먼저**: asung.ca 에 checkout 결제를 켤 때 · aone 을 자동 캡처로 바꿀 때 · aone 드래프트에 Mark as paid 를 쓰게 될 때
+- 231 aone 첫 PayPal 오더 거래 원문 확인(gateway 글자 · AUTHORIZATION → CAPTURE 로 오는지 · 471)
+- 232 운영의 test 오더(is_test)가 SO 가 되는 것 — 운영 스토어에서 직원이 테스트 결제로 주문하면 진짜 SO(#1014 실물)
+- 233 수동 결제 방식(현금 · 수표)의 gateway 글자(pay-3a 이견 3 · manual 로 짐작) — 다르면 470 의 손 표시 목록을 넓힌다
+- (포인터) 미룬 191 웹 운임 판정에 실물 근거: #1015 운임 12.00 이 보증금으로 들어가 인보이스 1.68 뒤 11.81 이 받아 둔 돈으로 남는 모양(asung 종류 스토어 · aone 은 ⑦ 옆 운임 길이 있음 — 짐작)
+- (포인터) 미룬 224 order_drain 의 last_push_at 을 commit 뒤에 쓰는 순서(pay-2b 이견 2) — 그대로 열림
+- (닫힘) 미룬 222 restock 재고(판정 후보 470) — **판정 472 · stk-r1 · #1013 실물**
+- (닫힘) 미룬 223 aone 카드 AUTHORIZED → PAID(capture)를 받기가 자동으로 읽을지 — **판정 470 · pay-3a · #1015 실물**
+- (닫힘) 미룬 227 「restock 안 함」 직원 경고 코드(470 과 함께) — (472 로 닫힘 — 다시 보내기로 대신)
+- (닫힘) 미룬 228 확인 거리 셋 ① ② ③ — 63-h-2(① 이어받기 함 · ② Shopify 가 0 개 오더를 Voided 로 받음 · ③ AUTHORIZED → Capture 실물)
+- (닫힘 · 짐작 그대로) 472 의 SO 생기기 전 취소 — 넣지 않는다(IMS 예약이 없었다 · 판정 472 원문)
+
+#### 63-h-5 다음 (Caleb 이 고른다)
+
+```
+Backorders 탭 재구성(464 · 465 · 미룬 220) · 백오더 입고 알림 이관(221) · ⑦ gateway 가르기(230 · 조건 셋 전에) · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
+다음 판정 번호: 473
+```
+
