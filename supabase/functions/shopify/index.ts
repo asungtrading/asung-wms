@@ -33,6 +33,9 @@
 //                      to_remove = max(unfulfilled − can_ship, 0) · 전부 0 이면 받아 적기(removed_qty 만) · 아니면 orderEditBegin → SetQuantity(restock true) → Commit(notifyCustomer false) → removed_qty = 원래 − 지금 · shop_order.last_push_at(메아리 ⓑ) · 5 회 실패면 경고 order_edit_failed
 //                      보낼 것이 0 이면 우리 발송을 받아 적는다(adoptExisting · 송장 겹침 / 큐 뒤 송장 없는 발송) · 아니면 skipped + 경고 fulfill_nothing_left · 머리 하나라도 error 면 큐를 열어 두고 attempts + 1 · 5 회면 큐 done error + 경고 fulfill_failed
 //                      쓰기 = 세 표(shop_fulfillment · line · 큐)는 service_role REST PATCH(stock_drain 의 patchQueue 와 같은 길) · shop_order 경고는 rpc/shop_order_warn(ful-2a · 한 문장 || 라 ingest 경고와 안 겹친다) · shop_system_enter 는 안 부른다
+//   · paid_drain(cron 5 분 · 직원 · pay-2b · DB pay-2a 20261014162538 · pay-1a 20261014154103 · 판정 449 · 469 · 468 · 순수 함수 ../_shared/shopify-paid.ts): 오더 큐 kind mark_paid(15 분 스캔 shop_paid_scan 이 「다 결제」 오더를 넣는다) ≤ MARK_PAID_FETCH · 40 s
+//                      행마다 Shopify 오더를 읽고(취소 · PAID · AUTHORIZED · REFUNDED 류면 skipped) → rpc shop_order_paid_state 로 IMS 쪽을 다시 판정(ready 아니면 skipped not_ready_anymore) → shop_order.paid_push_at 을 보내기 전에 적고(468 창 · last_push_at 은 안 적는다)
+//                      → orderMarkAsPaid(input: {id}) → 응답 PAID 확인 → 큐 done ok · 실패는 5 회(권한으로 보이는 오류는 1 회)면 done error + 경고 mark_paid_failed · order_drain 과 따로(action · 큐 kind · cron) — 섞으면 한쪽 실패가 다른 쪽을 막는다
 //   호출 한 번 = shop_call_log 한 줄(drain 은 건마다) · 90 일 지난 줄은 호출 끝에 지운다.
 //   배포: supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.shopify] verify_jwt=false)
 // ============================================================
@@ -44,6 +47,7 @@ import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOr
 import { secretNames } from "../_shared/shopify.ts";
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
 import { beginOrderEdit, isPaid, NoChangeError, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_LINES_QUERY, planEditSteps, planOrderEdit, removedQty, runOrderEdit, runTrySet, type DbLine, type LiveLine, type Plan, type TrySetResult } from "../_shared/shopify-edit.ts";
+import { MARK_PAID_FETCH, MARK_PAID_MS, markPaidFailedMessage, markPaidFinal, processMarkPaid, type MarkPaidOut, type PaidState, type PayOrder } from "../_shared/shopify-paid.ts";
 import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -53,7 +57,7 @@ const DRAIN_MIN_AVAILABLE = 500;
 const MEDIA_REREAD_MAX = 2;                                                                        // 직원 push 만 · 응답 사진이 처리 중이면 2 초 뒤 다시 읽기(최대 2 회) · drain 은 안 한다(회차 시간 · 다음 push 의 직전 읽기가 잡는다)
 const MEDIA_REREAD_WAIT_MS = 2000;                                                                   // 한도 남은 점수가 이 아래면 이번 회차를 멈춘다(다음 분에 이어서)
 const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ims-cron-key", "Access-Control-Allow-Methods": "POST, OPTIONS" };
-const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain", "fulfill_drain", "order_drain", "order_edit_preview"];
+const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain", "fulfill_drain", "order_drain", "order_edit_preview", "paid_drain"];
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -812,6 +816,63 @@ async function orderDrain(caller: Caller, t0: number): Promise<Response> {
   return json(200, { ok: true, drained: out.length, ...summary, results: out, stopped, more_open: open, ms: Date.now() - t0 });
 }
 
+// ── 결제 표시 보내기(pay-2b · 판정 449 · 469) ─────────────────────────────────────────────────────
+// 큐 kind mark_paid(DB pay-2a shop_paid_scan 이 넣는다) · 한 행 = _shared processMarkPaid(① Shopify 읽기 → ② 가르기 → ③ rpc shop_order_paid_state 다시 판정 → ④ paid_push_at 을 보내기 전에 → ⑤ orderMarkAsPaid → ⑥ 응답 PAID 확인)
+//   order_drain 과 따로(action · 큐 kind · 시간 한도 · cron ims-paid-drain) — 오더 고치기(여러 단계 · 무거움)와 결제 표시(한 번)를 섞으면 한쪽 실패가 다른 쪽을 막는다
+//   실패: attempts + 1 · 5 회 또는 권한으로 보이는 오류(final · 첫 실물에서 문구 확인)면 done error + 경고 mark_paid_failed(원문은 큐 error 에 raw 로 · shop_call_log 에도) · paid_push_at 은 실패해도 지우지 않는다(창이 2 분) · last_push_at 은 적지 않는다(447 ⓑ · 463 의 표지)
+async function paidDrain(caller: Caller, t0: number): Promise<Response> {
+  const rows: OrderQueueRow[] = await sbGet("shop_order_queue?select=id,shop_order_id,kind,attempts,queued_at,payload&done_at=is.null&kind=eq.mark_paid&order=queued_at.asc,id.asc&limit=" + MARK_PAID_FETCH);
+  const stores: Record<string, StoreRow | undefined> = {};
+  const out: Array<Record<string, unknown>> = [];
+  const counts = { marked: 0, skipped: 0, failed: 0, retry: 0 };
+  const notes: string[] = [];
+  let stopped: string | null = null;
+  for (const q of rows) {
+    stopped = drainStop(Date.now() - t0, MARK_PAID_MS);
+    if (stopped) break;
+    const tq = Date.now();
+    await patchOrderQueue(q.id, { started_at: nowIso() });
+    const o: { id: string; store_id: string; shopify_order_gid: string; name: string } | undefined = (await sbGet("shop_order?select=id,store_id,shopify_order_gid,name&id=eq." + q.shop_order_id + "&limit=1"))[0];
+    let r: MarkPaidOut;
+    try {
+      if (!o) throw new Error("shop_order " + q.shop_order_id + " not found");
+      if (!stores[o.store_id]) stores[o.store_id] = (await sbGet("shop_store?select=id,code,shop_domain,secret_prefix,is_active,label,kind&id=eq." + o.store_id + "&limit=1"))[0];
+      const store = stores[o.store_id];
+      if (!store || !store.is_active) throw new Error("store missing or switched off");
+      r = await processMarkPaid({
+        readOrder: async () => {                                                                   // ① 지금 있는 ORDER_LINES_QUERY(cancelledAt · displayFinancialStatus · updatedAt · totalOutstandingSet)
+          const g = await shopifyGql(store, ORDER_LINES_QUERY, { id: o.shopify_order_gid });
+          if (!g.ok) return { order: null, cost: g.cost.actual ?? 0, error: gqlErr(g) };
+          return { order: (g.data as { order?: PayOrder | null } | null)?.order ?? null, cost: g.cost.actual ?? 0, error: null };
+        },
+        paidState: async () => (await sbRpc("shop_order_paid_state", { p_shop_order_id: o.id })) as PaidState | null,   // ③ IMS 쪽 다시(pay-2a)
+        stampPaidPush: async (iso) => { await sbWrite("PATCH", "shop_order?id=eq." + o.id, { paid_push_at: iso }); },   // ④ 보내기 전에(468 창)
+        gql: (qy, v) => shopifyGql(store, qy, v),
+      }, o.shopify_order_gid);
+    } catch (e) {
+      r = { status: "error", reason: null, error: String((e as Error)?.message ?? e).slice(0, 400), final: false, shopify_status: null, outstanding: null, cost: 0, raw: null, steps: [] };
+    }
+    const attempts = q.attempts + 1;
+    let resultKey: string;
+    if (r.status === "error") {
+      if (markPaidFinal(attempts, r.final)) {                                                      // 5 회 · 또는 권한으로 보이는 오류 → 한 번에 닫고 경고
+        await patchOrderQueue(q.id, { done_at: nowIso(), result: "error", attempts, error: (r.error ?? "?") + (r.raw ? " · raw " + r.raw : "") });
+        if (o) await warnOrder(o.id, "mark_paid_failed", markPaidFailedMessage(o.name, attempts, r.error));
+        resultKey = "error"; counts.failed++;
+      } else { await patchOrderQueue(q.id, { started_at: null, attempts, error: r.error }); resultKey = "retry"; counts.retry++; }
+    } else {
+      await patchOrderQueue(q.id, { done_at: nowIso(), result: r.status, attempts, error: r.reason });   // ok · skipped — 응답 상태 · 까닭은 error 칸에(result 는 ok | skipped | error 만)
+      resultKey = r.status; if (r.status === "ok") counts.marked++; else counts.skipped++;
+    }
+    notes.push((o?.name ?? q.shop_order_id.slice(0, 8)) + " → " + resultKey + (r.reason ? " · " + r.reason.slice(0, 160) : "") + (r.error ? " · " + r.error.slice(0, 160) : "") + (r.final ? " · final" : ""));
+    await recordCall({ store_id: o?.store_id ?? null, action: "paid_drain", ok: resultKey !== "error", http_status: null, query_cost: r.cost, throttle_available: null,
+      error: "queue " + q.id + " " + notes[notes.length - 1] + (r.raw && resultKey === "error" ? " · raw " + r.raw.slice(0, 200) : ""), by_staff: caller.staffId, ms: Date.now() - tq });
+    out.push({ queue_id: q.id, shop_order_id: q.shop_order_id, name: o?.name ?? null, result: resultKey, attempts, shopify_status: r.shopify_status, outstanding: r.outstanding, reason: r.reason, error: r.error, final: r.final, steps: r.steps, cost: r.cost, ms: Date.now() - tq });
+  }
+  const open = (await sbGet("shop_order_queue?select=id&done_at=is.null&kind=eq.mark_paid&limit=1")).length > 0;
+  return json(200, { ok: true, picked: rows.length, drained: out.length, marked: counts.marked, skipped: counts.skipped, failed: counts.failed, retry: counts.retry, notes, results: out, stopped, more_open: open, ms: Date.now() - t0 });
+}
+
 const FUL_SELECT = "shop_fulfillment?select=id,so_id,shop_order_id,store_id,carrier_id,carrier_name,carrier_kind,shopify_company,tracking_numbers,notify_customer,status,attempts,created_at,shopify_fulfillment_gid,fulfillment_order_gid,ready_at,picked_up_at";
 // 큐 종류마다 — 어느 머리를 집는가 · 실패하면 머리에 무엇을 적는가 · 5 회 뒤 경고 코드(ful-1b)
 const FUL_KIND: Record<FulfillKind, { filter: string; send: (store: StoreRow, f: FulRow) => Promise<FulOut>; warn: string; failPatch: (msg: string, f: FulRow) => Record<string, unknown> }> = {
@@ -925,6 +986,7 @@ Deno.serve(async (req) => {
     if (action === "orders_poll") return await ordersPoll(caller, t0);
     if (action === "fulfill_drain") return await fulfillDrain(caller, t0);                       // ful-2
     if (action === "order_drain") return await orderDrain(caller, t0);                           // ful-4b
+    if (action === "paid_drain") return await paidDrain(caller, t0);                             // pay-2b
     if (action === "order_edit_preview") return await orderEditPreview(String(body.order ?? ""), body.try_set === true, caller, t0);   // ful-4b: begin 까지만 · commit 없음 · 원문 보기 · ful-4b2 try_set: 후보 ⓐ · ⓑ setQuantity 까지(commit 없음)
 
     // ping · push — 스토어 필요

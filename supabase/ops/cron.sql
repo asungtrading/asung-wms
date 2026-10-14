@@ -707,3 +707,51 @@ select cron.schedule('ims-order-drain', '*/5 * * * *', $job$
     body := '{"action":"order_drain"}'::jsonb, timeout_milliseconds := 45000)
   where exists (select 1 from public.shop_order_queue q where q.done_at is null);
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid ⬜ · ⬜(등록 뒤 Caleb 출력 · cron.job 실측) pay-2b (2026-10-14 · 판정 449 · 469 · 468 · 설계 shopify-integration §4-e · so-module §61 · DB pay-2a 20261014162538 · pay-2b 마이그레이션 · EF paid_drain)
+--   ⚠️ 운영에는 등록하지 마라(운영에는 표 · 함수 · EF 가 없다) · 전환 때 함께(asung-workflow §4) · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   세 문장 — 순서대로 · 셋 다 EF paid_drain 배포(supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg) 와 pay-2b 마이그레이션 뒤에
+--   ① ims-order-drain(jobid 51) 의 거름 조건을 kind = 'order_edit' 로 좁힌다 — 지금은 shop_order_queue 의 열린 줄이면 kind 를 안 보고 EF 를 부르는데 EF order_drain 은 order_edit 만 집으므로 mark_paid 열린 줄이 있으면 5 분마다 헛걸음(pay-0 · pay-2a §3)
+--      command 는 지금 것을 그대로(열쇠 포함) 쓰고 where 만 바꾼다 — 열쇠를 이 파일에 적지 않으므로 do 블록이 jobid 51 의 command 에서 열쇠를 꺼내 format(%L) 로 넣는다(ful-2 · 49 와 같은 결)
+--   ② ims-paid-scan : 15 분마다(분 8 · 23 · 38 · 53 — ims-unshipped-scan 3 · 18 · 33 · 48 · orders_poll */15 와 어긋나게) — DB 함수 shop_paid_scan() 을 postgres 가 직접(EF · Shopify 호출 0)
+--                     created 웹 오더마다 「다 결제」(판정 469 · shop_order_paid_state ready)면 큐 shop_order_queue(mark_paid) · Shopify PAID 인데 IMS 가 다시 미수면 경고 shopify_paid_ims_owed
+--   ③ ims-paid-drain : 5 분마다 — ⭐ 큐 열린 mark_paid 줄이 0 이면 net.http_post 를 하지 않는다(where exists · kind 를 본다) · EF paid_drain 은 mark_paid 줄 ≤ 20 · 40 s · 행마다 Shopify 읽기 → 가르기 → rpc shop_order_paid_state → paid_push_at → orderMarkAsPaid → PAID 확인 · 5 회(권한은 1 회) 실패면 경고 mark_paid_failed
+--   등록(대시보드 SQL Editor 또는 psql · 테스트 프로젝트 · 열쇠는 51 에서):
+--   do $$ declare k text; begin
+--     select substring(command from 'x-ims-cron-key'', ''([^'']+)') into k from cron.job where jobid = 51;
+--     if k is null or length(k) < 32 then raise exception 'cron key not found on jobid 51'; end if;
+--     if exists (select 1 from cron.job where jobname in ('ims-paid-scan', 'ims-paid-drain')) then raise exception 'ims-paid-scan / ims-paid-drain already scheduled — alter or unschedule first'; end if;
+--     perform cron.alter_job(51, command := format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"order_drain"}'::jsonb, timeout_milliseconds := 45000)
+--       where exists (select 1 from public.shop_order_queue q where q.done_at is null and q.kind = 'order_edit');
+--     $j$, k));
+--     perform cron.schedule('ims-paid-scan', '8,23,38,53 * * * *', $j$ select public.shop_paid_scan() $j$);
+--     perform cron.schedule('ims-paid-drain', '*/5 * * * *', format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"paid_drain"}'::jsonb, timeout_milliseconds := 45000)
+--       where exists (select 1 from public.shop_order_queue q where q.done_at is null and q.kind = 'mark_paid');
+--     $j$, k));
+--   end $$;
+--   확인: select jobid, jobname, schedule, active, command from cron.job where jobname in ('ims-order-drain', 'ims-paid-scan', 'ims-paid-drain') order by jobid;  → 새 jobid 둘을 이 블록의 ⬜ 에 적는다 · 51 의 command 끝이 and q.kind = 'order_edit' 인지
+--   최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname in ('ims-paid-scan', 'ims-paid-drain')) order by start_time desc limit 10;
+--   킬 스위치: select cron.alter_job(<jobid>, active := false);   -- ims-paid-scan · ims-paid-drain(jobid 는 등록 뒤 실측해서 적는다)
+select cron.alter_job(51, command := $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"order_drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_order_queue q where q.done_at is null and q.kind = 'order_edit');
+$job$);
+select cron.schedule(
+  'ims-paid-scan',
+  '8,23,38,53 * * * *',
+  $job$ select public.shop_paid_scan() $job$
+);
+select cron.schedule('ims-paid-drain', '*/5 * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"paid_drain"}'::jsonb, timeout_milliseconds := 45000)
+  where exists (select 1 from public.shop_order_queue q where q.done_at is null and q.kind = 'mark_paid');
+$job$);
