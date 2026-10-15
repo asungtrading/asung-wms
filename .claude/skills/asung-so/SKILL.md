@@ -202,7 +202,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 출고는 so_ship 한 곳(속 함수 · ④⑤ 의 definer 창구가 부른다) — CAS 플립(packed→shipped)이 첫 쓰기 · 할당 닫기(shipped/released) · qty_shipped · 덜 나간 몫은 pick_short 형제(backorder) · 원장은 inv_post_sale → inv_layer_post_sale 만(SO 가 원장에 직접 쓰지 않는다)   (판정 1 · 7-c)
 ⭐⭐ 원장 SKU 는 낱개 — 세트 줄은 parent_product.sku · qty × pack_factor · 같은 낱개 SKU 줄은 접어 한 번 소진(재생성과 행 단위까지 같다) · 부족분은 최근 원가 레이어(sale_shortfall · hint 는 값이 근거 · id 아님)   (17번 · 15-b)
 ⭐⭐ bin 은 그 창고 ref_bin 에 있어야(없으면 거부) · '' 는 받는다(WMS 칸별 수량 전까지) · 비활성 칸은 받고 경고   (판정 12)
-⭐⭐ 장부(so_backorder_close)는 끝난 방식만 — superseded · expired · proceeded · cancelled · 「열려 있다」는 so_reserve backorder 열린 줄 · 다시 열면 reopened_at(줄당 활성 한 줄 active_line_id)   (판정 2 · 5-g)
+⭐⭐ 장부(so_backorder_close)는 끝난 방식만 — superseded · expired · proceeded · cancelled · merged(§21 0-4 · 판정 484 뒤로 새로 안 생김) · 「열려 있다」는 so_reserve backorder 열린 줄 · 다시 열면 reopened_at(줄당 활성 한 줄 active_line_id)   (판정 2 · 5-g)
 ⭐⭐ 이어받기는 새 오더를 「확정할 때」(출하 때 아님) — 같은 손님·같은 제품 · 가족 밖 · 브랜치 무관 · 가장 오래된 줄부터 · 나머지는 더 원하지 않음 · 유상 줄만 센다 · 무상 줄 백오더는 대상에서도 뺀다   (판정 3·4·5·8·13·15)
 ⭐⭐ 오더는 만료로만 닫힌다(뒤처리로는 안 닫는다) — 90일(inv_config so_backorder_expire_days) · 유상 줄만 expired · 무상 줄(우리가 줄 것)은 만료도 이어받기도 안 되고 proceed·cancel 로만 끝난다 · 무상 줄이 남으면 오더도 안 닫힌다   (판정 11·16)
 ⭐⭐ 다시 열기(so_unconfirm · so_cancel p_reopen_superseded true)는 대상 백오더 오더가 confirmed 일 때만 — 만료·취소 뒤엔 거부(그 되돌리기·취소도 함께 거부) · so_cancel 은 이어받은 줄이 있으면 p_reopen_superseded 를 사람이 고른다(null 이면 거부)   (판정 10·11)
@@ -405,6 +405,22 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ removed_qty 에는 상한 quantity − sent 가 있다 — 나간 물건 반품(restockType RETURN)도 Shopify currentQuantity 를 줄이므로 상한 없이 quantity − currentQuantity 를 쓰면 gap 이 음수가 되어 거짓 shopify_qty_removed(판정 466 · ful-4b5 · so-module §63)
 ⭐⭐ 웹 오더 경고는 지우지 않는다 — 확인함(acked_*) · 처리됨(settled_*) 열쇠를 원소에 덧붙이고(warnings || … · jsonb_agg … order by ord) 열린 수는 open_warning_count · warnings 를 통째로 다시 쓰거나 비우면 누가 · 언제 확인했는지가 사라진다(판정 467 · so-module §63)
 ⭐⭐ Shopify 카드 캡처는 받기가 IMS 결제로 적는다 — 거래 GID 표지(shop_order_transaction)로 두 번 적지 않는다 · gateway manual 은 적지 않고 경고(468) · 받기는 새 거래 GID 만 적으므로 손 결제와 카드 자동 결제가 같은 돈을 두 번 적을 수 있다 — 카드 캡처 오더에 직원이 Take a payment 를 하지 마라(Capture 전이든 뒤든)(판정 470 · so-module §63)
+⭐⭐ asung.ca(asung 종류 스토어)의 Shopify 운임은 SO 운임 줄에 **견적**으로 들어온다 — Ship & invoice 에서 실제 운임으로 고친다 · 정보 freight_estimate_from_shopify(처리됨) · ⚠️ aone 운임 「확정 · 고치지 않음」(판정 369)도 **코드상 고정이 아니다**(표지 없음 · 미룬 236)(판정 473 · so-module §64)
+```
+
+## 4-r. ⭐⭐ 백오더 수요 · Backorders 탭 — 모르면 사고 (정본 so-module §64 · 판정 474 ~ 492)
+
+```
+⭐⭐ 수요 · 금액의 정본은 so_backorder_demand 하나 — overview(① 비중 ② 잃은 세일 ③ SKU 순위)는 그것을 부른다 · 화면 · 새 함수가 같은 셈을 다시 짜지 마라(손님 × 재고 제품의 연결 덩어리 — 분할 · 이어받기 · 병합의 줄 연결 · 뿌리에서 내려가며 세면 병합에서 두 번 센다)
+⭐⭐ 입고 정의는 inv_receipt_events 하나(po_in · 다른 창고에서 온 transfer_in) — overview · arrivals 가 쓴다 · so_backorder_list 는 아직 제 식(같은 규칙 · 미룬 238)
+⭐⭐ 「진짜 수요 아님」 표식은 작은 표 so_demand_flag(창구 so_demand_flag_set · clear · manager · 사유 필수) — ⚠️ so_line 칸에 두지 마라: shop_order_cancelled 가 max(so_line.updated_at) 을 견줘 웹 자동 취소가 「검토 필요」로 빠진다(판정 478)
+⭐⭐ 확정 되돌린 오더(초안 · 취소)와 되돌리기가 도로 붙인 형제는 셈 밖(so_demand_so_excluded) — 일찍 찾은 중복은 표식 대신 되돌리기 → 취소
+⭐⭐ 백오더는 합치지 않는다 — so_merge 가 열린 백오더 예약이 있는 오더를 거부(미리 보기도 · 콤보는 구성품 예약) · 합치면 수량이 더해져 이어받기를 건너뛴다 · 같이 보내려면 진행한 뒤 합친다(판정 484)
+⭐⭐ 진행(so_backorder_proceed)은 오더 한 장 전부 — 그 오더의 열린 백오더 · 프리오더 줄이 모두 엔진에 들어간다 · 화면은 proceed_moves_other_skus 로 경고 · can_fill 은 미리 보기 셈
+⭐⭐ ② 잃은 세일 = 기간 안에 잃은 것 ÷ 기간 안 확정 주문 — 잃은 몫마다 제 날짜(장부 ended_at · so_line.removed_at · so.closed_at · 판정 486) · ③ 순위의 기간(첫 주문일 · 마지막 끝난 날)과 뜻이 다르다
+⭐⭐ 「백오더가 된 금액」 = 덩어리마다 처음 바로 못 보낸 몫 한 번(첫 백오더 예약 · 다시 주문 · 다시 백오더 · 표식 줄은 0 · 판정 487 · 491) · 분모는 SKU · 브랜드 · 공급처 거르기를 줄 단위로 따른다(판정 492)
+⭐⭐ 손님이 뺀 수량(qty_removed) · 백오더가 났던 오더의 취소(할당 몫 포함) · 웹 자동 취소가 이어받았던 옛 줄 = 잃은 판매(판정 475 · 476 · 483)
+⚠️ inv_available_base 는 잔고 행이 없는 제품의 행을 내지 않는다 — 부르는 쪽이 left join + coalesce 0(inner join 이면 가용 0 인 콤보 구성품이 빠져 보낼 수 있는 것처럼 보인다 · bo-2b) · 가용은 창고마다 한 번(행마다 부르면 200 행에 16 초)
 ```
 
 ## 5. 이 스킬을 갱신할 때

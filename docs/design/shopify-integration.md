@@ -12,6 +12,7 @@
 ⭐ [2026-10-13 · so-module §62] **⑤ 오더 상태 짓기 끝**(테스트 DB · 시험 스토어 · 끝에서 끝) — DB ful-1a `be5688c` · ful-2a(ful-2 `113df27`) · ful-1b `021ecc6` · ful-1c `4c476b2` · EF fulfill_drain ful-2 · 1b · ful-2c `20ec11d` · cron jobid 49 · 화면 ful-3a(asung-ims so v5s `716397d` · v5s1 `f5ac4ab`) · ful-3b(set v2 · wo v2 · bo v3a `e7409fd` · wo v2a `4a242e3` · v2b `8402402`) · 판정 450 ~ 456(아래 §4-h) · 다음 판정 번호 **457**
 ⭐ [2026-10-13 밤 ~ 10-14 · so-module §63] **⑤ 나가지 않을 몫 · 경고 확인함 · 결제 상태 끝**(테스트 DB · 시험 스토어) — DB ful-4a `8ae674d` · ful-4b4 `cc51dce` · ful-4b5 `4a54ee1` · ful-5a `a283ff9` · pay-1a `1971887` · pay-2a · 2b `9afa520` · EF order_drain ful-4b `71c4e13` · 4b1 `b2b4220` · 4b2 `5fce768` · 4b3 `70f1c18` · paid_drain pay-2b · cron jobid 50 · 51 · 52 · 53 · 화면 안 A(asung-ims wo v3 `8d84c68` · so v5t `b00ae2b` ~ v5t4 `7482e4b` · inv v2e `c8d0a8d` · v2e1 `3c61b75` · wo v4 `25bbeba` · v4a `2e1a3cf` · v4b `7482e4b`) · 판정 457 ~ 469(아래 §4-e · 4-g · 4-i) · 다음 판정 번호 **470**
 ⭐ [2026-10-14 오후 · so-module §63-h] **카드 캡처 자동 기록 · Restock 다시 보내기**(테스트 DB · 시험 스토어) — DB pay-3a `760c0d7` · stk-r1 `45a1e15` · 화면 asung-ims so v5t5 · wo v4c `26db7ef` · 판정 470 ~ 472(아래 §2-h · §3-d · §4-e · §4-g) · 다음 판정 번호 **473**
+⭐ [2026-10-14 · so-module §64] **asung.ca 웹 운임 = SO 견적 운임 줄**(판정 473 · 미룬 191 닫음) — DB frt-1a `7d2a16a`(속 함수 shop_order_freight · 정보 freight_estimate_from_shopify) · 화면 asung-ims so v5t7 · wo v4d `0de7561` · ⚠️ aone 운임 「확정 · Ship & invoice 가 고치지 않음」(판정 369)은 **글에만 있고 코드 표지 없음**(so-module 미룬 236) · 다음 판정 번호 **493**
 
 ---
 
@@ -96,7 +97,9 @@ aonebeauty.com    늘 Toronto(위치 짝이 하나뿐인 스토어는 그것 · 
 ```
 asung.ca          운임 없이 내려온다 · 출고 때 IMS 에서 넣는다
                   ⚠️ [2026-10-11 · CSV] 앱 오더(NetTerm)는 운임 0 이 맞지만 **~~일반 웹 결제~~ → custom 결제 방식 3 중 2 가 운임을 받았다**(→ so-module §61-c · 결제는 50 모두 pending)(AS-6994 Expedited Parcel 11.69 · AS-6995 13.92) — 판정은 열어 둠(Caleb 조사 · 미룬 191) · 지금은 받은 오더에 금액 · 제목만 · SO 운임 줄 없음 · 경고 freight_not_applied
+                  → [2026-10-14 · 판정 473 · so-module §64] **asung 종류 스토어 · Shopify 운임 > 0 이면 SO 운임 줄에 견적으로**(결제 방식 이름 무관 · 「Pay on Invoice」 가 asung.ca 의 유일한 수동 결제 방식) · Ship & invoice 에서 실제 운임으로 고친다 · 정보 freight_estimate_from_shopify(처리됨) · freight_not_applied 더 안 붙임 · NetTerm 앱 오더는 운임 0 이라 그대로 · frt-1a `7d2a16a`
 aonebeauty.com    손님이 낸 배송비를 확정 값으로 — Ship & invoice 가 고치지 않는다
+                  ⚠️ [2026-10-14 · frt-1a 이견 1] 이 「확정」 은 **글에만 있고 코드 표지가 없다** — 지금 코드로는 aone 운임도 Ship & invoice 에서 고칠 수 있다 · aone 운영 전에 고정 표지를 둘지(so-module 미룬 236 · 옛 「474 후보」 — 판정 아님)
 무료 배송          「운임 + 운임 할인 100%」로 담는다(so-module §52 운임 할인)
                   ⚠️ 그러려면 Shopify 의 「$50 이상 Free」 배송 요금 줄을 「무료 배송 자동 할인」으로 바꿔야 한다 — 지금은 요금 조건 방식이라 원래 운임이 데이터에 없다
                   Caleb 「다로 하자」 · Shopify 에서 고치는 법은 대화 Claude 가 단계별로 알려 준다(앱 할인과 겹침 확인 포함 · so-module 미룬 148)
@@ -414,7 +417,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 ④ 다른 브랜치로 바꾸기 장면 끝에서 끝(2-c)
 ⑤ 컷오버 뒤 앱 규칙(딜 · 손님 할인) 두 번 입력 — IMS 와 앱(so-module 미룬 149) · 어긋나면 discount_mismatch 경고가 잡는다(판정 431)
 ~~⑥ 보호된 손님 정보(ord-0 ⬜1)~~ → ✅ 신청 없이 된다(2026-10-11 · 2-a)
-⑦ ~~asung.ca 웹 결제 오더 운임~~ → asung.ca custom 결제 방식 오더의 운임(→ so-module §61-c) — 지금은 받은 오더에 금액 · 제목만 · 경고 freight_not_applied(Caleb 조사 중 · so-module 미룬 191)
+⑦ ~~asung.ca 웹 결제 오더 운임~~ → asung.ca custom 결제 방식 오더의 운임 → ✅ [2026-10-14] 판정 473(§2-g · frt-1a)(→ so-module §61-c) — 지금은 받은 오더에 금액 · 제목만 · 경고 freight_not_applied(Caleb 조사 중 · so-module 미룬 191)
 ~~⑧ ⑤ 시험 — ful-0 보고 ⬜8 ① 운송사 + 송장 둘 → 발송 메일 · 위치 옮김 · 메아리 없음 ② Delivery → 메일 없음 ③ 백오더 두 번째 발송 ④ 픽업 Ready → Picked up ⑤ 송장 고침 → 메일 없음(aone 배송 장면을 픽업보다 먼저 · 판정 446 · ful-4)~~ → ✅ 다섯 다 끝(2026-10-13 · so-module §62-c) · aone 스토어 장면은 컷오버 때
 ~~⑨ 「Picked up」 mutation — 전용은 못 봤다 · 짐작: 픽업 FO 에 fulfillmentCreate(notifyCustomer false) · ⑧ ④ 에서(so-module 미룬 209)~~ → ✅ 그 길이 맞다 · 「Picked up on …」 · 메일 없음(§62-c)
 ~~⑩ 오더 고치기(orderEdit) 의 손님 메일 끄기 · 환불이 남은 몫을 지우는가 · orderMarkAsPaid 의 사용자 권한이 앱 토큰에 걸리는가(판정 441 · 439 · 449 · so-module 미룬 209 → 210 · 211 · 212)~~ → ✅ 셋 다(so-module §63-c) — 오더 고치기 메일 없음(#1011) · Unfulfilled 환불이 currentQuantity 를 줄인다(③-b · 466) · mark_orders_as_paid 가 앱 토큰에서 막히지 않았다(#1007 · 메일 없음)
@@ -441,6 +444,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-13 · so-module §62 · docs-1013b] 상태 줄에 ⑤ 짓기 끝 · §4-b Pickup 오더 줄 · §4-d Purolator · 운송사 표 · 미룬 208 닫힘 · §4-g 메아리 지어짐 · §4-h 짓기 실물 새로(판정 450 ~ 456 · cron 49 · kind 셋 · 받아 적기 둘) · §5 ⑧ ⑨ 닫힘 · ⑪ ⑫ 새로 · §7 갱신
 - [2026-10-14 · so-module §63 · docs-1014] 상태 줄에 ⑤ 나가지 않을 몫 · 확인함 · 결제 상태 끝 · §2-h 468 · 469 포인터 · §4-e 457 ~ 462 · 466 · 468 · 469 · orderMarkAsPaid 실물(옛 「✅ VALID」 · 「시험」 ~~ ~~) · §4-g 463 · 466 · 468(paid_push_at 창) · §4-i 경고 확인함 · 화면 안 A 새로 · §5 ⑩ 닫힘 · ⑬ ⑭ 새로 · §7 write_order_edits 닫힘
 - [2026-10-14 오후 · so-module §63-h · docs-1014b] 상태 줄 · §2-h 470 · 471 포인터 · §3-d 판정 472(받기의 다시 보내기 · nightly 안전망 · family 단위 Send stock now) · §4-e 카드 캡처(470) · 운영 결제 사실(471 · ⑦ 미룬 조건 셋) · §4-g 재고 메아리(472) · §5 ⑬ 닫힘 · ⑭ 반 닫힘 · 미룬 228 ① ② ③ 닫힘 · ⑮ 새로
+- [2026-10-14 밤 · so-module §64 · docs-1014c] 상태 줄에 frt-1a · §2-g 판정 473(asung 운임 견적) · aone 운임 「확정」 은 코드 표지 없음(미룬 236) · §5 ⑦ 닫힘
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 

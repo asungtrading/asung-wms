@@ -401,6 +401,8 @@ Caleb: "우리는 형제관계를 기록해야 한다고 생각해. 이것은 PO
 IMS 에서는 입고 확정이 이미 우리 함수라 긁을 것도 커서도 없다. SO 모듈이 선 뒤.
 ⚠️ 전환 때 **GAS 정지와 IMS 가동이 동시**여야 한다(중복 발송·누락 방지).
 
+→ [2026-10-14 · §64] **수요 셈의 정본 = `so_backorder_demand`**(손님 × 재고 제품의 연결 덩어리 · 칸 다섯 그때의 수요 · 판 것 · 잃은 판매 · 진행 중 · 지금 남은 백오더 · 판정 464 · 475 ~ 478 · 483) · 「진짜 수요 아님」 표식은 작은 표 `so_demand_flag`(판정 478 · so_line 칸 금지) · 알림 이관(위 ⬜)은 미룬 221 로 열려 있다
+
 ### 2-h 창고 변경 — 별도 동작으로 둔다
 
 Cin7 의 Draft 복귀 방식을 따르지 않는다.  → §14
@@ -923,6 +925,8 @@ superseded    뒤 오더가 이어받았다 — 수요가 그쪽으로 옮겨갔
 📌 도는 자리는 pg_cron — 스케줄은 마이그레이션이 아니라 supabase/ops/cron.sql 에 기록(CLAUDE.md §2)
 ⬜ 닫기 전에 알리는 목록(기한 임박)은 화면 일이다 — 적어만 두고 ①에서 정하지 않는다
 ```
+
+→ [2026-10-14 · §64] 「수요 표를 만들지 않는다」 그대로 — 수요는 **읽기 함수 `so_backorder_demand`** 가 장부 · 예약 · 분할 칸에서 그때 센다(새 표 없음 · 표식 표 `so_demand_flag` 하나만 · 판정 478) · 「손님별로 겹치지 않게 센다」는 연결 덩어리(분할 · 이어받기 · 병합의 줄 연결)로 구현 · 수량이 다를 때는 「그때의 수요」(처음 주문 · 넘친 몫만 더함)와 「지금 남은 백오더」 둘로(판정 464 ④)
 
 ### 5-h 앞 절에서 뒤집은 것 · 닫은 것 — 본문은 고치지 않았다
 
@@ -2869,7 +2873,7 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
  12 pick_short 형제는 so_split(…, 'confirmed') 그대로 — 단 so_split 본문의 어휘 목록이 CHECK 와 따로 있어 ③a′ 재발행이 필요했다(아래 실사고) · 형제 created_at ≠ 부모 confirmed_at 이라 so_unconfirm(형제)이 보통 확정 오더처럼 통과한다(백오더 예약만 · 사고 없음)
 ⬜ 열둘(회신 답 그대로 · ⬜10 기각)
  ⬜1 셋으로 — ③a 출고 · ③b 장부·이어받기·다시 열기 · ③c 만료·읽기·cron   ⬜2 so_ship(p_so_id · p_picks [{line_id,bin,qty}] · p_staff · p_shipped_on) 속 함수 · 판정 12   ⬜3 두 층 · 단계별 cost_source 셋 + unknown(17-g 신호)
- ⬜4 released_reason 셋   ⬜5 짝은 packed→shipped 하나만 · 시험은 replica 로 packed   ⬜6 pick_short(so_split_reason_ck 다섯)   ⬜7 so_backorder_close(end_kind 넷 · manual 은 창구가 설 때) · qty_open/taken/unwanted · taken_by_so/line · ended_by null=시스템 · reopened · active_line_id
+ ⬜4 released_reason 셋   ⬜5 짝은 packed→shipped 하나만 · 시험은 replica 로 packed   ⬜6 pick_short(so_split_reason_ck 다섯)   ⬜7 so_backorder_close(end_kind 넷 · manual 은 창구가 설 때 → [2026-10-14 · §64] **다섯** — merged(§21 0-4 · 2026-09-25)) · qty_open/taken/unwanted · taken_by_so/line · ended_by null=시스템 · reopened · active_line_id
  ⬜8 so_confirm 끝에서 commit 만 · 가족 밖(so_number base) · 새 수량 = 원래 + 이 확정에서 태어난 형제 · 대표 줄 = 원래의 첫 줄 · 프리오더 제외 · 체인 손님 합치지 않음 · so_unconfirm 이 다시 연다(대상이 confirmed 일 때만)
  ⬜9 90일 · 매일 09:17 UTC(토론토 05:17 EDT · 04:17 EST) · 스윕 대상 = confirmed ∧ order_date + days < ims_today() ∧ 열린 예약이 전부 backorder 이거나 0   ⬜11 so_backorder_list(p_filters jsonb) → jsonb 하나 · 필터 17 · 분류 여덟 + owed   ⬜12 100줄 × 2칸 실측
 내가 정한 것(Caleb 받음)
@@ -2888,9 +2892,12 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
 | so_backorder_proceed(:511·513) | 잡힌 줄 = 끝 · 못 잡아 형제로 간 줄 = 같은 줄이 이어진다 | `proceeded`(무상 줄도 — 「들어오면 보낸다」 길) |
 | so_backorder_supersede(20260924153856) | 확정 때 남의 줄 | `superseded`(유상 줄만 · 판정 15) |
 | so_backorder_sweep(20260924153856) | 만료 | `expired`(유상 줄만 · 판정 16) |
-| so_unconfirm(20260924023740:65) | 확정을 무른다 — 형제가 draft 로 되돌아간다(없던 일) | 없음(의도) · 대신 이 확정이 이어받은 남의 줄을 다시 연다 |
+| so_unconfirm(20260924023740:65) | 확정을 무른다 — 형제가 draft 로 되돌아간다(없던 일) → [2026-10-14 · §64 정정] 형제는 **cancelled · closed_reason merged · merged_into_id = 제 부모**로 도로 붙고(일부 갈린 줄은 수량을 부모 줄에 더한다 · 마지막 정의 20261006204146 so_unconfirm) 원래 오더가 draft 가 된다 | 없음(의도) · 대신 이 확정이 이어받은 남의 줄을 다시 연다 · 수요 셈(so_backorder_demand)은 되돌린 오더와 도로 붙은 형제를 셈 밖으로 둔다(판정 478 덧붙임) |
 | so_divide(20260924022449:301) | 같은 kind 로 따라간다 | 옮김 · 없음 |
 | so_hold · so_reallocate · so_change_location(창고 칸만) · so_ship | backorder 를 안 닫는다 | 해당 없음 |
+| → [2026-10-14 · §64 · 빠진 자리 셋 더함] so_merge(마지막 정의 20261015013503 · §21) | 백오더 오더를 합쳤다 — ⚠️ 판정 484 뒤로는 **열린 백오더가 있는 오더를 거부**하므로 새로 안 탄다(옛 합침 SO-25052b → SO-25073 등은 그대로) | `merged`(§21 0-4 · 수요는 합친 오더의 줄로 옮겨 감) |
+| shop_order_cancelled → so_cancel(…, p_reopen_superseded false)(20261011003000:575 · 판정 434) | Shopify 에서 취소된 웹 오더 — 그 오더가 이어받은 남의 백오더 줄은 **다시 열지 않는다** | 그 오더의 백오더 줄 `cancelled` · 이어받긴 옛 줄은 `superseded` 그대로(판정 483 — 잃은 판매 · 실물 #1013 → SO-25092 · SO-25088) |
+| so_unconfirm 의 형제 닫기(위 정정) | 되돌리기가 형제를 부모로 도로 붙인다 | 장부 없음 · 형제 status cancelled · merged_into_id = split_from_id(so_merge 의 merged 와 다르다 — 그쪽은 새 오더) |
 
 | 백오더를 「수요」로 다루는 자리 | 무상 줄 |
 |---|---|
@@ -2937,7 +2944,7 @@ cron  [테스트 · Asung-IMS] jobid 1 · so-backorder-sweep · 17 9 * * * · ac
 ```
 ⑤ 원장 창구 권한 문 — inv_post_sale 첫 줄 ims_require_write('sales') · ⑤ 에서 출고를 일으키는 사람은 WMS 창고 직원(sales 권한이 없을 수 있다) · receiving 류로 할지 · 부르는 창구가 확인한 사람으로 할지 판정 필요(Caleb 2026-09-24)
 17-f ② reversal consume — 취소 상쇄(7-e · ⑤ WMS 사건) 때 · 줄별 COGS 비례 배분(인보이스 차수) · pos·counter 의 bin(④)  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
-백오더 화면(대화 Claude) — 「우리가 줄 것」 따로 · days_waiting · 「IMS 알림 전」 표시(notified_state unknown_pre_ims 는 「안 보냄」이 아니다) · 오래된 무상 줄 정리(매니저) · 가용 음수 표시(so_backorder_list available_other 가 −10 을 그대로 낸다)
+백오더 화면(대화 Claude) → [2026-10-14] ✅ §23 bo v1 ~ v3a · **§64 bo v4 · v4a 탭 셋**(판정 485 · 489) — 「우리가 줄 것」 따로 · days_waiting · 「IMS 알림 전」 표시(notified_state unknown_pre_ims 는 「안 보냄」이 아니다) · 오래된 무상 줄 정리(매니저) · 가용 음수 표시(so_backorder_list available_other 가 −10 을 그대로 낸다)
 so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IMS 로 옮길 때 backorder_notified_at 채우기(2-g ⬜ · GAS 정지와 동시)
 전환 때 — cron.sql 의 so-backorder-sweep 은 테스트 DB jobid 1 이다(운영에는 함수가 없다 · 함께 올린다) · so_number_seq 25000 · is_called f 점검(12-g)
 ```
@@ -3766,6 +3773,8 @@ b  20260925151823_so_merge_b.sql(456행 · 커밋 fcb6865)
 ⬜ 병합 뒤 프리오더 다시 고르기  0-5 의 경고를 받아 확정 화면이 p_preorder_line_ids 를 미리 체크해 주는 것(DB 는 만들 것 없음)
 ```
 
+→ [2026-10-14 · §64 · 판정 484] **열린 백오더 예약이 있는 오더는 합치기에서 거부**(미리 보기도 · 콤보 줄은 구성품 예약 · bo-1d `089d94b` · so_merge 마지막 정의 20261015013503) — 합치기는 같은 제품 줄의 수량을 더해(48 + 48 = 96) 확정 때의 이어받기를 건너뛴다 · 실행 ③(장부 merged)은 이제 **새로 안 타는 갈래**(바이트 대조를 위해 남김) · ⚠️ so-merge-1 검증(21-d)은 백오더 오더 합치기 시나리오가 있어 484 뒤 그대로 못 돈다 — 회귀는 bo-1d M7(원본 판 · 새 판 반환 동등)
+
 ---
 
 ## §22 SO 읽기 창구 넷 — 인보이스 · 결제 · 결제 식 일곱 · 크레딧 (2026-09-25 · 지시서 `so-inv-read-1` · `so-pay-read-1` · `so-pay-remaining-2` · `so-credit-read-1` · 판정 회신 · 정리 `so-docs-5`)
@@ -3906,7 +3915,7 @@ Manager List   Unpaid at hand-over = 즉시 결제 조건(ref_payment_term.net_d
 | Sales Invoices | `so-invoices.html` | v1 → v1.2 · 「2026-09-25 · inv v1.2」 | v1 5d3ed62 · v1.1 4f9b43d · v1.2 9bd4f66 | 7-g |
 | Customer Payments | `so-payments.html` | v1 · 「2026-09-25 · pay v1」 | 4f9b43d | 7-h |
 | Credit Notes | `so-credits.html` | v1 → v1.1 · 「2026-09-25 · cr v1.1」 | v1 9bd4f66 · v1.1 8292e9e | 7-i |
-| Backorders | `so-backorders.html` | v1 → v1.3 · 「2026-09-25 · bo v1.3」 | v1 8292e9e · v1.1 70b3de7 · v1.2 c799ac3 · v1.3 9bcd3c0 | 7-j |
+| Backorders | `so-backorders.html` | v1 → v1.3 · 「2026-09-25 · bo v1.3」 → [2026-10-14 · §64] bo v4 · v4a 탭 셋(Arrivals · Insights · All backorders · 판정 489) | v1 8292e9e · v1.1 70b3de7 · v1.2 c799ac3 · v1.3 9bcd3c0 · (bo v3 3a7de42 · v3a e7409fd) · v4 2b10305 · v4a af83c94 | 7-j · 7-zn |
 | POS | `pos.html` | v1 · 「2026-09-25 · pos v1」 · 메뉴에만 | a403276 · CHECKLIST 포인터 8ab6b4c | 7-k |
 | Manager List | `manager-list.html` | v1 · 「2026-09-25 · ml v1」 · 메뉴에만 | b79c151 | 7-l |
 
@@ -3942,7 +3951,7 @@ Manager List   v1 — 탭 넷(Sold without stock · Unpaid at hand-over · POS n
 | 6-f POS 의 두 단추 | 설계 | ✅ `pos.html` v1 — Confirm → 결제 넷(나눠 내기 · 거스름돈은 기록 안 함) → Finish(미리 보기 → 출고 + 발행) · Park · Reopen · 인쇄는 다음 판 |
 | 6-j 「재고 없이 나갔다」 매니저 목록 · counter 오더 목록 | §20 에서 창구만 | ✅ `manager-list.html` 탭 넷(Sold without stock · Unpaid at hand-over · POS not finished · Counter orders) |
 | 8-b 「화면이 알려 주고 사람이 고른다(화면 일)」 | 화면 일 | ✅ `so.html` v2 Merge…(같은 손님·창고·통화의 draft·confirmed warehouse 오더 · 미리 보기 · 병합 초안의 견적 알림) · ⬜ 목록의 자동 표시(21-f)는 아직 |
-| §15 판정 5 「백오더 화면이 따로 서야」 | 청취 | ✅ `so-backorders.html` — 손님 · 공급처 · 브랜드 · SKU · 기간 · 브랜치 거르기 · 입고됨 · ⬜ 메일 보냄 여부(아직 GAS·Cin7) |
+| §15 판정 5 「백오더 화면이 따로 서야」 | 청취 | ✅ `so-backorders.html`(→ [2026-10-14] §64 bo v4 · v4a 로 재구성) — 손님 · 공급처 · 브랜드 · SKU · 기간 · 브랜치 거르기 · 입고됨 · ⬜ 메일 보냄 여부(아직 GAS·Cin7) |
 | 20-f ⬜ 화면(POS · 매니저 목록) | ⬜ | ✅ pos.html · manager-list.html · ⬜ counter 칸 바꾸기 줄 · 보관용 표시 켜기/끄기는 아직 |
 | CLAUDE.md §5 「localStorage 에 상태를 두지 마라」 | 예외 없음 | 예외 하나 — 기기의 자리(POS 매장 ims_pos_store · 조건 셋 · a9422de) |
 
@@ -8324,6 +8333,7 @@ Caleb 이 준 업무 사실 (이 대화)
 ⭐ 닫힌 것: **나가지 않을 몫**(장부 · 15 분 스캔 · 오더 고치기 · 환불 경고 · 환불 메아리 · IMS 가 시킨 환불 흡수) · **웹 오더 경고 확인함**(Mark checked / Reopen · 열린 경고 수) · **결제 상태**(Shopify 에서만 결제 표시 경고 · 「다 결제」 판정 · Shopify 를 Paid 로) · **화면 안 A**(Web Orders 를 SO 로 합침)
 ⭐ 새 판정 457 ~ 469 · 원천: 457 ~ 462 = `~/asung/prompts/ims-handover-2026-10-13-office.md` §1 · 463 ~ 465 · 화면 안 A = `ims-handover-2026-10-13-home.md` §1 · 466 ~ 469 = 지시서 `docs-1014.md` 📌 B(이 절의 원천) · 설계 정본 `shopify-integration.md` §4-e · 4-g · 4-i · 다음 판정 번호 **470**
 ⭐ 아직: 판정 후보 470(Shopify Restock 재고 · 63-f) · Backorders 탭 재구성(464 · 465 구현 · 미룬 220) · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
+→ [2026-10-14 · docs-1014c] 이 절은 판정 457 ~ 469 + **63-h 의 470 ~ 472** · 판정 473 ~ 492 와 Backorders 탭 재구성(미룬 220)은 **§64**
 
 ### 63-a 판정
 
@@ -8409,7 +8419,7 @@ Caleb 이 준 업무 사실 (이 대화)
 
 ### 63-f 미룬 것 — 62-e 219 에 이어 붙임(210 · 211 · 212 닫힘)
 
-- 220 Backorders 탭 재구성(⭐ Caleb 「꼭 구현」 — 464 · 465 구현 포함 · 공급처 · 기간 · 반 나눈 화면: 왼쪽 입고 SKU · 오른쪽 그 SKU 백오더 · 끝난 방식 · 「없던 기간」 자동/수동 · 공급처 기준 기본 vs 입고 PO · 원래 백오더 상세에 「이어받아 닫힘 → SO-…」 표시가 있는지 · home §4-6)
+- 220 → [2026-10-14] ✅ §64(bo-0 ~ bo-2b · bo v4 · v4a · 464 구현 · 465 상태 칩은 판정 479 ~ 481 로 미룸 → 미룬 235 · 「없던 기간」 은 판정 474 로 미룸 → 234 · 원래 백오더 상세의 「이어받아 닫힘 → SO-…」 표시는 없음 → 242) Backorders 탭 재구성(⭐ Caleb 「꼭 구현」 — 464 · 465 구현 포함 · 공급처 · 기간 · 반 나눈 화면: 왼쪽 입고 SKU · 오른쪽 그 SKU 백오더 · 끝난 방식 · 「없던 기간」 자동/수동 · 공급처 기준 기본 vs 입고 PO · 원래 백오더 상세에 「이어받아 닫힘 → SO-…」 표시가 있는지 · home §4-6)
 - 221 백오더 입고 알림 IMS 이관(컷오버 전 필수 · 이 정본 400 · 518 행 · 지금은 GAS 가 Cin7 API 로)
 - 222 restock 재고 — 판정 후보 470(63-a 끝) · Shopify Restock 이 Shopify available 만 올려 다음 IMS 재고 변동까지 Shopify 가 더 판다 · order_drain 의 restock true 도 같다
 - 223 aone 카드 AUTHORIZED → PAID(capture) 를 받기가 자동으로 읽을지(판정 370 은 받는 순간 PAID 만 · 469 는 AUTHORIZED 를 건드리지 않는다)
@@ -8486,5 +8496,138 @@ Caleb 이 준 업무 사실 (이 대화)
 ```
 Backorders 탭 재구성(464 · 465 · 미룬 220) · 백오더 입고 알림 이관(221) · ⑦ gateway 가르기(230 · 조건 셋 전에) · 컷오버 준비 묶음(§56 ~ §60 미룬 것)
 다음 판정 번호: 473
+→ [2026-10-14 밤] §64(판정 473 ~ 492 · 220 닫힘 · 다음 판정 번호 493)
 ```
 
+
+---
+
+## §64 2026-10-14 오후 ~ 밤 — 운임 견적 · Backorders 탭 재구성 — frt-1a · bo-0 ~ bo-2b · bo v4 · v4a · 판정 473 ~ 492 (회사 PC → 집 PC)
+
+⭐ 닫힌 것: **asung.ca Pay on Invoice 오더의 Shopify 운임 = SO 견적 운임 줄**(판정 473 · frt-1a · 미룬 191) · **Backorders 탭 재구성**(미룬 220 · 판정 464 구현 · 474 ~ 492 · bo-0 조사 → bo-1a 수요 셈 · 표식 → bo-1c 금액 · 비중 · 순위 → bo-1d 합치기 막음 → bo-2 입고 ↔ 기다리는 손님 → bo-2b 지금 보낼 수 있는 백오더 · 시간 초과 · 화면 bo v4 · v4a)
+⭐ 새 판정 473 ~ 492 · 원천: 473 = `~/asung/prompts/ims-handover-2026-10-14-office.md` §1 · 474 ~ 489 = `ims-handover-2026-10-14-home.md` §1 · 490 ~ 492 = 지시서 `bo-2b.md` 📌 · 보고 `bo-0` · `bo-1a` · `bo-1c`(v3) · `bo-1d` · `bo-2` · `bo-2b`(v2) `-report.md` · 지시서 `docs-1014c.md`(이 절의 원천) · 다음 판정 번호 **493**
+⚠️ 번호 주의: office 인계서의 「**474 후보**(aone 운임 확정 표지)」 는 **판정이 아니다** — 판정 474 는 「없던 기간 = 품절 구간」(home §1)이다 · 옛 후보는 번호 없이 미룬 236 으로 옮겼다
+⭐ 아직: 백오더 입고 알림 IMS 이관(미룬 221 · 컷오버 전 필수) · 상태 칩(479 ~ 481) · 품절 구간(474)
+
+### 64-a 판정
+
+| 번호 | 원천 | 판정 |
+|---|---|---|
+| 473 | office §1 | [Caleb · 안 1 · 미룬 191 닫음] asung.ca 「Pay on Invoice」(asung.ca 의 유일한 수동 결제 방식)로 내려온 오더의 Shopify 운임은 SO 운임 줄에 **견적**으로 넣는다 — Ship & invoice 에서 실제 운임으로 고칠 수 있다 · 까닭(Caleb): Pay on Invoice 를 열어 둔 까닭은 여럿 — 주문 때 손님 운임이 아직 정확하지 않고, 손님들이 대개 오더를 더 보태며, **asung.ca 손님은 모두 Shopify 로 주문하고 발송 전에 운임을 포함해 확인하고 결제한다** · 기각 안 2(경고만) · 안 3(Pay on Invoice 끄기) · 구현 갈래 = asung 종류 스토어 · 운임 > 0(결제 방식 이름 무관 · NetTerm 앱 오더는 운임 0) · 실측: asung.ca 운영 Shopify Payments 꺼짐(Reactivate) · PayPal Inactive · Manual payment methods 1 = Pay on Invoice / aone Shopify Payments 받음 · PayPal Partially active |
+| (474 후보 → 미룬 236) | office §1 | 판정 아님 — aone 운임 「확정 · Ship & invoice 가 고치지 않음」(판정 369)은 **글에만 있고 코드 표지가 없다**(frt-1a 이견 1) — aone 운영 시작 전에 고정 표지를 둘지 정한다 |
+| 474 | home §1 | [Caleb · 안 3] 「없던 기간」 = 품절 구간(SKU × 창고 재고 0) · 원장으로 자동 계산 + 매니저가 틀린 구간을 고치거나 장부 시작일(2026-08-21) 앞 기간을 더한다 · ⚠️ **485 로 미룸**(→ 미룬 234) |
+| 475 | home §1 | [Caleb · 안 1] 손님이 뺀 수량(so_line.qty_removed)은 잃은 판매 · 직원 실수는 표식으로 뺀다 |
+| 476 | home §1 | [Caleb · 안 1] 백오더가 생긴 오더가 취소되면 취소된 몫 전체(할당 몫 포함)가 잃은 판매 · 백오더가 한 번도 없던 오더의 취소는 셈 밖 |
+| 477 | home §1 | [Caleb · 안 1] 진행 중(진행해서 잡혔거나 창고에 있고 아직 안 나감)은 따로 칸 · 지금 남은 수요 · 입고 알림 대상에서 뺀다 · 칸 다섯 = 그때의 수요 · 판 것 · 잃은 판매 · 진행 중 · 지금 남은 백오더 |
+| 478 | home §1 | [Caleb · 안 1] 「진짜 수요 아님」 표식은 작은 표(so_line 칸 금지 — 웹 자동 취소가 「검토 필요」로 빠진다 · 464 「Shopify 무영향」) · 매니저가 달고 뗀다 · 사유는 고르기로 반드시(직원 실수 · 중복 입력 · 시험 · 기타 — 기타는 메모 필수) · 누가 · 언제 달고 뗐는지 남긴다 · 표식의 뜻(대화 Claude 풀이 · Caleb 이의 없음) = 그 줄의 잃은 몫을 수요와 잃은 판매 둘에서 함께 뺀다 · **덧붙임** [Caleb 「unconfirm 해서 delete 도 할 수 있지 않나」 → 확인] 확정 되돌린 오더(초안 · 취소)는 셈 밖 — 일찍 찾은 중복은 되돌리기 → 취소로 정리되고 표식이 필요 없다 · 되돌린 draft 는 so_delete 가 거부(「cancel it instead」 · §14 이견 7) · 표식은 되돌리기가 거부되는 경우(창고로 넘어감 · 나눈 뒤 · 웹 오더 · 멀리 간 시험 오더) |
+| 479 | home §1 | [Caleb · 안 1] SO 칩은 걸린 것을 모두 보인다 · Status 거르기는 하나라도 맞으면 · Confirmed 는 다 잡혔을 때만 · ⚠️ **485 로 미룸**(→ 미룬 235) |
+| 480 | home §1 | [Caleb · 안 1] 열린 예약 0 인 confirmed 오더(뒤처리가 끝나 스윕을 기다리는 백오더 오더 · 예 SO-25088) = 「Backorder ended」 회색 칩 + 거르기 한 칸 · ⚠️ **485 로 미룸**(→ 미룬 235) |
+| 481 | home §1 | [Caleb · 안 1] PO 의 Backorder = 갈라져 나왔고 · confirmed · 확정 인보이스 없음(옛 규칙 입고 분할 포함) · ⚠️ **485 로 미룸**(→ 미룬 235) |
+| 482 | home §1 | [Caleb · 안 1] 공급처 거르기 — 장부 시작일부터 IMS 입고 전까지 약 한 달(불러온 po_in 1,762 행 · 공급처 없음)은 제품 기본 공급처 · IMS 입고부터는 입고 PO 의 공급처(입고마다 · bo-2) |
+| 483 | home §1 | [Caleb · 안 1] Shopify 에서 취소된 웹 오더가 이어받았던 백오더는 잃은 판매(434 유지) · 고치려고 다시 넣은 오더는 표식(중복 입력)으로 뺀다 |
+| 484 | home §1 | [Caleb · 안 1] 열린 백오더 예약이 있는 오더는 합치기(so_merge)에서 막는다 — 까닭(Caleb 이 짚음): 합치기는 같은 제품 줄의 수량을 더해(48 + 48 = 96) 확정 때의 이어받기를 건너뛴다 → 수요가 부풀고 물건을 더 보낼 수 있다 · 백오더의 길 = 진행 · 이어받기 · 만료 · 취소 · 같이 보내려면 진행한 뒤 합친다(진행은 오더 한 장 단위) · 이미 합쳐진 옛 오더는 그대로 · 기각: 합칠 때 이어받기 규칙으로 셈 · 백오더 줄만 빼고 합침 |
+| 485 | home §1 | [Caleb] **Backorders 탭의 목적은 넷** — 원문: 「우리 전체 sku에서 백오더 sku가 차지하는 비중과, 주문된 오더에서 백오더로 인해 잃고 있는 세일의 규모 파악. 그리고 손님이 반복적으로 원하지만 제대로 응대하지 못하고 있는 sku들. 그리고 입고시 신속하게 손님과 소통하고 해당 백오더들 신속하게 오더로 전환하는 것」 · 계기(Caleb): 「백오더를 이정도까지 복잡하게 관리하는 것이 합리적인지 … 배가 산으로 가는 느낌」 → 넷에 필요한 것만 짓고 **474 · 479 ~ 481 미룸** |
+| 486 | home §1 | [Caleb · 안 1] ② 비율 = 기간 안에 잃은 것 ÷ 기간 안 확정 주문 · 잃은 몫마다 제 날짜(장부 ended_at · removed_at · so.closed_at) · 화면에 「이번 달에 잃은 것 기준」 류로 밝힌다 · 기각 안 2(같은 오더 묶음 — 최근 달이 늘 낮게 보인다) |
+| 487 | home §1 | [Caleb · 안 2] 「백오더가 된 금액」 = 덩어리마다 한 번, 처음에 바로 못 보낸 몫(다시 백오더가 된 몫은 다시 세지 않는다) · 예 100 · 60 · 40 → 다시 40 · 20 · 20 만료 ⇒ 40(옛 식 60) · 기각 안 1(사건마다) · 안 3(끝내 못 판 것만) |
+| 488 | home §1 | [Caleb · 안 2] 입고와 백오더의 창고가 다르면 같은 창고 손님을 위에, 다른 창고 손님은 아래에 「Other branch」 표지로 함께 · 기각 안 1(같은 창고만) |
+| 489 | home §1 | [Caleb · 안 1] Backorders 화면은 탭 셋(Arrivals · Insights · All backorders) · 처음 열리는 탭은 Arrivals(매일 쓰는 직원 · 매니저) · 기각 안 2(Insights 먼저) · 안 3(마지막 탭 기억) |
+| (기타) | home §1 | [Caleb] 합친 초안의 몫은 「진행 중(초안)」(484 뒤로는 새로 안 생긴다) |
+| 490 | bo-2b 📌 | [Caleb · 안 1] Arrivals 맨 위에 **「지금 보낼 수 있는 백오더」** 칸을 따로 둔다 — 입고와 상관없이 같은 창고에 가용이 있는 열린 백오더 · 프리오더 · 계기(화면 시험): SO-25046a(TDX70302 · Toronto)는 Toronto 가용 441 인데 최근 30 일 입고가 없어 Arrivals 에 안 나왔다 · 실무에서 생기는 길: 재고 조정 · 반품 · 다른 오더 취소로 풀린 재고 · 실사 · 기각 안 2(All backorders 의 Stock 칸에 맡김 — 매일 Arrivals 만 보는 직원이 놓친다 · 판정 485 ④ 와 어긋남) |
+| 491 | bo-2b 📌 | [Caleb · 안 1] 「진짜 수요 아님」 표식을 단 줄은 **「백오더가 된 금액」(판정 487 · backordered_qty · backordered_amount)에서도 뺀다** — 계기: SO-25032a 에 Test 표식 → 잃은 세일 $2,072.99 → $1,069.67 로 빠졌는데 Could not ship on time $4,206.40 은 그대로였다 · 기대: $4,206.40 → $3,203.08(이번 달 기간 · 실물 · 표식이 있을 때) · 기각 안 2(464 ③ 글자 그대로 — 시험 · 중복 오더가 「제때 못 보냄」을 부풀린다) |
+| 492 | bo-2b 📌 | [Caleb · 안 1] SKU · 브랜드 · 공급처로 거르면 ② 의 **분모(ordered_amount · ordered_qty · ordered_orders)도 같은 거르기를 따른다**(줄 단위) — 계기: SKU MOR2654 로 걸렀는데 Ordered 가 전체 $24,289.36 그대로라 4.13% 가 「회사 전체 주문 대비」가 됐다 · 읽는 법: 「이 브랜드(공급처 · SKU) 주문 금액 중 몇 % 를 백오더로 잃었나」 · 거르기가 없으면 지금과 같다 · 기각 안 2(분모는 늘 전체 — 작은 브랜드의 심각함이 0.몇 % 로 숨는다) |
+
+- 채우는 것 · 바뀌는 것: 464 → 475 ~ 478 · 483 · 486 · 487 · 491 이 셈의 구석을 정한다 · 465(상태 칩) → 479 ~ 481(미룸) · 미룬 220 → 485 · 489 · 490 이 화면의 뜻을 정한다 · §21 판정 1 · 0-4(백오더 오더 합치기 = 장부 merged)는 484 로 **새로 안 생긴다**(옛 행은 그대로) · 판정 369(aone 운임 확정)는 글 그대로 · 코드 표지 없음(미룬 236)
+
+### 64-b 쉬운 말 — Caleb 이 헷갈렸던 자리 (home §1 · §5 · 보고들)
+
+- **「그때의 수요」 와 「지금 남은 수요」** — 100 주문 · 60 나감 · 40 백오더 → 손님이 다시 20 주문 · 20 나감 ⇒ 그때의 수요 100 · 판 것 80 · 잃은 판매 20 · 지금 남은 0(Caleb 예 · bo-1a T1). 다시 주문은 「못 받았다」는 확인이라 더하지 않는다(넘친 몫만 새 수요)
+- **「없던 기간」** = 그 SKU × 창고의 재고가 0 이던 동안(품절 구간 · 474) — 만들지 않고 미뤘다(485). 지금 화면의 기간은 주문일 · 끝난 날 · 입고일이다
+- **qty_removed(손님이 뺐다)** = 마무리 때 손님이 빼 달라고 한 수량 — 백오더가 아니지만 수요 셈에서는 잃은 판매(475) · 직원 실수면 표식
+- **합치기와 이어받기** — 이어받기는 「같은 손님이 다시 주문 = 옛 백오더의 확인」이라 수요를 한 번만 센다 · 합치기는 같은 제품 줄의 **수량을 더한다**(48 + 48 = 96) — 그래서 백오더 오더는 합치지 않는다(484) · 같이 보내려면 각각 진행한 뒤 진행된 것끼리 합친다
+- **진행(proceed)은 오더 한 장 전부** — 한 SKU 를 보고 진행해도 그 오더의 다른 열린 백오더 · 프리오더 줄이 함께 엔진에 들어간다(so_backorder_proceed 가 오더의 예약을 전부 푼다) · 화면은 `proceed_moves_other_skus` 로 경고
+- **Insights ② 와 ③ 의 기간 뜻이 다르다** — ② 잃은 세일 비율은 「기간 안에 잃은 것(몫마다 제 날짜) ÷ 기간 안 확정된 주문」(486) · ③ SKU 순위는 「그 기간에 주문된(첫 주문일) 또는 끝난(마지막 끝난 날) 덩어리」 · 같은 기간 열쇠를 줘도 두 숫자의 모집단이 다르다
+- **「백오더가 된 금액」(Could not ship on time)** = 덩어리마다 처음 바로 못 보낸 몫 한 번(487) · 다시 백오더가 된 몫 · 다시 주문의 몫 · 표식 줄은 세지 않는다(491)
+- **「진짜 수요 아님」 표식** = 셈만 바꾼다 — 오더 · 재고 · Shopify 는 그대로 · 일찍 찾은 중복은 표식 대신 확정 되돌리기 → 취소(셈 밖 · 478 덧붙임)
+
+### 64-c 실물 사실 (테스트 DB · 2026-10-14)
+
+- bo-0 조사: 장부 so_backorder_close 22 행(cancelled 11 · merged 5 · proceeded 4 · superseded 2 · expired 0 · reopened 1) · 열린 backorder 예약 8 줄 · 프리오더 1 · 보류 4 · 원장 po_in 1,784 행(Cin7 적재 1,762 = 공급처 없음 · IMS 입고 22 = raw.po_id) · 이 셸의 grep 은 ugrep 함수(64-e)
+- bo-1a 확인: 덩어리 26 · demand 762 · lost 269 · 표식 0 · RON01625 수요 96(옛 뿌리 셈 192) · #1013 → SO-25092 의 옛 줄(SO-25088)은 잃은 판매 1(483)
+- bo-1c R0: ordered $24,488.09(56 오더) · lost $2,108.33(전부 cancelled) · 8.61% · backordered 591 / $4,247.63(487 · 옛 식 592) · 활성 재고 SKU 8,775(`is_active ∧ parent_product_id null`) · 열린 백오더 SKU 5 · 기간 안 25 · overview 152 ~ 192 ms
+- bo-2 W0: 최근 30 일 입고 1,117 행 중 기다리는 손님 있는 것 2 — TGI00434 Toronto(프리오더 SO-25068) · APR16008 Edmonton(다른 창고 Toronto 손님 SO-25055 · 488) · arrivals 324 ~ 373 ms · waiting 113 ms
+- bo-2b X0: Arrivals include_no_waiting(1,117 · 쪽 200) **16,775 ms → 307 · 308 · 306 ms**(가용 창고마다 한 번 · can_fill 집합) · ready 3 줄 · 3 오더 · 227 ms — SO-25035a UNF18260(가용 11 · 9 일) · **SO-25046a TDX70302(가용 441 · 계기)** · SO-25068 TGI00434(프리오더 · 최근 입고 있음) · 이번 달 ordered $24,289.36 · backordered $4,206.40 · lost $2,072.99
+- 화면 시험(Caleb · 2026-10-14 밤 · bo v4): 9 걸음 · 결함 넷(Received 칸 접힘 · 오른쪽 머리 대문자 · 오류 때 범위 남음 · 좁은 창에서 안 쌓임 — 110% 확대라 1100px 기준이 안 걸림) + DB 시간 초과(include_no_waiting) → bo-2b · bo v4a 로 고침 · **v4a 확인 ✅**(Ready to ship now 세 줄 SO-25035a · SO-25046a · SO-25068 · include_no_waiting 1,117 시간 초과 없음) · 표식 달기 · 떼기 실물(SO-25032a #5 Test → 잃은 세일 $2,072.99 → $1,069.67 → 떼고 되돌아옴 · so_demand_flag 에 뗀 행 1 남음) · **진행(proceed)은 시험하지 않음**(되돌릴 수 없음 · 미룬 241)
+- frt-1a 실물(office §1): #1016 Standard 12.00 → SO-25095 운임 줄 · 정보 freight_estimate_from_shopify(settled) · SO-25095 화면 확인은 Caleb 할 일(office §6)
+- 시퀀스: so_number_seq 머리 25127 근처 · 실물 최대 SO-25095 — 검증 꼬리의 되돌림이 「실행 시작 때 머리」 기준이라 확인 실행마다 머리가 조금씩 오른다(빈 번호 · 판정 55 허용 · 미룬 237)
+
+### 64-d 짓기 · 커밋 (git log 원문 · 두 레포) · 함수 지도
+
+| 차수 | 레포 · 커밋 | 요지 |
+|---|---|---|
+| frt-1a | asung-wms `7d2a16a` · `20261014201428_frt_1a_asung_freight_estimate.sql` | 판정 473 — 운임 길을 속 함수 shop_order_freight 로 떼어 aone · asung 한 창구(so_charge_set) · asung 은 운임 > 0 이면 결제 방식과 무관하게 운임 줄 + 정보 freight_estimate_from_shopify(settled) · freight_not_applied 더 안 붙임 · 시험 OK 16 · 확인 15 |
+| so v5t6 | asung-ims `e59f262` | Paid in Shopify 줄: 카드 캡처로 Paid 면 「Card captured in Shopify — recorded in IMS automatically」(판정 470 · Caleb 화면 시험 SO-25094) |
+| so v5t7 · wo v4d | asung-ims `0de7561` | 판정 473: 웹 경고 이름표 freight_estimate_from_shopify(처리됨) |
+| bo-0 | — | 조사 · 쓰기 0 · 이견 12 |
+| bo-1a | asung-wms `dee6d70` · `20261014234811_bo_1a_demand_flag.sql` | 표 so_demand_flag · 읽기 so_backorder_demand(손님 × 재고 제품 연결 덩어리 · 칸 다섯 + 옮겨 감) · 창구 so_demand_flag_set · clear(매니저 · 사유 필수) · 확정 되돌린 오더는 셈 밖 · 시험 OK 28 · 확인 27 |
+| bo-1c | asung-wms `c6b3cc8` · `20261015005345_bo_1c_demand_amount_overview.sql` | so_backorder_demand 재발행(금액 · ordered · transferred · currency) · 새 so_backorder_overview(share · lost_sales · rows[] SKU 순위) · 486(v3 몫마다 제 날짜) · 487 · 시험 OK 48 · 확인 47 |
+| bo-1d | asung-wms `089d94b` · `20261015013503_bo_1d_merge_blocks_backorder.sql` | 판정 484 — so_merge 재발행(원본 바이트 + 검사 한 덩이 · 미리 보기도 거부) · 시험 OK 58 · 확인 57 |
+| bo-2 | asung-wms `a183aef` · `20261015015435_bo_2_arrivals_waiting.sql` | 속 inv_receipt_events · 새 so_backorder_arrivals · so_backorder_waiting · overview 재발행(입고 식 → 헬퍼) · 판정 482 · 488 · 시험 OK 73 · 확인 72 |
+| bo v4 | asung-ims `2b10305` | so-backorders 탭 셋(판정 485 · 489) — Arrivals(기본 · 입고 SKU ↔ 기다리는 손님 · Other branch · can fill 미리 보기) · Insights · All backorders · 표식 달기 · 떼기 |
+| bo-2b | asung-wms `08cfc25` · `20261015024520_bo_2b_ready_fixes.sql` | 판정 490 ~ 492 — so_backorder_arrivals 재발행(시간 초과) · 새 so_backorder_ready · overview 재발행(491 · 492) · 시험 OK 86 · 확인 85(검증 파일 v2 두 갈래) |
+| bo v4a | asung-ims `af83c94` | Caleb 화면 시험 손질 — Arrivals 맨 위 Ready to ship now(so_backorder_ready · 줄 그리기 waitRow 공유) · 결함 넷 고침(좁은 폭 1400 · 카드 제목 div 등) |
+
+**함수 지도**(마지막 정의 · `command grep -lE … | LC_ALL=C sort | tail -1` · 파일:행)
+```
+수요 · 금액 정본(하나)   so_backorder_demand(p_filters)        20261015005345_bo_1c_demand_amount_overview.sql:40   ← 화면 · 새 함수가 같은 셈을 다시 짜지 않는다
+  속                    so_demand_line(line_id)                20261014234811_bo_1a_demand_flag.sql:93
+                        so_demand_so_excluded(so_id)           20261014234811_bo_1a_demand_flag.sql:74   (확정 되돌린 오더 · 도로 붙은 형제)
+Insights ① ② ③          so_backorder_overview(p_filters)       20261015024520_bo_2b_ready_fixes.sql:281   (demand 를 부른다)
+입고 정의(하나)          inv_receipt_events(sku, wh, from, to)  20261015015435_bo_2_arrivals_waiting.sql:36   (overview · arrivals 가 쓴다 · so_backorder_list 는 아직 제 식 — 미룬 238)
+Arrivals 왼쪽            so_backorder_arrivals(p_filters)       20261015024520_bo_2b_ready_fixes.sql:35
+Arrivals 오른쪽          so_backorder_waiting(product, wh)      20261015015435_bo_2_arrivals_waiting.sql:256
+Ready to ship now        so_backorder_ready(p_filters)          20261015024520_bo_2b_ready_fixes.sql:161
+표식 창구                so_demand_flag_set · clear              20261014234811_bo_1a_demand_flag.sql:289 · :348   (manager · 표 so_demand_flag)
+합치기(484 거부)         so_merge(ids, commit)                  20261015013503_bo_1d_merge_blocks_backorder.sql:36
+웹 운임(473)             shop_order_freight(…)                  20261014201428_frt_1a_asung_freight_estimate.sql:40
+All backorders           so_backorder_list(p_filters)           20261007163823_bo_pre_1_preorder_list.sql:34(그대로)
+```
+
+### 64-e ⚠️ 실수 · 발견 — 원인 · 처방
+
+1. [대화 Claude · home §5] 합치기를 설명하며 「깨지지 않는다 · 확정 때 다시 이어진다」고 답했다 — Caleb 이 「48 + 48 로 깨진 것 아닌가」 짚어 수량을 더하는 것을 놓친 것이 드러났다 ⇒ 판정 484 · 동작을 말할 때 그 창구의 「줄 계획(수량을 어떻게 만드나)」까지 본다
+2. [대화 Claude · home §5] 확정 되돌리기 길을 빼고 표식만으로 중복 오더를 풀려 했다(Caleb 「unconfirm 해서 delete 도」) ⇒ 기존 정리 길을 먼저 본다
+3. [대화 Claude · home §5] 백오더 질문을 아홉 개 이어 물었다 — 정확한 셈의 구석을 메우는 일로 번졌다(Caleb 「배가 산으로」) ⇒ 판정 485 · 판정을 묻기 전에 「그 숫자로 무슨 결정을 하나」를 먼저 묻는다
+4. [Claude Code · bo-1a · home §5] 검증 T10 을 가짜 시나리오 뒤에 세어 「실물 35 · 표식 41」로 보고 — 실물은 26 · 0 ⇒ 실물 절은 가짜를 세우기 전에(bo-1c 부터 지켰다)
+5. [Claude Code · bo-1c v2 · home §5] ② 분자를 덩어리 마지막 끝난 날로 걸러 판정 486 과 어긋남(7월 20 · 10월 10 → 10월 30) — 대화 Claude 가 잡아 v3 로 몫마다 제 날짜
+6. [대화 Claude · home §5] bo-1a 지시서 고친 판을 Caleb 이 다운로드 폴더에 안 받은 채 옮기기 명령을 돌려 MOVED_OK 가 안 찍힘 — 작업 영향 없음(덧붙임은 메시지로) ⇒ 고친 판을 줄 때는 파일 카드를 다시 내고 「다시 받으세요」를 먼저
+7. [잘 된 것 · Claude Code · home §5] 덧붙임을 정의로 가름(confirmed_at null ∧ unconfirmed_at) · 넓힘(되돌린 초안)을 근거와 함께 제안 · 487 이 지금 장부로 셀 수 있음을 증명 · 부르는 곳 전수(so_merge 는 so.html 하나) · M7 원본 동등 대조
+8. [Claude Code · bo-0 이견 1] 이 셸의 grep 은 ugrep 함수라 `-l` 출력 순서가 이름 순이 아니다 — `grep -ln … | tail -1` 이 so_cancel 의 마지막 정의를 틀린 파일로 냈다 ⇒ `command grep -lE … | LC_ALL=C sort | tail -1`(asung-workflow §4)
+9. [Claude Code · bo-1a 3 회차] volatile 창구와 stable 읽기를 한 문장에 둬서 문장 스냅샷이 방금 쓴 표식 행을 못 봤다 ⇒ `\gset` 으로 문장을 나눈다
+10. [Claude Code · bo-2b X5 · 6 번째 재발] old/new 증감 비교를 한 갈래로 써 확인 실행이 MISMATCH(old 도 새 판) ⇒ `\if :{?mig}` 두 갈래 · 비교 창이 빈 쪽이면 동등 비교는 뜻이 없다(X1b 3 일 창 · 실물 0 행) — 행 수 ≥ 1 을 함께
+11. [Claude Code · bo-2b 1 회차 · 스스로 잡음] 「오래 기다린 줄부터」의 창 정렬을 `first_on desc`(새 줄부터)로 썼다 ⇒ 날짜 asc · 시나리오(20 · 15 → 20 · 10)로 확인
+12. [Claude Code · bo-2b 3 회차 · 스스로 잡음] `inv_available_base` 는 **잔고 행이 없는 제품의 행을 내지 않는다** — inner join 에서 가용 0 인 콤보 구성품이 빠져 콤보가 보낼 수 있는 것처럼 보였다 ⇒ left join + coalesce 0
+13. [Claude Code · bo-2b 2 회차] `jsonb->'k' - 'x'` 는 `-` 가 먼저 묶인다(operator is not unique) ⇒ 괄호
+14. [발견 · bo-2b 이견 8] 화면 시험의 실물 표식 행(뗀 행 1)이 생긴 뒤 옛 검증 파일 넷(bo-1a · 1c · 1d · 2)의 「so_demand_flag 행 수」 절대값이 확인 실행에서 어긋난다 ⇒ 원본은 그날의 기록으로 두고 고치지 않는다 · 앞으로 회귀는 bo-2b 의 사본 방식(이 시험이 만든 표식만 센다)(대화 Claude 처리 · Caleb 이의 없음)
+15. [대화 Claude · bo v4 화면 시험] 결함 넷 — Received 칸 접힘 · 오른쪽 머리 대문자(공통 `.card h3` 는 대문자 · 고정폭 · 밑줄) · 오류 때 범위 남음 · 좁은 창에서 안 쌓임(IMS 화면은 110% 확대라 1100px 기준이 노트북에서 안 걸림 → 1400) ⇒ asung-workflow §6
+
+### 64-f 미룬 것 — 63-h-4 233 에 이어 붙임(220 닫힘 · 221 열린 채)
+
+- 234 판정 474 품절 구간(SKU × 창고 재고 0 · 원장 자동 + 매니저 고침 · 장부 시작일 앞) — 485 로 미룸
+- 235 판정 479 ~ 481 상태 칩(SO 칩 · Backorder ended · PO Backorder) — 485 로 미룸 · 판정 465 의 구현이 여기
+- 236 aone 운임 확정 표지(옛 「474 후보」 · 판정 369 가 글에만 있다 · frt-1a 이견 1) — aone 운영 시작 전에
+- 237 시퀀스 드리프트 — 검증 꼬리의 되돌림이 실행 시작 머리 기준이라 확인 실행마다 머리가 오른다(지금 머리 25127 근처 · 실물 최대 SO-25095 · 빈 번호 · 판정 55 허용) · 실물 최대로 되돌릴지 · 꼬리 규칙을 바꿀지
+- 238 so_backorder_list(All backorders)의 「입고됨」 식을 inv_receipt_events 로 — 지금은 같은 규칙의 제 식(재발행은 뒤로 · bo-2 이견 1)
+- 239 옛 검증 파일 넷(bo-1a · 1c · 1d · 2)의 표식 행 수 — **처리: 원본은 그날의 기록으로 두고 고치지 않는다 · 회귀는 bo-2b 사본 방식**(64-e 14 · 그 넷을 따로 확인 실행하면 T7a 등이 어긋나는 것이 정상)
+- 240 합치기 후보 목록(so.html openMerge)에 열린 백오더 오더 표시 · 체크 비활성 — 지금은 고른 뒤 미리 보기 문장으로 막힌다(동작은 맞다 · bo-1d 이견 4)
+- 241 진행(proceed) 화면 시험 — 되돌릴 수 없어 미룸(Ready to ship now · Arrivals 오른쪽의 Proceed)
+- 242 원래 백오더 오더 상세(so.html)의 「이어받아 닫힘 → SO-…」 표시 — 없다(bo-0 F · so_detail · so.html 모두 장부를 안 읽는다) · All backorders 의 끝난 줄에는 있다
+- 221(열린 채) 백오더 입고 알림 IMS 이관 — 컷오버 전 필수 · 왼쪽(arrivals) · 오른쪽(waiting) · ready 의 데이터가 그 재료(bo-0 D5 · bo-2) · so_line.backorder_notified_at 채우기 · GAS 정지와 동시
+- (닫힘) 미룬 220 Backorders 탭 재구성 — bo-0 ~ bo-2b · bo v4 · v4a(465 → 235 · 474 → 234 · 상세 표시 → 242)
+- (닫힘) 미룬 191 웹 운임 판정 — 판정 473 · frt-1a
+
+### 64-g 다음 (Caleb 이 고른다)
+
+```
+백오더 입고 알림 IMS 이관(221 · 컷오버 전 필수) · ⑦ gateway 가르기(230 · 조건 셋 전에) · 컷오버 준비 묶음(§56 ~ §60 미룬 것) · 미룬 234 ~ 242
+다음 판정 번호: 493
+```
