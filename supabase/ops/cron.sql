@@ -756,3 +756,55 @@ select cron.schedule('ims-paid-drain', '*/5 * * * *', $job$
     body := '{"action":"paid_drain"}'::jsonb, timeout_milliseconds := 45000)
   where exists (select 1 from public.shop_order_queue q where q.done_at is null and q.kind = 'mark_paid');
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 54 ims-mail-tick · 55 ims-mail-drain · 56 ims-mail-chat [실측 2026-10-16 · Caleb 등록 · 셋 다 active · postgres · key_len 빈칸 / 64 / 64] mail-3 (2026-10-16 · 판정 502 · 503 · 514 · IMS 메일 — 백오더 입고 알림 · 마이그레이션 mail-1a ~ 2a · EF mail(mail-2b 9605417))
+--   ⚠️ 운영에는 등록하지 마라(운영 미등록 — 운영에는 표 · 함수 · EF 가 없다) · 운영 등록은 mail-5(컷오버 묶음) · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   잡 셋(mail-3 이견 1 — 지시서의 drain 하나를 drain · chat 둘로 갈랐다: 킬 스위치 · 실행 기록이 따로 · 같은 분에 둘이어도 순서가 상관없다(chat_due 는 queued · sending 이 없는 회차만))
+--   ims-mail-tick  : 매시 07 분 — SQL 만(select public.mail_backorder_tick() · EF 호출 0) · 월 · 목 그 창고 시각 hour 판단은 함수 안(판정 503 · cron 은 UTC) · mail_enabled off 면 아무것도 안 한다
+--                    ⚠️ 창고 하나가 실패해도 잡은 성공으로 끝난다(서브트랜잭션 · raise warning — cron.job_run_details 에는 남지 않는다 · mail-3 이견 3) — 확인은 그날 mail_run 행 · Chat 요약이 없음으로
+--   ims-mail-drain : 1 분마다 — ⭐ 할 일이 있을 때만 EF 를 부른다(where exists · EF 호출 0): ① mail_enabled on 이고 queued 이며 next_attempt_at 이 지난 메일 ② 또는 10 분 넘게 sending 인 메일(EF 가 죽었다 — mail_claim 이 unknown 으로 · 꺼져 있어도 · 2a 이견 2)
+--                    timeout 60 s(EF 예산 40 s + 마지막 한 통 Gmail 20 s · mail-3 이견 2) · 앞 분의 drain 이 아직 돌아도 두 번째가 같은 메일을 못 집는다(mail_claim for update skip locked)
+--   ims-mail-chat  : 1 분마다 — mail_run_chat_due() 가 하나라도 있을 때만 EF chat(판정 502 · 다섯 번 실패하면 더 안 나온다)
+--   열쇠: 이미 도는 ims-shop-drain(jobid 42) 줄에서 꺼내 format(%L) 로 넣는다 — 실행 가능한 등록 · 해제 덩이는 ~/asung/prompts/mail-3-cron.sql(이 파일에는 열쇠를 넣지 않는다 · 아래는 기록)
+--   등록(대시보드 SQL Editor · 테스트 프로젝트):
+--   do $$ declare k text; begin
+--     if exists (select 1 from cron.job where jobname in ('ims-mail-tick', 'ims-mail-drain', 'ims-mail-chat')) then raise exception 'ims-mail-* already scheduled — unschedule first'; end if;
+--     select substring(command from 'x-ims-cron-key'', ''([^'']+)') into k from cron.job where jobid = 42;
+--     if k is null or length(k) < 32 then raise exception 'cron key not found on jobid 42'; end if;
+--     perform cron.schedule('ims-mail-tick', '7 * * * *', $j$ select public.mail_backorder_tick() $j$);
+--     perform cron.schedule('ims-mail-drain', '* * * * *', format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"drain"}'::jsonb, timeout_milliseconds := 60000)
+--       where (exists (select 1 from public.inv_config c where c.key = 'mail_enabled' and c.value = 'on')
+--              and exists (select 1 from public.mail_outbox o where o.status = 'queued' and coalesce(o.next_attempt_at, '-infinity') <= now()))
+--          or exists (select 1 from public.mail_outbox o where o.status = 'sending' and o.claimed_at < now() - interval '10 minutes');
+--     $j$, k));
+--     perform cron.schedule('ims-mail-chat', '* * * * *', format($j$
+--       select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
+--         headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', %L),
+--         body := '{"action":"chat"}'::jsonb, timeout_milliseconds := 60000)
+--       where jsonb_array_length(public.mail_run_chat_due()) > 0;
+--     $j$, k));
+--   end $$;
+--   확인: select jobid, jobname, schedule, active, length(command) as cmd_len, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname like 'ims-mail-%' order by jobid;  → 실측 54 · 55 · 56(key_len tick 빈칸 · drain · chat 64)
+--   최근 실행: select jobid, status, return_message, start_time from cron.job_run_details where jobid in (select jobid from cron.job where jobname like 'ims-mail-%') order by start_time desc limit 10;
+--   EF 응답: select id, status_code, left(content::text, 200) from net._http_response order by created desc limit 5;   -- drain · chat 을 부른 분에만 행이 생긴다
+--   킬 스위치(테스트 DB · 실측 jobid · 운영 번호와 다르다): select cron.alter_job(54, active := false);   -- ims-mail-tick  ·  select cron.alter_job(55, active := false);   -- ims-mail-drain  ·  select cron.alter_job(56, active := false);   -- ims-mail-chat
+--   해제: select cron.unschedule('ims-mail-tick'); select cron.unschedule('ims-mail-drain'); select cron.unschedule('ims-mail-chat');
+--   ⚠️ 잡을 멈추지 않고 메일만 끄려면 inv_config mail_enabled = off(mail-1a 설정 키 · admin 만 바꾼다) — tick 은 아무것도 안 하고 drain 은 할 일이 없다(멈춘 sending 되살리기만)
+select cron.schedule('ims-mail-tick', '7 * * * *', $job$ select public.mail_backorder_tick() $job$);
+select cron.schedule('ims-mail-drain', '* * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"drain"}'::jsonb, timeout_milliseconds := 60000)
+  where (exists (select 1 from public.inv_config c where c.key = 'mail_enabled' and c.value = 'on')
+         and exists (select 1 from public.mail_outbox o where o.status = 'queued' and coalesce(o.next_attempt_at, '-infinity') <= now()))
+     or exists (select 1 from public.mail_outbox o where o.status = 'sending' and o.claimed_at < now() - interval '10 minutes');
+$job$);
+select cron.schedule('ims-mail-chat', '* * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"chat"}'::jsonb, timeout_milliseconds := 60000)
+  where jsonb_array_length(public.mail_run_chat_due()) > 0;
+$job$);
