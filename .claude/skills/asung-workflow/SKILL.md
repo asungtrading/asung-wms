@@ -497,6 +497,7 @@ description ⚠️ 키워드가 트리거다 — 자르면 필요할 때 스킬�
 담는 것
   §0 시작 순서 — ⭐ **정본을 curl 로 직접 받아 읽게 한다**(기억·캐시로 답하지 않게)
      · ⭐ [2026-09-29] **두 레포 `git pull` 먼저 · 로컬 HEAD 원문을 붙이게** — 집 PC 에서 로컬이 옛 판인 것을 Claude Code 가 보고 막았다(so-module §29-d)
+     · ⭐ [2026-10-16 · 판정 520 · so-module §65-e] **세 레포 asung-wms · asung-ims · asung-ops 모두 `git pull` · `git status --short` 빈 줄 · `git status -sb` 가 behind 면 멈춤** — asung-ops 를 08-04 그대로 두어 Claude Code 가 낡은 클론을 레포로 읽었다(docs-1016)
      · 「이것이 보이면 최신, 안 보이면 갱신이 커밋되지 않은 것」이라는 **판별법**을 준다
   선 것 · ⭐⭐ 어기면 되돌리기 어려운 것 · 일하는 방식(이 스킬이 대신한다) ·
   ⚠️ 그날 겪은 실수 · 지금 DB 실물(id·번호까지) · ⭐ 다음 할 일 · 밀린 것 · 환경

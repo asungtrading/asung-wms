@@ -8684,6 +8684,7 @@ All backorders           so_backorder_list(p_filters)           20261007163823_b
 | 517 | 「manager 이상」 | `customer.backorder_mail` 바꾸기 = **manager 이상**(sales 는 보기만) — 판정 237 「일반 칸 = sales」 의 예외 · 값이 바뀔 때만 검사(manager_needed) · 대화 Claude 안은 sales 였다 |
 | 518 | 「2」 | **창고 회차가 실패하면 백오더 Chat Space 에도 한 줄**(⚠️ … run failed (요지)) · 그 창고 · 그날 한 번 · 풀리면 그날 회차 요약이 대신(「풀림」 줄 없음 — mail-4c 이견 2) · 기각 1(화면만) |
 | 519 | 「A」 | **asung-ops 스킬은 claude.ai 와 동기화된 새 사본(2026-09-22 · 345 행)을 레포(`~/asung/asung-ops/skills/asung-ops/SKILL.md`)에 바이트 그대로 먼저 옮기고**(커밋 덩이 하나 · 동기화만) 그 위에 IMS 메일 줄을 더한다(둘째 덩이) · 까닭: 레포 사본(2026-08-04 · 311 행)이 낡아 그대로 고쳐 올리면 9 월에 더해진 34 행(§2-b Edge Function 401 · verify_jwt 등)이 지워진다 · 기각 B(이번엔 말로만) · 다른 스킬도 레포 사본과 claude.ai 사본의 md5 를 차수 보고에 남긴다 |
+| 520 | 「2」 | **asung-ops 레포 안의 asung-bq-data-model 사본을 지우고** `skills/asung-bq-data-model.MOVED.md` 에 「정본은 asung-wms/.claude/skills/asung-bq-data-model」 한 줄(+ README 한 줄) · 까닭: 옛 사본(본문 903bcaea · 2f1e4cf 2026-08-03)이 정본(본문 9c316559 = claude.ai)과 달라 같은 이름 스킬이 둘 · 걸린 곳은 경로 의존이 아니라 점검 도구(`tools/extract-registry.sh`)가 `skills/` 글을 훑는 것뿐 — 문서의 표 이름은 코드 참조가 아니니 관측에서 빠지는 편이 맞다 · registry.json 의 그 항목 · asung-ops SKILL.md 43 행은 이름으로만 가리켜 그대로 · 기각 B(정본으로 덮어 두 사본 유지) · C(도구 먼저 고침) |
 
 ### 65-b 쉬운 말 — Caleb 이 헷갈렸던 자리
 
@@ -8773,6 +8774,8 @@ EF 꺼내기 · 적기         mail_claim(n) · mail_mark(id, attempt, …) 2026
 10. [Claude Code · mail-3 이견 3] tick 이 한 창고에서 실패해도 cron 기록은 「성공」 → mail_run_error(4a) · Chat 한 줄(518 · 4c)
 11. [Claude Code · 시험] 1a ~ 4c 모든 차수에서 첫 판이 통과하면 **결함 판**(scratchpad 사본에 결함을 하나씩 넣어)으로 검사가 정말 잡는지 확인했다 — 잡히지 않은 것은 다른 장치가 대신 막는 이중 보호였다(1c · 2a · 4a 보고) ⇒ 다음 차수에도 그대로
 12. [Claude Code · docs-1016 §0] asung-ops 스킬 레포 사본이 claude.ai 사본보다 낡았다(34 행 차이) → 판정 519 · 같은 레포의 `references/registry.md`(125 행 · 8-04 vs 161 행 · 9-22)와 asung-bq-data-model 사본도 다르다(미룬 251)
+13. [원인 · docs-1016b · Caleb 확인] asung-ops 레포 사본이 낡았던 까닭 = **이 PC 의 asung-ops 클론이 08-04 뒤로 pull 이 안 됐다**(원격에는 09-12 `1a643f7` — SKILL.md b6fdd385 · registry.md 5f3b91b0 = claude.ai 와 같음) · 시작 순서가 asung-wms · asung-ims 둘만 pull 해 asung-ops 는 08-04 그대로였고, Claude Code 가 그 낡은 클론을 「레포」 로 읽었다 · Caleb 이 rebase 로 동기화 커밋을 빼고 메일 커밋 `5f05ac7` 만 푸시 ⇒ 판정 519 의 「동기화 덩이」 는 필요 없었다 · 처방: asung-workflow §9 시작 순서에 「세 레포 모두 pull · status 빈 줄 · behind 면 멈춤」(판정 520 과 함께)
+14. [Claude Code · docs-1016b] asung-ops 레포에서 asung-bq-data-model 을 가리키는 곳 grep — 경로로 가리키는 곳은 없고, `tools/extract-registry.sh`(10 행 `for d in gas tools-repo wms skills sql`)가 `skills/` 글을 훑어 표 이름을 세는 것 · registry.json 1418 행(이름 선언) · asung-ops SKILL.md 43 행(이름) · README 16 행(`skills/` = 스킬 원본)뿐 · **두 레포(asung-ops/skills · asung-wms/.claude/skills)에 같은 이름 스킬은 asung-bq-data-model 하나뿐이었다**(asung-ops 스킬은 asung-ops 레포에만)
 
 ### 65-f 미룬 것 — 64-f 242 에 이어 붙임(221 닫힘 · IMS 쪽)
 
@@ -8785,6 +8788,7 @@ EF 꺼내기 · 적기         mail_claim(n) · mail_mark(id, attempt, …) 2026
 - 249 `include_in_email` 의 뜻(5-c · 380 때)
 - 250 적재 연락처 created_at 이 같아 둘째 단계 「첫」 이 사실상 id 순(mail-1b 이견 6 · 해당 손님 4 명)
 - 251 asung-ops 레포의 `references/registry.md` · `asung-bq-data-model` 사본이 claude.ai 사본과 다르다(판정 519 는 SKILL.md 만 옮김) — 어느 쪽이 정본인지 Caleb 확인 뒤 같은 꼴로
+  → [2026-10-16 · docs-1016b] 닫힘 — registry.md 는 원격이 이미 최신(클론이 pull 안 된 것 · 65-e 13) · asung-bq-data-model 은 판정 520 으로 옛 사본을 지움
 - (닫힘 · IMS 쪽) 미룬 221 백오더 입고 알림 IMS 이관 — mail-0 ~ 4c · 운영은 244
 
 ### 65-g 다음 (Caleb 이 고른다)
@@ -8792,4 +8796,5 @@ EF 꺼내기 · 적기         mail_claim(n) · mail_mark(id, attempt, …) 2026
 ```
 월 10-19 9:07(토론토) 실전 연습 보기 — 회차 · 메일 · Chat 요약 · Emails 탭 · 실패면 Chat ⚠️ · mail-5 운영 전환 묶음(244) · ⑦ gateway 가르기(230) · 컷오버 준비 묶음(§56 ~ §60 미룬 것) · 미룬 234 ~ 251
 다음 판정 번호: 520
+→ [2026-10-16 · docs-1016b] 판정 520 · 다음 판정 번호: 521
 ```
