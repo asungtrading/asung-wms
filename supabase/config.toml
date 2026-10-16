@@ -509,3 +509,12 @@ enabled = true
 # verify_jwt=false 가 없으면 플랫폼 JWT 검사에 걸려 시크릿 호출이 401(product-images 와 같은 이유).
 verify_jwt = false
 entrypoint = "./functions/ims-product-images/index.ts"
+
+[functions.mail]
+enabled = true
+# mail-2b (2026-10-16 · 판정 493 · 502 · 510 · 511 · 514) — IMS 메일 일꾼 · ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때.
+#   배포: supabase functions deploy mail --project-ref fazgmyvzzhqybtvtktyg
+# pg_cron(mail-3)이 JWT 없이 x-ims-cron-key 시크릿 헤더로 부른다(secret IMS_CRON_SECRET · 미설정이면 500 fail-closed) · 프로젝트 ref ↔ inv_config.db_role 이 어긋나면 보내지 않는다.
+# verify_jwt=false 가 없으면 게이트웨이 401(asung-ops §2-b · ims-product-images 와 같은 이유).
+verify_jwt = false
+entrypoint = "./functions/mail/index.ts"
