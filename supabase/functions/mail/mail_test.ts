@@ -1,5 +1,5 @@
 // deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩
-import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, mailbox, projectRef, PROD_REF, render, safety, TEST_REF, type ClaimedMail, type Deps, type Line, type MailConfig, type Mark, type Outcome } from "../_shared/mail.ts";
+import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, mailbox, projectRef, PROD_REF, render, safety, TEST_REF, type ClaimedMail, type Deps, type Line, type MailConfig, type Mark, type Outcome } from "../_shared/mail.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -144,4 +144,15 @@ Deno.test("⑩ Chat 요약 — 보낸 날 · 0 통인 날 · reason 낱말 · �
   eq(chatText({ ...run, location_name: "Asung - Edmonton", mails: 0, by_status: {}, skipped: {} }, [], [], false), "Backorder mail — Edmonton · 2026-10-19 — nothing to send.", "zero day");
   const long = chatText(run, Array.from({ length: 200 }, (_, k) => ({ status: "sent", customer_name: "Customer " + k, lines: [{ so_number: "SO-" + k, sku: "SKU" }] })), [], false, 500);
   ok(long.length < 560 && /… and \d+ more$/.test(long), "cut");
+});
+Deno.test("⑪ 회차 실패 Chat 한 줄(판정 518) — 창고 · 날짜 · 요지 · [TEST] · 이메일 · 열쇠 모양 지움 · 길면 자름 · 빈 문장", () => {
+  const e = { error_id: 1, location_name: "Asung - Edmonton", run_on: "2026-10-19", attempts: 1,
+    message: "duplicate key value violates unique constraint \"mail_outbox_to_ck\" Key (to_address)=(" + ["someone", "example.invalid"].join("@") + ") token " + "abcdefghij".repeat(4) };   // 이메일 · 열쇠 모양은 돌 때 만든다(레포에 그 모양을 두지 않는다)
+  const t1 = errorChatText(e, true);
+  ok(t1.startsWith("[TEST] ⚠️ Backorder mail — Edmonton · 2026-10-19 — run failed (duplicate key value violates unique constraint"), "head");
+  ok(!t1.includes("@") && t1.includes("<email>") && !/[A-Za-z0-9_-]{32,}/.test(t1) && t1.includes("<…>"), "no email · no key-like token");
+  eq(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: "abc ".repeat(150) }, false).length, "⚠️ Backorder mail — Toronto · 2026-10-19 — run failed ()".length + 200, "cut to 200");
+  ok(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: "abc ".repeat(150) }, false).endsWith("…)"), "ellipsis");
+  eq(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: null }, false), "⚠️ Backorder mail — Toronto · 2026-10-19 — run failed (no message)", "empty");
+  eq(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: "  line one\n   line two  " }, false), "⚠️ Backorder mail — Toronto · 2026-10-19 — run failed (line one line two)", "whitespace folded");
 });

@@ -1,11 +1,11 @@
 // mail — IMS 메일 일꾼(mail-2b · 2026-10-16 · 판정 493 · 502 · 510 · 511 · 514) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때
 //   문: x-ims-cron-key == secret IMS_CRON_SECRET(미설정 500 fail-closed · shopify · ims-product-images 와 같은 꼴) · config.toml [functions.mail] verify_jwt = false
 //   POST {"action": "drain"}  mail_claim → 안전(프로젝트 ref ↔ db_role · 시험 DB 는 mail_redirect_to 로 돌려 보내기) → 그리기 → Gmail users.messages.send → mail_mark(id, attempt, …)
-//        {"action": "chat"}   mail_run_chat_due → 회차마다 요약 글 → Chat 웹훅 → mail_run_chat_mark
+//        {"action": "chat"}   mail_run_error_chat_due → 회차 실패 한 줄(판정 518 · mail-4c) → mail_run_error_chat_mark · mail_run_chat_due → 회차마다 요약 글 → Chat 웹훅 → mail_run_chat_mark
 //        {"action": "render", "id": "<mail id>"}  보내지 않고 그린 결과만(같은 안전 검사의 받는 이 · 제목)
 //   비밀: GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS(tools/gmail-oauth-ims.sh 가 넣는다) · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET
 //   ⚠️ 비밀 값은 로그 · 응답 · DB 어디에도 남기지 않는다(오류는 Google 의 error 코드 · 설명만)
-import { chatText, drain, projectRef, render, safety, addressFor, type ChatMail, type ChatRun, type ClaimedMail, type MailConfig, type Outcome } from "../_shared/mail.ts";
+import { chatText, drain, errorChatText, projectRef, render, safety, addressFor, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type MailConfig, type Outcome } from "../_shared/mail.ts";
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -69,13 +69,27 @@ async function doDrain(): Promise<Response> {
   return json(out.ok ? 200 : 500, out);
 }
 
+async function postChat(hook: string, text: string): Promise<{ ok: boolean; err: string | null }> {
+  try {
+    const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json; charset=UTF-8" }, body: JSON.stringify({ text }), signal: AbortSignal.timeout(15_000) });
+    return r.ok ? { ok: true, err: null } : { ok: false, err: `chat webhook ${r.status}` };                // 웹훅 주소(비밀)는 적지 않는다
+  } catch (e) { return { ok: false, err: `chat webhook ${(e as Error)?.name ?? "error"}` }; }
+}
+
 async function doChat(): Promise<Response> {
   const hook = Deno.env.get("IMS_CHAT_WEBHOOK_BACKORDER") ?? "";
   if (!hook) return json(500, { ok: false, error: "IMS_CHAT_WEBHOOK_BACKORDER not configured - nothing posted (runs stay due)" });
   const cfg = await readConfig();
   const test = projectRef(SB_URL()) !== "gftpcnkxbdjzzfvzwcfl" || cfg.db_role === "test";
-  const due = (await sbRpc("mail_run_chat_due", {})) as (ChatRun & { run_id: string })[];
   const results: unknown[] = [];
+  // 판정 518(mail-4c): 회차 실패 한 줄 먼저 — 창고 · 날마다 한 번(풀리지 않은 것만)
+  const errs = (await sbRpc("mail_run_error_chat_due", {})) as ChatError[];
+  for (const e of errs) {
+    const r = await postChat(hook, errorChatText(e, test));
+    results.push(await sbRpc("mail_run_error_chat_mark", { p_id: e.error_id, p_ok: r.ok, p_error: r.err }));
+    await new Promise((res) => setTimeout(res, CHAT_GAP_MS));
+  }
+  const due = (await sbRpc("mail_run_chat_due", {})) as (ChatRun & { run_id: string })[];
   for (const run of due) {
     const rows = await sbGet(`mail_outbox?select=status,payload&run_id=eq.${run.run_id}&order=created_at`);
     const mails: ChatMail[] = rows.map((r) => ({ status: r.status, customer_name: r.payload?.customer_name ?? null, lines: (r.payload?.lines ?? []).map((l: any) => ({ so_number: l.so_number, sku: l.sku })) }));
@@ -83,13 +97,8 @@ async function doChat(): Promise<Response> {
     const skippedIds: { customer_id: string; reason: string }[] = runRow?.no_email ?? [];
     const names = skippedIds.length ? await sbGet(`customer?select=id,name&id=in.(${skippedIds.map((s) => s.customer_id).join(",")})`) : [];
     const skippedNames = skippedIds.map((s) => ({ name: names.find((n) => n.id === s.customer_id)?.name ?? "", reason: s.reason }));
-    const text = chatText(run, mails, skippedNames, test);
-    let ok = false, err: string | null = null;
-    try {
-      const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json; charset=UTF-8" }, body: JSON.stringify({ text }), signal: AbortSignal.timeout(15_000) });
-      ok = r.ok; if (!ok) err = `chat webhook ${r.status}`;                                                // 웹훅 주소(비밀)는 적지 않는다
-    } catch (e) { err = `chat webhook ${(e as Error)?.name ?? "error"}`; }
-    results.push(await sbRpc("mail_run_chat_mark", { p_run_id: run.run_id, p_ok: ok, p_error: err }));
+    const r = await postChat(hook, chatText(run, mails, skippedNames, test));
+    results.push(await sbRpc("mail_run_chat_mark", { p_run_id: run.run_id, p_ok: r.ok, p_error: r.err }));
     await new Promise((res) => setTimeout(res, CHAT_GAP_MS));
   }
   return json(200, { ok: true, posted: results });

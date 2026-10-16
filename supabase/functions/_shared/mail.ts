@@ -166,6 +166,16 @@ export function chatText(run: ChatRun, mails: ChatMail[], skippedNames: { name: 
   return text;
 }
 
+// ── 회차 실패 Chat 한 줄(판정 518 · mail-4c) — 오류 요지만 · 이메일 · 열쇠 모양은 지운다 ──
+export type ChatError = { error_id: number; location_name: string; run_on: string; message: string | null; attempts: number };
+const EMAIL_LIKE = /[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+\.[^\s@<>"'(),;:]+/g;
+const KEY_LIKE = /[A-Za-z0-9_\-]{32,}/g;
+export function errorChatText(e: ChatError, test: boolean, gistMax = 200): string {
+  const gist = (e.message ?? "").replace(EMAIL_LIKE, "<email>").replace(KEY_LIKE, "<…>").replace(/\s+/g, " ").trim();
+  const short = gist.length > gistMax ? gist.slice(0, gistMax - 1) + "…" : gist;
+  return `${test ? "[TEST] " : ""}⚠️ Backorder mail — ${isEdmonton(e.location_name) ? "Edmonton" : "Toronto"} · ${e.run_on} — run failed (${short || "no message"})`;
+}
+
 // ── 흐름(drain · chat) — deps 를 넣어 시험한다 ──
 export type Deps = {
   ref: string | null;

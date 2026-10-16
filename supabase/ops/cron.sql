@@ -808,3 +808,15 @@ select cron.schedule('ims-mail-chat', '* * * * *', $job$
     body := '{"action":"chat"}'::jsonb, timeout_milliseconds := 60000)
   where jsonb_array_length(public.mail_run_chat_due()) > 0;
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 56 ims-mail-chat 고침 [✅ 2026-10-16 오전(토론토) · Caleb · cmd_len 456 · has_error_branch t] mail-4c (2026-10-16 · 판정 518 — 창고 회차가 실패하면 백오더 Chat Space 에도 한 줄 · 마이그레이션 mail-4c · EF mail 재배포 뒤에)
+--   ⚠️ 운영에는 등록하지 마라(운영 미등록 · mail-5 컷오버 묶음) · 테스트 jobid 는 운영 번호와 따로 매겨진다
+--   바뀌는 것: where 에 「또는 회차 실패 Chat 차례가 있다」 한 갈래(public.mail_run_error_chat_due() — 풀리지 않았고 아직 안 올렸고 다섯 번 미만 실패한 오류 행 · 창고 · 날마다 한 번) · 주소 · 헤더 · 몸 · 시간 제한은 그대로
+--   열쇠: jobid 42 줄에서 다시 꺼내 format(%L) 로 — 실행 가능한 덩이는 ~/asung/prompts/mail-4c-cron.sql(첫 줄 테스트 DB 확인 · 56 이 ims-mail-chat 인지 · 마이그레이션 적용 확인 · 이 파일에는 열쇠를 넣지 않는다)
+--   확인: select jobid, jobname, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len, command ~ 'mail_run_error_chat_due' as has_error_branch from cron.job where jobid = 56;  → key_len 64 · has_error_branch t
+select cron.alter_job(56, command := $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"chat"}'::jsonb, timeout_milliseconds := 60000)
+  where jsonb_array_length(public.mail_run_chat_due()) > 0 or jsonb_array_length(public.mail_run_error_chat_due()) > 0;
+$job$);
