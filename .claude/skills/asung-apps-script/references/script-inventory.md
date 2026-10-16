@@ -36,6 +36,7 @@
 - 재고는 Cin7 API per-line이 아니라 `asung_stock_daily` BQ 테이블로 확인.
 - `bo_getDefaultEmailMap_()`가 Cin7 Customer API에서 Default:true 연락처를 가져옴.
 - 상수: `BO_` prefix, `LOG_FOLDER_ID`로 실행 로그 저장.
+- ⚠️ **IMS 메일로 넘어간다**(2026-10-16 · so-module §65) — 지금 caleb@ 계정이 From backorder@ 로 · 트리거 월 · 목 · 정지는 mail-5(IMS 켜기와 같은 날) · 그 전엔 그대로 둔다.
 
 ### InvoiceDateErrorNotification.gs (v3.1)
 - invoice date 오류를 감지해 알림.

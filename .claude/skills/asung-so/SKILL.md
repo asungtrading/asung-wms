@@ -423,6 +423,22 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️ inv_available_base 는 잔고 행이 없는 제품의 행을 내지 않는다 — 부르는 쪽이 left join + coalesce 0(inner join 이면 가용 0 인 콤보 구성품이 빠져 보낼 수 있는 것처럼 보인다 · bo-2b) · 가용은 창고마다 한 번(행마다 부르면 200 행에 16 초)
 ```
 
+## 4-s. ⭐⭐ IMS 메일 · 백오더 입고 알림 — 모르면 사고 (정본 so-module §65 · 판정 493 ~ 519)
+
+```
+⭐⭐ so_line 칸에 알림 · 표식을 쓰지 마라 — ims_touch 가 updated_at 을 바꿔 so_unconfirm 형제 검사가 그 오더의 확정 되돌리기를 막는다 → 작은 표(mail_backorder_line · so_demand_flag · 판정 478 · mail-1a 이견 11) · so_line.backorder_notified_at 은 쓰지 않는다(comment 만)
+⭐⭐ 화면 창구가 닫힌 속 함수 · 표를 품으면 invoker 는 42501 — 실행 안 되는 갈래여도 이름만 있으면 → definer + 첫 줄 ims_can_view('sales')(so_backorder_ready · so_backorder_list · mail_backorder_preview · so_backorder_notice_state · mail_* 화면 창구 · mail-1b 이견 1)
+⭐⭐ 알림 규칙 — 줄마다 한 번(497) · 입고(po_in · 다른 창고에서 온 transfer_in) 몫 ≥ qty_open 의 절반(505 · can_fill × 100 ≥ qty_open × pct) · 입고 아닌 재고는 그 줄이 다 채워질 때만(504) · 프리오더 메일 없음(499) · 그 오더 창고 재고만(500) · 나누기는 프리오더 먼저 · 알림 받은 줄 빼고(506 · fill alert — 화면 Ready to ship now 는 screen 셈 그대로) · 나뉜 줄은 조상 기록 이어받음(509 · split_from_line_id) · 비활성 손님 안 보냄(513) · 오더 매장 연락처만(508) · 손님 스위치 customer.backorder_mail(507 · 바꾸기 manager 517)
+⭐⭐ 셈은 하나씩 — 나누기 so_backorder_fill · 고르기 mail_backorder_pick(tick 과 preview 가 같은 함수) · 다음 회차 mail_backorder_next_slot · 지난 회차 뒤 입고 = inv_ledger.created_at(날짜 아님 · 1b 이견 3) — 다시 짜지 마라
+⭐⭐ EF mail(drain · chat · render · 문 x-ims-cron-key · config.toml verify_jwt=false) · cron(테스트) 54 ims-mail-tick 매시 07 분(SQL 만) · 55 ims-mail-drain 1 분 · 56 ims-mail-chat 1 분(할 일 있을 때만 EF) · 비밀 GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET · 열쇠 도구 tools/gmail-oauth-ims.sh(ims@ 아니면 멈춤 · 동의 화면 Internal)
+⭐⭐ 시험 DB 안전 넷 — EF 가 보내기 직전 프로젝트 ref × inv_config.db_role 대조 · 시험이면 받는 이 = mail_redirect_to(@asung.ca) · 제목 [TEST → 원래] · 어긋나면 집지도 않는다 · guard: 시험 DB 는 돌려 보내기 없이 켜기 거부 · db_role 은 postgres 만 · 키 이름 바꾸기 거부
+⭐⭐ 비상 스위치 = inv_config mail_enabled = off(admin) — 잡은 그대로 돌아도 회차 · 발송 0(멈춘 sending 되살리기만) · 잡을 멈추는 것보다 먼저
+⭐⭐ unknown(보냈는지 모름)은 자동으로 손대지 않는다(514) — Emails 탭에서 manager 이상(516 · mail_can_resolve)이 보냄으로 닫기 · 다시 보내기 · 취소(메모 필수 · 이력 mail_outbox_event) · mail_mark 는 시도 번호(p_attempt)가 같아야 적는다
+⭐⭐ 회차 실패는 mail_run_error 한 줄(창고 · 날) + Chat ⚠️ 한 번(518) — cron 기록은 성공으로 남는다
+⚠️ 테스트 DB 는 메일이 켜져 있고 cron 이 돈다 — 시험은 반드시 rollback · 시험에서 mail_claim · mail_mark 를 부르지 마라(실제 큐를 잠근다) · 커밋된 queued 는 돌려 보내기 주소로 실제로 나간다
+⚠️ 운영 전환(mail-5 · 미룬 244)은 GAS BackorderedItemEmail 트리거 지우기와 IMS 켜기를 같은 날 · 운영 비밀 · 운영 열쇠를 다시(도구 재실행)
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).

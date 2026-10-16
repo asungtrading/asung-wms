@@ -279,6 +279,7 @@ Caleb: "오더 컨퍼메이션, final invoice, shipping notification같은거야
 
 📌 백오더 알림(§1-h)은 별개 경로다 — GAS 가 Cin7 API 를 보고 보낸다.
 IMS 로 옮길 때는 한자리에서 다루는 것이 낫다.
+→ [2026-10-16 · §65] 백오더 알림은 IMS 메일 기계(판정 493 · Gmail API · ims@ 계정 · From notifications@)로 섰다 — 오더 메일(이 절의 템플릿 셋 · 판정 380)은 같은 기계의 뒤 사용자
 
 ### 1-s 손님 마스터 — Cin7 실측 (2026-09-21 프로브)
 
@@ -400,6 +401,7 @@ Caleb: "우리는 형제관계를 기록해야 한다고 생각해. 이것은 PO
 **⬜ 백오더 알림 메일을 IMS 로 옮긴다** — 지금은 GAS 가 Cin7 API 로 입고를 확인해 자동 발송.
 IMS 에서는 입고 확정이 이미 우리 함수라 긁을 것도 커서도 없다. SO 모듈이 선 뒤.
 ⚠️ 전환 때 **GAS 정지와 IMS 가동이 동시**여야 한다(중복 발송·누락 방지).
+→ [2026-10-16 · §65] ✅ IMS 쪽 섰다(mail-1a ~ 4c · 판정 493 ~ 519) — 줄(so_line)마다 한 번(497 · 505) · 기록은 작은 표 mail_backorder_line(so_line.backorder_notified_at 은 쓰지 않는다) · 월 · 목 9 시 그 창고 시각(503) · ⚠️ GAS 정지와 IMS 가동 동시는 그대로 — 운영 전환 묶음 mail-5(미룬 244)
 
 → [2026-10-14 · §64] **수요 셈의 정본 = `so_backorder_demand`**(손님 × 재고 제품의 연결 덩어리 · 칸 다섯 그때의 수요 · 판 것 · 잃은 판매 · 진행 중 · 지금 남은 백오더 · 판정 464 · 475 ~ 478 · 483) · 「진짜 수요 아님」 표식은 작은 표 `so_demand_flag`(판정 478 · so_line 칸 금지) · 알림 이관(위 ⬜)은 미룬 221 로 열려 있다
 
@@ -488,6 +490,7 @@ Caleb: "이전에 GAS를 통해서 IMS에 적재할때처럼 적재할 수 있�
 **최종 인보이스만 일부 손님에게 자동**(§1-r).
 ⬜ IMS 에서는 보낼 시점을 시스템이 안다(오더 확정 · 인보이스 발행 · 출하 확정) —
 자동을 넓힐 수 있으나 지금 실무는 수동이 기본이다.
+→ [2026-10-16 · §65] 메일 기계는 공통(판정 493 · mail_outbox · EF mail) — 오더 · 인보이스 메일은 뒤 사용자(380 · 미룬 147) · 지금 kind 는 backorder_ready 하나
 
 ---
 
@@ -518,6 +521,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 - **Freightcom API 연동** — 지금은 별도 로그인 → 견적 → 손으로 옮겨 적음.
   Caleb: "cin7은 그것이 잘 안돼서 연동을 못하고 있어." IMS 는 그 제약이 없다
 - **백오더 알림 메일 이관**(§2-g)
+  → [2026-10-16 · §65] ✅ IMS 쪽 섰다 · 운영 전환은 미룬 244
 - **가격 일괄 수정 화면**(§1-j)
 
 ---
@@ -670,6 +674,7 @@ phone · mobile · email · website
 → §9-d: `fax` · `cin7_comment` 를 더했다 · `marketing_consent` 는 nullable(마이그레이션 ① · 2026-09-22) · `job_title` 을 더했다(마이그레이션 ② · 2026-09-22).
 - `is_default` · `include_in_email` 이 **메일 수신처를 결정하는 자리**다.
   📌 관찰(Caleb 2026-09-21): "cin7에서 보내지는 이메일은 default contact의 email로 설정이 되어 있는 것 같아." — ⚠️ **확인 전**이다. 어느 칸이 수신처를 정하는지는 메일 절에서 실물을 보고 적는다.
+  → [2026-10-16 · §65] 판정 498: 백오더 알림의 받는 이 = 기본 연락처(is_default · 활성) → 없으면 주소 하나 모양인 다른 활성 연락처(created_at, id) → 없으면 「이메일 없음」 · 부모로 안 올라감(508) · include_in_email 의 뜻은 380 때(미룬 249)
 - `is_default` 도 「손님당 하나」다 — 5-f 와 같은 장치(생성 칸 `default_customer_id = case when is_default then customer_id end` + 전체 유니크 · 이견 7 채택). → §9-i(deferrable · 마이그레이션 ③ · 2026-09-22)
 - ⭐ `marketing_consent` 를 남기는 근거: 캐나다 **CASL**. 동의 기록은 **나중에 만들 수 없는 종류의 기록**이다 — 적재 때 Cin7 값을 그대로 받아 둔다.
 - ⬜ **「무엇을 자동으로 보내나」는 이번 차수에서 정하지 않는다.** §1-r·§2-n 의 자동 발송 설정(최종 인보이스만 일부 손님 자동)이 Cin7 어디에 붙어 있는지 **아직 못 봤다**. 메일을 다루는 절에서 실물을 보고 정한다.
@@ -2824,6 +2829,7 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
 ⚠️ 마이그레이션 일곱(전부 테스트 DB `Asung-IMS` 적용·검증 완료 · 커밋 93cfc54 · 9a67085 · d1a4e37): ③a `20260924141140_so_ship.sql`(568) · ③a′ `20260924143507_so_split_pick_short.sql`(98) · ③b `20260924145105_so_backorder_ledger.sql`(541) · ③b′ `20260924151719_so_backorder_supersede_paid.sql`(68) · ③c `20260924151038_so_backorder_sweep_list.sql`(256) · ③b″ `20260924153856_so_backorder_free_owed.sql`(393) · cron `supabase/ops/cron.sql` 절 하나(테스트 DB jobid 1). DDL·함수의 정본은 파일 · 이 절은 판정과 뒤집은 것.
 ⚠️ 앞 절 본문은 고치지 않았다 — 2-f · 5-g ①·⬜ · 7-i 셋 · 14-i 에 「→ §15」를 이어 적었다.
 📌 새 사실(정본에 없던 것 · Caleb 2026-09-24): **입고 알림은 백오더 제품마다 한 번만 보낸다** · **프리오더 = 확정됐지만 재고가 없어 못 나가는 오더**(「보낼 약속」 · 이어받기·만료 대상 아님).
+→ [2026-10-16 · §65] 판정 497 · 505 가 고쳤다 — 「제품마다」 가 아니라 **줄(so_line)마다 한 번** · 입고로 그 손님 몫 ≥ qty_open 의 절반(설정 50)일 때 · 기록은 mail_backorder_line
 
 ### 15-a 판정 1~16 (✅ Caleb 2026-09-24 · 말 그대로)
 
@@ -2841,6 +2847,7 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
         ⇒ 5-g ①「출하가 superseded 로 닫는다」 뒤집힘 · 언제 보아도 같은 손님·같은 제품의 열린 백오더 줄은 하나(마지막 것) · 실물 예: 1월 60 · 3월 40 + 오늘 30 → 3월 확정이 1월을 먼저 닫아(60/40/20) 30 은 3월 줄만(40/30/10) — 두 줄이 한 번에 닫히는 그림이 아니다  → §21(병합 예외 — 원본 형제와 합친 오더의 형제가 함께 열린다 · 0-1)
 판정 6  「입고됐다」는 사실로 본다 — 「입고는 PO나 트랜스퍼를 통한 입고만 허용이 되어야 한다고 생각해. stock adjustment나 리턴에 의해 스탁이 양수가 되는 것은 제외하는게 맞지 않을까? 그래서 난 a로 봐야 한다고 생각해」
         자격 = po_in · 다른 창고에서 온 transfer_in · 제외 = 조정 · 반품 · 조립 · ⭐ 출발 줄 없는 도착(§3-① 실측 no_out_leg 2 docs · 어디서 왔는지 모른다 · 모르면 비운다) · 지금 가용이 0 이어도 분류는 그대로(가용은 옆에)
+        → [2026-10-16 · §65] 판정 504: 알림 계기의 「입고」 도 같은 정의(inv_receipt_events) — 입고로 생긴 몫은 505 기준 · 입고 아닌 길(반품 · 조정 · 취소로 풀림 · 실사)은 그 줄이 다 채워질 때만 · 판정 6 은 Arrivals 분류 · 504 는 알림 계기 — 서로 다른 자리
 판정 7  같은 브랜치에 들어온 것만 센다 — 「다른 브랜치에서 들어온것만 세는게 맞아. 다른 브랜치에만 들어온 것은 세면 안될 것 같아.」 · 실측: 트랜스퍼 도착 12 docs 만 다른 창고에서 · 909 docs 는 같은 창고 bin 이동(1,716줄)
 판정 8  이어받기는 브랜치와 상관없다(「a가 맞다고 생각해.」) — 수요는 손님의 것 · 판정 7(물건이 어디 있나)과 다른 물음
 판정 9  프리오더 — 「프리오더는 확정된 오더이지만, 재고가 없어서 못나가고 있는 오더라고 봐야 하는게 맞아.」 ⇒ 이어받기·만료 대상 아님 · 들어오면 so_backorder_proceed
@@ -2867,6 +2874,7 @@ asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더�
  6  so_reserve.released_reason(released · shipped · closed) — 짝 CHECK 를 그대로 걸면 ② 창구 일곱이 깨진다 ⇒ BEFORE 트리거가 비면 'released' 를 채운다 · 가용 식(released_at is null)은 무변
  7  장부 「so_line 당 한 줄」은 다시 열 수 있어야 — active_line_id 생성 칸 + 전체 유니크(so_reserve.open_line_id 장치 · 규칙 29)
  8  「알림 보낸 때」는 장부에 못 들어간다(장부 줄은 끝날 때 생긴다 · 알림은 열린 동안) ⇒ so_line.backorder_notified_at · 지금 아무도 안 채운다(GAS 가 Cin7 에서 보낸다) ⇒ 읽기에 notified_state unknown_pre_ims(「안 보냄」이 아니다)
+    → [2026-10-16 · §65] so_line.backorder_notified_at 은 쓰지 않는다(mail-1a 이견 11 — ims_touch → so_unconfirm 형제 검사가 확정 되돌리기를 막는다 · 478 과 같은 뿌리) · 기록은 mail_backorder_line · 읽기는 so_backorder_notice_state(상태 일곱 · 509 계보)
  9  ✗ 오더 자동 닫기를 스윕에서 — 판정 11 로 필요 없어짐
  10 ✗ cron 함수 권한 모양 — 선례 wms_auto_hold(20260824202539:62 · revoke 셋 185~187 · cron.sql 잡 14)를 따랐다
  11 다른 창고에서 온 transfer_in = 같은 doc_number·sku 의 transfer_out 창고(IN_TRANSIT 아님)가 도착 창고와 다르다 · 실측(Caleb §3-①) from_other_wh 12 docs · same_wh_bin_move 909 docs · no_out_leg 2 docs
@@ -2946,6 +2954,7 @@ cron  [테스트 · Asung-IMS] jobid 1 · so-backorder-sweep · 17 9 * * * · ac
 17-f ② reversal consume — 취소 상쇄(7-e · ⑤ WMS 사건) 때 · 줄별 COGS 비례 배분(인보이스 차수) · pos·counter 의 bin(④)  → ✅ [2026-09-26] so-module §24 판정 2 로 닫혔다
 백오더 화면(대화 Claude) → [2026-10-14] ✅ §23 bo v1 ~ v3a · **§64 bo v4 · v4a 탭 셋**(판정 485 · 489) — 「우리가 줄 것」 따로 · days_waiting · 「IMS 알림 전」 표시(notified_state unknown_pre_ims 는 「안 보냄」이 아니다) · 오래된 무상 줄 정리(매니저) · 가용 음수 표시(so_backorder_list available_other 가 −10 을 그대로 낸다)
 so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IMS 로 옮길 때 backorder_notified_at 채우기(2-g ⬜ · GAS 정지와 동시)
+→ [2026-10-16 · §65] backorder_notified_at 은 채우지 않는다 — 기록은 mail_backorder_line(mail-1a 이견 11)
 전환 때 — cron.sql 의 so-backorder-sweep 은 테스트 DB jobid 1 이다(운영에는 함수가 없다 · 함께 올린다) · so_number_seq 25000 · is_called f 점검(12-g)
 ```
 
@@ -6713,6 +6722,7 @@ asm-2b2 32 / 27   (시험 6 · 마른 확인 1 · 함수 결함 0)
 - 100 사 오는 콤보(디스플레이 1 → 낱개 24) · 콤보 방향 칸(asm-0 · 묶음 8)
 - 101 무상 콤보 줄만 남은 오더가 sweep 후보에 밤마다 들었다 나온다(닫히지는 않음 · asm-2b2 이견 13)
 - 102 콤보 백오더 입고 알림 쓰기(backorder_notified_at 은 아직 아무도 안 쓴다 · arrived 식은 섰다)
+  → [2026-10-16 · §65] 콤보도 mail_backorder_pick 이 다룬다(구성품 가운데 하나라도 입고 · 통째 수 · 1b)
 - 103 GAS 상품 적재가 product_bom 의 `source = manual` 줄을 덮지 않게(asm-1 이견 5 · cs-4 · prod-5 묶음 §41-e 92 와 한 덩이 · Apps Script 편집기 원본)
 - 104 Fulfillment 화면(wms-fulfillment fu v1.3)은 콤보 표시 없음 — 박스에 구성품이 그대로 담긴다(묶음 6 으로 충분 · 표시가 필요하면 판정 거리)
 - 105 counter 오더 출고(so_counter_ship · so.html 「Hand over」)의 콤보는 시험 안 함 · POS 완료(so_pos_finish)는 2b1 P1 이 통과
@@ -8421,6 +8431,7 @@ Caleb 이 준 업무 사실 (이 대화)
 
 - 220 → [2026-10-14] ✅ §64(bo-0 ~ bo-2b · bo v4 · v4a · 464 구현 · 465 상태 칩은 판정 479 ~ 481 로 미룸 → 미룬 235 · 「없던 기간」 은 판정 474 로 미룸 → 234 · 원래 백오더 상세의 「이어받아 닫힘 → SO-…」 표시는 없음 → 242) Backorders 탭 재구성(⭐ Caleb 「꼭 구현」 — 464 · 465 구현 포함 · 공급처 · 기간 · 반 나눈 화면: 왼쪽 입고 SKU · 오른쪽 그 SKU 백오더 · 끝난 방식 · 「없던 기간」 자동/수동 · 공급처 기준 기본 vs 입고 PO · 원래 백오더 상세에 「이어받아 닫힘 → SO-…」 표시가 있는지 · home §4-6)
 - 221 백오더 입고 알림 IMS 이관(컷오버 전 필수 · 이 정본 400 · 518 행 · 지금은 GAS 가 Cin7 API 로)
+  → [2026-10-16 · §65] IMS 쪽 섰다(mail-0 ~ 4c) · 운영 전환은 미룬 244
 - 222 restock 재고 — 판정 후보 470(63-a 끝) · Shopify Restock 이 Shopify available 만 올려 다음 IMS 재고 변동까지 Shopify 가 더 판다 · order_drain 의 restock true 도 같다
 - 223 aone 카드 AUTHORIZED → PAID(capture) 를 받기가 자동으로 읽을지(판정 370 은 받는 순간 PAID 만 · 469 는 AUTHORIZED 를 건드리지 않는다)
 - 224 order_drain 이 last_push_at 을 commit 뒤에 쓰는 순서 — 웹훅이 먼저 오면 메아리 창을 못 찾는다(짐작 · 발생 실측 없음 · pay-2b 이견 2 · paid_drain 은 보내기 전에 쓴다)
@@ -8508,6 +8519,7 @@ Backorders 탭 재구성(464 · 465 · 미룬 220) · 백오더 입고 알림 �
 ⭐ 새 판정 473 ~ 492 · 원천: 473 = `~/asung/prompts/ims-handover-2026-10-14-office.md` §1 · 474 ~ 489 = `ims-handover-2026-10-14-home.md` §1 · 490 ~ 492 = 지시서 `bo-2b.md` 📌 · 보고 `bo-0` · `bo-1a` · `bo-1c`(v3) · `bo-1d` · `bo-2` · `bo-2b`(v2) `-report.md` · 지시서 `docs-1014c.md`(이 절의 원천) · 다음 판정 번호 **493**
 ⚠️ 번호 주의: office 인계서의 「**474 후보**(aone 운임 확정 표지)」 는 **판정이 아니다** — 판정 474 는 「없던 기간 = 품절 구간」(home §1)이다 · 옛 후보는 번호 없이 미룬 236 으로 옮겼다
 ⭐ 아직: 백오더 입고 알림 IMS 이관(미룬 221 · 컷오버 전 필수) · 상태 칩(479 ~ 481) · 품절 구간(474)
+→ [2026-10-16 · §65] 미룬 221 — IMS 쪽 섰다(mail-0 ~ 4c) · 운영 전환은 미룬 244
 
 ### 64-a 판정
 
@@ -8622,6 +8634,7 @@ All backorders           so_backorder_list(p_filters)           20261007163823_b
 - 241 진행(proceed) 화면 시험 — 되돌릴 수 없어 미룸(Ready to ship now · Arrivals 오른쪽의 Proceed)
 - 242 원래 백오더 오더 상세(so.html)의 「이어받아 닫힘 → SO-…」 표시 — 없다(bo-0 F · so_detail · so.html 모두 장부를 안 읽는다) · All backorders 의 끝난 줄에는 있다
 - 221(열린 채) 백오더 입고 알림 IMS 이관 — 컷오버 전 필수 · 왼쪽(arrivals) · 오른쪽(waiting) · ready 의 데이터가 그 재료(bo-0 D5 · bo-2) · so_line.backorder_notified_at 채우기 · GAS 정지와 동시
+  → [2026-10-16 · §65] IMS 쪽 섰다(mail-0 ~ 4c) · 운영 전환은 미룬 244
 - (닫힘) 미룬 220 Backorders 탭 재구성 — bo-0 ~ bo-2b · bo v4 · v4a(465 → 235 · 474 → 234 · 상세 표시 → 242)
 - (닫힘) 미룬 191 웹 운임 판정 — 판정 473 · frt-1a
 
@@ -8629,5 +8642,154 @@ All backorders           so_backorder_list(p_filters)           20261007163823_b
 
 ```
 백오더 입고 알림 IMS 이관(221 · 컷오버 전 필수) · ⑦ gateway 가르기(230 · 조건 셋 전에) · 컷오버 준비 묶음(§56 ~ §60 미룬 것) · 미룬 234 ~ 242
+→ [2026-10-16 · §65] 221 IMS 쪽 섰다 · 다음은 §65-g
 다음 판정 번호: 493
+```
+
+## §65 2026-10-15 ~ 10-16 — IMS 메일 기계 · 백오더 입고 알림 이관 — mail-0 ~ mail-4c · bo v5 · cs v4 · v4a · set v3 · 판정 493 ~ 519 (회사 PC)
+
+⭐ 닫힌 것: **백오더 입고 알림 IMS 이관 — IMS 쪽은 섰다**(미룬 221 · 테스트 프로젝트에서 실제 발송 · Chat 요약까지) · 운영 전환은 **mail-5**(미룬 244 — GAS 정지와 IMS 켜기 동시 · §2-g 400 행 그대로)
+⭐ 새 판정 493 ~ 519 · 원천: Caleb 요청 · 판정 493 ~ 518 = 지시서 `docs-1016.md` 📌(같은 PC `~/asung/prompts`) · 조사 `mail-0.md` · `mail-0-report.md` · 지시서 `mail-1a.md` ~ `mail-4c.md` · 각 `-report.md` · 인계서 `ims-handover-2026-10-15-office.md` · 판정 519 = docs-1016 §0 회신
+⭐ 메일 기계는 **공통**(보낼 메일 · 회차 · 실린 줄 · 이력 · 설정 키 · EF 하나) · 첫 사용자 = 백오더 입고 알림 · 뒤 사용자(정본에 이미 있다): 오더 문서 메일(판정 380 · 미룬 147) · 최종 인보이스 일부 손님 자동(§1-r · §2-n) · PO 공급처 메일(po-module 3959) · 마케팅(동의 true 만 · 1735) · IMS 가 보내지 않는 것: Shopify 발송 · 픽업 메일(378 · 379)
+📌 Caleb 의 요청(2026-10-15): 「그 작업을 이어가자. 그리고 이번 기회에서 IMS에서 이메일을 발송하는 시스템을 IMS 안에 짓자」
+
+### 65-a 판정 (말 그대로)
+
+| # | Caleb | 뜻 · 기각 |
+|---|---|---|
+| 493 | 「A」 | IMS 메일은 **회사 Google Workspace(Gmail API)** 로 · 기각 B 메일 전송 서비스(Resend · Postmark 류 — 새 업체 · DNS · 직원 보낸편지함에 안 남음) · 대화 Claude: 「우체국을 갈아 끼울 수 있게 짓는다」 · ⚠️ 이때 대화 Claude 가 도메인 위임을 「보내기 권한만」 이라 해 넓이(회사 누구 이름으로든)를 덜 말했다 — 열쇠의 길은 510 |
+| 494 | 「나」 | 평일 매일 아침 그 창고 시각 → **503 이 바꿨다** · 기각 가(입고 순간) · 다(월 · 목) |
+| 495 | 「2」 | 계기 = 입고 + 지금 보낼 수 있는 것 전부(Arrivals + Ready to ship now) → **504 가 고쳤다** · 기각 1(입고만) · ⬜ 처음 켜는 날 몰림은 컷오버 때 미리 보기 숫자로 · ⚠️ 이때 §15 판정 6(조정 · 반품 제외 · Caleb 2026-09-24)을 대화 Claude 가 꺼내지 않았다 |
+| 496 | 「2로 하고, 한번만 보내자.」 | 재고가 모자라면 **오래 기다린 순서로 나눈다** · 기각 1(다 채워질 때만 — 30 개가 아무에게도 안 알려짐) · 3(GAS 처럼 손님마다 따로 — 오래 기다린 손님이 밀림) · 기준은 505 |
+| 497 | (496 둘째 말) | 알림은 **줄(so_line)마다 한 번** · 이어받기(손님의 새 오더)는 새 줄이라 새로 센다 |
+| 498 | 「1」 | 받는 이 = **기본 연락처**(is_default · 활성) → 없으면 이메일 있는 다른 활성 연락처(주소 하나 모양만 — mail-0 이견 13 · 순서 created_at, id) → 없으면 보내지 않고 「이메일 없음」 · `include_in_email` 의 뜻은 380 때(5-c ⬜ 그대로) · 기각 2(기본 + include_in_email) · GAS 의 셋째 단계(오더 이메일)는 IMS 에 자리가 없다(so 에 칸 없음) |
+| 499 | 「1」 | **프리오더 줄은 손님 메일 없음**(Ready to ship now 에만 · 진행은 직원) · 까닭: 백오더 글(「새 오더를 넣어라」)이면 중복 주문 · 기각 2(프리오더 전용 글) |
+| 500 | 「1. 다른 창고는 별개로 봐야 해」 | **그 오더 창고의 재고만** · 다른 창고 재고는 Arrivals 의 Other branch(488)에서 직원이 보고 트랜스퍼 → 트랜스퍼 입고가 다음 회차 계기 · 기각 2 |
+| 501 | 「2」 | 메일에 **그 손님 몫(Ready for you now)과 창고 전체 가용(In stock)** 을 함께 · 기각 1(손님 몫만) |
+| 502 | 「1」 | 회차마다 **Google Chat 요약**(0 통이면 「nothing to send」 한 줄) · 기각 2(화면만) |
+| 503 | 「그렇다면, 지금 처럼, 월요일과 목요일 아침에 보내는게 좋겠어.」 | **월 · 목 아침, 그 창고 시각**(Toronto 9 시 토론토 · Edmonton 9 시 에드먼튼 — 대화 Claude 안 · GAS 는 Edmonton 을 토론토 10 시 = 에드먼튼 8 시로 걸었다 · 짐작) · 요일 · 시각은 설정 값 · 손님 × 창고 한 통 · 계기: Caleb 「손님 대개는 진행이 아니라 직접 다시 오더를 넣는다 · 오더마다 백오더 품목이 많으면 이메일을 자주 받는 불편」 · 그 순간 보낼 수 있고 아직 안 알린 줄만(사이에 들어왔다 팔린 재고는 안 알림 — mail-0 이견 8) · 같은 손님이 두 창고에 오더가 있으면 두 통 |
+| 504 | 「안 2로 가자. 그런데, 에드몬튼의 경우는 트랜스퍼로 받는 것을 입고로 봐야 해.」 | **입고(po_in · 다른 창고에서 온 transfer_in — §15 판정 6 · 11 그대로)로 생긴 몫은 505 기준 · 입고가 아닌 길(반품 · 조정 · 취소로 풀림 · 실사)은 그 줄이 다 채워질 때만** · 495 를 고침 · 계기 Caleb 「재고는 0이었는데 누군가 1개를 리턴 … 파손이 되었을 수도 · 자잘한 수량 변화는 오히려 손님에게 반감」 · 기각 1(입고만 · 495 되돌림) · 3(길 상관없이 다 채워질 때만) · ⭐ 판정 6 은 Arrivals 분류 · 504 는 알림 계기 — 서로 다른 자리 |
+| 505 | 「두번을 보내게 되면, 그 두번의 이메일 사이에 사실은 손님의 수요가 충족 되었을 수도 있잖아. … 그냥 한번만 보내는게 좋겠어. 수량의 절반 이상일때만 한번 보내는 것으로 바꾸자.(다)」 | **줄마다 한 번 · 입고로 그 손님 몫 ≥ 그 줄 qty_open 의 절반**(설정 값 50 · 정수 비교 `can_fill × 100 ≥ qty_open × pct` — 48 이면 24 · 7 이면 4 부터) · 앞서 고른 「나」(처음 + 다 채워짐 두 번)를 바꿈 · mail-0 이견 1 을 닫음 |
+| 506 | 「506은 안2」 | 알림용 나누기 = ① **프리오더 몫을 먼저** ② **알림 받은 줄은 줄 세우기에서 뺀다** ③ 나머지 오래 기다린 순 · 기각 1(화면 셈 그대로 — 알림 받고 주문 안 한 손님이 석 달 앞자리를 잡아 알림이 멈춘다) · ⚠️ 「화면도 같은 셈으로」 는 대화 Claude 의 안이었고 **철회**(mail-1b 이견 2 — 화면에서 먼저 받을 손님이 0 으로 가려진다 · 화면 Ready to ship now 는 그대로) |
+| 507 | 「2」 | 손님마다 **「백오더 알림 받기」 스위치**(`customer.backorder_mail` · 기본 켜짐 · 끄면 백오더 알림만) · 기각 1 |
+| 508 | 「안 1」 | 체인은 **오더를 넣은 매장(오더의 customer_id)** 의 연락처만 · 부모로 올라가지 않는다 · 기각 2(매장에 없으면 본사) · 3(늘 본사) |
+| 509 | 「509는 1」 | 진행으로 **나뉜 줄은 원래 줄의 알림 기록을 이어받는다**(`split_from_line_id` 계보) · 기각 2(새로 센다) |
+| 510 | (계정을 만듦) 「계정을 하나 만들었어. ims@asung.ca」 | 메일 전용 계정 **ims@asung.ca** 가 **직접 동의(OAuth)** 한 열쇠 · 도메인 위임 없음 · 사실: backorder@asung.ca 는 **Google 그룹**(로그인 주체가 아니다) · 지금 GAS 는 **caleb@ 계정**이 From 만 backorder@ 로 바꿔 보낸다(caleb@ 보낸편지함에서 확인 · 10-12 월요일분 등 200 통 남짓) — 그 열쇠가 새면 CEO 이름 · 기각 A(도메인 위임 — 회사 누구 이름으로든) · B(GAS 주인 = caleb@ 계정) |
+| 511 | 「notifications@asung.ca를 별칭으로 만들었어. 이것으로 가자」 | From = **notifications@asung.ca**(ims@ 의 사용자 별칭 · 확인 메일 없이 Send mail as 등록 · 2026-10-16 시험 도착) · 이름 Asung Trading · **Reply-To = info@asung.ca**(대화 Claude 안 · GAS 본문의 문의 주소) · 까닭: backorder@ 그룹은 들어오는 메일을 거절하는 관리자 규칙(550 5.7.1 「This email address (backorder@asung.ca) is used for outgoing notifications only …」 · gcdp)이 있어 ims@ 의 Send mail as 확인 메일이 막혔고, 그 규칙 위치를 관리자 콘솔(Compliance · Routing · Rules · Email Log Search 0 건)에서 못 찾았다 · backorder@ 는 컷오버까지 GAS 가 쓴다 |
+| 512 | 「1」 | **공휴일이어도 그대로 보낸다**(공휴일 표 없음) · 기각 2(다음 영업일) · 3(건너뜀) |
+| 513 | 「A」 | **비활성 손님(customer.is_active = false)의 열린 백오더에는 보내지 않는다** · reason `customer_inactive` · 기각 B |
+| 514 | 「1」 | **「보냈는지 모르는 메일」(unknown)은 자동으로 손대지 않는다** — 직원이 셋 중 하나: 보냄으로 닫기(ims@ 보낸편지함에서 확인 · 그 줄 알림 끝) · 다시 보내기(안 나감 확인) · 취소(필요 없음 · 다시 안 실림) · 메모 필수 · 기각 2(시간 뒤 자동 보냄 — 조용히 사라짐) · 3(시간 뒤 자동 재전송 — 중복) |
+| 515 | 「1」 | 메일 줄의 수량 = **남은 백오더 수(qty_open)를 「Backordered Qty」** 로 · 처음 주문 수는 넣지 않는다 · 기각 2(Ordered + Backordered 둘 다) |
+| 516 | 「manager이상」 | 514 의 세 단추 = **manager 이상**(역할 순서 worker < manager < supervisor < admin · `ims_require_write('sales')` + `so_require_role('manager')` — `mail_can_resolve`) · 대화 Claude 안은 admin 만이었다 · ⬜ 그 매니저가 ims@ 보낸편지함을 봐야 바르게 누른다(메일함 위임 — 미룬 245) |
+| 517 | 「manager 이상」 | `customer.backorder_mail` 바꾸기 = **manager 이상**(sales 는 보기만) — 판정 237 「일반 칸 = sales」 의 예외 · 값이 바뀔 때만 검사(manager_needed) · 대화 Claude 안은 sales 였다 |
+| 518 | 「2」 | **창고 회차가 실패하면 백오더 Chat Space 에도 한 줄**(⚠️ … run failed (요지)) · 그 창고 · 그날 한 번 · 풀리면 그날 회차 요약이 대신(「풀림」 줄 없음 — mail-4c 이견 2) · 기각 1(화면만) |
+| 519 | 「A」 | **asung-ops 스킬은 claude.ai 와 동기화된 새 사본(2026-09-22 · 345 행)을 레포(`~/asung/asung-ops/skills/asung-ops/SKILL.md`)에 바이트 그대로 먼저 옮기고**(커밋 덩이 하나 · 동기화만) 그 위에 IMS 메일 줄을 더한다(둘째 덩이) · 까닭: 레포 사본(2026-08-04 · 311 행)이 낡아 그대로 고쳐 올리면 9 월에 더해진 34 행(§2-b Edge Function 401 · verify_jwt 등)이 지워진다 · 기각 B(이번엔 말로만) · 다른 스킬도 레포 사본과 claude.ai 사본의 md5 를 차수 보고에 남긴다 |
+
+### 65-b 쉬운 말 — Caleb 이 헷갈렸던 자리
+
+1. **그룹 메일은 혼자 못 보낸다.** backorder@ 는 Google 그룹이라 로그인하는 계정이 아니다 — 지금 알림은 caleb@ 계정의 GAS 가 「보내는 이」 만 backorder@ 로 바꿔 보낸다(caleb@ 보낸편지함에 남는다). 그래서 IMS 는 메일 전용 계정 ims@ 를 따로 만들어 그 계정의 열쇠로 보낸다(510).
+2. **도메인 위임은 넓다.** 서비스 계정에 위임하면 그 열쇠로 회사 **누구 이름으로든** 보낼 수 있다 — 「보내기 권한만」 이 아니라 「모든 사람의 보내기 권한」. 그래서 ims@ 한 사람이 직접 동의하는 길을 골랐다(510 · 열쇠가 새도 ims@ 이름으로만).
+3. **「보내기만 하는 주소」 규칙이 확인 메일도 막는다.** backorder@ 그룹에는 들어오는 메일을 거절하는 관리자 규칙이 있어, ims@ 가 backorder@ 를 「보내는 주소」 로 등록하려 할 때 Google 이 보내는 확인 메일까지 거절됐다(550 5.7.1). 그래서 ims@ 의 **별칭** notifications@ 를 만들어 비켜 갔다(별칭은 확인 메일이 없다 · 511).
+4. **「재고를 잡아 둔다」는 사실이 아니다.** 첫 견본의 「Ready for you now is the quantity we can hold for your order today」 는 틀렸다 — IMS 는 알림 뒤에 재고를 묶어 두지 않는다(496 · 506 · 알림은 「지금 있다」 일 뿐). 그래서 「Stock is not reserved for you and may sell out before your new order is placed」 로 고쳤다.
+5. **새 오더로 이어받아도 수요를 두 번 세지 않는다.** 손님이 알림을 받고 새 오더를 넣으면 옛 백오더 줄은 이어받기로 끝나고(§15 판정 3 · 4) 수요 셈은 덩어리 하나로 이어진다(464 · so_backorder_demand) — 알림이 수요를 늘리지 않는다.
+6. **「이메일을 자주 받는 불편」 → 손님 × 창고 한 통 · 월 · 목.** 한 손님의 여러 오더 · 여러 줄을 그 창고 회차마다 한 통으로 묶고, 그 회차는 월 · 목 아침만 돈다(503). 같은 줄은 다시 알리지 않는다(497 · 505).
+7. **Gmail 「Updates」 탭.** 첫 실제 발송은 caleb@ 받은편지함의 Updates 탭으로 분류됐다 — 알림 메일 꼴이라 Gmail 이 그렇게 가른다(받는 손님 쪽에서도 그럴 수 있다 · 짐작).
+8. **켜고 끄는 첫 스위치는 `mail_enabled`.** 끄면 cron 은 그대로 돌아도 회차를 만들지 않고 메일을 집지 않는다(멈춘 sending 되살리기만). 잡을 멈추는 것보다 먼저 쓴다.
+
+### 65-c 실물 사실 (테스트 · 2026-10-16)
+
+- Google: 프로젝트 `asung-ims-mail`(조직 asung.ca) · Gmail API · 동의 화면 **Internal** · 범위 `gmail.send` · OAuth 클라이언트 Desktop app `ims-mail-tool` · ims@ 로 동의(도구 `tools/gmail-oauth-ims.sh` 가 ims@ 아니면 멈춤 · 「Consent confirmed for ims@asung.ca」)
+- 비밀(테스트 · 이름만): `GMAIL_OAUTH_CLIENT_ID` · `GMAIL_OAUTH_CLIENT_SECRET` · `GMAIL_REFRESH_TOKEN_IMS` · `IMS_CHAT_WEBHOOK_BACKORDER`(GAS Script Property `WEBHOOK_BACKORDER` 와 같은 Space) · `IMS_CRON_SECRET`(기존)
+- cron(테스트): **54 ims-mail-tick**(`7 * * * *` · SQL 만) · **55 ims-mail-drain**(1 분 · 켜졌고 보낼 차례 또는 10 분 넘게 멈춘 sending 일 때만 EF) · **56 ims-mail-chat**(1 분 · 회차 요약 또는 실패 Chat 차례일 때만 · mail-4c 로 고침 · ✅ 2026-10-16 Caleb · cmd_len 456) · 열쇠는 jobid 42 에서 · 운영 미등록
+- 첫 실제 발송(10-16 11:02 토론토): `mail_backorder_tick('2026-10-15 13:05+00')` → Toronto 회차 1 · 2 통 → drain sent 2 → caleb@ 도착(From `Asung Trading <notifications@asung.ca>` · Reply-To info@ 확인 · 제목 `[TEST → 손님]` · HTML 표) → Chat `[TEST] Backorder mail — Toronto · 2026-10-15 · Sent 2 …` · Gmail 은 「Updates」 탭으로 분류
+- 지금 설정: `mail_enabled = on` · `mail_redirect_to = caleb@asung.ca`(월 10-19 9:07 실전 연습) · 나머지 시드 그대로 · ⚠️ 메일 키 일곱의 `updated_at` 이 모두 시드 시각(10-16 08:55) · `updated_by` 빈칸 — guard 가 화면(authenticated)에서 바꿀 때만 찍는다(psql 로 켠 것은 안 찍힘 · 미룬 246)
+- 화면(asung-ims): Backorders 탭 Emails · All 의 알림 상태 · Customers 상세 Backorder emails 줄 · Settings → Backorder emails — Caleb 눈 확인 ✅
+
+### 65-d 짓기 · 커밋 (git log 원문 · 두 레포) · 함수 지도
+
+| 차수 | 레포 · 커밋 | 요지 |
+|---|---|---|
+| mail-0 | — | 조사 · 쓰기 0 · 이견 14(11 줄 칸 → unconfirm · 12 일부 채움 새 줄 · 13 둘째 연락처 · 14 inv_config 권한) |
+| mail-1a | asung-wms `3f53bd6` · `20261016123721_mail_1a_base.sql` | 표 셋 mail_outbox · mail_run · mail_backorder_line · customer.backorder_mail · 설정 키 일곱 · ims_mail_address_ok · inv_config_guard 재발행(메일 키 · db_role · 이름 바꾸기 · 시험 DB 켜기 규칙) · inv_config TRUNCATE 회수 · 시험 OK 36 |
+| mail-1b | asung-wms `c4438f0` · `20261016131325_mail_1b_backorder_pick.sql` | 속 so_backorder_fill(screen / alert) · so_backorder_ready 재발행(definer + sales · 출력 그대로) · mail_backorder_pick · mail_backorder_tick · 시험 OK 26 |
+| mail-1c | asung-wms `5e782fa` · `20261016133451_mail_1c_preview_notice.sql` | mail_backorder_next_slot · tick 재발행 · mail_backorder_preview · so_backorder_notice_state(상태 일곱) · so_backorder_list 재발행(definer + sales) · 시험 OK 21 |
+| mail-2a | asung-wms `29b78d3` · `20261016135346_mail_2a_send_windows.sql` | mail_outbox_event · mail_claim · mail_mark(시도 번호) · mail_run_chat_due · _mark · 직원 셋(그때 admin) · 시험 OK 28 |
+| mail-2b | asung-wms `9605417` | EF `mail`(drain · chat · render · x-ims-cron-key) · `_shared/mail.ts` · `tools/gmail-oauth-ims.sh` · config.toml · deno test 10 → 문장 둘 고침(515 · 「hold」 · 「are now」) |
+| mail-3 | asung-wms `e6b7079` | cron.sql 기록(54 · 55 · 56) · 등록은 Caleb SQL Editor |
+| bo v5 | asung-ims `8fae856` | so-backorders Emails 탭(판정 493 ~ 518) · All 의 알림 상태 |
+| mail-4a | asung-wms `1e6ca6e` · `20261016152757_mail_4a_screen_windows.sql` | 516 · 517 · mail_run_error · tick 재발행 · 화면 창구 다섯 · 시험 OK 28 |
+| cs v4 | asung-ims `83a479f` | customers 상세 Backorder emails 줄(판정 507 · 517) |
+| set v3 | asung-ims `16b1b71` | settings Backorder emails(판정 493 ~ 518) |
+| cs v4a | asung-ims `a220435` | customers Edit · New 창 가로 막대 없애기 |
+| mail-4c | asung-wms `942bce2` · `20261016153933_mail_4c_tick_error_chat.sql` | 518 — mail_run_error Chat 칸 · mail_run_error_chat_due · _mark · EF chat 실패 한 줄 · cron 56 조건 두 갈래 · 시험 OK 15 · deno test 11 |
+
+**표 다섯**(mail-0 이견 · 📌 의 「넷」 은 다섯)
+```
+mail_outbox          1a      보낼 메일 한 통 · queued → sending → sent | failed | unknown | cancelled · 짝 CHECK(sent ⇔ sent_at · sending ⇒ claimed_at · failed · unknown ⇒ last_error) · dedupe_key
+mail_run             1a(+2a chat_attempts)  회차 = kind × 창고 × 그 창고 날짜(유니크) · params(쓴 설정) · no_email(건너뜀 customer · reason · lines) · chat_posted_at · chat_error
+mail_backorder_line  1a      어느 메일에 어느 줄 · 줄마다 한 번(released_at is null 유니크) · basis receipt | full · 그때 qty_open · can_fill · available
+mail_outbox_event    2a      상태 이력 — claim · stale · mark_* · close_sent · retry · cancel(직원 · 메모 필수)
+mail_run_error       4a(+4c Chat 칸)  창고 · 날의 tick 실패 한 줄(attempts · last_at · 풀림 resolved_at · resolved_run_id)
++ customer.backorder_mail(1a · 기본 true) · inv_config 메일 키 일곱(1a — admin: mail_enabled · mail_redirect_to · master: from · reply_to · from_name · schedule · min_fill_pct)
+```
+
+**함수 지도**(마지막 정의 · `command grep -lE … | LC_ALL=C sort | tail -1` · 파일:행 · 권한)
+```
+주소 모양(하나)          ims_mail_address_ok(text)               20261016123721_mail_1a_base.sql:41          모두 · guard · CHECK · 연락처 고르기
+설정 키 · 검사           ims_mail_config_keys · _problem          20261016123721_mail_1a_base.sql:152 · :162   guard 가 부른다
+설정 문지기              inv_config_guard()                       20261016123721_mail_1a_base.sql:257          메일 키 admin/master · db_role postgres 만 · 이름 바꾸기 거부 · 시험 DB 켜기 규칙
+알림 받은 줄(509)        mail_backorder_line_notified(line)       20261016131325_mail_1b_backorder_pick.sql:43   속
+나누기 셈(하나)          so_backorder_fill(location, mode)         20261016131325_mail_1b_backorder_pick.sql:57   속 · definer · screen = 화면 · alert = 506
+Ready to ship now        so_backorder_ready(p_filters)            20261016131325_mail_1b_backorder_pick.sql:301  definer + sales · 셈은 fill(screen) · 출력 bo-2b 그대로
+지난 회차                mail_backorder_since(location, now)      20261016131325_mail_1b_backorder_pick.sql:119  속 · 마지막 started_at · 없으면 일정상 앞 시각
+고르기(하나)             mail_backorder_pick(location, now)       20261016131325_mail_1b_backorder_pick.sql:150  속 · definer · basis · 받는 이 · reason 다섯
+회차 생산                mail_backorder_tick(now)                 20261016152757_mail_4a_screen_windows.sql:555  postgres(cron 54) · 창고마다 서브트랜잭션 · 실패 → mail_run_error
+다음 회차(하나)          mail_backorder_next_slot(loc, entry, now) 20261016133451_mail_1c_preview_notice.sql:38  속 · tick · preview 같은 규칙
+미리 보기                mail_backorder_preview(location)         20261016133451_mail_1c_preview_notice.sql:132  sales · pick 그대로 · 쓰지 않음
+줄 알림 상태             so_backorder_notice_state(line_ids)      20261016133451_mail_1c_preview_notice.sql:167  sales · queued · sent · unknown · cancelled · failed · not_sent · unknown_pre_ims · 프리오더 null
+All backorders           so_backorder_list(p_filters)             20261016133451_mail_1c_preview_notice.sql:234  definer + sales · notified_* 는 notice_state
+EF 꺼내기 · 적기         mail_claim(n) · mail_mark(id, attempt, …) 20261016135346_mail_2a_send_windows.sql:65 · :121   service_role · skip locked · 멈춘 sending 10 분 → unknown · 시도 번호
+회차 Chat                mail_run_chat_due · _mark                20261016135346_mail_2a_send_windows.sql:186 · :206  service_role
+실패 Chat(518)           mail_run_error_chat_due · _mark          20261016153933_mail_4c_tick_error_chat.sql:43 · :60   service_role · 창고 · 날마다 한 번 · 풀린 것 안 올림
+직원 셋(514 · 516)       mail_outbox_close_sent · retry · cancel  20261016135346_mail_2a_send_windows.sql:274 · :277 · :280  → 속 mail_outbox_resolve 20261016152757_mail_4a_screen_windows.sql:48(sales 쓰기 + manager · 메모 필수)
+단추 판정(516)           mail_can_resolve()                       20261016152757_mail_4a_screen_windows.sql:37
+손님 고치기(507 · 517)   customer_update(…)                       20261016152757_mail_4a_screen_windows.sql:92   field backorder_mail · 값이 바뀔 때만 manager(manager_needed)
+화면 읽기                mail_runs_list · mail_outbox_list · mail_outbox_detail · customer_backorder_mail · mail_settings   20261016152757_mail_4a_screen_windows.sql:631 · :691 · :740 · :777 · :796   sales(settings 는 sales | master)
+```
+**EF `mail`**(`supabase/functions/mail/index.ts` · `_shared/mail.ts` · config.toml `[functions.mail]` verify_jwt=false): 문 = `x-ims-cron-key`(IMS_CRON_SECRET) · action **drain**(설정 먼저 읽어 안전 → claim 5 통씩 · 40 초 예산 → 그리기 → Gmail users.messages.send(20 초) → mark) · **chat**(실패 한 줄 먼저 → 회차 요약 · 1.1 초 간격) · **render**(보내지 않고 그린 결과) · 안전: 프로젝트 ref × db_role 이 같은 쪽 · 시험이면 받는 이 = mail_redirect_to(@asung.ca) · 제목 `[TEST → 원래]` · 어긋나면 집지도 않음 · Gmail 오류 갈래: 2xx sent · 400 · 403(권한) failed · 403(한도) · 401 · 429 · 5xx retry · 시간 초과 · 끊김 unknown
+**도구**: `tools/gmail-oauth-ims.sh`(루프백 + 붙여 넣기 · PKCE · id_token email 이 ims@ 아니면 멈춤 · 값은 0600 파일 → `supabase secrets set --env-file` → 지움 · `--self-test`)
+
+### 65-e ⚠️ 실수 · 발견 — 원인 · 처방
+
+1. [대화 Claude · 495] 계기를 「입고 + 지금 보낼 수 있는 것」 으로 물으며 §15 판정 6(조정 · 반품은 입고 아님)을 꺼내지 않았다 — Caleb 이 「리턴 1 개」 로 짚어 504 로 고침 ⇒ 같은 말(입고 · 알림)이 정본에 있으면 그 판정을 먼저 붙여 묻는다
+2. [대화 Claude · 493] 도메인 위임을 「보내기 권한만」 이라 해 넓이를 덜 말했다 — Claude Code 의 mail-0 이견 4 가 짚어 510(ims@ 직접 동의)로 ⇒ 권한을 설명할 때는 「누구 이름으로」 까지
+3. [대화 Claude · 496 · 497] 「오래 기다린 순서로 나누기」 와 「줄마다 한 번」 이 맞물리는 자리(알림 받은 줄 · 프리오더가 앞자리를 잡음)를 못 봤다 — mail-0 이견 1 · 2 → 505 · 506
+4. [대화 Claude · mail-2b 견본] 「we can hold for your order today」 — 사실과 다름(알림 뒤 재고를 잡지 않는다) · Caleb 이 견본을 보고 고침 ⇒ 손님 글의 약속은 시스템이 실제로 하는 일과 대조한다
+5. [Claude Code · mail-0 이견 11] 알림 기록을 `so_line.backorder_notified_at` 에 쓰면 ims_touch 가 updated_at 을 바꿔 so_unconfirm 형제 검사가 그 오더의 확정 되돌리기를 막는다 → 작은 표 mail_backorder_line(478 과 같은 뿌리)
+6. [Claude Code · mail-1a 이견 1 · 2] `db_role` 표지를 아무 직원이나 바꿀 수 있었고(시험 DB 안전망이 그 값에 기댄다) · 키 이름 바꾸기로 잠금을 비켜 갈 수 있었다 → guard 재발행(db_role postgres 만 · 옛 이름 · 새 이름 둘 다)
+7. [Claude Code · mail-1b 이견 1] 화면 창구(invoker)가 닫힌 속 함수 · 표 이름을 품으면 실행 안 되는 갈래여도 42501 → definer + 첫 줄 `ims_can_view('sales')`
+8. [Claude Code · mail-1b 이견 3] 「지난 회차 뒤 입고」 를 날짜(occurred_on)로 세면 같은 날 오후 입고가 빠지거나 두 번 → inv_ledger.created_at 시각
+9. [Claude Code · mail-2a 이견 3] 늦은 EF 결과가 다시 보내기 뒤 새 시도를 덮을 수 있었다 → mail_mark 에 시도 번호(p_attempt)
+10. [Claude Code · mail-3 이견 3] tick 이 한 창고에서 실패해도 cron 기록은 「성공」 → mail_run_error(4a) · Chat 한 줄(518 · 4c)
+11. [Claude Code · 시험] 1a ~ 4c 모든 차수에서 첫 판이 통과하면 **결함 판**(scratchpad 사본에 결함을 하나씩 넣어)으로 검사가 정말 잡는지 확인했다 — 잡히지 않은 것은 다른 장치가 대신 막는 이중 보호였다(1c · 2a · 4a 보고) ⇒ 다음 차수에도 그대로
+12. [Claude Code · docs-1016 §0] asung-ops 스킬 레포 사본이 claude.ai 사본보다 낡았다(34 행 차이) → 판정 519 · 같은 레포의 `references/registry.md`(125 행 · 8-04 vs 161 행 · 9-22)와 asung-bq-data-model 사본도 다르다(미룬 251)
+
+### 65-f 미룬 것 — 64-f 242 에 이어 붙임(221 닫힘 · IMS 쪽)
+
+- 243 컷오버: Cin7 열린 백오더가 IMS 에 어떤 줄로 들어오나(정본에 길 없음 · mail-0 F6) · 첫날 몰림(495 ⬜ · 미리 보기 숫자) · GAS Sheet `Backorder_Email_Log` 와 겹침 · 들인 입고의 원장 시각(created_at)이 「새 입고」 로 보이는 문제(1b 이견 3) · `unknown_pre_ims` 경계(그 창고 첫 회차)
+- 244 mail-5 운영 전환 묶음: 메일 마이그레이션 여섯(1a · 1b · 1c · 2a · 4a · 4c — docs-1016 📌 의 「일곱」 은 여섯이다 · 앞 IMS 묶음과 함께) · EF 배포 · 운영 비밀(운영 프로젝트용 열쇠 다시 — 도구 재실행) · cron 셋 · **GAS 트리거 지우기와 IMS 켜기 동시**(이 정본 400 행) · SystemMonitor 자리 · backorder@ 를 둘지 지울지
+- 245 매니저에게 ims@ 메일함 위임(판정 516 의 전제 — 보낸편지함을 봐야 바르게 누른다)
+- 246 Settings 「Changed」 시각 — guard 가 화면(authenticated)에서 바꿀 때만 updated_at · updated_by 를 찍는다(psql · 마이그레이션 쓰기는 안 찍힘 · 실측 일곱 키 모두 10-16 08:55 · updated_by 빈칸) · psql 쓰기도 시각을 찍을지(updated_by 는 비움)
+- 247 기본 권한 뿌리: 새 표마다 anon · authenticated TRUNCATE(authenticated 58 · anon 25 표 · mail-1a 이견 9)
+- 248 되돌리기로 합쳐진 줄의 알림 계보(so_unconfirm 이 알림 받은 자식 수량을 부모에 더함 · mail-1b 이견 10)
+- 249 `include_in_email` 의 뜻(5-c · 380 때)
+- 250 적재 연락처 created_at 이 같아 둘째 단계 「첫」 이 사실상 id 순(mail-1b 이견 6 · 해당 손님 4 명)
+- 251 asung-ops 레포의 `references/registry.md` · `asung-bq-data-model` 사본이 claude.ai 사본과 다르다(판정 519 는 SKILL.md 만 옮김) — 어느 쪽이 정본인지 Caleb 확인 뒤 같은 꼴로
+- (닫힘 · IMS 쪽) 미룬 221 백오더 입고 알림 IMS 이관 — mail-0 ~ 4c · 운영은 244
+
+### 65-g 다음 (Caleb 이 고른다)
+
+```
+월 10-19 9:07(토론토) 실전 연습 보기 — 회차 · 메일 · Chat 요약 · Emails 탭 · 실패면 Chat ⚠️ · mail-5 운영 전환 묶음(244) · ⑦ gateway 가르기(230) · 컷오버 준비 묶음(§56 ~ §60 미룬 것) · 미룬 234 ~ 251
+다음 판정 번호: 520
 ```

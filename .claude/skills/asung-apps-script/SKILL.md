@@ -146,6 +146,8 @@ function setupDailyPurchaseTrigger() {
 
 현재 운영 중인 스크립트와 각자의 역할·핵심 규칙은 `references/script-inventory.md`에 정리되어 있습니다. 기존 스크립트를 수정하기 전에 거기서 해당 스크립트의 제약(예: backorder는 `Status=ORDERED + AdditionalAttribute1='Backordered'`)을 확인하세요.
 
+⚠️ **`BackorderedItemEmail.gs` 는 IMS 메일로 넘어간다**(so-module §65 · 판정 493 ~ 519) — 지금은 **caleb@ 계정**의 GAS 가 From 만 backorder@(Google 그룹) 로 바꿔 월 · 목 트리거로 보낸다 · IMS 는 ims@ 계정 · From notifications@ · EF mail · cron 으로 같은 일을 한다(테스트에서 섰다) · **정지는 mail-5(운영 전환)에서 IMS 켜기와 같은 날** — 그 전에 이 스크립트를 고치거나 끄지 마라(중복 · 누락)
+
 ---
 
 ## 연계 스킬

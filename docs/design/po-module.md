@@ -3957,6 +3957,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ 드롭십(다른 배송지)          13-g — bin_id NOT NULL 이 막는다 · Cin7 실측이 먼저
 ⬜ 화면 잡일                   검색 .or 의 쉼표·괄호(다섯 화면 · 헬퍼) · main.stack(두 화면) · 뷰에 split_from_id · confirmed 머리 잠금(13-h 미룬 것)
 ⬜ 메일 보내기                 기술적으로 가능(EF + 메일 서비스 · PDF 첨부) · ⚠️ 답장 받기는 지금 필요 없다(Caleb) · PO·SO·손님이 다 선 뒤 · 「누구에게 보냈나」는 po 의 그날 연락처(13-g)
+                              → [2026-10-16 · so-module §65] 판정 493 — 회사 Google Workspace(Gmail API · ims@ 계정) · IMS 메일 기계 공통(mail_outbox · EF mail · 설정 키) · 공급처 메일은 그 기계의 뒤 사용자(kind 를 넓힐 때 · 첫 사용자는 백오더 입고 알림)
 ⬜ [09-17 밤 · 권한] 자기 행의 이름·메모만 고치는 길   지금은 admin 외 자기 행 전부 막힌다(등급 엄격 비교의 대가 · §10-h) — 쓰기를 RPC 로 옮기면 칸 단위로 열린다
 ⬜ 읽기 전용 화면의 Access 표시      staff.html 이 perms 배열 원문을 보여 「등급으로 열린 것」(supervisor 의 전부 등)이 안 보인다 — ims_access().screens 로 그리면 보인다
 ⬜ 읽기 전용(:read)일 때 입력칸 잠금   지금은 뒷단(RLS · RPC 거부 문장)만 막는다 · 화면은 me.access.screens[x]==='read' 로 잠근다(§10-j 3-l)
