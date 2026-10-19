@@ -520,6 +520,7 @@ WMS      헤더에 로고 + 모드만 더한다 · 탭 줄 · ☰ Menu 그대로
 ⭐ [2026-10-09 오후 ~ 10-10 · 판정 403 ~ 413 · so-module §56] **Shopify ① 바탕 · ② 상품 보내기 끝**(테스트 DB · 시험 스토어 asung-ims-test · asung-wms 584aaf0 ~ 2f6136f · asung-ims ss v1 · v1a · cron 42 · 43) · 순서 ① 바탕 → ② 상품 보내기 → ③ 재고 → ④ 오더 받기 → ⑤ 오더 상태 · 다음 판정 번호 414
 ⭐⭐ [2026-10-10 · 판정 413 · 409 · 410] **IMS 주권 — 데이터의 주인은 IMS · 바깥 시스템은 IMS 를 따른다 · 사람 몫은 이름을 붙여 따로 둔다** — Caleb 「데이터를 주권은 IMS에 있는거고, 나는 그렇게 설계되기를 원해. 내가 원하던 바야.」 · Shopify 의 status(Active/Draft · 413) · 사진(IMS 목록대로 · 409) · 태그(IMS 가 주인 · 410)는 IMS 값으로 덮인다 · 상품을 숨기는 정식 길은 IMS 「보냄 끄기」 하나 · 사람 몫은 판매 채널 퍼블리시 · Collections · 메타필드 · SEO · Category · Theme 로 이름 붙여 따로(IMS 는 보내지도 건드리지도 않는다 · shopify-integration §3-a)
 ⭐ [2026-10-05 · 판정 242 · 243 · so-module §42] 목록이 있는 IMS 화면은 모두 두 모드 — 넓은 목록(화면 전체 · 검색 · 거르기 · 만들기) → 고르면 좁은 목록 + 상세(☰ List · ‹ All ○○ · ?id=) · 공통 #wide · .wfilt 를 같은 id 로 · 판정 209(products)가 처음 · customers · suppliers 가 따랐다
+⭐⭐ [2026-10-19 · 판정 521 · so-module §66] **컷오버 = 2026-11-01(일)**(Caleb 「11월 1일에 컷오버 하기로 결정했어」) · 그날 아침에 반드시 셋 = 문서 템플릿 ✅ · 최종 인보이스 메일 ✅(테스트 · doc-1a ~ doc-3b) · **발주앱 이식(남은 첫날 일 · po-module §10-d)** · QuickBooks · 구글 드라이브는 며칠 뒤에 켜도 되게(컷오버 날부터의 문서를 나중에 한꺼번에 — doc_file.drive_file_id null = 아직)
 
 ---
 

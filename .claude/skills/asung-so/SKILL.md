@@ -19,7 +19,7 @@ description: >
 # Asung SO(판매) 모듈 스킬
 
 ⭐ **설계 정본 `docs/design/so-module.md`** — 여기는 「모르면 사고가 나는 것」과 포인터만. 이 스킬과 정본이 어긋나면 **정본이 맞다**(정본 §9 = 9-a~9-j).
-관련 스킬: `asung-po`(마스터·관계 표 규약 — 손님 셋이 그대로 따른다) · `asung-inv-ledger`(출고 사건 `so_out`) · `asung-wms`(Release to WMS 이후) · `cin7-api`(`references/customer.md`) · `asung-apps-script`(적재 스크립트 규칙 6).
+관련 스킬: `asung-doc`(문서 · 인쇄 · 문서 메일 — so-module §66) · `asung-po`(마스터·관계 표 규약 — 손님 셋이 그대로 따른다) · `asung-inv-ledger`(출고 사건 `so_out`) · `asung-wms`(Release to WMS 이후) · `cin7-api`(`references/customer.md`) · `asung-apps-script`(적재 스크립트 규칙 6).
 
 ## 0. 어디까지 왔나
 
@@ -438,6 +438,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️ 테스트 DB 는 메일이 켜져 있고 cron 이 돈다 — 시험은 반드시 rollback · 시험에서 mail_claim · mail_mark 를 부르지 마라(실제 큐를 잠근다) · 커밋된 queued 는 돌려 보내기 주소로 실제로 나간다
 ⚠️ 운영 전환(mail-5 · 미룬 244)은 GAS BackorderedItemEmail 트리거 지우기와 IMS 켜기를 같은 날 · 운영 비밀 · 운영 열쇠를 다시(도구 재실행)
 ```
+→ [2026-10-19 · so-module §66] **문서(판 · 인쇄 · 서버 PDF) · 문서 메일(인보이스 · 크레딧 · SO · Ship Ready · 최종 인보이스 자동 customer.final_invoice_mail)** 은 `asung-doc` 스킬 — 같은 메일 기계(kind doc_* · status waiting_pdf · cron 57)
 
 ## 5. 이 스킬을 갱신할 때
 

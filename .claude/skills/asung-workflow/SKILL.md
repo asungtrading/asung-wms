@@ -189,6 +189,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **CHECK 시험은 한 번에 제약 하나만 어기는 자료로 · `get stacked diagnostics … = constraint_name` 으로 이름까지 판정** — 두 제약을 함께 어기면 Postgres 가 하나만 보고하고 나머지는 한 번도 안 돈다(2026-09-24 세금 ② 「tax_rule_id 만 null」이 pair_ck 대신 manual_ck 에 걸렸는데 OK 로 읽었다)
 ⚠️ **bash 에서 `grep $'\x00'` 은 빈 글자가 된다** — 널 바이트 검사는 `file <파일>` 또는 `grep -cP '\x00'` 로(2026-09-24 · Caleb 실측)
 ⚠️ **RAISE 의 글자 % 는 %% — 형식 문자열의 % 자리 수와 넘기는 값 수를 주기 전에 센다** — 「50% COD & 50% N30」 같은 문구가 자리표시로 읽혀 do 블록 전체가 「too few parameters specified for RAISE」로 안 돈다(2026-09-24 ⓑ1 검증 v1 · 204행) ⇒ 토크나이저 검사에 RAISE 항목(`$$` 본문의 raise 마다 %(%% 제외) 수 = 값 수)을 더했다 — 마이그레이션(적용이 통과했으니 0)과 검증 파일 둘 다 돌린다
+⚠️ [2026-10-19 · so-module §66-e 4] **`format()` 안의 글자 % 도 %%** — cron 등록 덩이의 `format($j$ … like 'doc\_%' … $j$, k)` 가 형식 지정자로 읽혀 섰다 · 고친 뒤 확인은 「% 뒤 따옴표」 로 센다(부분 문자열 grep 은 `%%` 와 `%` 를 못 가른다)
+   ⚠️ 거꾸로 format() **밖**(cron.sql 의 기록 덩이 · 직접 cron.schedule)에는 `%%` 를 옮기지 마라 — 실물 command 와 어긋난다
 ⚠️ **BEFORE 트리거(문지기)는 CHECK 보다 먼저 막는다** — CHECK 만 시험하려면 `session_replication_role = replica` 로 문지기를 끄고, 그때도 다른 CHECK(closed_at 짝 등)를 함께 어기지 않는 자료로(2026-09-24 ⓑ2 T8a · invoiced 로 바꾸며 closed_at 을 남겨 so_closed_at_ck 가 먼저 걸렸다)
 ⭐ [2026-09-30 · so-module §31-d 2] **소급 시험의 옛 판은 고정 커밋으로 읽는다** — `HEAD` 로 적으면 커밋 전에는 맞고 커밋 뒤에는 새 판 자신이 되어 늘 실패한다(판정 128 · `git show d543404:…`) · 시험은 커밋 뒤에 한 번 더 돌린다
 ⭐ [2026-09-30 · §31-d 3] **조회를 주기 전에 비용을 잰다** — 자기 조인 · 상관 서브쿼리 × 큰 표(제품 1만 8천 `upper(sku)` 자기 조인이 statement timeout)는 group by 한 번 훑기로 · 독립 조회는 한 트랜잭션에 넣지 않는다(세션 `default_transaction_read_only = on`)
@@ -319,6 +321,10 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️⚠️ [2026-10-14 · so-module §64-e 10 · **여섯째 재발**] bo-2b X5 — 「고친 뒤 분모가 고치기 전보다 작다」 old/new 부등 비교를 한 갈래로 썼다 → 확인 실행에서 old 도 새 판이라 MISMATCH ⇒ **증감 · old/new 비교는 쓰는 순간 `\if :{?mig}` 두 갈래** · 확인 갈래는 new 만으로(같은 정의로 직접 센 값과 견준다)
 ⚠️ [2026-10-14 · bo-2b X1b] **비교 창이 빈 쪽이면 동등 비교는 뜻이 없다**(3 일 창 · 실물 입고 0 행 → 빈 배열끼리 「같다」) ⇒ 행 수 ≥ 1 을 함께 센다
 ⚠️ [2026-10-14 · bo-1a 3 회차] **volatile 창구와 stable 읽기를 한 문장에 두지 마라** — 문장 스냅샷이라 같은 문장 안의 읽기가 방금 쓴 행을 못 본다(표식을 달고 같은 select 에서 셈) ⇒ 쓰기는 `\gset` 문장으로 따로 · 읽기는 다음 문장
+   → [2026-10-19 · so-module §66-e 8 · **네 번째 재발**(doc-1a · 1b2 · 2 · 3a)] 쓰기 호출(asu(...) 로 부르는 창구)과 상태 서브쿼리를 한 `chk(...)` 문장에 — 바깥 서브쿼리(InitPlan)가 쓰기보다 **먼저** 평가됐다
+     ⇒ 쓰기는 `select … as x \gset` 문장으로 떼고 · 상태 · 판정은 **다음 문장**에서 · ERR 글이 올 수 있는 값은 `::jsonb` 캐스트 대신 앞 글자를 보는 도우미로(캐스트 오류는 결함 판을 MISMATCH 가 아니라 ERROR 로 세운다)
+   ⚠️ [2026-10-19 · doc-3a] `set constraints all immediate` 는 **트랜잭션 끝까지** 남는다 — 지연 트리거를 시험할 땐 넣기 전 `deferred` · 넣은 뒤 `immediate` 를 매번 · 무접촉 스냅샷은 `row::text` 대신 `(to_jsonb(t) - '새 칸')::text`
+   ⚠️ [2026-10-19 · §66-e 7] 확인 갈래에 고정 숫자(화면 수 17 · 실제 16)나 DB 설정 값(제목 · 로고)을 박지 마라 — `\gset` 으로 받아 비교
 ⭐ [2026-10-14 · bo-1c R8 · bo-1d M8 · bo-2 W10 · bo-2b X6] **앞 차수 검증을 이번 시험 트랜잭션 안에서 돌리는 회귀** = `\! awk` 사본(`begin;` · `\if … \endif` · `pg_temp.chk` 정의 · `rollback;` 뒤를 뗀다 · 사본 안의 `\! awk` 줄도) + `\i /tmp/<이름>-inner.sql` · 그 도우미 · 가짜를 이어 쓴다 · 내 put/g 열쇠는 접두로 가른다(bo-1c 1 회차 t_id 충돌)
 ⚠️ [2026-10-14 · bo-2b 이견 8] **실물 행(화면 시험의 표식 등)이 생긴 뒤의 회귀는 「이 시험이 만든 행만」 센다** — 절대 행 수 기대는 실물 한 행에 깨진다(옛 검증 넷은 그날의 기록으로 두고 사본에서 좁힌다 · so-module 미룬 239)
 ⚠️ [2026-10-14 · bo-2b 2 회차] **`jsonb->'k' - 'x'` 는 `-` 가 먼저 묶인다**(operator is not unique) ⇒ `(j->'k') - 'x'`
@@ -453,6 +459,10 @@ EOF
 ⭐ [2026-10-09 · so-module §56-f 12] 옮기기 명령 끝에 `&& echo MOVED_OK` — 이 한 줄이 보여야 끝까지 돈 것이다(&& 고리가 중간에 멈추면 안 보인다)
 ⭐ [2026-10-10 · so-module §56-f 13 · 14] 아래 `cp -n` 은 coreutils 가 「non-portable」 경고를 낸다 ⇒ **`cp --update=none`** 으로 쓴다 · 샌드박스 sh 에서는 `{a,b}` 중괄호 펼침이 안 된다 ⇒ 파일을 하나씩 적는다
 ⭐ [2026-10-05 · Caleb] 옮기기 명령에는 다운로드 삭제까지: md5sum $D/$F | grep -q "^$W" && cp -n $D/$F 목적지 && md5sum 목적지/$F | grep -q "^$W" && rm $D/$F — md5 가 다르면 아무것도 지우지 않는다 · 화면 파일도 같은 순서(레포 원본 md5 → 다운로드 md5 → 복사 → 복사본 md5 → 삭제 → 커밋)
+⭐⭐ [2026-10-19 · so-module §66-e 3] **파일은 이름이 아니라 md5 로 고른다** — 다운로드 폴더에 옛 파일이 있으면 새 파일이 「settings (1).html」 로 받아진다
+  pick(){ md5sum "$D"/<꼴> | grep "^<md5>" | head -1 | cut -c35-; }   예) F=$(pick 'settings*.html') && [ -n "$F" ] && cp … "$F" … && echo MOVED_OK
+  ⚠️ 끝 표지는 **반드시 `&&` 로** — `; echo MOVED_OK` 는 고리가 중간에 멈춰도 찍힌다(실사고: 옮기기가 멈췄는데 MOVED_OK 가 보였다)
+⭐ [2026-10-19 · §66-e 9] **명령 머리에 「어디서」** — `# [WSL]` · `# [Cloud Shell]` · `# [Supabase SQL Editor · 테스트]` · `# [브라우저 콘솔]` (Cloud Shell 명령을 WSL 에서 돌리게 한 적이 있다)
 ```
 
 ---
@@ -700,3 +710,13 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    4 [Claude Code · bo-1a] 실물 절을 가짜 뒤에 세었다(35 · 41 → 실물 26 · 0) ⇒ 실물 절은 가짜를 세우기 전에
    5 [Claude Code · bo-1c v2] 판정 486 을 덩어리 단위로 걸렀다(몫마다 제 날짜가 맞다) ⇒ 「기간 안에 X」 는 X 의 단위(몫)마다 그 날짜로
    6 [대화 Claude] 고친 지시서를 다운로드 폴더에 안 받은 채 옮기기를 돌렸다 ⇒ 고친 판은 파일 카드를 다시 내고 「다시 받으세요」를 먼저
+⚠️ **[2026-10-19 문서 묶음 · so-module §66-e]**
+   1 [대화 Claude] 판 미리 검사 도구가 <meta charset> 를 예외로 둬 DB 거부를 놓쳤다 ⇒ 흉내 도구는 DB 금지 목록 그대로(asung-doc §1)
+   2 [대화 Claude] Mustache 를 cdnjs 에서 불렀는데 Caleb 화면에서 window.Mustache 가 서지 않았다 ⇒ 라이브러리는 공통 파일 안에 바이트 복사(define · module · exports 가림)
+   3 [대화 Claude] 「settings (1).html」 + `; echo MOVED_OK` ⇒ md5 로 고르기 · 끝 표지 && (§7)
+   4 [Claude Code · doc-3b] format() 안 % ⇒ %%(§4)
+   5 [대화 Claude] 시험 명령의 jsonb 인자를 글자 이어 붙이기로 ⇒ 창구 인자의 형은 시그니처를 보고 · jsonb_build_object
+   6 [Claude Code · doc-2] 「Gotenberg api-timeout 60 s」 — Cloud Run 요청 한도와 섞었다 ⇒ 실물 설정은 배포 명령 원문으로
+   7 · 8 [Claude Code] 고정 숫자 · 설정 값을 확인 갈래에 · 쓰기와 상태 서브쿼리 한 문장(네 번째) ⇒ §4
+   9 [대화 Claude] Cloud Shell 명령을 WSL 에서 ⇒ 명령 머리에 「어디서」(§7)
+   10 [잘 된 것] 결함 판 · 옛 = 새(R) · 미리 보기 = 발행(P) 두 겹 · 황금 문자열(MIME 바이트 무변)

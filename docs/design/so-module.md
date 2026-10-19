@@ -280,6 +280,7 @@ Caleb: "오더 컨퍼메이션, final invoice, shipping notification같은거야
 📌 백오더 알림(§1-h)은 별개 경로다 — GAS 가 Cin7 API 를 보고 보낸다.
 IMS 로 옮길 때는 한자리에서 다루는 것이 낫다.
 → [2026-10-16 · §65] 백오더 알림은 IMS 메일 기계(판정 493 · Gmail API · ims@ 계정 · From notifications@)로 섰다 — 오더 메일(이 절의 템플릿 셋 · 판정 380)은 같은 기계의 뒤 사용자
+→ [2026-10-19 · §66] 오더 문서 메일 섰다 — 최종 인보이스 · 크레딧 · SO · Ship Ready 수동 + 최종 인보이스만 손님 칸으로 자동(판정 529 · customer.final_invoice_mail) · From info@(530) · PDF 첨부 · 배송 통지는 IMS 가 보내지 않는다(미룬 206)
 
 ### 1-s 손님 마스터 — Cin7 실측 (2026-09-21 프로브)
 
@@ -491,6 +492,7 @@ Caleb: "이전에 GAS를 통해서 IMS에 적재할때처럼 적재할 수 있�
 ⬜ IMS 에서는 보낼 시점을 시스템이 안다(오더 확정 · 인보이스 발행 · 출하 확정) —
 자동을 넓힐 수 있으나 지금 실무는 수동이 기본이다.
 → [2026-10-16 · §65] 메일 기계는 공통(판정 493 · mail_outbox · EF mail) — 오더 · 인보이스 메일은 뒤 사용자(380 · 미룬 147) · 지금 kind 는 backorder_ready 하나
+→ [2026-10-19 · §66] 자동은 최종 인보이스 하나 그대로(판정 529 · 발행이 커밋될 때 · 재발행은 자동 안 함) · kind 에 doc_final_invoice · doc_credit_note · doc_sales_order · doc_ship_ready 더함
 
 ---
 
@@ -7359,6 +7361,7 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 - 125 ⏸ **할인 겹침 규칙 재검토**(Caleb 「일단 보류 · 기록해줘 · 좀 더 생각」) — 지금: 층 안은 큰 하나 · 줄 층과 오더 층은 겹친다(277 · Adore 15% + 쿠폰 20% → 약 32%) · Caleb 물음 「줄 층 + 오더 층도 큰 하나로」 · 대화 Claude 가 보인 두 뜻: ① 줄마다 줄 % 와 오더 % 중 큰 쪽(오더 할인이 줄마다 다른 % — 인보이스 · 크레딧 비례 · 화면 재설계) ② 세일 줄은 오더 할인 기준에서 뺀다(기준 금액 식 한 곳 + 크레딧 비례) · 어느 쪽이든 딜마다 「줄 할인과 겹침」 켜기 · 끄기 가능 · 정하지 않음
 - 126 **description(판정 후보 348)** — `product.cin7_description` · `product_family.cin7_description` 만 · 18,722 중 17,894 채움 · 17,890 HTML(h1 · h2 · strong) · 세트 5,924 · family 1,130 · 평균 881 · 최대 16,242 글자 · product_update 가 받지 않음 · 화면 없음 · Caleb 「내용을 넣어야 하고 그 내용이 Shopify 에 연동」 — 할인과 무관한 별도 일거리
 - 127 **인보이스 인쇄 + so_invoice_unit_display 설정 화면 · 반영**(판정 314 · 미룬 120 에서 옮김) — 인쇄 차수
+  → [2026-10-19 · §66] ✅ 닫힘 — 문서 템플릿 · 브라우저 인쇄(inv v2f) · 단가 표시는 doc_unit_prices(판정 527 · 528)
 - 128 크레딧을 낸 인보이스가 열려 있으면 거기 바로 붙이기를 기본으로 할지(대화 Claude 짐작 · Caleb 결정 없음 · 판정 후보)
 - 129 so_deal_save 막기 · 경고 문장에 칸 이름 · 어휘 값이 그대로 나오는 23 곳(dsc-4d 보고 목록)
 - 130 제품 재적재가 IMS 에서 뗀 Cin7 출처 태그(product_tag source cin7)를 다시 붙인다 — 미룬 113(sellable)과 같은 뿌리 · 적재를 고친다
@@ -7490,7 +7493,7 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 | 377 | — | 상품 정보 올리기 = 바뀌면 즉시 + 새벽 전체(IMS 가 주인인 칸은 새벽에 IMS 값으로) → [2026-10-10 · §56-a 판정 414] 새벽 맞추기는 **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망** — hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 「새벽에 IMS 값으로」 는 이 뜻(어긋남 발견 §56-f 9 · 미룬 165 닫힘) |
 | 378 | — | asung.ca 오더 상태 — 들어오는 순간 주인은 IMS · 운송사 + 송장번호를 넣는 순간 Shopify 「발송 + 송장번호」(메일은 Shopify) · 운송사 칸 Pickup · Delivery(우리 차량) — 송장 없이 「발송됨」만 · 메일 없음 · 백오더 몫은 같은 오더에 두 번째 발송 · [2026-10-13] → 436 · 437 · 438 · 439 · 441 · 442 · 445 · 446 · 447 · 448 이 채운다(§61) |
 | 379 | — | aonebeauty.com — Pickup 오더는 운송사 Pickup 을 미리 채움 · Ship & invoice 순간 Shopify 「Ready for pickup」(손님 메일) · 「Waiting for pickup」 칩 · 「Picked up」 단추(메일 없음) · 안 찾아가면 크레딧 노트 · 환불은 Shopify 에서 직원이 하고 ~~IMS 가 읽어 크레딧에 붙인다~~ · [2026-10-13] → 439 · 443 · 444 · 446 이 채운다 · **440 바뀜**(IMS 가 읽어 원문 + 경고 · 크레딧 노트는 직원이 · 자동 크레딧 없음)(§61) |
-| 380 | — | asung.ca 직원은 오더 안에서 최종 인보이스 · 결제 요청 · 패킹 리스트를 메일로 — IMS 오더 문서 메일이 컷오버 전에 필요(인보이스 인쇄 미룬 127 이 먼저) |
+| 380 | — | asung.ca 직원은 오더 안에서 최종 인보이스 · 결제 요청 · 패킹 리스트를 메일로 — IMS 오더 문서 메일이 컷오버 전에 필요(인보이스 인쇄 미룬 127 이 먼저) → [2026-10-19 · §66] ✅ 섰다(테스트) — 패킹 리스트는 뺐다(WMS 에 있다 · Caleb) · 결제 요청은 인보이스 메일이 대신 |
 | 381 | 「어서 세워야 해」 | 상품 설명 — IMS 자기 설명 칸(상품 · family) · 서식 편집기(위험한 태그는 거른다) · 처음 내용은 cin7_description 에서 한 번 · 재적재도 채운다 · 그 뒤 IMS 가 주인 · 순서: 매입 세금 → 할인 원가 → 설명 칸 → Shopify |
 | 382 | 「우리 IMS에서의 Finalized는 물건이 준비가 됐다고, fulfilled가 물건이 우리 손을 떠났다야」 | so.html 오피스 단추 「Finalize — ship and invoice」 → **「Ship & invoice」** · 창고의 Finalize · 상태 Finalized · 창구 so_finalize 이름은 그대로(so v5q da58c81) |
 | 383 | — | PO 세금 규칙 출처 = 공급처 규칙 → PO 머리 · 줄은 머리를 따른다 · 특별한 줄만 줄에서 |
@@ -7563,6 +7566,7 @@ Shopify 판정(362 ~ 381)의 주제별 정리 · 열린 확인 거리는 `docs/d
 - 145 결제조건 표의 할인 % · 일수로 인보이스 할인 조건 제안 — ⚠️ P&G 는 이름 「2%19 Net30」 인데 실제 2.1% · 13일
 - 146 불러온 레이어 재생성 드리프트 +2.73 CAD(⑭ · po-disc-1 D8b)
 - 147 IMS 오더 문서 메일(판정 380 · 인보이스 인쇄 127 먼저)
+  → [2026-10-19 · §66] ✅ 닫힘 — doc-3a · 3b · 화면 bff4bd5 · 운영 전환은 mail-5(미룬 256)
 - 148 Shopify 무료 배송 설정을 「무료 배송 자동 할인」으로 바꾸는 법 — 대화 Claude 가 단계별로(판정 369)
 - 149 컷오버 뒤 앱 규칙(딜 · 손님 할인)을 IMS 와 앱에 두 번 입력
 - 150 시험 재료 정리 — Test1(BBE 90 · 세금 전/포함 모름) · Showtime 222 · P&G 1030266656 결제 · PO-02046 · PO-02047
@@ -8237,6 +8241,7 @@ Caleb 이 준 업무 사실 (이 대화)
 - 204 운송사 표 시작값을 운영 손님 default_carrier 실물로(운영 값 안 봤다)
 - 205 asung.ca `custom` 결제 방식의 실제 이름(Caleb · Settings → Payments → Manual payment methods) — 운임(191)과 함께
 - 206 380 문서 메일을 지을 때 「Shopify 가 보내는 발송 메일은 IMS 가 안 보낸다」(같은 순간 메일 둘 — 짐작)
+  → [2026-10-19 · §66] 그대로 — IMS 문서 메일에 배송 통지는 없다 · 자동은 최종 인보이스만(손님 칸)
 - 207 컷오버: asung.ca · aone 의 Shipping confirmation 메일 설정 확인
 - 208 438 의 경계 — 운송사만 고르고 송장을 비운 채 Ship & invoice 한 뒤 **빈 송장을 438 창구로 처음 채우기**는 사실상 「넣기」(Caleb 사실 「발송 뒤 송장 넣기 창구는 짓지 않는다」와 닿는다) · 막을지 ful-1b 판정 거리(docs-1013 이견 3) → [2026-10-13] ✅ 판정 452 로 닫힘(carrier 면 Ship & invoice 때 송장 필수 — 빈 송장이 생기지 않는다 · §62-e)
 - 209 Shopify 동작 시험(판정 아님): 441 오더 고치기의 손님 메일 끄기 · 439 환불이 남은 몫을 지우는가 · 「Picked up」 mutation · orderMarkAsPaid 의 사용자 권한(mark_orders_as_paid)이 앱 토큰에 걸리는가 → [2026-10-13] 나눔: 「Picked up」 mutation ✅(픽업 FO 에 fulfillmentCreate notify false · Shopify 「Picked up on …」 · 메일 없음 · §62-c) · 나머지 셋(orderEdit 메일 끄기 · 환불이 남은 몫을 지우는가 · mark_orders_as_paid)은 → §62-e 210 · 211
@@ -8797,4 +8802,162 @@ EF 꺼내기 · 적기         mail_claim(n) · mail_mark(id, attempt, …) 2026
 월 10-19 9:07(토론토) 실전 연습 보기 — 회차 · 메일 · Chat 요약 · Emails 탭 · 실패면 Chat ⚠️ · mail-5 운영 전환 묶음(244) · ⑦ gateway 가르기(230) · 컷오버 준비 묶음(§56 ~ §60 미룬 것) · 미룬 234 ~ 251
 다음 판정 번호: 520
 → [2026-10-16 · docs-1016b] 판정 520 · 다음 판정 번호: 521
+```
+
+## §66 2026-10-19 — 문서 템플릿 · 인쇄 · 서버 PDF · 문서 메일 — doc-0 ~ doc-3b · 판정 521 ~ 530 (회사 PC)
+
+⭐ 닫힌 것: **인보이스 인쇄**(미룬 127 · 판정 314 의 단가 표시는 doc_unit_prices · 판정 527 · 528) · **IMS 오더 문서 메일**(판정 380 · 미룬 147) — 테스트 프로젝트에서 인쇄 · 서버 PDF · 메일(PDF 첨부)까지 실물로 섰다 · 운영 전환은 mail-5 묶음(미룬 244 + 아래 66-f)
+⭐ 새 판정 521 ~ 530 · 원천: 지시서 `docs-1019.md` 📌(같은 PC `~/asung/prompts`) · 조사 `doc-0.md` · 지시서 `doc-1a.md` ~ `doc-3.md` · 확인 파일 `doc-*-verify.sql` · cron 덩이 `doc-3b-cron.sql`
+⭐⭐ **컷오버 = 2026-11-01(일)** (Caleb 2026-10-19 「11월 1일에 컷오버 하기로 결정했어」) · 그날 아침에 반드시 = 문서 템플릿 ✅ · 최종 인보이스 메일 ✅ · 발주앱(남음) — 판정 521
+📌 일꾼 두 단계(쉬운 말 66-b 5): 직원이 Send → 줄(waiting_pdf) → cron 57 이 PDF 를 만들어 붙임(queued) → cron 55 가 보냄(sent) · 1 ~ 2 분
+
+### 66-a 판정 (말 그대로)
+
+| # | Caleb | 뜻 · 기각 |
+|---|---|---|
+| 521 | 「나도 같은 생각이야」(대화 Claude 안) · 「11월 1일에 컷오버 하기로 결정했어」 · 「나도 A가 좋은데」 | **컷오버 2026-11-01(일) 아침에 반드시 = 문서 템플릿 · 최종 인보이스 메일 · 발주앱** · QuickBooks · 구글 드라이브는 며칠 뒤에 켜도 되게 — 단 컷오버 날부터의 것을 나중에 한꺼번에 보낼 수 있어야 한다(`doc_file.drive_file_id` null = 아직) · Caleb 이 더 든 일: SO · 다른 모듈 메일 · 템플릿 모듈 · PO 등의 인보이스 · 영수증을 IMS 로 드라이브에 · 발주앱(tools.asung.ca `purchasing.html`) 이식 · QuickBooks · **안 A**: 틀(배치)은 IMS 의 「판」 · 직원은 글과 켜고 끄기만 Settings 에서 — 기각: Cin7 식 워드 mail merge(Caleb 「이게 좀 불편해」) · 배치 바꾸기 = 대화 Claude 가 새 판을 통째로 → Settings 에 올림 → 실제 문서로 미리 보기 → Use this version · 옛 판은 남고 되돌린다 · 올릴 때 DB 가 검사 |
+| 522 | 「일단은 admin으로 하되, 권한은 supervisor까지 넓히고 싶어」 | 판 쓰기 = 열쇠 `doc_template`(ims_perm_catalog) · admin 은 역할로 · supervisor 는 Staff 에서 켰을 때만 · manager · worker 안 됨 · 처음엔 아무도(켠 supervisor 0) |
+| 523 | 「길 1」 | 서버 PDF = **Gotenberg 를 회사 Google Cloud Run 토론토에** · GAS getAs 시험은 건너뜀 · 화면 인쇄는 브라우저 인쇄(WMS 픽 · 패킹 리스트와 같은 방식) · Caleb 「gotenberg에 subscribe해야 하는거야?」 → 아니다 · 무료 공개 프로그램 · Google 사용료만 · 하루 40 장이면 무료 구간(짐작) |
+| 524 | 「에드몬튼과 토론토 주소 둘다를 한 인보이스에서 보이게 하고, 그것을 공통으로 쓰고 싶어」 | 모든 문서 머리에 두 지점(inv_config `doc_branches`) · 창고와 상관없이 같은 머리 |
+| 525 | 「admin, master로 가자」 | 회사 글 · 문서 글 고치기 = `ims_can_write('master')` = admin · supervisor 전원(역할) · master 쓰기를 켠 manager — 메일 설정과 같은 선 |
+| 526 | 「인보이스 메모」 | 문서 Notes = `so_invoice.note`(오더 메모 아님 · 직원 메모가 손님에게 새지 않게) · 크레딧도 `so_credit.note` · 쓰는 창구 so_invoice_note_set · so_credit_note_set(doc-3a) |
+| 527 | 「할인 전 단가」 | 문서 Unit price = 줄 할인 전(`list_price`) · 금액 = 수량 × 단가 × (1 − 할인) — 손님이 받아 온 종이와 같은 셈 |
+| 528 | 「결제가 이뤄졌고, 더이상 받을 돈이 없다면 안보이는게 낫지 않을까?」(대화 Claude 정리) | **Due = 찍는 순간 지금 남은 금액**(so_invoice_remaining) · 0 이면 Due 줄 없음 · 음수는 Credit · 선수금 · 크레딧 · 이전 잔액 · 결제가 0 이면 줄 없음 · net 단가는 오더 할인이 없으면 없음 · 발행 때 종이 그대로는 **남긴 PDF(doc_file)** 로 다시 연다 |
+| 529 | 「몇십명정도야」 | 최종 인보이스 자동 메일 = 손님마다 켜는 칸 하나 `customer.final_invoice_mail`(기본 꺼짐 · 바꾸기 manager 이상 · Backorder emails 와 같은 문 · 판정 517 의 결) · 컷오버 전 Customers 화면에서 손으로 켠다 · 적재는 이 칸을 보내지 않는다 |
+| 530 | 「B」 | 문서 메일 = **info@asung.ca 에서 · 답장 info@ · 이름 Asung Trading**(설정 키 `mail_doc_from` · `mail_doc_reply_to` · `mail_doc_from_name` · 등록이 늦으면 notifications@ 로) · ✅ ims@ 메일함에 info@ 를 **Send mail as** 등록 끝(2026-10-19 · Caleb Gmail 설정 화면 · 목록 이름은 「Asung Trading Inc.」 — 손님에게는 IMS 키의 이름이 보인다) |
+
+**그 밖 결정(판정 번호 없음 · Caleb 말)**
+```
+첫날 문서 다섯   최종 인보이스(final_invoice) · 크레딧 노트(credit_note) · SO(sales_order · Caleb 「손님에게도 보내」) · Ship Ready(ship_ready · PROFORMA · Caleb 「ship & invoice를 누르기 직전에 보내는 문서야」)
+                 · Internal Invoice Receipt(internal_receipt · 지역 배송 서명 · 메일 없음)
+패킹 슬립 뺌      Caleb 「팩킹리스트는 필요없을 것 같아. 생각해보니 이미 wms에서 있어」
+인보이스 제목     「INVOICE」(Caleb 「Final Invoice가 아니라 그냥 Invoice라고 하자」 · Settings Title) · Bill to · Ship to 나란히 · 머리는 Cin7 꼴(Caleb 「적어도 처음 부분만큼은」)
+Internal         큰 INVOICE 위에 작은 회색 「INTERNAL USE ONLY」 · 메일 제목은 그대로(Caleb 「email subject는 안고쳐도 돼」)
+Send             누르면 창을 바로 닫는다(Caleb 「send를 누르고 바로 저 화면에서 빠져나오게 해주는게 어때?」 · ims-doc v3a) · 메일은 1 ~ 2 분 뒤에 나간다(cron 57 → 55)
+60009 운임 줄 둘  시험 흔적(Caleb 「테스트과정에서 발생한 거야」) — 조사하지 않는다
+```
+
+### 66-b 쉬운 말
+
+1. **판(template)** = 문서 한 종류의 HTML 틀 한 벌(Mustache). 판은 **셈하지 않는다** — 돈 · 날짜 · 수량의 꼴은 `doc_data` 가 글자로 만들어 준다(`"1,234.50"` · `19OCT2026`). 판은 그 글자를 자리에 놓기만 한다.
+2. **자리표** = 판 안의 `{{invoice.number}}` 같은 이름. 쓸 수 있는 이름의 목록은 `doc_field_catalog(kind)` 하나 — 판을 올릴 때 DB(`doc_template_check`)가 목록 밖 이름 · 금지 HTML(script · iframe · meta · link · 바깥 주소)을 거부한다.
+3. **쓰는 판** = kind 마다 하나(`doc_template_active`). 새 판을 저장해도 **Use this version** 을 누르기 전엔 바뀌지 않는다 · 옛 판은 지우지 않으니 언제든 되돌린다.
+4. **「0 이면 빈칸」** — Mustache 는 `"0.00"` 이라는 글자도 「있음」으로 읽어 `{{#due}}` 줄을 그린다. 그래서 0 인 돈은 `doc_data` 가 빈 글자로 준다(`doc_fmt_money_nz`) — 판에서 0 을 거르려 하지 마라.
+5. **서버 PDF · 일꾼 두 단계** — 화면 인쇄는 브라우저가 한다(Gotenberg 무관). 메일 첨부 · 보관용 PDF 만 서버(EF `doc` → Gotenberg)가 만든다. 메일은 두 cron 이 이어 받는다: **57 ims-mail-pdf** 가 PDF 를 만들어 줄에 붙이고(waiting_pdf → queued) **55 ims-mail-drain** 이 보낸다(queued → sent). 둘은 따로 멈출 수 있다.
+6. **Ship Ready 는 직원이 PDF 를 먼저 만든다** — 그 문서는 「지금 Ship & invoice 를 누르면」 의 미리 보기라 sales 권한이 있는 직원의 로그인이 필요하다(서버 일꾼은 못 만든다 · doc-1b2 이견 7). 화면이 PDF 를 만든 뒤 그 PDF 로 메일 줄을 넣는다(바로 queued).
+7. **자동 인보이스 메일은 발행이 커밋될 때 한 번** — so_invoice 의 지연 트리거. 재발행(같은 오더에 앞 인보이스) · 주소 없음 · 오류는 줄 대신 `doc_mail_skip` 한 줄 — **메일 때문에 발행이 서지 않는다.**
+8. **시험 DB 는 모든 메일이 caleb@ 로** — 메일 기계(§65)의 안전 넷 그대로(제목 `[TEST → 원래 주소]`).
+
+### 66-c 실물 (테스트 · 2026-10-19)
+
+| 차수 | 레포 · 커밋(git log 원문) | 요지 |
+|---|---|---|
+| doc-0 | — | 조사 · 쓰기 0 |
+| doc-1a | asung-wms `31c39cd` · `20261019144030_doc_1a_template_base.sql` | 판 표 넷(doc_template · doc_template_active · doc_template_event · doc_setting) · 회사 글 inv_config 키(지점 둘 · 판정 524) · 판 쓰기 열쇠 doc_template(522) · 글 고치기 master(525) · doc-brand 버킷 · doc_field_catalog · doc_template_check · 확인 OK 28 |
+| doc-1b1 | asung-wms `dc3aa77` · `20261019152102_doc_1b1_data.sql` | doc_data(final_invoice · internal_receipt · credit_note · sales_order) · 꼴 doc_fmt_* · 키 doc_date_format(DDMONYYYY) · doc_public_base_url · 확인 OK 23 |
+| doc-1b2 | asung-wms `aedd043` · `20261019155731_doc_1b2_ship_ready.sql` | Ship Ready 돈 미리 보기 — so_invoice_rule_pick · so_invoice_apply_plan 을 so_invoice_issue 에서 떼어 발행 · 미리 보기가 같은 식 · so_tax_preview(p_over) · so_invoice_preview · 옛 발행 = 새 발행 9 장 · 확인 OK 15 |
+| doc-1c | asung-wms `75f03cb` · `20261019172034_doc_1c_zero_blank_due_now.sql` | 528 — Due = so_invoice_remaining · 0 이면 빈칸(doc_fmt_money_nz) · 오더 할인 없으면 net 단가 빈칸 · 확인 OK 10 |
+| doc-2 | asung-wms `de276c8` · `20261019181014_doc_2_pdf_store.sql` | EF `doc`(render · url · status) · Gotenberg · 비공개 버킷 documents · doc_file · 서명 URL 120 s · `tools/gotenberg-secrets.sh` · 확인 OK 8 · deno test 5 |
+| doc-3a(+3a2) | asung-wms `58e459e` · `20261019184432_doc_3a_mail_db.sql` · `20261019190500_doc_3a2_mail_worker_windows.sql` | 529 · 530 · 526 — customer.final_invoice_mail · 메모 창구 둘 · 키 mail_doc_* 셋 · mail_outbox.attachments · kind doc_* 넷 · status waiting_pdf · doc_mail_send · 자동 트리거 · doc_mail_skip · doc_mail_list · cancel · 일꾼 창구 셋 · 확인 OK 19 |
+| doc-3b | asung-wms `2485e04` | EF mail action pdf · drain 의 doc_* 갈래(multipart/mixed) · 첨부 없으면 MIME 바이트 무변(황금 문자열) · cron 57 기록 · deno test 16 |
+| set v4 | asung-ims `a822932` | Settings → Documents(회사 글 · 지점 둘 · 로고 · 날짜 꼴 · 문서 다섯 탭 · 판 목록 · 검사 · 새 판 저장 · 이 판 쓰기 · 실제 문서로 미리 보기 · 제목 · 칸 · 메일 글) · ims-doc.js 새 공통 |
+| set v4a · ims-doc v1a | asung-ims `d0fc272` | Mustache 4.2.0 을 ims-doc.js 안에(66-e 2) |
+| 인쇄 | asung-ims `43a09cb` | ims-doc v2(printDoc · printBtn · 숨은 iframe 브라우저 인쇄) · inv v2f · cr v2e · pos v1.9 · so v5t8(Print order · Ship & invoice 창 Ship Ready) |
+| 메일 화면 | asung-ims `bff4bd5` | ims-doc v3(mailDialog · mailList · noteDialog) · cs v4b Final invoice emails · inv v2g · cr v2f · so v5t9 |
+| ims-doc v3a | asung-ims `d87f1c8` | Send 하면 창 닫기 · 아래 안내 4 초 |
+
+```
+판(쓰는 판 · 테스트 DB 실측)  final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 — 판 파일은 레포 밖(Caleb 다운로드) · DB doc_template 이 정본
+회사 글                       doc_company_name · doc_hst · doc_website · doc_terms · doc_branches(토론토 · 에드먼튼 18418 105 Ave. NW, Edmonton AB T5S 0N7 · +1 (780) 752-7678 · info@)
+                              · doc_logo_path(doc-brand 버킷에 올림) · doc_date_format DDMONYYYY · doc_public_base_url(테스트 = 테스트 프로젝트 주소 · 운영 값은 66-f)
+문서 글(doc_setting)          kind × (title · mail_subject · mail_body · show_upc · show_comment · show_charge_code) — final_invoice 제목 「INVOICE」 · 메일 제목 「FINAL INVOICE {{invoice.number}} - Asung Trading Inc.」
+                              · ship_ready 제목 PROFORMA · 메일 제목 「PROFORMA INVOICE - Asung Trading Inc.」 · internal_receipt 메일 글 빈칸(메일 없음)
+Gotenberg                     GCP 프로젝트 asung-ims-mail · northamerica-northeast2 · 서비스 gotenberg · 판 gotenberg-00001-q5k
+                              · https://gotenberg-926704977469.northamerica-northeast2.run.app · 이미지 docker.io/gotenberg/gotenberg:8
+                              · 기본 인증(사용자 ims · 비밀번호 Secret Manager gotenberg-basic-pass 판 1) · JavaScript 끔 · 2 GiB · 0 ~ 2 대 · 동시 4 · Cloud Run 요청 60 s
+                              · ⚠️ Gotenberg 자체 --api-timeout 은 건드리지 않았다(기본 30 s) — doc-2 보고의 「Caleb 이 60 s 로 두었다」 는 틀림(Cloud Run 60 s 와 섞였다 · 66-e 6)
+                              · 실행 신분 gotenberg-run@asung-ims-mail.iam.gserviceaccount.com · Cloud Run 문 검사 끔(--no-invoker-iam-check · 조직이 allUsers 를 막을 수 있어서 · 문은 기본 인증)
+Supabase 비밀(테스트 · 이름만)  GOTENBERG_URL · GOTENBERG_USER · GOTENBERG_PASS(tools/gotenberg-secrets.sh) · 운영엔 없다 · 그 밖은 §65 의 메일 비밀 + IMS_CRON_SECRET
+cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고 PDF 기다리는 줄이 있을 때만 EF mail {"action":"pdf"} · 120 s) · 54 · 55 · 56 그대로(§65)
+                              · 킬 스위치 select cron.alter_job(57, active := false) · 메일 전체는 mail_enabled = off(§65)
+실측                          60009(47 줄) 서버 PDF 3 쪽 107,108 바이트 · 로고 · thead 반복 · Page 2 of 3 · 글꼴 Calibri 대체로 잘 나옴
+                              메일 끝에서 끝: 줄 19:32:23 → pdf_attached 19:33:07 → claim 19:34:00 → sent 19:34:03(UTC) · caleb@ 받은편지함은 몇 분 늦게 보였다
+                              doc_file 4 줄 · mail_outbox doc_final_invoice sent 3 · final_invoice_mail 켠 손님 0(컷오버 전 Caleb)
+```
+
+### 66-d 함수 지도 (마지막 정의 · `command grep -lE … | LC_ALL=C sort | tail -1` · 파일:행)
+
+```
+판 · 글 · 문
+  판 쓰기 열쇠(522)        ims_can_doc_template()                 20261019144030_doc_1a_template_base.sql:341
+  자리표 목록(하나)        doc_field_catalog(kind)                20261019144030_doc_1a_template_base.sql:371   ⭐ 판이 쓸 수 있는 이름의 유일한 목록
+  올릴 때 검사             doc_template_check(kind, body, mode)   20261019144030_doc_1a_template_base.sql:438   크기 200 KB · 금지 HTML · 바깥 주소 · 목록 밖 자리표
+  판 올리기 · 쓰기         doc_template_upload · doc_template_publish   :578 · :609
+  판 읽기                  doc_template_list · doc_template_get   :681 · :702
+  문서 글 고치기(525)      doc_setting_set(kind, key, value)      :642   master
+  회사 글 키 · 검사        ims_doc_config_keys · ims_doc_config_problem   20261019152102_doc_1b1_data.sql:65 · :73 · 문지기 inv_config_guard 20261019144030:193
+  설정 한 번에             doc_config()                           20261019152102_doc_1b1_data.sql:137
+  직원 또는 service        doc_staff_or_service()                 20261019144030:563
+데이터(판은 셈하지 않는다)
+  창구                     doc_data(kind, ref)                    20261019155731_doc_1b2_ship_ready.sql:681   volatile · {docs[] · groups[](ship_ready)}
+  공통 · 갈래              doc_data_common 1b1:161 · doc_data_invoice 1c:57 · doc_data_invoice_fmt 1c:95 · doc_data_credit 1b1:282 · doc_data_so 1c:148 · doc_data_ship_ready 1b2:664
+  꼴                       doc_fmt_money · qty · pct · date(1b1:41 ~ 53) · doc_fmt_money_nz(1c:37 · 0 → "") · doc_unit_prices(1c:46 · 527 · 528) · doc_contact · doc_method_label · doc_upc
+  Ship Ready 돈            so_invoice_rule_pick 1b2:41 · so_invoice_apply_plan 1b2:66 · so_tax_preview(…, p_over) 1b2:150 · so_invoice_issue 1b2:251 · so_invoice_preview 1b2:471
+                           ⚠️ 발행과 미리 보기가 같은 식 — 하나만 고치지 마라(옛 발행 = 새 발행 · 미리 보기 = 발행 두 겹 대조로 섰다)
+서버 PDF
+  남기기                   doc_file_add(service 만) 20261019181014_doc_2_pdf_store.sql:101 · doc_file_drive_set :127(한 번) · doc_file_list :144 · doc_file_get :162 · 문지기 doc_file_guard(지우지 않음)
+  EF doc                   supabase/functions/doc/index.ts · _shared/doc.ts — render {kind, ref, reason, template_id?} · url {doc_file_id} · status
+                           문 둘: 직원 JWT(그 JWT 로 DB 를 부른다) · x-ims-cron-key(service · ship_ready 거부) · 경로 documents/<kind>/<번호>-t<판>-<시각>.pdf
+문서 메일
+  손님 칸 · 메모           customer_update(…, field final_invoice_mail) 20261019184432_doc_3a_mail_db.sql:41 · so_invoice_note_set :486 · so_credit_note_set :506
+  키                       ims_mail_config_keys :527(열 · + mail_doc_from · from_name · reply_to) · ims_mail_config_problem :534
+  받는 이(498 고르기)      doc_mail_recipient(customer_id) :675
+  자리표 채우기(글)        doc_mail_fill(text, doc) :689   스칼라 {{a.b}} 만
+  보내기(직원)             doc_mail_send(kind, ref, to, subject, body, commit=false, doc_file_id=null) :746   sales 쓰기 · 미리 보기 = commit false · internal_receipt 거부 · ship_ready 는 doc_file_id 필수
+  자동(529)                doc_mail_auto_invoice() :785 + deferrable 트리거 so_invoice_doc_mail_auto · 건너뜀 표 doc_mail_skip(no_email · reissue · error)
+  읽기 · 취소              doc_mail_list(kind, ref) :821 · doc_mail_cancel(outbox_id, note) :842(waiting_pdf · queued)
+  일꾼 창구(service)       doc_mail_pdf_claim :46 · doc_mail_attach :73 · doc_mail_pdf_failed :97   20261019190500_doc_3a2_mail_worker_windows.sql(세 번 뒤 failed)
+  EF mail                  action pdf(→ doc render reason send · service 길 → attach) · drain 의 doc_* 갈래(Storage PDF · sha256 대조 · multipart/mixed) · 기계 함수 mail_claim · mail_mark 무접촉
+화면(asung-ims)
+  ims-doc.js               렌더(Mustache 4.2.0 안에) · printDoc · printBtn · mailDialog · mailList · noteDialog
+  Settings → Documents     settings.html(set v4 · v4a) · 인쇄 · 메일 단추 = so-invoices(inv) · so-credits(cr) · so.html(so) · pos.html(pos) · customers(cs v4b Final invoice emails)
+```
+
+### 66-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 판 미리 검사 도구가 `<meta charset>` 를 예외로 둬 DB 거부를 놓쳤다 ⇒ 흉내 도구는 DB 금지 목록 그대로 · 판 안 글자는 ASCII(EF 가 보내기 직전 charset 을 끼운다)
+2. [대화 Claude] Mustache 를 cdnjs 에서 불렀는데 Caleb 화면에서 `window.Mustache` 가 서지 않았다(원인 못 봄 · UMD 가 다른 자리로) ⇒ ims-doc.js 안에 바이트 복사 · define · module · exports 를 가리고 this = window(d0fc272)
+3. [대화 Claude] 다운로드 폴더에 옛 파일이 있어 새 파일이 「settings (1).html」 로 받아져 옮기기 고리가 멈췄다 · 그런데 끝 표지가 `;` 뒤라 MOVED_OK 가 찍혔다 ⇒ 옮기기는 md5 로 파일을 고른다(`pick(){ md5sum "$D"/<꼴> | grep "^<md5>" | head -1 | cut -c35-; }`) · 끝 표지는 반드시 `&&` 로(asung-workflow §7)
+4. [Claude Code · doc-3b] cron 등록 덩이의 `format()` 안 `like 'doc\_%'` 의 `%` 가 형식 지정자로 읽혀 섰다 ⇒ format() 안 글자 `%` 는 `%%` · 고친 뒤 확인은 「% 뒤 따옴표」로 센다(대화 Claude 의 첫 확인 grep 이 부분 문자열로 셌다) · ⚠️ 거꾸로 format() 밖(cron.sql 의 기록 덩이)에 `%%` 를 옮겨 적으면 실물과 어긋난다(docs-1019 에서 기록을 `%` 로 되돌림)
+5. [대화 Claude] 시험 명령에 jsonb 인자를 글자 이어 붙이기로 — 실행 전에 jsonb_build_object 로 고침 ⇒ 창구 인자의 형은 시그니처를 보고
+6. [Claude Code · doc-2] 「Caleb 이 api-timeout 60 s」 — Cloud Run 요청 한도와 섞었다 ⇒ 실물 설정은 배포 명령 원문으로
+7. [Claude Code · doc-1a] 확인 갈래에 화면 수 17 을 박았다(실제 16) · [doc-1b1] 검증이 DB 설정(제목 · 로고)에 기대 깨졌다 ⇒ 고정 숫자 · 설정 값은 `\gset` 으로 받아 비교
+8. [Claude Code · 1a · 1b2 · 2 · 3a] 쓰기 호출과 상태 서브쿼리를 한 문장에 — InitPlan 이 먼저 평가(네 번째 사례 · bo-1a 의 「volatile 창구와 stable 읽기를 한 문장에 두지 마라」 와 같은 뿌리) ⇒ 쓰기는 `\gset` 문장으로 떼고 상태는 다음 문장
+9. [대화 Claude] Cloud Shell 명령을 WSL 에서 돌리게 했다(어디서 돌리는지 안 적음) ⇒ 명령 머리에 「어디서」(WSL · Cloud Shell · Supabase SQL Editor · 브라우저 콘솔)
+10. [잘 된 것] 결함 판(일부러 깨뜨린 사본을 검증이 잡는가)을 차수마다 · 옛 = 새 대조(R)와 미리 보기 = 발행(P)의 두 겹(doc-1b2) · 황금 문자열로 MIME 바이트 무변(doc-3b)
+11. [Claude Code · doc-3a] 그 밖 검증 함정 — `set constraints all immediate` 는 트랜잭션 끝까지 남는다(지연 트리거 시험은 넣기 전 deferred · 뒤 immediate) · 무접촉 스냅샷 `row::text` md5 는 새 칸에 깨진다(`to_jsonb(t) - '칸'`) · ERR 글을 `::jsonb` 로 캐스트하면 결함 판이 MISMATCH 대신 ERROR 로 선다
+
+### 66-f 미룬 것 — 65-f 251 에 이어 붙임(127 · 147 닫힘)
+
+- 252 화면 시험 덜 한 것: Ship Ready 인쇄 · 메일(packed 오더 필요) · SO 메일 · 크레딧 메일 · POS 인쇄 · 메모 Edit → 인쇄 Notes · Send 뒤 창 닫힘(d87f1c8 배포 뒤) — asung-ims CHECKLIST 7-zp
+- 253 콤보 줄 · 단가가 실제로 바뀌는 다시 매기기의 Ship Ready(doc-1b2 이견 10 · 11) → 동료 테스트 가이드(판매 오더 · 창고 일)에 장면으로
+- 254 so_finalize 운임 고침이 description 키를 안 보내면 설명을 지운다(doc-1b2 이견 6 · 지금도 있는 동작) → 화면 차수에서 확인
+- 255 같은 초에 같은 문서 두 장 → doc_file_path_uq 거부(doc-2 이견 7) · 쪽 수는 짐작값(`/Type /Page` 셈 · 이견 9)
+- 256 Gotenberg 글꼴 목록(Calibri 대체 확인만) · 운영 전환(운영 Supabase 비밀 GOTENBERG_* · cron 57 · 54 ~ 56 · mail_redirect_to 비우기 · GAS 정지 = mail-5 묶음 · 미룬 244 에 더함)
+- 257 doc_public_base_url 운영 값은 「운영 DB 를 어디로 하나」(ims-principles §6-c 큰 계획 3단계)와 함께
+- 258 테스트 가이드(Claude Docs 열두 문서)의 「인보이스 인쇄 아직 없음」은 이제 틀림 → 문서 · 메일 시험 장면을 더해야(대화 Claude)
+- 259 mail-* 옛 검증 파일은 새 칸(attachments · final_invoice_mail)과 키 열 개 때문에 고정 기대가 깨진다(doc-3a A7) — 다시 쓸 때 고친다
+- 260 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에)
+- 249 `include_in_email` — 안(doc-3a 이견 9): 연락처의 그 칸을 cc 로(한 통에 to 하나 + cc n · mail_outbox 에 cc 칸) · 아직 Caleb 결정 전
+- 206 그대로 — Shopify 배송 메일과 같은 순간 두 통(IMS 는 배송 통지를 보내지 않는다 · 자동은 최종 인보이스만)
+- (닫힘) 127 인보이스 인쇄 · 147 IMS 오더 문서 메일(판정 380)
+
+### 66-g 다음 (Caleb 이 고른다)
+
+```
+① 발주앱 이식 — 판정 521 의 셋째(컷오버 아침에 반드시) · po-module §10-d 「통째로 옮긴다 · 바뀌는 것은 어디서 읽느냐뿐」 · Fixed Price 쓰기도 IMS 로
+② 테스트 가이드 갱신(미룬 258 · 문서 · 메일 장면)
+③ 컷오버 준비 목록 하나로(대화 Claude 안 · 10-19 아침에 미룬 것) — 자동 메일 손님 몇십 명 켜기 · mail-5 · 운영 비밀 · cron
+④ mail-5 운영 전환 묶음 · QuickBooks · 드라이브(미룬 260)
+다음 판정 번호: 531
 ```

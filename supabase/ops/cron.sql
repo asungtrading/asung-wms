@@ -830,11 +830,12 @@ $job$);
 --   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-mail-pdf';  → key_len 64
 --   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-mail-pdf'), active := false);   · 해제: select cron.unschedule('ims-mail-pdf');
 --   ⚠️ mail_enabled = off 면 PDF 단계도 서고(where 갈래 + EF 안에서 한 번 더) drain 도 선다 — 메일만 끄는 스위치 하나
+--   ⚠️ [docs-1019] 아래 기록 덩이는 format() 밖이라 like 'doc\_%' 그대로(실물 jobid 57 command 와 같다) — %% 는 format() 안(~/asung/prompts/doc-3b-cron.sql)에서만 · so-module §66-e 4
 select cron.schedule('ims-mail-pdf', '* * * * *', $job$
   select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
     body := '{"action":"pdf"}'::jsonb, timeout_milliseconds := 120000)
   where exists (select 1 from public.inv_config c where c.key = 'mail_enabled' and c.value = 'on')
-    and exists (select 1 from public.mail_outbox o where o.status = 'waiting_pdf' and o.kind like 'doc\_%%'
+    and exists (select 1 from public.mail_outbox o where o.status = 'waiting_pdf' and o.kind like 'doc\_%'
                   and coalesce(o.next_attempt_at, '-infinity') <= now() and (o.claimed_at is null or o.claimed_at < now() - interval '10 minutes'));
 $job$);
