@@ -7,7 +7,7 @@ description: >
   "doc_file", "documents 버킷", "doc-brand", "EF doc", "서명 URL", "문서 메일", "doc_mail_send",
   "waiting_pdf", "ims-mail-pdf", "cron 57", "final_invoice_mail", "info@", "인보이스 메모", "doc_mail_skip"
   가 나오면 추측하지 말고 이 스킬과 정본 so-module §66 을 확인하세요.
-  ⚠️판에 <meta> · 스크립트 · 바깥 주소 금지(DB 가 거부) — 판 글자는 ASCII(EF 가 charset 을 끼운다),
+  ⚠️판에 meta 태그 · 스크립트 · 바깥 주소 금지(DB 가 거부) — 판 글자는 ASCII(EF 가 charset 을 끼운다),
   ⚠️값의 꼴(돈 · 날짜)은 doc_data 가 만든다 — 판은 셈하지 않는다,
   ⚠️「0 이면 빈칸」은 doc_data 가 — Mustache 는 "0.00" 도 있음으로 읽는다.
 ---
