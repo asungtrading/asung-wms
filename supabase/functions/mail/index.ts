@@ -1,17 +1,20 @@
 // mail — IMS 메일 일꾼(mail-2b · 2026-10-16 · 판정 493 · 502 · 510 · 511 · 514) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때
 //   문: x-ims-cron-key == secret IMS_CRON_SECRET(미설정 500 fail-closed · shopify · ims-product-images 와 같은 꼴) · config.toml [functions.mail] verify_jwt = false
 //   POST {"action": "drain"}  mail_claim → 안전(프로젝트 ref ↔ db_role · 시험 DB 는 mail_redirect_to 로 돌려 보내기) → 그리기 → Gmail users.messages.send → mail_mark(id, attempt, …)
+//                            doc-3b: kind doc_* 는 줄의 제목 · 본문 + attachments 의 PDF(Storage documents · sha256 대조) → multipart/mixed
+//        {"action": "pdf"}    doc-3b: doc_mail_pdf_claim → EF doc(render · reason send · x-ims-cron-key) → doc_mail_attach(→ queued) · 실패는 doc_mail_pdf_failed — 보내지 않는다(그 뒤는 drain)
 //        {"action": "chat"}   mail_run_error_chat_due → 회차 실패 한 줄(판정 518 · mail-4c) → mail_run_error_chat_mark · mail_run_chat_due → 회차마다 요약 글 → Chat 웹훅 → mail_run_chat_mark
-//        {"action": "render", "id": "<mail id>"}  보내지 않고 그린 결과만(같은 안전 검사의 받는 이 · 제목)
-//   비밀: GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS(tools/gmail-oauth-ims.sh 가 넣는다) · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET
+//        {"action": "render", "id": "<mail id>"}  보내지 않고 그린 결과만(같은 안전 검사의 받는 이 · 제목 · doc_* 는 첨부 목록도)
+//   비밀: GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS(tools/gmail-oauth-ims.sh 가 넣는다) · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET(EF doc 을 부를 때도 같은 열쇠)
 //   ⚠️ 비밀 값은 로그 · 응답 · DB 어디에도 남기지 않는다(오류는 Google 의 error 코드 · 설명만)
-import { chatText, drain, errorChatText, projectRef, render, safety, addressFor, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type MailConfig, type Outcome } from "../_shared/mail.ts";
+import { chatText, drain, errorChatText, isDocKind, pdfStep, projectRef, render, safety, addressFor, type Attachment, type AttachmentRead, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type DocBody, type MailConfig, type Outcome, type PdfJob, type PdfRender } from "../_shared/mail.ts";
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const sbHeaders = { get value(): HeadersInit { return { apikey: SERVICE(), Authorization: "Bearer " + SERVICE(), "Content-Type": "application/json" }; } };
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const BATCH = 5, BUDGET_MS = 40_000, SEND_TIMEOUT_MS = 20_000, CHAT_GAP_MS = 1_100;   // Chat 웹훅은 스페이스마다 초당 1 건(문서)
+const PDF_BATCH = 3, PDF_BUDGET_MS = 40_000, DOC_TIMEOUT_MS = 70_000, STORAGE_TIMEOUT_MS = 30_000;   // doc-3b: EF doc 은 장마다 Gotenberg 58 s 한도(첫 호출 4 s 실측) — 한 번에 셋 · 예산 40 s · 집은 줄은 10 분 잠김(doc_mail_pdf_claim)
 
 async function sbGet(path: string): Promise<any[]> {
   const r = await fetch(SB_URL() + "/rest/v1/" + path, { headers: sbHeaders.value });
@@ -55,6 +58,51 @@ async function gmailSend(token: string, raw: string): Promise<Outcome> {
   }
 }
 
+// ── doc-3b: 문서 메일 재료 — 본문 · 첨부 목록은 줄에서(service_role 읽기 · mail_claim 무접촉) · PDF 바이트는 Storage documents/<path> ──
+async function loadDoc(id: string): Promise<DocBody> {
+  const row = (await sbGet(`mail_outbox?select=body_text,attachments&id=eq.${id}`))[0];
+  return { body_text: row?.body_text ?? null, attachments: (Array.isArray(row?.attachments) ? row.attachments : []) as Attachment[] };
+}
+async function readAttachment(a: Attachment): Promise<AttachmentRead> {
+  try {
+    const r = await fetch(SB_URL() + "/storage/v1/object/documents/" + String(a.path).replace(/^\/+/, ""), { headers: { apikey: SERVICE(), Authorization: "Bearer " + SERVICE() }, signal: AbortSignal.timeout(STORAGE_TIMEOUT_MS) });
+    if (r.ok) return { ok: true, bytes: new Uint8Array(await r.arrayBuffer()) };
+    const text = (await r.text()).slice(0, 200);
+    return { ok: false, retry: r.status >= 500 || r.status === 429, error: `storage ${r.status}: ${text}` };   // 404 · 400 = 파일이 없다(failed) · 5xx · 429 = 다음에
+  } catch (e) {
+    const name = (e as Error)?.name ?? "";
+    return { ok: false, retry: true, error: name === "TimeoutError" || name === "AbortError" ? "storage timeout" : `storage: ${String((e as Error)?.message ?? e).slice(0, 200)}` };
+  }
+}
+// EF doc 을 service 길로 부른다(같은 IMS_CRON_SECRET) — render · reason send · files[0].doc_file_id
+async function docRender(kind: string, ref: unknown): Promise<PdfRender> {
+  try {
+    const r = await fetch(SB_URL() + "/functions/v1/doc", { method: "POST", headers: { "Content-Type": "application/json", "x-ims-cron-key": Deno.env.get("IMS_CRON_SECRET") ?? "" },
+      body: JSON.stringify({ action: "render", kind, ref, reason: "send" }), signal: AbortSignal.timeout(DOC_TIMEOUT_MS) });
+    const text = await r.text();
+    let j: any = {}; try { j = JSON.parse(text); } catch { /* plain */ }
+    if (!r.ok || !j?.ok) return { ok: false, error: `doc ${r.status}: ${String(j?.error ?? text).slice(0, 300)}` };
+    const id = j?.files?.[0]?.doc_file_id;
+    if (!id || j.files.length !== 1) return { ok: false, error: `doc answered with ${j?.files?.length ?? 0} files — one was expected` };
+    return { ok: true, doc_file_id: String(id) };
+  } catch (e) {
+    const name = (e as Error)?.name ?? "";
+    return { ok: false, error: name === "TimeoutError" || name === "AbortError" ? `doc did not answer in ${DOC_TIMEOUT_MS / 1000} s (Gotenberg may be waking up)` : `doc: ${String((e as Error)?.message ?? e).slice(0, 200)}` };
+  }
+}
+async function doPdf(): Promise<Response> {
+  const out = await pdfStep({
+    readConfig,
+    claim: async (n) => ((await sbRpc("doc_mail_pdf_claim", { p_limit: n })) ?? []) as PdfJob[],
+    render: docRender,
+    attach: async (id, docFileId) => { await sbRpc("doc_mail_attach", { p_outbox_id: id, p_doc_file_id: docFileId }); },
+    failed: async (id, error) => { await sbRpc("doc_mail_pdf_failed", { p_outbox_id: id, p_error: error }); },
+    now: () => Date.now(),
+    log: (msg) => console.error(msg),
+  }, { batch: PDF_BATCH, budgetMs: PDF_BUDGET_MS });
+  return json(out.ok ? 200 : 500, out);
+}
+
 async function doDrain(): Promise<Response> {
   const out = await drain({
     ref: projectRef(SB_URL()),
@@ -65,6 +113,8 @@ async function doDrain(): Promise<Response> {
     send: gmailSend,
     now: () => Date.now(),
     log: (msg) => console.error(msg),
+    loadDoc,
+    readAttachment,
   }, { batch: BATCH, budgetMs: BUDGET_MS, boundary: () => "ims-" + crypto.randomUUID() });
   return json(out.ok ? 200 : 500, out);
 }
@@ -106,14 +156,15 @@ async function doChat(): Promise<Response> {
 
 async function doRender(id: string): Promise<Response> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json(400, { ok: false, error: "id must be a mail id" });
-  const row = (await sbGet(`mail_outbox?select=id,kind,status,from_address,from_name,reply_to,to_address,payload,attempts&id=eq.${id}`))[0];
+  const row = (await sbGet(`mail_outbox?select=id,kind,status,from_address,from_name,reply_to,to_address,payload,attempts,subject,body_text,attachments&id=eq.${id}`))[0];
   if (!row) return json(404, { ok: false, error: "mail not found" });
   const s = safety(await readConfig(), projectRef(SB_URL()));
-  const r = render(row.kind, row.payload);
+  const r = render(row.kind, row.payload, row);                                                      // doc_* 는 줄의 제목 · 본문
   const mail = { ...row, attempt: row.attempts } as ClaimedMail;
   const a = s.ok ? addressFor(mail, s, r.subject) : { to: row.to_address, original_to: null, subject: r.subject };
   return json(200, { ok: true, status: row.status, would_send: s.ok, safety: s.ok ? (s.test ? "test-redirect" : (s.redirect ? "redirect" : "live")) : s.reason,
-    from: { name: row.from_name, address: row.from_address }, reply_to: row.reply_to, to: a.to, original_to: a.original_to, subject: a.subject, body_text: r.body_text, body_html: r.body_html });
+    from: { name: row.from_name, address: row.from_address }, reply_to: row.reply_to, to: a.to, original_to: a.original_to, subject: a.subject, body_text: r.body_text, body_html: r.body_html,
+    attachments: isDocKind(row.kind) ? (row.attachments ?? []) : undefined });
 }
 
 function sameSecret(a: string, b: string): boolean {                                              // 길이 말고는 시간이 같다(Edge Runtime 의 crypto.subtle.timingSafeEqual 유무에 기대지 않는다)
@@ -132,9 +183,10 @@ Deno.serve(async (req) => {
     if (key === null || !sameSecret(key, secret)) return json(401, { ok: false, error: "unauthorized" });
     const body = await req.json().catch(() => ({}));
     if (body.action === "drain") return await doDrain();
+    if (body.action === "pdf") return await doPdf();
     if (body.action === "chat") return await doChat();
     if (body.action === "render") return await doRender(String(body.id ?? ""));
-    return json(400, { ok: false, error: "action must be drain, chat or render" });
+    return json(400, { ok: false, error: "action must be drain, pdf, chat or render" });
   } catch (e) {
     console.error("mail failed:", String((e as Error)?.message ?? e).slice(0, 500));
     return json(500, { ok: false, error: String((e as Error)?.message ?? e).slice(0, 300) });

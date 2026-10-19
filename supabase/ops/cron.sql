@@ -820,3 +820,21 @@ select cron.alter_job(56, command := $job$
     body := '{"action":"chat"}'::jsonb, timeout_milliseconds := 60000)
   where jsonb_array_length(public.mail_run_chat_due()) > 0 or jsonb_array_length(public.mail_run_error_chat_due()) > 0;
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-mail-pdf 등록 — doc-3b (2026-10-19 · 판정 529 · 530 · 3a 계약) — 문서 메일의 PDF 단계 · EF mail 재배포(action pdf) 뒤에 · ⚠️ 운영에는 등록하지 마라(컷오버 묶음)
+--   무엇: 1 분마다, 「PDF 기다리는 문서 메일(waiting_pdf · next_attempt_at 지남 · 10 분 안에 집히지 않음)」이 있고 mail_enabled = on 일 때만 EF mail 을 {"action":"pdf"} 로 부른다
+--         EF 는 doc_mail_pdf_claim(3 통) → EF doc render(reason send · service 길 · 장마다 Gotenberg 58 s 한도) → doc_mail_attach(→ queued) · 실패는 doc_mail_pdf_failed(세 번 뒤 failed) — 보내지 않는다 · 그 뒤는 55 drain 이 집는다
+--   왜 55 에 얹지 않나: drain 의 예산(40 s)과 결과 갈래(sent · unknown)는 Gmail 것 — Gotenberg 의 시간(첫 호출 4 s · 장마다 수 초)을 섞으면 백오더 메일이 늦어진다 · 킬 스위치를 따로 둔다(PDF 만 멈추기)
+--   시간 제한: net.http_post 120 s(EF 예산 40 s + 마지막 장의 doc 70 s) — 다음 분의 호출은 claimed_at 10 분 잠금이 막는다
+--   열쇠: jobid 55 의 command 에서 다시 꺼낸다 — 실행 가능한 덩이는 ~/asung/prompts/doc-3b-cron.sql(테스트 DB 확인 · 마이그레이션 · EF 확인 · 열쇠는 그 파일에 없다)
+--   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-mail-pdf';  → key_len 64
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-mail-pdf'), active := false);   · 해제: select cron.unschedule('ims-mail-pdf');
+--   ⚠️ mail_enabled = off 면 PDF 단계도 서고(where 갈래 + EF 안에서 한 번 더) drain 도 선다 — 메일만 끄는 스위치 하나
+select cron.schedule('ims-mail-pdf', '* * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/mail',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"pdf"}'::jsonb, timeout_milliseconds := 120000)
+  where exists (select 1 from public.inv_config c where c.key = 'mail_enabled' and c.value = 'on')
+    and exists (select 1 from public.mail_outbox o where o.status = 'waiting_pdf' and o.kind like 'doc\_%%'
+                  and coalesce(o.next_attempt_at, '-infinity') <= now() and (o.claimed_at is null or o.claimed_at < now() - interval '10 minutes'));
+$job$);

@@ -1,5 +1,6 @@
 // _shared/mail.ts — IMS 메일 EF(mail)의 순수 함수 · 흐름(mail-2b · 2026-10-16) — DB · Google 은 deps 로 받는다(시험은 가짜)
 //   판정 493(Gmail API) · 500(창고마다 글) · 501(그 손님 몫 + 창고 가용) · 502(Chat 요약) · 505(일부 몫) · 510(ims@asung.ca · OAuth) · 511(From 별칭 · Reply-To) · 514(응답 없음 = unknown)
+//   doc-3b(2026-10-19 · 판정 529 · 530): 문서 메일(kind doc_*) — 제목 · 본문은 줄에 · PDF 는 attachments + Storage · MIME 은 첨부가 있을 때만 multipart/mixed(없으면 mail-2b 바이트 그대로 · 시험 ⑫) · PDF 단계 pdfStep
 //   안전(mail-1a 이견 1 · 11): 프로젝트 ref 와 inv_config.db_role 이 같은 쪽을 가리켜야 하고 · 시험이면 mail_redirect_to(@asung.ca)로 돌려 보낸다 · 아니면 보내지 않는다
 
 export const TEST_REF = "fazgmyvzzhqybtvtktyg";   // Asung-IMS(테스트)
@@ -8,8 +9,14 @@ export const PROD_REF = "gftpcnkxbdjzzfvzwcfl";   // asung-WMS(운영)
 export type MailConfig = { enabled: boolean; redirect_to: string | null; db_role: string | null };
 export type Line = { so_number: string; line_no: number; sku: string; product_name: string | null; qty_open: number; can_fill_units: number; available_units: number | null; basis?: string; is_combo?: boolean };
 export type Payload = { customer_name?: string | null; location_name?: string | null; lines?: Line[] };
-export type ClaimedMail = { id: string; kind: string; from_address: string; from_name: string | null; reply_to: string | null; to_address: string; payload: Payload; attempt: number };
+export type ClaimedMail = { id: string; kind: string; from_address: string; from_name: string | null; reply_to: string | null; to_address: string; payload: Payload; attempt: number; subject?: string | null };
 export type Rendered = { subject: string; body_text: string; body_html: string };
+// doc-3b(2026-10-19 · 3a 계약): 문서 메일(kind doc_*)은 제목 · 본문이 줄에 박혀 있고(doc_mail_send · doc_setting 글) 첨부는 mail_outbox.attachments — PDF 바이트는 Storage documents/<path>
+export type Attachment = { doc_file_id: string; path: string; filename: string; bytes: number; sha256: string };
+export type DocBody = { body_text: string | null; attachments: Attachment[] };
+export type AttachmentRead = { ok: true; bytes: Uint8Array } | { ok: false; retry: boolean; error: string };
+export const DOC_KINDS = ["doc_final_invoice", "doc_credit_note", "doc_sales_order", "doc_ship_ready"] as const;
+export function isDocKind(kind: string): boolean { return (DOC_KINDS as readonly string[]).includes(kind); }
 export type Safety = { ok: true; test: boolean; redirect: string | null } | { ok: false; reason: "disabled" | "unknown_project" | "mismatch" | "no_redirect"; detail: string };
 
 // ── 안전 ──
@@ -97,14 +104,24 @@ export function renderBackorderReady(p: Payload): Rendered {
     `<pre style="font-family:Arial,sans-serif;font-size:12px;color:#333;white-space:pre-wrap">${esc(FOOTER)}</pre>`);
   return { subject, body_text: t.join("\n"), body_html: `<!doctype html><html><body style="font-family:Arial,sans-serif;font-size:14px">${h.join("\n")}</body></html>` };
 }
-export function render(kind: string, p: Payload): Rendered {
+// ── 그리기(doc_* · doc-3b) — 제목 · 본문은 줄에 박힌 것 그대로 · HTML 은 글을 이스케이프해 pre-wrap 으로(판정 530 의 보내는 이름 · 주소도 줄에 있다) ──
+export function textToHtml(text: string): string {
+  return `<!doctype html><html><body style="font-family:Arial,sans-serif;font-size:14px"><pre style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap">${esc(text)}</pre></body></html>`;
+}
+export function renderDoc(m: { subject?: string | null; body_text?: string | null }): Rendered {
+  const subject = (m.subject ?? "").trim(), text = m.body_text ?? "";
+  if (!subject || !text.trim()) throw new Error("render: document mail has no subject or body (doc_mail_send fills both)");
+  return { subject, body_text: text, body_html: textToHtml(text) };
+}
+export function render(kind: string, p: Payload, mail?: { subject?: string | null; body_text?: string | null }): Rendered {
   if (kind === "backorder_ready") return renderBackorderReady(p);
+  if (isDocKind(kind)) return renderDoc(mail ?? {});
   throw new Error(`render: unknown mail kind ${kind}`);
 }
 
 // ── MIME(RFC 5322 · 2047 · 2045) ──
 const noCrLf = (s: string) => s.replace(/[\r\n]+/g, " ").trim();
-const b64 = (bytes: Uint8Array) => { let s = ""; for (const b of bytes) s += String.fromCharCode(b); return btoa(s); };
+const b64 = (bytes: Uint8Array) => { let s = ""; for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode(...bytes.subarray(i, Math.min(i + 32768, bytes.length))); return btoa(s); };   // 덩이로(PDF 10 MB · 결과는 전과 같다 — 시험 ⑫)
 const utf8 = (s: string) => new TextEncoder().encode(s);
 export function encodeWord(s: string): string { return /^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(utf8(s))}?=`; }
 export function mailbox(name: string | null, address: string): string {
@@ -114,12 +131,28 @@ export function mailbox(name: string | null, address: string): string {
   return `"${n.replace(/(["\\])/g, "\\$1")}" <${a}>`;
 }
 const wrap76 = (s: string) => s.replace(/.{1,76}/g, (m) => m + "\r\n");
-export function buildMime(o: { from_name: string | null; from_address: string; to: string; reply_to: string | null; subject: string; text: string; html: string; boundary: string }): string {
+export type MimeFile = { filename: string; bytes: Uint8Array };
+const fileName = (s: string) => (s.replace(/[^\x20-\x7e]/g, "_").replace(/["\\;]/g, "_").trim() || "document.pdf");   // 헤더에 그대로 들어간다 — ASCII · 따옴표 없이
+export function buildMime(o: { from_name: string | null; from_address: string; to: string; reply_to: string | null; subject: string; text: string; html: string; boundary: string; attachments?: MimeFile[] }): string {
   const hs = [`From: ${mailbox(o.from_name, o.from_address)}`, `To: ${noCrLf(o.to)}`];
   if (o.reply_to) hs.push(`Reply-To: ${noCrLf(o.reply_to)}`);
-  hs.push(`Subject: ${encodeWord(noCrLf(o.subject))}`, "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${o.boundary}"`);
-  const part = (type: string, body: string) => `--${o.boundary}\r\nContent-Type: ${type}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${wrap76(b64(utf8(body.replace(/\r?\n/g, "\r\n"))))}`;
-  return hs.join("\r\n") + "\r\n\r\n" + part("text/plain", o.text) + part("text/html", o.html) + `--${o.boundary}--\r\n`;
+  const files = o.attachments ?? [];
+  if (!files.length) {                                                                                 // 첨부 없음 — mail-2b 모양 그대로(바이트 무변 · 시험 ⑫ 황금 문자열)
+    hs.push(`Subject: ${encodeWord(noCrLf(o.subject))}`, "MIME-Version: 1.0", `Content-Type: multipart/alternative; boundary="${o.boundary}"`);
+    const part = (type: string, body: string) => `--${o.boundary}\r\nContent-Type: ${type}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${wrap76(b64(utf8(body.replace(/\r?\n/g, "\r\n"))))}`;
+    return hs.join("\r\n") + "\r\n\r\n" + part("text/plain", o.text) + part("text/html", o.html) + `--${o.boundary}--\r\n`;
+  }
+  // 첨부 있음(doc-3b) — 바깥 multipart/mixed · 안에 multipart/alternative(위와 같은 두 갈래) + application/pdf(base64 · Content-Disposition: attachment)
+  const alt = o.boundary + "-alt";
+  hs.push(`Subject: ${encodeWord(noCrLf(o.subject))}`, "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${o.boundary}"`);
+  const part = (type: string, body: string) => `--${alt}\r\nContent-Type: ${type}; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${wrap76(b64(utf8(body.replace(/\r?\n/g, "\r\n"))))}`;
+  const inner = `--${o.boundary}\r\nContent-Type: multipart/alternative; boundary="${alt}"\r\n\r\n` + part("text/plain", o.text) + part("text/html", o.html) + `--${alt}--\r\n`;
+  const pdfs = files.map((f) => { const n = fileName(f.filename); return `--${o.boundary}\r\nContent-Type: application/pdf; name="${n}"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="${n}"\r\n\r\n${wrap76(b64(f.bytes))}`; }).join("");
+  return hs.join("\r\n") + "\r\n\r\n" + inner + pdfs + `--${o.boundary}--\r\n`;
+}
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes.slice()));
+  return Array.from(h, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 export function base64url(s: string): string { return b64(utf8(s)).replace(/\+/g, "-").replace(/\//g, "_"); }
 
@@ -186,7 +219,26 @@ export type Deps = {
   send: (token: string, raw: string) => Promise<Outcome>;
   now: () => number;
   log: (msg: string) => void;
+  loadDoc: (id: string) => Promise<DocBody>;                    // doc-3b: 문서 메일의 본문 · 첨부 목록(mail_claim 은 subject 까지만 준다 · 기계 무접촉)
+  readAttachment: (a: Attachment) => Promise<AttachmentRead>;   // doc-3b: Storage documents/<path> 바이트
 };
+// 문서 메일 재료 — 본문 · 첨부(sha256 · 크기 대조 · 없거나 틀리면 failed · Storage 가 잠깐 안 되면 retry)
+export async function docMaterial(d: Deps, m: ClaimedMail): Promise<{ ok: true; r: Rendered; files: MimeFile[] } | { ok: false; result: "failed" | "retry"; error: string }> {
+  const doc = await d.loadDoc(m.id);
+  let r: Rendered;
+  try { r = renderDoc({ subject: m.subject, body_text: doc.body_text }); } catch (e) { return { ok: false, result: "failed", error: String((e as Error)?.message ?? e).slice(0, 500) }; }
+  if (!doc.attachments.length) return { ok: false, result: "failed", error: "document mail has no attachment — the PDF step did not attach one (doc_mail_attach)" };
+  const files: MimeFile[] = [];
+  for (const a of doc.attachments) {
+    const got = await d.readAttachment(a);
+    if (!got.ok) return { ok: false, result: got.retry ? "retry" : "failed", error: `attachment ${a.filename}: ${got.error}`.slice(0, 500) };
+    if (got.bytes.length !== Number(a.bytes)) return { ok: false, result: "failed", error: `attachment ${a.filename}: ${got.bytes.length} bytes in storage, ${a.bytes} expected` };
+    const h = await sha256Hex(got.bytes);
+    if (h !== a.sha256) return { ok: false, result: "failed", error: `attachment ${a.filename}: sha256 differs from doc_file` };
+    files.push({ filename: a.filename, bytes: got.bytes });
+  }
+  return { ok: true, r, files };
+}
 export async function drain(d: Deps, o: { batch: number; budgetMs: number; boundary: () => string }): Promise<{ ok: boolean; status: string; detail?: string; counts: Record<string, number> }> {
   const t0 = d.now(), counts: Record<string, number> = { sent: 0, failed: 0, retry: 0, unknown: 0 };
   const pre = safety(await d.readConfig(), d.ref);
@@ -200,13 +252,19 @@ export async function drain(d: Deps, o: { batch: number; budgetMs: number; bound
     for (const m of c.mails) {
       if (!s.ok) { await d.mark(m.id, m.attempt, { result: "retry", provider_message_id: null, error: `safety: ${s.detail}` }, null); counts.retry++; continue; }   // 집은 뒤 설정이 바뀜 — 보내지 않는다
       if (tokenBroken) { await d.mark(m.id, m.attempt, { result: "retry", provider_message_id: null, error: tokenBroken }, null); counts.retry++; continue; }   // 열쇠가 없으면 이 묶음은 보내지 않고 다음에
-      let r: Rendered;
-      try { r = render(m.kind, m.payload); }
-      catch (e) { await d.mark(m.id, m.attempt, { result: "failed", provider_message_id: null, error: String(e).slice(0, 500) }, null); counts.failed++; continue; }
+      let r: Rendered, files: MimeFile[] | undefined;
+      if (isDocKind(m.kind)) {                                                                                                                             // doc-3b: 문서 메일 — 줄의 글 + Storage 의 PDF
+        const mat = await docMaterial(d, m);
+        if (!mat.ok) { await d.mark(m.id, m.attempt, { result: mat.result, provider_message_id: null, error: mat.error }, null); counts[mat.result]++; continue; }
+        r = mat.r; files = mat.files;
+      } else {
+        try { r = render(m.kind, m.payload); }
+        catch (e) { await d.mark(m.id, m.attempt, { result: "failed", provider_message_id: null, error: String(e).slice(0, 500) }, null); counts.failed++; continue; }
+      }
       const a = addressFor(m, s, r.subject);
       const rendered = { subject: a.subject, body_text: r.body_text, body_html: r.body_html, to_address: a.to, original_to: a.original_to };
       let outcome: Outcome;
-      try { tok ??= await d.token(); outcome = await d.send(tok, base64url(buildMime({ from_name: m.from_name, from_address: m.from_address, to: a.to, reply_to: m.reply_to, subject: a.subject, text: r.body_text, html: r.body_html, boundary: o.boundary() }))); }
+      try { tok ??= await d.token(); outcome = await d.send(tok, base64url(buildMime({ from_name: m.from_name, from_address: m.from_address, to: a.to, reply_to: m.reply_to, subject: a.subject, text: r.body_text, html: r.body_html, boundary: o.boundary(), attachments: files }))); }
       catch (e) { outcome = { kind: "token", message: String((e as Error)?.message ?? e) }; }
       const mk = classify(outcome);
       if (outcome.kind === "token" || (outcome.kind === "http" && outcome.status === 401)) { tok = null; if (outcome.kind === "token") tokenBroken = mk.error; d.log(`mail token problem: ${mk.error}`); }
@@ -215,4 +273,35 @@ export async function drain(d: Deps, o: { batch: number; budgetMs: number; bound
     }
   }
   return { ok: true, status: "drained", counts };
+}
+
+// ── PDF 단계(doc-3b · 3a 계약) — waiting_pdf 줄을 집어(doc_mail_pdf_claim) EF doc 으로 PDF 를 만들고(render · reason send · service 길) 붙인다(doc_mail_attach → queued) · 못 만들면 doc_mail_pdf_failed(세 번 뒤 failed) ──
+//   보내지 않는다 — 그 뒤는 기존 drain 이 집는다(queued · next_attempt_at = now). mail_enabled 가 꺼져 있으면 집지 않는다(메일만 끄는 스위치가 PDF 도 멈춘다).
+export type PdfJob = { outbox_id: string; doc_kind: string; ref: unknown; attempts: number };
+export type PdfRender = { ok: true; doc_file_id: string } | { ok: false; error: string };
+export type PdfDeps = {
+  readConfig: () => Promise<MailConfig>;
+  claim: (n: number) => Promise<PdfJob[]>;
+  render: (kind: string, ref: unknown) => Promise<PdfRender>;
+  attach: (outboxId: string, docFileId: string) => Promise<void>;
+  failed: (outboxId: string, error: string) => Promise<void>;
+  now: () => number;
+  log: (msg: string) => void;
+};
+export async function pdfStep(d: PdfDeps, o: { batch: number; budgetMs: number }): Promise<{ ok: boolean; status: string; counts: Record<string, number> }> {
+  const t0 = d.now(), counts: Record<string, number> = { attached: 0, failed: 0 };
+  const cfg = await d.readConfig();
+  if (!cfg.enabled) return { ok: true, status: "disabled", counts };
+  while (d.now() - t0 < o.budgetMs) {
+    const jobs = await d.claim(o.batch);
+    if (!jobs.length) break;
+    for (const j of jobs) {
+      if (j.doc_kind === "ship_ready") { await d.failed(j.outbox_id, "a Ship Ready mail needs its PDF made by the staff who sends it (doc-1b2) — the worker cannot make it"); counts.failed++; continue; }   // 3a 는 ship_ready 를 waiting_pdf 로 넣지 않는다 — 방어
+      const r = await d.render(j.doc_kind, j.ref);
+      if (!r.ok) { await d.failed(j.outbox_id, r.error); counts.failed++; d.log(`mail pdf failed (${j.doc_kind} attempt ${j.attempts + 1}): ${r.error}`); continue; }
+      try { await d.attach(j.outbox_id, r.doc_file_id); counts.attached++; }
+      catch (e) { await d.failed(j.outbox_id, `attach: ${String((e as Error)?.message ?? e)}`.slice(0, 500)); counts.failed++; }   // PDF 는 남는다(doc_file · 버킷) · 줄은 다음에 다시
+    }
+  }
+  return { ok: true, status: "done", counts };
 }

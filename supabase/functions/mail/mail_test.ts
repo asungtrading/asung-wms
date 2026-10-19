@@ -1,5 +1,5 @@
-// deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩
-import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, mailbox, projectRef, PROD_REF, render, safety, TEST_REF, type ClaimedMail, type Deps, type Line, type MailConfig, type Mark, type Outcome } from "../_shared/mail.ts";
+// deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩ · mail-4c ⑪ · doc-3b ⑫ ~ ⑯(문서 메일 · MIME 무변 황금 · PDF 단계)
+import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, mailbox, pdfStep, projectRef, PROD_REF, render, safety, sha256Hex, TEST_REF, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -98,6 +98,8 @@ function fakeDeps(o: { cfg?: MailConfig; ref?: string; mails?: ClaimedMail[]; se
     send: (_t, raw) => { sent.push(raw); return Promise.resolve(o.send ? o.send(raw) : { kind: "http", status: 200, body: JSON.stringify({ id: "gm-" + sent.length }) }); },
     now: () => 0,
     log: (s) => logs.push(s),
+    loadDoc: (id) => Promise.reject(new Error("loadDoc called for " + id + " — a backorder test must not load a document")),
+    readAttachment: (a) => Promise.reject(new Error("readAttachment called for " + a.path)),
   };
   return { d, marks, sent, logs, claims: () => claims, tokens: () => tokens };
 }
@@ -155,4 +157,99 @@ Deno.test("⑪ 회차 실패 Chat 한 줄(판정 518) — 창고 · 날짜 · �
   ok(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: "abc ".repeat(150) }, false).endsWith("…)"), "ellipsis");
   eq(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: null }, false), "⚠️ Backorder mail — Toronto · 2026-10-19 — run failed (no message)", "empty");
   eq(errorChatText({ ...e, location_name: "Asung Trading Inc.", message: "  line one\n   line two  " }, false), "⚠️ Backorder mail — Toronto · 2026-10-19 — run failed (line one line two)", "whitespace folded");
+});
+
+// ── doc-3b(2026-10-19) — 문서 메일: MIME 무변(황금 문자열) · 첨부 MIME · doc_* 그리기 · drain 의 doc 갈래 · PDF 단계 ──
+const GOLDEN_IN = { from_name: "Asung Trading", from_address: "notifications@asung.ca", to: "ops@asung.ca", reply_to: "info@asung.ca", subject: "[TEST → c@example.invalid] 안녕 é", text: "줄1\n줄2 & <b>", html: "<p>é</p>", boundary: "B1" };
+// mail-2b 코드(de276c8 시점 · 첨부 칸이 생기기 전)가 만든 바이트 — 2026-10-19 deno 2.9.6 실측 sha256 935c24c3…c87fe · 454 자. 바뀌면 백오더 메일 MIME 이 바뀐 것이다.
+const GOLDEN_RAW = "From: \"Asung Trading\" <notifications@asung.ca>\r\nTo: ops@asung.ca\r\nReply-To: info@asung.ca\r\nSubject: =?UTF-8?B?W1RFU1Qg4oaSIGNAZXhhbXBsZS5pbnZhbGlkXSDslYjrhZUgw6k=?=\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"B1\"\r\n\r\n--B1\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n7KSEMQ0K7KSEMiAmIDxiPg==\r\n--B1\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nPHA+w6k8L3A+\r\n--B1--\r\n";
+const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n% doc-3b fake pdf é\n%%EOF\n");
+Deno.test("⑫ MIME 무변 — 첨부 없음(undefined · []) 은 mail-2b 황금 문자열과 바이트가 같다 · sha256 같다 · 큰 본문(덩이 base64)도 같다", async () => {
+  const raw = buildMime(GOLDEN_IN);
+  eq(raw, GOLDEN_RAW, "golden bytes (no attachments)");
+  eq(buildMime({ ...GOLDEN_IN, attachments: [] }), GOLDEN_RAW, "golden bytes (empty attachments)");
+  eq(await sha256Hex(new TextEncoder().encode(raw)), "935c24c32d2a799841a02df0548eb0765d1dd354c3afcbb366915918a04c87fe", "golden sha256");
+  const big = "x".repeat(100_000) + "é";                                                           // 32768 덩이 경계를 넘긴다
+  const b = buildMime({ ...GOLDEN_IN, text: big, html: big }).split("Content-Transfer-Encoding: base64\r\n\r\n")[1].split("--B1")[0];
+  eq(decodeB64(b), big, "chunked base64 round trip");
+});
+Deno.test("⑬ MIME 첨부 — 바깥 multipart/mixed · 안 alternative 는 황금의 두 갈래 그대로(경계 이름만) · application/pdf base64 · Content-Disposition attachment · 파일 이름 ASCII 로 · 바이트 왕복", () => {
+  const raw = buildMime({ ...GOLDEN_IN, attachments: [{ filename: "60009-t1-20261019T181014Z.pdf", bytes: PDF_BYTES }, { filename: "크레딧 \"x\"; y.pdf", bytes: PDF_BYTES }] });
+  const head = raw.split("\r\n\r\n")[0].split("\r\n");
+  eq(head.slice(0, 5), GOLDEN_RAW.split("\r\n\r\n")[0].split("\r\n").slice(0, 5), "From · To · Reply-To · Subject · MIME-Version same as golden");
+  eq(head[5], 'Content-Type: multipart/mixed; boundary="B1"', "outer mixed");
+  const goldenBody = GOLDEN_RAW.split("\r\n\r\n").slice(1).join("\r\n\r\n");
+  ok(raw.includes('--B1\r\nContent-Type: multipart/alternative; boundary="B1-alt"\r\n\r\n' + goldenBody.replace(/--B1/g, "--B1-alt")), "inner alternative = golden parts with the inner boundary");
+  ok(raw.includes('Content-Type: application/pdf; name="60009-t1-20261019T181014Z.pdf"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename="60009-t1-20261019T181014Z.pdf"\r\n\r\n'), "pdf part headers");
+  ok(raw.includes('filename="___ _x__ y.pdf"'), "non-ascii · quotes · semicolon replaced");
+  const pdfB64 = raw.split('filename="60009-t1-20261019T181014Z.pdf"\r\n\r\n')[1].split("\r\n--B1")[0];
+  eq(Array.from(Uint8Array.from(atob(pdfB64.replace(/\r\n/g, "")), (ch) => ch.charCodeAt(0))), Array.from(PDF_BYTES), "pdf bytes round trip");
+  ok(raw.endsWith("--B1--\r\n") && (raw.match(/\r\n--B1\r\n/g) ?? []).length === 3, "three outer parts · closed");
+});
+Deno.test("⑭ doc_* 그리기 — 줄의 제목 · 본문 그대로 · HTML 은 이스케이프 + pre-wrap · 제목 없음 → 오류 · backorder_ready 는 전과 같다 · 모르는 kind 오류", () => {
+  const r = render("doc_final_invoice", {}, { subject: " FINAL INVOICE 60009 - Asung Trading Inc. ", body_text: "Dear A & B,\n\nPlease find <attached>." });
+  eq(r.subject, "FINAL INVOICE 60009 - Asung Trading Inc.", "subject trimmed");
+  eq(r.body_text, "Dear A & B,\n\nPlease find <attached>.", "text as is");
+  ok(r.body_html.includes("Dear A &amp; B,\n\nPlease find &lt;attached&gt;.") && r.body_html.includes("white-space:pre-wrap") && !/<script|src=/i.test(r.body_html), "html escaped");
+  let e1 = ""; try { render("doc_credit_note", {}, { subject: "", body_text: "x" }); } catch (e) { e1 = String(e); }
+  let e2 = ""; try { render("doc_sales_order", {}); } catch (e) { e2 = String(e); }
+  ok(e1.includes("no subject or body") && e2.includes("no subject or body"), "missing → error");
+  eq(render("backorder_ready", PAYLOAD).subject, "[Asung Trading] Backordered Item(s) Now Back In Stock", "backorder untouched");
+  eq(isDocKind("doc_ship_ready") && !isDocKind("backorder_ready") && !isDocKind("doc_internal_receipt"), true, "doc kinds");
+});
+const PDF_SHA = await sha256Hex(PDF_BYTES);
+const ATT = (over: Partial<Attachment> = {}): Attachment => ({ doc_file_id: "f1", path: "final_invoice/60009-t1-20261019T181014Z.pdf", filename: "60009-t1-20261019T181014Z.pdf", bytes: PDF_BYTES.length, sha256: PDF_SHA, ...over });
+const docMail = (id: string, subject = "FINAL INVOICE 60009 - Asung Trading Inc."): ClaimedMail => ({ id, kind: "doc_final_invoice", from_address: "info@asung.ca", from_name: "Asung Trading", reply_to: "info@asung.ca", to_address: id + "@example.invalid", payload: {}, attempt: 1, subject });
+function docDeps(o: { docs: Record<string, DocBody>; read?: (a: Attachment) => AttachmentRead; mails: ClaimedMail[] }) {
+  const f = fakeDeps({ mails: o.mails });
+  const reads: string[] = [];
+  f.d.loadDoc = (id) => Promise.resolve(o.docs[id] ?? { body_text: null, attachments: [] });
+  f.d.readAttachment = (a) => { reads.push(a.path); return Promise.resolve(o.read ? o.read(a) : { ok: true, bytes: PDF_BYTES }); };
+  return { ...f, reads };
+}
+Deno.test("⑮ drain 의 doc 갈래 — 문서 메일은 줄의 글 + Storage 의 PDF 로 mixed MIME · 돌려 보내기 그대로 · rendered 에 글 · 백오더 메일은 loadDoc 을 부르지 않는다 · 첨부 없음 failed · 본문 없음 failed · sha 틀림 failed · Storage 5xx retry · 404 failed", async () => {
+  const body = "Dear Customer,\n\nPlease find attached your final invoice 60009.";
+  const f = docDeps({ mails: [docMail("d1"), mail("b1")], docs: { d1: { body_text: body, attachments: [ATT()] } } });
+  const out = await drain(f.d, opt);
+  eq(out.counts, { sent: 2, failed: 0, retry: 0, unknown: 0 }, "both sent");
+  const raw = decodeB64(f.sent[0].replace(/-/g, "+").replace(/_/g, "/"));
+  ok(raw.includes("Content-Type: multipart/mixed;") && raw.includes('Content-Disposition: attachment; filename="60009-t1-20261019T181014Z.pdf"') && raw.includes("To: ops@asung.ca") && raw.includes('From: "Asung Trading" <info@asung.ca>'), "doc mail: mixed · attachment · redirected · from info@");
+  ok(decodeB64(raw.split("Subject: =?UTF-8?B?")[1].split("?=")[0]).startsWith("[TEST → d1@example.invalid] FINAL INVOICE 60009"), "subject with redirect tag");
+  const rd = f.marks[0].rendered as { body_text: string; to_address: string; original_to: string };
+  eq([rd.body_text, rd.to_address, rd.original_to], [body, "ops@asung.ca", "d1@example.invalid"], "rendered on sent");
+  const raw2 = decodeB64(f.sent[1].replace(/-/g, "+").replace(/_/g, "/"));
+  ok(raw2.includes("Content-Type: multipart/alternative;") && !raw2.includes("multipart/mixed") && f.reads.length === 1, "backorder mail unchanged · one storage read in total");
+  const bad = docDeps({ mails: [docMail("n1"), docMail("b2", ""), docMail("s1"), docMail("r1"), docMail("m1")],
+    docs: { n1: { body_text: body, attachments: [] }, b2: { body_text: body, attachments: [ATT()] }, s1: { body_text: body, attachments: [ATT({ sha256: "00" })] }, r1: { body_text: body, attachments: [ATT({ path: "x/retry.pdf" })] }, m1: { body_text: body, attachments: [ATT({ path: "x/missing.pdf" })] } },
+    read: (a) => a.path === "x/retry.pdf" ? { ok: false, retry: true, error: "storage 503" } : a.path === "x/missing.pdf" ? { ok: false, retry: false, error: "storage 404" } : { ok: true, bytes: PDF_BYTES } });
+  const o2 = await drain(bad.d, { ...opt, batch: 5 });
+  eq(bad.marks.map((x) => [x.id, x.m.result]), [["n1", "failed"], ["b2", "failed"], ["s1", "failed"], ["r1", "retry"], ["m1", "failed"]], "per fault");
+  ok(bad.marks[0].m.error!.includes("no attachment") && bad.marks[1].m.error!.includes("no subject or body") && bad.marks[2].m.error!.includes("sha256") && bad.marks[3].m.error!.includes("storage 503") && bad.sent.length === 0, "errors named · nothing sent");
+  eq(o2.counts, { sent: 0, failed: 4, retry: 1, unknown: 0 }, "counts");
+});
+Deno.test("⑯ PDF 단계 — 집기 → doc render → attach(queued) · render 실패 → pdf_failed · attach 실패 → pdf_failed · ship_ready 는 일꾼이 안 만든다 · 예산 안에서 다시 집는다 · 꺼짐이면 집지 않는다", async () => {
+  const jobs: PdfJob[][] = [[{ outbox_id: "a", doc_kind: "final_invoice", ref: { invoice_id: "i1" }, attempts: 0 }, { outbox_id: "b", doc_kind: "credit_note", ref: { credit_id: "c1" }, attempts: 2 }, { outbox_id: "c", doc_kind: "ship_ready", ref: {}, attempts: 0 }], [{ outbox_id: "d", doc_kind: "sales_order", ref: { so_id: "s1" }, attempts: 0 }], []];
+  const attached: [string, string][] = [], failed: [string, string][] = [], rendered: string[] = [];
+  let claims = 0, t = 0;
+  const d: PdfDeps = {
+    readConfig: () => Promise.resolve(CFG()),
+    claim: () => Promise.resolve(jobs[claims++] ?? []),
+    render: (kind, ref) => { rendered.push(kind + ":" + JSON.stringify(ref)); return Promise.resolve(kind === "credit_note" ? { ok: false, error: "doc 500: Gotenberg 503" } : { ok: true, doc_file_id: "pdf-" + kind }); },
+    attach: (id, f) => { if (id === "d") return Promise.reject(new Error("rpc/doc_mail_attach 400: this one is cancelled")); attached.push([id, f]); return Promise.resolve(); },
+    failed: (id, e) => { failed.push([id, e]); return Promise.resolve(); },
+    now: () => (t += 100),
+    log: () => {},
+  };
+  const out = await pdfStep(d, { batch: 3, budgetMs: 10_000 });
+  eq(out, { ok: true, status: "done", counts: { attached: 1, failed: 3 } }, "counts");
+  eq(attached, [["a", "pdf-final_invoice"]], "attached");
+  eq(failed.map(([id]) => id), ["b", "c", "d"], "failed ids");
+  ok(failed[0][1].includes("Gotenberg 503") && failed[1][1].includes("Ship Ready") && failed[2][1].startsWith("attach: ") && failed[2][1].includes("cancelled"), "failure texts");
+  eq([rendered, claims], [['final_invoice:{"invoice_id":"i1"}', 'credit_note:{"credit_id":"c1"}', 'sales_order:{"so_id":"s1"}'], 3], "ship_ready not rendered · claimed until empty");
+  let c2 = 0;
+  const off = await pdfStep({ ...d, readConfig: () => Promise.resolve(CFG({ enabled: false })), claim: () => { c2++; return Promise.resolve([]); } }, { batch: 3, budgetMs: 10_000 });
+  eq([off.status, c2], ["disabled", 0], "disabled: no claim");
+  let c3 = 0, t3 = 0;
+  const tight = await pdfStep({ ...d, claim: () => { c3++; return Promise.resolve([{ outbox_id: "z" + c3, doc_kind: "final_invoice", ref: {}, attempts: 0 }]); }, attach: () => Promise.resolve(), now: () => (t3 += 6_000) }, { batch: 1, budgetMs: 10_000 });
+  eq([tight.counts.attached, c3], [1, 1], "budget: one batch then stop");
 });
