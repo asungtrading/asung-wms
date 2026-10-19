@@ -518,3 +518,12 @@ enabled = true
 # verify_jwt=false 가 없으면 게이트웨이 401(asung-ops §2-b · ims-product-images 와 같은 이유).
 verify_jwt = false
 entrypoint = "./functions/mail/index.ts"
+
+[functions.doc]
+enabled = true
+# doc-2 (2026-10-19 · 판정 523) — 서버 PDF 일꾼: 판(doc_template) + doc_data → mustache → Gotenberg(Cloud Run 토론토 · 기본 인증) → 비공개 버킷 documents + doc_file · 짧은 서명 URL.
+#   ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때. 배포: supabase functions deploy doc --project-ref fazgmyvzzhqybtvtktyg
+#   문은 함수 안 두 길 — 직원 JWT(Authorization: Bearer · 그 JWT 로 DB 를 부른다) · x-ims-cron-key(service · ship_ready 불가). verify_jwt=false 가 없으면 서비스 길이 게이트웨이 401(mail 과 같은 이유).
+#   비밀: GOTENBERG_URL · GOTENBERG_USER · GOTENBERG_PASS(tools/gotenberg-secrets.sh) · IMS_CRON_SECRET(기존).
+verify_jwt = false
+entrypoint = "./functions/doc/index.ts"
