@@ -96,7 +96,7 @@ insert into public.product (sku, name, source, is_active, sellable, parent_produ
 insert into public.product_image (product_id, storage_path, content_type, is_active, is_primary, source)
   select p.id, p.id::text || '/' || gen_random_uuid()::text || '.jpg', 'image/jpeg', true, true, 'manual' from public.product p where p.sku in ('LK-S1', 'LK-S2', 'LK-D1', 'LK-A1', 'LK-C1', 'LK-L1', 'LK-P0', 'LKF1-RED', 'LKF2-A', 'LK-SET');
 insert into public.product_tag (product_id, tag, source) select p.id, 'lk-tag', 'manual' from public.product p where p.sku in ('LK-S1', 'LKF1-RED');
--- 이미 이어진 것: L1 같은 gid(보낸 적 있음) · L2 다른 gid · L3 가 gid 1018 을 들고 있다 · P0 는 자리표시
+-- 이미 이어진 것: L1 같은 gid(보낸 적 있음) · L2 다른 gid · L3 가 gid 1018 을 들고 있다 · (link-1b 뒤) P0 자리표시 행은 없다
 insert into public.shop_product (store_id, product_id, shopify_product_gid, handle, shopify_status, last_hash, last_pushed_at, last_status)
   select :'store'::uuid, p.id, 'gid://shopify/Product/1016', 'lk-l1', 'ACTIVE', 'oldhash', now() - interval '1 day', 'ok' from public.product p where p.sku = 'LK-L1';
 insert into public.shop_variant (store_id, product_id, shopify_variant_gid, inventory_item_gid) select :'store'::uuid, p.id, 'gid://shopify/ProductVariant/1016', 'gid://shopify/InventoryItem/1016' from public.product p where p.sku = 'LK-L1';
@@ -105,7 +105,7 @@ insert into public.shop_product (store_id, product_id, shopify_product_gid, hand
 insert into public.shop_listing (store_id, product_id, is_on) select :'store'::uuid, p.id, true from public.product p where p.sku = 'LK-L1';
 set local session_replication_role = origin;
 select set_config('request.jwt.claims', :'g_claims', true) as claims;
-select pg_temp.chk('M1 fixtures: store lk · 2 brands · 3 families · 22 products · images 10 · 3 pre-existing shop_product rows (same gid · other gid · holder) — the Product/0 row goes in after the migration (its landing check wants none)',
+select pg_temp.chk('M1 fixtures: store lk · 2 brands · 3 families · 22 products · images 10 · 3 pre-existing shop_product rows (same gid · other gid · holder)',
   :'store' <> '' and (select count(*) from public.product where sku like 'LK%') = 22 and (select count(*) from public.shop_product where store_id = :'store'::uuid) = 3, 'see M1');
 
 \if :{?mig}
@@ -119,10 +119,7 @@ select pg_temp.chk('P0c confirm run: migration 20261020173401 applied', :n_appli
 
 select (to_regclass('public.shop_link_item') is not null and to_regprocedure('public.shop_link_apply(uuid, boolean, int)') is not null) as landed \gset
 \if :landed
-\echo '── M2) 판 하나(read) · 줄 열아홉(1b 가 채울 원자료 모양 그대로)'
-set local session_replication_role = replica;
-insert into public.shop_product (store_id, product_id, shopify_product_gid, handle, last_status, last_error) select :'store'::uuid, p.id, 'gid://shopify/Product/0', null, 'error', 'first push failed' from public.product p where p.sku = 'LK-P0';
-set local session_replication_role = origin;
+\echo '── M2) 판 하나(read) · 줄 열아홉(1b 가 채울 원자료 모양 그대로) — [link-1b] Product/0 자리표시 가짜 행은 제약 shop_product_gid_real_ck 가 막아 더는 넣지 않는다(lk-p0 는 보통 link · plan 의 Product/0 분기는 옛 데이터 방어로 남는다)'
 insert into public.shop_link_run (store_id, status, started_by, read_at, bulk_operation_gid) values (:'store'::uuid, 'read', :'st'::uuid, now(), 'gid://shopify/BulkOperation/777') returning id::text as run \gset
 create function pg_temp.v(p_sku text, p_n int, p_opt text default null) returns jsonb language sql as $$
   select jsonb_build_object('sku', p_sku, 'variant_gid', 'gid://shopify/ProductVariant/' || p_n, 'inventory_item_gid', 'gid://shopify/InventoryItem/' || p_n, 'title', coalesce(p_opt, 'Default Title'),
@@ -152,7 +149,7 @@ select pg_temp.chk('M2 run (read) + 19 items', (select count(*) from public.shop
 \echo '── S1) 판정 — 열아홉 줄 전부'
 select pg_temp.run(format('select public.shop_link_plan(%L::uuid)::text', :'run')) as pl1 \gset
 select string_agg(i.handle || '=' || i.decision || ':' || array_to_string(i.reasons, '+'), ' | ' order by i.handle) as decs from public.shop_link_item i where i.run_id = :'run'::uuid \gset
-select pg_temp.chk('S1 plan: version 1 · counts link 8 · link_off 2 · block 8 · report 1 · each rule lands where expected (dup_sku ×2 · not_in_ims block/report · shape_mismatch ×2 · set_not_sellable · partial_family · option_name_diff+discontinued · sku_case · no_ims_images · already_linked · already_linked_other · gid_linked_elsewhere · Product/0 treated as unlinked · draft · archived)',
+select pg_temp.chk('S1 plan: version 1 · counts link 8 · link_off 2 · block 8 · report 1 · each rule lands where expected (dup_sku ×2 · not_in_ims block/report · shape_mismatch ×2 · set_not_sellable · partial_family · option_name_diff+discontinued · sku_case · no_ims_images · already_linked · already_linked_other · gid_linked_elsewhere · plain link (lk-p0) · draft · archived)',
   :'pl1' not like 'ERR%' and (pg_temp.j(:'pl1')->>'version')::int = 1
   and (pg_temp.j(:'pl1')->'counts'->>'link')::int = 8 and (pg_temp.j(:'pl1')->'counts'->>'link_off')::int = 2 and (pg_temp.j(:'pl1')->'counts'->>'block')::int = 8 and (pg_temp.j(:'pl1')->'counts'->>'report')::int = 1
   and pg_temp.dec('lk-s1') = 'link:' and pg_temp.dec('lkf1') = 'link:option_name_diff+discontinued' and pg_temp.dec('lkf2-part') = 'link:partial_family'
@@ -190,7 +187,7 @@ select public.shop_product_payload(:'store'::uuid, null, (select id from public.
 select public.shop_product_payload(:'store'::uuid, :'f1'::uuid, null)->>'hash' as h_f1 \gset
 select public.shop_product_payload(:'store'::uuid, null, (select id from public.product where sku = 'LK-D1'))->>'hash' as h_d1 \gset
 select string_agg(p.sku, ',' order by p.sku) as stock_skus from public.shop_stock_queue q join public.product p on p.id = q.product_id where q.store_id = :'store'::uuid \gset
-select pg_temp.chk('S3 apply: committed · hash_seeded 10 · shop_product 10 linked (S1 · LKF1 · LKF2 · SET · D1 off · A1 off · C1 · N1 · L1 kept last_pushed_at · P0 overwritten) · last_hash = payload hash (S1 · LKF1 · D1 archived-state) · listing on ×8 · off ×2 (turned_off_at) · variants 12 with inventory_item_gid · push queue unchanged · stock queue = variants of listings switched on by this apply (no LK-D1 · LK-A1 · no LK-L1 whose listing was already on) · items applied_at on 10 · run applied',
+select pg_temp.chk('S3 apply: committed · hash_seeded 10 · shop_product 10 linked (S1 · LKF1 · LKF2 · SET · D1 off · A1 off · C1 · N1 · L1 kept last_pushed_at · P0 linked) · last_hash = payload hash (S1 · LKF1 · D1 archived-state) · listing on ×8 · off ×2 (turned_off_at) · variants 12 with inventory_item_gid · push queue unchanged · stock queue = variants of listings switched on by this apply (no LK-D1 · LK-A1 · no LK-L1 whose listing was already on) · items applied_at on 10 · run applied',
   :'ap1' not like 'ERR%' and (pg_temp.j(:'ap1')->>'committed') = 'true' and (pg_temp.j(:'ap1')->>'hash_seeded')::int = 10
   and pg_temp.sp('LK-S1') = 'gid://shopify/Product/1001|' || :'h_s1' || '|-|pending'
   and pg_temp.sp('LKF1') = 'gid://shopify/Product/1002|' || :'h_f1' || '|-|pending'

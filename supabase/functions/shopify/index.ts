@@ -37,6 +37,11 @@
 //                      행마다 Shopify 오더를 읽고(취소 · PAID · AUTHORIZED · REFUNDED 류면 skipped) → rpc shop_order_paid_state 로 IMS 쪽을 다시 판정(ready 아니면 skipped not_ready_anymore) → shop_order.paid_push_at 을 보내기 전에 적고(468 창 · last_push_at 은 안 적는다)
 //                      → orderMarkAsPaid(input: {id}) → 응답 PAID 확인 → 큐 done ok · 실패는 5 회(권한으로 보이는 오류는 1 회)면 done error + 경고 mark_paid_failed · order_drain 과 따로(action · 큐 kind · cron) — 섞으면 한쪽 실패가 다른 쪽을 막는다
 //   호출 한 번 = shop_call_log 한 줄(drain 은 건마다) · 90 일 지난 줄은 호출 끝에 지운다.
+//   · link_read(store · 직원) · link_poll(run · 직원 · 화면이 되풀이 부른다 · cron 없음)(link-1b · 2026-10-20 · 판정 420 · 555 ~ 563 · DB link-1a 20261020173401 · 1b 20261020180009 · 순수 함수 ../_shared/shopify-link.ts):
+//                      link_read = shop_link_run(reading) → bulkOperationRunQuery(products → variants · media) → bulk_operation_gid · 그 스토어에 reading 인 판이 있으면 409(restart true 면 옛 판을 cancelled 로) · Shopify userError 면 cancelled + bulk_error
+//                      link_poll = node(id) 상태 → RUNNING 이면 상태만 · FAILED·CANCELED·EXPIRED 면 cancelled · COMPLETED 면 url → JSONL 내려받아 상품 단위로 모아(parseBulkJsonl · 순서 무관) 이미 든 gid 를 뺀 나머지를 500 줄 덩이 POST(on_conflict run_id,shopify_product_gid · merge-duplicates)
+//                                  40 초(LINK_TIME_MS)를 넘으면 more: true(다음 호출이 이어 적재 · 멱등) · 다 들면 read · read_at · item_count · url null(상품 0)이면 빈 판을 read 로 · 판정 561 퍼블리시 안 읽음 · 560 사진은 보고용
+//                      ⚠️ Product/0 자리표시 금지(link-1b): 첫 보내기 실패 때 gid 가 없으면 shop_product 를 적지 않는다(errorMark · 제약 shop_product_gid_real_ck) · 판정 559: IMS 사진 0 장이면 files 키를 보내지 않는다(buildProductSetInput)
 //   배포: supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.shopify] verify_jwt=false)
 // ============================================================
 import { API_VERSION, compareLocations, getToken, missingScopes, shopifyGql, type PairRow, type ShopLocation, type StoreRow, type Warning } from "../_shared/shopify.ts";
@@ -45,6 +50,7 @@ import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, m
 import { sleep } from "../_shared/shopify.ts";
 import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
+import { BULK_PRODUCTS_QUERY, BULK_RUN_MUTATION, BULK_STATUS_QUERY, chunk as linkChunk, errorMark, itemRow, LINK_CHUNK, LINK_TIME_MS, parseBulkJsonl } from "../_shared/shopify-link.ts";
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
 import { beginOrderEdit, isPaid, NoChangeError, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_LINES_QUERY, planEditSteps, planOrderEdit, removedQty, runOrderEdit, runTrySet, type DbLine, type LiveLine, type Plan, type TrySetResult } from "../_shared/shopify-edit.ts";
 import { MARK_PAID_FETCH, MARK_PAID_MS, markPaidFailedMessage, markPaidFinal, processMarkPaid, type MarkPaidOut, type PaidState, type PayOrder } from "../_shared/shopify-paid.ts";
@@ -57,7 +63,7 @@ const DRAIN_MIN_AVAILABLE = 500;
 const MEDIA_REREAD_MAX = 2;                                                                        // 직원 push 만 · 응답 사진이 처리 중이면 2 초 뒤 다시 읽기(최대 2 회) · drain 은 안 한다(회차 시간 · 다음 push 의 직전 읽기가 잡는다)
 const MEDIA_REREAD_WAIT_MS = 2000;                                                                   // 한도 남은 점수가 이 아래면 이번 회차를 멈춘다(다음 분에 이어서)
 const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-ims-cron-key", "Access-Control-Allow-Methods": "POST, OPTIONS" };
-const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain", "fulfill_drain", "order_drain", "order_edit_preview", "paid_drain"];
+const ACTIONS = ["ping", "push", "drain", "clean_check", "stock_drain", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "orders_poll", "orders_drain", "fulfill_drain", "order_drain", "order_edit_preview", "paid_drain", "link_read", "link_poll"];
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -184,7 +190,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
   try { gate = forbiddenAfterClean((await sbRpc("ims_html_forbidden", { p_html: clean.html })) as string[]); }
   catch (e) { gate = FORBIDDEN_AFTER_CLEAN + ":check_failed(" + String((e as Error)?.message ?? e).slice(0, 120) + ")"; }
   if (gate) {
-    await sbUpsertByKey("shop_product", targetFilter, { store_id: store.id, family_id: target.family_id, product_id: target.product_id, shopify_product_gid: sp?.shopify_product_gid ?? "gid://shopify/Product/0", last_status: "error", last_error: gate.slice(0, 400) }).catch((e) => console.warn("shop_product error mark failed:", String(e).slice(0, 200)));
+    { const em = errorMark(sp, gate); if (em) await sbWrite("PATCH", "shop_product?id=eq." + sp!.id, em).catch((e) => console.warn("shop_product error mark failed:", String(e).slice(0, 200))); }   // link-1b: gid 가 아직 없으면 적지 않는다(Product/0 자리표시 금지 · 오류는 call_log · 큐 result 에)
     await recordCall({ store_id: store.id, action, ok: false, http_status: null, query_cost: null, throttle_available: null, error: gate, by_staff: caller.staffId, ms: Date.now() - t0 });
     return fail(gate, { clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash });
   }
@@ -224,7 +230,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
   const ue = data?.productSet?.userErrors ?? [];
   if (!g.ok || ue.length || !data?.productSet?.product) {
     const msg = ue.length ? "Shopify refused: " + userErrorsSentence(ue) : "graphql HTTP " + g.status + (g.errors ? " · " + JSON.stringify(g.errors).slice(0, 300) : "") + (g.raw ? " · " + g.raw.slice(0, 100) : "");
-    await sbUpsertByKey("shop_product", targetFilter, { store_id: store.id, family_id: target.family_id, product_id: target.product_id, shopify_product_gid: sp?.shopify_product_gid ?? "gid://shopify/Product/0", last_status: "error", last_error: msg.slice(0, 400) }).catch((e) => console.warn("shop_product error mark failed:", String(e).slice(0, 200)));
+    { const em = errorMark(sp, msg); if (em) await sbWrite("PATCH", "shop_product?id=eq." + sp!.id, em).catch((e) => console.warn("shop_product error mark failed:", String(e).slice(0, 200))); }   // link-1b: Product/0 자리표시 금지
     await recordCall({ store_id: store.id, action, ok: false, http_status: g.status, query_cost: costTotal, throttle_available: g.cost.available, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
     return fail(msg, { clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash, cost: g.cost, query_cost_total: costTotal, media_matched_before: matchedBefore, media_reused_ids: reusedIds, media_removed_unknown: removedUnknown });
   }
@@ -360,6 +366,103 @@ async function stockDrain(caller: Caller, t0: number): Promise<Response> {
   }
   const open = (await sbGet("shop_stock_queue?select=id&done_at=is.null&limit=1")).length > 0;
   return json(200, { ok: true, drained: rows.length, ...summary, stores, stopped, more_open: open, ms: Date.now() - t0 });
+}
+
+// ── 기존 Shopify 상품 잇기 — 읽기(link-1b · 판정 420 · 555 ~ 563 · DB link-1a) ──
+type LinkRun = { id: string; store_id: string; status: string; bulk_operation_gid: string | null; bulk_url: string | null; loaded_count: number | null; item_count: number | null };
+async function linkRead(store: StoreRow, restart: boolean, caller: Caller, t0: number): Promise<Response> {
+  const open: LinkRun[] = await sbGet("shop_link_run?select=id,store_id,status,bulk_operation_gid,bulk_url,loaded_count,item_count&store_id=eq." + store.id + "&status=eq.reading&order=started_at.desc");
+  if (open.length && !restart) {
+    await recordCall({ store_id: store.id, action: "link_read", ok: false, http_status: 409, query_cost: null, throttle_available: null, error: "already reading " + open[0].id, by_staff: caller.staffId, ms: Date.now() - t0 });
+    return json(409, { ok: false, error: `Store "${store.code}" already has a read in progress (run ${open[0].id}) — poll it, or send restart: true to drop it and start again`, run_id: open[0].id });
+  }
+  if (open.length) await sbWrite("PATCH", "shop_link_run?store_id=eq." + store.id + "&status=eq.reading", { status: "cancelled", bulk_status: "DROPPED", bulk_error: "restarted by " + (caller.staffId ?? "staff") });
+  const r = await fetch(SB_URL() + "/rest/v1/shop_link_run?select=id", { method: "POST", headers: sbHeaders({ Prefer: "return=representation" }), body: JSON.stringify({ store_id: store.id, status: "reading", started_by: caller.staffId, updated_by: caller.staffId }) });
+  if (!r.ok) return json(502, { ok: false, error: "shop_link_run insert " + r.status + ": " + (await r.text()).slice(0, 200) });
+  const runId = String(((await r.json()) as Array<{ id: string }>)[0]?.id ?? "");
+  const g = await shopifyGql(store, BULK_RUN_MUTATION, { query: BULK_PRODUCTS_QUERY });
+  const data = g.data as { bulkOperationRunQuery?: { bulkOperation?: { id: string; status: string } | null; userErrors?: Array<{ field?: string[] | null; message?: string }> } } | null;
+  const ue = data?.bulkOperationRunQuery?.userErrors ?? [];
+  const op = data?.bulkOperationRunQuery?.bulkOperation ?? null;
+  if (!g.ok || ue.length || !op?.id) {
+    const msg = ue.length ? "Shopify refused: " + userErrorsSentence(ue) : "graphql HTTP " + g.status + (g.errors ? " · " + JSON.stringify(g.errors).slice(0, 300) : "") + (g.raw ? " · " + g.raw.slice(0, 100) : "");
+    await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { status: "cancelled", bulk_status: "NOT_STARTED", bulk_error: msg.slice(0, 400) });
+    await recordCall({ store_id: store.id, action: "link_read", ok: false, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+    return json(502, { ok: false, run_id: runId, status: "cancelled", error: msg, cost: g.cost, ms: Date.now() - t0 });
+  }
+  await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { bulk_operation_gid: op.id, bulk_status: op.status });
+  await recordCall({ store_id: store.id, action: "link_read", ok: true, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: "bulk " + op.id + " " + op.status + (open.length ? " · restarted" : ""), by_staff: caller.staffId, ms: Date.now() - t0 });
+  return json(200, { ok: true, store: store.code, run_id: runId, status: "reading", bulk_operation_gid: op.id, bulk_status: op.status, restarted: open.length, cost: g.cost, api_version: API_VERSION, ms: Date.now() - t0 });
+}
+async function linkPoll(runId: string, caller: Caller, t0: number): Promise<Response> {
+  if (!/^[0-9a-f-]{36}$/i.test(runId)) return json(400, { ok: false, error: "run is required — shop_link_run id (uuid)" });
+  const run: LinkRun | undefined = (await sbGet("shop_link_run?select=id,store_id,status,bulk_operation_gid,bulk_url,loaded_count,item_count&id=eq." + runId + "&limit=1"))[0];
+  if (!run) return json(404, { ok: false, error: "shop_link_run " + runId + " not found" });
+  const store: StoreRow | undefined = (await sbGet("shop_store?select=id,code,shop_domain,secret_prefix,is_active,label,kind&id=eq." + run.store_id + "&limit=1"))[0];
+  if (!store) return json(404, { ok: false, error: "store of run not found" });
+  if (run.status !== "reading") return json(200, { ok: true, run_id: runId, store: store.code, status: run.status, item_count: run.item_count, loaded: run.loaded_count ?? 0, more: false, ms: Date.now() - t0 });
+  if (!run.bulk_operation_gid) return json(409, { ok: false, run_id: runId, status: run.status, error: "run has no bulk operation — start it again with link_read" });
+  let url = run.bulk_url, objectCount: number | null = null, bulkStatus = "RUNNING", cost: unknown = null;
+  if (!url) {                                                                                      // 아직 url 을 모른다 — 상태를 읽는다
+    const g = await shopifyGql(store, BULK_STATUS_QUERY, { id: run.bulk_operation_gid });
+    cost = g.cost;
+    const node = (g.data as { node?: { status?: string; errorCode?: string | null; objectCount?: string | number; url?: string | null; partialDataUrl?: string | null } | null } | null)?.node ?? null;
+    if (!g.ok || !node) {
+      const msg = "bulk status: graphql HTTP " + g.status + (g.errors ? " · " + JSON.stringify(g.errors).slice(0, 300) : "");
+      await recordCall({ store_id: store.id, action: "link_poll", ok: false, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+      return json(502, { ok: false, run_id: runId, status: "reading", error: msg, ms: Date.now() - t0 });
+    }
+    bulkStatus = String(node.status ?? "");
+    objectCount = node.objectCount === undefined ? null : Number(node.objectCount);
+    if (["FAILED", "CANCELED", "CANCELING", "EXPIRED"].includes(bulkStatus)) {
+      const msg = "bulk " + bulkStatus + (node.errorCode ? " · " + node.errorCode : "");
+      await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { status: "cancelled", bulk_status: bulkStatus, bulk_error: msg });
+      await recordCall({ store_id: store.id, action: "link_poll", ok: false, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+      return json(200, { ok: false, run_id: runId, store: store.code, status: "cancelled", bulk_status: bulkStatus, error: msg, partial_data_url: node.partialDataUrl ?? null, ms: Date.now() - t0 });
+    }
+    if (bulkStatus !== "COMPLETED") {
+      await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { bulk_status: bulkStatus });
+      await recordCall({ store_id: store.id, action: "link_poll", ok: true, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: "bulk " + bulkStatus + " · objects " + (objectCount ?? "?"), by_staff: caller.staffId, ms: Date.now() - t0 });
+      return json(200, { ok: true, run_id: runId, store: store.code, status: "reading", bulk_status: bulkStatus, object_count: objectCount, loaded: run.loaded_count ?? 0, more: true, ms: Date.now() - t0 });
+    }
+    url = node.url ?? null;
+    if (!url) {                                                                                    // 상품 0 — 빈 판을 read 로
+      await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { status: "read", bulk_status: "COMPLETED", bulk_url: null, read_at: new Date().toISOString(), item_count: 0, loaded_count: 0 });
+      await recordCall({ store_id: store.id, action: "link_poll", ok: true, http_status: g.status, query_cost: g.cost.actual, throttle_available: g.cost.available, error: "COMPLETED · no url (0 products)", by_staff: caller.staffId, ms: Date.now() - t0 });
+      return json(200, { ok: true, run_id: runId, store: store.code, status: "read", bulk_status: "COMPLETED", object_count: objectCount, loaded: 0, item_count: 0, more: false, ms: Date.now() - t0 });
+    }
+    await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { bulk_status: "COMPLETED", bulk_url: url });
+  }
+  // JSONL 내려받아 상품 단위로 · 이미 든 gid 는 건너뛴다(멱등 · 이어 적재) · 500 줄 덩이 · 40 초 예산
+  const f = await fetch(url);
+  if (!f.ok) {
+    const msg = "bulk file HTTP " + f.status + (f.status === 403 || f.status === 404 ? " — the result url may have expired (7 days); start again with link_read" : "");
+    await recordCall({ store_id: store.id, action: "link_poll", ok: false, http_status: f.status, query_cost: null, throttle_available: null, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+    return json(502, { ok: false, run_id: runId, status: "reading", error: msg, ms: Date.now() - t0 });
+  }
+  const parsed = parseBulkJsonl(await f.text());
+  const have = new Set<string>((await sbGet("shop_link_item?select=shopify_product_gid&run_id=eq." + runId + "&limit=100000") as Array<{ shopify_product_gid: string }>).map((r) => r.shopify_product_gid));
+  const todo = parsed.items.filter((it) => !have.has(it.shopify_product_gid));
+  let loaded = have.size, stopped: string | null = null, chunks = 0;
+  for (const part of linkChunk(todo, LINK_CHUNK)) {
+    if (Date.now() - t0 >= LINK_TIME_MS) { stopped = "time limit (" + Math.round(LINK_TIME_MS / 1000) + " s)"; break; }
+    const r = await fetch(SB_URL() + "/rest/v1/shop_link_item?on_conflict=run_id,shopify_product_gid", { method: "POST", headers: sbHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }), body: JSON.stringify(part.map((it) => itemRow(runId, it))) });
+    if (!r.ok) {
+      const msg = "shop_link_item insert " + r.status + ": " + (await r.text()).slice(0, 300);
+      await sbWrite("PATCH", "shop_link_run?id=eq." + runId, { loaded_count: loaded, bulk_error: msg.slice(0, 400) });
+      await recordCall({ store_id: store.id, action: "link_poll", ok: false, http_status: r.status, query_cost: null, throttle_available: null, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
+      return json(502, { ok: false, run_id: runId, status: "reading", loaded, error: msg, ms: Date.now() - t0 });
+    }
+    loaded += part.length; chunks++;
+  }
+  const done = loaded >= parsed.items.length;
+  await sbWrite("PATCH", "shop_link_run?id=eq." + runId, done
+    ? { status: "read", read_at: new Date().toISOString(), item_count: parsed.items.length, loaded_count: loaded, bulk_error: null }
+    : { loaded_count: loaded });
+  const note = "COMPLETED · products " + parsed.items.length + " · loaded " + loaded + " (+" + (loaded - have.size) + " in " + chunks + " chunks)" + (parsed.orphans ? " · orphans " + parsed.orphans : "") + (parsed.bad_json ? " · bad_json " + parsed.bad_json : "") + (stopped ? " · " + stopped : "");
+  await recordCall({ store_id: store.id, action: "link_poll", ok: true, http_status: 200, query_cost: (cost as { actual?: number | null } | null)?.actual ?? null, throttle_available: null, error: note, by_staff: caller.staffId, ms: Date.now() - t0 });
+  return json(200, { ok: true, run_id: runId, store: store.code, status: done ? "read" : "reading", bulk_status: "COMPLETED", object_count: objectCount, products: parsed.items.length, loaded, item_count: done ? parsed.items.length : null, more: !done,
+                     parse: { lines: parsed.lines, blank: parsed.blank, bad_json: parsed.bad_json, orphans: parsed.orphans, unknown: parsed.unknown }, stopped, ms: Date.now() - t0 });
 }
 
 // stock_push — 직원 · 대상 하나의 변형 전부를 force 로 바로(큐 없이) · 위치별 결과
@@ -945,7 +1048,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     if (!ACTIONS.includes(action)) return json(400, { ok: false, error: "action must be one of: " + ACTIONS.join(", ") });
-    if (["push", "clean_check", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "order_edit_preview"].includes(action) && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain, stock_drain, orders_poll, orders_drain, fulfill_drain and order_drain" });
+    if (["push", "clean_check", "stock_push", "order_read", "webhooks_subscribe", "webhooks_list", "order_edit_preview", "link_read", "link_poll"].includes(action) && caller.kind !== "staff") return json(403, { ok: false, error: action + " is a staff action (sign in) — cron may only ping, drain, stock_drain, orders_poll, orders_drain, fulfill_drain and order_drain" });
 
     if (action === "clean_check") {                                                                 // 규칙 거르기 샘플 + DB 판별(안전장치) 결과
       const hosts = await loadHosts();
@@ -987,7 +1090,8 @@ Deno.serve(async (req) => {
     if (action === "fulfill_drain") return await fulfillDrain(caller, t0);                       // ful-2
     if (action === "order_drain") return await orderDrain(caller, t0);                           // ful-4b
     if (action === "paid_drain") return await paidDrain(caller, t0);                             // pay-2b
-    if (action === "order_edit_preview") return await orderEditPreview(String(body.order ?? ""), body.try_set === true, caller, t0);   // ful-4b: begin 까지만 · commit 없음 · 원문 보기 · ful-4b2 try_set: 후보 ⓐ · ⓑ setQuantity 까지(commit 없음)
+    if (action === "order_edit_preview") return await orderEditPreview(String(body.order ?? ""), body.try_set === true, caller, t0);
+    if (action === "link_poll") return await linkPoll(String(body.run ?? ""), caller, t0);                 // link-1b: run 으로 스토어를 찾는다   // ful-4b: begin 까지만 · commit 없음 · 원문 보기 · ful-4b2 try_set: 후보 ⓐ · ⓑ setQuantity 까지(commit 없음)
 
     // ping · push — 스토어 필요
     const code = String(body?.store ?? "").trim().toLowerCase();
@@ -1000,6 +1104,7 @@ Deno.serve(async (req) => {
     }
     if (!store.is_active) return json(409, { ok: false, error: `Store "${code}" (${store.label ?? store.shop_domain}) is switched off — turn it on under Settings → Shopify Stores first` });
     if (action === "ping") return await ping(store, caller, t0);
+    if (action === "link_read") return await linkRead(store, body.restart === true, caller, t0);        // link-1b
     if (action === "order_read") return await orderRead(store, String(body?.order ?? ""), caller, t0);
     if (action === "webhooks_list") return await webhooksList(store, caller, t0);
     if (action === "webhooks_subscribe") return await webhooksSubscribe(store, caller, t0);

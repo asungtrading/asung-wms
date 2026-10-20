@@ -22,10 +22,13 @@
 #          bash tools/shopify-push.sh order-edit-preview --order '#1011'   # ⭐ ful-4b 오더 고치기 미리 보기(begin 까지 · commit 없음) — live 줄 · can_ship · calc 줄 · 보낼 값
 #          bash tools/shopify-push.sh order-edit-preview --order '#1011' --try-set   # ⭐ ful-4b2 try-set — 후보 ⓐ(editable − to_remove) · ⓑ(calc − to_remove) 를 세션 따로 열어 setQuantity 까지(commit 없음) · 응답 원문
 #          bash tools/shopify-push.sh resolve-customer --order <shop_order_id> --customer <customer_id>   # ⭐ ord-1b2 확인 필요(손님 여럿) 풀기 — 직원 길 rpc shop_order_resolve_customer · 미리 보기 → y 로 저장 → 다음 분의 orders_drain 이 process(화면 ord-1c 전까지)
+#          bash tools/shopify-push.sh link-read [--restart]           # ⭐ link-1b 기존 상품 잇기 ① — 스토어의 상품 전부를 bulk 로 읽기 시작(shop_link_run reading · --restart 면 reading 인 옛 판을 cancelled)
+#          bash tools/shopify-push.sh link-poll --run <run_id>        # ⭐ link-1b ② — bulk 상태 · COMPLETED 면 JSONL 을 shop_link_item 에 적재(40 s 예산 · more 면 다시) · read 가 될 때까지 되풀이
+#          bash tools/shopify-push.sh link-plan --run <run_id>        # ⭐ link-1a ③ — 판정(rpc shop_link_plan · 숫자만 · 잇지 않는다)
 #   환경:  STORE(기본 test) · SUPABASE_URL · SUPABASE_ANON_KEY 를 주면 그것을 · 없으면 asung-ims/ims-config.js 의 테스트 값
 set -euo pipefail
 CMD="${1:-}"; shift || true
-STORE="${STORE:-test}"; FAM=""; SKU=""; FORCE="false"; ORDER=""; SHOP_ORDER=""; CUST=""; TRYSET="false"
+STORE="${STORE:-test}"; FAM=""; SKU=""; FORCE="false"; ORDER=""; SHOP_ORDER=""; CUST=""; TRYSET="false"; RUN=""; RESTART="false"
 while [ $# -gt 0 ]; do
   case "$1" in
     --family) FAM="$2"; shift 2 ;;
@@ -36,10 +39,12 @@ while [ $# -gt 0 ]; do
     --order) SHOP_ORDER="$2"; shift 2 ;;
     --customer) CUST="$2"; shift 2 ;;
     --try-set) TRYSET="true"; shift ;;   # ful-4b2: order-edit-preview 에서 후보 ⓐ · ⓑ setQuantity 까지(commit 없음)
+    --run) RUN="$2"; shift 2 ;;          # link-1b: shop_link_run id
+    --restart) RESTART="true"; shift ;;  # link-1b: reading 인 옛 판을 버리고 다시
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
-case "$CMD" in clean-check|on|off|push|drain|stock-drain|stock-push|order-read|webhooks-list|webhooks-subscribe|orders-poll|orders-drain|fulfill-drain|order-drain|order-edit-preview|ping|resolve-customer) ;; *) echo "usage: $0 clean-check | on --family X | on --sku X | off … | push … [--force] | drain | stock-drain | stock-push --family X | --sku X | order-read --name '#1001' | --gid G | webhooks-list | webhooks-subscribe | orders-poll | orders-drain | fulfill-drain | order-drain | order-edit-preview --order '#1011' [--try-set] | resolve-customer --order <shop_order_id> --customer <customer_id>" >&2; exit 2 ;; esac
+case "$CMD" in clean-check|on|off|push|drain|stock-drain|stock-push|order-read|webhooks-list|webhooks-subscribe|orders-poll|orders-drain|fulfill-drain|order-drain|order-edit-preview|ping|resolve-customer|link-read|link-poll|link-plan) ;; *) echo "usage: $0 clean-check | on --family X | on --sku X | off … | push … [--force] | drain | stock-drain | stock-push --family X | --sku X | order-read --name '#1001' | --gid G | webhooks-list | webhooks-subscribe | orders-poll | orders-drain | fulfill-drain | order-drain | order-edit-preview --order '#1011' [--try-set] | resolve-customer --order <shop_order_id> --customer <customer_id>" >&2; exit 2 ;; esac
 case "$CMD" in on|off|push|stock-push) if { [ -z "$FAM" ] && [ -z "$SKU" ] || [ -n "$FAM" ] && [ -n "$SKU" ]; }; then echo "give exactly one of --family or --sku" >&2; exit 2; fi ;; order-read) if [ -z "$ORDER" ]; then echo "give --name '#1001' or --gid gid://shopify/Order/123" >&2; exit 2; fi ;; resolve-customer) if [ -z "$SHOP_ORDER" ] || [ -z "$CUST" ]; then echo "give --order <shop_order_id> and --customer <customer_id> (uuids from shop_order_list · its reasons[].candidates)" >&2; exit 2; fi ;; esac
 CFG="${IMS_CONFIG_JS:-$HOME/asung/asung-ims/ims-config.js}"
 URL="${SUPABASE_URL:-}"; ANON="${SUPABASE_ANON_KEY:-}"
@@ -78,6 +83,9 @@ case "$CMD" in
   fulfill-drain) call_ef '{"action":"fulfill_drain"}' ;;
   order-drain)   call_ef '{"action":"order_drain"}' ;;
   ping)          call_ef "{\"action\":\"ping\",\"store\":\"$STORE\"}" ;;
+  link-read)     call_ef "{\"action\":\"link_read\",\"store\":\"$STORE\",\"restart\":$RESTART}" ;;                    # link-1b
+  link-poll)     [ -n "$RUN" ] || { echo "--run <shop_link_run id> is required" >&2; exit 2; }; call_ef "{\"action\":\"link_poll\",\"run\":\"$RUN\"}" ;;
+  link-plan)     [ -n "$RUN" ] || { echo "--run <shop_link_run id> is required" >&2; exit 2; }; call_rpc shop_link_plan "{\"p_run_id\":\"$RUN\"}" ;;   # link-1a 창구
   order-edit-preview) call_ef "$(python3 -c 'import json,sys; print(json.dumps({"action":"order_edit_preview","order":sys.argv[1],"try_set":sys.argv[2]=="true"}))' "$SHOP_ORDER" "$TRYSET")" ;;   # ful-4b: --order <shop_order id 또는 #1011> · begin 까지만(commit 없음) · 실물 보기   # ful-4b: 권한 대조(missing_scopes 가 [] 이어야 write_order_edits 가 승인된 것)
   webhooks-list)      call_ef "{\"action\":\"webhooks_list\",\"store\":\"$STORE\"}" ;;
   webhooks-subscribe) call_ef "{\"action\":\"webhooks_subscribe\",\"store\":\"$STORE\"}" ;;
