@@ -3196,7 +3196,7 @@ is_split   50% COD 둘 true
  ⬜4 so_finalize(p_orders jsonb, p_commit default true, p_shipped_on default null) — 입력 [{so_id, picks, removed?, charges?, carrier?, tracking_number?, shipping_notes?, invoice_group?}] · 순서 ① 검사 전부 ② 운임·택배사·추적번호·메모 ③ 뺀 몫 + 다시 견적 ④ so_ship ⑤ 묶음 ⑥ 발행 ⑦ 반환 · so_ship 을 직접 부르는 길은 없다(속 함수 · so_finalize 가 첫 호출자 · ④⑤ 가 뒤에)
  ⬜5 뺀 몫 — qty_removed(0 ≤ · ≤ qty_ordered) · removed_reason CHECK customer_removed·not_wanted·other(note 필수) · 짝 CHECK 셋(reason·at·by) · 전부 뺀 줄 = qty_shipped 0 · 인보이스에 안 실림 · 형제 없음 · 장부 무접촉 · 모든 줄을 뺀 오더 = 거부 + 길(판정 9) · 무상 줄은 다시 견적 대상 아님
  ⬜6 다시 견적 = so_line_requote(line, ordered − removed, false) · 시스템 줄만 · 할인만 · order_date 기준(D7) · 반환 이전·새(단가·할인·출처) · 남은 수량 0 이면 안 함
- ⬜7 마무리 때 고치기는 so_finalize 안에서(따로 창구 없음 · so_charge_set·so_header_update 는 초안만 그대로 · 대가: 마무리 전에 운임을 미리 저장 못 한다 → 미리 보기로 확인하고 한 번에)
+ ⬜7 마무리 때 고치기는 so_finalize 안에서(따로 창구 없음 · ~~so_charge_set~~·so_header_update 는 초안만 그대로 · 대가: 마무리 전에 운임을 미리 저장 못 한다 → 미리 보기로 확인하고 한 번에) → [2026-10-20 · 판정 539 · 540 · ch-1] so_charge_set · so_charge_remove 는 draft + packed(packed 는 sales + master 쓰기 둘 · aone 스토어 오더 거부 판정 549) · so_header_update 는 그대로 초안만(§67)
  ⬜8 so_invoice_cancel(p_invoice_id, p_note) manager · issued 만 · 사유 필수 · 담긴 오더 invoiced→shipped · so_invoice_order.cancelled_at 복사(active_so_id 풀림) · 번호 남음 + so_invoice_reissue(p_so_ids, p_issued_on) manager(마무리 밖의 발행은 좁게)
  ⬜9 customer.invoice_split_by_store(기본 false · 우리 칸 · ImsLoadCustomer 는 고정 키 목록이라 안 보낸다 · 쓰기 master)   ⬜10 picks·묶음은 입력으로 받는다(WMS ⑤ 전) · 「fulfillment 묶음」을 IMS 가 어디서 아나는 ⑤(8-k)   ⬜11 so_finalize 는 ims_require_write(sales) 만 · so_ship·inv_post_sale 은 definer 안에서 소유자로 · inv_post_sale 첫 줄 sales 는 오피스 담당이 sales 라 통한다(§15 ⬜ ⑤ WMS 직원 경로는 그대로)  → ⭐ [2026-09-26] ⑤-2b — wms_so_handoff(칸별 수량 · 팔렛 · 박스) · so_finalize 재발행(picks 생략 시 WMS 인계를 읽는다 · 24-h 판정 16)  → ✅ be2ed5a(24-k)
 내가 정한 것(Caleb 받음)
@@ -3683,9 +3683,9 @@ a3  20260925144959_so_pos_a3_lists.sql(183행 · 커밋 69a44bc) — so_stock_sh
         기각: 배송지·결제조건이 다르면 막는다(「이번엔 전부 본점으로」를 못 한다)
 판정 3  「새로운 세일이 시작되면 오래된 날짜는 오히려 디스카운트를 못받게 되는게 아닐까? 나는 이것은 합친 날로 가야한다고 생각하고」 ⇒ 주문일 = 합친 날(ims_today) — 판정 2 의 예외(주문일만) · 백오더 만료(90일)도 그날부터 · 딜 판정(D7)도 그날
 판정 4  「이전 오더에 적용된 디스카운트로 변동없이 가져올 수 있으면 좋을 것 같아」 · 「merge의 경우에는 병합전 줄의 가격을 manual로 다룬다라고 하면?」 · 「그 보완을 붙이면 좋겠어」
-        ⇒ 병합 전 줄은 받은 단가·할인을 그대로 **manual** 로 옮긴다(자동 다시 견적 무접촉) · 같은 제품은 **값이 같을 때만** 한 줄로 모은다(다르면 두 줄 · 인보이스에도 두 줄)
+        ⇒ ~~병합 전 줄은 받은 단가·할인을 그대로 **manual** 로 옮긴다(자동 다시 견적 무접촉)~~ · 같은 제품은 **값이 같을 때만** 한 줄로 모은다(다르면 두 줄 · 인보이스에도 두 줄) → [2026-10-20 · 판정 548 · mrg-1] 원본 줄의 할인 출처(discount_source) · 딜(deal_line_id)을 그대로 싣는다 · 합친 시스템 줄은 오더 할인을 받고 so_reprice 에 다시 매겨진다 · 손 줄 · shopify 줄은 그대로(§67)
         보완 둘: ① 미리 보기와 합친 초안에 「합친 날 기준으로 다시 견적하면 더 유리한 줄」을 **표시만**(자동으로 바꾸지 않는다) ② 합친 줄에 **어느 원본 줄에서 왔는지** 남긴다(원본 줄의 discount_source · deal_line_id 가 「왜 이 할인」의 흔적)
-        대가: 합친 줄은 마무리 때 손님이 수량을 줄여도 다시 견적하지 않는다(§17 판정 6 은 시스템 줄만) — 병합 오더에서만 생기는 좁은 경우
+        ~~대가: 합친 줄은 마무리 때 손님이 수량을 줄여도 다시 견적하지 않는다(§17 판정 6 은 시스템 줄만) — 병합 오더에서만 생기는 좁은 경우~~ → [2026-10-20 · 판정 548] 합친 시스템 줄은 시스템 줄이라 §17 판정 6 대로 다시 견적한다 · 손 줄만 그대로(§67)
 판정 5  「그렇게 가자」 — 권한: 원본이 전부 초안이면 ims_require_write('sales') · 하나라도 확정이면 + so_require_role('manager')(R5 — 확정 오더의 재고를 푸는 순간 선을 넘는다)
         대상: 같은 손님 · 같은 창고 · 릴리스 전(draft · confirmed) · **channel warehouse 만**(pos · counter 제외) · 백오더 형제 · 프리오더 형제 · 보류(hold) 오더도 된다
 판정 6  「니 안대로하자」 — **되돌리기(unmerge)는 만들지 않는다** · 잘못 합쳤으면 합친 오더에서 떼어 낸다(초안이면 줄을 빼서 새 오더 · 확정 뒤면 so_divide) · 원본은 merged 로 닫힌 채(번호는 돌아가지 않는다 · 손님 참조는 사람이 옮긴다)
@@ -3741,9 +3741,9 @@ a3  20260925144959_so_pos_a3_lists.sql(183행 · 커밋 69a44bc) — so_stock_sh
 | `created_at/by` · `updated_at/by` | now() · 실행한 직원 | |
 | 줄의 `tax_rule` | 전부 합친 오더의 규칙 | 고침 ① · §16 판정 8 |
 
-⭐ **주문일이 바뀌는 데 §13 이 걸리는 방식**: 바깥 조건(order_date)이 바뀌므로 §13 판정 3 그대로 — **줄은 그대로 두고** `reprice_suggested_at` 을 찍고 경고 `reprice_suggested` 를 낸다. 합친 줄은 전부 manual 이라 뒤에 `so_reprice` 를 눌러도 건드리지 않는다(판정 4). 표시는 정직하고(조건이 바뀌었다) 실제 다시 견적은 **고침 ②** 의 표시를 보고 사람이 한다.
+⭐ **주문일이 바뀌는 데 §13 이 걸리는 방식**: 바깥 조건(order_date)이 바뀌므로 §13 판정 3 그대로 — **줄은 그대로 두고** `reprice_suggested_at` 을 찍고 경고 `reprice_suggested` 를 낸다. ~~합친 줄은 전부 manual 이라 뒤에 `so_reprice` 를 눌러도 건드리지 않는다(판정 4).~~ 표시는 정직하고(조건이 바뀌었다) 실제 다시 견적은 **고침 ②** 의 표시를 보고 사람이 한다. → [2026-10-20 · 판정 548] 합친 시스템 줄은 so_reprice 가 다시 매긴다 · 손 줄 · shopify 줄은 건드리지 않는다 · 계기: od-1 이 manual 에 「오더 할인 안 받음」 뜻을 얹어 얼림이 결함이 됐다(ln-1 보고 발견 1 · §67)
 
-**줄 모으기 열쇠(고침 ①)** — `product_id` · `unit_price` · `list_price` · `discount_pct` · `free_reason` · `price_override` · `surcharge_pct` · `surcharge_amount` · `surcharge_label` 이 **전부 같을 때만** 한 줄(수량 합). 다르면 두 줄로 남고 미리 보기의 `kept_apart` · `differs_in` 이 무엇이 달라 갈렸는지 말한다. 값이 없는 줄(`unit_price` null · §12 「가격 없음」)은 null 그대로 옮기고 확정이 막는다. 옮긴 줄은 전부 `discount_source = 'manual'` · `deal_line_id = null`(so_line_deal_line_pair_ck).
+**줄 모으기 열쇠(고침 ①)** — `product_id` · `unit_price` · `list_price` · `discount_pct` · `free_reason` · `price_override` · `surcharge_pct` · `surcharge_amount` · `surcharge_label` 이 **전부 같을 때만** 한 줄(수량 합). 다르면 두 줄로 남고 미리 보기의 `kept_apart` · `differs_in` 이 무엇이 달라 갈렸는지 말한다. 값이 없는 줄(`unit_price` null · §12 「가격 없음」)은 null 그대로 옮기고 확정이 막는다. ~~옮긴 줄은 전부 `discount_source = 'manual'` · `deal_line_id = null`(so_line_deal_line_pair_ck).~~ → [2026-10-20 · 판정 548 · mrg-1] 열쇠에 `discount_source` · `deal_line_id` 를 더했다 · 옮긴 줄은 원본의 두 칸을 그대로 · 다르면 따로 줄(`differs_in`)(§67)
 
 ### 21-d 파일 · 검증 실측 (테스트 DB Asung-IMS)
 
@@ -3774,6 +3774,7 @@ b  20260925151823_so_merge_b.sql(456행 · 커밋 fcb6865)
 | `so_backorder_close.end_kind` 넷 | superseded · expired · proceeded · cancelled | **다섯** — + merged(0-4) |
 | §13 판정 2 「같은 SKU 는 한 줄」 | 시스템 줄은 늘 합친다 | 병합 줄은 예외(전부 manual · 판정 4) |
 | 8-b 「손님 참조(ref)는 원본에 남는다」 | 문장 | ✅ 구현 — 합친 오더의 ref 는 비우고 merged_into_id 가 「어디로 갔나」를 답한다 |
+| [2026-10-20] 판정 4 「병합 줄은 manual」 · 고침 ① 「옮긴 줄은 전부 manual」 · 21-c 「so_reprice 가 건드리지 않는다」 | 전부 manual(얼림) | **판정 548**(mrg-1 ff5b49e) — 원본 줄의 할인 출처 · 딜을 그대로 · 합친 시스템 줄은 오더 할인 · so_reprice 를 받는다 · 손 줄 · shopify 줄 그대로 · 출처가 다르면 따로 줄(§67) |
 
 ### 21-f ⬜ 남는 것
 
@@ -4359,7 +4360,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
          나중에 A 가 필요하면 staff.html 에서 사람마다 켠다 · 전원이면 min_role 을 푼다 — 코드 수정 없이
          Caleb 물음 「지금은 B였다가 나중에 필요에 의해서 A로 수정할 수 있나?」 → 위 스위치로 된다
          근거: 확정 = 원장 · 원가 레이어 · 문서 갈라짐 · 차이 큐를 한 번에 · 확정 취소 창구가 없다 · 운영은 Complete(창고) → Apply(apply 권한자) 두 손
-판정 28  운영의 Partial(선적 대기) 단추는 없앤다 — Caleb 「이번 안은 B가 맞다는 생각이 들어」 · 끝맺음은 Complete 하나 · 이어서 받기 = 확정 때 문서 갈라짐(…a) · 「오늘은 여기까지」 = Hold
+판정 28  운영의 Partial(선적 대기) 단추는 없앤다 — Caleb 「이번 안은 B가 맞다는 생각이 들어」 · 끝맺음은 Complete 하나 · 이어서 받기 = 확정 때 문서 갈라짐(…a) · 「오늘은 여기까지」 = Hold → [2026-09-29 · 판정 88 ⑤] 문서가 갈라지는 자리는 인보이스 확정(입고 확정은 가르지 않는다 · §29) → [2026-10-20 · 판정 550] 마지막 확정 전에 센 줄을 묶음으로 먼저 재고에(Post now · 오피스) · 닫힘 · short 는 마지막 확정 그대로(§67)
 판정 29  풋어웨이 Last bin — Caleb 「A 안으로 가자」 · 화면이 지난번 칸을 미리 채워 보인다(ims_last_bin 읽기) · DB 에는 직원이 놓았다를 누를 때 누가 · 언제와 함께 · 운영 savePutawayAssigns 의 자동 배정 쓰기는 없앤다
 판정 30  창고 Complete 와 오피스 확정 — Caleb 「a로 가자」 · 물음 「PO를 wms를 거치지 않고도, 바로 IMS 상에서 입고가 가능하게 하는거지?」 → 그렇다
          창고 Complete = WMS 기록 + 창고 쪽 잠금 · Reopen = wms_manage · 오피스 확정은 Complete 를 요구하지 않는다(오피스 혼자 받는 길 유지) · Complete 전이면 wms_not_completed 경고
@@ -4658,7 +4659,7 @@ inv_compare_run 은 운영에 있다(20260824130759_inv_compare_run.sql:54 · su
 「시각 줄」 = 24-p 4431행 원문 — 상세 오른쪽 kv 에 Released · Working · Finalized(at_wms_at/by · picking_at/by · packed_at/by) · so_detail 이 to_jsonb(so) 로 이미 싣는다 · 이름은 ims_staff 한 번 읽기(so_detail 에 이름 칸 없음)
 so_finalize(20260926204246:259 · definer · ims_require_write('sales'))는 handoff 의 **picks 만** 읽는다 — 치수(units) · 부족분(shorts)은 안 받는다
    ⇒ 오피스 화면이 wms_so_handoff(:142 · stable · invoker · authenticated)를 따로 불러 in · lb 를 보인다(판정 19 의 오피스 쪽 답)
-so_charge_set 은 so_require_draft — packed 오더의 운임은 so_finalize 의 charges 로만(마무리 창 안에서만 · 17-c ⬜7 의 대가가 화면에서 실물이 됐다)
+~~so_charge_set 은 so_require_draft — packed 오더의 운임은 so_finalize 의 charges 로만(마무리 창 안에서만 · 17-c ⬜7 의 대가가 화면에서 실물이 됐다)~~ → [2026-10-20 · 판정 539 · 540 · 549 · ch-1 01c5b1b] so_charge_set · so_charge_remove 는 draft + packed · packed 는 sales + master 쓰기 둘(so_charge_gate) · aonebeauty 스토어 오더 · 스토어를 모르는 웹 오더는 거부 · so_finalize 의 charges 는 그대로(§67)
 so_finalize 순서: ① 검사 ② 택배사 · 추적 · 메모 + 운임 ③ qty_removed + requote ④ so_ship(원장 inv_post_sale · 모자란 몫 pick_short 형제 · 글자 접미 · nextval 없음) ⑤ 묶음 ⑥ so_invoice_issue(번호 nextval · shipped → fulfilled 곧장 · auto_deposit) ⑦ 반환
 마지막 정의 — 이름 순 정렬 = DB prosrc md5 일치 14/14(so_finalize · wms_so_handoff · wms_finalize · so_release_to_wms · so_wms_recall · so_wms_status · po_receipt_confirm · wms_recv_state · so_ship · so_invoice_issue · so_proforma · so_detail · po_receipt_detail · wms_recv_confirm)
 ⚠️ begin read only 에서는 for update 가 든 창구(so_finalize 미리 보기 포함)가 안 돈다 — 미리 보기 시험은 rollback 트랜잭션으로(조사 실사고)
@@ -5971,7 +5972,7 @@ ba2a240 feat(products): pr v2h - primary photo shown large (300px) at the top ri
 
 - **판정 224** (2026-10-01) Caleb 「가」 — WMS 화면(ims.asung.ca 의 WMS 모드 · 테스트 DB)의 사진은 **화면이 `product_image_primary` 를 부른다**(사무실 화면과 같은 읽기 창구 한 곳 · 오더 하나에 한 번 · 세트는 낱개 사진 — 판정 194) · DB 무접촉 · 판정 33 주석의 「wms_pick_lines 에 한 칸」은 이 판정으로 바뀌었다 · 기각 (나) `wms_pick_lines` 에 사진 칸 · 계기 Caleb 「지금 보니까, WMS와 POS는 아직 사진이 안보이는 것 같아.」
   - 운영 WMS 와 다른 점(대화 Claude 설명 · Caleb 「오히려 사진이 바로바로 바뀐다니 더 좋은거네.」): 운영은 Cin7 주소를 `wms_sku_snapshot.image_url` 에 담고 픽 · 팩은 오더 들어올 때 얼린다 · 세트는 SKU 정확 일치만 · 대표 없으면 안 보임 / IMS 는 저장소 사본 · 화면 열 때 읽음(얼리지 않음) · 세트는 낱개 빌림 · 대표 없으면 첫 장
-- **판정 225** (2026-10-01) Caleb 「가」 — POS 할인은 **SO 화면과 같은 표시를 크게**: 딜 줄에 빨간 SALE · 원래 가격 줄 긋기 · 손님 기본 할인 · 손으로 · 무상은 작은 글씨 · 오른쪽 금액에 Order discount 줄 · 표시만(서버 일 없음) · 기각 (나) 계산원이 할인을 치는 칸 · (다) 지금대로 · 계기 Caleb 「POS에서 디스카운트는 어떻게 적용되지? 세일 아이템이 있으면 표시가 되나?」
+- **판정 225** (2026-10-01) Caleb 「가」 — POS 할인은 **SO 화면과 같은 표시를 크게**: 딜 줄에 빨간 SALE · 원래 가격 줄 긋기 · 손님 기본 할인 · 손으로 · 무상은 작은 글씨 · 오른쪽 금액에 Order discount 줄 · ~~표시만(서버 일 없음) · 기각 (나) 계산원이 할인을 치는 칸~~ · (다) 지금대로 · 계기 Caleb 「POS에서 디스카운트는 어떻게 적용되지? 세일 아이템이 있으면 표시가 되나?」 → [2026-10-20 · 판정 546(535 고쳐 정함) · pos v1.11] POS 줄 가격 · 할인 = POS 직원 모두 · 누가 정했는지 줄에 남긴다(SO 손 단가에도) · 할인 표시 모양은 그대로(§67)
 - **판정 226** (2026-10-01) Caleb 「일단 이것은 그대로 둘게」 — Sheet 는 **v2a 그대로**: 판매가 열을 숨기면 Preview 가 멈춘다(숨긴 열은 식에서 빼자는 Caleb 물음 「만약에 컬럼에서 가격 변동을 원치 않는 컬럼이 있다면 그것은 안보이게 하면 가격적용이 안되나?」 — 대화 Claude 안 「보이는 열만 채우고 숨긴 열은 지금 값」은 보류) · Latest 가 Fixed 의 절반 미만인 줄을 처음부터 끄는 안도 보류
 - **판정 227** (2026-10-02) Caleb 「좋아 가를 먼저하고, 나를 뒤에 더하는 방식으로 가자」 — 관세 부가 요금(surcharge)은 **(가) SO 줄마다 손으로 먼저 넣는다**(so_line 의 이미 있는 세 칸 · 화면과 청구 흐름을 짓는다) · **(나) 상품 마스터의 「부가 대상」 표시로 자동으로 붙이는 것은 뒤에 더한다**((가)의 칸과 흐름을 그대로 쓴다) · 기각 (다) 딜 규칙으로 걸기(D9 — 가산 딜은 옮기지 않는다) · 계기 Caleb 「IMS sales order에서 tariff surcharge를 넣을 수 있는 항목을 만들어 달라고 했었는데, 기억해?」 · 근거 원문 §5 「부가(surcharge) 세 칸 — Caleb 요청(2026-09-21)」
   - 실물(대화 Claude grep · 2026-10-02 · a163287 · ad2460f): 칸 셋 · CHECK 둘(판정 7) · so_line_update 가 받는다 / so.html · pos.html 에 surcharge 0 곳 · 합계 · 세금 · 인보이스(so_invoice_a1) 에서 읽는 자리 못 찾음 — 짐작(시험 안 함)
@@ -7769,11 +7770,11 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 | 406 | 「family 구성원 하나를 끄면, 샤피파이 변형을 지우진 않더라도 퍼블리시를 꺼야 해. 왜냐하면 우리는 재고가 없는 sku도 오더를 받는 구조야」 → 대화 Claude: 퍼블리시는 상품 단위라 변형 하나만 못 끈다 · 대신 변형마다 inventoryPolicy → 「그렇게 가자」 | 꺼진 구성원(`not (is_active and sellable)`)은 **변형을 지우지 않고**(productSet 목록에서 빼지 않는다) 그 변형만 **inventoryPolicy DENY** + 재고 0(수량은 ③) → Sold out · 장바구니 불가 · 이력 유지 |
 | 407 | 「품절된 제품도 오더를 받아」 | 켜진 변형은 **inventoryPolicy CONTINUE** → 판정 427 · 428(§59-a — 품절 판매는 스토어마다 · 단종은 DENY) |
 | 408 | 「그렇게 가자」 | Compare-at 이 Price 와 같은 값이어도 그대로 보낸다(null 이면 안 보냄) |
-| 409 | 「그렇게 가자」 | 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(Shopify 에서 사람이 더 올린 사진은 사라진다) |
+| 409 | 「그렇게 가자」 | 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(Shopify 에서 사람이 더 올린 사진은 사라진다) → [2026-10-20 · 판정 559] IMS 사진 0 장이면 사진 칸만 보내지 않는다(이 판정의 예외 · §67) |
 | 410 | 「우리가 태그를 cin7에서 가져온다면 IMS 태그가 샤피파이와 연동이 되어야 해. 현재 샤피파이의 태그는 전부 cin7 통해서 업로드된거야」 | 태그는 **IMS 가 주인** · 지금 IMS product_tag 0 행 → **Cin7 태그를 IMS 로 적재한 뒤에** 보낸다 · 그전엔 tags 칸을 보내지 않는다(shop_store.send_tags false · SQL 로 켬) · Cin7 Tags 1,245 종 · 케이스 태그 `GM\|HS<%>UOM<수량>` 1,217 제품 · 적재는 따로 한 차수 |
 | 411 | 「그렇게 가자」 | 첫 시험 셋: family **ANN01001FAM**(변형 10) + 낱개 **ANN01291**(사진 5) + **ANN03907**(무게 g) |
 | 412 | 「니 안대로 고치자」 | Shopify 로 보낼 때 설명은 **규칙 기반**으로 거른다(DOMPurify + jsdom 은 Supabase Edge Runtime 에서 안 돈다 — 실측 「Requires run access, run again with the --allow-run flag」 · linkedom 은 조용히 안 거른다) · **안전장치**: 거른 결과를 보내기 직전 `ims_html_forbidden` 에 넣어 하나라도 걸리면 그 상품은 보내지 않는다(error · 다음 상품 계속) · jsdom · DOMPurify 경로는 뺀다(번들 1.5 MB → 28 kB) · 이유: IMS 에서 고친 설명은 저장 때 화면 DOMPurify + 서버 판별을 거쳤다 · Cin7 원문 전수 실측 script · on…= · javascript: 0, iframe · meta 4 뿐 · 걸린 상품은 IMS 에서 설명을 한 번 고쳐 저장하면 풀린다 |
-| 413 | 대화 Claude: 「IMS 는 보낼 때마다 status 를 ACTIVE 로 보낸다 — Shopify 에서 손으로 Draft 로 숨긴 상품은 다음 IMS 보내기 때 다시 보인다 · 숨기는 정식 길을 IMS 보냄 끄기 하나로?」 → Caleb 「데이터를 주권은 IMS에 있는거고, 나는 그렇게 설계되기를 원해. 내가 원하던 바야.」 | **상품 데이터의 주인은 IMS** — Shopify status 도 IMS 가 정한다(보냄 켜짐 + 켜진 변형 ≥ 1 = ACTIVE · 아니면 ARCHIVED · 판정 405) · Shopify 에서 손으로 바꾼 Draft/Active 는 다음 IMS 보내기 때 덮인다 · **상품을 숨기는 정식 길 = IMS 「보냄 끄기」 하나** · 판매 채널 퍼블리시만 사람 몫(IMS 는 보내지도 건드리지도 않는다) · 판정 409(사진) · 410(태그)와 한 원칙(「IMS 주권」) · 실물: 아래 56-d 5 |
+| 413 | 대화 Claude: 「IMS 는 보낼 때마다 status 를 ACTIVE 로 보낸다 — Shopify 에서 손으로 Draft 로 숨긴 상품은 다음 IMS 보내기 때 다시 보인다 · 숨기는 정식 길을 IMS 보냄 끄기 하나로?」 → Caleb 「데이터를 주권은 IMS에 있는거고, 나는 그렇게 설계되기를 원해. 내가 원하던 바야.」 | **상품 데이터의 주인은 IMS** — Shopify status 도 IMS 가 정한다(보냄 켜짐 + 켜진 변형 ≥ 1 = ACTIVE · 아니면 ARCHIVED · 판정 405) · Shopify 에서 손으로 바꾼 Draft/Active 는 다음 IMS 보내기 때 덮인다 · **상품을 숨기는 정식 길 = IMS 「보냄 끄기」 하나** · 판매 채널 퍼블리시만 사람 몫(IMS 는 보내지도 건드리지도 않는다) · 판정 409(사진) · 410(태그)와 한 원칙(「IMS 주권」) · 실물: 아래 56-d 5 → [2026-10-20 · 판정 555 ~ 558] 잇는 순간엔 보내지 않는다 · Draft 상품은 보냄을 끈 채 잇는다(§67) |
 | 414 | 대화 Claude: 「판정 377 은 새벽에 IMS 값으로 되돌린다인데 구현은 hash 가 같으면 Shopify 를 읽지도 쓰지도 않는다 — A 지금대로 · B 새벽에 Shopify 를 읽어 대조 · C 새벽에 hash 무시하고 전부 보냄」 → Caleb 「A」 | 새벽 맞추기(ims-shop-nightly)는 지금대로 — IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · 새벽 맞추기의 역할 = **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망** · Shopify 에서 사람이 손으로 고친 값은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 판정 377 의 「새벽에 IMS 값으로 되돌린다」는 이 뜻으로 고친다 · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각 B · C(매일 4 천여 상품을 읽거나 쓰는 비용) |
 | 415 | 대화 Claude: 「Send now — A 바로 보낸다(EF push · 결과 그 자리) · B 큐에 넣는다(cron 1 분)」 → Caleb 「A」 | 화면의 **Send now 는 큐를 거치지 않고 바로**(EF shopify action push · 직원 길 · 서버가 ims_can_write('shopify')) · 결과(ok · 바뀐 것 없음 · 에러)를 그 자리에 · 켜기 · 끄기 · 첫 사진 고르기는 큐 → cron |
 | 416 | Caleb 「에디트 안의 화면을 보고 있었어. 그런데 이것은 좀 헤갈릴 수 있을 것 같아. 디스크립션도 그렇고, 샤피파이도 에디트 화면 안에서는 안보이니까」 → 대화 Claude A(읽기만으로 보인다) · B(안내 한 줄만) → Caleb 「A로 가자」 | products.html **Edit 안에서도 Shopify · Description · Photos 카드를 보인다 — 단추 없이 읽기만**(제목 옆 「Save or Cancel first to change this」) · 이유: 세 카드는 Edit 의 Save 와 따로 저장된다(사진은 올리는 순간 Storage · 설명은 자기 편집기와 비교 규칙 · Shopify 는 행동이고 늘 DB 에 저장된 값을 보낸다 — Edit 중 저장 전에 Send now 를 누르면 옛 값이 간다) · 기각 B(「없어진 것처럼 보인다」) |
@@ -7889,7 +7890,7 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 | 417 | 대화 Claude: 「대소문자만 다른 태그 50 묶음 — A 많이 쓴 철자로 합친다 · B 묶음마다 사람이 · C 그대로」 → Caleb 「A」 | 적재 때 대소문자만 다른 묶음은 **제품 수가 가장 많은 철자 하나로** · 같으면 앞글자 대문자 · (적재 규칙: manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순) · 앞뒤 공백 · 안의 연속 공백(한 칸) · 빈 조각 · 한 제품 안 중복 정리 · 바꾼 짝은 로그로 · Cin7 원본은 바꾸지 않는다 · **정본 13 절 D4 의 「대소문자만 다른 짝은 적재가 멈추고 보고」를 이것으로 바꾼다** · 기각 B · C |
 | 418 | 대화 Claude: 「IMS 에 없는 Cin7 제품 678 — A 제품 적재(미룬 164)부터 · B 태그 먼저, 678 의 태그는 버리고 목록만」 → Caleb 「B」 | 태그 적재를 먼저 · IMS 에 없는 SKU 의 태그는 버리고 목록만 · 태그 적재는 다시 돌릴 수 있게 · 678(실행 때 679) + 미룬 164 는 컷오버 전 따로 한 차수 |
 | 419 | Caleb 「계속 opus를 주는것은 실제로 fable보다 opus가 적절해서인거지?」 · 「결과가 쓸만 했다면 계속 opus를 써도 문제는 없는것 아닌가?」 → 대화 Claude A(규칙대로) · B(기본 Opus · Fable 은 쓰기 · 지우기 코드만) → Caleb 「좋아. 그렇게 하자」(B) | Claude Code 모델 기본 = **Opus**(조사 — 판단이 든 것 포함 · 문서 · 스킬) · **Fable 은 DB 에 쓰거나 지우는 코드를 만들 때만**(마이그레이션 · 창구 함수 · 적재 스크립트의 쓰기 · 지우기) · 그 밖의 애매한 것은 Opus · 안전망 = 조사의 쓰기 0 + 대화 Claude 의 회신 평가 · 조사 결론이 판정의 근거가 될 때는 근거 원문(쿼리 · grep)을 반드시 확인 · **asung-workflow 「판단이 든 조사 · 검증 → Fable · 애매하면 Fable」을 이것으로 바꾼다** |
-| 420 | Caleb 「ASS는 asung.ca shopify, AOS는 aonebeauty.com shipify」 → 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」 → 「보냄의 첫 상태는 태그가 아니라 지금 실제 스토어에서 가져온다가 맞아」 | 컷오버 때 **스토어별 보냄(shop_listing)의 첫 상태 = 지금 실제 스토어**(asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로) · **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다** · 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤 정한다 · 지금 받는 CSV 는 판정용 · 컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」) · 태그 범위 → 판정 426(§59-a · IMS 태그 전부) |
+| 420 | Caleb 「ASS는 asung.ca shopify, AOS는 aonebeauty.com shipify」 → 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」 → 「보냄의 첫 상태는 태그가 아니라 지금 실제 스토어에서 가져온다가 맞아」 | 컷오버 때 **스토어별 보냄(shop_listing)의 첫 상태 = 지금 실제 스토어**(asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로) · **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다** · 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤 정한다 · 지금 받는 CSV 는 판정용 · 컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」) · 태그 범위 → 판정 426(§59-a · IMS 태그 전부) → [2026-10-20 · 판정 555 ~ 561] 실행 규칙 — 상품 · 변형 gid 를 함께 잇는다 · 모양이 다르면 보고 · hash 를 심고 묶음으로 보낸다(§67) |
 
 ### 57-b tag-0 프로브 실물 (2026-10-10 13:08 · Caleb 실행 · `~/asung/prompts/tag-0-ImsTagProbe.gs` · 쓰기 0 · 78 초)
 
@@ -8960,4 +8961,119 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 ③ 컷오버 준비 목록 하나로(대화 Claude 안 · 10-19 아침에 미룬 것) — 자동 메일 손님 몇십 명 켜기 · mail-5 · 운영 비밀 · cron
 ④ mail-5 운영 전환 묶음 · QuickBooks · 드라이브(미룬 260)
 다음 판정 번호: 531
+```
+
+## §67 2026-10-19 밤 ~ 10-20 — 동료 피드백 열세 건 · 붙여넣기 가격 · 지우기 · packed 비용 · 합치기 출처 · 여러 오더 인보이스 · 입고 먼저 반영 · 크레딧 남은 차이 · Shopify 잇기 — fb-0 · od-1 · ln-1 · mrg-1 · ch-1 · rcv-0 ~ 1b · po-cn-1 · shop-link-0 · 판정 531 ~ 561 (집 PC → 회사 PC)
+
+⭐ 닫힌 것: 동료 피드백 열세 건 가운데 여덟(1 · 2 · 3 · 4 · 6 · 10 · 11 · 13) · 입고 먼저 반영(판정 550 ~ 553) · 크레딧 노트 줄의 남은 차이(판정 554) · 합치기가 할인 출처를 싣는다(판정 548)
+⭐ 새 판정 531 ~ 561 · 원천: 531 ~ 547 = 2026-10-19 밤 집 PC(인계서 `ims-handover-2026-10-19-home.md` §1) · 548 ~ 561 = 2026-10-20 회사 PC 대화 · 지시서 `docs-1020.md`(이 절의 원천) · fb-0(열세 건 조사 · Opus) 회신 · od-1 회신 원문은 2026-10-19 집 PC 대화에만 있다
+⭐ 번호 533 · 535 는 쓰였다가 541 · 546 으로 고쳐 정했다(빈 번호가 아니다)
+⭐ 판정 555 ~ 561(Shopify 잇기)은 shop-link-0 조사(Opus · 쓰기 0) 회신 뒤 · 짓기는 link-1a 부터
+
+### 67-a 동료 피드백 열세 건(fb-0 · 2026-10-19) — 2026-10-20 상태
+
+| # | 무엇 | 상태(2026-10-20) |
+|---|---|---|
+| 1 | Settings 에서 brand · category · unit · payment term · bin 만들기 | ✅ settings v5 · v5a · ImsRefLoad v2 · od-1 이름 잠금 IM538 |
+| 2 | packed 오더에 운임 말고 다른 비용 | ✅ ch-1 · so v5v · v5w1(계정 고르기) |
+| 3 | Paste lines 에 가격 | ✅ ln-1 · so v5u |
+| 4 | Lines 전부 지우기 | ✅ ln-1 · so v5u |
+| 5 | Lines 에 GP 마진(내부용) | 컷오버 뒤 · 원가 보기 문만 정함(판정 537) |
+| 6 | 리시빙 일부만 먼저 재고에 | ✅ rcv-1a · rcv-1b · receiving post-now v1(판정 550 ~ 553) |
+| 7 | family 해체 | 컷오버 뒤 · Caleb 「아예 없애야 하는 상황도 있고, 일부를 빼서 새로 family를 만들어야 하는 상황도 있어」 |
+| 8 | Shopify 에 여러 제품 · 새 스토어 | ⬜ 컷오버 위험 — 기존 스토어 상품을 SKU 로 잇는 도구(판정 420 실행) · 조사 shop-link-0 끝 → 판정 555 ~ 561 · 짓기 link-1a 부터 |
+| 9 | Product availability 에 재고 금액 · 거르기 | 컷오버 뒤 |
+| 10 | POS 손님 크레딧 잔액 · 연체 | ✅ pos v1.10(보이기만 · 판정 536) |
+| 11 | POS 수량 직접 넣기 | ✅ pos v1.10(판정 547) |
+| 12 | 파손품을 같은 SKU 로 | 컷오버 뒤(Caleb 「컷오버전에 꼭 해야 하는 것은 아니야」) · 대신 POS 줄 가격 · 할인 ✅ pos v1.11(판정 546) |
+| 13 | 여러 SO 를 한 인보이스로 | ✅ so v5w(판정 없음 · DB so_finalize 는 처음부터 오더 배열이었다) |
+
+### 67-b 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 531 | 「sales지만 master권한이 있는 sales」 | packed 오더의 비용을 넣는 사람 |
+| 532 | (안 승인) | 붙여 넣은 가격 = **최종**(오더 할인을 얹지 않는다) |
+| 533 | 「니 제안대로 하자」 | → 541 로 고쳐 정함 |
+| 534 | 「제안대로」 | brand · category · unit · payment term · bin 을 Settings 에서(master 권한) |
+| 535 | 「a」 → 「니 제안대로」 | → 546 으로 고쳐 정함 |
+| 536 | 「a」 · 10번 credit = 「손님이 쓸 수 있는 우리쪽 크레딧 잔액이 맞아」 | POS 손님 막대에 크레딧 · 열린 인보이스 · 연체 빨간 칩 — 보이기만(신용 한도 아님) |
+| 537 | 「b」 | 원가(GP)는 Staff 에서 켜 준 사람만 보인다 · 짓기는 컷오버 뒤 |
+| 538 | 「이름 바꾸기는 막고, 만들기, 끄기, 켜기로 하자」 | 마스터 다섯은 만들기 · 끄기 · 켜기만 · 이름 바꾸기는 DB 가 막는다(IM538) |
+| 539 | 「packed 좋아」 | 비용을 넣고 지우는 상태 = draft + packed 만 |
+| 540 | 「좋아」 | packed 에서는 sales 쓰기 + master 쓰기 둘 다 · → §24 4662 행 · §17 3199 행 정정 |
+| 541 | 「니 제안대로 하자」(533 고쳐 정함) | Lines 전부 지우기는 **draft 만** · 확정 오더는 Unconfirm(supervisor) 뒤 |
+| 542 | 「모두」 | 손 단가 줄은 전부 오더 할인을 안 받는다(붙여넣기 · SO 손 단가 · POS) |
+| 543 | 「니 제안대로」 | 그래도 금액 단계 문턱 합계에는 넣는다 |
+| 544 | 「니 제안대로」 | 손 할인 % 줄도 최종 · od-1 이 Shopify 줄도 같은 기준(so_line_manual) |
+| 545 | (Caleb 확인) | 붙여넣기 가격 칸을 **비우면 원래 가격**(티어 · 손님 할인 · 딜) · 0 과 안 파는 세트 + 가격은 거부 |
+| 546 | 「a」 → 「니 제안대로」(535 고쳐 정함) | POS 줄 가격 · 할인 = **POS 직원 모두** · **판정 225(표시만)를 뒤집는다** · 누가 정했는지를 줄에 남긴다(SO 손 단가에도) · → §36 5975 행 정정 |
+| 547 | 「니 제안대로」 | POS 수량 = 1 이상 정수 · 가용보다 많으면 확인 |
+| 548 | 「A」 | 합치기(so_merge)는 원본 줄의 할인 출처 · 딜을 그대로 싣는다(출처가 다르면 따로 줄) → 합친 시스템 줄은 오더 할인을 받고 so_reprice 에 다시 매겨진다 · 손 줄 · shopify 줄은 kept · §21 의 「합친 줄은 전부 manual」 넷(3686 · 3688 · 3744 · 3746 행)과 §21-e 표(3777 행)를 정정 · 계기: od-1 이 manual 에 「오더 할인 안 받음」 뜻을 얹어 so-merge-1 의 설계(얼림)가 결함이 됐다(ln-1 보고 발견 1) |
+| 549 | 「549는 그대로 하자」 · 원문 「aonebeauty.com의 경우는 쉽핑까지 모두 결제가 마친 상태에서 내려와. 그래서 따로 addtional charge를 packed단계 이후에 붙일 일이 없어. 그런데 asung.ca는 모두 미결제 상태로 내려오고, 쉽핑 전에 결제를 하거나 텀 손님의 경우는 손님의 컨펌후 바로 내보내.」 | packed 비용은 aonebeauty 스토어(shop_store.kind aone) 오더에서 막고 · asung.ca 는 보통 오더와 같게(판정 540 문) · Shopify 금액과의 차이는 보이기만 · 가르는 기준 = 스토어 종류(결제 상태 아님) · 스토어를 모르는 웹 오더도 막는다 |
+| 550 | 「그 방향으로 가자」 · 원문 「나눠오는 경우는 많지 않아. 다만 리시빙 파트에서 업무량이 많아. 일시적으로 리시빙을 딜레이되는 상황은 종종 발생해. 그런 경우, 일부 제품을 리시빙을 해서 판매가 계속 이뤄지도록 하기 위함이야. 예를 들어 a라는 제품 600가 들어왔고, 현재 우리 웨어하우스에는 남아 있는 재고가 없을 시에, 일부 100개라도 리시빙을 해서 판매가 이뤄지도록 하려는 거야.」 | 입고 「먼저 반영(Post now)」: 센 줄 · 칸 붙은 작업 줄만 먼저 재고로(바로 가용) · 입고 · PO 는 열린 채 · 나머지는 「아직 안 셈」 · 마지막 Confirm 이 지금처럼 닫고 **short · 차이 큐는 마지막에만**(합으로 한 번) · 단가는 지금 입고와 같은 값(핀 → 확정 인보이스 → PO · 첫 묶음이 핀 · 판정 394) · 반영 몫 아래로 수량을 내리는 길은 막고 실수는 재고 조정으로 · 묶음 원장 날짜 = 입고의 received_on 하나 · 판정 88 은 그대로(마지막 확정의 뜻) — 포인터만(§24 4363 · po-module §11-c 2817 · §11-i) |
+| 551 | 「A」 | 먼저 반영 = 지금 입고 확정을 하는 사람만 |
+| 552 | 「A」 | 오피스 리시빙(`ims_require_write('receiving')`)만 · 창고 wms_receiving_confirm 셸은 그 스위치를 쓰기 시작할 때 |
+| 553 | 「B」 | 먼저 반영만 된 채 열린 입고가 있는 PO 에 비용(운임 · 관세)이 확정되면 얹기를 미룬다(deferred) → 마지막 확정 때 그 PO 의 모든 레이어에 비례 · 그 사이 팔린 몫은 cost_late(판정 94 를 넓힘) |
+| 554 | 「A」 · 동료 원문 「PO의 Credit note를 만들 때 Qty diff의 항목의 숫자가 이상합니다. 전체적인 Stock의 이동은 정확(Stock Availablility에서 확인하였습니다.)하지만 Credit note의 숫자가 혼동을 주는 부분이 있습니다.」 · Caleb 「-68 작업하는 사람에게 혼동을 줄 수 있나봐」 | 크레딧 노트 줄 차이 = **크레딧 뒤 남은 차이** = 확정 인보이스 goods 수량 − 받은 수량 − Not received 크레딧 수량(확정 + 이 문서 · 취소 제외) · 값 차이 크레딧은 수량을 바꾸지 않는다(po-cn-1 이견 2 · 대화 Claude 가 판정의 뜻으로 정함) · 인보이스 qty_diff 는 그대로 · 화면 「Qty diff after credits」 |
+| 555 | 「A」 | 잇는 순간엔 보내지 않는다 · 지금 IMS payload hash 를 심고 브랜드 · 묶음 단위로 사람이 나눠 보낸다 · 남은 묶음 수가 화면에 |
+| 556 | 「A」 · 「우리는 샤피파이에서 패밀리를 만들지 않아. 그러나 만약에 그런 상황이 발생한다면, A」 | Shopify 모양이 IMS family 모양과 다르면 잇지 않고 보고 · 사람이 정리한 뒤 다시 · family 는 Shopify 에서 만들지 않는다(Cin7 · IMS 가 올린 모양) |
+| 557 | 「A」 · 「패밀리의 구성원은 더해지기도 하고 빠지기도 해. 그러니 만약 그런 상황이 발생한다면, 샤피파이에서도 업데이트되어야 해」 | Shopify 변형이 IMS family 일부만 → 잇는다 · 보낼 때 더해진 구성원은 변형으로 생기고 빠진 구성원은 변형에서 빠진다 |
+| 558 | 「B」 | Shopify Draft 상품은 잇되 보냄은 끈 채(gid 만 기록 · Draft 그대로 · 팔 때 IMS 에서 켠다) |
+| 559 | 「B」 | IMS 사진 0 장이면 사진 칸만 보내지 않는다(Shopify 사진을 건드리지 않음 · 나머지는 보냄) · IMS 에 사진이 생기면 판정 409 대로 — 판정 409 의 예외 |
+| 560 | 「A」 | Cin7 이 올린 Shopify 사진은 묶음을 보낼 때 IMS 사진으로 다시 올린다(판정 409 그대로 · 파일 이름 짝 맞추기 안 함) |
+| 561 | 「B」 | 판매 채널 퍼블리시는 읽지 않는다(상태만) · Active 면 퍼블리시와 상관없이 잇고 보냄 켬(IMS 보내기는 퍼블리시를 안 건드린다) · 앱 권한 추가 없음 |
+
+- 판정 546 · 545 의 Caleb 원문 · 532 · 535 의 원문은 인계서에 「Caleb 말 그대로」로 위와 같이만 있다
+- 판정 555 ~ 561 의 근거(shop-link-0 · Opus · 쓰기 0): 지금 켜면 중복 상품이 생긴다 — productSet 은 id 가 없으면 새 상품(문서 「Omit the ID to create a new product」) · 「Any existing variants not included here will be deleted」 · 그래서 상품 · 변형 gid 를 함께 잇는다 · shop_listing_set 은 큐를 넣으므로 잇기는 큐 없는 길 · last_hash 를 심으면 첫 drain 이 건너뛴다(hash = 지난번 보낸 IMS payload 의 md5) · 결함 Product/0 자리표시(`functions/shopify/index.ts` 187 · 227 행 — 첫 보내기가 실패하면 `gid://shopify/Product/0` 을 적고 다음 보내기가 그 id 로 고치기를 시도한다)
+- 포인터: 판정 409 · 413 · 420 행 끝(§56-a · §57-a)
+
+### 67-c 차수 · 커밋 (git log 원문)
+
+| 차수 | 레포 · 커밋 | 무엇 |
+|---|---|---|
+| set v5 · v5a | asung-ims d5f4f88(v5a) | 마스터 다섯 만들기 · 끄기 · 켜기 · IM538 글 |
+| ImsRefLoad v2 | asung-wms 7c91f06 · GAS | Cin7 에 새로 생긴 것만 · IMS 행 · 이름 무접촉 · ⚠️ v1 은 IMS 행을 Cin7 것으로 바꾸고 끈 것을 다시 켠다 — v2 만 돌린다 |
+| od-1 | asung-wms d7f42d7(20261020010711) | so_line_manual · 손 줄 오더 할인 0 · 문턱은 모든 줄 · 문서 net unit · 크레딧 · 마스터 이름 잠금 IM538 · 확인 OK 42 · 대가: 이미 발행된 인보이스의 손 줄 크레딧은 오더 할인 몫 0(테스트 DB 1 건 · 운영 영향 없음) |
+| so v5t10 · rc v1.8 · pos v1.10 | asung-ims d5f4f88 · c81d0ae · 66664cb | Net unit · PO Complete 안내 · POS 수량 · 크레딧 칩 |
+| ln-1 | asung-wms 0c5886e(20261020123910) | so_lines_paste 가격(묶기 열쇠 제품+가격 · bad_price · free_price · set_price_refused · priced) · so_lines_clear · so_line.price_set_by/at(+ split · merge 복사) · 확인 OK 18 |
+| mrg-1 | asung-wms ff5b49e(20261020130409) | 판정 548 · 확인 OK 14 |
+| ch-1 | asung-wms 01c5b1b(20261020134522) | so_charge_gate · packed 비용 · 반환 status · 확인 OK 12 |
+| rcv-0 | (조사 · Opus · 쓰기 0) | 먼저 반영 조사 — 원가는 인보이스 단가 · 같은 입고 두 번 반영은 세 겹이 막는다 · 확정 문이 둘 |
+| rcv-1a | asung-wms c353a8e(20261020143921) | 입고 line_ref 꼬리 `:pN` 을 읽는 쪽 — 속 함수 inv_po_line_of · 재발행 9 · 식 인덱스 inv_layer_po_line_idx · 재생성 실제 행 바이트 무변 · 확인 OK 9 |
+| rcv-1b | asung-wms 76d1d10(20261020153535) | po_receipt_post 묶음 · po_receipt_post_now · inv_post_receipt 두 갈래 · 마지막 확정 · 비용 미루기 · 가드 여섯 · post_key 유니크 · 날짜 잠금 · detail 열쇠(`lines[].posted` · `lines[].postable_rows` · `lines[].work[].post_id` · `lines[].work[].batch_no` · `header.posts[]` · `header.post_now_ok` · `totals.posted` · `totals.posted_batches` · warnings `posted_before`) · 확인 OK 17 |
+| po-cn-1 | asung-wms c5a7bf8(20261020161648) | qty_diff_after_credits · credited_not_received_qty · credit_billed_qty(po_invoice_detail lines[] · 크레딧 goods 줄에만) · 확인 OK 11 |
+| shop-link-0 | (조사 · Opus · 쓰기 0) | 기존 Shopify 상품 잇기 조사 — 중복 상품 위험 · 이을 자리(shop_product · shop_variant · shop_media) · bulk 읽기 · 맞추기 규칙 · hash 심기 · Product/0 결함 → 판정 555 ~ 561 |
+| link-1a | (지시서 · 짓기 중) | 잇기 DB — 판 표 · 판정 함수 · 큐 없는 실행 창구 |
+| 화면 | asung-ims 293aa70 · 7497204 · c056977 · a397d00 · d148a56 · a452472 · 10a709d · 0e31a73 | so v5u(붙여넣기 가격 · Clear lines · 누가 정했나) · v5u1(줄 표 잘림 · 딜 이름 말줄임) · v5v(packed Add a charge · (as Cin7 does) 뺌) · v5w(여러 오더 Ship & invoice) · v5w1(비용 계정 고르기) · pos v1.11 · receiving post-now v1 · invoices cn-diff v1 |
+
+### 67-d 실수 · 배운 것
+
+1. [대화 Claude] so v5v 에서 인계서의 「계정 고르기」를 빠뜨려 모든 비용이 _99_ Freight Sales 로 갔다 — Caleb 「비용의 account는 어떻게 잡히지?」 로 드러남 → v5w1 ⇒ 화면 차수 전에 인계서 · 지시서의 항목을 하나씩 대조
+2. [대화 Claude] 판정 550 문구 「PO 단가로 일단」 — 판정 88 ③ 뒤 입고는 확정 인보이스가 있어야 시작되고 단가는 핀 → 인보이스 → PO(rcv-0 회신 A) ⇒ 원가 문장은 지금 단가 순서를 보고 쓴다
+3. [대화 Claude] rcv-1a 지시서가 읽는 쪽을 셋으로 적었다 — 실제 아홉(원가 조정 · FX · 가격 크레딧 · 초과 입고 · 쏟기) ⇒ 「몇 곳인지 세라」 가 지시서에 있어서 잡혔다(잘 된 것)
+4. [대화 Claude] 판정 554 를 「크레딧 수량 합」 으로 넓게 적었다 — 값 차이 크레딧은 수량을 바꾸지 않는다(po-cn-1 이견 2)
+5. [Claude Code · rcv-1a] 확인 갈래가 옛 md5 를 찍으려 재생성을 먼저 돌려 가짜 입고의 핀(po_receipt_cost)을 남겼다 → S1 MISMATCH · 원인 찾기 회차에서 함수 순서가 아님을 증명 ⇒ 재생성을 도는 확인 갈래는 핀까지 치운다
+6. [Claude Code · mrg-1] 테스트 DB 에 Shopify cron 이 15 분마다 실제 오더를 넣는다 — 「실제 행 무변」 은 스냅샷 때의 id 집합으로
+7. [Claude Code · rcv-1b] 재료 날짜를 미래(2031)로 두면 재생성이 landed 를 판매보다 먼저 얹는다 ⇒ 재료 날짜는 ims_today() 기준 과거 · \gset 줄 끝 주석 · psql 변수 이름 충돌
+8. [잘 된 것] ln-1 이견 1(시스템 줄과 같은 가격을 붙여 넣으면 합쳐져 최종 가격이 움직인다) · rcv-1b 이견 1 · 3 · 4(draft 거부 · 초과 칸 자르기 · 같은 칸 유니크) — 지시서대로였으면 깨졌을 자리를 검토가 잡았다
+
+### 67-e 미룬 것 — 66-f 260 에 이어 붙임
+
+- 261 8번 연결 도구(판정 555 ~ 561) — link-1a(DB · 짓기 중) 뒤 잇기 1b EF · 1c 화면 · 1d 시험 스토어 · 실제 두 스토어 앱 설치는 컷오버 준비 목록 맨 앞 · Product/0 자리표시 결함(index.ts 187 · 227)도 이 묶음에서
+- 262 발주앱 이식(판정 521 의 셋째 · 컷오버 아침 필수)
+- 263 창고 앱(wms-receiver rc v1.8) 안내 글 「다 올 때까지 Hold」 → 먼저 반영 뒤 바꿀지(Caleb)
+- 264 so_line_remove 가 shopify 줄 하나씩 지우기를 막지 않는다(ln-1 보고 · 보고만)
+- 265 합친 머리의 intake 는 가장 오래된 원본 것(mrg-1 보고 2 · 보고만)
+- 266 F0600 팔렛 짝(003 · 03 / 004 · 04) — 창고에 묻고 안 쓰는 쪽을 Settings 에서 끈다
+- 267 테스트 DB 의 옛 합친 manual 줄 34(합친 오더 3)는 그대로(원래 출처를 모른다)
+- 컷오버 뒤로 둔 피드백(67-a): 5 GP 마진 · 7 family 해체 · 9 재고 금액 · 12 파손품
+
+### 67-f 다음 (Caleb 이 고른다)
+
+```
+① 잇기 link-1a → 1b → 1c → 1d(판정 555 ~ 561 · 컷오버 위험)
+② 발주앱 이식(판정 521 · 컷오버 아침 필수)
+③ 컷오버 준비 목록 하나로(66-g ③ 그대로)
+다음 판정 번호: 562
 ```

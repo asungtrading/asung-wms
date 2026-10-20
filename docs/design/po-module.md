@@ -2814,7 +2814,7 @@ cancelled_by   po · po_invoice · po_charge 에 신설 — confirmed_by 는 있
 ### 11-c. ⭐⭐ ~~부분 입고 = 문서가 갈라진다~~ → 판정 88: 인보이스 확정 = 문서가 갈라진다(2026-09-29 · §11-i · ~~미구현 ⑱~~ → ✅ 구현(so-module §29)) (오늘의 핵심 판단)
 ```
 ⚠️ Cin7 은 부분입고가 생기면 Simple → Advanced 로 convert 해서 한 문서 안에서 여러 번 받는다. 안이 복잡해진다.
-⭐ 우리는 **문서가 갈라진다.** 각 문서는 한 번 받고 닫힌다. 안이 단순해진다(WMS 오더 분할과 같은 구조).
+⭐ 우리는 **문서가 갈라진다.** 각 문서는 한 번 받고 닫힌다. 안이 단순해진다(WMS 오더 분할과 같은 구조). → [2026-10-20 · 판정 550] 한 번 받고 닫히는 것은 그대로 · 마지막 확정 전에 센 줄을 묶음으로 먼저 재고에 넣을 수 있다(Post now · so-module §67)
 
 10개 주문 · 8개 도착 ⇒  PO-12345  →  PO-12345a (8개 · 받고 닫힘)
                                   +  PO-12345b (2개 · 기다림)
@@ -3243,7 +3243,7 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
              ⇒ 확정 뒤에는 줄·할인을 못 고친다(RPC 가 거부) — 이미 내려간 원가와 생긴 미지급이 소리 없이 바뀐다 · 되돌리기(Reopen · p_confirm=false)는 **결제 충당이 붙어 있으면 거부**
              확정 전 검사: 줄 0개 → 거부 · 크레딧이 인보이스 아닌 것/다른 공급처를 가리킴 → 거부 · total_amount 0 → 경고(샘플 인보이스 실물) · diff ≠ 0 → **경고만**(정본은 찍힌 값 · Cin7 도 안 막는다)
              ⚠️ 예외 하나: `supplier_ref_number`(11-c 크레딧 번호)는 확정 뒤에도 넣는다 — 참조가 나중에 오는 것이 정상 흐름이고 장부를 안 건드린다
-목록·상세    뷰 po_invoice_list(PO 없는 조정 크레딧이 보이는 유일한 자리) · RPC po_invoice_detail(한 장을 깊게 · 줄마다 발주 대조값과 qty_diff — 「크레딧을 만드시겠습니까」의 근거) · 돈은 po_invoice_money(§13-g)
+목록·상세    뷰 po_invoice_list(PO 없는 조정 크레딧이 보이는 유일한 자리) · RPC po_invoice_detail(한 장을 깊게 · 줄마다 발주 대조값과 qty_diff — 「크레딧을 만드시겠습니까」의 근거) · 돈은 po_invoice_money(§13-g) → [2026-10-20 · 판정 554 · po-cn-1] 크레딧 노트 줄은 qty_diff_after_credits(= credit_billed_qty − received_qty − credited_not_received_qty) · qty_diff 는 그대로(so-module §67)
 ```
 → **화면 셋(2026-09-17 · asung-ims)** ⭐ **PO 에서 크레딧으로 가는 길** — po.html 의 인보이스 줄에 「+ credit」(확정된 인보이스에만) → `invoices.html?id=…&credit=1`. ⚠️ **만드는 자리는 옮기지 않았다** — 크레딧 초안이 「청구 − 입고」 차이로 채워지려면 기준 인보이스가 정해져야 한다(§13-h · 크레딧은 PO 에서 만들지 않는다 그대로).
 ⭐ **PO 에 없는 제품이 인보이스에 있으면 인보이스에만 둔다**(Caleb 2026-09-17) — `po_line_id` nullable 이 그 자리다. PO 에 끼워 넣으면 「우리가 시켰다」는 거짓이 장부에 남고 확정이 드러내는 차이(②)가 사라진다. 그 제품이 실제로 입고되면 「PO 라인 없이 받는 길 · 약식 제품 등록」이 필요하다 — 입고 차수(§13-f).
@@ -3368,7 +3368,7 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
 ```
 
 ### 11-i. ⭐⭐ 입고
-⭐ [2026-09-28 · so-module §27] **입고 문서의 출처가 둘** — `po_receipt` 은 `po_id` 또는 `transfer_id`(정확히 하나 · 줄 · 작업 · 차이 표도 같게) · 트랜스퍼 입고는 오피스 확정이 없다(도착 창고 Complete = 확정 · 판정 70 · `tf_arrive`) · 오피스 확정 창구 · `inv_post_receipt` 는 트랜스퍼를 거부한다 · 트랜스퍼 입고는 `tf_receipt_detail` 로 읽는다 · `po_receipt_detail` 에는 트랜스퍼 갈래가 없다
+⭐ [2026-09-28 · so-module §27] **입고 문서의 출처가 둘** — `po_receipt` 은 `po_id` 또는 `transfer_id`(정확히 하나 · 줄 · 작업 · 차이 표도 같게) · 트랜스퍼 입고는 오피스 확정이 없다(도착 창고 Complete = 확정 · 판정 70 · `tf_arrive`) · 오피스 확정 창구 · `inv_post_receipt` 는 트랜스퍼를 거부한다 · 트랜스퍼 입고는 `tf_receipt_detail` 로 읽는다 · `po_receipt_detail` 에는 트랜스퍼 갈래가 없다 → [2026-10-20 · 판정 550 ~ 553 · so-module §67] **먼저 반영(Post now)** — 오피스 리시빙이 센 줄 · 칸 붙은 작업 줄을 묶음(po_receipt_post · 원장 꼬리 `:pN`)으로 먼저 재고에 · 입고 · PO 는 열린 채 · 마지막 확정이 닫고 short 는 그때만 · 묶음이 있는 열린 입고의 PO 에 확정된 비용은 미뤘다가 마지막 확정 때 얹는다 · 판정 554(크레딧 남은 차이)는 §11-g 3246 행 근처
 ⭐ [2026-09-26] 입고 창구는 속(_by · definer · 회수) + 바깥 셸(오피스 = 이름 그대로 · WMS = wms_recv_*) · 원장 둘은 문 없음 · 회수 · 확정 창구 둘(오피스 · WMS 스위치) — so-module §24-m · n
 ⭐⭐ [2026-09-29 · **판정 88 — 입고 기준 = 인보이스**] ⚠️ 아래 「인보이스를 기다리지 않는다」 · 「PO 확정 수량 기준」 · 「입고 때 갈라진다」를 뒤집는다 · ⚠️⚠️ ~~**미구현 — ⑱**~~ → ✅ **구현**(inv_basis_1 · 2 · 3 · so-module §29)(지금 코드는 옛 규칙: po_receipt_confirm_by tr-3a:1016~1018 이 기준을 po_line.qty_ea − 앞서 받은 수로 센다 · 인보이스 수량을 안 읽는다)
 ```
@@ -3462,7 +3462,7 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
                 ~~⚠️⚠️ **사건은 안 나간다 · 훅도 없다**~~ → ✅ [2026-09-19] **ⓔ 창구 inv_post_receipt 가 같은 트랜잭션으로 사건을 낸다**(11-j · 훅이 아니라 함수 호출 · 원장이 po_receipt_line·po_receipt_diff 를 읽는다) · 초과는 발주 라인을 늘리지 않는다(원장이 기준까지 자른다 · 차이 큐 over 가 그 근거)
 ⭐ 차이 큐        po_receipt_diff — kind **over · short · off_po** · expected_qty(기준) · received_qty · resolved_by/at · unique (receipt_id, po_line_id) · 열린 것 = resolved_at is null(뷰 po_receipt_diff_list · 부분 인덱스 없음) → ⚠️ [2026-09-29] 판정 88 ⑧: over · off_po 는 Off-invoice 한 길로 합친다 · short 는 「덜 옴」(⑱ · 미구현) → ✅ [2026-09-29] 새 행은 kind off_invoice(PO 입고만) · 결정 둘 accepted_free · accepted_billed(판정 99 · 거절 없음) · 창구 po_receipt_diff_settle_off_invoice · 옛 over · off_po 행과 옛 창구는 그대로(so-module §29)
                 ⭐ short 를 담는 이유(Caleb) — **분할은 남은 수량을 옮길 뿐 「왜 덜 왔나」를 아무도 안 본다.** 넷이 섞여 있고 분할은 구별하지 못한다: 공급사가 나눠 보냈다(다음 배에 온다) · 결품(PO 를 닫아야 한다) · 운송 중 분실·파손(크레딧) · 우리가 잘못 셌다(다시 세야 한다)
-                ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ~~⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f)~~ → ✅ [2026-09-19 `20260919175712`] 닫는 길이 섰다(아래 「→ 차이 닫기」 · 여러 건 한 번에는 ⬜) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」
+                ⚠️ 안 센 라인도 short 다(received 0) · 만드는 시점은 확정하는 순간 · 그 뒤 b 문서에서 더 받아도 앞의 건은 그대로 남는다 · **자동으로 닫지 않는다**(사람 판단 유지) · ~~⚠️ 닫는 길(RPC·화면·여러 건 한 번에)은 아직 없다(§13-f)~~ → ✅ [2026-09-19 `20260919175712`] 닫는 길이 섰다(아래 「→ 차이 닫기」 · 여러 건 한 번에는 ⬜) · 부분 입고가 흔하면 매번 쌓인다 — 처방은 「닫기 쉽게」 → [2026-10-20 · 판정 550] 먼저 반영(Post now) 묶음이 있어도 short · 차이 큐는 마지막 확정에서만 합으로 한 번(so-module §67)
                 ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)  → ✅ [2026-09-26 · 27] 이제 난다 — 창고 wms_recv_off_po 가 적고(24-m) · 결정 어휘 셋 accepted_free(받는다 · 원가 0) · accepted_billed(받는다 · PO 통화 단가 × PO 환율) · rejected(장부 없음 · 선반에서 뺀다 → removed_by/at) · 창구 po_receipt_diff_settle_off_po(receiving 문 · 판정 45) · 원장 line_ref <diff_id>:offpo(so-module 24-r)
 → 차이 닫기      ⭐ [2026-09-19 `20260919175712` · 9a5344a] `po_receipt_diff_resolve(diff, resolution, note)` · `po_receipt_diff_reopen(diff, note)` · 칸 resolution · resolution_note
                 ⭐ 이유 어휘 다섯 — split_shipment(나눠 왔다) · out_of_stock(공급사 결품) · lost_damaged(운송 중 분실·파손) · miscount(우리가 잘못 셌다) · other(⚠️ **메모 필수** — 셀 뜻이 없는 「그 밖」을 막는다)
