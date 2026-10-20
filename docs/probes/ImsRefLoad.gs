@@ -25,6 +25,16 @@
  *   imsLoadBin             → imsLoadBinApply           (2,675 · 200행씩)
  *
  * ⚠️ 매 적재 후 SQL 로 다시 읽어 확인할 것. HTTP 201 만 보고 끝내지 마라.
+ *
+ * ⭐ v2 (2026-10-19 · 대화 Claude · fb-0 1번 · 판정 534 · 538) — IMS 가 마스터를 만들고 끄고 켠다(Settings set v5)
+ *    brand · category · unit · payment term · bin 은 「Cin7 에 새로 생긴 것만 넣는다」 — 이미 IMS 에 있는 행은 건드리지 않는다
+ *    ① IMS 에서 만든 행(source manual)과 같은 이름이면 → 넣지 않고 로그에 「IMS 것이 이긴다」
+ *    ② 대소문자만 다른 같은 이름이 IMS 에 있으면 → 넣지 않고 로그(손으로 판단)
+ *    ③ Cin7 에서 이름이 바뀐 행(cin7_id 는 같은데 이름이 다름) → 넣지 않고 로그(IMS 는 이름을 안 바꾼다 · 판정 538)
+ *    ④ 켜기 · 끄기는 IMS 가 정한다 — 이미 있는 행에 is_active 를 보내지 않는다 · 「Cin7 에서 꺼졌는데 IMS 는 켜짐」은 로그만(필요하면 Settings 에서 끈다)
+ *    ⑤ 넣기는 ignore-duplicates — 읽은 뒤 직원이 같은 이름을 만들어도 덮지 않는다
+ *    v1 은 이름 upsert(merge-duplicates)라 IMS 행을 Cin7 것으로 바꾸고(source → cin7) · IMS 에서 끈 payment term · bin 을 다시 켰다(fb-0 회신 1번)
+ *    account · warehouse 는 v1 그대로(IMS 에서 아직 안 연다 · 판정 534)
  */
 
 
@@ -108,6 +118,90 @@ function ims_blank_(v) {
   return s === '' ? null : s;
 }
 
+/**
+ * v2 — IMS 표 전량 읽기(1,000행 캡을 넘는다 — ref_bin 2,675 · Range 로 나눠 읽는다)
+ */
+function ims_readAll_(table, select) {
+  var out = [], from = 0;
+  while (true) {
+    var res = ims_fetch_('/rest/v1/' + table + '?select=' + select + '&order=id', {
+      method: 'get',
+      headers: { 'Range-Unit': 'items', 'Range': from + '-' + (from + 999) }
+    });
+    var code = res.getResponseCode();
+    if (code !== 200 && code !== 206) throw new Error(table + ' 읽기 실패 ' + code + ': ' + res.getContentText().slice(0, 300));
+    var rows = JSON.parse(res.getContentText());
+    out = out.concat(rows);
+    if (rows.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
+
+/**
+ * v2 — Cin7 행을 IMS 표와 맞춰 「새로 넣을 것」만 고른다(위 ①~④)
+ *   keyFn(row) = 자연키 글자(brand 등은 name · bin 은 warehouse_id|name)
+ */
+function ims_plan_(cin7Rows, imsRows, keyFn) {
+  var byKey = {}, byLow = {}, byCin7 = {};
+  imsRows.forEach(function (r) {
+    byKey[keyFn(r)] = r;
+    byLow[keyFn(r).toLowerCase()] = r;
+    if (r.cin7_id) byCin7[r.cin7_id] = r;
+  });
+  var p = { ins: [], manual: [], caseDiff: [], renamed: [], offInCin7: [], same: 0, imsOnly: 0 };
+  var seenKey = {};
+  cin7Rows.forEach(function (c) {
+    var k = keyFn(c), e = byKey[k];
+    seenKey[k] = true;
+    if (e) {
+      if (e.source === 'manual') { p.manual.push(c.name); return; }
+      p.same++;
+      if (c.is_active === false && e.is_active === true) p.offInCin7.push(c.name);
+      return;
+    }
+    var lo = byLow[k.toLowerCase()];
+    if (lo) { p.caseDiff.push(c.name + ' (IMS: ' + lo.name + ')'); return; }
+    var rn = c.cin7_id ? byCin7[c.cin7_id] : null;
+    if (rn) { p.renamed.push(rn.name + ' → Cin7: ' + c.name); return; }
+    p.ins.push(c);
+  });
+  imsRows.forEach(function (r) { if (r.source === 'manual' && !seenKey[keyFn(r)]) p.imsOnly++; });
+  return p;
+}
+
+function ims_planLog_(p) {
+  Logger.log('이미 있음(그대로 둔다): ' + p.same);
+  Logger.log('⭐ 새로 넣을 행: ' + p.ins.length + (p.ins.length ? ' → ' + p.ins.slice(0, 20).map(function (r) { return r.name; }).join(' · ') + (p.ins.length > 20 ? ' …' : '') : ''));
+  Logger.log('IMS 에서 만든 행과 같은 이름 — 넣지 않음(IMS 것이 이긴다): ' + p.manual.length + (p.manual.length ? ' → ' + p.manual.join(' · ') : ''));
+  Logger.log('⚠️ 대소문자만 다른 이름이 IMS 에 있음 — 넣지 않음(손으로 판단): ' + p.caseDiff.length + (p.caseDiff.length ? ' → ' + p.caseDiff.join(' · ') : ''));
+  Logger.log('⚠️ Cin7 에서 이름이 바뀜 — 넣지 않음(IMS 는 옛 이름 그대로): ' + p.renamed.length + (p.renamed.length ? ' → ' + p.renamed.join(' · ') : ''));
+  Logger.log('참고: Cin7 에서 꺼졌는데 IMS 는 켜짐(바꾸지 않음 · 필요하면 Settings 에서 끈다): ' + p.offInCin7.length + (p.offInCin7.length ? ' → ' + p.offInCin7.slice(0, 30).join(' · ') : ''));
+  Logger.log('참고: IMS 에서만 만든 행(Cin7 에 없음): ' + p.imsOnly);
+}
+
+/** v2 — 새 행만 넣는다 · ignore-duplicates(읽은 뒤 생긴 같은 이름은 덮지 않는다) · 200행씩 */
+function ims_insertNew_(table, conflict, rows) {
+  var total = 0;
+  for (var i = 0; i < rows.length; i += 200) {
+    var chunk = rows.slice(i, i + 200);
+    var res = ims_fetch_('/rest/v1/' + table + '?on_conflict=' + conflict, {
+      method: 'post',
+      headers: { 'Prefer': 'resolution=ignore-duplicates,return=representation' },
+      payload: JSON.stringify(chunk)
+    });
+    if (res.getResponseCode() >= 300) {
+      Logger.log('⚠️ ' + i + '번째 묶음 실패 HTTP ' + res.getResponseCode());
+      Logger.log(res.getContentText().slice(0, 800));
+      Logger.log('여기까지 쓰인 행: ' + total);
+      return total;
+    }
+    total += JSON.parse(res.getContentText()).length;
+  }
+  Logger.log('⭐ 쓰인 행: ' + total + ' / ' + rows.length + (total < rows.length ? ' (모자란 만큼은 그사이 같은 이름이 생겨 건너뜀)' : ''));
+  return total;
+}
+
 /** 새 엔드포인트의 응답 모양을 먼저 본다 — listKey 를 추측하지 않기 위해 */
 function ims_peekRaw_(path) {
   var base = 'https://inventory.dearsystems.com/ExternalApi/v2/';
@@ -163,17 +257,15 @@ function ims_loadSimple_(dryRun) {
     rows.forEach(function (r) { if (seen[r.name]) dup.push(r.name); else seen[r.name] = true; });
     Logger.log('이름 중복: ' + dup.length + (dup.length ? ' → ' + dup.join(' · ') : ''));
 
-    if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
     if (dup.length) { Logger.log('⚠️ 중복이 있어 쓰지 않는다'); return; }
 
-    var res = ims_fetch_('/rest/v1/' + s.table + '?on_conflict=name', {
-      method: 'post',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
-      payload: JSON.stringify(rows)
-    });
-    Logger.log('HTTP ' + res.getResponseCode());
-    if (res.getResponseCode() >= 300) { Logger.log(res.getContentText().slice(0, 500)); return; }
-    Logger.log('⭐ 쓰인 행: ' + JSON.parse(res.getContentText()).length);
+    // v2 — IMS 표와 맞춰 새 것만
+    var plan = ims_plan_(rows, ims_readAll_(s.table, 'id,cin7_id,name,source,is_active'), function (r) { return r.name; });
+    ims_planLog_(plan);
+
+    if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
+    if (!plan.ins.length) { Logger.log('새로 넣을 행 없음'); return; }
+    ims_insertNew_(s.table, 'name', plan.ins);
   });
 }
 
@@ -302,17 +394,16 @@ function ims_loadPaymentTerm_(dryRun) {
   Logger.log('');
   Logger.log('표에 넣을 행: ' + rows.length);
 
-  if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
   if (dup.length) { Logger.log('⚠️ name 중복이 있어 쓰지 않는다'); return; }
 
-  var res = ims_fetch_('/rest/v1/ref_payment_term?on_conflict=name', {
-    method: 'post',
-    headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
-    payload: JSON.stringify(rows)
-  });
-  Logger.log('HTTP ' + res.getResponseCode());
-  if (res.getResponseCode() >= 300) { Logger.log(res.getContentText().slice(0, 800)); return; }
-  Logger.log('⭐ 쓰인 행: ' + JSON.parse(res.getContentText()).length);
+  // v2 — IMS 표와 맞춰 새 것만 · ⚠️ 새로 들어간 결제조건은 net_days 가 비어 있다 — Settings 에서 만든 것과 달리 손으로 채워야 연체가 세어진다
+  var plan = ims_plan_(rows, ims_readAll_('ref_payment_term', 'id,cin7_id,name,source,is_active'), function (r) { return r.name; });
+  ims_planLog_(plan);
+  if (plan.ins.length) Logger.log('⚠️ 새로 넣는 결제조건은 net_days 가 비어 있다 — 넣은 뒤 채울 것');
+
+  if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
+  if (!plan.ins.length) { Logger.log('새로 넣을 행 없음'); return; }
+  ims_insertNew_('ref_payment_term', 'name', plan.ins);
 }
 
 
@@ -454,26 +545,14 @@ function ims_loadBin_(dryRun) {
   Logger.log('표에 넣을 행: ' + rows.length);
   Logger.log('표본 2: ' + JSON.stringify(rows.slice(0, 2)));
 
-  if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
   if (dup.length) { Logger.log('⚠️ 복합키 중복이 있어 쓰지 않는다'); return; }
 
-  // 4) 200행씩
-  var total = 0;
-  for (var i = 0; i < rows.length; i += 200) {
-    var chunk = rows.slice(i, i + 200);
-    var res = ims_fetch_('/rest/v1/ref_bin?on_conflict=warehouse_id,name', {
-      method: 'post',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
-      payload: JSON.stringify(chunk)
-    });
-    if (res.getResponseCode() >= 300) {
-      Logger.log('⚠️ ' + i + '번째 묶음 실패 HTTP ' + res.getResponseCode());
-      Logger.log(res.getContentText().slice(0, 800));
-      Logger.log('여기까지 쓰인 행: ' + total);
-      return;
-    }
-    total += JSON.parse(res.getContentText()).length;
-    Logger.log('  ' + (i + chunk.length) + ' / ' + rows.length + ' — 누적 ' + total);
-  }
-  Logger.log('⭐ 쓰인 행: ' + total);
+  // 4) v2 — IMS 표와 맞춰 새 것만(2,675행 · 나눠 읽는다) · 자연키 = 창고 + 이름
+  var plan = ims_plan_(rows, ims_readAll_('ref_bin', 'id,cin7_id,warehouse_id,name,source,is_active'),
+    function (r) { return r.warehouse_id + '|' + r.name; });
+  ims_planLog_(plan);
+
+  if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
+  if (!plan.ins.length) { Logger.log('새로 넣을 행 없음'); return; }
+  ims_insertNew_('ref_bin', 'warehouse_id,name', plan.ins);
 }
