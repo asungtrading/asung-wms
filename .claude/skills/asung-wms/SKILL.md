@@ -10,7 +10,7 @@ description: >
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼", "Invoice First", "held_by", "presence", "bcMap",
   "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄",
-  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back" 등이
+  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back", "Shopify 잇기" 등이
   나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~46 을 확인하세요.
   특히 ⚠️factor는 unit 컬럼, ⚠️bin은 base_sku 기준, ⚠️service_role 금지,
   ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
@@ -400,6 +400,8 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
   - **메아리 거르기**(판정 447 · ful-1b): Shopify 에 쓸 때마다 `last_push_at` · ingest 가 ⓐ 새로 보인 fulfillment GID 가 모두 우리 것 · ⓑ updatedAt 이 last_push_at −5 s ~ +2 min 이면 updated_after_so 를 안 붙인다 · Shopify updatedAt 은 **초 단위로 잘린다**(음수 지연이 나온다) · 실측 0.12 · 0.49 · 0.51 s · 「Ready for pickup」 은 updatedAt 을 안 바꾼다 · 모르는 GID = fulfilled_in_shopify · 새 환불 = refunded_in_shopify
   - 쓰기는 service_role REST PATCH(결과 표 · 줄 · 큐) + rpc `shop_order_warn`(경고 한 줄 `warnings ||` · 코드 일곱) · 5 회 실패면 큐 done error + fulfill_failed · pickup_failed · tracking_fix_failed
   - **cron [테스트 DB]**: jobid **49** ims-fulfill-drain `* * * * *`(열린 큐 줄이 없으면 EF 호출 0 · timeout 45000) · 킬 스위치 `select cron.alter_job(49, active := false);`
+- ⚠️⚠️ **기존 스토어 상품 잇기**(판정 420 실행 · 555 ~ 563 · 2026-10-20 · 정본 so-module §67 · 조사 shop-link-0 · 짓기 link-1a ~ 1d): 새로 만들기 / 고치기는 `shop_product.shopify_product_gid` 하나로 갈린다 — **gid 없이 보냄을 켜면 같은 SKU 의 상품이 하나 더 생긴다**(productSet 은 id 가 없으면 새 상품 · 「Any existing variants not included here will be deleted」) ⇒ 실제 스토어(asung.ca · aonebeauty.com)에서 shop_listing_set 으로 켜지 마라 · 상품 gid 와 변형 gid · inventory_item_gid 를 **함께** 잇는다(변형 gid 가 없으면 변형이 지워지고 다시 생길 수 있다) · 잇기는 **큐 없는 길**(shop_listing_set 은 listing_on 큐를 넣어 다음 drain 이 바로 productSet) · 잇는 순간 **지금 IMS payload hash 를 심고 보내지 않는다** → 브랜드 · 묶음 단위로 사람이 나눠 보낸다(555) · Shopify 모양이 IMS family 와 다르면 잇지 않고 보고(556 · family 는 Shopify 에서 만들지 않는다) · family 일부만이면 잇고 보낼 때 IMS 구성원대로 더하고 뺀다(557) · Shopify Draft · ARCHIVED 는 잇되 보냄 끔(558 · 562 — 나중에 IMS 에서 켜면 그 상품이 되살아난다 · 중복 없음) · IMS 사진 0 장이면 사진 칸만 안 보낸다(559 · 판정 409 의 예외 · EF 몫) · Cin7 사진은 보낼 때 IMS 사진으로 다시 올린다(560) · 판매 채널 퍼블리시는 읽지도 건드리지도 않는다(561) · 잇는 순간 재고 트리거는 그대로 — 켜진 변형 재고가 바로 IMS 값(563 · 잇는 날 IMS 재고가 맞아야 한다)
+- ⚠️ **결함 Product/0**(EF `functions/shopify/index.ts` 187 · 227 · 고침은 link-1b): 첫 보내기가 실패하면 shop_product 에 `gid://shopify/Product/0` 을 적는다 → 다음 보내기가 그 가짜 id 로 고치기를 시도 · 같은 스토어 둘째 실패는 유니크 (store, gid) 에 걸려 기록도 못 한다 — 그런 행을 「이어진 상품」으로 읽지 마라
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)
 

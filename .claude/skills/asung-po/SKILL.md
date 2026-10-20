@@ -3,11 +3,11 @@ name: asung-po
 description: >
   Asung Trading IMS 의 PO(발주) 모듈 — Cin7 Core 발주를 대체하는 세 번째 모듈. 마스터 표(ref_)를
   만들거나 읽거나 Cin7 에서 적재할 때 먼저 읽으세요.
-  "PO 모듈", "발주 모듈", "발주앱", "리시빙", "입고", "입고 확정", "풋어웨이", "po_receipt", "차이 큐", "분할", "ims_last_bin", "Settings", "Reference Book", "마스터 데이터",
+  "PO 모듈", "발주 모듈", "발주앱", "리시빙", "입고", "입고 확정", "풋어웨이", "po_receipt", "차이 큐", "Post now", "먼저 반영", "ims_last_bin", "Settings", "Reference Book", "마스터 데이터",
   "ref_brand", "ref_category", "ref_unit", "ref_payment_term", "ref_account", "ref_currency",
   "ref_warehouse", "ref_bin", "공급처", "supplier", "제품 마스터", "product_family", "product_barcode", "product_bom",
-  "pack_factor", "BOM Quantity", "UOM 세트", "콤보", "결제조건", "계정과목", "통화", "set_updated_at", "ims_touch",
-  "차이 닫기", "po_family", "landed", "환율"
+  "pack_factor", "UOM 세트", "콤보", "결제조건", "계정과목", "통화",
+  "차이 닫기", "po_family", "landed", "환율", "qty_diff_after_credits"
   이 나오면 추측하지 말고 이 스킬과 정본 docs/design/po-module.md 를 확인하세요.
   ⚠️자연키가 표마다 다르다(name·code·복합) — 추측 금지, ⚠️ref_bin 은 2,675행으로 PostgREST 1,000행
   캡을 넘는다, ⚠️Cin7 결제조건 Duration 은 기일이 아니라 할인 기한, ⚠️Cin7 은 마스터를 GUID 가 아니라
@@ -83,6 +83,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 - ⭐ **Cin7 은 마스터를 이름 문자열로 참조한다** — **계정만 `Code`**. `Net 30`/`Net30` 처럼 흔들리면 정확히 못 이은 것 — **비워 두고 센다.**
 - ⚠️ `ref/account` 키는 **`AccountsList`** · 창고 = `ParentID` 없는 행 · bin 이름은 하위 행 `Name` 그대로 · ~~`IN_TRANSIT` 없음~~ → [09-19] 원장의 합성 창고를 manual·비활성으로 담았다(재적재가 지우지 않는다 · ledger-design 4부) · 환율은 문서에 · `inv-cost` 하드코딩 무접촉(§7).
 - ⚠️ 전량은 **`IncludeDeprecated=true`** · ③ 순서 의존 둘(세트는 제품 뒤 · 대체 UPC 는 바코드 뒤 · §3-e) · `IncludeBOM=true` 면 `Limit` 실효 500 · 충돌 키 ③ `sku` · ④ `cin7_id`(§3-f).
+- ⚠️⚠️ [2026-10-20 · 판정 534 · 538 · od-1] 마스터 다섯(brand · category · unit · payment term · bin)은 Settings 에서 **만들기 · 끄기 · 켜기만**(master 권한) · 이름 바꾸기는 DB 가 막는다(IM538) · 적재는 **ImsRefLoad v2 만**(Cin7 에 새로 생긴 것만 · IMS 행 · 이름 무접촉) — v1 은 IMS 행을 Cin7 것으로 바꾸고 끈 것을 다시 켠다(→ so-module §67)
 - ⭐ **④ 는 낱개에만 붙는다 — 발주는 낱개 단위로 한다.** 세트는 부모를 `pack_factor` 로 환산 · 콤보는 「공급처 줄이 있으면 후보」(§3-g).
 
 ## 4. 함정 요약
@@ -189,6 +190,22 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️⚠️ 결제 저장 · 할인 고치기 · 충당 떼기 · 결제 지우기가 원가 사건을 함께 만들고 되돌린다 — 충당을 직접 지우거나 사건을 손으로 넣지 마라 · 판정 399(할인 > 레이어 원가)면 저장 전체가 거부된다
 ⚠️  Adjust discount 는 낸 돈 고정 · 충당이 움직인다 — 다 갚은 문서의 할인은 올릴 수 없다(미지급 초과) · 비용 청구서 할인은 landed 가 레이어에 없으면 pending(held)
 ⭐⭐ 크레딧 goods 줄은 확정 전에 credit_reason(Not received = 원가 무변 / Price difference = 원가를 낮춘다 · 판정 400) — 걸치는 줄은 확정 거부(줄을 나눈다) · 원가 몫은 크레딧 자신의 체인만 · 환율은 핀
+```
+
+## 4-e. ⭐⭐ 입고 먼저 반영 · 크레딧 남은 차이 — 모르면 사고 (2026-10-20 · 판정 550 ~ 554 · 정본 so-module §67 · po-module §11-i · §11-g)
+
+```
+⭐⭐ 먼저 반영(Post now) = po_receipt_post_now(receipt, [work_id…], commit) · 셸 첫 줄 ims_require_write('receiving') · 오피스만(창고 셸 없음 · 판정 551 · 552) · 미리 보기는 쓰기 0
+⭐⭐ 고르는 단위 = 칸이 붙은 작업 줄 통째 — 부분 수량은 work_split 으로 먼저 나눈다 · 묶음(po_receipt_post · batch_no) → 입고 줄(post_id) → 원장 line_ref `<po_line>:p<n>` · 입고 · PO 는 열린 채(draft · confirmed)
+⚠️⚠️ 반영된 작업 줄은 얼린다 — qty · 칸 · 삭제 · 병합 대상 모두 거부(work_save · putaway · putaway_all · split · unassign · work_delete 여섯 · 창고 셸도 _by 를 지나 같다) · 반영 몫 아래로 세면 거부 · 실수는 **재고 조정(Adjustments)으로**
+⭐  같은 칸에 나머지를 놓을 수 있다 — 작업 줄 유니크 = (receipt, po_line, bin, post_key)(post_key = coalesce(post_id, 0-uuid)) · 병합은 반영 안 된 줄끼리만
+⭐⭐ 마지막 확정(po_receipt_confirm_by)이 지금처럼 닫는다 — 반영 안 된 줄만 입고 줄로 · **short · off_invoice 는 합으로 한 번**(반영 포함 counted) · 먼저 반영 합 > 센 합이면 거부(안전띠) · 반환 posted_before
+⚠️⚠️ 묶음 원장 날짜 = 입고의 received_on 하나 — 묶음 뒤 received_on 을 바꾸면 post_now · 마지막 확정이 거부(되돌려 놓으라고 말한다)
+⭐  단가 = 지금 입고와 같다(핀 → 확정 인보이스 → PO · 핀은 첫 묶음이 만들고 뒤가 읽는다 · 판정 394) · 초과 칸 자르기(po_receipt_over_bins)는 반영 줄을 빼고 상한 = 기준 − 반영 합
+⚠️⚠️ 비용 미루기(판정 553) — 묶음이 있는 draft 입고가 있는 PO 에 확정된 비용은 얹지 않는다(allocs status deferred · 경고 cost_deferred_post_now) → 마지막 확정 ⓕ 가 그 PO 의 모든 레이어에 비례로 · 그 사이 팔린 몫은 cost_late
+⭐  화면이 읽는 열쇠(po_receipt_detail) = lines[].posted · lines[].postable_rows · lines[].work[].post_id · batch_no · header.posts[] · header.post_now_ok · totals.posted · totals.posted_batches · warnings posted_before
+⭐⭐ [판정 554 · po-cn-1] 크레딧 노트 줄 = **qty_diff_after_credits** = credit_billed_qty(확정 인보이스 goods) − received_qty − credited_not_received_qty(**Not received 줄만** · 확정 + 이 문서 · 취소 · 다른 draft 제외) · 0 아래로 안 깎는다(과한 크레딧이 −로 드러난다) · 값 차이 크레딧은 수량을 바꾸지 않는다
+⚠️  qty_diff(청구 − 받음)는 인보이스 뜻 그대로 — 크레딧 줄에서는 뜻이 없다(−68 실물) · 크레딧 화면은 새 열쇠를 그린다 · 식은 po_credit_reason_suggest 한 집
 ```
 
 ## 5. 이 스킬을 갱신할 때

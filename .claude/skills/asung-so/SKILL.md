@@ -2,11 +2,11 @@
 name: asung-so
 description: >
   Asung Trading IMS 의 SO(판매) 모듈 — Cin7 Core 판매 오더·손님을 대체하는 네 번째 모듈. 손님·가격·딜·SO 거래 표를 다룰 때 먼저 읽으세요.
-  "SO 모듈", "판매 오더", "customer", "customer_address", "customer_contact", "손님 표", "손님 적재",
-  "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소", "기본 배송지",
+  "SO 모듈", "판매 오더", "customer", "손님 표", "손님 적재",
+  "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소",
   "청구지", "parent_id", "부모 손님", "so.status", "so.intake",
   "at_wms", "재적재", "내리기",
-  "쿠폰", "sellable", "딜", "so_deal", "product_tag", "케이스 할인", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "combo", "구성품", "put_back"
+  "쿠폰", "sellable", "딜", "so_deal", "product_tag", "케이스 할인", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "combo", "구성품", "put_back", "so_lines_clear", "so_charge_gate", "price_set_by"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/so-module.md 를 확인하세요.
   ⚠️MarketingConsent 는 숫자다(2 Opt in · 3 Opt out · 0·1 둘 다 Unknown) — 순서·소거 추론으로 옮기지 마라,
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
@@ -143,6 +143,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  운임 amount 는 0 이상(①c · 돌려줄 돈은 크레딧 노트 8-g) · 비활성 손님은 거부(판정 A) · 한 트랜잭션 안 now() 는 같다 — 시각 비교로 검증하지 마라 · 제약 이름은 get stacked diagnostics constraint_name 으로   (12-b · 12-f)
 ⚠️  [2026-10-06 · 판정 281 · 291 ~ 295 · §47] 판매 안 함(product.sellable false) — 세트는 넣기 길 전부(so_line_add · so_lines_paste · POS 스캔)에서 낱개 × pack_factor 로 바꿔 넣고 알림(set_converted_to_base · converted) · 바꾸는 길에 손 단가 · 할인 % 거부 · 낱개(콤보 포함)는 거부 「turn on Sellable in Products first」 · 켜고 끄기는 product_update(master · sellable_source ims · 열린 줄이면 sellable_off_open_lines)
 ⚠️  제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다(미룬 113 · 적재 고침 전까지)
+⭐⭐ [2026-10-20 · 판정 532 · 545 · ln-1] 붙여넣기 셋째 칸 가격 = **최종**(손 줄 · 오더 할인 몫 0 · 판정 542) · 칸 비움 = 원래 가격(티어 · 손님 할인 · 딜) · 0 · 음수 · 안 파는 세트 + 가격은 거부 · 묶기 열쇠 (제품, 가격) — 시스템 줄과 같은 가격이어도 합치지 않는다(합치면 최종 가격이 움직인다)   (→ so-module §67)
+⭐⭐ [2026-10-20 · 판정 541 · ln-1] so_lines_clear 는 **draft 만**(확정 오더는 Unconfirm 뒤) · intake shopify 오더 거부 · 운임(so_charge) · 쿠폰(coupon_id)은 남는다
+⚠️  [2026-10-20 · 판정 546 · ln-1] so_line.price_set_by/at = 사람이 단가 · 할인 % 를 줄 때만 찍고 다시 견적(↺)이면 비운다 · **updated_by 로 「누가 정했나」를 읽지 마라**(ims_touch 가 덮는다) · split · merge 는 복사
 ```
 
 - 표 구조 §5(so · so_line · so_charge · so_reserve · 손님 셋 5-a~5-c) · 상태와 전이 §6(6-a 상태 열 · 6-b `channel` 길 셋 warehouse·pos·counter + `intake` 유입 넷 · 6-e 소유권의 선 `Release to WMS` · 6-g′ CHECK+RPC+트리거) · 원장 접점 §7(7-b 출고 사건 `so_out` · 7-c 쓰기 경로 RPC 하나) · 인보이스·결제·크레딧 §8(8-c 묶음 · 8-e 잔액 · 8-g 크레딧 노트).
@@ -157,7 +160,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 다시 매기기는 할인만 — 들어간 줄의 list_price 는 그대로(가격표가 바뀌어도 따라가지 않는다) · 자동 = 넣기·합치기·수량 · 수동 = so_reprice · 사람이 정한 줄(manual · override)은 어느 쪽도 건드리지 않는다 ·
      바깥 조건(order_date · price_tier · discount_pct)이 바뀌면 줄은 그대로 + so.reprice_suggested_at + 경고 reprice_suggested   (판정 3)
 ⭐⭐ 기간은 so.order_date 로 판정(D7) · 「오늘」= ims_today()(토론토 · current_date 는 UTC 라 저녁 8시 뒤 내일) · 세일 끝난 뒤 넣은 줄은 경고 deal_ended_before_line_added   (13-h)
-⭐⭐ 오더 전체 할인(D6) — 줄 할인 뒤 제품 줄 합계에 한 번 · round(합계 × pct/100, 2) · 운임(so_charge) 제외 · so.order_discount_pct/deal_id/source 에 굳는다(deal|manual) · manual 은 자동 재계산이 덮지 않는다 · 0 = 사람이 껐다 · 지금은 손님 목록이면 자동(쿠폰 코드는 원문만) [2026-10-06 정정 · 판정 282 · 308 · 323 · §48 · §49] 출처 deal|manual|coupon · 자동은 손님 목록이 아니라 so_deal_customer_rule + 단계 · 쿠폰은 so_coupon
+⭐⭐ 오더 전체 할인(D6) — ~~줄 할인 뒤 제품 줄 합계에 한 번~~ → [2026-10-20 · 판정 542 · 543 · od-1] **손 줄(so_line_manual — 손 단가 · 손 할인 % · Shopify 줄)을 뺀 합계에** 매긴다 · 금액 단계 문턱 합계에는 모든 줄이 든다 · round(합계 × pct/100, 2) · 운임(so_charge) 제외 · so.order_discount_pct/deal_id/source 에 굳는다(deal|manual) · manual 은 자동 재계산이 덮지 않는다 · 0 = 사람이 껐다 · 지금은 손님 목록이면 자동(쿠폰 코드는 원문만) [2026-10-06 정정 · 판정 282 · 308 · 323 · §48 · §49] 출처 deal|manual|coupon · 자동은 손님 목록이 아니라 so_deal_customer_rule + 단계 · 쿠폰은 so_coupon
 ⭐⭐ 오더 전체 딜은 so_deal.order_pct 하나 · 줄이 없다(문지기 둘) · so_deal_target 유니크는 전체 하나(nulls not distinct · 부분 유니크 금지 규칙 29) · 딜·태그 쓰기 = master RLS(거래 표 넷의 「창구만」과 다르다 — 이유 §13-e ⬜5) [2026-10-06 정정 · 판정 309 · §48] order_pct 는 지웠다 → so_deal_tier(min_amount · pct) · 문지기 셋(줄은 줄 딜에만 · 단계는 오더 딜에만 · 단계가 있으면 오더 딜을 끌 수 없다) [2026-10-06 정정 · 판정 335 · 336 · §50] 쓰기는 창구만 — so_deal_save(master) · 일곱 표 읽기 RLS 만 · 태그 = product_update tag_add · tag_off
 ⭐⭐ [2026-10-10 · 판정 417 · so-module §57] product_tag 적재됨(테스트 DB) — **63,501 줄 · 전부 source cin7** · 종류 1,193 · 대소문자만 다른 짝은 적재가 **합친다**(제품 수가 가장 많은 철자 · manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순 — D4 의 「멈추고 보고」를 바꿨다) ⇒ 딜 대상 태그(so_deal_target target=tag · 글자 그대로 =)는 **합쳐진 철자**로 적는다(소문자가 이긴 묶음 있음: gel · oil · cream …) · 적재 스크립트 ImsLoadProductTag.gs(c61ba04)
 ⭐  케이스(case) 모드 줄은 미리 보기 화면 뒤에(D3) — Cin7 UOM Discount 25줄은 qty 모드로 옮긴다(태그 이름 GM20UOM12 = 20% · 12 이상 · 단계 할인 8개) · set_discount_pct 는 「세트 SKU 자체」 할인만(D8 · 11-c ② 뒤집힘) [2026-10-06 정정 · 판정 280 · 303 · §48] case = 낱개의 켜진 세트 중 최소 pf · 낱개 EA · set_discount_pct 는 계산 판매 세트의 줄 층 후보
@@ -240,6 +243,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-07 · §52] 운임 할인 — so_charge.discount_pct | discount_amount(하나 · 식 so_charge_discount) · 세금은 줄마다 · 인보이스 줄 kind 다섯(product · charge · order_discount · surcharge · charge_discount — 운임 줄 바로 뒤 · 음수) · 머리 · 오더 charges_discount_amount(charges_amount 는 정가) · 계정 inv_config so_freight_discount_account_code(_6_ · 비면 할인 운임 발행만 막는다)(판정 352 ~ 358)
 ⚠️  [2026-10-08 · 판정 382 · §53] 오피스 단추 이름 = **Ship & invoice**(so v5q) — 상태 Finalized = 물건이 준비됨 · Fulfilled = 우리 손을 떠남 · 창고 단추 Finalize · 창구 so_finalize 이름은 그대로 — 단추와 상태를 같은 말로 부르지 마라
 📌  [2026-10-08 · 판정 362 ~ 381] Shopify 연동 설계 정본 = docs/design/shopify-integration.md(~~설계만~~ → ①~④ 테스트 DB 실물 · 손님 찾기 4단계 · 브랜치 라우팅 · 무료 배송 = 운임 + 할인 100% · 칸의 주인 · Available 에 맞춘다) · 웹 오더는 4-o
+⭐⭐ [2026-10-20 · 판정 531 · 539 · 540 · 549 · ch-1] packed 오더 비용 = so_charge_set · so_charge_remove 의 문 so_charge_gate(오더 행 for update · draft 는 sales · packed 는 sales + master 쓰기 둘 · 그 밖 상태 거부 · aonebeauty 스토어 오더 · 스토어를 모르는 웹 오더 거부 · asung.ca 는 보통 오더와 같게) · 계정을 안 주면 새 비용은 `_99_` Freight Sales — 화면은 계정을 늘 보낸다
+⭐  [2026-10-20 · 동료 피드백 13 · so v5w] so_finalize 는 처음부터 오더 배열 — 여러 packed 오더를 한 번에 보내면 위 묶음 규칙대로 인보이스가 묶인다
 ⭐  [2026-10-07 · §52] 상태 칩 색 — SO(판정 359): Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강 · Shipped 는 인보이스 취소 뒤에만(칩 「Invoice cancelled」) · PO(판정 360)는 asung-po §0
 ```
 
@@ -284,9 +289,10 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ POS·counter 는 **재고를 보지 않고 전 줄 allocated** — 백오더·이어받기·나누기·보류가 없다(so_allocate_run·so_hold·so_divide 에 길 가드 · ⚠️ 가드가 없던 판이 pos 오더를 갈랐다) · 픽은 목표와 같아야 한다(pick_short 없음) · POS 의 Confirm·다시 열기·Finish = sales(R5 의 두 번째 예외) · counter = manager   (판정 6·12·13 · 20-c)
 ⭐⭐ Finish 는 **막지 않는다** — 받은 금액·미수를 보이고 남은 몫은 그 인보이스의 미수 · 미리 보기 식은 발행 ①②③ 과 **같아야 한다**(검증이 「미리 보기 = 발행 뒤 값」으로 묶는다)   (판정 5 · 0-8)
 ⭐⭐ 「재고 없이 나갔다」는 새 표가 아니다 — 원장의 sale_shortfall 레이어를 so_stock_short_list 가 읽고, 매니저 확인만 so_stock_short_check 에 적는다 · ⚠️⚠️ **열쇠는 (doc_number, sku, warehouse)** — 레이어 id 는 inv_layer_apply 재생성이 바꾼다(실측 494928 → 504446) · 확인 권한 = manager + (sales ∨ receiving) · 되돌리기 없음   (판정 7 · 0-10·0-11)
-⭐⭐ 병합 — 원본이 전부 초안이면 sales · 하나라도 확정이면 manager · 같은 손님·창고·통화 · **channel warehouse 만** · 주문일은 **합친 날**(ims_today) · 줄은 전부 manual(deal_line_id null) · tax_rule 은 합친 오더의 규칙 · 운임은 **안 옮긴다**(charges_not_merged) · 선결제 대상은 옮긴다 · 되돌리기 없음(떼어 낸다)   (§21 판정 3·4·5·6·8)
+⭐⭐ 병합 — 원본이 전부 초안이면 sales · 하나라도 확정이면 manager · 같은 손님·창고·통화 · **channel warehouse 만** · 주문일은 **합친 날**(ims_today) · ~~줄은 전부 manual(deal_line_id null)~~ → [2026-10-20 · 판정 548 · mrg-1] 줄은 원본의 discount_source · deal_line_id 를 그대로 싣는다 · 합친 시스템 줄은 오더 할인을 받고 so_reprice 가 다시 매긴다 · 손 줄 · shopify 줄은 그대로 · tax_rule 은 합친 오더의 규칙 · 운임은 **안 옮긴다**(charges_not_merged) · 선결제 대상은 옮긴다 · 되돌리기 없음(떼어 낸다)   (§21 판정 3·4·5·6·8)
 ⭐⭐ **병합 오더의 확정은 원본의 백오더 형제를 이어받지 않는다**(so_merge_chain_reaches — split 조상 전부에서 merged_into_id 사슬) ⇒ ⚠️ 한 손님·한 제품의 열린 백오더가 **두 줄**인 것이 정상인 경우가 있다(§15 판정 5 의 병합 예외 · 다음 오더가 오래된 줄부터 닫아 수요는 한 번만 센다)   (§21 판정 1 · 0-1·0-2)
-⭐  병합 줄 모으기 열쇠 아홉(제품·단가·정가·할인%·무상 사유·override·부가 셋)이 **전부 같을 때만** 한 줄 — tax_rule 은 열쇠 밖 · 합친 오더 머리는 so_split 식 통째 복사(so_create 를 거치면 티어·오더 전체 할인이 손님 기본으로 되돌아간다)   (고침 ① · ⬜2)
+⭐  병합 줄 모으기 열쇠 ~~아홉~~ → [2026-10-20 · 판정 548] 열하나(제품·단가·정가·할인%·무상 사유·override·부가 셋 + discount_source · deal_line_id)가 **전부 같을 때만** 한 줄 — tax_rule 은 열쇠 밖 · 합친 오더 머리는 so_split 식 통째 복사(so_create 를 거치면 티어·오더 전체 할인이 손님 기본으로 되돌아간다)   (고침 ① · ⬜2)
+⭐⭐ [2026-10-20 · 판정 546 · 547 · pos v1.11] POS 줄 가격 · 할인 = **POS 직원 모두**(판정 225 「표시만」 은 뒤집혔다) · 손 줄이라 오더 할인 몫 0(판정 542) · 누가 정했나 = price_set_by · POS 수량 = 1 이상 정수 · 가용보다 많으면 확인
 ⚠️  백오더 오더를 합치면 장부 end_kind **'merged'**(cancelled 로 적으면 백오더 화면이 취소로 센다) · 원본이 이어받은 남의 줄은 다시 열되 대상이 confirmed 일 때만(아니면 경고 superseded_not_reopenable) · 프리오더였던 줄은 표시가 없다(경고 preorder_lines_need_reflag)   (0-4·0-5·0-7)
 ```
 
@@ -392,7 +398,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      so_header_update — 초안만 · 열쇠 carrier_id(켜진 행 · 글자 = 표 이름 · '' = 비움 · 두 열쇠가 다르면 거절) · so_merge 는 carrier_id 도 비운다
      so_tracking_fix(so, carrier_id, tracking, commit) — 출고된 SO 의 운송사 · 송장만 · 종류 바뀜 거절 · pickup · delivery 거절 · 큐 tracking_fix(메일 없음)
      so_picked_up(so) — so.picked_up_at · by(SO 상태 무접촉) · 채널 warehouse · 종류 pickup · 출고됨 · Shopify 행 sent + Ready → 큐 picked_up · pending → 거절 · error · skipped → IMS 만 + pickup_not_sent
-⚠️ 출고 뒤 운임을 붙이는 창구는 없다 — so_charge_set · so_charge_remove 는 draft 만 · 인보이스 취소 · 재발행은 manager(ful-0b · 판정 456 의 근거)
+⚠️ 출고 뒤 운임을 붙이는 창구는 없다 — so_charge_set · so_charge_remove 는 ~~draft 만~~ → [2026-10-20 · 판정 539 · 540] draft + packed(packed 는 master 쓰기도 · 4-g) — 출고(shipped) 뒤는 여전히 없다 · 인보이스 취소 · 재발행은 manager(ful-0b · 판정 456 의 근거)
 ⚠️ 큐 kind 는 셋을 쓴다(ship · picked_up · tracking_fix) · ready_pickup 은 검사 조건에만 · Ready for pickup 은 ship 갈래(EF · asung-wms 스킬)
 ```
 

@@ -8963,12 +8963,12 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 다음 판정 번호: 531
 ```
 
-## §67 2026-10-19 밤 ~ 10-20 — 동료 피드백 열세 건 · 붙여넣기 가격 · 지우기 · packed 비용 · 합치기 출처 · 여러 오더 인보이스 · 입고 먼저 반영 · 크레딧 남은 차이 · Shopify 잇기 — fb-0 · od-1 · ln-1 · mrg-1 · ch-1 · rcv-0 ~ 1b · po-cn-1 · shop-link-0 · 판정 531 ~ 561 (집 PC → 회사 PC)
+## §67 2026-10-19 밤 ~ 10-20 — 동료 피드백 열세 건 · 붙여넣기 가격 · 지우기 · packed 비용 · 합치기 출처 · 여러 오더 인보이스 · 입고 먼저 반영 · 크레딧 남은 차이 · Shopify 잇기 — fb-0 · od-1 · ln-1 · mrg-1 · ch-1 · rcv-0 ~ 1b · po-cn-1 · shop-link-0 · 판정 531 ~ 563 (집 PC → 회사 PC)
 
 ⭐ 닫힌 것: 동료 피드백 열세 건 가운데 여덟(1 · 2 · 3 · 4 · 6 · 10 · 11 · 13) · 입고 먼저 반영(판정 550 ~ 553) · 크레딧 노트 줄의 남은 차이(판정 554) · 합치기가 할인 출처를 싣는다(판정 548)
-⭐ 새 판정 531 ~ 561 · 원천: 531 ~ 547 = 2026-10-19 밤 집 PC(인계서 `ims-handover-2026-10-19-home.md` §1) · 548 ~ 561 = 2026-10-20 회사 PC 대화 · 지시서 `docs-1020.md`(이 절의 원천) · fb-0(열세 건 조사 · Opus) 회신 · od-1 회신 원문은 2026-10-19 집 PC 대화에만 있다
+⭐ 새 판정 531 ~ 563 · 원천: 531 ~ 547 = 2026-10-19 밤 집 PC(인계서 `ims-handover-2026-10-19-home.md` §1) · 548 ~ 563 = 2026-10-20 회사 PC 대화 · 지시서 `docs-1020.md`(이 절의 원천) · fb-0(열세 건 조사 · Opus) 회신 · od-1 회신 원문은 2026-10-19 집 PC 대화에만 있다
 ⭐ 번호 533 · 535 는 쓰였다가 541 · 546 으로 고쳐 정했다(빈 번호가 아니다)
-⭐ 판정 555 ~ 561(Shopify 잇기)은 shop-link-0 조사(Opus · 쓰기 0) 회신 뒤 · 짓기는 link-1a 부터
+⭐ 판정 555 ~ 561(Shopify 잇기)은 shop-link-0 조사(Opus · 쓰기 0) 회신 뒤 · 562 · 563 은 link-1a 검토 뒤 · 짓기는 link-1a 부터
 
 ### 67-a 동료 피드백 열세 건(fb-0 · 2026-10-19) — 2026-10-20 상태
 
@@ -9023,6 +9023,8 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | 559 | 「B」 | IMS 사진 0 장이면 사진 칸만 보내지 않는다(Shopify 사진을 건드리지 않음 · 나머지는 보냄) · IMS 에 사진이 생기면 판정 409 대로 — 판정 409 의 예외 |
 | 560 | 「A」 | Cin7 이 올린 Shopify 사진은 묶음을 보낼 때 IMS 사진으로 다시 올린다(판정 409 그대로 · 파일 이름 짝 맞추기 안 함) |
 | 561 | 「B」 | 판매 채널 퍼블리시는 읽지 않는다(상태만) · Active 면 퍼블리시와 상관없이 잇고 보냄 켬(IMS 보내기는 퍼블리시를 안 건드린다) · 앱 권한 추가 없음 |
+| 562 | 「A」(2026-10-20 · link-1a 검토 뒤) | Shopify ARCHIVED 상품도 link_off(gid 만 기록 · 보냄 끔 · 나중에 IMS 에서 켜면 그 옛 상품이 되살아난다 · 중복 없음) |
+| 563 | 「A」(2026-10-20 · link-1a 검토 뒤) | 잇는 순간 재고 트리거는 그대로(켜진 변형 재고가 바로 IMS 값 · 새벽 덮기 판정 423 과 같은 결 · 컷오버 뒤 Shopify 재고를 맞추는 것은 IMS 뿐) |
 
 - 판정 546 · 545 의 Caleb 원문 · 532 · 535 의 원문은 인계서에 「Caleb 말 그대로」로 위와 같이만 있다
 - 판정 555 ~ 561 의 근거(shop-link-0 · Opus · 쓰기 0): 지금 켜면 중복 상품이 생긴다 — productSet 은 id 가 없으면 새 상품(문서 「Omit the ID to create a new product」) · 「Any existing variants not included here will be deleted」 · 그래서 상품 · 변형 gid 를 함께 잇는다 · shop_listing_set 은 큐를 넣으므로 잇기는 큐 없는 길 · last_hash 를 심으면 첫 drain 이 건너뛴다(hash = 지난번 보낸 IMS payload 의 md5) · 결함 Product/0 자리표시(`functions/shopify/index.ts` 187 · 227 행 — 첫 보내기가 실패하면 `gid://shopify/Product/0` 을 적고 다음 보내기가 그 id 로 고치기를 시도한다)
@@ -9036,16 +9038,16 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | ImsRefLoad v2 | asung-wms 7c91f06 · GAS | Cin7 에 새로 생긴 것만 · IMS 행 · 이름 무접촉 · ⚠️ v1 은 IMS 행을 Cin7 것으로 바꾸고 끈 것을 다시 켠다 — v2 만 돌린다 |
 | od-1 | asung-wms d7f42d7(20261020010711) | so_line_manual · 손 줄 오더 할인 0 · 문턱은 모든 줄 · 문서 net unit · 크레딧 · 마스터 이름 잠금 IM538 · 확인 OK 42 · 대가: 이미 발행된 인보이스의 손 줄 크레딧은 오더 할인 몫 0(테스트 DB 1 건 · 운영 영향 없음) |
 | so v5t10 · rc v1.8 · pos v1.10 | asung-ims d5f4f88 · c81d0ae · 66664cb | Net unit · PO Complete 안내 · POS 수량 · 크레딧 칩 |
-| ln-1 | asung-wms 0c5886e(20261020123910) | so_lines_paste 가격(묶기 열쇠 제품+가격 · bad_price · free_price · set_price_refused · priced) · so_lines_clear · so_line.price_set_by/at(+ split · merge 복사) · 확인 OK 18 |
+| ln-1 | asung-wms 0c5886e(20261020123910) | so_lines_paste 가격(묶기 열쇠 제품+가격 · bad_price · free_price · set_price_refused · priced) · so_lines_clear · so_line.price_set_by/at(+ split · merge 복사) · 확인 OK 18 · [사실 · `20261020123910_ln_1_paste_price_lines_clear_price_set_by.sql` 머리 주석 31 · 1176 ~ 1178 행 · comment on column so_line.price_set_by] price_set_by/at 은 사람이 단가 · 할인 % 를 줄 때만 찍고 다시 견적(↺)이면 비운다 — updated_by 는 ims_touch 가 덮으므로 「누가 정했나」로 읽지 않는다 · so_lines_clear 는 intake shopify 오더를 거부하고 운임(so_charge) · 쿠폰(coupon_id)은 남긴다 |
 | mrg-1 | asung-wms ff5b49e(20261020130409) | 판정 548 · 확인 OK 14 |
-| ch-1 | asung-wms 01c5b1b(20261020134522) | so_charge_gate · packed 비용 · 반환 status · 확인 OK 12 |
+| ch-1 | asung-wms 01c5b1b(20261020134522) | so_charge_gate · packed 비용 · 반환 status · 확인 OK 12 · [사실 · `20261020134522_ch_1_packed_charges.sql` 머리 주석 31 행 · comment on function so_charge_gate] so_charge_gate 는 오더 행을 for update 로 잡는다(so_finalize 도 같은 행을 잡아 겹치면 뒤쪽이 상태를 다시 본다) · so_charge_set 에 계정을 안 주면 새 비용은 `_99_` Freight Sales(재발행 원본 `20261007171939_fr_1_freight_discount.sql` 바이트) — 화면은 계정을 늘 보낸다(v5w1) |
 | rcv-0 | (조사 · Opus · 쓰기 0) | 먼저 반영 조사 — 원가는 인보이스 단가 · 같은 입고 두 번 반영은 세 겹이 막는다 · 확정 문이 둘 |
-| rcv-1a | asung-wms c353a8e(20261020143921) | 입고 line_ref 꼬리 `:pN` 을 읽는 쪽 — 속 함수 inv_po_line_of · 재발행 9 · 식 인덱스 inv_layer_po_line_idx · 재생성 실제 행 바이트 무변 · 확인 OK 9 |
-| rcv-1b | asung-wms 76d1d10(20261020153535) | po_receipt_post 묶음 · po_receipt_post_now · inv_post_receipt 두 갈래 · 마지막 확정 · 비용 미루기 · 가드 여섯 · post_key 유니크 · 날짜 잠금 · detail 열쇠(`lines[].posted` · `lines[].postable_rows` · `lines[].work[].post_id` · `lines[].work[].batch_no` · `header.posts[]` · `header.post_now_ok` · `totals.posted` · `totals.posted_batches` · warnings `posted_before`) · 확인 OK 17 |
+| rcv-1a | asung-wms c353a8e(20261020143921) | 입고 line_ref 꼬리 `:pN` 을 읽는 쪽 — 속 함수 inv_po_line_of · 재발행 9 · 식 인덱스 inv_layer_po_line_idx · 재생성 실제 행 바이트 무변 · 확인 OK 9 · [사실 · `20261020143921_rcv_1a_receipt_line_ref_suffix.sql` inv_layer_post_receipt 128 행 주석 · `supabase/tests/rcv-1a-verify.sql` 114 행] 재생성의 입고 레이어 순서 = `min(l.id), l.line_ref`(원장에 든 순서 · 실시간과 같게) · 재생성은 핀(po_receipt_cost)을 지우지 않는다(판정 394 · 핀은 입고당 한 번) |
+| rcv-1b | asung-wms 76d1d10(20261020153535) | po_receipt_post 묶음 · po_receipt_post_now · inv_post_receipt 두 갈래 · 마지막 확정 · 비용 미루기 · 가드 여섯 · post_key 유니크 · 날짜 잠금 · detail 열쇠(`lines[].posted` · `lines[].postable_rows` · `lines[].work[].post_id` · `lines[].work[].batch_no` · `header.posts[]` · `header.post_now_ok` · `totals.posted` · `totals.posted_batches` · warnings `posted_before`) · 확인 OK 17 · [사실 · `20261020153535_rcv_1b_post_now.sql` po_receipt_confirm_by ④ · po_charge_confirm 재발행] 마지막 확정은 먼저 반영 합 > 센 합이면 거부(안전띠 · 가드가 먼저 막는다) · 비용 확정이 미뤄지면 경고 cost_deferred_post_now |
 | po-cn-1 | asung-wms c5a7bf8(20261020161648) | qty_diff_after_credits · credited_not_received_qty · credit_billed_qty(po_invoice_detail lines[] · 크레딧 goods 줄에만) · 확인 OK 11 |
 | shop-link-0 | (조사 · Opus · 쓰기 0) | 기존 Shopify 상품 잇기 조사 — 중복 상품 위험 · 이을 자리(shop_product · shop_variant · shop_media) · bulk 읽기 · 맞추기 규칙 · hash 심기 · Product/0 결함 → 판정 555 ~ 561 |
 | link-1a | (지시서 · 짓기 중) | 잇기 DB — 판 표 · 판정 함수 · 큐 없는 실행 창구 |
-| 화면 | asung-ims 293aa70 · 7497204 · c056977 · a397d00 · d148a56 · a452472 · 10a709d · 0e31a73 | so v5u(붙여넣기 가격 · Clear lines · 누가 정했나) · v5u1(줄 표 잘림 · 딜 이름 말줄임) · v5v(packed Add a charge · (as Cin7 does) 뺌) · v5w(여러 오더 Ship & invoice) · v5w1(비용 계정 고르기) · pos v1.11 · receiving post-now v1 · invoices cn-diff v1 |
+| 화면 | asung-ims 293aa70 · 7497204 · c056977 · a397d00 · d148a56 · a452472 · 10a709d · 0e31a73 | so v5u(붙여넣기 가격 · Clear lines · 누가 정했나) · v5u1(줄 표 잘림 · 딜 이름 말줄임) · v5v(packed Add a charge · (as Cin7 does) 뺌) · v5w(여러 오더 Ship & invoice) · v5w1(비용 계정 고르기) · pos v1.11 · receiving post-now v1 · invoices cn-diff v1 · [사실 · `20260924202425_so_finalize_a2.sql` 396 행] 여러 오더 Ship & invoice(v5w)의 인보이스 묶음 = 청구처 · 청구처의 invoice_split_by_store 가 켜졌으면 오더의 손님(매장)마다 |
 
 ### 67-d 실수 · 배운 것
 
@@ -9075,5 +9077,5 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 ① 잇기 link-1a → 1b → 1c → 1d(판정 555 ~ 561 · 컷오버 위험)
 ② 발주앱 이식(판정 521 · 컷오버 아침 필수)
 ③ 컷오버 준비 목록 하나로(66-g ③ 그대로)
-다음 판정 번호: 562
+다음 판정 번호: 564
 ```
