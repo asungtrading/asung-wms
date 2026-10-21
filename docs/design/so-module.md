@@ -2365,7 +2365,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
         ⇒ customer.price_tier 는 전환 전 가입 B2C 손님에게 틀려 있다(짐작 · 12-d 「이름=연락처」 76% 와 맞는다) · 1001132194 ONTARIO INC(AONE → asung.ca B2B)는 Caleb 이 Cin7 에서 고쳤다 — 다음 손님 재적재가 가져온다
         ① 직접 만드는 오더(intake manual · csv)는 손님 기본 티어 — so_copy_customer 그대로
         ② inv_config 'so_direct_order_tier_code' = '1'(Wholesale · ①b 가 insert · on conflict do nothing · 20260916190000:103 선례) · code 로 읽는다(가격 적재와 같은 규칙) · 숫자 아님·표에 없음 → 경고 direct_order_tier_config_missing
-           ⚠️ inv_config 는 auth_all — 로그인한 누구나 바꿀 수 있다 · 이 값은 **경고만** 좌우한다
+           ⚠️ inv_config 는 auth_all — 로그인한 누구나 바꿀 수 있다 · 이 값은 **경고만** 좌우한다 → rls-2 · 판정 568 · 572 — 직원 쓰기 닫힘 · so_direct_order_tier_code 는 거부 20(앱에서 못 바꿈) · §68
         ③ 경고 direct_order_tier_unexpected — 직접 오더의 so.price_tier_id 의 code ≠ 설정 · so_create 반환 · so_detail · 막지 않는다
         ④ 경고 tier_differs_from_customer — so.price_tier_id ≠ 손님 원문 price_tier 로 찾은 티어 · 못 찾으면 customer_tier_missing · so_detail · 막지 않는다
         ⑤ so_header_update 허락 열쇠 price_tier(이름) — purpose='sale' · 활성만 · 원문 so.price_tier + so.price_tier_id 짝으로 · 이미 들어간 줄 가격은 그대로(warning lines_keep_prices · ④ 로 보인다)
@@ -2476,7 +2476,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 
 ```
 ⭐ 전환(Asung-IMS 를 운영으로 올리기) 전 — so_number_seq 가 25000 · is_called f 인지 본다(첫 실제 번호가 SO-25000 이어야 한다) · 시험이 소비한 번호는 rollback 밖에서 setval 로 되돌린다(so 가 비어 있을 때만)
-⚠️ inv_config 는 auth_all — so_direct_order_tier_code 를 로그인한 누구나 바꿀 수 있다 · 경고만 좌우하므로 사고 크기는 작다 · 잠그려면 별건
+⚠️ inv_config 는 auth_all — so_direct_order_tier_code 를 로그인한 누구나 바꿀 수 있다 · 경고만 좌우하므로 사고 크기는 작다 · 잠그려면 별건 → rls-2 · 판정 568 · 572 — 직원 쓰기 닫힘 · so_direct_order_tier_code 는 거부 20(앱에서 못 바꿈) · §68
 ⚠️ so_number_seq 의 authenticated grant(usage · select)는 남아 있으나 쓰이지 않는다(definer 창구가 nextval)
 ⚠️ ims_staff.auth_user_id 에 FK 가 없다(20260915141105) — 가짜 직원 시험이 가능한 이유 · 운영에 남기지 않는다
 📌 가짜 직원 시험은 트랜잭션 안에서만 · 검증 heredoc 은 do $$ … exception when <조건> 으로 감싼다(예외가 나면 트랜잭션이 abort · asung-workflow §5)
@@ -2946,7 +2946,7 @@ cron  [테스트 · Asung-IMS] jobid 1 · so-backorder-sweep · 17 9 * * * · ac
 | 7-i so_out 창구 · CHECK 확장 · 라인 100×칸 | ⬜ | ✅ ③a |
 | 17-f ③ 라인별 소진 「허용」 | 합으로만 대조 | 접어서 한 번 — 행 단위까지 같다(이견 4) |
 | so_cancel 시그니처 | 넷 | 다섯(+p_reopen_superseded · 판정 10) — 화면 인자 |
-| 12-g inv_config auth_all | 누구나 | so_backorder_expire_days 만 supervisor 이상(판정 14 · 잠긴 키 목록) |
+| 12-g inv_config auth_all | 누구나 | so_backorder_expire_days 만 supervisor 이상(판정 14 · 잠긴 키 목록) → rls-2 · 판정 568 · 572 — 직원 쓰기 닫힘 · so_direct_order_tier_code 는 거부 20(앱에서 못 바꿈) · §68 |
 | ①a 회신 「무상 줄」 | 수량에 들어갔다 | 이어받기 수량·대상 모두 제외(판정 13·15) · 만료 제외(판정 16) |
 
 ### 15-f ⬜ 남는 것
@@ -4022,7 +4022,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
         셋 = 받을 수량(인보이스 기준 → PO 확정 수량 · po_receipt_* · ⚠️ 2026-09-29 판정 88 로 다시 확정 인보이스 기준 · §29) · off-PO(→ 발주 차이 큐 off_po · 모양은 ⑤-6 에서 판정) ·
              끝맺음(Apply to Cin7 → 없어진다 · 확정은 po_receipt_confirm)
         지키는 것 = 스캔 · 세기 · 줄 단위 저장 · 칸에 넣기 · Place all · 동시 작업 표시 · 차례는 맨 마지막(⑤-6)
-판정 6  WMS 자기 표만 쓰는 동작(② 만 쓰는 동작 전부 · 함수 단위 약 40 · 짐작)은 직접 쓰기 유지 · 쓰기 규칙도 auth_all 그대로 — Caleb 「A로 가자」
+판정 6  WMS 자기 표만 쓰는 동작(② 만 쓰는 동작 전부 · 함수 단위 약 40 · 짐작)은 직접 쓰기 유지 · 쓰기 규칙도 auth_all 그대로 — Caleb 「A로 가자」 → 판정 569 · §68
         ⚠️ 알고 받아들인 대가: IMS 에 로그인한 누구나(오피스 · 회계 계정 포함) 브라우저에서 wms_ ② 표에 쓸 수 있다
         기각된 안: 쓰기를 ims_can_enter('wms') 로 좁힌다(대화 Claude 권고였다) · 전부 창구로
 판정 7  권한 문은 사람이 누르는 바깥 창구에 하나 · 속 함수는 p_staff 를 넘겨받는다 — Caleb 「A로 가자」
@@ -5427,7 +5427,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
   - R1 앞에 Caleb 「R1의 경우는 규칙을 정하기 전에 이미 만든 코드는 그대로 쓰고 있어서 그래. r2는 … 케이스 바코드도 있으니 그것은 다를거야. 그러나 낱개 베이스 바코드는 맞을거야.」
 - **판정 139** Caleb 「니 안대로 가자」 — 단위(unit · uom_name)는 막지 않고 고친다 · 세트의 단위가 계수와 다르면 알리기 · 비활성 내리기는 막지 않는다 — 내리기 전에 화면이 재고 · 열린 오더 · 열린 발주 수를 보여 주고 확인을 받는다 · 비활성 상품도 찾아 되살릴 수 있게 한다
 - **판정 140** Caleb 「가로 가자」 — 열쇠는 기존 `master` 하나 · 상품 만들기 · 고치기 창구와 SKU 잠금 트리거 함수는 **security definer + 첫 줄 문**(`ims_require_write('master')`) — 잠금 검사가 권한과 상관없이 원장 · 열린 줄을 모두 본다(invoker 면 master 만 가진 사람에게 판매 · 원장 표가 RLS 로 조용히 0행이 되어 잠금이 「붙은 것 없음」으로 통과할 수 있다 — 짐작 · 읽기 정책은 안 봤다) · 만들기 차수 검증에서 **master 만 가진 가짜 직원**으로 잠금이 거부하는지 시험한다 · 기각 (나) invoker + RLS(Claude Code prod-1 추천)
-  - ⚠️ 근거 정정(2026-10-01 · §33-c): 「invoker 면 RLS 로 0행 → 통과할 수 있다(짐작)」는 **오늘은 일어나지 않는다** — 원장 · 레이어 읽기 정책이 `auth_all … using (true)` 라 master 만 가진 직원도 다 읽는다(S7 실측) · 판정은 그대로(원장 읽기를 조이는 날 조용히 새지 않게 · 호출자 무관) · 트리거 함수의 「+ 첫 줄 문」은 판정 174 로 바뀌었다
+  - ⚠️ 근거 정정(2026-10-01 · §33-c): 「invoker 면 RLS 로 0행 → 통과할 수 있다(짐작)」는 **오늘은 일어나지 않는다** — 원장 · 레이어 읽기 정책이 `auth_all … using (true)` 라 master 만 가진 직원도 다 읽는다(S7 실측) · 판정은 그대로(원장 읽기를 조이는 날 조용히 새지 않게 · 호출자 무관) · 트리거 함수의 「+ 첫 줄 문」은 판정 174 로 바뀌었다 → rls-1 · 판정 565 — 쓰기는 닫힘 · 읽기는 여전히 using(true)(정책 이름 `<표>_select`) · 읽기 조이기는 rls-3 · 판정 576 · §68
 - **판정 141** Caleb 「가」 — 상품 계열 표에 **직접 쓰는 길을 닫고 창구만 연다** — master 권한이 있는 사람은 지금처럼 만들고 고치되 반드시 창구(검사)를 거친다 · 권한 없는 사람은 그대로 못 쓴다 · 읽기는 그대로 · 불러오는 데이터 적재가 어떤 계정으로 쓰는지 만들기 차수에서 먼저 확인한다(직원 계정이면 적재 길을 함께 옮긴다)
 - **판정 142** Caleb 「조립, 번들 차로 넘기자」 — 콤보(product_bom) 만들기 · 고치기는 조립 · 번들 차수에서 조립 흐름과 함께 · 이번 차수는 콤보를 읽기만  → [2026-10-05 판정 244 로 닫힘 §44]
 - **판정 143** ① Caleb 「니 제안대로 가자」 — 브랜드 · 분류 · 단위는 사람이 목록에서 고르기만 하고 창구가 그 id 의 이름을 이름 칸(brand_name · category_name · uom_name)에 자동으로 복사 ② Caleb 「2는 비워둔다」 — IMS 에서 만든 상품은 `cin7_` 원문 칸을 비워 둔다 · 판정 132 비교에서도 제외 · 기록만(2단계): 설명 글이 필요해지면 IMS 자기 칸을 세우고 cin7_description 을 한 번 옮겨 담는다 · 그 뒤 IMS 칸이 정본 · cin7_ 칸은 보관 기록
@@ -5656,7 +5656,7 @@ e8e1d2c  prod-2  20261001123000_prod_2_product_door.sql (162행 · md5 8ab89dd48
 ### 33-c 실측 (테스트 DB · 2026-10-01 · 운영은 전환 때 같은 SQL 로 · 각 검증 파일 I 절)
 
 - 기초 스냅샷에만 있고 원장 · 레이어 행이 없는 SKU = 0(스냅샷 8,041 · 원장 없음 3,403 · 그중 레이어도 없음 0 — 기초 레이어가 덮는다) ⇒ 잠금 대상은 판정 136 그대로(원장 · 레이어)
-- ⭐ 원장 · 레이어 RLS 는 `auth_all for all to authenticated using (true)`(20260816000000:89 · 20260908195949:152) — master 만 가진 직원도 원장을 다 읽는다(S7 실측 BSMirror 2 = postgres 2) ⇒ 판정 140 근거 정정(§31-a 판정 140 아래 줄)
+- ⭐ 원장 · 레이어 RLS 는 `auth_all for all to authenticated using (true)`(20260816000000:89 · 20260908195949:152) — master 만 가진 직원도 원장을 다 읽는다(S7 실측 BSMirror 2 = postgres 2) ⇒ 판정 140 근거 정정(§31-a 판정 140 아래 줄) → rls-1 · 판정 565 — 쓰기는 닫힘 · 읽기는 여전히 using(true)(정책 이름 `<표>_select`) · 읽기 조이기는 rls-3 · 판정 576 · §68
 - 활성 상품끼리 이미 같은 바코드: 바코드 23 · 상품 행 47(지금 행은 안 건드린다)
 - 바코드 길이(활성): 12 11,569 · 14 4,548 · 13 893 · 16 43 · 11 14 · 17(숫자 아님) 10 · 15 9 · 8 6 …
 - 옵션 축 이름(활성 family): Color 467 · Size 364 · Formula 80 · Type 52 · Style 50 · color 38 · Language 37 · Scent 23 · … · Flavor 4 · Flavour 4
@@ -6846,22 +6846,22 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 번호 | 내용 |
 |---|---|
 | 257 | 화면 **하나**(stock.html) · 판정 243 두 모드 · 넓은 목록 = 가용표 · 상세 = 사진 · Bins · Movements · `?id=<product_id>&wh=<warehouse_id>` |
-| 258 | 보기 = 로그인한 직원 누구나(메뉴 열쇠 null · Inventory 맨 앞 「Stock Availability」) |
+| 258 | 보기 = 로그인한 직원 누구나(메뉴 열쇠 null · Inventory 맨 앞 「Stock Availability」) → WMS Stock Lookup 도(nav v8 · §68) |
 | 259 | 화면 창구 접두 `stk_` |
 | 260 | On order = 확정 발주 줄 qty_ea − 확정 입고 줄 qty_ea(0 아래 0 · 창고 = po.ship_to_warehouse_id) · draft 제외 |
 | 261 | 기본 0 줄 숨김 · 「Show zero stock」 · 세트 sku 검색 → 낱개 줄 + 세트 표시 · 콤보 줄 없음 |
-| 262 | 원가(amount · 발주 단가)는 이 창구들이 절대 내지 않는다 — 권한과 무관한 불변식 |
+| 262 | 원가(amount · 발주 단가)는 이 창구들이 절대 내지 않는다 — 권한과 무관한 불변식 → 판정 575 로 좁힘(원가는 stk_value_* 만 · 원가 열쇠 · §68) |
 | 263 | 같은 날 하루 안 순서는 알 수 없다 ⇒ 누적 잔고는 날짜별 마지막 줄(is_day_end)에만 보인다 |
-| 264 | 가용 속 함수는 **definer** — transfer 열쇠 없는 직원도 트랜스퍼 예약을 뺀 같은 가용을 본다(20260924020852 「definer 로 바꾸지 않는다」 정정 · 트랜스퍼 표가 09-28 에 생겨 생긴 결함) |
+| 264 | 가용 속 함수는 **definer** — transfer 열쇠 없는 직원도 트랜스퍼 예약을 뺀 같은 가용을 본다(20260924020852 「definer 로 바꾸지 않는다」 정정 · 트랜스퍼 표가 09-28 에 생겨 생긴 결함) → stk_reserved 도 같은 뜻 · TRF 번호 · 상태 · 수량은 열쇠 없이(§68) |
 | 265 | 속 함수 이름 `inv_available_base` (속 = inv_ · 화면 = stk_ · 판매 껍데기 = so_) |
 | 266 | `p_include_zero=false` = 다섯 숫자(on_hand · sales · transfer · on_order · in_transit) 모두 0 인 줄만 뺀다 |
 | 267 | 세트 여러 개가 맞는 낱개 줄 = 첫 세트(sku 순) + matched_set_count |
-| 268 | 새 창구의 문 = 로그인 + 활성 직원 |
+| 268 | 새 창구의 문 = 로그인 + 활성 직원 → stk_reserved 같은 문 · stk_value_* 는 + 원가 열쇠(판정 575 · §68) |
 | 269 | 문서 링크 `doc_href` 는 창구가 만든다(so.html 은 `?so=<번호>` · 나머지 `?id=<uuid>`) |
 | 270 | 상쇄 줄은 합치지 않는다 · `is_reversal` · `line_ref` · 화면은 흐리게 |
 | 271 | 움직임은 쪽 없음 · 상한 2,000(`p_max`) · 넘으면 「Narrow the date range」 |
 | 272 | 움직임 이력에는 가상 창고 IN_TRANSIT 의 중간 두 줄을 보이지 않는다(출발 브랜치의 나감 · 도착 브랜치의 들어옴은 보인다) · 운송 중 수량은 `stk_availability.in_transit`(도착 브랜치) · 중간 줄 따로 보기는 미룬 112 |
-| 273 | 목록 bin 칸 = 새 창구 `stk_bins_many` · 쪽마다 한 번 · `stk_availability` 무변 |
+| 273 | 목록 bin 칸 = 새 창구 `stk_bins_many` · 쪽마다 한 번 · `stk_availability` 무변 → stk-av-1 재발행(§68) |
 | 274 | 크레딧 링크 = `so-credits.html?cr=<credit_number>`(그 화면이 이미 `imsParam("cr")` 로 연다 — 269 의 「?id= 가 생기면」을 대체) |
 | 275 | `stk_bins_many` 배열: null · 중복 제거 → 500 초과 거부 · 0 이면 빈 결과(문은 먼저) · 모르는 id 는 줄 없음 |
 | 276 | `stk_bins_many` 반환 줄 그대로(product_id · bin_id · bin · bin_zone · bin_is_active · qty) · 정렬 product_id, qty desc, bin, bin_id |
@@ -6913,7 +6913,7 @@ cin7 · manual 사건 = 번호만(링크 없음)
 - 110 콤보 부모 8행의 잔고(옛 조립 사건)
 - 111 CRO85680 912개가 product 에 없다
 - 112 IN_TRANSIT 중간 줄 따로 보기(판정 272)
-- (번호 없음 · 메모) bin 으로 검색 — 넣지 않음(Caleb 이 범위를 정하지 않았다 · 필요하면 stk_availability 재발행과 함께)
+- (번호 없음 · 메모) bin 으로 검색 — 넣지 않음(Caleb 이 범위를 정하지 않았다 · 필요하면 stk_availability 재발행과 함께) → stk-av-1 재발행에도 bin 검색은 넣지 않았다(§68)
 
 ### 46-f 다음
 
@@ -8978,11 +8978,11 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | 2 | packed 오더에 운임 말고 다른 비용 | ✅ ch-1 · so v5v · v5w1(계정 고르기) |
 | 3 | Paste lines 에 가격 | ✅ ln-1 · so v5u |
 | 4 | Lines 전부 지우기 | ✅ ln-1 · so v5u |
-| 5 | Lines 에 GP 마진(내부용) | 컷오버 뒤 · 원가 보기 문만 정함(판정 537) |
+| 5 | Lines 에 GP 마진(내부용) | 컷오버 뒤 · 원가 보기 문만 정함(판정 537) → 열쇠 cost 는 섰다(판정 578) · GP 칸 짓기는 그대로 미룸 · §68 |
 | 6 | 리시빙 일부만 먼저 재고에 | ✅ rcv-1a · rcv-1b · receiving post-now v1(판정 550 ~ 553) |
 | 7 | family 해체 | 컷오버 뒤 · Caleb 「아예 없애야 하는 상황도 있고, 일부를 빼서 새로 family를 만들어야 하는 상황도 있어」 |
-| 8 | Shopify 에 여러 제품 · 새 스토어 | ⬜ 컷오버 위험 — 기존 스토어 상품을 SKU 로 잇는 도구(판정 420 실행) · 조사 shop-link-0 끝 → 판정 555 ~ 561 · 짓기 link-1a 부터 |
-| 9 | Product availability 에 재고 금액 · 거르기 | 컷오버 뒤 |
+| 8 | Shopify 에 여러 제품 · 새 스토어 | ⬜ 컷오버 위험 — 기존 스토어 상품을 SKU 로 잇는 도구(판정 420 실행) · 조사 shop-link-0 끝 → 판정 555 ~ 561 · 짓기 link-1a 부터 → §68(link-1a · 1b · ss v3 · v3a · 시험 스토어까지) |
+| 9 | Product availability 에 재고 금액 · 거르기 | 컷오버 뒤 → ✅ §68(stk-av-1 · stock v2) |
 | 10 | POS 손님 크레딧 잔액 · 연체 | ✅ pos v1.10(보이기만 · 판정 536) |
 | 11 | POS 수량 직접 넣기 | ✅ pos v1.10(판정 547) |
 | 12 | 파손품을 같은 SKU 로 | 컷오버 뒤(Caleb 「컷오버전에 꼭 해야 하는 것은 아니야」) · 대신 POS 줄 가격 · 할인 ✅ pos v1.11(판정 546) |
@@ -8998,7 +8998,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | 534 | 「제안대로」 | brand · category · unit · payment term · bin 을 Settings 에서(master 권한) |
 | 535 | 「a」 → 「니 제안대로」 | → 546 으로 고쳐 정함 |
 | 536 | 「a」 · 10번 credit = 「손님이 쓸 수 있는 우리쪽 크레딧 잔액이 맞아」 | POS 손님 막대에 크레딧 · 열린 인보이스 · 연체 빨간 칩 — 보이기만(신용 한도 아님) |
-| 537 | 「b」 | 원가(GP)는 Staff 에서 켜 준 사람만 보인다 · 짓기는 컷오버 뒤 |
+| 537 | 「b」 | 원가(GP)는 Staff 에서 켜 준 사람만 보인다 · 짓기는 컷오버 뒤 → 열쇠 cost · 판정 567 · 578 · §68 |
 | 538 | 「이름 바꾸기는 막고, 만들기, 끄기, 켜기로 하자」 | 마스터 다섯은 만들기 · 끄기 · 켜기만 · 이름 바꾸기는 DB 가 막는다(IM538) |
 | 539 | 「packed 좋아」 | 비용을 넣고 지우는 상태 = draft + packed 만 |
 | 540 | 「좋아」 | packed 에서는 sales 쓰기 + master 쓰기 둘 다 · → §24 4662 행 · §17 3199 행 정정 |
@@ -9046,7 +9046,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | rcv-1b | asung-wms 76d1d10(20261020153535) | po_receipt_post 묶음 · po_receipt_post_now · inv_post_receipt 두 갈래 · 마지막 확정 · 비용 미루기 · 가드 여섯 · post_key 유니크 · 날짜 잠금 · detail 열쇠(`lines[].posted` · `lines[].postable_rows` · `lines[].work[].post_id` · `lines[].work[].batch_no` · `header.posts[]` · `header.post_now_ok` · `totals.posted` · `totals.posted_batches` · warnings `posted_before`) · 확인 OK 17 · [사실 · `20261020153535_rcv_1b_post_now.sql` po_receipt_confirm_by ④ · po_charge_confirm 재발행] 마지막 확정은 먼저 반영 합 > 센 합이면 거부(안전띠 · 가드가 먼저 막는다) · 비용 확정이 미뤄지면 경고 cost_deferred_post_now |
 | po-cn-1 | asung-wms c5a7bf8(20261020161648) | qty_diff_after_credits · credited_not_received_qty · credit_billed_qty(po_invoice_detail lines[] · 크레딧 goods 줄에만) · 확인 OK 11 |
 | shop-link-0 | (조사 · Opus · 쓰기 0) | 기존 Shopify 상품 잇기 조사 — 중복 상품 위험 · 이을 자리(shop_product · shop_variant · shop_media) · bulk 읽기 · 맞추기 규칙 · hash 심기 · Product/0 결함 → 판정 555 ~ 561 |
-| link-1a | (지시서 · 짓기 중) | 잇기 DB — 판 표 · 판정 함수 · 큐 없는 실행 창구 |
+| link-1a | (지시서 · 짓기 중) → 5d38ef2 · §68-c | 잇기 DB — 판 표 · 판정 함수 · 큐 없는 실행 창구 |
 | 화면 | asung-ims 293aa70 · 7497204 · c056977 · a397d00 · d148a56 · a452472 · 10a709d · 0e31a73 | so v5u(붙여넣기 가격 · Clear lines · 누가 정했나) · v5u1(줄 표 잘림 · 딜 이름 말줄임) · v5v(packed Add a charge · (as Cin7 does) 뺌) · v5w(여러 오더 Ship & invoice) · v5w1(비용 계정 고르기) · pos v1.11 · receiving post-now v1 · invoices cn-diff v1 · [사실 · `20260924202425_so_finalize_a2.sql` 396 행] 여러 오더 Ship & invoice(v5w)의 인보이스 묶음 = 청구처 · 청구처의 invoice_split_by_store 가 켜졌으면 오더의 손님(매장)마다 |
 
 ### 67-d 실수 · 배운 것
@@ -9062,14 +9062,14 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 
 ### 67-e 미룬 것 — 66-f 260 에 이어 붙임
 
-- 261 8번 연결 도구(판정 555 ~ 561) — link-1a(DB · 짓기 중) 뒤 잇기 1b EF · 1c 화면 · 1d 시험 스토어 · 실제 두 스토어 앱 설치는 컷오버 준비 목록 맨 앞 · Product/0 자리표시 결함(index.ts 187 · 227)도 이 묶음에서
+- 261 8번 연결 도구(판정 555 ~ 561) — link-1a(DB · 짓기 중) 뒤 잇기 1b EF · 1c 화면 · 1d 시험 스토어 · 실제 두 스토어 앱 설치는 컷오버 준비 목록 맨 앞 · Product/0 자리표시 결함(index.ts 187 · 227)도 이 묶음에서 → §68(link-1a · 1b · ss v3 · v3a · 68-f 261)
 - 262 발주앱 이식(판정 521 의 셋째 · 컷오버 아침 필수)
 - 263 창고 앱(wms-receiver rc v1.8) 안내 글 「다 올 때까지 Hold」 → 먼저 반영 뒤 바꿀지(Caleb)
 - 264 so_line_remove 가 shopify 줄 하나씩 지우기를 막지 않는다(ln-1 보고 · 보고만)
 - 265 합친 머리의 intake 는 가장 오래된 원본 것(mrg-1 보고 2 · 보고만)
 - 266 F0600 팔렛 짝(003 · 03 / 004 · 04) — 창고에 묻고 안 쓰는 쪽을 Settings 에서 끈다
 - 267 테스트 DB 의 옛 합친 manual 줄 34(합친 오더 3)는 그대로(원래 출처를 모른다)
-- 컷오버 뒤로 둔 피드백(67-a): 5 GP 마진 · 7 family 해체 · 9 재고 금액 · 12 파손품
+- 컷오버 뒤로 둔 피드백(67-a): 5 GP 마진 · 7 family 해체 · 9 재고 금액 · 12 파손품 → 9 는 ✅ §68
 
 ### 67-f 다음 (Caleb 이 고른다)
 
@@ -9078,4 +9078,134 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 ② 발주앱 이식(판정 521 · 컷오버 아침 필수)
 ③ 컷오버 준비 목록 하나로(66-g ③ 그대로)
 다음 판정 번호: 564
+```
+
+## §68 2026-10-20 오후 ~ 밤 — 원장 · 설정 쓰기 닫기 · Shopify 잇기 실행 · 재고 화면 넓히기(예약 목록 · 공급처 · Both · 금액 · 원가 열쇠) · WMS Stock Lookup — link-1a · 1b · rls-1 · rls-2 · stk-av-0 · stk-av-1 · 판정 564 ~ 578 (회사 PC → 집 PC)
+
+⭐ 닫힌 것: 원장 · 원가 표 넷과 설정 표(inv_config)의 「로그인한 직원 누구나 쓰기」(rls-1 · rls-2 · 판정 565 · 568) · 67-a 9번 재고 금액 · 거르기(stk-av-1 · stock v2 · 판정 570 · 571 · 575) · Allocated · Transfer res. 를 누르면 SO · TRF 목록(판정 566) · WMS 만 쓰는 사람의 제품 검색(WMS Stock Lookup · ws v1 · v1a) · 기존 Shopify 상품 잇기 도구(link-1a · 1b · ss v3 · v3a — 시험 스토어까지)
+⭐ 새 판정 564 ~ 578 · 원천: 지시서 `docs-1020h.md`(집 PC · 이 절의 원천) · 회사 PC 대화(564 · 565 · 568 · 569) · 집 PC 대화(566 · 567 · 570 · 571 · 575 ~ 578) · stk-av-0 조사(Opus · 쓰기 0) 회신 · rls-1 · rls-2 · stk-av-1 검토 이견
+⭐ 테스트 DB 에는 이 절의 마이그레이션이 전부 적용됐다 · **운영 DB 에는 2026-10-20 것이 하나도 없다** · stk-av-1 은 rls-1 · rls-2 뒤에만 운영에 올린다(파일 자체는 rls-1 정책에 기대지 않지만 시험을 그 위에서 했다)
+⭐ 회사 PC 의 `docs-1020.md`(§67 을 쓴 차수 · 2787048)와 다른 차수다
+
+### 68-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 564 | 「A」 | 잇기 뒤 처음 몇 브랜드를 보내 Shopify 에서 확인한 다음 「Send all left」 로 남은 전부를 한 번에 큐에(200 개씩 되풀이 · ss v3a) · 실제 나가는 속도는 약 20 개/분 |
+| 565 | 「A」 | 원장 · 원가 표 넷(inv_ledger · inv_layer · inv_layer_cost_add · inv_layer_consume)의 「누구나 쓰기」 결함을 재고 금액 일보다 먼저 따로 닫는다 → rls-1 `e0d19f7`(auth_all → `<표>_select` 만 · authenticated 쓰기 grant 회수 · invoker 쓰기 함수 13 → definer · 몸 · ACL 바이트 그대로) |
+| 566 | 「B」 | Allocated · Transfer res. 를 누르면 나오는 목록은 따로 된 창구(stk_reserved · 같은 조건 복사) · inv_available_base 는 건드리지 않는다 · 「목록 합 = 타일」 시험 · 두 함수 주석 「서로 같은 조건 — 한쪽을 고치면 다른 쪽도」 |
+| 567 | 「A」 | 재고 금액 · 원가 = 새 「원가 보기」 열쇠(Staff 에서 켜 준 사람만 · 판정 537) · DB 읽기도 가린다(→ DB 가리기는 576 으로 rls-3) |
+| 568 | 「A」 | inv_config(설정 표) 쓰기를 rls-1 바로 뒤 rls-2 로 닫는다 · 설정 저장은 창구로 · 화면 두 곳(settings.html)은 대화 Claude |
+| 569 | 「A」 | WMS 작업 표 17(픽 · 팩 · 팔렛 · 신고 등)은 **의도된 열림**(창고 화면이 직접 쓰는 설계 · 재고 · 돈은 거기서 안 움직인다) · 창구 전환은 컷오버 뒤 · WMS 짓기(Stock Lookup 포함)는 그대로 · Caleb 물음 「그러면 wms에 짓는 것을 보류하자는 의미는 아니지?」 → 아니다 |
+| 570 | 「A」 | Stock Availability 공급처 거르기 = 그 공급처의 활성 줄이 있는 제품 전부(기본 아니어도 · 세트 줄은 낱개로) · 금액 합계는 겹칠 수 있음(화면 안내) |
+| 571 | 「B」 | 창고 고르기에 「Both」 — 한 줄에 Toronto · Edmonton 숫자 나란히 · WMS Stock Lookup 도 두 브랜치 · Caleb 확인(2026-10-20 집) 「여기서 토론토만 설정한 사람은 토론토만 보이고 …?」 → 누구에게나 두 브랜치 · 정해진 브랜치는 먼저 · 파란 테두리 → 「아냐 좋아」 |
+| 572 | 「A」 | 설정 저장 창구 ims_config_set 은 사람 문이 있는 키 21 만(메일 10 · 문서 7 · so_invoice_unit_display · 잠긴 3) · 나머지 20(db_role · doc_public_base_url · base_currency · baseline_snapshot_key · customer_default 7 · supplier_default 4 · po_inventory_account_code · 계정 코드 4 · so_direct_order_tier_code)은 화면에서 못 바꾼다 — 마이그레이션 · psql |
+| 573 | (대화 Claude · 기술) | inv_config_guard 의 authenticated 가지는 바이트 그대로 — 창구 뒤의 마지막 벽 · 값 검사는 guard 한 곳 |
+| 574 | (대화 Claude · 기술) | p_old 다르면 changed_elsewhere(누가 · 언제 · 지금 값) · null 이면 검사 안 함 · 같은 값은 changed false |
+| 575 | 「A」 | stk_availability 는 판정 262 그대로(원가 칸 없음) · 금액은 따로 된 창구 둘 stk_value_many(쪽마다 · 500 상한 · layer_qty_ea 함께) · stk_value_total(합계 · 단추로)만 내고 둘만 원가 열쇠를 본다 · **판정 262 를 「원가는 stk_value_* 만 · 원가 열쇠」로 좁힌다** · 계기: stk-av-1 지시서(대화 Claude)가 262 를 놓치고 stk_availability 에 금액 칸을 넣으라고 적었다 → Claude Code 검토 이견 1 |
+| 576 | 「A」 | 원가 표 DB 읽기 가리기(567 의 「DB 읽기도」)는 stk-av-1 에서 떼어 **rls-3** 으로(stk-av-1 바로 다음 · 컷오버 준비 목록 「운영 전 필수」) · 까닭: 원가 표를 읽는 invoker 함수 6(po_charge_confirm · so_stock_short_list · so_credit_detail · inv_adjust_eval · inv_transfer_detail · po_fx_cost_lines)이 열쇠 없는 직원에게 조용히 0 행 — 특히 po_charge_confirm 되돌리기의 「이미 원가에 얹혔으면 거부」 검사가 통과돼 얹힌 원가가 남은 채 draft 로 돌아간다(장부 결함) · 뷰 inv_layer_open(security_invoker 없음 · authenticated SELECT)과 inv_layer_value(definer · 누구나 layer id 로 원가)도 함께 |
+| 577 | (열림 · rls-3 에서 묻는다) | 「원가」 울타리 범위 — 레이어 넷 + inv_layer_open + inv_layer_value 만인가, 단가 자리(product_supplier.cost · fixed_cost · po_line.unit_price · po_invoice_line.unit_price · po_receipt_cost.unit_cost_cad · inv_cost_adjust.amount_cad · inv_ledger.raw->'cost' · inv_adjust_line.unit_cost)까지인가 |
+| 578 | 「A」 | ims_can_view_cost() = ims_can_view('cost') — admin · supervisor 는 역할로 · 나머지는 Staff 에서 perms cost 또는 cost:read(read · write 둘 다 보임 · write 는 뒷날 원가 조정 열쇠 자리) |
+
+- 대화 Claude 안(판정 아님 · Caleb 이견 없음): 예약 목록의 손님 이름은 **sales 열쇠가 있는 사람에게만**(stk_reserved 가 null) · ⭐ WMS Stock Lookup 은 열쇠와 무관하게 **손님 이름을 그리지 않는다**(창고 화면)
+- 대화 Claude 기술 확정(stk-av-1 이견 7 · 8 · 10 · 11 · 6 · 9): Both 의 평평한 열 = 고른 창고들의 합 · by_warehouse jsonb[] 창고별(이름 순 — 화면은 순서가 아니라 warehouse_id 로 찾는다) · 0 줄 숨김은 합친 다섯 숫자 기준 · 공급처 세트 줄은 coalesce(parent_product_id, id) · 비활성 공급처 줄 제외 · 바코드는 stk_availability 안에서(정확 일치 · 여러 제품이면 전부 · 세트 바코드 → 낱개 줄 + matched_set_*) · TRF 번호 · 상태 · 수량은 열쇠 없이 보임(판정 264 의 연장) · 옛 서명 drop → 새로 · 금액 식 = inv_layer_value 와 서로 같은 식의 집합형
+- rls-2 결함 판 B 의 뜻: 창구가 db_role 까지 받으면 admin 이 테스트 DB 를 production 으로 바꿀 수 있다 — 거부 목록이 그 벽이다
+- 포인터: 판정 262 · 258 · 264 · 268 · 273(§46-a) · 537(§67-b · 67-a 5) · 569 ← 판정 6(§24 4025 행)
+
+### 68-b 쉬운 말 (Caleb 이 물은 자리)
+
+- **「의도된 열림」(569)** — 픽 · 팩 · 팔렛 · 신고 같은 WMS 작업 표는 창고 화면이 직접 쓰도록 지은 것이다. 재고와 돈은 그 표에서 움직이지 않고 창구(definer)에서만 움직인다. 그래서 원장 · 설정처럼 서둘러 닫지 않는다.
+- **「wms 짓기 보류 아님」(569)** — 작업 표를 창구로 바꾸는 일이 나중일 뿐, WMS 에 새 화면을 짓는 일(Stock Lookup 등)은 그대로 한다.
+- **「토론토만 설정한 사람」(571)** — 브랜치를 정해 둔 직원도 두 브랜치 숫자를 다 본다. 자기 브랜치가 먼저 · 파란 테두리로 나온다. 브랜치 설정은 「먼저 보이는 것」이지 「그것만 보이는 것」이 아니다.
+- **「Staff 화면이 왜 바뀌었나」(68-e 4)** — 새 열쇠 cost 의 설명 글이 길어 열쇠 표의 설명 칸이 늘어났고 none · read · write 단추가 화면 오른쪽 끝으로 밀렸다. 설명 칸에 줄 바꿈을 주었다(st v3a). cost 가 맨 위에 오는 것은 jsonb 열쇠가 짧은 이름부터 나오기 때문이다(화면이 순서를 정하지 않는다).
+
+### 68-c 차수 · 커밋 (git log 원문)
+
+| 차수 | 레포 · 커밋 | 무엇 |
+|---|---|---|
+| skl-1020 | asung-wms 53d670b(2026-10-20 13:29) | 스킬 다섯(asung-so · asung-po · asung-inv-ledger · asung-workflow · asung-wms)에 판정 531 ~ 563 — §67 커밋(2787048 · 12:57) 뒤라 §67 표에 없다 |
+| link-1a | asung-wms 5d38ef2(20261020173401) | 기존 Shopify 상품을 SKU 로 잇기 DB — shop_link_run · shop_link_item · shop_link_plan(규칙 표 · 556 ~ 558 · 562) · shop_link_apply(판 번호 · 큐 없음 · hash 심기 · 재고 트리거 그대로 563) · shop_link_push_batch · shop_link_remaining(555) · Product/0 은 안 이어진 것 · 확인 OK 11 |
+| link-1b | asung-wms 8e083d1(20261020180009 · EF shopify 배포됨) | EF link_read(bulk 시작 · restart) · link_poll(상태 · JSONL 덩이 적재 · 40 초 · more · 멱등) · parseBulkJsonl · 판정 559(사진 0 장이면 files 키 없음) · Product/0 고침(errorMark · 제약 shop_product_gid_real_ck) · shop_link_run 칸 넷 · 확인 1b OK 4 · 1a OK 11 · deno 58 |
+| rls-1 | asung-wms e0d19f7(20261020201002) | 판정 565 · 확인 OK 14 |
+| rls-2 | asung-wms 865f42c(20261020210026) | 판정 568 · 572 ~ 574 · 확인 OK 10 |
+| stk-av-0 | (조사 · Opus · 쓰기 0) | Allocated · Transfer res. 의 조건 · 원가 정본(FIFO 레이어 · inv_layer_open · inv_layer_value) · 공급처 칸 없음(product_supplier) · stk_* 의 문 · 원가 열쇠 없음 → rls-1 · rls-2 를 먼저(565 · 568) |
+| stk-av-1 | asung-wms 3ed5753(20261020232704) | stk_reserved · stk_availability 재발행(공급처 · Both by_warehouse · 바코드 · 원가 칸 없음 262) · stk_value_many · stk_value_total · 원가 열쇠 cost · ims_can_view_cost · 판정 566 · 567 · 570 · 571 · 575 · 578 · 시험 3 회차 OK 19 · 확인 OK 18 |
+| 화면 | asung-ims d93ba34 · 658a64f · 8d6a608 · 40ee43c · 34c446e · 3fc38c9 · 7937d86 · 2801e9c · 256d1dc · 31d331a · 983cebc · daa9da9 | families fam v4 · shopify-stores ss v3(link-1c) · ss v3a(판정 564 Send all left) · wms pk v1.5b · pa v1.6b · customers cs v4c · cs v4d · settings set v5b(ims_config_set) · stock v2 · staff st v3a · ws v1 · nav v8 · ws v1a · cs v4e |
+
+**stk-av-1 실측(테스트 DB · 2026-10-20 · ms · 모두 authenticated statement_timeout 8 s 안)**
+
+| 출처 | availability 한 창고 | Both | value_many 200 줄 | value_total 한 창고 | value_total Both | reserved |
+|---|---|---|---|---|---|---|
+| 시험 3회차(Claude Code · 적용 전 begin → rollback) | 899 | 1,356 | 43 | 348 | 435 | 40 |
+| 확인 갈래(Caleb · 적용 뒤) | 872 | 1,343 | 47 | 361 | 433 | 39 |
+
+- 「목록 합 = 타일」: 예약 있는 키 1,124(Toronto) + 15(Edmonton) 불일치 0 · 창고 전체 레이어 금액 3,264,525.484835(Toronto) = inv_layer_open 합
+- 레이어 수량 ≠ 장부 수량(Toronto +228 · IN_TRANSIT +2,559) — 그래서 칸 이름 「레이어 남은 금액」 · 화면은 다르면 `*`
+- 옛 stk_availability 의 같은 날 실측은 918 · 941 ms(§46-c 의 ~410 ms 는 2026-10-06 값) — 재발행의 회귀가 아니다
+
+**화면 시험(Caleb · 2026-10-20 집 PC)**
+- stock v2 — Allocated → SO-25138 Total 4 EA(타일 4 와 같음) · Both · Stock value total(Edmonton $258,162.30 · Toronto $3,264,525.48 · 합 $3,522,687.79) · Other branches · 공급처 · 바코드(034285553159 → ABE55315) · 원가 열쇠 없는 직원(Test Staff · worker)에게 Value 칸 · 합계 단추 · Value 타일 없음
+- ws v1 — WMS 탭 Bin Moves 다음 · 바코드 034285517014 → ABE51701 두 브랜치 · admin 은 Value 줄 · Test Staff 는 없음 · 자기 브랜치 먼저
+- ⬜ 아직 화면에서 안 눌러 본 것: Transfer res. 목록 · 창고 스캐너 연속 스캔 · so v5u 붙여넣기 가격 · Clear lines · 누가 정했나 / so v5v · v5w1 packed Add a charge · 계정 / so v5w 여러 오더 Ship & invoice / pos v1.11 줄 가격 · 할인 / receiving post-now v1 / families fam v4 / ss v3a Send all left
+
+**ims-auth.js nav v8** — `["Stock Lookup","wms-stock.html",null,"wms",true,"warehouse"]` · 열쇠 없음 = WMS 에 들어올 수 있는 직원 누구나 · Bin Moves 다음이라 WMS 첫 화면 순서(판정 173)는 그대로 · ⚠️ 뜻: WMS 모드만 켜지고 WMS 화면 열쇠가 하나도 없던 사람도 이제 WMS 에 들어와 Stock Lookup 이 첫 화면이 된다(visibleItems 는 열쇠 null 항목을 늘 보이고 · modeCandidates 는 보이는 화면이 하나라도 있으면 모드를 연다 · ims-auth.js 329 · 333 행)
+
+### 68-d 함수 지도 (마지막 정의 · `command grep -lE … | LC_ALL=C sort | tail -1` · 파일:행)
+
+```
+Shopify 잇기(link-1a · 1b)
+  판 · 줄 표                shop_link_run · shop_link_item            20261020173401_link_1a_shop_link.sql:38 · :62   칸 넷(bulk_*) 20261020180009_link_1b_bulk_cols_product0_ck.sql:33
+  판정                      shop_link_plan(run)                       20261020173401_link_1a_shop_link.sql:104
+  실행(큐 없음 · hash 심기)  shop_link_apply(run, commit, version)     20261020173401_link_1a_shop_link.sql:278
+  묶음 보내기                shop_link_push_batch(store, filter, …)    20261020173401_link_1a_shop_link.sql:372   200 줄 기본 · Send all left 는 되풀이
+  남은 묶음                  shop_link_remaining(store)                20261020173401_link_1a_shop_link.sql:436
+  Product/0 막기             제약 shop_product_gid_real_ck             20261020180009_link_1b_bulk_cols_product0_ck.sql:42
+  EF                         link_read · link_poll                     functions/shopify/index.ts:373 · :397 · parseBulkJsonl _shared/shopify-link.ts:34 · errorMark index.ts:193
+원장 · 원가 표 쓰기 닫기(rls-1)
+  정책                       <표>_select(using true) 넷                20261020201002_rls_1_ledger_layer_write_gate.sql:39(do 고리)
+  definer 로 바뀐 쓰기 13    inv_layer_post_charge :48 · inv_layer_post_receipt :233 · inv_layer_post_receipt_off_po :426 · inv_layer_post_receipt_over :516
+                             inv_post_adjust :597 · inv_post_credit :632 · inv_post_move :720 · inv_post_receipt :752 · inv_post_receipt_off_po :914
+                             inv_post_receipt_over :993 · inv_post_sale :1102 · inv_post_transfer_arrive :1218 · inv_post_transfer_depart :1299   (모두 20261020201002)
+설정 쓰기 닫기(rls-2)
+  정책                       inv_config_select(using true)             20261020210026_rls_2_config_write_gate.sql:40
+  설정 저장 창구             ims_config_set(key, value, p_old)         20261020210026_rls_2_config_write_gate.sql:46   허용 21 · 거부 20 · definer
+재고 화면(stk-av-1)
+  열쇠 목록                  ims_perm_catalog()  screens.cost          20261020232704_stk_av_1_reserved_value_cost_key.sql:36
+  원가 열쇠                  ims_can_view_cost()                       20261020232704_stk_av_1_reserved_value_cost_key.sql:69   = ims_can_view('cost')
+  예약 목록                  stk_reserved(product, warehouse)          20261020232704_stk_av_1_reserved_value_cost_key.sql:78   ⭐ inv_available_base 와 같은 조건
+  가용표                     stk_availability(…, p_supplier_id)        20261020232704_stk_av_1_reserved_value_cost_key.sql:151  원가 칸 없음(262) · by_warehouse
+  금액(쪽)                   stk_value_many(ids[], warehouse)          20261020232704_stk_av_1_reserved_value_cost_key.sql:304  원가 열쇠
+  금액(합계)                 stk_value_total(warehouse, 거르기)        20261020232704_stk_av_1_reserved_value_cost_key.sql:354  원가 열쇠
+  가용 식 한 곳(무변)        inv_available_base(location, pids)        20261006143300_stk_1_availability.sql:41   주석만 stk-av-1 이 덧붙임(566)
+  원가 식(무변)              inv_layer_value · inv_layer_open          inv_layer_open 20260930144905_cogs_2_cost_split.sql:87
+```
+
+### 68-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude · 회사] 지시서 이름 `stk-0` 이 10-06 의 지시서와 겹쳤다 — 옮기기 명령의 `cp --update=none` 이 조용히 건너뛰어 Claude Code 가 옛 판을 읽었다 ⇒ 옮기기 명령은 **대상이 있으면 STOP**(rls-1 부터 적용 · `[ -e … ] && echo STOP` 꼴) · 이름 짓기 전에 `ls ~/asung/prompts/<이름>*`
+2. [대화 Claude · 회사] 시험 스토어 명령에 `<run_id>` 를 그대로 둬 bash 가 `<` 를 파일 넘기기로 읽었다 ⇒ 명령에는 실제 값을 넣거나 `RUN=…` 변수로
+3. [대화 Claude · 회사] Families 예로 family 가 아닌 것을 family 로 들었다(Caleb 정정 · 판정 556)
+4. [조사로 드러남] 원장 · 원가 표 · inv_config 가 9 월(20260908195949_inv_layer.sql 152 · 157 · 162 행)부터 「누구나 쓰기」였다 → rls-1 · rls-2 · 운영도 같은지는 아직 안 봤다(미룬 269) · inv_cost · inv_doc_cost · inv_snapshot 은 아직 auth_all(stk-av-1 이견 4 · rls-3 거리)
+5. [대화 Claude · 집] stk-av-1 지시서가 판정 262(원가는 stk_ 창구가 절대 내지 않는다)를 놓치고 stk_availability 에 금액 칸을 넣으라고 적었다 → 이견 1 → 575 ⇒ **창구를 바꾸라고 적기 전에 그 창구의 판정 표(정본의 그 절)를 grep**
+6. [대화 Claude · Claude Code · 집] cost 열쇠 설명(catalog label)을 길게 써 Staff 화면 열쇠 표의 nowrap 칸이 늘어나 none · read · write 가 화면 오른쪽 끝으로 밀렸다(Caleb 「화면이 왜 이렇게 바뀌었을까?」) → st v3a ⇒ **카탈로그 label 을 바꾸면 그것을 그리는 화면(staff.html)을 연다** · jsonb 열쇠는 짧은 이름부터 나온다(cost 가 맨 위) — 순서는 화면이 정하지 않는다
+7. [잘 된 것 · 집] stk-av-1 검토가 짓기 전에 po_charge_confirm 원가 되돌리기 결함 자리를 잡았다(576) · 시험이 「옛 인자 8 개 호출 → 반환 무변」 과 「목록 합 = 타일」을 모든 키로 셌다
+8. [대화 Claude · 집] ws v1 작은 표에서 날짜 · 문서 번호가 좁은 칸에서 두 줄로 꺾였다 → ws v1a(nowrap + 표 안 가로 스크롤)
+
+### 68-f 미룬 것 — 67-e 267 에 이어 붙임
+
+- 268 **rls-3**(stk-av-1 바로 다음 · 운영 전 필수) — 원가 표 읽기 가리기: invoker 읽기 함수 6(판정 576) 먼저 고치고 · inv_layer_open · inv_layer_value · 정책 using 은 po_line 선례처럼 `(select ims_can_view_cost())` · 판정 577(울타리) · inv_cost · inv_doc_cost · inv_snapshot 의 auth_all(stk-av-1 이견 4)
+- 269 운영 DB 에 rls-1 · rls-2 와 같은 구멍이 있는지 읽기 쿼리(rls-1 보고에 문장으로 있다 · 운영에 아무것도 하지 않는다)
+- 270 WMS 작업 표 17 의 창구 전환(판정 569) — 운영 전환 이후 별건(일정)
+- 271 family 옵션 축 더하기 · 빼기(새 창구 + 화면 · Caleb 이 정함)
+- 272 손님 태그를 거르기 · 딜 대상으로 쓰기(Caleb 「일단 tag를 활용해볼게」)
+- 261(링크 도구)은 link-1a · 1b · ss v3 · v3a 로 시험 스토어까지 끝 — 남은 것은 실제 두 스토어(asung.ca · aonebeauty.com) 앱 설치 → 위치 짝 → **읽기 + Plan 만 먼저**(시간 · 막힌 줄 수) — 컷오버 준비 목록 맨 앞
+- 67-a 9 → ✅ §68(stk-av-1 · stock v2 · 공급처 · 금액)
+
+### 68-g 다음 (Caleb 이 고른다)
+
+```
+① rls-3(원가 읽기 가리기 · 판정 577 먼저)
+② 발주앱 이식(판정 521 의 셋째 · 컷오버 아침 필수)
+③ 컷오버 준비 목록 하나로(두 스토어 잇기 · 읽기 + Plan · 운영 구멍 읽기 · 테스트 가이드)
+다음 판정 번호: 579
 ```

@@ -53,6 +53,7 @@ description: >
 - 반쪽 콤보 픽 — `so_finalize` 가 구성품 픽을 통째 콤보 수로 줄인다(그 줄 picks 의 마지막 칸부터) · 덜어낸 것은 `put_back[]`(반환 + `wms_order_finalize.put_back`) — 실물만 제자리에 · 원장은 출고 때만이라 닿지 않는다 · `so_ship` 의 반쪽 거부는 안전망
 - 화면: 픽 「for combo ○○ · N per combo」 · 팩 「for combo」 + 맨 위 「Combo ○○ — n of m complete」(min(verified ÷ (combo_qty × pack_factor))) · 줄 순서 · 스캔 흐름은 그대로(판정 249) · Fulfillment 는 콤보 표시 없음
 - 빌드(2026-10-05): pk v1.5a · pa v1.6a
+⭐⭐ [2026-10-20] **WMS Stock Lookup(wms-stock.html · ws v1a · nav v8)** — 열쇠 없음(WMS 에 들어올 수 있는 직원 누구나 · WMS 열쇠가 하나도 없던 사람에게는 첫 화면이 된다) · 두 브랜치(자기 브랜치 먼저) · 스캔 값은 `stk_availability` 의 p_q 로(바코드 정확 일치) · ⚠️ **손님 이름을 그리지 않는다**(stk_reserved 가 보내도) · 금액은 원가 열쇠(`ims_can_view_cost`)가 있을 때만 `stk_value_many` · WMS 작업 표 17 은 의도된 열림(판정 569 · 창구 전환은 운영 전환 이후 별건)   (so-module §68 · 판정 569 · 571 · 575)
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 

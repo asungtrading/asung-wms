@@ -167,6 +167,8 @@ delta AS (
 
 ⭐ **[2026-09-19] IMS 가 읽는 얼굴은 `ims_inv_balance`** — `inv_balance` 를 **읽어** 열쇠(`product_id`·`warehouse_id`·`bin_id`)와 마지막 사건일(`last_event_on`·`last_seen_on`)을 붙인 것이다.
 ⭐ **[2026-10-06 · so-module §46] 화면이 읽는 창구** — `stk_availability` · `stk_bins` · `stk_bins_many` · `stk_movements`(definer · 원가 없음 · 상쇄는 `is_reversal` 로 표시하되 합치지 않음 · IN_TRANSIT 중간 줄은 안 보임 · 운송 중 수량은 `in_transit` 칸 = 트랜스퍼 문서로 센다) · 가용 식은 `inv_available_base` 한 곳 · ⚠️ 뷰는 sku · 창고 이름(그룹 열)으로 걸러라 — `product_id` · `warehouse_id` 로 거르면 뷰 전체를 센다
+⭐ **[2026-10-20 · so-module §68] 가용 식(inv_available_base)의 alloc · talloc 조건을 고치면 `stk_reserved` 도** — 예약 목록은 따로 된 창구이고 서로 같은 조건(복사)이다 · 시험 「목록 합 = 타일」(모든 키 × 두 창고)   (so-module §68 · 판정 566)
+⭐ **[2026-10-20 · so-module §68] 원장 · 원가 표 넷(inv_ledger · inv_layer · inv_layer_cost_add · inv_layer_consume)은 직원 select 만 · 쓰기는 definer 창구만**(rls-1 · 쓰기 함수 13 definer · invoker 로 되돌리면 42501) · 원가를 내는 stk_ 창구는 `stk_value_many` · `stk_value_total` 둘뿐 · 원가 열쇠 `ims_can_view_cost()`(판정 262 → 575 · 578) · ⚠️ 원가 표 읽기 가리기는 아직(rls-3 · 판정 576) — 가리면 invoker 읽기 함수 6(po_charge_confirm · so_stock_short_list · so_credit_detail · inv_adjust_eval · inv_transfer_detail · po_fx_cost_lines)이 조용히 0 행   (so-module §68 · 판정 565 · 575 · 576)
 ⭐ **[2026-10-10 · so-module §58] `inv_ledger` 에 Shopify 재고 큐 트리거 셋이 붙었다**(stock-1a `8feb7b3` · `inv_ledger_shop_stock_i` · `_u` · `_d` · AFTER STATEMENT · transition table · sku → product → 켜진 listing 의 변형마다 `shop_stock_queue` 열린 줄 하나) — 원장을 대량으로 쓰면(재적재 · 이식 · 상쇄) **켜진 대상만큼** 재고 줄이 선다(행 수만큼이 아니다 · 실측 5,000 행 insert → 11 줄 · 452 ms) · 세션 스위치 없음 · 테스트 DB 에만(운영에는 표 · 트리거가 없다) · 보낼 숫자는 그대로 `inv_available_base` 한 곳(shop_stock_payload 가 위치마다 부른다) · 운영 재적재 때의 줄 수는 미룬 185
 ⚠️ **잔고 정의는 여전히 `inv_balance` 하나.** 같은 식(기초선 + 원장 합)을 다시 쓰지 마라 — 그 뷰가 생긴 이유가 「정의가 세 곳에 흩어져 어느 것이 맞는지 알 수 없었다」다.
 행 수·숫자가 `inv_balance` 와 같아야 한다(다르면 조인이 행을 늘리거나 줄인 것). 정본 3부 컷오프 절 · 4부 「이식」.
@@ -2245,7 +2247,7 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
 | | 상태 |
 |---|---|
 | **원장의 정확성** | ⭐ 사실상 입증됨(위 ①·②) |
-| **운영 기능의 완성** | ◐ **가용 재고 — 읽기 화면 섰다**(stk · so-module §46 · 테스트 DB · 2026-10-06) · 할당 · 음수 게이트 · 동시성 · 성능 · 되돌리기는 그대로 ⚠️ 시작 전 |
+| **운영 기능의 완성** | ◐ **가용 재고 — 읽기 화면 섰다**(stk · so-module §46 · 테스트 DB · 2026-10-06) · 할당 · 음수 게이트 · 동시성 · 성능 · 되돌리기는 그대로 ⚠️ 시작 전 → 예약 목록 · 금액 · Both(§68) |
 
 ⇒ ⚠️ **「원장이 정확하다」가 「Cin7 을 덜어낼 수 있다」는 아니다.** 지금 원장은 **장부**이고 그 위의 **운영 층**이 없다. 없어서 에러도 안 났다.
 ⇒ 정본: **IMS 부착 지시서**(「IMS 에 원장을 붙일 때 — 할 일과 뒤따라야 할 검증」 · 09-19 작성 · ✅ Caleb 승인 09-22 — 레포 `docs/design/ims-ledger-attach.md` 로 복사 + 정본 포인터 · ⚠️ **복사 대기**: 09-22 시점 이 머신(`~/asung/prompts/` · Downloads)에 파일이 없어 못 옮겼다 · 넣을 때 그 문서 §6 경고 「원장 축만 봤다 · WMS·PO+원가에 확인할 것」이 살아 있는지 확인) · 이관 자체는 `ledger-design.md` 4부 「플립 — 이관」.

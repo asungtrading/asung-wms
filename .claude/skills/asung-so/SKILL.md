@@ -137,7 +137,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ unit_price null = 가격 없음(줄은 선다 · 확정 ② 가 막는다) · 0 = 무상(사람 값 · price_override true · free_reason 필수 · other 는 comments) — CHECK so_line_free_pair_ck (free_reason is not null) = (unit_price is not distinct from 0)   (12-b 판정 2)
 ⭐⭐ 가격은 so_price_for(티어 sale·활성 · 가격 줄 활성 · 세트 = 낱개 × pack_factor × (1 − set_discount_pct/100) round 2) → so_line_quote(so, product, qty)(할인 = greatest(손님 기본, so_deal_best 의 딜 %) · 더하지 않는다 · 큰 쪽의 출처 customer|deal) · 단가는 자르지 않고 줄 합계만 round(qty × unit_price, 2) = so_line_total 하나   (12-b 판정 3·4 · §13-g) [2026-10-06 정정 · 판정 280 · 298 · §48] 줄 견적은 계산 판매 세트의 list 를 할인 전 round(낱개 × pf, 2)로 · 세트 % 는 할인 칸(출처 set) · 고정가 세트는 정가 · so_price_for 는 그대로
 ⭐⭐ 같은 SKU — ~~unit_price 가 같으면 합친다~~ [2026-09-23 정정 · §13 판정 2] 시스템 줄(price_override=false · discount_source <> manual)은 제품만으로 합치고 합친 수량으로 다시 견적 · 사람이 정한 줄(덮어쓴 단가 · 수동 할인)만 단가 비교(다르면 ask · p_force_new) · 붙여넣기는 첫 줄에 수량을 모은다(duplicate) · 비활성 제품은 거부 — po_lines_paste 와 다르다   (§13-g · 12-c ⬜5)
-⭐⭐ 티어는 손님이 아니라 「들어온 곳」이 정한다 — 직접 오더는 손님 기본이 초깃값 · inv_config so_direct_order_tier_code(=1 Wholesale · auth_all — 누구나 바꿀 수 있다 · 경고만) ≠ 이면 direct_order_tier_unexpected · 손님 원문과 다르면 tier_differs_from_customer · 막지 않는다   (12-b 판정 B)
+⭐⭐ 티어는 손님이 아니라 「들어온 곳」이 정한다 — 직접 오더는 손님 기본이 초깃값 · inv_config so_direct_order_tier_code(=1 Wholesale → rls-2 · 판정 568 · 572 — 직원 쓰기 닫힘 · 거부 20 에 들어 앱에서 못 바꾼다(마이그레이션 · psql) · so-module §68) ≠ 이면 direct_order_tier_unexpected · 손님 원문과 다르면 tier_differs_from_customer · 막지 않는다   (12-b 판정 B)
 ⭐  배송지 회사/사람 규칙 넷(so_customer_is_company) — legal_entity → 회사 · AONE → 사람 · 기본 연락처 이름이 다르고 서로 포함 안 하면 → 회사 · 그 밖 사람 · 합의된 오차(1001132194 ONTARIO INC) · 틀리면 초안에서 고친다   (12-d)
 ⭐  시험은 SO-25000 을 소비한다 — rollback 밖에서 so 가 비어 있을 때만 setval(25000, false) · 전환 전 점검 25000 · is_called f · 가짜 직원은 트랜잭션 안에서만(ims_staff.auth_user_id FK 없음)   (12-g)
 ⚠️  운임 amount 는 0 이상(①c · 돌려줄 돈은 크레딧 노트 8-g) · 비활성 손님은 거부(판정 A) · 한 트랜잭션 안 now() 는 같다 — 시각 비교로 검증하지 마라 · 제약 이름은 get stacked diagnostics constraint_name 으로   (12-b · 12-f)
@@ -209,7 +209,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 이어받기는 새 오더를 「확정할 때」(출하 때 아님) — 같은 손님·같은 제품 · 가족 밖 · 브랜치 무관 · 가장 오래된 줄부터 · 나머지는 더 원하지 않음 · 유상 줄만 센다 · 무상 줄 백오더는 대상에서도 뺀다   (판정 3·4·5·8·13·15)
 ⭐⭐ 오더는 만료로만 닫힌다(뒤처리로는 안 닫는다) — 90일(inv_config so_backorder_expire_days) · 유상 줄만 expired · 무상 줄(우리가 줄 것)은 만료도 이어받기도 안 되고 proceed·cancel 로만 끝난다 · 무상 줄이 남으면 오더도 안 닫힌다   (판정 11·16)
 ⭐⭐ 다시 열기(so_unconfirm · so_cancel p_reopen_superseded true)는 대상 백오더 오더가 confirmed 일 때만 — 만료·취소 뒤엔 거부(그 되돌리기·취소도 함께 거부) · so_cancel 은 이어받은 줄이 있으면 p_reopen_superseded 를 사람이 고른다(null 이면 거부)   (판정 10·11)
-⭐⭐ sweep 은 cron(postgres)만 부른다(authenticated 42501) · 만료 기간은 supervisor 이상만(inv_config_guard · 잠긴 키 목록 ims_config_locked_keys · 값은 양의 정수)   (판정 14)
+⭐⭐ sweep 은 cron(postgres)만 부른다(authenticated 42501) · 만료 기간은 supervisor 이상만(inv_config_guard · 잠긴 키 목록 ims_config_locked_keys · 값은 양의 정수)   (판정 14) · 설정 저장은 ims_config_set(허용 21 · 거부 20 · p_old · so-module §68 · 판정 572 ~ 574)
 ⭐  「입고됨」 = 백오더 뒤 그 창고에 po_in 또는 다른 창고에서 온 transfer_in(출발 줄 있고 출발 ≠ 도착 · IN_TRANSIT 제외) · 조정·반품·조립·출발 줄 없는 도착은 아니다 · notified_state unknown_pre_ims 는 「안 보냄」이 아니다(GAS 가 Cin7 에서 보낸다)   (판정 6·7 · 이견 8)
 ⚠️  CHECK 를 넓히면 함수 본문의 같은 값 목록도 훑어라(so_split 실사고 ③a′) · 쓰기 창구를 FROM 의 lateral 에서 부르지 마라(③a 검증 v1) · 시험은 order_date 를 과거로(시간은 못 바꾼다) · cron.sql 의 이 잡은 테스트 DB jobid 1(운영엔 함수 없음)
 ⭐  [2026-10-07 · §52] Backorders 목록에 프리오더도(행 kind backorder | preorder · 거르기 kind · 머리 open_backorder · open_preorder) — 프리오더는 만료 · 이어받기 · 알림 없음(판정 9) · 끝난 목록은 백오더만(proceed 가 프리오더 줄에 장부를 안 적는다 · 미룬 132)(판정 351)
@@ -304,7 +304,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  목록은 뷰(so_invoice_list · so_payment_list · so_credit_list · security_invoker · select 만 — Supabase 기본 ALL 을 걷었다) · 한 장은 RPC jsonb · so_credit_detail 은 키를 더하기만(옛 키 아홉 그대로) · issue_contract(크레딧 발행 입력 모양)는 정본 §22-c
 ⭐⭐ 화면은 DB 값을 그리기만 · 세트는 기본 숨김(케이스도 낱개 × 수량 · Include sets 는 manager) · Proceed 는 기다려 주지 않는다(잡힐 것 없으면 막힘) · POS 매장은 기기 localStorage(CLAUDE.md §5 예외)
 ⚠️  Manager List 의 즉시 결제 = ref_payment_term.net_days 0 — 손님 결제조건 자료만큼만 정확(Net30 6,305 정리 전) · Unpaid 탭은 브랜치로 못 거른다(뷰에 창고 칸 ⬜)
-⭐  [2026-10-06 · §46] 재고 화면 창구 stk_availability · stk_bins · stk_bins_many · stk_movements(definer · 로그인 + 활성 직원 · 원가 없음) · 모든 수량은 낱개(EA · 세트 표시는 참고만) · so.html 은 ?so=<번호> 로 연다(?id= 아님) · so-credits.html 은 ?cr=<번호>
+⭐  [2026-10-06 · §46] 재고 화면 창구 stk_availability · stk_bins · stk_bins_many · stk_movements(definer · 로그인 + 활성 직원 · 원가 없음) · 모든 수량은 낱개(EA · 세트 표시는 참고만) · so.html 은 ?so=<번호> 로 연다(?id= 아님) · so-credits.html 은 ?cr=<번호> · 금액은 stk_value_many · stk_value_total 만(원가 열쇠 · 판정 575 · so-module §68)
 ⭐⭐ [2026-10-07 · §52] 목록 금액 = so_totals_many(p_so_ids ≤ 200) — so_detail.totals 와 같은 식이 두 곳에 있다 ⇒ so_detail 의 totals 를 고치면 so_totals_many 도 · 검증 so-tot-1 다시(판정 350)
 ```
 

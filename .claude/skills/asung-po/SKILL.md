@@ -95,7 +95,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | `ref_account.name` 에 유니크 | 적재가 조용히 깨진다 | `code` 가 자연키 |
 | `set_updated_at()`·`ims_touch()` 재정의 · 새 표에 옛 트리거 | 정의 둘 · updated_by 가 안 찍힌다 | 재사용만 · 새 표는 <t>_touch(§5) |
 | ⭐⭐ 이름 서브쿼리에 별칭 없음(`where id = updated_by`) | ims_staff 에도 updated_by 가 있어 **자기 칸과 비교 — 에러 없이 null**(09-18 두 번) | 항상 `s.id = <바깥>.updated_by` · §5 트리거 |
-| 쓰기 RPC 를 security definer 로 | RLS 둘째 겹이 사라진다 | 전부 invoker · **예외 하나 po_receipt_confirm**(po·po_line 은 purchasing · 창고는 receiving 만) · 따라 하지 마라 · §5 권한 규약 ② |
+| 쓰기 RPC 를 security definer 로 | RLS 둘째 겹이 사라진다 | 전부 invoker · **예외 하나 po_receipt_confirm**(po·po_line 은 purchasing · 창고는 receiving 만) · 따라 하지 마라 · §5 권한 규약 ② → 원장 · 레이어 쓰기 속 함수 13 은 definer(rls-1 · 판정 565 · invoker 로 되돌리면 42501) · so-module §68 |
 | 리시빙을 po_receipt_line 하나로 · 화면이 계산 · 빈 없이 확정 | 검수(빈 모름)→풋어웨이 두 단계가 안 담긴다 · bin NOT NULL | 표 셋(po_receipt · po_receipt_work · po_receipt_line) · 한 줄=한 빈 · **빈 없는 줄=라인당 하나(미배정 나머지)** · 같은 빈은 **병합** · 계산은 po_receipt_detail · 확정 게이트는 빠져나갈 길을 말한다 · §11-i |
 | 기준을 인보이스로 · 초과를 잘라 적는다 · 차이를 자동으로 닫는다 · 분할 번호를 겹쳐 쓴다 | 가짜 차이(WMS 08-05) · 초과가 안 보인다 · 사람 판단 소멸 · 족보 끊김 | 기준은 ~~**PO 확정 수량**(인보이스는 표시만)~~ → ⚠️ 판정 88: 확정 인보이스 수량(~~⑱ 미구현 · 지금 코드는 PO 기준~~ → ✅ 구현 · so-module §29) · 입고 줄엔 그대로 · 차이 큐 over·short·off_po 는 사람이 · 번호는 알파벳을 잇는다(a·b → c·d) · 0 라인은 행을 b 로 · §11-i·§11-c |
 | Last bin 을 po_receipt_line·wms_sku_bins 에서 직접 | 원장이 오면 고칠 곳이 여럿 | **ims_last_bin() 하나 뒤에** — 속만 갈아 끼운다 · §11-i |
