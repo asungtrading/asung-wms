@@ -305,6 +305,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ [2026-10-06 · §47-c] `pg_temp.attempt()` 는 **되돌리는** 도우미(ZZ999) — 남아야 하는 쓰기(합치기 다음 단계 등)는 직접 부른다 · 상태는 저장 직후 `\gset`(끝에서 한꺼번에 읽으면 중간 값이 사라진다)
 ⚠️⚠️ [2026-10-06 · §47-d 1] **시험 재료는 가짜만** — dsc-0 조사 중 실제 초안 SO-25039 에 rollback 되는 트랜잭션 안에서 줄을 넣었다(Caleb 지적) ⇒ 가짜 오더 · 제품 · 딜 · 쿠폰(SO-79xxx · DSC*-) · 가짜 딜은 꺼진 채 만들고 가짜 손님 걸기 줄 → 켜기(딜 변경 트리거가 실제 오더를 표시하지 않게)
 ⚠️ [2026-10-06 · so-module §50-d 5] **권한을 볼 때는 넷을 한 번에** — 정책(pg_policies) · 표 권한 · RLS 켜짐(relrowsecurity) · 기본 권한(pg_default_acl) · ⚠️ postgres 가 만든 새 표 = anon 전부 · 새 함수 = anon EXECUTE(기본 권한) — 만든 파일에서 회수한다
+   → [2026-10-21 · so-module §69 · rls-3a 이견 7] 다시 확인 — 오늘 만든 함수도 기본 권한으로 anon EXECUTE 가 붙는다 · tf_charge_* 6 은 grant 만 하고 public 회수를 안 해 =X 가 남았었다 ⇒ 새 함수는 `revoke all … from public, anon` 을 파일에 · 기본 권한 바꾸기는 작은 차수(미룬 279)
 ⚠️ [2026-10-06 · §50-d 7] **집합 함수 · 트리거는 검증 안에서 clock_timestamp() 로 재고 「트리거 끈 바닥값」과 함께 보고** — 「값은 맞다」로 68 s 를 지나칠 뻔했다
 ⚠️ [2026-10-06 · §50-d 8] `array_agg(distinct … order by 1)` 불가 — distinct 서브쿼리로
 ⚠️ [2026-10-06 · §50-d 9] **트리거 함수는 직접 실행 시험이 안 된다**(권한보다 「only as triggers」가 먼저) — has_function_privilege 로
@@ -332,6 +333,10 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ [2026-10-14 · bo-2b 1 회차 · 스스로 잡음] **「오래 기다린 것부터」 창 정렬은 날짜 asc** — desc 로 써 새 줄부터 나눴다 ⇒ 순서가 결과를 바꾸는 창은 시나리오(20 · 15 → 20 · 10)로 확인
 ⚠️ [2026-10-14 · bo-2b 3 회차] **`inv_available_base` 는 잔고 행이 없는 제품의 행을 내지 않는다** ⇒ 부르는 쪽이 left join + coalesce 0(inner join 이면 콤보 구성품이 빠져 보낼 수 있는 것처럼 보인다)
 ⭐ [2026-10-08 밤 · §54-d 1] **차수 크기는 다시 낼 함수의 prosrc 줄 수로 잰다** — 새 줄 = 파일 줄 − 바이트 복사 줄(가드 26 + 재발행 원본) · 900 을 넘을 것 같으면 만들기 전에 나누는 안(po-disc-4 · 5)
+⚠️⚠️ [2026-10-21 · so-module §69-e 10] **`psql -At` 로 받은 prosrc 는 끝에 `\n` 이 하나 더 붙는다** — 그대로 재발행하면 몸에 꼬리 줄바꿈이 생긴다(rls-3b 여섯 · 동작 무해) ⇒ 생성기는 한 줄 떼고 **DB `md5(prosrc)` 와 맞춘 뒤** 바꿀 줄을 바꾼다 · 착지 do 블록이 새 md5 를 단언
+⭐ [2026-10-21 · §69-e 12 · pset-1 · svc-1b · rcv-3] **동일성 시험 = exception 블록 + 예외 메시지로 결과 꺼내기** — 서브트랜잭션 안에서 재료를 만들고 끝까지 돌린 뒤 `raise exception using errcode = 'P7777', message = <결과 jsonb>::text` · `exception when sqlstate 'P7777' then return sqlerrm::jsonb` → 쓰기 0 · 같은 재료로 \i 앞 · 뒤 · 비교는 uuid · 시각 · 번호 · 숫자 id 를 지운 글로
+⚠️ [2026-10-21 · svc-1b · rcv-3] plpgsql 안에서 `set_config('session_replication_role', …)` 는 거부(42501) — `execute 'set local session_replication_role = replica'` 는 된다
+⚠️ [2026-10-21 · svc-1c] 시퀀스를 당기는 시험이 **중간에 멈추면** 끝의 setval 이 안 돈다 — 다음 회차 머리가 올라간 값이 된다 ⇒ 멈춘 뒤에는 원래 머리(첫 회차 출력)로 손으로 되돌린다
 ⚠️ [2026-10-08 밤 · §54-d 7] **numeric 글자 비교는 양쪽 `trim_scale()`** (2.25 vs 2.250000) · **거부 문장은 `like '…%'`** — 「—」 「→」 다바이트 글자를 `left(n)` 으로 자르면 길이 짐작이 틀린다 · RAISE 의 글자 % 는 `%%` 이고 자리 % 수를 넘기지 마라
 ⚠️ [2026-10-08 밤 · §54-d 7] **authenticated 실행권이 없는 속 함수 · 재생성(inv_layer_apply)은 postgres + `set_config('request.jwt.claims', …)` 로 부른다** — `set local role authenticated` 로 부르면 42501 · 권한 시험만 authenticated 로
 ⚠️ [2026-10-08 밤 · §54-d 7 · 세 번] **거부를 시험할 문서는 그 거부까지 닿는 상태로** — 이미 다 갚은 문서로 「할인 초과」 · 「기준 틀림」을 부르면 미지급 검사가 먼저 거부한다 · 확정 인보이스로 「줄 검사」를 부르면 「draft 만」이 먼저
@@ -465,6 +470,7 @@ EOF
   ⚠️ 끝 표지는 **반드시 `&&` 로** — `; echo MOVED_OK` 는 고리가 중간에 멈춰도 찍힌다(실사고: 옮기기가 멈췄는데 MOVED_OK 가 보였다)
 ⭐ [2026-10-19 · §66-e 9] **명령 머리에 「어디서」** — `# [WSL]` · `# [Cloud Shell]` · `# [Supabase SQL Editor · 테스트]` · `# [브라우저 콘솔]` (Cloud Shell 명령을 WSL 에서 돌리게 한 적이 있다)
 ⭐⭐ [2026-10-20 · so-module §68-e 1] **옮기기 명령은 대상이 있으면 STOP** — `cp --update=none` · `cp -n` 은 대상이 있으면 조용히 건너뛴다(지시서 `stk-0` 이 10-06 판과 이름이 겹쳐 Claude Code 가 옛 판을 읽었다) ⇒ 명령 머리에 `[ -e <대상> ] && echo STOP ||` 꼴 · 지시서 이름을 짓기 전에 `ls ~/asung/prompts/<이름>*`
+⭐⭐ [2026-10-21 · so-module §69-e 7] **옮기기 명령 머리에 `ls -l "$D"/<이름>*`** — 지시서를 다운로드하지 않은 채 Claude Code 에 줬다(svc-0 · 「파일 없음」으로 멈춤) · 파일이 보이는지 먼저
 ```
 
 ---
@@ -734,3 +740,12 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    2 [대화 Claude · 회사] 명령에 `<run_id>` 를 그대로 둬 bash 가 `<` 를 파일 넘기기로 읽었다 ⇒ **명령에는 실제 값을 넣거나 `RUN=…` 변수로**
    5 [대화 Claude · 집] stk-av-1 지시서가 판정 262 를 놓치고 stk_availability 에 금액 칸을 넣으라고 적었다(→ 575) ⇒ **창구를 바꾸라고 적기 전에 그 창구의 판정 표를 grep**(§3)
    6 [대화 Claude · Claude Code · 집] cost 열쇠 label 을 길게 써 Staff 화면 열쇠 표의 nowrap 칸이 늘어 none · read · write 가 오른쪽 끝으로 밀렸다(st v3a) ⇒ **카탈로그 label 을 바꾸면 그것을 그리는 화면(staff.html)을 연다** · jsonb 열쇠는 짧은 이름부터 나온다(순서는 화면이 정하지 않는다)
+⚠️ **[2026-10-21 회사 — so-module §69-e]**
+   1 [대화 Claude] 「원가 표 넷」에 inv_ledger(수량 표) ⇒ 행을 가릴 표는 「모든 칸이 원가인가」부터
+   2 · 3 [대화 Claude] 판정 576 의 목록 6(전수 15) · 「공급처 단가는 purchasing · master 만 읽는다」(Backorders = sales → 583) ⇒ 「목록 N」은 조사가 다시 센다 · 정책을 좁히기 전에 그 표를 읽는 화면의 열쇠를 전수로
+   4 [발견 · pset-0] 세트 sellable 이 칸 기본 true 로 들어갔다(트리거는 명시 null 에만) ⇒ 기본값을 트리거에 맡길 때 「칸을 안 보냈을 때」도 시험
+   5 [대화 Claude · svc-0] 상태 「열 개」(실제 여덟) · 비용 줄 세금을 서비스마다(오더 세율 하나) ⇒ 상태 · 세금 문장은 정본 · CHECK 를 grep 한 뒤
+   6 [rcv-2] 창고 확정 창 · 주석 「확정 열쇠는 아무에게도 없다」(8 명) · 닫힌 PO 거부 문장이 옛 판 ⇒ 판정이 바뀌면 확정 창 · 거부 문장을 함께 grep
+   7 [대화 Claude] 다운로드 안 한 지시서 ⇒ 옮기기 머리에 ls -l(§7) · 8 [대화 Claude] PO-02056 「빈 인보이스」 짐작(짐작이라 밝힘 · 실측 정정)
+   9 [화면] 확정 뒤 Received Item 빈칸(받은 줄은 po_line_id 만) → rcv item v1 · 10 [Claude Code] psql -At 꼬리 \n(§4) · 11 [Claude Code · rcv-3] 「안 온다」 몫을 남은 몫에 섞음 — 스스로 잡음
+   12 [잘 된 것] 결함 판을 「중간 상태」로(rls-3b S0c) · 동일성 = exception 블록 + 예외 메시지(§4) · 지시서 밖 샛길 막기(svc-1b so_pos_reopen · pset-1 set_factor_exists)

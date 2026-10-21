@@ -1378,6 +1378,14 @@ SKU         원장 · 레이어 있으면 sku_locked(창구 문장 · 트리거 
 source      IMS 가 값을 바꾼 줄은 manual(판정 133 · prod-5 가 본다) · 대표 · 기본 플래그만 바꾸면 그대로
 family 머리 브랜드 · 분류 · 단위를 고치면 옛 머리 값과 같던 변형만(null 끼리도) 따라 바뀐다 + 이름 칸 복사(판정 191 · 192) · 축 이름 바꾸기만(축 수 변경은 axis_count_change) · 대소문자만 다른 더 흔한 이름 → option_name_case(판정 190 · product_axis_case_hint(text) · product_family_create 에도)
 고칠 때     검증 R 절로 옛 · 새 반환 jsonb 등호를 다시 증명한다(4b R1 ~ R4 · img-1 R1 · R2)
+── 세트 더하기 (pset-1 52ef78c · 20261021143904 · 판정 585 ~ 589 · so-module §69) ──
+창구        product_set_add(p_parent_id, p_sets, p_commit, p_ack) · definer · 첫 줄 ims_require_write('master') · 이미 있는 낱개에 세트를 더한다(전에는 product_create 의 sets[] 뿐) · 두 번 부르기(판정 176)
+한 곳       세트 검사 · 넣기를 도우미 둘로 — product_set_check · product_set_insert(문 없음 · authenticated 불가) · product_create_core 도 같은 둘을 부른다(동일성 11 경우)
+⭐ 판매     세트 sellable = **false 명시**(판정 586 · 291 그대로 — 세트는 스캔 · 붙여넣기에서 낱개 × N · 따로 팔지 않음) · 결함: 칸을 안 보내 칸 기본 true 로 들어갔다(트리거 product_sellable_default 는 명시 null 에만) → 손으로 만든 7 개 판매 안 함 · sellable_source ims(판정 585)
+막기        같은 계수 세트가 꺼진 채 있으면 set_sku_inactive_exists(「Edit 에서 다시 켜라」 + Open · 판정 587) · 같은 계수 다른 SKU 세트(set_factor_exists) · 부모 없음 · 꺼짐 · 세트 · 콤보 부모 · prices 를 보내면 set_prices_not_here(고정가는 Edit 에서만 · 판정 589)
+알리기      단종 · 판매 안 함 낱개에 세트 = 경고 → 확인(막지 않음 · 판정 588)
+반환        product_create 꼴 + 세트마다 name · sellable false · scan_adds(미리 보기 글 · 판정 586)
+⚠️ 재료     product_create 를 시험할 때 경고 넷(sku_prefix · supplier_missing · price_missing · barcode_missing)이 확인 없이는 저장을 막는다 — 재료에 공급처 · 판매가 · 바코드를 넣거나 ack 로
 ```
 
 ### 이름 · SKU 짓기 (판정 177 · 180 · 182 · 183 · 184 · 비워 두면 창구가 · 넣으면 그대로)
@@ -2815,6 +2823,7 @@ cancelled_by   po · po_invoice · po_charge 에 신설 — confirmed_by 는 있
 ```
 ⚠️ Cin7 은 부분입고가 생기면 Simple → Advanced 로 convert 해서 한 문서 안에서 여러 번 받는다. 안이 복잡해진다.
 ⭐ 우리는 **문서가 갈라진다.** 각 문서는 한 번 받고 닫힌다. 안이 단순해진다(WMS 오더 분할과 같은 구조). → [2026-10-20 · 판정 550] 한 번 받고 닫히는 것은 그대로 · 마지막 확정 전에 센 줄을 묶음으로 먼저 재고에 넣을 수 있다(Post now · so-module §67)
+→ ⚠️ [2026-10-21 · 판정 598 · 599 · rcv-3 · so-module §69] **「한 번 받고 닫힌다」를 고친다** — 열린 short 가 있으면 입고 확정이 PO 를 **열어 둔다**(confirmed · 다음 입고가 「확정 인보이스 − 받은 것」을 기대) · 다 받았거나 마지막 short 가 「안 온다」로 정리되면 닫힌다 · 규칙 한 곳 `po_receipt_keep_open(po_id, receipt_id)` · 계기 PO-02055(240 / 1,290 받고 닫혀 나머지 1,050 을 받을 문이 없었다 · 판정 601 로 다시 엶)
 
 10개 주문 · 8개 도착 ⇒  PO-12345  →  PO-12345a (8개 · 받고 닫힘)
                                   +  PO-12345b (2개 · 기다림)
@@ -3410,7 +3419,7 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
 | PO 가 갈라지는 때 · 번호 | 입고 확정 · 옛 채번(a·b) | **인보이스 확정 순간**(⑤) · 원래 번호 = 청구된 몫(창고로) · 남은 몫 · 빠진 줄 = 다음 글자 하나(PO-02017a · 창고에 안 보임) · 입고 때는 안 갈라진다 · 초안 인보이스는 아무 일 없음 |
 | 인보이스가 일부 줄만 | — | 오피스가 그 줄만 인보이스로 · 나머지는 PO 분할(④) |
 | 더 온 것 | over(free · billed · credited) + off-PO 따로 | **Off-invoice 한 길**(⑧ · 창고는 바로 칸에 · 오피스가 무상 / 받는다 · 청구 / 거절) |
-| 덜 온 것 | short 차이 + 입고 분할 | 「덜 옴」 차이 · 크레딧은 인보이스 화면 Create a credit note 단추(⑥ · 자동 아님 · §11-b 2475 · §11-i 3025) |
+| 덜 온 것 | short 차이 + 입고 분할 | 「덜 옴」 차이 · 크레딧은 인보이스 화면 Create a credit note 단추(⑥ · 자동 아님 · §11-b 2475 · §11-i 3025) → [2026-10-21 · 판정 598] 열린 short 가 있으면 PO 는 열린 채 |
 | 확정 인보이스 Reopen | — | 창고가 손대기 전만 · 갈라진 PO 를 되붙인다 · 세기 시작했거나 받았으면 거부(⑦) |
 | 새 규칙 전에 닫힌 PO | — | 되돌리지 않는다(재료 PO-02017 · 인보이스 10 · 받음 12 · so-module §28-f) |
 
@@ -3459,6 +3468,7 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
                 그 밖에 막는 것 다섯: 이미 확정·취소 · PO 가 confirmed 아님(잠금 뒤 다시 본다 — 그 사이 닫혔을 수 있다) · 작업 줄 없음 · 빈이 그 사이 비활성·다른 창고 · 남이 사이에 확정
 ⭐ 확정이 하는 일  ⓐ 작업 줄 → po_receipt_line 1:1(received_on 은 묶음의 것 · ⭐ **received_by = 놓은 사람 → 없으면 센 사람 → 없으면 확정한 사람** · 확정한 사람은 po_receipt.confirmed_by · **초과분도 입고 줄에 그대로** · 줄을 깎지 않는다)
                 ⓑ 차이 큐(기준은 갈라지기 **전** 문서의 수량 — 그래서 ⓒ 앞) ⓒ 자동 분할 또는 닫기(11-c) ⓓ 묶음 confirmed(맨 뒤 — 어디서 터져도 아무것도 안 남는다) · 잠금은 PO(base)+라인 둘
+                → [2026-10-21 · 판정 598 · rcv-3] ⓒ = `po_receipt_keep_open` 이 「열어 둔다」면 PO confirmed 그대로 + 경고 `po_kept_open` · 아니면 옛 닫기 + `po_closed` · 반환 po.{status, kept_open, remaining_ea, outlook} · 화면(오피스 · 창고 확정 창)은 같은 안내(판정 600 · rcv open v1 · rc v1.9)
                 ~~⚠️⚠️ **사건은 안 나간다 · 훅도 없다**~~ → ✅ [2026-09-19] **ⓔ 창구 inv_post_receipt 가 같은 트랜잭션으로 사건을 낸다**(11-j · 훅이 아니라 함수 호출 · 원장이 po_receipt_line·po_receipt_diff 를 읽는다) · 초과는 발주 라인을 늘리지 않는다(원장이 기준까지 자른다 · 차이 큐 over 가 그 근거)
 ⭐ 차이 큐        po_receipt_diff — kind **over · short · off_po** · expected_qty(기준) · received_qty · resolved_by/at · unique (receipt_id, po_line_id) · 열린 것 = resolved_at is null(뷰 po_receipt_diff_list · 부분 인덱스 없음) → ⚠️ [2026-09-29] 판정 88 ⑧: over · off_po 는 Off-invoice 한 길로 합친다 · short 는 「덜 옴」(⑱ · 미구현) → ✅ [2026-09-29] 새 행은 kind off_invoice(PO 입고만) · 결정 둘 accepted_free · accepted_billed(판정 99 · 거절 없음) · 창구 po_receipt_diff_settle_off_invoice · 옛 over · off_po 행과 옛 창구는 그대로(so-module §29)
                 ⭐ short 를 담는 이유(Caleb) — **분할은 남은 수량을 옮길 뿐 「왜 덜 왔나」를 아무도 안 본다.** 넷이 섞여 있고 분할은 구별하지 못한다: 공급사가 나눠 보냈다(다음 배에 온다) · 결품(PO 를 닫아야 한다) · 운송 중 분실·파손(크레딧) · 우리가 잘못 셌다(다시 세야 한다)
@@ -3466,6 +3476,7 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
                 ⚠️ off_po 는 CHECK 어휘에만 있다((kind='off_po') = (po_line_id is null) 로 뜻을 같은 행 안에 못 박았다) — po_receipt_work.po_line_id 가 NOT NULL 이라 아직 날 수 없다(PO 밖 줄은 §13-f · 「관행을 버린 것이 아니라 미룬 것」)  → ✅ [2026-09-26 · 27] 이제 난다 — 창고 wms_recv_off_po 가 적고(24-m) · 결정 어휘 셋 accepted_free(받는다 · 원가 0) · accepted_billed(받는다 · PO 통화 단가 × PO 환율) · rejected(장부 없음 · 선반에서 뺀다 → removed_by/at) · 창구 po_receipt_diff_settle_off_po(receiving 문 · 판정 45) · 원장 line_ref <diff_id>:offpo(so-module 24-r)
 → 차이 닫기      ⭐ [2026-09-19 `20260919175712` · 9a5344a] `po_receipt_diff_resolve(diff, resolution, note)` · `po_receipt_diff_reopen(diff, note)` · 칸 resolution · resolution_note
                 ⭐ 이유 어휘 다섯 — split_shipment(나눠 왔다) · out_of_stock(공급사 결품) · lost_damaged(운송 중 분실·파손) · miscount(우리가 잘못 셌다) · other(⚠️ **메모 필수** — 셀 뜻이 없는 「그 밖」을 막는다)
+                → [2026-10-21 · 판정 599 · rcv-3] **사유가 닫기를 정한다** — split_shipment = 이 PO 로 더 온다(열어 둠) · out_of_stock · lost_damaged · miscount · other = 안 온다(그 줄의 **마지막** short 가 이것이고 아직 올 몫이 없으면 `po_receipt_diff_resolve` 가 PO 를 닫는다 · 반환 po.closed_now) · `po_receipt_diff_reopen` 으로 되돌려 아직 올 몫이 생기면 닫힌 PO 를 다시 연다(po.reopened_now) · 줄마다 **마지막 short 만** 본다 — 앞 입고의 열린 short 는 이력으로 남는다(자동 정리는 미룬 273) · 닫힌 PO 에 입고를 시작하면 거부 문장이 「short 를 되돌리면 다시 열린다」를 말한다(옛 「split document」 문장은 판정 88 전의 말 · po_receipt_create_by)
                 ⭐ 왜 어휘인가 — 자유 메모는 셀 수 없다. 「이 공급처가 몇 번 결품했나」를 물으려면 어휘여야 한다(위 「short 를 담는 이유」의 완결)
                 ~~⭐⭐ short 만 닫는다. over 는 별도 차수~~ → ✅ **[2026-09-20 `20260920171930` · f413fe3] over 는 형제 함수 `po_receipt_diff_settle_over(diff, reason, note)` 가 닫는다 — 초과 입고를 재고에 넣는다.** `_resolve` 와 `_settle_over` 는 서로를 가리킨다(short 에 over 함수를 부르면 _resolve 를, 반대면 새 함수를 문장으로).
                 ⭐ [Caleb · 실무 셋 · 말 그대로] ① 잘못 더 보냈고 공급처는 리턴보다 **샘플로 쓰라고 공짜로 준다**(⭐ 가장 많다) ② 인보이스를 추가로 보낸다 ③ 다음 오더에서 수량을 깐다 · 「돌려보내는 일은 거의 없어」 ⇒ ⚠️ **returned 는 만들지 않았다**(쓰지 않을 갈래도 유지해야 할 코드다 · 생기면 그때)

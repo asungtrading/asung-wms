@@ -994,7 +994,7 @@ at_wms      창고에 있다 — 사람이 WMS 로 보냈다   ← ⭐ 소유권
 picking     창고에서 픽이 시작됐다
 packed      팩이 끝났고 아직 안 나갔다      ← ⭐ 새로 생긴 자리(6-d) · → [2026-09-24 §17 판정 1] 창고 일(픽·팩·fulfillment) 끝 — WMS 의 팩(검수)과 낱말이 다르다 · 오피스 마무리(so_finalize)가 여기서 출고 + 발행
 shipped     나갔다                          ← ⭐ 원장에서 빠지는 유일한 자리
-invoiced    송장이 나갔다 → [2026-09-24 §18 판정 1] ✗ 상태 값에서 뺐다(so_status_ck 여덟 · ⓑ2) — 끝은 마무리 순간 shipped → fulfilled 곧장 · invoiced_at 은 시각 칸으로 남는다
+invoiced    송장이 나갔다 → [2026-09-24 §18 판정 1] ✗ 상태 값에서 뺐다(so_status_ck 여덟 · ⓑ2) — 끝은 마무리 순간 shipped → fulfilled 곧장 · invoiced_at 은 시각 칸으로 남는다 · [2026-10-21 §69-e 5 확인] 상태는 여덟 그대로 · invoiced 는 시각(invoiced_at)
 fulfilled   물건이 나가고 송장까지 끝났다    ← 끝 상태 ① → [2026-09-24 §18 판정 1] = 오피스 마무리(출고 + 발행) 순간 · 돈은 조건이 아니다(Net 30 미수는 정상 · 잔액은 따로) · 인보이스 취소 → shipped(closed_at 비움)
 cancelled   끝나지 않고 닫혔다 — 이유는 closed_reason 이 말한다   ← 끝 상태 ②
             closed_reason: expired · superseded · voided · (그 밖은 ④에서)
@@ -1010,7 +1010,7 @@ cancelled   끝나지 않고 닫혔다 — 이유는 closed_reason 이 말한다
 ### 6-b 길 셋 — `channel` · 유입 넷 — `intake` (⚠️ 2026-09-22 ③′ 이름 변경 — 처음 `source`)
 
 ```
-channel  warehouse · pos · counter          오더가 **가는 길**   ← 상태 전이의 모양을 정한다
+channel  warehouse · pos · counter          오더가 **가는 길**   ← 상태 전이의 모양을 정한다   → [2026-10-21 · 판정 590 · §69] 길 넷 — + service(so_channel_ck)
 intake   manual · shopify · csv · pos       오더가 **들어온 경로** ← 전이와 무관 · 통계·연동의 축
 ```
 ⭐ **두 축을 가른다**(Caleb 판정 2026-09-22 · ⬜① 채택). Shopify 는 **유입 경로**이고 길은 `warehouse`(픽·팩 있음)를 탄다. 축을 섞으면 「Shopify 오더는 어느 길인가」를 물을 수 없다. 대가는 칸 하나. ⇒ 5-d 의 「⬜ Shopify 는 연동 때 `channel` 에 늘린다」는 **`intake` 에 늘린다**로 바뀐다(5-d 본문은 고치지 않았다 · 6-i). 📌 `pos` 는 둘 다에 있다 — POS 화면에서 들어와(`intake`) POS 길(`channel`)을 탄다.
@@ -1020,6 +1020,7 @@ intake   manual · shopify · csv · pos       오더가 **들어온 경로** �
 warehouse  draft → confirmed → at_wms → picking → packed → shipped → invoiced → fulfilled
 pos        draft → confirmed → shipped → invoiced → fulfilled
 counter     draft → confirmed → shipped → invoiced → fulfilled      ⚠️ manager 이상
+service    draft → confirmed → shipped → fulfilled               [2026-10-21 · 판정 590 · 595 · 597 · §69] 상품 줄 없음 · WMS 없음 · so_service_confirm → so_service_invoice(나감 표시 + 이 오더 하나만 발행) · sales 쓰기 · at_wms · picking · packed 못 감(문지기)
 ```
 
 ⚠️ **없는 사건을 상태로 만들지 않는다.** POS 에 픽·팩이 없는 것은 사실이고(§1-c), 사실을 상태로 담지 않는다. 건너뛰는 것이 예외가 아니라 **그 길의 모양**이다.
@@ -6850,7 +6851,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 259 | 화면 창구 접두 `stk_` |
 | 260 | On order = 확정 발주 줄 qty_ea − 확정 입고 줄 qty_ea(0 아래 0 · 창고 = po.ship_to_warehouse_id) · draft 제외 |
 | 261 | 기본 0 줄 숨김 · 「Show zero stock」 · 세트 sku 검색 → 낱개 줄 + 세트 표시 · 콤보 줄 없음 |
-| 262 | 원가(amount · 발주 단가)는 이 창구들이 절대 내지 않는다 — 권한과 무관한 불변식 → 판정 575 로 좁힘(원가는 stk_value_* 만 · 원가 열쇠 · §68) |
+| 262 | 원가(amount · 발주 단가)는 이 창구들이 절대 내지 않는다 — 권한과 무관한 불변식 → 판정 575 로 좁힘(원가는 stk_value_* 만 · 원가 열쇠 · §68) → [2026-10-21] 판정 580(§69-a): DB 행 정책도 원가 열쇠 — 장부 원가 표 다섯 · inv_layer_open · inv_layer_value |
 | 263 | 같은 날 하루 안 순서는 알 수 없다 ⇒ 누적 잔고는 날짜별 마지막 줄(is_day_end)에만 보인다 |
 | 264 | 가용 속 함수는 **definer** — transfer 열쇠 없는 직원도 트랜스퍼 예약을 뺀 같은 가용을 본다(20260924020852 「definer 로 바꾸지 않는다」 정정 · 트랜스퍼 표가 09-28 에 생겨 생긴 결함) → stk_reserved 도 같은 뜻 · TRF 번호 · 상태 · 수량은 열쇠 없이(§68) |
 | 265 | 속 함수 이름 `inv_available_base` (속 = inv_ · 화면 = stk_ · 판매 껍데기 = so_) |
@@ -6965,7 +6966,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 | 288 | 덤 첫 판 제외 · kind 자리 · 할인 % < 100 |
 | 289 | D9 정정 — 카테고리 · 쿠폰 · 금액 기준 · 덤을 다시 연다 |
 | 290 | 차수 순서 dsc-1 → dsc-2 → dsc-3 → dsc-4 → 화면 · 문서 [2026-10-06 정정 · 판정 330 ~ 344 · §50] dsc-4 는 4a · 4b · 4c 로 섰다 · 다음 화면 묶음 |
-| 291 | 판매 가능 기본값은 트리거 `product_sellable_default`(BEFORE INSERT OR UPDATE OF parent_product_id) — 명시 null 은 종류 기본(낱개 true · 세트 false) · 낱개가 세트가 되면 false · 칸 NOT NULL default true |
+| 291 | 판매 가능 기본값은 트리거 `product_sellable_default`(BEFORE INSERT OR UPDATE OF parent_product_id) — 명시 null 은 종류 기본(낱개 true · 세트 false) · 낱개가 세트가 되면 false · 칸 NOT NULL default true → [2026-10-21] 판정 585 · 586(§69-a): New product 세트가 칸을 안 보내 true 로 들어가던 결함 고침(pset-1 · 세트 sellable false 명시) · 7 개 판매 안 함으로 |
 | 292 | 판매 안 함 세트를 바꿔 넣는 길에서는 손으로 준 단가 · 할인 %를 거부 — 「enter the base SKU with its own price」 |
 | 293 | 붙여넣기는 판정 꼬리표 `not_sellable` · 바꾼 줄에 `converted` · summary 에 converted · not_sellable 셈 |
 | 294 | `sellable_source`(cin7 · ims) — IMS 에서 바꾸면 ims · product_update 의 sellable 칸(master) · 열린 줄이 있는 제품을 끄면 경고 `sellable_off_open_lines`(ack) |
@@ -8096,7 +8097,7 @@ family 구성원은 families.html 에서 보낸다(켜기 · 끄기 · Send now 
 | 430 | ord-0 ⬜5(손님 9,469 중 기본 창고 Toronto 9,319 · Edmonton 135 · 비어 있음 5 · 배송지 AB 손님 Toronto 667 · Edmonton 86) + asung.ca 오더 CSV(50 중 배송지 AB 8 · BC 5 · SK 2) → A 배송지 주 먼저 · B 손님 기본을 주소로 고치는 적재 · C 그대로 → Caleb 「배송지 주를 먼저 본다 A가 맞아 보여」 | 웹 오더 브랜치 = **배송지 주 먼저**(asung.ca AB · BC · SK → Edmonton · 그 밖 Toronto · 주가 없으면 손님 기본) · aonebeauty.com 늘 Toronto · 재고로 고르지 않음 · 판정 365 를 바꾼다 |
 | 431 | ord-0 ⬜10 ① ③ ④ ⑤ → Caleb 「할인은 현재는 cin7과 샤피파이 wholesale all in one을 동기화하기 어려워서 양쪽에 똑같이 만들어서 쓰고 있어」 → 「그대로 짓자」 | ① 받은 오더 표에 원문 먼저(GID 한 번) → 다 정해지면 SO · 애매하면 확인 필요 ② 시스템 창구(만든 사람 = Shopify) ③ 줄 할인 출처 **shopify** · 손님이 본 정가 · 할인 그대로 · **IMS 규칙 계산과 다르면 할인 어긋남 경고**(두 곳 손 맞추기의 안전망) ④ 손님 잇기 표 |
 | 432 | ord-1a1 이견 3 → A 바로 검토 완료 · B 검토 필요 → Caleb 「A」 | 웹으로 처음 온 손님은 시스템이 만들고 **바로 검토 완료** · 첫 오더도 자동 확정 · 만든 · 검토 = 시스템 직원 |
-| 433 | 「웹 오더 줄을 다시 매기면 케이스 할인이 빠질 수 있다」 → Caleb 「A」 | **discount_source shopify 줄은 다시 매기기에서 건너뛴다** · 직원이 수량 · 손님을 바꿔도 할인 % 그대로 |
+| 433 | 「웹 오더 줄을 다시 매기면 케이스 할인이 빠질 수 있다」 → Caleb 「A」 | **discount_source shopify 줄은 다시 매기기에서 건너뛴다** · 직원이 수량 · 손님을 바꿔도 할인 % 그대로 → [2026-10-21] Caleb 확인 · 그대로(「궁금해서 물은거야. 수정은 안해」 · §69-a) |
 | 434 | 「Shopify 취소 → 손대지 않았음 = SO 가 만들어진 뒤 IMS 에서 한 번이라도 바뀌었으면 손댐」 → Caleb 「그렇게 정하자」 | 창고 전 + IMS 에서 안 바뀜 → 시스템 자동 취소 · 바뀜 · 창고 뒤 → 경고만 · 조심스러운 쪽 · 판정 372 를 구체화한다 |
 | 435 | Caleb 「그런데 오더 채널이 Warehouse로 찍히네」 → A(채널 그대로 · 화면에 들어온 길) · B(채널 shopify 새로) → Caleb 「B가 맞을 것 같아」 → 대화 Claude 「A 로도 통계는 intake 로 가른다」 → Caleb 「A로 바꾸자」 | **채널은 Warehouse 그대로** · 들어온 길 = so.intake shopify · 화면: 목록 Channel 「Warehouse · Shopify」 · 필터 Shopify (web)(= intake shopify) · 상세 칩 「From Shopify · #ref」 · **통계 · 보고서는 「채널 × 들어온 길(intake) × 웹 스토어」 로 나눈다**(예: asung.ca 웹 매출 = intake shopify + 스토어 asung) · 처음 B 를 골랐다가 A 로 바꾼 경위 그대로 |
 
@@ -9193,8 +9194,8 @@ Shopify 잇기(link-1a · 1b)
 
 ### 68-f 미룬 것 — 67-e 267 에 이어 붙임
 
-- 268 **rls-3**(stk-av-1 바로 다음 · 운영 전 필수) — 원가 표 읽기 가리기: invoker 읽기 함수 6(판정 576) 먼저 고치고 · inv_layer_open · inv_layer_value · 정책 using 은 po_line 선례처럼 `(select ims_can_view_cost())` · 판정 577(울타리) · inv_cost · inv_doc_cost · inv_snapshot 의 auth_all(stk-av-1 이견 4)
-- 269 운영 DB 에 rls-1 · rls-2 와 같은 구멍이 있는지 읽기 쿼리(rls-1 보고에 문장으로 있다 · 운영에 아무것도 하지 않는다)
+- 268 **rls-3**(stk-av-1 바로 다음 · 운영 전 필수) — 원가 표 읽기 가리기: invoker 읽기 함수 6(판정 576) 먼저 고치고 · inv_layer_open · inv_layer_value · 정책 using 은 po_line 선례처럼 `(select ims_can_view_cost())` · 판정 577(울타리) · inv_cost · inv_doc_cost · inv_snapshot 의 auth_all(stk-av-1 이견 4) → ✅ [2026-10-21] §69 닫힘(rls-3a · 3b · 3c · 판정 579 ~ 583)
+- 269 운영 DB 에 rls-1 · rls-2 와 같은 구멍이 있는지 읽기 쿼리(rls-1 보고에 문장으로 있다 · 운영에 아무것도 하지 않는다) → ✅ [2026-10-21] §69 닫힘 — 판정 584(운영은 고치지도 읽지도 않는다 · 안전망 = 마지막 재적재 대조)
 - 270 WMS 작업 표 17 의 창구 전환(판정 569) — 운영 전환 이후 별건(일정)
 - 271 family 옵션 축 더하기 · 빼기(새 창구 + 화면 · Caleb 이 정함)
 - 272 손님 태그를 거르기 · 딜 대상으로 쓰기(Caleb 「일단 tag를 활용해볼게」)
@@ -9208,4 +9209,132 @@ Shopify 잇기(link-1a · 1b)
 ② 발주앱 이식(판정 521 의 셋째 · 컷오버 아침 필수)
 ③ 컷오버 준비 목록 하나로(두 스토어 잇기 · 읽기 + Plan · 운영 구멍 읽기 · 테스트 가이드)
 다음 판정 번호: 579
+```
+
+## §69 2026-10-21 — 원가 · 수집기 표 쓰기 닫기 · 원가 읽기 가리기 · Backorders definer · 세트 더하기 · 서비스 오더 · 열린 short 가 PO 를 열어 둔다 — rls-3 · rls-3a · 3b · 3c · pset-0 · pset-1 · svc-0 · svc-1a · 1b · 1c · rcv-2 · rcv-3 · 판정 579 ~ 601 (회사 PC)
+
+⭐ 닫힌 것: 원가 · 기준선 · 수집기 · 기록 표 열다섯 + inv_bin_notes 의 「누구나 쓰기」(rls-3a · 판정 579) · 장부 원가 읽기 가리기와 576 결함(rls-3b · 판정 580 · 582) · Backorders 의 공급처 이름(rls-3c · 583) · 68-f 268 · 269(→ 584) · 「세트를 나중에 더할 길이 없다」(pset-1 · 585 ~ 589) · 「서비스만 따로 끊어」(svc-1a · 1b · 1c · 590 · 593 ~ 597) · PO-02055 가 240 / 1,290 받고 닫힌 것(rcv-3 · 598 ~ 601)
+⭐ 새 판정 579 ~ 601 · 원천: 지시서 `docs-1021.md`(이 절의 원천 · 오늘 판정 · 결정 · 실수는 대화에만 있었다) · 회사 PC 대화 · 조사 넷(rls-3 · pset-0 · svc-0 · rcv-2 · Opus 또는 Fable · 쓰기 0) 회신
+⭐ 테스트 DB 에는 이 절의 마이그레이션 여덟이 전부 적용됐다 · **운영 DB 에는 하나도 없다**(584 — 운영의 같은 구멍은 고치지 않고 알고 둔다) · 운영 적용 순서는 69-g ②
+⭐ 판정 591 · 592(HS code · 원산지)는 짓지 않았다 — 마지막 재적재 무렵(69-f)
+
+### 69-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 579 | 「문제가 되는 것들을 모두 세고 구멍을 막고 가는게 맞지 않을까? … 내일은 회사에서 결함 해결부터 시작하자」(10-20 밤 집) | rls-3 을 발주앱 이식보다 먼저 · 열린 정책 · 쓰기 grant 를 처음부터 다시 전부 센 뒤 막는다(계기: rls-1 목록에 inv_cost · inv_doc_cost · inv_snapshot 이 빠졌다) |
+| 580 | 「2로 가자」 | 원가 울타리 = 장부 원가(inv_layer · inv_layer_cost_add · inv_layer_consume · inv_cost · inv_doc_cost 행 정책 · inv_layer_open · inv_layer_value)는 원가 열쇠 · product_supplier 는 purchasing · master · cost 중 하나 · PO · 인보이스 단가 · 입고 원가 칸은 그대로(칸 가리기 3c 없음) |
+| 581 | 「A」 | wms_rollback_archive = 569 의 18 번째 의도된 열림 |
+| 582 | 「니 제안대로」 | definer 로 바꾸는 함수 넷의 새 문 = 부르는 화면의 열쇠(so_stock_short_list · so_credit_detail = sales · po_fx_cost_lines = purchasing · inv_adjust_eval = ims_can_adjust_read) |
+| 583 | 「A」 | Backorders 함수 셋(so_backorder_arrivals · demand · overview)을 definer + sales 문 — 공급처 이름은 보이고 단가는 안 보인다(기각 B: 정책에 sales 더하기) |
+| 584 | 「A」(Caleb 물음 「운영db는 결국은 커오버뒤에는 사용하지 않을꺼라, 수정할 필요가 있나?」) | 운영 DB(asung-WMS)의 수집기 · 원장 쓰기 구멍은 고치지 않고 알고 둔다 · 안전망 = 마지막 재적재의 Cin7 대조 검산 · 운영 읽기 쿼리도 안 돌림(미룬 269 닫음) |
+| 585 | 「A · 이부분은 사람이 수동으로 만들다 생긴 실수야」 | New product 로 만든 세트 중 sellable true 로 들어간 7 개(AS85203-72 · AS85203-6 · TBR43447-6 · TBR00182-12 · TBR16260-6 · TBR63096-6 · TBR39231-12)를 판매 안 함으로(sellable_source ims) |
+| 586 | 「세트의 기본은 스캔은 가능하나 판매는 하지 않는다가 기본으로 표시되면 좋겠어」 | 세트 기본 = 스캔 · 붙여넣기는 낱개 × N · 따로 팔지 않음(판정 291 그대로 · New product 결함 고침) · 만들기 창에 그 기본을 글로 보인다 |
+| 587 | 「A」 | 같은 계수의 세트가 꺼진 채 있으면 막고 「Edit 에서 다시 켜라」 + Open 링크 |
+| 588 | 「A」 | 단종 · 판매 안 함 낱개에 세트 더하기 = 경고 → 확인(막지 않음) |
+| 589 | 「A」 | 세트 고정가는 Edit 에서만(Add set 창 = New product 세트 줄과 같은 칸) |
+| 590 | 「B」(Amazon prep service · 「서비스만 따로 끊어」) | 서비스 오더 = 상품 줄 없이 비용 줄(수량 × 단가 · 서비스 목록)만 · WMS 없이 보통 인보이스로 따로 · 같은 번호 · 판 · 메일 · 돈 흐름(기각 A: 재고 안 세는 서비스 상품 종류) |
+| 591 | 「그 두방식으로 진행하자」 | HS code = 숫자만 저장 · 꼴은 화면 · 원산지 = 표준 나라 목록(ISO 코드)에서 고르기 · 적재도 같은 정리 함수를 지난다 |
+| 592 | 「급한 것은 아니니 cin7에서 재적재를 한 후에 하는게 나을 수 있겠어. 제대로 정리가 되어야 하지 않을가?」 | 591 은 마지막 재적재 무렵에 · 컷오버 준비 목록의 재적재 옆 |
+| 593 | 「A」 | 서비스 줄의 세금 = 오더 세율(서비스 목록에 세금 칸 없음) |
+| 594 | 「A」 | 서비스 오더도 창고(브랜치) — 손님 기본 · 바꿀 수 있음 |
+| 595 | 「B」 | 서비스 오더 = 초안 → 확정 → 발행(확정 단계 있음) |
+| 596 | 「A」 | 단가 = 목록 단가 + 손 단가(누가 바꿨나 남김) · 손님별 서비스 단가 없음 |
+| 597 | 「A」 | 서비스 오더 만들기 · 확정 · 발행 = sales 쓰기 · 서비스 목록 = master 쓰기 |
+| 598 | 「A」(Caleb 물음 「열린 short가 있으면 열어둔다는 실제로 물건이 적게 온 경우도 계속 열어두게 되지 않나?」 → 그 정리는 오피스가 어차피 함) | 열린 short 가 있으면 입고 확정이 PO 를 열어 둔다 · 마지막 short 가 「안 온다」로 정리되거나 다 받으면 닫힌다(기각 B 늘 닫기 · C 확정 창에서 묻기) · 계기 PO-02055(RCV-00046 · 240 / 1,290) |
+| 599 | (598 과 함께 · 이견 없음) | short 사유: split_shipment = 이 PO 로 더 온다(열어 둠) · out_of_stock · lost_damaged · miscount · other = 안 온다(마지막이면 닫음) · 정리 되돌리기 = 다시 엶 |
+| 600 | 「B」 | 창고 화면 확정은 남기고 오피스와 같은 안내(short 줄 · PO 열림/닫힘) |
+| 601 | 「A」 | PO-02055 를 rcv-3 마이그레이션에서 다시 엶(남은 1,050) |
+
+- **번호 없는 결정**: 판정 433 은 그대로(Caleb 「궁금해서 물은거야. 수정은 안해」 — 웹 오더 줄은 Reprice 가 다시 매기지 않는다 · §60-a 433 옆 포인터) · 서비스 인보이스는 늘 따로(서비스 오더 하나 = 한 장 · svc-1b 가 so_invoice_issue 에서 거부로) · 서비스 오더 번호 = 같은 SO 번호 줄 · 판정 602(Post now 안내 규칙)는 598 로 필요 없어 묻지 않음
+- 포인터: 580 ← 판정 262(§46-a) · 585 · 586 ← 판정 291(§47-a) · 590 ← 6-b(길 넷) · 583 ← §64(Backorders) · 598 · 599 ← po-module §11-c · §11-i
+- **다음 판정 번호: 602**
+
+### 69-b 쉬운 말 (Caleb 이 물은 자리)
+
+- **「운영 DB 를 고칠 필요가 있나」(584)** — 없다. 운영(asung-WMS)은 컷오버 뒤 쓰지 않는다. 수집기 · 원장 표에 「누구나 쓰기」 구멍이 운영에도 있을 수 있지만, 컷오버 직전 마지막 재적재가 Cin7 과 숫자를 맞춰 보므로(대조 검산) 누가 그 사이에 원장을 건드렸다면 그때 드러난다. 그래서 운영에는 고치는 마이그레이션도 읽는 쿼리도 돌리지 않는다.
+- **「열린 short 가 있으면 물건이 정말 덜 온 PO 도 계속 열려 있지 않나」(598)** — 열려 있다. 하지만 덜 온 몫은 어차피 오피스가 Purchase Receipts 에서 short 사유를 정리한다. 「안 온다」(out_of_stock · lost_damaged · miscount · other)로 정리하는 순간 PO 가 닫힌다. 「나눠 온다」(split_shipment)면 열린 채 다음 배를 기다린다. 늘 닫던 옛 길은 PO-02055 처럼 나머지 1,050 개를 받을 문을 닫아 버렸다.
+- **「Post now 와 부분 입고는 무엇이 다른가」** — Post now(판정 550)는 **한 배송**을 나눠 세며 먼저 재고에 넣는 것이고(입고 문서는 draft 그대로) · 부분 입고(598)는 **받은 만큼 확정**하고 나머지는 PO 가 열린 채 다음 입고로 받는 것이다.
+
+### 69-c 차수 · 커밋 (git log 원문)
+
+| 차수 | 레포 · 커밋 | 무엇 |
+|---|---|---|
+| rls-3 | (조사 · Opus · 쓰기 0) | 열린 정책 · 쓰기 grant · 문 없는 함수 · invoker 원가 읽기를 전수로 — 판정 576 의 목록 6 → 15 · inv_ledger 는 수량 표(이견 1) · 579 ~ 582 의 재료 |
+| rls-3a | asung-wms 94e9a89(20261021125743) | 16 표 쓰기 닫기(auth_all → `<표>_select` · authenticated I/U/D/T 회수 · inv_bin_notes auth_insert drop) · 함수 5 실행권 회수 · tf_charge_* 6 public · anon 회수 · 판정 579 · 581 · 확인 OK 13 |
+| rls-3b | asung-wms ada71fa(20261021131845) | 원가 읽기 가리기 · 장부 원가 표 5 select = ims_can_view_cost() · product_supplier = purchasing · master · cost · invoker 원가 읽기 6 → definer · ims_require_ok · 576 결함 닫힘 · 판정 580 · 582 · 확인 OK 17 |
+| rls-3c | asung-wms be45f5e(20261021135919) | so_backorder_arrivals · demand · overview definer + sales 보기 문 · 판정 583 · 확인 OK 10 |
+| pset-0 | (조사 · 쓰기 0) | 세트를 나중에 더할 길 없음 · New product 세트 sellable true 결함(이견 1) · 수동 세트 7 개 |
+| pset-1 | asung-wms 52ef78c(20261021143904) | product_set_add · 도우미 둘(product_set_check · product_set_insert) · product_create_core 재발행(동일성 11 경우) · 세트 sellable false 명시 · 7 개 고침 · 판정 585 ~ 589 · 확인 OK 12 |
+| svc-0 | (조사 · 쓰기 0) | 비용 줄 · 상태 여덟 · channel 을 박은 함수 20 · 판정 590 · 593 ~ 597 의 재료 |
+| svc-1a | asung-wms 2508980(20261021164646) | ref_service · so_charge qty · unit_price · service_id · price_set_by/at · so_charge_set 끝 인자 셋 · 판정 590 · 593 · 596 · 597 · 확인 OK 10 |
+| rcv-2 | (조사 · 쓰기 0) | 확정이 PO 를 늘 닫는다 · 닫힌 PO 는 입고 불가 · split_shipment 는 이름표뿐 · PO-02055 사실 · 창고 확정 창 · 확정 열쇠 8 명 |
+| rcv-3 | asung-wms 103865e(20261021171531) | po_receipt_keep_open · confirm_by · diff_resolve · diff_reopen · create_by 문장 · PO-02055 다시 엶(남은 1,050) · 판정 598 ~ 601 · 확인 OK 10 |
+| svc-1b | asung-wms dc4d25a(20261021180840) | channel service · so_service_confirm · so_service_invoice · 상품 줄 · 붙여넣기 거부 · 문지기 짝 · 늘 따로 · POS 확정 · reopen 샛길 · 확인 OK 10 |
+| svc-1c | asung-wms cc20f2a(20261021183044) | so_invoice_line charge 에 qty · unit_price 짝 CHECK · so_invoice_issue 가 싣는다 · 판 무변 · 서비스 크레딧은 금액 · 확인 OK 8 |
+| 화면 | asung-ims 090bf53 · b90ec3e · 43976b0 · 0c06fcc · fc1371e · 90d68af · a51c6e4 | transfers tf cost v1(rls-3b) · products pr v5c(Add set) · po due v1 + invoices inv due v1(Due date = Document date + net_days · 판정 10) · receiving rcv item v1(Received 표 Item) · wms-receiver rc v1.9 + receiving rcv open v1(판정 600) · settings set v6(Service 탭) · so v5x(서비스 오더) |
+
+### 69-d 함수 지도 (마지막 정의 · `command grep -lE … | LC_ALL=C sort | tail -1` · 파일:행)
+
+```
+쓰기 닫기(rls-3a)
+  표 열다섯 정책              <표>_select(using true)                    20261021125743_rls_3a_collector_cost_write_gate.sql:51(do 고리)
+  회수 함수 11                inv_layer_carry · inv_layer_cost_add_settle · inv_snap_balance_diffs · inv_compare_run · inv_ack_diff · tf_charge_* 6   20261021125743:68 ~ 78
+원가 읽기(rls-3b)
+  도우미                      ims_require_ok(p_ok, p_message)            20261021131845_rls_3b_cost_read_gate.sql:54
+  definer + 문(582)           so_stock_short_list :67 · so_credit_detail :124 · inv_adjust_eval :167 · po_fx_cost_lines :199   (모두 20261021131845)
+  값만 열쇠로                 po_charge_confirm :250 · inv_transfer_detail :340
+  정책                        product_supplier_select                    20261021131845:387   장부 원가 표 다섯 select = ims_can_view_cost()
+Backorders(rls-3c)            so_backorder_arrivals :57 · so_backorder_demand :184 · so_backorder_overview :352   (모두 20261021135919_rls_3c_backorder_definer.sql)
+세트(pset-1)
+  도우미 둘                   product_set_check :48 · product_set_insert :146   (20261021143904_pset_1_set_add.sql · 문 없음 · authenticated 불가)
+  속 함수                     product_create_core                        20261021143904:199
+  창구                        product_set_add(p_parent_id, p_sets, p_commit, p_ack)   20261021143904:528   master 쓰기
+서비스(svc-1a · 1b · 1c)
+  목록                        ref_service(표 · 정책 셋)                  20261021164646_svc_1a_service_list_charge_qty.sql:49 · :69 ~ 71
+  비용 줄                     so_charge_set(… p_qty, p_unit_price, p_service_id)   20261021164646:98
+  길 · 문지기                 so_channel_ck :59 · so_create :63 · so_status_guard :155   (20261021180840_svc_1b_service_channel.sql)
+  상품 줄 막기                so_line_add :192 · so_lines_paste :356 · so_charge_gate :645 · so_pos_confirm :905 · so_pos_reopen :950   (20261021180840)
+  확정 · 발행                 so_service_confirm(so_id) :994 · so_service_invoice(so_id, issued_on, commit) :1068   (20261021180840 · sales 쓰기)
+  발행(늘 따로 · 수량 · 단가) so_invoice_issue                           20261021183044_svc_1c_service_invoice_lines.sql:55
+  인보이스 줄 CHECK           so_invoice_line_qty_ck :48 · so_invoice_line_charge_qty_ck :50   (20261021183044)
+입고(rcv-3)
+  열어 두나(규칙 한 곳)       po_receipt_keep_open(po_id, receipt_id)     20261021171531_rcv_3_short_keeps_po_open.sql:49
+  확정 · 정리 · 되돌리기      po_receipt_confirm_by :90 · po_receipt_diff_resolve :341 · po_receipt_diff_reopen :421 · po_receipt_create_by :487   (20261021171531)
+```
+
+### 69-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] rls-3 지시서가 「원가 표 넷」에 inv_ledger 를 넣었다 — 수량 표라 행을 가리면 재고가 사라진다(rls-3 이견 1) ⇒ 행 정책으로 가릴 표는 「그 표의 모든 칸이 원가인가」부터
+2. [대화 Claude] 판정 576 의 invoker 원가 읽기 목록 6 은 완전하지 않았다(전수 15) ⇒ 「목록 N」은 조사가 다시 센다
+3. [대화 Claude] 판정 580 의 짐작 「공급처 단가를 읽는 사람은 모두 purchasing · master」 가 틀렸다 — Backorders(sales)가 기본 공급처 이름을 읽었다 → 583 ⇒ 행 정책을 좁히기 전에 그 표를 읽는 화면의 열쇠를 전수로
+4. [발견 · pset-0] New product 의 세트가 판정 291 과 달리 sellable true 로 저장돼 왔다(칸을 안 보내면 칸 기본 true · 트리거는 명시 null 에만) ⇒ 기본값을 트리거에 맡길 때는 「칸을 안 보냈을 때」도 시험
+5. [대화 Claude · svc-0] 상태를 「열 개」로 정리했다(실제 여덟 · invoiced 는 시각) · 비용 줄 세금을 서비스마다 고를 수 있다고 짐작했다(오더 세율 하나) ⇒ 상태 · 세금 문장은 정본 · CHECK 를 grep 한 뒤
+6. [rcv-2] 창고 화면 확정 창이 short · PO 닫힘을 말하지 않았고 · 주석 「확정 열쇠는 아무에게도 없다」는 틀렸다(8 명) · 닫힌 PO 입고 거부 문장이 옛 판의 말이었다 ⇒ 확정 창 · 거부 문장은 판정이 바뀔 때 함께 grep
+7. [대화 Claude] svc-0.md 를 Caleb 이 다운로드하지 않은 채 Claude Code 에 줬다(Claude Code 가 「파일 없음」으로 멈춤 — 정직하게) ⇒ 옮기기 명령 머리에 `ls -l "$D"/<이름>*`
+8. [대화 Claude] PO-02056 에서 「빈 인보이스가 생길 수 있다」고 짐작 — 실제는 Create 가 꺼져 막혔다(짐작이라 밝혔음 · Caleb 실측으로 정정)
+9. [화면] 확정 뒤 Received 표 Item 이 비었다 — 서버의 받은 줄에는 po_line_id 만 있다 → rcv item v1(PO 줄에서 찾기)
+10. [Claude Code · rls-3c 이견 5] psql -At 로 받은 prosrc 는 끝에 \n 하나 더 — rls-3b 재발행 여섯에 꼬리 줄바꿈(동작 무해 · 다음 재발행 때 맞춤) ⇒ 생성기는 한 줄 떼고 원본 md5 와 맞춘 뒤
+11. [Claude Code · rcv-3 run 4] 도우미가 「안 온다」로 정리한 몫을 남은 몫에 섞었다 — 스스로 잡음(not_coming_ea 따로)
+12. [잘 된 것] 결함 판을 「중간 상태」로 재현(rls-3b S0c · 576) · 동일성 시험을 exception 블록 + 예외 메시지로 꺼내기(pset-1) · 지시서 밖 샛길 막기(svc-1b so_pos_reopen · pset-1 set_factor_exists)
+
+### 69-f 미룬 것 — 68-f 272 에 이어 붙임
+
+- 273 앞 입고의 열린 short 를 뒤 입고가 다 받으면 자동 정리(Caleb 「아마 자동정리가 필요할거야. 그것은 나중에 정리할게 기억해줘」)
+- 274 나눠 받는 PO 의 둘째 입고에 운임 · 관세가 안 얹힌다(배분 줄 단위 한 번 · 판정 553 과 같은 문제)
+- 275 PO-02040 · PO-02002a 도 열린 short 를 둔 채 닫힘 — 다시 열지 Caleb 에게 물을 것
+- 276 HS code · 원산지(591 · 592 · 마지막 재적재 무렵)
+- 277 서비스 크레딧을 수량으로(지금 금액만 · so_credit_line_qty_ck · so-credits.html) · 판 비용 표 제목 「Freight & surcharges」 · 수량 천 단위 쉼표
+- 278 서비스 오더 확정 풀기 = supervisor(물건 오더와 같음) — 다르게 할지는 Caleb
+- 279 기본 권한(새 함수 anon EXECUTE · rls-3a 이견 7) 작은 차수 · system-check.html:105(열쇠 없는 사람에게 product_supplier 0) · families.html 「Sets in this family」 늘 0
+- 280 화면 시험 남은 것: po due v1 · inv due v1 ②③④ · rc v1.9 · rcv open v1(창고 확정 창 · 정리 알림)
+- 268 · 269 → ✅ 닫힘(rls-3a · 3b · 3c · 584)
+
+### 69-g 다음 (Caleb 이 고른다)
+
+```
+① 발주앱 이식(판정 521 의 셋째 · 컷오버 아침 필수)
+② 컷오버 준비 목록 하나로 — 두 스토어 잇기(읽기 + Plan 먼저 · 68-f 261) · 운영 적용 순서
+     rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → rcv-3 → svc-1b → svc-1c · 테스트 가이드 · 재적재 옆에 591 · 592
+다음 판정 번호: 602
 ```

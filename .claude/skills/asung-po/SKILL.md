@@ -172,6 +172,9 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️  설명 칸 셋은 문지기 product_description_guard — 창구 밖 쓰기(적재 · 손 SQL 포함)는 raise 없이 조용히 되돌아간다 ⇒ SQL 로 고치려면 같은 트랜잭션에서 select set_config('ims.description_door','1',true); 를 먼저
 ⭐⭐ 콤보 정의(판정 244 · 247 · 250 · so-module §44): product_bom_set(p_parent_sku, p_lines [{sku, qty}], p_old, p_commit, p_ack) · master · 전체 목록 바꿔치기 · p_old(화면이 본 목록 · changed_elsewhere · old_missing) · 두 번 부르기 · 막기 — 콤보 안의 콤보 양방향(component_is_combo · parent_is_component) · 세트 부모(parent_is_set) · 구성품 하나뿐 · 알리기 — 세트 구성품(component_is_set) · 열린 오더 · 부모 재고 · Cin7 콤보 · 손댄 줄만 source manual · 빈 목록 = 해제(끄기 · 지우지 않음) · ⚠️ 콤보는 재고를 두지 않는다(팔 때 구성품을 뺀다 · 조립 문서 없음) · 화면은 상품 Edit 와 따로(판정 202 의 예외 · 판정 247) · 새 콤보 SKU 는 New product → Make combo
 ⭐  공급처 쓰기(판정 237 · 238 · 241 · so-module §41): 표 직접 쓰기 닫힘 · supplier_create · supplier_update(purchasing 또는 master) · 돈 칸(통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인)과 끄기는 master · 같은 이름 막기 · is_purchasable 은 일반 칸(suppliers.html 토글이 창구로) · 공급처 적재는 Apps Script ProbeIMS.gs 의 imsLoadSupplier(관리 키)
+⭐⭐ 세트 더하기(pset-1 · 판정 585 ~ 589 · po-module 「세트 더하기」): product_set_add(p_parent_id, p_sets, p_commit, p_ack) · master · 세트 규칙은 도우미 둘(product_set_check · product_set_insert)을 product_create_core 와 함께 쓴다 — 한쪽만 고치지 마라
+⚠️⚠️ 세트 sellable = **false 명시**(판정 586 · 291) — 칸을 안 보내면 칸 기본 true 가 들어간다(트리거는 명시 null 에만) · 꺼진 같은 계수 세트는 set_sku_inactive_exists(Edit 에서 켜라 · 587) · 단종 · 판매 안 함 낱개는 경고(588) · 고정가는 Edit 에서만(set_prices_not_here · 589)
+⚠️  product_create 시험 재료에는 공급처 · 판매가 · 바코드(경고 sku_prefix · supplier_missing · price_missing · barcode_missing 가 ack 없이는 저장을 막는다)
 ```
 
 ## 4-d. ⭐⭐ 매입 세금 · 할인 원가 — 모르면 사고 (2026-10-08 · 정본 po-module §11-e 끝 · §11-f · §11-g 「세금」 · 「크레딧 원가」 · §11-h · §11-i 「핀」 · §12-c · §13-j · 판정 383 ~ 400 · so-module §53 · §54)
@@ -206,6 +209,10 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  화면이 읽는 열쇠(po_receipt_detail) = lines[].posted · lines[].postable_rows · lines[].work[].post_id · batch_no · header.posts[] · header.post_now_ok · totals.posted · totals.posted_batches · warnings posted_before
 ⭐⭐ [판정 554 · po-cn-1] 크레딧 노트 줄 = **qty_diff_after_credits** = credit_billed_qty(확정 인보이스 goods) − received_qty − credited_not_received_qty(**Not received 줄만** · 확정 + 이 문서 · 취소 · 다른 draft 제외) · 0 아래로 안 깎는다(과한 크레딧이 −로 드러난다) · 값 차이 크레딧은 수량을 바꾸지 않는다
 ⚠️  qty_diff(청구 − 받음)는 인보이스 뜻 그대로 — 크레딧 줄에서는 뜻이 없다(−68 실물) · 크레딧 화면은 새 열쇠를 그린다 · 식은 po_credit_reason_suggest 한 집
+⭐⭐ [2026-10-21 · 판정 598 ~ 601 · rcv-3 · so-module §69] **부분 입고 = 받은 만큼 확정 → PO 는 열린 채**(열린 short 가 있으면) · 다음 입고는 「확정 인보이스 − 받은 것」을 기대 · Post now 는 **한 배송**을 나눠 세기(입고 draft 그대로) — 둘을 섞지 마라
+⭐⭐ 열어 두나는 한 곳 `po_receipt_keep_open(po_id, receipt_id)` — 확정(confirm_by) · 정리(diff_resolve) · 되돌리기(diff_reopen) · 화면 미리 보기(after_confirm)가 함께 쓴다 · 줄마다 **마지막 short** 만 · remaining_ea = 아직 올 몫만(not_coming_ea 따로)
+⭐⭐ short 사유가 닫기를 정한다(599): split_shipment = 열어 둠 · out_of_stock · lost_damaged · miscount · other = 안 온다(마지막이면 PO 닫힘 · po.closed_now) · 되돌리면 다시 엶(po.reopened_now) · 경고 po_kept_open / po_closed
+⚠️  앞 입고의 열린 short 는 뒤 입고가 다 받아도 자동으로 안 닫힌다(이력 · 미룬 273) · 나눠 받는 PO 의 둘째 입고에는 운임 · 관세가 안 얹힌다(미룬 274)
 ```
 
 ## 5. 이 스킬을 갱신할 때

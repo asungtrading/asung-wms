@@ -23,6 +23,7 @@ description: >
 - ⭐ **칸 읽기 창구 — inv_move_bin_contents(판정 234 · c79c50c)**: 칸 하나의 상품마다 book · picked · waiting · max · plans · follow · blocked 를 한 번에 · definer(확정과 같은 눈 — invoker 조각은 RLS 로 트랜스퍼 픽을 못 볼 수 있다) · max = inv_move_eval 과 같은 식 · 화면 wms-mover.html mv v2.3(목록 · Add all · Move all = inv_move_now 한 번) · 정본 so-module §39
 
 ⭐⭐ [2026-09-29] **IMS 안의 창고 입고는 확정 인보이스가 있는 PO 만 본다(판정 88 · 92 · so-module §29)** — Ready to receive = `po_list.has_confirmed_invoice` · 기대 = `po_receipt_detail lines[].expected`(확정 인보이스 − 앞선 입고) · PO 에 없는 바코드 = off_invoice(오피스가 무상 / 청구 둘로 정한다 · 거절 없음 · 판정 99) · ⚠️ 더 온 몫이 **두 칸에 나뉘면 `wms_recv_complete` 가 거부**한다(판정 100 · 한 칸으로 옮기고 다시 Complete · 초과분이 칸 없는 줄에만 있으면 지금처럼 경고) · 트랜스퍼 도착은 그대로(rc v1.6 · wa v1.14)
+⭐⭐ [2026-10-21 · 판정 598 ~ 600 · rcv-3 · rc v1.9 · so-module §69] **창고 확정(wms_recv_confirm · 열쇠 wms_receiving_confirm · 테스트 DB 실측 8 명)은 남긴다 · 확정 창이 오피스와 같은 안내** — short 줄 · 「PO stays open / closes」(po_receipt_keep_open 의 after_confirm) · 열린 short 가 있으면 PO 는 confirmed 로 남아 Ready to receive 에 다시 뜬다 · 닫기는 오피스 short 정리(Complete 는 창고 일 끝 · PO 닫기가 아니다)
 
 ⭐⭐ [2026-09-28] **IMS 안의 WMS 는 판매 · 트랜스퍼 두 문서를 다룬다(so-module §27 · 판정 64 ~ 79)** — 모르면 사고:
 - 창고 창구는 **공용 목록**(뷰 `wms_order_doc` · `wms_order_doc_line` · 문서 키 `coalesce(order_id, transfer_id)`)만 읽는다 · `so` · `so_line` 직접 조인 금지(판정 71) · 창고 작업 표는 판매 칸 옆 트랜스퍼 칸 · 정확히 하나 CHECK

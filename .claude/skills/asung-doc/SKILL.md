@@ -74,6 +74,7 @@ description: >
 ⭐ Ship Ready 는 sales 권한이 있는 **직원 로그인**으로만 만든다(so_finalize 미리 보기) — 서버 일꾼(service 길)은 못 만든다
 ⭐ Due 는 찍는 순간 so_invoice_remaining — 같은 인보이스도 결제 뒤 다시 찍으면 Due 가 바뀐다 · 발행 때 종이는 doc_file(남긴 PDF)
 ⭐ 메모(Notes)는 so_invoice.note · so_credit.note — 쓰는 창구 so_invoice_note_set · so_credit_note_set(sales 쓰기 · issued 만 · 2000 자 · 빈 글 → null)
+⭐ [2026-10-21 · svc-1c · so-module §69] charges 의 qty · unit_price 는 **수량 × 단가 비용 줄(서비스)** 에서만 채워진다 — 운임 · 할인 줄은 "" · 꼴은 doc_fmt_qty(천 단위 쉼표 없음 · 1200) · doc_fmt_money · 판(final_invoice v5 · credit_note v2)은 이미 Qty · Unit price 칸을 그린다 · 크레딧 노트의 서비스 줄은 금액만(qty "")
 ```
 
 ## 3. ⭐⭐ 서버 PDF — Gotenberg · EF doc · doc_file

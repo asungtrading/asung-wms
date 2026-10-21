@@ -427,6 +427,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 「백오더가 된 금액」 = 덩어리마다 처음 바로 못 보낸 몫 한 번(첫 백오더 예약 · 다시 주문 · 다시 백오더 · 표식 줄은 0 · 판정 487 · 491) · 분모는 SKU · 브랜드 · 공급처 거르기를 줄 단위로 따른다(판정 492)
 ⭐⭐ 손님이 뺀 수량(qty_removed) · 백오더가 났던 오더의 취소(할당 몫 포함) · 웹 자동 취소가 이어받았던 옛 줄 = 잃은 판매(판정 475 · 476 · 483)
 ⚠️ inv_available_base 는 잔고 행이 없는 제품의 행을 내지 않는다 — 부르는 쪽이 left join + coalesce 0(inner join 이면 가용 0 인 콤보 구성품이 빠져 보낼 수 있는 것처럼 보인다 · bo-2b) · 가용은 창고마다 한 번(행마다 부르면 200 행에 16 초)
+⭐⭐ [2026-10-21 · 판정 583 · rls-3c] so_backorder_arrivals · demand · overview = **definer + 첫 줄 sales 보기 문** — product_supplier 가 purchasing · master · cost 로 닫혀(580) invoker 면 sales 직원에게 기본 공급처 이름이 비었다 · 반환에 공급처 단가 칸을 더하지 마라(울타리가 다시 열린다)
 ```
 
 ## 4-s. ⭐⭐ IMS 메일 · 백오더 입고 알림 — 모르면 사고 (정본 so-module §65 · 판정 493 ~ 519)
@@ -445,6 +446,17 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️ 운영 전환(mail-5 · 미룬 244)은 GAS BackorderedItemEmail 트리거 지우기와 IMS 켜기를 같은 날 · 운영 비밀 · 운영 열쇠를 다시(도구 재실행)
 ```
 → [2026-10-19 · so-module §66] **문서(판 · 인쇄 · 서버 PDF) · 문서 메일(인보이스 · 크레딧 · SO · Ship Ready · 최종 인보이스 자동 customer.final_invoice_mail)** 은 `asung-doc` 스킬 — 같은 메일 기계(kind doc_* · status waiting_pdf · cron 57)
+
+## 4-t. ⭐⭐ 서비스 오더 — 모르면 사고 (정본 so-module §69 · 6-b · 판정 590 · 593 ~ 597)
+
+```
+⭐⭐ 서비스 오더 = channel service(so_channel_ck 넷째) · 상품 줄 없이 비용 줄(so_charge 수량 × 단가)만 · WMS 없음 · 같은 SO 번호 줄 · intake manual · 창고(브랜치) = 손님 기본(594)
+⭐⭐ 서비스 목록 ref_service(이름 · 단가 · 매출 계정 기본 _153_ · 세금 칸 없음 — 세금 = 오더 세율 · 593) · 쓰기 = master(정책) · 줄은 so_charge_set(p_qty, p_unit_price, p_service_id) — 목록 단가와 다르면 price_set_by(596) · amount = round(qty × 단가)(짝 CHECK · 금액으로 못 고친다)
+⭐⭐ 흐름 = so_create('service') → 서비스 줄 → so_service_confirm(재고 잡기 없음 · 줄 ≥ 1 · 합 > 0 · 세율) → so_service_invoice(p_commit false = 미리 보기 · 실행 = confirmed → shipped → 이 오더 하나만 발행 → fulfilled) · 셋 다 sales 쓰기(597 · 역할 문 없음)
+⚠️⚠️ 늘 따로 — so_invoice_issue 가 서비스 오더가 든 묶음(오더 둘 이상)을 거부 · 서비스 오더 하나 = 인보이스 한 장 · so_finalize · so_pos_finish · so_counter_ship · so_confirm · so_pos_confirm · so_pos_reopen 은 서비스 오더를 거부
+⚠️⚠️ 확정 뒤 서비스 줄은 못 고친다(so_charge_gate · 「unconfirm it first」) — 풀기 = so_unconfirm(supervisor · 물건 오더와 같음 · 미룬 278) · 문지기: service 는 at_wms · picking · packed 로 못 간다
+⭐  인보이스 줄 charge 에 qty · unit_price(svc-1c · 수량 × 단가 줄만 · 운임은 금액만) · 크레딧은 금액으로(freight 갈래 · so_invoice_line_id · 재입고 0 · 원장 0 · 미룬 277) · 인보이스 취소 → shipped → so_service_invoice 로 다시
+```
 
 ## 5. 이 스킬을 갱신할 때
 
