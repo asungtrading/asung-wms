@@ -1592,9 +1592,9 @@ credit_applied   이 크레딧이 어느 인보이스에 얼마씩 붙었나  (p
 
 ⚠️⚠️ **「라인이 있냐 없냐」로 가르지 않는다**(대화 Claude 가 처음에 그렇게 제안했고 Caleb 이 바로잡았다). 운임·세금도 결국 라인이고, **붙는 자리가 다를 뿐**이다.
 ```
-credit_note   머리 — 번호(CR-01000~) · 손님 · 날짜 · 원본 인보이스 · 사유 · 합계 · 상태
+credit_note   머리 — 번호(CR-01000~) · 손님 · 날짜 · 원본 인보이스 **또는 참조 번호**(ref_invoice_number · 인보이스를 못 이을 때 · [2026-10-22 · 판정 602 · 609 · §70-b]) · 사유 · 합계 · 상태
 credit_line   무엇을 깎나
-                kind        product · freight · tax · other [2026-10-07 정정 · surcharge-2b · dsc-3b · fr-3 · §52] + restocking_fee · surcharge · order_discount · freight_discount(fr-3 · 자동 · 운임 되돌림 줄 뒤 · 같은 비율)
+                kind        product · freight · tax · other [2026-10-07 정정 · surcharge-2b · dsc-3b · fr-3 · §52] + restocking_fee · surcharge · order_discount · freight_discount(fr-3 · 자동 · 운임 되돌림 줄 뒤 · 같은 비율) + price_adjustment([2026-10-22 · 판정 603 · §70-b] 지난 세일 차액 · 재고 안 움직임)
                 account     계정과목 — 기본값은 kind 로 채우고 바꿀 수 있게 (FK + 원문 · 5-a 계정과 같은 모양)
                 so_line_id  ⭐ 원 판매 라인(nullable — 파손·other·운임은 없다 · ✅ 검토 이견 4 채택 · 아래 「원장 짝」)
                 sku · qty   product 일 때
@@ -3448,7 +3448,7 @@ is_split   50% COD 둘 true
 ```
  0-1  마지막 정의 — so_customer_balance·so_invoice_issue·so_invoice_cancel·so_detail 20260925001733 · so_payment_refund·so_payment_void 20260924234250 · inv_post_sale·inv_layer_post_sale 20260924141140 · inv_layer_apply 20260921161933 · ⭐ inv_layer_apply_credit 20260920181910(지시서 목록에 없던 Cin7 축 되짚기 실물 · IMS 문 「그날 창구를 만들어 여기서 부르면 된다」) · ims_last_bin 20260919151601
  0-2  원장 CHECK 넓힐 것 없음(19-b ④) · 0-3 두 축의 되짚기 열쇠가 같다(오더 번호 → inv_layer_consume) — 함수 하나 inv_layer_post_credit
- 0-4  ⚠️ 판정 6 「원본 = Cin7 인보이스 번호」만으로는 못 되짚는다 — 소비 기록의 doc_number 는 오더 번호(SO-…) ⇒ 머리에 cin7_invoice_number(종이) + cin7_order_number(되짚기 열쇠) 둘 · IMS invoice_id 와 짝 CHECK · 오더 번호가 비면 갈래 ②③ + 경고 origin_sale_unknown
+ 0-4  ⚠️ 판정 6 「원본 = Cin7 인보이스 번호」만으로는 못 되짚는다 — 소비 기록의 doc_number 는 오더 번호(SO-…) ⇒ 머리에 cin7_invoice_number(종이) + cin7_order_number(되짚기 열쇠) 둘 · IMS invoice_id 와 짝 CHECK · 오더 번호가 비면 갈래 ②③ + 경고 origin_sale_unknown → [2026-10-22 · 판정 602 · 609 · crn-1] 칸 이름은 ref_invoice_number · ref_order_number · ref_invoice_date · **되짚지 않는다**(늘 갈래 ②부터 · 경고 origin_sale_unknown 없음) · §70-b
  0-5  갈래 ②(남은 레이어 가중평균)는 재고 0 자리에서 값이 없다(CR-00592 · 19-b ② unknown 1) ⇒ ③ 최근 원가 네 단계(17-e · sale_shortfall 과 같은 원천)를 끼운다 → ④ unknown
  0-6  inv_layer_apply 재발행 — IMS 문 목록에서 credit_in 을 빼고 갈래에서 source 로 가른다(ims → inv_layer_apply_credit_ims → 같은 창구) · raw.cost.remainder 가 hint(17-f (가)) · 옛 본문 바이트 그대로(454 → 460행 · 바뀐 줄 둘)
  0-7  수수료 계정 후보가 실물에 없다 ⇒ 판정 7 · 0-8 수수료 줄에도 그 오더 세율(음수 줄 · 세금도 음수) ⇒ 크레딧 세금 = (물건 − 수수료) × 세율 · 📌 회계사(19-g)
@@ -3526,7 +3526,7 @@ is_split   50% COD 둘 true
 ### 19-g 📌 거리 · ⬜ 남는 것
 
 ```
-전환 설계 거리(판정 6)   전환 뒤 Cin7 판매의 반품은 IMS 크레딧 — 종이 = Cin7 인보이스 번호(cin7_invoice_number) · 되짚기 = 오더 번호(cin7_order_number · 원장 Cin7 sale_out doc_number) · 원가 = 첫 소진 레이어 단가로 복원(inv_layer_apply_credit 규칙 그대로) · 오더 번호를 모르면 갈래 ②③ + 경고 · Cin7 크레딧은 tax_rule 을 명시(손님 저장값을 안 쓴다)
+전환 설계 거리(판정 6)   ~~전환 뒤 Cin7 판매의 반품은 IMS 크레딧 — 종이 = Cin7 인보이스 번호(cin7_invoice_number) · 되짚기 = 오더 번호(cin7_order_number · 원장 Cin7 sale_out doc_number) · 원가 = 첫 소진 레이어 단가로 복원(inv_layer_apply_credit 규칙 그대로) · 오더 번호를 모르면 갈래 ②③ + 경고 · Cin7 크레딧은 tax_rule 을 명시(손님 저장값을 안 쓴다)~~ → ✅ [2026-10-22 · 판정 602 · 609 · 610 · crn-1] **참조 크레딧**으로 대신한다 — 칸 ref_invoice_number(필수) · ref_order_number · ref_invoice_date · 원가는 되짚지 않는다(② 가중평균 → ③ 최근 → ④ unknown) · 세금 = 손님 기본 배송지 규칙 제안(바꿀 수 있음 · 없으면 거부 글로 고르라) · 경고 manual_unit_price · reference_seen · §70-b
 회계사 확인 거리        리스탁킹 피 계정(비워 둠 · _94_ Surcharge · _47_ Miscellaneous Income · QBO 새 계정) · 수수료에 세금이 붙나(기본 = 같은 세율 음수 줄 → 크레딧 세금 = (물건 − 수수료) × 세율) · tax 줄(세액만 돌려줌)의 계정 = 규칙의 계정(_54_)
 ⬜ B급 칸                재고 쪽 장치(8-g ⬜ 그대로) — 서면 칸 목록에 「B급」 표시만 더한다(표·사건 무접촉) · 그동안 「안 돌아옴 · b_grade」 줄이 넣을 재료(저절로 장부에 안 들어온다)
 ⬜ 화면                  크레딧 발행(미리 보기 → 제안 칸 · 원가 복원 예상 · 수수료 알림 · % 입력) · 인쇄·메일(인쇄 실패로 발행을 되돌리지 않는다) · 인보이스 종이의 「이전 잔액」 한 줄(크레딧 + 받아 둔 돈) · 잔액 화면 owed_credit  → §22(읽기 창구)
@@ -3841,21 +3841,22 @@ so_credit_remaining(p_credit_id) — 취소 0 · total − Σ활성 붙임(인�
 뷰 so_credit_list — applied_to_invoices · refunded · remaining · invoice_number(원판매) · search_text
 so_credit_detail 키 넷 더함(credit_row · allocations_all · open_invoices · customer_balance) · 옛 키 아홉 그대로(부르는 곳 0 이지만 규칙대로)
 so_credit_prepare(p_invoice_id) — lines(qty_sold · qty_credited · qty_returnable · restock_bin_default = ims_last_bin) · restock_fee(days · pct · account_code · days_since_invoice · applies — 알림만 · 금액은 미리 보기 fee_suggested) · already_credited · vocab
-⚠️ 남은 복사 식 하나 — qty_credited 는 so_credit_issue :1055~1056 과 같은 식(다르면 화면은 된다는데 창구가 거부) · ⬜ so_credit_line_returned 로 떼고 발행 창구와 함께 부른다
+⚠️ 남은 복사 식 하나 — qty_credited 는 so_credit_issue :1055~1056 과 같은 식(다르면 화면은 된다는데 창구가 거부) · ~~⬜ so_credit_line_returned 로 떼고 발행 창구와 함께 부른다~~ → ✅ [2026-10-22 · crn-2] so_credit_line_state(so_invoice_line_id) 하나를 발행(v_already)과 준비(qty_credited · qty_returnable)가 함께 부른다 · 층(tiers) · 조정 재료도 같은 도우미(§70-b)
 실측: 재생성 뒤에도 매니저 확인 기록이 (doc_number, sku, warehouse) 열쇠로 붙어 있다(④a3)
 ```
 
 ### 22-c ⭐ issue_contract — `so_credit_issue(p jsonb, p_commit boolean default true)` · 화면(so-credits.html)이 이대로 보낸다
 
 ```
-p   issued_on(선택 · 기본 오늘 · 미래 거부) · reason 필수(customer_return | damaged | billing_error | other · other 면 note 필수) · note
-    invoice_id(IMS · issued 만) | cin7{invoice_number, order_number, invoice_date}(+ customer_id · currency · tax_rule — 전환 전 다음 판)
+p   issued_on(선택 · 기본 오늘 · 미래 거부) · reason 필수(customer_return | damaged | billing_error | other · other 면 note 필수 · + price_adjustment [2026-10-22 · 판정 612 · 어긋나면 경고만]) · note
+    invoice_id(IMS · issued 만) | ~~cin7{invoice_number, order_number, invoice_date}(+ customer_id · currency · tax_rule — 전환 전 다음 판)~~ → [2026-10-22 · crn-1 · 판정 602 · 609 · 610] ref{invoice_number!, order_number?, invoice_date?} + customer_id! + tax_rule(선택 · 안 주면 손님 기본 배송지의 주 규칙을 제안 · 배송지 없으면 거부 글로 「고르라」) · 경고 manual_unit_price(늘) · reference_seen:<CR 번호들>
     warehouse_id(선택 · 기본 원판매 첫 오더 창고 · 비활성 거부) · lines[] 필수
 줄  product        so_invoice_line_id · qty_returned > 0(이미 반품 + 이번 ≤ 판 수량) · restock_bin(비우면 ims_last_bin · '' 불허 · 그 창고 칸) | not_restocked_reason(damaged | b_grade | not_returned | other · other 면 note) — 둘 중 하나 · description? · account_id? · 단가·세율은 인보이스 줄에서 굳는다(보내지 않는다)
     freight        so_invoice_line_id(charge 줄) · amount?(≤ 남은 몫)
     tax            amount ≥ 0
     other          amount ≥ 0 · description! · account_id!
     restocking_fee 한 줄만 · pct?(기본 20) | amount ≤ 0 · account_id(없으면 설정 so_credit_restock_fee_account_code — ⚠️ 지금 비어 있다 · 매니저가 고른다 · 회계사 확인 거리)
+    price_adjustment [2026-10-22 · crn-2 · 판정 603 · 611 ~ 614 · §70-b] 인보이스: so_invoice_line_id · qty · new_unit_price(낸 단가는 서버가 · 한 층 안에서만 · 콤보 거부) | 참조: sku · qty · paid_unit_price · new_unit_price · account_id?(기본 = 그 판매 줄의 계정 · 참조는 _98_) · 돌려주는 줄 qty_adjusted · unit_price_before · unit_price_after · unit_price = 개당 차액
 미리 보기(false)  committed false · origin · lines[] · totals{lines_amount · fee_amount(≤ 0) · tax_amount · total · restock_lines} · fee_suggested{days_since_invoice · pct · amount · account_code}|null(60일 넘고 수수료 줄 없고 제품 있을 때) · warnings [2026-10-06 정정 · 판정 325 · §49] totals 에 order_discount_amount(≤ 0) · lines[] 에 자동 줄 kind order_discount(인보이스-오더마다 하나 · 음수) · 피 기준 = 제품 + 할인 몫
 실행(true)        + credit_id · credit_number(CR-01000~) · status issued · ledger(credit_in · 원가 복원)
 권한              발행 · 취소 · 떼기 = manager · 붙이기 = sales
@@ -3876,7 +3877,7 @@ p   issued_on(선택 · 기본 오늘 · 미래 거부) · reason 필수(custome
 |---|---|---|
 | 17-g · 18-g · 19-g 「화면」 줄 | 화면이 그릴 값의 창구가 없었다 | ✅ 읽기 창구 넷이 섰다 — 목록 뷰 셋(so_invoice_list · so_payment_list · so_credit_list) · 상세 RPC 셋 · 미수 요약 · 크레딧 준비물 · 화면은 §23 |
 | 결제 남은 금액 | 식이 아홉 자리에 복사돼 있었다(so_customer_balance · so_invoice_detail + 일곱) | **so_payment_remaining 한 곳** · 복사 식 0 |
-| 크레딧 남은 금액 | 여섯 자리에 복사 | **so_credit_remaining 한 곳** · 복사 식 0 · 남은 하나 = so_credit_prepare.qty_credited(⬜) |
+| 크레딧 남은 금액 | 여섯 자리에 복사 | **so_credit_remaining 한 곳** · 복사 식 0 · 남은 하나 = so_credit_prepare.qty_credited(~~⬜~~ → ✅ 2026-10-22 so_credit_line_state · §70-b) |
 | so_customer_balance | 식 인라인 | 두 함수를 부른다(owed_credit = Σso_credit_remaining · 합의 분배로 같은 값) · 모든 손님 × 통화 여덟 칸 전후 동일 |
 | 16-c 회계사 확인 · 19-g 리스탁킹 피 계정 | 비워 둠 | 그대로 비어 있다 — 화면(Credit Notes)은 「— pick an account」로 매니저가 고르고 안 고르면 DB 가 거부(issue_contract) |
 | asung-workflow §4 시퀀스 되돌리기 가드 | 「표가 비어 있을 때만」 | 화면 시험 실물(SO-25000~ · 60000~ · CR-01000)이 생겨 **더는 안 돈다** — 번호를 당기는 검증 금지(22-d) |
@@ -4109,7 +4110,7 @@ WMS 는 이제 안이다    = 본업은 남이 낸 창구를 부른다(함께 �
 ⬜ manager 권한 세분화 — 비밀번호를 나눠 주기 전 · ⑤-4(wms 방 화면 값과 함께 · 24-f 실물 정정)
 ⬜ wms 방 화면 값 다섯 안 — picking · packing · fulfillment · putaway · wms_manage · ⑤-4 에서 확정  → ✅ [2026-09-26] ⑤-2a1 에서 넷(picking · packing · fulfillment · wms_manage) · putaway(WMS 입고 값)는 ⑤-3(24-i)  → ✅ putaway 는 wms_receiving 하나(24-m)
 ⬜ 운영 가드를 전환일에 푸는 법 — 승격된 테스트에 cron 이 서면 가드가 스스로 막는다 ⇒ 그날 마커 값을 바꾸고 가드가 허용(24-g 판정 13 · reload-procedure §M · §O)
-⬜ 운영 일괄 배포 보류 — 앞의 IMS 95(20260911144606~)는 가드가 없다 · ⓒ inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(24-g 판정 13 ➕)
+~~⬜ 운영 일괄 배포 보류~~ → ✅ [2026-10-22 · 판정 617] 닫힘 — 올리지 않는다(승격 길 · §70-d) · 앞의 IMS 95(20260911144606~)는 가드가 없다 · ⓒ inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(24-g 판정 13 ➕)
 ⬜ 운영 WMS 이력(리포트 · 픽 · 팩 기록)을 IMS 에서 어떻게 볼지 — 전환 준비 · 이월(24-f)
 ⬜⭐ 재고 사건 차수: 매니저 리포트(stock_short) → 실물 확인 → 바로 재고 조정 연결(판정 20 · Caleb 「기억하라고」 · 24-h)  → ✅ [2026-09-28] adj-b(0c96926) · §25
 ⬜ 오피스 화면 판: 판정 17 글자 · Release to WMS 단추 · 거둬들이기 · 「Finalized — 견적 · 결제 · 마무리 대기」 목록(판정 16 · 18 · Manager List · 24-h)  → ✅ [2026-09-28] Release · 거둬들이기는 so v2.4(24-p) · 글자 · Finalized 대기 목록(so.html 필터 · 판정 46)은 so v2.5 · Finalize 창은 so v3(24-s)
@@ -4205,7 +4206,7 @@ perms        20 이 채워져 있다 — staff.html 편집 저장이 역할 기�
          ➕ 넓힌 셈(Claude Code · 2026-09-26): 운영에 없는 IMS 마이그레이션 95(20260911144606~)가 db push --linked 로 운영에 가면
             ⓐ 운영을 깨는 것 0 · ⓑ 더하기만(inv_ledger_source_check 'ims' · inv_layer_source_ck 5→12 · inv_layer_origin_ck 7→8 · inv_config.updated_by + inv_config_guard 트리거 · 새 표 · 함수 · 뷰) ·
             ⓒ 판단이 안 서는 것 = inv_layer_apply 계열 일곱이 IMS 판으로 덮인다(운영은 cron · EF 어디서도 안 부른다 · inv_layer 운영 0행 · 지금은 무해 · 운영에서 손으로 돌리면 ims_staff 열쇠가 없어 멈춘다)
-            ⇒ 가드는 ⑤ 부터의 파일만 지킨다 · 앞의 95 는 사람 규칙(운영 일괄 배포 보류)이 지킨다 — 운영에는 전환일까지 db push 를 하지 않는다
+            ⇒ 가드는 ⑤ 부터의 파일만 지킨다 · 앞의 95 는 사람 규칙(운영 일괄 배포 보류)이 지킨다 — 운영에는 전환일까지 db push 를 하지 않는다 → [2026-10-22 · 판정 617] 전환일에도 올리지 않는다(컷오버 = Asung-IMS 승격 · 운영에 없는 IMS 마이그레이션 245 · §70-d)
 판정 14  작업자 실수 표 = wms_worker_mistakes(새 이름) · reason 다섯(short_after_pack · over_pick · pack_scan_mistake · short_pick · resolved_pack_recovery) — Caleb 「a로 가자」
          근거: 같은 이름이면 pre-commit 분류값 검사(scripts/check-class-values.sh · 마이그레이션 전부를 시각순으로 읽어 뒤 CHECK 가 앞을 덮는다)가 새 CHECK 로 읽어 운영 화면 커밋이 막힌다
          ✅ f82a00d 커밋 때 훅 결과 (wms_discrepancies, reason) 9 · (wms_reports, kind) 4 그대로 ok
@@ -9215,7 +9216,7 @@ Shopify 잇기(link-1a · 1b)
 
 ⭐ 닫힌 것: 원가 · 기준선 · 수집기 · 기록 표 열다섯 + inv_bin_notes 의 「누구나 쓰기」(rls-3a · 판정 579) · 장부 원가 읽기 가리기와 576 결함(rls-3b · 판정 580 · 582) · Backorders 의 공급처 이름(rls-3c · 583) · 68-f 268 · 269(→ 584) · 「세트를 나중에 더할 길이 없다」(pset-1 · 585 ~ 589) · 「서비스만 따로 끊어」(svc-1a · 1b · 1c · 590 · 593 ~ 597) · PO-02055 가 240 / 1,290 받고 닫힌 것(rcv-3 · 598 ~ 601)
 ⭐ 새 판정 579 ~ 601 · 원천: 지시서 `docs-1021.md`(이 절의 원천 · 오늘 판정 · 결정 · 실수는 대화에만 있었다) · 회사 PC 대화 · 조사 넷(rls-3 · pset-0 · svc-0 · rcv-2 · Opus 또는 Fable · 쓰기 0) 회신
-⭐ 테스트 DB 에는 이 절의 마이그레이션 여덟이 전부 적용됐다 · **운영 DB 에는 하나도 없다**(584 — 운영의 같은 구멍은 고치지 않고 알고 둔다) · 운영 적용 순서는 69-g ②
+⭐ 테스트 DB 에는 이 절의 마이그레이션 여덟이 전부 적용됐다 · **운영 DB 에는 하나도 없다**(584 — 운영의 같은 구멍은 고치지 않고 알고 둔다) · ~~운영 적용 순서는 69-g ②~~ → [2026-10-22 · 617] 운영에는 올리지 않는다(승격 길 · §70-d)
 ⭐ 판정 591 · 592(HS code · 원산지)는 짓지 않았다 — 마지막 재적재 무렵(69-f)
 
 ### 69-a 판정 (Caleb 말 그대로 · 뜻)
@@ -9334,7 +9335,136 @@ Backorders(rls-3c)            so_backorder_arrivals :57 · so_backorder_demand :
 
 ```
 ① 발주앱 이식(판정 521 의 셋째 · 컷오버 아침 필수)
-② 컷오버 준비 목록 하나로 — 두 스토어 잇기(읽기 + Plan 먼저 · 68-f 261) · 운영 적용 순서
+② 컷오버 준비 목록 하나로 — 두 스토어 잇기(읽기 + Plan 먼저 · 68-f 261) · ~~운영 적용 순서~~ → [2026-10-22 · 판정 617] 승격 길 — 아래 순서는 「테스트 DB(= 11-01 메인)에 적용된 순서」 · 운영(asung-WMS)에는 올리지 않는다(§70-d · 70-g)
      rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → rcv-3 → svc-1b → svc-1c · 테스트 가이드 · 재적재 옆에 591 · 592
 다음 판정 번호: 602
+```
+
+## §70 2026-10-21 오후 ~ 10-22 — 참조 크레딧 · 가격 조정 줄 · 발주앱 이식(DB) · Supabase 기본 권한 · anon 거두기 · 컷오버 = 승격 — crn-0 · crn-1 · crn-2 · pur-0 · pur-1 · pur-1b · grt-0 · grt-1a · 판정 602 ~ 618 (회사 PC)
+
+⭐ 닫힌 것: 「인보이스를 못 잇는 크레딧」(602 · 609 · 610 · crn-1) · 「지난 세일 차액」 크레딧 줄(603 · 611 ~ 614 · crn-2) · 발주앱이 읽을 IMS 창구 · 설정 표 · 경계 날짜(604 ~ 606 · 608 · pur-1 · pur-1b) · 10-30 Supabase 기본 권한 변경의 뜻과 규칙(615) · 컷오버 길 확정(617 · 승격) · anon 권한 0(618 · grt-1a) · §22-f ⬜ 「복사된 qty_credited 식」(so_credit_line_state)
+⭐ 새 판정 602 ~ 618 · 원천: 지시서 `docs-1022.md`(이 절의 원천 · 판정 · 결정 · 실수는 대화에만 있었다) · 회사 PC 대화 · 조사 셋(crn-0 · pur-0 · grt-0 · 쓰기 0) 회신
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 이 절의 마이그레이션 다섯(crn-1 · crn-2 · pur-1 · pur-1b · grt-1a)이 전부 적용됐다 · 운영(asung-WMS)에는 올리지 않는다(617 · 70-d)
+⭐ 짓지 않은 것: 607(고정 단가 · pur-3) · 발주앱 두 탭(입고 검증 · 공급처 분석) · 616 B(이력을 IMS 로) · 고객 포털 — 70-f
+
+### 70-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 602 | 「A」(「인보이스를 연결할 수 없는 경우는 어떻하지? 당장에 컷오버 이후에 cin7에서 발행된 인보이스 내역에 대한 크레딧 노트를 발행할 수가 없어」) | 인보이스 없는 크레딧 = **참조 번호 크레딧** — 머리 = 손님 · 날짜 · 참조 번호(옛 인보이스 번호 · 필수) · 사유 / 줄 = 제품 · 수량 · 직원이 넣는 단가 · 칸 또는 안 돌아옴 / 세금 = 손님 규칙(바꿀 수 있음) / 원가 = 되짚지 않음 · 평균 → 최근 / 발행 manager / 미리 보기에 「손으로 넣은 단가」 · 기각 B(옛 인보이스 적재 — 11-01 까지 크고 「컷오버 때 거래는 지우고 새로 시작」 과 부딪친다) · ⚠️ crn-0 발견: 이 길은 판정 6(2026-09-24 · §19-c 0-4 · §19-g)으로 DB 에 대부분 지어져 있었다(이름이 「Cin7」 · 원가는 원장의 옛 판매로 되짚기) — 602 가 그 설계를 대신한다(되짚지 않음) |
+| 603 | 「2번은 니 제안대로」(「지나간 세일금액의 차만큼 돌려달라고 억지 부리는 손님들 … 대개는 들어주는 편」) | 크레딧 줄 종류 **가격 조정**(price_adjustment) = (낸 단가 − 새 단가) × 수량 + 그 줄 세금 · 재고 안 움직임(원장 0) · 반품 가능 수량 안 깎음 · 뒤 반품은 새 단가 기준 · 「어느 제품에 얼마 깎아 줬나」 셀 수 있게 |
+| 604 | 좁힌 안 2 | 발주앱 **화면이** BigQuery(경계 전 이력)와 IMS(경계부터)를 합친다 · IMS → BigQuery 내보내기는 짓지 않는다 · 11-01 아침 필수 = 추천 계산(판매 · 백오더 · 재고 · 공급처 목록) · 입고 검증 · 공급처 분석 두 탭은 며칠 뒤 · 계산 코드는 그대로(po-module §10-d) · ⚠️ 대화 Claude 가 안 2 의 크기를 처음에 3 ~ 4 차수로 잘못 말했다(필수 아닌 두 탭까지 든 어림) |
+| (번호 없음) | (같은 때) | GAS 백오더 메일은 11-01 뒤 안 쓴다(백오더 알림은 IMS 에 지었다 · §65) · **고객 포털도 BigQuery(10-31 까지) → IMS(11-01 부터)로 바꿔야 한다 — 다른 차수**(「다른 차수로 기억하자」) |
+| 605 | 「A」 | 세트로 팔린 수량 × 계수를 **낱개 수요**에 넣는다 · 경계 전 BigQuery 판매도 같은 셈(pur_set_map 으로 접는다 · 콤보는 구성품마다) |
+| 606 | 「A」 | 발주앱의 브라우저 설정 넷(공급처 리드타임 · 주기 · 목표 · σ / 오버라이드 이력 / SKU 연결 / 가중치)을 IMS DB 로 · 컷오버 때 Caleb PC 값을 한 번 옮긴다(화면의 「IMS 로 옮기기…」 막대 · pur_settings_import 미리 보기 → 실행) · 문 = purchasing 쓰기 · ⚠️ 지금 보정값(_seaOv · _trdOv)은 따로 저장하지 않는다 — 가장 새 이력이 지금 값이다(pur v1) |
+| 607 | 「A」(며칠 뒤 · pur-3) | 고정 단가 고치기를 purchasing 쓰기로도 연다(다른 칸은 master 그대로) + 바뀐 기록 표(누가 · 언제 · SKU · 공급처 · 전 → 후 · Products 화면에서 고쳐도 같은 기록) · ⚠️ pur-0 실측: fixed_cost 는 product_update op supplier_set 이 이미 쓴다(문 master) |
+| 608 | 「A」 | 발주앱의 재고 금액 칸은 원가 열쇠가 없으면 「—」 · DB 도 안 내준다(580 그대로 · stk_value_many 가 거부) · PO 단가 · 공급처 단가는 가리지 않는다 |
+| 609 | 「A」 | 「Cin7」 이름을 칸까지 모두 「ref」 로 — so_credit.ref_invoice_number · ref_order_number · ref_invoice_date · 입력 열쇠 ref{…} · 거부 글(crn-1) |
+| 610 | 「A」 | 참조 크레딧의 세금 기본 = 손님 **기본 배송지**(customer_address · Shipping · is_default_for_type)의 주(州) 규칙 제안 · 바꿀 수 있음 · 배송지가 없으면 직원이 고른다(거부 글로 안내) |
+| 611 | 「A」 | 가격 조정 뒤 부분 반품은 **조정된 몫부터** 돌아온 것으로 본다 · 예 9.99 × 20 · 12 개를 7.99 로 조정(24.00) · 5 반품 → 5 × 7.99 = 39.95 · 10 더 → 7 × 7.99 + 3 × 9.99 = 85.90 · 20 다 돌아오면 어느 길이든 총 환급 = 20 × 9.99 − 24.00(근거: 물건은 같아 가를 수 없다 · 「차액도 받고 원래 값으로 반품도 받는」 일을 막는다) · crn-2 이견 1: 조정이 여럿이면 **가장 싼 층부터**(FIFO 아님 — 611 의 이유를 끝까지) · 조정 한 줄은 한 층 안에서만(화면이 층마다 나눠 보낸다) · 콤보 줄은 가격 조정 거부 · 같은 크레딧에 반품 + 조정이면 **반품 먼저** · 뒤 크레딧이 그 조정 층으로 값이 매겨졌으면 조정 크레딧 취소 거부(뒤 것부터) |
+| 612 | 「A」 | 크레딧 사유에 **Price adjustment**(price_adjustment) · 사유와 줄 종류가 어긋나면 경고만(reason_not_price_adjustment · reason_price_adjustment_with_returns) |
+| 613 | 「A」 | 오더 할인이 걸린 줄은 **할인 뒤 실제로 낸 단가**와 비교(9.99 × (1 − 5%) = 9.49 · 요구 7.99 → 1.50 / 개) · 크레딧 노트에 그 단가를 찍는다(「9.49 → 7.99 × 12」) · 오더 할인 거울의 기준에서 조정된 몫을 뺀다(그 몫은 새 단가 그대로) |
+| 614 | 「B」(「현재 cin7도 그렇게 작동하고 있다고 해」) | 가격 조정 줄의 계정 = **그 판매 줄의 매출 계정**(보통 _98_ · 반품과 같은 계정 — 지금 장부 방식 유지) · 참조 크레딧은 _98_ |
+| 615 | 「A」(「나중에 문서에 잘 적어줘」) | Supabase 가 **2026-10-30** 부터 기존 프로젝트도 `public` 의 **새로 만드는 표 · 시퀀스**에 Data API 권한을 자동으로 안 붙인다 — **규칙**: public 에 표 · 뷰 · 시퀀스를 만들면 **같은 파일에서 grant 를 직접** · 착지 검사로 ACL 단언 · 70-d |
+| 616 | 「A」(「나말고 쓰는 사람 여럿이야」 「B로 가야 하는게 맞을 것 같은데, 위험 부담이 있으니, 컷오버뒤에 B를 해도 될까?」) | 발주앱의 경계 전 이력(BigQuery)을 11-01 에는 **각자 구글 로그인**으로 읽는다(지금 쓰는 직원들이 이미 BigQuery 권한이 있다) · 이력을 IMS 로 옮기는 길(B · IMS 로그인 하나)은 **컷오버 뒤** 정리 차수 · ⚠️ 구글 OAuth 클라이언트(105948904172-t1fvd0e8…)에 `https://ims.asung.ca` · `https://ims.asung.ca/purchasing.html` 등록 필요 · 화면은 구글 토큰 해시를 supabase-js 보다 먼저 거두고 지운다 |
+| 617 | 「A」(「Asung WMS는 cin7을 정리하는 시점에 멈추는 임시 프로젝트라고 보면 돼. 지금 IMS(테스트 DB)가 11월 1일부터 cin7 없이 돌아가는 우리 메인 시스템이 되는거야.」) | 컷오버 = Asung-IMS(지금 「테스트 DB」)를 **그대로 메인 시스템으로 쓰는 길**(reload-procedure.md:22 · 2026-09-21 결정 그대로) · IMS 마이그레이션을 asung-WMS 에 일괄 배포하지 않는다 · grt-1(83 개 grant 모음)은 짓지 않는다 · ⇒ ⚠️ §69-g ② 의 「운영 적용 순서」와 인계서들의 「운영 DB 에 적용」 표현은 틀렸다 — 그 순서는 「테스트 DB(= 메인)에 적용된 순서」 · reload-procedure §O 의 「운영 일괄 배포 판단」 ⬜ 은 617 로 닫힘(53 → 245) |
+| 618 | 「A」 | 컷오버 전에 **anon 만** 좁힌다 — public 의 모든 표 · 뷰 · 물질화 뷰 · 시퀀스에서 anon 권한 전부(grt-1a) · 로그인한 사람(authenticated) · service_role 의 넓은 몫(grt-0 의 「오히려 맞다」 119)은 **컷오버 뒤** 정리 차수 · 근거: 공개 레포에 anon 키가 있다 · 로그인 안 한 사람의 권한은 운영 전에 0 |
+
+- 포인터: 602 · 609 · 610 ← 판정 6(§19-c 0-4 · §19-g — 602 가 대신한다) · 603 · 611 ~ 614 ← §8-g · §22-c · §49 판정 325(오더 할인 거울) · 604 ~ 608 ← po-module §10-d(발주앱) · 판정 521(컷오버 아침 셋) · 580(원가 울타리) · 464(백오더 수요 표식) · 615 ~ 618 ← §69-a 584 · rls-3a 이견 7 · reload-procedure §O
+- **다음 판정 번호: 619**
+
+### 70-b 크레딧 — 참조 · 가격 조정 · 층 모델 · 도우미 · 경고 · 거부 글
+
+```
+참조 크레딧(crn-1 · 602 · 609 · 610)
+  머리      so_credit.ref_invoice_number(필수) · ref_order_number · ref_invoice_date — invoice_id 와 짝 CHECK so_credit_origin_ck(둘 중 하나)
+  입력      so_credit_issue(p): customer_id! · reason · tax_rule(선택) · ref{invoice_number!, order_number?, invoice_date?} · lines[]
+  세금      tax_rule 을 안 주면 손님 기본 배송지(Shipping · is_default_for_type)의 주 규칙을 so_tax_rule_for(country, state, on, 'sale') 로 제안 · 배송지가 없으면 거부 글로 「고르라」
+  줄        product(sku · qty_returned · unit_price 손으로 · restock_bin | not_restocked_reason) · freight · tax · other · restocking_fee · price_adjustment(아래)
+  원가      되짚지 않는다 — inv_layer_post_credit 갈래 ①(원 판매 복원)을 건너뛰고 ② 남은 레이어 가중평균 → ③ 최근 원가 → ④ unknown
+  경고      manual_unit_price(늘 · 화면이 크게) · reference_seen:<CR 번호들>(같은 손님 · 같은 참조 번호 · 같은 SKU 의 앞선 발행 크레딧 · 막지 않는다)
+  계정      product 줄 기본 _98_ · 문 = 발행 · 취소 manager · 붙이기 sales(그대로)
+
+가격 조정 줄(crn-2 · 603 · 611 ~ 614)
+  칸        so_credit_line.qty_adjusted · unit_price_before · unit_price_after — 짝 CHECK so_credit_line_adjust_ck(price_adjustment 면 셋 필수 · after < before · amount = round((before − after) × qty, 2)) · qty_returned 는 null(반품 수량을 세는 식 셋이 저절로 안 깎는다)
+  입력      인보이스: {kind:'price_adjustment', so_invoice_line_id, qty, new_unit_price} — 낸 단가는 서버가 정한다 · 참조: {kind, sku, qty, paid_unit_price, new_unit_price}
+  층 모델   인보이스 제품 줄마다 층 [{qty, unit_price, paid}] — 시작 = 판 수량 @ 낸 단가(= 인보이스 단가 × (1 − 오더 할인%) · 613) · 반품은 가장 싼 층부터 뗀다(611) · 조정은 새 단가보다 비싼 가장 싼 층에서 떼고(한 층 안에서만 · 넘치면 「split」 거부) 새 단가 층을 더한다
+  도우미    so_credit_line_state(so_invoice_line_id) → {qty_sold · gross_unit_price · order_discount_pct · paid_unit_price · qty_returned · qty_returnable · qty_adjustable · qty_adjusted_open · tiers[] · adjustments[]}(발행된 크레딧을 발행일 · 시각 · 번호 순으로 되돌린다 · authenticated 실행) · 속 도우미 so_credit_tiers_take · so_credit_tiers_add(실행권 없음)
+            ⇒ §22-f ⬜ 「복사된 qty_credited 식」 닫힘 — so_credit_issue 의 v_already 와 so_credit_prepare 의 qty_credited · qty_returnable 이 같은 도우미를 부른다
+  반품 줄   섞인 층(7 × 7.99 + 3 × 9.99)이면 unit_price = round(amount / qty, 6) · 설명 끝에 「(7 × 7.99 + 3 × 9.99)」 · 오더 할인 거울의 기준에서 조정된 몫을 뺀다(v_odb · 613)
+  한 크레딧 반품 줄이 첫 바퀴 · 가격 조정 줄은 둘째 바퀴(반품이 먼저 낮은 층을 가져간다) · 거울 · surcharge · 운임 할인 · 리스탁킹 피 기준에 조정 줄은 안 든다 · 원장 0
+  준비 창구 so_credit_prepare.lines[].adjust{paid_unit_price · qty_adjustable · qty_adjusted_open · tiers[] · adjustments[] · qty_returned · qty_returnable · gross_unit_price · order_discount_pct}(콤보 줄은 null) · vocab reasons · line_kinds 에 price_adjustment
+  문서      doc_data_credit 제품 표에 가격 조정 줄(수량 = qty_adjusted · 단가 = 개당 차액 · 설명 「Price adjustment 9.49 → 7.99 — <제품명>」) · charges 로 안 간다
+  취소      so_credit_cancel — 그 뒤 같은 인보이스 줄에 발행된 크레딧(반품 · 조정)이 있으면 거부(「cancel those first」) · 순서 열쇠 (issued_on, created_at, credit_number)
+  경고      reason_not_price_adjustment(조정 줄만인데 사유가 다름) · reason_price_adjustment_with_returns(사유는 price_adjustment 인데 반품 줄 있음) — 막지 않는다(612)
+  거부 글   「A price adjustment line needs qty > 0」 · 「… needs new_unit_price above 0 — to write the goods off entirely use a product line marked not returned, or an other line」 · 「… is a combo — a price adjustment on a combo is not supported; use an other line」 · 「… nothing left to adjust — all N were returned」 · 「… new unit price X is not below the current unit price Y」 · 「… only n can be adjusted at p — split the adjustment (n at p, the rest at the next price level)」 · 「Credit note … has price adjustments that later credit notes (…) were priced on — cancel those first」
+  상세      so_credit_detail(무변)은 to_jsonb(l) 이라 모든 줄에 새 칸 셋이 null 열쇠로 붙는다 — 화면은 null 을 그대로 둔다
+  시험 표   T1 24.00 + 세금 · T2 39.95 · T3 85.90 · T4 49.95(Σ 199.80 = 20 × 9.99) · T5 9.49 → 7.99 × 12 = 18.00 · T6 반품 1 = 7.99 + 거울 0 · T7 7.99 → 6.99 × 5 = 5.00 · 반품 2 미리 보기 13.98(crn-2 확인 OK 17)
+```
+
+### 70-c 발주앱 이식(DB) — 경계 · 창구 · 설정 · 화면 pur v1 · 616
+
+```
+경계 날짜   inv_config.pur_ims_sales_from = 2026-11-01 — 마이그레이션 · psql 로만 바꾼다(ims_config_set 이 모르는 키를 거부 · 화면에서 바꾸면 수요가 조용히 겹치거나 빠진다) · 화면은 pur_settings().boundary_date 로 읽어 BigQuery 에 sale_date < 경계 · IMS 창구는 경계부터
+읽기 넷     pur_sales_daily(supplier_id?, from?, to?) → {from, to, boundary, row_count, rows[{sku, sale_date, qty}]} · supplier null = 전부(pur-1b · 기본 공급처 없는 낱개 포함 — 발주앱은 시작할 때 전 공급처 판매를 한 번에 읽는다) · from 은 경계 밑으로 안 내려감 · to 기본 오늘 + 1
+            pur_backorders(supplier_id?) → rows[{sku, bo_0_30, bo_30_60, bo_60_90, bo_qty}] · pur_supplier_skus(supplier_id?) → rows[{sku, product_name, supplier_name, supplier_id, product_id, brand}] · pur_set_map() → rows[{set_sku, base_sku, factor, kind set|combo, is_active}]
+판매의 뜻   발행된(취소 안 된) 인보이스의 제품 줄 · 날짜 = 발행일(BigQuery 판매 뷰 sale_date = invoice_date 와 같은 축) · 반품 안 뺌(BigQuery Quantity > 0 = 총매출) · POS · 카운터 · 무상 줄 포함 · 서비스는 kind 로 빠짐 · 세트 줄 = qty × 그 줄 pack_factor → 낱개 · 콤보 = combo_components 구성품 · 공급처 거르기 = 낱개의 기본 공급처(is_default · 활성 줄)
+백오더의 뜻 열린 백오더(so_reserve backorder · 미해제) · 창고 채널 · 무상 줄 제외 · 되돌린 오더 제외(so_demand_so_excluded) · 오더 날 90 일 · 손님 × 낱개 SKU 최신 1 건 · 세트 × 계수 · ⚠️ 「진짜 수요 아님」 표식은 잃은 판매에만 달린다(열린 백오더에는 못 단다 · 464 ③) · 손님 × SKU 1 건은 IMS 가 주문 때 supersede 로 이미 한다 · 부분 할당 줄은 stock_short 형제 오더로 갈린다
+설정 표 넷  pur_supplier_setting(공급처 PK · lead_time · target · cycle · lt_sigma) · pur_setting(key wma = {w1, w2, w3}) · pur_sku_link(old_sku · new_sku · 대문자) · pur_override_history(공급처 × sea|trd · value null = auto · created_at = clock_timestamp()) — anon · authenticated 0 · service_role 전부 · RLS 켬 · 창구로만(615 첫 적용)
+설정 창구   읽기 pur_settings(supplier_id?) · 쓰기 pur_supplier_setting_set · pur_weights_set · pur_sku_link_add/remove · pur_override_record · 옮겨 담기 pur_settings_import({asung_po_v5, asung_ov_history, asung_sku_links, asung_wma}, commit)(공급처 이름 → id · 못 찾은 이름은 목록으로 · 미리 보기 → 실행 · 다시 불러도 같다) · 기본값(30 · 60 · 30 · 0 · 3 · 2 · 1)은 창구가 돌려준다
+문          읽기 = purchasing 보기(purchasing | purchasing:read) · 쓰기 = purchasing · 창구 14 전부 definer(설정 표에 authenticated select 조차 없다)
+재고 · 원가 새 창구 없음 — stk_availability.by_warehouse[].warehouse 이름에 edmonton 포함이면 edmonton 아니면 toronto(지금 규칙 그대로) · stk_value_many 는 원가 열쇠 없으면 거부 → 화면 「—」(608)
+크기        가장 큰 공급처 30 일 SKU × 일 1,041 행 · 전 공급처 30 일 16,985 행 → 1 년 뒤 ≈ 204,000 행(jsonb ≈ 8 MB) — 무거워지면 집계 창구 pur_sales_agg 안(70-f)
+화면 pur v1 purchasing.html(Reorder Planner) · 데이터 층만 바꿈 · 구글 로그인(616 A) · 「IMS 로 옮기기…」 막대 · 가중치 칸(inp-w1 ~ 3)은 옛 판에도 없었다(try 가 오류를 삼켰다) · 화면 시험 중(CHECKLIST 7-zq)
+안 봤다     BigQuery 마스터의 supplier_name 이 기본 공급처인지(공급처 줄 둘 이상인 제품 421 개에서 갈릴 수 있다 — 컷오버 점검 거리) · GAS 원본 · 고객 포털
+```
+
+### 70-d Supabase 기본 권한(615) · 컷오버 길(617) · anon 거두기(618) — grt-0 · grt-1a 가 정한 사실
+
+```
+615 무엇    Supabase 공지(github.com/orgs/supabase/discussions/45329 · 메일 10-20) — 2026-10-30 부터 기존 프로젝트도 public 에 새로 만드는 표 · 시퀀스에 Data API 권한(anon · authenticated · service_role 의 select · insert · update · delete / 시퀀스 usage · select)이 자동으로 안 붙는다 · 이미 있는 표는 그대로 · 함수 실행권은 대상 아님 · 빠지면 PostgREST 가 42501 + 고칠 grant 힌트
+615 왜      (Supabase 글) 에이전트 · CLI · AI 도구가 사람이 안 보는 채로 표를 만들고, 기본 권한 때문에 RLS 를 깜빡한 새 표가 곧바로 anon 에게 노출됐다 → grant 를 코드에 직접(검토 · diff · grep 가능) · 우리 레포는 공개이고 anon 키가 화면에 있다 — 우리에게 맞는 방향
+615 규칙    public 에 표 · 뷰 · 시퀀스를 만들거나 drop 뒤 다시 세우는 마이그레이션은 같은 파일에서 `revoke all … from public, anon, authenticated, service_role` 다음에 필요한 grant 를 준다 · anon 에는 주지 않는다 · service_role 은 EF · GAS 가 REST 로 칠 때만 준다 · 착지 검사가 relacl 을 문자열로 단언한다 · rls-3a · crn-1 의 「revoke all → 필요한 grant」(service_role 의 m 비트까지) 꼴 그대로 · 첫 적용 = pur-1(표 넷)
+테스트 DB   10-21 미리 켰다: `alter default privileges for role postgres in schema public revoke select, insert, update, delete on tables from anon, authenticated, service_role;` + `… revoke usage, select on sequences from …;` · 실측 BEFORE 표 anon=arwdDxtm/postgres … · AFTER 표 …=Dxtm/postgres · 시퀀스 …=w/postgres · 함수 X 그대로 · supabase_admin 줄 무변 · 운영 DB 는 안 건드림(584 · 10-30 에 Supabase 가 켠다)
+            ⇒ 615 뒤에도 새 기본값은 「0」 이 아니었다(표 Dxtm · 시퀀스 w) — 「기본값에 기대지 말고 revoke all 뒤 필요한 것만 grant」 가 맞는 근거
+617 길      컷오버 = Asung-IMS 승격(reload-procedure.md:22) · 승격 길에서는 10-30 변경이 지금 표 · 뷰 · 시퀀스를 하나도 깨지 않는다 · 일괄 배포였다면 표 · 시퀀스 83 개가 깨졌다(특히 wms_* 는 화면이 표를 직접 쓴다 · grt-0) · 운영에 없는 IMS 마이그레이션 = 245(20260911144606 ~ 20261022144212) · 올리지 않는다
+618 anon    grt-1a(20261022150638): public 의 표 25 · 뷰 2 · 시퀀스 43 에서 anon 권한 전부 거둠(revoke all on all tables · sequences from anon) + postgres 기본 권한 r · S 에서 anon 뺌 · 다른 역할 바이트 그대로 · 함수 기본 권한(f · anon=X) 무변 · grt-1a 뒤 기본 권한 r {postgres=arwdDxtm, authenticated=Dxtm, service_role=Dxtm} · S {postgres=rwU, authenticated=w, service_role=w}
+            anon 으로 표를 치는 곳 0(grt-1a 조사): 화면 49 개는 로그인 뒤에만 표를 읽는다(ims-auth.js boot) · EF 넷은 anon 키와 함께 사용자 JWT 를 보낸다 · Realtime 은 로그인 뒤 presence 채널뿐 · 못 봤다: GAS 원본 · 고객 포털 · security_invoker 뷰(wms_order_doc)는 적용 전에도 밑 표 so 에서 42501
+사실        베이스라인 20260101000000_baseline.sql 에 `ALTER DEFAULT PRIVILEGES … GRANT ALL ON TABLES TO "anon"` 류 12 줄 — 로컬 db reset · 빈 새 프로젝트 재생은 옛 기본 권한으로 돈다 → grant 누락은 테스트 DB 시험에서만 잡힌다
+            column ACL 은 public 에 0 · add column 은 표 권한을 따른다 · create or replace view 는 ACL 을 지킨다 · drop + create 로 다시 세운 뷰는 새 객체다(crn-1 의 so_credit_list)
+            GAS 적재기(ImsLoadCustomer · Product · ProductSupplier · Price · Tag · RefLoad)와 EF 다섯(ims-staff-create · doc · ims-product-images · shopify · inv-*)이 service_role REST 로 IMS 표를 친다 — service_role 은 RLS 는 넘지만 grant 는 못 넘는다
+```
+
+### 70-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 확인 명령에 `tail -25` 를 붙여 OK 줄이 잘렸다(crn-1) ⇒ 확인은 OK · MISMATCH 줄을 grep 하고 OK 수를 세어 커밋에 `&&` 로 묶는다
+2. [대화 Claude] 발주앱 안 2 의 크기를 필수 아닌 두 탭까지 넣어 3 ~ 4 차수로 말했다 ⇒ 판정을 물을 때 크기는 「11-01 필수 범위」 로 잰다
+3. [Caleb · 붙여넣기] Claude Code 화면에서 명령을 복사해 `❯` 와 줄바꿈이 따라 들어왔다 ⇒ 명령은 대화 회신에서 복사
+4. [대화 Claude] 멈출 때 이유를 찍지 않는 `&&` 사슬(zip 명령이 아무 출력 없이 멈춤) ⇒ 사슬의 첫 확인이 실패하면 무엇이 틀렸는지 찍는다
+5. [pur-1 검증] Z1 이 시험이 만든 pur_* 행을 「실제 행」으로 셌고, 비교가 끝 여섯 글자를 고정으로 잘랐다(시험 갈래에서만 맞음) — 확인 갈래(적용 뒤)에서 처음 드러났다 ⇒ 스냅샷 id 집합으로 비교
+6. [대화 Claude] 인계서 · 지시서에 「컷오버 때 운영 DB 에 적용 순서」 라고 썼다 — 정본은 승격 길(2026-09-21) · grt-0 이 정본을 읽고 잡았다 ⇒ 컷오버 길을 말할 때는 reload-procedure 를 먼저 본다
+7. [Claude Code · 대화 Claude] grt-1a 확인 갈래 기대 OK 수를 6 으로 셌다(실제 7 = 시험 8 − S0 − G0 + P0c) — 커밋 사슬이 멈췄다 ⇒ 기대 수는 항목 이름으로 센다
+8. [crn-2 · pur-1] 한 트랜잭션 안 now() 동률 — 취소 가드의 「뒤 크레딧」(created_at 같음) · 오버라이드 이력 순서 ⇒ 번호(credit_number) 또는 clock_timestamp() 로 가른다(같은 함정 두 번째)
+9. [Claude Code · pur-1 run 2] 마이그레이션 본문을 고친 뒤 파일을 다시 조립하지 않아 옛 판으로 시험했다 ⇒ 생성기 → 조립 → 시험을 한 명령으로
+10. [잘 된 것] crn-0 조사가 「이미 지어진 길」(판정 6)을 찾아 602 가 손질로 줄었다 · crn-2 가 611 의 근거를 끝까지 따라 「가장 싼 층부터」 를 냈다 · grt-0 이 지시서의 전제(운영 적용)를 정본으로 바로잡았다 · grt-1a 조사가 「anon 으로 치는 곳 0」 을 화면 · EF · Realtime · GAS 사본까지 세고 못 본 곳을 적었다
+
+### 70-f 미룬 것 — 69-f 280 에 이어 붙임
+
+- 281 607 고정 단가 고치기 = purchasing 쓰기 + 바뀐 기록 표(Products 화면 것도) — pur-3(며칠 뒤)
+- 282 발주앱 두 탭(입고 검증 · 공급처 분석) — 11-01 뒤
+- 283 616 B — 경계 전 이력을 IMS 로 옮겨 IMS 로그인 하나로(컷오버 뒤 정리 차수) · 그때까지 구글 OAuth 클라이언트에 ims.asung.ca 등록
+- 284 고객 포털 BigQuery(10-31 까지) → IMS(11-01 부터) — 다른 차수
+- 285 BigQuery 마스터 supplier_name 의 뜻(기본 공급처인가 · 421 개에서 갈릴 수 있다) — 컷오버 점검 거리(BigQuery MCP 재인증 뒤)
+- 286 pur_sales_daily 응답이 1 년 뒤 ≈ 8 MB — 무거워지면 집계 창구 pur_sales_agg(SKU 마다 qty_90d · qty_365d · last_sale_date · 작년 같은 철)
+- 287 grt-0 · grt-1a 가 미룬 것 ① wms_legacy 스키마 48 객체에 anon 전권이 남았다(618 은 public 만 · 그 스키마가 PostgREST 노출 스키마인지 안 봤다 — 대시보드 설정) ② supabase_admin 의 기본 권한(anon 전권)은 postgres 가 못 바꾼다 — 알고 둔다 ③ 함수 기본 권한 f 의 anon=X 는 그대로(새 함수마다 revoke 하는 지금 꼴로 막는다 · 기본 권한을 바꿀지 판정 거리) ④ authenticated · service_role 의 넓은 몫 119 정리(컷오버 뒤) ⑤ **잠자는 결함**: invoker po_discount_save · po_discount_delete 의 p_target='supplier' 갈래는 supplier_discount 에 쓰는데 authenticated 에 쓰기 권한이 없어 부르면 42501(지금 화면은 po · invoice 로만 부른다)
+- 288 두 PO(PO-02040 · PO-02002a)의 열린 short 판정(275 그대로) · 앞 입고의 열린 short 자동 정리(273 그대로)
+- 289 family 축 — families.html 「Sets in this family」 늘 0(279 의 둘째 그대로)
+- 290 화면 시험 남은 것: cr v3 · v4 · v4a(참조 크레딧 GST 5% · 가격 조정 2.00 each) · pur v1(Reorder Planner 열림 · Google 연결 · 옮겨 담기 · 발주 초안) · grt-1a 화면 시험 일곱(CHECKLIST 7-zq)
+
+### 70-g 적용된 순서(테스트 DB = 메인 · 617) — 69-g ② 에 이어 붙임
+
+```
+rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → rcv-3 → svc-1b → svc-1c → crn-1 → crn-2 → pur-1 → pur-1b → grt-1a   (전부 적용됨 · 운영 asung-WMS 에는 올리지 않는다)
+다음(Caleb 이 고른다): ① 화면 시험(290) ② 컷오버 준비 목록 하나로(두 스토어 잇기 · 재적재 옆에 591 · 592 · 285) ③ pur-3(607) ④ 두 탭(282)
+다음 판정 번호: 619
 ```

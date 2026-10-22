@@ -74,6 +74,7 @@ description: >
 ⭐ Ship Ready 는 sales 권한이 있는 **직원 로그인**으로만 만든다(so_finalize 미리 보기) — 서버 일꾼(service 길)은 못 만든다
 ⭐ Due 는 찍는 순간 so_invoice_remaining — 같은 인보이스도 결제 뒤 다시 찍으면 Due 가 바뀐다 · 발행 때 종이는 doc_file(남긴 PDF)
 ⭐ 메모(Notes)는 so_invoice.note · so_credit.note — 쓰는 창구 so_invoice_note_set · so_credit_note_set(sales 쓰기 · issued 만 · 2000 자 · 빈 글 → null)
+⭐ [2026-10-22 · crn-1 · crn-2 · so-module §70-b] credit_note — **가격 조정 줄(price_adjustment)은 제품 표에** · 수량 = qty_adjusted · 단가 = 개당 차액(unit_price_before − after) · 설명 「Price adjustment 9.49 → 7.99 — <제품명>」 · charges 로 안 간다 · 참조 크레딧의 참조 번호는 credit.invoice_number 자리에 이미 찍힌다(판 credit_note v2 무변)
 ⭐ [2026-10-21 · svc-1c · so-module §69] charges 의 qty · unit_price 는 **수량 × 단가 비용 줄(서비스)** 에서만 채워진다 — 운임 · 할인 줄은 "" · 꼴은 doc_fmt_qty(천 단위 쉼표 없음 · 1200) · doc_fmt_money · 판(final_invoice v5 · credit_note v2)은 이미 Qty · Unit price 칸을 그린다 · 크레딧 노트의 서비스 줄은 금액만(qty "")
 ```
 
@@ -131,7 +132,7 @@ Send              누르면 창을 바로 닫고 아래 안내 4 초(ims-doc v3a
 ```
 마이그레이션 doc-1a ~ doc-3a2 일곱(20261019144030 · 152102 · 155731 · 172034 · 181014 · 184432 · 190500) — 앞 IMS 묶음 · 메일 여섯과 함께
 EF doc · mail 배포 · 운영 비밀 GOTENBERG_URL · USER · PASS(tools/gotenberg-secrets.sh 에 IMS_PROJECT_REF) · cron 57(+ 54 ~ 56)
-회사 글 · 로고 · 판 다섯을 운영 DB 로(판은 DB 가 정본) · doc_public_base_url 운영 값(운영 DB 를 어디로 하나와 함께)
+회사 글 · 로고 · 판 다섯을 운영 DB 로(판은 DB 가 정본) · doc_public_base_url 운영 값(운영 DB 를 어디로 하나와 함께) → [2026-10-22 · 판정 617 · so-module §70-d] 운영 = 지금 테스트 DB 그대로(승격) — 옮길 것 없음 · doc_public_base_url 도 그대로(fazgmyvzzhqybtvtktyg)
 mail_redirect_to 비우기 · final_invoice_mail 손님 켜기(Caleb · 몇십 명) · GAS 정지(백오더)와 같은 날
 ```
 

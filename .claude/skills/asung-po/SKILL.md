@@ -215,6 +215,18 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️  앞 입고의 열린 short 는 뒤 입고가 다 받아도 자동으로 안 닫힌다(이력 · 미룬 273) · 나눠 받는 PO 의 둘째 입고에는 운임 · 관세가 안 얹힌다(미룬 274)
 ```
 
+## 4-f. ⭐⭐ 발주앱(Reorder Planner) 창구 — 모르면 사고 (2026-10-22 · pur-1 · pur-1b · 판정 604 ~ 606 · 608 · 616 · 정본 so-module §70-c · po-module §10-d)
+
+```
+⭐⭐ 경계 키 inv_config.pur_ims_sales_from = 2026-11-01 — 마이그레이션 · psql 로만 바꾼다(ims_config_set 은 이 키를 모른다 → 거부) · 화면은 pur_settings().boundary_date 로 읽어 경계 전 = BigQuery(각자 구글 로그인 · 616 A) · 경계부터 = IMS 창구
+⭐⭐ 읽기 넷(definer · 문 purchasing 보기) — pur_sales_daily(supplier_id?, from?, to?) → {from, to, boundary, row_count, rows[{sku, sale_date, qty}]}(**supplier null = 전부 · 기본 공급처 없는 낱개 포함 · pur-1b** · from 은 경계 밑으로 안 내려감 · to 기본 오늘 + 1 · 낱개 · 일별 · 총매출 · 발행일 축) · pur_backorders(supplier_id?) → rows[{sku, bo_0_30, bo_30_60, bo_60_90, bo_qty}] · pur_supplier_skus(supplier_id?) → rows[{sku, product_name, supplier_name, supplier_id, product_id, brand}] · pur_set_map() → rows[{set_sku, base_sku, factor, kind set|combo, is_active}]
+⭐⭐ 설정 표 넷(권한은 파일이 직접 · anon · authenticated 0 · service_role 전부 · RLS 켬 · 창구로만) — pur_supplier_setting · pur_setting(wma) · pur_sku_link · pur_override_history · 읽기 pur_settings(supplier_id?) → {boundary_date, defaults, weights{w1,w2,w3,is_default}, supplier{…,is_default}, supplier_settings[], sku_links[{oldSku,newSku}], override_history{sea[{v,d}],trd[]}} · 쓰기(purchasing) pur_supplier_setting_set · pur_weights_set · pur_sku_link_add/remove · pur_override_record(같은 날 같은 값은 안 적음) · 옮겨 담기 pur_settings_import({asung_po_v5, asung_ov_history, asung_sku_links, asung_wma}, commit)(이름 → id · 못 찾은 이름은 목록 · 미리 보기 → 실행 · 다시 불러도 같다)
+⭐  판매의 뜻 = 발행된(취소 안 된) 인보이스 제품 줄 · 반품 안 뺌 · POS · 무상 포함 · 서비스는 kind 로 빠짐 · 세트 × 그 줄 pack_factor · 콤보 = combo_components · 백오더 = 열린 백오더(창고 채널 · 무상 제외 · 되돌린 오더 제외 · 90 일 · 손님 × SKU 최신 1 건) · ⚠️ 「진짜 수요 아님」 표식은 잃은 판매에만(열린 백오더엔 못 단다)
+⭐  재고 · 원가는 새 창구 없음 — stk_availability.by_warehouse[].warehouse 이름 규칙(edmonton 포함 → edmonton · 아니면 toronto) · stk_value_many 는 원가 열쇠 없으면 거부 → 화면 「—」(608) · 고정 단가는 product_update op supplier_set(master) · 607 은 pur-3
+⬜  응답 크기 — 전 공급처 365 일 창은 1 년 뒤 ≈ 204,000 행(jsonb ≈ 8 MB) · 무거워지면 집계 창구 pur_sales_agg(SKU 마다 qty_90d · qty_365d · last_sale_date · 작년 같은 철) 안(정본 §70-f 286)
+⚠️  BigQuery 마스터 supplier_name 이 기본 공급처인지는 못 봤다(공급처 줄 둘 이상인 제품 421 개) — 컷오버 점검 거리(§70-f 285)
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 정본에 있는 것은 옮겨 적지 말고 가리킨다 · 실측 숫자는 두지 않는다 — 14KB 를 넘기면 정본으로.

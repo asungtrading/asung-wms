@@ -306,6 +306,12 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️⚠️ [2026-10-06 · §47-d 1] **시험 재료는 가짜만** — dsc-0 조사 중 실제 초안 SO-25039 에 rollback 되는 트랜잭션 안에서 줄을 넣었다(Caleb 지적) ⇒ 가짜 오더 · 제품 · 딜 · 쿠폰(SO-79xxx · DSC*-) · 가짜 딜은 꺼진 채 만들고 가짜 손님 걸기 줄 → 켜기(딜 변경 트리거가 실제 오더를 표시하지 않게)
 ⚠️ [2026-10-06 · so-module §50-d 5] **권한을 볼 때는 넷을 한 번에** — 정책(pg_policies) · 표 권한 · RLS 켜짐(relrowsecurity) · 기본 권한(pg_default_acl) · ⚠️ postgres 가 만든 새 표 = anon 전부 · 새 함수 = anon EXECUTE(기본 권한) — 만든 파일에서 회수한다
    → [2026-10-21 · so-module §69 · rls-3a 이견 7] 다시 확인 — 오늘 만든 함수도 기본 권한으로 anon EXECUTE 가 붙는다 · tf_charge_* 6 은 grant 만 하고 public 회수를 안 해 =X 가 남았었다 ⇒ 새 함수는 `revoke all … from public, anon` 을 파일에 · 기본 권한 바꾸기는 작은 차수(미룬 279)
+⭐⭐ [2026-10-22 · 판정 615 · 617 · 618 · so-module §70-d] **표 · 뷰 · 시퀀스의 권한은 파일이 직접 준다** — Supabase 가 2026-10-30 부터 public 의 새 표 · 시퀀스에 Data API 권한을 자동으로 안 붙인다(테스트 DB 는 10-21 부터)
+   · public 에 표 · 뷰 · 시퀀스를 만들거나 drop 뒤 다시 세우는 마이그레이션은 같은 파일에서 `revoke all … from public, anon, authenticated, service_role` 다음에 필요한 grant 를 준다 · anon 에는 주지 않는다 · service_role 은 EF · GAS 가 REST 로 칠 때만 준다 · 착지 검사가 relacl 을 문자열로 단언한다(꼴 = rls-3a · crn-1 · pur-1 · service_role 의 m 비트까지)
+   · 로컬 db reset 은 베이스라인의 옛 기본 권한(anon · authenticated · service_role 전권)으로 돈다 — grant 누락은 테스트 DB 시험에서만 잡힌다
+   · 2026-10-22 부터 테스트 DB(= 메인) 기본 권한에 anon 이 없다(grt-1a · 표 Dxtm · 시퀀스 w 도 anon 은 0) — anon 거부 시험은 42501 을 기대한다(전에는 「0 행」이었다)
+   · 컷오버 = Asung-IMS 승격(617) — 「운영에 적용」 이라고 쓰지 않는다 · 순서는 「테스트 DB(= 메인)에 적용된 순서」 · 컷오버 길을 말할 때는 reload-procedure.md 를 먼저 본다
+   · `create or replace view` 는 ACL 을 지키고 `drop + create` 는 새 객체다(crn-1 so_credit_list) · column ACL 은 0 · add column 은 표 권한을 따른다
 ⚠️ [2026-10-06 · §50-d 7] **집합 함수 · 트리거는 검증 안에서 clock_timestamp() 로 재고 「트리거 끈 바닥값」과 함께 보고** — 「값은 맞다」로 68 s 를 지나칠 뻔했다
 ⚠️ [2026-10-06 · §50-d 8] `array_agg(distinct … order by 1)` 불가 — distinct 서브쿼리로
 ⚠️ [2026-10-06 · §50-d 9] **트리거 함수는 직접 실행 시험이 안 된다**(권한보다 「only as triggers」가 먼저) — has_function_privilege 로
@@ -333,6 +339,11 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ [2026-10-14 · bo-2b 1 회차 · 스스로 잡음] **「오래 기다린 것부터」 창 정렬은 날짜 asc** — desc 로 써 새 줄부터 나눴다 ⇒ 순서가 결과를 바꾸는 창은 시나리오(20 · 15 → 20 · 10)로 확인
 ⚠️ [2026-10-14 · bo-2b 3 회차] **`inv_available_base` 는 잔고 행이 없는 제품의 행을 내지 않는다** ⇒ 부르는 쪽이 left join + coalesce 0(inner join 이면 콤보 구성품이 빠져 보낼 수 있는 것처럼 보인다)
 ⭐ [2026-10-08 밤 · §54-d 1] **차수 크기는 다시 낼 함수의 prosrc 줄 수로 잰다** — 새 줄 = 파일 줄 − 바이트 복사 줄(가드 26 + 재발행 원본) · 900 을 넘을 것 같으면 만들기 전에 나누는 안(po-disc-4 · 5)
+⭐ [2026-10-22 · so-module §70-e 1 · 7] **확인은 grep + OK 수 + `&&`** — `tail -25` 는 OK 줄을 자른다(crn-1) · 기대 OK 수는 「시험 OK − 시험 전용 항목 + 확인 전용 항목」을 **항목 이름으로 센다**(grt-1a 를 6 으로 잘못 셌다 · 실제 7) · 멈추는 `&&` 사슬은 첫 확인이 실패하면 무엇이 틀렸는지 찍는다
+⚠️ [2026-10-22 · crn-2 · pur-1 · §70-e 8] **한 트랜잭션 안 `now()` 는 같다** — 「뒤 크레딧」 순서(created_at 동률) · 이력 순서가 갈리지 않는다 ⇒ 번호(credit_number) 또는 `clock_timestamp()` 로 가른다(같은 함정 두 번째)
+⚠️ [2026-10-22 · pur-1b] **검증의 시퀀스 되돌리기가 「머리」가 아니라 「실제 최대」로 설 수 있다** — 시험 중 다른 사람의 실제 행(SO-25164 · CR-01007)이 들어온 경우 · `greatest(실제 최대, 머리)` 의 뜻 그대로 · 정상
+⚠️ [2026-10-22 · pur-1 run 2 · §70-e 9] **생성기 → 조립 → 시험은 한 명령으로** — 본문을 고치고 조립을 빼먹어 옛 판으로 돌았다
+⚠️ [2026-10-22 · pur-1 Z1 · §70-e 5] **실제 행 무변은 「스냅샷 때 있던 행의 id 집합」으로** — 이 시험이 만든 행(가짜 공급처의 설정 · 이 트랜잭션의 연결)을 빼고 · 끝 글자 수를 고정으로 자르지 마라(시험 갈래에서만 맞았다 · 확인 갈래에서 드러났다)
 ⚠️⚠️ [2026-10-21 · so-module §69-e 10] **`psql -At` 로 받은 prosrc 는 끝에 `\n` 이 하나 더 붙는다** — 그대로 재발행하면 몸에 꼬리 줄바꿈이 생긴다(rls-3b 여섯 · 동작 무해) ⇒ 생성기는 한 줄 떼고 **DB `md5(prosrc)` 와 맞춘 뒤** 바꿀 줄을 바꾼다 · 착지 do 블록이 새 md5 를 단언
 ⭐ [2026-10-21 · §69-e 12 · pset-1 · svc-1b · rcv-3] **동일성 시험 = exception 블록 + 예외 메시지로 결과 꺼내기** — 서브트랜잭션 안에서 재료를 만들고 끝까지 돌린 뒤 `raise exception using errcode = 'P7777', message = <결과 jsonb>::text` · `exception when sqlstate 'P7777' then return sqlerrm::jsonb` → 쓰기 0 · 같은 재료로 \i 앞 · 뒤 · 비교는 uuid · 시각 · 번호 · 숫자 id 를 지운 글로
 ⚠️ [2026-10-21 · svc-1b · rcv-3] plpgsql 안에서 `set_config('session_replication_role', …)` 는 거부(42501) — `execute 'set local session_replication_role = replica'` 는 된다

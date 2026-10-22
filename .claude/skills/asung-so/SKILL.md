@@ -268,7 +268,11 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ```
 ⭐⭐ 권한: 발행·취소 = manager(so_credit_issue · so_credit_cancel · 판정 3) · 붙이기 = sales(so_credit_attach) · 떼기 = manager(so_credit_detach) · 환불에 쓰인 몫은 떼지 못한다(환불을 취소 so_payment_void)
-⭐⭐ 원본은 둘 중 하나(짝 CHECK) — IMS invoice_id(issued 만) 또는 Cin7 cin7_invoice_number(종이) + cin7_order_number(되짚기 열쇠 · SO-…) · Cin7 크레딧은 tax_rule 명시 · 줄은 sku·수량·단가 손으로(판정 6)
+~~⭐⭐ 원본은 둘 중 하나(짝 CHECK) — IMS invoice_id(issued 만) 또는 Cin7 cin7_invoice_number(종이) + cin7_order_number(되짚기 열쇠 · SO-…) · Cin7 크레딧은 tax_rule 명시 · 줄은 sku·수량·단가 손으로(판정 6)~~ → [2026-10-22 · crn-1 · 판정 602 · 609 · 610 · 정본 §70-b]
+⭐⭐ 원본은 둘 중 하나(짝 CHECK so_credit_origin_ck) — IMS invoice_id(issued 만) 또는 **참조 크레딧** ref{invoice_number!, order_number?, invoice_date?}(칸 ref_invoice_number · ref_order_number · ref_invoice_date) + customer_id! · 세금은 tax_rule 을 안 주면 손님 기본 배송지(Shipping · is_default_for_type)의 주 규칙을 제안(없으면 거부 글로 고르라) · 줄은 sku · 수량 · 단가 손으로 · 원가는 되짚지 않는다(② 가중평균 → ③ 최근 → ④ unknown) · 경고 manual_unit_price(늘) · reference_seen:<CR…>(막지 않음) · 발행 manager
+⭐⭐ [2026-10-22 · crn-2 · 판정 603 · 611 ~ 614] 줄 kind 아홉 = product · freight · tax · other · restocking_fee · surcharge · order_discount · freight_discount · **price_adjustment**(지난 세일 차액 · (낸 단가 − 새 단가) × 수량 · 재고 0 · 반품 가능 수량 안 깎음) · 사유 다섯 = customer_return · damaged · billing_error · other · **price_adjustment**(612 · 줄 종류와 어긋나면 경고 reason_not_price_adjustment · reason_price_adjustment_with_returns)
+⭐⭐ 가격 조정 입력 {kind:'price_adjustment', so_invoice_line_id, qty, new_unit_price}(참조: sku · qty · paid_unit_price · new_unit_price) — 낸 단가는 서버가(인보이스 단가 × (1 − 오더 할인%) · 613) · 층 모델: 줄마다 tiers[{qty, unit_price, paid}] · 반품은 가장 싼 층부터(611) · 조정은 새 단가보다 비싼 가장 싼 층 한 층 안에서만(넘치면 「split」 거부 · 화면이 층마다 나눠 보낸다) · 콤보 거부 · 같은 크레딧은 반품 먼저 · 계정 = 그 판매 줄 계정(614 · 참조 _98_) · 거울 · surcharge · 운임 할인 · 피 기준에 안 든다
+⭐⭐ 도우미 셋 — so_credit_line_state(so_invoice_line_id)(authenticated · qty_returned · qty_returnable · qty_adjustable · qty_adjusted_open · tiers · adjustments) · so_credit_tiers_take · so_credit_tiers_add(실행권 없음) · so_credit_prepare.lines[].adjust{…}(콤보 null) · 취소는 뒤 크레딧이 그 조정 층으로 값이 매겨졌으면 거부(뒤 것부터) · 섞인 층 반품 줄은 unit_price = round(amount/qty, 6) + 설명 「(7 × 7.99 + 3 × 9.99)」
 ⭐⭐ IMS 크레딧 줄은 so_invoice_line 을 가리킨다 — 단가·계정은 그 줄 · 세율은 그 줄의 인보이스 오더 rate_pct 를 줄에 굳힌다(0-11) · Σ반품(활성 크레딧) + 이번 ≤ 인보이스 줄 qty 아니면 거부(과다 반품)
 ⭐⭐ 갈리는 것은 「재고가 움직이냐」 — 줄에 restock_bin_id 가 있으면 원장 credit_in(그 칸 · EA · 낱개 SKU) · 없으면 not_restocked_reason(damaged · b_grade · not_returned · other) · 칸 기본 ims_last_bin(그 창고) → 없으면 사람이 · '' 불허 · B급 칸이 서면 칸 표시만 더한다
 ⭐⭐ 원가 = 원 판매 소비 기록 복원(return_restore · 열쇠 = 오더 번호 · IMS 는 so_line → so.so_number · Cin7 은 cin7_order_number) → 남은 레이어 가중평균 → 최근 원가(17-e) → unknown · 실시간·재생성이 inv_layer_post_credit 하나를 부른다(17-f) · raw.cost.remainder 가 hint
@@ -299,7 +303,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ## 4-k. ⭐⭐ 읽기 창구 · 오피스 화면 — 모르면 사고 (정본 §22 · §23)
 
 ```
-⭐⭐ 남은 금액은 세 함수뿐 — so_invoice_remaining · so_payment_remaining · so_credit_remaining · DB 에 복사 식 0(남은 하나 so_credit_prepare.qty_credited = so_credit_issue 와 같은 식 ⬜ · 다르면 화면은 된다는데 창구가 거부)
+⭐⭐ 남은 금액은 세 함수뿐 — so_invoice_remaining · so_payment_remaining · so_credit_remaining · DB 에 복사 식 0(남은 하나 so_credit_prepare.qty_credited = so_credit_issue 와 같은 식 ~~⬜~~ → ✅ [2026-10-22 · crn-2] so_credit_line_state 하나를 둘이 부른다 · 다르면 화면은 된다는데 창구가 거부)
 ⭐⭐ 환불은 붙일 돈이 아니다 — so_payment_remaining 이 null · 환불 줄은 두 칸(refund_credit_covered · refund_from_account) · held_for_orders 는 boolean(금액은 손님 잔액 reserved_deposit)
 ⭐  목록은 뷰(so_invoice_list · so_payment_list · so_credit_list · security_invoker · select 만 — Supabase 기본 ALL 을 걷었다) · 한 장은 RPC jsonb · so_credit_detail 은 키를 더하기만(옛 키 아홉 그대로) · issue_contract(크레딧 발행 입력 모양)는 정본 §22-c
 ⭐⭐ 화면은 DB 값을 그리기만 · 세트는 기본 숨김(케이스도 낱개 × 수량 · Include sets 는 manager) · Proceed 는 기다려 주지 않는다(잡힐 것 없으면 막힘) · POS 매장은 기기 localStorage(CLAUDE.md §5 예외)

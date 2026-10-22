@@ -1846,6 +1846,7 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
   · ⭐ **IMS 축 `credit_in` 이 섰다**(2026-09-25 · `20260925012354` · so-module §19) — 실시간 `inv_post_credit` → `inv_layer_post_credit`
     (갈래 ① 원 판매 소비 복원 → ② 가중평균 → ③ 최근 원가 → ④ unknown · hint) · 재생성은 `inv_layer_apply_credit_ims`(inv_layer_apply 가
     source 로 가른다 · Cin7 축은 `inv_layer_apply_credit` 그대로) · 되짚기 열쇠는 두 축 다 **오더 번호**(SO-…) · 취소 = 반대 `credit_in`(:reversal) + reason reversal 소진
+  · ⭐ [2026-10-22 · crn-1 · crn-2 · so-module §70-b] **참조 크레딧(인보이스 없는 크레딧 · 판정 602 · 609)의 `credit_in` 은 원가를 되짚지 않는다** — 갈래 ① 을 건너뛰고 ② 남은 레이어 가중평균 → ③ 최근 원가 → ④ unknown · `raw.header.ref_invoice_number`(옛 cin7_invoice_number 이름은 없다) · **가격 조정 줄(price_adjustment)은 원장 0**(kind product + bin 만 원장으로 온다 · inv_post_credit 무변)
   · ⭐ [2026-10-05 · so-module §44] **콤보 크레딧의 `credit_in` 은 구성품 크레딧 줄만** — 콤보 SKU 는 원장에 한 번도 닿지 않는다(판정 244) · 콤보 크레딧 줄은 bin 이 없어 `inv_post_credit` 이 저절로 거른다 · 원가 갈래 ① 은 구성품 SKU 의 판매 소비로 되짚는다
   · ⚠️ **`inv_layer_apply_done` 은 `inv_layer_apply` 가 만드는 임시 표다 — 보조 함수에서 `public.` 접두를 붙이지 마라**
     (2026-09-25 실사고 · ⓒ1 시험 적용 1차가 「relation public.inv_layer_apply_done does not exist」 로 멈췄다 · Cin7 보조는 접두 없이 쓴다)

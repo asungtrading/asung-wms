@@ -2226,7 +2226,7 @@ Visibility 설정에 붙은 Enterprise 배지를 「private 레포는 Pages 가 
        제품·공급처는 Cin7_Master_Data.asung_product_master (supplier_name 이 있고 활성인 것)
 쓰기   GAS 웹앱 브리지(PO_WEBAPP_URL) — DRAFT PO 생성 · Fixed Price 조회/수정
        ⭐ PUT /product-suppliers 로 Fixed Price 를 고치는 기능이 이미 돌고 있다(±50% 경고 · 변경 로그 · Podraft.gs pd_updateFixedPrice)
-       → [2026-09-16] 전환 기간 동안 Fixed Price 는 **여기(purchasing.html · Cin7)에서만** 고친다 — IMS 는 읽기만(§11-d · Caleb). 컷오버 뒤에 이 💲 기능이 IMS 로 옮겨 온다
+       → [2026-09-16] 전환 기간 동안 Fixed Price 는 **여기(purchasing.html · Cin7)에서만** 고친다 — IMS 는 읽기만(§11-d · Caleb). 컷오버 뒤에 이 💲 기능이 IMS 로 옮겨 온다 → [2026-10-22 · 판정 607 · pur-0] product_update op supplier_set 이 fixed_cost 를 **이미 쓴다**(문 master) · 607 이 purchasing 쓰기로도 열고 바뀐 기록 표(Products 화면 것도)를 둔다 — pur-3(며칠 뒤 · so-module §70-f 281)
 계산   절반 이상이 수요 예측 — Huber 회귀·계절성·안전재고·ABC·워킹데이·캐나다 공휴일
 ```
 ⚠️ **복사해서 고치지 않는다.** 원본과 사본이 갈리면 한쪽을 고칠 때마다 다른 쪽을 따라 고쳐야 한다.
@@ -2234,6 +2234,19 @@ Visibility 설정에 붙은 Enterprise 배지를 「private 레포는 Pages 가 
 ⇒ 지금 세우는 화면과 **겹치는 기능이 없다**. 저쪽은 발주 추천, 이쪽은 마스터 값을 채우는 자리. Fixed Price 조차 저쪽은 **Cin7 에** 쓰고 이쪽은 **IMS 에** 쓴다 — 대상이 다르다.
 📌 ⑤ 가 `product_supplier.cin7_id` 로 `PUT /product-suppliers` 를 치려 할 때(§3-g 「⑤ PUT 의 필수 열쇠」) **그 일을 하는 GAS 브리지가 이미 있다** — `pd_updateFixedPrice`.
    두 번 만들지 말고 그 브리지를 부른다(±50% 경고·변경 로그·Default 옵션 규칙이 거기 산다 · `cin7-api/references/product-suppliers-write.md`).
+
+→ **[2026-10-22 · 판정 604 ~ 606 · 608 · 616 · so-module §70-c] 이식 = pur-1(DB · asung-wms f8fe69d · `20261022133010_pur_1_purchasing_db.sql` · 확인 OK 17) + pur-1b(ce3503e · 공급처 비우면 전부 · OK 7) + 화면 pur v1(asung-ims cceb46f · `purchasing.html` Reorder Planner · 데이터 층만 바꿈 · 계산 코드 그대로)**
+```
+발주앱이 읽던 곳                                          11-01 부터 어디서 읽나(화면이 합친다 · 604)
+  BigQuery asung_sales_unified(aduSQL · seaSQL · deadSQL)   경계 전(< pur_ims_sales_from 2026-11-01) = BigQuery 그대로(각자 구글 로그인 · 616 A) · 경계부터 = pur_sales_daily(supplier?, from, to)(낱개 · 일별 · 총매출 · 발행일 축)
+  BigQuery asung_order_details_historical(orderAduSQL · boSQL)   orderAduSQL 은 참고 칸(추천에 안 씀) · 백오더 = pur_backorders(supplier?)(IMS 열린 백오더만 · 경계 뒤엔 BigQuery 백오더 안 부름)
+  BigQuery asung_stock_daily(dateSQL · stockSQL) + stock.json   stk_availability(by_warehouse · edmonton/toronto 이름 규칙 그대로) · 재고 금액 = stk_value_many(원가 열쇠 없으면 거부 → 「—」 · 608)
+  BigQuery asung_product_master(supplierSkuSQL)              pur_supplier_skus(supplier?)(활성 제품 · 기본 공급처 · supplier_id 함께) · ⚠️ BigQuery supplier_name 이 기본 공급처인지는 못 봤다(§70-f 285)
+  (없었다 — 세트 접기)                                        pur_set_map()(세트 × 계수 · 콤보 구성품 · 605) 로 BigQuery 줄의 SKU 를 낱개로
+  localStorage 넷(asung_po_v5 · asung_ov_history · asung_sku_links · asung_wma)   표 넷 pur_supplier_setting · pur_override_history · pur_sku_link · pur_setting(wma) · 읽기 pur_settings(supplier?) · 쓰기 다섯 · 옮겨 담기 pur_settings_import(미리 보기 → 실행 · 606)
+  BigQuery asung_purchase_history(입고 검증 · 공급처 분석 두 탭)   며칠 뒤(§70-f 282)
+```
+pur-1 이 정한 사실 — 판매 = 발행된(취소 안 된) 인보이스의 제품 줄 · 날짜 = 발행일(BigQuery 뷰 sale_date = invoice_date 와 같은 축) · 반품 안 뺌(BigQuery `Quantity > 0` = 총매출) · POS · 무상 줄 포함 · 서비스는 kind 로 빠짐 · 공급처 거르기 = 낱개의 기본 공급처 · 경계 날짜는 마이그레이션 · psql 로만 바꾼다(ims_config_set 이 모르는 키를 거부 · 화면에서 바꾸면 수요가 조용히 겹치거나 빠진다) · 「진짜 수요 아님」 표식은 잃은 판매에만(열린 백오더에는 못 단다 · 판정 464 ③) · 손님 × SKU 최신 1 건은 IMS 가 주문 때 supersede 로 이미 한다 · 부분 할당 줄은 stock_short 형제 오더로 갈린다 · 한 트랜잭션 안 now() 동률은 clock_timestamp() 또는 번호로 · 발주앱은 시작할 때 전 공급처 판매를 한 번에 읽는다(→ pur-1b) · 가중치 칸(inp-w1 ~ 3)은 화면에 없다(옛 판은 try 가 오류를 삼켰다) · 설정 표 넷의 권한은 파일이 직접(판정 615 첫 적용 · anon · authenticated 0 · service_role 전부 · RLS 켬 · 창구는 definer)
 
 ### 10-e. ⭐ 로그인은 Supabase 프로젝트마다 따로다
 
