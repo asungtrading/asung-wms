@@ -23,7 +23,7 @@
  *   그 밖은 bq_current: 당월 표(asung_order_details_historical)에서 R1 dedup 뒤 UPPER(TRIM(Status)) IN ('CLOSED','COMPLETED') AND Invoice_Date IS NOT NULL
  *     — 「인보이스 된 것」 의 기준 = Status(스킬 R3 · 「확정 판별의 권위 = Status · Order_Progress 로 가르지 않는다」) · ilhDry 가 후보 기준별 오더 수를 함께 찍는다
  *   두 출처 모두 인보이스 날짜 2025-11-01 ~ 오늘(토론토) 만 · 미래 날짜는 여기서도 창구에서도 거른다(두 겹)
- * 발주 — order_date >= 2025-11-01 · 상태가 VOIDED · DRAFT 가 아닌 PO 전부(판정 661) · 모르는 상태가 나오면 쓰기 함수가 멈춘다
+ * 발주 — order_date >= 2025-11-01 · 상태가 VOIDED · DRAFT · ORDERING(승인 전 = 초안 · 판정 663)이 아닌 PO 전부(판정 661) · 복합 상태는 조각 하나라도 그 셋이면 뺀다 · 모르는 상태가 나오면 쓰기 함수가 멈춘다
  *
  * ═══ BigQuery 콘솔에 붙여 미리 볼 문장(ilhDry 와 같은 것) — 2026-10-23 실측 대조: 확정 10,110 오더 · 206,910 줄 · 반품 764 줄 · 453 오더 ═══
  *   -- D1 확정 표(Core · sale IS NOT NULL)
@@ -62,7 +62,7 @@ function ilh_cfg_() {
     runBudgetMs: 270000,                          // 4 분 30 초(규칙 6 이어 달리기)
     pageOrders: Math.min(500, Number(getProp_opt_('ILH_PAGE_ORDERS') || 300)),   // 창구 한 쪽(상한 500)
     saleLimit: Number(getProp_opt_('ILH_SALE_LIMIT') || 100),
-    poSkip: ['VOIDED', 'DRAFT'],                  // 판정 661 — 취소 · 초안만 뺀다
+    poSkip: ['VOIDED', 'DRAFT', 'ORDERING'],      // 판정 661 — 취소 · 초안만 뺀다 · 판정 663 — ORDERING(승인 전 · 공급처에 안 보낸 발주)도 초안으로 본다
     poKnown: ['ORDERING', 'ORDERED', 'RECEIVING', 'RECEIVED', 'INVOICED', 'CREDITED', 'COMPLETED', 'PARTIALLY INVOICED', 'CREDIT NOTE CLOSED', 'VOIDED', 'DRAFT'],   // cin7-api purchase.md 상태 목록 + 실측 복합 조각
     unresolvedMax: 0.20                           // 쪽의 20 % 를 넘으면 멈춤(ILH_ALLOW_UNRESOLVED=1 로 한 번만 통과)
   };
