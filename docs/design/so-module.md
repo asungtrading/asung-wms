@@ -558,7 +558,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 | ⭐ 초과 결제 | ⚠️ **없다** — `Σ충당 ≠ amount + discount_taken` 이면 거부(po-module §11-g) | ⭐ **허용** — `amount > Σ충당` 의 차이가 손님 잔액(오버페이 · 8-f) (④ 8-i · Caleb 2026-09-22) |
 | 크레딧 번호 | **우리가 붙인다** `CN-<PO>` · `CN-<연도>-<n>` · 공급처 번호는 참조로 | **우리가 붙인다** `CR-01000~` 시퀀스 (④ 8-i) |
 | 크레딧의 뜻 | 공급처가 **우리에게** 빚진 것(못 받은 입고 · 우리가 먼저 붙이고 공급처가 인정) | 우리가 **손님에게** 빚진 것(반품 · 파손 · 잘못 청구) (④ 8-i) |
-| 크레딧과 재고 | 재고 무관(못 받은 것은 입고 자체가 없다) | `restock` 라인이 `credit_in` 을 낸다 · 리스탁 칸 = 현재 자리 · B급 갈래 (④ 8-i) |
+| 크레딧과 재고 | 재고 무관(못 받은 것은 입고 자체가 없다) | `restock` 라인이 `credit_in` 을 낸다 · 리스탁 칸 = 현재 자리 · B급 갈래 (④ 8-i) → [2026-10-23 · 판정 649 · 650 · §71] B급 칸이 섰다 — 반품은 정상 칸 · B급 칸(그 창고의 활성 B급 칸) · 안 돌아옴 셋 |
 | 크레딧 소진 | 결제에 「썼다」로 붙인다(`po_payment_alloc` · 뜻이 뒤집힘) | `credit_applied` 로 인보이스에 붙이거나 `refund` 결제로 현금 (④ 8-i) |
 | 삭제 | 크레딧은 종류로 삭제 금지 · 취소만 | 인보이스·크레딧 모두 취소만 · 번호 재사용 금지 (④ 8-i) |
 | 잔액 | 문서 미지급 = 뷰(`po_invoice_money`) | 손님 잔액 = 함수 하나 · 출처 둘(받아 둔 돈 · 진 빚) (④ 8-i) |
@@ -1621,10 +1621,10 @@ credit_line   무엇을 깎나
 **⭐ 두 갈래로 받는다 — Caleb 확인**
 ```
 팔 수 있는 것  → 정상 칸(그 SKU 가 지금 있는 칸)
-못 파는 것     → ⬜ B급 칸
+못 파는 것     → ⬜ B급 칸 → [2026-10-23 · 판정 636 · 649 · 650 · §71] ✅ B급 칸(ref_bin.is_bgrade · bgr-1a ~ 1e)
 ```
-⚠️ 지금은 `final sale` 이라는 **non-inventory 코드로 싸게 팔고 있다**(Caleb 2026-09-22 · 원장 쪽에서는 `FINAL-SALE` 이 비재고 SKU 게이트로 걸러진 실사고가 있다). 그러면 창고에 실물이 있는데 시스템은 모르고, 원가도 안 붙어 **손실이 어디에도 안 잡힌다.** ⇒ B급 칸에 재고로 잡으면 수량도 원가도 보이고, 싸게 팔 때 단가만 낮게 넣으면 「이 거래에서 얼마 손해 봤나」가 나온다.
-⬜⬜ **B급 칸 자체는 SO 모듈이 정하지 않는다.** Caleb 확인: "꼭 반품이 아니어도 B급칸으로 보내야 할 물건들이 오퍼레이션을 하다보면 종종 나와." ⇒ **창고의 일반 장치**이고 재고 쪽에서 정의한다(정할 것: 창고마다 하나인가 여럿인가 · 가용에서 빠지나 · 픽 안내에서 제외되나 · 정상 칸으로 되돌리는 길 · 원가를 그대로 두나 깎나 · 8-k).
+⚠️ 지금은 `final sale` 이라는 **non-inventory 코드로 싸게 팔고 있다**(Caleb 2026-09-22 · 원장 쪽에서는 `FINAL-SALE` 이 비재고 SKU 게이트로 걸러진 실사고가 있다). 그러면 창고에 실물이 있는데 시스템은 모르고, 원가도 안 붙어 **손실이 어디에도 안 잡힌다.** ⇒ B급 칸에 재고로 잡으면 수량도 원가도 보이고, 싸게 팔 때 단가만 낮게 넣으면 「이 거래에서 얼마 손해 봤나」가 나온다. → [2026-10-23 · 판정 629 · §71] Cin7 의 ZZZ 가격대 코드(final sale)는 IMS 로 옮기지 않는다 · 같은 SKU 를 B급 칸에 두고 B급 값으로 판다(컷오버 날 실물을 세어 조정)
+⬜⬜ **B급 칸 자체는 SO 모듈이 정하지 않는다.** Caleb 확인: "꼭 반품이 아니어도 B급칸으로 보내야 할 물건들이 오퍼레이션을 하다보면 종종 나와." ⇒ **창고의 일반 장치**이고 재고 쪽에서 정의한다(정할 것: 창고마다 하나인가 여럿인가 · 가용에서 빠지나 · 픽 안내에서 제외되나 · 정상 칸으로 되돌리는 길 · 원가를 그대로 두나 깎나 · 8-k). → [2026-10-23 · 판정 635 · 636 · 637 · 639 · 641 · §71] 정했다 — 창고마다 몇 개든 · 모든 가용에서 빠짐 · 픽 안내 제외 · 정상 칸으로 되돌리기(조정 문) · 원가 그대로
 ⭐ **금액과 재고 수량이 갈릴 수 있다** — 열 개어치를 깎아 주지만 정상 칸에는 여덟 개만(둘은 B급 · 또는 `restock` 끔).
 
 **⭐ 손님에게 나가는 서류다**(Caleb 확인 — 종이·이메일 둘 다)
@@ -1658,7 +1658,7 @@ credit_line   무엇을 깎나
 | 초과 결제 | ⚠️ **없다** — `Σ충당 ≠ amount + discount_taken` 이면 거부 | ⭐ **허용** — 차이가 손님 잔액(오버페이 · 8-f) |
 | 크레딧 번호 | **우리가 붙인다** `CN-<PO>` · `CN-<연도>-<n>` · 공급처 번호는 참조로 | **우리가 붙인다** `CR-01000~` 시퀀스 |
 | 크레딧의 뜻 | 공급처가 **우리에게** 빚진 것(못 받은 입고 · 우리가 먼저 붙이고 공급처가 인정) | 우리가 **손님에게** 빚진 것(반품 · 파손 · 잘못 청구) |
-| 크레딧과 재고 | 재고 무관(못 받은 것은 입고 자체가 없다) | `restock` 라인이 `credit_in` 을 낸다 · 리스탁 칸 = 현재 자리 · B급 갈래 |
+| 크레딧과 재고 | 재고 무관(못 받은 것은 입고 자체가 없다) | `restock` 라인이 `credit_in` 을 낸다 · 리스탁 칸 = 현재 자리 · B급 갈래 → [2026-10-23 · 판정 649 · 650 · §71] B급 칸이 섰다 — 반품은 정상 칸 · B급 칸 · 안 돌아옴 셋 |
 | 크레딧 소진 | 결제에 「썼다」로 붙인다(`po_payment_alloc` · 뜻이 뒤집힘) | `credit_applied` 로 인보이스에 붙이거나 `refund` 결제로 현금 |
 | 삭제 | 크레딧은 종류로 삭제 금지 · 취소만 | 인보이스·크레딧 모두 취소만 · 번호 재사용 금지 |
 | 잔액 | 문서 미지급 = 뷰(`po_invoice_money`) | 손님 잔액 = 함수 하나 · 출처 둘(받아 둔 돈 · 진 빚) |
@@ -1688,7 +1688,7 @@ credit_line   무엇을 깎나
   refund 가 크레딧 잔액을 넘지 못한다 · 취소 가드(결제·크레딧 붙기 전) — 함수 거부 문장(마이그레이션 차수)                    8-g · 8-h
   결제 계좌 후보(세 계좌 · PO 와 공용 ref_account) · 결제 방법 어휘                                                          8-d → ✅ [2026-09-24 §18] 닫힘 — 방법 여덟(판정 2) · 계좌 기본값 표 so_payment_account_default(창고 둘 × 11) · 후보 = 활성 BANK 또는 _5_(for_payments 못 씀)
 [재고 쪽]
-  B급 칸 — 창고마다 하나인가 · 가용에서 빠지나 · 픽 안내 제외 · 정상 칸으로 되돌리는 길 · 원가 처리                          8-g · 창고의 일반 장치
+  B급 칸 — 창고마다 하나인가 · 가용에서 빠지나 · 픽 안내 제외 · 정상 칸으로 되돌리는 길 · 원가 처리                          8-g · 창고의 일반 장치 → [2026-10-23 · 판정 635 ~ 641 · §71] ✅ 정함
   credit_in 창구의 원가 복원이 credit_line.so_line_id → so_out 으로 되짚는 모양                                            8-g · ledger-design 정본 몫
 [연동]
   QuickBooks — 오버페이 차액 · 「받아 둔 돈」과 「진 빚」의 계정 · 크레딧 라인 계정 복원                                     8-e · 8-f · 8-g
@@ -3143,7 +3143,7 @@ so_create 의 반환 tax_rule 이 null 일 때 화면 안내(배송지 비었거
 판정 2  한 출하 · 매장별 인보이스 — 「프랜차이즈 스토어의 경우에 여러 스토어를 한 쉽먼트에 모두 모아서 보내오길 바래. 그리고 인보이스는 각 스토어별로 따로 뽑길 원할 수 있어.」 · 「(Clore) 거기는 각 스토어 별로 인보이스를 만들어주길 바래. 쉽먼트는 하나지만, 인보이스는 각 스토어별로인거지」
         ⇒ 기본 = 청구처별 한 장(8-c) · 청구처 손님에 「매장별로 나눈다」 설정(customer.invoice_split_by_store) — 켜져 있으면 오더의 손님(매장)별로 · 마무리 화면이 설정대로 미리 나누고 직원이 바꿀 수 있다(invoice_group)
         📌 [실측 2026-09-24 · ⚠️ 2026-10-06 이어 적음: is_bill_parent 전체 13 · 부모 있는 12 · 판정 251 로 청구처 = 부모 12 채움 · §45] default_bill_to_customer_id 채운 손님 0/9,461 · is_bill_parent 12 · parent_id 13 ⇒ 지금은 모든 손님이 자기 청구처(설정은 나중을 위해 · Clore 14 매장도 본사로 안 이어졌다 12-h)
-판정 3  「가로 가자」 — ⓐ 인보이스 → ⓑ 결제·잔액 → ⓒ 크레딧(원장 credit_in · B급 칸 미정이라 맨 뒤)
+판정 3  「가로 가자」 — ⓐ 인보이스 → ⓑ 결제·잔액 → ⓒ 크레딧(원장 credit_in · B급 칸 미정이라 맨 뒤) → [2026-10-23 · §71] B급 칸 섰다(bgr-1a ~ 1e)
 판정 4  「기본적으로 a라고 생각해. 그런데 예외적인 경우들이 생기면 어떻하지? … 이미 포장까지 마무리한 오더인데, 손님이 특정 물건을 빼달라고 요청하는 상황 … 방책은 있어야 하지 않을까?」
         ⇒ 마무리 때 고칠 수 있는 것 = 운임 줄(더하기·금액·지우기) · 택배사 · 추적번호 · 배송 메모 + 줄의 「손님이 뺀 수량」(판정 5) — 수량 늘리기 · 단가 · 할인은 못 고친다
         ⇒ 예외의 길(새로 만들 것 없음): 더하기 = 작은 새 오더를 같은 마무리 묶음에(인보이스 한 장) · 크게 고치기 = 마무리 전 WMS 되돌리기 → 확정 되돌리기(supervisor) · 마무리 뒤 = 크레딧(8-h) · 돈 = 언제든 선수금(ⓑ)
@@ -3415,7 +3415,7 @@ is_split   50% COD 둘 true
 
 ⭐ **뜻 넷을 먼저** (Caleb 2026-09-24)
 ```
-갈리는 것은 「재고가 움직이냐」(8-g)   = 크레딧 줄마다 「돌아가는 칸」(restock_bin_id · credit_in 사건) / 「안 돌아온다」(not_restocked_reason · 돈만) · B급 칸은 나중 — 줄에 칸을 적어 두니 B급이 서면 칸 목록에 표시만 더한다(판정 1)
+갈리는 것은 「재고가 움직이냐」(8-g)   = 크레딧 줄마다 「돌아가는 칸」(restock_bin_id · credit_in 사건) / 「안 돌아온다」(not_restocked_reason · 돈만) · B급 칸은 나중 — 줄에 칸을 적어 두니 B급이 서면 칸 목록에 표시만 더한다(판정 1) → [2026-10-23 · 판정 629 · 649 · 650 · §71] B급 칸이 컷오버 전에 섰다 · 크레딧은 B급 칸으로 받는다
 반품 접수 문서는 없다 · 검수 뒤 크레딧 하나   = 돌아온 수량 · 정상 · 안 돌아옴(사유)을 한 번에(판정 2) · 발행은 manager · 초안 없음(판정 3)
 기본 100% · 리스탁킹 피는 알림만            = 원 인보이스 줄의 단가·할인·세율 그대로(줄마다 반올림) · 발행일 + 60일이 지났으면 「대상」 알림 · 매니저가 넣으면 20% 미리 채움(판정 4·5) · 계정은 비워 두고 줄마다 고른다(판정 7)
 두 축의 원가 되짚기 열쇠는 오더 번호 하나       = IMS 판매도 Cin7 판매도 inv_layer_consume(doc_type sale · doc_number = SO-…)에서 소비된 순서로 같은 단가로 되돌린다(return_restore) · 전환 전 Cin7 판매의 반품도 IMS 크레딧으로(판정 6)
@@ -3424,7 +3424,7 @@ is_split   50% COD 둘 true
 ### 19-a 판정 1~7 (✅ Caleb 2026-09-24 · 말 그대로)
 
 ```
-판정 1  「가로 가자. B급칸은 나중에 더하자. 이 B급칸은 언제든 세울 수 있는거지?」 — 두 갈래 · 줄에 「돌아가는 칸」을 적는다(boolean 아님) · 그동안 「안 돌아옴 · b_grade」가 B급 칸이 선 날 재고 조정으로 넣을 목록(저절로 장부에 들어오지 않는다)
+판정 1  「가로 가자. B급칸은 나중에 더하자. 이 B급칸은 언제든 세울 수 있는거지?」 — 두 갈래 · 줄에 「돌아가는 칸」을 적는다(boolean 아님) · 그동안 「안 돌아옴 · b_grade」가 B급 칸이 선 날 재고 조정으로 넣을 목록(저절로 장부에 들어오지 않는다) → [2026-10-23 · 판정 629 · 651 · §71] B급 칸 섰다 · 「안 돌아옴 · b_grade」 는 새로 못 쓴다(옛 줄만) · B급 물건은 B급 칸으로(649 · 650)
 판정 2  「가로 하자.」 — 반품 접수 문서 없음 · 검수 전 반품은 IMS 에 서지 않는다
 판정 3  「a로 가자」 — 발행 manager 이상 · 초안 단계 없음
 판정 4  「대개는 반품 수수료 없이 100% 크레딧을 주고 있어. 그러나 특정 기간이 지난 후에 반품하면 리스탁킹 fee라는 명목을 붙여서 특정 %만큼 빼고 돌려줘」
@@ -3457,7 +3457,7 @@ is_split   50% COD 둘 true
  0-11 크레딧 줄은 so_invoice_line 을 가리킨다(단가·계정 굳음) · so_line_id 는 원장의 다리 · rate_pct 는 그 인보이스 오더의 것을 줄에 굳힌다(인보이스가 오더 여럿을 묶어 줄마다 세율이 다를 수 있다)
 ⬜ 열하나
  ⬜1 ⓒ1 = 설정 셋 · 시퀀스 · 표 셋 · 원장 창구 둘 + 재생성 보조 · inv_layer_apply 재발행 · so_credit_issue(미리 보기)·so_credit_cancel·so_credit_detail(1,286행) / ⓒ2 = so_invoice.credit_applied · so_credit_alloc_add · so_credit_attach·detach · 재발행 일곱(714행)
- ⬜2 so_credit(원본 둘 · reason customer_return·damaged·billing_error·other · warehouse = 반품을 받은 창고 · Cin7 만 tax_rule · lines·fee(≤ 0)·tax·total CHECK) · so_credit_line(kind 다섯 — restocking_fee 를 kind 로 · so_invoice_line_id · so_line_id · product_id · qty_returned · restock_bin_id+원문 · not_restocked_reason damaged·b_grade·not_returned·other(note) · 짝 CHECK · rate_pct · 계정) · so_credit_alloc(invoice | refund 하나 · source manual|auto · void · 생성 칸 active_target + unique)
+ ⬜2 so_credit(원본 둘 · reason customer_return·damaged·billing_error·other · warehouse = 반품을 받은 창고 · Cin7 만 tax_rule · lines·fee(≤ 0)·tax·total CHECK) · so_credit_line(kind 다섯 — restocking_fee 를 kind 로 · so_invoice_line_id · so_line_id · product_id · qty_returned · restock_bin_id+원문 · not_restocked_reason damaged·b_grade·not_returned·other(note) · 짝 CHECK · rate_pct · 계정) · so_credit_alloc(invoice | refund 하나 · source manual|auto · void · 생성 칸 active_target + unique) → [2026-10-23 · 판정 651 · §71] b_grade 는 옛 줄만(IM651)
  ⬜3 inv_post_credit(원장 행 · 줄 = 칸 하나 · 낱개 SKU·EA · raw.header 는 Cin7 credit_in 과 같은 모양 · 멱등) → inv_layer_post_credit(레이어 · 갈래 ①~④ · hint) · 재생성 inv_layer_apply_credit_ims(키 (doc, sku, wh) 순액 · 첫 행 header·hint)
  ⬜4 창고 = 크레딧 머리 warehouse_id(기본 원 판매 창고 · Cin7 은 손님 기본 창고) · 칸 기본 ims_last_bin(낱개 제품 · 그 창고) → 없으면 사람이 · 그 창고 ref_bin 에 있어야 · '' 불허(실물을 놓는 자리)
  ⬜5 IMS 줄 = 인보이스 줄 단가 × qty → round 2 · 세금 = so_tax_amount(amount, 그 줄 오더의 rate_pct) · 부분 반품 · freight = 그 운임 줄(≤) · tax 줄 = 세액만(세금 계정) · other(계정 필수) · Cin7 = 머리 tax_rule(활성 sale 규칙 이름 · 명시) · SKU·수량·단가 손으로
@@ -3528,7 +3528,7 @@ is_split   50% COD 둘 true
 ```
 전환 설계 거리(판정 6)   ~~전환 뒤 Cin7 판매의 반품은 IMS 크레딧 — 종이 = Cin7 인보이스 번호(cin7_invoice_number) · 되짚기 = 오더 번호(cin7_order_number · 원장 Cin7 sale_out doc_number) · 원가 = 첫 소진 레이어 단가로 복원(inv_layer_apply_credit 규칙 그대로) · 오더 번호를 모르면 갈래 ②③ + 경고 · Cin7 크레딧은 tax_rule 을 명시(손님 저장값을 안 쓴다)~~ → ✅ [2026-10-22 · 판정 602 · 609 · 610 · crn-1] **참조 크레딧**으로 대신한다 — 칸 ref_invoice_number(필수) · ref_order_number · ref_invoice_date · 원가는 되짚지 않는다(② 가중평균 → ③ 최근 → ④ unknown) · 세금 = 손님 기본 배송지 규칙 제안(바꿀 수 있음 · 없으면 거부 글로 고르라) · 경고 manual_unit_price · reference_seen · §70-b
 회계사 확인 거리        리스탁킹 피 계정(비워 둠 · _94_ Surcharge · _47_ Miscellaneous Income · QBO 새 계정) · 수수료에 세금이 붙나(기본 = 같은 세율 음수 줄 → 크레딧 세금 = (물건 − 수수료) × 세율) · tax 줄(세액만 돌려줌)의 계정 = 규칙의 계정(_54_)
-⬜ B급 칸                재고 쪽 장치(8-g ⬜ 그대로) — 서면 칸 목록에 「B급」 표시만 더한다(표·사건 무접촉) · 그동안 「안 돌아옴 · b_grade」 줄이 넣을 재료(저절로 장부에 안 들어온다)
+⬜ B급 칸                재고 쪽 장치(8-g ⬜ 그대로) — 서면 칸 목록에 「B급」 표시만 더한다(표·사건 무접촉) · 그동안 「안 돌아옴 · b_grade」 줄이 넣을 재료(저절로 장부에 안 들어온다) → [2026-10-23 · 판정 629 ~ 651 · §71] ✅ bgr-1a ~ 1e · b_grade 줄은 넣을 재료가 아니다(651)
 ⬜ 화면                  크레딧 발행(미리 보기 → 제안 칸 · 원가 복원 예상 · 수수료 알림 · % 입력) · 인쇄·메일(인쇄 실패로 발행을 되돌리지 않는다) · 인보이스 종이의 「이전 잔액」 한 줄(크레딧 + 받아 둔 돈) · 잔액 화면 owed_credit  → §22(읽기 창구)
 ⬜ 원 판매가 섞이는 크레딧  한 크레딧 안의 같은 SKU 가 서로 다른 원 판매에서 왔으면 첫 줄의 판매로 되짚고 경고 mixed_origin_sales(키 (doc, sku, wh)가 재생성 키와 같아야 해서) — 실물이 나오면 판정
 ⬜ QBO                   크레딧 라인 계정 복원 · 진 빚 계정 · 환불(크레딧 몫 vs 받아 둔 돈 몫)
@@ -3851,7 +3851,7 @@ so_credit_prepare(p_invoice_id) — lines(qty_sold · qty_credited · qty_return
 p   issued_on(선택 · 기본 오늘 · 미래 거부) · reason 필수(customer_return | damaged | billing_error | other · other 면 note 필수 · + price_adjustment [2026-10-22 · 판정 612 · 어긋나면 경고만]) · note
     invoice_id(IMS · issued 만) | ~~cin7{invoice_number, order_number, invoice_date}(+ customer_id · currency · tax_rule — 전환 전 다음 판)~~ → [2026-10-22 · crn-1 · 판정 602 · 609 · 610] ref{invoice_number!, order_number?, invoice_date?} + customer_id! + tax_rule(선택 · 안 주면 손님 기본 배송지의 주 규칙을 제안 · 배송지 없으면 거부 글로 「고르라」) · 경고 manual_unit_price(늘) · reference_seen:<CR 번호들>
     warehouse_id(선택 · 기본 원판매 첫 오더 창고 · 비활성 거부) · lines[] 필수
-줄  product        so_invoice_line_id · qty_returned > 0(이미 반품 + 이번 ≤ 판 수량) · restock_bin(비우면 ims_last_bin · '' 불허 · 그 창고 칸) | not_restocked_reason(damaged | b_grade | not_returned | other · other 면 note) — 둘 중 하나 · description? · account_id? · 단가·세율은 인보이스 줄에서 굳는다(보내지 않는다)
+줄  product        so_invoice_line_id · qty_returned > 0(이미 반품 + 이번 ≤ 판 수량) · restock_bin(비우면 ims_last_bin · '' 불허 · 그 창고 칸) | not_restocked_reason(damaged | b_grade | not_returned | other · other 면 note) — 둘 중 하나 · description? · account_id? · 단가·세율은 인보이스 줄에서 굳는다(보내지 않는다) → [2026-10-23 · 판정 651 · §71] b_grade 는 거부(IM651) · 반품 칸은 B급 칸도(649 · 650)
     freight        so_invoice_line_id(charge 줄) · amount?(≤ 남은 몫)
     tax            amount ≥ 0
     other          amount ≥ 0 · description! · account_id!
@@ -8980,14 +8980,14 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | 2 | packed 오더에 운임 말고 다른 비용 | ✅ ch-1 · so v5v · v5w1(계정 고르기) |
 | 3 | Paste lines 에 가격 | ✅ ln-1 · so v5u |
 | 4 | Lines 전부 지우기 | ✅ ln-1 · so v5u |
-| 5 | Lines 에 GP 마진(내부용) | 컷오버 뒤 · 원가 보기 문만 정함(판정 537) → 열쇠 cost 는 섰다(판정 578) · GP 칸 짓기는 그대로 미룸 · §68 |
+| 5 | Lines 에 GP 마진(내부용) | 컷오버 뒤 · 원가 보기 문만 정함(판정 537) → 열쇠 cost 는 섰다(판정 578) · GP 칸 짓기는 그대로 미룸 · §68 → [2026-10-23 · 판정 625 · §71] ✅ so gp v1(de35e72) |
 | 6 | 리시빙 일부만 먼저 재고에 | ✅ rcv-1a · rcv-1b · receiving post-now v1(판정 550 ~ 553) |
 | 7 | family 해체 | 컷오버 뒤 · Caleb 「아예 없애야 하는 상황도 있고, 일부를 빼서 새로 family를 만들어야 하는 상황도 있어」 |
 | 8 | Shopify 에 여러 제품 · 새 스토어 | ⬜ 컷오버 위험 — 기존 스토어 상품을 SKU 로 잇는 도구(판정 420 실행) · 조사 shop-link-0 끝 → 판정 555 ~ 561 · 짓기 link-1a 부터 → §68(link-1a · 1b · ss v3 · v3a · 시험 스토어까지) |
 | 9 | Product availability 에 재고 금액 · 거르기 | 컷오버 뒤 → ✅ §68(stk-av-1 · stock v2) |
 | 10 | POS 손님 크레딧 잔액 · 연체 | ✅ pos v1.10(보이기만 · 판정 536) |
 | 11 | POS 수량 직접 넣기 | ✅ pos v1.10(판정 547) |
-| 12 | 파손품을 같은 SKU 로 | 컷오버 뒤(Caleb 「컷오버전에 꼭 해야 하는 것은 아니야」) · 대신 POS 줄 가격 · 할인 ✅ pos v1.11(판정 546) |
+| 12 | 파손품을 같은 SKU 로 | 컷오버 뒤(Caleb 「컷오버전에 꼭 해야 하는 것은 아니야」) · 대신 POS 줄 가격 · 할인 ✅ pos v1.11(판정 546) → [2026-10-23 · 판정 629 · §71] 컷오버 전으로 당겼다 · ✅ bgr-1a ~ 1e · 화면 bgr v1 · pos v1.12 · cr v5 |
 | 13 | 여러 SO 를 한 인보이스로 | ✅ so v5w(판정 없음 · DB so_finalize 는 처음부터 오더 배열이었다) |
 
 ### 67-b 판정 (Caleb 말 그대로 · 뜻)
@@ -9071,7 +9071,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 - 265 합친 머리의 intake 는 가장 오래된 원본 것(mrg-1 보고 2 · 보고만)
 - 266 F0600 팔렛 짝(003 · 03 / 004 · 04) — 창고에 묻고 안 쓰는 쪽을 Settings 에서 끈다
 - 267 테스트 DB 의 옛 합친 manual 줄 34(합친 오더 3)는 그대로(원래 출처를 모른다)
-- 컷오버 뒤로 둔 피드백(67-a): 5 GP 마진 · 7 family 해체 · 9 재고 금액 · 12 파손품 → 9 는 ✅ §68
+- 컷오버 뒤로 둔 피드백(67-a): 5 GP 마진 · 7 family 해체 · 9 재고 금액 · 12 파손품 → 9 는 ✅ §68 → [2026-10-23 · 판정 625 · 629 · §71] 5 · 12 도 ✅
 
 ### 67-f 다음 (Caleb 이 고른다)
 
@@ -9468,3 +9468,164 @@ rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → 
 다음(Caleb 이 고른다): ① 화면 시험(290) ② 컷오버 준비 목록 하나로(두 스토어 잇기 · 재적재 옆에 591 · 592 · 285) ③ pur-3(607) ④ 두 탭(282)
 다음 판정 번호: 619
 ```
+
+## §71 2026-10-22 오후 ~ 10-23 — B급 칸(파손 포장품을 같은 SKU 로) · 내보내기 · 발주앱 잔여 — pur-1c · def-0 · pln-1 · lat-1 · stkx-1 · bgr-0 · bgr-1a ~ 1e · 판정 619 ~ 651 (회사 PC)
+
+⭐ 닫힌 것: 파손 포장품을 같은 SKU 로 파는 길(67a-12 · 8-g 「⬜ B급 칸」 · §19 판정 1 「B급 칸은 나중」 · 629 ~ 651 · bgr-1a ~ 1e) · 입고 완료가 Latest 를 고친다(626 · 627 · lat-1 — po-module 「그 갱신은 만든 적이 없다」 닫힘 · Fixed 는 아직) · PO 붙여넣기에 가격(624 · pln-1) · SO 줄 GP(625 · so gp v1 — 67a-5 닫힘) · Stock 내보내기 한 번에(628 · stkx-1) · 발주앱 재고 한 번에(pur-1c)
+⭐ 새 판정 619 ~ 651 · 원천: 지시서 `docs-1023.md`(이 절의 원천 · 판정 · 결정 · 실수는 대화에만 있었다) · 회사 PC 대화 10-22 오후 · 10-23 · 조사 bgr-0(쓰기 0) 회신 · 차수 회신 bgr-1a ~ 1e
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 이 절의 마이그레이션(pur-1c · pln-1 · lat-1 · stkx-1 · bgr-1a ~ 1e)이 전부 적용 · repair 됐다 · 운영(asung-WMS)에는 올리지 않는다(617)
+⭐ 짓지 않은 것: B급 전용 바코드 · 라벨(634 ① · bgr-2) · Products 내보내기 칸 고르기(628 · 판정 652 부터) · 623(grt-2 의 때 · 대기) — 71-f
+
+### 71-a 판정 (Caleb 말 그대로 · 뜻)
+
+- **다음 판정 번호: 652**
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 619 | 「A」 | Reorder Planner(purchasing.html)는 11-01 에 **지금 모양**(어두운 바탕 · 한국어) · IMS 모양은 Caleb 이 요청할 때 · 그때 머리줄 단추가 납작해지는 것(발주앱 CSS 맨 앞 `*{margin:0;padding:0;box-sizing:border-box}` 가 `@layer ims` header 여백을 지운다 → `#pur-root, #pur-root *` 로 좁히기 · 짐작)과 옛 설정 「옮겨 담기」 막대 걷어내기를 함께(→ deferred 298) |
+| 620 | (번호만 · 사실로 정함) | 옛 발주앱 브라우저 설정은 **옮기지 않는다** — 606 의 「컷오버 때 Caleb PC 값을 한 번 옮김」만 뺀다 · 근거: Caleb PC 의 옛 설정이 asung_po_v5 66 자뿐 · localStorage 는 주소마다 따로라 ims 주소에서는 옛 값이 안 보인다 |
+| 621 | 「A」 | 공급처 인보이스 · 크레딧의 **Printed total 은 필수 아님** · 비면 노랑 · 줄 합과 다르면 빨강 · Confirm 때 「Confirm anyway?」 (막지 않는다 — 샘플 인보이스 0 · 센트 반올림이 갈린다) · 화면 inv printed v1 · v2(경고 창 먼저 · asung-ims 0927524) · po printed v1 |
+| 622 | 「A」 | PO-02040 · PO-02002a 의 열린 short 는 **그대로** — 70-f 288 앞 절반 닫힘(뒤 절반 = 273 그대로) |
+| 623 | (대기) | Data API 「Automatically expose new tables」 스위치가 **켜져 있다**(Caleb 캡처) + 70-f 287 ③(함수 기본 권한 anon=X) → grt-2 를 컷오버 **전(A)** · **뒤(B)**? · 대화 Claude 안 B · ⚠️ 스위치를 손대지 말 것(기본 권한이 어떻게 바뀌는지 안 봤다) · 같은 캡처: 노출 스키마 = graphql_public · public 만(wms_legacy · reload_backup 노출 안 됨) ⇒ 287 ① 「알고 둔다」로 닫힘 · Max rows 1000 |
+| 624 | 「A」 | PO 에 붙인 가격 = 그 줄의 **단가(할인 전)** · PO 문서 할인은 위에서 걸린다(SO 532 · 542 와 다름) · 비우면 Fixed → Latest → 0 · 0 받음 · 음수 · 숫자 아님 = bad_price · product_supplier 무변 · 공급처 연결이 없어도 붙인 값을 쓴다(pln-1 df5088a) |
+| 625 | 「A」 | SO 줄 **GP** 의 원가 = 지금 평균(stk_value_many · 오더 창고 → 없으면 전 창고) · 원가 열쇠가 있을 때만 보인다 · 손님 문서에 없다 · 매출 = 줄 합(손 줄 아닌 줄에 오더 할인 %) · surcharge · 운임 제외(so gp v1 de35e72) ⇒ 67a-5 닫힘 |
+| 626 | 「A」 | 컷오버 **전**에: 입고 완료(오피스 확정 · 먼저 반영)가 product_supplier 의 **Latest(cost) · last_supplied** 를 고친다 · Fixed 는 무변(lat-1 107fba0 · po_receipt_latest_apply) |
+| 627 | 「A」 | Latest 에 넣는 값 = 확정 인보이스 줄의 **할인 전** 단가(다음 PO 에 할인이 두 번 걸리지 않게) · 실측: Cin7 Latest 가 IMS 인보이스 줄 69 중 할인 전 56 · 할인 뒤 0 과 맞았다 |
+| 628 | (정리 · Caleb 「모양과 내용이 별로」) | 내보내기 — **Stock Availability = 화면 그대로**(지금 거르기 · 모든 쪽 · 화면 칸 · 원가 칸은 원가 열쇠가 있을 때만 · stkx-1 83f28ad: stk_availability 한도 20000 + stk_availability_export 한 행 jsonb) · **Products** = 칸 고르기 창(다음 · 판정 652 부터) · **PO** = 나중 · **SO** = 각 탭 목록 + 문서 하나 둘 다 · ⭐ 문서 하나의 CSV 는 **한 표**(한 줄 = 줄 하나 · 문서 · 오더 칸 되풀이 · 끝에 합계) **+ Barcode** — 구역 나눈 판은 버림 · Stock CSV 의 Bin = 칸 이름만 · 바코드 · SKU 는 `="…"`(엑셀 지수 · 앞 0 방지 · so csv v3 · asung-ims 10cb043 · bfa5417) |
+| 629 | 「A」(「당장에 컷오버하고 손님들에게 판매를 해야 하는데, 그것을 판매할 길을 뚫어놔야」) | B급 칸을 **컷오버 전**에 세운다(67a-12 「컷오버 뒤」를 당김) · Cin7 의 ZZZ 가격대 코드는 IMS 재고로 옮기지 않는다(테스트 DB 실측 0 행 — 적재가 Type=Stock 만 받는다) · 컷오버 날 B급 칸의 실물을 원래 SKU 별로 세어 조정으로 넣는다 · 계기(Caleb): 「특별 인벤토리로 판매하는 것이 아니라, 원래 인벤토리로 그대로 판매를 했으면 해 … 특정 로케이션에 그런 제품들을 모아놓고, 라벨을 붙이거나 … 원래 인벤토리에서는 빠지는 방식」 |
+| 630 | 「B」 | B급 값은 **B급 칸에 넣을 때** 정한다(값 또는 %) |
+| 631 | 「A」 | % 는 그 자리에서 **값 하나로** 남긴다(누가 사든 그 값) |
+| 632 | 「A」 | % 의 기준 = 그 SKU 의 **Wholesale 티어 낱개 값** |
+| 633 | 「A」 | B급 값이 **최종** — 손님 기본 할인 · 딜 · 오더 할인(쿠폰 · 금액 단계) 없음 · 그 줄 금액은 금액 단계 **문턱 합계에는 들어간다**(532 · 542 · 543 과 같은 결 · price_override 줄 = so_line_manual) |
+| 634 | 「C」 | ① B급 라벨에 **전용 바코드**(→ bgr-2 · 뒤로) + ② 라벨이 없으면 **원래 바코드 스캔 뒤 줄에서 「B급」 고르기**(pos v1.12 · so_line_bgrade_set) |
+| 635 | 「A」 | B급은 **POS 에서만**(SO · Shopify · counter 없음 — counter 는 so.html 의 manager 길이라 POS 가 아니다 · bgr-1c) · B급 수량은 **모든 가용에서 빠진다** · 정상 오더의 픽 안내 · 자동 칸 고르기가 B급 칸으로 가지 않는다 |
+| 636 | 「A」(Caleb 확인: 진열장 로케이션에 표시를 켠다 · 표시는 로케이션 하나하나에) | 칸에 **「B급」 표시**(ref_bin.is_bgrade) · 창고마다 몇 개든 · 토론토 · 에드먼턴 · 표시 문 = **master** · 켜기 · 끄기는 칸이 비었을 때만 |
+| 637 | 「A」 | **원가 그대로**(옮길 때 깎지 않는다 · 원가 레이어는 칸을 모른다) · 손실은 B급 판매의 GP 로 드러난다 · Stock 화면에서 B급을 따로 본다 |
+| 638 | 「A」 | B급으로 옮기기 · 값 · 라벨 = **조정과 같은 문**(ims_can_adjust · 판정 49 · 50 — admin + 열쇠 켠 manager · supervisor · worker 는 막힘) |
+| 639 | 「A」 | 나가는 길 = **POS 판매** · **정상 칸으로 되돌리기**(같은 문 · B급 값 · 라벨이 없어진다) · **조정(damaged)으로 버리기** |
+| 640 | 「B」(「인보이스 프린트에는 final sale만 나오는게 좋겠어」) | B급 줄로 반품 크레딧 = **Issue 때 경고만**(「Final sale — Issue anyway?」 · 621 의 「Confirm anyway?」 와 같은 결 · 발행 문 그대로 manager) · 인보이스 인쇄 그 줄에 **「Final sale」 만**(「B-grade」 는 손님 문서에 안 나온다 · POS 영수증 = final_invoice 판) |
+| 641 | 「A」 | **On hand · 모든 가용은 B급을 뺀다** · B-grade 수량은 옆 칸으로 따로 · **재고 금액은 B급을 포함한 채**(원가 레이어는 칸을 모른다 — 금액 ÷ 수량이 B급만큼 어긋나는 것은 알고 둔다) |
+| 642 | 「B」 | 한 B급 칸 안의 같은 SKU 는 **값 하나** · 같은 값이면 더 넣고 · 다른 값이면 거부(다른 B급 칸으로) ⇒ 같은 창고에 같은 SKU 가 B급 칸 여럿에 다른 값으로 있을 수 있다 |
+| 643 | 「A」 | 컷오버 날 B급 칸에 넣는 원가 = 그 SKU 의 **지금 평균 원가**(조정 「찾은 재고」 규칙 · 메모 「컷오버 B급 재적재」) · 짐작 전제: Cin7 에서 ZZZ 로 넘길 때 원래 SKU 에서 조정으로 뺐다(틀리면 다시) |
+| 644 | 「A」 | **B급 값이 없는 B급 재고는 POS 에서 막는다** · 「값 없음」 목록은 B-grade Stock 화면에 |
+| 645 | 「A」 | % 는 **깎는 비율**(Wholesale 10.00 · 30 → 7.00) · 결과 값을 센트로 반올림해 남긴다 · 넣는 창이 결과 값을 바로 보인다 · ⚠️ 631 을 50 % 예로 물어 「깎는 % 인가 남는 % 인가」 가 갈리지 않아 따로 물었다(71-e) |
+| 646 | 「A」 | **잔고가 있어도 칸 전체 값을 바꿀 수 있다**(조정 문 · bgrade_price_set p_reprice) · 화면이 「라벨을 다시 붙이세요」 · 642 는 「옮기면서 다른 값을 섞는 것」을 막는 판정이고 칸 전체 값 바꾸기는 라벨을 새로 붙이면 어긋남이 없다 |
+| 647 | 「A」 | 계산대의 B급이 장부 B급 수량보다 많으면 **확인하고 판다**(547 「가용보다 많으면 확인」과 같은 꼴) · 넘친 몫도 그 칸의 B급 값 · B급 칸은 **음수로 남아** B급 보기에서 보이고 실사로 바로잡는다 · 다른 칸으로 넘치지 않는다 |
+| 648 | 「B」 | B급 줄에는 **surcharge(관세 부가 요금)를 붙이지 않는다** — B급 값이 그 물건의 모든 값(세금만 더함) · 관세 몫은 값을 정하는 사람이 B급 값에 넣는다 · (bgr-1c 회신 이견 10 「surcharge 는 그대로 — 짐작」 을 뒤집음) |
+| 649 | 「A」 | B급으로 판 물건의 반품은 **팔려 나간 그 B급 칸으로**(크레딧 「돌아가는 칸」 기본 = 그 줄의 bgrade_bin_id) · 칸에 같은 SKU 가 남아 있으면 그 값으로 이어지고 · 비어 값이 죽었으면 「값 없음」으로 들어온다 · 「안 돌아옴」으로 바꿀 수 있다 |
+| 650 | 「A」 | **정상으로 판 물건의 반품도** 크레딧에서 바로 B급 칸으로 받을 수 있다(그 창고의 활성 B급 칸) · 값은 649 와 같다 · 값을 정하는 문은 여전히 조정 문(크레딧 발행 문이 값을 정하지 않는다) |
+| 651 | 「A」 | 크레딧 「안 돌아옴」 사유 **b_grade 는 새로 못 쓴다**(B급으로 쓸 물건은 B급 칸으로 · 버릴 것은 damaged · 그 밖은 other + 메모) · 이미 적힌 줄은 그대로 · CHECK 어휘도 그대로 · 계기: bgr-1d 회신 이견 6(§19 판정 1 의 b_grade 는 B급 칸이 없던 때의 자리) |
+
+- 포인터: 629 ~ 651 ← §8-g 「⬜ B급 칸」(1624 · 1627) · §19 판정 1(3427) · 67a-12(8990) · 판정 49 · 50(조정 문) · 532 · 542 · 543(오더 할인 바탕 · 문턱) · 546(누른 직원) · 547(넘침 확인) · 603(가격 조정 경고) · 621(「anyway?」 꼴) · 624 · 626 · 627 ← po-module §11-d(2989 「갱신은 만든 적이 없다」) · §13-f · 625 ← 67a-5 · 537 · 567 · 578 · 628 ← 262 · 575(stk_ 창구는 금액을 내지 않는다) · 623 ← 70-f 287 · 615
+- 판정 거리로 남은 것: 라벨 크기(크기 몇 개 중 고르기 짐작 · bgr-2) · 「노 리펀드가 차액 환급(603 가격 조정)에도 걸리나」(지금은 같은 경고) · ⚠️ 623(grt-2 의 때) — 71-f
+
+### 71-b 차수 · 커밋 (git log · 회신 원문)
+
+| 차수 | 레포 · 커밋 | 무엇 | 확인 |
+|---|---|---|---|
+| pur-1c | asung-wms eb0d186 | pur_stock() — Reorder Planner 재고 한 번에(sku · product_id · tor/edm qoh · alloc · oo · it · avail + warehouses[]) · stk_availability 와 같은 집합 · 숫자(7,992 SKU · 0 diff) · 0.86 s(16 쪽 134 s 대신) | OK 7 |
+| def-0 | (문서) | deferred.md 초안 — 미룬 것 한 장(337 줄) | — |
+| pln-1 | df5088a | po_lines_paste 셋째 열 price(624) · bad_price | OK 7 |
+| so gp v1 | asung-ims de35e72 | SO Lines GP(625) | — |
+| lat-1 | 107fba0 | 입고 완료 → product_supplier Latest(cost · last_supplied) · po_receipt_latest_apply(626 · 627 A) · Fixed 무변 · 연결 없음 · 무상 · 더 새 공급 · 통화 다름은 건너뜀 | OK 5(머리글 「6」 은 틀림 · 71-e) |
+| stkx-1 | 83f28ad | stk_availability 한도 500 → 20000 + stk_availability_export(jsonb 한 행 — PostgREST Max rows 1000 을 피함 · 한 번 약 3 s · 500 씩 16 쪽 141 s 대신 · 628) | OK 6 |
+| 화면 10-22 오후 | asung-ims 10cb043 · bfa5417 · 0927524 | csv v1 ~ v3(628) · inv printed v2(621) | — |
+| bgr-0 | (조사 · 쓰기 0) | 전수 · 이견 10 · 차수 나누기 | — |
+| bgr-1a | e73c83c `20261023131028` | ref_bin.is_bgrade + ref_bin_bgrade_set(master · IM636) · so_line.bgrade_bin_id · ims_inv_balance.bin_is_bgrade · inv_available_base 다섯 칸(qty_ea = 팔 수 있는 장부 · bgrade_ea · alloc 이 B급 줄 뺌) · stk_reserved · stk_availability by_warehouse bgrade · so_pick_plan · wms_pick_lines · wms_pick_shelf · ims_last_bin 이 B급 칸 피함 · 피커 칸 저장 거부 · 착지 S5 허락 목록 | OK 13 |
+| bgr-1b | 3230cff `20261023135121` | bgrade_price(bin × product · 잔고 > 0 일 때만 산다) · bgrade_price_set(p_reprice) · bgrade_stock · bgrade_move_in / out(조정 문 · 속 inv_move_now · 표지 ims.bgrade_move · set_config … true) · inv_move_require 표지 · 원장 가드 inv_ledger_bgrade_guard(IM637) · 칸 FK 일곱 이른 거부 · inv_move_bin_contents 거부 · 조정이 빈 B급 칸에 넣으면 죽은 값 지움 · 허락 목록 여덟 | OK 15 |
+| bgr-1c | c60eb9e `20261023141448` | so_line_bgrade_set(하나면 자동 · 여럿이면 action choose · 값 없음 · 죽은 값 거부 · 같은 칸 B급 줄 합침) · so_line_bgrade_clear · POS 만(counter 제외 · 표지 ims.bgrade_line) · 줄 · 머리 트리거 IM638 · 합치기에서 B급 줄 제외 · so_lines_available bgrade_bin · B급 가용(음수 그대로) · so_detail is_bgrade_line · 가드 「B급 줄은 그 칸에서만 · 정상 줄은 B급 칸에서 못 나감」 | OK 13 |
+| bgr-1d | 3d0d7fe `20261023143239` | doc_data_invoice final_sale(진짜 불리언 · catalog final_invoice 만) · so_credit_prepare final_sale · restock_bgrade_bin_gone · B급 줄 칸 기본 = 그 B급 칸 · so_credit_issue 경고 final_sale:<sku>(반품 · 가격 조정) · bgrade_bin_gone:<sku> · 크레딧 리스탁 B급 칸 허락(649 · 650) · 가드 credit_in / credit_in_reversal 되짚기 · 빈 B급 칸 반품 = 죽은 값 지움 · B급 줄 surcharge 없음 | OK 11 |
+| bgr-1e | 87a00e5 `20261023144550` | so_credit_issue 가 b_grade 거부(번호 당기기 전) · 트리거 so_credit_line_reason_guard IM651(새로 b_grade 가 되는 것만) · prepare 어휘에서 뺌 + not_restocked_reasons_retired | OK 6 |
+| 화면 bgr v1 · set v7 · stk bg v1 · nav v10 | asung-ims 86a7ccb | stock-bgrade.html 새 화면 · Settings Bin 표 Mark / Unmark B-grade · Stock On hand 「+N B」 · B-grade 타일 · 칸 꼬리표 · 메뉴 | — |
+| pos v1.12 | asung-ims 7e3340a | 줄의 B 단추(수량 2 이상이면 몇 개 · 나머지 정상) · 칸 고르기 창 · 넘침 확인 · ✕B | — |
+| cr v5 | asung-ims 0186644 | b_grade 빼기 · Final sale 꼬리표 · B급 칸 기본 · B급 칸 이름 안내 · Issue anyway? | — |
+| final_invoice v6 | DB 판(Settings → Documents · Caleb 올림 2026-10-23 10:57) | 줄 설명 뒤 `{{#final_sale}}<span class="tag">Final sale</span>{{/final_sale}}` 한 자리 | — |
+| set v7a | asung-ims 0a5dd67 | Documents 판 목록 = 쓰는 판 + 번호 높은 둘 · 나머지 「Show N older versions」(Caleb 「숨기면 어떨까?」 → A · 화면만) | — |
+
+```
+B급 칸 지도(bgr-1a ~ 1e · 테스트 DB = 메인)
+  칸          ref_bin.is_bgrade(기본 false) · 바꾸는 길 = ref_bin_bgrade_set(p_bin_id, p_on) 하나(master · 칸이 비었을 때만 · 열린 B급 줄이 가리키면 끄기 거부) · 가드 트리거 ref_bin_bgrade_guard IM636(current_user = postgres 만 · 창구는 definer)
+  잔고        ims_inv_balance.bin_is_bgrade(끝 칸) · inv_available_base → (stock_pid, qty_ea = 팔 수 있는 장부, sales_alloc_ea, transfer_alloc_ea, bgrade_ea) · alloc · stk_reserved 는 B급 줄(so_line.bgrade_bin_id)의 할당을 뺀다
+  값          bgrade_price(bin_id × product_id · price > 0 센트 · pct · basis_price · set_by · 읽기 authenticated · 쓰기는 창구만) · 값이 「산다」 = 그 칸에 그 SKU 잔고 > 0 · 빈 칸에 조정 · 반품으로 들어오면 가드가 죽은 값을 지운다(값 없음)
+  창구        bgrade_price_set(bin, product, price | pct, p_reprice) · bgrade_stock(warehouse?) → {row_count, no_price_count, rows[…has_price]} · bgrade_move_in / bgrade_move_out(warehouse, lines[], note) — 문 = 조정(inv_adjust_require) · 속 = inv_move_now(원장 bin_move · 레이어 무변) · B급 → B급 거부
+  막기        원장 가드 inv_ledger_bgrade_guard(IM637 · source ims 사건만) — B급 칸을 건드리면 통과 = 조정(adjust_existing · adjust_new) · B급 줄의 sale_out(그 칸에서만) · 표지 켠 bin_move · credit_in(+ · 그 크레딧 줄의 칸) · credit_in_reversal(원 사건이 같은 칸) · 그 밖 거부
+              칸 FK 이른 거부 ims_bin_bgrade_refuse(IM637) — po_receipt_line · po_receipt_work · po_receipt_diff · so_credit_line.restock_bin_id(크레딧 창고의 활성 B급 칸이면 통과 · 1d) · inv_transfer_settle · inv_move_line from · to(표지 켜면 통과)
+              inv_move_bin_contents · wms_pick_line_bins_write 는 B급 칸 거부 · so_pick_plan · wms_pick_lines · wms_pick_shelf · ims_last_bin 은 B급 칸을 고르지 않는다
+  POS 줄      so_line_bgrade_set(p_line_id, p_bin_id?) → {action set | merged | unchanged | choose(candidates[{bin_id, bin, price, has_price, qty}] · 저장 없음), line, removed_line_id, bin, price, bin_qty, total, warnings[over_bgrade_stock]} · so_line_bgrade_clear(p_line_id)
+              줄 트리거 so_line_bgrade_guard · 머리 트리거 so_bgrade_header_guard(IM638) — B급 줄은 표지 ims.bgrade_line 로만 · channel pos · draft · 값 · 할인 · surcharge patch 거부 · 다른 오더로 못 감 · 나뉘지 않음 · 창고 · 채널 못 바꿈
+              so_line_add · so_lines_paste 는 B급 줄과 합치지 않는다 · so_lines_available 끝 칸 bgrade_bin_id · bgrade_bin(B급 줄 = 그 칸 장부 − 그 칸 열린 B급 줄 할당 · 음수 그대로) · so_detail 줄 bgrade_bin · is_bgrade_line
+  문서 · 크레딧 doc_data_invoice 줄 final_sale(불리언) · catalog orders.lines.final_sale(final_invoice 만) · so_credit_prepare 줄 final_sale · restock_bgrade_bin_gone · restock_bin_default(B급 줄 = 그 칸 · is_bgrade) · so_credit_issue 경고 final_sale:<sku> · bgrade_bin_gone:<sku> · b_grade 거부(IM651 트리거 so_credit_line_reason_guard)
+  표지        ims.bgrade_move(셸 → inv_move_*) · ims.bgrade_line(B급 줄 창구 → 줄 트리거) — 둘 다 set_config(…, true) · 트랜잭션 안에서만
+  오류 꼴     IM636 칸 표시 직접 바꾸기 · IM637 원장 · 칸 FK · IM638 B급 줄 · 머리 · IM651 b_grade 사유
+
+적용된 순서(테스트 DB = 메인 · 617) — 70-g 에 이어 붙임
+  pur-1c → pln-1 → lat-1 → stkx-1 → bgr-1a → 1b → 1c → 1d → 1e   (전부 적용 · repair · 운영 asung-WMS 에는 올리지 않는다)
+```
+
+### 71-c 실물 · 실측
+
+```
+ZZZ · FINAL-SALE        테스트 DB 0 행(제품 · 원장 · 바코드 · 열린 줄 · bgr-0) — 적재가 Type=Stock 만 받는다 ⇒ 629 「옮기지 않는다」 는 지금 그대로 맞다
+칸                      ref_bin 2,682 칸(bgr-0) · is_staging 을 읽는 DB 함수 0(B급과 뜻이 다르다 — 다시 쓰지 않는다) · ImsRefLoad 의 bin 적재는 새 줄만(있는 줄을 덮지 않는다)
+잔고를 읽는 곳           ims_inv_balance 를 읽는 함수 11(bgr-0 의 13 은 잘못 셈) · inv_balance 5 · inv_available_base 를 부르는 함수 8(전부 칸 이름으로 읽는다 · select * 0) · 화면 직접 2(stock-adjustments · stock-moves)
+                         bgrade 를 안 보는 읽는 함수 = 허락 목록 여덟(inv_adjust_ledger · inv_stock_master · inv_stock_master_sku · product_bom_set · product_update · stk_bins · stk_bins_many · wms_health_check · 1b 에서 inv_move_bin_contents 빠짐)
+원장 쓰는 함수           열둘(inv_post_adjust · credit · move · receipt · receipt_off_po · receipt_over · sale · transfer_arrive · transfer_depart · so_credit_cancel · tf_over_decide · tf_settle) — 전부 원장 가드 뒤 · 칸 FK(ref_bin) 12(11 + so_line.bgrade_bin_id · 거부 일곱)
+콤보 조립                IMS 창구 없음(inv_layer_apply_assemble 은 Cin7 레이어 전용) — B급 칸을 막을 길 없음
+크레딧 b_grade 줄        테스트 DB 0 행(bgr-1e) · 화면 so-credits.html 의 고르기 목록(NOREST)에만 있었다 · doc_data · 판 13 개 0
+확인 OK                  1a 13 · 1b 15 · 1c 13 · 1d 11 · 1e 6 · pur-1c 7 · pln-1 7 · lat-1 5 · stkx-1 6
+시험 트랜잭션 시간        bgr-1a 회차마다 약 4 분 45 초(그중 \i 뒤 ACCESS EXCLUSIVE 약 2 분 반 · 사고 D-1) → 규칙 뒤 1b 약 5 초 · 1c 약 3.7 초 · 1d 약 3.9 초 · 1e 약 1.5 초
+PostgREST                집합 반환 RPC 도 Max rows 1000 에 걸린다(stkx-1) — 내보내기는 jsonb 한 행 · stk_availability_export 한 번 약 3 s · 500 씩 16 쪽 141 s · 8 쪽 동시 = statement timeout
+Latest                   Cin7 Latest 가 IMS 인보이스 줄 69 중 할인 전 단가 56 · 할인 뒤 0 과 맞음(lat-1 · 627)
+원가 · 금액              B급 칸의 수량은 On hand 에서 빠지지만 재고 금액에는 남는다(레이어는 (sku, warehouse)) — 금액 ÷ On hand 가 B급만큼 높게 보인다(641 · 알고 둔다)
+```
+
+### 71-d 뒤집은 것 · 닫은 것 (옛 줄 → 줄 끝 포인터만 · 본문 무변)
+
+```
+so:561 · 1661     「B급 갈래」(SO · PO 비교표)                      → 649 · 650 · §71
+so:1624           「못 파는 것 → ⬜ B급 칸」                           → ✅ bgr-1a ~ 1e · 636 · 649 · 650
+so:1626           「final sale 이라는 non-inventory 코드로 싸게」        → 629(ZZZ 는 옮기지 않는다 · 같은 SKU 를 B급 칸에)
+so:1627           「B급 칸 자체는 SO 모듈이 정하지 않는다 · 정할 것 …」  → 635 · 636 · 637 · 639 · 641(정한 것)
+so:1691           「B급 칸 — 창고마다 하나인가 · 가용 · 픽 · 원가」     → 636 · 641 · 635 · 639 · 637
+so:3146           「B급 칸 미정이라 맨 뒤」                             → ✅ §71
+so:3418 · 3427    §19 판정 1 「B급 칸은 나중」 · 「안 돌아옴 · b_grade」  → 629(컷오버 전) · 649 · 650 · 651(b_grade 은퇴)
+so:3460 · 3854    크레딧 사유 어휘 「damaged · b_grade · not_returned · other」 → 651(b_grade 는 옛 줄만 · IM651)
+so:3531           「⬜ B급 칸 · b_grade 줄이 넣을 재료」                 → ✅ bgr-1a ~ 1e · 651
+so:8983 · 9074    67-a 5 「GP 칸 짓기는 미룸」                          → ✅ 625 · so gp v1
+so:8990 · 9074    67-a 12 「파손품을 같은 SKU 로 — 컷오버 뒤」           → 629(컷오버 전) · bgr-1a ~ 1e
+po:2989 · 3216 · 4035  「그 갱신은 만든 적이 없다」 · 「⬜ latest·fixed 갱신을 IMS 가 맡는다」 → ✅ Latest 는 lat-1(626 · 627) · Fixed 는 ⬜(607 · pur-3)
+deferred 67a-12 · 67a-5 · §3 「파손품」 줄                              → 닫힘(§71)
+안 고친 것        ledger-design 2997(Cin7 의 Non-inventory 껍데기 SKU · 사실 기록 그대로 맞다) · deferred M-①(비재고 품목을 IMS 가 만들 수 있나 — B급 칸과 다른 물음)
+```
+
+### 71-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude · 10-22] pur v1a 파일을 Caleb 이 내려받지 않은 채 끝나 다시 지었다 ⇒ 파일 회신 끝에 내려받기를 확인한다
+2. [대화 Claude · 10-22] pur v1a 재고 8 쪽 동시 → statement timeout — stk_availability 가 쪽마다 전체를 다시 센다는 것을 몰랐다(짐작을 실측 없이) ⇒ 창구의 비용을 먼저 잰다 · 큰 읽기는 jsonb 한 행 창구(pur-1c · stkx-1)
+3. [대화 Claude · 10-22] 확인 명령을 `tail -15` 로 줘 OK 수를 못 봤다(70-e 1 재발) ⇒ grep + 셈 + `&&`
+4. [대화 Claude · 10-22] 참조 크레딧 창에 Draft 가 있다고 말했다(없다) ⇒ 화면 동작은 화면 원문을 보고 말한다
+5. [대화 Claude · 10-22] Printed total 색을 invoices.html 에만 넣었다(po.html 놓침 · 「한 곳만 고친다」 재발) ⇒ 같은 칸을 그리는 화면을 grep 으로 센다
+6. [Claude Code · lat-1] 확인 기대 OK 를 6 으로 적었다(실제 5 — 머리말의 P0c 줄을 찍는 판정이 없었다) ⇒ 확인 갈래에서 실제 찍히는 OK 줄을 센다
+7. [대화 Claude · 10-23] bgr-1a 지시서에 잠금 규칙이 없어 시험이 회차마다 약 5 분 so_line · ref_bin 을 잡았다 — 동료가 화면 시험 중인 테스트 DB 의 Sales Orders · Backorders 가 statement timeout 500(세 회차 · so_totals_many · so_detail · so_family_members) ⇒ asung-workflow §4 잠금 규칙 여섯(D-1)
+8. [대화 Claude · 10-23] 판정 631 을 50 % 예로 물었다 — 50 % 는 「깎는 %」 와 「남는 %」 가 같은 값이라 갈리지 않아 645 가 따로 필요했다 ⇒ 판정 예는 답에 따라 숫자가 갈리는 값으로(asung-workflow §2)
+9. [대화 Claude · 10-23] bgr-1c 지시서에서 surcharge 를 다루지 않아 Claude Code 가 짐작으로 붙였다(B급 줄에도 surcharge) → 648 로 뒤집음 ⇒ 줄 값을 바꾸는 차수는 surcharge · 세금 · 할인 칸을 지시서에 모두 적는다
+10. [Claude Code · bgr-1a] 멈춘 회차 뒤 테스트 DB 시퀀스를 손으로 되감았다(실제 최대를 보고 맞춰 무사) ⇒ 규칙 D-1 ⑥ 「greatest(실제 최대, 시작 값)」 만 · 시작 값은 셸에 먼저 받아 둔다
+11. [Claude Code · bgr-1c 실행 1 · 스스로 잡음] `perform set_config(…)` 가 바로 앞 `select … into` 의 FOUND 를 덮어 늘 합치기 갈래 → 줄을 지웠다 ⇒ FOUND 는 변수에 먼저 담는다
+12. [Claude Code · bgr-1e] 마지막 정의 grep 을 `-lE` 로 하면 대문자 `CREATE OR REPLACE`(pg_get_functiondef 머리)를 놓쳐 틀린 파일을 가리킨다(lat-1 이견 1 · 재발) ⇒ `-iE`
+13. [Claude Code · bgr-1e] `jsonb->'k' - 'x'` 우선순위를 또 틀렸다(bo-2b 에 이미 적힌 함정 · 재발) ⇒ 괄호 `(j->'k') - 'x'`
+14. [잘 된 것] bgr-1b 의 원장 가드 + 칸 FK 트리거 두 겹 — 원장 창구 열둘이 한 문을 지나 재발행 없이 전수가 닫혔다 · 1d 의 진짜 false(Mustache) · 1d 가드가 반품을 크레딧 줄 · 원 사건으로 되짚는다 · stkx-1 이 Max rows 1000 이 RPC 에도 걸림을 짚었다 · lat-1 이 627 을 실측(56/69)으로 세웠다 · 1e 가 번호를 하나도 당기지 않고 시험했다(참조 크레딧 미리 보기 · 거부되는 발행)
+
+### 71-f 📌 거리 · ⬜ — deferred.md 에 줄을 두고 여기는 번호만
+
+- 291 bgr-2 B급 전용 바코드 · 라벨(634 ① · 라벨 크기)
+- 292 「노 리펀드가 차액 환급(603 가격 조정)에도 걸리나」 — 지금은 같은 경고(final_sale:<sku>) · Caleb 확인
+- 293 so_credit_issue 옛 거부 글 「must be one of damaged, b_grade, …」 의 b_grade 문구(bgr-1e 이견 3)
+- 294 참조 크레딧 입력 열쇠는 `ref`(609 · cin7 열쇠는 거부) — 스킬 · 지시서 예시를 고친다
+- 295 번호(인보이스 · 크레딧)를 당기는 시험의 실행 시간 — 동료가 같은 DB 에서 번호를 받는다
+- 296 lat-1 검증 머리 「P0c → 6」 → 5
+- 297 lat-1 세트 줄 Latest 변환 · accepted_billed 갈래
+- 298 발주앱 「옮겨 담기」 막대 · pur_settings_import 걷어내기 · IMS 모양(619 · Caleb 요청 때)
+- 299 623 grt-2 의 때(컷오버 전 A · 뒤 B) — 판정 대기
+- 300 Products 내보내기 칸 고르기(628 · 판정 652 부터)
+- N-1022-⑥ 컷오버 날 작업에 B급 칸(표시 켜기 → 실물을 원래 SKU 별로 세어 조정 · 평균 원가 · 메모 「컷오버 B급 재적재」 → 값 넣기) · 이미 있던 N-1022-① ~ ④(인계서 §4 의 ① ~ ④)는 그대로
+- 다음 판정 번호: 652

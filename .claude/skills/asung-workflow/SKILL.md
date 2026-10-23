@@ -55,6 +55,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⭐ [2026-10-06 Caleb · so-module §50-d 1] **판정을 물을 때 쉬운 말 · 실제 업무 예 · 「틀렸을 때 무엇이 틀리나」를 붙인다** — Caleb 이 판정을 이해하지 못한 채 제안대로 골랐다 · 예 「Edmonton 손님만 15%」 · 「어긋나면 목록 숫자가 틀린다 vs 손님 가격이 틀린다」 · 기술 용어는 처음 나올 때 풀어서
 ⚠️ [2026-10-06 · §50-d 2] **판정 질문과 커밋 명령을 한 회신에 섞지 마라** — 판정 344 만 답하고 dsc-4b 커밋은 건너뛰었다
 ⚠️ [2026-10-06 · §50-d 3] **확인 명령은 다음 명령에 && 로 묶는다** — 따로 준 md5 확인을 건너뛰고 적용했다 → `md5sum … | grep -c … | grep -qx 2 && <적용>`
+⚠️ [2026-10-23 · so-module §71-e 8] **판정 예는 답에 따라 숫자가 갈리는 값으로** — 판정 631 을 50 % 예로 물었다 · 50 % 는 「깎는 %」 와 「남는 %」 가 같은 값이라 갈리지 않아 645 가 따로 필요했다 ⇒ 30 % 처럼 두 뜻이 다른 답을 내는 예를 고른다
 ```
 
 ---
@@ -134,6 +135,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    ⚠️⚠️ [2026-09-27 ⑤-6c1 · 정정] 위 `| tail` 은 **폴더 순**이다 — inv_layer_apply · po_receipt_detail · resolve 가 틀린 파일을 가리켰다
       ⇒ 정의 파일을 **이름(타임스탬프) 순으로 정렬**하거나(`grep -lE '^create (or replace )?function (public\.)?<이름>\(' … | xargs -n1 basename | sort | tail -1`)
       ⚠️ [2026-10-14 · so-module §64-e 8 · bo-0 이견 1] **Claude Code 셸의 `grep` 은 ugrep 함수**(`type grep`)라 `-l` 출력 순서가 이름 순이 아니다 — `grep -ln … | tail -1` 이 so_cancel 의 마지막 정의를 틀린 파일로 냈다 ⇒ **`command grep -lE '^create (or replace )?function (public\.)?<이름>\(' supabase/migrations/*.sql /dev/null | LC_ALL=C sort | tail -1`** · 지시서에도 이 꼴로
+      ⚠️⚠️ [2026-10-23 · so-module §71-e 12 · lat-1 이견 1 · bgr-1e 이견 1 · 재발] **grep 은 `-iE`** — Claude Code 가 재발행 몸을 pg_get_functiondef 머리째 옮기면 `CREATE OR REPLACE` 대문자라 `-lE` 가 그 파일을 놓치고 옛 파일을 가리킨다 ⇒ `command grep -liE '^create (or replace )?function (public\.)?<이름>\(' supabase/migrations/*.sql /dev/null | LC_ALL=C sort | tail -1` + DB prosrc md5
          **DB prosrc md5 와 맞는 파일**을 찾는다 · ⚠️ `public.` 접두 없는 선언(inv_layer_apply)은 `function public\.` 패턴이 놓친다
       6c2 Z 점검: 9/26 이후 재발행 32 · 잃은 줄 0 · 재발행 주석의 「원본」 표기가 틀린 곳이 하나 있었다(ims_can_view) — 주석을 믿지 말고 정렬로 확인(so-module 24-r 사고 3)
    [실사고] po_invoice_create 지시서를 옛 파일 기준으로 썼다 — 그대로 갔으면 크레딧 자동 채번이 사라졌다
@@ -353,6 +355,22 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ [2026-10-08 밤 · §54-d 7 · 세 번] **거부를 시험할 문서는 그 거부까지 닿는 상태로** — 이미 다 갚은 문서로 「할인 초과」 · 「기준 틀림」을 부르면 미지급 검사가 먼저 거부한다 · 확정 인보이스로 「줄 검사」를 부르면 「draft 만」이 먼저
 ⚠️ [2026-10-08 밤 · §54-d 7] **기대값은 식으로 적는다** — 손 계산(with_tax 값을 pre_tax 자리에 · 100 × 2 × 0.05 = 14)이 두 번 MISMATCH 를 냈다 · 판정 399 처럼 「닿을 수 없는」 시험은 앞선 조정으로 재료를 만든다(이견으로 보고)
 ⚠️ [2026-10-08 밤] **시그니처가 바뀌는 재발행은 drop + create 뒤 끝 do 블록이 「옛 시그니처 없음」을 센다**(po_payment_alloc_cost_events · 4b) · 속 함수를 부르게 된 invoker 창구는 definer 로(문은 첫 줄 그대로 · RLS 정책 판정이 같은지 보고)
+⚠️⚠️ [2026-10-23 사고 · so-module §71-e 7] **테스트 DB 잠금 규칙** — bgr-1a 시험이 begin 맨 앞 → 옛 = 새 측정 → `\i`(alter table so_line · ref_bin = ACCESS EXCLUSIVE) → 검증 → rollback 을 회차마다 약 5 분 쥐어, 동료가 화면 시험 중인 테스트 DB 의 Sales Orders · Backorders 가 statement timeout 500(세 회차 · so_totals_many · so_detail · so_family_members)
+   ① 무거운 기준값(옛 = 새 · 실물 전수)은 **begin 앞**(잠금 없음)에서 받는다 · 트랜잭션 안은 적용 뒤 측정 · 비교만 — 작게(가짜 재료 위)
+   ② 트랜잭션 첫 줄 `set local lock_timeout = '3s'` — 다른 연결이 그 표를 쥐고 있으면 기다리지 말고 멈춘다
+   ③ 회차마다 **begin ~ rollback 시간**(clock_timestamp 차)을 찍고 보고한다
+   ④ **10 초 안**을 못 맞추면 돌리기 전에 멈추고 「얼마나 걸리는지」를 회신 — 언제 돌릴지는 Caleb 이 동료 시험 시간을 피해 정한다
+   ⑤ 확인 갈래(Caleb · 적용 뒤)에 alter · lock · truncate · drop 줄 금지(`\i` 시험 갈래 밖) — Caleb 의 명령에 그런 줄이 있으면 멈춘다
+   ⑥ 시퀀스 되감기는 `greatest(실제 최대, 시작 값)` 만(시작 값은 셸에 먼저 받아 둔다 · 멈춘 회차 뒤에도 같은 식으로) · 번호를 당기지 않고 시험할 수 있으면 그 길로(미리 보기 · 거부되는 발행 · 커서 SELECT 만 떼기) — 동료가 같은 DB 에서 번호를 받는다
+   · 적용 명령에는 `-c "set local lock_timeout = '5s'"`(alter 가 기다리는 동안 뒤 읽기가 줄 서는 것을 막는다) · 진단 = pg_stat_activity 의 xact_age · pg_blocking_pids
+⭐ [2026-10-23 · bgr-1b · 1c · §71-b] **창구만 통과시키는 표지(세션 GUC)는 `set_config(…, true)`** — 트랜잭션 안에서만 산다 · false 면 PostgREST 가 연결을 돌려쓰므로 다음 요청으로 샌다 · 적용 전에 `grep -n "set_config('ims\." ` 으로 true 인지 본다 · 표지를 켠 창구는 끝에서 '' 로 되돌린다
+   ⚠️ [bgr-1c 실행 1] **`perform` 은 FOUND 를 덮는다** — `select … into v; perform set_config(…); if found` 는 늘 참이었다(합치기 갈래 → 줄 삭제) ⇒ FOUND 는 변수에 먼저 담는다
+⭐ [2026-10-22 · 인계서 §5 · pur-1c · stkx-1 · lat-1] 넷
+   · **함수 기본 권한 f 는 service_role 에도 X** — authenticated 만 줄 창구는 `revoke … from public, anon, service_role` 까지(pur-1c 착지 실패)
+   · **jsonb 집계에서 줄마다 상관 서브쿼리 금지** → 조건 집계(`filter (where …)`)로 — pur_stock 45 s → 0.9 s
+   · **집합 반환 RPC 도 PostgREST Max rows(1000)에 걸린다** — 화면이 한 번에 다 받을 내보내기 · 큰 읽기는 jsonb 한 행 창구(stk_availability_export · pur_stock)
+   · **확인 기대 OK 수는 확인 갈래에서 실제 찍히는 OK 줄을 세어** 적는다 — lat-1 머리말 「P0c 하나 더 → 6」 이 그 줄을 찍는 판정이 없어 5 였다
+⭐ [2026-10-23 · bgr-1d 이견 2] **Mustache 불리언 열쇠는 진짜 JSON false 로** — 문자열 "false" 는 「있음」으로 읽혀 모든 줄에 찍힌다(final_sale)
 ```
 
 ---
@@ -760,3 +778,11 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    7 [대화 Claude] 다운로드 안 한 지시서 ⇒ 옮기기 머리에 ls -l(§7) · 8 [대화 Claude] PO-02056 「빈 인보이스」 짐작(짐작이라 밝힘 · 실측 정정)
    9 [화면] 확정 뒤 Received Item 빈칸(받은 줄은 po_line_id 만) → rcv item v1 · 10 [Claude Code] psql -At 꼬리 \n(§4) · 11 [Claude Code · rcv-3] 「안 온다」 몫을 남은 몫에 섞음 — 스스로 잡음
    12 [잘 된 것] 결함 판을 「중간 상태」로(rls-3b S0c) · 동일성 = exception 블록 + 예외 메시지(§4) · 지시서 밖 샛길 막기(svc-1b so_pos_reopen · pset-1 set_factor_exists)
+⚠️ **[2026-10-22 오후 · 10-23 회사 — so-module §71-e]**
+   1 [대화 Claude] pur v1a 파일을 Caleb 이 내려받지 않은 채 끝나 다시 지었다 ⇒ 파일 회신 끝에 내려받기를 확인한다
+   2 [대화 Claude] pur v1a 재고 8 쪽 동시 → statement timeout(stk_availability 가 쪽마다 전체를 다시 센다는 것을 몰랐다 · 짐작을 실측 없이) ⇒ 창구 비용을 먼저 잰다 · 큰 읽기는 jsonb 한 행 창구(§4)
+   3 [대화 Claude] 확인 명령 `tail -15` 로 OK 수를 못 봄(70-e 1 재발) · 4 참조 크레딧 창에 Draft 가 있다고 말함(없다) ⇒ 화면 동작은 화면 원문을 보고 · 5 Printed total 색을 invoices.html 에만(po.html 놓침 · 「한 곳만 고친다」 재발)
+   6 [Claude Code · lat-1] 확인 기대 OK 6(실제 5) ⇒ 실제 찍히는 OK 줄을 센다(§4)
+   7 [대화 Claude] bgr-1a 지시서에 잠금 규칙이 없어 시험이 동료 화면을 막았다 ⇒ §4 테스트 DB 잠금 규칙 · 8 판정 631 을 50 % 예로 물어 645 가 따로 필요(§2) · 9 bgr-1c 지시서에서 surcharge 를 다루지 않아 Claude Code 가 짐작으로 붙였다(→ 648) ⇒ 줄 값을 바꾸는 차수는 surcharge · 세금 · 할인 칸을 지시서에 모두 적는다
+   10 [Claude Code · bgr-1a] 멈춘 회차 뒤 테스트 DB 시퀀스를 손으로 되감음(실제 최대를 보고 맞춰 무사) ⇒ §4 ⑥ · 11 [Claude Code · bgr-1c 실행 1 · 스스로 잡음] perform 이 FOUND 를 덮어 줄 삭제 ⇒ §4 · 12 [Claude Code · bgr-1e] `-lE` 대문자 놓침 재발 ⇒ `-iE`(§4) · 13 `jsonb->'k' - 'x'` 우선순위 재발(bo-2b 에 적힌 함정)
+   14 [잘 된 것] bgr-1b 원장 가드 + 칸 FK 트리거 두 겹(원장 창구 열둘이 한 문 · 재발행 없이 전수) · 1d 의 진짜 false · 1d 가드가 반품을 크레딧 줄 · 원 사건으로 되짚음 · stkx-1 이 Max rows 1000 이 RPC 에도 걸림을 짚음 · lat-1 이 627 을 실측(56/69) · 1e 가 번호를 하나도 당기지 않고 시험

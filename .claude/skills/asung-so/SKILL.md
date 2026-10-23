@@ -283,6 +283,12 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  남은 금액(so_invoice_remaining) = total − 결제 붙임 − 크레딧 붙임 · 잔액 owed_credit = Σissued total − Σ활성 alloc(인보이스·환불) · 식은 so_customer_balance 하나
 ⚠️  inv_layer_apply_done 은 inv_layer_apply 가 만드는 임시 표 — 보조 함수에서 스키마 접두를 붙이지 마라(2026-09-25 실사고 · 1차 실행 실패) · 한 크레딧에 같은 SKU 가 다른 원 판매에서 오면 첫 줄의 판매로 되짚고 경고 mixed_origin_sales
 ⭐⭐ [2026-10-07 · §52] 운임 할인 되돌림 — 크레딧 줄 kind freight_discount(자동 · 보내면 거부 · 운임 줄 바로 뒤 · 계정 = 인보이스 할인 줄 것) · 같은 비율 least(round(x × 할인/정가, 2), 남은 할인) · 정가를 다 돌려주는 마지막 줄은 남은 할인 전부 · 순액 한도 · 「남은 할인 > 이번 운임」 거부 · 머리 freight_discount_amount(≤ 0)(판정 355)
+⭐⭐ [2026-10-23 · bgr-1d · 1e · 판정 640 · 649 · 650 · 651 · so-module §71] B급(final sale) 줄의 크레딧
+   경고 final_sale:<sku>(B급으로 판 줄 · 반품 · 가격 조정 둘 다 · **막지 않는다** · 화면 「Final sale — Issue anyway?」) · bgrade_bin_gone:<sku>(그 B급 칸이 꺼졌거나 비활성 → 정상 기본 칸)
+   so_credit_prepare 줄 final_sale · restock_bgrade_bin_gone · restock_bin_default = B급 줄이면 팔려 나간 그 B급 칸({bin_id, bin, zone, received_on null, is_bgrade true}) · 정상 줄은 ims_last_bin(B급 칸을 내지 않는다)
+   리스탁 칸 = 정상 칸 · **크레딧 창고의 활성 B급 칸**(649 · 650 · 정상으로 판 물건도) · 다른 창고 · 꺼진 B급 칸은 IM637 · 값은 정하지 않는다(살아 있으면 이어짐 · 빈 칸에 들어오면 죽은 값을 지워 「값 없음」)
+   ⚠️ 안 돌아옴 사유 **b_grade 는 새로 못 쓴다**(651) — so_credit_issue 맨 앞에서 거부(미리 보기 · 발행 · 콤보 구성품 · 번호 당기기 전) + 트리거 so_credit_line_reason_guard IM651(새로 b_grade 가 되는 것만 · 옛 줄 고치기는 통과) · prepare vocab 에서 빠짐 + not_restocked_reasons_retired · CHECK 어휘는 그대로
+   ⚠️ 참조 크레딧 입력 열쇠는 **ref**{invoice_number, order_number, invoice_date}(609) — 옛 cin7 열쇠는 거부
 ```
 
 ## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
@@ -298,6 +304,16 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  병합 줄 모으기 열쇠 ~~아홉~~ → [2026-10-20 · 판정 548] 열하나(제품·단가·정가·할인%·무상 사유·override·부가 셋 + discount_source · deal_line_id)가 **전부 같을 때만** 한 줄 — tax_rule 은 열쇠 밖 · 합친 오더 머리는 so_split 식 통째 복사(so_create 를 거치면 티어·오더 전체 할인이 손님 기본으로 되돌아간다)   (고침 ① · ⬜2)
 ⭐⭐ [2026-10-20 · 판정 546 · 547 · pos v1.11] POS 줄 가격 · 할인 = **POS 직원 모두**(판정 225 「표시만」 은 뒤집혔다) · 손 줄이라 오더 할인 몫 0(판정 542) · 누가 정했나 = price_set_by · POS 수량 = 1 이상 정수 · 가용보다 많으면 확인
 ⚠️  백오더 오더를 합치면 장부 end_kind **'merged'**(cancelled 로 적으면 백오더 화면이 취소로 센다) · 원본이 이어받은 남의 줄은 다시 열되 대상이 confirmed 일 때만(아니면 경고 superseded_not_reopenable) · 프리오더였던 줄은 표시가 없다(경고 preorder_lines_need_reflag)   (0-4·0-5·0-7)
+⭐⭐ [2026-10-23 · bgr-1c · 판정 633 · 634 ② · 635 · 642 · 644 · 646 · 647 · 648 · so-module §71] **POS B급 줄**(파손 포장품을 같은 SKU 로 · B급 칸 · 값은 asung-inv-ledger)
+   so_line_bgrade_set(p_line_id, p_bin_id?) → {action set | merged | unchanged | choose(candidates[{bin_id, bin, price, has_price, qty}] · 저장 없음), so_number, line, removed_line_id, bin_id, bin, price, bin_qty, total, warnings[over_bgrade_stock]}
+      칸 생략 = 그 창고에 잔고 있는 B급 칸이 하나면 그 칸 · 여럿이면 choose · 없으면 거부 · 값 = 그 칸 bgrade_price(살아 있는 값만 — 값 없음 · 죽은 값 거부 · 644) · 같은 오더 같은 칸 · SKU 의 B급 줄이 있으면 합치고 이 줄을 지운다
+      줄 = unit_price B급 값 · price_override true · discount_pct · discount_source null(짝 CHECK) · surcharge 셋 null(648) · price_set_by · at = 누른 직원(546)
+   so_line_bgrade_clear(p_line_id) → {action cleared, line, total} — 칸 · 덮어쓰기를 비우고 시스템 값으로 다시 견적 + 그룹 surcharge 다시
+   ⚠️⚠️ **POS 만**(channel pos · draft · counter 는 so.html manager 길이라 제외) — 표지 ims.bgrade_line(set_config … true)로만 bgrade_bin_id 를 세운다 · 줄 트리거 so_line_bgrade_guard · 머리 트리거 so_bgrade_header_guard IM638(값 · 할인 · surcharge patch 거부 · 다른 오더로 못 감 · 나뉘지 않음 · B급 줄이 있으면 창고 · 채널 못 바꿈 · 수량은 된다)
+   ⭐ B급 값이 최종(633) — price_override = so_line_manual → 손님 할인 · 다시 매기기 kept · 오더 할인 바탕에서 빠짐 · 금액 단계 문턱(so_lines_total)에는 들어감
+   ⚠️ so_line_add 합치기 ② · ask 목록 · so_lines_paste 합치기 둘 · ask 셈 둘은 **B급 줄과 합치지 않는다**(값이 같아도) · so_detail 줄 bgrade_bin · is_bgrade_line(bgrade_bin_id 는 to_jsonb(l) 에)
+   ⭐ 넘침(647) — so_lines_available 끝 칸 bgrade_bin_id · bgrade_bin · B급 줄 가용 = 그 칸 장부 − 그 칸 열린 B급 줄 할당(음수 그대로 · 막지 않음 · 화면이 「sell anyway?」) · 확정 = so_allocate_all(1a alloc 이 B급 줄을 빼 정상 가용 무변) · Finish = so_pick_plan 이 그 칸에서만(모자라도 그 칸 · 칸 음수) · 원장 가드가 「B급 줄은 그 칸에서만 · 정상 줄은 B급 칸에서 못 나감」
+   ⭐ 확정 뒤 칸 값을 바꿔도(646) 줄 값은 넣은 값 그대로
 ```
 
 ## 4-k. ⭐⭐ 읽기 창구 · 오피스 화면 — 모르면 사고 (정본 §22 · §23)
@@ -310,6 +326,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  Manager List 의 즉시 결제 = ref_payment_term.net_days 0 — 손님 결제조건 자료만큼만 정확(Net30 6,305 정리 전) · Unpaid 탭은 브랜치로 못 거른다(뷰에 창고 칸 ⬜)
 ⭐  [2026-10-06 · §46] 재고 화면 창구 stk_availability · stk_bins · stk_bins_many · stk_movements(definer · 로그인 + 활성 직원 · 원가 없음) · 모든 수량은 낱개(EA · 세트 표시는 참고만) · so.html 은 ?so=<번호> 로 연다(?id= 아님) · so-credits.html 은 ?cr=<번호> · 금액은 stk_value_many · stk_value_total 만(원가 열쇠 · 판정 575 · so-module §68)
 ⭐⭐ [2026-10-07 · §52] 목록 금액 = so_totals_many(p_so_ids ≤ 200) — so_detail.totals 와 같은 식이 두 곳에 있다 ⇒ so_detail 의 totals 를 고치면 so_totals_many 도 · 검증 so-tot-1 다시(판정 350)
+⭐⭐ [2026-10-22 · stkx-1 · 판정 628] stk_availability 한도 500 → **20000** · 내보내기는 **stk_availability_export**(같은 거르기 · limit 없음) → jsonb 한 행 {total, row_count, truncated, rows[]}(PostgREST Max rows 1000 은 집합 반환 RPC 에도 걸린다) · by_warehouse[] 에 bgrade(B급 수량 · 1a)
+⭐  [2026-10-22 · 판정 625 · so gp v1] SO 줄 GP — 원가 = 지금 평균(stk_value_many · 오더 창고 → 없으면 전 창고) · 원가 열쇠가 있을 때만 · 손님 문서에 없음 · 매출 = 줄 합(손 줄 아닌 줄에 오더 할인 %) · surcharge · 운임 제외
 ```
 
 ## 4-l. ⭐⭐ 관세 부가 요금(surcharge) — 모르면 사고 (정본 so-module §37)
@@ -321,6 +339,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
    무상 줄 막기(판정 228) · 같은 SKU 합치기는 그 줄 값 그대로(229) · 고치기 = 초안 so_line_update + packed so_finalize surcharges(230)
    문서: 인보이스 · 크레딧 줄 kind surcharge(상품 줄 바로 뒤 · 값은 so_tax_preview 에서 · 계정 inv_config so_surcharge_account_code = _94_ · 번호 당기기 전 검사) · 크레딧 surcharge 는 자동만
    자동: 상품의 켜진 그룹(so_surcharge_group) → so_line_add · so_lines_paste 가 채운다 · POS 도 so_line_add · 옮기는 길은 복사
+   ⚠️ [2026-10-23 · 판정 648 · bgr-1d] **B급 줄에는 surcharge 를 붙이지 않는다** — so_line_bgrade_set 이 비우고 · clear 가 그룹 기본(so_line_surcharge_defaults)을 다시 · 줄 트리거가 B급 줄의 surcharge patch 거부(IM638) · 그룹 저장(so_surcharge_group_save)은 줄을 고치지 않는다(세기만)
 ```
 
 ## 4-m. ⭐⭐ 손님 쓰기(만들기 · 고치기 · 확인 · 끄기) — 모르면 사고 (정본 so-module §41)

@@ -50,7 +50,7 @@ description: >
      빈칸 대상: due · deposit · credit · balance_forward · paid · SO prepaid · net 단가(오더 할인이 없으면) — 크레딧 노트는 그대로
 ⭐ 로고는 {{company.logo_url}}(doc-brand 버킷 · doc_public_base_url 로 만든 주소) — 판에 주소를 직접 쓰면 「바깥 주소」 로 거부
 ⭐ 쓰는 판 = kind 마다 하나(doc_template_active) · 새 판 저장 ≠ 쓰기 — Use this version(doc_template_publish)을 눌러야 바뀐다 · 옛 판은 지우지 않는다(되돌리기 = 옛 판을 다시 Use)
-⭐ 판 파일은 레포 밖 — DB doc_template 이 정본(테스트 쓰는 판: final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 · 2026-10-19)
+⭐ 판 파일은 레포 밖 — DB doc_template 이 정본(테스트 쓰는 판: final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 · 2026-10-19) → [2026-10-23 · 판정 640 · so-module §71] final_invoice **v6**(Caleb 올림 10:57 · 줄 설명 뒤 `{{#final_sale}}<span class="tag">Final sale</span>{{/final_sale}}` 한 자리)
 ```
 
 ### 판 고치는 순서 (대화 Claude ↔ Caleb)
@@ -76,6 +76,7 @@ description: >
 ⭐ 메모(Notes)는 so_invoice.note · so_credit.note — 쓰는 창구 so_invoice_note_set · so_credit_note_set(sales 쓰기 · issued 만 · 2000 자 · 빈 글 → null)
 ⭐ [2026-10-22 · crn-1 · crn-2 · so-module §70-b] credit_note — **가격 조정 줄(price_adjustment)은 제품 표에** · 수량 = qty_adjusted · 단가 = 개당 차액(unit_price_before − after) · 설명 「Price adjustment 9.49 → 7.99 — <제품명>」 · charges 로 안 간다 · 참조 크레딧의 참조 번호는 credit.invoice_number 자리에 이미 찍힌다(판 credit_note v2 무변)
 ⭐ [2026-10-21 · svc-1c · so-module §69] charges 의 qty · unit_price 는 **수량 × 단가 비용 줄(서비스)** 에서만 채워진다 — 운임 · 할인 줄은 "" · 꼴은 doc_fmt_qty(천 단위 쉼표 없음 · 1200) · doc_fmt_money · 판(final_invoice v5 · credit_note v2)은 이미 Qty · Unit price 칸을 그린다 · 크레딧 노트의 서비스 줄은 금액만(qty "")
+⭐⭐ [2026-10-23 · bgr-1d · 판정 640 · so-module §71] final_invoice 줄 **`orders.lines.final_sale`** — B급으로 판 줄(so_line.bgrade_bin_id)이면 true · 그 밖은 **진짜 JSON false**(문자열 "false" 는 Mustache 가 「있음」으로 읽어 모든 줄에 찍힌다) · catalog(doc_field_catalog)는 **final_invoice 에만**(POS 영수증도 final_invoice 판) · internal_receipt 자료에도 실리지만 catalog 밖이라 판이 못 쓴다 · credit_note · sales_order · ship_ready 에는 없다 · 손님 문서에 「B-grade」 는 안 나온다
 ```
 
 ## 3. ⭐⭐ 서버 PDF — Gotenberg · EF doc · doc_file
@@ -118,7 +119,7 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
 
 ```
 ims-doc.js        공통 — Mustache 4.2.0 을 파일 안에(CDN 아님 · define · module · exports 를 가리고 this = window · §66-e 2) · printDoc · printBtn · mailDialog · mailList · noteDialog
-settings.html     Settings → Documents(set v4 · v4a) — 회사 글 · 지점 둘 · 로고 · 날짜 꼴 · 문서 다섯 탭 · 판 목록 · Check · Preview · Save · Use this version · 글 · 켜고 끄기
+settings.html     Settings → Documents(set v4 · v4a) — 회사 글 · 지점 둘 · 로고 · 날짜 꼴 · 문서 다섯 탭 · 판 목록 · Check · Preview · Save · Use this version · 글 · 켜고 끄기 → [2026-10-23 · set v7a · asung-ims 0a5dd67] 판 목록 = 쓰는 판 + 번호 높은 둘 · 나머지는 「Show N older versions」 로 접는다(화면만 · Caleb 「숨기면 어떨까?」 → A)
 so-invoices.html  Print invoice · Print delivery receipt(internal_receipt) · Email to customer… · Emails 칸 · Note 고치기(inv v2f · v2g)
 so-credits.html   Print credit note · Email to customer… · Emails · Note(cr v2e · v2f)
 so.html           Print order · Email order… · Ship & invoice 창의 Ship Ready(인쇄 · Email Ship Ready… — PDF 먼저) · 끝낸 뒤 Print · Email invoice…(so v5t8 · v5t9)

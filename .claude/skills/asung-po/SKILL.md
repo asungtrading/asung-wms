@@ -225,6 +225,11 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  재고 · 원가는 새 창구 없음 — stk_availability.by_warehouse[].warehouse 이름 규칙(edmonton 포함 → edmonton · 아니면 toronto) · stk_value_many 는 원가 열쇠 없으면 거부 → 화면 「—」(608) · 고정 단가는 product_update op supplier_set(master) · 607 은 pur-3
 ⬜  응답 크기 — 전 공급처 365 일 창은 1 년 뒤 ≈ 204,000 행(jsonb ≈ 8 MB) · 무거워지면 집계 창구 pur_sales_agg(SKU 마다 qty_90d · qty_365d · last_sale_date · 작년 같은 철) 안(정본 §70-f 286)
 ⚠️  BigQuery 마스터 supplier_name 이 기본 공급처인지는 못 봤다(공급처 줄 둘 이상인 제품 421 개) — 컷오버 점검 거리(§70-f 285)
+⭐⭐ [2026-10-22 · pur-1c · 인계서 §5] 재고는 **pur_stock()** 한 번 — {row_count, warehouses[{warehouse_id, warehouse, key tor|edm}], rows[{sku, product_id, tor{qoh, alloc, oo, it, avail}, edm{…}}]} · stk_availability 와 같은 집합 · 숫자(0.86 s · 500 씩 16 쪽 134 s 대신 · 쪽마다 전체를 다시 세는 stk_availability 를 동시에 여러 쪽 부르면 statement timeout) · ⚠️ onord · intr 블록은 stk_availability 의 복사(→ deferred N-1022-②) · qoh 는 팔 수 있는 장부(B급 칸 뺌 · B급만 있는 SKU 는 안 나온다 · so-module §71)
+⭐⭐ [2026-10-22 · pln-1 · 판정 624] po_lines_paste 셋째 열 **price** = 그 줄의 단가(할인 전) · PO 문서 할인은 위에서 걸린다(SO 와 다름) · 비우면 Fixed → Latest → 0 · 0 받음 · 음수 · 숫자 아님 = bad_price · product_supplier 무변 · 연결이 없어도 붙인 값을 쓴다
+⭐⭐ [2026-10-22 · lat-1 · 판정 626 · 627] **입고 완료(오피스 확정 · 먼저 반영)가 Latest 를 고친다** — po_receipt_latest_apply(p_receipt_id, p_post_id, p_staff) → {updated[], skipped[], warnings[]} · product_supplier.cost = 확정 인보이스 줄의 **할인 전** 단가 · last_supplied = received_on · **Fixed 무변**(607 · pur-3)
+   건너뜀 reason: zero_qty · no_confirmed_invoice_line · free · no_link · currency_mismatch · older(그 행의 last_supplied 가 더 새 공급) · unchanged(조용히) · 경고 넷: latest_set_converted:<sku>(세트 줄 → 낱개 행 · 단가 ÷ pack_factor) · latest_no_link · latest_currency_mismatch · latest_older_skipped · 꺼진 연결은 고친다 · 같은 날 둘이면 나중 확정이 이긴다
+   ⚠️ 컷오버 전까지 적재(Cin7)가 돌면 Latest 를 다시 덮는다 — 정상(po-module 2989)
 ```
 
 ## 5. 이 스킬을 갱신할 때

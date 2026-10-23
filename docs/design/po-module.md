@@ -2986,7 +2986,7 @@ b 의 머리    a 의 머리를 통째로 복사(칸이 늘어도 따라온다) 
    ~~⬜ 기본값을 Fixed / Last 중에 고르는 옵션을 우리도 둘지는 나중에 정한다.~~ → [2026-09-16 닫힘] 옵션 없이 **폴백 순서로 확정** — Fixed>0 → Latest>0 → 0(경고 · no_price). `po_lines_paste` 가 그렇게 구현됐다(§13-d).
 ```
 → **표(2026-09-16 · §13)** ⭐ Fixed 와 Latest 는 **새로 만들 칸이 아니다** — `product_supplier.fixed_cost · cost · last_supplied` 에 이미 있다([실측 화면 · Caleb] products.html 상세 SUPPLIERS 표에 FIXED · LATEST · LAST SUPPLIED 셋 · ABE50205 / House of Cheatham 2.54 · 2.54 · 2026-08-17). 두 자리 갈림은 `po_line.unit_price`(이번 발주만 · 낱개 · numeric(18,7) · 0 허용) vs `product_supplier.fixed_cost`(마스터).
-⭐⭐ **연습 기간에도 IMS 발주 확정이 Latest(cost · last_supplied)를 갱신한다**(Caleb 2026-09-16 · 흐름을 봐야 하니까). **그런데 적재가 돌면 Cin7 값이 덮는다 — 그것이 정상이다.** 컷오버 전까지 Latest 의 정본은 Cin7 이고, 마지막 적재 뒤 컷오버하면 그때부터 IMS 가 정본이다. ⚠️ 이 문장이 없으면 「IMS 가 쓴 값이 왜 사라졌지」가 버그로 오해된다. ⭐ 컷오버 때 **거래는 지우지만 Latest 는 남긴다**(11-⓪ 축의 예외). 갱신 동작 자체는 확정 RPC(⬜ 다음 차수). ⚠️ **[2026-09-20 실측] 그 갱신은 만든 적이 없다** — `product_supplier` 에 쓰는 DB 함수 0개(`po_lines_paste` 는 읽기만 · writes_it f) · AMP41103 `last_supplied` 2026-08-05 그대로(오늘 입고를 확정해도 안 움직였다). ⭐ **출처도 바뀌었다**(Caleb 09-20) — 발주 확정도 입고도 아니라 **확정 인보이스**다(11-g 「매입 가격 이력」 `po_price_history`). ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 latest 가 0 이 된다 — 가격의 출처는 인보이스이지 입고가 아니다. ⬜ §13-f 「latest·fixed 갱신을 IMS 가 맡는다」.
+⭐⭐ **연습 기간에도 IMS 발주 확정이 Latest(cost · last_supplied)를 갱신한다**(Caleb 2026-09-16 · 흐름을 봐야 하니까). **그런데 적재가 돌면 Cin7 값이 덮는다 — 그것이 정상이다.** 컷오버 전까지 Latest 의 정본은 Cin7 이고, 마지막 적재 뒤 컷오버하면 그때부터 IMS 가 정본이다. ⚠️ 이 문장이 없으면 「IMS 가 쓴 값이 왜 사라졌지」가 버그로 오해된다. ⭐ 컷오버 때 **거래는 지우지만 Latest 는 남긴다**(11-⓪ 축의 예외). 갱신 동작 자체는 확정 RPC(⬜ 다음 차수). ⚠️ **[2026-09-20 실측] 그 갱신은 만든 적이 없다** — `product_supplier` 에 쓰는 DB 함수 0개(`po_lines_paste` 는 읽기만 · writes_it f) · AMP41103 `last_supplied` 2026-08-05 그대로(오늘 입고를 확정해도 안 움직였다). ⭐ **출처도 바뀌었다**(Caleb 09-20) — 발주 확정도 입고도 아니라 **확정 인보이스**다(11-g 「매입 가격 이력」 `po_price_history`). ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 latest 가 0 이 된다 — 가격의 출처는 인보이스이지 입고가 아니다. ⬜ §13-f 「latest·fixed 갱신을 IMS 가 맡는다」. → [2026-10-23 · 판정 626 · 627 · so-module §71] ✅ Latest(cost · last_supplied) 는 lat-1(107fba0 · po_receipt_latest_apply)이 입고 완료(오피스 확정 · 먼저 반영)에서 고친다 · 값 = 확정 인보이스 줄의 할인 전 단가 · 연결 없음 · 무상 · 더 새 공급 · 통화 다름은 건너뜀 · Fixed 는 그대로 ⬜(607 · pur-3)
 ⚠️ 라인 할인 칸 없음 · `tax_rule` 원문(ref_tax_rule 미결 §7-a → so-module §16 · 2026-09-24 섰다) · `line_no` unique(po_id, line_no) 가 원장 line_ref.
 → **붙여넣기(2026-09-16 오후 · `po_lines_paste` · §13-d)** [실무 Caleb] **50줄 넘는 발주가 꽤 된다** — 하나씩 고르는 방식은 안 된다. 열쇠는 **우리 SKU**(「공급처 SKU 는 다 갱신돼 있지 않고 아예 없는 공급처도 있다」 — 공급처 SKU 는 참고로만 담는다).
 ⭐⭐ **미리 보기가 반드시 있다**(Caleb) — 밖에서 오는 데이터(엑셀 · 공급처 파일)라 옛 SKU·공백·칸 밀림이 있고, 50줄이 잘못 들어가면 하나씩 찾아 지워야 한다. 「이 공급처 제품이 아니다」가 마스터를 채우라는 신호가 된다. ⚠️ 미리 보기에서 **고치지 않는다** — 원본을 고쳐 다시 붙인다(그래서 duplicate·exists 도 합치거나 더하지 않고 판정만 · 합치면 「추가 주문」과 「중복 붙임」을 구별할 수 없다).
@@ -3213,7 +3213,7 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
   ⚠️ 1센트 — 라인 합 ≠ 문서 총액이 **정상**이다(끊는 횟수가 한 번이냐 세 줄이냐) · 2,446.80 × 0.8217 → 문서 2,010.54 · 라인 합 2,010.53 · 가격 이력은 단가를 보는 자리라 문제가 아니다
      ⚠️⚠️ 나중에 이 값을 **원가에 쓰게 되면** 그때는 레이어 배분 방식(6자리 · 끝수는 마지막 줄)을 따라 맞춘다
 화면      po.html 붙여넣기 미리 보기 「Last paid」(asung-ims 161259f) — 같은 공급처 것만 · 지금 값과의 차이 ▲▼(방향만 · 판정하지 않는다) · 날짜·인보이스 번호·할인 문장 · 조회 실패가 미리 보기를 막지 않는다
-⬜ latest·fixed 갱신을 IMS 가 맡는다 — 출처는 이 뷰(11-d 정정) · ⬜ supplier_discount 0행(§13-f) · ⬜ 아침 점검 한 줄 `select count(*) from po_price_history_skipped where reason <> 'charge'`(0 이 정상)
+⬜ latest·fixed 갱신을 IMS 가 맡는다 — 출처는 이 뷰(11-d 정정) · ⬜ supplier_discount 0행(§13-f) · ⬜ 아침 점검 한 줄 `select count(*) from po_price_history_skipped where reason <> 'charge'`(0 이 정상) → [2026-10-23 · 판정 626 · 627 · so-module §71] Latest ✅ lat-1 · Fixed ⬜(607)
 ```
 **⭐⭐ 크레딧 노트 (2026-09-16 오후 신설 · `20260916175003_po_credit.sql` · 커밋 `3be9a86`)** — ⚠️ 정본에 크레딧 설계가 **없었다**(위 「Credit note · Unstock 탭」 한 줄이 전부). 여기서 처음 선다.
 ```
@@ -4032,7 +4032,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ⬜ billed 초과분의 landed        `inv_layer_post_charge` 가 `:over` 레이어를 못 본다(`pl.id::text = x.line_ref`) — free 는 안 얹는 것이 맞고 billed 는 논의 여지 · ⬜ over 되돌리기 = 상쇄 사건 길(지금은 거부)
 ⬜ 크레딧 설계                   수량(제품·개수가 붙는다) vs 가격(차액만) — 표본이 생기면(11-g 「매입 가격 이력」)
 ⬜ supplier_discount 0행         ⚠️ po_create 가 이미 읽는다 — 「채우면 듣는다」(주석 실물). 안 채우면 발주 원가가 할인 전 값으로 선다 · [실측 09-20] fixed 3.09 vs 실제 2.54 = 21.7% 차이 · ⭐ 세 줄이 전부 정확히 21.7%(= 1 ÷ 0.8217) — 값이 오른 게 아니라 할인이 안 잡힌 것 · 📌 Ampro 실물은 17%→1%→3% 인데 AMP-778812 에는 둘뿐이다 — 왜인지 모른다
-⬜ latest·fixed 갱신을 IMS 가 맡는다  ⭐ 출처는 **인보이스**(`po_price_history` · 11-g) · ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 안 된다 · [실측] product_supplier 에 쓰는 DB 함수 **0개**(po_lines_paste 는 읽기만 · writes_it f) — 11-d 「PO 확정이 갱신한다」는 만든 적 없는 설계 문장이었다
+⬜ latest·fixed 갱신을 IMS 가 맡는다  ⭐ 출처는 **인보이스**(`po_price_history` · 11-g) · ⚠️⚠️ 공짜·초과분(over free)을 가격으로 세면 안 된다 · [실측] product_supplier 에 쓰는 DB 함수 **0개**(po_lines_paste 는 읽기만 · writes_it f) — 11-d 「PO 확정이 갱신한다」는 만든 적 없는 설계 문장이었다 → [2026-10-23 · 판정 626 · 627 · so-module §71] Latest ✅ lat-1 · Fixed ⬜(607)
 ⬜ 「우리가 쓸 물건」(is_payable false ⓐ)  재고로 들어가는 길이 있나 — 모른다(11-g)
 ⬜ 비용 취소와 landed            po_charge 가 confirmed 뒤 cancelled 되면 landed 가 남는다 — 상쇄가 필요하다(취소 RPC 에 「얹혔으면 거부 또는 상쇄」)
 ⬜ 발주 머리의 Tax rule          ref_tax_rule 을 Settings 에 세운 뒤 드롭다운으로(⭐ QBO 가 우선 · 11-b 머리 칸 편집) · → [2026-09-24] 드롭다운의 재료(ref_tax_rule · direction purchase 활성)는 섰다(so-module §16) · ⚠️ 매입 세금 **계산**은 여전히 없다(ref_tax_region 은 sale 연결만)
