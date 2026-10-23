@@ -303,7 +303,8 @@ select (select string_agg(proname, ',' order by proname) from bgr_src where s ~ 
 \echo :s5_ib
 \echo :s5_iab
 select pg_temp.chk(format('S5 readers that do not look at bgrade = allowlist (%s)', :'s5_blind'),
-  :'s5_blind' = 'inv_adjust_ledger,inv_move_bin_contents,inv_stock_master,inv_stock_master_sku,product_bom_set,product_update,stk_bins,stk_bins_many,wms_health_check',
+  :'s5_blind' in ('inv_adjust_ledger,inv_move_bin_contents,inv_stock_master,inv_stock_master_sku,product_bom_set,product_update,stk_bins,stk_bins_many,wms_health_check',   -- bgr-1a 까지
+                  'inv_adjust_ledger,inv_stock_master,inv_stock_master_sku,product_bom_set,product_update,stk_bins,stk_bins_many,wms_health_check'),                         -- bgr-1b 뒤(inv_move_bin_contents 가 B급 칸을 거부)
   format('blind %s | iib %s | ib %s', :'s5_blind', :'s5_iib', :'s5_ib'));
 \else
 select pg_temp.chk('G1 ~ S5 skipped: bgr-1a not landed', false, 'ref_bin.is_bgrade missing');
