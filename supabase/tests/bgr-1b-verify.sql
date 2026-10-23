@@ -279,7 +279,8 @@ select concat_ws(' ', 'po_in=' || pg_temp.led('BGRB-B', 1, 'po_in', 'po_in', 'im
          'regular_po_in=' || pg_temp.led('BGRB-N', 1, 'po_in', 'po_in', 'ims', 'l9', :'torname')) as b8b \gset
 select pg_temp.chk(format('B8 bin columns: B-grade → IM637 · regular bin passes the trigger (then the row''s own constraints) · ledger guard: %s', :'b8b'),
   :'b8a' = 'inv_move_line.from_bin_id B=ERR IM637 N=ERR 23502 ; inv_move_line.to_bin_id B=ERR IM637 N=ERR 23502 ; inv_transfer_settle.bin_id B=ERR IM637 N=ERR 23502 ; po_receipt_diff.bin_id B=ERR IM637 N=ERR 23502 ; po_receipt_line.bin_id B=ERR IM637 N=ERR 23502 ; po_receipt_work.bin_id B=ERR IM637 N=ERR 23502 ; so_credit_line.restock_bin_id B=ERR IM637 N=ERR 23502'
-  and :'b8b' = 'po_in=ERR IM637 transfer_in=ERR IM637 transfer_out=ERR IM637 credit_in=ERR IM637 bin_move=ERR IM637 sale_out=PASS: 1 adjust=PASS: 1 cin7_po_in=PASS: 1 regular_po_in=PASS: 1',
+  and :'b8b' in ('po_in=ERR IM637 transfer_in=ERR IM637 transfer_out=ERR IM637 credit_in=ERR IM637 bin_move=ERR IM637 sale_out=PASS: 1 adjust=PASS: 1 cin7_po_in=PASS: 1 regular_po_in=PASS: 1',    -- bgr-1b 까지
+                 'po_in=ERR IM637 transfer_in=ERR IM637 transfer_out=ERR IM637 credit_in=ERR IM637 bin_move=ERR IM637 sale_out=ERR IM637 adjust=PASS: 1 cin7_po_in=PASS: 1 regular_po_in=PASS: 1'),  -- bgr-1c 뒤(B급 칸 판매 출고는 그 칸의 B급 줄만 · 줄 없는 가짜 사건은 거부)
   format('%s || %s', :'b8a', :'b8b'));
 
 \echo '── B9) bgrade_price 직접 쓰기 거부 · 읽기 · 1a 가드 무사'
