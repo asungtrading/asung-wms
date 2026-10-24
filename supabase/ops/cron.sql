@@ -839,3 +839,23 @@ select cron.schedule('ims-mail-pdf', '* * * * *', $job$
     and exists (select 1 from public.mail_outbox o where o.status = 'waiting_pdf' and o.kind like 'doc\_%'
                   and coalesce(o.next_attempt_at, '-infinity') <= now() and (o.claimed_at is null or o.claimed_at < now() - interval '10 minutes'));
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-drive 등록 — drive-2 (2026-10-24 · 판정 688 ~ 708 · 미룬 260) — 구글 공유 드라이브 일꾼 · EF drive 배포 뒤에 · ⚠️ 운영에는 등록하지 마라(컷오버 묶음)
+--   무엇: 1 분마다, 「보관본 PDF 를 기다리는 일(archive · waiting_pdf)」 이 있거나 「drive_enabled = on 이고 queued 일」 이 있을 때만 EF drive 를 {"action":"run"} 으로 부른다
+--         EF 는 drive_job_claim(5) → waiting_pdf 는 EF doc render(reason archive · service 길 · 장마다 Gotenberg 58 s) → drive_job_pdf_set / sending 은 폴더 사슬(files.list → 없으면 만들기 → drive_folder_set) → Storage → Drive 올리기 · 바로가기 · 이름 바꾸기 → drive_job_done · 실패 drive_job_failed(3 번 뒤 failed)
+--   왜 57 에 얹지 않나: 보관본은 메일과 무관하게 발행 직후 찍혀야 한다(판정 692 · 528) · 드라이브 쓰기의 시간 · 실패 갈래가 다르다 · 킬 스위치를 따로 둔다
+--   ⚠️ 컷오버 전부터 켜 둔다(11-01 첫 발행 직후 보관본이 찍히려면) — drive_since 가 비어 있으면 일이 0 이라 빈 분은 호출 0 · 올리기(drive_enabled on)는 며칠 뒤 Caleb(521)
+--   시간 제한: net.http_post 120 s(EF 예산 40 s + 마지막 장의 doc 70 s) — 다음 분의 호출은 claimed_at 10 분 잠금이 막는다
+--   열쇠: jobid 55 의 command 에서 다시 꺼낸다 — 실행 가능한 덩이는 ~/asung/prompts/drive-2-cron.sql(테스트 DB 확인 · drive-1 적용 확인 · 열쇠는 그 파일에 없다)
+--   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-drive';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-drive'), active := false);   · 해제: select cron.unschedule('ims-drive');
+--   ⚠️ drive_enabled = off 여도 PDF 단계는 돈다(설계) — 드라이브 올리기만 멈춘다 · 전부 멈추려면 킬 스위치
+select cron.schedule('ims-drive', '* * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/drive',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>'),
+    body := '{"action":"run"}'::jsonb, timeout_milliseconds := 120000)
+  where exists (select 1 from public.drive_job j
+                 where coalesce(j.next_attempt_at, '-infinity') <= now() and (j.claimed_at is null or j.claimed_at < now() - interval '10 minutes')
+                   and ((j.kind = 'archive' and j.status = 'waiting_pdf')
+                        or (j.status = 'queued' and exists (select 1 from public.inv_config c where c.key = 'drive_enabled' and c.value = 'on'))));
+$job$);

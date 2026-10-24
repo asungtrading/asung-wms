@@ -2,7 +2,8 @@
 //   ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때 · config.toml [functions.doc] verify_jwt = false(문은 여기서 — 두 길)
 //   문 둘: ① 직원 JWT(Authorization: Bearer <access_token>) — 그 JWT 로 DB 를 부른다(doc_data · doc_template_get 의 문 · RLS 가 그대로 걸린다 · ship_ready 도 된다)
 //          ② service(x-ims-cron-key == secret IMS_CRON_SECRET · 뒤 차수 doc-3 메일 일꾼) — service_role 로 DB · ship_ready 는 거부(doc-1b2 이견 7)
-//   POST {"action": "render", "kind", "ref", "reason", "template_id"?}  → {ok, template_id, template_version, files: [{doc_file_id, path, bytes, pages, doc_number, group, signed_url, expires_in}]}
+//   POST {"action": "render", "kind", "ref", "reason", "template_id"?}  → {ok, template_id, template_version, files: [{doc_file_id, path, bytes, pages, doc_number, group, signed_url, expires_in}], existing?}
+//        drive-2(판정 692): reason archive = 발행 때 모습 한 장 · service 길만 · final_invoice · credit_note 만 · 이미 있으면 그리지 않고 그것을 돌려준다(existing true · doc_file_archive_uq)
 //        {"action": "url", "doc_file_id"}                                 → {ok, path, signed_url, expires_in}(문 = doc_file_get 을 부르는 쪽의 신원)
 //        {"action": "status"}                                             → {ok, secrets: {…: true|false}, gotenberg: {reachable, status, body}}
 //   비밀: GOTENBERG_URL · GOTENBERG_USER · GOTENBERG_PASS(tools/gotenberg-secrets.sh) · IMS_CRON_SECRET(기존) — 값은 로그 · 응답 · DB 어디에도 남기지 않는다
@@ -80,6 +81,13 @@ async function staffIdOf(auth: Auth): Promise<string | null> {
 function deps(auth: Auth, staffId: string | null): Deps {
   const svc: Auth = { mode: "service" };
   return {
+    findArchive: async (kind: Kind, ref: unknown) => {                                               // drive-2 — doc_file_list(kind, ref) 의 reason archive 한 줄 → doc_file_get 으로 경로 · 판
+      const list = (await rpc(svc, "doc_file_list", { p_kind: kind, p_ref: ref })) ?? [];
+      const hit = (Array.isArray(list) ? list : []).find((f: any) => f?.reason === "archive");
+      if (!hit) return null;
+      const f = await rpc(svc, "doc_file_get", { p_id: hit.id });
+      return { doc_file_id: String(f.id), path: String(f.path), bytes: Number(f.bytes), pages: f.pages ?? null, doc_number: f.doc_number ?? null, template_id: String(f.template_id), template_version: Number(f.template_version) };
+    },
     getTemplate: async (kind: Kind, templateId: string | null): Promise<Template> => {
       let id = templateId;
       if (!id) {

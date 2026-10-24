@@ -520,6 +520,15 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/mail/index.ts"
 
+[functions.drive]
+enabled = true
+# drive-2 (2026-10-24 · 판정 688 ~ 708 · 미룬 260) — 구글 공유 드라이브 일꾼: drive_job_claim → 보관본 PDF(EF doc · reason archive · drive_enabled 와 무관) · 올리기 · 바로가기 · 이름 바꾸기 → drive_job_done / failed · action status(토큰 · files.list · drive_status).
+#   ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때. 배포: supabase functions deploy drive --project-ref fazgmyvzzhqybtvtktyg
+#   pg_cron(ims-drive · 1 분)이 JWT 없이 x-ims-cron-key 시크릿 헤더로 부른다(secret IMS_CRON_SECRET · 미설정이면 500 fail-closed) · verify_jwt=false 가 없으면 게이트웨이 401(mail · doc 과 같은 이유).
+#   비밀: GDRIVE_OAUTH_CLIENT_ID · GDRIVE_OAUTH_CLIENT_SECRET · GDRIVE_REFRESH_TOKEN_IMS(tools/gdrive-oauth-ims.sh · 범위 drive.file) · IMS_CRON_SECRET(EF doc 을 부를 때도 같은 열쇠).
+verify_jwt = false
+entrypoint = "./functions/drive/index.ts"
+
 [functions.doc]
 enabled = true
 # doc-2 (2026-10-19 · 판정 523) — 서버 PDF 일꾼: 판(doc_template) + doc_data → mustache → Gotenberg(Cloud Run 토론토 · 기본 인증) → 비공개 버킷 documents + doc_file · 짧은 서명 URL.

@@ -120,3 +120,29 @@ Deno.test("E5 문 · 실패 — service 길의 ship_ready 거부 · 모르는 ki
   err = ""; try { await renderAll(fakeDeps([]), { kind: "ship_ready", ref: { orders: [] }, reason: "send" }, { mode: "service" }); } catch (e) { err = String(e); }
   ok(/staff login/.test(err), "renderAll 도 service + ship_ready 거부");
 });
+
+Deno.test("E6 drive-2 archive — service 길만 · final_invoice · credit_note 만 · 있으면 그리지 않고 그것(existing) · 없으면 그린다 · 같은 초 둘(유니크 거부)이면 먼저 것", async () => {
+  const svc = { mode: "service" } as const;
+  ok(/drive worker only/.test(gate({ ...REQ, reason: "archive" }, { mode: "staff", jwt: "j" }) ?? ""), "직원은 archive 못 만든다");
+  ok(/final_invoice and credit_note only/.test(gate({ kind: "sales_order", ref: { so_id: "s" }, reason: "archive" }, svc) ?? ""), "SO 는 보관 안 함(690)");
+  eq(gate({ ...REQ, reason: "archive" }, svc), null, "service + final_invoice archive 통과");
+  const EX = { doc_file_id: "f-ex", path: "final_invoice/60009-t5-20261019T181014Z.pdf", bytes: 10, pages: 1, doc_number: "60009", template_id: "t-ex", template_version: 5 };
+  const calls: string[] = [];
+  const found = await renderAll({ ...fakeDeps(calls), findArchive: async (k, r) => { calls.push("find:" + k + ":" + JSON.stringify(r)); return EX; } }, { ...REQ, reason: "archive" }, svc);
+  eq(found.existing, true, "existing");
+  eq(found.files[0].doc_file_id, "f-ex", "있는 보관본");
+  eq(calls, ["find:final_invoice:" + JSON.stringify(REQ.ref), "sign:" + EX.path], "그리기 · 올리기 · add 없음");
+  const calls2: string[] = [];
+  const made = await renderAll({ ...fakeDeps(calls2), findArchive: async () => { calls2.push("find"); return null; } }, { ...REQ, reason: "archive" }, svc);
+  ok(made.existing === undefined && calls2.map((c) => c.split(":")[0]).join(",") === "find,template,data,convert,upload,add,sign" && calls2[5].includes(":archive:"), "없으면 그린다 · reason archive 로 남긴다");
+  const calls3: string[] = [];
+  let finds = 0;
+  const raced = await renderAll({ ...fakeDeps(calls3), findArchive: async () => { finds++; return finds === 1 ? null : EX; },
+    addFile: async () => { throw new Error('doc_file_add: duplicate key value violates unique constraint "doc_file_archive_uq"'); } }, { ...REQ, reason: "archive" }, svc);
+  eq(raced.existing, true, "유니크 거부 → 다시 찾아 먼저 것");
+  eq(raced.files[0].doc_file_id, "f-ex", "먼저 들어간 행");
+  let err = "";
+  try { await renderAll({ ...fakeDeps([]), findArchive: async () => null, addFile: async () => { throw new Error("doc_file_add: something else"); } }, { ...REQ, reason: "archive" }, svc); } catch (e) { err = String(e); }
+  ok(/something else/.test(err), "다른 오류는 그대로 던진다");
+  ok(/reason must be/.test(gate({ ...REQ, reason: "archived" }, svc) ?? ""), "모르는 reason");
+});

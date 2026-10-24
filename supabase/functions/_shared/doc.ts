@@ -7,7 +7,7 @@ import Mustache from "npm:mustache@4.2.0";
 
 export const KINDS = ["final_invoice", "credit_note", "sales_order", "ship_ready", "internal_receipt"] as const;
 export type Kind = typeof KINDS[number];
-export const REASONS = ["print", "send", "reprint", "preview"] as const;
+export const REASONS = ["print", "send", "reprint", "preview", "archive"] as const;   // drive-2: archive = 발행 때 모습 한 장(판정 692 · service 길만 · 문서마다 하나 doc_file_archive_uq)
 export type Auth = { mode: "staff"; jwt: string } | { mode: "service" };
 export type RenderReq = { kind: string; ref: unknown; reason: string; template_id?: string | null };
 export type Template = { id: string; kind: string; version: number; body: string; ok: boolean };
@@ -15,7 +15,9 @@ export type DocData = { docs: unknown[]; groups?: { group: string; so_ids?: unkn
 export type GOutcome = { kind: "http"; status: number; bytes: Uint8Array; text: string; trace: string | null } | { kind: "timeout" } | { kind: "network"; message: string };
 export type Classified = { ok: true; bytes: Uint8Array } | { ok: false; error: string; status: number | null };
 export type FileRow = { kind: string; ref: unknown; doc_number: string | null; template_id: string; path: string; bytes: number; sha256: string; pages: number | null; reason: string; made_by: string | null; note: string | null };
+export type Existing = { doc_file_id: string; path: string; bytes: number; pages: number | null; doc_number: string | null; template_id: string; template_version: number };
 export type Deps = {
+  findArchive?: (kind: Kind, ref: unknown) => Promise<Existing | null>;   // drive-2: 보관본이 이미 있으면 그것(그리기 전에 찾는다 · 고아 PDF 없음)
   getTemplate: (kind: Kind, templateId: string | null) => Promise<Template>;
   getData: (kind: Kind, ref: unknown) => Promise<DocData>;
   convert: (html: string) => Promise<GOutcome>;
@@ -36,6 +38,8 @@ export function gate(req: RenderReq, auth: Auth): string | null {
   if (!REASONS.includes(req.reason as typeof REASONS[number])) return `reason must be one of ${REASONS.join(", ")}`;
   if (req.ref === null || typeof req.ref !== "object" || Array.isArray(req.ref)) return "ref must be a JSON object";
   if (auth.mode === "service" && req.kind === "ship_ready") return "ship_ready needs a staff login — the finalize preview asks for sales permission (doc-1b2)";   // 이견 7
+  if (req.reason === "archive" && auth.mode !== "service") return "archive is made by the drive worker only (service key) — staff use print, reprint or preview";   // drive-2 이견 2
+  if (req.reason === "archive" && req.kind !== "final_invoice" && req.kind !== "credit_note") return "archive is kept for final_invoice and credit_note only (ruling 690)";
   if (req.template_id != null && !/^[0-9a-f-]{36}$/i.test(String(req.template_id))) return "template_id must be a uuid";
   return null;
 }
@@ -97,10 +101,14 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 // ── 흐름 ──
 export type Made = { doc_file_id: string; path: string; bytes: number; pages: number | null; doc_number: string | null; group: string | null; signed_url: string; expires_in: number };
-export async function renderAll(d: Deps, req: RenderReq, auth: Auth): Promise<{ template_id: string; template_version: number; files: Made[] }> {
+export async function renderAll(d: Deps, req: RenderReq, auth: Auth): Promise<{ template_id: string; template_version: number; files: Made[]; existing?: boolean }> {
   const g = gate(req, auth);
   if (g) throw new Error(g);
   const kind = req.kind as Kind;
+  if (req.reason === "archive" && d.findArchive) {                                                   // drive-2 이견 1 — 그리기 전에 찾는다 · 두 번 불러도 하나
+    const ex = await d.findArchive(kind, req.ref);
+    if (ex) return { template_id: ex.template_id, template_version: ex.template_version, existing: true, files: [{ doc_file_id: ex.doc_file_id, path: ex.path, bytes: ex.bytes, pages: ex.pages, doc_number: ex.doc_number, group: null, signed_url: await d.sign(ex.path), expires_in: SIGN_SECONDS }] };
+  }
   const t = await d.getTemplate(kind, req.template_id ?? null);                                   // 판: 주어진 판(「발행 때의 판으로 다시」) · 없으면 쓰는 판
   if (t.kind !== kind) throw new Error(`layout version is for ${t.kind}, not ${kind}`);
   if (!t.ok) throw new Error(`layout version ${t.version} of ${kind} did not pass its checks`);
@@ -118,8 +126,17 @@ export async function renderAll(d: Deps, req: RenderReq, auth: Auth): Promise<{ 
     const group = data.groups?.[i]?.group ?? null;
     const path = fileName(kind, number, t.version, d.now(), i);
     await d.upload(path, c.bytes);
-    const row = await d.addFile({ kind, ref: kind === "ship_ready" && group != null ? { ...(req.ref as Record<string, unknown>), group, so_ids: data.groups?.[i]?.so_ids ?? null } : req.ref,
+    let row: { id: string };
+    try {
+      row = await d.addFile({ kind, ref: kind === "ship_ready" && group != null ? { ...(req.ref as Record<string, unknown>), group, so_ids: data.groups?.[i]?.so_ids ?? null } : req.ref,
                                   doc_number: number, template_id: t.id, path, bytes: c.bytes.length, sha256: await sha256Hex(c.bytes), pages: pdfPages(c.bytes), reason: req.reason, made_by: d.staffId, note: null });
+    } catch (e) {                                                                                    // drive-2 이견 1 — 같은 초에 둘: 유니크 거부면 먼저 들어간 보관본을 돌려준다(이 장의 PDF 는 버킷에 남는다 · 행은 하나)
+      if (req.reason === "archive" && d.findArchive && /doc_file_archive_uq/.test(String((e as Error)?.message ?? e))) {
+        const ex = await d.findArchive(kind, req.ref);
+        if (ex) return { template_id: ex.template_id, template_version: ex.template_version, existing: true, files: [{ doc_file_id: ex.doc_file_id, path: ex.path, bytes: ex.bytes, pages: ex.pages, doc_number: ex.doc_number, group: null, signed_url: await d.sign(ex.path), expires_in: SIGN_SECONDS }] };
+      }
+      throw e;
+    }
     files.push({ doc_file_id: row.id, path, bytes: c.bytes.length, pages: pdfPages(c.bytes), doc_number: number, group, signed_url: await d.sign(path), expires_in: SIGN_SECONDS });
   }
   return { template_id: t.id, template_version: t.version, files };
