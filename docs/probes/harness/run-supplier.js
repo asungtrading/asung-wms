@@ -46,7 +46,7 @@ ok(a.every(r => r.method === 'get'), 'Dry 는 쓰기 0');
 ok(/보낼 행 4 = 갱신 3 \+ 새 행 1 · 새 비활성\(안 넣음\) 1 · Cin7 활성 3/.test(L), 'Dry: 보낼 4 = 갱신 3 + 새 1 · 새 비활성 1');
 ok(/짝지은 IMS 공급처\(674 · 681 · cin7_id 만\) 이번 1 · 이미 짝지어진\(안 보냄\) 0 · 손댄 행\(672 · Cin7 이 덮는다\) 1 · is_active IMS 값 유지\(680\) 1 · Cin7 에 없어 내릴 행 1/.test(L), 'Dry: 짝 1 · 손댄 1 · 680 1 · 내림 1');
 ok(/\[674 짝\] "TEST Supplier-Canada" ← cin7_id c0000000-0000-4000-8000-000000000005 · 값이 다른 칸 name: IMS="TEST Supplier-Canada" Cin7="​TEST Supplier-Canada"/.test(L), '681: U+200B 가 붙은 Cin7 이름과 짝(이름 차이는 목록에)');
-ok(/\[680 is_active 는 IMS 값 유지\] Supplier S2 \(IMS edit\) : IMS true \(Cin7 false\)/.test(L), '680: S2 is_active IMS true 유지');
+ok(/\[680 is_active 는 IMS 값 유지\] Supplier S2 \(IMS edit\) : IMS true \(Cin7 false\)/.test(L), '680 · 683: S2 is_active IMS true 유지(is_active_source ims)');
 ok(/\[672 손댄 행\] Supplier S2 \(IMS edit\) .* — 덮임: name: IMS="Supplier S2 \(IMS edit\)" Cin7="Supplier S2"/.test(L) && !/is_active: IMS/.test(L), '672: S2 이름 덮임 · is_active 는 차이에 없음');
 ok(/\[내림\] Supplier S6 Gone/.test(L), '내릴 행 S6');
 
@@ -61,6 +61,9 @@ ok(rows.every(r => !('is_purchasable' in r) && !('is_discontinued' in r) && !('n
 const dn = patches(a, /supplier\?cin7_id=in\./);
 ok(dn.length === 1 && dn[0].path === '/rest/v1/supplier?cin7_id=in.(' + C(6) + ')' && dn[0].body.is_active === false, '내리기 PATCH: S6 만');
 ok(fake.props.ILS_LAST_APPLY_AT > '2026-10-20T00:00:00.000Z', 'ILS_LAST_APPLY_AT 갱신');
+const rc1 = a.filter(r => r.method === 'post' && /rpc\/product_supplier_default_recalc/.test(r.path));
+ok(rc1.length === 1 && /\[682 기본 공급처 재계산\] 끔 1 · 켬 1 · 기본 둘 이상 0 \(all\)/.test(L), '682: Apply 끝 재계산 rpc 1 회 · 끔 1(P3 · S6 내려감) · 켬 1(P4 · S1) · 둘 이상 0');
+if (mode === 'emu') ok(dbRow('product_supplier', r => r.id === U(606)).is_default === false && dbRow('product_supplier', r => r.id === U(607)).is_default === true, 'emu: P3 기본 꺼짐 · P4 기본 켜짐');
 if (mode === 'emu') {
   ok(dbRow('supplier', r => r.id === U(205)).cin7_id === C(5) && dbRow('supplier', r => r.id === U(205)).name === 'TEST Supplier-Canada' && dbRow('supplier', r => r.id === U(205)).is_purchasable === true, 'emu: IMS 공급처 cin7_id 만 · 이름 원문 · purchasable 그대로');
   ok(dbRow('supplier', r => r.id === U(2)).name === 'Supplier S2' && dbRow('supplier', r => r.id === U(2)).is_active === true && dbRow('supplier', r => r.id === U(2)).updated_by === null, 'emu: S2 이름 Cin7 · 켜짐 IMS · updated_by 비움');
@@ -69,9 +72,10 @@ if (mode === 'emu') {
 
 section('본 행 Apply 2 회차(멱등 · 짝지은 행은 안 보냄)');
 lm = logMark(); m = mark(); imsLoadSupplierApply(); L = logsSince(lm); a = since(m);
-ok(/이번 0 · 이미 짝지어진\(안 보냄\) 1/.test(L) && /is_active IMS 값 유지\(680\) 0/.test(L), '2 회차: 짝 0 · 이미 짝지어진 1 · 680 0(표식이 비워져 한 번만 통한다)');
+ok(/이번 0 · 이미 짝지어진\(안 보냄\) 1/.test(L) && /is_active IMS 값 유지\(680\) 1/.test(L), '2 회차: 짝 0 · 이미 짝지어진 1 · 680 · 683 1(칸 표식이라 남는다)');
 const up2 = posts(a, /\/supplier\?on_conflict=cin7_id/).reduce((x, r) => x.concat(r.body), []);
-ok(up2.length === 4 && !up2.some(r => r.cin7_id === C(5)) && up2.find(r => r.cin7_id === C(2)).is_active === false, '2 회차 upsert 4 · 짝지은 S5 없음 · ⚠️ S2 는 Cin7 값(false)으로 돌아간다');
+ok(up2.length === 4 && !up2.some(r => r.cin7_id === C(5)) && up2.find(r => r.cin7_id === C(2)).is_active === true, '2 회차 upsert 4 · 짝지은 S5 없음 · ⭐ S2 켜짐이 남는다(판정 683)');
+ok(/\[682 기본 공급처 재계산\] 끔 0 · 켬 0 · 기본 둘 이상 0/.test(L), '2 회차 재계산 멱등(끔 0 · 켬 0)');
 ok(patches(a, /supplier\?id=eq\./).length === 0 && patches(a, /supplier\?cin7_id=in\./).length === 0, '2 회차: 짝짓기 PATCH 0 · 내리기 0');
 
 section('주소 · 연락처 Dry · Apply');
@@ -91,7 +95,7 @@ if (mode === 'emu') ok(dbRow('supplier_contact', r => r.cin7_id === C(202)).is_a
 section('Verify');
 lm = logMark(); imsLoadSupplierVerify(); L = logsSince(lm); console.log(L);
 ok(/✅ supplier\(source=cin7\) 전체 = 이번에 보낼 행 \+ 내려 둔 행 : DB 5 · 기준 5/.test(L), 'Verify: cin7 행 5 = 보낼 4 + 내려 둔 1');
-ok(/\(is_active 가 Cin7 상태와 다른 cin7 행 0 /.test(L), 'Verify: Cin7 상태와 다른 행 0 — 2 회차 Apply 가 S2 를 Cin7 값으로 되돌렸다(680 은 한 번만 통한다)');
+ok(/\(is_active 가 Cin7 상태와 다른 cin7 행 1 → Supplier S2\(IMS true\)/.test(L), 'Verify: Cin7 상태와 다른 행 1 = S2(683 으로 지킨 것 · 2 회차 뒤에도)');
 ok(/⭐ 본 행 전부 일치/.test(L), 'Verify 본 행 일치');
 
 section('제품↔공급처 Apply (ImsLoadProductSupplier.gs)');
@@ -102,5 +106,6 @@ ok(psUp.length === 2 && psUp.some(r => r.cin7_id === C(601)) && psUp.some(r => r
 const prm = patches(a, /product_supplier\?id=eq\.00000000-0000-4000-8000-000000000604$/);
 ok(prm.length === 1 && JSON.stringify(prm[0].body) === JSON.stringify({ cin7_id: C(604) }), '승격 PATCH: cin7_id 만(cost · supplier_sku 안 보냄)');
 ok(/보내지 않은 줄\(IMS 가 정한 Cin7 줄\) 1 · 손댄 cin7 줄을 덮음 1/.test(L) && /\[672 손댄 줄 · Cin7 이 덮는다\] P1 ← Supplier S1 .* — 덮임: cost: IMS=9.99 Cin7=1.5/.test(L), 'product_supplier 로그: 안 보냄 1 · 672 cost 덮임');
+ok(a.filter(r => r.method === 'post' && /rpc\/product_supplier_default_recalc/.test(r.path)).length === 1 && /\[682 기본 공급처 재계산\] 끔 0 · 켬 (0|1) · 기본 둘 이상 0 \(all\)/.test(L), '682: 제품↔공급처 Apply 끝 재계산 rpc 1 회 · 둘 이상 0');
 if (mode === 'emu') ok(dbRow('product_supplier', r => r.id === U(603)).cost === 7.77 && dbRow('product_supplier', r => r.id === U(603)).is_active === false && dbRow('product_supplier', r => r.id === U(604)).cin7_id === C(604) && dbRow('product_supplier', r => r.id === U(604)).cost === 5.55 && dbRow('product_supplier', r => r.id === U(604)).supplier_sku === 'IMS-SKU' && dbRow('product_supplier', r => r.id === U(601)).cost === 1.5, 'emu: C603 그대로 · 승격 줄 IMS 값 그대로 + cin7_id · 손댄 줄 Cin7 값');
 finish();

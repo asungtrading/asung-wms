@@ -80,6 +80,10 @@ function makeFakeGas(opts) {
       hit.forEach(r => { const oldParent = r.parent_id, oldPP = r.parent_product_id, oldS = r.sellable; Object.assign(r, body); if (table === 'customer' && 'parent_id' in body) customerGuard(r, oldParent); if (table === 'product' && 'parent_product_id' in body) productGuard(r, oldPP, oldS, body); touch(table, r); });
       return respond(200, prefer.includes('return=representation') ? hit : []);
     }
+    if (method === 'post' && table.startsWith('rpc/')) {
+      if (table === 'rpc/product_supplier_default_recalc') return respond(200, recalcDefaults(JSON.parse(o.payload || '{}').p_product_ids || null));
+      throw new Error('emu: rpc 미지원 ' + table);
+    }
     if (method === 'post') {
       const body = JSON.parse(o.payload); const arr = Array.isArray(body) ? body : [body];
       const keys = (extra.on_conflict || '').split(',').filter(Boolean);
@@ -104,6 +108,25 @@ function makeFakeGas(opts) {
     const items = all.slice((page - 1) * limit, page * limit);
     const body = { Total: all.length }; body[path === 'productFamily' ? 'ProductFamilies' : (path === 'supplier' ? 'SupplierList' : 'Products')] = items;
     return respond(200, body);
+  }
+  // ── product_supplier_default_recalc 흉내 — po-module §3-g ① 끄기 → ② 켜기(동점 · 날짜 없음은 비워 둠 · manual 줄 있는 제품은 건드리지 않음) ──
+  function recalcDefaults(pids) {
+    const ps = db.product_supplier || [], sup = {}; (db.supplier || []).forEach(s => { sup[s.id] = s; });
+    const inScope = r => !pids || pids.indexOf(r.product_id) >= 0;
+    let off = 0, on = 0;
+    ps.forEach(r => { if (inScope(r) && r.is_default && (!r.is_active || !(sup[r.supplier_id] && sup[r.supplier_id].is_active))) { r.is_default = false; touch('product_supplier', r); off++; } });
+    const byP = {}; ps.forEach(r => { (byP[r.product_id] = byP[r.product_id] || []).push(r); });
+    Object.keys(byP).forEach(pid => {
+      const rows = byP[pid]; if (!inScope(rows[0])) return;
+      if (rows.some(r => r.source === 'manual') || rows.some(r => r.is_default)) return;
+      const cand = rows.filter(r => r.is_active && sup[r.supplier_id] && sup[r.supplier_id].is_active);
+      if (!cand.length) return;
+      const n = cand.length; cand.sort((a, b) => (b.last_supplied || '') < (a.last_supplied || '') ? -1 : ((b.last_supplied || '') > (a.last_supplied || '') ? 1 : 0));
+      const top = cand[0], tie = cand.filter(r => r.last_supplied === top.last_supplied).length;
+      if (n === 1 || (top.last_supplied && tie === 1)) { top.is_default = true; touch('product_supplier', top); on++; }
+    });
+    const multi = Object.keys(byP).filter(pid => inScope(byP[pid][0]) && byP[pid].filter(r => r.is_default).length > 1).length;
+    return { turned_off: off, turned_on: on, multi_default_products: multi, scope: pids ? pids.length + ' products' : 'all' };
   }
   // ── curl 로컬 모드 ──
   function curlFetch(url, o) {

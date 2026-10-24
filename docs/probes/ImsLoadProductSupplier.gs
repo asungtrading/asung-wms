@@ -21,7 +21,7 @@
  *    · manual 이면서 cin7_id 가 있는 줄(IMS 가 끈 Cin7 줄 · product_update supplier_off 가 manual 로 바꾼다 · Roux 19) → Cin7 줄과 열쇠가 같아 upsert 가 덮으므로 묶음에서 뺀다
  *    · manual 이면서 cin7_id 가 없는 줄(사람이 먼저 적은 줄) → 승격은 cin7_id 만 PATCH(cost · fixed_cost · supplier_sku · currency · last_supplied 는 IMS 값 그대로 · 판정 132)
  *    · cin7 줄 중 updated_by 가 있는 줄(지난 적재 뒤 직원이 고침)은 672 꼴 로그 — Cin7 이 덮는다
- * ⬜ [판정 682 · 미룬 317] 기본 공급처 재계산(§3-g ① ②)은 DB 함수로 — 이 파일에서는 ips_loadLines_ Apply 끝에 부를 자리만 표시(짓지 않았다)
+ * ⭐ [판정 682 · 미룬 317 · ldfix-1c2] 기본 공급처 재계산 = DB 함수 product_supplier_default_recalc(service_role rpc) — ips_loadLines_ Apply 끝에서 전체를 부른다 · 반환 셋을 로그 · 「기본 둘 이상 > 0」 이면 ⚠️
  * ⭐ is_default 계산과 §3-f 정리는 SQL 로 한다 — 제품마다 줄을 다 모은 뒤라야 고를 수 있다
  *
  * ⭐ 시트는 「한 회차 안의 중간 저장」이다. 재적재할 때마다 Cin7 을 새로 훑는다.
@@ -334,5 +334,9 @@ function ips_loadLines_(dryRun) {
     else Logger.log('⚠️ 승격 실패 ' + p.id + ' HTTP ' + res.getResponseCode());
   });
   if (promote.length) Logger.log('⭐ 승격된 줄(cin7_id 만): ' + ok + ' / ' + promote.length);
-  // ⬜ [판정 682 · 미룬 317] 여기서 기본 공급처 재계산(DB 함수 · §3-g ① 끄기 → ② 켜기)을 부른다 — 함수는 다음 차수(마이그레이션)가 짓는다 · 그때까지는 적재 뒤 psql 로 손 실행
+  // [판정 682 · 미룬 317 · ldfix-1c2] 기본 공급처 재계산 — §3-g ① 끄기(줄 · 공급처 비활성) → ② 켜기(기본 없는 제품 · 동점 · 날짜 없음은 비워 둠 · manual 제품 보호) · 멱등
+  var rr = ims_fetch_('/rest/v1/rpc/product_supplier_default_recalc', { method: 'post', payload: '{}' });
+  if (rr.getResponseCode() >= 300) throw new Error('기본 공급처 재계산 rpc 실패 HTTP ' + rr.getResponseCode() + ' ' + rr.getContentText().slice(0, 300));
+  var rc = JSON.parse(rr.getContentText());
+  Logger.log('[682 기본 공급처 재계산] 끔 ' + rc.turned_off + ' · 켬 ' + rc.turned_on + ' · 기본 둘 이상 ' + rc.multi_default_products + (Number(rc.multi_default_products) > 0 ? ' ⚠️ 0 이어야 한다 — 사람이 가른다' : '') + ' (' + rc.scope + ')');
 }

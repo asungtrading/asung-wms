@@ -26,8 +26,9 @@
  *   674 · 681  cin7_id 없는 IMS 공급처(source manual)와 「보이는 글자가 정확히 같은」 이름(U+200B · U+200C · U+200D · U+FEFF · U+00A0 를 빼고 trim) → IMS 행에 cin7_id 만 PATCH · 묶음에서 뺀다 · 값이 다른 칸 로그
  *           저장은 원문 그대로 · 같은 비교로 이름 겹침(supplier_name_key 23505)을 미리 걸러 멈춤
  *   672     source=cin7 이면서 updated_by 가 있는 행(지난 적재 뒤 직원이 창구로 고친 행 · 적재가 쓰면 ims_touch 가 비운다)의 「IMS 값 ↔ Cin7 값」 을 로그에 — Cin7 값이 덮는다(이름 · 결제조건 · 계정 · 통화 · 세금 규칙 · 메모)
- *   680     ⭐ 그 손댄 행의 is_active 는 IMS 값을 같은 키로 싣는다(Cin7 Deprecated 를 IMS 가 켠 Energizer Canada 류 · 로그 「is_active 는 IMS 값 유지」)
- *           ⚠️ 표식(updated_by)은 적재가 비우므로 한 번만 통한다 — 다음 적재에서는 Cin7 값으로 돌아간다(ldfix-1c 보고 · 판정 거리) · Verify 가 「Cin7 상태와 다른 cin7 행」 을 이름으로 찍는다
+ *   680 · 683  ⭐ is_active_source='ims' 인 행(IMS 창구가 켜거나 껐다 · ldfix-1c2 마이그레이션 · 몇 번 적재해도 남는다)의 is_active 는 IMS 값을 같은 키로 싣는다(Cin7 Deprecated 를 IMS 가 켠 Energizer Canada 류 · 로그 「is_active 는 IMS 값 유지」)
+ *           (ldfix-1c 의 updated_by 기준은 적재가 비워 한 번만 통했다 → 판정 683 으로 칸을 두었다) · 672 목록의 기준은 그대로 updated_by
+ *   682     Apply 끝에 rpc product_supplier_default_recalc(전체)를 부른다 — 공급처 켜짐이 바뀌었으면 기본 공급처가 따라간다(§3-g ① 끄기 → ② 켜기 · 멱등) · 「기본 둘 이상 > 0」 이면 ⚠️
  *   보내지 않는 칸  is_purchasable · is_discontinued · discontinued_on · note · id · created_* · updated_*(IMS 칸 · §7-a) — 「보내지 않는다」 ≠ 「null 로 보낸다」
  *   주소 · 연락처  짝지은 공급처(source manual · cin7_id 있음)의 Cin7 줄은 적재하지 않는다(연락처 기본 하나 supplier_contact_default_uq 가 IMS 기본과 23505 로 부딪친다)
  *           'no longer purchase' 이름의 연락처는 행을 만들지 않는다(§7-b) · 손댄 cin7 줄은 672 로그 · 사라진 cin7 줄은 내린다
@@ -55,6 +56,7 @@ function ils_load_(dryRun) {
   rep.push('upsert 돌아온 행 ' + n + ' / 보낸 ' + b.rows.length + ' (갱신 ' + b.counts.update + ' · 새 행 ' + b.counts.fresh + ')');
   var down = ils_patchIn_('supplier', b.gone.map(function (r) { return r.cin7_id; }), { is_active: false }, b.rows.length);
   rep.push('Cin7 에 없어 내린 공급처 ' + down + (b.gone.length ? ' : ' + b.gone.slice(0, 20).map(function (r) { return r.name; }).join(' · ') : ''));
+  rep.push(ils_recalc_());                                                       // 판정 682 — 켜짐이 바뀐 공급처의 제품 기본 공급처
   props.setProperty('ILS_LAST_APPLY_AT', new Date().toISOString());
   rep.push('ILS_LAST_APPLY_AT = ' + props.getProperty('ILS_LAST_APPLY_AT') + ' · 다음은 imsLoadSupplierSub');
   ils_log_(rep);
@@ -111,10 +113,12 @@ function ils_build_() {
       // 이름 겹침 사전 검사 — Cin7 이 바꾼 이름이 우리 표의 다른 행과 같으면 supplier_name_key 23505
       var other = byVis[ils_vis_(row.name)];
       if (other && other.id !== ex.id) stop.push('이름 겹침(23505): Cin7 ' + JSON.stringify(row.name) + '(cin7_id ' + row.cin7_id + ') 이 우리 표의 다른 행 ' + JSON.stringify(other.name) + '(' + other.source + ') 과 같다');
-      if (ex.updated_by) {
+      if (ex.is_active_source === 'ims') {               // 판정 683(680 의 기준을 칸으로) — IMS 가 켜거나 끈 공급처의 is_active 는 IMS 값
         if (row.is_active !== ex.is_active) kept.push(ex.name + ' : IMS ' + ex.is_active + ' (Cin7 ' + row.is_active + ')');
-        row.is_active = ex.is_active;                    // 판정 680
-        var d = ils_diff_(ex, row, ['cin7_id', 'source']);
+        row.is_active = ex.is_active;
+      }
+      if (ex.updated_by) {                               // 판정 672 — 손댄 행 목록(is_active 가 유지됐으면 차이에 안 보인다)
+        var d = ils_diff_(ex, row, ['cin7_id', 'source', 'is_active_source']);
         touched.push(ex.name + ' (updated_at ' + ex.updated_at + ')' + (d.length ? ' — 덮임: ' + d.join(' / ') : ' — 덮여도 값 그대로'));
       }
       counts.update++;
@@ -247,7 +251,7 @@ function imsLoadSupplierVerify() {
     if (!ok) bad++;
     rep.push((ok ? '   ✅ ' : '   ⚠️ ') + p[0] + ' : DB ' + got + ' · 기준 ' + p[2]);
   });
-  rep.push('   (is_active 가 Cin7 상태와 다른 cin7 행 ' + differs.length + (differs.length ? ' → ' + differs.map(function (r) { return r.name + '(IMS ' + r.is_active + ')'; }).join(' · ') : '') + ' — 680 으로 지킨 것 · 다음 적재에서는 Cin7 값으로 돌아간다 · 대조하지 않는다)');
+  rep.push('   (is_active 가 Cin7 상태와 다른 cin7 행 ' + differs.length + (differs.length ? ' → ' + differs.map(function (r) { return r.name + '(IMS ' + r.is_active + ')'; }).join(' · ') : '') + ' — 683 is_active_source=ims 로 지키는 것 · 대조하지 않는다)');
   rep.push('   (내려 둔 cin7 행 ' + goneKept + ' · 손댄 행 ' + ils_count_('/rest/v1/supplier?select=id&source=eq.cin7&updated_by=not.is.null') + ' — 적재 뒤 0 이어야 한다)');
   rep.push('   (주소 활성(cin7) ' + ils_count_('/rest/v1/supplier_address?select=id&source=eq.cin7&is_active=eq.true') + ' · 연락처 활성(cin7) ' + ils_count_('/rest/v1/supplier_contact?select=id&source=eq.cin7&is_active=eq.true') + ' · 연락처 기본(cin7) ' + ils_count_('/rest/v1/supplier_contact?select=id&source=eq.cin7&is_active=eq.true&is_default=eq.true') + ' — imsLoadSupplierSub 의 보낼 줄과 견준다)');
   rep.push(bad ? '⚠️ 어긋남 ' + bad + '곳' : '⭐ 본 행 전부 일치');
@@ -430,6 +434,13 @@ function ils_count_(path) {
   var m = cr.match(/\/(\d+)$/);
   if (!m) throw new Error('Content-Range 를 못 읽었다: "' + cr + '"');
   return Number(m[1]);
+}
+/** 판정 682 · 미룬 317 — 기본 공급처 재계산 rpc(전체 · service_role) · 반환 {turned_off, turned_on, multi_default_products, scope} */
+function ils_recalc_() {
+  var res = ims_fetch_('/rest/v1/rpc/product_supplier_default_recalc', { method: 'post', payload: '{}' });
+  if (res.getResponseCode() >= 300) throw new Error('기본 공급처 재계산 rpc 실패 HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 300));
+  var r = JSON.parse(res.getContentText());
+  return '[682 기본 공급처 재계산] 끔 ' + r.turned_off + ' · 켬 ' + r.turned_on + ' · 기본 둘 이상 ' + r.multi_default_products + (Number(r.multi_default_products) > 0 ? ' ⚠️ 0 이어야 한다 — 사람이 가른다' : '') + ' (' + r.scope + ')';
 }
 function ils_dup_(rows) { var seen = {}, n = 0; rows.forEach(function (r) { if (seen[r.cin7_id]) n++; else seen[r.cin7_id] = true; }); return n; }
 function ils_fmt_(m) { var ks = Object.keys(m); return ks.length ? ks.map(function (k) { return k + ' ' + m[k]; }).join(' · ') : '0'; }

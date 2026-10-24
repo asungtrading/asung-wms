@@ -8,7 +8,7 @@ const REF = { cur: U(901), term: U(902), ap: U(903) };
 const SUP = (n, name, extra) => Object.assign({ ID: C(n), Name: name, Currency: 'CAD', PaymentTerm: 'Net 30', AccountPayable: '_109_', TaxRule: 'Zero-rated (Purchase)', Discount: 0, Comments: null, TaxNumber: null, Status: 'Active', Addresses: [], Contacts: [] }, extra || {});
 function dbS(n, name, extra) {
   return Object.assign({ id: U(n), cin7_id: C(n), name, is_active: true, source: 'cin7', note: null, created_at: T_OLD, updated_at: T_OLD, payment_term_id: REF.term, payment_term_name: 'Net 30', account_payable_id: REF.ap, account_payable_code: '_109_',
-    currency_id: REF.cur, tax_rule: 'Zero-rated (Purchase)', is_purchasable: true, is_discontinued: false, discontinued_on: null, cin7_comments: null, updated_by: null, created_by: null }, extra || {});
+    currency_id: REF.cur, tax_rule: 'Zero-rated (Purchase)', is_purchasable: true, is_discontinued: false, discontinued_on: null, cin7_comments: null, updated_by: null, created_by: null, is_active_source: null }, extra || {});
 }
 const addr = (n, sid, extra) => Object.assign({ id: U(100 + n), cin7_id: C(100 + n), is_active: true, source: 'cin7', note: null, created_at: T_OLD, updated_at: T_OLD, supplier_id: sid, line1: 'Line ' + n, line2: null, city: 'Toronto', state_province: 'ON', postal_code: 'M1M 1M1', country: 'Canada', type: 'Business', updated_by: null }, extra || {});
 const ct = (n, sid, extra) => Object.assign({ id: U(200 + n), cin7_id: C(200 + n), is_active: true, source: 'cin7', note: null, created_at: T_OLD, updated_at: T_OLD, supplier_id: sid, name: 'Contact ' + n, phone: '416-000-000' + n, mobile_phone: null, fax: null, email: null, website: null, is_default: true, cin7_comment: null, updated_by: null }, extra || {});
@@ -30,18 +30,20 @@ function build(scenario) {
     ref_currency: [{ id: REF.cur, code: 'CAD', name: 'Canadian Dollar' }], ref_payment_term: [{ id: REF.term, name: 'Net 30' }], ref_account: [{ id: REF.ap, code: '_109_', name: 'AP', account_class: 'LIABILITY' }],
     supplier: [
       dbS(1, 'Supplier S1'),
-      dbS(2, 'Supplier S2 (IMS edit)', { is_active: true, updated_by: STAFF, updated_at: T_NEW }),
+      dbS(2, 'Supplier S2 (IMS edit)', { is_active: true, is_active_source: 'ims', updated_by: STAFF, updated_at: T_NEW }),   // 판정 683 — IMS 가 켠 표식(몇 번 적재해도 남는다)
       dbS(205, 'TEST Supplier-Canada', { cin7_id: null, source: 'manual', is_purchasable: true, updated_by: STAFF, updated_at: T_NEW }),
       dbS(6, 'Supplier S6 Gone'),                                                     // Cin7 전량에 없음 · 활성 → 내린다
       dbS(7, 'Supplier S7', { is_active: false })
     ],
     supplier_address: [ addr(1, U(1)), addr(6, U(6)), addr(51, U(205), { cin7_id: null, source: 'manual', line1: 'IMS own' }) ],   // addr 6 = Gone 의 주소 → 내린다
     supplier_contact: [ ct(1, U(1)), ct(2, U(2), { phone: '416-IMS-EDIT', updated_by: STAFF, updated_at: T_NEW }), ct(51, U(205), { cin7_id: null, source: 'manual', name: 'IMS Contact', is_default: true }) ],
-    product: [ prod(1, 'P1'), prod(2, 'P2') ],
+    product: [ prod(1, 'P1'), prod(2, 'P2'), prod(3, 'P3'), prod(4, 'P4') ],
     product_supplier: [
       ps(1, U(501), U(1), { cost: 9.99, updated_by: STAFF, updated_at: T_NEW }),      // 손댄 cin7 줄 → 672 로그 · Cin7 이 덮는다(cost 1.5)
       ps(3, U(502), U(1), { source: 'manual', is_active: false, cost: 7.77, updated_by: STAFF, updated_at: T_NEW }),   // IMS 가 끈 Cin7 줄(Roux 꼴 · manual + cin7_id) → 보내지 않음
-      ps(4, U(501), U(2), { cin7_id: null, source: 'manual', cost: 5.55, supplier_sku: 'IMS-SKU' })   // 사람이 먼저 적은 줄 → 승격: cin7_id 만
+      ps(4, U(501), U(2), { cin7_id: null, source: 'manual', cost: 5.55, supplier_sku: 'IMS-SKU' }),  // 사람이 먼저 적은 줄 → 승격: cin7_id 만
+      ps(6, U(503), U(6), { is_default: true }),                                       // 재계산 ①: P3 의 기본이 사라진 공급처 S6 위에 → 본 행 Apply 가 S6 를 내린 뒤 꺼진다
+      ps(7, U(504), U(1), { is_default: false, last_supplied: '2026-09-10' })          // 재계산 ②: P4 는 활성 공급처 S1 줄 하나뿐인데 기본 없음 → 켜진다
     ]
   };
   // 제품↔공급처 시트(ips_line) — ImsLoadSupplierExtra 가 적어 둔 것과 같은 꼴 · 전부 문자열
