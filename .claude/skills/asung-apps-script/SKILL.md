@@ -120,6 +120,10 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
 ⭐ [2026-10-10 · so-module §57-c] ImsLoadProductTag.gs(접두 ipt · c61ba04) — 관계 표(product_tag) 맞추기: 원하는 집합 − cin7 줄 = 넣기 · cin7 줄 − 원하는 집합 = 지우기(행 삭제 · 먼저) · manual 무접촉 · **커서 없음**(매번 Cin7 을 새로 훑어 diff — 다시 돌리면 남은 것만 · Next run 도 같은 함수) · 큰 지우기 안전장치(> max(20, 1%) · IPT_ALLOW_BIG_DELETE=1 한 번만) · 지우기는 id 40 개씩(UrlFetch URL 2 KB)
    ⚠️ 틈: 넣기가 ipr_upsert_(merge-duplicates)라 적재 도중 직원이 같은 태그를 붙이면 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicates 로(so-module 미룬 175)
 ⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc · ilp · ptp …)로 겹침을 막는다
+⭐ [2026-10-23 · so-module §72] ImsLoadHist.gs(접두 ilh · 판정 660) — IMS 이전 판매 · 발주 이력 → hist_so_load · hist_po_load(service_role) · 함수 ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(당월만 다시 = ilhRedoCurrentSales) · ilhReset
+   쪽 ILH_PAGE_ORDERS 기본 100(REST statement_timeout 8 초 안 · 실측) · ILH_PRACTICE=1 = 연습 적재(주인 · 제품 못 풀림을 멈추지 않는다 · IMS 번호 겹침은 멈춘다 · 664 · 665 · 컷오버 직전 적재 전에 지운다) · 당월 표 Sale 은 단가라 sale 칸에 Total(667)
+   ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ilhReset 뒤 ilhLoadSales 전체(당월 → 확정으로 옮겨 간 오더가 틀린 채 남는다)
+⚠️ [2026-10-23] **Script Properties 가 50 개를 넘으면 설정 화면이 읽기 전용** — 코드(PropertiesService)로 바꾼다: 임시 파일에 setProperty 함수 → 실행 → 그 파일을 지운다(같은 이름 함수 함정 · 남겨 두지 않는다)
 ```
 
 ---

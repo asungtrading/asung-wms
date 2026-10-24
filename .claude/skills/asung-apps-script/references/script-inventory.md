@@ -27,6 +27,7 @@
 - `asung_purchase_history` (`Cin7_Purchase_Data` 데이터셋)에 발주 이력 적재.
 - Advanced Purchase(`v2/advanced-purchase`) 자동 감지, 없으면 Simple Purchase fallback.
 - `setupDailyPurchaseTrigger()`로 일 1회 실행.
+- ⚠️ [2026-10-23 실측 · so-module §72-b] `received_quantity` · `received_date` 가 2025-11 이후 **전부 비어 있다**(받은 수 0 · 받은 날짜 0) — 받은 칸을 쓰는 화면은 「기록 없음」 으로 읽는다(IMS 이전 발주 카드 sup v3a) · 이 스크립트가 안 담는 것으로 짐작(안 봤다 · deferred 312)
 
 ## 알림 / 워크플로우
 

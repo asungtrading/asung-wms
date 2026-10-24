@@ -481,6 +481,20 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  인보이스 줄 charge 에 qty · unit_price(svc-1c · 수량 × 단가 줄만 · 운임은 금액만) · 크레딧은 금액으로(freight 갈래 · so_invoice_line_id · 재입고 0 · 원장 0 · 미룬 277) · 인보이스 취소 → shipped → so_service_invoice 로 다시
 ```
 
+## 4-u. ⭐⭐ 지난 거래 이력(hist_) — 모르면 사고 (정본 so-module §72 · 판정 654 B · 656 ~ 669)
+
+```
+⭐  hist_so · hist_so_line · hist_po · hist_po_line = IMS 이전(Core 시절 · 인보이스 날짜 2025-11-01 ~)의 판매 · 발주 기록 · 읽기 전용
+⚠️⚠️ 컷오버 때 지우지 않는다 — 거래를 지우는 절차에서 뺀다(표 comment 첫 마디 · deferred N-1022-⑥ · reload-procedure §A)
+⚠️  so · so_line · 원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다 — 숫자를 맞춰 볼 대상이 아니다 · SO 거래 표 창구(so_create …)와 무관
+⚠️  쓰기는 적재 창구 hist_so_load · hist_po_load(service_role · Apps Script ImsLoadHist.gs)만 · 읽기 RLS = 판매 sales · 발주 purchasing 또는 master
+⭐  금액: hist_so_line.sale = 두 출처 모두 할인 뒤 세전 줄 합계(667) · unit_price = sale ÷ 수량 · hist_so.sale_total = Σ 줄 합계
+    ⚠️ discount — 확정 출처 0 은 「모름」(할인 없음이 아니다) · 당월 null
+⭐  hist_po.po_total = Cin7 발주(Order 탭) 총액 = 주문 줄 + 추가 비용(할인 음수) + 세금 — 인보이스 금액이 아니다(669)
+⚠️  hist_po_line.received_quantity 0 · hist_po.received_date null 은 「기록 없음」 — 원천(BQ asung_purchase_history)이 안 담는다
+⭐  주인 = cin7_customer_id · cin7_supplier_id(GUID) → customer · supplier 의 cin7_id(657) · 못 풀면 id null · 이름 원문은 남는다
+⭐  화면(cs v6 · sup v3)이 IMS 거래와 n 개씩 읽어 날짜순으로 섞는다 — 읽기 창구 없음(666)
+```
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).

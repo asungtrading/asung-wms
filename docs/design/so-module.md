@@ -9629,3 +9629,156 @@ deferred 67a-12 · 67a-5 · §3 「파손품」 줄                             
 - 300 Products 내보내기 칸 고르기(628 · 판정 652 부터)
 - N-1022-⑥ 컷오버 날 작업에 B급 칸(표시 켜기 → 실물을 원래 SKU 별로 세어 조정 · 평균 원가 · 메모 「컷오버 B급 재적재」 → 값 넣기) · 이미 있던 N-1022-① ~ ④(인계서 §4 의 ① ~ ④)는 그대로
 - 다음 판정 번호: 652
+
+---
+
+## §72 2026-10-23 오후 ~ 저녁 — 지난 거래 이력(hist_ · 읽기 전용) · 기존 SKU 로 새 family · 줄 딜 붙여 넣기 — fam-new-1 · hist-0 · hist-1 · 1b · 1c · hist-3 · 3b · 3c · 판정 652 ~ 669 (회사 PC 오후 → 집 PC 저녁)
+
+⭐ 닫힌 것: 컷오버 전 지난 거래를 IMS 에 읽기 전용으로(654 B · deferred 301 닫힘 · hist-1 ~ 3c · cs v6 · sup v3 · v3a) · 손님 · 공급처 상세의 이력 카드(654 A · cs v5 · sup v2) · 기존 SKU 로 새 family(652 · 653 · fam-new-1) · 줄 딜에 붙여 넣기(668 · dr v3) · Energizer Canada 기본 공급처(deferred 65 닫힘 · 72-b 끝)
+⭐ 새 판정 652 ~ 669 · 원천: 지시서 `docs-1023h.md`(이 절의 판정 · 결정 · 실수는 대화에만 있었다) · 회사 PC 대화 10-23 오후 · 집 PC 대화 10-23 저녁 · 차수 회신 fam-new-1 · hist-0 · hist-1 ~ 1c · hist-3 ~ 3c
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 이 절의 마이그레이션(fam-new-1 · hist-1 · 1b · 1c)이 적용 · repair 됐다 · 운영(asung-WMS)에는 올리지 않는다(617)
+⭐ 뒤집은 것: po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력(hist_)에 한해** 고친다(654 B · 원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다 · po-module 48 행 · 2757 행 끝 포인터)
+⭐ §71 머리의 「Products 내보내기 칸 고르기(628 · 판정 652 부터)」 는 652 ~ 669 를 이 절이 써서 **670 부터**다(§71 본문 무변 · deferred 300 판정 칸만 고침)
+
+### 72-a 판정 (Caleb 말 그대로 · 뜻)
+
+- **다음 판정 번호: 670**
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 652 | (회사 PC · 원문 없음) | **기존 SKU 로 새 family** 를 만든다 · 창구 `product_family_from_skus(p_family, p_items, p_commit, p_ack)` 확인 → 확인 → 저장(product_family_create 와 같은 꼴 · 반환 꼴도 같다) · 머리 SKU = 첫 SKU + FAM · 빈 머리 칸은 첫 SKU 를 물려받는다 · 머리 검사 · 머리 insert 는 product_family_create · product_create_core 에서 바이트 그대로 떼어 한 곳(product_family_head_ctx · product_family_head_insert) · asung-wms fam-new-1 `5b5c573` · 화면 fam v5(`c3bbc61`) · fam v5b · pr v5d(`642f42e`) · pr v5e(`2b5358f` · `products.html?new=family` · Open sheet 단추) · fam v5a 는 따로 된 커밋이 없다(642f42e 안) |
+| 653 | (회사 PC · 원문 없음 · 「B」) | **다른 family 에 든 SKU 는 옮긴다** — 경고 ack `moves_from_family` · 옛 family 가 구성원 0 이 되면 ack `old_family_emptied` · 빈 머리는 남는다(family_leave 와 같다 · 지우지 않는다) · 652 와의 경계 출처 = fam-new-1 마이그레이션 머리 32 행 · 619 행(이 대화의 인계서에는 경계가 없었다) |
+| 654 | 「현재 customer와, supplier의 판매 또는 구매 히스토리가 없어 …」 → 「좋아. 일단 A로 하자. 그러나 B도 짓고 싶어」 | **A**: 손님 · 공급처 상세에 이력 카드(IMS 거래만 · cs v5 Order history · sup v2 Purchase history · 최근 20 · Show 20 more · 줄 금액 so_totals_many · po_list · DB 무변 · asung-ims `2a648d6`) · **B**: 컷오버 전 지난 거래를 IMS 에 **읽기 전용**으로 옮겨 담아 같은 카드가 함께 보인다 · ⭐ po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력에 한해** 고친다(원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다) · deferred 301(닫힘) |
+| 655 | — | **기록 없음**(회사 PC 인계서 확인 거리) — 두 레포의 커밋 제목 · 본문 · docs · 스킬 · 마이그레이션 grep 0(2026-10-23 · docs-1023h 이견 1) · 번호를 다른 판정에 주지 않는다 |
+| 656 | 「다」 | SKU **줄 단위**로 옮긴다 · 카드는 오더 줄 → 펼치면 SKU · 수량 · 단가 · 근거: 「지난번에 산 그 젤 24개 다시」(다시 주문 받기 ⇒ 단가가 틀리면 손님에게 틀린 값을 말한다) · 「2 년」 은 658 이 「Core 시절 전부」 로 고침 |
+| 657 | 「나」 | 주인은 **GUID 로** 잇는다 — 줄은 BigQuery · 오더 번호 → Cin7 CustomerID / SupplierID 짝은 컷오버 전에 Cin7 목록(saleList · purchaseList)에서 받아 IMS `cin7_id` 로 · 근거: BQ 판매 · 발주 표 어디에도 GUID 칸이 없다(이름 바뀐 손님 · BMG 실사고) |
+| 658 | 「나」 | **Core 시절(인보이스 날짜 2025-11-01 ~)만** · Omni 시절(BQ `asung_sales_historical_data` · 손님 칸 이름뿐)은 넣지 않는다 · `era` 칸(지금 core 하나)으로 뒤에 더할 자리(→ deferred 311) |
+| 659 | 「가」 | 판매는 **인보이스 된 오더만**(취소 · 초안 · 열린 오더 빼기 · 열린 오더는 deferred 243) · 확정 표에 있는 오더 = 확정 표(인보이스 + 반품) · 나머지 = 당월 표의 인보이스 된 것(Status CLOSED · COMPLETED) · 미래 인보이스 날짜 걸러 냄(스크립트 · 창구 두 겹) · 마지막 적재는 컷오버 직전 달들의 확정 적재 뒤 한 번 더 |
+| 660 | 「가」 | 적재는 **Apps Script 하나**(ImsLoadHist.gs · 접두 ilh · Ims*Load 꼴) · 기각: WSL bq + psql |
+| 661 | 「나」 | 발주는 **취소 · 초안만 빼고** 넣는다(상태 원문) · 근거: 컷오버 날 열린 Cin7 PO 를 IMS 가 받는 길이 아직 없다 → deferred 302 |
+| 662 | 「가능해」 | 확정 표가 안 덮는 달(2026-08 ~ 컷오버)의 크레딧 노트는 그 달의 확정 적재로 채운다 · 컷오버 뒤 첫 한두 주 안에 10 월분 확정 적재 → ilhReset 뒤 ilhLoadSales 전체(Caleb 「컷오버 뒤에도 한두 주 Cin7 리포트를 받을 수 있다」) · IMS 동작은 여기에 기대지 않는다 · → deferred 303 |
+| 663 | 「가」 | 발주 상태 `ORDERING`(승인 전 · 공급처에 안 보낸 발주)은 초안으로 보고 뺀다(hist-3b · 복합 상태는 조각 하나라도 그 셋이면 뺀다) |
+| 664 | 「나」 | 이번 연습 적재는 **손님 안전장치를 끄고** 끝까지 민다 · 2026-09-22 첫 손님 적재 뒤 Cin7 에 생긴 손님은 deferred 109 고친 뒤 재적재로 · 컷오버 직전 순서 = 손님 재적재 → 이력 적재 처음부터 |
+| 665 | 「좋아」 | 664 를 **제품 · 공급처에도** 넓힌다 · IMS 에 없는 SKU(새 Kim & C · L.A. COLORS 등)는 원문으로 들어간다 · 컷오버 직전 = 손님 · 제품 재적재(109 · 113 고친 뒤) → 이력 적재 · 레포 안의 길 = Script Property `ILH_PRACTICE=1`(hist-3c) |
+| 666 | 「2」(2026-10-23 집) | hist-2(카드에 지난 이력 섞기)는 **DB 무변 · 화면이 섞는다** — hist_ 표의 색인(hist_so_customer_idx · hist_po_supplier_idx) · RLS(판매 sales · 발주 purchasing 또는 master)가 이미 그 쓰임에 맞다 · 화면이 두 출처를 n 개씩 읽어 날짜순으로 섞은 위 n 개 · 펼치기는 hist_*_line 바로 읽기(가장 큰 판매 오더 584 줄 · 발주 419 줄 < 1,000) · 기각: 읽기 창구 party_history(hist-0 회신 Q5-5 안 — 한 바퀴 더 · 섞는 규칙 한 곳의 이점은 다른 화면이 필요해질 때) · 화면 cs v6(`02ed99d`) · sup v3(`d3f29c5`) |
+| 667 | 「가」(집) | 당월 표의 `Sale` = **정가 단가** · `Total` = **할인 뒤 세전 줄 합계** — ImsLoadHist 가 `sale` 칸에 `Total` 을 보낸다(확정 표 `sale = Amount` = 줄 합계와 같은 뜻) · 당월분만 다시 적재(hist-3c `1858eef`) · 기각: 화면이 출처를 가려 sale 을 단가로 읽기(DB 가 틀린 채 남는다 · 다음에 읽는 곳이 같은 함정에 빠진다) |
+| 668 | 「맞아」 · 「가」(집) | Settings → Discounts 줄 딜에 **붙여 넣기**(「Paste lines…」) — 한 줄 = SKU · 할인 % · at least(비움 · 숫자 · case) · (% · 최소) 가 같은 것끼리 한 줄 · 같은 값의 켜진 줄이 있으면 그 줄에 더한다 · 대상 = Applies to · product(브랜드 · 태그 · Except · 손님 규칙은 안 건드린다) · 빨간 줄(없는 SKU · % 0 ~ 100 밖 · 분수 · 같은 SKU 다른 값 · 이 딜의 다른 % 줄에 이미)이 하나라도 있으면 더하지 않는다 · 저장은 so_deal_save 그대로(DB 무변) · 딜 편집 안에서(기존 딜에 더하기) · 기각: 목록에서 새 딜로만 · 화면 dr v3(`d0512f1`) |
+| 669 | 「그렇게 가자」(집) | 이전 발주 금액 = `hist_po.po_total` = **Cin7 발주(Order 탭) 총액 = 주문 줄 + 추가 비용(할인 음수) + 세금** · 인보이스 금액이 아니다 · 화면 「order total · tax and costs incl.」 · Invoiced · Unpaid 비움 · 근거(Caleb Cin7 화면 두 장): PO-01415 10,526.18 = 9,315.20 + 세 1,210.98 · PO-01406 27,494.68 = 줄 28,856.40 − 할인 1,361.72(인보이스 25,872.33 = 받은 만큼) · 실측 448 PO(센트 허용): 같음 262 · 큼 121(세금 · 양수 비용) · 작음 65(할인 · PO-01382 줄 겹침) · 기각: 줄 합을 세전 Net 으로(화면이 더해야 하고 겹친 줄을 그대로 보인다) · 화면 sup v3 · v3a |
+
+- 포인터: 654 B ← po-module §11-⓪ 함의 ②(2757) · §2(48) · 659 ← 243(열린 오더) · 661 ← N-1022-⑥ 「열린 PO 를 IMS 에 다시」 → 302 · 664 · 665 ← 109 · 113 · 667 ← asung-bq-data-model 「표준 컬럼 이름」 · 669 ← 72-b 「받은 수량 없음」
+
+### 72-b 이력(hist_) — 차수 · 커밋 · 실물
+
+| 차수 | 레포 · 커밋 | 무엇 |
+|---|---|---|
+| fam-new-1 | asung-wms 5b5c573 | 652 · 653 창구 |
+| fam v5 · v5b · pr v5d · v5e | asung-ims c3bbc61 · 642f42e · 2b5358f | 652 · 653 화면(fam v5a 는 642f42e 안) |
+| cs v5 · sup v2 | asung-ims 2a648d6 | 654 A |
+| hist-1 · 1b · 1c | asung-wms 8fe3d3e · 29fd93f · f638b0a | 표 넷 · RLS 읽기 · 적재 창구 둘(service_role) · 1b WHERE 없는 delete → truncate(REST safeupdate 21000) · 1c `product (upper(sku), sku)` 색인(31 ms → 0.05 ms) |
+| hist-3 · 3b | asung-wms d41cf23 · 96d8273 | ImsLoadHist.gs(ilhDry · ilhPairs · ilhLoadPurchases · ilhLoadSales · ilhReset) · ORDERING 거르기(663) |
+| hist-3c | asung-wms 1858eef | 667 · ilhRedoCurrentSales · ILH_PRACTICE · 단계별 누적 키 · 쪽 기본 100 · hist-3c-check.sql |
+| dr v3 | asung-ims d0512f1 | 668 |
+| cs v6 | asung-ims 02ed99d | 666 손님 |
+| sup v3 · v3a · v3b | asung-ims d3f29c5 · f230cbf · 0ddde54 | 666 · 669 공급처 · v3a 받은 칸 빼기 · v3b Purchasable 거르기 기본 Yes(Clear 도 Yes) · `?id=` 로 열면 All |
+
+```
+표 넷          hist_so · hist_so_line · hist_po · hist_po_line — ⭐ 컷오버 때 지우지 않는다(표 comment 첫 마디 · 거래를 지우는 절차에서 뺀다 · deferred N-1022-⑥)
+               유니크 (era, 번호) · era = core 하나 · 주인 = cin7_customer_id / cin7_supplier_id(GUID) → customer · supplier 의 cin7_id(못 풀면 id null · 이름 원문은 남는다)
+               SKU = 정확 → upper 일치(못 풀면 product_id null · sku 원문) · 원장 · 원가 · 잔액 · 크레딧 · 결제 · so · po 와 잇지 않는다
+읽기           RLS — 판매 sales · 발주 purchasing 또는 master · 직접 쓰기 없음(authenticated 는 select 만)
+창구 둘        hist_so_load · hist_po_load(service_role 만 · 쪽 ≤ 500 오더 · 머리 upsert + 줄 지우고 다시 = 멱등 · 미래 날짜 줄 · IMS 번호 겹침은 빼고 셈 · 합 · line_count 는 창구가 셈)
+적재           Apps Script ImsLoadHist.gs(접두 ilh · 660) — ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(→ 당월만 다시 ilhRedoCurrentSales) · ilhReset
+               쪽 ILH_PAGE_ORDERS 기본 100(REST statement_timeout 8 초 · 첫 적재는 50 으로 돌았고 쪽당 최대 2,352 줄) · ILH_PRACTICE=1 = 연습 적재(주인 · 제품 못 풀림은 로그만 · IMS 번호 겹침은 멈춤 · 664 · 665)
+화면           cs v6 · sup v3 — IMS 거래와 hist_ 를 n 개씩 읽어 날짜순으로 섞는다(666 · 읽기 창구 없음) · 펼치면 hist_*_line 바로 읽기
+⭐ 금액 뜻      판매 hist_so_line.sale = 두 출처 모두 할인 뒤 세전 줄 합계(667) · unit_price = sale ÷ 수량 · hist_so.sale_total = Σ 줄 합계 · tax 별도
+               ⚠️ discount — 확정 출처 206,910 줄 전부 0 = 「모름」(「할인 없음」 이 아니다) · 당월 null(→ deferred 314)
+               발주 hist_po.po_total = Cin7 Order 탭 총액(주문 줄 + 추가 비용 + 세금 · 669) · 인보이스 금액이 아니다
+⭐ 받은 수량 없음 hist_po_line 17,851 줄 전부 received_quantity 0 · hist_po 448 전부 received_date null — 원천 BQ asung_purchase_history(2025-11 ~)도 비어 있다(받은 수 0 · 받은 날짜 0)
+               ⇒ 이전 발주 카드는 「not recorded」(sup v3a) · 0 은 「받지 않음」 이 아니라 「기록 없음」(→ deferred 312)
+```
+
+**실측(테스트 DB · 2026-10-23)**
+```
+짝             판매 18,280 · 발주 1,424 행(짝 1,421 · GUID 없음 0 · → 310)
+판매           13,334 오더 · 273,215 줄
+               확정 10,110 오더 · 206,910 줄(= BQ 실측과 같다 · 반품 764 줄 · 453 오더) · 인보이스 2025-11-01 ~ 2026-07-31 · SO-00001 ~ SO-15032
+               당월  3,224 오더 ·  66,305 줄 · 인보이스 2026-07-17 ~ 2026-10-22 · SO-11896 ~ SO-18265
+발주           448 PO · 17,851 줄(BQ asung_purchase_history 2025-11 ~ 줄 수 17,939 는 거르기 전 숫자로 짐작 · 안 봤다)
+손님 안 풀림    398 오더 = 확정 103 + 당월 295(당월은 SO-1672x 뒤에 몰림 = 9-22 손님 적재 뒤 새 손님)
+SKU 안 풀림     판매 170 줄(당월) · 확정 쪽은 비용 · 조정 줄(_4_ Freight · Shipping - … · FINAL-SALE · Customer Credit · Discount 등)
+               발주 469 줄(PO-01358 · PO-01359 Kim & C · PO-01382 L.A. COLORS 419) · 공급처 안 풀림 0
+hist-3c        기준 OK 0 · MISMATCH 3(61,823 · 61,823 · 2,621 — 결함 재현) → 다시 적재 뒤 OK 3 · MISMATCH 0
+               확정 지문 3170493e825987043c83f6ce6f96760a 무변 · 당월 total 2,994,402.65 · tax 336,459.93 무변
+당월 표 줄      sale×qty = total 21,689 · total < sale×qty 44,616(할인 7 · 10 · 15 · 20 · 50 %) · total > sale×qty 0(세금 섞인 잔재 실측 0 · 2026-07 ~ 10)
+11 월 전 주문   「11 월 전 주문 · 11 월 뒤 인보이스」 확정 25 오더(주문 2025-10-31 ~) · 당월 0(→ 313)
+크레딧만        30 오더(SO-00202 ~ SO-11546 · 인보이스 날짜 없음 · 손님 없음 · 모두 반품 · 원인 모름 → 307)
+Apps Script    Script Properties 가 50 개를 넘으면 설정 화면이 읽기 전용 — 코드(PropertiesService)로만 바꾼다(임시 파일 → 실행 → 지움)
+unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합계(Caleb BigQuery 콘솔 · VIEW 정의 원문 · 2026-10-23) — 당월 쪽(core_latest)은 `Total AS sale`(주석 「[수정 1] Sale(단가) → Total(라인합계)」) · 확정 쪽 asung_sales_confirmed.sale(= Amount) · Omni 쪽 `Total AS sale`
+               ⇒ analytics 의 SUM(sale) 은 맞다 · 667 은 VIEW 와 같은 규칙이다 · VIEW 의 당월 쪽은 Order_Date 로 거르지 않는다 · 확정 쪽 고르기는 report_month >= '2025-11'(→ 313)
+```
+
+**⭐ 기본 공급처 — Energizer Canada (2026-10-23 집 · Caleb psql · 테스트 DB)**
+```
+사건           Energizer Canada 가 첫 적재(09-14) 때 비활성이라 그 공급처만 붙은 62 제품(Armor All 21 포함)의 기본이 비어 있었다(deferred 65 · §35-c 「원인 확인 안 함」)
+원인           po-module §3-g 「is_default 재계산 — 끄고 나서 켠다」 ② 가 활성 공급처 줄만 후보로 삼는다 — 설계대로다
+손 실행         Caleb 화면에서 Activate · Purchasable Yes → 재계산 ① ② 를 한 트랜잭션(off 0 · on 62 · 전부 Energizer · 기본 둘인 제품 0 · COMMIT) ⇒ 65 닫힘
+남은 것         재계산 두 문장은 재적재 · 공급처 활성 바꾸기 뒤에 저절로 돌지 않는다 — 기본 칸을 쓰는 DB 함수는 제품 화면 창구(제품 하나 단위)뿐 · 공급처 창구(master_cs_3) · ImsLoadProductSupplier · cron 모두 안 건드린다(→ 317)
+같은 처지       비활성 공급처 31 곳 중 16 곳 · 활성 제품 209(그 공급처에만 활성 줄이 붙어 기본이 빈 제품 · JSB 64 · Jinmen Inc. 45 · NEO Enterprise 23 …)(→ 318 · 판정 대기)
+               ⚠️ 31 곳은 §3-g 첫 적재 때 「제품이 가리켜서 데려온 비활성 공급처」 이고 po-module 2474 · 2704 행은 「판정 대상이 아니다」(Caleb 2026-09-15)라고 적었다 — 기본 공급처 때문에 다시 판정 거리가 됐다
+```
+
+### 72-c 줄 딜 붙여 넣기(668 · dr v3 d0512f1)
+
+- Settings → Discounts 줄 딜 편집 안의 「Paste lines…」 — Excel 에서 SKU · 할인 % · at least(비움 · 숫자 · case)를 붙인다
+- (% · 최소)가 같은 것끼리 한 줄로 묶고, 같은 값의 켜진 줄이 이미 있으면 그 줄에 더한다 · 대상은 Applies to · product 만(브랜드 · 태그 · Except · 손님 규칙은 안 건드린다)
+- 빨간 줄(없는 SKU · % 0 ~ 100 밖 · 분수 · 같은 SKU 다른 값 · 이 딜의 다른 % 줄에 이미)이 하나라도 있으면 아무것도 더하지 않는다 · 저장은 so_deal_save 그대로(DB 무변)
+
+### 72-d 기존 SKU 로 새 family(652 · 653 · fam-new-1 5b5c573)
+
+- 창구 product_family_from_skus — 검사 → 확인 → 저장(product_family_create 와 같은 꼴 · 화면의 runWindow 가 그대로 그린다) · 문 master
+- 머리 SKU = 첫 SKU + FAM · 빈 머리 칸은 첫 SKU 를 물려받는다 · 머리 검사 · insert 는 한 곳(product_family_head_ctx · product_family_head_insert — 두 옛 창구에서 바이트 그대로 떼어 「한 곳만 고친다」 재발을 막음)
+- 다른 family 의 SKU 는 옮긴다(ack moves_from_family · 옛 family 가 비면 ack old_family_emptied · 빈 머리는 남는다) · 원장 · 가격 · 바코드 · 공급처 · 재고 · 판매 줄 · Shopify 연결은 건드리지 않는다(family_id · option 값만)
+- 화면 fam v5 · v5b · pr v5d · v5e(`products.html?new=family` · Open sheet 단추)
+
+### 72-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+회사 PC 10-23 오후:
+1. [대화 Claude] hist-1 지시서에 「REST 로 불리는 창구는 REST 와 같은 조건(safeupdate)에서 시험」 을 넣지 않았다 → 첫 쪽 21000(hist-1b) · psql 직결은 safeupdate 를 못 싣는다(load · PGOPTIONS 막힘) ⇒ asung-workflow §4
+2. [대화 Claude] 쪽 크기 300 을 넘기면서 REST 역할의 statement_timeout 8 초(hist-1b 회신 원문에 있었다)를 대조하지 않았다 → 57014 ⇒ asung-workflow §4
+3. [대화 Claude] 발주 시간 초과를 두 번 짐작으로 설명(줄 수 · 잠금) — 실측(PO-01382 · 31 ms × 400)으로 섰다 · 색인 꼴도 upper(sku) 하나로는 order by 때문에 안 먹혔다(복합 색인)
+4. [대화 Claude] Script Properties 「50 개 한도」 짐작이 틀렸다 — 실제: 50 개를 넘으면 화면이 읽기 전용(집 PC 에서 확인)
+5. [대화 Claude] 크레딧만 있는 30 오더를 Omni 시절로 짐작 — 번호가 Core 라 틀렸다
+6. [잘 된 것] hist-0 이견 1(Omni 절반은 Core 목록에 없다)이 658 을 낳았다 · hist-1 이견 1(suppliers.html 은 master 열쇠) · hist-1b 가 재현 없이 고치지 않고 멈춤 · hist-3 이 「미래뿐인 쪽이 끝으로 읽힘」 을 스스로 잡음 · 안전장치가 새 손님 · 새 제품을 멈춰 잡았다 · 확정 출처 숫자가 BQ 실측과 한 줄도 다르지 않았다
+
+집 PC 10-23 저녁:
+7. [hist-3 · 대화 Claude 지시서] 당월 표 `Sale`(단가)을 확정 표 `sale`(줄 합계)과 같은 칸에 옮겼다 — 이름이 같고 뜻이 달랐다 · 스킬 asung-bq-data-model 「표준 컬럼 이름」 표가 「단가 = sale」 과 「매출 = SUM(sale)」 을 한 표에 적어 모순이었다 ⇒ **다른 표의 같은 이름 칸은 표마다 뜻을 확인**(→ 667)
+8. [대화 Claude] 확인 쿼리에서 hist_so · hist_so_line 의 같은 칸 `total` 을 별칭 없이 → 42702(asung-workflow §5 재발)
+9. [대화 Claude] hist-2 를 창구(party_history)로 계획했으나, 표 · 색인 · RLS 가 이미 그 쓰임에 맞아 화면만으로 됐다(666) ⇒ 창구를 계획하기 전에 표의 색인 · RLS 가 그 읽기를 받는지 먼저 본다
+10. [대화 Claude] po_total 의 뜻을 짐작으로 두 안을 내다가, Caleb 의 Cin7 화면 두 장(Order · Invoice 탭)으로 산수가 한 푼까지 맞아 섰다(669) ⇒ 원천 금액 칸의 뜻은 원천 화면 한 장과 산수로 닫는다
+11. [발견] 이전 발주 카드가 「Received 0」 을 보였다 — 원천이 비어 있었다(sup v3a) ⇒ 원천에서 옮긴 칸은 「값이 다 같은가(전부 0 · 전부 null)」 를 화면 전에 센다
+12. [대화 Claude] Caleb 캡처에 비밀 값이 보였다 ⇒ 설정 화면 캡처를 부탁할 때 비밀 줄을 가리라고 먼저 말한다 · 문서에 그 값을 옮겨 적지 않는다(asung-workflow §7)
+13. [잘 된 것] hist-3c 기준 실행이 결함을 그대로 재현했고(61,823 · 2,621), 확정 지문으로 「건드리지 않았다」 를 증명했다 · Claude Code 가 ILH_PRACTICE 필요를 100 오더 창의 실측(최대 44 · 문턱 20)으로 굳혔다 · 화면 셋을 jsdom 으로 돌린 뒤 Caleb 화면 시험에서 한 번에 섰다
+14. [docs-1023h 검토 · Claude Code] 지시서 실측 숫자 셋이 실물과 달랐다(발주 줄 17,939 → 17,851 · 669 「큼 120」 → 121 · 손님 안 풀림 295 는 당월만 → 398) ⇒ 문서 차수에 옮기는 숫자는 옮기기 전에 한 번 다시 센다
+
+### 72-f 📌 거리 · ⬜ — deferred.md 에 줄을 두고 여기는 번호만
+
+- 301 지난 거래를 읽기 전용으로(654 B) — 닫힘 · 65 Energizer Canada 기본 공급처 — 닫힘
+- 302 컷오버 날 열린 Cin7 PO 를 IMS 에서 받는 길 · 이력의 같은 PO 와 겹치지 않게(661) — 컷오버 전 필수
+- 303 8 · 9 월 확정 적재 → ilhReset 뒤 ilhLoadSales 전체(662) — 컷오버 전 필수
+- 304 inv_layer_apply 의 WHERE 없는 delete 둘(REST 로 부르면 21000)
+- 305 붙여 넣기 창구 셋의 upper(sku) 가 hist-1c 색인을 쓰는지
+- 306 SKU 대소문자 유니크 — 판정 대기
+- 307 크레딧만 있는 지난 오더 30 — 모름
+- 308 PO-01382 BQ 상태 둘 · 줄 겹침
+- 309 saleCreditNoteList Total 4,714 — 모름
+- 310 짝 발주 1,424 행 · 짝 1,421 — 모름
+- 311 Omni 시절 이력 — 컷오버 뒤
+- 312 BQ asung_purchase_history 받은 수량 · 받은 날짜 비어 있음
+- 313 당월 출처 주문 날짜 거르기가 658 과 어긋남 — 컷오버 전 필수
+- 314 hist_so_line · hist_po_line comment(다음 마이그레이션)
+- 315 ILH_PRACTICE 지우기 — 컷오버 날
+- 316 asung_sales_unified VIEW 가 당월 줄 sale 에 무엇을 싣나 — 닫힘(Caleb BigQuery 콘솔 원문 · 당월 쪽 `Total AS sale` · 세 출처 모두 줄 합계 · analytics SUM(sale) 은 맞다)
+- 317 기본 공급처 재계산이 저절로 돌지 않는다 — 컷오버 전 필수
+- 318 비활성 공급처 16 곳 · 209 제품 — 판정 대기
+- 109 · 113 → 컷오버 전 필수(664 · 665) · 300 판정 칸 「670 부터」 · N-1022-⑥ 에 이력 적재 순서 · hist_ 지우지 않기 · 302 포인터
+- 다음 판정 번호: 670

@@ -61,7 +61,7 @@ Asung은 Cin7 Core 데이터를 BigQuery에 적재하고, 그 위에서 분석 �
 | 테이블 | grain | 용도 |
 |--------|-------|------|
 | `asung_stock_daily` (Cin7_Sales_Data) | SKU × 일자 × location | 일별 재고 스냅샷. backorder 가용성 판단, purchasing 재고 체크에 사용 |
-| `asung_purchase_history` (Cin7_Purchase_Data) | 발주 라인 | 공급업체별 발주 이력, 시즌성·리드타임 분석 |
+| `asung_purchase_history` (Cin7_Purchase_Data) | 발주 라인 | 공급업체별 발주 이력, 시즌성·리드타임 분석 · ⚠️ `received_quantity` · `received_date` 는 2025-11 이후 전부 비어 있다(2026-10-23 실측 · IMS hist_po_line 17,851 줄 받은 수 0 · 448 PO 받은 날짜 null) — 「기록 없음」 으로 읽는다 |
 | `asung_product_master` (Cin7_Sales_Data) | SKU | SKU → name/brand/supplier 마스터. `AdditionalAttribute3` = Discontinued 플래그 |
 
 ### 보조 데이터
@@ -91,11 +91,13 @@ asung_sales_unified =
 
 | 의미 | 올바른 컬럼명 | (구) 쓰지 말 것 |
 |------|--------------|----------------|
-| 단가 | `sale` | ~~Unit_Price~~ |
+| 줄 합계(세전 · 매출) | `sale` — VIEW 의 sale 은 세 출처 모두 줄 합계(당월 표 `Total` 을 sale 로 옮긴다 · 확정 표 sale = Amount) | ~~Unit_Price~~ |
 | 수량 | `quantity` | ~~Quantity~~ |
 | 라인 합계 | `total` | ~~Total~~ |
 | 매출 집계 | `SUM(sale)` | — |
 | 날짜 기준 | `invoice_date` | (order_date 아님) |
+
+⚠️ [2026-10-23 · 판정 667 · so-module §72] **당월 표(`asung_order_details_historical`)를 직접 읽을 때 `Sale` 은 정가 단가다 — 줄 합계(할인 뒤 · 세전)는 `Total`**(`Tax` 별도) · VIEW 와 ImsLoadHist(667)가 같은 규칙 · 이 표가 예전에 「단가 = sale」 과 「매출 = SUM(sale)」 을 함께 적어 모순이었다(ImsLoadHist 가 당월 Sale 을 줄 합계 칸에 옮긴 실사고 · hist-3c) ⇒ 다른 표의 같은 이름 칸은 표마다 뜻을 확인한다
 
 ---
 
