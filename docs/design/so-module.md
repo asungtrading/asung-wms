@@ -9656,7 +9656,7 @@ deferred 67a-12 · 67a-5 · §3 「파손품」 줄                             
 | 659 | 「가」 | 판매는 **인보이스 된 오더만**(취소 · 초안 · 열린 오더 빼기 · 열린 오더는 deferred 243) · 확정 표에 있는 오더 = 확정 표(인보이스 + 반품) · 나머지 = 당월 표의 인보이스 된 것(Status CLOSED · COMPLETED) · 미래 인보이스 날짜 걸러 냄(스크립트 · 창구 두 겹) · 마지막 적재는 컷오버 직전 달들의 확정 적재 뒤 한 번 더 |
 | 660 | 「가」 | 적재는 **Apps Script 하나**(ImsLoadHist.gs · 접두 ilh · Ims*Load 꼴) · 기각: WSL bq + psql |
 | 661 | 「나」 | 발주는 **취소 · 초안만 빼고** 넣는다(상태 원문) · 근거: 컷오버 날 열린 Cin7 PO 를 IMS 가 받는 길이 아직 없다 → deferred 302 |
-| 662 | 「가능해」 | 확정 표가 안 덮는 달(2026-08 ~ 컷오버)의 크레딧 노트는 그 달의 확정 적재로 채운다 · 컷오버 뒤 첫 한두 주 안에 10 월분 확정 적재 → ilhReset 뒤 ilhLoadSales 전체(Caleb 「컷오버 뒤에도 한두 주 Cin7 리포트를 받을 수 있다」) · IMS 동작은 여기에 기대지 않는다 · → deferred 303 |
+| 662 | 「가능해」 | 확정 표가 안 덮는 달(2026-08 ~ 컷오버)의 크레딧 노트는 그 달의 확정 적재로 채운다 · 컷오버 뒤 첫 한두 주 안에 10 월분 확정 적재 → ~~ilhReset 뒤 ilhLoadSales 전체~~ → [2026-10-24 · §73] 판매 커서 일곱(ILH_SO_CONF_CURSOR · _DONE · _SUM · ILH_SO_CURR_CURSOR · _DONE · _SUM · ILH_SO_SUM)만 지우고 ilhLoadSales · ilhReset 은 짝(ILH_PAIRS_*)까지 지운다(Caleb 「컷오버 뒤에도 한두 주 Cin7 리포트를 받을 수 있다」) · IMS 동작은 여기에 기대지 않는다 · → deferred 303 |
 | 663 | 「가」 | 발주 상태 `ORDERING`(승인 전 · 공급처에 안 보낸 발주)은 초안으로 보고 뺀다(hist-3b · 복합 상태는 조각 하나라도 그 셋이면 뺀다) |
 | 664 | 「나」 | 이번 연습 적재는 **손님 안전장치를 끄고** 끝까지 민다 · 2026-09-22 첫 손님 적재 뒤 Cin7 에 생긴 손님은 deferred 109 고친 뒤 재적재로 · 컷오버 직전 순서 = 손님 재적재 → 이력 적재 처음부터 |
 | 665 | 「좋아」 | 664 를 **제품 · 공급처에도** 넓힌다 · IMS 에 없는 SKU(새 Kim & C · L.A. COLORS 등)는 원문으로 들어간다 · 컷오버 직전 = 손님 · 제품 재적재(109 · 113 고친 뒤) → 이력 적재 · 레포 안의 길 = Script Property `ILH_PRACTICE=1`(hist-3c) |
@@ -9764,8 +9764,8 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 ### 72-f 📌 거리 · ⬜ — deferred.md 에 줄을 두고 여기는 번호만
 
 - 301 지난 거래를 읽기 전용으로(654 B) — 닫힘 · 65 Energizer Canada 기본 공급처 — 닫힘
-- 302 컷오버 날 열린 Cin7 PO 를 IMS 에서 받는 길 · 이력의 같은 PO 와 겹치지 않게(661) — 컷오버 전 필수
-- 303 8 · 9 월 확정 적재 → ilhReset 뒤 ilhLoadSales 전체(662) — 컷오버 전 필수
+- 302 컷오버 날 열린 Cin7 PO 를 IMS 에서 받는 길 · 이력의 같은 PO 와 겹치지 않게(661) — 컷오버 전 필수 → [2026-10-24 · 판정 684 · §73] ✅ 닫힘 — 손으로 다시 만들기
+- 303 8 · 9 월 확정 적재 → ~~ilhReset 뒤 ilhLoadSales 전체~~(662) — 컷오버 전 필수 → [2026-10-24 · §73] ✅ 닫힘 — 8 · 9 월 적재 · 판매 커서 일곱(ILH_SO_CONF_CURSOR · _DONE · _SUM · ILH_SO_CURR_CURSOR · _DONE · _SUM · ILH_SO_SUM)만 지우고 ilhLoadSales
 - 304 inv_layer_apply 의 WHERE 없는 delete 둘(REST 로 부르면 21000)
 - 305 붙여 넣기 창구 셋의 upper(sku) 가 hist-1c 색인을 쓰는지
 - 306 SKU 대소문자 유니크 — 판정 대기
@@ -9789,7 +9789,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 ## §73 2026-10-24 — 적재가 IMS 에서 정한 값을 지킨다(ldfix 묶음) · 컷오버 날 적재 순서 · Freightcom — ldfix-0 · 1a · 1a2 · 1b · 1c · 1c2 · 1d · 판정 670 ~ 683 (집 PC)
 
 ⭐ 닫힌 것: 미룬 **109 · 113 · 103 · 130 · 164 · 317**(닫힘) · **176**(닫힘(짐작) · 실측은 컷오버 날 Dry) · cs-4 적재 고침(차수 이름 · §41-e 92 · 45-f · 46-f · 49-f) — deferred.md ⑥
-⭐ 새 판정 670 ~ 683 · 원천: 지시서 `docs-1024.md` 📌(이 절의 판정 · 결정 · 실수는 대화에만 있었다) · 차수 회신 ldfix-0 · 1a ~ 1d · 커밋 글 여섯 · 다음 판정 번호 **684**
+⭐ 새 판정 670 ~ 683 · 원천: 지시서 `docs-1024.md` 📌(이 절의 판정 · 결정 · 실수는 대화에만 있었다) · 차수 회신 ldfix-0 · 1a ~ 1d · 커밋 글 여섯 · 다음 판정 번호 **684** → [2026-10-24 저녁 · docs-1024b] 684 ~ 686 더함 · 다음 **687**
 ⭐ 원칙(판정 671): **IMS 가 정한 값은 적재가 건드리지 않는다** — ims-principles 원칙 1 · §45-a A 의 「적재가 IMS 에서 정한 값을 덮으면 적재의 결함」 을 적재 다섯(손님 · 제품 · 공급처 · 제품-공급처 · 태그)에 지었다
 ⭐ 뒤집은 것: 판정 **256 · 253**(「부모를 비우면 parent_source 도 null」) → 판정 678 · 「컷오버 전까지 손님 재적재 금지」(109) · 「제품 재적재가 sellable 을 덮는다」(113) · 「승격 PATCH 는 cin7_id · 단가」(po-module §3-g) → 「cin7_id 만」 · 「재계산은 손으로」 → 682 — 옛 줄은 취소선 + →(아래 73-f 목록)
 ⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 마이그레이션 둘(`20261024174246` 1a2 · `20261024190442` 1c2)이 적용 · repair 됐다 · 운영(asung-WMS)에는 올리지 않는다
@@ -9812,6 +9812,9 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 | 681 | 「A」 | 674 의 「정확히 같은 이름」 = **보이는 글자 기준** — U+200B · U+200C · U+200D · U+FEFF · U+00A0 를 빼고 trim 해서 비교 · 저장은 원문 · 공급처(`ils_vis_` · 1c) · 손님(1d — ImsLoadSupplier.gs 의 `ils_vis_` 를 부른다 · 공용화는 deferred 322) · 같은 비교로 공급처 이름 겹침(supplier_name_key 23505)을 미리 걸러 멈춤 · 실측 Cin7 손님 2(`<ZWSP><ZWSP>Asli Issa` · `<ZWSP>Kevin Myers` — cin7 행이라 짝짓기 대상 아님) · 공급처 TEST Supplier-Canada |
 | 682 | 「a」 | 미룬 317 = **기본 공급처 재계산 DB 함수** `product_supplier_default_recalc(p_product_ids uuid[] default null)` returns jsonb {turned_off · turned_on · multi_default_products · scope} · po-module §3-g ① 끄기(manual 보호 없음) → ② 켜기(활성 공급처 줄만 · 동점 · 날짜 없음은 비움 · manual 줄 있는 제품 무접촉) 그대로 · 멱등 · definer · 실행 service_role 만 · 부르는 곳 = 공급처 Apply 끝 · 제품-공급처 Apply 끝(rpc · 전체) + `supplier_update` is_active 갈래(그 공급처 제품만 · 반환 default_recalc) · cron 없음 |
 | 683 | 「2」 | `supplier.is_active_source` text(CHECK null · cin7 · ims) — IMS 창구(supplier_update)로 켜고 끄면 'ims' · 적재가 몇 번 지나가도 남고 적재는 그 행의 is_active 를 IMS 값으로 싣는다 · 'cin7' 은 자리만(쓰는 길 없음 · 실측 null 255 · ims 5) · 672 목록의 기준은 그대로 updated_by · 채우기 5(Airalo · ALLDAY LOCKS, LLC · Energizer Canada · The Procter & Gamble Inc. (Canada) · US Supplier — updated_by 보존 · supplier_touch 를 그 문장 앞뒤로만 끔) |
+| 684 | 「그렇게 하자」 | 미룬 **302 닫힘** = 컷오버 날 **손으로 다시 만들기** — 11-01 아침 Cin7 의 완료 안 된 PO 확인 → 있으면 IMS PO 화면에서 같은 공급처 · 같은 줄로 · 일부 받은 PO 는 **남은 수량만**(받은 몫은 재고 재적재로) · **메모에 Cin7 PO 번호**(이력 카드에 두 줄로 보여도 알아본다) · 인보이스 · 선금 걸린 PO 는 그 건만 따로 · 까닭: 10-24 실물 열린 PO **0**(Caleb · 「몇개 안되면 다시 만들면 되지 않아?」) · 10-31 까지 실제 발주는 옛 발주앱(N-1022-⑤)이라 그날 열린 PO 도 많아야 몇 개 · 지시서 po-open-0 은 돌리지 않았다 |
+| 685 | 「cin7에서는 지우는 것이 불가능」 | 미룬 **319 해당 없음으로 닫힘** — Cin7 은 제품을 지울 수 없고 비활성(Deprecated)만 가능 · 비활성은 지금 제품 적재가 IncludeDeprecated 로 받아 is_active false 로 내린다 · 짐작 한 줄(남김): 적재는 Type=Stock 만 받으므로(ImsLoadProduct.gs 268 행) Cin7 에서 Stock → 다른 Type 으로 바꾼 제품은 IMS 에서 켜진 채 남을 수 있다 — 컷오버 날 Dry 에서 보이면 손으로 끈다 · 지시서 ldfix-2 는 돌리지 않았다 |
+| 686 | 「닫자」 | 미룬 **313 해당 없음으로 닫힘** — 당월 표에 2026-06-05 이후 주문만 있어 「2025-11 전 주문 · 뒤 인보이스」 오더가 빠질 일이 0(실측) · 앞으로도 오래된 오더는 확정 표(인보이스 날짜 기준)로 넘어간다 · 코드 한 줄(`ilh_sql_` currDedup 의 Order_Date 거르기)은 그대로 둔다 |
 
 - 기존 판정으로 정함(대화 Claude 알림 · Caleb 이견 없음): 새 ① 바코드 · 새 ② 제품-공급처 · 바 = **source manual 줄 무접촉**(product_bom · product_barcode 의 manual 줄은 보내지 않는다 — product_bom_set · barcode_off 가 manual 로 바꾸므로 IMS 가 만든 줄 · IMS 가 끈 Cin7 줄 둘 다 남는다 · product_supplier 의 manual 이면서 cin7_id 있는 줄(Roux 19)도 묶음에서 뺀다) · 승격은 **cin7_id 만**(671 · 132 · cost · fixed_cost · supplier_sku · currency · last_supplied 는 IMS 값) · 새 ③ 구매 가능 PATCH(2026-09-11 시트)는 **컷오버 날 돌리지 않는다**(imsLoadPurchasableApply 는 로그 후 dryRun 만)
 - 짓는 방법 고르기(Caleb 이 추천대로 받음 · 판정 번호 없음): 1a 가 ~ 라 · 1a2 가 ~ 나 · 1b 나 ~ 라 · 1c 다 · 라 · 1c2 가 ~ 라 · 1d 가 ~ 라 — 원문은 각 커밋 글 · 1d 이견 5 의 `IPT_LAST_APPLY_AT` 는 Caleb 손 입력 대신 **코드 기본값 2026-10-10T18:52:00Z**(tag-1 Apply 끝 · System_Automation Script Properties 50 개 초과 = 화면 읽기 전용 · §72-e 4) — 기본값을 쓰면 로그 2 번째 줄과 보고 머리에 「⚠️ 기본값 사용」 · ⚠️ tag-1 의 Cin7 읽기는 14:50 에 시작했다(§57-c) — 그 2 분 사이 바뀐 제품은 「뗀 것 짐작」 으로 기운다(무시할 만함)
@@ -9852,14 +9855,16 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 
 - 순서 근거: 손님 · 공급처는 서로 독립 · 제품(3)이 세트 잇기 · 바코드 · BOM · 제품-공급처 · 가격 · 태그의 앞(FK · 418 · 「Cin7 에만 있는 제품」) · 공급처(2)가 7 의 앞 · 이력(10)은 손님 · 제품을 풀어야 하니 끝
 - ⚠️ 재적재(1 ~ 9)는 **Shopify listing 을 켜기 전에**(판정 420 의 첫 상태 맞추기 앞) — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(켜진 listing 만 큐 · 지금 7) → deferred 320 · 321
+- ⭐ [2026-10-24 저녁 · 판정 684] **열린 PO 손으로 다시 만들기** — 재고 재적재(P-④) 뒤 · 리시빙 전 · 11-01 아침 Cin7 의 완료 안 된 PO 를 보고 IMS PO 화면에서 같은 공급처 · 같은 줄 · 일부 받은 PO 는 남은 수량만 · 메모에 Cin7 PO 번호 · 인보이스 · 선금 걸린 PO 는 그 건만 따로
 - ⬜ 세트 잇기(4)를 바코드(5) 앞에 두는 것은 **코드 주석 순서**다(낱개가 다 들어간 뒤 · 대체 UPC 는 BOM 의 ComponentProductID 로 부모를 찾는다) — 판정 거리
 - 각 적재의 ⏸ · Next run 은 같은 함수를 다시 · 허락 속성(`*_ALLOW_*`)은 한 번 통과 뒤 코드가 스스로 지운다
 
 ### 73-d 미룬 것 — deferred.md 에 줄 · 여기는 번호만
 
 - 닫힘: 109(1a · 1a2) · 113(1b · 670 · 675) · 103(1b · 새 ①) · 130(676 · DB 무변) · 164(1b) · 317(1c2 · 682) · 닫힘(짐작): 176(1b 가 새 제품을 넣는다 · 실측은 컷오버 날 Dry)
-- 열림 그대로: 175(태그 넣기 merge-duplicates 틈 — 1d 가 넣기 방식을 바꾸지 않았다) · 318 · 315(ILH_PRACTICE) · 303
-- 새: **319** 제품 계열 「이번에 안 들어온 cin7 행 내리기」 없음(컷오버 전 필수) · **320** 재적재는 Shopify listing 을 켜기 전에(컷오버 날) · **321** shop_queue_trigger('product') 를 「보내는 칸이 다를 때만」 으로(DB 차수 · 미정) · **322** `ims_vis_` 공용화(미정) · **323** 동점 기본 공급처 2 — MNT54316 · PIN00563(판정 대기) · **324** 로컬 빈 DB 재생 불가(미정) · **325** 태그 짐작 「Cin7 변화 가능」 의 한계(미정) · **326** Freightcom 연동(677 · 컷오버 뒤) · **327** QuickBooks 연동 준비(컷오버 뒤 · 260 과 같은 줄기)
+- 열림 그대로: 175(태그 넣기 merge-duplicates 틈 — 1d 가 넣기 방식을 바꾸지 않았다) · 318 · 315(ILH_PRACTICE) · ~~303~~
+- [2026-10-24 저녁 · docs-1024b] 닫힘: **302**(684 · 손으로 다시 만들기) · **303**(8 · 9 월 확정 적재 · 이력 판매 다시 맞춤 — 확정 12,469 오더 · 256,906 줄 · 당월 928 오더 · 19,487 줄 · 10 월분은 컷오버 뒤 첫 한두 주 · 662 그대로) · 해당 없음으로 닫힘: **319**(685) · **313**(686)
+- 새: ~~**319** 제품 계열 「이번에 안 들어온 cin7 행 내리기」 없음(컷오버 전 필수)~~ → 해당 없음으로 닫힘(685) · **320** 재적재는 Shopify listing 을 켜기 전에(컷오버 날) · **321** shop_queue_trigger('product') 를 「보내는 칸이 다를 때만」 으로(DB 차수 · 미정) · **322** `ims_vis_` 공용화(미정) · **323** 동점 기본 공급처 2 — MNT54316 · PIN00563(판정 대기) · **324** 로컬 빈 DB 재생 불가(미정) · **325** 태그 짐작 「Cin7 변화 가능」 의 한계(미정) · **326** Freightcom 연동(677 · 컷오버 뒤) · **327** QuickBooks 연동 준비(컷오버 뒤 · 260 과 같은 줄기)
 - 다음 deferred 번호: **328**
 
 ### 73-e ⚠️ 실수 · 배운 것 — 원인 · 처방
@@ -9871,6 +9876,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 5. [Claude Code] `\gset` boolean(t/f) 재발 · 창구 두 번 부르기(첫 호출이 이미 커밋 → 둘째가 changed_elsewhere) · `@>` 가 `||` 보다 먼저 묶인다 → `to_jsonb(array[…])` · 편집 스크립트가 따옴표 오류로 안 돌았는데 옛 코드로 「통과」 가 찍혔다 ⇒ **시험 전에 대상 파일 md5 · mtime 을 찍고 시험 로그 머리에도** · `node --check` 는 `.gs` 를 거부한다 → `.js` 사본으로
 6. [잘 된 것] 1c 가 1b 의 숨은 결함(이미 짝지은 IMS 제품을 둘째 적재부터 덮음)을 2 회차 시험 설계로 잡았다 · 1c 가 680 의 한계를 실물(C2)로 보여 683 이 섰다 · 1c2 가 채우기 때 트리거를 그 문장 앞뒤로만 꺼 672 표식(updated_by)을 지켰다 · 하네스 로컬 모드가 트리거 · 제약 실물을 매 차수 회귀로 돌렸다
 7. [대화 Claude] QuickBooks 「Claude 연결 앱」 은 캐나다에서 쓸 수 없다(「not available in your country」) — 우리 연동은 Intuit 개발자 앱(비공개)으로 · 둘은 별개
+8. [대화 Claude · 10-24 저녁] **짐작 위에 차수를 세웠다** — 319 의 위험(「Cin7 에서 지운 SKU」)과 302 의 길(도구)을 확인 없이 받아 지시서(ldfix-2 · po-open-0)까지 만들었다 · Caleb 「작업을 진행하기전에 먼저 상황을 확인하고 작업 진행을 했으면 좋겠어」 ⇒ **짐작이 일의 근거가 되면 차수를 만들기 전에 Caleb 에게 한 줄로 사실을 묻는다**(「Cin7 에서 그게 되나요?」 · 「지금 몇 개인가요?」) · 개수가 작으면 도구 대신 손 체크리스트(→ 684 · 685 · asung-workflow §2)
 
 ### 73-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
 
@@ -9886,8 +9892,8 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 ### 73-g 다음
 
 ```
-컷오버 날(11-01): 위 73-c 순서 · 그 전에 319(제품 계열 내리기) · 302 · 303 · 313
+컷오버 날(11-01): 위 73-c 순서(+ 열린 PO 손으로 다시 만들기 · 684) · ~~그 전에 319(제품 계열 내리기) · 302 · 303 · 313~~ → [10-24 저녁] 넷 모두 닫힘(684 · 685 · 686 · 303)
 Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBooks(327 · 260): Intuit 앱 평가 설문 · 운영 키 승인
 판정 거리: 73-c ⬜ 세트 잇기 위치 · 323 동점 기본 공급처 2
-다음 판정 번호: 684 · 다음 deferred 번호: 328
+~~다음 판정 번호: 684~~ → **687** · 다음 deferred 번호: 328
 ```

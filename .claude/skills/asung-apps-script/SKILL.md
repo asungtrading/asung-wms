@@ -129,7 +129,8 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
 ⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc · ilp · ptp …)로 겹침을 막는다
 ⭐ [2026-10-23 · so-module §72] ImsLoadHist.gs(접두 ilh · 판정 660) — IMS 이전 판매 · 발주 이력 → hist_so_load · hist_po_load(service_role) · 함수 ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(당월만 다시 = ilhRedoCurrentSales) · ilhReset
    쪽 ILH_PAGE_ORDERS 기본 100(REST statement_timeout 8 초 안 · 실측) · ILH_PRACTICE=1 = 연습 적재(주인 · 제품 못 풀림을 멈추지 않는다 · IMS 번호 겹침은 멈춘다 · 664 · 665 · 컷오버 직전 적재 전에 지운다) · 당월 표 Sale 은 단가라 sale 칸에 Total(667)
-   ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ilhReset 뒤 ilhLoadSales 전체(당월 → 확정으로 옮겨 간 오더가 틀린 채 남는다)
+   ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ~~ilhReset 뒤 ilhLoadSales 전체~~(당월 → 확정으로 옮겨 간 오더가 틀린 채 남는다)
+   → [2026-10-24 · so-module §73 · deferred 303] **판매 커서 일곱만 지우고 ilhLoadSales** — ILH_SO_CONF_CURSOR · ILH_SO_CONF_DONE · ILH_SO_CONF_SUM · ILH_SO_CURR_CURSOR · ILH_SO_CURR_DONE · ILH_SO_CURR_SUM · ILH_SO_SUM(임시 함수로 지우고 그 파일을 지운다 · 50 개 넘어 화면 읽기 전용) · ⚠️ ilhReset 금지 — 짝(ILH_PAIRS_* 여덟)까지 지워 ilhLoadSales 가 「짝이 없다 — ilhPairs 먼저」 로 멈춘다 · 발주 · ILH_PRACTICE 는 그대로
 ⚠️ [2026-10-23] **Script Properties 가 50 개를 넘으면 설정 화면이 읽기 전용** — 코드(PropertiesService)로 바꾼다: 임시 파일에 setProperty 함수 → 실행 → 그 파일을 지운다(같은 이름 함수 함정 · 남겨 두지 않는다)
 ```
 
