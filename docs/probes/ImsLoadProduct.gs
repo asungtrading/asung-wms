@@ -15,10 +15,21 @@
  * 실행 순서
  *   1) imsLoadProductFamily()        확인만
  *   2) imsLoadProductFamilyApply()   쓴다 (1,141)
- *   3) imsLoadProduct()              확인만 (첫 페이지만 훑는다)
- *   4) imsLoadProductApply()         쓴다 (⏸ 나오면 다시 호출 · 커서는 Script Property)
+ *   3) imsLoadProduct()              확인만 — ⭐ [ldfix-1b] 전량을 훑는다(쓰기 0 · 커서 IPR_DRY_PAGE · ⏸ 나오면 다시 호출) · 672 손댄 행 · 674 짝 · 679 SKU 다름 · 670/675 sellable 을 쪽마다 로그에
+ *   4) imsLoadProductApply()         쓴다 (⏸ 나오면 다시 호출 · 커서는 Script Property) · 쪽마다 3) 과 같은 판정을 찍고 쓴다
  *   5) imsLoadProductExtraApply()    ⭐ AS91437-BLK 한 건
- *   보조) imsLoadProductReset()      커서를 지운다
+ *   보조) imsLoadProductReset()      커서(Apply · Dry)를 지운다
+ *
+ * ⭐ [2026-10-24 · ldfix-1b · 판정 670 · 671 · 672 · 675 · 679 · 미룬 103 · 113 · 164 · cs-4 · so-module §72] IMS 가 정한 값은 적재가 건드리지 않는다
+ *   열쇠   우리 표에 cin7_id 가 있는 제품 → on_conflict=cin7_id 로 upsert · ⭐ sku 는 IMS 값을 그대로 싣는다(판정 679 · 다르면 「SKU 다름」 로그 · Cin7 쪽이 바꾼 것도 같은 로그)
+ *          cin7_id 는 없고 SKU 가 IMS 에서 만든 행(source manual)과 같다 → 그 행에 cin7_id 만 PATCH · 묶음에서 뺀다 · 값이 다른 칸 로그(판정 132 · 674 · cs-4)
+ *          같은 SKU 가 다른 cin7_id 의 cin7 행이다 → 멈춤(사람이 가른다) · 어디에도 없다 → 새 행(on_conflict=sku 그대로)
+ *   sellable 우리 표의 sellable_source='ims' 인 제품 · 세트(우리 표의 parent_product_id 있음)는 IMS 현재 값을 같은 키로 싣는다(판정 670 · 675 · 칸을 빼지 않는다) · 새 제품은 Cin7 값(새 세트는 2단계 잇기에서 트리거가 false)
+ *          Apply 가 끝까지 돌면 그 행들을 다시 읽어 값이 그대로인지 대조한다(사이에 직원이 바꿨으면 로그)
+ *   672    source=cin7 이면서 updated_by 가 있는 행(지난 적재 뒤 직원이 창구로 고친 행 · 적재가 쓰면 ims_touch 가 updated_by 를 비운다)의 「IMS 값 ↔ Cin7 값」 을 로그에 — Cin7 값이 덮는다(이름 · 브랜드 · 무게 · family · 옵션 …) · 보조 IPR_LAST_APPLY_AT
+ *   103 · 새 ①  product_bom · product_barcode 의 source='manual' 줄(IMS 가 만든 줄 · IMS 가 끈 Cin7 줄 — product_bom_set · product_update 가 manual 로 바꾼다)은 보내지 않는다 · cin7 줄 중 손댄 것은 672 꼴로 로그
+ *   큐     product · product_barcode 갱신은 shop_queue_trigger → shop_queue_add 가 켜진 listing 만 큐에 넣는다(실측 2026-10-24: listing 7 → 큐 ≤ 7) · 「값이 다른 행만」 은 미룬 항목 후보
+ *   필요한 Script Properties 추가: (쓰는) IPR_DRY_PAGE · IPR_LAST_APPLY_AT
  */
 
 var IPR_PROP_CURSOR = 'IPR_PRODUCT_PAGE';
@@ -175,10 +186,20 @@ function ipr_loadFamily_(dryRun) {
   Logger.log('표에 넣을 행: ' + rows.length);
   Logger.log('표본 2: ' + JSON.stringify(rows.slice(0, 2)));
 
+  // [ldfix-1b] 우리 표와 맞춘다 — cin7_id 먼저 · SKU 는 IMS 값(679) · manual 과 SKU 같으면 cin7_id 만(674) · 손댄 행(672)
+  var db = ipr_dbTable_('product_family', 'sku');
+  var plan = ipr_planRows_(rows, db, ['cin7_id', 'source']);
+  ipr_logPlan_('product_family', plan);
+
   if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
   if (dup.length) { Logger.log('⚠️ sku 중복이 있어 쓰지 않는다'); return; }
+  if (plan.conflicts.length) throw new Error('⛔ 같은 SKU 가 다른 cin7 행이다 — 사람이 가른다: ' + plan.conflicts.join(' | '));
 
-  Logger.log('⭐ 쓰인 행: ' + ipr_upsert_('product_family', 'sku', rows));
+  var paired = ipr_pairPatch_('product_family', plan.pairs);
+  var wrote = 0;
+  if (plan.byCin7.length) wrote += ipr_upsert_('product_family', 'cin7_id', plan.byCin7);
+  if (plan.fresh.length)  wrote += ipr_upsert_('product_family', 'sku', plan.fresh);
+  Logger.log('⭐ 쓰인 행: ' + wrote + ' (cin7_id 로 ' + plan.byCin7.length + ' · 새로 ' + plan.fresh.length + ') · 짝지은 IMS 제품군(cin7_id 만) ' + paired + ' / ' + plan.pairs.length);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -189,6 +210,7 @@ function imsLoadProduct()      { ipr_loadProduct_(true); }
 function imsLoadProductApply() { ipr_loadProduct_(false); }
 
 function imsLoadProductReset() {
+  PropertiesService.getScriptProperties().deleteProperty('IPR_DRY_PAGE');   // [ldfix-1b] Dry 커서
   PropertiesService.getScriptProperties().deleteProperty(IPR_PROP_CURSOR);
   Logger.log('커서를 지웠다. imsLoadProductApply() 부터 다시.');
 }
@@ -196,7 +218,9 @@ function imsLoadProductReset() {
 function ipr_loadProduct_(dryRun) {
   var t0 = new Date().getTime();
   var props = PropertiesService.getScriptProperties();
-  var page = Number(props.getProperty(IPR_PROP_CURSOR) || '1');
+  var cursorKey = dryRun ? 'IPR_DRY_PAGE' : IPR_PROP_CURSOR;           // [ldfix-1b] Dry 도 전량 · 커서는 따로
+  var page = Number(props.getProperty(cursorKey) || '1');
+  var startedAtOne = page === 1;
 
   // 대응표 — ⚠️ product_family 는 1,141 이라 캡을 넘는다
   var brands = ipr_map_('/rest/v1/ref_brand?select=id,name',    'name');
@@ -218,12 +242,18 @@ function ipr_loadProduct_(dryRun) {
   });
   Logger.log('family 대응: 제품군 ' + famItems.length + ' · 변형 ' + Object.keys(famOf).length);
 
+  // [ldfix-1b] 우리 표 — cin7_id · sku 지도 · sellable · 세트 · 손댄 행(672) · IMS 에서 만든 행(674)
+  var db = ipr_dbTable_('product', 'sku');
+  Logger.log('우리 표: 제품 ' + db.n + ' · 손댄 cin7 행 ' + Object.keys(db.touched).length + ' · IMS 에서 만든 행(cin7_id 없음) ' + Object.keys(db.manual).length +
+             ' · sellable_source ims ' + db.nImsSellable + ' · 세트 ' + db.nSets + ' · 지난 적재 시각 ' + (props.getProperty('IPR_LAST_APPLY_AT') || '(속성 없음)'));
+
   var stopped = '끝까지 돌았다';
   var seenTotal = 0, wrote = 0, skipped = { type: 0, altupc: 0 }, missFam = [], missAcct = {};
+  var tot = { byCin7: 0, fresh: 0, pairs: 0, skuDiff: 0, kept: 0, touched: 0 }, kept = [], seenCin7 = {};
 
   while (true) {
     if (new Date().getTime() - t0 > IPR_MAX_RUN) {
-      stopped = '⏸ 시간 한도 — imsLoadProductApply() 를 다시 호출하면 이어간다';
+      stopped = '⏸ 시간 한도 — ' + (dryRun ? 'imsLoadProduct()' : 'imsLoadProductApply()') + ' 를 다시 호출하면 이어간다';
       break;
     }
     var res = ipr_cin7_('product', {
@@ -245,27 +275,50 @@ function ipr_loadProduct_(dryRun) {
       rows.push(ipr_row_(p, brands, cats, units, accts, fams, famOf, missFam, missAcct));
     });
 
-    if (dryRun) {
-      Logger.log('페이지 ' + page + ' — 받은 ' + items.length + ' · 넣을 ' + rows.length);
-      Logger.log('표본 1: ' + JSON.stringify(rows[0]));
-      Logger.log('(dryRun — 첫 페이지만 보고 멈춘다)');
-      return;
-    }
+    // [ldfix-1b] 쪽마다 같은 판정 — Dry 도 Apply 도
+    var plan = ipr_planRows_(rows, db, ['cin7_id', 'source']);
+    rows.forEach(function (r) { seenCin7[r.cin7_id] = true; });
+    Logger.log('페이지 ' + page + ' — 받은 ' + items.length + ' · 넣을 ' + rows.length + ' (cin7_id 로 ' + plan.byCin7.length + ' · 새로 ' + plan.fresh.length + ' · 짝 ' + plan.pairs.length + ')');
+    ipr_logPlan_('product', plan);
+    ['byCin7', 'fresh', 'pairs', 'skuDiff', 'kept', 'touched'].forEach(function (k) { tot[k] += (k === 'kept' ? plan.keptSellable : (k === 'touched' ? plan.touchedLines : plan[k])).length; });
+    kept = kept.concat(plan.keptSellable);
+    if (plan.conflicts.length) throw new Error('⛔ 페이지 ' + page + ' — 같은 SKU 가 다른 cin7 행이다(사람이 가른다 · 이 쪽은 쓰지 않았다): ' + plan.conflicts.join(' | '));
 
-    if (rows.length) wrote += ipr_upsert_('product', 'sku', rows);
+    if (!dryRun) {
+      ipr_pairPatch_('product', plan.pairs);
+      if (plan.byCin7.length) wrote += ipr_upsert_('product', 'cin7_id', plan.byCin7);
+      if (plan.fresh.length)  wrote += ipr_upsert_('product', 'sku', plan.fresh);
+    }
     page += 1;
-    props.setProperty(IPR_PROP_CURSOR, String(page));
+    props.setProperty(cursorKey, String(page));
 
     if (items.length < IPR_LIMIT) break;
     Utilities.sleep(IPR_THROTTLE);
   }
 
   Logger.log('');
-  Logger.log(stopped + ' · 이번에 본 행 ' + seenTotal + ' · 쓴 행 ' + wrote + ' · 다음 페이지 ' + page);
+  Logger.log(stopped + ' · 이번에 본 행 ' + seenTotal + ' · ' + (dryRun ? '(dryRun — 쓰지 않았다)' : '쓴 행 ' + wrote) + ' · 다음 페이지 ' + page);
   Logger.log('건너뜀 — Stock 아님 ' + skipped.type + ' · EA-ALT-UPC(BOM=1) ' + skipped.altupc);
+  Logger.log('⭐ [ldfix-1b] 이번 실행 — cin7_id 로 ' + tot.byCin7 + ' · 새로 ' + tot.fresh + ' · 짝지은 IMS 제품(cin7_id 만 · 674) ' + tot.pairs + ' · SKU 다름(IMS 값 유지 · 679) ' + tot.skuDiff +
+             ' · sellable IMS 값 유지(670 · 675) ' + tot.kept + ' · 손댄 행(672 · Cin7 이 덮는다) ' + tot.touched);
   Logger.log('⚠️ family 못 찾음: ' + missFam.length + (missFam.length ? ' → ' + missFam.slice(0, 10).join(' · ') : ''));
   var ma = Object.keys(missAcct);
   Logger.log('⚠️ 계정 못 이음: ' + ma.length + (ma.length ? ' → ' + ma.slice(0, 10).join(' · ') : ''));
+
+  if (stopped === '끝까지 돌았다') {
+    if (startedAtOne) {
+      var unseen = Object.keys(db.touched).filter(function (c) { return !seenCin7[c]; });
+      Logger.log('[672] 손댄 cin7 행 중 이번 Cin7 에 없는 것(덮이지 않음) ' + unseen.length + (unseen.length ? ' → ' + unseen.map(function (c) { return db.touched[c].sku; }).join(' · ') : ''));
+    } else {
+      Logger.log('[672] 이번 실행은 페이지 ' + Number(props.getProperty(cursorKey) || '1') + ' 전부터가 아니라 「덮이지 않음」 목록은 못 낸다 — 처음부터 다시 돌리면 나온다');
+    }
+    props.deleteProperty(cursorKey);
+    if (!dryRun) {
+      ipr_recheckKept_(kept);
+      props.setProperty('IPR_LAST_APPLY_AT', new Date().toISOString());
+      Logger.log('IPR_LAST_APPLY_AT = ' + props.getProperty('IPR_LAST_APPLY_AT') + ' · ⚠️ 이번 실행에서 쓴 행만 다시 읽었다(Next run 으로 나뉜 앞 실행의 행은 그때 대조됐다)');
+    }
+  }
 }
 
 function ipr_row_(p, brands, cats, units, accts, fams, famOf, missFam, missAcct) {
@@ -363,8 +416,17 @@ function ipr_loadExtra_(dryRun) {
   row.note = '⚠️ Cin7 Type=Non Inventory 이나 실물은 AS91437 을 만드는 벌크 자재 (Caleb 2026-09-13)';
   Logger.log(JSON.stringify(row));
 
+  // [ldfix-1b] 한 건도 같은 규칙 — cin7_id 먼저 · SKU 는 IMS 값 · sellable 은 IMS 값(ims · 세트) · 손댄 행 로그
+  var db = ipr_dbTable_('product', 'sku');
+  var plan = ipr_planRows_([row], db, ['cin7_id', 'source']);
+  ipr_logPlan_('product', plan);
   if (dryRun) { Logger.log('(dryRun — 쓰지 않았다)'); return; }
-  Logger.log('⭐ 쓰인 행: ' + ipr_upsert_('product', 'sku', [row]));
+  if (plan.conflicts.length) throw new Error('⛔ 같은 SKU 가 다른 cin7 행이다 — 사람이 가른다: ' + plan.conflicts.join(' | '));
+  ipr_pairPatch_('product', plan.pairs);
+  var wrote = 0;
+  if (plan.byCin7.length) wrote += ipr_upsert_('product', 'cin7_id', plan.byCin7);
+  if (plan.fresh.length)  wrote += ipr_upsert_('product', 'sku', plan.fresh);
+  Logger.log('⭐ 쓰인 행: ' + wrote);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -629,8 +691,15 @@ function ipr_loadBarcode_(dryRun) {
   var pmap = ipr_productMap_();          // cin7_id → {id, sku, barcode}
   var stopped = '끝까지 돌았다';
   var seen = 0, wrote = 0;
-  var noBarcode = 0, dupInBatch = 0;
+  var noBarcode = 0, dupInBatch = 0, skipManual = 0, touchedHit = 0;
   var bcOwners = {};                      // 바코드 → 제품 수 (교차 중복 세기)
+
+  // [ldfix-1b · 새 ①] IMS 가 만든 줄 · IMS 가 끄거나 대표를 바꾼 줄(product_update 가 source=manual 로 바꾼다)은 보내지 않는다 · cin7 줄 중 손댄 것(updated_by)은 672 꼴 로그
+  var manualBc = {}, touchedBc = {};
+  ipr_readAll_('/rest/v1/product_barcode?select=product_id,barcode&source=eq.manual').forEach(function (r) { manualBc[r.product_id + '|' + r.barcode] = true; });
+  ipr_readAll_('/rest/v1/product_barcode?select=*&source=eq.cin7&updated_by=not.is.null').forEach(function (r) { touchedBc[r.product_id + '|' + r.barcode] = r; });
+  Logger.log('[ldfix-1b] manual 바코드 줄(보내지 않음) ' + Object.keys(manualBc).length + ' · 손댄 cin7 바코드 줄(672 · 적재가 is_active true · is_primary true 로 덮는다) ' + Object.keys(touchedBc).length);
+  Object.keys(touchedBc).forEach(function (k) { var r = touchedBc[k]; Logger.log('   [672] ' + k + ' : is_active IMS=' + r.is_active + ' → true · is_primary IMS=' + r.is_primary + ' → true (updated_at ' + r.updated_at + ')'); });
 
   while (true) {
     if (new Date().getTime() - t0 > IPR_MAX_RUN) {
@@ -654,6 +723,8 @@ function ipr_loadBarcode_(dryRun) {
         var k1 = me.id + '|' + bc;
         if (key[k1]) { dupInBatch++; return; }
         key[k1] = true;
+        if (manualBc[k1]) { skipManual++; return; }                                   // [ldfix-1b] IMS 가 정한 줄
+        if (touchedBc[k1]) touchedHit++;
         rows.push({ cin7_id: null, is_active: true, source: 'cin7',
                     product_id: me.id, barcode: bc, is_primary: true, valid_from: null });
         return;
@@ -682,8 +753,130 @@ function ipr_loadBarcode_(dryRun) {
   var cross = Object.keys(bcOwners).filter(function (b) { return bcOwners[b] > 1; }).length;
   Logger.log('');
   Logger.log(stopped + ' · 본 행 ' + seen + ' · 쓴 줄 ' + wrote + ' · 다음 페이지 ' + page);
-  Logger.log('  바코드 없음 ' + noBarcode + ' · 묶음 내 중복 ' + dupInBatch);
+  Logger.log('  바코드 없음 ' + noBarcode + ' · 묶음 내 중복 ' + dupInBatch + ' · [ldfix-1b] manual 이라 건너뜀 ' + skipManual + ' · 손댄 cin7 줄을 덮음 ' + touchedHit);
   Logger.log('  ⚠️ 이번에 본 것 중 한 바코드를 여러 제품이 쓰는 것: ' + cross + '종');
+}
+
+/* ── [ldfix-1b] 도우미 — 열쇠 · sellable · 짝짓기 · 손댄 행 ── */
+
+/** 전부 읽기 — PostgREST 1,000행 캡 · Range 로 나눠 읽고 Content-Range 총계와 대조(ipr_map_ 과 같은 안전장치 · 행을 그대로 돌려준다) */
+function ipr_readAll_(path) {
+  var out = [], from = 0, step = 1000, total = null;
+  while (true) {
+    var res = ims_fetch_(path, { method: 'get', headers: { 'Range-Unit': 'items', 'Range': from + '-' + (from + step - 1), 'Prefer': 'count=exact' } });
+    if (res.getResponseCode() >= 300) throw new Error('조회 실패 ' + path + ' → ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
+    if (total === null) {
+      var hs = res.getHeaders(), cr = '';
+      Object.keys(hs).forEach(function (k) { if (String(k).toLowerCase() === 'content-range') cr = String(hs[k]); });
+      var m = cr.match(/\/(\d+)$/);
+      total = m ? Number(m[1]) : null;
+    }
+    var rows = JSON.parse(res.getContentText());
+    out = out.concat(rows);
+    from += rows.length;
+    if (!rows.length) break;
+    if (total !== null && from >= total) break;
+    if (total === null && rows.length < step) break;
+  }
+  if (total !== null && out.length < total) throw new Error('⚠️ 읽기가 잘렸다: ' + out.length + ' / ' + total + ' — 멈춘다');
+  if (total === null && out.length > 0 && out.length % step === 0) throw new Error('⚠️ 총계를 못 읽었는데 정확히 ' + out.length + '행 — 캡일 수 있다. 멈춘다');
+  return out;
+}
+
+/** 우리 표(product · product_family) 지도 — byCin7 · bySku(가벼운 칸) · touched(672 · 전 칸) · manual(IMS 에서 만든 행 · cin7_id 없음 · 전 칸) */
+function ipr_dbTable_(table, keyField) {
+  var light = table === 'product' ? 'id,cin7_id,sku,source,sellable,sellable_source,parent_product_id,family_id,updated_by' : 'id,cin7_id,sku,source,updated_by';
+  var rows = ipr_readAll_('/rest/v1/' + table + '?select=' + light);
+  var byCin7 = {}, bySku = {}, nIms = 0, nSets = 0;
+  rows.forEach(function (r) {
+    bySku[String(r[keyField])] = r;
+    if (r.cin7_id) byCin7[String(r.cin7_id)] = r;
+    if (r.sellable_source === 'ims') nIms++;
+    if (r.parent_product_id) nSets++;
+  });
+  var touched = {};
+  ipr_readAll_('/rest/v1/' + table + '?select=*&source=eq.cin7&updated_by=not.is.null').forEach(function (r) { touched[String(r.cin7_id)] = r; });
+  var manual = {};
+  ipr_readAll_('/rest/v1/' + table + '?select=*&source=eq.manual&cin7_id=is.null').forEach(function (r) { manual[String(r[keyField])] = r; });
+  return { table: table, byCin7: byCin7, bySku: bySku, touched: touched, manual: manual, n: rows.length, nImsSellable: nIms, nSets: nSets };
+}
+
+/** 두 행의 값이 다른 칸 — b(보내는 행)의 키 기준 · skip 키는 뺀다 */
+function ipr_diff_(a, b, skip) {
+  var out = [];
+  Object.keys(b).forEach(function (k) {
+    if (skip.indexOf(k) >= 0) return;
+    var x = (a[k] === undefined) ? null : a[k], y = (b[k] === undefined) ? null : b[k];
+    if (JSON.stringify(x) !== JSON.stringify(y)) out.push(k + ': IMS=' + JSON.stringify(x) + ' Cin7=' + JSON.stringify(y));
+  });
+  return out;
+}
+
+/** 보낼 행들을 우리 표와 맞춘다 — byCin7(on_conflict=cin7_id · sku 는 IMS 값 · sellable 은 ims/세트면 IMS 값) · fresh(새 행 · on_conflict=sku) · pairs(manual 과 SKU 같음 · cin7_id 만) · conflicts(멈춤) */
+function ipr_planRows_(rows, db, diffSkip) {
+  var plan = { byCin7: [], fresh: [], pairs: [], conflicts: [], skuDiff: [], keptSellable: [], touchedLines: [] };
+  rows.forEach(function (row) {
+    var ex = db.byCin7[String(row.cin7_id)];
+    if (ex) {
+      if (String(ex.sku) !== String(row.sku)) { plan.skuDiff.push('IMS ' + ex.sku + ' ≠ Cin7 ' + row.sku + ' (cin7_id ' + row.cin7_id + ')'); row.sku = ex.sku; }   // 판정 679 — SKU 는 IMS 값
+      if (db.table === 'product' && (ex.sellable_source === 'ims' || ex.parent_product_id)) {                                               // 판정 670 · 675
+        if (row.sellable !== ex.sellable) plan.keptSellable.push({ cin7_id: row.cin7_id, sku: ex.sku, sellable: ex.sellable, why: ex.sellable_source === 'ims' ? 'ims' : 'set', cin7: row.sellable });
+        row.sellable = ex.sellable;
+      }
+      var t = db.touched[String(row.cin7_id)];
+      if (t) { var d = ipr_diff_(t, row, diffSkip); plan.touchedLines.push(ex.sku + ' (updated_at ' + t.updated_at + ')' + (d.length ? ' — 덮임: ' + d.join(' / ') : ' — 덮여도 값 그대로')); }
+      plan.byCin7.push(row);
+      return;
+    }
+    var m = db.bySku[String(row.sku)];
+    if (m) {
+      if (m.source === 'manual' && !m.cin7_id) {
+        var full = db.manual[String(row.sku)] || m;
+        plan.pairs.push({ ims_id: m.id, cin7_id: row.cin7_id, sku: row.sku, diffs: ipr_diff_(full, row, diffSkip) });
+      } else {
+        plan.conflicts.push(row.sku + ' : 우리 표의 같은 SKU 행이 source ' + m.source + ' · cin7_id ' + (m.cin7_id || '-') + ' ≠ Cin7 ' + row.cin7_id);
+      }
+      return;
+    }
+    plan.fresh.push(row);
+  });
+  return plan;
+}
+
+function ipr_logPlan_(table, plan) {
+  plan.skuDiff.forEach(function (x) { Logger.log('   [679 SKU 다름 · IMS 값 유지] ' + x); });
+  plan.keptSellable.forEach(function (x) { Logger.log('   [670/675 sellable IMS 값 유지 · ' + x.why + '] ' + x.sku + ' : IMS ' + x.sellable + ' (Cin7 ' + x.cin7 + ')'); });
+  plan.pairs.forEach(function (x) { Logger.log('   [674 짝 · cin7_id 만] ' + x.sku + ' ← ' + x.cin7_id + (x.diffs.length ? ' · 값이 다른 칸 ' + x.diffs.join(' / ') : ' · 다른 칸 없음')); });
+  plan.touchedLines.forEach(function (x) { Logger.log('   [672 손댄 행 · Cin7 이 덮는다] ' + x); });
+  plan.conflicts.forEach(function (x) { Logger.log('   ⛔ [SKU 겹침] ' + x); });
+}
+
+/** 674 — IMS 에서 만든 행에 cin7_id 만 PATCH · 아직 비어 있을 때만(그 사이 누가 붙였으면 0 행 → 멈춤) · 지도도 갱신해 뒤 쪽이 cin7_id 로 찾게 */
+function ipr_pairPatch_(table, pairs) {
+  var done = 0;
+  pairs.forEach(function (p) {
+    var res = ims_fetch_('/rest/v1/' + table + '?id=eq.' + p.ims_id + '&cin7_id=is.null', {
+      method: 'patch', headers: { 'Prefer': 'return=representation' }, payload: JSON.stringify({ cin7_id: p.cin7_id })
+    });
+    if (res.getResponseCode() >= 300) throw new Error('짝짓기 PATCH 실패 ' + p.sku + ' → HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 300));
+    if (JSON.parse(res.getContentText()).length !== 1) throw new Error('짝짓기 — 돌아온 행이 1 이 아니다(그 사이 누가 cin7_id 를 붙였나): ' + p.sku);
+    done++;
+  });
+  return done;
+}
+
+/** 670 · 675 — 적재 끝에 IMS 값을 실어 보낸 행을 다시 읽어 그대로인지(사이에 직원이 바꿨으면 로그) · cin7_id 100 개씩 */
+function ipr_recheckKept_(kept) {
+  if (!kept.length) { Logger.log('[670/675 재대조] 이번 실행에서 IMS 값을 실은 행 0'); return; }
+  var want = {}, changed = [];
+  kept.forEach(function (k) { want[k.cin7_id] = k; });
+  var ids = Object.keys(want);
+  for (var i = 0; i < ids.length; i += 100) {
+    ipr_readAll_('/rest/v1/product?select=cin7_id,sku,sellable&cin7_id=in.(' + ids.slice(i, i + 100).join(',') + ')').forEach(function (r) {
+      if (r.sellable !== want[r.cin7_id].sellable) changed.push(r.sku + ' : 보낸 ' + want[r.cin7_id].sellable + ' → 지금 ' + r.sellable);
+    });
+  }
+  Logger.log('[670/675 재대조] IMS 값을 실은 행 ' + ids.length + ' · 그대로 ' + (ids.length - changed.length) + ' · 사이에 바뀜 ' + changed.length + (changed.length ? ' → ' + changed.join(' · ') : ''));
 }
 
 /** cin7_id → {id, sku, barcode} · ⚠️ 18,714행이라 캡을 크게 넘는다 */
@@ -725,7 +918,13 @@ function imsLoadProductBomApply() { ipr_loadBom_(false); }
 
 function ipr_loadBom_(dryRun) {
   var pmap = ipr_productMap_();
-  var page = 1, rows = [], combos = 0, missParent = [], missComp = [], seen = 0;
+  var page = 1, rows = [], combos = 0, missParent = [], missComp = [], seen = 0, skipManual = 0;
+
+  // [ldfix-1b · 미룬 103] IMS 가 만든 줄 · IMS 가 끈 Cin7 줄(product_bom_set 이 is_active=false · source=manual 로 바꾼다)은 보내지 않는다 · cin7 줄 중 손댄 것(updated_by)은 672 꼴 로그
+  var manualBom = {}, touchedBom = {};
+  ipr_readAll_('/rest/v1/product_bom?select=parent_product_id,component_product_id&source=eq.manual').forEach(function (r) { manualBom[r.parent_product_id + '|' + r.component_product_id] = true; });
+  ipr_readAll_('/rest/v1/product_bom?select=*&source=eq.cin7&updated_by=not.is.null').forEach(function (r) { touchedBom[r.parent_product_id + '|' + r.component_product_id] = r; });
+  Logger.log('[ldfix-1b] manual BOM 줄(보내지 않음) ' + Object.keys(manualBom).length + ' · 손댄 cin7 BOM 줄(672) ' + Object.keys(touchedBom).length);
 
   while (true) {
     var r = ipr_cin7_('product', { Page: page, Limit: IPR_LIMIT, IncludeDeprecated: true, IncludeBOM: true });
@@ -742,6 +941,9 @@ function ipr_loadBom_(dryRun) {
       bom.forEach(function (c) {
         var comp = pmap[String(c.ComponentProductID)];
         if (!comp) { missComp.push(p.SKU + ' → ' + c.ProductCode); return; }
+        if (manualBom[me.id + '|' + comp.id]) { skipManual++; return; }               // [ldfix-1b] IMS 가 정한 줄
+        var tb = touchedBom[me.id + '|' + comp.id];
+        if (tb) Logger.log('   [672] ' + p.SKU + ' → ' + c.ProductCode + ' : quantity IMS=' + tb.quantity + ' Cin7=' + c.Quantity + ' · is_active IMS=' + tb.is_active + ' → true');
         rows.push({
           cin7_id: null, is_active: true, source: 'cin7',
           parent_product_id: me.id, component_product_id: comp.id,
@@ -776,7 +978,7 @@ function ipr_loadBom_(dryRun) {
   }
   rows = deduped;
 
-  Logger.log('본 행 ' + seen + ' · 콤보 ' + combos + ' · 구성품 줄 ' + rows.length);
+  Logger.log('본 행 ' + seen + ' · 콤보 ' + combos + ' · 구성품 줄 ' + rows.length + ' · [ldfix-1b] manual 이라 건너뜀 ' + skipManual);
   Logger.log('⚠️ 콤보인데 우리 표에 없음: ' + missParent.length + (missParent.length ? ' → ' + missParent.join(' · ') : ''));
   Logger.log('⚠️ 구성품이 우리 표에 없음: ' + missComp.length + (missComp.length ? ' → ' + missComp.join(' · ') : ''));
   var q = {};

@@ -46,7 +46,15 @@ function makeFakeGas(opts) {
   function defaults(table, row) {
     const r = Object.assign({ id: crypto.randomUUID(), created_at: nowIso(), updated_at: nowIso(), updated_by: null, source: 'cin7', is_active: true, note: null }, row);
     if (table === 'customer') Object.assign(r, { parent_id: r.parent_id ?? null, parent_source: r.parent_source ?? null, default_bill_to_customer_id: r.default_bill_to_customer_id ?? null, cin7_id: r.cin7_id ?? null });
+    if (table === 'product') {                    // product_sellable_default(INSERT · 명시 null → 종류 기본) · 칸 기본 true · sellable_source 기본 null
+      Object.assign(r, { parent_product_id: r.parent_product_id ?? null, pack_factor: r.pack_factor ?? null, sellable_source: r.sellable_source ?? null, family_id: r.family_id ?? null, cin7_id: r.cin7_id ?? null });
+      if (r.sellable === null || r.sellable === undefined) r.sellable = (r.parent_product_id === null);
+    }
     return r;
+  }
+  function productGuard(row, oldParent, oldSellable, body) {   // product_sellable_default(UPDATE OF parent_product_id): 낱개 → 세트인데 같은 문장이 sellable 을 안 바꿨으면 false
+    if (oldParent === null && row.parent_product_id !== null && !('sellable' in body)) row.sellable = false;
+    if (row.sellable === null) row.sellable = (row.parent_product_id === null);
   }
   function respond(code, bodyObj, headers) {
     const text = typeof bodyObj === 'string' ? bodyObj : JSON.stringify(bodyObj);
@@ -69,7 +77,7 @@ function makeFakeGas(opts) {
     if (method === 'patch') {
       const body = JSON.parse(o.payload);
       const hit = rows.filter(r => match(r, filters));
-      hit.forEach(r => { const oldParent = r.parent_id; Object.assign(r, body); if (table === 'customer' && 'parent_id' in body) customerGuard(r, oldParent); touch(table, r); });
+      hit.forEach(r => { const oldParent = r.parent_id, oldPP = r.parent_product_id, oldS = r.sellable; Object.assign(r, body); if (table === 'customer' && 'parent_id' in body) customerGuard(r, oldParent); if (table === 'product' && 'parent_product_id' in body) productGuard(r, oldPP, oldS, body); touch(table, r); });
       return respond(200, prefer.includes('return=representation') ? hit : []);
     }
     if (method === 'post') {
@@ -78,12 +86,24 @@ function makeFakeGas(opts) {
       const out = [];
       arr.forEach(b => {
         const found = keys.length ? rows.find(r => keys.every(k => String(r[k]) === String(b[k]))) : null;
-        if (found) { const oldParent = found.parent_id; Object.assign(found, b); if (table === 'customer' && 'parent_id' in b) customerGuard(found, oldParent); touch(table, found); out.push(found); }
+        if (found) { const oldParent = found.parent_id, oldPP = found.parent_product_id, oldS = found.sellable; Object.assign(found, b); if (table === 'customer' && 'parent_id' in b) customerGuard(found, oldParent); if (table === 'product' && 'parent_product_id' in b) productGuard(found, oldPP, oldS, b); touch(table, found); out.push(found); }
         else { const r = defaults(table, b); rows.push(r); out.push(r); }
       });
       return respond(201, prefer.includes('return=representation') ? out : []);
     }
     throw new Error('emu: method 미지원 ' + method);
+  }
+  // ── 가짜 Cin7 — opts.cin7 = { product: [...], productFamily: [...] } · Page · Limit · Sku 만 받는다 · Products / ProductFamilies 로 돌려준다 ──
+  const cin7 = opts.cin7 || {};
+  function cin7Fetch(url) {
+    const m = url.match(/ExternalApi\/v2\/([A-Za-z]+)\??(.*)$/); const path = m[1]; const q = {};
+    (m[2] || '').split('&').filter(Boolean).forEach(kv => { const i = kv.indexOf('='); q[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); });
+    let all = cin7[path]; if (!all) throw new Error('가짜 Cin7 에 없는 길: ' + path);
+    if (q.Sku) all = all.filter(x => String(x.SKU) === q.Sku);
+    const page = Number(q.Page || 1), limit = Number(q.Limit || 100);
+    const items = all.slice((page - 1) * limit, page * limit);
+    const body = { Total: all.length }; body[path === 'productFamily' ? 'ProductFamilies' : 'Products'] = items;
+    return respond(200, body);
   }
   // ── curl 로컬 모드 ──
   function curlFetch(url, o) {
@@ -115,7 +135,7 @@ function makeFakeGas(opts) {
       fetch: (url, o) => {
         const rec = { method: (o.method || 'get').toLowerCase(), path: url.replace(/^https?:\/\/[^/]+/, ''), body: o.payload ? JSON.parse(o.payload) : null, headers: o.headers || {} };
         requests.push(rec);
-        if (url.indexOf('dearsystems') >= 0) throw new Error('하네스는 Cin7 을 부르지 않는다: ' + url);
+        if (url.indexOf('dearsystems') >= 0) return cin7Fetch(url);
         return mode === 'local' ? curlFetch(url, o) : emuFetch(url, o);
       }
     }
