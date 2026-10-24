@@ -8,14 +8,17 @@
  * ⚠️ Advanced Google Service 「BigQuery API」 가 이 프로젝트에 켜져 있어야 한다(Services → BigQuery) — 안 켜져 있으면 ilhDry 첫 줄에서 멈춘다
  *
  * 필요한 Script Properties: CIN7_ACCOUNT_ID · CIN7_APPLICATION_KEY · SUPABASE_IMS_URL · SUPABASE_IMS_SERVICE_KEY
- *   선택: ILH_SALE_LIMIT(saleList 한 쪽 · 기본 100 · ilhDry 가 1000 이 동작하면 1000 으로) · ILH_PAGE_ORDERS(창구 한 쪽의 오더 수 · 기본 300 · 창구 상한 500)
+ *   선택: ILH_SALE_LIMIT(saleList 한 쪽 · 기본 100 · ilhDry 가 1000 이 동작하면 1000 으로) · ILH_PAGE_ORDERS(창구 한 쪽의 오더 수 · 기본 100 · 창구 상한 500 · hist-3c: 첫 적재는 50 으로 돌았고 쪽당 최대 2,352 줄이 REST 8 초 안 · 100 오더 창 최대 3,950 줄 · 300 은 7,946 ~ 8,865 줄로 안 재 봤다)
  *         ILH_PO_EXTRA_OK(쉼표 목록 · 모르는 PO 상태를 「넣는다」 로 허락) · ILH_ALLOW_UNRESOLVED=1(어긋남 멈춤을 한 번만 통과 · 쓰고 나면 지워진다)
+ *         ILH_PRACTICE=1(hist-3c · 판정 664 · 665 — 연습 적재: 주인 · 제품 못 풀림 > 20 % 를 멈추지 않고 로그로만 · IMS 번호 겹침은 그래도 멈춤 · 발주 · 판매 둘 다 · 배너 첫 줄에 찍힌다 · ⚠️ 컷오버 직전 적재 전에 지운다 — ilhReset 이 경고한다)
  *
  * 실행 순서(각 단계가 「Next run」 이면 같은 함수를 한 번 더):
  *   1 ilhDry             쓰기 0 · Cin7 확인 다섯 · BigQuery 숫자 · 짝 표본 20 — 대화 Claude 와 숫자를 맞춘 뒤 다음으로
  *   2 ilhPairs           saleList(CreatedSince 2025-10-01) · purchaseList 전 쪽 → Drive 의 pairs-*.json(오더 번호 → GUID)
  *   3 ilhLoadPurchases   BigQuery 발주 줄 → 발주마다 묶어 hist_po_load 로(쪽마다 커서 저장)
  *   4 ilhLoadSales       BigQuery 판매 줄(확정 표 → 당월 표) → hist_so_load 로
+ *   4a ilhRedoCurrentSales  당월 출처만 처음부터 다시(hist-3c · 판정 667) — ILH_SO_CURR_CURSOR · ILH_SO_CURR_DONE · ILH_SO_CURR_SUM · 옛 ILH_SO_SUM 만 지운다 · 확정 출처는 ILH_SO_CONF_DONE 이 남아 건너뛴다 → ilhLoadSales 를 다시(창구가 멱등 · 같은 번호는 덮인다)
+ *      ⚠️ 확정 표가 새로 올라갔으면(월말) 당월 → 확정으로 옮겨간 오더는 currPage 가 다시 보내지 않는다 — 그때는 ilhReset 뒤 ilhLoadSales 전체
  *   5 ilhReset           커서 · 진행 속성만 지운다(IMS 표 · Drive 파일은 그대로 · 창구가 멱등이라 처음부터 다시 돌려도 같은 결과)
  *
  * 판매 — 어느 줄을 보내나(판정 658 · 659)
@@ -23,6 +26,9 @@
  *   그 밖은 bq_current: 당월 표(asung_order_details_historical)에서 R1 dedup 뒤 UPPER(TRIM(Status)) IN ('CLOSED','COMPLETED') AND Invoice_Date IS NOT NULL
  *     — 「인보이스 된 것」 의 기준 = Status(스킬 R3 · 「확정 판별의 권위 = Status · Order_Progress 로 가르지 않는다」) · ilhDry 가 후보 기준별 오더 수를 함께 찍는다
  *   두 출처 모두 인보이스 날짜 2025-11-01 ~ 오늘(토론토) 만 · 미래 날짜는 여기서도 창구에서도 거른다(두 겹)
+ *   ⚠️ 당월 표의 Sale = 정가 단가 · Total = 할인 뒤 줄 합계(세전) · Tax 별도 — sale 칸에는 Total 을 보낸다(hist-3c · 판정 667 · 확정 표 sale = Amount 와 같은 뜻)
+ *     ⇒ 두 출처 모두 sale = 세전 줄 합계 · unit_price = sale ÷ 수량(할인 뒤 실제 받은 값) · sale_total = Σ 줄 합계 · 정가는 보내지 않는다(확정 출처에 없어 두 출처가 갈린다 · 쓸 곳이 없다)
+ *     실측(2026-10-23 · 당월 66,305 줄 · 2026-07 ~ 10): Total > Sale × 수량(세금 섞인 잔재)은 0 · 할인은 7 % · 10 % · 15 % · 20 % · 50 % 로 떨어진다 · 무상(Total 0) 15 줄 → unit_price 0
  * 발주 — order_date >= 2025-11-01 · 상태가 VOIDED · DRAFT · ORDERING(승인 전 = 초안 · 판정 663)이 아닌 PO 전부(판정 661) · 복합 상태는 조각 하나라도 그 셋이면 뺀다 · 모르는 상태가 나오면 쓰기 함수가 멈춘다
  *
  * ═══ BigQuery 콘솔에 붙여 미리 볼 문장(ilhDry 와 같은 것) — 2026-10-23 실측 대조: 확정 10,110 오더 · 206,910 줄 · 반품 764 줄 · 453 오더 ═══
@@ -60,7 +66,8 @@ function ilh_cfg_() {
     coreFrom: '2025-11-01',                       // 판정 658 — Core 시절 시작(인보이스 날짜 · 발주 날짜)
     pairsSince: '2025-10-01T00:00:00',            // saleList CreatedSince — 넓게 받고 남는 것은 버린다(hist-0 이견 3)
     runBudgetMs: 270000,                          // 4 분 30 초(규칙 6 이어 달리기)
-    pageOrders: Math.min(500, Number(getProp_opt_('ILH_PAGE_ORDERS') || 300)),   // 창구 한 쪽(상한 500)
+    pageOrders: Math.min(500, Number(getProp_opt_('ILH_PAGE_ORDERS') || 100)),   // 창구 한 쪽(상한 500) · hist-3c: 기본 300 → 100(머리 주석 「선택」)
+    practice: getProp_opt_('ILH_PRACTICE') === '1',                                  // hist-3c · 판정 664 · 665 — 연습 적재(ilh_guard_ · ilh_banner_ · ilhReset 이 본다)
     saleLimit: Number(getProp_opt_('ILH_SALE_LIMIT') || 100),
     poSkip: ['VOIDED', 'DRAFT', 'ORDERING'],      // 판정 661 — 취소 · 초안만 뺀다 · 판정 663 — ORDERING(승인 전 · 공급처에 안 보낸 발주)도 초안으로 본다
     poKnown: ['ORDERING', 'ORDERED', 'RECEIVING', 'RECEIVED', 'INVOICED', 'CREDITED', 'COMPLETED', 'PARTIALLY INVOICED', 'CREDIT NOTE CLOSED', 'VOIDED', 'DRAFT'],   // cin7-api purchase.md 상태 목록 + 실측 복합 조각
@@ -251,14 +258,14 @@ function ilhLoadSales() {
       var orders = ilh_groupSo_(rows, pairs, ph.source), unpaired = orders.filter(function (o) { return !o.cin7_customer_id; }).length;
       var ret = ilh_rpc_('hist_so_load', orders);
       ilh_guard_(ret, orders.length, rows.length, 'customer_unresolved');
-      sum = ilh_addSum_(props, 'ILH_SO_SUM', ret);
+      sum = ilh_addSum_(props, ph.key + '_SUM', ret);   // hist-3c: 단계별 누적(ILH_SO_CONF_SUM · ILH_SO_CURR_SUM) — ilhRedoCurrentSales 가 당월 몫만 지운다
       cursor = rows[rows.length - 1].order_number;
       props.setProperty(ph.key + '_CURSOR', cursor);
       Logger.log(ph.source + ' 쪽 ' + orders.length + ' 오더(짝 없음 ' + unpaired + ') · ' + rows.length + ' 줄 → ' + JSON.stringify(ret) + ' · 커서 ' + cursor);
     }
     if (props.getProperty(ph.key + '_DONE') !== '1') { Logger.log('Next run — ilhLoadSales 를 한 번 더(' + ph.source + ' 커서 ' + cursor + ' · 누적 ' + JSON.stringify(sum) + ')'); return; }
   }
-  Logger.log('⭐ 판매 적재 끝 · 누적 ' + props.getProperty('ILH_SO_SUM') + ' · 컷오버 직전에 ilhReset → ilhPairs → ilhLoadPurchases → ilhLoadSales 를 다시(창구가 멱등)');
+  Logger.log('⭐ 판매 적재 끝 · 누적 확정 ' + props.getProperty('ILH_SO_CONF_SUM') + ' · 당월 ' + props.getProperty('ILH_SO_CURR_SUM') + ' · 컷오버 직전에 ilhReset → ilhPairs → ilhLoadPurchases → ilhLoadSales 를 다시(창구가 멱등)');
 }
 function ilh_groupSo_(rows, pairs, source) {
   var byNo = {}, order = [];
@@ -276,13 +283,27 @@ function ilh_groupSo_(rows, pairs, source) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   4a 당월 출처만 다시 — hist-3c · 판정 667(당월 표 Sale 칸 바로잡기) · 확정 출처(ILH_SO_CONF_DONE)는 그대로
+   ═══════════════════════════════════════════════════════════ */
+function ilhRedoCurrentSales() {
+  var props = PropertiesService.getScriptProperties(), n = 0;
+  ilh_banner_('ilhRedoCurrentSales');
+  if (props.getProperty('ILH_SO_CONF_DONE') !== '1') Logger.log('⚠️ ILH_SO_CONF_DONE 이 없다 — 확정 출처가 끝나지 않았으니 다음 ilhLoadSales 는 확정부터 돈다(Redo 는 당월 속성만 지운다)');
+  ['ILH_SO_CURR_CURSOR', 'ILH_SO_CURR_DONE', 'ILH_SO_CURR_SUM', 'ILH_SO_SUM'].forEach(function (k) { if (props.getProperty(k) !== null) { props.deleteProperty(k); n++; } });
+  Logger.log('ilhRedoCurrentSales — 속성 ' + n + ' 개 지움 · 확정 출처(ILH_SO_CONF_DONE)는 그대로 · 다음 ilhLoadSales 가 당월 출처를 처음부터(창구가 멱등 · 같은 번호는 덮인다 · 새 인보이스는 그대로 들어간다 — 판정 659)'
+    + ' · 누적은 다시 돌린 당월분부터(ILH_SO_CURR_SUM) · 확정 출처 누적은 첫 적재 로그에만 남아 있다'
+    + ' · ⚠️ 확정 표가 새로 올라갔으면 ilhReset 뒤 ilhLoadSales 전체(당월 → 확정으로 옮겨간 오더는 currPage 가 다시 보내지 않는다)');
+}
+
+/* ═══════════════════════════════════════════════════════════
    5  리셋 — 커서 · 진행 속성만
    ═══════════════════════════════════════════════════════════ */
 function ilhReset() {
   var props = PropertiesService.getScriptProperties(), n = 0;
   ['ILH_PAIRS_SALE_DONE', 'ILH_PAIRS_SALE_NEXT_PAGE', 'ILH_PAIRS_SALE_GOT', 'ILH_PAIRS_SALE_TOTAL', 'ILH_PAIRS_PO_DONE', 'ILH_PAIRS_PO_NEXT_PAGE', 'ILH_PAIRS_PO_GOT', 'ILH_PAIRS_PO_TOTAL',
-   'ILH_PO_CURSOR', 'ILH_PO_DONE', 'ILH_PO_SUM', 'ILH_SO_CONF_CURSOR', 'ILH_SO_CONF_DONE', 'ILH_SO_CURR_CURSOR', 'ILH_SO_CURR_DONE', 'ILH_SO_SUM', 'ILH_ALLOW_UNRESOLVED'
+   'ILH_PO_CURSOR', 'ILH_PO_DONE', 'ILH_PO_SUM', 'ILH_SO_CONF_CURSOR', 'ILH_SO_CONF_DONE', 'ILH_SO_CONF_SUM', 'ILH_SO_CURR_CURSOR', 'ILH_SO_CURR_DONE', 'ILH_SO_CURR_SUM', 'ILH_SO_SUM', 'ILH_ALLOW_UNRESOLVED'   // ILH_SO_SUM = hist-3c 전의 통합 누적 키(옛 것)
   ].forEach(function (k) { if (props.getProperty(k) !== null) { props.deleteProperty(k); n++; } });
+  if (ilh_cfg_().practice) Logger.log('⚠️ ILH_PRACTICE 가 켜져 있다 — 컷오버 직전 적재 전에 지워라(판정 664 · 665 는 연습 적재에만 · ilhReset 은 지우지 않는다)');
   Logger.log('ilhReset — 속성 ' + n + ' 개 지움 · IMS 표 · Drive 폴더(ILH_FOLDER_ID)는 그대로 · 짝을 다시 받으려면 ilhPairs(옛 pairs-*.json 위에 새 쪽이 쌓인다 — 폴더를 비우거나 ILH_FOLDER_ID 를 지워 새 폴더로)');
 }
 
@@ -313,7 +334,7 @@ function ilh_sql_() {
       return 'WITH d AS (SELECT * FROM ' + currDedup + ' WHERE ' + currKeep + ' AND Invoice_Date >= \'' + c.coreFrom + '\' AND Invoice_Date <= ' + T + '), ' +
              'o AS (SELECT Order_Number FROM d WHERE Order_Number > \'' + cursor + '\' GROUP BY 1 ORDER BY 1 LIMIT ' + n + ') ' +
              'SELECT d.Order_Number order_number, d.Customer customer, CAST(d.Order_Date AS STRING) order_date, d.Location location, d.Currency currency, \'invoice\' doc_type, CAST(d.Invoice_Number AS STRING) doc_number, CAST(d.Invoice_Date AS STRING) doc_date, ' +
-             'd.SKU sku, d.Product product, d.Brand brand, d.Quantity quantity, d.Sale sale, CAST(NULL AS NUMERIC) discount, d.Tax tax, d.Total total FROM d JOIN o USING (Order_Number) ORDER BY d.Order_Number, d.SKU';
+             'd.SKU sku, d.Product product, d.Brand brand, d.Quantity quantity, d.Total sale, CAST(NULL AS NUMERIC) discount, d.Tax tax, d.Total total FROM d JOIN o USING (Order_Number) ORDER BY d.Order_Number, d.SKU';   // hist-3c · 판정 667: 당월 표 Sale 은 정가 단가 — sale 칸에 Total(할인 뒤 세전 줄 합계 · 확정 표 sale = Amount 와 같은 뜻) · total 도 Total
     },
     poPage: function (cursor, n) {
       var skip = ilh_cfg_().poSkip.map(function (s) { return '\'' + s + '\''; }).join(',');
@@ -366,11 +387,14 @@ function ilh_rpc_(fn, orders) {
   return JSON.parse(res.getContentText());
 }
 // 크게 어긋나면 멈춤 — IMS 번호 겹침 > 0 · 주인 못 풀림 > 20 % · 제품 못 풀림 > 20 %(한 쪽 기준) · ILH_ALLOW_UNRESOLVED=1 이면 한 번만 통과(속성을 지운다)
+// hist-3c · ILH_PRACTICE=1(판정 664 · 665): 주인 · 제품 못 풀림은 로그로만 지나간다 · IMS 번호 겹침은 그래도 멈춘다 · 발주(supplier_unresolved) · 판매(customer_unresolved) 둘 다
 function ilh_guard_(ret, nOrders, nLines, ownerKey) {
-  var cfg = ilh_cfg_(), props = PropertiesService.getScriptProperties(), why = [];
+  var cfg = ilh_cfg_(), props = PropertiesService.getScriptProperties(), why = [], soft = [];
   if ((ret.orders_skipped_ims_number || 0) > 0) why.push('orders_skipped_ims_number ' + ret.orders_skipped_ims_number + '(IMS 번호와 겹침 — 실측 0 이어야 한다)');
-  if (nOrders && (ret[ownerKey] || 0) > nOrders * cfg.unresolvedMax) why.push(ownerKey + ' ' + ret[ownerKey] + ' / ' + nOrders + ' 오더');
-  if (nLines && (ret.product_unresolved || 0) > nLines * cfg.unresolvedMax) why.push('product_unresolved ' + ret.product_unresolved + ' / ' + nLines + ' 줄');
+  if (nOrders && (ret[ownerKey] || 0) > nOrders * cfg.unresolvedMax) soft.push(ownerKey + ' ' + ret[ownerKey] + ' / ' + nOrders + ' 오더');
+  if (nLines && (ret.product_unresolved || 0) > nLines * cfg.unresolvedMax) soft.push('product_unresolved ' + ret.product_unresolved + ' / ' + nLines + ' 줄');
+  if (soft.length && cfg.practice) Logger.log('⚠️ PRACTICE(판정 664 · 665) — 멈추지 않고 지나간다: ' + soft.join(' · '));
+  else why = why.concat(soft);
   if (!why.length) return;
   if (props.getProperty('ILH_ALLOW_UNRESOLVED') === '1') { props.deleteProperty('ILH_ALLOW_UNRESOLVED'); Logger.log('⚠️ 어긋남을 한 번 통과(ILH_ALLOW_UNRESOLVED): ' + why.join(' · ')); return; }
   throw new Error('⛔ 멈춤 — 이 쪽은 이미 창구에 들어갔다(멱등 · 다시 보내면 같은 결과): ' + why.join(' · ') + ' · 맞으면 ILH_ALLOW_UNRESOLVED=1 을 넣고 같은 함수를 한 번 더(한 번만 통과)');
@@ -383,6 +407,7 @@ function ilh_addSum_(props, key, ret) {
 }
 function ilh_banner_(name) {
   var url = getProp('SUPABASE_IMS_URL'), ref = (url.match(/https?:\/\/([a-z0-9]+)\./) || [])[1] || url;
+  if (ilh_cfg_().practice) Logger.log('⚠️ PRACTICE — 판정 664 · 665 · 주인 · 제품 못 풀림은 멈추지 않는다(ILH_PRACTICE=1 · 컷오버 직전 적재 전에 지워라)');
   Logger.log('══ ' + name + ' · IMS ' + ref + ' · BigQuery ' + ilh_cfg_().bqProject + ' · ' + Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM-dd HH:mm') + ' ══');
 }
 function ilh_folder_() {
