@@ -278,7 +278,7 @@ function ipr_loadProduct_(dryRun) {
     // [ldfix-1b] 쪽마다 같은 판정 — Dry 도 Apply 도
     var plan = ipr_planRows_(rows, db, ['cin7_id', 'source']);
     rows.forEach(function (r) { seenCin7[r.cin7_id] = true; });
-    Logger.log('페이지 ' + page + ' — 받은 ' + items.length + ' · 넣을 ' + rows.length + ' (cin7_id 로 ' + plan.byCin7.length + ' · 새로 ' + plan.fresh.length + ' · 짝 ' + plan.pairs.length + ')');
+    Logger.log('페이지 ' + page + ' — 받은 ' + items.length + ' · 넣을 ' + rows.length + ' (cin7_id 로 ' + plan.byCin7.length + ' · 새로 ' + plan.fresh.length + ' · 짝 ' + plan.pairs.length + ' · 이미 짝지어진 안 보냄 ' + plan.pairedSkip + ')');
     ipr_logPlan_('product', plan);
     ['byCin7', 'fresh', 'pairs', 'skuDiff', 'kept', 'touched'].forEach(function (k) { tot[k] += (k === 'kept' ? plan.keptSellable : (k === 'touched' ? plan.touchedLines : plan[k])).length; });
     kept = kept.concat(plan.keptSellable);
@@ -814,9 +814,10 @@ function ipr_diff_(a, b, skip) {
 
 /** 보낼 행들을 우리 표와 맞춘다 — byCin7(on_conflict=cin7_id · sku 는 IMS 값 · sellable 은 ims/세트면 IMS 값) · fresh(새 행 · on_conflict=sku) · pairs(manual 과 SKU 같음 · cin7_id 만) · conflicts(멈춤) */
 function ipr_planRows_(rows, db, diffSkip) {
-  var plan = { byCin7: [], fresh: [], pairs: [], conflicts: [], skuDiff: [], keptSellable: [], touchedLines: [] };
+  var plan = { byCin7: [], fresh: [], pairs: [], conflicts: [], skuDiff: [], keptSellable: [], touchedLines: [], pairedSkip: 0 };
   rows.forEach(function (row) {
     var ex = db.byCin7[String(row.cin7_id)];
+    if (ex && ex.source !== 'cin7') { plan.pairedSkip++; return; }                 // 이미 짝지은 IMS 행(manual · cin7_id 있음) — IMS 값이 이긴다(판정 132) · 매 회차 건드리지 않는다
     if (ex) {
       if (String(ex.sku) !== String(row.sku)) { plan.skuDiff.push('IMS ' + ex.sku + ' ≠ Cin7 ' + row.sku + ' (cin7_id ' + row.cin7_id + ')'); row.sku = ex.sku; }   // 판정 679 — SKU 는 IMS 값
       if (db.table === 'product' && (ex.sellable_source === 'ims' || ex.parent_product_id)) {                                               // 판정 670 · 675

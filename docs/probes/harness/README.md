@@ -8,6 +8,7 @@
 - `ims-common.js` — 편집기 `ProbeIMS.js` 의 `ims_fetch_` · `ims_blank_` 원문 복사(56 ~ 73 · 115 ~ 119 행)
 - `fixtures/customer.js` — 손님 재료(Cin7 응답 + 우리 표 상태) · 같은 재료가 `local/seed-customer.sql` 을 만든다
 - `run-customer.js [emu|local] [main|dup|exists]` — Dry → Apply1 → Apply2 → Apply3 → Apply4 → Verify 를 돌리고 요청 · 결과를 단언
+- `run-supplier.js [emu|local] [main|conflict]` · `fixtures/supplier.js` · `local/make-seed-supplier.js` · `local/check-supplier.sql` · `local/run-local-supplier.sh` — 공급처 적재(ldfix-1c · 본 행 Dry · Apply × 2 회차 · 주소 · 연락처 · Verify · 제품↔공급처 적재 — `ImsLoadProduct.gs` · `ImsLoadProductSupplier.gs` · `ImsLoadSupplier.gs` 셋을 올린다 · 가짜 시트 `sheets.ips_line`)
 - `run-product.js [emu|local] [main|conflict]` · `fixtures/product.js` · `local/make-seed-product.js` · `local/check-product.sql` · `local/run-local-product.sh` — 제품 적재(ldfix-1b · family · 1단계 전량 Dry · Apply · 2단계 잇기 · Extra · 바코드 · BOM) · 가짜 Cin7 은 `fake-gas.js` 의 `cin7` 재료(product · productFamily · Page · Limit · Sku)
 - `local/` — `seed-customer.sql`(생성물) · `check-customer.sql`(로컬 DB 결과 단언) · `run-local.sh`
 

@@ -16,6 +16,12 @@
  *   보조) imsLoadProductSupplierReset()   커서를 지운다
  *
  * ⚠️ 2)가 3)보다 먼저다 — 공급처가 다 있어야 줄의 FK 가 붙는다 (§3-g 판단 ①)
+ * ⚠️ [ldfix-1c · 2026-10-24] 그보다 먼저 **imsLoadSupplierApply(ImsLoadSupplier.gs · 판정 673)** 가 돈다 — 본 행 전부 · 674 짝짓기 · 그래야 Extra 가 IMS 에서 만든 공급처를 새 행으로 또 넣지 않는다
+ * ⭐ [ldfix-1c · 판정 671 · 672 · 새 ② · 바] product_supplier 의 source='manual' 줄은 건드리지 않는다
+ *    · manual 이면서 cin7_id 가 있는 줄(IMS 가 끈 Cin7 줄 · product_update supplier_off 가 manual 로 바꾼다 · Roux 19) → Cin7 줄과 열쇠가 같아 upsert 가 덮으므로 묶음에서 뺀다
+ *    · manual 이면서 cin7_id 가 없는 줄(사람이 먼저 적은 줄) → 승격은 cin7_id 만 PATCH(cost · fixed_cost · supplier_sku · currency · last_supplied 는 IMS 값 그대로 · 판정 132)
+ *    · cin7 줄 중 updated_by 가 있는 줄(지난 적재 뒤 직원이 고침)은 672 꼴 로그 — Cin7 이 덮는다
+ * ⬜ [판정 682 · 미룬 317] 기본 공급처 재계산(§3-g ① ②)은 DB 함수로 — 이 파일에서는 ips_loadLines_ Apply 끝에 부를 자리만 표시(짓지 않았다)
  * ⭐ is_default 계산과 §3-f 정리는 SQL 로 한다 — 제품마다 줄을 다 모은 뒤라야 고를 수 있다
  *
  * ⭐ 시트는 「한 회차 안의 중간 저장」이다. 재적재할 때마다 Cin7 을 새로 훑는다.
@@ -234,21 +240,19 @@ function ips_loadLines_(dryRun) {
   var supMap  = ipr_map_('/rest/v1/supplier?select=id,cin7_id', 'cin7_id');
   var currs   = ipr_map_('/rest/v1/ref_currency?select=id,code', 'code');
 
-  // 승격 대상 — 사람이 먼저 적은 줄 (cin7_id 가 비어 있는 것)
-  var manual = {};
-  var mres = ims_fetch_('/rest/v1/product_supplier?cin7_id=is.null&select=id,product_id,supplier_id,source', { method: 'get' });
-  if (mres.getResponseCode() < 300) {
-    JSON.parse(mres.getContentText()).forEach(function (m) {
-      manual[m.product_id + '|' + m.supplier_id] = m.id;
-    });
-  }
-  Logger.log('사람이 먼저 적은 줄 ' + Object.keys(manual).length);
+  // [ldfix-1c] manual 줄 둘 — 승격 대상(cin7_id 없음 · 사람이 먼저 적음) · 건드리지 않을 줄(cin7_id 있음 · IMS 가 끈 Cin7 줄) · 손댄 cin7 줄(672)
+  var manual = {}, manualCin7 = {}, touched = {};
+  ipr_readAll_('/rest/v1/product_supplier?select=id,product_id,supplier_id,cin7_id&source=eq.manual').forEach(function (m) {
+    if (m.cin7_id) manualCin7[String(m.cin7_id)] = m.id; else manual[m.product_id + '|' + m.supplier_id] = m.id;
+  });
+  ipr_readAll_('/rest/v1/product_supplier?select=*&source=eq.cin7&updated_by=not.is.null').forEach(function (r) { touched[String(r.cin7_id)] = r; });
+  Logger.log('[ldfix-1c] 사람이 먼저 적은 줄(승격 후보 · cin7_id 만) ' + Object.keys(manual).length + ' · IMS 가 정한 Cin7 줄(manual · cin7_id 있음 · 보내지 않음) ' + Object.keys(manualCin7).length + ' · 손댄 cin7 줄(672 · Cin7 이 덮는다) ' + Object.keys(touched).length);
 
   var sh = ips_lineTab_(false);
   var v = sh.getDataRange().getValues();
   Logger.log('시트 줄 ' + (v.length - 1));
 
-  var rows = [], promote = [], missProd = [], missSup = [], missCur = 0, both0 = 0, badDate = 0;
+  var rows = [], promote = [], missProd = [], missSup = [], missCur = 0, both0 = 0, badDate = 0, skipManual = 0, touchedHit = 0;
   for (var i = 1; i < v.length; i++) {
     var r = v[i];
     if (!r[0]) continue;
@@ -284,17 +288,26 @@ function ips_loadLines_(dryRun) {
       // ⚠️ is_default 는 보내지 않는다 — 줄을 다 모은 뒤 SQL 로 정한다
     };
 
+    if (manualCin7[body.cin7_id]) { skipManual++; continue; }                    // [ldfix-1c] IMS 가 정한 줄(끈 Cin7 줄) — 열쇠가 같아 upsert 가 덮으니 뺀다
+    var tr = touched[body.cin7_id];
+    if (tr) {
+      touchedHit++;
+      var d = [];
+      ['supplier_sku', 'cost', 'fixed_cost', 'currency_id', 'last_supplied', 'is_active'].forEach(function (k) {
+        var x = tr[k] === undefined ? null : tr[k], y = body[k] === undefined ? null : body[k];
+        if (JSON.stringify(x) !== JSON.stringify(y)) d.push(k + ': IMS=' + JSON.stringify(x) + ' Cin7=' + JSON.stringify(y));
+      });
+      Logger.log('   [672 손댄 줄 · Cin7 이 덮는다] ' + r[8] + ' ← ' + r[9] + ' (updated_at ' + tr.updated_at + ')' + (d.length ? ' — 덮임: ' + d.join(' / ') : ' — 덮여도 값 그대로'));
+    }
     var key = pid + '|' + sid;
     if (manual[key]) {
-      // ⭐ 승격 — 새 행을 만들지 않는다. source 는 건드리지 않는다
-      promote.push({ id: manual[key], body: {
-        cin7_id: body.cin7_id, supplier_sku: body.supplier_sku, cost: body.cost,
-        fixed_cost: body.fixed_cost, currency_id: body.currency_id, last_supplied: body.last_supplied
-      }});
+      // ⭐ 승격 — 새 행을 만들지 않는다 · [ldfix-1c · 판정 132 · 671] cin7_id 만 붙인다(단가 · 공급처 SKU · 통화 · 마지막 공급일은 IMS 값 그대로) · source 도 그대로
+      promote.push({ id: manual[key], body: { cin7_id: body.cin7_id } });
     } else {
       rows.push(body);
     }
   }
+  Logger.log('[ldfix-1c] 보내지 않은 줄(IMS 가 정한 Cin7 줄) ' + skipManual + ' · 손댄 cin7 줄을 덮음 ' + touchedHit);
 
   Logger.log('');
   Logger.log('넣을 줄 ' + rows.length + ' · 승격(PATCH) ' + promote.length);
@@ -320,5 +333,6 @@ function ips_loadLines_(dryRun) {
     if (res.getResponseCode() < 300 && JSON.parse(res.getContentText()).length === 1) ok++;
     else Logger.log('⚠️ 승격 실패 ' + p.id + ' HTTP ' + res.getResponseCode());
   });
-  if (promote.length) Logger.log('⭐ 승격된 줄: ' + ok + ' / ' + promote.length);
+  if (promote.length) Logger.log('⭐ 승격된 줄(cin7_id 만): ' + ok + ' / ' + promote.length);
+  // ⬜ [판정 682 · 미룬 317] 여기서 기본 공급처 재계산(DB 함수 · §3-g ① 끄기 → ② 켜기)을 부른다 — 함수는 다음 차수(마이그레이션)가 짓는다 · 그때까지는 적재 뒤 psql 로 손 실행
 }

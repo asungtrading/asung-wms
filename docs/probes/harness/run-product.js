@@ -56,7 +56,7 @@ section('Product Dry (전량)');
 m = mark(); lm = logMark(); imsLoadProduct(); a = since(m); L = logsSince(lm);
 console.log(L.split('\n').filter(l => /\[6|페이지|이번 실행|우리 표|덮이지 않음/.test(l)).join('\n'));
 ok(a.every(r => r.method === 'get'), 'Dry 는 쓰기 0');
-ok(/페이지 1 — 받은 13 · 넣을 11 \(cin7_id 로 8 · 새로 2 · 짝 1\)/.test(L), 'Dry: 받은 13 · 넣을 11 · cin7_id 8 · 새로 2 · 짝 1');
+ok(/페이지 1 — 받은 13 · 넣을 11 \(cin7_id 로 8 · 새로 2 · 짝 1 · 이미 짝지어진 안 보냄 0\)/.test(L), 'Dry: 받은 13 · 넣을 11 · cin7_id 8 · 새로 2 · 짝 1 · 이미 짝지어진 0');
 ok(/\[679 SKU 다름 · IMS 값 유지\] IMS P7-NEW ≠ Cin7 P7/.test(L), 'Dry: 679 SKU 다름(P7-NEW ≠ P7)');
 ok(/\[670\/675 sellable IMS 값 유지 · ims\] P2 : IMS false \(Cin7 true\)/.test(L) && /· ims\] P1-6 : IMS false/.test(L) && /· set\] P1-12 : IMS false/.test(L) && !/P1-24 :/.test(L), 'Dry: sellable 유지 P2(ims) · P1-6(ims 세트) · P1-12(세트) · P1-24 는 같아 목록 없음');
 ok(/\[674 짝 · cin7_id 만\] P6 ← c0000000-0000-4000-8000-000000000006 · 값이 다른 칸 .*name: IMS="P6 made in IMS" Cin7="Product P6"/.test(L), 'Dry: 674 짝 P6 + 다른 칸');

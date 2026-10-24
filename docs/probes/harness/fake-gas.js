@@ -102,7 +102,7 @@ function makeFakeGas(opts) {
     if (q.Sku) all = all.filter(x => String(x.SKU) === q.Sku);
     const page = Number(q.Page || 1), limit = Number(q.Limit || 100);
     const items = all.slice((page - 1) * limit, page * limit);
-    const body = { Total: all.length }; body[path === 'productFamily' ? 'ProductFamilies' : 'Products'] = items;
+    const body = { Total: all.length }; body[path === 'productFamily' ? 'ProductFamilies' : (path === 'supplier' ? 'SupplierList' : 'Products')] = items;
     return respond(200, body);
   }
   // ── curl 로컬 모드 ──
@@ -123,6 +123,11 @@ function makeFakeGas(opts) {
     MimeType: { PLAIN_TEXT: 'text/plain' },
     Utilities: { formatDate: (d, tz, fmt) => d.toISOString().replace(/[-:T]/g, '').slice(0, 14), sleep: () => {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: k => { delete props[k]; } }) },
+    SpreadsheetApp: {                             // 제품↔공급처 적재의 중간 저장 시트(ips_line) · 읽기만 흉내
+      openById: id => ({ getId: () => id, getUrl: () => 'sheet://' + id, getSheetByName: name => (opts.sheets && opts.sheets[name]) ? { getName: () => name, getDataRange: () => ({ getValues: () => opts.sheets[name] }), getLastRow: () => opts.sheets[name].length } : null,
+                         insertSheet: () => { throw new Error('하네스는 시트를 만들지 않는다'); }, getSheets: () => { throw new Error('하네스는 시트 목록을 주지 않는다'); } }),
+      create: () => { throw new Error('하네스는 시트를 만들지 않는다'); }
+    },
     DriveApp: {
       getFolderById: id => ({
         getId: () => id, getUrl: () => 'drive://' + id,
