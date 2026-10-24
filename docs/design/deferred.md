@@ -10,41 +10,37 @@
 
 | 상태 \ 때 | 컷오버 전 필수 | 컷오버 날 | 판정 대기 | Caleb 요청 때 | 미정 | 컷오버 뒤 | — | 합 |
 |---|---|---|---|---|---|---|---|---|
-| 열림 | 7 | 10 | 6 | 2 | 257 | 8 | 0 | 290 |
+| 열림 | 5 | 11 | 7 | 2 | 257 | 10 | 0 | 292 |
 | 모름 | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 9 |
-| 닫힘(짐작) | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 2 |
-| 닫힘 | 6 | 1 | 0 | 0 | 48 | 1 | 8 | 64 |
-| 합 | 14 | 11 | 6 | 2 | 314 | 9 | 9 | 365 |
+| 닫힘(짐작) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 3 |
+| 닫힘 | 9 | 1 | 0 | 0 | 51 | 1 | 8 | 70 |
+| 합 | 15 | 12 | 7 | 2 | 318 | 11 | 9 | 374 |
 
 ## 1. ⭐ 열림 · 컷오버 전 필수 — 11-01 까지 먼저 볼 줄
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | N-1022-⑤ | 직원 안내 — Reorder Planner 는 10-31 까지 IMS 연습 데이터 기준 · 실제 발주는 옛 발주앱(tools)으로 | 열림 | 컷오버 전 필수(짐작) | 글(📌) 「10-31 까지 … 실제 발주는 옛 발주앱으로」 — 11-01 전에 알려야 뜻이 있다(짐작) | 📌 def-0 | 604 |
-| 109 | ⚠️ 적재 2단계가 IMS 에서 세운 관계를 덮는다 — ImsLoadCustomer 2단계(GAS 사본 147 ~ 165행)는 Cin7 부모가 없는 손님의 parent_id 를 비우고, 잇기 PATCH 도 IMS 가 세운 다른 부모… | 열림 | 컷오버 전 필수 | Caleb 2026-10-23(판정 664 · 665) — 컷오버 직전 손님 · 제품 재적재 전에 고친다 · 그 뒤 이력 적재 처음부터(so §72 · N-1022-⑥) | so:6815 (45-e) | 664 · 665 |
-| 113 | 적재 sellable 고침 — ① payload 에서 뺀다 / ② sellable_source = ims 행은 건너뛴다(대화 Claude 권고) · 그 전까지 제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다 | 열림 | 컷오버 전 필수 | Caleb 2026-10-23(판정 664 · 665) — 컷오버 직전 손님 · 제품 재적재 전에 고친다 · 그 뒤 이력 적재 처음부터(so §72 · N-1022-⑥) | so:7144 (49-e) | 664 · 665 |
 | 302 | 컷오버 날 열린 Cin7 PO 를 IMS 에서 어떻게 받나 · 그 길이 서면 이력(hist_po)의 같은 PO 와 겹치지 않게(hist_po 는 열린 PO 도 담는다 · 661) — N-1022-⑥ 의 「Cin7 의 열린 PO 를 IMS 에 다시(Ordered · 일부 받은 PO 는 남은 수량만)」 를 짓는 일 | 열림 | 컷오버 전 필수 | 판정 661 — 컷오버 날 열린 Cin7 PO 를 IMS 가 받는 길이 아직 없다 · 번호는 회사 PC 10-23 에 정함 | so §72-f · N-1022-⑥ | 661 |
 | 303 | 8 · 9 월 확정 적재(SalesConfirmedUpload v5 · 달마다 두 파일 Sale Invoices & Credit Notes + Sales by Product Details · 태그 AUG26 · SEP26 · sc_dryRunCheckV5 → sc_testMonthV5 → sc_stageAllMonthsV5 → sc_verifyStagingV5 → sc_commitRebuildV5 → checkSalesConfirmedStatus) — Caleb 과 함께 · 10 월분은 컷오버 뒤 첫 한두 주(662) · ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ilhReset 뒤 ilhLoadSales 전체(당월 → 확정으로 옮겨 간 오더는 당월 쪽이 다시 보내지 않아 틀린 채 남는다 · hist-3c 이견 3) | 열림 | 컷오버 전 필수 | 판정 662 · 대화 Claude 안(📌 docs-1023h) | so §72-f · docs-1023h · hist-3c | 659 · 662 |
 | 313 | ImsLoadHist 당월 출처의 주문 날짜 거르기(ilh_sql_ 의 currDedup · Order_Date >= 2025-11-01)가 658 과 어긋난다(확정 출처는 인보이스 날짜만) — 「2025-11 전 주문 · 당월 인보이스」 오더가 빠진다 · 실측 지금 0(당월 최소 주문 날짜 2026-06-05) · 다음 ImsLoadHist 손질 때 인보이스 날짜 기준으로 | 열림 | 컷오버 전 필수 | 대화 Claude 안(📌 docs-1023h) · ⭐ asung_sales_unified VIEW 의 당월 쪽은 Order_Date 로 거르지 않는다(인보이스 날짜 · 확정 표에 없음 · Status CLOSED/COMPLETED 만 · Caleb BigQuery 콘솔 원문 2026-10-23) — 고칠 때 VIEW 와 같은 꼴로 · 확정 쪽 고르기도 VIEW 는 report_month >= '2025-11' · ImsLoadHist 는 invoice_date >= '2025-11-01' AND sale IS NOT NULL(같은 집합 짐작 · 안 견줬다) | so §72-f · docs-1023h · docs/probes/ImsLoadHist.gs | 658 |
-| 317 | 기본 공급처 재계산 두 문장(po-module §3-g 「is_default 재계산 — 끄고 나서 켠다」 ① ②)이 재적재 · 공급처 활성 바꾸기 뒤에 저절로 돌지 않는다 — 공급처를 다시 켜도 그 공급처만 붙은 제품은 기본이 빈 채 · 붙일 자리 셋: 적재 스크립트 끝 · supplier_update(is_active → true 때 그 공급처 제품에만 ② · false 때 ①) · cron · 실측: 기본 칸을 쓰는 DB 함수는 제품 화면 창구(제품 하나 단위)뿐 · 공급처 창구(master_cs_3) · ImsLoadProductSupplier · cron.sql 모두 안 건드린다 | 열림 | 컷오버 전 필수 | 📌 docs-1023h 덧붙임 · Energizer Canada 실사고(65 닫힘) | so §72-b · po-module §3-g | — |
+| 319 | 제품 계열(product · product_family · product_barcode · product_bom) · product_supplier 적재가 「이번에 안 들어온 cin7 행」 을 내리지 않는다(po-module §3-f 1) ~ 3) · ⓑ Cin7 에서 지우거나 합친 SKU 가 IMS 에 활성으로 남아 스캔 · 주문에 뜬다) — 손님 · 공급처 · 가격 적재는 내린다(max(20, 1 %) 안전장치) | 열림 | 컷오버 전 필수 | Caleb 2026-10-24(docs-1024 가) · 실측 grep: ImsLoadProduct.gs · ImsLoadProductSupplier.gs 의 내리기 PATCH 0 · Cin7 은 보통 지우지 않고 Deprecated — 그 경우는 지금 적재가 is_active false 로 내린다(IncludeDeprecated) · 걸리는 것은 Cin7 에서 완전히 지운 · 합친 SKU 뿐(짐작 · 수는 컷오버 Dry 에서) | so §73-b · po-module §3-f | 671 |
 
 ⚠️ [2026-10-23 · docs-1023h] 「컷오버 전 필수」 열린 줄 7 — N-1022-⑤(짐작) · 109 · 113(664 · 665 — 손님 · 제품 재적재 전에 고친다) · 302(열린 PO) · 303(8 · 9 월 확정 적재) · 313(당월 출처 날짜) · 317(기본 공급처 재계산) · 「미정」 이 대부분이라 Caleb 이 가를 때 이 표가 더 늘 수 있다 · 「컷오버 날」 줄(§2 ②)도 11-01 아침에 닿는다. (옛 문장 「이것 하나뿐 · 262 는 §70-c 로 닫힘(짐작)」 → 이 줄로 바뀜)
 
 ## 2. 전부 — ① 열림 · 컷오버 전 필수 ② 열림 · 컷오버 날 ③ 열림 · 판정 대기 · 요청 때 · 미정 ④ 열림 · 컷오버 뒤 ⑤ 모름 ⑥ 닫힘
 
-### ① 열림 · 컷오버 전 필수 (7)
+### ① 열림 · 컷오버 전 필수 (5)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | N-1022-⑤ | 직원 안내 — Reorder Planner 는 10-31 까지 IMS 연습 데이터 기준 · 실제 발주는 옛 발주앱(tools)으로 | 열림 | 컷오버 전 필수(짐작) | 글(📌) 「10-31 까지 … 실제 발주는 옛 발주앱으로」 — 11-01 전에 알려야 뜻이 있다(짐작) | 📌 def-0 | 604 |
-| 109 | ⚠️ 적재 2단계가 IMS 에서 세운 관계를 덮는다 — ImsLoadCustomer 2단계(GAS 사본 147 ~ 165행)는 Cin7 부모가 없는 손님의 parent_id 를 비우고, 잇기 PATCH 도 IMS 가 세운 다른 부모… | 열림 | 컷오버 전 필수 | Caleb 2026-10-23(판정 664 · 665) — 컷오버 직전 손님 · 제품 재적재 전에 고친다 · 그 뒤 이력 적재 처음부터(so §72 · N-1022-⑥) | so:6815 (45-e) | 664 · 665 |
-| 113 | 적재 sellable 고침 — ① payload 에서 뺀다 / ② sellable_source = ims 행은 건너뛴다(대화 Claude 권고) · 그 전까지 제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다 | 열림 | 컷오버 전 필수 | Caleb 2026-10-23(판정 664 · 665) — 컷오버 직전 손님 · 제품 재적재 전에 고친다 · 그 뒤 이력 적재 처음부터(so §72 · N-1022-⑥) | so:7144 (49-e) | 664 · 665 |
 | 302 | 컷오버 날 열린 Cin7 PO 를 IMS 에서 어떻게 받나 · 그 길이 서면 이력(hist_po)의 같은 PO 와 겹치지 않게(hist_po 는 열린 PO 도 담는다 · 661) — N-1022-⑥ 의 「Cin7 의 열린 PO 를 IMS 에 다시(Ordered · 일부 받은 PO 는 남은 수량만)」 를 짓는 일 | 열림 | 컷오버 전 필수 | 판정 661 — 컷오버 날 열린 Cin7 PO 를 IMS 가 받는 길이 아직 없다 · 번호는 회사 PC 10-23 에 정함 | so §72-f · N-1022-⑥ | 661 |
 | 303 | 8 · 9 월 확정 적재(SalesConfirmedUpload v5 · 달마다 두 파일 Sale Invoices & Credit Notes + Sales by Product Details · 태그 AUG26 · SEP26 · sc_dryRunCheckV5 → sc_testMonthV5 → sc_stageAllMonthsV5 → sc_verifyStagingV5 → sc_commitRebuildV5 → checkSalesConfirmedStatus) — Caleb 과 함께 · 10 월분은 컷오버 뒤 첫 한두 주(662) · ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ilhReset 뒤 ilhLoadSales 전체(당월 → 확정으로 옮겨 간 오더는 당월 쪽이 다시 보내지 않아 틀린 채 남는다 · hist-3c 이견 3) | 열림 | 컷오버 전 필수 | 판정 662 · 대화 Claude 안(📌 docs-1023h) | so §72-f · docs-1023h · hist-3c | 659 · 662 |
 | 313 | ImsLoadHist 당월 출처의 주문 날짜 거르기(ilh_sql_ 의 currDedup · Order_Date >= 2025-11-01)가 658 과 어긋난다(확정 출처는 인보이스 날짜만) — 「2025-11 전 주문 · 당월 인보이스」 오더가 빠진다 · 실측 지금 0(당월 최소 주문 날짜 2026-06-05) · 다음 ImsLoadHist 손질 때 인보이스 날짜 기준으로 | 열림 | 컷오버 전 필수 | 대화 Claude 안(📌 docs-1023h) · ⭐ asung_sales_unified VIEW 의 당월 쪽은 Order_Date 로 거르지 않는다(인보이스 날짜 · 확정 표에 없음 · Status CLOSED/COMPLETED 만 · Caleb BigQuery 콘솔 원문 2026-10-23) — 고칠 때 VIEW 와 같은 꼴로 · 확정 쪽 고르기도 VIEW 는 report_month >= '2025-11' · ImsLoadHist 는 invoice_date >= '2025-11-01' AND sale IS NOT NULL(같은 집합 짐작 · 안 견줬다) | so §72-f · docs-1023h · docs/probes/ImsLoadHist.gs | 658 |
-| 317 | 기본 공급처 재계산 두 문장(po-module §3-g 「is_default 재계산 — 끄고 나서 켠다」 ① ②)이 재적재 · 공급처 활성 바꾸기 뒤에 저절로 돌지 않는다 — 공급처를 다시 켜도 그 공급처만 붙은 제품은 기본이 빈 채 · 붙일 자리 셋: 적재 스크립트 끝 · supplier_update(is_active → true 때 그 공급처 제품에만 ② · false 때 ①) · cron · 실측: 기본 칸을 쓰는 DB 함수는 제품 화면 창구(제품 하나 단위)뿐 · 공급처 창구(master_cs_3) · ImsLoadProductSupplier · cron.sql 모두 안 건드린다 | 열림 | 컷오버 전 필수 | 📌 docs-1023h 덧붙임 · Energizer Canada 실사고(65 닫힘) | so §72-b · po-module §3-g | — |
+| 319 | 제품 계열(product · product_family · product_barcode · product_bom) · product_supplier 적재가 「이번에 안 들어온 cin7 행」 을 내리지 않는다(po-module §3-f 1) ~ 3) · ⓑ Cin7 에서 지우거나 합친 SKU 가 IMS 에 활성으로 남아 스캔 · 주문에 뜬다) — 손님 · 공급처 · 가격 적재는 내린다(max(20, 1 %) 안전장치) | 열림 | 컷오버 전 필수 | Caleb 2026-10-24(docs-1024 가) · 실측 grep: ImsLoadProduct.gs · ImsLoadProductSupplier.gs 의 내리기 PATCH 0 · Cin7 은 보통 지우지 않고 Deprecated — 그 경우는 지금 적재가 is_active false 로 내린다(IncludeDeprecated) · 걸리는 것은 Cin7 에서 완전히 지운 · 합친 SKU 뿐(짐작 · 수는 컷오버 Dry 에서) | so §73-b · po-module §3-f | 671 |
 
-### ② 열림 · 컷오버 날 (10)
+### ② 열림 · 컷오버 날 (11)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -53,13 +49,14 @@
 | 261 | 8번 연결 도구(판정 555 ~ 561) — link-1a(DB · 짓기 중) 뒤 잇기 1b EF · 1c 화면 · 1d 시험 스토어 · 실제 두 스토어 앱 설치는 컷오버 준비 목록 맨 앞 · Product/0 자리표시 결함(ind… | 열림 | 컷오버 날 | 글 「실제 두 스토어 앱 설치는 컷오버 준비 목록 맨 앞 · Produ」 | so:9067 (67-e) | 555 |
 | 276 | HS code · 원산지(591 · 592 · 마지막 재적재 무렵) | 열림 | 컷오버 날 | 글 「산지(591 · 592 · 마지막 재적재 무렵)」 | so:9327 (69-f) · 판정 591 · 592(§69-a) | — |
 | 67a-8 | Shopify 기존 스토어 상품을 SKU 로 잇는 도구(판정 420 실행) — 261 과 같은 줄기 | 열림 | 컷오버 날 | 글 「⬜ 컷오버 위험」 · 261 「실제 두 스토어 앱 설치는 컷오버 준비 목록 맨 앞」 | so:8986 (67-a) · 261 | 420 · 555 ~ 561 |
-| N-1022-⑥ | 컷오버 날 작업 — 모든 거래를 지우고 제품 · 손님 · 거래처 · 설정은 남김 · 마지막 재고 재적재 · Cin7 의 열린 PO 를 IMS 에 다시(Ordered · 일부 받은 PO 는 남은 수량만) · SO 는 가능하면 다 정리 · 여의치 않으면 다시 만든다 · ⭐ B급 칸: 진열장 로케이션에 B급 표시 켜기(Settings → Bin · master · 칸이 빈 때) → 실물을 원래 SKU 별로 세어 조정으로 넣기(평균 원가 · 메모 「컷오버 B급 재적재」) → B-grade Stock 화면에서 값 넣기(값 없는 B급은 POS 가 막는다)(판정 629 · 636 · 643 · 644 · so §71) · ⭐ 이력(hist_ 넷 · so §72): 거래를 지울 때 hist_so · hist_so_line · hist_po · hist_po_line 은 빼고 지우지 않는다(표 comment 첫 마디 「⭐ 컷오버 때 지우지 않는다」) · 순서 = 손님 · 제품 재적재(109 · 113 고친 뒤) → ilhReset → ilhPairs → ilhLoadPurchases → ilhLoadSales → (10 월 확정 적재 뒤 · 662 · 303) ilhReset 뒤 ilhLoadSales 전체 · 그 적재 전에 ILH_PRACTICE 를 지운다(315) · ILH_PAGE_ORDERS 는 100 · 「열린 PO 를 IMS 에 다시」 를 짓는 일 → 302 | 열림 | 컷오버 날 | Caleb 계획(📌 2026-10-22) · 정본: 「컷오버 때 거래는 지우고 Cin7 재고를 가져온다」(asung-po §0 · po-module §2) · 「열린 PO 를 남은 수량으로 다시」 는 정본 없음 | 📌 def-0 · po-module §2 | 617 · 654 · 659 · 662 · 664 · 665 |
+| N-1022-⑥ | 컷오버 날 작업 — 모든 거래를 지우고 제품 · 손님 · 거래처 · 설정은 남김 · 마지막 재고 재적재 · Cin7 의 열린 PO 를 IMS 에 다시(Ordered · 일부 받은 PO 는 남은 수량만) · SO 는 가능하면 다 정리 · 여의치 않으면 다시 만든다 · ⭐ B급 칸: 진열장 로케이션에 B급 표시 켜기(Settings → Bin · master · 칸이 빈 때) → 실물을 원래 SKU 별로 세어 조정으로 넣기(평균 원가 · 메모 「컷오버 B급 재적재」) → B-grade Stock 화면에서 값 넣기(값 없는 B급은 POS 가 막는다)(판정 629 · 636 · 643 · 644 · so §71) · ⭐ 이력(hist_ 넷 · so §72): 거래를 지울 때 hist_so · hist_so_line · hist_po · hist_po_line 은 빼고 지우지 않는다(표 comment 첫 마디 「⭐ 컷오버 때 지우지 않는다」) · 순서 = ~~손님 · 제품 재적재(109 · 113 고친 뒤) → ilhReset → ilhPairs → ilhLoadPurchases → ilhLoadSales~~ → [2026-10-24 · so §73-c] 참조 → 손님 → 공급처 → 제품 → 세트 잇기(⬜ 위치 판정 거리) → 바코드 → BOM → 제품-공급처 → 가격 → 태그(Dry 보고 파일을 사람이 본다 · 676) → (ILH_PRACTICE 지우고) ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales · 재적재는 Shopify listing 을 켜기 전에(320) · 그 앞에 319 → (10 월 확정 적재 뒤 · 662 · 303) ilhReset 뒤 ilhLoadSales 전체 · 그 적재 전에 ILH_PRACTICE 를 지운다(315) · ILH_PAGE_ORDERS 는 100 · 「열린 PO 를 IMS 에 다시」 를 짓는 일 → 302 | 열림 | 컷오버 날 | Caleb 계획(📌 2026-10-22) · 정본: 「컷오버 때 거래는 지우고 Cin7 재고를 가져온다」(asung-po §0 · po-module §2) · 「열린 PO 를 남은 수량으로 다시」 는 정본 없음 | 📌 def-0 · po-module §2 | 617 · 654 · 659 · 662 · 664 · 665 |
 | P-④ | 3단계 「첫날 기초 재고 · 원가」(마지막 재적재) | 열림 | 컷오버 날 | 글 「3단계 컷오버 · 다듬기(운영 DB · 첫날 기초 재고 · 원가 …)」 · reload-procedure 가 절차 | principles:492 | 521 · 617 |
 | R-① | 관문 ④ cron 정지 명령 목록 — cron.sql 기준 cron.unschedule 목록 | 열림 | 컷오버 날(짐작) | 글 「컷오버 설계에서」 · §B ④ 는 마지막 재적재 직전(짐작: 그날 쓴다) | reload:528 (§O) | — |
 | R-② | wms_ 26 개 이사 절차(wms_pallets 순환 FK · wms_staff ↔ ims_staff · wms_rollback_archive 보존) | 열림 | 컷오버 날 | §M 글 「승격을 택했으므로 컷오버 때 결국 이사해야 한다」 | reload:529 · 462 (§O · §M) | 617 |
 | 315 | ILH_PRACTICE 지우기 — 컷오버 직전 진짜 이력 적재 전(ilhReset 이 켜져 있으면 경고 · 판정 664 · 665 는 연습 적재에만) | 열림 | 컷오버 날 | 📌 docs-1023h · N-1022-⑥ 순서 | so §72-f · docs-1023h · hist-3c | 664 · 665 |
+| 320 | 컷오버 날 재적재(손님 ~ 태그)는 **Shopify listing 을 켜기 전에** — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(shop_queue_add 가 켜진 listing 만 큐 · 지금 7 이라 무해) | 열림 | 컷오버 날 | Caleb 2026-10-24(docs-1024 마) · N-1022-⑥ 순서 · ldfix-1b 실측(listing 7 → 큐 ≤ 7) | so §73-c | 420 |
 
-### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (265)
+### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (266)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -144,7 +141,6 @@
 | 100 | 사 오는 콤보(디스플레이 1 → 낱개 24) · 콤보 방향 칸(asm-0 · 묶음 8) | 열림 | 미정 | — | so:6727 (44-e) | — |
 | 101 | 무상 콤보 줄만 남은 오더가 sweep 후보에 밤마다 들었다 나온다(닫히지는 않음 · asm-2b2 이견 13) | 열림 | 미정 | — | so:6728 (44-e) | — |
 | 102 | 콤보 백오더 입고 알림 쓰기(backorder_notified_at 은 아직 아무도 안 쓴다 · arrived 식은 섰다) | 열림 | 미정 | — | so:6729,6730 (44-e) | — |
-| 103 | GAS 상품 적재가 product_bom 의 source = manual 줄을 덮지 않게(asm-1 이견 5 · cs-4 · prod-5 묶음 §41-e 92 와 한 덩이 · Apps Script 편집기 원본) | 열림 | 미정 | — | so:6731 (44-e) | — |
 | 105 | counter 오더 출고(so_counter_ship · so.html 「Hand over」)의 콤보는 시험 안 함 · POS 완료(so_pos_finish)는 2b1 P1 이 통과 | 열림 | 미정 | — | so:6733 (44-e) | — |
 | 106 | 인보이스 인쇄 · PDF 의 「Includes」(화면만 섰다 · 인쇄 판이 생길 때) | 열림 | 미정 | — | so:6734 (44-e) | — |
 | 107 | 청구처의 청구처 사슬 — so_copy_customer 는 한 번만 따라간다(실측 0 · 막을지 판정 거리 · cs-par-1 이견 8 ⓐ) | 열림 | 미정 | — | so:6813 (45-e) | — |
@@ -163,7 +159,6 @@
 | 125 | ⏸ 할인 겹침 규칙 재검토(Caleb 「일단 보류 · 기록해줘 · 좀 더 생각」) — 지금: 층 안은 큰 하나 · 줄 층과 오더 층은 겹친다(277 · Adore 15% + 쿠폰 20% → 약 32%) · Caleb 물음 「줄 층 … | 열림 | 미정 | — | so:7364 (51-e) | — |
 | 126 | description(판정 후보 348) — product.cin7_description · product_family.cin7_description 만 · 18,722 중 17,894 채움 · 17,890 HTML(h1 · h2 … | 열림 | 미정 | — | so:7365 (51-e) | — |
 | 129 | so_deal_save 막기 · 경고 문장에 칸 이름 · 어휘 값이 그대로 나오는 23 곳(dsc-4d 보고 목록) | 열림 | 미정 | — | so:7369 (51-e) | — |
-| 130 | 제품 재적재가 IMS 에서 뗀 Cin7 출처 태그(product_tag source cin7)를 다시 붙인다 — 미룬 113(sellable)과 같은 뿌리 · 적재를 고친다 | 열림 | 미정 | — | so:7370 (51-e) | — |
 | 131 | CHECKLIST 에 surcharge-groups · stock · customers 화면 절이 없다(10-06 dr-1 Claude Code 이견 4) | 열림 | 미정 | — | so:7371,7454 (51-e·52-e) | — |
 | 132 | 끝난 프리오더를 목록에 남기려면 so_backorder_proceed 가 프리오더 줄에도 장부를 적어야 한다(판정 후보) | 열림 | 미정 | — | so:7455 (52-e) | — |
 | 133 | Finalize 경고 charge_added_beside_existing 의 화면 문장 — so.html WARN 표에 없다(grep 0 · 짐작 아님) · 지금은 warnText 가 코드 글자 그대로 보인다 | 열림 | 미정 | — | so:7456 (52-e) | — |
@@ -192,7 +187,6 @@
 | 160 | 설명 끝의 「(Barcode: …)」 줄 정리(Caleb 「어차피 나중에 정리해야 하는 거라」) — 몇 개인지 · 한꺼번에 정리할지는 그때 | 열림 | 미정 | — | so:7742 (55-e) | — |
 | 161 | 한 인보이스에서 같은 상품을 두 값(돈 낸 줄 둘)으로 받으면 latest price 가 어느 쪽인지 — 정렬 규칙 확인 | 열림 | 미정 | — | so:7743 (55-e) | — |
 | 162 | 환율을 USD 구매처에서 자동으로 가져오기(Caleb 계획) — 어느 순간의 환율을 PO 에 붙일지 그때 정한다 | 열림 | 미정 | — | so:7744 (55-e) | — |
-| 164 | product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인 → 확정: 덮는다(tag-0 ⬜6 · §57-d 3) · … | 열림 | 미정 | — | so:7858 (56-g) | — |
 | 166 | products.html escQ 정리(이제 esc 와 같다) | 열림 | 미정 | — | so:7860 (56-g) | — |
 | 167 | shopify-push.sh 5 행 옛 주석(위 56-f 10) · shop_product_payload comment 의 「DOMPurify」(다음에 그 함수를 다시 낼 때) | 열림 | 미정 | — | so:7861 (56-g) | — |
 | 169 | 159 확장: 상품 표 여덟 · ref_embed_host 의 references · trigger 권한 정리 · 뷰 권한 (인계서 10-09 §5-6) | 열림 | 미정 | — | so:7863 (56-g) | — |
@@ -201,7 +195,6 @@
 | 172 | Aone 이 같은 organization 인지(컷오버) | 열림 | 미정 | — | so:7866 (56-g) | — |
 | 173 | Shopify 관리자 메뉴로 잘못 만든 스토어 My Store 5(다른 organization) 지우기 — 지울 때 열린 스토어가 My Store 5 인지 먼저 | 열림 | 미정 | — | so:7867 (56-g) | — |
 | 175 | 태그 적재의 넣기가 ipr_upsert_(merge-duplicates)라 적재가 도는 몇 분 사이 직원이 같은 태그를 붙이면 그 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicat… | 열림 | 미정 | — | so:7929 (57-e) | — |
-| 176 | IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다 | 열림 | 미정 | — | so:7930 (57-e) | 418 |
 | 177 | shop_listing_set op push_now — 부르는 곳 0 · 남길지 정하지 않음(57-d 4) | 열림 | 미정 | — | so:7931 (57-e) | — |
 | 181 | HS · 원산지가 IMS 에 비어 있다(58-c 끝) → 제품 재적재 차수(176 · 미룬 164) | 열림 | 미정 | — | so:7997 (58-e) | — |
 | 182 | stock-1b 상수(묶음 100 · 한 회차 500 · 40 s) 운영 cost 로 다시 재기(시험 첫 회차 22 숫자 cost 147) · 첫날 위치 붙이기(activate) 부하 | 열림 | 미정 | — | so:7998 (58-e) | — |
@@ -320,7 +313,7 @@
 | 297 | lat-1 세트 줄의 Latest 변환 · accepted_billed 갈래 | 열림 | 미정 | — | 인계서 §4 ⑥ · docs-1023 | 626 · 627 |
 | 298 | 발주앱 「옮겨 담기」 막대 · pur_settings_import 걷어내기 · IMS 모양(머리줄 단추 납작 → `#pur-root, #pur-root *` 로 CSS 좁히기 · 짐작) | 열림 | Caleb 요청 때 | 판정 619 「IMS 모양은 Caleb 이 요청할 때 · 그때 함께」 · 620 | so §71-a 619 · 인계서 §4 ⑦ | 619 · 620 |
 | 299 | grt-2 의 때 — 컷오버 전(A) · 뒤(B) · 대화 Claude 안 B · ⚠️ Data API 「Automatically expose new tables」 스위치(켜져 있다)는 손대지 않는다 | 열림 | 판정 대기 | 판정 623 대기 | so §71-a 623 · so:9459 (70-f 287 ③) | 623 |
-| 300 | Products 내보내기 — 칸 고르기 창 | 열림 | 미정 | — | so §71-a 628 | 628(670 부터 · 652 ~ 669 는 so §72) |
+| 300 | Products 내보내기 — 칸 고르기 창 | 열림 | 미정 | — | so §71-a 628 | 628(~~670 부터~~ → 684 부터 · 652 ~ 669 는 so §72 · 670 ~ 683 은 so §73) |
 | 304 | inv_layer_apply 의 WHERE 없는 delete 둘(inv_layer_consume · inv_layer_cost_add) — 지금은 psql 로만 불려 무사 · service_role 실행권이 있어 REST 로 부르면 21000(safeupdate · hist-1b 훑기) | 열림 | 미정 | — | so §72-f · docs-1023h · hist-1b | — |
 | 305 | 붙여 넣기 창구 셋(po_lines_paste · so_lines_paste · inv_transfer_lines_paste)의 upper(sku) 비교가 hist-1c 색인 product (upper(sku), sku)를 쓰는지(계획 안 봤다 · hist-1c 이견 5) | 열림 | 미정 | — | so §72-f · docs-1023h · hist-1c | — |
 | 306 | SKU 대소문자 유니크를 막을지 — 지금 upper 겹침 0 · 막으면 대소문자만 다른 새 SKU 거부 | 열림 | 판정 대기 | 판정 거리(📌 docs-1023h · hist-1c 「따로 판정」) | so §72-f · docs-1023h · hist-1c | — |
@@ -328,19 +321,26 @@
 | 312 | BQ asung_purchase_history 의 받은 수량 · 받은 날짜가 비어 있다(2025-11 ~ 전부 · IMS hist_po_line 17,851 줄 받은 수량 0 · hist_po 448 받은 날짜 null · PurchaseHistory.gs 가 안 담는 것으로 짐작 · 안 봤다) — 이전 발주 카드는 「not recorded」(sup v3a) · 채우려면 원천 적재부터 | 열림 | 미정 | — | so §72-b · sup v3a | 669 |
 | 314 | hist_so_line · hist_po_line comment(다음 마이그레이션 차수 거리) — sale = 두 출처 모두 할인 뒤 세전 줄 합계(667) · discount = 확정 출처 0 은 「모름」(당월 null · 0 을 「할인 없음」 으로 읽지 말 것) · hist_po_line received_quantity 0 은 「기록 없음」 | 열림 | 미정 | — | so §72-f · docs-1023h · hist-3c 이견 1 · 7 | 667 |
 | 318 | 비활성 공급처에만 활성 줄이 붙어 기본이 빈 활성 제품 — 16 곳 · 209 제품(JSB 64 · Jinmen Inc. 45 · NEO Enterprise 23 · Discontinued Item Group 17 · Zhejiang Jaguar 17 · Curelife 9 · Morning Glory 6 · Qingdao Jangdongeun 6 · East Well 5 · Filedaria Inc. 4 · Marc Anthony Cosmetics LTD-The Mane Choice 4 · Rebecca 3 · Eastern Trading 3 · Sunrise Family Co 1 · Trestech 1 · Helen of Troy, LP 1 · 모두 Purchasable 미판정) — 다시 살릴 곳을 Caleb 이 고른다 · 살리면 317 의 ② 를 손으로 · ⚠️ §3-g 카운터 ②(활성 줄은 있는데 못 고른 제품)와 모집단이 다르다 · 31 곳은 po-module 2474 · 2704 행이 「판정 대상이 아니다」(2026-09-15)라 적은 곳 | 열림 | 판정 대기 | Caleb 고르기(📌 docs-1023h 덧붙임) · 실측 2026-10-23 테스트 DB 읽기 | so §72-b · po-module §3-g(31 곳) | — |
+| 321 | shop_queue_trigger('product') 를 「보내는 칸이 다를 때만」 으로 좁히는 DB 차수(지금은 update 된 id 전부를 넘긴다) | 열림 | 미정 | 📌 docs-1024 C1 · Caleb 2026-10-24(마 — 320 과 따로) | so §73-d · ImsLoadProduct.gs 머리 「큐」 | — |
+| 322 | `ims_vis_` 공용화 — 손님 적재(ImsLoadCustomer.gs)가 ImsLoadSupplier.gs 의 `ils_vis_` 에 기댄다(편집기에서 그 파일을 지우면 손님 적재가 멈춘다) · 공용 자리 ImsRefLoad.gs(편집기 ProbeIMS.js) | 열림 | 미정 | 📌 docs-1024 C2 · ldfix-1d 라=A(이번엔 ils_vis_ 를 부른다) | so §73-a 681 | 681 |
+| 323 | 동점 기본 공급처 2 — MNT54316 · PIN00563(PK International ↔ Cygnus · 둘 다 2026-05-25) · 재계산이 비워 둔다 · 사람이 고른다 | 열림 | 판정 대기 | 📌 docs-1024 C3 · ldfix-1c2 실측(전체 재계산 0 변화 · 기본 없음 2) | so §73-a 682 · po-module §3-g | 682 |
+| 324 | 로컬 빈 DB 재생 불가 — `supabase db reset` 이 데이터 의존 마이그레이션 20260924200029_so_invoice_a1 에서 멈춘다 · 하네스는 테스트 DB 스키마 덤프 복원으로 우회(docs/probes/harness/README.md) | 열림 | 미정 | 📌 docs-1024 C4 · ldfix-1a 보고 | so §73-b | — |
+| 325 | 태그 짐작 「Cin7 변화 가능」 을 줄이려면 태그 변경 이력이 필요한데 Cin7 API 에 없다 — 제품의 다른 칸이 바뀌어도 LastModifiedOn 이 움직여 「변화 가능」 쪽으로 기운다(틀려도 안전한 쪽 · 한계 기록) | 열림 | 미정 | 📌 docs-1024 C5 · ldfix-1d | so §73-a 676 | 676 |
 
-### ④ 열림 · 컷오버 뒤 (8)
+### ④ 열림 · 컷오버 뒤 (10)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | 149 | 컷오버 뒤 앱 규칙(딜 · 손님 할인)을 IMS 와 앱에 두 번 입력 | 열림 | 컷오버 뒤 | 글 「컷오버 뒤 앱 규칙(딜 · 손님 할인」 | so:7574 (53-e) · shopify §5 ⑤ | — |
-| 260 | 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에) | 열림 | 컷오버 뒤 | 글 「기(판정 521 — 컷오버 며칠 뒤 · doc_file.dri」 | so:8953 (66-f) · ims-principles §6-c 2단계(QuickBooks) | 521 |
+| 260 | 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에) | 열림 | 컷오버 뒤 | 글 「기(판정 521 — 컷오버 며칠 뒤 · doc_file.dri」 · → [2026-10-24] 연동 준비(Intuit 앱 · 캐나다 샌드박스)는 327 | so:8953 (66-f) · ims-principles §6-c 2단계(QuickBooks) | 521 |
 | 281 | 607 고정 단가 고치기 = purchasing 쓰기 + 바뀐 기록 표(Products 화면 것도) — pur-3(며칠 뒤) | 열림 | 컷오버 뒤 | 글 「화면 것도) — pur-3(며칠 뒤)」 | so:9453 (70-f) | — |
 | 282 | 발주앱 두 탭(입고 검증 · 공급처 분석) — 11-01 뒤 | 열림 | 컷오버 뒤 | 글 「검증 · 공급처 분석) — 11-01 뒤」 | so:9454 (70-f) | — |
 | 283 | 616 B — 경계 전 이력을 IMS 로 옮겨 IMS 로그인 하나로(컷오버 뒤 정리 차수) · 그때까지 구글 OAuth 클라이언트에 ims.asung.ca 등록 | 열림 | 컷오버 뒤 | 글 「옮겨 IMS 로그인 하나로(컷오버 뒤 정리 차수) · 그때까지」 | so:9455 (70-f) | — |
 | 287-④ | authenticated · service_role 의 넓은 몫 119 정리 | 열림 | 컷오버 뒤 | 글 「119 정리(컷오버 뒤)」 · 판정 618 | so:9459 (70-f) | 618 |
 | 67a-7 | family 해체(없애기 · 일부 빼서 새 family) — 271 과 같은 줄기 | 열림 | 컷오버 뒤 | 글 「컷오버 뒤 · Caleb 「아예 없애야 하는 상황도 …」」 | so:8985 (67-a) · 271 | — |
 | 311 | Omni 시절 이력(BQ asung_sales_historical_data · 손님 칸 이름뿐 · 이름으로 잇는 길 · era omni) | 열림 | 컷오버 뒤 | 판정 658 「Core 시절만 · era 칸으로 뒤에 더할 자리」 | so §72-f · docs-1023h | 658 |
+| 326 | Freightcom 연동(판정 677) — 1단계 견적(운임 줄) → 2단계 예약(운송사 · 추적번호 · 라벨 · BOL) · 고객 API(키 인증 · 견적 202 폴링 · 예약 unique_id = SO 번호) · 바탕 = 박스 · 팔렛 치수 · 무게 숫자 칸 + EF 비밀값 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024 다) · 준비됨 — API 승인 답이 오면 시작 · 컷오버 전에 끝나면 좋지만 안 돼도 문제는 아니다(677) | so §73-a 677 | 677 |
+| 327 | QuickBooks 연동 준비 — Intuit Developer 계정 · 앱(이름 Asung IMS 짐작) · 캐나다 샌드박스 Sandbox Company CA 9bca(2026-10-24) · 운영 키 = 앱 평가 설문 + 승인 · Claude 의 QuickBooks 연결 앱은 캐나다 불가(우리 비공개 앱과 별개) — 260(보내기)과 같은 줄기 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024 다) · 준비됨(샌드박스) | so §73-e 7 · 260 | 521 |
 
 ### ⑤ 모름 (9)
 
@@ -356,7 +356,7 @@
 | 309 | saleCreditNoteList Total 4,714 가 실제 발행 크레딧(확정 표 9 개월 453 오더 · 원장 한 달 약 21)과 안 맞는다 · 적재는 이 목록을 안 쓴다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | — |
 | 310 | 짝 발주 1,424 행 · 짝 1,421 — 같은 PO 번호가 목록에 두 번인 것 셋(짐작) · 공급처 안 풀림 0 이라 무해로 보이나 두 행의 공급처가 같은지 안 봤다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | 657 |
 
-### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (66)
+### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (73)
 
 <details><summary>펼치기</summary>
 
@@ -382,7 +382,7 @@
 | ㊱(36) | ⑫ 화면 시험(Caleb 미룸) — 두 칸 나눠 뽑기 · 보류 뒤 칸 보존 · Admin 칸 셋 · 출고 원장 두 칸 | 닫힘 | 미정 | 닫힘 글 「출고 원장 두 칸 ⇒ [닫힘 2026-10-05 · §40-c] ① ~ ④ 모두 확인(SO-25024 · 25025 · 25…」 | so:5385,5386 (30-e) | — |
 | 53 | CON 17 장 — 10/2 14:30 UTC scan 결과로 확인(새 첨부가 큐에 들어가고 move 가 옮기는지 · skips 의 옛 17 은 그대로 남는다) | 닫힘 | 미정 | 닫힘 글 「그대로 남는다) ⇒ [닫힘 2026-10-05 · §40-c] 17 상품 모두 대표 사진 있음 · 새 첨부 17 장 done」 | so:5816,5817 (34-e) | — |
 | 88 | so_invoice_issue 를 definer 로 재발행하면 손님 표를 「잠금만」 없이 완전히 닫는다(41-d 1) | 닫힘 | 미정 | 닫힘 글 「「닫힌 것」 줄 :5285」 | so:6425 (41-e) | — |
-| 92 | GAS clasp pull — ProbeIMS.gs(imsLoadSupplier) · Imsloadproductsupplier.gs(imsLoadSupplierExtra) · Imsloadcustomer.gs 등을 레포로(cs-4 … | 닫힘 | 미정 | 닫힘 글 「「닫힌 것」 줄 :5285」 | so:6429 (41-e) | — |
+| 92 | GAS clasp pull — ProbeIMS.gs(imsLoadSupplier) · Imsloadproductsupplier.gs(imsLoadSupplierExtra) · Imsloadcustomer.gs 등을 레포로(cs-4 … | 닫힘 | 미정 | 닫힘 글 「「닫힌 것」 줄 :5285」 · → [2026-10-24 · 판정 673 · so §73] 옛 imsLoadSupplier 는 편집기에도 없었다 — 레포 docs/probes/ImsLoadSupplier.gs 로 새로 지음 | so:6429 (41-e) | — |
 | 94 | 매니저 8 명은 sales · purchasing · master 가 읽기만 — 손님 · 공급처를 만들려면 직원 화면에서 열쇠를 올린다(판정 237 근거 실측) | 닫힘 | 미정 | 닫힘 글 「「닫힌 것」 줄 :5285」 | so:6431 (41-e) | 237 |
 | 95 | 화면 모양 둘(42-d 끝) — suppliers · customers 공통 | 닫힘 | 미정 | 닫힘 글 「「닫힌 것」 줄 :5285」 | so:6489 (42-e) | — |
 | 96 | customers 의 parent_id · default_bill_to_customer_id · default_ship_to_customer_id 고치기 칸이 화면에 없다(창구는 받는다) — 체인 매장 손님이 생길 때 → ✅ [20… | 닫힘 | 미정 | 닫힘 글 「취소선 · ✅ [2026-10-06 닫힘] DB cs-par-1(asung-wms 6f5f716) · 화면 cs v3(」 | so:6490 (42-e) | — |
@@ -428,6 +428,13 @@
 | 301 | 컷오버 전 지난 거래를 IMS 에 읽기 전용으로(hist_so · hist_so_line · hist_po · hist_po_line · 654 B) | 닫힘 | — | hist-1 · 1b · 1c(8fe3d3e · 29fd93f · f638b0a) · hist-3 · 3b · 3c(d41cf23 · 96d8273 · 1858eef) · 화면 cs v6 · sup v3 · v3a · v3b(asung-ims 02ed99d · d3f29c5 · f230cbf · 0ddde54) · so §72 | so §72-b · docs-1023h | 654 · 656 ~ 669 |
 | 316 | asung_sales_unified VIEW 가 당월 줄(asung_order_details_historical)의 sale 에 무엇을 싣나 — 당월 표 Sale 은 정가 단가 · Total 은 할인 뒤 세전 줄 합계(667) | 닫힘 | 컷오버 전 필수 | Caleb BigQuery 콘솔 · VIEW 정의 원문(2026-10-23) — 당월 쪽(core_latest) `Total AS sale`(주석 「[수정 1] Sale(단가) → Total(라인합계)」) · 확정 쪽 asung_sales_confirmed.sale(= Amount) · Omni 쪽 `Total AS sale` ⇒ 세 출처 모두 세전 줄 합계 · analytics SUM(sale) 은 맞다 | so §72-f · docs-1023h · asung-bq-data-model 「표준 컬럼 이름」 | 667 |
 | 65 | Energizer Canada — 꺼진 공급처의 연결 62 줄에 기본이 하나도 없다(35-c) · 원인 확인 안 함(적재가 꺼진 공급처 줄을 기본으로 안 두는 규칙인지 · 공급처를 끌 때 기본이 풀린 것인지) · prod-5 판정 … | 닫힘 | 미정 | 원인 = po-module §3-g 「is_default 재계산」 ② 가 활성 공급처 줄만 후보로 삼는다(설계대로 · 첫 적재 09-14 때 Energizer Canada 비활성) · Caleb 2026-10-23 화면 Activate · Purchasable Yes → 재계산 ① ② 손 실행(off 0 · on 62 · 기본 둘인 제품 0 · COMMIT) · 남은 「저절로 안 돈다」 → 317 · so §72-b | so:5950 (35-e) · so §72-b | — |
+| 109 | ⚠️ 적재 2단계가 IMS 에서 세운 관계를 덮는다 — ImsLoadCustomer 2단계(GAS 사본 147 ~ 165행)는 Cin7 부모가 없는 손님의 parent_id 를 비우고, 잇기 PATCH 도 IMS 가 세운 다른 부모… | 닫힘 | 컷오버 전 필수 | ldfix-1a 09f2dcd(2단계 잇기 · 비우기는 parent_source cin7 만) · 1a2 96f30f2(판정 678 · 마이그레이션 20261024174246) · so §73 · 2026-10-24 · (옛 근거) Caleb 2026-10-23(판정 664 · 665) — 컷오버 직전 손님 · 제품 재적재 전에 고친다 · 그 뒤 이력 적재 처음부터(so §72 · N-1022-⑥) | so:6815 (45-e) | 664 · 665 |
+| 113 | 적재 sellable 고침 — ① payload 에서 뺀다 / ② sellable_source = ims 행은 건너뛴다(대화 Claude 권고) · 그 전까지 제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다 | 닫힘 | 컷오버 전 필수 | 판정 670 · 675 · ldfix-1b 4a373df(ims 행 · 세트는 IMS 현재 값을 같은 키로) · so §73 · 2026-10-24 · (옛 근거) Caleb 2026-10-23(판정 664 · 665) — 컷오버 직전 손님 · 제품 재적재 전에 고친다 · 그 뒤 이력 적재 처음부터(so §72 · N-1022-⑥) | so:7144 (49-e) | 664 · 665 |
+| 317 | 기본 공급처 재계산 두 문장(po-module §3-g 「is_default 재계산 — 끄고 나서 켠다」 ① ②)이 재적재 · 공급처 활성 바꾸기 뒤에 저절로 돌지 않는다 — 공급처를 다시 켜도 그 공급처만 붙은 제품은 기본이 빈 채 · 붙일 자리 셋: 적재 스크립트 끝 · supplier_update(is_active → true 때 그 공급처 제품에만 ② · false 때 ①) · cron · 실측: 기본 칸을 쓰는 DB 함수는 제품 화면 창구(제품 하나 단위)뿐 · 공급처 창구(master_cs_3) · ImsLoadProductSupplier · cron.sql 모두 안 건드린다 | 닫힘 | 컷오버 전 필수 | 판정 682 · ldfix-1c2 7012420(product_supplier_default_recalc · 적재 Apply 끝 · supplier_update is_active 갈래) · so §73 · 2026-10-24 · (옛 근거) 📌 docs-1023h 덧붙임 · Energizer Canada 실사고(65 닫힘) | so §72-b · po-module §3-g | — |
+| 103 | GAS 상품 적재가 product_bom 의 source = manual 줄을 덮지 않게(asm-1 이견 5 · cs-4 · prod-5 묶음 §41-e 92 와 한 덩이 · Apps Script 편집기 원본) | 닫힘 | 미정 | ldfix-1b 4a373df(product_bom · product_barcode 의 manual 줄은 보내지 않는다 · 새 ①) · cs-4 적재 고침도 이 묶음(판정 671) · so §73 · 2026-10-24 · (옛 근거) — | so:6731 (44-e) | — |
+| 130 | 제품 재적재가 IMS 에서 뗀 Cin7 출처 태그(product_tag source cin7)를 다시 붙인다 — 미룬 113(sellable)과 같은 뿌리 · 적재를 고친다 | 닫힘 | 미정 | 판정 676 — DB · 적재 규칙 무변 · ldfix-1d 87f208d(태그 Dry 보고 파일 셋 · 딜 표시 · 짐작 · 컷오버 날 사람이 보고 Apply) · so §73 · 2026-10-24 · (옛 근거) — | so:7370 (51-e) | — |
+| 164 | product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인 → 확정: 덮는다(tag-0 ⬜6 · §57-d 3) · … | 닫힘 | 미정 | ldfix-1b 4a373df · 판정 671 · 672 · 679(IMS 가 정한 값은 지킨다 · 표식 없는 칸은 Cin7 이 덮되 Dry 목록) · so §73 · 2026-10-24 · (옛 근거) — | so:7858 (56-g) | — |
+| 176 | IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다 | 닫힘(짐작) | 미정 | ldfix-1b — 제품 적재가 새 제품을 넣는다(on_conflict=sku) · 678 개 실측은 컷오버 날 Dry(so §73-c 3) · 「태그 한 번 더」 = so §73-c 9 · 2026-10-24 · (옛 근거) — | so:7930 (57-e) | 418 |
 
 </details>
 
@@ -446,7 +453,7 @@
 
 ## 4. 이 문서를 고칠 때
 
-- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 319 부터(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
+- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 328 부터(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
 - 닫을 때는 줄을 지우지 않고 상태를 닫힘으로 · 근거 칸에 커밋 · 판정 · 절
 - 「때」를 Caleb 이 가르면 근거 칸에 「Caleb 2026-MM-DD」
 

@@ -1970,11 +1970,11 @@ Discount ≠ 0    72명(7% 50 · 13% 8 · 3% 5 · 5% 4 · 10% 3 · 2% 1 · 4% 1)
 **판정 ⑫ 부모 손님은 두 단계로 · 적재가 보내지 않는 칸**
 ```
 1단계  손님 9,468명 upsert — ⚠️ parent_id 칸을 아예 보내지 않는다
-2단계  부모가 있는 13명에게만 parent_id 를 채운다(부모는 1단계로 이미 있다)   ⚠️ [2026-10-06] parent_source='cin7' 인 줄만 — IMS 가 세운 부모를 덮지 않게(§45 · 미룬 109)
+2단계  부모가 있는 13명에게만 parent_id 를 채운다(부모는 1단계로 이미 있다)   ⚠️ [2026-10-06] parent_source='cin7' 인 줄만 — IMS 가 세운 부모를 덮지 않게(§45 · 미룬 109) → [2026-10-24 · ldfix-1a 09f2dcd · §73] 지어짐 · 잇기는 {parent_id, parent_source:'cin7'} 함께 · 'ims'(세움 · 뗌 678) 자식은 건너뜀
        CustomerParentID(GUID) → 우리 customer.id 조회가 한 번 필요하다(cin7_id 로)
        + 재적재: Cin7 에서 부모가 없어진 손님은 parent_id 를 비운다
          = source='cin7' and parent_id is not null and cin7_id not in (이번 회차 부모 있는 13명) → PATCH parent_id=null
-         ⚠️ [2026-10-06] parent_source='cin7' 조건이 빠졌다 — 이대로 돌리면 IMS 에서 세운 관계를 지운다 · GAS 차수 전까지 손님 재적재 금지(§45 · 미룬 109)
+         ~~⚠️ [2026-10-06] parent_source='cin7' 조건이 빠졌다 — 이대로 돌리면 IMS 에서 세운 관계를 지운다 · GAS 차수 전까지 손님 재적재 금지(§45 · 미룬 109)~~ → [2026-10-24 · ldfix-1a · §73] 비우기는 source=cin7 & parent_source=cin7 행만 · 재적재 금지 풀림
 ```
 - 근거: 자기 참조 FK 는 줄마다 즉시 검사 — 자식이 부모보다 먼저 들어가면 거부된다. 순서를 따지는 것보다 두 단계가 단순하다(깊이 2+ 0 · 9-g).
 - ⚠️⚠️ **「보내지 않는다」 ≠ 「null 로 보낸다」** — PostgREST upsert 는 보낸 칸을 덮는다. 1단계가 `parent_id: null` 을 실으면 재적재마다 2단계가 채운 부모를 지운다.
@@ -5460,7 +5460,7 @@ wms_reports 158 열림(TRF-00001 stock_short · picker)
 - 「쓸 수 있는 상품」 최소 한 벌 = product + product_barcode ≥ 1(없으면 픽 · 팩 · 리시빙 스캔 불가) + product_price sale 티어 ≥ 1(없으면 so_line_add no_price · unit_price null) + product_supplier 1(없으면 po_lines_paste no_link · 단가 0 · po.html 후보에 안 뜸) — 셋 다 막지 않고 알린다
 - 선례 보안 모드: so_create · so_line_add = **definer** + 첫 줄 문 · po_create · po_lines_paste = invoker
 - products.html 필터는 brand_name · category_name **원문 글자**로 거른다(판정 143 ① 의 근거)
-- **적재 코드**(`docs/probes/ImsLoadProduct.gs`): `ipr_upsert_('product', 'sku', rows)` merge-duplicates = **행 전체 덮어쓰기** · payload `source:'cin7'` · note 없음 ⇒ 같은 SKU manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지) · §3-f 의 1) ~ 3)(비활성 내리기 · manual 제외 · 로그)은 **미구현** · product_supplier(ImsLoadProductSupplier.gs)만 승격 규칙(manual 줄에 cin7_id · 단가 PATCH · source manual 유지)이 구현돼 있다
+- **적재 코드**(`docs/probes/ImsLoadProduct.gs`): ~~`ipr_upsert_('product', 'sku', rows)` merge-duplicates = **행 전체 덮어쓰기** · payload `source:'cin7'` · note 없음 ⇒ 같은 SKU manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지)~~ · §3-f 의 1) ~ 3)(비활성 내리기 · manual 제외 · 로그)은 **미구현** · ~~product_supplier(ImsLoadProductSupplier.gs)만 승격 규칙(manual 줄에 cin7_id · 단가 PATCH · source manual 유지)이 구현돼 있다~~ → [2026-10-24 · ldfix-1b 4a373df · 1c b5aed52 · §73] 열쇠 cin7_id 먼저(on_conflict=cin7_id · IMS sku 를 싣는다 · 679) · manual 과 SKU 같으면 cin7_id 만 PATCH(674) · 새 행만 sku · 승격도 cin7_id 만 · 1) ~ 3) 의 내리기는 여전히 없다(→ deferred 319)
 - 실물: source='manual' 행은 모든 표 0 · product 18,714(cin7 활성 14,576 + 비활성 4,138) · product_bom 행 65(콤보 15) · 세트 6,347 중 4,992(79%)가 낱개와 같은 날 등록 · 일주일 뒤 410 · 활성 낱개 8,771 중 세트 0개 3,593 · 1개 4,584 · 2개 546 · 3개 48 · 세트 uom 분포 12(2,786) · 6(1,960) · 24 · 36 · 72 · 10 · 48 · 4 · 144 · 3 · 288 · 120 · 활성 세트 5,805 중 자기 바코드 없음 1,212 · uom ≠ pack 0 · 활성 낱개 결손: 바코드 89 · sale 가격 14 · 공급처 연결 39 · 브랜드 1 · family 없음 4,072(정상) · 열린 SO 줄의 상품 8 · 열린 PO 줄 19
 - SKU 모양: 길이 5 ~ 19 · 앞뒤 공백 0 · 가운데 공백 1(`ADA83721FAM - 004`) · 소문자 4(`AS00000blue` · `AS00000gold` · `AS00000silver` · `BSMirror` — BSMirror 만 사용 중 · 원장 행 있음) · 대소문자만 다른 무리 0
 
@@ -6414,7 +6414,7 @@ f7b0027 feat(master): master-cs-2a - customer_create (rulings 237 to 240): two-c
 
 1. [Claude Code · cs-1 이견 1] 손님 표를 prod-2 모양으로 완전히 닫으면 `so_invoice_issue`(invoker)의 손님 행 잠금이 죽는다(권한 회수 → 오류 · 정책만 지움 → 잠금이 0 행으로 조용히 지나 동시 발행 보호가 사라짐) ⇒ 「잠금만」 정책 · 근본 처방(그 함수를 definer 로)은 미룸(41-e 88) · ⇒ **표를 닫기 전에 그 표의 행을 for update 로 잠그는 invoker 함수를 찾는다**
 2. [Claude Code · cs-3 이견 1] `po_discount_save` · `po_discount_delete`(invoker)의 `supplier` 갈래가 공급처 할인 표에 쓴다 — 화면 호출 0 · 닫힌 뒤 42501 로 죽는다 ⇒ 갈래 정리는 미룸(41-e 89)
-3. [대화 Claude · Claude Code · master-cs-0 이견 1] 공급처 적재 스크립트가 GAS 레포 클론에 「없다」로 보였다 — 실제로는 Apps Script 의 `ProbeIMS.gs` 안 `imsLoadSupplier` · `Imsloadproductsupplier.gs` 안 `imsLoadSupplierExtra(Apply)` 였다(파일 이름이 정본 · 짐작과 다름 · 클론이 낡음) ⇒ **GAS 는 Apps Script 편집기가 원본** · 클론을 근거로 「없다」고 하지 않는다 · cs-4 전에 clasp pull
+3. [대화 Claude · Claude Code · master-cs-0 이견 1] 공급처 적재 스크립트가 GAS 레포 클론에 「없다」로 보였다 — 실제로는 Apps Script 의 `ProbeIMS.gs` 안 `imsLoadSupplier` · `Imsloadproductsupplier.gs` 안 `imsLoadSupplierExtra(Apply)` 였다(파일 이름이 정본 · 짐작과 다름 · 클론이 낡음) → [2026-10-24 · 판정 673 · §73] 편집기 ProbeIMS.gs 에도 imsLoadSupplier 는 없었다 — ImsLoadSupplier.gs 로 새로 지음 ⇒ **GAS 는 Apps Script 편집기가 원본** · 클론을 근거로 「없다」고 하지 않는다 · cs-4 전에 clasp pull
    - [docs-1005c 확인] `imsLoadSupplierExtra(Apply)` 는 asung-wms 레포 `docs/probes/ImsLoadProductSupplier.gs`(87 · 88)에 사본이 있다 — 「없다」였던 것은 `imsLoadSupplier`(본체 · 주소 · 연락처 · 구매 가능) 쪽 · 레포 사본이 Apps Script 원본과 같은지는 안 봤다
 4. [대화 Claude] 판정 236 글을 대화에서 「공업체」로 잘못 쳤다 — 지시서 파일에는 바르게 넣었다 ⇒ 판정 원문은 파일에서 옮긴다(이 차수의 📌 규칙)
 5. [Caleb · 2026-10-05] 「앞으로 터미날 명령어 줄때, 옮기고 나면 다운로드 폴더에 있는 파일은 삭제하는 것까지 포함하는 명령어를 줘.」 — 옮기기 명령은 다운로드 md5 → 복사 → 복사본 md5 → 다운로드 삭제(md5 가 다르면 아무것도 지우지 않음)
@@ -6426,7 +6426,7 @@ f7b0027 feat(master): master-cs-2a - customer_create (rulings 237 to 240): two-c
 - 89 `po_discount_save` · `po_discount_delete` 의 `supplier` 갈래 들어내기(41-d 2)
 - 90 `Net30`(꺼짐 · 손님 6,305) 과 `Net 30`(켜짐 · 108) — 어느 이름이 맞는지 정해 Cin7 · IMS 정리(Caleb 판단)
 - 91 공급처 「거래 중단」 정본 기대치 24 → 실측 28 로 고칠 자리(po-module 의 그 숫자 · grep)
-- 92 GAS clasp pull — `ProbeIMS.gs`(imsLoadSupplier) · `Imsloadproductsupplier.gs`(imsLoadSupplierExtra) · `Imsloadcustomer.gs` 등을 레포로(cs-4 앞)
+- 92 GAS clasp pull — `ProbeIMS.gs`(imsLoadSupplier) · `Imsloadproductsupplier.gs`(imsLoadSupplierExtra) · `Imsloadcustomer.gs` 등을 레포로(cs-4 앞) → [2026-10-24 · 판정 673 · §73] 공급처 본 행은 레포 `docs/probes/ImsLoadSupplier.gs` 로 새로 지었다(옛 imsLoadSupplier 는 편집기 · 레포 어디에도 없었다)
 - 93 cs-2a · cs-3 의 같은 검사(돈 칸 · 주소 · 연락처 · 동의)를 도우미로 모을지(cs-2b 이견 7 · 재발행 필요)
 - 94 매니저 8 명은 sales · purchasing · master 가 읽기만 — 손님 · 공급처를 만들려면 직원 화면에서 열쇠를 올린다(판정 237 근거 실측)
 
@@ -6728,7 +6728,7 @@ asm-2b2 32 / 27   (시험 6 · 마른 확인 1 · 함수 결함 0)
 - 101 무상 콤보 줄만 남은 오더가 sweep 후보에 밤마다 들었다 나온다(닫히지는 않음 · asm-2b2 이견 13)
 - 102 콤보 백오더 입고 알림 쓰기(backorder_notified_at 은 아직 아무도 안 쓴다 · arrived 식은 섰다)
   → [2026-10-16 · §65] 콤보도 mail_backorder_pick 이 다룬다(구성품 가운데 하나라도 입고 · 통째 수 · 1b)
-- 103 GAS 상품 적재가 product_bom 의 `source = manual` 줄을 덮지 않게(asm-1 이견 5 · cs-4 · prod-5 묶음 §41-e 92 와 한 덩이 · Apps Script 편집기 원본)
+- 103 GAS 상품 적재가 product_bom 의 `source = manual` 줄을 덮지 않게(asm-1 이견 5 · cs-4 · prod-5 묶음 §41-e 92 와 한 덩이 · Apps Script 편집기 원본) → [2026-10-24 · ldfix-1b 4a373df · §73] ✅ 닫힘 — product_bom · product_barcode 의 manual 줄은 보내지 않는다
 - 104 Fulfillment 화면(wms-fulfillment fu v1.3)은 콤보 표시 없음 — 박스에 구성품이 그대로 담긴다(묶음 6 으로 충분 · 표시가 필요하면 판정 거리)
 - 105 counter 오더 출고(so_counter_ship · so.html 「Hand over」)의 콤보는 시험 안 함 · POS 완료(so_pos_finish)는 2b1 P1 이 통과
 - 106 인보이스 인쇄 · PDF 의 「Includes」(화면만 섰다 · 인쇄 판이 생길 때)
@@ -6764,10 +6764,10 @@ cs-4 적재 고침 + 미룬 103(같은 GAS 적재 · §41-e 92 · clasp pull 먼
 |---|---|---|
 | 251 | 「A.」 | 청구처 규칙은 `customer.default_bill_to_customer_id` **한 칸**(null = 자기 자신). `is_bill_parent` 는 규칙에 쓰지 않는다. 그때 `is_bill_parent = true` · `parent_id` 있음 · `default_bill_to` null 인 손님은 청구처를 부모로 한 번 채운다 |
 | 252 | 「마스터 권한」 | `parent_id` · `default_bill_to_customer_id` 고치기는 master. (이견 5 채택) `parent_id` 는 돈 칸 목록(v_money)이 아니라 **별도 목록(v_struct)** — 검토 찍기(reviewed) · 열린 오더 경고(open_so_keep_old)가 붙지 않는다 |
-| 253 | 「253,254는 그대로 받는데」 | `customer.parent_source text check in ('cin7','ims')` nullable — 창구가 세우거나 바꾸면 'ims' · 비우면 null · 채우기는 그때 부모 있던 13행 'cin7' |
+| 253 | 「253,254는 그대로 받는데」 | `customer.parent_source text check in ('cin7','ims')` nullable — 창구가 세우거나 바꾸면 'ims' · ~~비우면 null~~ → [2026-10-24 · 판정 678 · §73] 창구가 떼도 'ims'(parent_id 만 비움 · 「IMS 가 부모 없음으로 정했다」) · 적재 2단계 비우기는 null · 채우기는 그때 부모 있던 13행 'cin7' |
 | 254 | 〃 | `is_bill_parent` 를 `customer_update` · `customer_create` 에서 뺀다(이견 4 안 A) — 적재가 매 upsert 마다 보내므로 IMS 에서 고칠 수 있다는 것은 거짓 약속이었다 |
 | 255 | 「그렇다면 좋아.」(설명 뒤) | `default_ship_to_customer_id <> id` 도 CHECK. 자기 자신은 null 하나로 표기한다는 뜻일 뿐 — **청구는 부모 · 배송은 자식(null)** 조합은 그대로 된다(Caleb 물음 「빌은 parent에게 가더라도, 배송은 자식한테 갈 수 있어야 하는데, 혹시 그것을 제한하는건가?」 → 아니다) |
-| 256 | 「256은 받을게.」 | (Claude Code 덧붙임을 받음) 트리거가 `parent_id` 가 비면 `parent_source` 도 비운다 — 어느 길로 비워도 · 253 「비우면 null」을 적재 길에서도 지킨다 |
+| 256 | 「256은 받을게.」 | (Claude Code 덧붙임을 받음) ~~트리거가 `parent_id` 가 비면 `parent_source` 도 비운다 — 어느 길로 비워도 · 253 「비우면 null」을 적재 길에서도 지킨다~~ → [2026-10-24 · 판정 678 · ldfix-1a2 96f30f2 · §73] 트리거는 parent_source 가 'cin7' 일 때만 비운다 · 'ims' 는 남긴다 · 규칙 4 무변 |
 
 **C. 규칙 (cs-par-1 에서 굳은 것)**
 1. 깊이 하나 — 자식은 부모가 될 수 없고, 자식이 있는 손님은 자식이 될 수 없다 · 창구 `parent_has_parent`(cs-3 에 이미 있었다) + **트리거** `customer_parent_guard`(before insert or update of parent_id · 창구 · 적재 PATCH · 손 SQL 어느 길로 써도)
@@ -6812,13 +6812,13 @@ cs-4 적재 고침 + 미룬 103(같은 GAS 적재 · §41-e 92 · clasp pull 먼
 
 - 107 청구처의 청구처 사슬 — `so_copy_customer` 는 한 번만 따라간다(실측 0 · 막을지 판정 거리 · cs-par-1 이견 8 ⓐ)
 - 108 꺼진 손님에게 청구 — `so_copy_customer` 가 청구처의 is_active 를 안 본다(cs-par-1 이견 8 ⓑ)
-- 109 ⚠️ 적재 2단계가 IMS 에서 세운 관계를 덮는다 — ImsLoadCustomer 2단계(GAS 사본 147 ~ 165행)는 Cin7 부모가 없는 손님의 parent_id 를 비우고, 잇기 PATCH 도 IMS 가 세운 다른 부모를 덮는다 ⇒ 잇기 · 비우기 모두 `parent_source=eq.cin7` 로 한정 · GAS 차수(cs-4 적재 고침 · 미룬 103 · prod-5 와 한 덩이 · §41-e 92 · clasp pull 먼저) · **그 전까지 손님 재적재를 돌리지 않는다** · 적재가 시간 트리거로 도는지: 레포 사본 머리 「트리거를 걸지 마라(손으로 실행)」 · 코드에 ScriptApp 0 · Apps Script 편집기 실물은 안 봤다
+- 109 ⚠️ 적재 2단계가 IMS 에서 세운 관계를 덮는다 — ImsLoadCustomer 2단계(GAS 사본 147 ~ 165행)는 Cin7 부모가 없는 손님의 parent_id 를 비우고, 잇기 PATCH 도 IMS 가 세운 다른 부모를 덮는다 ⇒ 잇기 · 비우기 모두 `parent_source=eq.cin7` 로 한정 · GAS 차수(cs-4 적재 고침 · 미룬 103 · prod-5 와 한 덩이 · §41-e 92 · clasp pull 먼저) · ~~**그 전까지 손님 재적재를 돌리지 않는다**~~ → [2026-10-24 · ldfix-1a 09f2dcd · 1a2 96f30f2 · 판정 678 · §73] ✅ 닫힘 · 적재가 시간 트리거로 도는지: 레포 사본 머리 「트리거를 걸지 마라(손으로 실행)」 · 코드에 ScriptApp 0 · Apps Script 편집기 실물은 안 봤다
 
 ### 45-f 다음
 
 ```
 순서(Caleb 이 정한다):
-cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp pull 먼저) — 그 전까지 손님 재적재 금지
+~~cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp pull 먼저) — 그 전까지 손님 재적재 금지~~ → [2026-10-24 · ldfix 묶음 · §73] 닫힘 · 재적재 금지 풀림
 화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
 판정 81 1단계 목록 대조(ims-principles §6-c)
 다음 판정 번호: 257
@@ -6921,7 +6921,7 @@ cin7 · manual 사건 = 번호만(링크 없음)
 
 ```
 순서(Caleb 이 정한다):
-cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp pull 먼저) — 그 전까지 손님 재적재 금지
+~~cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp pull 먼저) — 그 전까지 손님 재적재 금지~~ → [2026-10-24 · ldfix 묶음 · §73] 닫힘 · 재적재 금지 풀림
 화면 시험 남은 것 — §42-c ⬜ · 창고 넷 사진 · Sheet 가격식 · price-3 · 메뉴에서 Supplier Products 빼기(판정 210) · 모양 거리 §42-e 95
 판정 81 1단계 목록 대조(ims-principles §6-c)
 다음 판정 번호: 277
@@ -7141,7 +7141,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 
 ### 49-e 미룬 것 — §46-e 112 에 이어 붙임(할인 묶음 §47 ~ §49 한데)
 
-- 113 적재 sellable 고침 — ① payload 에서 뺀다 / ② sellable_source = ims 행은 건너뛴다(대화 Claude 권고) · 그 전까지 제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다
+- 113 적재 sellable 고침 — ① payload 에서 뺀다 / ② sellable_source = ims 행은 건너뛴다(대화 Claude 권고) · ~~그 전까지 제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다~~ → [2026-10-24 · 판정 670 · 675 · ldfix-1b 4a373df · §73] ✅ 닫힘 — ims 행 · 세트는 IMS 현재 값을 같은 키로 싣는다
 - 114 계산 세트 센트 끝수 — so_price_for 는 round(낱개 × pf × (1 − %/100), 2) · 줄 견적은 round(낱개 × pf, 2) × (1 − %) 자르지 않음(판정 298 · 지금 해당 세트 0)
 - 115 so_confirm 에서 판매 안 함 줄 막기(넣기 길은 막았다 · 이미 들어간 줄)
 - 116 이미 낸 크레딧의 오더 할인 초과 환불 — 테스트 DB 1건 2.14 + 세금 0.28 · 운영 확인 필요 · 고치지 않음(판정 325)
@@ -7155,7 +7155,7 @@ cs-4 적재 고침 + 미룬 103 · 109(같은 GAS 적재 · §41-e 92 · clasp p
 
 ```
 순서(Caleb 이 정한다 · 판정 290): dsc-4 쓰기 창구 → 화면 묶음 → 문서 [2026-10-06 정정 · 판정 330 ~ 344 · §50] dsc-4 ✅ → 다음 화면 묶음(discount-rules.html)
-그 전에 걸린 것: 113 적재 sellable 고침(그 전까지 제품 재적재가 IMS 에서 바꾼 sellable 을 덮는다) · cs-4 적재 고침 + 미룬 103 · 109(§46-f)
+~~그 전에 걸린 것: 113 적재 sellable 고침(그 전까지 제품 재적재가 IMS 에서 바꾼 sellable 을 덮는다) · cs-4 적재 고침 + 미룬 103 · 109(§46-f)~~ → [2026-10-24 · ldfix 묶음 · §73] 113 · cs-4 · 103 · 109 닫힘
 다음 판정 번호: 330
 ```
 
@@ -7367,7 +7367,7 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
   → [2026-10-19 · §66] ✅ 닫힘 — 문서 템플릿 · 브라우저 인쇄(inv v2f) · 단가 표시는 doc_unit_prices(판정 527 · 528)
 - 128 크레딧을 낸 인보이스가 열려 있으면 거기 바로 붙이기를 기본으로 할지(대화 Claude 짐작 · Caleb 결정 없음 · 판정 후보)
 - 129 so_deal_save 막기 · 경고 문장에 칸 이름 · 어휘 값이 그대로 나오는 23 곳(dsc-4d 보고 목록)
-- 130 제품 재적재가 IMS 에서 뗀 Cin7 출처 태그(product_tag source cin7)를 다시 붙인다 — 미룬 113(sellable)과 같은 뿌리 · 적재를 고친다
+- 130 제품 재적재가 IMS 에서 뗀 Cin7 출처 태그(product_tag source cin7)를 다시 붙인다 — 미룬 113(sellable)과 같은 뿌리 · ~~적재를 고친다~~ → [2026-10-24 · 판정 676 · ldfix-1d 87f208d · §73] ✅ 닫힘 — DB · 적재 규칙 무변 · Dry 보고 파일을 컷오버 날 사람이 보고 Apply
 - 131 CHECKLIST 에 surcharge-groups · stock · customers 화면 절이 없다(10-06 dr-1 Claude Code 이견 4)
 
 ### 51-f 다음
@@ -7855,7 +7855,7 @@ Shopify 연동(docs/design/shopify-integration.md) — 시험 스토어 · §5 �
 ### 56-g 미룬 것 — §55-e 162 에 이어 붙임
 
 - ~~163 Edit 의 Save · Cancel 위치(위 56-f 7) — shop-2c 화면 때 아래에도 · 또는 떠 있게~~ → ✅ 닫힘 `32dae11`(pr v5 · Edit 아래에도 Save · Cancel)
-- 164 product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인 → **확정: 덮는다**(tag-0 ⬜6 · §57-d 3) · 컷오버 전 한 차수(§57-e 176)
+- 164 product.source 값의 출처 · 재적재가 사람이 고친 이름을 덮는지 조사(위 56-f 8) — 짐작 「덮는다」(위 56-f 15) · tag-0 ⓑ ⬜6 에서 확인 → **확정: 덮는다**(tag-0 ⬜6 · §57-d 3) · 컷오버 전 한 차수(§57-e 176) → [2026-10-24 · ldfix-1b 4a373df · 판정 671 · 672 · 679 · §73] ✅ 닫힘 — IMS 가 정한 값(manual 행 · sellable · SKU)은 지킨다 · 표식 없는 칸(이름 등)은 Cin7 이 덮되 Dry 가 손댄 행 목록을 낸다(672)
 - ~~165 판정 377 「새벽에 되돌림」 ↔ hash 건너뜀(위 56-f 9) — 판정 거리~~ → ✅ 닫힘 → **판정 414**
 - 166 products.html escQ 정리(이제 esc 와 같다)
 - 167 shopify-push.sh 5 행 옛 주석(위 56-f 10) · shop_product_payload comment 의 「DOMPurify」(다음에 그 함수를 다시 낼 때)
@@ -7920,14 +7920,14 @@ Cin7 태그 적재(판정 410 → send_tags 켜기 · 조사 tag-0 ⓑ) · ③ �
 
 1. `shop_product_payload` 는 send_tags 와 상관없이 tags · send_tags 를 담고 hash 도 포함(`20261009200731_shop_2a1_listing.sql` 267 · 270 행) → 태그를 적재하면 켜진 상품의 hash 가 바뀌어 다시 보낸다(tags 칸은 send_tags false 면 빠짐 · `_shared/shopify-product.ts` 62 행 · 실물 = 위 57-c 큐 17 · 18) ⇒ 운영 순서: **태그 적재 → send_tags 켜기 → 보냄 켜기**
 2. **drain 의 20 칸(DRAIN_MAX · `functions/shopify/index.ts` 21 행)에 skipped_same_hash 줄도 센다** — 운영 새벽 맞추기는 N/20 분 동안 큐를 차지(4,000 이면 약 200 분) · 그 사이 IMS 에서 바뀐 상품이 뒤에 선다 ⇒ ③ 재고 설계의 판정 거리
-3. 미룬 164 확정: `ImsLoadProduct.gs` 의 ipr_row_(290 ~ 336 행) + on_conflict=sku merge-duplicates → 사람이 고친 이름 · sellable · manual 행의 source 를 Cin7 값으로 덮는다(설명만 product_description_guard 가 막는다) · 이 파일 커밋은 10ce922 하나
+3. 미룬 164 확정: `ImsLoadProduct.gs` 의 ipr_row_(290 ~ 336 행) + on_conflict=sku merge-duplicates → ~~사람이 고친 이름 · sellable · manual 행의 source 를 Cin7 값으로 덮는다~~(설명만 product_description_guard 가 막는다) · 이 파일 커밋은 10ce922 하나 → [2026-10-24 · ldfix-1b · §73] 지금은 열쇠 cin7_id 먼저 · manual 행 무접촉(cin7_id 만) · sellable 670 · 675 · 이름은 672(덮되 목록)
 4. 창구 shop_listing_set 의 op push_now 를 지금 부르는 곳 0(화면 Send now · tools push 는 EF) — 남길지는 정하지 않음
 5. ASS · AOS 의 뜻은 코드 · 문서 · Apps Script 어디에도 없었다(grep) → Caleb 이 판정 420 에서 답함
 
 ### 57-e 미룬 것 — 56-g 174 에 이어 붙임
 
 - 175 태그 적재의 넣기가 `ipr_upsert_`(merge-duplicates)라 적재가 도는 몇 분 사이 직원이 같은 태그를 붙이면 그 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicates 로
-- 176 IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다
+- 176 IMS 에 없는 Cin7 제품 678(실행 때 679) + 미룬 164(제품 재적재가 사람 값을 덮는다) — 컷오버 전 따로 한 차수(판정 418) · 그 뒤 태그 적재를 한 번 더 돌린다 → [2026-10-24 · ldfix-1b · §73] 닫힘(짐작) — 제품 적재가 새 제품을 넣는다 · 실측은 컷오버 날 Dry · 태그 한 번 더 = §73-c 9
 - 177 shop_listing_set op push_now — 부르는 곳 0 · 남길지 정하지 않음(57-d 4)
 - 178 drain 20 칸에 skipped 줄도 센다(57-d 2) — ③ 재고 설계 때 판정 → ✅ 판정 424 · stock-1a ① · stock-1b ②(§58)
 - 179 Shopify 로 보낼 태그의 범위(내부 표식 · ASS · AOS · 케이스 태그) — 스토어 CSV 를 본 뒤(판정 420) → ✅ 판정 426(§59 · IMS 태그 전부)
@@ -9638,7 +9638,7 @@ deferred 67a-12 · 67a-5 · §3 「파손품」 줄                             
 ⭐ 새 판정 652 ~ 669 · 원천: 지시서 `docs-1023h.md`(이 절의 판정 · 결정 · 실수는 대화에만 있었다) · 회사 PC 대화 10-23 오후 · 집 PC 대화 10-23 저녁 · 차수 회신 fam-new-1 · hist-0 · hist-1 ~ 1c · hist-3 ~ 3c
 ⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 이 절의 마이그레이션(fam-new-1 · hist-1 · 1b · 1c)이 적용 · repair 됐다 · 운영(asung-WMS)에는 올리지 않는다(617)
 ⭐ 뒤집은 것: po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력(hist_)에 한해** 고친다(654 B · 원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다 · po-module 48 행 · 2757 행 끝 포인터)
-⭐ §71 머리의 「Products 내보내기 칸 고르기(628 · 판정 652 부터)」 는 652 ~ 669 를 이 절이 써서 **670 부터**다(§71 본문 무변 · deferred 300 판정 칸만 고침)
+⭐ §71 머리의 「Products 내보내기 칸 고르기(628 · 판정 652 부터)」 는 652 ~ 669 를 이 절이 써서 **670 부터**다(§71 본문 무변 · deferred 300 판정 칸만 고침) → [2026-10-24 · §73] 670 ~ 683 도 썼다 — **684 부터**
 
 ### 72-a 판정 (Caleb 말 그대로 · 뜻)
 
@@ -9722,7 +9722,8 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 사건           Energizer Canada 가 첫 적재(09-14) 때 비활성이라 그 공급처만 붙은 62 제품(Armor All 21 포함)의 기본이 비어 있었다(deferred 65 · §35-c 「원인 확인 안 함」)
 원인           po-module §3-g 「is_default 재계산 — 끄고 나서 켠다」 ② 가 활성 공급처 줄만 후보로 삼는다 — 설계대로다
 손 실행         Caleb 화면에서 Activate · Purchasable Yes → 재계산 ① ② 를 한 트랜잭션(off 0 · on 62 · 전부 Energizer · 기본 둘인 제품 0 · COMMIT) ⇒ 65 닫힘
-남은 것         재계산 두 문장은 재적재 · 공급처 활성 바꾸기 뒤에 저절로 돌지 않는다 — 기본 칸을 쓰는 DB 함수는 제품 화면 창구(제품 하나 단위)뿐 · 공급처 창구(master_cs_3) · ImsLoadProductSupplier · cron 모두 안 건드린다(→ 317)
+남은 것         ~~재계산 두 문장은 재적재 · 공급처 활성 바꾸기 뒤에 저절로 돌지 않는다 — 기본 칸을 쓰는 DB 함수는 제품 화면 창구(제품 하나 단위)뿐 · 공급처 창구(master_cs_3) · ImsLoadProductSupplier · cron 모두 안 건드린다(→ 317)~~
+                → [2026-10-24 · 판정 682 · ldfix-1c2 7012420 · §73] product_supplier_default_recalc — 적재 Apply 끝 · supplier_update is_active 갈래가 부른다
 같은 처지       비활성 공급처 31 곳 중 16 곳 · 활성 제품 209(그 공급처에만 활성 줄이 붙어 기본이 빈 제품 · JSB 64 · Jinmen Inc. 45 · NEO Enterprise 23 …)(→ 318 · 판정 대기)
                ⚠️ 31 곳은 §3-g 첫 적재 때 「제품이 가리켜서 데려온 비활성 공급처」 이고 po-module 2474 · 2704 행은 「판정 대상이 아니다」(Caleb 2026-09-15)라고 적었다 — 기본 공급처 때문에 다시 판정 거리가 됐다
 ```
@@ -9778,7 +9779,115 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 - 314 hist_so_line · hist_po_line comment(다음 마이그레이션)
 - 315 ILH_PRACTICE 지우기 — 컷오버 날
 - 316 asung_sales_unified VIEW 가 당월 줄 sale 에 무엇을 싣나 — 닫힘(Caleb BigQuery 콘솔 원문 · 당월 쪽 `Total AS sale` · 세 출처 모두 줄 합계 · analytics SUM(sale) 은 맞다)
-- 317 기본 공급처 재계산이 저절로 돌지 않는다 — 컷오버 전 필수
+- ~~317 기본 공급처 재계산이 저절로 돌지 않는다 — 컷오버 전 필수~~ → [2026-10-24 · 판정 682 · §73] ✅ 닫힘
 - 318 비활성 공급처 16 곳 · 209 제품 — 판정 대기
 - 109 · 113 → 컷오버 전 필수(664 · 665) · 300 판정 칸 「670 부터」 · N-1022-⑥ 에 이력 적재 순서 · hist_ 지우지 않기 · 302 포인터
-- 다음 판정 번호: 670
+- ~~다음 판정 번호: 670~~ → [2026-10-24] §73 · 684
+
+→ [2026-10-24 집 PC] §73 — 판정 670 ~ 683 · ldfix 묶음(적재가 IMS 값을 지킨다) · 컷오버 날 적재 순서 · 다음 판정 번호 **684**
+
+## §73 2026-10-24 — 적재가 IMS 에서 정한 값을 지킨다(ldfix 묶음) · 컷오버 날 적재 순서 · Freightcom — ldfix-0 · 1a · 1a2 · 1b · 1c · 1c2 · 1d · 판정 670 ~ 683 (집 PC)
+
+⭐ 닫힌 것: 미룬 **109 · 113 · 103 · 130 · 164 · 317**(닫힘) · **176**(닫힘(짐작) · 실측은 컷오버 날 Dry) · cs-4 적재 고침(차수 이름 · §41-e 92 · 45-f · 46-f · 49-f) — deferred.md ⑥
+⭐ 새 판정 670 ~ 683 · 원천: 지시서 `docs-1024.md` 📌(이 절의 판정 · 결정 · 실수는 대화에만 있었다) · 차수 회신 ldfix-0 · 1a ~ 1d · 커밋 글 여섯 · 다음 판정 번호 **684**
+⭐ 원칙(판정 671): **IMS 가 정한 값은 적재가 건드리지 않는다** — ims-principles 원칙 1 · §45-a A 의 「적재가 IMS 에서 정한 값을 덮으면 적재의 결함」 을 적재 다섯(손님 · 제품 · 공급처 · 제품-공급처 · 태그)에 지었다
+⭐ 뒤집은 것: 판정 **256 · 253**(「부모를 비우면 parent_source 도 null」) → 판정 678 · 「컷오버 전까지 손님 재적재 금지」(109) · 「제품 재적재가 sellable 을 덮는다」(113) · 「승격 PATCH 는 cin7_id · 단가」(po-module §3-g) → 「cin7_id 만」 · 「재계산은 손으로」 → 682 — 옛 줄은 취소선 + →(아래 73-f 목록)
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 마이그레이션 둘(`20261024174246` 1a2 · `20261024190442` 1c2)이 적용 · repair 됐다 · 운영(asung-WMS)에는 올리지 않는다
+
+### 73-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 670 | 「2」 | 미룬 113 = ② — `sellable_source='ims'` 제품은 적재가 **IMS 현재 값을 같은 키로 실어 보낸다**(행마다 칸을 빼지 않는다 · PostgREST 묶음의 빠진 키 짐작을 피함 · asung-wms 규칙 45) · 나머지는 Cin7 값 · Apply 가 끝까지 돌면 그 행들을 다시 읽어 값이 그대로인지 대조 |
+| 671 | 「B」 | 109 · 113 · 103 · 130 · cs-4 를 **한 묶음(ldfix)** 으로 · 원칙 「IMS 가 정한 값은 적재가 건드리지 않는다」 · 164 · 176 도 같은 뿌리 |
+| 672 | 「C」 | 표식 없는 칸(이름 · 결제조건 · 가격 등급 · 주소 · family · 옵션 · 무게 · 공급처 단가 …)은 **Cin7 이 덮는다** · 덮기 전에 Dry 가 「**지난 적재 뒤 IMS 에서 손댄 행**」 목록(IMS 값 ↔ Cin7 값)을 낸다 → 사람이 보고 적재 뒤 다시 고친다 · 손댄 행의 주 기준 = `source='cin7' and updated_by is not null`(ims_touch 가 적재(service_role) 때 updated_by 를 비우고 직원 창구는 남긴다 · ldfix-1a 이견 1) · 보조 = 속성 `*_LAST_APPLY_AT` 와 updated_at(어긋나면 ⚠️) · 한계: 검토 찍기(customer_review)도 updated_by 를 남긴다 · Cin7 에 없어 내려 둔 행은 「덮이지 않음」 으로 따로 |
+| 673 | 「A」 | 공급처 본 행 적재를 새로 짓는다 — 옛 imsLoadSupplier 는 편집기 · 레포 어디에도 없었다(편집기 ProbeIMS.gs 짐작 · so-module 6417 의 기록) → `docs/probes/ImsLoadSupplier.gs`(접두 ils) |
+| 674 | 「A」 | IMS 에서 만든 손님 · 공급처 · 제품(cin7_id 없음 · source manual)과 Cin7 의 것은 **이름(제품은 SKU)이 정확히 같을 때만** 같은 것 → IMS 행에 **cin7_id 만** PATCH(판정 132 · `id=eq.<id>&cin7_id=is.null` · 0 행이면 멈춤) · 그 Cin7 행은 upsert 묶음에서 뺀다 · 짝지은 목록 · 값이 다른 칸 로그 · 짝지은 손님 · 공급처의 Cin7 주소 · 연락처는 **매 회차** 적재하지 않는다(기본 하나 유니크 23505 · 1a 이견 2) · 같은 이름이 둘 이상이거나 그 cin7_id 가 이미 cin7 행이면 멈춤(사람이 가른다) |
+| 675 | 「B」 | 세트(우리 표의 parent_product_id 있음)는 Sellable 을 Cin7 값으로 바꾸지 않는다 — 이미 있는 세트는 IMS 현재 값 · 새 세트는 1단계 Cin7 값 → 2단계 잇기에서 트리거(product_sellable_default)가 false · 낱개는 670 |
+| 676 | 「3」 | 미룬 130 = **DB 무변 · 적재 규칙 무변** — 태그 적재 Dry 가 「바뀔 것 전부」 를 Drive 보고 파일 셋(report-tag-*.txt · tag-insert-*.csv · tag-delete-*.csv · 폴더 속성 IPT_FOLDER_ID)으로 내고 **컷오버 날 사람이 보고** Apply · 줄마다 딜 표시(⚠️ 켜진 딜 · (꺼짐) · so_deal_target target='tag' 정확 일치 · 트리거 product_tag_deal_hit_changed 와 같은 켜짐 조건) · 줄마다 짐작 — 넣을 줄: 철자 바뀜 · 새 제품 · 뗀 것 짐작 · Cin7 변화 가능 · 수정일 없음 / 지울 줄: Cin7 에 제품 없음 · 철자 바뀜 · Cin7 변화 가능 · 어긋남 · 수정일 없음(Cin7 제품 LastModifiedOn ↔ 지난 태그 적재 시각 · 표시만) |
+| 677 | 「A로 시작해서 B로」 · 「답이 오면 시작 · 컷오버 전에 끝내면 좋지만 안 돼도 문제는 아니다」 | **Freightcom 연동** — 1단계 견적(운임 줄) → 바로 2단계 예약(운송사 · 추적번호 · 라벨 · BOL) · Freightcom API 승인 답이 오면 시작 · developer.freightcom.com 고객 API(키 인증 · 견적 202 폴링 · 예약 unique_id 중복 방지 = SO 번호) · 바탕 = 박스 · 팔렛 치수 · 무게 숫자 칸 + EF 비밀값 · → deferred 326 |
+| 678 | 「A」 | IMS 에서 부모를 **떼도** `parent_source='ims'` 를 남기고 parent_id 만 비운다(「IMS 가 부모 없음으로 정했다」) ⇒ **판정 256 · 253 바뀜**: 트리거 customer_parent_guard 는 parent_source 가 'cin7' 일 때만 비운다 · 창구 customer_update 는 세움 · 바꿈 · 뗌 모두 'ims' · 적재 2단계 비우기(parent_source cin7 행)는 null · 규칙 4(청구처가 옛 부모면 비움) 무변 · 채우기 1 행(Asung Employee - Sungeun Lee · 10-20 IMS 에서 뗌 · Cin7 부모 Kevin Myers) |
+| 679 | 「A」 | **SKU 는 672 의 「Cin7 이 덮는다」 대상에서 뺀다** — 양쪽이 다르면 IMS SKU 를 지키고 「SKU 다름(Cin7 SKU 는 ○○)」 목록만 · 열쇠는 cin7_id 먼저(on_conflict=cin7_id · IMS sku 를 싣는다) · 새 행만 on_conflict=sku · 계기: IMS 에서 SKU 를 고친 제품이 sku 열쇠로 다른 cin7_id 와 부딪쳐 500 행 묶음이 product_cin7_id_key 23505 로 실패 |
+| 680 | 「B」 | IMS 에서 손댄 공급처의 is_active 는 IMS 값을 같은 키로 싣는다 — 한계(updated_by 는 적재가 비워 한 번만 통한다 · 1c 시험 C2)가 실물로 보여 → **683 으로 칸이 됐다** |
+| 681 | 「A」 | 674 의 「정확히 같은 이름」 = **보이는 글자 기준** — U+200B · U+200C · U+200D · U+FEFF · U+00A0 를 빼고 trim 해서 비교 · 저장은 원문 · 공급처(`ils_vis_` · 1c) · 손님(1d — ImsLoadSupplier.gs 의 `ils_vis_` 를 부른다 · 공용화는 deferred 322) · 같은 비교로 공급처 이름 겹침(supplier_name_key 23505)을 미리 걸러 멈춤 · 실측 Cin7 손님 2(`<ZWSP><ZWSP>Asli Issa` · `<ZWSP>Kevin Myers` — cin7 행이라 짝짓기 대상 아님) · 공급처 TEST Supplier-Canada |
+| 682 | 「a」 | 미룬 317 = **기본 공급처 재계산 DB 함수** `product_supplier_default_recalc(p_product_ids uuid[] default null)` returns jsonb {turned_off · turned_on · multi_default_products · scope} · po-module §3-g ① 끄기(manual 보호 없음) → ② 켜기(활성 공급처 줄만 · 동점 · 날짜 없음은 비움 · manual 줄 있는 제품 무접촉) 그대로 · 멱등 · definer · 실행 service_role 만 · 부르는 곳 = 공급처 Apply 끝 · 제품-공급처 Apply 끝(rpc · 전체) + `supplier_update` is_active 갈래(그 공급처 제품만 · 반환 default_recalc) · cron 없음 |
+| 683 | 「2」 | `supplier.is_active_source` text(CHECK null · cin7 · ims) — IMS 창구(supplier_update)로 켜고 끄면 'ims' · 적재가 몇 번 지나가도 남고 적재는 그 행의 is_active 를 IMS 값으로 싣는다 · 'cin7' 은 자리만(쓰는 길 없음 · 실측 null 255 · ims 5) · 672 목록의 기준은 그대로 updated_by · 채우기 5(Airalo · ALLDAY LOCKS, LLC · Energizer Canada · The Procter & Gamble Inc. (Canada) · US Supplier — updated_by 보존 · supplier_touch 를 그 문장 앞뒤로만 끔) |
+
+- 기존 판정으로 정함(대화 Claude 알림 · Caleb 이견 없음): 새 ① 바코드 · 새 ② 제품-공급처 · 바 = **source manual 줄 무접촉**(product_bom · product_barcode 의 manual 줄은 보내지 않는다 — product_bom_set · barcode_off 가 manual 로 바꾸므로 IMS 가 만든 줄 · IMS 가 끈 Cin7 줄 둘 다 남는다 · product_supplier 의 manual 이면서 cin7_id 있는 줄(Roux 19)도 묶음에서 뺀다) · 승격은 **cin7_id 만**(671 · 132 · cost · fixed_cost · supplier_sku · currency · last_supplied 는 IMS 값) · 새 ③ 구매 가능 PATCH(2026-09-11 시트)는 **컷오버 날 돌리지 않는다**(imsLoadPurchasableApply 는 로그 후 dryRun 만)
+- 짓는 방법 고르기(Caleb 이 추천대로 받음 · 판정 번호 없음): 1a 가 ~ 라 · 1a2 가 ~ 나 · 1b 나 ~ 라 · 1c 다 · 라 · 1c2 가 ~ 라 · 1d 가 ~ 라 — 원문은 각 커밋 글 · 1d 이견 5 의 `IPT_LAST_APPLY_AT` 는 Caleb 손 입력 대신 **코드 기본값 2026-10-10T18:52:00Z**(tag-1 Apply 끝 · System_Automation Script Properties 50 개 초과 = 화면 읽기 전용 · §72-e 4) — 기본값을 쓰면 로그 2 번째 줄과 보고 머리에 「⚠️ 기본값 사용」 · ⚠️ tag-1 의 Cin7 읽기는 14:50 에 시작했다(§57-c) — 그 2 분 사이 바뀐 제품은 「뗀 것 짐작」 으로 기운다(무시할 만함)
+- 포인터: 678 ← §45-a 253 · 256 · 670 · 675 ← §47-a 294 · 291 · 676 ← §57-c · 418 · 674 ← 132(po-module §3-h 「병행 기간」) · 682 ← po-module §3-g · 679 ← 136(SKU 잠금)
+
+### 73-b 차수 · 커밋 · 실물
+
+| 차수 | 커밋(asung-wms) | 한 일 | 시험 |
+|---|---|---|---|
+| ldfix-0 | (보고만) | 적재 다섯이 IMS 값을 덮는 자리 조사 → 670 ~ 676 | — |
+| 1a | `09f2dcd` | ImsLoadCustomer.gs — 2단계 잇기는 IMS 가 세우지 않은 자식만 · `{parent_id, parent_source:'cin7'}` 함께 PATCH · 비우기는 parent_source cin7 행만(109) · 674 짝 · 672 손댄 행 목록 · Verify 가 cin7 부모만 세고 IMS 부모 · 짝을 따로 · **하네스** `docs/probes/harness/` | emu 44 · local 34 · check OK 16 · 1 회 |
+| 1a2 | `96f30f2` · 마이그레이션 `20261024174246_ldfix_1a2_parent_source_ims.sql` | 678 — customer_parent_guard · customer_update(옛 md5 9643fd44 → 9d44ac6c · 한 줄) · 채우기 1 · 칸 · 함수 · 트리거 comment | 테스트 DB 시험 2 회차 OK 13(1 회차는 확인 SQL 의 jsonb 연산자 우선순위 · 남은 것 0) · emu 47 · local 35 · check OK 17 · 적용 + repair · 확인 OK 13 |
+| 1b | `4a373df` | ImsLoadProduct.gs — 열쇠 cin7_id 먼저(679) · manual SKU 짝 cin7_id 만(674 · family 도) · 670 · 675 · Dry 전량(커서 IPR_DRY_PAGE · ⏸) · 672 목록 · 보조 IPR_LAST_APPLY_AT · BOM · 바코드 manual 줄 안 보냄(103 · 새 ①) · ipr_upsert_ 시그니처 무변 | emu 38 · local 30 · check OK 11 · 1 회 |
+| 1c | `b5aed52` | 새 ImsLoadSupplier.gs(673 · 674 · 681 · 672 · 680 · 주소 · 연락처를 ProbeSupplier.js 에서 같은 이름으로 옮김 · 구매 가능 Apply 막음) · ImsLoadProductSupplier.gs(manual + cin7_id 줄 뺌 · 승격 cin7_id 만 · 672 줄) · ⭐ ImsLoadProduct.gs 의 1b 숨은 결함(이미 짝지은 manual 제품을 둘째 적재부터 덮음 → pairedSkip) | emu 34(2 회 · 1 회는 내 기대값) · local 29 · check OK 10 |
+| 1c2 | `7012420` · 마이그레이션 `20261024190442_ldfix_1c2_supplier_active_source_recalc.sql` | 683 칸 · 682 함수 · supplier_update 재발행(옛 md5 d63f61da → 6e26a069 · 2 줄 빼고 4 줄 더함) · 채우기 5 · 적재 둘이 Apply 끝에 rpc | 테스트 DB 시험 3 회차 OK 11 · emu 38 · local 32 · check OK 12 · 적용 + repair · 확인 OK 11 · 전체 재계산 실물 0 변화 0.059 초(12,738 줄) |
+| 1d | `87f208d` | ImsLoadProductTag.gs — 676 보고 파일 셋 · 딜 표시 · 짐작 · IPT_LAST_APPLY_AT 기본값 · Apply 도 보고 · 규칙 · 보내는 행 무변 / ImsLoadCustomer.gs — 674 이름 지도 · 겹침 검사가 `ils_vis_`(681) | 태그 emu 2 회(1 회는 내 정규식) · local OK 7 · 회귀 손님 OK 18 · 제품 OK 11 · 공급처 OK 12 |
+
+- 편집기 붙이기 모두 SAME(Caleb · 손님 · 제품 · 공급처 새 파일 · 제품-공급처 · 태그 = 편집기 `ImsTagProbe`) · 편집기 `ProbeSupplier.js` 에서 옮긴 여덟 함수 지움(498 줄 · 마지막 spb_v_ — 편집기 클론 파일로 센 수)
+- **하네스** `docs/probes/harness/` — fake GAS(UrlFetchApp · PropertiesService · DriveApp · SpreadsheetApp · Logger · Utilities) + PostgREST 에뮬레이터(eq · in · is.null · gt · Range · count=exact · merge-duplicates · DELETE · 트리거 흉내 · rpc 재계산 흉내) · 가짜 Cin7 · **로컬 모드 = 진짜 PostgREST**(로컬 Supabase) · 로컬 DB = **테스트 DB public 의 pg_dump --schema-only 복원 + service_role grant + 없는 마이그레이션 로컬 적용**(`run-local*.sh` 의 apply_mig) — 빈 DB 재생(`supabase db reset`)은 데이터 의존 마이그레이션 `20260924200029_so_invoice_a1` 에서 멈춘다(→ deferred 324) · 하네스는 레포에서만 · 테스트 DB 를 가리키지 않는다
+- 실측(2026-10-24 · 테스트 DB · docs-1024 다시 셈): customer parent_source ims · 부모 있음 6 · ims · 부모 없음 1(Sungeun Lee) · cin7 12 · supplier is_active_source ims 5 · null 255 · 기본 둘 이상 0 · manual + cin7_id 제품-공급처 줄 19 · product_tag 63,515 = cin7 63,501 + manual 14 · 재계산 함수 ACL `{postgres=X/postgres,service_role=X/postgres}` · definer
+- ⚠️ 아직 없는 것: 제품 계열(product · family · barcode · bom · product_supplier)의 「이번에 안 들어온 cin7 행 내리기」(po-module §3-f 1) ~ 3)) — 1b 는 열쇠와 IMS 값 지키기만 고쳤다 → deferred 319
+
+### 73-c ⭐ 컷오버 날 적재 순서 (ldfix-1d 보고 · 현 코드 기준 · deferred N-1022-⑥ 이 이 표를 가리킨다)
+
+| # | 무엇 | 파일 · 함수(Dry → Apply) | Dry 에서 볼 것 | 멈춤 조건 |
+|---|---|---|---|---|
+| 0 | 참조 표 | ImsRefLoad.gs imsLoadSimpleRefs/Apply · imsLoadAccount/Apply · imsLoadPaymentTerm/Apply · imsLoadWarehouse/Apply · imsLoadBin/Apply | 행 수 = Cin7 수 · ref_bin 2,675 > 1,000 캡 | 대응표 잘림 |
+| 1 | 손님 | ImsLoadCustomer.gs imsLoadCustomerCollect(Next run 이면 다시) → imsLoadCustomerDry → Apply1(674 짝 PATCH → upsert → 내리기) → Apply2(부모 잇기 · 109 · 678 건너뜀) → Apply3(주소 · 내리기 → upsert) → Apply4(연락처) → imsLoadCustomerVerify | 짝지은 수(674 · 681 — 「값이 다른 칸 name」 이면 보이지 않는 글자 차이) · 손댄 행(672) 목록 · IMS 관계(세움 · 뗌) 수 · 보낼 행 · 기본 주소 비운 손님 | 받은 행 ≠ Total · 같은 이름 둘 이상(보이는 글자) · 짝의 cin7_id 가 이미 cin7 행 · Status · MarketingConsent · Address Type 밖 · Default 연락처 둘 · 같은 cin7_id 두 번 · 내리기 > max(20, 1 %)(ILC_ALLOW_BIG_DOWN) |
+| 2 | 공급처 | ImsLoadSupplier.gs imsLoadSupplier → imsLoadSupplierApply(짝 PATCH → upsert → 내리기 → rpc 재계산) → imsLoadSupplierSub → imsLoadSupplierSubApply → imsLoadSupplierVerify · ⛔ imsLoadPurchasable* 은 돌리지 않는다 | 보낼 = 갱신 + 새 · 짝(674 · 681) · 손댄 행(672) · is_active IMS 값 유지(683) 수 · 내릴 행 · 「기본 둘 이상 0」 | 받은 행 ≠ Total · 이름 겹침(23505 사전 검사) · 내리기 > max(20, 1 %)(ILS_ALLOW_BIG_DOWN) |
+| 3 | 제품 | ImsLoadProduct.gs imsLoadProductFamily → Apply → imsLoadProduct(전량 Dry · 커서 IPR_DRY_PAGE · ⏸ 면 다시) → imsLoadProductApply(⏸ 면 다시) → imsLoadProductExtraApply(AS91437-BLK) · 보조 imsLoadProductReset | cin7_id 로 / 새로 / 짝(674) / 이미 짝지어진 안 보냄 · SKU 다름(679) · sellable 유지(670 · 675) · 672 손댄 행 · 대응표 = 원격 총계 · 새로 = IMS 에 없던 Cin7 제품(176 · 678 개 짐작) | 같은 SKU 가 다른 cin7 행(사람이 가른다 · 그 쪽은 안 씀) · 대응표 잘림 · 674 PATCH 0 행 |
+| 4 | 세트 잇기 | imsLinkProductSets → imsLinkProductSetsApply(⏸ 면 imsLinkProductSetsResume) | 오타 탐지기 셋 = 0(구성품 GUID 없음 · uom_name ≠ BOM factor · 접미사 부모 ≠ BOM 부모) | 탐지기 ≠ 0 이면 사람이 본다(멈추지 않고 목록) |
+| 5 | 바코드 | imsLoadProductBarcode → Apply(커서 IPR_BARCODE_PAGE) → imsLoadProductAltUpc → Apply | 같은 바코드 다른 제품(48 종) · 걸러낸 수 · manual 건너뜀 · 672 손댄 줄 | 대응표 잘림 · 400 cannot affect row |
+| 6 | BOM(콤보) | imsLoadProductBom → Apply | 콤보 수 · 구성품 줄 · 우리 표에 없는 콤보 · 구성품 = 0 · manual 건너뜀 | 조회 실패 · 대응표 잘림 |
+| 7 | 제품-공급처 | ImsLoadProductSupplier.gs imsLoadSupplierExtra → Apply(시트 ips_line · ⏸ 면 다시) → imsLoadProductSupplier → Apply(끝에 rpc 재계산) · 보조 Reset · ⚠️ 2 번이 먼저 | 새 비활성 공급처 · 보내지 않은 줄(IMS 가 정한 Cin7 줄) · 승격(cin7_id 만) · 672 cost 덮임 · 「기본 둘 이상 0」 | 공급처 FK 못 붙음 · 재계산 ⚠️ |
+| 8 | 가격 | ImsLoadPrice.gs imsLoadPriceCollect(⏸ 면 다시) → imsLoadPriceDry → imsLoadPriceApply(⏸ 면 다시) → imsLoadPriceVerify | Cin7 에만 있는 제품(제품 적재 뒤 0 근처) · 세트 판정 어긋남 0 · 새로/바뀜/되살림/내림 · formula · manual 무접촉 | 받은 행 ≠ Total · 같은 제품 ID 두 번 · 티어 이름 ≠ ref_price_tier · 없는 code 에 양수 · 숫자 아님 · 내리기 > max(20, 1 %)(ILP_ALLOW_BIG_DOWN) |
+| 9 | 태그 | ImsLoadProductTag.gs(편집기 ImsTagProbe) imsLoadProductTag → Drive 보고 파일 셋을 사람이 본다(676) → imsLoadProductTagApply(⏸ 면 다시) — 176 의 「제품 적재 뒤 태그 한 번 더」 가 이것 | 「기본값 사용」 여부 · 418 없는 제품 ≈ 0(순서 검사) · 켜진 딜의 태그 줄 수(Clearance · DISC_* · GM/HS) · 「뗀 것 짐작」 → 사람이 가른다 · 지울 것의 딜 ⚠️ | 받은 행 ≠ Total(stop 보고) · 지우기 > max(20, 1 %)(IPT_ALLOW_BIG_DELETE) · 넣기 덩이 실패 |
+| 10 | 이력 | ImsLoadHist.gs ⚠️ ILH_PRACTICE 를 지우고(315) → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(Next run 이면 다시) | BigQuery 숫자 = 콘솔 D1 · D2 · 짝 표본 20 · 못 풀림 비율 | BigQuery 서비스 꺼짐 · 못 풀림 > 20 %(ILH_ALLOW_UNRESOLVED) · IMS 번호 겹침 · 모르는 PO 상태(ILH_PO_EXTRA_OK) |
+
+- 순서 근거: 손님 · 공급처는 서로 독립 · 제품(3)이 세트 잇기 · 바코드 · BOM · 제품-공급처 · 가격 · 태그의 앞(FK · 418 · 「Cin7 에만 있는 제품」) · 공급처(2)가 7 의 앞 · 이력(10)은 손님 · 제품을 풀어야 하니 끝
+- ⚠️ 재적재(1 ~ 9)는 **Shopify listing 을 켜기 전에**(판정 420 의 첫 상태 맞추기 앞) — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(켜진 listing 만 큐 · 지금 7) → deferred 320 · 321
+- ⬜ 세트 잇기(4)를 바코드(5) 앞에 두는 것은 **코드 주석 순서**다(낱개가 다 들어간 뒤 · 대체 UPC 는 BOM 의 ComponentProductID 로 부모를 찾는다) — 판정 거리
+- 각 적재의 ⏸ · Next run 은 같은 함수를 다시 · 허락 속성(`*_ALLOW_*`)은 한 번 통과 뒤 코드가 스스로 지운다
+
+### 73-d 미룬 것 — deferred.md 에 줄 · 여기는 번호만
+
+- 닫힘: 109(1a · 1a2) · 113(1b · 670 · 675) · 103(1b · 새 ①) · 130(676 · DB 무변) · 164(1b) · 317(1c2 · 682) · 닫힘(짐작): 176(1b 가 새 제품을 넣는다 · 실측은 컷오버 날 Dry)
+- 열림 그대로: 175(태그 넣기 merge-duplicates 틈 — 1d 가 넣기 방식을 바꾸지 않았다) · 318 · 315(ILH_PRACTICE) · 303
+- 새: **319** 제품 계열 「이번에 안 들어온 cin7 행 내리기」 없음(컷오버 전 필수) · **320** 재적재는 Shopify listing 을 켜기 전에(컷오버 날) · **321** shop_queue_trigger('product') 를 「보내는 칸이 다를 때만」 으로(DB 차수 · 미정) · **322** `ims_vis_` 공용화(미정) · **323** 동점 기본 공급처 2 — MNT54316 · PIN00563(판정 대기) · **324** 로컬 빈 DB 재생 불가(미정) · **325** 태그 짐작 「Cin7 변화 가능」 의 한계(미정) · **326** Freightcom 연동(677 · 컷오버 뒤) · **327** QuickBooks 연동 준비(컷오버 뒤 · 260 과 같은 줄기)
+- 다음 deferred 번호: **328**
+
+### 73-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 커밋 명령의 heredoc 뒤 줄은 `&&` 사슬과 이어지지 않는 새 명령이다 — 비밀값 검사가 멈췄는데 `git add` 가 돌았다(스테이징만 · 커밋 0) ⇒ **heredoc 은 따로 한 덩이 · 다음 덩이는 `test -s <파일> &&` 로 시작**(asung-workflow §4)
+2. [대화 Claude] 1a 지시서의 하네스 자리 기본값 `~/asung/prompts/` — 두 PC 가 못 쓴다 ⇒ 다시 쓰는 시험 장치는 레포(`docs/probes/harness/`)
+3. [대화 Claude] Dry 2단계 「건너뜀 6」 을 짐작했다 — Clore 6 은 Cin7 에 부모가 없어 이을 목록에 안 든다(0 이 맞다) · 대신 「이을 것 13 vs DB cin7 12」 의 1 이 떼기 구멍이었다(→ 678)
+4. [대화 Claude] 1c2 지시서 「전체 재계산은 아무것도 안 바꾼다」 를 짐작으로 썼다 → 실측 전 「≤ 2」 로 정정(동점 2 · 실측 0 변화)
+5. [Claude Code] `\gset` boolean(t/f) 재발 · 창구 두 번 부르기(첫 호출이 이미 커밋 → 둘째가 changed_elsewhere) · `@>` 가 `||` 보다 먼저 묶인다 → `to_jsonb(array[…])` · 편집 스크립트가 따옴표 오류로 안 돌았는데 옛 코드로 「통과」 가 찍혔다 ⇒ **시험 전에 대상 파일 md5 · mtime 을 찍고 시험 로그 머리에도** · `node --check` 는 `.gs` 를 거부한다 → `.js` 사본으로
+6. [잘 된 것] 1c 가 1b 의 숨은 결함(이미 짝지은 IMS 제품을 둘째 적재부터 덮음)을 2 회차 시험 설계로 잡았다 · 1c 가 680 의 한계를 실물(C2)로 보여 683 이 섰다 · 1c2 가 채우기 때 트리거를 그 문장 앞뒤로만 꺼 672 표식(updated_by)을 지켰다 · 하네스 로컬 모드가 트리거 · 제약 실물을 매 차수 회귀로 돌렸다
+7. [대화 Claude] QuickBooks 「Claude 연결 앱」 은 캐나다에서 쓸 수 없다(「not available in your country」) — 우리 연동은 Intuit 개발자 앱(비공개)으로 · 둘은 별개
+
+### 73-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- 판정 253 · 256(§45-a 표) · asung-so §4-m — 678
+- 109: so-module 1977(블록 1973) · 6815(45-e) · 6821(45-f) · 6924(46-f) · asung-so §1 · deferred 「1.」 · ①
+- 113: so-module 7144(49-e) · 7158(49-f) · asung-so §4-b · asung-po §1 표 · deferred 「1.」 · ①
+- 승격 「cin7_id · 단가」 · 「재적재 갱신 대상 = cin7_id 가 있는 줄」: po-module §3-g 표 · so-module 5463
+- 재계산 「저절로 돌지 않는다 · 손으로 · cron」: po-module §3-g ⬜ · asung-po §3 · so-module 9725(72-b) · 9781(72-f) · deferred 317
+- 「imsLoadSupplier 는 ProbeIMS.gs」 · `sp_fetchSuppliers_`: po-module §3-c 적재 표 · asung-po §4-c · so-module 6417 · 6429 · deferred 92(기록 — 줄 끝 포인터만)
+- 「덮는다」 · 열쇠 sku: po-module §3-f(머리 줄 · 57-d 3 줄 · 충돌 키 표 · ⬜) · §3-h 「병행 기간」 · so-module 7858(164) · 7923(57-d 3) · 7930(176) · 7370(130) · 6731(103) · asung-po §4 함정 표
+- §72 머리 「670 부터」 · 72-f 「다음 판정 번호: 670」 · deferred 300 판정 칸 → 684
+
+### 73-g 다음
+
+```
+컷오버 날(11-01): 위 73-c 순서 · 그 전에 319(제품 계열 내리기) · 302 · 303 · 313
+Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBooks(327 · 260): Intuit 앱 평가 설문 · 운영 키 승인
+판정 거리: 73-c ⬜ 세트 잇기 위치 · 323 동점 기본 공급처 2
+다음 판정 번호: 684 · 다음 deferred 번호: 328
+```

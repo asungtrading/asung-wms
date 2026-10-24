@@ -207,6 +207,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠를 둘 다 가진 로그인으로** — 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 2차)
 ⚠️⚠️ [2026-10-23 · so-module §72-e 1 · hist-1b] **REST 로 불리는 창구(service_role · Apps Script · EF)는 REST 조건에서 시험한다** — REST 역할 authenticator 가 safeupdate 를 싣는다 → WHERE 없는 delete · update 는 21000 · psql 직결은 safeupdate 를 못 싣는다(load · PGOPTIONS 막힘) ⇒ 창구 안의 「통째로 비우기」 는 truncate(세션 전용 임시 표)나 WHERE 로 · psql 로만 시험하면 이 결함을 못 본다
 ⚠️⚠️ [2026-10-23 · §72-e 2 · 3 · hist-1c] **REST 역할 statement_timeout 은 8 초** — Apps Script 쪽 크기(오더 수 · 줄 수)는 그 안에서 실측으로 정한다(같은 loaded_at = 한 쪽 · 한 쪽의 최대 줄 수를 센다) · 느리면 줄 수 · 잠금을 짐작하지 말고 한 건씩 잰다(실례: 색인 없는 upper(sku) 조회 31 ms × 400) · order by 가 붙은 조회는 (upper(sku), sku) 같은 복합 색인이어야 먹는다
+⚠️⚠️ [2026-10-24 · so-module §73-e 1] **heredoc 은 따로 한 덩이 · 다음 덩이는 `test -s <파일> &&` 로 시작** — heredoc 뒤 줄은 `&&` 사슬과 이어지지 않는 새 명령이다(비밀값 검사가 멈췄는데 `git add` 가 돌았다)
+⚠️⚠️ [2026-10-24 · §73-e 5] **시험 전에 대상 파일 md5 · mtime 을 찍고 시험 로그 머리에도** — 편집 스크립트가 안 돌았는데 옛 코드로 「통과」 가 찍혔다 · `node --check` 는 `.gs` 를 거부 → `.js` 사본 · 다시 쓰는 시험 장치는 `~/asung/prompts/` 가 아니라 레포(두 PC · §73-e 2)
 ⭐ **Caleb 에게 줄 적용 명령은 적용과 `migration repair` 를 `&&` 로 잇는다** — 따로 두 줄로 주면 적용이 실패해도 repair 가 돌아 이력만 「적용됨」이 된다
 ⚠️ **훑기가 지시 목록 밖의 함수를 찾으면 재발행하고 이유를 보고한다** — ⓒ2 so_payment_void(환불 취소가 크레딧 몫을 함께 풀지 않으면 크레딧이 사라진 채 돈만 돌아온다) · so_invoice_remaining · so_detail 이 목록 밖이었다(2026-09-25) · 「지시서에 없어서 안 고쳤다」는 답이 아니다
 ⭐ **훑기는 모든 꼴로** — `p.id` · `v_p.id` · `v_c.id` · `c.id` · `credit_id = …` 처럼 변수·별칭 꼴을 전부 · **마이그레이션 전수 + DB 함수·뷰 본문 둘 다**(2026-09-25 so-pay-read-1 이 `p.id` 꼴만 찾아 `v_p.id` 꼴 셋 — alloc_add · attach · detach — 을 놓쳤다 · 다음 차수 첫 회신이 찾았다 · 정본 §22)
@@ -800,3 +802,10 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    12 [대화 Claude] 캡처에 비밀 값이 보였다 ⇒ §7 · 그 값을 옮겨 적지 않는다
    13 [잘 된 것] hist-3c 기준 실행이 결함을 그대로 재현(61,823 · 2,621) · 확정 지문으로 「안 건드렸다」 증명 · ILH_PRACTICE 필요를 100 오더 창 실측(최대 44 · 문턱 20)으로 · 화면 셋을 jsdom 으로 돌린 뒤 한 번에 섰다
    14 [Claude Code · docs-1023h 검토] 지시서 실측 숫자 셋이 실물과 달랐다(17,939 → 17,851 · 「큼 120」 → 121 · 손님 안 풀림 295 는 당월만 → 398) ⇒ 문서 차수에 옮기는 숫자는 옮기기 전에 다시 센다
+⚠️ **[2026-10-24 집 — so-module §73-e]**
+   1 [대화 Claude] heredoc 뒤 줄이 `&&` 사슬 밖이라 검사가 멈췄는데 `git add` 가 돌았다(스테이징만) ⇒ §4 「heredoc 은 따로 · test -s &&」
+   2 [대화 Claude] 하네스 자리를 `~/asung/prompts/` 로 줬다 — 두 PC 가 못 쓴다 ⇒ 다시 쓰는 시험 장치는 레포
+   3 · 4 [대화 Claude] Dry 「건너뜀 6」 · 「전체 재계산은 아무것도 안 바꾼다」 를 짐작으로 — 실측이 0 · 「≤ 2」 였다 ⇒ 숫자 예상은 실측 전에 「짐작」 표시
+   5 [Claude Code] `\gset` boolean · 창구 두 번 부르기(첫 호출이 이미 커밋) · `@>` 와 `||` 우선순위 · 편집 스크립트가 안 돌았는데 옛 코드로 「통과」 ⇒ §4 md5 · mtime 줄
+   6 [잘 된 것] 1c 가 1b 의 숨은 결함을 2 회차 시험으로 잡음 · 680 의 한계를 실물로 보여 683 · 채우기 때 트리거를 그 문장 앞뒤로만 꺼 표식 보존
+   7 [대화 Claude] QuickBooks 「Claude 연결 앱」 은 캐나다 불가 — 연동은 Intuit 개발자 앱으로(별개)

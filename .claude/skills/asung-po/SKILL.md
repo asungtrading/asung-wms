@@ -52,7 +52,7 @@ description: >
 | `supplier` | `name` | `cin7_id` 도 unique · `is_purchasable` 은 우리 칸 |
 | `supplier_address` · `supplier_contact` · `supplier_discount` | `cin7_id` · `cin7_id` · `(supplier_id, seq)` | 관계 표 · DELETE 열림 |
 | `product_family` | `sku`(…FAM) | ⚠️ `name` 유니크 없음 · 옵션 축 이름만 |
-| `product` | `sku` | ⚠️⚠️ `name` 유니크 **금지** · ⭐ `pack_factor`=BOM Quantity · `parent_product_id`=BOM ComponentProductID · ⭐ `sellable` 은 IMS 칸(2026-10-06 · 판정 281 · 291 ~ 295 · so-module §47) — 판매 안 함 세트는 넣기에서 낱개로 바뀌고 낱개는 거부 · 기본값 트리거 product_sellable_default(낱개 true · 세트 false) · product_update(master) · `sellable_source` cin7\|ims · ⚠️ 재적재가 덮는다(미룬 113) |
+| `product` | ~~`sku`~~ → [2026-10-24 · 판정 679] 적재 열쇠 `cin7_id` 먼저 · 새 행만 `sku` | ⚠️⚠️ `name` 유니크 **금지** · ⭐ `pack_factor`=BOM Quantity · `parent_product_id`=BOM ComponentProductID · ⭐ `sellable` 은 IMS 칸(2026-10-06 · 판정 281 · 291 ~ 295 · so-module §47) — 판매 안 함 세트는 넣기에서 낱개로 바뀌고 낱개는 거부 · 기본값 트리거 product_sellable_default(낱개 true · 세트 false) · product_update(master) · `sellable_source` cin7\|ims · ~~⚠️ 재적재가 덮는다(미룬 113)~~ → [2026-10-24 · 판정 670 · 675] ims 행 · 세트는 IMS 값을 싣는다 |
 | `product_barcode` | `(product_id, barcode)` | 관계 표 · DELETE 열림 · ⚠️ `is_primary` 부분 유니크 금지 · 바코드 중복은 카운터로 |
 | `product_bom` | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만 · ⚠️ 콤보 방향 칸은 여기 아님(§3-g) |
 | `product_supplier` | `(product_id, supplier_id)` · ⭐ **충돌 키는 `cin7_id`** | 관계 표 · manual 승격(§3-g) · ⚠️ `is_default` 부분 유니크 금지 · 단가 `numeric(18,7)` |
@@ -87,7 +87,14 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 - ⭐ **④ 는 낱개에만 붙는다 — 발주는 낱개 단위로 한다.** 세트는 부모를 `pack_factor` 로 환산 · 콤보는 「공급처 줄이 있으면 후보」(§3-g).
 
 - ⚠️⚠️ [2026-10-23 · 판정 654 B · so-module §72] **「적재는 마스터만」(po-module §11-⓪ 함의 ②)은 보기 전용 이력(hist_po · hist_po_line)에 한해 고쳤다** — 원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다 · 컷오버 때 지우지 않는다 · `po_total` = Cin7 Order 탭 총액(줄 + 추가 비용 + 세금 · 인보이스 금액 아님 · 669) · 받은 수량 · 날짜는 「기록 없음」 · 적재 = ImsLoadHist.gs(취소 · 초안 · ORDERING 은 빼고 · 661 · 663)
-- ⚠️⚠️ [2026-10-23 · so-module §72-b] **기본 공급처 재계산(§3-g 「끄고 나서 켠다」 ① ②)은 저절로 돌지 않는다** — 공급처를 다시 켜도 그 공급처만 붙은 제품은 기본이 빈 채 · 켠 뒤 ② 를 손으로(Energizer Canada 62 제품 실사고 · deferred 317 · 318)
+- ~~⚠️⚠️ [2026-10-23 · so-module §72-b] **기본 공급처 재계산(§3-g 「끄고 나서 켠다」 ① ②)은 저절로 돌지 않는다** — 공급처를 다시 켜도 그 공급처만 붙은 제품은 기본이 빈 채 · 켠 뒤 ② 를 손으로(Energizer Canada 62 제품 실사고 · deferred 317 · 318)~~
+  → [2026-10-24 · 판정 682 · 정본 so-module §73] ✅ DB 함수 `product_supplier_default_recalc(uuid[] default null)`(definer · service_role 만) — 공급처 · 제품-공급처 Apply 끝(rpc 전체) · supplier_update is_active 갈래(그 공급처 제품만)가 부른다 · 손으로 돌리지 않는다
+- ⭐⭐ [2026-10-24 · 판정 671 · ldfix · 정본 so-module §73] **적재는 IMS 가 정한 값을 건드리지 않는다**
+  - 제품(ImsLoadProduct.gs): 열쇠 `cin7_id` 먼저(on_conflict=cin7_id · **IMS sku 를 싣는다 · SKU 는 Cin7 이 못 덮는다** 679 · 다르면 「SKU 다름」 목록) · manual 과 SKU 같으면 cin7_id 만 PATCH(674 · family 도) · 새 행만 on_conflict=sku · sellable_source ims · 세트는 IMS 값(670 · 675) · product_bom · product_barcode 의 manual 줄은 안 보낸다
+  - 공급처(ImsLoadSupplier.gs · ils · 673): 이름 「보이는 글자」 같으면 cin7_id 만(674 · 681) · `is_active_source='ims'`(창구가 켜고 끈 공급처 · 683)면 is_active 는 IMS 값 · 짝지은 공급처의 Cin7 주소 · 연락처 안 보냄 · ⛔ imsLoadPurchasable Apply 는 컷오버 날 안 돈다
+  - 제품-공급처(ImsLoadProductSupplier.gs): source='cin7' 줄만 보낸다 — manual 이면서 cin7_id 있는 줄(Roux 19)은 뺀다 · 승격은 **cin7_id 만**(cost · supplier_sku 등 IMS 값)
+  - 표식 없는 칸(이름 · 브랜드 · 무게 · family · 옵션 · 공급처 단가 …)은 Cin7 이 덮되 Dry 가 「손댄 행」(updated_by is not null) 목록을 낸다(672)
+  - ⚠️ 제품 계열 · 제품-공급처는 「이번에 안 들어온 cin7 행」 을 **내리지 않는다**(§3-f 1) ~ 3) · deferred 319) · 컷오버 날 순서 = so-module §73-c
 ## 4. 함정 요약
 
 | 함정 | 결과 | 처방 |
@@ -133,7 +140,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | ~~⚠️⚠️ `inv_layer_apply()` 를 돌린다~~ → ✅ 09-20 IMS 판(`20260920142635`) · 남은 함정: **환율 없는 입고가 있는 채** 돌린다 | 그 입고만 건너뛰어 원가가 빠진 채다 — 멈추지 않는다(옛 「통째로 사라진다」는 틀렸었다 · 실물은 0 원 레이어로 덮어썼고 창구 멱등을 막았다) | 반환 `ims.receipts_skipped` 가 0 인지 본다 · 환율을 넣고 `inv_post_receipt` 재호출 또는 다시 돌린다 · ledger-design 4부 「✅ 해소 — inv_layer_apply() 에 IMS 판」 · 스킬 asung-inv-ledger 함정 첫 줄 |
 | po_receipt_* 셸을 다시 내며 이름 · 시그니처를 바꾼다 | asung-ims receiving.html 이 그 이름으로 부른다 — 화면이 깨진다 | 셸은 이름 · 시그니처 그대로 · 속은 `_by`(p_staff · definer · authenticated 회수 · so-module §24-m) |
 | 상품의 SKU 를 고친다 | 원장은 product.id 가 아니라 **sku 글자로 잇는다** — 재고 · 레이어가 조용히 떨어진다 | 원장 · 레이어가 붙은 상품은 SKU 를 못 바꾼다(판정 136 · 표 트리거 · prod-2 부터) · 설계 정본 po-module §3-h |
-| IMS 에서 만든(manual) 상품과 같은 SKU 를 재적재한다 | ImsLoadProduct.gs merge-duplicates 가 행 전체를 덮는다(source cin7 · payload 밖 칸 비움) | 판정 132 — IMS 값이 이기고 cin7_id 만 붙인다 · 적재 코드를 먼저 고친다(판정 131 · prod-5 · §3-h) · ⚠️ 「payload 밖 칸 비움」은 여전히 **추정**(asung-wms 규칙 45) — 설명 칸은 desc-1b 문지기로 막았다 |
+| IMS 에서 만든(manual) 상품과 같은 SKU 를 재적재한다 | ImsLoadProduct.gs merge-duplicates 가 행 전체를 덮는다(source cin7 · payload 밖 칸 비움) | 판정 132 — IMS 값이 이기고 cin7_id 만 붙인다 · 적재 코드를 먼저 고친다(판정 131 · prod-5 · §3-h) · ⚠️ 「payload 밖 칸 비움」은 여전히 **추정**(asung-wms 규칙 45) — 설명 칸은 desc-1b 문지기로 막았다 | → [2026-10-24 · ldfix-1b · 판정 674 · 679] ✅ 고침 — manual 과 SKU 같으면 cin7_id 만 · 열쇠 cin7_id 먼저
 | `is_active=false` 를 한 뜻으로 읽는다 | SO 줄 · 조정 · 트랜스퍼는 **거부** · PO 는 **경고** · 픽 · 팩 · 원장은 **안 본다** | 표마다 다르다 — 내리기 전 화면이 재고 · 열린 줄 수를 보인다(판정 139) |
 | 상품 계열 표에 PostgREST 로 직접 쓴다 | 검사(잠금 · 검증 규칙)를 지나지 않는다 | 창구로만(판정 141 · prod-2 부터 직접 쓰기 닫힘) · 설계 정본 po-module §3-h |
 | 화면 Edit 칸의 속성 값(`value="${…}"`)에 따옴표 든 이름을 넣는다 · esc 를 textContent · `.value =` 에 쓴다 | 옛 공통 esc 는 `"` 를 안 막아 칸이 따옴표에서 끊기고 **이름을 안 건드린 Save 가 잘린 이름을 저장**했다(ANN01001 · 이름에 `"` 든 상품 587) · 반대로 HTML 아닌 곳의 esc 는 `&quot;` 를 글자로 보인다 | 속성 값은 esc(esc v1 부터 `" '` 도 막는다) · esc 는 HTML 에 넣을 때만 · 따옴표 든 상품(ANN01002)으로 Edit 시험 · so-module §56-e · CHECKLIST 7-zh |
@@ -173,7 +180,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐  설명(desc-1b 9184853 · 판정 381 · 401 · 402 · so-module §55): product_update op description_set {sku | family_sku, html, old} · description_follow_cin7 {sku | family_sku, old} · description_html null = Cin7 원문을 따른다(값 coalesce · '' = 일부러 비움 · 복사 없음) · 막기 description_forbidden:<code>(ims_html_forbidden · 허락 iframe host 는 ref_embed_host 한 줄씩 — SQL 로) · 읽기는 뷰 product_description · product_description_edited · 정본 po-module §3-h 「설명 — 실물」
 ⚠️  설명 칸 셋은 문지기 product_description_guard — 창구 밖 쓰기(적재 · 손 SQL 포함)는 raise 없이 조용히 되돌아간다 ⇒ SQL 로 고치려면 같은 트랜잭션에서 select set_config('ims.description_door','1',true); 를 먼저
 ⭐⭐ 콤보 정의(판정 244 · 247 · 250 · so-module §44): product_bom_set(p_parent_sku, p_lines [{sku, qty}], p_old, p_commit, p_ack) · master · 전체 목록 바꿔치기 · p_old(화면이 본 목록 · changed_elsewhere · old_missing) · 두 번 부르기 · 막기 — 콤보 안의 콤보 양방향(component_is_combo · parent_is_component) · 세트 부모(parent_is_set) · 구성품 하나뿐 · 알리기 — 세트 구성품(component_is_set) · 열린 오더 · 부모 재고 · Cin7 콤보 · 손댄 줄만 source manual · 빈 목록 = 해제(끄기 · 지우지 않음) · ⚠️ 콤보는 재고를 두지 않는다(팔 때 구성품을 뺀다 · 조립 문서 없음) · 화면은 상품 Edit 와 따로(판정 202 의 예외 · 판정 247) · 새 콤보 SKU 는 New product → Make combo
-⭐  공급처 쓰기(판정 237 · 238 · 241 · so-module §41): 표 직접 쓰기 닫힘 · supplier_create · supplier_update(purchasing 또는 master) · 돈 칸(통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인)과 끄기는 master · 같은 이름 막기 · is_purchasable 은 일반 칸(suppliers.html 토글이 창구로) · 공급처 적재는 Apps Script ProbeIMS.gs 의 imsLoadSupplier(관리 키)
+⭐  공급처 쓰기(판정 237 · 238 · 241 · so-module §41): 표 직접 쓰기 닫힘 · supplier_create · supplier_update(purchasing 또는 master) · 돈 칸(통화 · 결제조건 · 매입채무 · 세금 규칙 · 할인)과 끄기는 master · 같은 이름 막기 · is_purchasable 은 일반 칸(suppliers.html 토글이 창구로) · 공급처 적재는 ~~Apps Script ProbeIMS.gs 의 imsLoadSupplier(관리 키)~~ → [2026-10-24 · 판정 673] 레포 docs/probes/ImsLoadSupplier.gs(ils · 관리 키) · ⭐ supplier_update 로 켜고 끄면 is_active_source='ims' + 그 공급처 제품의 기본 공급처 재계산(683 · 682)
 ⭐⭐ 세트 더하기(pset-1 · 판정 585 ~ 589 · po-module 「세트 더하기」): product_set_add(p_parent_id, p_sets, p_commit, p_ack) · master · 세트 규칙은 도우미 둘(product_set_check · product_set_insert)을 product_create_core 와 함께 쓴다 — 한쪽만 고치지 마라
 ⚠️⚠️ 세트 sellable = **false 명시**(판정 586 · 291) — 칸을 안 보내면 칸 기본 true 가 들어간다(트리거는 명시 null 에만) · 꺼진 같은 계수 세트는 set_sku_inactive_exists(Edit 에서 켜라 · 587) · 단종 · 판매 안 함 낱개는 경고(588) · 고정가는 Edit 에서만(set_prices_not_here · 589)
 ⚠️  product_create 시험 재료에는 공급처 · 판매가 · 바코드(경고 sku_prefix · supplier_missing · price_missing · barcode_missing 가 ack 없이는 저장을 막는다)

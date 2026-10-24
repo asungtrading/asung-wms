@@ -69,7 +69,14 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      customer_id 는 Cin7 손님 GUID 가 아니라 우리 customer.id — 1단계 뒤 cin7_id → id 조회해 바꿔 보낸다      (9-i ⑫)
 ⭐⭐ 부모는 두 단계 — 1단계 손님 전부(parent_id 없이) · 2단계 부모 있는 손님만 PATCH(CustomerParentID → customer.id) · 없어진 부모는 비움
      자기 참조 FK 는 줄마다 즉시 검사 — 자식이 먼저 들어가면 거부                                          (9-i ⑫)
-     ⚠️ [2026-10-06] 2단계 잇기 · 비우기는 parent_source='cin7' 줄만 — 지금 GAS 는 이 조건이 없어 IMS 에서 세운 부모를 덮거나 지운다 · 고치기 전까지 손님 재적재 금지(정본 §45 · 미룬 109)
+     ~~⚠️ [2026-10-06] 2단계 잇기 · 비우기는 parent_source='cin7' 줄만 — 지금 GAS 는 이 조건이 없어 IMS 에서 세운 부모를 덮거나 지운다 · 고치기 전까지 손님 재적재 금지(정본 §45 · 미룬 109)~~
+     → [2026-10-24 · ldfix-1a · 1a2 · 정본 §73] 잇기는 IMS 가 정하지 않은 자식만 · {parent_id, parent_source:'cin7'} 함께 PATCH(안 보내면 비우기가 못 찾는다) · 비우기는 source=cin7 & parent_source=cin7 행만 · 재적재 금지 풀림
+⭐⭐ [2026-10-24 · 판정 671 · 672 · 674 · 681 · 정본 §73] **IMS 가 정한 값은 적재가 건드리지 않는다**
+     674 · 681 cin7_id 없는 IMS 손님(manual)과 이름이 「보이는 글자 기준」 같은 Cin7 손님 → IMS 행에 cin7_id 만 PATCH(id=eq & cin7_id=is.null · 0 행이면 멈춤) · upsert 보다 앞
+          보이는 글자 = ils_vis_(ImsLoadSupplier.gs · U+200B · 200C · 200D · FEFF · 00A0 빼고 trim) · 저장은 원문 · ⚠️ 그 파일이 편집기에 있어야 손님 적재가 돈다(deferred 322)
+          짝지은 손님의 Cin7 행 · 주소 · 연락처는 **매 회차** 안 보낸다(기본 하나 유니크 23505) · 같은 이름 둘 이상 · 그 cin7_id 가 이미 cin7 행이면 멈춤(사람이 가른다)
+     672 표식 없는 칸(이름 · 결제조건 · 가격 등급 · 주소 …)은 Cin7 이 덮는다 — Dry 보고가 「손댄 행」(source=cin7 & updated_by is not null · ims_touch 가 적재 땐 비운다) 의 IMS ↔ Cin7 값을 낸다 · 보조 ILC_LAST_APPLY_AT
+     678 부모를 IMS 에서 떼도 parent_source='ims' 가 남는다(→ 2단계가 다시 잇지 않는다) · 트리거는 'cin7' 일 때만 비운다
 ⭐⭐ 적재 안전장치 둘 — 받은 행 ≠ API Total 이면 멈춤 · 한 번에 내리는 줄 > max(20, 1%) 면 멈춤(ILC_ALLOW_BIG_DOWN=1 로 한 번만 통과)
      계기: 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다 · ⚠️ 끝 판단은 Total 이 아니라 받은 행 수     (9-j)
 ⭐  멈춤 조건(추정해 넣지 않는다 · 로그에 적고 throw) — Status 가 Active·Deprecated 밖 · MarketingConsent 0~3 밖 · Type 이 Billing·Business·Shipping·빈 값 밖 ·
@@ -142,7 +149,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  시험은 SO-25000 을 소비한다 — rollback 밖에서 so 가 비어 있을 때만 setval(25000, false) · 전환 전 점검 25000 · is_called f · 가짜 직원은 트랜잭션 안에서만(ims_staff.auth_user_id FK 없음)   (12-g)
 ⚠️  운임 amount 는 0 이상(①c · 돌려줄 돈은 크레딧 노트 8-g) · 비활성 손님은 거부(판정 A) · 한 트랜잭션 안 now() 는 같다 — 시각 비교로 검증하지 마라 · 제약 이름은 get stacked diagnostics constraint_name 으로   (12-b · 12-f)
 ⚠️  [2026-10-06 · 판정 281 · 291 ~ 295 · §47] 판매 안 함(product.sellable false) — 세트는 넣기 길 전부(so_line_add · so_lines_paste · POS 스캔)에서 낱개 × pack_factor 로 바꿔 넣고 알림(set_converted_to_base · converted) · 바꾸는 길에 손 단가 · 할인 % 거부 · 낱개(콤보 포함)는 거부 「turn on Sellable in Products first」 · 켜고 끄기는 product_update(master · sellable_source ims · 열린 줄이면 sellable_off_open_lines)
-⚠️  제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다(미룬 113 · 적재 고침 전까지)
+~~⚠️  제품 재적재는 IMS 에서 바꾼 sellable 을 덮는다(미룬 113 · 적재 고침 전까지)~~ → [2026-10-24 · 판정 670 · 675 · ldfix-1b · 정본 §73] sellable_source ims · 세트는 IMS 현재 값을 같은 키로 싣는다 · 새 세트는 2단계 잇기에서 트리거가 false
 ⭐⭐ [2026-10-20 · 판정 532 · 545 · ln-1] 붙여넣기 셋째 칸 가격 = **최종**(손 줄 · 오더 할인 몫 0 · 판정 542) · 칸 비움 = 원래 가격(티어 · 손님 할인 · 딜) · 0 · 음수 · 안 파는 세트 + 가격은 거부 · 묶기 열쇠 (제품, 가격) — 시스템 줄과 같은 가격이어도 합치지 않는다(합치면 최종 가격이 움직인다)   (→ so-module §67)
 ⭐⭐ [2026-10-20 · 판정 541 · ln-1] so_lines_clear 는 **draft 만**(확정 오더는 Unconfirm 뒤) · intake shopify 오더 거부 · 운임(so_charge) · 쿠폰(coupon_id)은 남는다
 ⚠️  [2026-10-20 · 판정 546 · ln-1] so_line.price_set_by/at = 사람이 단가 · 할인 % 를 줄 때만 찍고 다시 견적(↺)이면 비운다 · **updated_by 로 「누가 정했나」를 읽지 마라**(ims_touch 가 덮는다) · split · merge 는 복사
@@ -346,7 +353,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ```
 ⭐ 손님 쓰기(판정 236 ~ 241 · 정본 so-module §41) — 표 직접 쓰기 닫힘(customer 는 「잠금만」 — so_invoice_issue 의 for update 때문) · 쓰기는 customer_create · customer_update(두 번 부르기 · op · old) · 문 sales 또는 master · ~~돈 칸 아홉(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 셋)~~ [2026-10-06] 돈 칸 여덟(티어 · 할인 · 결제조건 · 통화 · 매출채권 · 매출 계정 · 청구 구조 둘 = default_bill_to_customer_id · invoice_split_by_store)과 끄기 · 켜기는 master 만 · sales 가 만들면 기본값 키 일곱 + customer_review_list(확인 전) · 같은 이름은 알리기 + ack · 열린 SO 는 복사해 굳힌 값(고쳐도 안 바뀜) · 적재는 관리 키(RLS 무관)
-⭐⭐ 부모 · 청구처는 IMS 창구에서 세운다(판정 251 ~ 256 · 정본 §45) — parent_id 도 master 만(v_struct · 검토 찍기 · 열린 오더 경고 없음) · 저장하면 parent_source='ims'(비우면 null) ·
+⭐⭐ 부모 · 청구처는 IMS 창구에서 세운다(판정 251 ~ 256 · 정본 §45) — parent_id 도 master 만(v_struct · 검토 찍기 · 열린 오더 경고 없음) · 저장하면 parent_source='ims'(~~비우면 null~~ → [2026-10-24 · 판정 678 · 정본 §73] 떼도 'ims' · 트리거는 'cin7' 일 때만 비운다 · 적재 비우기는 null) ·
      청구처 규칙은 default_bill_to_customer_id 한 칸(null = 자기) · ⚠️ is_bill_parent 는 규칙이 아니다 · 창구가 안 받는다(field_unknown) ·
      깊이 하나 · 자기 참조 금지는 트리거 customer_parent_guard + CHECK 셋(창구 · 적재 · 손 SQL 모두) · 부모를 비우거나 바꾸면 옛 부모를 가리키던 청구처는 null(트리거 · 창구는 bill_to_reset_with_parent ack) ·
      Add store · Detach · 부모 바꾸기는 자식에 대한 customer_update 한 호출 · 청구는 부모 + 배송은 자기(null) 조합은 된다(판정 255)

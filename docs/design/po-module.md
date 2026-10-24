@@ -411,6 +411,7 @@ ImsLoadSupplierSub.gs   imsLoadSupplierSub / ...Apply    주소 87 · 연락처 
 ```
 ⚠️ 셋 다 `ims_fetch_`·`ims_blank_`(`ImsLoad.gs`) 와 `sp_fetchSuppliers_`(`ProbeSupplier.gs`) 를 쓴다 —
 **다시 만들지 마라.**
+→ [2026-10-24 · 판정 673 · ldfix-1c b5aed52 · so-module §73] 위 표는 그날의 기록이다(파일 이름부터 실물과 달랐다 · so-module 6417) — **지금은 레포 `docs/probes/ImsLoadSupplier.gs`(접두 ils) 한 파일**: imsLoadSupplier / ...Apply(본 행 · 674 · 681 짝 · 672 목록 · 683 · Apply 끝 rpc 재계산 682) · imsLoadSupplierSub / ...SubApply(주소 · 연락처 · 짝지은 공급처의 Cin7 줄 안 보냄) · imsLoadSupplierVerify · imsLoadPurchasable / ...Apply(⛔ Apply 는 로그 뒤 dryRun 만 — 컷오버 날 돌리지 않는다) · `sp_fetchSuppliers_` · `spb_` 에 기대지 않는다(grep 0) · 편집기 ProbeSupplier.js 에서 옮긴 함수는 지웠다
 📌 연락처 적재는 이름이 `'no longer purchase'`(⭐ 소문자로 맞춰 비교)인 행을 건너뛴다 — 24건.
 
 ### ⚠️ 오늘 겪은 것 셋 — 다음에 같은 데서 멈추지 않도록
@@ -897,15 +898,15 @@ Caleb 확인(2026-09-14): **공백이 든 SKU 와 이름이 틀린 SKU 는 적�
 
 ### ⭐ 한 규칙 — upsert 하고, 이번에 안 들어온 `source='cin7'` 행은 `is_active=false` 로 내린다
 
-⚠️ [2026-09-30 · prod-1 실물] **지금 코드는 이 규칙과 다르다** — ImsLoadProduct.gs 의 `ipr_upsert_('product', 'sku', rows)` 는 merge-duplicates = 행 전체 덮어쓰기 · payload `source:'cin7'` ⇒ 같은 SKU 의 manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지) · 아래 1) ~ 3) 은 미구현 · 승격 규칙은 product_supplier(ImsLoadProductSupplier.gs)만 구현 ⇒ 판정 132(IMS 값이 이긴다 · cin7_id 만 붙인다 · 차이 목록) · prod-5 · §3-h
-→ [2026-10-10 · so-module §57-d 3] **tag-0 ⬜6 코드로 확정(덮는다)** — `ipr_row_`(290 ~ 336 행)가 name · is_active · source:'cin7' · family · 옵션 · brand · category · unit · 계정 · 세금 · sellable · weight … 를 보내고 on_conflict=sku merge-duplicates 로 쓴다 ⇒ 사람이 고친 이름 · sellable · manual 행의 source 가 Cin7 값으로 덮인다(설명 셋만 product_description_guard) · 이 파일 커밋은 10ce922 하나 · **컷오버 전 한 차수**(판정 418 · 미룬 164 · 176)
+⚠️ [2026-09-30 · prod-1 실물] **지금 코드는 이 규칙과 다르다** — ImsLoadProduct.gs 의 `ipr_upsert_('product', 'sku', rows)` 는 merge-duplicates = 행 전체 덮어쓰기 · payload `source:'cin7'` ⇒ 같은 SKU 의 manual 행은 source cin7 로 덮이고 payload 밖 칸은 비워진다(id 는 유지) · 아래 1) ~ 3) 은 미구현 · 승격 규칙은 product_supplier(ImsLoadProductSupplier.gs)만 구현 ⇒ 판정 132(IMS 값이 이긴다 · cin7_id 만 붙인다 · 차이 목록) · prod-5 · §3-h → [2026-10-24 · ldfix-1b 4a373df · so-module §73] 열쇠 · IMS 값 지키기는 고쳤다(cin7_id 먼저 · manual SKU 는 cin7_id 만 · sellable 670 · 675 · SKU 679 · manual BOM · 바코드 줄 안 보냄) · ⚠️ 1) ~ 3) 의 「안 들어온 cin7 행 내리기」는 여전히 없다(→ deferred 319)
+→ [2026-10-10 · so-module §57-d 3] **tag-0 ⬜6 코드로 확정(덮는다)** — `ipr_row_`(290 ~ 336 행)가 name · is_active · source:'cin7' · family · 옵션 · brand · category · unit · 계정 · 세금 · sellable · weight … 를 보내고 on_conflict=sku merge-duplicates 로 쓴다 ⇒ 사람이 고친 이름 · sellable · manual 행의 source 가 Cin7 값으로 덮인다(설명 셋만 product_description_guard) · 이 파일 커밋은 10ce922 하나 · **컷오버 전 한 차수**(판정 418 · 미룬 164 · 176) → [2026-10-24 · ldfix-1b · so-module §73] ✅ 그 차수 — 지금은 ~~사람이 고친 이름 · sellable · manual 행의 source 가 Cin7 값으로 덮인다~~ manual 행 무접촉 · sellable 은 IMS 값(670 · 675) · 이름 같은 표식 없는 칸은 Cin7 이 덮되 Dry 가 손댄 행 목록(672)
 📌 [2026-10-10] 태그 적재는 따로 — `docs/probes/ImsLoadProductTag.gs`(asung-wms `c61ba04` · product_tag 관계 표 맞추기 · 열쇠 cin7_id · manual 무접촉 · 63,501 줄 · so-module §57-c)
 ⚠️ [2026-10-09 · desc-1b 9184853 · so-module §55-b] 위 「payload 밖 칸은 비워진다」는 **여전히 추정**이다(asung-wms 규칙 45 · pg_stat_statements 0 행으로 확정 못 함) — 설명 칸 셋은 확정하지 않은 채 문지기 product_description_guard 로 막았다(§3-h 「설명 — 실물」)
 
 | 표 | 충돌 키 | 규칙 |
 |---|---|---|
-| `product_family` | `sku` | 같다 |
-| `product` | `sku` | 같다 — ⚠️ 원장·WMS 가 가리킬 수 있는 표라 **지우는 방식은 애초에 후보가 아니다** |
+| `product_family` | ~~`sku`~~ → [2026-10-24 · ldfix-1b] `cin7_id` 먼저 · manual 과 SKU 같으면 cin7_id 만 PATCH · 새 행만 `sku` | 같다 |
+| `product` | ~~`sku`~~ → [2026-10-24 · ldfix-1b · 판정 679] `cin7_id` 먼저(IMS sku 를 싣는다) · manual 과 SKU 같으면 cin7_id 만 PATCH · 새 행만 `sku` | 같다 — ⚠️ 원장·WMS 가 가리킬 수 있는 표라 **지우는 방식은 애초에 후보가 아니다** |
 | `product_barcode` | `(product_id, barcode)` | 같다 |
 | `product_bom` | `(parent_product_id, component_product_id)` | 같다 |
 
@@ -995,8 +996,8 @@ is_primary 카운터 「제품당 primary 둘 이상」도 활성 줄만 센다
 
 ### ⬜ 열린 것
 ```
-충돌 키          [2026-09-15] product·product_family 의 sku → **cin7_id + SKU 승격 폴백**(§11-k) — 코드 고칠 때 함께 · 위 표는 그때 갱신
-코드              Cin7 정리 뒤 · 1)~3) + 되살아남 주석 · 회차 로그(내린 수 · 되살린 수)
+충돌 키          [2026-09-15] product·product_family 의 sku → **cin7_id + SKU 승격 폴백**(§11-k) — 코드 고칠 때 함께 · 위 표는 그때 갱신 → ✅ [2026-10-24 · ldfix-1b 4a373df] 위 표 갱신
+코드              Cin7 정리 뒤 · 1)~3) + 되살아남 주석 · 회차 로그(내린 수 · 되살린 수) → [2026-10-24] 아직 — deferred 319(손님 · 공급처 · 가격 적재는 내린다 · 제품 계열 · 제품-공급처는 안 내린다)
 cin7_id 유지      SKU 변경에도 유지되는지 미확인 (§7)
 스캔 화면         is_active 필터 — WMS 쪽 일(원칙 2 · 표를 읽는 쪽이 건다)
 ```
@@ -1106,9 +1107,9 @@ CHECK product_supplier_source_ck · 인덱스 셋 product_supplier_{product_id,s
 ```
 충돌 키          cin7_id — Cin7 이 유니크를 보장 · ~~⑤ PUT /product-suppliers 의 필수 열쇠(없으면 단가를 Cin7 에 못 쓴다)~~ → [2026-09-16] 전환 기간엔 IMS 가 Fixed Price 를 **안 고친다**(§11-d · Caleb)라 PUT 도 없다. 충돌 키 판단은 그대로다 — 근거는 「Cin7 이 유니크를 보장 · manual 줄 승격의 열쇠」
 승격             사람이 먼저 적은 manual 줄(cin7_id null)과 같은 (product_id, supplier_id) 가 Cin7 에 나타나면
-                 새 행을 만들지 않고 그 행에 cin7_id·단가를 PATCH 로 채운다 · source 는 manual 유지(사람이 만든 줄이라는 사실은 남긴다)
+                 새 행을 만들지 않고 그 행에 ~~cin7_id·단가를~~ → [2026-10-24 · 판정 671 · 132 · ldfix-1c b5aed52] **cin7_id 만** PATCH 로 채운다(cost · fixed_cost · supplier_sku · currency · last_supplied 는 IMS 값) · source 는 manual 유지(사람이 만든 줄이라는 사실은 남긴다)
                  ⚠️ 이 규칙이 없으면 선주문 시나리오(③)가 (product_id, supplier_id) 유니크에 걸려 배치가 실패한다
-재적재 갱신 대상  「source='cin7'」이 아니라 「cin7_id 가 있는 줄」 — §3-f 의 2) (안 들어온 줄 is_active=false)도 같은 기준
+재적재 갱신 대상  ~~「source='cin7'」이 아니라 「cin7_id 가 있는 줄」~~ → [2026-10-24 · ldfix-1c · 새 ② · 바] **source='cin7' 줄만** — manual 이면서 cin7_id 가 있는 줄(승격 줄 · IMS 가 끈 Cin7 줄 · Roux 19)은 묶음에서 뺀다(같은 열쇠라 upsert 가 덮는다) · 손댄 cin7 줄은 672 목록 · §3-f 의 2) (안 들어온 줄 is_active=false)는 아직 없다(deferred 319)
 못 이은 줄        supplier_id·product_id 를 못 찾으면 넣지 않고 센다 — 오늘 0(우리가 모르는 GUID 0)이어도 장치는 둔다
 ```
 공통 8칸에서 벗어나는 곳은 의도된 것 — `name` 없음(관계 표) · `cin7_id` 가 보조가 아니라 열쇠(⑤ PUT) · DELETE 개방(관계 표 관례 · TRUNCATE 는 막는다).
@@ -1227,6 +1228,8 @@ AutoAssembly 15/15 true      AutoDisassembly 15/15 false
 
 ### ⚠️⚠️ `is_default` 재계산 — 끄고 나서 켠다
 
+⭐ [2026-10-24 · 판정 682 · ldfix-1c2 7012420 · so-module §73] 아래 ① ② 는 DB 함수 **`product_supplier_default_recalc(p_product_ids uuid[] default null)`** 로 섰다 — returns jsonb {turned_off · turned_on · multi_default_products · scope} · null 이면 전체 · 멱등 · security definer · 실행 service_role 만(ACL `{postgres=X/postgres,service_role=X/postgres}`) · 부르는 곳 셋: ImsLoadSupplier.gs Apply 끝 · ImsLoadProductSupplier.gs Apply 끝(rpc · 전체) · `supplier_update` 의 is_active 갈래(그 공급처 제품만 · 반환 default_recalc · 같은 갈래가 `supplier.is_active_source='ims'` 를 쓴다 · 판정 683) · cron 없음 · 실물 전체 재계산 0 변화 0.059 초(12,738 줄) · 동점이라 비어 있는 제품 2(MNT54316 · PIN00563 · deferred 323)
+
 **[실사고 2026-09-14] 첫 SQL 이 켜기만 하고 끄는 쪽이 없었다.** 줄을 `is_active=false` 로 내려도 `is_default=true` 가 그대로 남아 **비활성 줄이 기본**인 상태가 됐다(세트 셋).
 재적재 때마다 같은 일이 생긴다 — §3-f 가 안 들어온 줄을 내리기 때문이다. ⇒ 아래 두 문장을 **한 벌로** 돈다. ①이 먼저, ②가 나중.
 ⭐ **끄기에는 manual 보호가 없다**(검토에서 바뀐 것) — 불가능한 기본(줄이 비활성 · 공급처가 비활성)을 끄는 것은 사람의 선택을 덮는 게 아니라 **비우는** 것이다.
@@ -1260,7 +1263,7 @@ from cand
 where ps.id = cand.id and cand.rk = 1
   and (cand.n = 1 or (cand.last_supplied is not null and cand.tie = 1));
 ```
-⬜ 이 두 문장은 **재적재마다** 돌아야 한다 — ⑤ 에서 적재 스크립트에 붙이거나 cron 으로(§7 ⬜).
+~~⬜ 이 두 문장은 **재적재마다** 돌아야 한다 — ⑤ 에서 적재 스크립트에 붙이거나 cron 으로(§7 ⬜).~~ → ✅ [2026-10-24 · 판정 682] 위 함수 · 적재 둘의 Apply 끝 · supplier_update
 
 ### ④ 살 곳이 없는 27건 — 성격이 셋
 
@@ -1296,9 +1299,9 @@ where ps.id = cand.id and cand.rk = 1
 ```
 어디서 만드나    IMS 와 Cin7 양쪽(판정 131 — 양쪽에서 만들어 봐야 실물 검증이 된다) · 그 전에 적재 코드를 먼저 고친다(prod-5)
 같은 SKU         IMS 값이 이긴다 — 적재는 cin7_id 만 붙이고 다른 칸은 건드리지 않는다 · 두 값이 다른 칸은 차이 목록으로(이름 · 세트 계수 · 부모 · 바코드 · 가격 · 공급처 단가 등) — 그 목록이 판정 131 의 검증 결과다(판정 132)
-                 ⚠️ 지금 코드는 반대로 덮는다(§3-f 「한 규칙」 아래) · product_supplier 의 승격 규칙이 선례
+                 ~~⚠️ 지금 코드는 반대로 덮는다(§3-f 「한 규칙」 아래)~~ → [2026-10-24 · 판정 674 · ldfix-1b 4a373df · 1c b5aed52 · so-module §73] 지어짐 — 제품 · family · 손님 · 공급처 · 제품-공급처 모두 cin7_id 만 · 값이 다른 칸은 Dry 로그 · product_supplier 의 승격 규칙이 선례
 source 값        'manual' 그대로(판정 133 · 새 값 없음 · CHECK 일곱 무변)
-차이 목록 자리   ⬜ 누가 어디서 보고 닫나 — prod-5 에서 판정(so-module §31-e)
+차이 목록 자리   ⬜ 누가 어디서 보고 닫나 — prod-5 에서 판정(so-module §31-e) → [2026-10-24 · 판정 672 · 674 · so-module §73] 적재 Dry 로그(짝지은 목록 · 값이 다른 칸 · 손댄 행)를 사람이 보고 IMS 에서 다시 고친다 · 화면은 없다
 ```
 
 ### 범위 (판정 134 · 142 · 146)

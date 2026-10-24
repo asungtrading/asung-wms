@@ -6,7 +6,7 @@ description: >
   GAS 관련 작업에서 트리거됩니다.
   "Apps Script", "GAS", "스크립트 추가", ".gs", "트리거 설정", "BQ 적재 자동화",
   "Script Properties", "웹앱 배포", "SalesOrderData", "SystemMonitor", "이메일 알림",
-  "IMS 적재 스크립트", "ImsRefLoad", "ImsLoadCustomer", "이어 달리기", "Next run", "대량 비활성" 등의
+  "IMS 적재 스크립트", "ImsRefLoad", "ImsLoadCustomer", "ImsLoadSupplier", "하네스", "IPT_LAST_APPLY_AT", "이어 달리기", "Next run", "대량 비활성" 등의
   키워드가 나오면 이 스킬의 컨벤션(전역 상수 prefix, getProp 키 관리, diff-check 증분 적재,
   New Version 재배포 규칙, SystemMonitor 연동, IMS 적재 스크립트 규칙 셋)을 반드시 따르세요. 컨벤션을 깨면 스코프 충돌이나
   배포 누락으로 자동화가 조용히 멈춥니다. ⚠️같은 이름 함수가 둘이면 에러 없이 뒤의 것이 이긴다 — 파일은 통째로 바꾼다.
@@ -118,6 +118,13 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
 ⭐ 대량 비활성 안전장치 — 받은 행 수 ≠ API Total 이면 멈춤(수집이 짧게 끝난 것) · 한 번에 내리는(is_active=false) 줄 > max(20, 1%) 면 멈춤
    맞으면 허락 속성(예 ILC_ALLOW_BIG_DOWN=1)을 넣고 **한 번만** 통과 · 계기: 2026-09-22 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다
 ⭐ [2026-10-10 · so-module §57-c] ImsLoadProductTag.gs(접두 ipt · c61ba04) — 관계 표(product_tag) 맞추기: 원하는 집합 − cin7 줄 = 넣기 · cin7 줄 − 원하는 집합 = 지우기(행 삭제 · 먼저) · manual 무접촉 · **커서 없음**(매번 Cin7 을 새로 훑어 diff — 다시 돌리면 남은 것만 · Next run 도 같은 함수) · 큰 지우기 안전장치(> max(20, 1%) · IPT_ALLOW_BIG_DELETE=1 한 번만) · 지우기는 id 40 개씩(UrlFetch URL 2 KB)
+⭐ [2026-10-24 · ldfix · so-module §73 · 판정 671] **IMS 가 정한 값은 적재가 건드리지 않는다** — 적재 다섯 공통
+   · 짝짓기(674 · 681): cin7_id 없는 IMS 행(manual)과 이름(제품은 SKU)이 같으면 그 행에 cin7_id 만 PATCH(`id=eq.<id>&cin7_id=is.null` · 0 행이면 멈춤) · 이름 비교는 보이는 글자(`ils_vis_`)
+   · 손댄 행(672): `source='cin7' and updated_by is not null` 을 Dry 가 IMS ↔ Cin7 값으로 낸다(ims_touch 가 service_role 쓰기 땐 updated_by 를 비운다) · 보조 `*_LAST_APPLY_AT`(Apply 끝에 코드가 적는다 · ILC · ILS · IPR · IPT)
+   · 칸 표식이면 IMS 값을 **같은 키로 싣는다**(행마다 칸을 빼지 않는다 — 묶음의 빠진 키 · asung-wms 규칙 45): sellable_source · is_active_source · parent_source
+⭐ [2026-10-24] ImsLoadSupplier.gs(접두 **ils** · 판정 673) — imsLoadSupplier → Apply → Sub → SubApply → Verify · Apply 끝 rpc `product_supplier_default_recalc`(682 · 제품-공급처 Apply 끝도) · 허락 ILS_ALLOW_BIG_DOWN · ⛔ imsLoadPurchasableApply 는 dryRun 만 · ⚠️ 손님 적재가 이 파일의 `ils_vis_` 를 부른다 — 편집기에서 지우지 마라(deferred 322)
+⭐ [2026-10-24] ImsLoadProduct.gs Dry 는 전량을 훑는다(커서 IPR_DRY_PAGE · ⏸ 면 다시) · ImsLoadProductTag.gs 는 Dry · Apply 마다 Drive 보고 파일 셋(폴더 IPT_FOLDER_ID · 코드가 만든다 · 676) · IPT_LAST_APPLY_AT 가 없으면 코드 기본값 2026-10-10T18:52:00Z(「기본값 사용」 을 로그에) — 속성을 사람이 넣는 단계는 없다(50 개 초과 · 읽기 전용)
+⭐ [2026-10-24] **시험 하네스** `asung-wms/docs/probes/harness/` — 가짜 GAS + PostgREST 에뮬레이터(emu) · 로컬 Supabase 진짜 PostgREST(local · 테스트 DB 스키마 덤프 복원) · `run-<적재>.js [emu|local]` · 적재 코드를 고치면 다섯 적재 회귀를 돌린다 · ⚠️ `node --check` 는 `.gs` 를 거부 → `.js` 사본 · 시험 전 대상 파일 md5 · mtime 을 찍는다
    ⚠️ 틈: 넣기가 ipr_upsert_(merge-duplicates)라 적재 도중 직원이 같은 태그를 붙이면 manual 줄이 cin7 줄로 바뀔 수 있다 — 정기 재적재로 바꿀 때 ignore-duplicates 로(so-module 미룬 175)
 ⭐ Apps Script 는 같은 이름 함수가 둘이면 **에러 없이 뒤의 것이 이긴다** — 파일을 고칠 때는 통째로 바꾼다(덧붙이지 않는다) · 파일별 접두(cup · ilc · ilp · ptp …)로 겹침을 막는다
 ⭐ [2026-10-23 · so-module §72] ImsLoadHist.gs(접두 ilh · 판정 660) — IMS 이전 판매 · 발주 이력 → hist_so_load · hist_po_load(service_role) · 함수 ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(당월만 다시 = ilhRedoCurrentSales) · ilhReset
