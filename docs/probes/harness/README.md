@@ -10,5 +10,6 @@
 - `run-customer.js [emu|local] [main|dup|exists]` — Dry → Apply1 → Apply2 → Apply3 → Apply4 → Verify 를 돌리고 요청 · 결과를 단언
 - `local/` — `seed-customer.sql`(생성물) · `check-customer.sql`(로컬 DB 결과 단언) · `run-local.sh`
 
-실행: `node docs/probes/harness/run-customer.js emu main` · 로컬은 `docs/probes/harness/local/run-local.sh`
+실행: `node docs/probes/harness/run-customer.js emu main` · 로컬은 `docs/probes/harness/local/run-local.sh [main|dup|exists]`
+- 로컬 DB = 테스트 DB public 의 `pg_dump --schema-only` 복원 + `grant … to service_role`(ldfix-1a 보고 · `supabase db reset` 은 데이터 의존 마이그레이션에서 멈춘다) · `run-local.sh` 가 아직 없는 마이그레이션(`LDFIX_MIG` · 기본 ldfix-1a2)을 로컬에만 적용한다(가드 표식 `inv_config.db_role=test` 와 채우기 대상 행을 먼저 둔다) · seed 의 truncate cascade 가 로컬 거래 표를 비운다(로컬 전용)
 ⚠️ 하네스는 레포에서만 돈다 · Apps Script 에 올리지 않는다 · 테스트 DB(Asung-IMS)를 가리키지 않는다(로컬 54321 만)

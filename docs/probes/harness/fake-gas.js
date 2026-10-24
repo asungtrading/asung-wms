@@ -39,8 +39,8 @@ function makeFakeGas(opts) {
   function touch(table, row) {                  // ims_touch — service_role 이라 updated_by null
     row.updated_at = nowIso(); row.updated_by = null;
   }
-  function customerGuard(row, oldParent) {      // customer_parent_guard 규칙 4 · 판정 256
-    if (row.parent_id === null || row.parent_id === undefined) row.parent_source = null;
+  function customerGuard(row, oldParent) {      // customer_parent_guard 규칙 4 · 판정 678(ldfix-1a2 · 256 바뀜): 부모 없음 + 'cin7' 만 null · 'ims' 는 남긴다
+    if ((row.parent_id === null || row.parent_id === undefined) && row.parent_source === 'cin7') row.parent_source = null;
     if (oldParent && row.parent_id !== oldParent && row.default_bill_to_customer_id === oldParent) row.default_bill_to_customer_id = null;
   }
   function defaults(table, row) {

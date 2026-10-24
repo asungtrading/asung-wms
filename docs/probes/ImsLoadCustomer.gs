@@ -26,7 +26,7 @@
  *   ⟲  imsLoadCustomerReset     다시 모을 때만(Drive 폴더는 지우지 않는다)
  *
  * ⭐ [2026-10-24 · ldfix-1a · 판정 671 · 672 · 674 · 미룬 109 · so-module §45 · §72] IMS 가 정한 값은 적재가 건드리지 않는다
- *   109  2단계 — parent_source='ims' 인 자식(IMS 가 세운 부모)은 잇지 않는다(건너뛴 수 · 「Cin7 부모 ≠ IMS 부모」 목록을 로그에)
+ *   109  2단계 — parent_source='ims' 인 자식(IMS 가 정한 관계 — 세움 · ⭐ 뗌 = parent_id 없음 + ims · 판정 678 · ldfix-1a2)은 잇지 않는다(건너뛴 수 · 「Cin7 부모 ≠ IMS 부모」 목록을 로그에 — 뗀 것은 「IMS 부모 (없음)」 으로 찍힌다)
  *        잇기는 {parent_id, parent_source:'cin7'} 을 함께 PATCH(안 보내면 null 로 남아 비우기가 못 찾는다) · 비우기는 source=cin7 & parent_source=cin7 인 행만
  *        비우기 PATCH 는 트리거 규칙 4 로 청구처가 옛 부모면 청구처도 비운다(판정 256 · 그 수를 로그에)
  *   674  짝짓기 — cin7_id 없는 IMS 손님(source manual)과 이름이 「정확히」 같은 Cin7 손님 → upsert 전에 IMS 행에 cin7_id 만 PATCH(판정 132 · IMS 값이 이긴다)
@@ -178,7 +178,7 @@ function imsLoadCustomerApply2() {
     linked++;
   });
   out.push('부모 이은 손님 ' + linked + ' / Cin7 부모 있는 손님 ' + b.parents.length +
-           ' · 건너뜀 — IMS 가 세운 부모 ' + b.linkPlan.skipIms.length + '(미룬 109) · 짝지은 IMS 손님 ' + b.linkPlan.skipManual.length + '(판정 674)');
+           ' · 건너뜀 — IMS 가 정한 관계 ' + b.linkPlan.skipIms.length + '(세움 ' + (b.linkPlan.skipIms.length - b.linkPlan.detached) + ' · 뗌 ' + b.linkPlan.detached + ' · 미룬 109 · 판정 678) · 짝지은 IMS 손님 ' + b.linkPlan.skipManual.length + '(판정 674)');
   b.linkPlan.imsDiff.forEach(function (d) { out.push('   ⚠️ Cin7 부모 ≠ IMS 부모(IMS 가 이긴다 · 판정 671): ' + d); });
   if (missing.length) throw new Error('⚠️ 부모·자식 중 우리 표에 없는 쪽이 있다 — Apply1 을 먼저: ' + missing.join(' | '));
 
@@ -250,7 +250,7 @@ function imsLoadCustomerVerify() {
   b.customers.forEach(function (r) { inCin7[r.cin7_id] = true; });
   var goneKept = ilc_readAll_('/rest/v1/customer?select=cin7_id&source=eq.cin7').filter(function (r) { return r.cin7_id && !inCin7[r.cin7_id]; }).length;
   out.push('   (Cin7 에 없어 내려 둔 손님 ' + goneKept + ')');
-  out.push('   (IMS 가 세운 부모 ' + ilc_count_('/rest/v1/customer?select=id&parent_source=eq.ims') + ' — 대조하지 않는다 · 미룬 109)');
+  out.push('   (IMS 가 정한 관계 — 세운 부모 ' + ilc_count_('/rest/v1/customer?select=id&parent_source=eq.ims&parent_id=not.is.null') + ' · 뗀 것 ' + ilc_count_('/rest/v1/customer?select=id&parent_source=eq.ims&parent_id=is.null') + ' — 대조하지 않는다 · 미룬 109 · 판정 678)');
   out.push('   (짝지은 IMS 손님 ' + b.skipped.customers + ' · 적재하지 않은 그 Cin7 주소 ' + b.skipped.addresses + ' · 연락처 ' + b.skipped.contacts + ' — 판정 674)');
   var pairs = [
     ['customer 전체(source=cin7) = Cin7 + 내려 둔 손님', '/rest/v1/customer?select=id&source=eq.cin7', b.customers.length + goneKept],
@@ -474,12 +474,13 @@ function ilc_build_() {
   ilc_recount_(cnt, customers, addresses, contacts);
 
   // 109 — 2단계 계획: IMS 가 세운 부모(parent_source=ims)와 짝지은 IMS 손님은 잇지 않는다
-  var linkPlan = { link: [], skipIms: [], skipManual: [], imsDiff: [] };
+  var linkPlan = { link: [], skipIms: [], skipManual: [], imsDiff: [], detached: 0 };
   parents.forEach(function (p) {
     if (skipCin7[p.child_cin7_id]) { linkPlan.skipManual.push(p); return; }
     var child = db.byCin7[p.child_cin7_id];
     if (child && child.parent_source === 'ims') {
       linkPlan.skipIms.push(p);
+      if (!child.parent_id) linkPlan.detached++;                                   // 판정 678 — IMS 가 뗀 것(parent_id 없음 + ims) · 다시 잇지 않는다
       var imsParent = child.parent_id ? db.byId[child.parent_id] : null;
       if (!imsParent || imsParent.cin7_id !== p.parent_cin7_id) {
         linkPlan.imsDiff.push(p.child_name + ' : IMS 부모 「' + (imsParent ? imsParent.name : '(없음)') + '」 ≠ Cin7 부모 「' + (cin7NameById[p.parent_cin7_id] || p.parent_cin7_id) + '」');
@@ -494,7 +495,7 @@ function ilc_build_() {
 
   rep.splice(2, 0,
     '⭐ [ldfix-1a] 짝지은 IMS 손님(판정 674) 이번 ' + pairs.length + ' · 이미 짝지어진 ' + db.pairedCin7.length + ' → Cin7 행 건너뜀 ' + skipped.customers + ' · 주소 ' + skipped.addresses + ' · 연락처 ' + skipped.contacts,
-    '⭐ [ldfix-1a] 2단계(109) 이을 것 ' + linkPlan.link.length + ' · 건너뜀 IMS 부모 ' + linkPlan.skipIms.length + '(Cin7 부모와 다른 것 ' + linkPlan.imsDiff.length + ') · 짝지은 손님 ' + linkPlan.skipManual.length,
+    '⭐ [ldfix-1a] 2단계(109) 이을 것 ' + linkPlan.link.length + ' · 건너뜀 IMS 가 정한 관계 ' + linkPlan.skipIms.length + '(세움 ' + (linkPlan.skipIms.length - linkPlan.detached) + ' · 뗌 ' + linkPlan.detached + ' · Cin7 부모와 다른 것 ' + linkPlan.imsDiff.length + ') · 짝지은 손님 ' + linkPlan.skipManual.length,
     '⭐ [ldfix-1a] 손댄 행(672 · 적재가 덮는다) 손님 ' + touched.counts.customer + ' · 주소 ' + touched.counts.customer_address + ' · 연락처 ' + touched.counts.customer_contact + ' · 어긋남 ' + touched.counts.mismatch);
 
   rep.push('');
@@ -513,7 +514,7 @@ function ilc_build_() {
   rep.push('[ldfix-1a] 판정 674 — 짝지은 IMS 손님(cin7_id 만 붙인다 · 다른 칸은 IMS 값 그대로):');
   pairs.forEach(function (p) { rep.push('   ' + p.name + ' ← cin7_id ' + p.cin7_id + (p.diffs.length ? ' · 값이 다른 칸 ' + p.diffs.join(' / ') : ' · 다른 칸 없음')); });
   if (!pairs.length) rep.push('   0');
-  rep.push('[ldfix-1a] 미룬 109 — IMS 가 세운 부모라 잇지 않는 자식 ' + linkPlan.skipIms.length + ' · 그중 Cin7 부모와 다른 것:');
+  rep.push('[ldfix-1a] 미룬 109 · 판정 678 — IMS 가 정한 관계(세움 ' + (linkPlan.skipIms.length - linkPlan.detached) + ' · 뗌 ' + linkPlan.detached + ')라 잇지 않는 자식 ' + linkPlan.skipIms.length + ' · 그중 Cin7 부모와 다른 것(뗀 것은 「IMS 부모 (없음)」):');
   linkPlan.imsDiff.forEach(function (d) { rep.push('   ' + d); });
   if (!linkPlan.imsDiff.length) rep.push('   0');
   rep.push('[ldfix-1a] 판정 672 — 지난 적재 뒤 IMS 에서 손댄 행(적재 시각 ' + (props.getProperty('ILC_LAST_APPLY_AT') || '(속성 없음 · 첫 실행)') + '):');

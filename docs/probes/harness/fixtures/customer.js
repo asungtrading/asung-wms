@@ -45,6 +45,7 @@ function build(scenario) {
       Contacts: [{ ID: C(207), Name: 'Shop Contact', Default: true, IncludeInEmail: false, MarketingConsent: 0 }] }),
     cin7Customer(8, 'Paired Before', { Addresses: [{ ID: C(110), Type: 'Shipping', DefaultForType: true, Line1: 'PB', City: 'T', State: 'ON', Postcode: 'P', Country: 'Canada' }] }),   // 지난 회차에 짝지은 손님
     cin7Customer(9, 'Touched Co'),                     // 우리 표: 직원이 이름을 고침(updated_by) → 672 목록 · 덮임
+    cin7Customer(19, 'Kid Detached', { CustomerParentID: C(3) }),   // Cin7 부모 Par A · 우리 표: IMS 에서 뗌(parent null · parent_source ims · 판정 678) → 다시 잇지 않는다
     cin7Customer(18, 'Stale ByNull')                   // 우리 표: updated_by null 인데 updated_at 이 적재 시각 뒤 → 어긋남 알림
   ];
   const db = {
@@ -57,6 +58,7 @@ function build(scenario) {
       dbCustomer(51, 'TEST IMS Shopify', { cin7_id: null, source: 'manual', currency_id: null, currency_code: null, payment_term_id: null, payment_term_name: null, tax_rule: null, price_tier: 'Retail', default_location_id: null, default_location_name: null, ar_account_id: null, ar_account_code: null, sale_account_id: null, sale_account_code: null, updated_by: STAFF, updated_at: T_NEW }),
       dbCustomer(52, 'Paired Before', { cin7_id: C(8), source: 'manual', updated_by: STAFF, updated_at: T_NEW }),
       dbCustomer(9, 'Touched Co', { name: 'Touched Co (IMS edit)', updated_by: STAFF, updated_at: T_NEW }),
+      dbCustomer(19, 'Kid Detached', { parent_id: null, parent_source: 'ims', updated_by: STAFF, updated_at: T_NEW }),
       dbCustomer(10, 'Touched Gone', { updated_by: STAFF, updated_at: T_NEW }),          // Cin7 에 없음 · 활성 → 내린다 · 672 「덮이지 않음」
       dbCustomer(17, 'Gone Active'),                                                       // Cin7 에 없음 · 활성 → 내린다
       dbCustomer(18, 'Stale ByNull', { updated_at: '2026-10-21T00:00:00.000+00:00' })

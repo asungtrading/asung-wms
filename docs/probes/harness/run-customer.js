@@ -44,8 +44,9 @@ const dry = report('dry');
 console.log(dry);
 ok(fake.requests.every(r => r.method === 'get'), 'Dry 는 쓰기 0');
 ok(/짝지은 IMS 손님\(판정 674\) 이번 1 · 이미 짝지어진 1 → Cin7 행 건너뜀 2 · 주소 3 · 연락처 1/.test(dry), '머리: 짝짓기 1 · 이미 1 · 건너뜀 2/3/1');
-ok(/2단계\(109\) 이을 것 1 · 건너뜀 IMS 부모 6\(Cin7 부모와 다른 것 1\) · 짝지은 손님 1/.test(dry), '머리: 2단계 1 · IMS 부모 6(다른 것 1) · 짝지은 1');
-ok(/손댄 행\(672 · 적재가 덮는다\) 손님 8 · 주소 1 · 연락처 0 · 어긋남 7/.test(dry), '머리: 손댄 행 8/1/0 · 어긋남 7(Clore 6 시각 앞 + Stale ByNull 1)');
+ok(/2단계\(109\) 이을 것 1 · 건너뜀 IMS 가 정한 관계 7\(세움 6 · 뗌 1 · Cin7 부모와 다른 것 2\) · 짝지은 손님 1/.test(dry), '머리: 2단계 1 · IMS 관계 7(세움 6 · 뗌 1 · 다른 것 2) · 짝지은 1');
+ok(/손댄 행\(672 · 적재가 덮는다\) 손님 9 · 주소 1 · 연락처 0 · 어긋남 7/.test(dry), '머리: 손댄 행 9/1/0 · 어긋남 7(Clore 6 시각 앞 + Stale ByNull 1)');
+ok(/Kid Detached : IMS 부모 「\(없음\)」 ≠ Cin7 부모 「Par A」/.test(dry), '109 · 678 목록: Kid Detached(뗌) ≠ Cin7 부모 Par A');
 ok(/TEST IMS Shopify ← cin7_id c0000000-0000-4000-8000-000000000007 · 값이 다른 칸 .*price_tier: IMS="Retail" Cin7="Wholesale"/.test(dry), '674 목록: 짝 + 다른 칸(price_tier)');
 ok(/Clore Inc\. \(OTT\) : IMS 부모 「Other Parent」 ≠ Cin7 부모 「Clore Inc\.」/.test(dry), '109 목록: OTT 의 IMS 부모 ≠ Cin7 부모');
 ok(/customer Touched Co \(IMS edit\) .* — 덮임: name: IMS="Touched Co \(IMS edit\)" Cin7="Touched Co"/.test(dry), '672: Touched Co 이름 덮임');
@@ -53,7 +54,7 @@ ok(/customer Touched Gone .* — 덮이지 않음\(이번 Cin7 에 없음\)/.tes
 ok(/customer Clore Inc\. \(BLW\) .* — 덮여도 값 그대로/.test(dry), '672: Clore BLW 덮여도 값 그대로');
 ok(/customer_address Line 3 IMS .* — 덮임: line1: IMS="Line 3 IMS" Cin7="Line 3 CIN7"/.test(dry), '672: 주소 line1 덮임');
 ok(/⚠️ customer — 적재 시각 뒤에 바뀌었는데 updated_by 가 없는 행 1/.test(dry), '672 보조: Stale ByNull 어긋남');
-ok(/보낼 행 — 손님 14\(활성 14\) · 주소 2 · 연락처 1 · 부모 잇기 1 \/ Cin7 부모 있는 손님 8/.test(dry), '보낼 행 14 · 주소 2 · 연락처 1 · 잇기 1/8');
+ok(/보낼 행 — 손님 15\(활성 15\) · 주소 2 · 연락처 1 · 부모 잇기 1 \/ Cin7 부모 있는 손님 9/.test(dry), '보낼 행 15 · 주소 2 · 연락처 1 · 잇기 1/9');
 
 section('Apply1');
 let m = mark(); imsLoadCustomerApply1(); const a1 = since(m);
@@ -62,7 +63,7 @@ const pair = a1.filter(r => r.method === 'patch' && r.path === '/rest/v1/custome
 ok(pair.length === 1 && JSON.stringify(pair[0].body) === JSON.stringify({ cin7_id: C(7) }), '674 PATCH: id=eq.U51&cin7_id=is.null {cin7_id: C7} 만');
 const up = a1.filter(r => r.method === 'post' && r.path === '/rest/v1/customer?on_conflict=cin7_id');
 const upRows = up.reduce((a, r) => a.concat(r.body), []);
-ok(up.length === 1 && upRows.length === 14, 'upsert 한 요청 · 14 행 (실제 ' + up.length + ' · ' + upRows.length + ')');
+ok(up.length === 1 && upRows.length === 15, 'upsert 한 요청 · 15 행 (실제 ' + up.length + ' · ' + upRows.length + ')');
 ok(!upRows.some(r => r.cin7_id === C(7) || r.cin7_id === C(8)), 'upsert 에 짝지은 손님(C7 · C8) 없음');
 ok(upRows.every(r => !('parent_id' in r) && !('parent_source' in r) && !('id' in r) && !('note' in r) && !('default_bill_to_customer_id' in r)), 'upsert 가 parent_id · parent_source · id · note · bill_to 를 보내지 않는다');
 ok(pair.length && up.length && a1.indexOf(pair[0]) < a1.indexOf(up[0]), '674 PATCH 가 upsert 보다 앞');
@@ -84,7 +85,8 @@ ok(link.length === 1 && link[0].path === '/rest/v1/customer?id=eq.' + U(4) && JS
 const clear = a2.filter(r => r.method === 'patch' && /customer\?cin7_id=in\./.test(r.path));
 ok(clear.length === 1 && clear[0].path === '/rest/v1/customer?cin7_id=in.(' + C(5) + ')' && JSON.stringify(clear[0].body) === '{"parent_id":null}', '비우기 PATCH: Kid Gone 하나 {parent_id:null}');
 ok(a2.some(r => r.method === 'get' && /source=eq\.cin7&parent_source=eq\.cin7&parent_id=not\.is\.null/.test(r.path)), '비우기 후보 읽기가 parent_source=eq.cin7 로 좁힌다');
-ok(/건너뜀 — IMS 가 세운 부모 6\(미룬 109\) · 짝지은 IMS 손님 1\(판정 674\)/.test(report('apply2')), 'apply2 로그: 건너뜀 6 · 1');
+ok(/건너뜀 — IMS 가 정한 관계 7\(세움 6 · 뗌 1 · 미룬 109 · 판정 678\) · 짝지은 IMS 손님 1\(판정 674\)/.test(report('apply2')), 'apply2 로그: 건너뜀 7(세움 6 · 뗌 1) · 1');
+ok(link.length === 1 && !link.some(r => r.path === '/rest/v1/customer?id=eq.' + U(19)), '잇기 PATCH 에 Kid Detached(뗌) 없음');
 ok(/청구처가 옛 부모라 함께 비워진 손님 1/.test(report('apply2')), 'apply2 로그: 청구처 함께 비움 1');
 if (mode === 'emu') {
   const kg = dbRow('customer', U(5)), ki = dbRow('customer', U(6)), ott = dbRow('customer', U(16));
@@ -92,6 +94,7 @@ if (mode === 'emu') {
   ok(ki.parent_id === U(2) && ki.parent_source === 'ims', 'emu: Kid ImsOnly 그대로');
   ok(ott.parent_id === U(2) && ott.parent_source === 'ims', 'emu: Clore (OTT) IMS 부모 그대로(IMS 가 이긴다)');
   ok(dbRow('customer', U(4)).parent_id === U(3) && dbRow('customer', U(4)).parent_source === 'cin7', 'emu: Kid A 이어짐 · cin7');
+  ok(dbRow('customer', U(19)).parent_id === null && dbRow('customer', U(19)).parent_source === 'ims', 'emu: Kid Detached 그대로(null · ims · 판정 678)');
 }
 
 section('Apply3 · Apply4');
@@ -119,7 +122,7 @@ m = mark(); imsLoadCustomerVerify();
 const v = report('verify'); console.log(v);
 ok(/⭐ 전부 일치/.test(v), 'Verify 전부 일치');
 ok(/customer 부모 있음\(parent_source=cin7\) : DB 1 · Cin7 기준 1/.test(v), 'Verify 부모 cin7 1');
-ok(/\(IMS 가 세운 부모 7 — 대조하지 않는다/.test(v), 'Verify IMS 부모 7 따로(Clore 6 + Kid ImsOnly)');
+ok(/\(IMS 가 정한 관계 — 세운 부모 7 · 뗀 것 1 — 대조하지 않는다/.test(v), 'Verify IMS 관계 세움 7(Clore 6 + Kid ImsOnly) · 뗌 1(Kid Detached) 따로');
 
 function finish() {
   console.log('\n── 요청 ' + fake.requests.length + ' 건 (method path [body 행 수]) ──');
