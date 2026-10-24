@@ -8,7 +8,7 @@
  * ⚠️ 이 파일의 이름은 전부 ilc 로 시작한다
  *
  * 필요한 Script Properties: CIN7_ACCOUNT_ID · CIN7_APPLICATION_KEY · SUPABASE_IMS_URL · SUPABASE_IMS_SERVICE_KEY
- * 쓰는 Script Properties: ILC_FOLDER_ID · ILC_NEXT_PAGE · ILC_DONE · ILC_TOTAL · (허락용) ILC_ALLOW_BIG_DOWN
+ * 쓰는 Script Properties: ILC_FOLDER_ID · ILC_NEXT_PAGE · ILC_DONE · ILC_TOTAL · (허락용) ILC_ALLOW_BIG_DOWN · ILC_LAST_APPLY_AT(Apply1 · 3 · 4 끝에 적는 적재 시각 · 672 보조)
  *
  * 안전장치 둘(2026-09-22 가짜 데이터 시험에서 수집이 짧게 끝나자 받지 못한 151명을 내렸다)
  *   1  받은 행 수 ≠ API Total → 멈춘다(다시 모은다)
@@ -24,6 +24,18 @@
  *   5  imsLoadCustomerApply4    연락처 — 같은 순서
  *   6  imsLoadCustomerVerify    다시 읽어 센다 — HTTP 200 만 믿지 않는다
  *   ⟲  imsLoadCustomerReset     다시 모을 때만(Drive 폴더는 지우지 않는다)
+ *
+ * ⭐ [2026-10-24 · ldfix-1a · 판정 671 · 672 · 674 · 미룬 109 · so-module §45 · §72] IMS 가 정한 값은 적재가 건드리지 않는다
+ *   109  2단계 — parent_source='ims' 인 자식(IMS 가 세운 부모)은 잇지 않는다(건너뛴 수 · 「Cin7 부모 ≠ IMS 부모」 목록을 로그에)
+ *        잇기는 {parent_id, parent_source:'cin7'} 을 함께 PATCH(안 보내면 null 로 남아 비우기가 못 찾는다) · 비우기는 source=cin7 & parent_source=cin7 인 행만
+ *        비우기 PATCH 는 트리거 규칙 4 로 청구처가 옛 부모면 청구처도 비운다(판정 256 · 그 수를 로그에)
+ *   674  짝짓기 — cin7_id 없는 IMS 손님(source manual)과 이름이 「정확히」 같은 Cin7 손님 → upsert 전에 IMS 행에 cin7_id 만 PATCH(판정 132 · IMS 값이 이긴다)
+ *        그 Cin7 행은 upsert 묶음에서 뺀다 · 같은 이름이 둘 이상(Cin7 쪽 · IMS 쪽)이거나 그 cin7_id 가 이미 cin7 행으로 있으면 멈춤(사람이 가른다)
+ *        ⚠️ 짝지은 손님(source manual · cin7_id 있음)의 Cin7 주소 · 연락처는 매 회차 적재하지 않는다 — IMS 기본 주소와 customer_address_default_uq 가 23505 로 부딪친다(건너뛴 수를 로그에)
+ *   672  손댄 행 — source=cin7 이면서 updated_by 가 비어 있지 않은 행 = 지난 적재 뒤 직원이 창구로 고친 행(적재가 쓰면 ims_touch 가 updated_by 를 null 로 되돌린다)
+ *        Dry 보고가 「IMS 값 ↔ Cin7 값」 차이를 낸다 → 사람이 보고 적재 뒤 필요한 것만 다시 고친다 · Cin7 값이 덮는다(판정 672)
+ *        보조 기준 ILC_LAST_APPLY_AT(Apply1 · 3 · 4 끝) — updated_at 과 어긋나면(손댄 행인데 시각이 앞 · 시각은 뒤인데 updated_by 없음) 보고에 ⚠️
+ *        한계: 검토 찍기(customer_review)도 updated_by 를 남긴다(값은 그대로인 행이 섞인다) · Cin7 에 없어 내려 둔 행은 덮이지 않으므로 「덮이지 않음」 으로 따로
  *
  * 멈춤 조건(추정해 넣지 않는다 — 로그에 무엇이 나왔는지 적고 throw)
  *   · Status 가 Active · Deprecated 밖
@@ -118,8 +130,16 @@ function imsLoadCustomerDry() {
 
 function imsLoadCustomerApply1() {
   var t0 = Date.now();
+  var props = PropertiesService.getScriptProperties();
   var b = ilc_build_();
   var out = ['=== Apply1 손님 ' + new Date().toISOString() + ' ==='];
+
+  // [ldfix-1a · 판정 674] 짝지은 IMS 손님에 cin7_id 만 PATCH — upsert 전에 · 그 Cin7 행은 b.customers 에서 이미 빠져 있다
+  var paired = ilc_pairPatch_(b.pairs);
+  out.push('짝지은 IMS 손님(cin7_id 만 붙임 · 판정 674) ' + paired + ' / ' + b.pairs.length +
+           (b.pairs.length ? ' : ' + b.pairs.map(function (p) { return p.name; }).join(' | ') : ''));
+  out.push('이미 짝지어진 손님(그 Cin7 행은 upsert 에서 뺌) ' + (b.skipped.customers - b.pairs.length));
+
   var n = ilc_upsert_('customer', b.customers, 500, null, t0);
   out.push('upsert 돌아온 행 ' + n + ' / 보낸 ' + b.customers.length);
 
@@ -130,40 +150,44 @@ function imsLoadCustomerApply1() {
   var gone = db.filter(function (r) { return r.cin7_id && !inCin7[r.cin7_id] && r.is_active; });
   var down = ilc_patchIn_('customer', 'cin7_id', gone.map(function (r) { return r.cin7_id; }), { is_active: false }, b.customers.length);
   out.push('Cin7 에 없어 내린 손님 ' + down + (gone.length ? ' : ' + gone.slice(0, 20).map(function (r) { return r.cin7_id; }).join(', ') : ''));
+  ilc_markApply_(props);
   out.push('다음은 imsLoadCustomerApply2(부모)');
   ilc_writeReport_('apply1', out);
 }
 
 
 /* ═══════════════════════════════════════════════════════════
-   3  부모 잇기 · 비우기 (판정 ⑫ 2단계)
+   3  부모 잇기 · 비우기 (판정 ⑫ 2단계 · [ldfix-1a] 미룬 109 — IMS 가 세운 부모는 건드리지 않는다)
    ═══════════════════════════════════════════════════════════ */
 
 function imsLoadCustomerApply2() {
   var b = ilc_build_();
-  var map = ilc_customerMap_(b.customers.length);
+  var cm = ilc_customerMap_(b.customers.length), map = cm.map;
   var out = ['=== Apply2 부모 ' + new Date().toISOString() + ' ==='];
   var linked = 0, missing = [], childIds = {};
-  b.parents.forEach(function (p) {
+  b.linkPlan.link.forEach(function (p) {
     var childId = map[p.child_cin7_id], parentId = map[p.parent_cin7_id];
     if (!childId || !parentId) { missing.push(p.child_name + ' → ' + p.parent_cin7_id); return; }
     childIds[p.child_cin7_id] = true;
     var res = ims_fetch_('/rest/v1/customer?id=eq.' + childId, {
       method: 'patch', headers: { 'Prefer': 'return=representation' },
-      payload: JSON.stringify({ parent_id: parentId })
+      payload: JSON.stringify({ parent_id: parentId, parent_source: 'cin7' })   // 판정 253 — 적재가 세운 부모는 cin7 · 안 보내면 null 로 남아 비우기가 못 찾는다
     });
     if (res.getResponseCode() >= 300) throw new Error('부모 잇기 실패 ' + p.child_name + ' → HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 300));
     if (JSON.parse(res.getContentText()).length !== 1) throw new Error('부모 잇기 — 돌아온 행이 1 이 아니다: ' + p.child_name);
     linked++;
   });
-  out.push('부모 이은 손님 ' + linked + ' / Cin7 부모 있는 손님 ' + b.parents.length);
+  out.push('부모 이은 손님 ' + linked + ' / Cin7 부모 있는 손님 ' + b.parents.length +
+           ' · 건너뜀 — IMS 가 세운 부모 ' + b.linkPlan.skipIms.length + '(미룬 109) · 짝지은 IMS 손님 ' + b.linkPlan.skipManual.length + '(판정 674)');
+  b.linkPlan.imsDiff.forEach(function (d) { out.push('   ⚠️ Cin7 부모 ≠ IMS 부모(IMS 가 이긴다 · 판정 671): ' + d); });
   if (missing.length) throw new Error('⚠️ 부모·자식 중 우리 표에 없는 쪽이 있다 — Apply1 을 먼저: ' + missing.join(' | '));
 
-  // Cin7 에서 부모가 없어진 손님 → parent_id 비우기
-  var withParent = ilc_readAll_('/rest/v1/customer?select=id,cin7_id&source=eq.cin7&parent_id=not.is.null');
+  // Cin7 에서 부모가 없어진 손님 → parent_id 비우기 — ⚠️ 적재가 세운 관계(parent_source=cin7)만 · IMS 가 세운 것은 보지 않는다(미룬 109)
+  var withParent = ilc_readAll_('/rest/v1/customer?select=id,cin7_id,parent_id,default_bill_to_customer_id&source=eq.cin7&parent_source=eq.cin7&parent_id=not.is.null');
   var clear = withParent.filter(function (r) { return !childIds[r.cin7_id]; });
+  var billToo = clear.filter(function (r) { return r.default_bill_to_customer_id && r.default_bill_to_customer_id === r.parent_id; }).length;
   var cleared = ilc_patchIn_('customer', 'cin7_id', clear.map(function (r) { return r.cin7_id; }), { parent_id: null });
-  out.push('부모를 비운 손님 ' + cleared);
+  out.push('부모를 비운 손님 ' + cleared + ' (parent_source 는 트리거가 함께 비운다 · 판정 256) · 그중 청구처가 옛 부모라 함께 비워진 손님 ' + billToo + '(트리거 규칙 4)');
   out.push('다음은 imsLoadCustomerApply3(주소)');
   ilc_writeReport_('apply2', out);
 }
@@ -178,11 +202,13 @@ function imsLoadCustomerApply4() { ilc_applyChild_('customer_contact', 'contacts
 
 function ilc_applyChild_(table, key, downBody) {
   var t0 = Date.now();
+  var props = PropertiesService.getScriptProperties();
   var b = ilc_build_();
-  var map = ilc_customerMap_(b.customers.length);
+  var cm = ilc_customerMap_(b.customers.length), map = cm.map;
   var out = ['=== ' + table + ' ' + new Date().toISOString() + ' ==='];
+  out.push('짝지은 IMS 손님의 Cin7 ' + key + ' 건너뜀 ' + b.skipped[key] + '(판정 674 · 132 — IMS 값이 이긴다)');
 
-  // customer_id — Cin7 손님 ID → 우리 customer.id
+  // customer_id — Cin7 손님 ID → 우리 customer.id (짝지은 IMS 손님의 줄은 b[key] 에서 이미 빠져 있다)
   var rows = [], noCust = 0;
   b[key].forEach(function (r) {
     var cid = map[r._customer_cin7_id];
@@ -205,6 +231,7 @@ function ilc_applyChild_(table, key, downBody) {
   // ② upsert — ⚠️ 한 손님의 줄은 한 요청 안에(판정 ⑪ · deferrable 은 문장 하나 안에서만 교대를 구한다)
   var n = ilc_upsert_(table, rows, 500, 'customer_id', t0);
   out.push('② upsert 돌아온 행 ' + n + ' / 보낸 ' + rows.length);
+  ilc_markApply_(props);
   out.push(table === 'customer_address' ? '다음은 imsLoadCustomerApply4(연락처)' : '다음은 imsLoadCustomerVerify');
   ilc_writeReport_(table, out);
 }
@@ -218,21 +245,24 @@ function imsLoadCustomerVerify() {
   var b = ilc_build_();
   var out = ['=== 검증 ' + new Date().toISOString() + ' ==='];
   // 재적재 뒤에는 Cin7 에서 사라진 손님이 내려 둔 채 남는다 — 전체 수는 「Cin7 수 + 내려 둔 수」와 대조한다
+  // [ldfix-1a] b.customers · b.addresses · b.contacts 는 짝지은 IMS 손님 몫이 빠진 수다 — 그 몫은 cin7 행이 되지 않는다
   var inCin7 = {};
   b.customers.forEach(function (r) { inCin7[r.cin7_id] = true; });
   var goneKept = ilc_readAll_('/rest/v1/customer?select=cin7_id&source=eq.cin7').filter(function (r) { return r.cin7_id && !inCin7[r.cin7_id]; }).length;
   out.push('   (Cin7 에 없어 내려 둔 손님 ' + goneKept + ')');
+  out.push('   (IMS 가 세운 부모 ' + ilc_count_('/rest/v1/customer?select=id&parent_source=eq.ims') + ' — 대조하지 않는다 · 미룬 109)');
+  out.push('   (짝지은 IMS 손님 ' + b.skipped.customers + ' · 적재하지 않은 그 Cin7 주소 ' + b.skipped.addresses + ' · 연락처 ' + b.skipped.contacts + ' — 판정 674)');
   var pairs = [
     ['customer 전체(source=cin7) = Cin7 + 내려 둔 손님', '/rest/v1/customer?select=id&source=eq.cin7', b.customers.length + goneKept],
     ['customer 활성', '/rest/v1/customer?select=id&source=eq.cin7&is_active=eq.true', b.counts.customerActive],
-    ['customer 부모 있음', '/rest/v1/customer?select=id&parent_id=not.is.null', b.parents.length],
+    ['customer 부모 있음(parent_source=cin7)', '/rest/v1/customer?select=id&parent_source=eq.cin7', b.linkPlan.link.length],
     ['customer_address 활성(cin7)', '/rest/v1/customer_address?select=id&source=eq.cin7&is_active=eq.true', b.addresses.length],
-    ['customer_address 기본', '/rest/v1/customer_address?select=id&is_active=eq.true&is_default_for_type=eq.true', b.counts.addressDefault],
+    ['customer_address 기본(cin7)', '/rest/v1/customer_address?select=id&source=eq.cin7&is_active=eq.true&is_default_for_type=eq.true', b.counts.addressDefault],
     ['customer_contact 활성(cin7)', '/rest/v1/customer_contact?select=id&source=eq.cin7&is_active=eq.true', b.contacts.length],
-    ['customer_contact 기본', '/rest/v1/customer_contact?select=id&is_active=eq.true&is_default=eq.true', b.counts.contactDefault],
-    ['contact 동의 true', '/rest/v1/customer_contact?select=id&is_active=eq.true&marketing_consent=eq.true', b.counts.consentTrue],
-    ['contact 동의 false', '/rest/v1/customer_contact?select=id&is_active=eq.true&marketing_consent=eq.false', b.counts.consentFalse],
-    ['contact 동의 null', '/rest/v1/customer_contact?select=id&is_active=eq.true&marketing_consent=is.null', b.counts.consentNull],
+    ['customer_contact 기본(cin7)', '/rest/v1/customer_contact?select=id&source=eq.cin7&is_active=eq.true&is_default=eq.true', b.counts.contactDefault],
+    ['contact 동의 true(cin7)', '/rest/v1/customer_contact?select=id&source=eq.cin7&is_active=eq.true&marketing_consent=eq.true', b.counts.consentTrue],
+    ['contact 동의 false(cin7)', '/rest/v1/customer_contact?select=id&source=eq.cin7&is_active=eq.true&marketing_consent=eq.false', b.counts.consentFalse],
+    ['contact 동의 null(cin7)', '/rest/v1/customer_contact?select=id&source=eq.cin7&is_active=eq.true&marketing_consent=is.null', b.counts.consentNull],
     ['customer currency FK 빈 곳', '/rest/v1/customer?select=id&source=eq.cin7&currency_id=is.null&currency_code=not.is.null', b.counts.missCurrency],
     ['customer location FK 빈 곳', '/rest/v1/customer?select=id&source=eq.cin7&default_location_id=is.null&default_location_name=not.is.null', b.counts.missLocation]
   ];
@@ -246,7 +276,6 @@ function imsLoadCustomerVerify() {
   out.push(bad ? '⚠️ 어긋남 ' + bad + '곳 — 붙여 달라' : '⭐ 전부 일치');
   ilc_writeReport_('verify', out);
 }
-
 
 /* ═══════════════════════════════════════════════════════════
    행 만들기 — 모든 단계가 같은 결과를 쓴다
@@ -416,8 +445,60 @@ function ilc_build_() {
   // 부모 ID 가 이번 전량에 없으면 잇지 못한다 — 멈춘다(실측 0)
   parents.forEach(function (p) { if (!seen.c[p.parent_cin7_id]) stop.push('부모가 전량에 없다: ' + p.child_name + ' → ' + p.parent_cin7_id); });
 
+  // ── [ldfix-1a] 우리 표를 읽어 109 · 672 · 674 를 판정한다 — Dry · Apply · Verify 가 같은 판정을 쓴다 ──
+  var db = ilc_dbCustomers_();
+  var cin7NameById = {};
+  raw.forEach(function (c) { cin7NameById[c.ID] = c.Name; });
+
+  // 674 짝짓기 — cin7_id 없는 IMS 손님과 이름이 「정확히」 같은 Cin7 손님 · 같은 이름이 둘 이상이면 멈춤 · 그 cin7_id 가 이미 cin7 행이면 멈춤
+  var cin7ByName = {}, cin7NameDup = {};
+  customers.forEach(function (r) { if (cin7ByName[r.name]) cin7NameDup[r.name] = true; cin7ByName[r.name] = r; });
+  var imsNameDup = {}, imsNameSeen = {};
+  db.manual.forEach(function (m) { if (imsNameSeen[m.name]) imsNameDup[m.name] = true; imsNameSeen[m.name] = true; });
+  var pairs = [];
+  db.manual.forEach(function (m) {
+    var c = cin7ByName[m.name];
+    if (!c) return;
+    if (cin7NameDup[m.name] || imsNameDup[m.name]) { stop.push('같은 이름이 둘 이상이라 짝짓지 못한다(판정 674 · 사람이 가른다): ' + m.name); return; }
+    if (db.byCin7[c.cin7_id]) { stop.push('IMS 손님과 이름이 같은 Cin7 손님이 이미 cin7 행으로 있다(판정 674 · 사람이 가른다): ' + m.name + ' / cin7_id ' + c.cin7_id); return; }
+    pairs.push({ ims_id: m.id, cin7_id: c.cin7_id, name: m.name, diffs: ilc_diff_(m, c, ['cin7_id', 'source']) });
+  });
+  // 짝지은 손님(이번 + 지난 회차) 의 Cin7 행 · 주소 · 연락처는 적재하지 않는다(IMS 값이 이긴다 · 기본 주소 23505)
+  var skipCin7 = {};
+  db.pairedCin7.forEach(function (r) { skipCin7[r.cin7_id] = r.name; });
+  pairs.forEach(function (p) { skipCin7[p.cin7_id] = p.name; });
+  var skipped = { customers: 0, addresses: 0, contacts: 0 };
+  customers = customers.filter(function (r) { if (skipCin7[r.cin7_id]) { skipped.customers++; return false; } return true; });
+  addresses = addresses.filter(function (r) { if (skipCin7[r._customer_cin7_id]) { skipped.addresses++; return false; } return true; });
+  contacts  = contacts.filter(function (r) { if (skipCin7[r._customer_cin7_id]) { skipped.contacts++; return false; } return true; });
+  ilc_recount_(cnt, customers, addresses, contacts);
+
+  // 109 — 2단계 계획: IMS 가 세운 부모(parent_source=ims)와 짝지은 IMS 손님은 잇지 않는다
+  var linkPlan = { link: [], skipIms: [], skipManual: [], imsDiff: [] };
+  parents.forEach(function (p) {
+    if (skipCin7[p.child_cin7_id]) { linkPlan.skipManual.push(p); return; }
+    var child = db.byCin7[p.child_cin7_id];
+    if (child && child.parent_source === 'ims') {
+      linkPlan.skipIms.push(p);
+      var imsParent = child.parent_id ? db.byId[child.parent_id] : null;
+      if (!imsParent || imsParent.cin7_id !== p.parent_cin7_id) {
+        linkPlan.imsDiff.push(p.child_name + ' : IMS 부모 「' + (imsParent ? imsParent.name : '(없음)') + '」 ≠ Cin7 부모 「' + (cin7NameById[p.parent_cin7_id] || p.parent_cin7_id) + '」');
+      }
+      return;
+    }
+    linkPlan.link.push(p);
+  });
+
+  // 672 — 지난 적재 뒤 IMS 에서 손댄 행 · 이번에 덮일 칸의 IMS 값 ↔ Cin7 값
+  var touched = ilc_touched_(customers, addresses, contacts, props.getProperty('ILC_LAST_APPLY_AT') || null);
+
+  rep.splice(2, 0,
+    '⭐ [ldfix-1a] 짝지은 IMS 손님(판정 674) 이번 ' + pairs.length + ' · 이미 짝지어진 ' + db.pairedCin7.length + ' → Cin7 행 건너뜀 ' + skipped.customers + ' · 주소 ' + skipped.addresses + ' · 연락처 ' + skipped.contacts,
+    '⭐ [ldfix-1a] 2단계(109) 이을 것 ' + linkPlan.link.length + ' · 건너뜀 IMS 부모 ' + linkPlan.skipIms.length + '(Cin7 부모와 다른 것 ' + linkPlan.imsDiff.length + ') · 짝지은 손님 ' + linkPlan.skipManual.length,
+    '⭐ [ldfix-1a] 손댄 행(672 · 적재가 덮는다) 손님 ' + touched.counts.customer + ' · 주소 ' + touched.counts.customer_address + ' · 연락처 ' + touched.counts.customer_contact + ' · 어긋남 ' + touched.counts.mismatch);
+
   rep.push('');
-  rep.push('보낼 행 — 손님 ' + customers.length + '(활성 ' + cnt.customerActive + ') · 주소 ' + addresses.length + ' · 연락처 ' + contacts.length + ' · 부모 잇기 ' + parents.length);
+  rep.push('보낼 행 — 손님 ' + customers.length + '(활성 ' + cnt.customerActive + ') · 주소 ' + addresses.length + ' · 연락처 ' + contacts.length + ' · 부모 잇기 ' + linkPlan.link.length + ' / Cin7 부모 있는 손님 ' + parents.length);
   rep.push('기본 주소 — 기본 ' + cnt.addressDefault + '줄 · 규칙으로 메운 것 ' + cnt.filled + ' · 사람이 정할 손님·type ' + humanPick.length);
   humanPick.slice(0, 30).forEach(function (s) { rep.push('   ' + s); });
   rep.push('연락처 — 기본 ' + cnt.contactDefault + ' · 동의 true ' + cnt.consentTrue + ' · false ' + cnt.consentFalse + ' · null ' + cnt.consentNull);
@@ -428,6 +509,17 @@ function ilc_build_() {
       rep.push('   ' + p[0] + ' ' + (ks2.length ? ks2.map(function (k) { return k + ' ' + p[1][k]; }).join(' · ') : '0'));
     });
 
+  rep.push('');
+  rep.push('[ldfix-1a] 판정 674 — 짝지은 IMS 손님(cin7_id 만 붙인다 · 다른 칸은 IMS 값 그대로):');
+  pairs.forEach(function (p) { rep.push('   ' + p.name + ' ← cin7_id ' + p.cin7_id + (p.diffs.length ? ' · 값이 다른 칸 ' + p.diffs.join(' / ') : ' · 다른 칸 없음')); });
+  if (!pairs.length) rep.push('   0');
+  rep.push('[ldfix-1a] 미룬 109 — IMS 가 세운 부모라 잇지 않는 자식 ' + linkPlan.skipIms.length + ' · 그중 Cin7 부모와 다른 것:');
+  linkPlan.imsDiff.forEach(function (d) { rep.push('   ' + d); });
+  if (!linkPlan.imsDiff.length) rep.push('   0');
+  rep.push('[ldfix-1a] 판정 672 — 지난 적재 뒤 IMS 에서 손댄 행(적재 시각 ' + (props.getProperty('ILC_LAST_APPLY_AT') || '(속성 없음 · 첫 실행)') + '):');
+  touched.lines.forEach(function (l) { rep.push('   ' + l); });
+  if (!touched.lines.length) rep.push('   0');
+
   if (stop.length) {
     rep.push('');
     rep.push('⛔ 멈춤 ' + stop.length + '건 — 아무것도 쓰지 않는다');
@@ -435,7 +527,8 @@ function ilc_build_() {
     ilc_writeReport_('stop', rep);
     throw new Error('멈춤 조건 ' + stop.length + '건 — 보고서를 보라');
   }
-  return { customers: customers, addresses: addresses, contacts: contacts, parents: parents, counts: cnt, report: rep };
+  return { customers: customers, addresses: addresses, contacts: contacts, parents: parents, counts: cnt, report: rep,
+           pairs: pairs, skipCin7: skipCin7, skipped: skipped, linkPlan: linkPlan, touched: touched };
 }
 
 
@@ -557,13 +650,97 @@ function ilc_mapBy_(path, keyField) {
   return m;
 }
 
-/** 우리 customer 의 cin7_id → id · 수가 Cin7 과 같은지 확인 */
+/** 우리 customer 의 cin7_id → id · cin7 행 수가 Cin7(짝지은 손님을 뺀 수)과 같은지 확인
+ *  [ldfix-1a] 짝지은 IMS 손님(source manual · cin7_id 있음)도 지도에 든다 — Cin7 이 그 손님을 다른 손님의 부모로 가리킬 수 있다 · 주소 · 연락처는 b[key] 에서 이미 빠져 있다 */
 function ilc_customerMap_(expected) {
-  var m = {};
-  ilc_readAll_('/rest/v1/customer?select=id,cin7_id&source=eq.cin7').forEach(function (r) { if (r.cin7_id) m[r.cin7_id] = r.id; });
-  var got = Object.keys(m).length;
-  if (got < expected) throw new Error('⚠️ 우리 표의 손님 ' + got + ' < Cin7 ' + expected + ' — Apply1 을 먼저');
-  return m;
+  var m = {}, paired = {}, got = 0;
+  ilc_readAll_('/rest/v1/customer?select=id,cin7_id,source&cin7_id=not.is.null').forEach(function (r) {
+    m[r.cin7_id] = r.id;
+    if (r.source === 'cin7') got++; else paired[r.cin7_id] = r.id;
+  });
+  if (got < expected) throw new Error('⚠️ 우리 표의 손님(cin7) ' + got + ' < Cin7 ' + expected + ' — Apply1 을 먼저');
+  return { map: m, paired: paired };
+}
+
+/* ── [ldfix-1a] 도우미 — 109 · 672 · 674 ── */
+
+/** 우리 손님 전부(id · cin7_id · source · name · parent_id · parent_source) — 짝짓기 · 2단계 계획이 쓴다 · manual 행은 전 칸(값 비교용) */
+function ilc_dbCustomers_() {
+  var rows = ilc_readAll_('/rest/v1/customer?select=id,cin7_id,source,name,parent_id,parent_source');
+  var byCin7 = {}, byId = {}, pairedCin7 = [];
+  rows.forEach(function (r) {
+    byId[r.id] = r;
+    if (r.cin7_id) { byCin7[r.cin7_id] = r; if (r.source !== 'cin7') pairedCin7.push(r); }
+  });
+  var manual = ilc_readAll_('/rest/v1/customer?select=*&source=eq.manual&cin7_id=is.null');
+  return { byCin7: byCin7, byId: byId, manual: manual, pairedCin7: pairedCin7 };
+}
+
+/** 두 행의 값이 다른 칸 — b(보내는 행)의 키 기준 · skip 키와 '_' 키는 뺀다 · 'col: IMS=«a» Cin7=«b»' */
+function ilc_diff_(a, b, skip) {
+  var out = [];
+  Object.keys(b).forEach(function (k) {
+    if (k.charAt(0) === '_' || skip.indexOf(k) >= 0) return;
+    var x = (a[k] === undefined) ? null : a[k], y = (b[k] === undefined) ? null : b[k];
+    if (JSON.stringify(x) !== JSON.stringify(y)) out.push(k + ': IMS=' + JSON.stringify(x) + ' Cin7=' + JSON.stringify(y));
+  });
+  return out;
+}
+
+/** 672 — source=cin7 이면서 updated_by 가 있는 행(지난 적재 뒤 직원이 고친 행) · 이번 Cin7 행과의 차이 · ILC_LAST_APPLY_AT 과의 어긋남 */
+function ilc_touched_(customers, addresses, contacts, lastApply) {
+  var lines = [], counts = { customer: 0, customer_address: 0, customer_contact: 0, mismatch: 0 };
+  var sets = [['customer', customers], ['customer_address', addresses], ['customer_contact', contacts]];
+  sets.forEach(function (s) {
+    var table = s[0], byCin7 = {};
+    s[1].forEach(function (r) { byCin7[r.cin7_id] = r; });
+    var rows = ilc_readAll_('/rest/v1/' + table + '?select=*&source=eq.cin7&updated_by=not.is.null');
+    counts[table] = rows.length;
+    rows.forEach(function (r) {
+      var label = table + ' ' + (r.name || r.line1 || r.cin7_id) + ' (updated_at ' + r.updated_at + ')';
+      if (lastApply && r.updated_at <= lastApply) { lines.push('⚠️ ' + label + ' — updated_by 는 있는데 updated_at 이 적재 시각보다 앞(어긋남)'); counts.mismatch++; }
+      var c = byCin7[r.cin7_id];
+      if (!c) { lines.push(label + ' — 덮이지 않음(이번 Cin7 에 없음)'); return; }
+      var d = ilc_diff_(r, c, ['cin7_id', 'source']);
+      lines.push(label + (d.length ? ' — 덮임: ' + d.join(' / ') : ' — 덮여도 값 그대로'));
+    });
+    if (lastApply) {
+      var late = ilc_count_('/rest/v1/' + table + '?select=id&source=eq.cin7&updated_by=is.null&updated_at=gt.' + encodeURIComponent(lastApply));
+      if (late) { lines.push('⚠️ ' + table + ' — 적재 시각 뒤에 바뀌었는데 updated_by 가 없는 행 ' + late + '(어긋남 · 창구 밖 쓰기?)'); counts.mismatch++; }
+    }
+  });
+  return { lines: lines, counts: counts };
+}
+
+/** 674 — 짝지은 IMS 손님에 cin7_id 만 PATCH · 아직 비어 있을 때만(그 사이 누가 붙였으면 0 행 → 멈춤) */
+function ilc_pairPatch_(pairs) {
+  var done = 0;
+  pairs.forEach(function (p) {
+    var res = ims_fetch_('/rest/v1/customer?id=eq.' + p.ims_id + '&cin7_id=is.null', {
+      method: 'patch', headers: { 'Prefer': 'return=representation' }, payload: JSON.stringify({ cin7_id: p.cin7_id })
+    });
+    if (res.getResponseCode() >= 300) throw new Error('짝짓기 PATCH 실패 ' + p.name + ' → HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 300));
+    if (JSON.parse(res.getContentText()).length !== 1) throw new Error('짝짓기 — 돌아온 행이 1 이 아니다(그 사이 누가 cin7_id 를 붙였나): ' + p.name);
+    done++;
+  });
+  return done;
+}
+
+/** 짝지은 손님을 뺀 뒤 Verify 가 쓰는 수를 다시 센다 */
+function ilc_recount_(cnt, customers, addresses, contacts) {
+  cnt.customerActive = customers.filter(function (r) { return r.is_active; }).length;
+  cnt.missCurrency = customers.filter(function (r) { return r.currency_code && !r.currency_id; }).length;
+  cnt.missLocation = customers.filter(function (r) { return r.default_location_name && !r.default_location_id; }).length;
+  cnt.addressDefault = addresses.filter(function (r) { return r.is_default_for_type; }).length;
+  cnt.contactDefault = contacts.filter(function (r) { return r.is_default; }).length;
+  cnt.consentTrue = contacts.filter(function (r) { return r.marketing_consent === true; }).length;
+  cnt.consentFalse = contacts.filter(function (r) { return r.marketing_consent === false; }).length;
+  cnt.consentNull = contacts.filter(function (r) { return r.marketing_consent === null; }).length;
+}
+
+/** 672 보조 — 적재 시각(ISO · UTC) · Apply1 · 3 · 4 끝에 */
+function ilc_markApply_(props) {
+  props.setProperty('ILC_LAST_APPLY_AT', new Date().toISOString());
 }
 
 /** 행 수만 — count=exact 의 Content-Range 총계 */
