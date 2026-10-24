@@ -32,6 +32,8 @@
  *   674  짝짓기 — cin7_id 없는 IMS 손님(source manual)과 이름이 「정확히」 같은 Cin7 손님 → upsert 전에 IMS 행에 cin7_id 만 PATCH(판정 132 · IMS 값이 이긴다)
  *        그 Cin7 행은 upsert 묶음에서 뺀다 · 같은 이름이 둘 이상(Cin7 쪽 · IMS 쪽)이거나 그 cin7_id 가 이미 cin7 행으로 있으면 멈춤(사람이 가른다)
  *        ⚠️ 짝지은 손님(source manual · cin7_id 있음)의 Cin7 주소 · 연락처는 매 회차 적재하지 않는다 — IMS 기본 주소와 customer_address_default_uq 가 23505 로 부딪친다(건너뛴 수를 로그에)
+ *        ⭐ [ldfix-1d · 판정 681] 「정확히 같은 이름」 은 보이는 글자 기준 — ImsLoadSupplier.gs 의 ils_vis_(U+200B · U+200C · U+200D · U+FEFF · U+00A0 를 빼고 trim)로 열쇠를 만든다 · 같은 이름 둘 이상 검사도 같은 기준 · 저장은 원문(짝은 cin7_id 만 PATCH 라 이름을 안 쓴다)
+ *        ⚠️ 같은 편집기 프로젝트의 ImsLoadSupplier.gs(ils_vis_)가 있어야 돈다 — 공용 자리(ims_vis_ · ImsRefLoad.gs)로 옮기는 것은 다음 차수(Caleb 2026-10-24 라=A)
  *   672  손댄 행 — source=cin7 이면서 updated_by 가 비어 있지 않은 행 = 지난 적재 뒤 직원이 창구로 고친 행(적재가 쓰면 ims_touch 가 updated_by 를 null 로 되돌린다)
  *        Dry 보고가 「IMS 값 ↔ Cin7 값」 차이를 낸다 → 사람이 보고 적재 뒤 필요한 것만 다시 고친다 · Cin7 값이 덮는다(판정 672)
  *        보조 기준 ILC_LAST_APPLY_AT(Apply1 · 3 · 4 끝) — updated_at 과 어긋나면(손댄 행인데 시각이 앞 · 시각은 뒤인데 updated_by 없음) 보고에 ⚠️
@@ -451,15 +453,17 @@ function ilc_build_() {
   raw.forEach(function (c) { cin7NameById[c.ID] = c.Name; });
 
   // 674 짝짓기 — cin7_id 없는 IMS 손님과 이름이 「정확히」 같은 Cin7 손님 · 같은 이름이 둘 이상이면 멈춤 · 그 cin7_id 가 이미 cin7 행이면 멈춤
+  // [ldfix-1d · 판정 681] 「정확히」 = 보이는 글자 기준 — 열쇠는 ils_vis_(ImsLoadSupplier.gs) · 저장은 원문(짝은 cin7_id 만 PATCH)
   var cin7ByName = {}, cin7NameDup = {};
-  customers.forEach(function (r) { if (cin7ByName[r.name]) cin7NameDup[r.name] = true; cin7ByName[r.name] = r; });
+  customers.forEach(function (r) { var k = ils_vis_(r.name); if (cin7ByName[k]) cin7NameDup[k] = true; cin7ByName[k] = r; });
   var imsNameDup = {}, imsNameSeen = {};
-  db.manual.forEach(function (m) { if (imsNameSeen[m.name]) imsNameDup[m.name] = true; imsNameSeen[m.name] = true; });
+  db.manual.forEach(function (m) { var k = ils_vis_(m.name); if (imsNameSeen[k]) imsNameDup[k] = true; imsNameSeen[k] = true; });
   var pairs = [];
   db.manual.forEach(function (m) {
-    var c = cin7ByName[m.name];
+    var k = ils_vis_(m.name);
+    var c = cin7ByName[k];
     if (!c) return;
-    if (cin7NameDup[m.name] || imsNameDup[m.name]) { stop.push('같은 이름이 둘 이상이라 짝짓지 못한다(판정 674 · 사람이 가른다): ' + m.name); return; }
+    if (cin7NameDup[k] || imsNameDup[k]) { stop.push('같은 이름이 둘 이상이라 짝짓지 못한다(판정 674 · 681 보이는 글자 기준 · 사람이 가른다): ' + m.name); return; }
     if (db.byCin7[c.cin7_id]) { stop.push('IMS 손님과 이름이 같은 Cin7 손님이 이미 cin7 행으로 있다(판정 674 · 사람이 가른다): ' + m.name + ' / cin7_id ' + c.cin7_id); return; }
     pairs.push({ ims_id: m.id, cin7_id: c.cin7_id, name: m.name, diffs: ilc_diff_(m, c, ['cin7_id', 'source']) });
   });
@@ -511,7 +515,7 @@ function ilc_build_() {
     });
 
   rep.push('');
-  rep.push('[ldfix-1a] 판정 674 — 짝지은 IMS 손님(cin7_id 만 붙인다 · 다른 칸은 IMS 값 그대로):');
+  rep.push('[ldfix-1a] 판정 674 · 681(보이는 글자 기준) — 짝지은 IMS 손님(cin7_id 만 붙인다 · 다른 칸은 IMS 값 그대로 · 이름이 U+200B 등으로만 다르면 「값이 다른 칸」 에 name 으로 찍힌다):');
   pairs.forEach(function (p) { rep.push('   ' + p.name + ' ← cin7_id ' + p.cin7_id + (p.diffs.length ? ' · 값이 다른 칸 ' + p.diffs.join(' / ') : ' · 다른 칸 없음')); });
   if (!pairs.length) rep.push('   0');
   rep.push('[ldfix-1a] 미룬 109 · 판정 678 — IMS 가 정한 관계(세움 ' + (linkPlan.skipIms.length - linkPlan.detached) + ' · 뗌 ' + linkPlan.detached + ')라 잇지 않는 자식 ' + linkPlan.skipIms.length + ' · 그중 Cin7 부모와 다른 것(뗀 것은 「IMS 부모 (없음)」):');

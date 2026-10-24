@@ -84,6 +84,11 @@ function makeFakeGas(opts) {
       if (table === 'rpc/product_supplier_default_recalc') return respond(200, recalcDefaults(JSON.parse(o.payload || '{}').p_product_ids || null));
       throw new Error('emu: rpc 미지원 ' + table);
     }
+    if (method === 'delete') {                  // ldfix-1d · 태그 적재의 DELETE ?source=eq.cin7&id=in.(…) · return=representation 이면 지운 행을 돌려준다
+      const hit = rows.filter(r => match(r, filters));
+      db[table] = rows.filter(r => hit.indexOf(r) < 0);
+      return respond(200, prefer.includes('return=representation') ? hit : []);
+    }
     if (method === 'post') {
       const body = JSON.parse(o.payload); const arr = Array.isArray(body) ? body : [body];
       const keys = (extra.on_conflict || '').split(',').filter(Boolean);
@@ -140,10 +145,18 @@ function makeFakeGas(opts) {
     return respond(code, body, hs);
   }
 
+  const folders = [];
+  function folderObj(id) {
+    return {
+      getId: () => id, getUrl: () => 'drive://' + id,
+      getFiles: () => { let i = 0; return { hasNext: () => i < driveFiles.length, next: () => { const f = driveFiles[i++]; return { getName: () => f.name, getBlob: () => ({ getDataAsString: () => f.text }) }; } }; },
+      createFile: (name, text, mime) => { reports.push({ name, text, mime: mime || null, folder: id }); return {}; }
+    };
+  }
   const g = {
     getProp: k => { if (!(k in props)) throw new Error('getProp 없음 ' + k); return props[k]; },
     Logger: { log: s => logs.push(String(s)) },
-    MimeType: { PLAIN_TEXT: 'text/plain' },
+    MimeType: { PLAIN_TEXT: 'text/plain', CSV: 'text/csv' },
     Utilities: { formatDate: (d, tz, fmt) => d.toISOString().replace(/[-:T]/g, '').slice(0, 14), sleep: () => {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: k => { delete props[k]; } }) },
     SpreadsheetApp: {                             // 제품↔공급처 적재의 중간 저장 시트(ips_line) · 읽기만 흉내
@@ -152,12 +165,8 @@ function makeFakeGas(opts) {
       create: () => { throw new Error('하네스는 시트를 만들지 않는다'); }
     },
     DriveApp: {
-      getFolderById: id => ({
-        getId: () => id, getUrl: () => 'drive://' + id,
-        getFiles: () => { let i = 0; return { hasNext: () => i < driveFiles.length, next: () => { const f = driveFiles[i++]; return { getName: () => f.name, getBlob: () => ({ getDataAsString: () => f.text }) }; } }; },
-        createFile: (name, text) => { reports.push({ name, text }); return {}; }
-      }),
-      createFolder: () => { throw new Error('하네스는 Collect 를 돌리지 않는다'); }
+      getFolderById: id => folderObj(id),
+      createFolder: name => { folders.push(name); return folderObj('folder-' + folders.length); }   // ldfix-1d · 태그 적재가 보고 폴더를 만든다(이름만 기록)
     },
     UrlFetchApp: {
       fetch: (url, o) => {
@@ -168,6 +177,6 @@ function makeFakeGas(opts) {
       }
     }
   };
-  return { globals: g, props, reports, logs, requests, db };
+  return { globals: g, props, reports, logs, requests, db, folders };
 }
 module.exports = { makeFakeGas };

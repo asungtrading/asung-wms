@@ -46,7 +46,8 @@ function build(scenario) {
     cin7Customer(8, 'Paired Before', { Addresses: [{ ID: C(110), Type: 'Shipping', DefaultForType: true, Line1: 'PB', City: 'T', State: 'ON', Postcode: 'P', Country: 'Canada' }] }),   // 지난 회차에 짝지은 손님
     cin7Customer(9, 'Touched Co'),                     // 우리 표: 직원이 이름을 고침(updated_by) → 672 목록 · 덮임
     cin7Customer(19, 'Kid Detached', { CustomerParentID: C(3) }),   // Cin7 부모 Par A · 우리 표: IMS 에서 뗌(parent null · parent_source ims · 판정 678) → 다시 잇지 않는다
-    cin7Customer(18, 'Stale ByNull')                   // 우리 표: updated_by null 인데 updated_at 이 적재 시각 뒤 → 어긋남 알림
+    cin7Customer(18, 'Stale ByNull'),                  // 우리 표: updated_by null 인데 updated_at 이 적재 시각 뒤 → 어긋남 알림
+    cin7Customer(24, '\u200B\u200BZwsp Co')             // [ldfix-1d · 판정 681] 이름 앞에 U+200B 둘 · IMS 에서 만든 'Zwsp Co' 와 보이는 글자가 같다 → 짝(이름 원문은 그대로)
   ];
   const db = {
     customer: [
@@ -61,7 +62,8 @@ function build(scenario) {
       dbCustomer(19, 'Kid Detached', { parent_id: null, parent_source: 'ims', updated_by: STAFF, updated_at: T_NEW }),
       dbCustomer(10, 'Touched Gone', { updated_by: STAFF, updated_at: T_NEW }),          // Cin7 에 없음 · 활성 → 내린다 · 672 「덮이지 않음」
       dbCustomer(17, 'Gone Active'),                                                       // Cin7 에 없음 · 활성 → 내린다
-      dbCustomer(18, 'Stale ByNull', { updated_at: '2026-10-21T00:00:00.000+00:00' })
+      dbCustomer(18, 'Stale ByNull', { updated_at: '2026-10-21T00:00:00.000+00:00' }),
+      dbCustomer(55, 'Zwsp Co', { cin7_id: null, source: 'manual', updated_by: STAFF, updated_at: T_NEW })   // [ldfix-1d · 681] U+200B 짝의 IMS 쪽
     ],
     customer_address: [
       addr(1, U(4), 'Shipping'), addr(3, U(4), 'Billing', { line1: 'Line 3 IMS', updated_by: STAFF, updated_at: T_NEW }),

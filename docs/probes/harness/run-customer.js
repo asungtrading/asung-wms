@@ -14,7 +14,7 @@ const fake = makeFakeGas({
 });
 Object.assign(global, fake.globals);
 vm.runInThisContext(fs.readFileSync(path.join(__dirname, 'ims-common.js'), 'utf8'), { filename: 'ims-common.js' });
-vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'ImsLoadCustomer.gs'), 'utf8'), { filename: 'ImsLoadCustomer.gs' });
+['ImsLoadSupplier.gs', 'ImsLoadCustomer.gs'].forEach(f => vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), { filename: f }));   // ldfix-1d · 손님 적재가 ImsLoadSupplier.gs 의 ils_vis_ 를 부른다
 
 const fails = [];
 const ok = (cond, msg) => { console.log((cond ? '  ✅ ' : '  ❌ ') + msg); if (!cond) fails.push(msg); };
@@ -43,7 +43,8 @@ imsLoadCustomerDry();
 const dry = report('dry');
 console.log(dry);
 ok(fake.requests.every(r => r.method === 'get'), 'Dry 는 쓰기 0');
-ok(/짝지은 IMS 손님\(판정 674\) 이번 1 · 이미 짝지어진 1 → Cin7 행 건너뜀 2 · 주소 3 · 연락처 1/.test(dry), '머리: 짝짓기 1 · 이미 1 · 건너뜀 2/3/1');
+ok(/짝지은 IMS 손님\(판정 674\) 이번 2 · 이미 짝지어진 1 → Cin7 행 건너뜀 3 · 주소 3 · 연락처 1/.test(dry), '머리: 짝짓기 2(TEST IMS Shopify · Zwsp Co) · 이미 1 · 건너뜀 3/3/1');
+ok(/Zwsp Co ← cin7_id c0000000-0000-4000-8000-000000000024 · 값이 다른 칸 .*name: IMS="Zwsp Co" Cin7="\u200B\u200BZwsp Co"/.test(dry), '681: U+200B 가 붙은 Cin7 이름과 짝(이름 차이는 「값이 다른 칸」 에)');
 ok(/2단계\(109\) 이을 것 1 · 건너뜀 IMS 가 정한 관계 7\(세움 6 · 뗌 1 · Cin7 부모와 다른 것 2\) · 짝지은 손님 1/.test(dry), '머리: 2단계 1 · IMS 관계 7(세움 6 · 뗌 1 · 다른 것 2) · 짝지은 1');
 ok(/손댄 행\(672 · 적재가 덮는다\) 손님 9 · 주소 1 · 연락처 0 · 어긋남 7/.test(dry), '머리: 손댄 행 9/1/0 · 어긋남 7(Clore 6 시각 앞 + Stale ByNull 1)');
 ok(/Kid Detached : IMS 부모 「\(없음\)」 ≠ Cin7 부모 「Par A」/.test(dry), '109 · 678 목록: Kid Detached(뗌) ≠ Cin7 부모 Par A');
@@ -64,7 +65,9 @@ ok(pair.length === 1 && JSON.stringify(pair[0].body) === JSON.stringify({ cin7_i
 const up = a1.filter(r => r.method === 'post' && r.path === '/rest/v1/customer?on_conflict=cin7_id');
 const upRows = up.reduce((a, r) => a.concat(r.body), []);
 ok(up.length === 1 && upRows.length === 15, 'upsert 한 요청 · 15 행 (실제 ' + up.length + ' · ' + upRows.length + ')');
-ok(!upRows.some(r => r.cin7_id === C(7) || r.cin7_id === C(8)), 'upsert 에 짝지은 손님(C7 · C8) 없음');
+ok(!upRows.some(r => r.cin7_id === C(7) || r.cin7_id === C(8) || r.cin7_id === C(24)), 'upsert 에 짝지은 손님(C7 · C8 · C24) 없음');
+const pairZ = a1.filter(r => r.method === 'patch' && r.path === '/rest/v1/customer?id=eq.' + U(55) + '&cin7_id=is.null');
+ok(pairZ.length === 1 && JSON.stringify(pairZ[0].body) === JSON.stringify({ cin7_id: C(24) }), '681 PATCH: Zwsp Co 에 cin7_id C24 만(이름은 안 보낸다)');
 ok(upRows.every(r => !('parent_id' in r) && !('parent_source' in r) && !('id' in r) && !('note' in r) && !('default_bill_to_customer_id' in r)), 'upsert 가 parent_id · parent_source · id · note · bill_to 를 보내지 않는다');
 ok(pair.length && up.length && a1.indexOf(pair[0]) < a1.indexOf(up[0]), '674 PATCH 가 upsert 보다 앞');
 const down1 = a1.filter(r => r.method === 'patch' && /customer\?cin7_id=in\./.test(r.path));
@@ -73,6 +76,7 @@ ok(fake.props.ILC_LAST_APPLY_AT > LAST_APPLY, 'ILC_LAST_APPLY_AT 갱신: ' + fak
 if (mode === 'emu') {
   ok(dbRow('customer', U(51)).cin7_id === C(7) && dbRow('customer', U(51)).price_tier === 'Retail' && dbRow('customer', U(51)).source === 'manual', 'emu: IMS 손님에 cin7_id 만 · price_tier Retail · source manual 그대로');
   ok(dbRow('customer', U(9)).name === 'Touched Co', 'emu: Touched Co 이름이 Cin7 값으로(672)');
+  ok(dbRow('customer', U(55)).cin7_id === C(24) && dbRow('customer', U(55)).name === 'Zwsp Co' && dbRow('customer', U(55)).source === 'manual', 'emu: Zwsp Co cin7_id 만 · 이름 원문(U+200B 없음) · manual 그대로');
   ok(dbRow('customer', U(11)).parent_source === 'ims' && dbRow('customer', U(11)).parent_id === U(1), 'emu: Clore 자식 부모 · parent_source 그대로');
   ok(dbRow('customer', U(10)).is_active === false && dbRow('customer', U(17)).is_active === false, 'emu: C10 · C17 내려짐');
 }
