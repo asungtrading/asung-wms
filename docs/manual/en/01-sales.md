@@ -198,31 +198,205 @@ A coupon is a code that gives an order discount. Each coupon belongs to one cust
 ## Confirm an order
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: sales, manager -->
-<!-- TODO manual-1b2 -->
+
+**What it is**
+Confirming turns a draft into a real order. At that moment IMS:
+- reserves the stock in the order's warehouse,
+- fixes the prices and discounts,
+- uses up the coupon,
+- moves anything it cannot reserve into a new order of its own — a **backorder** order or a **pre-order** order.
+
+**When**
+When the customer's order is final.
+
+**How — Managers and above**
+1. On a draft, press **Confirm…**. The window **Confirm SO-99001 — preview** opens. Nothing is saved yet.
+2. Read each line: **Ordered**, **Result**, **Reserved**, **Backorder**, **Preorder**.
+3. Tick **Preorder?** on a line that should wait as a pre-order — a promise to ship when the stock comes.
+4. Tick **Confirm on hold — do not reserve stock for the whole order** when the order must wait (see [Hold](#sales-release)).
+5. Press **Confirm**. If there is nothing to report, the window closes by itself. Otherwise it says "Confirmed — check the result above, then Close."
+
+**Result words**
+
+| Result | Meaning |
+|---|---|
+| allocated | The whole line is reserved. |
+| partial | Part of the line is reserved. The rest moves to a backorder order. |
+| backorder | Nothing could be reserved. The line moves to a backorder order. |
+| preorder | The line moves to a pre-order order. |
+| hold | The order was confirmed on hold. Nothing is reserved. |
+
+**Example**
+SO-99001 for Customer A asks for 30 of product X. The warehouse has 18 free.
+- **Reserved** 18 · **Backorder** 12.
+- The window says "Split off: SO-99001b backorder (1 line)".
+- SO-99001 keeps the 18 and can go to the warehouse. SO-99001b holds the 12 and waits on the **Backorders** screen.
+
+**Good to know**
+- **Taken over backorders.** When you confirm a new order, IMS closes older open backorders of the same customer for the same product, oldest first. The window lists them under "Backorders taken over from earlier orders". The new order now carries that demand.
+- A line with **no price** blocks confirming. Give it a price first.
+- Staff without the manager role do not see **Confirm…**. Ask your manager to confirm.
+- **Counter orders** — Managers and above: press **Confirm** on a counter draft. "Every line is reserved as it is — counter orders never split or backorder."
+- **Service orders** — anyone who works on sales orders presses **Confirm** on a service draft. The invoice is then issued with **Invoice…** (see [Ship & invoice](#sales-ship-invoice)).
+
+<!-- SCREENSHOT: sales-confirm-1 · Confirm preview window with Reserved, Backorder, Preorder columns and the "Split off" line -->
 
 <a id="sales-release"></a>
 ## Send an order to the warehouse
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: sales, office -->
-<!-- TODO manual-1b2 -->
+
+**What it is**
+**Release to WMS** sends a confirmed order to the warehouse. It appears on the warehouse manager's **Split & Waves** screen. Its status becomes **Released to WMS**, then **Working** when picking starts.
+
+**How**
+1. Open a confirmed warehouse order.
+2. Press **Release to WMS**. There is no question window — you can still take it back with **Recall from WMS** (see [Take an order back](#sales-undo)).
+
+**When the button is grey**
+Point at it to see why:
+- "Release the hold first — an order on hold cannot go to the warehouse"
+- "Proceed or clear the backorder / preorder lines first" — a backorder or pre-order order goes to the warehouse only after its stock is reserved (see [Backorders](#sales-backorders)).
+
+**Hold — Managers and above**
+A hold releases the order's reserved stock for other orders and keeps the order waiting.
+1. On a confirmed order with reserved stock, press **Hold**.
+2. IMS asks: "Put SO-99001 on hold? Reserved stock is released for other orders; the lines stay on the order. Release the hold later to reserve again." Press OK.
+3. To end the hold, press **Release hold**. IMS reserves again as far as stock allows. The window **Hold released — SO-99001** shows the result. Whatever is short becomes a backorder order.
+
+**Watch out**
+- A hold is for the whole order, never one line.
+- After **Release hold** you may get less than before — other orders may have taken the stock.
+
+<!-- SCREENSHOT: sales-release-1 · a confirmed order with Release to WMS greyed and its reason showing -->
 
 <a id="sales-undo"></a>
 ## Take an order back
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: sales, office, manager -->
-<!-- TODO manual-1b2 -->
+
+**What it is**
+Each step can be taken back one step at a time: from the warehouse to **Confirmed**, and from **Confirmed** to **Draft**.
+
+**Recall from WMS**
+1. On an order that is **Released to WMS**, press **Recall from WMS**.
+2. IMS asks: "Recall SO-99001 from the warehouse? It goes back to Confirmed and leaves the WMS Split screen." Press OK.
+- Once the warehouse starts (**Working**), the button is grey: "The warehouse is working on it — ask the warehouse manager to send it back first".
+
+**Delete draft**
+1. On a draft, press **Delete draft**.
+2. IMS asks: "Delete draft SO-99001? It has never been confirmed, so it disappears — the number is not reused." Press OK.
+
+**Unconfirm — Supervisors and admins**
+1. On a confirmed order still in IMS, press **Unconfirm**.
+2. IMS asks: "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (supervisor)." Press OK.
+3. The order is a draft again. Its backorder and pre-order orders from that confirmation (for example SO-99001b) are back inside it. Backorder lines it had taken over from older orders are reopened, and IMS says how many.
+- A coupon used by the order can be used again.
+- A confirmed service order goes back to draft the same way.
+
+**When Unconfirm says no**
+
+| IMS says (shortened) | What to do |
+|---|---|
+| only a confirmed order still in IMS can be unconfirmed (if it went to the warehouse, roll it back in WMS first) | Recall it, or ask the warehouse to roll it back first. |
+| was itself split off at confirmation — unconfirm the original order … instead | Unconfirm the original (SO-99001, not SO-99001b). |
+| has a hand-made split order … (cancel or merge it first) | Deal with the divided order first. |
+| was split again after confirmation | Unconfirm only undoes the split made at confirmation. |
+| Split order … was changed after the split | It is no longer possible — cancel or change the orders instead. |
+
+**Counter orders — Managers and above**
+Press **Reopen as draft**. "Reserved stock is released."
+
+**Watch out**
+- To close an order for good, see [Cancel an order](#sales-cancel).
 
 <a id="sales-divide-merge"></a>
 ## Divide or merge orders
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: sales, office -->
-<!-- TODO manual-1b2 -->
+
+**Divide — Managers and above**
+Use it when part of an order should go on its own — for example Customer A wants 10 of the 30 boxes now and the rest next week.
+1. On a confirmed order, press **Divide…**.
+2. In **Move**, type how much of each line goes to the new order — a whole line or part of it.
+3. Press **Check**, read the result, then press **Divide**. IMS shows "New order: …".
+- The reserved stock goes with the lines. The new order keeps the same header (customer, terms, addresses).
+- A combo moves in whole combos.
+
+**Merge**
+Use it when the customer sent several orders that should ship as one.
+1. On a draft, press **Merge…**. The window lists the warehouse orders of the same customer, warehouse and currency that are still draft or confirmed.
+2. Tick two or more and press **Preview**.
+3. Read **Orders**, **Header from**, **Order date** and the lines, then press **Merge**. A **new draft** opens.
+
+What a merge does:
+- The header comes from the oldest order. Where headers differed, the window shows it — change it on the new draft.
+- The **Order date** is the day of the merge.
+- Line prices stay as they were, marked as set by hand. If today's price would be better, the window says so — change the line if you want.
+- Freight does not move — add it again. Deposits move to the new order.
+- The old orders close as merged. There is no undo.
+- The new order is a draft, so nothing is reserved. **Confirm** it again to reserve the stock.
+
+**Merge — Managers and above**
+- An order that is already confirmed can be merged only by a manager ("A confirmed order is included — a manager has to do this merge.").
+- On a confirmed order the **Merge…** button shows only to managers.
+
+**Change warehouse — Managers and above**
+1. On a confirmed order that has not gone to the warehouse, press **Change warehouse…**.
+2. Choose **Move to** and press **Preview**, then **Change warehouse**.
+- "Reservations here are released and taken again in the new warehouse. Whatever it does not have becomes a backorder order."
+
+**Watch out**
+- An order with an open backorder cannot be merged. Proceed the backorder first (see [Backorders](#sales-backorders)), then merge.
+
+<!-- SCREENSHOT: sales-divide-merge-1 · Merge preview: Orders, Header from, Order date and the line list -->
 
 <a id="sales-backorders"></a>
 ## Backorders
 <!-- screen: so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
 <!-- who: sales, office -->
-<!-- TODO manual-1b2 -->
+
+**What it is**
+A backorder is what a customer ordered but we could not reserve when the order was confirmed. It waits in its own order (for example SO-99001b) until the stock comes in. A pre-order waits the same way.
+**Sales ▾** › **Backorders** has four tabs: **Arrivals** (opens first), **Insights**, **All backorders** and **Emails**.
+
+**Arrivals**
+- **Ready to ship now** at the top lists backorders that can ship from stock right now.
+- Below it is the stock that came in and the customers waiting for it. Customers of the same branch come first. **Other branches** are grey — move the stock or the order's warehouse first.
+
+**Proceed — Managers and above**
+1. Press **proceed** on a row (on **Arrivals** or **All backorders**), or **Proceed backorder…** on the order itself.
+2. The window **Proceed SO-99001b — reserve stock that is here now** shows **Reserved** and **Still backordered**. Press **Proceed**.
+- Proceed works on the whole order — its other backorder lines are reserved too, as far as stock allows.
+- After that the order can be sent with **Release to WMS**.
+
+**All backorders**
+Every backorder and pre-order line. Filter by **Open**, **Ended (backorders)** or **All**, by customer, supplier, brand, SKU, **Arrived since** and dates. **↓ CSV** downloads what the filters show.
+
+**Insights**
+How much we lose to backorders (**Lost sales**) and which SKUs keep missing. Click a SKU to see its orders.
+- Managers and above: **mark…** takes a lost sale out of the count when it was not real demand (**Staff error**, **Duplicate entry**, **Test**, **Other**). **unmark** puts it back.
+
+**Emails**
+Arrival emails to customers, one run per branch on each scheduled morning. **Only runs with a problem** shows what needs a check.
+- Managers and above: on an email that needs a check, **Close as sent**, **Send again** or **Cancel**.
+- Whether a customer gets these emails is set on the customer — see [Find or add a customer](#sales-customers).
+
+**How a backorder ends**
+
+| Ended | Meaning |
+|---|---|
+| Taken over by a new order | The customer ordered the same product again and that order was confirmed. |
+| Proceeded (stock reserved) | Stock came and a manager proceeded it. |
+| Expired | 90 days after the original order date, nobody proceeded it. |
+| Cancelled | Someone cancelled it. |
+| Merged | It was merged into another order. |
+
+**Watch out**
+- Expiry counts from the **original** order date, not from the day it split.
+- A backorder of a free line (for example a replacement) never expires and is never taken over. It ends only when it is proceeded or cancelled.
+
+<!-- SCREENSHOT: sales-backorders-1 · Arrivals tab: Ready to ship now and the waiting customers under one arrival -->
 
 <a id="sales-charges"></a>
 ## Shipping fees and other charges
@@ -291,4 +465,4 @@ A coupon is a code that gives an order discount. Each coupon belongs to one cust
 <!-- who: office, accounting -->
 <!-- TODO manual-1c -->
 
-<!-- rulings: 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 507, 517, 529, 532, 541, 545, 546, 590, 709, 713, 714, 715, 719 -->
+<!-- rulings: 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 484, 488, 489, 490, 507, 514, 516, 517, 529, 532, 541, 545, 546, 590, 709, 713, 714, 715, 719, 720, 723 -->

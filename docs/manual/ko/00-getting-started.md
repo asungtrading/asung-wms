@@ -26,11 +26,11 @@ IMS 는 Asung 이 직접 만든 시스템입니다. 판매 · 구매 · 재고 �
 판매 오더, 그 오더가 잡는 재고, 인보이스, 결제가 모두 IMS 안에 있고 서로 이어져 있습니다.
 
 **무엇이 들어 있나**
-- **Sales**(판매) — 손님, 판매 오더, 인보이스, 손님 결제, 크레딧 노트, 백오더, 웹 오더
-- **Purchasing**(구매) — 발주, 공급처 인보이스와 크레딧, 비용 문서, 공급처 결제, 입고
-- **Inventory**(재고) — 브랜치별 재고, 상품, 재고 조정, 창고 간 이동, bin 이동
+- **Sales**(판매) — 고객, 판매 오더, 인보이스, 고객 결제, 크레딧 노트, 백오더, 웹 오더
+- **Purchasing**(구매) — PO, 공급처 인보이스와 크레딧, 비용 문서, 공급처 결제, 입고
+- **Inventory**(재고) — 브랜치별 재고, 제품, 재고 조정, 창고 간 이동, bin 이동
 - **WMS**(창고) — 창고 화면: 픽킹, 패킹, fulfillment, 리시빙, bin 이동
-- **POS** — 매장 손님을 받는 계산대 화면
+- **POS** — 매장에 오는 고객을 받는 계산대 화면
 
 **알아 둘 것**
 - 한 가지 일은 한 곳에서 일어납니다. 창고가 오더를 끝내면 오피스가 바로 봅니다. 손으로 옮겨 적을 것이 없습니다.
@@ -171,7 +171,7 @@ IMS 모드에서는 메뉴가 화면 맨 위에 한 줄로 있습니다. 단어�
 
 **검색하는 법**
 1. 검색칸을 누릅니다. 칸 안의 회색 글이 무엇을 찾는지 알려 줍니다. **Sales Orders** 에서는 "SO number · invoice number · customer · reference" 입니다.
-2. 찾는 것의 일부를 적습니다. 예: `99001` 또는 손님 이름 일부
+2. 찾는 것의 일부를 적습니다. 예: `99001` 또는 고객 이름 일부
 3. 적기를 멈추면 잠시 뒤 목록이 저절로 바뀝니다.
 
 **거르는 법**
@@ -182,7 +182,7 @@ IMS 모드에서는 메뉴가 화면 맨 위에 한 줄로 있습니다. 단어�
 **페이지**
 - 목록은 한 번에 한 페이지씩 보입니다. 아래 줄이 지금 몇 번째 줄들을 보고 있는지 알려 줍니다.
 - **→** 는 다음 페이지, **←** 는 앞 페이지입니다. 왼쪽 좁은 목록도 같습니다.
-- 창 안의 작은 찾기 목록 — 예: 넣을 손님이나 상품을 찾을 때 — 은 처음 맞는 것들만 보입니다. "Showing the first matches — type more to narrow."(또는 "Showing the first 60 — type more to narrow.")가 보이면 검색칸에 더 적습니다.
+- 창 안의 작은 찾기 목록 — 예: 넣을 고객이나 제품을 찾을 때 — 은 처음 맞는 것들만 보입니다. "Showing the first matches — type more to narrow."(또는 "Showing the first 60 — type more to narrow.")가 보이면 검색칸에 더 적습니다.
 
 **↓ CSV**
 1. 필터와 검색을 원하는 대로 맞춥니다.
@@ -219,10 +219,10 @@ IMS 에서 무엇을 보고 할 수 있는지는 둘이 정합니다: **역할**
 
 | 권한 | 여는 것 |
 |---|---|
-| `sales` | Sales orders, customer addresses and contacts — 판매 오더 · 손님 주소와 연락처 · 그리고 인보이스 · 결제 · 크레딧 · 백오더 · 웹 오더 · 손님 · POS · Action Centre |
-| `purchasing` | Purchase orders, invoices, charges, payments — 발주 · 공급처 인보이스 · 비용 문서 · 결제 · 그리고 Reorder Planner |
+| `sales` | Sales orders, customer addresses and contacts — 판매 오더 · 고객 주소와 연락처 · 그리고 인보이스 · 결제 · 크레딧 · 백오더 · 웹 오더 · 고객 · POS · Action Centre |
+| `purchasing` | Purchase orders, invoices, charges, payments — PO · 공급처 인보이스 · 비용 문서 · 결제 · 그리고 Reorder Planner |
 | `receiving` | Receiving and putaway — 오피스의 **Purchase Receipts** 화면 |
-| `master` | Settings, suppliers, products, families, supplier products, prices, product tags, deals — 설정 · 공급처 · 상품 · 가격 · 딜 |
+| `master` | Settings, suppliers, products, families, supplier products, prices, product tags, deals — 설정 · 공급처 · 제품 · 가격 · 딜 |
 | `staff` | Adding and editing people (below your own rank) — 나보다 낮은 사람을 더하고 고치기 |
 | `transfer` | Transfers — warehouse to warehouse — 창고 간 이동 |
 | `cost` | Inventory cost — stock value, layer values, unit costs — 재고 원가 |
