@@ -50,7 +50,7 @@ The pre-commit hook (`scripts/hooks/pre-commit`) also runs it on the staged copy
 |---|---|---|---|
 | 0 | Getting started | [en/00-getting-started.md](en/00-getting-started.md) | [ko/00-getting-started.md](ko/00-getting-started.md) |
 | 1 | Sales | [en/01-sales.md](en/01-sales.md) (outline only) | [ko/01-sales.md](ko/01-sales.md) (outline only) |
-| 2 | Purchasing | not written yet | not written yet |
+| 2 | Purchasing | [en/02-purchasing.md](en/02-purchasing.md) (in progress) | [ko/02-purchasing.md](ko/02-purchasing.md) (in progress) |
 | 3 | Inventory | not written yet | not written yet |
 | 4 | WMS | [en/04-wms.md](en/04-wms.md) | [ko/04-wms.md](ko/04-wms.md) |
 | 5 | POS | not written yet | not written yet |
