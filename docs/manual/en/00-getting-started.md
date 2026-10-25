@@ -133,6 +133,7 @@ You only see the screens you have a key for. A menu word appears only when you h
 
 **In WMS mode**
 The warehouse screens show as tabs, and the **☰ Menu** button lists the same screens.
+On WMS screens, **Manual** is at the end of the **☰ Menu**.
 
 <a id="start-list-detail"></a>
 ## Lists and details
@@ -289,6 +290,7 @@ The tags tell us exactly which version you were using. A problem report with the
 1. Press **Manual** at the top right of any IMS screen. This manual opens in a new tab, so you do not lose your work.
 2. Press **English** or **한국어**. IMS remembers your choice.
 3. Pick a chapter and a section from the list on the left, or type in **Find a section**.
+- On WMS screens, open **☰ Menu** and press **Manual** at the end.
 - A **?** button on each screen is coming soon. It will open the section for that screen directly.
 
 **In this manual**
@@ -305,4 +307,4 @@ This manual describes how IMS works. If IMS does something different from what t
 - The order, invoice or other number you were working on (for example `SO-99001`).
 - What you pressed, what you expected, and what happened instead.
 
-<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725 -->
+<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731 -->
