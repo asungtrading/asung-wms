@@ -296,6 +296,7 @@ The tags tell us exactly which version you were using. A problem report with the
 **In this manual**
 Each chapter covers one area. The chapters and their sections are in the list on the left.
 Chapter 1 is [Sales](01-sales.md).
+To find your work by role, see [By role](08-by-role.md#role-start).
 This manual describes how IMS works. If IMS does something different from what this manual says, that is a problem worth reporting.
 
 **Who to ask**
