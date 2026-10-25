@@ -41,6 +41,7 @@ bash scripts/check-manual-anchors.sh <folder>   # checks a copy, for testing
 It checks that `en/` and `ko/` have the same files, the same anchors in the same order, anchors in the right form with no repeats, links that point to real anchors, and that no file names the old system. Missing `screen:` or `who:` comments, or a `who:` word outside the list, give a warning only.
 The last line is `ANCHORS_OK <files> <anchors>` (en and ko together) or `ANCHORS_FAIL <count>` with exit code 1.
 Run it before every commit that touches `docs/manual/`. It needs bash and python3.
+The pre-commit hook (`scripts/hooks/pre-commit`) also runs it on the staged copy whenever `docs/manual/` is staged, and stops the commit on `ANCHORS_FAIL` (needs `git config core.hooksPath scripts/hooks` once on each computer).
 
 ## Contents
 

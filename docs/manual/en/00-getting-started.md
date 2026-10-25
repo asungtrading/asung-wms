@@ -103,8 +103,7 @@ IMS has three modes. Each mode is a set of screens for one kind of work.
 **Good to know**
 - You only see the modes you can use. If you can use only one, there are no mode buttons at all.
 - When you sign in, IMS opens the first mode you have, in the order IMS, WMS, POS.
-- **Overview** is the first IMS screen. It says "Overview — coming soon" for now. Key numbers for sales, purchasing and payments will appear there later.
-- IMS and POS screens are shown a little larger than WMS screens. That is on purpose.
+- **Overview** is the first IMS screen. It says "Overview — coming soon" for now.
 
 <a id="start-menu"></a>
 ## The menu

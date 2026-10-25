@@ -45,4 +45,21 @@ if [ -x "$CLASS" ]; then
   fi
 fi
 
+# 매뉴얼 앵커 — en · ko 목차가 어긋나면 막는다 (판정 710 · 716) · docs/manual/ 이 스테이징됐을 때만 돈다
+# ⭐ 작업 트리가 아니라 스테이징된 사본을 검사한다(checkout-index) — 커밋될 내용 그대로
+ANCH="$ROOT/scripts/check-manual-anchors.sh"
+if [ -f "$ANCH" ] && git diff --cached --name-only -- docs/manual/ | grep -q .; then
+  SNAP=$(mktemp -d)
+  git ls-files -z -- docs/manual/ | git checkout-index -z --stdin --prefix="$SNAP/"
+  bash "$ANCH" "$SNAP/docs/manual"; RC=$?
+  rm -rf "$SNAP"
+  if [ $RC -ne 0 ]; then
+    echo
+    echo "커밋 중단: docs/manual 의 en · ko 앵커가 어긋난다 (또는 cin7 · 깨진 링크)."
+    echo "  확인  : scripts/check-manual-anchors.sh   (README 「Checking the anchors」)"
+    echo "  우회  : git commit --no-verify"
+    exit 1
+  fi
+fi
+
 exit 0
