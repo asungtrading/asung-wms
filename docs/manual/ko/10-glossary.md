@@ -1,4 +1,4 @@
-# 11. 용어집
+# 10. 용어집
 
 <!-- words as the screens show them · meanings shortened from chapters 0-8 · no new facts -->
 
@@ -190,4 +190,4 @@
 | Surcharge group | 관세처럼 어떤 제품에 낱개마다 붙는 요금. | [Surcharge 그룹](07-settings.md#set-surcharge) |
 | Use this version | 그 양식 버전을 인쇄용으로 쓴다. | [문서](07-settings.md#set-documents) |
 
-<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740 -->
+<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740, 742 -->

@@ -1,4 +1,4 @@
-# 10. 자주 묻는 질문
+# 9. 자주 묻는 질문
 
 <!-- questions gathered from chapters 0-8 (Watch out · Good to know · screen messages) · no new facts · real questions are added over time (ruling 740) -->
 
@@ -195,4 +195,4 @@ Finish 뒤에는 POS 에서 판매를 바꿀 수 없습니다. 반품은 크레�
 ### 쿠폰의 마지막 날을 바꾸려면?
 Void 하고 새로 발행합니다([쿠폰](07-settings.md#set-coupons)).
 
-<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740 -->
+<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740, 742 -->

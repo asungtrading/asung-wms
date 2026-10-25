@@ -11,7 +11,7 @@ The readers are the people who use IMS every day: managers, admins, accounting, 
   - Use example names — **Customer A**, **Supplier B**, **Staff C** — and example numbers that start with 99: **SO-99001**, invoice **99001**, **PO-99001**.
 - Hidden comments (`<!-- … -->`) are hidden only when the page is drawn. In the raw file anyone can read them. Write only screen names, build tags, roles and ruling numbers there — no internal notes about faults or open questions.
 - The **Manual** button on IMS screens reads these files from the `main` branch on GitHub. A change shows there only after it is pushed.
-- The manual never names the system used before IMS. When chapter 9 needs to refer to it, it says "the old system".
+- The manual never names the system used before IMS.
 - The manual describes how IMS is designed to work, stated plainly. If IMS behaves differently, that is a fault to report — the draft is not changed to match a fault.
 
 ## Anchors
@@ -57,6 +57,5 @@ The pre-commit hook (`scripts/hooks/pre-commit`) also runs it on the staged copy
 | 6 | Action Centre | [en/06-action-centre.md](en/06-action-centre.md) | [ko/06-action-centre.md](ko/06-action-centre.md) |
 | 7 | Settings | [en/07-settings.md](en/07-settings.md) | [ko/07-settings.md](ko/07-settings.md) |
 | 8 | By role | [en/08-by-role.md](en/08-by-role.md) | [ko/08-by-role.md](ko/08-by-role.md) |
-| 9 | Moving from the old system (Korean: 예전 시스템에서 옮겨 오기) | not written yet | not written yet |
-| 10 | FAQ | [en/10-faq.md](en/10-faq.md) | [ko/10-faq.md](ko/10-faq.md) |
-| 11 | Glossary | [en/11-glossary.md](en/11-glossary.md) | [ko/11-glossary.md](ko/11-glossary.md) |
+| 9 | FAQ | [en/09-faq.md](en/09-faq.md) | [ko/09-faq.md](ko/09-faq.md) |
+| 10 | Glossary | [en/10-glossary.md](en/10-glossary.md) | [ko/10-glossary.md](ko/10-glossary.md) |

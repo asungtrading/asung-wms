@@ -1,4 +1,4 @@
-# 10. FAQ
+# 9. FAQ
 
 <!-- questions gathered from chapters 0-8 (Watch out · Good to know · screen messages) · no new facts · real questions are added over time (ruling 740) -->
 
@@ -195,4 +195,4 @@ Press **Load the latest version** and make your change again (see [Discount rule
 ### How do I change a coupon's last day?
 Void it and issue a new one (see [Coupons](07-settings.md#set-coupons)).
 
-<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740 -->
+<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740, 742 -->

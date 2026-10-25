@@ -1,4 +1,4 @@
-# 11. Glossary
+# 10. Glossary
 
 <!-- words as the screens show them · meanings shortened from chapters 0-8 · no new facts -->
 
@@ -190,4 +190,4 @@ Words are written as the screens show them. Where two screens use different word
 | Surcharge group | A charge per unit on certain products, such as a tariff. | [Surcharge groups](07-settings.md#set-surcharge) |
 | Use this version | Makes a layout version the one that prints. | [Documents](07-settings.md#set-documents) |
 
-<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740 -->
+<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740, 742 -->

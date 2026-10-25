@@ -9,8 +9,8 @@
 
 아래 절마다 역할 하나입니다. 그 역할이 주로 하는 일과, 그 일을 설명하는 이 매뉴얼의 절을 모았습니다. 링크를 누르면 그 절로 갑니다.
 이 첫 절의 일은 모두가 씁니다. 역할 절에서는 되풀이하지 않습니다.
-궁금한 것은 [자주 묻는 질문](10-faq.md#faq-sign-in)을 봅니다.
-화면 글자의 뜻은 [용어집](11-glossary.md#gloss-general)에 있습니다.
+궁금한 것은 [자주 묻는 질문](09-faq.md#faq-sign-in)을 봅니다.
+화면 글자의 뜻은 [용어집](10-glossary.md#gloss-general)에 있습니다.
 
 ### 모두
 - IMS 가 무엇인지 알기 → [IMS 란](00-getting-started.md#start-what-is-ims)
