@@ -16,7 +16,7 @@ description: >
 
 ⭐ **설계 정본 `docs/design/so-module.md` §66**(판정 521 ~ 530 · 함수 지도 66-d · 실물 66-c) — 여기는 「모르면 사고가 나는 것」과 포인터만. 이 스킬과 정본이 어긋나면 **정본이 맞다**.
 관련 스킬: `asung-so`(인보이스 · 크레딧 · Ship & invoice — 4-g · 4-i · 4-s 메일 기계) · `asung-workflow`(지시서 · 검증 · 파일 옮기기) · `asung-ops`(asung-ops 레포 · Gotenberg · cron 운영)
-⚠️ 전부 **테스트 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)** 에만 있다 — 운영 전환은 mail-5 묶음(so-module 미룬 244 · 256).
+⚠️ 전부 **테스트 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)** 에만 있다 — 운영 전환은 mail-5 묶음(so-module 미룬 244 · 256). → [§76 · 743] 옮기지 않는다 — Asung-IMS 가 11-01 운영 승격(617) · 문서 메일은 이미 돈다(738)
 
 ## 0. 판정 요약 (원문은 §66-a)
 
@@ -92,7 +92,7 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
                 · JavaScript 끔 · 2 GiB · 0 ~ 2 대 · 동시 4 · Cloud Run 요청 60 s · ⚠️ Gotenberg 자체 --api-timeout 은 기본 30 s(바꾸지 않았다)
                 · Cloud Run 문 검사 끔(--no-invoker-iam-check · 문은 기본 인증) · 실행 신분 gotenberg-run@asung-ims-mail.iam.gserviceaccount.com
                 · 첫 호출은 0 대에서 깨어나 ~4 s · 요청 = POST /forms/chromium/convert/html(files index.html · preferCssPageSize · printBackground)
-비밀(테스트 · 이름만)  GOTENBERG_URL · GOTENBERG_USER · GOTENBERG_PASS — tools/gotenberg-secrets.sh(read -rs · 0600 파일 · secrets set --env-file) · 운영엔 없다
+비밀(테스트 · 이름만)  GOTENBERG_URL · GOTENBERG_USER · GOTENBERG_PASS — tools/gotenberg-secrets.sh(read -rs · 0600 파일 · secrets set --env-file) · 운영엔 없다 → [§76 · 743] 옮기지 않는다 — Asung-IMS 가 11-01 운영 승격(617) · 문서 메일은 이미 돈다(738)
 점검            EF doc {"action":"status"} → secrets 셋 true · gotenberg reachable · /health
 ```
 
@@ -147,7 +147,7 @@ Send              누르면 창을 바로 닫고 아래 안내 4 초(ims-doc v3a
 ```
 마이그레이션 doc-1a ~ doc-3a2 일곱(20261019144030 · 152102 · 155731 · 172034 · 181014 · 184432 · 190500) — 앞 IMS 묶음 · 메일 여섯과 함께
 EF doc · mail 배포 · 운영 비밀 GOTENBERG_URL · USER · PASS(tools/gotenberg-secrets.sh 에 IMS_PROJECT_REF) · cron 57(+ 54 ~ 56)
-회사 글 · 로고 · 판 다섯을 운영 DB 로(판은 DB 가 정본) · doc_public_base_url 운영 값(운영 DB 를 어디로 하나와 함께) → [2026-10-22 · 판정 617 · so-module §70-d] 운영 = 지금 테스트 DB 그대로(승격) — 옮길 것 없음 · doc_public_base_url 도 그대로(fazgmyvzzhqybtvtktyg)
+회사 글 · 로고 · 판 다섯을 운영 DB 로(판은 DB 가 정본) · doc_public_base_url 운영 값(운영 DB 를 어디로 하나와 함께) → [2026-10-22 · 판정 617 · so-module §70-d] 운영 = 지금 테스트 DB 그대로(승격) — 옮길 것 없음 · doc_public_base_url 도 그대로(fazgmyvzzhqybtvtktyg) → [§76 · 743] 옮기지 않는다 — Asung-IMS 가 11-01 운영 승격(617) · 문서 메일은 이미 돈다(738)
 mail_redirect_to 비우기 · final_invoice_mail 손님 켜기(Caleb · 몇십 명) · GAS 정지(백오더)와 같은 날
 ```
 
