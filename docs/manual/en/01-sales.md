@@ -1,7 +1,7 @@
 # 1. Sales
 
 <!-- sections 1-21 written (manual-1a ~ 1d) · sections follow the order of the work, not the order of the screens -->
-<!-- out of this chapter: Discount Rules and Issue coupons -> chapter 7 Settings · Finish on POS -> chapter 5 POS · Action Centre -> chapter 6 · counter orders (Hand over — ship and invoice…) stay in this chapter -->
+<!-- out of this chapter: Discount Rules and Issue coupons -> chapter 7 Settings · Park -> chapter 5 POS · Action Centre -> chapter 6 · counter orders (Hand over — ship and invoice…) stay in this chapter -->
 
 <a id="sales-customers"></a>
 ## Find or add a customer
@@ -757,7 +757,7 @@ Other filters: **Open** (everything not finished), **Draft — reprice suggested
 - **waiting for pickup** · **picked up** — see [Pickup orders and tracking](#sales-pickup)
 - **reprice** — prices may be out of date; open the order and press **Reprice**
 - **split** — the order was split off another one
-- **Shopify** — a web order · **Counter** · **Service** · **POS** — the channel
+- **Shopify** — a web order · **Counter** · **Service** · **POS** — the channel (see [POS](05-pos.md#pos-start))
 
 **Days to fulfil**
 A fulfilled order shows how long it took from the day it was made to the day it was fulfilled: **same day** (green), 1 to 3 days (amber), more than 3 days (red).

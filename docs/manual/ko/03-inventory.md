@@ -232,7 +232,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 
 **알아 둘 것**
 - **Reprice** 는 가격을 바꿉니다. **Move back** 은 보통 bin 으로 돌려놓습니다.
-- 가격이 없는 B급 재고는 POS 에서 팔 수 없습니다.
+- 가격이 없는 B급 재고는 POS 에서 팔 수 없습니다([B급 팔기](05-pos.md#pos-bgrade)).
 - 옮겨도 원가는 바뀌지 않습니다.
 
 <a id="stock-transfers"></a>

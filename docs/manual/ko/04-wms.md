@@ -360,5 +360,6 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 **트랜스퍼**
 Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **Received** · Cancelled
 트랜스퍼에는 **Finalized** 가 없습니다. 창고가 Finalize 하면 곧장 **In transit** 이 됩니다.
+오피스 화면의 말은 [상태의 뜻](03-inventory.md#stock-statuses)을 봅니다.
 
 <!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->

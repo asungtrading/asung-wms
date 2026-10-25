@@ -28,7 +28,7 @@ A sales order, the stock it takes, the invoice and the payment are all in IMS, a
 - **Purchasing** — purchase orders, supplier invoices and credits, charges, supplier payments, receipts.
 - **Inventory** — stock in each branch, products, stock adjustments, transfers, bin moves.
 - **WMS** — the warehouse screens: picking, packing, fulfillment, receiving, bin moves.
-- **POS** — the counter screen for walk-in sales.
+- **POS** — the counter screen for sales to account customers (see [POS](05-pos.md#pos-start)).
 
 **Good to know**
 - One thing happens in one place. When the warehouse finishes an order, the office sees it at once. You do not copy anything by hand.
@@ -93,7 +93,7 @@ IMS has three modes. Each mode is a set of screens for one kind of work.
 |---|---|---|
 | **IMS** | Office work: sales, purchasing, stock, settings | **Overview** |
 | **WMS** | Warehouse work: picking, packing, receiving | The first warehouse screen you have |
-| **POS** | The counter | **POS** |
+| **POS** | The counter (see [POS](05-pos.md#pos-start)) | **POS** |
 
 **How**
 1. Look at the top left, next to the Asung logo. You see the mode buttons **IMS**, **WMS** and **POS**.

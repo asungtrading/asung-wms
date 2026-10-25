@@ -1,7 +1,7 @@
 # 1. 판매
 
 <!-- sections 1-21 written (manual-1a ~ 1d) · sections follow the order of the work, not the order of the screens -->
-<!-- out of this chapter: Discount Rules and Issue coupons -> chapter 7 Settings · Finish on POS -> chapter 5 POS · Action Centre -> chapter 6 · counter orders (Hand over — ship and invoice…) stay in this chapter -->
+<!-- out of this chapter: Discount Rules and Issue coupons -> chapter 7 Settings · Park -> chapter 5 POS · Action Centre -> chapter 6 · counter orders (Hand over — ship and invoice…) stay in this chapter -->
 
 <a id="sales-customers"></a>
 ## 고객 찾기 · 더하기
@@ -757,7 +757,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - **waiting for pickup** · **picked up** — [픽업 오더와 추적번호](#sales-pickup)
 - **reprice** — 가격이 낡았을 수 있다 · 오더를 열고 **Reprice**
 - **split** — 다른 오더에서 나뉜 오더
-- **Shopify** — 웹 오더 · **Counter** · **Service** · **POS** — 채널
+- **Shopify** — 웹 오더 · **Counter** · **Service** · **POS** — 채널([POS](05-pos.md#pos-start))
 
 **끝나기까지 걸린 날**
 Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 보입니다: **same day**(초록) · 1~3 일(호박색) · 3 일 넘음(빨강)

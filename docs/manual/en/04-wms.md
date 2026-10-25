@@ -360,5 +360,6 @@ See also [What each status means](01-sales.md#sales-statuses).
 **Transfers**
 Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **Received** · Cancelled.
 A transfer has no **Finalized**. When the warehouse finalizes it, it goes straight to **In transit**.
+The office words for the same steps: see [What each status means](03-inventory.md#stock-statuses).
 
 <!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->

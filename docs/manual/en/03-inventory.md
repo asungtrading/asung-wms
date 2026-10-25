@@ -232,7 +232,7 @@ The same people as stock adjustments — admins, and managers or supervisors wit
 
 **Good to know**
 - **Reprice** changes the price. **Move back** returns stock to a regular bin.
-- B-grade stock with no price cannot be sold at the POS.
+- B-grade stock with no price cannot be sold at the POS (see [Sell B-grade](05-pos.md#pos-bgrade)).
 - Moving does not change the cost.
 
 <a id="stock-transfers"></a>
