@@ -206,7 +206,7 @@ An order appears here only when all its batches are checked on **Packing** — "
 Receiving counts what arrived against the PO or the transfer. Then you put it away (see [Put away](#wms-putaway)).
 
 **When**
-Only POs whose supplier invoice the office has confirmed can be received: "No POs with a confirmed invoice to receive — the office confirms the supplier invoice first."
+Only POs whose supplier invoice the office has confirmed can be received (see [Record the supplier's invoice](02-purchasing.md#purch-invoice)): "No POs with a confirmed invoice to receive — the office confirms the supplier invoice first."
 
 **How**
 1. Open **Receiving**. Scan the PO barcode, or press **↻ POs** and choose one (for example PO-99001 from Supplier B). Press **Start** (or **Resume**).
@@ -229,7 +229,7 @@ Only POs whose supplier invoice the office has confirmed can be received: "No PO
 - **Hold (later)** and **Resume** work as in [Pick an order](#wms-picking).
 - **⚑** reports (wrong barcode, image) work as in picking.
 - If the office rejects an item, the line says "Rejected — take it off the shelf". Take it off and press **Removed**.
-- The office sees the same receipt on **Purchase Receipts** (see the Purchasing chapter).
+- The office sees the same receipt on **Purchase Receipts** (see [Receipts in the office](02-purchasing.md#purch-receipts)).
 
 **Watch out**
 - Count everything that arrived before you finish. "Unknown barcode — ask the office to register the product" means the product is not set up yet.
@@ -254,7 +254,7 @@ Put away places the received items in their bins. "The suggested bin is where th
 The goods count in stock only after the receipt is confirmed. "This writes the stock ledger and cannot be undone here." It can be done in three places:
 - On this screen, **Confirm receipt** — for a manager whose `wms_receiving_confirm` key is switched on.
 - On **WMS Admin** › **Receiving**, **Confirm into stock** — same key.
-- On **Purchase Receipts** in the office.
+- On **Purchase Receipts** in the office (see [Receipts in the office](02-purchasing.md#purch-receipts)).
 The window says whether the PO "stays open" for more or "closes on confirm".
 
 **Watch out**

@@ -206,7 +206,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 리시빙은 들어온 물건을 PO 나 트랜스퍼와 맞춰 셉니다. 그다음 제자리에 넣습니다([풋어웨이](#wms-putaway)).
 
 **언제**
-오피스가 공급처 인보이스를 확정한 PO 만 받을 수 있습니다: "No POs with a confirmed invoice to receive — the office confirms the supplier invoice first."
+오피스가 공급처 인보이스를 확정한 PO 만 받을 수 있습니다([공급처 인보이스 넣기](02-purchasing.md#purch-invoice)): "No POs with a confirmed invoice to receive — the office confirms the supplier invoice first."
 
 **어떻게**
 1. **Receiving** 을 엽니다. PO 바코드를 스캔하거나, **↻ POs** 를 눌러 고릅니다(예: Supplier B 의 PO-99001). **Start**(또는 **Resume**)를 누릅니다.
@@ -229,7 +229,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 - **Hold (later)** 와 **Resume** 은 [오더 픽하기](#wms-picking)와 같습니다.
 - **⚑** 신고(바코드 · 사진)도 픽과 같습니다.
 - 오피스가 물건을 거절하면 라인에 "Rejected — take it off the shelf"(선반에서 빼라)가 나옵니다. 빼고 **Removed** 를 누릅니다.
-- 오피스는 같은 입고를 **Purchase Receipts** 에서 봅니다(구매 장).
+- 오피스는 같은 입고를 **Purchase Receipts** 에서 봅니다([오피스 입고](02-purchasing.md#purch-receipts)).
 
 **조심할 것**
 - 끝내기 전에 들어온 것을 다 셉니다. "Unknown barcode — ask the office to register the product" 는 제품이 아직 등록되지 않았다는 뜻입니다.
@@ -254,7 +254,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 입고가 확정되어야 재고로 셉니다. "This writes the stock ledger and cannot be undone here."(재고 장부에 쓰고 여기서는 되돌릴 수 없다) 세 곳에서 할 수 있습니다:
 - 이 화면의 **Confirm receipt** — `wms_receiving_confirm` 권한이 켜진 매니저
 - **WMS Admin** › **Receiving** 의 **Confirm into stock** — 같은 권한
-- 오피스의 **Purchase Receipts**
+- 오피스의 **Purchase Receipts**([오피스 입고](02-purchasing.md#purch-receipts))
 창이 PO 가 "stays open"(더 받을 것이 남음)인지 "closes on confirm"(확정하면 닫힘)인지 알려 줍니다.
 
 **조심할 것**
