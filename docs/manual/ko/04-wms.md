@@ -250,7 +250,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 3. 물건을 bin 에 넣고 **Placed** 를 누릅니다.
 4. 다 넣으면 **Complete** 를 누르고 확인합니다. 창고 쪽 입고가 끝납니다.
 
-**Confirm receipt — 입고 확정 권한이 필요**
+**Confirm receipt — 입고 확정 권한이 있는 매니저 이상**
 입고가 확정되어야 재고로 셉니다. "This writes the stock ledger and cannot be undone here."(재고 장부에 쓰고 여기서는 되돌릴 수 없다) 세 곳에서 할 수 있습니다:
 - 이 화면의 **Confirm receipt** — `wms_receiving_confirm` 권한이 켜진 매니저
 - **WMS Admin** › **Receiving** 의 **Confirm into stock** — 같은 권한

@@ -9,6 +9,7 @@
 
 Each section below is one role. It lists the work that role does most and the section of this manual that explains it. Press a link to go to that section.
 The work in this first section is for everyone. The role sections do not repeat it.
+Questions? See [FAQ](10-faq.md#faq-sign-in).
 
 ### Everyone
 - Learn what IMS is → [What IMS is](00-getting-started.md#start-what-is-ims)
@@ -217,6 +218,7 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 ### Warehouse
 - Split orders into batches and waves → [Split orders into batches and waves](04-wms.md#wms-waves)
 - Watch the warehouse on WMS Admin → [WMS Admin](04-wms.md#wms-admin)
+- Confirm a receipt into stock (receiving-confirm key) → [Put away](04-wms.md#wms-putaway)
 
 ### Action Centre
 - Open the Action Centre → [What the Action Centre is](06-action-centre.md#action-start)

@@ -250,7 +250,7 @@ Put away places the received items in their bins. "The suggested bin is where th
 3. Put the items in the bin and tap **Placed**.
 4. When everything is placed, press **Complete** and confirm. The receipt is finished in the warehouse.
 
-**Confirm receipt — needs the receiving-confirm key**
+**Confirm receipt — managers and above with the receiving-confirm key**
 The goods count in stock only after the receipt is confirmed. "This writes the stock ledger and cannot be undone here." It can be done in three places:
 - On this screen, **Confirm receipt** — for a manager whose `wms_receiving_confirm` key is switched on.
 - On **WMS Admin** › **Receiving**, **Confirm into stock** — same key.
