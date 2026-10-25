@@ -1,6 +1,6 @@
 # 1. Sales
 
-<!-- skeleton: manual-1a · sections 1-5 manual-1b · 6-10 manual-1b2 · 11-21 manual-1c · sections follow the order of the work, not the order of the screens -->
+<!-- sections 1-21 written (manual-1a ~ 1d) · sections follow the order of the work, not the order of the screens -->
 <!-- out of this chapter: Discount Rules and Issue coupons -> chapter 7 Settings · Finish on POS -> chapter 5 POS · Action Centre -> chapter 6 · counter orders (Hand over — ship and invoice…) stay in this chapter -->
 
 <a id="sales-customers"></a>
@@ -580,39 +580,211 @@ Payments and credits that attached themselves are released by themselves.
 
 <a id="sales-payments"></a>
 ## Customer payments and deposits
-<!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1d -->
+
+**What it is**
+A payment is money the customer gave us. IMS keeps where it went: to an invoice, held for an order, or on the customer's account.
+
+**How — a deposit before the invoice**
+1. On a draft order, press **Take a deposit…**. On a confirmed or finalized order with no invoice yet, press **Take a payment…**.
+2. "No invoice yet — the payment is recorded against this order and attaches itself when the invoice is issued."
+3. Choose **Method**, type **Amount**, **Paid on**, **Reference** (card slip, cheque number …) and **Note** if needed.
+4. **Account** can stay on "Default for this method and branch".
+5. Press **Record payment**. The money is **Held for orders** until the invoice comes.
+
+**How — pay an invoice**
+1. On the order or on **Sales Invoices**, press **Take a payment…**. The window says "Applied to invoice 99001 · still owed …" and fills the amount.
+2. Check the amount and press **Record payment**.
+
+**How — money on account**
+1. On **Sales ▾** › **Customer Payments**, press **+ Record a payment**, pick the customer and fill the payment.
+2. "It attaches itself to the next invoice they get — or open it here and attach it by hand."
+3. To attach by hand: open the payment, press **Attach to invoices…**, press **Suggest (oldest first)** or type amounts, then **Attach**.
+
+**Example**
+Customer A pays $500.00 on account. The next invoice 99001 is $188.77. When it is issued, $188.77 attaches itself and $311.23 stays on account.
+
+**Managers and above**
+- **Refund…** (on **Customer Payments**): "A refund first pays off credit notes owed to the customer, then money on account. It cannot be more than both together." Press **Record refund**.
+- **Void payment…**: for a payment entered by mistake. "Everything it paid or covered is released — nothing is deleted." A reason is required.
+- **detach** on an invoice's payment line takes that payment off the invoice. The money goes back on account.
+
+**Payment tags**
+On the **Sales Orders** list each invoiced order shows **unpaid**, **partly paid**, **paid** or **overdue Nd** (N days late). The filter **Any payment** · **Unpaid** · **Partly paid** · **Overdue** · **Paid** finds them.
+
+**Good to know**
+- The **Customer Payments** filter: **Active**, **Not attached — money on account**, **Held for orders**, **Refunds**, **Voided**, **All**.
+- A payment has no status to change. A wrong payment is voided, not edited.
 
 <a id="sales-credits"></a>
 ## Credit notes
-<!-- screen: so-credits.html · BUILD 2026-10-23 · cr v5 -->
+<!-- screen: so-credits.html · BUILD 2026-10-25 · cr v5a -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1d -->
+
+**What it is**
+A credit note gives money back to the customer for an invoice — for goods that come back, a price that was too high, freight, or a mistake. It can also put goods back in stock. Credit numbers look like `CR-99001`.
+
+**How — Managers and above**
+1. On **Sales Invoices**, open the invoice and press **Raise a credit note…** (or **+ New credit note** on **Credit Notes** and search the invoice).
+2. **Credit note**: choose the **Reason** — **Customer return**, **Damaged**, **Billing error**, **Price adjustment** or **Other** (Other needs a **Note**). Check **Credit date** and **Goods come back to** (the branch).
+3. **Products**: type **Return** for each line. **Can return** shows how much is left to credit.
+4. **Back to stock**: **to bin** puts the goods back. The bin box starts with "the bin the product sits in now (usual bin first)". Or choose **not restocked** (**Damaged**, **Not returned**, **Other**) to keep them out of stock.
+5. **Freight and charges**: type the freight to give back, if any. Its discount comes back by itself.
+6. Press **Preview**, read the amounts and tax, then **Issue credit note**.
+
+**Price adjustment**
+The customer keeps the goods and gets the difference back. In **Price adjustment — past sale price**, type **Qty to adjust** and **New unit price**. "No stock moves." Choose the reason **Price adjustment**.
+
+**Restocking fee**
+When the sale is more than 60 days old, IMS shows a notice and suggests a 20% fee. To charge it, tick **Charge a fee** (you can change the %) and choose the **Fee account**. It is never added by itself.
+
+**Goods taken off before shipping**
+This is the second step of [the customer wants to take items off a packed order](#sales-ship-invoice).
+1. Make the credit from that invoice for the quantity taken off — 30 packed, 5 taken off → credit 5.
+2. **Back to stock**: **to bin**, keep the bin where the goods sit.
+3. **Reason**: **Other** · **Note**: "Removed by the customer before shipping".
+
+**A sale with no IMS invoice**
+For an invoice from before IMS, press **Credit with a reference number…** in the new credit window. Pick the **Customer** and type the **Reference number** (the invoice number on the paper — required), **Invoice date**, and for each product the **Unit price paid**.
+
+**Using the credit**
+- Credits attach themselves to the customer's next invoice when it is issued.
+- To attach by hand: open the credit, press **Attach to invoices…**, **Fill oldest first** or type amounts, then **Attach**.
+- To pay it out as money: **Refund on Customer Payments →** (managers and above).
+
+**Managers and above**
+- **Cancel credit note…**: "Returned stock goes back out of the bins it came into. It must not be attached to anything first." A reason is required.
+- **detach** takes a credit off an invoice.
+
+**Good to know**
+- Unit price and tax come from the invoice — you do not type them.
+- **Print credit note** and **Email to customer…** work like the invoice (see [Print and email](#sales-print-email)).
+
+<!-- SCREENSHOT: sales-credits-1 · New credit note window: Products with Return and Back to stock, Restocking fee unticked -->
 
 <a id="sales-web-orders"></a>
 ## Web orders
 <!-- screen: shopify-orders.html · BUILD 2026-10-14 · wo v4d -->
 <!-- who: office -->
-<!-- TODO manual-1d -->
+
+**What it is**
+Orders from the web shop come in by themselves. Within a minute IMS makes a sales order from each one. **Sales ▾** › **Web Orders** shows what came in and what needs a person.
+
+**Status**
+
+| Status | Meaning |
+|---|---|
+| Waiting | "Ready — the system makes the sales order within a minute" |
+| Needs review | "The system stopped — pick what it could not decide" |
+| Done | "Sales order made" |
+| Error | "The system could not make the sales order" |
+| Cancelled | "Cancelled in Shopify" |
+
+**How — Needs review**
+1. Filter **Needs review** and open the order.
+2. Customer: press the right customer, or **Pick the customer…** / **Another customer…** to search. "The next orders from this Shopify customer will go to this customer by themselves."
+3. Lines: "Type the right SKU, or tick leave out. The order is made without left-out lines." Press **Save line choices**.
+4. The order goes back to **Waiting**, and the sales order is made within a minute.
+- Managers and above: **Process waiting now** does it at once instead of waiting.
+
+**Warnings**
+A web order or its sales order can carry warnings. The warning says what to do. When it is done, press **Mark checked**. **Reopen** opens it again. Ones you will often see:
+- "Discount differs from IMS rules" · "List price differs from IMS" — the Shopify price is kept.
+- "Freight not added (decided at shipping)" — add it at **Ship & invoice**.
+- "Not confirmed — needs a fix on the sales order"
+- "Cancelled in Shopify — check the sales order"
+- "Refunded in Shopify — make a credit note in IMS if needed"
+- "Paid in Shopify, but IMS will not ship part of it — refund that part in Shopify" — a note is needed to mark it checked.
+- "Pickup order — no province for tax; pick a tax rule on the sales order"
+- "Changed in Shopify after the sales order was made"
+
+**On the sales order**
+A web order's sales order has the tag **Shopify** and a card with the Shopify details, including **Paid in Shopify**.
+
+**Watch out**
+- The web order itself is not edited here. Make changes on the sales order.
+- The Shopify discount is kept on the lines.
 
 <a id="sales-cancel"></a>
 ## Cancel an order
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, manager -->
-<!-- TODO manual-1d -->
+
+**What it is**
+Cancelling closes a confirmed order for good. A draft is not cancelled — use **Delete draft** (see [Take an order back](#sales-undo)).
+
+**How — Managers and above**
+1. On a confirmed order still in IMS, press **Cancel order…**.
+2. Type the **Reason** (required) and press **Check**.
+3. Read the result: "Orders that will be cancelled (split-off orders go with it)". For example SO-99001 and SO-99001a go together.
+4. If the order had taken over backorders from older orders, choose **Reopen** or **Keep closed**. You must choose one.
+5. Press **Cancel the order**.
+
+**What happens**
+- Reserved stock is released for other orders.
+- A coupon used by the order can be used again.
+- The order shows **Cancelled**. There is no undo.
+
+**Watch out**
+- An order at the warehouse cannot be cancelled. Recall it first, or ask the warehouse to send it back (see [Take an order back](#sales-undo)).
+- Staff without the manager role do not see **Cancel order…**. Ask your manager.
 
 <a id="sales-statuses"></a>
 ## What each status means
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: all -->
-<!-- note for 1b: two columns — badge (Released to WMS, Working, Finalized, Invoice cancelled …) and filter (With warehouse, Finalized — waiting for the office, Waiting for pickup …) -->
-<!-- TODO manual-1d -->
+
+**Status — badge and filter**
+The badge is the coloured label on an order. The filter is the **Status** list on **Sales Orders**.
+
+| Badge (colour) | Filter | Meaning |
+|---|---|---|
+| Draft (grey) | Draft | The office is writing it. |
+| Confirmed (blue) | Confirmed | Confirmed — next: release to the warehouse. |
+| Released to WMS (purple) | With warehouse | Waiting for the warehouse manager. |
+| Working (purple) | With warehouse | The warehouse is picking or packing. |
+| Finalized (orange) | Finalized — waiting for the office | Ready — the office must **Ship & invoice**. |
+| Invoice cancelled (dark orange) | — | Shipped, but its invoice was cancelled — issue the invoice again. |
+| Fulfilled (green) | Fulfilled | Done. |
+| Cancelled (red) | Cancelled | Closed without shipping. A merged order shows "merged". |
+
+Other filters: **Open** (everything not finished), **Draft — reprice suggested**, **Waiting for pickup**, **All**.
+
+**Tags next to the badge**
+- **unpaid** · **partly paid** · **paid** · **overdue Nd** — see [Customer payments and deposits](#sales-payments)
+- **waiting for pickup** · **picked up** — see [Pickup orders and tracking](#sales-pickup)
+- **reprice** — prices may be out of date; open the order and press **Reprice**
+- **split** — the order was split off another one
+- **Shopify** — a web order · **Counter** · **Service** · **POS** — the channel
+
+**Days to fulfil**
+A fulfilled order shows how long it took from the day it was made to the day it was fulfilled: **same day** (green), 1 to 3 days (amber), more than 3 days (red).
 
 <a id="sales-csv"></a>
 ## CSV downloads
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-23 · cr v5 ; so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-25 · cr v5a ; so-backorders.html · BUILD 2026-10-25 · bo cf words v1 -->
 <!-- who: office, accounting -->
-<!-- TODO manual-1d -->
 
-<!-- rulings: 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 357, 436, 437, 438, 443, 452, 455, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727 -->
+**What it is**
+Most sales screens can download a spreadsheet (CSV).
+
+| Screen | Wide list | One document |
+|---|---|---|
+| Sales Orders | **↓ CSV** | **↓ Lines CSV** |
+| Sales Invoices | **↓ CSV** · **↓ Lines CSV** | **↓ Invoice CSV** |
+| Customer Payments | **↓ CSV** | **↓ Payment CSV** |
+| Credit Notes | **↓ CSV** | **↓ Credit CSV** |
+| Backorders | **↓ CSV** | — |
+
+**How**
+1. Set the filters and search on the wide list.
+2. Press **↓ CSV**. Every row that matches the filters downloads — all pages, not only the one on screen.
+3. On one document, the CSV button downloads that document only.
+
+**Good to know**
+- Barcodes and SKUs open in Excel as text, exactly as they are — long numbers do not turn into 1.23E+12 and leading zeros stay.
+- The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
+- These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
+
+<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729 -->

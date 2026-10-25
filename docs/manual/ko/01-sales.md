@@ -1,6 +1,6 @@
 # 1. 판매
 
-<!-- skeleton: manual-1a · sections 1-5 manual-1b · 6-10 manual-1b2 · 11-21 manual-1c · sections follow the order of the work, not the order of the screens -->
+<!-- sections 1-21 written (manual-1a ~ 1d) · sections follow the order of the work, not the order of the screens -->
 <!-- out of this chapter: Discount Rules and Issue coupons -> chapter 7 Settings · Finish on POS -> chapter 5 POS · Action Centre -> chapter 6 · counter orders (Hand over — ship and invoice…) stay in this chapter -->
 
 <a id="sales-customers"></a>
@@ -451,7 +451,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 7. 결과에 **Invoice** · **Amount due** · **Still owed** 와 **Print invoice** · **Email invoice…** 단추가 나옵니다.
 
 **여러 오더를 인보이스 한 장으로**
-1. 같은 창에서 **Other packed orders for …** 를 엽니다 — 같은 청구처 · 같은 통화의 Finalized 오더(30 개까지)
+1. 같은 창에서 **Other packed orders for …** 를 엽니다 — 같은 청구처 · 같은 통화의 **Finalized** 오더(30 개까지)
 2. 함께 보낼 오더를 체크합니다. 오더마다 운임 · 운송사 · 송장 번호 · 메모를 따로 적습니다.
 3. **Preview** 뒤 **Ship & invoice** 를 누릅니다. "Orders invoiced together go on one invoice for this bill-to (or one per store, if the customer is set to split by store)."(함께 낸 오더는 청구처 한 장 · 매장별로 나누는 고객이면 매장마다 한 장)
 
@@ -580,39 +580,211 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-payments"></a>
 ## 고객 결제와 선수금
-<!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1d -->
+
+**무엇인가**
+결제는 고객이 우리에게 준 돈입니다. IMS 는 그 돈이 어디로 갔는지 적어 둡니다: 인보이스로, 오더를 위해 맡아 둔 돈으로, 또는 고객 계정(잔액)으로.
+
+**어떻게 — 인보이스 전 선수금**
+1. 초안 오더에서 **Take a deposit…** 을 누릅니다. 인보이스가 아직 없는 확정 · Finalized 오더에서는 **Take a payment…** 를 누릅니다.
+2. "No invoice yet — the payment is recorded against this order and attaches itself when the invoice is issued."(인보이스가 생기면 저절로 붙는다)
+3. **Method**(방법)를 고르고 **Amount** · **Paid on** · **Reference**(카드 영수증 · 수표 번호 등) · 필요하면 **Note** 를 적습니다.
+4. **Account** 는 "Default for this method and branch"(방법과 브랜치의 기본) 그대로 두어도 됩니다.
+5. **Record payment** 를 누릅니다. 인보이스가 나올 때까지 돈은 **Held for orders**(오더를 위해 맡아 둠)입니다.
+
+**어떻게 — 인보이스에 결제하기**
+1. 오더나 **Sales Invoices** 에서 **Take a payment…** 를 누릅니다. 창에 "Applied to invoice 99001 · still owed …" 가 나오고 금액이 채워집니다.
+2. 금액을 확인하고 **Record payment** 를 누릅니다.
+
+**어떻게 — 고객 계정에 넣기**
+1. **Sales ▾** › **Customer Payments** 에서 **+ Record a payment** 를 누르고, 고객을 골라 결제를 적습니다.
+2. "It attaches itself to the next invoice they get — or open it here and attach it by hand."(다음 인보이스에 저절로 붙거나, 손으로 붙인다)
+3. 손으로 붙이려면: 결제를 열고 **Attach to invoices…** → **Suggest (oldest first)**(오래된 것부터 제안) 또는 금액을 적고 → **Attach**
+
+**예**
+Customer A 가 계정에 $500.00 을 냅니다. 다음 인보이스 99001 은 $188.77 입니다. 발행될 때 $188.77 이 저절로 붙고 $311.23 은 계정에 남습니다.
+
+**매니저 이상**
+- **Refund…**(**Customer Payments** 에서): "A refund first pays off credit notes owed to the customer, then money on account. It cannot be more than both together."(먼저 고객에게 줄 크레딧, 그다음 계정의 돈에서 · 둘을 합친 것보다 많을 수 없다) **Record refund** 를 누릅니다.
+- **Void payment…**: 잘못 넣은 결제에 씁니다. "Everything it paid or covered is released — nothing is deleted."(그 결제가 갚은 것은 모두 풀리고, 지워지지는 않는다) 까닭이 필수입니다.
+- 인보이스의 결제 라인에 있는 **detach** 는 그 결제를 인보이스에서 뗍니다. 돈은 계정으로 돌아갑니다.
+
+**결제 태그**
+**Sales Orders** 목록에서 인보이스가 나온 오더에 **unpaid**(미결제) · **partly paid**(일부 결제) · **paid**(완납) · **overdue Nd**(N 일 연체)가 붙습니다. 필터 **Any payment** · **Unpaid** · **Partly paid** · **Overdue** · **Paid** 로 찾습니다.
+
+**알아 둘 것**
+- **Customer Payments** 필터: **Active** · **Not attached — money on account**(안 붙은 계정의 돈) · **Held for orders** · **Refunds** · **Voided** · **All**
+- 결제에는 바꿀 상태가 없습니다. 잘못된 결제는 고치지 않고 Void 합니다.
 
 <a id="sales-credits"></a>
 ## 크레딧 노트
-<!-- screen: so-credits.html · BUILD 2026-10-23 · cr v5 -->
+<!-- screen: so-credits.html · BUILD 2026-10-25 · cr v5a -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1d -->
+
+**무엇인가**
+크레딧 노트는 인보이스에 대해 고객에게 돈을 돌려줍니다 — 돌아온 물건, 너무 높았던 가격, 운임, 실수. 물건을 재고로 되돌릴 수도 있습니다. 크레딧 번호는 `CR-99001` 같은 꼴입니다.
+
+**어떻게 — 매니저 이상**
+1. **Sales Invoices** 에서 인보이스를 열고 **Raise a credit note…** 를 누릅니다(또는 **Credit Notes** 의 **+ New credit note** 에서 인보이스를 찾습니다).
+2. **Credit note**: **Reason** 을 고릅니다 — **Customer return** · **Damaged** · **Billing error** · **Price adjustment** · **Other**(Other 는 **Note** 필수). **Credit date** 와 **Goods come back to**(돌아올 브랜치)를 확인합니다.
+3. **Products**: 라인마다 **Return**(돌려받을 수량)을 적습니다. **Can return** 이 아직 크레딧할 수 있는 수량입니다.
+4. **Back to stock**: **to bin** 이면 물건이 재고로 돌아갑니다. bin 칸에는 "the bin the product sits in now (usual bin first)"(지금 그 제품의 bin · 평소 bin 먼저)가 미리 채워집니다. 재고에 넣지 않으려면 **not restocked**(**Damaged** · **Not returned** · **Other**)를 고릅니다.
+5. **Freight and charges**: 돌려줄 운임이 있으면 적습니다. 그 할인은 저절로 따라옵니다.
+6. **Preview** 로 금액과 세금을 읽고 **Issue credit note** 를 누릅니다.
+
+**가격 조정**
+고객은 물건을 그대로 가지고 차액만 돌려받습니다. **Price adjustment — past sale price** 에 **Qty to adjust** 와 **New unit price** 를 적습니다. "No stock moves."(재고는 움직이지 않는다) 사유는 **Price adjustment** 를 고릅니다.
+
+**재입고 수수료(Restocking fee)**
+판매한 지 60 일이 넘었으면 IMS 가 알림을 보이고 20 % 수수료를 제안합니다. 받으려면 **Charge a fee** 를 체크하고(% 를 바꿀 수 있다) **Fee account** 를 고릅니다. 저절로 붙지는 않습니다.
+
+**출고 전에 뺀 물건**
+[팩된 오더에서 고객이 일부를 빼 달라고 할 때](#sales-ship-invoice)의 두 번째 걸음입니다.
+1. 그 인보이스에서 뺀 수량만큼 크레딧을 만듭니다 — 30 팩 · 5 뺌 → 크레딧 5
+2. **Back to stock**: **to bin** · 물건이 있는 bin 을 그대로 둡니다.
+3. **Reason**: **Other** · **Note**: 「출고 전에 고객이 뺐다」
+
+**IMS 인보이스가 없는 판매**
+IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a reference number…** 를 누릅니다. **Customer** 를 고르고 **Reference number**(종이 인보이스의 번호 · 필수) · **Invoice date**, 제품마다 **Unit price paid**(낸 단가)를 적습니다.
+
+**크레딧 쓰기**
+- 크레딧은 고객의 다음 인보이스가 발행될 때 저절로 붙습니다.
+- 손으로 붙이려면: 크레딧을 열고 **Attach to invoices…** → **Fill oldest first**(오래된 것부터) 또는 금액을 적고 → **Attach**
+- 돈으로 돌려주려면: **Refund on Customer Payments →**(매니저 이상)
+
+**매니저 이상**
+- **Cancel credit note…**: "Returned stock goes back out of the bins it came into. It must not be attached to anything first."(돌아온 재고는 들어온 bin 에서 다시 나간다 · 먼저 아무 데도 붙어 있지 않아야 한다) 까닭이 필수입니다.
+- **detach** 는 인보이스에서 크레딧을 뗍니다.
+
+**알아 둘 것**
+- 단가와 세금은 인보이스에서 옵니다 — 적지 않습니다.
+- **Print credit note** · **Email to customer…** 는 인보이스와 같습니다([인쇄와 메일](#sales-print-email)).
+
+<!-- SCREENSHOT: sales-credits-1 · 새 크레딧 노트 창: Products 의 Return · Back to stock · 꺼진 Restocking fee -->
 
 <a id="sales-web-orders"></a>
 ## 웹 오더
 <!-- screen: shopify-orders.html · BUILD 2026-10-14 · wo v4d -->
 <!-- who: office -->
-<!-- TODO manual-1d -->
+
+**무엇인가**
+웹 숍의 오더는 저절로 들어옵니다. IMS 가 1 분 안에 하나하나 판매 오더로 만듭니다. **Sales ▾** › **Web Orders** 에 들어온 것과 사람이 봐야 할 것이 보입니다.
+
+**상태**
+
+| 상태 | 뜻 |
+|---|---|
+| Waiting | "Ready — the system makes the sales order within a minute"(1 분 안에 판매 오더를 만든다) |
+| Needs review | "The system stopped — pick what it could not decide"(시스템이 멈췄다 · 정하지 못한 것을 골라라) |
+| Done | "Sales order made"(판매 오더를 만들었다) |
+| Error | "The system could not make the sales order"(만들지 못했다) |
+| Cancelled | "Cancelled in Shopify"(Shopify 에서 취소) |
+
+**어떻게 — Needs review**
+1. **Needs review** 로 필터하고 오더를 엽니다.
+2. 고객: 맞는 고객을 누르거나, **Pick the customer…** / **Another customer…** 로 찾습니다. "The next orders from this Shopify customer will go to this customer by themselves."(이 Shopify 고객의 다음 오더는 저절로 이 고객으로 간다)
+3. 라인: "Type the right SKU, or tick leave out. The order is made without left-out lines."(맞는 SKU 를 적거나 leave out 을 체크 · 뺀 라인 없이 만든다) **Save line choices** 를 누릅니다.
+4. 오더가 **Waiting** 으로 돌아가고, 1 분 안에 판매 오더가 만들어집니다.
+- 매니저 이상: **Process waiting now** 를 누르면 기다리지 않고 바로 합니다.
+
+**경고**
+웹 오더나 그 판매 오더에 경고가 붙을 수 있습니다. 경고 글이 할 일을 말합니다. 끝나면 **Mark checked** 를 누릅니다. **Reopen** 은 다시 엽니다. 자주 보는 것:
+- "Discount differs from IMS rules" · "List price differs from IMS" — Shopify 가격을 지킵니다.
+- "Freight not added (decided at shipping)" — **Ship & invoice** 때 넣습니다.
+- "Not confirmed — needs a fix on the sales order"(확정 안 됨 · 판매 오더를 고쳐야 함)
+- "Cancelled in Shopify — check the sales order"(Shopify 에서 취소 · 판매 오더 확인)
+- "Refunded in Shopify — make a credit note in IMS if needed"(Shopify 에서 환불 · 필요하면 IMS 크레딧 노트)
+- "Paid in Shopify, but IMS will not ship part of it — refund that part in Shopify"(그 몫을 Shopify 에서 환불) — 확인 표시에 메모가 필요합니다.
+- "Pickup order — no province for tax; pick a tax rule on the sales order"(판매 오더에서 세금 규칙을 고른다)
+- "Changed in Shopify after the sales order was made"(판매 오더를 만든 뒤 Shopify 에서 바뀜)
+
+**판매 오더에서**
+웹 오더의 판매 오더에는 **Shopify** 꼬리표와 Shopify 내용 카드가 있습니다. **Paid in Shopify** 도 거기 있습니다.
+
+**조심할 것**
+- 웹 오더 자체는 여기서 고치지 않습니다. 판매 오더에서 고칩니다.
+- 라인에는 Shopify 할인이 그대로 남습니다.
 
 <a id="sales-cancel"></a>
 ## 오더 취소
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, manager -->
-<!-- TODO manual-1d -->
+
+**무엇인가**
+취소는 확정 오더를 아주 닫습니다. 초안은 취소하지 않고 **Delete draft** 를 씁니다([오더 되돌리기](#sales-undo)).
+
+**어떻게 — 매니저 이상**
+1. IMS 안에 있는 확정 오더에서 **Cancel order…** 를 누릅니다.
+2. **Reason**(까닭 · 필수)을 적고 **Check** 를 누릅니다.
+3. 결과를 읽습니다: "Orders that will be cancelled (split-off orders go with it)"(나뉜 오더도 함께 취소) — 예: SO-99001 과 SO-99001a 가 함께
+4. 이 오더가 예전 오더의 백오더를 이어받았다면 **Reopen** 이나 **Keep closed** 를 고릅니다. 꼭 하나를 골라야 합니다.
+5. **Cancel the order** 를 누릅니다.
+
+**무엇이 일어나나**
+- 확보한 재고가 다른 오더를 위해 풀립니다.
+- 이 오더가 쓴 쿠폰은 다시 쓸 수 있습니다.
+- 오더가 **Cancelled** 로 보입니다. 되돌리기는 없습니다.
+
+**조심할 것**
+- 창고에 간 오더는 취소할 수 없습니다. 먼저 Recall 하거나 창고에 돌려 달라고 합니다([오더 되돌리기](#sales-undo)).
+- 매니저가 아닌 직원에게는 **Cancel order…** 가 보이지 않습니다. 매니저에게 부탁합니다.
 
 <a id="sales-statuses"></a>
 ## 상태의 뜻
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: all -->
-<!-- note for 1b: two columns — badge (Released to WMS, Working, Finalized, Invoice cancelled …) and filter (With warehouse, Finalized — waiting for the office, Waiting for pickup …) -->
-<!-- TODO manual-1d -->
+
+**상태 — 배지와 필터**
+배지는 오더에 붙는 색 이름표입니다. 필터는 **Sales Orders** 의 **Status** 목록입니다.
+
+| 배지(색) | 필터 | 뜻 |
+|---|---|---|
+| Draft(회색) | Draft | 오피스가 쓰고 있다 |
+| Confirmed(파랑) | Confirmed | 확정됨 — 다음: 창고로 보내기 |
+| Released to WMS(보라) | With warehouse | 창고 매니저를 기다린다 |
+| Working(보라) | With warehouse | 창고가 픽 · 팩 중이다 |
+| Finalized(주황) | Finalized — waiting for the office | 준비됨 — 오피스가 **Ship & invoice** 할 차례 |
+| Invoice cancelled(진한 주황) | — | 나갔지만 인보이스가 취소됐다 — 인보이스를 다시 낸다 |
+| Fulfilled(초록) | Fulfilled | 끝 |
+| Cancelled(빨강) | Cancelled | 나가지 않고 닫혔다 · 합쳐진 오더는 "merged" |
+
+다른 필터: **Open**(끝나지 않은 것 전부) · **Draft — reprice suggested** · **Waiting for pickup** · **All**
+
+**배지 옆 꼬리표**
+- **unpaid** · **partly paid** · **paid** · **overdue Nd** — [고객 결제와 선수금](#sales-payments)
+- **waiting for pickup** · **picked up** — [픽업 오더와 추적번호](#sales-pickup)
+- **reprice** — 가격이 낡았을 수 있다 · 오더를 열고 **Reprice**
+- **split** — 다른 오더에서 나뉜 오더
+- **Shopify** — 웹 오더 · **Counter** · **Service** · **POS** — 채널
+
+**끝나기까지 걸린 날**
+Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 보입니다: **same day**(초록) · 1~3 일(호박색) · 3 일 넘음(빨강)
 
 <a id="sales-csv"></a>
 ## CSV 내려받기
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-23 · cr v5 ; so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-25 · cr v5a ; so-backorders.html · BUILD 2026-10-25 · bo cf words v1 -->
 <!-- who: office, accounting -->
-<!-- TODO manual-1d -->
 
-<!-- rulings: 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 357, 436, 437, 438, 443, 452, 455, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727 -->
+**무엇인가**
+대부분의 판매 화면에서 스프레드시트(CSV)를 내려받을 수 있습니다.
+
+| 화면 | 넓은 목록 | 문서 하나 |
+|---|---|---|
+| Sales Orders | **↓ CSV** | **↓ Lines CSV** |
+| Sales Invoices | **↓ CSV** · **↓ Lines CSV** | **↓ Invoice CSV** |
+| Customer Payments | **↓ CSV** | **↓ Payment CSV** |
+| Credit Notes | **↓ CSV** | **↓ Credit CSV** |
+| Backorders | **↓ CSV** | — |
+
+**어떻게**
+1. 넓은 목록에서 필터와 검색을 맞춥니다.
+2. **↓ CSV** 를 누릅니다. 필터에 맞는 행이 모두 내려받아집니다 — 화면의 한 페이지만이 아닙니다.
+3. 문서 하나의 CSV 단추는 그 문서만 내려받습니다.
+
+**알아 둘 것**
+- 바코드와 SKU 는 엑셀에서 글자 그대로 열립니다 — 긴 숫자가 1.23E+12 로 바뀌지 않고 앞의 0 도 남습니다.
+- GP(매출 이익) 칸은 `cost` 권한이 있는 사람의 **↓ Lines CSV** 에만 나옵니다.
+- 이 파일은 내부용입니다. 고객에게는 인쇄 문서를 보냅니다([인쇄와 메일](#sales-print-email)).
+
+<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729 -->
