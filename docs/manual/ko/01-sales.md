@@ -247,7 +247,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 <!-- who: sales, office -->
 
 **무엇인가**
-**Release to WMS** 는 확정된 오더를 창고로 보냅니다. 창고 매니저의 **Split & Waves** 화면에 나타납니다. 상태가 **Released to WMS** 가 되고, 픽을 시작하면 **Working** 이 됩니다.
+**Release to WMS** 는 확정된 오더를 창고로 보냅니다. 창고 매니저의 **Split & Waves** 화면에 나타납니다([오더를 묶음과 웨이브로 나누기](04-wms.md#wms-waves)). 상태가 **Released to WMS** 가 되고, 픽을 시작하면 **Working** 이 됩니다.
 
 **어떻게**
 1. 확정된 Warehouse 오더를 엽니다.
@@ -281,7 +281,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 **Recall from WMS**
 1. **Released to WMS** 인 오더에서 **Recall from WMS** 를 누릅니다.
 2. "Recall SO-99001 from the warehouse? It goes back to Confirmed and leaves the WMS Split screen." 에 OK 를 누릅니다.
-- 창고가 일을 시작하면(**Working**) 단추가 회색입니다: "The warehouse is working on it — ask the warehouse manager to send it back first"(창고 매니저에게 먼저 돌려 달라고 하라)
+- 창고가 일을 시작하면(**Working**) 단추가 회색입니다: "The warehouse is working on it — ask the warehouse manager to send it back first"(창고 매니저에게 먼저 돌려 달라고 하라 · [WMS Admin](04-wms.md#wms-admin))
 
 **Delete draft**
 1. 초안에서 **Delete draft** 를 누릅니다.
@@ -358,6 +358,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **무엇인가**
 백오더는 고객이 주문했지만 확정 때 확보하지 못한 것입니다. 재고가 들어올 때까지 따로 오더(예: SO-99001a)로 기다립니다. 프리오더도 같은 방식으로 기다립니다.
+창고에서 모자란 몫도 백오더가 됩니다 — [물건이 모자랄 때](04-wms.md#wms-pick-short)
 **Sales ▾** › **Backorders** 에는 탭이 넷 있습니다: **Arrivals**(처음 열림) · **Insights** · **All backorders** · **Emails**
 
 **Arrivals(입고)**
@@ -443,7 +444,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **어떻게 — 오더 하나**
 1. **Finalized** 오더를 열고 **Ship & invoice…** 를 누릅니다.
-2. 맨 위 **What the warehouse packed** 에 팔레트 · 박스마다 크기와 무게가 나옵니다 — 운임 견적에 씁니다. "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."(크기 없는 짐 · 창고에 먼저 묻는다)
+2. 맨 위 **What the warehouse packed** 에 팔레트 · 박스마다 크기와 무게가 나옵니다 — 운임 견적에 씁니다([상자 · 팔레트에 담기](04-wms.md#wms-fulfillment)). "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."(크기 없는 짐 · 창고에 먼저 묻는다)
 3. 운임: 오더에 이미 있는 비용의 금액을 실제 운임으로 바꾸거나, **Freight amount** 에 새 라인 금액을 적습니다. 비우면 운임 라인이 없습니다.
 4. **Carrier**(운송사)를 고르고 **Tracking number**(송장 번호)를 적습니다(박스가 여럿이면 쉼표로 나눔). 필요하면 **Shipping notes** 도 적습니다.
 5. **Preview** 를 누릅니다. **What will happen** 을 읽습니다: 라인마다 **Ordered** · **Ships** · **Short**, 비용, 인보이스
@@ -466,7 +467,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 3. **Ship and invoice** 를 누릅니다. "Nothing blocks the hand-over — whatever is not paid stays as an unpaid invoice."(막는 것은 없다 · 안 낸 돈은 미수 인보이스로 남는다)
 
 **알아 둘 것**
-- 주문보다 덜 팩됐으면: "the rest goes to a backorder order"(나머지는 백오더 오더로)
+- 주문보다 덜 팩됐으면: "the rest goes to a backorder order"(나머지는 백오더 오더로 · [물건이 모자랄 때](04-wms.md#wms-pick-short))
 - **Put back to the shelf**(선반에 돌려놓기): 콤보는 통째로 나가거나 안 나갑니다. 콤보가 다 갖춰지지 않으면 남는 구성품을 bin 에 돌려놓으라는 목록이 나옵니다.
 - 오더에 이미 받은 결제는 그 인보이스에 저절로 붙습니다.
 - **Preview** 뒤에 창의 무엇을 바꾸면 **Preview** 를 다시 누릅니다.
@@ -736,7 +737,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 <!-- who: all -->
 
 **상태 — 배지와 필터**
-배지는 오더에 붙는 색 이름표입니다. 필터는 **Sales Orders** 의 **Status** 목록입니다.
+배지는 오더에 붙는 색 이름표입니다. 필터는 **Sales Orders** 의 **Status** 목록입니다. 창고 화면은 [창고 쪽 상태](04-wms.md#wms-statuses)를 봅니다.
 
 | 배지(색) | 필터 | 뜻 |
 |---|---|---|

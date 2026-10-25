@@ -247,7 +247,7 @@ SO-99001 for Customer A asks for 30 of product X. The warehouse has 18 free.
 <!-- who: sales, office -->
 
 **What it is**
-**Release to WMS** sends a confirmed order to the warehouse. It appears on the warehouse manager's **Split & Waves** screen. Its status becomes **Released to WMS**, then **Working** when picking starts.
+**Release to WMS** sends a confirmed order to the warehouse. It appears on the warehouse manager's **Split & Waves** screen (see [Split orders into batches and waves](04-wms.md#wms-waves)). Its status becomes **Released to WMS**, then **Working** when picking starts.
 
 **How**
 1. Open a confirmed warehouse order.
@@ -281,7 +281,7 @@ Each step can be taken back one step at a time: from the warehouse to **Confirme
 **Recall from WMS**
 1. On an order that is **Released to WMS**, press **Recall from WMS**.
 2. IMS asks: "Recall SO-99001 from the warehouse? It goes back to Confirmed and leaves the WMS Split screen." Press OK.
-- Once the warehouse starts (**Working**), the button is grey: "The warehouse is working on it — ask the warehouse manager to send it back first".
+- Once the warehouse starts (**Working**), the button is grey: "The warehouse is working on it — ask the warehouse manager to send it back first" (see [WMS Admin](04-wms.md#wms-admin)).
 
 **Delete draft**
 1. On a draft, press **Delete draft**.
@@ -358,6 +358,7 @@ What a merge does:
 
 **What it is**
 A backorder is what a customer ordered but we could not reserve when the order was confirmed. It waits in its own order (for example SO-99001a) until the stock comes in. A pre-order waits the same way.
+Shortages found in the warehouse become backorders too — see [When an item is short](04-wms.md#wms-pick-short).
 **Sales ▾** › **Backorders** has four tabs: **Arrivals** (opens first), **Insights**, **All backorders** and **Emails**.
 
 **Arrivals**
@@ -443,7 +444,7 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 
 **How — one order**
 1. Open the **Finalized** order and press **Ship & invoice…**.
-2. At the top, **What the warehouse packed** lists each pallet or box with size and weight — use it for the freight quote. "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."
+2. At the top, **What the warehouse packed** lists each pallet or box with size and weight — use it for the freight quote (see [Fulfillment](04-wms.md#wms-fulfillment)). "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."
 3. Freight: change the amount of a charge already on the order to the real freight, or type **Freight amount** for a new line. Empty means no freight line.
 4. Choose the **Carrier** and type the **Tracking number** (several boxes: separate with commas). Add **Shipping notes** if needed.
 5. Press **Preview**. Read **What will happen**: for each line **Ordered**, **Ships** and **Short**, the charges, and the invoice.
@@ -466,7 +467,7 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 3. Press **Ship and invoice**. "Nothing blocks the hand-over — whatever is not paid stays as an unpaid invoice."
 
 **Good to know**
-- Packed less than ordered: "the rest goes to a backorder order".
+- Packed less than ordered: "the rest goes to a backorder order" (see [When an item is short](04-wms.md#wms-pick-short)).
 - **Put back to the shelf**: a combo ships whole or not at all. If a combo cannot go complete, the list shows the extra components to put back in their bins.
 - Payments already taken for an order attach themselves to its invoice.
 - If something in the window changes after **Preview**, press **Preview** again.
@@ -736,7 +737,7 @@ Cancelling closes a confirmed order for good. A draft is not cancelled — use *
 <!-- who: all -->
 
 **Status — badge and filter**
-The badge is the coloured label on an order. The filter is the **Status** list on **Sales Orders**.
+The badge is the coloured label on an order. The filter is the **Status** list on **Sales Orders**. Warehouse screens: see [Warehouse statuses](04-wms.md#wms-statuses).
 
 | Badge (colour) | Filter | Meaning |
 |---|---|---|

@@ -52,7 +52,7 @@ The pre-commit hook (`scripts/hooks/pre-commit`) also runs it on the staged copy
 | 1 | Sales | [en/01-sales.md](en/01-sales.md) (outline only) | [ko/01-sales.md](ko/01-sales.md) (outline only) |
 | 2 | Purchasing | not written yet | not written yet |
 | 3 | Inventory | not written yet | not written yet |
-| 4 | WMS | [en/04-wms.md](en/04-wms.md) (in progress) | [ko/04-wms.md](ko/04-wms.md) (in progress) |
+| 4 | WMS | [en/04-wms.md](en/04-wms.md) | [ko/04-wms.md](ko/04-wms.md) |
 | 5 | POS | not written yet | not written yet |
 | 6 | Action Centre | not written yet | not written yet |
 | 7 | Settings | not written yet | not written yet |
