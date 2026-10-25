@@ -159,7 +159,7 @@ A surcharge (for example a US tariff) is charged per unit on top of the price an
 **Watch out**
 - A surcharge is not part of the order discount. Free lines cannot carry one.
 - When an order is divided or split, its order discount is **locked** at what the customer first ordered. Line changes and **Reprice** do not change it.
-- Deals and order discount rules are made on the **Discount Rules** screen — see the Settings chapter.
+- Deals and order discount rules are made on the **Discount Rules** screen — see [Discount rules and deals](07-settings.md#set-deals).
 
 <a id="sales-coupons"></a>
 ## Use a coupon
@@ -193,7 +193,7 @@ A coupon is a code that gives an order discount. Each coupon belongs to one cust
 - If the coupon is not used when the order is confirmed, IMS takes it off the order and the customer keeps it.
 
 **Watch out**
-- Coupons are made on the **Discount Rules** screen — see the Settings chapter.
+- Coupons are made on the **Discount Rules** screen — see [Coupons](07-settings.md#set-coupons).
 <a id="sales-confirm"></a>
 ## Confirm an order
 <!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->

@@ -55,7 +55,7 @@ The pre-commit hook (`scripts/hooks/pre-commit`) also runs it on the staged copy
 | 4 | WMS | [en/04-wms.md](en/04-wms.md) | [ko/04-wms.md](ko/04-wms.md) |
 | 5 | POS | [en/05-pos.md](en/05-pos.md) | [ko/05-pos.md](ko/05-pos.md) |
 | 6 | Action Centre | [en/06-action-centre.md](en/06-action-centre.md) | [ko/06-action-centre.md](ko/06-action-centre.md) |
-| 7 | Settings | [en/07-settings.md](en/07-settings.md) (in progress) | [ko/07-settings.md](ko/07-settings.md) (in progress) |
+| 7 | Settings | [en/07-settings.md](en/07-settings.md) | [ko/07-settings.md](ko/07-settings.md) |
 | 8 | A day in each role | not written yet | not written yet |
 | 9 | Moving from the old system (Korean: 예전 시스템에서 옮겨 오기) | not written yet | not written yet |
 | 10 | FAQ | not written yet | not written yet |

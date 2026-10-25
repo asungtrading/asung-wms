@@ -172,7 +172,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 **알아 둘 것**
 - 서류마다 **Waiting to go to Drive**(드라이브로 갈 차례) · **In Drive**(드라이브에 있음) · **Drive failed**(실패)가 보입니다.
 - **Remove** 는 서류를 감춥니다: "It is hidden here and renamed REMOVED_ in Drive. Nothing is deleted."(여기서 감추고 드라이브에서는 REMOVED_ 로 이름을 바꾼다 · 지워지는 것은 없다)
-- 서류는 관리자가 **Settings** 에서 켠 뒤, 거기 정한 시작 날짜부터 회사 구글 드라이브로 갑니다.
+- 서류는 관리자가 **Settings** 에서 켠 뒤, 거기 정한 시작 날짜부터 회사 구글 드라이브로 갑니다([Google Drive](07-settings.md#set-drive)).
 
 <!-- SCREENSHOT: purch-documents-1 · PO 의 Documents 구역 · In Drive 서류 하나 -->
 

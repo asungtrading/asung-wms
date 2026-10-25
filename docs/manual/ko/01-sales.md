@@ -159,7 +159,7 @@ Customer A 의 고객 할인은 10% 입니다. 딜이 제품 X 에 15% 를 줍�
 **조심할 것**
 - 추가 요금은 오더 할인에 들어가지 않습니다. 무상 라인에는 붙일 수 없습니다.
 - 오더를 나누면 오더 할인이 고객이 처음 주문한 금액 기준으로 **locked**(잠김) 됩니다. 라인을 바꾸거나 **Reprice** 를 해도 바뀌지 않습니다.
-- 딜과 오더 할인 규칙은 **Discount Rules** 화면에서 만듭니다 — 설정 장을 보세요.
+- 딜과 오더 할인 규칙은 **Discount Rules** 화면에서 만듭니다 — [할인 규칙과 딜](07-settings.md#set-deals)을 보세요.
 
 <a id="sales-coupons"></a>
 ## 쿠폰 쓰기
@@ -193,7 +193,7 @@ Customer A 의 고객 할인은 10% 입니다. 딜이 제품 X 에 15% 를 줍�
 - 확정할 때 쿠폰이 안 쓰이고 있으면 IMS 가 오더에서 떼고, 고객은 쿠폰을 그대로 가집니다.
 
 **조심할 것**
-- 쿠폰은 **Discount Rules** 화면에서 만듭니다 — 설정 장을 보세요.
+- 쿠폰은 **Discount Rules** 화면에서 만듭니다 — [쿠폰](07-settings.md#set-coupons)을 보세요.
 <a id="sales-confirm"></a>
 ## 오더 확정
 <!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->

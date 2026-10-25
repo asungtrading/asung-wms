@@ -119,7 +119,7 @@ In IMS mode, the menu runs along the top of the screen. Each word opens a list o
 | **Sales ▾** | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾** | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | One screen — no list opens (see [Action Centre](06-action-centre.md#action-start)) |
-| **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check |
+| **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check (see [Settings](07-settings.md#set-start)) |
 
 **How**
 1. Press a menu word, for example **Sales ▾**.
@@ -199,7 +199,7 @@ Every wide list has a bar on top. The bar has a search box, filters, a **Clear**
 
 **What it is**
 What you can see and do in IMS depends on two things: your **role** and your **keys**.
-Your manager sets both on the **Staff** screen. You see your name and role at the top right of every screen.
+Your manager sets both on the **Staff** screen (see [Staff](07-settings.md#set-staff)). You see your name and role at the top right of every screen.
 
 **Roles**
 There are four roles, from first to highest: **worker**, **manager**, **supervisor**, **admin**.
@@ -305,6 +305,7 @@ This manual describes how IMS works. If IMS does something different from what t
 **What to send**
 - The screen name and both build tags (see [The build tag](#start-build-tag)).
 - The order, invoice or other number you were working on (for example `SO-99001`).
+- A screenshot of **System Check** (see [System Check](07-settings.md#set-system-check)).
 - What you pressed, what you expected, and what happened instead.
 
 <!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731 -->

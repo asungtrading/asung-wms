@@ -172,7 +172,7 @@ At the bottom of a PO and of a charge there is a **Documents** section. Keep the
 **Good to know**
 - Each document shows **Waiting to go to Drive**, **In Drive** or **Drive failed**.
 - **Remove** hides a document: "It is hidden here and renamed REMOVED_ in Drive. Nothing is deleted."
-- Documents go to the company Google Drive only after an admin switches it on in **Settings**, and only from the start date set there.
+- Documents go to the company Google Drive only after an admin switches it on in **Settings**, and only from the start date set there (see [Google Drive](07-settings.md#set-drive)).
 
 <!-- SCREENSHOT: purch-documents-1 · the Documents section on a PO with one document In Drive -->
 

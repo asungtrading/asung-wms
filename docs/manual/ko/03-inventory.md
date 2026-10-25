@@ -59,6 +59,7 @@
 **알아 둘 것**
 - 자기 가격이 없는 세트는 **calculated** 로 보입니다 — 낱개 가격을 따릅니다.
 - **Last change before IMS** 는 IMS 이전에 마지막으로 바뀐 날입니다.
+- 제품의 surcharge 그룹은 **Edit** 에서 제품 카드의 **Surcharge group** 으로 고릅니다([Surcharge 그룹](07-settings.md#set-surcharge)).
 - 제품은 감추지 않습니다 — 꺼진 제품도 찾을 수 있습니다.
 - 여러 제품을 한꺼번에 고치려면 [Product Sheet](#stock-sheet)를 씁니다.
 
@@ -220,7 +221,7 @@ admin, 그리고 Stock adjustments 권한이 켜진 manager · supervisor. 화�
 <!-- who: manager -->
 
 **무엇인가**
-B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입니다. **On hand** · **Available** 에서 빠지고, 보통 오더에는 픽되지 않으며, POS 에서만 B급 가격으로 팝니다. bin 을 B급으로 정하는 것은 **Settings** 에서 합니다.
+B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입니다. **On hand** · **Available** 에서 빠지고, 보통 오더에는 픽되지 않으며, POS 에서만 B급 가격으로 팝니다. bin 을 B급으로 정하는 것은 **Settings** 에서 합니다([목록](07-settings.md#set-master)).
 
 **누가**
 재고 조정과 같은 사람 — admin, 그리고 Stock adjustments 권한이 켜진 manager · supervisor

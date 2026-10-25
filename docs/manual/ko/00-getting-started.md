@@ -121,7 +121,7 @@ IMS 모드에서는 메뉴가 화면 맨 위에 한 줄로 있습니다. 단어�
 | **Sales ▾**(판매) | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾**(재고) | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | 화면 하나 — 펼쳐지지 않고 바로 열린다([Action Centre](06-action-centre.md#action-start)) |
-| **Settings ▾**(설정) | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check |
+| **Settings ▾**(설정) | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check([설정](07-settings.md#set-start)) |
 
 **어떻게**
 1. 메뉴 단어를 누릅니다. 예: **Sales ▾**
@@ -201,7 +201,7 @@ WMS 화면에서는 **☰ Menu** 맨 끝에 **Manual** 이 있습니다.
 
 **무엇인가**
 IMS 에서 무엇을 보고 할 수 있는지는 둘이 정합니다: **역할**과 **권한**.
-둘 다 매니저가 **Staff** 화면에서 정합니다. 모든 화면 오른쪽 위에 내 이름과 역할이 보입니다.
+둘 다 매니저가 **Staff** 화면에서 정합니다([직원](07-settings.md#set-staff)). 모든 화면 오른쪽 위에 내 이름과 역할이 보입니다.
 
 **역할**
 역할은 넷입니다. 낮은 것부터 **worker** · **manager** · **supervisor** · **admin**.
@@ -307,6 +307,7 @@ build 표시가 있으면 어느 버전을 쓰고 있었는지 바로 압니다.
 **무엇을 보내나**
 - 화면 이름과 build 표시 둘([build 표시](#start-build-tag))
 - 다루던 오더 · 인보이스 등의 번호(예: `SO-99001`)
+- **System Check** 화면 캡처([System Check](07-settings.md#set-system-check))
 - 무엇을 눌렀는지, 무엇을 기대했는지, 대신 무엇이 일어났는지
 
 <!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731 -->

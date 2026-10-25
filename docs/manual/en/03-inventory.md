@@ -59,6 +59,7 @@
 **Good to know**
 - A set with no price of its own shows **calculated** — it follows the single product's price.
 - **Last change before IMS** shows when the product was last changed before IMS.
+- A product's surcharge group is picked on its card in **Edit** (see [Surcharge groups](07-settings.md#set-surcharge)).
 - Products are never hidden — inactive products can still be found.
 - To change many products at once, use [Product Sheet](#stock-sheet).
 
@@ -220,7 +221,7 @@ The book says 43 of DEMO-001 in a bin. The shelf has 40. Choose **Shelf holds** 
 <!-- who: manager -->
 
 **What it is**
-B-grade stock is damaged-package goods kept under the same SKU in a B-grade bin. It is left out of **On hand** and **Available**, is never picked for regular orders, and is sold at the POS only at its B-grade price. A bin is made a B-grade bin in **Settings**.
+B-grade stock is damaged-package goods kept under the same SKU in a B-grade bin. It is left out of **On hand** and **Available**, is never picked for regular orders, and is sold at the POS only at its B-grade price. A bin is made a B-grade bin in **Settings** (see [Lists](07-settings.md#set-master)).
 
 **Who**
 The same people as stock adjustments — admins, and managers or supervisors with the Stock adjustments key.
