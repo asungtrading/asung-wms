@@ -10,6 +10,7 @@
 Each section below is one role. It lists the work that role does most and the section of this manual that explains it. Press a link to go to that section.
 The work in this first section is for everyone. The role sections do not repeat it.
 Questions? See [FAQ](10-faq.md#faq-sign-in).
+Words on the screens are explained in [Glossary](11-glossary.md#gloss-general).
 
 ### Everyone
 - Learn what IMS is → [What IMS is](00-getting-started.md#start-what-is-ims)

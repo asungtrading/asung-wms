@@ -59,4 +59,4 @@ The pre-commit hook (`scripts/hooks/pre-commit`) also runs it on the staged copy
 | 8 | By role | [en/08-by-role.md](en/08-by-role.md) | [ko/08-by-role.md](ko/08-by-role.md) |
 | 9 | Moving from the old system (Korean: 예전 시스템에서 옮겨 오기) | not written yet | not written yet |
 | 10 | FAQ | [en/10-faq.md](en/10-faq.md) | [ko/10-faq.md](ko/10-faq.md) |
-| 11 | Glossary | not written yet | not written yet |
+| 11 | Glossary | [en/11-glossary.md](en/11-glossary.md) | [ko/11-glossary.md](ko/11-glossary.md) |

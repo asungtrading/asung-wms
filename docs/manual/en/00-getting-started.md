@@ -298,6 +298,7 @@ Each chapter covers one area. The chapters and their sections are in the list on
 Chapter 1 is [Sales](01-sales.md).
 To find your work by role, see [By role](08-by-role.md#role-start).
 Common questions are in [FAQ](10-faq.md#faq-sign-in).
+Words on the screens are explained in [Glossary](11-glossary.md#gloss-general).
 This manual describes how IMS works. If IMS does something different from what this manual says, that is a problem worth reporting.
 
 **Who to ask**
