@@ -85,7 +85,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 - **⚑ Wrong location** — 목록에 적힌 자리에 없다. IMS 가 어디서 찾았는지 묻습니다.
 - **⚑ Barcode changed** — 물건의 바코드가 다르다.
 - **⚑ Image differs** — 사진이 제품과 다르다.
-모두 매니저 목록으로 갑니다. 픽은 계속합니다.
+모두 [WMS Admin](#wms-admin) 으로 갑니다. 픽은 계속합니다.
 
 **알아 둘 것**
 - **🖨 Print** 는 픽리스트를 다시 찍습니다.
@@ -340,7 +340,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 <!-- SCREENSHOT: wms-admin-1 · Rollback: Current stage 와 Undo 단추 -->
 
 <a id="wms-statuses"></a>
-## 창고 쪽 상태
+## 상태의 뜻(창고)
 <!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; wms-fulfillment.html · BUILD 2026-10-01 · fu v1.3 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: all -->
 

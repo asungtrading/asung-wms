@@ -297,7 +297,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 | received | 도착했다 |
 | cancelled | 취소 |
 
-창고 화면은 같은 단계를 자기 글자로 보여 줍니다 — [창고 쪽 상태](04-wms.md#wms-statuses)
+창고 화면은 같은 단계를 자기 글자로 보여 줍니다 — [상태의 뜻(창고)](04-wms.md#wms-statuses)
 
 **조정 · bin 이동**
 **Draft** · **Confirmed**

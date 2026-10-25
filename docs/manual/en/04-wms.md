@@ -85,7 +85,7 @@ When your manager has made batches on **Split & Waves** and the pick lists are o
 - **⚑ Wrong location** — the item is not where the list says. IMS asks where you found it.
 - **⚑ Barcode changed** — the barcode on the item is different.
 - **⚑ Image differs** — the photo does not match the product.
-Each one goes to the manager's list. You keep picking.
+Each one goes to [WMS Admin](#wms-admin). You keep picking.
 
 **Good to know**
 - **🖨 Print** reprints the pick list.

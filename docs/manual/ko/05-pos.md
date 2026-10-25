@@ -161,7 +161,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 **알아 둘 것**
 - "Finish hands the goods over and issues the invoice now. It does not stop you if something is still owed — that stays on the invoice."(남은 돈이 있어도 막지 않는다 — 인보이스에 남는다) 남은 돈은 고객의 결제 조건대로 받습니다.
 - 고객에게 주는 종이는 인보이스입니다. 따로 계산대 영수증은 없습니다.
-- 장부보다 많이 나가도 Finish 는 됩니다. 매니저 목록에 나옵니다.
+- 장부보다 많이 나가도 Finish 는 됩니다. [Action Centre](06-action-centre.md#action-sold-short) 에 나옵니다.
 
 **조심할 것**
 - Finish 뒤에는 POS 에서 판매를 바꿀 수 없습니다. 반품은 크레딧 노트로 합니다([크레딧 노트](01-sales.md#sales-credits)). B급은 최종 판매입니다.
@@ -184,7 +184,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 - Park 는 상태가 아닙니다. 판매는 confirmed 그대로입니다.
 
 **조심할 것**
-- "A confirmed sale not finished by the end of the day shows on the manager list."(그날 끝내지 못한 확정 판매는 매니저 목록에 나온다) 여기서는 "confirmed from … — not finished" 로 나옵니다. 끝내거나, 다시 열어 물건을 뺍니다.
+- "A confirmed sale not finished by the end of the day shows on the manager list."(그날 끝내지 못한 확정 판매는 매니저 목록에 나온다) 여기서는 "confirmed from … — not finished" 로 나옵니다. 끝내거나, 다시 열어 물건을 뺍니다. 매니저 목록은 [Action Centre](06-action-centre.md#action-pos) 입니다.
 
 <a id="pos-statuses"></a>
 ## 상태의 뜻

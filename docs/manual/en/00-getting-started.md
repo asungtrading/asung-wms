@@ -118,7 +118,7 @@ In IMS mode, the menu runs along the top of the screen. Each word opens a list o
 | **Purchasing ▾** | Purchase Orders · Purchase Invoices & Credits · Charges · Supplier Payments · Purchase Receipts · Suppliers · Reorder Planner |
 | **Sales ▾** | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾** | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
-| **Action Centre** | One screen — no list opens |
+| **Action Centre** | One screen — no list opens (see [Action Centre](06-action-centre.md#action-start)) |
 | **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check |
 
 **How**
@@ -218,7 +218,7 @@ The keys, with the words the **Staff** screen shows:
 
 | Key | Opens |
 |---|---|
-| `sales` | Sales orders, customer addresses and contacts — also invoices, payments, credits, backorders, web orders, customers, POS and the Action Centre |
+| `sales` | Sales orders, customer addresses and contacts — also invoices, payments, credits, backorders, web orders, customers, POS and the [Action Centre](06-action-centre.md#action-start) |
 | `purchasing` | Purchase orders, invoices, charges, payments — also the Reorder Planner |
 | `receiving` | Receiving and putaway (the office **Purchase Receipts** screen) |
 | `master` | Settings, suppliers, products, families, supplier products, prices, product tags, deals |

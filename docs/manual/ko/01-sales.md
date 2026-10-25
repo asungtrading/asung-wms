@@ -17,7 +17,7 @@
 **고객 찾는 법**
 1. **Customers** 를 엽니다. **Search name** 에 이름 일부를 적습니다.
 2. **Active only**(활성만)는 처음에 체크돼 있습니다. 꺼진 고객도 보려면 체크를 풉니다.
-3. **New — not reviewed** 를 체크하면 매니저가 아직 확인하지 않은 새 고객만 보입니다.
+3. **New — not reviewed** 를 체크하면 매니저가 아직 확인하지 않은 새 고객만 보입니다. [Action Centre](06-action-centre.md#action-new-customers) 에도 나옵니다.
 4. 고객을 누릅니다. **Price tier**(가격 등급) · **Discount %**(할인) · **Payment term**(결제 조건) · **Currency**(통화) · **Bill to**(청구처) · **Default warehouse**(기본 창고) · **Tax rule**(세금 규칙), **Stores** 카드, **Order history**(주문 이력), **Addresses**(주소), **Contacts**(연락처)가 보입니다.
 
 **고객 더하는 법**
@@ -737,7 +737,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 <!-- who: all -->
 
 **상태 — 배지와 필터**
-배지는 오더에 붙는 색 이름표입니다. 필터는 **Sales Orders** 의 **Status** 목록입니다. 창고 화면은 [창고 쪽 상태](04-wms.md#wms-statuses)를 봅니다.
+배지는 오더에 붙는 색 이름표입니다. 필터는 **Sales Orders** 의 **Status** 목록입니다. 창고 화면은 [상태의 뜻(창고)](04-wms.md#wms-statuses)를 봅니다.
 
 | 배지(색) | 필터 | 뜻 |
 |---|---|---|

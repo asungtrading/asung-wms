@@ -17,7 +17,7 @@ Before a new order, when a customer calls with a change, or when a new customer 
 **How to find a customer**
 1. Open **Customers**. Type part of the name in **Search name**.
 2. **Active only** is ticked at the start. Untick it to see customers that were turned off.
-3. Tick **New — not reviewed** to see only new customers a manager has not checked yet.
+3. Tick **New — not reviewed** to see only new customers a manager has not checked yet. They also show on the [Action Centre](06-action-centre.md#action-new-customers).
 4. Click a customer. You see **Price tier**, **Discount %**, **Payment term**, **Currency**, **Bill to**, **Default warehouse**, **Tax rule**, the **Stores** card, **Order history**, **Addresses** and **Contacts**.
 
 **How to add a customer**

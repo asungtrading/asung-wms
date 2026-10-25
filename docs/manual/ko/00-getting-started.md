@@ -120,7 +120,7 @@ IMS 모드에서는 메뉴가 화면 맨 위에 한 줄로 있습니다. 단어�
 | **Purchasing ▾**(구매) | Purchase Orders · Purchase Invoices & Credits · Charges · Supplier Payments · Purchase Receipts · Suppliers · Reorder Planner |
 | **Sales ▾**(판매) | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾**(재고) | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
-| **Action Centre** | 화면 하나 — 펼쳐지지 않고 바로 열린다 |
+| **Action Centre** | 화면 하나 — 펼쳐지지 않고 바로 열린다([Action Centre](06-action-centre.md#action-start)) |
 | **Settings ▾**(설정) | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check |
 
 **어떻게**
@@ -220,7 +220,7 @@ IMS 에서 무엇을 보고 할 수 있는지는 둘이 정합니다: **역할**
 
 | 권한 | 여는 것 |
 |---|---|
-| `sales` | Sales orders, customer addresses and contacts — 판매 오더 · 고객 주소와 연락처 · 그리고 인보이스 · 결제 · 크레딧 · 백오더 · 웹 오더 · 고객 · POS · Action Centre |
+| `sales` | Sales orders, customer addresses and contacts — 판매 오더 · 고객 주소와 연락처 · 그리고 인보이스 · 결제 · 크레딧 · 백오더 · 웹 오더 · 고객 · POS · [Action Centre](06-action-centre.md#action-start) |
 | `purchasing` | Purchase orders, invoices, charges, payments — PO · 공급처 인보이스 · 비용 문서 · 결제 · 그리고 Reorder Planner |
 | `receiving` | Receiving and putaway — 오피스의 **Purchase Receipts** 화면 |
 | `master` | Settings, suppliers, products, families, supplier products, prices, product tags, deals — 설정 · 공급처 · 제품 · 가격 · 딜 |

@@ -161,7 +161,7 @@ Type **Cash given** to see the change. "Record the amount kept, not the cash han
 **Good to know**
 - "Finish hands the goods over and issues the invoice now. It does not stop you if something is still owed — that stays on the invoice." The rest is paid on the customer's payment term.
 - The invoice is the customer's paper. There is no separate till slip.
-- If more goes out than the books show, Finish still goes; the manager list shows it.
+- If more goes out than the books show, Finish still goes; the [Action Centre](06-action-centre.md#action-sold-short) shows it.
 
 **Watch out**
 - After Finish, the sale cannot be changed at the POS. A return goes through a credit note (see [Credit notes](01-sales.md#sales-credits)). B-grade items are final sale.
@@ -184,7 +184,7 @@ Type **Cash given** to see the change. "Record the amount kept, not the cash han
 - Parking is not a status. The sale stays confirmed.
 
 **Watch out**
-- "A confirmed sale not finished by the end of the day shows on the manager list." Here it shows as "confirmed from … — not finished". Finish it, or reopen it and take the items off.
+- "A confirmed sale not finished by the end of the day shows on the manager list." Here it shows as "confirmed from … — not finished". Finish it, or reopen it and take the items off. The manager list is the [Action Centre](06-action-centre.md#action-pos).
 
 <a id="pos-statuses"></a>
 ## What each status means
