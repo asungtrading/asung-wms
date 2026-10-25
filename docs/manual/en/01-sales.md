@@ -112,7 +112,7 @@ Lines are the products on the order. You can pick them one by one, or paste many
 - A price you give is final. The order discount does not apply to that line.
 - In the **Lines** table, change **Qty**, **Disc %** or **Unit** in the cell. **↺** puts the system price back. **✕** removes the line.
 - **Price from** tells you where the price came from: **customer**, **deal · …**, **set discount**, **discount by hand**, **price set by hand** or **free · …**. Next to a price set by hand you see who set it and when, for example "by Staff C".
-- Under the quantity, **available** shows what this warehouse has free now. It turns red when it is less than the quantity.
+- Under the quantity, **available** shows what this warehouse has free now. It turns red when it is less than the quantity (see [Find stock](03-inventory.md#stock-availability)).
 
 **Clear lines…**
 Press **Clear lines…** to remove every line of a draft at once. The window says how many lines go. Charges stay, and a coupon stays and applies again when lines come back. Press **Remove … lines** to do it.

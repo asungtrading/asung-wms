@@ -230,7 +230,7 @@ The keys, with the words the **Staff** screen shows:
 Some keys are for managers and above only: `shopify`, `wms_manage`, `wms_receiving_confirm`, `stock_adjust`. The `doc_template` key (document layouts) is for supervisors and admins. Several keys are off for everyone until a manager switches them on for a person.
 
 **Examples**
-- A person without the `cost` key does not see the **Value** column on **Stock Availability**. The column is simply not there.
+- A person without the `cost` key does not see the **Value** column on **Stock Availability**. The column is simply not there (see [Find stock](03-inventory.md#stock-availability)).
 - A person with `sales` at **read** can open a sales order but has no buttons to change it.
 - **Stock Availability** and **System Check** need no key. Everyone who can sign in sees them.
 

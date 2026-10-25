@@ -213,7 +213,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 **Post now — 기다릴 수 없는 재고**
 1. 초안 입고에서 **Post now…** 를 누릅니다. "Put what is already counted and in a bin into stock now — the rest is counted later."(이미 세서 bin 에 넣은 것을 지금 재고로 · 나머지는 나중에)
 2. bin 이 있는 행만 넣을 수 있습니다. **Check** 뒤 **Post to stock** 을 누릅니다.
-- 넣은 행은 "can no longer be moved or changed here; fix a mistake with a stock adjustment"(여기서 더 옮기거나 고칠 수 없다 · 실수는 재고 조정으로)
+- 넣은 행은 "can no longer be moved or changed here; fix a mistake with a stock adjustment"(여기서 더 옮기거나 고칠 수 없다 · 실수는 재고 조정으로 · [재고 조정](03-inventory.md#stock-adjustments))
 
 **입고 확정**
 1. 창고가 끝내면 **Confirm** 을 누릅니다.
@@ -292,7 +292,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 | IMS 의 글(줄임) | 할 일 |
 |---|---|
-| is closed (receiving finished) — a closed order cannot be cancelled | 크레딧이나 재고 조정으로 바로잡는다 |
+| is closed (receiving finished) — a closed order cannot be cancelled | 크레딧이나 [재고 조정](03-inventory.md#stock-adjustments)으로 바로잡는다 |
 | has … receipt line(s) — a received order cannot be cancelled | 같다 · 입고는 일어난 그대로 남는다 |
 | was confirmed on … — cancel it instead | **Cancel PO** 를 쓴다 |
 | is referenced by … invoice/credit document(s) | 그 라인을 빼거나 그 문서를 먼저 지운다 |

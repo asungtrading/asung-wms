@@ -89,7 +89,7 @@ Each one goes to the manager's list. You keep picking.
 
 **Good to know**
 - **🖨 Print** reprints the pick list.
-- Transfers between warehouses are picked the same way. The transfer number shows where the order number is, and the destination warehouse where the customer name is.
+- Transfers between warehouses are picked the same way (see [Transfers between warehouses](03-inventory.md#stock-transfers)). The transfer number shows where the order number is, and the destination warehouse where the customer name is.
 - A line marked "Part of a combo" is picked like any item. The combo is put together later.
 
 **Watch out**
@@ -186,7 +186,7 @@ An order appears here only when all its batches are checked on **Packing** — "
 5. When nothing is left under **Unassigned products**, print: **🖨 Box list**, **🖨 Pallet list**, a store's **🖨 List**, or **🖨 All stores (at once)**.
 6. Press **✓ Finalize order(s)** and confirm. "Finalized orders leave the fulfillment board." The office now does **Ship & invoice** (see [Ship & invoice](01-sales.md#sales-ship-invoice)).
 
-**Transfers**
+**Transfers** (see [Transfers between warehouses](03-inventory.md#stock-transfers))
 - A sale and a transfer cannot be worked together: "A sale and a transfer cannot be on the same workbench — finish or clear one first".
 - A finalized transfer leaves at once: "… left for … — in transit".
 - A transfer that was short is closed with what was sent — it does not make a backorder.
@@ -223,7 +223,7 @@ Only POs whose supplier invoice the office has confirmed can be received (see [R
 | An item not on the PO | "not on this PO. Add as OFF-INVOICE …? Put it away as usual — the office accepts or rejects it later." | Same. |
 | Less than the invoice | "Anything not counted is kept as short — the order stays open so the rest can be received on it later" | The PO stays open for the rest. |
 | Two people typed the same line | **Quantity conflict** — **Keep theirs**, **Use mine** or **Recount** | Choose one. |
-| A transfer | "Complete = arrival … anything not received stays in transit for the office to settle." | The office settles the rest on **Transfers**. |
+| A transfer | "Complete = arrival … anything not received stays in transit for the office to settle." | The office settles the rest on **Transfers** (see [Transfers between warehouses](03-inventory.md#stock-transfers)). |
 
 **Good to know**
 - **Hold (later)** and **Resume** work as in [Pick an order](#wms-picking).
@@ -300,6 +300,7 @@ The window says whether the PO "stays open" for more or "closes on confirm".
 **Good to know**
 - The **Value** line shows only for people with the `cost` key.
 - "Opening stock from the starting count is not listed as a movement here."
+- The office sees the same numbers on [Stock Availability](03-inventory.md#stock-availability).
 
 <a id="wms-admin"></a>
 ## WMS Admin
@@ -321,7 +322,7 @@ The window says whether the PO "stays open" for more or "closes on confirm".
 **Reports — problems the workers flagged**
 "wrong location · barcode changed · image differs · not enough stock (from picking/packing)"
 1. Open **Reports** and check each one on the shelf.
-2. For not enough stock, **Adjust stock** opens a stock adjustment for that product (for people with the stock adjustment key).
+2. For not enough stock, **Adjust stock** opens a stock adjustment for that product (for people with the stock adjustment key — see [Stock adjustments](03-inventory.md#stock-adjustments)).
 3. Press **Mark resolved** when it is dealt with.
 
 **Receiving — receipts waiting for the office**

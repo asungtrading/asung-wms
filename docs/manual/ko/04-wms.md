@@ -89,7 +89,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 
 **알아 둘 것**
 - **🖨 Print** 는 픽리스트를 다시 찍습니다.
-- 창고 간 트랜스퍼도 같은 방법으로 픽합니다. 오더 번호 자리에 트랜스퍼 번호가, 고객 이름 자리에 도착 창고가 나옵니다.
+- 창고 간 트랜스퍼도 같은 방법으로 픽합니다([창고 간 트랜스퍼](03-inventory.md#stock-transfers)). 오더 번호 자리에 트랜스퍼 번호가, 고객 이름 자리에 도착 창고가 나옵니다.
 - "Part of a combo" 표시가 있는 라인도 다른 물건처럼 픽합니다. 콤보는 나중에 맞춥니다.
 
 **조심할 것**
@@ -186,7 +186,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 5. **Unassigned products**(안 담은 제품)가 다 비면 인쇄합니다: **🖨 Box list** · **🖨 Pallet list** · 매장별 **🖨 List** · **🖨 All stores (at once)**
 6. **✓ Finalize order(s)** 를 누르고 확인합니다. "Finalized orders leave the fulfillment board." 이제 오피스가 **Ship & invoice** 를 합니다([Ship & invoice](01-sales.md#sales-ship-invoice)).
 
-**트랜스퍼**
+**트랜스퍼**([창고 간 트랜스퍼](03-inventory.md#stock-transfers))
 - 판매 오더와 트랜스퍼는 함께 작업할 수 없습니다: "A sale and a transfer cannot be on the same workbench — finish or clear one first"
 - Finalize 한 트랜스퍼는 바로 떠납니다: "… left for … — in transit"
 - 모자란 트랜스퍼는 보낸 만큼으로 닫힙니다 — 백오더를 만들지 않습니다.
@@ -223,7 +223,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 | PO 에 없는 물건 | "not on this PO. Add as OFF-INVOICE …? Put it away as usual — the office accepts or rejects it later." | 같다 |
 | 인보이스보다 적다 | "Anything not counted is kept as short — the order stays open so the rest can be received on it later" | 나머지를 받도록 PO 가 열린 채 남는다 |
 | 두 사람이 같은 라인에 적었다 | **Quantity conflict** — **Keep theirs** · **Use mine** · **Recount** | 하나를 고른다 |
-| 트랜스퍼 | "Complete = arrival … anything not received stays in transit for the office to settle." | 나머지는 오피스가 **Transfers** 에서 정리한다 |
+| 트랜스퍼 | "Complete = arrival … anything not received stays in transit for the office to settle." | 나머지는 오피스가 **Transfers** 에서 정리한다([창고 간 트랜스퍼](03-inventory.md#stock-transfers)) |
 
 **알아 둘 것**
 - **Hold (later)** 와 **Resume** 은 [오더 픽하기](#wms-picking)와 같습니다.
@@ -300,6 +300,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 **알아 둘 것**
 - **Value**(금액) 줄은 `cost` 권한이 있는 사람에게만 보입니다.
 - "Opening stock from the starting count is not listed as a movement here."(처음 센 기초 재고는 움직임으로 나오지 않는다)
+- 오피스는 같은 숫자를 [재고 찾기](03-inventory.md#stock-availability)에서 봅니다.
 
 <a id="wms-admin"></a>
 ## WMS Admin
@@ -321,7 +322,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 **Reports — 작업자가 알린 문제**
 "wrong location · barcode changed · image differs · not enough stock (from picking/packing)"
 1. **Reports** 를 열고 하나하나 선반에서 확인합니다.
-2. 재고 부족이면 **Adjust stock** 이 그 제품의 재고 조정을 엽니다(재고 조정 권한이 있는 사람).
+2. 재고 부족이면 **Adjust stock** 이 그 제품의 재고 조정을 엽니다(재고 조정 권한이 있는 사람 · [재고 조정](03-inventory.md#stock-adjustments)).
 3. 처리했으면 **Mark resolved** 를 누릅니다.
 
 **Receiving — 오피스 확정을 기다리는 입고**

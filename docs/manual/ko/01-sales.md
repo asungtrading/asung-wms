@@ -112,7 +112,7 @@
 - 직접 적은 가격은 고정됩니다. 오더 할인이 그 라인에는 걸리지 않습니다.
 - **Lines** 표에서 **Qty** · **Disc %** · **Unit** 을 칸에서 바꿉니다. **↺** 는 시스템 가격으로 되돌립니다. **✕** 는 라인을 지웁니다.
 - **Price from** 은 가격이 어디서 왔는지 알려 줍니다: **customer** · **deal · …** · **set discount** · **discount by hand** · **price set by hand** · **free · …**. 손으로 정한 가격 옆에는 누가 언제 정했는지 보입니다. 예: "by Staff C"
-- 수량 아래 **available** 은 이 창고에 지금 남은 수량입니다. 수량보다 적으면 빨갛게 보입니다.
+- 수량 아래 **available** 은 이 창고에 지금 남은 수량입니다. 수량보다 적으면 빨갛게 보입니다([재고 찾기](03-inventory.md#stock-availability)).
 
 **Clear lines…**
 **Clear lines…** 는 초안의 모든 라인을 한 번에 지웁니다. 창이 몇 라인이 지워지는지 알려 줍니다. 비용 라인은 남고, 쿠폰도 남아서 라인이 다시 들어오면 다시 걸립니다. **Remove … lines** 를 누르면 지웁니다.

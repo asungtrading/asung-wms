@@ -232,7 +232,7 @@ IMS 에서 무엇을 보고 할 수 있는지는 둘이 정합니다: **역할**
 매니저 이상만 받을 수 있는 권한이 있습니다: `shopify` · `wms_manage` · `wms_receiving_confirm` · `stock_adjust`. `doc_template`(문서 양식) 권한은 supervisor 와 admin 몫입니다. 몇몇 권한은 매니저가 그 사람에게 켜 주기 전까지 누구에게나 꺼져 있습니다.
 
 **예**
-- `cost` 권한이 없는 사람은 **Stock Availability** 에 **Value**(원가 금액) 칸이 보이지 않습니다. 칸이 아예 없습니다.
+- `cost` 권한이 없는 사람은 **Stock Availability** 에 **Value**(원가 금액) 칸이 보이지 않습니다. 칸이 아예 없습니다([재고 찾기](03-inventory.md#stock-availability)).
 - `sales` 가 **read** 인 사람은 판매 오더를 열 수 있지만, 고치는 단추가 없습니다.
 - **Stock Availability** 와 **System Check** 는 권한이 필요 없습니다. 로그인한 사람이면 누구나 봅니다.
 

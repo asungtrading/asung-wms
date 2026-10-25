@@ -213,7 +213,7 @@ A charge is a bill from someone other than the supplier — freight, duty, broke
 **Post now — stock that cannot wait**
 1. On a draft receipt press **Post now…**. "Put what is already counted and in a bin into stock now — the rest is counted later."
 2. Only rows with a bin can be posted. Press **Check**, then **Post to stock**.
-- A posted row "can no longer be moved or changed here; fix a mistake with a stock adjustment".
+- A posted row "can no longer be moved or changed here; fix a mistake with a stock adjustment" (see [Stock adjustments](03-inventory.md#stock-adjustments)).
 
 **Confirm the receipt**
 1. When the warehouse has finished, press **Confirm**.
@@ -292,7 +292,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 
 | IMS says (shortened) | What to do |
 |---|---|
-| is closed (receiving finished) — a closed order cannot be cancelled | Correct it with a credit or a stock adjustment. |
+| is closed (receiving finished) — a closed order cannot be cancelled | Correct it with a credit or a [stock adjustment](03-inventory.md#stock-adjustments). |
 | has … receipt line(s) — a received order cannot be cancelled | Same. Receipts stay as they happened. |
 | was confirmed on … — cancel it instead | Use **Cancel PO**. |
 | is referenced by … invoice/credit document(s) | Remove those lines or delete those documents first. |

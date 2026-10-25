@@ -1,6 +1,6 @@
 # 3. Inventory
 
-<!-- sections 1-12 · manual-3a writes stock-availability, stock-products, stock-new-product, stock-families · the rest manual-3b · sections follow the order of the work, not the order of the screens -->
+<!-- sections 1-12 written (manual-3a · 3b) · sections follow the order of the work, not the order of the screens -->
 
 <a id="stock-availability"></a>
 ## Find stock (Stock Availability)
@@ -120,48 +120,194 @@ A family groups products that are variants of one thing — the same item in dif
 ## Change many products at once (Product Sheet)
 <!-- screen: product-sheet.html · BUILD sheet v2b -->
 <!-- who: office, manager -->
-<!-- TODO manual-3b -->
+
+**What it is**
+**Product Sheet** (**Inventory ▾** › **Product Sheet**) shows many products as a table, one row per product. You change them like a spreadsheet and save them together. It needs the master key to save.
+
+**How — change products**
+1. Choose **Edit products**. Pick filters — search, **Brand**, **Category**, **Supplier**, **Singles** or **Sets only** — and press **Load**. Up to 300 rows load; **Next 300** loads more.
+2. Click a cell to change it. Enter goes down. You can change name, brand, category, unit, sale prices for each tier, the default supplier's SKU and cost, active, discontinued and the set discount %.
+3. To paste from Excel, copy a block and paste it into the first cell. "Paste follows the visible columns from left to right — line up your Excel columns with what you see. SKU always stays." **Columns** chooses which columns you see.
+4. Press **Save**. "Not saved — fix these first (rows in red)" lists what to fix; warnings can be passed with **Save anyway**.
+
+**How — new products**
+1. Choose **New products**. **+ 20 rows** adds empty rows.
+2. Type or paste the new products, then **Save**.
+
+**Price formula**
+"Filter by a supplier and press Load to use a price formula."
+1. Filter by one supplier (for example Supplier B) and press **Load**.
+2. Choose a formula, or **— new formula —**. Its boxes are **Cur**, **Duty %**, **Freight · other ×** and **Margin ÷**. ★ marks the supplier's usual formula.
+3. Choose the ending: **.49 · .99** or **.x9 all**.
+4. Press **Preview**, then **Apply** to fill the prices. **Save as new** or **Update this formula** keeps the formula for next time.
+- "Sets are not priced by a formula."
+- "Costs are in the supplier's currency (Cur) — not converted."
+
+**Good to know**
+- To see what one supplier sells, filter by that **Supplier** and press **Load**.
+- **Open these in Edit** opens the loaded products in edit mode.
+- **Discard** drops changes you have not saved.
+
+<!-- SCREENSHOT: stock-sheet-1 · Product Sheet filtered by one supplier with the price formula boxes -->
 
 <a id="stock-descriptions"></a>
 ## Descriptions, photos, tags and the web shop
-<!-- screen: products.html · BUILD pr v5f ; ims-desc.js ; ims-shop.js -->
+<!-- screen: products.html · BUILD pr v5f ; ims-desc.js ; ims-shop.js ; families.html · BUILD fam v5c -->
 <!-- who: office, manager -->
-<!-- TODO manual-3b -->
+
+**Description**
+The description is what the web shop shows for the product. It is written and kept in IMS.
+1. On the product, press **Edit description**.
+2. Write it with **Text**, **H2**, **H3**, **• List**, **1. List**, **Link** and **Clear format** — or **HTML** to edit the code.
+3. Press **Save**.
+- "Pasted text is cleaned the same way. YouTube and Facebook videos are kept; other embedded boxes are dropped."
+- An empty description asks first: "Save an empty description? The site will show none."
+- The card shows "Last edited … by …".
+
+**Photos, tags and barcodes** — needs the master key
+1. Press **Edit** on the product.
+2. **Upload photos** adds photos. **Make primary** chooses the main one. "This set has no photo of its own — the single's primary photo is shown."
+3. Tags: "Tags are case-sensitive — pick from the list to keep one spelling. ✕ takes a tag off when you save."
+4. Barcodes: add one in **Add a barcode**. "A new barcode can be made primary after saving."
+5. Press **Check & save**. "Save checks every change on this page — prices, suppliers, barcodes and tags included."
+
+**The web shop (Shopify card)** — managers and above (Shopify key)
+Each store has a row on the product's Shopify card.
+1. **Turn on** — "Send this to the Shopify store".
+2. **Send now** sends it at once and shows the result. **Send stock now** sends the stock numbers.
+3. **Turn off** — "Stop sending — the Shopify product becomes Archived (not deleted)".
+4. **Choose photo** picks the first photo on Shopify.
+- A product in a family shows "Sent to Shopify as a variant of its family". Switch it on with the Shopify card on its family (**Inventory ▾** › **Families** — see [Families](#stock-families)).
+- "Sets are not sent to Shopify. Only a set marked sellable can be switched on."
+- Without the key: "You can see this, but turning it on or off needs the Shopify permission."
 
 <a id="stock-adjustments"></a>
 ## Stock adjustments
 <!-- screen: stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 -->
 <!-- who: manager -->
-<!-- TODO manual-3b -->
+
+**What it is**
+A stock adjustment corrects the stock book to what is really on the shelf — after a count, a loss or damage.
+
+**Who**
+Admins, and managers or supervisors with the Stock adjustments key switched on. Others with the screen can only look: "Read-only — adjusting stock needs the Stock adjustments key."
+
+**How**
+1. Press **New adjustment**. Choose the **Warehouse** and write a **Note**. "One adjustment is one warehouse. The note cannot be changed later."
+2. Press **Add line**. Choose the **Product** and the **Bin**.
+3. **What to do**:
+   - **Shelf holds** — type what is on the shelf; IMS works out the change.
+   - **Add (+) or take (−)** — type the change itself.
+4. Choose the **Reason**: **Found — more than the books**, **Lost / missing**, **Damaged / thrown out**, **Count difference** or **Other (note needed)**. Give a **Unit cost** when you add stock and know it.
+5. Add more lines, then press **Confirm**.
+
+**Example**
+The book says 43 of DEMO-001 in a bin. The shelf has 40. Choose **Shelf holds** and type 40 — the change is −3. Or choose **Add (+) or take (−)** and type −3. Both give the same result.
+
+**Good to know**
+- From a "Not enough stock" report, **Adjust stock** on WMS Admin opens an adjustment already filled from where it was picked (see [WMS Admin](04-wms.md#wms-admin)).
+- Adding stock with no known cost warns "These go into the books at cost 0".
+- **Delete draft** removes an adjustment that is not confirmed.
+
+**Watch out**
+- A confirmed adjustment cannot be undone or deleted. Fix a mistake with a new adjustment.
+
+<!-- SCREENSHOT: stock-adjustments-1 · Add a line with What to do = Shelf holds and the Change to the book -->
 
 <a id="stock-bgrade"></a>
 ## B-grade stock
 <!-- screen: stock-bgrade.html · BUILD 2026-10-23 · bgr v1 -->
 <!-- who: manager -->
-<!-- TODO manual-3b -->
+
+**What it is**
+B-grade stock is damaged-package goods kept under the same SKU in a B-grade bin. It is left out of **On hand** and **Available**, is never picked for regular orders, and is sold at the POS only at its B-grade price. A bin is made a B-grade bin in **Settings**.
+
+**Who**
+The same people as stock adjustments — admins, and managers or supervisors with the Stock adjustments key.
+
+**How — move stock to B-grade**
+1. On **Inventory ▾** › **B-grade Stock**, press **Move to B-grade**.
+2. Choose the **Product**, the **From bin**, the **To B-grade bin** and the **Quantity**, then save.
+3. Press **Set price**. Type a price, or **% off Wholesale**. "Every unit of this SKU in this bin takes the new price."
+
+**Good to know**
+- **Reprice** changes the price. **Move back** returns stock to a regular bin.
+- B-grade stock with no price cannot be sold at the POS.
+- Moving does not change the cost.
 
 <a id="stock-transfers"></a>
 ## Transfers between warehouses
 <!-- screen: transfers.html · BUILD 2026-10-21 · tf cost v1 -->
 <!-- who: office, warehouse -->
-<!-- TODO manual-3b -->
+
+**What it is**
+A transfer moves stock from one warehouse to the other. It goes through the warehouse like a sales order. It needs the transfer key.
+
+**How**
+1. On **Inventory ▾** › **Transfers**, press **New transfer**. Choose from and to, then **Add line** or **Paste lines**.
+2. Press **Confirm**. Stock at the from warehouse is held for it (**Transfer res.**).
+3. Press **Release to WMS**. The warehouse picks, checks and packs it (see [Pick an order](04-wms.md#wms-picking) and [Fulfillment](04-wms.md#wms-fulfillment)).
+4. When the warehouse finalizes it, it leaves — **in transit**.
+5. The to warehouse counts it on **Receiving** and completes it — **received** (see [Receive a PO or a transfer](04-wms.md#wms-receiving)). No office confirm is needed.
+
+**When it does not match — needs the Stock adjustments key**
+- **Less arrived**: press **Settle in transit**. For each line choose **Lost** or **Returned to sender** (back into a bin at the from warehouse), then **Save settlement**.
+- **More arrived than was sent**: the to warehouse took only what was sent. Press **Decide** and choose **… sent more** or **Found at …**, then **Save decision**. "These may go into the books at cost 0."
+
+**Good to know**
+- If the pickers could not find everything, only what was picked leaves. The rest is closed on this transfer — make a new transfer for it.
+- **Add freight charge** puts freight onto the cost of what arrived.
+- Before release: **Back to draft**, **Delete draft**, **Cancel transfer**. After release: **Recall from warehouse**.
+
+<!-- SCREENSHOT: stock-transfers-1 · a transfer in transit with Settle in transit -->
 
 <a id="stock-bin-moves"></a>
 ## Bin moves in the office
 <!-- screen: stock-moves.html · BUILD 2026-09-28 · sm v1 -->
 <!-- who: office, warehouse -->
-<!-- TODO manual-3b -->
+
+**What it is**
+**Bin Moves (office)** moves stock between bins in one warehouse as a document: write it, then confirm it. The warehouse does the same by scanning on [Bin Moves](04-wms.md#wms-bin-moves).
+
+**How**
+1. Press **New move**. Choose the **Warehouse** and write a **Note** ("One move is one warehouse. The note cannot be changed later.").
+2. **Add line**: **Product**, **From bin**, **To bin**, **Quantity**.
+3. Press **Confirm**.
+
+**Good to know**
+- Stock that is "Picked, not shipped" or "Waiting for pickers" cannot move.
+- When stock moves, pick plans that pointed at it move too ("Pick plans moved with this stock").
+- It needs the Bin moves key: "Read-only — moving stock needs the Bin moves key."
 
 <a id="stock-statuses"></a>
 ## What each status means
-<!-- screen: stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 ; transfers.html · BUILD 2026-10-21 · tf cost v1 -->
+<!-- screen: transfers.html · BUILD 2026-10-21 · tf cost v1 ; stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 -->
 <!-- who: all -->
-<!-- TODO manual-3b -->
+
+**Transfers** (office screen)
+
+| Status | Meaning |
+|---|---|
+| draft | Being written. |
+| confirmed | Stock at the from warehouse is held for it. |
+| at warehouse | Released — waiting on Split & Waves. |
+| picking | The warehouse is working on it. |
+| in transit | It left the from warehouse. |
+| receiving | The to warehouse is counting it. |
+| received | It arrived. |
+| cancelled | Cancelled. |
+
+The warehouse screens use their own words for the same steps — see [Warehouse statuses](04-wms.md#wms-statuses).
+
+**Adjustments and bin moves**
+**Draft** · **Confirmed**.
 
 <a id="stock-csv"></a>
 ## CSV downloads
 <!-- screen: stock.html · BUILD 2026-10-25 · stk filt v1a -->
 <!-- who: office, accounting -->
-<!-- TODO manual-3b -->
 
-<!-- rulings: 145, 176, 194, 200, 202, 209, 210, 247, 257, 258, 567, 578, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732 -->
+- **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.
+- **Product Sheet** works the other way: paste from Excel into the table (see [Product Sheet](#stock-sheet)).
+
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735 -->
