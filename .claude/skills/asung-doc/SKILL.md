@@ -96,6 +96,20 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
 점검            EF doc {"action":"status"} → secrets 셋 true · gotenberg reachable · /health
 ```
 
+## 3-b. ⭐⭐ 보관 PDF · 구글 드라이브 — 모르면 사고 (2026-10-24 · 정본 so-module §74 · 판정 687 ~ 708)
+
+```
+⭐⭐ 보관 PDF(692) = doc_file reason archive · 문서(kind · ref)마다 하나(doc_file_archive_uq) · final_invoice · credit_note 만(690)
+     만드는 길: 발행(so_invoice · so_credit insert) → 지연 트리거(커밋 때 · 발행을 막지 않는다) → drive_job(archive · waiting_pdf) → cron 58 ims-drive → EF drive → EF doc render reason archive(service 길만 · 직원 JWT 는 거부)
+     → drive_job_pdf_set(queued) · ⚠️ drive_enabled 와 무관하게 발행 직후 찍는다(Due 는 찍는 순간 · 528 — 켜는 날 만들면 「발행 때 모습」 이 깨진다)
+⭐⭐ EF doc 은 archive 면 그리기 전에 찾는다(doc_file_list → reason archive) — 있으면 그리지 않고 그것(existing true) · 같은 초 둘이면 유니크 거부 뒤 먼저 것 · 두 번 불러도 하나
+⭐⭐ drive_since(Settings › Google Drive · admin · 707) 가 비어 있으면 보관 일 자체가 없다 · 그 날짜 전 발행 문서도 없다 — 11-01 첫 발행 전에 2026-11-01(10-24 넣음)
+⭐ 올리기 = drive_enabled on 일 때만(claim 이 queued 를 준다) — 폴더 Customers/<오더 손님>/(694 · 청구처 아님) · aonebeauty/<YYYY-MM>/(695 · 이름 끝 _<손님>) · 이름 20261103_INV_60070.pdf · 20261120_CR-01007.pdf(701)
+⭐ 취소 = 드라이브 이름 앞 CANCELLED_(704 · 올리기 전에 취소됐으면 올릴 때 붙인다) · ims@ 는 Contributor 라 지우기 · 옮기기 못 한다(시험 A)
+⚠️ doc_file 은 문지기가 지우기를 거부한다 — 컷오버 날 거래 지우기가 이것과 drive 표 FK(no action)에 걸린다(deferred 332)
+점검  EF drive {"action":"status"}(x-ims-cron-key) → token_ok · list_ok · stale_waiting_pdf · warn[] · drive_status() · 화면 System Check › Drive 카드
+```
+
 ## 4. ⭐⭐ 문서 메일 — 모르면 사고
 
 ```

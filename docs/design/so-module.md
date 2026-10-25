@@ -8818,7 +8818,7 @@ EF 꺼내기 · 적기         mail_claim(n) · mail_mark(id, attempt, …) 2026
 
 | # | Caleb | 뜻 · 기각 |
 |---|---|---|
-| 521 | 「나도 같은 생각이야」(대화 Claude 안) · 「11월 1일에 컷오버 하기로 결정했어」 · 「나도 A가 좋은데」 | **컷오버 2026-11-01(일) 아침에 반드시 = 문서 템플릿 · 최종 인보이스 메일 · 발주앱** · QuickBooks · 구글 드라이브는 며칠 뒤에 켜도 되게 — 단 컷오버 날부터의 것을 나중에 한꺼번에 보낼 수 있어야 한다(`doc_file.drive_file_id` null = 아직) · Caleb 이 더 든 일: SO · 다른 모듈 메일 · 템플릿 모듈 · PO 등의 인보이스 · 영수증을 IMS 로 드라이브에 · 발주앱(tools.asung.ca `purchasing.html`) 이식 · QuickBooks · **안 A**: 틀(배치)은 IMS 의 「판」 · 직원은 글과 켜고 끄기만 Settings 에서 — 기각: Cin7 식 워드 mail merge(Caleb 「이게 좀 불편해」) · 배치 바꾸기 = 대화 Claude 가 새 판을 통째로 → Settings 에 올림 → 실제 문서로 미리 보기 → Use this version · 옛 판은 남고 되돌린다 · 올릴 때 DB 가 검사 |
+| 521 | 「나도 같은 생각이야」(대화 Claude 안) · 「11월 1일에 컷오버 하기로 결정했어」 · 「나도 A가 좋은데」 | **컷오버 2026-11-01(일) 아침에 반드시 = 문서 템플릿 · 최종 인보이스 메일 · 발주앱** · QuickBooks · 구글 드라이브는 며칠 뒤에 켜도 되게 — 단 컷오버 날부터의 것을 나중에 한꺼번에 보낼 수 있어야 한다(`doc_file.drive_file_id` null = 아직) · Caleb 이 더 든 일: SO · 다른 모듈 메일 · 템플릿 모듈 · PO 등의 인보이스 · 영수증을 IMS 로 드라이브에 · 발주앱(tools.asung.ca `purchasing.html`) 이식 · QuickBooks · **안 A**: 틀(배치)은 IMS 의 「판」 · 직원은 글과 켜고 끄기만 Settings 에서 — 기각: Cin7 식 워드 mail merge(Caleb 「이게 좀 불편해」) · 배치 바꾸기 = 대화 Claude 가 새 판을 통째로 → Settings 에 올림 → 실제 문서로 미리 보기 → Use this version · 옛 판은 남고 되돌린다 · 올릴 때 DB 가 검사 → [2026-10-24 · §74] 드라이브는 지었다(drive-1 ~ 3 · 보관 PDF 는 발행 직후 · 올리기만 며칠 뒤 · 692) |
 | 522 | 「일단은 admin으로 하되, 권한은 supervisor까지 넓히고 싶어」 | 판 쓰기 = 열쇠 `doc_template`(ims_perm_catalog) · admin 은 역할로 · supervisor 는 Staff 에서 켰을 때만 · manager · worker 안 됨 · 처음엔 아무도(켠 supervisor 0) |
 | 523 | 「길 1」 | 서버 PDF = **Gotenberg 를 회사 Google Cloud Run 토론토에** · GAS getAs 시험은 건너뜀 · 화면 인쇄는 브라우저 인쇄(WMS 픽 · 패킹 리스트와 같은 방식) · Caleb 「gotenberg에 subscribe해야 하는거야?」 → 아니다 · 무료 공개 프로그램 · Google 사용료만 · 하루 40 장이면 무료 구간(짐작) |
 | 524 | 「에드몬튼과 토론토 주소 둘다를 한 인보이스에서 보이게 하고, 그것을 공통으로 쓰고 싶어」 | 모든 문서 머리에 두 지점(inv_config `doc_branches`) · 창고와 상관없이 같은 머리 |
@@ -8950,7 +8950,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 - 257 doc_public_base_url 운영 값은 「운영 DB 를 어디로 하나」(ims-principles §6-c 큰 계획 3단계)와 함께
 - 258 테스트 가이드(Claude Docs 열두 문서)의 「인보이스 인쇄 아직 없음」은 이제 틀림 → 문서 · 메일 시험 장면을 더해야(대화 Claude)
 - 259 mail-* 옛 검증 파일은 새 칸(attachments · final_invoice_mail)과 키 열 개 때문에 고정 기대가 깨진다(doc-3a A7) — 다시 쓸 때 고친다
-- 260 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에)
+- 260 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에) → [2026-10-24 · §74] 드라이브 몫 지었다(drive_since 뒤 문서만 · 닫힘은 drive-4 뒤 331) · QuickBooks 는 327
 - 249 `include_in_email` — 안(doc-3a 이견 9): 연락처의 그 칸을 cc 로(한 통에 to 하나 + cc n · mail_outbox 에 cc 칸) · 아직 Caleb 결정 전
 - 206 그대로 — Shopify 배송 메일과 같은 순간 두 통(IMS 는 배송 통지를 보내지 않는다 · 자동은 최종 인보이스만)
 - (닫힘) 127 인보이스 인쇄 · 147 IMS 오더 문서 메일(판정 380)
@@ -9856,6 +9856,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 - 순서 근거: 손님 · 공급처는 서로 독립 · 제품(3)이 세트 잇기 · 바코드 · BOM · 제품-공급처 · 가격 · 태그의 앞(FK · 418 · 「Cin7 에만 있는 제품」) · 공급처(2)가 7 의 앞 · 이력(10)은 손님 · 제품을 풀어야 하니 끝
 - ⚠️ 재적재(1 ~ 9)는 **Shopify listing 을 켜기 전에**(판정 420 의 첫 상태 맞추기 앞) — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(켜진 listing 만 큐 · 지금 7) → deferred 320 · 321
 - ⭐ [2026-10-24 저녁 · 판정 684] **열린 PO 손으로 다시 만들기** — 재고 재적재(P-④) 뒤 · 리시빙 전 · 11-01 아침 Cin7 의 완료 안 된 PO 를 보고 IMS PO 화면에서 같은 공급처 · 같은 줄 · 일부 받은 PO 는 남은 수량만 · 메모에 Cin7 PO 번호 · 인보이스 · 선금 걸린 PO 는 그 건만 따로
+- ⭐ [2026-10-24 밤 · §74-d] **구글 드라이브 넷** — ① 11-01 아침 Settings › Google Drive 의 Start date = 2026-11-01 확인(drive-4 가 바꿨으면 되돌렸는지) ② 일꾼(EF doc · drive · cron 58)은 지금부터 켜져 있다 · Send to Drive 켜기는 며칠 뒤 Caleb ③ ⚠️ 거래 지우기를 드라이브 표가 막는다(FK 셋 no action · doc_file_guard · 버킷 두 곳 → deferred 332) ④ drive-4 가 늦어도 보관 PDF 는 돈다(올리기만 늦다)
 - ⬜ 세트 잇기(4)를 바코드(5) 앞에 두는 것은 **코드 주석 순서**다(낱개가 다 들어간 뒤 · 대체 UPC 는 BOM 의 ComponentProductID 로 부모를 찾는다) — 판정 거리
 - 각 적재의 ⏸ · Next run 은 같은 함수를 다시 · 허락 속성(`*_ALLOW_*`)은 한 번 통과 뒤 코드가 스스로 지운다
 
@@ -9892,8 +9893,116 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 ### 73-g 다음
 
 ```
-컷오버 날(11-01): 위 73-c 순서(+ 열린 PO 손으로 다시 만들기 · 684) · ~~그 전에 319(제품 계열 내리기) · 302 · 303 · 313~~ → [10-24 저녁] 넷 모두 닫힘(684 · 685 · 686 · 303)
+컷오버 날(11-01): 위 73-c 순서(+ 열린 PO 손으로 다시 만들기 · 684 · + 드라이브 넷 · §74-d) · ~~그 전에 319(제품 계열 내리기) · 302 · 303 · 313~~ → [10-24 저녁] 넷 모두 닫힘(684 · 685 · 686 · 303)
 Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBooks(327 · 260): Intuit 앱 평가 설문 · 운영 키 승인
 판정 거리: 73-c ⬜ 세트 잇기 위치 · 323 동점 기본 공급처 2
-~~다음 판정 번호: 684~~ → **687** · 다음 deferred 번호: 328
+~~다음 판정 번호: 684~~ → ~~**687**~~ → [§74] **709** · 다음 deferred 번호: ~~328~~ → 334
+```
+
+→ [2026-10-24 밤 집 PC] §74 — 구글 드라이브 연동(drive-0 ~ 3) · 판정 687 ~ 708 · 다음 판정 번호 **709**
+
+## §74 2026-10-24 — 구글 공유 드라이브 「IMS Documents」 연동 · 내보내기 판정 — drive-0 · drive-1 · drive-2 · drive-3 · 판정 687 ~ 708 (집 PC)
+
+⭐ 지은 것: IMS 가 정해진 규칙으로 공유 드라이브에 문서를 쌓는 길 전부 — 발행 보관 PDF(692) · 받은 서류 올리기(691 · 697) · 폴더 짝(693) · 바로가기(698 · 706) · 일꾼(EF drive · cron 58) · 화면(PO · 빌 · Settings · System Check) — 미룬 260 의 드라이브 몫(닫힘은 drive-4 한 바퀴 뒤 · 331)
+⭐ 새 판정 687 ~ 708 · 원천: 지시서 drive-0 · drive-1 · drive-2 · docs-1024c 📌(판정 · 결정 · 실수는 대화에만 있었다) · 차수 회신 drive-0 ~ 2 · 다음 판정 번호 **709** · 다음 deferred 번호 **334**
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 마이그레이션 `20261024233000_drive_1_google_drive_db.sql` 적용 · repair · EF doc · drive 배포 · cron 58 등록 — 운영(asung-WMS)에는 올리지 않는다
+⭐ 지금 상태(2026-10-24 실측): drive_since = 2026-11-01(Caleb Settings · 10-25 00:09 UTC) · drive_enabled off · drive_root_id = IMS Documents · drive_job 0 · drive_folder 0 · po_doc 1(연습 · 치움)
+
+### 74-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 687 | 「이것도 필요없어. 이미 안내됐어」 | N-1022-⑤(직원 안내 — Reorder Planner 는 연습 데이터 · 실제 발주는 옛 발주앱) **닫힘** → deferred 「1. 컷오버 전 필수」 표 0 줄 |
+| 688 | 「B」 · 「공유드라이브를 아예 새로 만드게 어떨까?」 | 새 공유 드라이브 **IMS Documents**(id `0AM8jftaU51hyUk9PVA` · Caleb 이 만듦) 에 IMS 가 정해진 규칙으로 채운다 · Cin7 시절 문서와 섞지 않는다 · 구성원 Caleb(Manager) · **ims@asung.ca = Contributor** · 까닭: Cin7 의 드라이브 연동은 My Drive 에만 쓴다(Caleb) |
+| 689 | 「지금은 Caleb 만, 필요할 때 더하기」 | 볼 사람은 Caleb 만 |
+| 690 | 「인보이스와 크레딧 노트」 | IMS 가 만드는 문서 중 드라이브에 남길 것 = final_invoice · credit_note(SO · Ship Ready · Internal Receipt 는 아니다) |
+| 691 | 「po에서 supplier들의 인보이스를 받아서 업로드도 … add charge에서 발생하는 빌들도 구글드라이브를 통해 업로드」 | 받은 서류를 PO · 비용 빌 화면에서 올리면 드라이브로 |
+| 692 | 「A」 | 문서마다 **발행할 때의 모습 한 장** — 아무도 안 찍어도 IMS 가 발행 직후 보관 PDF(doc_file reason archive)를 만든다 · 다시 찍은 판은 IMS 안에만 · ⚠️ PDF 는 드라이브 켜기(drive_enabled)와 무관하게 발행 직후(Due 는 찍는 순간 · 528 — 켜는 날 만들면 발행 때 모습이 아니다 · drive-1 이견 1) |
+| 693 | 「공급처별, 커스터머별로 쌓이는게 좋겠어」 | `Customers/<손님>/` · `Suppliers/<공급처>/` · 폴더는 처음 문서 때 만든다 · 손님 · 공급처 ↔ 폴더 짝을 IMS 가 기억(drive_folder · 이름이 바뀌어도 같은 폴더) |
+| 694 | 「1. ok」 · 「2. 빌 청구와 상관없이 각 스토어별로」 | 파일 이름에 TOR · EDM 없음 · 손님 폴더 = **오더를 낸 스토어**(so_invoice_order.customer_id) — 청구처(bill-to · 본점) 아님 · 한 인보이스에 손님 둘 이상(지금 0)이면 청구처 폴더 + 메모 |
+| 695 | 「aonebeauty.com으로부터 들어오는 오더는 스토어가 없는 개인들이 대부분 … 다르게 관리」 · 「좋아」 | `aonebeauty/<YYYY-MM>/`(발행 달) · 파일 이름 끝에 손님 이름 · 기준 shop_order.so_id → shop_store.kind = 'aone' · 크레딧은 원래 오더(so_credit.invoice_id)를 따른다 · ⚠️ aonebeauty 스토어는 IMS 에 아직 안 이어졌다(스토어 행 0 · 시험은 가짜 스토어) |
+| 696 → 698 | 「좋아」 → 「대부분은 하나에만 붙지만, 오션 freight의 경우는 여러 po가 같이 오는 경우가 종종 있어」 → 「그렇게 가자」 | 비용 빌 원본 = 경비처 `Suppliers/<경비처>/CHARGE-<charge_number>/` 에 한 번 · **빌을 확정할 때** 배분된 PO 폴더마다 드라이브 바로가기 · 빌 화면에서 함께 올린 서류(오션 BOL 등)는 원본 옆 · 빌 이름에 PO 번호 없음 · 확정 전에는 배분이 바뀌고 ims@ 는 Contributor 라 지운 바로가기를 못 치운다(→ 확정 때 맞춘다) |
+| 697 | 「인보이스와, 빌만이 아니고, bol도 올리고, courtry of origin 다큐먼트도 … 관련된 모든 다큐먼트 … 해당 Po번호로도 갈리게」 | PO 에 딸린 서류 전부 · `Suppliers/<공급처>/<PO 번호>/` · 올릴 때 종류를 고른다(703) |
+| 699 | 「import는 지금은 안할래. 그러나 cut over뒤에는 필요할지 … 그때 필요하면 요청」 | Products · Customers · Suppliers(purchasable) **내보내기만** · 다시 올리기 없음 → deferred 300 을 넓힘 |
+| 700 | 「화면만 내보내면 필요한 것을 다운로드 받지 못할 수도 … 칸고르기가 가능해야 하고 … 원가를 볼 권한이 없는 직원은 원가 칸이 안보여야」 | 칸 고르기 창 = 그 직원이 볼 권한이 있는 칸 전부(상세 칸 포함) · 권한 없는 칸은 목록에 없다 · 행 = 지금 목록의 거르기 그대로 → 300 |
+| 701 | 「B」 · 「실제 인보이스에는 안붙는거지?」 | 드라이브 파일 이름에서 **인보이스에만 `INV_`** — `20261103_INV_60070.pdf` · 크레딧 `20261120_CR-01007.pdf` · 문서 안 번호 · IMS 번호는 그대로(인보이스 번호는 접두 없는 5 자리 · 크레딧은 CR- — drive-0 실측 · 지시서의 INV- · CN- 짐작은 틀렸다) |
+| 702 | (시험 A 실측) | 드라이브 열쇠 = **drive.file** 범위 하나로 충분 |
+| 703 | 「정부 관련 서류중에, B3폼이 있어」 · 「그렇게 고정하고 나중에 필요한게 있으면 다시 요청」 | 서류 종류 **고정 여섯**: Invoice(`INV_`) · BOL(`BOL_`) · Certificate of Origin(`COO_`) · Packing list(`PACKING_`) · **B3 / CAD**(`B3_`) · Other(`OTHER_<설명>_` · 설명 필수) |
+| 704 | 「A」 | 취소된 인보이스 · 크레딧 = 드라이브 이름 앞 `CANCELLED_` · IMS 에서 치운 서류 = `REMOVED_` · 파일은 드라이브에 둔다(ims@ 는 지우기 · 옮기기 불가 · 시험 A) |
+| 705 | 「A」 | 트랜스퍼에 배분된 빌 몫 = 바로가기 없음(CHARGE 폴더에만) |
+| 706 | 「A」 | PO 둘 이상에 걸친 공급처 인보이스 = 올린 PO 폴더에 원본 · 걸친 다른 PO 폴더에 **인보이스 확정 때** 바로가기 |
+| 707 | 「B」 | 드라이브 설정 셋(drive_enabled · drive_since · drive_root_id) **admin 만**(ims_config_set 등급 줄) |
+| 708 | 「주로 pdf지만 pdf만이라고 할 수 없어. 이미지도 종종 있어. A」 | 받은 서류 = pdf · jpeg · png · 10 MB · 사진은 변환 없이 그대로 드라이브 |
+
+- 짓는 방법 고르기(Caleb 이 추천대로 받음 · 판정 번호 없음): drive-0 가 ~ 바 · drive-1 다 · 라 · 마 · 바(이견 1 ~ 16 · 정정 — 빌 · 공급처 인보이스는 po_charge_confirm · po_invoice_confirm 의 p_confirm=false 로 **확정을 풀 수 있다** · drive-0 보고의 「확정 해제 길 없음」 은 틀렸다 · 정본 · 스킬에는 들어가지 않았다) · drive-2 가 ~ 라(비밀 셋 따로 · 도구는 값을 안 찍는다 · 실제 한 바퀴는 drive-4 연습용 공유 드라이브 · Chat 알림은 미룸)
+- **PO 입고별 유통기한(expiry)**: Caleb 「실무에서 지금 많이 쓰고 있진 않아」 · 「필요할때 만드는게」(대화 Claude 권고에 동의) → 지금 안 짓는다 · 쓰임이 정해지면 입고 줄 + 원가 레이어에 붙이는 꼴 → deferred 333
+- 포인터: 692 ← 528(Due 는 찍는 순간) · 521(드라이브는 며칠 뒤 · drive_file_id null = 아직) · 699 · 700 ← 628(§71-a · deferred 300) · 707 ← 572(ims_config_set 등급)
+
+### 74-b 차수 · 커밋 · 실물
+
+| 차수 | 커밋 | 한 일 | 시험 |
+|---|---|---|---|
+| drive-0 | (보고만) | 조사 · 시험 A 코드 | Caleb 실행(ims@asung.ca · drive.file): 폴더 · 올리기 · 바로가기 · 이름 바꾸기 200 · 바로가기 휴지통 403 · 바로가기 지우기 404 · 옮기기 403 · PDF 휴지통 403 · scope granted `…/auth/drive.file` |
+| drive-1 | asung-wms `bbb9007` · `20261024233000_drive_1_google_drive_db.sql`(927 줄) | 키 셋 drive_enabled · drive_since · drive_root_id(admin · drive_config_guard) · `ims_config_set` 재발행(md5 bfaa7491 → 3f7bca65 · 바뀐 줄 1 · 더한 줄 1) · doc_file reason archive + `doc_file_archive_uq` · 표 넷 drive_folder · drive_job · drive_shortcut · po_doc(615 — service_role select 만) · 버킷 po-documents(비공개 · pdf · jpeg · png · 10 MB · 정책 purchasing) · 트리거 9(발행 보관 지연 · 취소 rename · 확정 바로가기 · 설정 가드 · touch) · 창구(직원 po_doc_add · remove · list · drive_status / 일꾼 claim · payload · pdf_set · done · failed · folder_set) | 테스트 DB 시험 9 회차 OK 41(코드 결함 다섯을 검증이 잡음 — 74-f) · 적용 + repair · 확인 OK 41 |
+| drive-2 | asung-wms `6bdacd1` | 도구 `tools/gdrive-oauth-ims.sh`(gmail 도구 꼴 · 범위 drive.file · 값은 0600 임시 파일 → secrets set → 지움) · EF doc reason archive(service 길만 · final_invoice · credit_note 만 · 그리기 전 찾기 · 유니크 경쟁이면 먼저 것) · EF drive(`_shared/drive.ts` driveStep + `drive/index.ts` · action run · status) · config.toml [functions.drive] · cron.sql 기록 | self-test OK · deno check 0 · doc_test 6 · drive_test 9 · mail_test 16 회귀 · 전부 1 회차 · 창구 반환 꼴 테스트 DB 대조 |
+| drive-3 | asung-ims `8ac73c6` | 새 `ims-podocs.js`(podocs v1) · po.html(po docs v1) · charges.html(chg docs v1) · settings.html(set v8 · Google Drive 칸 · `?t=drive`) · system-check.html(sc v2 · Drive 카드) | Caleb 화면 확인(PO 에 PDF 한 장 올림 → 치움 · Settings 칸 · drive_since 저장) |
+
+- 비밀(테스트 · 이름만): `GDRIVE_OAUTH_CLIENT_ID` · `GDRIVE_OAUTH_CLIENT_SECRET` · `GDRIVE_REFRESH_TOKEN_IMS` — 같은 OAuth 클라이언트(ims-mail-tool · Desktop · 동의 화면 Internal · GCP asung-ims-mail · Drive API 켬)의 **둘째 Client secret** · 메일 비밀(GMAIL_*)은 무접촉
+- cron **jobid 58 `ims-drive`** 1 분 · active(테스트 DB 실측) — 조건: archive · waiting_pdf 있음 또는 drive_enabled on 이고 queued 있음 · 열쇠는 jobid 55 에서(실행 덩이 `~/asung/prompts/drive-2-cron.sql` · 레포 밖)
+- EF drive status(Caleb 실행 원문 · 다시 돌리지 않았다): `token_ok true · list_ok true · warn []` — 702 의 짐작(drive.file 로 files.list 가 된다 · 꼭대기 폴더를 이름으로 찾을 수 있다)이 섰다
+- 실측(2026-10-24): po_doc 1 행(`invoice · SOP_Regulatory Verification.pdf` · 올린 지 1 분 뒤 치움 · is_active false) · 버킷 po-documents 객체 1 · drive_job 0 · drive_folder 0 · archive doc_file 0
+
+### 74-c 흐름 (코드 실물)
+
+```
+발행 보관(692)   so_invoice · so_credit insert(issued) → 지연 트리거(커밋 때 · 자동 메일 트리거와 같은 꼴) → drive_since 뒤 문서면 drive_job(archive · waiting_pdf) 한 줄 · 실패는 skipped 한 줄(발행을 막지 않는다)
+                 → cron 58(1 분) → EF drive run → drive_job_claim(5 · 40 s 예산) → EF doc render(reason archive · service 길 · 이미 있으면 그리지 않고 그것) → drive_job_pdf_set → queued
+                 ⚠️ 여기까지는 drive_enabled 와 무관 — 11-01 첫 발행부터 보관 PDF 가 찍힌다
+올리기           drive_enabled = on 일 때만 claim 이 queued 를 준다(→ sending)
+                 → 폴더 사슬: 꼭대기 Customers · Suppliers 는 root 아래에서 이름으로 찾고 없으면 만든다(drive_folder 에 없다 · 회차 안 캐시 · 미룬 328)
+                              그 아래는 drive_folder 의 id → 없으면 files.list 로 찾기 → 만들기 → drive_folder_set(먼저 적힌 id 가 이긴다)
+                 → Storage(documents · po-documents) → Drive multipart 올리기(supportsAllDrives · 설명 = 원문 번호 · 원래 파일 이름) → drive_job_done(drive_file_id)
+자리(693 ~ 697)  인보이스 · 크레딧 Customers/<오더 손님>/ · aone 오더 aonebeauty/<YYYY-MM>/ · PO 서류 Suppliers/<공급처>/<PO 번호>/ · 빌 Suppliers/<경비처>/CHARGE-<번호>/
+이름(701 · 703)  날짜(YYYYMMDD · 문서 날짜) _ 접두 _ 번호 · 인보이스 INV_<번호> · 크레딧 <CR-번호> · aone 은 끝에 _<손님> · 서류 INV_ · BOL_ · COO_ · PACKING_ · B3_ · OTHER_<설명>_
+                 자유 글자(/ \ : * ? " < > | # 공백)는 - 로 · 80 자 · 같은 폴더 같은 이름은 _2 · _3 · 원문은 Drive 설명
+바로가기(698 · 706) 빌 확정 · 공급처 인보이스 확정 때(트리거 · 확정 창구 무접촉) — (서류, PO) 짝마다 한 번(drive_shortcut 유니크) · 트랜스퍼 몫 없음(705)
+                 확정을 풀어도 손대지 않는다 · 다시 확정할 때 맞춘다 — 뺀 PO 의 바로가기는 REMOVED_ · 다시 넣은 PO 는 이름을 되돌린다
+이름 바꾸기(704)  취소된 문서 = CANCELLED_(올리기 전에 취소됐으면 올릴 때 붙인다 · 올린 뒤면 rename 일) · 치운 서류 = REMOVED_(올리기 전이면 그 일을 skipped)
+실패             drive_job_failed — 세 번까지 10 분 뒤 다시 · 세 번째는 failed(drive_status · System Check Drive 카드) · 열쇠 실패는 일을 태우지 않고 회차 오류(token_error)
+감시             EF drive {"action":"status"} — 비밀 이름 · token_ok · list_ok · 30 분 넘은 waiting_pdf · drive_status() · warn[]
+킬 스위치        select cron.alter_job(58, active := false) · 올리기만 멈추기 = Settings › Google Drive 의 Send to Drive 끄기(drive_enabled off)
+```
+
+### 74-d 컷오버 날 — §73-c 에도 같은 네 줄
+
+1. 11-01 아침 Settings › Google Drive 에서 **Start date = 2026-11-01 확인**(10-24 에 넣어 둠 · drive-4 시험이 root · 날짜를 바꿨으면 되돌렸는지 — drive-4 의 끝 단계로도 적는다)
+2. 일꾼(EF doc · EF drive · cron 58)은 지금부터 켜져 있다 · 「Send to Drive」(drive_enabled on) 켜기는 며칠 뒤 Caleb(521)
+3. ⚠️ 거래를 지울 때 드라이브 표가 지우기를 막는다 — po_doc · drive_shortcut · drive_job 의 FK 가 on delete no action · doc_file 은 문지기가 지우기를 거부 · 버킷 documents · po-documents 의 연습 파일 → deferred 332(컷오버 날 · 거래 지우기 절차 자체가 아직 글로 없다)
+4. drive-4 가 컷오버 전에 안 끝나도 보관 PDF 는 돈다 — 올리기만 늦어진다
+
+### 74-e 미룬 것 — deferred.md 에 줄 · 여기는 번호만
+
+- 닫힘: N-1022-⑤(687) · 260 은 열림 그대로(드라이브 몫 지어짐 · 닫힘은 331 drive-4 뒤 · QuickBooks 는 327)
+- 넓힘: 300(Products → Products · Customers · Suppliers 내보내기 · 칸은 볼 권한 있는 것만 · 699 · 700)
+- 새: **328** 꼭대기 Customers · Suppliers 폴더를 drive_folder 에 기억(미정) · **329** 드라이브 실패 Chat 알림(미정) · **330** 트랜스퍼 폴더(705 의 B · 미정) · **331** drive-4 실제 한 바퀴 — 연습용 공유 드라이브 `IMS Documents (test)` → 260 드라이브 몫 닫힘(컷오버 뒤 · 올리기 켜기 전) · **332** 컷오버 날 거래 지우기에 드라이브 표 · doc_file · 버킷 두 곳(컷오버 날) · **333** PO 입고별 유통기한(Caleb 요청 때)
+- 다음 deferred 번호: **334**
+
+### 74-f ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [Claude Code · drive-1] 같은 문장의 update 와 읽기 — `drive_job_claim` 이 update 와 한 문장에서 꾸러미를 만들어 상태가 update 전 값(queued)으로 찍혔다(66-e 8 재발) ⇒ **꾸러미는 다음 문장에서** 읽는다
+2. [Claude Code · drive-1] 검증 함정 셋 — DO 블록 안 `:'var'` 는 안 풀린다 → `pg_temp.try(sql)` 동적 SQL · `ims_require_write` 는 void(값으로 받으면 uuid '' 오류) · uuid 에는 min 집계가 없다 → `(array_agg(… order by …))[1]` · 그 밖 `set constraints all immediate` 가 트랜잭션 끝까지 남는다(66-e 11 재발) · `ims_touch` 를 거는 새 표에는 updated_by 칸
+3. [대화 Claude · drive-0 지시서] 파일 이름 안의 번호 꼴(INV- · CN-)을 짐작으로 — 실물은 접두 없는 5 자리 · CR- 였다(drive-0 이 잡음 → 701)
+4. [대화 Claude · drive-0 보고 · Claude Code] 「빌 확정 해제 길 없음」 — 틀렸다(po_charge_confirm · po_invoice_confirm 의 p_confirm=false) · Claude Code 가 drive-1 §0 에서 스스로 바로잡았다 ⇒ 「없다」 는 마지막 정의의 갈래를 다 읽고 말한다
+5. [대화 Claude · drive-1 지시서] 「보관 PDF 를 드라이브 켜는 날 만든다」 를 놓쳤다 — 그러면 Due 가 바뀐 뒤의 모습이 남는다(528) · drive-1 이견 1 이 잡음 ⇒ 「때의 모습」 이 걸린 기능은 만드는 시각을 지시서에 적는다
+6. [대화 Claude · drive-1 지시서] 거래 표에 FK 를 거는 새 표(po_doc · drive_shortcut · drive_job)를 지으면서 컷오버 날 「지우는 순서」를 다루지 않았다 — docs-1024c 이견 1 이 실측(FK 셋 no action · doc_file_guard)으로 잡음 ⇒ **거래 표에 FK 를 거는 새 표는 같은 차수에서 지우는 순서를 한 줄 적는다**
+7. [화면 · drive-3] 두 화면이 같은 구역(서류 목록 · 올리기)을 쓰면 공용 js 하나(ims-podocs.js) + 화면에는 몇 줄(po · charges 8 줄씩) · 캐시 대비 `?v=1`
+8. [잘 된 것] drive-1 검증이 코드 결함 다섯을 잡았다(날짜 가드 · min(uuid) · updated_by · void 창구 · 같은 문장 읽기) · drive-2 가 가짜 deps 로 Drive 를 한 번도 안 부르고 흐름을 굳혔다 · 시험 A 가 Contributor 의 한계(지우기 · 옮기기 불가)를 먼저 실측해 704 · 698 의 설계가 섰다
+
+### 74-g 다음
+
+```
+drive-4(331): 연습용 공유 드라이브 한 바퀴 → 260 드라이브 몫 닫힘 · 끝에 root · 날짜 되돌리기(74-d 1)
+컷오버 날 거래 지우기 절차(332) — 대화 Claude 가 다음 차수로 올린다 · 드라이브 표 · doc_file · 버킷 두 곳 포함
+내보내기(300 · 699 · 700) — Products · Customers · Suppliers · 칸은 볼 권한 있는 것만
+다음 판정 번호: 709 · 다음 deferred 번호: 334
 ```
