@@ -1508,7 +1508,7 @@ cron        [테스트 DB] jobid 40 ims-image-scan 30 14 * * * · jobid 41 ims-i
 칸            product · product_family 에 셋씩 — description_html text · description_edited_at timestamptz · description_edited_by uuid → ims_staff(id) · 짝 CHECK *_description_pair_ck(셋이 함께 null 이거나 함께 채움)
 ⭐ 뜻          description_html null = Cin7 원문(cin7_description)을 따른다 · 실제 값 = coalesce(description_html, cin7_description) · '' = 일부러 비움 · 복사 · 백필 없음(판정 401)
                ⇒ 재적재가 cin7_description 을 바꾸면 손대지 않은 설명은 저절로 따라가고 · IMS 에서 고친 설명(not null)은 그대로다
-창구          product_update op 둘 — description_set {sku | family_sku, html, old} · description_follow_cin7 {sku | family_sku, old}(= 셋을 null · 되돌리기)
+창구          product_update op 둘 — description_set {sku | family_sku, html, old} · description_follow_cin7 {sku | family_sku, old}(= 셋을 null · 되돌리기) → [2026-10-25 · 판정 722] 부르는 화면 없음 — 창구만 남음 · 컷오버와 함께 멈춤
                old = 화면이 본 description_html(고친 적 없으면 null) · 문 master · edited_by = v_staff(ims_staff.id) · 두 번 부르기 · 1,000 줄 상한 그대로
                막기 description_forbidden:<code>(detail = 코드 · 코드마다 하나) · html_missing(비우려면 '' · Cin7 을 따르려면 follow) · description_not_edited(안 고친 행을 되돌림) · changed_elsewhere · old_missing · field_duplicate_in_call
 판별          ims_html_forbidden(html) → text[] — 판별만 · 고쳐 쓰지 않는다 · 코드 script · event_attr · javascript_link · object · embed · form · meta · link · base · iframe_no_src · iframe_host:<host>

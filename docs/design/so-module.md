@@ -703,7 +703,7 @@ Cin7 오더 화면의 `Invoice date` · `Due date` 는 **인보이스의 날짜*
 근거: 새 오더 화면에는 그 칸이 아예 없고, Shopify 오더에만 채워져 보인다(Shopify 오더는 인보이스까지 난 상태로 들어온다). `Due date` 는 결제조건에서 계산되는 값이다. ⇒ ④ 인보이스 절에서 다룬다.
 
 ⭐ **백오더 만료는 `order_date` 로 잰다.** `required_by` 가 아니다 — 실물에서 Shopify 가 주문일과 같은 날로 기계적으로 채워 넣고 있었다(09/21 · 09/21). 근거 없는 값으로 만료를 재면 안 된다.
-📌 갈라진 문서(5-d 「형제」)는 머리를 통째로 복사하므로 `order_date` 도 모체의 것이다 ⇒ 백오더 `SO-25001b` 의 만료는 **원래 주문일**에서 센다(vv 의 1월 백오더는 1월부터). [2026-10-06 정정 · 판정 312 · 319 · §48 · §49] 머리 복사로 order_discount_locked_at(잠금 · 오더 할인 % 지킴)과 coupon_id(가족 단위 쿠폰)도 따라간다
+📌 갈라진 문서(5-d 「형제」)는 머리를 통째로 복사하므로 `order_date` 도 모체의 것이다 ⇒ 백오더 `SO-25001b` 의 만료는 **원래 주문일**에서 센다(vv 의 1월 백오더는 1월부터). [2026-10-06 정정 · 판정 312 · 319 · §48 · §49] 머리 복사로 order_discount_locked_at(잠금 · 오더 할인 % 지킴)과 coupon_id(가족 단위 쿠폰)도 따라간다 → [2026-10-25 · §75] 첫 나뉨은 `a` — 이 줄의 `b` 는 `a` 가 있던 뒤의 예(번호 규칙 766 · so_split 마지막 정의 20261020123910 · 같은 base 의 최댓값 다음 글자)
 
 **손님에서 복사해 굳는 것**
 ```
@@ -6640,7 +6640,7 @@ cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
 8. 크레딧 줄은 so_line 과 같은 매듭 — `so_credit_line.combo_credit_line_id · combo_qty`(구성품 크레딧 줄) · `combo_components`(콤보 크레딧 줄 표식) · 콤보 줄 = 금액 · qty = 콤보 수 · 칸 · 사유 둘 다 null(restock_ck 다시) · 구성품 줄 = 금액 0 · 제 칸 또는 사유 · 옛 행은 전부 null · `inv_post_credit` 은 재발행 없이 맞다(bin 있는 product 줄만 걸린다 · 원 판매는 so_line_id → so)
 9. 요청 모양 — 콤보 상품 줄의 `restock_bin` / `not_restocked_reason` 은 구성품 전부의 기본값 · `components: [{sku, restock_bin | not_restocked_reason, not_restocked_note}]` 가 구성품마다 덮는다 · 콤보에 없는 sku 거부 · 「구성품 하나만」 거부는 so_line_id / sku 로 그 인보이스 오더의 구성품을 가리킬 때(구성품은 인보이스 줄이 없어 그 밖은 저절로 막힌다)
 10. `so_line_requote(구성품)` 은 조용한 무시가 아니라 거부 · so_reprice 는 `kept true · reason combo_component`
-11. so_merge 「예약도 따라간다」 = 합친 오더를 확정하면 구성품에 예약이 선다(병합은 원본 예약을 풀고 초안을 낳는다 · 짐작 그대로 · Caleb 판정 없음)
+11. so_merge 「예약도 따라간다」 = 합친 오더를 확정하면 구성품에 예약이 선다(병합은 원본 예약을 풀고 초안을 낳는다 · ~~짐작 그대로 · Caleb 판정 없음~~ → [2026-10-25 · §75] **사실** — 마지막 정의 20261015013503 이 원본 예약을 풀고(released_at · reserves_released) 새 오더를 draft 로 만든다 · 그래서 합친 오더는 다시 Confirm 해야 확보된다)
 12. 병합 열쇠에 구성품 모양 `combo_sig`(`sku:combo_qty,…`) — 정의가 바뀐 같은 콤보 SKU 는 따로(`differs_in` 에 `combo_definition`) · 구성품은 첫 원본 콤보 줄의 것을 저장된 combo_qty 로 · 줄 번호는 끝에 · 짝 표에 원본 구성품 줄도
 13. 무상 콤보 줄의 만료 · 이어받기는 수요 줄의 free_reason 으로 가른다 · sweep 의 오더 고르기 조건은 옛 식 그대로라 무상 콤보만 남은 오더가 밤마다 후보에 들었다 나온다(44-e 101)
 14. 검증 회차에서 걸린 것은 전부 검증 파일 쪽(6 회 · 함수 결함 0) — psql 변수 이름 겹침 · 숫자를 글자로 비교 · 확정 뒤에 센 줄 · 2b1 주석 글자가 G0 마커에 걸림 · 같은 손님 확정의 이어받기 · `inv_layer.origin_type` 은 `purchase`
@@ -8942,7 +8942,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 
 ### 66-f 미룬 것 — 65-f 251 에 이어 붙임(127 · 147 닫힘)
 
-- 252 화면 시험 덜 한 것: Ship Ready 인쇄 · 메일(packed 오더 필요) · SO 메일 · 크레딧 메일 · POS 인쇄 · 메모 Edit → 인쇄 Notes · Send 뒤 창 닫힘(d87f1c8 배포 뒤) — asung-ims CHECKLIST 7-zp
+- 252 화면 시험 덜 한 것: ~~Ship Ready 인쇄 · 메일(packed 오더 필요) · SO 메일 · 크레딧 메일~~ · POS 인쇄 · ~~메모 Edit → 인쇄 Notes · Send 뒤 창 닫힘~~(d87f1c8 배포 뒤) — asung-ims CHECKLIST 7-zp → [2026-10-25 · §75] 판매 몫 Caleb 시험 끝(판정 713 의 앞선 말) · **POS 인쇄만 남음**
 - 253 콤보 줄 · 단가가 실제로 바뀌는 다시 매기기의 Ship Ready(doc-1b2 이견 10 · 11) → 동료 테스트 가이드(판매 오더 · 창고 일)에 장면으로
 - 254 so_finalize 운임 고침이 description 키를 안 보내면 설명을 지운다(doc-1b2 이견 6 · 지금도 있는 동작) → 화면 차수에서 확인
 - 255 같은 초에 같은 문서 두 장 → doc_file_path_uq 거부(doc-2 이견 7) · 쪽 수는 짐작값(`/Type /Page` 셈 · 이견 9)
@@ -9148,7 +9148,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 **화면 시험(Caleb · 2026-10-20 집 PC)**
 - stock v2 — Allocated → SO-25138 Total 4 EA(타일 4 와 같음) · Both · Stock value total(Edmonton $258,162.30 · Toronto $3,264,525.48 · 합 $3,522,687.79) · Other branches · 공급처 · 바코드(034285553159 → ABE55315) · 원가 열쇠 없는 직원(Test Staff · worker)에게 Value 칸 · 합계 단추 · Value 타일 없음
 - ws v1 — WMS 탭 Bin Moves 다음 · 바코드 034285517014 → ABE51701 두 브랜치 · admin 은 Value 줄 · Test Staff 는 없음 · 자기 브랜치 먼저
-- ⬜ 아직 화면에서 안 눌러 본 것: Transfer res. 목록 · 창고 스캐너 연속 스캔 · so v5u 붙여넣기 가격 · Clear lines · 누가 정했나 / so v5v · v5w1 packed Add a charge · 계정 / so v5w 여러 오더 Ship & invoice / pos v1.11 줄 가격 · 할인 / receiving post-now v1 / families fam v4 / ss v3a Send all left
+- ⬜ 아직 화면에서 안 눌러 본 것: Transfer res. 목록 · 창고 스캐너 연속 스캔 · ~~so v5u 붙여넣기 가격 · Clear lines · 누가 정했나 / so v5v · v5w1 packed Add a charge · 계정 / so v5w 여러 오더 Ship & invoice~~ / pos v1.11 줄 가격 · 할인 / receiving post-now v1 / families fam v4 / ss v3a Send all left → [2026-10-25 · §75] 판매 몫(so v5u · v5v · v5w1 · v5w) Caleb 시험 끝(판정 713 의 앞선 말) · 나머지 그대로
 
 **ims-auth.js nav v8** — `["Stock Lookup","wms-stock.html",null,"wms",true,"warehouse"]` · 열쇠 없음 = WMS 에 들어올 수 있는 직원 누구나 · Bin Moves 다음이라 WMS 첫 화면 순서(판정 173)는 그대로 · ⚠️ 뜻: WMS 모드만 켜지고 WMS 화면 열쇠가 하나도 없던 사람도 이제 WMS 에 들어와 Stock Lookup 이 첫 화면이 된다(visibleItems 는 열쇠 null 항목을 늘 보이고 · modeCandidates 는 보이는 화면이 하나라도 있으면 모드를 연다 · ims-auth.js 329 · 333 행)
 
@@ -9459,7 +9459,7 @@ Backorders(rls-3c)            so_backorder_arrivals :57 · so_backorder_demand :
 - 287 grt-0 · grt-1a 가 미룬 것 ① wms_legacy 스키마 48 객체에 anon 전권이 남았다(618 은 public 만 · 그 스키마가 PostgREST 노출 스키마인지 안 봤다 — 대시보드 설정) ② supabase_admin 의 기본 권한(anon 전권)은 postgres 가 못 바꾼다 — 알고 둔다 ③ 함수 기본 권한 f 의 anon=X 는 그대로(새 함수마다 revoke 하는 지금 꼴로 막는다 · 기본 권한을 바꿀지 판정 거리) ④ authenticated · service_role 의 넓은 몫 119 정리(컷오버 뒤) ⑤ **잠자는 결함**: invoker po_discount_save · po_discount_delete 의 p_target='supplier' 갈래는 supplier_discount 에 쓰는데 authenticated 에 쓰기 권한이 없어 부르면 42501(지금 화면은 po · invoice 로만 부른다)
 - 288 두 PO(PO-02040 · PO-02002a)의 열린 short 판정(275 그대로) · 앞 입고의 열린 short 자동 정리(273 그대로)
 - 289 family 축 — families.html 「Sets in this family」 늘 0(279 의 둘째 그대로)
-- 290 화면 시험 남은 것: cr v3 · v4 · v4a(참조 크레딧 GST 5% · 가격 조정 2.00 each) · pur v1(Reorder Planner 열림 · Google 연결 · 옮겨 담기 · 발주 초안) · grt-1a 화면 시험 일곱(CHECKLIST 7-zq)
+- 290 화면 시험 남은 것: ~~cr v3 · v4 · v4a(참조 크레딧 GST 5% · 가격 조정 2.00 each)~~ · pur v1(Reorder Planner 열림 · Google 연결 · 옮겨 담기 · 발주 초안) · grt-1a 화면 시험 일곱(CHECKLIST 7-zq) → [2026-10-25 · §75] cr v3 · v4 · v4a Caleb 시험 끝(판정 713 의 앞선 말) · **pur v1 · grt-1a 남음**
 
 ### 70-g 적용된 순서(테스트 DB = 메인 · 617) — 69-g ② 에 이어 붙임
 
@@ -9896,7 +9896,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 컷오버 날(11-01): 위 73-c 순서(+ 열린 PO 손으로 다시 만들기 · 684 · + 드라이브 넷 · §74-d) · ~~그 전에 319(제품 계열 내리기) · 302 · 303 · 313~~ → [10-24 저녁] 넷 모두 닫힘(684 · 685 · 686 · 303)
 Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBooks(327 · 260): Intuit 앱 평가 설문 · 운영 키 승인
 판정 거리: 73-c ⬜ 세트 잇기 위치 · 323 동점 기본 공급처 2
-~~다음 판정 번호: 684~~ → ~~**687**~~ → [§74] **709** · 다음 deferred 번호: ~~328~~ → 334
+~~다음 판정 번호: 684~~ → ~~**687**~~ → [§74] **709** · 다음 deferred 번호: ~~328~~ → 334 → [§75] **732** · 다음 deferred 번호 **335**
 ```
 
 → [2026-10-24 밤 집 PC] §74 — 구글 드라이브 연동(drive-0 ~ 3) · 판정 687 ~ 708 · 다음 판정 번호 **709**
@@ -9985,7 +9985,7 @@ Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBo
 - 닫힘: N-1022-⑤(687) · 260 은 열림 그대로(드라이브 몫 지어짐 · 닫힘은 331 drive-4 뒤 · QuickBooks 는 327)
 - 넓힘: 300(Products → Products · Customers · Suppliers 내보내기 · 칸은 볼 권한 있는 것만 · 699 · 700)
 - 새: **328** 꼭대기 Customers · Suppliers 폴더를 drive_folder 에 기억(미정) · **329** 드라이브 실패 Chat 알림(미정) · **330** 트랜스퍼 폴더(705 의 B · 미정) · **331** drive-4 실제 한 바퀴 — 연습용 공유 드라이브 `IMS Documents (test)` → 260 드라이브 몫 닫힘(컷오버 뒤 · 올리기 켜기 전) · **332** 컷오버 날 거래 지우기에 드라이브 표 · doc_file · 버킷 두 곳(컷오버 날) · **333** PO 입고별 유통기한(Caleb 요청 때)
-- 다음 deferred 번호: **334**
+- ~~다음 deferred 번호: **334**~~ → [§75] **335**(334 = 판정 726)
 
 ### 74-f ⚠️ 실수 · 배운 것 — 원인 · 처방
 
@@ -10004,5 +10004,104 @@ Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBo
 drive-4(331): 연습용 공유 드라이브 한 바퀴 → 260 드라이브 몫 닫힘 · 끝에 root · 날짜 되돌리기(74-d 1)
 컷오버 날 거래 지우기 절차(332) — 대화 Claude 가 다음 차수로 올린다 · 드라이브 표 · doc_file · 버킷 두 곳 포함
 내보내기(300 · 699 · 700) — Products · Customers · Suppliers · 칸은 볼 권한 있는 것만
-다음 판정 번호: 709 · 다음 deferred 번호: 334
+~~다음 판정 번호: 709 · 다음 deferred 번호: 334~~ → [2026-10-25] §75 · 다음 판정 번호 732 · 다음 deferred 번호 335
+```
+
+→ [2026-10-25 집 PC] §75 — 사용 매뉴얼 · help.html · 화면 고침(manual-0 ~ 4b) · 판정 709 ~ 731 · 다음 판정 번호 **732**
+
+## §75 2026-10-25 — 사용 매뉴얼 · help.html · 화면 고침 — manual-0 ~ 4b · 판정 709 ~ 731 (집 PC)
+
+⭐ 지은 것: 동료용 IMS 사용 매뉴얼(영 · 한 두 벌) — 0 장 시작하기 · 1 장 판매(21 절) · 4 장 WMS(12 절) · 원고는 공개 레포 asung-wms `docs/manual/` · 화면 help.html 이 그 원고를 그대로 읽어 보인다 · IMS 머리 · WMS ☰ 끝의 **Manual** 단추
+⭐ 새 판정 709 ~ 731 · 원천: 지시서 manual-0 · 1a · 1b · 1b2 · 1c · 1d · 4a · 4b · docs-1025 📌(판정 · 결정 · 실수는 대화에만 있었다) · 차수 회신(Claude Code 이견 1a-* ~ 4b-*) · 다음 판정 번호 **732** · 다음 deferred 번호 **335**
+⭐ DB 일 없음 — 화면(asung-ims) · 원고(asung-wms docs/manual) · 스크립트 · hook 만
+
+### 75-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 709 | 「모두 추천대로 (나A · 다A · 라B · 마A)」 | 매뉴얼 첫 차수 = 시작하기 + 판매 + help 화면 |
+| 710 | (같은 답 · 다 A) | 영 · 한을 같은 차수에서 · 앵커 대조 스크립트 `scripts/check-manual-anchors.sh` |
+| 711 | (같은 답 · 라 B) | Reorder Planner 한국어 단추는 화면 그대로 · 매뉴얼에 화면 글자와 영어 두 글자(구매 장 몫) |
+| 712 | ~~(같은 답 · 마 A)~~ | ~~매니저 몫 절은 시험 매니저 계정 뒤~~ → **719 로 고침** |
+| 713 | 「설사 제대로 작동되지 않는 것을 미쳐 발견하지 못했더라도, 제대로 작동되는 것을 전제로 매뉴얼을 만들어야. 다른 사람들이 문제를 명확하게 찾아낼거야. 그러니 모두 제대로 작동되는 것을 전제로 매뉴얼을 만들어줘.」 | 매뉴얼은 설계대로 작동한다고 단정해 쓴다 · 화면과 판정이 다르면 원고는 판정의 뜻 · 다른 자리는 이견 · 화면에 없는 기능은 쓰지 않는다 · 앞선 말 「지금 내용들은 이미 테스트를 다 마친것들이야」(so v5u · v5v · v5w · v5w1 · 미룬 252 · 290 의 cr v3 · v4 · v4a) |
+| 714 | 「1. 그런데 매뉴얼에 cin7이라는 단어는 없었으면 좋겠어.」 | 매뉴얼 어디에도 「Cin7」 단어 금지 · 9 장 이름 「Moving from the old system / 예전 시스템에서 옮겨 오기」 · 안에서는 「the old system」 · 앵커 스크립트 검사 6 이 지킨다 |
+| 715 | 「1」(99 로 시작하는 번호) | 예시 번호 SO-99001 · 인보이스 99001 · PO-99001 · CR-99001 · 실제 이름 · 번호 금지(원고는 공개 레포) |
+| 716 | 「A. 이번엔 스크립트만 · hook 은 1b」 | 앵커 검사 pre-commit hook 은 manual-1b 에서 → 걸렸다(스테이징 사본 검사) |
+| 717 | 「A. 이대로 받는다」 | manual-1a 900 행 넘음(1,125)을 받는다 · 다음 차수부터 다시 지킨다 |
+| 718 | 「A. 익숙한 말로 (필터 · 페이지 · 버전 · 권한)」 | 한국어 원고는 직원이 쓰는 말 · 지시서 말투(거르기 · 쪽 · 낱말 · 판 · 열쇠) 금지 |
+| 719 | 「A. 712 를 고친다 — 매니저 몫도 지금 코드대로」 | 매니저 이상 · supervisor 이상 단추도 걸음까지 · 문장 첫머리 「Managers and above: …」 · 근거는 화면 코드 줄 · 시험 매니저 계정은 뒤에 확인용 |
+| 720 | 「표의 제안대로 모두 (고객 · 제품 · 라인 …)」 | 손님 → 고객 · 상품 → 제품 · 오더 줄 → 라인 · 발주 → PO · 잡히다 → 확보 · 굳다 → 고정 · 매기다 → 계산 |
+| 721 | 「A. 화면도 바꾼다 — Cin7 → before IMS 등」 | 화면에 보이는 Cin7 글도 뺀다 → asung-ims **b7c5ab9**(공통 `imsSrc` — 원천 값 cin7 을 「before IMS」 로 · 고객 · 공급처 · 제품 · 패밀리 · 딜 · Settings · 재고 화면 · 「Notes from before IMS」 · 「Last change before IMS」) |
+| 722 | 「컷오버와 함께 멈춰」 → 「A. 지금 뺀다」 | 매일 제품 설명 다시 불러오기는 컷오버와 함께 멈춘다 ⇒ ims-desc.js 의 Follow Cin7 again · Cin7 original · 칩 · 「매일 다시 불러온다」 안내를 뺐다(b7c5ab9 · desc v2) · 창구 op description_follow_cin7 은 DB 에 남고 부르는 화면이 없다 |
+| 723 | 「A. 「줄」 그대로」 | 목록 · 화면 글줄의 「줄」 은 그대로 · 오더 라인만 「라인」 |
+| 724 | 「A. 화면을 사람 말로 (so.html 한 줄)」 | 확정 · 계획 · 백오더 Proceed 창 Result 칸 = Reserved · Partly reserved · Backordered · Preorder · On hold → asung-ims **d6b9547**(so.html 두 곳) · **8232f6f**(so-backorders.html — d6b9547 이 놓쳤다) · 두 화면 같은 표 `CF_RESULT` |
+| 725 | 「그러면 화면도 지어줘. 어차피 공개레포인데 화면에서 바로 매뉴얼을 읽을 수 있게 해줘」 | 원고는 공개 레포 asung-wms `docs/manual` 에 둔다(원고 자리 「보고 정한다」 를 닫음) · asung-ims **1b335f4**: `help.html`(help v1 — raw 로 읽어 그림 · 장 목록 = README Contents 링크 · English / 한국어 · 목차 · 찾기 · 주소 `help.html?lang=ko#<앵커>` · 로그인한 누구나) · `ims-auth.js` nav v11 — IMS 머리 Change Password 앞 **Manual** 단추(새 탭) |
+| 726 | 「드물어」 | 출고 직전 「뺄 수량 · 사유」 칸(§17 판정 4 · 5 · DB so_finalize removed 는 준비됨 · 화면만 없음)은 컷오버 뒤 → **deferred 334** |
+| 727 | 「길 1(출고 뒤 크레딧 · 재입고)을 매뉴얼에 적는다」 | 그동안은 그대로 Ship & invoice → 뺀 수량만큼 참조 크레딧 노트(재입고 to bin) · 물건은 선반에 그대로 · 크레딧은 매니저 이상 |
+| 728 | 「4장 WMS(창고)」 | 판매 다음 장은 4 장 WMS |
+| 729 | 「A. Other + 메모 「출고 전에 고객이 뺐다」」 | 727 의 크레딧 사유 = Other + Note |
+| 730 | 「B. 4장 WMS 먼저」 | 문서 차수는 4 장 뒤(= docs-1025 · 이 절) |
+| 731 | 「A. ☰ Menu 맨 끝에 Manual」 | WMS ☰ Menu 맨 끝 Manual(새 탭 `help.html#ch-04-wms`) → asung-ims **3a6aa0a**(nav v12) ⇒ 매뉴얼 4 장 파일 이름 `04-wms.md` 고정 |
+
+### 75-b 매뉴얼 — 자리 · 규칙 · 지키는 장치 · 상태
+
+```
+원고 자리(725)   asung-wms docs/manual/en/ · docs/manual/ko/ · 공개 레포 · wms.asung.ca 가 docs/ 를 그대로 낸다 → 바깥에서 보인다
+                 ⇒ 실명 · 실번호 금지(715) · 숨김 주석에도 내부 메모 금지(README)
+규칙의 정본      docs/manual/README.md — 원고 자리 · 앵커 꼴 · screen/who 주석 · 검사 · 목차 · ⚠️ 여기서 다시 쓰지 않는다
+절 꼴            What it is → When → How(번호 걸음) → Good to know → Watch out · 화면 글자는 영어 그대로 굵게 · 한국어는 뜻을 붙인다
+앵커             <a id="모듈-일"></a> 를 제목 바로 위 · 소문자 ASCII · 영 · 한 같은 앵커 같은 순서(제목에서 만들지 않는다 — 한국어 제목이면 갈린다)
+검사 스크립트    scripts/check-manual-anchors.sh [폴더] — ① 파일 집합 ② 앵커 순서 ③ 꼴 · 겹침 ④ screen/who 주석(경고) ⑤ 링크가 실제 앵커 ⑥ cin7 단어(714)
+                 끝 줄 ANCHORS_OK <파일 수> <앵커 수 — 영 · 한 합> | ANCHORS_FAIL <n>
+hook             scripts/hooks/pre-commit — docs/manual/ 이 스테이징됐을 때만 · ⭐ 작업 트리가 아니라 스테이징된 사본(git checkout-index)을 검사(1b-7)
+help.html(725)   asung-ims · raw.githubusercontent …/main/docs/manual 을 읽는다 ⇒ 원고는 push 뒤에야 화면에 보인다(README 한 줄)
+                 장 목록 = README Contents 표에서 링크가 걸린 장만 · <a id> · <!-- --> 말고 HTML 은 글자로 보인다
+Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu 맨 끝(nav v12 · help.html#ch-04-wms) — WMS 머리에는 Change Password · Manual 이 없다
+고정             4 장 파일 이름 04-wms.md(731 · nav v12 링크) · 앵커 이름(1 장 → 4 장 링크 여섯이 가리킨다)
+```
+
+상태(2026-10-25 끝): 0 장 시작하기 · 1 장 판매(21 절) · 4 장 WMS(12 절) · 앵커 86(영 · 한 합) · 커밋 6af31e5(1a) · a84dfa9(1b) · 1e4d3e1(1b2) · 6bbe0d7(1c) · dbecdd2(1d) · 7079853(4a) · 59cf72c(4b)
+남은 것: 2 · 3 · 5 · 6 · 7 장 · 8 · 10 · 11 장 · 9 장(내용은 Caleb) · 화면마다 「?」 단추(help-1 다음) · 캡처(help.html 은 아직 그림을 못 그린다 · 원고에는 <!-- SCREENSHOT --> 자리만) · 시험 매니저 계정으로 매니저 걸음 확인(719)
+
+### 75-c 화면 고침 (asung-ims)
+
+| 커밋 | BUILD | 무엇 | 판정 |
+|---|---|---|---|
+| b7c5ab9 | ims-ui.js(imsSrc · ?v=src1) · desc v2(ims-desc.js?v=2) · 화면 여럿 | 원천 값 cin7 을 「before IMS」 로 · Notes from before IMS · Last change before IMS · Follow Cin7 again · Cin7 original · 칩 · 「매일 다시 불러온다」 안내 뺌 | 721 · 722 |
+| d6b9547 | so cf words v1 | so.html 확정 창 · planTable(보류 풀기 · 백오더 진행) Result 칸 사람 말 `CF_RESULT` | 724 |
+| 8232f6f | bo cf words v1 | so-backorders.html Proceed 창의 같은 칸(d6b9547 이 놓침 · manual-1c 이견 1c-4) | 724 |
+| 1b335f4 | help v1 · nav v11(ims-auth.js?v=help1) | help.html · IMS 머리 Manual | 725 |
+| 3a6aa0a | nav v12 | WMS ☰ Menu 맨 끝 Manual | 731 |
+| b8b67bd | cr v5a | 크레딧 창 **Charge a fee** 가 60 일 넘으면 미리 체크돼 있었다 — 판정 5(「자동으로 붙이지 말아줘」)와 같은 화면 안내 글과 어긋남 → 늘 꺼진 채 시작 · 알림 · 제안 금액 그대로(manual-1d 이견 1d-1 이 찾음) | 5 |
+
+- 722 가 닿는 다른 문서: so-module 7696 · 7724 · 7727(10-09 desc-1 의 역사 — 그대로) · po-module 1511 · asung-po SKILL.md 180(창구 계약 — 「부르는 화면 없음」 꼬리 · docs-1025)
+- 4a-7(대화 Claude 판단): WMS 화면의 shipped 글자 「Shipped」 는 고치지 않는다 — 인보이스 취소 뒤에만 생기고 그때 물건은 이미 나갔다 · 매뉴얼 wms-statuses 짝 표에 「같은 상태 — 창고 Shipped · 판매 Invoice cancelled」
+
+### 75-d 사실 확인 (마지막 정의 원문)
+
+1. **so_merge**(20261015013503): 원본 예약을 풀고(released_at · reserves_released) 새 오더를 draft 로 만든다 → 6643 행의 「짐작 그대로 · Caleb 판정 없음」 을 사실로 고침 · 매뉴얼 sales-divide-merge 「합친 오더는 다시 Confirm」 이 이 사실에 선다
+2. **so_split**(20261020123910): 나뉜 오더 접미어 = 같은 base 의 최댓값 다음 글자 · **첫 나뉨은 a** · x 를 넘으면 거부 → 706 에 포인터(번호 규칙은 766 에 이미 있었다) · 매뉴얼 예시 SO-99001b → SO-99001a 12 곳 정정(manual-1c 이견 1c-3)
+3. **so_payment_detach**(20260925201614): 붙인 기록(so_payment_alloc)에만 voided_at · 결제는 그대로 → 뗀 금액은 고객의 붙지 않은 돈으로 남는다 · 매뉴얼 1d 이견 1d-16 의 짐작이 사실이 됨(원고 그대로)
+4. 덤 — so_finalize(20261013170000)는 `removed`(사유 customer_removed · not_wanted · other)를 받지만 Ship & invoice 창이 보내지 않는다 → 726(deferred 334) · 그동안 727 · 729
+
+### 75-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 판정 721 을 물을 때 범위를 「다섯 화면 열 곳」 으로 말했다 — 실제는 데이터 값 cin7 까지 아홉 파일 · Caleb 「매뉴얼을 만드는데, cin7이라는 문자 때문에 화면까지 수정한건가?」 ⇒ **화면 쪽 거리는 grep 으로 범위를 다 센 뒤에 묻고, 「매뉴얼만으로 피하는 길」 도 함께 낸다**
+2. [대화 Claude] 판정 724 고침이 so.html 안 두 곳만 · so-backorders.html 의 같은 칸을 놓쳤다(Claude Code 1c-4 가 짚음) ⇒ 「같은 정보를 그리는 자리를 다 센다」 는 **화면 전체 grep** 으로(한 파일 안이 아니다)
+3. [대화 Claude] 앵커 수를 한 언어로 셌다(회신 74 · 실제 86 — 스크립트는 영 · 한 합) ⇒ 숫자 예상은 셈 단위를 확인하고
+4. [대화 Claude] 지시서 뼈대의 짐작(4 장 「Packing = 상자에 담기」 · WMS Admin 절 없음)을 Claude Code 가 바로잡음(4a-1 · 4a-2) ⇒ 뼈대 절은 「짐작 — 화면을 훑고 이견으로」 를 계속 붙인다(잘 됐다)
+5. [잘 된 것] 1c-3(나뉜 오더 첫 번호 a — 원고 12 곳 정정) · 1d-1(판정 5 와 어긋난 화면을 문서 차수가 찾음) · 4b-15(부족 선언은 WMS Admin Reports) · hook 이 작업 트리가 아니라 스테이징 사본을 검사(1b-7 — 작업 트리는 멀쩡하고 커밋될 것만 깨진 경우를 막는다)
+
+### 75-f 미룬 것 (deferred.md 본체 · 이 절은 가리키기만)
+
+- 새: **334** 출고 직전 「뺄 수량 · 사유」 칸 — DB so_finalize removed 는 준비됨 · Ship & invoice 창만 없음 · 컷오버 뒤(726) · 그동안 727 · 729
+- 좁힘: **252** 판매 몫 시험 끝 · POS 인쇄만 남음 · **290** cr v3 · v4 · v4a 시험 끝 · pur v1 · grt-1a 남음(둘 다 열림 그대로 · Caleb 2026-10-25 · 판정 713 의 앞선 말)
+- 다음 deferred 번호: **335**
+
+### 75-g 다음
+
+```
+매뉴얼: 2 장 구매 · 3 장 재고 · 5 · 6 · 7 장 · 8 · 10 · 11 장 · 9 장(내용은 Caleb) · 화면 「?」 단추(help-1 다음) · 캡처 · 시험 매니저 계정 확인(719)
+컷오버 날(11-01): §73-c · §74-d 그대로
+다음 판정 번호: 732 · 다음 deferred 번호: 335
 ```

@@ -242,6 +242,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 출고 + 발행은 so_finalize 한 트랜잭션(판정 1 · 사람이 누른다 — 출하 사건이 자동 발행하지 않는다) · sales(오더 담당)부터(판정 8 · R5 의 예외) · packed 만 · 하나라도 막히면 전체 거부(막힌 오더를 빼고 다시) · so_ship 은 so_finalize 가 부른다(직접 부르는 창구 없음 · 속 함수)
 ⭐⭐ 묶음 = 청구처(so.bill_to_customer_id · 그날 값) · 청구처의 invoice_split_by_store 가 켜졌으면 오더의 손님(매장)별 · invoice_group 으로 직원이 바꾼다(청구처 안에서만) · 한 인보이스 = 한 청구처 · 한 통화 · 오더는 살아 있는 인보이스 하나에만(active_so_id)
 ⭐⭐ 「손님이 뺐다」(so_line.qty_removed)는 백오더가 아니다(판정 5) — 원장 무접촉 · 할당은 so_ship 이 released · qty_ordered 는 그대로(주문 12 · 뺐다 12) · 보낼 목표 = 주문 − 뺀 것 · 그 아래 덜 나간 몫만 pick_short(형제 · 백오더)
+   → [2026-10-25 · 판정 726 · 727 · 729 · so §75] ⚠️ **화면에 그 칸이 없다** — so_finalize 는 `removed`(customer_removed · not_wanted · other)를 받지만 Ship & invoice 창이 보내지 않는다 → 칸은 컷오버 뒤(deferred 334) · 그동안 = 평소대로 Ship & invoice → 뺀 수량만큼 그 인보이스에서 크레딧 노트(재입고 to bin · 물건은 선반에 그대로 · 사유 Other + 「출고 전에 고객이 뺐다」 · 크레딧은 매니저 이상) · 매뉴얼 sales-ship-invoice · sales-credits
 ⭐⭐ 손님이 뺀 줄만 자동 다시 견적(판정 6 · so_line_requote(…, false) · 할인만 · 시스템 줄만 · 사람이 정한 줄 무접촉) · pick_short 는 다시 견적 없음(판정 7 · 할인 그대로) · 모든 줄을 뺀 오더는 거부 + 길(WMS 되돌리기 → 취소 · 판정 9)
 ⭐⭐ 인보이스 금액은 보낸 수량 — round(qty_shipped × unit_price, 2)(so_line_total 은 주문 수량 · 초안까지만) · so_tax_preview(…, 'shipped') 식 한 곳 · 줄마다 반올림(§16 판정 3 · 예시는 줄 수를 함께: 3×10.05 한 줄 3.92 · 10.05 세 줄 3.93) · 오더별 세금 규칙은 so_invoice_order 에 굳는다(발행일 규칙 · manual 이면 오더 규칙)
 ⭐⭐ 번호 60000~(접두어 없음 · 재사용 금지 · 취소해도 남는다) · 취소·재발행은 manager(so_invoice_cancel · so_invoice_reissue) · 취소 = 문서 전체가 틀렸을 때(부분 문제는 크레딧) · 담긴 오더 invoiced→shipped · ⚠️ 결제·크레딧이 붙었으면 거부는 ⓑ·ⓒ 가 재발행해 더한다
@@ -284,6 +285,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 갈리는 것은 「재고가 움직이냐」 — 줄에 restock_bin_id 가 있으면 원장 credit_in(그 칸 · EA · 낱개 SKU) · 없으면 not_restocked_reason(damaged · b_grade · not_returned · other) · 칸 기본 ims_last_bin(그 창고) → 없으면 사람이 · '' 불허 · B급 칸이 서면 칸 표시만 더한다
 ⭐⭐ 원가 = 원 판매 소비 기록 복원(return_restore · 열쇠 = 오더 번호 · IMS 는 so_line → so.so_number · Cin7 은 cin7_order_number) → 남은 레이어 가중평균 → 최근 원가(17-e) → unknown · 실시간·재생성이 inv_layer_post_credit 하나를 부른다(17-f) · raw.cost.remainder 가 hint
 ⭐⭐ 리스탁킹 피는 알림만(판정 5 · 자동 금지) — 원 인보이스 발행일 + 60일이 지나면 restock_fee_window:N + fee_suggested · 넣으면 kind restocking_fee 한 줄(≤ 0 · 20% 미리 채움 · % 바꿈 · 세금도 음수) · 계정은 지정 → 설정(so_credit_restock_fee_account_code · 지금 빈 값) → 거부(판정 7) · 60·20 은 잠금 키
+   → [2026-10-25 · cr v5a b8b67bd · so §75-c] 화면 **Charge a fee 는 늘 꺼진 채 시작** — 그 전 판은 60 일이 지나면 미리 체크돼 있었다(판정 5 와 어긋남 · manual-1d 이견 1d-1 이 찾음) · 알림 · 제안 % 는 그대로 · 넣으려면 사람이 체크
 ⭐⭐ 취소는 돌아온 재고가 안 팔렸을 때만 — 활성 so_credit_alloc 없음 ∧ 그 크레딧 레이어 소진 0 → 반대 credit_in(:reversal) + reason reversal 전량 소진 · 팔렸으면 거부(재고 조정 + 새 크레딧) · 번호 남음
 ⭐⭐ 발행 순서 = ① 대상 선결제 → ② 크레딧(발행일 순 · auto) → ③ 받아 둔 돈(received − reserved) · balance_forward = −(② + ③) 한 줄 · so_invoice.credit_applied 는 ② 몫 · 취소는 auto 크레딧을 풀고 manual 이면 거부(판정 7 규칙)
 ⭐⭐ 환불은 크레딧부터 — 한도 received + owed_credit · so_credit_alloc.refund_payment_id · received 는 크레딧이 갚은 몫만큼 안 준다 · 환불 취소가 그 몫을 함께 void
@@ -507,3 +509,6 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).
 - `description` 은 1024자(pre-commit `scripts/check-skill-desc.sh`). 줄일 때 표 이름·함정 키워드보다 일반어를 먼저 뺀다 · `asung-po` 와 겹치는 키워드(supplier · ims_touch · 마스터 데이터)는 넣지 않는다.
 - 옛 문장은 `~~취소선~~ + [정정 날짜]` — 경위가 정본에 있으면 포인터로 대신한다.
+
+
+⭐ [2026-10-25 · 판정 724 · so §75-c] **Result 칸 사람 말** — 확정 창 · 계획 표(보류 풀기 · 백오더 진행) · Backorders 의 Proceed 창은 창구 lines[].kind(allocated · partial · backorder · preorder · hold)를 그대로 보이지 않고 `CF_RESULT` 로 Reserved · Partly reserved · Backordered · Preorder · On hold — 표는 **so.html(d6b9547) · so-backorders.html(8232f6f) 두 화면에 같은 것** · 바꾸면 둘 다(d6b9547 이 so-backorders 를 놓쳤다 — 같은 칸은 화면 전체 grep) · 저장 값 · 창구 무변
