@@ -196,7 +196,7 @@ Customer A 의 고객 할인은 10% 입니다. 딜이 제품 X 에 15% 를 줍�
 - 쿠폰은 **Discount Rules** 화면에서 만듭니다 — 설정 장을 보세요.
 <a id="sales-confirm"></a>
 ## 오더 확정
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, manager -->
 
 **무엇인가**
@@ -220,17 +220,17 @@ Customer A 의 고객 할인은 10% 입니다. 딜이 제품 X 에 15% 를 줍�
 
 | Result | 뜻 |
 |---|---|
-| allocated | 라인 전체가 확보됐다 |
-| partial | 라인 일부가 확보됐다 · 나머지는 백오더 오더로 간다 |
-| backorder | 하나도 확보하지 못했다 · 라인이 백오더 오더로 간다 |
-| preorder | 라인이 프리오더 오더로 간다 |
-| hold | 보류로 확정했다 · 아무것도 확보하지 않았다 |
+| Reserved | 라인 전체가 확보됐다 |
+| Partly reserved | 라인 일부가 확보됐다 · 나머지는 백오더 오더로 간다 |
+| Backordered | 하나도 확보하지 못했다 · 라인이 백오더 오더로 간다 |
+| Preorder | 라인이 프리오더 오더로 간다 |
+| On hold | 보류로 확정했다 · 아무것도 확보하지 않았다 |
 
 **예**
 Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은 것은 18 입니다.
 - **Reserved** 18 · **Backorder** 12
-- 창에 "Split off: SO-99001b backorder (1 line)"(나뉨) 이 나옵니다.
-- SO-99001 은 18 을 가지고 창고로 갈 수 있습니다. SO-99001b 는 12 를 가지고 **Backorders** 화면에서 기다립니다.
+- 창에 "Split off: SO-99001a backorder (1 line)"(나뉨) 이 나옵니다.
+- SO-99001 은 18 을 가지고 창고로 갈 수 있습니다. SO-99001a 는 12 를 가지고 **Backorders** 화면에서 기다립니다.
 
 **알아 둘 것**
 - **이어받기.** 새 오더를 확정하면, 같은 고객 · 같은 제품의 예전 열린 백오더를 오래된 것부터 닫습니다. 창의 "Backorders taken over from earlier orders" 아래에 보입니다. 그 수요는 이제 새 오더가 가집니다.
@@ -243,7 +243,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-release"></a>
 ## 창고로 보내기
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, office -->
 
 **무엇인가**
@@ -290,7 +290,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 **Unconfirm — supervisor · admin**
 1. IMS 안에 있는 확정 오더에서 **Unconfirm** 을 누릅니다.
 2. "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (supervisor)." 에 OK 를 누릅니다.
-3. 오더가 다시 초안이 됩니다. 그 확정 때 나뉜 백오더 · 프리오더 오더(예: SO-99001b)가 이 오더 안으로 돌아옵니다. 이 오더가 예전 오더에서 이어받았던 백오더 라인은 다시 열리고, IMS 가 몇 라인인지 알려 줍니다.
+3. 오더가 다시 초안이 됩니다. 그 확정 때 나뉜 백오더 · 프리오더 오더(예: SO-99001a)가 이 오더 안으로 돌아옵니다. 이 오더가 예전 오더에서 이어받았던 백오더 라인은 다시 열리고, IMS 가 몇 라인인지 알려 줍니다.
 - 이 오더가 쓴 쿠폰은 다시 쓸 수 있습니다.
 - 확정된 서비스 오더도 같은 방법으로 초안으로 돌아갑니다.
 
@@ -299,7 +299,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 | IMS 의 글(줄임) | 할 일 |
 |---|---|
 | only a confirmed order still in IMS can be unconfirmed (if it went to the warehouse, roll it back in WMS first) | Recall 하거나, 창고에 먼저 되돌려 달라고 합니다 |
-| was itself split off at confirmation — unconfirm the original order … instead | 원래 오더를 Unconfirm 합니다(SO-99001b 가 아니라 SO-99001) |
+| was itself split off at confirmation — unconfirm the original order … instead | 원래 오더를 Unconfirm 합니다(SO-99001a 가 아니라 SO-99001) |
 | has a hand-made split order … (cancel or merge it first) | 손으로 나눈 오더를 먼저 정리합니다 |
 | was split again after confirmation | Unconfirm 은 확정 때 나뉜 것만 되돌립니다 |
 | Split order … was changed after the split | 더는 할 수 없습니다 — 오더를 취소하거나 고칩니다 |
@@ -312,7 +312,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-divide-merge"></a>
 ## 오더 나누기 · 합치기
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, office -->
 
 **나누기(Divide) — 매니저 이상**
@@ -357,7 +357,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 <!-- who: sales, office -->
 
 **무엇인가**
-백오더는 고객이 주문했지만 확정 때 확보하지 못한 것입니다. 재고가 들어올 때까지 따로 오더(예: SO-99001b)로 기다립니다. 프리오더도 같은 방식으로 기다립니다.
+백오더는 고객이 주문했지만 확정 때 확보하지 못한 것입니다. 재고가 들어올 때까지 따로 오더(예: SO-99001a)로 기다립니다. 프리오더도 같은 방식으로 기다립니다.
 **Sales ▾** › **Backorders** 에는 탭이 넷 있습니다: **Arrivals**(처음 열림) · **Insights** · **All backorders** · **Emails**
 
 **Arrivals(입고)**
@@ -366,7 +366,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **진행(Proceed) — 매니저 이상**
 1. 줄의 **proceed**(**Arrivals** 나 **All backorders**)나, 오더 화면의 **Proceed backorder…** 를 누릅니다.
-2. **Proceed SO-99001b — reserve stock that is here now** 창이 **Reserved**(확보) 와 **Still backordered**(아직 백오더)를 보여 줍니다. **Proceed** 를 누릅니다.
+2. **Proceed SO-99001a — reserve stock that is here now** 창이 **Reserved**(확보) 와 **Still backordered**(아직 백오더)를 보여 줍니다. **Proceed** 를 누릅니다.
 - 진행은 오더 전체에 걸립니다 — 그 오더의 다른 백오더 라인도 재고가 되는 만큼 함께 확보됩니다.
 - 그 뒤 오더를 **Release to WMS** 로 보낼 수 있습니다.
 
@@ -395,74 +395,224 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 **조심할 것**
 - 만료는 나뉜 날이 아니라 **원래** 주문일부터 셉니다.
 - 무상 라인(예: replacement)의 백오더는 만료되지도, 이어받히지도 않습니다. 진행하거나 취소해야만 끝납니다.
+- 프리오더도 만료되지 않고 이어받히지 않습니다. 진행하거나 취소할 때까지 기다립니다.
 
 <!-- SCREENSHOT: sales-backorders-1 · Arrivals 탭: Ready to ship now 와 한 입고 아래 기다리는 고객들 -->
 
 <a id="sales-charges"></a>
 ## 운임과 그 밖의 비용
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+
+**무엇인가**
+비용은 오더에 붙는 금액만 있는 라인입니다 — 운임, 포장비 등. 인보이스에서 제품 아래에 나옵니다.
+
+**언제**
+운임은 보통 실제 금액을 아는 **Ship & invoice** 때 넣습니다. 고객과 미리 금액을 정했으면 먼저 넣어도 됩니다.
+
+**어떻게**
+1. 초안에서 **Add a charge** 를 누릅니다.
+2. **Name** 은 "Freight" 로 시작합니다. 다른 비용이면 바꿉니다.
+3. **Amount**(금액)를 적습니다(0 이상).
+4. **Discount**: **none** · **%** · **$** 와 숫자
+5. 원하면 **Description**, 그리고 **Account**(계정)를 고릅니다. 새 비용은 **_99_**(운임 매출)로 시작합니다. 운임이 아닌 비용이면 다른 계정을 고릅니다.
+6. **Save** 를 누릅니다. **✎** 는 비용을 고치고, **✕** 는 지웁니다.
+
+**팩이 끝난 뒤 — master 권한도 필요**
+**Finalized** 오더에서도, 판매 오더를 다루면서 **master 권한도 있는** 사람은 **Add a charge** 를 누를 수 있습니다(예: 포장비). "The charge goes on the invoice when you Ship & invoice — the Ship & invoice window shows it."(Ship & invoice 때 인보이스에 실린다)
+
+**알아 둘 것**
+- **Ship & invoice** 전에는 Warehouse 오더의 운임에 **estimate**(견적) 표시가 붙습니다: "Before Ship & invoice the freight is an estimate — Ship & invoice updates this line with the actual freight"
+- "Tax follows the order's tax rule."(세금은 오더의 세금 규칙을 따른다)
+- 할인은 인보이스에 따로 한 라인으로 나옵니다 — 운임과 운임 할인을 나눠 둡니다.
+
+**조심할 것**
+- "A charge cannot be negative — money back is a credit note."(비용은 음수가 될 수 없다 · 돌려줄 돈은 크레딧 노트)
+- 체크아웃에서 운임을 이미 낸 웹 오더가 있습니다. 그런 오더에는 팩이 끝난 뒤 **Add a charge** 가 나오지 않습니다.
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice(출고 + 인보이스)
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+
+**무엇인가**
+창고가 오더를 끝내면 상태가 **Finalized** 가 됩니다. 그러면 오피스가 **Ship & invoice** 를 누릅니다: 물건이 장부에서 빠지고 인보이스가 발행됩니다. 한 번에 일어납니다.
+
+**언제**
+**Finalized** 오더를 보낼 준비가 되면 바로 — 운임 견적과 운송사가 정해졌을 때.
+
+**어떻게 — 오더 하나**
+1. **Finalized** 오더를 열고 **Ship & invoice…** 를 누릅니다.
+2. 맨 위 **What the warehouse packed** 에 팔레트 · 박스마다 크기와 무게가 나옵니다 — 운임 견적에 씁니다. "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."(크기 없는 짐 · 창고에 먼저 묻는다)
+3. 운임: 오더에 이미 있는 비용의 금액을 실제 운임으로 바꾸거나, **Freight amount** 에 새 라인 금액을 적습니다. 비우면 운임 라인이 없습니다.
+4. **Carrier**(운송사)를 고르고 **Tracking number**(송장 번호)를 적습니다(박스가 여럿이면 쉼표로 나눔). 필요하면 **Shipping notes** 도 적습니다.
+5. **Preview** 를 누릅니다. **What will happen** 을 읽습니다: 라인마다 **Ordered** · **Ships** · **Short**, 비용, 인보이스
+6. **Ship & invoice** 를 누르고 확인합니다. 여기서는 되돌릴 수 없습니다.
+7. 결과에 **Invoice** · **Amount due** · **Still owed** 와 **Print invoice** · **Email invoice…** 단추가 나옵니다.
+
+**여러 오더를 인보이스 한 장으로**
+1. 같은 창에서 **Other packed orders for …** 를 엽니다 — 같은 청구처 · 같은 통화의 Finalized 오더(30 개까지)
+2. 함께 보낼 오더를 체크합니다. 오더마다 운임 · 운송사 · 송장 번호 · 메모를 따로 적습니다.
+3. **Preview** 뒤 **Ship & invoice** 를 누릅니다. "Orders invoiced together go on one invoice for this bill-to (or one per store, if the customer is set to split by store)."(함께 낸 오더는 청구처 한 장 · 매장별로 나누는 고객이면 매장마다 한 장)
+
+**운송사 종류**
+- 운송 회사: "A tracking number is needed."(송장 번호가 필요하다)
+- **Pickup**: "the customer collects it. No tracking number."(고객이 찾아간다 · 송장 없음) [픽업 오더와 추적번호](#sales-pickup)
+- **Delivery**(우리 트럭): 송장 번호 없음
+
+**Counter 오더 — 매니저 이상**
+1. 확정된 counter 오더에서 **Hand over — ship and invoice…** 를 누릅니다.
+2. 창에 라인마다 꺼낼 bin 과 금액이 나옵니다: **Invoice total** · **Paid for this order** · **Credit / balance used** · **Amount due**
+3. **Ship and invoice** 를 누릅니다. "Nothing blocks the hand-over — whatever is not paid stays as an unpaid invoice."(막는 것은 없다 · 안 낸 돈은 미수 인보이스로 남는다)
+
+**알아 둘 것**
+- 주문보다 덜 팩됐으면: "the rest goes to a backorder order"(나머지는 백오더 오더로)
+- **Put back to the shelf**(선반에 돌려놓기): 콤보는 통째로 나가거나 안 나갑니다. 콤보가 다 갖춰지지 않으면 남는 구성품을 bin 에 돌려놓으라는 목록이 나옵니다.
+- 오더에 이미 받은 결제는 그 인보이스에 저절로 붙습니다.
+- **Preview** 뒤에 창의 무엇을 바꾸면 **Preview** 를 다시 누릅니다.
+
+**조심할 것 — 팩된 오더에서 고객이 일부를 빼 달라고 할 때**
+1. 오더를 평소대로 Ship & invoice 합니다. 인보이스에는 팩된 수량 그대로 실립니다.
+2. 매니저 이상: 그 인보이스에서 뺀 수량만큼 크레딧 노트를 만듭니다. 라인마다 **Back to stock** 을 **to bin** 으로 두고, 물건이 있는 bin 을 그대로 둡니다. **Reason** 은 **Other** 를 고르고 **Note** 에 「출고 전에 고객이 뺐다」고 적습니다. [크레딧 노트](#sales-credits)
+3. 뺀 물건은 창고를 떠나지 않았습니다 — 선반에 그대로 둡니다.
+- 예: 30 팩 · 고객이 5 를 뺌 → 인보이스 30 · 크레딧 노트 5 · 실제 출고 25. 재고는 실제로 나간 수량과 맞고, 고객은 인보이스와 크레딧 노트 두 장을 받습니다.
+- 고객의 **Final invoice emails** 가 자동이면 인보이스가 먼저 메일로 나갑니다. 고객에게 미리 알립니다.
+
+<!-- SCREENSHOT: sales-ship-invoice-1 · Ship & invoice 창: 운임 · 운송사 · 송장 · "Other packed orders for …" 펼친 모습 -->
 
 <a id="sales-pickup"></a>
 ## 픽업 오더와 추적번호
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: office, warehouse -->
-<!-- TODO manual-1c -->
+
+**무엇인가**
+운송사를 **Pickup** 으로 보낸 오더는 고객을 기다립니다. 고객이 가져갈 때까지 **waiting for pickup**(픽업 대기) 표시가 붙습니다.
+
+**어떻게 — 고객이 가져갔을 때**
+1. 오더를 찾습니다. 목록 필터 **Waiting for pickup** 이 모두 보여 줍니다.
+2. **Picked up** 을 누릅니다.
+3. "Mark SO-99001 as picked up by the customer? … This cannot be undone here." 에 OK 를 누릅니다. 표시가 **picked up** 으로 바뀝니다.
+- 웹 오더면 Shopify 에도 알립니다 — 고객에게 메일은 가지 않습니다.
+
+**어떻게 — 운송사 · 송장 번호 고치기**
+1. 운송 회사로 보낸 출고 오더에서 **Fix tracking…** 을 누릅니다.
+2. **Carrier** 나 **Tracking number** 를 고칩니다(박스가 여럿이면 쉼표로 나눔).
+3. **Preview** 뒤 **Save** 를 누릅니다.
+- 웹 오더면 Shopify 도 고쳐집니다 — 고객에게 메일은 가지 않습니다.
+
+**조심할 것**
+- **Pickup** 과 **Delivery** 는 송장 번호가 없습니다. 고르면 송장 칸이 잠깁니다.
+- **Fix tracking…** 은 운송사 이름과 송장 번호만 고칩니다. 운송 회사 오더를 픽업으로 바꿀 수는 없습니다.
 
 <a id="sales-print-email"></a>
 ## 인쇄와 메일
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+
+**무엇인가**
+문서마다 쓰고 있는 양식으로 인쇄하거나, PDF 를 붙여 메일로 보냅니다.
+
+| 문서 | 어디서 | 단추 |
+|---|---|---|
+| 판매 오더 | 인보이스가 아직 없는 열린 오더 | **Print order** · **Email order…** |
+| Ship Ready(PROFORMA) | **Ship & invoice** 창 안 · **Preview** 뒤 | **Ship Ready (proforma)** · **Email Ship Ready…** |
+| 인보이스 | **Ship & invoice** 뒤, 그리고 **Sales Invoices** | **Print invoice** · **Email invoice…** / **Email to customer…** |
+| 배송 영수증 | **Sales Invoices** | **Print delivery receipt** |
+
+**어떻게 — 인쇄**
+1. 인쇄 단추를 누릅니다. 문서가 인쇄하거나 PDF 로 저장할 수 있게 열립니다.
+
+**어떻게 — 메일**
+1. 메일 단추를 누릅니다. 창에 보내는 사람(**From**)과 **To** · **Subject** · **Message** 가 채워져 나옵니다.
+2. 원하면 고칩니다. "The PDF of this … is attached, made with the layout in use."(쓰고 있는 양식으로 만든 PDF 가 붙는다)
+3. **Send** 를 누릅니다. "The email goes out within a minute or two."(1~2 분 안에 나간다)
+
+**Ship Ready**
+- 인보이스가 생기기 전에 나갈 것과 금액을 보여 줍니다. **Ship & invoice** 창에서 먼저 **Preview** 를 누릅니다 — 미리 보기에 나온 그대로 찍힙니다.
+- 인보이스 묶음마다 한 장입니다. 찍어도 아무것도 저장되지 않습니다.
+- **Email Ship Ready…** 는 미리 보기의 인보이스가 하나일 때만 됩니다: "One email carries one PDF — with more than one invoice, print the Ship Ready instead"(메일 한 통에 PDF 하나 · 인보이스가 여럿이면 인쇄)
+
+**인보이스 메모**
+**Sales Invoices** 에서 **Note** 옆의 **Edit** 를 누릅니다. "Note on the document (customers see it)"(고객이 보는 문서 메모). 인보이스에 찍힙니다. "Up to 2,000 characters. Leave it empty to remove the note."(2,000 자까지 · 비우면 메모를 지운다)
+
+**자동 인보이스 메일**
+고객의 **Final invoice emails** 가 **automatic** 이면([고객 찾기 · 더하기](#sales-customers)), 인보이스가 발행될 때 PDF 가 저절로 메일로 갑니다. 그래도 손으로 한 통 더 보낼 수 있습니다.
+
+**알아 둘 것**
+- 인보이스의 **Emails** 칸에 모든 메일이 보입니다: 언제 · 누구에게 · 상태(**waiting to send** · **sent** · **failed** …) · 보낸 사람(또는 "automatic")
+- 아직 기다리는 메일은 **Cancel** 로 멈출 수 있습니다. 까닭을 적어야 합니다.
+- 배송 영수증은 지역 배송용입니다 — 기사가 서명을 받습니다. 메일로 보내지 않습니다.
 
 <a id="sales-invoices"></a>
 ## 판매 인보이스
 <!-- screen: so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
 <!-- who: office, accounting -->
-<!-- TODO manual-1c -->
+
+**무엇인가**
+**Sales ▾** › **Sales Invoices** 에 모든 인보이스가 있습니다. 인보이스 한 장에 같은 청구처의 오더 여럿이 담길 수 있습니다. 인보이스 번호는 `99001` 같은 꼴입니다.
+
+**인보이스 찾는 법**
+1. "Invoice · customer · SO number · reference" 로 검색합니다.
+2. 상태로 필터합니다: **Open — still owed**(미수) · **Overdue**(연체) · **Open with no due date**(기한 없는 미수) · **Paid in full**(완납) · **Cancelled** · **All** — 그리고 발행일
+3. 인보이스를 누릅니다. **Bill to** · **Issued** · **Due** · **Currency** · **Orders**(누르면 그 오더가 열림), 라인, **Payments** · **Credits applied** · **Emails** 가 보입니다.
+
+**Cancel invoice… — 매니저 이상**
+문서 전체가 틀렸을 때만 취소합니다. 일부만 틀렸으면 크레딧 노트를 만듭니다.
+1. **Cancel invoice…** 를 누릅니다.
+2. "Cancel invoice 99001? Its orders go back to shipped and wait for a new invoice." 에 까닭을 적고(필수) OK 를 누릅니다.
+3. 오더가 **Invoice cancelled** 로 보입니다. 물건은 나간 그대로입니다.
+
+**취소가 거절될 때**
+- "… payment allocation(s) applied by hand — detach them first (or issue a credit note instead)"(손으로 붙인 결제를 먼저 뗀다 · 또는 크레딧 노트)
+- "… credit note allocation(s) applied by hand — detach them first"(손으로 붙인 크레딧을 먼저 뗀다)
+저절로 붙은 결제와 크레딧은 저절로 풀립니다.
+
+**Reissue… — 매니저 이상**
+1. 취소된 인보이스를 열고 **Reissue…** 를 누릅니다.
+2. "Issue a new invoice for SO-99001, dated today (Toronto)? Tax rates are taken as of today." 에 OK 를 누릅니다.
+3. 새 번호로 새 인보이스가 열립니다. 취소된 번호는 다시 쓰지 않습니다.
+
+**알아 둘 것**
+- "⚠ No due date — the order had no payment term. It is not counted as overdue."(결제 조건이 없던 오더 · 연체로 세지 않는다)
+- **↓ CSV** 는 필터에 맞는 인보이스를, **↓ Lines CSV** 는 그 라인을 한 라인 한 행으로 내려받습니다.
+
+<!-- SCREENSHOT: sales-invoices-1 · 인보이스 상세: Orders · Payments · Credits applied · Emails -->
 
 <a id="sales-payments"></a>
 ## 고객 결제와 선수금
 <!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-credits"></a>
 ## 크레딧 노트
 <!-- screen: so-credits.html · BUILD 2026-10-23 · cr v5 -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-web-orders"></a>
 ## 웹 오더
 <!-- screen: shopify-orders.html · BUILD 2026-10-14 · wo v4d -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-cancel"></a>
 ## 오더 취소
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: sales, manager -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-statuses"></a>
 ## 상태의 뜻
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: all -->
 <!-- note for 1b: two columns — badge (Released to WMS, Working, Finalized, Invoice cancelled …) and filter (With warehouse, Finalized — waiting for the office, Waiting for pickup …) -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-csv"></a>
 ## CSV 내려받기
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-23 · cr v5 ; so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
 <!-- who: office, accounting -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
-<!-- rulings: 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 484, 488, 489, 490, 507, 514, 516, 517, 529, 532, 541, 545, 546, 590, 709, 713, 714, 715, 719, 720, 723 -->
+<!-- rulings: 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 357, 436, 437, 438, 443, 452, 455, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727 -->

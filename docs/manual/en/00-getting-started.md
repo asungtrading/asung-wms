@@ -286,10 +286,13 @@ The tags tell us exactly which version you were using. A problem report with the
 <!-- who: all -->
 
 **In the screens**
-A **?** button on each screen is coming soon. It will open the part of this manual for that screen.
+1. Press **Manual** at the top right of any IMS screen. This manual opens in a new tab, so you do not lose your work.
+2. Press **English** or **한국어**. IMS remembers your choice.
+3. Pick a chapter and a section from the list on the left, or type in **Find a section**.
+- A **?** button on each screen is coming soon. It will open the section for that screen directly.
 
 **In this manual**
-Each chapter covers one area. The chapters are listed in the manual's README.
+Each chapter covers one area. The chapters and their sections are in the list on the left.
 Chapter 1 is [Sales](01-sales.md).
 This manual describes how IMS works. If IMS does something different from what this manual says, that is a problem worth reporting.
 
@@ -302,4 +305,4 @@ This manual describes how IMS works. If IMS does something different from what t
 - The order, invoice or other number you were working on (for example `SO-99001`).
 - What you pressed, what you expected, and what happened instead.
 
-<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715 -->
+<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725 -->

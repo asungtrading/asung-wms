@@ -10,6 +10,7 @@ The readers are the people who use IMS every day: managers, admins, accounting, 
   - Never write a real customer, supplier or staff name, email address, phone number, street address, or a real order number.
   - Use example names — **Customer A**, **Supplier B**, **Staff C** — and example numbers that start with 99: **SO-99001**, invoice **99001**, **PO-99001**.
 - Hidden comments (`<!-- … -->`) are hidden only when the page is drawn. In the raw file anyone can read them. Write only screen names, build tags, roles and ruling numbers there — no internal notes about faults or open questions.
+- The **Manual** button on IMS screens reads these files from the `main` branch on GitHub. A change shows there only after it is pushed.
 - The manual never names the system used before IMS. When chapter 9 needs to refer to it, it says "the old system".
 - The manual describes how IMS is designed to work, stated plainly. If IMS behaves differently, that is a fault to report — the draft is not changed to match a fault.
 

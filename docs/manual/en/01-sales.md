@@ -196,7 +196,7 @@ A coupon is a code that gives an order discount. Each coupon belongs to one cust
 - Coupons are made on the **Discount Rules** screen — see the Settings chapter.
 <a id="sales-confirm"></a>
 ## Confirm an order
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, manager -->
 
 **What it is**
@@ -220,17 +220,17 @@ When the customer's order is final.
 
 | Result | Meaning |
 |---|---|
-| allocated | The whole line is reserved. |
-| partial | Part of the line is reserved. The rest moves to a backorder order. |
-| backorder | Nothing could be reserved. The line moves to a backorder order. |
-| preorder | The line moves to a pre-order order. |
-| hold | The order was confirmed on hold. Nothing is reserved. |
+| Reserved | The whole line is reserved. |
+| Partly reserved | Part of the line is reserved. The rest moves to a backorder order. |
+| Backordered | Nothing could be reserved. The line moves to a backorder order. |
+| Preorder | The line moves to a pre-order order. |
+| On hold | The order was confirmed on hold. Nothing is reserved. |
 
 **Example**
 SO-99001 for Customer A asks for 30 of product X. The warehouse has 18 free.
 - **Reserved** 18 · **Backorder** 12.
-- The window says "Split off: SO-99001b backorder (1 line)".
-- SO-99001 keeps the 18 and can go to the warehouse. SO-99001b holds the 12 and waits on the **Backorders** screen.
+- The window says "Split off: SO-99001a backorder (1 line)".
+- SO-99001 keeps the 18 and can go to the warehouse. SO-99001a holds the 12 and waits on the **Backorders** screen.
 
 **Good to know**
 - **Taken over backorders.** When you confirm a new order, IMS closes older open backorders of the same customer for the same product, oldest first. The window lists them under "Backorders taken over from earlier orders". The new order now carries that demand.
@@ -243,7 +243,7 @@ SO-99001 for Customer A asks for 30 of product X. The warehouse has 18 free.
 
 <a id="sales-release"></a>
 ## Send an order to the warehouse
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, office -->
 
 **What it is**
@@ -290,7 +290,7 @@ Each step can be taken back one step at a time: from the warehouse to **Confirme
 **Unconfirm — Supervisors and admins**
 1. On a confirmed order still in IMS, press **Unconfirm**.
 2. IMS asks: "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (supervisor)." Press OK.
-3. The order is a draft again. Its backorder and pre-order orders from that confirmation (for example SO-99001b) are back inside it. Backorder lines it had taken over from older orders are reopened, and IMS says how many.
+3. The order is a draft again. Its backorder and pre-order orders from that confirmation (for example SO-99001a) are back inside it. Backorder lines it had taken over from older orders are reopened, and IMS says how many.
 - A coupon used by the order can be used again.
 - A confirmed service order goes back to draft the same way.
 
@@ -299,7 +299,7 @@ Each step can be taken back one step at a time: from the warehouse to **Confirme
 | IMS says (shortened) | What to do |
 |---|---|
 | only a confirmed order still in IMS can be unconfirmed (if it went to the warehouse, roll it back in WMS first) | Recall it, or ask the warehouse to roll it back first. |
-| was itself split off at confirmation — unconfirm the original order … instead | Unconfirm the original (SO-99001, not SO-99001b). |
+| was itself split off at confirmation — unconfirm the original order … instead | Unconfirm the original (SO-99001, not SO-99001a). |
 | has a hand-made split order … (cancel or merge it first) | Deal with the divided order first. |
 | was split again after confirmation | Unconfirm only undoes the split made at confirmation. |
 | Split order … was changed after the split | It is no longer possible — cancel or change the orders instead. |
@@ -312,7 +312,7 @@ Press **Reopen as draft**. "Reserved stock is released."
 
 <a id="sales-divide-merge"></a>
 ## Divide or merge orders
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: sales, office -->
 
 **Divide — Managers and above**
@@ -357,7 +357,7 @@ What a merge does:
 <!-- who: sales, office -->
 
 **What it is**
-A backorder is what a customer ordered but we could not reserve when the order was confirmed. It waits in its own order (for example SO-99001b) until the stock comes in. A pre-order waits the same way.
+A backorder is what a customer ordered but we could not reserve when the order was confirmed. It waits in its own order (for example SO-99001a) until the stock comes in. A pre-order waits the same way.
 **Sales ▾** › **Backorders** has four tabs: **Arrivals** (opens first), **Insights**, **All backorders** and **Emails**.
 
 **Arrivals**
@@ -366,7 +366,7 @@ A backorder is what a customer ordered but we could not reserve when the order w
 
 **Proceed — Managers and above**
 1. Press **proceed** on a row (on **Arrivals** or **All backorders**), or **Proceed backorder…** on the order itself.
-2. The window **Proceed SO-99001b — reserve stock that is here now** shows **Reserved** and **Still backordered**. Press **Proceed**.
+2. The window **Proceed SO-99001a — reserve stock that is here now** shows **Reserved** and **Still backordered**. Press **Proceed**.
 - Proceed works on the whole order — its other backorder lines are reserved too, as far as stock allows.
 - After that the order can be sent with **Release to WMS**.
 
@@ -395,74 +395,224 @@ Arrival emails to customers, one run per branch on each scheduled morning. **Onl
 **Watch out**
 - Expiry counts from the **original** order date, not from the day it split.
 - A backorder of a free line (for example a replacement) never expires and is never taken over. It ends only when it is proceeded or cancelled.
+- A pre-order never expires and is never taken over either. It waits until it is proceeded or cancelled.
 
 <!-- SCREENSHOT: sales-backorders-1 · Arrivals tab: Ready to ship now and the waiting customers under one arrival -->
 
 <a id="sales-charges"></a>
 ## Shipping fees and other charges
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+
+**What it is**
+A charge is an amount-only line on the order — freight, a packing fee and so on. It goes on the invoice under the products.
+
+**When**
+Freight is usually added at **Ship & invoice**, when you know the real cost. Add it earlier when the customer agreed a price in advance.
+
+**How**
+1. On a draft, press **Add a charge**.
+2. **Name** starts as "Freight". Change it if this is another kind of charge.
+3. Type the **Amount** (0 or more).
+4. **Discount**: **none**, **%** or **$**, and the number.
+5. **Description** if you want, and the **Account**. A new charge starts on **_99_** (freight sales). Pick another account when the charge is not freight.
+6. Press **Save**. **✎** changes a charge, **✕** removes it.
+
+**After packing — needs the master key too**
+On a **Finalized** order, a person who works on sales orders **and** has the master key can still press **Add a charge** (for example a packing fee). "The charge goes on the invoice when you Ship & invoice — the Ship & invoice window shows it."
+
+**Good to know**
+- Before **Ship & invoice**, freight on a warehouse order shows the tag **estimate**: "Before Ship & invoice the freight is an estimate — Ship & invoice updates this line with the actual freight".
+- "Tax follows the order's tax rule."
+- A discount shows as its own line on the invoice — freight and freight discount are kept apart.
+
+**Watch out**
+- "A charge cannot be negative — money back is a credit note."
+- Some web orders already paid their freight at checkout. **Add a charge** is not offered on those after packing.
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+
+**What it is**
+When the warehouse finishes an order, its status is **Finalized**. The office then presses **Ship & invoice**: the goods leave the books and the invoice is issued, in one step.
+
+**When**
+As soon as a **Finalized** order is ready to go — freight quoted, carrier chosen.
+
+**How — one order**
+1. Open the **Finalized** order and press **Ship & invoice…**.
+2. At the top, **What the warehouse packed** lists each pallet or box with size and weight — use it for the freight quote. "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."
+3. Freight: change the amount of a charge already on the order to the real freight, or type **Freight amount** for a new line. Empty means no freight line.
+4. Choose the **Carrier** and type the **Tracking number** (several boxes: separate with commas). Add **Shipping notes** if needed.
+5. Press **Preview**. Read **What will happen**: for each line **Ordered**, **Ships** and **Short**, the charges, and the invoice.
+6. Press **Ship & invoice** and confirm. This cannot be undone here.
+7. The result shows **Invoice**, **Amount due** and **Still owed**, with **Print invoice** and **Email invoice…** buttons.
+
+**Several orders on one invoice**
+1. In the same window, open **Other packed orders for …** — finalized orders of the same bill-to and currency (up to 30).
+2. Tick the orders that ship together. Each one gets its own freight, carrier, tracking number and notes.
+3. **Preview**, then **Ship & invoice**. "Orders invoiced together go on one invoice for this bill-to (or one per store, if the customer is set to split by store)."
+
+**Carrier types**
+- A carrier: "A tracking number is needed."
+- **Pickup**: "the customer collects it. No tracking number." See [Pickup orders and tracking](#sales-pickup).
+- **Delivery** (our truck): no tracking number.
+
+**Counter orders — Managers and above**
+1. On a confirmed counter order, press **Hand over — ship and invoice…**.
+2. The window shows each line, the bin it comes from and the totals: **Invoice total**, **Paid for this order**, **Credit / balance used**, **Amount due**.
+3. Press **Ship and invoice**. "Nothing blocks the hand-over — whatever is not paid stays as an unpaid invoice."
+
+**Good to know**
+- Packed less than ordered: "the rest goes to a backorder order".
+- **Put back to the shelf**: a combo ships whole or not at all. If a combo cannot go complete, the list shows the extra components to put back in their bins.
+- Payments already taken for an order attach themselves to its invoice.
+- If something in the window changes after **Preview**, press **Preview** again.
+
+**Watch out — the customer wants to take items off a packed order**
+1. Ship & invoice the order as usual. The invoice shows the packed quantity.
+2. Managers and above: make a credit note from that invoice for the quantity taken off. For each line set **Back to stock** to **to bin** and keep the bin where the goods sit. For **Reason** choose **Other** and write in **Note** that the customer took it off before shipping. See [Credit notes](#sales-credits).
+3. The goods never left the warehouse — leave them on the shelf.
+- Example: 30 packed, the customer takes off 5 → invoice 30 · credit note 5 · shipped 25. The stock matches what really left, and the customer gets two documents: the invoice and the credit note.
+- If the customer's **Final invoice emails** is automatic, the invoice is emailed first. Tell the customer in advance.
+
+<!-- SCREENSHOT: sales-ship-invoice-1 · Ship & invoice window with freight, carrier, tracking and "Other packed orders for …" open -->
 
 <a id="sales-pickup"></a>
 ## Pickup orders and tracking
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
 <!-- who: office, warehouse -->
-<!-- TODO manual-1c -->
+
+**What it is**
+An order shipped with the carrier **Pickup** waits for the customer. Its tag is **waiting for pickup** until they take it.
+
+**How — the customer took it**
+1. Find the order. The list filter **Waiting for pickup** shows all of them.
+2. Press **Picked up**.
+3. IMS asks "Mark SO-99001 as picked up by the customer? … This cannot be undone here." Press OK. The tag becomes **picked up**.
+- On a web order, Shopify is told too — no email to the customer.
+
+**How — fix a carrier or tracking number**
+1. On a shipped order sent by a carrier, press **Fix tracking…**.
+2. Change **Carrier** or **Tracking number** (several boxes: separate with commas).
+3. Press **Preview**, then **Save**.
+- On a web order, Shopify is updated too — no email to the customer.
+
+**Watch out**
+- **Pickup** and **Delivery** have no tracking number. The box is locked when you choose them.
+- **Fix tracking…** changes the carrier name and the tracking numbers only. It cannot turn a carrier order into a pickup.
 
 <a id="sales-print-email"></a>
 ## Print and email
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+
+**What it is**
+Each document prints with the layout in use, or goes by email with its PDF attached.
+
+| Document | Where | Buttons |
+|---|---|---|
+| Sales order | An open order with no invoice yet | **Print order** · **Email order…** |
+| Ship Ready (PROFORMA) | Inside the **Ship & invoice** window, after **Preview** | **Ship Ready (proforma)** · **Email Ship Ready…** |
+| Invoice | After **Ship & invoice**, and on **Sales Invoices** | **Print invoice** · **Email invoice…** / **Email to customer…** |
+| Delivery receipt | **Sales Invoices** | **Print delivery receipt** |
+
+**How — print**
+1. Press the print button. The document opens ready to print or to save as PDF.
+
+**How — email**
+1. Press the email button. The window shows who it is **From**, and **To**, **Subject** and **Message** filled in.
+2. Change them if you want. "The PDF of this … is attached, made with the layout in use."
+3. Press **Send**. "The email goes out within a minute or two."
+
+**Ship Ready**
+- It shows what will ship and the money, before the invoice exists. Press **Preview** in the **Ship & invoice** window first — it prints exactly what the preview shows.
+- One page set per invoice group. Nothing is saved when you print it.
+- **Email Ship Ready…** works only when the preview makes one invoice: "One email carries one PDF — with more than one invoice, print the Ship Ready instead".
+
+**Invoice note**
+On **Sales Invoices**, press **Edit** next to **Note**. "Note on the document (customers see it)". It prints on the invoice. "Up to 2,000 characters. Leave it empty to remove the note."
+
+**Automatic invoice emails**
+When a customer's **Final invoice emails** is **automatic** (see [Find or add a customer](#sales-customers)), the invoice PDF is emailed when the invoice is issued. You can still send another one by hand.
+
+**Good to know**
+- The invoice's **Emails** section shows every email: when, to whom, status (**waiting to send**, **sent**, **failed** …) and who sent it — or "automatic".
+- An email still waiting can be stopped with **Cancel**. A reason is required.
+- The delivery receipt is for local deliveries — the driver gets it signed. It is not emailed.
 
 <a id="sales-invoices"></a>
 ## Sales invoices
 <!-- screen: so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
 <!-- who: office, accounting -->
-<!-- TODO manual-1c -->
+
+**What it is**
+**Sales ▾** › **Sales Invoices** lists every invoice. One invoice can hold several orders of the same bill-to. Invoice numbers look like `99001`.
+
+**How to find an invoice**
+1. Search by "Invoice · customer · SO number · reference".
+2. Filter by state: **Open — still owed**, **Overdue**, **Open with no due date**, **Paid in full**, **Cancelled**, **All** — and by issue date.
+3. Click an invoice. You see **Bill to**, **Issued**, **Due**, **Currency**, **Orders** (click one to open it), the lines, **Payments**, **Credits applied** and **Emails**.
+
+**Cancel invoice… — Managers and above**
+Cancel only when the whole document is wrong. For part of it, make a credit note instead.
+1. Press **Cancel invoice…**.
+2. IMS asks: "Cancel invoice 99001? Its orders go back to shipped and wait for a new invoice." Type the reason (required) and press OK.
+3. The orders show **Invoice cancelled**. The goods stay shipped.
+
+**When Cancel says no**
+- "… payment allocation(s) applied by hand — detach them first (or issue a credit note instead)"
+- "… credit note allocation(s) applied by hand — detach them first"
+Payments and credits that attached themselves are released by themselves.
+
+**Reissue… — Managers and above**
+1. Open the cancelled invoice and press **Reissue…**.
+2. IMS asks: "Issue a new invoice for SO-99001, dated today (Toronto)? Tax rates are taken as of today." Press OK.
+3. The new invoice opens with a new number. Cancelled numbers are never used again.
+
+**Good to know**
+- "⚠ No due date — the order had no payment term. It is not counted as overdue."
+- **↓ CSV** downloads the invoices that match the filters. **↓ Lines CSV** downloads their lines, one row per line.
+
+<!-- SCREENSHOT: sales-invoices-1 · an invoice's detail with Orders, Payments, Credits applied and Emails -->
 
 <a id="sales-payments"></a>
 ## Customer payments and deposits
 <!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-credits"></a>
 ## Credit notes
 <!-- screen: so-credits.html · BUILD 2026-10-23 · cr v5 -->
 <!-- who: accounting, office -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-web-orders"></a>
 ## Web orders
 <!-- screen: shopify-orders.html · BUILD 2026-10-14 · wo v4d -->
 <!-- who: office -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-cancel"></a>
 ## Cancel an order
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: sales, manager -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-statuses"></a>
 ## What each status means
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
 <!-- who: all -->
 <!-- note for 1b: two columns — badge (Released to WMS, Working, Finalized, Invoice cancelled …) and filter (With warehouse, Finalized — waiting for the office, Waiting for pickup …) -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
 <a id="sales-csv"></a>
 ## CSV downloads
 <!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-23 · cr v5 ; so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
 <!-- who: office, accounting -->
-<!-- TODO manual-1c -->
+<!-- TODO manual-1d -->
 
-<!-- rulings: 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 484, 488, 489, 490, 507, 514, 516, 517, 529, 532, 541, 545, 546, 590, 709, 713, 714, 715, 719, 720, 723 -->
+<!-- rulings: 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 357, 436, 437, 438, 443, 452, 455, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727 -->
