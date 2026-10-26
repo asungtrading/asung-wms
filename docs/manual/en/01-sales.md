@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## Find or add a customer
-<!-- screen: customers.html · BUILD 2026-10-23 · cs v6 -->
+<!-- screen: customers.html · BUILD 2026-10-26 · cs v6b -->
 <!-- who: sales, office -->
 
 **What it is**
@@ -19,6 +19,8 @@ Before a new order, when a customer calls with a change, or when a new customer 
 2. **Active only** is ticked at the start. Untick it to see customers that were turned off.
 3. Tick **New — not reviewed** to see only new customers a manager has not checked yet. They also show on the [Action Centre](06-action-centre.md#action-new-customers).
 4. Click a customer. You see **Price tier**, **Discount %**, **Payment term**, **Currency**, **Bill to**, **Default warehouse**, **Tax rule**, the **Stores** card, **Order history**, **Addresses** and **Contacts**.
+
+**↓ Export…** on the wide list downloads the customers that match the filters, with the columns you pick — see [↓ Export…](00-getting-started.md#start-search-filter).
 
 **How to add a customer**
 1. Press **+ New customer**.
@@ -54,7 +56,7 @@ Before a new order, when a customer calls with a change, or when a new customer 
 
 <a id="sales-new-order"></a>
 ## Start a new sales order
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -68,7 +70,8 @@ When a customer orders by phone, by email or in person.
 2. Type the customer's name in **Search customer by name** and click the customer. Only active customers are listed.
 3. Choose the **Channel** (see below) and the **Warehouse**. The warehouse starts as the customer's default warehouse.
 4. Press **Create**. The draft opens with its number, for example `SO-99001`.
-5. If a ⚠ message appears after **Create**, read it — for example the customer has no shipping address.
+5. If the customer has invoices past their due date, the window **Overdue invoices** opens first. It lists each **Invoice**, its **Due** date, **Days overdue** and **Still owed**, and any money or credit already on account. "This does not stop the order. It is a reminder to ask about payment." Press **OK** to close it.
+6. If a ⚠ message appears after **Create**, read it — for example the customer has no shipping address.
 
 **The three channels**
 - **Warehouse** — picked and packed in the warehouse. Most orders.
@@ -82,6 +85,7 @@ When a customer orders by phone, by email or in person.
 - **Tax rule** starts as **Auto — from ship-to province**.
 
 **Watch out**
+- **Overdue invoices** counts only invoices past their due date. An invoice not yet due, or with no due date, does not open it. IMS looks at the customer who pays the invoices — if the order's customer is billed to another customer, the window says "This customer is billed to …". The same window opens at the counter (see [Ring up a sale](05-pos.md#pos-sale)).
 - Changing the province or country in **Ship to…** picks the tax rule again from the new address. A tax rule you set by hand is reset.
 - The **Order date** decides which deals and coupons count. Change it only when the customer really ordered on another day.
 
@@ -666,7 +670,7 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 
 <a id="sales-web-orders"></a>
 ## Web orders
-<!-- screen: shopify-orders.html · BUILD 2026-10-14 · wo v4d -->
+<!-- screen: shopify-orders.html · BUILD 2026-10-26 · wo v4e ; so.html · BUILD 2026-10-26 · so ovd v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -699,6 +703,7 @@ A web order or its sales order can carry warnings. The warning says what to do. 
 - "Paid in Shopify, but IMS will not ship part of it — refund that part in Shopify" — a note is needed to mark it checked.
 - "Pickup order — no province for tax; pick a tax rule on the sales order"
 - "Changed in Shopify after the sales order was made"
+- "Customer had overdue invoices when the order came in — the order was not stopped; ask about payment"
 
 **On the sales order**
 A web order's sales order has the tag **Shopify** and a card with the Shopify details, including **Paid in Shopify**.
@@ -733,7 +738,7 @@ Cancelling closes a confirmed order for good. A draft is not cancelled — use *
 
 <a id="sales-statuses"></a>
 ## What each status means
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 -->
 <!-- who: all -->
 
 **Status — badge and filter**
@@ -751,6 +756,8 @@ The badge is the coloured label on an order. The filter is the **Status** list o
 | Cancelled (red) | Cancelled | Closed without shipping. A merged order shows "merged". |
 
 Other filters: **Open** (everything not finished), **Draft — reprice suggested**, **Waiting for pickup**, **All**.
+
+**Customer** — type part of a name in **Customer — pick one** and pick the customer from the list. The list then shows only that customer's orders, together with the other filters. **↓ CSV** follows it too.
 
 **Tags next to the badge**
 - **unpaid** · **partly paid** · **paid** · **overdue Nd** — see [Customer payments and deposits](#sales-payments)
@@ -788,4 +795,4 @@ Most sales screens can download a spreadsheet (CSV).
 - The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729 -->
+<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771 -->

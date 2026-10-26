@@ -4,7 +4,7 @@
 
 <a id="purch-suppliers"></a>
 ## Find or add a supplier
-<!-- screen: suppliers.html · BUILD 2026-10-25 · sup v3c -->
+<!-- screen: suppliers.html · BUILD 2026-10-26 · sup v3d -->
 <!-- who: office -->
 
 **What it is**
@@ -14,6 +14,8 @@
 1. Open **Suppliers** and type part of the name.
 2. The filter **Purchasable** starts on **Yes** — the suppliers we buy from. Choose **All** to see the others.
 3. Click a supplier. You see its terms, **Purchase history**, **Addresses**, **Contacts** and **Discounts**.
+
+**↓ Export…** on the wide list downloads the suppliers that match the filters, with the columns you pick — see [↓ Export…](00-getting-started.md#start-search-filter).
 
 **How to add a supplier**
 1. Press **+ New supplier**.
@@ -76,7 +78,7 @@ Sales before 2026-11-01 are read from the company's sales history. If you see "�
 
 <a id="purch-new-po"></a>
 ## Start a PO
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 -->
+<!-- screen: po.html · BUILD 2026-10-26 · po cost v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -89,6 +91,7 @@ A purchase order (PO) is what we order from one supplier. It starts as a **Draft
 4. Add lines:
    - **Add a line** — search by "SKU · supplier SKU · product name" (only this supplier's products), type the quantity, press **Check**, then **Add lines**.
    - **Paste lines** — one per row: SKU, quantity, price (optional). "Tab, comma or two spaces — any of them works." "A price you give is the unit price before the PO discount." Press **Check**, then **Add lines**.
+   - A pasted line without a price gets the usual price (fixed, then latest). Without the `cost` key it gets 0 instead: "Without a price, a line gets 0 — fill the price in by hand (supplier costs need the cost permission)." The check shows such a line as "no link — price 0" when the product has no row for this supplier.
 5. Check the top: **Order date**, **Required by**, **Payment term**, **Ship to**, **Currency**, **Tax rule** and **Note** (internal).
 6. **Add a discount** adds a discount for the whole PO (**Name**, **Percent**).
 
@@ -339,4 +342,4 @@ Filters: invoices — **Invoices**, **Credits**, **Unpaid only**, **Credit due o
 - On **Reorder Planner**: **↓ CSV** (the order list or all products, for one supplier or all), **↓ Dead Stock CSV** and **↓ Forecast CSV**.
 - SKUs and barcodes open in Excel as text.
 
-<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735 -->
+<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735, 759, 765 -->

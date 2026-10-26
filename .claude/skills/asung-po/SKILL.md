@@ -237,6 +237,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️  BigQuery 마스터 supplier_name 이 기본 공급처인지는 못 봤다(공급처 줄 둘 이상인 제품 421 개) — 컷오버 점검 거리(§70-f 285)
 ⭐⭐ [2026-10-22 · pur-1c · 인계서 §5] 재고는 **pur_stock()** 한 번 — {row_count, warehouses[{warehouse_id, warehouse, key tor|edm}], rows[{sku, product_id, tor{qoh, alloc, oo, it, avail}, edm{…}}]} · stk_availability 와 같은 집합 · 숫자(0.86 s · 500 씩 16 쪽 134 s 대신 · 쪽마다 전체를 다시 세는 stk_availability 를 동시에 여러 쪽 부르면 statement timeout) · ⚠️ onord · intr 블록은 stk_availability 의 복사(→ deferred N-1022-②) · qoh 는 팔 수 있는 장부(B급 칸 뺌 · B급만 있는 SKU 는 안 나온다 · so-module §71)
 ⭐⭐ [2026-10-22 · pln-1 · 판정 624] po_lines_paste 셋째 열 **price** = 그 줄의 단가(할인 전) · PO 문서 할인은 위에서 걸린다(SO 와 다름) · 비우면 Fixed → Latest → 0 · 0 받음 · 음수 · 숫자 아님 = bad_price · product_supplier 무변 · 연결이 없어도 붙인 값을 쓴다
+   → [2026-10-26 · cost-1a · 판정 765 · so-module §78] 원가 열쇠가 없는 직원은 비운 줄이 **0 + 경고 'no_cost_permission — price 0, fill in by hand'**(공급처 단가로 채우지 않는다 · po_line.unit_price not null ≥ 0) · 붙여 넣은 가격은 그대로
 ⭐⭐ [2026-10-22 · lat-1 · 판정 626 · 627] **입고 완료(오피스 확정 · 먼저 반영)가 Latest 를 고친다** — po_receipt_latest_apply(p_receipt_id, p_post_id, p_staff) → {updated[], skipped[], warnings[]} · product_supplier.cost = 확정 인보이스 줄의 **할인 전** 단가 · last_supplied = received_on · **Fixed 무변**(607 · pur-3)
    건너뜀 reason: zero_qty · no_confirmed_invoice_line · free · no_link · currency_mismatch · older(그 행의 last_supplied 가 더 새 공급) · unchanged(조용히) · 경고 넷: latest_set_converted:<sku>(세트 줄 → 낱개 행 · 단가 ÷ pack_factor) · latest_no_link · latest_currency_mismatch · latest_older_skipped · 꺼진 연결은 고친다 · 같은 날 둘이면 나중 확정이 이긴다
    ⚠️ 컷오버 전까지 적재(Cin7)가 돌면 Latest 를 다시 덮는다 — 정상(po-module 2989)
@@ -256,6 +257,17 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 
 ⭐ [2026-10-25 · 판정 733 · so-module §76] PO 를 공급처에 보내는 길 = po.html 상세 **↓ PO CSV**(po csv v1 · asung-ims 6eefa2b) — 확정 PO 만 · 머리 + 라인 · SKU · 바코드는 ="…"(엑셀 글자) · 내부 메모 없음 · 읽기만 · 메일은 사람이 붙여 보낸다
 ⬜ 공급처마다의 엑셀 오더폼 채우기 + PO 에서 바로 메일 = deferred **335**(734 · 컷오버 뒤 · 실제 양식 몇 개를 보고 설계) · 구매 목록 화면 여섯의 목록 ↓ CSV 는 없다 = deferred **336**(735 · Caleb 요청 때)
+
+## 4-h. ⭐⭐ 공급처 단가는 원가 열쇠 뒤 — 모르면 사고 (2026-10-26 · cost-1 · 정본 so-module §78 · 판정 759 · 764 · 765)
+
+```
+⭐⭐ product_supplier.cost(Latest) · fixed_cost(Fixed)는 **원가 열쇠(ims_can_view_cost)가 있을 때만** — 판정 580(purchasing ∨ master ∨ cost 면 읽기)을 원가 칸에 대해 좁혔다(759)
+⭐⭐ 읽는 길은 **product_supplier_costs(p_product_ids ≤ 1,000 | p_supplier_id | p_stats)** 하나(cost-1a · definer · jsonb 한 행) — 열쇠 없으면 거부가 아니라 {has_key:false, rows:[]} · 화면은 원가 아닌 칸을 표에서 읽고 단가만 이 창구로 채운다
+⚠️⚠️ 표 권한 = authenticated 의 **표 select 회수 + 원가 아닌 15 칸 grant**(cost-1b) — 칸 revoke 만으로는 안 된다(표 단위 SELECT 가 남으면 칸 revoke 는 효과 없음) · 화면의 `select *` · cost 거르기는 42501
+⚠️⚠️ **add column 함정** — product_supplier 에 칸을 더하는 마이그레이션은 `grant select (새 칸) on public.product_supplier to authenticated` 를 함께 적는다 · 안 적으면 화면에서 그 칸이 조용히 42501(1b 표 comment)
+⭐ 열쇠 없으면 거부 — price_formula_preview · 단가 칸 빼고 — po_receipt_latest_apply(old/new_cost) · product_update 문장(:656 · :713 hidden · 1a2) · PO 붙여 넣기 빈 가격 = 0(765 · 위 4-f)
+⭐ 열쇠는 아무에게도 새로 켜지 않았다(764) — 켜려면 Staff 화면 cost 열쇠 · 그 사람이 새로 고침 · 권한을 거둘 때 순서 = 1a(더하기만) → 화면 배포 · 시험 → 1b(회수)
+```
 
 ## 5. 이 스킬을 갱신할 때
 

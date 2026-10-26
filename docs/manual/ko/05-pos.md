@@ -31,7 +31,7 @@
 
 <a id="pos-sale"></a>
 ## 판매 찍기
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -39,6 +39,7 @@
 
 **어떻게**
 1. **+ New sale**(또는 **Customer…**)을 누릅니다. **Customer for this sale** 에서 이름 일부를 적고 고객을 누릅니다.
+  그 고객에게 기한이 지난 인보이스가 있으면 **Overdue invoices**(연체 인보이스) 창이 열립니다. 읽고 결제를 물어본 뒤 **OK** 를 누릅니다 — 판매를 막지 않습니다([새 판매 오더 시작](01-sales.md#sales-new-order)).
 2. 바코드를 스캔하거나 SKU 를 적고 Enter 를 누릅니다. 가장 나중 물건이 맨 위에 오고, 그 사진이 오른쪽 위에 크게 나옵니다.
 3. 코드가 맞지 않으면 **Find…** 를 눌러 SKU 나 이름으로 찾습니다. "Nothing matched that code exactly — pick from the list."(정확히 맞는 코드가 없다 — 목록에서 고른다)
 4. 수량은 **−** · **+** 로 바꾸거나 숫자를 적습니다. **✕** 는 그 물건을 뺍니다.
@@ -168,7 +169,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 <a id="pos-park"></a>
 ## 판매를 잠시 두고 다시 잡기
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -178,6 +179,13 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 1. 확정된 판매에서 **Park** 를 누릅니다. 화면이 비워집니다.
 2. 그 판매가 **Parked and open at this store**(이 매장에 잠시 둔 · 열린 판매)에 **Customer** · **State** · **Amount** · **Paid** 와 함께 나옵니다.
 3. 이어서 하려면 그 판매를 누릅니다. "Click to pick it up at this counter."(눌러서 이 계산대에서 잡는다) 이 매장의 어느 계산대에서든 잡을 수 있습니다.
+
+**초안 지우기**
+확정한 적이 없는 초안은 지울 수 있습니다 — 예: 잘못 시작한 판매
+1. 열린 초안의 위쪽 **Delete draft** 를 누르거나, **Parked and open at this store** 의 그 줄 **✕** 를 누릅니다(판매를 열지 않습니다).
+2. "Delete draft …? It has never been confirmed, so it disappears — the number is not reused."(확정한 적이 없어 사라진다 — 번호는 다시 쓰지 않는다)를 묻습니다. **OK** 를 누릅니다.
+- 확정된 판매에는 **Delete draft** 도 **✕** 도 없습니다. IMS 가 거절하면 까닭을 알려 줍니다.
+- **Sales Orders** 의 **Delete draft** 와 같은 일입니다.
 
 **알아 둘 것**
 - 시작한 초안도 여기에 "draft — scanning"(초안 — 스캔 중)으로 나옵니다.
@@ -204,4 +212,4 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 **하루 마감**
 현금 세기와 카드 단말기 마감은 IMS 밖에서 합니다. 그날 받은 결제를 맞춰 보려면: **Sales ▾** › **Customer Payments** 에서 결제 방법을 고르고(**All methods** 에 목록이 있다), 두 날짜를 그날로 맞춘 뒤 **↓ CSV** 를 누릅니다([고객 결제와 선수금](01-sales.md#sales-payments)).
 
-<!-- rulings: 159, 225, 283, 546, 547, 629, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737 -->
+<!-- rulings: 159, 225, 283, 546, 547, 629, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773 -->

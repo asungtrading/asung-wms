@@ -38,7 +38,7 @@
 
 <a id="stock-products"></a>
 ## Find and change a product
-<!-- screen: products.html · BUILD pr v5f -->
+<!-- screen: products.html · BUILD pr v5i -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -62,6 +62,8 @@
 - A product's surcharge group is picked on its card in **Edit** (see [Surcharge groups](07-settings.md#set-surcharge)).
 - Products are never hidden — inactive products can still be found.
 - To change many products at once, use [Product Sheet](#stock-sheet).
+- **↓ Export…** on the wide list downloads the products that match the filters, with the columns you pick — see [↓ Export…](00-getting-started.md#start-search-filter).
+- Supplier costs (**Fixed cost**, **Latest cost**) show only to people with the `cost` key. Without it the cost boxes are not on the product, in **Edit** or in **+ New product**.
 
 <a id="stock-new-product"></a>
 ## Add a new product, sets and combos
@@ -75,7 +77,7 @@ A **set** is a case or pack of the same product, for example a case of 6. Stock 
 1. Press **+ New product**.
 2. Fill in **Barcode(s)** ("one or more — the first is primary"), **Brand**, **SKU**, **Name**, **Category**, **Unit** and **Weight**. **Suggest** makes a SKU from the "Brand prefix + barcode digits".
 3. Type the **Sale prices** for each tier.
-4. Add the **Supplier**, **Supplier SKU**, **Cost** and, if there is one, **Fixed cost**.
+4. Add the **Supplier**, **Supplier SKU**, **Cost** and, if there is one, **Fixed cost**. Without the `cost` key only **Supplier** and **Supplier SKU** are there — a person with the key adds the costs later.
 5. To make sets at the same time, press **+ ×6**, **+ ×12** or **+ other**. "Leave the name of a set blank to get the usual name." For example DEMO-001 with a set of 6 → DEMO-001-6.
 6. Press **Check & create**. Fix anything under "Not saved — fix these first", or pass the warnings with **Save anyway**.
 
@@ -119,7 +121,7 @@ A family groups products that are variants of one thing — the same item in dif
 
 <a id="stock-sheet"></a>
 ## Change many products at once (Product Sheet)
-<!-- screen: product-sheet.html · BUILD sheet v2b -->
+<!-- screen: product-sheet.html · BUILD sheet v2c -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -137,6 +139,7 @@ A family groups products that are variants of one thing — the same item in dif
 
 **Price formula**
 "Filter by a supplier and press Load to use a price formula."
+Without the `cost` key the bar says "Price formulas work from supplier costs, so they need the cost permission." The **Fixed cost** and **Landed · GP** columns are not there either.
 1. Filter by one supplier (for example Supplier B) and press **Load**.
 2. Choose a formula, or **— new formula —**. Its boxes are **Cur**, **Duty %**, **Freight · other ×** and **Margin ÷**. ★ marks the supplier's usual formula.
 3. Choose the ending: **.49 · .99** or **.x9 all**.
@@ -311,4 +314,4 @@ The warehouse screens use their own words for the same steps — see [Warehouse 
 - **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.
 - **Product Sheet** works the other way: paste from Excel into the table (see [Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763 -->

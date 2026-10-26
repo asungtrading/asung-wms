@@ -2813,7 +2813,7 @@ so_detail 재발행 — family · 줄마다 reserve_kind·qty · available_ea(so
 ### 14-i ⬜ 남는 것
 
 ```
-credit hold · credit limit(R6 · 손님 칸 없음 · 인보이스 차수 8-e) · 보류 오더의 Release(⑤ — hold 인 채 창고로 보낼 수 있나) · split_reason 'warehouse' 는 비어 있다(한 오더를 두 창고에서 — 만드는 길 없음)
+credit hold · credit limit(R6 · 손님 칸 없음 · 인보이스 차수 8-e) · 보류 오더의 Release(⑤ — hold 인 채 창고로 보낼 수 있나) · split_reason 'warehouse' 는 비어 있다(한 오더를 두 창고에서 — 만드는 길 없음)  → [2026-10-26 · 판정 768 · 769 · §78] 연체는 **알림만**(POS · 새 SO 창 · 웹 오더 경고 customer_overdue · 막지 않음) — credit hold · limit 은 여전히 안 쓴다
 ims_inv_balance 의 창고 조인이 ref_warehouse.name 텍스트(이름이 바뀌면 끊긴다 · 원장 정본) · 담아 두기(물질화 · 3-c)는 미리 보기가 1초를 넘거나 원장이 몇 배가 될 때 · 화면이 줄마다 so_available 을 묻지 않게(so_detail 의 available_ea 를 쓴다)
 so_reallocate 미리 보기 없음(풀어야 계산된다 — 필요하면 하위 블록 방식) · so_unconfirm 뒤 형제 줄 행이 남는다(합계는 cancelled 제외 · 화면이 「합쳐진 형제」를 어떻게 보이나) · ③ 출고 → ✅ §15 · R10 순서(인보이스가 ④ 앞)
 asung-so description 여유 10자(2026-09-23 · so_confirm · 가용 재고 더함 · 1014자) — 다음 키워드는 먼저 뺄 것을 정한다
@@ -9225,7 +9225,7 @@ Shopify 잇기(link-1a · 1b)
 | 판정 | Caleb | 뜻 |
 |---|---|---|
 | 579 | 「문제가 되는 것들을 모두 세고 구멍을 막고 가는게 맞지 않을까? … 내일은 회사에서 결함 해결부터 시작하자」(10-20 밤 집) | rls-3 을 발주앱 이식보다 먼저 · 열린 정책 · 쓰기 grant 를 처음부터 다시 전부 센 뒤 막는다(계기: rls-1 목록에 inv_cost · inv_doc_cost · inv_snapshot 이 빠졌다) |
-| 580 | 「2로 가자」 | 원가 울타리 = 장부 원가(inv_layer · inv_layer_cost_add · inv_layer_consume · inv_cost · inv_doc_cost 행 정책 · inv_layer_open · inv_layer_value)는 원가 열쇠 · product_supplier 는 purchasing · master · cost 중 하나 · PO · 인보이스 단가 · 입고 원가 칸은 그대로(칸 가리기 3c 없음) |
+| 580 | 「2로 가자」 | 원가 울타리 = 장부 원가(inv_layer · inv_layer_cost_add · inv_layer_consume · inv_cost · inv_doc_cost 행 정책 · inv_layer_open · inv_layer_value)는 원가 열쇠 · product_supplier 는 purchasing · master · cost 중 하나 · PO · 인보이스 단가 · 입고 원가 칸은 그대로(칸 가리기 3c 없음) → [2026-10-26 · 판정 759 · §78] **공급처 단가(product_supplier.cost · fixed_cost)는 원가 열쇠만** — 창구 product_supplier_costs 로만 읽는다 · 표 select 회수 + 원가 아닌 15 칸 grant(cost-1b) · 그 밖의 product_supplier 칸은 그대로 |
 | 581 | 「A」 | wms_rollback_archive = 569 의 18 번째 의도된 열림 |
 | 582 | 「니 제안대로」 | definer 로 바꾸는 함수 넷의 새 문 = 부르는 화면의 열쇠(so_stock_short_list · so_credit_detail = sales · po_fx_cost_lines = purchasing · inv_adjust_eval = ims_can_adjust_read) |
 | 583 | 「A」 | Backorders 함수 셋(so_backorder_arrivals · demand · overview)을 definer + sales 문 — 공급처 이름은 보이고 단가는 안 보인다(기각 B: 정책에 sales 더하기) |
@@ -9927,7 +9927,7 @@ Freightcom(326 · 677): API 승인 답이 오면 1단계 견적부터 · QuickBo
 | 696 → 698 | 「좋아」 → 「대부분은 하나에만 붙지만, 오션 freight의 경우는 여러 po가 같이 오는 경우가 종종 있어」 → 「그렇게 가자」 | 비용 빌 원본 = 경비처 `Suppliers/<경비처>/CHARGE-<charge_number>/` 에 한 번 · **빌을 확정할 때** 배분된 PO 폴더마다 드라이브 바로가기 · 빌 화면에서 함께 올린 서류(오션 BOL 등)는 원본 옆 · 빌 이름에 PO 번호 없음 · 확정 전에는 배분이 바뀌고 ims@ 는 Contributor 라 지운 바로가기를 못 치운다(→ 확정 때 맞춘다) |
 | 697 | 「인보이스와, 빌만이 아니고, bol도 올리고, courtry of origin 다큐먼트도 … 관련된 모든 다큐먼트 … 해당 Po번호로도 갈리게」 | PO 에 딸린 서류 전부 · `Suppliers/<공급처>/<PO 번호>/` · 올릴 때 종류를 고른다(703) |
 | 699 | 「import는 지금은 안할래. 그러나 cut over뒤에는 필요할지 … 그때 필요하면 요청」 | Products · Customers · Suppliers(purchasable) **내보내기만** · 다시 올리기 없음 → deferred 300 을 넓힘 |
-| 700 | 「화면만 내보내면 필요한 것을 다운로드 받지 못할 수도 … 칸고르기가 가능해야 하고 … 원가를 볼 권한이 없는 직원은 원가 칸이 안보여야」 | 칸 고르기 창 = 그 직원이 볼 권한이 있는 칸 전부(상세 칸 포함) · 권한 없는 칸은 목록에 없다 · 행 = 지금 목록의 거르기 그대로 → 300 |
+| 700 | 「화면만 내보내면 필요한 것을 다운로드 받지 못할 수도 … 칸고르기가 가능해야 하고 … 원가를 볼 권한이 없는 직원은 원가 칸이 안보여야」 | 칸 고르기 창 = 그 직원이 볼 권한이 있는 칸 전부(상세 칸 포함) · 권한 없는 칸은 목록에 없다 · 행 = 지금 목록의 거르기 그대로 → 300 → [2026-10-26 · 판정 759 ~ 763 · §78] 실물: 화면마다 DB 창구(export_columns · product/customer/supplier_export · 763) · 원가 칸은 원가 열쇠(759) · reference 등급 없음(760) · 손님 주소 · 연락처는 sales ∨ master 쓰기(761) · 한 레코드 = 한 줄(762) · 300 닫힘 |
 | 701 | 「B」 · 「실제 인보이스에는 안붙는거지?」 | 드라이브 파일 이름에서 **인보이스에만 `INV_`** — `20261103_INV_60070.pdf` · 크레딧 `20261120_CR-01007.pdf` · 문서 안 번호 · IMS 번호는 그대로(인보이스 번호는 접두 없는 5 자리 · 크레딧은 CR- — drive-0 실측 · 지시서의 INV- · CN- 짐작은 틀렸다) |
 | 702 | (시험 A 실측) | 드라이브 열쇠 = **drive.file** 범위 하나로 충분 |
 | 703 | 「정부 관련 서류중에, B3폼이 있어」 · 「그렇게 고정하고 나중에 필요한게 있으면 다시 요청」 | 서류 종류 **고정 여섯**: Invoice(`INV_`) · BOL(`BOL_`) · Certificate of Origin(`COO_`) · Packing list(`PACKING_`) · **B3 / CAD**(`B3_`) · Other(`OTHER_<설명>_` · 설명 필수) |
@@ -10277,4 +10277,104 @@ Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu �
 ```
 컷오버 날(11-01): reload-procedure §P 순서표 하나 — 0a 사본(10-31 저녁 · 10-30 명령 시험) → 1 cron 멈춤(40 · 41 마지막 실행 확인) → 2 스토어 끄기 → 3 큐 → 4 §C 백업 → 5 cutover-delete.sql → 6 Storage 15 파일 → 8 §73-c 0 ~ 9 → 9 §E 컷오버판 → 10 §H → 11 §I → 12 이력 · B급 · 열린 PO → 13 cron(40 · 41 은 켜지 않는다) → 14 첫 번호 SO-20000 확인
 다음 판정 번호: 759 · 다음 deferred 번호: 339
+```
+
+## §78 2026-10-26 회사 오후 — 내보내기 · 공급처 단가 가림 · 연체 알림 · 손님 거르기 · 태그 창구 — exp-1 · 2 · 3 · cost-1 · ovd-1 · 2 · tagn-1 · 판정 759 ~ 773 (회사 PC)
+
+⭐ 지은 것: Products · Customers · Suppliers 의 「↓ Export…」(칸 고르기 · DB 창구 · deferred 300) · 공급처 단가를 원가 열쇠 뒤로(cost-1 · DB 전체 + 화면 일곱) · 연체 알림(POS · 새 SO 창 · 웹 오더 경고) · Sales Orders 손님 거르기 · 태그 이름 창구(Discount Rules 가 빨리 열린다) · POS 초안 지우기
+⭐ 새 판정 759 ~ 773 · 원천: 지시서 exp-1 · exp-3 · cost-1 · ovd-1 · tagn-1 · docs-1026b 📌(판정 · 실수는 대화에만 있었다) · 차수 회신(Claude Code) · 773 은 docs-1026b 회신에 Caleb 이 덧붙임
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 마이그레이션 일곱(exp-1 · cost-1a · 1a2 · 1b · exp-3 · ovd-1 · tagn-1 · Caleb 적용 + repair · cost-1b 는 화면 배포 · 시험 뒤) · 운영(asung-WMS)에는 올리지 않는다
+
+### 78-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 759 | 「B」 | 공급처 단가(product_supplier.cost · fixed_cost)는 **원가 열쇠(ims_can_view_cost)가 있을 때만** — 내보내기 · DB · 화면 모두 · 판정 580(purchasing ∨ master ∨ cost 면 읽기)을 원가 칸에 대해 좁힘 · 기각 A(그대로) · C(내보내기에서만) |
+| 760 | 「참조용이야. 지금은 사용하지 않아.」 → 「B」 | 가격 등급 REFERENCECOST USD(purpose reference)는 **내보내기 칸 목록에서 뺀다**(누구에게도) · DB 정책은 그대로 |
+| 761 | 「B」 | 손님 **연락처 · 주소 칸은 sales 쓰기 또는 master 쓰기 이상만** 내보낸다 · 손님 기본 칸 · 공급처 연락처는 화면을 볼 수 있으면 누구나 |
+| 762 | 「A」 | **한 제품(손님 · 공급처) = 한 줄** — 가격 = 등급마다 칸 · 바코드 · 태그 = 「; 」 · 공급처 = 기본 + 모든 공급처 칸 · 손님 = 기본 Billing · 기본 Shipping · 기본 연락처 |
+| 763 | 「B」 | **화면마다 DB 내보내기 창구** — 칸 목록도 창구가 정한다(export_columns) · 기각 A(화면이 1,000 씩 모음) |
+| 764 | 「그분들은 못봐도 돼」 | 원가 열쇠를 **아무에게도 새로 켜지 않는다**(그때 단가를 보던 열쇠 없는 활성 직원 일곱 — manager 넷 · worker 셋 · 숫자는 대화의 실측 · 이 문서 차수는 DB 를 다시 세지 않았다) · Caleb 질문 「나중에 켜야 할 상황이 오면 스태프 메뉴에서 켜면 볼 수 있는거지?」 → 그렇다(Staff 화면에서 cost 열쇠 · 새로 고침 뒤) |
+| 765 | 「B」 | 원가 열쇠가 없는 직원이 PO 를 만들 때 **줄 단가를 공급처 단가로 채우지 않는다** — po_line.unit_price 가 not null ≥ 0 이라 **0 + 'no_cost_permission — price 0, fill in by hand'**(cost-1 이견 4) · 붙여 넣은 가격은 그대로 |
+| 766 | 「A가 좋겠어」 | 내보내기 칸 이름 「Made in」(= source 칸 · IMS / Before IMS — 원산지가 아니다) → **「Added in」**(제품 · 손님 · 공급처) · 키 그대로 |
+| 767 | 「그렇게 가자」 | 「Created」 → **「Added on」** — 실측: Before IMS 기록의 created_at 은 적재일(제품 18,714 = 09-14 · 손님 9,469 = 09-22 · 공급처 09-12 · 09-14 · 10-05) · 옛 생성일은 product.cin7_created_on 에만(→ deferred 340) |
+| 768 | 「B」 | 연체 알림 — **기한이 지난 인보이스가 있을 때만**(기한 전 미수 · 기한 없음은 알리지 않음) |
+| 769 | 「맞아」 | **POS · 새 SO = 창(OK 로만 닫힘 · 막지 않음)** · **웹 오더 = 경고 꼬리표 customer_overdue**(그때 값 · Mark checked) · 청구처 기준(돈을 갚을 사람 · POS 칩과 같은 축) · credit hold 는 안 씀(R6) · 창이 뜨는 때는 78-c 7 |
+| 770 | 「A」 | C.B.S(기한 = 발행일)도 **여유 0일** — 설정 칸 만들지 않음 |
+| 771 | 「A」 | 연체 창에 **받아 둔 돈 · 크레딧(available) 한 줄** |
+| 772 | 「B로 가자」 | Discount Rules 가 느리게 열림(Caleb) — 원인 실측: product_tag 63,515 줄을 1,000 씩 64 번 차례로 읽어 태그 이름 1,193 개를 만들었다 → **창구 product_tag_names() 한 번**(제품 태그 ∪ 딜 태그 · en-x-icu 정렬 · 59 ms) + 화면 둘(discount-rules · products Edit) |
+| 773 | 「parked draft를 지울 수 있는 방법은 없나?」 → 「B」 | **POS 에서 초안을 지운다** — 열린 판매가 초안이면 머리에 「Delete draft」 · Parked 목록의 초안 줄마다 ✕(열지 않고) · 확인 한 번 · 창구 so_delete(Sales Orders 의 Delete draft 와 같은 창구 · 권한은 DB) · 확정된 줄에는 없음 |
+
+- 판정 없는 Caleb 요청: Sales Orders **손님 거르기**(「검색이 아니라 다른 거르기」) · 거르기 줄 한 줄로(「한 줄에 다 보이면 좋겠어」) → so cust filt v1 · v1a
+- Caleb 질문 「supplier products 를 메뉴에서 뺐는데 Supplier SKU 는 어디서?」 → Products → Edit(모든 공급처 줄) · Product Sheet(기본 공급처 줄만 · 판정 207) — supplier-products.html 은 메뉴 밖 · 주소로만(판정 210)
+
+### 78-b 지은 것 (커밋 · 파일 · 숫자)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| exp-1 | asung-wms `6e9734b` | `20261026162607_exp_1_export_windows.sql` — export_catalog(칸 목록 정본 · 속) · export_door · export_gate_ok · export_pick(속) · export_columns · product_export · customer_export · supplier_export(definer · stable · 고른 칸만 · 한도 20,000) · 검증 `supabase/tests/exp_1_check.sql` | 최악 제품 3.9 s · 손님 2.5 s(차수 회신 · 이 문서 차수는 다시 재지 않았다) |
+| exp-2 | asung-ims `7d2835b` | 공용 `ims-export.js`(export v1 — 칸 고르기 창 · CSV · 고른 칸은 브라우저 localStorage `ims_export_cols_<kind>` · 업무 값 아님) + Products · Customers · Suppliers 「↓ Export…」 | — |
+| cost-1 | asung-wms `dd459b0` | 1a `20261026173000_cost_1a_supplier_cost_window.sql` — product_supplier_costs(p_product_ids ≤ 1,000 \| p_supplier_id \| p_stats · 열쇠 없으면 {has_key:false, rows:[]}) · po_lines_paste · price_formula_preview(열쇠 없으면 거부) · po_receipt_latest_apply(old/new_cost 뺌) 재발행 · 1a2 `…173100_cost_1a2_product_update_cost_words.sql` product_update 문장 둘(:656 · :713 hidden) · 1b `…173200_cost_1b_supplier_cost_grant.sql`(표 select 회수 + 원가 아닌 15 칸 grant) · 검증 `supabase/tests/cost_1_check.sql` | 1b 적용 확인 46 / 0 |
+| cost-1 화면 | asung-ims `9188b7d` | 화면 일곱 — products(pr v5h) · product-sheet(sheet v2c) · supplier-products(spp v2b) · po(po cost v1) · purchasing(pur v1d) · receiving(rcv latest v2) · system-check(sc v2a) · 그 뒤 1b 적용 | 두 권한 화면 시험 통과(Caleb) |
+| exp-3 | asung-wms `052f9e0` | `20261026180000_exp_3_export_labels.sql` — export_catalog 이름 여섯(Made in → Added in · Created → Added on) · 검증 `supabase/tests/exp_3_check.sql` | — |
+| so cust filt | asung-ims `eaacec6` · `535e083` | v1 Sales Orders 손님 거르기(서버 찾기 20 개 · 다른 거르기 · 목록 · CSV 와 함께 · `?customer=<id>` 로 열면 걸러진 채) · v1a 거르기 줄 한 줄 | — |
+| ovd-1 | asung-wms `57156b2` | `20261026192704_ovd_1_customer_overdue.sql` — so_customer_overdue(p_customer_id) jsonb(청구처 · 연체만 · available) · shop_order_overdue_warning · shop_order_process 재발행(frt-1a 본문 + 1 줄) · 검증 `supabase/tests/ovd_1_check.sql` | — |
+| ovd-2 | asung-ims `405b1ad` | 공용 `ims-overdue.js`(overdue v1 · OK 로만 닫힘) + pos(v1.13) · so(so ovd v1) · shopify-orders(wo v4e) | — |
+| tagn-1 | asung-wms `1d3c126` | `20261026193518_tagn_1_product_tag_names.sql` — product_tag_names() jsonb 글자 배열 한 행(stable · invoker · authenticated 만) · 검증 `supabase/tests/tagn_1_check.sql` | 19 / 0 · 한 호출 59 ms · 잠금 구간 0.7 s |
+| tagn-1 화면 | asung-ims `2aa05c7` | discount-rules(dr v3b) · products(pr v5i) | Discount Rules 빠름(Caleb) |
+| pos 초안 지우기 | asung-ims `a5a379f` | pos v1.14 — Delete draft · Parked 초안 줄 ✕ · so_delete(판정 773) · DB 무변 | Caleb 화면 시험 전 |
+
+```
+새 창구 (authenticated 가 부르는 것 · 파일 주석이 정본)
+  내보내기                 export_columns(kind) · product_export(7 거르기 + p_columns) · customer_export(…, p_columns) · supplier_export(…, p_columns)   exp-1 · definer · {kind, total, row_count, truncated, columns, rows}
+  공급처 단가              product_supplier_costs(p_product_ids, p_supplier_id, p_stats)   cost-1a · definer · 유일한 단가 읽기 길 · 열쇠 없으면 빈 결과
+  연체                     so_customer_overdue(p_customer_id)   ovd-1 · {bill_to_name, bill_to_differs, count, oldest_days, invoices[], available[] …}
+                           shop_order_overdue_warning(p_customer_id) — shop_order_process 안에서만(웹 오더 경고 customer_overdue)
+  태그 이름                product_tag_names()   tagn-1 · invoker · ["…"] 한 행 · en-x-icu(화면 localeCompare 와 같은 순서)
+화면(asung-ims)
+  ims-export.js            imsExport.open({kind, args…}) — 칸 고르기 창 · Download CSV
+  ims-overdue.js           imsOverdue.check(sb, customerId) — 창이 없으면 바로 · 있으면 OK 뒤
+```
+
+### 78-c 사실 확인 (차수 회신 · 화면 문구 grep · 2026-10-26)
+
+1. **표 단위 SELECT 가 남아 있으면 칸 revoke 는 효과가 없다**(Postgres) — cost-1 지시서의 「칸 단위 revoke」 를 Claude Code 가 테스트 DB 실측으로 잡음 → 표 select 회수 + 원가 아닌 15 칸 grant(id · cin7_id · is_active · source · note · created_at · updated_at · product_id · supplier_id · supplier_sku · currency_id · last_supplied · is_default · updated_by · price_formula_id)
+2. ⚠️ 그 뒤 product_supplier 에 **add column 하면 authenticated 에 자동으로 안 보인다** — 그 마이그레이션이 `grant select (새 칸)` 을 적어야 한다(1b 의 표 comment)
+3. 원가 열쇠 없는 PO 붙여 넣기 — 화면 글 「Without a price, a line gets 0 — fill the price in by hand (supplier costs need the cost permission).」(po.html :549) · Product Sheet 가격 공식 줄 「Price formulas work from supplier costs, so they need the cost permission.」(product-sheet.html :710)
+4. 내보내기 행 = 지금 목록의 거르기 그대로 · 한도 20,000 · 넘으면 「only the first … of …. Narrow the filters to get the rest」 · 글자 칸(SKU · 바코드 · 우편번호 …)은 엑셀이 숫자로 바꾸지 않게 적는다
+5. Before IMS 기록의 created_at 은 적재일(767) — 「Added on」 은 「IMS 에 들어온 날」 이다
+6. 태그 — 테스트 DB product_tag 63,515 줄 · 서로 다른 태그 1,193 · 딜 태그 28(모두 제품 태그 안) · 대소문자만 다른 짝 0 · node 22 localeCompare 와 en-x-icu 자리 차이 0 · "C" 는 1,184 자리 다름(tagn-1 회신)
+7. **연체 창이 뜨는 때** — POS 는 손님을 고르는 순간(pos.html :237) · 새 SO 는 **Create 로 초안이 열린 뒤**(so.html :749 — 그 뒤에 ⚠ 경고 창) · 둘 다 OK 로만 닫힌다 · 막지 않는다
+8. POS 초안 지우기 확인 글 「Delete draft …? It has never been confirmed, so it disappears — the number is not reused.」(pos.html :726) · 거절은 DB 글 그대로 알림
+
+### 78-d 바로잡음 (→ 표시를 붙인 곳)
+
+1. 판정 580 줄 — 공급처 단가는 원가 열쇠만(759) · product_supplier_costs 로만 읽는다
+2. 판정 700 줄 — 실물 759 ~ 763 · 300 닫힘
+3. §14 미룬 것 「credit hold · credit limit(R6 …)」 — 연체는 알림만(768 · 769) · hold · limit 은 여전히 안 쓴다
+4. 창구 모음 표는 so-module 에 없다(창구는 절마다) — 이번 새 창구는 78-b 블록에 모았다(docs-1026b 이견 3)
+
+### 78-e ⚠️ 실수 · 잘 된 것 — 원인 · 처방
+
+1. [대화 Claude · cost-1 지시서] 「칸 단위 revoke」 로 원가 칸을 가린다고 적었다 — 표 단위 SELECT 가 남아 있으면 칸 revoke 는 효과가 없다 · Claude Code 가 테스트 DB 실측으로 잡음 ⇒ 표 select 회수 + 남길 칸만 grant · 그 표에 add column 하는 마이그레이션은 grant select(새 칸) 를 함께
+2. [잘 된 것] 권한을 거둘 때 **1a(더하기만) → 화면 배포 · 시험 → 1b(회수)** — 화면이 멈춘 순간 0 · 1b 앞에서 화면 쪽 남은 자리를 grep 으로 다시 셈(0)
+3. [대화 Claude] asung-ims 가 공개 레포인데 압축 파일을 올리게 했다(스킬 asung-workflow §7 「직접 받는다」 위반) ⇒ codeload 로 직접
+4. [대화 Claude] 「Made in」 을 원산지 칸으로 짐작해 「둘이 겹친다」 고 답했다 — 카탈로그 원문을 보기 전에 말했다 ⇒ 칸 뜻은 정의를 읽고 말한다
+5. [Claude Code · ovd-1] 마지막 정의를 처음에 pay-3a 로 짚었다(ugrep 폴더 순) — DB prosrc md5 로 frt-1a 임을 바로잡음 ⇒ `-iE` 찾기 + `LC_ALL=C sort` + DB md5 대조를 늘 함께
+6. [Claude Code · ovd-1] 검증 파일을 `~/asung/prompts/` 에 두었다 → Caleb 커밋 명령이 `supabase/tests/ovd_1_check.sql` 로 옮김 ⇒ 검증은 늘 레포 tests 에
+7. [잘 된 것] 느린 화면을 고치기 전에 숫자부터(63,515 줄 · 64 번 · distinct 1,193 · so_deal_list 0.6 s) — 원인을 하나로 좁힘
+8. [잘 된 것] `~/asung/prompts` 이름 충돌(tag-1.md · 10-10 Cin7 태그 적재 지시서)을 옮기기 명령의 STOP 이 막음 → tagn-1
+9. [대화 Claude] 확인 실행의 OK 수를 grep 하는 꼴이 표 머리만 잡아 한 번 더 왕복 ⇒ `grep -A2 'ok | mismatch | expect_ok'`
+10. [Claude Code 메모] psql 변수(:'x')는 `$$` 안에서 풀리지 않는다 · 가짜 so_invoice 는 currency_code 글자 칸을 채운다 · \gset 대상이 null 이면 변수가 빈다(coalesce)
+11. [docs-1026b 이견] 지시서가 「339 닫힘」 이라 했으나 deferred.md 에 339 줄이 없었다(exp-1 주석의 「339 후보」 뿐) ⇒ 같은 날 열고 닫는 줄로 더했다 · 판정 769 의 「새 SO = 손님을 고르는 순간」 은 실물이 Create 뒤(78-c 7) — 매뉴얼은 실물대로
+
+### 78-f 미룬 것 · 다음
+
+- 닫힘: **300**(내보내기 — exp-1 · 2 · 3 · 판정 759 ~ 767) · **339**(판정 759 의 DB 전체 가림 — cost-1 · 같은 날 열고 닫음)
+- 새: **340** 제품 내보내기에 옛 생성일(product.cin7_created_on) 칸을 더할지 — 컷오버 뒤 · 요청 때(767)
+- 화면 시험 남음: pos v1.14 초안 지우기(a5a379f · CHECKLIST 7-zu)
+- 다음 deferred 번호: **341**
+
+```
+다음 판정 번호: 774 · 다음 deferred 번호: 341
 ```

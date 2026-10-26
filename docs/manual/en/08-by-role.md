@@ -95,13 +95,14 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Credit notes (managers and above issue them) → [Credit notes](01-sales.md#sales-credits)
 - Handle web orders → [Web orders](01-sales.md#sales-web-orders)
 - Download sales CSVs → [CSV downloads](01-sales.md#sales-csv)
+- Export products, customers or suppliers with the columns you pick → [Search, filters, pages and CSV](00-getting-started.md#start-search-filter)
 
 ### Purchasing
 - Find or add a supplier → [Find or add a supplier](02-purchasing.md#purch-suppliers)
 - Switch a supplier off or set its discounts (needs the master key) → [Find or add a supplier](02-purchasing.md#purch-suppliers)
 - Decide what to order → [Decide what to order (Reorder Planner)](02-purchasing.md#purch-reorder)
 - Start a PO → [Start a PO](02-purchasing.md#purch-new-po)
-- Change a product's fixed supplier price (needs the master key) → [Start a PO](02-purchasing.md#purch-new-po)
+- Change a product's fixed supplier price (needs the master and cost keys) → [Start a PO](02-purchasing.md#purch-new-po)
 - Confirm a PO and send it → [Confirm a PO and send it](02-purchasing.md#purch-confirm)
 - Record the supplier's invoice → [Record the supplier's invoice](02-purchasing.md#purch-invoice)
 - Upload the supplier's documents → [Upload the supplier's documents](02-purchasing.md#purch-documents)
@@ -258,4 +259,4 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 
 **Keys**: the admin role (see [Roles and keys](00-getting-started.md#start-roles-keys)).
 
-<!-- rulings: 709, 713, 714, 715, 719, 723, 725, 732, 737, 739 -->
+<!-- rulings: 709, 713, 714, 715, 719, 723, 725, 732, 737, 739, 759, 763 -->

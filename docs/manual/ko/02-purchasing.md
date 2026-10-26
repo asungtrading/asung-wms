@@ -4,7 +4,7 @@
 
 <a id="purch-suppliers"></a>
 ## 공급처 찾기 · 더하기
-<!-- screen: suppliers.html · BUILD 2026-10-25 · sup v3c -->
+<!-- screen: suppliers.html · BUILD 2026-10-26 · sup v3d -->
 <!-- who: office -->
 
 **무엇인가**
@@ -14,6 +14,8 @@
 1. **Suppliers** 를 열고 이름 일부를 적습니다.
 2. **Purchasable** 필터는 **Yes**(지금 사는 공급처)로 시작합니다. 다른 공급처도 보려면 **All** 을 고릅니다.
 3. 공급처를 누릅니다. 조건, **Purchase history**(구매 이력), **Addresses**, **Contacts**, **Discounts** 가 보입니다.
+
+넓은 목록의 **↓ Export…** 는 필터에 맞는 공급처를 내가 고른 칸으로 내려받습니다 — [↓ Export…](00-getting-started.md#start-search-filter).
 
 **공급처 더하는 법**
 1. **+ New supplier** 를 누릅니다.
@@ -76,7 +78,7 @@
 
 <a id="purch-new-po"></a>
 ## PO 시작하기
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 -->
+<!-- screen: po.html · BUILD 2026-10-26 · po cost v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -89,6 +91,7 @@ PO(구매 오더)는 공급처 하나에 주문하는 것입니다. **Draft**(�
 4. 라인을 넣습니다:
   - **Add a line** — "SKU · supplier SKU · product name" 으로 찾고(이 공급처의 제품만), 수량을 적고 **Check** 뒤 **Add lines**
   - **Paste lines** — 한 줄에 하나씩: SKU, 수량, 가격(선택). "Tab, comma or two spaces — any of them works." "A price you give is the unit price before the PO discount."(적은 가격은 PO 할인 전 단가) **Check** 뒤 **Add lines**
+  - 가격 없이 붙여 넣은 라인은 보통 가격(고정가, 없으면 최근가)을 받습니다. `cost` 권한이 없으면 0 이 됩니다: "Without a price, a line gets 0 — fill the price in by hand (supplier costs need the cost permission)."(가격이 없으면 0 — 손으로 적는다 · 공급처 단가는 원가 권한이 있어야 본다) 이 공급처 줄이 없는 제품은 Check 에서 "no link — price 0" 으로 나옵니다.
 5. 윗부분을 확인합니다: **Order date** · **Required by** · **Payment term** · **Ship to** · **Currency** · **Tax rule** · **Note**(내부 메모)
 6. **Add a discount** 는 PO 전체에 할인을 더합니다(**Name** · **Percent**).
 
@@ -339,4 +342,4 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 - **Reorder Planner** 의 **↓ CSV**(주문 목록 · 전체 제품 — 공급처 하나 또는 전체) · **↓ Dead Stock CSV** · **↓ Forecast CSV**
 - 엑셀에서 SKU 와 바코드는 글자 그대로 열립니다.
 
-<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735 -->
+<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735, 759, 765 -->

@@ -70,6 +70,7 @@ The new person signs in and sets their own password with **Change Password** (se
 **Good to know**
 - "There is no delete — inactive people keep their row." To stop someone signing in, untick **Active**.
 - If you untick a mode under **Access**, its keys are set to none when you save. The form warns in yellow first.
+- The `cost` key also decides who sees supplier costs, price formulas and the cost columns in **↓ Export…**. It is off unless you switch it on. The person sees the change after reloading the screen.
 - A forgotten password needs nothing from you. The person presses **Forgot your password?** on the sign-in screen (see [Sign in](00-getting-started.md#start-sign-in)).
 
 **Watch out**
@@ -407,4 +408,4 @@ When a screen or button is missing, or IMS does not open as it should.
 2. Take a screenshot of the whole page.
 3. Send it with your question (see [Getting help](00-getting-started.md#start-getting-help)).
 
-<!-- rulings: 150, 151, 166, 231, 232, 283, 330, 331, 332, 343, 493, 518, 521, 526, 534, 538, 555, 563, 564, 636, 668, 687, 692, 707, 708, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 738 -->
+<!-- rulings: 150, 151, 166, 231, 232, 283, 330, 331, 332, 343, 493, 518, 521, 526, 534, 538, 555, 563, 564, 636, 668, 687, 692, 707, 708, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 738, 764 -->

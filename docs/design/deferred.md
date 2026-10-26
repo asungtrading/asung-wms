@@ -10,11 +10,11 @@
 
 | 상태 \ 때 | 컷오버 전 필수 | 컷오버 날 | 판정 대기 | Caleb 요청 때 | 미정 | 컷오버 뒤 | — | 합 |
 |---|---|---|---|---|---|---|---|---|
-| 열림 | 0 | 11 | 7 | 4 | 260 | 15 | 0 | 297 |
+| 열림 | 0 | 11 | 7 | 4 | 259 | 16 | 0 | 297 |
 | 모름 | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 9 |
 | 닫힘(짐작) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 3 |
-| 닫힘 | 14 | 2 | 0 | 0 | 51 | 1 | 8 | 76 |
-| 합 | 15 | 14 | 7 | 4 | 321 | 16 | 9 | 385 |
+| 닫힘 | 14 | 2 | 0 | 0 | 53 | 1 | 8 | 78 |
+| 합 | 15 | 14 | 7 | 4 | 322 | 17 | 9 | 387 |
 
 ## 1. ⭐ 열림 · 컷오버 전 필수 — 11-01 까지 먼저 볼 줄
 
@@ -49,7 +49,7 @@
 | 315 | ILH_PRACTICE 지우기 — 컷오버 직전 진짜 이력 적재 전(ilhReset 이 켜져 있으면 경고 · 판정 664 · 665 는 연습 적재에만) | 열림 | 컷오버 날 | 📌 docs-1023h · N-1022-⑥ 순서 | so §72-f · docs-1023h · hist-3c | 664 · 665 |
 | 320 | 컷오버 날 재적재(손님 ~ 태그)는 **Shopify listing 을 켜기 전에** — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(shop_queue_add 가 켜진 listing 만 큐 · 지금 7 이라 무해) | 열림 | 컷오버 날 | Caleb 2026-10-24(docs-1024 마) · N-1022-⑥ 순서 · ldfix-1b 실측(listing 7 → 큐 ≤ 7) | so §73-c | 420 |
 
-### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (271)
+### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (270)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -306,7 +306,6 @@
 | 297 | lat-1 세트 줄의 Latest 변환 · accepted_billed 갈래 | 열림 | 미정 | — | 인계서 §4 ⑥ · docs-1023 | 626 · 627 |
 | 298 | 발주앱 「옮겨 담기」 막대 · pur_settings_import 걷어내기 · IMS 모양(머리줄 단추 납작 → `#pur-root, #pur-root *` 로 CSS 좁히기 · 짐작) | 열림 | Caleb 요청 때 | 판정 619 「IMS 모양은 Caleb 이 요청할 때 · 그때 함께」 · 620 | so §71-a 619 · 인계서 §4 ⑦ | 619 · 620 |
 | 299 | grt-2 의 때 — 컷오버 전(A) · 뒤(B) · 대화 Claude 안 B · ⚠️ Data API 「Automatically expose new tables」 스위치(켜져 있다)는 손대지 않는다 | 열림 | 판정 대기 | 판정 623 대기 | so §71-a 623 · so:9459 (70-f 287 ③) | 623 |
-| 300 | ~~Products 내보내기 — 칸 고르기 창~~ → [2026-10-24 · 판정 699 · 700 · so §74] Products · Customers · Suppliers(purchasable) 내보내기 — 칸 고르기 창 · 그 직원이 볼 권한이 있는 칸 전부(상세 칸 포함 · 원가 등 권한 없는 칸은 목록에 없다) · 행 = 지금 목록의 거르기 그대로 · 다시 올리기 없음(699 · 컷오버 뒤 필요하면 요청) | 열림 | 미정 | Caleb 2026-10-24(699 「import는 지금은 안할래 … 그때 필요하면 요청」 · 700 「칸고르기가 가능해야 하고 … 원가를 볼 권한이 없는 직원은 원가 칸이 안보여야」) | so §71-a 628 | 628(~~670 부터~~ → 684 부터 · 652 ~ 669 는 so §72 · 670 ~ 683 은 so §73) · 699 · 700 |
 | 304 | inv_layer_apply 의 WHERE 없는 delete 둘(inv_layer_consume · inv_layer_cost_add) — 지금은 psql 로만 불려 무사 · service_role 실행권이 있어 REST 로 부르면 21000(safeupdate · hist-1b 훑기) | 열림 | 미정 | — | so §72-f · docs-1023h · hist-1b | — |
 | 305 | 붙여 넣기 창구 셋(po_lines_paste · so_lines_paste · inv_transfer_lines_paste)의 upper(sku) 비교가 hist-1c 색인 product (upper(sku), sku)를 쓰는지(계획 안 봤다 · hist-1c 이견 5) | 열림 | 미정 | — | so §72-f · docs-1023h · hist-1c | — |
 | 306 | SKU 대소문자 유니크를 막을지 — 지금 upper 겹침 0 · 막으면 대소문자만 다른 새 SKU 거부 | 열림 | 판정 대기 | 판정 거리(📌 docs-1023h · hist-1c 「따로 판정」) | so §72-f · docs-1023h · hist-1c | — |
@@ -325,7 +324,7 @@
 | 333 | PO 입고별 유통기한(expiry) — 쓰임이 정해지면 입고 줄 + 원가 레이어에 붙이는 꼴 | 열림 | Caleb 요청 때 | Caleb 2026-10-24 「실무에서 지금 많이 쓰고 있진 않아」 · 「필요할때 만드는게」(대화 Claude 권고에 동의) | so §74-a | — |
 | 336 | 구매 목록 화면 여섯(PO · 인보이스 · 비용 · 공급처 결제 · 입고 · 공급처)의 목록 ↓ CSV — 판정 628 은 판매만 · 매뉴얼은 있는 넷만 적었다 | 열림 | Caleb 요청 때 | 판정 735 「A. 매뉴얼은 있는 넷만 · 목록 CSV 는 미룬다」(필요해지면) | so §76-a · §76-g | 735 |
 
-### ④ 열림 · 컷오버 뒤 (15)
+### ④ 열림 · 컷오버 뒤 (16)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -344,6 +343,7 @@
 | 335 | 공급처 엑셀 오더폼 채우기 + PO 에서 바로 메일 — 그런 공급처가 꽤 많다 · 시작할 때 실제 양식 몇 개(빈 줄 꼴 · 제품이 미리 적힌 꼴)를 보고 설계 · 그동안 ↓ PO CSV(733) | 열림 | 컷오버 뒤 | 판정 734 「서플라이어 오더폼은 컷오버뒤에」 | so §76-a · §76-g | 734 |
 | 337 | 화면 정리 후보 아홉(판정 없음 · 매뉴얼만으로 피해 둠) — ① Action Centre Unpaid at hand-over 가 Branch 무시(뷰에 창고 칸 없음) ② 구매 화면 넷이 권한을 화면에서 가르지 않음(read 도 단추 · DB 가 거절) ③ 트랜스퍼 상태 글자 두 벌(오피스 소문자 · 창고 대문자) ④ Google Drive 안내에 컷오버 날짜 ⑤ Shopify Stores 화면 글에 판정 번호 · 실제 가게 이름 ⑥ Discount Rules Paste lines 예시에 실제 꼴 SKU ⑦ receiving.html 머리 주석 「Nothing here reaches the ledger yet」 ⑧ so.html 「Finish on POS」 꺼진 채 「coming later」 ⑨ so.html 상세가 주소(?so=)를 안 바꿈 | 열림 | 컷오버 뒤 | 대화 Claude 2026-10-25 「컷오버 뒤 한 번에」 · manual-6 · 2a · 3b · 7b · 2b · 5 · 1b 이견 | so §76-d | — |
 | 338 | reload_backup 스키마 지우기(config_ims · ledger_ims(ims 690) · layer · layer_consume · layer_cost_add — 9-21 재적재와 컷오버 §C 의 백업) — 한 달 보관 뒤 | 열림 | 컷오버 뒤 | 판정 754 「B」 — 12 월 초 | so §77-f · reload §P 15 단계 | 754 |
+| 340 | 제품 내보내기에 옛 생성일(product.cin7_created_on) 칸을 더할지 — 「Added on」(created_at)은 Before IMS 기록에서 적재일이다(제품 09-14 · 손님 09-22 · 공급처 09-12 · 09-14 · 10-05) | 열림 | 컷오버 뒤 | Caleb 2026-10-26(767 「그렇게 가자」 — 요청 때) | so §78-a 767 · 78-f | 767 |
 
 ### ⑤ 모름 (9)
 
@@ -359,7 +359,7 @@
 | 309 | saleCreditNoteList Total 4,714 가 실제 발행 크레딧(확정 표 9 개월 453 오더 · 원장 한 달 약 21)과 안 맞는다 · 적재는 이 목록을 안 쓴다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | — |
 | 310 | 짝 발주 1,424 행 · 짝 1,421 — 같은 PO 번호가 목록에 두 번인 것 셋(짐작) · 공급처 안 풀림 0 이라 무해로 보이나 두 행의 공급처가 같은지 안 봤다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | 657 |
 
-### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (79)
+### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (81)
 
 <details><summary>펼치기</summary>
 
@@ -444,6 +444,8 @@
 | 303 | 8 · 9 월 확정 적재(SalesConfirmedUpload v5 · 달마다 두 파일 Sale Invoices & Credit Notes + Sales by Product Details · 태그 AUG26 · SEP26 · sc_dryRunCheckV5 → sc_testMonthV5 → sc_stageAllMonthsV5 → sc_verifyStagingV5 → sc_commitRebuildV5 → checkSalesConfirmedStatus) — Caleb 과 함께 · 10 월분은 컷오버 뒤 첫 한두 주(662) · ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ~~ilhReset 뒤 ilhLoadSales 전체~~ → 판매 커서 일곱만 지우고 ilhLoadSales(당월 → 확정으로 옮겨 간 오더는 당월 쪽이 다시 보내지 않아 틀린 채 남는다 · hist-3c 이견 3) | 닫힘 | 컷오버 전 필수 | 2026-10-24 저녁 — 8 · 9 월 확정 적재(7 월 V2 · 원가 825,946.78 → 807,557.11 · 6 월 전 Cin7 잠김 · 8 월 잠김 · 9 월은 10 월분 받을 때 V2) · 이력 판매 다시 맞춤(확정 12,469 오더 · 256,906 줄 · 당월 928 · 19,487 줄 · 손님 못 풀림 415 · 확정 쪽 제품 못 풀림 12,696 줄 = 처음 잰 값 · 기준선 없음) · 10 월분은 컷오버 뒤 첫 한두 주(662 그대로) · ⚠️ 정정: 「ilhReset 뒤 ilhLoadSales 전체」 → 판매 커서 일곱(ILH_SO_CONF_CURSOR · _DONE · _SUM · ILH_SO_CURR_CURSOR · _DONE · _SUM · ILH_SO_SUM)만 지우고 ilhLoadSales(ilhReset 은 짝 ILH_PAIRS_* 까지 지운다) · so §73 · (옛 근거) 판정 662 · 대화 Claude 안(📌 docs-1023h) | so §72-f · docs-1023h · hist-3c | 659 · 662 |
 | N-1022-⑤ | 직원 안내 — Reorder Planner 는 10-31 까지 IMS 연습 데이터 기준 · 실제 발주는 옛 발주앱(tools)으로 | 닫힘 | 컷오버 전 필수(짐작) | 판정 687(Caleb 「이것도 필요없어. 이미 안내됐어」 · 2026-10-24) · so §74 · (옛 근거) 글(📌) 「10-31 까지 … 실제 발주는 옛 발주앱으로」 — 11-01 전에 알려야 뜻이 있다(짐작) | 📌 def-0 | 604 |
 | 332 | 컷오버 날 거래 지우기에 드라이브 표 · 문서 PDF · 버킷 두 곳 — 지우는 순서(drive_job → drive_shortcut → po_doc → 거래) · doc_file 을 남길지 지울지(연습 PDF · 문지기) · 버킷 documents · po-documents 의 연습 파일 | 닫힘 | 컷오버 날 | ✅ [2026-10-26 · docs-1026a · so §77] 절차 = reload-procedure §P(컷오버 날 순서표 하나) · 지우기 = `supabase/ops/cutover-delete.sql`(① 가드 ② 관문 넷 ③ 분류 대조 D 79 · K 73 · R 20 ④ 남김 지문 ⑤ truncate 79 · cascade 없음 — truncate 는 doc_file_guard 를 안 돈다 · 드라이브 표도 함께 ⑥ 번호 ⑦ 검산 ⑧ 시험 마스터 198 행 ⑨ Roux 19) · 판정 746 ~ 758 · 리허설 2 회 통과(잠금 4.0 s · 9.0 s · 실제 행 무변) · 버킷 15 파일(documents 6 · po-documents 1 · product-images 8)은 §P 6 단계 Storage · 사본은 10-31 저녁(757 · 명령은 10-30 시험) · asung-wms c5a6c53 · 3eb9189 · (옛 근거) 실측(테스트 DB 2026-10-24 · docs-1024c 이견 1): FK po_doc → po · po_charge · po_invoice · drive_shortcut → po · po_doc · drive_job → po_doc · doc_file · drive_shortcut 모두 on delete no action(a) — 먼저 비우지 않으면 PO · 빌 · 공급처 인보이스 지우기가 FK 로 선다 · doc_file_guard 가 doc_file 지우기를 거부한다(「A stored document PDF is never deleted」) · 버킷 documents · po-documents 파일은 표를 지워도 남는다(지금 po-documents 객체 1 · 연습) · ⚠️ 컷오버 날 거래 지우기 절차 자체가 글로 없다(N-1022-⑥ 한 줄 · reload-procedure.md 는 테스트 DB 재복사 절차) — 대화 Claude 가 다음 차수로 올린다 | so §74-d · N-1022-⑥ | 746 ~ 758 |
+| 300 | ~~Products 내보내기 — 칸 고르기 창~~ → [2026-10-24 · 판정 699 · 700 · so §74] Products · Customers · Suppliers(purchasable) 내보내기 — 칸 고르기 창 · 그 직원이 볼 권한이 있는 칸 전부(상세 칸 포함 · 원가 등 권한 없는 칸은 목록에 없다) · 행 = 지금 목록의 거르기 그대로 · 다시 올리기 없음(699 · 컷오버 뒤 필요하면 요청) | 닫힘 | 미정 | ✅ [2026-10-26 · docs-1026b · so §78] 닫힘 — exp-1 asung-wms `6e9734b`(export_columns · product/customer/supplier_export · 칸 목록 · 고른 칸만 · 한도 20,000) · exp-2 asung-ims `7d2835b`(ims-export.js · Products · Customers · Suppliers 「↓ Export…」) · exp-3 asung-wms `052f9e0`(칸 이름 Added in · Added on) · 판정 759 ~ 763 · 766 · 767 · 화면 시험 Caleb 2026-10-26 ← Caleb 2026-10-24(699 「import는 지금은 안할래 … 그때 필요하면 요청」 · 700 「칸고르기가 가능해야 하고 … 원가를 볼 권한이 없는 직원은 원가 칸이 안보여야」) | so §71-a 628 | 628(~~670 부터~~ → 684 부터 · 652 ~ 669 는 so §72 · 670 ~ 683 은 so §73) · 699 · 700 · 759 ~ 763 · 766 · 767 |
+| 339 | 판정 759 의 나머지 — DB 전체 가림(product_supplier 원가 칸 grant · po_lines_paste · price_formula_preview · po_receipt_latest_apply · 화면 다섯 이상) · exp-1 주석의 「deferred 339 후보」 | 닫힘 | 미정 | ✅ [2026-10-26 · docs-1026b · so §78] 같은 날 열고 닫음 — cost-1 asung-wms `dd459b0`(1a product_supplier_costs · 세 창구 재발행 · 1a2 product_update 문장 · 1b 표 select 회수 + 원가 아닌 15 칸 grant) · asung-ims `9188b7d`(화면 일곱) · 1b 적용 확인 46 / 0 · 두 권한 화면 시험 Caleb 2026-10-26 | so §78-b · exp-1 마이그레이션 주석 | 759 · 764 · 765 |
 
 </details>
 
@@ -462,7 +464,7 @@
 
 ## 4. 이 문서를 고칠 때
 
-- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ 339 부터([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
+- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ 341 부터([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
 - 닫을 때는 줄을 지우지 않고 상태를 닫힘으로 · 근거 칸에 커밋 · 판정 · 절
 - 「때」를 Caleb 이 가르면 근거 칸에 「Caleb 2026-MM-DD」
 

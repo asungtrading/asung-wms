@@ -162,7 +162,7 @@ Many screens — for example **Sales Orders**, **Sales Invoices**, **Customer Pa
 
 <a id="start-search-filter"></a>
 ## Search, filters, pages and CSV
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; ims-export.js · BUILD 2026-10-26 · export v1 -->
 <!-- who: all -->
 
 **What it is**
@@ -187,6 +187,17 @@ Every wide list has a bar on top. The bar has a search box, filters, a **Clear**
 1. Set the filters and the search the way you want.
 2. Press **↓ CSV** on the wide list.
 3. A spreadsheet file downloads. It has every row that matches your filters — all pages, not only the one on screen.
+
+**↓ Export… — pick the columns**
+**Products**, **Customers** and **Suppliers** have **↓ Export…** on the wide list. You choose which columns go into the file.
+1. Set the filters and the search. The file has every row that matches them.
+2. Press **↓ Export…**. A window lists the columns in groups, with the usual ones ticked. **All** and **None** work on one group. **Defaults** puts back the usual columns.
+3. Press **Download CSV**. IMS says "Reading every row — this can take a few seconds", then "Downloaded … rows".
+- One product, customer or supplier is one row. Things that come in several — barcodes, tags, all suppliers — share one cell, joined with "; ". Each price tier has its own column.
+- You only see the columns you may see. Without the `cost` key there are no cost columns. Customer address and contact columns need the `sales` or `master` key at **write**.
+- SKU, barcode, postal code and similar columns are written so the spreadsheet keeps them as text — leading zeros stay.
+- The columns you picked are remembered on this computer and browser for the next export.
+- At most 20,000 rows. If more match, IMS says "only the first … of …. Narrow the filters to get the rest".
 
 **Watch out**
 - CSV follows your filters. If the file looks short, check the filters first.
@@ -231,6 +242,7 @@ Some keys are for managers and above only: `shopify`, `wms_manage`, `wms_receivi
 
 **Examples**
 - A person without the `cost` key does not see the **Value** column on **Stock Availability**. The column is simply not there (see [Find stock](03-inventory.md#stock-availability)).
+- A person without the `cost` key does not see supplier costs (**Fixed cost**, **Latest cost**), cannot use price formulas, and gets no cost columns in **↓ Export…**. A PO line pasted without a price gets 0 — fill the price in by hand (see [Start a PO](02-purchasing.md#purch-new-po)).
 - A person with `sales` at **read** can open a sales order but has no buttons to change it.
 - **Stock Availability** and **System Check** need no key. Everyone who can sign in sees them.
 
@@ -311,4 +323,4 @@ This manual describes how IMS works. If IMS does something different from what t
 - A screenshot of **System Check** (see [System Check](07-settings.md#set-system-check)).
 - What you pressed, what you expected, and what happened instead.
 
-<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731 -->
+<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731, 759, 760, 761, 762, 763, 765 -->

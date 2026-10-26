@@ -38,7 +38,7 @@
 
 <a id="stock-products"></a>
 ## 제품 찾기 · 고치기
-<!-- screen: products.html · BUILD pr v5f -->
+<!-- screen: products.html · BUILD pr v5i -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -62,6 +62,8 @@
 - 제품의 surcharge 그룹은 **Edit** 에서 제품 카드의 **Surcharge group** 으로 고릅니다([Surcharge 그룹](07-settings.md#set-surcharge)).
 - 제품은 감추지 않습니다 — 꺼진 제품도 찾을 수 있습니다.
 - 여러 제품을 한꺼번에 고치려면 [Product Sheet](#stock-sheet)를 씁니다.
+- 넓은 목록의 **↓ Export…** 는 필터에 맞는 제품을 내가 고른 칸으로 내려받습니다 — [↓ Export…](00-getting-started.md#start-search-filter).
+- 공급처 단가(**Fixed cost** · **Latest cost**)는 `cost` 권한이 있는 사람에게만 보입니다. 권한이 없으면 제품 상세 · **Edit** · **+ New product** 에 단가 칸이 없습니다.
 
 <a id="stock-new-product"></a>
 ## 새 제품 · 세트 · 콤보 만들기
@@ -75,7 +77,7 @@
 1. **+ New product** 를 누릅니다.
 2. **Barcode(s)**("one or more — the first is primary" · 여럿이면 처음 것이 대표) · **Brand** · **SKU** · **Name** · **Category** · **Unit** · **Weight** 를 적습니다. **Suggest** 는 "Brand prefix + barcode digits"(브랜드 앞글자 + 바코드 숫자)로 SKU 를 만들어 줍니다.
 3. 등급마다 **Sale prices**(판매가)를 적습니다.
-4. **Supplier** · **Supplier SKU** · **Cost**, 있으면 **Fixed cost**(고정 단가)를 넣습니다.
+4. **Supplier** · **Supplier SKU** · **Cost**, 있으면 **Fixed cost**(고정 단가)를 넣습니다. `cost` 권한이 없으면 **Supplier** 와 **Supplier SKU** 만 있습니다 — 단가는 권한이 있는 사람이 나중에 넣습니다.
 5. 세트도 함께 만들려면 **+ ×6** · **+ ×12** · **+ other** 를 누릅니다. "Leave the name of a set blank to get the usual name."(세트 이름을 비우면 보통 이름이 붙는다) 예: DEMO-001 의 6 개 세트 → DEMO-001-6
 6. **Check & create** 를 누릅니다. "Not saved — fix these first" 를 고치거나, 경고는 **Save anyway** 로 넘깁니다.
 
@@ -119,7 +121,7 @@
 
 <a id="stock-sheet"></a>
 ## 여러 제품을 한꺼번에 고치기(Product Sheet)
-<!-- screen: product-sheet.html · BUILD sheet v2b -->
+<!-- screen: product-sheet.html · BUILD sheet v2c -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -137,6 +139,7 @@
 
 **가격 공식**
 "Filter by a supplier and press Load to use a price formula."(공급처로 필터하고 Load 해야 가격 공식을 쓴다)
+`cost` 권한이 없으면 줄에 "Price formulas work from supplier costs, so they need the cost permission."(가격 공식은 공급처 단가로 셈하므로 원가 권한이 필요하다)가 나옵니다. **Fixed cost** · **Landed · GP** 칸도 없습니다.
 1. 공급처 하나로 필터하고(예: Supplier B) **Load** 를 누릅니다.
 2. 공식을 고르거나 **— new formula —** 를 고릅니다. 칸은 **Cur** · **Duty %** · **Freight · other ×** · **Margin ÷** 입니다. ★ 은 그 공급처의 기본 공식입니다.
 3. 끝자리를 고릅니다: **.49 · .99** 또는 **.x9 all**
@@ -311,4 +314,4 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 - [재고 찾기](#stock-availability)의 **↓ CSV** 는 필터에 맞는 제품을 모두 내려받습니다.
 - **Product Sheet** 는 반대 방향입니다: 엑셀에서 표로 붙여 넣습니다([Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763 -->

@@ -387,6 +387,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    ⑤ 확인 갈래(Caleb · 적용 뒤)에 alter · lock · truncate · drop 줄 금지(`\i` 시험 갈래 밖) — Caleb 의 명령에 그런 줄이 있으면 멈춘다
    ⑥ 시퀀스 되감기는 `greatest(실제 최대, 시작 값)` 만(시작 값은 셸에 먼저 받아 둔다 · 멈춘 회차 뒤에도 같은 식으로) · 번호를 당기지 않고 시험할 수 있으면 그 길로(미리 보기 · 거부되는 발행 · 커서 SELECT 만 떼기) — 동료가 같은 DB 에서 번호를 받는다
    · 적용 명령에는 `-c "set local lock_timeout = '5s'"`(alter 가 기다리는 동안 뒤 읽기가 줄 서는 것을 막는다) · 진단 = pg_stat_activity 의 xact_age · pg_blocking_pids
+⭐ [2026-10-26 · cost-1 · so-module §78-c 1 · 78-e 1 · 2] **칸 revoke 는 표 grant 가 있으면 무효** — 표 단위 SELECT 가 남아 있으면 `revoke select (칸)` 은 아무것도 가리지 않는다 ⇒ 표 select 회수 + 남길 칸만 `grant select (칸 …)` · 그 표에 add column 하는 뒤 마이그레이션은 grant select(새 칸) 를 함께(안 적으면 화면이 조용히 42501)
+   ⭐ **권한을 거둘 때 순서 = 더하기 → 화면 → 회수** — 1a(새 창구만 더함) → 화면 배포 · 두 권한 시험 → 1b(회수) · 1b 앞에서 화면 쪽 남은 자리를 grep 으로 다시 센다(0) · 화면이 멈춘 순간 0
 ⭐ [2026-10-26 · cutdel-1 · 2 · so-module §77] **운영 SQL(컷오버 지우기 류)의 리허설** — ① `truncate` 는 행 트리거(문지기 · 큐)를 하나도 안 돈다 · TRUNCATE 트리거만 돈다(public 0) · cascade 는 쓰지 않고 표를 다 적는다(빠지면 오류로 멈춤)
    ② **setval 은 rollback 되지 않고 다른 세션에 바로 보인다** — 리허설은 「부를 값만 찍는」 갈래(psql 변수 하나) · 전후 last_value · is_called 원문 대조 · restart identity 는 rollback 된다
    ③ 남김 지문은 정렬 md5 대신 **순서 무관 합**(`sum(('x'||left(md5(t::text),15))::bit(60)::bigint)` · 3 배 빠름) · 지울 행은 키로 고르고 「정확히 한 행」 · 수를 파일에 박지 않는다
@@ -512,6 +514,7 @@ EOF
   ⭐ [2026-10-13 · so-module §62-d 5] **asung-ims(화면)도 공개 · raw 로 읽힌다**(curl 200) — 화면 파일을 Caleb 에게 복사 · 업로드시키지 마라(이번에 grep 이 넓어 15 파일을 복사시켰다)
     curl -s https://raw.githubusercontent.com/asungtrading/asung-ims/main/<파일> -o /tmp/x.raw
     여러 파일이면 레포 tarball: curl -sL https://codeload.github.com/asungtrading/asung-ims/tar.gz/main | tar xz -C /tmp
+  ⚠️ [2026-10-26 · so-module §78-e 3 · 재발] 대화 Claude 가 asung-ims 화면 묶음을 **압축 파일로 올리게** 했다 — 공개 레포다 ⇒ 위 codeload 로 직접 받는다 · Caleb 에게 올리게 하지 마라
 
 쓰기 — 대화 Claude 가 파일을 만들면 Caleb 이 내려받아 옮긴다
   집 PC  /mnt/c/Users/yoonh/Downloads/     회사  /mnt/c/Users/chang/Downloads/
@@ -855,3 +858,13 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    2 [발견] doc-3a 시험이 「창을 열 때의 미리 보기」 를 ship_ready 로 안 돌려 결함이 7 일 숨었다(짐작) ⇒ 메일 · 창구 시험은 **화면이 실제로 부르는 순서**(미리 보기 → 보내기)대로 갈래를 세운다
    3 [대화 Claude] 판정 745 를 기술 낱말로 물어 Caleb 이 「더 쉽게」 를 청했다(§50-d 1 재발) ⇒ 봉투 비유처럼 업무 그림을 먼저
    4 [대화 Claude] 정본의 낡은 짐작(테스트 DB 의 실제 웹 오더)을 지시서 전제로 적었다 — 조사가 실측으로 바로잡음 ⇒ 정본 문장이 「지금 상태」 를 말하면 날짜를 보고 짐작 표시
+⚠️ **[2026-10-26 회사 오후 — so-module §78-e · 내보내기 · cost-1 · 연체 · 태그 창구]**
+   1 [대화 Claude · cost-1 지시서] 「칸 단위 revoke」 로 원가 칸을 가린다고 적었다 — 표 grant 가 있으면 무효 · Claude Code 가 테스트 DB 실측으로 잡음 ⇒ §4 「칸 revoke」 줄
+   2 [잘 된 것] 권한 거두기 1a → 화면 → 1b — 화면이 멈춘 순간 0 ⇒ §4 같은 줄
+   3 [대화 Claude] 공개 레포 asung-ims 를 압축으로 올리게 했다(§7 위반) ⇒ codeload
+   4 [대화 Claude] 「Made in」 을 원산지로 짐작해 답했다 — 카탈로그 원문 전에 ⇒ 칸 뜻은 정의를 읽고 말한다
+   5 [Claude Code · ovd-1] 마지막 정의를 ugrep 폴더 순으로 pay-3a 로 짚었다 — DB prosrc md5 로 frt-1a ⇒ `-iE` 찾기 + `LC_ALL=C sort` + DB md5 대조를 늘 함께
+   6 [Claude Code · ovd-1] 검증 파일을 `~/asung/prompts/` 에 두었다 ⇒ 검증은 늘 레포 `supabase/tests/`
+   7 [잘 된 것] 느린 화면은 고치기 전에 숫자부터(63,515 줄 · 64 번 · distinct 1,193) — 원인 하나로 좁힘 · 8 [잘 된 것] prompts 이름 충돌(tag-1)을 옮기기 STOP 이 막음 → tagn-1
+   9 [대화 Claude] 확인 실행 OK 수 grep 이 표 머리만 잡았다 ⇒ `grep -A2 'ok | mismatch | expect_ok'` · 10 [Claude Code] psql 변수는 `$$` 안에서 안 풀린다 · 가짜 so_invoice 는 currency_code · \gset 대상 null 은 coalesce
+   11 [docs-1026b] 지시서의 「339 닫힘」 — deferred.md 에 줄이 없었다 · 「새 SO = 손님을 고르는 순간」 — 실물은 Create 뒤 ⇒ 지시서의 번호 · 동작은 레포 · 화면 실물로 먼저 대조

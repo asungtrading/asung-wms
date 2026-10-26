@@ -504,6 +504,20 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  주인 = cin7_customer_id · cin7_supplier_id(GUID) → customer · supplier 의 cin7_id(657) · 못 풀면 id null · 이름 원문은 남는다
 ⭐  화면(cs v6 · sup v3)이 IMS 거래와 n 개씩 읽어 날짜순으로 섞는다 — 읽기 창구 없음(666)
 ```
+## 4-v. ⭐⭐ 내보내기 · 연체 알림 · 태그 이름 · 손님 거르기 — 모르면 사고 (2026-10-26 · 정본 so-module §78 · 판정 759 ~ 773)
+
+```
+⭐⭐ 내보내기 = 화면마다 DB 창구(763) — export_columns(kind) 가 칸 목록을 정한다(고를 수 없는 칸은 목록에 없다 · 억지로 넣으면 거부) · product_export · customer_export · supplier_export(지금 목록의 거르기 그대로 + p_columns · definer · 한도 20,000 · jsonb 한 행) · 공용 화면 ims-export.js
+     칸 문: 원가 칸 = 원가 열쇠(759) · 손님 주소 · 연락처 = sales 쓰기 ∨ master 쓰기(761) · 가격 등급 reference 없음(760) · 한 레코드 = 한 줄(762) · 칸 키는 화면 localStorage 가 기억하므로 바꾸지 않는다(이름만 — exp-3 Added in · Added on)
+⭐⭐ 연체 = so_customer_overdue(p_customer_id) — **청구처 기준**(돈을 갚을 사람 · POS 칩과 같은 축 · bill_to_differs) · **기한 지난 인보이스만**(768 · 기한 전 · 기한 없음 제외 · C.B.S 도 여유 0일 770) · 받아 둔 돈 · 크레딧 available 한 줄(771)
+     화면 = ims-overdue.js imsOverdue.check(sb, customerId) — OK 로만 닫힘 · **막지 않는다**(769) · POS 는 손님을 고르는 순간 · 새 SO 는 Create 뒤(so.html :749) · credit hold · limit 은 안 쓴다(R6)
+     웹 오더 = shop_order_process 안의 shop_order_overdue_warning → 경고 꼬리표 **customer_overdue**(그때 값 · Mark checked · ovd-1 이 shop_order_process 를 frt-1a 본문 + 1 줄로 재발행 — 다시 고칠 때 마지막 정의는 ovd-1)
+⭐⭐ 태그 이름 = **product_tag_names()**(772) — product_tag ∪ so_deal_target(target = tag) 의 서로 다른 tag · 빈 값 제외 · collate en-x-icu(화면 localeCompare 와 같은 순서 · 대소문자 구별) · jsonb 글자 배열 한 행(1,000 행 캡) · invoker · authenticated 만
+     ⚠️ 태그 목록을 product_tag 에서 직접 모으지 마라 — 6 만 줄을 1,000 씩 읽어 Discount Rules 가 느려졌던 원인
+⭐  Sales Orders 손님 거르기(so cust filt v1 · v1a) — `so.html?customer=<id>` 로 열면 그 손님의 오더만 · 다른 거르기 · CSV 와 함께
+⭐  POS 초안 지우기(773 · pos v1.14) = so_delete(Sales Orders 의 Delete draft 와 같은 창구 · 권한은 DB · 확정된 판매는 DB 가 거부)
+```
+
 ## 5. 이 스킬을 갱신할 때
 
 - 새 사실은 **정본(§9~§12)에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자·행 수·역사는 두지 않는다(정본 9-g · 9-j 가 갖고 있다).

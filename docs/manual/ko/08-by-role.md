@@ -95,13 +95,14 @@
 - 크레딧 노트 (발행은 매니저 이상) → [크레딧 노트](01-sales.md#sales-credits)
 - 웹 오더 다루기 → [웹 오더](01-sales.md#sales-web-orders)
 - 판매 CSV 내려받기 → [CSV 내려받기](01-sales.md#sales-csv)
+- 제품 · 고객 · 공급처를 고른 칸으로 내보내기 → [검색 · 필터 · 페이지 · CSV](00-getting-started.md#start-search-filter)
 
 ### 구매
 - 공급처 찾기 · 더하기 → [공급처 찾기 · 더하기](02-purchasing.md#purch-suppliers)
 - 공급처 끄기 · 할인 정하기 (master 권한 필요) → [공급처 찾기 · 더하기](02-purchasing.md#purch-suppliers)
 - 무엇을 주문할지 정하기 → [무엇을 주문할지 정하기(Reorder Planner)](02-purchasing.md#purch-reorder)
 - PO 시작 → [PO 시작하기](02-purchasing.md#purch-new-po)
-- 제품의 고정 공급가 바꾸기 (master 권한 필요) → [PO 시작하기](02-purchasing.md#purch-new-po)
+- 제품의 고정 공급가 바꾸기 (master · cost 권한 필요) → [PO 시작하기](02-purchasing.md#purch-new-po)
 - PO 확정하고 보내기 → [PO 확정하고 보내기](02-purchasing.md#purch-confirm)
 - 공급처 인보이스 넣기 → [공급처 인보이스 넣기](02-purchasing.md#purch-invoice)
 - 공급처 서류 올리기 → [공급처 서류 올리기](02-purchasing.md#purch-documents)
@@ -258,4 +259,4 @@ admin 은 매니저의 일도 합니다 — [매니저](#role-manager)를 봅니
 
 **권한**: admin 역할([역할과 권한](00-getting-started.md#start-roles-keys))
 
-<!-- rulings: 709, 713, 714, 715, 719, 723, 725, 732, 737, 739 -->
+<!-- rulings: 709, 713, 714, 715, 719, 723, 725, 732, 737, 739, 759, 763 -->

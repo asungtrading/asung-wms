@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## 고객 찾기 · 더하기
-<!-- screen: customers.html · BUILD 2026-10-23 · cs v6 -->
+<!-- screen: customers.html · BUILD 2026-10-26 · cs v6b -->
 <!-- who: sales, office -->
 
 **무엇인가**
@@ -19,6 +19,8 @@
 2. **Active only**(활성만)는 처음에 체크돼 있습니다. 꺼진 고객도 보려면 체크를 풉니다.
 3. **New — not reviewed** 를 체크하면 매니저가 아직 확인하지 않은 새 고객만 보입니다. [Action Centre](06-action-centre.md#action-new-customers) 에도 나옵니다.
 4. 고객을 누릅니다. **Price tier**(가격 등급) · **Discount %**(할인) · **Payment term**(결제 조건) · **Currency**(통화) · **Bill to**(청구처) · **Default warehouse**(기본 창고) · **Tax rule**(세금 규칙), **Stores** 카드, **Order history**(주문 이력), **Addresses**(주소), **Contacts**(연락처)가 보입니다.
+
+넓은 목록의 **↓ Export…** 는 필터에 맞는 고객을 내가 고른 칸으로 내려받습니다 — [↓ Export…](00-getting-started.md#start-search-filter).
 
 **고객 더하는 법**
 1. **+ New customer** 를 누릅니다.
@@ -54,7 +56,7 @@
 
 <a id="sales-new-order"></a>
 ## 새 판매 오더
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -68,7 +70,8 @@
 2. **Search customer by name** 에 고객 이름을 적고 고객을 누릅니다. 활성 고객만 나옵니다.
 3. **Channel**(아래 참고)과 **Warehouse** 를 고릅니다. 창고는 고객의 기본 창고로 시작합니다.
 4. **Create** 를 누릅니다. 초안이 번호와 함께 열립니다. 예: `SO-99001`
-5. **Create** 뒤에 ⚠ 글이 나오면 읽습니다 — 예: 고객에게 배송 주소가 없다.
+5. 그 고객에게 기한이 지난 인보이스가 있으면 **Overdue invoices**(연체 인보이스) 창이 먼저 열립니다. 인보이스마다 **Invoice** · **Due**(기한) · **Days overdue**(지난 날) · **Still owed**(남은 돈)와, 받아 두었지만 아직 쓰지 않은 돈 · 크레딧이 나옵니다. "This does not stop the order. It is a reminder to ask about payment."(오더를 막지 않는다 — 결제를 물어보라는 알림) **OK** 를 눌러 닫습니다.
+6. **Create** 뒤에 ⚠ 글이 나오면 읽습니다 — 예: 고객에게 배송 주소가 없다.
 
 **Channel 세 가지**
 - **Warehouse** — 창고에서 픽 · 팩합니다. 대부분의 오더
@@ -82,6 +85,7 @@
 - **Tax rule** 은 **Auto — from ship-to province**(배송지 주에서 자동)로 시작합니다.
 
 **조심할 것**
+- **Overdue invoices** 는 기한이 지난 인보이스만 셉니다. 기한 전이거나 기한이 없는 인보이스로는 열리지 않습니다. 인보이스를 갚는 고객을 봅니다 — 오더 고객의 인보이스가 다른 고객에게 가면 창에 "This customer is billed to …"(이 고객의 청구처는 …)가 나옵니다. 계산대에서도 같은 창이 열립니다([판매 찍기](05-pos.md#pos-sale)).
 - **Ship to…** 에서 주나 나라를 바꾸면 새 주소로 세금 규칙을 다시 고릅니다. 손으로 정한 세금 규칙은 풀립니다.
 - **Order date** 가 어느 딜과 쿠폰이 맞는지를 정합니다. 고객이 정말 다른 날 주문했을 때만 바꿉니다.
 
@@ -666,7 +670,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-web-orders"></a>
 ## 웹 오더
-<!-- screen: shopify-orders.html · BUILD 2026-10-14 · wo v4d -->
+<!-- screen: shopify-orders.html · BUILD 2026-10-26 · wo v4e ; so.html · BUILD 2026-10-26 · so ovd v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -699,6 +703,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - "Paid in Shopify, but IMS will not ship part of it — refund that part in Shopify"(그 몫을 Shopify 에서 환불) — 확인 표시에 메모가 필요합니다.
 - "Pickup order — no province for tax; pick a tax rule on the sales order"(판매 오더에서 세금 규칙을 고른다)
 - "Changed in Shopify after the sales order was made"(판매 오더를 만든 뒤 Shopify 에서 바뀜)
+- "Customer had overdue invoices when the order came in — the order was not stopped; ask about payment"(들어올 때 고객에게 연체 인보이스가 있었다 — 오더는 막지 않았다 · 결제를 물어본다)
 
 **판매 오더에서**
 웹 오더의 판매 오더에는 **Shopify** 꼬리표와 Shopify 내용 카드가 있습니다. **Paid in Shopify** 도 거기 있습니다.
@@ -733,7 +738,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-statuses"></a>
 ## 상태의 뜻
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 -->
 <!-- who: all -->
 
 **상태 — 배지와 필터**
@@ -751,6 +756,8 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 | Cancelled(빨강) | Cancelled | 나가지 않고 닫혔다 · 합쳐진 오더는 "merged" |
 
 다른 필터: **Open**(끝나지 않은 것 전부) · **Draft — reprice suggested** · **Waiting for pickup** · **All**
+
+**Customer** — **Customer — pick one** 칸에 이름 일부를 적고 목록에서 고객을 고릅니다. 그 고객의 오더만 남고, 다른 필터와 함께 걸립니다. **↓ CSV** 도 그대로 따릅니다.
 
 **배지 옆 꼬리표**
 - **unpaid** · **partly paid** · **paid** · **overdue Nd** — [고객 결제와 선수금](#sales-payments)
@@ -788,4 +795,4 @@ Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 �
 - GP(매출 이익) 칸은 `cost` 권한이 있는 사람의 **↓ Lines CSV** 에만 나옵니다.
 - 이 파일은 내부용입니다. 고객에게는 인쇄 문서를 보냅니다([인쇄와 메일](#sales-print-email)).
 
-<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729 -->
+<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771 -->

@@ -31,7 +31,7 @@ Everyone who works on sales orders. There is no extra key for the POS and no ste
 
 <a id="pos-sale"></a>
 ## Ring up a sale
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -39,6 +39,7 @@ A sale starts with the customer, then you scan the items. "Pick the customer fir
 
 **How**
 1. Press **+ New sale** (or **Customer…**). In **Customer for this sale**, type part of the name and click the customer.
+   If the customer has invoices past their due date, the window **Overdue invoices** opens. Read it, ask about payment, and press **OK** — it does not stop the sale (see [Start a new sales order](01-sales.md#sales-new-order)).
 2. Scan a barcode or type a SKU, then press Enter. The newest item goes on top, and its photo shows large at the top right.
 3. If the code does not match, press **Find…** and search by SKU or name. "Nothing matched that code exactly — pick from the list."
 4. Change the quantity with **−** and **+**, or type the number. **✕** takes the item off.
@@ -168,7 +169,7 @@ Type **Cash given** to see the change. "Record the amount kept, not the cash han
 
 <a id="pos-park"></a>
 ## Park a sale and pick it up again
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 -->
 <!-- who: sales -->
 
 **What it is**
@@ -178,6 +179,13 @@ Type **Cash given** to see the change. "Record the amount kept, not the cash han
 1. On a confirmed sale, press **Park**. The screen is cleared.
 2. The sale shows in **Parked and open at this store**, with **Customer**, **State**, **Amount** and **Paid**.
 3. To go on, click the sale. "Click to pick it up at this counter." Any counter at this store can pick it up.
+
+**Delete a draft**
+A draft that was never confirmed can be deleted — for example a sale started by mistake.
+1. On the open draft press **Delete draft** at the top, or press **✕** on its row in **Parked and open at this store** (it does not open the sale).
+2. IMS asks "Delete draft …? It has never been confirmed, so it disappears — the number is not reused." Press **OK**.
+- A confirmed sale has no **Delete draft** and no **✕**. If IMS refuses, it says why.
+- **Delete draft** on **Sales Orders** does the same thing.
 
 **Good to know**
 - Drafts you have started show here too, as "draft — scanning".
@@ -204,4 +212,4 @@ On **Sales Orders** a POS sale has the tag **POS**. The badges are the same as f
 **Closing the day**
 Counting the cash and closing the card terminal happen outside IMS. To check the day's payments: on **Sales ▾** › **Customer Payments**, choose the method (**All methods** lists them), set both dates to the day, and press **↓ CSV** (see [Customer payments and deposits](01-sales.md#sales-payments)).
 
-<!-- rulings: 159, 225, 283, 546, 547, 629, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737 -->
+<!-- rulings: 159, 225, 283, 546, 547, 629, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773 -->
