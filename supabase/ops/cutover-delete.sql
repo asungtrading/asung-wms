@@ -3,14 +3,14 @@
 --
 -- 무엇: 거래와 거기 딸린 것 79 표를 truncate 한 문장으로 비운다(판정 746 · cascade 없음 · 빠진 표가 있으면 PostgreSQL 이 오류로 멈춘다).
 --       설정 · 마스터 · hist_ · 스토어 연결 기록 · 진단 로그(판정 751 · 752)는 그대로. 원장 · 레이어는 재적재(reload-procedure §P → §E 컷오버판 · §H)가 맡는다.
---       시험 마스터(판정 750)는 이 파일에 없다 — 자리만(⑧) · 다음 차수.
+--       시험 마스터(판정 750 · ⑧)와 Roux 19 줄(판정 756 · ⑨)도 이 파일이 한다(cutdel-2).
 -- 꼴:  마이그레이션 아님 · 함수 아님(운영 DB 에 「거래 전부 지우기」 를 부를 수 있게 남기지 않는다) · 컷오버 날 한 번.
 -- 실행(컷오버 날 · Caleb · 레포 뿌리에서):
 --   psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -1 -f supabase/ops/cutover-delete.sql > ~/cutover-delete.log 2>&1; echo "exit=$?"
 -- 리허설(Claude Code · begin → rollback): supabase/tests/cutover_delete_rehearsal.sql 이 이 파일을 -v rehearsal=1 로 \i 한다.
 --   rehearsal 갈래 = 관문 ② 는 찍기만 · ⑥ setval 은 「부를 값」 만 찍는다(setval 은 rollback 되지 않는다). 나머지는 같다.
 -- ⚠️ 이 파일에 begin · commit 없음(-1 이 한 트랜잭션) · cascade 없음 · session_replication_role 안 씀 · 운영(asung-WMS) 주소는 쓰지 않는다.
--- 차례: ① 이 DB 확인 → ② 관문 → ③ 분류 대조 → ④ 남김 지문(전) → ⑤ truncate → ⑥ 번호 → ⑦ 뒤 검산 → ⑧ 750 자리
+-- 차례: ① 이 DB 확인 → ② 관문 → ③ 분류 대조 → ④ 남김 지문(전) → ⑤ truncate → ⑥ 번호 → ⑦ 뒤 검산 → ⑧ 750 시험 마스터 delete → ⑨ 756 Roux 19 줄 → ⑧ · ⑨ 검산
 --
 -- ① 이 DB 확인 (1/2) — supabase/ops/guard-test-only.sql 바이트 복사(md5 8a5ba670298eccd429a496d4f30c1c19 · 26 줄).
 --    ⚠️ inv_config.db_role 은 컷오버 뒤에도 'test' 로 둔다(cutdel-1 이견 3) — 이 표식은 「IMS 프로젝트」 라는 뜻이고 모든 마이그레이션 가드가 본다.
@@ -242,5 +242,188 @@ select 'cutover-delete' as result,
        :'t_trunc'::timestamptz as truncate_at,
        (:'t_post_end'::timestamptz - :'t_trunc'::timestamptz) as truncate_to_check_done;
 
--- ⑧ 판정 750 자리 — 시험 마스터(손님 2 · 공급처 1 · 제품 27 · 딜 15 와 딸린 것)는 Caleb 의 줄마다 표시가 온 뒤 다음 차수가 따로 짓는다. 이 파일은 손대지 않는다.
+-- ⑧ 판정 750 — 시험 마스터 지우기 (cutdel-2 · Caleb 표시 2026-10-26) · delete(truncate 아님 · 문지기 · 트리거 켜 둔 채)
+--    키로 고른다(SKU · 제품군 SKU · 손님 이름 · 공급처 이름 · 딜 이름) — id 를 박지 않는다 · 키마다 정확히 한 행이 아니면 그 키를 대고 멈춘다.
+--    순서(실물 FK 전부 no action · cutdel-2 이견 2): 스토어 짝(listing · product · variant · media · stock_sent) 먼저 — 가격 · 태그 · 바코드 · 사진의 delete 트리거(shop_queue_trigger)가
+--    켜진 listing 의 제품을 shop_push_queue 에 넣으므로 listing 이 사라진 뒤에 지운다 → 가격 · 태그 · 바코드 · 제품-공급처 · BOM · 사진 → 제품(부모 · -6 자식 한 문장) → 제품군
+--    → 딜(target → line → tier → customer_rule → so_deal) → 손님(address · contact · shop_customer → customer) → 공급처(address · contact · discount · formula · pur → supplier).
+--    문지기 product_delete_lock(product_sku_lock): 원장 · 레이어에 SKU 가 있으면 IM175 — 지우기 전에 0 을 확인한다(끄지 않는다). 딜 · 태그 트리거는 so 에만 쓴다(⑤ 뒤 비어 있음 · 무해).
+--    사진 파일은 SQL 로 못 지운다 — 경로 목록을 로그에 찍고 §P 의 Storage 단계(748 의 7 개와 함께)에서 지운다.
+\set p1 'AAA00001 AAA00001-6 AAA00002 AAA00002-6 AAA00003 AS85234 CON99901 CON99901-12'
+\set p2 'TBR00182 TBR00182-12 TBR16260 TBR16260-6 TBR39231 TBR39231-12 TBR43447 TBR43447-6'
+\set p3 'TBR63096 TBR63096-6 TBR66303 TBR66303-6 TBR79321 TBR79321-6 TBR81130 TBR81130-6'
+\set p750 :p1 ' ' :p2 ' ' :p3
+\set f750 'AAA00001FAM TBR16260FAM TBR66303FAM'
+\set c750 'TEST IMS Shopify'
+\set s750 'TEST Supplier-Canada'
+\set d750 'TEST POS SALE 15|DR TEST line|DR TEST order|October Monthly Sale|Coupon Test|COUPON TEST 2|Less Discount-TEST|Test Promo (UOM)|Sale: Weekly Flash - Gummy Professional Flash Sale (Oct 15 ~ 28)|TEST-ADC96507'
+-- 남는 것(검산용): 제품 AS85203 계열 3 · 손님 「Asung Employee - Donghyo Shin」 · 딜 5
+\set keep_p 'AS85203 AS85203-6 AS85203-72'
+\set keep_c 'Asung Employee - Donghyo Shin'
+\set keep_d 'Hera Beauty (GPR-12, RON-21)|REX Deal Price|UOM Discount|Sale: Blowout Sale|PZ Wholesale - Kim & C 30% DC'
+select set_config('cut.keep_p', :'keep_p', true), set_config('cut.keep_c', :'keep_c', true), set_config('cut.keep_d', :'keep_d', true);
+
+create temp table cut_key (kind text, key text, ids uuid[], primary key (kind, key));
+insert into cut_key select 'product',  k, (select coalesce(array_agg(id), '{}') from public.product        where sku  = k) from unnest(string_to_array(:'p750', ' ')) k;
+insert into cut_key select 'family',   k, (select coalesce(array_agg(id), '{}') from public.product_family where sku  = k) from unnest(string_to_array(:'f750', ' ')) k;
+insert into cut_key select 'customer', k, (select coalesce(array_agg(id), '{}') from public.customer       where name = k) from unnest(array[:'c750']) k;
+insert into cut_key select 'supplier', k, (select coalesce(array_agg(id), '{}') from public.supplier       where name = k) from unnest(array[:'s750']) k;
+insert into cut_key select 'deal',     k, (select coalesce(array_agg(id), '{}') from public.so_deal        where name = k) from unnest(string_to_array(:'d750', '|')) k;
+create temp view cut_p as select ids[1] as id from cut_key where kind = 'product';
+create temp view cut_f as select ids[1] as id from cut_key where kind = 'family';
+create temp view cut_c as select ids[1] as id from cut_key where kind = 'customer';
+create temp view cut_s as select ids[1] as id from cut_key where kind = 'supplier';
+create temp view cut_d as select ids[1] as id from cut_key where kind = 'deal';
+
+do $$
+declare v_bad text; v_n int;
+begin
+  select string_agg(kind || ' ' || key || ' (' || cardinality(ids) || ')', ', ' order by kind, key) into v_bad from cut_key where cardinality(ids) <> 1;
+  if v_bad is not null then
+    raise exception '750 KEY: each key must match exactly one row - these do not: % - nothing was changed', v_bad;
+  end if;
+  select count(*) into v_n from cut_key where kind = 'product';
+  if v_n <> 24 then raise exception '750 KEY: expected 24 product keys, found % - nothing was changed', v_n; end if;
+  -- 제품군의 구성원이 전부 지우는 제품인가
+  select string_agg(p.sku, ', ') into v_bad from public.product p where p.family_id in (select id from cut_f) and p.id not in (select id from cut_p);
+  if v_bad is not null then
+    raise exception '750 FAMILY: family member(s) not in the delete list: % - nothing was changed', v_bad;
+  end if;
+  -- 문지기 product_delete_lock 이 볼 것 — 원장 · 레이어에 그 SKU 가 있으면 지울 수 없다(IM175)
+  select string_agg(distinct x.sku, ', ') into v_bad from (
+    select e.sku from public.inv_ledger e where e.sku in (select p.sku from public.product p join cut_p on cut_p.id = p.id)
+    union all select l.sku from public.inv_layer l where l.sku in (select p.sku from public.product p join cut_p on cut_p.id = p.id)) x;
+  if v_bad is not null then
+    raise exception '750 LOCK: SKU(s) have ledger or layer rows and cannot be deleted (product_delete_lock): % - nothing was changed', v_bad;
+  end if;
+  -- 남는 것이 지금 있는가(검산의 기준)
+  select string_agg(k, ', ') into v_bad from unnest(string_to_array(current_setting('cut.keep_p'), ' ')) k where (select count(*) from public.product where sku = k) <> 1;
+  if v_bad is not null then raise exception '750 KEEP: kept product key(s) not exactly one row: % - nothing was changed', v_bad; end if;
+  if (select count(*) from public.customer where name = current_setting('cut.keep_c')) <> 1 then
+    raise exception '750 KEEP: kept customer key not exactly one row - nothing was changed'; end if;
+  select string_agg(k, ', ') into v_bad from unnest(string_to_array(current_setting('cut.keep_d'), '|')) k where (select count(*) from public.so_deal where name = k) <> 1;
+  if v_bad is not null then raise exception '750 KEEP: kept deal key(s) not exactly one row: % - nothing was changed', v_bad; end if;
+  raise notice '⑧ 키 통과 — 제품 24 · 제품군 3 · 손님 1 · 공급처 1 · 딜 10 각 한 행 · 제품군 구성원 전부 목록 안 · 원장 · 레이어 0 · 남는 것(제품 3 · 손님 1 · 딜 5) 있음';
+end $$;
+
+\echo '⑧ 사진 파일 — product-images 버킷에서 Storage 화면으로 지울 경로(§P 6 단계 · 748 의 7 개와 함께)'
+select p.sku, i.storage_path, i.is_primary from public.product_image i join public.product p on p.id = i.product_id join cut_p on cut_p.id = p.id order by 1, 2;
+
+create temp table cut_del (tbl text primary key, n bigint not null);
+-- 스토어 짝 먼저(이견 2)
+with d as (delete from public.shop_media       x where x.product_image_id in (select i.id from public.product_image i join cut_p on cut_p.id = i.product_id) returning 1) insert into cut_del select 'shop_media', count(*) from d;
+with d as (delete from public.shop_variant     x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'shop_variant', count(*) from d;
+with d as (delete from public.shop_product     x where x.product_id in (select id from cut_p) or x.family_id in (select id from cut_f) returning 1) insert into cut_del select 'shop_product', count(*) from d;
+with d as (delete from public.shop_listing     x where x.product_id in (select id from cut_p) or x.family_id in (select id from cut_f) returning 1) insert into cut_del select 'shop_listing', count(*) from d;
+with d as (delete from public.shop_stock_sent  x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'shop_stock_sent', count(*) from d;
+with d as (delete from public.shop_link_item   x where x.ims_product_id in (select id from cut_p) or x.ims_family_id in (select id from cut_f) returning 1) insert into cut_del select 'shop_link_item', count(*) from d;
+-- 제품에 딸린 것
+with d as (delete from public.product_price    x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'product_price', count(*) from d;
+with d as (delete from public.product_tag      x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'product_tag', count(*) from d;
+with d as (delete from public.product_barcode  x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'product_barcode', count(*) from d;
+with d as (delete from public.product_supplier x where x.product_id in (select id from cut_p) or x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'product_supplier', count(*) from d;
+with d as (delete from public.product_bom      x where x.parent_product_id in (select id from cut_p) or x.component_product_id in (select id from cut_p) returning 1) insert into cut_del select 'product_bom', count(*) from d;
+with d as (delete from public.product_image    x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'product_image', count(*) from d;
+with d as (delete from public.bgrade_price     x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'bgrade_price', count(*) from d;
+with d as (delete from public.product_bin_overflow x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'product_bin_overflow', count(*) from d;
+with d as (delete from public.ims_image_sync_queue x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'ims_image_sync_queue', count(*) from d;
+with d as (delete from public.ims_image_sync_skips x where x.product_id in (select id from cut_p) returning 1) insert into cut_del select 'ims_image_sync_skips', count(*) from d;
+-- 제품(부모와 -6 자식을 한 문장 · no action 은 문장 끝에 검사) → 제품군
+with d as (delete from public.product          x where x.id in (select id from cut_p) returning 1) insert into cut_del select 'product', count(*) from d;
+with d as (delete from public.product_family   x where x.id in (select id from cut_f) returning 1) insert into cut_del select 'product_family', count(*) from d;
+-- 딜
+with d as (delete from public.so_deal_target   x where x.line_id in (select l.id from public.so_deal_line l where l.deal_id in (select id from cut_d)) returning 1) insert into cut_del select 'so_deal_target', count(*) from d;
+with d as (delete from public.so_deal_line     x where x.deal_id in (select id from cut_d) returning 1) insert into cut_del select 'so_deal_line', count(*) from d;
+with d as (delete from public.so_deal_tier     x where x.deal_id in (select id from cut_d) returning 1) insert into cut_del select 'so_deal_tier', count(*) from d;
+with d as (delete from public.so_deal_customer_rule x where x.deal_id in (select id from cut_d) or x.customer_id in (select id from cut_c) returning 1) insert into cut_del select 'so_deal_customer_rule', count(*) from d;
+with d as (delete from public.so_deal          x where x.id in (select id from cut_d) returning 1) insert into cut_del select 'so_deal', count(*) from d;
+-- 손님
+with d as (delete from public.customer_address x where x.customer_id in (select id from cut_c) returning 1) insert into cut_del select 'customer_address', count(*) from d;
+with d as (delete from public.customer_contact x where x.customer_id in (select id from cut_c) returning 1) insert into cut_del select 'customer_contact', count(*) from d;
+with d as (delete from public.shop_customer    x where x.customer_id in (select id from cut_c) returning 1) insert into cut_del select 'shop_customer', count(*) from d;
+with d as (delete from public.customer         x where x.id in (select id from cut_c) returning 1) insert into cut_del select 'customer', count(*) from d;
+-- 공급처
+with d as (delete from public.supplier_address x where x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'supplier_address', count(*) from d;
+with d as (delete from public.supplier_contact x where x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'supplier_contact', count(*) from d;
+with d as (delete from public.supplier_discount x where x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'supplier_discount', count(*) from d;
+with d as (delete from public.price_formula    x where x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'price_formula', count(*) from d;
+with d as (delete from public.pur_supplier_setting x where x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'pur_supplier_setting', count(*) from d;
+with d as (delete from public.pur_override_history x where x.supplier_id in (select id from cut_s) returning 1) insert into cut_del select 'pur_override_history', count(*) from d;
+with d as (delete from public.supplier         x where x.id in (select id from cut_s) returning 1) insert into cut_del select 'supplier', count(*) from d;
+\echo '⑧ 표마다 지운 행 수'
+select tbl, n from cut_del order by n desc, tbl;
+select count(*) as tables_touched, sum(n) as rows_deleted from cut_del where n > 0;
+
+-- ⑨ 판정 756 — Roux Laboratories 의 product_supplier 19 줄(source manual · cin7_id 있음 · IMS 가 끈 Cin7 줄)을 재적재가 덮게 source 를 cin7 으로 되돌린다.
+--    근거(ImsLoadProductSupplier.gs :245 ~ 246 · :291): 적재는 source=manual 을 읽어 cin7_id 가 있으면 그 Cin7 줄을 「보내지 않는다」(skipManual). source 가 cin7 이면 upsert(충돌 키 cin7_id)가
+--    supplier_sku · cost · fixed_cost · currency · last_supplied · is_active 를 옛 시스템 값으로 덮는다(켜질 수 있다 — Caleb 확인 2026-10-26). ims_touch 가 updated_by 를 null 로 둔다(auth.uid() 없음).
+--    확인은 컷오버 날 7 단계 Dry 로그 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 이 19 → 0. 기본 공급처는 7 단계 끝의 재계산이 정한다. 수가 다르면 멈춘다(roux_expected).
+\set roux_expected 19
+select set_config('cut.roux_expected', :'roux_expected', true);
+\echo '⑨ 되돌릴 줄(전)'
+select p.sku, ps.supplier_sku, ps.cost, ps.fixed_cost, ps.is_active, ps.is_default, ps.updated_at::date
+from public.product_supplier ps join public.product p on p.id = ps.product_id
+where ps.source = 'manual' and ps.cin7_id is not null and ps.supplier_id = (select id from public.supplier where name = 'Roux Laboratories') order by 1;
+do $$
+declare v_n int; v_sup uuid;
+begin
+  select id into v_sup from public.supplier where name = 'Roux Laboratories';
+  if v_sup is null then raise exception '756 ROUX: supplier Roux Laboratories not found - nothing was changed'; end if;
+  select count(*) into v_n from public.product_supplier where source = 'manual' and cin7_id is not null and supplier_id = v_sup;
+  if v_n <> current_setting('cut.roux_expected')::int then
+    raise exception '756 ROUX: expected % rows (source manual, cin7_id set, Roux) but found % - look at the list above and change roux_expected if that is right - nothing was changed', current_setting('cut.roux_expected')::int, v_n;
+  end if;
+  if (select count(*) from public.product_supplier where source = 'manual' and cin7_id is not null and supplier_id <> v_sup) > 0 then
+    raise exception '756 ROUX: there are manual rows with cin7_id for other suppliers - decide those first (ruling 756 is Roux only) - nothing was changed';
+  end if;
+end $$;
+create temp table cut_roux (n bigint);
+with u as (update public.product_supplier ps set source = 'cin7'
+           where ps.source = 'manual' and ps.cin7_id is not null and ps.supplier_id = (select id from public.supplier where name = 'Roux Laboratories') returning 1)
+insert into cut_roux select count(*) from u;
+select n as roux_rows_reset from cut_roux;
+
+-- ⑧ · ⑨ 뒤 검산 — 지운 키 0 · 남는 것 그대로 · 지움 79 표 여전히 0(큐 트리거가 줄을 넣지 않았다) · 남김 표 행 수 = ⑦ 값 − 지운 수 · 지운 수 0 인 남김 표는 해시도 같다(⑨ 의 product_supplier 만 예외) · 다시 맞춤 무변
+select pg_temp.cut_fp_take('post9');
+do $$
+declare v_bad text; v_roux int; v_rows bigint; v_tbls int;
+begin
+  select n into v_roux from cut_roux;
+  if v_roux <> current_setting('cut.roux_expected')::int then
+    raise exception 'POST9: roux update changed % rows, expected % - the transaction is rolled back', v_roux, current_setting('cut.roux_expected')::int;
+  end if;
+  if (select count(*) from public.product_supplier where source = 'manual' and cin7_id is not null and supplier_id = (select id from public.supplier where name = 'Roux Laboratories')) <> 0 then
+    raise exception 'POST9: roux rows still manual - the transaction is rolled back';
+  end if;
+  -- 지운 키 0
+  select string_agg(kind || ' ' || key, ', ') into v_bad from cut_key k where
+       (k.kind = 'product'  and exists (select 1 from public.product        where sku  = k.key))
+    or (k.kind = 'family'   and exists (select 1 from public.product_family where sku  = k.key))
+    or (k.kind = 'customer' and exists (select 1 from public.customer       where name = k.key))
+    or (k.kind = 'supplier' and exists (select 1 from public.supplier       where name = k.key))
+    or (k.kind = 'deal'     and exists (select 1 from public.so_deal        where name = k.key));
+  if v_bad is not null then raise exception 'POST8: key(s) still present: % - the transaction is rolled back', v_bad; end if;
+  -- 남는 것 그대로
+  select string_agg(k, ', ') into v_bad from unnest(string_to_array(current_setting('cut.keep_p'), ' ')) k where (select count(*) from public.product where sku = k and source = 'manual') <> 1;
+  if v_bad is not null then raise exception 'POST8: kept product(s) missing: % - the transaction is rolled back', v_bad; end if;
+  if (select count(*) from public.customer where name = current_setting('cut.keep_c')) <> 1 then raise exception 'POST8: kept customer missing - the transaction is rolled back'; end if;
+  select string_agg(k, ', ') into v_bad from unnest(string_to_array(current_setting('cut.keep_d'), '|')) k where (select count(*) from public.so_deal where name = k) <> 1;
+  if v_bad is not null then raise exception 'POST8: kept deal(s) missing: % - the transaction is rolled back', v_bad; end if;
+  -- 지움 79 표 여전히 0
+  select string_agg(tbl || '=' || n, ', ' order by tbl) into v_bad from cut_fp where phase = 'post9' and cls = 'D' and n > 0;
+  if v_bad is not null then raise exception 'POST8: deleted table(s) got rows back (a queue trigger?): % - the transaction is rolled back', v_bad; end if;
+  -- 남김 · 다시 맞춤: 행 수 = ⑦ − 지운 수 · 지운 수 0 이면 해시 같음(product_supplier 는 ⑨ 로 해시만 바뀐다)
+  select string_agg(a.tbl || ' ' || a.n || '-' || coalesce(d.n, 0) || ' <> ' || b.n, ', ' order by a.tbl) into v_bad
+  from cut_fp a join cut_fp b on b.tbl = a.tbl and b.phase = 'post9' left join cut_del d on d.tbl = a.tbl
+  where a.phase = 'post' and a.cls in ('K', 'R') and b.n <> a.n - coalesce(d.n, 0);
+  if v_bad is not null then raise exception 'POST8: row count(s) off: % - the transaction is rolled back', v_bad; end if;
+  select string_agg(a.tbl, ', ' order by a.tbl) into v_bad
+  from cut_fp a join cut_fp b on b.tbl = a.tbl and b.phase = 'post9' left join cut_del d on d.tbl = a.tbl
+  where a.phase = 'post' and a.cls in ('K', 'R') and coalesce(d.n, 0) = 0 and a.tbl <> 'product_supplier' and a.h is distinct from b.h;
+  if v_bad is not null then raise exception 'POST8: untouched kept table(s) changed: % - the transaction is rolled back', v_bad; end if;
+  select count(*), sum(n) into v_tbls, v_rows from cut_del where n > 0;
+  raise notice '⑧ · ⑨ 검산 통과 — 시험 마스터 % 표 % 행 지움 · 키 39 전부 0 · 남는 것(제품 3 · 손님 1 · 딜 5) 그대로 · 지움 79 표 0 유지 · 남김 행 수 = ⑦ − 지운 수 · Roux % 줄 source cin7', v_tbls, v_rows, v_roux;
+end $$;
+select 'cutover-delete 8-9' as result, (select count(*) from cut_del where n > 0) as master_tables, (select sum(n) from cut_del) as master_rows_deleted, (select n from cut_roux) as roux_rows_reset,
+       (select sum(n) from cut_fp where phase = 'post9' and cls = 'K') as kept_rows_now, (clock_timestamp() - :'t_trunc'::timestamptz) as truncate_to_end;
 -- 끝 — 여기서 -1 트랜잭션이 commit 된다(컷오버 날) / 장치가 rollback 한다(리허설).

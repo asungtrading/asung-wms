@@ -544,8 +544,9 @@ wms_waves · wms_zone_sequence
 
 컷오버 날(2026-11-01) 펴 볼 문서는 이 절 하나다. 위 §A ~ §O 는 「테스트 DB 재복사」 절차고, 이 절은 그것을 **컷오버판**으로 다시 쓴 것이다 — 다른 곳은 이 절이 가리킬 때만 편다.
 전제: Asung-IMS(지금의 테스트 DB)가 그대로 메인이 된다(판정 617) · 재적재의 원천은 asung-WMS 가 옛 시스템을 마지막으로 긁은 것(§B · §D 그대로) · **운영(asung-WMS) 쪽 Cin7 수집 cron 정지(§B ④)는 이 절 밖(운영 창에서 · 별건)**.
-파일: `supabase/ops/cutover-delete.sql`(지우기 · ① ~ ⑦ · 마이그레이션 아님 · 함수 아님) · `supabase/tests/cutover_delete_rehearsal.sql`(리허설 장치 · begin → rollback).
+파일: `supabase/ops/cutover-delete.sql`(지우기 · ① ~ ⑦ 거래 · ⑧ 시험 마스터(750) · ⑨ Roux 19 줄(756) · 마이그레이션 아님 · 함수 아님) · `supabase/tests/cutover_delete_rehearsal.sql`(리허설 장치 · begin → rollback).
 실측 리허설 2026-10-26 14:53 UTC: exit 0 · 지움 79 표 8,659 행 → 0 · 남김 73 표 564,540 행 지문 무변 · 다시 맞춤 20 표 348,300 행 무변 · begin → rollback 8.0 s · **잠금(truncate → rollback) 4.0 s** · rollback 뒤 172 표 행 수 전부 같음 · 시퀀스 13 개 전후 같음 · 그 사이 cron 9 회 전부 succeeded.
+실측 리허설 2(cutdel-2 · ⑧ · ⑨ 포함) 2026-10-26 15:29 UTC: exit 0 · ⑦ 지움 79 표 8,665 행 → 0 · ⑧ 시험 마스터 25 표 198 행 delete(제품 24 · 제품군 3 · 손님 1 · 공급처 1 · 딜 10 과 딸린 것) · ⑨ Roux 19 줄 source cin7 · begin → rollback 13.6 s · **잠금 9.0 s** · rollback 뒤 172 표 행 수 전부 같음 · 시퀀스 13 개 같음 · 그 사이 cron 12 종 전부 succeeded(잠금을 기다린 것 최대 4.4 s).
 
 ### P-1 표 172 의 세 갈래 (실측 2026-10-26 · `cutover-delete.sql` ③ 이 매번 pg_class 와 대조한다 — 하나라도 빠지면 이름을 대고 멈춘다)
 - **지움 79(truncate 한 문장 · restart identity · cascade 없음 · 판정 746)** — comment 「⭐ 거래 — 컷오버 때 지운다」 19 + 쓰는 창구가 거래 · 작업 · 큐뿐인 60:
@@ -562,14 +563,15 @@ wms_waves · wms_zone_sequence
 ### P-2 할 일 순서표 — 누가 · 어디서 · 명령 · 확인 · 멈춤 조건
 | # | 할 일 | 누가 · 어디서 | 명령 · 화면 | 확인 | 멈춤 조건 |
 |---|---|---|---|---|---|
-| 0 | 전날 — 드라이브 Start date = 2026-11-01 · `inv_config.db_role` 은 'test' 그대로(모든 마이그레이션 가드가 본다 · cutdel-1 이견 3) · 운영 쪽 §B ④ 는 별건 | Caleb · Settings › Google Drive | — | so-module §74-d ① | — |
-| 1 | IMS cron 21 개 멈춤(번호를 지키려 unschedule 이 아니라 active off · 실물 jobid 1 · 16 · 40 ~ 58) | Caleb · psql 테스트 DB | `select cron.alter_job(jobid, active := false) from cron.job;` | `select count(*) from cron.job where active;` = **0** | 0 이 아니면 2 로 가지 않는다 |
+| 0a | **10-31 저녁 — DB 전체 사본 한 벌(판정 757)** · 세 파일(역할 · 스키마 · 자료 · Docker 의 pg_dump · §B ①) · PC 에 보관(레포 밖) · ⚠️ 플래그는 짐작 — **10-30 에 한 번 돌려 크기를 본다** · 버킷 파일(사진 1.6 GB)은 덤프에 없고 그대로 남는다 | Caleb · 레포 뿌리 · 집 PC | `supabase db dump --db-url "$(cat ~/.asung-testdb-url)" --role-only -f ~/ims-1031-roles.sql && supabase db dump --db-url "$(cat ~/.asung-testdb-url)" -f ~/ims-1031-schema.sql && supabase db dump --db-url "$(cat ~/.asung-testdb-url)" --data-only --use-copy -f ~/ims-1031-data.sql; ls -l ~/ims-1031-*.sql` | 세 파일 크기(자료 파일이 가장 크다 · 수십 MB 이상 · 0 이면 실패) · `grep -c '^COPY' ~/ims-1031-data.sql` ≈ 표 수 | 파일이 없거나 0 바이트면 1 로 가지 않는다 |
+| 0b | 전날 — 드라이브 Start date = 2026-11-01 · `inv_config.db_role` 은 'test' 그대로(모든 마이그레이션 가드가 본다 · cutdel-1 이견 3) · 운영 쪽 §B ④ 는 별건 | Caleb · Settings › Google Drive | — | so-module §74-d ① | — |
+| 1 | **먼저(판정 755)** 40 · 41(ims-image-scan · move) 의 마지막 실행이 10-31 밤 succeeded 인지: `select jobid, status, start_time, left(return_message, 60) from cron.job_run_details where jobid in (40, 41) order by start_time desc limit 2;` → 그 다음 IMS cron 21 개 멈춤(번호를 지키려 unschedule 이 아니라 active off · 실물 jobid 1 · 16 · 40 ~ 58) | Caleb · psql 테스트 DB | `select cron.alter_job(jobid, active := false) from cron.job;` | 40 · 41 두 줄 succeeded · 10-31 · `select count(*) from cron.job where active;` = **0** | 40 · 41 이 failed 면 이유를 보고(옮기지 못한 사진은 ims_image_sync_skips 에 남는다) 그래도 끈다 · active 가 0 이 아니면 2 로 가지 않는다 |
 | 2 | 테스트 스토어 끄기(751 · 연결 기록은 남는다) | Caleb · Settings › Shopify Stores | is_active off(창구 shop_store_save) | `select code, is_active from shop_store;` 전부 f | — |
 | 3 | 메일 · 드라이브 큐가 비었나 | Caleb · psql | `select status, count(*) from mail_outbox group by 1; select status, count(*) from drive_job group by 1;` | waiting_pdf · queued · sending **0** | 열린 줄이 있으면 1 을 잠깐 되돌려(54 ~ 58 만 active on) 빠지게 한 뒤 다시 1 |
 | 4 | §C 되돌릴 자리(백업) — ledger_ims · config_ims · layer 셋 | Caleb · SQL Editor(테스트 창 가드) | §C 그대로 | 다섯 표 행 수 | 창 가드가 서면 창이 틀렸다 |
-| 5 | **거래 지우기** — ① 이 DB 확인 → ② 관문(1 · 2 · 3 을 다시 센다) → ③ 분류 대조 → ④ 남김 지문 → ⑤ truncate 79 → ⑥ 번호 → ⑦ 뒤 검산 | **Caleb** · 레포 뿌리 · psql 테스트 DB | `psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -1 -f supabase/ops/cutover-delete.sql > ~/cutover-delete.log 2>&1; echo "exit=$?"` | exit=0 · 로그 끝 `⑦ 검산 통과` 한 줄과 result 행(deleted_tables 79 · kept_tables 73) · 시퀀스 표 so 20000 f · invoice 60000 f · credit 1000 f · po 2000 f · 넷 1 f | exit≠0 이면 **아무것도 안 바뀌었다**(-1 한 트랜잭션) · 로그의 첫 ERROR(GATE / CLASS / POST …)가 「무엇을 해야 풀리나」 를 말한다 · 고치고 같은 명령 |
-| 6 | 버킷 파일 7 개 지우기(748) — documents/final_invoice 6 · po-documents/po 1 | Caleb · 대시보드 Storage(SQL 은 storage.protect_objects_delete 가 막는다 · 표 행만 지우면 S3 실물이 고아로 남는다) | Storage › documents › final_invoice 전부 선택 → Delete · Storage › po-documents › po › … → Delete | `select bucket_id, count(*) from storage.objects where bucket_id in ('documents','po-documents') group by 1;` **0 행** · doc-brand 1 · product-images 10,410 은 그대로 | — |
-| 7 | 시험 마스터(750) — 손님 2 · 공급처 1 · 제품 27 · 딜 15 와 딸린 것 | 다음 차수(Caleb 의 줄마다 표시 뒤) | — | — | 이 절의 5 가 끝난 뒤에만(시험 손님을 SO 18 건이 쓰고 있었다) |
+| 5 | **거래 · 시험 마스터 지우기** — ① 이 DB 확인 → ② 관문(1 · 2 · 3 을 다시 센다) → ③ 분류 대조 → ④ 남김 지문 → ⑤ truncate 79 → ⑥ 번호 → ⑦ 뒤 검산 → **⑧ 750 시험 마스터 delete**(제품 24 · 제품군 3 · 손님 1 · 공급처 1 · 딜 10 과 딸린 것 · 키로 고른다 · 스토어 짝 먼저) → **⑨ 756 Roux 19 줄 source cin7** → ⑧ · ⑨ 검산 | **Caleb** · 레포 뿌리 · psql 테스트 DB | `psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -1 -f supabase/ops/cutover-delete.sql > ~/cutover-delete.log 2>&1; echo "exit=$?"` | exit=0 · 로그의 NOTICE 넷(③ · ⑦ · ⑧ 키 · ⑧ · ⑨ 검산 통과) · result 행 둘(deleted_tables 79 · kept_tables 73 / master_tables 25 · master_rows_deleted ≈ 198 · roux_rows_reset 19) · 시퀀스 표 so 20000 f · invoice 60000 f · credit 1000 f · po 2000 f · 넷 1 f · **「⑧ 사진 파일」 표 8 줄을 6 단계에 쓴다** | exit≠0 이면 **아무것도 안 바뀌었다**(-1 한 트랜잭션) · 로그의 첫 ERROR(GATE / CLASS / POST / 750 KEY / 750 LOCK / 756 ROUX …)가 「무엇을 해야 풀리나」 를 말한다 · 고치고 같은 명령 · 756 ROUX 가 수가 다르다고 서면 그 목록을 보고(그 사이 누가 Roux 줄을 더 껐나) 파일의 `\set roux_expected 19` 를 그 수로 고치고 같은 명령 |
+| 6 | 버킷 파일 **15 개** 지우기 — 748 의 7(documents/final_invoice 6 · po-documents/po 1) + ⑧ 이 로그에 찍은 **product-images 8**(AS85234 2 · TBR00182 · TBR16260 · TBR39231 · TBR43447 2 · TBR63096 · 경로 `<제품 id>/<파일 id>.jpg` — 로그의 「⑧ 사진 파일」 표 그대로) | Caleb · 대시보드 Storage(SQL 은 storage.protect_objects_delete 가 막는다 · 표 행만 지우면 S3 실물이 고아로 남는다) | Storage › documents › final_invoice 전부 선택 → Delete · Storage › po-documents › po › … → Delete · Storage › product-images › 로그의 폴더 6 개(제품 id) → 그 안 파일 → Delete | `select bucket_id, count(*) from storage.objects where bucket_id in ('documents','po-documents') group by 1;` **0 행** · `select count(*) from storage.objects o where o.bucket_id = 'product-images' and not exists (select 1 from product_image i where i.storage_path = o.name);` **0**(고아 없음) · doc-brand 1 · product-images 10,402 | — |
+| 7 | 시험 마스터(750)는 5 의 ⑧ 이 했다 — 남은 것 확인만: 제품 AS85203 · -6 · -72(실제 판매 이력 9 줄) · 손님 「Asung Employee - Donghyo Shin」 · 딜 5(Hera Beauty · REX Deal Price · UOM Discount · Sale: Blowout Sale · PZ Wholesale - Kim & C 30% DC) · Roux 19 줄은 ⑨ 가 source cin7 으로 되돌렸다(8 의 7 단계 Dry 에서 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 **0** 이어야 · 지난 실측 19) | Caleb · 화면 | Products · Customers · Settings › Deals | 위 수 | — |
 | 8 | 마스터 재적재 — so-module §73-c **0 ~ 9**(참조 → 손님 → 공급처 → 제품 → 세트 → 바코드 → BOM → 제품-공급처 → 가격 → 태그) | Caleb · Apps Script Dry → Apply | §73-c 표 | 각 Verify | §73-c 의 멈춤 조건 · ⚠️ listing 을 켜기 전(320) |
 | 9 | **§E 컷오버판**(P-4) — §D 덤프(운영 창) → pre(17 표 truncate) → 덤프 → post(setval 만 · **IMS 행 되넣기 없음** · 753) | Caleb · psql 테스트 DB | P-4 의 명령 | `select source, count(*) from inv_ledger group by 1;` → **ims 0** · cin7 · manual 만 | exit≠0 이면 자동 롤백 · ~/reload.log 첫 ERROR |
 | 10 | §G baseline_snapshot_key 갱신 → **§H 레이어 재생성**(다섯 문장 한 번에) | Caleb · SQL Editor | §G · §H 그대로 | apply() 반환의 `skipped_by_event` 여덟 키 0 · ims 블록 전부 0(IMS 줄이 없다) | 「nothing was rebuilt」 = 나눠 돌렸다 |
@@ -582,7 +584,7 @@ wms_waves · wms_zone_sequence
 ### P-3 cron 다시 켜기 순서(실물 jobid · 2026-10-26)
 1. 지우기 · 재적재 · 검산이 끝난 뒤 바로: **16** ims-wms-auto-hold · **1** so-backorder-sweep · **54 ~ 57** ims-mail-tick · drain · chat · pdf · **58** ims-drive(드라이브 Start date 11-01 · Send to Drive 켜기는 며칠 뒤 Caleb · 521).
 2. 진짜 스토어를 잇고(555 ~ 564 · 별건) listing 을 켠 뒤(320): **42 · 43** shop-drain · nightly → **44 · 45 · 46** stock-drain · diff · nightly(켜면 nightly 가 재고를 한꺼번에 보낸다 — 원하는 일) → **47 · 48 · 51** orders-drain · poll · order-drain → **49 · 50 · 52 · 53** fulfill · unshipped · paid-scan · paid-drain.
-3. **40 · 41** ims-image-scan · move(옛 시스템 첨부 옮기기) — 컷오버 뒤 다시 켤지는 **판정 안 됨**(cutdel-1 판정 거리).
+3. **40 · 41** ims-image-scan · move(옛 시스템 첨부 옮기기)는 **켜지 않는다**(판정 755 · 1 단계에서 마지막 실행을 확인하고 끈 채 둔다 · 다시 보지 않는 원천).
 
 ### P-4 §E 컷오버판 — pre 는 §E 그대로 · post 는 setval 만
 ```bash
@@ -614,7 +616,7 @@ tail -5 ~/reload.log
 
 ### P-5 §73-c · 684 · B급 · §74-d 와 맞물리는 순서 — 안과 이유
 ```
-1 cron 멈춤 → 2 스토어 끄기 → 3 큐 → 4 §C 백업 → 5 거래 지우기(cutover-delete.sql) → 6 버킷 7 파일 → [7 시험 마스터 · 다음 차수]
+0a 사본(10-31 저녁) → 1 cron 멈춤(40 · 41 마지막 실행 확인) → 2 스토어 끄기 → 3 큐 → 4 §C 백업 → 5 거래 · 시험 마스터 지우기 + Roux 되돌리기(cutover-delete.sql ① ~ ⑨) → 6 버킷 15 파일 → 7 남은 것 확인
 → 8 마스터 적재 §73-c 0 ~ 9 → 9 원장 재적재 §E 컷오버판 → 10 §G · §H 레이어 → 11 §I 검산
 → 12 이력 §73-c 10 → B급 칸 조정(N-1022-⑥) → 열린 PO 손으로(684) → 13 cron(P-3 의 1) → 진짜 스토어 · listing(별건 · 320) → cron(P-3 의 2) → 14 번호 확인 → 15 reload_backup 12 월 초
 ```
@@ -627,6 +629,6 @@ tail -5 ~/reload.log
 | 실패 지점 | 그때 상태 | 조치 |
 |---|---|---|
 | 5 `cutover-delete.sql` exit≠0 | **아무것도 안 바뀜**(-1 · 관문 · 분류 · 뒤 검산 모두 그 안) | 로그 첫 ERROR 대로 풀고 같은 명령 |
-| 5 성공 뒤 「지우지 말았어야 할 표」 발견 | 79 표 0 행 · 번호 처음 값 | 되돌릴 백업이 없다 — **그래서 ③ 분류 대조와 리허설이 있다**. 되돌리려면 컷오버 전 테스트 DB 전체 덤프뿐(판정 거리) |
+| 5 성공 뒤 「지우지 말았어야 할 표 · 행」 발견 | 79 표 0 행 · 시험 마스터 198 행 없음 · 번호 처음 값 | 되돌릴 DB 백업은 0a 의 사본뿐(판정 757) — 표 하나 · 행 몇 개는 그 자료 파일의 COPY 덩이에서 꺼내 넣는다 · **그래서 ③ 분류 대조 · ⑧ 키 검사 · 리허설 둘이 있다** |
 | 6 버킷 | 표는 비었고 파일만 남음 | 다시 지운다 · 파일이 남아도 doc_file 이 없어 아무도 가리키지 않는다 |
 | 9 · 10 · 11 | §L 그대로(§E 자동 롤백 · §H 자동 롤백) | §L · 단 「ims 행만 되넣기」 줄은 컷오버판에 없다 |
