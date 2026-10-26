@@ -537,3 +537,96 @@ wms_waves · wms_zone_sequence
   ⚠️ 올리면 §B ② 의 기준값(운영 53 · 테스트 0)이 바뀐다 — 그때 이 문서를 함께 고친다.
 - ⬜ **월별 평가액 보존** — 컷오버 설계와 함께. `value` 의 출처가 Cin7 → IMS 레이어로 바뀌므로 출처 구분 장치가 필요(§K).
 - ✅ ~~단일판 리허설 한 번(컷오버 전)~~ — 2026-09-21 2차 실행(§N).
+
+---
+
+## §P 컷오버 날 — 거래 지우기와 첫날 재고 (cutdel-1 · 2026-10-26 · 판정 746 ~ 754 · deferred 332)
+
+컷오버 날(2026-11-01) 펴 볼 문서는 이 절 하나다. 위 §A ~ §O 는 「테스트 DB 재복사」 절차고, 이 절은 그것을 **컷오버판**으로 다시 쓴 것이다 — 다른 곳은 이 절이 가리킬 때만 편다.
+전제: Asung-IMS(지금의 테스트 DB)가 그대로 메인이 된다(판정 617) · 재적재의 원천은 asung-WMS 가 옛 시스템을 마지막으로 긁은 것(§B · §D 그대로) · **운영(asung-WMS) 쪽 Cin7 수집 cron 정지(§B ④)는 이 절 밖(운영 창에서 · 별건)**.
+파일: `supabase/ops/cutover-delete.sql`(지우기 · ① ~ ⑦ · 마이그레이션 아님 · 함수 아님) · `supabase/tests/cutover_delete_rehearsal.sql`(리허설 장치 · begin → rollback).
+실측 리허설 2026-10-26 14:53 UTC: exit 0 · 지움 79 표 8,659 행 → 0 · 남김 73 표 564,540 행 지문 무변 · 다시 맞춤 20 표 348,300 행 무변 · begin → rollback 8.0 s · **잠금(truncate → rollback) 4.0 s** · rollback 뒤 172 표 행 수 전부 같음 · 시퀀스 13 개 전후 같음 · 그 사이 cron 9 회 전부 succeeded.
+
+### P-1 표 172 의 세 갈래 (실측 2026-10-26 · `cutover-delete.sql` ③ 이 매번 pg_class 와 대조한다 — 하나라도 빠지면 이름을 대고 멈춘다)
+- **지움 79(truncate 한 문장 · restart identity · cascade 없음 · 판정 746)** — comment 「⭐ 거래 — 컷오버 때 지운다」 19 + 쓰는 창구가 거래 · 작업 · 큐뿐인 60:
+  `po` 열(po · po_line · po_charge · po_charge_alloc · po_discount · po_doc · po_invoice · po_invoice_discount · po_invoice_line · po_payment · po_payment_alloc · po_receipt · po_receipt_cost · po_receipt_diff · po_receipt_line · po_receipt_post · po_receipt_work) ·
+  `so` 열(so · so_line · so_charge · so_reserve · so_backorder_close · so_coupon(747) · so_credit · so_credit_alloc · so_credit_line · so_demand_flag · so_invoice · so_invoice_line · so_invoice_order · so_line_merge_source · so_payment · so_payment_alloc · so_payment_order · so_stock_short_check) ·
+  재고 사건(inv_adjust · inv_adjust_line · inv_cost_adjust · inv_move · inv_move_line · inv_transfer · inv_transfer_line · inv_transfer_settle) ·
+  wms 작업 16(wms_order_finalize · wms_order_review · wms_pack_task_lines · wms_pack_tasks · wms_pallet_items · wms_pallets · wms_pick_line_bins · wms_pick_task_lines · wms_pick_tasks · wms_receipt_complete · wms_reports · wms_rollback_archive · wms_rollback_log · wms_task_holds · wms_waves · wms_worker_mistakes — 752) ·
+  메일 · 문서 · 드라이브(mail_outbox · mail_outbox_event · mail_run · mail_run_error · mail_backorder_line · doc_mail_skip · doc_file(748) · drive_job · drive_shortcut) ·
+  Shopify 오더 · 큐(shop_order · shop_order_inbox · shop_order_line · shop_order_line_unshipped · shop_order_queue · shop_order_transaction · shop_fulfill_queue · shop_fulfillment · shop_fulfillment_line · shop_push_queue · shop_stock_queue — 751 「꺼진 스토어의 대기 줄」 · 전부 테스트 스토어 것 · 전부 done)
+- **남김 73** — 손님 · 공급처 · 제품 · 가격 · 딜 · ref_ · 설정 · 직원 · inv_config · 문서 판 · hist_ 넷 · 스토어 연결 기록(shop_store · location · listing · product · variant · media · customer · link_run · link_item · **shop_stock_sent** = 보냄 표시 · 751) · 진단 로그(shop_call_log · ims_image_sync_queue · _runs · _skips · 752) · drive_folder · wms_zone_sequence · wms_drop_locations · pur_ 넷 · bgrade_price.
+- **다시 맞춤 20(이 파일 밖 · P-4 재적재가 맡는다)** — inv_ledger · inv_layer · inv_layer_consume · inv_layer_cost_add · §A A 갈래 16(inv_sku_types · inv_bin_notes 포함).
+- 근거(실측): FK 566 · 지연 0 · **지움 밖 → 지움 안 FK 0**(그래서 cascade 없이 된다) · TRUNCATE 트리거 0 · 규칙 0 · postgres 가 172 표 주인 · public 의 wms_ 는 18(작업 16 지움 · 둘 남김 · §M 의 14 는 09-26 기준) · wms_legacy 26 · reload_backup 5 는 손대지 않는다.
+
+### P-2 할 일 순서표 — 누가 · 어디서 · 명령 · 확인 · 멈춤 조건
+| # | 할 일 | 누가 · 어디서 | 명령 · 화면 | 확인 | 멈춤 조건 |
+|---|---|---|---|---|---|
+| 0 | 전날 — 드라이브 Start date = 2026-11-01 · `inv_config.db_role` 은 'test' 그대로(모든 마이그레이션 가드가 본다 · cutdel-1 이견 3) · 운영 쪽 §B ④ 는 별건 | Caleb · Settings › Google Drive | — | so-module §74-d ① | — |
+| 1 | IMS cron 21 개 멈춤(번호를 지키려 unschedule 이 아니라 active off · 실물 jobid 1 · 16 · 40 ~ 58) | Caleb · psql 테스트 DB | `select cron.alter_job(jobid, active := false) from cron.job;` | `select count(*) from cron.job where active;` = **0** | 0 이 아니면 2 로 가지 않는다 |
+| 2 | 테스트 스토어 끄기(751 · 연결 기록은 남는다) | Caleb · Settings › Shopify Stores | is_active off(창구 shop_store_save) | `select code, is_active from shop_store;` 전부 f | — |
+| 3 | 메일 · 드라이브 큐가 비었나 | Caleb · psql | `select status, count(*) from mail_outbox group by 1; select status, count(*) from drive_job group by 1;` | waiting_pdf · queued · sending **0** | 열린 줄이 있으면 1 을 잠깐 되돌려(54 ~ 58 만 active on) 빠지게 한 뒤 다시 1 |
+| 4 | §C 되돌릴 자리(백업) — ledger_ims · config_ims · layer 셋 | Caleb · SQL Editor(테스트 창 가드) | §C 그대로 | 다섯 표 행 수 | 창 가드가 서면 창이 틀렸다 |
+| 5 | **거래 지우기** — ① 이 DB 확인 → ② 관문(1 · 2 · 3 을 다시 센다) → ③ 분류 대조 → ④ 남김 지문 → ⑤ truncate 79 → ⑥ 번호 → ⑦ 뒤 검산 | **Caleb** · 레포 뿌리 · psql 테스트 DB | `psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -1 -f supabase/ops/cutover-delete.sql > ~/cutover-delete.log 2>&1; echo "exit=$?"` | exit=0 · 로그 끝 `⑦ 검산 통과` 한 줄과 result 행(deleted_tables 79 · kept_tables 73) · 시퀀스 표 so 20000 f · invoice 60000 f · credit 1000 f · po 2000 f · 넷 1 f | exit≠0 이면 **아무것도 안 바뀌었다**(-1 한 트랜잭션) · 로그의 첫 ERROR(GATE / CLASS / POST …)가 「무엇을 해야 풀리나」 를 말한다 · 고치고 같은 명령 |
+| 6 | 버킷 파일 7 개 지우기(748) — documents/final_invoice 6 · po-documents/po 1 | Caleb · 대시보드 Storage(SQL 은 storage.protect_objects_delete 가 막는다 · 표 행만 지우면 S3 실물이 고아로 남는다) | Storage › documents › final_invoice 전부 선택 → Delete · Storage › po-documents › po › … → Delete | `select bucket_id, count(*) from storage.objects where bucket_id in ('documents','po-documents') group by 1;` **0 행** · doc-brand 1 · product-images 10,410 은 그대로 | — |
+| 7 | 시험 마스터(750) — 손님 2 · 공급처 1 · 제품 27 · 딜 15 와 딸린 것 | 다음 차수(Caleb 의 줄마다 표시 뒤) | — | — | 이 절의 5 가 끝난 뒤에만(시험 손님을 SO 18 건이 쓰고 있었다) |
+| 8 | 마스터 재적재 — so-module §73-c **0 ~ 9**(참조 → 손님 → 공급처 → 제품 → 세트 → 바코드 → BOM → 제품-공급처 → 가격 → 태그) | Caleb · Apps Script Dry → Apply | §73-c 표 | 각 Verify | §73-c 의 멈춤 조건 · ⚠️ listing 을 켜기 전(320) |
+| 9 | **§E 컷오버판**(P-4) — §D 덤프(운영 창) → pre(17 표 truncate) → 덤프 → post(setval 만 · **IMS 행 되넣기 없음** · 753) | Caleb · psql 테스트 DB | P-4 의 명령 | `select source, count(*) from inv_ledger group by 1;` → **ims 0** · cin7 · manual 만 | exit≠0 이면 자동 롤백 · ~/reload.log 첫 ERROR |
+| 10 | §G baseline_snapshot_key 갱신 → **§H 레이어 재생성**(다섯 문장 한 번에) | Caleb · SQL Editor | §G · §H 그대로 | apply() 반환의 `skipped_by_event` 여덟 키 0 · ims 블록 전부 0(IMS 줄이 없다) | 「nothing was rebuilt」 = 나눠 돌렸다 |
+| 11 | **§I 검산 컷오버판** | Caleb · SQL Editor | ① `ims` 행 수 **0**(백업 ledger_ims 는 754 로 한 달 보관 · 대조만) · ② 실제 창고 두 곳 0 행 · IN_TRANSIT 한 줄 · ③ `select count(*) from cron.job where active;` = 0(13 전) · `select count(*) from cron.job where jobname like 'inv-collect%';` = 0 | — | ② 가 실제 창고에서 어긋나면 12 로 가지 않는다 |
+| 12 | 이력 §73-c 10(ILH_PRACTICE 지우고 · 315) → B급 칸(N-1022-⑥ · 조정으로) → 열린 PO 손으로(684 · 리시빙 전) | Caleb | §73-c · N-1022-⑥ | hist 적재의 orders_skipped_ims_number 0(so 가 비어 있다) · 첫 조정 ADJ-00001 · 첫 PO PO-02000 | — |
+| 13 | cron 다시 켜기 — P-3 의 순서 | Caleb · psql | `select cron.alter_job(<jobid>, active := true);` | `select jobid, jobname, active from cron.job order by 1;` | Shopify 축은 진짜 스토어 잇기(555 ~ 564 · 별건)와 listing 켜기(320) 뒤 |
+| 14 | 첫 오더 · 인보이스 번호 확인 | Caleb · 화면 | 첫 SO 가 **SO-20000** · 첫 인보이스 60000 · 첫 크레딧 CR-01000 · 첫 입고 RCV-00001 | — | 아니면 ⑥ 을 다시 본다(setval 값 · is_called false) |
+| 15 | reload_backup 스키마는 **12 월 초** 지운다 | Caleb | deferred 338(판정 754) | — | — |
+
+### P-3 cron 다시 켜기 순서(실물 jobid · 2026-10-26)
+1. 지우기 · 재적재 · 검산이 끝난 뒤 바로: **16** ims-wms-auto-hold · **1** so-backorder-sweep · **54 ~ 57** ims-mail-tick · drain · chat · pdf · **58** ims-drive(드라이브 Start date 11-01 · Send to Drive 켜기는 며칠 뒤 Caleb · 521).
+2. 진짜 스토어를 잇고(555 ~ 564 · 별건) listing 을 켠 뒤(320): **42 · 43** shop-drain · nightly → **44 · 45 · 46** stock-drain · diff · nightly(켜면 nightly 가 재고를 한꺼번에 보낸다 — 원하는 일) → **47 · 48 · 51** orders-drain · poll · order-drain → **49 · 50 · 52 · 53** fulfill · unshipped · paid-scan · paid-drain.
+3. **40 · 41** ims-image-scan · move(옛 시스템 첨부 옮기기) — 컷오버 뒤 다시 켤지는 **판정 안 됨**(cutdel-1 판정 거리).
+
+### P-4 §E 컷오버판 — pre 는 §E 그대로 · post 는 setval 만
+```bash
+# [Asung-IMS · 컷오버 날 · 9 단계] — §D 덤프(~/reload-17.sql · 운영 창)가 끝난 뒤
+cat > ~/reload-pre.sql <<'SQL'
+truncate table
+  public.inv_balance_diffs, public.inv_bin_notes, public.inv_collect_runs,
+  public.inv_compare, public.inv_compare_runs, public.inv_conflicts,
+  public.inv_cost, public.inv_doc_cost, public.inv_doc_state,
+  public.inv_missing_docs, public.inv_missing_lines, public.inv_sku_types,
+  public.inv_snapshot, public.inv_snapshot_runs, public.inv_sync_state,
+  public.inv_voided_docs,
+  public.inv_ledger
+  restart identity cascade;
+SQL
+cat > ~/reload-post-cutover.sql <<'SQL'
+-- 컷오버판(판정 753): IMS 행(source='ims')을 되넣지 않는다 — 그 줄은 방금 지운 거래(RCV- · SO- · TRF- · MV- · ADJ- · CR-)가 낸 사건이다.
+-- 시험 중 손으로 넣은 manual 2 줄(10-10 · STOCK1B-TEST)도 운영 manual 로 바뀐다. 원장 시퀀스만 운영 최대값 위로.
+select setval(pg_get_serial_sequence('public.inv_ledger','id'), (select max(id) from public.inv_ledger));
+select source, count(*), min(id), max(id) from public.inv_ledger group by source order by source;   -- 기대: cin7 · manual 두 줄 · ims 없음
+SQL
+psql "$(cat ~/.asung-testdb-url)" --single-transaction -v ON_ERROR_STOP=1 \
+  -f ~/reload-pre.sql -f ~/reload-17.sql -f ~/reload-post-cutover.sql > ~/reload.log 2>&1; echo "exit=$?"
+tail -5 ~/reload.log
+```
+- `cascade` 근거(실측 2026-10-26): 위 17 표를 가리키는 FK **0** · §H 의 inv_layer 를 가리키는 FK 3 은 전부 가족 안(parent_layer_id · cost_add.layer_id · consume.layer_id). 컷오버 날 아침 `cutover-delete.sql` ③ 이 지움 쪽을 대조하지만 이 17 표는 그 그물 밖이다 — **당일 한 번 더 센다**(§E 의 규칙).
+- §C 백업은 그대로 만든다(4 단계) — `reload_backup.ledger_ims`(ims 690 · 실측 10-26)는 복원용이 아니라 **대조 · 보관용**이 된다(754 · 12 월 초 삭제).
+- §I ① 의 「ims = ledger_ims 행 수」 기대는 컷오버판에서 **ims 0** 이다.
+
+### P-5 §73-c · 684 · B급 · §74-d 와 맞물리는 순서 — 안과 이유
+```
+1 cron 멈춤 → 2 스토어 끄기 → 3 큐 → 4 §C 백업 → 5 거래 지우기(cutover-delete.sql) → 6 버킷 7 파일 → [7 시험 마스터 · 다음 차수]
+→ 8 마스터 적재 §73-c 0 ~ 9 → 9 원장 재적재 §E 컷오버판 → 10 §G · §H 레이어 → 11 §I 검산
+→ 12 이력 §73-c 10 → B급 칸 조정(N-1022-⑥) → 열린 PO 손으로(684) → 13 cron(P-3 의 1) → 진짜 스토어 · listing(별건 · 320) → cron(P-3 의 2) → 14 번호 확인 → 15 reload_backup 12 월 초
+```
+- 거래 지우기가 **첫째**인 이유: 시험 손님 · 쿠폰을 SO 가 가리키고(FK) · 드라이브 · 문서 표가 PO 를 가리킨다 — 마스터 · 이력 · 원장 어느 것도 거래를 가리키지 않으므로(지움 밖 → 지움 FK 0) 거래부터 비워야 뒤가 걸리지 않는다.
+- 마스터 적재(8)를 원장(9)보다 앞에 두는 이유: 이력(12)은 손님 · 제품을 풀어야 하고 B급 조정 · 열린 PO 는 제품이 있어야 한다. 원장은 sku 글자로만 움직여 순서에 묶이지 않는다. 8 이 listing 을 켜기 전인 것(320)만 지키면 된다.
+- 레이어(10)가 원장(9) 뒤 · 이력 · B급 · 열린 PO(12) 앞인 이유: 재생성은 원장을 읽어 세운다(§H) — 거래를 지우기 전에 돌리면 시험 레이어가 다시 서고, B급 조정 · 입고는 재생성 뒤의 사건이라야 레이어에 정상으로 쌓인다.
+- 드라이브 넷(§74-d): ① Start date 는 0 단계 · ② 일꾼(cron 58)은 1 에서 멈췄다 13 에서 다시 · ③ 지우기를 막던 셋(FK · 문지기 · 버킷)은 5 · 6 이 푼다(truncate 는 문지기를 안 돈다) · ④ 보관 PDF 는 13 뒤부터 돈다.
+
+### P-6 되돌리기
+| 실패 지점 | 그때 상태 | 조치 |
+|---|---|---|
+| 5 `cutover-delete.sql` exit≠0 | **아무것도 안 바뀜**(-1 · 관문 · 분류 · 뒤 검산 모두 그 안) | 로그 첫 ERROR 대로 풀고 같은 명령 |
+| 5 성공 뒤 「지우지 말았어야 할 표」 발견 | 79 표 0 행 · 번호 처음 값 | 되돌릴 백업이 없다 — **그래서 ③ 분류 대조와 리허설이 있다**. 되돌리려면 컷오버 전 테스트 DB 전체 덤프뿐(판정 거리) |
+| 6 버킷 | 표는 비었고 파일만 남음 | 다시 지운다 · 파일이 남아도 doc_file 이 없어 아무도 가리키지 않는다 |
+| 9 · 10 · 11 | §L 그대로(§E 자동 롤백 · §H 자동 롤백) | §L · 단 「ims 행만 되넣기」 줄은 컷오버판에 없다 |
