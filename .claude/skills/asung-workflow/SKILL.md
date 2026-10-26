@@ -387,6 +387,10 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    ⑤ 확인 갈래(Caleb · 적용 뒤)에 alter · lock · truncate · drop 줄 금지(`\i` 시험 갈래 밖) — Caleb 의 명령에 그런 줄이 있으면 멈춘다
    ⑥ 시퀀스 되감기는 `greatest(실제 최대, 시작 값)` 만(시작 값은 셸에 먼저 받아 둔다 · 멈춘 회차 뒤에도 같은 식으로) · 번호를 당기지 않고 시험할 수 있으면 그 길로(미리 보기 · 거부되는 발행 · 커서 SELECT 만 떼기) — 동료가 같은 DB 에서 번호를 받는다
    · 적용 명령에는 `-c "set local lock_timeout = '5s'"`(alter 가 기다리는 동안 뒤 읽기가 줄 서는 것을 막는다) · 진단 = pg_stat_activity 의 xact_age · pg_blocking_pids
+⭐ [2026-10-26 · cutdel-1 · 2 · so-module §77] **운영 SQL(컷오버 지우기 류)의 리허설** — ① `truncate` 는 행 트리거(문지기 · 큐)를 하나도 안 돈다 · TRUNCATE 트리거만 돈다(public 0) · cascade 는 쓰지 않고 표를 다 적는다(빠지면 오류로 멈춤)
+   ② **setval 은 rollback 되지 않고 다른 세션에 바로 보인다** — 리허설은 「부를 값만 찍는」 갈래(psql 변수 하나) · 전후 last_value · is_called 원문 대조 · restart identity 는 rollback 된다
+   ③ 남김 지문은 정렬 md5 대신 **순서 무관 합**(`sum(('x'||left(md5(t::text),15))::bit(60)::bigint)` · 3 배 빠름) · 지울 행은 키로 고르고 「정확히 한 행」 · 수를 파일에 박지 않는다
+   ④ delete 가 큐 트리거를 부르면 그 큐가 지운 표에 다시 줄을 세운다 — 짝(listing 등)을 먼저 지우고 「지운 표 0 유지」 로 증명
 ⭐ [2026-10-23 · bgr-1b · 1c · §71-b] **창구만 통과시키는 표지(세션 GUC)는 `set_config(…, true)`** — 트랜잭션 안에서만 산다 · false 면 PostgREST 가 연결을 돌려쓰므로 다음 요청으로 샌다 · 적용 전에 `grep -n "set_config('ims\." ` 으로 true 인지 본다 · 표지를 켠 창구는 끝에서 '' 로 되돌린다
    ⚠️ [bgr-1c 실행 1] **`perform` 은 FOUND 를 덮는다** — `select … into v; perform set_config(…); if found` 는 늘 참이었다(합치기 갈래 → 줄 삭제) ⇒ FOUND 는 변수에 먼저 담는다
 ⭐ [2026-10-22 · 인계서 §5 · pur-1c · stkx-1 · lat-1] 넷
@@ -846,3 +850,8 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    2 [잘 된 것] §75-e 1 의 규칙이 정착 — 화면 거리마다 grep 범위 + 「매뉴얼만으로 피하는 길」 이 보고에 붙었다
    3 [잘 된 것] Claude Code 가 짐작 문장을 근거로 바꿨다(11-13 · 3b-6) · 8 · FAQ · 용어집은 표 한 장 → 스크립트(링크 글자 = 절 제목) · 8 장이 앵커 93/93 을 역할에 걸어 빠진 일 찾기를 겸함
    4 [잘 된 것] 지어낼 위험이 있는 장(8 · FAQ · 9)은 지시서 전에 Caleb 에게 방향을 먼저 물었다
+⚠️ **[2026-10-26 회사 — so-module §77-e · Ship Ready 메일 · 컷오버 날 지우기]**
+   1 [대화 Claude] 마지막 정의를 `grep -ln "create or replace function …"` 로 찾다 0 줄(원본 머리가 `create function`) — §4 의 `-iE '^create (or replace )?function …'` 꼴을 안 따랐다(재발) ⇒ Caleb 에게 주는 grep 도 §4 의 꼴로
+   2 [발견] doc-3a 시험이 「창을 열 때의 미리 보기」 를 ship_ready 로 안 돌려 결함이 7 일 숨었다(짐작) ⇒ 메일 · 창구 시험은 **화면이 실제로 부르는 순서**(미리 보기 → 보내기)대로 갈래를 세운다
+   3 [대화 Claude] 판정 745 를 기술 낱말로 물어 Caleb 이 「더 쉽게」 를 청했다(§50-d 1 재발) ⇒ 봉투 비유처럼 업무 그림을 먼저
+   4 [대화 Claude] 정본의 낡은 짐작(테스트 DB 의 실제 웹 오더)을 지시서 전제로 적었다 — 조사가 실측으로 바로잡음 ⇒ 정본 문장이 「지금 상태」 를 말하면 날짜를 보고 짐작 표시

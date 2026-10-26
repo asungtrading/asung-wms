@@ -93,6 +93,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
   - 제품(ImsLoadProduct.gs): 열쇠 `cin7_id` 먼저(on_conflict=cin7_id · **IMS sku 를 싣는다 · SKU 는 Cin7 이 못 덮는다** 679 · 다르면 「SKU 다름」 목록) · manual 과 SKU 같으면 cin7_id 만 PATCH(674 · family 도) · 새 행만 on_conflict=sku · sellable_source ims · 세트는 IMS 값(670 · 675) · product_bom · product_barcode 의 manual 줄은 안 보낸다
   - 공급처(ImsLoadSupplier.gs · ils · 673): 이름 「보이는 글자」 같으면 cin7_id 만(674 · 681) · `is_active_source='ims'`(창구가 켜고 끈 공급처 · 683)면 is_active 는 IMS 값 · 짝지은 공급처의 Cin7 주소 · 연락처 안 보냄 · ⛔ imsLoadPurchasable Apply 는 컷오버 날 안 돈다
   - 제품-공급처(ImsLoadProductSupplier.gs): source='cin7' 줄만 보낸다 — manual 이면서 cin7_id 있는 줄(Roux 19)은 뺀다 · 승격은 **cin7_id 만**(cost · supplier_sku 등 IMS 값)
+    → [2026-10-26 · 판정 756 · so-module §77] **source manual + cin7_id = 적재가 건너뛰는 표식**(:245 ~ 246 · :291 skipManual) · 적재가 다시 덮게 하려면 **source 만 'cin7' 으로 되돌린다**(cin7_id 그대로 · upsert 가 cost · supplier_sku · is_active 등을 덮는다) · Roux 19 줄은 컷오버 날 cutover-delete.sql ⑨ 가 한다 · Dry 기대 「보내지 않은 줄」 0
   - 표식 없는 칸(이름 · 브랜드 · 무게 · family · 옵션 · 공급처 단가 …)은 Cin7 이 덮되 Dry 가 「손댄 행」(updated_by is not null) 목록을 낸다(672)
   - ⚠️ 제품 계열 · 제품-공급처는 「이번에 안 들어온 cin7 행」 을 **내리지 않는다**(§3-f 1) ~ 3) · deferred 319) · 컷오버 날 순서 = so-module §73-c
 ## 4. 함정 요약

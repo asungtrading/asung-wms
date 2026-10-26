@@ -326,7 +326,7 @@ Caleb: "아니 넣을 생각 없어. 설사 넣는다 하더라도, 작동을 �
 cin7이 우선이야."
 ⇒ IMS SO 는 **작동을 확인하는 자리**다. 매출·회계 흐름은 컷오버 설계에서 다룬다.
 
-### 2-b 번호 체계 — `SO-25000` 부터
+### 2-b 번호 체계 — `SO-25000` 부터 → [2026-10-26 · 판정 749 · §77] **SO-20000** 부터
 
 Caleb: "SO-를 그대로 쓰고 싶어. 대신 지금은 16649정도니, 충분한 텀으로 띄워서 이어가고 싶어."
 · "25000면 될 것 같아."
@@ -580,7 +580,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
   📌 §2-c·§3-c·§4 의 `so_family` 는 **표 이름이 아니라 이 구조를 부르는 말**이다 — PO 에도 `po_family` 표는 없다
   (`po_family_members(po_id)` · `po_family_lines(po_id)` 함수만 · `20260919175712` · po-module 2593행).
 - **수요 표는 없다.** 5-g 에 이유가 있다 — §2-g·§3-c 의 「수요는 별도로 쌓인다」를 뒤집었다.
-- **번호대는 `SO-25000` 부터**(§2-b) · 접미어는 소문자(5-d).
+- **번호대는 `SO-25000` 부터**(§2-b) · 접미어는 소문자(5-d). → [2026-10-26 · 판정 749 · §77] **SO-20000** 부터
 
 ### 5-a `customer` — 손님 마스터
 
@@ -688,7 +688,7 @@ phone · mobile · email · website
 so_number · customer_id · channel · location · status
 order_date · required_by · ref · comments
 ```
-- `so_number` — `SO-25000` 부터(§2-b · Cin7 최신 `SO-16649` · 여유 8,351). PO 와 같이 **시퀀스 + 기본값 함수**로 붙는다(PO: `po_number_seq` + `po_next_number()` · `20260916144201`). 롤백된 번호는 빈다 — 허용(PO 와 같은 판단). 접미어는 아래 「형제」.
+- `so_number` — `SO-25000` 부터(§2-b · Cin7 최신 `SO-16649` · 여유 8,351). PO 와 같이 **시퀀스 + 기본값 함수**로 붙는다(PO: `po_number_seq` + `po_next_number()` · `20260916144201`). 롤백된 번호는 빈다 — 허용(PO 와 같은 판단). 접미어는 아래 「형제」. → [2026-10-26 · 판정 749 · §77] **SO-20000** 부터(컷오버 날 cutover-delete.sql ⑥ 이 setval)
 - `channel` — 창고 경유 · POS 둘(§1-c). ⬜ Shopify 는 연동 때 늘린다. CHECK 어휘로 둔다(늘릴 때 마이그레이션 하나).
 - `location` — 손님 `default_location` 으로 채우되 **사람이 바꾼다.** 확정 뒤 바꾸는 것은 §2-h 의 별도 동작(할당 풀고 다시 거는 함수 둘을 잇는다 · 픽 시작 뒤 불가 · manager 이상).
   ⭐ **한 오더는 한 창고다.** Caleb(2026-09-21): "한 오더라인이 두 창고에서 할당되는 일이 있을 수 있어. 그러나 그런 경우는 오더를 나눌꺼야. 같은 오더내에서는 없어." ⇒ 라인·할당에 창고 칸이 없다(5-f).
@@ -1457,6 +1457,7 @@ Credit note  CR-     00628
 **IMS 시작 번호 (Caleb 판정 2026-09-22)**
 ```
 so_number       SO-25000 부터     여유 8,286(오늘 실측 기준 · §2-b 는 SO-16649 기준 8,351 로 적었다 — 같은 판단)
+  → [2026-10-26 · 판정 749 · §77] SO-20000 부터(옛 시스템 약 18,300 · 이력 최대 SO-18328) · 인보이스 60000 · CR-01000 그대로
 invoice_number  60000 부터        ⭐ 접두어 없음 · 여유 10,835
 credit_number   CR-01000 부터     여유 372
 ```
@@ -2476,7 +2477,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 ### 12-g 전환 전 점검 · 사실
 
 ```
-⭐ 전환(Asung-IMS 를 운영으로 올리기) 전 — so_number_seq 가 25000 · is_called f 인지 본다(첫 실제 번호가 SO-25000 이어야 한다) · 시험이 소비한 번호는 rollback 밖에서 setval 로 되돌린다(so 가 비어 있을 때만)
+⭐ 전환(Asung-IMS 를 운영으로 올리기) 전 — so_number_seq 가 25000 · is_called f 인지 본다(첫 실제 번호가 SO-25000 이어야 한다) · 시험이 소비한 번호는 rollback 밖에서 setval 로 되돌린다(so 가 비어 있을 때만) → [2026-10-26 · 판정 749 · §77] **20000 · is_called f**(컷오버 날 cutover-delete.sql ⑥ 이 setval · reload §P 14 단계가 첫 SO 가 SO-20000 인지 본다)
 ⚠️ inv_config 는 auth_all — so_direct_order_tier_code 를 로그인한 누구나 바꿀 수 있다 · 경고만 좌우하므로 사고 크기는 작다 · 잠그려면 별건 → rls-2 · 판정 568 · 572 — 직원 쓰기 닫힘 · so_direct_order_tier_code 는 거부 20(앱에서 못 바꿈) · §68
 ⚠️ so_number_seq 의 authenticated grant(usage · select)는 남아 있으나 쓰이지 않는다(definer 창구가 nextval)
 ⚠️ ims_staff.auth_user_id 에 FK 가 없다(20260915141105) — 가짜 직원 시험이 가능한 이유 · 운영에 남기지 않는다
@@ -8916,7 +8917,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
   키                       ims_mail_config_keys :527(열 · + mail_doc_from · from_name · reply_to) · ims_mail_config_problem :534
   받는 이(498 고르기)      doc_mail_recipient(customer_id) :675
   자리표 채우기(글)        doc_mail_fill(text, doc) :689   스칼라 {{a.b}} 만
-  보내기(직원)             doc_mail_send(kind, ref, to, subject, body, commit=false, doc_file_id=null) :746   sales 쓰기 · 미리 보기 = commit false · internal_receipt 거부 · ship_ready 는 doc_file_id 필수
+  보내기(직원)             doc_mail_send(kind, ref, to, subject, body, commit=false, doc_file_id=null) :746   sales 쓰기 · 미리 보기 = commit false · internal_receipt 거부 · ship_ready 는 doc_file_id 필수 → [2026-10-26 · 판정 744 · 745 · §77] 보내기(commit true)만 필수 · 미리 보기는 번호 없이 · 그 PDF 는 이 오더의 것(ref.orders 일치 · srm-1 20261026124840)
   자동(529)                doc_mail_auto_invoice() :785 + deferrable 트리거 so_invoice_doc_mail_auto · 건너뜀 표 doc_mail_skip(no_email · reissue · error)
   읽기 · 취소              doc_mail_list(kind, ref) :821 · doc_mail_cancel(outbox_id, note) :842(waiting_pdf · queued)
   일꾼 창구(service)       doc_mail_pdf_claim :46 · doc_mail_attach :73 · doc_mail_pdf_failed :97   20261019190500_doc_3a2_mail_worker_windows.sql(세 번 뒤 failed)
@@ -9058,7 +9059,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 3. [대화 Claude] rcv-1a 지시서가 읽는 쪽을 셋으로 적었다 — 실제 아홉(원가 조정 · FX · 가격 크레딧 · 초과 입고 · 쏟기) ⇒ 「몇 곳인지 세라」 가 지시서에 있어서 잡혔다(잘 된 것)
 4. [대화 Claude] 판정 554 를 「크레딧 수량 합」 으로 넓게 적었다 — 값 차이 크레딧은 수량을 바꾸지 않는다(po-cn-1 이견 2)
 5. [Claude Code · rcv-1a] 확인 갈래가 옛 md5 를 찍으려 재생성을 먼저 돌려 가짜 입고의 핀(po_receipt_cost)을 남겼다 → S1 MISMATCH · 원인 찾기 회차에서 함수 순서가 아님을 증명 ⇒ 재생성을 도는 확인 갈래는 핀까지 치운다
-6. [Claude Code · mrg-1] 테스트 DB 에 Shopify cron 이 15 분마다 실제 오더를 넣는다 — 「실제 행 무변」 은 스냅샷 때의 id 집합으로
+6. [Claude Code · mrg-1] 테스트 DB 에 Shopify cron 이 15 분마다 실제 오더를 넣는다 — 「실제 행 무변」 은 스냅샷 때의 id 집합으로 → [2026-10-26 · §77-d 2] 지금은 연결 스토어가 테스트 스토어(asung-ims-test) 하나 · 받은 23 건 모두 시험(cutdel-0 실측)
 7. [Claude Code · rcv-1b] 재료 날짜를 미래(2031)로 두면 재생성이 landed 를 판매보다 먼저 얹는다 ⇒ 재료 날짜는 ims_today() 기준 과거 · \gset 줄 끝 주석 · psql 변수 이름 충돌
 8. [잘 된 것] ln-1 이견 1(시스템 줄과 같은 가격을 붙여 넣으면 합쳐져 최종 가격이 움직인다) · rcv-1b 이견 1 · 3 · 4(draft 거부 · 초과 칸 자르기 · 같은 칸 유니크) — 지시서대로였으면 깨졌을 자리를 검토가 잡았다
 
@@ -9839,6 +9840,8 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 
 ### 73-c ⭐ 컷오버 날 적재 순서 (ldfix-1d 보고 · 현 코드 기준 · deferred N-1022-⑥ 이 이 표를 가리킨다)
 
+→ [2026-10-26 · 판정 746 ~ 758 · §77] 0 단계 앞에 **거래 · 시험 마스터 지우기**(reload-procedure §P 1 ~ 6 · `supabase/ops/cutover-delete.sql`) — 컷오버 날 전체 순서는 §P 순서표 하나
+
 | # | 무엇 | 파일 · 함수(Dry → Apply) | Dry 에서 볼 것 | 멈춤 조건 |
 |---|---|---|---|---|
 | 0 | 참조 표 | ImsRefLoad.gs imsLoadSimpleRefs/Apply · imsLoadAccount/Apply · imsLoadPaymentTerm/Apply · imsLoadWarehouse/Apply · imsLoadBin/Apply | 행 수 = Cin7 수 · ref_bin 2,675 > 1,000 캡 | 대응표 잘림 |
@@ -9848,7 +9851,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 | 4 | 세트 잇기 | imsLinkProductSets → imsLinkProductSetsApply(⏸ 면 imsLinkProductSetsResume) | 오타 탐지기 셋 = 0(구성품 GUID 없음 · uom_name ≠ BOM factor · 접미사 부모 ≠ BOM 부모) | 탐지기 ≠ 0 이면 사람이 본다(멈추지 않고 목록) |
 | 5 | 바코드 | imsLoadProductBarcode → Apply(커서 IPR_BARCODE_PAGE) → imsLoadProductAltUpc → Apply | 같은 바코드 다른 제품(48 종) · 걸러낸 수 · manual 건너뜀 · 672 손댄 줄 | 대응표 잘림 · 400 cannot affect row |
 | 6 | BOM(콤보) | imsLoadProductBom → Apply | 콤보 수 · 구성품 줄 · 우리 표에 없는 콤보 · 구성품 = 0 · manual 건너뜀 | 조회 실패 · 대응표 잘림 |
-| 7 | 제품-공급처 | ImsLoadProductSupplier.gs imsLoadSupplierExtra → Apply(시트 ips_line · ⏸ 면 다시) → imsLoadProductSupplier → Apply(끝에 rpc 재계산) · 보조 Reset · ⚠️ 2 번이 먼저 | 새 비활성 공급처 · 보내지 않은 줄(IMS 가 정한 Cin7 줄) · 승격(cin7_id 만) · 672 cost 덮임 · 「기본 둘 이상 0」 | 공급처 FK 못 붙음 · 재계산 ⚠️ |
+| 7 | 제품-공급처 | ImsLoadProductSupplier.gs imsLoadSupplierExtra → Apply(시트 ips_line · ⏸ 면 다시) → imsLoadProductSupplier → Apply(끝에 rpc 재계산) · 보조 Reset · ⚠️ 2 번이 먼저 | 새 비활성 공급처 · 보내지 않은 줄(IMS 가 정한 Cin7 줄) · 승격(cin7_id 만) · 672 cost 덮임 · 「기본 둘 이상 0」 | 공급처 FK 못 붙음 · 재계산 ⚠️ · → [2026-10-26 · 판정 756 · §77] Dry 기대: 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 **0**(cutover-delete.sql ⑨ 가 Roux 19 줄을 source cin7 으로) |
 | 8 | 가격 | ImsLoadPrice.gs imsLoadPriceCollect(⏸ 면 다시) → imsLoadPriceDry → imsLoadPriceApply(⏸ 면 다시) → imsLoadPriceVerify | Cin7 에만 있는 제품(제품 적재 뒤 0 근처) · 세트 판정 어긋남 0 · 새로/바뀜/되살림/내림 · formula · manual 무접촉 | 받은 행 ≠ Total · 같은 제품 ID 두 번 · 티어 이름 ≠ ref_price_tier · 없는 code 에 양수 · 숫자 아님 · 내리기 > max(20, 1 %)(ILP_ALLOW_BIG_DOWN) |
 | 9 | 태그 | ImsLoadProductTag.gs(편집기 ImsTagProbe) imsLoadProductTag → Drive 보고 파일 셋을 사람이 본다(676) → imsLoadProductTagApply(⏸ 면 다시) — 176 의 「제품 적재 뒤 태그 한 번 더」 가 이것 | 「기본값 사용」 여부 · 418 없는 제품 ≈ 0(순서 검사) · 켜진 딜의 태그 줄 수(Clearance · DISC_* · GM/HS) · 「뗀 것 짐작」 → 사람이 가른다 · 지울 것의 딜 ⚠️ | 받은 행 ≠ Total(stop 보고) · 지우기 > max(20, 1 %)(IPT_ALLOW_BIG_DELETE) · 넣기 덩이 실패 |
 | 10 | 이력 | ImsLoadHist.gs ⚠️ ILH_PRACTICE 를 지우고(315) → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(Next run 이면 다시) | BigQuery 숫자 = 콘솔 D1 · D2 · 짝 표본 20 · 못 풀림 비율 | BigQuery 서비스 꺼짐 · 못 풀림 > 20 %(ILH_ALLOW_UNRESOLVED) · IMS 번호 겹침 · 모르는 PO 상태(ILH_PO_EXTRA_OK) |
@@ -10187,5 +10190,91 @@ Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu �
 ```
 매뉴얼: 「?」 단추 · 캡처 · Caleb 원고 읽기 · 동료 공유 · 시험 매니저 계정 확인(719) · FAQ 실제 질문(740)
 컷오버 날(11-01): §73-c · §74-d 그대로 + CLAUDE.md · 스킬의 테스트 / 운영 이름을 바꾼다(743 — Asung-IMS 가 운영 · asung-WMS · Cin7 은 실무에서 안 쓴다)
+  → [2026-10-26 · §77-d 4] 단 inv_config.db_role = 'test' 는 그대로(모든 마이그레이션 가드가 본다 · cutdel-1 이견 3)
 다음 판정 번호: 744 · 다음 deferred 번호: 338
+```
+
+## §77 2026-10-26 회사 — Ship Ready 메일 고침 · 컷오버 날 거래 지우기 — srm-1 · cutdel-0 · 1 · 2 · 판정 744 ~ 758 (회사 PC)
+
+⭐ 지은 것: Ship Ready 메일의 미리 보기가 늘 거절되던 결함을 DB 에서 고쳤다(srm-1) · 컷오버 날 거래 · 시험 마스터를 지우는 운영 SQL 한 벌과 리허설 장치 · 절차(reload-procedure **§P**)를 세웠다(cutdel-0 조사 → cutdel-1 · 2) — deferred 332 닫힘
+⭐ 새 판정 744 ~ 758 · 원천: 지시서 srm-1 · cutdel-0 · cutdel-1 · cutdel-2 · docs-1026a 📌(판정 · 결정 · 실수는 대화에만 있었다) · 차수 회신(Claude Code)
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 마이그레이션 하나(`20261026124840` srm-1 · Caleb 적용 + repair) · 운영(asung-WMS)에는 올리지 않는다 · 컷오버 SQL 은 마이그레이션이 아니다(`supabase/ops/` · 컷오버 날 한 번)
+
+### 77-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 744 | 「A로 가자」 | Ship Ready 메일 결함 — ims-doc.js:186 이 창을 열 때 doc_mail_send 미리 보기(commit false)를 doc_file_id 없이 부르는데, DB(doc_3a :761)가 commit 과 상관없이 ship_ready 면 번호부터 검사해 늘 거절(10-19 doc-3a 이후 Ship Ready 메일 0 통 · 테스트 DB 실측 doc_ship_ready 0 · doc_file ship_ready 0) ⇒ **DB 를 고친다**: 검사에 `p_commit and` · 화면 그대로 · 기각 B(창을 열 때 PDF 먼저 — Cancel 해도 doc_file 이 남아 컷오버 날 지울 것이 는다) |
+| 745 | 「B」(쉬운 설명을 다시 듣고) | 보내기(commit true) 때 넘겨받은 ship_ready PDF 가 **이 오더의 것인지** DB 가 본다 — `f.ref->'orders' is distinct from p_ref->'orders'` 면 거절 「That Ship Ready PDF is for a different order — make the PDF for this order and send again — nothing was saved」 · EF _shared/doc.ts:131 이 ref 를 {…req.ref, group, so_ids} 로 남기므로 ref 통째 비교는 늘 어긋난다 · 기각 A(미루기 — 화면은 방금 만든 PDF 만 넘기지만, 화면 밖에서 부르면 다른 손님의 금액 · 주소가 나간다) |
+| 746 | 「A가 좋아. 그런데 난 트랜스액션만 지우고 싶어. 셋팅에 있는 것들은 그대로 유지하고 싶어.」 | 컷오버 날 거래 지우기 = **truncate 한 문장**(표 이름을 다 적는다 · cascade 금지 · 빠지면 오류로 멈춤) · 범위 = 거래와 딸린 것만 — 설정 · 마스터 · hist_ 는 그대로 · 기각 B(delete 위상 순서 — 트리거 다섯 · doc_file 문지기) · C(replica — FK 도 꺼져 고아가 조용히) |
+| 747 | 「쿠폰도 모두 테스트 오더를 위해 만든것이지 실제 사용한 예는 없어」 | so_coupon 6 장 모두 지움(거래와 함께) |
+| 748 | 「A」 | 시험 PDF — doc_file 6 · po_doc 1 의 버킷 파일 7 개도 지움(표는 truncate · 파일은 Storage — SQL 은 protect_objects_delete 가 막는다) |
+| 749 | 「그런데 SO는 20000부터 시작할 수 있을 것 같아. 현재 18300이야.」 | 번호 **처음부터** — **SO-20000**(「IMS 시작 번호」 의 25000 → 20000 · 옛 시스템 약 18,300 · 이력 최대 SO-18328) · 인보이스 60000 · CR-01000 · PO-02000 · 입고 · 조정 · 이동 · 트랜스퍼 1 · 번호 크기로 IMS 를 가르는 코드 0(cutdel-1 실측 · 이력 적재의 「IMS 번호 겹침」 은 같은 번호 실재로 본다 hist_1b.sql:64) · 기각(이어서 — 실제 장부에 빈 번호 196 · 6-g 원칙) |
+| 750 | 「A」 → 표시 | 시험 마스터는 목록을 보고 줄마다 — **지움**: 제품 24(AAA00001 · -6 · AAA00002 · -6 · AAA00003 · AS85234 · CON99901 · -12 · TBR 16) · 제품군 3(AAA00001FAM · TBR16260FAM · TBR66303FAM) · 손님 「TEST IMS Shopify」 · 공급처 「TEST Supplier-Canada」 · 딜 10(TEST POS SALE 15 · DR TEST line · DR TEST order · October Monthly Sale · Coupon Test · COUPON TEST 2 · Less Discount-TEST · Test Promo (UOM) · Sale: Weekly Flash - Gummy Professional Flash Sale (Oct 15 ~ 28) · TEST-ADC96507) / **남김**: AS85203 · -6 · -72(실제 판매 이력 9 줄) · 손님 「Asung Employee - Donghyo Shin」 · 딜 5(Hera Beauty (GPR-12, RON-21) · REX Deal Price · UOM Discount · Sale: Blowout Sale · PZ Wholesale - Kim & C 30% DC) |
+| 751 | 「A」 | 테스트 스토어(asung-ims-test)는 거래를 지우기 전에 끄고 연결 기록은 남긴다(컷오버 뒤 시험용) · 꺼진 스토어의 대기 줄은 비움 · 진짜 스토어 잇기는 별건(555 ~ 564) |
+| 752 | 「A」 | 기록 표 — 지움: wms_rollback_archive · log · 메일 다섯 · doc_mail_skip / 남김: shop_call_log · ims_image_sync_* · shop_link_run · item |
+| 753 | 「A」 | 재적재 **컷오버판** — reload §E post 의 source='ims' 되넣기를 하지 않는다 · 순서 cron 멈춤 → 거래 지우기 → 재적재 → §H → 검산 · 첫날 재고 = 옛 시스템 마지막 재고 |
+| 754 | 「B」 | reload_backup 한 달 보관 → 12 월 초 지움 → **deferred 338** |
+| 755 | 「A」 | cron 40 · 41(옛 시스템 사진 옮기기)은 컷오버 날 끄고 다시 켜지 않는다 · 끄기 전 10-31 밤 마지막 실행 succeeded 확인 |
+| 756 | 「roux는 모두 재적재때 덮어씌워도 될것 같아」(누가 고쳤는지는 확인 불필요 — 담당자는 고친 적 없다 · 10-01 은 가격 식 시트 시험 날 · 짐작) | product_supplier 의 source manual · cin7_id 있음 · Roux Laboratories 19 줄을 source cin7 로 되돌려 재적재(§73-c 7)가 덮게 한다 · 지금 19 줄 꺼짐 → 덮이면 옛 시스템 값대로 켜질 수 있음(Caleb 알고 OK) |
+| 757 | 「A」 | 10-31 저녁 DB 전체 사본 한 벌(역할 · 스키마 · 자료 셋 · 명령은 짐작 → 10-30 시험) — 거래 지우기의 유일한 백업 |
+| 758 | 「A」 | 손님 「TEST-HO」(적재 손님)는 그대로 |
+
+- 그 밖에 Caleb 확인: cutdel-1 이견 3 — inv_config.**db_role = 'test' 그대로**(모든 마이그레이션 가드가 본다 · 743 의 「테스트 / 운영」 이름 바꾸기에서 이 표식은 예외 · 아래 77-d 4)
+
+### 77-b 지은 것 (커밋 · 파일 · 숫자)
+
+| 차수 | 커밋 | 무엇 | 숫자 |
+|---|---|---|---|
+| srm-1 | asung-wms `700fee7` | `20261026124840_srm_1_ship_ready_mail_preview.sql` — doc_mail_send 재발행(doc_3a :746 ~ 782 바이트 그대로 + 세 곳: `create or replace` · ship_ready 번호 검사에 `p_commit and` · 같은 오더 검사 한 줄(745)) · 검증 `supabase/tests/srm_1_check.sql` | 새 prosrc md5 98f93aaa… · 시험 OK 10 · 마른 OK 8 · Caleb 적용 + 확인 실행 **OK 9 · MISMATCH 0**(Caleb 보고) · 화면: Email Ship Ready… 칸이 채워지고 Send 가 켜진다(Caleb 확인) |
+| cutdel-0 | — | 조사만(레포 무변) | 77-c |
+| cutdel-1 | asung-wms `c5a6c53` | `supabase/ops/cutover-delete.sql`(① 가드 바이트 복사 + §C 꼴 ② 관문 넷(cron active · 메일 · 드라이브 열린 줄 · 켜진 스토어) ③ 분류 대조(D 79 · K 73 · R 20 · 목록 밖 표 · 지움 밖 → 지움 FK 가 있으면 멈춤) ④ 남김 지문(행 수 + 순서 무관 합) ⑤ truncate 79 한 문장 · restart identity · cascade 없음 ⑥ setval 여덟(값, false) ⑦ 뒤 검산) · `supabase/tests/cutover_delete_rehearsal.sql` · reload-procedure **§P** | 리허설 1: exit 0 · 지움 79 표 8,659 → 0 · 남김 73 표 564,540 행 지문 무변 · 잠금(truncate → rollback) **4.0 s** · rollback 뒤 172 표 행 수 같음 · 번호 여덟 무접촉 |
+| cutdel-2 | asung-wms `3eb9189` | 같은 파일 ⑧ 750 시험 마스터(키로 고른다 · 키마다 정확히 한 행 · 스토어 짝 먼저) · ⑨ 756 Roux 19 줄 source cin7 · ⑧ · ⑨ 검산 · §P 보강(757 사본 · 755 · Storage 15 파일) | 리허설 2: exit 0 · ⑧ 25 표 198 행 · ⑨ 19 줄 · 잠금 **9.0 s** · 그 사이 cron 12 종 최대 4.4 s 기다림 · 전부 succeeded · rollback 뒤 172 표 행 수 같음 · 번호 여덟 · id 다섯 전후 같음 |
+
+- 리허설은 setval 을 **부르지 않는다**(값만 찍는 갈래 · psql 변수 `rehearsal`) — setval 은 rollback 되지 않고 다른 세션에 바로 보인다
+- 컷오버 날 실행 · Storage 지우기 · 사본은 Caleb(§P 순서표) · Claude Code 는 begin → rollback 리허설만
+
+### 77-c 사실 확인 (cutdel-0 · 1 · 2 실측 · 테스트 DB 읽기 전용 · 2026-10-26)
+
+1. **표 172 = 지움 79 · 남김 73 · 다시 맞춤 20**(§P P-1) · wms_legacy 26 · reload_backup 5 는 손대지 않는다 · public 의 wms_ 는 18(§M 의 14 는 09-26 기준)
+2. **FK 566 · 지연 0 · 지움 밖 → 지움 안 FK 0** — cascade 없이 truncate 가 선다 · 순환 둘(po ↔ po_invoice · so ↔ so_coupon) · 원장 · A 갈래 17 표를 가리키는 FK 0 · inv_layer 를 가리키는 FK 3 은 가족 안
+3. **트리거 204 · TRUNCATE 트리거 0 · 규칙 0** — delete 때 도는 것: doc_file_guard(거부) · shop_stock_queue_trigger(so_reserve · inv_transfer_line · inv_ledger) · so_line_order_discount_repick · po_payment_alloc_discount_sync · 시험 마스터 delete 때: 가격 · 태그 · 바코드 · 사진의 shop_queue_trigger(켜진 listing 의 제품을 shop_push_queue 에) · 딜 · 태그 트리거(so 에만 씀) · product_delete_lock(원장 · 레이어에 SKU 가 있으면 IM175)
+4. **cron 21**(22 아님 · 전부 active · 24 시간 실패 0) — 멈춤은 unschedule 이 아니라 `cron.alter_job(jobid, active := false)`(번호 유지)
+5. **버킷** documents 6(final_invoice) · po-documents 1 · doc-brand 1(남김) · product-images 10,410 · 1.6 GB(남김 · 시험 제품 사진 8 은 지움) · SQL 로는 못 지운다(protect_objects_delete)
+6. **번호 시퀀스 여덟은 표에 딸리지 않는다** — restart identity 로 안 돌아온다 · 지금 so 25196 · invoice 60070 · credit 1007 · po 2061 · rcv 52 · adj 37 · mv 16 · trf 16(모두 is_called t) · 채번 함수는 접두어 + lpad 5(인보이스는 접두어 없음)
+7. **원장** cin7 39,996(08-21 ~ 09-21) · manual 1,608(시험 2 줄 10-10 STOCK1B-TEST 포함) · ims 690 · inv_sync_state 여덟 축 09-21 에서 멈춤(수집기 없음)
+8. **시험 번호는 밖으로 안 나갔다** — 메일 sent 10 통 모두 회사 주소(mail_redirect_to) · Shopify 는 asung-ims-test 하나에만 · 드라이브 0
+9. **Roux 19 줄**(product_supplier · source manual · cin7_id 있음 · 전부 꺼짐 · 가격 식 0) — 적재 ImsLoadProductSupplier.gs :245 ~ 246 · :291 이 source manual + cin7_id 줄을 「보내지 않는다」(skipManual) ⇒ source 만 cin7 으로 되돌리면 upsert 가 덮는다(756)
+10. **product_supplier Latest** — IMS 입고 창구(po_receipt_latest_apply)가 cin7 줄을 손댄 것 0 · cutdel-0 의 「시험 PO 가 Latest 를 바꿨다」 짐작은 실측으로 닫힘
+
+### 77-d 바로잡음 (→ 표시를 붙인 곳)
+
+1. 「IMS 시작 번호」 · §2-b 머리 · :583 · :691 · :2479(전환 전 점검) — SO-25000 → **SO-20000**(749)
+2. §67-d 6 「테스트 DB 에 Shopify cron 이 실제 오더를 넣는다」 — 지금은 테스트 스토어(asung-ims-test) 하나 · 받은 23 건 모두 시험(cutdel-0 실측) · 지시서가 「§68-e 6」 으로 적었으나 실물은 §67-d 6
+3. 창구 표 doc_mail_send 「ship_ready 는 doc_file_id 필수」 → 보내기(commit true)만 필수 + 그 PDF 는 이 오더의 것(744 · 745)
+4. §76-g 「컷오버 날 CLAUDE.md · 스킬의 테스트 / 운영 이름을 바꾼다(743)」 — 단 inv_config.db_role = 'test' 는 그대로(가드 표식)
+5. §73-c 머리 — 거래 지우기(reload §P · cutover-delete.sql)가 0 단계 앞 · 73-c 7 줄 — Dry 기대: 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 0(⑨ · 756)
+
+### 77-e ⚠️ 실수 · 잘 된 것 — 원인 · 처방
+
+1. [대화 Claude] 마지막 정의를 `grep -ln "create or replace function public.doc_mail_send"` 로 찾다 0 줄 — 원본 머리가 `create function` 이었다 · 스킬 §4 의 `-iE '^create (or replace )?function …'` 꼴을 안 따랐다(재발) ⇒ 대화 Claude 가 Caleb 에게 주는 grep 도 스킬의 꼴로
+2. [발견] doc-3a 시험이 「창을 열 때의 미리 보기」 갈래를 ship_ready 로 안 돌려 결함이 7 일 숨었다(짐작 — doc-3a 검증 원문은 안 봤다) ⇒ 메일 · 창구 시험은 **화면이 실제로 부르는 순서**(미리 보기 → 보내기)대로 갈래를 세운다
+3. [대화 Claude] 판정 745 를 기술 낱말로 물어 Caleb 이 「더 쉽게」 를 청했다(§50-d 1 재발) ⇒ 봉투 비유처럼 업무 그림을 먼저
+4. [대화 Claude · cutdel-0 지시서] 정본의 낡은 짐작(실제 웹 오더)을 전제로 적었다 — 조사가 실측으로 바로잡음 ⇒ 정본 문장이 「지금 상태」 를 말하면 날짜를 보고 짐작 표시
+5. [잘 된 것] setval 은 rollback 되지 않고 다른 세션에 즉시 보인다 → 리허설은 「부를 값만 찍기」 갈래(대화 Claude 지시서) · 번호 여덟 전후 원문 대조
+6. [잘 된 것 · Claude Code] 지문을 정렬 md5 대신 순서 무관 합(3 배 빠름) · 키로 고르고 「정확히 한 행」 · Shopify 큐 트리거 때문에 스토어 짝을 먼저 지움 + 「지움 79 표 0 유지」 로 증명 · 파일이 수를 박지 않아 하루 사이 늘어난 행에도 맞음
+7. [Claude Code · cutdel-1] 회신 표에 딜 #13 이름을 40 자로 잘라 찍었다 — cutdel-2 가 스스로 잡음 ⇒ 키로 쓸 값은 표에 자르지 않는다
+8. [잘 된 것] 750 의 66 줄을 묶음 + 제안 + 「?」 다섯으로 물어 두 번 왕복에 끝났다
+9. [대화 Claude · docs-1026a 지시서] 바로잡을 곳을 「§68-e 6」 · 「SO-25000 글 여섯」 으로 적었다 — 실물은 §67-d 6 · so-module 다섯 곳 · CHECKLIST 아홉 줄(시작 번호 셋 + 시험 오더 여섯) ⇒ 바로잡을 자리는 grep 원문으로 넘긴다
+
+### 77-f 미룬 것 · 다음
+
+- 닫힘: **332**(절차 = reload §P · 지우기 = supabase/ops/cutover-delete.sql · 746 ~ 758 · 리허설 두 번)
+- 새: **338** reload_backup 지우기(754 · 12 월 초 · 컷오버 뒤)
+- 그대로 열림: R-①(운영 asung-WMS 의 수집 cron 정지 목록 — §P 는 IMS cron 만) · P-④(첫날 재고 — §P 9 ~ 11 이 순서)
+- 다음 deferred 번호: **339**
+
+```
+컷오버 날(11-01): reload-procedure §P 순서표 하나 — 0a 사본(10-31 저녁 · 10-30 명령 시험) → 1 cron 멈춤(40 · 41 마지막 실행 확인) → 2 스토어 끄기 → 3 큐 → 4 §C 백업 → 5 cutover-delete.sql → 6 Storage 15 파일 → 8 §73-c 0 ~ 9 → 9 §E 컷오버판 → 10 §H → 11 §I → 12 이력 · B급 · 열린 PO → 13 cron(40 · 41 은 켜지 않는다) → 14 첫 번호 SO-20000 확인
+다음 판정 번호: 759 · 다음 deferred 번호: 339
 ```

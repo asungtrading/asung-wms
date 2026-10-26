@@ -887,6 +887,7 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 재복사 후 `inv_ledger` 28,903 · `inv_cost` 1,237 · `inv_doc_cost` 5 · `inv_snapshot` 206,338 (운영과 일치) · 기초 레이어는 그대로 13,830 · 1,909,097개 · $3,055,493.67.
 재생성·`seed_baseline(key,true)` 거부·`reset_done` 임시표는 §2 함정 표 · ~~절차 정본 `ledger-design.md` §테스트 DB 재복사 정정~~ → ⭐ **절차 정본은 `docs/design/reload-procedure.md`**(2026-09-21 신설 · 옛 재복사 절차는 대체 · 최초 구축·함정 넷은 그대로).
 📌 **[2026-09-21 · 재적재 실측]** 새 정본대로 두 번(2단 덤프 · 17표 단일판) — Cin7 축 17표만 갈아 끼우고 IMS 것(`inv_ledger` `source='ims'` · `inv_config` IMS 2행 · `inv_layer` 계열)은 무접촉. 원장 `cin7` 28,903 → **39,996**(11:29 덤프) · 레이어는 함수로 재생성(`inv_layer 23,346` · 수정판). ⚠️ 옛 절차의 `truncate inv_config;` 를 따르면 `po_create` 가 멈춘다.
+📌 **[2026-10-26 · 판정 753 · so-module §77]** 컷오버 날의 재적재는 **컷오버판**(reload-procedure §P 9 · P-4) — §E post 의 `source='ims'` 되넣기를 하지 않는다(그 줄은 지운 거래가 낸 사건) · 순서 cron 멈춤 → 거래 지우기 → 재적재 → §H → §I(ims 0 · 실제 창고 두 곳 0 행) · reload_backup 은 12 월 초 지움(754 · deferred 338)
 
 ⚠️ **이 표에 없는 빈 줄이 나오면 그것이 신호다.** 원가 레이어 계열이 아닌
 마이그레이션이 운영에서 비어 있으면 **빠뜨린 것**이다.

@@ -116,6 +116,9 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
 ⭐⭐ 길: 직원 Send(doc_mail_send commit true) → mail_outbox 한 줄 status waiting_pdf → cron 57 ims-mail-pdf → EF mail {"action":"pdf"}
          → doc_mail_pdf_claim → EF doc render(reason send · service 길) → doc_mail_attach(→ queued · attachments) → cron 55 drain → Gmail(multipart/mixed · PDF 첨부) → sent
      ship_ready 만 예외 — 화면이 직원 JWT 로 PDF 를 먼저 만들고 doc_file_id 를 넘긴다(바로 queued)
+     → [2026-10-26 · 판정 744 · 745 · so-module §77 · srm-1 20261026124840] 미리 보기(commit false)는 번호 없이 지나간다(창을 열 때 ims-doc.js:186) · **보내기(commit true)만 번호 필수**
+       + 그 PDF 가 이 오더의 것이어야 한다(doc_file.ref->'orders' = p_ref->'orders' · EF 가 ref 에 group · so_ids 를 덧붙이므로 ref 통째 비교는 늘 어긋난다)
+       · 아니면 「That Ship Ready PDF is for a different order — make the PDF for this order and send again — nothing was saved」
 ⭐⭐ 메일 기계(so-module §65 · asung-so 4-s)의 규칙이 그대로 걸린다 — mail_enabled off 면 둘 다 선다 · 시험 DB 는 받는 이 = mail_redirect_to(caleb@) · 제목 [TEST → 원래] · unknown 은 자동으로 안 건드린다
 ⭐⭐ 첨부가 없는 메일(백오더 알림)의 MIME 은 mail-2b 바이트 그대로 — _shared/mail.ts buildMime 의 첨부 갈래를 고치면 deno test ⑫(황금 문자열 · sha256 935c24c3…)가 지켜야 한다
 ⭐⭐ 자동(529) = so_invoice 의 deferrable 트리거 so_invoice_doc_mail_auto(발행이 커밋될 때) — 청구처 손님 칸이 켜져 있고 issued 일 때 한 줄
