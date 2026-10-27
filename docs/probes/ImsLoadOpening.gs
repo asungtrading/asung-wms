@@ -21,6 +21,10 @@
  *   3  iloBuild     창구 입력 p 를 만든다(쓰기 0) → build-*.json(p + 요약) · report-build-*.txt
  *                   ⭐ sale 마다 대조: Σ(상세 인보이스 Total − Paid · VOIDED · DRAFT 제외 · 부호 그대로) = 목록 SaleInvoicesTotalAmount − CombinedPaymentTotal (0.01 안)
  *                      어긋나는 sale 은 목록으로 보고하고 Apply 를 막는다(크레딧 노트가 인보이스 Paid 에 어떻게 들어가는지는 SO-00269 한 건만 봤다 — 짐작)
+ *                   ⭐ [ilo-zero-1 · 2026-10-27] 회계에서 0 으로 처리된 인보이스(ilo_zeroDocs_ · 19 장 · 보고서 Cin7_Core_Sales_Outstanding_Balance.xlsx 의 파랑 JE Write Off · 주황 No Outstanding Balance)
+ *                      → 그 인보이스 줄 · 그 인보이스(단일 인보이스 sale)에서 나온 overpay 줄을 p 에 싣지 않는다 · 손님 크레딧(①) · 같은 손님의 다른 인보이스는 그대로
+ *                      가드: 목록의 Document 가 수집 후보 상세에 없다 · SO 번호가 다르다 · Total 이 다르다 · Due 가 보고서 값과 다르다(0.01 넘게 · 상세 Total − Paid 또는 단일 인보이스면 목록 값) → 그 줄을 이름과 함께 보고하고 Build 를 멈춘다(build json 을 남기지 않는다)
+ *                      제외된 sale 의 live 인보이스가 전부 목록이면 그 sale 의 대조 어긋남은 면제(보고서에 따로 적는다 · SO-10447 이 이것)
  *   4  iloDry       so_opening_load(p, true) → report-dry-*.txt(거부 · 손님 못 찾음 · large[] 를 맨 위에 · 끝에 Caleb 대조표)
  *   5  iloApply     같은 p(md5 가 Dry 때와 같아야) → 직전 Dry 한 번 더(거부 > 0 이면 멈춤) → so_opening_load(p, false) · complete:true → report-apply-*.txt
  *   6  iloVerify    읽기만 — so_invoice(kind opening) · so_payment(method opening) · so_customer_balance 표본 → Build 요약과 같은가 → report-verify-*.txt
@@ -51,8 +55,37 @@ function ilo_cfg_() {
     deferAfterMs: 200000,   // 이 뒤에 429 를 맞으면 쉬지 않고 Next run(쉬다가 6 분을 넘기지 않게)
     sleepMs: 1200,          // Cin7 호출 간격(60 콜 / 60 초)
     tol: 0.01,              // sale 대조 허용 차
+    zeroTol: 0.01,          // ilo_zeroDocs_ 가드 — 보고서 Total · Due 와 Cin7 값의 허용 차
     maxPerCall: 500         // 창구 상한(invoices · credits 각각) — 넘으면 멈춘다(쪽 나누기는 안 만들었다 · complete:true 가 쪽과 안 맞는다)
   };
+}
+
+// ⭐ 회계에서 0 으로 처리된 인보이스 — Caleb 이 회계에서 받은 Cin7 보고서 Cin7_Core_Sales_Outstanding_Balance.xlsx(Sales Outstanding Balance · 85 줄)의 Due 칸 색
+//    파랑 = JE Write Off · 주황 = No Outstanding Balance → QuickBooks 에서는 이미 0 · Cin7 은 Lock 으로 못 고침(2026-10-27 · 판정 797 — 번호는 짐작 · 다음 문서 차수가 정한다)
+//    값은 보고서 원문 그대로(Order # · Document · To · Total · Paid · Due) — iloBuild 가 이 값으로 Cin7 수집을 대조하고 다르면 멈춘다 · 레포에 남아 컷오버 날 같은 판이 돈다(Script Property 아님)
+//    노랑(Actual Outstanding Balance) · 색 없음(8 월 이후)은 여기 없다 — 그대로 이월된다
+function ilo_zeroDocs_() {
+  return [
+    { so: 'SO-01153', doc: '37683', to: 'Beauty Collection Brampton Inc.',                   total: 2753.79,  paid: 2737.74,  due: 16.05,    color: 'orange' },
+    { so: 'SO-02887', doc: '39272', to: 'Genesis Exotic Market',                             total: 764.80,   paid: 765.60,   due: -0.80,    color: 'blue' },
+    { so: 'SO-03481', doc: '39450', to: 'Empress Hair Salon & Beauty Supplies',              total: 111.96,   paid: 131.04,   due: -19.08,   color: 'blue' },
+    { so: 'SO-03201', doc: '39345', to: 'Sweetwells Beauty Supplies Inc.',                   total: 393.28,   paid: 393.32,   due: -0.04,    color: 'orange' },
+    { so: 'SO-02797', doc: '39041', to: 'Sweetwells Beauty Supplies Inc.',                   total: 2077.15,  paid: 2077.12,  due: 0.03,     color: 'orange' },
+    { so: 'SO-05213', doc: '40810', to: "Renee's Hair Boutique (WELL Hair and Beauty Inc)",  total: 118.88,   paid: 119.18,   due: -0.30,    color: 'blue' },
+    { so: 'SO-06941', doc: '42045', to: 'Beauty & Braiding Services',                        total: 855.08,   paid: 859.24,   due: -4.16,    color: 'blue' },
+    { so: 'SO-07526', doc: '42371', to: 'WassLifeStyle Inc / Style De Vie Wass Inc',         total: 55.31,    paid: 55.34,    due: -0.03,    color: 'blue' },
+    { so: 'SO-07801', doc: '42671', to: "Walker's Finest Barbershop",                        total: 34.43,    paid: 36.43,    due: -2.00,    color: 'orange' },
+    { so: 'SO-09356', doc: '43722', to: 'JP Beauty Supply',                                  total: 1347.57,  paid: 1348.38,  due: -0.81,    color: 'blue' },
+    { so: 'SO-09637', doc: '44002', to: 'Klassy K Lengths',                                  total: 17.79,    paid: 18.09,    due: -0.30,    color: 'blue' },
+    { so: 'SO-08401', doc: '43040', to: 'Rex Beauty Inc.',                                   total: 335.61,   paid: 404.72,   due: -69.11,   color: 'orange' },
+    { so: 'SO-10447', doc: '44585', to: 'Clore Inc. (EGL)',                                  total: 2295.66,  paid: 0,        due: 2295.66,  color: 'orange' },   // 목록 Paid 0 · 상세 Paid 2,295.66(Balance due 0) — 리허설의 「어긋난 sale 1」
+    { so: 'SO-10677', doc: '44840', to: 'Sweetwells Beauty Supplies Inc.',                   total: 3494.56,  paid: 2795.64,  due: 698.92,   color: 'orange' },
+    { so: 'SO-09811', doc: '44836', to: 'Sweetwells Beauty Supplies Inc.',                   total: 2584.66,  paid: 2369.27,  due: 215.39,   color: 'orange' },
+    { so: 'SO-10956', doc: '44944', to: 'Ann Mohammed',                                      total: 62.97,    paid: 0,        due: 62.97,    color: 'orange' },
+    { so: 'SO-12562', doc: '46393', to: 'Royals Beauty Supply',                              total: 2878.13,  paid: 5156.26,  due: -2278.13, color: 'orange' },   // 인계서 §3-3 Royals 확인 닫힘 · CR-00283 · CR-00282 몫은 손님 크레딧이라 남는다
+    { so: 'SO-13252', doc: '46769', to: 'MINT & CO. INC.',                                   total: 284.42,   paid: 218.43,   due: 65.99,    color: 'orange' },
+    { so: 'SO-11746', doc: '45821', to: '9393-0675 Quebec Inc.(Ricom)',                      total: 17294.79, paid: 17294.81, due: -0.02,    color: 'blue' }
+  ];
 }
 
 
@@ -183,7 +216,7 @@ function ilo_candidates_(S) {
   var sortKey = function (a, b) { return ilo_str_(a.OrderNumber) < ilo_str_(b.OrderNumber) ? -1 : 1; };
   open.sort(sortKey); overpay.sort(sortKey);
   return {
-    open: open, overpay: overpay,
+    open: open, overpay: overpay, credited: overCredited,     // credited 는 가드 메시지용(ilo-zero-1) — 옛 candidates.json 엔 없다(ilo_arr_ 로 읽는다)
     stats: {
       sales: S.length, voided: S.length - live.length,
       open: open.length, open_customers: ilo_uniq_(open, 'CustomerID'), open_by_cur: ilo_sumByCurObj_(open, function (s) { return n(s.SaleInvoicesTotalAmount) - n(s.CombinedPaymentTotal); }),
@@ -210,15 +243,23 @@ function iloBuild() {
   var details = ilo_readAll_(folder, 'detail-').rows;
   var credits = ilo_readAll_(folder, 'credits-').rows;
   var res = ilo_build_(cand, details, credits, cfg.asOf || ilo_today_(), cfg);
+  var stamp = ilo_stamp_();
+  if (res.summary.zeroed.problems.length) {                       // ⛔ 0 처리 목록 가드 — build json 을 남기지 않고 멈춘다(옛 Build 도 지워 Dry 가 못 돈다)
+    folder.createFile('report-build-blocked-' + stamp + '.txt', res.report, MimeType.PLAIN_TEXT);
+    st.buildFile = null; st.buildMd5 = null; st.dryMd5 = null; st.dryAt = null; st.dryRejected = null;
+    ilo_save_state_(st);
+    Logger.log(res.report);
+    throw new Error('⛔ 멈춤 — 회계 0 처리 목록(ilo_zeroDocs_) ' + res.summary.zeroed.problems.length + ' 줄이 Cin7 수집과 다르다: ' + res.summary.zeroed.problems.map(function (r) { return r.so + ' ' + r.doc + ' ' + r.to + ' — ' + r.problem; }).join(' | ') + ' · 보고서 report-build-blocked-' + stamp + '.txt · Cin7 에서 누가 고쳤거나 번호를 잘못 옮긴 것 — 추정해 넘기지 않는다');
+  }
   var text = JSON.stringify({ p: res.p, summary: res.summary });
-  var stamp = ilo_stamp_(), name = 'build-' + stamp + '.json';
+  var name = 'build-' + stamp + '.json';
   ilo_save_(folder, name, text);
   folder.createFile('report-build-' + stamp + '.txt', res.report, MimeType.PLAIN_TEXT);
   st.buildFile = name; st.buildMd5 = ilo_md5_(text); st.buildMismatch = res.summary.mismatch.length; st.buildBlocked = res.summary.blocked;
   st.dryMd5 = null; st.dryAt = null; st.dryRejected = null;      // 새 Build 면 Dry 부터 다시
   ilo_save_state_(st);
   Logger.log(res.report);
-  Logger.log('⭐ ' + name + ' · md5 ' + st.buildMd5 + ' · 인보이스 ' + res.p.invoices.length + ' · 받아 둔 돈 줄 ' + res.p.credits.length + ' · 어긋난 sale ' + st.buildMismatch + (st.buildBlocked ? ' ⛔ Apply 막힘(Dry 는 된다)' : '') + ' · 다음은 iloDry · 폴더: ' + folder.getUrl());
+  Logger.log('⭐ ' + name + ' · md5 ' + st.buildMd5 + ' · 인보이스 ' + res.p.invoices.length + ' · 받아 둔 돈 줄 ' + res.p.credits.length + ' · 회계 0 처리 제외 ' + res.summary.zeroed.excluded.invoices.count + ' 장 + overpay ' + res.summary.zeroed.excluded.overpay.count + ' 줄 · 어긋난 sale ' + st.buildMismatch + (st.buildBlocked ? ' ⛔ Apply 막힘(Dry 는 된다)' : '') + ' · 다음은 iloDry · 폴더: ' + folder.getUrl());
 }
 
 // 셈 본체(순수 — 시험 장치가 직접 부른다) → { p, summary, report }
@@ -226,6 +267,7 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
   var n = ilo_n_, r2 = ilo_r2_, tol = cfg.tol, out = [], P = function (s) { out.push(s); };
   var byId = {}; details.forEach(function (d) { if (d && d.list && d.list.SaleID) byId[d.list.SaleID] = d; });
   var invoices = [], creditsOut = [], mismatch = [], notes = [], roundedInv = 0, roundedCr = 0, custDiff = 0, blankNumber = 0, missingDetail = [], termBlank = 0, dueBlank = 0, negInv = 0;
+  var zero = ilo_zeroCheck_(cand, details, cfg), zeroInv = [], zeroOver = [], zeroWaived = [];   // ⭐ 회계 0 처리 목록(ilo-zero-1) — 가드 결과 · 빠진 줄 · 면제된 대조
 
   // ── 이월 인보이스(열린 sale) + sale 대조 ──
   cand.open.forEach(function (s) {
@@ -235,12 +277,18 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
     var custId = ilo_str_(det.CustomerID) || ilo_str_(s.CustomerID), cur = ilo_str_(det.CustomerCurrency) || ilo_str_(s.CustomerCurrency);
     if (ilo_str_(det.CustomerID) && ilo_str_(s.CustomerID) && ilo_str_(det.CustomerID) !== ilo_str_(s.CustomerID)) custDiff++;
     var live = invs.filter(function (v) { var u = ilo_str_(v.Status).toUpperCase(); return u !== 'VOIDED' && u !== 'DRAFT'; });
-    var sumSigned = 0, lines = [], negs = 0;
+    var sumSigned = 0, lines = [], negs = 0, zeroedHere = 0;
     live.forEach(function (v) {
       var total = n(v.Total), paid = n(v.Paid), rem = total - paid;
       sumSigned += rem;
       if (rem < -0.005) { negInv++; negs++; }      // 한 sale 안에서 넘게 받은 인보이스가 열린 인보이스를 상계한다 — 실을 수 없다(목록 합은 맞아도 어긋남으로)
       if (rem > 0.005) {
+        var z = zero.invSkip[ilo_str_(v.TaskID)];
+        if (z) {                                   // ⭐ 회계 0 처리 — 이 인보이스 줄은 싣지 않는다(대조 Σ 에는 들어간다 · 통계에는 안 들어간다)
+          zeroedHere++; z.where = '인보이스';
+          zeroInv.push({ so: z.so, doc: z.doc, to: z.to, currency: cur, remaining: r2(rem), total: r2(total), prior_settled: r2(paid) });
+          return;
+        }
         var tb = n(v.TotalBeforeTax), tx = n(v.Tax);
         if (Math.abs(total - r2(total)) > 0.0001 || Math.abs(paid - r2(paid)) > 0.0001 || Math.abs(tx - r2(tx)) > 0.0001) roundedInv++;
         if (!ilo_str_(v.InvoiceNumber)) blankNumber++;
@@ -256,14 +304,16 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
       }
     });
     var listDiff = n(s.SaleInvoicesTotalAmount) - n(s.CombinedPaymentTotal);
-    if (Math.abs(sumSigned - listDiff) > tol || !lines.length || negs > 0) {
+    if (Math.abs(sumSigned - listDiff) > tol || !(lines.length + zeroedHere) || negs > 0) {
       var cns = ilo_arr_(det.CreditNotes !== undefined ? det.CreditNotes : det.CreditNote).filter(function (c) { return ilo_str_(c.Status).toUpperCase() !== 'VOIDED'; });
       var cnTotal = cns.reduce(function (a, c) { return a + n(c.Total); }, 0), cnRefund = cns.reduce(function (a, c) { return a + ilo_sum_(ilo_arr_(c.Refunds), 'Amount'); }, 0);
       var cnNet = cnTotal - cnRefund;
-      mismatch.push({ order: ilo_str_(s.OrderNumber), customer: ilo_str_(s.Customer), sale_id: s.SaleID, list_remaining: r2(listDiff), detail_remaining: r2(sumSigned), diff: r2(sumSigned - listDiff),
+      var mm = { order: ilo_str_(s.OrderNumber), customer: ilo_str_(s.Customer), sale_id: s.SaleID, list_remaining: r2(listDiff), detail_remaining: r2(sumSigned), diff: r2(sumSigned - listDiff),
         invoices: live.map(function (v) { return ilo_show_(v.InvoiceNumber) + ' ' + ilo_show_(v.Status) + ' Total ' + ilo_m_(v.Total) + ' Paid ' + ilo_m_(v.Paid); }).join(' | ') + (invs.length > live.length ? ' (+ VOIDED/DRAFT ' + (invs.length - live.length) + ')' : ''),
         credit_notes: cns.map(function (c) { return ilo_show_(c.CreditNoteNumber) + ' ' + ilo_show_(c.Status) + ' Total ' + ilo_m_(c.Total) + ' Refunds ' + ilo_m_(ilo_sum_(ilo_arr_(c.Refunds), 'Amount')); }).join(' | '),
-        cn_explains: cns.length > 0 && Math.abs((sumSigned - cnNet) - listDiff) <= tol, lines_loaded: lines.length, negative_invoices: negs });
+        cn_explains: cns.length > 0 && Math.abs((sumSigned - cnNet) - listDiff) <= tol, lines_loaded: lines.length, negative_invoices: negs };
+      if (zero.saleAllZero[s.SaleID]) zeroWaived.push(mm);   // ⭐ 이 sale 의 live 인보이스가 전부 회계 0 처리 — 실리는 줄이 없으니 대조 어긋남은 면제(보고서 0z 에 적는다)
+      else mismatch.push(mm);
     }
     invoices = invoices.concat(lines);
   });
@@ -276,9 +326,16 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
     var live = invs.filter(function (v) { var u = ilo_str_(v.Status).toUpperCase(); return u !== 'VOIDED' && u !== 'DRAFT'; });
     var sumSigned = live.reduce(function (a, v) { return a + n(v.Total) - n(v.Paid); }, 0);
     var listDiff = n(s.SaleInvoicesTotalAmount) - n(s.CombinedPaymentTotal), amt = r2(-listDiff);
+    var zo = zero.overpaySkip[ilo_str_(s.SaleID)], mmo = null;
     if (Math.abs(sumSigned - listDiff) > tol && live.length) {       // 인보이스 전 선결제(인보이스 0 장)는 상세로 대조할 것이 없다 — 목록 값을 그대로
-      mismatch.push({ order: ilo_str_(s.OrderNumber), customer: ilo_str_(s.Customer), sale_id: s.SaleID, list_remaining: r2(listDiff), detail_remaining: r2(sumSigned), diff: r2(sumSigned - listDiff),
-        invoices: live.map(function (v) { return ilo_show_(v.InvoiceNumber) + ' ' + ilo_show_(v.Status) + ' Total ' + ilo_m_(v.Total) + ' Paid ' + ilo_m_(v.Paid); }).join(' | '), credit_notes: '', cn_explains: false, lines_loaded: 0, overpay: true });
+      mmo = { order: ilo_str_(s.OrderNumber), customer: ilo_str_(s.Customer), sale_id: s.SaleID, list_remaining: r2(listDiff), detail_remaining: r2(sumSigned), diff: r2(sumSigned - listDiff),
+        invoices: live.map(function (v) { return ilo_show_(v.InvoiceNumber) + ' ' + ilo_show_(v.Status) + ' Total ' + ilo_m_(v.Total) + ' Paid ' + ilo_m_(v.Paid); }).join(' | '), credit_notes: '', cn_explains: false, lines_loaded: 0, overpay: true };
+      if (zo) zeroWaived.push(mmo); else mismatch.push(mmo);
+    }
+    if (zo) {                                                        // ⭐ 회계 0 처리 — 이 sale(단일 인보이스)의 overpay 줄은 싣지 않는다
+      zo.where = '받아 둔 돈(overpay)';
+      zeroOver.push({ so: zo.so, doc: zo.doc, to: zo.to, currency: ilo_str_(det.CustomerCurrency) || ilo_str_(s.CustomerCurrency), amount: amt });
+      return;
     }
     if (Math.abs(amt - (-listDiff)) > 0.0001) roundedCr++;
     creditsOut.push({ cin7_customer_id: ilo_str_(det.CustomerID) || ilo_str_(s.CustomerID), currency: ilo_str_(det.CustomerCurrency) || ilo_str_(s.CustomerCurrency), amount: amt, source: 'overpay',
@@ -300,17 +357,26 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
   var sumCr2 = ilo_groupCur_(creditsOut.filter(function (c) { return c.source === 'overpay'; }), function (c) { return { count: 1, amount: c.amount }; });
   var sumCr = ilo_groupCur_(creditsOut, function (c) { return { count: 1, amount: c.amount }; });
   var tooMany = invoices.length > cfg.maxPerCall || creditsOut.length > cfg.maxPerCall;
+  var zeroed = {                                                      // ⭐ 회계 0 처리 — 보고서 0z · Dry 보고서 · Caleb 대조표가 쓴다
+    list_count: zero.rows.length, rows: zero.rows, problems: zero.problems, waived: zeroWaived,
+    excluded: { invoices: { count: zeroInv.length, by_currency: ilo_groupCur_(zeroInv, function (v) { return { count: 1, total: v.total, prior_settled: v.prior_settled, remaining: v.remaining }; }), rows: zeroInv },
+                overpay: { count: zeroOver.length, by_currency: ilo_groupCur_(zeroOver, function (c) { return { count: 1, amount: c.amount }; }), rows: zeroOver } },
+    no_line: zero.rows.filter(function (r) { return !r.problem && r.where === ''; }).map(function (r) { return r.so + ' ' + r.doc; })
+  };
   var summary = {
     as_of: asOf, built_at: new Date().toISOString(), stats: cand.stats,
     invoices: { count: invoices.length, customers: ilo_uniq_(invoices, 'cin7_customer_id'), sales: ilo_uniq_(invoices, 'legacy_sale_id'), by_currency: sumInv,
                 blank_number: blankNumber, term_blank: termBlank, due_blank: dueBlank, rounded: roundedInv, customer_id_differs: custDiff, negative_invoices: negInv },
-    credits: { count: creditsOut.length, customers: ilo_uniq_(creditsOut, 'cin7_customer_id'), by_currency: sumCr, credit_rows: credRows.length, credit_by_currency: sumCr1, overpay_rows: cand.overpay.length, overpay_by_currency: sumCr2, rounded: roundedCr },
+    credits: { count: creditsOut.length, customers: ilo_uniq_(creditsOut, 'cin7_customer_id'), by_currency: sumCr, credit_rows: credRows.length, credit_by_currency: sumCr1, overpay_rows: cand.overpay.length - zeroOver.length, overpay_by_currency: sumCr2, rounded: roundedCr },
+    zeroed: zeroed,
     mismatch: mismatch, missing_detail: missingDetail.map(function (s) { return ilo_str_(s.OrderNumber); }),
-    blocked: mismatch.length > 0 || missingDetail.length > 0 || tooMany, too_many: tooMany
+    blocked: mismatch.length > 0 || missingDetail.length > 0 || tooMany || zero.problems.length > 0, too_many: tooMany
   };
 
   // ── 보고서 ──
   P('=== ImsLoadOpening build ' + summary.built_at + ' · as_of ' + asOf + ' ===');
+  P('');
+  P(ilo_zeroTable_(zeroed));
   P('');
   P('0. 원천');
   P('   saleList 고유 sale ' + cand.stats.sales + ' · VOIDED ' + cand.stats.voided + ' · 열린 sale ' + cand.stats.open + '(손님 ' + cand.stats.open_customers + ') · 오버페이 sale ' + cand.stats.overpay + '(손님 ' + cand.stats.overpay_customers + ') · 오버페이인데 CREDITED(① 로 간 것) ' + cand.stats.overpay_credited);
@@ -336,7 +402,7 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
   P('');
   P('3. 받아 둔 돈 — 줄 ' + creditsOut.length + ' · 손님(매장) ' + summary.credits.customers + ' (창구가 청구처 · 통화로 묶는다)');
   P('   ① 손님 크레딧(RemainingAmount > 0) ' + credRows.length + ' 행: ' + ilo_curText_(sumCr1));
-  P('   ② 오버페이(balance credited · PREPAID 포함) ' + cand.overpay.length + ' sale: ' + ilo_curText_(sumCr2) + '   (목록 기준 ' + ilo_curText_(cand.stats.overpay_by_cur, true) + ')');
+  P('   ② 오버페이(balance credited · PREPAID 포함) ' + (cand.overpay.length - zeroOver.length) + ' sale: ' + ilo_curText_(sumCr2) + '   (목록 기준 ' + ilo_curText_(cand.stats.overpay_by_cur, true) + ' · 그중 회계 0 처리로 뺀 overpay ' + zeroOver.length + ' 줄 ' + ilo_curText_(zeroed.excluded.overpay.by_currency) + ')');
   P('   합: ' + ilo_curText_(sumCr) + ' · 소수 셋째 자리 반올림 ' + roundedCr);
   P('   큰 줄(≥ 1000 · 창구 large[] 와 같은 기준):');
   var big = creditsOut.filter(function (c) { return c.amount >= 1000; }).sort(function (a, b) { return b.amount - a.amount; });
@@ -346,6 +412,76 @@ function ilo_build_(cand, details, credits, asOf, cfg) {
   P(ilo_calebTable_(summary));
   return { p: p, summary: summary, report: out.join('\n') };
 }
+
+// ⭐ 회계 0 처리 목록 가드(순수 · ilo-zero-1) — 목록 한 줄마다 수집 후보 상세의 인보이스(번호)를 찾아 SO · Total · Due 를 대조
+//    Due 는 상세 Total − Paid 가 맞으면 「상세」 · 아니고 그 sale 의 live 인보이스가 하나뿐이면 목록 SaleInvoicesTotalAmount − CombinedPaymentTotal 로 「목록」(SO-10447 꼴 · 보고서가 목록 값을 썼다)
+//    → invSkip[TaskID](Due + · 상세 Due > 0 이면 인보이스 줄을 뺀다) · overpaySkip[SaleID](Due − · overpay 후보 · 단일 인보이스면 overpay 줄을 뺀다) · saleAllZero[SaleID](live 인보이스 전부 목록 → 대조 어긋남 면제)
+//    문제(problem)가 하나라도 있으면 iloBuild 가 멈춘다 — 추정해 넘기지 않는다
+function ilo_zeroCheck_(cand, details, cfg) {
+  var n = ilo_n_, tol = cfg.zeroTol, byNum = {}, kindOf = {}, liveOf = {};
+  cand.open.forEach(function (s) { kindOf[ilo_str_(s.SaleID)] = 'open'; });
+  cand.overpay.forEach(function (s) { kindOf[ilo_str_(s.SaleID)] = 'overpay'; });
+  details.forEach(function (d) {
+    if (!d || !d.list || !d.detail) return;
+    var det = d.detail, invs = ilo_arr_(det.Invoices !== undefined ? det.Invoices : det.Invoice);
+    var live = invs.filter(function (v) { var u = ilo_str_(v.Status).toUpperCase(); return u !== 'VOIDED' && u !== 'DRAFT'; });
+    liveOf[ilo_str_(d.list.SaleID)] = live.length;
+    invs.forEach(function (v) { var k = ilo_str_(v.InvoiceNumber); if (!k) return; (byNum[k] = byNum[k] || []).push({ s: d.list, v: v, liveCount: live.length, isLive: live.indexOf(v) >= 0, kind: kindOf[ilo_str_(d.list.SaleID)] || '?' }); });
+  });
+  var creditedBy = {}; ilo_arr_(cand.credited).forEach(function (s) { var k = ilo_str_(s.InvoiceNumber); if (k) creditedBy[k] = s; });
+  var rows = [], problems = [], invSkip = {}, overpaySkip = {}, perSale = {};
+  ilo_zeroDocs_().forEach(function (z) {
+    var hits = byNum[ilo_str_(z.doc)] || [];
+    var r = { so: z.so, doc: ilo_str_(z.doc), to: z.to, total: z.total, due: z.due, color: z.color, where: '', matched: '', problem: '', sale_id: null, live_count: null };
+    if (!hits.length) r.problem = creditedBy[r.doc] ? 'not_in_collection — 오버페이가 CREDITED(손님 크레딧으로 바뀜 · ref/customer/credits 쪽) · 이 목록은 손님 크레딧을 거르지 않는다' : 'not_in_collection — 수집 후보(열린 · 오버페이 sale 의 상세)에 이 인보이스 번호가 없다 · Cin7 에서 고쳐졌거나(Due 0) 번호 오류';
+    else if (hits.length > 1) r.problem = 'duplicate_number — 같은 인보이스 번호가 상세 ' + hits.length + ' 곳(' + hits.map(function (h) { return ilo_show_(h.s.OrderNumber); }).join(', ') + ')';
+    else {
+      var h = hits[0], dTot = n(h.v.Total), dDue = dTot - n(h.v.Paid), lDue = n(h.s.SaleInvoicesTotalAmount) - n(h.s.CombinedPaymentTotal);
+      r.sale_id = ilo_str_(h.s.SaleID); r.live_count = h.liveCount;
+      if (ilo_str_(h.s.OrderNumber) !== z.so) r.problem = 'so_differs — 수집의 SO 는 ' + ilo_show_(h.s.OrderNumber);
+      else if (!h.isLive) r.problem = 'voided_or_draft — 상세 Status ' + ilo_show_(h.v.Status);
+      else if (Math.abs(dTot - z.total) > tol) r.problem = 'total_differs — 상세 Total ' + ilo_m_(dTot) + ' ≠ 보고서 ' + ilo_m_(z.total);
+      else if (Math.abs(dDue - z.due) <= tol) r.matched = '상세';
+      else if (h.liveCount === 1 && Math.abs(lDue - z.due) <= tol) r.matched = '목록(상세 Due ' + ilo_m_(dDue) + ')';
+      else r.problem = 'due_differs — 상세 Due ' + ilo_m_(dDue) + ' · 목록 ' + ilo_m_(lDue) + ' ≠ 보고서 ' + ilo_m_(z.due) + (h.liveCount > 1 ? ' · 이 sale 의 live 인보이스 ' + h.liveCount : '');
+      if (!r.problem) {
+        if (z.due > 0.005) {
+          if (h.kind !== 'open') r.problem = 'kind — Due + 인데 후보 종류 ' + h.kind;
+          else if (dDue > 0.005) invSkip[ilo_str_(h.v.TaskID)] = r;
+          else r.where = '';                                              // 상세 Due 0 — 원래도 인보이스 줄이 안 실렸다(SO-10447) · 대조 어긋남만 면제
+        } else if (z.due < -0.005) {
+          if (h.kind !== 'overpay') r.problem = 'not_overpay — 후보 종류 ' + h.kind + '(sale 전체가 오버페이가 아니다 · 다른 인보이스가 열려 있나)';
+          else if (h.liveCount !== 1) r.problem = 'multi_invoice — overpay 줄은 sale 단위인데 live 인보이스가 ' + h.liveCount + ' · 이 목록으로는 못 가른다';
+          else overpaySkip[r.sale_id] = r;
+        } else r.problem = 'due_zero — 보고서 Due 가 0 · 뺄 것이 없다';
+      }
+      if (!r.problem) perSale[r.sale_id] = (perSale[r.sale_id] || 0) + 1;
+    }
+    if (r.problem) problems.push(r);
+    rows.push(r);
+  });
+  var saleAllZero = {};
+  Object.keys(perSale).forEach(function (id) { if (liveOf[id] !== undefined && perSale[id] === liveOf[id]) saleAllZero[id] = true; });
+  return { rows: rows, problems: problems, invSkip: invSkip, overpaySkip: overpaySkip, saleAllZero: saleAllZero };
+}
+
+// 보고서 0z — Build · Dry 보고서 맨 위
+function ilo_zeroTable_(z) {
+  var out = [], P = function (s) { out.push(s); }, ex = z.excluded;
+  P('0z. ⭐ 회계에서 0 처리 · 제외 ' + z.list_count + ' (QuickBooks 에서 이미 0 · 파랑 JE Write Off · 주황 No Outstanding Balance · Cin7 은 Lock 으로 못 고침 · 목록 = ilo_zeroDocs_)');
+  P('    빠진 곳: 인보이스 ' + ex.invoices.count + ' 장 ' + ilo_curText_(ilo_zeroCur_(ex.invoices.by_currency)) + ' · 받아 둔 돈(overpay) ' + ex.overpay.count + ' 줄 ' + ilo_curText_(ex.overpay.by_currency) + ' · 줄 없음(원래도 안 실림) ' + z.no_line.length + (z.no_line.length ? '(' + z.no_line.join(', ') + ')' : '') + (z.problems.length ? ' · ⛔ 문제 ' + z.problems.length : ' · 문제 0'));
+  P('    ' + ilo_padR_('SO', 10) + ' ' + ilo_padR_('Document', 9) + ' ' + ilo_padR_('손님', 44) + ' ' + ilo_padL_('Due', 10) + '  ' + ilo_padR_('색', 7) + ' ' + ilo_padR_('빠진 곳', 20) + ' 맞춘 값 / 문제');
+  z.rows.forEach(function (r) {
+    P('    ' + ilo_padR_(r.so, 10) + ' ' + ilo_padR_(r.doc, 9) + ' ' + ilo_padR_(r.to, 44) + ' ' + ilo_padL_(ilo_m_(r.due), 10) + '  ' + ilo_padR_(r.color === 'blue' ? '파랑' : '주황', 7) + ' ' + ilo_padR_(r.problem ? '⛔' : (r.where || '(줄 없음)'), 20) + ' ' + (r.problem ? '⛔ ' + r.problem : r.matched));
+  });
+  if (z.problems.length) P('    ⛔ 문제 ' + z.problems.length + ' — Build 를 멈춘다(build json 없음) · Cin7 에서 누가 고쳤거나 번호를 잘못 옮긴 것 · 목록(ilo_zeroDocs_)과 Cin7 화면을 보고 고친 뒤 iloBuild 다시');
+  if (z.waived.length) {
+    P('    면제된 sale 대조 어긋남 ' + z.waived.length + ' (이 sale 의 live 인보이스가 전부 위 목록 — 실리는 줄이 없어 어긋남으로 세지 않는다):');
+    z.waived.forEach(function (m) { P('      ' + ilo_padR_(m.order, 10) + ' ' + ilo_padR_(m.customer, 32) + ' 목록 남은 ' + ilo_padL_(ilo_m_(m.list_remaining), 11) + ' · 상세 Σ ' + ilo_padL_(ilo_m_(m.detail_remaining), 11) + ' · 차 ' + ilo_padL_(ilo_m_(m.diff), 10) + ' · 인보이스: ' + (m.invoices || '(없음)')); });
+  }
+  return out.join('\n');
+}
+function ilo_zeroCur_(m) { var o = {}; Object.keys(m).forEach(function (k) { o[k] = { count: m[k].count, amount: m[k].remaining }; }); return o; }   // ilo_curText_ 꼴(count · amount)로
 
 // ⭐ Caleb 대조표 — QuickBooks A/R Aging(10-31) · 손님 크레딧과 맞춰 볼 칸
 function ilo_calebTable_(summary, dryRet) {
@@ -364,10 +500,14 @@ function ilo_calebTable_(summary, dryRet) {
   Object.keys(cr).sort().forEach(function (k) {
     P('   받아 둔 돈(크레딧 + 오버페이)     ' + ilo_padR_(k, 6) + ' ' + ilo_padL_(ilo_m_(cr[k].amount), 14) + '       ______________     ________   (QBO: Unapplied payments / Customer credits)');
   });
+  if (summary.zeroed) {
+    var zx = summary.zeroed.excluded;
+    P('   (위 IMS 칸은 회계 0 처리 ' + summary.zeroed.list_count + ' 장을 뺀 뒤 숫자 — 뺀 것: 인보이스 ' + zx.invoices.count + ' 장 ' + ilo_curText_(ilo_zeroCur_(zx.invoices.by_currency)) + ' · 받아 둔 돈 overpay ' + zx.overpay.count + ' 줄 ' + ilo_curText_(zx.overpay.by_currency) + ' · QBO 도 0 이어야 한다 · 0z 표)');
+  }
   P('');
   P('   차이가 나면 볼 곳(짐작 — 확인 안 함):');
   P('     · Cin7 → QBO 동기화가 안 된 몫(QBO 에 없는 인보이스 · 결제 — Cin7 의 Integration 로그) · QBO 에만 손으로 넣은 결제 · 환율(USD 인보이스를 QBO 가 CAD 로 환산한 금액)');
-  P('     · 크레딧 노트(Cin7 에선 인보이스에서 빠지고 QBO 에선 별도 Credit Memo) · 위 1 의 어긋난 sale · Royals Beauty Supply SO-12562 2,278.13(회계 확인 중 · 잘못이면 Cin7 결제를 지우고 Collect 부터 다시)');
+  P('     · 크레딧 노트(Cin7 에선 인보이스에서 빠지고 QBO 에선 별도 Credit Memo) · 위 1 의 어긋난 sale · Royals Beauty Supply SO-12562 2,278.13 은 회계 0 처리 목록(주황)으로 뺐다 — 남는 것은 CR-00283 · CR-00282 몫');
   P('     · IMS 쪽: Dry 의 rejects(customer_unresolved 등) 가 빠진 만큼 IMS 합이 작다 — Dry 보고서 맨 위');
   return out.join('\n');
 }
@@ -405,6 +545,7 @@ function ilo_dryReport_(mode, b, ret, ms, st) {
   var out = [], P = function (s) { out.push(s); }, inv = ret.invoices, cr = ret.credits;
   P('=== ImsLoadOpening ' + mode + ' ' + new Date().toISOString() + ' · ' + b.name + ' · md5 ' + b.md5 + ' · 창구 ' + ret.ms + ' ms · 왕복 ' + ms + ' ms · as_of ' + ret.as_of + ' · 계정 ' + ret.account.code + ' ' + ret.account.name + ' ===');
   P('');
+  if (b.summary.zeroed) { P(ilo_zeroTable_(b.summary.zeroed)); P(''); }
   P('⭐ 맨 위 — 거부 · 못 찾음 · 큰 돈');
   P('   인보이스 거부 ' + inv.rejected + ' / ' + inv['in'] + ' · 손님 못 찾음 ' + inv.customer_unresolved + ' · 결제조건 못 찾음 ' + inv.term_unresolved + ' · 기한 모름 ' + inv.due_unknown + ' · TotalBeforeTax 어긋남 ' + inv.before_tax_adjusted.count + '(|Σ| ' + ilo_m_(inv.before_tax_adjusted.sum_abs) + ')');
   ilo_arr_(inv.rejects).forEach(function (r) { P('      #' + r.seq + ' ' + ilo_padR_(ilo_show_(r.invoice_number), 8) + ' ' + ilo_padR_(ilo_show_(r.customer_name), 32) + ' ' + r.reason + ' · legacy ' + ilo_show_(r.legacy_invoice_id) + ' · cin7 손님 ' + ilo_show_(r.cin7_customer_id)); });
@@ -439,6 +580,7 @@ function iloApply() {
   if (!st.dryMd5) throw new Error('⛔ 이 Build 로 Dry 를 아직 안 돌렸다 — iloDry 먼저');
   if (st.dryMd5 !== b.md5) throw new Error('⛔ Dry 때의 p(md5 ' + st.dryMd5 + ')와 지금의 p(' + b.md5 + ')가 다르다 — iloDry 다시');
   if (b.summary.too_many) throw new Error('⛔ 창구 상한을 넘는다 — report-build 1 절');
+  if (b.summary.zeroed && b.summary.zeroed.problems.length) throw new Error('⛔ 회계 0 처리 목록 가드에 걸린 Build 다 — iloBuild 다시(0z 표)');
   if (b.summary.missing_detail.length) throw new Error('⛔ 상세가 없는 후보가 있다 — iloDetail 다시');
   if (b.summary.mismatch.length) {
     if (st.allowMismatch) { st.allowMismatch = false; ilo_save_state_(st); Logger.log('⚠️ 어긋난 sale ' + b.summary.mismatch.length + ' 을 한 번 통과(iloAllowMismatch) — 표지를 껐다'); }
