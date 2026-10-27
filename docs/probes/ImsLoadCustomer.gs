@@ -612,15 +612,23 @@ function ilc_patchIn_(table, col, ids, body, baseCount) {
       Logger.log('⚠️ ILC_ALLOW_BIG_DOWN 로 한도를 넘겨 내린다 — ' + ids.length + '줄 · 속성은 지웠다');
     }
   }
-  var done = 0;
-  for (var i = 0; i < ids.length; i += 100) {
-    var part = ids.slice(i, i + 100);
+  // ⚠️ [2026-10-27 Apply3 · Limit Exceeded: URLFetch URL Length] 개수(100)가 아니라 글자 수로 나눈다 — 주소 cin7_id 는 손님 GUID 보다 길다
+  var done = 0, part = [], len = 0, MAX = 1500;
+  function flush() {
+    if (!part.length) return;
     var res = ims_fetch_('/rest/v1/' + table + '?' + col + '=in.(' + part.join(',') + ')', {
       method: 'patch', headers: { 'Prefer': 'return=representation' }, payload: JSON.stringify(body)
     });
     if (res.getResponseCode() >= 300) throw new Error(table + ' PATCH 실패 HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 300));
     done += JSON.parse(res.getContentText()).length;
+    part = []; len = 0;
   }
+  ids.forEach(function (id) {
+    var s = String(id);
+    if (part.length && len + s.length + 1 > MAX) flush();
+    part.push(s); len += s.length + 1;
+  });
+  flush();
   return done;
 }
 
