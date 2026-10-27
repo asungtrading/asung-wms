@@ -5,7 +5,7 @@ description: >
   "doc_template", "doc_data", "doc_field_catalog", "자리표", "판 올리기", "Use this version",
   "Settings → Documents", "ims-doc.js", "Mustache", "인쇄", "Print invoice", "Gotenberg", "Cloud Run",
   "doc_file", "documents 버킷", "doc-brand", "EF doc", "서명 URL", "문서 메일", "doc_mail_send",
-  "waiting_pdf", "ims-mail-pdf", "cron 57", "final_invoice_mail", "info@", "인보이스 메모", "doc_mail_skip"
+  "waiting_pdf", "ims-mail-pdf", "cron 57", "final_invoice_mail", "info@", "인보이스 메모", "doc_mail_skip", "so_numbers", "ship_to_repeat"
   가 나오면 추측하지 말고 이 스킬과 정본 so-module §66 을 확인하세요.
   ⚠️판에 meta 태그 · 스크립트 · 바깥 주소 금지(DB 가 거부) — 판 글자는 ASCII(EF 가 charset 을 끼운다),
   ⚠️값의 꼴(돈 · 날짜)은 doc_data 가 만든다 — 판은 셈하지 않는다,
@@ -51,6 +51,7 @@ description: >
 ⭐ 로고는 {{company.logo_url}}(doc-brand 버킷 · doc_public_base_url 로 만든 주소) — 판에 주소를 직접 쓰면 「바깥 주소」 로 거부
 ⭐ 쓰는 판 = kind 마다 하나(doc_template_active) · 새 판 저장 ≠ 쓰기 — Use this version(doc_template_publish)을 눌러야 바뀐다 · 옛 판은 지우지 않는다(되돌리기 = 옛 판을 다시 Use)
 ⭐ 판 파일은 레포 밖 — DB doc_template 이 정본(테스트 쓰는 판: final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 · 2026-10-19) → [2026-10-23 · 판정 640 · so-module §71] final_invoice **v6**(Caleb 올림 10:57 · 줄 설명 뒤 `{{#final_sale}}<span class="tag">Final sale</span>{{/final_sale}}` 한 자리)
+     → [2026-10-26 · 판정 788 · so-module §79-d] final_invoice **v7** · ship_ready **v3** · internal_receipt **v3**(Caleb 올림 · Ship To 블록을 `{{#orders}}{{^ship_to_repeat}}<div class="sto">…</div>{{/ship_to_repeat}}{{/orders}}` 로 · 점선은 CSS `.sto + .sto` 라 숨긴 블록과 함께 사라진다)
 ```
 
 ### 판 고치는 순서 (대화 Claude ↔ Caleb)
@@ -72,6 +73,11 @@ description: >
 ⭐⭐ Ship Ready 의 돈은 발행과 같은 식 — so_invoice_rule_pick · so_invoice_apply_plan · so_tax_preview(…, p_over) · so_invoice_preview 를 so_invoice_issue 가 함께 쓴다
      ⇒ 발행 쪽만 고치면 미리 보기와 갈린다 · 고치면 「옛 발행 = 새 발행」 · 「미리 보기 = 발행」 두 겹 대조를 다시(doc-1b2)
 ⭐ Ship Ready 는 sales 권한이 있는 **직원 로그인**으로만 만든다(so_finalize 미리 보기) — 서버 일꾼(service 길)은 못 만든다
+⭐⭐ [2026-10-26 · srs-1 · 판정 787 · 788] 인보이스 꼴 세 kind(final_invoice · ship_ready · internal_receipt)의 새 열쇠 둘
+     invoice.so_numbers = 오더 SO 번호를 orders 순서(= so_number 순)대로 「, 」 로 이은 글(빈 번호 건너뜀 · 값 하나 — 메일 제목에 쓸 수 있는 SO 번호는 이것뿐 · orders.so_number 는 목록 안에만)
+     orders[].ship_to_repeat = 앞 오더와 같은 배송지면 true(company · line1 · line2 · city · state_province · postal_code · country · lower(btrim) · contact · phone 은 안 본다 · 첫 오더 false)
+     그리기 한 곳 doc_data_invoice_fmt · 목록 doc_field_catalog — 마지막 정의 둘 다 srs-1(20261027023008) · 열쇠를 더할 때는 둘을 함께 + 카탈로그 ↔ 출력 열쇠 대조(srs_1_check T3 · T4 꼴)
+     ⚠️ ship_ready · internal_receipt 출력에 카탈로그 밖 orders.lines.final_sale 이 있다(bgr-1d 부터 · 무해 · deferred 344)
 ⭐ Due 는 찍는 순간 so_invoice_remaining — 같은 인보이스도 결제 뒤 다시 찍으면 Due 가 바뀐다 · 발행 때 종이는 doc_file(남긴 PDF)
 ⭐ 메모(Notes)는 so_invoice.note · so_credit.note — 쓰는 창구 so_invoice_note_set · so_credit_note_set(sales 쓰기 · issued 만 · 2000 자 · 빈 글 → null)
 ⭐ [2026-10-22 · crn-1 · crn-2 · so-module §70-b] credit_note — **가격 조정 줄(price_adjustment)은 제품 표에** · 수량 = qty_adjusted · 단가 = 개당 차액(unit_price_before − after) · 설명 「Price adjustment 9.49 → 7.99 — <제품명>」 · charges 로 안 간다 · 참조 크레딧의 참조 번호는 credit.invoice_number 자리에 이미 찍힌다(판 credit_note v2 무변)
@@ -125,6 +131,9 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
      건너뜀은 doc_mail_skip(no_email · reissue(같은 오더에 앞 인보이스) · error) — **메일 때문에 발행이 서지 않는다** · so_invoice_issue 를 고쳐 메일을 넣지 마라
 ⭐ 받는 이 = 판정 498 고르기(doc_mail_recipient) — 기본 연락처 → 주소 모양인 다른 활성 연락처 → 없음 · 직원은 창에서 한 주소로 고칠 수 있다 · include_in_email 은 미정(미룬 249)
 ⭐ 제목 · 본문 = doc_setting 의 mail_subject · mail_body 를 doc_data 로 채움(doc_mail_fill · 스칼라 {{a.b}} 만) — 줄에 박힌다(뒤에 글을 고쳐도 이미 넣은 줄은 그대로)
+   → [2026-10-26 · 판정 787] ship_ready 기본 메일 제목 「PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.」(srs-1 이 시드 원문일 때만 바꿨다) · 미리 보기(doc_mail_send commit false)가 채워 창 칸에 넣고 보내기는 칸 글 그대로
+     ⚠️ doc_mail_send 는 doc_data 의 docs[0] 만 본다 — 인보이스가 갈려 장이 여럿이면 첫 장의 번호(화면은 PDF 둘 이상이면 보내기를 막는다)
+⭐ 이월 인보이스(so_invoice kind opening · 판정 785)는 doc_data_invoice 가 거부 — 인쇄 · PDF · 메일 모두 안 된다(원본은 QuickBooks · so-module §79-c)
 ⭐ internal_receipt 는 메일 없음(거부) · 문서 메일 취소는 doc_mail_cancel(waiting_pdf · queued · 메모 필수) — 백오더 창구 mail_outbox_resolve 가 아니다
 ⭐ PDF 실패 = doc_mail_pdf_failed — 10 분 뒤 다시 · 세 번째는 failed(사람이 doc_mail_list 로 본다)
 ⭐ 손님 칸 final_invoice_mail 은 customer_update 로만(manager 이상 · 같은 값은 sales 도 통과) · 적재(ImsLoadCustomer)는 이 칸을 보내지 않는다

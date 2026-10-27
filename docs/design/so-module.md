@@ -3404,7 +3404,7 @@ is_split   50% COD 둘 true
 ⓒ 크레딧      so_customer_balance 의 owed_credit(Σcredit − Σcredit_applied) · so_invoice_issue ② 앞에 크레딧 소진(8-e 「크레딧부터」) · so_invoice_cancel 「크레딧이 붙었으면 거부」 · so_payment_refund 한도에 owed_credit(진 빚 환불) — 재발행 셋 → ✅ [2026-09-25 §19] 셋 다 재발행됐다(ⓒ2 20260925014413)
 견적서        여러 오더를 대상으로 한 결제는 남은 금액 전부를 보인다(짐작 · ⬜9) · 인쇄 모양 「PRO FORMA — 인보이스가 아닙니다」(화면)
 마무리 반환   결제별 목록 applied 는 so_invoice_issue 반환에만 — so_finalize 가 실으려면 한 줄 재발행(화면 때)
-전환          Cin7 미수·선수금 이월(method 어휘에 opening 같은 값? · 인보이스 없는 미수를 어떻게 담나) — 전환 차수
+전환          Cin7 미수·선수금 이월(method 어휘에 opening 같은 값? · 인보이스 없는 미수를 어떻게 담나) — 전환 차수  → ✅ [2026-10-26 · 판정 775 · 783 ~ 786 · §79-c] 닫힘 — 열린 옛 인보이스마다 이월 인보이스(kind opening · prior_settled) · 받아 둔 돈 so_payment method opening · 창구 so_opening_load · 컷오버 날 ImsLoadOpening.gs
 연동          QBO(받아 둔 돈·진 빚 계정 · 오버페이 차액 · 8-f) · _1150040029_ Clearing - Shopify 의 용도(회계사)
 화면          결제 넣기(기본 계좌 미리 채움 so_payment_default_account · 제안 so_payment_propose) · 붙이기·떼기 · 잔액 표시(received · reserved · available) · 인보이스 종이(받은 금액 · 이전 잔액 · 보내실 금액)  → §22(읽기 창구)
 정본 정리     6-a 본문 표에서 invoiced 줄 삭제는 파일 나누기 때 함께(지금은 줄 끝 포인터) · 검증 규칙(RAISE %% · 집합·합 판정)은 asung-workflow §4·§5
@@ -8871,11 +8871,11 @@ Send             누르면 창을 바로 닫는다(Caleb 「send를 누르고 �
 | ims-doc v3a | asung-ims `d87f1c8` | Send 하면 창 닫기 · 아래 안내 4 초 |
 
 ```
-판(쓰는 판 · 테스트 DB 실측)  final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 — 판 파일은 레포 밖(Caleb 다운로드) · DB doc_template 이 정본
+판(쓰는 판 · 테스트 DB 실측)  final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2(→ [2026-10-26 · 판정 788 · §79-d] final_invoice v7 · ship_ready v3 · internal_receipt v3) — 판 파일은 레포 밖(Caleb 다운로드) · DB doc_template 이 정본
 회사 글                       doc_company_name · doc_hst · doc_website · doc_terms · doc_branches(토론토 · 에드먼튼 18418 105 Ave. NW, Edmonton AB T5S 0N7 · +1 (780) 752-7678 · info@)
                               · doc_logo_path(doc-brand 버킷에 올림) · doc_date_format DDMONYYYY · doc_public_base_url(테스트 = 테스트 프로젝트 주소 · 운영 값은 66-f)
 문서 글(doc_setting)          kind × (title · mail_subject · mail_body · show_upc · show_comment · show_charge_code) — final_invoice 제목 「INVOICE」 · 메일 제목 「FINAL INVOICE {{invoice.number}} - Asung Trading Inc.」
-                              · ship_ready 제목 PROFORMA · 메일 제목 「PROFORMA INVOICE - Asung Trading Inc.」 · internal_receipt 메일 글 빈칸(메일 없음)
+                              · ship_ready 제목 PROFORMA · 메일 제목 「PROFORMA INVOICE - Asung Trading Inc.」(→ [2026-10-26 · 판정 787 · §79-d] 「PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.」) · internal_receipt 메일 글 빈칸(메일 없음)
 Gotenberg                     GCP 프로젝트 asung-ims-mail · northamerica-northeast2 · 서비스 gotenberg · 판 gotenberg-00001-q5k
                               · https://gotenberg-926704977469.northamerica-northeast2.run.app · 이미지 docker.io/gotenberg/gotenberg:8
                               · 기본 인증(사용자 ims · 비밀번호 Secret Manager gotenberg-basic-pass 판 1) · JavaScript 끔 · 2 GiB · 0 ~ 2 대 · 동시 4 · Cloud Run 요청 60 s
@@ -8894,7 +8894,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 ```
 판 · 글 · 문
   판 쓰기 열쇠(522)        ims_can_doc_template()                 20261019144030_doc_1a_template_base.sql:341
-  자리표 목록(하나)        doc_field_catalog(kind)                20261019144030_doc_1a_template_base.sql:371   ⭐ 판이 쓸 수 있는 이름의 유일한 목록
+  자리표 목록(하나)        doc_field_catalog(kind)                20261019144030_doc_1a_template_base.sql:371   ⭐ 판이 쓸 수 있는 이름의 유일한 목록  → 마지막 정의 20261027023008_srs_1(§79-d)
   올릴 때 검사             doc_template_check(kind, body, mode)   20261019144030_doc_1a_template_base.sql:438   크기 200 KB · 금지 HTML · 바깥 주소 · 목록 밖 자리표
   판 올리기 · 쓰기         doc_template_upload · doc_template_publish   :578 · :609
   판 읽기                  doc_template_list · doc_template_get   :681 · :702
@@ -8904,7 +8904,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
   직원 또는 service        doc_staff_or_service()                 20261019144030:563
 데이터(판은 셈하지 않는다)
   창구                     doc_data(kind, ref)                    20261019155731_doc_1b2_ship_ready.sql:681   volatile · {docs[] · groups[](ship_ready)}
-  공통 · 갈래              doc_data_common 1b1:161 · doc_data_invoice 1c:57 · doc_data_invoice_fmt 1c:95 · doc_data_credit 1b1:282 · doc_data_so 1c:148 · doc_data_ship_ready 1b2:664
+  공통 · 갈래              doc_data_common 1b1:161 · doc_data_invoice 1c:57(→ 마지막 ar-2 · 785) · doc_data_invoice_fmt 1c:95(→ 마지막 srs-1 · §79-d) · doc_data_credit 1b1:282 · doc_data_so 1c:148 · doc_data_ship_ready 1b2:664
   꼴                       doc_fmt_money · qty · pct · date(1b1:41 ~ 53) · doc_fmt_money_nz(1c:37 · 0 → "") · doc_unit_prices(1c:46 · 527 · 528) · doc_contact · doc_method_label · doc_upc
   Ship Ready 돈            so_invoice_rule_pick 1b2:41 · so_invoice_apply_plan 1b2:66 · so_tax_preview(…, p_over) 1b2:150 · so_invoice_issue 1b2:251 · so_invoice_preview 1b2:471
                            ⚠️ 발행과 미리 보기가 같은 식 — 하나만 고치지 마라(옛 발행 = 새 발행 · 미리 보기 = 발행 두 겹 대조로 섰다)
@@ -9352,7 +9352,7 @@ Backorders(rls-3c)            so_backorder_arrivals :57 · so_backorder_demand :
 
 | 판정 | Caleb | 뜻 |
 |---|---|---|
-| 602 | 「A」(「인보이스를 연결할 수 없는 경우는 어떻하지? 당장에 컷오버 이후에 cin7에서 발행된 인보이스 내역에 대한 크레딧 노트를 발행할 수가 없어」) | 인보이스 없는 크레딧 = **참조 번호 크레딧** — 머리 = 손님 · 날짜 · 참조 번호(옛 인보이스 번호 · 필수) · 사유 / 줄 = 제품 · 수량 · 직원이 넣는 단가 · 칸 또는 안 돌아옴 / 세금 = 손님 규칙(바꿀 수 있음) / 원가 = 되짚지 않음 · 평균 → 최근 / 발행 manager / 미리 보기에 「손으로 넣은 단가」 · 기각 B(옛 인보이스 적재 — 11-01 까지 크고 「컷오버 때 거래는 지우고 새로 시작」 과 부딪친다) · ⚠️ crn-0 발견: 이 길은 판정 6(2026-09-24 · §19-c 0-4 · §19-g)으로 DB 에 대부분 지어져 있었다(이름이 「Cin7」 · 원가는 원장의 옛 판매로 되짚기) — 602 가 그 설계를 대신한다(되짚지 않음) |
+| 602 | 「A」(「인보이스를 연결할 수 없는 경우는 어떻하지? 당장에 컷오버 이후에 cin7에서 발행된 인보이스 내역에 대한 크레딧 노트를 발행할 수가 없어」) | 인보이스 없는 크레딧 = **참조 번호 크레딧** — 머리 = 손님 · 날짜 · 참조 번호(옛 인보이스 번호 · 필수) · 사유 / 줄 = 제품 · 수량 · 직원이 넣는 단가 · 칸 또는 안 돌아옴 / 세금 = 손님 규칙(바꿀 수 있음) / 원가 = 되짚지 않음 · 평균 → 최근 / 발행 manager / 미리 보기에 「손으로 넣은 단가」 · 기각 B(옛 인보이스 적재 — 11-01 까지 크고 「컷오버 때 거래는 지우고 새로 시작」 과 부딪친다) · ⚠️ crn-0 발견: 이 길은 판정 6(2026-09-24 · §19-c 0-4 · §19-g)으로 DB 에 대부분 지어져 있었다(이름이 「Cin7」 · 원가는 원장의 옛 판매로 되짚기) — 602 가 그 설계를 대신한다(되짚지 않음) · → [2026-10-26 · 판정 774 · §79-b] 참조 크레딧이 옛 번호로 이력(hist_)을 찾아 줄을 **미리 채운다**(hist_credit_source · cr v6) · 손 입력 길은 남는다(cr v6a Enter by hand) |
 | 603 | 「2번은 니 제안대로」(「지나간 세일금액의 차만큼 돌려달라고 억지 부리는 손님들 … 대개는 들어주는 편」) | 크레딧 줄 종류 **가격 조정**(price_adjustment) = (낸 단가 − 새 단가) × 수량 + 그 줄 세금 · 재고 안 움직임(원장 0) · 반품 가능 수량 안 깎음 · 뒤 반품은 새 단가 기준 · 「어느 제품에 얼마 깎아 줬나」 셀 수 있게 |
 | 604 | 좁힌 안 2 | 발주앱 **화면이** BigQuery(경계 전 이력)와 IMS(경계부터)를 합친다 · IMS → BigQuery 내보내기는 짓지 않는다 · 11-01 아침 필수 = 추천 계산(판매 · 백오더 · 재고 · 공급처 목록) · 입고 검증 · 공급처 분석 두 탭은 며칠 뒤 · 계산 코드는 그대로(po-module §10-d) · ⚠️ 대화 Claude 가 안 2 의 크기를 처음에 3 ~ 4 차수로 잘못 말했다(필수 아닌 두 탭까지 든 어림) |
 | (번호 없음) | (같은 때) | GAS 백오더 메일은 11-01 뒤 안 쓴다(백오더 알림은 IMS 에 지었다 · §65) · **고객 포털도 BigQuery(10-31 까지) → IMS(11-01 부터)로 바꿔야 한다 — 다른 차수**(「다른 차수로 기억하자」) |
@@ -9649,7 +9649,7 @@ deferred 67a-12 · 67a-5 · §3 「파손품」 줄                             
 |---|---|---|
 | 652 | (회사 PC · 원문 없음) | **기존 SKU 로 새 family** 를 만든다 · 창구 `product_family_from_skus(p_family, p_items, p_commit, p_ack)` 확인 → 확인 → 저장(product_family_create 와 같은 꼴 · 반환 꼴도 같다) · 머리 SKU = 첫 SKU + FAM · 빈 머리 칸은 첫 SKU 를 물려받는다 · 머리 검사 · 머리 insert 는 product_family_create · product_create_core 에서 바이트 그대로 떼어 한 곳(product_family_head_ctx · product_family_head_insert) · asung-wms fam-new-1 `5b5c573` · 화면 fam v5(`c3bbc61`) · fam v5b · pr v5d(`642f42e`) · pr v5e(`2b5358f` · `products.html?new=family` · Open sheet 단추) · fam v5a 는 따로 된 커밋이 없다(642f42e 안) |
 | 653 | (회사 PC · 원문 없음 · 「B」) | **다른 family 에 든 SKU 는 옮긴다** — 경고 ack `moves_from_family` · 옛 family 가 구성원 0 이 되면 ack `old_family_emptied` · 빈 머리는 남는다(family_leave 와 같다 · 지우지 않는다) · 652 와의 경계 출처 = fam-new-1 마이그레이션 머리 32 행 · 619 행(이 대화의 인계서에는 경계가 없었다) |
-| 654 | 「현재 customer와, supplier의 판매 또는 구매 히스토리가 없어 …」 → 「좋아. 일단 A로 하자. 그러나 B도 짓고 싶어」 | **A**: 손님 · 공급처 상세에 이력 카드(IMS 거래만 · cs v5 Order history · sup v2 Purchase history · 최근 20 · Show 20 more · 줄 금액 so_totals_many · po_list · DB 무변 · asung-ims `2a648d6`) · **B**: 컷오버 전 지난 거래를 IMS 에 **읽기 전용**으로 옮겨 담아 같은 카드가 함께 보인다 · ⭐ po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력에 한해** 고친다(원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다) · deferred 301(닫힘) |
+| 654 | 「현재 customer와, supplier의 판매 또는 구매 히스토리가 없어 …」 → 「좋아. 일단 A로 하자. 그러나 B도 짓고 싶어」 | **A**: 손님 · 공급처 상세에 이력 카드(IMS 거래만 · cs v5 Order history · sup v2 Purchase history · 최근 20 · Show 20 more · 줄 금액 so_totals_many · po_list · DB 무변 · asung-ims `2a648d6`) · **B**: 컷오버 전 지난 거래를 IMS 에 **읽기 전용**으로 옮겨 담아 같은 카드가 함께 보인다 · ⭐ po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력에 한해** 고친다(원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다) · deferred 301(닫힘) · → [2026-10-26 · 판정 774 · §79-b] 참조 크레딧이 이력을 보고 채우되 **서버는 hist 를 읽기만**(크레딧은 참조 크레딧 그대로 · 원장 · 원가 · 잔액과 잇지 않음은 그대로) |
 | 655 | — | **기록 없음**(회사 PC 인계서 확인 거리) — 두 레포의 커밋 제목 · 본문 · docs · 스킬 · 마이그레이션 grep 0(2026-10-23 · docs-1023h 이견 1) · 번호를 다른 판정에 주지 않는다 |
 | 656 | 「다」 | SKU **줄 단위**로 옮긴다 · 카드는 오더 줄 → 펼치면 SKU · 수량 · 단가 · 근거: 「지난번에 산 그 젤 24개 다시」(다시 주문 받기 ⇒ 단가가 틀리면 손님에게 틀린 값을 말한다) · 「2 년」 은 658 이 「Core 시절 전부」 로 고침 |
 | 657 | 「나」 | 주인은 **GUID 로** 잇는다 — 줄은 BigQuery · 오더 번호 → Cin7 CustomerID / SupplierID 짝은 컷오버 전에 Cin7 목록(saleList · purchaseList)에서 받아 IMS `cin7_id` 로 · 근거: BQ 판매 · 발주 표 어디에도 GUID 칸이 없다(이름 바뀐 손님 · BMG 실사고) |
@@ -10377,4 +10377,148 @@ Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu �
 
 ```
 다음 판정 번호: 774 · 다음 deferred 번호: 341
+```
+
+---
+
+## §79 2026-10-26 집 저녁 ~ 밤 — 참조 크레딧 이력 채우기 · 미수 · 받아 둔 돈 이월 · 프로포마 메일 제목 · 묶음 인보이스 배송지 — hcr-0 · 1 · cr v6 · v6a · ar-0 ~ 4 · srs-1 · 판정 774 ~ 789 (집 PC)
+
+⭐ 지은 것: 참조 크레딧이 옛 인보이스 번호로 이력(hist_)을 찾아 줄을 미리 채운다(hcr-1 · cr v6 · v6a) · 컷오버 날 Cin7 의 열린 미수 · 받아 둔 돈을 IMS 로 옮기는 창구와 적재 스크립트(ar-1 ~ ar-4 · 리허설 Apply 없음) · 프로포마 메일 제목에 SO 번호 · 묶음 인보이스의 같은 배송지는 한 번만(srs-1 · 판 셋)
+⭐ 새 판정 774 ~ 789 · 원천: 지시서 hcr-1 · ar-2 · ar-3 · srs-1 · docs-1026c 📌(판정 · 실수 · 리허설 숫자는 대화에만 있었다) · 차수 회신(Claude Code) · 마이그레이션 · 화면 파일의 머리 주석
+⭐ 테스트 DB(= 11-01 부터 메인 · 617)에 마이그레이션 넷(hcr-1 · ar-2 · srs-1 · ar-2b · Caleb 적용 + repair) · 판 셋은 Caleb 이 Settings → Documents 로 올림 · 운영(asung-WMS)에는 올리지 않는다
+
+### 79-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 774 | 「할 수 있다면 그렇게 하자」 | 참조 크레딧이 옛 이력(hist_)을 **보고 채운다** — 옛 번호 → 줄(제품 · 수량 · 판 단가 · 세금) 미리 채움 · 직원은 반품 수량만 · 판 수량 초과는 경고(막지 않음) · 크레딧은 참조 크레딧 그대로 · 서버는 hist 를 읽기만(654 지킴) · 사실(Caleb): Cin7 인보이스 반품은 컷오버 뒤 한두 달 생긴다 · **10 월분 인보이스는 컷오버 때 다 들어온다**(이력 재적재) |
+| 775 | 「B로 가자」 | 옛 미수 · 오버페이 이월 — 열린 옛 인보이스마다 이월 인보이스 · 오버페이 · 열린 크레딧은 손님별 받아 둔 돈 · 컷오버 날 스크립트 · 사실(Caleb): 결제는 Cin7 → QuickBooks ⇒ 11-01 정답은 Cin7 · 기각 A(손님마다 한 줄) · C(옮기지 않음) · 18-g 「전환 이월」 을 닫는다 |
+| 776 | 「A」 | PO 칩 — 아직 아무것도 안 들어온 백오더 PO 는 Ordered 대신 Backorder · 입고가 시작되면 평소처럼 · 거르기도(asung-ims a88500a) |
+| 777 | 「스크롤이 길어지니 기본으로 숨기는 캐롯을 두는게 좋지 않나?」 | Discount Rules 딜 상세 Products 표의 세트 줄 기본 접기 「▸ sets N」(dr v3c · b23cdf4) · 판정 302 대로 닿는 제품을 보여 준 것 · 규칙 대상 그대로 |
+| 778 | 「B」 + 사실 「그것은 오더 디스카운트야」 | 옛 인보이스 맨 밑 추가 비용 칸의 할인 줄(Discount · Order total discount · 38 줄 · −8,051.70)은 **오더 전체 할인** → 제품 줄마다 비례 배분해 단가에 반영(센트 · 끝수는 가장 큰 줄) · 줄 할인 % 는 이미 단가에 들어 있다 · 「Discount qty 2」 의심(hcr-1 이견 8)은 이 사실로 닫힘 |
+| 779 | 「…모든 빌은 헤드쿼터에서 일괄지급하지만, 인보이스는 개별 스토어 이름으로 발행」(Clore Inc. 본사 · Clore Inc. (HMT) 매장) → C | 옛 인보이스 반품 크레딧의 **돈은 청구처** · 종이 · 목록에는 매장(so_credit.store_customer_id) — IMS 인보이스 크레딧과 같은 방식 · 이월 인보이스 · 받아 둔 돈도 같다(돈 = 청구처 · 매장 이름) |
+| 780 | 「해당되는 곳은 모두 켜자」 → 「지금 켜지말고, 리스트를 따로 줘. 내가 내일 확인하고 수동으로 켤께」 | Split invoice by store 는 **청구처 본사에만**(so_finalize 가 청구처 칸만 읽는다 · 매장 칸은 무효) · 테스트 DB 실측: 청구처 따로인 매장 18(Clore 13 · Regina 3 · BMG 72HRS 1 · Lowe CANADA PREP AND SHIP 1) · 본사 넷 모두 split false · Rex Beauty Inc. 와 매장 아홉은 부모 · 청구처 없이 따로 · Caleb 이 회계 확인 뒤 손으로(누가 돈을 내나) · 손님 표는 컷오버 「남김」 이라 테스트 DB 에서 고친 값이 그대로 메인에 남는다(§P-1) |
+| 781 | 「B」 | 옛 세율(줄 세금 맞춤 · 줄마다 1 센트 허용)과 손님 지금 규칙 세율이 다르면 **옛 세율의 판매 규칙을 제안**(같은 세율 여럿이면 직원이 고름 · 실측 다른 오더 125 / 12,966 · 하나 18 · 여럿 107) · 경고 tax_rule_differs · 배송지는 매장의 것(hcr-1 이견 5) |
+| 782 | 「B」 | 옛 인보이스 운임 줄도 보이되 **기본 체크 해제** · 운임 계정 _99_ = Freight Sales Account(활성 · Cin7 화면과 같다 — 「못 정함」 아님) |
+| 783 | 「A가 더 명확하지?」 → A | 이월 인보이스 금액 = 원래 합계 + **이전에 받은 돈(prior_settled)** → 남은 금액 · 기각 B(남은 금액만) |
+| 784 | 「A」 | 이월 인보이스 **취소 불가** · 결제 · 크레딧으로만 줄인다 · 받아 둔 돈 이월도 void 불가(ar-2 이견 5) · 틀린 적재는 IMS 붙임 전 다시 돌리기(옛 열쇠 TaskID 덮어쓰기) |
+| 785 | 「A」 | 이월 인보이스는 IMS 에서 **인쇄 · 메일 막음** — 원본은 QuickBooks(doc_data_invoice 거부 한 곳 · 화면 단추 숨김) |
+| 786 | 「A」 | 받아 둔 돈은 모두 계정 **_1150040009_ Customer Credits** + 손님 브랜치 · QuickBooks 로 다시 보내지 않는다(kind · method opening) · 크레딧과 오버페이를 한 「받아 둔 돈」 으로 합친다(8-e 구분을 잃음 · 받아들임) |
+| 787 | 「프로포마 이메일 … 세일즈 오더 번호가 자동으로」 → 「바로 쓰자」 | 자리표 `invoice.so_numbers`(오더 SO 번호 「, 」 로 · 인보이스 꼴 세 kind) · ship_ready 기본 메일 제목 `PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.`(시드 원문일 때만 바꿈) · Caleb 화면 확인(SO-25135) |
+| 788 | 「merged 인보이스인데, 주소가 두번 나와」 | `orders.ship_to_repeat`(앞 오더와 같은 배송지 — company · line1 · line2 · city · state_province · postal_code · country · lower(btrim)) · 판 final_invoice **v7** · ship_ready **v3** · internal_receipt **v3**(`{{#orders}}{{^ship_to_repeat}}<div class="sto">…{{/ship_to_repeat}}{{/orders}}` · 점선은 .sto + .sto 라 함께 사라짐) · Caleb 올림 · 「중복은 사라졌어」 |
+| 789 | (기술 · 실사고) | ar-2b — so_opening_load 의 임시 표 update 넷에 WHERE(뜻 무변) · REST safeupdate 21000 |
+| — | 「그래 enter by hand 단추가 있는게 좋겠어」 | 참조 크레딧 창 Find 옆 「Enter by hand」(cr v6a) — 이력 없이 손 입력 · 손 입력 길은 남긴다(Omni 시절 인보이스 · 이력에 없는 제품 · 번호 틀림) |
+
+### 79-b 참조 크레딧이 이력을 보고 채운다 — hcr-0 · hcr-1 · cr v6 · v6a · v6b (판정 774 · 778 · 779 · 781 · 782)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| hcr-0 | (조사 · 커밋 없음) | 지시서 전제 둘을 실측으로 바로잡음 — 번호 칸(머리 invoice_number 가 아니라 줄 doc_number) · 추가 비용의 할인 줄 = 오더 할인(778) | — |
+| hcr-1 | asung-wms `818ffa9` | `20261027010153_hcr_1_history_reference_credit.sql` — 색인 hist_so_line_doc_number_idx · so_credit 칸 둘(store_customer_id · warnings) · 한 곳 셋(hist_line_kind · hist_credit_lines · hist_credit_tax) · 읽기 창구 hist_credit_source · so_credit_issue · so_credit_detail · doc_data_credit 재발행 · so_credit_list 끝에 칸 둘 · 검증 `supabase/tests/hcr_1_check.sql` | 781 맞춤 실측: 제품 줄 263,216 중 263,081(99.95 %)이 1 센트 안 · 넘는 135 줄 = 세율이 섞인 53 오더(tax_fit mixed) |
+| cr v6 | asung-ims `3089ca0` | so-credits — 옛 인보이스 번호 Find → 줄(778 배분 단가 · 남은 수량) · 운임 줄 체크 해제 · 옛 세율 규칙 · 매장 표시 | Caleb 화면 시험(48425 · 50387 · 99999 · Preview) 「다 잘 작동해」 |
+| cr v6a | asung-ims `d089648` | Find 옆 「Enter by hand」 — 「Skip the history — pick the customer and type the lines from the paper invoice」(옛 cr v3 흐름 · 번호는 손 입력 칸에서 필수) | ✅ |
+| cr v6b | asung-ims `0c38251`(ar-4 안) | 같은 옛 번호의 이월 인보이스가 남은 돈이 있으면 안내 — 크레딧은 그 인보이스를 저절로 줄이지 않는다(발행 뒤 Attach 손으로) | 이월 Apply 뒤에 볼 것 |
+
+```
+읽기 창구   hist_credit_source(p_number) → {number, number_norm, found, multiple_orders,
+              orders[{hist_so_id, order_number, invoice_number, head_invoice_number, invoice_date, order_date, source, location,
+                      customer{hist_customer_name, resolved, store_customer_id, store_name, bill_to_customer_id, bill_to_name, bill_to_is_store, currency_id, currency_code, currency_source, default_location_id},
+                      totals{…}, lines[{seq, sku, product_id, product_sku, product_name, resolved, qty_sold, unit_price_hist, unit_price(778), amount_hist, amount, tax, rate_pct_line,
+                                         qty_cin7_returned, qty_ims_credited, qty_remaining}],
+                      freight[{seq, sku, description, amount, tax, checked:false}], tax(hist_credit_tax), warnings[…]}], already_credited[…], as_of}
+            sales 보기(ims_can_view 첫 줄 문) · definer · stable — ⚠️ invoker 로 두면 hist RLS 정책 함수(leakproof 아님) 때문에 식 색인을 못 타 8.3 초 → definer 0.7 ms(79-e 3)
+            못 찾음 · 둘 이상 · 못 푼 손님 · 못 푼 제품은 거부가 아니라 표시(창구 warnings: customer_unresolved · currency_unknown · order_has_other_invoice:… · product_unresolved:n · over_returned · tax_mixed · tax_rule_differs · tax_pick_needed)
+발행        so_credit_issue(참조 크레딧 ref + store_customer_id · 줄은 product_sku · unit_price 그대로) — 서버가 같은 한 곳(hist_credit_lines · hist_credit_tax)을 다시 불러 견준다(식이 둘이면 경고가 엇갈린다)
+            발행 경고 넷(so_credit.warnings 에 기록 · 막지 않음): qty_over_sold:<sku>:<asked>/<remaining> · not_on_invoice:<sku> · tax_rule_differs:<지금 규칙> · reference_not_in_history
+            + 원래 있던 manual_unit_price · reference_seen:… · 원장 경고도 함께 기록
+매장 칸     so_credit.store_customer_id(779) — 돈은 customer_id(청구처) · 종이(doc_data_credit 배송지 블록) · 목록(so_credit_list.store_name) · 상세(so_credit_detail.store_name)는 매장
+번호        정규화 lower(trim(doc_number)) · invoice 줄만 — 머리 invoice_number 로 조인하면 47143 에 47441 의 줄이 섞인다(hcr-1 기술 1)
+778 단가    오더 할인 줄 합(−)을 제품 줄 금액 비례로 배분 · 센트 · 끝수는 가장 큰 줄 · 줄 할인 % 는 이미 단가에 있다
+781 세금    옛 세율 = 활성 판매 규칙 세율 후보 중 「줄마다 round(sale × c/100, 2) 와 tax 의 차이 합」 이 가장 작은 것 · 허용 줄마다 1 센트 · 지금 규칙 = 매장 기본 배송지 → so_tax_rule_for
+            같은 세율이면 그 규칙 · 다르면 같은 세율의 활성 규칙(하나 → 제안 · 여럿 · 없음 → 직원이 고른다)
+782 운임     freight[] checked:false · 계정 _99_ Freight Sales Account
+654 지킴     서버는 hist_ 를 읽기만 — 원장 · 원가 · 잔액과 잇지 않는다 · 크레딧은 참조 크레딧 그대로(602 · 609 · 610)
+손 입력     cr v6a 「Enter by hand」 — Omni 시절 인보이스 · 이력에 없는 제품 · 번호 틀림 · 10 월분 이력이 아직 없을 때
+```
+
+### 79-c 미수 · 받아 둔 돈 이월 — ar-0 ~ ar-4 (판정 775 · 783 ~ 786 · 789)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| ar-0 | (조사 · 커밋 없음 · 짐작) | 이월 꼴 판정(775 B) 전 조사 | — |
+| ar-1 | asung-wms `daf8af5` | `docs/probes/OpeningProbe.gs`(접두 opp · 읽기 전용 Cin7 프로브 — 컷오버 열린 인보이스 · 오버페이 · 손님 크레딧) | Caleb 화면 대조 다섯(50411 · Lifetime · Favourites · Royals · KimC/Keythlene)으로 원천 규칙을 닫음 |
+| ar-2 | asung-wms `bfba536` | `20261027014202_ar_2_opening_carry_forward.sql` — so_invoice kind opening · prior_settled · store_customer_id · 옛 열쇠 둘(legacy_sale_id · legacy_invoice_id) · so_payment method opening · so_invoice_remaining(prior_settled) · 트리거 가드 둘(자동 메일 · 드라이브 보관 건너뜀) · so_invoice_cancel(784) · so_payment_void(짝) · doc_data_invoice(785) 재발행 · 뷰 so_invoice_list 재발행(끝에 열 여섯) · 적재 창구 so_opening_load · 검증 `supabase/tests/ar_2_check.sql` | psql 시험 통과 — REST 에서 21000(→ ar-2b) |
+| ar-2b | asung-wms `4c067b0` | `20261027024747_ar_2b_rest_safeupdate.sql` — so_opening_load 임시 표 update 넷에 WHERE(뜻 무변 · 789) · 검증 `supabase/tests/ar_2b_check.sql`(pg_temp.nowhere — 마지막 정의의 깊이 0 WHERE 없는 update · delete 를 센다) | iloDry(REST) 통과 |
+| ar-3 | asung-wms `d6be2d6` | `docs/probes/ImsLoadOpening.gs`(접두 ilo · ILO_STATE 하나 · iloCollect → iloDetail → iloBuild → iloDry → iloApply → iloVerify · iloReset · 허락 표지 iloAllowMismatch · iloAllowRejects) | 리허설 아래 |
+| ar-4 | asung-ims `0c38251` | inv open v1(이월 꼬리표 「Carried over (before IMS)」 · paid before IMS · 인쇄 · 메일 · 취소 단추 없음) · pay open v1(받아 둔 돈 이월 · void 없음 · 「Payments and credits on the previous system before the switch-over」) · cr v6b(79-b) | 이월 Apply 뒤에 볼 것 |
+
+```
+창구 so_opening_load(p jsonb, p_dry boolean) — service_role 만 · 멱등 · Dry 와 Apply 가 같은 판단 · Dry 는 쓰기 0(임시 표만)
+  입력 p = {as_of?: date(기본 ims_today · 받아 둔 돈의 paid_on · 미래면 거부 · 발행일이 이 날 뒤면 그 줄 거부), complete?: bool(true 면 「입력에 없는 기존 이월 줄」 도 보고 — 지우지 않는다),
+            invoices?: [{legacy_sale_id!, legacy_invoice_id!, invoice_number!(숫자 5 자리 이상), cin7_customer_id!, issued_on!, due_on?, payment_term_name?, currency!, total_before_tax!, tax!, total!, prior_settled?(기본 0)}],
+            credits?:  [{cin7_customer_id!, currency!, amount!(> 0), source!(credit | overpay), reference?}]}
+  ① 풀기 — 손님 cin7_id · 통화 code · 결제조건 name(못 찾으면 이름만 · 기한은 입력값) · 계정 _1150040009_(없으면 전체 멈춤) · 브랜치 = 손님 default_location_id
+  ② 인보이스 — 옛 열쇠 legacy_invoice_id(TaskID)로 기존 opening 줄을 찾는다 · same · update · insert · IMS 붙임(활성 결제 · 크레딧 alloc)이 있으면 바뀐 줄은 거부(784)
+     금액 = lines_amount(Total − Tax) · tax · total · amount_due = total · prior_settled · 남은 금액 = total − prior_settled(so_invoice_remaining) · 번호는 옛 번호 그대로(시퀀스 무변) · issued_by null · 오더 없음
+  ③ 받아 둔 돈 — (청구처 = coalesce(default_bill_to_customer_id, id), 통화) 로 합쳐 so_payment 한 줄(kind payment · method opening · paid_on as_of · 계정 _1150040009_ · 브랜치 = 매장의 위치 칸 · note 에 출처 글 + 매장 이름)
+     금액 같으면 same · 다르면 update · IMS 붙임(alloc) · 그 손님 · 통화의 IMS 환불이 있으면 거부
+  반환 invoices{in, inserted, updated, same, rejected, rejects[], by_currency[], customer_unresolved, term_unresolved, before_tax_adjusted, existing_not_in_input}
+       · credits{rows_in, groups, inserted, updated, same, rejected, rejects[], by_currency[], customer_unresolved, branch_unresolved, large[], existing_not_in_input} · account · ms
+  막는 것 — 이월 인보이스 취소 불가(784 · so_invoice_cancel) · 받아 둔 돈 이월 void 불가(so_payment_void) · 인쇄 · 메일 거부(785 · doc_data_invoice 한 곳) · 자동 메일 · 드라이브 보관 트리거가 건너뜀
+원천 규칙(ar-1 프로브 · ar-3)
+  열린 sale = VOIDED 아님 ∧ SaleInvoicesTotalAmount − CombinedPaymentTotal > 0.005 — ⚠️ InvoiceAmount − PaidAmount 는 번호 빈 2 건을 놓친다
+  오버페이 = VOIDED 아님 ∧ CombinedPaymentTotal − SaleInvoicesTotalAmount > 0.005 ∧ CombinedPaymentStatus 에 CREDITED 없음(크레딧으로 바뀐 것은 ref/customer/credits 쪽)
+  이월 인보이스 = 후보 sale 의 Invoices[] 중 VOIDED · DRAFT 아님 ∧ Total − Paid > 0.005 마다 하나 · 받아 둔 돈 = ref/customer/credits 의 RemainingAmount > 0 + 오버페이 sale
+  ⚠️ CombinedInvoiceStatus 필터는 PAID · AUTHORISED · 없는 값 모두 0 — 쓰지 않는다
+  Cin7 오버페이 두 꼴: 손님 크레딧 「Overpaid from Invoice #…」 · 인보이스 「Balance credited」 · 「부분 결제」 대부분 = 손님 크레딧 사용 · Omni 시절 열린 인보이스 0 · 인보이스 전 선결제 0
+  iloBuild 는 sale 마다 대조: Σ(상세 인보이스 Total − Paid · VOIDED · DRAFT 제외) = 목록 SaleInvoicesTotalAmount − CombinedPaymentTotal(0.01 안) — 어긋나면 Apply 를 막는다
+```
+
+리허설(2026-10-26 22:25 ~ 22:58 · 테스트 DB · Apply 안 함)
+
+| 단계 | 결과 |
+|---|---|
+| iloCollect | saleList 18,433 = Total · 크레딧 79 |
+| iloDetail | 상세 322 sale |
+| iloBuild | 이월 인보이스 307(CAD 300 977,998.89 · USD 7 40,281.80) · 받아 둔 돈 93 줄 CAD 8,682.94(크레딧 6,050.11 + 오버페이 14 장 2,632.83) · 어긋난 sale 1 |
+| iloDry(ar-2b 뒤 · REST) | 인보이스 넣음 301 · 거부 6 · 받아 둔 돈 묶음 65 · CAD 7,794.72 · 거부 6 — 거부 12 모두 customer_unresolved · IMS 에 없는 새 손님(SQL 확인 · 번호 50051 ~ 50487 · 10 월) ⇒ 컷오버 8(손님 재적재) 뒤면 0(짐작 · Caleb 이 10-29 ~ 31 손님 적재 뒤 iloDry 로 확인) |
+
+- **어긋난 sale SO-10447**(Clore Inc. (EGL) · 인보이스 44585): 목록 「받은 돈 0」 · 상세 Paid 2,295.66 → Caleb Cin7 화면: 6/29 BMO EFT 2,295.66 · **Balance due 0** ⇒ 상세가 맞다 · 이월에서 빠지는 지금이 맞다 · 컷오버 날 iloAllowMismatch 한 번(다른 sale 이 어긋나면 통과시키지 말고 화면 먼저) — 절차는 reload-procedure §P-2 12b
+- 큰 돈: Royals Beauty Supply 2,507.94(그중 오버페이 2,278.13 — SO-12562 넷째 결제 의심 · Caleb 회계 확인) · PiiQ Design House 1,110.83
+- 18-g 「전환 — Cin7 미수·선수금 이월」 은 이 절로 닫힌다(775 · method opening · 인보이스 없는 미수 = 이월 인보이스)
+
+### 79-d 문서 — srs-1 · 판 셋 (판정 787 · 788)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| srs-1 | asung-wms `2bc674b` | `20261027023008_srs_1_ship_ready_mail_so_numbers.sql` — doc_data_invoice_fmt 재발행(bgr-1d 바이트 + 줄 둘 · invoice.so_numbers · orders[].ship_to_repeat) · doc_field_catalog 재발행(줄 하나 · 열쇠 둘 · final_invoice · ship_ready · internal_receipt) · ship_ready 메일 제목(시드 원문일 때만) · 검증 `supabase/tests/srs_1_check.sql`(카탈로그 ↔ 출력 열쇠 대조를 이 파일이 처음 세움) | 시험 OK 22 · MISMATCH 0 · 4.2 초 · 3 회차(1 표본 판 섹션 · 2 jwt claims 가 updated_by 에 샘) |
+| 판 | DB · 레포 밖 | final_invoice **v7** · ship_ready **v3** · internal_receipt **v3** — 설명 「Ship To shown once when merged orders share the same address (ruling 788)」 · Ship To 블록(옛 판 114–121 행 · internal_receipt 120–127 행)을 `{{^ship_to_repeat}}` 로 감쌈 | 60073 Caleb 확인 「중복은 사라졌어」 |
+
+```
+invoice.so_numbers       문서의 오더 SO 번호를 orders 순서(= so_number 순)대로 「, 」 로 이은 글 · 빈 번호 건너뜀 · 값 하나짜리라 메일 제목 자리표로 쓴다(doc_mail_fill 은 {{a.b}} 만)
+orders[].ship_to_repeat  불리언 — 이 문서의 앞 오더 중 배송지가 같은 것이 있으면 true · 첫 오더 false · 같음 = company · line1 · line2 · city · state_province · postal_code · country 의 lower(btrim) — contact · phone 은 안 본다
+ship_ready 메일 제목     PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc. — 미리 보기(doc_mail_send commit false)가 채워 칸에 넣고 보내기는 칸의 글 그대로 · 화면 무변
+                         ⚠️ doc_mail_send 는 docs[0] 만 본다 — 인보이스가 갈려 장이 여럿이면 첫 장의 번호(화면은 PDF 가 둘 이상이면 보내기를 막는다)
+⚠️ 마지막 정의            doc_data_invoice_fmt · doc_field_catalog 는 이제 srs-1(20261027023008) — §66-d 지도의 행 번호는 옛 것
+```
+
+### 79-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [Claude Code · ar-2] REST 창구를 psql 로만 시험 → GAS iloDry 에서 21000 「UPDATE requires a WHERE clause」(§72-e 1 재발) · **psql 은 safeupdate 를 못 싣는다**(load · PGOPTIONS · set 셋 다 막힘 · ar-2b 실측) ⇒ REST 창구 시험 = ① 마지막 정의의 update · delete 를 깊이 0 WHERE 로 전수 세기(ar_2b_check.sql 의 pg_temp.nowhere) ② 실제 REST 한 번(GAS · curl) · ar-2 머리 주석 「WHERE 없는 update 없음」 은 거짓이었다(delete 만 봄)
+2. [Claude Code · hcr-1] 첫 시험이 so_credit ACCESS EXCLUSIVE 를 2 분 넘게 쥐었다(invoker 창구 8 초 × 호출) — 잠금 규칙 ④ 위반 · 스스로 끊음 ⇒ 무거운 창구는 시간을 먼저 재고 트랜잭션에 넣는다
+3. [hcr-1 이견 1 · 2] hist RLS 정책 함수(ims_can_view · leakproof 아님) 때문에 invoker 창구가 식 색인을 못 타 8.3 초 → definer + 첫 줄 문 0.7 ms · 부분 색인의 식 통계는 planner 가 안 쓴다(1,378 행 추정 → seq scan) ⇒ 비부분 색인 + analyze
+4. [대화 Claude] srs-1 확인 명령에 합계 표(`ok | mismatch | expect_ok`)를 기대했다 — 그 검증 파일은 OK 줄만 낸다 · && 사슬이 멈춰 커밋이 안 됐다(실패 아님) ⇒ 확인 기준은 그 검증 파일의 실제 출력 꼴(회신의 원문)을 보고 박는다
+5. [Claude Code · ar-3 이견 1] 「so_invoice_list 가 테스트 DB 에 없다」 — 틀림(ar-2 가 뷰를 다시 만들었다 · 적용 로그 CREATE VIEW) · 동작 영향 없음(Verify 가 표를 읽음)
+6. [잘 된 것] ar-1 프로브 + Caleb 화면 대조 다섯(50411 · Lifetime · Favourites · Royals · KimC/Keythlene) 으로 원천 규칙을 닫음 · ar-3 의 sale 대조가 SO-10447 를 잡음 · ar-3 이견 3(상계 sale) · 이견 2(속성 50 개 초과 → 함수 표지) · hcr-0 이 지시서 전제 둘을 실측으로 바로잡음(번호 칸 · 오더 할인)
+7. [대화 Claude] 10 월분 이력 「컷오버 뒤 한두 주」 라고 틀리게 말했다 — Caleb 「10월분 인보이스는 어차피 컷오버때 다 들어와」
+
+### 79-f 미룬 것 · 바로잡음 · 다음
+
+- 새(deferred.md): **341** QBO 연동에서 이월 인보이스 · 받아 둔 돈 건너뛰기 + 이월 인보이스에 붙인 IMS 결제 · 크레딧을 QBO 의 옛 번호 인보이스로 · **342** hist_po_line.unit_price 가 원가 열쇠 없이 읽힌다(759 와 어긋나는지 · 짐작) · **343** settings.html 메일 글 안내 예 · **344** ship_ready · internal_receipt 출력의 orders.lines.final_sale(카탈로그 밖 · 무해) · **345** 참조 크레딧 → 이월 인보이스 바로 붙이기
+- 바로잡음(→ 표시): 18-g 「전환」 줄(→ 79-c) · 판정 602 줄(→ 774 이력 채우기 · 손 입력은 남음) · 판정 654 줄(→ 서버가 hist 를 읽기만 · 774) · §66-c 판 줄 · 메일 제목 줄(→ v7 · v3 · v3 · 787) · §66-d 지도 두 줄(→ srs-1)
+- 화면 시험 남음: cr v6b · inv open v1 · pay open v1(이월 Apply 뒤 · CHECKLIST 7-zv) · po chip v1a(776) · dr v3c(777)
+- 다음 deferred 번호: **346**
+
+```
+다음 판정 번호: 790 · 다음 deferred 번호: 346
 ```

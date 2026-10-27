@@ -132,6 +132,11 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
    ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ~~ilhReset 뒤 ilhLoadSales 전체~~(당월 → 확정으로 옮겨 간 오더가 틀린 채 남는다)
    → [2026-10-24 · so-module §73 · deferred 303] **판매 커서 일곱만 지우고 ilhLoadSales** — ILH_SO_CONF_CURSOR · ILH_SO_CONF_DONE · ILH_SO_CONF_SUM · ILH_SO_CURR_CURSOR · ILH_SO_CURR_DONE · ILH_SO_CURR_SUM · ILH_SO_SUM(임시 함수로 지우고 그 파일을 지운다 · 50 개 넘어 화면 읽기 전용) · ⚠️ ilhReset 금지 — 짝(ILH_PAIRS_* 여덟)까지 지워 ilhLoadSales 가 「짝이 없다 — ilhPairs 먼저」 로 멈춘다 · 발주 · ILH_PRACTICE 는 그대로
 ⚠️ [2026-10-23] **Script Properties 가 50 개를 넘으면 설정 화면이 읽기 전용** — 코드(PropertiesService)로 바꾼다: 임시 파일에 setProperty 함수 → 실행 → 그 파일을 지운다(같은 이름 함수 함정 · 남겨 두지 않는다)
+⭐ [2026-10-26 · so-module §79-c · 판정 775 · 783 ~ 786] **ImsLoadOpening.gs**(접두 **ilo** · d6be2d6) — 컷오버 날 미수 · 받아 둔 돈 이월 → 창구 so_opening_load(service_role) · 대상 Asung-IMS(SUPABASE_IMS_URL · SUPABASE_IMS_SERVICE_KEY)
+   iloCollect → iloDetail → iloBuild(쓰기 0 · sale 마다 상세 ↔ 목록 대조) → iloDry → iloApply(Dry 때와 같은 p md5 · 직전 Dry 한 번 더) → iloVerify · iloReset(ILO_STATE 만 지움) · 순서 · 멈춤은 reload-procedure §P-2 12b
+   ⭐ Script Properties 는 **ILO_STATE 하나**(JSON · 속성 50 개 초과로 화면이 읽기 전용) — 허락도 속성이 아니라 그 안의 표지 · **함수 iloAllowMismatch · iloAllowRejects** 로만 켠다(각각 Apply 의 멈춤 하나를 **한 번만** 통과 · 쓰면 꺼진다)
+   ⚠️ iloAllowMismatch 는 어긋난 sale 을 Cin7 화면으로 확인한 뒤에만(리허설: SO-10447 하나 — 상세가 맞다) · as_of 는 ilo_cfg_ 의 asOf(비우면 Build 날 · 창구는 미래 as_of 거부)
+⭐ [2026-10-26 · ar-1] **OpeningProbe.gs**(접두 **opp** · daf8af5) — 읽기 전용 Cin7 프로브(열린 인보이스 · 오버페이 · 손님 크레딧) · 쓰기 없음 · 원천 규칙은 so-module §79-c
 ```
 
 ---

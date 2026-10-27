@@ -6,7 +6,7 @@ description: >
   "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소",
   "청구지", "parent_id", "부모 손님", "so.status", "so.intake",
   "at_wms", "재적재", "내리기",
-  "쿠폰", "sellable", "딜", "so_deal", "product_tag", "케이스 할인", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "combo", "구성품", "put_back", "so_lines_clear", "so_charge_gate", "price_set_by"
+  "쿠폰", "sellable", "딜", "so_deal", "product_tag", "케이스 할인", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "combo", "구성품", "put_back", "so_lines_clear", "so_charge_gate", "price_set_by", "이월"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/so-module.md 를 확인하세요.
   ⚠️MarketingConsent 는 숫자다(2 Opt in · 3 Opt out · 0·1 둘 다 Unknown) — 순서·소거 추론으로 옮기지 마라,
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
@@ -298,6 +298,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
    리스탁 칸 = 정상 칸 · **크레딧 창고의 활성 B급 칸**(649 · 650 · 정상으로 판 물건도) · 다른 창고 · 꺼진 B급 칸은 IM637 · 값은 정하지 않는다(살아 있으면 이어짐 · 빈 칸에 들어오면 죽은 값을 지워 「값 없음」)
    ⚠️ 안 돌아옴 사유 **b_grade 는 새로 못 쓴다**(651) — so_credit_issue 맨 앞에서 거부(미리 보기 · 발행 · 콤보 구성품 · 번호 당기기 전) + 트리거 so_credit_line_reason_guard IM651(새로 b_grade 가 되는 것만 · 옛 줄 고치기는 통과) · prepare vocab 에서 빠짐 + not_restocked_reasons_retired · CHECK 어휘는 그대로
    ⚠️ 참조 크레딧 입력 열쇠는 **ref**{invoice_number, order_number, invoice_date}(609) — 옛 cin7 열쇠는 거부
+⭐⭐ [2026-10-26 · hcr-1 · 판정 774 · 779 · so-module §79-b] 참조 크레딧이 옛 번호로 **이력(hist_)을 보고 채운다** — 창구 hist_credit_source(p_number) · 발행 so_credit_issue 가 같은 한 곳(hist_credit_lines · hist_credit_tax)으로 다시 견준다
+   so_credit.store_customer_id = **매장**(779 · 종이 · 목록 · 상세) · 돈은 customer_id = 청구처 · so_credit.warnings = 발행 때 경고 기록 · 손 입력 길은 남는다(cr v6a Enter by hand) → 4-w
 ```
 
 ## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
@@ -516,6 +518,25 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      ⚠️ 태그 목록을 product_tag 에서 직접 모으지 마라 — 6 만 줄을 1,000 씩 읽어 Discount Rules 가 느려졌던 원인
 ⭐  Sales Orders 손님 거르기(so cust filt v1 · v1a) — `so.html?customer=<id>` 로 열면 그 손님의 오더만 · 다른 거르기 · CSV 와 함께
 ⭐  POS 초안 지우기(773 · pos v1.14) = so_delete(Sales Orders 의 Delete draft 와 같은 창구 · 권한은 DB · 확정된 판매는 DB 가 거부)
+```
+
+## 4-w. ⭐⭐ 참조 크레딧 이력 채우기 · 미수 · 받아 둔 돈 이월 — 모르면 사고 (2026-10-26 · 정본 so-module §79 · 판정 774 ~ 786 · 789)
+
+```
+⭐⭐ hist_credit_source(p_number) — 옛 인보이스 번호(줄 doc_number · lower(trim) · 머리 invoice_number 로 잇지 마라 — 다른 인보이스 줄이 섞인다) → 오더 · 매장 · 청구처 · 줄 · 운임 · 세금 · 경고
+     ⚠️ definer + 첫 줄 문 ims_can_view('sales') — invoker 면 hist RLS 정책 함수 때문에 식 색인을 못 타 8 초 · 못 찾음 · 못 푼 손님 · 제품은 거부가 아니라 표시
+     줄 단가 = 옛 단가에 **오더 전체 할인을 비례 배분**(778 · 추가 비용 칸의 Discount 줄 · 센트 · 끝수는 가장 큰 줄) · 남은 수량 = 판 수량 − Cin7 반품 − IMS 참조 크레딧
+     운임 줄은 checked:false(782 · 계정 _99_) · 세금 = 옛 세율에 맞는 판매 규칙(781 · 줄마다 1 센트 · 다르면 제안 · 여럿이면 직원이 고름 · 경고 tax_rule_differs)
+⭐⭐ so_credit_issue 경고(막지 않음 · so_credit.warnings 에 기록): qty_over_sold:<sku>:<asked>/<remaining> · not_on_invoice:<sku> · tax_rule_differs:<규칙> · reference_not_in_history
+⚠️  서버는 hist_ 를 **읽기만**(654) — 원장 · 원가 · 잔액과 잇지 않는다 · 크레딧은 참조 크레딧 그대로(602 · 609)
+⭐⭐ 이월(775) = 컷오버 날 so_opening_load(p, p_dry)(service_role 만 · 멱등 · Dry = 같은 판단 · 쓰기 0) ← Apps Script ImsLoadOpening.gs(asung-apps-script 규칙 6)
+     이월 인보이스 = so_invoice **kind opening** · 번호 = 옛 번호 그대로(시퀀스 무변) · 옛 열쇠 legacy_sale_id · legacy_invoice_id(TaskID · 다시 돌리면 same · update) · 오더 없음
+     금액 = 원래 합계 + **prior_settled**(이전에 받은 돈 · 783) → 남은 금액 = total − prior_settled(so_invoice_remaining) · 돈 = 청구처 · store_customer_id = 매장(779)
+⚠️⚠️ 이월 인보이스는 **취소 불가**(784 · so_invoice_cancel 거부) · 결제 · 크레딧으로만 줄인다 · **인쇄 · 메일 거부**(785 · doc_data_invoice 한 곳 · 원본은 QuickBooks) · 자동 메일 · 드라이브 보관 트리거가 건너뜀
+     틀린 적재는 IMS 붙임 전에 다시 돌린다(옛 열쇠로 덮어쓰기) · IMS 결제 · 크레딧이 붙은 줄을 바꾸려 하면 거부
+⭐⭐ 받아 둔 돈 이월 = so_payment kind payment · **method opening** · 계정 **_1150040009_ Customer Credits**(786 · 없으면 창구 전체 멈춤) · (청구처, 통화)마다 한 줄 · paid_on = as_of · 브랜치 = 매장 위치 칸
+⚠️⚠️ 받아 둔 돈 이월은 **void 불가**(so_payment_void 거부) · 크레딧과 오버페이를 한 「받아 둔 돈」 으로 합친다(8-e 구분을 잃음 · 받아들임) · QuickBooks 로 다시 보내지 않는다(deferred 341)
+⚠️  as_of 는 미래면 거부 · 발행일이 as_of 뒤인 인보이스 줄은 거부 · REST 로 부르는 창구라 WHERE 없는 update · delete 는 21000(ar-2b · 789)
 ```
 
 ## 5. 이 스킬을 갱신할 때

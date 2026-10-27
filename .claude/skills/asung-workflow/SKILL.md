@@ -226,6 +226,10 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **검증의 도우미 초안은 시나리오와 다른 SKU 로** — 같은 SKU 를 쓰면 뒤 오더의 확정이 앞 오더의 백오더 형제를 이어받아 기대가 흔들린다(2026-09-25 ④b 3차 · 재고 넉넉한 SKU 하나를 도우미 전용으로)
 ⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠를 둘 다 가진 로그인으로** — 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 2차)
 ⚠️⚠️ [2026-10-23 · so-module §72-e 1 · hist-1b] **REST 로 불리는 창구(service_role · Apps Script · EF)는 REST 조건에서 시험한다** — REST 역할 authenticator 가 safeupdate 를 싣는다 → WHERE 없는 delete · update 는 21000 · psql 직결은 safeupdate 를 못 싣는다(load · PGOPTIONS 막힘) ⇒ 창구 안의 「통째로 비우기」 는 truncate(세션 전용 임시 표)나 WHERE 로 · psql 로만 시험하면 이 결함을 못 본다
+   → [2026-10-26 · so-module §79-e 1 · ar-2 → ar-2b · 판정 789 · 재발] **REST 창구 시험은 두 겹** — ① 마지막 정의의 update · delete 를 깊이 0 WHERE 로 전수 센다(`supabase/tests/ar_2b_check.sql` 의 pg_temp.nowhere · 임시 표 update 도 센다 — ar-2 는 delete 만 보고 「WHERE 없는 update 없음」 이라 적었다) ② 실제 REST 로 한 번(GAS Dry · curl)
+     psql 은 safeupdate 를 **못 싣는다**(load · PGOPTIONS · set 셋 다 막힘 · ar-2b 실측) — psql 시험 통과는 REST 통과가 아니다
+⚠️ [2026-10-26 · §79-e 4] **확인 기준(기대 OK 수 · grep 꼴)은 그 검증 파일의 실제 출력 꼴을 보고 박는다** — srs_1_check 는 OK 줄만 내는데 합계 표(`ok | mismatch | expect_ok`) grep 을 기대해 && 사슬이 멈췄다 · 회신의 원문(OK 줄 · 끝부분)을 보고 명령을 쓴다
+⚠️ [2026-10-26 · §79-e 2 · 3] 무거운 창구는 **시간을 먼저 재고** 트랜잭션에 넣는다(hcr-1 첫 시험이 so_credit ACCESS EXCLUSIVE 를 2 분 넘게 쥠) · hist_ 처럼 RLS 정책 함수(leakproof 아님)가 걸린 표를 읽는 창구는 invoker 면 식 색인을 못 탄다 → definer + 첫 줄 문 · 부분 색인의 식 통계는 planner 가 안 쓴다 → 비부분 색인 + analyze
 ⚠️⚠️ [2026-10-23 · §72-e 2 · 3 · hist-1c] **REST 역할 statement_timeout 은 8 초** — Apps Script 쪽 크기(오더 수 · 줄 수)는 그 안에서 실측으로 정한다(같은 loaded_at = 한 쪽 · 한 쪽의 최대 줄 수를 센다) · 느리면 줄 수 · 잠금을 짐작하지 말고 한 건씩 잰다(실례: 색인 없는 upper(sku) 조회 31 ms × 400) · order by 가 붙은 조회는 (upper(sku), sku) 같은 복합 색인이어야 먹는다
 ⚠️⚠️ [2026-10-24 · so-module §73-e 1] **heredoc 은 따로 한 덩이 · 다음 덩이는 `test -s <파일> &&` 로 시작** — heredoc 뒤 줄은 `&&` 사슬과 이어지지 않는 새 명령이다(비밀값 검사가 멈췄는데 `git add` 가 돌았다)
 ⚠️⚠️ [2026-10-24 · §73-e 5] **시험 전에 대상 파일 md5 · mtime 을 찍고 시험 로그 머리에도** — 편집 스크립트가 안 돌았는데 옛 코드로 「통과」 가 찍혔다 · `node --check` 는 `.gs` 를 거부 → `.js` 사본 · 다시 쓰는 시험 장치는 `~/asung/prompts/` 가 아니라 레포(두 PC · §73-e 2)
@@ -868,3 +872,11 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    7 [잘 된 것] 느린 화면은 고치기 전에 숫자부터(63,515 줄 · 64 번 · distinct 1,193) — 원인 하나로 좁힘 · 8 [잘 된 것] prompts 이름 충돌(tag-1)을 옮기기 STOP 이 막음 → tagn-1
    9 [대화 Claude] 확인 실행 OK 수 grep 이 표 머리만 잡았다 ⇒ `grep -A2 'ok | mismatch | expect_ok'` · 10 [Claude Code] psql 변수는 `$$` 안에서 안 풀린다 · 가짜 so_invoice 는 currency_code · \gset 대상 null 은 coalesce
    11 [docs-1026b] 지시서의 「339 닫힘」 — deferred.md 에 줄이 없었다 · 「새 SO = 손님을 고르는 순간」 — 실물은 Create 뒤 ⇒ 지시서의 번호 · 동작은 레포 · 화면 실물로 먼저 대조
+⚠️ **[2026-10-26 집 저녁 ~ 밤 — so-module §79-e · 참조 크레딧 이력 · 이월 · srs-1]**
+   1 [Claude Code · ar-2] REST 창구를 psql 로만 시험 → GAS iloDry 21000(§72-e 1 재발) · 머리 주석 「WHERE 없는 update 없음」 은 delete 만 본 거짓 ⇒ §4 REST 두 겹(nowhere 전수 + 실제 REST 한 번)
+   2 [Claude Code · hcr-1] 첫 시험이 so_credit ACCESS EXCLUSIVE 를 2 분 넘게(invoker 창구 8 초 × 호출) — 잠금 규칙 ④ 위반 · 스스로 끊음 ⇒ 무거운 창구는 시간을 먼저 잰다(§4)
+   3 [hcr-1 이견] hist RLS 정책 함수가 leakproof 가 아니라 invoker 창구가 식 색인을 못 탐(8.3 초 → definer 0.7 ms) · 부분 색인 식 통계 안 씀 ⇒ §4
+   4 [대화 Claude] srs-1 확인 명령에 합계 표 grep 을 기대 — 그 파일은 OK 줄만 ⇒ 확인 기준은 검증 파일의 실제 출력 꼴(§4)
+   5 [Claude Code · ar-3 이견 1] 「so_invoice_list 가 테스트 DB 에 없다」 — 틀림(ar-2 가 다시 만들었다) ⇒ 「없다」 는 적용 로그 · 카탈로그로 확인한 뒤에
+   6 [잘 된 것] ar-1 프로브 + Caleb 화면 대조 다섯으로 원천 규칙을 닫음 · ar-3 sale 대조가 SO-10447 를 잡음 · hcr-0 이 지시서 전제 둘(번호 칸 · 오더 할인)을 실측으로 바로잡음
+   7 [대화 Claude] 10 월분 이력을 「컷오버 뒤 한두 주」 라고 틀리게 말함 — Caleb 「10월분 인보이스는 어차피 컷오버때 다 들어와」 ⇒ 절차 사실은 reload-procedure §P-2 를 보고 말한다
