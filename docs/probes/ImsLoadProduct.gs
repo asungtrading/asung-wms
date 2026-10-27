@@ -866,18 +866,31 @@ function ipr_pairPatch_(table, pairs) {
   return done;
 }
 
-/** 670 · 675 — 적재 끝에 IMS 값을 실어 보낸 행을 다시 읽어 그대로인지(사이에 직원이 바꿨으면 로그) · cin7_id 100 개씩 */
+/** 670 · 675 — 적재 끝에 IMS 값을 실어 보낸 행을 다시 읽어 그대로인지(사이에 직원이 바꿨으면 로그) · cin7_id 묶음은 ipr_idChunks_(글자 수 · 개수가 아니다) · 묶음마다 받은 행을 이어 본다(순서 뜻 없음 · want 지도로 찾는다) */
 function ipr_recheckKept_(kept) {
   if (!kept.length) { Logger.log('[670/675 재대조] 이번 실행에서 IMS 값을 실은 행 0'); return; }
   var want = {}, changed = [];
   kept.forEach(function (k) { want[k.cin7_id] = k; });
   var ids = Object.keys(want);
-  for (var i = 0; i < ids.length; i += 100) {
-    ipr_readAll_('/rest/v1/product?select=cin7_id,sku,sellable&cin7_id=in.(' + ids.slice(i, i + 100).join(',') + ')').forEach(function (r) {
+  ipr_idChunks_(ids).forEach(function (part) {
+    ipr_readAll_('/rest/v1/product?select=cin7_id,sku,sellable&cin7_id=in.(' + part.join(',') + ')').forEach(function (r) {
       if (r.sellable !== want[r.cin7_id].sellable) changed.push(r.sku + ' : 보낸 ' + want[r.cin7_id].sellable + ' → 지금 ' + r.sellable);
     });
-  }
+  });
   Logger.log('[670/675 재대조] IMS 값을 실은 행 ' + ids.length + ' · 그대로 ' + (ids.length - changed.length) + ' · 사이에 바뀜 ' + changed.length + (changed.length ? ' → ' + changed.join(' · ') : ''));
+}
+
+/** id 목록을 `in.(…)` 에 실을 묶음으로 — ⚠️ 개수가 아니라 글자 수(id 부분 ≤ 1,500 · 쉼표 포함 · ImsLoadCustomer ilc_patchIn_ c91bc24 와 같은 셈 · so-module §80-c · deferred 349)
+    URLFetch URL 길이 한도(짐작 2 kB) · 빈 목록이면 [] (호출 0) · 하나가 1,500 을 넘으면 그 하나만 실린 묶음(멈추지 않는다) · 순서 · 중복은 그대로 */
+function ipr_idChunks_(ids, max) {
+  var MAX = max || 1500, out = [], part = [], len = 0;
+  ids.forEach(function (id) {
+    var s = String(id);
+    if (part.length && len + s.length + 1 > MAX) { out.push(part); part = []; len = 0; }
+    part.push(s); len += s.length + 1;
+  });
+  if (part.length) out.push(part);
+  return out;
 }
 
 /** cin7_id → {id, sku, barcode} · ⚠️ 18,714행이라 캡을 크게 넘는다 */

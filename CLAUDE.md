@@ -97,6 +97,7 @@ Edge Function secrets, Auth 설정(Site URL / Redirect), Storage 버킷 설정�
   ⚠️ 집·회사 두 대에서 개발하며 오래된 로컬 사본으로 덮어써 기능을 날린 이력이 있다.
 - 데이터·숫자는 검증 후 진행. 추정치로 넘어가지 말 것.
 - 정리 대기: `web/staff-admin.html`은 루트 버전과 중복된 낡은 사본 -> 삭제 대상.
+- 지시서가 git(pull 포함)을 막으면 지시서가 이긴다 — 이 절의 『편집 전 git pull』 은 지시서에 말이 없을 때의 기본값
 
 ## 7. 스킬 description은 1024자 이하 (2026-07-27 — 업로드 거부 반복)
 

@@ -57,7 +57,7 @@ var IPT_LIMIT        = 1000;                 // ⭐ IncludeBOM 없이 1000 이 �
 var IPT_THROTTLE     = 2500;
 var IPT_MAX_RUN      = 5.5 * 60 * 1000;      // 쓰기 덩이 사이에만 본다 — 넘으면 멈추고 「Next run」
 var IPT_INSERT_CHUNK = 1000;                 // ipr_upsert_ 가 안에서 500 씩 나눈다
-var IPT_DELETE_CHUNK = 40;                   // ⚠️ UrlFetchApp 의 URL 한도 2 KB — id=in.(…) 에 uuid 40 개 ≈ 1.5 KB
+var IPT_DELETE_MAXLEN = 1500;                // ⚠️ UrlFetchApp 의 URL 한도(짐작 2 KB) — id=in.(…) 의 id 부분을 개수가 아니라 글자 수로 묶는다(ipt_idChunks_ · so-module §80-c · deferred 349)
 var IPT_ALLOW_PROP   = 'IPT_ALLOW_BIG_DELETE';
 var IPT_FOLDER_PROP  = 'IPT_FOLDER_ID';
 var IPT_LAST_APPLY_PROP    = 'IPT_LAST_APPLY_AT';
@@ -169,6 +169,19 @@ function ipt_csv_(header, rows) {
   var lines = [header.join(',')];
   rows.forEach(function (r) { lines.push(header.map(function (h) { return ipt_csvCell_(r[h]); }).join(',')); });
   return lines.join('\n') + '\n';
+}
+
+/** id 목록을 `in.(…)` 에 실을 묶음으로 — ⚠️ 개수가 아니라 글자 수(id 부분 ≤ 1,500 · 쉼표 포함 · ImsLoadCustomer ilc_patchIn_ c91bc24 와 같은 셈 · so-module §80-c · deferred 349)
+    URLFetch URL 길이 한도(짐작 2 kB) · 빈 목록이면 [] (호출 0) · 하나가 1,500 을 넘으면 그 하나만 실린 묶음(멈추지 않는다) · 순서 · 중복은 그대로 */
+function ipt_idChunks_(ids, max) {
+  var MAX = max || 1500, out = [], part = [], len = 0;
+  ids.forEach(function (id) {
+    var s = String(id);
+    if (part.length && len + s.length + 1 > MAX) { out.push(part); part = []; len = 0; }
+    part.push(s); len += s.length + 1;
+  });
+  if (part.length) out.push(part);
+  return out;
 }
 
 /** ISO 문자열 → epoch ms · 못 읽으면 null */
@@ -458,16 +471,17 @@ function ipt_run_(dryRun) {
 
   // ── G) 쓰기 — 지우기 → 넣기 · 덩이마다 시간 확인 ──
   var deleted = 0, inserted = 0, stopped = false;
-  for (var d = 0; d < del.length; d += IPT_DELETE_CHUNK) {
+  var delChunks = ipt_idChunks_(del, IPT_DELETE_MAXLEN);   // ⚠️ 개수가 아니라 글자 수로(§80-c · deferred 349) · 시간 확인 · 멈춤(finish/return)은 덩이마다 그대로
+  for (var d = 0; d < delChunks.length; d++) {
     if (new Date().getTime() - t0 > IPT_MAX_RUN) { stopped = true; break; }
-    var ids = del.slice(d, d + IPT_DELETE_CHUNK);
+    var ids = delChunks[d];
     var dres = ims_fetch_('/rest/v1/product_tag?source=eq.cin7&id=in.(' + ids.join(',') + ')',
       { method: 'delete', headers: { 'Prefer': 'return=representation' } });
-    if (dres.getResponseCode() >= 300) { P('⛔ 지우기 덩이 ' + (d / IPT_DELETE_CHUNK + 1) + ' 실패 HTTP ' + dres.getResponseCode() + ' ' + dres.getContentText().slice(0, 800)); P('지운 줄 ' + deleted + ' · 넣은 줄 0 · 멈춤'); finish('apply'); return; }
+    if (dres.getResponseCode() >= 300) { P('⛔ 지우기 덩이 ' + (d + 1) + ' 실패 HTTP ' + dres.getResponseCode() + ' ' + dres.getContentText().slice(0, 800)); P('지운 줄 ' + deleted + ' · 넣은 줄 0 · 멈춤'); finish('apply'); return; }
     var n = JSON.parse(dres.getContentText()).length;
-    if (n !== ids.length) P('⚠️ 지우기 덩이 ' + (d / IPT_DELETE_CHUNK + 1) + ' — 보낸 ' + ids.length + ' · 지워진 ' + n);
+    if (n !== ids.length) P('⚠️ 지우기 덩이 ' + (d + 1) + ' — 보낸 ' + ids.length + ' · 지워진 ' + n);
     deleted += n;
-    if ((d / IPT_DELETE_CHUNK) % 25 === 24) P('  지우기 ' + deleted + ' / ' + del.length);
+    if (d % 25 === 24) P('  지우기 ' + deleted + ' / ' + del.length);
   }
   if (!stopped) P('⭐ 지운 줄 ' + deleted + ' / ' + del.length);
   for (var i2 = 0; i2 < ins.length && !stopped; i2 += IPT_INSERT_CHUNK) {

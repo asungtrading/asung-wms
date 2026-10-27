@@ -381,7 +381,7 @@ function ils_upsert_(table, rows, size, groupKey) {
   return total;
 }
 
-/** cin7_id 목록으로 PATCH — 40 개씩 · 내리기(is_active=false)는 max(20, 보낸 행의 1 %)를 넘으면 멈춤(ILS_ALLOW_BIG_DOWN=1 로 한 번만 통과) */
+/** cin7_id 목록으로 PATCH — 묶음은 ils_idChunks_(글자 수 · 개수가 아니다) · 내리기(is_active=false)는 max(20, 보낸 행의 1 %)를 넘으면 멈춤(ILS_ALLOW_BIG_DOWN=1 로 한 번만 통과) */
 function ils_patchIn_(table, ids, body, baseCount) {
   if (!ids.length) return 0;
   if (body.is_active === false) {
@@ -393,13 +393,25 @@ function ils_patchIn_(table, ids, body, baseCount) {
     }
   }
   var done = 0;
-  for (var i = 0; i < ids.length; i += 40) {
-    var part = ids.slice(i, i + 40);
+  ils_idChunks_(ids).forEach(function (part) {
     var res = ims_fetch_('/rest/v1/' + table + '?cin7_id=in.(' + part.join(',') + ')', { method: 'patch', headers: { 'Prefer': 'return=representation' }, payload: JSON.stringify(body) });
     if (res.getResponseCode() >= 300) throw new Error(table + ' PATCH 실패 HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 300));
     done += JSON.parse(res.getContentText()).length;
-  }
+  });
   return done;
+}
+
+/** id 목록을 `in.(…)` 에 실을 묶음으로 — ⚠️ 개수가 아니라 글자 수(id 부분 ≤ 1,500 · 쉼표 포함 · ImsLoadCustomer ilc_patchIn_ c91bc24 와 같은 셈 · so-module §80-c · deferred 349)
+    URLFetch URL 길이 한도(짐작 2 kB) · 빈 목록이면 [] (호출 0) · 하나가 1,500 을 넘으면 그 하나만 실린 묶음(멈추지 않는다) · 순서 · 중복은 그대로 */
+function ils_idChunks_(ids, max) {
+  var MAX = max || 1500, out = [], part = [], len = 0;
+  ids.forEach(function (id) {
+    var s = String(id);
+    if (part.length && len + s.length + 1 > MAX) { out.push(part); part = []; len = 0; }
+    part.push(s); len += s.length + 1;
+  });
+  if (part.length) out.push(part);
+  return out;
 }
 
 /** 전부 읽기 — PostgREST 1,000행 캡 · Range 로 나눠 읽고 Content-Range 총계와 대조 */
