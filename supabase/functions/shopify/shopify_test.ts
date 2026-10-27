@@ -16,7 +16,7 @@ Deno.test("① scope 대조 — 실측 6 + write_order_edits → missing 0 · v1
   eq(missingScopes(GRANTED7.replace("write_orders", "")), ["read_orders", "write_orders"], "write gone → both");
   eq(missingScopes(" write_products , read_customers "), REQUIRED_SCOPES.filter((s) => !["read_products", "write_products", "read_customers"].includes(s)), "spaces trimmed");
   eq(missingScopes("").length, 11, "empty → all");
-  eq(secretNames("SHOPIFY_IMS"), { id: "SHOPIFY_IMS_CLIENT_ID", secret: "SHOPIFY_IMS_CLIENT_SECRET" }, "secret names");
+  eq(secretNames("SHOPIFY_IMS"), { id: "SHOPIFY_IMS_CLIENT_ID", secret: "SHOPIFY_IMS_CLIENT_SECRET", token: "SHOPIFY_IMS_ACCESS_TOKEN" }, "secret names (+ _ACCESS_TOKEN · shop-live-1)");
 });
 
 const TOR = "gid://shopify/Location/86890414263", EDM = "gid://shopify/Location/90000000001", OLD = "gid://shopify/Location/70000000000";
@@ -54,7 +54,7 @@ Deno.test("③ 한도 — 429 · extensions.code THROTTLED(짐작) · 기다림 
 });
 
 Deno.test("④ 토큰 오류 문장 — shop_not_permitted · invalid_client · 그 밖", () => {
-  const s = { id: "x", code: "test", shop_domain: "asung-ims-test.myshopify.com", secret_prefix: "SHOPIFY_IMS", is_active: true };
+  const s = { id: "x", code: "test", shop_domain: "asung-ims-test.myshopify.com", secret_prefix: "SHOPIFY_IMS", is_active: true, live: true, auth_mode: "client_credentials" };
   eq(tokenErrorSentence(403, { error: "shop_not_permitted" }, s).startsWith("Shopify refused the app for asung-ims-test.myshopify.com (shop_not_permitted) — the app and the store belong to different organizations"), true, "org sentence");
   eq(tokenErrorSentence(401, { error: "invalid_client" }, s).includes("SHOPIFY_IMS_CLIENT_ID / _CLIENT_SECRET"), true, "names the secrets");
   eq(tokenErrorSentence(500, { error: "x", error_description: "y" }, s), "Shopify token request for asung-ims-test.myshopify.com failed (HTTP 500 · x · y)", "generic");

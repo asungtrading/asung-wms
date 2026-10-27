@@ -4,6 +4,8 @@
 //   ⚠️ 이 파일을 바꾸면 import 하는 함수를 모두 재배포한다 — 지금은 shopify 하나:
 //      supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg
 //   ⚠️ 비밀 이름 = <secret_prefix>_CLIENT_ID · <secret_prefix>_CLIENT_SECRET(shop_store.secret_prefix · 기본 SHOPIFY_IMS) · 값은 supabase secrets set 으로만
+//   ⭐ shop-live-1(2026-10-27 · 판정 809 · 811 · 813): shop_store.auth_mode — client_credentials(조직 안 · 지금 그대로) | stored_token(조직 밖 aonebeauty.com · <secret_prefix>_ACCESS_TOKEN 을 env 에서 읽기만 ·
+//      없으면 사람 말로 멈춤 · 401 · 403 에 다시 받지 않는다 — 앱 삭제 · 비밀 교체면 tools/shopify-oauth-exchange.sh 로 다시) · shop_store.live — 일하는 길(쓰기 · 큐 · 웹훅 · 주기 확인)은 is_active and live · 읽기 길은 is_active 만(workGate · readGate)
 //   📌 Shopify 문서(2026-10-09 · MCP search_docs): 토큰 POST {shop}/admin/oauth/access_token {client_id, client_secret, grant_type: client_credentials} → {access_token, scope, expires_in: 86399}
 //      · 「다시 받으려면 같은 요청을 다시」 · GraphQL 은 200 으로도 errors[] 를 준다(extensions.code · extensions.cost.throttleStatus{maximumAvailable, currentlyAvailable, restoreRate})
 //      · ⚠️ 한도 초과 응답의 code 글자 'THROTTLED' 와 HTTP 429 는 문서 검색에서 못 봤다(짐작) — 둘 다 받아 주고, 실제로 만나면 원문을 shop_call_log.error 에 남긴다(index.ts)
@@ -19,7 +21,8 @@ export const REQUIRED_SCOPES = [                                          // 앱
   "write_order_edits",
 ];
 
-export type StoreRow = { id: string; code: string; shop_domain: string; secret_prefix: string; is_active: boolean; label?: string; kind?: string };
+export type StoreRow = { id: string; code: string; shop_domain: string; secret_prefix: string; is_active: boolean; live: boolean; auth_mode: string; label?: string; kind?: string };
+export const AUTH_MODES = ["client_credentials", "stored_token"] as const;
 export type ShopLocation = { id: string; name: string; isActive: boolean };
 export type PairRow = { id: string; shopify_location_gid: string; shopify_name: string | null; warehouse_id: string; warehouse_name?: string | null; is_active: boolean };
 export type Warning = { code: string; gid?: string; name?: string; detail?: string };
@@ -31,7 +34,35 @@ export type GqlResult = {
 };
 
 // ── 순수 함수(deno test) ──────────────────────────────────────────────────────────
-export const secretNames = (prefix: string) => ({ id: prefix + "_CLIENT_ID", secret: prefix + "_CLIENT_SECRET" });
+export const secretNames = (prefix: string) => ({ id: prefix + "_CLIENT_ID", secret: prefix + "_CLIENT_SECRET", token: prefix + "_ACCESS_TOKEN" });
+export const isStoredToken = (store: Pick<StoreRow, "auth_mode">) => store.auth_mode === "stored_token";
+
+// 문(shop-live-1 · 판정 811): 읽기 길 = is_active · 일하는 길 = is_active and live — 막히면 사람 말(null = 통과)
+export function readGate(store: Pick<StoreRow, "code" | "is_active" | "label" | "shop_domain">): string | null {
+  return store.is_active ? null : `Store "${store.code}" (${store.label ?? store.shop_domain}) is switched off — turn it on under Settings → Shopify Stores first`;
+}
+export function workGate(store: Pick<StoreRow, "code" | "is_active" | "live" | "label" | "shop_domain">): string | null {
+  const r = readGate(store);
+  if (r) return r;
+  return store.live ? null : `Store "${store.code}" (${store.label ?? store.shop_domain}) is not live — IMS only reads it; go live under Settings → Shopify Stores to send products, stock, orders and fulfillments`;
+}
+export const isWorking = (store: Pick<StoreRow, "is_active" | "live">) => store.is_active && store.live;
+// 큐 줄의 갈래(판정 815): 꺼진 스토어 = error 로 닫는다(설정이 죽었다) · live 전 = 열어 둔다(wait · 시도 수 안 올림) · 그 밖 go
+export function queueGate(store: Pick<StoreRow, "is_active" | "live"> | undefined | null): "go" | "wait" | "error" {
+  if (!store || !store.is_active) return "error";
+  return store.live ? "go" : "wait";
+}
+// 보관 토큰이 죽었을 때(401 · 403) — 다시 받지 않는다 · 사람 말
+export function storedTokenDeadSentence(status: number, store: Pick<StoreRow, "shop_domain" | "secret_prefix">): string {
+  return `Shopify rejected the stored token for ${store.shop_domain} (HTTP ${status}) — the app was uninstalled or its secret changed; reinstall the app on that store and run tools/shopify-oauth-exchange.sh to store a new ${secretNames(store.secret_prefix).token}`;
+}
+// ping 의 scope 출처: 토큰 응답(client_credentials · scope 글자) · 없으면 currentAppInstallation.accessScopes(stored_token 은 토큰 응답이 없다)
+export function scopesOf(tokenScope: string, installation: { accessScopes?: Array<{ handle?: string }> | null } | null | undefined): { granted: string; source: "token" | "installation" | "none" } {
+  const fromToken = (tokenScope ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (fromToken.length) return { granted: fromToken.join(","), source: "token" };
+  const fromApp = (installation?.accessScopes ?? []).map((s) => String(s?.handle ?? "").trim()).filter(Boolean);
+  return fromApp.length ? { granted: fromApp.join(","), source: "installation" } : { granted: "", source: "none" };
+}
 
 // scope 대조 — 토큰 응답은 write_X 가 있으면 read_X 를 생략한다(실측 6 개) ⇒ read_X 는 write_X 가 있으면 있는 것으로 친다
 export function missingScopes(granted: string, required: string[] = REQUIRED_SCOPES): string[] {
@@ -97,12 +128,27 @@ export function cachedToken(store: StoreRow, now = Date.now()): Token | null {
   return t && t.expiresAt - now > TOKEN_REFRESH_BEFORE_MS ? t : null;
 }
 export function forgetToken(store: StoreRow): void { tokens.delete(store.shop_domain); }
-export async function getToken(store: StoreRow, force = false): Promise<Token> {
+export type EnvGet = (k: string) => string | undefined;
+export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
+const envGet: EnvGet = (k) => Deno.env.get(k);
+// 보관 토큰(순수 · deno test): env 에서 읽기만 · 없으면 사람 말
+export function storedToken(store: Pick<StoreRow, "shop_domain" | "secret_prefix">, env: EnvGet): Token {
+  const names = secretNames(store.secret_prefix);
+  const tok = (env(names.token) ?? "").trim();
+  if (!tok) throw new Error(`${names.token} is not set on this project — install the app on ${store.shop_domain} and run tools/shopify-oauth-exchange.sh (it stores the token with supabase secrets set)`);
+  return { token: tok, scope: "", expiresAt: Number.MAX_SAFE_INTEGER };
+}
+export async function getToken(store: StoreRow, force = false, env: EnvGet = envGet, fetchFn: FetchFn = fetch): Promise<Token> {
   if (!force) { const c = cachedToken(store); if (c) return c; }
   const names = secretNames(store.secret_prefix);
-  const id = Deno.env.get(names.id) ?? "", secret = Deno.env.get(names.secret) ?? "";
+  if (isStoredToken(store)) {                                                                       // shop-live-1 판정 813: 보관 토큰 — 읽기만 · 만료 없음 · 받지 않는다
+    const t = storedToken(store, env);
+    tokens.set(store.shop_domain, t);
+    return t;
+  }
+  const id = env(names.id) ?? "", secret = env(names.secret) ?? "";
   if (!id || !secret) throw new Error(`Secrets ${names.id} / ${names.secret} are not set on this project — supabase secrets set … --project-ref <ref>`);
-  const r = await fetch(`https://${store.shop_domain}/admin/oauth/access_token`, {
+  const r = await fetchFn(`https://${store.shop_domain}/admin/oauth/access_token`, {
     method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
     body: JSON.stringify({ client_id: id, client_secret: secret, grant_type: "client_credentials" }),
   });
@@ -116,20 +162,25 @@ export async function getToken(store: StoreRow, force = false): Promise<Token> {
 }
 
 // ── GraphQL 한 곳 — 401/403 이면 토큰을 한 번 새로 받아 재시도 · 한도면 기다렸다 재시도(최대 3) · errors · userErrors 는 그대로 돌려준다 ──
-export async function shopifyGql(store: StoreRow, query: string, variables: Record<string, unknown> = {}): Promise<GqlResult> {
+export async function shopifyGql(store: StoreRow, query: string, variables: Record<string, unknown> = {}, io: { env?: EnvGet; fetchFn?: FetchFn } = {}): Promise<GqlResult> {
+  const env = io.env ?? envGet, fetchFn = io.fetchFn ?? fetch;
   let tokenRefreshed = false, attempts = 0, throttled = 0;
-  let tok = await getToken(store);
+  let tok = await getToken(store, false, env, fetchFn);
   for (;;) {
     attempts++;
-    const r = await fetch(`https://${store.shop_domain}/admin/api/${API_VERSION}/graphql.json`, {
+    const r = await fetchFn(`https://${store.shop_domain}/admin/api/${API_VERSION}/graphql.json`, {
       method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Shopify-Access-Token": tok.token },
       body: JSON.stringify({ query, variables }),
     });
     const text = await r.text();
     let body: { data?: unknown; errors?: GqlResult["errors"]; extensions?: Record<string, unknown> } | null = null;
     try { body = JSON.parse(text); } catch { body = null; }
-    if ((r.status === 401 || r.status === 403) && !tokenRefreshed) {                       // 토큰이 죽었다 — 한 번만 새로
-      tokenRefreshed = true; forgetToken(store); tok = await getToken(store, true); continue;
+    if ((r.status === 401 || r.status === 403) && isStoredToken(store)) {                    // shop-live-1: 보관 토큰은 다시 받지 않는다 — 사람 말로 끝
+      forgetToken(store);
+      return { ok: false, status: r.status, data: null, errors: [{ message: storedTokenDeadSentence(r.status, store) }], cost: costOf(body?.extensions), attempts, tokenRefreshed: false, raw: text.slice(0, 400) };
+    }
+    if ((r.status === 401 || r.status === 403) && !tokenRefreshed) {                       // 토큰이 죽었다 — 한 번만 새로(client_credentials)
+      tokenRefreshed = true; forgetToken(store); tok = await getToken(store, true, env, fetchFn); continue;
     }
     if (isThrottled(r.status, body) && throttled < THROTTLE_MAX_RETRY) {
       throttled++; await sleep(throttleWaitMs(body?.extensions, throttled)); continue;
