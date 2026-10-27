@@ -56,6 +56,18 @@ description: >
 - 화면: 픽 「for combo ○○ · N per combo」 · 팩 「for combo」 + 맨 위 「Combo ○○ — n of m complete」(min(verified ÷ (combo_qty × pack_factor))) · 줄 순서 · 스캔 흐름은 그대로(판정 249) · Fulfillment 는 콤보 표시 없음
 - 빌드(2026-10-05): pk v1.5a · pa v1.6a
 ⭐⭐ [2026-10-20] **WMS Stock Lookup(wms-stock.html · ws v1a · nav v8)** — 열쇠 없음(WMS 에 들어올 수 있는 직원 누구나 · WMS 열쇠가 하나도 없던 사람에게는 첫 화면이 된다) · 두 브랜치(자기 브랜치 먼저) · 스캔 값은 `stk_availability` 의 p_q 로(바코드 정확 일치) · ⚠️ **손님 이름을 그리지 않는다**(stk_reserved 가 보내도) · 금액은 원가 열쇠(`ims_can_view_cost`)가 있을 때만 `stk_value_many` · WMS 작업 표 17 은 의도된 열림(판정 569 · 창구 전환은 운영 전환 이후 별건)   (so-module §68 · 판정 569 · 571 · 575)
+- [2026-10-27 · ws v1b · v1c · so-module §81-c · 판정 808] 카드마다 **Print label**(ims-label.js) · ⚠️ `stk_availability` 는 SKU 를 쳐서 찾아도 `matched_set_*` 를 준다 — 「세트를 스캔했다」 가 아니다 · 라벨 창이 세트를 기본으로 고르는 것은 **찾은 글자 = 세트 SKU 이거나 숫자 바코드 스캔일 때만**(ws v1c · AS01282 에서 세트가 골라져 「No barcode」 였다)
+⭐⭐ [2026-10-27] **바코드 라벨(lbl v1 · v1a · v1b · asung-ims `ims-label.js` · so-module §81-c · 판정 798 ~ 807)** — 모르면 라벨이 틀리거나 스캔이 안 된다:
+- 창고 PC(Windows) 브라우저 인쇄 · DYMO 호환 감열 프린터 · DYMO 규격 용지 · 드라이버만(DYMO Connect · SDK 없음) · Android 태블릿 인쇄는 나중(deferred 351)
+- 찍는 곳 셋: WMS Stock Lookup(카드마다) · IMS Products 상세(보기 전용 직원도) · **칸 라벨은 IMS Settings → Bins 만**(WMS 직원은 못 찍어도 된다 — Caleb)
+- 공용 창 `ims-label.js` 하나 · DB 창구 · 마이그레이션 0(product · product_barcode · ref_bin · ref_warehouse authenticated select · 읽기는 `loadProducts()` 한 곳 — 표를 닫게 되면 이 함수만 창구로)
+- 항목 다섯(SKU · 바코드 · 바코드 번호 · 이름 · 브랜드)은 **찍을 때마다 체크** · 크기마다 마지막 선택을 그 PC 가 기억(localStorage · CLAUDE.md 5 절 예외) · SKU · 브랜드 가운데
+- 크기 **여덟**: 30347 1 × 1.5 · 30332 1 × 1 · 30346 0.5 × 1.875 · 30334 2.25 × 1.25 · 30321 1.4 × 3.5 · 30323 2.125 × 4 · 30256 2.3125 × 4 · 1744907 4 × 6(4 인치 프린터) — 뒤 넷은 기억값(실물 롤 확인 전) · 작은 크기에서 막대가 가늘거나 낮으면 경고만
+- 기호(저장 글자 그대로 읽히게): 12 자리 + 체크 맞음 = UPC-A · 13 자리 · 첫 자리 ≠ 0 · 체크 맞음 = EAN-13 · 8 자리 + 체크 맞음 = EAN-8 · 그 밖 ASCII = Code 128 · ASCII 아님 = 「Barcode can't be printed」 · JsBarcode 3.11.6(픽리스트와 같은 판)
+- ⚠️ 바코드 없는 제품 = 「No barcode」(**SKU 를 바코드로 만들지 않는다**) · 여러 제품에 걸린 바코드 = 경고만(Bin Moves 가 그 스캔을 거부한다)
+- 칸 라벨 = 칸 이름 글자 그대로 Code 128 + 이름 · 창고 줄은 체크 · 존 = 이름 앞 영문 + 바로 뒤 숫자(ref_bin.zone 은 전부 null) · 나머지 Other · 범위 · 정렬은 대문자 글자 코드 순(서버 en_US 정렬과 다르다) · 창고 하나 2,059 행이라 1,000 행씩 나눠 읽기(규칙 20 캡)
+- 인쇄 = 숨은 iframe · @page 크기 = 라벨 · 한 장 = 한 쪽 · PC 마다 「Rotate 90° for this printer」(드라이버 방향 — 짐작) · 처음 한 번 인쇄 창에서 용지 = 같은 번호 · 여백 없음 · 100% · 머리글 끄기
+- ⚠️ **실물 인쇄 시험 전**(asung-ims CHECKLIST 7-zx)
 
 Asung은 Cin7 Core를 장기적으로 대체할 커스텀 IMS를 짓고 있고, **WMS가 그 첫 모듈**입니다. 이 문서는 "우리가 WMS를 짓는 방식"을 인코딩합니다. 세부 스키마·코드는 `references/`에 있으니 필요할 때 읽으세요.
 

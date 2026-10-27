@@ -10,11 +10,11 @@
 
 | 상태 \ 때 | 컷오버 전 필수 | 컷오버 날 | 판정 대기 | Caleb 요청 때 | 미정 | 컷오버 뒤 | — | 합 |
 |---|---|---|---|---|---|---|---|---|
-| 열림 | 0 | 11 | 7 | 4 | 267 | 17 | 0 | 306 |
-| 모름 | 0 | 0 | 0 | 0 | 9 | 0 | 0 | 9 |
+| 열림 | 0 | 11 | 7 | 4 | 270 | 17 | 0 | 309 |
+| 모름 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 8 |
 | 닫힘(짐작) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 3 |
-| 닫힘 | 14 | 2 | 0 | 0 | 53 | 1 | 8 | 78 |
-| 합 | 15 | 14 | 7 | 4 | 330 | 18 | 9 | 396 |
+| 닫힘 | 14 | 2 | 0 | 0 | 55 | 1 | 8 | 80 |
+| 합 | 15 | 14 | 7 | 4 | 334 | 18 | 9 | 400 |
 
 ## 1. ⭐ 열림 · 컷오버 전 필수 — 11-01 까지 먼저 볼 줄
 
@@ -49,7 +49,7 @@
 | 315 | ILH_PRACTICE 지우기 — 컷오버 직전 진짜 이력 적재 전(ilhReset 이 켜져 있으면 경고 · 판정 664 · 665 는 연습 적재에만) | 열림 | 컷오버 날 | 📌 docs-1023h · N-1022-⑥ 순서 | so §72-f · docs-1023h · hist-3c | 664 · 665 |
 | 320 | 컷오버 날 재적재(손님 ~ 태그)는 **Shopify listing 을 켜기 전에** — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(shop_queue_add 가 켜진 listing 만 큐 · 지금 7 이라 무해) | 열림 | 컷오버 날 | Caleb 2026-10-24(docs-1024 마) · N-1022-⑥ 순서 · ldfix-1b 실측(listing 7 → 큐 ≤ 7) | so §73-c | 420 |
 
-### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (278)
+### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (281)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -330,7 +330,10 @@
 | 346 | Unwave(웨이브 → so)와 Undo split(so → 웨이브)의 잠금 순서 차이 — 겹치면 40P01 날것(저장 0) · wsp-1 범위 밖 | 열림 | 미정 | docs-1027 📌 · wsp-1 회신 | so §80-d · 80-f | 795 |
 | 347 | master:read 만 있는 직원은 Discount Rules 메뉴는 열리고 목록(so_deal_list)이 거부된다 — drx-1 조사가 찾은 기존 어긋남 | 열림 | 미정 | docs-1027 📌 · drx-1 조사 | so §80-b · 80-f · CHECKLIST 7-zw | 791 · 793 |
 | 348 | so_customer_is_company 규칙 ② AONE 이 글자 리터럴(`c.price_tier = 'AONE'`) · 새 ① 은 code — 한 함수 안 두 방식 · ② 도 code 3 으로(결과 같음 · lec-1 이견 3) | 열림 | 미정 | docs-1027 📌 · lec-1 이견 3 | so §80-c · 80-f · 12-d | 794 |
-| 349 | 다른 적재 스크립트(docs/probes/*.gs)의 개수로 나눈 `in.(…)` — URL 한도(짐작 2 kB)를 넘을 수 있는 곳: ImsLoadPrice.gs:399-402 ilp_patchIds_(uuid 100 개 PATCH ≈ 3.7 k 자) · ImsLoadProduct.gs:875-876 ipr_recheckKept_(cin7_id 100 개 GET ≈ 3.7 k 자) · 견딜 것(짐작): ImsLoadSupplier.gs:397-398 ils_patchIn_(40 개 · 주소 · 연락처 ID 길이는 안 잼) · ImsLoadProductTag.gs:462-464(uuid 40 개 ≈ 1.5 k 자) — 고칠 때 ilc_patchIn_(c91bc24) 처럼 글자 수로 | 열림 | 미정 | docs-1027 grep(2026-10-27 · 고치지 않음 · 길이는 짐작) | so §80-c · 80-f · asung-apps-script 규칙 6 | — |
+| 350 | ImsLoadOpening ilo_zeroDocs_ 가 오버페이가 CREDITED(손님 크레딧으로 바뀜)인 sale · 다중 인보이스 sale 을 만나면 못 가른다(가드가 not_in_collection · multi_invoice 로 Build 를 멈춘다) — 필요해지면 ① 손님 크레딧 쪽 거르기 · sale 단위 배분 | 열림 | 미정 | ilo-zero-1 보고(docs-1027b 📌) · 지금 19 장은 걸리지 않음(0z 문제 0) | so §81-a · 81-f | 797 |
+| 351 | 라벨 Android 태블릿 인쇄 — 지금은 창고 PC(Windows) 브라우저만 · USB 로 이어도 Android 는 라벨 크기를 못 전할 수 있다(짐작) · 프린터 모델 확인부터 | 열림 | 미정 | Caleb 「원격은 나중에 더 고민」(2026-10-27) | so §81-c · 81-f | 798 |
+| 352 | PO 공급처 인보이스 번호 표시 — 어느 화면(PO 목록 · 공급처 이전 발주 카드)인지 · 인보이스 번호 검색은 아직 안 정함 | 열림 | 미정 | Caleb 「지금은 하지 말자 · 기록만」(2026-10-27) | so §81-d · 81-f | — |
+| 353 | 라벨 데이터 별건(lbl-0 · 말만) — 공백 섞인 바코드 약 20 · 비 ASCII 1(`10067489303159Â`) · 바코드 없는 활성 세트 1,223 · 낱개 92 · 한 바코드 여러 제품 42 · Settings 새 칸 만들기가 `_ %` 를 막는지(WMS 칸 스캔은 ilike) | 열림 | 미정 | lbl-0 조사(docs-1027b 📌) | so §81-c · 81-f | 802 · 803 · 805 |
 
 ### ④ 열림 · 컷오버 뒤 (17)
 
@@ -354,21 +357,20 @@
 | 340 | 제품 내보내기에 옛 생성일(product.cin7_created_on) 칸을 더할지 — 「Added on」(created_at)은 Before IMS 기록에서 적재일이다(제품 09-14 · 손님 09-22 · 공급처 09-12 · 09-14 · 10-05) | 열림 | 컷오버 뒤 | Caleb 2026-10-26(767 「그렇게 가자」 — 요청 때) | so §78-a 767 · 78-f | 767 |
 | 341 | QuickBooks 연동(327 · 260)에서 이월 인보이스(so_invoice kind opening) · 받아 둔 돈(so_payment method opening)은 **보내지 않는다**(원본이 이미 QuickBooks · 786) + IMS 에서 이월 인보이스에 붙인 결제 · 크레딧은 QBO 의 기존 인보이스(옛 번호)에 붙여 보낸다 | 열림 | 컷오버 뒤 | 판정 786(Caleb 「A」) · 327 과 같은 때 | so §79-c · 79-f · 327 | 775 · 786 |
 
-### ⑤ 모름 (9)
+### ⑤ 모름 (8)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | M-② | WMS 재고 · bin 갱신 실패 감시(「언제 갱신됐나」 · 08-31) | 모름 | 미정 | 정본 없음(grep 「갱신 실패」 · 「언제 갱신됐나」 0) — 옛 WMS 쪽일 수 있다 · 승격 뒤 뜻이 있는지 Caleb | 📌 메모 · 정본 없음 | — |
 | M-③ | inventory.html TOTAL DIFFS 카드 ↔ 목록 어긋남(09-02) | 모름 | 미정 | 정본 없음(grep 「TOTAL DIFFS」 0) — 옛 WMS 화면 · 승격 뒤 쓰는지 Caleb | 📌 메모 · 정본 없음 | — |
 | M-④ | 원장 대기열 ② ~ ⑤(08-31 · inv_collect_runs · inv-cost tie-breaker · ?recheck=1 주 1회 · 트랜스퍼 bin 단위) | 모름 | 미정 | 짝 일부만 — tie-breaker 는 08-30 에 섰다(ledger-design:47) · ?recheck=1 cron 은 「커버리지가 안 나온다」(asung-inv-ledger:1212) · 나머지 정본 없음 · Cin7 수집 축이라 컷오버 뒤 뜻이 없을 수 있다(짐작) | 📌 메모 · ledger-design:47 · inv-ledger:1197 · 1212 | — |
-| N-1022-④ | 재고 화면에서 AAL11056 사진이 안 보임 — 데이터인지 화면인지 | 모름 | 미정 | Caleb 확인 대기(📌) | 📌 def-0 | — |
 | P-③ | 2단계 운송 회사 연동 | 모름 | 미정 | 안 봤다 — ful-1a(ref_carrier · 송장)는 섰다 · 운송사 API 연동은 정본에서 못 찾았다 | principles:492 | — |
 | P-⑤ | 3단계 「통합 검증 §6-b」 | 모름 | 미정 | 안 봤다 — §6-b 의 지금 상태 | principles:492 | — |
 | 307 | 크레딧만 있는 지난 오더 30(SO-00202 ~ SO-11546 · 확정 출처 · 인보이스 날짜 없음 · 손님 없음 · 모두 반품) — 원인 안 봤다 · 「Omni 시절」 짐작은 번호가 Core 라 틀렸다 | 모름 | 미정 | 원인 안 봤다 | so §72-e 5 · so §72-f · docs-1023h | 659 |
 | 309 | saleCreditNoteList Total 4,714 가 실제 발행 크레딧(확정 표 9 개월 453 오더 · 원장 한 달 약 21)과 안 맞는다 · 적재는 이 목록을 안 쓴다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | — |
 | 310 | 짝 발주 1,424 행 · 짝 1,421 — 같은 PO 번호가 목록에 두 번인 것 셋(짐작) · 공급처 안 풀림 0 이라 무해로 보이나 두 행의 공급처가 같은지 안 봤다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | 657 |
 
-### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (81)
+### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (83)
 
 <details><summary>펼치기</summary>
 
@@ -455,6 +457,8 @@
 | 332 | 컷오버 날 거래 지우기에 드라이브 표 · 문서 PDF · 버킷 두 곳 — 지우는 순서(drive_job → drive_shortcut → po_doc → 거래) · doc_file 을 남길지 지울지(연습 PDF · 문지기) · 버킷 documents · po-documents 의 연습 파일 | 닫힘 | 컷오버 날 | ✅ [2026-10-26 · docs-1026a · so §77] 절차 = reload-procedure §P(컷오버 날 순서표 하나) · 지우기 = `supabase/ops/cutover-delete.sql`(① 가드 ② 관문 넷 ③ 분류 대조 D 79 · K 73 · R 20 ④ 남김 지문 ⑤ truncate 79 · cascade 없음 — truncate 는 doc_file_guard 를 안 돈다 · 드라이브 표도 함께 ⑥ 번호 ⑦ 검산 ⑧ 시험 마스터 198 행 ⑨ Roux 19) · 판정 746 ~ 758 · 리허설 2 회 통과(잠금 4.0 s · 9.0 s · 실제 행 무변) · 버킷 15 파일(documents 6 · po-documents 1 · product-images 8)은 §P 6 단계 Storage · 사본은 10-31 저녁(757 · 명령은 10-30 시험) · asung-wms c5a6c53 · 3eb9189 · (옛 근거) 실측(테스트 DB 2026-10-24 · docs-1024c 이견 1): FK po_doc → po · po_charge · po_invoice · drive_shortcut → po · po_doc · drive_job → po_doc · doc_file · drive_shortcut 모두 on delete no action(a) — 먼저 비우지 않으면 PO · 빌 · 공급처 인보이스 지우기가 FK 로 선다 · doc_file_guard 가 doc_file 지우기를 거부한다(「A stored document PDF is never deleted」) · 버킷 documents · po-documents 파일은 표를 지워도 남는다(지금 po-documents 객체 1 · 연습) · ⚠️ 컷오버 날 거래 지우기 절차 자체가 글로 없다(N-1022-⑥ 한 줄 · reload-procedure.md 는 테스트 DB 재복사 절차) — 대화 Claude 가 다음 차수로 올린다 | so §74-d · N-1022-⑥ | 746 ~ 758 |
 | 300 | ~~Products 내보내기 — 칸 고르기 창~~ → [2026-10-24 · 판정 699 · 700 · so §74] Products · Customers · Suppliers(purchasable) 내보내기 — 칸 고르기 창 · 그 직원이 볼 권한이 있는 칸 전부(상세 칸 포함 · 원가 등 권한 없는 칸은 목록에 없다) · 행 = 지금 목록의 거르기 그대로 · 다시 올리기 없음(699 · 컷오버 뒤 필요하면 요청) | 닫힘 | 미정 | ✅ [2026-10-26 · docs-1026b · so §78] 닫힘 — exp-1 asung-wms `6e9734b`(export_columns · product/customer/supplier_export · 칸 목록 · 고른 칸만 · 한도 20,000) · exp-2 asung-ims `7d2835b`(ims-export.js · Products · Customers · Suppliers 「↓ Export…」) · exp-3 asung-wms `052f9e0`(칸 이름 Added in · Added on) · 판정 759 ~ 763 · 766 · 767 · 화면 시험 Caleb 2026-10-26 ← Caleb 2026-10-24(699 「import는 지금은 안할래 … 그때 필요하면 요청」 · 700 「칸고르기가 가능해야 하고 … 원가를 볼 권한이 없는 직원은 원가 칸이 안보여야」) | so §71-a 628 | 628(~~670 부터~~ → 684 부터 · 652 ~ 669 는 so §72 · 670 ~ 683 은 so §73) · 699 · 700 · 759 ~ 763 · 766 · 767 |
 | 339 | 판정 759 의 나머지 — DB 전체 가림(product_supplier 원가 칸 grant · po_lines_paste · price_formula_preview · po_receipt_latest_apply · 화면 다섯 이상) · exp-1 주석의 「deferred 339 후보」 | 닫힘 | 미정 | ✅ [2026-10-26 · docs-1026b · so §78] 같은 날 열고 닫음 — cost-1 asung-wms `dd459b0`(1a product_supplier_costs · 세 창구 재발행 · 1a2 product_update 문장 · 1b 표 select 회수 + 원가 아닌 15 칸 grant) · asung-ims `9188b7d`(화면 일곱) · 1b 적용 확인 46 / 0 · 두 권한 화면 시험 Caleb 2026-10-26 | so §78-b · exp-1 마이그레이션 주석 | 759 · 764 · 765 |
+| 349 | 다른 적재 스크립트(docs/probes/*.gs)의 개수로 나눈 `in.(…)` — URL 한도(짐작 2 kB)를 넘을 수 있는 곳: ImsLoadPrice.gs:399-402 ilp_patchIds_(uuid 100 개 PATCH ≈ 3.7 k 자) · ImsLoadProduct.gs:875-876 ipr_recheckKept_(cin7_id 100 개 GET ≈ 3.7 k 자) · 견딜 것(짐작): ImsLoadSupplier.gs:397-398 ils_patchIn_(40 개 · 주소 · 연락처 ID 길이는 안 잼) · ImsLoadProductTag.gs:462-464(uuid 40 개 ≈ 1.5 k 자) — 고칠 때 ilc_patchIn_(c91bc24) 처럼 글자 수로 | 닫힘 | 미정 | ✅ [2026-10-27 오후 · docs-1027b · so §81-b] url-1 asung-wms `cdd897e` — 넷 모두 id 부분 글자 수 1,500(ilp_ · ils_ · ipr_ · ipt_idChunks_ · 파일마다 접두 · 공용 파일 기각 · 322) · 하네스 run-inchunks.js(186 줄 · 회귀 일곱) · GAS 에 네 파일 붙임(Caleb 2026-10-27) · (옛 근거) docs-1027 grep(2026-10-27 · 고치지 않음 · 길이는 짐작) | so §80-c · 80-f · asung-apps-script 규칙 6 · so §81-b | — |
+| N-1022-④ | 재고 화면에서 AAL11056 사진이 안 보임 — 데이터인지 화면인지 | 닫힘 | 미정 | ✅ [2026-10-27 오후 · docs-1027b · so §81-d] **데이터** — product_image 행 is_active false · source cin7 · updated_by null · updated_at 14:33 UTC(10-09) = cron 40 ims-image-scan(30 14 * * *) 3 분 뒤 ⇒ Cin7 에서 첨부가 지워진 것을 사진 맞추기가 따랐다(AAL18582 · AAL18841 도 같음 · 10-22) · 파일은 저장소에 남음 · 컷오버 전 Cin7 에 다시 올리기는 Caleb · (옛 근거) Caleb 확인 대기(📌) | 📌 def-0 · so §81-d | — |
 
 </details>
 
@@ -473,7 +477,7 @@
 
 ## 4. 이 문서를 고칠 때
 
-- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ ~~341~~ ~~346~~ 350 부터([2026-10-27 · §80] 346 ~ 349 = docs-1027)([2026-10-26 밤 · §79] 341 ~ 345 = docs-1026c)([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
+- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ ~~341~~ ~~346~~ ~~350~~ 354 부터([2026-10-27 오후 · §81] 350 ~ 353 = docs-1027b)([2026-10-27 · §80] 346 ~ 349 = docs-1027)([2026-10-26 밤 · §79] 341 ~ 345 = docs-1026c)([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
 - 닫을 때는 줄을 지우지 않고 상태를 닫힘으로 · 근거 칸에 커밋 · 판정 · 절
 - 「때」를 Caleb 이 가르면 근거 칸에 「Caleb 2026-MM-DD」
 

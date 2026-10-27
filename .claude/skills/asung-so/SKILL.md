@@ -540,6 +540,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 받아 둔 돈 이월 = so_payment kind payment · **method opening** · 계정 **_1150040009_ Customer Credits**(786 · 없으면 창구 전체 멈춤) · (청구처, 통화)마다 한 줄 · paid_on = as_of · 브랜치 = 매장 위치 칸
 ⚠️⚠️ 받아 둔 돈 이월은 **void 불가**(so_payment_void 거부) · 크레딧과 오버페이를 한 「받아 둔 돈」 으로 합친다(8-e 구분을 잃음 · 받아들임) · QuickBooks 로 다시 보내지 않는다(deferred 341)
 ⚠️  as_of 는 미래면 거부 · 발행일이 as_of 뒤인 인보이스 줄은 거부 · REST 로 부르는 창구라 WHERE 없는 update · delete 는 21000(ar-2b · 789)
+⭐⭐ [2026-10-27 · 판정 797 · so-module §81-a] **이월에서 빠지는 19 장 = ImsLoadOpening.gs 상수 `ilo_zeroDocs_`**(회계에서 0 처리 — 보고서 Due 파랑 JE Write Off · 주황 No Outstanding Balance · Cin7 은 Lock 으로 못 고침 · Cin7 은 그대로 둔다)
+     그 인보이스(미수)와 그 인보이스에서 나온 오버페이(받아 둔 돈)를 뺀다 · **손님 크레딧(CR-…)은 안 뺀다**(예: Royals 는 CR-00283 · CR-00282 = 229.81 이 남는다)
+     목록과 Cin7 수집이 다르면(없음 · SO 번호 · Total · Due 0.01) Build 가 멈춘다 · **iloAllowMismatch 단계 없음**(SO-10447 은 목록으로 면제) · IMS 에서 들인 뒤 손으로 정리하는 길은 기각(가짜 거래 19 건)
 ```
 
 ## 5. 이 스킬을 갱신할 때

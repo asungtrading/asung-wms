@@ -884,9 +884,17 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
 ⚠️ **[2026-10-27 회사 — so-module §80-e · 내보내기 · 회사 판정 · WMS 동시 작업 · 운영 SQL]**
    1 [대화 Claude] 커밋 명령의 `test "$(git status --short)" = …` 가 다른 세션(Claude Code drx-1)의 미추적 파일 때문에 멈췄다 ⇒ 같은 레포에서 두 차수가 돌 때는 **스테이징 검사(`git diff --cached --name-only`)로** 커밋 범위를 확인한다
    2 [Claude Code · lec-1] 확인 갈래 기대 OK 를 38 로 셌다 — A3 · A5 는 「DB 옛 함수 vs 새 규칙」 비교라 적용 뒤 0 · 829 가 나온다(§50-c 재발) ⇒ 적용 전에만 성립하는 검사는 `\if :{?mig}` 안 · 확인 기대 = 실제 도는 수
-   3 [Claude Code · wsp-0] 지시서 「git 무접촉」 인데 CLAUDE.md 습관으로 git pull 을 돌렸다(Already up to date · 해 없음) ⇒ 지시서에 「pull 도 하지 마라」 를 적는다 · CLAUDE.md 6 절과 지시서가 다를 때 어느 쪽이 이기는지 CLAUDE.md 에 한 줄(안만 · 아직 안 고침)
+   3 [Claude Code · wsp-0] 지시서 「git 무접촉」 인데 CLAUDE.md 습관으로 git pull 을 돌렸다(Already up to date · 해 없음) ⇒ 지시서에 「pull 도 하지 마라」 를 적는다 · CLAUDE.md 6 절과 지시서가 다를 때 어느 쪽이 이기는지 CLAUDE.md 에 한 줄(~~안만 · 아직 안 고침~~ → cdd897e 들어감 · 「지시서가 git(pull 포함)을 막으면 지시서가 이긴다」)
    4 [대화 Claude] Supabase 대시보드 SQL 편집기가 한글 주석 · `15:46:18` 같은 글자가 든 DO 블록을 중간에서 잘라 보냈다(42601 unterminated dollar-quoted · 실행 0) · 「creates a table without RLS」 경고는 `select … into 변수` 오탐 ⇒ 운영 SQL 창에 줄 DO 블록은 **ASCII · 주석 없이 · 이름 붙은 달러 꼴($fix$)** · 경고는 「Run without RLS」 · 편집기는 **마지막 결과만** 보여 준다(확인 쿼리는 따로)
    5 [대화 Claude] Caleb 에게 영어로 답했다(「한국어」) — 늘 한국어(재발)
-   6 [발견 · ImsLoadCustomer] 개수로 나눈 `in.(…)` 가 긴 키에서 URL 한도를 넘었다 ⇒ asung-apps-script 규칙 6 · deferred 349
+   6 [발견 · ImsLoadCustomer] 개수로 나눈 `in.(…)` 가 긴 키에서 URL 한도를 넘었다 ⇒ asung-apps-script 규칙 6 · deferred 349 → 닫힘(url-1 · cdd897e · §81-b)
    7 [대화 Claude] 수집이 남아 있는데 Collect 를 돌렸다(「이미 다 모았다」) — 옛 수집으로 Dry 할 뻔 ⇒ 재적재는 **Reset → Collect** 부터
    8 [잘 된 것] wsp-0 가 위험한 두 세션 시험 대신 정적 증명(잠금 → 재확인 순서 + READ COMMITTED)으로 닫음 · wsp-1 이견 1 · 3(Reset Pick 은 과제를 안 지운다 · 잠금만 붙이면 새 교착) · drx-1 이견 1 · 2(수량 단계 · 세트 가격 어긋남) · 운영 Health split_sum 이 사고를 잡고 유령 배치가 pending 일 때 정리(물건 피해 0)
+
+⚠️ **[2026-10-27 회사 오후 — so-module §81-e · 이월 0 처리 · 349 · 바코드 라벨]**
+   1 [대화 Claude] 커밋 명령에서 `git add` 뒤 `test -z "$(git status --short)"` — 스테이징된 파일도 status 에 「M」 으로 나와 늘 멈춘다(헛돌기 한 번) ⇒ 커밋 범위는 `git diff --cached --name-only` 로 · 남은 변경은 `git status --short | grep -v '^[AM] '`
+   2 [대화 Claude] 화면 파일을 주자마자 옮기기 명령 → Caleb 이 내려받기 전에 돌려 md5 에서 멈춤 · 다운로드 폴더에 옛 판이 있으면 새 파일이 `(1)` 이름이 된다 ⇒ 같은 파일을 다시 줄 때는 「옛 판 지우기 → 내려받기 → 옮기기」 두 덩이로
+   3 [대화 Claude] Stock Lookup 의 matched_set_* 를 「세트를 스캔했다」 로 읽었다 — SKU 를 쳐도 온다(ws v1c) ⇒ 창구 반환 칸의 뜻은 「언제 채워지나」 까지 확인한 뒤 화면 규칙으로
+   4 [대화 Claude] 크기를 「일곱」 으로 셌다(여덟) · step 카드를 영어로 냈다(Caleb 은 늘 한국어 — 재발) · GAS 프로젝트를 「Asung-IMS」 라고 했다(System_Automation) ⇒ 목록 숫자는 다시 세고 · 카드 · 도구 글도 한국어 · GAS 이름은 asung-apps-script 규칙 6 의 지도로(so-module §81-b)
+   5 [대화 Claude] 사진이 사라진 일을 처음부터 「누가 지웠다」 로 받지 않고 updated_by null + 시각 → cron 일정으로 좁혔다(잘 된 것) ⇒ 「누가」 를 물을 때는 updated_by 가 비었는지 · 시각이 cron 과 맞는지부터
+   6 [잘 된 것] ilo-zero-1 이 Build 를 한 푼까지 맞춤(294 · 976,939.54 · 6,308.16) · 가드 셋 · url-1 의 순수 묶음 함수(태그 Apply 의 시간 확인 · finish 흐름 보존) · lbl-0 이 DB 차수 0 으로 닫음 · 기호 규칙(0 으로 시작하는 13 자리 · 00 으로 시작하는 14 자리)

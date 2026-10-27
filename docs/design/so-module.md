@@ -10482,11 +10482,11 @@ Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu �
 |---|---|
 | iloCollect | saleList 18,433 = Total · 크레딧 79 |
 | iloDetail | 상세 322 sale |
-| iloBuild | 이월 인보이스 307(CAD 300 977,998.89 · USD 7 40,281.80) · 받아 둔 돈 93 줄 CAD 8,682.94(크레딧 6,050.11 + 오버페이 14 장 2,632.83) · 어긋난 sale 1 |
+| iloBuild | 이월 인보이스 307(CAD 300 977,998.89 · USD 7 40,281.80) · 받아 둔 돈 93 줄 CAD 8,682.94(크레딧 6,050.11 + 오버페이 14 장 2,632.83) · 어긋난 sale 1 → [2026-10-27 · ilo-zero-1 · §81-a] **0**(SO-10447 은 회계 0 처리 목록이 면제) |
 | iloDry(ar-2b 뒤 · REST) | 인보이스 넣음 301 · 거부 6 · 받아 둔 돈 묶음 65 · CAD 7,794.72 · 거부 6 — 거부 12 모두 customer_unresolved · IMS 에 없는 새 손님(SQL 확인 · 번호 50051 ~ 50487 · 10 월) ⇒ 컷오버 8(손님 재적재) 뒤면 0(짐작 · Caleb 이 10-29 ~ 31 손님 적재 뒤 iloDry 로 확인) |
 
-- **어긋난 sale SO-10447**(Clore Inc. (EGL) · 인보이스 44585): 목록 「받은 돈 0」 · 상세 Paid 2,295.66 → Caleb Cin7 화면: 6/29 BMO EFT 2,295.66 · **Balance due 0** ⇒ 상세가 맞다 · 이월에서 빠지는 지금이 맞다 · 컷오버 날 iloAllowMismatch 한 번(다른 sale 이 어긋나면 통과시키지 말고 화면 먼저) — 절차는 reload-procedure §P-2 12b
-- 큰 돈: Royals Beauty Supply 2,507.94(그중 오버페이 2,278.13 — SO-12562 넷째 결제 의심 · Caleb 회계 확인) · PiiQ Design House 1,110.83
+- **어긋난 sale SO-10447**(Clore Inc. (EGL) · 인보이스 44585): 목록 「받은 돈 0」 · 상세 Paid 2,295.66 → Caleb Cin7 화면: 6/29 BMO EFT 2,295.66 · **Balance due 0** ⇒ 상세가 맞다 · 이월에서 빠지는 지금이 맞다 · ~~컷오버 날 iloAllowMismatch 한 번~~ → [2026-10-27 · §81-a · 판정 797] 회계 0 처리 목록(ilo_zeroDocs_)이 면제 · iloAllowMismatch 단계 없음(다른 sale 이 어긋나면 화면 먼저) — 절차는 reload-procedure §P-2 12b
+- 큰 돈: Royals Beauty Supply 2,507.94(그중 오버페이 2,278.13 — SO-12562 넷째 결제 의심 · Caleb 회계 확인) · PiiQ Design House 1,110.83 → [2026-10-27 · §81-a] Royals SO-12562 2,278.13 = 회계 0 처리(주황) · 이월에서 빠진다 · 남는 것은 손님 크레딧 229.81 · 큰 돈은 PiiQ 하나
 - 18-g 「전환 — Cin7 미수·선수금 이월」 은 이 절로 닫힌다(775 · method opening · 인보이스 없는 미수 = 이월 인보이스)
 
 ### 79-d 문서 — srs-1 · 판 셋 (판정 787 · 788)
@@ -10597,13 +10597,13 @@ Rule %      **그 규칙의 %** — 손님 기본 할인과의 큰 쪽 · 규칙
 |---|---|
 | Reset → Collect | 9,905 |
 | Dry → Apply1 ~ 4 → Verify | 전부 일치 · Apply1 내린 손님 20(Cin7 에서 합치거나 지운 깨진 이름들 · 한도 99 안) · Apply3 내린 주소 73 · Apply4 내린 연락처 46 |
-| iloDry(재적재 뒤) | 거부 0 · CAD 977,998.89 · USD 40,281.80 · 받아 둔 돈 CAD 8,682.94(묶음 71) · 어긋난 sale 1(SO-10447 · 컷오버 날 iloAllowMismatch — §79-c) |
+| iloDry(재적재 뒤) | 거부 0 · CAD 977,998.89 · USD 40,281.80 · 받아 둔 돈 CAD 8,682.94(묶음 71) · 어긋난 sale 1(SO-10447 · ~~컷오버 날 iloAllowMismatch — §79-c~~ → §81-a 목록이 면제) |
 
 - 「손댄 행」 23 의 is_legal_entity IMS false → Cin7 true 는 덮이게 둠(9 월 적재 뒤 Cin7 에서 손으로 체크한 값)
 - Asung Employee - Tae Hun Shin 청구지 둘(10-20 IMS 손질 · Unit A · 1610)이 Cin7 값으로 덮임 — 직원 손님이라 그대로 둠
 - **ImsLoadCustomer Apply3 실패 → 고침(c91bc24)**: `Limit Exceeded: URLFetch URL Length` at ilc_patchIn_ — id 100 개씩 `in.(…)` 가 주소 cin7_id 에서 URL 한도를 넘었다 · 글자 수(1,500)로 나눈다 · 첫 묶음에서 멈춰 쓰기 0 이었다
   - 짐작(이 차수 · 확인 안 함): 「주소 cin7_id 가 손님 GUID 보다 길다」 는 재지 않았다 — 같은 100 개 나누기로 Apply1(20) · Apply4(46)는 지나고 Apply3(73)만 섰다 · 36 자 GUID 라도 73 × 37 ≈ 2.7 k 자라 한도(짐작 2 kB · ImsLoadProductTag.gs 머리 주석 「UrlFetchApp 의 URL 한도 2 KB」)를 넘는다 ⇒ 길이보다 **개수**로도 설명된다 · 어느 쪽이든 고침(글자 수로 나누기)은 같다
-- Royals Beauty Supply SO-12562 $2,278.13 은 **아직 확인 중**(Caleb 짐작: Cin7 ↔ QuickBooks 싱크 에러) — 두 모양: 같은 돈 두 번(지운다) · 다른 인보이스 몫이 붙음(옮긴다) — 결과 뒤 iloDry 다시
+- → [2026-10-27 · §81-a] **닫힘 — 주황(No Outstanding Balance) · 회계 0 처리 목록**. Royals Beauty Supply SO-12562 $2,278.13 은 **아직 확인 중**(Caleb 짐작: Cin7 ↔ QuickBooks 싱크 에러) — 두 모양: 같은 돈 두 번(지운다) · 다른 인보이스 몫이 붙음(옮긴다) — 결과 뒤 iloDry 다시
 
 Split invoice by store(테스트 DB · Caleb 화면 실무 · 인계서 §3-1 · §3-2 끝 · 판정 780 의 실행)
 
@@ -10647,10 +10647,10 @@ wsp-1 d       wms_wave_create — 같은 날 라벨 셈 앞 pg_advisory_xact_loc
 
 1. [대화 Claude] 커밋 명령의 `test "$(git status --short)" = …` 가 다른 세션(Claude Code drx-1)의 미추적 파일 때문에 멈췄다 ⇒ 같은 레포에서 두 차수가 돌 때는 **스테이징 검사(`git diff --cached --name-only`)로** 커밋 범위를 확인한다
 2. [Claude Code · lec-1] 확인 갈래 기대 OK 를 38 로 셌다 — A3 · A5 는 「DB 옛 함수 vs 새 규칙」 비교라 적용 뒤 0 · 829 가 나온다(§50-c 재발) ⇒ 적용 전에만 성립하는 검사는 `\if :{?mig}` 안 · 확인 기대 = 실제 도는 수
-3. [Claude Code · wsp-0] 지시서 「git 무접촉」 인데 CLAUDE.md 습관으로 git pull 을 돌렸다(Already up to date · 해 없음) ⇒ 지시서에 「pull 도 하지 마라」 를 적는다 · CLAUDE.md 6 절과 지시서가 다를 때 어느 쪽이 이기는지 CLAUDE.md 에 한 줄(이 차수는 CLAUDE.md 를 고치지 않고 안만 낸다 — 차수 회신)
+3. [Claude Code · wsp-0] 지시서 「git 무접촉」 인데 CLAUDE.md 습관으로 git pull 을 돌렸다(Already up to date · 해 없음) ⇒ 지시서에 「pull 도 하지 마라」 를 적는다 · CLAUDE.md 6 절과 지시서가 다를 때 어느 쪽이 이기는지 CLAUDE.md 에 한 줄(이 차수는 CLAUDE.md 를 고치지 않고 안만 낸다 — 차수 회신) → [2026-10-27 · cdd897e] CLAUDE.md 6 절 끝 줄 들어감(§81-b)
 4. [대화 Claude] Supabase 대시보드 SQL 편집기가 한글 주석 · `15:46:18` 같은 글자가 든 DO 블록을 중간에서 잘라 보냈다(42601 unterminated dollar-quoted · 실행 0) · 「creates a table without RLS」 경고는 `select … into 변수` 오탐 ⇒ 운영 SQL 창에 줄 DO 블록은 **ASCII · 주석 없이 · 이름 붙은 달러 꼴($fix$)** · 경고는 「Run without RLS」 · 편집기는 **마지막 결과만** 보여 준다(확인 쿼리는 따로)
 5. [대화 Claude] Caleb 에게 영어로 답했다(「한국어」) — 늘 한국어(재발)
-6. [발견 · ImsLoadCustomer] 개수로 나눈 `in.(…)` 가 긴 키에서 URL 한도를 넘었다 ⇒ asung-apps-script 규칙 6 · deferred 349
+6. [발견 · ImsLoadCustomer] 개수로 나눈 `in.(…)` 가 긴 키에서 URL 한도를 넘었다 ⇒ asung-apps-script 규칙 6 · deferred 349 → 닫힘(url-1 · cdd897e · §81-b)
 7. [대화 Claude] 수집이 남아 있는데 Collect 를 돌렸다(「이미 다 모았다」) — 옛 수집으로 Dry 할 뻔 ⇒ 재적재는 **Reset → Collect** 부터
 8. [잘 된 것] wsp-0 가 위험한 두 세션 시험 대신 정적 증명(잠금 → 재확인 순서 + READ COMMITTED)으로 닫음 · wsp-1 이견 1 · 3(Reset Pick 은 과제를 안 지운다 · 잠금만 붙이면 새 교착) · drx-1 이견 1 · 2(수량 단계 · 세트 가격 어긋남) · 운영 Health split_sum 이 사고를 잡고 유령 배치가 pending 일 때 정리(물건 피해 0)
 
@@ -10669,4 +10669,162 @@ wsp-1 d       wms_wave_create — 같은 날 라벨 셈 앞 pg_advisory_xact_loc
 
 ```
 다음 판정 번호: 797 · 다음 deferred 번호: 350
+```
+
+## §81 2026-10-27 회사 오후 — 이월에서 빠지는 19 장 · in() 을 글자 수로 · 바코드 라벨 · 사진이 꺼진 일 · Shopify 사실 — ilo-zero-1 · url-1 · lbl v1 · v1a · v1b · ws v1b · v1c · 판정 797 ~ 808 (회사 PC)
+
+⭐ 지은 것: 회계에서 0 처리된 인보이스 19 장을 이월에서 뺀다(ilo-zero-1 · 상수 ilo_zeroDocs_ · 가드) · 다른 적재 넷의 `in.(…)` 를 글자 수로 묶는다(url-1 · deferred 349 닫힘) · 바코드 라벨(공용 ims-label.js · 화면 셋 · 마이그레이션 0)
+⭐ 새 판정 797 ~ 808 · 원천: docs-1027b 📌(판정 · 실측 · 사진 조사는 대화에만 있었다) · 커밋 메시지 · ImsLoadOpening.gs · ims-label.js 머리 주석 · 이 차수가 읽기만 한 테스트 DB(cron.job · product_image)
+⭐ 커밋 — asung-wms `e194933` ilo-zero-1 · `58962ae` 하네스 run-opening.js · `cdd897e` url-1(+ CLAUDE.md 6 절 끝 줄) / asung-ims `6c99d61` lbl v1(ws v1b · pr v5j · set v9) · `47e0cb1` lbl v1a · `4fe6a60` ws v1c · `33d2bad` lbl v1b(ims-label.js?v=3)
+⭐ 마이그레이션 0 · DB 쓰기 0 — 라벨은 이미 authenticated select 인 표만 읽는다 · 이월은 적재 스크립트만
+⚠️ 번호 — ImsLoadOpening.gs 머리 주석의 「판정 797 — 번호는 짐작」 은 이 절이 **797 로 확정**한다 · 라벨 판정 798 ~ 807 · ws v1c 808 은 이 차수가 붙였다(코드 주석에는 번호가 없다)
+
+**판정 (Caleb 말 그대로 · 뜻)**
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 797 | 「그 방법으로 가자」 | 회계에서 0 처리된 인보이스 19 장(보고서 Due 파랑 JE Write Off · 주황 No Outstanding Balance)은 **Cin7 은 그대로 · 이월 적재가 미수에서도 받아 둔 돈에서도 뺀다** · 목록 = ImsLoadOpening.gs 상수 `ilo_zeroDocs_` · 목록과 수집이 다르면 Build 를 멈춘다 · 손님 크레딧(CR-…)은 거르지 않는다 · IMS 에 들인 뒤 손으로 정리하는 길은 기각(가짜 거래 19 건) — 81-a |
+| 798 | 「원격은 나중에 더 고민」 | 라벨 인쇄 = **창고 PC(Windows) 브라우저 인쇄** · DYMO 호환 감열 프린터 · DYMO 규격 용지 · 드라이버만(무선 또는 USB) · DYMO Connect · SDK 없음 · Android 태블릿 인쇄는 나중(deferred 351) — 81-c |
+| 799 | 「WMS 직원은 access 안 되어도 돼 · 자주 있는 일이 아니고 한번 프린트하면 오래 쓴다」 · (Stock Lookup) 「WMS 만 접근이 있는 사람도 프린트」(ws v1b 머리 주석) | 찍는 곳 셋 — 제품 라벨 = **WMS Stock Lookup** 카드마다 · **IMS Products 상세**(보기 전용 직원도) · 칸 라벨 = **IMS Settings → Bins 만** |
+| 800 | (lbl-0 · 대화 Claude) | 공용 창 `ims-label.js`(asung-ims) 하나 · DB 창구 · 마이그레이션 0 — product · product_barcode · ref_bin · ref_warehouse 모두 authenticated select · 제품 읽기는 `loadProducts()` 한 곳(판정 270 처럼 표를 닫게 되면 이 함수만 창구로) |
+| 801 | 「모두 다 들어가는 게 아니야 · 선택적으로」 | 항목 다섯(SKU · 바코드 · 바코드 번호 · 이름 · 브랜드)은 **찍을 때마다 체크** · 크기마다 마지막 선택을 그 PC 가 기억(localStorage · CLAUDE.md 5 절 예외 — 기기의 자리 · 잃는 기록 없음) · SKU 가운데(lbl v1a) · 브랜드 가운데(lbl v1b) |
+| 802 | 「나」 | 바코드 없는 제품 = 「No barcode」 — **SKU 를 바코드로 만들지 않는다** |
+| 803 | 「가」 | 여러 제품에 걸린 바코드(42) = **경고만**(Bin Moves 가 그 스캔을 거부한다는 경고) · 인쇄는 막지 않는다 |
+| 804 | (4 × 6) 「있어」 | 크기 **여덟** — 30347 1 × 1.5 · 30332 1 × 1 · 30346 0.5 × 1.875 · 30334 2.25 × 1.25 · 30321 1.4 × 3.5 · 30323 2.125 × 4 · 30256 2.3125 × 4 · **1744907 4 × 6 = 4 인치 프린터** · 작은 크기에서 막대가 가늘거나 낮으면 경고만 |
+| 805 | (lbl-0 이견 6) | 바코드 기호 = 저장 글자 그대로 읽히게: 12 자리 + 체크 맞음 = UPC-A · 13 자리 · 첫 자리 ≠ 0 · 체크 맞음 = EAN-13 · 8 자리 + 체크 맞음 = EAN-8 · 그 밖 ASCII = Code 128 · ASCII 아님 = 「Barcode can't be printed」 · JsBarcode 3.11.6 |
+| 806 | (lbl-0 · 대화 Claude) | 칸 라벨 = 칸 이름 글자 그대로 Code 128 + 이름 · 창고 줄은 체크 · 존 = 이름 앞 영문 + 바로 뒤 숫자 · 나머지 Other · 범위 · 정렬은 대문자 글자 코드 순 |
+| 807 | (lbl v1 · 대화 Claude) | 인쇄 = 숨은 iframe · @page 크기 = 라벨 · 한 장 = 한 쪽 · PC 마다 「Rotate 90° for this printer」 · 처음 한 번 인쇄 창 설정(용지 = 같은 번호 · 여백 없음 · 100% · 머리글 끄기) |
+| 808 | (Caleb 화면 보고 · AS01282 에서 세트가 골라져 「No barcode」) | Stock Lookup 라벨 창이 세트를 기본으로 고르는 것은 **찾은 글자 = 세트 SKU 이거나 숫자 바코드 스캔일 때만**(ws v1c) — `stk_availability` 는 SKU 를 쳐도 matched_set_* 를 준다 |
+
+### 81-a 이월에서 빠지는 19 장 — ilo-zero-1 · 하네스 (판정 797)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| ilo-zero-1 | asung-wms `e194933` | `docs/probes/ImsLoadOpening.gs` — 상수 `ilo_zeroDocs_()`(19 줄 · Order # · Document · To · Total · Paid · Due · 색 — 보고서 원문 그대로) · iloBuild 가드 · 보고서 0z 표 · Dry 보고서 · 대조표에 「뺀 것」 줄 | 아래 실측 |
+| (하네스) | asung-wms `58962ae` | `docs/probes/harness/run-opening.js` — ImsLoadOpening 의 Build 를 node 에서 | Build 를 한 푼까지 맞춤 |
+
+```
+원천        Caleb 이 회계에서 받은 Cin7 「Sales Outstanding Balance」 보고서(Cin7_Core_Sales_Outstanding_Balance.xlsx · 85 줄)의 Due 칸 색
+            파랑 = JE Write Off · 주황 = No Outstanding Balance → 둘 다 0 이어야 한다(QuickBooks 에서는 0) · Cin7 은 「일정 기간 전 거래 Lock」 때문에 못 고쳤다(Caleb)
+            노랑 = Actual Outstanding Balance(진짜 미수 · 그대로 이월) · 색 없음 = 8 월 이후(판단 없음 · 그대로 이월)
+목록        ilo_zeroDocs_ — 레포 상수(Script Property 아님 · 컷오버 날 같은 판이 돈다) · 19 줄 = Due + 7(인보이스 6 + SO-10447) · Due − 12(overpay)
+빼는 것      Due + : 그 인보이스 줄(미수) · Due − : 그 sale 의 overpay 줄(받아 둔 돈 · 단일 인보이스 sale 만) · **손님 크레딧(ref/customer/credits · CR-…)은 거르지 않는다** · 같은 손님의 다른 인보이스는 그대로
+가드        한 줄이라도 걸리면 그 줄을 이름과 함께 보고하고 **Build 를 멈춘다**(build json 을 남기지 않는다 · 보고서 report-build-blocked-*) — 추정해 넘기지 않는다
+            not_in_collection(수집 후보 상세에 그 번호가 없다 · 오버페이가 CREDITED 면 그 뜻을 함께) · duplicate_number · so_differs · voided_or_draft · total_differs · due_differs(0.01 넘게 · 상세 Total − Paid 또는 단일 인보이스면 목록 값)
+            kind(Due + 인데 열린 sale 이 아니다) · not_overpay · multi_invoice(overpay 는 sale 단위라 다중 인보이스면 못 가른다 → deferred 350) · due_zero
+면제        그 sale 의 live 인보이스가 전부 목록이면 sale 대조 어긋남을 면제(보고서 0z 에 「면제된 대조」) — SO-10447(상세 Due 0 · 원래도 줄이 안 실렸다 · 「줄 없음 1」)
+            ⇒ 리허설(§79-c)의 「컷오버 날 iloAllowMismatch 한 번」 단계는 **없어졌다** · 함수 iloAllowMismatch 는 남아 있다(다른 sale 이 어긋나면 Cin7 화면 먼저 — reload-procedure §P-2 12b)
+기각        IMS 에 들인 뒤 손으로 0 정리 — 가짜 거래 19 건이 IMS 에 남는다
+```
+
+실측(2026-10-27 12:05 Build · 12:06 Dry · 테스트 DB · Apply 안 함 · build-20261027-1205.json md5 0861f6f0…)
+
+| 무엇 | 지금 | 전(§80-c iloDry) | 차 |
+|---|---|---|---|
+| 이월 인보이스 CAD | 294 장 · 976,939.54 | 300 · 977,998.89 | 6 장 · 1,059.35 = 0z 인보이스 |
+| 이월 인보이스 USD | 7 · 40,281.80 | 7 · 40,281.80 | 0 |
+| 받아 둔 돈 | 81 줄 → 손님 60 · CAD 6,308.16 | 93 줄 · 8,682.94 | 12 줄 · 2,374.78 = 0z overpay |
+| 0z 표 | 인보이스 6 · overpay 12 · 줄 없음 1(SO-10447 44585) · **문제 0** | — | 19 |
+| 어긋난 sale | **0**(SO-10447 은 「면제된 대조 1」) | 1 | — |
+| 큰 돈 · 거부 | PiiQ Design House 1,110.83 하나 · 거부 0 | Royals · PiiQ | — |
+
+- 이 차수의 셈 확인: 0z 인보이스 Due 6 줄 합 16.05 + 0.03 + 698.92 + 215.39 + 62.97 + 65.99 = 1,059.35 · overpay 12 줄 합 2,374.78 — 위 차와 같다(코드 상수에서 셈)
+- **Royals Beauty Supply SO-12562 −2,278.13 = 주황** → 인계서 10-26 §3-3 · §80-c 「아직 확인 중」 닫힘 · Royals 에 남는 받아 둔 돈 = 손님 크레딧 CR-00283 217.80 + CR-00282 12.01 = **229.81**(리허설 2,507.94 − 2,278.13 과 같다)
+- reload-procedure §P-2 12b 고침: iloAllowMismatch 단계 삭제 · 확인에 「0z 표 문제 0 · 어긋난 sale 0」 · 멈춤 = 0z ⛔ · 어긋난 sale ≠ 0 이면 Cin7 화면 먼저 · §79-c 리허설 「어긋난 sale 1」 · §80-c iloDry 줄에 → 표시
+- 남은 이월 일: QuickBooks A/R Aging Summary(10-31 · 통화별) 대조표 채우기 — 컷오버 직전 · Caleb(CHECKLIST 7-zx)
+
+### 81-b `in.(…)` 를 글자 수로 — url-1 · GAS 지도 (deferred 349 닫힘)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| url-1 | asung-wms `cdd897e` | ImsLoadPrice · ImsLoadSupplier · ImsLoadProduct · ImsLoadProductTag 의 `in.(…)` 를 **id 부분 글자 수 1,500** 으로 묶는다 — 파일마다 자기 접두의 순수 함수 `ilp_idChunks_` · `ils_idChunks_` · `ipr_idChunks_` · `ipt_idChunks_`(태그는 상수 IPT_DELETE_MAXLEN) · 하네스 `docs/probes/harness/run-inchunks.js` · CLAUDE.md 6 절 끝 줄 | 하네스 186 줄 통과 · 회귀 일곱 통과 · GAS 에 네 파일 붙임(Caleb 2026-10-27 · Ctrl+F `_idChunks_` 확인) |
+
+```
+묶기        id 부분 글자 수 1,500(UrlFetch URL 한도 짐작 2 kB) · 1,500 넘는 키 하나는 혼자 한 묶음 · 태그 Apply 의 시간 확인 · finish 흐름은 덩이마다 그대로
+공용 파일    기각 — 편집기에 그 파일이 없으면 모두 멈춘다(deferred 322 사례 · ils_vis_) · 그래서 같은 꼴 함수를 파일마다 접두로 넷
+무접촉       ImsLoadCustomer 의 ilc_patchIn_(c91bc24 · §80-c) — 그 docblock(ImsLoadCustomer.gs:596 「100개씩」)은 옛 글 · 다음에 그 파일을 만질 때(지금 .gs 를 고치지 않는다)
+그 밖        같은 이름 함수 0(probes 전체) · 다른 `in.(` 자리 0(Opening · Hist · RefLoad · ProductSupplier)
+CLAUDE.md   6 절 끝 줄 「지시서가 git(pull 포함)을 막으면 지시서가 이긴다」(§80-e 3 의 안 · cdd897e)
+```
+
+GAS 지도(대화 Claude 가 「Asung-IMS 프로젝트」 라고 잘못 말했다 — Asung-IMS 는 DB 이름)
+
+| GAS 프로젝트 | **System_Automation** |
+|---|---|
+| GAS 파일 ↔ 레포 | Imsloadcustomer.gs ↔ ImsLoadCustomer.gs · Imsloadprice.gs ↔ ImsLoadPrice.gs · Imsloadproduct.gs ↔ ImsLoadProduct.gs · ImsTagProbe.gs(Caleb 이 ImsLoadProductTag.gs 로 바꿨을 수 있다) ↔ ImsLoadProductTag.gs · ImsLoadSupplier.gs · ImsLoadOpening.gs · ImsLoadHist.gs(이름 같음) · Imsloadproductsupplier.gs 는 Imsloadproduct.gs 와 **다른 파일** |
+| 찾는 법 | 그 파일만의 함수 · 상수 이름으로 Ctrl+F(예 `_idChunks_` · `ilo_zeroDocs_`) |
+
+### 81-c 바코드 라벨 — lbl v1 · v1a · v1b · ws v1b · v1c (판정 798 ~ 808)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| lbl-0 | (조사 · 커밋 없음 · DB 차수 0 으로 닫음) | 표 권한 · 바코드 모양 · 칸 이름 실측 · 기호 규칙(이견 6) | 아래 「데이터 별건 후보」 |
+| lbl v1 | asung-ims `6c99d61` | `ims-label.js`(477 줄 · 제품 · 칸 · DYMO 크기 · 항목 고르기 · PC 마다 회전) + Print label — wms-stock.html ws v1b · products.html pr v5j · settings.html set v9 | — |
+| lbl v1a | asung-ims `47e0cb1` | SKU 가운데 · ?v=2 | — |
+| ws v1c | asung-ims `4fe6a60` | Stock Lookup 라벨 창의 세트 기본 고르기(808) | Caleb AS01282 |
+| lbl v1b | asung-ims `33d2bad` | 브랜드 가운데 · ?v=3(세 화면) | **실물 인쇄 시험은 아직**(CHECKLIST 7-zx) |
+
+```
+화면        WMS Stock Lookup(wms-stock.html · 카드마다 Print label) · IMS Products 상세(보기 전용 직원도) · IMS Settings → Bins「Print labels…」(칸 라벨 · 여기만)
+읽기        product · product_barcode · ref_bin · ref_warehouse — authenticated select · 제품은 loadProducts() 한 곳 · 칸은 창고 하나 2,059 행이라 1,000 행씩 나눠 읽기(PostgREST 캡)
+크기        여덟(804) — 30321 · 30323 · 30256 · 1744907 은 대화 Claude 기억값(판매처로 확인한 것은 30347 · 30332 · 30346 · 30334 · ims-label.js 머리 주석) ⇒ 실물 롤 확인 필요
+            (대화 Claude 가 「일곱」 이라 잘못 셌다 — 81-e 4)
+기호        805 · 0 으로 시작하는 13 자리는 EAN-13 이 아니라 Code 128 · 00 으로 시작하는 14 자리도 Code 128(저장 글자 그대로 읽히게) · ASCII 아님 1 건(`10067489303159Â`) = 「Barcode can't be printed」
+            JsBarcode 3.11.6(jsdelivr · 레포의 픽리스트와 같은 판)
+칸 존       ref_bin.zone 은 2,687 행 전부 null → 이름 앞 영문 + 바로 뒤 숫자 · 나머지 Other · 범위 · 정렬은 대문자 글자 코드 순 — 서버 en_US 정렬과 다르다(A0100PALLET01 < A010101)
+인쇄        807 · DYMO 드라이버 방향은 짐작 — 옆으로 나오면 그 PC 에서 Rotate 를 켠다
+Android     USB 로 이어도 Android 는 라벨 크기를 못 전할 수 있다(짐작) — deferred 351
+```
+
+- 데이터 별건 후보(lbl-0 · 말만 · deferred 353): 공백 섞인 바코드 약 20 · 비 ASCII 1 · 바코드 없는 활성 세트 1,223 · 낱개 92 · 한 바코드 여러 제품 42 · Settings 새 칸 만들기가 `_ %` 를 막는지(WMS 칸 스캔은 ilike)
+- 칸 라벨 「떨어진 칸 몇 개를 이름 붙여넣기로」 — 대화 Claude 가 물었고 Caleb 이 답하지 않았다(기록만 · deferred 없음)
+
+### 81-d 사진이 꺼진 일 · 사실 기록 — AAL11056 · AAL18582 · AAL18841 · Shopify · Freightcom
+
+사진(테스트 DB 실측 — 이 차수가 다시 읽음 2026-10-27)
+
+```
+product_image  AAL11056 · AAL18582 · AAL18841 — 셋 모두 is_active false · source cin7 · **updated_by null**
+               updated_at 2026-10-09 14:33:20 · 10-22 14:33:21 · 10-22 14:33:21 (UTC)
+cron           jobid 40 ims-image-scan `30 14 * * *`(active t) · 41 ims-image-move `50,5,20,35 14,15 * * *` — 꺼진 시각 = scan 실행 3 분 뒤
+뜻             IMS 에서 사람이 끈 것이 아니라(updated_by null — service_role 쓰기) **Cin7 에서 첨부가 지워진 것을 사진 맞추기가 따랐다** — 짐작이 아니라 실측 둘의 결합 · 「누가 지웠나」 는 Cin7 감사 기록
+파일           저장소(product-images)에 남아 있다
+지금 할 일      컷오버 전에는 Cin7 에 다시 올린다 — IMS 에서 켜도 다음 날 scan 이 다시 끌 수 있다(짐작)
+컷오버          reload-procedure §P-2 1 단계에 40 · 41 마지막 실행 확인 → 끄기가 **이미 있다**(판정 755 · P-3 3 「켜지 않는다」 · grep 3 곳) — 더하지 않았다 · 컷오버 뒤에는 IMS 가 사진의 주인이다
+deferred       N-1022-④(AAL11056 사진이 안 보임 — 데이터인지 화면인지 · 모름)를 이 실측으로 닫았다(데이터)
+```
+
+Shopify(다른 대화에서 이어간다 · 사실만)
+
+- asung.ca(스토어 「Asung Trading」 · admin.shopify.com/store/asung-trading)와 시험 스토어 asung-ims-test 는 **같은 Shopify 조직 「Asung Trading」** · aonebeauty.com(「Aone Beauty Supply Online Store」)은 **별개 스토어**(같은 조직인지는 Dev Dashboard 로 확인 전)
+- Shopify 문서: client credentials grant 는 **앱과 스토어가 같은 조직(Dev Dashboard 에 함께 보임)일 때만**
+- Caleb 「컷오버 때 연결하더라도 통로는 지금 만들어 두자」 · 대화 Claude 의 위험 짚음: 테스트 DB = 컷오버 뒤 운영 DB(617) · cron 42 ~ 49 가 이미 돈다 → 실제 스토어 행은 **모든 스위치를 끈 채(읽기만)** 시작
+
+그 밖
+
+- Freightcom: 10-24 API 신청 · 답 없음 → 담당 Roy Koshy(Roy@freightcom.com)에게 영문 독촉 메일 초안(10-27 · 계정 번호 · 운송사 이름은 넣지 않음 · Caleb)
+- PO 공급처 인보이스 번호 표시: Caleb 「지금은 하지 말자 · 기록만」 — 어느 화면(PO 목록 · 공급처 이전 발주 카드)인지 · 인보이스 번호 검색은 아직 안 정함 → deferred 352
+
+### 81-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+⚠️ **[2026-10-27 회사 오후 — so-module §81-e · 이월 0 처리 · 349 · 바코드 라벨]**
+
+1. [대화 Claude] 커밋 명령에서 `git add` 뒤 `test -z "$(git status --short)"` — 스테이징된 파일도 status 에 「M」 으로 나와 늘 멈춘다(헛돌기 한 번) ⇒ 커밋 범위는 `git diff --cached --name-only` 로 · 남은 변경은 `git status --short | grep -v '^[AM] '`
+2. [대화 Claude] 화면 파일을 주자마자 옮기기 명령 → Caleb 이 내려받기 전에 돌려 md5 에서 멈춤 · 다운로드 폴더에 옛 판이 있으면 새 파일이 `(1)` 이름이 된다 ⇒ 같은 파일을 다시 줄 때는 「옛 판 지우기 → 내려받기 → 옮기기」 두 덩이로
+3. [대화 Claude] Stock Lookup 의 matched_set_* 를 「세트를 스캔했다」 로 읽었다 — SKU 를 쳐도 온다(ws v1c) ⇒ 창구 반환 칸의 뜻은 「언제 채워지나」 까지 확인한 뒤 화면 규칙으로
+4. [대화 Claude] 크기를 「일곱」 으로 셌다(여덟) · step 카드를 영어로 냈다(Caleb 은 늘 한국어 — 재발) · GAS 프로젝트를 「Asung-IMS」 라고 했다(System_Automation) ⇒ 목록 숫자는 다시 세고 · 카드 · 도구 글도 한국어 · GAS 이름은 81-b 의 지도로
+5. [대화 Claude] 사진이 사라진 일을 처음부터 「누가 지웠다」 로 받지 않고 updated_by null + 시각 → cron 일정으로 좁혔다(잘 된 것) ⇒ 「누가」 를 물을 때는 updated_by 가 비었는지 · 시각이 cron 과 맞는지부터
+6. [잘 된 것] ilo-zero-1 이 Build 를 한 푼까지 맞춤(294 · 976,939.54 · 6,308.16) · 가드 셋 · url-1 의 순수 묶음 함수(태그 Apply 의 시간 확인 · finish 흐름 보존) · lbl-0 이 DB 차수 0 으로 닫음 · 기호 규칙(0 으로 시작하는 13 자리 · 00 으로 시작하는 14 자리)
+
+### 81-f 미룬 것 · 바로잡음 · 다음
+
+- 새(deferred.md): **350** ilo_zeroDocs_ 가 CREDITED · 다중 인보이스 sale 을 만나면 못 가른다(가드가 멈춘다) — 필요해지면 ① 거르기 · sale 단위 배분 · **351** 라벨 Android 태블릿 인쇄(프린터 모델 확인부터) · **352** PO 공급처 인보이스 번호 표시(81-d) · **353** 라벨 데이터 별건(81-c 「데이터 별건 후보」)
+- 닫음(deferred.md): **349**(url-1 · cdd897e) · **N-1022-④**(81-d 사진 — 데이터)
+- 바로잡음(→ 표시): §79-c 리허설 iloBuild 줄 「어긋난 sale 1」 · SO-10447 줄 · 큰 돈 줄 · §80-c iloDry 줄 · Royals 줄 · §80-e 3(CLAUDE.md 들어감) · reload-procedure §P-2 12b
+- 확인만(고치지 않음): reload-procedure §P-2 1 · P-3 3 의 jobid 40 · 41 끄기(있다)
+- 화면 시험 남음: 라벨 실물 인쇄(크기마다 · 스캔 · 칸 라벨 Bin Moves · 4 × 6 큰 프린터) — CHECKLIST 7-zx
+- 다음 deferred 번호: **354**
+
+```
+다음 판정 번호: 809 · 다음 deferred 번호: 354
 ```

@@ -117,7 +117,7 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
    (6분 제한 대비 · 429 가 오면 쉬고 이어 받는다 · 끝 판단은 Total 이 아니라 받은 행 수 < Limit)
 ⭐ 대량 비활성 안전장치 — 받은 행 수 ≠ API Total 이면 멈춤(수집이 짧게 끝난 것) · 한 번에 내리는(is_active=false) 줄 > max(20, 1%) 면 멈춤
    맞으면 허락 속성(예 ILC_ALLOW_BIG_DOWN=1)을 넣고 **한 번만** 통과 · 계기: 2026-09-22 가짜 데이터 시험에서 수집이 짧게 끝나자 151명을 내렸다
-⭐ [2026-10-10 · so-module §57-c] ImsLoadProductTag.gs(접두 ipt · c61ba04) — 관계 표(product_tag) 맞추기: 원하는 집합 − cin7 줄 = 넣기 · cin7 줄 − 원하는 집합 = 지우기(행 삭제 · 먼저) · manual 무접촉 · **커서 없음**(매번 Cin7 을 새로 훑어 diff — 다시 돌리면 남은 것만 · Next run 도 같은 함수) · 큰 지우기 안전장치(> max(20, 1%) · IPT_ALLOW_BIG_DELETE=1 한 번만) · 지우기는 id 40 개씩(UrlFetch URL 2 KB)
+⭐ [2026-10-10 · so-module §57-c] ImsLoadProductTag.gs(접두 ipt · c61ba04) — 관계 표(product_tag) 맞추기: 원하는 집합 − cin7 줄 = 넣기 · cin7 줄 − 원하는 집합 = 지우기(행 삭제 · 먼저) · manual 무접촉 · **커서 없음**(매번 Cin7 을 새로 훑어 diff — 다시 돌리면 남은 것만 · Next run 도 같은 함수) · 큰 지우기 안전장치(> max(20, 1%) · IPT_ALLOW_BIG_DELETE=1 한 번만) · 지우기는 ~~id 40 개씩~~ → [2026-10-27 · url-1 · cdd897e] **id 부분 글자 수 1,500**(`ipt_idChunks_` · IPT_DELETE_MAXLEN · UrlFetch URL 한도 짐작 2 KB · 시간 확인 · finish 흐름은 덩이마다 그대로)
 ⭐ [2026-10-24 · ldfix · so-module §73 · 판정 671] **IMS 가 정한 값은 적재가 건드리지 않는다** — 적재 다섯 공통
    · 짝짓기(674 · 681): cin7_id 없는 IMS 행(manual)과 이름(제품은 SKU)이 같으면 그 행에 cin7_id 만 PATCH(`id=eq.<id>&cin7_id=is.null` · 0 행이면 멈춤) · 이름 비교는 보이는 글자(`ils_vis_`)
    · 손댄 행(672): `source='cin7' and updated_by is not null` 을 Dry 가 IMS ↔ Cin7 값으로 낸다(ims_touch 가 service_role 쓰기 땐 updated_by 를 비운다) · 보조 `*_LAST_APPLY_AT`(Apply 끝에 코드가 적는다 · ILC · ILS · IPR · IPT)
@@ -135,10 +135,21 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
 ⭐ [2026-10-26 · so-module §79-c · 판정 775 · 783 ~ 786] **ImsLoadOpening.gs**(접두 **ilo** · d6be2d6) — 컷오버 날 미수 · 받아 둔 돈 이월 → 창구 so_opening_load(service_role) · 대상 Asung-IMS(SUPABASE_IMS_URL · SUPABASE_IMS_SERVICE_KEY)
    iloCollect → iloDetail → iloBuild(쓰기 0 · sale 마다 상세 ↔ 목록 대조) → iloDry → iloApply(Dry 때와 같은 p md5 · 직전 Dry 한 번 더) → iloVerify · iloReset(ILO_STATE 만 지움) · 순서 · 멈춤은 reload-procedure §P-2 12b
    ⭐ Script Properties 는 **ILO_STATE 하나**(JSON · 속성 50 개 초과로 화면이 읽기 전용) — 허락도 속성이 아니라 그 안의 표지 · **함수 iloAllowMismatch · iloAllowRejects** 로만 켠다(각각 Apply 의 멈춤 하나를 **한 번만** 통과 · 쓰면 꺼진다)
-   ⚠️ iloAllowMismatch 는 어긋난 sale 을 Cin7 화면으로 확인한 뒤에만(리허설: SO-10447 하나 — 상세가 맞다) · as_of 는 ilo_cfg_ 의 asOf(비우면 Build 날 · 창구는 미래 as_of 거부)
+   ⚠️ iloAllowMismatch 는 어긋난 sale 을 Cin7 화면으로 확인한 뒤에만 · as_of 는 ilo_cfg_ 의 asOf(비우면 Build 날 · 창구는 미래 as_of 거부)
+   ⭐ [2026-10-27 · ilo-zero-1 · e194933 · so-module §81-a · 판정 797] **회계에서 0 처리된 인보이스 19 장 = 상수 `ilo_zeroDocs_`**(보고서 「Sales Outstanding Balance」 Due 칸 파랑 JE Write Off · 주황 No Outstanding Balance · QuickBooks 에서 0 · Cin7 은 Lock 으로 못 고침)
+      → 그 인보이스 줄 · 단일 인보이스 sale 의 overpay 줄을 p 에 싣지 않는다 · **손님 크레딧(CR-…)은 거르지 않는다** · 목록은 레포 상수(Script Property 아님 · 컷오버 날 같은 판)
+      가드(Build 를 멈추고 build json 을 남기지 않는다 · 보고서 0z 표): 수집에 없다 · 번호가 두 곳 · SO 번호가 다르다 · VOIDED/DRAFT · Total 이 다르다 · Due 가 0.01 넘게 다르다 · 종류(open/overpay)가 안 맞다 · overpay 인데 다중 인보이스(deferred 350)
+      그 sale 의 live 인보이스가 전부 목록이면 대조 어긋남 면제(SO-10447 — 「면제된 대조 1」) ⇒ **리허설의 iloAllowMismatch 단계는 없어졌다**(함수는 남아 있다 — 다른 sale 이 어긋나면 Cin7 화면 먼저)
+      하네스 `docs/probes/harness/run-opening.js`(58962ae · Build 를 node 에서) · 실측 12:05 Build = CAD 294 장 976,939.54 · 받아 둔 돈 81 줄 6,308.16 · 0z 문제 0
 ⭐ [2026-10-26 · ar-1] **OpeningProbe.gs**(접두 **opp** · daf8af5) — 읽기 전용 Cin7 프로브(열린 인보이스 · 오버페이 · 손님 크레딧) · 쓰기 없음 · 원천 규칙은 so-module §79-c
 ⚠️ [2026-10-27 · so-module §80-c · c91bc24] **`in.(…)` 는 개수가 아니라 글자 수로 나눈다** — ImsLoadCustomer Apply3 가 `Limit Exceeded: URLFetch URL Length`(ilc_patchIn_ · id 100 개씩)로 첫 묶음에서 섰다(쓰기 0)
-   Apps Script URLFetch URL 길이 한도(정확한 값은 짐작 2 kB) · ilc_patchIn_ 은 1,500 자로 잡았다 · 개수로 나누는 다른 곳(ImsLoadPrice ilp_patchIds_ · ImsLoadProduct ipr_recheckKept_ 100 개 …)은 deferred 349
+   Apps Script URLFetch URL 길이 한도(정확한 값은 짐작 2 kB) · ilc_patchIn_ 은 1,500 자로 잡았다 · ~~개수로 나누는 다른 곳(ImsLoadPrice ilp_patchIds_ · ImsLoadProduct ipr_recheckKept_ 100 개 …)은 deferred 349~~
+   → [2026-10-27 · **url-1** · cdd897e · deferred 349 닫힘 · so-module §81-b] 넷 모두 **id 부분 글자 수 1,500** — 파일마다 자기 접두의 순수 함수 `ilp_idChunks_`(ImsLoadPrice) · `ils_idChunks_`(ImsLoadSupplier) · `ipr_idChunks_`(ImsLoadProduct) · `ipt_idChunks_`(ImsLoadProductTag)
+      1,500 넘는 키 하나는 혼자 한 묶음 · 공용 파일은 기각(편집기에 그 파일이 없으면 모두 멈춘다 — deferred 322 사례) · 하네스 `docs/probes/harness/run-inchunks.js`(186 줄 · 회귀 일곱 통과)
+      ImsLoadCustomer ilc_patchIn_(c91bc24)은 무접촉 — 그 docblock(ImsLoadCustomer.gs:596 「100개씩」)은 옛 글 · 다음에 그 파일을 만질 때 · 다른 `in.(` 자리 0(Opening · Hist · RefLoad · ProductSupplier) · GAS 에 네 파일 붙임(Caleb 2026-10-27)
+⭐ [2026-10-27 · so-module §81-b] **GAS 프로젝트 = `System_Automation`**(IMS 적재 스크립트도 여기 · 「Asung-IMS 프로젝트」 가 아니다 — Asung-IMS 는 DB 이름) · **GAS 파일 이름 ≠ 레포 이름** — GAS 에서 그 파일을 찾는 법 = 그 파일만의 함수 · 상수 이름으로 Ctrl+F
+   GAS Imsloadcustomer.gs ↔ 레포 ImsLoadCustomer.gs · Imsloadprice.gs ↔ ImsLoadPrice.gs · Imsloadproduct.gs ↔ ImsLoadProduct.gs · ImsTagProbe.gs(이름을 ImsLoadProductTag.gs 로 바꿨을 수 있다 — 짐작) ↔ ImsLoadProductTag.gs
+   같은 이름: ImsLoadSupplier.gs · ImsLoadOpening.gs · ImsLoadHist.gs · ⚠️ Imsloadproductsupplier.gs 는 Imsloadproduct.gs 와 **다른 파일**(제품-공급처 · 레포 ImsLoadProductSupplier.gs 짐작)
 ```
 
 ---
