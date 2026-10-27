@@ -880,3 +880,13 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    5 [Claude Code · ar-3 이견 1] 「so_invoice_list 가 테스트 DB 에 없다」 — 틀림(ar-2 가 다시 만들었다) ⇒ 「없다」 는 적용 로그 · 카탈로그로 확인한 뒤에
    6 [잘 된 것] ar-1 프로브 + Caleb 화면 대조 다섯으로 원천 규칙을 닫음 · ar-3 sale 대조가 SO-10447 를 잡음 · hcr-0 이 지시서 전제 둘(번호 칸 · 오더 할인)을 실측으로 바로잡음
    7 [대화 Claude] 10 월분 이력을 「컷오버 뒤 한두 주」 라고 틀리게 말함 — Caleb 「10월분 인보이스는 어차피 컷오버때 다 들어와」 ⇒ 절차 사실은 reload-procedure §P-2 를 보고 말한다
+
+⚠️ **[2026-10-27 회사 — so-module §80-e · 내보내기 · 회사 판정 · WMS 동시 작업 · 운영 SQL]**
+   1 [대화 Claude] 커밋 명령의 `test "$(git status --short)" = …` 가 다른 세션(Claude Code drx-1)의 미추적 파일 때문에 멈췄다 ⇒ 같은 레포에서 두 차수가 돌 때는 **스테이징 검사(`git diff --cached --name-only`)로** 커밋 범위를 확인한다
+   2 [Claude Code · lec-1] 확인 갈래 기대 OK 를 38 로 셌다 — A3 · A5 는 「DB 옛 함수 vs 새 규칙」 비교라 적용 뒤 0 · 829 가 나온다(§50-c 재발) ⇒ 적용 전에만 성립하는 검사는 `\if :{?mig}` 안 · 확인 기대 = 실제 도는 수
+   3 [Claude Code · wsp-0] 지시서 「git 무접촉」 인데 CLAUDE.md 습관으로 git pull 을 돌렸다(Already up to date · 해 없음) ⇒ 지시서에 「pull 도 하지 마라」 를 적는다 · CLAUDE.md 6 절과 지시서가 다를 때 어느 쪽이 이기는지 CLAUDE.md 에 한 줄(안만 · 아직 안 고침)
+   4 [대화 Claude] Supabase 대시보드 SQL 편집기가 한글 주석 · `15:46:18` 같은 글자가 든 DO 블록을 중간에서 잘라 보냈다(42601 unterminated dollar-quoted · 실행 0) · 「creates a table without RLS」 경고는 `select … into 변수` 오탐 ⇒ 운영 SQL 창에 줄 DO 블록은 **ASCII · 주석 없이 · 이름 붙은 달러 꼴($fix$)** · 경고는 「Run without RLS」 · 편집기는 **마지막 결과만** 보여 준다(확인 쿼리는 따로)
+   5 [대화 Claude] Caleb 에게 영어로 답했다(「한국어」) — 늘 한국어(재발)
+   6 [발견 · ImsLoadCustomer] 개수로 나눈 `in.(…)` 가 긴 키에서 URL 한도를 넘었다 ⇒ asung-apps-script 규칙 6 · deferred 349
+   7 [대화 Claude] 수집이 남아 있는데 Collect 를 돌렸다(「이미 다 모았다」) — 옛 수집으로 Dry 할 뻔 ⇒ 재적재는 **Reset → Collect** 부터
+   8 [잘 된 것] wsp-0 가 위험한 두 세션 시험 대신 정적 증명(잠금 → 재확인 순서 + READ COMMITTED)으로 닫음 · wsp-1 이견 1 · 3(Reset Pick 은 과제를 안 지운다 · 잠금만 붙이면 새 교착) · drx-1 이견 1 · 2(수량 단계 · 세트 가격 어긋남) · 운영 Health split_sum 이 사고를 잡고 유령 배치가 pending 일 때 정리(물건 피해 0)

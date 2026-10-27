@@ -137,6 +137,8 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
    ⭐ Script Properties 는 **ILO_STATE 하나**(JSON · 속성 50 개 초과로 화면이 읽기 전용) — 허락도 속성이 아니라 그 안의 표지 · **함수 iloAllowMismatch · iloAllowRejects** 로만 켠다(각각 Apply 의 멈춤 하나를 **한 번만** 통과 · 쓰면 꺼진다)
    ⚠️ iloAllowMismatch 는 어긋난 sale 을 Cin7 화면으로 확인한 뒤에만(리허설: SO-10447 하나 — 상세가 맞다) · as_of 는 ilo_cfg_ 의 asOf(비우면 Build 날 · 창구는 미래 as_of 거부)
 ⭐ [2026-10-26 · ar-1] **OpeningProbe.gs**(접두 **opp** · daf8af5) — 읽기 전용 Cin7 프로브(열린 인보이스 · 오버페이 · 손님 크레딧) · 쓰기 없음 · 원천 규칙은 so-module §79-c
+⚠️ [2026-10-27 · so-module §80-c · c91bc24] **`in.(…)` 는 개수가 아니라 글자 수로 나눈다** — ImsLoadCustomer Apply3 가 `Limit Exceeded: URLFetch URL Length`(ilc_patchIn_ · id 100 개씩)로 첫 묶음에서 섰다(쓰기 0)
+   Apps Script URLFetch URL 길이 한도(정확한 값은 짐작 2 kB) · ilc_patchIn_ 은 1,500 자로 잡았다 · 개수로 나누는 다른 곳(ImsLoadPrice ilp_patchIds_ · ImsLoadProduct ipr_recheckKept_ 100 개 …)은 deferred 349
 ```
 
 ---

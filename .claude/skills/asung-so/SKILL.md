@@ -145,7 +145,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 가격은 so_price_for(티어 sale·활성 · 가격 줄 활성 · 세트 = 낱개 × pack_factor × (1 − set_discount_pct/100) round 2) → so_line_quote(so, product, qty)(할인 = greatest(손님 기본, so_deal_best 의 딜 %) · 더하지 않는다 · 큰 쪽의 출처 customer|deal) · 단가는 자르지 않고 줄 합계만 round(qty × unit_price, 2) = so_line_total 하나   (12-b 판정 3·4 · §13-g) [2026-10-06 정정 · 판정 280 · 298 · §48] 줄 견적은 계산 판매 세트의 list 를 할인 전 round(낱개 × pf, 2)로 · 세트 % 는 할인 칸(출처 set) · 고정가 세트는 정가 · so_price_for 는 그대로
 ⭐⭐ 같은 SKU — ~~unit_price 가 같으면 합친다~~ [2026-09-23 정정 · §13 판정 2] 시스템 줄(price_override=false · discount_source <> manual)은 제품만으로 합치고 합친 수량으로 다시 견적 · 사람이 정한 줄(덮어쓴 단가 · 수동 할인)만 단가 비교(다르면 ask · p_force_new) · 붙여넣기는 첫 줄에 수량을 모은다(duplicate) · 비활성 제품은 거부 — po_lines_paste 와 다르다   (§13-g · 12-c ⬜5)
 ⭐⭐ 티어는 손님이 아니라 「들어온 곳」이 정한다 — 직접 오더는 손님 기본이 초깃값 · inv_config so_direct_order_tier_code(=1 Wholesale → rls-2 · 판정 568 · 572 — 직원 쓰기 닫힘 · 거부 20 에 들어 앱에서 못 바꾼다(마이그레이션 · psql) · so-module §68) ≠ 이면 direct_order_tier_unexpected · 손님 원문과 다르면 tier_differs_from_customer · 막지 않는다   (12-b 판정 B)
-⭐  배송지 회사/사람 규칙 넷(so_customer_is_company) — legal_entity → 회사 · AONE → 사람 · 기본 연락처 이름이 다르고 서로 포함 안 하면 → 회사 · 그 밖 사람 · 합의된 오차(1001132194 ONTARIO INC) · 틀리면 초안에서 고친다   (12-d)
+⭐  배송지 회사/사람 규칙 넷(so_customer_is_company) — legal_entity **또는 가격 등급 code 1 · 2 · 4 · 7**(Wholesale · Franchise · Regular CAD · USWholesale USD · 판정 794 · lec-1) → 회사 · AONE → 사람 · 기본 연락처 이름이 다르고 서로 포함 안 하면 → 회사 · 그 밖 사람 · ~~합의된 오차(1001132194 ONTARIO INC)~~ → [2026-10-27] 그 손님은 이제 Wholesale · 회사 · 데이터(is_legal_entity)는 고치지 않는다(적재가 덮는다) · 틀리면 초안에서 고친다   (12-d · §80-c)
 ⭐  시험은 SO-25000 을 소비한다 — rollback 밖에서 so 가 비어 있을 때만 setval(25000, false) · 전환 전 점검 25000 · is_called f · 가짜 직원은 트랜잭션 안에서만(ims_staff.auth_user_id FK 없음)   (12-g) → [2026-10-26 · 판정 749 · so-module §77] 컷오버 뒤 첫 번호는 **SO-20000**(cutover-delete.sql ⑥ 이 setval(20000, false) · 인보이스 60000 · CR-01000 그대로) · 전환 점검도 20000 · is_called f
 ⚠️  운임 amount 는 0 이상(①c · 돌려줄 돈은 크레딧 노트 8-g) · 비활성 손님은 거부(판정 A) · 한 트랜잭션 안 now() 는 같다 — 시각 비교로 검증하지 마라 · 제약 이름은 get stacked diagnostics constraint_name 으로   (12-b · 12-f)
 ⚠️  [2026-10-06 · 판정 281 · 291 ~ 295 · §47] 판매 안 함(product.sellable false) — 세트는 넣기 길 전부(so_line_add · so_lines_paste · POS 스캔)에서 낱개 × pack_factor 로 바꿔 넣고 알림(set_converted_to_base · converted) · 바꾸는 길에 손 단가 · 할인 % 거부 · 낱개(콤보 포함)는 거부 「turn on Sellable in Products first」 · 켜고 끄기는 product_update(master · sellable_source ims · 열린 줄이면 sellable_off_open_lines)
@@ -518,6 +518,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      ⚠️ 태그 목록을 product_tag 에서 직접 모으지 마라 — 6 만 줄을 1,000 씩 읽어 Discount Rules 가 느려졌던 원인
 ⭐  Sales Orders 손님 거르기(so cust filt v1 · v1a) — `so.html?customer=<id>` 로 열면 그 손님의 오더만 · 다른 거르기 · CSV 와 함께
 ⭐  POS 초안 지우기(773 · pos v1.14) = so_delete(Sales Orders 의 Delete draft 와 같은 창구 · 권한은 DB · 확정된 판매는 DB 가 거부)
+⭐⭐ [2026-10-27 · §80-b · 판정 790 ~ 793] 규칙 CSV = deal_export(p_deal_ids, p_kind deal_rule|deal_product, p_columns) · 문 = so_deal_list 식(sales 보기 ∨ master 쓰기) · 원가 칸 없음
+     ⓑ deal_product 한 줄 = (규칙 × 제품 × 딜 줄 — 수량 단계면 두 줄) · 활성 제품만 · 세트 포함 · Rule % = **그 규칙의 %**(손님 기본 · 다른 규칙과의 승자 아님)
+⚠️⚠️ after_<code>(규칙 적용가) = so_line_quote base 식 **복사** — so_line_quote 를 고치면 deal_export 도(drx-1 머리 가드 md5 · 다르면 IM790) · export_catalog · export_door · export_columns 마지막 정의 = drx-1(20261027134231)
 ```
 
 ## 4-w. ⭐⭐ 참조 크레딧 이력 채우기 · 미수 · 받아 둔 돈 이월 — 모르면 사고 (2026-10-26 · 정본 so-module §79 · 판정 774 ~ 786 · 789)

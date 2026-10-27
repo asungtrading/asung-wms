@@ -2429,7 +2429,8 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
 사정   Cin7 손님에는 회사 이름 칸이 따로 없다(Name 하나에 회사·사람이 섞였다) · Legal entity 는 거의 안 쓰였다(Caleb 「회사 이름이면 legal entity에 표시를 해줬어야 했는데, 우리는 그러지 않았어」)
 받는 쪽 「회사가 우선 · 회사가 없으면 회사 칸은 비우고 사람 칸이 이름을 받는다」
 규칙   위에서부터 처음 맞는 줄
-  1  customer.is_legal_entity = true                                                          → 회사
+  1  ~~customer.is_legal_entity = true                                                          → 회사~~
+     → [2026-10-27 · 판정 794 · lec-1 · §80-c] customer.is_legal_entity = true **또는** 가격 등급 code ∈ {1 Wholesale, 2 Franchise, 4 Regular CAD, 7 USWholesale USD}(price_tier ↔ ref_price_tier.name lower·trim)   → 회사
   2  customer.price_tier = 'AONE'                                                             → 사람   (AONE 은 95% 이상 개인)
   3  기본 연락처(is_default · 활성 · 이름 있음)가 있고 · lower(trim(손님 이름)) ≠ lower(trim(연락처 이름)) · 어느 쪽도 다른 쪽을 포함하지 않는다(position 양방향)   → 회사
   4  그 밖(같다 · 한쪽이 다른 쪽을 포함 · 연락처 없음)                                              → 사람
@@ -2438,7 +2439,8 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
        ship_to_phone = 기본 연락처 phone → mobile_phone → null · bill_to_name = 청구처 손님 name(청구서는 이름 하나) · 배송 손님 = default_ship_to_customer_id → 없으면 자신 · 청구처 = default_bill_to_customer_id → 없으면 자신
 근거   실측(2026-09-23 SQL · Caleb 실행) — Wholesale 표본 12 중 사람 이름 10 · 「이름 = 기본 연락처」 Wholesale 5,615/7,407 · AONE 1,867/2,045 — 티어로는 회사 이름을 못 가른다(Wholesale 손님은 사업자지만 대부분 사장 이름으로 등록)
        「이름 ≠ 연락처」 표본 20 중 회사 16 · 틀린 넷 = AONE 둘 + 포함 관계 하나(Adrian Hamilton / Hamilton) + Clarice Williams — 규칙 2·3 을 더해 표본 기준 1/20
-합의된 오차  규칙 2 는 판정 B 의 사정(전환 전 손님 티어가 틀려 있다)을 탄다 — 실례 1001132194 ONTARIO INC(회사인데 AONE → 사람으로 봤다) · 틀린 손님은 오더 담당이 초안에서 고친다(so_header_update ship_to_*)
+합의된 오차  규칙 2 는 판정 B 의 사정(전환 전 손님 티어가 틀려 있다)을 탄다 — ~~실례 1001132194 ONTARIO INC(회사인데 AONE → 사람으로 봤다)~~ · 틀린 손님은 오더 담당이 초안에서 고친다(so_header_update ship_to_*)
+             → [2026-10-27 · §80-c] 1001132194 ONTARIO INC 는 이제 **Wholesale**(10-27 손님 재적재 뒤) · 규칙 ③ 으로 이미 회사(규칙 ① 등급으로도 회사) — 「AONE → 사람」 사정은 옛 글
 검증   Xeonium Inc. → 회사(t) · Adrian Hamilton → 사람(f) · AONE 손님 하나 → f · 연락처 없는 손님 → f(12-f ✅)
 ```
 
@@ -10521,4 +10523,150 @@ ship_ready 메일 제목     PROFORMA INVOICE {{invoice.so_numbers}} - Asung Tra
 
 ```
 다음 판정 번호: 790 · 다음 deferred 번호: 346
+```
+
+## §80 2026-10-27 회사 — 규칙 CSV 내보내기 · 배송지 회사 판정(도매 등급) · WMS 동시 작업 막이 · 손님 재적재 · 운영 Split 사고 — drx-1 · lec-1 · wsp-0 · wsp-1 · dr v4 · export v2 · c91bc24 · 판정 790 ~ 796 (회사 PC)
+
+⭐ 지은 것: Discount Rules 에서 CSV 두 가지(규칙 정의 · 풀린 제품 · drx-1 · dr v4 · export v2) · 배송지 회사 판정 규칙 ① 에 도매 등급(lec-1) · IMS WMS 동시 작업 막이 넷(wsp-1) · 손님 재적재(테스트 DB) 중 ImsLoadCustomer Apply3 URL 길이 고침(c91bc24)
+⭐ 새 판정 790 ~ 796 · 원천: 지시서 drx-1 · lec-1 · wsp-0 · wsp-1 · docs-1027 📌(판정 · 실측 · 운영 사고 기록은 대화에만 있었다) · 차수 회신(Claude Code) · 마이그레이션 · 화면 파일의 머리 주석
+⭐ 커밋 — asung-wms `c91bc24` ImsLoadCustomer · `f239f0a` drx-1 · `c64ca9e` lec-1 · `43815bf` wsp-1 / asung-ims `999565a` dr v4 · export v2
+⭐ 마이그레이션 셋은 IMS(테스트 DB = 11-01 부터 메인 · 617) 것 · 운영(asung-WMS)에는 올리지 않는다 · 적용 · repair 기록은 이 차수가 확인하지 않았다(짐작: dr v4 화면 시험이 deal_export 를 불렀으니 drx-1 은 적용됨)
+⚠️ 번호 — drx-1 머리 주석 · 커밋 메시지의 「790 ~ 792」 와 lec-1 머리 주석 · 커밋 메시지의 「793」 은 짐작 번호였다 · 이 절이 정한 번호: drx-1 = 790 ~ 793 · **lec-1 = 794** · wsp-1 = 795 · 운영 사고 = 796
+
+### 80-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 790 | 「C」 | Discount Rules CSV 는 둘 — ⓐ 규칙 정의(규칙이 적힌 대로) ⓑ 풀린 제품(그 규칙이 지금 걸리는 제품) |
+| 791 | 「다」 | 버튼은 두 곳(규칙 상세 = 그 딜 하나 · 넓은 목록 = 지금 거르기에 보이는 딜 전부) · 창구 하나 `deal_export(p_deal_ids uuid[], p_kind 'deal_rule'\|'deal_product', p_columns text[])` |
+| 792 | 「다」 | 칸 고르기 = ims-export.js(다른 내보내기와 같은 창) · 기본 칸에 가격 없음 · 가격 칸(sale 등급 다섯 × 정가 list_<code> · 규칙 적용가 after_<code>)은 고르면 |
+| 793 | (drx-1 조사 이견 받음 · Caleb · 대화 Claude) | ⓑ 한 줄 = (규칙 × 제품 × 딜 줄) · 규칙 적용가 = so_line_quote base CTE 식 바이트 복사(가격 식이 두 곳) · round 4 · sale 등급만 · ⓑ 활성 제품만(Caleb 「가」) · 세트 포함 · ⓐ 꺼진 줄도 · ⓑ 꺼진 · 끝난 규칙도 · 오더 딜 0 줄 · Rule % = 그 규칙의 % · 문 = so_deal_list 식 · 원가 칸 없음 — 아래 80-b |
+| 794 | 「wholesale price tier 를 쓰는 손님은 모두 legal entity 라고 봐야 한다」 · Franchise 「Wholesale 과 같다」 | 배송지 회사 판정(so_customer_is_company) 규칙 ① = **is_legal_entity 또는 손님 가격 등급 code ∈ {1 Wholesale, 2 Franchise, 4 Regular CAD, 7 USWholesale USD}** → 회사 · ② ~ ④ 그대로(② AONE → 사람) · 데이터는 고치지 않는다(is_legal_entity 는 적재가 Cin7 값으로 덮는다 · 672) — 아래 80-c |
+| 795 | 「고치자」 | WMS 동시 작업 막이 넷(wsp-1) — 유니크 둘 · 배치 되돌리기 잠근 뒤 재확인 셋 · Release 검사 for update + id 순 잠금 · Wave 라벨 advisory 잠금 + id 순 잠금 — 아래 80-d |
+| 796 | (운영 사고 기록) | 2026-10-26 15:46 ~ 15:47 UTC 운영 WMS SO-18405 를 매니저 둘이 동시에 Split → 배치 두 벌 · 운영 Health split_sum 이 잡음 · 물건은 한 번만 나감 · 10-27 Caleb 운영 SQL 로 정리 — 아래 80-d |
+
+### 80-b Discount Rules CSV — drx-1 · dr v4 · export v2 (판정 790 ~ 793)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| drx-1 | asung-wms `f239f0a` | `20261027134231_drx_1_deal_export.sql` — deal_export 창구 · export_catalog · export_door · export_columns 재발행(kind deal_rule · deal_product) · 머리 가드(export_catalog = exp-3 · export_door · export_columns = exp-1 · so_line_quote = dsc-2 md5 대조 · 다르면 IM790) · 검증 `supabase/tests/drx_1_check.sql`(Q 갈래 = so_quote_preview 대조 · 소수 4 자리) | 아래 실측 |
+| dr v4 · export v2 | asung-ims `999565a` | discount-rules.html — 넓은 목록 「↓ Export rules… · ↓ Export products…」 · 상세 「↓ Rule CSV… · ↓ Products CSV…」(오더 딜 상세에는 Products 단추 없음) · ims-export.js v2(창 안내 note) | Caleb 화면 시험 「다 잘 나와」(2026-10-27) |
+
+```
+창구        deal_export(p_deal_ids uuid[], p_kind 'deal_rule'|'deal_product', p_columns text[]) → {kind, total, row_count, truncated, columns, rows}
+            definer · stable · 한도 20,000(exp-1 과 같다) · 같은 id 두 번 = 한 번 · 없는 id · 빈 배열 거부
+            문 = so_deal_list 식(sales 보기 ∨ master 쓰기 · export_door) · 원가 칸 없음
+ⓐ deal_rule  딜 줄(대상 + %) 하나 = 한 줄(762) · 줄 없는 딜(오더 딜 · 줄 없음)도 한 줄 · **꺼진 줄도**(Line on 칸)
+            제외 대상은 같은 줄의 Applies to · Except 두 칸 · 손님 조건 · 오더 단계는 글자 한 칸 · 실측 57 줄
+ⓑ deal_product 한 줄 = **(규칙 × 제품 × 딜 줄)** — 같은 딜 안 같은 제품이 두 줄(수량 단계 · 예 UOM Discount BS502 12 개 이상 10 % · 100 개 이상 25 %)이면 두 줄 · 실측 376 쌍
+            대상 식 = so_deal_products_all 한 곳(361) · 켜진 줄 · **활성 제품만**(Caleb 「가」 · 규칙 목록의 product_n 과 같은 수)
+            세트 줄 포함(302) + Kind · Set of · Pack factor 칸 · 수량 칸 이름 「Min qty (each)」
+            꺼진 · 끝난 규칙도 고르면 낸다(Rule status 칸) · 오더 딜은 0 줄(거부 아님 · 화면은 오더 딜 상세에 Products 단추를 안 그린다)
+Rule %      **그 규칙의 %** — 손님 기본 할인과의 큰 쪽 · 규칙끼리의 승자는 넣지 않는다
+            창 안내: 「This is the rule's own %. On an order the customer's standard discount or a bigger rule may win instead.」
+가격 칸      sale 등급(purpose sale) 다섯만(compare 5 · 6 제외) × 정가 list_<code> · 규칙 적용가 after_<code> · 기본 꺼짐(792)
+            규칙 적용가 = **so_line_quote 의 base CTE 식 바이트 복사**(20261006193419_dsc_2_deal_rules.sql :242 ~ :249)를 집합으로 셈
+            so_price_for 를 쓰지 않는다 — 세트 정가에 set_discount_pct 를 미리 넣어 Price check 와 어긋난다
+            round 4(오더 단가는 자르지 않고 줄 합계만 round 2 — 판정 3 · 284)
+⚠️⚠️ 가격 식이 두 곳 — so_line_quote 를 고치면 deal_export 도 · drx-1 머리 가드가 so_line_quote md5 84366f59… 가 아니면 IM790 으로 선다 · 증명 = drx_1_check 의 so_quote_preview 대조
+실측        ⓑ 켜진 줄 딜 전부 6,309 줄(활성) · 가격 10 칸 켜고 1.08 s · 첫 호출(콜드) 4.1 s — REST 8 초 한도의 절반 · 규칙이 크게 늘면 다시 잰다
+⚠️ 마지막 정의  export_catalog 는 exp-3 → **drx-1(20261027134231)** · export_door · export_columns 도 exp-1 → drx-1(지시서에 없던 둘 · 이 차수가 마이그레이션에서 확인) — §78 지도의 정의 위치는 옛 것
+```
+
+### 80-c 배송지 회사 판정 · 손님 재적재 — lec-1 · c91bc24 (판정 794)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| lec-1 | asung-wms `c64ca9e` | `20261027140700_lec_1_company_by_tier.sql` — so_customer_is_company 규칙 ① 한 곳(바탕 so_write_base D-3 · 시그니처 · invoker · grant 그대로) · 검증 `supabase/tests/lec_1_check.sql` | 아래 실측 |
+| (적재 고침) | asung-wms `c91bc24` | `docs/probes/ImsLoadCustomer.gs` ilc_patchIn_ — `in.(…)` 를 id 100 개가 아니라 글자 수 1,500 으로 나눈다 | 재적재 Apply3 다시 통과 |
+
+```
+규칙 ①       is_legal_entity 또는 등급 code ∈ {1 Wholesale, 2 Franchise, 4 Regular CAD, 7 USWholesale USD} → 회사 · ② ~ ④ 그대로(② AONE → 사람)
+까닭(Caleb)  legal entity 는 Cin7 에서 손으로 체크하는 칸이라 관리가 안 된다 · 「wholesale price tier 를 쓰는 손님은 모두 legal entity 라고 봐야 한다」 · USWholesale USD · Regular CAD 도 · Franchise 도(「Wholesale 과 같다」 등급 · 손님 0)
+데이터       고치지 않는다 — is_legal_entity 는 적재가 Cin7 값으로 덮는다(672)
+매칭         customer.price_tier(글자 · FK 없음)를 ref_price_tier.name 과 lower(trim()) 로 · code 상수(함수 안)
+실측         10-27 손님 재적재 뒤 · 활성 9,734 — 바뀐 손님 56(전부 Wholesale · legal f · 사람 → 회사) · 등급만으로 회사 829 중 ③ 이 이미 회사 773 · AONE 변동 0
+             is_legal_entity(활성): AONE false 7,960 · Wholesale true 942 / false 827 · USWholesale USD 1/1 · Regular CAD 2/1
+부르는 곳     so_copy_customer 하나(SO 를 만들 때 배송지 복사) · 이미 만든 SO 는 그대로
+12-d 정정    합의된 오차 손님 1001132194 ONTARIO INC 는 이제 Wholesale(재적재 뒤) · ③ 으로 이미 회사 — 「AONE → 사람」 사정은 옛 글(12-d 에 표시)
+```
+
+손님 재적재(테스트 DB · 인계서 §3-4 끝)
+
+| 단계 | 결과 |
+|---|---|
+| Reset → Collect | 9,905 |
+| Dry → Apply1 ~ 4 → Verify | 전부 일치 · Apply1 내린 손님 20(Cin7 에서 합치거나 지운 깨진 이름들 · 한도 99 안) · Apply3 내린 주소 73 · Apply4 내린 연락처 46 |
+| iloDry(재적재 뒤) | 거부 0 · CAD 977,998.89 · USD 40,281.80 · 받아 둔 돈 CAD 8,682.94(묶음 71) · 어긋난 sale 1(SO-10447 · 컷오버 날 iloAllowMismatch — §79-c) |
+
+- 「손댄 행」 23 의 is_legal_entity IMS false → Cin7 true 는 덮이게 둠(9 월 적재 뒤 Cin7 에서 손으로 체크한 값)
+- Asung Employee - Tae Hun Shin 청구지 둘(10-20 IMS 손질 · Unit A · 1610)이 Cin7 값으로 덮임 — 직원 손님이라 그대로 둠
+- **ImsLoadCustomer Apply3 실패 → 고침(c91bc24)**: `Limit Exceeded: URLFetch URL Length` at ilc_patchIn_ — id 100 개씩 `in.(…)` 가 주소 cin7_id 에서 URL 한도를 넘었다 · 글자 수(1,500)로 나눈다 · 첫 묶음에서 멈춰 쓰기 0 이었다
+  - 짐작(이 차수 · 확인 안 함): 「주소 cin7_id 가 손님 GUID 보다 길다」 는 재지 않았다 — 같은 100 개 나누기로 Apply1(20) · Apply4(46)는 지나고 Apply3(73)만 섰다 · 36 자 GUID 라도 73 × 37 ≈ 2.7 k 자라 한도(짐작 2 kB · ImsLoadProductTag.gs 머리 주석 「UrlFetchApp 의 URL 한도 2 KB」)를 넘는다 ⇒ 길이보다 **개수**로도 설명된다 · 어느 쪽이든 고침(글자 수로 나누기)은 같다
+- Royals Beauty Supply SO-12562 $2,278.13 은 **아직 확인 중**(Caleb 짐작: Cin7 ↔ QuickBooks 싱크 에러) — 두 모양: 같은 돈 두 번(지운다) · 다른 인보이스 몫이 붙음(옮긴다) — 결과 뒤 iloDry 다시
+
+Split invoice by store(테스트 DB · Caleb 화면 실무 · 인계서 §3-1 · §3-2 끝 · 판정 780 의 실행)
+
+```
+켬      Clore Inc.(매장 13) · BMG Industries Inc.(72HRS) · Lowe Opco Inc.(CANADA PREP AND SHIP) · Regina Beauty Inc.(BRTB · DT · MSG — Regina 본사가 매장 셋의 돈을 낸다 · Caleb 확인)
+        **Rex Beauty Inc.-Warehouse**(CAD 매장 일곱 + Rex Beauty Inc. 이 이곳에 청구 · 부모 parent_source ims)
+묶지 않음 **Rex Beauty Inc.-Warehouse (USD)** — USD · 스스로 청구 · CAD 청구처 아래 USD 를 섞지 않는다
+부모 표식 실측  청구처가 다른 26 곳 = parent_source cin7 12 · ims 14 · 부모 없음 0
+```
+
+### 80-d WMS 동시 작업 막이 · 운영 Split 사고 — wsp-0 · wsp-1 (판정 795 · 796)
+
+| 차수 | 커밋 | 무엇 | 숫자 · 시험 |
+|---|---|---|---|
+| wsp-0 | (조사 · 커밋 없음) | 운영 사고 원인 · IMS 가 같은 사고를 내는지 — 두 세션 시험 대신 정적 증명(잠금 → 재확인 순서 + READ COMMITTED) | IMS 는 Split 두 벌이 나지 않는다 · 남은 구멍 넷 |
+| wsp-1 | asung-wms `43815bf` | `20261027144202_wsp_1_wms_concurrency.sql` — 아래 a ~ d · 머리 가드 WM503 · 검증 `supabase/tests/wsp_1_check.sql` | 화면 무변(네 곳 모두 서버 문장을 그대로 보인다) |
+
+```
+IMS 의 Split   wms_batch_create(마지막 정의 tr-1b2 · 20260928234815) — so · inv_transfer for update → 잠근 뒤 wms_order_doc 재확인(status at_wms) → wms_doc_status
+               (판매 so_wms_status · 트랜스퍼 tf_wms_status · CAS) · 판정 72-3 ⇒ 두 번째 Split 은 거부 — 이 사고가 나지 않는다
+wsp-1 a       유니크 uq_picktasks_order_label (order_id, batch_label) · uq_picktasks_transfer_label (transfer_id, batch_label) — 보통 유니크(규칙 29)
+wsp-1 b       wms_rollback_batch 잠근 뒤 재확인 셋 — 팩 과제가 아직 있나 · 픽 과제가 아직 있나 · 되돌릴 픽이 있나(Reset Pick 단추 조건 in_progress · completed · picked_base > 0 와 같음)
+wsp-1 c       so_release_to_wms · tf_release — 검사 select 에 for update + 검사 앞 **id 순 잠금** 한 문장(여러 건 Release 끼리 교착 방지)
+wsp-1 d       wms_wave_create — 같은 날 라벨 셈 앞 pg_advisory_xact_lock(hashtext('wms_wave_label:' || MMDD)) · 오더 잠금은 id 순(판매 → 트랜스퍼) · 토트 번호는 p_so_ids 순 그대로
+남는 것        23505(창구 밖 직접 insert 일 때만) · 40P01(Unwave ↔ Undo split 잠금 순서 차이 · 저장 0 · deferred 346)은 사람 문장으로 바꾸지 않았다
+```
+
+운영 사고(796 · 운영 asung-WMS · manager.html)
+
+| 무엇 | 내용 |
+|---|---|
+| 때 | 2026-10-26 15:46 ~ 15:47 UTC |
+| 오더 | SO-18405(order_id 3261) — 매니저 둘이 동시에 Split |
+| 결과 | 배치 두 벌 — 첫째: 4996 SO-18405-1 61 줄 361(아무도 안 잡음) / 둘째: 4997 SO-18405-1 30 줄 198 + 4998 SO-18405-2 31 줄 163(픽 · 팩 완료) · 운영 Health split_sum 217 줄이 잡음 · 물건은 한 번만 나감 |
+| 정리(10-27 Caleb 운영 SQL) | 4996 과 줄 61 을 wms_rollback_archive 에 62 행 남기고 삭제 · wms_rollback_log action 'split' · 오더 상태 picking → ready_to_close(팩 RPC 의 ready 판정 그대로 · 2/2) · 로그 action 'ready_fix' |
+| 원인(wsp-0 · 운영 manager.html:514-548) | 화면이 미리 보기를 들고 표에 직접 insert · 서버는 「이미 나뉘었나」 를 안 본다 · 상태 update 에 CAS 없음 · 유니크 없음 |
+| IMS | 이 사고가 나지 않는다(위 「IMS 의 Split」) · wsp-1 은 IMS 의 남은 구멍 넷을 막은 것 · 운영 manager.html 은 고치지 않는다(전환일까지 운영 무변) |
+| 교훈 | Supabase 대시보드 SQL 편집기 → 80-e 4 |
+
+### 80-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 커밋 명령의 `test "$(git status --short)" = …` 가 다른 세션(Claude Code drx-1)의 미추적 파일 때문에 멈췄다 ⇒ 같은 레포에서 두 차수가 돌 때는 **스테이징 검사(`git diff --cached --name-only`)로** 커밋 범위를 확인한다
+2. [Claude Code · lec-1] 확인 갈래 기대 OK 를 38 로 셌다 — A3 · A5 는 「DB 옛 함수 vs 새 규칙」 비교라 적용 뒤 0 · 829 가 나온다(§50-c 재발) ⇒ 적용 전에만 성립하는 검사는 `\if :{?mig}` 안 · 확인 기대 = 실제 도는 수
+3. [Claude Code · wsp-0] 지시서 「git 무접촉」 인데 CLAUDE.md 습관으로 git pull 을 돌렸다(Already up to date · 해 없음) ⇒ 지시서에 「pull 도 하지 마라」 를 적는다 · CLAUDE.md 6 절과 지시서가 다를 때 어느 쪽이 이기는지 CLAUDE.md 에 한 줄(이 차수는 CLAUDE.md 를 고치지 않고 안만 낸다 — 차수 회신)
+4. [대화 Claude] Supabase 대시보드 SQL 편집기가 한글 주석 · `15:46:18` 같은 글자가 든 DO 블록을 중간에서 잘라 보냈다(42601 unterminated dollar-quoted · 실행 0) · 「creates a table without RLS」 경고는 `select … into 변수` 오탐 ⇒ 운영 SQL 창에 줄 DO 블록은 **ASCII · 주석 없이 · 이름 붙은 달러 꼴($fix$)** · 경고는 「Run without RLS」 · 편집기는 **마지막 결과만** 보여 준다(확인 쿼리는 따로)
+5. [대화 Claude] Caleb 에게 영어로 답했다(「한국어」) — 늘 한국어(재발)
+6. [발견 · ImsLoadCustomer] 개수로 나눈 `in.(…)` 가 긴 키에서 URL 한도를 넘었다 ⇒ asung-apps-script 규칙 6 · deferred 349
+7. [대화 Claude] 수집이 남아 있는데 Collect 를 돌렸다(「이미 다 모았다」) — 옛 수집으로 Dry 할 뻔 ⇒ 재적재는 **Reset → Collect** 부터
+8. [잘 된 것] wsp-0 가 위험한 두 세션 시험 대신 정적 증명(잠금 → 재확인 순서 + READ COMMITTED)으로 닫음 · wsp-1 이견 1 · 3(Reset Pick 은 과제를 안 지운다 · 잠금만 붙이면 새 교착) · drx-1 이견 1 · 2(수량 단계 · 세트 가격 어긋남) · 운영 Health split_sum 이 사고를 잡고 유령 배치가 pending 일 때 정리(물건 피해 0)
+
+### 80-f 미룬 것 · 바로잡음 · 다음
+
+- 새(deferred.md): **346** Unwave ↔ Undo split 잠금 순서 차이(40P01 날것 · 저장 0) · **347** master:read 만 있는 직원은 Discount Rules 메뉴는 열리고 목록(so_deal_list)이 거부된다 · **348** so_customer_is_company 규칙 ② AONE 글자 리터럴 ↔ 새 ① code — ② 도 code 3 으로 · **349** 다른 적재 스크립트의 개수로 나눈 `in.(…)` — grep 결과(아래)
+- 349 grep(docs/probes/*.gs · 고치지 않음 · 길이는 짐작): 개수로 나누는 곳 **4**(ImsLoadCustomer 고친 곳 제외)
+  - `ImsLoadPrice.gs:399-402` ilp_patchIds_ — product_price.id(uuid 36 자) **100 개** PATCH ≈ 3.7 k 자 · 내리는 줄 > 약 50 이면 넘을 수 있다(짐작)
+  - `ImsLoadProduct.gs:875-876` ipr_recheckKept_ — product.cin7_id(Cin7 GUID 36 자 짐작) **100 개** GET ≈ 3.7 k 자 · IMS 값을 실은 행 > 약 50 이면 넘을 수 있다(짐작)
+  - `ImsLoadSupplier.gs:397-398` ils_patchIn_ — cin7_id **40 개**(supplier · supplier_address · supplier_contact) ≈ 1.5 k 자(GUID 일 때) · 주소 · 연락처 ID 가 더 길면 넘을 수 있다(짐작)
+  - `ImsLoadProductTag.gs:60 · 462-464` — product_tag.id(uuid) **40 개**(IPT_DELETE_CHUNK · 머리 주석이 2 KB 한도를 이미 적었다) ≈ 1.5 k 자 · 안전(짐작)
+- 바로잡음(→ 표시): 12-d 규칙 1 줄 · 합의된 오차 줄(→ 794 · 1001132194 는 Wholesale · ③ 으로 회사)
+- 손대지 않은 옛 글(같은 손님 이야기 · 날짜가 붙은 기록이라 둠): 12-b 판정 B(:2367 「1001132194 … 다음 손님 재적재가 가져온다」 → 10-27 재적재로 Wholesale) · 20-d(:3636 a2 잔여 「티어 3 ≠ 설정 1」)
+- 화면 시험 남음: sales 읽기 직원으로 내보내기 · master:read 만 직원(347) — CHECKLIST 7-zw
+- 다음 deferred 번호: **350**
+
+```
+다음 판정 번호: 797 · 다음 deferred 번호: 350
 ```
