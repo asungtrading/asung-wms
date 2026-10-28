@@ -67,7 +67,7 @@
 
 <a id="stock-new-product"></a>
 ## 새 제품 · 세트 · 콤보 만들기
-<!-- screen: products.html · BUILD pr v5f -->
+<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-27 · cb v1 -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -86,14 +86,25 @@
 2. 새 세트로 **+ ×6** · **+ ×12** · **+ other** 를 누르고, 있으면 케이스 바코드를 적습니다(예: `0000000000017`).
 3. **Check & add** 를 누릅니다.
 
-**어떻게 — 콤보 만들기**
-1. 콤보 SKU 가 될 제품을 열고 **Make combo** 를 누릅니다.
-2. 구성품 SKU 와 콤보 하나에 들어가는 수량을 넣고, 그 창에서 저장합니다.
-3. 나중에 **Edit components** 로 구성품을 바꾸고, **Release combo** 로 보통 제품으로 돌립니다.
+**어떻게 — 콤보 만들기(master 권한 필요)**
+1. **Inventory ▾** › **Combos** 를 열고 **New combo** 를 누릅니다(**Products** 의 **New combo** 단추도 같은 창을 엽니다).
+2. **SKU**(전에 쓰지 않은 새 SKU) · **Name** · **Brand** · **Category** · **Unit** 와, 있으면 **Barcode(s)** · **Weight** · **Note** 를 적습니다.
+3. 콤보 자신의 **Sale prices**(판매가)를 적습니다 — 구성품 값의 합이 아닙니다.
+4. **Components** 에 구성품 SKU 와 **Qty per combo**(콤보 하나에 드는 수량)를 넣습니다(**+ component** 로 줄 더하기). 구성품은 둘 이상이어야 합니다.
+5. **Check & create** 를 누릅니다. 새 SKU 와 구성품이 함께 저장됩니다.
+
+**어떻게 — 콤보 고치기 · 풀기(master 권한 필요)**
+1. **Inventory ▾** › **Combos** 를 열고 콤보 SKU · 이름이나 구성품 SKU 로 찾습니다. **Show released** 를 켜면 푼 콤보도 보입니다.
+2. **Edit components** 로 구성품이나 콤보 하나에 드는 수량을 바꾸고 **Check & save** 를 누릅니다.
+3. **Release combo…** 는 구성품 줄을 모두 끄고, 그 SKU 는 그때부터 보통 제품으로 팔립니다. SKU 를 그대로 쳐 넣고 **Release** 를 누릅니다.
+4. **Open in Products** 는 같은 SKU 를 제품 화면에서 엽니다 — 가격 · 바코드 · 사진 · 웹 숍은 거기서 바꿉니다.
 
 **조심할 것**
-- 세트는 콤보가 될 수 없고, 콤보는 세트를 가질 수 없습니다.
-- 구성품은 **Edit** 와 따로, 자기 창에서 저장합니다.
+- 있는 제품은 콤보가 될 수 없습니다. 콤보는 늘 **New combo** 로 만드는 새 SKU 입니다.
+- **Release 는 되돌릴 수 없습니다.** 푼 SKU 는 다시 콤보가 될 수 없습니다. 같은 묶음을 나중에 팔려면 새 콤보 SKU 를 만듭니다.
+- 콤보에는 세트 · 공급처 · 패밀리가 없습니다. 세트는 콤보가 될 수 없습니다.
+- 제품 화면에서 콤보는 구성품을 읽기로만 보이고 **Open in Combos** 가 있습니다.
+- 웹 숍에는 위치마다 구성품으로 만들 수 있는 온전한 콤보 수가 나갑니다 — 판매 오더가 보이는 수와 같습니다.
 
 <!-- SCREENSHOT: stock-new-product-1 · New product 창: 판매가 · 공급처 · + ×6 세트 -->
 

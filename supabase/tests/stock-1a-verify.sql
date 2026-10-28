@@ -35,16 +35,16 @@ select pg_temp.chk('G0a trial marker: shop_stock_payload exists only after the t
 \endif
 
 -- ═══ T1 — 객체 · 권한 ═══
-select pg_temp.chk('T1a tables 2 (rls on · select policy) · functions 6 (definer 4: queue_add · trigger · diff · all) · triggers *_shop_stock_* 13 (all AFTER STATEMENT) · view 1',
+select pg_temp.chk('T1a tables 2 (rls on · select policy) · functions 6 (definer 4: queue_add · trigger · diff · all) · triggers *_shop_stock_* 16 (all AFTER STATEMENT · shop-combo-1 product_bom 3) · view 1',
   (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname in ('shop_stock_sent', 'shop_stock_queue') and c.relrowsecurity)::text || '/' ||
   (select count(*) from pg_policies where schemaname = 'public' and tablename in ('shop_stock_sent', 'shop_stock_queue') and cmd = 'SELECT')::text || '/' ||
   (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('shop_stock_targets', 'shop_stock_payload', 'shop_stock_queue_add', 'shop_stock_queue_trigger', 'shop_stock_queue_diff', 'shop_stock_queue_all'))::text || '/' ||
   (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('shop_stock_queue_add', 'shop_stock_queue_trigger', 'shop_stock_queue_diff', 'shop_stock_queue_all') and prosecdef)::text || '/' ||
   (select count(*) from pg_trigger where not tgisinternal and tgname like '%\_shop\_stock\_%')::text || '/' || (select count(*) from pg_trigger where not tgisinternal and tgname like '%\_shop\_stock\_%' and (tgtype & 1) = 0)::text || '/' ||
   (to_regclass('public.shop_stock_list') is not null)::text,
-  '2/2/6/4/13/13/true');
+  '2/2/6/4/16/16/true');
 select pg_temp.chk('T1b trigger names per table', (select string_agg(c.relname || ':' || n, ',' order by c.relname) from (select tgrelid, count(*) n from pg_trigger where not tgisinternal and tgname like '%\_shop\_stock\_%' group by tgrelid) x join pg_class c on c.oid = x.tgrelid),
-  'inv_ledger:3,inv_transfer:1,inv_transfer_line:3,product:1,shop_listing:2,so_reserve:3');
+  'inv_ledger:3,inv_transfer:1,inv_transfer_line:3,product:1,product_bom:3,shop_listing:2,so_reserve:3');
 select pg_temp.chk('T1c authenticated: select on both tables + view · no insert/update/delete · no execute on the six functions · anon nothing',
   has_table_privilege('authenticated', 'public.shop_stock_sent', 'select')::text || has_table_privilege('authenticated', 'public.shop_stock_queue', 'select')::text || has_table_privilege('authenticated', 'public.shop_stock_list', 'select')::text || '/' ||
   (has_table_privilege('authenticated', 'public.shop_stock_sent', 'insert') or has_table_privilege('authenticated', 'public.shop_stock_sent', 'update') or has_table_privilege('authenticated', 'public.shop_stock_sent', 'delete') or has_table_privilege('authenticated', 'public.shop_stock_queue', 'insert') or has_table_privilege('authenticated', 'public.shop_stock_queue', 'update') or has_table_privilege('authenticated', 'public.shop_stock_queue', 'delete'))::text || '/' ||

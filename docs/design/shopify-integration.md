@@ -13,6 +13,7 @@
 ⭐ [2026-10-13 밤 ~ 10-14 · so-module §63] **⑤ 나가지 않을 몫 · 경고 확인함 · 결제 상태 끝**(테스트 DB · 시험 스토어) — DB ful-4a `8ae674d` · ful-4b4 `cc51dce` · ful-4b5 `4a54ee1` · ful-5a `a283ff9` · pay-1a `1971887` · pay-2a · 2b `9afa520` · EF order_drain ful-4b `71c4e13` · 4b1 `b2b4220` · 4b2 `5fce768` · 4b3 `70f1c18` · paid_drain pay-2b · cron jobid 50 · 51 · 52 · 53 · 화면 안 A(asung-ims wo v3 `8d84c68` · so v5t `b00ae2b` ~ v5t4 `7482e4b` · inv v2e `c8d0a8d` · v2e1 `3c61b75` · wo v4 `25bbeba` · v4a `2e1a3cf` · v4b `7482e4b`) · 판정 457 ~ 469(아래 §4-e · 4-g · 4-i) · 다음 판정 번호 **470**
 ⭐ [2026-10-14 오후 · so-module §63-h] **카드 캡처 자동 기록 · Restock 다시 보내기**(테스트 DB · 시험 스토어) — DB pay-3a `760c0d7` · stk-r1 `45a1e15` · 화면 asung-ims so v5t5 · wo v4c `26db7ef` · 판정 470 ~ 472(아래 §2-h · §3-d · §4-e · §4-g) · 다음 판정 번호 **473**
 ⭐ [2026-10-14 · so-module §64] **asung.ca 웹 운임 = SO 견적 운임 줄**(판정 473 · 미룬 191 닫음) — DB frt-1a `7d2a16a`(속 함수 shop_order_freight · 정보 freight_estimate_from_shopify) · 화면 asung-ims so v5t7 · wo v4d `0de7561` · ⚠️ aone 운임 「확정 · Ship & invoice 가 고치지 않음」(판정 369)은 **글에만 있고 코드 표지 없음**(so-module 미룬 236) · 다음 판정 번호 **493**
+⭐ [2026-10-27 · so-module §82 · §83] **실제 두 스토어를 「연결됐지만 잠든」 채 붙임**(live · auth_mode · store_live · 판정 811 ~ 816 · 아래 §1) · **기존 상품 잇기를 실제 스토어 크기로**(plan 31 s → 2 s · apply 묶음 500 · dup_target · 판정 829 · 830 · 832 · 아래 §1-b) · **콤보 재고**(판정 831 · 아래 §3-d) — DB shop-live-1 `7747baf` · link-perf-1 `7b01fbc` · link-perf-2 `31c67c4` · link-dup-1 `f1f9c87` · link-perf-3 `52c43af` · shop-combo-1 `18ce4f0` · 화면 asung-ims ss v4 `f7d8a80` · v4a `ae4c45b` · v5 `a429201` · v5a `32d7023` · 다음 판정 번호 **833**
 
 ---
 
@@ -27,6 +28,22 @@
 - ⚠️ 비밀 SHOPIFY_IMS_CLIENT_ID · SECRET 은 **테스트 프로젝트 `fazgmyvzzhqybtvtktyg`** 에만(운영 `gftpcnkxbdjzzfvzwcfl` 과 다르다)
 - 설정 한 줄 = 표 `shop_store`(code · shop_domain · kind asung | aone · sale_tier_id · compare_tier_id · send_tags) · 위치 짝 = `shop_location`(Shopify 위치 GID ↔ warehouse_id · 대조는 GID 로만) · 쓰기는 admin 창구 `shop_store_save` · 화면 Settings → Shopify Stores · 위치 짝 Toronto ↔ Asung Trading Inc. · Edmonton ↔ Asung - Edmonton
 - 연결 확인 = EF `shopify` action ping(scope 10 대조 · 위치 대조) · 호출 기록 `shop_call_log`(90 일)
+- ⭐ [2026-10-27 · 판정 811 ~ 815 · shop-live-1 `7747baf` · so-module §82] **두 스위치** — `is_active` = 연결 · 읽기(ping · link_read · link_poll · link_plan · link_apply · order_read · webhooks_list) / `live` = 일한다(상품 · 재고 · 오더 · 발송 · 결제 쓰기 · 웹훅 받기 · 주기 확인) — **일하는 길은 전부 is_active and live**
+  - 창구 `shop_store_save`: **store_set** 은 live 를 켜지 않는다(새 행 live false · 있는 행 live 무접촉 · auth_mode 받음) · **store_off** 는 live 도 끈다 · **store_live** {code, live, orders_from}(admin) — 켜면 orders_polled_at = orders_from(판정 814 · Cin7 의 Shopify 연결을 끈 컷 시각) + 그 스토어 재고 **전부 force**(815 · shop_stock_queue_all)
+  - live 전: 재고 대상 0(shop_stock_targets · 큐 0) · 상품 · 오더 · 발송 · 결제 큐 줄은 **열어 둔 채 대기**(EF queueGate wait) · **웹훅은 무시**(200 · 기록만 「ignored: store not live」) · 잇기(Read → Plan → Apply)는 된다 · push_batch 는 미리 보기만
+  - `auth_mode`(813): client_credentials(같은 조직 · 토큰 24 h · `<PREFIX>_CLIENT_ID` · `_CLIENT_SECRET`) | stored_token(`<PREFIX>_ACCESS_TOKEN` 을 읽기만) — ⚠️ 지금 stored_token 스토어는 없다(아래 Aone)
+  - cron(테스트 DB): Shopify 쪽은 **jobid 42 ~ 53**(42 · 43 상품 · 44 ~ 46 재고 · 47 · 48 오더 받기 · 49 발송 · 50 나가지 않을 몫 · **51 order_drain = 실제 orderEdit** · 52 paid-scan · **53 paid_drain = 실제 markAsPaid**) — 실제 스토어 행이 있어도 일하는 길은 live 가 막는다(행을 넣고 여러 번 돈 뒤 asung 몫 inbox · shop_order · push_queue · stock_queue · listing 전부 0 · §82-c)
+  - 새 스토어를 붙일 때: **myshopify 도메인을 확인**(asung.ca 의 관리 핸들은 asung-trading · aonebeauty.com 은 aone-beauty-health) · 적용 순서 **DB → EF → 행**
+- ⭐ [2026-10-27 · §82-c] **실제 스토어(테스트 DB)**
+
+| code | 주소 | 앱 · 비밀 | live | 위치 짝 |
+|---|---|---|---|---|
+| asung | asung-trading.myshopify.com(asung.ca) | Asung IMS · SHOPIFY_IMS | f | Toronto → Asung Trading Inc. · Edmonton → Asung - Edmonton |
+| aone | aone-beauty-health.myshopify.com(aonebeauty.com) | Asung IMS Aone(Aone 조직) · SHOPIFY_AONE | f | Aonebeauty TOR → Asung Trading Inc. · **Aonebeauty EDM 은 짝 없음**(Caleb 「이 상태로 둘께」 · §1-a 판정 427) |
+| test | asung-ims-test.myshopify.com | Asung IMS · SHOPIFY_IMS | t | 둘 |
+
+- ⭐ [2026-10-27 · 판정 809 · 812 · 813 · 816 전제 바뀜] **Aone 은 자기 Shopify 조직이 따로 있다**(「Aone Beauty Supply…」) — Aone 관리 화면 → Settings → Apps → Develop apps 로 그 조직에 전용 앱 「Asung IMS Aone」 을 만들어 설치 · **client credentials(Automatic)** · 보관 토큰 · `tools/shopify-oauth-exchange.sh`(816)는 쓰이지 않는다(코드는 남김)
+- Shopify 사실(2026-10-27): client credentials 는 **앱과 스토어가 같은 조직일 때만** · Dev Dashboard 의 Distribution(설치 링크) 카드는 **Partner 조직의 앱에만** · Dev Dashboard Stores 목록에는 Dev 스토어만 보인다 · 스토어를 다른 조직으로 옮기려면 Shopify Payments 를 꺼야 한다 · 관리 화면의 옛 커스텀 앱은 2026-01-01 부터 새로 못 만든다
 
 ### 1-a. 컷오버 — 보냄의 첫 상태 (판정 420)
 - 스토어별 보냄(`shop_listing`)의 첫 상태 = **지금 실제 스토어** — asung.ca · aonebeauty.com 에 올라가 있는 상품을 SKU 로 맞춰 그것만 켠다 · family 는 Shopify 상품의 변형 SKU 로
@@ -36,6 +53,27 @@
   - **aone 스토어 행** — `oos_policy = 'deny'` · **위치 짝은 Toronto ↔ Asung Trading Inc. 하나**(Shopify 는 DENY 에서 스토어의 모든 위치 Available 을 합쳐 본다 — Edmonton 을 짝지으면 Toronto 에 없는 것도 팔린다) · aone Shopify 의 Edmonton 위치 숫자는 비우거나 판매에서 뺀다(미룬 188)
   - **asung.ca 재고 상태 태그 · 메타필드 구현을 끈다**(Caleb · `outofstock-edm` · `outofstock-tor` · `instock-edm` · `instock-tor` 태그와 Restock Date · out of stock date 메타필드를 쓰던 것) — 안 끄면 IMS 가 지운 태그를 다시 붙인다 · 메타필드는 사람 칸이라 IMS 무접촉(미룬 187)
   - **171 정리** — asung.ca 에서 단종이 아닌데 deny 인 SKU 171 개를 IMS 에서 하나씩(단종 켜기 · sellable 끄기 · 그냥 두기) · 그대로 두면 컷오버 날 CONTINUE 로 풀린다 · 검토 CSV `~/asung/prompts/csv/review-deny-171.csv`(미룬 186) · 단종 712 개 continue → DENY 는 판정 428 대로 · aone continue 21 은 스토어 설정대로 DENY
+
+### 1-b. 기존 상품 잇기 (판정 420 실행 · 555 ~ 563 · 815 · 829 · 830 · 832 · 원문 so-module §67 · §68 · §82 · §83)
+
+```
+순서      Read(EF link_read · bulk · Shopify 읽기만) → Plan(shop_link_plan · 줄마다 판정 · version +1) → Apply(shop_link_apply · 묶음 500 · 화면 ss v5 가 되풀이 · 큐 없음 · hash 심기) → Push(shop_link_push_batch · 브랜드 · 묶음 단위 · live 만)
+          live 전에도 Read · Plan · Apply 된다(815) · 컷오버 직전 Read → Plan 을 한 번 더
+판정      link(하나에 하나 · family 전부 · family 일부 = partial_family 557) · link_off(Shopify DRAFT · ARCHIVED 558 · 562 — 잇되 보냄 끔)
+          block — no_sku · dup_sku · not_in_ims(변형 여럿) · shape_mismatch(556) · set_not_sellable · already_linked_other · gid_linked_elsewhere · dup_target(830)
+          report — not_in_ims(변형 하나) · 표시만 — inactive · discontinued · option_name_diff · sku_case · no_ims_images(559) · already_linked(멱등) · status_unknown · no_variants
+          (원천: shop_link_plan 의 comment · 화면 shopify-stores.html LK_WHY — 둘이 같은 코드 열아홉)
+dup_target 같은 IMS 대상(family 또는 낱개)을 이 판의 Shopify 상품 둘 이상(link · link_off)이 가리키면 전부 block · changes.dup_target {count · gids · handles}(자기 줄 빠짐 · (handle, gid) 순)
+          고치기 = Shopify 에서 한 페이지로 합친다 — 남길 페이지에 사이즈를 변형으로 더하고 옛 페이지를 지운다(한 변형씩 지우기 → 추가) · Archive 로는 안 풀린다(link_off 도 센다) → Read → Plan
+          기각: 하나 잇고 나머지 report(지우기를 잊으면 같은 SKU 두 번 · 옛 재고로 팔림)
+속도      plan — 5,079 상품 31 s → 1.9 s(link-perf-1 · 집합 + product_sku_lower_idx) · 이어진 4,938 · 통계 낡음 약 12 s → 2.1 s(link-perf-3 · ⑤ 임시 표) · dup_target 문장 1.6 → 2.0 s
+          apply — 한 번에 69.5 ~ 78.3 s → 묶음 500 × 10 · 묶음 최대 2.4 ~ 2.8 s(link-perf-2 · 판정 829) · 한 번에(p_limit null)는 16 ~ 24 s 라 화면은 늘 묶음
+          (authenticated statement_timeout 8 s — 넘으면 「canceling statement due to statement timeout」)
+```
+- 실제 스토어 판(2026-10-27 밤 · 둘 다 Apply 안 함 · so-module §83-c): asung planned v2 · 5,079 상품 · link 4,938 · block 91 · report 50 · dup_target 16(3 묶음) · 556 모양 다름 2 · 같은 SKU 둘 30 / aone planned v1 · 4,519 · link 4,355 · block 114 · report 50 · dup_target 19(6 묶음) · 556 모양 다름 48 · 같은 SKU 둘 4
+- IMS 에 없는 SKU 448 가운데 447 은 마지막 상품 적재 뒤 들어온 신제품(LAC · LAG · AS8 · AS9) — 컷오버 전 상품 재적재로 들어온다
+- ⭐ **컷오버 순서: 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan(dup_target 0) → Apply links → Cin7 의 Shopify 연결 끔 → Go live(store_live · orders_from = 끈 시각) → send_tags 켜기** — 순서가 바뀌면 신제품이 not_in_ims 인 채 Apply 된다 · 명령 · 확인 · 멈춤은 reload-procedure §P-2 13b
+- 열림: apply 의 옛 dup 갈래(「뒤의 것이 이김」) → 「거부 · plan again」(deferred 355) · 556 모양 다름 aone 48 · asung 2 줄마다 보기(deferred 357)
 
 ## 2. 오더 들어오기
 
@@ -186,13 +224,20 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
             · @idempotent 키(큐 줄 id 포함 — 새벽에 같은 수량을 다시 보내도 「이미 처리됨」으로 막히지 않게)
             · 위치가 아이템에 안 붙었으면 inventoryActivate 먼저(nodes 로 읽어 없는 짝만)
 줄 (422)     상품 큐와 따로 shop_stock_queue(스토어 × 변형) · 묶어 보낸다(한 호출 100 · 짐작) · 마지막으로 보낸 숫자(shop_stock_sent · 위치 단위)와 같으면 안 보냄
-즉시 (421)   inv_ledger · so_reserve · inv_transfer(+ line) · product · shop_listing 트리거 13 → 큐 → cron 1 분(ims-stock-drain)
+즉시 (421)   inv_ledger · so_reserve · inv_transfer(+ line) · product · shop_listing 트리거 13 → 큐 → cron 1 분(ims-stock-drain) → [2026-10-27 · 831] + product_bom 3 = **16**
 낮 (423)     매시 정각 diff — 지금 가용 vs 보낸 숫자 · 다른 것만 줄에(Shopify 호출 0)
 새벽 (423)   08:15 UTC 전부 force — Shopify 쪽 어긋남(웹 오더 · 사람 손)을 IMS 값으로 덮는 안전망
             · 상품 새벽(414 · 덮지 않음)과 다른 까닭 = 재고는 Shopify 가 오더마다 스스로 바꾼다
 꺼짐 (425)   꺼진 구성원 = DENY + 재고 0 · ARCHIVED(보냄 꺼짐)는 재고를 안 보낸다 · 끄는 순간에도 안 보냄 · 다시 켜면 전부(force)
+콤보 (831)   [2026-10-27 · shop-combo-1 `18ce4f0` · so-module §83] 콤보(product_bom 에 켜진 줄이 있는 부모) = 위치마다 min(구성품 재고 키마다 ⌊가용 ÷ need_ea⌋)
+            · need_ea = 콤보 하나에 드는 낱개(quantity × 구성품 pack_factor · 재고 키 coalesce(parent_product_id, id)로 묶음) · SO 화면 가용(so_lines_available)과 같은 셈
+            · 구성품 하나라도 꺼짐(is_active false · sellable false) 또는 가용 0 → 콤보 0 · is_off 는 콤보 자신 기준 · 콤보 자신의 장부 잔고는 보지 않는다
+            · Release 한 콤보(켜진 줄 0)는 낱개 갈래(자기 가용 · 보통 0)
+            · 큐: shop_stock_queue_add 가 바뀐 상품(또는 그 재고 키)을 구성품으로 가진 콤보를 더한다 — 트리거 · diff · nightly 가 다 이 한 곳을 지난다
+            · product_bom 트리거 셋(i · u · d · AFTER STATEMENT) — 콤보 정의 · Release 가 그 콤보를 force 로 큐에(reason product_bom · update 는 바뀐 줄만)
+            · 실물: 콤보 17 × 위치 2 = 34 줄 SO 셈과 같음 · 기각: 콤보 재고 추적 끔(asung.ca · aonebeauty.com 에서 콤보가 지금 팔린다)
 ```
-- 큐 넣기 한 곳 `shop_stock_queue_add`(낱개 → 그 sellable 세트로 펼침 · 열린 줄 하나) · 보낼 숫자 한 곳 `shop_stock_payload(store, pids)` · 화면 뷰 `shop_stock_list` · 마이그레이션 `20261010194732_stock_1a_queue.sql`
+- 큐 넣기 한 곳 `shop_stock_queue_add`(낱개 → 그 sellable 세트로 펼침 · [831] 그 콤보로 펼침 · 열린 줄 하나) · 보낼 숫자 한 곳 `shop_stock_payload(store, pids)` · 화면 뷰 `shop_stock_list` · 마이그레이션 `20261010194732_stock_1a_queue.sql`
 - EF `shopify` action **stock_drain**(cron · 한 회차 열린 줄 ≤ 500 · 40 s · 못 보낸 줄은 열어 둠) · **stock_push**(직원 · 화면 「Send stock now」 · 대상 하나 force) · 순수 함수 `_shared/shopify-stock.ts`
 - cron [테스트 DB] **jobid 44 ims-stock-drain `* * * * *`**(열린 재고 줄이 없으면 EF 를 안 부른다) · **45 ims-stock-diff `0 * * * *`** · **46 ims-stock-nightly `15 8 * * *`**(상품 nightly 43 · 08:00 뒤 15 분) · 킬 스위치 `select cron.alter_job(44, active := false);` · `(45, …)` · `(46, …)` · 기록 `supabase/ops/cron.sql`
 - ⭐ 실물(2026-10-10 · so-module §58-c): 첫 손 drain ok 11 · 22 숫자 · activate 11(Edmonton) · calls 13 · cost 147 · 6 s · ANN03907 Toronto 43 · Edmonton 1(Available = On hand · Committed 0) · ANN01001 Blue/Small 32 · 8 · **원장 −1 → 48 초 뒤 Shopify 42**(사람 손 없이 · Edmonton 은 안 보냄 = 위치 단위) · 구성원 끄기 → 0 · 0 · Sell when out of stock Off → 켜기 → 57 · 5 · On
@@ -446,6 +491,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-14 · so-module §63 · docs-1014] 상태 줄에 ⑤ 나가지 않을 몫 · 확인함 · 결제 상태 끝 · §2-h 468 · 469 포인터 · §4-e 457 ~ 462 · 466 · 468 · 469 · orderMarkAsPaid 실물(옛 「✅ VALID」 · 「시험」 ~~ ~~) · §4-g 463 · 466 · 468(paid_push_at 창) · §4-i 경고 확인함 · 화면 안 A 새로 · §5 ⑩ 닫힘 · ⑬ ⑭ 새로 · §7 write_order_edits 닫힘
 - [2026-10-14 오후 · so-module §63-h · docs-1014b] 상태 줄 · §2-h 470 · 471 포인터 · §3-d 판정 472(받기의 다시 보내기 · nightly 안전망 · family 단위 Send stock now) · §4-e 카드 캡처(470) · 운영 결제 사실(471 · ⑦ 미룬 조건 셋) · §4-g 재고 메아리(472) · §5 ⑬ 닫힘 · ⑭ 반 닫힘 · 미룬 228 ① ② ③ 닫힘 · ⑮ 새로
 - [2026-10-14 밤 · so-module §64 · docs-1014c] 상태 줄에 frt-1a · §2-g 판정 473(asung 운임 견적) · aone 운임 「확정」 은 코드 표지 없음(미룬 236) · §5 ⑦ 닫힘
+- [2026-10-27 · so-module §82 · §83 · docs-1027c] 상태 줄 · §1 live · auth_mode · 창구 op 셋 · cron 42 ~ 53 · 웹훅 live 전 무시 · 실제 스토어 셋 · Aone 조직(809 · 813 · 816 전제 바뀜) · Shopify 사실 · §1-b 기존 상품 잇기 새로(link-dup-1 이견 1 — 잇기 절이 없었다) · §3-d 콤보(831) · 트리거 16 · §7 할 일 여섯
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
@@ -462,4 +508,11 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 [ ] ImsLoadCustomer(GAS) 편집기 원본이 default_carrier 글자만 보내는지 (판정 451 · Caleb · 미룬 219)
 [x] 시험 운송사 「Test Freight」 끄기 (Settings · 꺼짐 확인 ref_carrier is_active f · 2026-10-13 18:52:25 UTC)
 [ ] asung.ca `custom` 결제 방식의 실제 이름 (Caleb · Settings → Payments → Manual payment methods · 운임 191 과 함께 · 미룬 205)
+[ ] Shopify 페이지 합치기 — 두 스토어 아홉 묶음(asung 3 · aone 6 · 페이지 35 → 9 · 변형 26) (판정 830 · 담당자 · 컷오버 전 · 안내문 · 엑셀 shopify-ims-diff-2026-10-27.xlsx 는 레포 밖 · §1-b)
+    남길 페이지에 사이즈를 변형으로 더하고 옛 페이지를 지운다(한 변형씩 지우기 → 추가) · Archive 로는 안 풀린다 → 끝나면 Read → Plan 에서 dup_target 0
+[ ] Aonebeauty EDM 위치 — Shopify 쪽 재고 숫자(비우거나 판매에서 빼기)와 그 위치가 온라인 주문을 받는지(짐작: 위치 설정의 온라인 주문 처리) (Caleb · 컷오버 전 · §1-a · 미룬 188 · IMS 는 그 위치에 재고를 안 보낸다 — 짝 없음)
+[ ] asung · aone `send_tags` 켜기 (관리자 SQL · 판정 426 · 창구가 받지 않는다 · ⚠️ 태그 적재 뒤에만 — 빈 태그로 켜면 스토어 태그를 지운다 · 켜면 스토어 트리거가 그 스토어 상품 전부를 큐에)
+[ ] store_live — 스토어마다 Go live(orders_from = Cin7 의 Shopify 연결을 끈 시각 · 판정 814 · 그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill) (Caleb · 컷오버 날)
+[ ] 컷오버 순서 — 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply links → Cin7 의 Shopify 연결 끔 → Go live → send_tags (§1-b · so-module §83-c · reload-procedure §P-2 13b)
+[ ] 556 모양 다름 aone 48 · asung 2 줄마다 보기 · CRO85680 확인 (Caleb · 컷오버 전 · deferred 357)
 ```

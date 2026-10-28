@@ -6564,6 +6564,7 @@ cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
 
 ⭐ 닫힌 것: 판정 81 1단계의 「조립 · 번들」 — 조립 문서는 만들지 않는다(판정 244) · 콤보는 오더에서 콤보 줄 + 구성품 줄로 펼친다 · DB asm-1 · 2a · 2b1 · 2b2(asung-wms 4a9a9d8) · 화면 asm-3(asung-ims ad45c7e ~ ae130cf) · Caleb 화면 시험 2026-10-05 밤
 ⭐ 새 판정 244 ~ 250(아래 44-a) · 원문은 지시서 `~/asung/prompts/docs-1005h.md` 📌 절
+⭐ [2026-10-27 · §82 · §83] **새 콤보 = Inventory › Combos → New combo**(판정 810 · 817 · 818 — 새 SKU + 구성품 한 창구 product_combo_create · 콤보가 아니던 SKU 는 콤보가 못 된다 · 판정 250 · 247 의 Make combo 는 없어졌다) · **Release 는 되돌릴 수 없다**(819) · **Shopify 재고 = 같은 셈**(위치마다 min(구성품 재고 키마다 ⌊가용 ÷ need_ea⌋) · 판정 831 · §83)
 
 ### 44-a 판정 · 묶음 원문
 
@@ -6584,13 +6585,13 @@ cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
 
 **판정 246** (2026-10-05 · 집 PC) Caleb 「첫째」 — 반쪽 콤보 픽은 **Finalize 가 자동으로 줄인다**: 구성품 픽을 통째 콤보 수에 맞춰 줄이고 모자란 콤보는 콤보 단위 백오더 · 미리 보기와 결과에 **「되돌려 놓을 것(SKU · 칸 · 수량)」**(장부는 출고 때 빠지므로 그대로 맞고 실물만 제자리에) · 기각: 일반 과다 픽처럼 거부(콤보가 덜 뽑힐 때마다 창고 · 오피스가 한 번 더 오간다)
 
-**판정 247** (2026-10-05 · 집 PC) Caleb 「첫째」 — 콤보 구성품은 상품 Edit 와 **따로** 고친다: Components 카드 「Edit components」 · 낱개 머리 「Make combo」 → 작은 창에서 구성품 전체 목록을 고쳐 그 창에서 저장(product_bom_set · p_old) · **판정 202(Edit 한 번 → Save 한 번 · §35-a)의 예외** · 까닭: 창구가 둘이라 한 Save 로 묶으면 「반만 저장」 이 생긴다 · 기각: Edit 모드 안에 넣어 Save 한 번
+**판정 247** (2026-10-05 · 집 PC) Caleb 「첫째」 — 콤보 구성품은 상품 Edit 와 **따로** 고친다: Components 카드 「Edit components」 · 낱개 머리 「Make combo」 → 작은 창에서 구성품 전체 목록을 고쳐 그 창에서 저장(product_bom_set · p_old) · **판정 202(Edit 한 번 → Save 한 번 · §35-a)의 예외** · 까닭: 창구가 둘이라 한 Save 로 묶으면 「반만 저장」 이 생긴다 · 기각: Edit 모드 안에 넣어 Save 한 번 → [2026-10-27 · 판정 823 · §82] Edit components · Release 는 **Combos 화면에만** · 낱개 머리의 Make combo 는 없어졌다 · 상품 상세는 읽기 + Open in Combos
 
 **판정 248** (2026-10-05 · 집 PC) Caleb 「첫째」 — **초안 오더 Lines 표의 줄마다 가용**(수량 아래 작은 글씨 · so_lines_available 한 번 · 콤보 줄 = 「available N combos」 · 구성품 · 보통 줄 = 자기 단위 · 모자라면 빨강) · 콤보뿐 아니라 모든 줄 · 기각: 줄 더하기 창에서만 · 콤보 줄에만
 
 **판정 249** (2026-10-05 · 집 PC) Caleb 「첫째안으로 가자」 — 팩 화면은 **줄 순서 · 스캔 흐름 그대로**(칸 순서) · 구성품 줄마다 「for combo ○○」 · 목록 맨 위 콤보마다 「Combo ○○ — n of m complete」(구성품이 다 찬 콤보 수 = min(verified ÷ (combo_qty × pack_factor))) · 기각: 목록을 콤보별로 다시 묶기(칸 순서 · 자동 넘김이 바뀐다)
 
-**판정 250** (2026-10-05 · 집 PC) Caleb 「지금으로 충분할 것 같아」 — 새 콤보의 SKU 는 **「+ New product」 로 먼저 만들고 → 그 상품에서 「Make combo」**(두 걸음) · 콤보 SKU 짓는 규칙 없음 · 기각: 구성품을 고르며 콤보 상품까지 한 번에 만드는 「New combo」 창
+**판정 250** (2026-10-05 · 집 PC) Caleb 「지금으로 충분할 것 같아」 — 새 콤보의 SKU 는 **「+ New product」 로 먼저 만들고 → 그 상품에서 「Make combo」**(두 걸음) · 콤보 SKU 짓는 규칙 없음 · 기각: 구성품을 고르며 콤보 상품까지 한 번에 만드는 「New combo」 창 → [2026-10-27 · 판정 810 · 817 · 818 · §82] **바뀜** — 새 콤보는 Combos 화면의 New combo 한 창구(두 걸음 · Make combo 없어짐)
 
 **staff 화면(판정 번호 없음 · asung-ims · 회사 PC)**
 - st v2 `4537f93` Caleb 「조립, 번들을 진행하기 전에, staff권한에 location을 넣어줄 수 있나?」 → Location(창고 체크 · `ims_staff.warehouse_access` · 판정 함수 `ims_can_warehouse` 그대로: admin · supervisor = 모든 창고 · manager · worker = 체크한 창고 · 하나도 안 체크 = 모든 창고) · 자기 행 잠김 · 목록 꼬리표 · jsdom 8
@@ -9160,12 +9161,19 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 ```
 Shopify 잇기(link-1a · 1b)
   판 · 줄 표                shop_link_run · shop_link_item            20261020173401_link_1a_shop_link.sql:38 · :62   칸 넷(bulk_*) 20261020180009_link_1b_bulk_cols_product0_ck.sql:33
-  판정                      shop_link_plan(run)                       20261020173401_link_1a_shop_link.sql:104
-  실행(큐 없음 · hash 심기)  shop_link_apply(run, commit, version)     20261020173401_link_1a_shop_link.sql:278
-  묶음 보내기                shop_link_push_batch(store, filter, …)    20261020173401_link_1a_shop_link.sql:372   200 줄 기본 · Send all left 는 되풀이
+  판정                      shop_link_plan(run)                       ~~20261020173401_link_1a_shop_link.sql:104~~ → [2026-10-28 · §83] 20261028001328_link_perf_3.sql:22(link-perf-1 :26 → link-dup-1 :24 ⑦ dup_target → link-perf-3 ⑤ 집합)
+  실행(큐 없음 · hash 심기)  shop_link_apply(run, commit, version)     ~~20261020173401_link_1a_shop_link.sql:278~~ → [2026-10-27 · §82] shop_link_apply(run, commit, version, limit) 20261027205600_link_perf_2.sql:31(묶음 · applied_version :25 · 옛 시그니처 내림)
+  묶음 보내기                shop_link_push_batch(store, filter, …)    ~~20261020173401_link_1a_shop_link.sql:372~~ → [§82] 20261027190714_shop_live_1.sql:258(commit 은 live 만)   200 줄 기본 · Send all left 는 되풀이
   남은 묶음                  shop_link_remaining(store)                20261020173401_link_1a_shop_link.sql:436
   Product/0 막기             제약 shop_product_gid_real_ck             20261020180009_link_1b_bulk_cols_product0_ck.sql:42
   EF                         link_read · link_poll                     functions/shopify/index.ts:373 · :397 · parseBulkJsonl _shared/shopify-link.ts:34 · errorMark index.ts:193
+  색인(plan · apply)          product_sku_lower_idx (lower(sku), sku)   20261027202614_link_perf_1.sql:22   [§82]
+Shopify live · 재고 콤보(shop-live-1 · shop-combo-1 · §82 · §83)
+  스토어 창구                shop_store_save(op store_set · store_off · store_live · location_*)   20261027190714_shop_live_1.sql:323
+  재고 대상(live 만)         shop_stock_targets(store, pids)           20261027190714_shop_live_1.sql:30
+  보낼 숫자(⭐ 콤보 갈래 831) shop_stock_payload(store, pids)           20261027235949_shop_combo_1.sql:59
+  큐 넣기(⭐ 콤보 펼치기)     shop_stock_queue_add(store, pids, reason, force)   20261027235949_shop_combo_1.sql:116
+  트리거 함수(⭐ product_bom) shop_stock_queue_trigger()                20261027235949_shop_combo_1.sql:156   트리거 product_bom_shop_stock_i · u · d :241 ~ :243(재고 트리거 13 → 16)
 원장 · 원가 표 쓰기 닫기(rls-1)
   정책                       <표>_select(using true) 넷                20261020201002_rls_1_ledger_layer_write_gate.sql:39(do 고리)
   definer 로 바뀐 쓰기 13    inv_layer_post_charge :48 · inv_layer_post_receipt :233 · inv_layer_post_receipt_off_po :426 · inv_layer_post_receipt_over :516
@@ -10827,4 +10835,171 @@ Shopify(다른 대화에서 이어간다 · 사실만)
 
 ```
 다음 판정 번호: 809 · 다음 deferred 번호: 354
+```
+
+## §82 2026-10-27 회사 저녁 — Shopify live · Aone 조직 · 콤보 화면 · 잇기 속도 — shop-live-1 · combo-1 · 1b · cb v1 · link-perf-1 · 2 · 판정 809 ~ 829 (회사 PC)
+
+⭐ 지은 것: 실제 스토어를 「연결됐지만 잠든」 채 붙이는 스위치 shop_store.live · auth_mode · 창구 op store_live(shop-live-1) · 콤보는 Combos 화면의 New combo 에서만(combo-1 · 1b · cb v1 · pr v5k) · 잇기 plan 31 s → 1.9 s(link-perf-1) · apply 를 묶음으로(link-perf-2)
+⭐ 새 판정 809 ~ 829 · 원천: docs-1027c 📌 A(회사 인계서 ims-handover-2026-10-27-home 에서 옮김 — 판정 · 실측 · 스토어 상태는 대화에만 있었다) · 커밋 메시지 · 마이그레이션 머리 주석 · 화면 파일 머리 주석
+⭐ 커밋 — asung-wms `7747baf` shop-live-1 · `d6e6218` combo-1 + 1b · `7b01fbc` link-perf-1 · `31c67c4` link-perf-2 / asung-ims `f7d8a80` ss v4 · `ae4c45b` cb v1 · pr v5k · ims-auth Combos · ss v4a
+⭐ 마이그레이션은 전부 IMS(테스트 DB = 11-01 부터 메인 · 617) 것 · 운영(asung-WMS)에는 올리지 않는다
+
+### 82-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 809 | 「A」 → ⚠️ **전제 바뀜**(82-c) | Aone 은 Dev Dashboard 앱 + 영구 토큰 보관(Aone 이 「Asung Trading」 조직 밖이라는 전제) — Aone 은 자기 조직이 따로 있어 그 조직의 앱 + client credentials 로 붙었다 · 보관 토큰 길은 쓰이지 않는다 |
+| 810 | 「2」 | 콤보는 **Combos 화면을 따로** · New combo · 기존 SKU 를 콤보로 바꾸는 길은 **서버에서도 막는다** |
+| 811 | 「A」 | `shop_store.live` 칸 — **is_active = 연결 · 읽기**(ping · link_read · link_poll · link_plan · link_apply · order_read · webhooks_list) / **일하는 길은 is_active and live**(상품 · 재고 · 오더 · 발송 · 결제 쓰기 · 웹훅 받기 · 주기 확인) |
+| 812 | 「A」 | Aone 은 **전용 앱** |
+| 813 | 「A」 → ⚠️ 전제 바뀜 | 스토어마다 `auth_mode`(client_credentials · stored_token) — 칸 · EF 길은 있다 · 지금 stored_token 을 쓰는 스토어는 없다 |
+| 814 | 「A」 | **컷 시각** — Cin7 의 Shopify 연결을 끈 시각부터 IMS 가 오더를 읽는다(store_live 의 orders_from → orders_polled_at) · 그 전에 들어와 아직 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill |
+| 815 | 「A」 · Caleb 「cin7과의 연결이 끊기지 않은 상태에서도 상품 잇기는 해놓을 수 있다는 거지?」 | link_apply 는 live 전에도 된다 · live 꺼진 동안 나갈 일은 **대기**(큐 줄을 열어 둔다) · live 켜는 순간 그 스토어 재고 **전부 force** · 컷오버 직전 Read → Plan 을 한 번 더 |
+| 816 | 「A」 → 쓰이지 않음 | 영구 토큰 교환은 tools 스크립트(`tools/shopify-oauth-exchange.sh`) · redirect https://ims.asung.ca/ — 코드는 남김(해 없음) |
+| 817 | 「A」 | 콤보가 아니던 SKU 가 콤보가 되는 일은 **전부 막는다**(parent_not_combo) · 콤보는 New combo 에서만 |
+| 818 | 「A」 | New combo = **한 창구**(새 SKU + 구성품 한 트랜잭션 · product_combo_create) |
+| 819 | 「A」 | **Release 는 되돌릴 수 없다**(풀린 SKU 는 다시 콤보가 못 된다 — 817 의 막기가 그대로 걸린다) |
+| 820 | 「A」 | 옛 두 걸음(+ New product → Make combo)으로 만들다 만 SKU 는 손으로 끈다 — TDXCOMBO3(Caleb 이 껐다) |
+| 821 | 「A」 | New combo 칸: SKU · 이름 · 브랜드 · 분류 · 단위 · 바코드 · 가격 / 세트 · 공급처 · family 는 받지 않는다(combo_no_sets · combo_no_suppliers · combo_no_family) · supplier_missing 알림을 뺀다 |
+| 822 | 「A」 | 콤보 목록은 Combos 에만 · Released 거르기(Show released) · Products 의 Kind 에 Combos 를 더하지 않는다 |
+| 823 | 「A」 | Edit components · Release 는 Combos 에만 · 상품 상세는 읽기 + **Open in Combos** |
+| 824 | 「A」 | 메뉴 자리 = Inventory 의 **Families 아래** · 열쇠 master |
+| 825 | 「A」 | cin7_combo 알림 삭제 · 재적재가 IMS 에서 고친 콤보 줄을 덮지 않음을 확인(ipr_loadBom_ :958 — source manual 줄은 건너뛴다) |
+| 826 | 「A」 | New combo 에서 sku_prefix 알림을 뺀다(콤보 SKU 앞글자 TBRCOMBO ≠ 브랜드 앞글자 — 늘 뜬다 · combo-1b) |
+| 827 | 「A」 | 재적재가 Release 한 콤보를 되살릴 틈은 **고치지 않는다**(드묾 · 컷오버 전만 — 82-d) |
+| 828 | 「A」 | components_missing(구성품 0) 막기를 받아들인다 |
+| 829 | 「A」 | Apply 를 **나눠서** — 화면이 묶음을 되풀이 · 진행 표시 · 멈추면 이어서(link-perf-2 · ss v5 는 §83) |
+
+### 82-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 차수 | 레포 · 커밋 | 무엇 | 테스트 DB |
+|---|---|---|---|
+| shop-live-1 | asung-wms `7747baf`(`20261027190714_shop_live_1.sql` · tests/shop_live_1.sql · EF shopify · `tools/shopify-oauth-exchange.sh`) | live · auth_mode 칸 · 일하는 SQL 길 전부 is_active and live(shop_stock_targets · shop_queue_all · shop_stock_queue_all · shop_stock_queue_diff · shop_unshipped_scan · shop_paid_scan · shop_link_push_batch · shop_store_save) · op store_live · EF readGate · workGate · queueGate · storedToken | 적용 · 확인 OK 59 · EF 배포 · ping ok |
+| ss v4 | asung-ims `f7d8a80` | Shopify Stores — Go live / Stop live · 열쇠 방식 · 열쇠 이름 · 잇기 push 는 live 에서만 | — |
+| combo-1 · 1b | asung-wms `d6e6218`(`20261027191301_combo_1.sql` · `20261027202949_combo_1b.sql` · tests/combo_1_check.sql · combo_1b_check.sql) | 도우미 product_bom_check_lines · product_bom_set 재발행(parent_not_combo · cin7_combo 알림 삭제) · product_combo_create · product_combo_list / 1b: New combo 에서 sku_prefix 알림 빼기 | 적용 · 확인 OK 54 · 18 |
+| cb v1 · pr v5k · ss v4a | asung-ims `ae4c45b` | Combos 화면(combos.html · 목록 · 콤보 또는 구성품 SKU 로 찾기 · New combo · Edit components · Release combo…) · Products 에서 Make combo 를 빼고 New combo 단추는 Combos 로 · 콤보 상세는 Open in Combos · 메뉴 Combos(Families 아래 · master) · ss v4a 로그인 글 | 화면 시험 Caleb ok |
+| link-perf-1 | asung-wms `7b01fbc`(`20261027202614_link_perf_1.sql` · tests/link_perf_1.sql) | shop_link_plan 집합 한 번 + 색인 product_sku_lower_idx(lower(sku), sku) — 판정 한 글자도 같게 | 적용 · 확인 OK 26 · 화면 Plan ok |
+| link-perf-2 | asung-wms `31c67c4`(`20261027205600_link_perf_2.sql` · tests/link_perf_2.sql) | shop_link_apply(run, commit, version, **limit**) · 칸 shop_link_item.applied_version · 반환 remaining · done · 옛 시그니처 내림(판정 829) | 적용 · 확인 OK 40 |
+
+### 82-c 실측 · 바뀐 전제 · 실제 스토어
+
+```
+plan(link-perf-1)   asung run 2b81c902 · 상품 5,079 · 변형 8,869 — 옛 31 s(authenticated 시한 8 s 초과 · statement timeout) → 1.9 s · 결과 한 글자도 같다
+                    느린 까닭(시계): 변형마다 IMS 제품 찾기 19.0 s(정확히 못 찾은 448 변형마다 lower(sku) 로 product 18,744 행 훑기 — 색인이 upper(sku) 뿐) + 같은 SKU 둘 8.1 s + 나머지 3 s
+apply(link-perf-2)  asung run · link 4,954 — 옛 한 번에 69.5 ~ 78.3 s → 묶음 500 × 10 회 · 묶음 최대 2.4 ~ 2.8 s(마이그레이션 머리 · 커밋 메시지 「10 x 2.6 s」) · 끝 상태 md5 같음 · 미리 보기 0.2 s
+                    새 정의 한 번에(p_limit null)도 16 ~ 24 s — REST 8 s 를 넘으므로 화면은 늘 묶음으로(ss v5 · §83)
+                    ⚠ 이 조사에서 드러남: 같은 IMS family 를 가리키는 link 줄 셋(8 · 4 · 4) → link-dup-1(판정 830 · §83)
+```
+
+바뀐 전제 — Aone(판정 809 · 813 · 816)
+- Dev Dashboard 의 **Distribution(설치 링크)** 카드는 **Partner 조직의 앱에만** 있다(shopify.dev) — 「Asung Trading」 은 스토어 조직이라 조직 밖 스토어에 설치 링크를 못 만든다
+- **Aone 은 자기 조직이 따로 있었다**(「Aone Beauty Supply…」 · dashboard 45853329) — Aone 관리 화면 → Settings → Apps → Develop apps 로 그 조직에 전용 앱 「Asung IMS Aone」 을 만들고 설치(Installs 1)
+- ⇒ Aone 도 **client credentials(Automatic)** — 보관 토큰 · 교환 도구(816)는 쓰이지 않는다(해 없음 · 코드는 남김 · 82-d)
+- 「Asung Trading」 조직에 잘못 만든 「Asung IMS Aone」(a24f9499…)은 Caleb 이 지웠다
+
+실제 스토어 상태(2026-10-27 저녁 · 테스트 DB)
+
+| code | 주소 | 앱 · 비밀 | live | 위치 짝 |
+|---|---|---|---|---|
+| asung | asung-trading.myshopify.com(asung.ca) | Asung IMS · SHOPIFY_IMS | f | Toronto → Asung Trading Inc. · Edmonton → Asung - Edmonton |
+| aone | aone-beauty-health.myshopify.com(aonebeauty.com) | Asung IMS Aone(Aone 조직) · SHOPIFY_AONE | f | Aonebeauty TOR → Asung Trading Inc. · **Aonebeauty EDM 은 짝 없음**(Caleb 「이 상태로 둘께」 — 두 배 재고 막기 · shopify-integration §1-a 판정 427) |
+| test | asung-ims-test.myshopify.com | Asung IMS · SHOPIFY_IMS | t | 둘 |
+
+- asung 행을 넣고 cron 이 여러 번 돈 뒤 asung 몫 inbox · shop_order · push_queue · stock_queue · listing **전부 0** · 두 스토어 ping: permissions all granted · CAD · 경고는 의도한 EDM 짝 없음 하나(aone)
+- Shopify 사실(회사 인계서 §6): client credentials 는 **앱과 스토어가 같은 조직일 때만** · Distribution 카드는 Partner 조직 앱만 · Dev Dashboard Stores 목록은 Dev 스토어만 보인다 · 스토어를 조직으로 옮기려면 Shopify Payments 를 꺼야 한다 · 관리 화면 옛 커스텀 앱은 2026-01-01 부터 못 만든다
+
+### 82-d 열린 것 · 메모 (deferred 줄 없이)
+
+- **354**(deferred) cron 42 · 47 · 49 · 51 · 53 의 where exists 에 live join — live 전 대기 줄이 있는 동안 1 분(51 · 53 은 5 분)마다 EF 헛호출(shop-live-1 이견 1)
+- 메모(줄 없음) — `auth_mode = stored_token` 길(EF storedToken)과 `tools/shopify-oauth-exchange.sh`(816)는 **지금 쓰는 스토어가 없다**(Aone 도 client credentials) · 지우지 않는다(조직 밖 스토어가 생기면 그 길) · 해 없음
+- 메모(줄 없음) — 판정 827: 재적재(ipr_loadBom_)가 Release 한 콤보의 줄을 Cin7 원문으로 되살릴 틈 · 고치지 않는다(드묾 · 컷오버 전 재적재에만 있고 컷오버 뒤에는 적재가 없다) · 되살아나면 Combos 에서 다시 Release
+- 테스트 DB cron 은 실제 두 스토어 행이 들어간 뒤에도 그대로 돈다 — 일하는 길은 live 가 막는다(82-c 「전부 0」)
+
+### 82-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 앱을 만들게 하기 전에 **배포 방식이 그 조직에서 되는지**부터 확인했어야 했다 — 「Asung Trading」 조직에 Aone 앱을 만들었다가 지움 ⇒ 바깥 서비스에 무엇을 만들게 하기 전에 그 서비스의 조직 · 배포 조건을 문서로 먼저
+2. [대화 Claude] 회사 PC 다운로드 경로가 달라 옮기기 명령이 조용히 멈췄다 — `find` 로 찾음 ⇒ 경로는 asung-workflow §7 의 고정 줄(회사 `/mnt/c/Users/chang/Downloads` · 집 `/mnt/c/Users/yoonh/Downloads`)
+3. [대화 Claude] 표 이름 · 칸 짐작(shop_fulfill_queue.store_id)으로 확인 쿼리가 멈췄다 ⇒ 확인 쿼리도 칸을 먼저 본다(`\d` 또는 information_schema)
+4. [대화 Claude] 커밋 명령을 주고 Caleb 이 돌렸는지 확인하지 않은 채 화면 시험을 청했다 — Actions 의 마지막 배포 시각으로 원인을 잡음 ⇒ 화면 시험을 청하기 전에 커밋 · 배포 시각을 먼저
+
+```
+다음 판정 번호: 830(§83) · 다음 deferred 번호: 354(§83 이 354 ~ 358 을 쓴다)
+```
+
+## §83 2026-10-27 집 밤 — 잇기 dup_target · plan 속도 · 콤보 재고 · Apply 묶음 화면 — ss v5 · v5a · link-dup-1 · link-perf-3 · shop-combo-1 · 판정 830 ~ 832 (집 PC)
+
+⭐ 지은 것: 한 IMS 대상을 Shopify 상품 여럿이 가리키면 plan 이 전부 막는다(link-dup-1 · dup_target) · plan ⑤(이미 이어진 것)를 집합으로(link-perf-3) · Shopify 로 보내는 **콤보 재고 = 구성품으로 만들 수 있는 수**(shop-combo-1) · Apply links 를 묶음 500 으로 되풀이하는 화면(ss v5) · 까닭 글 · 겹치는 상대 handle(ss v5a)
+⭐ 새 판정 830 ~ 832 · 원천: docs-1027c 📌 B(판정 · 실측 · 실제 스토어 잇기 상태는 대화에만 있었다) · 커밋 메시지 · 마이그레이션 · 시험 파일 머리 주석
+⭐ 커밋 — asung-wms `f1f9c87` link-dup-1 · `52c43af` link-perf-3 · `18ce4f0` shop-combo-1 / asung-ims `a429201` ss v5 · `32d7023` ss v5a · 테스트 DB 에 전부 적용
+
+### 83-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 830 | 「우리는 무조건 정본이 IMS야. 그러니 A가 맞아」 | 같은 IMS 대상(family · 낱개)을 이 판의 Shopify 상품 **둘 이상**(link · link_off)이 가리키면 plan 이 그 상품들을 **전부 block** · 까닭 `dup_target`(있던 까닭은 남김) · changes.dup_target {count · gids · handles — 자기 줄 빠짐 · (handle, gid) 순} · 고치기는 Shopify 에서 한 페이지로 합친 뒤 Read → Plan · 기각 B(하나 잇고 나머지 report — 지우기를 잊으면 같은 SKU 가 두 번 · 옛 재고로 팔림) |
+| 830 뒤 | 「내일 담당자에게 지우게 할게」 | 고치는 길 = **옮기고 지우기**(남길 페이지에 사이즈를 변형으로 더하고 옛 페이지를 지운다 · 한 변형씩 지우기 → 추가) · **Archive 로는 안 풀린다**(link_off 도 센다) · 고치는 때 = **지금(컷오버 전) · 담당자가 Shopify 에서** · 다른 안: 컷오버 날 지우고 IMS Push 가 붙이게(빠지는 시간이 김) · 「재고만 잇는 모드」(정본 예외 — 기각) |
+| 831 | 「재고는 cin7에서는 맥시멈 콤보수로 계산해주더라고」(= A · 대화 Claude 가 A 로 적음) | Shopify 로 보내는 **콤보 재고 = SO 화면 가용과 같은 셈** — 위치마다 min(구성품 재고 키마다 ⌊가용 ÷ 콤보 하나의 need_ea⌋) · 구성품 꺼짐(is_active · sellable) → 0 · 구성품 재고가 움직이면 그 콤보도 큐 · 콤보 정의 · Release 도 큐 · 사실: asung.ca · aonebeauty.com 에서 콤보가 **지금 팔리고 있다** · 기각 B(콤보 재고 추적 끔) |
+| 832 | 「A」 | plan ⑤(이미 이어진 것)를 집합으로 — 통계가 낡아도 8 s 안 · 기각 B(걸리면 관리자 SQL ANALYZE) |
+
+### 83-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 차수 | 레포 · 커밋 | 무엇 | 테스트 DB |
+|---|---|---|---|
+| ss v5 | asung-ims `a429201` | Apply links 를 묶음 500(shop_link_apply p_limit) · 진행 N / total · Stop · 이어서 · 남은 수가 안 줄면 멈춤 · Esc · 창 닫기 막음(판정 829) | test 스토어 6 of 6 시험 ok |
+| link-dup-1 | asung-wms `f1f9c87`(`20261027235128_link_dup_1.sql` · tests/link_dup_1.sql) | shop_link_plan 재발행 — 줄마다 판정 뒤 한 문장 ⑦(decision link · link_off 를 coalesce(ims_family_id, ims_product_id) 로 묶어 2 줄 이상이면 전부 block · dup_target) · apply 무접촉 | 적용 · 확인 OK 31/31 |
+| ss v5a | asung-ims `32d7023` | 까닭 글 dup_target(LK_WHY) · Show lines 에 겹치는 상대 handle · CSV dup_with 칸 | 화면 16 of 5079 확인 |
+| link-perf-3 | asung-wms `52c43af`(`20261028001328_link_perf_3.sql` · tests/link_perf_3.sql) | shop_link_plan 재발행 — 고리 전에 그 스토어의 shop_product · shop_variant 를 임시 표(t_link_sp · t_link_sv)로 복사 · 줄마다 네 조회를 한 문장(t_link_lk) · 판정 한 글자도 같다(판정 832) | 적용 · 확인 OK 33/33 |
+| shop-combo-1 | asung-wms `18ce4f0`(`20261027235949_shop_combo_1.sql` · tests/shop_combo_1.sql) | shop_stock_payload 콤보 갈래 · shop_stock_queue_add 콤보 펼치기 · shop_stock_queue_trigger product_bom 갈래 · product_bom 트리거 셋(i · u · d · AFTER STATEMENT · update 는 바뀐 줄만)(판정 831) | 적용 · 확인 OK 38/38 |
+
+### 83-c 실측
+
+```
+link-dup-1    asung 16 줄 · 3 묶음(ASH60495FAM 8 · ANN03726FAM 4 · HFS31506FAM 4 · 모두 ACTIVE · 모두 partial_family) · 기존 block 과 겹침 0 · 나머지 판정 옛 = 새 · plan 1.6 → 2.0 s
+              ⚠️ 적용 뒤 asung run 은 Plan again 을 해야 새 규칙이 판에 들어간다(이미 계획된 v1 은 옛 판정) → asung 은 planned **v2**(아래 표)
+link-perf-3   커밋 메시지: 이어진 것 0 1.8 s · 이어진 4,938 ANALYZE 2.0 s · 통계 낡음 2.1 s(옛 약 12 s)
+              시험 파일 머리(tests/link_perf_3.sql · 2 회차 실제 값): 이어진 것 0 옛 1,630 → 새 1,798 ms · ANALYZE 옛 2,580 → 새 2,525 ms · 통계 낡음 새 2,700 ms — 회차마다 다르다 · 둘 다 8 s 의 절반 안
+              느린 까닭은 (라) 하나 — 「찾은 제품에 다른 변형 gid」 가 shop_variant 를 줄마다 훑는다(통계가 낡으면 8 행 통계로 계획 · 500 줄에 1,165 ms → 전부 약 12 s)
+              이어진 상태는 가짜 재료 집합 insert(shop_product 4,938 · shop_variant 8,363)로 재현 — 묶음 apply 16 ~ 24 s 는 잠금 규칙 ④ 때문에 안 돌렸다
+shop-combo-1  실물 콤보 **17**(cin7 65 줄 + manual 4 · 구성품 세트 0 · 전부 켜짐) × 위치 2 = 34 줄 전부 SO 셈과 같음
+              payload 전체(test 스토어 42 줄) 옛 0.678 → 새 0.474 s(시험 파일 머리 · av 를 대상 스토어 위치로 좁히기 전엔 1.10 s) · begin ~ end 8.7 s
+              재고 트리거 13 → **16**(product_bom 3) — tests/stock-1a-verify.sql T1a · T1b 기대값을 16 으로(docs-1027c)
+```
+
+shop-combo-1 이견에서 받은 것: is_off 는 콤보 자신 기준(EF planRows 는 is_off 를 안 읽는다 — _shared/shopify-stock.ts) · product_bom update 는 바뀐 줄만(적재의 같은 값 upsert 는 0 줄) · av 를 대상 스토어 위치로 좁힘 · so_available_many 는 inv_available_base 의 껍데기(같은 수) · **Release 한 콤보는 낱개 갈래**(자기 장부 잔고가 나간다 — 보통 0 · 잔고가 남았으면 product_bom_set 의 parent_stock 알림이 치우라 한다) / link-dup-1: handles 칸 · link-perf-3: 가짜 재료
+
+실제 스토어 잇기 상태(2026-10-27 밤 · 둘 다 Apply 안 함)
+
+| 스토어 | 판 | 상품 | link | block | report | dup_target | 556 모양 다름 | 같은 SKU 둘 |
+|---|---|---|---|---|---|---|---|---|
+| asung | 2b81c902 planned **v2** | 5,079 | 4,938 | 91 | 50 | 16(3 묶음) | 2 | 30 |
+| aone | planned v1 | 4,519 | 4,355 | 114 | 50 | 19(6 묶음 — ANNIE · HOLLYWOOD · BABYLISS Clipper Comb · FROMM Foil · FROMM Explore · ON NATURAL 4 In 1) | 48 | 4 |
+
+- **IMS 에 없는 SKU 448 개 가운데 447 개는 신제품**(LAC 223 · LAG 175 · AS8 44 · AS9 5 — Caleb 「신제품 맞아」 · 「as로 시작하는 것들도 신제품」) — 마지막 상품 적재 뒤 Cin7 에 들어옴 → 컷오버 전 상품 재적재로 들어온다 · 남은 하나 CRO85680 은 확인 안 함(deferred 357)
+- ⇒ **컷오버 순서: 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply → Go live**(순서가 바뀌면 신제품이 not_in_ims 인 채 Apply 된다)
+- 담당자에게 준 것(레포 밖): 페이지 합치기 안내문(한국어 · 두 스토어 아홉 묶음 · 페이지 35 → 9 · 변형 26) · 엑셀 shopify-ims-diff-2026-10-27.xlsx(탭 asung 273 줄 · aone 276 줄 · 막힘 · 보고만 · 이어짐-모양 다름)
+
+### 83-d 열린 것
+
+- **355**(deferred · 판정 대기) apply 의 t_link_todo.dup 갈래(「뒤의 것이 이김」)를 「거부 · plan again」 으로(link-dup-1 이견 3) — 지금은 Plan again(v2)으로 옛 v1 Apply 가 version 검사에 막혀 당장 틈 없음
+- **356**(deferred · 미정) 화면 까닭 글 끝의 판정 번호 「(NNN)」 빼기(83-e 6) — deferred 337 ⑤(Shopify Stores 화면 글의 판정 번호)와 같은 결
+- **357**(deferred · 컷오버 전 필수 · 사람 몫) 556 모양 다름 aone 48 · asung 2 를 줄마다 보기 · CRO85680 확인
+- **358**(deferred · 미정) tests/stock-1a-verify.sql 다시 쓰기 — 재료가 늘어 T0 · T2a · T2b · T3a MISMATCH · :156 shop_stock_sent_uk 중복 키 ERROR(T1a · T1b 16 은 OK · docs-1027c 이견 1)
+- 컷오버 순서의 명령 · 확인 · 멈춤 = reload-procedure §P-2 13b(상품 재적재 → 페이지 정리 확인 → Read → Plan → Apply links → Cin7 의 Shopify 연결 끔 → Go live → send_tags)
+- 그대로 둠(줄 없음): link-perf-3 이견 4 — Product/0 갈래는 제약 shop_product_gid_real_ck 때문에 죽은 코드
+- 사람 몫(shopify-integration §7): Shopify 페이지 합치기 아홉 묶음(담당자) · 위 컷오버 순서
+
+### 83-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 인계서의 「집 PC 다운로드 경로 = ~/Downloads」 가 틀렸다 — **집 PC 는 `/mnt/c/Users/yoonh/Downloads`**(회사 `/mnt/c/Users/chang/Downloads`) ⇒ 경로는 인계서가 아니라 asung-workflow §7 의 고정 줄에서
+2. [Claude Code · link-dup-1] 확인 실행(적용 뒤)이 MISMATCH 4 — 「옛 정의로 plan 한 결과」 를 기준으로 삼는 갈래가 `\if :{?mig}` 밖에 있었다(§80-e 2 lec-1 재발) ⇒ 옛 = 새 대조는 늘 `\if` 안 · 적용 뒤에도 뜻이 있는 숫자는 새 결과만으로 다시 쓴다
+3. [Claude Code · link-dup-1 1 회차] 시험 도우미(줄마다 상관 count · O(n²))로 begin ~ rollback 31.6 s — 잠금 규칙 ④ 위반 · 창 함수로 고쳐 8.5 s ⇒ 무거운 비교 도우미도 시간을 먼저 잰다
+4. [Claude Code · shop-combo-1] 적용 명령을 `-f … -c "set local lock_timeout"` 순서로 적었다 — -c 가 뒤면 마이그레이션이 다 돈 뒤에 걸린다 ⇒ **`-1 -c "set local lock_timeout = '5s'" -f <파일>`**(-c 먼저 · asung-workflow §4) · ⚠️ 그 머리 주석(`20261027235949_shop_combo_1.sql:53`)은 옛 순서 그대로다(적용된 파일이라 고치지 않음)
+5. [대화 Claude] 담당자 안내문을 영어로 썼다 — Caleb 「영문으로 쓰지마. 한글로」 ⇒ 직원에게 가는 글도 한국어가 기본(영어는 청할 때)
+6. [화면] 까닭 글 끝의 판정 번호 「(830)」 을 Caleb 이 개수로 읽었다 ⇒ 화면 칩에 숫자가 둘(판정 · 개수) 붙으면 헷갈린다 — 판정 번호를 화면 글에서 빼는 것은 다음 화면 차수 거리(deferred 356 · 지금은 그대로)
+7. [잘 된 것] Caleb 의 질문(「콤보는 샤피파이에 어떻게 보이지?」)으로 구멍을 찾았다 — Shopify 쪽 함수가 product_bom 을 하나도 몰라 콤보 재고가 늘 0 으로 나갈 뻔 ⇒ 새 바깥 연동은 「콤보 · 세트 · 꺼진 상품」 세 갈래를 짓기 전에 grep 으로 확인
+8. [잘 된 것] link-perf-3 이 apply(16 ~ 24 s) 대신 가짜 재료 집합 insert 로 잠금 규칙을 지키며 이어진 상태를 재현 · 시계로 느린 까닭을 하나((라) · 통계 낡음)로 좁힘 · shop-combo-1 이 실물 콤보 17 개를 SO 셈과 줄마다 대조
+9. [대화 Claude] Caleb 이 「IMS 에 없는 SKU 는 9 월 20 일 이후 들어온 물건일까」 를 물었을 때 앞글자 분포(LAC · LAG 90 %)로 가르고 Cin7 사실 한 줄을 물었다 ⇒ 짐작을 일의 근거로 쓰기 전에 사실 한 줄
+
+```
+다음 판정 번호: 833 · 다음 deferred 번호: 359
 ```

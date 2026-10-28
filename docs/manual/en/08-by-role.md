@@ -116,6 +116,7 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Find a product → [Find and change a product](03-inventory.md#stock-products)
 - Change a product (needs the master key) → [Find and change a product](03-inventory.md#stock-products)
 - Add a new product, sets and combos (needs the master key) → [Add a new product, sets and combos](03-inventory.md#stock-new-product)
+- Make, change or release a combo on **Inventory ▾** › **Combos** (needs the master key) → [Add a new product, sets and combos](03-inventory.md#stock-new-product)
 - Make or change a family (needs the master key) → [Families](03-inventory.md#stock-families)
 - Change many products at once (needs the master key) → [Change many products at once (Product Sheet)](03-inventory.md#stock-sheet)
 - Write a product description → [Descriptions, photos, tags and the web shop](03-inventory.md#stock-descriptions)

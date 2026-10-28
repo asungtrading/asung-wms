@@ -379,7 +379,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 문서 — 인보이스 · 견적서에 구성품 줄 없음 · 콤보 product 줄의 so_invoice_line.combo_components 가 「includes」 를 굳힌다 · so_tax_preview 는 줄 목록을 빼지 않고 표시(combo · combo_line_id)만 · 합계 불변
 ⭐⭐ 크레딧 — 콤보 단위(판정 245): 콤보 크레딧 줄(금액 · qty = 콤보 수 · 칸 · 사유 없음) + 구성품 크레딧 줄(금액 0 · 제 칸 또는 사유 · combo_credit_line_id · 재고는 이 줄) · 요청 lines[].components[] · 구성품 하나만 = 「other」 금액 줄(재고 안 움직임) · 멀쩡한 하나가 돌아오면 재고 조정
 ⚠️  so_line_requote 는 구성품 줄을 거부 · so_reprice 는 kept(combo_component) · so_merge 는 열쇠 + combo_sig(정의가 다른 같은 콤보는 따로) · 구성품을 다시 매단다
-⭐  콤보 정의는 product_bom_set(asung-po §4-c) · 새 콤보 SKU 는 「+ New product」 → 「Make combo」(판정 250)
+⭐  콤보 정의는 product_bom_set(asung-po §4-c) · 새 콤보 SKU 는 ~~「+ New product」 → 「Make combo」(판정 250)~~ → **Inventory › Combos → New combo**(product_combo_create · 새 SKU + 구성품 한 트랜잭션 · 판정 810 · 817 · 818 · so-module §82) · 콤보가 아니던 SKU 는 콤보가 못 된다(parent_not_combo) · **Release 는 되돌릴 수 없다**(819)
+⭐  Shopify 로 보내는 콤보 재고 = 위 「가용」 과 같은 셈(위치마다 min(구성품 재고 키마다 ⌊가용 ÷ need_ea⌋) · 구성품 꺼짐 → 0 · 판정 831 · so-module §83 · asung-wms 「IMS Shopify 연동 EF」)
 ```
 
 ## 4-o. ⭐⭐ 웹 오더(Shopify ④ 오더 받기) — 모르면 사고 (정본 shopify-integration §2 · so-module §60 · 판정 430 ~ 435)

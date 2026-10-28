@@ -67,7 +67,7 @@
 
 <a id="stock-new-product"></a>
 ## Add a new product, sets and combos
-<!-- screen: products.html · BUILD pr v5f -->
+<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-27 · cb v1 -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -86,14 +86,25 @@ A **set** is a case or pack of the same product, for example a case of 6. Stock 
 2. Press **+ ×6**, **+ ×12** or **+ other** for the new set, and type its case barcode if it has one (for example `0000000000017`).
 3. Press **Check & add**.
 
-**How — make a combo**
-1. Open the product that will be the combo SKU and press **Make combo**.
-2. Add each component SKU and how many go into one combo, then save in that window.
-3. Later, **Edit components** changes them and **Release combo** turns it back into a normal product.
+**How — make a combo (needs the master key)**
+1. Open **Inventory ▾** › **Combos** and press **New combo** (the **New combo** button on **Products** opens the same window).
+2. Fill in **SKU** (a new SKU, not used before), **Name**, **Brand**, **Category**, **Unit** and, if you have them, **Barcode(s)**, **Weight** and **Note**.
+3. Type the combo's own **Sale prices** — not the sum of its components.
+4. Under **Components**, add each component SKU with its **Qty per combo** (**+ component** adds a row). A combo needs at least two components.
+5. Press **Check & create**. The new SKU and its components are saved together.
+
+**How — change or release a combo (needs the master key)**
+1. Open **Inventory ▾** › **Combos** and find the combo by its SKU or name, or by a component SKU. **Show released** also lists released combos.
+2. **Edit components** changes the components or how many go into one combo. Press **Check & save**.
+3. **Release combo…** turns all component rows off, and the SKU sells as a plain product from then on. Type the SKU and press **Release**.
+4. **Open in Products** opens the same SKU on the product page — prices, barcodes, photos and the web shop are changed there.
 
 **Watch out**
-- A set cannot become a combo, and a combo cannot have sets.
-- Components are saved in their own window, separately from **Edit**.
+- An existing product cannot become a combo. A combo is always a new SKU made with **New combo**.
+- **Release cannot be undone.** A released SKU can never become a combo again. To sell the same bundle later, make a new combo SKU.
+- A combo has no sets, no supplier and no family. A set cannot be a combo.
+- On the product page a combo shows its components for reading only, with **Open in Combos**.
+- The web shop gets the number of whole combos the components can make at each location — the same number a sales order shows.
 
 <!-- SCREENSHOT: stock-new-product-1 · New product window with sale prices, supplier and + ×6 set -->
 

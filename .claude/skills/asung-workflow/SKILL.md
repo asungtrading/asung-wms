@@ -191,6 +191,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⭐ **적용은 `psql -v ON_ERROR_STOP=1 -1 -f <파일>`**(Caleb) — 한 트랜잭션 · 도중 실패 시 전부 되돌아간다 · 파일에 트랜잭션 begin/commit 이 없는지 먼저 `grep -nE '^(begin|commit);'`(세미콜론까지)
    ⚠️ `^\s*(begin|commit)\b` 로 세면 함수 본문의 plpgsql `begin` 이 걸린다 — 2026-09-23 `20260923154749_price_tier.sql`(트리거 함수 하나)이 첫 사례
    `&& supabase migration repair --status applied <버전> --db-url …` 로 잇는다(적용이 실패하면 이력도 안 적힌다)
+   ⭐ [2026-10-27 · so-module §83-e 4] lock_timeout 을 붙일 때는 **`-1 -c "set local lock_timeout = '5s'" -f <파일>`** — `-c` 가 `-f` **앞**이어야 한다(뒤면 마이그레이션이 다 돈 뒤에 걸려 뜻이 없다 · shop-combo-1 머리 주석이 옛 순서)
 ⭐ 표를 세우는 차수의 순서 — 프로브 → 판정 → 마이그레이션 → 적재 dryRun → Apply → Verify → SQL 눈 확인 (2026-09-22 손님 적재가 이 순서로 하루에 섰다)
 ⭐ **날짜 기본값·비교는 `ims_today()`(토론토)** — `current_date` 는 UTC 라 토론토 저녁 8시(겨울 7시) 뒤 내일이다(2026-09-23 · so.order_date · 세일 기간 · 백오더 만료 같은 뿌리 · PO 일곱 · 화면 다섯 ✅ 2026-09-23 · po-module §14)
 ⭐ **화면의 날짜 기본값은 `torontoToday()`** — `new Date().toISOString().slice(0,10)` 은 UTC 날짜라 금지(2026-09-23 asung-ims 다섯 곳 고침) · 서버 비교(received_on_in_future 류)가 걸린 자리는 **화면 먼저 배포**(반대면 저녁마다 경고)
@@ -390,7 +391,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    ④ **10 초 안**을 못 맞추면 돌리기 전에 멈추고 「얼마나 걸리는지」를 회신 — 언제 돌릴지는 Caleb 이 동료 시험 시간을 피해 정한다
    ⑤ 확인 갈래(Caleb · 적용 뒤)에 alter · lock · truncate · drop 줄 금지(`\i` 시험 갈래 밖) — Caleb 의 명령에 그런 줄이 있으면 멈춘다
    ⑥ 시퀀스 되감기는 `greatest(실제 최대, 시작 값)` 만(시작 값은 셸에 먼저 받아 둔다 · 멈춘 회차 뒤에도 같은 식으로) · 번호를 당기지 않고 시험할 수 있으면 그 길로(미리 보기 · 거부되는 발행 · 커서 SELECT 만 떼기) — 동료가 같은 DB 에서 번호를 받는다
-   · 적용 명령에는 `-c "set local lock_timeout = '5s'"`(alter 가 기다리는 동안 뒤 읽기가 줄 서는 것을 막는다) · 진단 = pg_stat_activity 의 xact_age · pg_blocking_pids
+   · 적용 명령에는 `-c "set local lock_timeout = '5s'"`(alter 가 기다리는 동안 뒤 읽기가 줄 서는 것을 막는다 · ⚠️ **`-c` 를 `-f` 앞에** — §83-e 4) · 진단 = pg_stat_activity 의 xact_age · pg_blocking_pids
 ⭐ [2026-10-26 · cost-1 · so-module §78-c 1 · 78-e 1 · 2] **칸 revoke 는 표 grant 가 있으면 무효** — 표 단위 SELECT 가 남아 있으면 `revoke select (칸)` 은 아무것도 가리지 않는다 ⇒ 표 select 회수 + 남길 칸만 `grant select (칸 …)` · 그 표에 add column 하는 뒤 마이그레이션은 grant select(새 칸) 를 함께(안 적으면 화면이 조용히 42501)
    ⭐ **권한을 거둘 때 순서 = 더하기 → 화면 → 회수** — 1a(새 창구만 더함) → 화면 배포 · 두 권한 시험 → 1b(회수) · 1b 앞에서 화면 쪽 남은 자리를 grep 으로 다시 센다(0) · 화면이 멈춘 순간 0
 ⭐ [2026-10-26 · cutdel-1 · 2 · so-module §77] **운영 SQL(컷오버 지우기 류)의 리허설** — ① `truncate` 는 행 트리거(문지기 · 큐)를 하나도 안 돈다 · TRUNCATE 트리거만 돈다(public 0) · cascade 는 쓰지 않고 표를 다 적는다(빠지면 오류로 멈춤)
@@ -522,6 +523,7 @@ EOF
 
 쓰기 — 대화 Claude 가 파일을 만들면 Caleb 이 내려받아 옮긴다
   집 PC  /mnt/c/Users/yoonh/Downloads/     회사  /mnt/c/Users/chang/Downloads/
+  ⚠️ [2026-10-27 · so-module §82-e 2 · §83-e 1] 경로는 **이 줄에서** — 인계서의 「집 PC = ~/Downloads」 는 틀렸고 회사 PC 에서는 옮기기 명령이 조용히 멈췄다(`find` 로 찾음)
 ⭐ [Caleb 요청] cp 에 **옮긴 뒤 지우는 rm 까지 함께** 준다:
   cp <다운로드>/<파일> <대상>/ && wc -c <대상>/<파일> && rm -f <다운로드>/<파일>*
 ⚠️ 브라우저가 「파일 (1).html」로 받는 일이 있다 — 안 맞으면 ls -lt 로 먼저 보게 한다
@@ -898,3 +900,20 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    4 [대화 Claude] 크기를 「일곱」 으로 셌다(여덟) · step 카드를 영어로 냈다(Caleb 은 늘 한국어 — 재발) · GAS 프로젝트를 「Asung-IMS」 라고 했다(System_Automation) ⇒ 목록 숫자는 다시 세고 · 카드 · 도구 글도 한국어 · GAS 이름은 asung-apps-script 규칙 6 의 지도로(so-module §81-b)
    5 [대화 Claude] 사진이 사라진 일을 처음부터 「누가 지웠다」 로 받지 않고 updated_by null + 시각 → cron 일정으로 좁혔다(잘 된 것) ⇒ 「누가」 를 물을 때는 updated_by 가 비었는지 · 시각이 cron 과 맞는지부터
    6 [잘 된 것] ilo-zero-1 이 Build 를 한 푼까지 맞춤(294 · 976,939.54 · 6,308.16) · 가드 셋 · url-1 의 순수 묶음 함수(태그 Apply 의 시간 확인 · finish 흐름 보존) · lbl-0 이 DB 차수 0 으로 닫음 · 기호 규칙(0 으로 시작하는 13 자리 · 00 으로 시작하는 14 자리)
+
+⚠️ **[2026-10-27 회사 저녁 — so-module §82-e · Shopify live · Aone 조직 · 콤보 화면 · 잇기 속도]**
+   1 [대화 Claude] 앱을 만들게 하기 전에 **배포 방식이 그 조직에서 되는지**부터 확인했어야 했다 — 「Asung Trading」 조직에 Aone 앱을 만들었다가 지움(Distribution 카드는 Partner 조직 앱만 · Aone 은 자기 조직) ⇒ 바깥 서비스에 무엇을 만들게 하기 전에 그 서비스의 조직 · 배포 조건을 문서로 먼저
+   2 [대화 Claude] 회사 PC 다운로드 경로가 달라 옮기기 명령이 조용히 멈췄다 — `find` 로 찾음 ⇒ 경로는 §7 의 고정 줄
+   3 [대화 Claude] 표 이름 · 칸 짐작(shop_fulfill_queue.store_id)으로 확인 쿼리가 멈췄다 ⇒ 확인 쿼리도 칸을 먼저 본다
+   4 [대화 Claude] 커밋 명령을 주고 Caleb 이 돌렸는지 확인하지 않은 채 화면 시험을 청했다 — Actions 의 마지막 배포 시각으로 원인을 잡음 ⇒ 화면 시험을 청하기 전에 커밋 · 배포 시각부터
+
+⚠️ **[2026-10-27 집 밤 — so-module §83-e · 잇기 dup_target · plan 속도 · 콤보 재고]**
+   1 [대화 Claude] 인계서의 「집 PC 다운로드 경로 = ~/Downloads」 가 틀렸다 — **집 PC 는 `/mnt/c/Users/yoonh/Downloads`**(회사 `/mnt/c/Users/chang/Downloads`) ⇒ 경로는 인계서가 아니라 §7 의 고정 줄에서
+   2 [Claude Code · link-dup-1] 확인 실행(적용 뒤)이 MISMATCH 4 — 「옛 정의로 plan 한 결과」 를 기준으로 삼는 갈래가 `\if :{?mig}` 밖에 있었다(§80-e 2 lec-1 재발) ⇒ 옛 = 새 대조는 늘 `\if` 안 · 적용 뒤에도 뜻이 있는 숫자는 새 결과만으로 다시 쓴다
+   3 [Claude Code · link-dup-1 1 회차] 시험 도우미(줄마다 상관 count · O(n²))로 begin ~ rollback 31.6 s — 잠금 규칙 ④ 위반 · 창 함수로 고쳐 8.5 s ⇒ 무거운 비교 도우미도 시간을 먼저 잰다
+   4 [Claude Code · shop-combo-1] 적용 명령을 `-f … -c "set local lock_timeout"` 순서로 적었다 — -c 가 뒤면 마이그레이션이 다 돈 뒤에 걸린다 ⇒ **`-1 -c "set local lock_timeout = '5s'" -f <파일>`**(-c 먼저 · §4 적용 줄 · 잠금 규칙 줄)
+   5 [대화 Claude] 담당자 안내문을 영어로 썼다 — Caleb 「영문으로 쓰지마. 한글로」 ⇒ 직원에게 가는 글도 한국어가 기본(영어는 청할 때)
+   6 [화면] 까닭 글 끝의 판정 번호 「(830)」 을 Caleb 이 개수로 읽었다 ⇒ 화면 칩에 숫자가 둘(판정 · 개수) 붙으면 헷갈린다 — 판정 번호를 화면 글에서 빼는 것은 다음 화면 차수 거리(deferred 356 · 지금은 그대로)
+   7 [잘 된 것] Caleb 의 질문(「콤보는 샤피파이에 어떻게 보이지?」)으로 구멍을 찾았다 — Shopify 쪽 함수가 product_bom 을 하나도 몰라 콤보 재고가 늘 0 으로 나갈 뻔 ⇒ 새 바깥 연동은 「콤보 · 세트 · 꺼진 상품」 세 갈래를 짓기 전에 grep 으로 확인
+   8 [잘 된 것] link-perf-3 이 apply(16 ~ 24 s) 대신 가짜 재료 집합 insert 로 잠금 규칙을 지키며 이어진 상태를 재현 · 시계로 느린 까닭을 하나((라) · 통계 낡음)로 좁힘 · shop-combo-1 이 실물 콤보 17 개를 SO 셈과 줄마다 대조
+   9 [대화 Claude] Caleb 이 「IMS 에 없는 SKU 는 9 월 20 일 이후 들어온 물건일까」 를 물었을 때 앞글자 분포(LAC · LAG 90 %)로 가르고 Cin7 사실 한 줄을 물었다 ⇒ 짐작을 일의 근거로 쓰기 전에 사실 한 줄

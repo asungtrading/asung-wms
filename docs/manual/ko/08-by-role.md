@@ -116,6 +116,7 @@
 - 제품 찾기 → [제품 찾기 · 고치기](03-inventory.md#stock-products)
 - 제품 고치기 (master 권한 필요) → [제품 찾기 · 고치기](03-inventory.md#stock-products)
 - 새 제품 · 세트 · 콤보 만들기 (master 권한 필요) → [새 제품 · 세트 · 콤보 만들기](03-inventory.md#stock-new-product)
+- **Inventory ▾** › **Combos** 에서 콤보 만들기 · 고치기 · 풀기 (master 권한 필요) → [새 제품 · 세트 · 콤보 만들기](03-inventory.md#stock-new-product)
 - 패밀리 만들기 · 고치기 (master 권한 필요) → [패밀리](03-inventory.md#stock-families)
 - 여러 제품을 한꺼번에 고치기 (master 권한 필요) → [여러 제품을 한꺼번에 고치기(Product Sheet)](03-inventory.md#stock-sheet)
 - 제품 설명 쓰기 → [설명 · 사진 · 태그 · 웹 숍](03-inventory.md#stock-descriptions)
