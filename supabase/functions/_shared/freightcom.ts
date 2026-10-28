@@ -3,7 +3,7 @@
 //   실측(2026-10-28 · B): GET /services → 배열 [{id, carrier_name, service_name}] · POST /rate → 202 {request_id} · GET /rate/{id} → {status:{done,total,complete}, rates:[…]}
 //   rates[] 원소: service_id · carrier_name · service_name · base{value,currency} · surcharges[{type, amount{value,currency}}] · taxes[…] · total · transit_time_days · valid_until{year,month,day}
 //   금액 value = 센트 정수 글자(짐작 → fixtures 전부 total = base + Σsurcharge + Σtax 로 맞는다 · ratesConsistent) · DB 쪽 판정은 fc_quote_save(fc_money_cents · totals_mismatch)
-//   services 고르기: 상자 = ref_carrier.freightcom_carrier(켜진 운송사)의 carrier_name 과 같은 서비스만 · 팔렛 = services 없이(전부 · LTL 운송사는 표에 아직 없다 — 응답의 carrier_name 이 표와 짝이 없으면 고를 수 없을 뿐)
+//   services 고르기: 상자 = ref_carrier_fc_name(켜진 운송사의 Freightcom 이름 전부 · fc-1b3 판정 847)과 같은 서비스만 · 팔렛 = services 없이(전부 · LTL 운송사는 표에 아직 없다 — 응답의 carrier_name 이 표와 짝이 없으면 고를 수 없을 뿐)
 //   freight_class: 팔렛마다 POST /freight-class/calculate {box: measurements} → "70" 류 글자 → pallets[i].freight_class
 // ============================================================
 export type FcService = { id: string; carrier_name: string; service_name: string };
@@ -26,7 +26,7 @@ export function parseServices(body: unknown): FcService[] {
             .map((s) => ({ id: s.id, carrier_name: s.carrier_name, service_name: String(s.service_name ?? "") }));
 }
 
-// 운송사 이름(ref_carrier.freightcom_carrier)으로 서비스 id 고르기 — 대소문자 · 앞뒤 공백 무시 · 「Purolator」 는 「Purolator Courier」 와 다른 운송사(실측 /services 에 둘 다 있다)
+// 운송사 이름(ref_carrier_fc_name 의 이름들 · fc-1b3)으로 서비스 id 고르기 — 대소문자 · 앞뒤 공백 무시 · 「Purolator」 는 「Purolator Courier」 와 다른 운송사(실측 /services 에 둘 다 있다)
 export function pickServices(services: FcService[], carrierNames: string[]): { ids: string[]; matched: string[]; unmatched: string[] } {
   const want = new Map(carrierNames.map((n) => [norm(n), n]));
   const ids: string[] = [], matched = new Set<string>();

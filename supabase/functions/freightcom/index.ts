@@ -6,11 +6,11 @@
 //     quote {so_ids[], options{residential · tailgate_required · threshold_delivery · remember · ship_date}}
 //        ① rpc/fc_shipment_prepare(사용자 JWT · p_commit true) — 거부면 그 문장 그대로 422
 //        ② 팔렛이면 팔렛마다 POST /freight-class/calculate {box: measurements} → freight_class 끼움
-//        ③ services: 상자 = GET /services(10 분 캐시)를 prepare.carriers(ref_carrier.freightcom_carrier)로 거른 id 만(하나도 없으면 422 — Settings 에서 운송사의 Freightcom 이름) · 팔렛 = services 없이
+//        ③ services: 상자 = GET /services(10 분 캐시)를 prepare.carriers(ref_carrier_fc_name 의 이름 전부 · fc-1b3)로 거른 id 만(하나도 없으면 422 — Settings 에서 운송사의 Freightcom 이름) · 팔렛 = services 없이
 //        ④ POST /rate → 202 {request_id} → service_role rpc/fc_quote_pending(발송 · request_id · 실제 보낸 몸) → GET /rate/{id} 를 1.5 초마다 · 최대 25 초
 //        ⑤ done → service_role rpc/fc_quote_save(…, p_request = 보낸 몸) → {ok, pending:false, prepare, quote, detail: rpc/fc_shipment_for_so(사용자 JWT · charge SO)} · 아니면 {ok, pending:true, shipment_id, request_id, complete, total}
 //     quote_poll {shipment_id, request_id} — ④ 의 다시 묻기부터(화면의 Check again · pending 줄이 done 으로)
-//     services — 운송사 이름 고유 목록 + 서비스 전부(Settings 에서 ref_carrier.freightcom_carrier 를 고를 때)
+//     services — 운송사 이름 고유 목록 + 서비스 전부(Settings 에서 운송사의 Freightcom 이름(ref_carrier_fc_names_set)을 고를 때)
 //     status — 비밀값 유무 · base url(토큰 값 없음) · Freightcom 호출 없음
 //   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · ok · http_status · error · by_staff · shipment_id · ms) · 90 일 지난 줄은 호출 끝에 지운다
 //   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.freightcom] verify_jwt=false)

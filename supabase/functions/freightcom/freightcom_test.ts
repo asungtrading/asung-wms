@@ -21,6 +21,13 @@ Deno.test("① /services 원문 = 배열 476 · 223 운송사(공백만 다른 �
   eq(p.ids.includes("ups.standard") && p.ids.includes("canadapost-exclusive.expedited-parcel"), true, "known ids present");
   eq(pickServices(list, ["Purolator"]).ids.some((id) => list.find((s) => s.id === id)?.carrier_name === "Purolator Courier"), false, "Purolator does not pull Purolator Courier");
   eq(pickServices(list, []).ids, [], "no carriers → no ids");
+  // fc-1b3 판정 847: 한 운송사의 이름 여럿 · /services 의 끝 공백 이름(「Purolator Freight 」 · 「Maritime 」)은 공백 없는 이름에 붙고 · 응답의 소문자(fastfrate)도 같은 열쇠
+  const pf = pickServices(list, ["Purolator Freight", "Maritime", "Maritime-Ontario", "fastfrate", "Kindersley", "Kindersley Transport"]);
+  eq(pf.unmatched, [], "all six names known (case · trailing-space insensitive)");
+  eq(pf.ids.includes("purolatorfreight-151.standard") && pf.ids.includes("purolatorfreight.standard"), true, "trailing-space twin «Purolator Freight » joins Purolator Freight");
+  eq(pf.ids.includes("mopallet.standard") && pf.ids.includes("maritime.dry") && pf.ids.includes("maritimeontario-267.standard"), true, "«Maritime » twin + Maritime-Ontario");
+  eq(pf.ids.includes("fastfrate.standard") && !pf.ids.includes("LtViz90ze09z34gcXmBbnFhSSqvvO6h5.standard"), true, "fastfrate (lowercase) → Fastfrate · not FastfrateTest");
+  eq(pf.ids.some((id) => id.startsWith("kindersley-ftl.")), false, "Kindersley Transport FTL stays out (name not given)");
 });
 
 const PKG: RateRequest = { details: { packaging_type: "package", packaging_properties: { packages: [{ measurements: { weight: { unit: "lb", value: 23 }, cuboid: { unit: "in", l: 12, w: 10, h: 8 } }, description: "B1" }] } } };

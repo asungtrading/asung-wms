@@ -91,9 +91,7 @@ end $$;
 set local session_replication_role = replica;
 update public.ref_warehouse set phone = '(416) 792-2298', email = 'fcx@test.invalid', contact_name = 'FCX Contact' where id = :'wh'::uuid;
 update public.ref_warehouse set phone = '7807527678' where id = :'wh2'::uuid;
-update public.ref_carrier set freightcom_carrier = 'Fcx Alpha' where id = :'car_a'::uuid;
-update public.ref_carrier set freightcom_carrier = 'Fcx Beta'  where id = :'car_b'::uuid;
-update public.ref_carrier set freightcom_carrier = 'Fcx Gamma' where id = :'car_g'::uuid;
+insert into public.ref_carrier_fc_name (carrier_id, name) values (:'car_a'::uuid, 'Fcx Alpha'), (:'car_b'::uuid, 'Fcx Beta'), (:'car_g'::uuid, 'Fcx Gamma');   -- fc-1b3: 이름 표(옛 칸 freightcom_carrier 는 없어졌다)
 create function pg_temp.mk_so(p_tag text, p_status text, p_cust uuid, p_company text, p_contact text, p_phone text, p_line1 text, p_postal text, p_country text, p_days int, p_wh uuid default null) returns uuid language plpgsql as $$
 declare v_so uuid;
 begin
@@ -150,14 +148,14 @@ select pg_temp.chk('F2 fc_shipment_so_live_uq = unique (so_id) where live', (sel
 select pg_temp.chk('F3 anon · service_role cannot run fc_shipment_prepare · authenticated can', (has_function_privilege('anon', 'public.fc_shipment_prepare(uuid[], jsonb, boolean)', 'execute') || '/' || has_function_privilege('service_role', 'public.fc_shipment_prepare(uuid[], jsonb, boolean)', 'execute') || '/' || has_function_privilege('authenticated', 'public.fc_shipment_prepare(uuid[], jsonb, boolean)', 'execute'))::text, 'false/false/true');
 select pg_temp.chk('F4 fc_gate · fc_units_snapshot are inner (no authenticated execute)', (has_function_privilege('authenticated', 'public.fc_gate(uuid, text)', 'execute') || '/' || has_function_privilege('authenticated', 'public.fc_units_snapshot(uuid[])', 'execute'))::text, 'false/false');
 select pg_temp.chk('F5 fc_markup_pct seeded 5', (select value from public.inv_config where key = 'fc_markup_pct'), '5');
-select pg_temp.chk('F6 ref_carrier freightcom unique (case · space)', pg_temp.errhead(pg_temp.try(format('update public.ref_carrier set freightcom_carrier = '' FCX ALPHA '' where id = %L returning freightcom_carrier', :'car_g'))), 'ERR 23505: duplicate key value violates unique constrain');
+select pg_temp.chk('F6 Freightcom name unique across carriers (case · space) — fc-1b3 name table', pg_temp.errhead(pg_temp.try(format('insert into public.ref_carrier_fc_name (carrier_id, name) values (%L, '' FCX ALPHA '') returning name', :'car_g'))), 'ERR 23505: duplicate key value violates unique constrain');
 select pg_temp.chk('F7 so_finalize untouched', (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'so_finalize'), :'fin_md5_0');
 
 -- ── 1 상자 한 개 · 미리 보기 → 실행 ──
 select pg_temp.as_user(:'u_off');
 select public.fc_shipment_prepare(array[:'s1'::uuid], '{}'::jsonb, false) as pv \gset
 select pg_temp.chk('1a preview: not committed · action new · package · mode office', (:'pv'::jsonb->>'committed') || '/' || (:'pv'::jsonb->>'action') || '/' || (:'pv'::jsonb->>'packaging_type') || '/' || (:'pv'::jsonb->>'mode') || '/' || ((:'pv'::jsonb->>'shipment_id') is null)::text, 'false/new/package/office/true');
-select pg_temp.chk('1b preview writes nothing', (select count(*) from public.fc_shipment)::text, '0');
+select pg_temp.chk('1b preview writes nothing (shipments of the FCX orders only — real rows exist since the live test · bo-2b 이견 8)', (select count(*) from public.fc_shipment f where f.charge_so_id in (select id from public.so where so_number like 'SO-79900%'))::text, '0');
 select pg_temp.chk('1c payload: packaging_type package · one package · in · lb · 12×10×8 · 23', (:'pv'::jsonb#>>'{request,details,packaging_type}') || '/' || jsonb_array_length(:'pv'::jsonb#>'{request,details,packaging_properties,packages}') || '/' ||
   (:'pv'::jsonb#>>'{request,details,packaging_properties,packages,0,measurements,cuboid,unit}') || '/' || (:'pv'::jsonb#>>'{request,details,packaging_properties,packages,0,measurements,weight,unit}') || '/' ||
   (:'pv'::jsonb#>>'{request,details,packaging_properties,packages,0,measurements,cuboid,l}') || '/' || (:'pv'::jsonb#>>'{request,details,packaging_properties,packages,0,measurements,weight,value}') || '/' || (:'pv'::jsonb#>>'{request,details,packaging_properties,packages,0,description}'), 'package/1/in/lb/12/23/B1');
@@ -304,7 +302,7 @@ select (public.fc_quote_save((:'r9b'::jsonb->>'shipment_id')::uuid, 'req-4', :'r
 select pg_temp.chk('12f markup 7 → 2997 × 1.07 = 3206.79 → 3207 on the next quote', (select r.customer_charge_cents::text || '/' || r.markup_pct from public.fc_quote_rate r where r.quote_id = :'q4'::uuid and r.service_id = 'fcxalpha.std'), '3207/7');
 select pg_temp.as_user(:'u_off');
 set local role authenticated;
-select pg_temp.chk('12g settings direct write (RLS master · authenticated): warehouse phone · carrier freightcom name', pg_temp.run(format('update public.ref_warehouse set phone = ''416-000-0000'' where id = %L returning phone', :'wh')) || '/' || pg_temp.run(format('update public.ref_carrier set freightcom_carrier = ''Fcx Gamma LTL'' where id = %L returning freightcom_carrier', :'car_g')), '416-000-0000/Fcx Gamma LTL');
+select pg_temp.chk('12g settings direct write (RLS master · authenticated): warehouse phone · carrier Freightcom names via the window (fc-1b3)', pg_temp.run(format('update public.ref_warehouse set phone = ''416-000-0000'' where id = %L returning phone', :'wh')) || '/' || pg_temp.run(format('select (public.ref_carrier_fc_names_set(%L, array[''Fcx Gamma'', ''Fcx Gamma LTL'']))->>''names''', :'car_g')), '416-000-0000/["Fcx Gamma", "Fcx Gamma LTL"]');
 reset role;
 select pg_temp.chk('12h ims_config_set other keys unchanged path: unknown key still "is not a setting"', pg_temp.errhead(pg_temp.try('select public.ims_config_set(''fc_nonsense'', ''1'')::text')), 'ERR P0001: Setting fc_nonsense is not a setting — nothin');
 
