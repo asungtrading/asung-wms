@@ -94,6 +94,7 @@ end $$;
 --    [2026-10-28 · fc-1a] D + 4(fc_quote_rate fc_quote fc_shipment_so fc_shipment · d11) · K + 2(customer_carrier_avoid fc_call_log · k10) → 178 표 = D 83 · K 75 · R 20 (reload-procedure §P 는 문서 차수에서)
 --    [2026-10-28 · fc-1b3] K + 1(ref_carrier_fc_name · k10) → 179 표 = D 83 · K 76 · R 20
 --    [2026-10-28 · fc-2a] K + 1(ref_carrier_pickup · k10 · 운송사 × 창고 픽업 설정 — 마스터) → 180 표 = D 83 · K 77 · R 20 · fc-2b 가 fc_label(D · documents 버킷 fc_label/ 객체는 이 스크립트가 안 지운다 — 메모) · fc_booking(D) 을 더한다
+--    [2026-10-28 · fc-2b] D + 2(fc_label fc_booking · d11 · 둘 다 fc_shipment 와 서로 FK — 한 truncate 묶음) → 182 표 = D 85 · K 77 · R 20 · ⚠️ documents 버킷의 fc_label/ 객체는 이 스크립트가 지우지 않는다(컷오버 날 storage 에서 따로)
 \set d1 'doc_file doc_mail_skip drive_job drive_shortcut inv_adjust inv_adjust_line inv_cost_adjust inv_move'
 \set d2 'inv_move_line inv_transfer inv_transfer_line inv_transfer_settle mail_backorder_line mail_outbox mail_outbox_event mail_run'
 \set d3 'mail_run_error po po_charge po_charge_alloc po_discount po_doc po_invoice po_invoice_discount'
@@ -104,7 +105,7 @@ end $$;
 \set d8 'so_line so_line_merge_source so_payment so_payment_alloc so_payment_order so_reserve so_stock_short_check wms_order_finalize'
 \set d9 'wms_order_review wms_pack_task_lines wms_pack_tasks wms_pallet_items wms_pallets wms_pick_line_bins wms_pick_task_lines wms_pick_tasks'
 \set d10 'wms_receipt_complete wms_reports wms_rollback_archive wms_rollback_log wms_task_holds wms_waves wms_worker_mistakes'
-\set d11 'fc_quote_rate fc_quote fc_shipment_so fc_shipment'
+\set d11 'fc_quote_rate fc_quote fc_shipment_so fc_shipment fc_label fc_booking'
 \set dall :d1 ' ' :d2 ' ' :d3 ' ' :d4 ' ' :d5 ' ' :d6 ' ' :d7 ' ' :d8 ' ' :d9 ' ' :d10 ' ' :d11
 \set k1 'bgrade_price customer customer_address customer_contact doc_setting doc_template doc_template_active doc_template_event'
 \set k2 'drive_folder hist_po hist_po_line hist_so hist_so_line ims_image_sync_queue ims_image_sync_runs ims_image_sync_skips'
