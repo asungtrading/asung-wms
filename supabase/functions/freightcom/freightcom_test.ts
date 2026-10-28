@@ -1,5 +1,5 @@
 // deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음)
-import { attachFreightClass, cents, distinctCarriers, fcErrorSentence, freightClassOf, palletBoxes, parseServices, pickServices, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, shouldKeepPolling, type RateRequest } from "../_shared/freightcom.ts";
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, cents, noAccountSentence, secretNameFor, servicesCacheKey, distinctCarriers, fcErrorSentence, freightClassOf, palletBoxes, parseServices, pickServices, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, shouldKeepPolling, type RateRequest } from "../_shared/freightcom.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -92,4 +92,16 @@ Deno.test("⑤ 오류 문장 — 토큰 · 열쇠는 가린다 · 401 은 열쇠
   eq(s.includes("FREIGHTCOM_API_KEY"), true, "401 hint");
   eq(fcErrorSentence("rate", 500, "x".repeat(1000)).length < 480, true, "cut");
   eq(fcErrorSentence("rate_poll", 404, null).includes("request_id unknown"), true, "404 hint");
+});
+
+Deno.test("⑥ fc-1b4 판정 848 — 계정별 비밀값 FREIGHTCOM_API_KEY_<계정> · 없는 계정은 옛 FREIGHTCOM_API_KEY 로 넘어가지 않음 · 계정 열쇠 꼴 · 캐시 열쇠", () => {
+  const env = (k: string) => ({ FREIGHTCOM_API_KEY: "old-shared-key", FREIGHTCOM_API_KEY_TOR: " tor-key " } as Record<string, string>)[k];
+  eq(secretNameFor("TOR"), "FREIGHTCOM_API_KEY_TOR", "secret name");
+  eq(apiKeyFor(env, "TOR"), "tor-key", "TOR key (trimmed)");
+  eq(apiKeyFor(env, "EDM"), "", "EDM has no key — and the legacy FREIGHTCOM_API_KEY is NOT used");
+  let threw = ""; try { secretNameFor("tor"); } catch (e) { threw = (e as Error).message; }
+  eq(threw.includes('"tor" is not a valid key'), true, "lower-case refused (CHECK is upper-case 2–10)");
+  eq([ACCOUNT_RE.test("A1"), ACCOUNT_RE.test("ABCDEFGHIJ"), ACCOUNT_RE.test("ABCDEFGHIJK"), ACCOUNT_RE.test("T"), ACCOUNT_RE.test("T-1")], [true, true, false, false, false], "2–10 upper alnum");
+  eq(noAccountSentence("Asung - Edmonton", "EDM").startsWith("Warehouse Asung - Edmonton has no Freightcom connection — the secret FREIGHTCOM_API_KEY_EDM is not set"), true, "sentence names the secret");
+  eq(servicesCacheKey(" tor ") === servicesCacheKey("TOR") && servicesCacheKey("TOR") !== servicesCacheKey("EDM"), true, "cache per account");
 });

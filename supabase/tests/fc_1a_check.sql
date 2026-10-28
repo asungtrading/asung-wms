@@ -27,8 +27,8 @@ select clock_timestamp() as t_begin \gset
 select id::text as cad from public.ref_currency where code = 'CAD' \gset
 select id::text as tier from public.ref_price_tier where purpose = 'sale' and is_active order by code limit 1 \gset
 set local session_replication_role = replica;
-insert into public.ref_warehouse (name, source, is_active, address_line1, city, state_province, postal_code, country) values ('FCX Warehouse', 'manual', true, '35 Suntract Road', 'North York', 'ON', 'M9N 2V8', 'Canada') returning id::text as wh \gset
-insert into public.ref_warehouse (name, source, is_active, address_line1, city, state_province, postal_code, country) values ('FCX Warehouse 2', 'manual', true, '18418 105 Ave NW', 'Edmonton', 'AB', 'T5S 0N7', 'Canada') returning id::text as wh2 \gset
+insert into public.ref_warehouse (name, source, is_active, address_line1, city, state_province, postal_code, country, freightcom_account) values ('FCX Warehouse', 'manual', true, '35 Suntract Road', 'North York', 'ON', 'M9N 2V8', 'Canada', 'FCX') returning id::text as wh \gset
+insert into public.ref_warehouse (name, source, is_active, address_line1, city, state_province, postal_code, country, freightcom_account) values ('FCX Warehouse 2', 'manual', true, '18418 105 Ave NW', 'Edmonton', 'AB', 'T5S 0N7', 'Canada', 'FCX2') returning id::text as wh2 \gset
 insert into public.ims_staff (auth_user_id, email, name, role, perms, warehouse_access) values (gen_random_uuid(), 'fcx-wms@test.invalid', 'FCX Worker', 'worker', '["wms","fulfillment"]', array[:'wh'::uuid]) returning auth_user_id::text as u_wms \gset
 insert into public.ims_staff (auth_user_id, email, name, role, perms, warehouse_access) values (gen_random_uuid(), 'fcx-office@test.invalid', 'FCX Office', 'manager', '["ims","sales","master"]', '{}') returning auth_user_id::text as u_off \gset
 insert into public.ims_staff (auth_user_id, email, name, role, perms, warehouse_access) values (gen_random_uuid(), 'fcx-none@test.invalid', 'FCX Nobody', 'worker', '["wms","picking"]', '{}') returning auth_user_id::text as u_none \gset

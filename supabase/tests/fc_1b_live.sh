@@ -5,16 +5,16 @@
 #   쓰기:  bash supabase/tests/fc_1b_live.sh                    # 상자 · 팔렛 후보를 DB 에서 고르고 물어본 뒤 견적
 #          bash supabase/tests/fc_1b_live.sh --so SO-25201       # 그 SO 하나만(쉼표로 여럿 = 한 발송)
 #          bash supabase/tests/fc_1b_live.sh --status            # 비밀값 유무만(Freightcom 호출 없음)
-#          bash supabase/tests/fc_1b_live.sh --services          # 운송사 이름 목록(Settings 의 Freightcom carrier 에 적을 글자)
+#          bash supabase/tests/fc_1b_live.sh --services TOR      # 그 계정의 운송사 이름 목록(fc-1b4: 계정 = ref_warehouse.freightcom_account · 하나뿐이면 생략 가능)
 #   환경:  SUPABASE_URL · SUPABASE_ANON_KEY 를 주면 그것을 · 없으면 asung-ims/ims-config.js 의 테스트 값 · DB 확인은 ~/.asung-testdb-url
 set -euo pipefail
-ACTION="quote"; SO_LIST=""; OPTIONS='{}'
+ACTION="quote"; SO_LIST=""; OPTIONS='{}'; ACCT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --so) SO_LIST="$2"; shift 2 ;;
     --options) OPTIONS="$2"; shift 2 ;;
     --status) ACTION="status"; shift ;;
-    --services) ACTION="services"; shift ;;
+    --services) ACTION="services"; if [ $# -ge 2 ] && [ "${2#--}" = "$2" ]; then ACCT="$2"; shift 2; else shift; fi ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -62,7 +62,7 @@ if [ "$ACTION" = "quote" ]; then
   if [ "$IDS" = "[]" ]; then echo "no SO found for: $SO_LIST" >&2; exit 5; fi
   BODY=$(python3 -c 'import json,sys; print(json.dumps({"action": "quote", "so_ids": json.loads(sys.argv[1]), "options": json.loads(sys.argv[2])}))' "$IDS" "$OPTIONS")
 else
-  BODY="{\"action\":\"$ACTION\"}"
+  BODY=$(python3 -c 'import json,sys; b={"action": sys.argv[1]}; (sys.argv[2] and b.update(account=sys.argv[2])); print(json.dumps(b))' "$ACTION" "$ACCT")
 fi
 HTTP_FILE=$(mktemp); trap 'rm -f "$HTTP_FILE"' EXIT
 T0=$(date +%s)

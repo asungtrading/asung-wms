@@ -1,6 +1,6 @@
 // ============================================================
 // ASUNG IMS — Edge Function: freightcom (fc-1b · 2026-10-28 · 판정 835 ~ 845 · DB fc-1a 20261028162209 · fc-1b 20261028170402 · 순수 함수 ../_shared/freightcom.ts)
-//   ⚠️ 테스트 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg) 전용 — 시작 때 inv_config.db_role = 'test' 가 아니면 멈춘다. 비밀값 FREIGHTCOM_API_KEY · FREIGHTCOM_BASE_URL(없으면 500 fail-closed) — 토큰은 응답 · 기록 · 오류 문장 어디에도 안 남는다.
+//   ⚠️ 테스트 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg) 전용 — 시작 때 inv_config.db_role = 'test' 가 아니면 멈춘다. 비밀값 FREIGHTCOM_BASE_URL(공통 · 없으면 500) + 계정마다 FREIGHTCOM_API_KEY_<계정>(fc-1b4 판정 848 · 계정 = 출발 창고 ref_warehouse.freightcom_account · 발송에 스냅샷 · 없으면 422 「연결 없음」 · 옛 FREIGHTCOM_API_KEY 로 넘어가지 않는다) — 토큰은 응답 · 기록 · 오류 문장 어디에도 안 남는다.
 //   POST JSON {action, …} · 응답 json(status) · CORS · cron 길 없음(직원 길만 · verify_jwt=false 라 문은 함수 안):
 //     문  Authorization: Bearer <세션 JWT> → rpc/ims_can_write('sales') 또는 ('fulfillment')(둘 다 false → 403) · /auth/v1/user → ims_staff.id(by_staff) — 실제 검사(창고 · 상태 · 치수 · 835 두 문)는 DB 창구 fc_shipment_prepare 가 사용자 JWT 로 다시 한다
 //     quote {so_ids[], options{residential · tailgate_required · threshold_delivery · remember · ship_date}}
@@ -15,7 +15,7 @@
 //   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · ok · http_status · error · by_staff · shipment_id · ms) · 90 일 지난 줄은 호출 끝에 지운다
 //   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.freightcom] verify_jwt=false)
 // ============================================================
-import { attachFreightClass, distinctCarriers, FC_ACTIONS, fcErrorSentence, freightClassOf, palletBoxes, parseServices, pickServices, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, SERVICES_CACHE_MS, shouldKeepPolling, type FcService, type RateRequest } from "../_shared/freightcom.ts";
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, distinctCarriers, FC_ACTIONS, fcErrorSentence, freightClassOf, noAccountSentence, palletBoxes, parseServices, pickServices, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shouldKeepPolling, type FcService, type RateRequest } from "../_shared/freightcom.ts";
 import { sleep } from "../_shared/shopify.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -23,7 +23,7 @@ const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON = () => Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const FC_KEY = () => (Deno.env.get("FREIGHTCOM_API_KEY") ?? "").trim();
+const FC_KEY = (account: string) => apiKeyFor((k) => Deno.env.get(k), account);                            // fc-1b4 판정 848: 계정별 FREIGHTCOM_API_KEY_<계정> · 옛 FREIGHTCOM_API_KEY 는 안 읽는다
 const FC_BASE = () => (Deno.env.get("FREIGHTCOM_BASE_URL") ?? "").trim().replace(/\/+$/, "");
 const json = (status: number, obj: unknown): Response => new Response(JSON.stringify(obj, null, 2), { status, headers: { "Content-Type": "application/json", ...CORS } });
 const sbHeaders = (extra: Record<string, string> = {}): HeadersInit => ({ apikey: SERVICE(), Authorization: "Bearer " + SERVICE(), "Content-Type": "application/json", ...extra });
@@ -49,7 +49,7 @@ async function rpc(fn: string, args: Record<string, unknown>, jwt: string | null
   }
   return text ? JSON.parse(text) : null;
 }
-type LogRow = { shipment_id: string | null; action: string; ok: boolean; http_status: number | null; error: string | null; by_staff: string | null; ms: number };
+type LogRow = { shipment_id: string | null; account: string | null; action: string; ok: boolean; http_status: number | null; error: string | null; by_staff: string | null; ms: number };
 async function recordCall(row: LogRow): Promise<void> {
   try {
     await sbWrite("POST", "fc_call_log", { ...row, error: row.error ? row.error.slice(0, 400) : null });
@@ -86,11 +86,11 @@ async function gate(req: Request): Promise<Caller | Response> {
 
 // ── Freightcom 호출 하나 = 기록 한 줄 ──
 type FcResult = { status: number; body: unknown };
-async function fcCall(action: string, method: "GET" | "POST", path: string, body: unknown, caller: Caller, shipmentId: string | null): Promise<FcResult> {
+async function fcCall(account: string, action: string, method: "GET" | "POST", path: string, body: unknown, caller: Caller, shipmentId: string | null): Promise<FcResult> {
   const t0 = Date.now();
   let status = 0, parsed: unknown = null, err: string | null = null;
   try {
-    const r = await fetch(FC_BASE() + path, { method, headers: { Authorization: FC_KEY(), Accept: "application/json", "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const r = await fetch(FC_BASE() + path, { method, headers: { Authorization: FC_KEY(account), Accept: "application/json", "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
     status = r.status;
     const text = await r.text();
     try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
@@ -98,27 +98,33 @@ async function fcCall(action: string, method: "GET" | "POST", path: string, body
   } catch (e) {
     err = "Freightcom " + action + " unreachable: " + String((e as Error)?.message ?? e).slice(0, 200);
   }
-  await recordCall({ shipment_id: shipmentId, action, ok: err === null, http_status: status || null, error: err, by_staff: caller.staffId, ms: Date.now() - t0 });
+  await recordCall({ shipment_id: shipmentId, account, action, ok: err === null, http_status: status || null, error: err, by_staff: caller.staffId, ms: Date.now() - t0 });
   if (err) throw new RpcError(502, err);
   return { status, body: parsed };
 }
 
-// /services 10 분 캐시(함수 인스턴스 메모리)
-let servicesCache: { at: number; list: FcService[] } | null = null;
-async function loadServices(caller: Caller): Promise<FcService[]> {
-  if (servicesCache && Date.now() - servicesCache.at < SERVICES_CACHE_MS) return servicesCache.list;
-  const r = await fcCall("services", "GET", "/services", undefined, caller, null);
+// /services 10 분 캐시(함수 인스턴스 메모리 · 계정마다 · fc-1b4)
+const servicesCache = new Map<string, { at: number; list: FcService[] }>();
+async function loadServices(account: string, caller: Caller): Promise<FcService[]> {
+  const k = servicesCacheKey(account), c = servicesCache.get(k);
+  if (c && Date.now() - c.at < SERVICES_CACHE_MS) return c.list;
+  const r = await fcCall(account, "services", "GET", "/services", undefined, caller, null);
   const list = parseServices(r.body);
-  servicesCache = { at: Date.now(), list };
+  servicesCache.set(k, { at: Date.now(), list });
   return list;
+}
+// 계정이 있는 창고 목록(status · services 의 기본 계정) — 활성 창고 · 계정 있음
+async function accountsInUse(): Promise<{ warehouse: string; account: string; has_key: boolean }[]> {
+  const rows = await sbGet("ref_warehouse?select=name,freightcom_account&is_active=eq.true&freightcom_account=not.is.null&order=name");
+  return rows.map((w: { name: string; freightcom_account: string }) => ({ warehouse: w.name, account: w.freightcom_account, has_key: FC_KEY(w.freightcom_account) !== "" }));
 }
 
 // GET /rate/{id} 를 시한 안에서 되묻는다 → done 이면 응답 원문 · 아니면 상태만
-async function pollRates(requestId: string, caller: Caller, shipmentId: string): Promise<{ done: true; body: unknown } | { done: false; complete: number; total: number }> {
+async function pollRates(account: string, requestId: string, caller: Caller, shipmentId: string): Promise<{ done: true; body: unknown } | { done: false; complete: number; total: number }> {
   const started = Date.now();
   let st = { done: false, complete: 0, total: 0 };
   while (true) {
-    const r = await fcCall("rate_poll", "GET", "/rate/" + encodeURIComponent(requestId), undefined, caller, shipmentId);
+    const r = await fcCall(account, "rate_poll", "GET", "/rate/" + encodeURIComponent(requestId), undefined, caller, shipmentId);
     st = rateStatus(r.body);
     if (st.done) return { done: true, body: r.body };
     if (!shouldKeepPolling(st, started, Date.now(), QUOTE_WAIT_MS)) return { done: false, complete: st.complete, total: st.total };
@@ -126,8 +132,8 @@ async function pollRates(requestId: string, caller: Caller, shipmentId: string):
   }
 }
 
-async function finishQuote(shipmentId: string, requestId: string, sent: Record<string, unknown> | null, chargeSoId: string | null, caller: Caller): Promise<Response> {
-  const p = await pollRates(requestId, caller, shipmentId);
+async function finishQuote(account: string, shipmentId: string, requestId: string, sent: Record<string, unknown> | null, chargeSoId: string | null, caller: Caller): Promise<Response> {
+  const p = await pollRates(account, requestId, caller, shipmentId);
   if (!p.done) return json(202, { ok: true, pending: true, shipment_id: shipmentId, request_id: requestId, complete: p.complete, total: p.total, wait_ms: QUOTE_WAIT_MS });
   const saved = await rpc("fc_quote_save", { p_shipment_id: shipmentId, p_request_id: requestId, p_response: p.body, p_error: null, p_request: sent }, null);
   const detail = chargeSoId ? await rpc("fc_shipment_for_so", { p_so_id: chargeSoId }, caller.jwt) : null;
@@ -137,28 +143,32 @@ async function finishQuote(shipmentId: string, requestId: string, sent: Record<s
 async function quote(body: Record<string, unknown>, caller: Caller): Promise<Response> {
   const soIds = Array.isArray(body.so_ids) ? body.so_ids.map(String) : [];
   if (soIds.length === 0) return json(400, { ok: false, error: "so_ids must be a list of order ids" });
+  // fc-1b4 판정 848: 미리 보기(쓰기 0)로 출발 창고의 계정을 먼저 보고 — 그 계정의 비밀값이 없으면 아무것도 저장하지 않고 422
+  const peek = await rpc("fc_shipment_prepare", { p_so_ids: soIds, p_options: body.options ?? {}, p_commit: false }, caller.jwt) as Record<string, unknown>;
+  const account = String(peek.freightcom_account ?? "").trim();
+  if (!account || !FC_KEY(account)) return json(422, { ok: false, error: noAccountSentence(null, account || "??"), account: account || null, saved: false });
   const prepare = await rpc("fc_shipment_prepare", { p_so_ids: soIds, p_options: body.options ?? {}, p_commit: true }, caller.jwt) as Record<string, unknown>;
   const shipmentId = String(prepare.shipment_id), chargeSoId = String(prepare.charge_so_id ?? "") || null;
   let req = prepare.request as RateRequest;
   let serviceIds: string[] | null = null, services: { matched: string[]; unmatched: string[] } | null = null;
   if (req.details.packaging_type === "pallet") {
     const classes: string[] = [];
-    for (const box of palletBoxes(req)) classes.push(freightClassOf((await fcCall("freight_class", "POST", "/freight-class/calculate", { box }, caller, shipmentId)).body));
+    for (const box of palletBoxes(req)) classes.push(freightClassOf((await fcCall(account, "freight_class", "POST", "/freight-class/calculate", { box }, caller, shipmentId)).body));
     req = attachFreightClass(req, classes);
   } else {
     const names = Array.isArray(prepare.carriers) ? prepare.carriers.map(String) : [];
-    const picked = pickServices(await loadServices(caller), names);
+    const picked = pickServices(await loadServices(account, caller), names);
     services = { matched: picked.matched, unmatched: picked.unmatched };
     if (picked.ids.length === 0) return json(422, { ok: false, error: "No carrier on the IMS carrier list has a Freightcom name that Freightcom knows — set 'Freightcom carrier' under Settings → Carriers (e.g. UPS · Purolator · Canada Post)", shipment_id: shipmentId, carriers: names, services });
     serviceIds = picked.ids;
   }
   const sent = rateBody(req, serviceIds);
-  const r = await fcCall("rate", "POST", "/rate", sent, caller, shipmentId);
+  const r = await fcCall(account, "rate", "POST", "/rate", sent, caller, shipmentId);
   const requestId = requestIdOf(r.body);
   await rpc("fc_quote_pending", { p_shipment_id: shipmentId, p_request_id: requestId, p_request: sent }, null);
-  const res = await finishQuote(shipmentId, requestId, sent, chargeSoId, caller);
+  const res = await finishQuote(account, shipmentId, requestId, sent, chargeSoId, caller);
   const out = await res.json();
-  return json(res.status, { ...out, prepare: { action: prepare.action, mode: prepare.mode, packaging_type: prepare.packaging_type, charge_so_number: prepare.charge_so_number, so_numbers: prepare.so_numbers, options: prepare.options, address_id: prepare.address_id, address_review: prepare.address_review, freight_locked: prepare.freight_locked, warnings: prepare.warnings, services } });
+  return json(res.status, { ...out, account, prepare: { action: prepare.action, mode: prepare.mode, packaging_type: prepare.packaging_type, charge_so_number: prepare.charge_so_number, so_numbers: prepare.so_numbers, options: prepare.options, address_id: prepare.address_id, address_review: prepare.address_review, freight_locked: prepare.freight_locked, warnings: prepare.warnings, services } });
 }
 
 Deno.serve(async (req) => {
@@ -173,16 +183,25 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const action = String(body?.action ?? "");
     if (!(FC_ACTIONS as readonly string[]).includes(action)) return json(400, { ok: false, error: "action must be one of: " + FC_ACTIONS.join(", ") });
-    if (action === "status") return json(200, { ok: true, secrets: { FREIGHTCOM_API_KEY: FC_KEY() !== "", FREIGHTCOM_BASE_URL: FC_BASE() !== "" }, base_url: FC_BASE() || null, mode: caller.mode, wait_ms: QUOTE_WAIT_MS });
-    if (!FC_KEY() || !FC_BASE()) return json(500, { ok: false, error: "FREIGHTCOM_API_KEY / FREIGHTCOM_BASE_URL not configured on this project - refusing (fail-closed)" });
-    if (action === "services") { const list = await loadServices(caller); return json(200, { ok: true, carriers: distinctCarriers(list), services: list, count: list.length }); }
+    if (action === "status") return json(200, { ok: true, base_url: FC_BASE() || null, accounts: (await accountsInUse()).map((a) => ({ ...a, secret: secretNameFor(a.account) })), legacy_key_still_set: (Deno.env.get("FREIGHTCOM_API_KEY") ?? "") !== "", mode: caller.mode, wait_ms: QUOTE_WAIT_MS });   // 값 없음 · 계정마다 유무 · 옛 이름이 남아 있으면 알린다(지우라고)
+    if (!FC_BASE()) return json(500, { ok: false, error: "FREIGHTCOM_BASE_URL not configured on this project - refusing (fail-closed)" });
+    if (action === "services") {                                                                       // {account} — 없으면 계정 있는 창고가 하나뿐일 때 그것
+      let account = String(body.account ?? "").trim().toUpperCase();
+      if (!account) { const a = await accountsInUse(); if (a.length === 1) account = a[0].account; else return json(400, { ok: false, error: "account is required (one of: " + a.map((x) => x.account).join(", ") + ")" }); }
+      if (!ACCOUNT_RE.test(account)) return json(400, { ok: false, error: "account must be 2–10 upper-case letters or digits" });
+      if (!FC_KEY(account)) return json(422, { ok: false, error: noAccountSentence(null, account) });
+      const list = await loadServices(account, caller);
+      return json(200, { ok: true, account, carriers: distinctCarriers(list), services: list, count: list.length });
+    }
     if (action === "quote") return await quote(body, caller);
     if (action === "quote_poll") {
       const shipmentId = String(body.shipment_id ?? ""), requestId = String(body.request_id ?? "");
       if (!shipmentId || !requestId) return json(400, { ok: false, error: "shipment_id and request_id are required" });
-      const f = (await sbGet("fc_shipment?select=id,charge_so_id,status&id=eq." + encodeURIComponent(shipmentId) + "&limit=1"))[0];
+      const f = (await sbGet("fc_shipment?select=id,charge_so_id,status,freightcom_account&id=eq." + encodeURIComponent(shipmentId) + "&limit=1"))[0];
       if (!f) return json(404, { ok: false, error: "shipment not found" });
-      return await finishQuote(shipmentId, requestId, null, f.charge_so_id ?? null, caller);
+      const account = String(f.freightcom_account ?? "").trim();                                      // fc-1b4: 발송의 계정 스냅샷으로(창고를 다시 보지 않는다)
+      if (!account || !FC_KEY(account)) return json(422, { ok: false, error: noAccountSentence(null, account || "??") });
+      return await finishQuote(account, shipmentId, requestId, null, f.charge_so_id ?? null, caller);
     }
     return json(400, { ok: false, error: "unknown action" });
   } catch (e) {

@@ -15,6 +15,22 @@ export const QUOTE_WAIT_MS = 25_000;          // 한 호출 안에서 기다리�
 export const POLL_INTERVAL_MS = 1_500;
 export const SERVICES_CACHE_MS = 10 * 60_000; // /services 48 KB · 10 분 메모리 캐시
 export const FC_ACTIONS = ["quote", "quote_poll", "services", "status"] as const;
+export type EnvGet = (k: string) => string | undefined;
+
+// fc-1b4 판정 848: 계정마다 비밀값 FREIGHTCOM_API_KEY_<계정>(계정 = ref_warehouse.freightcom_account · 대문자 영숫자 2~10) · 옛 이름 FREIGHTCOM_API_KEY 로 넘어가지 않는다(다른 계정으로 조용히 견적이 나가는 일을 막는다)
+export const ACCOUNT_RE = /^[A-Z0-9]{2,10}$/;
+export function secretNameFor(account: string): string {
+  const a = String(account ?? "").trim();
+  if (!ACCOUNT_RE.test(a)) throw new Error(`Freightcom account "${a}" is not a valid key (2–10 upper-case letters or digits · Settings → Warehouses)`);
+  return "FREIGHTCOM_API_KEY_" + a;
+}
+export function apiKeyFor(env: EnvGet, account: string): string {
+  return (env(secretNameFor(account)) ?? "").trim();
+}
+export function noAccountSentence(warehouse: string | null, account: string): string {
+  return `${warehouse ? "Warehouse " + warehouse : "This warehouse"} has no Freightcom connection — the secret ${secretNameFor(account)} is not set on this project (ask Caleb) — nothing was saved`;
+}
+export const servicesCacheKey = (account: string) => "services:" + account.trim().toUpperCase();
 
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
