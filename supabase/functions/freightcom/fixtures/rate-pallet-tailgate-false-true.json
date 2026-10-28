@@ -1,0 +1,1666 @@
+{
+ "False": {
+  "status": {
+   "done": true,
+   "total": 150,
+   "complete": 150
+  },
+  "rates": [
+   {
+    "service_id": "cct.expedited",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "112044",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "70960",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "32669",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "geographic-line-haul",
+      "amount": {
+       "value": "3080",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5335",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 3,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "CCT",
+    "service_name": "Expedited",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "cct.intermodal",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "87341",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "56983",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "26199",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "4159",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "CCT",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "csa.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "100904",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "96099",
+     "currency": "CAD"
+    },
+    "surcharges": [],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "4805",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "CSA",
+    "service_name": "Standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "daynross.cs",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "125159",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "81936",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "37263",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5960",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 4,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Day & Ross",
+    "service_name": "cs",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "fastfrate.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "48689",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "36285",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "10085",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "2319",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 8,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "fastfrate",
+    "service_name": "standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "fedex.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "152673",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "92068",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "53335",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "7270",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 5,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "FedEx Freight",
+    "service_name": "Priority",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "gls-freight.ground",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "167935",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "102276",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "57662",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "7997",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 5,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "GLS Freight",
+    "service_name": "Ground",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "maritime.dry",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "48671",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "33844",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "12316",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "admin",
+      "amount": {
+       "value": "193",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "2318",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Maritime",
+    "service_name": "Dry",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "purolatorfreight.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "138401",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "85565",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "46245",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "6591",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 4,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Purolator Freight",
+    "service_name": "Standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "sameday.ground-daynross-road",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "169886",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "111173",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "50623",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "8090",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 3,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Day & Ross Commerce Solutions",
+    "service_name": "Ground - Road",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "tstapi.intermodal",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "102961",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "62628",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "28439",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "high-cost-pickup",
+      "amount": {
+       "value": "6991",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "4903",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 5,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "TST",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "tstapi.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "121945",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "75037",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "high-cost-pickup",
+      "amount": {
+       "value": "6991",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "34110",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5807",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 2,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "TST",
+    "service_name": "Standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "vitran.maxx",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "100654",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "65919",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "29942",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "4793",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 3,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Vitran",
+    "service_name": "Maxx",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "vitran.regular",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "65095",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "42675",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "19320",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "3100",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Vitran",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "wce.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "63167",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "41415",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "18744",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "3008",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "WCE",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   }
+  ]
+ },
+ "True": {
+  "status": {
+   "done": true,
+   "total": 150,
+   "complete": 150
+  },
+  "rates": [
+   {
+    "service_id": "cct.expedited",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "118743",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "70960",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "32669",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "6380",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "geographic-line-haul",
+      "amount": {
+       "value": "3080",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5654",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 3,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "CCT",
+    "service_name": "Expedited",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "cct.intermodal",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "94345",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "56983",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "26199",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "6670",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "4493",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "CCT",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "csa.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "106101",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "96099",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4950",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5052",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "CSA",
+    "service_name": "Standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "daynross.cs",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "133378",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "81936",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "40141",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4950",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "6351",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 4,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Day & Ross",
+    "service_name": "cs",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "fastfrate.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "55619",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "36285",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "10085",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "6600",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "2649",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 8,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "fastfrate",
+    "service_name": "standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "fedex.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "159846",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "92068",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "53335",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "6831",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "7612",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 5,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "FedEx Freight",
+    "service_name": "Priority",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "gls-freight.ground",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "175161",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "102276",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "60543",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4001",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "8341",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 5,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "GLS Freight",
+    "service_name": "Ground",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "maritime.dry",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "52713",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "33844",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "admin",
+      "amount": {
+       "value": "193",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "3850",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "12316",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "2510",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Maritime",
+    "service_name": "Dry",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "purolatorfreight.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "141375",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "85565",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "46245",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "2833",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "6732",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 4,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Purolator Freight",
+    "service_name": "Standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "sameday.ground-daynross-road",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "176238",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "111173",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "50623",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "6050",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "8392",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 3,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Day & Ross Commerce Solutions",
+    "service_name": "Ground - Road",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "tstapi.intermodal",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "107934",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "62628",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "high-cost-pickup",
+      "amount": {
+       "value": "6991",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4736",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "28439",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5140",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 5,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "TST",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "tstapi.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "126918",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "75037",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "34110",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "high-cost-pickup",
+      "amount": {
+       "value": "6991",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4736",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "6044",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 2,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "TST",
+    "service_name": "Standard",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "vitran.maxx",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "105274",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "65919",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "29942",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4400",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "5013",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 3,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Vitran",
+    "service_name": "Maxx",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "vitran.regular",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "69715",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "42675",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "19320",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "4400",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "3320",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "Vitran",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   },
+   {
+    "service_id": "wce.standard",
+    "valid_until": {
+     "year": 2026,
+     "month": 11,
+     "day": 4
+    },
+    "total": {
+     "value": "67209",
+     "currency": "CAD"
+    },
+    "base": {
+     "value": "41415",
+     "currency": "CAD"
+    },
+    "surcharges": [
+     {
+      "type": "fuel",
+      "amount": {
+       "value": "18744",
+       "currency": "CAD"
+      }
+     },
+     {
+      "type": "liftgate-delivery",
+      "amount": {
+       "value": "3850",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "taxes": [
+     {
+      "type": "tax-gst-ab",
+      "amount": {
+       "value": "3200",
+       "currency": "CAD"
+      }
+     }
+    ],
+    "transit_time_days": 6,
+    "transit_time_not_available": false,
+    "carrier_cut_off_time": "31-12-0000 06:42PM",
+    "estimated_delivery_time": "31-12-0000 06:42PM",
+    "carrier_name": "WCE",
+    "service_name": "Intermodal",
+    "customs_charge_data": {
+     "duties_and_taxes_surcharge_keys": null,
+     "guarantee_fee_surcharge_keys": null,
+     "carrier_and_government_fees_surcharge_keys": null,
+     "processing_fees_surcharge_keys": null,
+     "is_rate_guaranteed": false
+    },
+    "truck_details_ftl": "",
+    "transit_mode_ftl": "",
+    "paperless": false
+   }
+  ]
+ }
+}

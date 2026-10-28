@@ -537,3 +537,12 @@ enabled = true
 #   비밀: GOTENBERG_URL · GOTENBERG_USER · GOTENBERG_PASS(tools/gotenberg-secrets.sh) · IMS_CRON_SECRET(기존).
 verify_jwt = false
 entrypoint = "./functions/doc/index.ts"
+
+[functions.freightcom]
+enabled = true
+# fc-1b (2026-10-28 · 판정 835 ~ 845 · DB fc-1a 20261028162209 · fc-1b 20261028170402) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg) 전용 · 시작 때 inv_config.db_role = test 확인.
+#   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg
+#   직원 길만(세션 JWT → 함수 안에서 rpc/ims_can_write('sales' | 'fulfillment')) · cron 길 없음 · Freightcom 호출은 비밀 FREIGHTCOM_API_KEY · FREIGHTCOM_BASE_URL(없으면 500 fail-closed) · 호출 기록 fc_call_log.
+#   verify_jwt=false 는 shopify 와 같은 까닭(문을 함수 안에서 사람 말로 · 게이트웨이 401 은 Logs 에 안 남는다 — asung-ops §2-b) · 사용자 JWT 는 DB 창구(fc_shipment_prepare · fc_shipment_for_so)로 그대로 넘긴다.
+verify_jwt = false
+entrypoint = "./functions/freightcom/index.ts"

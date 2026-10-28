@@ -1,0 +1,219 @@
+{
+ "status": {
+  "done": true,
+  "total": 38,
+  "complete": 38
+ },
+ "rates": [
+  {
+   "service_id": "ups.expedited",
+   "valid_until": {
+    "year": 2026,
+    "month": 11,
+    "day": 4
+   },
+   "total": {
+    "value": "8524",
+    "currency": "CAD"
+   },
+   "base": {
+    "value": "8118",
+    "currency": "CAD"
+   },
+   "surcharges": [],
+   "taxes": [
+    {
+     "type": "tax-gst-ab",
+     "amount": {
+      "value": "406",
+      "currency": "CAD"
+     }
+    }
+   ],
+   "transit_time_days": 2,
+   "transit_time_not_available": false,
+   "carrier_cut_off_time": "31-12-0000 06:42PM",
+   "estimated_delivery_time": "31-12-0000 06:42PM",
+   "carrier_name": "UPS",
+   "service_name": "Expedited",
+   "customs_charge_data": {
+    "duties_and_taxes_surcharge_keys": null,
+    "guarantee_fee_surcharge_keys": null,
+    "carrier_and_government_fees_surcharge_keys": null,
+    "processing_fees_surcharge_keys": null,
+    "is_rate_guaranteed": false
+   },
+   "truck_details_ftl": "",
+   "transit_mode_ftl": "",
+   "paperless": false
+  },
+  {
+   "service_id": "ups.express",
+   "valid_until": {
+    "year": 2026,
+    "month": 11,
+    "day": 4
+   },
+   "total": {
+    "value": "10143",
+    "currency": "CAD"
+   },
+   "base": {
+    "value": "9660",
+    "currency": "CAD"
+   },
+   "surcharges": [],
+   "taxes": [
+    {
+     "type": "tax-gst-ab",
+     "amount": {
+      "value": "483",
+      "currency": "CAD"
+     }
+    }
+   ],
+   "transit_time_days": 1,
+   "transit_time_not_available": false,
+   "carrier_cut_off_time": "31-12-0000 06:42PM",
+   "estimated_delivery_time": "31-12-0000 06:42PM",
+   "carrier_name": "UPS",
+   "service_name": "Express",
+   "customs_charge_data": {
+    "duties_and_taxes_surcharge_keys": null,
+    "guarantee_fee_surcharge_keys": null,
+    "carrier_and_government_fees_surcharge_keys": null,
+    "processing_fees_surcharge_keys": null,
+    "is_rate_guaranteed": false
+   },
+   "truck_details_ftl": "",
+   "transit_mode_ftl": "",
+   "paperless": false
+  },
+  {
+   "service_id": "ups.express-early",
+   "valid_until": {
+    "year": 2026,
+    "month": 11,
+    "day": 4
+   },
+   "total": {
+    "value": "14123",
+    "currency": "CAD"
+   },
+   "base": {
+    "value": "13450",
+    "currency": "CAD"
+   },
+   "surcharges": [],
+   "taxes": [
+    {
+     "type": "tax-gst-ab",
+     "amount": {
+      "value": "673",
+      "currency": "CAD"
+     }
+    }
+   ],
+   "transit_time_days": 1,
+   "transit_time_not_available": false,
+   "carrier_cut_off_time": "31-12-0000 06:42PM",
+   "estimated_delivery_time": "31-12-0000 06:42PM",
+   "carrier_name": "UPS",
+   "service_name": "Express Early",
+   "customs_charge_data": {
+    "duties_and_taxes_surcharge_keys": null,
+    "guarantee_fee_surcharge_keys": null,
+    "carrier_and_government_fees_surcharge_keys": null,
+    "processing_fees_surcharge_keys": null,
+    "is_rate_guaranteed": false
+   },
+   "truck_details_ftl": "",
+   "transit_mode_ftl": "",
+   "paperless": false
+  },
+  {
+   "service_id": "ups.express-saver",
+   "valid_until": {
+    "year": 2026,
+    "month": 11,
+    "day": 4
+   },
+   "total": {
+    "value": "8367",
+    "currency": "CAD"
+   },
+   "base": {
+    "value": "7969",
+    "currency": "CAD"
+   },
+   "surcharges": [],
+   "taxes": [
+    {
+     "type": "tax-gst-ab",
+     "amount": {
+      "value": "398",
+      "currency": "CAD"
+     }
+    }
+   ],
+   "transit_time_days": 1,
+   "transit_time_not_available": false,
+   "carrier_cut_off_time": "31-12-0000 06:42PM",
+   "estimated_delivery_time": "31-12-0000 06:42PM",
+   "carrier_name": "UPS",
+   "service_name": "Express Saver",
+   "customs_charge_data": {
+    "duties_and_taxes_surcharge_keys": null,
+    "guarantee_fee_surcharge_keys": null,
+    "carrier_and_government_fees_surcharge_keys": null,
+    "processing_fees_surcharge_keys": null,
+    "is_rate_guaranteed": false
+   },
+   "truck_details_ftl": "",
+   "transit_mode_ftl": "",
+   "paperless": false
+  },
+  {
+   "service_id": "ups.standard",
+   "valid_until": {
+    "year": 2026,
+    "month": 11,
+    "day": 4
+   },
+   "total": {
+    "value": "3482",
+    "currency": "CAD"
+   },
+   "base": {
+    "value": "3316",
+    "currency": "CAD"
+   },
+   "surcharges": [],
+   "taxes": [
+    {
+     "type": "tax-gst-ab",
+     "amount": {
+      "value": "166",
+      "currency": "CAD"
+     }
+    }
+   ],
+   "transit_time_days": 4,
+   "transit_time_not_available": false,
+   "carrier_cut_off_time": "31-12-0000 06:42PM",
+   "estimated_delivery_time": "31-12-0000 06:42PM",
+   "carrier_name": "UPS",
+   "service_name": "Standard",
+   "customs_charge_data": {
+    "duties_and_taxes_surcharge_keys": null,
+    "guarantee_fee_surcharge_keys": null,
+    "carrier_and_government_fees_surcharge_keys": null,
+    "processing_fees_surcharge_keys": null,
+    "is_rate_guaranteed": false
+   },
+   "truck_details_ftl": "",
+   "transit_mode_ftl": "",
+   "paperless": false
+  }
+ ]
+}
