@@ -68,7 +68,7 @@ select pg_temp.chk('F9 849: a Billing address at the same street · postal (tail
 select pg_temp.chk('F10 fc_shipment_prepare reissued (md5 · exactly one) · fc_shipment_for_so · fc_address_review_close · so_finalize untouched',
   (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_shipment_prepare') || '/' || (select count(*) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_shipment_prepare') || '/' ||
   (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_shipment_for_so') || '/' || (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_address_review_close') || '/' || (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'so_finalize'),
-  '2a2a0206f9f2b12320dd93f6467fa8fc/1/96061e2282effaf347e436ec2c4b5e74/c1d1ef93039219c31d36bcdf47275b74/' || :'fin_md5_0');
+  '2a2a0206f9f2b12320dd93f6467fa8fc/1/83b5e899f8fd8ebcbe5d654a20b20c4a/c1d1ef93039219c31d36bcdf47275b74/' || :'fin_md5_0');
 
 -- ── 결과 ──
 select clock_timestamp() - :'t_begin'::timestamptz as begin_to_now \gset

@@ -1,0 +1,254 @@
+{
+  "shipment": {
+    "id": "uv2bNzor8tvsd2fDt77sTW3VMV9J6H1u",
+    "unique_id": "ims-probe-ltl-maritime-153504",
+    "state": "waiting-for-transit",
+    "transaction_number": "20120446",
+    "primary_tracking_number": "F8093865",
+    "tracking_numbers": [
+      "F8093865"
+    ],
+    "tracking_url": "https://www.m-o.com/quick-track-form/?t=F8093865",
+    "return_tracking_number": "",
+    "bolnumber": "MO393895",
+    "pickup_confirmation_number": "",
+    "details": {
+      "id": "TB1vJ0w0HVWKPdZBwEAdoF1KxpXupIct",
+      "expected_ship_date": {
+        "year": 2026,
+        "month": 10,
+        "day": 29
+      },
+      "origin": {
+        "searchable_id": "",
+        "name": "Asung Trading Inc.",
+        "address": {
+          "address_line1": "35 Suntract Road",
+          "address_line2": "",
+          "unit_number": "",
+          "city": "North York",
+          "region": "ON",
+          "country": "CA",
+          "postal_code": "M9N 2V8",
+          "validated": false
+        },
+        "residential": false,
+        "business_type": "",
+        "tailgate_required": false,
+        "instructions": "",
+        "contact_name": "Caleb Chang",
+        "phone_number": {
+          "number": "4167922298",
+          "extension": ""
+        },
+        "email_addresses": [
+          "caleb@asung.ca"
+        ],
+        "receives_email_updates": false,
+        "address_book_contact_id": ""
+      },
+      "destination": {
+        "searchable_id": "",
+        "name": "Asung - Edmonton",
+        "address": {
+          "address_line1": "18418 105 Ave NW",
+          "address_line2": "",
+          "unit_number": "",
+          "city": "Edmonton",
+          "region": "AB",
+          "country": "CA",
+          "postal_code": "T5S 0N7",
+          "validated": false
+        },
+        "residential": false,
+        "business_type": "",
+        "tailgate_required": true,
+        "instructions": "",
+        "contact_name": "Caleb Chang",
+        "phone_number": {
+          "number": "7807527678",
+          "extension": ""
+        },
+        "email_addresses": [
+          "info@asung.ca"
+        ],
+        "receives_email_updates": false,
+        "address_book_contact_id": "",
+        "ready_at": {
+          "hour": null,
+          "minute": null,
+          "populated": null
+        },
+        "ready_until": {
+          "hour": null,
+          "minute": null,
+          "populated": null
+        },
+        "signature_requirement": "not-required",
+        "proof_of_age_nineteen": false,
+        "no_safe_drop": false
+      },
+      "alternate_destination": null,
+      "reference_codes": null,
+      "packaging_type": "pallet",
+      "packaging_properties": {
+        "pallet_type": "ltl",
+        "pallets": [
+          {
+            "measurements": {
+              "cuboid": {
+                "l": 48,
+                "w": 40,
+                "h": 48,
+                "unit": "in"
+              },
+              "weight": {
+                "value": 800,
+                "unit": "lb"
+              }
+            },
+            "description": "Hair care products",
+            "freight_class": "70",
+            "nmfc": "",
+            "contents_type": "",
+            "num_pieces": 1,
+            "num_pallets": 0,
+            "stackable": false,
+            "standard_size": false
+          },
+          {
+            "measurements": {
+              "cuboid": {
+                "l": 48,
+                "w": 40,
+                "h": 48,
+                "unit": "in"
+              },
+              "weight": {
+                "value": 800,
+                "unit": "lb"
+              }
+            },
+            "description": "Hair care products",
+            "freight_class": "70",
+            "nmfc": "",
+            "contents_type": "",
+            "num_pieces": 1,
+            "num_pallets": 0,
+            "stackable": false,
+            "standard_size": false
+          }
+        ],
+        "has_stackable_pallets": false,
+        "dangerous_goods": "",
+        "dangerous_goods_details": {
+          "packaging_group": "",
+          "goods_class": "",
+          "description": "",
+          "united_nations_number": "",
+          "emergency_contact_name": "",
+          "emergency_contact_phone_number": {
+            "number": "",
+            "extension": ""
+          }
+        },
+        "pallet_service_details": {
+          "limited_access_delivery_type": "",
+          "limited_access_delivery_other_name": "",
+          "in_bond": false,
+          "in_bond_details": null,
+          "refrigerated_service": "",
+          "appointment_delivery": false,
+          "protect_from_freeze": false,
+          "threshold_pickup": false,
+          "threshold_delivery": false,
+          "trade_show_delivery": false,
+          "distribution_center_delivery": false,
+          "amazon_or_fbadelivery": false,
+          "amazon_or_fbadelivery_details": null
+        }
+      },
+      "insurance": null,
+      "billing_contact": null,
+      "customs_data": null,
+      "shipment_classification": ""
+    },
+    "transport_data": null,
+    "labels": [
+      {
+        "size": "letter",
+        "format": "pdf",
+        "url": "https://s3.us-east-2.amazonaws.com/ssd-test-external/labels/uv2bNzor8tvsd2fDt77sTW3VMV9J6H1u/MASKED/shipping-label-20120446-BOL.pdf",
+        "padded": false
+      }
+    ],
+    "customs_invoice_url": "",
+    "rate": {
+      "service_id": "maritime.dry",
+      "valid_until": {
+        "year": 2026,
+        "month": 11,
+        "day": 4
+      },
+      "total": {
+        "value": "52713",
+        "currency": "CAD"
+      },
+      "base": {
+        "value": "33844",
+        "currency": "CAD"
+      },
+      "surcharges": [
+        {
+          "type": "fuel",
+          "amount": {
+            "value": "12316",
+            "currency": "CAD"
+          }
+        },
+        {
+          "type": "admin",
+          "amount": {
+            "value": "193",
+            "currency": "CAD"
+          }
+        },
+        {
+          "type": "liftgate-delivery",
+          "amount": {
+            "value": "3850",
+            "currency": "CAD"
+          }
+        }
+      ],
+      "taxes": [
+        {
+          "type": "tax-gst-ab",
+          "amount": {
+            "value": "2510",
+            "currency": "CAD"
+          }
+        }
+      ],
+      "transit_time_days": 6,
+      "transit_time_not_available": false,
+      "carrier_cut_off_time": "31-12-0000 06:42PM",
+      "estimated_delivery_time": "31-12-0000 06:42PM",
+      "carrier_name": "Maritime",
+      "service_name": "Dry",
+      "customs_charge_data": {
+        "duties_and_taxes_surcharge_keys": null,
+        "guarantee_fee_surcharge_keys": null,
+        "carrier_and_government_fees_surcharge_keys": null,
+        "processing_fees_surcharge_keys": null,
+        "is_rate_guaranteed": false
+      },
+      "truck_details_ftl": "",
+      "transit_mode_ftl": "",
+      "paperless": false
+    },
+    "order_source": "Api",
+    "paperless_customs_documents": null
+  },
+  "_fixture_note": "2026-10-28 Caleb PC probe (Freightcom TEST environment · GET /shipment/{id} 200 body after booking · the booking was cancelled right after). labels[].url: the random folder segment is replaced with MASKED (the rest is the real shape). Nothing else in the file is a credential (the label links carried no query string). Phone numbers · emails are Asung business contacts (ref_warehouse). Tracking numbers are Freightcom test values."
+}

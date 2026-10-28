@@ -1,0 +1,210 @@
+{
+  "shipment": {
+    "id": "CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4",
+    "unique_id": "ims-probe-20261028152834",
+    "state": "waiting-for-transit",
+    "transaction_number": "20120444",
+    "primary_tracking_number": "1ZXXXXXXXXXXXXXXXX",
+    "tracking_numbers": [
+      "1ZXXXXXXXXXXXXXXXX"
+    ],
+    "tracking_url": "https://www.ups.com/WebTracking?trackingNumber=1ZXXXXXXXXXXXXXXXX",
+    "return_tracking_number": "",
+    "bolnumber": "",
+    "pickup_confirmation_number": "",
+    "details": {
+      "id": "SlXPojBDbGO8yKLiryUe2XiQEcLrkvXa",
+      "expected_ship_date": {
+        "year": 2026,
+        "month": 10,
+        "day": 29
+      },
+      "origin": {
+        "searchable_id": "",
+        "name": "Asung Trading Inc.",
+        "address": {
+          "address_line1": "35 Suntract Road",
+          "address_line2": "",
+          "unit_number": "",
+          "city": "North York",
+          "region": "ON",
+          "country": "CA",
+          "postal_code": "M9N 2V8",
+          "validated": false
+        },
+        "residential": false,
+        "business_type": "",
+        "tailgate_required": false,
+        "instructions": "",
+        "contact_name": "Caleb Chang",
+        "phone_number": {
+          "number": "4167922298",
+          "extension": ""
+        },
+        "email_addresses": [
+          "caleb@asung.ca"
+        ],
+        "receives_email_updates": false,
+        "address_book_contact_id": ""
+      },
+      "destination": {
+        "searchable_id": "",
+        "name": "Asung - Edmonton",
+        "address": {
+          "address_line1": "18418 105 Ave NW",
+          "address_line2": "",
+          "unit_number": "",
+          "city": "Edmonton",
+          "region": "AB",
+          "country": "CA",
+          "postal_code": "T5S 0N7",
+          "validated": false
+        },
+        "residential": false,
+        "business_type": "",
+        "tailgate_required": false,
+        "instructions": "",
+        "contact_name": "Caleb Chang",
+        "phone_number": {
+          "number": "7807527678",
+          "extension": ""
+        },
+        "email_addresses": [
+          "info@asung.ca"
+        ],
+        "receives_email_updates": false,
+        "address_book_contact_id": "",
+        "ready_at": {
+          "hour": null,
+          "minute": null,
+          "populated": null
+        },
+        "ready_until": {
+          "hour": null,
+          "minute": null,
+          "populated": null
+        },
+        "signature_requirement": "not-required",
+        "proof_of_age_nineteen": false,
+        "no_safe_drop": false
+      },
+      "alternate_destination": null,
+      "reference_codes": null,
+      "packaging_type": "package",
+      "packaging_properties": {
+        "packages": [
+          {
+            "measurements": {
+              "cuboid": {
+                "l": 17,
+                "w": 12,
+                "h": 13,
+                "unit": "in"
+              },
+              "weight": {
+                "value": 23,
+                "unit": "lb"
+              }
+            },
+            "description": "Hair care products",
+            "special_handling_required": false
+          }
+        ],
+        "has_dangerous_goods": false,
+        "dangerous_goods_details": {
+          "goods_class": "",
+          "united_nations_number": ""
+        },
+        "includes_return_label": false,
+        "package_service_details": {
+          "no_safe_drop": false,
+          "proof_of_age_nineteen": false,
+          "proof_of_age_eighteen": false
+        }
+      },
+      "insurance": null,
+      "billing_contact": null,
+      "customs_data": null,
+      "shipment_classification": ""
+    },
+    "transport_data": null,
+    "labels": [
+      {
+        "size": "letter",
+        "format": "pdf",
+        "url": "https://s3.us-east-2.amazonaws.com/ssd-test-external/labels/CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4/MASKED/shipping-label-20120444-letter.pdf",
+        "padded": false
+      },
+      {
+        "size": "a6",
+        "format": "zpl",
+        "url": "https://s3.us-east-2.amazonaws.com/ssd-test-external/labels/CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4/MASKED/shipping-label-20120444-a6.zpl",
+        "padded": false
+      },
+      {
+        "size": "letter",
+        "format": "pdf",
+        "url": "https://s3.us-east-2.amazonaws.com/ssd-test-external/labels/CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4/MASKED/shipping-label-20120444-letter-landscape.pdf",
+        "padded": false
+      },
+      {
+        "size": "a6",
+        "format": "pdf",
+        "url": "https://s3.us-east-2.amazonaws.com/ssd-test-external/labels/CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4/MASKED/shipping-label-20120444-a6.pdf",
+        "padded": false
+      },
+      {
+        "size": "a6",
+        "format": "pdf",
+        "url": "https://s3.us-east-2.amazonaws.com/ssd-test-external/labels/CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4/MASKED/shipping-label-20120444-a6-w-padding.pdf",
+        "padded": true
+      }
+    ],
+    "customs_invoice_url": "",
+    "rate": {
+      "service_id": "ups.standard",
+      "valid_until": {
+        "year": 2026,
+        "month": 11,
+        "day": 4
+      },
+      "total": {
+        "value": "3482",
+        "currency": "CAD"
+      },
+      "base": {
+        "value": "3316",
+        "currency": "CAD"
+      },
+      "surcharges": [],
+      "taxes": [
+        {
+          "type": "tax-gst-ab",
+          "amount": {
+            "value": "166",
+            "currency": "CAD"
+          }
+        }
+      ],
+      "transit_time_days": 4,
+      "transit_time_not_available": false,
+      "carrier_cut_off_time": "31-12-0000 06:42PM",
+      "estimated_delivery_time": "31-12-0000 06:42PM",
+      "carrier_name": "UPS",
+      "service_name": "Standard",
+      "customs_charge_data": {
+        "duties_and_taxes_surcharge_keys": null,
+        "guarantee_fee_surcharge_keys": null,
+        "carrier_and_government_fees_surcharge_keys": null,
+        "processing_fees_surcharge_keys": null,
+        "is_rate_guaranteed": false
+      },
+      "truck_details_ftl": "",
+      "transit_mode_ftl": "",
+      "paperless": false
+    },
+    "order_source": "Api",
+    "paperless_customs_documents": null
+  },
+  "_fixture_note": "2026-10-28 Caleb PC probe (Freightcom TEST environment · GET /shipment/{id} 200 body after booking · the booking was cancelled right after). labels[].url: the random folder segment is replaced with MASKED (the rest is the real shape). Nothing else in the file is a credential (the label links carried no query string). Phone numbers · emails are Asung business contacts (ref_warehouse). Tracking numbers are Freightcom test values."
+}
