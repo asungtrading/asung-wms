@@ -1,5 +1,5 @@
-// deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음)
-import { ACCOUNT_RE, apiKeyFor, attachFreightClass, cents, noAccountSentence, secretNameFor, servicesCacheKey, distinctCarriers, fcErrorSentence, freightClassOf, palletBoxes, parseServices, pickServices, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, shouldKeepPolling, type RateRequest } from "../_shared/freightcom.ts";
+// deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b 견적 ① ~ ⑥ · fc-2c 예약 ⑦ ~ ⑩ · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음 · book-*.json 의 라벨 url 폴더는 MASKED)
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, cents, distinctCarriers, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, secretNameFor, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, type RateRequest } from "../_shared/freightcom.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -104,4 +104,66 @@ Deno.test("⑥ fc-1b4 판정 848 — 계정별 비밀값 FREIGHTCOM_API_KEY_<계
   eq([ACCOUNT_RE.test("A1"), ACCOUNT_RE.test("ABCDEFGHIJ"), ACCOUNT_RE.test("ABCDEFGHIJK"), ACCOUNT_RE.test("T"), ACCOUNT_RE.test("T-1")], [true, true, false, false, false], "2–10 upper alnum");
   eq(noAccountSentence("Asung - Edmonton", "EDM").startsWith("Warehouse Asung - Edmonton has no Freightcom connection — the secret FREIGHTCOM_API_KEY_EDM is not set"), true, "sentence names the secret");
   eq(servicesCacheKey(" tor ") === servicesCacheKey("TOR") && servicesCacheKey("TOR") !== servicesCacheKey("EDM"), true, "cache per account");
+});
+
+// ── fc-2c 예약 · 취소 · 라벨 (fixtures book-package.json · book-ltl-maritime.json = GET /shipment/{id} 200 원문 · {shipment:{…}} 로 감싸임) ──
+Deno.test("⑦ 예약 응답 해석 — {shipment:{…}} · 맨몸 둘 다 · 상자: UPS · 추적 1 · 라벨 5 · bol 빈 글자 · 팔렛: maritime · F8093865 · bolnumber MO393895 · 라벨 1 · POST 202 {id} 읽기", () => {
+  const pkg = read("book-package.json"), ltl = read("book-ltl-maritime.json");
+  const s = shipmentOf(pkg);
+  eq([s.id, s.state, s.primary_tracking_number, (s.tracking_numbers as unknown[]).length, (s.labels as unknown[]).length, s.bolnumber, (s.rate as { service_id: string }).service_id], ["CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4", "waiting-for-transit", "1ZXXXXXXXXXXXXXXXX", 1, 5, "", "ups.standard"], "package shipment");
+  eq(shipmentOf(s).id, s.id, "bare body is the same");
+  const m = shipmentOf(ltl);
+  eq([m.id, m.primary_tracking_number, m.bolnumber, (m.labels as unknown[]).length, (m.details as { packaging_type: string }).packaging_type, (m.rate as { carrier_name: string }).carrier_name], ["uv2bNzor8tvsd2fDt77sTW3VMV9J6H1u", "F8093865", "MO393895", 1, "pallet", "Maritime"], "ltl shipment (B said bol null — the file says MO393895)");
+  eq(freightcomIdOf({ id: " abc " }), "abc", "POST /shipment 202 {id}");
+  let threw = ""; try { freightcomIdOf({}); } catch (e) { threw = (e as Error).message; }
+  eq(threw.includes("no id"), true, "missing id stops");
+  eq(shipmentOf(null), {}, "null → empty object");
+});
+
+Deno.test("⑧ 다시 묻기 판정 — 202 아직 · 200 끝(fixture) · 400 booking carrier = 실패 문장 · 200 인데 id 없음 = 실패 · 시한 25 초 · 취소 200/204 ok · 403 = 서지 않은 예약", () => {
+  eq(bookOutcome(202, null).kind, "pending", "202 → pending");
+  const done = bookOutcome(200, read("book-package.json"));
+  eq(done.kind === "done" && done.shipment.id, "CbeeOPfzfSDUI1ajuQCx8NwjElun7pm4", "200 fixture → done with shipment");
+  const bad = bookOutcome(400, { message: "bad or missing data", data: { booking: "carrier" } });
+  eq(bad.kind === "failed" && bad.error, "Freightcom book 400: bad or missing data (booking: carrier)", "400 booking carrier sentence (B · Purolator Freight on the test account)");
+  eq(bookOutcome(200, { foo: 1 }).kind, "failed", "200 without id/state → failed");
+  eq(bookErrorSentence(401, { error: "unauthorized", token: "zzz" }).includes("zzz"), false, "token masked");
+  eq(bookErrorSentence(401, { error: "unauthorized" }).includes("FREIGHTCOM_API_KEY_<account>"), true, "401 hint");
+  const t0 = 5_000_000;
+  eq(shouldKeepBookPolling({ kind: "pending" }, t0, t0 + 6_000), true, "6 s pending → keep (box took 6 s · B)");
+  eq(shouldKeepBookPolling({ kind: "pending" }, t0, t0 + BOOK_WAIT_MS), false, "deadline → stop (screen polls on with booking_id)");
+  eq(shouldKeepBookPolling(bad, t0, t0 + 1_000), false, "failed → stop");
+  eq(cancelOutcome(200, null), { ok: true, error: null }, "DELETE 200");
+  eq(cancelOutcome(204, null).ok, true, "DELETE 204");
+  const c403 = cancelOutcome(403, "permission denied");
+  eq(c403.ok === false && c403.error!.startsWith("Freightcom cancel 403 — Freightcom refuses: the shipment is not booked there"), true, "403 = failed attempt · nothing to cancel: " + c403.error);
+});
+
+Deno.test("⑨ 라벨 고르기(851) — 상자 5 → a6 pdf(padded 아님) + letter pdf 세로(landscape 아님) · zpl · padded · landscape 는 건너뜀 · 팔렛 1 → letter 만 · 빈 목록 · 경로 꼴 · %PDF 판정", () => {
+  const p = pickLabels(shipmentOf(read("book-package.json")).labels);
+  eq([p.a6?.size, p.a6?.format, p.a6?.padded, /a6\.pdf$/.test(p.a6?.url ?? "")], ["a6", "pdf", false, true], "a6 pdf unpadded");
+  eq([p.letter?.size, p.letter?.format, /letter\.pdf$/.test(p.letter?.url ?? ""), /landscape/.test(p.letter?.url ?? "")], ["letter", "pdf", true, false], "letter portrait");
+  eq(p.skipped, ["a6:zpl", "letter:pdf", "a6:pdf:padded"], "skipped three (zpl · landscape letter · padded a6)");
+  const l = pickLabels(shipmentOf(read("book-ltl-maritime.json")).labels);
+  eq([l.a6, l.letter?.size, /BOL\.pdf$/.test(l.letter?.url ?? ""), l.skipped], [null, "letter", true, []], "pallet: one letter (BOL + label) · no a6");
+  eq(pickLabels(null), { a6: null, letter: null, skipped: [] }, "no labels");
+  eq(pickLabels([{ size: "a6", format: "pdf", padded: true, url: "u" }]).a6?.padded, true, "only padded a6 → take it");
+  eq(labelPath("6815bff7-5527-4f8e-9f13-53e02dbe3b67", 3, "a6", false), "fc_label/6815bff7-5527-4f8e-9f13-53e02dbe3b67-3-a6.pdf", "path (matches fc_label_path_ck)");
+  eq(labelPath("x", 1, "letter", true), "fc_label/x-1-letter-padded.pdf", "padded path");
+  eq(isPdf(new TextEncoder().encode("%PDF-1.4 ...")), true, "pdf magic");
+  eq(isPdf(new TextEncoder().encode("<html>")), false, "html is not a pdf (S3 error page)");
+});
+
+Deno.test("⑩ 결제수단 · 예약 몸 — 배열 / {payment_methods} · net-terms 먼저 · id 없으면 멈춤 · 캐시 열쇠 · payment_method_id 는 EF 가 끼운다(코드에 값 없음)", () => {
+  eq(paymentMethodOf([{ id: "pm1", type: "credit-card", label: "Visa" }, { id: "pm2", type: "net-terms", label: "Net Terms" }]), { id: "pm2", type: "net-terms", label: "Net Terms" }, "net-terms preferred");
+  eq(paymentMethodOf({ payment_methods: [{ id: "pm9", type: "credit-card", label: "Visa" }] }).id, "pm9", "wrapped · first when no net-terms");
+  let threw = ""; try { paymentMethodOf([]); } catch (e) { threw = (e as Error).message; }
+  eq(threw.includes("no payment method"), true, "empty → stop");
+  threw = ""; try { paymentMethodOf([{ type: "net-terms" }]); } catch (e) { threw = (e as Error).message; }
+  eq(threw.includes("no id"), true, "no id → stop");
+  eq(paymentCacheKey(" tor ") === paymentCacheKey("TOR") && paymentCacheKey("TOR") !== servicesCacheKey("TOR"), true, "cache key per account · apart from services");
+  const req = { unique_id: "u", service_id: "ups.standard", details: { packaging_type: "package" }, pickup_details: { pre_scheduled_pickup: true } };
+  const sent = bookBody(req, "pm2");
+  eq(Object.keys(sent).sort(), ["details", "payment_method_id", "pickup_details", "service_id", "unique_id"], "body keys");
+  eq((req as Record<string, unknown>).payment_method_id, undefined, "original untouched");
 });

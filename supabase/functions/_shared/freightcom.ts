@@ -123,3 +123,86 @@ export function fcErrorSentence(action: string, status: number, body: unknown): 
   const hint = status === 401 ? " — FREIGHTCOM_API_KEY is wrong or expired (the test link lasts a week · ask Caleb to set it again)" : status === 404 ? " — path or request_id unknown" : "";
   return `Freightcom ${action} failed (HTTP ${status})${hint}: ${text.replace(/"?(api[_-]?key|authorization|token)"?\s*[:=]\s*"?[^",\s]+/gi, "$1:***").slice(0, 400)}`;
 }
+
+// ============================================================
+// fc-2c (2026-10-28 · 판정 851 ~ 858) — 예약 · 취소 · 라벨의 순수 함수 · 실측 B + fixtures book-package.json · book-ltl-maritime.json
+//   POST /shipment {unique_id, payment_method_id, service_id, details, pickup_details | dispatch_details} → 202 {id} · GET /shipment/{id} → 202(아직) · 200 {…state, primary_tracking_number, tracking_numbers, labels[]…} · 400 {"message":"bad or missing data","data":{"booking":"carrier"}}(서지 않은 예약)
+//   DELETE /shipment/{id} → 200(취소됨) · 403 permission denied(실패한 시도 — 지울 것 없음) · GET /finance/payment-methods → 계정마다 하나 {id, type:"net-terms", label}
+//   라벨: 상자 5(letter pdf ×2 — 둘째는 url 에 landscape · a6 zpl · a6 pdf · a6 pdf padded) · 팔렛 1(letter pdf = BOL + 라벨) · 851: 받는 것은 a6 pdf(padded 아님) + letter pdf(세로) · zpl 은 받지 않는다
+// ============================================================
+export const BOOK_WAIT_MS = 25_000;
+export const PAYMENT_CACHE_MS = 10 * 60_000;
+export const FC_BOOK_ACTIONS = ["book", "book_poll", "cancel", "label"] as const;
+export const paymentCacheKey = (account: string) => "payment:" + account.trim().toUpperCase();
+export type FcLabel = { size: string; format: string; url: string; padded: boolean };
+export type BookOutcome = { kind: "pending" } | { kind: "done"; shipment: Record<string, unknown> } | { kind: "failed"; error: string; body: unknown };
+
+// 프로브 원문은 {shipment:{…}} 로 감싸였고 API 맨몸도 있을 수 있다 — 둘 다 같은 것으로
+export function shipmentOf(body: unknown): Record<string, unknown> {
+  const b = body as Record<string, unknown> | null;
+  const s = b && typeof b === "object" && b.shipment && typeof b.shipment === "object" ? (b.shipment as Record<string, unknown>) : b;
+  return s && typeof s === "object" ? s : {};
+}
+export function freightcomIdOf(body: unknown): string {
+  const id = shipmentOf(body).id;
+  if (typeof id !== "string" || id.trim() === "") throw new Error("Freightcom /shipment returned no id");
+  return id.trim();
+}
+// 예약 오류 문장 — 400 {"message":"bad or missing data","data":{"booking":"carrier"}} → "Freightcom book 400: bad or missing data (booking: carrier)" · 토큰 글자 없음
+export function bookErrorSentence(status: number, body: unknown): string {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const msg = typeof body === "string" ? body : String(b.message ?? b.error ?? JSON.stringify(body ?? ""));
+  const data = b.data && typeof b.data === "object" ? Object.entries(b.data as Record<string, unknown>).map(([k, v]) => `${k}: ${String(v)}`).join(", ") : "";
+  const hint = status === 401 ? " — FREIGHTCOM_API_KEY_<account> is wrong or expired" : "";
+  return `Freightcom book ${status}: ${msg}${data ? " (" + data + ")" : ""}${hint}`.replace(/"?(api[_-]?key|authorization|token)"?\s*[:=]\s*"?[^",\s]+/gi, "$1:***").slice(0, 400);
+}
+// GET /shipment/{id} 한 번의 판정 — 202 아직 · 200 끝(id 와 state 가 있어야) · 그 밖(400 booking carrier 등)은 실패 = 서지 않은 예약
+export function bookOutcome(status: number, body: unknown): BookOutcome {
+  if (status === 202) return { kind: "pending" };
+  if (status === 200) {
+    const s = shipmentOf(body);
+    if (typeof s.id === "string" && typeof s.state === "string") return { kind: "done", shipment: s };
+    return { kind: "failed", error: "Freightcom book 200: answer has no shipment id/state", body };
+  }
+  return { kind: "failed", error: bookErrorSentence(status, body), body };
+}
+export function shouldKeepBookPolling(o: BookOutcome, startedAt: number, now: number, waitMs = BOOK_WAIT_MS): boolean {
+  return o.kind === "pending" && now - startedAt < waitMs;
+}
+// 결제수단 — 배열 또는 {payment_methods:[…]} · net-terms 를 먼저 · 없으면 첫째 · id 가 없으면 멈춤(값은 코드 · 마이그레이션에 박지 않는다 — 계정마다 EF 가 읽는다 · B)
+export function paymentMethodOf(body: unknown): { id: string; type: string; label: string } {
+  const b = body as Record<string, unknown> | unknown[] | null;
+  const arr = Array.isArray(b) ? b : Array.isArray((b as Record<string, unknown>)?.payment_methods) ? ((b as Record<string, unknown>).payment_methods as unknown[]) : Array.isArray((b as Record<string, unknown>)?.data) ? ((b as Record<string, unknown>).data as unknown[]) : null;
+  if (!arr || arr.length === 0) throw new Error("Freightcom /finance/payment-methods returned no payment method for this account");
+  const rows = arr as Record<string, unknown>[];
+  const pick = rows.find((r) => String(r.type ?? "").toLowerCase() === "net-terms") ?? rows[0];
+  const id = String(pick.id ?? pick.payment_method_id ?? "").trim();
+  if (!id) throw new Error("Freightcom payment method has no id");
+  return { id, type: String(pick.type ?? ""), label: String(pick.label ?? "") };
+}
+export function bookBody(request: Record<string, unknown>, paymentMethodId: string): Record<string, unknown> {
+  return { ...request, payment_method_id: paymentMethodId };
+}
+// 851: 상자 = a6 pdf(padded 아님 · 없으면 padded) + letter pdf 세로(url 에 landscape 가 없는 것 · 없으면 첫 letter pdf) · 팔렛 = letter 하나 · zpl · 나머지는 받지 않는다(목록은 fc_booking.labels 원문에 남는다)
+export function pickLabels(labels: unknown): { a6: FcLabel | null; letter: FcLabel | null; skipped: string[] } {
+  const list = (Array.isArray(labels) ? labels : []).map((l) => { const o = l as Record<string, unknown>; return { size: String(o.size ?? "").toLowerCase(), format: String(o.format ?? "").toLowerCase(), url: String(o.url ?? ""), padded: o.padded === true }; }).filter((l) => l.url);
+  const a6 = list.find((l) => l.size === "a6" && l.format === "pdf" && !l.padded) ?? list.find((l) => l.size === "a6" && l.format === "pdf") ?? null;
+  const letters = list.filter((l) => l.size === "letter" && l.format === "pdf");
+  const letter = letters.find((l) => !/landscape/i.test(l.url)) ?? letters[0] ?? null;
+  const skipped = list.filter((l) => l !== a6 && l !== letter).map((l) => `${l.size}:${l.format}${l.padded ? ":padded" : ""}`);
+  return { a6, letter, skipped };
+}
+export function labelPath(shipmentId: string, attempt: number, size: string, padded: boolean): string {
+  const id = String(shipmentId).replace(/[^A-Za-z0-9._-]/g, "");
+  if (!id) throw new Error("labelPath: empty shipment id");
+  return `fc_label/${id}-${attempt}-${size}${padded ? "-padded" : ""}.pdf`;
+}
+export function isPdf(bytes: Uint8Array): boolean {
+  return bytes.length > 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d;   // %PDF-
+}
+// DELETE /shipment/{id} — 200 · 204 취소됨 · 403 = 서지 않은 예약(실패한 시도)이거나 다른 계정 · 그 밖은 문장
+export function cancelOutcome(status: number, body: unknown): { ok: boolean; error: string | null } {
+  if (status === 200 || status === 204) return { ok: true, error: null };
+  const hint = status === 403 ? " — Freightcom refuses: the shipment is not booked there (a failed attempt) or belongs to another account" : "";
+  return { ok: false, error: `Freightcom cancel ${status}${hint}: ${(typeof body === "string" ? body : JSON.stringify(body ?? "")).slice(0, 300)}` };
+}
