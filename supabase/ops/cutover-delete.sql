@@ -91,6 +91,7 @@ end $$;
 -- ③ 분류 대조 — public 의 모든 표가 지움(D) · 남김(K) · 다시 맞춤(R) 중 정확히 하나에 있어야 한다. 아니면 그 표 이름을 대고 멈춘다.
 --    (컷오버 전에 새 표가 생기면 여기서 잡힌다 — deferred 332 의 「거래 표에 FK 거는 새 표」 규칙의 그물)
 --    목록은 cutdel-0 · cutdel-1 실측(2026-10-26 · 172 표 = D 79 · K 73 · R 20). ⚠️ 표를 더하거나 뺄 때 이 목록과 reload-procedure §P 를 함께 고친다.
+--    [2026-10-28 · fc-1a] D + 4(fc_quote_rate fc_quote fc_shipment_so fc_shipment · d11) · K + 2(customer_carrier_avoid fc_call_log · k10) → 178 표 = D 83 · K 75 · R 20 (reload-procedure §P 는 문서 차수에서)
 \set d1 'doc_file doc_mail_skip drive_job drive_shortcut inv_adjust inv_adjust_line inv_cost_adjust inv_move'
 \set d2 'inv_move_line inv_transfer inv_transfer_line inv_transfer_settle mail_backorder_line mail_outbox mail_outbox_event mail_run'
 \set d3 'mail_run_error po po_charge po_charge_alloc po_discount po_doc po_invoice po_invoice_discount'
@@ -101,7 +102,8 @@ end $$;
 \set d8 'so_line so_line_merge_source so_payment so_payment_alloc so_payment_order so_reserve so_stock_short_check wms_order_finalize'
 \set d9 'wms_order_review wms_pack_task_lines wms_pack_tasks wms_pallet_items wms_pallets wms_pick_line_bins wms_pick_task_lines wms_pick_tasks'
 \set d10 'wms_receipt_complete wms_reports wms_rollback_archive wms_rollback_log wms_task_holds wms_waves wms_worker_mistakes'
-\set dall :d1 ' ' :d2 ' ' :d3 ' ' :d4 ' ' :d5 ' ' :d6 ' ' :d7 ' ' :d8 ' ' :d9 ' ' :d10
+\set d11 'fc_quote_rate fc_quote fc_shipment_so fc_shipment'
+\set dall :d1 ' ' :d2 ' ' :d3 ' ' :d4 ' ' :d5 ' ' :d6 ' ' :d7 ' ' :d8 ' ' :d9 ' ' :d10 ' ' :d11
 \set k1 'bgrade_price customer customer_address customer_contact doc_setting doc_template doc_template_active doc_template_event'
 \set k2 'drive_folder hist_po hist_po_line hist_so hist_so_line ims_image_sync_queue ims_image_sync_runs ims_image_sync_skips'
 \set k3 'ims_staff inv_config price_formula price_fx price_tier_rule product product_barcode product_bin_overflow'
@@ -111,7 +113,7 @@ end $$;
 \set k7 'ref_warehouse shop_call_log shop_customer shop_link_item shop_link_run shop_listing shop_location shop_media'
 \set k8 'shop_product shop_stock_sent shop_store shop_variant so_deal so_deal_customer_rule so_deal_line so_deal_target'
 \set k9 'so_deal_tier so_payment_account_default so_surcharge_group supplier supplier_address supplier_contact supplier_discount wms_drop_locations'
-\set k10 'wms_zone_sequence'
+\set k10 'wms_zone_sequence customer_carrier_avoid fc_call_log'
 \set kall :k1 ' ' :k2 ' ' :k3 ' ' :k4 ' ' :k5 ' ' :k6 ' ' :k7 ' ' :k8 ' ' :k9 ' ' :k10
 \set r1 'inv_balance_diffs inv_bin_notes inv_collect_runs inv_compare inv_compare_runs inv_conflicts inv_cost inv_doc_cost'
 \set r2 'inv_doc_state inv_layer inv_layer_consume inv_layer_cost_add inv_ledger inv_missing_docs inv_missing_lines inv_sku_types'
