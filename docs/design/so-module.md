@@ -246,7 +246,7 @@ Caleb: "이전에는 인보이스 발행을 먼저 요구하는 손님들이 있
 
 ⚠️ PO 의 운임과 방향이 반대다 — 그쪽은 **원가에 얹고**(landed) 이쪽은 **매출로 잡는다**.
 
-**금액은 지금 손으로 옮겨 적는다:**
+**금액은 지금 손으로 옮겨 적는다:** → [2026-10-28 · docs-1028h] 테스트 환경에서는 자동(`freightcom-integration.md` · §84 · §85) · 운영은 토큰 + EF 테스트 가드를 풀 때까지 손으로(deferred 326 · 364)
 Caleb: "freightcom이라는 third party 쉽핑 컴파니를 통해 쉽핑 어레인지를 하고 있어. 그래서
 freightcom에 로그인해서 거기서 쉽핑 정보를 넣고 퀏을 받은 후 그 가격을 넣고 있어."
 
@@ -254,6 +254,7 @@ freightcom에 로그인해서 거기서 쉽핑 정보를 넣고 퀏을 받은 �
 넘버와 캐리어를 넣고 있어."
 ⇒ ⚠️ 운임과 추적번호가 **두 번 옮겨 적힌다.** Freightcom API 를 붙이면 견적이 운임이 되고
 예약이 추적번호를 돌려주므로 **한 번에 해결된다**.
+  → [2026-10-28 · docs-1028h] 운송사 · 추적번호도 같다 — 예약이 발송의 모든 SO 에 쓴다(855) · 테스트 환경에서 자동 · 운영은 토큰 + EF 테스트 가드를 풀 때까지 손으로(`freightcom-integration.md` · deferred 326 · 364)
 
 ### 1-q 브랜치 — 에드먼튼도 같은 흐름
 
@@ -505,7 +506,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 
 ### 3-b 아직 안 들은 실무
 - **Shopify 두 스토어**의 차이 — 나중 범위지만 구조에 영향이 있을 수 있다
-~~택배사 선택·추적번호~~ → ✅ §1-p(Freightcom 에서 받아 **손으로** 넣는다)
+~~택배사 선택·추적번호~~ → ✅ §1-p(Freightcom 에서 받아 **손으로** 넣는다) → [2026-10-28 · docs-1028h] 테스트 환경에서는 자동(`freightcom-integration.md` · §84 · §85) · 운영은 토큰 + EF 테스트 가드를 풀 때까지 손으로(deferred 326 · 364)
 ~~에드먼튼 브랜치의 운영 차이~~ → ✅ §1-q(같은 흐름 · WMS 만 창고로 거른다)
 
 ### 3-c 설계 시 정할 것
@@ -522,6 +523,7 @@ Cin7 에서 실물을 하나 열어 확인한 뒤 설계에 넣는다.
 - **Shopify 연동** — 건수 80%
 - **Freightcom API 연동** — 지금은 별도 로그인 → 견적 → 손으로 옮겨 적음.
   Caleb: "cin7은 그것이 잘 안돼서 연동을 못하고 있어." IMS 는 그 제약이 없다
+  → [2026-10-28 · docs-1028h] 견적 · 예약 · 라벨 · 취소가 테스트 환경에서 섰다(fc-1a ~ fc-2c · `freightcom-integration.md` · §84 · §85) · 운영 토큰 대기(deferred 326)
 - **백오더 알림 메일 이관**(§2-g)
   → [2026-10-16 · §65] ✅ IMS 쪽 섰다 · 운영 전환은 미룬 244
 - **가격 일괄 수정 화면**(§1-j)
@@ -742,7 +744,7 @@ Caleb(2026-09-21): "손으로 넣은 배송지를 안담는게 맞다고 생각�
 carrier · tracking_number · shipping_notes
 ```
 - `carrier` — 손님 `default_carrier` 가 기본값.
-- `tracking_number` — 지금은 Freightcom 에서 받아 손으로 넣는다(§1-p). ⬜ Freightcom API 를 붙이면 **이 칸이 자동으로 채워지는 자리**가 된다(견적 → 운임 `so_charge` · 예약 → 여기).
+- `tracking_number` — 지금은 Freightcom 에서 받아 손으로 넣는다(§1-p). ⬜ Freightcom API 를 붙이면 **이 칸이 자동으로 채워지는 자리**가 된다(견적 → 운임 `so_charge` · 예약 → 여기). → [2026-10-28 · docs-1028h] 테스트 환경에서는 자동(`freightcom-integration.md` · §84 · §85) · 운영은 토큰 + EF 테스트 가드를 풀 때까지 손으로(deferred 326 · 364)
 - `shipping_notes` — 창고·배송 지시. `comments`(오더 메모)와 **다른 칸**이다.
   실물 Shopify 유입: `Purchase_Order(PO)` · `Order Note: I Will pick up` · `Billing_Address: same as shipping` 가 `Shipping notes` 로 들어온다 — Shopify 연동 때 어느 칸으로 보낼지 그때 가른다.
 
@@ -8201,7 +8203,7 @@ Caleb 이 준 업무 사실 (이 대화)
 - **방아쇠 = so.shipped_at 이 null → 값**(intake shopify 의 SO · 형제 포함) — 상태(fulfilled)가 아니다: 인보이스 취소는 fulfilled → shipped · 재발행은 다시 fulfilled 라 상태를 쓰면 두 번 보낸다(확인)
 - **한 SO 는 한 번만 출고된다** — so_ship(`20260924141140_so_ship.sql:466`)이 shipped · shipped_at · shipped → packed update 0 건 · 백오더 · 부족분(pick_short)은 so_split 형제 SO 로(확인) · 출고 사건 표 so_out 은 없다(출고 = so.shipped_at + 원장)
 - **넣는 창구 = so_finalize**(마지막 정의 `20261007171939_fr_1_freight_discount.sql:163` · packed 아니면 거부 · carrier · tracking 쓰기 · 그 뒤 so_ship) · so_header_update 는 draft 만 · 화면 so.html 「Ship & invoice…」
-- 칸: so.carrier · so.tracking_number 머리에 하나씩 · **운송사 표 없음**(자유 글자 · customer.default_carrier 도 글자) · 테스트 DB 실물 `Duplicate?-Confirm · Test Freightcom · Apex Motor Express · PICKUP TOR · UPS Test`(운영은 안 봤다)
+- 칸: so.carrier · so.tracking_number 머리에 하나씩 · **운송사 표 없음**(자유 글자 · customer.default_carrier 도 글자) → [2026-10-28 · docs-1028h] 낡음 — ful-1a(`20261013170000`)가 `ref_carrier` · `so.carrier_id` 를 세웠고 Freightcom 예약은 carrier_id 까지 쓴다(855 · `freightcom-integration.md` §8) · 테스트 DB 실물 `Duplicate?-Confirm · Test Freightcom · Apex Motor Express · PICKUP TOR · UPS Test`(운영은 안 봤다)
 - 줄 짝: shop_order_line.line_gid ↔ so_line_id(처음 줄) · 콤보는 Shopify 줄 하나 ↔ IMS 콤보 줄(구성품 짝 없음) · so_split 통째로 = 줄 id 그대로 · 일부 = 새 줄 + split_from_line_id(계보로 올라가야 찾는다) · so_merge = 새 줄 + so_line_merge_source
 - 같은 Shopify 오더로 안 돌아오는 길: 이어받기(so_confirm 이 so_backorder_supersede 를 저절로 · 웹 오더는 자동 확정 → 사람 손 없이) · 만료 스윕 · 더 원하지 않음 · so_merge
 - **이어받기 조건(코드 · docs-1013 이견 2)**: so_backorder_supersede(마지막 정의 `20261006000805_asm_2b2_combo_money_finalize.sql` · 함수 안 563–564) = `s.customer_id = v_so.customer_id and l.product_id = k.product_id` · 유상 줄만 · 구성품 줄은 수요가 아니다 ⇒ **다음 오더에 같은 손님 · 같은 제품의 유상 줄이 있을 때만**
@@ -11002,4 +11004,196 @@ shop-combo-1 이견에서 받은 것: is_off 는 콤보 자신 기준(EF planRow
 
 ```
 다음 판정 번호: 833 · 다음 deferred 번호: 359
+```
+
+## §84 2026-10-28 회사 — Freightcom 견적 · 예약 DB · EF · 화면 첫 판 — fc-1a ~ fc-2c · set v10 · fu v1.4 · so v5x · cs v7 · 판정 833 ~ 859 (회사 PC)
+
+⭐ 지은 것: Freightcom 견적(운임 줄) · 예약(운송사 · 추적번호 · BOL · 라벨) · 취소를 IMS 가 한다 — 엔진 하나(DB 창구 + EF freightcom) · 입구 둘(WMS Finalize 작업대 · 오피스 Ship & invoice) · 테스트 환경에서 끝에서 끝 · 운영은 토큰 대기
+⭐ **지금 규칙의 정본 = `docs/design/freightcom-integration.md`** — 이 절은 하루의 이야기와 포인터다(같은 사실을 두 곳에 키우지 않는다)
+⭐ 새 판정 833 ~ 859 · 원천: docs-1028h 📌 A(회사 → 집 인계서 원문 발췌) · 커밋 메시지 · 마이그레이션 · EF · 시험 파일 머리 주석 · ⚠️ Claude Code 보고 원문 일곱(fc-1b5 · fc-2 멈춤 · 2a · 2b · 2c)은 레포에 `<차수>-report.md` 로 남지 않았다 — 이 절이 원천
+⭐ 커밋 — asung-wms `1157e98` ~ `8355972`(아홉 마이그레이션 · EF · deno 10/10 · EF 배포 끝 71 kB) / asung-ims `b011867` ~ `50d4c1a` · 테스트 DB 에 전부 적용 · 레포 HEAD(회사 끝) asung-wms `8355972` · asung-ims `50d4c1a` · asung-ops `bcf87c8`(변경 없음)
+
+### 84-a 판정 (Caleb 말 그대로 · 뜻)
+
+「원문 없음(인계서 요약)」 = Caleb 원문은 회사 대화에만 있고 레포 · 인계서에 없다. 833 · 834 는 Shopify 판정(Freightcom 아님 · 같은 날 같은 대화).
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 833 | 원문 없음(인계서 요약) | (Shopify) 단종 10 SKU 는 Shopify 에서 지운다 |
+| 834 | 원문 없음(인계서 요약) | (Shopify) aone ON NATURAL 3 향 3.38oz → 10oz 페이지 |
+| 835 | 「그렇지만 wms가 못하면, 오피스에서도 할 수 있는 길도 열었으면 좋겠어.」 · 「wms에서 낸 견적이 잘못된 경우에 오피스에서 다시 낼 수 있는 길도 있었으면 좋겠어.」 | 예약 · 견적 엔진 하나 · 입구 둘 — 기본 = 창고가 Finalize 작업대에서 치수 → 견적 → 운송사 고르기 → 예약 → 라벨 인쇄 · 오피스 길 = 창고가 못 했으면 Ship & invoice 창에서 같은 견적 · 예약 · 한 발송에 살아 있는 예약은 하나 |
+| 836 | 원문 없음(인계서 요약) | 손님 운임 = Freightcom 세전 × 1.05(fc_markup_pct 5) · aone 은 운임 줄 그대로 |
+| 837 | 원문 없음(인계서 요약) | 발송 = SO 여럿 · 운임은 한 SO · 추적번호는 전부 |
+| 838 | 원문 없음(인계서 요약) | 상자만 또는 팔렛만 |
+| 839 | 원문 없음(인계서 요약) | 주거지 기본(회사 이름 → 상업지) |
+| 840 | 원문 없음(인계서 요약) | 주소 조건 셋(주거지 · 테일게이트 · 인사이드) 기억 |
+| 841 | 원문 없음(인계서 요약) | 치수는 견적 때만 필수 |
+| 842 | 원문 없음(인계서 요약) | 트랜스퍼는 범위 밖 |
+| 843 | 원문 없음(인계서 요약) | 피할 운송사 흐림 |
+| 844 | 원문 없음(인계서 요약) | aone 만 운임 줄 안 덮음 |
+| 845 | 원문 없음(인계서 요약) | 주소 기억 = 글자 맞추기 · 못 찾으면 셋 중 하나(주소 추가 · 기본 바꾸기 · 이번만) |
+| 846 | 원문 없음(인계서 요약) | 운송사 표에 없으면 오피스가 더함 |
+| 847 | 원문 없음(인계서 요약) | 운송사 한 줄에 Freightcom 이름 여럿 |
+| 848 | 「에드몬튼에서 접속하는 freightcom 과 토론토에서 접속하는 freightcom 이 달라」(fc-1b4 마이그레이션 머리) | Freightcom 계정은 창고마다(TOR · EDM) |
+| 849 | 원문 없음(인계서 요약) | 배송 조건 칸은 Shipping · Business 주소에만(Billing 은 화면이 숨김 · DB 그대로) |
+| 850 | 「테일게이트는 팔렛에만 적용되는거야. 박스 쉽먼트에까지 적용하면 안될것 같은데」 → 「그대로 가자」(fc-1b5 마이그레이션 머리) | 테일게이트 · 인사이드는 팔렛 발송에만 · 상자 remember 는 주소의 두 값을 안 건드림 · 상자의 두 값 = null |
+| 851 | 원문 없음(인계서 요약 · 「팔렛마다 라벨 불필요」) | 상자 라벨은 인쇄 때 4 × 6(A6 PDF) · Letter 고름 · 팔렛은 Letter · 팔렛 라벨을 IMS 가 따로 만들지 않는다 |
+| 852 | 원문 없음(인계서 요약) | 운송사 × 창고 정기 픽업 · 마감 시각을 IMS 가 기억(창고 담당자가 채움) · Freightcom 진짜 마감이 오면 그것 먼저 · 지난 운송사는 「마감 지남」 · 미리 고르기에서 뺌(고를 수는 있음) |
+| 853 | 원문 없음(인계서 요약) | 예약 · 취소 · 다시 예약은 「Freight booking」 권한을 켠 사람만(창고 · 오피스 모두 따로) |
+| 854 | 원문 없음(인계서 요약 · 「지금 권한 계약 그대로」) | admin · supervisor 는 늘 예약 가능 |
+| 855 | 원문 없음(인계서 요약) | 예약 순간 발송의 모든 SO 에 운송사 · 추적번호를 씀 · 취소 때는 그 사이 사람이 안 바꾼 칸만 비움 |
+| 856 | 원문 없음(인계서 요약) | 예약 취소 → 「고른 상태」 로 · 견적이 유효하면 바로 다시 예약 |
+| 857 | 원문 없음(인계서 요약) | 창고마다 시간대 · Edmonton = America/Regina(Alberta 가 2026-11-01 부터 상시 UTC-6 · 테스트 DB 시간대 자료는 이 변경을 모른다) |
+| 858 | 원문 없음(인계서 요약) | 라벨은 fc_label 표 · documents 버킷 fc_label/ · A6 · Letter PDF 만 |
+| 859 | 원문 없음(인계서 요약) | freight_booking 은 Staff 화면 두 방(WMS · IMS) 모두에 |
+
+### 84-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 차수 | 레포 · 커밋 | 무엇 | 테스트 DB |
+|---|---|---|---|
+| fc-1a | asung-wms `1157e98`(`20261028162209_fc_1a_freightcom_quote_db.sql`) | 견적 DB(835 ~ 843) — 창고 연락처 · 주소 배송 조건 · 운송사 Freightcom 이름 · 피할 운송사 · fc_markup_pct 5 · fc_shipment · fc_shipment_so · fc_quote · fc_quote_rate · fc_call_log · 창구 prepare · save · select · charge_so_set · for_so · wms_unit_dims_set · customer_carrier_avoid_set · customer_update · ims_config_set 재발행 · cutover-delete d11 k10 | 확인 76 |
+| fc-1b · fc-1b2 | asung-wms `e617671`(`…170402_fc_1b_…` · `…171641_fc_1b2_quote_seq.sql`) | EF freightcom(quote · quote_poll · services · status · fixtures · deno) · 845 address_review · fc_address_review_close · fc_quote_pending · fc_quote_save p_request · fc-1b2 fc_quote.seq(한 트랜잭션 안 now() 동점 — B17 MISMATCH 의 원인) | 확인 99 · 106 |
+| fc-1b3 | asung-wms `e3a722c`(`…173935_fc_1b3_carrier_fc_names.sql`) | 847 ref_carrier_fc_name(name_norm 유니크) · ref_carrier_fc_names_set · 옛 freightcom_carrier 옮기고 지움 · 846 LTL 운송사 7 · FedEx Courier · Canpar 이름은 짐작 | 확인 119 |
+| fc-1b4 | asung-wms `9da8a0e`(`…180558_fc_1b4_warehouse_account.sql`) | 848 ref_warehouse.freightcom_account · fc_shipment 스냅샷 · fc_call_log.account · EF 가 FREIGHTCOM_API_KEY_<계정> · 옛 키로 넘어가지 않음 | 확인 127 |
+| fc-1b5 | asung-wms `0fc7f7c`(`…192341_fc_1b5_tailgate_pallet_only.sql`) | 850 테일게이트 · 인사이드는 팔렛에만 | 확인 137 |
+| fc-2a | asung-wms `b9d1216`(`…201500_fc_2a_booking_perm_pickup_cutoff.sql`) | freight_booking 권한(853 854 859 · rooms wms+ims) · ref_carrier_pickup(852) · 창고 timezone · closes_at(857) · fc_cutoff_parse · fc_past_cutoff · fc_cutoff_eval · fc_quote_save · fc_shipment_for_so 재발행 | 확인 164 |
+| fc-2b | asung-wms `5035f53`(`…223000_fc_2b_booking_windows.sql`) | fc_booking · fc_label · fc_shipment.booking_id · 창구 일곱(fc_book_prepare · save · cancel_prepare · cancel_save · fc_label_add · fc_label_get · fc_booking_for_shipment) + 속 함수 셋(fc_book_gate · fc_hm · fc_ymd · 착지 검사 10) — ⚠️ 마이그레이션 머리 제목 「창구 다섯」 은 이 셈과 다르다 | 확인 193 |
+| fc-2c · fc-2b2 | asung-wms `8355972`(EF · `…233000_fc_2b2_book_pending_set.sql` · tests/fc_2_live.sh) | EF 넷(book · book_poll · cancel · label) · fc_book_pending_set · **EF 배포 끝**(71 kB) | 확인 196 · deno 10/10 |
+| set v10 | asung-ims `b011867` | Settings: Warehouse Edit(연락처 · 전화 · 이메일 · Freightcom 계정) · Carrier Freightcom names · Shipping quotes(markup % · 창고 연결) | |
+| fu v1.4 · set v10a | asung-ims `e77794b` | WMS Freight 칸(견적 · 조건 · 기억 · 피할 · 모르는 운송사 흐림 · 고르기 · Finalize 글) · 꺼진 창고 Edit 없음 · 연결 색 | |
+| so v5x | asung-ims `eeb0dea` | Ship & invoice Freight — 미리 채우기 · 오피스 견적 · 고르기 · SO 옮기기 · 치수 · 주소 기억 세 단추 · 모르는 운송사 링크 | |
+| cs v7 | asung-ims `b265115` | 손님 주소 배송 조건 · 기본 운송사 · 피할 운송사(839 840 843) | |
+| cs v7a | asung-ims `36a9924` | 849 Billing 에는 배송 조건 없음 | |
+| fu v1.4a · so v5x1 | asung-ims `50d4c1a` | 850 상자면 테일게이트 · 인사이드 숨김 · 안 보냄 · Edit sizes 접기 | |
+
+### 84-c 실측 (회사 · 테스트 환경 · 모두 취소함)
+
+```
+비밀값(테스트 fazgmyvzzhqybtvtktyg)  FREIGHTCOM_API_KEY_TOR · FREIGHTCOM_API_KEY_EDM · FREIGHTCOM_BASE_URL · 옛 이름 없음
+ref_warehouse.freightcom_account     Asung Trading Inc. = TOR · Asung - Edmonton = EDM
+결제수단                               두 계정 모두 Net Terms 하나씩(값은 코드에 없다 · EF 가 읽는다)
+
+상자 · 정기 픽업(UPS)     SO-25135 · 발송 70b7e47a-a4e6-44bd-8fc2-6363f2847f79 · attempt 1 · 12 s booked · SO 에 UPS · 추적번호(855)
+                          토론토 17:03 > 마감 16:00 → 픽업 다음 날(852) · 라벨 a6 · letter 저장 · 서명 URL 200 PDF
+                          취소 → selected · SO 칸 되돌림(856 · 855)
+상자 · 비정기 픽업(FedEx)  같은 발송 attempt 2(…-2) · pickup_details {pre_scheduled_pickup:false, date:{y,m,d}, ready_at:{h,m}, ready_until:{h,m}}
+                          를 Freightcom 이 받음(짐작 1 닫힘) · 추적 794899054169 · 취소 끝
+프로브(python · Caleb PC)  상자 3 개 → 추적 3 · 라벨 꼴마다 3 페이지 / 팔렛 3 개(Maritime · Vitran) → 추적 1 · Letter 1 페이지
+                          Purolator Freight 는 테스트에서 400 booking carrier
+```
+
+- 인계서 §5 의 「두 창고 closes_at = 17:00」 은 틀렸다 — Toronto 17:00 · **Edmonton 16:00**(Caleb 화면 2026-10-28 · §85-c · 85-e 4) · 마이그레이션은 칸만 만든다(기본 null — 값은 레포에 없다)
+
+### 84-d 열린 것
+
+- 인계서 §7 밀린 것: Shopify 정리(담당자 작업 뒤 asung · aone Read → Plan 다시 → dup_target 0 · shape_mismatch 0) · 그 정리가 끝나면 deferred **357** 은 닫힘(인계서 말 · 지금은 열림 그대로) · 355 · 356 그대로 · **359** IMS 바코드 중복 점검(컷오버 뒤 · deferred 새 줄)
+- IMS Claude 커넥터((나) · Team 플랜 커스텀 커넥터 · 각자 IMS 로그인 · 읽기 전용 도구 · 리포트는 「합계는 IMS 가 낸다」 · Caleb 이 시작 시기를 정함) → deferred **360**
+- Edmonton 출발 견적 시험(Edmonton packed 오더 + 치수 재료 필요) · Apex(`Apex`) Freightcom 이름은 실제 쓰는 날 확인 뒤 더함 → deferred **364**
+- 컷오버 2026-11-01(일)
+- ⭐⭐ 어기면 되돌리기 어려운 것(인계서 §4): ~~Staff 화면에서 「Freight booking」 을 켜지 마라~~ → st v3b 로 풀림(§85) · **Freightcom 라벨 원본 주소를 화면에 보이지 마라**(서명 없는 S3 · 라벨에 손님 주소 · IMS 사본 + 서명 URL 120 초로만) · 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰 전 실호출은 테스트 환경만
+
+### 84-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 실호출 명령에 `| grep` 을 붙여 스크립트의 로그인 물음이 가려졌다 — 멈춘 것처럼 보임 ⇒ 입력을 묻는 스크립트에는 걸러 찍기를 붙이지 않는다 · 끝난 뒤 파일에서 grep(asung-workflow §5)
+2. [대화 Claude] Ship & invoice 창에 유닛 표가 두 번 나왔다(so v5x) ⇒ so v5x1 에서 접음
+3. [대화 Claude] 상자 발송에도 테일게이트를 보내게 지었다(fc-1a ~ 1b4) — Caleb 이 짚음 ⇒ 850 · fc-1b5
+4. [대화 Claude] Billing 주소에도 배송 조건 칸을 보였다(cs v7) — Caleb 이 짚음 ⇒ 849 · cs v7a
+5. [시험] Use this rate 를 안 누른 채 예약 실호출 두 번 — 예약 전 검사가 「Choose a rate first」 로 막음(맞는 동작)
+6. Claude Code 보고 원문 일곱은 레포에 `<차수>-report.md` 로 남기지 않았다 — 이 절이 원천
+
+## §85 2026-10-28 집 — Freightcom 예약 화면 넷 · 진행 칸 · 입력칸 테두리 — st v3b · fu v1.5 · 1.5a · 1.5b · so v5y · v5y1 · set v11 · 11a · ims-ui · 판정 860 ~ 862 (집 PC)
+
+⭐ 지은 것: 예약 화면 — WMS(fu v1.5 · 1.5a · 1.5b) · 오피스 Ship & invoice(so v5y · v5y1) · Settings 창고 시간대 · 닫는 시각 · Carrier pickups(set v11 · 11a) · Staff 두 방 열쇠(st v3b) · 예약 진행 칸(861) · 입력칸 공통 테두리(862) · 팔렛(LTL) 실호출 한 번
+⭐ 지금 규칙의 정본 = `docs/design/freightcom-integration.md`
+⭐ 새 판정 860 ~ 862 · 원천: docs-1028h 📌 B(대화 Claude + Caleb 화면 시험 · 대화에만 있었다) · asung-ims git log · fc_2_live.sh
+⭐ 커밋 — asung-ims `9cb29b8` · `375bd7f` · `45f8daa` · `902720e` · `f457d88` · `98427a7` · `55a8899` · `3dcdfe0`(전부 2026-10-28 19:35 ~ 20:29 EDT) · asung-wms 변경 없음(DB · EF 무접촉)
+
+### 85-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 860 | 「A」 | 운송사 × 창고 정기 픽업 · 마감 표는 **Settings 에만**(Carrier pickups) — 창고 담당자가 말하면 오피스(master)가 넣는다 · 기각 B = WMS Admin 탭도(창고가 직접 고칠 일이 생기면 더한다 → deferred 365) · DB 창구는 그대로 master 또는 그 창고 fulfillment 를 받는다 |
+| 861 | 「이게 기다리는 동안에 실제로 북킹이 진행중입을 알 수 있어야 헷갈리지 않을 것 같아.」 | 예약을 기다리는 동안 진행 칸 — 단계는 **시계로 짐작하지 않고 DB 의 실제 흔적**(fc_booking pending 행 · freightcom_shipment_id · booked)을 2 초마다 읽어 보인다 · 속도는 Freightcom 몫(약 13 s)이라 줄이지 않는다 |
+| 862 | 「이렇게 직사각형이 있는 화면은 직사각형의 색을 연하게 해줘야 화면이 부드러울 것 같아. 그리고 팝업으로 올라오는 화면들이 대부분이 그래. 한두개가 아니라 다 수정해 달라고 하기도 뭐하네」 · 누가 고치나 「A」 | 꾸미지 않은 입력칸의 테두리를 공통 css 한 규칙으로 연하게(55a8899) · **공통 css 를 대화 Claude 가 썼다**(asung-workflow §1 「공통 js/css 는 Claude Code」 의 예외 · 까닭: 한 규칙 · 검증은 눈으로) |
+| (판 요청) | 「Freightcom TOR 글씨가 진했으면 좋겠고, 색깔이 들어갔으면 좋겠어」 | 판정 번호 없음 — 계정 꼬리표를 굵은 색으로(TOR 파랑 · EDM 초록 · 그 밖 보라 · fu v1.5b · so v5y1) |
+
+### 85-b 차수 · 커밋 (git log 원문 · asung-ims)
+
+| 판 | 커밋 | 무엇 | 시험 |
+|---|---|---|---|
+| st v3b — staff.html | `9cb29b8` | 열쇠의 방 = ims_perm_catalog `rooms`(배열 · 없으면 room) — 둘 중 하나만 체크해도 보이고 저장 때 남는다(옛 판은 WMS 만 체크한 직원의 freight_booking 을 지웠다 · 인계서 §4 위험 해소) · freight_booking 의 read 라디오는 아무것도 주지 않는다 — 그대로 둠(deferred 366) | Caleb 화면 |
+| fu v1.5 — wms-fulfillment.html | `375bd7f` | Freight 칸 예약 — Book(픽업 날짜 · Ready from · until · 비우면 DB 규칙 · 정기 픽업 상자는 시각 칸 없음) · 실제 청구 확인 창 · 예약 뒤 알림(prepare_warnings 의 「— 」 뒤 글)을 칸에 남김(DB 에 없어 새로 고치면 사라짐) · Check again(book_poll) · 예약됨 칸(운송사 · 추적 링크 · BOL · 픽업 확인번호 · 픽업 · 라벨 상자 4 × 6 기본 + Letter instead · 팔렛 Letter · EF label 서명 URL) · Cancel booking · 예약 · 진행 중 잠금 · 권한 없으면 안내만 · Finalize 확인 글 「BOOKED …」 / 「— not booked yet」 · ⚠️ current.labels[].url(원본 S3)은 그리지 않는다 | jsdom 상태 시험 · Caleb 화면 |
+| fu v1.5a | `45f8daa` | **진행 칸** — 지난 초 + 2 초마다 fc_booking_for_shipment 로 DB 의 실제 단계(① IMS 검사 ② Freightcom 에 보냄 ③ Freightcom 이 받음 · 운송사 확정 기다림 ④ booked · 라벨 저장 중) · 취소 · Check again 은 중간 흔적이 없어 초만 · 기다리는 동안 잠금 | Caleb 화면 |
+| so v5y — so.html | `902720e` | Ship & invoice Freight 칸 — WMS 와 같은 엔진 · 같은 모양 + 누가 · 언제 예약했나 · ⭐ 창 칸 채우기(so_finalize 는 창의 운송사 · 송장 칸을 그대로 보낸다 ⇒ 오피스 예약은 발송의 모든 SO 블록에 채움 · 창고 예약 뒤 창을 열면 **빈** 칸만 · 취소하면 예약 송장과 **같은** 칸만 비움 · Fill carrier · tracking 단추) | node --check · Caleb 화면 |
+| set v11 — settings.html | `f457d88` | Warehouse 표 Time zone · Closes 칸 · Edit 창 시간대 고르기(Toronto · Regina 「use for Edmonton / Alberta」 · Winnipeg · Vancouver · Halifax · 목록 밖 값은 「(current)」) · Closes at · 저장 = 표 update(RLS master · 참조 적재는 두 칸을 안 보낸다) · 새 구역 **Carrier pickups**(`?t=pickup` · regular pickup · Cutoff · Note · Updated · Save · Clear · 창구 ref_carrier_pickup_set · master 만 · 마감 > 문 닫는 시각이면 빨강 · DB 도 거부) | Caleb 화면 |
+| set v11a | `98427a7` | Updated 칸이 이름 없이 「· 2026-10-28」(updated_by null 행) → 있는 것만 잇는다 | Caleb 화면 |
+| ims-ui.css | `55a8899` | 입력칸 공통 테두리 `:where(input:not([type=checkbox]):not([type=radio]):not(range · file · color · button · submit · reset · image), select, textarea){border:1px solid #d5dbe4;border-radius:6px}` · 0 점 규칙이라 화면이 꾸민 칸은 그대로 이긴다 · 43 화면이 이 파일을 쓴다(42 곳 `href="ims-ui.css"` · ?v= 없음 — docs-1028h grep 으로 확인) · 배경 · 여백은 안 건드림 | Caleb 화면 |
+| fu v1.5b · so v5y1 | `3dcdfe0` | Freightcom 계정 꼬리표를 굵은 색으로 — TOR 파랑(#1d4ed8 / #dbeafe) · EDM 초록(#047857 / #d1fae5) · 그 밖 보라(#6d28d9 / #ede9fe) · WMS Freight 칸 · Ship & invoice Freight 줄 | Caleb 화면 |
+
+### 85-c 실측
+
+```
+팔렛(LTL) 실호출   fc_2_live.sh --so SO-25031 --pickup '{"ready_at":"10:00","ready_until":"16:00"}'
+                   발송 ebdd1808-ae10-4b9b-a29d-ce2fcdecb07e · booking 84dd6591-8345-4696-a58f-04927aeeb179 · attempt 1 · HTTP 200 · 17 s
+                   Maritime maritime.dry · TOR · Net Terms · dispatch_details 를 Freightcom 이 받음(팔렛)
+                   추적 1 F8094172 · BOL MO393899 · transaction 20120467 · pickup_confirmation null · SO-25031 에 Maritime · F8094172(855)
+                   라벨 Letter 1 장 · 87,342 B · fc_label/ebdd1808-…-1-letter.pdf · 서명 URL GET 200 application/pdf
+                   픽업: 지금 19:30(토론토) ≥ closes_at 17:00 → 10-28 → 10-29 · ready 10:00 ~ 16:00 · cutoff null(정기 픽업 행 없음)
+                   취소 HTTP 200 · 8 s · cancelled · 발송 selected · SO-25031 운송사 · 추적 칸 빈칸(orders_restored)
+                   ⚠️ prepare_warnings(closed:17:00 …)는 출력에 안 보였다 — fc_2_live.sh:61 이 응답을 head -150 으로 자르고 경고는 응답 끝(index.ts:276)
+                      DB 에 경고 칸 없음 ⇒ 「없다」 가 아니라 「못 봤다」 · 날짜가 10-29 로 간 것이 「문 닫힘」 갈래가 돈 증거(cutoff null 이라 다른 길이 없다)
+예약 시간(fc_call_log)  fc_book_prepare 두 번 · 문 ≈ 2 s · payment_methods 0.6 s(10 분 캐시) · POST /shipment 202 1.1 s
+                   book_poll 202 × 8 → 9 번째 200 ≈ 13 s(Freightcom 이 운송사와 처리) · 저장 · 라벨 ≈ 0.7 s — IMS 몫 2 ~ 3 s · UPS 상자(회사)도 12 s
+
+화면 시험(Caleb)
+WMS SO-25031       Book again → 진행 칸 단계 넘어감 · 예약됨 칸(F8094175 · BOL MO393900 · Pickup Thu, Oct 29 · 09:00 – 17:00
+                   · ⚠ the warehouse closed at 17:00 · pickup moved to 2026-10-29) · Print label (Letter) PDF · Cancel booking · Book again 칸 복귀 — 넷 다 통과
+                   다음 날로 넘어가면 기본 창 = 09:00 ~ 창고 closes_at(DB 규칙 그대로)
+Ship & invoice     SO-25135(packed) attempt 3 FedEx Courier · Ground · 추적 794899106170 · Pickup confirmation CPU24463010
+                   (FedEx 비정기 픽업은 확인번호가 온다 · Maritime 팔렛은 null — 운송사마다 다름 · 짐작) · by Seungchill Chang
+                   A6 4 × 6 PDF 1 장(SHIP DATE 29OCT26 = 픽업일) · 예약 뒤 Tracking number 칸 「Filled from the booking (tracking)」 · 취소 뒤 비워짐
+                   Ship & invoice 는 누르지 않음
+Settings           closes_at Toronto 17:00 · **Edmonton 16:00**(인계서 §5 「두 창고 17:00」 은 틀렸다)
+                   Toronto × UPS(✓ · 16:00 · 「test value 2026-10-28 — real valu…」 · updated_by null)
+                   18:00 저장 → 「Cutoff 18:00 is after Asung Trading Inc. closes (17:00) — nothing was saved」
+                   Edmonton × FedEx 15:30 Save → 「Seungchill Chang · 2026-10-29」 · ⚠️ Clear 확인은 못 받았다 — 이 행이 남아 있을 수 있다(짐작)
+입력칸 테두리       처음엔 옛 모양(캐시) → css 주소를 직접 열고 Ctrl + Shift + R 뒤 바뀜
+```
+
+지금 테스트 DB 실물(집 끝 · 짐작 표시 포함)
+- SO-25031 발송 `ebdd1808-…` = selected(Maritime · Dry) · booking 2 번 모두 cancelled · SO 칸 빈칸(짐작 — 마지막 취소 뒤 안 봤다)
+- SO-25135 발송 `70b7e47a-…` = selected(FedEx Courier · Ground) · booking attempt 1 ~ 3 cancelled · SO-25135 는 packed
+- documents/fc_label/ 에 라벨이 더 쌓였다(70b7e47a-…-3-a6 · -3-letter · ebdd1808-…-1-letter · -2-letter 짐작)
+- 시험 흔적: Toronto × UPS 정기 픽업 · 마감 16:00(test value) · Edmonton × FedEx 15:30(Clear 확인 못 받음) · VancouverDistributorsLTD 피할 운송사 Canpar 켜짐 · closes_at Toronto 17:00 · Edmonton 16:00 — 실제 값은 창고 담당자에게 받아야 함(deferred 367)
+
+### 85-d 열린 것
+
+- deferred **361** fc 시험 사본 사슬 끊기(fc_2b2 까지 1a → 2b2 아홉 겹 · 시험 8.2 ~ 8.5 초 · 다음 fc DB 차수 전에)
+- deferred **362** ⭐ 라벨 원본 주소가 닿는 곳 닫기 — current.labels(85-e 7)만이 아니다: docs-1028h 가 레포에서 셋 더 찾았다 — `fc_label_get` 반환(`to_jsonb(v_l)` → source_url · EF 가 `source_url: l.url` 로 넣는다) · `fc_booking` · `fc_label` 은 RLS select `using (true)` + authenticated select(response · labels · source_url 을 REST 로 바로 읽는다) · 실호출 확인 없음(레포 근거)
+- deferred **363** fc_2_live.sh 가 prepare_warnings 를 따로 찍게(85-e 9)
+- deferred **364** 운영 토큰으로 다시 확인할 것(운송사 진짜 마감 — 테스트는 전부 가짜 `31-12-0000 06:42PM` · 라벨 주소 꼴(서명 여부) · 운송사별 pickup_confirmation · 처리 시간 · Purolator Freight 400 · Edmonton 출발 견적 · Apex 이름) + EF 테스트 가드 · 운영 비밀값
+- deferred **365** Carrier pickups 를 WMS Admin 에도(860 기각 B)
+- deferred **366** freight_booking 의 read 라디오(아무것도 안 줌 — 화면에서 감추거나 그대로)
+- deferred **367**(컷오버 전 필수 · Caleb 확인 대기) ref_carrier_pickup 은 컷오버 K — 시험 값이 컷오버 지우기에 안 지워진다 · 「테스트 DB(fazgmyvzzhqybtvtktyg)가 그대로 운영이 되는가」 는 아직 정하지 않았다(짐작 금지) — ① 그대로 운영이 되면 컷오버 전에 ref_carrier_pickup 시험 값(Toronto × UPS test value · Edmonton × FedEx 15:30) · ref_warehouse.closes_at 을 실제 값으로 바꾸는 것이 필수 ② 새 프로젝트로 옮기면 옮길 때 실제 값을 넣는다
+- deferred **368** 매뉴얼에 Freightcom 이 0 곳(docs/manual en · ko grep · 2026-10-28) — Freight 예약 · Carrier pickups · 창고 시간대 · Freight booking 열쇠(판정 731 「창고 화면을 고치면 4 장의 그 절도 본다」)
+- deferred **326** 상태만 — 테스트 환경 견적 · 예약 · 라벨 · 취소 끝 · 운영 토큰 대기(닫지 않는다)
+- 화면 메모(줄 없음): 계정 꼬리표 색 표가 두 화면에 따로 박혀 있다(so.html `ofAcctTag` · wms-fulfillment.html `frAcctTag`) — 셋째 계정이 생기면 두 파일을 함께(안 고치면 보라)
+
+### 85-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] fu v1.5 첫 판이 예약 진행 중(pending · 발송은 아직 selected)에 견적 단추를 안 잠갔다 — 다시 견적이 DB 에서 막히지 않는 틈 · jsdom 상태 시험이 잡아 내기 전에 고침(lock = booked ∨ pending ∨ 기다리는 중) ⇒ 상태가 둘(발송 · 예약)인 칸은 둘의 곱으로 잠금을 센다
+2. [대화 Claude] so v5y 한 줄 교체가 큰따옴표 글자를 백틱으로 끝내 문법을 깼다 — node --check 가 잡음(내기 전) ⇒ 문자열을 바꾸는 패치는 늘 문법 검사 뒤에
+3. [대화 Claude] set v11 Updated 칸 「· 날짜」 — jsdom 재료에 updated_by null 행이 있었는데 글자를 안 봤다 ⇒ v11a
+4. [대화 Claude] 인계서 §5 의 DB 실물 「두 창고 closes_at 17:00」 이 틀렸다(Edmonton 16:00) ⇒ 인계서의 DB 실물 줄은 쿼리 원문으로 적는다
+5. [화면] ims-ui.css 를 바꾼 뒤 화면이 옛 모양 — 브라우저가 css 를 붙잡음(42 곳이 ?v= 없이 연결) ⇒ 공통 css 를 바꾸면 시험 전에 `https://ims.asung.ca/ims-ui.css` 를 직접 열어 새 글이 보이는지부터 · Ctrl + Shift + R
+6. [발견] 공통 css 에 입력칸 기본 테두리가 없었다 — 꾸미지 않은 칸(time · search · 팝업)은 브라우저 기본(진한 2px) ⇒ 862
+7. [발견] fc_booking_for_shipment 의 current = `to_jsonb(b) - 'request' - 'response'` 라 labels(원본 S3 URL)가 화면으로 내려온다 — 화면이 안 그리는 것에 기대는 꼴 ⇒ deferred 362(docs-1028h 가 같은 꼴 셋을 더 찾았다 · 85-d)
+8. [발견] Ship & invoice 는 창 칸을 그대로 보낸다 — DB 가 예약 때 SO 에 쓴 송장을 창의 빈 칸이 덮을 수 있었다 ⇒ so v5y 창 칸 채우기
+9. [시험] fc_2_live.sh 의 head -150 이 응답 끝의 prepare_warnings 를 잘랐다 ⇒ deferred 363
+10. [잘 된 것] 20 초의 까닭을 fc_call_log 로 나눠(IMS 2 ~ 3 s · Freightcom 13 s) 속도 대신 진행 칸으로(861) · 진행 칸이 시계가 아니라 DB 흔적을 읽는다
+11. [대화 Claude] 판 표시(so v5y · v5y1 · fu v1.5b 의 SO_BUILD · WK_BUILD)의 날짜 2026-10-29 는 UTC 날짜로 매긴 실수 — 커밋은 10-28 19:56 ~ 20:29 EDT ⇒ 정본 날짜는 커밋 날짜 10-28 · 판 날짜는 토론토로
+12. [docs-1028h] 지시서의 「20261028*.sql 아홉」 은 열 개(link_perf_3 은 §83) · fc 는 아홉 · fc-2b 머리 「창구 다섯」 은 일곱 + 속 셋(84-b)
+
+```
+다음 판정 번호: 863 · 다음 deferred 번호: 369
 ```

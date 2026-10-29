@@ -2,15 +2,15 @@
 name: asung-so
 description: >
   Asung Trading IMS 의 SO(판매) 모듈 — Cin7 Core 판매 오더·손님을 대체하는 네 번째 모듈. 손님·가격·딜·SO 거래 표를 다룰 때 먼저 읽으세요.
-  "SO 모듈", "판매 오더", "customer", "손님 표", "손님 적재",
-  "ImsLoadCustomer", "MarketingConsent", "마케팅 동의", "CASL", "기본 주소",
-  "청구지", "parent_id", "부모 손님", "so.status", "so.intake",
+  "SO 모듈", "판매 오더", "customer", "손님 적재",
+  "ImsLoadCustomer", "MarketingConsent", "CASL", "기본 주소",
+  "청구지", "parent_id", "so.status", "so.intake",
   "at_wms", "재적재", "내리기",
-  "쿠폰", "sellable", "딜", "so_deal", "product_tag", "케이스 할인", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "combo", "구성품", "put_back", "so_lines_clear", "so_charge_gate", "price_set_by", "이월"
+  "쿠폰", "sellable", "딜", "so_deal", "product_tag", "케이스 할인", "오더 전체 할인", "so_reprice", "discount_source", "so_confirm", "가용 재고", "콤보", "구성품", "put_back", "so_lines_clear", "so_charge_gate", "price_set_by", "이월", "Freightcom", "fc_booking", "Book shipment"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/so-module.md 를 확인하세요.
   ⚠️MarketingConsent 는 숫자다(2 Opt in · 3 Opt out · 0·1 둘 다 Unknown) — 순서·소거 추론으로 옮기지 마라,
   ⚠️재적재는 내리기 → upsert 순서(upsert 먼저면 Cin7 에서 지워진 옛 기본이 새 기본을 23505 로 막는다),
-  ⚠️적재는 id·parent_id·note·default_*·label 을 보내지 않는다(null 로 보내는 것과 다르다),
+  ⚠️적재는 id·parent_id·note·default_*·label 을 보내지 않는다(null 전송과 다르다),
   ⚠️「기본 하나」 유니크는 deferrable — 한 손님의 주소·연락처는 한 요청에 모아 보낸다,
   ⚠️SO 거래 표(so·so_line·so_charge·so_reserve)는 창구(so_create…)로만 쓴다 · unit_price null=가격 없음·0=무상,
   ⚠️줄 할인은 더하지 않는다 · 시스템 줄은 제품만으로 합치고 다시 견적 · 다시 매기기는 할인만 · 오늘은 ims_today(토론토).
@@ -544,6 +544,21 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-27 · 판정 797 · so-module §81-a] **이월에서 빠지는 19 장 = ImsLoadOpening.gs 상수 `ilo_zeroDocs_`**(회계에서 0 처리 — 보고서 Due 파랑 JE Write Off · 주황 No Outstanding Balance · Cin7 은 Lock 으로 못 고침 · Cin7 은 그대로 둔다)
      그 인보이스(미수)와 그 인보이스에서 나온 오버페이(받아 둔 돈)를 뺀다 · **손님 크레딧(CR-…)은 안 뺀다**(예: Royals 는 CR-00283 · CR-00282 = 229.81 이 남는다)
      목록과 Cin7 수집이 다르면(없음 · SO 번호 · Total · Due 0.01) Build 가 멈춘다 · **iloAllowMismatch 단계 없음**(SO-10447 은 목록으로 면제) · IMS 에서 들인 뒤 손으로 정리하는 길은 기각(가짜 거래 19 건)
+```
+
+## 4-x. ⭐⭐ Freightcom 견적 · 예약(Ship & invoice Freight) — 모르면 사고 (2026-10-28 · 정본 docs/design/freightcom-integration.md · so-module §84 · §85 · 판정 835 ~ 862)
+
+```
+⭐⭐ 엔진 하나 · 입구 둘(835) — 창고 WMS Finalize 작업대(기본) · 오피스 Ship & invoice 창(창고가 못 했거나 견적이 틀렸을 때) · 같은 DB 창구 + EF freightcom · 한 발송에 살아 있는 예약은 하나
+⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) · 운영 예약은 실제 청구(Net Terms)
+⭐⭐ 손님 운임(836) = round(pretax × (1 + fc_markup_pct / 100)) 센트 · pretax = base + 할증(세금 제외) · fc_markup_pct 5 · 운임 줄은 발송의 **한 SO**(charge_so_id · 837 · fc_charge_so_set)
+⚠️⚠️ aone(손님이 Shopify 에서 운임을 결제한 웹 오더 · freight_locked)는 **운임 줄을 덮지 않는다**(836 · 844) — 견적 · 예약 · 기록만
+⚠️⚠️ **so_finalize 는 창의 운송사 · 송장 칸을 그대로 보낸다** — DB 가 예약 때 SO 에 쓴 송장(855)을 창의 빈 칸이 덮을 수 있다 ⇒ so v5y 가 창 칸을 채운다(오피스 예약 = 모든 SO 블록 · 창고 예약 뒤 창 열기 = 빈 칸만 · 취소 = 예약 송장과 같은 칸만 비움) — 창을 다시 지을 때 이 채우기를 지우지 마라
+⭐⭐ 예약 · 취소 · 다시 예약(Book shipment · Cancel booking) = freight_booking 열쇠 + 그 창고(853 · admin · supervisor 는 늘 854) · 견적 · 고르기는 sales 또는 fulfillment
+⭐  예약 순간 발송의 모든 SO 에 carrier_id · carrier · tracking_number(855) · 취소 → 발송 selected(856) · SO 칸은 예약 때 쓴 값과 아직 같을 때만 그 전 값으로
+⚠️⚠️ **Freightcom 라벨 원본 URL 을 화면에 그리지 마라**(서명 없는 S3 · 손님 주소) — 라벨은 EF label → 서명 URL 120 초로만 · fc_booking_for_shipment current.labels · fc_label_get source_url · 표 직접 읽기로 원본이 닿는다(deferred 362)
+⚠️  주소 배송 조건(주거지 · 테일게이트 · 인사이드 840)은 customer_update(sales)만 굳힌다 · 창고 기억은 address_review(845 · 오피스가 닫는다) · 테일게이트 · 인사이드는 팔렛만(850) · Billing 주소엔 칸 없음(849)
+⚠️  운송사 짝 = ref_carrier_fc_name(847) · 짝 없는 견적 줄은 고를 수 없다 · 피할 운송사(843)는 흐림 · 픽업 · 마감 · 창고 시간대(852 · 857 · Edmonton = America/Regina) · Carrier pickups 는 Settings 만(860)
 ```
 
 ## 5. 이 스킬을 갱신할 때

@@ -10,8 +10,8 @@ description: >
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼", "Invoice First", "held_by", "presence", "bcMap",
   "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄",
-  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back", "Shopify 잇기" 등이
-  나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~46 을 확인하세요.
+  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back", "Shopify 잇기", "Freightcom", "Book shipment", "freight_booking", "Carrier pickups" 등이
+  나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~47 을 확인하세요.
   특히 ⚠️factor는 unit 컬럼, ⚠️bin은 base_sku 기준, ⚠️service_role 금지,
   ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
   어기면 재고·픽 수량이 틀어지거나 남의 작업이 사라집니다.
@@ -1394,6 +1394,21 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - 이어받기(resume)는 **원천을 다시 훑지 않는다** — 작업 목록을 저장해 두고(`_set_links` 시트 · `imsLinkProductSetsResume`) 그것만 읽는다.
 - 뿌리는 규칙 30(Apply 실행시간 예산) · 규칙 34(화면 전환 앞의 N 왕복)와 같다 — **요청 하나의 비용을 세지 않은 것.** 건수 × 콜당 시간을 먼저 계산하고 한도(GAS 6분 · EF 예산)와 비교한 뒤 설계한다.
 - 정본 기록: `docs/design/po-module.md` §3-e 「오늘 겪은 것 셋」②③.
+
+## 규칙 47 — IMS WMS Freight 칸: 견적 · 예약 · 라벨 · 취소 (⚠️ 2026-10-28 · 정본 `docs/design/freightcom-integration.md` · so-module §84 · §85 · 판정 835 ~ 862)
+
+**무엇.** asung-ims `wms-fulfillment.html`(fu v1.4 ~ v1.5b) 의 Freight 칸 — 치수 → 견적 → 운송사 고르기(Use this rate) → **Book shipment** → 진행 칸 → 예약됨 칸(운송사 · 추적 · BOL · 픽업 · 라벨) → Cancel booking. 오피스 Ship & invoice 와 **같은 엔진**(DB 창구 + EF `freightcom`) · 입구만 둘(835). ⚠️ 지금은 **테스트 환경만**(EF 가 `db_role = 'test'` 가 아니면 멈춘다 · 운영 토큰 대기 · 운영 예약은 실제 청구).
+
+**모르면 사고.**
+- ⚠️⚠️ **예약은 Finalize 전에** — Finalize 뒤에는 오더가 작업대에서 사라진다. Finalize 확인 글이 「BOOKED …」 / 「— not booked yet」 을 보여 준다.
+- ⚠️⚠️ **잠금은 발송 상태 × 예약 상태의 곱** — 예약됨(booked) ∨ 진행 중(pending · 발송은 아직 selected) ∨ 화면이 기다리는 중이면 다시 견적 · Use this rate · 조건을 잠근다. pending 을 빼면 DB 가 막지 않는 다시 견적 틈이 생긴다(fu v1.5 첫 판 · so §85-e 1).
+- ⚠️⚠️ **Freightcom 라벨 원본 URL 을 그리지 마라** — `fc_booking_for_shipment` 의 `current.labels[].url` 은 서명 없는 S3(짐작 · 손님 주소). 라벨은 EF `label {label_id}` → 서명 URL 120 초로만. 원본은 `fc_label_get` · 표 직접 읽기로도 닿는다(deferred 362).
+- ⚠️ **진행 칸은 시계가 아니라 DB 흔적** — 2 초마다 `fc_booking_for_shipment`(① pending 행 없음 ② pending · Freightcom id 없음 ③ id 있음 · 운송사 확정 기다림 ④ booked · 라벨 저장). 약 13 초는 Freightcom 몫이라 줄이지 않는다(861). 25 초를 넘으면 Check again(`book_poll {booking_id}`).
+- ⚠️ 예약 · 취소 = **freight_booking** 열쇠 + 그 창고(853 · admin · supervisor 는 늘). 견적 · 고르기는 fulfillment + 창고. 열쇠는 Staff 두 방(WMS · IMS) 모두에(859 · `rooms`).
+- ⚠️ 경고(`prepare_warnings` — `closed:` 문 닫힘 · `past_cutoff:` 마감 지남 → 픽업 다음 날)는 **DB 칸이 없다** — 화면이 칸에 남기고 새로 고치면 사라진다.
+- 픽업: 정기 픽업 상자는 시각 칸 없음(pre_scheduled) · 그 밖 날짜 · Ready from · until(비우면 DB 규칙 — 오늘이면 지금 + 1 분 ~ closes_at · 다음 날이면 09:00 ~ closes_at · 창고 시간대 857 · Edmonton = America/Regina). 정기 픽업 · 마감 표는 **Settings → Carrier pickups 에만**(860 · master).
+- 라벨: 상자 4 × 6(A6) 기본 + Letter instead · 팔렛 Letter · 팔렛 라벨을 따로 만들지 않는다(851). 테일게이트 · 인사이드는 팔렛만(850) · 창고의 「기억」 은 주소에 안 쓰고 오피스 확인 표시(845).
+- 계정 꼬리표 색(TOR 파랑 · EDM 초록 · 그 밖 보라 · fu v1.5b)은 `frAcctTag` 와 so.html `ofAcctTag` 두 곳에 따로 박혀 있다 — 셋째 계정이면 둘 다.
 
 ## 현재 진행 상태 (2026-08-04 기준)
 

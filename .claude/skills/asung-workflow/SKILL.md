@@ -31,6 +31,8 @@ description: >
 ```
 대화 Claude   설계 판단 · ⭐ 화면 파일(HTML)을 **통째로** 쓴다 · Claude Code 용 지시서를 **파일로** 쓴다  → 모델 · 대화에만 있는 것은 §3 뼈대 맨 위(2026-09-26)
 Claude Code   레포 파일 수정(마이그레이션 · 설계 문서 · 공통 js/css · Edge Function)
+              ⭐ 예외 [2026-10-28 · 판정 862 · Caleb 「A」 · so-module §85] 공통 css(ims-ui.css)를 **대화 Claude 가 썼다** — 한 규칙 · 검증은 눈으로일 때만 · 공통 js 는 그대로 Claude Code
+              ⚠️ 공통 css 를 바꾸면 화면 시험 전에 `https://ims.asung.ca/ims-ui.css` 를 직접 열어 새 글이 보이는지부터 · Ctrl + Shift + R(42 곳이 ?v= 없이 연결 · 브라우저가 옛 css 를 붙잡는다)
               ⚠️ 반드시 「검토 후 이의 제기」 먼저 — 「그대로 만들어라」가 아니다
               ⚠️ 화면 html 은 안 고친다(지시서가 명시적으로 허락할 때만 · 예: <style> 블록만)
               ⭐ [2026-09-24 Caleb] **테스트 DB 에서 「시험 적용 + 검증」을 스스로 돌린다** — begin → 마이그레이션 읽기 → 검증 → rollback 하나(§4 「시험 적용 장치」) · 통과할 때까지 고치고 **횟수·걸린 것·고친 것**을 보고한다
@@ -254,6 +256,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **`begin read only` 에서는 `for update` 가 든 창구가 안 돈다** — so_finalize 미리 보기(p_commit false)도 ① 검사가 잠근다 · 미리 보기 시험은 읽기 전용이 아니라 **begin … rollback** 트랜잭션으로(2026-09-28 office-1 조사 · so-module §24-s)
 ⚠️ **[2026-09-28 재고 조정 · so-module §25-d] 보고의 DB 값은 그 보고의 쿼리 출력에서만** — 앞 차수 출력을 옮기지 않는다 · abort 된 트랜잭션의 뒷 문장은 「안 돌았다」(adj-1 「잔고 45」)
 ⚠️ **`tee … | head` 금지** — psql 이 SIGPIPE 로 죽어 뒤 문장이 안 돈다 · 파일로 받고 따로 읽는다
+⚠️ **[2026-10-28 · so-module §84-e 1] 입력을 묻는 스크립트(로그인 · 비밀번호 `read -p`)에 `| grep` · `| head` 를 붙이지 마라** — 물음 글이 걸러져 멈춘 것처럼 보인다(fc 실호출) · 출력은 파일로 받고 끝난 뒤 grep · ⚠️ 응답을 `head -N` 으로 자르면 끝에 붙는 열쇠(prepare_warnings)를 「없다」 로 읽는다 — 「못 봤다」 로 쓴다(§85-c)
 ⚠️ **한 트랜잭션 안 독립 검사는 문장 하나 실패로 전부 abort** — 독립 검사는 트랜잭션을 나눈다
 ⚠️ **declare 변수 ≠ 조회 별칭** — `e` 가 eval 별칭 `e` 와 겹쳐 「record e is not assigned yet」(네 번째 실사고) ⇒ 변수는 `v_` 접두
 ⚠️ **ims_touch 가 붙는 표는 `updated_by` 칸이 있어야 한다** — 없으면 update 가 「record new has no field updated_by」
@@ -917,3 +920,22 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    7 [잘 된 것] Caleb 의 질문(「콤보는 샤피파이에 어떻게 보이지?」)으로 구멍을 찾았다 — Shopify 쪽 함수가 product_bom 을 하나도 몰라 콤보 재고가 늘 0 으로 나갈 뻔 ⇒ 새 바깥 연동은 「콤보 · 세트 · 꺼진 상품」 세 갈래를 짓기 전에 grep 으로 확인
    8 [잘 된 것] link-perf-3 이 apply(16 ~ 24 s) 대신 가짜 재료 집합 insert 로 잠금 규칙을 지키며 이어진 상태를 재현 · 시계로 느린 까닭을 하나((라) · 통계 낡음)로 좁힘 · shop-combo-1 이 실물 콤보 17 개를 SO 셈과 줄마다 대조
    9 [대화 Claude] Caleb 이 「IMS 에 없는 SKU 는 9 월 20 일 이후 들어온 물건일까」 를 물었을 때 앞글자 분포(LAC · LAG 90 %)로 가르고 Cin7 사실 한 줄을 물었다 ⇒ 짐작을 일의 근거로 쓰기 전에 사실 한 줄
+
+⚠️ **[2026-10-28 회사 — so-module §84-e · Freightcom 견적 · 예약 DB · EF · 화면 첫 판]**
+   1 [대화 Claude] 실호출 명령에 `| grep` 을 붙여 스크립트의 로그인 물음이 가려졌다 — 멈춘 것처럼 보임 ⇒ 입력을 묻는 스크립트에는 걸러 찍기를 붙이지 않는다 · 끝난 뒤 파일에서 grep(§5)
+   2 [대화 Claude] Ship & invoice 창에 유닛 표가 두 번 나왔다(so v5x) ⇒ so v5x1 에서 접음
+   3 [대화 Claude] 상자 발송에도 테일게이트를 보내게 지었다(fc-1a ~ 1b4) — Caleb 이 짚음 ⇒ 850 · fc-1b5 · 바깥 연동의 옵션은 「어느 꼴(상자 · 팔렛)에 붙는가」 부터
+   4 [대화 Claude] Billing 주소에도 배송 조건 칸을 보였다(cs v7) — Caleb 이 짚음 ⇒ 849 · cs v7a
+   5 [시험] Use this rate 를 안 누른 채 예약 실호출 두 번 — 예약 전 검사가 「Choose a rate first」 로 막음(맞는 동작)
+   6 Claude Code 보고 원문 일곱(fc-1b5 · fc-2 멈춤 · 2a · 2b · 2c)을 레포에 `<차수>-report.md` 로 남기지 않았다 — 정본 §84 가 원천 ⇒ 보고 원문이 대화에만 있으면 그날 docs 차수 지시서 📌 에 옮긴다
+
+⚠️ **[2026-10-28 집 — so-module §85-e · Freightcom 예약 화면 · 진행 칸 · 입력칸 테두리]**
+   1 [대화 Claude] fu v1.5 첫 판이 예약 진행 중(pending · 발송은 selected)에 견적 단추를 안 잠갔다 — jsdom 상태 시험이 잡음 ⇒ 상태가 둘(발송 · 예약)인 칸은 **둘의 곱으로 잠금을 센다**
+   2 [대화 Claude] so v5y 한 줄 교체가 큰따옴표 글자를 백틱으로 끝내 문법을 깼다 — node --check 가 잡음 ⇒ 문자열을 바꾸는 패치는 늘 문법 검사 뒤에
+   3 [대화 Claude] set v11 Updated 칸 「· 날짜」 — jsdom 재료에 updated_by null 행이 있었는데 글자를 안 봤다 ⇒ 시험 재료의 null 행은 그린 글자까지 본다
+   4 [대화 Claude] 인계서 §5 의 DB 실물 「두 창고 closes_at 17:00」 이 틀렸다(Edmonton 16:00) ⇒ 인계서의 DB 실물 줄은 쿼리 원문으로 적는다
+   5 [화면] ims-ui.css 를 바꾼 뒤 옛 모양(캐시 · 42 곳 ?v= 없음) ⇒ css 주소를 직접 열어 새 판 확인 · Ctrl + Shift + R(§1 예외 줄)
+   6 [발견] fc_booking_for_shipment current 가 원본 라벨 URL(labels)을 화면으로 내린다 — 화면이 안 그리는 것에 기대는 꼴 ⇒ 비밀 · 개인 정보는 **DB 가 내보내지 않게**(deferred 362 · 표 직접 읽기 · fc_label_get 도)
+   7 [발견] Ship & invoice 는 창 칸을 그대로 보낸다 — DB 가 예약 때 쓴 송장을 창의 빈 칸이 덮을 수 있었다 ⇒ DB 가 뒤에서 칸을 쓰는 기능을 더하면 **그 칸을 다시 보내는 창**이 있는지 grep(so v5y)
+   8 [대화 Claude] 판 표시 날짜 2026-10-29 는 UTC 날짜로 매긴 실수(커밋 10-28 EDT) ⇒ 화면 판 날짜는 토론토 날짜로
+   9 [잘 된 것] 20 초의 까닭을 fc_call_log 로 나눠(IMS 2 ~ 3 s · Freightcom 13 s) 속도 대신 진행 칸으로(861) · 진행 칸이 시계가 아니라 DB 흔적을 읽는다
