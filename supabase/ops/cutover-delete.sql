@@ -95,6 +95,7 @@ end $$;
 --    [2026-10-28 · fc-1b3] K + 1(ref_carrier_fc_name · k10) → 179 표 = D 83 · K 76 · R 20
 --    [2026-10-28 · fc-2a] K + 1(ref_carrier_pickup · k10 · 운송사 × 창고 픽업 설정 — 마스터) → 180 표 = D 83 · K 77 · R 20 · fc-2b 가 fc_label(D · documents 버킷 fc_label/ 객체는 이 스크립트가 안 지운다 — 메모) · fc_booking(D) 을 더한다
 --    [2026-10-28 · fc-2b] D + 2(fc_label fc_booking · d11 · 둘 다 fc_shipment 와 서로 FK — 한 truncate 묶음) → 182 표 = D 85 · K 77 · R 20 · ⚠️ documents 버킷의 fc_label/ 객체는 이 스크립트가 지우지 않는다(컷오버 날 storage 에서 따로)
+--    [2026-10-29 · qbo-1a] K + 3(qbo_connection qbo_oauth_state qbo_call_log · k11 · QuickBooks 연결 설정 · CSRF state · 호출 기록 — 거래 아님 · 거래 표 FK 0 · 토큰은 Vault 라 이 스크립트 밖 · 샌드박스 → 운영은 운영 키를 받은 날 「끊기 → QBO_ENV=production → 연결」) → 185 표 = D 85 · K 80 · R 20
 \set d1 'doc_file doc_mail_skip drive_job drive_shortcut inv_adjust inv_adjust_line inv_cost_adjust inv_move'
 \set d2 'inv_move_line inv_transfer inv_transfer_line inv_transfer_settle mail_backorder_line mail_outbox mail_outbox_event mail_run'
 \set d3 'mail_run_error po po_charge po_charge_alloc po_discount po_doc po_invoice po_invoice_discount'
@@ -117,7 +118,8 @@ end $$;
 \set k8 'shop_product shop_stock_sent shop_store shop_variant so_deal so_deal_customer_rule so_deal_line so_deal_target'
 \set k9 'so_deal_tier so_payment_account_default so_surcharge_group supplier supplier_address supplier_contact supplier_discount wms_drop_locations'
 \set k10 'wms_zone_sequence customer_carrier_avoid fc_call_log ref_carrier_fc_name ref_carrier_pickup'
-\set kall :k1 ' ' :k2 ' ' :k3 ' ' :k4 ' ' :k5 ' ' :k6 ' ' :k7 ' ' :k8 ' ' :k9 ' ' :k10
+\set k11 'qbo_connection qbo_oauth_state qbo_call_log'
+\set kall :k1 ' ' :k2 ' ' :k3 ' ' :k4 ' ' :k5 ' ' :k6 ' ' :k7 ' ' :k8 ' ' :k9 ' ' :k10 ' ' :k11
 \set r1 'inv_balance_diffs inv_bin_notes inv_collect_runs inv_compare inv_compare_runs inv_conflicts inv_cost inv_doc_cost'
 \set r2 'inv_doc_state inv_layer inv_layer_consume inv_layer_cost_add inv_ledger inv_missing_docs inv_missing_lines inv_sku_types'
 \set r3 'inv_snapshot inv_snapshot_runs inv_sync_state inv_voided_docs'
