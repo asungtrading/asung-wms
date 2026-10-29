@@ -8,7 +8,7 @@ export const PROD_REF = "gftpcnkxbdjzzfvzwcfl";   // asung-WMS(운영)
 
 export type MailConfig = { enabled: boolean; redirect_to: string | null; db_role: string | null };
 export type Line = { so_number: string; line_no: number; sku: string; product_name: string | null; qty_open: number; can_fill_units: number; available_units: number | null; basis?: string; is_combo?: boolean };
-export type Payload = { customer_name?: string | null; location_name?: string | null; lines?: Line[] };
+export type Payload = { customer_name?: string | null; location_name?: string | null; lines?: Line[]; subject?: string | null; body_text?: string | null };   // subject · body_text = qbo-1b PLAIN_KINDS(payload 에 글이 든 알림)
 export type ClaimedMail = { id: string; kind: string; from_address: string; from_name: string | null; reply_to: string | null; to_address: string; payload: Payload; attempt: number; subject?: string | null };
 export type Rendered = { subject: string; body_text: string; body_html: string };
 // doc-3b(2026-10-19 · 3a 계약): 문서 메일(kind doc_*)은 제목 · 본문이 줄에 박혀 있고(doc_mail_send · doc_setting 글) 첨부는 mail_outbox.attachments — PDF 바이트는 Storage documents/<path>
@@ -113,9 +113,18 @@ export function renderDoc(m: { subject?: string | null; body_text?: string | nul
   if (!subject || !text.trim()) throw new Error("render: document mail has no subject or body (doc_mail_send fills both)");
   return { subject, body_text: text, body_html: textToHtml(text) };
 }
+// ── 그리기(알림 · qbo-1b 판정 869) — 제목 · 본문이 payload 에 든 짧은 알림(DB 창구 qbo_mark_needs_reconnect 가 줄을 넣는다 · mail_claim 이 payload 를 주니 loadDoc 없이 그린다) ──
+export const PLAIN_KINDS = ["qbo_reconnect"] as const;
+export function isPlainKind(kind: string): boolean { return (PLAIN_KINDS as readonly string[]).includes(kind); }
+export function renderPlain(p: Payload): Rendered {
+  const subject = String(p.subject ?? "").trim(), text = String(p.body_text ?? "");
+  if (!subject || !text.trim()) throw new Error("render: plain mail has no subject or body_text in payload");
+  return { subject, body_text: text, body_html: textToHtml(text) };
+}
 export function render(kind: string, p: Payload, mail?: { subject?: string | null; body_text?: string | null }): Rendered {
   if (kind === "backorder_ready") return renderBackorderReady(p);
   if (isDocKind(kind)) return renderDoc(mail ?? {});
+  if (isPlainKind(kind)) return renderPlain(p);
   throw new Error(`render: unknown mail kind ${kind}`);
 }
 

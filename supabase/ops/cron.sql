@@ -859,3 +859,18 @@ select cron.schedule('ims-drive', '* * * * *', $job$
                    and ((j.kind = 'archive' and j.status = 'waiting_pdf')
                         or (j.status = 'queued' and exists (select 1 from public.inv_config c where c.key = 'drive_enabled' and c.value = 'on'))));
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-qbo-refresh 등록 — qbo-1b (2026-10-29 · 판정 617 · 869 ~ 872) — QuickBooks 토큰 하루 한 번 갱신 · EF qbo 배포 + 비밀값 뒤에 · ⚠️ 이 프로젝트가 11-01 부터 그대로 운영(617) — 다른 프로젝트에 등록하지 마라
+--   무엇: 매일 09:10 UTC(토론토 04:10 EST · 05:10 EDT) 연결 행이 connected 일 때만 EF qbo 를 {"action":"refresh"} 로 부른다(cron 길 = x-ims-cron-key · 강제 갱신 · 응답의 새 refresh_token 을 매번 저장)
+--   왜 하루 한 번: 접근 토큰(1 시간)은 부를 때 EF 가 5 분 전이면 알아서 갱신한다 · 이 줄은 갱신 토큰(약 100 일 · x_refresh_token_expires_in)을 굴려 두는 것 · 끊기면(invalid_grant) EF 가 needs_reconnect + DB 가 끊김 메일(869 · 바뀌는 순간 한 번) · 그 뒤는 where 가 거른다(connected 아님 · 호출 0)
+--   x-region ca-central-1: 화면 invoke 의 region 옵션과 같은 뜻(pg_net 은 머리로) — 이 파일에서 처음 · Supabase 문서의 x-region 머리(짐작 · 등록 뒤 Invocations 지역으로 확인)
+--   열쇠: jobid 55(ims-mail) 의 command 에서 다시 꺼내는 꼴은 ims-drive 와 같다(아래는 자리표 · 대시보드 SQL Editor 에서만)
+--   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-refresh';  → key_len 64
+--   손으로 한 번: select net.http_post(…) 를 같은 머리로 — 또는 Settings → QuickBooks 의 Refresh(직원 길 · admin)
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-refresh'), active := false);   · 해제: select cron.unschedule('ims-qbo-refresh');
+select cron.schedule('ims-qbo-refresh', '10 9 * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+    body := '{"action":"refresh"}'::jsonb, timeout_milliseconds := 60000)
+  where exists (select 1 from public.qbo_connection c where c.status = 'connected');
+$job$);

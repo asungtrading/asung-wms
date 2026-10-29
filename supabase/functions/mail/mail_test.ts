@@ -1,5 +1,5 @@
-// deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩ · mail-4c ⑪ · doc-3b ⑫ ~ ⑯(문서 메일 · MIME 무변 황금 · PDF 단계)
-import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, mailbox, pdfStep, projectRef, PROD_REF, render, safety, sha256Hex, TEST_REF, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
+// deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩ · mail-4c ⑪ · doc-3b ⑫ ~ ⑯(문서 메일 · MIME 무변 황금 · PDF 단계) · qbo-1b ⑰(payload 알림 qbo_reconnect)
+import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, isPlainKind, renderPlain, mailbox, pdfStep, projectRef, PROD_REF, render, safety, sha256Hex, TEST_REF, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -252,4 +252,17 @@ Deno.test("⑯ PDF 단계 — 집기 → doc render → attach(queued) · render
   let c3 = 0, t3 = 0;
   const tight = await pdfStep({ ...d, claim: () => { c3++; return Promise.resolve([{ outbox_id: "z" + c3, doc_kind: "final_invoice", ref: {}, attempts: 0 }]); }, attach: () => Promise.resolve(), now: () => (t3 += 6_000) }, { batch: 1, budgetMs: 10_000 });
   eq([tight.counts.attached, c3], [1, 1], "budget: one batch then stop");
+});
+
+Deno.test("⑰ qbo-1b 알림 그리기 — kind qbo_reconnect 는 payload 의 subject · body_text 그대로(HTML 은 이스케이프 + pre-wrap) · 둘 중 하나 없으면 오류 · doc · backorder 는 전과 같다 · 모르는 kind 는 여전히 오류", () => {
+  const p = { subject: "[IMS] QuickBooks connection needs attention (sandbox)", body_text: "QuickBooks stopped accepting the IMS connection.\n\nReason:   HTTP 400 invalid_grant <token & more>\n\nOpen IMS -> Settings -> QuickBooks and click Reconnect (admin only)." };
+  eq(isPlainKind("qbo_reconnect"), true, "plain kind");
+  eq([isPlainKind("doc_final_invoice"), isPlainKind("backorder_ready"), isDocKind("qbo_reconnect")], [false, false, false], "not doc · not backorder");
+  const r = render("qbo_reconnect", p);
+  eq([r.subject, r.body_text === p.body_text, r.body_html.includes("&lt;token &amp; more&gt;"), r.body_html.includes("pre-wrap"), r.body_html.includes("<script")], [p.subject, true, true, true, false], "rendered from payload · escaped");
+  eq(JSON.stringify(renderPlain(p)) === JSON.stringify(r), true, "renderPlain = render");
+  let e1 = ""; try { render("qbo_reconnect", { subject: "x" }); } catch (e) { e1 = String(e); }
+  let e2 = ""; try { render("qbo_reconnect", { body_text: "x" }); } catch (e) { e2 = String(e); }
+  let e3 = ""; try { render("qbo_nope", p); } catch (e) { e3 = String(e); }
+  eq([e1.includes("no subject or body_text"), e2.includes("no subject or body_text"), e3.includes("unknown mail kind")], [true, true, true], "errors");
 });

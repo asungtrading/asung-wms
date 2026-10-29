@@ -546,3 +546,13 @@ enabled = true
 #   verify_jwt=false 는 shopify 와 같은 까닭(문을 함수 안에서 사람 말로 · 게이트웨이 401 은 Logs 에 안 남는다 — asung-ops §2-b) · 사용자 JWT 는 DB 창구(fc_shipment_prepare · fc_shipment_for_so)로 그대로 넘긴다.
 verify_jwt = false
 entrypoint = "./functions/freightcom/index.ts"
+
+[functions.qbo]
+enabled = true
+# qbo-1b (2026-10-29 · 판정 617 · 867 ~ 872 · DB qbo-1a 20261029160000 · qbo-1b 20261029190000) — QuickBooks Online 연결: start · callback · status · refresh · ping(CompanyInfo) · disconnect(revoke) · cron 갱신. 싱크는 뒤 차수.
+#   ⚠️ 이 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)가 11-01 부터 그대로 운영(617) — db_role 가드 없음 · 환경은 비밀값 QBO_ENV(sandbox | production · 없으면 500) 와 연결 행의 env 가 같아야 한다. 배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
+#   verify_jwt=false 인 까닭: Intuit 이 브라우저를 JWT 없이 GET /functions/v1/qbo/callback 으로 보낸다(freightcom · drive 와 같은 까닭 — 문은 함수 안: 직원 길 = 세션 JWT 를 DB 창구(qbo_status · qbo_admin_gate · qbo_state_new)로 그대로 · cron 길 = x-ims-cron-key == IMS_CRON_SECRET · refresh 만).
+#   callback 은 언제나 302 · 본문 없음 · Location 은 코드에 고정(https://ims.asung.ca/settings.html?t=qbo&qbo=connected | &qbo=error&why=…) — Intuit 보안 요건 ①.
+#   비밀: QBO_ENV · QBO_CLIENT_ID_SANDBOX · QBO_CLIENT_SECRET_SANDBOX · QBO_CLIENT_ID_PRODUCTION · QBO_CLIENT_SECRET_PRODUCTION · IMS_CRON_SECRET(기존). 값은 응답 · 기록(qbo_call_log) · 오류 · console 어디에도 안 남는다(_shared/qbo.ts scrub).
+verify_jwt = false
+entrypoint = "./functions/qbo/index.ts"
