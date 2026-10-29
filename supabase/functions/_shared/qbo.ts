@@ -264,6 +264,17 @@ async function ensureToken(c: Ctx, force: boolean): Promise<Held> {
   return { access: tk.access, env, realm: claim.realm_id, token_version: saved.token_version, access_expires_at: saved.access_expires_at, refresh_expires_at: saved.refresh_expires_at, refreshed: true };
 }
 
+// ── 회사 이름 저장 — DB 창구가 거부하면 call_log 한 줄(action company_name · ok false · DB 거부 글) · last_error 는 안 쓴다(토큰 건강의 자리) · 돌려주는 값 = 오류 글 | null ──
+async function companyNameSet(c: Ctx, env: Env, realm: string, name: string): Promise<string | null> {
+  const t0 = c.d.now();
+  try { await c.d.rpcService("qbo_company_name_set", { p_name: name }); return null; }
+  catch (e) {
+    const msg = sc(c, e instanceof RpcError ? e.message : String((e as Error)?.message ?? e)).slice(0, 400);
+    await c.d.log({ env, realm_id: realm, action: "company_name", ok: false, http_status: null, intuit_tid: null, error: msg, by_staff: c.byStaff, ms: c.d.now() - t0 });
+    return msg;
+  }
+}
+
 // ── 핑 — CompanyInfo → company_name · 401 이면 강제 갱신 한 번 뒤 다시 · 그래도 401 이면 needs_reconnect ──
 async function ping(c: Ctx): Promise<{ company_name: string; realm_id: string; env: Env; refreshed: boolean }> {
   let h = await ensureToken(c, false);
@@ -279,7 +290,8 @@ async function ping(c: Ctx): Promise<{ company_name: string; realm_id: string; e
   if (r.error) throw new QboError(502, "QuickBooks CompanyInfo failed — " + r.error);
   const name = companyNameOf(r.body);
   if (!name) throw new QboError(502, "QuickBooks CompanyInfo answered without CompanyName");
-  await c.d.rpcService("qbo_company_name_set", { p_name: name });
+  const err = await companyNameSet(c, h.env, h.realm, name);
+  if (err) throw new QboError(422, "QuickBooks answered, but the company name could not be saved — " + err);
   return { company_name: name, realm_id: h.realm, env: h.env, refreshed: h.refreshed };
 }
 
@@ -321,10 +333,10 @@ async function callback(url: URL, c: Ctx): Promise<Response> {
     await revokeReceived();
     return await fail(realmRefused ? "realm" : "save", "save: " + msg, realm);
   }
-  try {
+  try {                                                                                              // 이름은 꾸밈 — 실패해도 연결은 저장됐고 302 connected · 흔적은 call_log(company_name 줄 · companyinfo 줄) · ping 이 다시 시도
     const ci = await companyInfoCall(c, env, realm, tk.access);
     const name = ci.error ? null : companyNameOf(ci.body);
-    if (name) await c.d.rpcService("qbo_company_name_set", { p_name: name });
+    if (name) { const err = await companyNameSet(c, env, realm, name); if (err) c.d.warn("qbo callback: company name not saved — " + err + " (connection saved; ping later)"); }
     else c.d.warn("qbo callback: company name not read — " + sc(c, ci.error ?? "no CompanyName") + " (connection saved; ping later)");
   } catch (e) { c.d.warn("qbo callback: company name step failed — " + sc(c, String((e as Error)?.message ?? e))); }
   await c.d.log({ env, realm_id: realm, action: "callback", ok: true, http_status: null, intuit_tid: null, error: null, by_staff: st.staff_id, ms: 0 });
