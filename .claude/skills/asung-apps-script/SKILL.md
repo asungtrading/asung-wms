@@ -150,6 +150,7 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
 ⭐ [2026-10-27 · so-module §81-b] **GAS 프로젝트 = `System_Automation`**(IMS 적재 스크립트도 여기 · 「Asung-IMS 프로젝트」 가 아니다 — Asung-IMS 는 DB 이름) · **GAS 파일 이름 ≠ 레포 이름** — GAS 에서 그 파일을 찾는 법 = 그 파일만의 함수 · 상수 이름으로 Ctrl+F
    GAS Imsloadcustomer.gs ↔ 레포 ImsLoadCustomer.gs · Imsloadprice.gs ↔ ImsLoadPrice.gs · Imsloadproduct.gs ↔ ImsLoadProduct.gs · ImsTagProbe.gs(이름을 ImsLoadProductTag.gs 로 바꿨을 수 있다 — 짐작) ↔ ImsLoadProductTag.gs
    같은 이름: ImsLoadSupplier.gs · ImsLoadOpening.gs · ImsLoadHist.gs · ⚠️ Imsloadproductsupplier.gs 는 Imsloadproduct.gs 와 **다른 파일**(제품-공급처 · 레포 ImsLoadProductSupplier.gs 짐작)
+   → [2026-10-29 · so-module §88-c · Caleb 확인] GAS **ProbeIMS.gs ↔ 레포 ImsRefLoad.gs**(참조 표 적재 · §73-c 0) · ImsLoadSupplier.gs 는 편집기에서도 그 이름 그대로(레포 판과 같음 확인) · deferred 322 는 「ProbeIMS.js」 로 적었다(편집기 표시는 .gs)
 ```
 
 ---

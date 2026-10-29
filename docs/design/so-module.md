@@ -9868,6 +9868,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 | 9 | 태그 | ImsLoadProductTag.gs(편집기 ImsTagProbe) imsLoadProductTag → Drive 보고 파일 셋을 사람이 본다(676) → imsLoadProductTagApply(⏸ 면 다시) — 176 의 「제품 적재 뒤 태그 한 번 더」 가 이것 | 「기본값 사용」 여부 · 418 없는 제품 ≈ 0(순서 검사) · 켜진 딜의 태그 줄 수(Clearance · DISC_* · GM/HS) · 「뗀 것 짐작」 → 사람이 가른다 · 지울 것의 딜 ⚠️ | 받은 행 ≠ Total(stop 보고) · 지우기 > max(20, 1 %)(IPT_ALLOW_BIG_DELETE) · 넣기 덩이 실패 |
 | 10 | 이력 | ImsLoadHist.gs ⚠️ ILH_PRACTICE 를 지우고(315) → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(Next run 이면 다시) | BigQuery 숫자 = 콘솔 D1 · D2 · 짝 표본 20 · 못 풀림 비율 | BigQuery 서비스 꺼짐 · 못 풀림 > 20 %(ILH_ALLOW_UNRESOLVED) · IMS 번호 겹침 · 모르는 PO 상태(ILH_PO_EXTRA_OK) |
 
+- → [2026-10-29 · §88-c] **0 · 2 는 컷오버 전날(10-29) 먼저 돌렸다**(제품 · 가격 · 공급처는 그날부터 Cin7 에서 새로 만들지 않는다) · 손님(1)은 10-30 18:00 뒤 · **7 은 cutover-delete.sql ⑨ 뒤 한 번 더**(그 전 Dry 의 「보내지 않은 줄」 19 는 정상) · 컷오버 날 = 10-30 18:00 뒤(reload-procedure §P)
 - 순서 근거: 손님 · 공급처는 서로 독립 · 제품(3)이 세트 잇기 · 바코드 · BOM · 제품-공급처 · 가격 · 태그의 앞(FK · 418 · 「Cin7 에만 있는 제품」) · 공급처(2)가 7 의 앞 · 이력(10)은 손님 · 제품을 풀어야 하니 끝
 - ⚠️ 재적재(1 ~ 9)는 **Shopify listing 을 켜기 전에**(판정 420 의 첫 상태 맞추기 앞) — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(켜진 listing 만 큐 · 지금 7) → deferred 320 · 321
 - ⭐ [2026-10-24 저녁 · 판정 684] **열린 PO 손으로 다시 만들기** — 재고 재적재(P-④) 뒤 · 리시빙 전 · 11-01 아침 Cin7 의 완료 안 된 PO 를 보고 IMS PO 화면에서 같은 공급처 · 같은 줄 · 일부 받은 PO 는 남은 수량만 · 메모에 Cin7 PO 번호 · 인보이스 · 선금 걸린 PO 는 그 건만 따로
@@ -11238,9 +11239,9 @@ Settings           closes_at Toronto 17:00 · **Edmonton 16:00**(인계서 §5 �
 | pos v1.16d + so v5y3 | asung-ims `fdc9176`(메시지 「pos v1.16c-d」) | 목록 「draft — reopened」(주황 · ✕ 없음) · 머리 「· reopened」 · POS **Cancel sale…**(manager · 사유 · Check → Cancel the sale) · Sales Orders 다시 연 초안에 **Cancel order…**(manager · 866) | 아직 |
 
 문서 판(DB · Settings → Documents · Caleb 이 올림 · 「이제 제대로 나와」 — 판 파일은 레포 밖):
-- **final_invoice v9**(⚠️ **v8 은 v7 그대로의 복사** — 꺼낸 원본 파일을 올려 생김 · 무해 · 86-e 3) · **internal_receipt v4** · **ship_ready v4** — Use this version 끝
-- v9 · ir v4: Payments 아래 **Credits 표**(크레딧 노트 번호 · 날짜 · 「Invoice 원번호」 · 금액 · 있을 때만) · 합계 끝 **Total → Payments → Credits → Balance due(늘 · 0 이면 0.00)** · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌
-- ship_ready v4: 맨 아래 Balance due 만 늘 찍기 · 계획 줄 그대로 — ⚠️ PROFORMA 에서 Credit applied · Previous balance 이중 표시가 생기는지 **안 봤다**(deferred 380)
+- **final_invoice v9**(⚠️ **v8 은 v7 그대로의 복사** — 꺼낸 원본 파일을 올려 생김 · 무해 · 86-e 3) · ~~**internal_receipt v4** · **ship_ready v4**~~ → [2026-10-29 · §88] DB 에서는 **internal_receipt v5 · ship_ready v5**(doc-sr-1 이견 1) — Use this version 끝
+- v9 · ~~ir v4~~ ir v5(→ §88): Payments 아래 **Credits 표**(크레딧 노트 번호 · 날짜 · 「Invoice 원번호」 · 금액 · 있을 때만) · 합계 끝 **Total → Payments → Credits → Balance due(늘 · 0 이면 0.00)** · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌
+- ~~ship_ready v4~~ ship_ready v5(→ §88): 맨 아래 Balance due 만 늘 찍기 · 계획 줄 그대로 — ⚠️ PROFORMA 에서 Credit applied · Previous balance 이중 표시가 생기는지 **안 봤다**(deferred 380) → [2026-10-29 · §88 · 874] 세 줄을 뺀 ship_ready v6(쓰는 판 v7 = 같은 내용)로 380 닫힘
 - 판 안 `data-due="{{totals.due_amount}}"` = 필수 자리표 채우기(지우면 Check 거부)
 - 이미 나간 종이 · 메일 PDF · 보관 PDF 는 그대로 · 다시 Print · Email 하면 새 판 → 60073 손님에게 Email to customer… 다시 보내기(Caleb · 할 일 · 했는지 못 봤다)
 
@@ -11257,7 +11258,7 @@ Settings           closes_at Toronto 17:00 · **Edmonton 16:00**(인계서 §5 �
 - ⭐ 문서 판은 레포 밖(DB) — 판 파일을 꺼내 볼 때 그것을 「새 판」 으로 올리지 않는다(v8 사고 · 86-e 3)
 - 화면 시험 남은 것(docs-1029 📌 B-8): v1.16a B급 실패 뒤 한 줄 · v1.16b/c · v1.16d Cancel sale · so v5y3 Cancel order → asung-ims CHECKLIST 7-zy
 - 매뉴얼(말만): POS → 배송 오더 우회(deferred **379** · 5 장 POS 「판매를 잠시 두고 다시 잡기」 뒤 또는 1 장 판매 「새 판매 오더」) · Freightcom(deferred **368** 그대로)
-- ship_ready v4 PROFORMA 이중 표시 확인(deferred **380**) · 60073 다시 보내기(Caleb)
+- ~~ship_ready v4 PROFORMA 이중 표시 확인(deferred **380**)~~ → [2026-10-29 · §88] 380 닫힘(874) · 60073 다시 보내기(Caleb)
 - ⚠️ asung-so · asung-inv-ledger description 여유 **1 자**(그날 pre-commit 실측 · docs-1029 실측도 1 자) — 키워드를 더할 수 없다
 
 ### 86-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (인계서 §8 원문)
@@ -11350,5 +11351,91 @@ call_log   13 줄 — Intuit 호출 9 줄 모두 intuit_tid · IMS 안 줄(callb
 12. [docs-1029] 지시서 B-6 「367 이 deferred.md:29 · :40 에 두 번(중복)」 — 중복이 아니라 §1(컷오버 전 필수 거울) · ②① 두 표 규칙(deferred §4) · 「367 닫기」 만 하면 컷오버 전 필수 할 일이 거울 표에서 사라진다 ⇒ 닫고 할 일을 369 로 · reload-procedure §P-1 은 fc 표(10-28)도 빠져 있었다(cutover-delete.sql:94 「reload-procedure §P 는 문서 차수에서」 를 docs-1028h 가 놓침) → 185 표로 고침
 
 ```
-다음 판정 번호: 874 · 다음 deferred 번호: 381
+~~다음 판정 번호: 874 · 다음 deferred 번호: 381~~ → [2026-10-29 · §88] 882 · 383
+```
+
+## §88 2026-10-29 회사 오후 — 컷오버 시점 10-30 18:00 · PROFORMA 크레딧 · 손님 기본 운송사 · Ship to 주소 고르기 · Shipping notes · 오피스 유닛 · 웹 오더 확정 다시 봄 — doc-sr-1 · cdc-1 · shn-1 · wun-1 · so v5y4 ~ v5y6 · cs v7b · fu v1.6 · 판 ship_ready v6 · v7 · 판정 874 ~ 881 (회사 PC)
+
+⭐ 정한 것: **컷오버 시점을 10-30(금) 18:00(토론토) 뒤로**(번호 없음 · Caleb 원문 88-a) · 동료 피드백 1 ~ 7 — PROFORMA 를 INVOICE 와 같은 꼴(874) · 손님 기본 운송사 고르기(876) · Ship to… 저장된 주소 고르기(877) · WMS Fulfillment Ship to 줄(번호 없음) · Shipping notes 를 Finalized 까지 고치기(880) · 오피스 유닛 더하기 · 빼기(881) · 웹 오더 자동 확정은 지금 그대로(879 · 875 · 878 거둠)
+⭐ 원천: docs-1029b 📌 A ~ E(대화 Claude · Caleb · 회사 대화) · 커밋 메시지 · 마이그레이션 머리 주석 · ⚠️ doc-sr-1 · cdc-1 · shn-1 · wun-1 · web-split-0 보고 원문은 레포에 없다 — 이 절이 원천
+⭐ 커밋 — asung-wms `7a549a8` · `cc0177f` · `69e4494` · `b44a29a`(14:22 ~ 15:37 EDT · 테스트 DB 적용 · 확인 끝) / asung-ims `de11f7b` · `c149a9f` · `af9a94f` · `51fde1a` · `fa517c3`(14:26 ~ 15:32 EDT) / asung-ops `bcf87c8`(무변)
+⭐ 「11-01 아침」 · 「11-01 부터 운영」 처럼 앞 절들이 컷오버 날을 11-01 로 적은 곳(판정 617 · 684 · §74-d · §73-c 둘레 · deferred 302 · 604 등 grep 7 곳)은 원문 그대로 둔다 — **컷오버 날 = 10-30 18:00 뒤(주말)로 읽는다** · 할 일 순서표는 reload-procedure §P 하나가 고쳐졌다
+
+### 88-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| (컷오버 시점 · 번호 없음) | 「11월 1일은 sunday야. 그리고 우리의 업무는 10월 30일(금요일) 6시부로 마무리가 돼. 그래서 컷오버 시점은 10월 30일 6시 이후에 할려고 해. 일단 오늘은 제품, 가격, 서플라이어를 ims에 먼저 적재하고 싶어. 이들은 모두 오늘부터 새로운 데이터를 만들지 않기로 내부적으로 약속했어. 손님도 우리가 만들지는 않지만, 샤피파이에서 들어오는 새로운 오더의 손님은 우리가 통제가 안되기 때문에 내일 6시 이후에 적재를 할께. 그리고 내일은 모든 트랜젝션들을 지울꺼야. 그리고 6시 이후로는 샤피파이로부터 오더가 들어오지 않게 할꺼야. 그리고 재고 적재를 마무리하고, 샤피파이 연결을 완료할 계획이야. 그리고 그 다음에 10월 확정 세일즈를 bq에 올리고 이력 적재를 할거야.」 | 컷오버 = **10-30(금) 18:00(토론토) 뒤** · 제품 · 가격 · 공급처는 10-29 부터 Cin7 에서 새로 만들지 않는다(내부 약속) → 10-29 에 먼저 적재 · 손님은 10-30 18:00 뒤 적재(Shopify 웹 오더의 새 손님은 막을 수 없다) · **18:00 에 Cin7 의 Shopify 연결을 끊는다**(Caleb 「connection만 끊는것으로 알고 있어」 — Shopify 상품은 건드리지 않는다) · 그 시각을 적어 둔다 = Go live 의 orders_from(814) · 스토어에서 주문을 막지 않는다 · 순서 = 거래 지우기 → 재고 적재 → Shopify 잇기 끝 → 10 월 확정 판매 BigQuery 업로드 → 이력 적재 · reload-procedure §P 의 날짜를 바꿨다(88-b 끝) |
+| 874 | 「1번부터 하자」 | PROFORMA(ship_ready)를 INVOICE 와 같은 꼴로 — Total → Payments → Credits(번호 · 날짜 · 원 인보이스 · 금액) → Balance due · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌 · DB doc-sr-1(ship_ready 에도 credits[] · totals.credits · 미리 보기 계획의 auto_credit 단계에서 · reference = 원 인보이스 번호 · 옛 열쇠 그대로) · 판 ship_ready **v6**(대화 Claude) · Caleb 이 실수로 한 번 더 올려 **v7 = v6 과 같은 내용**이 쓰는 판 · 이견 1: 정본 · asung-doc 이 「ship_ready v4 · ir v4」 라 적은 판은 DB 에서 **v5**(ship_ready · internal_receipt) → 바로잡음(88-f) · 이견 2: reference 는 so_credit → so_invoice.invoice_number(없으면 ref_invoice_number) · 이견 3: 이중 셈은 값에 없었다(판에서 세 줄을 빼면 끝) ⇒ deferred **380 닫힘** · 이견 4 → deferred **381** · 이견 5: `supabase/tests/doc_cr_1.sql` 확인 모드는 doc-sr-1 적용 뒤 어긋난다(T4 · D7) — 기록만 |
+| 876 | 「그래도 가자」 | 손님 기본 운송사 — ① carrier · pickup · delivery 셋 다 ② sales ③ 고르면 글자 칸도 표 이름 ④ 비우면 id · 글자 둘 다 비움 ⑤ customer_export 운송사 칸 = id 의 표 이름(없으면 옛 글자) · 판정 451 은 적재 규칙으로 그대로 · DB cdc-1(`customer_default_carrier_set` · 옛 id 가 맞아야) · 화면 customers.html cs v7b · 이견 3: 비운 손님에 손님 적재가 Cin7 글자를 다시 쓰면 새 오더에 옛 글자가 실린다 — Caleb 「어차피 지금은 default carrier가 셋팅이 안되어 있어. 그러니 적재후에 하면 돼」 · 이견 4: customer_update 는 아직 글자 default_carrier 를 받는다(화면은 안 보냄 · 기록) |
+| 877 | 「그대로 가자」 | Ship to… 에 저장된 주소 고르기 — 배송 손님(default_ship_to_customer_id → 없으면 오더 손님) · 켜진 Shipping · Business 주소만 · 기본 먼저 · Company = 그 손님 이름 · Contact · Phone = 기본 연락처 · 아홉 칸을 채운 뒤 고칠 수 있음 · 화면만 so v5y4 |
+| (번호 없음) | 「2번부터 진행하자」 | 동료 피드백 2 — WMS Fulfillment 머리 아래 Ship to 줄(회사 · 연락처 · 주소 · 전화 · 오더마다 · 같은 주소는 한 번 · 주소 없으면 빨간 안내) · 화면만 fu v1.6 |
+| 880 | 「finalized 상태까지 수정이 가능했으면 좋겠어」 | Shipping notes 를 draft · confirmed · at_wms · picking · packed(화면 Finalized)에서 고친다 · shipped · fulfilled · cancelled 거부 · sales · 옛 값이 맞아야 · 빈 값 = 지움 · 2000 자 · 창고 종이에는 안 싣는다 · DB shn-1(`so_shipping_notes_set`) · 화면 so v5y5 · 이견 2: confirmed 로 갈라진 오더의 메모를 고치면 원래 오더의 Unconfirm 이 「changed after the split」 로 막힌다(합치면 메모가 사라지므로 막는 것이 맞다) · 이견 4: btrim 은 줄바꿈을 안 깎는다(화면이 trim 해 보낸다) |
+| 881 | 「쓰자」 | 오피스 유닛 더하기 · 빼기 — 더하기(종류 box · pallet · 크기 · 무게 · 개수 1 ~ 20 · in\|cm · lb\|kg) · 크기 고치기(기존 wms_unit_dims_set) · 빼기(빈 유닛만) · 상태 Working · Finalized(so.status picking · packed) · sales · 섞임 거부 · 예약(booked · 10 분 안 pending)이면 거부 「cancel the booking first」 · 유닛이 바뀌면 다시 견적 · Caleb 원문 「창고에서 fulfiment가 박스나, 팔렛 작업을 하지 않아도 finalize하는 길도 열려 있어. 오피스에서 대신해주는 현재의 실무를 반영한거야. 앞으로도 상당기간 이렇게 작업을 해야 하기 때문에 오피스에서 쉽핑 어레인지 먼트를 해야 해. 박스 발송에 팔렛을 섞지 않아. 그 반대로 마찬가지야. 당연히 견적은 다시 해야지」 · DB wun-1(`wms_unit_add` · `wms_unit_remove` · 속 `wms_unit_booking_gate` · `wms_unit_counts_refresh`) · 화면 so v5y6 · 이견 6: wms_order_finalize.units · units_without_dims 를 다시 센다 · 이견 8: 창고 fulfillment 직원은 못 쓴다(sales 만) · 이견 10: Undo Finalize(wms_rollback 'finalize')는 오피스가 만든 빈 유닛도 지운다 |
+| ~~875~~ | 「D」 → 거둠 | (동료 피드백 7 · 웹 오더 자동 확정) 갈림을 Release 순간으로 · 웹 오더만 → 조사 web-split-0 「월요일 전 무리」 → **거둠 · 짓지 않음** |
+| ~~878~~ | 「A」 → 거둠 | 재고가 모자라면 draft + 경고 → 동료 「일정 시간동안 스탁을 allocate하지 못하는 것이 오히려 안좋을 수 있을 것 같다고 해」 → **거둠 · 짓지 않음** · web-hold-1 지시서는 쓰지 않았다 |
+| 879 | 「나도 이제 생각이 나네. 내가 그렇게 요청해서 지어놓고, 기억을 못했어. 이것은 닫자」 | 지금 그대로(웹 오더 자동 확정 · 모자란 몫은 갈림) · 브랜치를 바꿀 때는 **본 오더만 Unconfirm**(손대지 않은 확정 때 형제는 합쳐진다 · so_unconfirm 62–87행 · web-split-0) → draft 에서 창고 바꾸기 → Confirm |
+
+- 「D(875)를 다시 볼 때의 사실」(web-split-0 실측 · 판정 번호 없음): 한 줄 안에서 일부만 예약할 수 없다(`so_reserve_open_line_uq` — 줄마다 열린 예약 하나) · 모자란 몫의 갈림은 `so_allocate_run` 148–153행에서 · 갈림을 Release 로 옮기면 이 둘을 함께 바꿔야 한다
+
+### 88-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 레포 | 커밋 | 차수 | 확인 |
+|---|---|---|---|
+| asung-wms | `7a549a8`(`20261029220000_doc_sr_1_proforma_credits.sql`) | doc-sr-1 — ship_ready 에 credits[] · totals.credits(final_invoice 와 같게 · 미리 보기 계획의 auto_credit 단계 · reference = 원 인보이스 번호 · 옛 열쇠 그대로)(874) | 확인 OK 13 · 판 ship_ready v6 / v7(Caleb 올림 · Total · Payments · Credits · Balance due) |
+| asung-wms | `cc0177f`(`20261029230000_cdc_1_default_carrier.sql`) | cdc-1 — `customer_default_carrier_set`(sales · 켜진 운송사 아무것 · pickup 또는 delivery · id 와 표 이름 글자를 함께 · null = 둘 다 비움 · 옛 id 가 맞아야) · customer_export 운송사 칸 = id 의 표 이름 → 없으면 옛 글자(876) | 확인 OK 22 |
+| asung-wms | `69e4494`(`20261029233000_shn_1_shipping_notes.sql`) | shn-1 — `so_shipping_notes_set`(sales · draft ~ packed(Finalized) · 옛 값이 맞아야 · 빈 값 = 지움 · 2000 자 · shipped · fulfilled · cancelled 거부)(880) | 확인 OK 23 |
+| asung-wms | `b44a29a`(`20261029235000_wun_1_office_units.sql`) | wun-1 — `wms_unit_add`(box · pallet · 크기 · 무게 · 개수 1 ~ 20 · in/cm · lb/kg · Working · Finalized · 섞임 거부 · 예약 중 거부) · `wms_unit_remove`(빈 유닛만) · Finalize 유닛 수 다시 셈(881) | 확인 OK 32 |
+| asung-ims | `de11f7b` | so v5y4 — Ship to: 배송 손님의 저장된 주소 고르기(켜진 Shipping/Business · 기본 먼저 · 아홉 칸 채움 · 고칠 수 있음)(877) | — |
+| asung-ims | `c149a9f` | cs v7b — Default carrier Change 단추(켜진 운송사 · pickup · delivery · 비우기 · customer_default_carrier_set)(876) | — |
+| asung-ims | `af9a94f` | fu v1.6 — Fulfillment 머리 아래 Ship to 줄(회사 · 연락처 · 주소 · 전화 · 오더마다 · 같은 주소 한 번 · 주소 없으면 빨간 안내)(동료 피드백 2) | — |
+| asung-ims | `51fde1a` | so v5y5 — Shipping notes 를 Draft ~ Finalized 에서 고치기(so_shipping_notes_set)(880) | — |
+| asung-ims | `fa517c3` | so v5y6 — Ship & invoice Freight: 오피스에서 박스 · 팔렛 더하기(종류 · 크기 · 무게 · 개수 1 ~ 20) · 빈 유닛 빼기(wms_unit_add · wms_unit_remove)(881) | — |
+
+문서 판(DB · 판 파일은 레포 밖): ship_ready **v6**(대화 Claude) → **v7**(같은 내용 · Caleb 이 한 번 더 올림) = 쓰는 판 · ⚠️ 앞 판은 ship_ready · internal_receipt 모두 **v5**(정본이 적은 v4 가 아니다 · doc-sr-1 이견 1)
+
+reload-procedure §P(docs-1029b · 날짜만 · 순서는 13b ⑤ 하나만 앞으로): 머리 「컷오버 날」 · 0a 사본 = 10-30 거래 지우기(5) 전(파일 이름 ims-1030-*) · 0c 실제 값 = 10-30 지우기 전(5 의 관문) · 1 의 40 · 41 마지막 실행 = 10-30 18:00 뒤 · 8 에 「0 · 2 는 10-29 · ⑨ 뒤 7 다시」 · 12 의 9 월 다시 받기 이유(9 월 Cin7 미잠김) · 12b asOf = 그날 또는 비움(미래 날짜 거부) · **13b ⑤(Cin7 Shopify 연결 끔)는 10-30 18:00 · P-5 맨 앞**(⑤ 전에 ⑥ 금지는 그대로)
+
+### 88-c 실측 · 오늘 적재 실적 (10-29 오후 · 테스트 = 메인 DB)
+
+```
+§73-c 0  ref_brand 417 · category 19 · unit 44 · payment term 34 · bin 2,682 — 모두 「새로 0」 → Apply 안 함
+         ref_account v1 297 Apply(이전 289) · 창고 3 Apply 안 함 · IMS 에서만 만든 브랜드 1 · bin 5
+§73-c 2  공급처 690(API Total 690) · upsert 259 · 새 0 · 내림 0 · is_active IMS 값 유지 3(Airalo · Energizer Canada · US Supplier)
+         672 덮임 1 = P&G 결제조건 2.1%13 Net30 → Cin7 2%19 Net30 — Caleb 이 Apply 뒤 IMS 에서 2.1%13 Net30 으로 다시 고침
+         주소 88 · 연락처 237 · 연락처 내림 2 · Verify 「⭐ 본 행 전부 일치」 · FK 못 붙음 currency KRW 1
+Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 그 이름 그대로(레포 판과 같음 확인)
+다음      §73-c 3(제품)부터 — 집에서
+```
+
+- §73-c 의 0 · 2 단계를 **컷오버 전날** 먼저 돌렸다(제품 · 가격 · 공급처는 10-29 부터 Cin7 에서 새로 만들지 않는다 — 88-a) · 손님(1)은 10-30 18:00 뒤
+- §73-c 7(제품-공급처)은 **10-30 지우기(cutover-delete.sql ⑨ Roux 19 줄 source cin7) 뒤 한 번 더** — 오늘 돌리면 Roux 19 줄은 manual 이라 건너뛴다(Dry 「보내지 않은 줄」 19 는 오늘은 정상 · 지운 뒤 0 이어야) · 금요일 Cin7 입고의 Latest 원가도 그때 들어온다
+- 판정 617 의 「Asung-IMS 가 그대로 운영 DB」 는 그대로 — 바뀐 것은 시각(11-01 → 10-30 18:00 뒤)뿐
+
+### 88-d 열린 것
+
+- 새 deferred **381** — Ship & invoice 에서 인보이스가 둘 이상으로 갈리면(groups ≥ 2) 미리 보기가 같은 크레딧을 장마다 계획한다(남은 5.00 → 장마다 5.00 = 10.00) · 발행은 장마다 줄어 바르다 · PROFORMA 종이만 틀린다 · 컷오버 뒤(doc-sr-1 이견 4)
+- 새 deferred **382** — 발주앱 경계 `pur_ims_sales_from` = 2026-11-01 과 컷오버 10-30 18:00 의 틈: 주말 웹 오더가 10-30 · 10-31 날짜로 IMS 에 생긴다 · `pur_sales_daily` 가 오더 날짜로 세면 그 이틀이 어느 쪽에도 안 잡힌다(출고 · 인보이스 날짜로 세면 무해 — 주말 출고 없음) · **확인 안 됨** · 때 미정(Caleb 이 가른다 · 컷오버가 내일이라 그 전 확인을 권함)
+- deferred **380 닫힘**(874 · 세 줄을 뺀 ship_ready v6 · 이중 셈은 값에 없었다)
+- 짐작 · 줄 없이: ① 10-30 18:00(Cin7 Shopify 끊김) ~ Go live 사이에는 Shopify 재고를 맞추는 쪽이 없다(IMS live 전 · Cin7 끊김) — 주말 웹 오더는 orders_from 으로 Go live 때 들어온다 · 그 사이 품절 상품 주문은 막히지 않는다 ② 드라이브 Start date 2026-11-01(§P 0b)은 주말 IMS 문서(10-30 · 10-31 날짜)를 보관 범위 밖에 둘 수 있다
+- `supabase/tests/doc_cr_1.sql` 확인 모드는 doc-sr-1 적용 뒤 T4 · D7 이 어긋난다(874 이견 5 · 기록만)
+- 오늘 적재 다음: §73-c 3(제품)부터(집)
+
+### 88-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 회사 PC 레포 경로를 `~/asung-wms` 로 적어 명령이 실패 — 실제는 `~/asung/asung-wms` · `~/asung/asung-ims`(CLAUDE.md §1 · po-module 레포 절) ⇒ 지시서 · 명령의 경로는 CLAUDE.md 1 절에서 복사
+2. [대화 Claude] 이미 지은 길을 잊고 새로 지으려 했다 — 웹 오더 확정(875 → 878)을 두 번 판정했는데 브랜치를 바꾸는 길(본 오더만 Unconfirm → 형제가 합쳐진다)은 이미 있었다 · web-split-0 조사가 so_unconfirm 의 합치기를 찾아 막았다 · Caleb 도 「내가 그렇게 요청해서 지어놓고, 기억을 못했어」(879) ⇒ **동료 피드백은 조사로 「지금 되는 길」 부터** — 새 판정은 그 다음
+3. [대화 Claude] 적재 전 「bin 7 개 새로」 를 짐작으로 말했다 — Dry 는 0 ⇒ 숫자 짐작은 「짐작」 이라고 붙인다(§73-e 3 재발)
+4. [발견] ship_ready · internal_receipt 의 쓰는 판 번호를 정본이 v4 로 적었다 — DB 는 v5(doc-sr-1 이견 1) ⇒ 판 번호를 정본에 적을 때는 DB(`doc_template_active` · Settings → Documents 의 판 목록)로 확인
+5. [잘 된 것] 동료 피드백 일곱을 한 오후에 조사 → 판정 → DB · 화면까지(874 · 876 · 877 · 880 · 881 · fu v1.6) · 879 는 짓지 않고 닫음
+
+### 88-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- 「ship_ready v4」 · 「ir v4」 · 「internal_receipt v4」 → v5: so-module §86-b(문서 판 세 줄) · §86-d · asung-doc §1 · deferred 380
+- reload-procedure §P 머리 · P-2 0a · 0c · 1 · 8 · 12 · 12b · 13b · P-5(88-b 끝)
+- §73-c 표 아래 한 줄(0 · 2 는 10-29 먼저 · 7 은 ⑨ 뒤 다시)
+- 「다음 판정 번호: 874 · 다음 deferred 번호: 381」(§87 끝) → 아래
+
+```
+다음 판정 번호: 882 · 다음 deferred 번호: 383
 ```

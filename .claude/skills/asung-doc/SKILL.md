@@ -49,14 +49,15 @@ description: >
 ⭐⭐ 판은 셈하지 않는다 — 돈 · 날짜 · 수량 · 퍼센트는 doc_data 가 글자로 준다(doc_fmt_money · qty · pct · date · 날짜 꼴 키 doc_date_format = DDMONYYYY)
 ⭐⭐ 「0 이면 빈칸」 — Mustache 는 "0.00" 글자를 「있음」 으로 읽어 {{#due}} 줄을 그린다 ⇒ 0 인 돈은 doc_data 가 "" 로(doc_fmt_money_nz) · 판에서 0 을 거르려 하지 마라
      빈칸 대상: due · deposit · credit · balance_forward · paid · SO prepaid · net 단가(오더 할인이 없으면) — 크레딧 노트는 그대로
-⭐⭐ [2026-10-28 · doc-cr-1 · 864] **예외 하나 — `totals.balance_due` 는 늘 글자(0 이면 "0.00")** · `credits[]`(no · number · date · reference = 원 인보이스 번호 · amount) · `totals.credits`(0 이면 "") — final_invoice · internal_receipt(ship_ready 는 balance_due 만 · 미리 보기의 남을 몫) · 옛 열쇠(due_amount · credit_applied · deposit_applied · balance_forward)는 그대로 · 불변식 total − Σpayments − Σcredits = balance_due
-     v9 · ir v4 = Payments 아래 Credits 표 · Total → Payments → Credits → Balance due · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌 · ⚠️ ship_ready v4 는 계획 줄 그대로 — PROFORMA 이중 표시는 안 봤다(deferred 380) · 판 안 `data-due="{{totals.due_amount}}"` 는 필수 자리표 채우기(지우면 Check 거부)
+⭐⭐ [2026-10-28 · doc-cr-1 · 864] **예외 하나 — `totals.balance_due` 는 늘 글자(0 이면 "0.00")** · `credits[]`(no · number · date · reference = 원 인보이스 번호 · amount) · `totals.credits`(0 이면 "") — final_invoice · internal_receipt(~~ship_ready 는 balance_due 만~~ → [2026-10-29 · doc-sr-1 · 874] **ship_ready 도 credits[] · totals.credits** — 미리 보기 계획의 auto_credit 단계에서 · reference = 원 인보이스 번호 · balance_due = 미리 보기의 남을 몫) · 옛 열쇠(due_amount · credit_applied · deposit_applied · balance_forward)는 그대로 · 불변식 total − Σpayments − Σcredits = balance_due
+     v9 · ~~ir v4~~ ir v5 · [874] ship_ready v6/v7 = Payments 아래 Credits 표 · Total → Payments → Credits → Balance due · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌 · ~~⚠️ ship_ready v4 는 계획 줄 그대로 — PROFORMA 이중 표시는 안 봤다(deferred 380)~~ → 380 닫힘(874 · 이중 셈은 값에 없었다) · 판 안 `data-due="{{totals.due_amount}}"` 는 필수 자리표 채우기(지우면 Check 거부)
      이미 나간 종이 · 메일 PDF · 보관 PDF 는 그대로 — 새 판은 다시 Print · Email 할 때부터
 ⭐ 로고는 {{company.logo_url}}(doc-brand 버킷 · doc_public_base_url 로 만든 주소) — 판에 주소를 직접 쓰면 「바깥 주소」 로 거부
 ⭐ 쓰는 판 = kind 마다 하나(doc_template_active) · 새 판 저장 ≠ 쓰기 — Use this version(doc_template_publish)을 눌러야 바뀐다 · 옛 판은 지우지 않는다(되돌리기 = 옛 판을 다시 Use)
 ⭐ 판 파일은 레포 밖 — DB doc_template 이 정본(테스트 쓰는 판: final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 · 2026-10-19) → [2026-10-23 · 판정 640 · so-module §71] final_invoice **v6**(Caleb 올림 10:57 · 줄 설명 뒤 `{{#final_sale}}<span class="tag">Final sale</span>{{/final_sale}}` 한 자리)
      → [2026-10-26 · 판정 788 · so-module §79-d] final_invoice **v7** · ship_ready **v3** · internal_receipt **v3**(Caleb 올림 · Ship To 블록을 `{{#orders}}{{^ship_to_repeat}}<div class="sto">…</div>{{/ship_to_repeat}}{{/orders}}` 로 · 점선은 CSS `.sto + .sto` 라 숨긴 블록과 함께 사라진다)
-     → [2026-10-28 · 판정 864 · doc-cr-1 · so-module §86-b] final_invoice **v9** · internal_receipt **v4** · ship_ready **v4**(Caleb 올림 · Use this version) — ⚠️ **v8 은 v7 그대로의 복사**(꺼낸 원본 파일을 올림 · 무해) ⇒ 꺼낸 판 파일 = `tpl-<kind>.html`(참고용 — **올리지 마라**) · 새 판 = `<kind>-v<N>.html`
+     → [2026-10-28 · 판정 864 · doc-cr-1 · so-module §86-b] final_invoice **v9** · internal_receipt ~~**v4**~~ **v5** · ship_ready ~~**v4**~~ **v5**(Caleb 올림 · Use this version · [2026-10-29] DB 는 v5 — 정본이 v4 로 잘못 적었다 · doc-sr-1 이견 1)
+     → [2026-10-29 · 판정 874 · doc-sr-1 · so-module §88] ship_ready **v6**(INVOICE 와 같은 꼴) → **v7 = v6 과 같은 내용**(Caleb 이 한 번 더 올림) = 쓰는 판 ⇒ 판 번호는 적기 전에 DB(doc_template_active)로 — ⚠️ **v8 은 v7 그대로의 복사**(꺼낸 원본 파일을 올림 · 무해) ⇒ 꺼낸 판 파일 = `tpl-<kind>.html`(참고용 — **올리지 마라**) · 새 판 = `<kind>-v<N>.html`
 ```
 
 ### 판 고치는 순서 (대화 Claude ↔ Caleb)
@@ -75,6 +76,7 @@ description: >
 ⭐⭐ doc_data(kind, ref) 하나가 화면 인쇄 · 미리 보기 · 서버 PDF · 메일 자리표 모두의 재료 — 같은 ref 면 같은 글자 · 다른 길로 셈하지 마라
      ref: final_invoice · internal_receipt {invoice_id} · credit_note {credit_id} · sales_order {so_id} · ship_ready {orders:[{so_id, …}]}(Ship & invoice 창과 같은 입력)
      반환 {docs:[…]} · ship_ready 는 + groups[](인보이스가 갈리면 장이 여럿)
+     ⚠️ [2026-10-29 · deferred 381] groups ≥ 2 이면 ship_ready 미리 보기가 같은 크레딧을 장마다 계획한다(남은 5.00 → 장마다 5.00) — 발행은 바르다 · PROFORMA 종이만 틀린다 · 컷오버 뒤
 ⭐⭐ Ship Ready 의 돈은 발행과 같은 식 — so_invoice_rule_pick · so_invoice_apply_plan · so_tax_preview(…, p_over) · so_invoice_preview 를 so_invoice_issue 가 함께 쓴다
      ⇒ 발행 쪽만 고치면 미리 보기와 갈린다 · 고치면 「옛 발행 = 새 발행」 · 「미리 보기 = 발행」 두 겹 대조를 다시(doc-1b2)
 ⭐ Ship Ready 는 sales 권한이 있는 **직원 로그인**으로만 만든다(so_finalize 미리 보기) — 서버 일꾼(service 길)은 못 만든다

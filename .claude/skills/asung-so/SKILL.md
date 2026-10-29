@@ -153,6 +153,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-20 · 판정 532 · 545 · ln-1] 붙여넣기 셋째 칸 가격 = **최종**(손 줄 · 오더 할인 몫 0 · 판정 542) · 칸 비움 = 원래 가격(티어 · 손님 할인 · 딜) · 0 · 음수 · 안 파는 세트 + 가격은 거부 · 묶기 열쇠 (제품, 가격) — 시스템 줄과 같은 가격이어도 합치지 않는다(합치면 최종 가격이 움직인다)   (→ so-module §67)
 ⭐⭐ [2026-10-20 · 판정 541 · ln-1] so_lines_clear 는 **draft 만**(확정 오더는 Unconfirm 뒤) · intake shopify 오더 거부 · 운임(so_charge) · 쿠폰(coupon_id)은 남는다
 ⚠️  [2026-10-20 · 판정 546 · ln-1] so_line.price_set_by/at = 사람이 단가 · 할인 % 를 줄 때만 찍고 다시 견적(↺)이면 비운다 · **updated_by 로 「누가 정했나」를 읽지 마라**(ims_touch 가 덮는다) · split · merge 는 복사
+⭐  [2026-10-29 · shn-1 · 판정 880 · so-module §88] Shipping notes 고치기 = `so_shipping_notes_set`(sales · draft · confirmed · at_wms · picking · packed(Finalized) · 옛 값이 맞아야 · 빈 값 = 지움 · 2000 자 · shipped 부터 거부) · 창고 종이에 안 싣는다 · ⚠️ confirmed 로 갈라진 오더의 메모를 고치면 원래 오더의 Unconfirm 이 「changed after the split」 로 막힌다(맞다 — 합치면 메모가 사라진다) · btrim 은 줄바꿈을 안 깎는다(화면이 trim)
 ```
 
 - 표 구조 §5(so · so_line · so_charge · so_reserve · 손님 셋 5-a~5-c) · 상태와 전이 §6(6-a 상태 열 · 6-b `channel` 길 셋 warehouse·pos·counter + `intake` 유입 넷 · 6-e 소유권의 선 `Release to WMS` · 6-g′ CHECK+RPC+트리거) · 원장 접점 §7(7-b 출고 사건 `so_out` · 7-c 쓰기 경로 RPC 하나) · 인보이스·결제·크레딧 §8(8-c 묶음 · 8-e 잔액 · 8-g 크레딧 노트).
@@ -204,6 +205,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-09-28] 가용 = 장부 − 판매 예약 − **트랜스퍼 예약**(확정된 트랜스퍼 줄 자체가 예약 · 출발 창고 · so_available_many 한 곳 · 20260928201753 · so-module §27 묶음 열 2) · 트랜스퍼는 판매 표(so · so_line)에 줄을 넣지 않는다(판정 69) · 창고 창구는 공용 목록을 읽는다 — 판매 창구 쪽 셈을 따로 만들지 마라 → 식은 inv_available_base(§46)
 ⭐ [2026-09-29] ⑥ 트랜스퍼 화면 · 판정 82 ~ 87 · 90 · 91 · 끝에서 끝 시험 · 미룬 ⑱ ~ ㉓ → 정본 **§28**(판정 88 입고 기준 = 인보이스는 po-module §11-i)
 ⚠️  invoker 창구가 revoke 된 속 함수를 부르면 직원에게만 42501(postgres 로 재면 안 보인다) · 시험 자료를 뷰 전체에서 고르지 마라(후보 300 → 한 문장) · psql 백슬래시 줄 끝 주석 금지   (14-e · asung-workflow §4)
+⭐⭐ [2026-10-29 · 판정 879 · so-module §88] 웹 오더는 지금 그대로 자동 확정 · 모자란 몫은 갈림 — **브랜치(창고)를 바꿀 때는 본 오더만 Unconfirm**(손대지 않은 확정이면 형제가 합쳐진다 · so_unconfirm) → draft 에서 창고 바꾸기 → Confirm · 875 · 878(갈림을 Release 로 · 모자라면 draft)은 거둠 — 새로 짓기 전에 이 길부터 · 한 줄 안 부분 예약은 없다(so_reserve_open_line_uq · 갈림은 so_allocate_run)
 ```
 
 ## 4-e. ⭐⭐ 출고 · 백오더 장부 · 만료(③) — 모르면 사고 (정본 §15)
@@ -342,6 +344,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-07 · §52] 목록 금액 = so_totals_many(p_so_ids ≤ 200) — so_detail.totals 와 같은 식이 두 곳에 있다 ⇒ so_detail 의 totals 를 고치면 so_totals_many 도 · 검증 so-tot-1 다시(판정 350)
 ⭐⭐ [2026-10-22 · stkx-1 · 판정 628] stk_availability 한도 500 → **20000** · 내보내기는 **stk_availability_export**(같은 거르기 · limit 없음) → jsonb 한 행 {total, row_count, truncated, rows[]}(PostgREST Max rows 1000 은 집합 반환 RPC 에도 걸린다) · by_warehouse[] 에 bgrade(B급 수량 · 1a)
 ⭐  [2026-10-22 · 판정 625 · so gp v1] SO 줄 GP — 원가 = 지금 평균(stk_value_many · 오더 창고 → 없으면 전 창고) · 원가 열쇠가 있을 때만 · 손님 문서에 없음 · 매출 = 줄 합(손 줄 아닌 줄에 오더 할인 %) · surcharge · 운임 제외
+⭐  [2026-10-29 · 판정 877 · so v5y4] Ship to… 저장된 주소 고르기 — 배송 손님(default_ship_to_customer_id → 없으면 오더 손님)의 켜진 Shipping · Business 주소 · 기본 먼저 · Company = 그 손님 이름 · Contact · Phone = 기본 연락처 · 아홉 칸을 채울 뿐 고칠 수 있다(화면만 · 새 창구 없음)
 ```
 
 ## 4-l. ⭐⭐ 관세 부가 요금(surcharge) — 모르면 사고 (정본 so-module §37)
@@ -364,6 +367,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      청구처 규칙은 default_bill_to_customer_id 한 칸(null = 자기) · ⚠️ is_bill_parent 는 규칙이 아니다 · 창구가 안 받는다(field_unknown) ·
      깊이 하나 · 자기 참조 금지는 트리거 customer_parent_guard + CHECK 셋(창구 · 적재 · 손 SQL 모두) · 부모를 비우거나 바꾸면 옛 부모를 가리키던 청구처는 null(트리거 · 창구는 bill_to_reset_with_parent ack) ·
      Add store · Detach · 부모 바꾸기는 자식에 대한 customer_update 한 호출 · 청구는 부모 + 배송은 자기(null) 조합은 된다(판정 255)
+⭐⭐ [2026-10-29 · cdc-1 · 판정 876 · so-module §88] 손님 기본 운송사 = `customer_default_carrier_set`(sales · 켜진 운송사 carrier · pickup · delivery · id 와 글자 칸(표 이름)을 함께 · null = 둘 다 비움 · 옛 id 가 맞아야) · customer_export 운송사 칸 = id 의 표 이름(없으면 옛 글자) · 판정 451(적재 규칙)은 그대로 — ⚠️ 비운 손님에 손님 적재가 Cin7 글자를 다시 쓸 수 있다(그래서 기본 운송사는 손님 적재 뒤에) · customer_update 는 아직 글자 default_carrier 를 받는다(화면은 안 보냄)
 ```
 
 ## 4-n. ⭐⭐ 콤보(번들) — 모르면 사고 (정본 so-module §44 · 판정 244 ~ 250)
@@ -562,6 +566,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️⚠️ **Freightcom 라벨 원본 URL 을 화면에 그리지 마라**(서명 없는 S3 · 손님 주소) — 라벨은 EF label → 서명 URL 120 초로만 · fc_booking_for_shipment current.labels · fc_label_get source_url · 표 직접 읽기로 원본이 닿는다(deferred 362)
 ⚠️  주소 배송 조건(주거지 · 테일게이트 · 인사이드 840)은 customer_update(sales)만 굳힌다 · 창고 기억은 address_review(845 · 오피스가 닫는다) · 테일게이트 · 인사이드는 팔렛만(850) · Billing 주소엔 칸 없음(849)
 ⚠️  운송사 짝 = ref_carrier_fc_name(847) · 짝 없는 견적 줄은 고를 수 없다 · 피할 운송사(843)는 흐림 · 픽업 · 마감 · 창고 시간대(852 · 857 · Edmonton = America/Regina) · Carrier pickups 는 Settings 만(860)
+⭐  [2026-10-29 · wun-1 · 판정 881] 오피스가 Ship & invoice 에서 유닛을 더하고 뺀다 — `wms_unit_add` · `wms_unit_remove`(sales · Working · Finalized · 섞임 · 예약 중 거부 · 바뀌면 다시 견적) · 규칙의 정본은 asung-wms 규칙 47
 ```
 
 ## 5. 이 스킬을 갱신할 때

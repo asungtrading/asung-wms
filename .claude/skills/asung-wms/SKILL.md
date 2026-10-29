@@ -1409,6 +1409,9 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - 픽업: 정기 픽업 상자는 시각 칸 없음(pre_scheduled) · 그 밖 날짜 · Ready from · until(비우면 DB 규칙 — 오늘이면 지금 + 1 분 ~ closes_at · 다음 날이면 09:00 ~ closes_at · 창고 시간대 857 · Edmonton = America/Regina). 정기 픽업 · 마감 표는 **Settings → Carrier pickups 에만**(860 · master).
 - 라벨: 상자 4 × 6(A6) 기본 + Letter instead · 팔렛 Letter · 팔렛 라벨을 따로 만들지 않는다(851). 테일게이트 · 인사이드는 팔렛만(850) · 창고의 「기억」 은 주소에 안 쓰고 오피스 확인 표시(845).
 - 계정 꼬리표 색(TOR 파랑 · EDM 초록 · 그 밖 보라 · fu v1.5b)은 `frAcctTag` 와 so.html `ofAcctTag` 두 곳에 따로 박혀 있다 — 셋째 계정이면 둘 다.
+- ⭐ [2026-10-29 · wun-1 · b44a29a · 판정 881 · so-module §88] **오피스 유닛 더하기 · 빼기** — `wms_unit_add(p_so_id, p_type box|pallet, 크기 · 무게, p_count 1 ~ 20, p_dim_unit in|cm, p_weight_unit lb|kg)` · `wms_unit_remove(p_so_id, p_unit_id)`(물건이 담기지 않은 유닛만) · 크기 고치기는 기존 `wms_unit_dims_set` · so.html v5y6 Ship & invoice Freight 에서. 상태 picking · packed(화면 Working · Finalized) · **sales 만**(창고 fulfillment 직원은 못 쓴다 · 창고는 지금처럼 작업대에서) · 섞임 거부(그 오더의 맨 위 유닛과 종류가 다르면 — 박스 발송에 팔렛을 섞지 않는다) · 예약(booked · 10 분 안 pending)이면 거부 「cancel the booking first」(속 `wms_unit_booking_gate`) · 유닛이 바뀌면 다시 견적(units_changed). 유닛 이름은 창고 `nextUnitLabel` 과 같은 규칙(P1 · B1 …) · 「오피스가 만든 유닛」 표지 칸은 없다(created_by 가 말한다) · `wms_order_finalize.units` · `units_without_dims` 를 다시 센다(`wms_unit_counts_refresh`).
+- ⚠️⚠️ [2026-10-29 · wun-1 이견 10] **Undo Finalize(`wms_rollback 'finalize'`)는 오피스가 만든 빈 유닛도 지운다** — 팔렛까지 지우는 기존 동작 그대로(규칙 「Rollback Finalize 단계 모델링」) · 오피스가 유닛을 만든 오더를 되돌리면 유닛 · 치수를 다시 넣는다.
+- [2026-10-29 · fu v1.6 · asung-ims af9a94f] Fulfillment 머리 아래 **Ship to 줄**(회사 · 연락처 · 주소 · 전화 · 오더마다 · 같은 주소는 한 번 · 주소가 없으면 빨간 안내) — 화면만 · 판정 번호 없음(동료 피드백 2).
 
 ## 현재 진행 상태 (2026-08-04 기준)
 
