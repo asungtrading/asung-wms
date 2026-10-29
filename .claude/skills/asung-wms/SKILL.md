@@ -1397,7 +1397,7 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 
 ## 규칙 47 — IMS WMS Freight 칸: 견적 · 예약 · 라벨 · 취소 (⚠️ 2026-10-28 · 정본 `docs/design/freightcom-integration.md` · so-module §84 · §85 · 판정 835 ~ 862)
 
-**무엇.** asung-ims `wms-fulfillment.html`(fu v1.4 ~ v1.5b) 의 Freight 칸 — 치수 → 견적 → 운송사 고르기(Use this rate) → **Book shipment** → 진행 칸 → 예약됨 칸(운송사 · 추적 · BOL · 픽업 · 라벨) → Cancel booking. 오피스 Ship & invoice 와 **같은 엔진**(DB 창구 + EF `freightcom`) · 입구만 둘(835). ⚠️ 지금은 **테스트 환경만**(EF 가 `db_role = 'test'` 가 아니면 멈춘다 · 운영 토큰 대기 · 운영 예약은 실제 청구).
+**무엇.** asung-ims `wms-fulfillment.html`(fu v1.4 ~ v1.5b) 의 Freight 칸 — 치수 → 견적 → 운송사 고르기(Use this rate) → **Book shipment** → 진행 칸 → 예약됨 칸(운송사 · 추적 · BOL · 픽업 · 라벨) → Cancel booking. 오피스 Ship & invoice 와 **같은 엔진**(DB 창구 + EF `freightcom`) · 입구만 둘(835). ⚠️ 지금은 **테스트 환경만**(EF 가 `db_role = 'test'` 가 아니면 멈춘다 · 운영 토큰 대기 · 운영 예약은 실제 청구) → [2026-10-29 · 617 확인] 이 프로젝트가 11-01 부터 그대로 운영 · db_role 은 그 뒤에도 'test' 라 가드는 운영을 가르지 않는다 — 운영 시작 = 비밀값을 운영 토큰 · BASE_URL 로 바꾸는 날(freightcom-integration 머리).
 
 **모르면 사고.**
 - ⚠️⚠️ **예약은 Finalize 전에** — Finalize 뒤에는 오더가 작업대에서 사라진다. Finalize 확인 글이 「BOOKED …」 / 「— not booked yet」 을 보여 준다.

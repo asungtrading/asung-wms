@@ -5,7 +5,7 @@ description: >
   "doc_template", "doc_data", "doc_field_catalog", "자리표", "판 올리기", "Use this version",
   "Settings → Documents", "ims-doc.js", "Mustache", "인쇄", "Print invoice", "Gotenberg", "Cloud Run",
   "doc_file", "documents 버킷", "doc-brand", "EF doc", "서명 URL", "문서 메일", "doc_mail_send",
-  "waiting_pdf", "ims-mail-pdf", "cron 57", "final_invoice_mail", "info@", "인보이스 메모", "doc_mail_skip", "so_numbers", "ship_to_repeat"
+  "waiting_pdf", "ims-mail-pdf", "cron 57", "final_invoice_mail", "info@", "인보이스 메모", "doc_mail_skip", "so_numbers", "ship_to_repeat", "balance_due"
   가 나오면 추측하지 말고 이 스킬과 정본 so-module §66 을 확인하세요.
   ⚠️판에 meta 태그 · 스크립트 · 바깥 주소 금지(DB 가 거부) — 판 글자는 ASCII(EF 가 charset 을 끼운다),
   ⚠️값의 꼴(돈 · 날짜)은 doc_data 가 만든다 — 판은 셈하지 않는다,
@@ -30,6 +30,7 @@ description: >
 526  Notes = so_invoice.note · so_credit.note(오더 메모 아님 — 직원 메모가 새지 않게)
 527  Unit price = 할인 전(list_price) · 금액 = 수량 × 단가 × (1 − 할인)
 528  Due = 찍는 순간 남은 금액(so_invoice_remaining) · 0 이면 줄 없음 · 발행 때 종이 그대로는 남긴 PDF(doc_file)로
+864  [2026-10-28 · so-module §86] 인보이스 문서 맨 아래 **Balance due 를 늘 찍는다(0 → "0.00")** — 528 의 「0 이면 줄 없음」 을 이 줄만 바꿈 · 크레딧은 목록(번호 · 날짜 · 원 인보이스 · 금액) · 손님이 Total → Payments → Credits → Balance due 를 위에서 아래로 셈해 맞춘다 · 기각 B 「Paid in full」 글
 529  최종 인보이스 자동 메일 = customer.final_invoice_mail(기본 꺼짐 · 바꾸기 manager 이상) · 컷오버 전 손으로 켠다
 530  문서 메일 From info@asung.ca · Reply-To info@ · 이름 Asung Trading(키 mail_doc_*) · ims@ 에 Send mail as 등록 ✅
 문서 다섯   final_invoice(제목 INVOICE) · credit_note · sales_order(손님에게도) · ship_ready(PROFORMA · Ship & invoice 직전) · internal_receipt(지역 배송 서명 · 메일 없음 · 작은 「INTERNAL USE ONLY」)
@@ -48,10 +49,14 @@ description: >
 ⭐⭐ 판은 셈하지 않는다 — 돈 · 날짜 · 수량 · 퍼센트는 doc_data 가 글자로 준다(doc_fmt_money · qty · pct · date · 날짜 꼴 키 doc_date_format = DDMONYYYY)
 ⭐⭐ 「0 이면 빈칸」 — Mustache 는 "0.00" 글자를 「있음」 으로 읽어 {{#due}} 줄을 그린다 ⇒ 0 인 돈은 doc_data 가 "" 로(doc_fmt_money_nz) · 판에서 0 을 거르려 하지 마라
      빈칸 대상: due · deposit · credit · balance_forward · paid · SO prepaid · net 단가(오더 할인이 없으면) — 크레딧 노트는 그대로
+⭐⭐ [2026-10-28 · doc-cr-1 · 864] **예외 하나 — `totals.balance_due` 는 늘 글자(0 이면 "0.00")** · `credits[]`(no · number · date · reference = 원 인보이스 번호 · amount) · `totals.credits`(0 이면 "") — final_invoice · internal_receipt(ship_ready 는 balance_due 만 · 미리 보기의 남을 몫) · 옛 열쇠(due_amount · credit_applied · deposit_applied · balance_forward)는 그대로 · 불변식 total − Σpayments − Σcredits = balance_due
+     v9 · ir v4 = Payments 아래 Credits 표 · Total → Payments → Credits → Balance due · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌 · ⚠️ ship_ready v4 는 계획 줄 그대로 — PROFORMA 이중 표시는 안 봤다(deferred 380) · 판 안 `data-due="{{totals.due_amount}}"` 는 필수 자리표 채우기(지우면 Check 거부)
+     이미 나간 종이 · 메일 PDF · 보관 PDF 는 그대로 — 새 판은 다시 Print · Email 할 때부터
 ⭐ 로고는 {{company.logo_url}}(doc-brand 버킷 · doc_public_base_url 로 만든 주소) — 판에 주소를 직접 쓰면 「바깥 주소」 로 거부
 ⭐ 쓰는 판 = kind 마다 하나(doc_template_active) · 새 판 저장 ≠ 쓰기 — Use this version(doc_template_publish)을 눌러야 바뀐다 · 옛 판은 지우지 않는다(되돌리기 = 옛 판을 다시 Use)
 ⭐ 판 파일은 레포 밖 — DB doc_template 이 정본(테스트 쓰는 판: final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2 · 2026-10-19) → [2026-10-23 · 판정 640 · so-module §71] final_invoice **v6**(Caleb 올림 10:57 · 줄 설명 뒤 `{{#final_sale}}<span class="tag">Final sale</span>{{/final_sale}}` 한 자리)
      → [2026-10-26 · 판정 788 · so-module §79-d] final_invoice **v7** · ship_ready **v3** · internal_receipt **v3**(Caleb 올림 · Ship To 블록을 `{{#orders}}{{^ship_to_repeat}}<div class="sto">…</div>{{/ship_to_repeat}}{{/orders}}` 로 · 점선은 CSS `.sto + .sto` 라 숨긴 블록과 함께 사라진다)
+     → [2026-10-28 · 판정 864 · doc-cr-1 · so-module §86-b] final_invoice **v9** · internal_receipt **v4** · ship_ready **v4**(Caleb 올림 · Use this version) — ⚠️ **v8 은 v7 그대로의 복사**(꺼낸 원본 파일을 올림 · 무해) ⇒ 꺼낸 판 파일 = `tpl-<kind>.html`(참고용 — **올리지 마라**) · 새 판 = `<kind>-v<N>.html`
 ```
 
 ### 판 고치는 순서 (대화 Claude ↔ Caleb)

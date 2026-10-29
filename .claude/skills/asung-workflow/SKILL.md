@@ -61,6 +61,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ [2026-10-23 · so-module §71-e 8] **판정 예는 답에 따라 숫자가 갈리는 값으로** — 판정 631 을 50 % 예로 물었다 · 50 % 는 「깎는 %」 와 「남는 %」 가 같은 값이라 갈리지 않아 645 가 따로 필요했다 ⇒ 30 % 처럼 두 뜻이 다른 답을 내는 예를 고른다
 ⚠️⚠️ [2026-10-24 저녁 Caleb · so-module §73-e 8] **짐작이 일의 근거가 되면 차수를 만들기 전에 Caleb 에게 한 줄로 사실을 묻는다** — 「Cin7 에서 그게 되나요?」 · 「지금 몇 개인가요?」 · 319(「Cin7 에서 지운 SKU」 — 지울 수 없었다 · 685) · 302(도구 — 열린 PO 0 · 684)를 확인 없이 받아 지시서 둘(ldfix-2 · po-open-0)을 만들었다 · Caleb 「작업을 진행하기전에 먼저 상황을 확인하고 작업 진행을 했으면 좋겠어」 · 개수가 작으면 도구 대신 손 체크리스트
 ⚠️⚠️ [2026-10-25 · so-module §75-e 1] **화면 쪽 거리는 grep 으로 범위를 다 센 뒤에 묻는다** — 판정 721 을 「다섯 화면 열 곳」 으로 물었는데 실제는 데이터 값까지 아홉 파일 · Caleb 「매뉴얼을 만드는데, cin7이라는 문자 때문에 화면까지 수정한건가?」 ⇒ 범위 · 파일 수를 먼저 세고, 「문서만으로 피하는 길」 도 함께 낸다
+⭐ [2026-10-29 Caleb · so-module §87-e 11] **Claude Code 에 줄 지시 · 메시지마다 /clear 여부를 한 줄로** — 「앞으로 /clear 해도 되는 것들에는 /clear하라고 얘기해줘」 · 지시서가 스스로 담으면(새 차수 · 문서 차수) 「/clear 뒤에」 · 같은 차수의 고친 판 · 이견 답 · 시험 결함 되묻기는 「/clear 하지 마라」(앞 대화가 근거다)
 ⚠️⚠️ [2026-10-24 밤 · so-module §74-f 6] **거래 표(po · po_charge · so_invoice …)에 FK 를 거는 새 표는 같은 차수에서 「컷오버 날 지우는 순서」 를 한 줄 적는다** — FK 는 기본 on delete no action 이고 문지기(doc_file_guard)가 지우기를 거부한다 · 안 적으면 지우는 날 FK 오류로 처음 안다(deferred 332)
 ```
 
@@ -90,6 +91,8 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 끝     git 을 건드리지 마라 · git diff --stat 과 행 수만 보여주고 멈춰라 · 이견에 번호를 붙여라
        ⭐ [2026-10-10 · so-module §59-f 1] 마이그레이션 차수의 「끝」 에 박는다: **적용 명령은 `psql -1 -f <파일 하나>` + `supabase migration repair --status applied <버전>`** — `supabase db push`(특히 `--include-all`)는 아직 적용 안 된 다른 마이그레이션까지 민다
        정본·CHECKLIST·스킬 갱신은 **말만** 한다
+       ⭐⭐ [2026-10-29 · so-module §87-e 3 · 재발 §79-e 1] **DB 창구를 만드는 차수의 뼈대에 늘 「REST 두 겹」** — ① 시험 파일에 nowhere 정적 검사(마지막 정의의 update · delete 깊이 0 WHERE · qbo_1c_check.sql · ar_2b_check.sql) ② 적용 뒤 REST 로 한 번(EF · GAS Dry · curl) — 「이 창구가 REST 로 불리나」 를 묻지 말고 늘 넣는다(qbo-1a 가 빠뜨려 첫날 밤 cron 갱신이 조용히 실패할 뻔 · §4)
+       ⭐ [2026-10-29 · §87-e 1 · 2] 지시서 전제는 정본 판정표(그 절의 -a 표)를 grep 한 뒤 · 상태를 막는 규칙(거부 · 잠금 · needs_*)은 **「그 상태에서 빠져나오는 길」 을 같은 줄에**(qbo-1b 「env 어긋나면 모두 거부」 → 운영 전환 날 나갈 길 없음)
 ```
 
 ### ⭐⭐ 빠뜨리면 사고가 나는 넷
@@ -231,6 +234,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️⚠️ [2026-10-23 · so-module §72-e 1 · hist-1b] **REST 로 불리는 창구(service_role · Apps Script · EF)는 REST 조건에서 시험한다** — REST 역할 authenticator 가 safeupdate 를 싣는다 → WHERE 없는 delete · update 는 21000 · psql 직결은 safeupdate 를 못 싣는다(load · PGOPTIONS 막힘) ⇒ 창구 안의 「통째로 비우기」 는 truncate(세션 전용 임시 표)나 WHERE 로 · psql 로만 시험하면 이 결함을 못 본다
    → [2026-10-26 · so-module §79-e 1 · ar-2 → ar-2b · 판정 789 · 재발] **REST 창구 시험은 두 겹** — ① 마지막 정의의 update · delete 를 깊이 0 WHERE 로 전수 센다(`supabase/tests/ar_2b_check.sql` 의 pg_temp.nowhere · 임시 표 update 도 센다 — ar-2 는 delete 만 보고 「WHERE 없는 update 없음」 이라 적었다) ② 실제 REST 로 한 번(GAS Dry · curl)
      psql 은 safeupdate 를 **못 싣는다**(load · PGOPTIONS · set 셋 다 막힘 · ar-2b 실측) — psql 시험 통과는 REST 통과가 아니다
+   → [2026-10-29 · so-module §87-e 3 · qbo-1a → qbo-1c · **재발**] 지시서가 두 겹을 안 넣었다 — qbo_* 창구 일곱 문장(행 하나 표 · `update … set …` WHERE 없음)이 psql 시험을 지나 샌드박스 ping 에서 422 「UPDATE requires a WHERE clause」 · 행 하나 표는 `where singleton`(열쇠 칸) · `insert … on conflict do update` 는 INSERT 라 대상 아님 ⇒ **지시서 뼈대로 올림(§3)**
 ⚠️ [2026-10-26 · §79-e 4] **확인 기준(기대 OK 수 · grep 꼴)은 그 검증 파일의 실제 출력 꼴을 보고 박는다** — srs_1_check 는 OK 줄만 내는데 합계 표(`ok | mismatch | expect_ok`) grep 을 기대해 && 사슬이 멈췄다 · 회신의 원문(OK 줄 · 끝부분)을 보고 명령을 쓴다
 ⚠️ [2026-10-26 · §79-e 2 · 3] 무거운 창구는 **시간을 먼저 재고** 트랜잭션에 넣는다(hcr-1 첫 시험이 so_credit ACCESS EXCLUSIVE 를 2 분 넘게 쥠) · hist_ 처럼 RLS 정책 함수(leakproof 아님)가 걸린 표를 읽는 창구는 invoker 면 식 색인을 못 탄다 → definer + 첫 줄 문 · 부분 색인의 식 통계는 planner 가 안 쓴다 → 비부분 색인 + analyze
 ⚠️⚠️ [2026-10-23 · §72-e 2 · 3 · hist-1c] **REST 역할 statement_timeout 은 8 초** — Apps Script 쪽 크기(오더 수 · 줄 수)는 그 안에서 실측으로 정한다(같은 loaded_at = 한 쪽 · 한 쪽의 최대 줄 수를 센다) · 느리면 줄 수 · 잠금을 짐작하지 말고 한 건씩 잰다(실례: 색인 없는 upper(sku) 조회 31 ms × 400) · order by 가 붙은 조회는 (upper(sku), sku) 같은 복합 색인이어야 먹는다
@@ -508,6 +512,7 @@ EOF
 ⚠️ [2026-10-13 · §62-d 4] **Promise.all 에 질의 자리를 더하면 받는 이름 순서를 질의 순서와 하나씩 대조** — wo v2a 가 둘째 자리에 질의 · 이름은 셋째 → 모든 오더 상세가 Loading 에서 멈춤(문법 검사로 안 잡힘 · wo v2b)
 ⚠️ [2026-10-14 · bo v4 → v4a · so-module §64-e 15] **IMS 화면은 110% 확대로 쓴다** — 미디어 쿼리 폭을 정할 때 노트북 폭에서 실제로 걸리는지 본다(1100px 기준이 안 걸려 좁은 창에서 안 쌓였다 → 1400)
 ⚠️ [2026-10-14 · bo v4 → v4a] **공통 `.card h3` 는 대문자 · 고정폭 · 밑줄이다** — 카드 안의 제목(오른쪽 머리 등)은 `div` 로(대문자로 그려졌다)
+⚠️ [2026-10-29 · so-module §87-e 5] **Caleb 에게 주는 브라우저 콘솔 도우미 이름은 그 화면의 최상위 let/const 를 grep 한 뒤** — `q` 로 지었다가 settings.html 의 `let … q=""` 와 겹쳐 「q is not a function」 · 대문자 이름(QBO · FC)으로
 ```
 
 ---
@@ -570,7 +575,7 @@ description ⚠️ 키워드가 트리거다 — 자르면 필요할 때 스킬�
    회사  cd ~/asung/asung-wms/.claude/skills && for s in <스킬들>; do rm -f /mnt/c/Users/chang/Downloads/$s.zip; (cd $s && zip -r -q /mnt/c/Users/chang/Downloads/$s.zip .); done && ls -l /mnt/c/Users/chang/Downloads
    집    같은 명령에서 chang → yoonh
    ⚠️ references/ 가 있는 스킬(cin7-api · asung-wms · asung-apps-script 등 — ls -d .claude/skills/*/references)은 unzip -l <zip> | grep -c "references/" 가 1 이상인지 본다 — 0 이면 본문만 올라가 참조 파일이 사라진다
-      SKILL.md 하나뿐인 스킬(asung-po · asung-so · asung-workflow)은 0 이 맞다
+      SKILL.md 하나뿐인 스킬(asung-po · asung-so · asung-workflow · asung-qbo)은 0 이 맞다
 ④ claude.ai → 스킬 → 그 스킬 → **바꾸기** 로 zip 을 올린다
 ⑤ description 여유는 pre-commit 출력으로 본다(날마다 바뀐다 — 여기 적지 않는다) · 여유가 적은 스킬에 키워드를 더할 때는 **먼저 뺄 것을 정한다**(위 압축 순서)
 ⑥ claude.ai 는 올릴 때 머리말(description)을 다시 쓴다(큰따옴표로 감싸고 `\"` · 끝에 글자 `\n`) ⇒ 파일 md5 는 맞지 않는다 · 대조는 **머리말을 뺀 본문 md5** `awk 'c>=2{print} /^---$/{c++}' SKILL.md | md5sum` 와 references 수로 한다 [2026-10-06 실측 · Caleb · 다섯 스킬 본문 md5 일치]
@@ -939,3 +944,28 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    7 [발견] Ship & invoice 는 창 칸을 그대로 보낸다 — DB 가 예약 때 쓴 송장을 창의 빈 칸이 덮을 수 있었다 ⇒ DB 가 뒤에서 칸을 쓰는 기능을 더하면 **그 칸을 다시 보내는 창**이 있는지 grep(so v5y)
    8 [대화 Claude] 판 표시 날짜 2026-10-29 는 UTC 날짜로 매긴 실수(커밋 10-28 EDT) ⇒ 화면 판 날짜는 토론토 날짜로
    9 [잘 된 것] 20 초의 까닭을 fc_call_log 로 나눠(IMS 2 ~ 3 s · Freightcom 13 s) 속도 대신 진행 칸으로(861) · 진행 칸이 시계가 아니라 DB 흔적을 읽는다
+
+⚠️ **[2026-10-28 집 저녁 — so-module §86-e · POS 결제 취소 · 크레딧 목록 · Reopen 줄 지우기 · 확정됐던 판매 지우기 막기]**
+   1 [대화 Claude] pos-pay-1 지시서의 so_payment_void md5 를 ar-2 머리 주석의 「원본」 값(82accf2f)으로 적었다 — DB 는 48097c4f · Claude Code 가 잡음 ⇒ 착지 md5 는 **마지막 정의 파일 본문 · DB prosrc** 로(머리 주석의 「원본」 은 그 전 판일 수 있다)
+   2 [대화 Claude] doc-cr-1 확인 grep 을 `^ OK ` 로 — 실제 `OK …`(앞 빈칸 없음) → 0 으로 보임(§79-e 4 재발) ⇒ `grep -cE '^ ?OK '` · 지시서에 「OK 줄 꼴을 보고에 적어라」
+   3 [대화 Claude] 판을 꺼내라고만 하고 「올리지 마라」 를 안 적었다 — 원본 복사가 final_invoice v8 로 올라감(무해) ⇒ 꺼낸 판 = `tpl-<kind>.html`(원본 · 「참고용 — 올리지 마라」) · 새 판 = `<kind>-v<N>.html`
+   4 [대화 Claude] so.html 패치의 옛 글자를 기억으로 적어 단언이 막음 ⇒ 바꿀 줄은 늘 파일에서 grep 해 복사
+   5 [발견] pos v1.12 B급 나누기가 실패 때 되돌리지 않았다(Caleb 화면 시험 · v1.16a)
+   6 [발견] 줄 지우기가 풀린 예약 이력을 몰랐다(FK) · 고치자 「확정됐던 판매가 흔적 없이 지워지는」 구멍 → 865 ⇒ **막기를 고칠 때는 「그 막기가 지키던 다른 것」 을 함께 본다**
+   7 [잘 된 것] Claude Code 조사가 짐작 셋을 실물로 바로잡음(0.80 출처 · 부분 결제는 화면 문제 · 풀린 예약 행은 가용을 안 깎음)
+   8 [대화 Claude] 865 화면 차수에서 Delete draft 만 감추고 대신할 Cancel 단추를 안 봤다 — Caleb 「cancel은 어떻게 한다는거야?」 ⇒ **단추를 감출 때는 「그러면 무엇으로 하나」 를 같은 차수에서**(866)
+   9 [대화 Claude] 판 표시 날짜를 UTC 로(§85-e 8 재발) ⇒ 토론토 날짜
+
+⚠️ **[2026-10-29 회사 — so-module §87-e · QuickBooks 연결 · Intuit 설문]**
+   1 [대화 Claude] qbo-0 지시서 전제 셋이 정본과 어긋남(「운영 DB 미정」 — 617 이 정함 · db_role 가드를 환경 가드로 · authgate.ts 를 IMS 문으로) ⇒ 지시서 전제는 정본 판정표를 grep 한 뒤(§3)
+   2 [대화 Claude] qbo-1b 「API 401 = 끊김」(접근 토큰 만료도 401) · 「env 어긋나면 모두 거부」(운영 전환 날 나갈 길 없음) — 이견 4 · 5 ⇒ 막는 규칙에 빠져나오는 길을 같은 줄에(§3)
+   3 [대화 Claude · 재발 §79-e 1] qbo-1a 지시서에 REST 두 겹이 없었다 — WHERE 없는 update · delete 일곱이 REST 에서 422 ⇒ **지시서 뼈대로**(§3 · §4)
+   4 [대화 Claude · 재발 §82-e 3] 이름 · 칸 짐작 — jobid 55 를 `ims-mail` 로(실제 `ims-mail-drain` · \gset 0 행) · 칸 `created_at`(실제 `called_at`) ⇒ 걸러 쓰는 이름 · 칸은 먼저 한 줄 select
+   5 [대화 Claude] 콘솔 도우미 `q` 가 화면의 `let q` 와 겹침 ⇒ §6 줄 · 대문자 이름
+   6 [대화 Claude · 재발 §80-e 5 · §81-e 4] Caleb 에게 영어로 답 세 번 ⇒ 늘 한국어(긴 대화 뒤반에 재발)
+   7 [대화 Claude] Freightcom 운영 토큰 요청 메일 첫 판 「두 계정 모두 시험」(실호출은 토론토만) ⇒ 바깥에 보내는 글의 사실은 정본 「다시 볼 것」 과 대조
+   8 [대화 Claude] 설문 근거로 「샌드박스에서 실제 거부가 기록됐다」 — 그 422 는 우리 DB 였다 ⇒ **서약하는 글의 근거는 기록(call_log)으로 본 것만**
+   9 [Claude Code · qbo-1b] psql 이 권한 분류기에 막혀 DB 시험을 못 돌림 → Caleb 첫 시험 적용이 시험 결함 둘(B8 service_role 이 표를 서브쿼리로 읽음 · B5 savepoint 되돌림이 결과 행까지 지움) ⇒ Claude Code 가 psql 을 못 돌린 차수는 「시험 적용(rollback)」 을 Caleb 명령 첫 줄로 · 결과 행은 psql 변수로 받아 되돌린 뒤 chk
+   10 [잘 된 것] 샌드박스 ping 이 safeupdate 를 운영 전에 잡음 · as_role 로 실제 authenticated 역할에서 Vault · 창구 거부 증명 · 갱신 토큰 만료 고정(101 일) 실측 · 설문은 짓고 시험한 뒤 사실대로(868) · 보안 팀 Yes → No
+   11 [Caleb] 「/clear 해도 되는 것들에는 /clear하라고 얘기해줘」 ⇒ §2 줄
+   12 [docs-1029] 지시서 「deferred 367 두 번(중복)」 — 거울 표(deferred §1 · §4 규칙)였다 · 닫기만 하면 컷오버 전 필수 할 일이 사라진다 → 할 일은 369 로 · reload-procedure §P-1 은 10-28 fc 표도 빠져 있었다 ⇒ 「문서 차수에서」 로 미룬 줄(마이그레이션 · ops 머리)은 그날 문서 차수 지시서에 옮긴다

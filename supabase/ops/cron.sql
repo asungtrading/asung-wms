@@ -864,7 +864,8 @@ $job$);
 --   무엇: 매일 09:10 UTC(토론토 04:10 EST · 05:10 EDT) 연결 행이 connected 일 때만 EF qbo 를 {"action":"refresh"} 로 부른다(cron 길 = x-ims-cron-key · 강제 갱신 · 응답의 새 refresh_token 을 매번 저장)
 --   왜 하루 한 번: 접근 토큰(1 시간)은 부를 때 EF 가 5 분 전이면 알아서 갱신한다 · 이 줄은 갱신 토큰(약 100 일 · x_refresh_token_expires_in)을 굴려 두는 것 · 끊기면(invalid_grant) EF 가 needs_reconnect + DB 가 끊김 메일(869 · 바뀌는 순간 한 번) · 그 뒤는 where 가 거른다(connected 아님 · 호출 0)
 --   x-region ca-central-1: 화면 invoke 의 region 옵션과 같은 뜻(pg_net 은 머리로) — 이 파일에서 처음 · Supabase 문서의 x-region 머리(짐작 · 등록 뒤 Invocations 지역으로 확인)
---   열쇠: jobid 55(ims-mail) 의 command 에서 다시 꺼내는 꼴은 ims-drive 와 같다(아래는 자리표 · 대시보드 SQL Editor 에서만)
+--   열쇠: jobid 55 ~~(ims-mail)~~ `ims-mail-drain` 의 command 에서 다시 꺼내는 꼴은 ims-drive 와 같다(아래는 자리표 · 대시보드 SQL Editor 에서만) — [docs-1029] 이름 정정(이름 짐작으로 \gset 0 행에서 멈춘 일 · so-module §87-e 4)
+--   ✅ [2026-10-29 · Caleb 등록 · docs-1029 기록] **jobid 59** ims-qbo-refresh · '10 9 * * *' · key_len 64(jobid 55 ims-mail-drain 에서) · x-region ca-central-1 · 첫 운영 실행 확인은 10-30 아침(deferred 370 · qbo_call_log action refresh)
 --   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-refresh';  → key_len 64
 --   손으로 한 번: select net.http_post(…) 를 같은 머리로 — 또는 Settings → QuickBooks 의 Refresh(직원 길 · admin)
 --   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-refresh'), active := false);   · 해제: select cron.unschedule('ims-qbo-refresh');

@@ -10,11 +10,13 @@
 
 | 상태 \ 때 | 컷오버 전 필수 | 컷오버 날 | 판정 대기 | Caleb 요청 때 | 미정 | 컷오버 뒤 | — | 합 |
 |---|---|---|---|---|---|---|---|---|
-| 열림 | 2 | 11 | 8 | 5 | 279 | 19 | 0 | 324 |
+| 열림 | 2 | 11 | 9 | 5 | 286 | 22 | 0 | 335 |
 | 모름 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 8 |
 | 닫힘(짐작) | 1 | 0 | 0 | 0 | 1 | 0 | 1 | 3 |
-| 닫힘 | 14 | 2 | 0 | 0 | 55 | 1 | 8 | 80 |
-| 합 | 17 | 14 | 8 | 5 | 343 | 20 | 9 | 415 |
+| 닫힘 | 15 | 2 | 0 | 0 | 55 | 1 | 8 | 81 |
+| 합 | 18 | 13 | 9 | 5 | 350 | 23 | 9 | 427 |
+
+> [2026-10-29 · docs-1029] 367 닫힘(617 확인) · 새 369 ~ 380(369 컷오버 전 필수 · 371 판정 대기 · 373 ~ 375 컷오버 뒤 · 나머지 미정) · ⚠️ 「합」 줄 컷오버 날 칸이 14 로 적혀 있었다 — 열림 11 + 닫힘 2 = 13(합 415 는 13 으로 맞던 수 · 칸 오기만 고침)
 
 ## 1. ⭐ 열림 · 컷오버 전 필수 — 11-01 까지 먼저 볼 줄
 
@@ -22,11 +24,12 @@
 > [2026-10-24 밤 · docs-1024c] **남은 줄 0** — N-1022-⑤ 닫힘(판정 687 · so §74) · 컷오버 날 할 일은 「② 컷오버 날」 표(N-1022-⑥ · 332 …)
 > [2026-10-27 밤 · docs-1027c] **남은 줄 1** — 357(잇기 556 모양 다름 · CRO85680 · 사람 몫 · so §83)
 > [2026-10-28 · docs-1028h] **남은 줄 2** — 357 · 367(Carrier pickups · closes_at 시험 값 — 테스트 DB 가 그대로 운영이 되는지 Caleb 확인 대기 · so §85)
+> [2026-10-29 · docs-1029] **남은 줄 2** — 357 · 369(367 은 617 확인으로 닫힘 · 할 일은 369 로 옮김 · so §87)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | 357 | 잇기 판의 556 모양 다름 aone 48 · asung 2 를 줄마다 본다(잇지 않고 보고만 되는 상품 — 그대로 두면 IMS 가 그 상품을 모른다) · CRO85680(IMS 에 없는 SKU 448 가운데 신제품으로 확인 안 된 하나) 확인 — **사람 몫**(Caleb · 담당자 · 엑셀 shopify-ims-diff-2026-10-27.xlsx 의 이어짐-모양 다름 탭) | 열림 | 컷오버 전 필수 | docs-1027c 📌 B-2 ⬜ · 컷오버 순서(상품 재적재 → 페이지 정리 → Read → Plan → Apply → Go live) 전에 | so §83-c · 83-d · shopify-integration §1-b · §7 | 556 · 830 |
-| 367 | ref_carrier_pickup(운송사 × 창고 정기 픽업 · 마감)은 컷오버 **K** — 시험 값이 컷오버 지우기에 안 지워진다 · 「테스트 DB(fazgmyvzzhqybtvtktyg)가 그대로 운영이 되는가」 는 아직 정하지 않았다(짐작 금지) — ① **그대로 운영이 되면** 컷오버 전에 ref_carrier_pickup 시험 값(Toronto × UPS test value · Edmonton × FedEx 15:30 — Clear 확인 못 받음) · ref_warehouse.closes_at(지금 Toronto 17:00 · Edmonton 16:00 — 시험 값)을 창고 담당자에게 받은 실제 값으로 바꾸는 것이 필수 ② **새 프로젝트로 옮기면** 옮길 때 실제 값을 넣는다 | 열림 | 컷오버 전 필수 | Caleb 확인 대기(docs-1028h · 2026-10-28) | so §85-c · 85-d · freightcom-integration §7 | 852 · 857 · 860 |
+| 369 | Carrier pickups · 창고 문 닫는 시각 · 피할 운송사의 **시험 값을 실제 값으로 바꾸거나 지운다** — 테스트 DB 가 11-01 부터 그대로 운영(617 · Caleb 확인 2026-10-29)이고 셋 다 컷오버 **K**(지우기에 안 지워진다): ① `ref_carrier_pickup` Toronto × UPS 정기 픽업 · 마감 16:00(「test value 2026-10-28」) · Edmonton × FedEx 15:30(Clear 확인 못 받음) ② `ref_warehouse.closes_at` Toronto 17:00 · Edmonton 16:00(시험 값) ③ `customer_carrier_avoid` VancouverDistributorsLTD × Canpar(시험으로 켬) — 실제 값은 창고 담당자에게(Settings › Carrier pickups · Warehouse Edit · 손님 상세) · 값을 못 받으면 지운다(정기 픽업 없음 = 시각 칸 · 마감은 Freightcom 값 또는 모름) | 열림 | 컷오버 전 필수 | 판정 617 확인(Caleb 「맞아」 · 2026-10-29) · 367 에서 옮김 | so §85-c · §87-a · freightcom-integration §7 · reload-procedure §P-2 0c | 617 · 852 · 857 · 860 |
 
 ⚠️ [2026-10-23 · docs-1023h] 「컷오버 전 필수」 열린 줄 7 — N-1022-⑤(짐작) · 109 · 113(664 · 665 — 손님 · 제품 재적재 전에 고친다) · 302(열린 PO) · 303(8 · 9 월 확정 적재) · 313(당월 출처 날짜) · 317(기본 공급처 재계산) · 「미정」 이 대부분이라 Caleb 이 가를 때 이 표가 더 늘 수 있다 · 「컷오버 날」 줄(§2 ②)도 11-01 아침에 닿는다. (옛 문장 「이것 하나뿐 · 262 는 §70-c 로 닫힘(짐작)」 → 이 줄로 바뀜)
 
@@ -37,7 +40,7 @@
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | 357 | 잇기 판의 556 모양 다름 aone 48 · asung 2 를 줄마다 본다(잇지 않고 보고만 되는 상품 — 그대로 두면 IMS 가 그 상품을 모른다) · CRO85680(IMS 에 없는 SKU 448 가운데 신제품으로 확인 안 된 하나) 확인 — **사람 몫**(Caleb · 담당자 · 엑셀 shopify-ims-diff-2026-10-27.xlsx 의 이어짐-모양 다름 탭) | 열림 | 컷오버 전 필수 | docs-1027c 📌 B-2 ⬜ · 컷오버 순서(상품 재적재 → 페이지 정리 → Read → Plan → Apply → Go live) 전에 | so §83-c · 83-d · shopify-integration §1-b · §7 | 556 · 830 |
-| 367 | ref_carrier_pickup(운송사 × 창고 정기 픽업 · 마감)은 컷오버 **K** — 시험 값이 컷오버 지우기에 안 지워진다 · 「테스트 DB(fazgmyvzzhqybtvtktyg)가 그대로 운영이 되는가」 는 아직 정하지 않았다(짐작 금지) — ① **그대로 운영이 되면** 컷오버 전에 ref_carrier_pickup 시험 값(Toronto × UPS test value · Edmonton × FedEx 15:30 — Clear 확인 못 받음) · ref_warehouse.closes_at(지금 Toronto 17:00 · Edmonton 16:00 — 시험 값)을 창고 담당자에게 받은 실제 값으로 바꾸는 것이 필수 ② **새 프로젝트로 옮기면** 옮길 때 실제 값을 넣는다 | 열림 | 컷오버 전 필수 | Caleb 확인 대기(docs-1028h · 2026-10-28) | so §85-c · 85-d · freightcom-integration §7 | 852 · 857 · 860 |
+| 369 | Carrier pickups · 창고 문 닫는 시각 · 피할 운송사의 **시험 값을 실제 값으로 바꾸거나 지운다** — 테스트 DB 가 11-01 부터 그대로 운영(617 · Caleb 확인 2026-10-29)이고 셋 다 컷오버 **K**(지우기에 안 지워진다): ① `ref_carrier_pickup` Toronto × UPS 정기 픽업 · 마감 16:00(「test value 2026-10-28」) · Edmonton × FedEx 15:30(Clear 확인 못 받음) ② `ref_warehouse.closes_at` Toronto 17:00 · Edmonton 16:00(시험 값) ③ `customer_carrier_avoid` VancouverDistributorsLTD × Canpar(시험으로 켬) — 실제 값은 창고 담당자에게(Settings › Carrier pickups · Warehouse Edit · 손님 상세) · 값을 못 받으면 지운다(정기 픽업 없음 = 시각 칸 · 마감은 Freightcom 값 또는 모름) | 열림 | 컷오버 전 필수 | 판정 617 확인(Caleb 「맞아」 · 2026-10-29) · 367 에서 옮김 | so §85-c · §87-a · freightcom-integration §7 · reload-procedure §P-2 0c | 617 · 852 · 857 · 860 |
 
 ### ② 열림 · 컷오버 날 (11)
 
@@ -55,7 +58,7 @@
 | 315 | ILH_PRACTICE 지우기 — 컷오버 직전 진짜 이력 적재 전(ilhReset 이 켜져 있으면 경고 · 판정 664 · 665 는 연습 적재에만) | 열림 | 컷오버 날 | 📌 docs-1023h · N-1022-⑥ 순서 | so §72-f · docs-1023h · hist-3c | 664 · 665 |
 | 320 | 컷오버 날 재적재(손님 ~ 태그)는 **Shopify listing 을 켜기 전에** — shop_queue_trigger('product') 가 값이 안 바뀐 행도 큐 후보로 넘긴다(shop_queue_add 가 켜진 listing 만 큐 · 지금 7 이라 무해) | 열림 | 컷오버 날 | Caleb 2026-10-24(docs-1024 마) · N-1022-⑥ 순서 · ldfix-1b 실측(listing 7 → 큐 ≤ 7) | so §73-c | 420 |
 
-### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (292)
+### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (300)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -351,21 +354,29 @@
 | 365 | Carrier pickups(운송사 × 창고 정기 픽업 · 마감)를 WMS Admin 에도 — 860 의 기각 B · 창고가 직접 고칠 일이 생기면(DB 창구는 이미 fulfillment + 그 창고를 받는다) | 열림 | Caleb 요청 때 | 판정 860(Caleb 「A」 · 2026-10-28) | so §85-a · 85-d | 860 |
 | 366 | freight_booking 의 read 라디오 — 아무것도 주지 않는다(EF · DB 문은 write 만) · Staff 화면에서 감추거나 그대로 | 열림 | 미정 | st v3b 「그대로 둠」(📌 B · 2026-10-28) | so §85-b · 85-d | 853 · 859 |
 | 368 | 매뉴얼에 Freightcom 이 0 곳(docs/manual en · ko grep · 2026-10-28) — WMS Freight 예약(4 장) · Ship & invoice Freight(판매 장) · Settings Carrier pickups · 창고 시간대 · Closes at · Freightcom 계정(7 장) · Staff Freight booking 열쇠 · 손님 배송 조건 · 피할 운송사 | 열림 | 미정 | docs-1028h 이견 8 · 판정 731(창고 화면을 고치면 4 장의 그 절도 본다) | so §85-d | 731 · 835 |
+| 370 | QuickBooks 첫 운영 refresh(cron 59 `ims-qbo-refresh` · 10-30 09:10 UTC) 확인 — `qbo_call_log` action refresh ok · intuit_tid · 그리고 갱신 토큰 만료(refresh_expires_at · 2027-02-07 14:52 UTC)가 밀렸는지(실측 10-29: 갱신해도 초까지 같음 · 「밀리지 않는다」 는 짐작) | 열림 | 미정 | docs-1029 📌 B-3 · B-6(10-30 아침) | so §87-d · qbo-integration §6 · §10 | 869 · 870 |
+| 371 | QuickBooks 승인 유효 기한(갱신 토큰 · 연결 + 약 101 일) 전 미리 알림 — 지금은 Settings 의 날짜 + 끊긴 뒤 메일(869)뿐 · 며칠 전에 누구에게 알릴지 | 열림 | 판정 대기 | 안 · 판정 전(docs-1029 📌 B-6) | so §87-d · qbo-integration §6 | 869 |
+| 372 | Intuit 앱 로고 — 동의 화면 아이콘이 깨져 보인다(Intuit Developer › Settings › Basic app info) | 열림 | 미정 | docs-1029 📌 B-6 | so §87-d · qbo-integration §9 | 867 |
+| 376 | Mail outbox 목록이 kind `qbo_reconnect` 를 글자 그대로 보인다(화면 몫 · 이름표) | 열림 | 미정 | qbo-1b 보고(docs-1029 📌 B-6) | so §87-d · qbo-integration §8 | 869 |
+| 377 | QuickBooks 끊김 메일 실물 시험 — 샌드박스에서 QuickBooks › Apps 로 끊은 뒤 refresh → mail_outbox 한 줄 · 두 번 눌러도 한 번(869) · **운영에서는 하지 않는다**(샌드박스 연결은 운영 연결을 끊어야 한다 — 시점은 Caleb) | 열림 | 미정 | docs-1029 📌 B-6 · 아직 안 함 | so §87-d · qbo-integration §6 | 869 |
+| 378 | 매뉴얼 7 장(Settings)에 「QuickBooks」 절 — admin · Connect / Reconnect · Check connection · Disconnect · Untie company · 끊김 메일 · 「연결만 · 싱크 없음」 | 열림 | 미정 | docs-1029 할 것 7(말만) | so §87-d · qbo-integration §8 | 870 · 872 |
+| 379 | 매뉴얼 5 장(POS)에 「POS 에서 고른 손님이 배송을 원할 때」 우회 — Sales Orders 에서 그 SO 열기 → ↓ Lines CSV → SKU · 수량 두 칸을 새 warehouse 오더 Paste lines → POS 판매 Reopen · 정리(「Ship instead」 단추는 안 만든다) | 열림 | 미정 | 10-28 집 결정(판정 번호 없음 · docs-1029 📌 A-2) | so §86-a · 86-d | — |
+| 380 | ship_ready v4(PROFORMA)에서 Credit applied · Previous balance 가 Balance due 와 이중으로 보이는지 확인 — 판 v4 는 계획 줄 그대로 두고 맨 아래 Balance due 만 늘 찍게 했다 · 안 봤다 | 열림 | 미정 | docs-1029 📌 A-1 | so §86-b | 864 |
 
-### ④ 열림 · 컷오버 뒤 (19)
+### ④ 열림 · 컷오버 뒤 (22)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
 | 149 | 컷오버 뒤 앱 규칙(딜 · 손님 할인)을 IMS 와 앱에 두 번 입력 | 열림 | 컷오버 뒤 | 글 「컷오버 뒤 앱 규칙(딜 · 손님 할인」 | so:7574 (53-e) · shopify §5 ⑤ | — |
-| 260 | 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에) | 열림 | 컷오버 뒤 | 글 「기(판정 521 — 컷오버 며칠 뒤 · doc_file.dri」 · → [2026-10-24] 연동 준비(Intuit 앱 · 캐나다 샌드박스)는 327 · → [2026-10-24 · so §74] 드라이브 몫 지었다(drive-1 bbb9007 · drive-2 6bdacd1 · asung-ims 8ac73c6 · 보관 PDF 는 발행 직후 · 올리기는 drive_enabled on 뒤) · 닫힘은 drive-4 한 바퀴 뒤(331) · QuickBooks 몫은 327 | so:8953 (66-f) · ims-principles §6-c 2단계(QuickBooks) | 521 |
+| 260 | 구글 드라이브 · QuickBooks 보내기(판정 521 — 컷오버 며칠 뒤 · doc_file.drive_file_id null 인 것을 한꺼번에) | 열림 | 컷오버 뒤 | 글 「기(판정 521 — 컷오버 며칠 뒤 · doc_file.dri」 · → [2026-10-24] 연동 준비(Intuit 앱 · 캐나다 샌드박스)는 327 · → [2026-10-24 · so §74] 드라이브 몫 지었다(drive-1 bbb9007 · drive-2 6bdacd1 · asung-ims 8ac73c6 · 보관 PDF 는 발행 직후 · 올리기는 drive_enabled on 뒤) · 닫힘은 drive-4 한 바퀴 뒤(331) · QuickBooks 몫은 327 · → [2026-10-29 · docs-1029 · so §87] QuickBooks 몫 **연결 줄기** 섰다(qbo-1a ~ 1d · 운영 Asung Trading Inc. 연결 2026-10-29 11:48 · 정본 qbo-integration.md) · 보내기(싱크)는 열림 → 327 | so:8953 (66-f) · ims-principles §6-c 2단계(QuickBooks) | 521 |
 | 281 | 607 고정 단가 고치기 = purchasing 쓰기 + 바뀐 기록 표(Products 화면 것도) — pur-3(며칠 뒤) | 열림 | 컷오버 뒤 | 글 「화면 것도) — pur-3(며칠 뒤)」 | so:9453 (70-f) | — |
 | 282 | 발주앱 두 탭(입고 검증 · 공급처 분석) — 11-01 뒤 | 열림 | 컷오버 뒤 | 글 「검증 · 공급처 분석) — 11-01 뒤」 | so:9454 (70-f) | — |
 | 283 | 616 B — 경계 전 이력을 IMS 로 옮겨 IMS 로그인 하나로(컷오버 뒤 정리 차수) · 그때까지 구글 OAuth 클라이언트에 ims.asung.ca 등록 | 열림 | 컷오버 뒤 | 글 「옮겨 IMS 로그인 하나로(컷오버 뒤 정리 차수) · 그때까지」 | so:9455 (70-f) | — |
 | 287-④ | authenticated · service_role 의 넓은 몫 119 정리 | 열림 | 컷오버 뒤 | 글 「119 정리(컷오버 뒤)」 · 판정 618 | so:9459 (70-f) | 618 |
 | 67a-7 | family 해체(없애기 · 일부 빼서 새 family) — 271 과 같은 줄기 | 열림 | 컷오버 뒤 | 글 「컷오버 뒤 · Caleb 「아예 없애야 하는 상황도 …」」 | so:8985 (67-a) · 271 | — |
 | 311 | Omni 시절 이력(BQ asung_sales_historical_data · 손님 칸 이름뿐 · 이름으로 잇는 길 · era omni) | 열림 | 컷오버 뒤 | 판정 658 「Core 시절만 · era 칸으로 뒤에 더할 자리」 | so §72-f · docs-1023h | 658 |
-| 326 | Freightcom 연동(판정 677) — 1단계 견적(운임 줄) → 2단계 예약(운송사 · 추적번호 · 라벨 · BOL) · 고객 API(키 인증 · 견적 202 폴링 · 예약 unique_id = SO 번호) · 바탕 = 박스 · 팔렛 치수 · 무게 숫자 칸 + EF 비밀값 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024 다) · 준비됨 — API 승인 답이 오면 시작 · 컷오버 전에 끝나면 좋지만 안 돼도 문제는 아니다(677) · [2026-10-28 · docs-1028h] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(fc-1a ~ fc-2c · 화면 fu v1.4 ~ v1.5b · so v5x ~ v5y1 · 실호출 넷 모두 취소) · EF 는 테스트 전용 가드 · 운영 = 토큰 + 가드 풀기 + 비밀값 → 364 · 닫지 않는다(운영에서 돌기 전) | so §73-a 677 · §84 · §85 · freightcom-integration.md | 677 · 835 ~ 862 |
-| 327 | QuickBooks 연동 준비 — Intuit Developer 계정 · 앱(이름 Asung IMS 짐작) · 캐나다 샌드박스 Sandbox Company CA 9bca(2026-10-24) · 운영 키 = 앱 평가 설문 + 승인 · Claude 의 QuickBooks 연결 앱은 캐나다 불가(우리 비공개 앱과 별개) — 260(보내기)과 같은 줄기 · → [2026-10-26 · 판정 786 · so §79-c] 이월 인보이스 · 받아 둔 돈(kind · method opening)은 건너뛰고 거기 붙인 IMS 결제 · 크레딧만 보낸다 — 341 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024 다) · 준비됨(샌드박스) | so §73-e 7 · 260 | 521 |
+| 326 | Freightcom 연동(판정 677) — 1단계 견적(운임 줄) → 2단계 예약(운송사 · 추적번호 · 라벨 · BOL) · 고객 API(키 인증 · 견적 202 폴링 · 예약 unique_id = SO 번호) · 바탕 = 박스 · 팔렛 치수 · 무게 숫자 칸 + EF 비밀값 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024 다) · 준비됨 — API 승인 답이 오면 시작 · 컷오버 전에 끝나면 좋지만 안 돼도 문제는 아니다(677) · [2026-10-28 · docs-1028h] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(fc-1a ~ fc-2c · 화면 fu v1.4 ~ v1.5b · so v5x ~ v5y1 · 실호출 넷 모두 취소) · EF 는 테스트 전용 가드 · 운영 = 토큰 + 가드 풀기 + 비밀값 → 364 · 닫지 않는다(운영에서 돌기 전) · → [2026-10-29 · docs-1029] 운영 토큰 요청 메일(두 계정 · 질문 여섯) 2026-10-29 — 보냈는지 못 봤다 · ⚠️ 617 확인으로 EF 의 db_role 가드는 운영을 가르지 않는다(Asung-IMS 는 컷오버 뒤에도 test) — 운영 시작 = 토큰 · BASE_URL 바꾸는 날 | so §73-a 677 · §84 · §85 · freightcom-integration.md | 677 · 835 ~ 862 |
+| 327 | QuickBooks 연동 준비 — Intuit Developer 계정 · 앱(이름 Asung IMS 짐작) · 캐나다 샌드박스 Sandbox Company CA 9bca(2026-10-24) · 운영 키 = 앱 평가 설문 + 승인 · Claude 의 QuickBooks 연결 앱은 캐나다 불가(우리 비공개 앱과 별개) — 260(보내기)과 같은 줄기 · → [2026-10-26 · 판정 786 · so §79-c] 이월 인보이스 · 받아 둔 돈(kind · method opening)은 건너뛰고 거기 붙인 IMS 결제 · 크레딧만 보낸다 — 341 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024 다) · 준비됨(샌드박스) · → [2026-10-29 · docs-1029 · so §87] **연결 줄기 qbo-1a ~ 1d · 운영 연결 2026-10-29**(설문 제출 → 운영 키 · realm 고정 · 정본 qbo-integration.md) · 싱크는 열림(341 · 375 · 374) | so §73-e 7 · 260 | 521 |
 | 331 | drive-4 실제 드라이브 한 바퀴 — 연습용 공유 드라이브 `IMS Documents (test)` 로 root · drive_since 를 잠시 바꾸고 drive_enabled on → 연습 인보이스 · PO 서류 · 빌 바로가기 · 이름 바꾸기 확인 → 되돌리기(root = IMS Documents · Start date 2026-11-01 · off) · 끝나면 260 드라이브 몫 닫힘 | 열림 | 컷오버 뒤 | Caleb 2026-10-24(docs-1024c 가=A · 올리기 켜기 전 · 늦어도 보관 PDF 는 돈다) · drive-2 다=A | so §74-g | 688 · 692 |
 | 334 | 출고 직전 「뺄 수량 · 사유」 칸 — Ship & invoice 창에서 고객이 뺀 수량 · 사유를 넣는 칸(§17 판정 4 · 5 · DB so_finalize removed 는 준비됨 · 화면만 없음) · 그동안은 출고 뒤 참조 크레딧 · 재입고(727 · 729) | 열림 | 컷오버 뒤 | 판정 726 「드물어」 · Caleb 2026-10-25 | so §75-f | 726 |
 | 335 | 공급처 엑셀 오더폼 채우기 + PO 에서 바로 메일 — 그런 공급처가 꽤 많다 · 시작할 때 실제 양식 몇 개(빈 줄 꼴 · 제품이 미리 적힌 꼴)를 보고 설계 · 그동안 ↓ PO CSV(733) | 열림 | 컷오버 뒤 | 판정 734 「서플라이어 오더폼은 컷오버뒤에」 | so §76-a · §76-g | 734 |
@@ -374,7 +385,10 @@
 | 340 | 제품 내보내기에 옛 생성일(product.cin7_created_on) 칸을 더할지 — 「Added on」(created_at)은 Before IMS 기록에서 적재일이다(제품 09-14 · 손님 09-22 · 공급처 09-12 · 09-14 · 10-05) | 열림 | 컷오버 뒤 | Caleb 2026-10-26(767 「그렇게 가자」 — 요청 때) | so §78-a 767 · 78-f | 767 |
 | 341 | QuickBooks 연동(327 · 260)에서 이월 인보이스(so_invoice kind opening) · 받아 둔 돈(so_payment method opening)은 **보내지 않는다**(원본이 이미 QuickBooks · 786) + IMS 에서 이월 인보이스에 붙인 결제 · 크레딧은 QBO 의 기존 인보이스(옛 번호)에 붙여 보낸다 | 열림 | 컷오버 뒤 | 판정 786(Caleb 「A」) · 327 과 같은 때 | so §79-c · 79-f · 327 | 775 · 786 |
 | 359 | IMS 바코드 중복 점검 | 열림 | 컷오버 뒤 | 인계서 §7(2026-10-28 · 인계서가 359 를 이 줄로 썼으나 deferred.md 에 줄이 없었다 — docs-1028h 가 세움) | so §84-d | — |
-| 364 | Freightcom 운영으로 다시 확인할 것 — 운영 토큰(TOR · EDM — Edmonton 은 API 따로 신청) · 운영 비밀값 · EF 테스트 가드(`db_role = 'test'` · index.ts:3) 풀기 · 운송사 진짜 마감(carrier_cut_off_time — 테스트는 전부 가짜 `31-12-0000 06:42PM`) · 라벨 주소 꼴(서명 여부) · 운송사별 pickup_confirmation(FedEx 비정기 옴 · Maritime 팔렛 null — 짐작) · 처리 시간 · Purolator Freight 400 booking carrier · Edmonton 출발 견적(packed 오더 + 치수 재료) · Apex Freightcom 이름(실제 쓰는 날) | 열림 | 컷오버 뒤 | 📌 B 새 deferred 후보 · 인계서 §7 · 326 과 같은 때 | so §84-d · 85-d · freightcom-integration §12 | 677 · 852 |
+| 364 | Freightcom 운영으로 다시 확인할 것 — 운영 토큰(TOR · EDM — Edmonton 은 API 따로 신청) · 운영 비밀값 · EF 테스트 가드(`db_role = 'test'` · index.ts:3) 풀기 · 운송사 진짜 마감(carrier_cut_off_time — 테스트는 전부 가짜 `31-12-0000 06:42PM`) · 라벨 주소 꼴(서명 여부) · 운송사별 pickup_confirmation(FedEx 비정기 옴 · Maritime 팔렛 null — 짐작) · 처리 시간 · Purolator Freight 400 booking carrier · Edmonton 출발 견적(packed 오더 + 치수 재료) · Apex Freightcom 이름(실제 쓰는 날) | 열림 | 컷오버 뒤 | 📌 B 새 deferred 후보 · 인계서 §7 · 326 과 같은 때 · → [2026-10-29 · docs-1029] 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다) · 「EF 테스트 가드 풀기」 는 617 로 할 일이 아니다(가드는 asung-WMS 만 막는다 · freightcom-integration 머리) | so §84-d · 85-d · freightcom-integration §12 | 677 · 852 |
+| 373 | IMS 로그인 MFA — 지금 없다(Intuit 설문 「No」) · 컷오버가 자리 잡은 뒤 따로(23 명 로그인 방식이 바뀐다) | 열림 | 컷오버 뒤 | 판정 871(Caleb 「A」 · 2026-10-29) | so §87-d · qbo-integration §9 | 871 |
+| 374 | Intuit 설문 다시 알림 — 싱크에서 다중 통화 · 캐나다 세금 · 지우기(deletes)를 쓰게 되면 · IMS Claude 커넥터(360)가 QBO 데이터를 Claude 에 보이게 되면(생성형 AI 답이 바뀐다) | 열림 | 컷오버 뒤 | 설문 제출본(2026-10-29) · 327 과 같은 때 | so §87-d · qbo-integration §9 · §11 | 868 |
+| 375 | IMS → QuickBooks 싱크를 지을 때 **Cin7 의 QBO 싱크를 끄는 시점**을 함께 정한다 — 둘이 같은 거래를 보내면 두 번 적힌다(QBO 는 여러 앱 동시 연결) | 열림 | 컷오버 뒤 | Caleb 물음 「싱크되는 것은 아니지?」 답(2026-10-29) · 327 과 같은 때 | so §87-d · qbo-integration §1 · §11 | — |
 
 ### ⑤ 모름 (8)
 
@@ -389,7 +403,7 @@
 | 309 | saleCreditNoteList Total 4,714 가 실제 발행 크레딧(확정 표 9 개월 453 오더 · 원장 한 달 약 21)과 안 맞는다 · 적재는 이 목록을 안 쓴다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | — |
 | 310 | 짝 발주 1,424 행 · 짝 1,421 — 같은 PO 번호가 목록에 두 번인 것 셋(짐작) · 공급처 안 풀림 0 이라 무해로 보이나 두 행의 공급처가 같은지 안 봤다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | 657 |
 
-### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (83)
+### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (84)
 
 <details><summary>펼치기</summary>
 
@@ -478,6 +492,7 @@
 | 339 | 판정 759 의 나머지 — DB 전체 가림(product_supplier 원가 칸 grant · po_lines_paste · price_formula_preview · po_receipt_latest_apply · 화면 다섯 이상) · exp-1 주석의 「deferred 339 후보」 | 닫힘 | 미정 | ✅ [2026-10-26 · docs-1026b · so §78] 같은 날 열고 닫음 — cost-1 asung-wms `dd459b0`(1a product_supplier_costs · 세 창구 재발행 · 1a2 product_update 문장 · 1b 표 select 회수 + 원가 아닌 15 칸 grant) · asung-ims `9188b7d`(화면 일곱) · 1b 적용 확인 46 / 0 · 두 권한 화면 시험 Caleb 2026-10-26 | so §78-b · exp-1 마이그레이션 주석 | 759 · 764 · 765 |
 | 349 | 다른 적재 스크립트(docs/probes/*.gs)의 개수로 나눈 `in.(…)` — URL 한도(짐작 2 kB)를 넘을 수 있는 곳: ImsLoadPrice.gs:399-402 ilp_patchIds_(uuid 100 개 PATCH ≈ 3.7 k 자) · ImsLoadProduct.gs:875-876 ipr_recheckKept_(cin7_id 100 개 GET ≈ 3.7 k 자) · 견딜 것(짐작): ImsLoadSupplier.gs:397-398 ils_patchIn_(40 개 · 주소 · 연락처 ID 길이는 안 잼) · ImsLoadProductTag.gs:462-464(uuid 40 개 ≈ 1.5 k 자) — 고칠 때 ilc_patchIn_(c91bc24) 처럼 글자 수로 | 닫힘 | 미정 | ✅ [2026-10-27 오후 · docs-1027b · so §81-b] url-1 asung-wms `cdd897e` — 넷 모두 id 부분 글자 수 1,500(ilp_ · ils_ · ipr_ · ipt_idChunks_ · 파일마다 접두 · 공용 파일 기각 · 322) · 하네스 run-inchunks.js(186 줄 · 회귀 일곱) · GAS 에 네 파일 붙임(Caleb 2026-10-27) · (옛 근거) docs-1027 grep(2026-10-27 · 고치지 않음 · 길이는 짐작) | so §80-c · 80-f · asung-apps-script 규칙 6 · so §81-b | — |
 | N-1022-④ | 재고 화면에서 AAL11056 사진이 안 보임 — 데이터인지 화면인지 | 닫힘 | 미정 | ✅ [2026-10-27 오후 · docs-1027b · so §81-d] **데이터** — product_image 행 is_active false · source cin7 · updated_by null · updated_at 14:33 UTC(10-09) = cron 40 ims-image-scan(30 14 * * *) 3 분 뒤 ⇒ Cin7 에서 첨부가 지워진 것을 사진 맞추기가 따랐다(AAL18582 · AAL18841 도 같음 · 10-22) · 파일은 저장소에 남음 · 컷오버 전 Cin7 에 다시 올리기는 Caleb · (옛 근거) Caleb 확인 대기(📌) | 📌 def-0 · so §81-d | — |
+| 367 | ref_carrier_pickup(운송사 × 창고 정기 픽업 · 마감)은 컷오버 **K** — 시험 값이 컷오버 지우기에 안 지워진다 · 「테스트 DB(fazgmyvzzhqybtvtktyg)가 그대로 운영이 되는가」 는 아직 정하지 않았다(짐작 금지) — ① **그대로 운영이 되면** 컷오버 전에 ref_carrier_pickup 시험 값(Toronto × UPS test value · Edmonton × FedEx 15:30 — Clear 확인 못 받음) · ref_warehouse.closes_at(지금 Toronto 17:00 · Edmonton 16:00 — 시험 값)을 창고 담당자에게 받은 실제 값으로 바꾸는 것이 필수 ② **새 프로젝트로 옮기면** 옮길 때 실제 값을 넣는다 | 닫힘 | 컷오버 전 필수 | ✅ [2026-10-29 · docs-1029 · so §87-a] 물음이 풀림 — 판정 617 확인(Caleb 「맞아」: 테스트 DB 가 11-01 부터 그대로 운영) ⇒ ① 갈래만 남는다 · 할 일(시험 값 → 실제 값)은 **369** 로 옮김 · (옛 근거) Caleb 확인 대기(docs-1028h · 2026-10-28) | so §85-c · 85-d · freightcom-integration §7 | 852 · 857 · 860 |
 
 </details>
 
@@ -496,7 +511,7 @@
 
 ## 4. 이 문서를 고칠 때
 
-- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ ~~341~~ ~~346~~ ~~350~~ ~~354~~ ~~358~~ ~~359~~ 369 부터([2026-10-28 · §84 · §85] 359 ~ 368 = docs-1028h · 359 · 360 · 361 은 인계서가 예약한 번호)([2026-10-27 밤 · §82 · §83] 354 ~ 358 = docs-1027c)([2026-10-27 오후 · §81] 350 ~ 353 = docs-1027b)([2026-10-27 · §80] 346 ~ 349 = docs-1027)([2026-10-26 밤 · §79] 341 ~ 345 = docs-1026c)([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
+- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ ~~341~~ ~~346~~ ~~350~~ ~~354~~ ~~358~~ ~~359~~ ~~369~~ 381 부터([2026-10-29 · §86 · §87] 369 ~ 380 = docs-1029)([2026-10-28 · §84 · §85] 359 ~ 368 = docs-1028h · 359 · 360 · 361 은 인계서가 예약한 번호)([2026-10-27 밤 · §82 · §83] 354 ~ 358 = docs-1027c)([2026-10-27 오후 · §81] 350 ~ 353 = docs-1027b)([2026-10-27 · §80] 346 ~ 349 = docs-1027)([2026-10-26 밤 · §79] 341 ~ 345 = docs-1026c)([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
 - 닫을 때는 줄을 지우지 않고 상태를 닫힘으로 · 근거 칸에 커밋 · 판정 · 절
 - 「때」를 Caleb 이 가르면 근거 칸에 「Caleb 2026-MM-DD」
 

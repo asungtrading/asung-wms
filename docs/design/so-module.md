@@ -11174,7 +11174,7 @@ Settings           closes_at Toronto 17:00 · **Edmonton 16:00**(인계서 §5 �
 - deferred **364** 운영 토큰으로 다시 확인할 것(운송사 진짜 마감 — 테스트는 전부 가짜 `31-12-0000 06:42PM` · 라벨 주소 꼴(서명 여부) · 운송사별 pickup_confirmation · 처리 시간 · Purolator Freight 400 · Edmonton 출발 견적 · Apex 이름) + EF 테스트 가드 · 운영 비밀값
 - deferred **365** Carrier pickups 를 WMS Admin 에도(860 기각 B)
 - deferred **366** freight_booking 의 read 라디오(아무것도 안 줌 — 화면에서 감추거나 그대로)
-- deferred **367**(컷오버 전 필수 · Caleb 확인 대기) ref_carrier_pickup 은 컷오버 K — 시험 값이 컷오버 지우기에 안 지워진다 · 「테스트 DB(fazgmyvzzhqybtvtktyg)가 그대로 운영이 되는가」 는 아직 정하지 않았다(짐작 금지) — ① 그대로 운영이 되면 컷오버 전에 ref_carrier_pickup 시험 값(Toronto × UPS test value · Edmonton × FedEx 15:30) · ref_warehouse.closes_at 을 실제 값으로 바꾸는 것이 필수 ② 새 프로젝트로 옮기면 옮길 때 실제 값을 넣는다
+- deferred **367**(컷오버 전 필수 · Caleb 확인 대기 → [2026-10-29 · §87-a] **닫힘** — 617 확인 · ① 갈래 · 할 일은 deferred **369**) ref_carrier_pickup 은 컷오버 K — 시험 값이 컷오버 지우기에 안 지워진다 · 「테스트 DB(fazgmyvzzhqybtvtktyg)가 그대로 운영이 되는가」 는 아직 정하지 않았다(짐작 금지) — ① 그대로 운영이 되면 컷오버 전에 ref_carrier_pickup 시험 값(Toronto × UPS test value · Edmonton × FedEx 15:30) · ref_warehouse.closes_at 을 실제 값으로 바꾸는 것이 필수 ② 새 프로젝트로 옮기면 옮길 때 실제 값을 넣는다
 - deferred **368** 매뉴얼에 Freightcom 이 0 곳(docs/manual en · ko grep · 2026-10-28) — Freight 예약 · Carrier pickups · 창고 시간대 · Freight booking 열쇠(판정 731 「창고 화면을 고치면 4 장의 그 절도 본다」)
 - deferred **326** 상태만 — 테스트 환경 견적 · 예약 · 라벨 · 취소 끝 · 운영 토큰 대기(닫지 않는다)
 - 화면 메모(줄 없음): 계정 꼬리표 색 표가 두 화면에 따로 박혀 있다(so.html `ofAcctTag` · wms-fulfillment.html `frAcctTag`) — 셋째 계정이 생기면 두 파일을 함께(안 고치면 보라)
@@ -11196,4 +11196,159 @@ Settings           closes_at Toronto 17:00 · **Edmonton 16:00**(인계서 §5 �
 
 ```
 다음 판정 번호: 863 · 다음 deferred 번호: 369
+```
+
+## §86 2026-10-28 집 저녁 — POS 결제 취소 · 인보이스 크레딧 목록 · Reopen 줄 지우기 · 확정됐던 판매 지우기 막기 · 취소 단추 — pos-pay-1 · doc-cr-1 · pos-reopen-1 · so-del-1 · pos v1.15 ~ v1.16d · so v5y2 · v5y3 · 판 v9 · 판정 863 ~ 866 (집 PC)
+
+⭐ 지은 것: POS 계산대가 Finish 전에 받은 돈을 취소하고 결제 목록을 본다(863) · 인보이스 문서에 크레딧 목록과 늘 찍는 Balance due(864) · Reopen · Unconfirm 뒤 줄 ✕ 가 막히던 FK 벽 · 한 번이라도 확정됐던 판매는 Delete draft 로 못 지움(865) · 그 대신 매니저 Cancel 단추를 POS 와 Sales Orders 다시 연 초안에(866)
+⭐ 원천: docs-1029 📌 A(집 인계서 `ims-handover-2026-10-28-home.md` §1 · §3 · §8 원문 발췌 — 인계서 파일은 회사 PC 에 없다) · 커밋 메시지 · 마이그레이션 머리 주석 · ⚠️ Claude Code 보고 원문은 집 PC 대화에만 있었다 — 이 절이 원천
+⭐ 커밋 — asung-wms `36d3782` · `925bcdf` · `0d6c12b` · `554835a`(10-28 21:13 ~ 22:07 EDT · 테스트 DB 적용 · 확인 끝) / asung-ims `4c88bf0` ~ `fdc9176`(20:44 ~ 22:22 EDT)
+
+### 86-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 863 | 「A」 + 창고 경계 「경계를 두지 않는다」 | POS 계산대 직원(sales 누구나)이 **Finish 전**(draft · confirmed) **그 판매 하나에 걸린 결제**를 취소 · 사유는 비워도 됨(void_note 「POS: …」 / 기본 글 「Cancelled at POS before Finish」) · Finish 뒤 · POS 밖 · refund · opening · 다른 인보이스에 붙은 돈은 so_payment_void(manager) 그대로 · 창고 경계 없음(넣는 so_payment_add 와 같은 문) · 기각 B(manager 만 — 바쁜 시간에 매니저가 없으면 계산대가 멈춘다) |
+| 864 | 「A로 하자」 | 인보이스 문서에 **Balance due 를 늘 찍는다(0 → 0.00)** · 크레딧은 목록(번호 · 날짜 · 원 인보이스 · 금액) · 판정 528 의 「Due 0 이면 줄 없음」 을 이 줄만 바꿈 · 기각 B(「Paid in full」 글 — 숫자 확인을 손님 머리에 맡긴다) |
+| 865 | 「B」 | **한 번이라도 확정됐던 판매는 Delete draft 로 지우지 못한다** → 매니저 Cancel(기록 남음) · POS · counter · warehouse · service 모두 · 되돌려 고치기(Unconfirm · Reopen → 고치기 → 다시 Confirm)는 그대로 · 기각 A(계산대가 깨끗이 지움) |
+| 866 | 「pos에도 두자」 | 취소(so_cancel · manager 이상 · 사유 필수 · 기록이 남음 · 잡은 재고 풀림 · 받은 돈은 손님 잔액)를 **POS 머리(Cancel sale…)** 와 **Sales Orders 의 다시 연 초안(Cancel order…)** 둘 다에 · 기각 A(Sales Orders 에만) · DB 무접촉(so_cancel 은 초안도 받는다) |
+| (결정 · 번호 없음) | — | 「POS 에서 고르고 배송을 원하는 손님」 은 가끔이라 **우회**(Sales Orders 에서 그 SO 열기 → ↓ Lines CSV → SKU · 수량 두 칸을 새 warehouse 오더 Paste lines → 그 뒤 POS 판매 Reopen · 정리) — 매뉴얼에 넣는다(deferred 379) · 「Ship instead」 단추는 안 만든다 |
+
+- 863 동료 요청 원문: 「POS에서 캐시나 기타 방식으로 돈을 받을때 실수 잘못 넣는 경우가 있는데, 뒤로 돌아갈 방법이 없다고 얘기해. 받은 돈을 cancel 하고 다시 할 수 있으면 좋겠다고 해. 그리고, 부분 페이먼트 하는 손님들이 있어. … cash로 부분페이먼트를 했는데, 전체 다 페이한 것으로 나오는 문제가 있다고 해. 그래서 화면에 페이먼트한 내역이 다 보였으면 좋겠다고 해.」
+  - 부분 결제 「전액」 은 DB 가 아니라 **화면 함정**(Cash 창 Amount 칸이 남은 금액 전부로 미리 참) — pos v1.16 이 칸 하나(Cash received)로
+- 864 동료 요청 원문: 「인보이스에 보면, 크레딧이 얼마 적용되었고, 그 크레딧은 어느 크레딧 노트에서 왔는지도 알면 좋겠다고 해. 그리고 토탈이 보기가 이상하다고 하는군. 토탈은 29.06인데, 결제는 28.26밖에 안한 것 같아 보여. 우리 화면에서는 문제가 없는데, 손님은 헷갈릴 부분이야.」
+  - 60073 의 0.80 = CR-01010(60070 에 낸 가격 조정 크레딧)을 손으로 붙인 것
+- 866 까닭: 865 로 Delete draft 를 감추자 다시 연 초안을 없앨 단추가 화면 어디에도 없었다(Sales Orders 의 Cancel order 는 confirmed 에서만 보였다) — 대화 Claude 가 865 화면 차수에서 짝을 놓침(86-e 8)
+  - 차이(Caleb 에게 설명한 것): **Delete** = 사라짐 · 번호 안 씀 · 기록 없음 · sales 누구나 / **Cancel** = 「Cancelled」 로 남음 · 누가 · 언제 · 사유 · manager · 취소된 판매는 POS 목록에서 빠지고 Sales Orders 에 남는다
+
+### 86-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 차수 · 판 | 레포 · 커밋 | 무엇 | 확인 |
+|---|---|---|---|
+| docs-1028h | asung-wms `0ecc57a` | so-module §84 · §85 · freightcom-integration.md · deferred 359 ~ 368 · 스킬 셋 | 문서 |
+| pos-pay-1 | asung-wms `36d3782`(`20261029005830_pos_pay_1.sql`) | `so_pos_payment_cancel(p_payment_id, p_note)` — sales · 역할 · 창고 문 없음 · 거부(이미 취소 · opening · refund · 대상 판매가 하나가 아님 · pos · counter 아님 · Finish 뒤 · 살아 있는 alloc(인보이스 번호 함께) · 손님 잔액 0 밑) · `so_pos_payment_list(p_so_id)` 읽기(취소된 것도 · 화면이 회색) · 「같은 날만」 제한 없음 · so_payment_void 무접촉 | OK 34 |
+| doc-cr-1 | asung-wms `925bcdf`(`20261029012649_doc_cr_1.sql`) | 새 열쇠 — final_invoice · internal_receipt: `credits[]`(no · number · date · reference = 원 인보이스 번호 · amount) · `totals.credits`(0 이면 "") / 세 kind: `totals.balance_due`(늘 · 0 이면 "0.00" · ship_ready 는 미리 보기의 남을 몫) · 옛 열쇠 무접촉 · 불변식 total − Σpayments − Σcredits = balance_due | OK 13 |
+| pos-reopen-1 | asung-wms `0d6c12b`(`20261029014000_pos_reopen_1.sql`) | so_line_remove · so_lines_clear 가 그 줄의 **풀린** 예약 이력을 먼저 지우고 줄을 지운다(열린 예약 거부 · FK no action 그대로) — Reopen · Unconfirm 뒤 ✕ 가 23503 으로 막히던 것(SO-25237 실물) · 풀린 행은 가용을 안 깎는다 | OK 25 |
+| so-del-1 | asung-wms `554835a`(`20261029020000_so_del_1.sql`) | `so.first_confirmed_at` + 트리거 `so_first_confirmed`(draft → confirmed 첫 순간에 찍음 · 바꾸기 · 비우기 거부) · 채우기 137 · so_delete 재발행 — 거부 둘(first_confirmed_at 있음 865 · so_payment_order 가 가리킴 — 23503 대신 읽을 수 있는 글) | OK 29 |
+| pos v1.15 | asung-ims `4c88bf0` | 스캔하거나 더한 줄이 맨 위(이미 있던 SKU 도 · 순서는 이 브라우저에 판매마다 기억 · 수량 고치기는 안 옮김) | Caleb 화면 |
+| pos v1.16 | asung-ims `70f0dcc` | Payments 목록(누가 · 언제 · 취소된 것 회색 + 사유) · Finish 전 Cancel(863) · Cash 창 = 받은 현금 칸 하나 · 갚을 몫까지만 기록(부분 결제 · 거스름 표시) | Caleb 「정상적으로 잘 작동해」(부분 현금 + Debit · docs-1029 📌 B-8) |
+| pos v1.16a | asung-ims `f93900b` | B급 나누기가 안 되면(거부 · 칸 고르기 취소 · 재고 넘침 거절) 새 줄을 지우고 원래 수량을 되돌림(86-e 5) | 화면 시험 아직(CHECKLIST 7-zy) |
+| pos v1.16b + so v5y2 | asung-ims `d5d34d8` | 확정됐던 초안에서 Delete draft 감춤(865 · so.first_confirmed_at) | 아직 |
+| pos v1.16c | asung-ims `9077982` | 목록 「draft — reopened (was confirmed)」 · 머리 「reopened」 · ✕ 없음 | 아직 |
+| pos v1.16d + so v5y3 | asung-ims `fdc9176`(메시지 「pos v1.16c-d」) | 목록 「draft — reopened」(주황 · ✕ 없음) · 머리 「· reopened」 · POS **Cancel sale…**(manager · 사유 · Check → Cancel the sale) · Sales Orders 다시 연 초안에 **Cancel order…**(manager · 866) | 아직 |
+
+문서 판(DB · Settings → Documents · Caleb 이 올림 · 「이제 제대로 나와」 — 판 파일은 레포 밖):
+- **final_invoice v9**(⚠️ **v8 은 v7 그대로의 복사** — 꺼낸 원본 파일을 올려 생김 · 무해 · 86-e 3) · **internal_receipt v4** · **ship_ready v4** — Use this version 끝
+- v9 · ir v4: Payments 아래 **Credits 표**(크레딧 노트 번호 · 날짜 · 「Invoice 원번호」 · 금액 · 있을 때만) · 합계 끝 **Total → Payments → Credits → Balance due(늘 · 0 이면 0.00)** · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌
+- ship_ready v4: 맨 아래 Balance due 만 늘 찍기 · 계획 줄 그대로 — ⚠️ PROFORMA 에서 Credit applied · Previous balance 이중 표시가 생기는지 **안 봤다**(deferred 380)
+- 판 안 `data-due="{{totals.due_amount}}"` = 필수 자리표 채우기(지우면 Check 거부)
+- 이미 나간 종이 · 메일 PDF · 보관 PDF 는 그대로 · 다시 Print · Email 하면 새 판 → 60073 손님에게 Email to customer… 다시 보내기(Caleb · 할 일 · 했는지 못 봤다)
+
+### 86-c 실측 (집 · 테스트 환경)
+
+- 실호출 · 화면 시험 확인 끝: 팔렛 LTL(SO-25031 · Maritime) 17 s · BOL MO393899 · 추적 F8094172 · Letter 1 장 · pickup_confirmation null · 취소 OK / WMS 예약 · 진행 칸 · 라벨 · 취소 · Ship & invoice 예약(SO-25135 FedEx · 확인번호 CPU24463010) · 창 칸 채우기 · 비우기 · Settings 시간대 · Carrier pickups · 마감 > 문 닫는 시각 거부 / POS: Payments 목록 · Cancel(회색 · 「POS: 테스트」) · Reopen / 예약 20 초 = Freightcom 처리 약 13 s(fc_call_log) — Freightcom 몫의 상세는 §85-c
+- pos-reopen-1 실물: SO-25237(POS · confirmed) → Cash 50 Cancel → Reopen to change items → ORS11009 × 1 줄 ✕ → 23503 `so_reserve_so_line_id_fkey`(마이그레이션 머리 · 2026-10-28 21:28)
+- so-del-1 채우기 137 = confirmed_at 있음 122 + 초안의 예약 이력 15(POS 12 · warehouse 3)(마이그레이션 머리)
+- srs_1_check Z1 md5 MISMATCH 가 그날 **있었다**(인계서 §6-2 기록) — 내용 · 원인은 원문이 없어 **못 봤다**
+
+### 86-d 열린 것
+
+- ⭐⭐ **Freightcom 라벨 원본 주소** — fc_booking · fc_label 은 RLS 「누구나 읽기」 라 로그인한 직원이 REST 로 S3 원본 주소(서명 없음 · 손님 주소)를 읽을 수 있다 — deferred **362** 열림 그대로(레포 근거 · 실호출 안 함) · 운영 토큰 받기 전에 닫는다
+- ⭐ 문서 판은 레포 밖(DB) — 판 파일을 꺼내 볼 때 그것을 「새 판」 으로 올리지 않는다(v8 사고 · 86-e 3)
+- 화면 시험 남은 것(docs-1029 📌 B-8): v1.16a B급 실패 뒤 한 줄 · v1.16b/c · v1.16d Cancel sale · so v5y3 Cancel order → asung-ims CHECKLIST 7-zy
+- 매뉴얼(말만): POS → 배송 오더 우회(deferred **379** · 5 장 POS 「판매를 잠시 두고 다시 잡기」 뒤 또는 1 장 판매 「새 판매 오더」) · Freightcom(deferred **368** 그대로)
+- ship_ready v4 PROFORMA 이중 표시 확인(deferred **380**) · 60073 다시 보내기(Caleb)
+- ⚠️ asung-so · asung-inv-ledger description 여유 **1 자**(그날 pre-commit 실측 · docs-1029 실측도 1 자) — 키워드를 더할 수 없다
+
+### 86-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (인계서 §8 원문)
+
+1. [대화 Claude] pos-pay-1 지시서의 so_payment_void md5 를 ar-2 머리 주석의 「원본」 값(82accf2f)으로 적었다 — 지금 DB 값은 48097c4f · Claude Code 가 잡음 ⇒ 착지 md5 는 **마지막 정의 파일 본문 · DB prosrc** 로
+2. [대화 Claude] doc-cr-1 확인 grep 을 pos-pay-1 꼴(`^ OK `)로 줬다 — 실제는 `OK …`(앞 빈칸 없음) → 0 으로 보임(§79-e 4 재발) ⇒ `grep -cE '^ ?OK '` · 지시서에 「OK 줄 꼴을 보고에 적어라」(so-del-1 부터)
+3. [대화 Claude] 판을 꺼내라고만 하고 「올리지 마라」 를 안 적었다 — 원본 복사가 v8 로 올라감(무해) ⇒ 꺼낸 판 파일 이름은 `tpl-<kind>.html`(원본) · 새 판은 `<kind>-v<N>.html` · 꺼낼 때 「참고용 — 올리지 마라」
+4. [대화 Claude] so.html 패치의 옛 글자를 기억으로 적어 단언이 막음(한 번 · 내기 전) ⇒ 바꿀 줄은 늘 파일에서 grep 해 복사
+5. [발견] pos v1.12 의 B급 나누기가 실패 때 되돌리지 않았다(Caleb 화면 시험이 잡음 · v1.16a)
+6. [발견] Reopen · Unconfirm 이 남기는 풀린 예약 이력을 줄 지우기가 몰랐다(FK) · 고치자 「확정됐던 판매가 흔적 없이 지워지는」 구멍이 열림 → 865 로 닫음 ⇒ **막기를 고칠 때는 「그 막기가 지키던 다른 것」 을 함께 본다**
+7. [잘 된 것] Claude Code 조사가 짐작 셋을 실물로 바로잡음(0.80 출처 · 부분 결제는 화면 문제 · 남은 예약 행은 가용을 안 깎음) · Caleb 화면 시험이 버그 둘(B급 · Reopen ✕)을 찾음
+8. [대화 Claude] 865 화면 차수(pos v1.16b · so v5y2)에서 Delete draft 만 감추고 그 자리를 대신할 Cancel 단추를 안 봤다 — Caleb 질문(「cancel은 어떻게 한다는거야?」)으로 드러남 ⇒ **단추를 감출 때는 「그러면 무엇으로 하나」 를 같은 차수에서 확인**(866)
+9. [대화 Claude] 판 표시 날짜를 UTC(10-29)로 매긴 것 — 오늘 저녁 뒤 판부터 토론토 날짜(10-28)(§85-e 11 재발)
+10. [docs-1029] 인계서 표의 「fdc9176 = pos v1.16c · v1.16d」 — v1.16c 는 따로 `9077982` 가 있다(fdc9176 메시지는 「v1.16c-d」) · 「(v1.15 커밋)」 = `4c88bf0` · 「(v1.16a 커밋)」 = `f93900b`(asung-ims git log)
+
+## §87 2026-10-29 회사 — QuickBooks 연결(샌드박스 → 운영) · 약관 · 처리방침 · Intuit 설문 — legal v1 · qbo-0 · qbo-1a ~ 1d · set v12 · 판정 867 ~ 872 · 617 확인 (회사 PC)
+
+⭐ 지은 것: IMS ↔ QuickBooks Online **연결**(싱크 없음) — DB(표 셋 · Vault · 창구) · EF `qbo`(start · callback · refresh · revoke · ping · cron) · 끊김 메일 · Settings → QuickBooks · 공개 약관 · 처리방침 · 샌드박스 연결 → 끊기 → 다시 연결 → Intuit 설문 → 운영 키 → **실제 Asung Trading Inc. 연결 11:48**
+⭐ **지금 규칙의 정본 = `docs/design/qbo-integration.md`** — 이 절은 판정 · 커밋 · 실측 · 실수만(같은 사실을 두 곳에 키우지 않는다)
+⭐ 원천: docs-1029 📌 B(대화 Claude · Caleb · 회사 대화) · 커밋 메시지 · 마이그레이션 · EF 머리 주석 · ⚠️ qbo-0 · 1a ~ 1d 보고 원문은 레포에 없다 — 이 절과 정본이 원천
+⭐ 커밋 — asung-wms `d712d6f` · `052a154` · `514cabf` · `0c2f4ed`(09:50 ~ 11:10 EDT) / asung-ims `c255002` · `feceed3`(08:40 · 11:14 EDT) · 테스트 DB(= 11-01 운영 · 617) 적용 끝
+
+### 87-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| (목표) | 「오늘은 컷오버전에 퀵북 인테그레이션을 해놓으려고 해. 컷오버 이후로 미뤘지만, 싱크는 컷오버이후에 하더라도, 연결은 해놓고 싶어.」 | 연결만 먼저 · 싱크는 컷오버 뒤 |
+| 617 확인 | 「맞아」 | 테스트 DB `Asung-IMS`(fazgmyvzzhqybtvtktyg · ca-central-1)가 **11-01 부터 그대로 운영 DB** ⇒ deferred 367 의 「그대로 운영이 되는가 — 아직 정하지 않았다」 는 틀림 → 닫음 · 그 결과 Carrier pickups 시험 값(Toronto × UPS · 마감 16:00 test value · Edmonton × FedEx 15:30) · closes_at · VancouverDistributorsLTD 피할 운송사 Canpar 는 컷오버 지우기에 안 지워지므로(K) **컷오버 전에 실제 값으로 바꾸거나 지운다 — 필수**(deferred 369) |
+| 867 | 「A」 | Intuit 앱 정보의 약관 · 처리방침 주소는 ims.asung.ca(asung-ims `terms.html` · `privacy.html` · 로그인 없이 열리는 공개 페이지) · 기각 B(asung.ca 가게의 정책 페이지 — 가게 손님용 글이라 이 앱을 설명하지 않는다) · 처리방침의 약속 둘 = 짓는 조건(토큰은 직원 화면에 안 내려간다 · 관리자가 끊으면 지운다) · 연락처 info@asung.ca · 35 Suntract Road, North York(Caleb 「외부에 놔도 되는 연락처야」) |
+| 868 | 「A로 가자」 | 설문(App assessment)은 저장만 해 두고 IMS 쪽 연결 자리를 **개발 키 + 샌드박스로 먼저 짓고 연결 → 끊기 → 다시 연결을 실제로 해 본 뒤** 나머지를 사실대로 채워 제출 · 기각 B(지을 모양대로 지금 답하고 제출 — 아직 없는 것을 「시험했다」 고 서약하게 된다) |
+| 869 | 「A」 | QuickBooks 연결이 끊기면(needs_reconnect) **caleb@asung.ca 한 사람에게 메일** · Settings 칸은 빨강 · admin 이 늘면 받는 사람을 넓힌다 · 기각 B(info@ — 받는 사람이 다시 연결할 수 없다) · 구현: inv_config `qbo_alert_to` · DB 가 connected → needs_reconnect 로 바뀌는 순간 한 번 mail_outbox(kind qbo_reconnect) |
+| 870 | 「A」 | 연결 · 끊기 · 다시 연결은 **IMS admin 역할만**(새 열쇠 없음 · `ims_is_admin()` · DB 가 본다) · 기각 B(사람마다 켜는 새 열쇠 — 장부 쓰기 권한을 사람 단위로 나누게 되고 열쇠 · Staff · 권한 목록이 따라온다) · 실측: IMS admin 은 1 명(2026-10-29) · ping · refresh 도 admin(qbo-1b 이견 8) |
+| 871 | 「A」 | IMS 로그인 MFA 는 지금 없다 · 설문 「No」 · 컷오버가 자리 잡은 뒤 따로(deferred 373) · 기각 B(컷오버 전 켜기 — 사흘 전에 23 명의 로그인 방식이 바뀐다) |
+| 872 | 「B」 | Settings → QuickBooks 에 「Connection problems? Contact the IMS administrator: caleb@asung.ca」 한 줄 · 설문 Error Handling 4 「Yes」 · 기각 A(화면에 길이 없어 사실상 No) |
+| 873 | 「B」 | 운영 QBO 회사 ID 는 공개 레포 문서에 **끝 네 자리만** — 「…6496」(예: 「realm …6496」) · 전체 값은 DB 고정 칸(inv_config.qbo_realm_production) · Settings 화면에 있다 · 샌드박스 ID 9341458557490536 은 그대로 · 기각 A(그대로 공개 — git 기록에 남아 되돌릴 수 없다) · 바꾸기 전 작업 트리 4 곳(so-module 1 · qbo-integration 3 — 모두 미커밋 · 커밋된 파일 · git 기록 0) → 0 |
+
+- Caleb 의 물음 「ims가 퀵북에 연결된다고 해서 퀵북과 싱크되는 것은 아니지?」 → 맞다 · IMS 에는 장부로 보내는 코드가 없다 · 연결 뒤 하는 일 = 회사 이름 읽기 + 하루 한 번 토큰 갱신 · Cin7 → QuickBooks 연결은 따로 그대로 · ⚠️ 컷오버 뒤 IMS 싱크를 지을 때 **Cin7 의 QBO 싱크를 끄는 시점**을 함께 정한다(deferred 375)
+
+### 87-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 레포 | 커밋 | 차수 | 확인 |
+|---|---|---|---|
+| asung-ims | `c255002` | legal v1 — terms.html · privacy.html(867) | Caleb 「둘다 로그인 없이 잘 열려」 |
+| asung-wms | — | qbo-0 조사(쓰기 0) — 받아들인 설계 · 바깥 사실은 qbo-integration.md §2 ~ §6 | — |
+| asung-wms | `d712d6f`(`20261029160000_qbo_1a_connection_db.sql`) | qbo-1a — 표 셋(qbo_connection 행 하나 · 토큰은 Vault · 임대 + 판 번호 / qbo_oauth_state sha256 · 10 분 · 한 번 / qbo_call_log intuit_tid · 90 일) · 창구 12 + 속 4 · admin = ims_is_admin · cutover K 셋(k11) | OK 43(4 회 · as_role 실제 역할 시험) |
+| asung-wms | `052a154`(`20261029190000_qbo_1b_reconnect_mail.sql` · EF qbo · `_shared/qbo.ts` · mail EF) | qbo-1b — EF qbo(start · callback 언제나 302 고정 주소 · refresh 임대 · revoke · ping CompanyInfo · cron 길) · API 401 → 강제 갱신 한 번 뒤에야 needs_reconnect · env 어긋나면 status · disconnect 만 열림 · 끊김 메일(869 · DB 가 바뀌는 순간 한 번) · mail EF plain kind · qbo_last_error_set | 시험 OK 20(2 회째 · 시험 결함 B8 · B5 고침) · 확인 OK 20 · deno 11 + mail 17 |
+| asung-wms | `514cabf`(`20261029210000_qbo_1c_rest_safeupdate.sql`) | qbo-1c — WHERE 없는 update · delete 일곱(창구 여섯)에 where singleton · state 열쇠 — PostgREST safeupdate 가 REST 에서 막음(ping 422 「UPDATE requires a WHERE clause」 · psql 시험은 safeupdate 꺼져 통과) · 정적 nowhere 스캐너 | 시험 OK 6 · 확인 OK 5 · REST: ping · refresh v2 · disconnect · reconnect |
+| asung-wms | `0c2f4ed`(EF 만) | qbo-1d — 회사 이름 저장 실패를 call_log(action company_name · ok false)에 · last_error 는 안 씀 · callback 은 그래도 302 connected | deno 12 + mail 17 · EF 재배포 |
+| asung-ims | `feceed3` | set v12 — Settings → QuickBooks(?t=qbo) · 상태(토큰 없음) · Connect / Reconnect(같은 탭 → Intuit → callback) · Check connection · Disconnect · 연결 없을 때 Untie company · Help 줄(872) · admin 만 단추 | Caleb 화면 확인 |
+
+배포 · 비밀 · cron(Caleb · 테스트 DB = 운영): 비밀값 `QBO_ENV`(지금 production) · `QBO_CLIENT_ID_*` · `QBO_CLIENT_SECRET_*`(SANDBOX · PRODUCTION) · `IMS_CRON_SECRET`(기존) — `read -rs` · EF 배포 qbo(1b · 1d) · mail(1b) · cron **jobid 59 `ims-qbo-refresh`** `10 9 * * *` · Intuit Redirect URI · App details → qbo-integration.md §5 · §6 · §9
+
+### 87-c 실측 (2026-10-29 · 토론토 시각)
+
+```
+샌드박스   10:52 연결(Sandbox Company CA 9bca · realm 9341458557490536) · company_name null(→ 1c)
+           11:04 refresh v2 · 11:05 disconnect(revoked · deleted · vault 2 · state 1) · 11:06 다시 연결 · 회사 이름 바로 · Check connection OK
+갱신 토큰   만료 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음(10:52 → 2027-02-07 14:52 UTC · refresh 뒤 초까지 같음 · 다시 연결하면 새 101 일)
+           하루 뒤는 내일 cron 뒤에(짐작 「밀리지 않는다」 · deferred 370) ⇒ 100 일쯤마다 Reconnect 가 필요할 수 있다
+접근 토큰   1 시간
+call_log   13 줄 — Intuit 호출 9 줄 모두 intuit_tid · IMS 안 줄(callback · disconnect)은 없음(맞음) · 0.4 ~ 1.2 s
+설문       제출 11:3x 쯤 → 운영 키 바로(검토 대기 없음)
+운영       샌드박스 Disconnect → Production Redirect URI → 운영 키 + QBO_ENV=production → 11:48 Asung Trading Inc.(realm …6496 · 승인 유효 2027-02-07)
+           운영 고정 realm 이 이 회사로 섬 · 샌드박스 고정도 따로 남음 · QBO 판 Plus
+```
+
+- 설문 답(제출본)은 qbo-integration.md §9 — ⚠️ 제출하면 고칠 수 없다 · 보안 팀 Yes → **No** 로 고쳐 제출 · Error Handling 1 의 근거는 자동 시험(실제 Intuit 오류 0)
+- 그 밖(📌 B-8): Freightcom 테스트 토큰으로 연동 끝 · 운영 토큰 요청 메일을 Freightcom 담당자에게(두 계정 · 질문 여섯 — 먼저 낼 것 · 기존 계정 · Net Terms 묶임 · 운영 주소 · 테스트와 다른 점 · 토큰 받는 방법 · 테스트 토큰 끄기) — **보냈는지는 못 봤다** · POS pos v1.16 부분 현금 + Debit 나눠 내기 = Caleb 「정상적으로 잘 작동해」
+
+### 87-d 열린 것
+
+- deferred **367 닫힘**(617 확인) → 할 일은 **369**(컷오버 전 필수 · Carrier pickups · closes_at · 피할 운송사 시험 값 → 실제 값 또는 지우기)
+- 260 · 327 에 「연결 줄기 qbo-1a ~ 1d · 운영 연결 2026-10-29」 · 싱크는 열림 · 341 그대로
+- 새 deferred: **370** 내일 아침 cron 59 첫 운영 refresh · 갱신 토큰 만료가 밀리는지 · **371** 승인 유효 기한(약 101 일) 전 미리 알림(판정 전) · **372** Intuit 앱 로고(동의 화면 아이콘 깨짐) · **373** MFA(871) · **374** 설문 다시 알림(다중 통화 · 캐나다 세금 · 지우기 · 커넥터 360) · **375** Cin7 의 QBO 싱크를 끄는 시점(이중 기록) · **376** Mail outbox 목록이 kind `qbo_reconnect` 를 글자 그대로 · **377** 끊김 메일 실물 시험(샌드박스로 · 운영에서 안 함) · **378** 매뉴얼 Settings → QuickBooks(admin)
+- 326 · 364 에 「Freightcom 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다)」 · ⚠️ freightcom EF 의 `db_role = 'test'` 가드는 617 로 「운영을 막는 가드」 가 아니다(Asung-IMS 는 컷오버 뒤에도 test · cutover-delete.sql:16) — 운영 시작 = 운영 토큰 · BASE_URL 로 바꾸는 날(freightcom-integration 머리 · §12 고침)
+
+### 87-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] qbo-0 지시서 전제가 정본과 어긋남 — 「운영 DB 는 아직 미정」(617 이 이미 정함) · freightcom `db_role` 가드를 환경 가드로 · `authgate.ts` 를 IMS 문으로 — Claude Code 조사가 셋 다 바로잡음 ⇒ **지시서 전제는 정본 판정표(so-module 그 절의 -a 표)를 grep 한 뒤**
+2. [대화 Claude] qbo-1b 지시서 「API 401 = 끊김」(접근 토큰 만료도 401 — 그대로면 시간마다 끊김 메일) · 「env 어긋나면 모든 호출 거부」(운영 전환 날 빠져나올 길 없음) — 이견 4 · 5 가 잡음 ⇒ **상태를 막는 규칙은 「그 상태에서 빠져나오는 길」 을 같은 줄에**
+3. [대화 Claude · 재발 §79-e 1] qbo-1a 지시서에 **REST 두 겹 검사**를 안 넣었다 — WHERE 없는 update · delete 일곱이 psql 시험을 지나 REST 에서 막힘(ping 422) · 그대로면 첫날 밤 cron 갱신이 조용히 실패 ⇒ **DB 창구를 만드는 지시서에는 늘 「nowhere 정적 검사 + 적용 뒤 REST 한 번」**(asung-workflow §3 뼈대 · §4)
+4. [대화 Claude · 재발 §82-e 3] 이름 · 칸 짐작 둘 — cron 등록에서 jobid 55 이름을 `ims-mail` 로(실제 `ims-mail-drain` · \gset 0 행에서 멈춤 · 해 없음) · 확인 쿼리 칸 `created_at`(실제 `called_at`) ⇒ 걸러 쓰는 이름 · 칸은 먼저 한 줄 select 로 본다 · (docs-1029) `supabase/ops/cron.sql` 기록 덩이에도 「jobid 55(ims-mail)」 이 남아 있었다 → 고침
+5. [대화 Claude] 브라우저 콘솔 도우미를 `q` 로 지었다 — settings.html 의 `let … q=""` 와 겹쳐 「q is not a function」(같은 줄의 `sb` 는 피했다) ⇒ 콘솔 도우미 이름은 그 화면의 최상위 let/const 를 grep 한 뒤 · 대문자 이름(QBO)
+6. [대화 Claude · 재발 §80-e 5 · §81-e 4] Caleb 에게 영어로 답 세 번 — Caleb 「한국어」 ⇒ 늘 한국어(긴 대화 뒤반에 재발)
+7. [대화 Claude] Freightcom 운영 토큰 요청 메일 첫 판에 「두 계정 모두 시험」 — 실호출은 토론토만(freightcom-integration §12 「Edmonton 출발 견적」 다시 볼 것) · 둘째 판에서 고침 ⇒ 바깥에 보내는 글의 사실은 정본 「다시 볼 것」 과 대조
+8. [대화 Claude] 설문 Error Handling 1 근거로 「샌드박스에서 실제 거부가 기록됐다」 — 그 422 는 우리 DB 였다 · 바로 정정 ⇒ **서약하는 글의 근거는 기록(call_log)으로 본 것만**
+9. [Claude Code · qbo-1b] psql 이 권한 분류기에 막혀 DB 시험을 못 돌렸다 → Caleb 의 첫 시험 적용이 시험 결함 둘을 잡음(B8: service_role 은 qbo_connection 을 직접 못 읽는데 서브쿼리로 읽음 · B5: savepoint 되돌림이 결과 행까지 지움) ⇒ Claude Code 가 psql 을 못 돌린 차수는 「시험 적용(rollback)」 을 Caleb 명령의 첫 줄로 · 결과 행은 psql 변수로 받아 되돌린 뒤 chk
+10. [잘 된 것] 샌드박스 실호출의 ping 이 safeupdate 를 잡아 운영 전에 고침 · as_role 로 **실제 authenticated 역할**에서 Vault · 창구 거부를 증명(fc 시험들은 claims 만 바꿨다) · 갱신 토큰 만료 고정(101 일) 실측 · 설문을 짓고 시험한 뒤 사실대로(868) · 보안 팀 Yes → No 고침
+11. 일하는 방식(Caleb 2026-10-29): 「앞으로 /clear 해도 되는 것들에는 /clear하라고 얘기해줘」 — 대화 Claude 가 Claude Code 에 줄 지시 · 메시지마다 /clear 여부를 한 줄로(지시서가 스스로 담으면 /clear · 같은 차수의 고친 판 · 이견 답 · 시험 결함 되묻기는 /clear 하지 않음) ⇒ asung-workflow §2
+12. [docs-1029] 지시서 B-6 「367 이 deferred.md:29 · :40 에 두 번(중복)」 — 중복이 아니라 §1(컷오버 전 필수 거울) · ②① 두 표 규칙(deferred §4) · 「367 닫기」 만 하면 컷오버 전 필수 할 일이 거울 표에서 사라진다 ⇒ 닫고 할 일을 369 로 · reload-procedure §P-1 은 fc 표(10-28)도 빠져 있었다(cutover-delete.sql:94 「reload-procedure §P 는 문서 차수에서」 를 docs-1028h 가 놓침) → 185 표로 고침
+
+```
+다음 판정 번호: 874 · 다음 deferred 번호: 381
 ```

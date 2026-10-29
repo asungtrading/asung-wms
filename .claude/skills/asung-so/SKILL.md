@@ -325,6 +325,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
    ⚠️ so_line_add 합치기 ② · ask 목록 · so_lines_paste 합치기 둘 · ask 셈 둘은 **B급 줄과 합치지 않는다**(값이 같아도) · so_detail 줄 bgrade_bin · is_bgrade_line(bgrade_bin_id 는 to_jsonb(l) 에)
    ⭐ 넘침(647) — so_lines_available 끝 칸 bgrade_bin_id · bgrade_bin · B급 줄 가용 = 그 칸 장부 − 그 칸 열린 B급 줄 할당(음수 그대로 · 막지 않음 · 화면이 「sell anyway?」) · 확정 = so_allocate_all(1a alloc 이 B급 줄을 빼 정상 가용 무변) · Finish = so_pick_plan 이 그 칸에서만(모자라도 그 칸 · 칸 음수) · 원장 가드가 「B급 줄은 그 칸에서만 · 정상 줄은 B급 칸에서 못 나감」
    ⭐ 확정 뒤 칸 값을 바꿔도(646) 줄 값은 넣은 값 그대로
+⭐⭐ [2026-10-28 · pos-pay-1 · 판정 863 · so-module §86] **POS 결제 취소 = so_pos_payment_cancel(sales 누구나 · 창고 문 없음)** — Finish 전(draft · confirmed) · 그 판매 하나에 걸린 결제만 · 사유는 void_note 「POS: …」(비면 기본 글) · ⚠️ Finish 뒤 · POS 밖 · refund · opening · 다른 인보이스에 붙은(alloc) 돈은 **so_payment_void(manager) 그대로** — 이 창구로 넓히지 마라 · 목록 읽기 so_pos_payment_list(취소된 것도) · 부분 결제 「전액」 은 DB 가 아니라 화면 함정(Cash 창 칸)이었다
+⚠️⚠️ [2026-10-28 · so-del-1 · 판정 865] **한 번이라도 확정됐던 판매는 so_delete 가 거부** — 열쇠는 `so.first_confirmed_at`(트리거 so_first_confirmed 가 draft → confirmed 첫 순간에 찍고 · 바꾸기 · 비우기 거부 · so_pos_reopen · so_unconfirm 은 confirmed_at 을 비우지만 이 칸은 못 지운다) · 결제가 붙은 초안(so_payment_order)도 거부 · 없애는 길 = so_cancel(manager · 기록 남음) · ⚠️ 예약 이력(so_reserve)으로 「확정된 적」 을 판단하지 마라 — pos-reopen-1 부터 줄 ✕ 가 풀린 이력을 줄과 함께 지운다
+⭐  [2026-10-28 · 판정 866 · pos v1.16d · so v5y3] 다시 연 초안(first_confirmed_at 있음 · draft)을 없애는 단추 = **Cancel**(POS 머리 Cancel sale… · Sales Orders Cancel order… · manager · 사유 필수 · so_cancel 은 초안도 받는다 · DB 무접촉) — Delete draft 는 감춘다 · 단추를 감출 때는 대신할 길을 같은 차수에
 ```
 
 ## 4-k. ⭐⭐ 읽기 창구 · 오피스 화면 — 모르면 사고 (정본 §22 · §23)
@@ -550,7 +553,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ```
 ⭐⭐ 엔진 하나 · 입구 둘(835) — 창고 WMS Finalize 작업대(기본) · 오피스 Ship & invoice 창(창고가 못 했거나 견적이 틀렸을 때) · 같은 DB 창구 + EF freightcom · 한 발송에 살아 있는 예약은 하나
-⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) · 운영 예약은 실제 청구(Net Terms)
+⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) → [2026-10-29 · 617 확인 · so-module §87-d] 이 프로젝트가 11-01 부터 그대로 운영이고 db_role 은 그 뒤에도 'test' — 가드는 운영을 가르지 않는다 · **운영 시작 = 비밀값을 운영 토큰 · BASE_URL 로 바꾸는 날**(freightcom-integration 머리) · 운영 예약은 실제 청구(Net Terms)
 ⭐⭐ 손님 운임(836) = round(pretax × (1 + fc_markup_pct / 100)) 센트 · pretax = base + 할증(세금 제외) · fc_markup_pct 5 · 운임 줄은 발송의 **한 SO**(charge_so_id · 837 · fc_charge_so_set)
 ⚠️⚠️ aone(손님이 Shopify 에서 운임을 결제한 웹 오더 · freight_locked)는 **운임 줄을 덮지 않는다**(836 · 844) — 견적 · 예약 · 기록만
 ⚠️⚠️ **so_finalize 는 창의 운송사 · 송장 칸을 그대로 보낸다** — DB 가 예약 때 SO 에 쓴 송장(855)을 창의 빈 칸이 덮을 수 있다 ⇒ so v5y 가 창 칸을 채운다(오피스 예약 = 모든 SO 블록 · 창고 예약 뒤 창 열기 = 빈 칸만 · 취소 = 예약 송장과 같은 칸만 비움) — 창을 다시 지을 때 이 채우기를 지우지 마라

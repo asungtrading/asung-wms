@@ -3,7 +3,7 @@
 작성: 2026-10-28 · 집 PC · docs-1028h · 판정 677(시작) · 835 ~ 862(원문 표는 `so-module.md` §84-a · §85-a) · 선례 `shopify-integration.md`(날짜 절은 하루의 이야기 · 이 문서가 「지금 규칙」)
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 Freightcom 둘뿐이다.
 ⭐ 상태 [2026-10-28] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(테스트 DB `Asung-IMS` · Freightcom 테스트 토큰 · 실호출 넷 모두 취소함 · so-module §84-c · §85-c) · **운영 = 토큰 대기**(deferred 326 · 364)
-⚠️ 운영에서는 아직 **손으로** 한다 — EF `freightcom` 은 `inv_config.db_role = 'test'` 가 아니면 멈춘다(`supabase/functions/freightcom/index.ts:3`) · 운영 토큰 · 비밀값 · 이 가드를 푸는 날이 운영 시작이다
+⚠️ 운영에서는 아직 **손으로** 한다 — EF `freightcom` 은 `inv_config.db_role = 'test'` 가 아니면 멈춘다(`supabase/functions/freightcom/index.ts:3`) · ~~운영 토큰 · 비밀값 · 이 가드를 푸는 날이 운영 시작이다~~ → [2026-10-29 · 판정 617 확인 · so-module §87] 이 프로젝트(Asung-IMS)가 11-01 부터 **그대로 운영**이고 db_role 은 컷오버 뒤에도 'test'(`cutover-delete.sql:16`) — 이 가드는 asung-WMS 만 막을 뿐 운영을 가르지 못한다 ⇒ **운영 시작 = 비밀값을 운영 토큰 · 운영 BASE_URL 로 바꾸는 날**(그 전까지 이 프로젝트의 예약은 테스트 토큰 · 청구 없음)
 ⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만
 
 ---
@@ -101,7 +101,7 @@
 - 마감 지남 → 다음 날 + 경고 `past_cutoff:` · 창고 문 닫힘(지금 ≥ closes_at) → 다음 날 + 경고 `closed:` — 경고는 응답의 `prepare_warnings` 에만(DB 칸 없음 · 화면이 「— 」 뒤 글을 칸에 남긴다 · 새로 고치면 사라짐)
 - 지난 운송사는 「마감 지남」 · 미리 고르기에서 뺀다(고를 수는 있다)
 - 운송사 마감은 창고 `closes_at` 보다 늦을 수 없다(`ref_carrier_pickup_set` 거부)
-- 값(closes_at · 정기 픽업 · 마감)은 **창고 담당자가 말하면 오피스(master)가 Settings 에 넣는다**(860) · 테스트 DB 지금 값: closes_at Toronto 17:00 · Edmonton 16:00(Caleb 화면 2026-10-28) — 실제 값 아님 · 담당자에게 받아야 한다(deferred 367)
+- 값(closes_at · 정기 픽업 · 마감)은 **창고 담당자가 말하면 오피스(master)가 Settings 에 넣는다**(860) · 테스트 DB 지금 값: closes_at Toronto 17:00 · Edmonton 16:00(Caleb 화면 2026-10-28) — 실제 값 아님 · 담당자에게 받아야 한다(~~deferred 367~~ → [2026-10-29] 617 확인으로 **컷오버 전 필수 deferred 369** · reload-procedure §P-2 0c)
 
 ## 8. 예약 흐름 (EF `book`)
 
@@ -145,7 +145,7 @@
 ## 12. 운영으로 가는 조건 (deferred 326 · 364)
 
 - Freightcom 운영 토큰(TOR · EDM — Edmonton 은 API 를 따로 신청)
-- EF 비밀값을 운영 프로젝트에 · EF 의 테스트 전용 가드(`db_role = 'test'`) 풀기
+- ~~EF 비밀값을 운영 프로젝트에 · EF 의 테스트 전용 가드(`db_role = 'test'`) 풀기~~ → [2026-10-29 · 617 확인] 같은 프로젝트(Asung-IMS)의 비밀값 `FREIGHTCOM_API_KEY_TOR` · `_EDM` · `FREIGHTCOM_BASE_URL` 을 운영 값으로 바꾼다 · 가드는 그대로(운영을 가르지 않는다 — 머리 줄) · 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다 · deferred 326 · 364)
 - 다시 볼 것: 운송사 진짜 마감 · 라벨 원본 주소의 서명 여부 · 운송사별 pickup_confirmation(FedEx 비정기 픽업은 옴 · Maritime 팔렛은 null — 짐작) · 처리 시간 · Purolator Freight 400 · Edmonton 출발 견적 · Apex Freightcom 이름(실제 쓰는 날)
-- closes_at · 정기 픽업 · 마감 실제 값(창고 담당자)
+- closes_at · 정기 픽업 · 마감 실제 값(창고 담당자) — **컷오버 전 필수**(deferred 369 · 남김 표라 컷오버 지우기에 안 지워진다)
 - 원본 라벨 주소가 닿는 곳 닫기(362)
