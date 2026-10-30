@@ -1,4 +1,4 @@
-// deno test supabase/functions/shopify/shopify_product_test.ts — Shopify · DB 무접촉 (shop-2b ① ~ ④ · _shared/shopify-product.ts · shopify-clean.ts 의 순수 함수)
+// deno test supabase/functions/shopify/shopify_product_test.ts — Shopify · DB 무접촉 (shop-2b ① ~ ④ · shop-img-off-1 ⑧ · _shared/shopify-product.ts · shopify-clean.ts 의 순수 함수)
 import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageUrl, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
 import { CLEAN_CONFIG, cleanHtml, FORBIDDEN_AFTER_CLEAN, forbiddenAfterClean, iframeHost, rulesClean } from "../_shared/shopify-clean.ts";
 
@@ -116,4 +116,19 @@ Deno.test("⑦ 원산지(판정 884 · shop-coo-1) — 세 글자 → 두 글자
   eq("countryCodeOfOrigin" in vs[3].inventoryItem, false, "null omitted"); eq("countryCodeOfOrigin" in vs[4].inventoryItem, false, "PRI omitted"); eq(vs[1].inventoryItem.harmonizedSystemCode, "961511", "other fields kept");
   eq(b.cooDropped, [{ sku: "A2", code: "XYZ" }, { sku: "A5", code: "PRI" }], "cooDropped — empty · null are not drops");
   eq(buildProductSetInput(single, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).cooDropped, [], "single CN — none dropped");
+});
+
+Deno.test("⑧ 판정 890(shop-img-off-1) — 꺼진 스토어 payload(DB 가 주는 꼴: files [] · image_id null · send_images false) → files 키 없음 · 변형 file 없음 · fileCount 0 · 나머지(title · variants · tags · status)는 그대로 · 안전띠: send_images false 인데 files 10 이 와도 안 보낸다 · send_images true · 없음(옛 payload)은 지금처럼", () => {
+  const ctx = { baseUrl: BASE, productGid: "gid://shopify/Product/9", variantGidBySku: {}, mediaGidByImage: { [I(0)]: "gid://shopify/MediaImage/1" }, cleanedHtml: "<p>x</p>" };
+  const off: Payload = { ...fam, send_images: false, files: [], variants: fam.variants.map((v) => ({ ...v, image_id: null })) };
+  const b = buildProductSetInput(off, ctx); const inp = b.input as Record<string, unknown>;
+  eq("files" in inp, false, "no files key (559 shape)"); eq((inp.variants as Array<Record<string, unknown>>).some((v) => "file" in v), false, "no variant file");
+  eq(b.fileCount, 0, "fileCount 0"); eq(assertNoForbiddenKeys(inp), [], "forbidden none");
+  eq([inp.title, (inp.variants as unknown[]).length, inp.status, inp.vendor, "tags" in inp], ["ANNIE Snap-On Rollers", 10, "ACTIVE", "Annie", false], "everything else as before");
+  const belt: Payload = { ...fam, send_images: false };                                           // DB 가 사진을 줬어도(있을 수 없는 꼴) 안전띠가 뺀다
+  const b2 = buildProductSetInput(belt, ctx); const inp2 = b2.input as Record<string, unknown>;
+  eq("files" in inp2, false, "belt: no files key"); eq((inp2.variants as Array<Record<string, unknown>>).some((v) => "file" in v), false, "belt: no variant file"); eq(b2.fileCount, 0, "belt: fileCount 0");
+  const on: Payload = { ...fam, send_images: true };
+  const b3 = buildProductSetInput(on, ctx); eq((b3.input as any).files.length, 10, "on: files 10"); eq((b3.input as any).files[0], { id: "gid://shopify/MediaImage/1" }, "on: media by id kept"); eq(b3.fileCount, 10, "on: fileCount 10");
+  const legacy = buildProductSetInput(fam, ctx); eq((legacy.input as any).files.length, 10, "no send_images key (old payload) → as before");
 });

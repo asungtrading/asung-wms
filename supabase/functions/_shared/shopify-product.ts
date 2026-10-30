@@ -4,6 +4,7 @@
 //   ⚠️ 넣지 않는 칸(설계 §3-a Shopify 사람 칸 · 목록 칸은 보낸 대로 맞춰져 사람이 넣은 것이 지워진다): FORBIDDEN_INPUT_KEYS — 시험이 input 에 하나도 없음을 증명한다
 //   문서(2026-10-09 MCP): 변형 file 은 상품 files 에도 있어야 한다 · 단일 변형 상품은 옵션 Title / Default Title 자리표시(Product 문서 「implicit Title option」) · media 는 비동기(status UPLOADED → READY)
 //   판정 559(link-1b · 2026-10-20): IMS 사진 0 장이면 files 키 · 변형 file 을 넣지 않는다(Shopify 사진 무접촉 · 409 의 예외) · 사진이 생기면 409 대로
+//   판정 890(shop-img-off-1 · 2026-10-30): 스토어 send_images false 면 DB 가 사진 0 장 꼴(files [] · image_id null)로 준다 → 559 갈래 · 여기서는 payload.send_images === false 를 두 번째 안전띠로 봐 files 가 와도 안 보낸다(asung · aone 의 Shopify 전용 사진 3,264 장 보호)
 //   사진 쌓임 막기: shop_media 에 MediaImage id 가 있으면 {id} · 없으면 {originalSource, filename = <product_image_id>.<ext>, duplicateResolutionMode REPLACE}(같은 이름이면 바꿔치기 — 두 겹 안전띠)
 //   shop-2b-fix2(실물 media_matched 0): productSet 응답 시점에는 사진이 처리 중이라 image.url 이 비어 있다 → 보내기 직전에 product(id).media 를 읽어 READY + url 인 것만 줄기(= product_image id · 실물로 확인)로 짝 → shop_media → 그 뒤 input 을 만든다(PRODUCT_MEDIA_QUERY · matchMedia readyOnly) · 처리 중인 사진은 REPLACE 로 다시(쌓이지 않음 · 실물) · 줄기가 IMS 에 없는 Shopify 사진은 files 에서 빠져 지워진다(판정 409 · media_removed_unknown)
 // ============================================================
@@ -19,7 +20,7 @@ export const PRODUCT_SET_MUTATION = `mutation ImsProductSet($identifier: Product
 
 export type PayloadVariant = { product_id: string; sku: string; name: string; barcode: string | null; price: number | string | null; compare_at_price: number | string | null; option_values: Array<{ name: string; value: string | null }>; inventory_policy: "CONTINUE" | "DENY"; is_active: boolean; sellable: boolean; image_id: string | null; weight: { value: number; unit: string } | null; hs_code: string | null; country_code: string | null };
 export type PayloadFile = { product_image_id: string; image_path: string; url: string | null; alt: string | null; product_id: string };
-export type Payload = { kind: "family" | "product"; store_code: string; family_id: string | null; product_id: string | null; title: string; description_html: string | null; vendor: string | null; product_type: string | null; tags: string[]; send_tags: boolean; status: "ACTIVE" | "ARCHIVED"; active_variants: number; options: Array<{ name: string; values: string[] }>; variants: PayloadVariant[]; files: PayloadFile[]; listing_on: boolean; blocks: string[]; hash: string };
+export type Payload = { kind: "family" | "product"; store_code: string; family_id: string | null; product_id: string | null; title: string; description_html: string | null; vendor: string | null; product_type: string | null; tags: string[]; send_tags: boolean; status: "ACTIVE" | "ARCHIVED"; active_variants: number; options: Array<{ name: string; values: string[] }>; variants: PayloadVariant[]; files: PayloadFile[]; listing_on: boolean; blocks: string[]; hash: string; send_images?: boolean };   // send_images: shop-img-off-1(판정 890) · hash 밖 · false 면 DB 가 files [] · image_id null 을 준다 — 여기서는 두 번째 안전띠
 export type MapCtx = { baseUrl: string; productGid: string | null; variantGidBySku: Record<string, string>; mediaGidByImage: Record<string, string>; cleanedHtml: string };
 export type FileRef = { id?: string; originalSource?: string; filename?: string; contentType?: "IMAGE"; alt?: string; duplicateResolutionMode?: "REPLACE" };
 
@@ -71,7 +72,8 @@ export function fileRef(f: PayloadFile, ctx: MapCtx): FileRef {
 
 export function buildProductSetInput(p: Payload, ctx: MapCtx): { identifier: { id: string } | null; input: Record<string, unknown>; fileCount: number; cooDropped: Array<{ sku: string; code: string }> } {
   const cooDropped: Array<{ sku: string; code: string }> = [];                                   // 판정 884: 바꿀 수 없어 뺀 원산지 — index.ts 성공 note 에
-  const fileByImage = new Map(p.files.map((f) => [f.product_image_id, f]));
+  const files = p.send_images === false ? [] : p.files;                                           // 판정 890: 스토어가 사진을 안 보내면 두 번째 안전띠(DB 가 이미 [] 를 준다)
+  const fileByImage = new Map(files.map((f) => [f.product_image_id, f]));
   const productOptions = p.kind === "family" && p.options.length
     ? p.options.map((o) => ({ name: o.name, values: o.values.map((v) => ({ name: v })) }))
     : [{ name: "Title", values: [{ name: "Default Title" }] }];                                   // 단일 변형 관례(Product 문서 「implicit Title option」)
@@ -88,18 +90,18 @@ export function buildProductSetInput(p: Payload, ctx: MapCtx): { identifier: { i
     if (v.barcode) out.barcode = v.barcode;
     const cmp = money(v.compare_at_price); if (cmp !== null) out.compareAtPrice = cmp;              // null = 안 보냄 · 같은 값이어도 보냄(판정 408)
     const gid = ctx.variantGidBySku[v.sku]; if (gid) out.id = gid;
-    const f = p.files.length && v.image_id ? fileByImage.get(v.image_id) : undefined; if (f) out.file = fileRef(f, ctx);   // 변형 file 은 files 에도 있다(문서) · 판정 559: 사진 0 장이면 변형 file 도 없다
+    const f = files.length && v.image_id ? fileByImage.get(v.image_id) : undefined; if (f) out.file = fileRef(f, ctx);   // 변형 file 은 files 에도 있다(문서) · 판정 559: 사진 0 장이면 변형 file 도 없다
     return out;
   });
   const input: Record<string, unknown> = {
     title: p.title, descriptionHtml: ctx.cleanedHtml, status: p.status,                            // 판정 405
     productOptions, variants,
   };
-  if (p.files.length) input.files = p.files.map((f) => fileRef(f, ctx));                           // 판정 409: IMS 목록대로 · 판정 559(link-1b): IMS 사진 0 장이면 files 키를 보내지 않는다(목록 칸이라 [] 는 Shopify 사진을 전부 지운다) — 사진이 생기면 409 대로
+  if (files.length) input.files = files.map((f) => fileRef(f, ctx));                           // 판정 409: IMS 목록대로 · 판정 559(link-1b): IMS 사진 0 장이면 files 키를 보내지 않는다(목록 칸이라 [] 는 Shopify 사진을 전부 지운다) — 사진이 생기면 409 대로
   if (p.vendor) input.vendor = p.vendor;
   if (p.product_type) input.productType = p.product_type;
   if (p.send_tags) input.tags = p.tags;                                                            // 판정 410: false 면 칸 자체를 안 보낸다
-  return { identifier: ctx.productGid ? { id: ctx.productGid } : null, input, fileCount: p.files.length, cooDropped };
+  return { identifier: ctx.productGid ? { id: ctx.productGid } : null, input, fileCount: files.length, cooDropped };
 }
 
 export function assertNoForbiddenKeys(input: Record<string, unknown>): string[] {
