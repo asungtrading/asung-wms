@@ -8,6 +8,8 @@
 //   · ord-1b2: 받은 일 줄 없이 status = received 인 shop_order(직원이 resolve 로 풀었거나 앞 회차가 시간 한도로 process 전에 멈춘 것)도 drain 이 줍는다 — Shopify 를 다시 읽지 않고 저장된 원문으로 process 만
 //     (다시 읽어 ingest 하면 줄을 다시 풀어 resolve_lines 로 고른 SKU · 뺀 줄이 사라진다) · 열린 받은 일 줄이 있는 오더는 그 길이 맡는다(sweepPick)
 //   · ord-1b3: 주기 확인은 바뀐 오더만 받은 일에 — 페이지마다 shop_order 를 한 번 읽어 updatedAt 을 견준다(pollPick · 같으면 skipped_same) · 받은 일 열린 줄이 이미 있으면 inbox_add 가 null(skipped_open)
+//   · ⭐ shop-cut-1(2026-10-30 · 판정 889): 컷 앞 오더는 저절로 안 받는다 — shop_store.orders_cut_at(Go live 때 트리거가 orders_from 을 베낀다 · null 이면 꺼짐) 보다 앞에 만들어진(createdAt) · 아직 shop_order 에 없는 오더는 태그 ims-import(낱말 하나 · 빈칸 · 대소문자 무시)가 있어야 받은 일에 넣는다(cutPick · skipped_cut)
+//     깊은 자리는 DB shop_order_ingest(행이 없고 컷 앞 · 태그 없음 → status before_cut · 행 안 적음) — poll 의 cutPick 은 소음 줄이기 · 웹훅 길은 drain → ingest 가 막는다 · 이미 행이 있는 오더(태그로 들어온 것)는 나중에 태그를 지워도 평소대로
 // ============================================================
 import { API_VERSION } from "./shopify.ts";
 
@@ -41,7 +43,7 @@ export const ORDER_READ_QUERY = `query ImsOrderRead($id: ID!) { order(id: $id) {
   refunds(first: 20) { id createdAt note totalRefundedSet { shopMoney { amount currencyCode } } refundLineItems(first: 50) { nodes { quantity restockType lineItem { id sku } } } }
 } }`;
 export const ORDER_BY_NAME_QUERY = `query ImsOrderByName($q: String!) { orders(first: 1, query: $q) { nodes { id name } } }`;
-export const ORDERS_SINCE_QUERY = `query ImsOrdersSince($q: String!, $after: String) { orders(first: 50, after: $after, sortKey: UPDATED_AT, query: $q) { pageInfo { hasNextPage endCursor } nodes { id name updatedAt cancelledAt displayFinancialStatus test } } }`;
+export const ORDERS_SINCE_QUERY = `query ImsOrdersSince($q: String!, $after: String) { orders(first: 50, after: $after, sortKey: UPDATED_AT, query: $q) { pageInfo { hasNextPage endCursor } nodes { id name createdAt updatedAt cancelledAt displayFinancialStatus test tags } } }`;   // shop-cut-1: createdAt · tags(cutPick)
 export const WEBHOOK_LIST_QUERY = `query ImsWebhookList { webhookSubscriptions(first: 50) { nodes { id topic uri format apiVersion { handle } createdAt } } }`;
 export const WEBHOOK_SUBSCRIBE_MUTATION = `mutation ImsWebhookSubscribe($topic: WebhookSubscriptionTopic!, $uri: String!) { webhookSubscriptionCreate(topic: $topic, webhookSubscription: { uri: $uri, format: JSON }) { webhookSubscription { id topic uri format createdAt } userErrors { field message } } }`;
 export const apiVersion = () => API_VERSION;
@@ -130,6 +132,23 @@ export function pollPick<T extends { id: string; updatedAt?: string | null }>(no
     if (h === undefined || !Number.isFinite(h) || !Number.isFinite(u) || u > h) add.push(n); else same.push(n);
   }
   return { add, same };
+}
+// shop-cut-1(판정 889) — 컷 앞 오더 거르기(poll 쪽 · 소음 줄이기 · 깊은 자리는 DB ingest): 아직 모르는(known 에 없는) 오더가 createdAt < cutAt 이고 태그 ims-import 가 없으면 받은 일에 넣지 않는다(cut)
+//   cutAt 이 없거나(스토어 orders_cut_at null = 꺼짐) 못 읽으면 전부 keep · createdAt 을 못 읽으면 keep(DB 가 판정) · 태그는 GraphQL [String] · 쉼표 글 둘 다 — 조각마다 trim · lower 로 낱말 하나 비교(ims-importx 는 아님)
+export const IMPORT_TAG = "ims-import";
+export function hasImportTag(tags: unknown): boolean {
+  const parts: string[] = Array.isArray(tags) ? tags.flatMap((x) => String(x ?? "").split(",")) : typeof tags === "string" ? tags.split(",") : [];
+  return parts.some((x) => x.trim().toLowerCase() === IMPORT_TAG);
+}
+export function beforeCut(createdAt: string | null | undefined, cutAt: string | null | undefined): boolean {
+  const c = createdAt ? Date.parse(createdAt) : NaN, k = cutAt ? Date.parse(cutAt) : NaN;
+  return Number.isFinite(c) && Number.isFinite(k) && c < k;
+}
+export function cutPick<T extends { id: string; createdAt?: string | null; tags?: unknown }>(nodes: T[], known: KnownOrder[], cutAt: string | null | undefined): { keep: T[]; cut: T[] } {
+  const have = new Set(known.map((o) => o.shopify_order_gid));
+  const keep: T[] = [], cut: T[] = [];
+  for (const n of nodes) { if (!have.has(n.id) && beforeCut(n.createdAt, cutAt) && !hasImportTag(n.tags)) cut.push(n); else keep.push(n); }
+  return { keep, cut };
 }
 export const gidInFilter = (gids: string[]) => 'in.(' + gids.map((g) => '"' + g + '"').join(",") + ")";   // PostgREST in.("gid://…","gid://…") · 부르는 쪽이 encodeURIComponent
 

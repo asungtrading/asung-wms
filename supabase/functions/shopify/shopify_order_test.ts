@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_order_test.ts — Shopify · DB 무접촉 (ord-1b ① ~ ⑥ · _shared/shopify-order.ts 의 순수 함수)
-import { drainNext, drainStop, findStoreByDomain, gidInFilter, hmacBase64, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, POLL_FIRST_WINDOW_MS, POLL_OVERLAP_MS, pollPick, pollQuery, pollSince, redactionReport, sweepPick, timingSafeEqual, verifyWebhookHmac, webhookHead, webhookUri } from "../_shared/shopify-order.ts";
+import { beforeCut, cutPick, hasImportTag, IMPORT_TAG, ORDERS_SINCE_QUERY, drainNext, drainStop, findStoreByDomain, gidInFilter, hmacBase64, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, POLL_FIRST_WINDOW_MS, POLL_OVERLAP_MS, pollPick, pollQuery, pollSince, redactionReport, sweepPick, timingSafeEqual, verifyWebhookHmac, webhookHead, webhookUri } from "../_shared/shopify-order.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -99,4 +99,28 @@ Deno.test("⑧ ord-1b3 주기 확인 — 같은 updatedAt 건너뜀('Z' vs '+00:
   eq(pollPick(nodes.slice(0, 1), []), { add: nodes.slice(0, 1), same: [] }, "nothing known → pick");
   eq(gidInFilter(["gid://shopify/Order/1", "gid://shopify/Order/2"]), 'in.("gid://shopify/Order/1","gid://shopify/Order/2")', "PostgREST in filter");
   eq(decodeURIComponent(encodeURIComponent(gidInFilter(["gid://shopify/Order/1"]))), 'in.("gid://shopify/Order/1")', "round-trips through encodeURIComponent");
+});
+
+Deno.test("⑨ shop-cut-1 — 태그 낱말 하나 · 컷 앞 판정 · cutPick(모르는 · 컷 앞 · 태그 없음만 거른다 · 컷 없으면 전부 keep) · poll 쿼리에 createdAt tags", () => {
+  eq(IMPORT_TAG, "ims-import", "tag name");
+  eq([hasImportTag(["wholesale", "ims-import"]), hasImportTag([" IMS-Import "]), hasImportTag(["ims-importx"]), hasImportTag(["ims-import-x"]), hasImportTag("retail, IMS-IMPORT ,x"), hasImportTag("ims-importx,x"), hasImportTag([]), hasImportTag(null), hasImportTag(undefined), hasImportTag(5)],
+     [true, true, false, false, true, false, false, false, false, false], "tag matching: whole word · trim · case · array or comma string");
+  const cut = "2026-10-30T22:00:00Z";
+  eq([beforeCut("2026-10-29T20:00:00Z", cut), beforeCut("2026-10-30T22:00:00Z", cut), beforeCut("2026-10-30T23:00:00Z", cut), beforeCut(null, cut), beforeCut("2026-10-29T20:00:00Z", null), beforeCut("garbage", cut), beforeCut("2026-10-29T20:00:00+00:00", "2026-10-30T22:00:00+00:00")],
+     [true, false, false, false, false, false, true], "before cut: strict < · after → false · unparseable or missing → false (DB decides) · PostgREST +00:00 shape");
+  const nodes = [
+    { id: "gid://shopify/Order/1", name: "#1001", createdAt: "2026-10-29T20:00:00Z", tags: [] },                       // unknown · before · no tag → cut
+    { id: "gid://shopify/Order/2", name: "#1002", createdAt: "2026-10-29T20:00:00Z", tags: ["IMS-Import"] },           // tagged → keep
+    { id: "gid://shopify/Order/3", name: "#1003", createdAt: "2026-10-30T23:00:00Z", tags: [] },                       // after → keep
+    { id: "gid://shopify/Order/4", name: "#1004", createdAt: "2026-10-29T20:00:00Z", tags: [] },                       // known (already in IMS) → keep
+    { id: "gid://shopify/Order/5", name: "#1005", createdAt: null, tags: [] },                                         // no createdAt → keep
+  ];
+  const known = [{ shopify_order_gid: "gid://shopify/Order/4", shopify_updated_at: "2026-10-29T21:00:00+00:00" }];
+  const p = cutPick(nodes, known, cut);
+  eq(p.cut.map((n) => n.name), ["#1001"], "only the unknown · before-cut · untagged order is cut");
+  eq(p.keep.map((n) => n.name), ["#1002", "#1003", "#1004", "#1005"], "the rest are kept in page order");
+  eq(cutPick(nodes, known, null).cut.length, 0, "no cut time → gate off");
+  eq(cutPick(nodes, known, "not a date").cut.length, 0, "unreadable cut time → gate off");
+  eq(cutPick([], known, cut), { keep: [], cut: [] }, "empty page");
+  eq(/nodes \{ id name createdAt updatedAt cancelledAt displayFinancialStatus test tags \}/.test(ORDERS_SINCE_QUERY), true, "poll query carries createdAt and tags");
 });

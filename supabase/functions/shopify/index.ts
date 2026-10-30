@@ -46,13 +46,15 @@
 //      shop_store.live — 읽기 길(ping · link_read · link_poll · order_read · webhooks_list)은 is_active 만 · 일하는 길(push · stock_push · webhooks_subscribe · orders_poll 스토어 고르기 · 모든 drain · 웹훅 받기)은 is_active and live
 //      큐 줄의 갈래(queueGate · 판정 815): 꺼진 스토어(is_active false) = error 로 닫는다(지금 그대로 · 설정이 죽었다) · live 전 = 열어 둔다(result waiting · started_at null · 시도 수 안 올림 · 다음 회차) · 웹훅은 live 전이면 받은 일에 넣지 않고 200 + call_log
 //      shop_store.auth_mode — stored_token 이면 <PREFIX>_ACCESS_TOKEN 을 읽기만(없으면 사람 말 · 401 · 403 에 다시 받지 않음) · ping 응답에 auth_mode · live · scope 는 토큰 응답이 없으면 currentAppInstallation.accessScopes(scope_source)
+//   ⭐ shop-cut-1(2026-10-30 · 판정 889 · DB 20261030165351_shop_cut_1): 컷 앞 웹 오더는 저절로 안 받는다 — orders_poll 은 아직 모르는 오더가 createdAt < shop_store.orders_cut_at 이고 태그 ims-import 가 없으면 받은 일에 넣지 않는다(cutPick · skipped_cut · 이름을 call_log 에)
+//      깊은 자리는 DB shop_order_ingest(행이 없고 컷 앞 · 태그 없음 → status before_cut · 행 안 적음) → orders_drain 은 받은 일 줄을 result before_cut · error = 사유 글로 닫는다 · 웹훅 길도 같은 ingest 를 지난다 · orders_cut_at null = 꺼짐(테스트 스토어)
 //   배포: supabase functions deploy shopify --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.shopify] verify_jwt=false)
 // ============================================================
 import { API_VERSION, compareLocations, getToken, isWorking, missingScopes, queueGate, readGate, scopesOf, shopifyGql, workGate, type PairRow, type ShopLocation, type StoreRow, type Warning } from "../_shared/shopify.ts";
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
 import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
-import { drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
+import { cutPick, drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
 import { BULK_PRODUCTS_QUERY, BULK_RUN_MUTATION, BULK_STATUS_QUERY, chunk as linkChunk, errorMark, itemRow, LINK_CHUNK, LINK_TIME_MS, parseBulkJsonl } from "../_shared/shopify-link.ts";
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
@@ -491,8 +493,8 @@ async function stockPush(store: StoreRow, target: Target, label: string, caller:
 
 
 // ── 오더 받기(ord-1b) ──────────────────────────────────────────────────────────────
-const STORE_SELECT = "shop_store?select=" + STORE_COLS + ",orders_polled_at";
-type StoreRowO = StoreRow & { orders_polled_at?: string | null };
+const STORE_SELECT = "shop_store?select=" + STORE_COLS + ",orders_polled_at,orders_cut_at";                       // shop-cut-1: orders_cut_at(poll 의 cutPick)
+type StoreRowO = StoreRow & { orders_polled_at?: string | null; orders_cut_at?: string | null };
 function gqlErr(g: { status: number; errors: unknown; raw: string | null }): string { return "graphql HTTP " + g.status + (g.errors ? " · " + JSON.stringify(g.errors).slice(0, 300) : "") + (g.raw ? " · " + g.raw.slice(0, 100) : ""); }
 
 // 웹훅 — 문 셋째 · 원문 바이트로 HMAC · 오더 GID 만 받은 일 표에 · 바로 200
@@ -588,17 +590,20 @@ async function ordersPoll(caller: Caller, t0: number): Promise<Response> {
   const out: Array<Record<string, unknown>> = [];
   for (const store of stores) {
     const since = pollSince(store.orders_polled_at ?? null);
-    let after: string | null = null, pages = 0, seen = 0, added = 0, skippedSame = 0, skippedOpen = 0, cost = 0, err: string | null = null, maxSeen: string | null = store.orders_polled_at ?? null;
+    let after: string | null = null, pages = 0, seen = 0, added = 0, skippedSame = 0, skippedOpen = 0, skippedCut = 0, cost = 0, err: string | null = null, maxSeen: string | null = store.orders_polled_at ?? null;
+    const cutNames: string[] = [];                                                                                             // shop-cut-1: 거른 오더 이름(≤ 10 · call_log)
     for (;;) {
       const g = await shopifyGql(store, ORDERS_SINCE_QUERY, { q: pollQuery(since), after });
       cost += g.cost.actual ?? 0; pages++;
       if (!g.ok) { err = gqlErr(g); break; }
-      const d = (g.data as { orders?: { pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }; nodes?: Array<{ id: string; updatedAt?: string | null }> } } | null)?.orders;
+      const d = (g.data as { orders?: { pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }; nodes?: Array<{ id: string; name?: string | null; createdAt?: string | null; updatedAt?: string | null; tags?: unknown }> } } | null)?.orders;
       const nodes = d?.nodes ?? [];
       seen += nodes.length;
       // ord-1b3 — 바뀐 오더만: 이 페이지의 GID 들을 shop_order 에서 한 번 읽어 updatedAt 을 견준다 · 같으면 skipped_same · 열린 받은 일 줄이 있으면 inbox_add 가 null → skipped_open
       const known: KnownOrder[] = nodes.length ? (await sbGet("shop_order?select=shopify_order_gid,shopify_updated_at&store_id=eq." + store.id + "&shopify_order_gid=" + encodeURIComponent(gidInFilter(nodes.map((n) => n.id))))) as KnownOrder[] : [];
-      const pick = pollPick(nodes, known);
+      const cp = cutPick(nodes, known, store.orders_cut_at ?? null);                                                       // shop-cut-1 판정 889: 모르는 · 컷 앞 · 태그 없는 오더는 받은 일에 안 넣는다(DB ingest 가 어차피 막는다 · 소음 줄이기)
+      skippedCut += cp.cut.length; for (const n of cp.cut) if (cutNames.length < 10) cutNames.push(n.name ?? n.id.split("/").pop() ?? n.id);
+      const pick = pollPick(cp.keep, known);
       skippedSame += pick.same.length;
       for (const n of pick.add) { if ((await sbRpc("shop_order_inbox_add", { p_store_id: store.id, p_order_gid: n.id, p_topic: "poll", p_webhook_id: null, p_event_id: null })) !== null) added++; else skippedOpen++; }
       maxSeen = maxUpdatedAt(nodes, maxSeen);
@@ -606,8 +611,8 @@ async function ordersPoll(caller: Caller, t0: number): Promise<Response> {
       after = d.pageInfo.endCursor;
     }
     if (!err) await sbWrite("PATCH", "shop_store?id=eq." + store.id, { orders_polled_at: maxSeen ?? new Date().toISOString() });
-    await recordCall({ store_id: store.id, action: "orders_poll", ok: !err, http_status: null, query_cost: cost, throttle_available: null, error: err ?? ("since " + since + " · seen " + seen + " · added " + added + " · skipped_same " + skippedSame + " · skipped_open " + skippedOpen + " · pages " + pages), by_staff: caller.staffId, ms: Date.now() - t0 });
-    out.push({ store: store.code, since, seen, added, skipped_same: skippedSame, skipped_open: skippedOpen, pages, cost, polled_at: err ? store.orders_polled_at ?? null : maxSeen, error: err });
+    await recordCall({ store_id: store.id, action: "orders_poll", ok: !err, http_status: null, query_cost: cost, throttle_available: null, error: err ?? ("since " + since + " · seen " + seen + " · added " + added + " · skipped_same " + skippedSame + " · skipped_open " + skippedOpen + (skippedCut ? " · skipped_cut " + skippedCut + " (before " + store.orders_cut_at + ", no ims-import tag: " + cutNames.join(" ") + (skippedCut > cutNames.length ? " …" : "") + ")" : "") + " · pages " + pages), by_staff: caller.staffId, ms: Date.now() - t0 });
+    out.push({ store: store.code, since, seen, added, skipped_same: skippedSame, skipped_open: skippedOpen, skipped_cut: skippedCut, cut_at: store.orders_cut_at ?? null, pages, cost, polled_at: err ? store.orders_polled_at ?? null : maxSeen, error: err });
   }
   return json(200, { ok: out.every((o) => !o.error), stores: out, ms: Date.now() - t0 });
 }
@@ -644,8 +649,9 @@ async function ordersDrain(caller: Caller, t0: number): Promise<Response> {
       if (r.notFound) { result = "not_found"; error = "order not in Shopify (or older than 60 days)"; }
       else if (!r.order) throw new Error(JSON.stringify(r.errors ?? r.raw ?? "read failed").slice(0, 300));
       else {
-        const ing = (await sbRpc("shop_order_ingest", { p_store_id: store.id, p_order: r.order })) as { shop_order_id?: string; status?: string; action?: string };
+        const ing = (await sbRpc("shop_order_ingest", { p_store_id: store.id, p_order: r.order })) as { shop_order_id?: string; status?: string; action?: string; message?: string };
         shopOrderId = ing.shop_order_id ?? null; result = String(ing.status ?? "error");
+        if (result === "before_cut") error = ing.message ?? "created before the store cut-over and no ims-import tag";          // shop-cut-1: 사유 글을 받은 일 줄 error 에(행은 안 생긴다)
         if (drainNext(ing) === "process") {
           const pr = (await sbRpc("shop_order_process", { p_shop_order_id: ing.shop_order_id })) as { status?: string; so_number?: string; error?: string; warnings?: unknown[] };
           result = String(pr.status ?? result); soNumber = pr.so_number ?? null; error = pr.error ?? null;
