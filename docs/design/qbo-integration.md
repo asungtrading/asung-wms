@@ -94,7 +94,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 - **끊김 메일(869)**: connected → needs_reconnect 로 **바뀌는 순간 한 번**(for update 행에서 봄 — EF 둘이 같이 찍어도 한 번 · 이미 needs_reconnect 면 0) · 받는 사람 `inv_config.qbo_alert_to` = caleb@asung.ca 한 사람(주소 하나) · 보내는 주소 = mail_doc_from(info@) · 메일 insert 는 서브트랜잭션(실패해도 표시는 남는다) · 주소가 비었거나 틀리면 메일만 건너뜀 · 그리기 = EF mail 의 plain kind(payload 의 subject · body_text)
   - Caleb(869 「A」) · 기각 B = info@(받는 사람이 다시 연결할 수 없다) · admin 이 늘면 받는 사람을 넓힌다 · 바꾸기는 지금 마이그레이션(화면 칸은 뒤)
   - ⬜ 실물 시험 아직(샌드박스에서 QuickBooks → Apps 로 끊은 뒤 refresh → mail_outbox 한 줄 · 한 번만 · 운영에서는 하지 않는다 · deferred 377)
-- 수명(실측 2026-10-29 · §10): 접근 토큰 1 시간 · **갱신 토큰 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음**(짐작 — 하루 뒤 cron 으로 확인 · deferred 370) ⇒ 100 일쯤마다 Reconnect 가 필요할 수 있다 · 미리 알림은 판정 전(deferred 371)
+- 수명(실측 2026-10-29 · §10): 접근 토큰 1 시간 · **갱신 토큰 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음**(~~짐작 — 하루 뒤 cron 으로 확인 · deferred 370~~ → ✅ [2026-10-30 · so-module §90-d′] 확인 — 10-30 05:10(토론토) 첫 운영 갱신 ok 200 뒤에도 refresh_expires_at = 2027-02-07 15:48 UTC 그대로 · deferred 370 닫힘) ⇒ ~~100 일쯤마다 Reconnect 가 필요할 수 있다~~ → **2027-02-07 15:48 UTC 전에 Reconnect 가 필요하다**(deferred 396) · 미리 알림은 판정 전(deferred 371)
 
 ## 7. 끊기 · 다시 연결 · realm 고정 · Untie
 
@@ -140,7 +140,8 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 샌드박스   10:52 연결(Sandbox Company CA 9bca · realm 9341458557490536) · company_name null(→ qbo-1c safeupdate)
            11:04 refresh v2 · 11:05 disconnect(revoked · deleted · vault 2 · state 1) · 11:06 다시 연결 · 회사 이름 바로 · Settings Check connection OK
 갱신 토큰   만료 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음(10:52 연결 → 2027-02-07 14:52 UTC · refresh 뒤에도 초까지 같음 · 다시 연결하면 새 101 일)
-           하루 뒤 바뀌는지는 cron 뒤에 확인 — 「밀리지 않는다」 는 짐작(deferred 370)
+           [2026-10-30] 운영 연결(11:48 EDT)의 만료 = 2027-02-07 15:48 UTC — 10-30 05:10 첫 운영 cron 갱신(ok 200) 뒤에도 그대로 ⇒ 「밀리지 않는다」 확인(deferred 370 닫힘 · Reconnect 할 일 396)
+           ~~하루 뒤 바뀌는지는 cron 뒤에 확인 — 「밀리지 않는다」 는 짐작(deferred 370)~~ → 확인됨(위 줄)
 접근 토큰   1 시간
 call_log   13 줄 — Intuit 호출(companyinfo · token_exchange · refresh · revoke) 9 줄 모두 intuit_tid 있음 · IMS 안 줄(callback · disconnect)은 없음(맞음) · 0.4 ~ 1.2 s
 설문       제출(11:3x 쯤) → 운영 키 바로
@@ -150,7 +151,7 @@ QBO 판     Plus(Caleb)
 ```
 
 - 시험: qbo-1a OK 43(4 회 · `as_role` 로 **실제 authenticated 역할**에서 Vault · 창구 거부 증명) · qbo-1b 시험 OK 20(2 회째 · 시험 결함 B8 · B5 고침) · 확인 OK 20 · deno 11 + mail 17 · qbo-1c 시험 OK 6 · 확인 OK 5 · REST ping · refresh v2 · disconnect · reconnect · qbo-1d deno 12 + mail 17
-- ⬜ 내일(10-30) 아침 cron 59 첫 운영 refresh 확인 — `select called_at, action, ok, http_status, intuit_tid from qbo_call_log where action = 'refresh' order by called_at desc limit 3;` · 갱신 토큰 만료가 밀렸는지(deferred 370)
+- ~~⬜ 내일(10-30) 아침 cron 59 첫 운영 refresh 확인 — `select called_at, action, ok, http_status, intuit_tid from qbo_call_log where action = 'refresh' order by called_at desc limit 3;` · 갱신 토큰 만료가 밀렸는지(deferred 370)~~ → ✅ [2026-10-30] 05:10(토론토 · 09:10 UTC) refresh ok 200 · 만료 2027-02-07 15:48 UTC 그대로(deferred 370 닫힘) · ⚠️ cron 59 는 컷오버 1 단계에서 꺼졌다 — reload-procedure P-3 4 에서 다시 켠다
 
 ## 11. 싱크로 가는 조건 (deferred 260 · 327 · 341)
 

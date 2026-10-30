@@ -61,17 +61,19 @@
 - **Last change before IMS** shows when the product was last changed before IMS.
 - A product's surcharge group is picked on its card in **Edit** (see [Surcharge groups](07-settings.md#set-surcharge)).
 - Products are never hidden — inactive products can still be found.
+- The kind list starts on **Singles**, so sets do not show in the search. To find a set, choose **Sets only** (or **All**).
 - To change many products at once, use [Product Sheet](#stock-sheet).
 - **↓ Export…** on the wide list downloads the products that match the filters, with the columns you pick — see [↓ Export…](00-getting-started.md#start-search-filter).
 - Supplier costs (**Fixed cost**, **Latest cost**) show only to people with the `cost` key. Without it the cost boxes are not on the product, in **Edit** or in **+ New product**.
 
 <a id="stock-new-product"></a>
 ## Add a new product, sets and combos
-<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-27 · cb v1 -->
+<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-30 · cb v1a -->
 <!-- who: office, manager -->
 
 **What it is**
-A **set** is a case or pack of the same product, for example a case of 6. Stock is counted in single units. A **combo** is one SKU made of different products; the components hold the stock.
+A **set** is a case or pack of the same product, for example a case of 6. Stock is counted in single units. A **combo** is one SKU made of other products; the components hold the stock.
+Which one to use: if the bundle is sold by scanning its own case or pack barcode, make it a **set**. If the bundle is sold only through the barcodes of its single items, make it a **combo** — for example "two of A for the price of one".
 
 **How — a new product (needs the master key)**
 1. Press **+ New product**.
@@ -90,7 +92,7 @@ A **set** is a case or pack of the same product, for example a case of 6. Stock 
 1. Open **Inventory ▾** › **Combos** and press **New combo** (the **New combo** button on **Products** opens the same window).
 2. Fill in **SKU** (a new SKU, not used before), **Name**, **Brand**, **Category**, **Unit** and, if you have them, **Barcode(s)**, **Weight** and **Note**.
 3. Type the combo's own **Sale prices** — not the sum of its components.
-4. Under **Components**, add each component SKU with its **Qty per combo** (**+ component** adds a row). A combo needs at least two components.
+4. Under **Components**, add each component SKU with its **Qty per combo** (**+ component** adds a row). A combo needs two or more components — or one component with a **Qty per combo** of 2 or more.
 5. Press **Check & create**. The new SKU and its components are saved together.
 
 **How — change or release a combo (needs the master key)**
@@ -325,4 +327,4 @@ The warehouse screens use their own words for the same steps — see [Warehouse 
 - **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.
 - **Product Sheet** works the other way: paste from Excel into the table (see [Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763 -->

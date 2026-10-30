@@ -57,7 +57,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 
 <a id="wms-picking"></a>
 ## 오더 픽하기
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b -->
+<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; combo box scan BUILD 2026-10-30 · pk v1.6 -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -91,6 +91,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 - **🖨 Print** 는 픽리스트를 다시 찍습니다.
 - 창고 간 트랜스퍼도 같은 방법으로 픽합니다([창고 간 트랜스퍼](03-inventory.md#stock-transfers)). 오더 번호 자리에 트랜스퍼 번호가, 고객 이름 자리에 도착 창고가 나옵니다.
 - "Part of a combo" 표시가 있는 라인도 다른 물건처럼 픽합니다. 콤보는 나중에 맞춥니다.
+- 봉한 콤보 박스는 한 번에 찍을 수 있습니다: 박스 바코드가 그 콤보의 구성품 라인을 모두 한꺼번에 채웁니다("✓ BOX … → N items filled"). 그 가운데 한 라인이라도 남은 자리가 없으면 아무것도 채우지 않습니다 — "Box … doesn't fit — some items are already picked. Scan the items one by one"(낱개로 하나씩 찍는다). 박스 바코드가 어떤 낱개의 바코드이기도 하면 그 낱개로 셉니다.
 
 **조심할 것**
 - 픽리스트를 보드에 다시 붙이면 화면의 묶음도 닫습니다(**Hold (later)**). 안 그러면 두 사람이 같은 오더를 픽하게 됩니다.
@@ -136,7 +137,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-packing"></a>
 ## 뽑은 오더 검수(Packing)
-<!-- screen: wms-packer.html · BUILD 2026-10-20 · pa v1.6b ; wms-confirm-modal.js -->
+<!-- screen: wms-packer.html · BUILD 2026-10-20 · pa v1.6b ; combo box scan BUILD 2026-10-30 · pa v1.7 ; wms-confirm-modal.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -160,6 +161,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 - **Search SKU / product…** 로 라인을 빨리 찾습니다. **Clear** 는 검색을 비웁니다.
 - **Hold (later)** · **Resume** · 이어받기는 [오더 픽하기](#wms-picking)와 같습니다.
 - 선반을 확인한 뒤라면 여기서도 **⚠ Not enough stock** 을 쓸 수 있습니다.
+- 봉한 콤보 박스는 [오더 픽하기](#wms-picking)처럼 한 번에 찍을 수 있습니다("✓ BOX … → N items verified"). 한 라인이라도 픽한 수를 넘게 되면 거부합니다 — "Box … doesn't fit — some items are already packed or short-picked. Scan the items one by one".
 
 **조심할 것**
 - **I scanned twice** 는 정직하게 고릅니다. 픽커가 하지 않은 실수를 덮어쓰지 않게 해 주고, 나에게도 불리하지 않습니다.
@@ -362,4 +364,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 트랜스퍼에는 **Finalized** 가 없습니다. 창고가 Finalize 하면 곧장 **In transit** 이 됩니다.
 오피스 화면의 말은 [상태의 뜻](03-inventory.md#stock-statuses)을 봅니다.
 
-<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->
+<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->

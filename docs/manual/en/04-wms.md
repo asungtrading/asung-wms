@@ -57,7 +57,7 @@ When the office presses **Release to WMS**, the order appears on **Split & Waves
 
 <a id="wms-picking"></a>
 ## Pick an order
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b -->
+<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; combo box scan BUILD 2026-10-30 · pk v1.6 -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -91,6 +91,7 @@ Each one goes to [WMS Admin](#wms-admin). You keep picking.
 - **🖨 Print** reprints the pick list.
 - Transfers between warehouses are picked the same way (see [Transfers between warehouses](03-inventory.md#stock-transfers)). The transfer number shows where the order number is, and the destination warehouse where the customer name is.
 - A line marked "Part of a combo" is picked like any item. The combo is put together later.
+- A sealed combo box can be scanned once: its box barcode fills every item line of that combo at once ("✓ BOX … → N items filled"). If any of those lines has no room left, nothing is filled — "Box … doesn't fit — some items are already picked. Scan the items one by one". If the box barcode is also an item's own barcode, it counts as that item.
 
 **Watch out**
 - If you put a pick list back on the board, close the batch on your screen too (**Hold (later)**). Otherwise two people can end up picking the same order.
@@ -136,7 +137,7 @@ SO-99001-1 needs 30 of product X. The shelf has 18. Pick 18, press **⚠ Not eno
 
 <a id="wms-packing"></a>
 ## Check a picked order (Packing)
-<!-- screen: wms-packer.html · BUILD 2026-10-20 · pa v1.6b ; wms-confirm-modal.js -->
+<!-- screen: wms-packer.html · BUILD 2026-10-20 · pa v1.6b ; combo box scan BUILD 2026-10-30 · pa v1.7 ; wms-confirm-modal.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -160,6 +161,7 @@ If a line goes over, the screen shows "⚠ Over-scan — count the items". Count
 - **Search SKU / product…** finds a line quickly. **Clear** empties the search.
 - **Hold (later)**, **Resume** and taking over work as in [Pick an order](#wms-picking).
 - **⚠ Not enough stock** works here too, after you have checked the shelf.
+- A sealed combo box can be scanned once, as in [Pick an order](#wms-picking) ("✓ BOX … → N items verified"). It is refused if any of its lines would go over what was picked — "Box … doesn't fit — some items are already packed or short-picked. Scan the items one by one".
 
 **Watch out**
 - Choose **I scanned twice** honestly. It protects the picker from a mistake that was not theirs, and it is not held against you.
@@ -362,4 +364,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 A transfer has no **Finalized**. When the warehouse finalizes it, it goes straight to **In transit**.
 The office words for the same steps: see [What each status means](03-inventory.md#stock-statuses).
 
-<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->
+<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->

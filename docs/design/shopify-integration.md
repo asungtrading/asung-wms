@@ -15,6 +15,7 @@
 ⭐ [2026-10-14 · so-module §64] **asung.ca 웹 운임 = SO 견적 운임 줄**(판정 473 · 미룬 191 닫음) — DB frt-1a `7d2a16a`(속 함수 shop_order_freight · 정보 freight_estimate_from_shopify) · 화면 asung-ims so v5t7 · wo v4d `0de7561` · ⚠️ aone 운임 「확정 · Ship & invoice 가 고치지 않음」(판정 369)은 **글에만 있고 코드 표지 없음**(so-module 미룬 236) · 다음 판정 번호 **493**
 ⭐ [2026-10-27 · so-module §82 · §83] **실제 두 스토어를 「연결됐지만 잠든」 채 붙임**(live · auth_mode · store_live · 판정 811 ~ 816 · 아래 §1) · **기존 상품 잇기를 실제 스토어 크기로**(plan 31 s → 2 s · apply 묶음 500 · dup_target · 판정 829 · 830 · 832 · 아래 §1-b) · **콤보 재고**(판정 831 · 아래 §3-d) — DB shop-live-1 `7747baf` · link-perf-1 `7b01fbc` · link-perf-2 `31c67c4` · link-dup-1 `f1f9c87` · link-perf-3 `52c43af` · shop-combo-1 `18ce4f0` · 화면 asung-ims ss v4 `f7d8a80` · v4a `ae4c45b` · v5 `a429201` · v5a `32d7023` · 다음 판정 번호 **833**
 
+⭐ [2026-10-30 · so-module §90] **컷 전 웹 오더는 `ims-import` 태그만**(판정 889 · shop-cut-1 `9d61370` · 814 의 「손으로 Fulfill」 대체 · 아래 §2-a) · **asung · aone 사진 보내기 끔**(판정 890 · shop-img-off-1 `1268bd1` · 409 · 560 을 두 스토어에서 멈춤 · §3-b) · **원산지 두 글자**(판정 884 · shop-coo-1 `902937e` · §3-e) · 조사 shop-risk-0 · shop-photo-0 요지(§3-b · §5) · send_tags 는 **결정 대기**(deferred 394) · 다음 판정 번호 **891**
 ---
 
 ## 1. 스토어 (판정 362)
@@ -72,7 +73,7 @@ dup_target 같은 IMS 대상(family 또는 낱개)을 이 판의 Shopify 상품 
 ```
 - 실제 스토어 판(2026-10-27 밤 · 둘 다 Apply 안 함 · so-module §83-c): asung planned v2 · 5,079 상품 · link 4,938 · block 91 · report 50 · dup_target 16(3 묶음) · 556 모양 다름 2 · 같은 SKU 둘 30 / aone planned v1 · 4,519 · link 4,355 · block 114 · report 50 · dup_target 19(6 묶음) · 556 모양 다름 48 · 같은 SKU 둘 4
 - IMS 에 없는 SKU 448 가운데 447 은 마지막 상품 적재 뒤 들어온 신제품(LAC · LAG · AS8 · AS9) — 컷오버 전 상품 재적재로 들어온다
-- ⭐ **컷오버 순서: 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan(dup_target 0) → Apply links → Cin7 의 Shopify 연결 끔 → Go live(store_live · orders_from = 끈 시각) → send_tags 켜기** — 순서가 바뀌면 신제품이 not_in_ims 인 채 Apply 된다 · 명령 · 확인 · 멈춤은 reload-procedure §P-2 13b
+- ⭐ **컷오버 순서: 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan(dup_target 0) → Apply links → Cin7 의 Shopify 연결 끔 → Go live(store_live · orders_from = 끈 시각) → ~~send_tags 켜기~~ → [2026-10-30] send_tags 는 **결정 대기**(켜면 이어진 상품 전부 다시 보내기 · 약 8 시간 짐작 · 555 와 충돌 · deferred 394)** — 순서가 바뀌면 신제품이 not_in_ims 인 채 Apply 된다 · 명령 · 확인 · 멈춤은 reload-procedure §P-2 13b
 - 열림: apply 의 옛 dup 갈래(「뒤의 것이 이김」) → 「거부 · plan again」(deferred 355) · 556 모양 다름 aone 48 · asung 2 줄마다 보기(deferred 357)
 
 ## 2. 오더 들어오기
@@ -89,6 +90,19 @@ drain         cron 47 · 1 분 · 받은 일 → GraphQL 로 다시 읽기 → s
               그 뒤 받은 일 없이 received 인 오더(직원이 풀었다)를 저장된 원문으로 process(sweep)
 60 일          지난 오더는 끌어오지 않는다(read_all_orders 신청 안 함)
 ```
+- ⭐ [2026-10-30 · **판정 889** · shop-cut-1 `9d61370` · so-module §90] **컷 전 웹 오더** — 스토어마다 `shop_store.orders_cut_at`(붙박이 컷 시각 · live 가 false → true 로 처음 켜질 때 트리거 `shop_store_cut_on_live` 가 orders_polled_at(store_live 의 orders_from)을 한 번 베낀다 · null = 막기 꺼짐)
+```
+막기      Shopify createdAt 이 컷 시각보다 앞선 오더는 IMS 에 아직 없으면 **어떤 길로도 저절로 안 받는다**(poll · 웹훅 · 다음 달 환불 · Capture · 메모로 바뀌어도)
+          막힌 오더는 inbox 에 안 쌓고 shop_call_log 에 「skipped_cut N (… #이름)」 · ingest 도 막는다(shop_order_import_tagged)
+통과      Shopify 오더 태그 `ims-import`(대소문자 · 앞뒤 빈칸 무시 · 낱말 하나) — poll 이 createdAt · tags 를 읽는다
+          ⚠️ 태그는 **18:00(컷) 뒤에** 단다 — 앞에 달면 그 오더의 바뀐 시각(updatedAt)이 컷 앞이라 poll 이 안 읽는다(지웠다 다시 달면 됨)
+          들어온 뒤에는 태그를 지워도 된다(그 오더는 평소대로 Shopify 를 따라간다) · 그 오더를 IMS 에서 손으로 다시 만들지 않는다
+대체      판정 814 의 「그 전에 들어와 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill」 을 대체
+고치기    orders_cut_at 은 지금 SQL 로만(update public.shop_store set orders_cut_at = … where code = …) · 화면 · store_set 칸은 deferred 392
+실물      테스트 스토어 #1038(태그) → SO-25277 · #1039(태그 없음) → skipped_cut
+```
+- 직원 안내(영어 · 10-30 Caleb 에게 준 글): 「After 6 pm today, for every web order that was still open in Cin7, add the tag ims-import to the order in Shopify; it comes into IMS at the next 15-minute poll. Orders created before 6 pm without that tag stay with Cin7 and never come in, even if they are later captured, refunded or edited. Once an order is in IMS you may remove the tag — it keeps following Shopify as usual.」 · 매뉴얼 1 장 sales-web-orders 에 같은 뜻(옛 시스템 이름 없이)
+- ⚠️ [shop-risk-0] 실제 두 스토어는 웹훅 구독 **0** — 오더는 15 분 poll(cron 48)로만 들어온다(deferred 401)
 - **보호된 손님 정보는 신청 없이 된다(확정 · 2026-10-11 · order-read #1001)** — 손님 · 이메일 · 전화 · 주소가 다 읽힌다 · Dev Dashboard 에 신청 칸 없음
 
 ### 2-b. 손님 찾기 4단계 (판정 364)
@@ -192,7 +206,13 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - family 에 「웹 대표 사진」 칸 — 고르지 않으면 첫 변형의 대표 사진
 - 변형마다 그 변형의 대표 사진을 지정해 올린다(지금은 변형 사진이 비어 손으로 지정 중)
 - ⭐ 실물 [2026-10-09 · shop-2a1 · shop-2b] 「웹 대표 사진」 = `product_family.web_image_id`(→ product_image · 구성원 사진만 · 쓰기 shop_listing_set op family_web_image_set) · 사진 순서 web_image_id → 변형 대표 → 나머지
-- ⭐ 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(판정 409) — 목록에 없는 Shopify 사진(사람이 올린 것 · 옛 파일)은 지워진다(media_removed_unknown)
+- ⭐ 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(판정 409) — 목록에 없는 Shopify 사진(사람이 올린 것 · 옛 파일)은 지워진다(media_removed_unknown) → [2026-10-30 · 판정 890] **asung · aone 은 사진을 보내지 않는다**(아래)
+- ⭐⭐ [2026-10-30 · **판정 890** · shop-img-off-1 `1268bd1` · `20261030192911` · so-module §90] 스토어마다 **`shop_store.send_images`**(기본 true) — false 면 payload 의 files [] · 변형 image_id null(판정 559 꼴) · EF 가 files 키 · 변형 file 을 안 보낸다(안전띠) ⇒ Shopify 사진이 그대로 · 값 · 재고 · 제목 · 설명 · 상태 · 태그는 평소대로
+  - **asung · aone = false**(10-30) · 시험 스토어 true · 사진은 hash 밖(사진만 바뀐 일 → skipped_same_hash) · false → true 로 켜는 순간 스토어 트리거가 켜진 listing 전부를 상품 큐에(사진이 그때 나간다) · 끄기는 줄 0 · 바꾸기 = SQL(화면 칸 · 뷰 칸 · 새 스토어 기본값은 deferred 388)
+  - ⚠️ Apply links **전에** 적용해야 했다(nightly 가 전부 다시 안 보내게) — 10-30 Apply 전에 적용함
+  - ⇒ 판정 409 · 560(Cin7 이 올린 사진을 IMS 사진으로 다시 올림)은 두 스토어에서 **멈춤** · 다시 켜는 것은 Shopify 전용 사진을 IMS 로 가져온 뒤(deferred 387)
+  - 확인 거리: 브랜드별 첫 push 때 상품 하나가 Shopify 사진 그대로인지(deferred 395 · REST 둘째 겹 대신)
+- [2026-10-30 · 조사 shop-photo-0 · 읽기만 · 890 의 근거] 첫 push 때 그 상품의 Shopify media **전부** 지워지고 IMS 파일을 새로 올린다(짝 0) · 같은 그림 asung 15,976(중복 4,817) · aone 12,702(중복 3,385) · **Shopify 전용(그림 손실) asung 1,849 장 · 971 상품 · aone 1,415 장 · 751 상품**(`…fam` 패밀리 표지 419 · 394 — Cin7 패밀리 첨부일 수 있고 IMS 는 제품 단위라 자리 없음 · pricebreak 370 · 108 · 옛 GUID 345 · 260 · 색상 코드 131 · 117) · Cin7 → IMS 사진 가져오기 빈 곳은 skip 23 뿐 · 구성원 primary 사진 없는 변형 asung 218 · aone 179
 - 사진 짝: Shopify 에 올릴 때 파일 이름 = `<product_image id>.<확장자>` → Shopify CDN 주소의 **파일 이름 줄기 = product_image id** · **보내기 직전에 Shopify 상품 media 를 읽어** READY + url 인 것만 줄기로 짝(shop_media) → 짝이 있으면 `{id}` 만 보낸다 · 처리 중이거나 짝이 없으면 originalSource + `duplicateResolutionMode REPLACE`(같은 이름이면 바꿔치기 — 쌓이지 않는다 · 실물) · 직원 push 는 2 초 × 2 다시 읽기 · hash 가 같으면 직전 읽기도 없다
 - alt = IMS `product.name`(payload files[].alt) — Shopify 에서 `<상품명> - <옵션 값>` 꼴로 보이는 것은 IMS 상품 이름이 그 꼴이라서 · ⚠️ 이미 짝지은 사진은 `{id}` 만 보내므로 이름을 고쳐도 Shopify alt 는 따라가지 않는다(so-module 미룬 168)
 
@@ -258,11 +278,15 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ~~⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · 열림 · 판정 거리] 구현은 새벽에 되돌리지 않는다~~ → ⭐ [2026-10-10 · **판정 414** · Caleb 「A」] 새벽 맞추기(ims-shop-nightly)는 지금대로 — **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망**이다 · IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값(가격 · Draft 등)은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각: 새벽에 Shopify 를 읽어 대조 · 새벽에 hash 무시하고 전부 보냄(매일 4 천여 상품을 읽거나 쓰는 비용)
 - 보낼 내용 = `shop_product_payload(store, family | product)` → jsonb 한 곳(title · description_html 원문 · vendor · product_type · tags · status · options · variants · files · blocks · hash) · hash = blocks · listing_on 을 뺀 payload 의 md5 · `shop_product.last_hash` 와 같으면 안 보낸다(push `--force` 만 예외)
 - ⭐ productSet 의 목록 칸(variants · files · tags …)은 **보낸 대로 맞추고 빠진 것은 지운다** — 그래서 사람 칸(collections · metafields · seo · category · templateSuffix)은 절대 보내지 않고 · 꺼진 구성원도 variants 에 담는다(판정 406)
-- 판정 408 Compare-at 이 Price 와 같아도 보낸다(null 이면 안 보냄) · 판정 409 사진은 IMS 목록대로(3-b) · 판정 410 태그는 IMS 가 주인 — 지금 product_tag 0 행이라 `shop_store.send_tags` false = tags 칸을 아예 안 보낸다 · ⚠️ **Cin7 태그를 IMS 로 적재한 뒤에** SQL 로 켠다(켜면 빈 목록이 스토어 태그를 전부 지운다)
+- 판정 408 Compare-at 이 Price 와 같아도 보낸다(null 이면 안 보냄) · 판정 409 사진은 IMS 목록대로(3-b · → asung · aone 은 890 으로 사진 안 보냄) · 판정 410 태그는 IMS 가 주인 — 지금 product_tag 0 행이라 `shop_store.send_tags` false = tags 칸을 아예 안 보낸다 · ⚠️ **Cin7 태그를 IMS 로 적재한 뒤에** SQL 로 켠다(켜면 빈 목록이 스토어 태그를 전부 지운다)
 - ⭐ [2026-10-10 · 판정 417 · 418 · so-module §57] **태그 적재 실물**(테스트 DB) — `docs/probes/ImsLoadProductTag.gs`(asung-wms `c61ba04`) · product_tag **63,501 줄 · 전부 source cin7** · 종류 1,193 · 제품 12,321 · 대소문자만 다른 묶음 50 은 제품 수가 가장 많은 철자 하나로 합쳤다(판정 417 · manual > 제품 수 > 앞글자 대문자 > 대문자 수 > 사전순 · 공백 · 빈 조각 · 중복 정리 · Cin7 원본은 안 바꾼다) · IMS 에 없는 Cin7 제품 679 의 태그 2,727 줄은 버리고 목록만(판정 418 · 제품 적재를 고친 뒤 다시 돌린다) · send_tags 는 아직 false
 - ⚠️ **운영 순서: 태그 적재 → send_tags 켜기 → 보냄 켜기** — payload 는 send_tags 와 상관없이 tags · send_tags 를 담고 hash 에 넣는다(shop_2a1 267 · 270 행) ⇒ 보냄을 먼저 켜면 태그 적재 · send_tags 켜기가 켜진 상품 전부를 다시 보낸다(실물: 적재 직후 큐 17 · 18 reason product_tag) · 보낼 태그의 범위(ASS · AOS · 내부 표식 · 케이스 태그)는 스토어 CSV 를 본 뒤(판정 420 · so-module 미룬 179)
 - ⭐ [2026-10-10 밤 · **판정 426**] 보내는 태그 = **IMS 태그 전부**(내부 표식 ASS · AOS · EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그 포함 — 지금 Cin7 도 전부 올린다 · 판정 420 이 미룬 답) · asung.ca 의 재고 상태 태그(outofstock-edm 656 · outofstock-tor 624 · instock-edm 95 · instock-tor 56)는 IMS 가 태그를 보내면 사라진다(그대로 둔다 · 그 구현은 컷오버 때 끈다 §1-a) · 시험 스토어 send_tags **켜짐**(실물: ANN01001FAM 7 · ANN03907 11 태그 · so-module §59-d) · ⚠️ 창구 shop_store_save 는 send_tags 를 받지 않는다 — 화면(ss v2)은 읽기만 · 켜기는 관리자 SQL(미룬 189)
 - 판정 412 설명 거르기 → 3-f
+- ⭐ [2026-10-29 밤 · **판정 884** · shop-coo-1 `902937e` · so-module §90] **원산지(countryCodeOfOrigin) = 두 글자** — `_shared/shopify-product.ts` countryAlpha2 가 세 글자 코드를 ISO 표로 바꾸고(XKX → XK) Shopify CountryCode 에 있는 것만 보낸다 · Shopify 에 없는 ISO = AQ AS FM GU MH MP PR PW VI · Shopify 에만 = AC AN TA XK ZZ(ZZ 는 뺌) · 모르는 코드는 **그 칸만 빼고** 보내고 성공 글에 「coo dropped: SKU=code」 · 저장 값 product.country_of_origin_code 는 세 글자 그대로 · 오류는 last_hash 를 안 써서 다시 시도 · 원산지 있는 상품 996
+  - 대가: 칸을 빼고 성공한 상품은 표가 그 코드를 알게 돼도 저절로 다시 안 간다(「coo dropped」 를 보고 force push) · 칸을 빼면 Shopify 의 옛 값이 남는다(짐작 · 문서 안 봄 · deferred 402)
+- ⚠️ [2026-10-30 · shop-risk-0] **send_tags 를 켜면 이어진 상품 전부 다시 보내기**(스토어 트리거 · asung 5,044 · aone 약 4,379 · 1 분 20 건 → 약 8 시간 짐작) — 판정 555(사람이 브랜드 · 묶음 단위로 나눠 보낸다)와 충돌 · 컷오버 밤에 켜지 않는 쪽으로 기울어 있다 · **결정 대기**(deferred 394)
+- ⚠️ [2026-10-30 · shop-risk-0 · 짐작] 비교가가 없는 asung 변형 1,795 는 compareAtPrice 칸을 안 보낸다(Shopify 옛 값이 남는지 모름) · IMS 설명이 빈 대상 asung 23 · aone 19 — 빈 descriptionHtml 이 Shopify 설명을 지울 수 있다(deferred 402)
 - 큐 = `shop_push_queue`(대상마다 열린 줄 하나 · `shop_queue_add` 한 곳) · 큐 트리거 `*_shop_queue` 16(product · product_family · product_price · product_image · product_tag · product_barcode · ref_brand · ref_category · AFTER STATEMENT) · ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다(진단할 때 reason 만 믿지 않는다)
 - ⭐ [판정 424 · stock-1a ① · stock-1b ②] 상품 줄 20 칸 — ① 새벽 맞추기(shop_queue_all)는 hash 를 미리 비교해 **바뀐 것만** 줄에(실물: 바뀐 것 없으면 0) ② skipped_same_hash 는 drain 20 칸에 세지 않는다(한 회차 20 건 보냄 또는 40 s) · 판정 414 그대로
 - cron [테스트 DB] **jobid 42 ims-shop-drain 1 분마다**(열린 큐가 없으면 EF 를 부르지 않는다 · 한 회차 ≤ 20 건 — 보낸 것만 센다 · 424 ②) · **jobid 43 ims-shop-nightly 08:00 UTC**(= 토론토 04:00 EDT · 03:00 EST · shop_queue_all) · 킬 스위치 `select cron.alter_job(42, active := false);` · `(43, …)` · 기록 `supabase/ops/cron.sql`
@@ -473,6 +497,13 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 ~~⑭ 468 거르기가 PARTIALLY_PAID → PARTIALLY_PAID(상태가 안 바뀐 두 번째 결제 표시)를 못 잡는다(so-module 미룬 225) · AUTHORIZED 오더 시험(미룬 228 ③)~~ → ⑭ 468 거르기의 PARTIALLY_PAID → PARTIALLY_PAID(미룬 225)는 그대로 열림 · ✅ AUTHORIZED 오더 시험(#1014 · Capture → PAID · so-module §63-h-2)
 ✅ [2026-10-14 오후] so-module 미룬 228 확인 거리 셋 — ① 웹 오더 확정이 이어받기를 한다(#1013 → SO-25092 · SO-25088 백오더 superseded) ② 0 개 Shopify 오더는 Voided · Fulfillment not required · $0.00(#1009 · 취소 아님 · 메일 없음) ③ AUTHORIZED(#1014)
 ⑮ aone 첫 PayPal 오더의 거래 원문 — gateway 글자 · AUTHORIZATION → CAPTURE 로 오는지(판정 471 · so-module 미룬 231) · 수동 결제 방식(현금 · 수표)의 gateway 글자(미룬 233 · manual 로 짐작)
+[2026-10-30 · shop-risk-0 · 읽기만 · so-module §90-d] 실제 두 스토어 — 컷오버 · Go live 때 다시 볼 것
+⑯ send_tags 켤지 — 켜면 이어진 상품 전부 다시 보내기(asung 5,044 · aone 약 4,379 · 약 8 시간 짐작 · 555 와 충돌) · 결정 대기(deferred 394)
+⑰ inventoryPolicy 바뀜 — asung DENY → CONTINUE 198(켜짐 · 단종 아님) · CONTINUE → DENY 단종 811 · 꺼짐 11 · aone CONTINUE → DENY 21 · review-deny-171.csv Decision 173 줄 전부 빈칸(171 정리 · deferred 186 · §7)
+⑱ 첫 재고 force asung 8,849 · aone 7,110 줄(약 18 · 15 분 짐작) · asung Edmonton inventoryActivate 가 걸림돌일 수 있음(Q5 미확인 · deferred 400)
+⑲ 실제 두 스토어 웹훅 구독 0 — 15 분 poll 만(deferred 401)
+⑳ 칸을 빼거나 빈 값을 보낼 때 Shopify 쪽 값 — 원산지 「coo dropped」(884) · compareAt 없는 asung 변형 1,795 · 빈 설명 asung 23 · aone 19(짐작 · deferred 402)
+㉑ 브랜드별 첫 push 때 상품 하나가 Shopify 사진 그대로인지(890 · deferred 395)
 ```
 
 ## 6. 갱신
@@ -492,6 +523,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-14 오후 · so-module §63-h · docs-1014b] 상태 줄 · §2-h 470 · 471 포인터 · §3-d 판정 472(받기의 다시 보내기 · nightly 안전망 · family 단위 Send stock now) · §4-e 카드 캡처(470) · 운영 결제 사실(471 · ⑦ 미룬 조건 셋) · §4-g 재고 메아리(472) · §5 ⑬ 닫힘 · ⑭ 반 닫힘 · 미룬 228 ① ② ③ 닫힘 · ⑮ 새로
 - [2026-10-14 밤 · so-module §64 · docs-1014c] 상태 줄에 frt-1a · §2-g 판정 473(asung 운임 견적) · aone 운임 「확정」 은 코드 표지 없음(미룬 236) · §5 ⑦ 닫힘
 - [2026-10-27 · so-module §82 · §83 · docs-1027c] 상태 줄 · §1 live · auth_mode · 창구 op 셋 · cron 42 ~ 53 · 웹훅 live 전 무시 · 실제 스토어 셋 · Aone 조직(809 · 813 · 816 전제 바뀜) · Shopify 사실 · §1-b 기존 상품 잇기 새로(link-dup-1 이견 1 — 잇기 절이 없었다) · §3-d 콤보(831) · 트리거 16 · §7 할 일 여섯
+- [2026-10-30 · so-module §90 · docs-1030] 상태 줄 · §1-b 컷오버 순서의 send_tags → 결정 대기(394) · §2-a 컷 전 웹 오더(판정 889 · 814 대체) · 웹훅 구독 0 · §3-b 사진 보내기 끔(판정 890 · 409 · 560 멈춤) · shop-photo-0 요지 · §3-e 원산지(판정 884) · send_tags 전부 다시 보내기 · 비교가 · 빈 설명 · §5 ⑯ ~ ㉑ · §7 store_live · send_tags · 171 줄
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
@@ -501,7 +533,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
     시험 스토어 먼저 → 컷오버 때 ~~asung.ca · aonebeauty.com~~ → **asung.ca 에만**(판정 427 · aone 은 DENY 스토어라 「Sold out」 이 맞는 표시)
     까닭: asung.ca 는 0 에서도 판다(CONTINUE · 판정 427) → 그 글자는 꺼진 구성원 · 단종(DENY)에게만 뜬다
 [ ] asung.ca 재고 상태 태그 · 메타필드 구현 끄기 (판정 426 · Caleb · 컷오버 때 · so-module 미룬 187)
-[ ] 171 정리 — review-deny-171.csv 의 Decision 칸(discontinue | unsell | keep) (판정 429 · Caleb · 컷오버 전 · 미룬 186)
+[ ] 171 정리 — review-deny-171.csv 의 Decision 칸(discontinue | unsell | keep) (판정 429 · Caleb · 컷오버 전 · 미룬 186) — [2026-10-30 · shop-risk-0] Decision 173 줄 전부 빈칸 · 아직 열림
 [ ] Shopify 운송사 목록에 ~~Purolator ·~~ UPS 가 있는지 (판정 436 · 450 · Caleb · 관리자 발송 화면의 운송사 고르기 · Purolator ✅ 실물 · so-module 미룬 202 → 218)
 [x] 시험 스토어 Local pickup 켜기 (판정 443 · 444 · Caleb · Toronto 만 켬 · 2026-10-13 · 미룬 203 닫힘)
 [x] 앱 권한 write_order_edits 더하기 (판정 441 · Caleb · Dev Dashboard · 짓는 차수에서 · 미룬 200 · 210) — v2orderedits Active · 시험 스토어 Install app → Update data access(2026-10-13 · so-module §63-c)
@@ -511,8 +543,8 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 [ ] Shopify 페이지 합치기 — 두 스토어 아홉 묶음(asung 3 · aone 6 · 페이지 35 → 9 · 변형 26) (판정 830 · 담당자 · 컷오버 전 · 안내문 · 엑셀 shopify-ims-diff-2026-10-27.xlsx 는 레포 밖 · §1-b)
     남길 페이지에 사이즈를 변형으로 더하고 옛 페이지를 지운다(한 변형씩 지우기 → 추가) · Archive 로는 안 풀린다 → 끝나면 Read → Plan 에서 dup_target 0
 [ ] Aonebeauty EDM 위치 — Shopify 쪽 재고 숫자(비우거나 판매에서 빼기)와 그 위치가 온라인 주문을 받는지(짐작: 위치 설정의 온라인 주문 처리) (Caleb · 컷오버 전 · §1-a · 미룬 188 · IMS 는 그 위치에 재고를 안 보낸다 — 짝 없음)
-[ ] asung · aone `send_tags` 켜기 (관리자 SQL · 판정 426 · 창구가 받지 않는다 · ⚠️ 태그 적재 뒤에만 — 빈 태그로 켜면 스토어 태그를 지운다 · 켜면 스토어 트리거가 그 스토어 상품 전부를 큐에)
-[ ] store_live — 스토어마다 Go live(orders_from = Cin7 의 Shopify 연결을 끈 시각 · 판정 814 · 그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill) (Caleb · 컷오버 날)
-[ ] 컷오버 순서 — 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply links → Cin7 의 Shopify 연결 끔 → Go live → send_tags (§1-b · so-module §83-c · reload-procedure §P-2 13b)
+[ ] asung · aone `send_tags` 켜기 (관리자 SQL · 판정 426 · 창구가 받지 않는다 · ⚠️ 태그 적재 뒤에만 — 빈 태그로 켜면 스토어 태그를 지운다 · 켜면 스토어 트리거가 그 스토어 상품 전부를 큐에) — [2026-10-30] **켤지 결정 대기**(전부 다시 보내기 약 8 시간 · 555 와 충돌 · deferred 394)
+[ ] store_live — 스토어마다 Go live(orders_from = Cin7 의 Shopify 연결을 끈 시각 · **분까지** · 판정 814 · ~~그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill~~ → [2026-10-30 · 판정 889] 18:00 뒤 직원이 그 웹 오더에 `ims-import` 태그 · §2-a) (Caleb · 컷오버 날)
+[ ] 컷오버 순서 — 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply links → Cin7 의 Shopify 연결 끔 → Go live → ~~send_tags~~(결정 대기 · deferred 394) (§1-b · so-module §83-c · reload-procedure §P-2 13b)
 [ ] 556 모양 다름 aone 48 · asung 2 줄마다 보기 · CRO85680 확인 (Caleb · 컷오버 전 · deferred 357)
 ```

@@ -58,7 +58,7 @@ description: >
 ⭐⭐ API 401 ≠ 끊김 — 접근 토큰(1 시간) 만료도 401 · 강제 갱신 한 번 뒤 다시 · 그래도 401 일 때만 needs_reconnect
 ⭐⭐ invalid_grant → qbo_mark_needs_reconnect · 다시 시도 안 함 · DB 가 connected → needs_reconnect 로 **바뀌는 순간 한 번** mail_outbox(kind qbo_reconnect) → inv_config.qbo_alert_to(caleb@asung.ca · 869)
 ⭐  cron jobid 59 ims-qbo-refresh · 10 9 * * *(09:10 UTC) · connected 일 때만 · 접근 토큰은 부를 때 5 분 안이면 먼저 갱신
-⚠️  갱신 토큰 만료 = 연결 + 101 일 · 갱신해도 안 밀린다(실측 · 하루 뒤 확인 대기 deferred 370) ⇒ 100 일쯤마다 Reconnect 가 필요할 수 있다(2027-02-07 전)
+⚠️  갱신 토큰 만료 = 연결 + 101 일 · 갱신해도 안 밀린다(실측 · 10-30 첫 운영 cron 갱신 뒤에도 그대로 — 확인됨 · deferred 370 닫힘) ⇒ **운영 연결은 2027-02-07 15:48 UTC 전에 Reconnect**(deferred 396) · 그 뒤로도 101 일마다
 ```
 
 ## 4. ⭐⭐ 환경 · realm — 모르면 사고

@@ -503,14 +503,14 @@ Type                      Stock 18,772 · Service 53 · Non Inventory 4
 product_family   제품군 — 같은 물건의 색상·사이즈 변형을 묶는 단위. 팔리지 않는다. 자연키 sku(…FAM)
 product          본체 — 자연키 sku(18,829 전수 중복 0) · ⚠️ name 유니크 금지(576종 중복 · ORLY GEL FX 60행)
 product_barcode  바코드 — 제품당 여럿 · 유니크 (product_id, barcode) · Cin7 의 「제품당 바코드 1칸」 한계를 SKU 로 우회한 62건을 흡수
-product_bom      콤보 구성 — 다른 물건들을 묶은 것만(15건) · ⚠️ BOMType 으로 가르지 않는다(구성품 2개 이상으로 가른다)
+product_bom      콤보 구성 — 다른 물건들을 묶은 것만(15건) · ⚠️ BOMType 으로 가르지 않는다(~~구성품 2개 이상으로 가른다~~ → [2026-10-30 · 판정 885] 구성품 2 개 이상 또는 하나 + 수량 ≥ 2 · 세트 = 자기 바코드로 파는 묶음 · 콤보 = 낱개 바코드로만 이어지는 묶음 · 적재 규칙은 그대로 구성품 2 개 이상만 콤보로 들인다 — 레포 사본 docs/probes/ImsLoadProduct.gs:508 · 951)
 ```
 | 표 | 마이그레이션 | 칸 | 자연키 | 이 표만의 판단 |
 |---|---|---|---|---|
 | `product_family` | `20260913225935` | 21 | `sku`(…FAM · 1,141/1,141) | ⚠️ `name` 유니크 없음(변형 이름 중복의 뿌리 · 제품군 이름 중복은 미측정) · 가격 10단계 안 담는다(제품군↔변형 950/4,884 어긋남) · 옵션 축 **이름**만(33종 · 값은 product) |
 | `product` | `20260913230500` | 46 | `sku` | ⚠️ `name` 유니크 금지 · `barcode` 칸 없음 · 계정 넷 nullable · `cin7_type` 원문 · `is_discontinued`+`cin7_project_name`(❌ `product_channel` 뺐다) · `sellable` 원문 보존(→ IMS 칸 [2026-10-06 정정 · 판정 281 · 291 ~ 295 · so-module §47]) · ⭐ `pack_factor` = BOM Quantity · `parent_product_id` = BOM ComponentProductID |
 | `product_barcode` | `20260913230600` | 11 | `(product_id, barcode)` | 관계 표 · `cin7_id` = 흡수한 대체 UPC 행의 ProductID(⭐ null 아님) · `is_primary` 부분 유니크 금지(카운터) · `valid_from` · DELETE 열림 |
-| `product_bom` | `20260913230700` | 13 | `(parent_product_id, component_product_id)` | 관계 표 · **구성품 2개 이상**만(15건) · `quantity > 0` · `cin7_id` 항상 null(규약대로 둠) · DELETE 열림 |
+| `product_bom` | `20260913230700` | 13 | `(parent_product_id, component_product_id)` | 관계 표 · ~~**구성품 2개 이상**만(15건)~~ → [2026-10-30 · 판정 885 · so-module §90] 구성품 2 개 이상 **또는 하나 + 수량 ≥ 2**(하나 + 수량 < 2 는 `component_single`) · `quantity > 0` · `cin7_id` 항상 null(규약대로 둠) · DELETE 열림 |
 
 CHECK 이름은 넷 다 `<표>_source_ck`(첨부 `family.sql` 의 인라인 무명 CHECK 도 통일 — 유일한 「그대로」 예외). 인덱스는 `<표>_<컬럼>_idx`.
 로컬 재생 실측(2026-09-13): `set_updated_at` 정의 1 · 트리거 4 · 정책 4(`auth_all`) · anon 권한 0 · authenticated DELETE 는 관계 표 둘만 · 트리거 동작 확인.

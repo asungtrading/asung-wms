@@ -983,3 +983,14 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    6 [Caleb] 판정 설명이 어려웠다(「쉽게 설명해줘」 · 「구조적으로 문제가 있다는 얘기로 들려」) ⇒ 판정 · 이견 설명은 **Caleb 의 실제 오더 흐름(111 → 111a → …)으로** 먼저 · 드문 갈래는 「드문 다른 길」 이라고 밝힌다(§2 10-06 줄 재발)
    7 [대화 Claude] 쿼리에 할인 칸을 안 꺼내 SO-25261 의 12.11 줄 100 % 할인을 못 봤다 ⇒ 운임 줄을 볼 때는 discount_pct · discount_amount 함께
    8 [잘 된 것] fc-lock-1 이견 1(스토어 모름 줄) · unconf-1 이견 1(SO-25166 실물) · Cin7 화면 한 장으로 TGI00639 · ADG68234 확인 · SO-25261 은 고장 아님(Jan Ko 가 aone 을 흉내 — Freightcom 줄 100 % 할인 + Standard 5.25 새 줄)
+
+⚠️ **[2026-10-30 회사 — so-module §90-e · 컷오버 진행 · 콤보 885 ~ 888 · 컷 전 웹 오더 889 · 사진 끔 890]**
+   1 [대화 Claude · 재발 §77-e 1] combo-bc-1 지시서의 「마지막 정의」 를 소문자 `^create` grep 으로 asm_2b1 이라 적었다 — 실제는 bgr-1a 의 대문자 `CREATE OR REPLACE FUNCTION` · Claude Code 가 DB prosrc md5 로 잡음(그대로 복사했으면 B급 칸 제외 635 · 641 이 조용히 되돌아갔다) ⇒ 마지막 정의 grep 은 `grep -liE` · 파일 이름 순 · DB prosrc md5(§4)
+   2 [대화 Claude] QuickBooks 「갱신하면 만료가 밀렸을 것」 이라 말했다 — asung-qbo 에 「안 밀린다(실측)」 가 이미 있었다 ⇒ 숫자 · 동작 예상은 스킬을 먼저 grep
+   3 [Claude Code · shop-cut-1] 적용 명령을 `supabase db push` 로 적었다 — 대화 Claude 가 `psql -1 -f` + repair 로 바꿈(§3) ⇒ 지시서 「끝」 에 `db push 쓰지 마라` 를 늘 적는다(shop-img-off-1 부터 넣음)
+   4 [발견] cutover-delete.sql 관문이 10-26 에 쓰여 811(10-27)을 몰랐다 · 정본 2 단계는 고쳤는데 스크립트는 안 고쳤다 · P-3 cron 목록도 QuickBooks cron(59)이 생긴 뒤 안 고쳤다 ⇒ **판정이 「상태의 정상 모습」 을 바꾸면 그 상태를 검사하는 ops 스크립트 · 절차 목록을 grep 해 같은 날 deferred 로**
+   5 [대화 Claude · 재발 §88-e 2] Caleb 의 「note 를 추가하면」 이 받아 오기 action 을 대신할 수 있었다 — 처음 지시서는 목록 · 번호 action 을 지으려 했다 ⇒ 짓기 전에 「Shopify 가 이미 가진 장치(태그 · 메모)로 표시할 수 있나」 를 먼저 묻는다(「지금 되는 길」)
+   6 [화면] Products 의 Kind 기본값이 Singles 라 세트가 검색에 안 나와 Caleb 이 「IMS 에 안 왔다」 로 읽었다 ⇒ 세트를 찾게 할 때는 「Kind = Sets only」 를 함께 말한다(매뉴얼 3 장에 한 줄)
+   7 [대화 Claude] Settings › Shopify Stores 의 New Shopify store 창이 열렸다(꺼진 스토어가 목록에서 숨는 탓으로 짐작) — 새로 만들면 연결이 갈라진다 ⇒ 스토어를 껐다 켤 때는 「목록에서 사라져도 새로 만들지 마라」 를 먼저 말한다
+   8 [잘 된 것] Caleb 의 질문 셋(「pos 에서 콤보를 불러오려면」 · 「박스 바코드를 넣어도 채워지게」 · 「샤피파이와 연동에서 문제가 될 만한 것」)이 886 · 887 · shop-risk-0 → 889 · 890 을 낳았다 · shop-risk-0 이 「컷 전 오더 재유입」 을 찾았다 · 테스트 스토어 #1038 · #1039 로 실물 확인
+   9 [docs-1030] 지시서 전제 넷이 실물과 달랐다 — 「판정 560 은 정본에 없다(grep 0)」(so-module §67-b 에 있다) · 「P-3 에 Shopify(42 ~ 53)가 없다」(있다 · 빠진 것은 59 뿐) · 「다시 켤 목록 22」(40 · 41 은 755 로 켜지 않는다 → 20) · 「deferred 387 안」(이미 마이그레이션 주석이 387 = 사진 가져오기로 씀) ⇒ **「없다」 · 목록 · 번호는 grep 한 줄 뒤에** · 커밋된 파일이 먼저 쓴 번호는 그 뜻으로 매긴다

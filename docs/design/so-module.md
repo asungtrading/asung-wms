@@ -6609,7 +6609,7 @@ cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
 4. `quantity_invalid` 는 두 if 로 갈랐다 — SQL 의 `or` 는 짧게 끊지 않아 `'abc'::numeric` 이 먼저 터진다
 5. GAS 적재가 product_bom 을 어떻게 쓰나 확인 못함(클론에 0 건) — 원본 적재가 재적재 때 `source='manual'` 줄을 덮지 않게 고쳐야 한다(판정 131 · 132 · 44-e 103) · 창구는 손댄 줄을 manual 로 표시해 신호를 남긴다
 6. 뷰는 만들지 않았다 — products.html 이 product_bom 을 직접 읽는다(select 정책 그대로) · 낱개 환산은 오더 길의 셈
-- ⬜ 판단: 부모가 세트 = 막는다(`parent_is_set` · 같은 낱개를 두 번 센다) · 구성품이 세트 = 막지 않고 알린다(`component_is_set` · ack · 오더 길은 이미 `coalesce(parent_product_id, id) × pack_factor` 로 센다) · 구성품 하나뿐 = 막는다(`component_single` · po-module 「구성품 2 개 이상」) · p_old 비교 = `sku|round(qty, 6)` 를 sku 순으로 통째 · Cin7 줄을 고치면 **손댄 줄만** source manual · 읽기 뷰 없음
+- ⬜ 판단: 부모가 세트 = 막는다(`parent_is_set` · 같은 낱개를 두 번 센다) · 구성품이 세트 = 막지 않고 알린다(`component_is_set` · ack · 오더 길은 이미 `coalesce(parent_product_id, id) × pack_factor` 로 센다) · ~~구성품 하나뿐 = 막는다(`component_single` · po-module 「구성품 2 개 이상」)~~ → [2026-10-30 · 판정 885 · combo-one-1 · §90] `component_single` = **구성품 하나 + 수량 < 2** 만 막는다(× 1 = 그 제품 자체 · 1.5 도) · 구성품 하나 + 수량 ≥ 2 는 콤보(낱개 바코드로만 이어지는 묶음) · p_old 비교 = `sku|round(qty, 6)` 를 sku 순으로 통째 · Cin7 줄을 고치면 **손댄 줄만** source manual · 읽기 뷰 없음
 
 **asm-2a**(보고 `asm-2a-report.md`)
 1. 확정(예약)을 2a 에 넣었다 — 안 넣으면 `so_allocate_run` 이 콤보 줄에 재고 키로 예약을 시도하고 구성품 줄도 따로 돌아 반쪽 콤보가 선다 ⇒ `so_allocate_run` · `so_allocate_all` · **`so_split`**(형제에 새 줄을 넣을 때 매듭 두 칸을 복사하지 않았다 · 목록 밖) 함께 재발행
@@ -9029,7 +9029,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | 557 | 「A」 · 「패밀리의 구성원은 더해지기도 하고 빠지기도 해. 그러니 만약 그런 상황이 발생한다면, 샤피파이에서도 업데이트되어야 해」 | Shopify 변형이 IMS family 일부만 → 잇는다 · 보낼 때 더해진 구성원은 변형으로 생기고 빠진 구성원은 변형에서 빠진다 |
 | 558 | 「B」 | Shopify Draft 상품은 잇되 보냄은 끈 채(gid 만 기록 · Draft 그대로 · 팔 때 IMS 에서 켠다) |
 | 559 | 「B」 | IMS 사진 0 장이면 사진 칸만 보내지 않는다(Shopify 사진을 건드리지 않음 · 나머지는 보냄) · IMS 에 사진이 생기면 판정 409 대로 — 판정 409 의 예외 |
-| 560 | 「A」 | Cin7 이 올린 Shopify 사진은 묶음을 보낼 때 IMS 사진으로 다시 올린다(판정 409 그대로 · 파일 이름 짝 맞추기 안 함) |
+| 560 | 「A」 | Cin7 이 올린 Shopify 사진은 묶음을 보낼 때 IMS 사진으로 다시 올린다(판정 409 그대로 · 파일 이름 짝 맞추기 안 함) → [2026-10-30 · 판정 890 · §90] asung · aone 은 `send_images` false — 사진을 보내지 않아 Shopify 사진이 그대로(Shopify 전용 사진 asung 1,849 · aone 1,415 장을 지키려고 · 가져오기는 deferred 387 · 시험 스토어는 true) |
 | 561 | 「B」 | 판매 채널 퍼블리시는 읽지 않는다(상태만) · Active 면 퍼블리시와 상관없이 잇고 보냄 켬(IMS 보내기는 퍼블리시를 안 건드린다) · 앱 권한 추가 없음 |
 | 562 | 「A」(2026-10-20 · link-1a 검토 뒤) | Shopify ARCHIVED 상품도 link_off(gid 만 기록 · 보냄 끔 · 나중에 IMS 에서 켜면 그 옛 상품이 되살아난다 · 중복 없음) |
 | 563 | 「A」(2026-10-20 · link-1a 검토 뒤) | 잇는 순간 재고 트리거는 그대로(켜진 변형 재고가 바로 IMS 값 · 새벽 덮기 판정 423 과 같은 결 · 컷오버 뒤 Shopify 재고를 맞추는 것은 IMS 뿐) |
@@ -10856,7 +10856,7 @@ Shopify(다른 대화에서 이어간다 · 사실만)
 | 811 | 「A」 | `shop_store.live` 칸 — **is_active = 연결 · 읽기**(ping · link_read · link_poll · link_plan · link_apply · order_read · webhooks_list) / **일하는 길은 is_active and live**(상품 · 재고 · 오더 · 발송 · 결제 쓰기 · 웹훅 받기 · 주기 확인) |
 | 812 | 「A」 | Aone 은 **전용 앱** |
 | 813 | 「A」 → ⚠️ 전제 바뀜 | 스토어마다 `auth_mode`(client_credentials · stored_token) — 칸 · EF 길은 있다 · 지금 stored_token 을 쓰는 스토어는 없다 |
-| 814 | 「A」 | **컷 시각** — Cin7 의 Shopify 연결을 끈 시각부터 IMS 가 오더를 읽는다(store_live 의 orders_from → orders_polled_at) · 그 전에 들어와 아직 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill |
+| 814 | 「A」 | **컷 시각** — Cin7 의 Shopify 연결을 끈 시각부터 IMS 가 오더를 읽는다(store_live 의 orders_from → orders_polled_at) · ~~그 전에 들어와 아직 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill~~ → [2026-10-30 · 판정 889 · §90] 컷 전에 만들어진 웹 오더는 저절로 안 받고, 18:00 뒤 직원이 `ims-import` 태그를 단 것만 IMS 로 들어온다(손으로 Fulfill 하지 않는다) |
 | 815 | 「A」 · Caleb 「cin7과의 연결이 끊기지 않은 상태에서도 상품 잇기는 해놓을 수 있다는 거지?」 | link_apply 는 live 전에도 된다 · live 꺼진 동안 나갈 일은 **대기**(큐 줄을 열어 둔다) · live 켜는 순간 그 스토어 재고 **전부 force** · 컷오버 직전 Read → Plan 을 한 번 더 |
 | 816 | 「A」 → 쓰이지 않음 | 영구 토큰 교환은 tools 스크립트(`tools/shopify-oauth-exchange.sh`) · redirect https://ims.asung.ca/ — 코드는 남김(해 없음) |
 | 817 | 「A」 | 콤보가 아니던 SKU 가 콤보가 되는 일은 **전부 막는다**(parent_not_combo) · 콤보는 New combo 에서만 |
@@ -11514,4 +11514,125 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 ```
 다음 판정 번호: 884 · 다음 deferred 번호: 387
+```
+
+## §90 2026-10-30 회사 — 컷오버 진행(0a ~ 7) · 콤보 = 낱개 바코드 묶음 · 콤보 박스 스캔 · POS Use combo · 콤보 CB- · 컷 전 웹 오더는 ims-import 태그만 · 사진 보내기 끔 · 원산지 두 글자 — shop-coo-1 · combo-one-1 · combo-bc-1 · shop-cut-1 · shop-img-off-1 · pos v1.17 · pk v1.6 · pa v1.7 · cb v1a · 판정 884 ~ 890 (회사 PC)
+
+⭐ 정한 것: 세트 = 자기 바코드로 파는 묶음 · 콤보 = 낱개 바코드로만 이어지는 묶음 · 콤보에 구성품 하나 + 수량 ≥ 2 허락(885) · 창고는 콤보 박스 바코드 한 번 = 콤보 하나(887) · POS 는 콤보 안내 + Use combo(886) · 콤보 SKU 앞에 CB-(888 · 컷오버 · 이력 · 이월 뒤) · 컷 전 웹 오더는 `ims-import` 태그만 받는다(889 · **814 의 「손으로 Fulfill」 을 대체**) · asung · aone 은 사진을 보내지 않는다(890 · 409 · 560 을 두 스토어에서 멈춤) · 원산지 두 글자(884)
+⭐ 원천: docs-1030 📌 A ~ F(대화 Claude · Caleb · 10-30 회사 대화) · 커밋 메시지 · 마이그레이션 머리 주석 · ⚠️ 조사 shop-risk-0 · shop-photo-0 보고 · 컷오버 실행 로그는 레포에 없다 — 이 절이 원천
+⭐ 컷오버 — reload-procedure §P 0a ~ 7 을 10-30 에 돌렸다(90-c) · 8 이후(손님 적재 · 원장 · 이력 · 이월 · cron · Shopify Go live)는 아직
+
+### 90-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 884 | (10-29 밤 · shop-coo-1) | Shopify 원산지(countryCodeOfOrigin) = **두 글자**(USA → US) · Shopify CountryCode 에 없는 코드는 **그 칸만 빼고** 보내고 shop_push_queue 성공 글에 「coo dropped: SKU=code」 · ISO ∩ Shopify 표(Shopify 에 없는 ISO = AQ AS FM GU MH MP PR PW VI · Shopify 에만 = AC AN TA XK ZZ · ZZ 는 뺌 · XKX → XK) · 저장 값 product.country_of_origin_code 는 적재 그대로(세 글자) · 대가: 칸을 빼고 성공한 상품은 표가 그 코드를 알게 돼도 저절로 다시 안 간다(「coo dropped」 를 보고 force push) · 칸을 빼면 Shopify 의 옛 값이 남는다(짐작 · 문서 안 봄 · deferred 402) · 원산지 있는 상품 996 · 오류는 last_hash 를 안 써서 다시 시도된다 |
+| 885 | 「현재 세트는 사실 판매용이 아니라, 스캔과 웨어하우스 관리용으로만 사용하고 있어. 이것을 혼용하는 것에 대한 우려가 나뿐 아니라 다른 사람들도 있어.」 · 「추후에는 개별 바코드로만 연결하는 것은 콤보, 세트 바코드로도 판매하는 것은 세트를 사용할게.」 · (구성품 하나 + 수량 < 2) 「막아야지」 | 묶음 자체 바코드로 파는 것 = **세트**(Sellable 켬) · 낱개 바코드로만 이어지는 묶음 = **콤보** · 콤보에 **구성품 하나 + 수량 2 이상** 허락 · 구성품 하나 + 수량 < 2(1.5 포함)는 `component_single` 로 막음(글 「A combo with one component needs a qty of 2 or more」) · 빈 목록 글 「A combo needs at least one component (a single component needs a qty of 2 or more)」 · DB combo-one-1(product_bom_check_lines · so_combo_children_insert · product_combo_create 글 · product_bom 표 comment) · 이견 1: 오더 넣기 길(so_combo_children_insert)에도 `v_n < 2` 막기가 있었다 → 「켜진 구성품 0 이면 거부」 · 화면 combos cb v1a(안내 글 둘) · 실례 ① 판매 세트 하나 `BEL43475-12`(pack 12 · 자기 바코드 없음) → 컷오버 **뒤** `CB-BEL43475-12` 콤보 + 세트 Sellable 끔(아직 안 함 · deferred 393) ② 진열대 `LAC80487`(= LAC73812 × 18) · `LAC80490`(= LAC73813 × 18) · `LAG00482`(= LAG22662 × 18) — 각자 진열대 바코드(081555804879 · 081555804909 · 081555004828) → **세트가 맞다** · Cin7 에서는 「구성품 하나 × 18」 콤보였고 적재 규칙(구성품 2 이상만 콤보)대로 세트로 들어왔다 · 재적재하지 않는다 · 10-30 Caleb 이 Sellable 켬(값 = Cin7 고정가 확인) |
+| 886 | 「가」 · 「나」 | **POS 만 먼저**: 담은 낱개(또는 세트 스캔으로 바뀐 낱개)가 켜진 · 파는 콤보의 구성품이면 안내 칩 「Also sold as combo …」 + **Use combo** · Use combo = 콤보 1 개를 더하고 이미 담긴 그 구성품 보통 줄을 콤보에 든 수만큼 줄인다(나중 줄부터 · 콤보 구성품 줄 · 무상 · B급 줄은 안 건드림) · 제안만(저절로 안 바꾼다) · 화면만 pos v1.17(DB 차수 없음 · product_bom 을 REST 로 읽음) · SO 화면 · 붙여넣기는 나중(deferred 397) |
+| 887 | 「박스안의 구성품이 비는 문제는 우리가 실무적으로 해결해야할 문제」 · 「가가 더 합리적이겠지만, 실무적으로는 나가 우리 현실」 | 봉한 박스 콤보(예 UNF18259 = UNF18046 ~ 18049 각 6 · 박스 바코드 810162182595 · 구성품은 낱개로도 판다 · 박스와 낱개는 같은 칸)는 **콤보로 둔다** · 창고가 **박스 바코드 한 번 = 그 콤보 하나**(구성품 줄마다 combo_qty × pack_factor) · 하나라도 자리가 없으면 거부(반쪽 콤보 없음 · 패커는 픽 수를 넘으면 거부) · 기록 `verification_method = scanned_combo` · 같은 번호가 낱개 · 세트 바코드이기도 하면 낱개로 본다 · 박스 · 낱개 재고 섞임은 실무 몫 · 기각(가): 콤보를 자기 재고 제품으로 바꾸기 · DB combo-bc-1(`wms_pick_lines` 구성품 줄에 `combo_barcodes` · 이견 1: 마지막 정의는 asm_2b1 이 아니라 **bgr-1a**(`20261023131028`) — 90-e 1) · 화면 pk v1.6 · pa v1.7 · SO-25264 실물 시험 통과 · 이견 5: wms_pick_lines 에 창고 검사 없음(deferred 391) |
+| 888 | 「가」 | 콤보 SKU 앞에 **`CB-`**(옛 SKU 앞에 붙이기 · JAL99890CB → CB-JAL99890CB · TDXCOMBO1 → CB-TDXCOMBO1) · 콤보 SKU 는 Products Edit 에서 바뀐다(재고 기록이 없어 sku_locked 에 안 걸림 · Caleb 확인) · 켜진 콤보 41(꺼진 ELO82320 은 그대로) · **컷오버 · 이력 · 이월 뒤** 콘솔에서 `product_update` op `{op:"set", sku, field:"sku", value:"CB-"+sku, old:sku}` 한 번에(미리 보기 → 저장) · 아직 안 함(deferred 393) · ⚠️ (shop-risk-0) 웹 오더 줄은 SKU 글자로 대조 — 바꾸기 전 SKU 로 들어온 오더는 sku_not_found |
+| 889 | 「note 를 추가하면 될 일 아닌가?」(→ 태그로 다듬음) | **컷 전 웹 오더**: 컷 시각(orders_cut_at) 전에 만들어진 웹 오더는 **어떤 길로도 저절로 안 받는다**(다음 달 환불 · Capture · 메모로 바뀌어도) · 통과 = Shopify 오더 태그 **`ims-import`**(대소문자 · 앞뒤 빈칸 무시 · 낱말 하나) · 직원이 **18:00 뒤** Cin7 에 열려 있던 웹 오더에 태그를 단다(18:00 전에 달면 그 오더의 바뀐 시각이 컷 앞이라 안 읽힌다 — 지웠다 다시 달면 됨) · 그 웹 오더는 IMS 에서 손으로 다시 만들지 않는다 · **814 의 「컷 전 오더는 Shopify 에서 손으로 Fulfill」 을 대체** · 경위: 처음 「목록 보기 + 번호로 받아 오기 action」 → Caleb 물음 → 태그 · DB shop-cut-1(`shop_store.orders_cut_at` · live false → true 트리거가 orders_polled_at 을 한 번 베낀다 · `shop_order_import_tagged` · ingest 막기 · 막힌 오더는 inbox 에 안 쌓고 call_log 「skipped_cut N (… #이름)」) · EF poll 이 createdAt · tags 를 읽는다 · 실물: 테스트 스토어 #1038(태그) → SO-25277 · #1039(태그 없음) → skipped_cut · ⭐ Go live 때 orders_from = Cin7 의 Shopify 연결을 끊은 시각(분까지) · 고치는 길 = SQL(deferred 392) |
+| 890 | 「가」 | 스토어마다 **`send_images`** · asung · aone **false** — 상품 media · 변형 사진을 보내지 않는다(Shopify 사진 그대로) · 값 · 재고 · 제목 · 설명 · 상태 · 태그는 평소대로 · 사진은 hash 밖(사진만 바뀐 일 → skipped_same_hash) · false → true 로 켜는 순간 켜진 listing 전부 큐 · 끄면 줄 0 · Apply links **전에** 적용해야 nightly 가 전부 다시 안 보낸다 · DB shop-img-off-1(shop_product_payload · shop_variant_payload · shop_store_queue_trigger) · EF 안전띠(send_images false 면 files 안 보냄) · ⇒ 판정 409(사진은 IMS 목록대로) · 560(Cin7 이 올린 사진을 IMS 사진으로 다시 올림)은 **asung · aone 에서 멈춤**(시험 스토어는 true 그대로) · 이견 7(화면 · 뷰 칸) · 이견 8(새 스토어 기본값 true · 판단 대기) → deferred 388 · Shopify 전용 사진 가져오기 → deferred 387(마이그레이션 머리 주석이 이미 이 번호를 쓴다) |
+
+### 90-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 레포 | 커밋 | 차수 | 확인 |
+|---|---|---|---|
+| asung-wms | `902937e`(10-29 21:56 · EF `_shared/shopify-product.ts` · `shopify/index.ts`) | shop-coo-1 — 원산지 두 글자 · 모르는 코드는 그 칸만 뺌(884) | deno test 65 passed 0 failed · 10-30 아침 확인(TBR43447 · TBR16260 NOT_FOUND = IMS 에서 만든 시험 제품 · 지우기 ⑧ 이 지움) |
+| asung-wms | `02ecada`(`20261030125215_combo_one_1.sql`) | combo-one-1 — product_bom_check_lines · so_combo_children_insert · product_combo_create 글 · product_bom comment(885) | `supabase/tests/combo_one_1_check.sql` |
+| asung-wms | `d85e323`(`20261030160000_combo_bc_1_pick_lines_combo_barcodes.sql`) | combo-bc-1 — `wms_pick_lines` 구성품 줄에 `combo_barcodes` · `scanned_combo`(원본 bgr-1a)(887) | `supabase/tests/combo_bc_1_check.sql` · SO-25264 실물 |
+| asung-wms | `9d61370`(`20261030165351_shop_cut_1_before_cut_import_tag.sql` · EF `_shared/shopify-order.ts` · `shopify/index.ts`) | shop-cut-1 — orders_cut_at · Go live 트리거 · ingest 막기 · poll createdAt tags(889) | `supabase/tests/shop_cut_1_check.sql` · #1038 → SO-25277 · #1039 skipped_cut |
+| asung-wms | `1268bd1`(`20261030192911_shop_img_off_1_send_images.sql` · EF `_shared/shopify-product.ts`) | shop-img-off-1 — send_images · asung · aone false(890) | `supabase/tests/shop_img_off_1_check.sql` |
+| asung-ims | `472b545` | combos cb v1a — 구성품 하나 + 수량 2 이상 안내 글(885) | — |
+| asung-ims | `3cb6f8e` | wms picker pk v1.6 · packer pa v1.7 — 콤보 박스 바코드 한 번 = 콤보 하나(887) | SO-25264 |
+| asung-ims | `0c30ae6` | pos v1.17 — 콤보 안내 + Use combo(886) | — |
+
+- 적용은 `psql -1 -f` + `supabase migration repair`(테스트 DB = 메인 · workflow §3) · `supabase db push` 를 쓰지 않는다(90-e 3)
+
+### 90-c 컷오버 진행 (reload-procedure §P · 10-30 · 테스트 = 메인 DB)
+
+| 단계 | 결과 |
+|---|---|
+| 0a DB 사본 | `~/ims-1030-{roles,schema,data}.sql` — 370 B · 4.76 MB · 427 MB · COPY 249 · 순환 FK 경고(무해) |
+| 0c 시험 값 | Carrier pickups 시험 값 → Caleb 「일단 무시」 · **값 남음** · deferred 369 열림 |
+| 1 cron | 22 개 끔 — 1 · 16 · 40 ~ 59(정본의 「21 개 · 40 ~ 58」 에 QuickBooks 59 가 빠져 있었다) |
+| 2 테스트 스토어 | 끔 |
+| 3 큐 | 메일 sent 22 · 드라이브 0 |
+| 4 §C 백업 | 790 · 48 · 23,636 · 31,546 · 2,184 |
+| 5 cutover-delete.sql | 1 회차 **GATE store** 「2 Shopify store(s) still active」 — 관문이 is_active 를 센다 · 811 뒤 asung · aone 은 is_active t · live f 가 정상 → asung · aone 잠깐 끄고 다시 / 2 회차 **756 ROUX** 「manual rows with cin7_id for other suppliers」 — KCA33083 Avlon(Changmo Ku 10-30 11:32) · AS85203 Zhejiang(10-29 20:21 · updated_by null) → Caleb 「다시 되돌리는데」 · 21 줄 값 보관(대화 · CSV) 뒤 두 줄 source cin7 / 3 회차 **exit 0** — 지움 85 표 11,572 행 · 남김 80 표 633,291 행 무변 · 시험 마스터 198 행 · Roux 19 · 번호 so 20000 · invoice 60000 · credit 1000 · po 2000 · 넷 1 · 모두 is_called f |
+| 5 보관한 두 줄 | KCA33083 supplier_sku 501599 · cost 3.84 · fixed_cost 3.84 · 켜짐 · 기본 · last_supplied 2026-09-16 / AS85203 supplier_sku AS85203 · cost null · fixed_cost 1.1333333 · 켜짐 · 기본 · Roux 19 줄은 모두 꺼짐 · 기본 아님 · fixed_cost 0 · cost 2.39 ~ 3.75 · ⇒ 18:00 뒤 제품-공급처 재적재(Reset 먼저)로 이 21 줄이 Cin7 값으로 덮인다 |
+| 6 Storage | documents · po-documents 0 · product-images 시험 사진 8 지움 — 대시보드 검색은 폴더 안에서도 검색어가 걸려 빈 것처럼 보인다 → `…/product-images?path=<폴더>` 주소로 열어 지움 · 남은 고아 = `.emptyFolderPlaceholder` 6(0 바이트 · 대시보드 표식) + `1e4d8bcb-…/CON19912.webp`(10-01 · 실제 제품 폴더 · 사진표에 없음 · 그대로 · deferred 399) |
+| 7 남은 마스터 | 통과 — AS85203 · Donghyo Shin · 딜 5 + 새 11 월 딜 「Monthly Sale_November2026」 |
+| 그 뒤 | asung · aone 다시 켬(is_active t · live f · send_images f) |
+
+- 남은 것: 8(손님 · 제품-공급처 재적재) ~ 15 · 13 의 cron 다시 켜기는 **20 개**(끈 22 − 40 · 41 · 판정 755) — reload-procedure P-3 을 고쳤다
+
+### 90-d 조사 요지 (읽기만 · 숫자는 그 보고)
+
+**shop-risk-0**(Shopify 연동에서 문제가 될 것)
+- ⑦ send_tags = 이어진 상품 전부 다시 보내기(asung 5,044 · aone 약 4,379 · 1 분 20 건 → 약 8 시간 짐작 · 판정 555 「사람이 나눠 보낸다」 와 충돌) — **오늘 밤 켜지 않는 쪽으로 기울어 있다 · Caleb 확정 전**(deferred 394)
+- inventoryPolicy 바뀜: asung DENY → CONTINUE 198(켜짐 · 단종 아님) · CONTINUE → DENY 단종 811 · 꺼짐 11 · aone CONTINUE → DENY 21 · `~/asung/prompts/csv/review-deny-171.csv` Decision 173 줄 전부 빈칸(171 정리 열림 · deferred 186)
+- 첫 재고 force: asung 8,849 · aone 7,110 줄 · 약 18 · 15 분 짐작 · asung Edmonton inventoryActivate 가 걸림돌일 수 있음(Q5 미확인 · deferred 400)
+- 실제 두 스토어 웹훅 구독 0 — 15 분 poll 만(deferred 401)
+- 비교가가 없는 asung 변형 1,795 는 compareAtPrice 칸을 안 보낸다(Shopify 옛 값이 남는지 짐작) · IMS 설명 빈 대상 asung 23 · aone 19(빈 descriptionHtml 이 Shopify 설명을 지울 수 있음 · 짐작) — deferred 402
+- 컷 전 오더 재유입을 찾았다 → 889
+
+**shop-photo-0**(사진)
+- 첫 push 때 그 상품의 Shopify media **전부** 지워지고 IMS 파일을 새로 올린다(짝 0) · 같은 그림 asung 15,976(중복 4,817) · aone 12,702(중복 3,385)
+- Shopify 전용(그림 손실) asung 1,849 장 · 971 상품 · aone 1,415 장 · 751 상품 — `…fam` 패밀리 표지 419 · 394(Cin7 패밀리 첨부일 수 있고 IMS 는 제품 단위라 자리 없음) · pricebreak 370 · 108 · 옛 GUID 345 · 260 · 색상 코드 131 · 117
+- Cin7 → IMS 사진 가져오기 빈 곳은 skip 23 뿐 · 구성원 primary 사진 없는 변형 asung 218 · aone 179
+- → 890 · deferred 387(가져오기) · 395(첫 push 때 확인)
+
+**링크 판**(10-30 · Apply 아직)
+- asung 14:51 판 link 5,047 · blocked 0 · inactive 9 · discontinued 631 · no photo 11 · 패밀리 일부 133
+- aone link 4,470 · blocked 5(진열대 셋 + ONA50005 두 상품 — Caleb 이 aone Shopify 의 `…-2oz-old-look` 상품 삭제) · inactive 15 · discontinued 498 · no photo 15 · 패밀리 일부 112
+
+### 90-d′ 열린 것 · 닫은 것
+
+- deferred **370 닫힘** — QuickBooks 첫 운영 갱신 10-30 05:10(토론토 · refresh ok 200) 뒤에도 `refresh_expires_at = 2027-02-07 15:48 UTC` 그대로 ⇒ 갱신 토큰은 **연결 + 101 일 · 갱신해도 안 밀린다(확인)** · 할 일 = 2027-02-07 전 Reconnect(deferred 396) · ⚠️ 정본에 적힌 「14:52 UTC」 는 샌드박스 연결(10:52) 값이었다 — 운영 연결(11:48 EDT)은 15:48 UTC
+- deferred **386 닫힘** — 사진 cron 은 2 안(10:30 정규 scan 이 마지막 · 손 실행 안 함) · Caleb: 오늘 Cin7 에 사진을 붙이는 작업 없음
+- 새 deferred **387 ~ 402**(아래 표 · deferred.md)
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 387 | Shopify 전용 사진을 IMS 로 가져오기(패밀리 표지 자리 설계 · shop-photo-0 ①) — 20261030192911 머리 주석이 쓰는 번호 | 컷오버 뒤 |
+| 388 | send_images 화면 칸 · 뷰 칸 · 새 스토어 기본값 true(890 이견 7 · 8) | 판정 대기 |
+| 389 | cutover-delete.sql GATE store 가 811 과 어긋남(is_active 를 센다) | 미정 |
+| 390 | cutover-delete.sql 756 ROUX 관문이 다른 공급처 manual 줄에 멈춤 | 미정 |
+| 391 | `wms_pick_lines` 읽기 창구에 창고 검사 없음(combo-bc-1 이견 5) | 미정 |
+| 392 | `shop_store.orders_cut_at` 을 화면 · store_set 에서 고칠 길(지금 SQL) | 미정 |
+| 393 | 888 콤보 41 개 CB- · BEL43475-12 → CB-BEL43475-12 · 세트 Sellable 끔 | 컷오버 뒤 |
+| 394 | send_tags(13b ⑦) 켤지 — 켜면 이어진 상품 전부 다시 보내기 | 판정 대기 |
+| 395 | 브랜드별 첫 push 때 상품 하나가 Shopify 사진 그대로인지 확인 | 컷오버 날 |
+| 396 | QuickBooks 2027-02-07 15:48 UTC 전 Reconnect | 컷오버 뒤 |
+| 397 | 886 콤보 안내를 SO 화면 · 붙여넣기 길에도 | 미정 |
+| 398 | 887 한 콤보의 구성품이 오더 나누기로 다른 배치에 갈리면 박스 스캔이 그 배치 줄만 채움(짐작) | 미정 |
+| 399 | product-images 고아 CON19912.webp 하나 · placeholder 6 | 미정 |
+| 400 | asung Edmonton inventoryActivate(Q5) — 첫 재고 force 의 걸림돌인지 | 컷오버 날 |
+| 401 | 실제 두 스토어 웹훅 구독 0 — 15 분 poll 만 | 미정 |
+| 402 | 칸을 빼거나 빈 값을 보낼 때 Shopify 쪽 값(원산지 884 · compareAt 1,795 · 빈 설명 23 · 19 — 짐작) | 컷오버 날 |
+
+### 90-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude · 재발 §77-e 1] combo-bc-1 지시서의 「마지막 정의」 를 소문자 `^create` grep 으로 asm_2b1 이라 적었다 — 실제는 bgr-1a 의 대문자 `CREATE OR REPLACE FUNCTION` · Claude Code 가 DB prosrc md5 로 잡음(그대로 복사했으면 B급 칸 제외 635 · 641 이 조용히 되돌아갔다) ⇒ 마지막 정의 grep 은 `grep -liE` · 파일 이름 순 · DB prosrc md5
+2. [대화 Claude] QuickBooks 「갱신하면 만료가 밀렸을 것」 이라 말했다 — asung-qbo 에 「안 밀린다(실측)」 가 이미 있었다 ⇒ 숫자 · 동작 예상은 스킬을 먼저 grep
+3. [Claude Code · shop-cut-1] 적용 명령을 `supabase db push` 로 적었다 — 대화 Claude 가 `psql -1 -f` + repair 로 바꿈(workflow §3) ⇒ 지시서 「끝」 에 `db push 쓰지 마라` 를 늘 적는다(shop-img-off-1 부터 넣음)
+4. [발견] cutover-delete.sql 관문이 10-26 에 쓰여 811(10-27)을 몰랐다 · 정본 2 단계는 고쳤는데 스크립트는 안 고쳤다 · P-3 cron 목록도 QuickBooks cron(59)이 생긴 뒤 안 고쳤다 ⇒ **판정이 「상태의 정상 모습」 을 바꾸면 그 상태를 검사하는 ops 스크립트 · 절차 목록을 grep 해 같은 날 deferred 로**
+5. [대화 Claude · 재발 §88-e 2] Caleb 의 「note 를 추가하면」 이 받아 오기 action 을 대신할 수 있었다 — 처음 지시서는 목록 · 번호 action 을 지으려 했다 ⇒ 짓기 전에 「Shopify 가 이미 가진 장치(태그 · 메모)로 표시할 수 있나」 를 먼저 묻는다(「지금 되는 길」)
+6. [화면] Products 의 Kind 기본값이 Singles 라 세트가 검색에 안 나와 Caleb 이 「IMS 에 안 왔다」 로 읽었다 ⇒ 세트를 찾게 할 때는 「Kind = Sets only」 를 함께 말한다(매뉴얼 3 장 stock-products 에 한 줄)
+7. [대화 Claude] Settings › Shopify Stores 의 New Shopify store 창이 열렸다(꺼진 스토어가 목록에서 숨는 탓으로 짐작) — 새로 만들면 연결이 갈라진다 ⇒ 스토어를 껐다 켤 때는 「목록에서 사라져도 새로 만들지 마라」 를 먼저 말한다
+8. [잘 된 것] Caleb 의 질문 셋(「pos 에서 콤보를 불러오려면」 · 「박스 바코드를 넣어도 채워지게」 · 「샤피파이와 연동에서 문제가 될 만한 것」)이 886 · 887 · shop-risk-0 → 889 · 890 을 낳았다 · shop-risk-0 이 「컷 전 오더 재유입」 을 찾았다 · 테스트 스토어 #1038 · #1039 로 실물 확인
+9. [docs-1030] 지시서 전제 넷이 실물과 달랐다 — 「판정 560 은 정본에 없다(grep 0)」(§67-b 에 있다) · 「P-3 에 Shopify(42 ~ 53)가 없다」(있다 · 빠진 것은 59 뿐) · 「다시 켤 목록 22」(40 · 41 은 755 로 켜지 않는다 → 20) · 「deferred 387 안」(마이그레이션 주석이 이미 387 = 사진 가져오기로 씀) ⇒ 「없다」 · 목록 · 번호는 grep 한 줄 뒤에 · 커밋된 파일이 먼저 쓴 번호는 그 뜻으로 매긴다
+
+### 90-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- 판정 814 줄(§82-a) · reload-procedure §P-2 13b · shopify-integration §7 store_live 줄 — 「그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill」 → 889(`ims-import` 태그)
+- 판정 560 줄(§67-b) · shopify-integration §3-b · §3-e 판정 409 — asung · aone 은 send_images false(890)
+- §44-a′ asm-1 ⬜ 판단 「구성품 하나뿐 = 막는다」 · po-module 표 넷 product_bom 두 줄 — 885
+- reload-procedure §P-2 0c · 1(22 개) · 5(오늘 걸린 둘) · 6(?path= · 고아) · 13b ⑦ send_tags(결정 대기) · P-3(59 더함 · 40 · 41 은 그대로 끈 채)
+- qbo-integration §6 · §10 · asung-qbo 「하루 뒤 확인 대기」 → 확인됨(370 닫힘)
+- 「다음 판정 번호: 884 · 다음 deferred 번호: 387」(§89 끝) → 아래
+
+```
+다음 판정 번호: 891 · 다음 deferred 번호: 403
 ```

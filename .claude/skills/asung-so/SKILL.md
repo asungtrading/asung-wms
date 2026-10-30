@@ -387,6 +387,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 크레딧 — 콤보 단위(판정 245): 콤보 크레딧 줄(금액 · qty = 콤보 수 · 칸 · 사유 없음) + 구성품 크레딧 줄(금액 0 · 제 칸 또는 사유 · combo_credit_line_id · 재고는 이 줄) · 요청 lines[].components[] · 구성품 하나만 = 「other」 금액 줄(재고 안 움직임) · 멀쩡한 하나가 돌아오면 재고 조정
 ⚠️  so_line_requote 는 구성품 줄을 거부 · so_reprice 는 kept(combo_component) · so_merge 는 열쇠 + combo_sig(정의가 다른 같은 콤보는 따로) · 구성품을 다시 매단다
 ⭐  콤보 정의는 product_bom_set(asung-po §4-c) · 새 콤보 SKU 는 ~~「+ New product」 → 「Make combo」(판정 250)~~ → **Inventory › Combos → New combo**(product_combo_create · 새 SKU + 구성품 한 트랜잭션 · 판정 810 · 817 · 818 · so-module §82) · 콤보가 아니던 SKU 는 콤보가 못 된다(parent_not_combo) · **Release 는 되돌릴 수 없다**(819)
+⭐⭐ [2026-10-30 · 판정 885 · combo-one-1 `02ecada` · so-module §90] 세트 = 자기 바코드로 파는 묶음 · **콤보 = 낱개 바코드로만 이어지는 묶음** · 콤보에 구성품 하나 + 수량 ≥ 2 허락(하나 + 수량 < 2 = component_single) · ⚠️ 정의 검사(product_bom_check_lines)와 **오더 넣기 길 so_combo_children_insert**(「켜진 구성품 0 이면 거부」 · 옛 `v_n < 2`)가 같은 규칙 — 한쪽만 고치면 한 구성품 콤보가 오더에 못 들어간다
+⭐  [2026-10-30 · 판정 886 · pos v1.17] POS 만: 담은 낱개(세트 스캔으로 바뀐 낱개 포함)가 켜진 · 파는 콤보의 구성품이면 칩 「Also sold as combo …」 + **Use combo** = 콤보 1 개를 so_line_add 하고 그 구성품 보통 줄을 콤보에 든 수만큼 줄인다(나중 줄부터 · 콤보 구성품 줄 · 무상 · B급 줄은 안 건드림) · 제안만 · DB 차수 없음 · SO 화면 · 붙여넣기는 아직(deferred 397)
+⚠️  [판정 888] 콤보 SKU 앞에 `CB-` 는 컷오버 · 이력 · 이월 **뒤**(deferred 393) — 웹 오더 줄은 SKU 글자로 대조하므로 바꾸기 전 SKU 로 들어온 오더는 sku_not_found
 ⭐  Shopify 로 보내는 콤보 재고 = 위 「가용」 과 같은 셈(위치마다 min(구성품 재고 키마다 ⌊가용 ÷ need_ea⌋) · 구성품 꺼짐 → 0 · 판정 831 · so-module §83 · asung-wms 「IMS Shopify 연동 EF」)
 ```
 

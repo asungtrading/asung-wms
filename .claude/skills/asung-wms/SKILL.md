@@ -10,7 +10,7 @@ description: >
   "라스트 로케이션", "wms_receipts", "Apply to Cin7", "stock received",
   "bin transfer", "트랜스퍼", "Invoice First", "held_by", "presence", "bcMap",
   "CAS", "on_conflict", "exported_base", "stock_short", "픽리스트 인쇄",
-  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back", "Shopify 잇기", "Freightcom", "Book shipment", "freight_booking", "Carrier pickups" 등이
+  "inventory.html", "재고 마스터", "merge-duplicates", "콤보", "combo", "put_back", "Shopify 잇기", "Freightcom", "Book shipment", "freight_booking", "Carrier pickups", "scanned_combo", "ims-import", "send_images" 등이
   나오면 추측하지 말고 이 스킬의 아키텍처·스키마·배포·규칙 20~47 을 확인하세요.
   특히 ⚠️factor는 unit 컬럼, ⚠️bin은 base_sku 기준, ⚠️service_role 금지,
   ⚠️리시빙 저장은 라인 단위(전체 덮어쓰기 금지)·성공 판정은 .select() 1행 —
@@ -55,6 +55,9 @@ description: >
 - 반쪽 콤보 픽 — `so_finalize` 가 구성품 픽을 통째 콤보 수로 줄인다(그 줄 picks 의 마지막 칸부터) · 덜어낸 것은 `put_back[]`(반환 + `wms_order_finalize.put_back`) — 실물만 제자리에 · 원장은 출고 때만이라 닿지 않는다 · `so_ship` 의 반쪽 거부는 안전망
 - 화면: 픽 「for combo ○○ · N per combo」 · 팩 「for combo」 + 맨 위 「Combo ○○ — n of m complete」(min(verified ÷ (combo_qty × pack_factor))) · 줄 순서 · 스캔 흐름은 그대로(판정 249) · Fulfillment 는 콤보 표시 없음
 - 빌드(2026-10-05): pk v1.5a · pa v1.6a
+- ⭐⭐ [2026-10-30 · 판정 887 · combo-bc-1 `d85e323` · 화면 pk v1.6 · pa v1.7 · so-module §90] **콤보 박스 바코드 한 번 = 그 콤보 하나** — `wms_pick_lines` 구성품 줄에 `combo_barcodes`(그 콤보 SKU 의 바코드 · 보통 줄 []) · 스캔이 낱개 · 세트 바코드에 없고 combo_barcodes 에 있으면 구성품 줄마다 combo_qty × pack_factor 를 한꺼번에 · 하나라도 자리가 모자라면(패커는 픽 수를 넘어도) **아무것도 안 채운다**(반쪽 콤보 없음) · 기록 `verification_method = 'scanned_combo'` · 같은 번호가 낱개 · 세트 바코드이기도 하면 낱개로 본다 · 박스 안이 비는 일은 실무 몫(Caleb)
+  - ⚠️ `wms_pick_lines` 의 마지막 정의는 asm_2b1 이 아니라 **bgr-1a `20261023131028`**(대문자 `CREATE OR REPLACE FUNCTION` — 소문자 grep 이 놓친다 · 옛 정의를 복사하면 B급 칸 제외 635 · 641 이 조용히 되돌아간다) ⇒ 다음 재발행은 combo-bc-1 `20261030160000` 이 원본 · `grep -liE` + DB prosrc md5
+  - 열림: 창고 검사 없음(deferred 391) · 오더 나누기로 구성품이 다른 배치에 갈리면 그 배치 줄만 채움(짐작 · deferred 398)
 ⭐⭐ [2026-10-20] **WMS Stock Lookup(wms-stock.html · ws v1a · nav v8)** — 열쇠 없음(WMS 에 들어올 수 있는 직원 누구나 · WMS 열쇠가 하나도 없던 사람에게는 첫 화면이 된다) · 두 브랜치(자기 브랜치 먼저) · 스캔 값은 `stk_availability` 의 p_q 로(바코드 정확 일치) · ⚠️ **손님 이름을 그리지 않는다**(stk_reserved 가 보내도) · 금액은 원가 열쇠(`ims_can_view_cost`)가 있을 때만 `stk_value_many` · WMS 작업 표 17 은 의도된 열림(판정 569 · 창구 전환은 운영 전환 이후 별건)   (so-module §68 · 판정 569 · 571 · 575)
 - [2026-10-27 · ws v1b · v1c · so-module §81-c · 판정 808] 카드마다 **Print label**(ims-label.js) · ⚠️ `stk_availability` 는 SKU 를 쳐서 찾아도 `matched_set_*` 를 준다 — 「세트를 스캔했다」 가 아니다 · 라벨 창이 세트를 기본으로 고르는 것은 **찾은 글자 = 세트 SKU 이거나 숫자 바코드 스캔일 때만**(ws v1c · AS01282 에서 세트가 골라져 「No barcode」 였다)
 ⭐⭐ [2026-10-27] **바코드 라벨(lbl v1 · v1a · v1b · asung-ims `ims-label.js` · so-module §81-c · 판정 798 ~ 807)** — 모르면 라벨이 틀리거나 스캔이 안 된다:
@@ -424,6 +427,9 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⭐⭐ **잇기를 실제 스토어 크기로**(판정 829 · 830 · 832 · link-perf-1 `7b01fbc` · link-perf-2 `31c67c4` · link-dup-1 `f1f9c87` · link-perf-3 `52c43af` · so-module §82 · §83 · 정본 shopify-integration §1-b): authenticated 시한 8 s 를 넘지 않게 ① plan = 집합 한 번 + 색인 `product_sku_lower_idx`(5,079 상품 31 s → 1.9 s) · ⑤ 이미 이어진 것은 고리 전 임시 표(t_link_sp · t_link_sv · t_link_lk · 통계가 낡아도 약 12 s → 2.1 s) ② **apply 는 묶음**(shop_link_apply(run, commit, version, **limit**) · 칸 `shop_link_item.applied_version` · 반환 remaining · done · 화면 ss v5 가 500 씩 되풀이 · 멈추면 이어서 · 한 번에 69.5 ~ 78.3 s → 500 × 10 · 묶음 최대 2.4 ~ 2.8 s) ③ **dup_target** — 같은 IMS 대상(family · 낱개)을 이 판의 Shopify 상품 둘 이상(link · link_off)이 가리키면 **전부 block** · changes.dup_target {count · gids · handles} · 고치기는 Shopify 에서 한 페이지로 합친 뒤 Read → Plan(Archive 로는 안 풀린다)
   - ⚠️ 판정 함수를 고칠 때마다 **결과 한 글자도 같게** — 옛 = 새 대조는 시험 갈래(`\if :{?mig}`) 안 · 이어진 상태는 apply(16 ~ 24 s · 잠금 규칙 ④) 대신 가짜 재료 집합 insert 로 재현
   - ⭐ 컷오버 순서: 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply → Go live(순서가 바뀌면 신제품이 not_in_ims 인 채 Apply)
+- ⭐⭐ [2026-10-30 · **판정 889** · shop-cut-1 `9d61370` · so-module §90] **컷 전 웹 오더는 `ims-import` 태그만** — `shop_store.orders_cut_at`(live 가 처음 켜질 때 트리거가 orders_polled_at 을 한 번 베낀다 · null = 꺼짐) · createdAt 이 컷 앞이고 IMS 에 없는 오더는 poll · 웹훅 · ingest(shop_order_import_tagged) 어디서도 안 받는다(inbox 0 · call_log 「skipped_cut」) · 통과는 Shopify 태그 `ims-import`(대소문자 · 앞뒤 빈칸 무시) — **컷 뒤에** 달아야 poll 이 읽는다 · 814 의 「손으로 Fulfill」 대체 · 고치기 SQL(deferred 392) · 실제 두 스토어 웹훅 구독 0(poll 만 · deferred 401)
+- ⭐⭐ [2026-10-30 · **판정 890** · shop-img-off-1 `1268bd1`] **`shop_store.send_images`** — false 면 payload files [] · 변형 image_id null · EF 도 files 를 안 보낸다 ⇒ Shopify 사진 그대로 · **asung · aone = false**(Shopify 전용 사진 asung 1,849 · aone 1,415 장을 지키려고 · 409 · 560 멈춤) · 사진은 hash 밖 · false → true 로 켜면 켜진 listing 전부 큐 · 가져오기는 deferred 387
+- ⚠️⚠️ [2026-10-30 · shop-risk-0] **send_tags 를 켜면 이어진 상품 전부 다시 보내기**(스토어 트리거 · asung 5,044 · aone 약 4,379 · 약 8 시간 짐작 · 555 와 충돌) — 켤지 결정 대기(deferred 394) · 원산지는 두 글자(판정 884 · shop-coo-1 `902937e` · 모르는 코드는 그 칸만 빼고 「coo dropped」)
 - ⭐⭐ **콤보 재고**(판정 831 · shop-combo-1 `18ce4f0` · so-module §83): `shop_stock_payload` 의 콤보 갈래 = 위치마다 min(구성품 재고 키마다 ⌊inv_available_base ÷ need_ea⌋) — SO 화면 가용과 같은 셈 · 구성품 하나라도 꺼지면(is_active · sellable) 0 · Release 한 콤보는 낱개 갈래 · `shop_stock_queue_add` 가 구성품 → 그 콤보로 펼친다 · **product_bom 트리거 셋**(콤보 정의 · Release → 그 콤보 force) ⇒ 재고 트리거 **16** · ⚠️ 새 바깥 연동은 「콤보 · 세트 · 꺼진 상품」 세 갈래를 짓기 전에 grep(Shopify 쪽 함수가 product_bom 을 몰라 콤보가 늘 0 으로 나갈 뻔)
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)

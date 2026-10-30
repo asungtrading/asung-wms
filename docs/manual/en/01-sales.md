@@ -714,6 +714,11 @@ A web order's sales order has the tag **Shopify** and a card with the Shopify de
 - The web order itself is not edited here. Make changes on the sales order.
 - The Shopify discount is kept on the lines.
 
+**Web orders from before go-live**
+- A web order created before the shop went live in IMS does not come in by itself — not even when it is later paid, refunded or edited.
+- To bring one in, add the tag `ims-import` to the order in Shopify **after** go-live. It comes in at the next 15-minute check. A tag added before go-live is not seen — remove it and add it again.
+- Do not make that order again by hand in IMS. Once it is in, you may remove the tag; the order keeps following Shopify as usual.
+
 <a id="sales-cancel"></a>
 ## Cancel an order
 <!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
@@ -797,4 +802,4 @@ Most sales screens can download a spreadsheet (CSV).
 - The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771 -->
+<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889 -->

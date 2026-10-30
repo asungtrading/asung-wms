@@ -31,7 +31,7 @@ Everyone who works on sales orders. There is no extra key for the POS and no ste
 
 <a id="pos-sale"></a>
 ## Ring up a sale
-<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
+<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 ; combo hint BUILD 2026-10-30 · pos v1.17 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -52,6 +52,7 @@ IMS does not sell without a customer account. Make the account first: press **IM
 - The bar at the top shows the customer, the price tier and the payment term. Chips show **Credit**, **Open invoices** and **Overdue**. They are for your eyes only — they do not stop the sale.
 - A set that is not sold as a set goes on as single units: for example "DEMO-001-6 is not sold as a set — added DEMO-001 × 6 instead".
 - A combo shows its parts in small rows under it.
+- If an item you scan is also sold as part of a combo, a chip shows "Also sold as combo …" with **Use combo**. **Use combo** adds one combo and takes the same items off the sale — as many as go into one combo, newest lines first. Free lines and B-grade lines are not touched. It is only a suggestion; nothing changes until you press it.
 - More than the warehouse has asks first: "Only … available in this store's warehouse (on hand minus what other orders hold). Sell … anyway?"
 
 **Watch out**
@@ -212,4 +213,4 @@ On **Sales Orders** a POS sale has the tag **POS**. The badges are the same as f
 **Closing the day**
 Counting the cash and closing the card terminal happen outside IMS. To check the day's payments: on **Sales ▾** › **Customer Payments**, choose the method (**All methods** lists them), set both dates to the day, and press **↓ CSV** (see [Customer payments and deposits](01-sales.md#sales-payments)).
 
-<!-- rulings: 159, 225, 283, 546, 547, 629, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773 -->
+<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773 -->
