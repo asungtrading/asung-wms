@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_product_test.ts — Shopify · DB 무접촉 (shop-2b ① ~ ④ · _shared/shopify-product.ts · shopify-clean.ts 의 순수 함수)
-import { assertNoForbiddenKeys, buildProductSetInput, hsDigits, imageUrl, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageUrl, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
 import { CLEAN_CONFIG, cleanHtml, FORBIDDEN_AFTER_CLEAN, forbiddenAfterClean, iframeHost, rulesClean } from "../_shared/shopify-clean.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -99,4 +99,21 @@ Deno.test("⑥ 사진 짝(fix2) — 응답 media 가 처리 중(url 없음) → 
   eq(files2.filter((x: any) => x.id).length, 9, "9 by id"); eq(files2[4].originalSource !== undefined && files2[4].duplicateResolutionMode === "REPLACE", true, "the processing one goes by URL + REPLACE");
   eq(mediaNodes({ id: "g", handle: null, status: "ACTIVE", media: { nodes: [{ id: "gid://shopify/MediaImage/1", status: "READY", image: { url: "u" } }] } }), [{ gid: "gid://shopify/MediaImage/1", alt: null, status: "READY", url: "u" }], "mediaNodes shape");
   eq(PRODUCT_MEDIA_QUERY.includes("media(first: 250)") && PRODUCT_MEDIA_QUERY.includes("status image { url }"), true, "query asks status + url");
+});
+Deno.test("⑦ 원산지(판정 884 · shop-coo-1) — 세 글자 → 두 글자 · Shopify enum 밖이면 칸 빼기 + cooDropped · 실측 11 코드 전부", () => {
+  eq(countryAlpha2("USA"), "US", "USA"); eq(countryAlpha2("CHN"), "CN", "CHN"); eq(countryAlpha2("cn"), "CN", "lower"); eq(countryAlpha2(" CN "), "CN", "trim"); eq(countryAlpha2("CN"), "CN", "CN");
+  eq(countryAlpha2("XYZ"), null, "unknown 3"); eq(countryAlpha2(""), null, "empty"); eq(countryAlpha2(null), null, "null"); eq(countryAlpha2("China"), null, "name not mapped (이견 ③)");
+  eq(countryAlpha2("PRI"), null, "PRI → PR not in Shopify enum"); eq(countryAlpha2("PR"), null, "PR not in Shopify enum"); eq(countryAlpha2("XKX"), "XK", "Kosovo"); eq(countryAlpha2("ZZ"), null, "ZZ excluded"); eq(countryAlpha2("QQ"), null, "unknown 2");
+  const real: Record<string, string> = { CHN: "CN", USA: "US", MEX: "MX", CZE: "CZ", THA: "TH", KOR: "KR", IDN: "ID", GHA: "GH", LUX: "LU", DOM: "DO", BRA: "BR" };   // 실측 2026-10-29 · 996 제품
+  for (const [a3, a2] of Object.entries(real)) eq(countryAlpha2(a3), a2, "measured " + a3);
+  eq(Object.keys(ISO_ALPHA3_TO_2).length, 249, "ISO 249"); eq(new Set(Object.values(ISO_ALPHA3_TO_2)).size, 249, "alpha-2 unique");
+  eq(Object.values(ISO_ALPHA3_TO_2).filter((c) => !SHOPIFY_COUNTRY_CODES.has(c)).sort(), ["AQ", "AS", "FM", "GU", "MH", "MP", "PR", "PW", "VI"], "ISO not in Shopify");
+  eq([...SHOPIFY_COUNTRY_CODES].filter((c) => !Object.values(ISO_ALPHA3_TO_2).includes(c)).sort(), ["AC", "AN", "TA", "XK"], "Shopify only (ZZ excluded)");
+  const mk = (sku: string, cc: string | null) => ({ ...single.variants[0], sku, country_code: cc });
+  const b = buildProductSetInput({ ...single, kind: "family", options: [], variants: [mk("A1", "USA"), mk("A2", "XYZ"), mk("A3", ""), mk("A4", null), mk("A5", "PRI")] }, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" });
+  const vs = (b.input as any).variants;
+  eq(vs[0].inventoryItem.countryCodeOfOrigin, "US", "USA sent as US"); eq("countryCodeOfOrigin" in vs[1].inventoryItem, false, "XYZ omitted"); eq("countryCodeOfOrigin" in vs[2].inventoryItem, false, "empty omitted");
+  eq("countryCodeOfOrigin" in vs[3].inventoryItem, false, "null omitted"); eq("countryCodeOfOrigin" in vs[4].inventoryItem, false, "PRI omitted"); eq(vs[1].inventoryItem.harmonizedSystemCode, "961511", "other fields kept");
+  eq(b.cooDropped, [{ sku: "A2", code: "XYZ" }, { sku: "A5", code: "PRI" }], "cooDropped — empty · null are not drops");
+  eq(buildProductSetInput(single, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).cooDropped, [], "single CN — none dropped");
 });
