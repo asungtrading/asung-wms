@@ -199,7 +199,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ```
 ⭐⭐ 확정할 때 모자란 몫은 늘 나눈다(묻지 않는다 · R1) — 원래 오더는 늘 전부 할당된 줄만(또는 통째로 hold·백오더·프리오더 — 빈 원본 없음) · 백오더 a(stock_short) · 프리오더 b(preorder) 형제는 할당 없음 · 물건이 들어와도 자동으로 잡지 않는다 · 엔진은 so_allocate_run 하나(확정·재할당·창고 바꾸기·백오더 진행이 부른다)   (14-a·14-b)
 ⭐⭐ 보류는 늘 오더 전체(Caleb 「보류는 특정 제품에만 한한 경우는 없어」) — so_hold 는 열린 allocated 전부를 풀고 kind hold · 줄 단위 보류 없음 · 처음부터 보류는 so_confirm(p_hold) · 풀기는 so_reallocate(모자라면 그때 나뉜다) · 「특정 제품만 나중에」는 so_divide 로 떼어 so_hold   (R3 · 이견 2)
-⭐⭐ 역할 선 — 오더 담당(sales) = 초안까지 · manager 이상 = 확정부터(확정·보류·풀기·취소·창고 바꾸기·백오더 진행·나누기) · ⭐ 확정 되돌리기(so_unconfirm)는 supervisor 이상 · 창구는 ims_require_write('sales') + so_require_role 둘 다(sales 열쇠 없는 manager 는 막힌다)   (R5 · R9 · ⬜2)
+⭐⭐ 역할 선 — 오더 담당(sales) = 초안까지 · manager 이상 = 확정부터(확정·보류·풀기·취소·창고 바꾸기·백오더 진행·나누기) · ⭐ 확정 되돌리기(so_unconfirm)는 ~~supervisor 이상~~ → [2026-10-29 · 판정 883 · unconf-1 eb4c46b · so-module §89] **manager 이상 + 원래 오더 창고**(`ims_can_warehouse(원래 오더 location_id)` — supervisor · admin 은 모든 창고 · Location 빈 manager 는 전부 · 갈린 형제의 창고는 안 본다) · 창구는 ims_require_write('sales') + so_require_role 둘 다(sales 열쇠 없는 manager 는 막힌다)   (R5 · R9 · ⬜2)
 ⭐⭐ 되돌리기는 표시와 사슬로 먼저 거른다 — manual 형제 있으면 거부 · 대상은 stock_short·preorder ∧ 같은 시각 · 형제가 또 나뉘었으면(손자) 거부 · 그 뒤 「손대지 않았다」(열린 예약만 · 풀린 이력 무시) · ⚠️ 「같은 시각」은 다른 트랜잭션일 때만 뜻이 있다 · 돌아온 줄은 옛 예약 이력을 달고 다닌다   (14-f)
 ⭐  가용은 EA(so_available_many 식 한 곳 · 뷰 한 번 ~150ms) — 줄마다 so_available 을 부르지 마라(100줄 = 15초) · 세트 줄은 낱개 재고 × pack_factor(floor) · 취소는 열린 자손 전부 함께(p_keep 으로 살린다 · 그 아래도) · 미리 보기는 p_commit false(풀어야 계산되는 것은 하위 블록에서 되돌린다)   (14-c · 14-e) → [2026-10-06 · 판정 264 · 265] 식은 inv_available_base(definer · 키 배열이면 그 키만) · so_available_many 는 껍데기(값 · 모양 무변)
 ⭐⭐ [2026-09-28] 가용 = 장부 − 판매 예약 − **트랜스퍼 예약**(확정된 트랜스퍼 줄 자체가 예약 · 출발 창고 · so_available_many 한 곳 · 20260928201753 · so-module §27 묶음 열 2) · 트랜스퍼는 판매 표(so · so_line)에 줄을 넣지 않는다(판정 69) · 창고 창구는 공용 목록을 읽는다 — 판매 창구 쪽 셈을 따로 만들지 마라 → 식은 inv_available_base(§46)
@@ -253,7 +253,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-07 · §52] 운임 할인 — so_charge.discount_pct | discount_amount(하나 · 식 so_charge_discount) · 세금은 줄마다 · 인보이스 줄 kind 다섯(product · charge · order_discount · surcharge · charge_discount — 운임 줄 바로 뒤 · 음수) · 머리 · 오더 charges_discount_amount(charges_amount 는 정가) · 계정 inv_config so_freight_discount_account_code(_6_ · 비면 할인 운임 발행만 막는다)(판정 352 ~ 358)
 ⚠️  [2026-10-08 · 판정 382 · §53] 오피스 단추 이름 = **Ship & invoice**(so v5q) — 상태 Finalized = 물건이 준비됨 · Fulfilled = 우리 손을 떠남 · 창고 단추 Finalize · 창구 so_finalize 이름은 그대로 — 단추와 상태를 같은 말로 부르지 마라
 📌  [2026-10-08 · 판정 362 ~ 381] Shopify 연동 설계 정본 = docs/design/shopify-integration.md(~~설계만~~ → ①~④ 테스트 DB 실물 · 손님 찾기 4단계 · 브랜치 라우팅 · 무료 배송 = 운임 + 할인 100% · 칸의 주인 · Available 에 맞춘다) · 웹 오더는 4-o
-⭐⭐ [2026-10-20 · 판정 531 · 539 · 540 · 549 · ch-1] packed 오더 비용 = so_charge_set · so_charge_remove 의 문 so_charge_gate(오더 행 for update · draft 는 sales · packed 는 sales + master 쓰기 둘 · 그 밖 상태 거부 · aonebeauty 스토어 오더 · 스토어를 모르는 웹 오더 거부 · asung.ca 는 보통 오더와 같게) · 계정을 안 주면 새 비용은 `_99_` Freight Sales — 화면은 계정을 늘 보낸다
+⭐⭐ [2026-10-20 · 판정 531 · 539 · 540 · 549 · ch-1] packed 오더 비용 = so_charge_set · so_charge_remove 의 문 so_charge_gate(오더 행 for update · draft 는 sales · packed 는 sales + master 쓰기 둘 · 그 밖 상태 거부 · aonebeauty 스토어 오더 · 스토어를 모르는 웹 오더 거부 · asung.ca 는 보통 오더와 같게) · 계정을 안 주면 새 비용은 `_99_` Freight Sales — 화면은 계정을 늘 보낸다 · → [2026-10-29 · fc-lock-1 90b49f1 · 판정 882 · so-module §89] 「스토어 모름」 · 「aone 거부」 는 **split_from_id 사슬로**(`so_chain_shop_orders(so_id)` · 깊이 50 · invoker · 창구 안에서만) — 형제는 intake shopify 를 물려받지만 shop_order 는 원래 SO 에만 · aone 형제는 거부 · asung 형제는 보통 오더처럼(전에는 「store is unknown」 으로 막힘)
 ⭐  [2026-10-20 · 동료 피드백 13 · so v5w] so_finalize 는 처음부터 오더 배열 — 여러 packed 오더를 한 번에 보내면 위 묶음 규칙대로 인보이스가 묶인다
 ⭐  [2026-10-07 · §52] 상태 칩 색 — SO(판정 359): Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강 · Shipped 는 인보이스 취소 뒤에만(칩 「Invoice cancelled」) · PO(판정 360)는 asung-po §0
 ```
@@ -496,7 +496,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 서비스 목록 ref_service(이름 · 단가 · 매출 계정 기본 _153_ · 세금 칸 없음 — 세금 = 오더 세율 · 593) · 쓰기 = master(정책) · 줄은 so_charge_set(p_qty, p_unit_price, p_service_id) — 목록 단가와 다르면 price_set_by(596) · amount = round(qty × 단가)(짝 CHECK · 금액으로 못 고친다)
 ⭐⭐ 흐름 = so_create('service') → 서비스 줄 → so_service_confirm(재고 잡기 없음 · 줄 ≥ 1 · 합 > 0 · 세율) → so_service_invoice(p_commit false = 미리 보기 · 실행 = confirmed → shipped → 이 오더 하나만 발행 → fulfilled) · 셋 다 sales 쓰기(597 · 역할 문 없음)
 ⚠️⚠️ 늘 따로 — so_invoice_issue 가 서비스 오더가 든 묶음(오더 둘 이상)을 거부 · 서비스 오더 하나 = 인보이스 한 장 · so_finalize · so_pos_finish · so_counter_ship · so_confirm · so_pos_confirm · so_pos_reopen 은 서비스 오더를 거부
-⚠️⚠️ 확정 뒤 서비스 줄은 못 고친다(so_charge_gate · 「unconfirm it first」) — 풀기 = so_unconfirm(supervisor · 물건 오더와 같음 · 미룬 278) · 문지기: service 는 at_wms · picking · packed 로 못 간다
+⚠️⚠️ 확정 뒤 서비스 줄은 못 고친다(so_charge_gate · 「unconfirm it first」) — 풀기 = so_unconfirm(~~supervisor~~ → manager + 원래 오더 창고 · 883 · 물건 오더와 같음 · 미룬 278) · 문지기: service 는 at_wms · picking · packed 로 못 간다
 ⭐  인보이스 줄 charge 에 qty · unit_price(svc-1c · 수량 × 단가 줄만 · 운임은 금액만) · 크레딧은 금액으로(freight 갈래 · so_invoice_line_id · 재입고 0 · 원장 0 · 미룬 277) · 인보이스 취소 → shipped → so_service_invoice 로 다시
 ```
 

@@ -88,7 +88,8 @@
 
 - `customer_charge = round(pretax × (1 + fc_markup_pct / 100))` 센트 · `pretax = base + 할증 합`(세금 제외) · `fc_markup_pct` = 5(Settings → Shipping quotes · master)
 - 고른 줄의 운임이 **운임 줄 하나**로 `charge_so_id` 의 SO 에 — 발송에 SO 가 여럿이어도 운임은 한 SO(837 · 기본 = 가장 먼저 만든 SO · `fc_charge_so_set` 로 옮긴다)
-- **aone(손님이 Shopify 에서 운임을 결제한 웹 오더 · `freight_locked`)만 운임 줄을 덮지 않는다**(836 · 844) — 견적 · 예약 · 기록만 · charge_amount = null
+- **aone(손님이 Shopify 에서 운임을 결제한 웹 오더 · `freight_locked`)만 운임 줄을 덮지 않는다**(836 · 844) — 견적 · 예약 · 기록만 · charge_amount = null · → [2026-10-29 · fc-lock-1 · 판정 882 · so-module §89] **갈린 형제 포함** — 발송에 든 SO 의 `split_from_id` 사슬을 위로(깊이 50 · 순환 가드) 거슬러 어느 SO 든 aone 스토어(`shop_store.kind = 'aone'` · 지금은 aonebeauty.com 하나) shop_order 에 이어지면 잠근다 · 판정 함수 `so_chain_shop_orders(so_id)`(invoker · public · anon · authenticated 회수 · 두 창구 안에서만) · asung.ca 는 판정 473 그대로(Shopify 운임 = 견적 · Freightcom 이 덮는다)
+- [2026-10-29 · fc-lock-1 · 판정 882] 판정 549(`so_charge_gate` — packed 오더의 비용 줄: aone 스토어 오더 거부 · 스토어를 모르는 Shopify 오더 거부)도 **사슬로** 본다 — 형제는 `intake` shopify 를 물려받지만 shop_order 는 **원래 SO 에만** 있다 · 사슬을 안 보던 때는 형제가 aone · asung 가릴 것 없이 「Shopify order but its store is unknown」 으로 막혔다 → 이제 aone 형제는 「came from aonebeauty」 로 막히고 asung 형제는 보통 오더처럼 통과(fc-lock-1 이견 1 — 덤) · 오류 글 그대로 · ⚠️ 잠금(`freight_locked`)은 전에는 형제에 안 걸려 Freightcom 운임이 aone 형제에 붙었다(실측 SO-25259b)
 
 ## 7. 예약 · 픽업 규칙 — 852 · 857
 

@@ -65,6 +65,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️⚠️ [2026-10-24 밤 · so-module §74-f 6] **거래 표(po · po_charge · so_invoice …)에 FK 를 거는 새 표는 같은 차수에서 「컷오버 날 지우는 순서」 를 한 줄 적는다** — FK 는 기본 on delete no action 이고 문지기(doc_file_guard)가 지우기를 거부한다 · 안 적으면 지우는 날 FK 오류로 처음 안다(deferred 332)
 ⚠️⚠️ [2026-10-29 · so-module §88-e 2] **동료 피드백은 조사로 「지금 되는 길」 부터** — 웹 오더 확정을 875 → 878 로 두 번 판정했는데 브랜치를 바꾸는 길(본 오더만 Unconfirm → 형제가 합쳐진다)은 이미 지어져 있었다 · web-split-0 조사가 찾아 막았고 Caleb 도 「내가 그렇게 요청해서 지어놓고, 기억을 못했어」(879) ⇒ 새 판정 · 지시서 전에 「지금 IMS 로 이것을 하는 길」 을 조사 차수로 먼저 본다
 ⚠️ [2026-10-29 · §88-e 3 · 재발 §73-e 3] **숫자 짐작은 「짐작」 을 붙여 말한다** — 적재 전 「bin 7 개 새로」 라 했고 Dry 는 0 ⇒ Dry · 실측 전 숫자는 「짐작」 또는 말하지 않는다
+⚠️⚠️ [2026-10-29 밤 · so-module §89-e 4] **창구 문(역할 · 창고)을 바꾸는 차수는 그 동작을 그리는 화면 조건을 grep 해 같은 날** — unconf-1 이 DB 를 manager 에게 열었는데 so.html 이 Unconfirm 단추를 `isSup()` 로 감춰 안 보였다 · 매뉴얼의 역할 글(「Supervisors and admins」)도 같은 grep 에 넣는다
 ```
 
 ---
@@ -972,3 +973,13 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    10 [잘 된 것] 샌드박스 ping 이 safeupdate 를 운영 전에 잡음 · as_role 로 실제 authenticated 역할에서 Vault · 창구 거부 증명 · 갱신 토큰 만료 고정(101 일) 실측 · 설문은 짓고 시험한 뒤 사실대로(868) · 보안 팀 Yes → No
    11 [Caleb] 「/clear 해도 되는 것들에는 /clear하라고 얘기해줘」 ⇒ §2 줄
    12 [docs-1029] 지시서 「deferred 367 두 번(중복)」 — 거울 표(deferred §1 · §4 규칙)였다 · 닫기만 하면 컷오버 전 필수 할 일이 사라진다 → 할 일은 369 로 · reload-procedure §P-1 은 10-28 fc 표도 빠져 있었다 ⇒ 「문서 차수에서」 로 미룬 줄(마이그레이션 · ops 머리)은 그날 문서 차수 지시서에 옮긴다
+
+⚠️ **[2026-10-29 집 저녁 — so-module §89-e · 마스터 적재 3 ~ 9 · aone 운임 잠금 형제까지 · Unconfirm Manager]**
+   1 [대화 Claude] 인계서 적재 순서에 Reset 이 없었다 — 제품 Apply 가 남은 커서(39)에서 시작 · 바코드 · 제품-공급처 · 가격도 같은 함정 ⇒ **재적재는 단계마다 그 파일의 Reset 먼저**(imsLoadProductReset · imsLoadProductBarcodeReset · imsLoadProductSupplierReset · imsLoadPriceReset) · 재발 §80-e 7
+   2 [대화 Claude] fc-lock-1 지시서 전제 둘이 틀렸다(「aone 스토어 테스트 DB 에 없다」 — 있었다 · 「운영 asung-WMS 적용 명령」 — 테스트 DB 가 메인 · 판정 617) ⇒ 「없다」 는 select 한 줄 뒤에 · 적용 대상은 늘 테스트 DB 하나
+   3 [대화 Claude] 화면 파일을 만들고 present_files 없이 옮기기 명령만 줬다(Caleb 「화면 파일은 아직 안줬어」) ⇒ 파일을 만들면 present 먼저
+   4 [대화 Claude] DB 문(883)을 연 지시서에 「화면이 그 단추를 역할로 감추나」 를 안 넣었다 — 커밋 뒤 so.html `isSup()` 발견 ⇒ **창구 문을 바꾸는 차수는 그 동작을 그리는 화면 조건을 grep 해 같은 날**(§2 줄) · 매뉴얼 01-sales 의 역할 글도 같은 뿌리로 남아 docs-1029c 가 고쳤다
+   5 [대화 Claude] Roux 「새 id」 짐작이 틀렸다 · 진단 함수가 한 번에 전수(2 줄)를 잡았다 ⇒ 적재가 첫 충돌에서 멈추면 하나씩 고치지 말고 **읽기만 하는 진단으로 전수**
+   6 [Caleb] 판정 설명이 어려웠다(「쉽게 설명해줘」 · 「구조적으로 문제가 있다는 얘기로 들려」) ⇒ 판정 · 이견 설명은 **Caleb 의 실제 오더 흐름(111 → 111a → …)으로** 먼저 · 드문 갈래는 「드문 다른 길」 이라고 밝힌다(§2 10-06 줄 재발)
+   7 [대화 Claude] 쿼리에 할인 칸을 안 꺼내 SO-25261 의 12.11 줄 100 % 할인을 못 봤다 ⇒ 운임 줄을 볼 때는 discount_pct · discount_amount 함께
+   8 [잘 된 것] fc-lock-1 이견 1(스토어 모름 줄) · unconf-1 이견 1(SO-25166 실물) · Cin7 화면 한 장으로 TGI00639 · ADG68234 확인 · SO-25261 은 고장 아님(Jan Ko 가 aone 을 흉내 — Freightcom 줄 100 % 할인 + Standard 5.25 새 줄)

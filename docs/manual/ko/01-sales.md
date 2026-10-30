@@ -291,9 +291,11 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 1. 초안에서 **Delete draft** 를 누릅니다.
 2. "Delete draft SO-99001? It has never been confirmed, so it disappears — the number is not reused." 에 OK 를 누릅니다.
 
-**Unconfirm — supervisor · admin**
+**Unconfirm — manager 이상**
+- manager 는 Staff 에서 그 사람에게 Location 을 체크한 창고의 오더만 풀 수 있습니다(체크가 없으면 모든 창고). supervisor · admin 은 모든 오더를 풀 수 있습니다.
+- 다른 창고 오더면: "Order SO-99001 is in (its location) — you can unconfirm only orders of your locations (ask a supervisor) — nothing was saved"
 1. IMS 안에 있는 확정 오더에서 **Unconfirm** 을 누릅니다.
-2. "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (supervisor)." 에 OK 를 누릅니다.
+2. "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (manager — orders of your locations)." 에 OK 를 누릅니다.
 3. 오더가 다시 초안이 됩니다. 그 확정 때 나뉜 백오더 · 프리오더 오더(예: SO-99001a)가 이 오더 안으로 돌아옵니다. 이 오더가 예전 오더에서 이어받았던 백오더 라인은 다시 열리고, IMS 가 몇 라인인지 알려 줍니다.
 - 이 오더가 쓴 쿠폰은 다시 쓸 수 있습니다.
 - 확정된 서비스 오더도 같은 방법으로 초안으로 돌아갑니다.

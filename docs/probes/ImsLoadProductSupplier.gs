@@ -236,8 +236,8 @@ function imsLoadProductSupplier()      { ips_loadLines_(true); }
 function imsLoadProductSupplierApply() { ips_loadLines_(false); }
 
 function ips_loadLines_(dryRun) {
-  var prodMap = ipr_map_('/rest/v1/product?select=id,cin7_id',  'cin7_id');   // ⚠️ 18,714 — 캡 넘는다
-  var supMap  = ipr_map_('/rest/v1/supplier?select=id,cin7_id', 'cin7_id');
+  var prodMap = ipr_map_('/rest/v1/product?select=id,cin7_id&cin7_id=not.is.null',  'cin7_id');   // [10-29] IMS 제품(cin7_id 없음)은 null 열쇠 하나로 겹쳐 잘림 경보가 났다
+  var supMap  = ipr_map_('/rest/v1/supplier?select=id,cin7_id&cin7_id=not.is.null', 'cin7_id');
   var currs   = ipr_map_('/rest/v1/ref_currency?select=id,code', 'code');
 
   // [ldfix-1c] manual 줄 둘 — 승격 대상(cin7_id 없음 · 사람이 먼저 적음) · 건드리지 않을 줄(cin7_id 있음 · IMS 가 끈 Cin7 줄) · 손댄 cin7 줄(672)
@@ -339,4 +339,38 @@ function ips_loadLines_(dryRun) {
   if (rr.getResponseCode() >= 300) throw new Error('기본 공급처 재계산 rpc 실패 HTTP ' + rr.getResponseCode() + ' ' + rr.getContentText().slice(0, 300));
   var rc = JSON.parse(rr.getContentText());
   Logger.log('[682 기본 공급처 재계산] 끔 ' + rc.turned_off + ' · 켬 ' + rc.turned_on + ' · 기본 둘 이상 ' + rc.multi_default_products + (Number(rc.multi_default_products) > 0 ? ' ⚠️ 0 이어야 한다 — 사람이 가른다' : '') + ' (' + rc.scope + ')');
+}
+
+/* [2026-10-29 진단 · 읽기만] Cin7 에서 다시 붙여 ProductSupplierID 가 바뀐 줄 찾기 — 같은 (제품, 공급처) 가 표에 다른 cin7_id 로 있다 */
+function ipsDiagRelinked1029() {
+  var prodMap = ipr_map_('/rest/v1/product?select=id,cin7_id&cin7_id=not.is.null', 'cin7_id');
+  var supMap  = ipr_map_('/rest/v1/supplier?select=id,cin7_id&cin7_id=not.is.null', 'cin7_id');
+  var have = {};
+  ipr_readAll_('/rest/v1/product_supplier?select=product_id,supplier_id,cin7_id,source,is_active').forEach(function (r) {
+    have[r.product_id + '|' + r.supplier_id] = r;
+  });
+  var v = ips_lineTab_(false).getDataRange().getValues();
+  var hits = [], pairs = [], kinds = {}, seen = {}, dupInCin7 = [];
+  for (var i = 1; i < v.length; i++) {
+    var r = v[i]; if (!r[0]) continue;
+    var pid = prodMap[String(r[0])], sid = supMap[String(r[1])];
+    if (!pid || !sid) continue;
+    var key = pid + '|' + sid;
+    if (seen[key]) { dupInCin7.push(r[8] + ' <- ' + r[9]); continue; }
+    seen[key] = true;
+    var h = have[key];
+    if (!h || !h.cin7_id) continue;
+    if (String(h.cin7_id) === String(r[2])) continue;
+    var k = h.source + (h.is_active ? ' on' : ' off');
+    kinds[k] = (kinds[k] || 0) + 1;
+    hits.push(r[8] + ' <- ' + r[9] + ' | ' + k + ' | old ' + h.cin7_id + ' -> new ' + r[2]);
+    pairs.push("('" + h.cin7_id + "','" + r[2] + "')");
+  }
+  Logger.log('id 가 바뀐 줄 ' + hits.length + ' · 종류 ' + JSON.stringify(kinds));
+  Logger.log('Cin7 안에서 같은 (제품, 공급처) 가 두 줄 ' + dupInCin7.length + (dupInCin7.length ? ' -> ' + dupInCin7.slice(0, 30).join(' · ') : ''));
+  hits.forEach(function (h) { Logger.log('  ' + h); });
+  for (var j = 0; j < pairs.length; j += 40) {
+    Logger.log('SQL ' + (j / 40 + 1) + ':\nupdate product_supplier ps set cin7_id = v.new_id::uuid from (values ' + pairs.slice(j, j + 40).join(',') +
+               ') v(old_id, new_id) where ps.cin7_id = v.old_id::uuid returning ps.cin7_id, ps.source, ps.is_active;');
+  }
 }

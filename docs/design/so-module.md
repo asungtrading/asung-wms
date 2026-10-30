@@ -2701,11 +2701,11 @@ R6  확정을 막는 조건: 가격 없는 줄(§12 판정 2) · 창고 없음/�
     ⬜ credit hold · credit limit — 「지금은 잘 안쓰고 있어」 · 손님 칸도 아직 없다 · 인보이스 차수(8-e)
 R7  창고 바꾸기(릴리스 전 · manager 이상 · 2-h) — 확정과 같은 규칙: 새 창고에서 잡을 수 있는 만큼 잡고 모자란 몫은 백오더 형제(stock_short) · 바꾸기 전에 미리 보기(같은 창구의 p_commit false)
 R8  백오더 진행(1-f 뒤쪽 · 「백오더에서 1개의 sku만 스플릿 해서 진행」) — manager 이상 · 잡을 수 있는 줄은 할당해 그 오더가 진행 · 못 잡은 줄은 새 백오더 형제(다음 글자)
-R9  ⭐ 확정 되돌리기 — supervisor 이상(「수퍼바이저 이상으로 하자」)
+R9  ⭐ 확정 되돌리기 — ~~supervisor 이상~~(「수퍼바이저 이상으로 하자」) → [2026-10-29 밤 · §89 · 판정 883] **manager 이상 + 원래 오더 창고(`ims_can_warehouse(원래 오더 location_id)`)** — supervisor · admin 은 모든 창고 · manager 는 Location 체크한 창고(비면 전부) · 형제 창고는 보지 않는다(unconf-1 · eb4c46b)
     「이런경우는 흔치는 않지만 … 실무적으로 발생확률이 낮다고 볼수도 없어. 난 이 경우에는 백오더로 스플릿 되기 이전으로 롤백이 가능했으면 좋겠어」
     경우: 에드먼튼 확정 → 백오더 a → Release → 손님이 토론토로 원함 → WMS 롤백 → 창고를 바꾸면 형제가 흩어진다(토론토에서도 모자라면 b 가 또 생긴다)
     하는 일: 그 확정 때 떨어져 나간 형제(백오더 · 프리오더)를 원래 오더로 도로 합친다 · 잡아 둔 재고를 모두 푼다 · 원래 오더를 draft 로 · 줄 가격·할인·손님 값은 그대로(다시 매기기는 so_reprice · §13 판정 3)
-    조건: supervisor 이상 · 원래와 형제가 모두 IMS 안(창고로 갔으면 먼저 WMS 롤백) · 형제가 떨어져 나간 뒤 손대지 않았다 · 사람이 나눈 형제(manual)가 없다 · 형제가 또 나뉘지 않았다(14-f)
+    조건: ~~supervisor 이상~~ → manager 이상 + 원래 오더 창고(883 · §89) · 원래와 형제가 모두 IMS 안(창고로 갔으면 먼저 WMS 롤백) · 형제가 떨어져 나간 뒤 손대지 않았다 · 사람이 나눈 형제(manual)가 없다 · 형제가 또 나뉘지 않았다(14-f)
     기록: unconfirmed_at/by · 합쳐진 형제는 지우지 않고 cancelled + closed_reason 'merged' + merged_into_id + closed_note 「Unconfirmed with SO-…」 · 글자는 다시 쓰지 않는다(다음 확정은 다음 글자)
     ⇒ 2-h · 6-d 의 「Cin7 undo(Draft 복귀)를 두지 않는다」를 이 조건으로 뒤집는다(14-g)
 R10 쓰기 차수 순서 고침 — ② → ③ 출고 → 인보이스·결제·크레딧(§8) → ④ POS·counter·병합 → ⑤ Release to WMS(「니가 제안하는 순서대로 가자」 · ④ POS Finish 가 인보이스를 발행한다 6-f)
@@ -2739,7 +2739,7 @@ R10 쓰기 차수 순서 고침 — ② → ③ 출고 → 인보이스·결제�
 
 ```
 so_confirm(so, p_preorder_line_ids, p_hold, p_commit)   manager · draft · warehouse 채널 · R6 · 엔진 → 원래(할당) · a(백오더 stock_short) · b(프리오더) · p_hold 면 전부 hold · p_commit false 미리 보기
-so_unconfirm(so)                                         supervisor · confirmed · 14-f 조건 · 예약 전부 풀기 · 형제 줄 도로(통째 = 행 이동 · 일부 = split_from_line_id 줄에 수량) · 형제 cancelled·merged · 원래 draft · unconfirmed_at/by
+so_unconfirm(so)                                         ~~supervisor~~ → manager + 원래 오더 창고(883 · §89) · confirmed · 14-f 조건 · 예약 전부 풀기 · 형제 줄 도로(통째 = 행 이동 · 일부 = split_from_line_id 줄에 수량) · 형제 cancelled·merged · 원래 draft · unconfirmed_at/by
 so_hold(so) · so_reallocate(so)                          manager · confirmed · 오더 전체 · 풀고 hold / hold 풀고 엔진(모자라면 나뉜다 · 미리 보기 없음)
 so_cancel(so, p_note, p_keep, p_commit)                  manager · draft·confirmed · note 필수 → closed_note · voided · 예약 전부 풀기 · ⭐ 열린 자손 전부 함께(같은 note) · p_keep = 살릴 형제(뺄 목록 · 그 아래도 산다) · 창고로 간 자손은 무접촉 + 경고 · 미리 보기
 so_change_location(so, location, p_commit)               manager · confirmed · 활성 창고 · 할당 있으면 전부 풀고 새 창고에서 엔진(모자란 몫 stock_short) · hold·백오더·프리오더 오더는 창고 칸만 · 미리 보기(하위 블록에서 풀고 엔진 돌린 뒤 되돌린다 — 식 한 곳)
@@ -3615,7 +3615,7 @@ POS·counter 는 실물을 손에 쥔 길   = Confirm 이 재고 수치를 보�
 | `so_hold` | 거부 | ⭐ ④a2 가 더한 길 가드 — **v1 은 통과해 할당이 풀리고 Finish 가 막혔다** |
 | `so_pos_reopen` | 통과 | draft 로 · 예약 풀림 1 |
 | `so_cancel` | 통과 | manager · Finish 전 취소 길 |
-| `so_unconfirm` | 통과 | supervisor · 사슬 없음(해 없음 · 그대로 둠) |
+| `so_unconfirm` | 통과 | ~~supervisor~~ → manager + 원래 오더 창고(883 · §89) · 사슬 없음(해 없음 · 그대로 둠) |
 
 ⭐ **실사고 둘(`so_hold` · `so_divide` 가 pos 를 통과했다)은 검증이 잡았다** — 새 일하는 방식(Claude Code 가 테스트 DB 에서 시험 적용 + 검증까지)의 실물. 지시서 목록에 없던 함수를 훑기가 찾아 재발행한 것이기도 하다(asung-workflow §4 마지막 줄).
 
@@ -9010,7 +9010,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | 538 | 「이름 바꾸기는 막고, 만들기, 끄기, 켜기로 하자」 | 마스터 다섯은 만들기 · 끄기 · 켜기만 · 이름 바꾸기는 DB 가 막는다(IM538) |
 | 539 | 「packed 좋아」 | 비용을 넣고 지우는 상태 = draft + packed 만 |
 | 540 | 「좋아」 | packed 에서는 sales 쓰기 + master 쓰기 둘 다 · → §24 4662 행 · §17 3199 행 정정 |
-| 541 | 「니 제안대로 하자」(533 고쳐 정함) | Lines 전부 지우기는 **draft 만** · 확정 오더는 Unconfirm(supervisor) 뒤 |
+| 541 | 「니 제안대로 하자」(533 고쳐 정함) | Lines 전부 지우기는 **draft 만** · 확정 오더는 Unconfirm(supervisor) 뒤 · → [2026-10-29 밤 · §89] Unconfirm 은 manager 이상 + 원래 오더 창고(883) |
 | 542 | 「모두」 | 손 단가 줄은 전부 오더 할인을 안 받는다(붙여넣기 · SO 손 단가 · POS) |
 | 543 | 「니 제안대로」 | 그래도 금액 단계 문턱 합계에는 넣는다 |
 | 544 | 「니 제안대로」 | 손 할인 % 줄도 최종 · od-1 이 Shopify 줄도 같은 기준(so_line_manual) |
@@ -9859,12 +9859,12 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 | 0 | 참조 표 | ImsRefLoad.gs imsLoadSimpleRefs/Apply · imsLoadAccount/Apply · imsLoadPaymentTerm/Apply · imsLoadWarehouse/Apply · imsLoadBin/Apply | 행 수 = Cin7 수 · ref_bin 2,675 > 1,000 캡 | 대응표 잘림 |
 | 1 | 손님 | ImsLoadCustomer.gs imsLoadCustomerCollect(Next run 이면 다시) → imsLoadCustomerDry → Apply1(674 짝 PATCH → upsert → 내리기) → Apply2(부모 잇기 · 109 · 678 건너뜀) → Apply3(주소 · 내리기 → upsert) → Apply4(연락처) → imsLoadCustomerVerify | 짝지은 수(674 · 681 — 「값이 다른 칸 name」 이면 보이지 않는 글자 차이) · 손댄 행(672) 목록 · IMS 관계(세움 · 뗌) 수 · 보낼 행 · 기본 주소 비운 손님 | 받은 행 ≠ Total · 같은 이름 둘 이상(보이는 글자) · 짝의 cin7_id 가 이미 cin7 행 · Status · MarketingConsent · Address Type 밖 · Default 연락처 둘 · 같은 cin7_id 두 번 · 내리기 > max(20, 1 %)(ILC_ALLOW_BIG_DOWN) |
 | 2 | 공급처 | ImsLoadSupplier.gs imsLoadSupplier → imsLoadSupplierApply(짝 PATCH → upsert → 내리기 → rpc 재계산) → imsLoadSupplierSub → imsLoadSupplierSubApply → imsLoadSupplierVerify · ⛔ imsLoadPurchasable* 은 돌리지 않는다 | 보낼 = 갱신 + 새 · 짝(674 · 681) · 손댄 행(672) · is_active IMS 값 유지(683) 수 · 내릴 행 · 「기본 둘 이상 0」 | 받은 행 ≠ Total · 이름 겹침(23505 사전 검사) · 내리기 > max(20, 1 %)(ILS_ALLOW_BIG_DOWN) |
-| 3 | 제품 | ImsLoadProduct.gs imsLoadProductFamily → Apply → imsLoadProduct(전량 Dry · 커서 IPR_DRY_PAGE · ⏸ 면 다시) → imsLoadProductApply(⏸ 면 다시) → imsLoadProductExtraApply(AS91437-BLK) · 보조 imsLoadProductReset | cin7_id 로 / 새로 / 짝(674) / 이미 짝지어진 안 보냄 · SKU 다름(679) · sellable 유지(670 · 675) · 672 손댄 행 · 대응표 = 원격 총계 · 새로 = IMS 에 없던 Cin7 제품(176 · 678 개 짐작) | 같은 SKU 가 다른 cin7 행(사람이 가른다 · 그 쪽은 안 씀) · 대응표 잘림 · 674 PATCH 0 행 |
+| 3 | 제품 | ImsLoadProduct.gs imsLoadProductFamily → Apply → imsLoadProduct(전량 Dry · 커서 IPR_DRY_PAGE · ⏸ 면 다시) → imsLoadProductApply(⏸ 면 다시) → imsLoadProductExtraApply(AS91437-BLK) · 보조 imsLoadProductReset · ⭐ [10-29 밤 · §89-e 1] **Reset 먼저**(imsLoadProductReset — Apply 커서 IPR_PRODUCT_PAGE 가 지난 값으로 남아 Apply 가 페이지 39 부터 시작했다) | cin7_id 로 / 새로 / 짝(674) / 이미 짝지어진 안 보냄 · SKU 다름(679) · sellable 유지(670 · 675) · 672 손댄 행 · 대응표 = 원격 총계 · 새로 = IMS 에 없던 Cin7 제품(176 · 678 개 짐작) | 같은 SKU 가 다른 cin7 행(사람이 가른다 · 그 쪽은 안 씀) · 대응표 잘림 · 674 PATCH 0 행 |
 | 4 | 세트 잇기 | imsLinkProductSets → imsLinkProductSetsApply(⏸ 면 imsLinkProductSetsResume) | 오타 탐지기 셋 = 0(구성품 GUID 없음 · uom_name ≠ BOM factor · 접미사 부모 ≠ BOM 부모) | 탐지기 ≠ 0 이면 사람이 본다(멈추지 않고 목록) |
-| 5 | 바코드 | imsLoadProductBarcode → Apply(커서 IPR_BARCODE_PAGE) → imsLoadProductAltUpc → Apply | 같은 바코드 다른 제품(48 종) · 걸러낸 수 · manual 건너뜀 · 672 손댄 줄 | 대응표 잘림 · 400 cannot affect row |
+| 5 | 바코드 | imsLoadProductBarcode → Apply(커서 IPR_BARCODE_PAGE) → imsLoadProductAltUpc → Apply · ⭐ [10-29 밤 · §89-e 1] **Reset 먼저**(imsLoadProductBarcodeReset) | 같은 바코드 다른 제품(48 종) · 걸러낸 수 · manual 건너뜀 · 672 손댄 줄 | 대응표 잘림 · 400 cannot affect row |
 | 6 | BOM(콤보) | imsLoadProductBom → Apply | 콤보 수 · 구성품 줄 · 우리 표에 없는 콤보 · 구성품 = 0 · manual 건너뜀 | 조회 실패 · 대응표 잘림 |
-| 7 | 제품-공급처 | ImsLoadProductSupplier.gs imsLoadSupplierExtra → Apply(시트 ips_line · ⏸ 면 다시) → imsLoadProductSupplier → Apply(끝에 rpc 재계산) · 보조 Reset · ⚠️ 2 번이 먼저 | 새 비활성 공급처 · 보내지 않은 줄(IMS 가 정한 Cin7 줄) · 승격(cin7_id 만) · 672 cost 덮임 · 「기본 둘 이상 0」 | 공급처 FK 못 붙음 · 재계산 ⚠️ · → [2026-10-26 · 판정 756 · §77] Dry 기대: 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 **0**(cutover-delete.sql ⑨ 가 Roux 19 줄을 source cin7 으로) |
-| 8 | 가격 | ImsLoadPrice.gs imsLoadPriceCollect(⏸ 면 다시) → imsLoadPriceDry → imsLoadPriceApply(⏸ 면 다시) → imsLoadPriceVerify | Cin7 에만 있는 제품(제품 적재 뒤 0 근처) · 세트 판정 어긋남 0 · 새로/바뀜/되살림/내림 · formula · manual 무접촉 | 받은 행 ≠ Total · 같은 제품 ID 두 번 · 티어 이름 ≠ ref_price_tier · 없는 code 에 양수 · 숫자 아님 · 내리기 > max(20, 1 %)(ILP_ALLOW_BIG_DOWN) |
+| 7 | 제품-공급처 | ImsLoadProductSupplier.gs imsLoadSupplierExtra → Apply(시트 ips_line · ⏸ 면 다시) → imsLoadProductSupplier → Apply(끝에 rpc 재계산) · 보조 Reset · ⚠️ 2 번이 먼저 · ⭐ [10-29 밤 · §89-e 1] **Reset 먼저**(imsLoadProductSupplierReset) · 대응표는 `cin7_id=not.is.null`(IMS 제품 27 이 null 열쇠 하나로 겹쳐 「잘렸다」 헛경보 · §89-c) | 새 비활성 공급처 · 보내지 않은 줄(IMS 가 정한 Cin7 줄) · 승격(cin7_id 만) · 672 cost 덮임 · 「기본 둘 이상 0」 | 공급처 FK 못 붙음 · 재계산 ⚠️ · → [2026-10-26 · 판정 756 · §77] Dry 기대: 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 **0**(cutover-delete.sql ⑨ 가 Roux 19 줄을 source cin7 으로) |
+| 8 | 가격 | ImsLoadPrice.gs imsLoadPriceCollect(⏸ 면 다시) → imsLoadPriceDry → imsLoadPriceApply(⏸ 면 다시) → imsLoadPriceVerify · ⭐ [10-29 밤 · §89-e 1] **Reset 먼저**(imsLoadPriceReset) | Cin7 에만 있는 제품(제품 적재 뒤 0 근처) · 세트 판정 어긋남 0 · 새로/바뀜/되살림/내림 · formula · manual 무접촉 | 받은 행 ≠ Total · 같은 제품 ID 두 번 · 티어 이름 ≠ ref_price_tier · 없는 code 에 양수 · 숫자 아님 · 내리기 > max(20, 1 %)(ILP_ALLOW_BIG_DOWN) |
 | 9 | 태그 | ImsLoadProductTag.gs(편집기 ImsTagProbe) imsLoadProductTag → Drive 보고 파일 셋을 사람이 본다(676) → imsLoadProductTagApply(⏸ 면 다시) — 176 의 「제품 적재 뒤 태그 한 번 더」 가 이것 | 「기본값 사용」 여부 · 418 없는 제품 ≈ 0(순서 검사) · 켜진 딜의 태그 줄 수(Clearance · DISC_* · GM/HS) · 「뗀 것 짐작」 → 사람이 가른다 · 지울 것의 딜 ⚠️ | 받은 행 ≠ Total(stop 보고) · 지우기 > max(20, 1 %)(IPT_ALLOW_BIG_DELETE) · 넣기 덩이 실패 |
 | 10 | 이력 | ImsLoadHist.gs ⚠️ ILH_PRACTICE 를 지우고(315) → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(Next run 이면 다시) | BigQuery 숫자 = 콘솔 D1 · D2 · 짝 표본 20 · 못 풀림 비율 | BigQuery 서비스 꺼짐 · 못 풀림 > 20 %(ILH_ALLOW_UNRESOLVED) · IMS 번호 겹침 · 모르는 PO 상태(ILH_PO_EXTRA_OK) |
 
@@ -11409,7 +11409,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 ```
 
 - §73-c 의 0 · 2 단계를 **컷오버 전날** 먼저 돌렸다(제품 · 가격 · 공급처는 10-29 부터 Cin7 에서 새로 만들지 않는다 — 88-a) · 손님(1)은 10-30 18:00 뒤
-- §73-c 7(제품-공급처)은 **10-30 지우기(cutover-delete.sql ⑨ Roux 19 줄 source cin7) 뒤 한 번 더** — 오늘 돌리면 Roux 19 줄은 manual 이라 건너뛴다(Dry 「보내지 않은 줄」 19 는 오늘은 정상 · 지운 뒤 0 이어야) · 금요일 Cin7 입고의 Latest 원가도 그때 들어온다
+- §73-c 7(제품-공급처)은 **10-30 지우기(cutover-delete.sql ⑨ Roux 19 줄 source cin7) 뒤 한 번 더** — 오늘 돌리면 Roux 19 줄은 manual 이라 건너뛴다(Dry 「보내지 않은 줄」 19 는 오늘은 정상 · 지운 뒤 0 이어야) → [10-29 밤 · §89-c] **⑨ 전인데 0** · 까닭 모름(짐작: 그 19 연결이 Cin7 시트에 없다 · deferred 385) · 금요일 Cin7 입고의 Latest 원가도 그때 들어온다
 - 판정 617 의 「Asung-IMS 가 그대로 운영 DB」 는 그대로 — 바뀐 것은 시각(11-01 → 10-30 18:00 뒤)뿐
 
 ### 88-d 열린 것
@@ -11438,4 +11438,80 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 ```
 다음 판정 번호: 882 · 다음 deferred 번호: 383
+```
+
+## §89 2026-10-29 집 저녁 — 마스터 적재 3 ~ 9 · aone 운임 잠금 형제까지 · Unconfirm Manager · 발주앱 경계 닫음 — fc-lock-1 · unconf-1 · st v3c · so v5y7 · 판정 882 · 883 (집 PC)
+
+⭐ 정한 것: aone 운임 잠금 · 비용 문을 **갈린 형제까지**(882) · Unconfirm 을 **Manager 에게 · 자기 창고 오더만**(883 · R9 바꿈) · 발주앱 경계 2026-11-01 그대로(deferred 382 닫음) · aone 화면 시험은 하지 않고 첫 실제 aonebeauty.com 오더를 오피스가 지켜본다
+⭐ 원천: docs-1029c 📌 A ~ E(대화 Claude · Caleb · 집 저녁 대화) · 커밋 메시지 · 마이그레이션 머리 주석 · ⚠️ fc-lock-1 · unconf-1 보고 원문 · 적재 로그는 레포에 없다 — 이 절이 원천
+⭐ 커밋 — asung-wms `90b49f1` · `eb4c46b`(테스트 DB 적용 · 확인 끝) / asung-ims `0acc704` · `f35988c`
+⭐ 마스터 적재 §73-c 3 ~ 9 를 10-29 18:41 ~ 20:48(토론토)에 돌렸다(테스트 = 메인 DB) — 남은 것: 1(손님)은 10-30 18:00 뒤 · 7 은 cutover-delete ⑨ 뒤 한 번 더
+
+### 89-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 882 | 「진행하자」 · 「지금은 aonebeauty.com 만이야」 | aone 스토어(kind aone) Shopify 오더에서 나온 SO 는 **갈린 형제(split_from_id 사슬)도** 손님이 Shopify 에서 운임을 결제한 오더로 본다 — `fc_shipment_prepare` 의 freight_locked(836 · 844) · `so_charge_gate` 의 「스토어 모름」 · 「aone 거부」(549) 둘 다 새 함수 `so_chain_shop_orders(so_id)`(위로 깊이 50 · 순환 가드 · invoker · public/anon/authenticated revoke)로 판정 · asung.ca 는 판정 473 그대로(Shopify 운임 = 견적 · Freightcom 이 덮는다) · 덤: asung 형제가 「Shopify order but its store is unknown」 으로 막히던 것이 풀림(fc-lock-1 이견 1) · 기각: asung.ca 까지 넓히기 |
+| 883 | 「Unconfirm 을 Manager 에게 열되, 자기 창고 오더만」(앞서 「수퍼바이저로 올릴께」 를 거둠) | `so_unconfirm` 문 = sales 쓰기 + **manager 이상** + `ims_can_warehouse(원래 오더 location_id)` — supervisor · admin 은 모든 창고 · manager 는 Location 체크한 창고(비면 전부) · **형제 창고는 보지 않는다**(unconf-1 이견 1: 형제는 부모 창고에서 태어남 · 확정 뒤 부모만 옮긴 SO-25166 같은 오더도 새 창고 매니저가 풀 수 있어야) · 오류 글 「Order % is in % — you can unconfirm only orders of your locations (ask a supervisor)」 · 대가: Location 이 빈 Manager 는 모든 오더 · 규칙 R9(2704 행 「supervisor 이상」)을 바꾼다 · Caleb 의 일상 흐름(111 → Unconfirm → 창고 바꾸기 → Confirm → 111b 백오더)은 문제 없음 — 창고 바꾸기 · Confirm 은 Manager · 창고 검사 없음(so_header_update · so_confirm · so_change_location) |
+| (판정 아님) aone 시험 | 「2 신경쓰지마」 | 테스트 Shopify 가 kind asung 이라 aone 규칙을 화면으로 시험할 길이 없다 → 시험 스토어 종류를 바꾸지 않고 **첫 실제 aonebeauty.com 오더를 오피스가 지켜본다** |
+| (판정 아님) 382 닫음 | 「없어」 | `pur_sales_daily` 는 **인보이스 발행일(so_invoice.issued_on)** 로 센다(20261022144212_pur_1b:34 · 52) — 주말 웹 오더도 출고 · 인보이스가 11-02 이후면 IMS 쪽에 든다 · 빠지는 경우는 10-30 18:00 ~ 10-31 IMS 인보이스뿐 · Caleb 확인: 그 사이 IMS 인보이스 없음 ⇒ 경계 2026-11-01 그대로 · deferred 382 닫음 |
+
+### 89-b 차수 · 커밋 (git log 원문 · 두 레포)
+
+| 레포 | 커밋 | 차수 | 확인 |
+|---|---|---|---|
+| asung-wms | `90b49f1`(`20261029235500_fc_lock_1_aone_split.sql`) | fc-lock-1 — 새 `so_chain_shop_orders(so_id)`(split_from_id 를 위로 · 깊이 50 · 순환 가드 · invoker · public/anon/authenticated 회수) · `fc_shipment_prepare` freight_locked · `so_charge_gate`(스토어 모름 · aone) 재발행 — 사슬로 판정(882) | 시험 4 회 OK 27 · begin → rollback 1.72 s · 확인 OK 23 |
+| asung-wms | `eb4c46b`(`20261029235800_unconf_1_manager_own_warehouse.sql`) | unconf-1 — `so_unconfirm` 둘째 문 supervisor → manager · 셋째 문 `ims_can_warehouse(원래 오더 location_id)`(형제는 안 봄) · 새 오류 글이 오더 창고를 말한다(883) | 시험 2 회 OK 22 · begin → rollback 1.48 s · 확인 OK 19(직원 다섯) |
+| asung-ims | `0acc704` | st v3c — staff.html: 역할이 Supervisor · Admin 이면 Location 체크 칸을 잠근다(ims_can_warehouse 가 그 역할에 체크를 안 본다) · 체크 값은 저장 그대로(Manager · Worker 로 되돌리면 다시 쓰임) | — |
+| asung-ims | `f35988c` | so v5y7 — Unconfirm 단추를 Manager 이상에게(일반 · 서비스 두 곳 · 전에는 `isSup()` 로 감춤 — DB 만 열면 단추가 안 보였다) · 글 「(supervisor)」 → 「(manager — orders of your locations)」 | — |
+
+- 남긴 것: `so_pos_reopen` 오류 글의 「use so_unconfirm (supervisor)」(unconf-1 이견 4 — 다음 POS 재발행 때 · deferred **383**)
+- 매뉴얼 `docs/manual/en|ko/01-sales.md` 의 Unconfirm 절(제목 · 대화창 글 · 창고 한 줄)을 so v5y7 에 맞춰 고쳤다(docs-1029c 이견 2)
+
+### 89-c 실측 · 마스터 적재 실적 (§73-c 3 ~ 9 · 10-29 18:41 ~ 20:48 토론토 · 테스트 = 메인 DB)
+
+| 단계 | 결과 |
+|---|---|
+| 3 제품군 | 1,184(갱신 1,141 · 새로 43) · FK 못 붙음 0 |
+| 3 제품 | Cin7 19,404 · 갱신 18,713 · 새로 562 · 짝(674) 3(AS85203 · -6 · -72) · 건너뜀 126(Stock 아님 59 · EA-ALT-UPC 67) · 표 19,306 · 손댄 행(672) 5 — 넷은 날짜 칸 글꼴만 · ABE16204 만 hs_code 「3305900000」 → Cin7 「3305.90.00.00」(Cin7 이 10-29 13:56 수정 · 최신) · ⚠️ **Apply 가 페이지 39 부터 시작**(Apply 커서 IPR_PRODUCT_PAGE 가 지난 적재 값으로 남음 · Dry 는 IPR_DRY_PAGE 따로) → imsLoadProductReset 뒤 다시 · ExtraApply AS91437-BLK 1 |
+| 4 세트 | 이을 것 6,463 · 새로 이은 114 · 오타 탐지기 셋 0 |
+| 5 바코드 | 본 19,404 = 쓴 17,610 + 바코드 없음 1,666 + manual 3 + 표에 없음 125 · 한 바코드 여러 제품 29 종(정본 메모 48 → 줄었다) |
+| 5 대체 UPC | 후보 67 = 넣음 8 + 바코드 없음 8 + 부모가 이미 가짐 51 · ⚠️ 첫 Apply 409 23505 `product_barcode_cin7_id_key` — Cin7 이 **TGI00639-EA-ALT-UPC 바코드를 860014248849 → 850033085846** 으로 고침(Caleb Cin7 화면) → SQL 한 줄(cin7_id 65a80c73… 의 barcode 갱신) 뒤 다시 · 메모: BAB47766 · BCO10165 · BS2664BLA 의 대체 UPC 는 Cin7 에서 바코드가 비었는데 09-14 옛 줄이 표에 남음(이 단계는 넣기만 · 스캔에 해 없음 · 그대로 · deferred **384**) |
+| 6 BOM | 콤보 40 · 구성품 줄 375 · manual 4 안 보냄 · 손댄 0 |
+| 7 제품-공급처 | 시트 13,160 · 넣음 13,159 · 승격 1 · 기본 재계산 끔 0 · 켬 451 · 기본 둘 이상 0 · ⚠️ ① **대응표 헛경보** — `ipr_map_('/rest/v1/product?select=id,cin7_id', 'cin7_id')` 가 cin7_id 없는 IMS 제품 27 을 「null」 열쇠 하나로 겹쳐 19,280 / 19,306 「잘렸다」 로 멈춤(19,306 − 27 + 1) → 편집기 Imsloadproductsupplier.gs 239 · 240 행에 `&cin7_id=not.is.null`(공급처도 IMS 공급처 1 곳) ② 실수로 imsLoadSupplierExtraApply 를 눌렀다 멈춤 → 시트가 비워지고 일부만 → Reset → ExtraApply 끝까지(13,160) ③ Apply 6,000 줄에서 409 23505 `product_supplier_natural_key` — **Cin7 에서 연결을 지웠다 다시 붙여 ProductSupplierID 가 바뀐 줄 2**(CRO71964-6 · Camille Rose · ecd2107b → e4972cc4 / EBI68634-6 · Ebin New York · 94a04079 → ba82eb57 · 둘 다 source cin7 · 꺼짐) → 진단 함수 `ipsDiagRelinked1029`(읽기만 · 레포 사본 docs/probes/ImsLoadProductSupplier.gs 끝)가 전수 2 줄 · 「Cin7 안 중복 0」 → SQL update(cin7_id 옛 → 새) 뒤 Apply 다시 ④ 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 이 **0**(인계서 기대 19 · 표에는 manual + cin7_id 19 줄 그대로) — 까닭 **모름**(대화 Claude 의 「새 id 로 다시 붙음」 짐작은 진단이 부정) · 그 19 줄은 모두 꺼짐 · 적재에 해 없음 · 짐작(docs-1029c 이견 1 · 코드 읽기): 이 수는 제품 · 공급처 대응을 통과한 시트 줄에만 닿고(ImsLoadProductSupplier.gs:261 · 262 · 291) 진단이 Roux 짝을 못 잡았으니 **그 19 연결이 Cin7 시트에 없다** — deferred **385** |
+| 8 가격 | 수집 19,404 = Total · 바라는 78,360 · 새로 2,246 · 바뀜 1,644 · **내림 762**(ABE 등 T6 wholesalespecia · T7 USWholesale — Caleb Cin7 확인: ABE10612 두 칸 빔 · Cin7 이 값) · Verify ⭐ 전부 일치(활성 78,354 · 내려 둔 762 · formula · manual 59) |
+| 9 태그 | 넣기 2,754(새 제품 2,744 · 기존 10) · 지우기 24(켜진 딜 태그 0) · 켜진 딜 태그 넣기 51(GM20UOM12 35 · GM20UOM6 15 · DISC_YesSale 1) · 끝 cin7 66,231 · manual 14 (SQL 확인) · ADG68234 Toronto_NoSale → EDM_NoSale 은 Cin7 화면으로 확인 · IPT_LAST_APPLY_AT = 2026-10-30T00:48:09Z |
+
+- 1(손님)은 10-30 18:00 뒤 · 7 은 cutover-delete ⑨ 뒤 한 번 더(기대 「보내지 않은 줄」 0 — 이미 0 · 그래서 ⑨ 의 확인 구실은 못 한다)
+- 편집기에만 있던 GAS 두 가지(대응표 `cin7_id=not.is.null` · `ipsDiagRelinked1029`)를 레포 사본 `docs/probes/ImsLoadProductSupplier.gs` 에 옮겼다 · 같은 꼴의 `ips_loadSupplierExtra_` 102 행 `haveSup` 은 편집기와 같게 두었다(IMS 공급처 1 곳이라 지금은 헛경보 없음 · 둘째가 생기면 난다 · asung-apps-script 규칙 6)
+
+### 89-d 열린 것
+
+- 새 deferred **383** — `so_pos_reopen` 오류 글 「use so_unconfirm (supervisor)」 낡음 · 다음 POS 재발행 때(컷오버 뒤)
+- 새 deferred **384** — 대체 UPC 옛 줄 셋(BAB47766 · BCO10165 · BS2664BLA — Cin7 바코드 빔 · 표에 09-14 줄 남음 · 컷오버 뒤)
+- 새 deferred **385** — 「보내지 않은 줄」 19 → 0 의 까닭 모름(Roux manual + cin7_id 19 줄) · cutover-delete ⑨ 뒤 7 단계 Dry 에서 다시 본다 · 컷오버 뒤
+- 새 deferred **386** — 컷오버 날 1 단계(reload §P-2 1)의 cron 40 · 41 은 아침에만 돈다(scan 14:30 UTC · move 14:05 ~ 15:50 UTC) ⇒ **10-30 18:00 뒤에는 정해진 실행이 없다**(날짜를 당기며 생긴 틈) · 손 실행(cron.job 의 command 를 execute)으로 메울지 **Caleb 결정 대기** · 방법(10-29 밤 실측 중): `do $run$ begin execute (select command from cron.job where jobid = 40); end $run$;` → `ims_image_sync_runs` 의 scan 줄 확인 → jobid 41 을 pending 0 까지 · 컷오버 날
+- deferred **382 닫힘**(89-a)
+- 짐작 · 줄 없이: aone 규칙(882)은 화면 시험이 없다 — 첫 실제 aonebeauty.com 오더를 오피스가 지켜본다(Caleb 「2 신경쓰지마」)
+
+### 89-e ⚠️ 실수 · 배운 것 — 원인 · 처방
+
+1. [대화 Claude] 인계서 적재 순서에 Reset 이 없었다 — 제품 Apply 가 남은 커서(39)에서 시작 · 바코드 · 제품-공급처 · 가격도 같은 함정 ⇒ **재적재는 단계마다 그 파일의 Reset 먼저**(imsLoadProductReset · imsLoadProductBarcodeReset · imsLoadProductSupplierReset · imsLoadPriceReset) · 재발 §80-e 7
+2. [대화 Claude] fc-lock-1 지시서 전제 둘이 틀렸다(「aone 스토어 테스트 DB 에 없다」 — 있었다 · 「운영 asung-WMS 적용 명령」 — 테스트 DB 가 메인 · 판정 617) ⇒ 「없다」 는 select 한 줄 뒤에 · 적용 대상은 늘 테스트 DB 하나
+3. [대화 Claude] 화면 파일을 만들고 present_files 없이 옮기기 명령만 줬다(Caleb 「화면 파일은 아직 안줬어」) ⇒ 파일을 만들면 present 먼저
+4. [대화 Claude] DB 문(883)을 연 지시서에 「화면이 그 단추를 역할로 감추나」 를 안 넣었다 — 커밋 뒤 so.html `isSup()` 발견 ⇒ **창구 문을 바꾸는 차수는 그 동작을 그리는 화면 조건을 grep 해 같은 날** · (docs-1029c 에서 매뉴얼 01-sales 의 「Supervisors and admins」 도 같은 뿌리로 남아 있었다)
+5. [대화 Claude] Roux 「새 id」 짐작이 틀렸다 · 진단 함수가 한 번에 전수(2 줄)를 잡았다 ⇒ 적재가 첫 충돌에서 멈추면 하나씩 고치지 말고 **읽기만 하는 진단으로 전수**
+6. [Caleb] 판정 설명이 어려웠다(「쉽게 설명해줘」 · 「구조적으로 문제가 있다는 얘기로 들려」) ⇒ 판정 · 이견 설명은 **Caleb 의 실제 오더 흐름(111 → 111a → …)으로** 먼저 · 드문 갈래는 「드문 다른 길」 이라고 밝힌다(§2 10-06 줄 재발)
+7. [대화 Claude] 쿼리에 할인 칸을 안 꺼내 SO-25261 의 12.11 줄 100 % 할인을 못 봤다 ⇒ 운임 줄을 볼 때는 discount_pct · discount_amount 함께
+8. [잘 된 것] fc-lock-1 이견 1(스토어 모름 줄) · unconf-1 이견 1(SO-25166 실물) · Cin7 화면 한 장으로 TGI00639 · ADG68234 확인 · SO-25261 은 고장 아님(Jan Ko 가 aone 을 흉내 — Freightcom 줄 100 % 할인 + Standard 5.25 새 줄)
+
+### 89-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- R9(2704 · 2708) · 창구 표 so_unconfirm(2742) · 사슬 표(3618) · 판정 541 줄 — 「supervisor」 → manager 이상 + 원래 오더 창고(883)
+- §73-c 표 3 · 5 · 7 · 8 단계 「Reset 먼저」 · 7 단계 「대응표는 cin7_id=not.is.null」 · §88-c 「Roux 19 정상」 줄 → 0 · 까닭 모름
+- deferred 382 닫힘 · reload-procedure §P-2 1(cron 40 · 41 의 틈) · 7(Dry 0) · 8(Reset 먼저) · freightcom-integration §6(형제 · 549) · 매뉴얼 en · ko 01-sales Unconfirm 절
+- 「다음 판정 번호: 882 · 다음 deferred 번호: 383」(§88 끝) → 아래
+
+```
+다음 판정 번호: 884 · 다음 deferred 번호: 387
 ```

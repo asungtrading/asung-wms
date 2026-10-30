@@ -291,9 +291,11 @@ Each step can be taken back one step at a time: from the warehouse to **Confirme
 1. On a draft, press **Delete draft**.
 2. IMS asks: "Delete draft SO-99001? It has never been confirmed, so it disappears — the number is not reused." Press OK.
 
-**Unconfirm — Supervisors and admins**
+**Unconfirm — Managers and above**
+- A manager can unconfirm only orders of the locations ticked for them in Staff (no location ticked = every location). Supervisors and admins can unconfirm any order.
+- Another location's order: "Order SO-99001 is in (its location) — you can unconfirm only orders of your locations (ask a supervisor) — nothing was saved".
 1. On a confirmed order still in IMS, press **Unconfirm**.
-2. IMS asks: "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (supervisor)." Press OK.
+2. IMS asks: "Unconfirm SO-99001? Reserved stock is released and split-off backorder/preorder orders come back into this one (manager — orders of your locations)." Press OK.
 3. The order is a draft again. Its backorder and pre-order orders from that confirmation (for example SO-99001a) are back inside it. Backorder lines it had taken over from older orders are reopened, and IMS says how many.
 - A coupon used by the order can be used again.
 - A confirmed service order goes back to draft the same way.

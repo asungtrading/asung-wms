@@ -151,6 +151,14 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
    GAS Imsloadcustomer.gs ↔ 레포 ImsLoadCustomer.gs · Imsloadprice.gs ↔ ImsLoadPrice.gs · Imsloadproduct.gs ↔ ImsLoadProduct.gs · ImsTagProbe.gs(이름을 ImsLoadProductTag.gs 로 바꿨을 수 있다 — 짐작) ↔ ImsLoadProductTag.gs
    같은 이름: ImsLoadSupplier.gs · ImsLoadOpening.gs · ImsLoadHist.gs · ⚠️ Imsloadproductsupplier.gs 는 Imsloadproduct.gs 와 **다른 파일**(제품-공급처 · 레포 ImsLoadProductSupplier.gs 짐작)
    → [2026-10-29 · so-module §88-c · Caleb 확인] GAS **ProbeIMS.gs ↔ 레포 ImsRefLoad.gs**(참조 표 적재 · §73-c 0) · ImsLoadSupplier.gs 는 편집기에서도 그 이름 그대로(레포 판과 같음 확인) · deferred 322 는 「ProbeIMS.js」 로 적었다(편집기 표시는 .gs)
+⚠️ [2026-10-29 밤 · so-module §89-e 1 · 재발 §80-e 7] **재적재는 단계마다 그 파일의 Reset 먼저** — imsLoadProductReset · imsLoadProductBarcodeReset · imsLoadProductSupplierReset · imsLoadPriceReset
+   Apply 커서(예 IPR_PRODUCT_PAGE)는 지난 적재 값으로 남는다 · Dry 커서(IPR_DRY_PAGE)는 따로라 Dry 는 전량인데 Apply 가 페이지 39 부터 시작했다
+⚠️ [2026-10-29 밤 · §89-c 7] **ipr_map_ 로 cin7_id 열쇠 대응표를 만들 때 `&cin7_id=not.is.null`** — IMS 에서 만든 행(cin7_id 없음)이 「null」 열쇠 하나로 겹쳐
+   키 수 < 행 수 → 「잘렸다」 헛경보(19,306 − 27 + 1 = 19,280) · ImsLoadProductSupplier.gs ips_loadLines_ 239 · 240 고침 · ⚠️ 같은 꼴 ips_loadSupplierExtra_ 102 행 haveSup 은
+   편집기와 같게 그대로(IMS 공급처 1 곳이라 지금은 경보 없음 · 둘째가 생기면 난다 — 다음에 그 파일을 만질 때)
+⚠️ [2026-10-29 밤 · §89-c 7] **Cin7 에서 제품-공급처 연결을 지웠다 다시 붙이면 ProductSupplierID(cin7_id)가 바뀐다** → upsert(on_conflict cin7_id)가 새 행으로 넣으려다
+   `product_supplier_natural_key` 23505 · 진단 `ipsDiagRelinked1029`(읽기만 · 같은 (제품, 공급처) 가 표에 다른 cin7_id 로 · 고칠 SQL 을 로그로 · 레포 사본 끝) → update(cin7_id 옛 → 새) 뒤 Apply 다시
+   ⇒ 첫 충돌에서 멈추면 하나씩 고치지 말고 읽기만 하는 진단으로 전수(§89-e 5)
 ```
 
 ---
