@@ -60,7 +60,7 @@ import { BULK_PRODUCTS_QUERY, BULK_RUN_MUTATION, BULK_STATUS_QUERY, chunk as lin
 import { adoptExisting, adoptReadyError, buildFulfillmentInput, buildTrackingInput, FULFILL_DRAIN_MS, FULFILL_FETCH, FULFILL_KINDS, FULFILL_ORDERS_QUERY, FULFILLMENT_CREATE_MUTATION, FULFILLMENT_ORDER_MOVE_MUTATION, movesNeeded, pickupFo, pickupPath, planLines, PREPARED_FOR_PICKUP_MUTATION, preparedForPickupInput, queueOutcome, readyAtFromFos, remapAfterMove, TRACKING_UPDATE_MUTATION, userErrorsText, type FoNode, type FulfillKind, type FulfillmentNode, type FulLine, type FulRow, type PlanItem, type UserErr } from "../_shared/shopify-fulfill.ts";
 import { beginOrderEdit, isPaid, NoChangeError, ORDER_EDIT_FETCH, ORDER_EDIT_MAX_ATTEMPTS, ORDER_EDIT_MS, ORDER_LINES_QUERY, planEditSteps, planOrderEdit, removedQty, runOrderEdit, runTrySet, type DbLine, type LiveLine, type Plan, type TrySetResult } from "../_shared/shopify-edit.ts";
 import { MARK_PAID_FETCH, MARK_PAID_MS, markPaidFailedMessage, markPaidFinal, processMarkPaid, type MarkPaidOut, type PaidState, type PayOrder } from "../_shared/shopify-paid.ts";
-import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
+import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, drainShouldStop, idemKey, INVENTORY_ACTIVATE_MUTATION, INVENTORY_LEVELS_QUERY, INVENTORY_SET_MUTATION, needActivation, planRows, SENT_CHUNK, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_DRAIN_MS, STOCK_FETCH, type LevelsNode, type QueueRow, type RowPlan, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
 const DRAIN_MAX = 20;                                                                              // 보낸(ok · error) 건의 칸 — skipped_same_hash 는 세지 않는다(판정 424 ②)
@@ -349,7 +349,7 @@ async function stockDrain(caller: Caller, t0: number): Promise<Response> {
       await recordCall({ store_id: store.id, action: "stock_drain", ok: false, http_status: null, query_cost: null, throttle_available: null, error: msg, by_staff: caller.staffId, ms: Date.now() - t0 });
       continue;
     }
-    const sent: SentRow[] = await sbGet("shop_stock_sent?select=product_id,warehouse_id,quantity,last_status&store_id=eq." + store.id + "&product_id=in.(" + pids.join(",") + ")");
+    const sent: SentRow[] = (await Promise.all(chunk(pids, SENT_CHUNK).map((part) => sbGet("shop_stock_sent?select=product_id,warehouse_id,quantity,last_status&store_id=eq." + store.id + "&product_id=in.(" + part.join(",") + ")")))).flat();   // stock-drain-fix-1: SENT_CHUNK 개씩 읽어 합친다(500 id 한 URL ≈ 18 KB → 보내기 실패)
     const plans = planRows(qs, payload, sent);
     const done = new Date().toISOString();
     for (const r of ["skipped_same", "skipped_off"] as const) { const ids = plans.filter((p) => p.result === r).map((p) => p.queue_id); await patchQueue(ids, { done_at: done, result: r, error: null }); summary[r] += ids.length; }

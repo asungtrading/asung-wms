@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_stock_test.ts — Shopify · DB 무접촉 (stock-1b ① ~ ⑥ · _shared/shopify-stock.ts 의 순수 함수)
-import { activateKeyParts, activeLevels, chunk, countsToward, drainShouldStop, idemKey, needActivation, planRows, setInput, setKeyParts, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_REF, type QueueRow, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
+import { activateKeyParts, activeLevels, chunk, countsToward, drainShouldStop, idemKey, needActivation, planRows, setInput, setKeyParts, SENT_CHUNK, sortedForSet, splitUserErrors, STOCK_BATCH, STOCK_REF, type QueueRow, type SendItem, type SentRow, type StockPayloadRow } from "../_shared/shopify-stock.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -97,4 +97,19 @@ Deno.test("⑥ 상품 drain 칸 셈(판정 424 ②) — skipped_same_hash 는 �
   eq(drainShouldStop(20, 20, 1000), "batch full (20)", "20 sent · stop");
   eq(drainShouldStop(3, 20, 40_000), "time limit (40 s)", "time");
   eq(drainShouldStop(0, 20, 39_999), null, "just under the limit");
+});
+
+Deno.test("⑦ SENT_CHUNK 덩이(stock-drain-fix-1) — 0 · 1 · 100 · 101 · 500 개 · 덩이마다 ≤ SENT_CHUNK · 합치면 순서까지 그대로 · 한 덩이 URL 은 8 KB 아래", () => {
+  eq(SENT_CHUNK, 100, "SENT_CHUNK");
+  for (const n of [0, 1, 100, 101, 500]) {
+    const pids = Array.from({ length: n }, (_, i) => P(i));
+    const parts = chunk(pids, SENT_CHUNK);
+    eq(parts.length, Math.ceil(n / SENT_CHUNK), n + " ids → chunks");
+    for (const c of parts) if (c.length < 1 || c.length > SENT_CHUNK) throw new Error(n + " ids: chunk of " + c.length);
+    eq(parts.flat(), pids, n + " ids: flat() === original (order kept)");
+    const longest = Math.max(0, ...parts.map((c) => ("shop_stock_sent?select=product_id,warehouse_id,quantity,last_status&store_id=eq." + S + "&product_id=in.(" + c.join(",") + ")").length));
+    if (longest > 8_000) throw new Error(n + " ids: longest chunk URL " + longest + " > 8 KB");
+  }
+  eq(chunk(Array.from({ length: 101 }, (_, i) => P(i)), SENT_CHUNK).map((c) => c.length), [100, 1], "101 → [100, 1]");
+  eq(chunk(Array.from({ length: 500 }, (_, i) => P(i)), SENT_CHUNK).map((c) => c.length), [100, 100, 100, 100, 100], "500 → 5 × 100");
 });

@@ -14,6 +14,7 @@
 export const STOCK_BATCH = 100;                                           // inventorySetQuantities 한 번의 quantities 수(짐작 · 첫 호출 cost 로 조정)
 export const STOCK_DRAIN_MS = 40_000;                                     // 재고 drain 한 회차 시간 한도(cron 1 분 안에 끝나게)
 export const STOCK_FETCH = 500;                                           // 한 회차에 읽는 열린 줄 수(오래된 것부터)
+export const SENT_CHUNK = 100;                                            // stock-drain-fix-1: shop_stock_sent 읽기 product_id=in.() 한 번의 id 수 — uuid 36 자 × 500 ≈ 18 KB URL 은 보내기 실패(2026-10-30 Go live · 매분 500) · 100 ≈ 3.7 KB(이미 통과하는 정수 id 500 개 PATCH 와 같은 크기) · 줄 수 ≤ 100 × 위치 수로 1,000 행 캡 안
 export const STOCK_REASON = "correction";
 export const STOCK_REF = (firstQueueId: number | string) => "gid://asung-ims/StockQueue/" + String(firstQueueId);
 
