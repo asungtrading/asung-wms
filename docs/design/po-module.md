@@ -3240,6 +3240,8 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
 [검증 실측 · Caleb 2026-09-16 · SQL] CN-AMP-778812-1 · AMP00415 10 × 3.09 = 30.90 · credit_for AMP-778812(이미 다 낸 인보이스)
 ⇒ invoices[0]: payable_net 2,010.54 · paid 2,010.54 · credit_total 30.90 · **unpaid −30.90** · credits[0]: credit_net 30.90 · diff 0.00 · used 0 · remaining null · warnings []
 ⭐ **음수 미지급은 받을 돈이다** — 공급처가 우리에게 빚졌다. 결함이 아니다. 화면은 「30.90 credit due」로 그린다(po.html `4ae86d6`).
+→ [2026-10-31 · 판정 914 · so-module §94] **공급처 화면(suppliers.html sup v4 · asung-ims `7ba086c`)** 이 이 뜻으로 공급처마다 센다 — 넓은 목록 A/P · Overdue · Credit 칸 + Sort(Name · A/P 큰 순 · Overdue 가장 늦은 순) · 상세 기한 지남 칩 + Payables 카드(통화마다 · 기한 지난 문서 15 → invoices.html · charges.html `?id=`) · 셈 = **확정(status confirmed)** 된 `po_invoice_list` · `po_charge_list` 의 `unpaid` — 양수 = 갚을 돈(A/P) · 음수 = 크레딧(Credit) · 기한 = `due_date` < 토론토 오늘 · DB 무변
+→ [2026-10-31 · 판정 913 · so-module §94] ⭐ **컷오버 전 공급처 미지급은 IMS 로 이월하지 않는다** — 정본은 QuickBooks(Caleb 「미지급은 퀵북스에서 관리하고 있어」) · 이월은 QuickBooks 싱크의 한 단계(Vendor 짝 → 열린 빌 읽기 → 이월 · 결제 기록 위치도 그 설계 때 · deferred 428) · 그래서 sup v4 는 「IMS 에 넣은 매입 문서만」 을 화면에 적는다(실측 po_invoice_list 0 행 · 10-31)
 
 **⭐⭐ 인보이스·크레딧을 만드는 법 (2026-09-16 저녁 · `20260916200000` · 커밋 `160430b` · 화면 `asung-ims/invoices.html` 신설)**
 ```

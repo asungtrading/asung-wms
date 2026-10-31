@@ -263,6 +263,10 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ```
 ⭐⭐ 권한: 넣기·붙이기·대상 오더 = ims_require_write('sales') · 떼기·취소·환불 = 거기에 so_require_role('manager') — ⚠️ 「sales」는 역할이 아니라 쓰기 열쇠(ims_role_rank 는 worker<manager<supervisor<admin · so_require_role('sales') 는 전원 거부)
 ⭐⭐ 잔액 계산은 so_customer_balance 하나(통화별 · received = Σpayment 남은 금액 − Σrefund · reserved_deposit = 대상 오더가 아직 열린 선결제(so_payment_is_reserved) · owed_credit 0(ⓒ) · available = received + owed − reserved) — 화면·다른 함수가 식을 다시 짜지 않는다 · 별도 잔액 표 없음 → ✅ ⓒ2 가 채웠다(4-i)
+⭐⭐ [2026-10-31 · 판정 912 · cbal-1 `e0e5153` · 20261031214531] 여러 손님 = so_customer_balance_many(p_customer_ids uuid[]) — 단일 창구를 lateral 로 부른다(식 복사 없음) · 반환 customer_id + 여덟 칸(손님 × 통화) · **null = 잔액 칸 하나라도 0 아닌 손님 전부**(후보 = 활성 결제 customer_id ∪ issued 크레딧 customer_id ∪ issued 인보이스 bill_to — 전 손님 lateral 과 집합 같음 검증) · 빈 배열 0 행 · 중복 id 한 번 · 상한 500 · invoker · authenticated
+⚠️  잔액은 청구처로 되돌리지 않는다 — 인보이스는 bill_to 축 · 결제 · 크레딧은 돈을 낸 customer_id 축 · 매장 id 를 주면 매장 자신의 행(cbal-1 이견 2) · ⚠️ 단일 · many 모두 문이 없다(invoker + select 정책 using(true) — 로그인한 직원이면 읽는다 · deferred 427)
+⭐  뜻(화면 글자): **On account = received** = 어느 인보이스에도 안 붙은, 손님이 이미 낸 돈 — 오버페이 · 선결제(열린 오더 몫은 Held for orders) · IMS 이전에 받아 둔 돈(12b 이월 — 786 으로 Cin7 손님 크레딧 · 반품 크레딧 포함) · **Credit = owed_credit** = IMS 에서 발행한 크레딧 노트의 안 쓴 몫 · Available = On account + Credit − Held · 둘 다 인보이스 발행 때 저절로 쓰인다(so-module §94-c 2)
+⚠️  SO 조기 결제 할인(2%10 Net30 같은)은 **없다**(판정 10 — 손님 인보이스는 기한만) · 충당에 할인 칸 · 상각 길 없음 · 지어 달라는 요청은 deferred 426(회계사 답 대기) · **지금 되는 길 = 크레딧 노트 other 줄(계정 `_6_ Sales Discounts` · 세금은 인보이스 세율로 함께 줄어듦)**
 ⭐⭐ 인보이스 남은 금액 = so_invoice_remaining = total − Σ활성 alloc — amount_due(= total − deposit_applied + balance_forward)는 종이에 찍힌 값일 뿐(발행 때 자동으로 붙은 것이 둘 다에 있어 amount_due − Σ 로 세면 두 번 뺀다)
 ⭐⭐ 붙이기 한도 셋 = 인보이스 남은 금액 · 결제 남은 금액 · 그 통화의 받아 둔 돈(환불은 집계라 특정 결제에 안 매인다) · 같은 통화끼리만 · 같은 청구처 · 활성 짝(payment, invoice)은 하나 · 붙이는 것은 so_payment_alloc_add(속) 하나
 ⭐⭐ 떼기 = void(행 유지 · voided_at/by/note · 생성 칸 active_invoice_id 가 비어 다시 붙일 수 있다) · 결제 취소 = status voided(활성 alloc 있으면 「먼저 떼라」 · payment 는 취소 뒤 received < 0 이면 거부) · 환불 = kind refund 한 줄(한도 received · 계좌 필수 · 기본값 없음) — 삭제 없음
@@ -523,6 +527,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  화면(cs v6 · sup v3)이 IMS 거래와 n 개씩 읽어 날짜순으로 섞는다 — 읽기 창구 없음(666)
 ⭐  [2026-10-31 · 판정 901 · cs v7c `bc09643`] 손님 주문 이력 카드는 **본사 손님도 자기 이름의 오더만**(IMS · 이전 둘 다) — 654 A 의 cs v5 「본사는 매장 오더까지(Store 칸)」 는 바뀜 · 매장 오더는 그 매장에서 · 매장이 있으면 안내 한 줄
      ⚠️ hist_so.customer_id 는 GUID 로만 풀린다 — 반품 전용 오더 31 은 이름으로 이었다(902 · 재적재 뒤 다시 · deferred 425)
+⭐  [2026-10-31 · 판정 911 · 912 · cs v8 `fab07f4` · v8a `8279248` · v8b `f1ffcf7`] Customers — 검색 = 이름 · 표시 이름 · 세금 번호 + 연락처(이메일 · 이름 · 전화 · 휴대폰) · 주소(거리 · 도시 · 우편번호)(각 100 · 두 글자부터 · 전화는 저장된 꼴 그대로) · 넓은 목록 Open A/R · Overdue(so_invoice_list is_open 을 청구처별 · 매장은 「billed to head office」) · Credit · On account(so_customer_balance_many · 그 손님 자신의 행) · Sort(Name · Open A/R · Overdue · Credit / on account — 정렬 모드는 해당 손님만 · 쪽 넘김 없음 · 통화 섞이면 숫자 합) · 상세 기한 지남 칩 + Balance 카드(통화마다 · 기한 지난 인보이스 15) · DB 무변(cbal-1 만)
+⭐  [2026-10-31 · 판정 915 · so v5z1 `84dc1c2`] SO 상세 머리 칩 둘 — 「Open invoices n · 금액」(so_detail.customer_balance · 이 오더 통화 · 청구처) · 「Overdue n · 금액」(so_invoice_ar_summary(청구처)의 이 오더 통화 행 · 빨강) · POS(pos v1.10 fillBal)와 같은 출처 · 누르면 customers.html?id=<청구처> · 보이기만 · DB 무변
+⭐  [2026-10-31 · 판정 916 · so v5z2 `c42e795`] SO 목록 Channel 「Web — asung.ca」 · 「Web — aonebeauty.com」 = intake shopify + ref like AS- · AO-(Shopify 오더 번호 · 나뉜 오더도 ref 를 이어받는다 — shop_order.so_id 는 처음 SO 에만이라 쓰지 않는다) · 목록 · CSV 같은 질의 · DB 무변 · ⚠️ Shopify 오더 번호 앞글자 설정을 바꾸면 틀린다(그때는 스토어 표 기준으로)
 ```
 ## 4-v. ⭐⭐ 내보내기 · 연체 알림 · 태그 이름 · 손님 거르기 — 모르면 사고 (2026-10-26 · 정본 so-module §78 · 판정 759 ~ 773)
 

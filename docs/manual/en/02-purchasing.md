@@ -4,7 +4,7 @@
 
 <a id="purch-suppliers"></a>
 ## Find or add a supplier
-<!-- screen: suppliers.html · BUILD 2026-10-26 · sup v3d -->
+<!-- screen: suppliers.html · BUILD 2026-10-31 · sup v4 -->
 <!-- who: office -->
 
 **What it is**
@@ -34,6 +34,9 @@
 
 **Good to know**
 - **Purchase history** lists this supplier's orders, newest first. Press **Show … more** for older ones.
+- The wide list shows **A/P** (what we still owe on confirmed bills), **Overdue** (the part past its due date) and **Credit** (credit notes and overpaid bills — what the supplier owes us). **Sort** puts **A/P — largest first** or **Overdue — latest first** on top.
+- The **Payables** card on a supplier shows the same per currency, and the bills past their due date. Click a bill to open it.
+- "Only bills entered in IMS. Payables from before the switch-over are in QuickBooks." — a supplier with 0 may still be owed money from before IMS. Check QuickBooks.
 - People without the purchasing or master key see only active suppliers we buy from.
 
 <a id="purch-reorder"></a>

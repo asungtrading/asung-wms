@@ -4,7 +4,7 @@
 
 <a id="purch-suppliers"></a>
 ## 공급처 찾기 · 더하기
-<!-- screen: suppliers.html · BUILD 2026-10-26 · sup v3d -->
+<!-- screen: suppliers.html · BUILD 2026-10-31 · sup v4 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -34,6 +34,9 @@
 
 **알아 둘 것**
 - **Purchase history** 는 이 공급처의 오더를 최신순으로 보여 줍니다. **Show … more** 로 더 봅니다.
+- 넓은 목록에 **A/P**(확정된 문서에 아직 갚을 돈) · **Overdue**(그중 기한이 지난 몫) · **Credit**(크레딧 노트 · 더 낸 문서 — 공급처가 우리에게 줄 돈)가 보입니다. **Sort** 로 **A/P — largest first** · **Overdue — latest first** 를 위로 올립니다.
+- 공급처 상세의 **Payables** 카드는 같은 값을 통화마다, 기한 지난 문서와 함께 보여 줍니다. 문서를 누르면 열립니다.
+- "Only bills entered in IMS. Payables from before the switch-over are in QuickBooks."(IMS 에 넣은 문서만 — 전환 전 미지급은 QuickBooks) — 0 이어도 IMS 이전에 갚을 돈이 있을 수 있습니다. QuickBooks 를 봅니다.
 - purchasing · master 권한이 없는 사람에게는 지금 사는 활성 공급처만 보입니다.
 
 <a id="purch-reorder"></a>

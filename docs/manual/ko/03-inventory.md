@@ -38,7 +38,7 @@
 
 <a id="stock-products"></a>
 ## 제품 찾기 · 고치기
-<!-- screen: products.html · BUILD pr v5i -->
+<!-- screen: products.html · BUILD 2026-10-31 · pr v5l -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -57,6 +57,7 @@
    - 경고는 읽고 **Save anyway** 로 넘길 수 있습니다.
 
 **알아 둘 것**
+- **Stock** 카드(판매 가격 위)는 창고마다 **On hand**(있는 수) · **Reserved**(잡아 둔 수) · **Available**(팔 수 있는 수)를 보여 줍니다. Available 은 Sales Order 화면 · 웹 스토어와 같은 수이고 B급 칸은 뺍니다. 세트는 낱개 재고로 세어 **= N sets** 로, 콤보는 구성품으로 **Can make now** 를 보여 줍니다. 창고 이름을 누르면 그 창고의 Stock 화면이 열립니다.
 - 자기 가격이 없는 세트는 **calculated** 로 보입니다 — 낱개 가격을 따릅니다.
 - **Last change before IMS** 는 IMS 이전에 마지막으로 바뀐 날입니다.
 - 제품의 surcharge 그룹은 **Edit** 에서 제품 카드의 **Surcharge group** 으로 고릅니다([Surcharge 그룹](07-settings.md#set-surcharge)).

@@ -123,6 +123,7 @@ Names cannot be changed. To rename, switch the old one off and add a new one.
 **Payment Term**
 - **Net days** — "Days until the invoice is due — 0 = due on the invoice date."
 - **Discount days** and **Discount %** — the early-payment discount, for example 10 days and 2% for 2% 10 Net 30. Fill both or neither.
+  These two are used only on supplier invoices (purchase orders) for now. Customer invoices show only the due date — an early-payment discount for customers is not ready yet.
 - **Split** — "Paid in parts, e.g. 50% COD & 50% Net 30 — Net days is the later part".
 
 **Unit**

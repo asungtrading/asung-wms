@@ -3159,7 +3159,7 @@ so_create 의 반환 tax_rule 이 null 일 때 화면 안내(배송지 비었거
 판정 7  「우리쪽 부족은 할인을 그대로 둔다가 맞아」 — 창고가 못 찾아 덜 나간 몫(pick_short)은 다시 매기지 않는다 · 백오더 몫도 원래 주문 가격 · 할인이 깨지는 것은 손님이 줄였을 때만
 판정 8  「오더 담당도 할 수 있게 연다가 맞을 것 같애.」 — 마무리 = sales(오더 담당) 이상 · ⚠️ 역할 선(R5 · 확정부터 manager)의 예외 · 인보이스 취소·재발행은 manager 이상
 판정 9  「A로 가자.」 — 포장된 오더의 줄을 손님이 전부 빼면 so_finalize 가 그 오더를 거부하고 길을 안내한다(「보낼 것이 없다 — WMS 에서 되돌린 뒤 취소」) · 묶음의 나머지는 그 오더를 빼고 마무리(이견 6 채택)
-판정 10 결제조건 기한 일수 — 이름을 보고 손으로 정한 값(파싱이 아니다 · 마이그레이션이 넣는다 · ref_price_tier 이견 8 선례) · 34줄 전부(비활성 포함 — 손님이 옛 이름을 가리킨다) · 손님 인보이스에는 기한만 찍는다(조기결제 할인 기한은 공급처 쪽 조건 · 칸은 기록으로)
+판정 10 결제조건 기한 일수 — 이름을 보고 손으로 정한 값(파싱이 아니다 · 마이그레이션이 넣는다 · ref_price_tier 이견 8 선례) · 34줄 전부(비활성 포함 — 손님이 옛 이름을 가리킨다) · 손님 인보이스에는 기한만 찍는다(조기결제 할인 기한은 공급처 쪽 조건 · 칸은 기록으로) · → [2026-10-31 · §94] SO 조기 결제 할인은 deferred 426(조사 sodisc-0 · 회계사 답 대기 · 그동안 크레딧 노트 other 줄 `_6_ Sales Discounts`)
         기한: due_on = issued_on + net_days · net_days null 이면 null + 경고 due_date_unknown · is_split 이면 기한은 net_days 로 찍되 경고 split_terms(절반은 받을 때)
 이미 정해진 것(8-a·8-c·8-h · §16): 번호 60000~ 접두어 없음 · 재사용 금지 · 상태 issued·cancelled 둘 · 초안 없음 · 한 인보이스 = 한 청구처 · 한 통화 · 오더는 살아 있는 인보이스 하나에만 · 금액은 인보이스가 굳힌다(오더에 금액 칸 없음) ·
   취소 = 문서 전체가 틀렸을 때 · manager · 결제·크레딧이 붙기 전에만 · 담긴 오더 invoiced → shipped · 부분 문제는 크레딧 · 세금 = 인보이스 발행일(ims_today) 세율 · 줄마다 반올림 · 오더 규칙 하나
@@ -10416,7 +10416,7 @@ Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu �
 | 783 | 「A가 더 명확하지?」 → A | 이월 인보이스 금액 = 원래 합계 + **이전에 받은 돈(prior_settled)** → 남은 금액 · 기각 B(남은 금액만) |
 | 784 | 「A」 | 이월 인보이스 **취소 불가** · 결제 · 크레딧으로만 줄인다 · 받아 둔 돈 이월도 void 불가(ar-2 이견 5) · 틀린 적재는 IMS 붙임 전 다시 돌리기(옛 열쇠 TaskID 덮어쓰기) |
 | 785 | 「A」 | 이월 인보이스는 IMS 에서 **인쇄 · 메일 막음** — 원본은 QuickBooks(doc_data_invoice 거부 한 곳 · 화면 단추 숨김) |
-| 786 | 「A」 | 받아 둔 돈은 모두 계정 **_1150040009_ Customer Credits** + 손님 브랜치 · QuickBooks 로 다시 보내지 않는다(kind · method opening) · 크레딧과 오버페이를 한 「받아 둔 돈」 으로 합친다(8-e 구분을 잃음 · 받아들임) |
+| 786 | 「A」 | 받아 둔 돈은 모두 계정 **_1150040009_ Customer Credits** + 손님 브랜치 · QuickBooks 로 다시 보내지 않는다(kind · method opening) · 크레딧과 오버페이를 한 「받아 둔 돈」 으로 합친다(8-e 구분을 잃음 · 받아들임) · → [2026-10-31 · §94-c 2] 그래서 손님 화면의 **On account(received)** 에 Cin7 손님 크레딧(반품 크레딧 포함)이 들어 있다 · **Credit(owed_credit)** 은 IMS 에서 발행한 크레딧 노트만 |
 | 787 | 「프로포마 이메일 … 세일즈 오더 번호가 자동으로」 → 「바로 쓰자」 | 자리표 `invoice.so_numbers`(오더 SO 번호 「, 」 로 · 인보이스 꼴 세 kind) · ship_ready 기본 메일 제목 `PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.`(시드 원문일 때만 바꿈) · Caleb 화면 확인(SO-25135) |
 | 788 | 「merged 인보이스인데, 주소가 두번 나와」 | `orders.ship_to_repeat`(앞 오더와 같은 배송지 — company · line1 · line2 · city · state_province · postal_code · country · lower(btrim)) · 판 final_invoice **v7** · ship_ready **v3** · internal_receipt **v3**(`{{#orders}}{{^ship_to_repeat}}<div class="sto">…{{/ship_to_repeat}}{{/orders}}` · 점선은 .sto + .sto 라 함께 사라짐) · Caleb 올림 · 「중복은 사라졌어」 |
 | 789 | (기술 · 실사고) | ar-2b — so_opening_load 의 임시 표 update 넷에 WHERE(뜻 무변) · REST safeupdate 21000 |
@@ -11954,5 +11954,127 @@ fd381b4 so v5z: deferred 414 — 줄마다 가용을 확정에서도 · 다른 �
 - 매뉴얼 en · ko — 03-inventory(Transfers Shipping details · Combos Can make) · 04-wms(트랜스퍼 Finalize 창) · 01-sales(free now · 다른 창고 · 주문 이력은 자기 이름만)
 
 ```
-다음 판정 번호: 910 · 다음 deferred 번호: 426
+~~다음 판정 번호: 910 · 다음 deferred 번호: 426~~ → §94 끝
+```
+
+---
+
+## §94 2026-10-31 밤 집 — Products 거르기 한 줄 · 상세 Stock 카드 · 손님 검색 넓히기 · 손님 잔액(Open A/R · Overdue · Credit · On account) · 공급처 미지급 · 기한 지남 · 공급처 미지급 이월 안 함(QuickBooks 정본) · 조기 결제 할인 조사(짓지 않음) — pr v5l · cs v8 · v8a · v8b · sup v4 · cbal-1 · sodisc-0(조사) · 판정 910 ~ 916 (집 PC)
+
+⭐ 정한 것: Products 넓은 목록 거르기 줄을 한 줄로 · 상세에 Stock 카드(910) · Customers 검색을 이메일 · 전화 · 주소까지 · 목록 Open A/R · Overdue · 상세 Balance 카드 · Sort(911) · 손님 여러 명 잔액 창구 cbal-1 + 목록 Credit · On account 칸(912) · **공급처 미지급(컷오버 전)은 IMS 로 이월하지 않는다 — 정본은 QuickBooks · 이월은 QuickBooks 싱크의 한 단계**(913) · Suppliers 목록 A/P · Overdue · Credit · 상세 Payables 카드(914 · IMS 에 넣은 매입 문서만) · SO 상세 머리에 Open invoices · Overdue 칩(915 · POS 와 같은 출처) · SO 목록 Channel 에 웹 스토어 둘을 가름(916 · ref AS- · AO-)
+⭐ 원천: docs-1031c 📌 A ~ F(대화 Claude · Caleb · 10-31 밤 대화) · asung-ims `git log --oneline bc09643..HEAD` · asung-wms `git log --oneline d7cb586..HEAD` 원문 · 화면 BUILD 주석(PR_BUILD · CS_BUILD · SP_BUILD) · ⚠️ 시험 · 실측 결과와 sodisc-0 보고서(Caleb 집 PC `~/asung/prompts/sodisc-0-report.md`)는 레포에 없다 — 94-c 가 원천(대화에서 옮김)
+⭐ 조기 결제 할인(SO)은 **짓지 않았다** — Caleb 이 11-02 회계사에게 묻고 답을 준 뒤 판정(deferred 426) · 그동안은 크레딧 노트 other 줄(`_6_ Sales Discounts`)로 손으로
+
+### 94-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 910 | 「한줄에 안될까? 2줄로 내려오니까 보기가 안좋네」 · 「프로덕트 상세 페이지에도 가용 스탁이 보이면 좋겠어」 | Products(pr v5l) ① 넓은 목록 거르기 줄을 **한 줄**로(이 화면만 · 공통 css 무변 — 검색칸 200 ~ 230 · Brand · Supplier 110 ~ 130 · 분류 고르기 최대 170 · New combo · New family · New product 가 같은 줄) ② 상세에 **Stock 카드**(Sale prices 위) — 켜진 창고마다 On hand · Reserved · Available(`so_available_many` · B급 칸 뺌 · SO 화면 · Shopify 와 같은 수) · 세트는 낱개(부모) 재고로 세고 「= N sets」 · 콤보는 구성품으로 「Can make now」(Combos cb v2 와 같은 식) · 창고 이름 → Stock 화면(`stock.html?id=&wh=`) · DB 무변 · 화면 pr v5l `fe04787` |
+| 911 | 「손님 전체 페이지와 상세페이지에 손님의 AR발란스와 크레딧 어마운트, 그리고 오버페이먼트, 오버 듀 스테이터스」 · 「손님을 검색하는 내용이 확장 … 특히 email」 · 「오픈 a/r, overdue로 정렬」 | Customers(cs v8 · v8a) ① **검색** = 이름 · 표시 이름 · 세금 번호 + 연락처(이메일 · 이름 · 전화 · 휴대폰) · 주소(거리 · 도시 · 우편번호) — 연락처 · 주소로 손님 id 를 먼저 찾아(각 100 · 두 글자부터) or 에 id.in · 무엇으로 찾았는지 이름 아래 작게 · 전화는 저장된 꼴 그대로 찾는다 ② 넓은 목록 **Open A/R · Overdue** — `so_invoice_list(is_open)` 를 한 번 읽어 **청구처(bill_to_customer_id)** 별 · 본사로 청구되는 매장은 「billed to head office」 ③ 상세 머리 **기한 지남 칩** + **Balance 카드**(`so_customer_balance` 통화마다 Open invoices · Open A/R · Overdue · Credit owed · Money on account · Held for orders · Available to use + 기한 지난 인보이스 15) · 다른 손님에게 청구되는 손님은 「잔액은 그쪽」 안내 ④ **Sort**(Name · Open A/R 큰 순 · Overdue 가장 늦은 순 · 열 제목 눌러도) — 정렬 모드는 열린 인보이스가 있는 청구처만 · 쪽 넘김 없이 · 통화가 섞이면 숫자 합(환산 안 함) · DB 무변 · 화면 cs v8 `fab07f4` · cs v8a `8279248` |
+| 912 | 「A로 가자」 | cbal-1(94-c 1) · 화면 cs v8b: 넓은 목록 **Credit**(owed_credit) · **On account**(received) 칸 · Sort 「Credit / on account — largest first」(null 모드 후보 · 합 큰 순) · 값은 그 손님 자신의 행(청구처로 되돌리지 않는다) · 1 분 담아 둠 · asung-wms `e0e5153` · 화면 cs v8b `f1ffcf7` |
+| 913 | 「미지급은 퀵북스에서 관리하고 있어」 · 「그렇게 하자」 | **공급처 미지급(컷오버 전 · Cin7 · QuickBooks)은 IMS 로 이월하지 않는다** — 정본은 QuickBooks · 이월은 **QuickBooks 싱크의 한 단계**(IMS 공급처 ↔ QuickBooks Vendor 짝 → 열린 빌 API 로 읽기 → 이월 · 결제를 어디에 기록하나(IMS → QuickBooks / QuickBooks 정본)도 그 설계 때 한 번에) · 그 전까지 공급처 화면은 「IMS 에 넣은 매입 문서만」 · 실측: `po_invoice_list` 0 행(10-31) · 크기 짐작(이월을 지을 때): DB 차수 하나(PO 없는 이월 빌 · 충당 · 뷰 · 적재 창구 — ar-2 본뜸) + 적재(이름 맞추기가 걸림) + 화면 손질 · deferred 428 |
+| 914 | 「supplier화면에도 overdue와 a/p balace 그리고 credit amount」 | Suppliers(sup v4) — 넓은 목록 **A/P · Overdue · Credit** 칸 + Sort(Name · A/P · Overdue) · 상세 머리 기한 지남 칩 + **Payables 카드**(통화마다 · 기한 지난 문서 → invoices.html · charges.html `?id=`) · 셈 = **확정(status confirmed)** 된 `po_invoice_list` · `po_charge_list` 의 `unpaid` — 양수 = 갚을 돈 · 음수 = 크레딧(po-module 「음수 미지급은 받을 돈」) · 기한 = `due_date` < 토론토 오늘 · 안내 「IMS 에 넣은 매입 문서만 — 컷오버 전 미지급은 QuickBooks」(913) · DB 무변 · 화면 sup v4 `7ba086c` |
+| 915 | 「pos에서는 해당 손님의 unpaid 빌이 나오는데, so에도 있나?」 → 「그렇게 하자」 | SO 화면(so v5z1) — SO 상세 머리에 POS(pos v1.10 fillBal)와 같은 출처의 칩 둘: 「Open invoices n · 금액」(`so_detail.customer_balance` · 이 오더 통화 · 청구처) · 「Overdue n · 금액」(`so_invoice_ar_summary(청구처)` 의 이 오더 통화 행 · 빨강) · 누르면 `customers.html?id=<청구처>`(Balance 카드) · 보이기만(오더를 막지 않는다) · DB 무변 · 그 전 SO 에는 새 오더에서 손님을 고를 때의 기한 지남 창과 상세 아래 Customer balance 표(합계만)뿐이었다 · 화면 so v5z1 `84dc1c2` |
+| 916 | 「so에서 aonebeauty와 asung.ca의 구분이 안돼 이것을 구분하는 필터링이 있으면 좋겠어」 | SO 화면(so v5z2) — Channel 고르기에 「Web — asung.ca」 · 「Web — aonebeauty.com」 = intake shopify + ref 가 **AS- · AO-** 로 시작(Shopify 오더 번호 · 나뉜 오더 SO-…a 도 ref 를 이어받는다 · `shop_order.so_id` 는 처음 SO 에만 이어져 나뉜 오더를 놓쳐서 쓰지 않는다) · 목록 · CSV 같은 질의 · DB 무변 · 실측(10-31 · Caleb): 웹 오더 39 = aone AO- 21 · asung AS- 18 · 섞임 0 · ⚠️ Shopify 오더 번호 앞글자 설정을 바꾸면 이 거르기가 틀린다(그때는 스토어 표 기준으로) · 화면 so v5z2 `c42e795` |
+
+### 94-b 차수 · 커밋 (git log 원문 · 대화 Claude 가 화면 파일을 씀)
+
+`git log --oneline bc09643..HEAD`(asung-ims · 10-31 밤) 원문:
+
+```
+f1ffcf7 customers cs v8b: 판정 912 — 목록 Credit · On account 칸 · Sort Credit / on account(so_customer_balance_many)
+7ba086c suppliers sup v4: 목록 A/P · Overdue · Credit 칸 + Sort · 상세 Payables 카드 + 기한 지남 칩(IMS 에 넣은 매입 문서만)
+8279248 customers cs v8a: 목록 Sort — Open A/R 큰 순 · Overdue 가장 늦은 순(열 제목 눌러도)
+fe04787 products pr v5l: 거르기 줄 한 줄 · 상세 Stock 카드(창고마다 On hand · Reserved · Available · 세트 = sets · 콤보 = Can make)
+fab07f4 customers cs v8: 검색 넓히기(이메일 · 전화 · 연락처 · 주소) · 목록 Open A/R · Overdue · 상세 Balance 카드 + 기한 지남 칩
+82b847a combos cb v2: 지금 만들 수 있는 콤보 수 — 목록 Can make TO · ED 칸 · 상세 Can make now + 구성품별 가용 → 콤보 몫(막는 구성품 빨강)
+```
+
+- ⚠️ 맨 아래 `82b847a` cb v2 는 §93-b(판정 908)의 것 — 범위의 시작 `bc09643` 이 cb v2 보다 앞이라 함께 나왔다 · 이 절의 화면은 위 다섯
+
+[덧붙임 · 판정 915] `git log --oneline f1ffcf7..HEAD`(asung-ims) 원문:
+
+```
+84dc1c2 so v5z1: 상세 머리 Open invoices · Overdue 칩(POS 와 같은 출처 · 누르면 손님 Balance)
+```
+
+[덧붙임 · 판정 916] `git log --oneline 84dc1c2..HEAD`(asung-ims) 원문:
+
+```
+c42e795 so v5z2: Channel 거르기에 Web — asung.ca · Web — aonebeauty.com(Shopify ref AS- · AO-)
+```
+
+`git log --oneline d7cb586..HEAD`(asung-wms) 원문:
+
+```
+e0e5153 cbal-1: so_customer_balance_many(p_customer_ids) — 판정 912 · 잔액 여러 손님 한 번에(단일 창구 lateral · null = 0 아닌 손님 전부) · 검증 37 OK
+```
+
+| 화면 · 차수 | 판 | 커밋 | 무엇 |
+|---|---|---|---|
+| products.html | pr v5l | `fe04787` | 판정 910 |
+| customers.html | cs v8 · v8a · v8b | `fab07f4` · `8279248` · `f1ffcf7` | 판정 911 · 912 |
+| suppliers.html | sup v4 | `7ba086c` | 판정 914 · 913 안내 |
+| so.html | so v5z1 | `84dc1c2` | 판정 915 — 상세 머리 Open invoices · Overdue 칩 |
+| so.html | so v5z2 | `c42e795` | 판정 916 — Channel 거르기 Web — asung.ca · Web — aonebeauty.com |
+| DB cbal-1 | `20261031214531` | asung-wms `e0e5153` | 판정 912 — `so_customer_balance_many` |
+
+### 94-c 실측 · 뜻 (10-31 밤 · 메인 DB `fazgmyvzzhqybtvtktyg`)
+
+1. **cbal-1(판정 912)** — 창구 `so_customer_balance_many(p_customer_ids uuid[])`
+   - 반환 = customer_id + `so_customer_balance` 여덟 칸(손님 × 통화) · 값은 단일 창구를 lateral 로 부른 것(식 복사 없음)
+   - **null** = 잔액 칸 중 하나라도 0 이 아닌 손님 전부(후보 = 활성 결제 customer_id ∪ issued 크레딧 customer_id ∪ issued 인보이스 bill_to — 전 손님 9,975 lateral 과 집합 같음을 검증) · 빈 배열 = 0 행 · 같은 id 두 번 = 한 번 · 상한 500(배열 길이 · 「nothing was read」)
+   - plpgsql(거부 때문) · stable · security invoker · authenticated · 단일과 같은 문
+   - 시험 4 회차(1 「text || "char"」 모호 · 2 table 반환 함수에 ::regclass · 3 검증 파일 결함 둘 — psql 불리언 · left 글자 수) · 시험 37 OK · Caleb 확인 실행 **36 OK**(시험 적용에서만 도는 줄 하나) · MISMATCH 0 · Z1 OK · 100 id 181 ms · null 모드 176 ms(113 행)
+   - Claude Code 의 자동 모드가 pg_proc 직접 읽기를 「Production Reads」 로 막음 → md5 대조를 검증 파일 M0 으로 넣음(801f4408…)
+   - 실측(10-31): so_credit 0 행 · so_payment 62 · so_invoice 310 · 잔액 0 아닌 손님 113(모두 통화 하나)
+   - **이견 1(열림 · 판정 대기)**: 단일 · many 모두 **문이 없다** — security invoker + so_payment · so_invoice · so_credit 의 select 정책 `using (true)` 라 로그인한 직원이면 열쇠 없이도 손님 잔액을 읽는다 · 문을 세우려면 둘을 함께 바꾸는 별도 판정(deferred 427)
+   - **이견 2(사실)**: 청구처 되돌림 없음 — 인보이스는 bill_to, 결제 · 크레딧은 돈을 낸 customer_id 축 · 매장 id 를 주면 매장 자신의 행(대개 0) · 「본사로 청구되는 매장의 잔액은 본사에」 는 발행 · 이월이 청구처에 기록하는 관례에 기댄 말
+2. **On account 의 뜻**(Caleb 질문 「돈을 더 낸 경우거나 미리 낸 경우지?」 의 답)
+   - **On account(received)** = 어느 인보이스에도 안 붙은, 손님이 이미 낸 돈 — ① 오버페이 ② 선결제 · 선금(열린 오더에 잡힌 몫은 Held for orders · Available = On account + Credit − Held) ③ IMS 이전에 받아 둔 돈(12b 이월 CAD 6,628.40 — **판정 786 으로 Cin7 의 손님 크레딧(반품 크레딧 포함)도 여기**)
+   - **Credit(owed_credit)** = **IMS 에서 발행한** 크레딧 노트 중 안 쓴 몫(10-31 0)
+   - 둘 다 인보이스 발행 때 저절로 쓰인다
+3. **공급처 미지급(판정 913 · 914)** — `po_invoice_list` 0 행(10-31) · 그래서 sup v4 의 A/P · Overdue · Credit 은 지금 모두 0 이고 화면에 「Only bills entered in IMS. Payables from before the switch-over are in QuickBooks.」
+4. **조기 결제 할인 조사 sodisc-0**(조사만 · 보고서는 Caleb 집 PC `~/asung/prompts/sodisc-0-report.md` — 레포 밖)
+   - Caleb: 「po에서는 payment term에 맞게 계산을 해주는 기능을 넣었어. 그런데 so에는 그런 손님이 많지 않아서 넣지 않았어 … 동료가 so에도 넣어달라는 요청」 · 「예를 든거야」(2.1%13 Net30 은 예) · 「이것은 지금 짓지 말고 … 내가 월요일에 묻고 답을 주면 짓기로 하자」(회계사)
+   - Caleb: 「1%는 warehouse allowance는 이름을 그렇게 붙인거고, 늘 주는 디스카운트라고 보면 돼」 — 「1% Warehouse Allowance + 2%10 Net30」 의 조기 결제 몫은 2%10 하나
+   - 실측: 할인 % 가 있는 결제조건 11 개 중 손님이 있는 것은 「1% Warehouse Allowance + 2%10 Net30」 하나(손님 2 · 활성 2)
+   - 조사 요지: SO 충당(so_payment_alloc)에 할인 칸 없음 · 상각 길 없음(write_off grep 0) · 충당은 직원이 고름(제안 = 기한 → 발행일 → 번호) · 자동 충당은 발행 순간 하나(선결제 → 크레딧 → 받아 둔 돈) · 남은 금액 식 한 곳(ar_2:93-104) · PO = 인보이스 조건 칸 넷(4a1:42-50) + 충당마다 discount_amount(정본) · 기한은 paid_on · 할인은 계정이 아니라 원가 사건 · **지금 되는 길 = 크레딧 노트 other 줄(계정 `_6_ Sales Discounts` · 세금은 인보이스 세율로 함께 줄어듦 · hcr_1:543-548)** · 이월 인보이스에 그 길은 세율을 못 찾을 짐작(안 돌려 봄)
+   - 판정 거리(회계사 답 뒤): 7-1 세전/세후(1,000 + HST 130: 20.00 / 22.60) · 7-2 장부 모양(결제 할인 = 큰 차수 · 자동 크레딧 노트 = 작은 차수) · 7-3 기한 기준일 · 7-4 하루 넘김 · 부분 입금 · 여러 장 · 받아 둔 돈 · 7-5 저절로 / 단추 · 7-6 문서에 찍나 · 7-7 이월 인보이스 · 판정 10 을 바꾸는 판정
+   - 회계사 질문 초안: 「2%10 Net30 · 세전 1,000 + HST 130 = 1,130 인보이스를 기한 안에 22.60 덜 냈을 때 ⓐ 전액 매출 할인(HST 130 그대로) ⓑ 매출 할인 20.00 + HST 2.60 감액 중 어느 쪽 · 세전 2 % 만 깎은 경우(1,110.00 입금) HST 를 고쳐야 하나」
+   - 조사 이견 7: so-payments 화면 문구는 「oldest first」 인데 실제 정렬은 기한(due_on) 먼저 → 화면 거리(작음 · deferred 429)
+
+### 94-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: 없음
+- deferred **148**: Caleb 10-31 「aonebeauty.com 무료 배송 → 자동 할인」 완료(docs-1031b B) — asung.ca 도 했는지 확인 대기 · 열림 그대로(⚠️ docs-1031c 이견: asung.ca 도 했으면 닫기 안 — 바꾸는 법은 Caleb 이 이미 안다)
+- 새 deferred **426 ~ 429**
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 426 | 조기 결제 할인(94-c 4) — 회계사 답 → 판정 7-1 ~ 7-7 → 짓기 · 그동안은 크레딧 노트 other 줄(`_6_`)로 손으로 | 판정 대기(회계사 답 뒤 · Caleb 11-02 질문) |
+| 427 | 손님 잔액 창구의 문(cbal-1 이견 1) — 열쇠 없는 직원도 잔액을 읽는다 · 세울지 | 판정 대기 |
+| 428 | 공급처 미지급 이월(913) = QuickBooks 싱크의 한 단계 · 결제 기록 위치 결정과 함께 · 손님 쪽 Vendor/Customer 짝도 같은 설계 | 컷오버 뒤(QuickBooks 싱크 때 · 341 과 같은 표) |
+| 429 | so-payments 문구 「oldest first」 ↔ 실제 기한 순(sodisc-0 이견 7) — 화면 글 한 줄 | 미정(작음) |
+
+### 94-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§93-e 에 이어 33 부터)
+
+33. [대화 Claude] products 옮기기 명령을 회신에 적었는데 Caleb 이 「파일만 주고 코드는 안준것 같아」 — 화면 두 개를 한 회신에 줄 때 명령이 뒤 단락에 묻혔다 ⇒ 파일 하나에 명령 하나 · 파일 카드 바로 뒤
+34. [대화 Claude] cbal-1 지시서를 쓴다고 하고 파일을 만들지 않은 채 다음 말로 넘어갔다 ⇒ 「지시서입니다」 를 쓰기 전에 파일부터
+35. [발견] 공급처 미지급은 IMS 에 0(이월 안 함 · 913) — 화면을 지으면 「갚을 돈 0」 으로 읽힐 수 있어 안내 줄을 화면에
+36. [발견] cbal-1 — 손님 잔액에 문이 없다(427) · 매장 → 본사 되돌림 없음 · ⚠️ [docs-1031c] cs v8 의 「다른 손님에게 청구」 안내(「the balance, credits and money on account are kept there」)도 같은 관례(결제 · 크레딧을 청구처에 기록)에 기댄 말 — 매장이 직접 낸 돈은 매장 행에 남는다(cbal-1 이견 2 · 줄 없음 · 판정 거리)
+37. [잘 된 것] null 모드를 표본이 아니라 손님 9,975 명 전부와 대조(4.2 초)
+
+### 94-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- 판정 10 줄(결제조건 기한 일수 · 「조기결제 할인 기한은 공급처 쪽 조건」) → [2026-10-31 · §94] deferred 426(SO 조기 결제 할인 조사 · 회계사 답 대기 · 그동안 크레딧 노트 other 줄)
+- 판정 786 줄 → [2026-10-31 · §94-c 2] On account(received)에 Cin7 손님 크레딧(반품 크레딧 포함)이 들어 있다
+- §93 끝 「다음 판정 번호 910 · 다음 deferred 번호 426」 → 아래
+- deferred 새 426 ~ 429 · 148 근거 · 「다음 번호 426」 → 430
+- po-module 「음수 미지급은 받을 돈」 줄 아래 → sup v4(914) · 913
+- 스킬 asung-so(cs v8 · v8a · v8b · so_customer_balance_many · On account 뜻 · 426 · so v5z1 칩 915 · so v5z2 Channel 916) · asung-po(sup v4 · 913) · asung-workflow(§11 끝 §93-e · §94-e 셋) — 설명줄 무변
+- 매뉴얼 en · ko — 01-sales(Customers 검색 · Open A/R · Overdue · Credit · On account · Sort · Balance 카드 · SO 상세 칩 915 · SO 목록 Channel 웹 스토어 916) · 02-purchasing(Suppliers A/P · Overdue · Credit · Payables) · 03-inventory(Products Stock 카드) · 07-settings(결제조건 할인 칸은 PO 에만 · 426 — docs-1031c 이견 5)
+
+```
+다음 판정 번호: 917 · 다음 deferred 번호: 430
 ```

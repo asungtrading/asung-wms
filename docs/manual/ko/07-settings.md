@@ -123,6 +123,7 @@ Currency · Account · Warehouse 는 보기만 합니다. 세금 규칙은 고�
 **Payment Term**
 - **Net days** — "Days until the invoice is due — 0 = due on the invoice date."(인보이스 기한까지 날 수 — 0 은 인보이스 날짜가 기한)
 - **Discount days** · **Discount %** — 일찍 내면 주는 할인. 예: 2% 10 Net 30 이면 10일 · 2%. 둘 다 채우거나 둘 다 비웁니다.
+  이 두 칸은 지금 공급처 인보이스(PO)에만 쓰입니다. 고객 인보이스에는 기한만 찍힙니다 — 고객 조기 결제 할인은 준비 중입니다.
 - **Split** — "Paid in parts, e.g. 50% COD & 50% Net 30 — Net days is the later part"(나눠 낸다 — Net days 는 뒤의 몫)
 
 **Unit**

@@ -38,7 +38,7 @@
 
 <a id="stock-products"></a>
 ## Find and change a product
-<!-- screen: products.html · BUILD pr v5i -->
+<!-- screen: products.html · BUILD 2026-10-31 · pr v5l -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -57,6 +57,7 @@
    - Warnings can be read and passed with **Save anyway**.
 
 **Good to know**
+- The **Stock** card (above the sale prices) shows, for each warehouse, **On hand**, **Reserved** and **Available**. Available is the same number the Sales Order screen and the web stores use; B-grade bins are left out. A set counts the single product's stock and shows **= N sets**. A combo shows **Can make now** from its components. Click a warehouse name to open the Stock screen for it.
 - A set with no price of its own shows **calculated** — it follows the single product's price.
 - **Last change before IMS** shows when the product was last changed before IMS.
 - A product's surcharge group is picked on its card in **Edit** (see [Surcharge groups](07-settings.md#set-surcharge)).

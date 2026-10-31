@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## 고객 찾기 · 더하기
-<!-- screen: customers.html · BUILD 2026-10-31 · cs v7c -->
+<!-- screen: customers.html · BUILD 2026-10-31 · cs v8b -->
 <!-- who: sales, office -->
 
 **무엇인가**
@@ -15,10 +15,11 @@
 새 오더 전에, 고객이 바뀐 것을 알려 올 때, 새 고객이 처음 살 때.
 
 **고객 찾는 법**
-1. **Customers** 를 엽니다. **Search name** 에 이름 일부를 적습니다.
+1. **Customers** 를 엽니다. **Search name, email, phone, city, postal code** 에 적습니다 — 이름 · 표시 이름 · 세금 번호의 일부, 연락처의 이메일 · 이름 · 전화, 주소(거리 · 도시 · 우편번호). 연락처 · 주소는 두 글자부터 찾습니다. 전화번호는 저장된 꼴 그대로 적습니다. 무엇으로 찾았는지 이름 아래에 작게 보입니다.
 2. **Active only**(활성만)는 처음에 체크돼 있습니다. 꺼진 고객도 보려면 체크를 풉니다.
 3. **New — not reviewed** 를 체크하면 매니저가 아직 확인하지 않은 새 고객만 보입니다. [Action Centre](06-action-centre.md#action-new-customers) 에도 나옵니다.
-4. 고객을 누릅니다. **Price tier**(가격 등급) · **Discount %**(할인) · **Payment term**(결제 조건) · **Currency**(통화) · **Bill to**(청구처) · **Default warehouse**(기본 창고) · **Tax rule**(세금 규칙), **Stores** 카드, **Order history**(주문 이력), **Addresses**(주소), **Contacts**(연락처)가 보입니다.
+4. 받을 돈이 큰 고객부터 보려면 **Sort** 를 고릅니다: **Open A/R — largest first**(받을 돈 큰 순) · **Overdue — latest first**(가장 오래 늦은 순) · **Credit / on account — largest first**(크레딧 · 받아 둔 돈 큰 순). 열 제목을 눌러도 됩니다. 이 정렬은 그 칸에 값이 있는 고객만 보여 줍니다.
+5. 고객을 누릅니다. **Price tier**(가격 등급) · **Discount %**(할인) · **Payment term**(결제 조건) · **Currency**(통화) · **Bill to**(청구처) · **Default warehouse**(기본 창고) · **Tax rule**(세금 규칙), **Stores** 카드, **Order history**(주문 이력), **Addresses**(주소), **Contacts**(연락처)가 보입니다.
 
 넓은 목록의 **↓ Export…** 는 필터에 맞는 고객을 내가 고른 칸으로 내려받습니다 — [↓ Export…](00-getting-started.md#start-search-filter).
 
@@ -49,6 +50,10 @@
 **알아 둘 것**
 - 본사의 **Split invoice by store** 가 켜져 있으면, 여러 매장이 함께 나갈 때 매장마다 인보이스가 따로 나옵니다. 누구에게 청구하는지는 바뀌지 않습니다.
 - **Order history** 에는 IMS 오더와 IMS 이전 오더가 함께 보입니다 — 이 고객 이름으로 된 오더만. 본사에는 매장 오더가 보이지 않습니다: **Stores** 카드에서 매장을 엽니다.
+- 넓은 목록의 **Open A/R**(열린 인보이스에 남은 돈) · **Overdue**(그중 기한이 지난 몫)는 청구받는 고객 기준입니다. 본사로 청구되는 매장은 **billed to head office** 로 보입니다 — 본사를 봅니다. **Credit** · **On account** 는 그 고객 자신의 값입니다.
+- **On account**(받아 둔 돈)는 고객이 이미 냈지만 어느 인보이스에도 안 붙은 돈입니다: 더 낸 돈(오버페이), 미리 낸 돈(선결제), IMS 이전부터 받아 둔 돈(IMS 이전의 크레딧 · 반품 크레딧 포함). **Credit** 은 IMS 에서 발행한 크레딧 노트 중 아직 안 쓴 몫입니다. 둘 다 다음 인보이스가 발행될 때 저절로 붙습니다.
+- 고객 상세의 **Balance** 카드는 통화마다 **Open invoices** · **Open A/R** · **Overdue** · **Credit owed** · **Money on account** · **Held for orders** · **Available to use**(받아 둔 돈 + 크레딧 − 오더에 잡아 둔 돈)와 기한 지난 인보이스를 보여 줍니다. 기한 지난 인보이스가 있으면 머리에 칩이 보입니다. 다른 고객에게 청구되는 고객은 그렇게 적혀 있습니다 — 잔액은 그쪽에 있습니다.
+- 통화가 섞여 있으면 목록은 숫자를 그대로 더합니다 — 환산하지 않습니다.
 
 **조심할 것**
 - **Bill to** 를 바꾸면 새 오더만 따라갑니다. "Orders already created keep the bill-to they were made with."(이미 만든 오더는 그대로)
@@ -86,6 +91,7 @@
 
 **조심할 것**
 - **Overdue invoices** 는 기한이 지난 인보이스만 셉니다. 기한 전이거나 기한이 없는 인보이스로는 열리지 않습니다. 인보이스를 갚는 고객을 봅니다 — 오더 고객의 인보이스가 다른 고객에게 가면 창에 "This customer is billed to …"(이 고객의 청구처는 …)가 나옵니다. 계산대에서도 같은 창이 열립니다([판매 찍기](05-pos.md#pos-sale)).
+- 열린 오더의 머리에는 인보이스를 갚는 고객의 **Open invoices**(열린 인보이스) · **Overdue**(기한 지남) 칩이 이 오더 통화로 건수 · 금액과 함께 보입니다 — 계산대와 같은 수입니다. 오더를 막지 않습니다. 누르면 그 고객의 **Balance** 카드가 열립니다.
 - **Ship to…** 에서 주나 나라를 바꾸면 새 주소로 세금 규칙을 다시 고릅니다. 손으로 정한 세금 규칙은 풀립니다.
 - **Order date** 가 어느 딜과 쿠폰이 맞는지를 정합니다. 고객이 정말 다른 날 주문했을 때만 바꿉니다.
 
@@ -766,6 +772,8 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 다른 필터: **Open**(끝나지 않은 것 전부) · **Draft — reprice suggested** · **Waiting for pickup** · **All**
 
 **Customer** — **Customer — pick one** 칸에 이름 일부를 적고 목록에서 고객을 고릅니다. 그 고객의 오더만 남고, 다른 필터와 함께 걸립니다. **↓ CSV** 도 그대로 따릅니다.
+
+**Channel** — 채널 말고도 **Web — asung.ca** · **Web — aonebeauty.com** 을 고르면 한 스토어의 웹 오더만 보입니다(웹 오더 번호 AS- · AO- 로 가름). 웹 오더에서 나뉜 오더도 함께 나옵니다. **↓ CSV** 도 그대로 따릅니다.
 
 **배지 옆 꼬리표**
 - **unpaid** · **partly paid** · **paid** · **overdue Nd** — [고객 결제와 선수금](#sales-payments)

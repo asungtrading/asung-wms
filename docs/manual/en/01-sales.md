@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## Find or add a customer
-<!-- screen: customers.html · BUILD 2026-10-31 · cs v7c -->
+<!-- screen: customers.html · BUILD 2026-10-31 · cs v8b -->
 <!-- who: sales, office -->
 
 **What it is**
@@ -15,10 +15,11 @@ The **Customers** screen (**Sales ▾** › **Customers**) holds every customer:
 Before a new order, when a customer calls with a change, or when a new customer buys for the first time.
 
 **How to find a customer**
-1. Open **Customers**. Type part of the name in **Search name**.
+1. Open **Customers**. Type in **Search name, email, phone, city, postal code** — part of the name, display name or tax number, or a contact's email, name or phone, or an address (street, city, postal code). Contacts and addresses are searched from 2 letters. Type a phone number the way it was saved. A small line under the name shows what matched.
 2. **Active only** is ticked at the start. Untick it to see customers that were turned off.
 3. Tick **New — not reviewed** to see only new customers a manager has not checked yet. They also show on the [Action Centre](06-action-centre.md#action-new-customers).
-4. Click a customer. You see **Price tier**, **Discount %**, **Payment term**, **Currency**, **Bill to**, **Default warehouse**, **Tax rule**, the **Stores** card, **Order history**, **Addresses** and **Contacts**.
+4. To find who owes the most, choose **Sort**: **Open A/R — largest first**, **Overdue — latest first** or **Credit / on account — largest first** (or click the column title). These sorts show only the customers that have something in that column.
+5. Click a customer. You see **Price tier**, **Discount %**, **Payment term**, **Currency**, **Bill to**, **Default warehouse**, **Tax rule**, the **Stores** card, **Order history**, **Addresses** and **Contacts**.
 
 **↓ Export…** on the wide list downloads the customers that match the filters, with the columns you pick — see [↓ Export…](00-getting-started.md#start-search-filter).
 
@@ -49,6 +50,10 @@ Before a new order, when a customer calls with a change, or when a new customer 
 **Good to know**
 - **Split invoice by store** on a head office gives each store its own invoice when several stores ship together. It does not change who is billed.
 - **Order history** shows orders in IMS and orders from before IMS — only the orders under this customer's own name. A head office does not show its stores' orders: open the store from the **Stores** card.
+- The wide list shows **Open A/R** (what is still owed on open invoices) and **Overdue** (the part past its due date) for the customer who is billed. A store billed to its head office shows **billed to head office** — look at the head office. **Credit** and **On account** are the customer's own row.
+- **On account** is money the customer already paid that is not attached to an invoice: an overpayment, a prepayment, or money kept for the customer from before IMS (this includes credits and return credits from before IMS). **Credit** is credit notes issued in IMS that are not used yet. Both attach themselves when the next invoice is issued.
+- The **Balance** card on a customer shows, per currency, **Open invoices**, **Open A/R**, **Overdue**, **Credit owed**, **Money on account**, **Held for orders** and **Available to use** (money on account + credit owed − held for orders), and the overdue invoices. A chip at the top shows when invoices are past due. A customer billed to another customer says so — the balance is kept there.
+- When currencies are mixed, the list adds the numbers as they are — it does not convert them.
 
 **Watch out**
 - Changing **Bill to** changes new orders only. "Orders already created keep the bill-to they were made with."
@@ -86,6 +91,7 @@ When a customer orders by phone, by email or in person.
 
 **Watch out**
 - **Overdue invoices** counts only invoices past their due date. An invoice not yet due, or with no due date, does not open it. IMS looks at the customer who pays the invoices — if the order's customer is billed to another customer, the window says "This customer is billed to …". The same window opens at the counter (see [Ring up a sale](05-pos.md#pos-sale)).
+- The top of an open order shows chips **Open invoices** and **Overdue** (count and amount, in this order's currency) for the customer who pays the invoices — the same numbers as at the counter. They do not stop the order. Click one to open that customer's **Balance** card.
 - Changing the province or country in **Ship to…** picks the tax rule again from the new address. A tax rule you set by hand is reset.
 - The **Order date** decides which deals and coupons count. Change it only when the customer really ordered on another day.
 
@@ -766,6 +772,8 @@ The badge is the coloured label on an order. The filter is the **Status** list o
 Other filters: **Open** (everything not finished), **Draft — reprice suggested**, **Waiting for pickup**, **All**.
 
 **Customer** — type part of a name in **Customer — pick one** and pick the customer from the list. The list then shows only that customer's orders, together with the other filters. **↓ CSV** follows it too.
+
+**Channel** — besides the channels, **Web — asung.ca** and **Web — aonebeauty.com** show the web orders of one store (by the web order number, AS- or AO-). Orders split off a web order count too. **↓ CSV** follows it too.
 
 **Tags next to the badge**
 - **unpaid** · **partly paid** · **paid** · **overdue Nd** — see [Customer payments and deposits](#sales-payments)
