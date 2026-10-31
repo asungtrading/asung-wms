@@ -403,7 +403,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      **shopify 줄은 다시 매기기에서 건너뛴다**(판정 433 · so_line_requote · so_line_update · so_reprice reason shopify_discount) — 수량 · 손님을 바꿔도 할인 % 그대로 · 같은 SKU 를 직원이 더 넣으면 그 줄에 합쳐진다
 ⭐⭐ Shopify 취소(판정 434) — SO 가 만들어진 뒤(shop_order.so_baseline_at) so · 줄 · 운임이 한 번도 안 바뀌었고 draft | confirmed 면 시스템이 so_cancel(자동 취소) · 바뀌었거나 창고 뒤면 경고 cancel_needs_review 만(SO 무접촉)
      ⇒ 직원이 웹 오더 SO 를 고치면 그 뒤 Shopify 취소는 사람 몫이 된다 · Shopify 에서 바뀐 오더(취소 아님)도 SO 무접촉 + 경고 updated_after_so
-⭐  브랜치 = 배송지 주 먼저(판정 430 · AB · BC · SK → Edmonton · 주가 없으면 손님 기본 · aone 늘 Toronto) · 세금은 배송지(Shopify 배송지를 so_header_update 로 그대로) — 주가 없으면 no tax rule → draft + confirm_blocked
+⭐  브랜치 = 배송지 주 먼저(판정 430 · AB · BC · SK → Edmonton · 주가 없으면 손님 기본 · aone 늘 Toronto — [2026-10-31 · 판정 895 · aone-edm-1 · so §92-a] Edmonton 짝이 있어도(이제 재고를 두 창고 다 보낸다) `shop_order_pick_location` 의 kind = 'aone' 갈래가 Toronto · EDM 픽업은 그 위치의 창고 · 대가 = Toronto 로 온 오더의 백오더(힌트 deferred 414)) · 세금은 배송지(Shopify 배송지를 so_header_update 로 그대로) — 주가 없으면 no tax rule → draft + confirm_blocked
 ⭐  웹으로 처음 온 손님은 시스템이 만들고 바로 검토 완료(판정 432) · 첫 오더도 자동 확정 · 이메일이 손님 여럿에 있으면 needs_review → 직원이 shop_order_resolve_customer · 못 찾은 줄은 shop_order_resolve_lines
 ⚠️ 운임 — asung.ca 는 SO 운임 줄을 만들지 않는다(경고 freight_not_applied · ~~웹 결제 오더 운임~~ → custom 결제 방식 오더의 운임은 열어 둠 · → so-module §61-c) · 오더 전체 할인은 0 + 경고 order_discount_dropped
 ```

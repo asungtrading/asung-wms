@@ -171,7 +171,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-fulfillment"></a>
 ## 상자 · 팔레트에 담기(Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-10-01 · fu v1.3 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-10-31 · fu v1.7 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -192,6 +192,9 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 - 판매 오더와 트랜스퍼는 함께 작업할 수 없습니다: "A sale and a transfer cannot be on the same workbench — finish or clear one first"
 - Finalize 한 트랜스퍼는 바로 떠납니다: "… left for … — in transit"
 - 모자란 트랜스퍼는 보낸 만큼으로 닫힙니다 — 백오더를 만들지 않습니다.
+- 트랜스퍼의 팔레트는 **전부 아니면 0** 입니다: 팔레트가 하나라도 있으면 뽑은 물건이 모두 팔레트에 있어야 합니다(상자는 팔레트 위에). 팔레트 밖에 남은 물건이 있으면 Finalize 가 거부합니다. 한 팔레트에는 이 트랜스퍼의 물건만 담습니다.
+- 트랜스퍼의 **🖨 Pallet list** 는 첫 머리에 받는 창고가 스캔할 큰 라벨로 시작합니다 — 예: **TRF-00002-P2**, "Pallet 2 of 4", 바코드(PLT-…). 찍어서 그 팔레트에 붙입니다. 받는 창고는 팔레트 하나씩 받습니다([PO · 트랜스퍼 받기](#wms-receiving)).
+- 트랜스퍼가 떠난 뒤에는 팔레트가 잠깁니다 — 더 담거나 빼지 못합니다.
 
 **알아 둘 것**
 - 짐의 **Delete** 는 그 제품을 안 담은 쪽으로 돌려놓습니다.
@@ -201,7 +204,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-receiving"></a>
 ## PO · 트랜스퍼 받기
-<!-- screen: wms-receiver.html · BUILD 2026-10-21 · rc v1.9 -->
+<!-- screen: wms-receiver.html · BUILD 2026-10-31 · rc v2.0 -->
 <!-- who: warehouse, manager -->
 
 **무엇인가**
@@ -211,11 +214,17 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 오피스가 공급처 인보이스를 확정한 PO 만 받을 수 있습니다([공급처 인보이스 넣기](02-purchasing.md#purch-invoice)): "No POs with a confirmed invoice to receive — the office confirms the supplier invoice first."
 
 **어떻게**
-1. **Receiving** 을 엽니다. PO 바코드를 스캔하거나, **↻ POs** 를 눌러 고릅니다(예: Supplier B 의 PO-99001). **Start**(또는 **Resume**)를 누릅니다.
+1. **Receiving** 을 엽니다. PO 바코드를 스캔하거나, **↻ POs** 를 눌러 고릅니다(예: Supplier B 의 PO-99001). **Start**(또는 **Resume**)를 누릅니다. 팔레트로 온 트랜스퍼는 대신 **팔레트 라벨(PLT-…)** 을 스캔합니다 — 그 팔레트가 열립니다(아래).
 2. 물건을 하나씩 스캔합니다. "box scan = ×factor units" — 상자 바코드는 상자 하나를 통째로 셉니다.
 3. 스캔이 안 되면 **Enter quantity** 를 누르고 적습니다.
 4. 걷는 순서에 맞게 **PO order** · **SKU** · **Product** · **Zone / Last bin** 으로 정렬합니다.
 5. 다 세면 **Putaway →** 를 누릅니다.
+
+**팔레트로 온 트랜스퍼**
+1. 보낸 창고의 Pallet list 에 찍힌 팔레트 라벨(PLT-…)을 스캔하거나, 트랜스퍼를 열고 **Choose a pallet** 창에서 팔레트를 고릅니다("… 1 of 4 pallets received" = 받은 팔레트 수).
+2. 그 팔레트를 세고 제자리에 넣은 뒤 **Complete** 를 누릅니다: "Complete = pallet … arrives: its counted quantities go into stock now. The other pallets stay in transit until they are received."(이 팔레트가 도착 — 센 수량이 지금 재고에 들어가고, 다른 팔레트는 받을 때까지 운송 중으로 남는다)
+3. 팔레트마다 같은 일을 합니다. 순서는 상관없습니다. 마지막 팔레트를 받으면 트랜스퍼가 닫히고, 그래도 모자란 것은 오피스가 **Transfers** 에서 정리합니다.
+4. 오피스가 운송 정보를 넣었으면 트랜스퍼 카드와 팔레트 창에 운송사 · PRO 번호 · ETA 가 보입니다(예: "APPS · PRO 12345 · ETA 2026-11-02").
 
 **일어날 수 있는 일**
 

@@ -16,6 +16,8 @@
 ⭐ [2026-10-27 · so-module §82 · §83] **실제 두 스토어를 「연결됐지만 잠든」 채 붙임**(live · auth_mode · store_live · 판정 811 ~ 816 · 아래 §1) · **기존 상품 잇기를 실제 스토어 크기로**(plan 31 s → 2 s · apply 묶음 500 · dup_target · 판정 829 · 830 · 832 · 아래 §1-b) · **콤보 재고**(판정 831 · 아래 §3-d) — DB shop-live-1 `7747baf` · link-perf-1 `7b01fbc` · link-perf-2 `31c67c4` · link-dup-1 `f1f9c87` · link-perf-3 `52c43af` · shop-combo-1 `18ce4f0` · 화면 asung-ims ss v4 `f7d8a80` · v4a `ae4c45b` · v5 `a429201` · v5a `32d7023` · 다음 판정 번호 **833**
 
 ⭐ [2026-10-30 · so-module §90] **컷 전 웹 오더는 `ims-import` 태그만**(판정 889 · shop-cut-1 `9d61370` · 814 의 「손으로 Fulfill」 대체 · 아래 §2-a) · **asung · aone 사진 보내기 끔**(판정 890 · shop-img-off-1 `1268bd1` · 409 · 560 을 두 스토어에서 멈춤 · §3-b) · **원산지 두 글자**(판정 884 · shop-coo-1 `902937e` · §3-e) · 조사 shop-risk-0 · shop-photo-0 요지(§3-b · §5) · send_tags 는 **결정 대기**(deferred 394) · ~~다음 판정 번호 **891**~~ → [2026-10-30 저녁 · so-module §91] **Go live 18:57**(asung · aone · 컷 17:34) · 첫 force 가 URL 길이로 40 분 조용히 실패 → stock-drain-fix-1 `e2d585d`(판정 894 · §3-d) · 다음 판정 번호 **895**
+
+⭐ [2026-10-31 · so-module §92] **aonebeauty.com 에 Edmonton 재고도 보낸다 · 오더는 늘 Toronto**(판정 895 · aone-edm-1 `17b8d7d` · Aonebeauty EDM ↔ Asung - Edmonton 짝 더함 · diff 7,543 줄 · `shop_order_pick_location` kind 갈래 · 아래 §1 · §1-a · §2-c · §3-c) · 427 · deferred 188 의 「짝 Toronto 하나」 는 바뀜 · 대가 = Toronto 로 온 오더의 백오더(힌트 deferred 414) · 다음 판정 번호 899
 ---
 
 ## 1. 스토어 (판정 362)
@@ -40,7 +42,7 @@
 | code | 주소 | 앱 · 비밀 | live | 위치 짝 |
 |---|---|---|---|---|
 | asung | asung-trading.myshopify.com(asung.ca) | Asung IMS · SHOPIFY_IMS | f | Toronto → Asung Trading Inc. · Edmonton → Asung - Edmonton |
-| aone | aone-beauty-health.myshopify.com(aonebeauty.com) | Asung IMS Aone(Aone 조직) · SHOPIFY_AONE | f | Aonebeauty TOR → Asung Trading Inc. · **Aonebeauty EDM 은 짝 없음**(Caleb 「이 상태로 둘께」 · §1-a 판정 427) |
+| aone | aone-beauty-health.myshopify.com(aonebeauty.com) | Asung IMS Aone(Aone 조직) · SHOPIFY_AONE | f | Aonebeauty TOR → Asung Trading Inc. · ~~**Aonebeauty EDM 은 짝 없음**(Caleb 「이 상태로 둘께」 · §1-a 판정 427)~~ → ✅ [2026-10-31 · 판정 895 · so §92] **Aonebeauty EDM → Asung - Edmonton 짝 더함**(재고 둘 다 보냄 · 오더는 늘 Toronto · §2-c) |
 | test | asung-ims-test.myshopify.com | Asung IMS · SHOPIFY_IMS | t | 둘 |
 
 - ⭐ [2026-10-27 · 판정 809 · 812 · 813 · 816 전제 바뀜] **Aone 은 자기 Shopify 조직이 따로 있다**(「Aone Beauty Supply…」) — Aone 관리 화면 → Settings → Apps → Develop apps 로 그 조직에 전용 앱 「Asung IMS Aone」 을 만들어 설치 · **client credentials(Automatic)** · 보관 토큰 · `tools/shopify-oauth-exchange.sh`(816)는 쓰이지 않는다(코드는 남김)
@@ -51,7 +53,7 @@
 - **ASS(asung.ca) · AOS(aonebeauty.com) 태그는 보냄을 정하지 않는다**(Caleb 「사실 지금은 별 의미가 없는 것 같아. 없는 것들도 많고」) — 두 태그는 다른 Cin7 태그처럼 IMS 에 남는다 · Shopify 로 보낼지는 다른 내부 표식(EDM_NoSale · BOTH_NoSale_Stock · DISC_* · 케이스 태그)과 함께 스토어 CSV 를 본 뒤
 - 지금 받는 CSV 는 판정용 · **컷오버 날은 앱(Asung IMS)이 실제 스토어에서 상품 목록을 직접 읽어** 같은 규칙으로 맞춘다(Caleb 「컷오버때는 한 번 더 해야 할꺼야」)
 - ⭐ [2026-10-10 밤 · 판정 426 · 427 · 429 · so-module §59] 컷오버 때 함께 할 것:
-  - **aone 스토어 행** — `oos_policy = 'deny'` · **위치 짝은 Toronto ↔ Asung Trading Inc. 하나**(Shopify 는 DENY 에서 스토어의 모든 위치 Available 을 합쳐 본다 — Edmonton 을 짝지으면 Toronto 에 없는 것도 팔린다) · aone Shopify 의 Edmonton 위치 숫자는 비우거나 판매에서 뺀다(미룬 188)
+  - **aone 스토어 행** — `oos_policy = 'deny'` · ~~**위치 짝은 Toronto ↔ Asung Trading Inc. 하나**~~ → [2026-10-31 · 판정 895 · so §92-a] **짝 둘**(Edmonton 재고도 보낸다 · Caleb 「B」 · 동료 피드백 — Cin7 이 최근 두 창고를 다 보내고 있었다) · 오더는 kind 갈래로 늘 Toronto · ⚠️ 대가 = 427 의 까닭 그대로(Shopify 는 DENY 에서 스토어의 모든 위치 Available 을 합쳐 본다 — Edmonton 을 짝지으면 Toronto 에 없는 것도 팔린다 → Toronto 로 온 오더가 통째 백오더 · 매니저가 Unconfirm → Edmonton → Confirm · 힌트는 deferred 414) · aone Shopify 의 Edmonton 위치 숫자는 비우거나 판매에서 뺀다(미룬 188)
   - **asung.ca 재고 상태 태그 · 메타필드 구현을 끈다**(Caleb · `outofstock-edm` · `outofstock-tor` · `instock-edm` · `instock-tor` 태그와 Restock Date · out of stock date 메타필드를 쓰던 것) — 안 끄면 IMS 가 지운 태그를 다시 붙인다 · 메타필드는 사람 칸이라 IMS 무접촉(미룬 187)
   - **171 정리** — asung.ca 에서 단종이 아닌데 deny 인 SKU 171 개를 IMS 에서 하나씩(단종 켜기 · sellable 끄기 · 그냥 두기) · 그대로 두면 컷오버 날 CONTINUE 로 풀린다 · 검토 CSV `~/asung/prompts/csv/review-deny-171.csv`(미룬 186) · 단종 712 개 continue → DENY 는 판정 428 대로 · aone continue 21 은 스토어 설정대로 DENY
 
@@ -120,7 +122,8 @@ drain         cron 47 · 1 분 · 받은 일 → GraphQL 로 다시 읽기 → s
 ~~asung.ca          손님의 기본 브랜치 · 비었으면 주소로 — AB · BC · SK → Edmonton · 나머지 → Toronto~~ → 판정 430
 asung.ca          **배송지 주 먼저** — AB · BC · SK → Edmonton · 그 밖 → Toronto · 주가 없으면 손님 기본(Caleb 「배송지 주를 먼저 본다 A가 맞아 보여」)
                   근거: 손님 9,469 중 기본 Edmonton 135 뿐 · 배송지 AB 손님도 기본 Toronto 667 · Edmonton 86 — 손님 기본은 지역을 말하지 않는다
-aonebeauty.com    늘 Toronto(위치 짝이 하나뿐인 스토어는 그것 · 판정 427)
+aonebeauty.com    늘 Toronto — ~~위치 짝이 하나뿐인 스토어는 그것 · 판정 427~~ → [2026-10-31 · 판정 895 · aone-edm-1] 짝이 둘(Edmonton 재고도 보냄)이어도 kind = 'aone' 갈래가 Toronto(주 · 손님 기본보다 먼저)
+                  픽업(PICK_UP · Aonebeauty EDM)은 이 함수를 안 거친다 — 그 위치의 창고(Edmonton) · 오더가 백오더되면 Unconfirm → 창고 Edmonton → Confirm(힌트 deferred 414)
 ⚠️ Edmonton 은 창고 이름(%edmonton%)으로 찾는다 — ref_warehouse 에 지역 칸이 없다(so-module 미룬 192)
 재고로 고르지 않는다   Caleb 「인벤토리로 하게 되면 오더도 갈라지고 복잡한게 너무 많아서」
 다른 브랜치 요청   IMS 의 확정 되돌리기(supervisor) → 창고 변경 → 다시 확정 — ⬜ 이 장면은 끝에서 끝 시험을 아직 안 했다
@@ -226,7 +229,7 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 판정 406  꺼진 구성원(not (is_active and sellable))은 변형을 지우지 않는다 — variants 목록에 그대로 담고 그 변형만 inventoryPolicy DENY + 재고 0(③) → Sold out · 이력 유지
           → [판정 425] 재고 0 은 IMS 가용과 상관없이(stock-1b 실물) · 손님 글자는 테마 「Sold out」 → 「Not available」(§7 · 사람 몫)
 판정 407  ~~켜진 변형은 inventoryPolicy CONTINUE(품절이어도 오더를 받는다)~~ → 판정 427 · 428 로 바뀜(아래)
-판정 427  품절 판매는 스토어마다 — shop_store.oos_policy · asung.ca continue · aonebeauty.com deny(Toronto 재고만) · 시험 스토어 continue
+판정 427  품절 판매는 스토어마다 — shop_store.oos_policy · asung.ca continue · aonebeauty.com deny(~~Toronto 재고만~~ → [2026-10-31 · 895] Edmonton 재고도 보낸다 · 두 위치 합으로 판다 · 오더는 Toronto · so §92-a) · 시험 스토어 continue
 판정 428  단종(is_discontinued) 변형은 스토어 설정과 상관없이 DENY — 남은 재고까지만 · 재고 숫자는 그대로(0 으로 만들지 않음)
           ⇒ inventoryPolicy = 꺼진 구성원 DENY(+ 재고 0 · 406) → 단종 DENY(428) → 스토어 deny → DENY → 그 밖 CONTINUE(shop_variant_payload · shop-pol 8cd08a7)
 판정 413  status 도 IMS(위 3-a) · 숨기는 정식 길 = 보냄 끄기 하나
@@ -525,6 +528,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-14 밤 · so-module §64 · docs-1014c] 상태 줄에 frt-1a · §2-g 판정 473(asung 운임 견적) · aone 운임 「확정」 은 코드 표지 없음(미룬 236) · §5 ⑦ 닫힘
 - [2026-10-27 · so-module §82 · §83 · docs-1027c] 상태 줄 · §1 live · auth_mode · 창구 op 셋 · cron 42 ~ 53 · 웹훅 live 전 무시 · 실제 스토어 셋 · Aone 조직(809 · 813 · 816 전제 바뀜) · Shopify 사실 · §1-b 기존 상품 잇기 새로(link-dup-1 이견 1 — 잇기 절이 없었다) · §3-d 콤보(831) · 트리거 16 · §7 할 일 여섯
 - [2026-10-30 · so-module §90 · docs-1030] 상태 줄 · §1-b 컷오버 순서의 send_tags → 결정 대기(394) · §2-a 컷 전 웹 오더(판정 889 · 814 대체) · 웹훅 구독 0 · §3-b 사진 보내기 끔(판정 890 · 409 · 560 멈춤) · shop-photo-0 요지 · §3-e 원산지(판정 884) · send_tags 전부 다시 보내기 · 비교가 · 빈 설명 · §5 ⑯ ~ ㉑ · §7 store_live · send_tags · 171 줄
+- [2026-10-31 · so-module §92 · docs-1031] 상태 줄 · §1 실제 스토어 표 aone 짝 둘 · §1-a 「위치 짝 하나」 → 둘(895 · 대가) · §2-c aone 갈래 · 픽업 · §3-c 판정 427 줄 · §7 Aonebeauty EDM 할 일 뒤집힘
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
@@ -543,7 +547,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 [ ] asung.ca `custom` 결제 방식의 실제 이름 (Caleb · Settings → Payments → Manual payment methods · 운임 191 과 함께 · 미룬 205)
 [ ] Shopify 페이지 합치기 — 두 스토어 아홉 묶음(asung 3 · aone 6 · 페이지 35 → 9 · 변형 26) (판정 830 · 담당자 · 컷오버 전 · 안내문 · 엑셀 shopify-ims-diff-2026-10-27.xlsx 는 레포 밖 · §1-b)
     남길 페이지에 사이즈를 변형으로 더하고 옛 페이지를 지운다(한 변형씩 지우기 → 추가) · Archive 로는 안 풀린다 → 끝나면 Read → Plan 에서 dup_target 0
-[ ] Aonebeauty EDM 위치 — Shopify 쪽 재고 숫자(비우거나 판매에서 빼기)와 그 위치가 온라인 주문을 받는지(짐작: 위치 설정의 온라인 주문 처리) (Caleb · 컷오버 전 · §1-a · 미룬 188 · IMS 는 그 위치에 재고를 안 보낸다 — 짝 없음)
+[x] Aonebeauty EDM 위치 — Shopify 쪽 재고 숫자(비우거나 판매에서 빼기)와 그 위치가 온라인 주문을 받는지(짐작: 위치 설정의 온라인 주문 처리) (Caleb · 컷오버 전 · §1-a · 미룬 188 · IMS 는 그 위치에 재고를 안 보낸다 — 짝 없음) — ✅ [2026-10-31 · 판정 895 · so §92-a] 뒤집힘: Aonebeauty EDM 짝을 **더해** Edmonton 재고도 보낸다(비우지 않는다 · 오더는 Toronto)
 [ ] asung · aone `send_tags` 켜기 (관리자 SQL · 판정 426 · 창구가 받지 않는다 · ⚠️ 태그 적재 뒤에만 — 빈 태그로 켜면 스토어 태그를 지운다 · 켜면 스토어 트리거가 그 스토어 상품 전부를 큐에) — [2026-10-30] **켤지 결정 대기**(전부 다시 보내기 약 8 시간 · 555 와 충돌 · deferred 394)
 [x] store_live — ✅ 2026-10-30 18:57(asung · aone · orders_from = 17:34 · 시각 칸을 비워 18:57 로 저장됐다가 SQL 로 바로잡음 · so §91-c · reload §P-2 13b) · 스토어마다 Go live(orders_from = Cin7 의 Shopify 연결을 끈 시각 · **분까지** · 판정 814 · ~~그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill~~ → [2026-10-30 · 판정 889] 18:00 뒤 직원이 그 웹 오더에 `ims-import` 태그 · §2-a) (Caleb · 컷오버 날)
 [ ] 컷오버 순서 — 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply links → Cin7 의 Shopify 연결 끔 → Go live → ~~send_tags~~(결정 대기 · deferred 394) (§1-b · so-module §83-c · reload-procedure §P-2 13b)

@@ -8080,7 +8080,7 @@ family 구성원은 families.html 에서 보낸다(켜기 · 끄기 · Send now 
 
 - 186 171 개 정리(판정 429 · 컷오버 전 · 검토 CSV `~/asung/prompts/csv/review-deny-171.csv` 의 Decision 칸 · Caleb)
 - 187 asung.ca 재고 상태 태그 · 메타필드 구현 끄기(판정 426 · 컷오버 · Caleb)
-- 188 aone 스토어 행 · 위치 짝 Toronto 하나 · aone Shopify Edmonton 위치 비우기(판정 427 · 컷오버)
+- 188 aone 스토어 행 · 위치 짝 Toronto 하나 · aone Shopify Edmonton 위치 비우기(판정 427 · 컷오버) → ✅ [2026-10-31 · 판정 895 · §92-a] 뒤집힘 — Edmonton 짝 더함 · 재고 둘 다 보냄 · 오더는 Toronto(deferred 188 닫힘)
 - 189 shop_store_save 가 send_tags 받기(화면에서 켜기 · 짧은 Fable 차수 — 컷오버 전 아무 때나)
 - 190 단종 → Off 의 Shopify 화면 실물(시험 스토어 · Caleb 선택)
 
@@ -11639,9 +11639,9 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 ## §91 2026-10-30 저녁 — 컷오버 실행(8 ~ 13b · Go live 18:57) · 설명 끝 바코드 덩이 지움 · PO-01382 LAC793xx 이중 계상 상쇄 · 재고 drain URL 길이 — desc-bc-1 · ledger-fix-1 · stock-drain-fix-1 · 조사 layer-gap-0 · 판정 891 ~ 894
 
-⭐ 정한 것: 설명 끝 `(Barcode…)` 덩이는 일괄로 지운다(891) · PO-01382 LAC793xx 10-15 벌은 원장에서 `:reversal` 로 상쇄(892) · 원장 ≠ Cin7 130 칸은 Cin7 마지막 값에 맞추는 IMS 재고 조정으로(893 · A 보다 먼저) · `shop_stock_sent` 읽기는 100 개 덩이(894)
+⭐ 정한 것: 설명 끝 `(Barcode…)` 덩이는 일괄로 지운다(891) · PO-01382 LAC793xx 10-15 벌은 원장에서 `:reversal` 로 상쇄(892) · 원장 ≠ Cin7 ~~130 칸~~은 Cin7 마지막 값에 맞추는 IMS 재고 조정으로(893 · A 보다 먼저 → [10-31 · §92-a] 95 칸 · +581 · 스냅샷 01:21 기준) · `shop_stock_sent` 읽기는 100 개 덩이(894)
 ⭐ 원천: docs-1030b 📌 A ~ F(대화 Claude · Caleb · 10-30 저녁 대화) · 커밋 메시지 · 마이그레이션 · ops 머리 주석 · 조사 layer-gap-0 보고 · 이견 stock-drain-fix-1 · ⚠️ 컷오버 실행 로그는 레포에 없다 — 91-c 가 원천
-⭐ 컷오버 — reload-procedure §P 8 ~ 13b 를 10-30 17:34 ~ 19:50 에 돌렸다(91-c) · **Go live 18:57** · 남은 것 12 · 12b · 14 · 15 와 A(§H 다시) · 893 조정
+⭐ 컷오버 — reload-procedure §P 8 ~ 13b 를 10-30 17:34 ~ 19:50 에 돌렸다(91-c) · **Go live 18:57** · 남은 것 12 · 12b · 14 · 15 와 ~~A(§H 다시) · 893 조정~~ → ✅ [10-31 · §92] A = layer-fix-1 · 893 조정 = adj-893-1 끝
 
 ### 91-a 판정 (Caleb 말 그대로 · 뜻)
 
@@ -11649,7 +11649,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 |---|---|---|
 | 891 | 「(Barcode시작해서 )로 닫는 것은 다 찾아서 지워도 되는데」 | 상품 · 제품군 설명 **맨 끝**의 `(Barcode…)` 덩이를 일괄로 지운다 · desc-bc-1 `20261030203600`(ops 가 아니라 **마이그레이션** · 세션 GUC `ims.description_door` 는 트랜잭션 지역 · 설명 문지기는 그대로) · 상품 16,133 · 제품군 953 · 빈 결과 1,246 · 75 → '' · `ims_html_forbidden`(powr.io iframe) 98 · 6 행도 씀 · 가운데 덩이 14 행은 안 건드림(손 거리 · deferred 412) · 안 닫힌 10 행 지움 · edited_at **2026-10-30 21:22:48.862928 UTC**(되돌리기 표식 · 되돌리는 SQL 은 마이그레이션 머리) · edited_by Caleb · Apply links **전에** 적용(hash 가 새 설명으로 서서 새벽 대량 push 를 피함) · 커밋 `899f69c`(git log) |
 | 892 | 「아니 아직 안눌렀어」(Go live 전에 하기로) | Go live 전 PO-01382 LAC79351 ~ 64 의 10-15 이중 계상 14 줄을 원장에서 `:reversal`(−1,314 · 원래 날짜 10-15 · source manual · raw.prompt 'ledger-fix-1') · ops SQL `supabase/ops/ledger-fix-1.sql` · 커밋 `0dee3d7` · ⚠️ 정정: LAC793xx 는 product 표에 없는 SKU(Cin7 이 LAC593xx 로 바꾼 옛 이름)라 **IMS 재고 수량 · Shopify 에는 처음부터 안 들어갔다**(대화 Claude 가 「Go live 하면 없는 재고가 나간다」 고 틀리게 말함 · 91-e 9) · 이 상쇄는 원장 ↔ Cin7 대조 · 레이어 재료를 깨끗하게 한 것 · 레이어는 A 차수(§H 다시) 전까지 LAC793xx 14 칸이 「레이어 > 원장」 으로 남는다(deferred 403) |
-| 893 | 「가」 | 원장 ≠ Cin7 칸(음수 21 + 어긋남 109 · 옛 수집기 빈틈 — 조립 부품 출고 · 트랜스퍼 다리 · 합 +788 · 절대합 1,997)을 **Cin7 마지막 값(17:30 멈춤)에 맞추는 IMS 재고 조정**으로 · 의심스러운 몇 개만 실사 · 차수는 Caleb 요청 때(deferred 404) · A(§H 다시)보다 **먼저**(조정이 원장에 사건을 만든다 — 재생성이 그 사건을 읽어야 한다) |
+| 893 | 「가」 | 원장 ≠ Cin7 칸(음수 21 + 어긋남 109 · 옛 수집기 빈틈 — 조립 부품 출고 · 트랜스퍼 다리 · ~~합 +788 · 절대합 1,997~~)을 **Cin7 마지막 값(~~17:30 멈춤~~)에 맞추는 IMS 재고 조정**으로 · 의심스러운 몇 개만 실사 · 차수는 Caleb 요청 때(deferred 404) · A(§H 다시)보다 **먼저**(조정이 원장에 사건을 만든다 — 재생성이 그 사건을 읽어야 한다) · ⚠️ → [10-31 · §92-a 893 이어진 결정] 숫자 정정 — **95 칸 · +581 · 절대합 683**(음수 21 은 109 안 · 130 은 21 을 두 번 센 것 · +788 은 토론토만 · LAC793xx 14 는 892) · 기준은 17:30 이 아니라 스냅샷 **2026-10-30-compare 01:21**(17:30 값은 DB 에 없다) |
 | 894 | (stock-drain-fix-1) | `shop_stock_sent` 읽기를 `SENT_CHUNK = 100` 덩이로 — 500 uuid 를 한 URL `in.()` 에 붙이면 ≈ 18 KB → 「error sending request」 · Go live 직후 19:00 ~ 19:41 매분 500 줄 실패(테스트 스토어는 listing 5 라 안 드러났다) · 커밋 `e2d585d` · 배포 19:42 부터 분당 500 줄 · 남은 오류는 `no_inventory_item (send the product first)` 뿐(Shopify 에 아직 없는 변형 — 「패밀리 일부」 asung 133 · aone 111 · 브랜드별 첫 push 때 생긴다) · 이견 ③ ⑤ 는 deferred 405 · 406 |
 
 ### 91-b 차수 · 커밋 (git log 원문 · 두 레포 · 오늘 전부)
@@ -11686,7 +11686,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 | 첫 오더 읽기 19:00 | asung seen 10 · added 9 · skipped_cut 1(AS-7208) / aone seen 6 · added 4 · skipped_cut 2(AO-17262 · AO-17275) · 막힌 셋은 이미 fulfill 된 컷 전 오더(Caleb) — **889 가 막을 것을 막음** |
 | 재고 drain | 19:00 ~ 19:41 매분 500 줄 실패(call_log 0 줄 · 조용) → 894 → 19:42 부터 분당 500 줄 · 오류 `no_inventory_item` 만 |
 | 11 테마 글 | asung.ca 「Sold out」 → 「Not available」 세 칸(Products → Product → Sold out · Variant sold out or unavailable · Pagefly → Products product → Sold out · Checkout & system 칸은 그대로) · deferred 180 닫힘 · aonebeauty.com 무료 배송은 아직 |
-| 남은 것 | 12(A · 893 조정 · BQ 10 월 · 이력 · B급 · 열린 PO) · 12b 이월 · 14 첫 번호 · Edmonton 매니저 · 393 CB- |
+| 남은 것 | 12(~~A · 893 조정 · BQ 10 월~~ → ✅ 10-31 §92 · 이력 · B급 · 열린 PO) · 12b 이월 · 14 첫 번호 · Edmonton 매니저 · 393 CB- |
 
 ### 91-d 조사 요지 (layer-gap-0 · stock-drain-fix-1 이견 · 읽기만 · 숫자는 그 보고)
 
@@ -11709,8 +11709,8 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 | 번호 | 무엇 | 때 |
 |---|---|---|
-| 403 | A 차수 — `inv_layer_apply_po_in` 이 manual `:reversal` 음수를 못 읽는다 → `split_part(line_ref,':',1)` 순액 마이그레이션 → §H 다시 · LAC793xx 14 칸 「레이어 > 원장」 도 이때 닫힌다 · **893 조정 뒤 · 12 전** | 컷오버 날(내일 · Caleb 「내일 요청할께」) |
-| 404 | 893 조정 차수 — 원장 ≠ Cin7 130 칸(음수 21 + 109)을 Cin7 17:30 값에 맞추는 IMS 재고 조정 · 의심 칸 몇 개만 실사 · A 보다 먼저 | Caleb 요청 때 |
+| 403 | A 차수 — `inv_layer_apply_po_in` 이 manual `:reversal` 음수를 못 읽는다 → `split_part(line_ref,':',1)` 순액 마이그레이션 → §H 다시 · LAC793xx 14 칸 「레이어 > 원장」 도 이때 닫힌다 · **893 조정 뒤 · 12 전** | 컷오버 날(내일 · Caleb 「내일 요청할께」) → ✅ [10-31 · §92] layer-fix-1 `29b55ea` 닫힘 |
+| 404 | 893 조정 차수 — 원장 ≠ Cin7 130 칸(음수 21 + 109)을 Cin7 17:30 값에 맞추는 IMS 재고 조정 · 의심 칸 몇 개만 실사 · A 보다 먼저 | Caleb 요청 때 → ✅ [10-31 · §92] adj-893-1 `87b1cd1` 닫힘(95 칸 · 01:21 기준) |
 | 405 | EF `shopify` 최상위 catch 가 call_log 를 안 남긴다(stock_drain 40 분 조용) — action 별 recordCall 한 줄 | 미정 |
 | 406 | CLAUDE.md §1 「두 프로젝트」 표 · §2 db push 줄 · `--linked = 운영` 줄의 정합(fazgmyvzzhqybtvtktyg 가 메인 · 617 · Go live 18:57) — 오늘은 표에 한 줄만 | 미정 |
 | 407 | Go live 창의 시각 칸이 비면 막거나 묻기(화면 ss) — 비우면 지금 시각으로 저장돼 컷 시각이 틀어진다(10-30 실사고 · SQL 로 바로잡음) · 392 와 한 묶음 | 미정 |
@@ -11744,5 +11744,90 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 - 「다음 판정 번호: 891 · 다음 deferred 번호: 403」(§90 끝) → 아래
 
 ```
-다음 판정 번호: 895 · 다음 deferred 번호: 415
+~~다음 판정 번호: 895 · 다음 deferred 번호: 415~~ → §92 끝
+```
+
+---
+
+## §92 2026-10-31 집 — 컷오버 다음 날 · 원장 ≠ Cin7 95 칸 조정 · 레이어 재생성 운영판 · aone 에 Edmonton 재고도 · 떠난 Cin7 트랜스퍼 넷을 IMS 「가는 중」 으로 · 트랜스퍼 팔렛 단위 받기 · 운송사 · 운송장 · ETA — aone-edm-1 · tf-transit-1 · adj-893-1 · layer-fix-1 · tf-pallet-1 · rc v2.0 · fu v1.7 · 판정 893(이어진 결정) · 895 ~ 898 (집 PC)
+
+⭐ 정한 것: 원장 ≠ Cin7 는 130 이 아니라 **95 칸 · +581** 이고 기준은 스냅샷 01:21 · 문서 상쇄 먼저 → 남은 차이만 조정(893 이어진 결정) · aonebeauty.com 에 **Edmonton 재고도** 보내되 오더는 늘 Toronto(895) · 컷오버 때 VOID 된 떠난 트랜스퍼 TR-06396 ~ 06399 는 상쇄하지 않고 IMS 「가는 중」 문서로 연다(896) · 트랜스퍼는 받는 쪽이 **팔렛 단위**로 받는다(897) · 트랜스퍼에 운송사 · 운송장 · ETA(898 · 토론토 → 에드먼턴은 APPS)
+⭐ 원천: docs-1031 📌 A ~ E(대화 Claude · Caleb · 10-31 대화) · 덧붙임(Caleb 10-31 · rc v2.0 해시 · APPS) · 커밋 메시지 · 마이그레이션 · ops 머리 주석(adj-893-1 · layer-fix-1-regen · tf-transit-1 · tf-transit-arrive-manual) · DB 확인 select(ref_carrier APPS · inv_transfer TR-06396 ~ 06399 · so_number_seq · inv_voided_docs 3772) · ⚠️ 실행 로그는 레포에 없다 — 92-c 가 원천
+⭐ 컷오버 남은 것(91-c) 가운데 **A(§H 다시 · 403) · 893 조정(404) 끝** · 남은 12(이력 §73-c 10 · B급 · 열린 PO) · 12b 이월 · 14 첫 번호 · Edmonton 매니저 · 393 CB-
+
+### 92-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 893 이어진 결정 | 「A」 + (가)=(b) · (나) · (다) · (라) | 범위는 ~~130~~ **95 칸 · +581 · 절대합 683**(음수 21 은 어긋남 109 **안** · 130 은 21 을 두 번 센 것 · +788 은 토론토만 · LAC793xx 14 는 892 로 끝남 → 109 − 14 = 95) · 기준 = Cin7 스냅샷 **2026-10-30-compare 01:21**(「17:30 값」 은 DB 에 없다) · 조정 = Cin7(01:21) − 원장(01:21 컷)을 **지금 잔고에 더한다**(컷 뒤 진짜 움직임은 안 지운다) · **문서 상쇄 먼저 → 남은 차이만** 조정 · 남은 음수 칸은 결함 날짜 manual 줄(`MANUAL-893-NEG` · adjust_new · raw.line.UnitCost = Cin7 단가 · 재생성이 읽는다) · bin 없는 칸은 원인 문서 상쇄로 · KAN64261 에드먼턴만 EU060404 ADJ +1 · 의심 칸도 Cin7 값으로 · **월요일 실사는 확인용**(deferred 418) · WEL04712 는 실행 직후 SO-20003 Unconfirm → Confirm(6 백오더) · ops `supabase/ops/adj-893-1.sql` · 커밋 `87b1cd1` · **원인 실물** — ① 안 닫힌 **VOID 조립 13 장**(FG-00160 · 161 · 167 · 168 · 172 · 174 · 176 · 181 · 183 · 184 · 185 · 189 · 197 · 72 줄 · 순액 −452 · `:voided` · inv_voided_docs resolved_at 10-31 · FG-00197 은 컷 뒤 수집 → in_cut=false) ② 판매 fulfilment 두 벌 SO-17868 · SO-18094(뒤 벌 `:reversal`) ③ TR-06125 토론토 bin '' transfer_out 5 줄(PAL · 이중) ④ ST-01407 BAB39980 에드먼턴 −1(같은 날 SO-16806 이 뺀 1 개) ⑤ **TR-06397 Z010101 09:17 출고 6 줄**(LAC73891 · 73892 · 73893 · 74507 · 74508 · 74509 · 각 −3 · IN_TRANSIT 짝 없음 · Z010101 = 임시 자리(Caleb) · 같은 문서 08:12 A110603 다리 30 줄은 정상 — tf-transit-1 이 문서로 연다) — 상쇄 110 줄 · +575 가 문서로 설명 · 남은 차이 = ADJ-00011 토론토 16 줄 −3 · ADJ-00012 에드먼턴 5 줄 +5 · 음수 2 칸 manual |
+| 895 | 「B」 | aonebeauty.com 에 **Edmonton 재고도 보낸다** — 위치 짝 「Aonebeauty EDM ↔ Asung - Edmonton」 더함(Cin7 이 최근 두 창고를 다 보내고 있었다 — 동료 피드백) · **오더는 늘 Toronto**(Cin7 때 그랬고 Caleb 이 선호) — `shop_order_pick_location` 에 `kind = 'aone'` 갈래(Edmonton 짝이 있어도 · 주 · 손님 기본보다 먼저) · EDM **픽업**은 Edmonton(픽업 갈래는 이 함수를 안 거친다 — 그 위치의 창고) · oos_policy deny 는 그대로 · `shop_store.oos_policy` 칼럼 주석도 · ⇒ 판정 427 · deferred 188 의 「aone 짝 Toronto 하나」 는 바뀜(188 닫힘) · **대가**(§1-a 54 행의 427 까닭 그대로): Shopify 는 DENY 에서 두 위치 Available 을 **합쳐** 판다 → 토론토 0 · 에드먼턴 4 인 상품이 팔리고 오더는 Toronto 로 와 **통째 백오더**(SO-20007 꼴) — 매니저가 Unconfirm → Edmonton → Confirm · 그 힌트가 deferred 414(「TO 0 · ED 4」 · 895 이견 6) · DB aone-edm-1 `20261031143000` · 커밋 `17b8d7d` · 운영: 짝 더함 + shop_stock_queue_diff 7,543 줄 · 오류 0(BCO10197 EDM 4 눈 확인) |
+| 896 | (tf-transit-1 · Caleb 「열자」 — 상쇄 대신) | 컷오버 때 Cin7 에서 VOID 한 **떠난 트랜스퍼 TR-06396 ~ 06399**(10-26 · 한 트럭 팔렛 P1 ~ P4 · 참조 SO-18288 · 18290 · 18291 은 옛 WMS 로 픽하려던 가짜 SO — 다시 만들지 않는다)를 **상쇄하지 않고 IMS 트랜스퍼 「가는 중」 으로 연다** — 창구 `inv_transfer_open_in_transit(doc_number, note)` · 번호 그대로(→ 레이어 doc_scope 로 IN_TRANSIT 원가가 도착에 이어진다 · 원가 함수 수정 0) · 줄 = 원장 IN_TRANSIT 들어감(source cin7) SKU × 수량 ÷ 계수 · 상태 in_transit · 출발일 10-26 · **원장 쓰기 0** · 에드먼턴은 받기 화면에서 평소대로(tf_arrive) · `tf_settle` 갈래(v_rem · lost 는 양쪽 · return 은 출발 창고) · `wms_health_check` 의 source 'ims' 갈래를 cin7 까지 · inv_voided_docs **3772(TR-06397) 손으로 닫음**(상쇄 안 함 · 물건은 떠났다) · 대비책 `supabase/ops/tf-transit-arrive-manual.sql`(트럭이 창구보다 먼저 올 때 · 전량 도착만 · 만들고 시험만) · 도착 예정 11-02 ~ 03 · DB tf-transit-1 `20261031180000` · ops `tf-transit-1.sql` · 커밋 `6d786e6` · 운영: 네 장 열림(DB 확인 10-31: 넷 다 in_transit · departed 10-26 · ⚠️ 운송 정보 셋(carrier · tracking · eta)은 아직 비어 있다 — 898 입력은 화면 차수 deferred 417 또는 SQL) · TR-06397 Z010101 6 줄은 893 몫 · TR-03975 · 03976(기준선 잔재)은 손대지 않는다 |
+| 897 | 「받는쪽이 팔렛 단위로 받을 수 있으면」 · 라벨 「가」 · 레터 | 트랜스퍼 한 장 안의 Fulfillment 팔렛(장치는 **이미 SO · 트랜스퍼 공용** — tf-pallet-0 의 「표만 있다」 는 틀림 · 92-e 21)을 받는 쪽이 **팔렛 단위로** 받는다 — 받기 화면에서 팔렛 라벨 스캔(값 `PLT-<wms_pallets.id>` · `tf_pallet_lookup`) 또는 팔렛 고르기 창(`tf_pallets` · waiting · receiving · done · n of N) → `wms_recv_start(po_id, pallet_id)` → 세기 → Putaway → **Complete = 그 팔렛 도착**(다른 팔렛은 운송 중 그대로 · 누적) · `po_receipt.pallet_id`(맨 위 팔렛 · 박스는 `wms_pallet_tree` 로 접힌다 · 트랜스퍼만 CHECK) · **출발 뒤 얼림**(트랜스퍼만 · `wms_pallet_freeze` · `wms_pallet_item_freeze` 트리거 · `wms_pallet_frozen_check`) · 박스는 맨 위 팔렛으로 · Finalize: 팔렛이 있으면 **팔렛 합 = Σpicks**(전부 또는 0) · **섞인 팔렛 거부**(다른 문서의 물건) · **운임은 마지막 도착 또는 settle 닫힘에서 한 번**(`tf_freight_post` · `tf_in_transit_ea` 0 일 때) · 라벨 = Pallet list(레터) 첫 머리 큰 글씨 `<번호>-<label>`(TRF-00002-P2) · 출발 → 도착 · Pallet n of N · Code 128 `PLT-<id>`(label 은 유니크가 아니라 id 로 스캔) · 팔렛 없는 트랜스퍼는 전과 같다 · **기각**: 팔렛별 트랜스퍼 자동 분할 · DB tf-pallet-1 `20261031210000`(749 줄 · wms_finalize · wms_recv_start · tf_receipt_detail · wms_recv_count · wms_recv_scan · tf_arrive · tf_settle 다시 · 새 tf_pallet_line_check · tf_pallet_info · wms_pallet_root) · 커밋 `a0f9555` · 화면 asung-ims **fu v1.7 `c1a5a73`** · **rc v2.0 `a866ecd`**(팔렛 고르기 창 · 팔렛 n of N · 팔렛마다 Complete · 운송 정보 표시 · 열린 입고가 있어도 트랜스퍼 카드는 숨기지 않음) · 매뉴얼 04-wms en · ko |
+| 898 | 「적어두자」 | 트랜스퍼에 **운송사(`ref_carrier`) · 운송장 번호(PRO · BOL · 200 자) · ETA(바뀐다)** — `inv_transfer.carrier_id · tracking_number · eta` · 쓰기는 `inv_transfer_shipping_set(transfer_id, carrier_id, tracking, eta)` 만(transfer · fulfillment · wms_receiving 쓰기 권한 · received · cancelled 뒤 거부) · 받기 화면 · 팔렛 창에 「운송사 · PRO … · ETA …」 한 줄(읽기만) · 토론토 → 에드먼턴은 **APPS** 로 보낸다 — ref_carrier 에 없었다 → ✅ [10-31 Caleb] **Settings → Carriers 에 APPS 더함**(Kind Carrier · Shopify name · 추적 링크 · Freightcom 이름 전부 비움 — 트랜스퍼 전용 · DB 확인 shopify_company '' · tracking_url_template null · fc_name 0 · active) · 입력 화면(트랜스퍼 목록 · 상세 · Fulfillment Finalize)은 아직 — deferred 417 · DB tf-pallet-1 · 커밋 `a0f9555` |
+
+### 92-b 차수 · 커밋 (git log 원문 · 두 레포 · 오늘 전부)
+
+| 레포 | 커밋 | 차수 | 확인 |
+|---|---|---|---|
+| asung-wms | `17b8d7d`(`20261031143000_aone_edm_1_pick_location_toronto.sql`) | aone-edm-1 — aone 웹 오더는 Edmonton 짝이 있어도 늘 Toronto(895) · oos_policy 주석 | 마이그레이션 끝 확인(prosrc `v_kind = 'aone'` 1) · 운영 적용 뒤 짝 더함 · diff 7,543 줄 오류 0 |
+| asung-wms | `6d786e6`(`20261031180000_tf_transit_1_open_in_transit.sql` 565 줄 · `supabase/ops/tf-transit-1.sql` · `tf-transit-arrive-manual.sql`) | tf-transit-1 — 떠난 Cin7 트랜스퍼를 IMS 가는 중 문서로(896) | 리허설 begin → rollback · 적용 뒤 `-v check=1` 검산 · 네 장 in_transit(DB 10-31) |
+| asung-wms | `87b1cd1`(`supabase/ops/adj-893-1.sql` 500 줄) | adj-893-1 — 원장 ≠ Cin7 95 칸(893) · 문서 상쇄 110 줄 · ADJ-00011 · ADJ-00012 · 음수 2 칸 manual | 적용 뒤 독립 계산 「상쇄하면 Cin7 과 같다」 · ⚠️ check 모드 13 MISMATCH(92-e 19) |
+| asung-wms | `29b55ea`(`20261031200000_layer_fix_1_po_in_net.sql` 90 줄 · `supabase/ops/layer-fix-1-regen.sql` 166 줄) | layer-fix-1 — `inv_layer_apply_po_in` 상쇄 순액(split_part) · 운영판 재생성(403) | trial(rollback) → apply 90.3 초 · CHECK OK · 실제 창고 레이어 ≠ 원장 **0 칸** |
+| asung-wms | `a0f9555`(`20261031210000_tf_pallet_1_receive_by_pallet.sql` 749 줄) | tf-pallet-1 — 팔렛 단위 받기(897) · 운송 셋(898) | 적용 · 화면 rc v2.0 · fu v1.7 |
+| asung-ims | `c1a5a73` | fu v1.7 — Pallet list 머리에 받는 쪽 스캔 라벨(897) | 레터 |
+| asung-ims | `a866ecd` | rc v2.0 — 팔렛 받기(PLT 라벨 스캔 · 팔렛 고르기 창 · n of N · 팔렛마다 Complete) · 운송 정보 표시(897 · 898) | 화면 |
+
+- 적용은 `psql -1 -f` + `supabase migration repair`(마이그레이션) · ops 는 `psql -1 -f`(adj-893-1 · tf-transit-1) · regen 은 `-v mode=apply`(끝에 commit) — 모두 Caleb · 화면 배포 GitHub Pages
+
+### 92-c 운영 실행 · 실측 (10-31 · 메인 DB · 순서대로)
+
+| 무엇 | 결과 |
+|---|---|
+| aone EDM 짝 더함 | `shop_location` Aonebeauty EDM ↔ Asung - Edmonton · `shop_stock_queue_diff` **7,543 줄** · 오류 0 · BCO10197 EDM 4 눈 확인 |
+| tf-transit-1.sql | TR-06396 ~ 06399 네 장 열림(in_transit · 출발 10-26) · voided 3772(TR-06397) 닫음 · 원장 · 재고 · 레이어 변화 0 |
+| adj-893-1.sql | 문서 상쇄 110 줄 → ADJ-00011 토론토 16 줄 −3 · ADJ-00012 에드먼턴 5 줄 +5 · 음수 2 칸 결함 날짜 manual → SO-20003 Unconfirm → Confirm(WEL04712 6 백오더) |
+| layer-fix-1-regen.sql apply | **90.3 초** · CHECK OK · 기초선 2026-08-20-initial 13,830 · 1,909,097 그대로 · 실제 창고 레이어 ≠ 원장 **0 칸**(§I ②) · short_events 27 → **0** · cost_unknown 16 → **1**(PO-01381 WEL04774 · inv_cost 없음 · deferred 410) · credit_unknown 2 · layers 2,828 · consume 77,802 · transfer_layers 19,630 · 91 초 · Kim & C PO-01361 **−9,980.61** · 토론토 평가액 2,849,292.84 → **2,839,645.24** · IN_TRANSIT 레이어 = TR-0639x 넷(TR-06397 293 — 6 SKU 레이어 섬 → 도착 short 18 안 남) · TR-03975 · 03976 은 레이어가 아니라 **음수 잔고 259 칸**(기준선 잔재 · 그대로) |
+| layer-fix-1 읽기 규칙 | po_in 만 line_ref 키 · 양수만 → `split_part(line_ref,':',1)` 순액 · **다른 축**(sale_out · assemble · adjust · credit · transfer_in ← out leg)은 이미 (doc, sku, wh) 순액 · source 무관(2026-10-31 조사 · 마이그레이션 머리 11 행 · 마지막 `inv_layer_apply(date)` 정의 `20260930161946`) · §H 운영판 = truncate · seed 대신 apply 자체 delete + `lock table inv_ledger, inv_layer, inv_layer_consume, inv_layer_cost_add in exclusive mode` · lock_timeout 30s |
+| 893 밖 음수 bin 둘 | 창고 합은 맞다 · bin 만 — PAL04170 토론토 C110201 −10(재고는 C011201) · PRO00124 에드먼턴 EB010304 −3(EB010302 에 10) → bin 이동으로(deferred 418) |
+| so_number_seq | start_value **25000**(DB 확인 · last_value 20029 · 컷 때 20000 으로 맞춤) — 값 없는 `restart` 는 25000 으로 간다(deferred 420) |
+| BigQuery 확정 매출 | 9 월 `_V2` 다시 받음(값 그대로 · 24,935 줄 · 1,180,876.49) · 10 월 새로 26,385 줄 · 1,179,888.33 · COGS 794,201.90 · 크레딧 103 줄 −5,449.44 · 본 표 283,291 행 12 개월 · **이력 적재(§73-c 10)는 Caleb 「나중에」**(ILH_PRACTICE 그대로 · deferred 419) |
+| 10-31 확정 매출 | Cin7 의 24 오더 · 390 줄 · 19,152.88 은 컷 전에 미리 인보이스(날짜 10-31 · 재고는 10-30) — 10-31 매출은 Cin7 확정 + IMS **두 곳**(나중에 합칠 때 날짜로 겹쳐 세지 마라) |
+| 오더 읽기 | 「Orders read from」 = 마지막 바뀐 오더 시각(커서) · 컷 시각 아님 · 컷 전 이행된 AO-17238 · AS-7217 이 건너뛰어짐(정상 · 889) |
+
+### 92-d′ 열린 것 · 닫은 것
+
+- deferred **403 닫힘**(layer-fix-1) · **404 닫힘**(adj-893-1) · **188 닫힘**(895 · aone 짝 둘) · 405 · 406 · 407 은 오늘 안 닿음(열림 그대로 · 406 은 CLAUDE.md 표 아래 한 줄만 있는 상태) · 414 에 「895 힌트」 덧붙임
+- 새 deferred **415 ~ 420**(아래 표 · deferred.md · 지시서 D 의 일곱 가운데 4 는 414 와 같은 것이라 새 줄 없이 414 에 덧붙임)
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 415 | ⚠️ IMS 문서(ADJ · 입고 · 트랜스퍼)를 manual `:reversal` 로 상쇄하면 재생성이 Cin7 축으로 보내 (doc, sku, wh) 순액에 ims 행까지 합쳐 **이중 적용** — IMS 문서 정정은 IMS 창구로만(또는 Cin7 축에 source <> 'ims' 차수) | 미정 |
+| 416 | 트랜스퍼가 in_transit 에서 **전부 분실**이면 닫힘이 없다(settle 닫힘 · 운임 얹기는 receiving 일 때만) | 미정 |
+| 417 | 트랜스퍼 운송 정보 **입력 화면**(트랜스퍼 목록 · 상세 · Fulfillment Finalize · `inv_transfer_shipping_set`) — 대화 Claude 화면 차수 · 그 전에는 SQL(TR-06396 ~ 06399 넷은 비어 있다) | Caleb 요청 때 |
+| 418 | 월요일 실사(확인용): ORS11030 에드먼턴 · AS92087 에드먼턴 · BBE64996 토론토 C090004 · 에드먼턴 EU040201 · ANN05017 토론토 A060403 · WEL04712 토론토 A090703 · KAN64261 에드먼턴 EU060404(Cin7 값으로 조정됨 · 다르면 IMS 조정 화면) + 음수 bin 둘(PAL04170 C110201 −10 · PRO00124 EB010304 −3 — bin 이동으로) | 컷오버 뒤(11-02 월) |
+| 419 | 이력 적재(§73-c 10) 미룸(Caleb 「나중에」 · ILH_PRACTICE 그대로 · BigQuery 9 · 10 월 확정 표는 준비됨) — 그 전까지 10 월 인보이스 반품은 cr **Enter by hand** | 컷오버 뒤 |
+| 420 | `so_number_seq` start_value 25000 → 20000 으로 맞출지(컷 때 setval 로 20000 · 값 없는 `restart` 는 25000 으로 간다) | 판정 대기 |
+
+### 92-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§91-e 에 이어 17 부터)
+
+17. [대화 Claude] 오류 칸 이름(shop_stock_queue.error_code · created_at)을 짐작으로 적었다 ⇒ 칸은 먼저 information_schema 한 줄(재발 §87-e 4 · docs-1031 도 ref_carrier · inv_transfer 칸 이름을 짐작해 select 둘이 실패 — 같은 처방)
+18. [대화 Claude] 확인 실행 명령에서 `-1` 을 빠뜨려 임시 표가 사라졌다 ⇒ 스크립트가 한 트랜잭션을 전제하면 확인 실행에도 `-1`
+19. [Claude Code · adj-893-1] 확인 모드가 실행 기준(「짝 없는 줄」)으로 후보를 찾아 적용 뒤 13 MISMATCH ⇒ check 모드는 「이미 넣은 것」 을 센다 · 실제 상태는 스크립트 밖 독립 계산으로
+20. [대화 Claude] 893 정본 숫자(130 · +788)를 그대로 믿고 물었다 — 21 은 109 안 · +788 은 토론토만 ⇒ 정본 숫자도 실측 재계산 뒤(92-a 893 정정)
+21. [대화 Claude] tf-pallet-0 지시서 「표가 있다 · 쓰임은 안 봤다」 — 팔렛 장치가 이미 SO · 트랜스퍼 공용이었다 ⇒ 「지금 되는 길」 조사가 전제를 바로잡음(§88-e 2 재발 방지가 작동)
+22. [잘 된 것] TR-06397 의 어느 bin 줄이 가짜인지를 짐작 대신 bin 단위 Cin7 스냅샷으로 가렸다 · VOID 조립 · 판매 중복으로 95 칸 중 +575 가 문서로 설명됐다 · 「상쇄하면 Cin7 과 같다」 를 독립 계산으로 확인 · 동료 피드백(aone 재고)에서 짝 하나 · 함수 갈래 하나로 끝났다 · TR-0639x 를 번호 그대로 열어 원가 함수 수정 0
+23. [docs-1031] 지시서 인용 「sale_out 확인 — 20260924141140 26 ~ 32 행」 은 그 파일의 `inv_layer_source_ck` CHECK 확장이었다(sale_out 순액 읽기가 아니다) — 정본에는 layer-fix-1 머리 주석 11 행 · `inv_layer_apply(date)` 마지막 정의 `20260930161946` 을 적었다 ⇒ 행 번호 인용은 `sed -n` 한 번 뒤
+
+### 92-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- §91 머리 「남은 것 … A · 893 조정」 · 91-a 893 행(숫자 · 17:30) · 91-c 「남은 것」 · 91-d′ 403 · 404 행 · §91 끝 「다음 판정 번호 895 · deferred 415」 → 위
+- shopify-integration 머리 ⭐ 줄 · §1 실제 스토어 표 aone 「Aonebeauty EDM 은 짝 없음」 · §1-a 54 행 「위치 짝 하나」 · §2-c 「aonebeauty.com 늘 Toronto(짝 하나)」 · §3-c 판정 427 줄 · §6 · §7 「Aonebeauty EDM 위치」 할 일 → 895
+- deferred 403 · 404 · 188 닫힘 · 414 덧붙임 · 새 415 ~ 420 · 「다음 번호 415」 → 421
+- reload-procedure §H 운영판(layer-fix-1-regen) · 기준값 10-31 · §I ② 10-31 결과 · §P 머리 「A · 893 조정」 · P-2 10 · 11 ✅ · 「가는 중 트랜스퍼(VOID 된 출발)는 tf-transit-1 길」 · `cutover-delete.sql` 머리에 po_receipt.pallet_id · inv_transfer 운송 셋 한 줄(표 수 무변)
+- ledger-design 「⬜ 남은 것」 403 · 893 두 줄 → ✅
+- 스킬 asung-inv-ledger(축별 상쇄 읽기 · po_in split_part · 재생성 「아직 못 읽는다」 → 닫힘 · tf_freight_post 시점 · VOID 조립 :voided · in_cut · 415 함정) · asung-wms(규칙 20 IMS 절 — 팔렛 받기 · 창구 꼴 · 얼림 · 운송 셋) · asung-so(895) · asung-workflow(§92-e 줄) — 설명줄은 셋 다 그대로(asung-inv-ledger · asung-so 여유 1 · 본문만)
+- 매뉴얼 04-wms en · ko — Fulfillment(트랜스퍼 팔렛 전부 또는 0 · Pallet list 라벨 · fu v1.7) · 받기(팔렛 라벨 스캔 · 팔렛마다 Complete · 운송 정보 · rc v2.0)
+
+```
+다음 판정 번호: 899 · 다음 deferred 번호: 421
 ```

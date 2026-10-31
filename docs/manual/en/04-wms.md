@@ -171,7 +171,7 @@ If a line goes over, the screen shows "⚠ Over-scan — count the items". Count
 
 <a id="wms-fulfillment"></a>
 ## Pack into boxes and pallets (Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-10-01 · fu v1.3 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-10-31 · fu v1.7 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -192,6 +192,9 @@ An order appears here only when all its batches are checked on **Packing** — "
 - A sale and a transfer cannot be worked together: "A sale and a transfer cannot be on the same workbench — finish or clear one first".
 - A finalized transfer leaves at once: "… left for … — in transit".
 - A transfer that was short is closed with what was sent — it does not make a backorder.
+- Pallets on a transfer are **all or nothing**: if the transfer has at least one pallet, every picked item must be on a pallet (a box goes on a pallet). Finalize refuses a transfer with items left off the pallets. A pallet may hold only this transfer's products.
+- The **🖨 Pallet list** of a transfer starts with a big label the other warehouse scans — for example **TRF-00002-P2**, with "Pallet 2 of 4" and a barcode (PLT-…). Print it and stick it on that pallet. The other warehouse receives one pallet at a time (see [Receive a PO or a transfer](#wms-receiving)).
+- Once the transfer has left, its pallets are locked — nothing can be added to or taken off them.
 
 **Good to know**
 - **Delete** on a unit returns its products to unassigned.
@@ -201,7 +204,7 @@ An order appears here only when all its batches are checked on **Packing** — "
 
 <a id="wms-receiving"></a>
 ## Receive a PO or a transfer
-<!-- screen: wms-receiver.html · BUILD 2026-10-21 · rc v1.9 -->
+<!-- screen: wms-receiver.html · BUILD 2026-10-31 · rc v2.0 -->
 <!-- who: warehouse, manager -->
 
 **What it is**
@@ -211,11 +214,17 @@ Receiving counts what arrived against the PO or the transfer. Then you put it aw
 Only POs whose supplier invoice the office has confirmed can be received (see [Record the supplier's invoice](02-purchasing.md#purch-invoice)): "No POs with a confirmed invoice to receive — the office confirms the supplier invoice first."
 
 **How**
-1. Open **Receiving**. Scan the PO barcode, or press **↻ POs** and choose one (for example PO-99001 from Supplier B). Press **Start** (or **Resume**).
+1. Open **Receiving**. Scan the PO barcode, or press **↻ POs** and choose one (for example PO-99001 from Supplier B). Press **Start** (or **Resume**). For a transfer that came on pallets, scan the **pallet label (PLT-…)** instead — it opens that pallet (see below).
 2. Scan each item. "box scan = ×factor units" — a box barcode counts the whole box.
 3. If an item will not scan, press **Enter quantity** and type it.
 4. Sort the list by **PO order**, **SKU**, **Product** or **Zone / Last bin** to match how you walk.
 5. When everything is counted, press **Putaway →**.
+
+**Transfers that came on pallets**
+1. Scan the pallet label (PLT-…) printed on the sending warehouse's Pallet list, or open the transfer and pick the pallet in **Choose a pallet** ("… 1 of 4 pallets received").
+2. Count that pallet, put it away and press **Complete**: "Complete = pallet … arrives: its counted quantities go into stock now. The other pallets stay in transit until they are received."
+3. Do the same for each pallet, in any order. The transfer is closed when its last pallet is received; anything still missing is then settled by the office on **Transfers**.
+4. The transfer card and the pallet window show the carrier, the PRO number and the ETA when the office has entered them (for example "APPS · PRO 12345 · ETA 2026-11-02").
 
 **What can happen**
 

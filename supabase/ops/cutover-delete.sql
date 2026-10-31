@@ -96,6 +96,7 @@ end $$;
 --    [2026-10-28 · fc-2a] K + 1(ref_carrier_pickup · k10 · 운송사 × 창고 픽업 설정 — 마스터) → 180 표 = D 83 · K 77 · R 20 · fc-2b 가 fc_label(D · documents 버킷 fc_label/ 객체는 이 스크립트가 안 지운다 — 메모) · fc_booking(D) 을 더한다
 --    [2026-10-28 · fc-2b] D + 2(fc_label fc_booking · d11 · 둘 다 fc_shipment 와 서로 FK — 한 truncate 묶음) → 182 표 = D 85 · K 77 · R 20 · ⚠️ documents 버킷의 fc_label/ 객체는 이 스크립트가 지우지 않는다(컷오버 날 storage 에서 따로)
 --    [2026-10-29 · qbo-1a] K + 3(qbo_connection qbo_oauth_state qbo_call_log · k11 · QuickBooks 연결 설정 · CSRF state · 호출 기록 — 거래 아님 · 거래 표 FK 0 · 토큰은 Vault 라 이 스크립트 밖 · 샌드박스 → 운영은 운영 키를 받은 날 「끊기 → QBO_ENV=production → 연결」) → 185 표 = D 85 · K 80 · R 20
+--    [2026-10-31 · tf-pallet-1] 표 수 무변 — 칸만: po_receipt.pallet_id(→ wms_pallets · 둘 다 D · 한 truncate 묶음이라 FK 순서 무관) · inv_transfer.carrier_id(→ ref_carrier K · 거래 표가 마스터를 가리키는 쪽이라 truncate 에 무관) · tracking_number · eta (판정 897 · 898)
 \set d1 'doc_file doc_mail_skip drive_job drive_shortcut inv_adjust inv_adjust_line inv_cost_adjust inv_move'
 \set d2 'inv_move_line inv_transfer inv_transfer_line inv_transfer_settle mail_backorder_line mail_outbox mail_outbox_event mail_run'
 \set d3 'mail_run_error po po_charge po_charge_alloc po_discount po_doc po_invoice po_invoice_discount'
