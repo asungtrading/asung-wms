@@ -2329,6 +2329,9 @@ samples[0]          TR-03975 · transfer_freight · 398.75 · 2026-08-27 ·
 
 **⬜ 남은 것**
 
+- ⬜ **[2026-10-30 · so §91-d · deferred 403] `inv_layer_apply_po_in` 이 manual `:reversal` 음수를 못 읽는다** — 키 doc · line_ref · sku · 창고의 **양수만** 더한다(`20260920142635:66 ~ 70` `qty_delta > 0` · `:reversal` 은 line_ref 가 달라 다른 키) ⇒ 손으로 상쇄한 po_in(PO-01361 Kim & C 5 칸 · 36,864 · 평가액 약 CAD 10,082 ~ 10,815 부풂 · PO-01382 LAC793xx 14 칸)이 레이어에 그대로 선다 · 원장은 Cin7 과 같다 · 처방 A = `split_part(line_ref,':',1)` 순액(음수 포함)으로 → §H 다시(97 초) · **893 조정 뒤 · 이력(12) 전** · Caleb 「내일 요청할께」
+- ⬜ **[2026-10-30 · 판정 893 · deferred 404] 옛 수집기 빈틈 — 원장 ≠ Cin7 130 칸**(음수 21 + 어긋남 109 · 조립 부품 출고 · 트랜스퍼 다리 · 처음 어긋난 날 08-29 ~ 10-28 · 합 +788 · 절대합 1,997) → Cin7 마지막 값(10-30 17:30)에 맞추는 IMS 재고 조정 · 의심 칸 몇 개만 실사 · 수집기는 다시 고치지 않는다(컷오버 뒤 Cin7 을 안 읽는다)
+- ✅ **[2026-10-30 · 판정 892 · ledger-fix-1 `0dee3d7`] PO-01382 LAC793xx 10-15 이중 계상 14 줄 `:reversal`**(−1,314 · 원래 날짜 · source manual · raw.prompt 'ledger-fix-1' · Cin7 이 LAC593xx 로 SKU 를 바꿔 수집기가 두 벌 썼다) — 원장은 닫혔고 레이어는 A 뒤 §H 가 닫는다 · ⚠️ 그 SKU 는 product 표에 없어 수량 함수 · Shopify 에는 처음부터 없었다
 - ⏸ **`adjust_existing` 남은 레이어 0** — 실측 0건 · 방어 됨 ·
   `adjust_unknown_layers` 가 창구
 - ⏸ **`transfer_orphan_in` 방어 경로** — 실측 0건 · 실동작 미검증

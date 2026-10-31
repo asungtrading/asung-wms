@@ -15,7 +15,7 @@
 ⭐ [2026-10-14 · so-module §64] **asung.ca 웹 운임 = SO 견적 운임 줄**(판정 473 · 미룬 191 닫음) — DB frt-1a `7d2a16a`(속 함수 shop_order_freight · 정보 freight_estimate_from_shopify) · 화면 asung-ims so v5t7 · wo v4d `0de7561` · ⚠️ aone 운임 「확정 · Ship & invoice 가 고치지 않음」(판정 369)은 **글에만 있고 코드 표지 없음**(so-module 미룬 236) · 다음 판정 번호 **493**
 ⭐ [2026-10-27 · so-module §82 · §83] **실제 두 스토어를 「연결됐지만 잠든」 채 붙임**(live · auth_mode · store_live · 판정 811 ~ 816 · 아래 §1) · **기존 상품 잇기를 실제 스토어 크기로**(plan 31 s → 2 s · apply 묶음 500 · dup_target · 판정 829 · 830 · 832 · 아래 §1-b) · **콤보 재고**(판정 831 · 아래 §3-d) — DB shop-live-1 `7747baf` · link-perf-1 `7b01fbc` · link-perf-2 `31c67c4` · link-dup-1 `f1f9c87` · link-perf-3 `52c43af` · shop-combo-1 `18ce4f0` · 화면 asung-ims ss v4 `f7d8a80` · v4a `ae4c45b` · v5 `a429201` · v5a `32d7023` · 다음 판정 번호 **833**
 
-⭐ [2026-10-30 · so-module §90] **컷 전 웹 오더는 `ims-import` 태그만**(판정 889 · shop-cut-1 `9d61370` · 814 의 「손으로 Fulfill」 대체 · 아래 §2-a) · **asung · aone 사진 보내기 끔**(판정 890 · shop-img-off-1 `1268bd1` · 409 · 560 을 두 스토어에서 멈춤 · §3-b) · **원산지 두 글자**(판정 884 · shop-coo-1 `902937e` · §3-e) · 조사 shop-risk-0 · shop-photo-0 요지(§3-b · §5) · send_tags 는 **결정 대기**(deferred 394) · 다음 판정 번호 **891**
+⭐ [2026-10-30 · so-module §90] **컷 전 웹 오더는 `ims-import` 태그만**(판정 889 · shop-cut-1 `9d61370` · 814 의 「손으로 Fulfill」 대체 · 아래 §2-a) · **asung · aone 사진 보내기 끔**(판정 890 · shop-img-off-1 `1268bd1` · 409 · 560 을 두 스토어에서 멈춤 · §3-b) · **원산지 두 글자**(판정 884 · shop-coo-1 `902937e` · §3-e) · 조사 shop-risk-0 · shop-photo-0 요지(§3-b · §5) · send_tags 는 **결정 대기**(deferred 394) · ~~다음 판정 번호 **891**~~ → [2026-10-30 저녁 · so-module §91] **Go live 18:57**(asung · aone · 컷 17:34) · 첫 force 가 URL 길이로 40 분 조용히 실패 → stock-drain-fix-1 `e2d585d`(판정 894 · §3-d) · 다음 판정 번호 **895**
 ---
 
 ## 1. 스토어 (판정 362)
@@ -259,6 +259,7 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 ```
 - 큐 넣기 한 곳 `shop_stock_queue_add`(낱개 → 그 sellable 세트로 펼침 · [831] 그 콤보로 펼침 · 열린 줄 하나) · 보낼 숫자 한 곳 `shop_stock_payload(store, pids)` · 화면 뷰 `shop_stock_list` · 마이그레이션 `20261010194732_stock_1a_queue.sql`
 - EF `shopify` action **stock_drain**(cron · 한 회차 열린 줄 ≤ 500 · 40 s · 못 보낸 줄은 열어 둠) · **stock_push**(직원 · 화면 「Send stock now」 · 대상 하나 force) · 순수 함수 `_shared/shopify-stock.ts`
+  - ⚠️⚠️ [2026-10-30 · **판정 894** · stock-drain-fix-1 `e2d585d` · so-module §91] `shop_stock_sent` 읽기는 **`SENT_CHUNK = 100` 개씩** `in.()` 으로 나눠 읽고 합친다 — 500 uuid 를 한 URL 에 붙이면 ≈ 18 KB 라 PostgREST 요청이 「error sending request」(Go live 직후 19:00 ~ 19:41 매분 500 줄 실패 · 테스트 스토어는 listing 5 라 안 드러났다 · 실패가 payload try 밖이라 call_log 0 줄 · deferred 405) · 19:42 배포 뒤 분당 500 줄 · 남은 오류 `no_inventory_item (send the product first)` = Shopify 에 아직 없는 변형(패밀리 일부 asung 133 · aone 111 · 브랜드별 첫 push 때 생긴다) · deno test ⑦
 - cron [테스트 DB] **jobid 44 ims-stock-drain `* * * * *`**(열린 재고 줄이 없으면 EF 를 안 부른다) · **45 ims-stock-diff `0 * * * *`** · **46 ims-stock-nightly `15 8 * * *`**(상품 nightly 43 · 08:00 뒤 15 분) · 킬 스위치 `select cron.alter_job(44, active := false);` · `(45, …)` · `(46, …)` · 기록 `supabase/ops/cron.sql`
 - ⭐ 실물(2026-10-10 · so-module §58-c): 첫 손 drain ok 11 · 22 숫자 · activate 11(Edmonton) · calls 13 · cost 147 · 6 s · ANN03907 Toronto 43 · Edmonton 1(Available = On hand · Committed 0) · ANN01001 Blue/Small 32 · 8 · **원장 −1 → 48 초 뒤 Shopify 42**(사람 손 없이 · Edmonton 은 안 보냄 = 위치 단위) · 구성원 끄기 → 0 · 0 · Sell when out of stock Off → 켜기 → 57 · 5 · On
 - 화면 = §3-h(shop v2)
@@ -500,7 +501,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 [2026-10-30 · shop-risk-0 · 읽기만 · so-module §90-d] 실제 두 스토어 — 컷오버 · Go live 때 다시 볼 것
 ⑯ send_tags 켤지 — 켜면 이어진 상품 전부 다시 보내기(asung 5,044 · aone 약 4,379 · 약 8 시간 짐작 · 555 와 충돌) · 결정 대기(deferred 394)
 ⑰ inventoryPolicy 바뀜 — asung DENY → CONTINUE 198(켜짐 · 단종 아님) · CONTINUE → DENY 단종 811 · 꺼짐 11 · aone CONTINUE → DENY 21 · review-deny-171.csv Decision 173 줄 전부 빈칸(171 정리 · deferred 186 · §7)
-⑱ 첫 재고 force asung 8,849 · aone 7,110 줄(약 18 · 15 분 짐작) · asung Edmonton inventoryActivate 가 걸림돌일 수 있음(Q5 미확인 · deferred 400)
+~~⑱ 첫 재고 force asung 8,849 · aone 7,110 줄(약 18 · 15 분 짐작) · asung Edmonton inventoryActivate 가 걸림돌일 수 있음(Q5 미확인 · deferred 400)~~ → ✅ [2026-10-30 · so §91-c] Go live 18:57 → 19:00 ~ 19:41 URL 길이로 실패(894) → 19:42 부터 분당 500 줄 · 남은 오류 no_inventory_item 뿐(activate 는 걸림돌로 안 나타남 · 400 닫힘(짐작))
 ⑲ 실제 두 스토어 웹훅 구독 0 — 15 분 poll 만(deferred 401)
 ⑳ 칸을 빼거나 빈 값을 보낼 때 Shopify 쪽 값 — 원산지 「coo dropped」(884) · compareAt 없는 asung 변형 1,795 · 빈 설명 asung 23 · aone 19(짐작 · deferred 402)
 ㉑ 브랜드별 첫 push 때 상품 하나가 Shopify 사진 그대로인지(890 · deferred 395)
@@ -528,7 +529,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 ## 7. 할 일 — 사람 몫 (리마인드)
 
 ```
-[ ] 테마 글자 「Sold out」 → 「Not available」 (판정 425 · ⭐ Caleb 할 일 · 리마인드 요청 · so-module 미룬 180)
+[x] 테마 글자 「Sold out」 → 「Not available」 (판정 425 · ⭐ Caleb 할 일 · 리마인드 요청 · so-module 미룬 180) — ✅ 2026-10-30 asung.ca 세 칸(Products → Product → Sold out · Variant sold out or unavailable · Pagefly → Products product → Sold out · Checkout & system 칸은 그대로 · so §91-c)
     Online Store → Themes → Edit default theme content → 「Sold out」 검색 → Not available
     시험 스토어 먼저 → 컷오버 때 ~~asung.ca · aonebeauty.com~~ → **asung.ca 에만**(판정 427 · aone 은 DENY 스토어라 「Sold out」 이 맞는 표시)
     까닭: asung.ca 는 0 에서도 판다(CONTINUE · 판정 427) → 그 글자는 꺼진 구성원 · 단종(DENY)에게만 뜬다
@@ -544,7 +545,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
     남길 페이지에 사이즈를 변형으로 더하고 옛 페이지를 지운다(한 변형씩 지우기 → 추가) · Archive 로는 안 풀린다 → 끝나면 Read → Plan 에서 dup_target 0
 [ ] Aonebeauty EDM 위치 — Shopify 쪽 재고 숫자(비우거나 판매에서 빼기)와 그 위치가 온라인 주문을 받는지(짐작: 위치 설정의 온라인 주문 처리) (Caleb · 컷오버 전 · §1-a · 미룬 188 · IMS 는 그 위치에 재고를 안 보낸다 — 짝 없음)
 [ ] asung · aone `send_tags` 켜기 (관리자 SQL · 판정 426 · 창구가 받지 않는다 · ⚠️ 태그 적재 뒤에만 — 빈 태그로 켜면 스토어 태그를 지운다 · 켜면 스토어 트리거가 그 스토어 상품 전부를 큐에) — [2026-10-30] **켤지 결정 대기**(전부 다시 보내기 약 8 시간 · 555 와 충돌 · deferred 394)
-[ ] store_live — 스토어마다 Go live(orders_from = Cin7 의 Shopify 연결을 끈 시각 · **분까지** · 판정 814 · ~~그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill~~ → [2026-10-30 · 판정 889] 18:00 뒤 직원이 그 웹 오더에 `ims-import` 태그 · §2-a) (Caleb · 컷오버 날)
+[x] store_live — ✅ 2026-10-30 18:57(asung · aone · orders_from = 17:34 · 시각 칸을 비워 18:57 로 저장됐다가 SQL 로 바로잡음 · so §91-c · reload §P-2 13b) · 스토어마다 Go live(orders_from = Cin7 의 Shopify 연결을 끈 시각 · **분까지** · 판정 814 · ~~그 전 안 나간 웹 오더는 Shopify 에서 손으로 Fulfill~~ → [2026-10-30 · 판정 889] 18:00 뒤 직원이 그 웹 오더에 `ims-import` 태그 · §2-a) (Caleb · 컷오버 날)
 [ ] 컷오버 순서 — 상품 재적재 → Shopify 페이지 정리 확인 → asung · aone Read → Plan → Apply links → Cin7 의 Shopify 연결 끔 → Go live → ~~send_tags~~(결정 대기 · deferred 394) (§1-b · so-module §83-c · reload-procedure §P-2 13b)
 [ ] 556 모양 다름 aone 48 · asung 2 줄마다 보기 · CRO85680 확인 (Caleb · 컷오버 전 · deferred 357)
 ```

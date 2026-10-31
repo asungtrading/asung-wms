@@ -29,6 +29,8 @@ Asung Trading 의 자체 IMS(재고 · 발주 · 판매 · 창고)를 이루는 
 | **운영** | `asung-WMS` | `gftpcnkxbdjzzfvzwcfl` | 실제 서비스 — WMS·원장·EF·cron 이 여기서 돈다 |
 | **테스트** | `Asung-IMS` | `fazgmyvzzhqybtvtktyg` | 스키마·RPC 시험용. **Cin7 secret 없음 = 수집 안 돎(의도적)** |
 
+⚠️⚠️ **[2026-10-30 · 판정 617 · Go live 18:57] 이 표의 「테스트」 `Asung-IMS`(fazgmyvzzhqybtvtktyg)가 지금 IMS 의 메인이다** — 직원 · 웹 오더 · Shopify 재고가 여기서 돈다. `asung-WMS` 는 옛 WMS · Cin7 수집(이제 멈춤). 아래 글의 「테스트 = 시험용」 은 그 전 뜻이고 정합은 deferred 406(so-module §91-d) · IMS 쿼리는 psql `$(cat ~/.asung-testdb-url)` 로 — SQL Editor 는 창을 다시 확인한다(so §91-e 11).
+
 - ⇒ SQL·배포 명령은 **어느 프로젝트인지 항상 명시**한다: `[운영 · asung-WMS]` / `[테스트 · Asung-IMS]`
 - ⇒ `--linked` 는 **운영**이다. `supabase link` 를 테스트로 바꾸지 말 것(`db push`·`functions deploy` 가 전부 테스트로 간다).
   테스트는 `--db-url "$(cat ~/.asung-testdb-url)"` 로만 — **그 파일 경로가 보이면 테스트다.**

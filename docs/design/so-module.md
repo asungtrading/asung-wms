@@ -11520,7 +11520,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 ⭐ 정한 것: 세트 = 자기 바코드로 파는 묶음 · 콤보 = 낱개 바코드로만 이어지는 묶음 · 콤보에 구성품 하나 + 수량 ≥ 2 허락(885) · 창고는 콤보 박스 바코드 한 번 = 콤보 하나(887) · POS 는 콤보 안내 + Use combo(886) · 콤보 SKU 앞에 CB-(888 · 컷오버 · 이력 · 이월 뒤) · 컷 전 웹 오더는 `ims-import` 태그만 받는다(889 · **814 의 「손으로 Fulfill」 을 대체**) · asung · aone 은 사진을 보내지 않는다(890 · 409 · 560 을 두 스토어에서 멈춤) · 원산지 두 글자(884)
 ⭐ 원천: docs-1030 📌 A ~ F(대화 Claude · Caleb · 10-30 회사 대화) · 커밋 메시지 · 마이그레이션 머리 주석 · ⚠️ 조사 shop-risk-0 · shop-photo-0 보고 · 컷오버 실행 로그는 레포에 없다 — 이 절이 원천
-⭐ 컷오버 — reload-procedure §P 0a ~ 7 을 10-30 에 돌렸다(90-c) · 8 이후(손님 적재 · 원장 · 이력 · 이월 · cron · Shopify Go live)는 아직
+⭐ 컷오버 — reload-procedure §P 0a ~ 7 을 10-30 에 돌렸다(90-c) · ~~8 이후(손님 적재 · 원장 · 이력 · 이월 · cron · Shopify Go live)는 아직~~ → [10-30 저녁 · §91-c] 8 ~ 13b 끝 · **Go live 18:57** · 남은 12 · 12b · 14 · 15
 
 ### 90-a 판정 (Caleb 말 그대로 · 뜻)
 
@@ -11565,7 +11565,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 | 7 남은 마스터 | 통과 — AS85203 · Donghyo Shin · 딜 5 + 새 11 월 딜 「Monthly Sale_November2026」 |
 | 그 뒤 | asung · aone 다시 켬(is_active t · live f · send_images f) |
 
-- 남은 것: 8(손님 · 제품-공급처 재적재) ~ 15 · 13 의 cron 다시 켜기는 **20 개**(끈 22 − 40 · 41 · 판정 755) — reload-procedure P-3 을 고쳤다
+- ~~남은 것: 8(손님 · 제품-공급처 재적재) ~ 15~~ → §91-c(8 ~ 13b 저녁에 끝 · Go live 18:57) · 13 의 cron 다시 켜기는 **20 개**(끈 22 − 40 · 41 · 판정 755) — reload-procedure P-3 을 고쳤다 · ✅ 10-30 20 개 켬
 
 ### 90-d 조사 요지 (읽기만 · 숫자는 그 보고)
 
@@ -11635,4 +11635,114 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 ```
 다음 판정 번호: 891 · 다음 deferred 번호: 403
+```
+
+## §91 2026-10-30 저녁 — 컷오버 실행(8 ~ 13b · Go live 18:57) · 설명 끝 바코드 덩이 지움 · PO-01382 LAC793xx 이중 계상 상쇄 · 재고 drain URL 길이 — desc-bc-1 · ledger-fix-1 · stock-drain-fix-1 · 조사 layer-gap-0 · 판정 891 ~ 894
+
+⭐ 정한 것: 설명 끝 `(Barcode…)` 덩이는 일괄로 지운다(891) · PO-01382 LAC793xx 10-15 벌은 원장에서 `:reversal` 로 상쇄(892) · 원장 ≠ Cin7 130 칸은 Cin7 마지막 값에 맞추는 IMS 재고 조정으로(893 · A 보다 먼저) · `shop_stock_sent` 읽기는 100 개 덩이(894)
+⭐ 원천: docs-1030b 📌 A ~ F(대화 Claude · Caleb · 10-30 저녁 대화) · 커밋 메시지 · 마이그레이션 · ops 머리 주석 · 조사 layer-gap-0 보고 · 이견 stock-drain-fix-1 · ⚠️ 컷오버 실행 로그는 레포에 없다 — 91-c 가 원천
+⭐ 컷오버 — reload-procedure §P 8 ~ 13b 를 10-30 17:34 ~ 19:50 에 돌렸다(91-c) · **Go live 18:57** · 남은 것 12 · 12b · 14 · 15 와 A(§H 다시) · 893 조정
+
+### 91-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 891 | 「(Barcode시작해서 )로 닫는 것은 다 찾아서 지워도 되는데」 | 상품 · 제품군 설명 **맨 끝**의 `(Barcode…)` 덩이를 일괄로 지운다 · desc-bc-1 `20261030203600`(ops 가 아니라 **마이그레이션** · 세션 GUC `ims.description_door` 는 트랜잭션 지역 · 설명 문지기는 그대로) · 상품 16,133 · 제품군 953 · 빈 결과 1,246 · 75 → '' · `ims_html_forbidden`(powr.io iframe) 98 · 6 행도 씀 · 가운데 덩이 14 행은 안 건드림(손 거리 · deferred 412) · 안 닫힌 10 행 지움 · edited_at **2026-10-30 21:22:48.862928 UTC**(되돌리기 표식 · 되돌리는 SQL 은 마이그레이션 머리) · edited_by Caleb · Apply links **전에** 적용(hash 가 새 설명으로 서서 새벽 대량 push 를 피함) · 커밋 `899f69c`(git log) |
+| 892 | 「아니 아직 안눌렀어」(Go live 전에 하기로) | Go live 전 PO-01382 LAC79351 ~ 64 의 10-15 이중 계상 14 줄을 원장에서 `:reversal`(−1,314 · 원래 날짜 10-15 · source manual · raw.prompt 'ledger-fix-1') · ops SQL `supabase/ops/ledger-fix-1.sql` · 커밋 `0dee3d7` · ⚠️ 정정: LAC793xx 는 product 표에 없는 SKU(Cin7 이 LAC593xx 로 바꾼 옛 이름)라 **IMS 재고 수량 · Shopify 에는 처음부터 안 들어갔다**(대화 Claude 가 「Go live 하면 없는 재고가 나간다」 고 틀리게 말함 · 91-e 9) · 이 상쇄는 원장 ↔ Cin7 대조 · 레이어 재료를 깨끗하게 한 것 · 레이어는 A 차수(§H 다시) 전까지 LAC793xx 14 칸이 「레이어 > 원장」 으로 남는다(deferred 403) |
+| 893 | 「가」 | 원장 ≠ Cin7 칸(음수 21 + 어긋남 109 · 옛 수집기 빈틈 — 조립 부품 출고 · 트랜스퍼 다리 · 합 +788 · 절대합 1,997)을 **Cin7 마지막 값(17:30 멈춤)에 맞추는 IMS 재고 조정**으로 · 의심스러운 몇 개만 실사 · 차수는 Caleb 요청 때(deferred 404) · A(§H 다시)보다 **먼저**(조정이 원장에 사건을 만든다 — 재생성이 그 사건을 읽어야 한다) |
+| 894 | (stock-drain-fix-1) | `shop_stock_sent` 읽기를 `SENT_CHUNK = 100` 덩이로 — 500 uuid 를 한 URL `in.()` 에 붙이면 ≈ 18 KB → 「error sending request」 · Go live 직후 19:00 ~ 19:41 매분 500 줄 실패(테스트 스토어는 listing 5 라 안 드러났다) · 커밋 `e2d585d` · 배포 19:42 부터 분당 500 줄 · 남은 오류는 `no_inventory_item (send the product first)` 뿐(Shopify 에 아직 없는 변형 — 「패밀리 일부」 asung 133 · aone 111 · 브랜드별 첫 push 때 생긴다) · 이견 ③ ⑤ 는 deferred 405 · 406 |
+
+### 91-b 차수 · 커밋 (git log 원문 · 두 레포 · 오늘 전부)
+
+| 레포 | 커밋 | 차수 | 확인 |
+|---|---|---|---|
+| asung-wms | `02ecada` 10:49 · `d85e323` 11:02 · `9d61370` 13:18 · `1268bd1` 16:03 · `f597c65` 16:20(docs-1030) | combo-one-1 · combo-bc-1 · shop-cut-1 · shop-img-off-1 · 문서(885 ~ 890) | §90-b |
+| asung-wms | `899f69c` 17:24(`20261030203600_desc_bc_1_strip_barcode_tail.sql` · `supabase/tests/desc_bc_1_check.sql`) | desc-bc-1 — 설명 끝 바코드 덩이 지움(891) | 시험 A(바뀐 행마다 보이는 글 = 결과 + 덩이 하나 · 멱등) · 적용 21:22:48 UTC |
+| asung-wms | `0dee3d7` 18:56(`supabase/ops/ledger-fix-1.sql` · `supabase/tests/ledger_fix_1_rehearsal.sql`) | ledger-fix-1 — PO-01382 LAC793xx 14 줄 :reversal(892) | 리허설 begin → rollback · 적용 뒤 `-v check=1` 검산 |
+| asung-wms | `e2d585d` 19:47(EF `_shared/shopify-stock.ts` · `shopify/index.ts` · `shopify_stock_test.ts` ⑦) | stock-drain-fix-1 — SENT_CHUNK 100(894) | deno test ⑦(0 · 1 · 100 · 101 · 500 → 덩이 ≤ 100 · 한 덩이 URL 8 KB 아래) · 배포 19:42 · 분당 500 줄 |
+| asung-ims | `472b545` · `3cb6f8e` · `0c30ae6`(10:50 ~ 11:07) | cb v1a · pk v1.6 · pa v1.7 · pos v1.17 | §90-b · 저녁 화면 차수 없음 |
+
+- 적용은 `psql -1 -f` + `supabase migration repair`(마이그레이션) · ops 는 `psql -1 -f` 만 · EF 는 `supabase functions deploy shopify` — 모두 Caleb
+
+### 91-c 컷오버 진행 (reload-procedure §P 순서 · 10-30 17:34 ~ 19:50 토론토 · 테스트 = 메인 DB)
+
+| 단계 | 결과 |
+|---|---|
+| 13b ⑤ Cin7 Shopify 연결 끊기 | **17:34**(정본의 「18:00」 이 아니다 · Cin7 재고 일은 17:30 에 끝 · Caleb) · `ims-import` 태그는 17:34 뒤에 다 달았다 |
+| 8 손님 재적재 | Reset → Collect 9,941 = API Total → Dry → Apply 1 ~ 4 → Verify 13 항목 전부 일치 · 손님 9,960 · 활성 9,768 · 주소 19,716 · 연락처 10,384 · ⚠️ IMS 가 끈 주소 110 Aeropark Blvd 가 Cin7 값으로 다시 켜짐(deferred 413) |
+| 8 제품-공급처 재적재 | 13,160 줄 · IMS 가 정한 줄 0 · 기본 재계산 0 · 0 · 0 · 오늘 되돌린 21 줄(§90-c 5)이 Cin7 값으로 덮임 |
+| §B ③ 운영 수집 커서 | 18:08 ~ 18:17 · 원가 축은 00:33 · 00:45(오늘 입고 0 — 손 실행 안 함) |
+| §B ④ 운영 cron | 운영 `inv-` cron 12 개 끔(6 ~ 13 · 15 · 16 · 18 · 19 · 다시 켜지 않는다) · 운영 `wms-` 다섯(1 · 3 · 4 · 5 · 14)은 그대로(컷오버 뒤 정할 것 · deferred 408) |
+| §D 덤프 | **18:20:30 EDT** · 235 MB · COPY 17 · -x 30 |
+| 9 §E 첫 붓기 | ⚠️ **「No space left on device」** — IMS 디스크 2 GB(DB 970 MB + WAL 544 MB + 시스템 173 MB) · 한 트랜잭션이라 무변 |
+| 9 디스크 | 대시보드 Project Settings → **Infrastructure**(화면 이름 「Compute and Disk」 아님 · 주소 `…/settings/infrastructure`) → Disk size 2 → **8 GB**(Pro 포함 · +$0.00 · 4 시간 쿨다운) |
+| 9 §E 다시 붓기 | exit 0 · cin7 94,842 · manual 1,658 · ims 0 · 바깥 FK 0 확인 |
+| 10 §G | 기준선 `2026-08-20-initial` 그대로(운영 값은 안 봄 · 9 월 뒤 안 바뀜 짐작 · deferred 409) |
+| 10 §H | SQL Editor · 97 초 · skipped_by_event 여덟 0 · ims 줄 수 0 · short_events 27 · cost_unknown 16 · credit_unknown 2 · layers_created 2,848 · consume_rows 77,832 · transfer_layers_created 19,624 · carried_amount_cad 21,617.98(오류 아님 — 트랜스퍼 자식이 받은 carried 원가 합) |
+| 11 §I ② | **실제 창고 어긋남**(토론토 21 칸 · 37,038 · 에드먼턴 6 칸 · 52) → 조사 layer-gap-0(91-d) → 판정 892 · 893 · A(내일) · ⇒ 12 로 가지 않는 조건이었으나 원인이 갈라져(레이어 결함 5 · 원장 결함 22) Go live 는 진행 |
+| 13b ③ ④ Read → Plan → Apply | asung 18:39 v2 · 5,038 link · blocked 0 / aone 18:40 · 4,458 link · blocked 0 — 진열대 셋 Sellable 켬 · aone 의 ONA50005 옛 페이지 `…-2oz-old-look` 은 Shopify 에서 삭제 · asung 은 IMS 에서 꺼진 9 를 Shopify 에서 정리 → Apply asung 18:43 · aone 18:44 · 상품 큐 0 |
+| 13b ⑥ Go live | **18:57** — ⚠️ Go live 창의 시각 칸을 비워 둬 orders_from · orders_cut_at 이 18:57 로 저장됨 → cron 이 꺼진 동안 SQL 로 `2026-10-30 21:34:00+00`(17:34) 로 바로잡음(`update shop_store set orders_polled_at = …, orders_cut_at = … where code in ('asung','aone') and live`) · 91-e 12 · deferred 407 |
+| 13 cron | 20 개 켬(1 · 16 · 42 ~ 59 · 40 · 41 은 끈 채 — 판정 755) |
+| 첫 오더 읽기 19:00 | asung seen 10 · added 9 · skipped_cut 1(AS-7208) / aone seen 6 · added 4 · skipped_cut 2(AO-17262 · AO-17275) · 막힌 셋은 이미 fulfill 된 컷 전 오더(Caleb) — **889 가 막을 것을 막음** |
+| 재고 drain | 19:00 ~ 19:41 매분 500 줄 실패(call_log 0 줄 · 조용) → 894 → 19:42 부터 분당 500 줄 · 오류 `no_inventory_item` 만 |
+| 11 테마 글 | asung.ca 「Sold out」 → 「Not available」 세 칸(Products → Product → Sold out · Variant sold out or unavailable · Pagefly → Products product → Sold out · Checkout & system 칸은 그대로) · deferred 180 닫힘 · aonebeauty.com 무료 배송은 아직 |
+| 남은 것 | 12(A · 893 조정 · BQ 10 월 · 이력 · B급 · 열린 PO) · 12b 이월 · 14 첫 번호 · Edmonton 매니저 · 393 CB- |
+
+### 91-d 조사 요지 (layer-gap-0 · stock-drain-fix-1 이견 · 읽기만 · 숫자는 그 보고)
+
+**layer-gap-0**(§I ② 실제 창고 27 칸)
+- 묶음 2(Kim & C AS91603 · AS93280 · 81 · 83 · 84): 세트와 무관 · 09-25 ~ 29 PO-01361 에 손으로 넣은 `:reversal` po_in 음수 줄을 `inv_layer_apply_po_in` 이 무시 — 키 doc · line_ref · sku · 창고별 **양수만** 더한다(`20260920142635:66 ~ 70` `qty_delta > 0` · `:reversal` 은 line_ref 가 달라 다른 키) · `:reversal:fix` +5,760 은 원가 unknown 레이어를 새로 세움 · 차이 36,864 = :reversal 순액 · 원장이 Cin7 과 같고 **틀린 쪽은 레이어** · 평가액 약 CAD 10,082 ~ 10,815 부풂 · 처방 A = `split_part(line_ref,':',1)` 순액으로 고치는 마이그레이션 → §H 다시(97 초) · ⭐ **Caleb 「내일 요청할께」** · 12 단계 전(deferred 403)
+- 묶음 1(음수 21 칸): Cin7 음수 재고가 아니다 · 새벽 inv_compare 10-30 에 이미 unknown · Cin7 은 0 이상 · **원장 수집 결함**(조립 부품 출고 · 트랜스퍼 다리) · 처음 어긋난 날 08-29 ~ 10-28 · 콤보 판정과 무관 → 893
+- 수량 함수(inv_available_base · so_available* · shop_stock_*)는 **레이어를 안 읽는다** · 레이어를 읽는 곳: stk_value_many/total · inv_adjust_eval · so_stock_short_* · product_has_events · post 창구 · EF inv-doc-cost
+- cost_unknown 16 = AS91603 :reversal:fix 1 · PO-01382 LAC793xx 14 · PO-01381 WEL04774 1(inv_cost 에 그 줄 없음 · 까닭 미확인 · deferred 410) · credit_unknown 2 = CR-00592 · CR-00706 JML29042(10-22 새로 · deferred 411)
+- AS92087(에드먼턴 +3)은 음수 칸 꼴(원장 −3 까지 내려갔다 TR-05960 +12)
+
+**stock-drain-fix-1 이견**(deferred 거리)
+- ③ 관찰 구멍: `shop_stock_sent` 읽기(`shopify/index.ts:352`)는 payload try 밖이라 예외가 최상위 catch(`:1157`)로 가 500 만 돌려주고 `shop_call_log` 에 아무것도 안 남았다 → cron 은 매분 succeeded · call_log 0 줄로 40 분 조용 · 후보: 최상위 catch 에서 action 별 recordCall 한 줄(try 안으로 넣는 것은 반대 — 일시 장애에 500 줄을 error 로 닫는다) → deferred 405
+- ⑤ CLAUDE.md 가 fazgmyvzzhqybtvtktyg 를 「테스트」 라 적는다 — 판정 617 로 이 프로젝트가 운영(메인) · 문서 정합 → deferred 406(CLAUDE.md §1 표에 한 줄만 먼저)
+- 시간: 활성 아이템이면 분당 500 줄 · 처음 활성화면 분당 50 ~ 100(실제는 분당 ~500 · asung 이 먼저 · aone 뒤)
+
+### 91-d′ 열린 것 · 닫은 것
+
+- deferred **180 닫힘** — asung.ca 「Sold out」 → 「Not available」 세 칸(91-c) · **320 닫힘** — 재적재(8)가 Apply links(18:43) 전에 끝났다 · **R-① 닫힘** — 운영 `inv-` cron 12 개를 손으로 껐다(목록은 91-c · 운영 `wms-` 다섯은 408) · **400 닫힘(짐작)** — Go live 첫 force 의 남은 오류가 `no_inventory_item` 뿐(894 보고 · Edmonton activate 가 걸림돌로 나타나지 않았다 · call_log 를 직접 보지는 않음)
+- 새 deferred **403 ~ 414**(아래 표 · deferred.md · 414 는 Caleb 이 docs-1030b 도중에 더한 것 · 대화에만)
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 403 | A 차수 — `inv_layer_apply_po_in` 이 manual `:reversal` 음수를 못 읽는다 → `split_part(line_ref,':',1)` 순액 마이그레이션 → §H 다시 · LAC793xx 14 칸 「레이어 > 원장」 도 이때 닫힌다 · **893 조정 뒤 · 12 전** | 컷오버 날(내일 · Caleb 「내일 요청할께」) |
+| 404 | 893 조정 차수 — 원장 ≠ Cin7 130 칸(음수 21 + 109)을 Cin7 17:30 값에 맞추는 IMS 재고 조정 · 의심 칸 몇 개만 실사 · A 보다 먼저 | Caleb 요청 때 |
+| 405 | EF `shopify` 최상위 catch 가 call_log 를 안 남긴다(stock_drain 40 분 조용) — action 별 recordCall 한 줄 | 미정 |
+| 406 | CLAUDE.md §1 「두 프로젝트」 표 · §2 db push 줄 · `--linked = 운영` 줄의 정합(fazgmyvzzhqybtvtktyg 가 메인 · 617 · Go live 18:57) — 오늘은 표에 한 줄만 | 미정 |
+| 407 | Go live 창의 시각 칸이 비면 막거나 묻기(화면 ss) — 비우면 지금 시각으로 저장돼 컷 시각이 틀어진다(10-30 실사고 · SQL 로 바로잡음) · 392 와 한 묶음 | 미정 |
+| 408 | 운영(asung-WMS) `wms-` cron 다섯(1 · 3 · 4 · 5 · 14) 정리 — 끄거나 두거나 | 판정 대기 |
+| 409 | 운영 `inv_config.baseline_snapshot_key` 값을 안 보고 §G 를 넘겼다(9 월 뒤 안 바뀜 짐작) — 한 번 대조 | 미정 |
+| 410 | PO-01381 WEL04774 cost_unknown 1 — `inv_cost` 에 그 줄이 없는 까닭 | 미정 |
+| 411 | CR-00706 JML29042 credit_unknown(10-22 새로) — CR-00592 와 같은 꼴인지 | 미정 |
+| 412 | 설명 **가운데** 바코드 덩이 14 행(상품 13 · 제품군 1 — BS* 「#2266」 · ASSHBUJOLIE 「PALMA: 2」) 손으로 | 미정 |
+| 413 | 손님 재적재가 IMS 에서 끈 주소 110 Aeropark Blvd 를 Cin7 값으로 다시 켰다 — 다시 끌지(Caleb) · 적재가 IMS 가 정한 값을 덮는 것이면 적재 결함(ims-principles 원칙 1) | 판정 대기 |
+| 414 | SO 화면 줄마다 가용 재고가 **초안일 때만** 보인다(so_lines_available · so.html 2930 행 근처) — 확정 · 백오더 오더에서도 가용을 보이고, 다른 브랜치 재고도 같은 자리에서(예 「TO 0 · ED 4」) · 실례 SO-20007(aone AO-17303 · BCO10197 4 개 · 토론토 0 → 통째 백오더 · 에드먼턴 4 · 매니저가 Unconfirm → 창고 Edmonton → Confirm 하면 바로 진행) · 화면 차수 · **지금 안 함**(Caleb) | Caleb 요청 때 |
+
+### 91-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§90-e 에 이어 9 부터)
+
+9. [대화 Claude] LAC793xx 를 「Go live 하면 없는 재고가 Shopify 에 나간다」 고 말해 Go live 를 미뤘다 — 그 SKU 는 product 표에 없어 수량 함수에 처음부터 안 들어갔다(ledger-fix-1 이견 1) ⇒ 「화면 · Shopify 수량에 영향」 을 말하기 전에 그 SKU 가 product 에 있는지 · 수량 함수가 무엇을 거르는지부터
+10. [대화 Claude] 컷오버 절차에 디스크 여유 확인이 없었다 — 235 MB 붓기가 2 GB 디스크(WAL 544 MB)를 넘쳤다 ⇒ 큰 붓기 · 큰 update 전 대시보드 디스크를 본다(reload §E · §P-5 줄)
+11. [대화 Claude] SQL Editor 창이 운영(asung-WMS)에 남은 채 IMS 쿼리를 두 번 돌리게 했다(결과에 IMS 표가 없어 알아챔) ⇒ 프로젝트가 바뀐 뒤에는 **psql `$(cat ~/.asung-testdb-url)`** 로 IMS 를 확정한다 · SQL Editor 는 창 가드가 있는 문장만
+12. [Caleb · 화면] Go live 창의 시각 칸을 비워 18:57 로 저장 → cron 이 꺼진 동안 SQL 로 17:34 바로잡음 ⇒ 절차서 줄(reload §P-2 13b) + 화면 거리(deferred 407)
+13. [Claude Code · stock_drain] 테스트 스토어(listing 5)에서만 시험한 길이 실제 규모(9 천 줄)에서 URL 길이로 깨졌다 · 실패가 call_log 에 안 남아 40 분 조용 ⇒ 큐 · 회차 크기만큼 커지는 `in.()` 은 처음부터 덩이 · 실패 기록은 최상위에서도(deferred 405)
+14. [대화 Claude] §H 기대(9 월 short 0 · cost_unknown 0)를 「원장이 늘어서 달라질 수 있다」 로 넘기려 했다 — §I ② 가 실제 창고 27 칸을 잡았다 ⇒ 재생성 반환이 기준과 다르면 §I 를 보기 전에 결론 내지 않는다
+15. [잘 된 것] shop-cut-1(889)이 실제로 컷 전 fulfill 오더 셋을 막음 · layer-gap-0 이 짐작 셋을 모두 실물로 바로잡음(세트 아님 · Cin7 음수 아님 · 27 ≠ short 27) · desc-bc-1 이 Apply 전에 들어가 새벽 대량 push 를 피함
+16. [docs-1030b] 지시서는 「§90 에 이어 쓰기(또는 §91)」 — 절은 세션 단위라 §91 로 가르고 §90-c 「8 이후 아직」 은 여기를 가리키게 했다 · 지시서에 없던 닫힘 넷(180 · 320 · R-① · 400)은 오늘 실물이 닫은 것이라 함께 닫았다(400 은 짐작)
+
+### 91-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- §90 머리 「8 이후 … 아직」 · §90-c 「남은 것: 8 ~ 15」 → 91-c
+- reload-procedure §P 머리 「8 ~ 15 아직」 · §P-2 8 · 9 · 10 · 11 · 13 · 13b(✅ 10-30 · 17:34 · 디스크 · 시각 칸) · P-3(✅ 20 개) · P-5 「[10-30 18:00]」 → 17:34 · §B ④ 「⬜ 정지 명령 목록」 → 실물 · §E 디스크 줄 · §I 기대 줄 · P-6 9 줄
+- shopify-integration §3-d stock_drain 줄(SENT_CHUNK) · §7 store_live [x] · §5 ⑱(첫 force 실측) · 머리 「다음 판정 번호 891」
+- ledger-design 「⬜ 남은 것」 셋(A · 893 · 892)
+- deferred 180 · 320 · R-① · 400 닫힘 · 「다음 번호 403」 → 415
+- CLAUDE.md §1 표 아래 한 줄(617 · 메인) — 정합은 deferred 406
+- 「다음 판정 번호: 891 · 다음 deferred 번호: 403」(§90 끝) → 아래
+
+```
+다음 판정 번호: 895 · 다음 deferred 번호: 415
 ```
