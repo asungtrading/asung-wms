@@ -171,7 +171,7 @@ If a line goes over, the screen shows "⚠ Over-scan — count the items". Count
 
 <a id="wms-fulfillment"></a>
 ## Pack into boxes and pallets (Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-10-31 · fu v1.7 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-10-31 · fu v1.8 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -195,6 +195,7 @@ An order appears here only when all its batches are checked on **Packing** — "
 - Pallets on a transfer are **all or nothing**: if the transfer has at least one pallet, every picked item must be on a pallet (a box goes on a pallet). Finalize refuses a transfer with items left off the pallets. A pallet may hold only this transfer's products.
 - The **🖨 Pallet list** of a transfer starts with a big label the other warehouse scans — for example **TRF-00002-P2**, with "Pallet 2 of 4" and a barcode (PLT-…). Print it and stick it on that pallet. The other warehouse receives one pallet at a time (see [Receive a PO or a transfer](#wms-receiving)).
 - Once the transfer has left, its pallets are locked — nothing can be added to or taken off them.
+- On a transfer, **✓ Finalize order(s)** opens a window with **Carrier**, **Tracking (PRO) number** and **Expected arrival**. They are optional. What you type goes on every transfer on the workbench. An empty box keeps what is there now — the office may have filled it in on **Transfers**.
 
 **Good to know**
 - **Delete** on a unit returns its products to unassigned.
@@ -373,4 +374,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 A transfer has no **Finalized**. When the warehouse finalizes it, it goes straight to **In transit**.
 The office words for the same steps: see [What each status means](03-inventory.md#stock-statuses).
 
-<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731 -->
+<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->

@@ -131,6 +131,10 @@ Cin7 → Supabase(IMS) 적재 스크립트(`ImsRefLoad` · `ImsLoadProduct` · `
    쪽 ILH_PAGE_ORDERS 기본 100(REST statement_timeout 8 초 안 · 실측) · ILH_PRACTICE=1 = 연습 적재(주인 · 제품 못 풀림을 멈추지 않는다 · IMS 번호 겹침은 멈춘다 · 664 · 665 · 컷오버 직전 적재 전에 지운다) · 당월 표 Sale 은 단가라 sale 칸에 Total(667)
    ⚠️ 확정 표를 새로 올린 뒤에는 ilhRedoCurrentSales 가 아니라 ~~ilhReset 뒤 ilhLoadSales 전체~~(당월 → 확정으로 옮겨 간 오더가 틀린 채 남는다)
    → [2026-10-24 · so-module §73 · deferred 303] **판매 커서 일곱만 지우고 ilhLoadSales** — ILH_SO_CONF_CURSOR · ILH_SO_CONF_DONE · ILH_SO_CONF_SUM · ILH_SO_CURR_CURSOR · ILH_SO_CURR_DONE · ILH_SO_CURR_SUM · ILH_SO_SUM(임시 함수로 지우고 그 파일을 지운다 · 50 개 넘어 화면 읽기 전용) · ⚠️ ilhReset 금지 — 짝(ILH_PAIRS_* 여덟)까지 지워 ilhLoadSales 가 「짝이 없다 — ilhPairs 먼저」 로 멈춘다 · 발주 · ILH_PRACTICE 는 그대로
+   ✅ [2026-10-31 · so-module §93-c 1 · deferred 419 · 315 닫힘] **실제 이력 적재 끝** — 임시 함수로 ILH_PRACTICE 지움 → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales · hist_so 13,745 · hist_po 448
+   ⚠️ **처음부터 다시 받을 때(ilhReset)는 ILH_FOLDER_ID 도 지운다**(새 폴더) — ilh_mergePairs_ 가 폴더의 `pairs-sale-pages-…` 쪽 파일을 **이름 가리지 않고 전부** 읽어 연습 때 파일이 섞인다(옛 폴더는 Drive 에 남겨도 된다)
+   ⚠️ 적재는 손님을 GUID 로만 잇는다 — 반품 전용 오더 31(Cin7 짝 목록에 손님 GUID 없음)은 SQL 로 이름으로 이었다(판정 902) → **재적재 뒤 그 SQL 을 한 번 더**(원문 so-module §93-c 2 · 기대 수는 그때 센 값 · deferred 425)
+   ⭐ 「Address unavailable」(Apps Script 일시 연결 끊김)은 같은 함수를 다시 실행하면 커서에서 이어 간다
 ⚠️ [2026-10-23] **Script Properties 가 50 개를 넘으면 설정 화면이 읽기 전용** — 코드(PropertiesService)로 바꾼다: 임시 파일에 setProperty 함수 → 실행 → 그 파일을 지운다(같은 이름 함수 함정 · 남겨 두지 않는다)
 ⭐ [2026-10-26 · so-module §79-c · 판정 775 · 783 ~ 786] **ImsLoadOpening.gs**(접두 **ilo** · d6be2d6) — 컷오버 날 미수 · 받아 둔 돈 이월 → 창구 so_opening_load(service_role) · 대상 Asung-IMS(SUPABASE_IMS_URL · SUPABASE_IMS_SERVICE_KEY)
    iloCollect → iloDetail → iloBuild(쓰기 0 · sale 마다 상세 ↔ 목록 대조) → iloDry → iloApply(Dry 때와 같은 p md5 · 직전 Dry 한 번 더) → iloVerify · iloReset(ILO_STATE 만 지움) · 순서 · 멈춤은 reload-procedure §P-2 12b

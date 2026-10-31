@@ -68,7 +68,7 @@
 
 <a id="stock-new-product"></a>
 ## 새 제품 · 세트 · 콤보 만들기
-<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-30 · cb v1a -->
+<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-31 · cb v2 -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -107,6 +107,7 @@
 - 콤보에는 세트 · 공급처 · 패밀리가 없습니다. 세트는 콤보가 될 수 없습니다.
 - 제품 화면에서 콤보는 구성품을 읽기로만 보이고 **Open in Combos** 가 있습니다.
 - 웹 숍에는 위치마다 구성품으로 만들 수 있는 온전한 콤보 수가 나갑니다 — 판매 오더가 보이는 수와 같습니다.
+- **Combos** 의 **Can make** 는 그 수를 창고마다 보입니다. 콤보 상세에는 **Can make now** 와 구성품마다 그 재고로 몇 콤보를 만들 수 있는지가 보입니다. 빨간 것이 수를 막는 구성품입니다.
 
 <!-- SCREENSHOT: stock-new-product-1 · New product 창: 판매가 · 공급처 · + ×6 세트 -->
 
@@ -254,7 +255,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 
 <a id="stock-transfers"></a>
 ## 창고 간 트랜스퍼
-<!-- screen: transfers.html · BUILD 2026-10-21 · tf cost v1 -->
+<!-- screen: transfers.html · BUILD 2026-10-31 · tf ship v1 -->
 <!-- who: office, warehouse -->
 
 **무엇인가**
@@ -274,6 +275,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 **알아 둘 것**
 - 픽커가 다 찾지 못했으면 픽한 만큼만 떠납니다. 나머지는 이 트랜스퍼에서 닫힙니다 — 새 트랜스퍼를 만듭니다.
 - **Add freight charge** 는 운임을 도착한 물건의 원가에 얹습니다.
+- **Shipping details** 에 **Carrier**(운송사) · **Tracking (PRO) number**(운송장 번호) · **Expected arrival**(도착 예정일)을 적습니다. 받는 창고가 받을 때 봅니다. 창고가 트랜스퍼를 Finalize 할 때 넣을 수도 있습니다. 받기가 끝나기 전까지 고칠 수 있습니다. 목록의 **Shipping** 칸에 보입니다.
 - 보내기 전: **Back to draft** · **Delete draft** · **Cancel transfer** · 보낸 뒤: **Recall from warehouse**
 
 <!-- SCREENSHOT: stock-transfers-1 · in transit 트랜스퍼와 Settle in transit -->
@@ -327,4 +329,4 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 - [재고 찾기](#stock-availability)의 **↓ CSV** 는 필터에 맞는 제품을 모두 내려받습니다.
 - **Product Sheet** 는 반대 방향입니다: 엑셀에서 표로 붙여 넣습니다([Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908 -->

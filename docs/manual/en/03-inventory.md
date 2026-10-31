@@ -68,7 +68,7 @@
 
 <a id="stock-new-product"></a>
 ## Add a new product, sets and combos
-<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-30 · cb v1a -->
+<!-- screen: products.html · BUILD pr v5k ; combos.html · BUILD 2026-10-31 · cb v2 -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -107,6 +107,7 @@ Which one to use: if the bundle is sold by scanning its own case or pack barcode
 - A combo has no sets, no supplier and no family. A set cannot be a combo.
 - On the product page a combo shows its components for reading only, with **Open in Combos**.
 - The web shop gets the number of whole combos the components can make at each location — the same number a sales order shows.
+- On **Combos**, **Can make** shows that number for each warehouse. A combo's page shows **Can make now** and, for each component, how many combos its stock covers. The red one is the component that limits it.
 
 <!-- SCREENSHOT: stock-new-product-1 · New product window with sale prices, supplier and + ×6 set -->
 
@@ -254,7 +255,7 @@ The same people as stock adjustments — admins, and managers or supervisors wit
 
 <a id="stock-transfers"></a>
 ## Transfers between warehouses
-<!-- screen: transfers.html · BUILD 2026-10-21 · tf cost v1 -->
+<!-- screen: transfers.html · BUILD 2026-10-31 · tf ship v1 -->
 <!-- who: office, warehouse -->
 
 **What it is**
@@ -274,6 +275,7 @@ A transfer moves stock from one warehouse to the other. It goes through the ware
 **Good to know**
 - If the pickers could not find everything, only what was picked leaves. The rest is closed on this transfer — make a new transfer for it.
 - **Add freight charge** puts freight onto the cost of what arrived.
+- **Shipping details** holds the **Carrier**, the **Tracking (PRO) number** and the **Expected arrival**. The other warehouse sees them when it receives. The warehouse can also fill them in when it finalizes the transfer. They can be changed until the transfer is received. The **Shipping** column on the list shows them.
 - Before release: **Back to draft**, **Delete draft**, **Cancel transfer**. After release: **Recall from warehouse**.
 
 <!-- SCREENSHOT: stock-transfers-1 · a transfer in transit with Settle in transit -->
@@ -327,4 +329,4 @@ The warehouse screens use their own words for the same steps — see [Warehouse 
 - **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.
 - **Product Sheet** works the other way: paste from Excel into the table (see [Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908 -->

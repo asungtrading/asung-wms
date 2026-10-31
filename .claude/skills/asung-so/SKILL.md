@@ -379,6 +379,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      매듭 검사는 deferred 제약 트리거 so_line_combo_parent_ck(같은 오더 · 부모는 콤보 줄 · 콤보 안 콤보 없음 · 문장 끝에)
 ⭐  같은 SKU 합치기(판정 229) — 콤보 SKU 는 콤보 줄에 합친다 · 보통 줄 찾기는 combo_line_id is null(구성품 줄과 절대 안 합친다) · 프리오더는 콤보 줄을 고른다(구성품만 고르면 거부)
 ⭐  가용 — 줄마다 so_lines_available(콤보 줄 = min(구성품 재고 키마다 floor(가용 ÷ 콤보 하나의 낱개))) · so_available_many 는 재고 키 단위 그대로
+⭐  [2026-10-31 · 판정 900 · so v5z `fd381b4` · deferred 414 닫힘] SO 화면 줄마다 가용을 **초안 + 확정**에서 · 다른 켜진 창고도(so_available_many) — 초안 「available 3 · ED 4」(색 = 이 창고 수 ≥ 주문) · 확정 「free now TO 0 · ED 4」(so_lines_available = 이 오더 예약까지 뺀 남는 재고)
+     색은 백오더 · 프리오더가 남은 줄에만(남는 수 ≥ 모자란 수면 초록 · 다른 창고도 같은 잣대) · 다 잡힌 줄 · 보류 · 콤보 줄은 회색 참고 · B급 줄은 다른 창고 없음 · aone 오더가 Toronto 로 와 백오더될 때(895) 매니저의 힌트
 ⭐⭐ 확정 = **구성품 줄만 예약**(콤보 줄 예약 없음) · 모자라면 콤보 단위 백오더(콤보 줄 + 구성품 줄이 비례로 형제에 · 반쪽 콤보 없음 · 묶음 4)
 ⭐⭐ 백오더 — 예약은 구성품 줄에 있지만 **장부 · 목록 · 이어받기 · 만료 · proceed · 취소 · 병합은 수요 줄(보통 줄 또는 콤보 줄 · combo_line_id is null) 단위**(콤보 수 = min(구성품 예약 ÷ combo_qty)) · reopen 은 구성품 줄에 콤보 수 × combo_qty
      이어받기: 보통 줄 A 는 옛 콤보의 구성품 A 를 · 콤보의 구성품은 옛 보통 줄을 이어받지 않는다(product_id 가 가른다) · 목록은 콤보 한 줄(is_combo · components) · arrived = 구성품 입고 사건 ∧ 통째 콤보 ≥ 1
@@ -390,6 +392,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-30 · 판정 885 · combo-one-1 `02ecada` · so-module §90] 세트 = 자기 바코드로 파는 묶음 · **콤보 = 낱개 바코드로만 이어지는 묶음** · 콤보에 구성품 하나 + 수량 ≥ 2 허락(하나 + 수량 < 2 = component_single) · ⚠️ 정의 검사(product_bom_check_lines)와 **오더 넣기 길 so_combo_children_insert**(「켜진 구성품 0 이면 거부」 · 옛 `v_n < 2`)가 같은 규칙 — 한쪽만 고치면 한 구성품 콤보가 오더에 못 들어간다
 ⭐  [2026-10-30 · 판정 886 · pos v1.17] POS 만: 담은 낱개(세트 스캔으로 바뀐 낱개 포함)가 켜진 · 파는 콤보의 구성품이면 칩 「Also sold as combo …」 + **Use combo** = 콤보 1 개를 so_line_add 하고 그 구성품 보통 줄을 콤보에 든 수만큼 줄인다(나중 줄부터 · 콤보 구성품 줄 · 무상 · B급 줄은 안 건드림) · 제안만 · DB 차수 없음 · SO 화면 · 붙여넣기는 아직(deferred 397)
 ⚠️  [판정 888] 콤보 SKU 앞에 `CB-` 는 컷오버 · 이력 · 이월 **뒤**(deferred 393) — 웹 오더 줄은 SKU 글자로 대조하므로 바꾸기 전 SKU 로 들어온 오더는 sku_not_found
+⚠️⚠️ [2026-10-31 · 판정 906 · so-module §93-c 4] 888 실행 — **27 만 CB-**(TDXCOMBO1 · 2 는 시험용이라 지움) · **12 는 sku_locked** — 컷오버 원장에 Cin7 시절 기록이 있어 「콤보는 재고 기록이 없다」 전제가 깨졌다(막기를 풀지 않는다 · 원장은 SKU 글자로 이어진다) → deferred 423(Release · New combo CB-… · Shopify 이음 옮기기 조사 먼저) · ⇒ 컷오버 전 판정을 뒤에 실행할 때는 미리 보기(p_commit false)부터
+     IMS SKU 를 바꾸면 Shopify SKU 도 상품 큐로 바뀐다(shop_variant_payload 의 sku) · 콤보 bin 없는 잔고(UNF18155 · UNF18259)는 deferred 422
+⭐  [2026-10-31 · 판정 908 · cb v2 `82b847a`] Combos 화면에 **지금 만들 수 있는 콤보 수** — 목록 「Can make TO · ED」 · 상세 「Can make now」 + 구성품 표에 창고마다 가용 EA → 몇 콤보(가장 작은 것 빨강 = 막는 구성품) · 식은 위 「가용」 · Shopify 831 과 같다(DB 무변) · Stock Availability 에는 콤보가 안 나온다(deferred 421)
 ⭐  Shopify 로 보내는 콤보 재고 = 위 「가용」 과 같은 셈(위치마다 min(구성품 재고 키마다 ⌊가용 ÷ need_ea⌋) · 구성품 꺼짐 → 0 · 판정 831 · so-module §83 · asung-wms 「IMS Shopify 연동 EF」)
 ```
 
@@ -516,6 +521,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  hist_po_line.received_quantity 0 · hist_po.received_date null 은 「기록 없음」 — 원천(BQ asung_purchase_history)이 안 담는다
 ⭐  주인 = cin7_customer_id · cin7_supplier_id(GUID) → customer · supplier 의 cin7_id(657) · 못 풀면 id null · 이름 원문은 남는다
 ⭐  화면(cs v6 · sup v3)이 IMS 거래와 n 개씩 읽어 날짜순으로 섞는다 — 읽기 창구 없음(666)
+⭐  [2026-10-31 · 판정 901 · cs v7c `bc09643`] 손님 주문 이력 카드는 **본사 손님도 자기 이름의 오더만**(IMS · 이전 둘 다) — 654 A 의 cs v5 「본사는 매장 오더까지(Store 칸)」 는 바뀜 · 매장 오더는 그 매장에서 · 매장이 있으면 안내 한 줄
+     ⚠️ hist_so.customer_id 는 GUID 로만 풀린다 — 반품 전용 오더 31 은 이름으로 이었다(902 · 재적재 뒤 다시 · deferred 425)
 ```
 ## 4-v. ⭐⭐ 내보내기 · 연체 알림 · 태그 이름 · 손님 거르기 — 모르면 사고 (2026-10-26 · 정본 so-module §78 · 판정 759 ~ 773)
 
@@ -554,6 +561,10 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-27 · 판정 797 · so-module §81-a] **이월에서 빠지는 19 장 = ImsLoadOpening.gs 상수 `ilo_zeroDocs_`**(회계에서 0 처리 — 보고서 Due 파랑 JE Write Off · 주황 No Outstanding Balance · Cin7 은 Lock 으로 못 고침 · Cin7 은 그대로 둔다)
      그 인보이스(미수)와 그 인보이스에서 나온 오버페이(받아 둔 돈)를 뺀다 · **손님 크레딧(CR-…)은 안 뺀다**(예: Royals 는 CR-00283 · CR-00282 = 229.81 이 남는다)
      목록과 Cin7 수집이 다르면(없음 · SO 번호 · Total · Due 0.01) Build 가 멈춘다 · **iloAllowMismatch 단계 없음**(SO-10447 은 목록으로 면제) · IMS 에서 들인 뒤 손으로 정리하는 길은 기각(가짜 거래 19 건)
+⭐⭐ [2026-10-31 · 판정 903 · 904 · so-module §93-c 3] **12b 이월 실제** — 인보이스 CAD 302 장 918,379.71 · USD 7 장 40,281.80 · 받아 둔 돈 CAD 62 묶음(83 줄) 6,628.40 · iloVerify 「⭐ 전부 같다」
+     QuickBooks 대조는 **A/R Aging Detail**(Foreign open balance — USD 는 Detail 로만) · **손님별 · 인보이스 번호로** · ⚠️ Summary 의 「Total for …」 소계 줄은 걸러야 두 번 안 센다 · Summary ≠ Detail TOTAL(짐작: 환산 시점)
+     차이가 「QuickBooks 에만 열린 것」 뿐이면(IMS 에만 0) 북키핑 지연 — IMS 기준으로 Apply · 목록은 북키퍼(deferred 424)
+     QuickBooks 에만 있는 미수(Cin7 번호 꼴 아님 · 이력 기간 전)는 같은 창구 so_opening_load 에 **complete:false 로 한 장만**(KimC `2329611 | ITRA6260-1` · 옛 열쇠 qbo-2329611 · USD 남은 6,823.87 · 결제조건 이름 비움 → term_unresolved 1 은 그 표시)
 ```
 
 ## 4-x. ⭐⭐ Freightcom 견적 · 예약(Ship & invoice Freight) — 모르면 사고 (2026-10-28 · 정본 docs/design/freightcom-integration.md · so-module §84 · §85 · 판정 835 ~ 862)

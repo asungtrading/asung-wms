@@ -9661,7 +9661,7 @@ deferred 67a-12 · 67a-5 · §3 「파손품」 줄                             
 |---|---|---|
 | 652 | (회사 PC · 원문 없음) | **기존 SKU 로 새 family** 를 만든다 · 창구 `product_family_from_skus(p_family, p_items, p_commit, p_ack)` 확인 → 확인 → 저장(product_family_create 와 같은 꼴 · 반환 꼴도 같다) · 머리 SKU = 첫 SKU + FAM · 빈 머리 칸은 첫 SKU 를 물려받는다 · 머리 검사 · 머리 insert 는 product_family_create · product_create_core 에서 바이트 그대로 떼어 한 곳(product_family_head_ctx · product_family_head_insert) · asung-wms fam-new-1 `5b5c573` · 화면 fam v5(`c3bbc61`) · fam v5b · pr v5d(`642f42e`) · pr v5e(`2b5358f` · `products.html?new=family` · Open sheet 단추) · fam v5a 는 따로 된 커밋이 없다(642f42e 안) |
 | 653 | (회사 PC · 원문 없음 · 「B」) | **다른 family 에 든 SKU 는 옮긴다** — 경고 ack `moves_from_family` · 옛 family 가 구성원 0 이 되면 ack `old_family_emptied` · 빈 머리는 남는다(family_leave 와 같다 · 지우지 않는다) · 652 와의 경계 출처 = fam-new-1 마이그레이션 머리 32 행 · 619 행(이 대화의 인계서에는 경계가 없었다) |
-| 654 | 「현재 customer와, supplier의 판매 또는 구매 히스토리가 없어 …」 → 「좋아. 일단 A로 하자. 그러나 B도 짓고 싶어」 | **A**: 손님 · 공급처 상세에 이력 카드(IMS 거래만 · cs v5 Order history · sup v2 Purchase history · 최근 20 · Show 20 more · 줄 금액 so_totals_many · po_list · DB 무변 · asung-ims `2a648d6`) · **B**: 컷오버 전 지난 거래를 IMS 에 **읽기 전용**으로 옮겨 담아 같은 카드가 함께 보인다 · ⭐ po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력에 한해** 고친다(원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다) · deferred 301(닫힘) · → [2026-10-26 · 판정 774 · §79-b] 참조 크레딧이 이력을 보고 채우되 **서버는 hist 를 읽기만**(크레딧은 참조 크레딧 그대로 · 원장 · 원가 · 잔액과 잇지 않음은 그대로) |
+| 654 | 「현재 customer와, supplier의 판매 또는 구매 히스토리가 없어 …」 → 「좋아. 일단 A로 하자. 그러나 B도 짓고 싶어」 | **A**: 손님 · 공급처 상세에 이력 카드(IMS 거래만 · cs v5 Order history · sup v2 Purchase history · 최근 20 · Show 20 more · 줄 금액 so_totals_many · po_list · DB 무변 · asung-ims `2a648d6`) · **B**: 컷오버 전 지난 거래를 IMS 에 **읽기 전용**으로 옮겨 담아 같은 카드가 함께 보인다 · ⭐ po-module §11-⓪ 함의 ② 「적재는 마스터만」 을 **보기 전용 이력에 한해** 고친다(원장 · 원가 · 잔액 · 크레딧 · 결제와 잇지 않는다) · deferred 301(닫힘) · → [2026-10-26 · 판정 774 · §79-b] 참조 크레딧이 이력을 보고 채우되 **서버는 hist 를 읽기만**(크레딧은 참조 크레딧 그대로 · 원장 · 원가 · 잔액과 잇지 않음은 그대로) · → [2026-10-31 · §93 · 판정 901] A 의 화면 꼴 「본사 손님은 매장 오더까지(Store 칸)」(cs v5 · cs v6 이 이력에도)은 바뀜 — **본사도 자기 이름의 오더만** · 매장 오더는 그 매장에서(cs v7c `bc09643`) |
 | 655 | — | **기록 없음**(회사 PC 인계서 확인 거리) — 두 레포의 커밋 제목 · 본문 · docs · 스킬 · 마이그레이션 grep 0(2026-10-23 · docs-1023h 이견 1) · 번호를 다른 판정에 주지 않는다 |
 | 656 | 「다」 | SKU **줄 단위**로 옮긴다 · 카드는 오더 줄 → 펼치면 SKU · 수량 · 단가 · 근거: 「지난번에 산 그 젤 24개 다시」(다시 주문 받기 ⇒ 단가가 틀리면 손님에게 틀린 값을 말한다) · 「2 년」 은 658 이 「Core 시절 전부」 로 고침 |
 | 657 | 「나」 | 주인은 **GUID 로** 잇는다 — 줄은 BigQuery · 오더 번호 → Cin7 CustomerID / SupplierID 짝은 컷오버 전에 Cin7 목록(saleList · purchaseList)에서 받아 IMS `cin7_id` 로 · 근거: BQ 판매 · 발주 표 어디에도 GUID 칸이 없다(이름 바뀐 손님 · BMG 실사고) |
@@ -9702,7 +9702,7 @@ deferred 67a-12 · 67a-5 · §3 「파손품」 줄                             
 창구 둘        hist_so_load · hist_po_load(service_role 만 · 쪽 ≤ 500 오더 · 머리 upsert + 줄 지우고 다시 = 멱등 · 미래 날짜 줄 · IMS 번호 겹침은 빼고 셈 · 합 · line_count 는 창구가 셈)
 적재           Apps Script ImsLoadHist.gs(접두 ilh · 660) — ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(→ 당월만 다시 ilhRedoCurrentSales) · ilhReset
                쪽 ILH_PAGE_ORDERS 기본 100(REST statement_timeout 8 초 · 첫 적재는 50 으로 돌았고 쪽당 최대 2,352 줄) · ILH_PRACTICE=1 = 연습 적재(주인 · 제품 못 풀림은 로그만 · IMS 번호 겹침은 멈춤 · 664 · 665)
-화면           cs v6 · sup v3 — IMS 거래와 hist_ 를 n 개씩 읽어 날짜순으로 섞는다(666 · 읽기 창구 없음) · 펼치면 hist_*_line 바로 읽기
+화면           cs v6 · sup v3 — IMS 거래와 hist_ 를 n 개씩 읽어 날짜순으로 섞는다(666 · 읽기 창구 없음) · 펼치면 hist_*_line 바로 읽기 · → [2026-10-31 · §93 · 판정 901] cs v7c — ~~본사 손님은 매장 오더까지~~ 본사도 자기 이름의 오더만(두 출처 모두 · Store 칸 없앰)
 ⭐ 금액 뜻      판매 hist_so_line.sale = 두 출처 모두 할인 뒤 세전 줄 합계(667) · unit_price = sale ÷ 수량 · hist_so.sale_total = Σ 줄 합계 · tax 별도
                ⚠️ discount — 확정 출처 206,910 줄 전부 0 = 「모름」(「할인 없음」 이 아니다) · 당월 null(→ deferred 314)
                발주 hist_po.po_total = Cin7 Order 탭 총액(주문 줄 + 추가 비용 + 세금 · 669) · 인보이스 금액이 아니다
@@ -9866,7 +9866,7 @@ unified VIEW   asung_sales_unified 의 sale 은 세 출처 모두 세전 줄 합
 | 7 | 제품-공급처 | ImsLoadProductSupplier.gs imsLoadSupplierExtra → Apply(시트 ips_line · ⏸ 면 다시) → imsLoadProductSupplier → Apply(끝에 rpc 재계산) · 보조 Reset · ⚠️ 2 번이 먼저 · ⭐ [10-29 밤 · §89-e 1] **Reset 먼저**(imsLoadProductSupplierReset) · 대응표는 `cin7_id=not.is.null`(IMS 제품 27 이 null 열쇠 하나로 겹쳐 「잘렸다」 헛경보 · §89-c) | 새 비활성 공급처 · 보내지 않은 줄(IMS 가 정한 Cin7 줄) · 승격(cin7_id 만) · 672 cost 덮임 · 「기본 둘 이상 0」 | 공급처 FK 못 붙음 · 재계산 ⚠️ · → [2026-10-26 · 판정 756 · §77] Dry 기대: 「보내지 않은 줄(IMS 가 정한 Cin7 줄)」 **0**(cutover-delete.sql ⑨ 가 Roux 19 줄을 source cin7 으로) |
 | 8 | 가격 | ImsLoadPrice.gs imsLoadPriceCollect(⏸ 면 다시) → imsLoadPriceDry → imsLoadPriceApply(⏸ 면 다시) → imsLoadPriceVerify · ⭐ [10-29 밤 · §89-e 1] **Reset 먼저**(imsLoadPriceReset) | Cin7 에만 있는 제품(제품 적재 뒤 0 근처) · 세트 판정 어긋남 0 · 새로/바뀜/되살림/내림 · formula · manual 무접촉 | 받은 행 ≠ Total · 같은 제품 ID 두 번 · 티어 이름 ≠ ref_price_tier · 없는 code 에 양수 · 숫자 아님 · 내리기 > max(20, 1 %)(ILP_ALLOW_BIG_DOWN) |
 | 9 | 태그 | ImsLoadProductTag.gs(편집기 ImsTagProbe) imsLoadProductTag → Drive 보고 파일 셋을 사람이 본다(676) → imsLoadProductTagApply(⏸ 면 다시) — 176 의 「제품 적재 뒤 태그 한 번 더」 가 이것 | 「기본값 사용」 여부 · 418 없는 제품 ≈ 0(순서 검사) · 켜진 딜의 태그 줄 수(Clearance · DISC_* · GM/HS) · 「뗀 것 짐작」 → 사람이 가른다 · 지울 것의 딜 ⚠️ | 받은 행 ≠ Total(stop 보고) · 지우기 > max(20, 1 %)(IPT_ALLOW_BIG_DELETE) · 넣기 덩이 실패 |
-| 10 | 이력 | ImsLoadHist.gs ⚠️ ILH_PRACTICE 를 지우고(315) → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(Next run 이면 다시) | BigQuery 숫자 = 콘솔 D1 · D2 · 짝 표본 20 · 못 풀림 비율 | BigQuery 서비스 꺼짐 · 못 풀림 > 20 %(ILH_ALLOW_UNRESOLVED) · IMS 번호 겹침 · 모르는 PO 상태(ILH_PO_EXTRA_OK) |
+| 10 | 이력 | ImsLoadHist.gs ⚠️ ILH_PRACTICE 를 지우고(315) → ilhReset → ilhDry → ilhPairs → ilhLoadPurchases → ilhLoadSales(Next run 이면 다시) | BigQuery 숫자 = 콘솔 D1 · D2 · 짝 표본 20 · 못 풀림 비율 | BigQuery 서비스 꺼짐 · 못 풀림 > 20 %(ILH_ALLOW_UNRESOLVED) · IMS 번호 겹침 · 모르는 PO 상태(ILH_PO_EXTRA_OK) · → ✅ [2026-10-31 · §93-c 1] 끝(hist_so 13,745 · hist_po 448) · ⚠️ ilhReset 뒤 **ILH_FOLDER_ID 도 지운다**(짝 합치기가 폴더의 쪽 파일을 이름 가리지 않고 읽는다 — 연습 때 파일이 섞인다) · 손님 못 풀림 31(반품 전용 오더)은 이름으로 이음(902) — 다시 적재하면 그 SQL 을 다시(deferred 425) |
 
 - → [2026-10-29 · §88-c] **0 · 2 는 컷오버 전날(10-29) 먼저 돌렸다**(제품 · 가격 · 공급처는 그날부터 Cin7 에서 새로 만들지 않는다) · 손님(1)은 10-30 18:00 뒤 · **7 은 cutover-delete.sql ⑨ 뒤 한 번 더**(그 전 Dry 의 「보내지 않은 줄」 19 는 정상) · 컷오버 날 = 10-30 18:00 뒤(reload-procedure §P)
 - 순서 근거: 손님 · 공급처는 서로 독립 · 제품(3)이 세트 잇기 · 바코드 · BOM · 제품-공급처 · 가격 · 태그의 앞(FK · 418 · 「Cin7 에만 있는 제품」) · 공급처(2)가 7 의 앞 · 이력(10)은 손님 · 제품을 풀어야 하니 끝
@@ -11530,7 +11530,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 | 885 | 「현재 세트는 사실 판매용이 아니라, 스캔과 웨어하우스 관리용으로만 사용하고 있어. 이것을 혼용하는 것에 대한 우려가 나뿐 아니라 다른 사람들도 있어.」 · 「추후에는 개별 바코드로만 연결하는 것은 콤보, 세트 바코드로도 판매하는 것은 세트를 사용할게.」 · (구성품 하나 + 수량 < 2) 「막아야지」 | 묶음 자체 바코드로 파는 것 = **세트**(Sellable 켬) · 낱개 바코드로만 이어지는 묶음 = **콤보** · 콤보에 **구성품 하나 + 수량 2 이상** 허락 · 구성품 하나 + 수량 < 2(1.5 포함)는 `component_single` 로 막음(글 「A combo with one component needs a qty of 2 or more」) · 빈 목록 글 「A combo needs at least one component (a single component needs a qty of 2 or more)」 · DB combo-one-1(product_bom_check_lines · so_combo_children_insert · product_combo_create 글 · product_bom 표 comment) · 이견 1: 오더 넣기 길(so_combo_children_insert)에도 `v_n < 2` 막기가 있었다 → 「켜진 구성품 0 이면 거부」 · 화면 combos cb v1a(안내 글 둘) · 실례 ① 판매 세트 하나 `BEL43475-12`(pack 12 · 자기 바코드 없음) → 컷오버 **뒤** `CB-BEL43475-12` 콤보 + 세트 Sellable 끔(아직 안 함 · deferred 393) ② 진열대 `LAC80487`(= LAC73812 × 18) · `LAC80490`(= LAC73813 × 18) · `LAG00482`(= LAG22662 × 18) — 각자 진열대 바코드(081555804879 · 081555804909 · 081555004828) → **세트가 맞다** · Cin7 에서는 「구성품 하나 × 18」 콤보였고 적재 규칙(구성품 2 이상만 콤보)대로 세트로 들어왔다 · 재적재하지 않는다 · 10-30 Caleb 이 Sellable 켬(값 = Cin7 고정가 확인) |
 | 886 | 「가」 · 「나」 | **POS 만 먼저**: 담은 낱개(또는 세트 스캔으로 바뀐 낱개)가 켜진 · 파는 콤보의 구성품이면 안내 칩 「Also sold as combo …」 + **Use combo** · Use combo = 콤보 1 개를 더하고 이미 담긴 그 구성품 보통 줄을 콤보에 든 수만큼 줄인다(나중 줄부터 · 콤보 구성품 줄 · 무상 · B급 줄은 안 건드림) · 제안만(저절로 안 바꾼다) · 화면만 pos v1.17(DB 차수 없음 · product_bom 을 REST 로 읽음) · SO 화면 · 붙여넣기는 나중(deferred 397) |
 | 887 | 「박스안의 구성품이 비는 문제는 우리가 실무적으로 해결해야할 문제」 · 「가가 더 합리적이겠지만, 실무적으로는 나가 우리 현실」 | 봉한 박스 콤보(예 UNF18259 = UNF18046 ~ 18049 각 6 · 박스 바코드 810162182595 · 구성품은 낱개로도 판다 · 박스와 낱개는 같은 칸)는 **콤보로 둔다** · 창고가 **박스 바코드 한 번 = 그 콤보 하나**(구성품 줄마다 combo_qty × pack_factor) · 하나라도 자리가 없으면 거부(반쪽 콤보 없음 · 패커는 픽 수를 넘으면 거부) · 기록 `verification_method = scanned_combo` · 같은 번호가 낱개 · 세트 바코드이기도 하면 낱개로 본다 · 박스 · 낱개 재고 섞임은 실무 몫 · 기각(가): 콤보를 자기 재고 제품으로 바꾸기 · DB combo-bc-1(`wms_pick_lines` 구성품 줄에 `combo_barcodes` · 이견 1: 마지막 정의는 asm_2b1 이 아니라 **bgr-1a**(`20261023131028`) — 90-e 1) · 화면 pk v1.6 · pa v1.7 · SO-25264 실물 시험 통과 · 이견 5: wms_pick_lines 에 창고 검사 없음(deferred 391) |
-| 888 | 「가」 | 콤보 SKU 앞에 **`CB-`**(옛 SKU 앞에 붙이기 · JAL99890CB → CB-JAL99890CB · TDXCOMBO1 → CB-TDXCOMBO1) · 콤보 SKU 는 Products Edit 에서 바뀐다(재고 기록이 없어 sku_locked 에 안 걸림 · Caleb 확인) · 켜진 콤보 41(꺼진 ELO82320 은 그대로) · **컷오버 · 이력 · 이월 뒤** 콘솔에서 `product_update` op `{op:"set", sku, field:"sku", value:"CB-"+sku, old:sku}` 한 번에(미리 보기 → 저장) · 아직 안 함(deferred 393) · ⚠️ (shop-risk-0) 웹 오더 줄은 SKU 글자로 대조 — 바꾸기 전 SKU 로 들어온 오더는 sku_not_found |
+| 888 | 「가」 | 콤보 SKU 앞에 **`CB-`**(옛 SKU 앞에 붙이기 · JAL99890CB → CB-JAL99890CB · TDXCOMBO1 → CB-TDXCOMBO1) · 콤보 SKU 는 Products Edit 에서 바뀐다(~~재고 기록이 없어 sku_locked 에 안 걸림 · Caleb 확인~~) · ~~켜진 콤보 41~~(꺼진 ELO82320 은 그대로) · **컷오버 · 이력 · 이월 뒤** 콘솔에서 `product_update` op `{op:"set", sku, field:"sku", value:"CB-"+sku, old:sku}` ~~한 번에~~(미리 보기 → 저장) · ~~아직 안 함(deferred 393)~~ → [2026-10-31 · §93 · 판정 906] 41 중 TDXCOMBO1 · 2 는 시험용이라 지움 · **12 는 sku_locked**(컷오버 원장에 Cin7 시절 기록 — 막기를 풀지 않는다) · **27 만 CB-** 저장 · 12 + BEL43475-12 는 deferred 423(11-02 · Shopify 이음 옮기기 조사 먼저) · ⚠️ (shop-risk-0) 웹 오더 줄은 SKU 글자로 대조 — 바꾸기 전 SKU 로 들어온 오더는 sku_not_found |
 | 889 | 「note 를 추가하면 될 일 아닌가?」(→ 태그로 다듬음) | **컷 전 웹 오더**: 컷 시각(orders_cut_at) 전에 만들어진 웹 오더는 **어떤 길로도 저절로 안 받는다**(다음 달 환불 · Capture · 메모로 바뀌어도) · 통과 = Shopify 오더 태그 **`ims-import`**(대소문자 · 앞뒤 빈칸 무시 · 낱말 하나) · 직원이 **18:00 뒤** Cin7 에 열려 있던 웹 오더에 태그를 단다(18:00 전에 달면 그 오더의 바뀐 시각이 컷 앞이라 안 읽힌다 — 지웠다 다시 달면 됨) · 그 웹 오더는 IMS 에서 손으로 다시 만들지 않는다 · **814 의 「컷 전 오더는 Shopify 에서 손으로 Fulfill」 을 대체** · 경위: 처음 「목록 보기 + 번호로 받아 오기 action」 → Caleb 물음 → 태그 · DB shop-cut-1(`shop_store.orders_cut_at` · live false → true 트리거가 orders_polled_at 을 한 번 베낀다 · `shop_order_import_tagged` · ingest 막기 · 막힌 오더는 inbox 에 안 쌓고 call_log 「skipped_cut N (… #이름)」) · EF poll 이 createdAt · tags 를 읽는다 · 실물: 테스트 스토어 #1038(태그) → SO-25277 · #1039(태그 없음) → skipped_cut · ⭐ Go live 때 orders_from = Cin7 의 Shopify 연결을 끊은 시각(분까지) · 고치는 길 = SQL(deferred 392) |
 | 890 | 「가」 | 스토어마다 **`send_images`** · asung · aone **false** — 상품 media · 변형 사진을 보내지 않는다(Shopify 사진 그대로) · 값 · 재고 · 제목 · 설명 · 상태 · 태그는 평소대로 · 사진은 hash 밖(사진만 바뀐 일 → skipped_same_hash) · false → true 로 켜는 순간 켜진 listing 전부 큐 · 끄면 줄 0 · Apply links **전에** 적용해야 nightly 가 전부 다시 안 보낸다 · DB shop-img-off-1(shop_product_payload · shop_variant_payload · shop_store_queue_trigger) · EF 안전띠(send_images false 면 files 안 보냄) · ⇒ 판정 409(사진은 IMS 목록대로) · 560(Cin7 이 올린 사진을 IMS 사진으로 다시 올림)은 **asung · aone 에서 멈춤**(시험 스토어는 true 그대로) · 이견 7(화면 · 뷰 칸) · 이견 8(새 스토어 기본값 true · 판단 대기) → deferred 388 · Shopify 전용 사진 가져오기 → deferred 387(마이그레이션 머리 주석이 이미 이 번호를 쓴다) |
 
@@ -11753,7 +11753,7 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 
 ⭐ 정한 것: 원장 ≠ Cin7 는 130 이 아니라 **95 칸 · +581** 이고 기준은 스냅샷 01:21 · 문서 상쇄 먼저 → 남은 차이만 조정(893 이어진 결정) · aonebeauty.com 에 **Edmonton 재고도** 보내되 오더는 늘 Toronto(895) · 컷오버 때 VOID 된 떠난 트랜스퍼 TR-06396 ~ 06399 는 상쇄하지 않고 IMS 「가는 중」 문서로 연다(896) · 트랜스퍼는 받는 쪽이 **팔렛 단위**로 받는다(897) · 트랜스퍼에 운송사 · 운송장 · ETA(898 · 토론토 → 에드먼턴은 APPS)
 ⭐ 원천: docs-1031 📌 A ~ E(대화 Claude · Caleb · 10-31 대화) · 덧붙임(Caleb 10-31 · rc v2.0 해시 · APPS) · 커밋 메시지 · 마이그레이션 · ops 머리 주석(adj-893-1 · layer-fix-1-regen · tf-transit-1 · tf-transit-arrive-manual) · DB 확인 select(ref_carrier APPS · inv_transfer TR-06396 ~ 06399 · so_number_seq · inv_voided_docs 3772) · ⚠️ 실행 로그는 레포에 없다 — 92-c 가 원천
-⭐ 컷오버 남은 것(91-c) 가운데 **A(§H 다시 · 403) · 893 조정(404) 끝** · 남은 12(이력 §73-c 10 · B급 · 열린 PO) · 12b 이월 · 14 첫 번호 · Edmonton 매니저 · 393 CB-
+⭐ 컷오버 남은 것(91-c) 가운데 **A(§H 다시 · 403) · 893 조정(404) 끝** · ~~남은 12(이력 §73-c 10 · B급 · 열린 PO) · 12b 이월 · 14 첫 번호 · Edmonton 매니저 · 393 CB-~~ → [2026-10-31 저녁 · §93] 12 · 12b · Edmonton 매니저 끝 · 393 은 27 끝 · 나머지 423 · 14 첫 번호만 남음
 
 ### 92-a 판정 (Caleb 말 그대로 · 뜻)
 
@@ -11829,5 +11829,130 @@ Apps Script 편집기 이름  ImsRefLoad = ProbeIMS.gs · ImsLoadSupplier 는 �
 - 매뉴얼 04-wms en · ko — Fulfillment(트랜스퍼 팔렛 전부 또는 0 · Pallet list 라벨 · fu v1.7) · 받기(팔렛 라벨 스캔 · 팔렛마다 Complete · 운송 정보 · rc v2.0)
 
 ```
-다음 판정 번호: 899 · 다음 deferred 번호: 421
+~~다음 판정 번호: 899 · 다음 deferred 번호: 421~~ → §93 끝
+```
+
+---
+
+## §93 2026-10-31 오후 · 저녁 집 — 트랜스퍼 운송 정보 화면 · SO 줄마다 가용(확정 · 다른 창고) · 손님 주문 이력은 자기 이름만 · 이력 적재 끝 · 12b 이월 · KimC QuickBooks 전용 미수 · 콤보 CB- 27 · bin 없는 재고 넷 · Combos 「Can make」 · 웹훅 구독 — tf ship v1 · fu v1.8 · so v5z · cs v7c · cb v2 · 판정 899 ~ 909 (집 PC)
+
+⭐ 정한 것: 트랜스퍼 운송 정보는 오피스 transfers 화면과 **Fulfillment Finalize 창**에서(899 · 빈 칸 = 지금 값) · SO 화면 줄마다 가용을 **초안 + 확정**에서 · 다른 창고까지(900) · 손님 주문 이력은 **본사도 자기 이름의 오더만**(901 · 654 의 cs v5 꼴을 바꿈) · 이력 적재 손님 못 풀림 31 은 이름으로 이음(902) · 12b 이월은 IMS(Cin7) 기준 그대로 · QuickBooks 차이는 북키핑 지연(903) · KimC 의 QuickBooks 전용 미수 한 장은 이월로 따로(904) · send_tags 는 지금 안 켬(905) · 콤보 CB- 는 **27 만**(906 · 12 는 sku_locked) · bin 없는 재고 넷은 실사 뒤 ops(907) · Combos 화면에 지금 만들 수 있는 수(908) · 두 스토어 웹훅 구독(909)
+⭐ 원천: docs-1031b 📌 A ~ E(대화 Claude · Caleb · 10-31 오후 ~ 저녁 대화) · asung-ims `git log --oneline a866ecd..HEAD` 원문 · 화면 BUILD 주석(TF_BUILD · WK_BUILD · SO_BUILD · CS_BUILD · CB_BUILD) · ⚠️ 운영 실행 로그 · select 결과는 레포에 없다 — 93-c 가 원천(대화에서 옮김)
+⭐ 컷오버 남은 것(§92 머리) 가운데 **12 이력 · B급 · 열린 PO · 12b 이월 · Edmonton 매니저 끝** · 393 CB- 는 27 끝 · 남은 12 + BEL43475-12 는 deferred 423(11-02) · 14 첫 번호는 이 절에서 안 닿음
+
+### 93-a 판정 (Caleb 말 그대로 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 899 | 「A」 | 트랜스퍼 운송 정보(898)를 **Fulfillment Finalize 창**에서 — 트랜스퍼 작업대의 Finalize 는 브라우저 확인 창 대신 IMS 창 · 운송사 · PRO · ETA 칸 **하나씩** · 넣은 값을 **작업대의 모든 트랜스퍼**에 `inv_transfer_shipping_set` 으로 적은 뒤 `wms_finalize` · 칸은 선택 · **빈 칸 = 그 문서의 지금 값**(오피스가 먼저 넣은 값을 지우지 않는다 · 지우기는 오피스 transfers 화면) · 모두 같은 값이면 미리 채움 · 적기가 거부되면 Finalize 안 함 · 판매 작업대는 그대로 · 기각 B(트랜스퍼마다 칸 — 한 트럭 네 장이면 같은 값 네 번) · Caleb 「오피스에서 넣어도 되는거지?」 → 된다(transfers 화면 Shipping details · Transfers · Fulfillment · Receiving 열쇠 · 받기 끝 전까지) · 화면 fu v1.8 `0162aeb` · tf ship v1 `54b22e0` · deferred 417 닫힘 |
+| 900 | 「니 안대로 가자」 | SO 화면 줄마다 가용(deferred 414) — **초안 + 확정**에서 · 다른 켜진 창고도(TO · ED) · 숫자 = `so_lines_available`(이 오더 예약까지 뺀 남는 재고 · 상태를 가리지 않는다 — 초안만은 화면이 정했던 것) + 다른 창고는 `so_available_many` · 초안 「available 3 · ED 4」(색 = 이 창고 수 ≥ 주문) · 확정 「**free now** TO 0 · ED 4」 — **색은 백오더 · 프리오더가 남은 줄에만**(남는 수 ≥ 모자란 수면 초록 · 다른 창고도 같은 잣대) · 다 잡힌 줄 · 보류 · 콤보 줄은 회색 참고 · 콤보 = 구성품 floor 최소 · B급 줄은 다른 창고 없음 · 기각: 확정에서 백오더 줄에만 숫자(다 잡힌 줄의 다른 창고 재고가 안 보인다) · 화면 so v5z `fd381b4` · DB 무변 |
+| 901 | 「아무리 부모라 하더라도, 부모 스토어 이름으로 오더된 것들만 나왔으면 좋겠어」 | 손님 화면 주문 이력 카드 — **본사 손님도 자기 이름의 오더만**(IMS · IMS 이전 둘 다) · 매장 오더는 그 매장에서 · 매장이 있으면 안내 한 줄(「Only orders under …'s own name. Each store's orders are on that store — open it from the Stores card.」) · Store 칸 없앰 · ⇒ **판정 654 A 의 화면 꼴(cs v5 「본사 손님은 매장 오더까지(Store 칸)」 · cs v6 이 이력에도 같게)을 바꾼다** · 적재 · DB 무변 · 화면 cs v7c `bc09643` |
+| 902 | (실측 → 대화 Claude 안 · Caleb 실행) | 이력 적재 손님 못 풀림 **31 오더(25 손님)** = 줄 하나짜리 **반품 전용 오더**(음수 · 인보이스 날짜 없음 · 주문일은 2025-11 ~ 2026-10 안) — Cin7 짝 목록에 손님 GUID 가 없었다(까닭 모름 · 짐작: 반품 전용 sale 의 saleList 모양) · 25 이름 모두 IMS 에 정확히 하나 · 활성 → **이름으로 이음**(SQL · 31 이 아니면 되돌림 · 93-c 2 원문) · ⚠️ 이력을 다시 적재하면 GUID 로만 잇기 때문에 이 31 이 다시 빈다 → 재적재 뒤 같은 SQL 한 번 더(deferred 425) · ⚠️ SQL 은 이름 하나짜리를 `customer` 전체(꺼진 손님 포함)에서 센다 — 「활성」 은 그날 눈 확인이고 SQL 조건은 아니다(같은 이름의 꺼진 손님이 생기면 그 오더는 안 이어진다 · 안전한 쪽) |
+| 903 | 「A」 · 「북키핑이 다 안끝나서 그런것은 아닐까?」 | 12b 이월 Apply 전 QuickBooks 대조를 **손님별 · 인보이스 번호로** — 139 손님 중 124 한 푼까지 같음 · 다른 15 손님은 **전부 「QuickBooks 에만 열린 것」**(「IMS 에만」 0) = Cin7 에 결제가 기록됐는데 QuickBooks 에 결제가 아직 없는 인보이스(북키핑 지연) · 그래서 IMS 기준(Cin7)으로 그대로 Apply · 차이 목록은 북키퍼 몫(deferred 424 · 93-c 3) |
+| 904 | 「실제로 받을 돈이야」 | KimC Trading LLC 의 **QuickBooks 전용 인보이스 `2329611 \| ITRA6260-1`**(2025-01-06 · Cin7 번호 꼴 아님 · 이력 기간 전이라 Cin7 이월에 없음) — 이월 인보이스로 따로 넣음: 같은 창구 `so_opening_load` · `complete:false` · 옛 열쇠 `qbo-2329611` · 번호 2329611 · USD 총 13,806.24 · 이미 받음 6,982.37 · **남은 6,823.87** · 세금 0 · 결제조건 이름 비움(QuickBooks 기한 = 발행일이라 Net 60 과 안 맞음 · term_unresolved 1 은 그 표시) · 기한 2025-01-06 |
+| 905 | 「좋아 그렇게 하자」 | **send_tags(deferred 394) 지금 켜지 않는다** — 사이트가 어떤 태그를 실제로 쓰는지(outofstock- · instock- · 컬렉션 규칙 · 자동 할인 · 숨김) 본 뒤 **한 스토어씩 밤에** · 켜면 이어진 상품 전부 다시 보냄(약 8 시간 짐작) · Shopify 에만 있던 태그(재고 상태 태그)는 사라진다 |
+| 906 | 「일단 안막힌 27개만 먼저 수정」 · 「release combo → sellable, active 끈다 → 샤피파이를 끈다 → 새콤보를 만든다 → 샤피파이로 보낸다」 · 「월요일에 조사를 하고 진행하자」 | 판정 888(콤보 CB-)의 실행 — 켜진 콤보 41 중 **TDXCOMBO1 · 2 는 시험용이라 지움**(Caleb) → 39 · 그중 **12 는 `sku_locked`**(Cin7 시절 원장 기록 — 888 의 「콤보는 재고 기록이 없다」 전제가 컷오버 원장으로 바뀌었다 · 원장은 SKU 글자로 이어져 막기가 맞다 · 막기를 풀지 않는다) → **27 만 CB-** · 12 는 Caleb 흐름(Release · 끄기 · 옛 Shopify 보냄 끄기 = ARCHIVED · New combo `CB-…` · 새 콤보 보냄)으로 하되 **월요일에 「Shopify 옛 페이지를 그대로 두고 이음만 새 제품으로 옮기는 길」 을 먼저 조사**(Caleb 흐름은 새 Shopify 상품 = 사진 없음(890) · 퍼블리시 · 컬렉션 · SEO 손 작업 · 옛 주소 닫힘) · deferred 423 |
+| 907 | 「일단 실사목록에 추가해줘」 | **bin 없는 재고 넷**(실제 창고 · 0 아님): UNF18155(콤보) Edmonton 1 · AIA03588 Toronto 6 · EBI03960 Toronto 6 · UNF18259(콤보) Toronto 2(Cin7 화면 ON HAND 2 · 가치 22.08) — 월요일 실사(실제 bin · 봉한 박스 있나) → 그 결과로 **ops 차수 하나**(adj-893 과 같은 manual 원장 쌍 · 「bin 없음 −수량 · 그 bin +수량」 · 콤보는 0 또는 구성품으로) · UNF18155 · UNF18259 의 옛 콤보 끄기는 그 뒤 · deferred 422 · 까닭: 조정 창구 `inv_adjust_line_set` 은 **활성 bin 이 반드시 있어야** 하고(id 나 이름 · 없으면 거부) 꺼진 제품도 거부 — bin 없는 잔고는 화면 · 창구로 못 고친다 · 📌 셋(UNF18155 EDM 1 · EBI03960 TOR 8 · AIA03588 TOR 6)은 asung-inv-ledger 스킬 `null_bin_nonzero` [실측 09-13] 여섯에 이미 있었다(새로 생긴 것은 UNF18259 · EBI03960 은 10-26 −2 로 6) |
+| 908 | 「combo 화면 목록에 가용칸을 더하는 화면차수부터 가자」 | Combos 화면에 **지금 만들 수 있는 콤보 수** — 목록에 켜진 창고마다 「Can make TO · ED」 · 상세 머리 「Can make now」 + 구성품 표에 창고마다 「가용 EA → 몇 콤보」(가장 작은 것 빨강 = 막는 구성품) · 식 = SO 화면 · Shopify 831 과 같다(구성품마다 floor(가용 EA ÷ 콤보 하나에 드는 EA) 의 최소 · 재고 키 = 세트면 부모 · 드는 EA = quantity × pack_factor · 같은 키 합침 · 가용 = so_available_many) · DB 무변 · 화면 cb v2 `82b847a` |
+| 909 | 「웹훅가자」 | 실제 두 스토어(asung · aone) **웹훅 구독** — 콘솔에서 EF shopify `webhooks_subscribe`(직원 로그인 · shopify 열쇠) · 두 스토어 모두 ORDERS_CREATE · UPDATED · CANCELLED 생성 · 실패 0 · 15 분 poll(cron 48)과 함께 · EF verify_jwt=false(config.toml)라 게이트웨이를 지남 · HMAC 은 함수 안 · deferred 401 닫힘 |
+
+### 93-b 차수 · 커밋 (git log 원문 · asung-ims · 대화 Claude 가 화면 파일을 씀)
+
+`git log --oneline a866ecd..HEAD`(asung-ims · 10-31 저녁) 원문:
+
+```
+82b847a combos cb v2: 지금 만들 수 있는 콤보 수 — 목록 Can make TO · ED 칸 · 상세 Can make now + 구성품별 가용 → 콤보 몫(막는 구성품 빨강)
+bc09643 customers cs v7c: 주문 이력을 그 손님 이름의 오더만(본사에 매장 오더를 섞지 않는다) · 매장 안내 한 줄
+fd381b4 so v5z: deferred 414 — 줄마다 가용을 확정에서도 · 다른 브랜치(TO · ED) · 확정은 free now · 색은 백오더 · 프리오더 줄에만
+0162aeb wms-fulfillment fu v1.8: 판정 898 · deferred 417 — 트랜스퍼 Finalize 창에 운송사 · PRO · ETA(작업대 모든 트랜스퍼에 · 빈 칸 = 지금 값)
+54b22e0 transfers tf ship v1: 판정 898 · deferred 417 — 운송 정보(운송사 · PRO · ETA) 상세 Shipping 줄 + Shipping details 창 · 목록 Shipping 칸
+```
+
+| 화면 | 판 | 커밋 | 무엇 |
+|---|---|---|---|
+| transfers.html | tf ship v1 | `54b22e0` | 판정 898 · deferred 417 — 상세 머리 Shipping 줄 + 「Shipping details」 창(`inv_transfer_shipping_set` · 세 칸 통째 · received · cancelled 거부 · 운송사 = kind carrier · 켜진 것 · 지금 값이 꺼졌으면 「(off)」) · 목록 Shipping 칸(열린 문서만 inv_transfer 한 번 · id 목록을 주소에 싣지 않는다) |
+| wms-fulfillment.html | fu v1.8 | `0162aeb` | 판정 899(커밋 글은 「판정 898 · deferred 417」 — 899 는 그 결정의 번호) |
+| so.html | so v5z | `fd381b4` | 판정 900 · deferred 414 |
+| customers.html | cs v7c | `bc09643` | 판정 901 |
+| combos.html | cb v2 | `82b847a` | 판정 908 |
+
+- asung-wms 쪽 DB 차수 · 마이그레이션 0 — 이 절의 운영 일은 Apps Script · 콘솔 · psql(Caleb) · 화면 배포 GitHub Pages
+
+### 93-c 운영 실행 · 실측 (10-31 오후 ~ 저녁 · 메인 DB `fazgmyvzzhqybtvtktyg` · 순서대로)
+
+1. **이력 적재(§73-c 10 · deferred 419 · 315)** — 임시 함수로 `ILH_PRACTICE` 지움(1 → null) → `ilhReset`(속성 15) → ⚠️ **`ILH_FOLDER_ID` 도 지움**(옛 폴더 13D2qXif… 는 Drive 에 남김 — `ilh_mergePairs_` 가 폴더의 `pairs-sale-pages-…` 를 이름 가리지 않고 전부 읽어 연습 때 쪽 파일이 섞일 수 있었다 · 새 폴더 1NOvXYZC…) → `ilhDry`(D1 확정 283,291 줄 · 13,744 오더 · d_max 2026-10-31 · D2 당월 실을 것 1 오더 229 줄 · 발주 실을 것 · ORDERING 11 건너뜀 · 번호 꼴 이상 0 · 짝 표본 20 모두 GUID) → `ilhPairs`(판매 18,663 · 발주 1,426 행 → 1,423 번호 · GUID 없음 0) → `ilhLoadPurchases`(448 PO · 17,851 줄 · 새로 0 · 공급처 못 풀림 0 · 제품 못 풀림 14) → `ilhLoadSales`(한 번 「Address unavailable」 — Apps Script 일시 연결 끊김 · 다시 실행으로 이어감 · 확정 283,291 줄 · 13,744 오더 · 덮어씀 13,396 · **새로 348**(10-24 ~ 31) · 당월 SO-13158 1 · 제품 못 풀림 13,990 줄(약 4.9 %) · 손님 못 풀림 31 · IMS 번호 겹침 0)
+   - 확인: hist_so **13,745** · hist_po 448 · 옛 행(loaded_at 3 시간 넘음) 0 · 번호 범위 SO-00001 ~ (IMS SO-20000 ~ 20030 과 겹침 0)
+   - Caleb 사실 확인: 10-24 ~ 30 에 Cin7 에서 새 PO 를 만들지 않았다(발주 새로 0 이 맞다)
+2. **31 오더 손님 잇기(판정 902)** — 원문(재적재 뒤 다시 쓸 것 · deferred 425):
+   ```
+   psql "$(cat ~/.asung-testdb-url)" -X -P pager=off -v ON_ERROR_STOP=1 -1 <<'SQL'
+   with one as (select c.name, min(c.id::text)::uuid id from customer c group by c.name having count(*) = 1),
+   up as (update hist_so h set customer_id = one.id from one where h.customer_id is null and h.customer_name = one.name returning h.order_number)
+   select count(*) as fixed from up \gset
+   \echo fixed = :fixed
+   select case when :fixed = 31 then 'OK 31' else (1/0)::text end as chk;
+   select count(*) filter (where customer_id is null) still_null from hist_so;
+   SQL
+   ```
+   결과 fixed 31 · OK 31 · still_null 0(재적재 뒤에는 기대 수를 그때 센 값으로)
+3. **12b 이월(판정 775 · reload §P-2 12b)** — Caleb 사실: 컷(10-30 18:00) 뒤 Cin7 에 아무것도 기록하지 않았다 → Cin7 남은 금액 = 컷 때 모습 · 컷 뒤 받은 돈은 이월 뒤 IMS Payments 에서 이월 인보이스에 붙인다
+   - `iloReset` → `iloCollect`(saleList 18,663 = Total · 손님 크레딧 81 행 · 새 폴더 11Nd5uWD…) → `iloDetail`(후보 330) → `iloBuild`(as_of 2026-10-31 · 0z 문제 0 · 어긋난 sale 0 · 면제 1 = SO-10447 · build md5 488b8033…) → `iloDry`(거부 0 · 손님 · 결제조건 · 브랜치 못 찾음 0 · 큰 돈 1 PiiQ Design House 1,110.83) → QuickBooks 대조(판정 903) → `iloApply` → `iloVerify` 「⭐ 전부 같다」
+   - 이월: 인보이스 **CAD 302 장 918,379.71**(Σ Total 928,739.71 · 이전에 받음 10,360.00) · **USD 7 장 40,281.80** · 받아 둔 돈 **CAD 62 묶음(83 줄) 6,628.40**(손님 크레딧 81 줄 6,370.35 + 오버페이 2 줄 258.05)
+   - CAD 이월 918,379.71 과 목록 기준 921,734.72 의 차 3,355.01 = 회계 0 처리 인보이스 6 장 1,059.35 + SO-10447 2,295.66
+   - 표본: Clore Inc. 553,000.59(107 장) = QuickBooks 「Total for Clore Inc.」 와 같음
+   - 그다음 KimC 한 장(판정 904) — 임시 Apps Script `IloTmp.gs`(ilo_rpc_ 로 Dry → Apply · 끝나고 파일 지움) · Dry · Apply 모두 inserted 1 · 거부 0 · 확인 select: KimC 8 장 · USD 47,105.67
+   - **QuickBooks A/R Aging Summary(10-31)의 함정**: 「Total for Clore Inc.」 · 「Total for Regina Beauty Inc.」 소계 줄이 있어 그대로 더하면 두 번 센다(걸러야 TOTAL 995,887.37 과 같다) · Summary TOTAL 995,887.37 ≠ Detail TOTAL open 1,014,487.50(차 18,600.13 · KimC 가 Summary 47,105.66 · Detail 65,705.79 CAD — 까닭 모름 · 짐작: 환산 시점 차이) · Detail 은 Foreign open balance 칸이 있어 USD 대조는 Detail 로
+   - 15 손님 차이(QuickBooks 에만 열린 것 · deferred 424): Beauty Collection 다섯 매장(49677 · 49678 · 49798 · 49800 · 49831 · 49832 · 49848 · 49849 · 49853) · Hair Spray Beauty(49626 · 49895 · 50189 · 50190 · 50454) · Xcentric Beauty Supplies(49673 · 49674 · 49902 · 50241 · 50539) · Sweetwells(48975 · 49357 · 49359 · 49363 · 49364 · 49366 · 39345 0.25 · 47938 2 센트) · Rex Beauty(50036 343.16) · 작은 것(CHQ #13229 −86.55 · CHQ #5330 −35.50 · CR-00717 JnK −63.86 · CR-00720 Jasmine Do −12.63 · Klip Cuts 42196 26.64 · CSC Bowden 47561 3.00 · Central Barbershop 45900 1.42) · KimC ITRA6260-1(판정 904 로 IMS 에 넣음) · 받아 둔 돈 6,628.40 은 QuickBooks A/R 보고서에 안 보인다(다른 계정 · 짐작)
+4. **콤보(판정 906)** — 읽기 실측: 세트 아닌 BOM 부모 = 켜짐 41(Stock 39 · 빈 type 2) · 꺼짐 1(ELO82320) · Shopify 변형 있음 39(TDXCOMBO1 · 2 만 0) · 열린 오더 줄 UNF18260 1 · `CB-` 이름 겹침 0
+   - Shopify: `shop_variant_payload` 에 `sku` 가 들어 있다 → IMS SKU 를 바꾸면 상품 큐로 두 스토어 SKU 도 바뀐다(sku_not_found 위험은 바꾼 순간 ~ 큐가 고칠 때까지 몇 분 · `shop_order_prepare` 가 SKU 글자로 맞춤)
+   - TDXCOMBO1 · 2 지움(SQL · 가격 8 · 제품-공급처 2 · BOM 4 · 제품 2 · 오더 · 원장 · 바코드 · Shopify 0 · 제품 지우기 창구는 없다)
+   - 콘솔 `product_update` 미리 보기: 12 sku_locked — AS-DSPLY · JAL99890CB · LAC01813 · LAC80093 · LAC80472 · LAC80488 · LAC80534 · UNF18155 · UNF18259 · UNF18260 · UNF18261 · UNF18265(모두 ims_inv_balance 에 event_rows 2 ~ 32 · 잔고 0 이 아닌 것은 UNF18155 ED 1 · UNF18259 TO 2)
+   - 27 저장(막기 0 · 경고 0 · committed true): CVT18157 · JAL99891CB · JAL99892CB · JAL99893CB · LAC01834 · LAC80051 · LAC80077 · LAC80078 · LAC80085 · LAC80094 · LAC80096 · LAC80449 · LAC80453 · LAG00117 · LAG00198 · LAG00254 · LAG00256 · LAG00259 · LAG00263 · LAG00267 · LAG00270 · LAG00415 · LAG00566 · LAG00589 · UNF18158 · UNF18250 · UNF18251 → 앞에 `CB-`
+   - BEL43475-12(세트 · sellable · pack 12 · Shopify 변형 1) · BEL43475(sellable false · Shopify 0) — deferred 393 ② 그대로 열림 → 423(12 와 함께 월요일)
+5. **bin 없는 잔고(판정 907)** — 실제 창고: Edmonton 1 칸 · Toronto 3 칸(합 14) — 위 넷 · AIA03588(기초 6 · 움직임 0) · EBI03960(기초 8 · 10-26 −2) · UNF18155(기초 1 · 움직임 0) · UNF18259(기초 0 · 사건 7 · +2 · 마지막 10-09)
+6. **IN_TRANSIT 확인** — 칸 842 · 합 2,466 · 음수 256 — 스킬의 「IN_TRANSIT 잔고는 영구히 음수(기초 경계)」 결정 그대로(9 월 215 칸) · 화면 · 받기는 이 합계를 안 쓴다(문서로 셈 · 도착 원가는 doc_scope) · 월요일 트럭 문서 범위: TR-06396 1,512 · TR-06397 1,821 · TR-06398 349 · TR-06399 1,343 · 음수 줄 0 → 할 일 없음
+7. **웹훅(판정 909)** — 구독 전 두 스토어 subs [] · uri `https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/shopify` → 구독 뒤 각각 셋 · 확인은 다음 웹 오더 때 `shop_order_inbox`
+
+### 93-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: 414(900 · so v5z `fd381b4`) · 417(898 · 899 · tf ship v1 `54b22e0` · fu v1.8 `0162aeb`) · 419 · 315(이력 적재 끝 · ILH_PRACTICE 지움 · 93-c 1) · 401(909) · 393(① 27 끝 · TDX 둘 지움 · 나머지 12 + ② BEL43475-12 → 423) · N-1022-⑥(컷오버 날 작업 — 열린 PO 손으로 다시 만들기(판정 684) · B급 칸 · 이력 · Caleb 「6번, 8번은 닫자. 이미 완료」)
+- deferred **394** 는 닫지 않음 — 「판정 905 · 지금 안 켬 · 태그 쓰임 본 뒤 한 스토어씩 밤에」 · 때 「판정 대기」 → 「Caleb 요청 때」
+- Caleb 완료(deferred 줄 없음): Edmonton 매니저 설정 + Unconfirm 시험 · aonebeauty.com 무료 배송 → 자동 할인 · asung.ca 「Sold out」 → 「Not available」(180 · 10-30 이미 닫힘) — ⚠️ deferred 148(무료 배송 → 자동 할인 바꾸는 법 · 판정 369)이 aone 의 이 일과 같은지는 짐작이라 열림 그대로
+- 새 deferred **421 ~ 425**
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 421 | Stock Availability 에 콤보가 안 나온다(목록을 `stk_availability` 가 재고 장부에서 만든다 — 콤보는 자기 재고가 없다 · 짐작 · DB 함수는 안 봤다) — 넣으려면 DB 차수 · Combos 화면 cb v2 로 대신 볼 수 있다 | 미정(Caleb 요청 때) |
+| 422 | bin 없는 재고 넷 ops 차수(판정 907) — 월요일 실사 결과로 · 그 뒤 UNF18155 · UNF18259 옛 콤보 처리 | 월요일 실사 뒤 |
+| 423 | 12 sku_locked 콤보 + BEL43475-12(판정 906 · 393 ②) — 월요일 「Shopify 이음 옮기기 길」 조사 → 하나로 시험(Release · New combo · 이음 · 사이트 확인) → 나머지 | 11-02 |
+| 424 | 북키퍼 목록 — QuickBooks 에 결제가 아직 없는 인보이스(판정 903 · 93-c 3 의 15 손님 목록) · 사람 몫 | 북키퍼 |
+| 425 | 이력을 다시 적재하면 판정 902 의 31 오더 SQL 을 다시(93-c 2) — reload-procedure §P-2 12 줄과 asung-apps-script 의 ImsLoadHist 줄에도 | 재적재 때 |
+
+### 93-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§92-e 에 이어 24 부터)
+
+24. [대화 Claude · 재발 §92-e 17 · 네 번째] 칸 이름 짐작 — `so_invoice.customer_id`(없음) · psql `case` 의 두 갈래 꼴이 달라(글자 · 1/0) 확인 줄이 오류(`-1` 덕에 무변) ⇒ 칸은 information_schema 한 줄 · 확인 줄은 `(1/0)::text`
+25. [대화 Claude] 31 오더 손님 못 풀림을 「2025-10 전에 만든 오더의 반품」 으로 짐작 — 실물은 기간 안의 반품 전용 오더 ⇒ 고치는 길이 짐작에 기대지 않을 때만 실물 전에 말한다
+26. [대화 Claude] Caleb 에게 report-build 대신 build json 이 필요했는데 파일 이름을 한 번에 정확히 안 적었다 ⇒ 받을 파일은 이름 · 확장자 · md5 를 처음부터
+27. [발견] 판정 888 의 전제 「콤보는 재고 기록이 없어 sku_locked 에 안 걸린다」 가 컷오버 원장으로 바뀌어 12 가 막혔다 ⇒ 컷오버 전 판정의 실행을 컷오버 뒤로 미룰 때는 미리 보기(p_commit false)부터
+28. [발견] 조정 창구가 bin 을 반드시 요구 — bin 없는 잔고(Cin7 의 BIN 빈칸 줄)는 화면 · 창구로 못 고친다 ⇒ 422
+29. [발견] QuickBooks Summary 의 소계 줄(Total for …) · Summary 와 Detail TOTAL 의 차이 ⇒ 대조는 Detail(Foreign open balance)로 · 소계 줄은 거른다
+30. [발견] ImsLoadHist 의 짝 합치기가 폴더 안 쪽 파일을 이름 가리지 않고 읽는다 ⇒ 처음부터 다시 받을 때는 ILH_FOLDER_ID 도 지운다(새 폴더)
+31. [잘 된 것] 손님별 · 인보이스 번호 대조가 「QuickBooks 가 더 크다」 를 북키핑 지연으로 갈랐다(IMS 에만 0) · KimC 의 QuickBooks 전용 미수를 찾아 넣음 · 웹훅은 이미 지어진 길(조사로 「지금 되는 길」 — §88-e 2 재발 방지)
+32. [docs-1031b] bin 없는 넷 가운데 셋은 asung-inv-ledger 스킬 `null_bin_nonzero` [실측 09-13] 에 이미 있었다 — 9 월부터 보인 것이 「조정 창구는 bin 필수」 와 만나 지금 막혔다 ⇒ 스킬의 「기록만 남는다」 줄에 고치는 길(422)을 이었다
+
+### 93-f 옛 줄 정정(취소선 + → · 이 절을 가리킨다)
+
+- 판정 654 줄 → [2026-10-31 · §93] 판정 901 덧붙임(A 의 cs v5 「본사 손님은 매장 오더까지」 → 본사도 자기 이름만 · 그 꼴은 정본 654 줄이 아니라 cs v5 · v6 화면 주석에 있었다)
+- 판정 888 줄 「재고 기록이 없어 sku_locked 에 안 걸림 · 켜진 콤보 41 · 한 번에」 → 906(27 · TDX 둘 지움 · 12 는 423)
+- §73-c 10 표(이력) → ✅ 10-31 끝 · ILH_FOLDER_ID 를 지운 까닭 · 재적재 뒤 902 SQL(425)
+- §72 hist 표의 cs v6 설명 줄(「IMS 거래와 hist_ 를 n 개씩 읽어 날짜순으로 섞는다」) → cs v7c(본사도 자기 이름만 · 901)
+- §92 머리 「컷오버 남은 것 … 남은 12 · 12b · Edmonton 매니저 · 393 CB-」 · §92 끝 「다음 판정 번호 899 · deferred 421」 → 위
+- deferred 414 · 417 · 419 · 315 · 401 · 393 · N-1022-⑥ 닫힘 · 394 상태 · 새 421 ~ 425 · 「다음 번호 421」 → 426
+- reload-procedure §P-2 12(이력 ✅ · ILH_FOLDER_ID · 425) · 12b(✅ 10-31 · 숫자 · Detail 대조 · 소계 함정 · KimC) · 13b(send_tags = 905)
+- shopify-integration §2-a 「웹훅 구독 0」 → 909 · §5 ⑯(905) · ⑲(닫힘) · §3-b 콤보 SKU 를 바꾸면 Shopify SKU 도(payload sku)
+- 스킬 asung-apps-script(ImsLoadHist 10-31 끝 · ILH_FOLDER_ID · 902 SQL) · asung-so(so v5z · cs v7c · 12b 결과 · KimC · QuickBooks 대조 함정 · cb v2 · 906) · asung-inv-ledger(bin 없는 넷 · 조정 창구 bin 필수 · IN_TRANSIT 10-31) · asung-wms(fu v1.8 · tf ship v1) — 설명줄 무변
+- 매뉴얼 en · ko — 03-inventory(Transfers Shipping details · Combos Can make) · 04-wms(트랜스퍼 Finalize 창) · 01-sales(free now · 다른 창고 · 주문 이력은 자기 이름만)
+
+```
+다음 판정 번호: 910 · 다음 deferred 번호: 426
 ```

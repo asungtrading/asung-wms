@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## Find or add a customer
-<!-- screen: customers.html · BUILD 2026-10-26 · cs v6b -->
+<!-- screen: customers.html · BUILD 2026-10-31 · cs v7c -->
 <!-- who: sales, office -->
 
 **What it is**
@@ -48,7 +48,7 @@ Before a new order, when a customer calls with a change, or when a new customer 
 
 **Good to know**
 - **Split invoice by store** on a head office gives each store its own invoice when several stores ship together. It does not change who is billed.
-- **Order history** shows orders in IMS and orders from before IMS.
+- **Order history** shows orders in IMS and orders from before IMS — only the orders under this customer's own name. A head office does not show its stores' orders: open the store from the **Stores** card.
 
 **Watch out**
 - Changing **Bill to** changes new orders only. "Orders already created keep the bill-to they were made with."
@@ -91,7 +91,7 @@ When a customer orders by phone, by email or in person.
 
 <a id="sales-add-lines"></a>
 ## Add lines
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-10-31 · so v5z -->
 <!-- who: sales -->
 
 **What it is**
@@ -116,7 +116,8 @@ Lines are the products on the order. You can pick them one by one, or paste many
 - A price you give is final. The order discount does not apply to that line.
 - In the **Lines** table, change **Qty**, **Disc %** or **Unit** in the cell. **↺** puts the system price back. **✕** removes the line.
 - **Price from** tells you where the price came from: **customer**, **deal · …**, **set discount**, **discount by hand**, **price set by hand** or **free · …**. Next to a price set by hand you see who set it and when, for example "by Staff C".
-- Under the quantity, **available** shows what this warehouse has free now. It turns red when it is less than the quantity (see [Find stock](03-inventory.md#stock-availability)).
+- Under the quantity, **available** shows what this warehouse has free now, and the other warehouse next to it (for example "available 3 · ED 4"). It turns red when this warehouse has less than the quantity (see [Find stock](03-inventory.md#stock-availability)).
+- On a confirmed order it reads **free now** (for example "free now TO 0 · ED 4"): stock left after every reservation, this order's included. It is colored only on lines still waiting (backorder or preorder) — green where that many are free.
 
 **Clear lines…**
 Press **Clear lines…** to remove every line of a draft at once. The window says how many lines go. Charges stay, and a coupon stays and applies again when lines come back. Press **Remove … lines** to do it.
@@ -802,4 +803,4 @@ Most sales screens can download a spreadsheet (CSV).
 - The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889 -->
+<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
