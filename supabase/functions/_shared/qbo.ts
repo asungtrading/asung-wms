@@ -12,6 +12,11 @@
 //     query = { q } · select 로 시작 · 세미콜론 없음 · from 의 엔터티가 QUERY_ENTITIES 안 · MAXRESULTS 없으면 100 · 1000 초과는 400 · Customer · Vendor 는 select * 와 연락처 · 주소 칸 금지(933 노출 줄이기)
 //     read  = { entity, id } · 단건 GET · Preferences · CompanyInfo 는 id 없이 · Customer · Vendor 단건은 연락처 · 주소 칸을 빼고 돌려준다
 //     기록 = call_log 한 줄 + detail(entity · rows · totalCount · startPosition · maxResults · q 는 리터럴을 ? 로) · 결과 행은 담지 않는다 · 결과 행에는 scrub 을 걸지 않는다(SyncToken 이 깨진다 · 이견 3) · 응답은 들여쓰기 없는 JSON · 5 MB 초과 413
+//   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): pull { entity, start? }(admin 만 · cron 길 없음) — QBO 목록 한 쪽을 qbo_entity 에 받아 둔다 · 한 번 호출 = 한 쪽(1000 행)
+//     entity 7 = PULL_ENTITIES(Account · TaxCode · Term · PaymentMethod · Customer · Vendor · Item · 그 밖은 400) · 칸은 PULL_FIELDS(Customer · Vendor 는 Id · DisplayName · ParentRef · FullyQualifiedName · Active · SyncToken 만 · 933)
+//     조회 = select <칸> from <entity> where Active in (true, false) STARTPOSITION <start> MAXRESULTS 1000 — TaxCode 만 where 없이(11-01 실측: Account · Term · PaymentMethod 는 조건 통과 · TaxCode · TaxRate 는 조건 없이 받음 · PULL_NO_ACTIVE_FILTER)
+//     start 없거나 1 = 새 run(qbo_pull_begin restart) → 조회 → qbo_entity_upsert(rows · next_start = start + 1000) → 받은 수 < 1000 이면 qbo_pull_finish(gone_at) · 창구는 전부 사용자 JWT(rpcUser · DB 가 admin 을 본다)
+//     응답 { ok, entity, start, received_now, received, pages, next_start(끝이면 null), done, gone, finished_at, intuit_tid } · 기록 detail = entity · rows · start · page 만
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -29,7 +34,22 @@ export const LEASE_WAIT_MS = 15_000, LEASE_POLL_MS = 1_500;                     
 export const RETRY_DELAY_MS = 1_000;                                              // 네트워크 · 5xx 만 1 회
 export const CALL_LOG_KEEP_DAYS = 90;
 export const ACCESS_EXPIRES_DEFAULT_S = 3600;                                     // expires_in 이 없을 때만(Intuit 문서값 · 이견 5) — 응답에 있으면 그 값
-export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read"] as const;
+export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read", "pull"] as const;
+// ── qbo-sync-1b pull — 종류 7 · 칸 · 쪽 1000 · Active 조건 없이 받는 종류(TaxCode · 11-01 실측) ──
+export const PULL_ENTITIES = ["Account", "TaxCode", "Term", "PaymentMethod", "Customer", "Vendor", "Item"] as const;
+export const PULL_PAGE = 1000;
+export const PULL_FIELDS: Record<string, string> = {
+  Account: "Id, Name, FullyQualifiedName, ParentRef, Active, SyncToken",
+  TaxCode: "Id, Name, Active, SyncToken",
+  Term: "Id, Name, Active, SyncToken",
+  PaymentMethod: "Id, Name, Active, SyncToken",
+  Customer: "Id, DisplayName, FullyQualifiedName, ParentRef, Active, SyncToken",                    // 연락처 · 주소 칸 없음(933)
+  Vendor: "Id, DisplayName, Active, SyncToken",
+  Item: "Id, Name, Sku, FullyQualifiedName, ParentRef, Active, SyncToken",
+};
+export const PULL_NO_ACTIVE_FILTER: readonly string[] = ["TaxCode"];
+export const pullQueryText = (entity: string, start: number): string =>
+  `select ${PULL_FIELDS[entity]} from ${entity}${PULL_NO_ACTIVE_FILTER.includes(entity) ? "" : " where Active in (true, false)"} STARTPOSITION ${start} MAXRESULTS ${PULL_PAGE}`;
 // ── qbo-read-1 읽기 전용 조회 — 허용 엔터티(정식 이름 · 대소문자 무관으로 맞춘다) · Employee 는 일부러 없다(933) ──
 export const QUERY_ENTITIES = ["Account", "TaxCode", "TaxRate", "TaxAgency", "Term", "PaymentMethod", "Customer", "Vendor", "Item", "Invoice", "CreditMemo", "Payment", "RefundReceipt", "SalesReceipt", "Deposit", "JournalEntry", "Bill", "VendorCredit", "BillPayment", "Purchase", "Class", "Department", "CompanyCurrency", "ExchangeRate"] as const;
 export const READ_SINGLETONS = ["Preferences", "CompanyInfo"] as const;                                 // read 만 · id 없이
@@ -411,6 +431,35 @@ async function read(c: Ctx, body: Record<string, unknown>): Promise<Response> {
   return jsonCompact(200, { ok: true, entity, id, row: stripPii(entity, row), intuit_tid: r.tid });
 }
 
+// ── pull(qbo-sync-1b) — { entity, start? } → 한 쪽을 qbo_entity 에 · start 1 = 새 run(begin restart) · 받은 수 < 1000 이면 finish · 창구는 사용자 JWT ──
+async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise<Response> {
+  const entity = canonicalEntity(String(body.entity ?? ""), PULL_ENTITIES);
+  if (!entity) throw new QboError(400, `entity must be one of ${PULL_ENTITIES.join(", ")} (got ${String(body.entity ?? "")}) — pull reads only the lists IMS links to`);
+  const start = body.start === undefined || body.start === null || body.start === "" ? 1 : Number(body.start);
+  if (!(Number.isInteger(start) && start >= 1)) throw new QboError(400, "start must be a whole number of 1 or more (the STARTPOSITION of the page to fetch; omit it for a new pull)");
+  const p = parseQuery(pullQueryText(entity, start));                                               // 같은 검사(허용 목록 · 연락처 칸 · MAXRESULTS ≤ 1000)를 지난다
+  const page = Math.floor((start - 1) / PULL_PAGE) + 1;
+  const h0 = await ensureToken(c, false);                                                           // realm(연결된 회사) — begin 은 조회 앞
+  if (start === 1) await c.d.rpcUser("qbo_pull_begin", { p_realm: h0.realm, p_type: entity, p_restart: true }, jwt);
+  const detailOf = (r: IntuitResult): Record<string, unknown> => {
+    const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+    return { entity, rows: Array.isArray(qr[entity]) ? (qr[entity] as unknown[]).length : 0, start, page, bytes: r.bytes };
+  };
+  const { h, r } = await withAuthRetry(c, (x) => apiCall(c, "pull", x, `/v3/company/${encodeURIComponent(x.realm)}/query`, { query: p.text }, detailOf));
+  if (r.error || r.bytes > RESPONSE_MAX_BYTES) throw readFailure("pull", r);
+  const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(qr[entity]) ? qr[entity] as unknown[] : [];
+  let up: { received: number; pages: number; next_start: number };
+  try { up = await c.d.rpcUser("qbo_entity_upsert", { p_realm: h.realm, p_type: entity, p_rows: rows, p_next_start: start + PULL_PAGE }, jwt) as typeof up; }
+  catch (e) {
+    if (e instanceof RpcError && /No pull in progress/i.test(e.message)) throw new QboError(409, e.message + " — start the pull again with start 1 (or omit start)");
+    throw e;
+  }
+  const done = rows.length < PULL_PAGE;
+  const fin = done ? await c.d.rpcUser("qbo_pull_finish", { p_realm: h.realm, p_type: entity }, jwt) as { gone: number; finished_at: string; received: number; pages: number } : null;
+  return jsonCompact(200, { ok: true, entity, start, received_now: rows.length, received: up.received, pages: up.pages, next_start: done ? null : start + PULL_PAGE, done, gone: fin?.gone ?? null, finished_at: fin?.finished_at ?? null, intuit_tid: r.tid });
+}
+
 // ── callback(GET · Intuit 이 브라우저를 보낸다) — 언제나 302 · 본문 비움 · Location 은 고정 주소 + 정해진 why 낱말뿐 ──
 async function callback(url: URL, c: Ctx): Promise<Response> {
   const q = url.searchParams;
@@ -541,6 +590,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (action === "ping") return json(200, { ok: true, ...(await ping(c)) });
     if (action === "query") return await query(c, body);
     if (action === "read") return await read(c, body);
+    if (action === "pull") return await pull(c, body, jwt);
     return json(400, { ok: false, error: "unknown action" });
   } catch (e) {
     if (e instanceof QboError) return json(e.status, { ok: false, error: sc(c, e.message) });

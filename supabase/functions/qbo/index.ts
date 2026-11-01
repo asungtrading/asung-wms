@@ -12,6 +12,8 @@
 //   끊기: revoke(refresh_token · Basic) → 실패해도 qbo_connection_delete() → call_log(action disconnect · by_staff) · 실패했으면 응답 글에 QuickBooks → Apps 에서도 끊어 달라
 //   기록: Intuit 호출 한 번 = qbo_call_log 한 줄(action · env · realm_id · ok · http_status · intuit_tid · error 400 자 · by_staff · ms · detail) · 90 일 지난 줄은 호출 끝에 지운다(delete 는 WHERE called_at=lt.) · 토큰 끝점 · revoke 의 요청 몸은 기록하지 않는다
 //   qbo-read-1(2026-11-01 · 판정 933 · DB 20261101190000 detail jsonb): POST {action:"query", q} · {action:"read", entity, id}(admin 만 · cron 길 없음) — 읽기 전용 · Intuit API 호스트로는 GET 과 POST …/query 만(_shared/qbo.ts apiCall) · detail = entity · rows · totalCount · startPosition · maxResults · q(리터럴 → ?) · 결과 행은 기록하지 않는다
+//   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): POST {action:"pull", entity, start?}(admin 만 · cron 길 없음) — QBO 목록 한 쪽(1000 행)을 qbo_entity 에(종류 7 · Customer · Vendor 는 연락처 칸 없이 · TaxCode 는 Active 조건 없이)
+//     start 없거나 1 = 새 run(qbo_pull_begin) → GET …/query → qbo_entity_upsert → 받은 수 < 1000 이면 qbo_pull_finish(gone_at) · 창구는 사용자 JWT(rpcUser) · 응답 { received_now, received, pages, next_start, done, gone } · 부르는 쪽이 next_start 로 돈다
 //   ⚠️ 비밀: QBO_ENV · QBO_CLIENT_ID_<SANDBOX|PRODUCTION> · QBO_CLIENT_SECRET_<…> · IMS_CRON_SECRET(기존) — 값은 응답 · 기록 · 오류 · console 어디에도 안 남는다(scrub)
 //   배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
 // ============================================================
