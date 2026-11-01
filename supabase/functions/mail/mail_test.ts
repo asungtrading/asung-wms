@@ -1,5 +1,5 @@
 // deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩ · mail-4c ⑪ · doc-3b ⑫ ~ ⑯(문서 메일 · MIME 무변 황금 · PDF 단계) · qbo-1b ⑰(payload 알림 qbo_reconnect)
-import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, isPlainKind, renderPlain, mailbox, pdfStep, projectRef, PROD_REF, render, safety, sha256Hex, TEST_REF, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
+import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, isPlainKind, renderPlain, mailbox, pdfStep, projectRef, PROD_REF, render, safety, sha256Hex, TEST_REF, testMode, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -57,7 +57,7 @@ Deno.test("④ MIME — From 별칭 · 이름 · Reply-To · 한글 · → 제�
   eq(mailbox("아성", "a@b.c").startsWith("=?UTF-8?B?"), true, "non-ascii display name");
   ok(!/[+/]/.test(base64url(raw)), "base64url alphabet");
 });
-const CFG = (o: Partial<MailConfig> = {}): MailConfig => ({ enabled: true, redirect_to: "ops@asung.ca", db_role: "test", ...o });
+const CFG = (o: Partial<MailConfig> = {}): MailConfig => ({ enabled: true, redirect_to: "ops@asung.ca", db_role: "test", mail_live: false, ...o });
 Deno.test("⑤ 안전 네 갈래 — 시험 + 돌려 보내기 · 시험인데 주소 없음 · ref 와 db_role 어긋남(두 쪽) · 운영 정상 · 모르는 ref · 꺼짐", () => {
   eq(projectRef(`https://${TEST_REF}.supabase.co`), TEST_REF, "ref parse");
   const s1 = safety(CFG(), TEST_REF);
@@ -265,4 +265,33 @@ Deno.test("⑰ qbo-1b 알림 그리기 — kind qbo_reconnect 는 payload 의 su
   let e2 = ""; try { render("qbo_reconnect", { body_text: "x" }); } catch (e) { e2 = String(e); }
   let e3 = ""; try { render("qbo_nope", p); } catch (e) { e3 = String(e); }
   eq([e1.includes("no subject or body_text"), e2.includes("no subject or body_text"), e3.includes("unknown mail kind")], [true, true, true], "errors");
+});
+
+Deno.test("⑱ mail-live-1(판정 617 · 947) — 시험 ref 라도 mail_live 면 운영 갈래: redirect 유지 → to redirect · 제목 [REDIRECT → 손님](TEST 아님) · redirect 없음 → 손님에게 · gmail 주소도 됨 · db_role 표지 없으면 여전히 mismatch · testMode · drain · Chat 표지 없음", async () => {
+  const m: ClaimedMail = { id: "m", kind: "backorder_ready", from_address: "n@asung.ca", from_name: null, reply_to: null, to_address: "cust@example.invalid", payload: PAYLOAD, attempt: 1 };
+  const live = safety(CFG({ mail_live: true }), TEST_REF);
+  eq(live, { ok: true, test: false, redirect: "ops@asung.ca" }, "live + redirect kept → production branch with redirect");
+  if (live.ok) eq(addressFor(m, live, "S"), { to: "ops@asung.ca", original_to: "cust@example.invalid", subject: "[REDIRECT → cust@example.invalid] S" }, "subject says REDIRECT, not TEST");
+  const direct = safety(CFG({ mail_live: true, redirect_to: null }), TEST_REF);
+  eq(direct, { ok: true, test: false, redirect: null }, "live without redirect");
+  if (direct.ok) eq(addressFor(m, direct, "S"), { to: "cust@example.invalid", original_to: null, subject: "S" }, "goes to the customer");
+  eq(safety(CFG({ mail_live: true, redirect_to: "me@gmail.com" }), TEST_REF), { ok: true, test: false, redirect: "me@gmail.com" }, "live: any one address");
+  eq((safety(CFG({ mail_live: true, db_role: null }), TEST_REF) as { reason: string }).reason, "mismatch", "live but db_role marker missing → still mismatch");
+  eq((safety(CFG({ mail_live: true, db_role: "prod" }), TEST_REF) as { reason: string }).reason, "mismatch", "live but db_role prod on test ref → mismatch");
+  eq((safety(CFG({ mail_live: true, enabled: false }), TEST_REF) as { reason: string }).reason, "disabled", "live but off");
+  eq((safety(CFG({ mail_live: true, redirect_to: "a@b.c, d@e.f" }), TEST_REF) as { reason: string }).reason, "no_redirect", "live: two addresses refused");
+  eq(safety(CFG({ mail_live: false, redirect_to: null }), TEST_REF).ok, false, "not live: test rules unchanged");
+  eq([testMode(CFG(), TEST_REF), testMode(CFG({ mail_live: true }), TEST_REF), testMode(CFG({ db_role: "prod", mail_live: false }), PROD_REF), testMode(CFG({ db_role: "prod", mail_live: true }), PROD_REF)], [true, false, false, false], "testMode");
+  const f = fakeDeps({ cfg: CFG({ mail_live: true }), mails: [mail("a"), mail("b")] });
+  const out = await drain(f.d, opt);
+  eq(out.counts, { sent: 2, failed: 0, retry: 0, unknown: 0 }, "drain live + redirect: sent");
+  const rd = f.marks[0].rendered as { to_address: string; original_to: string; subject: string };
+  eq([rd.to_address, rd.original_to, rd.subject.startsWith("[REDIRECT → a@example.invalid] "), rd.subject.includes("[TEST")], ["ops@asung.ca", "a@example.invalid", true, false], "redirect recorded as REDIRECT");
+  const g = fakeDeps({ cfg: CFG({ mail_live: true, redirect_to: null }), mails: [mail("a")] });
+  await drain(g.d, opt);
+  const rd2 = g.marks[0].rendered as { to_address: string; original_to: string | null; subject: string };
+  eq([rd2.to_address, rd2.original_to, rd2.subject.includes("→")], ["a@example.invalid", null, false], "live without redirect: straight to the customer · no redirect marker in the subject");
+  ok(g.sent.every((raw) => decodeB64(raw.replace(/-/g, "+").replace(/_/g, "/")).includes("To: a@example.invalid")), "raw To is the customer");
+  const run = { run_id: "r", location_name: "Asung Trading Inc.", run_on: "2026-11-02", mails: 0, by_status: {}, skipped: {} };
+  eq(chatText(run, [], [], testMode(CFG({ mail_live: true }), TEST_REF)), "Backorder mail — Toronto · 2026-11-02 — nothing to send.", "chat without [TEST]");
 });

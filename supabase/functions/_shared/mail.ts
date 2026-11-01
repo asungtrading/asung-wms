@@ -2,11 +2,12 @@
 //   판정 493(Gmail API) · 500(창고마다 글) · 501(그 손님 몫 + 창고 가용) · 502(Chat 요약) · 505(일부 몫) · 510(ims@asung.ca · OAuth) · 511(From 별칭 · Reply-To) · 514(응답 없음 = unknown)
 //   doc-3b(2026-10-19 · 판정 529 · 530): 문서 메일(kind doc_*) — 제목 · 본문은 줄에 · PDF 는 attachments + Storage · MIME 은 첨부가 있을 때만 multipart/mixed(없으면 mail-2b 바이트 그대로 · 시험 ⑫) · PDF 단계 pdfStep
 //   안전(mail-1a 이견 1 · 11): 프로젝트 ref 와 inv_config.db_role 이 같은 쪽을 가리켜야 하고 · 시험이면 mail_redirect_to(@asung.ca)로 돌려 보낸다 · 아니면 보내지 않는다
+//   mail-live-1(2026-11-01 · 판정 617 · 947): Asung-IMS(TEST_REF)가 11-01 부터 운영인데 db_role 'test' 는 「IMS 프로젝트」 표지로 남는다 — 손님 메일의 운영은 inv_config.mail_live 가 선언한다(testMode) · on 이면 운영 갈래(redirect 가 있으면 [REDIRECT →] · 없으면 손님에게) · ref ↔ db_role 어긋남 검사는 그대로
 
 export const TEST_REF = "fazgmyvzzhqybtvtktyg";   // Asung-IMS(테스트)
 export const PROD_REF = "gftpcnkxbdjzzfvzwcfl";   // asung-WMS(운영)
 
-export type MailConfig = { enabled: boolean; redirect_to: string | null; db_role: string | null };
+export type MailConfig = { enabled: boolean; redirect_to: string | null; db_role: string | null; mail_live: boolean };   // mail_live: 판정 947 운영 선언(inv_config.mail_live = on)
 export type Line = { so_number: string; line_no: number; sku: string; product_name: string | null; qty_open: number; can_fill_units: number; available_units: number | null; basis?: string; is_combo?: boolean };
 export type Payload = { customer_name?: string | null; location_name?: string | null; lines?: Line[]; subject?: string | null; body_text?: string | null };   // subject · body_text = qbo-1b PLAIN_KINDS(payload 에 글이 든 알림)
 export type ClaimedMail = { id: string; kind: string; from_address: string; from_name: string | null; reply_to: string | null; to_address: string; payload: Payload; attempt: number; subject?: string | null };
@@ -25,13 +26,15 @@ export function projectRef(supabaseUrl: string): string | null {
   return m ? m[1] : null;
 }
 const ONE_ADDRESS = /^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/;   // ims_mail_address_ok 와 같은 모양
+// 시험 모드(판정 947) = 시험 ref 또는 db_role test 이고 · 운영 선언(mail_live)이 없을 때 — 돌려 보내기 강제 · 제목 [TEST →] · Chat [TEST]
+export function testMode(cfg: MailConfig, ref: string | null): boolean { return (ref !== PROD_REF || cfg.db_role === "test") && !cfg.mail_live; }
 export function safety(cfg: MailConfig, ref: string | null): Safety {
   if (ref !== TEST_REF && ref !== PROD_REF) return { ok: false, reason: "unknown_project", detail: `project ref ${ref ?? "missing"} is neither the test nor the production project` };
   const refTest = ref === TEST_REF, dbTest = cfg.db_role === "test";
   if (refTest !== dbTest) return { ok: false, reason: "mismatch", detail: `project ref says ${refTest ? "test" : "production"} but inv_config.db_role is ${cfg.db_role ?? "missing"}` };
   if (!cfg.enabled) return { ok: false, reason: "disabled", detail: "mail_enabled is not on" };
   const r = (cfg.redirect_to ?? "").trim();
-  if (refTest) {
+  if (testMode(cfg, ref)) {                                                                        // 947: mail_live 면 시험 ref 라도 아래 운영 갈래
     if (!ONE_ADDRESS.test(r) || !/@asung\.ca$/i.test(r)) return { ok: false, reason: "no_redirect", detail: "test database without an @asung.ca mail_redirect_to — nothing is sent" };
     return { ok: true, test: true, redirect: r };
   }

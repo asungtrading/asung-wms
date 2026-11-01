@@ -1,13 +1,13 @@
 // mail — IMS 메일 일꾼(mail-2b · 2026-10-16 · 판정 493 · 502 · 510 · 511 · 514) — ⚠️ 테스트 프로젝트(fazgmyvzzhqybtvtktyg)에 먼저 · 운영은 컷오버 때
 //   문: x-ims-cron-key == secret IMS_CRON_SECRET(미설정 500 fail-closed · shopify · ims-product-images 와 같은 꼴) · config.toml [functions.mail] verify_jwt = false
-//   POST {"action": "drain"}  mail_claim → 안전(프로젝트 ref ↔ db_role · 시험 DB 는 mail_redirect_to 로 돌려 보내기) → 그리기 → Gmail users.messages.send → mail_mark(id, attempt, …)
+//   POST {"action": "drain"}  mail_claim → 안전(프로젝트 ref ↔ db_role · 시험 DB 는 mail_redirect_to 로 돌려 보내기 · mail-live-1 판정 947: inv_config.mail_live = on 이면 운영 갈래 — db_role 'test' 는 IMS 프로젝트 표지일 뿐) → 그리기 → Gmail users.messages.send → mail_mark(id, attempt, …)
 //                            doc-3b: kind doc_* 는 줄의 제목 · 본문 + attachments 의 PDF(Storage documents · sha256 대조) → multipart/mixed
 //        {"action": "pdf"}    doc-3b: doc_mail_pdf_claim → EF doc(render · reason send · x-ims-cron-key) → doc_mail_attach(→ queued) · 실패는 doc_mail_pdf_failed — 보내지 않는다(그 뒤는 drain)
 //        {"action": "chat"}   mail_run_error_chat_due → 회차 실패 한 줄(판정 518 · mail-4c) → mail_run_error_chat_mark · mail_run_chat_due → 회차마다 요약 글 → Chat 웹훅 → mail_run_chat_mark
 //        {"action": "render", "id": "<mail id>"}  보내지 않고 그린 결과만(같은 안전 검사의 받는 이 · 제목 · doc_* 는 첨부 목록도)
 //   비밀: GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS(tools/gmail-oauth-ims.sh 가 넣는다) · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET(EF doc 을 부를 때도 같은 열쇠)
 //   ⚠️ 비밀 값은 로그 · 응답 · DB 어디에도 남기지 않는다(오류는 Google 의 error 코드 · 설명만)
-import { chatText, drain, errorChatText, isDocKind, pdfStep, projectRef, render, safety, addressFor, type Attachment, type AttachmentRead, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type DocBody, type MailConfig, type Outcome, type PdfJob, type PdfRender } from "../_shared/mail.ts";
+import { chatText, drain, errorChatText, isDocKind, pdfStep, projectRef, render, safety, addressFor, testMode, type Attachment, type AttachmentRead, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type DocBody, type MailConfig, type Outcome, type PdfJob, type PdfRender } from "../_shared/mail.ts";
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -27,9 +27,9 @@ async function sbRpc(fn: string, args: Record<string, unknown>): Promise<any> {
   return await r.json();
 }
 async function readConfig(): Promise<MailConfig> {
-  const rows = await sbGet("inv_config?select=key,value&key=in.(db_role,mail_enabled,mail_redirect_to)");
+  const rows = await sbGet("inv_config?select=key,value&key=in.(db_role,mail_enabled,mail_redirect_to,mail_live)");
   const v = (k: string) => rows.find((r) => r.key === k)?.value ?? null;
-  return { enabled: v("mail_enabled") === "on", redirect_to: (v("mail_redirect_to") ?? "") || null, db_role: v("db_role") };
+  return { enabled: v("mail_enabled") === "on", redirect_to: (v("mail_redirect_to") ?? "") || null, db_role: v("db_role"), mail_live: v("mail_live") === "on" };
 }
 
 // ── 열쇠 — 계정마다 함수 하나(판정 380 의 직원 본인 주소가 올 자리 · mail-0 E3) · 한 번 부르는 동안 재사용 ──
@@ -107,7 +107,7 @@ async function doDrain(): Promise<Response> {
   const out = await drain({
     ref: projectRef(SB_URL()),
     readConfig,
-    claim: async (n) => { const c = await sbRpc("mail_claim", { p_limit: n }); return { enabled: !!c.enabled, redirect_to: c.redirect_to ?? null, db_role: c.db_role ?? null, mails: (c.mails ?? []) as ClaimedMail[] }; },
+    claim: async (n) => { const c = await sbRpc("mail_claim", { p_limit: n }); return { enabled: !!c.enabled, redirect_to: c.redirect_to ?? null, db_role: c.db_role ?? null, mail_live: !!c.mail_live, mails: (c.mails ?? []) as ClaimedMail[] }; },
     mark: async (id, attempt, m, rendered) => { await sbRpc("mail_mark", { p_id: id, p_attempt: attempt, p_result: m.result, p_provider_message_id: m.provider_message_id, p_error: m.error, p_rendered: rendered }); },
     token: () => gmailToken("ims"),
     send: gmailSend,
@@ -130,7 +130,7 @@ async function doChat(): Promise<Response> {
   const hook = Deno.env.get("IMS_CHAT_WEBHOOK_BACKORDER") ?? "";
   if (!hook) return json(500, { ok: false, error: "IMS_CHAT_WEBHOOK_BACKORDER not configured - nothing posted (runs stay due)" });
   const cfg = await readConfig();
-  const test = projectRef(SB_URL()) !== "gftpcnkxbdjzzfvzwcfl" || cfg.db_role === "test";
+  const test = testMode(cfg, projectRef(SB_URL()));                                                // 947: mail_live 면 [TEST] 표지 없음
   const results: unknown[] = [];
   // 판정 518(mail-4c): 회차 실패 한 줄 먼저 — 창고 · 날마다 한 번(풀리지 않은 것만)
   const errs = (await sbRpc("mail_run_error_chat_due", {})) as ChatError[];
