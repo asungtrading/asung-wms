@@ -1,5 +1,5 @@
 // ============================================================
-// ASUNG IMS — _shared/mcp.ts: Claude 커넥터 MCP 서버의 순수 처리 (mcp-2 · 2026-11-01 · 판정 917 ~ 924 · DB mcp-1a 20261031233700 · mcp-2 20261101000546)
+// ASUNG IMS — _shared/mcp.ts: Claude 커넥터 MCP 서버의 순수 처리 (mcp-2 · 2026-11-01 · 판정 917 ~ 924 · DB mcp-1a 20261031233700 · mcp-2 20261101000546 · mcp-1b 20261101014251 도구 ⑥ sales_summary)
 //   EF ims-mcp/index.ts 가 Deno.serve + deps 주입만 · 시험 ims-mcp/mcp_test.ts 가 fetch 를 가짜로(qbo · freightcom 꼴)
 //   규격: modelcontextprotocol.io 2025-06-18 — Streamable HTTP(POST 한 건 · 배열(batch) 없음 · 알림 · 응답은 202 빈 몸 · GET 은 SSE 없으면 405 · DELETE 405 MAY · Mcp-Session-Id 는 MAY → 안 낸다 · MCP-Protocol-Version 머리가 지원 밖이면 400)
 //         인증: 토큰 없음 · 무효 → HTTP 401 + WWW-Authenticate: Bearer resource_metadata="<보호 자원 문서>"(RFC 9728) · 문서는 GET …/ims-mcp/.well-known/oauth-protected-resource(인증 없이)
@@ -10,7 +10,7 @@
 // ============================================================
 export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26"] as const;
 export const DEFAULT_PROTOCOL = "2025-06-18";
-export const SERVER_INFO = { name: "asung-ims", title: "Asung IMS", version: "mcp-2" };
+export const SERVER_INFO = { name: "asung-ims", title: "Asung IMS", version: "mcp-1b" };
 export const INSTRUCTIONS = "Asung IMS, read only. Amounts are CAD. Warehouses: Asung Trading Inc. (Toronto) and Asung - Edmonton. Anything not in a result is not available through this connector — check the IMS screens.";
 export const RPC_TIMEOUT_MS = 9_000;
 export const ARGS_MAX_CHARS = 2_048;
@@ -20,7 +20,7 @@ export const FUNCTION_PATH = "/functions/v1/ims-mcp";
 type Schema = { type: string | string[]; properties?: Record<string, Schema>; required?: string[]; additionalProperties?: boolean; enum?: unknown[]; minimum?: number; maximum?: number; description?: string };
 export type ToolDef = { name: string; title: string; description: string; inputSchema: Schema; annotations: { readOnlyHint: true }; rpc: string; args: (a: Record<string, unknown>) => Record<string, unknown> };
 const NO_CONTACT = " Does not return addresses, phone numbers, emails, notes or costs.";
-// ⭐ 도구 목록은 이 배열 하나 — mcp-1b 는 mcp_sales 한 항목만 더한다
+// ⭐ 도구 목록은 이 배열 하나 — mcp-1b 가 ⑥ sales_summary(mcp_sales) 를 더했다(2026-11-01)
 export const TOOLS: ToolDef[] = [
   { name: "find_order", title: "Find a sales order", description: "Look up one IMS sales order by its number (SO-25001 or just 25001): status, dates, customer name, lines with prices and quantities, totals, tax, invoice, carrier and tracking number." + NO_CONTACT,
     inputSchema: { type: "object", properties: { so_number: { type: "string", description: "Sales order number, e.g. SO-25001" } }, required: ["so_number"], additionalProperties: false },
@@ -39,6 +39,15 @@ export const TOOLS: ToolDef[] = [
       filters: { type: "object", additionalProperties: false, properties: { customer: { type: "string" }, brand: { type: "string" }, warehouse: { type: "string" }, sku: { type: "string" }, state: { type: "string", enum: ["open", "ended", "all"] }, kind: { type: "string", enum: ["backorder", "preorder"] }, owed: { type: "boolean" }, arrived: { type: "boolean" } } },
       limit: { type: "integer", minimum: 1, maximum: 100, description: "Rows to return (default 50, max 100)" } }, additionalProperties: false },
     annotations: { readOnlyHint: true }, rpc: "mcp_backorders", args: (a) => ({ p_filters: a.filters ?? {}, p_limit: a.limit ?? 50 }) },
+  // ⑥ mcp-1b(판정 918 ~ 920 · 925 ~ 930): 날짜는 글자 그대로 DB 로(검사 · 영어 한 문장은 mcp_sales 가) · 원가 열쇠가 없으면 결과에 cogs · gp 열쇠 자체가 없다(919)
+  { name: "sales_summary", title: "Sales summary", description: "Sales for a date range grouped by brand, customer, month, sku or supplier, optionally filtered by brand, customer, SKU or supplier name: sales, credits, net, quantities, and (only if your account may see costs) COGS, gross profit and GP %. Product lines only, CAD, before tax; freight, services, order discounts and adjustments are listed separately under 'other'. Customer rows combine a head office with its accounts. Totals are computed by IMS — do not add rows yourself. Names that are not unique come back as candidates. Does not return addresses, phone numbers, emails or notes.",
+    inputSchema: { type: "object", properties: {
+      from: { type: "string", description: "Start date YYYY-MM-DD (inclusive)" }, to: { type: "string", description: "End date YYYY-MM-DD (inclusive, at most 3 years after from)" },
+      group: { type: "string", enum: ["brand", "customer", "month", "sku", "supplier"], description: "How to group the rows" },
+      brand: { type: "string", description: "Brand name (full or partial)" }, customer: { type: "string", description: "Customer name (full or partial); an account name limits to that account, a head office includes its accounts" },
+      sku: { type: "string", description: "SKU (exact or partial)" }, supplier: { type: "string", description: "Supplier name (full or partial); uses each product's default supplier" },
+      limit: { type: "integer", minimum: 1, maximum: 200, description: "Rows to return (default 50, max 200); the rest is summarized in rows_truncated" } }, required: ["from", "to", "group"], additionalProperties: false },
+    annotations: { readOnlyHint: true }, rpc: "mcp_sales", args: (a) => ({ p_from: a.from, p_to: a.to, p_group: a.group, p_brand: a.brand ?? null, p_customer: a.customer ?? null, p_sku: a.sku ?? null, p_supplier: a.supplier ?? null, p_limit: a.limit ?? 50 }) },
 ];
 
 export type Deps = {

@@ -1,4 +1,4 @@
-// deno test supabase/functions/ims-mcp/mcp_test.ts — Supabase(auth · rest) 무접촉(가짜 fetch) · mcp-2 M1 ~ M15
+// deno test supabase/functions/ims-mcp/mcp_test.ts — Supabase(auth · rest) 무접촉(가짜 fetch) · mcp-2 M1 ~ M15 · mcp-1b M16(도구 ⑥ sales_summary)
 import { ARGS_MAX_CHARS, clipArgs, handle, metadataDoc, TOOLS, validateArgs, type Deps } from "../_shared/mcp.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -79,11 +79,11 @@ Deno.test("M8 ping → {} · 모르는 메서드 → -32601 · jsonrpc 아님 �
   eq((await (await handle(post(rpcReq(2, "resources/list")), d)).json()).error.code, -32601, "unknown");
   eq((await (await handle(post({ jsonrpc: "1.0", id: 3, method: "ping" }), d)).json()).error.code, -32600, "jsonrpc");
 });
-Deno.test("M9 tools/list — 다섯 · readOnlyHint · rpc · args 열쇠가 새지 않는다 · 배열 하나(TOOLS)", async () => {
+Deno.test("M9 tools/list — 여섯(mcp-1b 가 sales_summary 를 더함) · readOnlyHint · rpc · args 열쇠가 새지 않는다 · 배열 하나(TOOLS)", async () => {
   const { d } = mk();
   const t = (await (await handle(post(rpcReq(1, "tools/list")), d)).json()).result.tools;
-  eq(t.map((x: { name: string }) => x.name), ["find_order", "stock", "customer_summary", "po_status", "backorders"], "names");
-  eq(TOOLS.length, 5, "TOOLS 5");
+  eq(t.map((x: { name: string }) => x.name), ["find_order", "stock", "customer_summary", "po_status", "backorders", "sales_summary"], "names");
+  eq(TOOLS.length, 6, "TOOLS 6");
   for (const x of t) { eq(x.annotations, { readOnlyHint: true }, x.name + " annotations"); ok(!("rpc" in x) && !("args" in x), x.name + " 내부 열쇠 없음"); eq(x.inputSchema.type, "object", x.name + " schema"); }
 });
 Deno.test("M10 모르는 도구 · 인자 틀림 → JSON-RPC -32602 · 기록 error(unknown_tool · invalid_params) · rpc 호출 0", async () => {
@@ -135,4 +135,22 @@ Deno.test("M15 rpc 시간 초과 · 연결 실패 → isError + 기록 error(tim
   const b = (await (await handle(post(rpcReq(2, "tools/call", { name: "po_status", arguments: { po_number: "1" } })), d)).json()); eq(b.result.isError, true, "fetch isError");
   const c = (await (await handle(post(rpcReq(3, "tools/call", { name: "customer_summary", arguments: { name: "A" } })), d)).json()); eq(c.result.isError, true, "57014 isError"); ok(c.result.content[0].text.startsWith("IMS could not run this tool (57014)"), c.result.content[0].text);
   eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_error_code), ["error:timeout", "error:fetch", "error:57014"], "logs");
+});
+Deno.test("M16 mcp-1b sales_summary — 목록 여섯째 · enum · required · 인자 매핑(날짜 글자 그대로 · 없는 거르기는 null · limit 기본 50) · 틀린 인자 -32602 · 기록 ok · 원가 열쇠는 EF 가 안 만든다(919 는 DB)", async () => {
+  const { d, f } = mk({ rpc: (fn) => new Response(JSON.stringify(fn === "mcp_sales" ? { period: { from: "2026-09-01", to: "2026-09-30" }, group: "brand", rows: [{ key: "ORS", sales: 1, credits: 0, net: 1, qty: 1, qty_credited: 0 }], totals: { sales: 1, credits: 0, net: 1, qty: 1, qty_credited: 0 } } : { found: true }), { status: 200 }) });
+  const t = (await (await handle(post(rpcReq(1, "tools/list")), d)).json()).result.tools;
+  const s = t[5]; eq(s.name, "sales_summary", "name"); eq(s.annotations, { readOnlyHint: true }, "readOnly"); eq(s.inputSchema.required, ["from", "to", "group"], "required");
+  eq(s.inputSchema.properties.group.enum, ["brand", "customer", "month", "sku", "supplier"], "enum"); eq([s.inputSchema.properties.limit.minimum, s.inputSchema.properties.limit.maximum], [1, 200], "limit 1 ~ 200");
+  ok(s.description.includes("Totals are computed by IMS") && s.description.includes("Does not return addresses"), "description");
+  const a = (await (await handle(post(rpcReq(2, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand" } })), d)).json());
+  eq(a.result.isError, false, "ok"); eq(JSON.parse(a.result.content[0].text).rows[0].key, "ORS", "content = rpc JSON");
+  const c = f.calls.find((x) => x.url.endsWith("/rpc/mcp_sales"))!; eq(JSON.parse(String(c.init.body)), { p_from: "2026-09-01", p_to: "2026-09-30", p_group: "brand", p_brand: null, p_customer: null, p_sku: null, p_supplier: null, p_limit: 50 }, "arg map 기본");
+  const b = (await (await handle(post(rpcReq(3, "tools/call", { name: "sales_summary", arguments: { from: "2026-01-01", to: "2026-10-31", group: "sku", brand: "Clore", customer: "Rex", sku: "ORS1", supplier: "Kim", limit: 200 } })), d)).json()); eq(b.result.isError, false, "ok 2");
+  eq(JSON.parse(String(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales"))[1].init.body)), { p_from: "2026-01-01", p_to: "2026-10-31", p_group: "sku", p_brand: "Clore", p_customer: "Rex", p_sku: "ORS1", p_supplier: "Kim", p_limit: 200 }, "arg map 전부");
+  eq((await (await handle(post(rpcReq(4, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", group: "brand" } })), d)).json()).error.message, "Invalid arguments: arguments.to is required", "to 빠짐");
+  eq((await (await handle(post(rpcReq(5, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "week" } })), d)).json()).error.code, -32602, "enum 밖");
+  eq((await (await handle(post(rpcReq(6, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand", limit: 201 } })), d)).json()).error.message, "Invalid arguments: arguments.limit must be at most 200", "limit 201");
+  eq((await (await handle(post(rpcReq(7, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand", warehouse: "x" } })), d)).json()).error.code, -32602, "모르는 열쇠");
+  eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_tool + ":" + x.p_error_code), ["ok:sales_summary:null", "ok:sales_summary:null", "error:sales_summary:invalid_params", "error:sales_summary:invalid_params", "error:sales_summary:invalid_params", "error:sales_summary:invalid_params"], "logs");
+  eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 2, "rpc 2");
 });
