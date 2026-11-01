@@ -37,10 +37,11 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
       const entity = QUERY_ENTITIES.find((e) => e.toLowerCase() === ent.toLowerCase()) ?? ent;
       if (/^select\s+count\s*\(\s*\*\s*\)/i.test(q)) return jres(200, { QueryResponse: { totalCount: 1234 }, time: "2026-11-01T12:00:00Z" }, "tid-count");
       const max = Number((/\bmaxresults\s+(\d+)/i.exec(q) ?? [])[1] ?? 0), start = Number((/\bstartposition\s+(\d+)/i.exec(q) ?? [])[1] ?? 1);
-      const n = Math.min(max, 3);
+      const n = Math.min(max, 3), star = /^select\s+\*/i.test(q);                                    // qbo-sync-1c 실물: 칸을 고른 조회는 Sku 를 안 돌려준다(sparse true) · select * 만 Sku
       const rows = Array.from({ length: n }, (_, i) => entity === "Customer"
         ? { Id: String(start + i), DisplayName: "Caribbean Island Food Market " + (start + i), SyncToken: "0", ParentRef: { value: "77" } }
-        : { Id: String(start + i), Name: entity + " " + (start + i), SyncToken: String(i), Sku: "SKU-" + (start + i) });
+        : star ? { Id: String(start + i), Name: entity + " " + (start + i), SyncToken: String(i), Sku: "SKU-" + (start + i), Active: true }
+        : { Id: String(start + i), Name: entity + " " + (start + i), SyncToken: String(i), Active: true, sparse: true });
       return jres(200, { QueryResponse: { [entity]: rows, startPosition: start, maxResults: n }, time: "2026-11-01T12:00:00Z" }, "tid-q");
     }
     if (url.includes("/preferences?")) return jres(200, { Preferences: { Id: "1", SyncToken: "9", CurrencyPrefs: { MultiCurrencyEnabled: true, HomeCurrency: { value: "CAD" } } } }, "tid-pref");
@@ -56,7 +57,7 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
 // ── 가짜 DB(창구 열둘 + last_error_set · 20261029160000 의 글 그대로) ──
 type Conn = { env: string; realm_id: string; status: string; company_name: string | null; token_version: number; access_exp: number; refresh_exp: number | null; refresh: string; access: string; lease_until: number | null; last_error: string | null; connected_by: string };
 type Pull = { started_at: number; next_start: number; received: number; pages: number; finished_at: number | null };
-type Ent = { name: string; fetched_at: number; gone_at: number | null };
+type Ent = { name: string; sku: string | null; fetched_at: number; gone_at: number | null };
 type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>> };
 const STAFF = "11111111-1111-4111-8111-111111111111";
 function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcService: Deps["rpcService"] } {
@@ -92,7 +93,7 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
         const rows = args.p_rows as Record<string, unknown>[];
         if (!Array.isArray(rows)) refuse(`rows must be a JSON array of QuickBooks ${t} rows`);
         const m = db.ents.get(t) ?? new Map<string, Ent>(); db.ents.set(t, m);
-        for (const r of rows) { const id = String(r.Id ?? "").trim(), name = String(r.Name ?? r.DisplayName ?? "").trim(); if (!id || !name) refuse(`Every ${t} row needs Id and Name (or DisplayName) — nothing was saved`); m.set(id, { name, fetched_at: clock(), gone_at: null }); }
+        for (const r of rows) { const id = String(r.Id ?? "").trim(), name = String(r.Name ?? r.DisplayName ?? "").trim(); if (!id || !name) refuse(`Every ${t} row needs Id and Name (or DisplayName) — nothing was saved`); m.set(id, { name, sku: typeof r.Sku === "string" && r.Sku.trim() ? r.Sku.trim() : null, fetched_at: clock(), gone_at: null }); }
         s!.received += rows.length; s!.pages++; s!.next_start = Number(args.p_next_start ?? s!.next_start);
         return { qbo_type: t, received_now: rows.length, received: s!.received, pages: s!.pages, next_start: s!.next_start };
       }
@@ -709,7 +710,7 @@ Deno.test("⑬ read — { entity, id } 단건 · Preferences · CompanyInfo 는 
 
 // ── qbo-sync-1b pull(2026-11-01 · 판정 934) — 가짜 DB 에 qbo_pull_begin · qbo_entity_upsert · qbo_pull_finish(20261101210000 의 글 그대로) ──
 const pullHits = (w: World) => queryHits(w).filter((h) => /STARTPOSITION/.test(sentQuery(h) ?? ""));
-Deno.test("⑭ pull — 순수(종류 7 · 칸에 연락처 없음 · TaxCode 만 where 없음 · parseQuery 통과) · 문(admin 만 · cron 400 · 세션 없음 401 · 종류 밖 400 · start 0 400) · 쪽 둘(1000 → 다음 1001 · 2 → done · finish 한 번 · begin 한 번) · start 1 = 새 run · 끝난 뒤 start 2001 → 409 사람 말 · Customer 는 DisplayName · gone · 401 한 번 · 기록 detail(entity · rows · start · page · 행 없음) · API 호스트에 GET 만", async () => {
+Deno.test("⑭ pull — 순수(종류 7 · 칸에 연락처 없음 · TaxCode 만 where 없음 · Item 은 *(1c) · parseQuery 통과) · 문(admin 만 · cron 400 · 세션 없음 401 · 종류 밖 400 · start 0 400) · 쪽 둘(1000 → 다음 1001 · 2 → done · finish 한 번 · begin 한 번) · start 1 = 새 run · 끝난 뒤 start 2001 → 409 사람 말 · Customer 는 DisplayName · gone · 401 한 번 · 기록 detail(entity · rows · start · page · 행 없음) · API 호스트에 GET 만", async () => {
   // 순수
   eq(PULL_ENTITIES.length, 7, "seven pull entities");
   for (const e of PULL_ENTITIES) {
@@ -721,6 +722,8 @@ Deno.test("⑭ pull — 순수(종류 7 · 칸에 연락처 없음 · TaxCode �
   }
   eq(pullQueryText("Customer", 2001), "select Id, DisplayName, FullyQualifiedName, ParentRef, Active, SyncToken from Customer where Active in (true, false) STARTPOSITION 2001 MAXRESULTS 1000", "customer query text");
   eq(pullQueryText("TaxCode", 1), "select Id, Name, Active, SyncToken from TaxCode STARTPOSITION 1 MAXRESULTS 1000", "taxcode query has no where");
+  eq(pullQueryText("Item", 1), "select * from Item where Active in (true, false) STARTPOSITION 1 MAXRESULTS 1000", "item query is select * (1c — field-selected queries drop Sku)");
+  eq(PULL_FIELDS.Customer.includes("*") || PULL_FIELDS.Vendor.includes("*"), false, "customer · vendor keep the field list (933)");
   eq(PULL_PAGE, 1000, "page size");
   // 문
   const w = world(); connect(w);
@@ -746,7 +749,7 @@ Deno.test("⑭ pull — 순수(종류 7 · 칸에 연락처 없음 · TaxCode �
   const t1 = await r1.text(); ok(!t1.includes("\n"), "compact JSON");
   const b1 = JSON.parse(t1) as Record<string, unknown>;
   eq([r1.status, b1.ok, b1.entity, b1.start, b1.received_now, b1.received, b1.pages, b1.next_start, b1.done, b1.gone, b1.finished_at, b1.intuit_tid], [200, true, "Item", 1, 1000, 1000, 1, 1001, false, null, null, "tid-pull"], "page 1 response: " + t1);
-  eq(sentQuery(pullHits(w)[0]!), "select Id, Name, Sku, FullyQualifiedName, ParentRef, Active, SyncToken from Item where Active in (true, false) STARTPOSITION 1 MAXRESULTS 1000", "page 1 query sent to Intuit");
+  eq(sentQuery(pullHits(w)[0]!), "select * from Item where Active in (true, false) STARTPOSITION 1 MAXRESULTS 1000", "page 1 query sent to Intuit (select *)");
   eq(w.db.calls.filter((x) => x === "user:qbo_pull_begin").length, 1, "begin once (start 1)");
   eq([w.db.ents.get("Item")!.size, w.db.pulls.get("Item")!.finished_at, w.db.pulls.get("Item")!.next_start], [1000, null, 1001], "1000 rows upserted · run open · next_start 1001");
   const row1 = w.logs.at(-1)!;
@@ -765,12 +768,15 @@ Deno.test("⑭ pull — 순수(종류 7 · 칸에 연락처 없음 · TaxCode �
   const b3 = await body(await postBody(w, { action: "pull", entity: "Item", start: 1 }));
   eq([b3.received_now, b3.received, b3.pages, b3.done, b3.gone], [3, 3, 1, true, 1002 - 3], "new run: 3 rows · 999 old rows gone (ids 1..3 refreshed)");
   eq(w.db.calls.filter((x) => x === "user:qbo_pull_begin").length, 2, "begin again on start 1");
+  eq([w.db.ents.get("Item")!.get("1")!.sku, w.db.ents.get("Item")!.get("3")!.sku], ["SKU-1", "SKU-3"], "Sku stored from the select * rows (1c)");
+  const bq = await body(await postBody(w, { action: "query", q: "select Id, Name, Sku from Item MAXRESULTS 3" }));
+  ok((bq.rows as Record<string, unknown>[]).every((r) => r.Sku === undefined && r.sparse === true), "fake Intuit mirrors QuickBooks: a field-selected Item query returns no Sku (sparse) — the reason Item pulls select *");
   // Customer — DisplayName 이 이름 · 연락처 칸 없는 조회
   const bc = await body(await postBody(w, { action: "pull", entity: "Customer" }));
   const cq = sentQuery(pullHits(w).at(-1)!) ?? "";
   eq([bc.ok, bc.received, bc.done, cq.startsWith("select Id, DisplayName, FullyQualifiedName, ParentRef, Active, SyncToken from Customer where Active in (true, false)")], [true, 3, true, true], "customer pull: " + cq);
   for (const f of PII_FIELDS) ok(!cq.includes(f), "customer query names no contact column: " + f);
-  eq(w.db.ents.get("Customer")!.get("1")!.name, "Caribbean Island Food Market 1", "DisplayName stored as the name");
+  eq([w.db.ents.get("Customer")!.get("1")!.name, w.db.ents.get("Customer")!.get("1")!.sku], ["Caribbean Island Food Market 1", null], "DisplayName stored as the name · no sku");
   ok(!JSON.stringify(w.logs).includes("Caribbean"), "customer names nowhere in call_log");
   // TaxCode — where 없이
   const bt = await body(await postBody(w, { action: "pull", entity: "TaxCode" }));

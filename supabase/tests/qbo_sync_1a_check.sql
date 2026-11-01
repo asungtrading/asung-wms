@@ -145,8 +145,8 @@ select pg_temp.chk('C10 다른 종류 받기 — Account 3 · TaxCode 5 · Term 
 
 -- ── D) 자동 짝 — 종류마다 linked / ambiguous / absent / skipped / considered ──
 create function pg_temp.m(p_kind text) returns text language sql as $$
-  select coalesce((select (j->>'linked') || '/' || (j->>'ambiguous') || '/' || (j->>'absent') || '/' || (j->>'skipped') || '/' || (j->>'considered') from (select pg_temp.adm(format('select public.qbo_match_auto(%L)::text', p_kind)) t) x, lateral (select case when t like 'ERR%' then null else t::jsonb end j) y where j is not null),
-                  (select pg_temp.adm(format('select public.qbo_match_auto(%L)::text', p_kind))))
+  select coalesce((select (j->>'linked') || '/' || (j->>'ambiguous') || '/' || (j->>'absent') || '/' || (j->>'skipped') || '/' || (j->>'considered') from (select pg_temp.adm(format('select public.qbo_match_auto(%L, null, 20000)::text', p_kind)) t) x, lateral (select case when t like 'ERR%' then null else t::jsonb end j) y where j is not null),
+                  (select pg_temp.adm(format('select public.qbo_match_auto(%L, null, 20000)::text', p_kind))))   -- qbo-sync-1c 뒤: 묶음 없이 한 번에(20000) · 1a 의 기대 수 그대로
 $$;
 select pg_temp.chk('D1 account — 98 · 61 linked · _4_ ambiguous(QBO 비활성) · 나머지 absent · 숫자 꼴은 비활성이라 안 센다', pg_temp.m('account'), '2/1/' || (:n_acc - 3)::text || '/0/' || :n_acc::text);
 select pg_temp.chk('D2 account 짝 = auto_code · _98_ → 98 · 이름 기록', (select l.matched_by || ' ' || l.qbo_id || ' ' || l.qbo_name_at_match || ' ' || (l.by_staff = 'a1a1a1a1-0000-4000-8000-00000000000a')::text from public.qbo_link l join public.ref_account a on a.id::text = l.ims_id where l.ims_kind = 'account' and a.code = '_98_'), 'auto_code 98 Sales Account true');
@@ -155,18 +155,18 @@ select pg_temp.chk('D3 tax_rule — 4 TaxCode × Sale · Purchase = 8 linked(GST
 select pg_temp.m('payment_term') as d4 \gset
 select pg_temp.chk('D4 payment_term — Net 30 · Net 7 linked(활성만 · Net30 · Net7 비활성은 안 센다) · 1%20 Net30 은 IMS 쪽 둘 다 비활성 → 0', :'d4' || ' ' || (select string_agg(pt.name || '→' || l.qbo_id, ' ' order by pt.name) from public.qbo_link l join public.ref_payment_term pt on pt.id::text = l.ims_id where l.ims_kind = 'payment_term'), '2/0/' || (:n_term - 2)::text || '/0/' || :n_term::text || ' Net 30→3 Net 7→8');
 select pg_temp.m('payment_method') as d5 \gset
-select pg_temp.chk('D5 payment_method — 7 linked(auto_map) · credit_card skipped · opening 없음', :'d5' || ' ' || (select string_agg(ims_id || '→' || qbo_id, ' ' order by ims_id) from public.qbo_link where ims_kind = 'payment_method') || ' ' || (select pg_temp.adm('select public.qbo_match_auto(''payment_method'')::text')::jsonb->'examples'->>'skipped'),
+select pg_temp.chk('D5 payment_method — 7 linked(auto_map) · credit_card skipped · opening 없음', :'d5' || ' ' || (select string_agg(ims_id || '→' || qbo_id, ' ' order by ims_id) from public.qbo_link where ims_kind = 'payment_method') || ' ' || (select pg_temp.adm('select public.qbo_match_auto(''payment_method'', null, 20000)::text')::jsonb->'examples'->>'skipped'),
   '7/0/0/1/8 cash→1 cheque→2 debit_card→4 direct_deposit→12 e_transfer→5 shopify→8 wire→11 ["credit_card"]');
 select pg_temp.m('customer') as d6 \gset
 select pg_temp.chk('D6 customer — cA · cB(대소문자 · 꼬리 공백 무시) linked · cC ambiguous(QBO 활성 둘) · 나머지 absent', :'d6' || ' ' || (select string_agg(l.qbo_id, ' ' order by l.qbo_id) from public.qbo_link l where l.ims_kind = 'customer')
-  || ' ' || (select j->'examples'->'ambiguous'->0->>'candidates' from (select pg_temp.adm('select public.qbo_match_auto(''customer'')::text')::jsonb j) x), '2/1/' || (:n_cust - 3)::text || '/0/' || :n_cust::text || ' C-A C-B C-C1 ' || :'cc_name' || ' | C-C2 ' || :'cc_name');
+  || ' ' || (select j->'examples'->'ambiguous'->0->>'candidates' from (select pg_temp.adm('select public.qbo_match_auto(''customer'', null, 20000)::text')::jsonb j) x), '2/1/' || (:n_cust - 3)::text || '/0/' || :n_cust::text || ' C-A C-B C-C1 ' || :'cc_name' || ' | C-C2 ' || :'cc_name');
 select pg_temp.chk('D7 supplier — Vendor 받기 전 → 거부', left(pg_temp.m('supplier'), 50), 'ERR P0001: The QuickBooks Vendor list has not been');
 select pg_temp.chk('D8 supplier — Vendor 1 받은 뒤 → 1 linked', pg_temp.pull('Vendor', jsonb_build_array(jsonb_build_object('Id', 'V-A', 'DisplayName', :'sa_name', 'Active', true))) || ' ' || pg_temp.m('supplier'), '1/0 1/0/' || (:n_sup - 1)::text || '/0/' || :n_sup::text);
 select pg_temp.m('product') as d9 \gset
 select pg_temp.chk('D9 product — Sku 하나(T-A auto_sku) · Sku 둘 → 이름(T-B1 auto_sku_name) · 비활성만(T-C) ambiguous · 나머지 absent', :'d9' || ' ' || (select string_agg(l.qbo_id || ':' || l.matched_by, ' ' order by l.qbo_id) from public.qbo_link l where l.ims_kind = 'product'), '2/1/' || (:n_prod - 3)::text || '/0/' || :n_prod::text || ' T-A:auto_sku T-B1:auto_sku_name');
 select pg_temp.chk('D10 product 다시 → 짝 있는 것은 안 센다 · 새로 0', pg_temp.m('product'), '0/1/' || (:n_prod - 3)::text || '/0/' || (:n_prod - 2)::text);
 select pg_temp.chk('D11 charge · service · 모르는 kind → 거부', left(pg_temp.m('charge'), 39) || ' | ' || left(pg_temp.m('service'), 40) || ' | ' || left(pg_temp.m('bogus'), 30), 'ERR P0001: No automatic rule for charge | ERR P0001: No automatic rule for service | ERR P0001: kind must be one of');
-select pg_temp.chk('D12 absent 예시 ≤ 20 · 이름 순', (select jsonb_array_length(j->'examples'->'absent')::text || ' ' || (j->'examples'->'absent'->>0 <= j->'examples'->'absent'->>1)::text from (select pg_temp.adm('select public.qbo_match_auto(''customer'')::text')::jsonb j) x), '20 true');
+select pg_temp.chk('D12 absent 예시 ≤ 20 · 이름 순', (select jsonb_array_length(j->'examples'->'absent')::text || ' ' || (j->'examples'->'absent'->>0 <= j->'examples'->'absent'->>1)::text from (select pg_temp.adm('select public.qbo_match_auto(''customer'', null, 20000)::text')::jsonb j) x), '20 true');
 
 -- ── E) 사람 짝 · 풀기 ──
 select pg_temp.chk('E1 charge freight → T-A(이미 product 의 짝) → 거부 · 어느 IMS 행인지 말한다', pg_temp.adm('select public.qbo_link_set(''charge'', ''freight'', ''T-A'')::text'), 'ERR P0001: QuickBooks Item T-A (' || :'pa_name' || ') is already linked to IMS product ' || :'pa_name' || ' — clear that link first');
