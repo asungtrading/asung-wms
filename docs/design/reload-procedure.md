@@ -612,6 +612,7 @@ wms_waves · wms_zone_sequence
 2. ~~진짜 스토어를 잇고(555 ~ 564 · 별건) listing 을 켠 뒤(320)~~ → [2026-10-27 · 판정 811] 13 에서 함께 켜도 된다 — live 전 스토어에는 IMS 가 아무것도 안 쓴다(일하는 길은 is_active and live · 대기 줄만 열린 채 · 헛호출은 deferred 354) · ⚠️ 늦어도 P-2 13b ⑥ Go live **전에** 켜져 있어야 한다(Go live 의 재고 force 를 44 stock-drain 이 내보낸다): **42 · 43** shop-drain · nightly → **44 · 45 · 46** stock-drain · diff · nightly(켜면 nightly 가 재고를 한꺼번에 보낸다 — 원하는 일) → **47 · 48 · 51** orders-drain · poll · order-drain → **49 · 50 · 52 · 53** fulfill · unshipped · paid-scan · paid-drain.
 3. **40 · 41** ims-image-scan · move(옛 시스템 첨부 옮기기)는 **켜지 않는다**(판정 755 · 1 단계에서 마지막 실행을 확인하고 끈 채 둔다 · 다시 보지 않는 원천).
 4. [2026-10-30] **59** ims-qbo-refresh(QuickBooks 갱신 · 하루 한 번)를 1 과 함께 켠다 — 꺼진 동안 갱신이 없을 뿐 연결은 그대로다(갱신 토큰 만료 2027-02-07 15:48 UTC · 갱신해도 안 밀린다 · deferred 370 닫힘 · 396) · 접근 토큰은 API 를 부를 때 먼저 갱신된다(qbo-integration §6 · 지금 부르는 싱크 없음).
+5. [2026-11-01 · docs-1101] **60** ims-mcp-log-purge(Claude 커넥터 호출 기록 1 년 지우기 · 09:20 UTC · mcp-2 · 판정 924)는 컷오버 뒤 등록이라 위 22 에 없다 — 다음에 cron 을 끄고 켜는 절차(재적재 · 승격)에서는 **끄지 않아도 된다**(Cin7 · 화면 무관 · DB 안 지우기만) · 껐다면 이 목록과 함께 켠다 · 실측 jobid 60(`supabase/ops/cron.sql` 끝)
 
 ### P-4 §E 컷오버판 — pre 는 §E 그대로 · post 는 setval 만
 ```bash

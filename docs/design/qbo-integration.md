@@ -4,17 +4,19 @@
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 QuickBooks Online(Intuit) 둘뿐이다.
 ⭐ 상태 [2026-10-29] **운영 = 연결됨 · 싱크 없음** — Asung-IMS(fazgmyvzzhqybtvtktyg · 11-01 부터 그대로 운영 · 617)가 실제 회사 **Asung Trading Inc.**(realm `…6496` · Production)에 11:48(토론토) 연결 · 샌드박스로 연결 → 끊기 → 다시 연결을 실제로 한 뒤(868) Intuit 설문 제출 → 운영 키
 ⚠️ **연결만 한다 — IMS 에는 장부(QBO)로 거래를 보내는 코드가 없다.** 연결 뒤 하는 일 = 회사 이름 읽기(CompanyInfo) + 하루 한 번 토큰 갱신 · 그 밖의 호출 0 · 싱크는 뒤 차수(§11 · deferred 260 · 327 · 341)
+⭐ 상태 [2026-11-01 · so-module §95 · 판정 933 · 934] **연결 + 읽기 조회 · 짝 표 · 거울 · 받기(pull) — 보내기는 없음** — EF qbo 에 `query` · `read` · `pull`(GET 만 · admin · cron 불가) · 표 `qbo_entity`(거울) · `qbo_pull_state` · `qbo_link`(짝) · Settings → QuickBooks matching · QBO 로 쓰는 호출 0(위 줄의 「그 밖의 호출 0」 은 10-29 상태)
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
 
-## 1. 무엇을 하나 — 연결만 · 싱크는 뒤
+## 1. 무엇을 하나 — ~~연결만~~ 연결 · 읽기 · 짝 · 보내기는 뒤([2026-11-01])
 
 - 목표(Caleb 2026-10-29): 「오늘은 컷오버전에 퀵북 인테그레이션을 해놓으려고 해. 컷오버 이후로 미뤘지만, 싱크는 컷오버이후에 하더라도, 연결은 해놓고 싶어.」
 - Caleb 의 물음 「ims가 퀵북에 연결된다고 해서 퀵북과 싱크되는 것은 아니지?」 → **맞다**
   - 연결 = OAuth 2.0 승인 한 번(admin 이 Settings → QuickBooks → Connect → Intuit 동의) · 토큰을 Vault 에 두고 하루 한 번 굴린다
   - 보내는 것 0 — 인보이스 · 결제 · 크레딧 · 손님 · 품목 어느 것도 아직 QBO 로 가지 않는다
 - **Cin7 → QuickBooks 연결은 따로 그대로**(QBO 는 여러 앱을 동시에 연결한다) — ⚠️ IMS 싱크를 지을 때 **Cin7 의 QBO 싱크를 끄는 시점**을 함께 정한다(둘이 같은 거래를 보내면 두 번 · deferred 375)
+- → [2026-11-01 · so §95] 읽기 조회(qbo-read-1 · §5) · 짝 표 · 거울 · 받기(qbo-sync-1a ~ 1c · §12) 섰다 — 여전히 **QBO 로 보내는 것 0**(GET 만 · `assertReadOnlyRequest`)
 - 범위 밖(싱크 차수 몫): 이월 인보이스 · 받아 둔 돈(kind · method opening)은 보내지 않는다(341 · 786) · 다중 통화 · 캐나다 세금 · 지우기(deletes)
 
 ## 2. 표 — 칸 · 상태 (qbo-1a `20261029160000`)
@@ -23,8 +25,12 @@
 |---|---|---|
 | `qbo_connection` | 연결 한 줄(`singleton` boolean PK · check) — env(sandbox · production) · realm_id · company_name · status(connected · needs_reconnect) · connected_by · at · **토큰 칸 없음**(`refresh_secret_id` · `access_secret_id` = vault.secrets.id) · access_expires_at · refresh_expires_at · `token_version`(판 번호) · `refreshing_until` · `refreshing_by`(임대) · last_refresh_at · last_error · last_error_at | K |
 | `qbo_oauth_state` | CSRF state — EF 가 만든 32 바이트 무작위의 **sha256 hex 만** · staff_id · env · 10 분 · 한 번(조건부 update 1 행) · 지난 것은 state_new 가 지운다 | K |
-| `qbo_call_log` | EF 호출 기록(fc_call_log 꼴 + env · realm_id · **intuit_tid**) · action · ok · http_status · error 400 자 · by_staff · ms · 90 일(EF 가 호출 끝에 지운다) | K |
+| `qbo_call_log` | EF 호출 기록(fc_call_log 꼴 + env · realm_id · **intuit_tid**) · action · ok · http_status · error 400 자 · by_staff · ms · 90 일(EF 가 호출 끝에 지운다) · [2026-11-01 qbo-read-1 `20261101190000`] `detail` jsonb(조회 문장은 리터럴 → `?` · entity · 받은 수 · **결과 행 없음**) | K |
+| `qbo_entity` | [qbo-sync-1a `20261101210000` · 934] QBO 목록 거울 — PK (realm_id, qbo_type, qbo_id) · qbo_type 7(Account · TaxCode · Term · PaymentMethod · Customer · Vendor · Item) · name · sku · parent_id · fully_qualified_name · active · sync_token · fetched_at · gone_at(**이 칸뿐 — 연락처 · 주소 · 금액 0**) | — (컷오버 뒤 생김) |
+| `qbo_pull_state` | [1a] 종류마다 받기 진행 — started_at · by · next_start · received · pages · finished_at · gone(완주 때 안 온 행에 gone_at) | — |
+| `qbo_link` | [1a] IMS 행 ↔ QBO Id 짝 — ims_kind 9(account · tax_rule · payment_term · payment_method · customer · supplier · product · charge · service) · `ims_id` text 다형(FK 없음 · FK 는 by_staff → ims_staff 만) · matched_by(auto_code · auto_name · auto_map · auto_sku · auto_sku_name · manual) · qbo_name_at_match · 유일 (realm, ims_kind, ims_id) · **QBO 쪽 부분 유일 `where ims_kind <> 'tax_rule'`**(tax_rule 만 N:1 — Sale · Purchase 둘이 한 TaxCode) | — |
 
+- RLS · grant(1a 세 표): RLS 켜고 정책 0 · grant 0 — 창구로만
 - RLS · grant: `qbo_connection` · `qbo_oauth_state` = 정책 0 · grant 0(창구만) · `qbo_call_log` = authenticated 읽기 · service_role 넣기 · 지우기(fc_call_log 와 같다)
 - Vault 이름: `qbo/<env>/refresh` · `qbo/<env>/access`(supabase_vault 0.3.1 · dump · 백업에는 암호문만)
 - inv_config 키: `qbo_realm_sandbox` · `qbo_realm_production`(고정 회사 · §7) · `qbo_alert_to`(끊김 메일 받는 사람 · 기본 caleb@asung.ca · 869 · qbo-1b)
@@ -51,6 +57,17 @@ qbo-1a 창구 12 + 속 함수 4 · qbo-1b +1 · qbo-1c 재발행 6(WHERE · 바�
 | `qbo_last_error_set(error)` | service_role(qbo-1b) | 상태는 그대로 · last_error 만(갱신 경합으로 새 토큰을 잃었을 때 Settings 가 보이게) |
 
 속 함수: `qbo_env_check` · `qbo_vault_put` · `qbo_vault_get` · `qbo_vault_drop`(grant 0)
+
+[2026-11-01 · qbo-sync-1a `20261101210000` · 1c `20261101230000`] 짝 · 거울 창구 9(authenticated · 안에서 `ims_is_admin` — 속 `qbo_sync_gate`) — 쓰임 · 규칙은 §12
+
+| 창구 | 무엇 |
+|---|---|
+| `qbo_pull_begin(type, …)` · `qbo_entity_upsert(type, …, rows jsonb, …)` · `qbo_pull_finish(type, …)` | 받기 한 바퀴 — EF pull 이 **사용자 JWT** 로 부른다(rpcUser) · 완주 때 안 온 행 gone_at |
+| `qbo_match_auto(p_kind, p_after text default null, p_limit int default 5000)` | 자동 짝 **묶음**(1c · 최대 20000) → next_after · remaining · done — 부르는 쪽이 done 까지 돈다 · 임시 표 analyze |
+| `qbo_link_set(kind, ims_id, qbo_id)` · `qbo_link_clear(kind, ims_id)` | 사람 짝(manual · 덮으면 manual) · 풀기 |
+| `qbo_link_summary()` · `qbo_link_page(…)` · `qbo_entity_find(…)` | 화면(set v13) 읽기 — 요약 · To match / Matched / All · QBO 찾기 |
+
+속 함수 4(grant 0): `qbo_sync_gate` · `qbo_realm_of` · `qbo_type_of` · `qbo_ims_rows`(IMS 쪽 행 · 1c 에서 rows 20000)
 마이그레이션: `20261029160000` qbo-1a · `20261029190000` qbo-1b(끊김 메일 · mail_outbox.kind 에 qbo_reconnect · inv_config qbo_alert_to · qbo_mark_needs_reconnect 재발행 · qbo_last_error_set) · `20261029210000` qbo-1c(WHERE — §5 끝)
 EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 함수 + 흐름 handle) · 시험 `qbo/qbo_test.ts`(Intuit · DB 무접촉) · DB 시험 `supabase/tests/qbo_1a_check.sql` · `qbo_1b_check.sql` · `qbo_1c_check.sql`
 
@@ -65,7 +82,9 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 
 ## 5. EF `qbo` — 액션 · callback · 환경
 
-- POST JSON `{action}` + 직원 세션 JWT: `status`(누구나) · `start` · `disconnect` · `refresh` · `ping`(admin)
+- POST JSON `{action}` + 직원 세션 JWT: `status`(누구나) · `start` · `disconnect` · `refresh` · `ping`(admin) · [2026-11-01] `query` · `read` · `pull`(admin · **cron 길 불가**)
+- **읽기 조회 query · read(qbo-read-1 `cc06d5d`)** — Intuit API 호출은 `apiCall` 하나로 · **GET 만**(`assertReadOnlyRequest` — 다른 메서드는 거부) · 허용 목록 24 + Preferences · CompanyInfo(Employee 없음 · ExchangeRate 있음) · MAXRESULTS 기본 100 · 1 ~ 1000 밖은 400 · 응답 > 5 MB 413 · 429 재시도 없음 · 401 은 `withAuthRetry`(ping 과 공용 · §6) · rows 는 scrub 하지 않는다(SyncToken 보호 — scrub 의 꼴 치환이 값을 깨뜨린다) · Customer · Vendor 는 **`select *` 거부 · 연락처 · 주소 칸(PII_FIELDS 9)을 고르면 거부**(칸 이름을 적어야 한다 · `_shared/qbo.ts` PII_ENTITIES) · 단건 read 는 연락처를 벗겨 돌려준다(933) · 기록 = `qbo_call_log.detail`(값은 ? · 결과 행 없음)
+- **받기 pull `{entity, start}`(qbo-sync-1b `a7493de` · 1c `0e12be0`)** — 종류 7 · 한 번 = 한 쪽 1,000 · `where Active in (true, false)`(QBO query 는 기본 활성만 — TaxCode 만 조건 없음 · 실측) · Customer · Vendor 칸 목록에 연락처 없음 · ⚠️ **Item 은 `select *`** — 칸을 고르면 QBO 가 Sku 를 안 준다(sparse · 11-01 실측 · 1b 에서 product 짝 0 → 1c) · 1a 창구를 사용자 JWT 로 · detail 에 행 없음 · 화면이 start 를 넘기며 끝까지 부른다
 - **start**: admin 문 → state 32 바이트(base64url) → DB 에 sha256 → Intuit 허락 주소(scope `com.intuit.quickbooks.accounting` · redirect_uri = `<SUPABASE_URL>/functions/v1/qbo/callback`) — 화면은 **같은 탭**으로 간다
 - **callback**(GET · Intuit 이 브라우저를 보낸다) = **언제나 302 · 본문 없음 · Location 은 코드에 하나 고정** `https://ims.asung.ca/settings.html?t=qbo&qbo=connected` | `&qbo=error&why=<낱말>` — 요청 값을 Location 에 섞지 않는다(Intuit 보안 요건)
   - why 낱말 여섯: `denied`(손님이 거절 · error=) · `state`(없음 · 지남 · 두 번) · `exchange`(code 교환 실패) · `realm`(고정 회사와 다름 — 받은 토큰은 revoke) · `save` · `env`(QBO_ENV 없음 · state 의 env 와 다름 · 그 env 의 앱 키 없음)
@@ -101,7 +120,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 - **끊기**(admin · Settings → Disconnect): Intuit revoke(refresh_token · Basic) → **실패해도** `qbo_connection_delete()`(Vault 두 행 + 연결 행 + state 전부) → call_log(action disconnect · by_staff) · revoke 가 실패했으면 응답 글에 「QuickBooks → Apps 에서도 끊어 달라」 · 처리방침 약속 「관리자가 끊으면 지운다」(867)
 - **다시 연결** = Connect 와 같은 길(같은 탭 → Intuit → callback) — 새 101 일
 - **realm 고정**: 처음 연결한 회사 id 를 env 별로 `inv_config.qbo_realm_<env>` 에 · 다른 회사는 저장 거부(callback why=realm · 받은 토큰은 revoke)
-  - 까닭: 싱크가 시작되면 IMS 행이 QBO id(손님 · 품목 · `ref_tax_rule.qbo_id`)를 가리킨다 — 회사가 바뀌면 짝이 전부 틀어진다
+  - 까닭: 싱크가 시작되면 IMS 행이 QBO id(손님 · 품목 · ~~`ref_tax_rule.qbo_id`~~ → [2026-11-01] `qbo_link` · §12)를 가리킨다 — 회사가 바뀌면 짝이 전부 틀어진다 · `qbo_link` · `qbo_entity` 는 realm_id 칸을 갖는다
   - 지금: production = `…6496`(전체 값은 DB inv_config.qbo_realm_production · Settings 화면 — 판정 873)(Asung Trading Inc.) · sandbox = `9341458557490536`(Sandbox Company CA 9bca) — 둘 다 남아 있다
 - **Untie company**(`qbo_realm_clear`) = admin · **연결이 없을 때만** — 회사 자체가 정말 바뀌었을 때만(화면 글 「Untie only when the company itself really changed」)
 - 샌드박스 → 운영 전환 순서(2026-10-29 실제로 한 것): Settings 에서 샌드박스 Disconnect → Intuit Production Redirect URI → 운영 키 + `QBO_ENV=production` → Connect
@@ -113,6 +132,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 - 단추(admin 만 · `caller_is_admin`): Connect / Reconnect(같은 탭 → Intuit → callback 302) · Check connection(ping · CompanyInfo) · Disconnect · 연결 없을 때 Untie company
 - Intuit 에서 돌아오면 `&qbo=connected` | `&qbo=error&why=…` 를 읽어 안내
 - Help 줄(872): 「Connection problems? Contact the IMS administrator: caleb@asung.ca」 · Caleb(872 「B」) · 기각 A(화면에 길이 없어 설문 Error Handling 4 가 사실상 No)
+- [2026-11-01 · set v13 asung-ims `9e0b079`] **QuickBooks matching**(`?t=qbomatch` · admin 만) — 종류 9 요약 · Refresh list(EF pull 을 끝까지) · Match automatically(`qbo_match_auto` 묶음을 done 까지) · Review(To match · Matched · All · 검색 · 후보 단추 · Find… · Unlink) · 제품 To match 는 **후보 있는 줄만** 보인다 · QBO 에 쓰는 것 없음 — 규칙은 §12
 - ⬜ Mail outbox 목록이 kind `qbo_reconnect` 를 글자 그대로 보인다(화면 몫 · deferred 376) · ⬜ 매뉴얼 7 장에 Settings → QuickBooks 절 없음(admin · deferred 378)
 
 ## 9. Intuit 앱 — App details · Redirect URI · 설문 · 운영 키
@@ -132,6 +152,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
   - Error Handling: 오류 시험 Yes(근거 = 자동 시험 · **실제 Intuit 오류는 0** — 싱크 때 샌드박스에서) · intuit_tid Yes · 로그 Yes · 앱 안 지원 Yes(Settings → QuickBooks Help 줄 · 끊김 메일)
   - Security: 보안 사고 No · 보안 팀 **No**(처음 Yes 로 골랐다가 사실대로 고침) · 비밀 안전 Yes · MFA **No**(871) · Captcha No · WebSocket Yes(WMS presence 다섯 화면 · QBO 길 아님) · 데이터 남에게 No
   - ⚠️ 다시 알릴 일(deferred 374): 싱크에서 다중 통화 · 캐나다 세금 · 지우기를 쓰게 되면 · 커넥터(360)가 QBO 데이터를 쓰게 되면
+  - [2026-11-01 · 판정 933] IMS 읽기 조회로 내려받은 QBO 데이터를 **회사 주인(Caleb)이 Claude 로 분석**하는 것은 「생성형 AI No」 · 「데이터 남에게 No」 와 어긋나지 않는 것으로 본다(IMS 앱은 AI 를 부르지 않는다 · 노출은 줄인다 — 연락처 칸 거부) · [판정 934] `qbo_entity` 거울은 「조회 결과는 표에 저장하지 않는다」 의 예외 · **둘 다 374 재알림 때 적는다** · IMS Claude 커넥터(360)의 도구는 QBO 를 읽지 않는다(2026-11-01)
 - **MFA(871)**: IMS 로그인 MFA 는 지금 없다 · 설문 「No」 · 컷오버가 자리 잡은 뒤 따로(deferred 373) · Caleb 「A」 · 기각 B = 컷오버 전 켜기(사흘 전에 23 명의 로그인 방식이 바뀐다)
 
 ## 10. 운영 상태 — 실측 (2026-10-29 · 토론토 시각)
@@ -159,7 +180,40 @@ QBO 판     Plus(Caleb)
 - 싱크 차수에서 정할 것:
   - **Cin7 의 QBO 싱크를 끄는 시점**(이중 기록 · deferred 375)
   - 이월 인보이스 · 받아 둔 돈(kind · method opening)은 보내지 않는다 · IMS 에서 이월 인보이스에 붙인 결제 · 크레딧은 QBO 의 기존 인보이스(옛 번호)에 붙인다(341 · 786)
-  - 짝 칸(손님 · 품목 · `ref_tax_rule.qbo_id` — 지금은 자리만 · so-module §16) · realm 고정이 그 전제(§7)
+  - ~~짝 칸(손님 · 품목 · `ref_tax_rule.qbo_id` — 지금은 자리만 · so-module §16)~~ → [2026-11-01] 짝은 `qbo_link`(§12 · `ref_tax_rule.qbo_id` 는 쓰지 않는다) · realm 고정이 그 전제(§7)
+  - [2026-11-01] 보내기 차수의 판정 거리 — 비활성만 있는 Item 다시 켜기(431) · credit_card 1:3(432) · 북키퍼 넷(433) · 컷 뒤 입금 자리(434) · opening_fix 사건 제외(§13 끝) · 트랜스퍼 분개를 보낼지(433)
   - 다중 통화 · 캐나다 세금 · 지우기 → 샌드박스 시험 뒤 Intuit 에 설문 다시 알림(374)
   - 오류 시험을 실제 Intuit 거부로(설문 Error Handling 1 의 근거는 지금 자동 시험뿐)
 - 승인 유효 기한(약 101 일) 전 미리 알림(371) · MFA(373)
+- 진행(2026-11-01): 연결 ✅ · 읽기 ✅ · 짝 · 거울 · 받기 ✅ · **보내기 ⬜**(deferred 260 · 327)
+
+## 12. 짝 · 받기 — `qbo_link` · `qbo_entity` (2026-11-01 · qbo-sync-1a ~ 1c · set v13 · 판정 934 · so-module §95)
+
+- **짝은 한 번 정하면 QBO Id 로 붙든다** — IMS 이름 · QBO 이름이 바뀌어도 그 Id(`qbo_name_at_match` 는 그때 이름 기록만) · ⚠️ 까닭 실물: Cin7 은 Item 을 **이름으로** 찾아, 제품 이름이 바뀌면 같은 Sku 로 새 Item 을 만들었다(짐작 · 패턴 근거) → 같은 Sku 의 Item 둘 = 33 SKU · 66 Item(§13)
+- **`ref_tax_rule.qbo_id` 는 쓰지 않는다** — 그 칸의 UNIQUE 가 Sale · Purchase 두 세금 규칙이 한 TaxCode 를 가리키는 것을 막는다(주석만 · 칸은 그대로) · 세금 짝도 `qbo_link`(tax_rule 만 N:1)
+- **받기(pull)** = 종류마다 begin → 쪽마다 entity_upsert(1,000) → finish(완주 때 안 온 행에 gone_at) · `qbo_pull_state` 가 진행 · 화면 Refresh list 가 끝까지 · 자동 짝은 **그 종류 pull 완주가 전제**
+- **자동 짝(`qbo_match_auto`)** — **활성 IMS 행만 · 짝 없는 것만** · 결과 linked · absent(QBO 에 없음) · ambiguous(후보 둘 이상 · 짓지 않음)
+  - account: IMS code `_N_` 의 **N = QBO Account.Id**(auto_code · 12 개 눈 확인 · 220/220 이 이 규칙으로 섰다)
+  - tax_rule: 「 (Sale)」 「 (Purchase)」 꼬리 뗀 이름 = TaxCode 이름(auto_name)
+  - payment_term · customer · supplier: `lower(btrim(name))`(auto_name) — **속 빈칸은 접지 않는다**(「Christina  Spataro」 ≠ 「Christina Spataro」 · 실제 두 손님)
+  - product: `lower(btrim(sku))`(auto_sku) → 활성 Item 둘 이상이면 `lower(btrim(left(name,100)))` 같은 쪽(auto_sku_name) — 「최근 것」 규칙은 틀린다(SKU 중복 22 중 5 는 옛 Item 쪽이 IMS 이름과 같다 · §13)
+  - payment_method: 고정 표(auto_map) — cheque 2 · debit_card 4 · e_transfer 5 · wire 11 · cash 1 · shopify 8 · direct_deposit 12 · **credit_card · opening 은 짝 없음**(credit_card 는 QBO 셋 — deferred 432)
+  - charge · service: 자동 없음 · 사람 짝(manual)
+- **묶음 계약(qbo-sync-1c)** — `qbo_match_auto(p_kind, p_after, p_limit 5000 · 최대 20000)` → next_after · remaining · done · 부르는 쪽이 done 까지 돈다 · 까닭 = 첫 `qbo_match_auto('customer')` 가 REST 8 초 statement timeout(57014 · 다시 재면 ≈ 1 초 · 재현 안 됨 · 같은 시각 autovacuum 짐작) ⇒ 상한을 「더 빠르게」 가 아니라 묶음 크기로
+- 실호출(11-01 운영 · `qbo_link` 재셈): account 220 · tax_rule 24 · payment_term 17 · payment_method 7(+ skipped 1 credit_card) · supplier 195(absent 33) · customer 9,764(absent 27) · product 11,775(auto_sku 11,755 + auto_sku_name 20 · absent 2,941 · ambiguous 1 = LGL99950SIL — QBO Item #4153 지워짐 · 짝 짓지 않음) · charge 손 짝 2(freight → Item 4 · discount → Item 2170 · surcharge · freight_discount 남음) · service 11 남음
+  - product absent 2,941 = Cin7 은 **처음 팔 때만** Item 을 만든다(안 팔린 제품은 QBO 에 없다) — 「제품 짝 1 만 4 천」 짐작이 깨진 자리(so §95-e 41)
+- 화면 = Settings → QuickBooks matching(§8) · 문 = admin(창구 안 `qbo_sync_gate`)
+
+## 13. QBO 실물 — 보내기를 지을 때의 바탕 (2026-11-01 · Settings 콘솔 조회 · 판정 933 범위 · Caleb 캡처 — 「11-01 실측(대화)」 · 재셈한 것은 표시)
+
+- **회사 설정**: MultiCurrency true · Home CAD · Location 추적 켜짐(인보이스엔 비어 있음) · Class 줄 단위 켜짐(안 씀) · **QuantityOnHand false**(재고 추적 꺼짐 — 원가는 분개로만) · CustomTxnNumbers true
+- **목록**(거울 재셈 11-01): Account 238(활성 220) · PaymentMethod 14 · TaxCode 16(「GST」 둘 — 7 비활성 · 8 활성) · Term 18(DueDays 만 · 할인 칸 없음) · Customer 10,032(하위 손님 18 — 모두 BillWithParent · Clore Inc. 13 · Lowe Opco 1 … · DisplayName 중복 0) · Vendor 642(USD 211 · KRW 1) · Item 14,743(활성 13,654 · Service 14,702 · NonInventory 41 · 수입 #98 · 비용 **#58 Cost of Goods Sold** · Item 4 Freight(수입 #99) · Item 2170 Discount)
+- **Cin7 → QBO 가 하던 것(Caleb 캡처)**: Authorized · **Auto sync 꺼짐**(Sync now 를 눌러야 보냄 · 마지막 10-30 17:31) · Invoice · COGS sync type Individual
+  - 보냄 = 판매 인보이스 · Credit memo · 결제 · 환불 · **SO 마다 COGS JournalEntry(차 #58 / 대 #59 · DocNumber = SO 번호 · 줄 설명 = 손님 이름)** · Bill(상품 → **GINR #1150040012** · USD 는 A/P USD #109 + 환율) · Vendor credit · 입고 분개(차 Inventory / 대 GINR) · 운임 · 관세 · 통관은 COS 계정 → 분개로 재고에 얹음 · 트랜스퍼 분개(Inventory ↔ In Transit · 10 월 93)
+  - 받음 = 계정과목 · 세금 · 결제조건 · Bill payment(공급처 결제는 QBO 에서 넣는다)
+  - 인보이스 꼴: DocNumber = IMS 인보이스 번호 · 손님 이름 · 줄 Product/Service = 제품 이름 + SKU 칸 · 줄마다 「HST ON」 · 운임 = Item 「Freight」 한 줄 · 「Customer Reference: AS-…」 가 인보이스 메모 · 명세서 메모 두 곳 · 결제 = 별도 Payment(예: method Cheque · Ref 「CHQ #1607」 · Deposit To BMO CAD CHEQUING #105)
+- **결제 입금 계좌**(Payment 08-01 ~ · 3,505 건): 카드 → Clearing - TD Merchant TOR #1150040027 · EDM #1150040030 · 이트랜스퍼 → Clearing - E-Transfer #1150040028 · 수표 · EFT · Wire → BMO CAD CHEQUING #105 · 현금 → Cash on hand TOR #137 · EDM #1150040031 · ⚠️ 이상한 갈래 둘(현금 → TD Merchant TOR 514 건 174,154.20 · 현금 → Clearing - Shopify 852 건 38,217.70) = 북키퍼에게 묻는 중(deferred 433) · Undeposited Funds 는 거의 안 씀 · Deposit 은 현금 → 은행 묶음 정도
+- **결제 실무(Caleb)**: 계산대 손님은 현금 · 데빗 · 크레딧 · 이트랜스퍼 · 캐시어가 기록 · 카드는 IMS 와 무관한 **TD Merchant 단말기** · TD 가 **다음 날 하루치를 묶어** TD 체킹에 넣음 · **수수료는 떼지 않고 나중에 한꺼번에 뺌** · 북키퍼는 스테이트먼트로 대조 · 손님 결제는 기본 IMS · 부득이하게 QBO 에서 넣는 경우가 있다(deferred 434)
+- **컷 경계(Caleb)**: 10 월까지(컷 전) 거래는 실무자가 Cin7 → QBO 로 올린다(11-02 중) · 컷 뒤는 IMS 가 보낸다 · Cin7 ↔ QBO 연결은 아직 살아 있다 · 끊는 시점 = 실무자 작업 확인 뒤(deferred 375) · 인보이스 50754 · 50780 은 QBO 에 있음(확인)
+- **살린 트럭 TR-06396 ~ 06399**(판정 896): QBO 에 그 DocNumber 의 JournalEntry 가 **하나도 없다**(날짜 조건 없이 · 11-01) ⇒ 받을 때 보낼 분개 없음 · 트랜스퍼를 장부에 보낼지는 보내기 차수의 판정 거리
+- **opening_fix 사건은 보내지 않는다**(판정 932 · ledger-design 「기초 이전 원가 바로잡기」) — 그 판매의 COGS 는 Cin7 이 이미 QBO 로 보냈다 · 가르는 열쇠 = `inv_layer_consume.line_ref like 'adj:%'` → `inv_cost_adjust.id` → kind `opening_fix`

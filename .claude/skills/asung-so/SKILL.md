@@ -525,6 +525,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  hist_po_line.received_quantity 0 · hist_po.received_date null 은 「기록 없음」 — 원천(BQ asung_purchase_history)이 안 담는다
 ⭐  주인 = cin7_customer_id · cin7_supplier_id(GUID) → customer · supplier 의 cin7_id(657) · 못 풀면 id null · 이름 원문은 남는다
 ⭐  화면(cs v6 · sup v3)이 IMS 거래와 n 개씩 읽어 날짜순으로 섞는다 — 읽기 창구 없음(666)
+⚠️⚠️ [2026-11-01 · mcp-1b] hist_ 위 SQL 함수(hist_line_kind 등)에 `set search_path` 같은 **SET 절을 붙이지 마라 — SET 이 있는 SQL 함수는 인라인되지 않는다**(1 년 판매 집계 5 ~ 6 초 → SET 을 빼자 3.2 ~ 4.0 초 · 커넥터 statement_timeout 8 s) · 스키마는 본문에서 `public.` 으로 적는다
 ⭐  [2026-10-31 · 판정 901 · cs v7c `bc09643`] 손님 주문 이력 카드는 **본사 손님도 자기 이름의 오더만**(IMS · 이전 둘 다) — 654 A 의 cs v5 「본사는 매장 오더까지(Store 칸)」 는 바뀜 · 매장 오더는 그 매장에서 · 매장이 있으면 안내 한 줄
      ⚠️ hist_so.customer_id 는 GUID 로만 풀린다 — 반품 전용 오더 31 은 이름으로 이었다(902 · 재적재 뒤 다시 · deferred 425)
 ⭐  [2026-10-31 · 판정 911 · 912 · cs v8 `fab07f4` · v8a `8279248` · v8b `f1ffcf7`] Customers — 검색 = 이름 · 표시 이름 · 세금 번호 + 연락처(이메일 · 이름 · 전화 · 휴대폰) · 주소(거리 · 도시 · 우편번호)(각 100 · 두 글자부터 · 전화는 저장된 꼴 그대로) · 넓은 목록 Open A/R · Overdue(so_invoice_list is_open 을 청구처별 · 매장은 「billed to head office」) · Credit · On account(so_customer_balance_many · 그 손님 자신의 행) · Sort(Name · Open A/R · Overdue · Credit / on account — 정렬 모드는 해당 손님만 · 쪽 넘김 없음 · 통화 섞이면 숫자 합) · 상세 기한 지남 칩 + Balance 카드(통화마다 · 기한 지난 인보이스 15) · DB 무변(cbal-1 만)
@@ -588,6 +589,20 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  주소 배송 조건(주거지 · 테일게이트 · 인사이드 840)은 customer_update(sales)만 굳힌다 · 창고 기억은 address_review(845 · 오피스가 닫는다) · 테일게이트 · 인사이드는 팔렛만(850) · Billing 주소엔 칸 없음(849)
 ⚠️  운송사 짝 = ref_carrier_fc_name(847) · 짝 없는 견적 줄은 고를 수 없다 · 피할 운송사(843)는 흐림 · 픽업 · 마감 · 창고 시간대(852 · 857 · Edmonton = America/Regina) · Carrier pickups 는 Settings 만(860)
 ⭐  [2026-10-29 · wun-1 · 판정 881] 오피스가 Ship & invoice 에서 유닛을 더하고 뺀다 — `wms_unit_add` · `wms_unit_remove`(sales · Working · Finalized · 섞임 · 예약 중 거부 · 바뀌면 다시 견적) · 규칙의 정본은 asung-wms 규칙 47
+```
+
+## 4-y. ⭐⭐ IMS Claude 커넥터(읽기 도구 여섯) — 모르면 사고 (2026-10-31 ~ 11-01 · 정본 so-module §95 · 판정 917 ~ 931)
+
+```
+⭐  Claude(claude.ai Team 조직 커넥터 「Asung IMS」) → EF ims-mcp(원격 MCP · 무상태) → 도구 창구 mcp_order · mcp_stock · mcp_customer · mcp_po · mcp_backorders · mcp_sales
+⚠️⚠️ 토큰 역할은 Auth Hook ims_access_token_hook 이 ims_connector 로 바꿔 찍는다(client_id = mcp_config 일 때만) — 그 역할은 도구 창구 EXECUTE 만(표 · 뷰 0)
+     ⇒ 새 도구 = 새 mcp_* 창구(definer · stable · 첫 줄 mcp_gate) + ims_connector EXECUTE + EF 도구 목록 한 줄 · 화면용 창구를 ims_connector 에 열지 마라
+     ⇒ 훅을 끄면 Claude 연결 전부 멈춘다 · 도구를 더하면 연결한 사람마다 끊었다 다시 연결해야 보인다
+⚠️⚠️ 문 = mcp_gate — 활성 직원 + perms ? 'claude' | 'claude:read'(글자 그대로 · admin 도 켜야) · 호출마다 본다(끄면 다음 질문부터 거절 · 921)
+⚠️⚠️ 결과에 손님 연락처 · 자유 메모를 싣지 마라(허용 목록으로 골라 담는다 · 923) · 원가 · GP 는 원가 열쇠 + mcp_sales 에서만(919 · PO 도구도 매입 단가 없음)
+⚠️  mcp_sales = hist_ + IMS 판매 · 제품 줄만(925) · 크레딧은 낸 달(926) · GP 는 2026-08-21 부터(928) · 본사 묶음(929) · 공급처 = 지금 기본 공급처(930)
+⚠️  931 — 원가 열쇠가 있는 다른 직원에게 Claude 열쇠를 켜기 전에 다시 판정(deferred 435) · 동료로 넓히기 전 436
+⭐  호출 기록 mcp_call_log = 입력값만(결과 없음) · 1 년 · cron 60 ims-mcp-log-purge · OAuth client 는 Claude 하나 손 등록 · DCR 꺼짐(922)
 ```
 
 ## 5. 이 스킬을 갱신할 때

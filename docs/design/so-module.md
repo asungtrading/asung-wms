@@ -12078,3 +12078,135 @@ e0e5153 cbal-1: so_customer_balance_many(p_customer_ids) — 판정 912 · 잔�
 ```
 다음 판정 번호: 917 · 다음 deferred 번호: 430
 ```
+
+## §95 2026-10-31 밤 ~ 11-01 집 — IMS Claude 커넥터(도구 여섯 · 판매 집계) · 기초 시점 이동 중 트랜스퍼 원가 0 바로잡기 · QuickBooks 읽기 조회 · 짝 표 · 거울 · 받기 · 짝 맞추기 화면 — mcp-1a · mcp-2 · mcp-1b · oauth-consent v1 · cost-fix-1 · qbo-read-1 · qbo-sync-1a ~ 1c · set v13 · 판정 917 ~ 934 (집 PC)
+
+⭐ 정한 것: **IMS Claude 커넥터**(917 ~ 931 · 도구 여섯 · Claude 열쇠를 켠 사람만 · 연락처 · 메모 없음 · 원가 · GP 는 원가 열쇠 + 판매 집계만) · **기초 시점 이동 중 트랜스퍼 원가 0 = 조정 사건으로 앞으로의 원가만**(932 (가)) · **QBO 읽기 데이터를 Claude 로 분석해도 설문과 어긋나지 않는다**(933) · **QBO 목록을 `qbo_entity` 에 받아 둔다**(934 · 칸은 이름 · 짝 열쇠뿐)
+⭐ 원천: docs-1101 📌 A ~ F(대화 Claude · Caleb · 10-31 밤 ~ 11-01 대화) · asung-wms `git log --oneline 1da41d5..HEAD` · asung-ims `git log --oneline c42e795..HEAD` 원문 · 마이그레이션 머리 주석 · ⚠️ Caleb 의 말 원문은 지시서에 없다(판정 표의 Caleb 칸) · QBO 실물 · Cin7 → QBO 캡처는 레포 밖(95-c 가 원천 · 「11-01 실측(대화)」)
+⭐ 정본 자리: 커넥터 = 이 절(새 정본 문서 없음 — 95-c 1) · 원가 = `ledger-design.md` 「조정 얹기」 뒤 「기초 이전 원가 바로잡기」 · QBO = `qbo-integration.md` §5 · 새 §12 「짝 · 받기」 · §13 「QBO 실물」
+
+### 95-a 판정 (Caleb 원문 없음 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 917 | (원문 없음 · docs-1101) | Claude 커넥터 토큰은 **Auth Hook `public.ims_access_token_hook`** 이 역할을 `ims_connector` 로 바꿔 찍는다(client_id = `mcp_config.claude_client_id` 일 때만 · client_id 없으면 그대로 authenticated) — 그 역할은 **도구 창구 EXECUTE 만**(표 · 뷰 · 시퀀스 0) · 훅이 안 되면 PostgREST pre-request 거르기가 대안이었다 → 실연결에서 훅으로 됨을 확인(시크릿 창 보통 로그인 = authenticated · client_id 없음) · mcp-1a `5904224` |
+| 918 | (원문 없음) | 첫 판 도구 여섯 — 오더(`find_order` · mcp_order) · 재고(`stock` · mcp_stock) · 손님 요약(`customer_summary` · mcp_customer) · PO(`po_status` · mcp_po) · 백오더(`backorders` · mcp_backorders) · 판매 집계(`sales_summary` · mcp_sales · mcp-1b) |
+| 919 | (원문 없음) | 원가 · GP 는 **원가 열쇠가 있는 직원에게만 · 판매 집계에서만** — PO 도구에도 매입 단가 없음 |
+| 920 | (원문 없음) | 판매 집계 = 지난 거래 이력(hist_ · Cin7 시절) + IMS 판매를 한 표로 · 원가 없는 기간은 GP 비움 |
+| 921 | (원문 없음) | Staff 화면의 새 **CLAUDE 열쇠**(perms `claude` · `claude:read`)를 켠 사람만 — admin · supervisor 도 켜야 한다 · 끄면 다음 질문부터 거절(`mcp_gate` 가 호출마다 본다) |
+| 922 | (원문 없음) | OAuth client 는 **Claude 하나만 손 등록** · 자동 등록(Dynamic OAuth Apps · DCR) 끔 |
+| 923 | (원문 없음) | 도구 결과에 **손님 연락처 · 자유 메모 없음**(허용 목록으로 골라 담는다) · 운송사 · 추적번호는 낸다 |
+| 924 | (원문 없음) | 호출 기록 `mcp_call_log` — **입력값만**(결과 내용 없음 · result_bytes 만) · 1 년 보관 · cron **60** `ims-mcp-log-purge`(09:20 UTC) · mcp-2 `ec3901e` |
+| 925 | (원문 없음) | 판매 = **제품 줄만** · 운임 · 서비스 · 오더 할인 · 인보이스 합계는 표 아래 따로(other 다섯 칸 · 항등식) |
+| 926 | (원문 없음) | 크레딧은 **낸 달**에 · 판매 · 크레딧 · 순매출 세 칸 |
+| 927 | (원문 없음) | 브랜드 모르는 줄 = 「(no brand)」 |
+| 928 | (원문 없음) | GP 는 **2026-08-21 부터**(원장 기초 스냅샷 08-20 19:42 EDT) · 경계에 걸친 기간은 부분 표시 · GP 율 분모 = 원가 있는 판매 |
+| 929 | (원문 없음) | 손님 묶음은 **본사 아래 계정까지 합쳐 한 줄** + 계정별 |
+| 930 | (원문 없음) | 묶음 = brand · customer · month · sku · supplier(공급처 = **지금 기본 공급처** · 없으면 「(no supplier)」) |
+| 931 | (원문 없음) | 원가 검증(cost-gap-0) 중에도 GP 를 막지 않는다 — Claude 열쇠가 Caleb 한 명이라서 · ⚠️ **원가 열쇠가 있는 다른 직원에게 Claude 열쇠를 켜기 전에 다시 판정**(deferred 435) |
+| 932 | (원문 없음) | 기초 시점 이동 중 트랜스퍼(TR-03975 · TR-03976 · 2,559 개)의 도착 레이어 원가 0 은 **(가)** 남은 0 원 레이어에 원가를 얹고 · 이미 팔린 몫은 「기초 이전 원가 바로잡기」 사건(`inv_cost_adjust.kind` `opening_fix`)의 cost_late 로 · **레이어 재생성 없음** · 8 ~ 10 월 SKU 별 판매 원가는 그대로(그 기간은 BigQuery 로 본다) · 기각 (나) 기초에 IN_TRANSIT 을 넣고 원장 재생성(월요일 직전 위험) · cost-fix-1 `d91c672` · 적용 2026-11-01 |
+| 933 | (원문 없음) | IMS 읽기 조회로 내려받은 QBO 데이터를 **회사 주인(Caleb)이 Claude 로 분석**하는 것은 Intuit 설문의 「생성형 AI No」 · 「데이터를 남에게 No」 와 어긋나지 않는 것으로 본다 — IMS 앱 자체는 AI 를 부르지 않는다 · 노출은 줄인다(손님 · 공급처는 필요한 칸만 · 이메일 · 전화 · 주소는 서버가 거부) · 다음 설문 다시 알림(deferred 374) 때 이 쓰임도 적는다 · qbo-read-1 `cc06d5d` |
+| 934 | (원문 없음) | QBO 목록을 **`qbo_entity` 에 받아 둔다** — 칸은 realm_id · qbo_type · qbo_id · name · sku · parent_id · fully_qualified_name · active · sync_token · fetched_at · gone_at 뿐(연락처 · 주소 · 금액 0) · qbo-read-1 의 「조회 결과는 표에 저장하지 않는다」 의 예외 · deferred 374 재알림 때 함께 적는다 · qbo-sync-1a `d00a307` |
+
+### 95-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline 1da41d5..HEAD`(asung-wms · 11-01) 원문(80 자에서 자름 · 전문은 git):
+
+```
+0e12be0 qbo-sync-1c: 짝 맞추기 묶음 qbo_match_auto(p_kind, p_after, p_limi
+a7493de qbo-sync-1b: EF qbo 액션 pull {entity, start}(admin · cron 불가) �
+d00a307 qbo-sync-1a: QBO 짝 표 · 거울(판정 934) — qbo_entity(id · name
+cc06d5d qbo-read-1: EF qbo 읽기 전용 조회 query · read(admin 만 · cron 
+d91c672 cost-fix-1: 기초 시점 이동 중 트랜스퍼(TR-03975 · TR-03976) 
+ee553d3 mcp-1b: 커넥터 ⑥ 판매 집계 mcp_sales + EF sales_summary(판정 
+ec3901e mcp-2: IMS Claude 커넥터 EF ims-mcp(원격 MCP · Streamable HTTP 202
+5904224 mcp-1a: IMS Claude 커넥터 DB 바탕 — 판정 917 ~ 923 · 역할 im
+```
+
+`git log --oneline c42e795..HEAD`(asung-ims) 원문(같이 자름):
+
+```
+9e0b079 set v13: QuickBooks matching 탭(?t=qbomatch · qbo-sync-1a ~ 1c · 판�
+43f7357 oauth-consent v1: Claude 커넥터 승인 화면(mcp-3 · 판정 917 ~ 9
+```
+
+| 차수 | 마이그레이션 · 판 | 커밋 | 무엇 |
+|---|---|---|---|
+| mcp-1a | `20261031233700` | `5904224` | 역할 ims_connector · 훅 ims_access_token_hook(만들기만) · mcp_config · Claude 열쇠 · 도구 다섯 · PUBLIC EXECUTE 9 회수 · 검증 76 OK |
+| mcp-2 | `20261101000546` · EF ims-mcp | `ec3901e` | 원격 MCP(Streamable HTTP 2025-06-18 · 무상태) · 401 + resource_metadata · 거절은 isError · mcp_call_log · cron 60 · 검증 29 OK · deno 15 |
+| mcp-3 | oauth-consent v1 | asung-ims `43f7357` | 승인 화면(Site URL + `/oauth-consent.html` · 돌아갈 주소 claude.ai · claude.com 만 Approve · 열쇠 없으면 Back to Claude) |
+| mcp-4 | (사람 손 · 코드 없음) | — | 켜기 — 95-c 1 |
+| mcp-1b | `20261101014251` | `ee553d3` | mcp_sales + EF sales_summary · hist_line_kind SET 제거 · 검증 50 OK · deno 16 |
+| cost-fix-1 | `20261101160000` · ops `cost-fix-1-apply.sql` | `d91c672` | 판정 932 (가) · 검증 37 OK · 재생성 생존 시험 |
+| qbo-read-1 | `20261101190000` · EF qbo | `cc06d5d` | query · read · 검증 13 OK · deno 14 |
+| qbo-sync-1a | `20261101210000` | `d00a307` | qbo_entity · qbo_pull_state · qbo_link · 창구 9 · 검증 50 OK |
+| qbo-sync-1b | EF qbo | `a7493de` | pull · deno 15 |
+| qbo-sync-1c | `20261101230000` · EF qbo | `0e12be0` | 짝 맞추기 묶음 · Item select * · 검증 24 OK |
+| set v13 | settings.html | asung-ims `9e0b079` | Settings → QuickBooks matching(`?t=qbomatch`) |
+
+### 95-c 실측 · 뜻 (11-01 · 메인 DB `fazgmyvzzhqybtvtktyg`)
+
+1. **커넥터 켜기(mcp-4 · 사람 손 · 끝남)** — Supabase OAuth Server 켜짐 · Site URL `https://ims.asung.ca` · Authorization Path `/oauth-consent.html` · Allow Dynamic OAuth Apps **꺼짐** · OAuth App 「Claude」 Public · redirect `https://claude.ai/api/mcp/auth_callback` · `https://claude.com/api/mcp/auth_callback` · client_id `e851c404-7935-436c-8a3e-230befa37a81` → `mcp_config`(1 행 · 11-01 재셈) · Auth Hook 켜짐(시크릿 창 보통 로그인 = role authenticated · client_id 없음 확인) · Caleb perms `["claude:read"]`(SQL — Staff 화면은 자기 행을 못 바꾼다) · Claude Team 조직 커넥터 「Asung IMS」 URL `https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/ims-mcp` · 도구 6 · 실호출 ok · `mcp_call_log` 5 행(11-01 재셈)
+   - ⚠️ 도구를 더하면 연결한 사람마다 **끊었다 다시 연결**해야 새 도구가 보인다
+   - ⚠️ 훅을 끄면 Claude 연결이 전부 멈춘다(토큰이 authenticated 로 남아 `mcp_gate` 가 거절) · 끊기 절차 = asung-ops 5-f
+   - 정본 자리: 새 정본 문서를 두지 않았다(커넥터 설계는 마이그레이션 머리 · EF `_shared/mcp.ts` 머리 · 이 절) — 도구가 늘거나 동료에게 넓히면(435 · 436) 그때 `docs/design/mcp-connector.md` 를 연다
+2. **mcp-1b 의 SET 함정** — `hist_line_kind` 의 `set search_path` 를 뺐다(본문 무변) · **SQL 함수에 SET 이 붙으면 인라인되지 않는다** → 1 년 집계 5 ~ 6 초 → 3.2 ~ 4.0 초(커넥터 역할 statement_timeout 8 s 안)
+3. **원가 바로잡기(cost-fix-1 · 932)** — 결함: 기초 스냅샷(08-20)에 IN_TRANSIT 행이 없어 08-26 도착 레이어 259 개가 부모 없이 unknown 0 으로 섰고 자식(불러온 축 트랜스퍼 526 레이어)도 0 을 물려받았다
+   - 적용 실측(11-01): 사건 259(뿌리 레이어마다 하나 · `inv_cost_adjust` opening_fix posted 259 · 합 **13,035.482113** — 11-01 재셈) · 단가 갈래 = 토론토 기초 가중 257 SKU 12,990.43 · EDM 기초 1(SMI10057 7.81) · inv_cost 최근 1(LON83846 37.25) · 갈래 합 13,035.49 = 나간 5,989.44(cost_late) + 남은 7,046.05(반올림 합 · 사건 합과 0.01 차) · 자식 carried 526 줄(11-01 재셈) · EDM 평가액 239,662.91 → 246,708.96(compare 10-30 252,741.56) · 가족 0 원 열린 레이어 222 → 0 · 재생성 생존 시험(inv_layer_apply 95 초) 통과 · 되돌리기(`inv_cost_adjust_reverse` 자연키 복사) 포함 — 숫자 출처는 cost-fix-1 커밋 · 「11-01 실측(대화)」
+   - 뜻(Caleb 에게 설명한 것): 이 차수는 **앞으로의 원가**를 고친 것 — 8 ~ 10 월 IMS GP 는 그대로(팔린 몫 5,989.44 는 어느 달 GP 에도 안 들어간다) · 8 월 Africa's BEST GP 차이(IMS 11.9 % · BigQuery 26.1 %)는 이 결함 때문이 아니다(0 원 판매는 IMS GP 를 높이는 방향) — cost-gap-0 결론대로 기간 합은 같고 Cin7 이 판매 사이에 원가를 다르게 나눈 것 · IMS GP 는 08-21 부터만(928)
+   - ⚠️ 나중 QBO 싱크는 `opening_fix` 사건을 장부로 보내지 않는다(그 판매의 COGS 는 Cin7 이 이미 QBO 로 보냈다) — 가르는 열쇠 = `inv_layer_consume.line_ref like 'adj:%'` → `inv_cost_adjust.id` → kind
+   - 운임 627.95(TR-03975 398.75 · TR-03976 229.20)는 재생성이 08-26 에 unit_cost 0 레이어를 보고 fr_nobasis 로 버린다 · cost-fix-1 무접촉 · 영구히 빠짐(deferred 430)
+4. **QuickBooks 읽기 · 짝 · 받기** — 규칙 · 표 · 창구는 `qbo-integration.md` §5 · §12 · QBO 실물 · Cin7 → QBO 가 하던 것 · 결제 입금 계좌 · 컷 경계는 §13 이 정본
+   - 자동 짝 실호출(11-01 · `qbo_link` 재셈): account 220(auto_code) · tax_rule 24 · payment_term 17 · payment_method 7(+ skipped 1 credit_card) · supplier 195(absent 33) · customer 9,764(absent 27) · product 11,775(auto_sku 11,755 + auto_sku_name 20 · absent 2,941 · ambiguous 1 LGL99950SIL) · charge 손 짝 2(freight → Item 4 · discount → Item 2170) · service 0(11 남음)
+   - 거울(`qbo_entity` 재셈): Account 238(활성 220) · Customer 10,032(활성 9,876 · 하위 18) · Item 14,743(활성 13,654) · PaymentMethod 14 · TaxCode 16 · Term 18 · Vendor 642 · gone 0
+   - SKU 중복(재셈): 같은 Sku 의 Item 둘 = **33 SKU · 66 Item · 둘 다 활성 22** · 활성 둘 22 는 IMS 현재 이름과 같은 쪽이 정확히 하나씩 · 그중 5(ONA70021-6 · ONA70023-12 · ONA70031-6 · ONA70033-12 · ONA80041-6)는 옛 Item 쪽 ⇒ 「최근 것」 규칙은 틀린다 · 원인 짐작 = Cin7 이 Item 을 이름으로 찾아 이름이 바뀌면 같은 Sku 로 새 Item 을 만들었다(패턴 근거)
+   - 살린 트럭 TR-06396 ~ 06399(판정 896): QBO 에 그 DocNumber 의 JournalEntry 가 하나도 없다(날짜 조건 없이 · 11-01) ⇒ 받을 때 보낼 분개 없음 · 트랜스퍼를 장부에 보낼지는 보내기 차수의 판정 거리(433)
+   - 57014: 첫 `qbo_match_auto('customer')` 가 REST 8 초 statement timeout · 다시 재면 ≈ 1 초(재현 안 됨) · 같은 시각 qbo_entity · qbo_link autovacuum(짐작 · 시각 겹침뿐) ⇒ 「더 빠르게」 가 아니라 묶음 계약(qbo-sync-1c)으로 상한을 묶음 크기로
+5. **제품 이름 잘림(Caleb 11-01 · 손으로 고칠 일 · 사실만)** — Cin7 안에서 잘린 채 저장된 이름이 QBO · IMS 양쪽으로 넘어왔다(QBO 도 같은 글자 · QBO 칼날 100 자보다 짧다) · 체계적 칼날 없음(길이 분포에 60 · 100 몰림 없음) · 고칠 것 13: 잘림 ONA70011-6 · ONA70013-12 · ONA70021 · ONA70021-6 · ONA70023 · ONA70023-12 · ONA70031 · ONA70031-6 · ONA70033 · ONA70033-12 · TIL13476 · 오타 FAN04307 · FAN04307-6(「((10oz)」) · RON02377-36(「(Red」) · 세트는 낱개 이름 + 「 - N」 · ⚠️ 5 개(ONA70011-6 · 70021-6 · 70023-12 · 70031-6 · 70033-12)는 QBO 이름 짝(SKU 중복)이 이미 지어졌으니 IMS 이름을 바꿔도 짝은 안 흔들린다(짝은 QBO Id 로 붙든다) · 이 5 = 잘림 목록 ∩ SKU 중복(95-c 4 의 「옛 Item 쪽 5」 와 다른 집합 — 실측 11-01: ONA70011-6 은 짝이 새 Item #12874 · ONA80041-6 은 잘림 목록 밖 · 짝 #4509 옛 쪽)
+   - ⚠️ 위 목록은 지시서 원문 그대로 — 「고칠 것 13」 과 나열 14 개(오타 셋 포함)가 어긋난다 · RON02377-36 이 오타 갈래인지는 Caleb 확인
+
+### 95-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: 없음 · 360 은 커넥터가 섰지만 열림 그대로(남은 일 435 · 436 · 닫을지는 Caleb)
+- 잇기: **360**(917 ~ 931 · 운영 연결 10-31 ~ 11-01) · **374**(933 · 934) · **375**(Cin7 QBO Auto sync 꺼짐 · 실무자 10 월 업로드 뒤) · **341**(이월 · 434) · **260** · **327**(읽기 · 짝 · 받기 섰음 · 보내기 없음)
+- 새 deferred **430 ~ 438**
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 430 | 운임 627.95(TR-03975 · TR-03976)는 재생성이 fr_nobasis 로 버린다 · 영구히 빠짐 | 미정 |
+| 431 | QBO 보내기 — 비활성(지워진)만 있는 Item 은 새로 만들지 말고 옛 Item 을 다시 켜고 쓰는 쪽(판정 전) | 컷오버 뒤 |
+| 432 | credit_card 1:3(IMS 하나 · QBO Visa · Mastercard · Amex) | 컷오버 뒤 |
+| 433 | 북키퍼에게 물을 것 넷 | 컷오버 뒤 |
+| 434 | 컷 뒤 입금을 어디에 넣나(IMS → 싱크 vs QBO 직접 · 두 번 적힘) — 341 에 잇는다 | 컷오버 뒤 |
+| 435 | 931 다시 판정 — 원가 열쇠가 있는 다른 직원에게 Claude 열쇠를 켜기 전 | 컷오버 뒤 |
+| 436 | 동료에게 커넥터를 넓히기 전 — 비활성 직원 auth ban 없음 · worker 가 REST 로 손님 · SO 를 다 읽는 문제 | 컷오버 뒤 |
+| 437 | BigQuery 대조(cost-gap-0 ⬜) — SKU 별 COGS 합 08-21 ~ 10-29 ↔ IMS 소비 합 | 컷오버 뒤 |
+| 438 | 짝 화면 「애매만 보기」(qbo_link_page 후보 있음 거르기) — 손님 · 공급처가 늘면 | 컷오버 뒤 |
+
+### 95-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§94-e 에 이어 38 부터)
+
+38. [Claude Code · mcp-2] 이견을 내고 답 없이 만들었다 ⇒ 지시서 맨 위 「이견 답 전에 만들지 마라」(mcp-1b 부터 · 지켜짐)
+39. [Claude Code · mcp-1b] 시험 begin ~ rollback 16 초 · 80 초(10 초 규칙 위반) ⇒ 가짜 호출을 줄이고 무거운 것은 트랜잭션 밖(cost-fix-1 2.9 초 · 1a 3.6 초 · 1c 2.4 초 지켜짐)
+40. [대화 Claude] 원가 대조에서 「Cin7 = 정답」 전제를 두지 말 것(원칙 1 — Cin7 은 대조 대상) · 보존 셈으로 어느 쪽이 닫히는지 본다
+41. [대화 Claude · qbo-sync-0 / 1] 짐작 둘이 실물로 깨졌다 — 「COGS = `_100_`」(실제 #58) · 「제품 짝 1 만 4 천」(Cin7 은 처음 팔 때만 Item 을 만든다 → absent 2,941) ⇒ 실물 조회(qbo-read-1)를 먼저 둔 것이 맞았다 · 기대치는 드라이런 뒤에 적는다
+42. [Claude Code · 1b] 가짜 Intuit 가 「칸을 고르면 Sku 를 뺀다」 를 몰라 시험이 통과했다 — 실호출에서 product 짝 0 ⇒ 바깥 API 가짜는 **실물 응답 꼴(sparse 등)을 흉내** · 받은 직후 count(칸) 한 줄로 확인
+43. [대화 Claude] psql 출력이 pager 로 열렸다 닫히며 사라졌다 ⇒ 확인 명령은 늘 `-P pager=off`
+44. [대화 Claude] 확인 grep 을 합계 표의 「머리글 줄」 꼴로 적어 값 줄을 못 잡았다(qbo-read-1) ⇒ 확인 기준은 실제 출력 꼴을 보고(재발 §79-e 4)
+45. [환경] 크롬이 여러 파일 자동 다운로드를 막고 · WSL 이 Windows Downloads 목록을 늦게 읽었다 ⇒ 내려받기는 파일 하나로 묶거나 · 옮기기 명령은 `ls -S`(가장 큰 파일)로 · 대화 파일 카드를 못 찾으면 heredoc 으로 터미널에 직접 쓴다
+46. [잘 된 것] TR-06396 ~ 99 를 짓기 전에 QBO 분개 0 을 확인(그대로 지었으면 In Transit 마이너스) · SKU 중복 22 를 IMS 이름과 대조해 「최근 것」 규칙이 틀림을 잡음 · cost-fix-1 이 기존 원가 조정 장치(inv_cost_adjust)를 재사용 · 재생성 생존 시험 · 57014 를 「더 빠르게」 가 아니라 「묶음 상한」 으로
+47. [Caleb] 「터미널 드래그가 클립보드를 덮는다」 · 「쓰기 창구 + 읽기 한 문장」 재발 · EXISTS 서브플랜 · CTE 로 거른 뒤 조인 · 가짜 재료는 실자료 없는 기간에(10-31 인계서 §3-3) — 근거(grep 11-01): 「쓰기 창구 + 읽기 한 문장」 = §66-e 8 · asung-workflow §4 「volatile 창구와 stable 읽기를 한 문장에 두지 마라」(2026-10-14 · bo-1a) · 「가짜 재료」 = §83-e 8(link-perf-3 가짜 재료 집합 insert · 「실자료 없는 기간에」 는 없다) · ⚠️ **근거 못 찾음**: 터미널 드래그 · 클립보드 · EXISTS 서브플랜 · CTE 로 거른 뒤 조인(docs · 스킬 grep 0 · 인계서는 레포 밖)
+
+### 95-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §94 끝 「다음 판정 번호 917 · 다음 deferred 번호 430」 → 아래
+- deferred 새 430 ~ 438 · 잇기 360 · 374 · 375 · 341 · 260 · 327 · 「다음 번호 430」 → 439
+- `qbo-integration.md` 머리 · §1 · §2 · §3 · §5 · §7 · §9 · §11 → [2026-11-01] 읽기 · 짝 · 받기 · 새 §12 · §13
+- `ledger-design.md` 「조정 얹기」 뒤 → 「기초 이전 원가 바로잡기(opening_fix)」
+- `supabase/ops/cron.sql` ims-mcp-log-purge jobid → 60(실측) · `reload-procedure.md` §P-3 5
+- 스킬 asung-qbo(§0 · §1 · §4 · §5 · description 키워드) · asung-inv-ledger(본문만 — ⑰ carried · 재생성 시간 · 함정 표 둘) · asung-so(본문만 — 4-u SET · 4-y 커넥터) · asung-workflow(§4 SET 한 줄 · §11 끝 덩이) · asung-wms 무변(커넥터 · 이력과 무관)
+- asung-ops — §1 표 두 줄 · 5-f 커넥터
+- 매뉴얼은 말만(07 장 「QuickBooks」 절 · Staff 의 Claude 열쇠 — 95-d′ 밖 · deferred 378 에 잇는 제안)
+
+```
+다음 판정 번호: 935 · 다음 deferred 번호: 439
+```

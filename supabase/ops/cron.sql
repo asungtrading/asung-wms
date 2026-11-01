@@ -881,5 +881,6 @@ $job$);
 --   왜 DB 직접: EF 를 거칠 까닭이 없다(qbo · fc 는 EF 안에서 호출마다 지우는 꼴 · 여기는 cron 하루 한 번 · so-backorder-sweep 1 · ims-shop-nightly 43 과 같은 꼴) · 열쇠 없음
 --   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-mcp-log-purge';  · 최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-mcp-log-purge') order by start_time desc limit 3;
 --   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-mcp-log-purge'), active := false);   · 해제: select cron.unschedule('ims-mcp-log-purge');
---   jobid: 등록 뒤 실측해 여기에 적는다(테스트 DB 번호 · 마지막 59 ims-qbo-refresh 다음)
+--   ~~jobid: 등록 뒤 실측해 여기에 적는다(테스트 DB 번호 · 마지막 59 ims-qbo-refresh 다음)~~
+--   ✅ [2026-11-01 · docs-1101 실측] **jobid 60** ims-mcp-log-purge · '20 9 * * *' · active t — `select jobid, jobname, schedule, active from cron.job where jobname like 'ims-mcp%';` 원문 1 행(60 | ims-mcp-log-purge | 20 9 * * * | t) · 컷오버(10-30) 뒤 등록이라 reload-procedure P-3 의 「1 단계에서 끈 22」 밖(P-3 5)
 select cron.schedule('ims-mcp-log-purge', '20 9 * * *', $job$ select public.mcp_log_purge(); $job$);

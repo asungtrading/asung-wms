@@ -3803,6 +3803,27 @@ settle        위 「늦은 얹기」 그대로 — 음수도 같은 길: 남은
 불변식        재생성 가치 차이 +2.7309(불러온 레이어 · ⑭) 는 po-disc-2 ~ 5b 내내 그대로 · 실시간 = 재생성(사건 posted_on 자리)
 ```
 
+#### ⭐⭐ 기초 이전 원가 바로잡기 — `opening_fix` · 레이어 대상 조정 (2026-11-01 · cost-fix-1 `20261101160000` · d91c672 · 판정 932 (가) · so-module §95-c 3)
+```
+결함          기초 스냅샷(08-20)에 IN_TRANSIT 행이 없다 → 기초 시점에 이동 중이던 트랜스퍼(TR-03975 · TR-03976 · 2,559 개)의 08-26 도착 레이어 259 개가
+              부모 없이 unknown 0 원으로 섰고 · 자식(불러온 축 트랜스퍼 526 레이어)도 0 을 물려받았다 ⇒ 그 뒤 판매 원가 0 · 평가액이 빈다
+처방(가)       재생성 없이 원가 조정 사건으로 — inv_cost_adjust kind opening_fix · target_type layer · 대상은 자연키 칸 넷(layer_doc_number · layer_line_ref ·
+              layer_sku · layer_warehouse — 레이어 id 는 재생성이 바꾸므로 자연키로만) · CHECK opening_fix ⇒ layer · 기각 (나) 기초에 IN_TRANSIT 넣고 원장 재생성
+얹기          inv_layer_post_opening_fix(새 · 속) — 레이어 하나에 전액(비례 없음 · 기준 0 거부 없음) · cost_add kind opening_fix · line_ref adj:<사건 id> · 멱등
+              settle 이 늦은 비용과 같은 길로 나눈다 — 남은 몫 → 레이어 · 옮겨 간 몫 → 자식 carried(**어느 축이든** · 판정 110) · 나간 몫 → cost_late(split_basis.kind opening_fix)
+              inv_layer_post_cost_adjust 는 layer 대상을 이 창구로 위임(+3 줄) · settle · carry · value · fifo_take · inv_layer_apply 본체 무접촉(md5 · 검증 U1)
+적용          inv_cost_fix_opening_transfer(p_docs, …, p_dry) — 부모 없는 unknown 0 도착 레이어마다 사건 하나 · 단가 = ① 다른 실제 창고 기초(토론토 가중) → ② 같은 창고 기초
+              → ③ inv_cost 최근 양수 → ④ compare 스냅샷 · 운영 손 실행 supabase/ops/cost-fix-1-apply.sql
+재생성        inv_layer_apply_flush_adds 에 layer 갈래(+18 줄 — 옛 안전띠는 po_line · charge_alloc 만 알아 layer 대상이 영원히 deferred 됐다) · 자연키 레이어가 섰으면
+              posted_on 자리에 다시 얹는다 · 생존 시험 cost_fix_1_regen_trial.sql(재생성 95 초 · 통과)
+되돌림        inv_cost_adjust_reverse 재발행 — layer 대상이면 자연키 칸 넷을 복사(target_pair_ck)
+실측(11-01)   사건 259 · posted · 합 13,035.482113(재셈) · 갈래 토론토 기초 257 SKU 12,990.43 · EDM 기초 1(SMI10057 7.81) · inv_cost 1(LON83846 37.25)
+              나간 5,989.44 + 남은 7,046.05(반올림 합 13,035.49) · EDM 평가액 239,662.91 → 246,708.96 · 가족 0 원 열린 레이어 222 → 0
+뜻            앞으로의 원가만 고쳤다 — 8 ~ 10 월 SKU 별 판매 원가(sale_out 소비 금액)는 그대로 · 나간 몫은 어느 달 GP 에도 안 들어간다 · 그 기간은 BigQuery 로
+⚠️ QBO       opening_fix 는 장부로 보내지 않는다(그 판매의 COGS 는 Cin7 이 이미 QBO 로) — 열쇠 inv_layer_consume.line_ref like 'adj:%' → inv_cost_adjust.id → kind
+⚠️ 운임       TR-03975 · TR-03976 운임 627.95 는 재생성이 08-26 에 unit_cost 0 레이어를 보고 fr_nobasis 로 버린다 · cost-fix-1 무접촉 · 영구히 빠짐(deferred 430)
+```
+
 📌 차이 큐 닫기(`20260919175712` · 9a5344a · short 만 · 형제 문서 합계 `po_family_*`)는 발주 쪽 일이라 **po-module §11-i · §11-c 가 정본**이다. 원장과 닿는 자리는 하나 — over 를 닫을 때 초과분을 재고에 넣는 길(⬜ · 그 발주의 단가로 · 같은 창구).
 
 #### ⬜ 이식이 남긴 것
