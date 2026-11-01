@@ -556,3 +556,12 @@ enabled = true
 #   비밀: QBO_ENV · QBO_CLIENT_ID_SANDBOX · QBO_CLIENT_SECRET_SANDBOX · QBO_CLIENT_ID_PRODUCTION · QBO_CLIENT_SECRET_PRODUCTION · IMS_CRON_SECRET(기존). 값은 응답 · 기록(qbo_call_log) · 오류 · console 어디에도 안 남는다(_shared/qbo.ts scrub).
 verify_jwt = false
 entrypoint = "./functions/qbo/index.ts"
+
+[functions.ims-mcp]
+enabled = true
+# mcp-2 (2026-11-01 · 판정 917 ~ 924 · DB mcp-1a 20261031233700 · mcp-2 20261101000546) — Claude 커스텀 커넥터의 원격 MCP 서버(Streamable HTTP · 2025-06-18 · 읽기 전용 도구 5 · 무상태).
+#   ⚠️ 이 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)가 메인(617). 배포: supabase functions deploy ims-mcp --project-ref fazgmyvzzhqybtvtktyg
+#   verify_jwt=false 인 까닭: ① GET …/ims-mcp/.well-known/oauth-protected-resource 는 인증 없이 열려야 한다(RFC 9728 · Claude 가 401 뒤 이 문서를 읽는다) ② 토큰이 없거나 만료면 규격이 HTTP 401 + WWW-Authenticate: Bearer resource_metadata="…" 를 요구하는데
+#     게이트웨이의 401 에는 그 머리를 못 붙인다(mcp-0 조사) — 문은 함수 안(GET /auth/v1/user 로 토큰 확인 · 도구는 rpc/mcp_* 를 그 토큰으로 · 권한 거절은 401 이 아니라 tools/call isError). 비밀값 없음(SUPABASE_* 자동 주입만).
+verify_jwt = false
+entrypoint = "./functions/ims-mcp/index.ts"

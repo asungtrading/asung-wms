@@ -875,3 +875,11 @@ select cron.schedule('ims-qbo-refresh', '10 9 * * *', $job$
     body := '{"action":"refresh"}'::jsonb, timeout_milliseconds := 60000)
   where exists (select 1 from public.qbo_connection c where c.status = 'connected');
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-mcp-log-purge 등록 — mcp-2 (2026-11-01 · 판정 924) — Claude 커넥터 호출 기록(mcp_call_log) 1 년 지난 줄 지우기 · 마이그레이션 20261101000546 적용 뒤에 · ⚠️ 이 프로젝트가 메인(617) — 다른 프로젝트에 등록하지 마라
+--   무엇: 매일 09:20 UTC(토론토 04:20 EST · 05:20 EDT) select public.mcp_log_purge() — delete … where called_at < now() - interval '1 year' · 돌려주는 것 = 지운 수(cron.job_run_details.return_message 에 「1 row」 꼴 · 값은 보이지 않는다)
+--   왜 DB 직접: EF 를 거칠 까닭이 없다(qbo · fc 는 EF 안에서 호출마다 지우는 꼴 · 여기는 cron 하루 한 번 · so-backorder-sweep 1 · ims-shop-nightly 43 과 같은 꼴) · 열쇠 없음
+--   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-mcp-log-purge';  · 최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-mcp-log-purge') order by start_time desc limit 3;
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-mcp-log-purge'), active := false);   · 해제: select cron.unschedule('ims-mcp-log-purge');
+--   jobid: 등록 뒤 실측해 여기에 적는다(테스트 DB 번호 · 마지막 59 ims-qbo-refresh 다음)
+select cron.schedule('ims-mcp-log-purge', '20 9 * * *', $job$ select public.mcp_log_purge(); $job$);
