@@ -8,6 +8,10 @@
 //     · API 기본 주소 · 토큰 끝점 몸(urlencoded · Basic) · revoke 몸(JSON {token} · Basic) · 응답 칸 이름 · intuit_tid 머리 = Intuit 공식 oauth-jsclient 소스
 //       (github.com/intuit/oauth-jsclient src/OAuthClient.js · src/access-token/Token.js · src/response/AuthResponse.js)
 //     · minorversion 75 = 2025-08-01 부터 1 ~ 74 는 무시되고 75 로 답한다(Intuit 공지 · codat 250219/250401 요약) — 75 를 명시해도 해가 없다
+//   qbo-read-1(2026-11-01 · 판정 933 · DB 20261101190000 detail jsonb): 읽기 전용 조회 query · read(admin 만 · cron 길 없음) — Intuit API 호스트로는 GET 과 POST …/query 만 나간다(apiCall 이 그 밖은 던진다 · 쓰기 액션 없음)
+//     query = { q } · select 로 시작 · 세미콜론 없음 · from 의 엔터티가 QUERY_ENTITIES 안 · MAXRESULTS 없으면 100 · 1000 초과는 400 · Customer · Vendor 는 select * 와 연락처 · 주소 칸 금지(933 노출 줄이기)
+//     read  = { entity, id } · 단건 GET · Preferences · CompanyInfo 는 id 없이 · Customer · Vendor 단건은 연락처 · 주소 칸을 빼고 돌려준다
+//     기록 = call_log 한 줄 + detail(entity · rows · totalCount · startPosition · maxResults · q 는 리터럴을 ? 로) · 결과 행은 담지 않는다 · 결과 행에는 scrub 을 걸지 않는다(SyncToken 이 깨진다 · 이견 3) · 응답은 들여쓰기 없는 JSON · 5 MB 초과 413
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -25,7 +29,14 @@ export const LEASE_WAIT_MS = 15_000, LEASE_POLL_MS = 1_500;                     
 export const RETRY_DELAY_MS = 1_000;                                              // 네트워크 · 5xx 만 1 회
 export const CALL_LOG_KEEP_DAYS = 90;
 export const ACCESS_EXPIRES_DEFAULT_S = 3600;                                     // expires_in 이 없을 때만(Intuit 문서값 · 이견 5) — 응답에 있으면 그 값
-export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping"] as const;
+export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read"] as const;
+// ── qbo-read-1 읽기 전용 조회 — 허용 엔터티(정식 이름 · 대소문자 무관으로 맞춘다) · Employee 는 일부러 없다(933) ──
+export const QUERY_ENTITIES = ["Account", "TaxCode", "TaxRate", "TaxAgency", "Term", "PaymentMethod", "Customer", "Vendor", "Item", "Invoice", "CreditMemo", "Payment", "RefundReceipt", "SalesReceipt", "Deposit", "JournalEntry", "Bill", "VendorCredit", "BillPayment", "Purchase", "Class", "Department", "CompanyCurrency", "ExchangeRate"] as const;
+export const READ_SINGLETONS = ["Preferences", "CompanyInfo"] as const;                                 // read 만 · id 없이
+export const PII_ENTITIES = ["Customer", "Vendor"] as const;                                             // 연락처 · 주소 칸 금지(933)
+export const PII_FIELDS = ["PrimaryEmailAddr", "PrimaryPhone", "Mobile", "Fax", "BillAddr", "ShipAddr", "WebAddr", "AlternatePhone", "OtherAddr"] as const;
+export const MAXRESULTS_DEFAULT = 100, MAXRESULTS_MAX = 1000, QUERY_MAX_CHARS = 2000;
+export const RESPONSE_MAX_BYTES = 5 * 1024 * 1024;                                                       // Intuit 응답 몸 5 MB 초과 → 413(이견 9)
 export const CRON_ACTIONS = ["refresh"] as const;
 export const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-region", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 
@@ -130,8 +141,59 @@ export function scrub(text: string, secrets: readonly string[] = []): string {
 }
 export const companyNameOf = (body: unknown): string | null => { const n = ((body as Record<string, unknown>)?.CompanyInfo as Record<string, unknown> | undefined)?.CompanyName; return typeof n === "string" && n.trim() ? n.trim() : null; };
 
+// ── qbo-read-1 순수: 조회 문장 검사 · 기록용 다듬기 · 읽기 전용 요청 검사 · 연락처 칸 빼기 ──
+export const canonicalEntity = (name: string, list: readonly string[]): string | null => list.find((e) => e.toLowerCase() === String(name ?? "").trim().toLowerCase()) ?? null;
+export type ParsedQuery = { entity: string; text: string; maxResults: number; startPosition: number; isCount: boolean };
+export function parseQuery(raw: unknown): ParsedQuery {
+  const q = String(raw ?? "").trim();
+  if (!q) throw new QboError(400, "q is required — a QuickBooks query such as: select * from Item MAXRESULTS 100");
+  if (q.length > QUERY_MAX_CHARS) throw new QboError(400, `q is longer than ${QUERY_MAX_CHARS} characters`);
+  if (q.includes(";")) throw new QboError(400, "q must not contain a semicolon");
+  if (!/^select\s/i.test(q)) throw new QboError(400, "q must start with select — this connector only reads");
+  const m = /\bfrom\s+([A-Za-z]+)/i.exec(q);
+  if (!m) throw new QboError(400, "q has no from <entity>");
+  const entity = canonicalEntity(m[1], QUERY_ENTITIES);
+  if (!entity) throw new QboError(400, `entity ${m[1]} is not readable here — allowed: ${QUERY_ENTITIES.join(", ")}`);
+  const fields = q.slice(6, m.index).trim();
+  const isCount = /^count\s*\(\s*\*\s*\)$/i.test(fields);
+  if ((PII_ENTITIES as readonly string[]).includes(entity) && !isCount) {
+    if (fields === "*") throw new QboError(400, `select * is not allowed on ${entity} — name the fields (Id, DisplayName, ParentRef, Job, Active, CurrencyRef, Balance, MetaData …); contact and address fields are excluded (${PII_FIELDS.join(", ")})`);
+    const hit = PII_FIELDS.find((f) => new RegExp("\\b" + f + "\\b", "i").test(fields));
+    if (hit) throw new QboError(400, `${hit} is not readable on ${entity} — contact and address fields are excluded (${PII_FIELDS.join(", ")})`);
+  }
+  const mr = /\bmaxresults\s+(\d+)/i.exec(q);
+  let maxResults = MAXRESULTS_DEFAULT, text = q;
+  if (mr) {
+    maxResults = Number(mr[1]);
+    if (!(maxResults >= 1 && maxResults <= MAXRESULTS_MAX)) throw new QboError(400, `MAXRESULTS must be 1 … ${MAXRESULTS_MAX} (got ${mr[1]}) — page with STARTPOSITION instead`);
+  } else if (!isCount) text = q + " MAXRESULTS " + MAXRESULTS_DEFAULT;
+  const sp = /\bstartposition\s+(\d+)/i.exec(q);
+  const startPosition = sp ? Number(sp[1]) : 1;
+  if (!(startPosition >= 1)) throw new QboError(400, "STARTPOSITION must be 1 or more");
+  return { entity, text, maxResults, startPosition, isCount };
+}
+export const queryForLog = (text: string): string => text.replace(/'(?:[^']|'')*'/g, "?");                 // 따옴표 리터럴 → ?(손님 이름 · 이메일이 call_log 에 남지 않는다 · 이견 2)
+export function assertReadOnlyRequest(method: string, url: string): void {                                // Intuit API 호스트로는 GET 과 POST …/query 만(이견 4)
+  const m = String(method ?? "GET").toUpperCase(), path = new URL(url).pathname;
+  if (m === "GET") return;
+  if (m === "POST" && /\/query\/?$/.test(path)) return;
+  throw new QboError(500, `refusing ${m} ${path} — this function only reads from QuickBooks (GET, or POST …/query)`);
+}
+export function stripPii<T>(entity: string, row: T): T {
+  if (!(PII_ENTITIES as readonly string[]).includes(entity) || !row || typeof row !== "object") return row;
+  const out = { ...(row as Record<string, unknown>) };
+  for (const f of PII_FIELDS) delete out[f];
+  return out as T;
+}
+export const readPath = (entity: string, realm: string, id: string | null): string => {
+  const r = encodeURIComponent(realm);
+  if (entity === "CompanyInfo") return `/v3/company/${r}/companyinfo/${r}`;
+  if (entity === "Preferences") return `/v3/company/${r}/preferences`;
+  return `/v3/company/${r}/${entity.toLowerCase()}/${encodeURIComponent(id ?? "")}`;
+};
+
 // ── Deps — 바깥은 전부 여기로(시험은 가짜) ──
-export type LogRow = { env: string | null; realm_id: string | null; action: string; ok: boolean; http_status: number | null; intuit_tid: string | null; error: string | null; by_staff: string | null; ms: number };
+export type LogRow = { env: string | null; realm_id: string | null; action: string; ok: boolean; http_status: number | null; intuit_tid: string | null; error: string | null; by_staff: string | null; ms: number; detail?: Record<string, unknown> | null };   // detail = query · read 의 요약만(20261101190000) · 결과 행 없음
 export type Deps = {
   env: (name: string) => string | undefined;
   fetch: (url: string, init: RequestInit) => Promise<Response>;                                      // Intuit 만(DB 는 rpc)
@@ -147,6 +209,7 @@ export type Deps = {
 };
 type Ctx = { d: Deps; secrets: string[]; env: Env | null; byStaff: string | null };
 const json = (status: number, obj: unknown): Response => new Response(JSON.stringify(obj, null, 2), { status, headers: { "Content-Type": "application/json", ...CORS } });
+const jsonCompact = (status: number, obj: unknown): Response => new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json", ...CORS } });   // query · read — 들여쓰기 없음(크기 · CPU · 이견 9)
 const cfgOf = (d: Deps): { qboEnv: Env | null; raw: string | undefined } => { const raw = d.env("QBO_ENV"); return { qboEnv: envOf(raw), raw }; };
 function clientOf(c: Ctx, env: Env): { id: string; secret: string } {
   const n = secretNames(env), id = (c.d.env(n.id) ?? "").trim(), secret = (c.d.env(n.secret) ?? "").trim();
@@ -157,16 +220,17 @@ function clientOf(c: Ctx, env: Env): { id: string; secret: string } {
 const sc = (c: Ctx, s: string) => scrub(s, c.secrets);
 
 // ── Intuit 호출 하나 = 기록 한 줄 · 네트워크 · 5xx 만 1 회 재시도 · 2xx 가 아니어도 던지지 않고 돌려준다(갈래는 부르는 쪽이) ──
-type IntuitResult = { status: number; body: unknown; tid: string | null; networkError: string | null; error: string | null };
-async function intuitCall(c: Ctx, action: string, url: string, init: RequestInit, realm: string | null, retry = true): Promise<IntuitResult> {
+type IntuitResult = { status: number; body: unknown; tid: string | null; networkError: string | null; error: string | null; bytes: number };
+async function intuitCall(c: Ctx, action: string, url: string, init: RequestInit, realm: string | null, retry = true, detailOf?: (r: IntuitResult) => Record<string, unknown> | null): Promise<IntuitResult> {
   const t0 = c.d.now();
-  let r: IntuitResult = { status: 0, body: null, tid: null, networkError: null, error: null };
+  let r: IntuitResult = { status: 0, body: null, tid: null, networkError: null, error: null, bytes: 0 };
   for (let attempt = 0; attempt < 2; attempt++) {
-    r = { status: 0, body: null, tid: null, networkError: null, error: null };
+    r = { status: 0, body: null, tid: null, networkError: null, error: null, bytes: 0 };
     try {
       const res = await c.d.fetch(url, init);
       r.status = res.status; r.tid = tidOf(res.headers);
       const text = await res.text();
+      r.bytes = text.length;
       try { r.body = text ? JSON.parse(text) : null; } catch { r.body = text; }
       if (!res.ok) r.error = sc(c, intuitErrorText(r.status, r.body));
     } catch (e) {
@@ -176,7 +240,7 @@ async function intuitCall(c: Ctx, action: string, url: string, init: RequestInit
     if (!(retry && attempt === 0 && isRetryable(r.status, r.networkError !== null))) break;
     await c.d.sleep(RETRY_DELAY_MS);
   }
-  await c.d.log({ env: c.env, realm_id: realm, action, ok: r.error === null, http_status: r.status || null, intuit_tid: r.tid, error: r.error ? r.error.slice(0, 400) : null, by_staff: c.byStaff, ms: c.d.now() - t0 });
+  await c.d.log({ env: c.env, realm_id: realm, action, ok: r.error === null, http_status: r.status || null, intuit_tid: r.tid, error: r.error ? r.error.slice(0, 400) : null, by_staff: c.byStaff, ms: c.d.now() - t0, detail: detailOf ? detailOf(r) : null });
   return r;
 }
 const form = (o: Record<string, string>): string => new URLSearchParams(o).toString();
@@ -275,24 +339,76 @@ async function companyNameSet(c: Ctx, env: Env, realm: string, name: string): Pr
   }
 }
 
-// ── 핑 — CompanyInfo → company_name · 401 이면 강제 갱신 한 번 뒤 다시 · 그래도 401 이면 needs_reconnect ──
-async function ping(c: Ctx): Promise<{ company_name: string; realm_id: string; env: Env; refreshed: boolean }> {
+// ── Intuit API 호출 하나(qbo-read-1) — API 호스트로 나가는 모든 읽기가 여기를 지난다 · GET 과 POST …/query 만(assertReadOnlyRequest · 그 밖은 던진다) ──
+async function apiCall(c: Ctx, action: string, h: Held, path: string, query: Record<string, string>, detailOf?: (r: IntuitResult) => Record<string, unknown> | null): Promise<IntuitResult> {
+  c.secrets.push(h.access);
+  const u = new URL(API_BASE[h.env] + path);
+  for (const [k, v] of Object.entries(query)) u.searchParams.set(k, v);
+  u.searchParams.set("minorversion", MINOR_VERSION);
+  assertReadOnlyRequest("GET", u.toString());
+  return await intuitCall(c, action, u.toString(), { method: "GET", headers: { Authorization: "Bearer " + h.access, Accept: "application/json" } }, h.realm, true, detailOf);
+}
+// ── 401 한 번(이견 6) — 접근 토큰으로 부르고 401 이면 강제 갱신 한 번 뒤 다시 · 그래도 401 이면 needs_reconnect(ping · query · read 가 같이 쓴다) ──
+async function withAuthRetry(c: Ctx, call: (h: Held) => Promise<IntuitResult>): Promise<{ h: Held; r: IntuitResult }> {
   let h = await ensureToken(c, false);
-  let r = await companyInfoCall(c, h.env, h.realm, h.access);
+  let r = await call(h);
   if (r.status === 401) {
     h = await ensureToken(c, true);
-    r = await companyInfoCall(c, h.env, h.realm, h.access);
+    r = await call(h);
     if (r.status === 401) {
       await c.d.rpcService("qbo_mark_needs_reconnect", { p_error: "QuickBooks rejected the access token right after a refresh (401) — the connection was probably revoked on the QuickBooks side" });
       throw new QboError(409, "QuickBooks rejected the token even after a refresh — the connection must be made again: Settings → QuickBooks → Reconnect");
     }
   }
+  return { h, r };
+}
+
+// ── 핑 — CompanyInfo → company_name · 401 은 withAuthRetry ──
+async function ping(c: Ctx): Promise<{ company_name: string; realm_id: string; env: Env; refreshed: boolean }> {
+  const { h, r } = await withAuthRetry(c, (x) => companyInfoCall(c, x.env, x.realm, x.access));
   if (r.error) throw new QboError(502, "QuickBooks CompanyInfo failed — " + r.error);
   const name = companyNameOf(r.body);
   if (!name) throw new QboError(502, "QuickBooks CompanyInfo answered without CompanyName");
   const err = await companyNameSet(c, h.env, h.realm, name);
   if (err) throw new QboError(422, "QuickBooks answered, but the company name could not be saved — " + err);
   return { company_name: name, realm_id: h.realm, env: h.env, refreshed: h.refreshed };
+}
+
+// ── query(qbo-read-1) — { q } → GET /query?query=… · 응답 { ok, entity, rows, count, totalCount, startPosition, maxResults, more, intuit_tid } · rows 는 scrub 없이 그대로 ──
+function readFailure(what: string, r: IntuitResult): QboError {
+  if (r.bytes > RESPONSE_MAX_BYTES) return new QboError(413, `QuickBooks answered with ${(r.bytes / 1048576).toFixed(1)} MB — lower MAXRESULTS (limit ${RESPONSE_MAX_BYTES / 1048576} MB per call)`);
+  if (r.status === 400) return new QboError(400, `QuickBooks rejected the ${what} — ` + r.error);
+  if (r.status === 429) return new QboError(429, "QuickBooks rate limit (429) — wait a moment and call again (no automatic retry)");
+  return new QboError(502, `QuickBooks ${what} failed — ` + r.error);
+}
+async function query(c: Ctx, body: Record<string, unknown>): Promise<Response> {
+  const p = parseQuery(body.q);
+  const qlog = queryForLog(p.text);
+  const detailOf = (r: IntuitResult): Record<string, unknown> => {
+    const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+    const rows = Array.isArray(qr[p.entity]) ? (qr[p.entity] as unknown[]).length : 0;
+    return { entity: p.entity, rows, totalCount: typeof qr.totalCount === "number" ? qr.totalCount : null, startPosition: typeof qr.startPosition === "number" ? qr.startPosition : p.startPosition, maxResults: typeof qr.maxResults === "number" ? qr.maxResults : p.maxResults, q: qlog, bytes: r.bytes };
+  };
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "query", h, `/v3/company/${encodeURIComponent(h.realm)}/query`, { query: p.text }, detailOf));
+  if (r.error || r.bytes > RESPONSE_MAX_BYTES) throw readFailure("query", r);
+  const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(qr[p.entity]) ? qr[p.entity] as unknown[] : [];
+  const maxResults = typeof qr.maxResults === "number" ? qr.maxResults : p.maxResults;
+  return jsonCompact(200, { ok: true, entity: p.entity, rows, count: rows.length, totalCount: typeof qr.totalCount === "number" ? qr.totalCount : null,
+    startPosition: typeof qr.startPosition === "number" ? qr.startPosition : p.startPosition, maxResults, more: !p.isCount && rows.length >= maxResults, intuit_tid: r.tid });
+}
+// ── read(qbo-read-1) — { entity, id } → GET /<entity>/<id> · Preferences · CompanyInfo 는 id 없이 · Customer · Vendor 는 연락처 · 주소 칸을 빼고 ──
+async function read(c: Ctx, body: Record<string, unknown>): Promise<Response> {
+  const entity = canonicalEntity(String(body.entity ?? ""), [...QUERY_ENTITIES, ...READ_SINGLETONS]);
+  if (!entity) throw new QboError(400, `entity ${String(body.entity ?? "")} is not readable here — allowed: ${[...QUERY_ENTITIES, ...READ_SINGLETONS].join(", ")}`);
+  const singleton = (READ_SINGLETONS as readonly string[]).includes(entity);
+  const id = singleton ? null : String(body.id ?? "").trim();
+  if (!singleton && !/^[0-9]{1,20}$/.test(id ?? "")) throw new QboError(400, "id must be a number (the QuickBooks Id of the " + entity + ")");
+  const detailOf = (r: IntuitResult): Record<string, unknown> => ({ entity, id, rows: r.body && typeof r.body === "object" && (r.body as Record<string, unknown>)[entity] ? 1 : 0, bytes: r.bytes });
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "read", h, readPath(entity, h.realm, id), {}, detailOf));
+  if (r.error || r.bytes > RESPONSE_MAX_BYTES) throw readFailure("read", r);
+  const row = (r.body as Record<string, unknown>)?.[entity] ?? null;
+  return jsonCompact(200, { ok: true, entity, id, row: stripPii(entity, row), intuit_tid: r.tid });
 }
 
 // ── callback(GET · Intuit 이 브라우저를 보낸다) — 언제나 302 · 본문 비움 · Location 은 고정 주소 + 정해진 why 낱말뿐 ──
@@ -423,6 +539,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (action === "disconnect") return await disconnect(c);
     if (action === "refresh") { const h = await ensureToken(c, true); return json(200, { ok: true, refreshed: h.refreshed, token_version: h.token_version, access_expires_at: h.access_expires_at, refresh_expires_at: h.refresh_expires_at, env: h.env, realm_id: h.realm }); }
     if (action === "ping") return json(200, { ok: true, ...(await ping(c)) });
+    if (action === "query") return await query(c, body);
+    if (action === "read") return await read(c, body);
     return json(400, { ok: false, error: "unknown action" });
   } catch (e) {
     if (e instanceof QboError) return json(e.status, { ok: false, error: sc(c, e.message) });

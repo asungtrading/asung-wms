@@ -1,5 +1,5 @@
 // ============================================================
-// ASUNG IMS — Edge Function: qbo (qbo-1b · 2026-10-29 · 판정 617 · 867 ~ 872 · DB qbo-1a 20261029160000 · qbo-1b 20261029190000 · 흐름 · 순수 함수 ../_shared/qbo.ts)
+// ASUNG IMS — Edge Function: qbo (qbo-1b · 2026-10-29 · qbo-read-1 2026-11-01 · 판정 617 · 867 ~ 872 · DB qbo-1a 20261029160000 · qbo-1b 20261029190000 · 흐름 · 순수 함수 ../_shared/qbo.ts)
 //   QuickBooks Online 연결 — 연결(start) · callback · 상태 · 갱신 · 핑(CompanyInfo) · 끊기(revoke) · cron 갱신. 싱크는 뒤 차수.
 //   ⚠️ 이 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)가 11-01 부터 그대로 운영(617) — db_role 가드는 쓰지 않는다 · 환경은 비밀값 QBO_ENV(sandbox | production · 없으면 500) 와 연결 행의 env 가 같아야 한다
 //   문(config.toml verify_jwt = false — Intuit 이 브라우저를 JWT 없이 GET 으로 보낸다 · freightcom 과 같은 까닭):
@@ -10,7 +10,8 @@
 //   갱신: 부를 때 접근 토큰이 5 분 안에 끝나면 먼저 · qbo_refresh_claim(임대 30 s) → Intuit refresh → qbo_refresh_save(판 번호 · 응답의 새 refresh_token 을 매번 저장) · 임대 못 받으면 1.5 s 씩 최대 15 s 기다렸다 새 판 읽기
 //          invalid_grant → qbo_mark_needs_reconnect(다시 시도 안 함 · DB 가 끊김 메일 869 를 바뀌는 순간 한 번) · 네트워크 · 5xx 만 1 회 재시도 · API 401 은 강제 갱신 한 번 뒤 다시(그래도 401 이면 needs_reconnect)
 //   끊기: revoke(refresh_token · Basic) → 실패해도 qbo_connection_delete() → call_log(action disconnect · by_staff) · 실패했으면 응답 글에 QuickBooks → Apps 에서도 끊어 달라
-//   기록: Intuit 호출 한 번 = qbo_call_log 한 줄(action · env · realm_id · ok · http_status · intuit_tid · error 400 자 · by_staff · ms) · 90 일 지난 줄은 호출 끝에 지운다 · 토큰 끝점 · revoke 의 요청 몸은 기록하지 않는다
+//   기록: Intuit 호출 한 번 = qbo_call_log 한 줄(action · env · realm_id · ok · http_status · intuit_tid · error 400 자 · by_staff · ms · detail) · 90 일 지난 줄은 호출 끝에 지운다(delete 는 WHERE called_at=lt.) · 토큰 끝점 · revoke 의 요청 몸은 기록하지 않는다
+//   qbo-read-1(2026-11-01 · 판정 933 · DB 20261101190000 detail jsonb): POST {action:"query", q} · {action:"read", entity, id}(admin 만 · cron 길 없음) — 읽기 전용 · Intuit API 호스트로는 GET 과 POST …/query 만(_shared/qbo.ts apiCall) · detail = entity · rows · totalCount · startPosition · maxResults · q(리터럴 → ?) · 결과 행은 기록하지 않는다
 //   ⚠️ 비밀: QBO_ENV · QBO_CLIENT_ID_<SANDBOX|PRODUCTION> · QBO_CLIENT_SECRET_<…> · IMS_CRON_SECRET(기존) — 값은 응답 · 기록 · 오류 · console 어디에도 안 남는다(scrub)
 //   배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
 // ============================================================
