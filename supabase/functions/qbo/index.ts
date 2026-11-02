@@ -14,6 +14,7 @@
 //   qbo-read-1(2026-11-01 · 판정 933 · DB 20261101190000 detail jsonb): POST {action:"query", q} · {action:"read", entity, id}(admin 만 · cron 길 없음) — 읽기 전용 · Intuit API 호스트로는 GET 과 POST …/query 만(_shared/qbo.ts apiCall) · detail = entity · rows · totalCount · startPosition · maxResults · q(리터럴 → ?) · 결과 행은 기록하지 않는다
 //   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): POST {action:"pull", entity, start?}(admin 만 · cron 길 없음) — QBO 목록 한 쪽(1000 행)을 qbo_entity 에(종류 7 · Customer · Vendor 는 연락처 칸 없이 · TaxCode 는 Active 조건 없이)
 //     start 없거나 1 = 새 run(qbo_pull_begin) → GET …/query → qbo_entity_upsert → 받은 수 < 1000 이면 qbo_pull_finish(gone_at) · 창구는 사용자 JWT(rpcUser) · 응답 { received_now, received, pages, next_start, done, gone } · 부르는 쪽이 next_start 로 돈다
+//   qbo-sync-2a′ · 2b2(2026-11-01 · 판정 935 ~ 951): POST {action:"send", limit?}(열쇠 qbo · 또는 cron ims-qbo-send 의 x-ims-cron-key) — 일감 claim(customer · item · invoice · invoice_void) → Intuit 쓰기(POST customer · item · invoice · invoice?operation=void · requestid · 재시도 없음) → done · fail · unknown · 흐름은 _shared/qbo.ts send
 //   ⚠️ 비밀: QBO_ENV · QBO_CLIENT_ID_<SANDBOX|PRODUCTION> · QBO_CLIENT_SECRET_<…> · IMS_CRON_SECRET(기존) — 값은 응답 · 기록 · 오류 · console 어디에도 안 남는다(scrub)
 //   배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
 // ============================================================

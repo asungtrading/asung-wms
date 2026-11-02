@@ -16,6 +16,11 @@
 //   qbo-sync-2a′(2026-11-01 · 판정 935 ~ 946 · DB 2a 20261102003000 + 2a′ 20261102030000): send { limit? }(열쇠 qbo · 수동 · cron 등록 없음) — ① qbo_job_unknown_list → 이름으로 조회(send_check · GET) → 하나면 qbo_job_done · 0 · 둘 이상은 그대로 ② qbo_job_claim → 일감마다 apiWrite POST 한 번(requestid = request_id · retry 없음)
 //     2xx → qbo_job_done(qbo_link created + qbo_entity upsert 는 DB 가) · 4xx → qbo_job_fail(6240 Duplicate Name 인 Item 은 name_alt ` [SKU]` 로 requestid '-2' 한 번 더 · note 로 흔적) · 5xx · 끊김 · 몸에 레코드 없음 → qbo_job_unknown(보낸 이름을 남긴다) · 401 은 withAuthRetry(처리 안 됨이 분명 · 같은 requestid)
 //     쓰기는 apiWrite 하나 · assertWriteAllowed(POST · customer · item · invoice · creditmemo · operation=void 는 invoice · creditmemo 만 · delete 없음 · requestid 필수) · 읽기 길(apiCall · assertReadOnlyRequest)은 그대로 · PII 가드를 Invoice · CreditMemo · Payment · SalesReceipt · RefundReceipt 에도(select * · BillAddr · ShipAddr · BillEmail · ShipFromAddr 거부 · read 는 벗김)
+//   qbo-sync-2b2(2026-11-01 · 판정 935 ~ 946 · 951 · DB 2b1 20261102040000 · 지시서 ~/asung/prompts/qbo-sync-2b.md): 인보이스 보내기 · void · cron send — claim 에 p_kinds SEND_KINDS(customer · item · invoice · invoice_void · DB 기본값은 customer · item 이라 옛 EF 는 invoice 를 안 잡는다)
+//     invoice: 만들기 전 DocNumber 조회(멱등) → POST invoice(몸은 DB qbo_invoice_body 그대로 · TxnTaxDetail 포함) → 2xx 면 qbo_job_done(TotalAmt · TxnTaxDetail.TotalTax — DB 가 942 로 견줘 mismatch) · 6140 · 6210 중복 번호면 다시 찾아서 있으면 그것 · 5xx · 끊김 unknown(DocNumber) → 다음 send 가 DocNumber 로 풀어 읽어서 done
+//     invoice_void: POST invoice?operation=void {Id, SyncToken}(SyncToken 없으면 GET 으로 읽는다 · 5010 Stale Object 면 읽어서 requestid -2 로 한 번 더) · 4xx failed(사람) · 5xx · 끊김 unknown → 다음 send 가 읽어서 TotalAmt 0 이면 done(짐작 · 첫 실물에서 확인)
+//     cron 길(x-ims-cron-key)에 send 를 연다(CRON_ACTIONS refresh · send · by_staff null · limit 은 cron 몸이 inv_config qbo_send_batch 에서) — qbo_send_enabled off 면 cron SQL 의 where 가 호출 자체를 0 으로(supabase/ops/cron.sql ims-qbo-send)
+//     PULL_FIELDS.TaxCode 에 SalesTaxRateList(DB qbo_entity.detail 로 · 몸 함수의 TaxRateRef) — 적용 뒤 TaxCode Refresh list 한 번 · Intuit API 호스트로는 여전히 GET · POST …/query · POST customer · item · invoice(+ operation=void)만
 //   qbo-sync-2a(2026-11-01 · 판정 945 · DB 20261102003000): 문 둘 — ADMIN_ACTIONS(start · disconnect · refresh · ping · query · read)는 qbo_admin_gate 그대로 · KEY_ACTIONS(pull · 뒤에 send · job)는 qbo_key_gate(p_write true · perms 'qbo' 글자 그대로 · admin 도 켜야 한다) · 둘 다 사용자 JWT 로 DB 가 본다 · status 응답의 caller_qbo(write | read | null)는 DB qbo_status 가 준다(EF 코드 없음)
 //     entity 7 = PULL_ENTITIES(Account · TaxCode · Term · PaymentMethod · Customer · Vendor · Item · 그 밖은 400) · 칸은 PULL_FIELDS(Customer · Vendor 는 Id · DisplayName · ParentRef · FullyQualifiedName · Active · SyncToken 만 · 933 · Item 은 * — qbo-sync-1c: 칸을 고른 조회는 Sku 를 안 돌려준다 · 11-01 실측)
 //     조회 = select <칸> from <entity> where Active in (true, false) STARTPOSITION <start> MAXRESULTS 1000 — TaxCode 만 where 없이(11-01 실측: Account · Term · PaymentMethod 는 조건 통과 · TaxCode · TaxRate 는 조건 없이 받음 · PULL_NO_ACTIVE_FILTER)
@@ -48,12 +53,15 @@ export const VOIDABLE_ENTITIES = ["invoice", "creditmemo"] as const;
 export const REQUESTID_MAX = 50;
 export const SEND_LIMIT_DEFAULT = 15, SEND_LIMIT_MAX = 50;
 export const DUPLICATE_NAME_CODE = "6240";                                                 // Intuit 「Duplicate Name Exists Error」 — 처리 안 됨이 분명 · Item 은 ` [SKU]` 로 한 번 더(다른 requestid · 이견 11)
+export const DUPLICATE_DOCNUMBER_CODES = ["6140", "6210"] as const;                        // 2b2 Intuit 「Duplicate Document Number Error」(6140 · 6210 둘 다 본 적이 있다 — 지시서) → DocNumber 로 다시 찾아서 있으면 그것
+export const STALE_OBJECT_CODE = "5010";                                                   // 2b2 Intuit 「Stale Object Error」 — void 의 SyncToken 이 낡았다 → 읽어서 한 번 더(requestid -2)
+export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void"] as const;       // 2b2 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
 // ── qbo-sync-1b pull — 종류 7 · 칸 · 쪽 1000 · Active 조건 없이 받는 종류(TaxCode · 11-01 실측) ──
 export const PULL_ENTITIES = ["Account", "TaxCode", "Term", "PaymentMethod", "Customer", "Vendor", "Item"] as const;
 export const PULL_PAGE = 1000;
 export const PULL_FIELDS: Record<string, string> = {
   Account: "Id, Name, FullyQualifiedName, ParentRef, Active, SyncToken",
-  TaxCode: "Id, Name, Active, SyncToken",
+  TaxCode: "Id, Name, Active, SyncToken, SalesTaxRateList",                                       // 2b2: TaxRateRef 를 DB 가 안다(qbo_entity.detail · qbo_invoice_body 의 TxnTaxDetail)
   Term: "Id, Name, Active, SyncToken",
   PaymentMethod: "Id, Name, Active, SyncToken",
   Customer: "Id, DisplayName, FullyQualifiedName, ParentRef, Active, SyncToken",                    // 연락처 · 주소 칸 없음(933)
@@ -70,7 +78,7 @@ export const PII_ENTITIES = ["Customer", "Vendor", "Invoice", "CreditMemo", "Pay
 export const PII_FIELDS = ["PrimaryEmailAddr", "PrimaryPhone", "Mobile", "Fax", "BillAddr", "ShipAddr", "WebAddr", "AlternatePhone", "OtherAddr", "BillEmail", "BillEmailCc", "BillEmailBcc", "ShipFromAddr"] as const;
 export const MAXRESULTS_DEFAULT = 100, MAXRESULTS_MAX = 1000, QUERY_MAX_CHARS = 2000;
 export const RESPONSE_MAX_BYTES = 5 * 1024 * 1024;                                                       // Intuit 응답 몸 5 MB 초과 → 413(이견 9)
-export const CRON_ACTIONS = ["refresh"] as const;
+export const CRON_ACTIONS = ["refresh", "send"] as const;                                             // 2b2: cron ims-qbo-send(*/5 · qbo_send_enabled off 면 cron SQL 의 where 가 호출 0)
 export const CORS: HeadersInit = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-region", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 
 export class RpcError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -502,19 +510,59 @@ async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise
   return jsonCompact(200, { ok: true, entity, start, received_now: rows.length, received: up.received, pages: up.pages, next_start: done ? null : start + PULL_PAGE, done, gone: fin?.gone ?? null, finished_at: fin?.finished_at ?? null, intuit_tid: r.tid });
 }
 
-// ── send(qbo-sync-2a′ · 열쇠 qbo · 수동 · cron 등록 없음) — ① unknown 일감을 이름으로 조회해 풀기(있으면 done · 없으면 그대로 · 둘 이상이면 그대로) ② claim → 일감마다 POST 한 번(requestid = request_id) → 2xx done · 4xx fail(6240 Item 은 ` [SKU]` 로 다른 requestid 한 번 더) · 5xx · 끊김 · 몸 없음 unknown(보낸 이름을 남긴다) ──
-type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; warnings: string[] };
-type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; jobs: ClaimJob[] };
+// ── send(qbo-sync-2a′ · 열쇠 qbo · [2b2] cron 길도 · 판정 935 ~ 946 · 951) — ① unknown 일감을 이름 · DocNumber 로 조회해 풀기(있으면 done · 없으면 그대로 · 둘 이상이면 그대로) ② claim(p_kinds = SEND_KINDS) → 일감마다 POST 한 번(requestid = request_id)
+//    customer · item: 2xx done · 4xx fail(6240 Item 은 ` [SKU]` 로 다른 requestid 한 번 더) · 5xx · 끊김 · 몸 없음 unknown(보낸 이름을 남긴다)
+//    invoice(2b2): 만들기 전 DocNumber 조회(멱등 · 있으면 만들지 않고 읽어서 done + note · 둘 이상이면 failed) → POST invoice → 2xx done(TotalAmt · TxnTaxDetail.TotalTax 를 DB 가 942 로 견준다 · 다르면 DB 가 mismatch) · 6140 · 6210 중복 번호면 다시 조회해 있으면 done · 그 밖 4xx failed · 5xx · 끊김 unknown(DocNumber 를 남긴다)
+//    invoice_void(2b2): POST invoice?operation=void {Id, SyncToken} · SyncToken 없으면 먼저 읽는다 · 5010 Stale Object 면 읽어서 한 번 더(requestid -2) · 2xx done(voided_at 은 DB) · 4xx failed(결제가 붙었다 · 마감 등 — 사람) · 5xx · 끊김 unknown
+//    unknown 풀기(2b2): invoice 는 DocNumber 조회 → 하나면 읽어서 합계와 함께 done · invoice_void 는 DocNumber 조회 → 읽어서 TotalAmt 0 이면(QBO 는 void 한 인보이스의 금액을 0 으로 둔다 — 짐작 · 첫 실물에서 확인) done · 아니면 not_voided(사람이 retry) ──
+type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; doc_number?: string | null; qbo_id?: string | null; body: Record<string, unknown>; warnings: string[]; totals?: Record<string, unknown> | null };
+type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; blocked_for_needs?: number; jobs: ClaimJob[] };
 type UnknownRow = { job_id: string; kind: string; ims_kind: string; ims_id: string; qbo_name: string | null; sku: string | null; request_id: string; attempts: number };
-type JobOut = { job_id: string; kind: string; ims_kind: string; ims_id: string; name: string; state: string; qbo_id: string | null; error: string | null; note: string | null; linked?: boolean; link_error?: string | null };
-const entityKeyOf = (kind: string): { path: string; key: string; nameField: string } => kind === "customer" ? { path: "customer", key: "Customer", nameField: "DisplayName" } : { path: "item", key: "Item", nameField: "Name" };
+type JobOut = { job_id: string; kind: string; ims_kind: string; ims_id: string; name: string; state: string; qbo_id: string | null; error: string | null; note: string | null; linked?: boolean; link_error?: string | null; mismatch?: string | null };
+type EntityKey = { path: string; key: string; nameField: string };
+const entityKeyOf = (kind: string): EntityKey => kind === "customer" ? { path: "customer", key: "Customer", nameField: "DisplayName" } : kind === "item" ? { path: "item", key: "Item", nameField: "Name" } : { path: "invoice", key: "Invoice", nameField: "DocNumber" };
 const createdIdOf = (body: unknown, key: string): string | null => { const row = (body as Record<string, unknown>)?.[key] as Record<string, unknown> | undefined; return row && row.Id != null ? String(row.Id) : null; };
+const rowOf = (body: unknown, key: string): Record<string, unknown> | null => { const row = (body as Record<string, unknown>)?.[key]; return row && typeof row === "object" && (row as Record<string, unknown>).Id != null ? row as Record<string, unknown> : null; };
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
+export const invoiceTotals = (row: Record<string, unknown> | null): { total_amt: number | null; total_tax: number | null } =>
+  ({ total_amt: num(row?.TotalAmt), total_tax: num(((row?.TxnTaxDetail ?? {}) as Record<string, unknown>).TotalTax) });
+const docNumberQueryText = (doc: string): string => `select Id, DocNumber, SyncToken, TotalAmt from Invoice where DocNumber = ${sqlQuote(doc)}`;   // PII 칸 없음(parseQuery 통과)
+const jobDetail = (j: { job_id: string; kind: string; ims_kind: string; ims_id: string }, extra: Record<string, unknown> = {}): Record<string, unknown> => ({ job_id: j.job_id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, ...extra });
+// DocNumber 로 찾기(send_check · GET …/query) — rows(0 · 1 · n) · 실패면 error
+async function findByDocNumber(c: Ctx, doc: string, j: { job_id: string; kind: string; ims_kind: string; ims_id: string }): Promise<{ r: IntuitResult; rows: Record<string, unknown>[] }> {
+  const p = parseQuery(docNumberQueryText(doc));
+  const detailOf = (r: IntuitResult): Record<string, unknown> => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return jobDetail(j, { rows: Array.isArray(qr.Invoice) ? (qr.Invoice as unknown[]).length : 0, q: queryForLog(p.text) }); };
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "send_check", h, `/v3/company/${encodeURIComponent(h.realm)}/query`, { query: p.text }, detailOf));
+  const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+  return { r, rows: r.error ? [] : Array.isArray(qr.Invoice) ? qr.Invoice as Record<string, unknown>[] : [] };
+}
+// 인보이스 한 장 읽기(send_read · GET …/invoice/<id>) — 합계 · SyncToken 을 쓰려고 · 행은 돌려주되 기록 · 응답에는 싣지 않는다
+async function readInvoice(c: Ctx, id: string, j: { job_id: string; kind: string; ims_kind: string; ims_id: string }): Promise<{ r: IntuitResult; row: Record<string, unknown> | null }> {
+  const detailOf = (r: IntuitResult): Record<string, unknown> => jobDetail(j, { qbo_id: id, rows: rowOf(r.body, "Invoice") ? 1 : 0 });
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "send_read", h, readPath("Invoice", h.realm, id), {}, detailOf));
+  return { r, row: r.error ? null : rowOf(r.body, "Invoice") };
+}
+async function doneInvoice(c: Ctx, jobId: string, row: Record<string, unknown>, doc: string, tid: string | null, note: string | null): Promise<Record<string, unknown>> {
+  const t = invoiceTotals(row);
+  return await c.d.rpcService("qbo_job_done", { p_job: jobId, p_qbo_id: String(row.Id), p_qbo_name: String(row.DocNumber ?? doc), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: tid, p_note: note, p_sku: null, p_total_amt: t.total_amt, p_total_tax: t.total_tax }) as Record<string, unknown>;
+}
 async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = { job_id: u.job_id, kind: u.kind, ims_kind: u.ims_kind, ims_id: u.ims_id };
   if (!u.qbo_name) return { ...out, result: "no_name", message: "the name that was sent is not on the job — retry it by hand after checking QuickBooks" };
+  if (u.kind === "invoice" || u.kind === "invoice_void") {                                            // 2b2 — DocNumber 로
+    const { r, rows } = await findByDocNumber(c, u.qbo_name, u);
+    if (r.error) return { ...out, result: "check_failed", error: r.error };
+    if (rows.length === 0) return { ...out, result: "not_found", message: u.kind === "invoice" ? "QuickBooks has no invoice with that number — if it really is not there, retry the job by hand (Settings → QuickBooks)" : "QuickBooks has no invoice with that number — nothing to void; skip the job by hand" };
+    if (rows.length > 1) return { ...out, result: "ambiguous", count: rows.length, message: "more than one QuickBooks invoice has that number — fix by hand" };
+    const rd = await readInvoice(c, String(rows[0].Id), u);
+    if (rd.r.error || !rd.row) return { ...out, result: "check_failed", error: rd.r.error ?? "invoice could not be read" };
+    if (u.kind === "invoice_void" && (num(rd.row.TotalAmt) ?? -1) !== 0) return { ...out, result: "not_voided", qbo_id: String(rd.row.Id), message: "the QuickBooks invoice still carries an amount — the void did not go through; retry the job by hand" };
+    const d = await doneInvoice(c, u.job_id, rd.row, u.qbo_name, rd.r.tid, u.kind === "invoice" ? "result was unknown — found in QuickBooks by DocNumber and recorded" : "result was unknown — the QuickBooks invoice is voided (amount 0)");
+    return { ...out, result: "found", qbo_id: String(rd.row.Id), state: d?.state ?? null, mismatch: d?.mismatch ?? null, link_error: d?.link_error ?? null };
+  }
   const e = entityKeyOf(u.kind);
   const p = parseQuery(`select Id, ${e.nameField}${u.kind === "item" ? ", Sku" : ""}, SyncToken from ${e.key} where ${e.nameField} = ${sqlQuote(u.qbo_name)}`);
-  const detailOf = (r: IntuitResult): Record<string, unknown> => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return { job_id: u.job_id, kind: u.kind, ims_kind: u.ims_kind, ims_id: u.ims_id, rows: Array.isArray(qr[e.key]) ? (qr[e.key] as unknown[]).length : 0, q: queryForLog(p.text) }; };
+  const detailOf = (r: IntuitResult): Record<string, unknown> => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return jobDetail(u, { rows: Array.isArray(qr[e.key]) ? (qr[e.key] as unknown[]).length : 0, q: queryForLog(p.text) }); };
   const { r } = await withAuthRetry(c, (h) => apiCall(c, "send_check", h, `/v3/company/${encodeURIComponent(h.realm)}/query`, { query: p.text }, detailOf));
   if (r.error) return { ...out, result: "check_failed", error: r.error };                                           // 다음 send 가 다시 본다
   const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
@@ -529,10 +577,76 @@ async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unk
 async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
   const e = entityKeyOf(j.kind);
   const base: JobOut = { job_id: j.job_id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, name: j.name, state: "sending", qbo_id: null, error: null, note: null };
-  const attempt = (bodyObj: Record<string, unknown>, requestId: string) => withAuthRetry(c, (h) => apiWrite(c, "send", h, `/v3/company/${encodeURIComponent(h.realm)}/${e.path}`, { requestid: requestId }, bodyObj,
-    (r) => ({ job_id: j.job_id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, request_id: requestId, attempt: j.attempt, qbo_id: createdIdOf(r.body, e.key), fault: faultCode(r.body) })));
+  const attempt = (bodyObj: Record<string, unknown>, requestId: string, query: Record<string, string> = {}) => withAuthRetry(c, (h) => apiWrite(c, "send", h, `/v3/company/${encodeURIComponent(h.realm)}/${e.path}`, { ...query, requestid: requestId }, bodyObj,
+    (r) => jobDetail(j, { request_id: requestId, attempt: j.attempt, qbo_id: createdIdOf(r.body, e.key), fault: faultCode(r.body), ...(query.operation ? { operation: query.operation } : {}) })));
+  const fail = async (err: string, tid: string | null): Promise<JobOut> => { await c.d.rpcService("qbo_job_fail", { p_job: j.job_id, p_error: err, p_intuit_tid: tid }); return { ...base, state: "failed", error: err }; };
+  const unknown = async (err: string, tid: string | null, nameSent: string): Promise<JobOut> => { await c.d.rpcService("qbo_job_unknown", { p_job: j.job_id, p_error: err, p_intuit_tid: tid, p_name: nameSent }); return { ...base, name: nameSent, state: "unknown", error: err }; };
   let nameSent = j.name, note: string | null = null;
   try {
+    if (j.kind === "invoice") {                                                                         // 2b2 — 멱등: DocNumber 가 이미 있으면 만들지 않는다
+      const doc = String(j.doc_number ?? j.name); nameSent = doc;
+      const pre = await findByDocNumber(c, doc, j);
+      if (pre.r.error) return await fail("not sent — the DocNumber check failed before sending: " + pre.r.error, pre.r.tid);
+      if (pre.rows.length > 1) return await fail(`not sent — QuickBooks already has ${pre.rows.length} invoices with number ${doc} — fix by hand, then retry or skip`, pre.r.tid);
+      if (pre.rows.length === 1) {
+        const rd = await readInvoice(c, String(pre.rows[0].Id), j);
+        if (rd.r.error || !rd.row) return await fail("not sent — invoice " + doc + " is already in QuickBooks (#" + String(pre.rows[0].Id) + ") but could not be read: " + (rd.r.error ?? "no row"), rd.r.tid);
+        note = "already in QuickBooks (DocNumber found before sending) — recorded, not created again";
+        const d = await doneInvoice(c, j.job_id, rd.row, doc, rd.r.tid, note);
+        return { ...base, name: doc, state: String(d?.state ?? "sent"), qbo_id: String(rd.row.Id), note, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+      }
+      let { r } = await attempt(j.body, j.request_id);
+      let cls = classifyWrite(r.status, r.networkError);
+      if (cls === "fail" && (DUPLICATE_DOCNUMBER_CODES as readonly string[]).includes(faultCode(r.body) ?? "")) {   // 번호가 이미 있다(우리 멱등 조회 뒤에 생겼거나 Cin7 이 보낸 번호) → 다시 찾아서 있으면 그것
+        const again = await findByDocNumber(c, doc, j);
+        if (!again.r.error && again.rows.length === 1) {
+          const rd = await readInvoice(c, String(again.rows[0].Id), j);
+          if (!rd.r.error && rd.row) {
+            note = `QuickBooks answered duplicate DocNumber (${faultCode(r.body)}) — the existing invoice #${String(rd.row.Id)} was recorded instead`;
+            const d = await doneInvoice(c, j.job_id, rd.row, doc, rd.r.tid, note);
+            return { ...base, name: doc, state: String(d?.state ?? "sent"), qbo_id: String(rd.row.Id), note, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+          }
+        }
+        return await fail((r.error ?? "duplicate DocNumber") + " — and the invoice could not be found by number afterwards (" + (again.r.error ?? again.rows.length + " rows") + ") — check QuickBooks by hand", r.tid);
+      }
+      if (cls === "ok") {
+        const row = rowOf(r.body, "Invoice");
+        if (!row) return await unknown(`QuickBooks answered ${r.status} without the created Invoice — checked by number at the next send`, r.tid, doc);
+        const d = await doneInvoice(c, j.job_id, row, doc, r.tid, null);
+        return { ...base, name: doc, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+      }
+      if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
+      return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, doc);
+    }
+    if (j.kind === "invoice_void") {                                                                    // 2b2 — void: Id · SyncToken(없으면 읽는다) · 5010 이면 읽어서 한 번 더
+      const doc = String(j.doc_number ?? j.name); nameSent = doc;
+      const id = String(j.qbo_id ?? j.body.Id ?? "");
+      if (!id) return await fail("not sent — no QuickBooks invoice id on the void job", null);
+      let syncToken = j.body.SyncToken != null ? String(j.body.SyncToken) : null;
+      if (!syncToken) {
+        const rd = await readInvoice(c, id, j);
+        if (rd.r.error || !rd.row) return await fail("not sent — invoice #" + id + " could not be read for its SyncToken: " + (rd.r.error ?? "no row"), rd.r.tid);
+        syncToken = String(rd.row.SyncToken ?? "");
+        note = "SyncToken read from QuickBooks before voiding";
+      }
+      let { r } = await attempt({ Id: id, SyncToken: syncToken }, j.request_id, { operation: "void" });
+      let cls = classifyWrite(r.status, r.networkError);
+      if (cls === "fail" && faultCode(r.body) === STALE_OBJECT_CODE) {
+        const rd = await readInvoice(c, id, j);
+        if (rd.r.error || !rd.row) return await fail((r.error ?? "stale SyncToken") + " — and the invoice could not be re-read: " + (rd.r.error ?? "no row"), rd.r.tid);
+        note = `stale SyncToken (${STALE_OBJECT_CODE}) — re-read and voided again`;
+        ({ r } = await attempt({ Id: id, SyncToken: String(rd.row.SyncToken ?? "") }, (j.request_id + "-2").slice(0, REQUESTID_MAX), { operation: "void" }));
+        cls = classifyWrite(r.status, r.networkError);
+      }
+      if (cls === "ok") {
+        const row = rowOf(r.body, "Invoice");
+        if (!row) return await unknown(`QuickBooks answered ${r.status} without the voided Invoice — checked by number at the next send`, r.tid, doc);
+        const d = await c.d.rpcService("qbo_job_done", { p_job: j.job_id, p_qbo_id: String(row.Id), p_qbo_name: String(row.DocNumber ?? doc), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: r.tid, p_note: note, p_sku: null }) as Record<string, unknown>;
+        return { ...base, name: doc, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), note, link_error: (d?.link_error as string | null) ?? null };
+      }
+      if (cls === "fail") return await fail((note ? note + " · " : "") + (r.error ?? ("HTTP " + r.status)), r.tid);
+      return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, doc);
+    }
     let { r } = await attempt(j.body, j.request_id);
     let cls = classifyWrite(r.status, r.networkError);
     if (cls === "fail" && faultCode(r.body) === DUPLICATE_NAME_CODE && j.kind === "item" && j.name_alt && j.name_alt !== nameSent) {   // 이견 11 — 「다른 요청」 으로 한 번(requestid 도 다르게)
@@ -543,22 +657,14 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
     }
     if (cls === "ok") {
       const row = (r.body as Record<string, unknown>)?.[e.key] as Record<string, unknown> | undefined;
-      if (!row || row.Id == null) {
-        await c.d.rpcService("qbo_job_unknown", { p_job: j.job_id, p_error: `QuickBooks answered ${r.status} without the created ${e.key} — checked by name at the next send`, p_intuit_tid: r.tid, p_name: nameSent });
-        return { ...base, name: nameSent, state: "unknown", error: "2xx without the created record", note };
-      }
+      if (!row || row.Id == null) return await unknown(`QuickBooks answered ${r.status} without the created ${e.key} — checked by name at the next send`, r.tid, nameSent);
       const d = await c.d.rpcService("qbo_job_done", { p_job: j.job_id, p_qbo_id: String(row.Id), p_qbo_name: String(row[e.nameField] ?? nameSent), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: r.tid, p_note: note,
         p_sku: typeof row.Sku === "string" && row.Sku ? row.Sku : j.sku }) as Record<string, unknown>;
       return { ...base, name: nameSent, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), linked: d?.linked === true, link_error: (d?.link_error as string | null) ?? null, note };
     }
-    if (cls === "fail") {
-      const err = (note ? note + " · " : "") + (r.error ?? ("HTTP " + r.status));
-      await c.d.rpcService("qbo_job_fail", { p_job: j.job_id, p_error: err, p_intuit_tid: r.tid });
-      return { ...base, name: nameSent, state: "failed", error: err, note };
-    }
-    await c.d.rpcService("qbo_job_unknown", { p_job: j.job_id, p_error: r.error ?? ("no answer (HTTP " + r.status + ")"), p_intuit_tid: r.tid, p_name: nameSent });
-    return { ...base, name: nameSent, state: "unknown", error: r.error ?? "no answer", note };
-  } catch (err) {                                                                                      // 토큰 · DB 창구가 던짐 — 보내기 전이면 failed(사람이 retry) · 보낸 뒤면 sending 그대로(10 분 뒤 unknown · 다음 send 가 이름으로 푼다)
+    if (cls === "fail") return { ...(await fail((note ? note + " · " : "") + (r.error ?? ("HTTP " + r.status)), r.tid)), name: nameSent, note };
+    return { ...(await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, nameSent)), note };
+  } catch (err) {                                                                                      // 토큰 · DB 창구가 던짐 — 보내기 전이면 failed(사람이 retry) · 보낸 뒤면 sending 그대로(10 분 뒤 unknown · 다음 send 가 이름 · 번호로 푼다)
     const msg = sc(c, String((err as Error)?.message ?? err)).slice(0, 400);
     try { await c.d.rpcService("qbo_job_fail", { p_job: j.job_id, p_error: "not sent — " + msg, p_intuit_tid: null }); return { ...base, name: nameSent, state: "failed", error: "not sent — " + msg, note }; }
     catch { return { ...base, name: nameSent, state: "sending", error: msg, note }; }
@@ -571,11 +677,12 @@ async function send(c: Ctx, body: Record<string, unknown>): Promise<Response> {
   const unknowns = (await c.d.rpcService("qbo_job_unknown_list", {}) as UnknownRow[] | null) ?? [];
   const resolved: Record<string, unknown>[] = [];
   for (const u of unknowns) resolved.push(await resolveUnknown(c, u));
-  const cl = (await c.d.rpcService("qbo_job_claim", { p_limit: limit }) as ClaimResult);
+  const cl = (await c.d.rpcService("qbo_job_claim", { p_limit: limit, p_kinds: [...SEND_KINDS] }) as ClaimResult);   // 2b2: EF 가 아는 kind 만(DB 기본값은 customer · item)
   const jobs: JobOut[] = [];
   for (const j of cl.jobs ?? []) jobs.push(await sendOne(c, j));
   const n = (st: string) => jobs.filter((x) => x.state === st).length;
-  return jsonCompact(200, { ok: true, limit, resolved, recovered_unknown: cl.recovered_unknown ?? 0, unblocked: cl.unblocked ?? 0, body_failed: cl.body_failed ?? 0, claimed: cl.claimed ?? 0, sent: n("sent"), failed: n("failed"), unknown: n("unknown"), jobs });
+  return jsonCompact(200, { ok: true, limit, kinds: [...SEND_KINDS], resolved, recovered_unknown: cl.recovered_unknown ?? 0, unblocked: cl.unblocked ?? 0, body_failed: cl.body_failed ?? 0, blocked_for_needs: cl.blocked_for_needs ?? 0, claimed: cl.claimed ?? 0,
+    sent: n("sent"), failed: n("failed"), unknown: n("unknown"), mismatch: jobs.filter((x) => x.mismatch).length, jobs });
 }
 
 // ── callback(GET · Intuit 이 브라우저를 보낸다) — 언제나 302 · 본문 비움 · Location 은 고정 주소 + 정해진 why 낱말뿐 ──
@@ -684,6 +791,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       if (!secret) return json(500, { ok: false, error: "IMS_CRON_SECRET not configured - refusing (fail-closed)" });
       if (!cronKey || !sameSecret(cronKey, secret)) return json(401, { ok: false, error: "unauthorized" });
       if (!(CRON_ACTIONS as readonly string[]).includes(action)) return json(400, { ok: false, error: "cron may only call: " + CRON_ACTIONS.join(", ") });
+      if (action === "send") return await send(c, body);                                              // 2b2 cron ims-qbo-send — 열쇠 문 없음(by_staff null) · limit 은 cron 몸에서
       const h = await ensureToken(c, true);
       return json(200, { ok: true, refreshed: h.refreshed, token_version: h.token_version, access_expires_at: h.access_expires_at, refresh_expires_at: h.refresh_expires_at, env: h.env, realm_id: h.realm });
     }

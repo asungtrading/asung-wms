@@ -884,3 +884,23 @@ $job$);
 --   ~~jobid: 등록 뒤 실측해 여기에 적는다(테스트 DB 번호 · 마지막 59 ims-qbo-refresh 다음)~~
 --   ✅ [2026-11-01 · docs-1101 실측] **jobid 60** ims-mcp-log-purge · '20 9 * * *' · active t — `select jobid, jobname, schedule, active from cron.job where jobname like 'ims-mcp%';` 원문 1 행(60 | ims-mcp-log-purge | 20 9 * * * | t) · 컷오버(10-30) 뒤 등록이라 reload-procedure P-3 의 「1 단계에서 끈 22」 밖(P-3 5)
 select cron.schedule('ims-mcp-log-purge', '20 9 * * *', $job$ select public.mcp_log_purge(); $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-qbo-send 등록 — qbo-sync-2b2 (2026-11-01 · 판정 935 ~ 951 · 지시서 ~/asung/prompts/qbo-sync-2b.md) — QuickBooks 보내기(인보이스 · void · 손님 · Item 일감) 5 분마다 · DB 2b1 20261102040000 적용 + EF qbo 배포 뒤에 · ⚠️ 이 프로젝트가 메인(617) — 다른 프로젝트에 등록하지 마라
+--   무엇: */5 분 — inv_config qbo_send_enabled = 'on' 이고 · 연결이 connected 이고 · 할 일(queued · next_at 지남 / unknown / 부모 sent 인 blocked)이 있을 때만 EF qbo 를 {"action":"send","limit":<qbo_send_batch>} 로 부른다(cron 길 = x-ims-cron-key · 열쇠 문 없음 · by_staff null)
+--   ⚠️ 스위치 off 면 where 가 거르니 호출 0(pg_net 비용 0) — 등록은 지금 · 켜기(qbo_send_enabled on)는 켜는 순서 ⑥(Caleb · 첫 실물 확인 뒤) · 수동 send(Settings → QuickBooks · 열쇠 qbo)는 스위치와 무관
+--   limit: qbo_send_batch(기본 15 · 1 ~ 50) — 일감 하나 = Intuit 호출 1 ~ 3(DocNumber 조회 · POST · 읽기) · 15 개 ≈ 45 호출 ≈ 30 s 안쪽(짐작) · timeout 120 s · 다음 분의 호출은 claim 의 10 분 임대(sending)가 막는다
+--   열쇠: jobid 55 ims-mail-drain 의 command 에서 다시 꺼내는 꼴은 ims-drive · ims-qbo-refresh 와 같다(아래는 자리표 · 대시보드 SQL Editor 에서만)
+--   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-send';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다(마지막 60 ims-mcp-log-purge 다음 → 61 예상)
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-qbo-send') order by start_time desc limit 5;  · 보낸 흔적: select action, ok, http_status, detail from public.qbo_call_log where action in ('send', 'send_check', 'send_read') order by called_at desc limit 20;
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-send'), active := false);   · 해제: select cron.unschedule('ims-qbo-send');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'qbo_send_enabled';
+select cron.schedule('ims-qbo-send', '*/5 * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+    body := jsonb_build_object('action', 'send', 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+  where exists (select 1 from public.inv_config c where c.key = 'qbo_send_enabled' and c.value = 'on')
+    and exists (select 1 from public.qbo_connection c where c.status = 'connected')
+    and exists (select 1 from public.qbo_job j
+                 where j.state = 'unknown'
+                    or (j.state = 'queued' and j.next_at <= now())
+                    or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent')));
+$job$);
