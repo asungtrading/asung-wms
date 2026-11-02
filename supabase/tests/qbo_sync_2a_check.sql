@@ -5,7 +5,11 @@
 --   쓰기: 가짜 직원 넷(admin 열쇠 없음 · manager qbo · manager qbo:read · worker) · 가짜 손님 7 · 제품 8 · QBO 거울 행(C-2A-* · V-2A-* · I-2A-*) · 일감 — 전부 rollback · 실제 행 0 변경 · EF 없음 · Intuit 없음
 --   REST 두 겹: ① L1 nowhere 스캐너(새 · 재발행 함수 18 의 update · delete 깊이 0 WHERE) ② 배포 뒤 북키퍼 열쇠로 Refresh list 한 번(Caleb)
 \set ON_ERROR_STOP on
+\if :{?mig}
 \set EXPECT_OK 48
+\else
+\set EXPECT_OK 47
+\endif
 \pset pager off
 \set adm '{"role":"authenticated","sub":"a2a2a2a2-0000-4000-8000-000000000001"}'
 \set mgw '{"role":"authenticated","sub":"a2a2a2a2-0000-4000-8000-000000000002"}'
@@ -261,11 +265,13 @@ select pg_temp.chk('D20 표 제약 — 열린 일감 둘 23505 · kind item + im
 select pg_temp.chk('D21 qbo_txn 넣기(postgres) → 유일 둘 · 짝 OK · touch 트리거', (select (pg_temp.pg(format('insert into public.qbo_txn (realm_id, ims_kind, ims_id, qbo_type, qbo_id, doc_number, total_amt, total_tax) values (%L, ''invoice'', ''inv-x'', ''Invoice'', ''T-1'', ''50001'', 93.30, 10.74) returning doc_number', :'realm')))
   || ' ' || left(pg_temp.pg(format('insert into public.qbo_txn (realm_id, ims_kind, ims_id, qbo_type, qbo_id) values (%L, ''invoice'', ''inv-x'', ''Invoice'', ''T-2'') returning id::text', :'realm')), 9) || ' ' || left(pg_temp.pg(format('insert into public.qbo_txn (realm_id, ims_kind, ims_id, qbo_type, qbo_id) values (%L, ''invoice'', ''inv-y'', ''Invoice'', ''T-1'') returning id::text', :'realm')), 9)), '50001 ERR 23505 ERR 23505');
 
--- ── L) REST 두 겹 ① — 새 · 재발행 함수의 update · delete 는 전부 깊이 0 WHERE · 다른 qbo_* 함수 md5 무변(재발행 5 빼고) ──
+-- ── L) REST 두 겹 ① — 새 · 재발행 함수의 update · delete 는 전부 깊이 0 WHERE · 다른 qbo_* 함수 md5 무변(재발행 5 빼고 · L2 는 시험 갈래만 — 확인 갈래는 begin 앞 지문이 이미 적용 뒤라 비교할 것이 없다 · 2a′ 에서 고침) ──
 select pg_temp.chk('L1 nowhere 스캐너 = 0(새 13 + 재발행 5)', (select string_agg(p.proname || '=' || pg_temp.nowhere(p.prosrc), ' ' order by p.proname) from pg_proc p where p.pronamespace = 'public'::regnamespace
     and p.proname in ('qbo_key_gate', 'qbo_sync_gate', 'qbo_status', 'qbo_link_summary', 'qbo_link_page', 'qbo_entity_find', 'qbo_country_name', 'qbo_account_ref', 'qbo_customer_body', 'qbo_item_body', 'qbo_job_add', 'qbo_job_list', 'qbo_job_retry', 'qbo_job_skip', 'qbo_job_claim', 'qbo_job_done', 'qbo_job_fail', 'qbo_job_unknown') and pg_temp.nowhere(p.prosrc) <> 0), null);
+\if :{?mig}
 select pg_temp.chk('L2 기존 qbo_* 함수 md5 — 재발행 5(sync_gate · status · summary · page · entity_find) 빼고 전부 begin 앞과 같다', (select count(*)::text from t_pre t join pg_proc p on p.pronamespace = 'public'::regnamespace and p.proname = t.proname and md5(p.prosrc) = t.md5)
   || ' ' || (select string_agg(t.proname, ' ' order by t.proname) from t_pre t join pg_proc p on p.pronamespace = 'public'::regnamespace and p.proname = t.proname and md5(p.prosrc) <> t.md5), (:n_fn - 5)::text || ' qbo_entity_find qbo_link_page qbo_link_summary qbo_status qbo_sync_gate');
+\endif
 select pg_temp.chk('L3 scanner 자기 시험', pg_temp.nowhere('update t set a = 1;')::text || pg_temp.nowhere('update t set a = 1 where b = 2;')::text || pg_temp.nowhere('with c as (select 1) update t set a = 1 from c;')::text || pg_temp.nowhere('delete from t;')::text || pg_temp.nowhere('update t set a = 1 from p where t.id = p.id;')::text, '10110');
 
 -- ── 결과 ──

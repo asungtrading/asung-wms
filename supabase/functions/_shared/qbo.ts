@@ -13,6 +13,9 @@
 //     read  = { entity, id } · 단건 GET · Preferences · CompanyInfo 는 id 없이 · Customer · Vendor 단건은 연락처 · 주소 칸을 빼고 돌려준다
 //     기록 = call_log 한 줄 + detail(entity · rows · totalCount · startPosition · maxResults · q 는 리터럴을 ? 로) · 결과 행은 담지 않는다 · 결과 행에는 scrub 을 걸지 않는다(SyncToken 이 깨진다 · 이견 3) · 응답은 들여쓰기 없는 JSON · 5 MB 초과 413
 //   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): pull { entity, start? }(~~admin 만~~ → [2a 945] 열쇠 qbo · cron 길 없음) — QBO 목록 한 쪽을 qbo_entity 에 받아 둔다 · 한 번 호출 = 한 쪽(1000 행)
+//   qbo-sync-2a′(2026-11-01 · 판정 935 ~ 946 · DB 2a 20261102003000 + 2a′ 20261102030000): send { limit? }(열쇠 qbo · 수동 · cron 등록 없음) — ① qbo_job_unknown_list → 이름으로 조회(send_check · GET) → 하나면 qbo_job_done · 0 · 둘 이상은 그대로 ② qbo_job_claim → 일감마다 apiWrite POST 한 번(requestid = request_id · retry 없음)
+//     2xx → qbo_job_done(qbo_link created + qbo_entity upsert 는 DB 가) · 4xx → qbo_job_fail(6240 Duplicate Name 인 Item 은 name_alt ` [SKU]` 로 requestid '-2' 한 번 더 · note 로 흔적) · 5xx · 끊김 · 몸에 레코드 없음 → qbo_job_unknown(보낸 이름을 남긴다) · 401 은 withAuthRetry(처리 안 됨이 분명 · 같은 requestid)
+//     쓰기는 apiWrite 하나 · assertWriteAllowed(POST · customer · item · invoice · creditmemo · operation=void 는 invoice · creditmemo 만 · delete 없음 · requestid 필수) · 읽기 길(apiCall · assertReadOnlyRequest)은 그대로 · PII 가드를 Invoice · CreditMemo · Payment · SalesReceipt · RefundReceipt 에도(select * · BillAddr · ShipAddr · BillEmail · ShipFromAddr 거부 · read 는 벗김)
 //   qbo-sync-2a(2026-11-01 · 판정 945 · DB 20261102003000): 문 둘 — ADMIN_ACTIONS(start · disconnect · refresh · ping · query · read)는 qbo_admin_gate 그대로 · KEY_ACTIONS(pull · 뒤에 send · job)는 qbo_key_gate(p_write true · perms 'qbo' 글자 그대로 · admin 도 켜야 한다) · 둘 다 사용자 JWT 로 DB 가 본다 · status 응답의 caller_qbo(write | read | null)는 DB qbo_status 가 준다(EF 코드 없음)
 //     entity 7 = PULL_ENTITIES(Account · TaxCode · Term · PaymentMethod · Customer · Vendor · Item · 그 밖은 400) · 칸은 PULL_FIELDS(Customer · Vendor 는 Id · DisplayName · ParentRef · FullyQualifiedName · Active · SyncToken 만 · 933 · Item 은 * — qbo-sync-1c: 칸을 고른 조회는 Sku 를 안 돌려준다 · 11-01 실측)
 //     조회 = select <칸> from <entity> where Active in (true, false) STARTPOSITION <start> MAXRESULTS 1000 — TaxCode 만 where 없이(11-01 실측: Account · Term · PaymentMethod 는 조건 통과 · TaxCode · TaxRate 는 조건 없이 받음 · PULL_NO_ACTIVE_FILTER)
@@ -35,10 +38,16 @@ export const LEASE_WAIT_MS = 15_000, LEASE_POLL_MS = 1_500;                     
 export const RETRY_DELAY_MS = 1_000;                                              // 네트워크 · 5xx 만 1 회
 export const CALL_LOG_KEEP_DAYS = 90;
 export const ACCESS_EXPIRES_DEFAULT_S = 3600;                                     // expires_in 이 없을 때만(Intuit 문서값 · 이견 5) — 응답에 있으면 그 값
-export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read", "pull"] as const;
+export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read", "pull", "send"] as const;
 // ── qbo-sync-2a 판정 945 문 둘 — ADMIN_ACTIONS = qbo_admin_gate(연결 · 끊기 · 갱신 · 핑 · 원문 조회 933) · KEY_ACTIONS = qbo_key_gate(p_write true · perms 'qbo' · admin 도 켜야 한다 · 뒤에 send · job) · status 는 누구나 ──
 export const ADMIN_ACTIONS = ["start", "disconnect", "refresh", "ping", "query", "read"] as const;
-export const KEY_ACTIONS = ["pull"] as const;
+export const KEY_ACTIONS = ["pull", "send"] as const;
+// ── qbo-sync-2a′ 쓰기 길 — apiWrite 하나 · POST 만 · 만들기 customer · item · invoice · creditmemo(2b) · operation=void 는 invoice · creditmemo 만(2b · 2c) · operation=delete 없음 · requestid 필수(1 ~ 50 자 · Intuit 이 같은 id 면 처음 응답) · 자동 재시도 없음(retry false · 결과를 모르면 unknown → 다음 send 가 이름으로 조회) ──
+export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo"] as const;
+export const VOIDABLE_ENTITIES = ["invoice", "creditmemo"] as const;
+export const REQUESTID_MAX = 50;
+export const SEND_LIMIT_DEFAULT = 15, SEND_LIMIT_MAX = 50;
+export const DUPLICATE_NAME_CODE = "6240";                                                 // Intuit 「Duplicate Name Exists Error」 — 처리 안 됨이 분명 · Item 은 ` [SKU]` 로 한 번 더(다른 requestid · 이견 11)
 // ── qbo-sync-1b pull — 종류 7 · 칸 · 쪽 1000 · Active 조건 없이 받는 종류(TaxCode · 11-01 실측) ──
 export const PULL_ENTITIES = ["Account", "TaxCode", "Term", "PaymentMethod", "Customer", "Vendor", "Item"] as const;
 export const PULL_PAGE = 1000;
@@ -57,8 +66,8 @@ export const pullQueryText = (entity: string, start: number): string =>
 // ── qbo-read-1 읽기 전용 조회 — 허용 엔터티(정식 이름 · 대소문자 무관으로 맞춘다) · Employee 는 일부러 없다(933) ──
 export const QUERY_ENTITIES = ["Account", "TaxCode", "TaxRate", "TaxAgency", "Term", "PaymentMethod", "Customer", "Vendor", "Item", "Invoice", "CreditMemo", "Payment", "RefundReceipt", "SalesReceipt", "Deposit", "JournalEntry", "Bill", "VendorCredit", "BillPayment", "Purchase", "Class", "Department", "CompanyCurrency", "ExchangeRate"] as const;
 export const READ_SINGLETONS = ["Preferences", "CompanyInfo"] as const;                                 // read 만 · id 없이
-export const PII_ENTITIES = ["Customer", "Vendor"] as const;                                             // 연락처 · 주소 칸 금지(933)
-export const PII_FIELDS = ["PrimaryEmailAddr", "PrimaryPhone", "Mobile", "Fax", "BillAddr", "ShipAddr", "WebAddr", "AlternatePhone", "OtherAddr"] as const;
+export const PII_ENTITIES = ["Customer", "Vendor", "Invoice", "CreditMemo", "Payment", "SalesReceipt", "RefundReceipt"] as const;   // 연락처 · 주소 칸 금지(933 · 2a′ 이견 17: 거래 다섯도 — BillAddr · ShipAddr · BillEmail 이 그대로 오던 빈틈)
+export const PII_FIELDS = ["PrimaryEmailAddr", "PrimaryPhone", "Mobile", "Fax", "BillAddr", "ShipAddr", "WebAddr", "AlternatePhone", "OtherAddr", "BillEmail", "BillEmailCc", "BillEmailBcc", "ShipFromAddr"] as const;
 export const MAXRESULTS_DEFAULT = 100, MAXRESULTS_MAX = 1000, QUERY_MAX_CHARS = 2000;
 export const RESPONSE_MAX_BYTES = 5 * 1024 * 1024;                                                       // Intuit 응답 몸 5 MB 초과 → 413(이견 9)
 export const CRON_ACTIONS = ["refresh"] as const;
@@ -181,7 +190,7 @@ export function parseQuery(raw: unknown): ParsedQuery {
   const fields = q.slice(6, m.index).trim();
   const isCount = /^count\s*\(\s*\*\s*\)$/i.test(fields);
   if ((PII_ENTITIES as readonly string[]).includes(entity) && !isCount) {
-    if (fields === "*") throw new QboError(400, `select * is not allowed on ${entity} — name the fields (Id, DisplayName, ParentRef, Job, Active, CurrencyRef, Balance, MetaData …); contact and address fields are excluded (${PII_FIELDS.join(", ")})`);
+    if (fields === "*") throw new QboError(400, `select * is not allowed on ${entity} — name the fields (Id, DisplayName / DocNumber, TotalAmt, TxnDate, CustomerRef, SyncToken, MetaData …); contact and address fields are excluded (${PII_FIELDS.join(", ")})`);
     const hit = PII_FIELDS.find((f) => new RegExp("\\b" + f + "\\b", "i").test(fields));
     if (hit) throw new QboError(400, `${hit} is not readable on ${entity} — contact and address fields are excluded (${PII_FIELDS.join(", ")})`);
   }
@@ -203,6 +212,26 @@ export function assertReadOnlyRequest(method: string, url: string): void {      
   if (m === "POST" && /\/query\/?$/.test(path)) return;
   throw new QboError(500, `refusing ${m} ${path} — this function only reads from QuickBooks (GET, or POST …/query)`);
 }
+// ── qbo-sync-2a′ 순수: 쓰기 허용 검사(apiWrite 가 부른다 · 그 밖은 던진다) · Fault code · 쓰기 결과 갈래 ──
+export function assertWriteAllowed(method: string, url: string): void {
+  const m = String(method ?? "").toUpperCase(), u = new URL(url), path = u.pathname;
+  if (m !== "POST") throw new QboError(500, `refusing ${m} ${path} — writes to QuickBooks are POST only (create · void) · nothing is ever deleted`);
+  const mm = /^\/v3\/company\/[^/]+\/([a-z]+)\/?$/.exec(path);
+  if (!mm || !(WRITE_ENTITIES as readonly string[]).includes(mm[1])) throw new QboError(500, `refusing POST ${path} — this function only creates ${WRITE_ENTITIES.join(", ")} (and voids ${VOIDABLE_ENTITIES.join(", ")})`);
+  const op = u.searchParams.get("operation");
+  if (op !== null && !(op === "void" && (VOIDABLE_ENTITIES as readonly string[]).includes(mm[1]))) throw new QboError(500, `refusing POST ${path}?operation=${op} — only operation=void on ${VOIDABLE_ENTITIES.join(", ")} · operation=delete is never sent`);
+  const rid = u.searchParams.get("requestid") ?? "";
+  if (!rid || rid.length > REQUESTID_MAX) throw new QboError(500, `refusing POST ${path} without a requestid (1 … ${REQUESTID_MAX} characters) — every write carries the job request_id`);
+}
+export const faultCode = (body: unknown): string | null => { const f = ((body && typeof body === "object" ? body : {}) as Record<string, unknown>).Fault as Record<string, unknown> | undefined; const e = Array.isArray(f?.Error) ? f!.Error[0] as Record<string, unknown> : null; return e && e.code != null ? String(e.code) : null; };
+export type WriteClass = "ok" | "fail" | "unknown";
+export function classifyWrite(status: number, networkError: string | null): WriteClass {               // 2xx 처리됨 · 4xx 처리 안 됨이 분명 · 5xx · 0(끊김) 은 모른다(QBO 에 닿았을 수 있다)
+  if (networkError !== null || status === 0) return "unknown";
+  if (status >= 200 && status < 300) return "ok";
+  if (status >= 400 && status < 500) return "fail";
+  return "unknown";
+}
+export const sqlQuote = (s: string): string => "'" + String(s ?? "").replace(/'/g, "''") + "'";          // QBO 조회 리터럴(따옴표 둘로)
 export function stripPii<T>(entity: string, row: T): T {
   if (!(PII_ENTITIES as readonly string[]).includes(entity) || !row || typeof row !== "object") return row;
   const out = { ...(row as Record<string, unknown>) };
@@ -372,6 +401,15 @@ async function apiCall(c: Ctx, action: string, h: Held, path: string, query: Rec
   assertReadOnlyRequest("GET", u.toString());
   return await intuitCall(c, action, u.toString(), { method: "GET", headers: { Authorization: "Bearer " + h.access, Accept: "application/json" } }, h.realm, true, detailOf);
 }
+// ── Intuit API 쓰기 하나(qbo-sync-2a′) — API 호스트로 나가는 모든 쓰기가 여기를 지난다 · POST · 허용 목록(assertWriteAllowed) · requestid 필수 · ⚠️ 자동 재시도 없음(retry false) · 몸은 기록하지 않는다(detailOf 는 job id 만) ──
+async function apiWrite(c: Ctx, action: string, h: Held, path: string, query: Record<string, string>, bodyObj: unknown, detailOf?: (r: IntuitResult) => Record<string, unknown> | null): Promise<IntuitResult> {
+  c.secrets.push(h.access);
+  const u = new URL(API_BASE[h.env] + path);
+  for (const [k, v] of Object.entries(query)) u.searchParams.set(k, v);
+  u.searchParams.set("minorversion", MINOR_VERSION);
+  assertWriteAllowed("POST", u.toString());
+  return await intuitCall(c, action, u.toString(), { method: "POST", headers: { Authorization: "Bearer " + h.access, Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(bodyObj) }, h.realm, false, detailOf);
+}
 // ── 401 한 번(이견 6) — 접근 토큰으로 부르고 401 이면 강제 갱신 한 번 뒤 다시 · 그래도 401 이면 needs_reconnect(ping · query · read 가 같이 쓴다) ──
 async function withAuthRetry(c: Ctx, call: (h: Held) => Promise<IntuitResult>): Promise<{ h: Held; r: IntuitResult }> {
   let h = await ensureToken(c, false);
@@ -462,6 +500,82 @@ async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise
   const done = rows.length < PULL_PAGE;
   const fin = done ? await c.d.rpcUser("qbo_pull_finish", { p_realm: h.realm, p_type: entity }, jwt) as { gone: number; finished_at: string; received: number; pages: number } : null;
   return jsonCompact(200, { ok: true, entity, start, received_now: rows.length, received: up.received, pages: up.pages, next_start: done ? null : start + PULL_PAGE, done, gone: fin?.gone ?? null, finished_at: fin?.finished_at ?? null, intuit_tid: r.tid });
+}
+
+// ── send(qbo-sync-2a′ · 열쇠 qbo · 수동 · cron 등록 없음) — ① unknown 일감을 이름으로 조회해 풀기(있으면 done · 없으면 그대로 · 둘 이상이면 그대로) ② claim → 일감마다 POST 한 번(requestid = request_id) → 2xx done · 4xx fail(6240 Item 은 ` [SKU]` 로 다른 requestid 한 번 더) · 5xx · 끊김 · 몸 없음 unknown(보낸 이름을 남긴다) ──
+type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; warnings: string[] };
+type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; jobs: ClaimJob[] };
+type UnknownRow = { job_id: string; kind: string; ims_kind: string; ims_id: string; qbo_name: string | null; sku: string | null; request_id: string; attempts: number };
+type JobOut = { job_id: string; kind: string; ims_kind: string; ims_id: string; name: string; state: string; qbo_id: string | null; error: string | null; note: string | null; linked?: boolean; link_error?: string | null };
+const entityKeyOf = (kind: string): { path: string; key: string; nameField: string } => kind === "customer" ? { path: "customer", key: "Customer", nameField: "DisplayName" } : { path: "item", key: "Item", nameField: "Name" };
+const createdIdOf = (body: unknown, key: string): string | null => { const row = (body as Record<string, unknown>)?.[key] as Record<string, unknown> | undefined; return row && row.Id != null ? String(row.Id) : null; };
+async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unknown>> {
+  const out: Record<string, unknown> = { job_id: u.job_id, kind: u.kind, ims_kind: u.ims_kind, ims_id: u.ims_id };
+  if (!u.qbo_name) return { ...out, result: "no_name", message: "the name that was sent is not on the job — retry it by hand after checking QuickBooks" };
+  const e = entityKeyOf(u.kind);
+  const p = parseQuery(`select Id, ${e.nameField}${u.kind === "item" ? ", Sku" : ""}, SyncToken from ${e.key} where ${e.nameField} = ${sqlQuote(u.qbo_name)}`);
+  const detailOf = (r: IntuitResult): Record<string, unknown> => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return { job_id: u.job_id, kind: u.kind, ims_kind: u.ims_kind, ims_id: u.ims_id, rows: Array.isArray(qr[e.key]) ? (qr[e.key] as unknown[]).length : 0, q: queryForLog(p.text) }; };
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "send_check", h, `/v3/company/${encodeURIComponent(h.realm)}/query`, { query: p.text }, detailOf));
+  if (r.error) return { ...out, result: "check_failed", error: r.error };                                           // 다음 send 가 다시 본다
+  const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(qr[e.key]) ? qr[e.key] as Record<string, unknown>[] : [];
+  if (rows.length === 0) return { ...out, result: "not_found", message: "QuickBooks has no record with that name — if it really is not there, retry the job by hand (Settings → QuickBooks)" };
+  if (rows.length > 1) return { ...out, result: "ambiguous", count: rows.length, message: "more than one QuickBooks record has that name — link it by hand" };
+  const row = rows[0];
+  const d = await c.d.rpcService("qbo_job_done", { p_job: u.job_id, p_qbo_id: String(row.Id), p_qbo_name: String(row[e.nameField] ?? u.qbo_name), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: r.tid,
+    p_note: "result was unknown — found in QuickBooks by name and linked", p_sku: typeof row.Sku === "string" ? row.Sku : u.sku }) as Record<string, unknown>;
+  return { ...out, result: "found", qbo_id: String(row.Id), state: d?.state ?? null, linked: d?.linked ?? null, link_error: d?.link_error ?? null };
+}
+async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
+  const e = entityKeyOf(j.kind);
+  const base: JobOut = { job_id: j.job_id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, name: j.name, state: "sending", qbo_id: null, error: null, note: null };
+  const attempt = (bodyObj: Record<string, unknown>, requestId: string) => withAuthRetry(c, (h) => apiWrite(c, "send", h, `/v3/company/${encodeURIComponent(h.realm)}/${e.path}`, { requestid: requestId }, bodyObj,
+    (r) => ({ job_id: j.job_id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, request_id: requestId, attempt: j.attempt, qbo_id: createdIdOf(r.body, e.key), fault: faultCode(r.body) })));
+  let nameSent = j.name, note: string | null = null;
+  try {
+    let { r } = await attempt(j.body, j.request_id);
+    let cls = classifyWrite(r.status, r.networkError);
+    if (cls === "fail" && faultCode(r.body) === DUPLICATE_NAME_CODE && j.kind === "item" && j.name_alt && j.name_alt !== nameSent) {   // 이견 11 — 「다른 요청」 으로 한 번(requestid 도 다르게)
+      note = `Duplicate Name (${DUPLICATE_NAME_CODE}) on "${nameSent}" — sent again as "${j.name_alt}"`;
+      nameSent = j.name_alt;
+      ({ r } = await attempt({ ...j.body, Name: j.name_alt }, (j.request_id + "-2").slice(0, REQUESTID_MAX)));
+      cls = classifyWrite(r.status, r.networkError);
+    }
+    if (cls === "ok") {
+      const row = (r.body as Record<string, unknown>)?.[e.key] as Record<string, unknown> | undefined;
+      if (!row || row.Id == null) {
+        await c.d.rpcService("qbo_job_unknown", { p_job: j.job_id, p_error: `QuickBooks answered ${r.status} without the created ${e.key} — checked by name at the next send`, p_intuit_tid: r.tid, p_name: nameSent });
+        return { ...base, name: nameSent, state: "unknown", error: "2xx without the created record", note };
+      }
+      const d = await c.d.rpcService("qbo_job_done", { p_job: j.job_id, p_qbo_id: String(row.Id), p_qbo_name: String(row[e.nameField] ?? nameSent), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: r.tid, p_note: note,
+        p_sku: typeof row.Sku === "string" && row.Sku ? row.Sku : j.sku }) as Record<string, unknown>;
+      return { ...base, name: nameSent, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), linked: d?.linked === true, link_error: (d?.link_error as string | null) ?? null, note };
+    }
+    if (cls === "fail") {
+      const err = (note ? note + " · " : "") + (r.error ?? ("HTTP " + r.status));
+      await c.d.rpcService("qbo_job_fail", { p_job: j.job_id, p_error: err, p_intuit_tid: r.tid });
+      return { ...base, name: nameSent, state: "failed", error: err, note };
+    }
+    await c.d.rpcService("qbo_job_unknown", { p_job: j.job_id, p_error: r.error ?? ("no answer (HTTP " + r.status + ")"), p_intuit_tid: r.tid, p_name: nameSent });
+    return { ...base, name: nameSent, state: "unknown", error: r.error ?? "no answer", note };
+  } catch (err) {                                                                                      // 토큰 · DB 창구가 던짐 — 보내기 전이면 failed(사람이 retry) · 보낸 뒤면 sending 그대로(10 분 뒤 unknown · 다음 send 가 이름으로 푼다)
+    const msg = sc(c, String((err as Error)?.message ?? err)).slice(0, 400);
+    try { await c.d.rpcService("qbo_job_fail", { p_job: j.job_id, p_error: "not sent — " + msg, p_intuit_tid: null }); return { ...base, name: nameSent, state: "failed", error: "not sent — " + msg, note }; }
+    catch { return { ...base, name: nameSent, state: "sending", error: msg, note }; }
+  }
+}
+async function send(c: Ctx, body: Record<string, unknown>): Promise<Response> {
+  const limit = body.limit === undefined || body.limit === null || body.limit === "" ? SEND_LIMIT_DEFAULT : Number(body.limit);
+  if (!(Number.isInteger(limit) && limit >= 1 && limit <= SEND_LIMIT_MAX)) throw new QboError(400, `limit must be a whole number 1 … ${SEND_LIMIT_MAX} (got ${String(body.limit)})`);
+  await ensureToken(c, false);                                                                       // 연결 · env 를 먼저 본다(없으면 409 · 일감은 건드리지 않는다)
+  const unknowns = (await c.d.rpcService("qbo_job_unknown_list", {}) as UnknownRow[] | null) ?? [];
+  const resolved: Record<string, unknown>[] = [];
+  for (const u of unknowns) resolved.push(await resolveUnknown(c, u));
+  const cl = (await c.d.rpcService("qbo_job_claim", { p_limit: limit }) as ClaimResult);
+  const jobs: JobOut[] = [];
+  for (const j of cl.jobs ?? []) jobs.push(await sendOne(c, j));
+  const n = (st: string) => jobs.filter((x) => x.state === st).length;
+  return jsonCompact(200, { ok: true, limit, resolved, recovered_unknown: cl.recovered_unknown ?? 0, unblocked: cl.unblocked ?? 0, body_failed: cl.body_failed ?? 0, claimed: cl.claimed ?? 0, sent: n("sent"), failed: n("failed"), unknown: n("unknown"), jobs });
 }
 
 // ── callback(GET · Intuit 이 브라우저를 보낸다) — 언제나 302 · 본문 비움 · Location 은 고정 주소 + 정해진 why 낱말뿐 ──
@@ -595,6 +709,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (action === "query") return await query(c, body);
     if (action === "read") return await read(c, body);
     if (action === "pull") return await pull(c, body, jwt);
+    if (action === "send") return await send(c, body);
     return json(400, { ok: false, error: "unknown action" });
   } catch (e) {
     if (e instanceof QboError) return json(e.status, { ok: false, error: sc(c, e.message) });

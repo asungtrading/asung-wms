@@ -3,7 +3,7 @@
 //   가짜 DB 는 20261029160000(qbo-1a) 창구의 거부 글 · 반환 키를 그대로 흉내 낸다(state 10 분 · 한 번 · realm 고정 · 임대 · 판 번호 · needs_reconnect 거부 · mark 의 mailed = connected 에서 바뀔 때만)
 //   qbo-sync-1b(2026-11-01 · 판정 934): ⑭ pull — 가짜 DB 에 qbo_pull_begin · qbo_entity_upsert · qbo_pull_finish(20261101210000 의 거부 글 · 반환 키 그대로) · 쪽 1000 은 override 로 · 기존 ⓪ ~ ⑬ 무변
 //   ⚠️ 모든 비밀 · 토큰 가짜 값에 ZZSECRET 표식 — 응답 · 기록 · warn 어디에도 그 표식이 없어야 한다(⑨ + 모든 시험 끝)
-import { ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, authorizeUrl, KEY_ACTIONS, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
+import { ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, DUPLICATE_NAME_CODE, faultCode, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -15,10 +15,11 @@ function ok(c: boolean, msg: string) { if (!c) throw new Error(msg); }
 const SB = "https://fazgmyvzzhqybtvtktyg.supabase.co";
 const DISC = { issuer: "https://oauth.platform.intuit.com/op/v1", authorization_endpoint: "https://appcenter.intuit.com/connect/oauth2", token_endpoint: "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", revocation_endpoint: "https://developer.api.intuit.com/v2/oauth2/tokens/revoke" };
 type Hit = { url: string; method: string; body: string; auth: string | null };
-type Intuit = { hits: Hit[]; tokenN: number; override: ((h: Hit) => Response | Error | null)[] };
+type Created = { ent: string; id: string; name: string; sku: string | null; requestid: string | null };
+type Intuit = { hits: Hit[]; tokenN: number; override: ((h: Hit) => Response | Error | null)[]; dupNames: Set<string>; createdN: number; created: Created[] };   // 2a′: 가짜 쓰기 — dupNames 에 있으면 6240 · created 에 쌓인다(이름 조회가 찾는다)
 const jres = (status: number, body: unknown, tid = "tid-" + status) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", intuit_tid: tid } });
 function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
-  const it: Intuit = { hits: [], tokenN: 0, override: [] };
+  const it: Intuit = { hits: [], tokenN: 0, override: [], dupNames: new Set(), createdN: 0, created: [] };
   const fetch: Deps["fetch"] = async (url, init) => {
     const h: Hit = { url, method: String(init.method ?? "GET"), body: typeof init.body === "string" ? init.body : "", auth: (init.headers as Record<string, string>)?.Authorization ?? null };
     it.hits.push(h);
@@ -31,11 +32,22 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
     }
     if (url === DISC.revocation_endpoint) return jres(200, {}, "tid-rev");
     if (url.includes("/companyinfo/")) return jres(200, { CompanyInfo: { CompanyName: "Sandbox Company CA 9bca", Id: "1", SyncToken: "4", Email: { Address: "owner-ZZPII@example.invalid" } } }, "tid-ci");
+    if (h.method === "POST" && /\/v3\/company\/[^/]+\/(customer|item)\/?\?/.test(url)) {                 // 2a′ 가짜 쓰기 — Intuit 실물 꼴: 2xx 몸 = { Customer | Item: {...Id, SyncToken} } · 중복 이름 400 Fault 6240
+      const ent = (/\/(customer|item)\/?\?/.exec(url) ?? [])[1] ?? "", b = JSON.parse(h.body || "{}") as Record<string, unknown>, name = String(ent === "customer" ? b.DisplayName : b.Name);
+      if (it.dupNames.has(name)) return jres(400, { Fault: { Error: [{ Message: "Duplicate Name Exists Error", Detail: "The name supplied already exists. : " + name, code: "6240", element: "" }], type: "ValidationFault" }, time: "2026-11-01T12:00:00Z" }, "tid-6240");
+      const id = String(1000 + (++it.createdN)), requestid = new URL(url).searchParams.get("requestid");
+      it.created.push({ ent, id, name, sku: typeof b.Sku === "string" ? b.Sku : null, requestid });
+      const row = ent === "customer" ? { Id: id, DisplayName: name, CompanyName: b.CompanyName, SyncToken: "0", PrimaryEmailAddr: b.PrimaryEmailAddr, BillAddr: b.BillAddr, Taxable: b.Taxable, domain: "QBO", sparse: false }
+        : { Id: id, Name: name, Sku: b.Sku ?? null, Type: b.Type, SyncToken: "0", IncomeAccountRef: b.IncomeAccountRef, domain: "QBO", sparse: false };
+      return jres(200, { [ent === "customer" ? "Customer" : "Item"]: row, time: "2026-11-01T12:00:00Z" }, "tid-post-" + id);
+    }
     if (url.includes("/query?")) {                                                                   // QueryResponse 꼴 — 엔터티 이름 키 · startPosition · maxResults · count(*) 는 totalCount 만
       const q = new URL(url).searchParams.get("query") ?? "";
       const ent = (/\bfrom\s+([A-Za-z]+)/i.exec(q) ?? [])[1] ?? "";
       const entity = QUERY_ENTITIES.find((e) => e.toLowerCase() === ent.toLowerCase()) ?? ent;
       if (/^select\s+count\s*\(\s*\*\s*\)/i.test(q)) return jres(200, { QueryResponse: { totalCount: 1234 }, time: "2026-11-01T12:00:00Z" }, "tid-count");
+      const byName = /\bwhere\s+(DisplayName|Name)\s*=\s*'((?:[^']|'')*)'/i.exec(q);                      // 2a′ unknown 풀기 — 가짜 쓰기가 하나라도 있었으면 created 에서 그 이름(따옴표 둘 → 하나) · 없으면 옛 시험의 기본 3 행
+      if (byName && it.created.length > 0) { const nm = byName[2].replace(/''/g, "'"); const rows = it.created.filter((c) => c.ent === (entity === "Customer" ? "customer" : "item") && c.name === nm).map((c) => entity === "Customer" ? { Id: c.id, DisplayName: c.name, SyncToken: "0" } : { Id: c.id, Name: c.name, Sku: c.sku, SyncToken: "0" }); return jres(200, { QueryResponse: rows.length ? { [entity]: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-01T12:00:00Z" }, "tid-byname"); }
       const max = Number((/\bmaxresults\s+(\d+)/i.exec(q) ?? [])[1] ?? 0), start = Number((/\bstartposition\s+(\d+)/i.exec(q) ?? [])[1] ?? 1);
       const n = Math.min(max, 3), star = /^select\s+\*/i.test(q);                                    // qbo-sync-1c 실물: 칸을 고른 조회는 Sku 를 안 돌려준다(sparse true) · select * 만 Sku
       const rows = Array.from({ length: n }, (_, i) => entity === "Customer"
@@ -58,12 +70,13 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
 type Conn = { env: string; realm_id: string; status: string; company_name: string | null; token_version: number; access_exp: number; refresh_exp: number | null; refresh: string; access: string; lease_until: number | null; last_error: string | null; connected_by: string };
 type Pull = { started_at: number; next_start: number; received: number; pages: number; finished_at: number | null };
 type Ent = { name: string; sku: string | null; fetched_at: number; gone_at: number | null };
-type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null> };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945
+type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null>; jobs: Map<string, Job>; links: { ims_kind: string; ims_id: string; qbo_id: string; qbo_name: string; matched_by: string }[] };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945 · jobs · links = 2a′ 일감 상태기(20261102003000 · 20261102030000 의 규칙 · 거부 글 그대로)
+type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null };
 const STAFF = "11111111-1111-4111-8111-111111111111";
 const STAFF_MGR = "22222222-2222-4222-8222-222222222222";
 const staffOf = (jwt: string) => jwt === "JWT-ADMIN" ? STAFF : STAFF_MGR;
 function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcService: Deps["rpcService"] } {
-  const db: Db = { conn: null, states: new Map(), pin: { sandbox: null, production: null }, calls: [], mails: 0, saveFails: false, staleOnSave: false, lastErrors: [], versionBumpOnSleep: false, pulls: new Map(), ents: new Map(), keys: { "JWT-ADMIN": "qbo", "JWT-MGR": null } };   // 2a: admin 도 열쇠를 켜야 한다 — 기본 가짜 admin 은 켜 둔다
+  const db: Db = { conn: null, states: new Map(), pin: { sandbox: null, production: null }, calls: [], mails: 0, saveFails: false, staleOnSave: false, lastErrors: [], versionBumpOnSleep: false, pulls: new Map(), ents: new Map(), keys: { "JWT-ADMIN": "qbo", "JWT-MGR": null }, jobs: new Map(), links: [] };   // 2a: admin 도 열쇠를 켜야 한다 — 기본 가짜 admin 은 켜 둔다
   const refuse = (msg: string) => { throw new RpcError(400, msg); };
   const keyOf = (jwt: string) => db.keys[jwt] === "qbo" ? "write" : db.keys[jwt] === "qbo:read" ? "read" : null;
   const rpcUser: Deps["rpcUser"] = async (fn, args, jwt) => {
@@ -159,6 +172,34 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
       }
       case "qbo_last_error_set": { if (!c) refuse("QuickBooks is not connected — nothing was changed"); c!.last_error = String(args.p_error).slice(0, 400); db.lastErrors.push(c!.last_error); return { status: c!.status, last_error: c!.last_error }; }
       case "qbo_connection_delete": { const had = !!c; const n = db.states.size; db.conn = null; db.states.clear(); return { deleted: had, env: c?.env ?? null, vault_rows_removed: had ? 2 : 0, states_removed: n }; }
+      // ── 2a′ 일감 창구(service) — 20261102003000 · 20261102030000 의 상태 규칙 · 거부 글 그대로 ──
+      case "qbo_job_unknown_list": return [...db.jobs.values()].filter((j) => j.state === "unknown").map((j) => ({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, qbo_name: j.qbo_name, sku: j.ims_kind === "product" ? j.sku : null, request_id: j.request_id, attempts: j.attempts, last_error: j.last_error }));
+      case "qbo_job_claim": {
+        let stale = 0; for (const j of db.jobs.values()) if (j.state === "sending" && j.claimed_at !== null && j.claimed_at < clock() - 600_000) { j.state = "unknown"; j.claimed_at = null; j.last_error = (j.last_error ? j.last_error + " · " : "") + "stale: still sending"; stale++; }
+        const picked = [...db.jobs.values()].filter((j) => j.state === "queued").slice(0, Math.max(1, Math.min(Number(args.p_limit ?? 15), 50)));
+        for (const j of picked) { j.state = "sending"; j.claimed_at = clock(); j.attempts++; }
+        return { recovered_unknown: stale, unblocked: 0, claimed: picked.length, body_failed: 0, jobs: picked.map((j) => ({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, body: j.body, warnings: [] })) };
+      }
+      case "qbo_job_done": {
+        const j = db.jobs.get(String(args.p_job)); if (!j) refuse(`Job ${args.p_job} not found — nothing was saved`);
+        if (!["sending", "unknown"].includes(j!.state)) refuse(`Only a job being sent, or one whose result is unknown, can be finished (this one is ${j!.state}) — nothing was saved`);
+        if (!args.p_qbo_id || !args.p_qbo_name) refuse("qbo_id and qbo_name are required — nothing was saved");
+        j!.state = "sent"; j!.sent_at = clock(); j!.claimed_at = null; j!.qbo_id = String(args.p_qbo_id); j!.qbo_name = String(args.p_qbo_name); if (args.p_note) { j!.attempts++; j!.last_error = (j!.last_error ? j!.last_error + " · " : "") + String(args.p_note); }
+        const type = j!.ims_kind === "customer" ? "Customer" : "Item"; const m = db.ents.get(type) ?? new Map<string, Ent>(); db.ents.set(type, m); m.set(j!.qbo_id, { name: j!.qbo_name, sku: typeof args.p_sku === "string" ? args.p_sku : null, fetched_at: clock(), gone_at: null });
+        if (db.links.some((l) => l.qbo_id === j!.qbo_id && !(l.ims_kind === j!.ims_kind && l.ims_id === j!.ims_id))) { j!.state = "failed"; j!.sent_at = null; return { job_id: j!.id, kind: j!.kind, state: "failed", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: false, link_error: `QuickBooks ${type} #${j!.qbo_id} was created but is already linked to another IMS row — fix the link by hand under Settings → QuickBooks matching`, unblocked: 0 }; }
+        db.links.push({ ims_kind: j!.ims_kind, ims_id: j!.ims_id, qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, matched_by: "created" });
+        return { job_id: j!.id, kind: j!.kind, state: "sent", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: true, link_error: null, unblocked: 0 };
+      }
+      case "qbo_job_fail": {
+        const j = db.jobs.get(String(args.p_job)); if (!j) refuse(`Job ${args.p_job} not found — nothing was saved`);
+        if (!["sending", "unknown"].includes(j!.state)) refuse(`Only a job being sent, or one whose result is unknown, can fail (this one is ${j!.state}) — nothing was saved`);
+        j!.state = "failed"; j!.claimed_at = null; j!.last_error = String(args.p_error ?? "send failed"); return { job_id: j!.id, state: "failed", attempts: j!.attempts };
+      }
+      case "qbo_job_unknown": {
+        const j = db.jobs.get(String(args.p_job)); if (!j) refuse(`Job ${args.p_job} not found — nothing was saved`);
+        if (j!.state !== "sending") refuse(`Only a job being sent can become unknown (this one is ${j!.state}) — nothing was saved`);
+        j!.state = "unknown"; j!.claimed_at = null; j!.last_error = String(args.p_error ?? "no answer from QuickBooks"); if (typeof args.p_name === "string" && args.p_name) j!.qbo_name = args.p_name; return { job_id: j!.id, state: "unknown", attempts: j!.attempts, qbo_name: j!.qbo_name };
+      }
     }
     throw new RpcError(404, "no such service rpc " + fn);
   };
@@ -826,4 +867,143 @@ Deno.test("⑮ 문 둘(qbo-sync-2a 판정 945) — ACTIONS = status + ADMIN + KE
   eq([rc.status, String((await body(rc)).error)], [400, "cron may only call: refresh"], "cron path unchanged");
   eq((await postBody(w, { action: "pull", entity: "TaxCode" }, "JWT-BAD")).status, 401, "unknown session → 401");
   readOnlyOnly(w, "⑮"); noLeak(w, "⑮");
+});
+
+// ── qbo-sync-2a′ — 쓰기 시험 장치: 일감 넣기 · API 호스트로 나간 쓰기가 전부 허용 꼴(POST customer · item · requestid)인지 ──
+let jobN = 0;
+function addJob(w: World, o: Partial<Job> & { kind: string }): Job {
+  const n = ++jobN;
+  const j: Job = { id: "job-" + n, kind: o.kind, ims_kind: o.ims_kind ?? (o.kind === "customer" ? "customer" : "product"), ims_id: o.ims_id ?? "ims-" + n, state: "queued", attempts: 0, request_id: "11111111-2222-4333-8444-" + String(n).padStart(12, "0"),
+    name: o.name ?? (o.kind === "customer" ? "Customer " + n : "Item " + n), name_alt: o.name_alt ?? null, sku: o.sku ?? (o.kind === "item" ? "SKU-" + n : null),
+    body: o.body ?? (o.kind === "customer" ? { DisplayName: o.name ?? "Customer " + n, CompanyName: o.name ?? "Customer " + n, Taxable: true, CurrencyRef: { value: "CAD" }, BillAddr: { Line1: "35 ZZPII Rd", City: "Toronto", Country: "Canada" }, PrimaryEmailAddr: { Address: "shop-ZZPII@example.invalid" } }
+      : { Name: o.name ?? "Item " + n, Sku: o.sku ?? "SKU-" + n, Type: "Service", Taxable: true, IncomeAccountRef: { value: "98" }, ExpenseAccountRef: { value: "58" } }),
+    qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null };
+  w.db.jobs.set(j.id, j);
+  return j;
+}
+const postHits = (w: World) => apiHits(w).filter((h) => h.method === "POST" && !h.url.includes("/query"));
+function writesAllowedOnly(w: World, where: string) {
+  for (const h of apiHits(w)) {
+    if (h.method === "GET") continue;
+    const u = new URL(h.url);
+    ok(h.method === "POST" && /\/v3\/company\/[^/]+\/(customer|item)\/?$/.test(u.pathname) && !!u.searchParams.get("requestid") && !u.searchParams.has("operation"), where + ": unexpected write to Intuit: " + h.method + " " + h.url);
+  }
+}
+const send = (w: World, jwt: string | null = "JWT-ADMIN", extra: Record<string, unknown> = {}) => postBody(w, { action: "send", ...extra }, jwt);
+
+Deno.test("⑯ 쓰기 순수(qbo-sync-2a′) — assertWriteAllowed(POST customer · item · invoice · creditmemo + requestid · operation=void 는 invoice · creditmemo 만 · delete · PUT · DELETE · vendor · requestid 없음 · 51 자 거부) · classifyWrite · faultCode · sqlQuote · PII 가드 확장(Invoice · CreditMemo · Payment · SalesReceipt · RefundReceipt: select * 400 · BillEmail · ShipFromAddr 400 · read 는 벗김 · DocNumber 등은 그대로)", () => {
+  const base = "https://quickbooks.api.intuit.com/v3/company/123";
+  for (const e of WRITE_ENTITIES) assertWriteAllowed("POST", `${base}/${e}?requestid=r1&minorversion=75`);
+  assertWriteAllowed("POST", `${base}/invoice?operation=void&requestid=r1`); assertWriteAllowed("POST", `${base}/creditmemo?operation=void&requestid=r1`);
+  const refused = (m: string, u: string, why: string) => { let msg = ""; try { assertWriteAllowed(m, u); } catch (e) { msg = (e as Error).message; } ok(msg.startsWith("refusing"), why + " should be refused: " + (msg || "(allowed)")); return msg; };
+  ok(refused("POST", `${base}/customer?operation=void&requestid=r1`, "void customer").includes("only operation=void on invoice, creditmemo"), "void only on invoice · creditmemo");
+  ok(refused("POST", `${base}/invoice?operation=delete&requestid=r1`, "delete").includes("operation=delete is never sent"), "delete never");
+  refused("PUT", `${base}/customer?requestid=r1`, "PUT"); refused("DELETE", `${base}/customer?requestid=r1`, "DELETE"); refused("GET", `${base}/customer?requestid=r1`, "GET via write path");
+  refused("POST", `${base}/vendor?requestid=r1`, "vendor"); refused("POST", `${base}/customer/5?requestid=r1`, "customer/5 (not a create path)"); refused("POST", `${base}/query?requestid=r1`, "query via write path");
+  ok(refused("POST", `${base}/customer`, "no requestid").includes("without a requestid"), "requestid required"); refused("POST", `${base}/customer?requestid=${"x".repeat(REQUESTID_MAX + 1)}`, "requestid 51");
+  eq([classifyWrite(200, null), classifyWrite(201, null), classifyWrite(400, null), classifyWrite(429, null), classifyWrite(500, null), classifyWrite(503, null), classifyWrite(0, "boom"), classifyWrite(200, "boom")], ["ok", "ok", "fail", "fail", "unknown", "unknown", "unknown", "unknown"], "classifyWrite");
+  eq([faultCode({ Fault: { Error: [{ code: "6240" }] } }), faultCode({ Fault: { Error: [{ code: 610 }] } }), faultCode({}), faultCode("x"), faultCode(null)], ["6240", "610", null, null, null], "faultCode");
+  eq([sqlQuote("O'Neil & Co"), sqlQuote("")], ["'O''Neil & Co'", "''"], "sqlQuote doubles quotes");
+  eq([...PII_ENTITIES], ["Customer", "Vendor", "Invoice", "CreditMemo", "Payment", "SalesReceipt", "RefundReceipt"], "PII entities now seven");
+  for (const e of ["Invoice", "CreditMemo", "Payment", "SalesReceipt", "RefundReceipt"]) {
+    let m = ""; try { parseQuery(`select * from ${e}`); } catch (x) { m = (x as Error).message; } ok(m.includes("select * is not allowed on " + e), e + " select * refused: " + m);
+    m = ""; try { parseQuery(`select Id, BillEmail from ${e}`); } catch (x) { m = (x as Error).message; } ok(m.includes("BillEmail is not readable"), e + " BillEmail refused: " + m);
+    eq(parseQuery(`select Id, DocNumber, TotalAmt, TxnDate, CustomerRef, SyncToken from ${e} MAXRESULTS 5`).entity, e, e + " plain fields pass");
+  }
+  let m2 = ""; try { parseQuery("select Id, ShipFromAddr from Invoice"); } catch (x) { m2 = (x as Error).message; } ok(m2.includes("ShipFromAddr"), "ShipFromAddr refused");
+  eq(parseQuery("select count(*) from Invoice").isCount, true, "count(*) on Invoice still fine");
+  const inv = stripPii("Invoice", { Id: "1", DocNumber: "48160", TotalAmt: 93.3, BillAddr: { Line1: "x" }, ShipAddr: { Line1: "x" }, BillEmail: { Address: "x" }, BillEmailCc: { Address: "x" }, ShipFromAddr: { Line1: "x" }, CustomerRef: { value: "9" } });
+  eq(Object.keys(inv).sort(), ["CustomerRef", "DocNumber", "Id", "TotalAmt"], "read Invoice strips address · email fields");
+  eq(Object.keys(stripPii("Item", { Id: "1", BillAddr: { Line1: "x" } })).length, 2, "Item untouched");
+});
+
+Deno.test("⑰ send(qbo-sync-2a′) — 문(열쇠 qbo 만 · qbo:read 403 · cron 400 · limit 밖 400 · 연결 없음 409 · 일감 무접촉) · 손님 + Item 보내기(POST 둘 · requestid = request_id · 몸 그대로 · 2xx → done · 짝 created · 거울 · 기록 detail 에 job id 만 · 주소 · 이메일 0) · 6240 Item 은 ` [SKU]` 로 requestid -2 한 번 더(note · attempts +1) · 6240 손님은 failed · 5xx · 끊김 → unknown(1 번만 · 보낸 이름) · 2xx 몸 없음 → unknown · 401 한 번 → 갱신 뒤 같은 requestid 다시 · 다음 send 가 unknown 을 이름으로 풀기(하나 found → sent · 0 not_found · 둘 ambiguous) · 쓰기는 허용 꼴만", async () => {
+  // 문
+  const w = world(); connect(w);
+  w.db.keys["JWT-MGR"] = "qbo:read";
+  eq((await send(w, "JWT-MGR")).status, 403, "qbo:read cannot send");
+  w.db.keys["JWT-MGR"] = "qbo";
+  const rc = await postBody(w, { action: "send" }, null, { "x-ims-cron-key": "cron-ZZSECRET-0123456789abcdef" });
+  eq([rc.status, String((await body(rc)).error)], [400, "cron may only call: refresh"], "cron cannot send (no cron registration in 2a′)");
+  eq([(await send(w, "JWT-MGR", { limit: 0 })).status, (await send(w, "JWT-MGR", { limit: SEND_LIMIT_MAX + 1 })).status, (await send(w, "JWT-MGR", { limit: "x" })).status], [400, 400, 400], "limit outside 1 … 50 → 400");
+  const w0 = world();                                                                                 // 연결 없음
+  addJob(w0, { kind: "customer" });
+  const r0 = await send(w0);
+  eq([r0.status, w0.db.jobs.get("job-1")!.state, apiHits(w0).length], [409, "queued", 0], "not connected → 409 · job untouched · no Intuit call");
+  // 보내기 — 손님 + Item
+  const jc = addJob(w, { kind: "customer", name: "Some Shop Inc", ims_id: "cust-1" }), ji = addJob(w, { kind: "item", name: "Widget- Blue", name_alt: "Widget- Blue [SKU-W]", sku: "SKU-W", ims_id: "prod-1" });
+  const r1 = await send(w, "JWT-MGR");
+  const t1 = await r1.text(); ok(!t1.includes("\n"), "compact JSON");
+  const b1 = JSON.parse(t1) as Record<string, unknown>;
+  eq([r1.status, b1.ok, b1.claimed, b1.sent, b1.failed, b1.unknown, (b1.resolved as unknown[]).length], [200, true, 2, 2, 0, 0, 0], "two jobs sent: " + t1);
+  const posts = postHits(w);
+  eq(posts.length, 2, "two POSTs");
+  eq([new URL(posts[0].url).pathname.endsWith("/customer"), new URL(posts[0].url).searchParams.get("requestid"), new URL(posts[0].url).searchParams.get("minorversion")], [true, jc.request_id, "75"], "customer POST carries the job request_id");
+  eq(JSON.parse(posts[0].body), jc.body, "body sent as the DB built it");
+  eq([new URL(posts[1].url).pathname.endsWith("/item"), new URL(posts[1].url).searchParams.get("requestid")], [true, ji.request_id], "item POST");
+  eq([jc.state, jc.qbo_id, jc.qbo_name, ji.state, ji.qbo_id], ["sent", "1001", "Some Shop Inc", "sent", "1002"], "jobs sent with the QuickBooks ids");
+  eq(w.db.links.map((l) => l.ims_kind + ":" + l.ims_id + ":" + l.qbo_id + ":" + l.matched_by), ["customer:cust-1:1001:created", "product:prod-1:1002:created"], "links created");
+  eq([w.db.ents.get("Customer")!.get("1001")!.name, w.db.ents.get("Item")!.get("1002")!.sku], ["Some Shop Inc", "SKU-W"], "mirror rows upserted");
+  const sendLogs = w.logs.filter((l) => l.action === "send");
+  eq(sendLogs.length, 2, "two call_log rows for the writes");
+  eq([sendLogs[0].ok, sendLogs[0].http_status, sendLogs[0].by_staff, sendLogs[0].detail?.job_id, sendLogs[0].detail?.qbo_id, sendLogs[0].detail?.request_id], [true, 200, STAFF_MGR, "job-2", "1001", jc.request_id], "detail = job id · qbo id · request id: " + JSON.stringify(sendLogs[0]));
+  const logText = JSON.stringify(w.logs);
+  ok(!logText.includes("ZZPII") && !logText.includes("Some Shop Inc") && !logText.includes("Line1"), "no address · email · name in call_log");
+  eq(JSON.stringify(b1).includes("ZZPII"), false, "response carries no address · email");
+  // 6240 — Item 은 [SKU] 로 한 번 더(requestid -2) · 손님은 failed
+  const jd = addJob(w, { kind: "item", name: "Dup Name", name_alt: "Dup Name [SKU-D]", sku: "SKU-D" }), jcd = addJob(w, { kind: "customer", name: "Dup Customer" });
+  w.it.dupNames.add("Dup Name"); w.it.dupNames.add("Dup Customer");
+  const n0 = postHits(w).length;
+  const b2 = await body(await send(w, "JWT-MGR"));
+  const p2 = postHits(w).slice(n0);
+  eq([b2.claimed, b2.sent, b2.failed, p2.length], [2, 1, 1, 3], "item retried once with [SKU] · customer failed: " + JSON.stringify(b2.jobs));
+  eq([JSON.parse(p2[0].body).Name, new URL(p2[0].url).searchParams.get("requestid"), JSON.parse(p2[1].body).Name, new URL(p2[1].url).searchParams.get("requestid")], ["Dup Name", jd.request_id, "Dup Name [SKU-D]", jd.request_id + "-2"], "second request = other name · other requestid");
+  eq([jd.state, jd.qbo_name, jd.attempts, (jd.last_error ?? "").startsWith("Duplicate Name (6240) on \"Dup Name\" — sent again as \"Dup Name [SKU-D]\"")], ["sent", "Dup Name [SKU-D]", 2, true], "item sent under the alt name · note · attempts 2");
+  eq([jcd.state, (jcd.last_error ?? "").includes("code 6240")], ["failed", true], "customer duplicate → failed (no automatic rename): " + jcd.last_error);
+  eq(JSON.parse(p2[2].body).DisplayName, "Dup Customer", "customer tried once");
+  // 5xx · 끊김 → unknown(1 번만 · 보낸 이름) · 2xx 몸 없음 → unknown
+  const j5 = addJob(w, { kind: "customer", name: "Five Hundred" }), jn = addJob(w, { kind: "item", name: "Net Down", sku: "SKU-N" }), je = addJob(w, { kind: "customer", name: "Empty Body" });
+  w.it.override.push((h) => h.method === "POST" && h.body.includes("Five Hundred") ? jres(503, { Fault: { Error: [{ Message: "Service Unavailable", code: "3001" }], type: "SystemFault" } }, "tid-503") : null);
+  w.it.override.push((h) => h.method === "POST" && h.body.includes("Net Down") ? new Error("connection reset by peer") : null);
+  w.it.override.push((h) => h.method === "POST" && h.body.includes("Empty Body") ? jres(200, { time: "2026-11-01T12:00:00Z" }, "tid-empty") : null);
+  const n1 = postHits(w).length, sleeps0 = w.sleeps.length;
+  const b3 = await body(await send(w, "JWT-MGR"));
+  eq([b3.claimed, b3.unknown, b3.sent, b3.failed, postHits(w).length - n1, w.sleeps.length - sleeps0], [3, 3, 0, 0, 3, 0], "all three unknown · exactly one POST each · no retry sleep: " + JSON.stringify(b3.jobs));
+  eq([j5.state, j5.qbo_name, (j5.last_error ?? "").includes("HTTP 503"), jn.state, jn.qbo_name, (jn.last_error ?? "").includes("unreachable"), je.state, (je.last_error ?? "").includes("without the created Customer")], ["unknown", "Five Hundred", true, "unknown", "Net Down", true, "unknown", true], "unknown rows keep the name that was sent");
+  w.it.override.length = 0;
+  // 다음 send — unknown 풀기: Net Down 은 QBO 에 생겼다(created 에 심는다) → found · Five Hundred 는 없다 → not_found · Empty Body 는 둘 → ambiguous
+  w.it.created.push({ ent: "item", id: "7777", name: "Net Down", sku: "SKU-N", requestid: null });
+  w.it.created.push({ ent: "customer", id: "8881", name: "Empty Body", sku: null, requestid: null }, { ent: "customer", id: "8882", name: "Empty Body", sku: null, requestid: null });
+  const n2 = postHits(w).length, q0 = queryHits(w).length;
+  const b4 = await body(await send(w, "JWT-MGR"));
+  const res = b4.resolved as Record<string, unknown>[];
+  eq([res.length, postHits(w).length - n2, queryHits(w).length - q0, b4.claimed], [3, 0, 3, 0], "three name checks (GET query) · no write · nothing queued: " + JSON.stringify(res));
+  eq(res.map((x) => x.result).sort(), ["ambiguous", "found", "not_found"], "one found · one not found · one ambiguous");
+  eq([jn.state, jn.qbo_id, (jn.last_error ?? "").includes("found in QuickBooks by name"), j5.state, je.state], ["sent", "7777", true, "unknown", "unknown"], "found → sent + note · others stay unknown");
+  eq(w.db.links.some((l) => l.ims_id === jn.ims_id && l.qbo_id === "7777"), true, "found one is linked (created)");
+  const chk = w.logs.filter((l) => l.action === "send_check");
+  eq([chk.length, String(chk[0].detail?.q).includes("?"), String(chk[0].detail?.q).includes("Net Down") || String(chk[0].detail?.q).includes("Five Hundred")], [3, true, false], "name check logged with the literal masked");
+  const sq = sentQuery(queryHits(w).at(-1)!) ?? "";
+  ok(/^select Id, (DisplayName|Name)(, Sku)?, SyncToken from (Customer|Item) where (DisplayName|Name) = '.+' MAXRESULTS 100$/.test(sq), "name check query shape: " + sq);
+  // 401 한 번 → 갱신 → 같은 requestid 로 다시
+  const j4 = addJob(w, { kind: "customer", name: "Auth Once" });
+  let deny = 1; w.it.override.push((h) => h.method === "POST" && deny-- > 0 ? jres(401, { Fault: { Error: [{ Message: "AuthenticationFailed", code: "3200" }], type: "AUTHENTICATION" } }, "tid-401") : null);
+  const v0 = w.db.conn!.token_version, n3 = postHits(w).length;
+  const b5 = await body(await send(w, "JWT-MGR"));
+  const p5 = postHits(w).slice(n3);
+  eq([b5.sent, p5.length, new URL(p5[0].url).searchParams.get("requestid") === new URL(p5[1].url).searchParams.get("requestid"), w.db.conn!.token_version, j4.state], [1, 2, true, v0 + 1, "sent"], "401 → refresh once → same request again");
+  w.it.override.length = 0;
+  // 이름에 따옴표 — 조회 리터럴 따옴표 둘
+  const jq = addJob(w, { kind: "customer", name: "O'Neil & Co" });
+  w.it.override.push((h) => h.method === "POST" && h.body.includes("O'Neil") ? jres(502, {}, "tid-502") : null);
+  await send(w, "JWT-MGR"); w.it.override.length = 0;
+  w.it.created.push({ ent: "customer", id: "9009", name: "O'Neil & Co", sku: null, requestid: null });
+  const b6 = await body(await send(w, "JWT-MGR"));
+  eq([(b6.resolved as Record<string, unknown>[]).find((x) => x.job_id === jq.id)?.result, jq.state, jq.qbo_id, (sentQuery(queryHits(w).at(-1)!) ?? "").includes("'O''Neil & Co'")], ["found", "sent", "9009", true], "quote in the name is doubled in the check query");
+  // 잠긴 일감 · 꺼진 길 — 큐가 비면 claimed 0 · unknown 둘(Five Hundred · Empty Body)은 매번 다시 본다(check_failed 면 다음에)
+  const b7 = await body(await send(w, "JWT-MGR", { limit: 1 }));
+  eq([b7.claimed, (b7.resolved as unknown[]).length, b7.limit], [0, 2, 1], "nothing queued · two unknown still checked each send");
+  writesAllowedOnly(w, "⑰"); noLeak(w, "⑰");
+  const allText = JSON.stringify({ logs: w.logs, warns: w.warns });
+  ok(!allText.includes("ZZPII"), "addresses · emails never reach call_log or warn");
 });
