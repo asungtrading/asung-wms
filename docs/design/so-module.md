@@ -12210,3 +12210,126 @@ ec3901e mcp-2: IMS Claude 커넥터 EF ims-mcp(원격 MCP · Streamable HTTP 202
 ```
 다음 판정 번호: 935 · 다음 deferred 번호: 439
 ```
+
+## §96 2026-11-01 밤 집 — QuickBooks 보내기 바탕(열쇠 · 일감 · 쓰기 길 · 첫 쓰기) · 손님 메일 운영 선언 · aone 백오더는 사람이 고른다 · 공급처 고르기 = Purchasable — qbo-sync-2-0(조사) · qbo-sync-2a · 2a′ · mail-live-1 · aone-bo-1 · set v14 · sup-buy-1 · bo store v1 · so v5z3 · 판정 935 ~ 951 (집 PC)
+
+⭐ 정한 것: **QBO 인보이스 · 크레딧의 꼴**(935 ~ 944 · 951 — 손님 = 매장 · 주소 · 이메일 싣기 · Item 은 처음 팔 때 · 세금은 IMS 값 그대로 · 1 센트 달라도 실패) · **QUICKBOOKS 열쇠**(945) · **QBO 손님 주소 나라 이름**(946) · **손님 메일의 운영은 `mail_live` 가 선언**(947) · **aone 백오더는 자동 회차 밖 · 사람이 골라 보낸다**(948 · 949) · **공급처 고르기 = `is_purchasable` true 만**(950)
+⭐ 원천: docs-1101b 📌 A ~ E(대화 Claude · Caleb · 11-01 밤 대화) · 이견 답(Caleb 11-01 밤 · 1 (가) · 2 셋 모두 의도 · 3 ~ 9 동의 · 덧붙임 951) · asung-wms `git log --oneline 7d85b8f..HEAD` · asung-ims `git log --oneline 9e0b079..HEAD` 원문 · 마이그레이션 머리 주석 · EF `_shared/qbo.ts` · `_shared/mail.ts` 머리 · 실측은 「11-02 00:59 UTC 재셈(읽기 전용)」 · ⚠️ Caleb 의 말 원문은 지시서에 없다(판정 표의 Caleb 칸)
+⭐ 정본 자리: QBO = `qbo-integration.md` 머리 · §1 · §4 · §5 · 새 §14 「보내기 줄 · 쓰기 길」 · 메일 = 이 절 96-c 2 + 스킬 asung-so 4-s · asung-doc · 백오더 = 이 절 96-c 3 · 공급처 = `po-module.md` §3-b 끝 「[2026-11-01] 고르기」
+
+### 96-a 판정 (Caleb 원문 없음 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 935 | (원문 없음 · docs-1101b) | QBO 인보이스(크레딧 노트)의 CustomerRef = **매장**(`so_invoice_order.customer_id` · 크레딧은 `store_customer_id`) — Cin7 이 보내던 꼴 그대로(실물: Rex Beauty 매장 9 곳이 각각 독립 손님 — Ajax 121 · Morningside 162 · Sheridan Mall 180 · Warehouse 232 장 … · 하위 손님 18 곳은 QBO 가 부모로 A/R 을 모은다) |
+| 936 | (원문 없음) | QBO 인보이스 · 크레딧 노트에 **청구 주소 · 배송 주소 · 손님 이메일**을 싣는다(IMS 문서 값 · 발행 때 기준) · IMS 가 만드는 QBO 손님에도 청구 주소 · 이메일 · Claude 분석용 조회의 연락처 빼기(933)는 그대로 · 까닭: 북키퍼가 QBO 에서 인보이스를 메일하고 아주 가끔 결제 링크를 함께 보낸다(거의 모든 결제는 IMS) |
+| 937 | (원문 없음) | 없는 제품은 **처음 팔 때** Item 을 만들고 이어서 인보이스 · 이름 = IMS 이름(100 자) · QBO 에 같은 이름이 있으면 끝에 ` [SKU]` · 만든 뒤 Id 로 붙들고 IMS 이름이 바뀌어도 따라 바꾸지 않는다 |
+| 938 | (원문 없음) | 0 원 운임 줄도 싣는다 |
+| 939 | (원문 없음) | IMS 직원 메모(`so_invoice.note`)는 보내지 않는다(발행 뒤 update 길 없음) · PrivateNote = `Customer Reference: <so.ref>` · CustomerMemo = `Customer Reference: <so.ref>, <매장 이름>`(실물 48160) |
+| 940 | (원문 없음) | USD 인보이스는 QBO 기본 환율 |
+| 941 | (원문 없음) | 지워진(비활성) Item 만 있는 제품은 **자동으로 켜지 않는다** → 실패 · 이유 · 사람이 켠 뒤 retry(지금 1 건 LGL99950SIL ↔ #4153) · deferred 431 을 닫는다 |
+| 942 | (원문 없음) | 세금 = IMS 문서의 세금과 똑같이 · QBO 가 돌려준 합계가 **1 센트라도 다르면 실패**(실물 48160: QBO TotalAmt 93.30 − 줄 합 82.56 = 10.74 = IMS 줄마다 반올림 · 합 한 번 셈 10.73) |
+| 943 | (원문 없음) | 운임 할인 = **운임 줄에서 바로 뺀다**(Item #4 Freight · 수입 #99 음수 줄) · #98 · #6 Sales Discounts 안 씀(북키퍼: Sales Discounts 써 본 적 없음) |
+| 944 | (원문 없음) | IMS Surcharge = **관세 할증**(상품 판매의 일부 · 지금 안 씀 · 관세 전쟁이 길어지면 쓴다) → 「Tariff Surcharge」 Item · 수입 **#94 Surcharge** · 세금은 상품 줄처럼 · 처음 쓸 때 만든다 · 카드 수수료와 다른 것 |
+| 945 | (원문 없음) | Staff 에 새 열쇠 **QUICKBOOKS**(perms `qbo` 쓰기 · `qbo:read` 보기 · **admin 도 켜야 한다** · CLAUDE 열쇠 921 꼴) — 짝 화면 · 손 짝 · Refresh list · Match automatically · 보내기 일감 다시 · 건너뛰기 · send · **연결 · 끊기 · 다시 연결 · Untie · 원문 조회(query · read)는 admin 만**(870 그대로) · 켠 사람 **셋**(Caleb admin · Justin Kim manager · Jeannie Kim supervisor · 둘 다 담당자 · 모두 쓰기 `qbo` · Caleb 의도 확인 11-01 밤) · Caleb 은 자기 행을 Staff 에서 못 바꿔 SQL 로 켰다 |
+| 946 | (원문 없음) | QBO 로 보내는 손님 청구 주소 Country = 나라 이름(CA → Canada · US → USA · 이미 Canada 면 그대로 · 그 밖은 그대로 + 일감 경고) |
+| 947 | (원문 없음) | 메일 운영 스위치 **`mail_live`**(on \| off · admin) — `db_role 'test'` 는 「IMS 프로젝트 표지」 이지 시험이 아니다(Shopify · Freightcom · 이미지 EF 와 guard-test-only 215 마이그레이션이 'test' 를 요구 — 바꾸면 다 멈춘다 · deferred 439) · 손님 메일의 운영은 mail_live 가 선언 · **11-01 밤 mail_live on(23:54 UTC) + 돌려보내기(`mail_redirect_to`)도 비움(23:58 UTC · Caleb 일부러 · 이견 1 (가))** → 월요일 첫 메일부터 손님에게 직접 · 되돌리기 = Settings → Backorder emails 의 Test mode 칸에 주소를 다시 넣으면 그 뒤 메일은 그 주소로([REDIRECT → 손님]) · ~~돌려보내기는 유지 — 월요일 첫 메일을 Caleb 이 확인한 뒤 비운다~~(지시서 원문 · 실측 11-02 00:59 UTC 와 다름 · 이견 1) |
+| 948 | (원문 없음) | aone(aonebeauty.com) 오더의 백오더 줄은 **자동 회차에서 빠지고**, Backorders 화면에서 manager 가 골라 보낸다(`mail_backorder_send` · 손님 스위치를 보지 않음 · 경고 뒤 보냄) · Chat 요약에 「aone n 줄은 자동에서 빠짐」 |
+| 949 | (원문 없음) | aone 웹 오더로 **새로 만들어지는 손님**은 backorder_mail = false · 이미 있던 aone 만 손님 **35 명**(manual 20 · cin7 15 · 조사 땐 34 → 적용 때 35 · 그 사이 Cin7 손님 한 명이 aone 첫 주문) 한 번 끔(`ops_aone_bo_off` 에 되돌리기 재료) · 원래 손님이 나중에 aone 으로 처음 주문해도 스위치는 그대로(그 aone 오더는 948 로 어차피 자동 밖 · Caleb 「지금 방식 괜찮아」) |
+| 950 | (원문 없음) | 공급처 고르기는 **기존 `supplier.is_purchasable` = true 만**(새 칸 안 만듦 · 2026-09-11 Caleb 전수 판정 칸) — 목록 거르기(PO · 매입 인보이스 · 입고 · Backorders · Stock · Charges 목록)는 거래 중단도 보임 · 새 문서 고르기(Charges Billed by — Show all · 트랜스퍼 운임 — 지금 값은 늘 · 제품 기본 공급처)는 거래 중단 아님 · 예외 Suppliers 목록 · QBO 짝 · **운임 · 관세 · 통관 청구처(포워더 · 관세사 · CBSA)도 Purchasable = Yes**(Caleb 이 Suppliers 화면에서 바꿈 · 10 곳 + 기본 공급처 5 곳 + 미판정 정리 — Caleb 말 · 셀 수 없음) ⇒ po-module §3-b 와 charges.html 옛 주석(「CBSA · 브로커는 false」)의 뜻이 바뀌었다(charges.html 은 sup-buy-1 `9701968` 이 이미 고침 · `charges.html:750`) · 새 PO 고르기에 그들도 보이는 곁가지는 받아들임(Caleb · deferred 442) |
+| 951 | (원문 없음 · 2b 창에서 정함 · 이견 답 덧붙임) | 그 밖 계정 charge 줄(카드 수수료 등)은 **사람 짝**(`qbo_link` charge 의 ims_id `'acct:_20_'` 꼴) · 자동 Item 생성 없음(QBO 14735 「Credit Card Processing Fee (3%)」 있음) · 세금은 IMS 값 그대로(942 · IMS 는 비용 줄에 오더 세율) · 회계사 답으로 바뀌면 so 차수에서 IMS 비용 줄 세금을 고친다(deferred 443) |
+
+- 판정 아닌 결정: Sales Orders Channel 「Warehouse」 → 「**Warehouse Backend**」 = 채널 warehouse 이면서 들어온 길이 shopify 가 아님(so v5z3 `a2a488e` · Caleb)
+
+### 96-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline 7d85b8f..HEAD`(asung-wms · 11-01) 원문(80 자에서 자름 · 전문은 git):
+
+```
+2f95f91 aone-bo-1(판정 948 · 949 · 덧붙임 3): so_store_of(asung · aone �
+5358e10 qbo-sync-2a′: 쓰기 길 apiWrite(POST · assertWriteAllowed · reques
+b454814 qbo-sync-2a: QUICKBOOKS 열쇠(판정 945 · qbo · qbo:read · qbo_key_
+4f988d3 mail-live-1(판정 947): mail_live 스위치 — db_role test 는 IMS �
+```
+
+`git log --oneline 9e0b079..HEAD`(asung-ims) 원문(같이 자름):
+
+```
+6e62ca1 bo store v1(aone-bo-1 · 판정 948 · 949): 스토어 거르기 — Arr
+9701968 sup-buy-1(판정 950): 공급처 고르기 = Purchasable(is_purchasable)
+67c168f set v14: QuickBooks matching 문 = QUICKBOOKS 열쇠(caller_qbo write ·
+a2a488e so v5z3: Channel 거르기 Warehouse → Warehouse Backend — 채널 wa
+```
+
+| 차수 | 마이그레이션 · 판 | 커밋 | 무엇 |
+|---|---|---|---|
+| qbo-sync-2-0 | (조사 · 코드 없음) | — | 보내기 줄 = drive_job 꼴 + mail unknown 갈래 · ⚠️ `intuitCall` 이 네트워크 · 5xx 에서 자동 재시도 → 쓰기에서 중복 ⇒ 쓰기는 재시도 끔 + DocNumber · 이름 조회 |
+| qbo-sync-2a | `20261102003000` · EF qbo | `b454814` | 열쇠 qbo(945 · `qbo_key_gate` · 카탈로그 · `qbo_status.caller_qbo`) · 표 `qbo_job` · `qbo_txn`(2b 가 채운다) · inv_config 4 키 · `matched_by` created · 손님 · Item 몸 함수(936 · 937 · 941 · 944 · 946) · 일감 창구 8 · EF 문 둘(ADMIN_ACTIONS · KEY_ACTIONS) · 검증 48 · deno 16 |
+| qbo-sync-2a′ | `20261102030000` · EF qbo | `5358e10` | 쓰기 길 `apiWrite`(POST · `assertWriteAllowed` · requestid · 재시도 끔) · send 액션(열쇠 · cron 없음) · unknown 은 보낸 이름으로 조회해 풀기(`qbo_job.qbo_name` · `qbo_job_unknown` 4 인자 · `qbo_job_unknown_list`) · PII 가드 거래 다섯 · 검증 7 · 2a 확인 47 · deno 18 |
+| mail-live-1 | `20261102013000` · EF mail | `4f988d3` | 947 — `mail_live` 키 · 창구 여섯 재발행 · EF `testMode()` · 시드 off · db_role · guard · Freightcom · Shopify · 이미지 무접촉 · 검증 25 · deno 18 |
+| aone-bo-1 | `20261102020000` · ops `aone-bo-1-off.sql` · EF mail | `2f95f91` | 948 · 949 — `so_store_of` · 백오더 창구 다섯 store 거르기 · 자동 회차 aone 제외 · `mail_backorder_send` · aone 웹 손님 backorder_mail false · 끄기 35 명 · 검증 23 · deno 19 |
+| so v5z3 | so.html | asung-ims `a2a488e` | Channel 「Warehouse Backend」 |
+| set v14 | settings.html | asung-ims `67c168f` | QuickBooks matching 문 = 열쇠(보기만이면 단추 숨김) · Backorder emails 에 「Customer mail is live」 줄 · Test mode 안내 글 |
+| sup-buy-1 | 화면 여덟 | asung-ims `9701968` | 950 — 공급처 고르기 = Purchasable · DB 무변 |
+| bo store v1 | so-backorders.html | asung-ims `6e62ca1` | 스토어 거르기(Arrivals · Ready · Insights · All) · 줄 스토어 꼬리표 · Send backorder notice(미리 보기 → 보내기 · 알림 꺼진 손님 경고) |
+
+### 96-c 실측 · 뜻 (메인 DB `fazgmyvzzhqybtvtktyg` · 11-02 00:59 UTC 재셈 · 읽기 전용)
+
+1. **QBO 첫 운영 쓰기(11-01 밤)** — 미리 보기(`qbo_job_add` preview) → send limit 1 → QBO 화면 확인 순 · 손님 1 명 → **QBO Customer 10740**(Caleb 이 QBO 화면에서 이름 · 주소 · 이메일 · 결제조건 C.B.S 확인 · 배송 주소는 QBO 가 「청구와 같음」 으로 채움) · 재셈: `qbo_job` 1 행(customer · sent · 10740) · `qbo_link` matched_by created 1 · `qbo_txn` 0 · `inv_config` qbo_send_enabled off(⚠️ **cron 길 스위치일 뿐 — 손 send 는 막지 않는다** · 2a 이견 16) · qbo_send_since '' · qbo_send_batch 15 · qbo_cogs_account_code `_58_`
+   - 규칙 · 표 · 창구 · 쓰기 길은 `qbo-integration.md` §4 · §5 · 새 §14 가 정본
+   - 열쇠 `qbo` 를 가진 직원 셋(재셈 — Caleb admin `["claude:read","qbo"]` · Justin Kim manager · Jeannie Kim supervisor)
+2. **손님 메일 운영(947 · mail-live-1)** — 재셈: mail_enabled on · **mail_live on**(23:54:13 UTC) · **mail_redirect_to ''**(23:58:15 UTC · Caleb 일부러) · db_role test · 23:50 UTC 이후 mail_outbox 0 행(아직 나간 메일 없음)
+   - 뜻: EF `safety()`(`_shared/mail.ts`)는 프로젝트 ref × db_role 대조를 그대로 하고, **시험 모드 = (시험 ref 또는 db_role test) 이고 mail_live 아님** · mail_live on 이면 운영 갈래 — 받는 이 = 손님(redirect 가 있으면 그 주소로 · 제목 `[REDIRECT → 손님]`) · mail_live off 로 돌리거나 지울 때는 @asung.ca 돌려 보낼 곳이 있어야 한다(`ims_mail_config_problem`)
+   - ⚠️ **`final_invoice_mail` 자동 켠 손님 0**(활성 9,791 · 전체 9,986 — 재셈) — 판정 529 의 「컷오버 전에 손으로 켠다」 가 안 됐다 ⇒ 월요일 인보이스 메일은 전부 직원 Send(deferred 441)
+   - 백오더 알림은 「입고된 것」 에 대해서만(백오더가 생긴 순간엔 메일 없음) — Caleb 확인
+3. **aone 백오더(948 · 949 · aone-bo-1)** — 가르는 열쇠 `so_store_of(intake, ref)` → asung \| aone \| manual(웹 아님 · so v5z2 판정 916 규칙을 함수로) · `mail_backorder_pick` 이 aone 줄을 빼고 수를 `aone_lines` 로 · Chat 한 줄 · `mail_backorder_line.basis` 에 manual · 재셈: `ops_aone_bo_off` 35 행(cin7 15 · manual 20) · 그 35 명 모두 지금도 backorder_mail false
+4. **공급처(950 · sup-buy-1)** — 재셈: 활성 Purchasable true **171** · false **55** · null **0** · 전체 null 30 은 모두 비활성 · DB 무변(칸은 2026-09-11 부터 있었다 — 조사에서 찾아 새 칸을 막았다)
+5. **운영 설정(11-01 밤 Caleb)** — Google Drive 켬(재셈 drive_enabled on · drive_since 2026-11-01 · Queue 0 은 「11-01 실측(대화)」) · mail_live on · redirect 비움 · 열쇠 qbo 셋 · 공급처 Purchasable 판정
+6. **Freightcom** — 아직 시험 토큰(운영 토큰 요청 두 번 · 답 없음 · 11-02 아침 다시 · 그동안 Freightcom 사이트에서 손으로) · 비밀값 `FREIGHTCOM_BASE_URL` · `API_KEY_TOR` · `_EDM` 만 바꾸면 된다 → deferred 364 에 잇기
+7. **북키퍼 답(11-01 문서 · deferred 433 닫음)** ① 결제 수단은 Cin7 이 전부 Cash 로 보냄 · 재무제표에 닿는 것은 Deposit To 뿐(CS 팀은 Reference · Deposit To 만 봄) ⇒ 433 ① ② 의 「현금 → TD Merchant · Clearing - Shopify」 는 수단 이름일 뿐 ② Shopify 카드 캡처 → Clearing - Shopify · 수단 Cash 그대로 무해 ③ 트랜스퍼 분개: In Transit 은 Inventory Asset 하위 · 재무제표 영향 없음(⚠️ **트랜스퍼를 장부에 보낼지는 여전히 보내기 차수의 판정 거리** — qbo-integration §11) ④ Sales Discounts 써 본 적 없음(→ 943) ⑤ Surcharge 계정 · 항목 안 씀 · 카드 수수료는 QBO 에서 인보이스를 직접 고쳐 「Credit Card Processing Fee (3%)」(Out of Scope · Bank Service Fees) — Caleb 이 11-02 「IMS 가 보낸 인보이스는 QBO 에서 고치지 말고 카드 수수료도 IMS 에서」 전함(→ 951) ⑥ 컷 뒤 입금: 북키퍼는 QBO 직접 예정이었으나 Caleb 이 11-02 「IMS 에 넣는다」 로 고쳐 전함(→ deferred 434)
+   - IMS 결제 창에는 이미 결제마다 Account(입금 계좌 · 「Default for this method and branch」) — 결제 차수가 그대로 보낸다 · 432(credit_card 1:3)는 ① 로 「수단보다 Deposit To」 가 무게 · 열림 그대로
+
+### 96-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: **431**(판정 941 — 켜지 않는다 · 실패 · 사람이 켠 뒤 retry) · **433**(북키퍼 답 ① ~ ⑥ · 96-c 7 · 트랜스퍼 보낼지는 qbo-integration §11 판정 거리로)
+- 잇기: **434**(컷 뒤 입금 = IMS 에 · Caleb 11-02 전함) · **374**(재알림 거리에 945 · 2a′ 쓰기 시작 · 다중 통화(940) · 세금(942) · void — 2b 가 문구 초안) · **375** · **327 · 260**(진행: 쓰기 길 · 손님 · Item 만들기 섰음 · 인보이스는 2b) · **360**(닫을지는 Caleb 확인 대기 · 열림 유지) · **432**(북키퍼 ①) · **364**(Freightcom 운영 토큰 · 11-02 다시) · **256**(mail_redirect_to 는 11-01 밤 비움 · 947)
+- 새 deferred **439 ~ 443**(지시서 C ⑤ 의 「redirect 비우기」 는 이미 함 · 「Freightcom 운영 토큰」 은 364 — 새 번호 없음)
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 439 | `db_role` 표지 값 'test' → 뜻 있는 값('ims' 등)으로 — guard-test-only · EF 가드 셋(shopify · freightcom · ims-product-images) · 메일 · 문서를 한 번에(mail-live-1 의 (가) · 별건) | 미정 |
+| 440 | QBO 손님 정보가 IMS 에서 바뀌면 QBO 에도 고칠지(지금은 만들 때만) | 컷오버 뒤 |
+| 441 | `final_invoice_mail` 자동 손님 정하기(529 후속 · 지금 0) | 미정 |
+| 442 | 「서비스(운임 · 관세) 청구처」 표시로 새 PO 고르기에서만 빼기(950 곁가지 · 필요해지면) | 미정 |
+| 443 | 카드 수수료(그 밖 계정 charge) 세금 — 회계사 확인(951) | 컷오버 뒤 |
+
+### 96-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§95-e 에 이어 48 부터)
+
+48. [대화 Claude] 큰따옴표 안 `!`(`!~`)가 bash 「예전 명령 불러오기」 로 바뀌어 SQL 이 깨졌다 ⇒ 명령의 큰따옴표 안에 `!` 금지(`not (… ~ …)` · 작은따옴표)
+49. [대화 Claude · 재발 §79-e 4 · §95-e 44] 확인 grep 을 `| ok ` 로 적었는데 검사 출력은 `| OK |`(대문자) — 두 번 ⇒ 확인 기준은 그 검사 파일의 실제 출력 꼴을 먼저 본다
+50. [대화 Claude] supabase 명령을 asung-ims 폴더에서 돌리게 해 `supabase/.temp` 가 생겼다 ⇒ supabase 명령은 asung-wms 에서만
+51. [환경] zip 으로 화면 여덟을 옮기니 파일 실행 비트 755 → 644(무해) · 여러 파일은 zip 하나로(크롬 다중 내려받기 막힘 회피) — 바탕 md5 여럿을 한 줄로 대조하는 꼴이 통했다
+52. [Claude Code · 2a] 「적용 앞 지문」 을 보는 검사(L2)가 확인 갈래에서 null ⇒ 지문 비교는 시험 갈래에서만(2a′ 에서 고침)
+53. [잘 된 것] 창 셋이 동시에 돌 때 커밋을 **파일 목록으로** 갈라 담았다 · ops 끄기 스크립트의 expect 수가 34 → 35 변화를 잡고 멈췄다 · 첫 실제 QBO 쓰기를 미리 보기(`qbo_job_add` preview) → send limit 1 → QBO 화면 확인 순으로 · 공급처 조사에서 「칸이 이미 있다(is_purchasable)」 를 찾아 새 칸을 막았다
+54. [대화 Claude] Settings 에 Suppliers 가 있다고 잘못 말했다(suppliers.html 따로) ⇒ 화면 위치는 짐작으로 말하지 않는다
+55. [docs-1101b · Claude Code] 지시서의 운영 상태 둘이 실물과 달랐다 — 「redirect 유지」(실제 23:58 UTC 비움) · 「열쇠 qbo = Caleb · 북키퍼」(실제 셋) ⇒ 문서 차수가 옮기는 **운영 상태(스위치 · 열쇠)도 숫자처럼 다시 센다** · 다르면 적기 전에 묻는다(이견 1 · 2 — 둘 다 Caleb 의도)
+
+### 96-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §95 끝 「다음 판정 번호 935 · 다음 deferred 번호 439」 → 아래
+- deferred 닫힘 431 · 433 · 새 439 ~ 443 · 잇기 434 · 374 · 375 · 327 · 260 · 360 · 432 · 364 · 256 · 「다음 번호 439」 → 444
+- `qbo-integration.md` 머리 · §1 · §4 · §5 · §8 · §11 → [2026-11-01 밤] · 새 §14 「보내기 줄 · 쓰기 길」
+- `po-module.md` §3-b 「열린 물음」 · §7-a `is_purchasable` → [2026-11-01 · 950]
+- 스킬 asung-qbo(§0 · §1 · §2 · §5-c 새 · §6 · description 키워드) · asung-so(본문만 — 4-r · 4-s 메일 · aone) · asung-doc(메일 기계 줄 · §6) · asung-po(본문만 — 함정 표 한 줄) · asung-workflow(§11 끝 덩이)
+- asung-ops — §1 표 QBO 줄(쓰기 · 열쇠) · 5-c 메일(mail_live) · 5-e Drive 켜짐 · 장애 대응 「시험 DB 에서 손님에게 갔나?」
+- charges.html 옛 주석은 sup-buy-1 이 이미 고침(화면 파일 · 이 차수 무접촉)
+
+### 96-g 매뉴얼(말만 · 자리 제안 — deferred 378 에 잇는 제안)
+
+- 07 Settings: QuickBooks matching(열쇠 · 보기 · 쓰기) · Backorder emails 의 Customer mail is live · Test mode · Staff 의 QUICKBOOKS 열쇠
+- 01 Sales: Backorders 의 Store 거르기 · Send backorder notice · Sales Orders 의 Warehouse Backend
+- Purchasing: 공급처 고르기 = Purchasable 만 · Suppliers 화면에서 판정
+
+```
+다음 판정 번호: 952 · 다음 deferred 번호: 444
+```

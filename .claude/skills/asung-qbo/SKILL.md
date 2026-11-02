@@ -5,9 +5,10 @@ description: >
   "QuickBooks", "QBO", "퀵북", "QuickBooks 연결", "Intuit", "realm", "realmId", "qbo_connection", "qbo_oauth_state", "qbo_call_log",
   "Vault", "needs_reconnect", "invalid_grant", "QBO_ENV", "ims-qbo-refresh", "cron 59", "EF qbo", "qbo_status", "intuit_tid",
   "qbo_alert_to", "Untie company", "Reconnect", "App assessment", "redirect URI", "minorversion", "QBO 싱크", "Cin7 QBO 싱크",
-  "qbo_link", "qbo_entity", "qbo_match_auto", "qbo_pull_state", "pull", "QuickBooks matching"
+  "qbo_link", "qbo_entity", "qbo_match_auto", "qbo_pull_state", "pull", "QuickBooks matching",
+  "qbo_job", "send", "apiWrite", "QUICKBOOKS 열쇠"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/qbo-integration.md 를 확인하세요.
-  ⚠️보내기 없음 — 연결 · 읽기(GET) · 짝 · 받기만, IMS 는 아직 QBO 로 아무것도 보내지 않는다,
+  ⚠️쓰기는 apiWrite 하나 — 자동 재시도 없음 · 모르면 unknown(인보이스는 아직),
   ⚠️토큰은 Vault 에만 — 표 · 화면 · 기록 · 응답에 싣지 마라,
   ⚠️REST safeupdate — 창구의 update · delete 는 WHERE 필수(psql 시험은 못 잡는다),
   ⚠️refresh_token 은 갱신마다 바뀐다 — 임대 + 판 번호로만 저장,
@@ -27,14 +28,17 @@ description: >
 ⭐ 운영 = Asung-IMS(fazgmyvzzhqybtvtktyg) — 「테스트 DB」 가 11-01 부터 그대로 운영(판정 617) · QBO_ENV = production
 2026-11-01  읽기 · 짝 · 받기 — qbo-read-1(EF query · read · GET 만) · qbo-sync-1a(qbo_entity · qbo_pull_state · qbo_link · 창구 9) · 1b(EF pull) · 1c(짝 묶음 · Item select *) · Settings → QuickBooks matching(set v13)
             자동 짝 account 220 · tax 24 · term 17 · method 7 · supplier 195 · customer 9,764 · product 11,775 (정본 §12)
-⬜ 싱크(보내기)는 짓지 않았다 — deferred 260 · 327 · 341 · 374 · 375 · 431 ~ 434
+2026-11-01 밤  쓰기 바탕 — qbo-sync-2a(열쇠 QUICKBOOKS 945 · qbo_job · qbo_txn · 손님 · Item 몸 · 일감 창구 8) · 2a′(apiWrite · send · unknown 이름 조회) · set v14
+            운영 첫 쓰기: 손님 1 명 → QBO Customer 10740 (정본 §14)
+⬜ 인보이스 · 크레딧(2b) · 결제 · void — deferred 260 · 327 · 341 · 374 · 375 · 432 · 434 · 440 · 443
 ```
 
-## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 — 보내기는 없음 — 모르면 사고
+## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 ~~— 보내기는 없음~~ → [11-01 밤] 손님 · Item 만들기 섰음 · 인보이스는 2b — 모르면 사고
 
 ```
-⚠️⚠️ IMS 에는 장부로 거래를 보내는 코드가 없다 — 연결 뒤 하는 일 = CompanyInfo(회사 이름) + 하루 한 번 토큰 갱신 + [11-01] admin 의 읽기 조회(query · read) · 목록 받기(pull) · 짝(qbo_link)
-     Intuit 호출은 apiCall 하나 · GET 만(assertReadOnlyRequest) — 쓰는 호출을 더하려면 그 문부터 바꾸는 보내기 차수(판정 · 설문 374)
+⭐  [2026-11-01 밤 · 정본 §14] 아래 첫 줄은 11-01 낮 상태 — 이제 손님 · Item 을 QBO 에 만든다(열쇠 qbo 의 send · 손으로) · 인보이스 · 크레딧은 2b · 거래는 아직 Cin7 → QBO 가 보낸 것뿐
+~~⚠️⚠️ IMS 에는 장부로 거래를 보내는 코드가 없다~~ — 연결 뒤 하는 일 = CompanyInfo(회사 이름) + 하루 한 번 토큰 갱신 + [11-01] admin 의 읽기 조회(query · read) · 목록 받기(pull) · 짝(qbo_link)
+     읽기는 apiCall 하나 · GET 만(assertReadOnlyRequest) · → [11-01 밤] 쓰기는 apiWrite 하나(§5-c) — 새 쓰기는 assertWriteAllowed 허용 목록부터(설문 374)
      「QuickBooks 에 들어갔나요?」 → 아니다 · 지금 QBO 의 거래는 Cin7 → QBO 연결이 보낸 것(그 연결은 따로 그대로 · QBO 는 여러 앱 동시 연결)
 ⚠️⚠️ 싱크를 지을 때 Cin7 의 QBO 싱크를 끄는 시점을 함께 정한다 — 둘이 같은 거래를 보내면 두 번 적힌다(deferred 375)
 ⚠️  이월 인보이스 · 받아 둔 돈(kind · method opening)은 보내지 않는다(원본이 이미 QBO · 판정 786 · deferred 341)
@@ -47,7 +51,9 @@ description: >
 ⭐⭐ 토큰은 Vault(qbo/<env>/refresh · qbo/<env>/access) — qbo_connection 에는 Vault id 만 · 화면은 qbo_status()(토큰 · Vault id 없음)
      처리방침의 약속(867): 토큰은 직원 화면에 안 내려간다 · 관리자가 끊으면 지운다(qbo_connection_delete = Vault 두 행 + 연결 행 + state)
      ⇒ 새 창구 · 응답 · 로그에 토큰 · client secret · code 를 싣지 마라 — EF 는 모든 글을 scrub() 으로 거른다 · 토큰 끝점 · revoke 요청 몸은 기록 안 함
-⭐⭐ 문(870) = IMS admin 역할만 — 연결 · 끊기 · 다시 연결 · Untie · refresh · ping · DB 가 ims_is_admin() 으로 본다(qbo_admin_gate) · 새 열쇠 없음 · 상태 읽기는 누구나
+⭐⭐ 문(870) = IMS admin 역할만 — 연결 · 끊기 · 다시 연결 · Untie · refresh · ping · 원문 조회 query · read · DB 가 ims_is_admin() 으로 본다(qbo_admin_gate) · 상태 읽기는 누구나
+⚠️⚠️ [11-01 밤 · 945] 짝 · 받기 · 일감 · send 는 열쇠 QUICKBOOKS — perms 'qbo'(쓰기) · 'qbo:read'(보기) · qbo_key_gate(p_write) · **admin 도 켜야 한다**(글자 그대로 · ims_is_admin 안 봄)
+     EF 문 둘: ADMIN_ACTIONS(start · disconnect · refresh · ping · query · read) / KEY_ACTIONS(pull · send) · 켠 사람 셋(정본 §4) · Staff 화면은 자기 행을 못 바꾼다(SQL)
      cron 길 = x-ims-cron-key == IMS_CRON_SECRET · refresh 만 · EF verify_jwt = false(Intuit 이 JWT 없이 callback 을 부른다 — 문은 함수 안)
 ⚠️  _shared/authgate.ts 는 옛 WMS 문 — IMS 는 사용자 JWT 를 DB 창구로 그대로
 ⭐  연결 · state 표는 정책 0 · grant 0(창구만) · qbo_call_log 는 authenticated 읽기 · service_role 쓰기(fc_call_log 꼴)
@@ -102,10 +108,24 @@ description: >
 ⭐  보내기 때 opening_fix 원가 사건은 제외(판정 932 · Cin7 이 이미 COGS 를 보냈다)
 ```
 
+## 5-c. ⭐⭐ 쓰기 · 보내기 일감 — 모르면 사고 (2026-11-01 밤 · 정본 §14 · 판정 935 ~ 946 · 951)
+
+```
+⚠️⚠️ 쓰기는 apiWrite 하나 — POST 만 · assertWriteAllowed(만들기 customer · item · invoice · creditmemo · void 는 invoice · creditmemo 만 · delete 없음) · requestid 필수
+⚠️⚠️ 쓰기에 자동 재시도 없음 — 읽기 길(intuitCall)은 네트워크 · 5xx 재시도 → 쓰기에 쓰면 중복 · 결과를 모르면 qbo_job_unknown(보낸 이름을 남긴다)
+     → 다음 send 첫머리가 그 이름(DisplayName · Name · 인보이스는 DocNumber)으로 GET 조회 · 하나면 done · 아니면 사람이 retry(note 필수) · skip
+⚠️⚠️ retry 는 request_id 를 새로 — Intuit 은 같은 requestid 면 처음 응답(실패 포함)을 되돌려 준다
+⚠️⚠️ qbo_send_enabled 는 cron 길 스위치뿐 — 손 send 를 막지 않는다 · 막으려면 열쇠를 끈다
+⚠️  콘솔 조회에서 Customer · Vendor + 거래 다섯(Invoice · CreditMemo · Payment · SalesReceipt · RefundReceipt)은 select * 거부 — 칸 이름을 적는다(주소 · 이메일 칸도 거부)
+⚠️  이름은 자동으로 바꾸지 않는다 — 손님 이름이 QBO Customer · Vendor 와 겹치면 실패 · Item 은 같은 이름이면 끝에 ` [SKU]` · 비활성 Item 만 있으면 실패(941 · 켜지 않는다)
+⭐  몸(손님 · Item JSON)은 DB 함수(qbo_customer_body · qbo_item_body)가 만든다 — EF 에서 다시 짜지 마라(규칙이 SQL 로 시험된다)
+⭐  2b 인보이스 판정: 손님 = 매장(935) · 주소 · 이메일 싣기(936) · 세금 IMS 값 그대로 · 합계 1 센트 달라도 실패(942) · 운임 할인은 운임 줄(943) · 그 밖 계정 charge 는 사람 짝(951)
+```
+
 ## 6. 화면 · 바깥
 
 ```
-settings.html  Settings → QuickBooks matching(?t=qbomatch · set v13 · admin) — 요약 · Refresh list · Match automatically · Review · Unlink · QBO 에 쓰는 것 없음
+settings.html  Settings → QuickBooks matching(?t=qbomatch · set v13 · ~~admin~~ → set v14 열쇠 QUICKBOOKS · 보기만이면 단추 숨김) — 요약 · Refresh list · Match automatically · Review · Unlink · 짝 화면은 QBO 에 쓰지 않는다(쓰기는 EF send)
 settings.html  Settings → QuickBooks(?t=qbo · set v12) — 상태(빨강 = needs_reconnect) · Connect / Reconnect(같은 탭) · Check connection · Disconnect · Untie company · Help 줄 「Connection problems? Contact the IMS administrator: caleb@asung.ca」(872)
 terms.html · privacy.html  ims.asung.ca 공개 페이지(로그인 없이 · Intuit App details 의 EULA · Privacy · 867)
 Intuit         Redirect URI = https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo/callback(Development · Production) · 설문 제출본 = 정본 §9(⚠️ 제출하면 못 고친다 · 서약하는 근거는 call_log 로 본 것만)

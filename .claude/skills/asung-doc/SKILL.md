@@ -132,7 +132,7 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
      → [2026-10-26 · 판정 744 · 745 · so-module §77 · srm-1 20261026124840] 미리 보기(commit false)는 번호 없이 지나간다(창을 열 때 ims-doc.js:186) · **보내기(commit true)만 번호 필수**
        + 그 PDF 가 이 오더의 것이어야 한다(doc_file.ref->'orders' = p_ref->'orders' · EF 가 ref 에 group · so_ids 를 덧붙이므로 ref 통째 비교는 늘 어긋난다)
        · 아니면 「That Ship Ready PDF is for a different order — make the PDF for this order and send again — nothing was saved」
-⭐⭐ 메일 기계(so-module §65 · asung-so 4-s)의 규칙이 그대로 걸린다 — mail_enabled off 면 둘 다 선다 · 시험 DB 는 받는 이 = mail_redirect_to(caleb@) · 제목 [TEST → 원래] · unknown 은 자동으로 안 건드린다
+⭐⭐ 메일 기계(so-module §65 · asung-so 4-s)의 규칙이 그대로 걸린다 — mail_enabled off 면 둘 다 선다 · ~~시험 DB 는 받는 이 = mail_redirect_to(caleb@) · 제목 [TEST → 원래]~~ → [2026-11-01 밤 · 판정 947] db_role 'test' 는 IMS 프로젝트 표지 · **mail_live on 이면 손님에게 직접**(redirect 가 있으면 그 주소 · [REDIRECT → 원래]) · mail_live off 일 때만 시험 모드([TEST → 원래]) · 지금 mail_live on · redirect 비움 · unknown 은 자동으로 안 건드린다
 ⭐⭐ 첨부가 없는 메일(백오더 알림)의 MIME 은 mail-2b 바이트 그대로 — _shared/mail.ts buildMime 의 첨부 갈래를 고치면 deno test ⑫(황금 문자열 · sha256 935c24c3…)가 지켜야 한다
 ⭐⭐ 자동(529) = so_invoice 의 deferrable 트리거 so_invoice_doc_mail_auto(발행이 커밋될 때) — 청구처 손님 칸이 켜져 있고 issued 일 때 한 줄
      건너뜀은 doc_mail_skip(no_email · reissue(같은 오더에 앞 인보이스) · error) — **메일 때문에 발행이 서지 않는다** · so_invoice_issue 를 고쳐 메일을 넣지 마라
@@ -167,7 +167,7 @@ Send              누르면 창을 바로 닫고 아래 안내 4 초(ims-doc v3a
 마이그레이션 doc-1a ~ doc-3a2 일곱(20261019144030 · 152102 · 155731 · 172034 · 181014 · 184432 · 190500) — 앞 IMS 묶음 · 메일 여섯과 함께
 EF doc · mail 배포 · 운영 비밀 GOTENBERG_URL · USER · PASS(tools/gotenberg-secrets.sh 에 IMS_PROJECT_REF) · cron 57(+ 54 ~ 56)
 회사 글 · 로고 · 판 다섯을 운영 DB 로(판은 DB 가 정본) · doc_public_base_url 운영 값(운영 DB 를 어디로 하나와 함께) → [2026-10-22 · 판정 617 · so-module §70-d] 운영 = 지금 테스트 DB 그대로(승격) — 옮길 것 없음 · doc_public_base_url 도 그대로(fazgmyvzzhqybtvtktyg) → [§76 · 743] 옮기지 않는다 — Asung-IMS 가 11-01 운영 승격(617) · 문서 메일은 이미 돈다(738)
-mail_redirect_to 비우기 · final_invoice_mail 손님 켜기(Caleb · 몇십 명) · GAS 정지(백오더)와 같은 날
+~~mail_redirect_to 비우기~~ → [2026-11-01 밤 · 947] mail_live on + redirect 비움(했다) · final_invoice_mail 손님 켜기(Caleb · 몇십 명 → [11-01] **0 명 · 안 됨** · 월요일 인보이스 메일은 직원 Send · deferred 441) · GAS 정지(백오더)와 같은 날
 ```
 
 ## 7. 이 스킬을 갱신할 때

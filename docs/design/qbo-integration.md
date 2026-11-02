@@ -3,20 +3,22 @@
 작성: 2026-10-29 · 회사 PC · docs-1029 · 판정 617(확인) · 867 ~ 873(원문 표는 `so-module.md` §87-a) · 선례 `freightcom-integration.md`(날짜 절은 하루의 이야기 · 이 문서가 「지금 규칙」)
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 QuickBooks Online(Intuit) 둘뿐이다.
 ⭐ 상태 [2026-10-29] **운영 = 연결됨 · 싱크 없음** — Asung-IMS(fazgmyvzzhqybtvtktyg · 11-01 부터 그대로 운영 · 617)가 실제 회사 **Asung Trading Inc.**(realm `…6496` · Production)에 11:48(토론토) 연결 · 샌드박스로 연결 → 끊기 → 다시 연결을 실제로 한 뒤(868) Intuit 설문 제출 → 운영 키
-⚠️ **연결만 한다 — IMS 에는 장부(QBO)로 거래를 보내는 코드가 없다.** 연결 뒤 하는 일 = 회사 이름 읽기(CompanyInfo) + 하루 한 번 토큰 갱신 · 그 밖의 호출 0 · 싱크는 뒤 차수(§11 · deferred 260 · 327 · 341)
+⚠️ **연결만 한다 — IMS 에는 장부(QBO)로 거래를 보내는 코드가 없다.**(10-29 상태 · → [2026-11-01 밤] 아래 「쓰기 길이 섰다」) 연결 뒤 하는 일 = 회사 이름 읽기(CompanyInfo) + 하루 한 번 토큰 갱신 · 그 밖의 호출 0 · 싱크는 뒤 차수(§11 · deferred 260 · 327 · 341)
 ⭐ 상태 [2026-11-01 · so-module §95 · 판정 933 · 934] **연결 + 읽기 조회 · 짝 표 · 거울 · 받기(pull) — 보내기는 없음** — EF qbo 에 `query` · `read` · `pull`(GET 만 · admin · cron 불가) · 표 `qbo_entity`(거울) · `qbo_pull_state` · `qbo_link`(짝) · Settings → QuickBooks matching · QBO 로 쓰는 호출 0(위 줄의 「그 밖의 호출 0」 은 10-29 상태)
+⭐ 상태 [2026-11-01 밤 · so-module §96 · 판정 935 ~ 946 · 951] **쓰기 길이 섰다 — 손님 · Item 만들기** — 열쇠 QUICKBOOKS(`qbo` · `qbo:read` · 945) · 보내기 일감 `qbo_job` · 쓰기 `apiWrite`(POST · 재시도 없음) · EF `send`(열쇠 · 손으로 · cron 없음) · **운영 첫 쓰기 2026-11-01 밤 손님 1 명 → QBO Customer 10740** · 인보이스 · 크레딧은 2b(위 줄의 「보내기는 없음」 은 11-01 낮 상태) · 정본 §14
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
 
-## 1. 무엇을 하나 — ~~연결만~~ 연결 · 읽기 · 짝 · 보내기는 뒤([2026-11-01])
+## 1. 무엇을 하나 — ~~연결만~~ 연결 · 읽기 · 짝 · ~~보내기는 뒤([2026-11-01])~~ → 손님 · Item 쓰기 섰다 · 인보이스는 2b([2026-11-01 밤])
 
 - 목표(Caleb 2026-10-29): 「오늘은 컷오버전에 퀵북 인테그레이션을 해놓으려고 해. 컷오버 이후로 미뤘지만, 싱크는 컷오버이후에 하더라도, 연결은 해놓고 싶어.」
 - Caleb 의 물음 「ims가 퀵북에 연결된다고 해서 퀵북과 싱크되는 것은 아니지?」 → **맞다**
   - 연결 = OAuth 2.0 승인 한 번(admin 이 Settings → QuickBooks → Connect → Intuit 동의) · 토큰을 Vault 에 두고 하루 한 번 굴린다
-  - 보내는 것 0 — 인보이스 · 결제 · 크레딧 · 손님 · 품목 어느 것도 아직 QBO 로 가지 않는다
+  - 보내는 것 0 — 인보이스 · 결제 · 크레딧 · 손님 · 품목 어느 것도 아직 QBO 로 가지 않는다(10-29 · → [2026-11-01 밤] 손님 · 품목은 간다 · §14)
 - **Cin7 → QuickBooks 연결은 따로 그대로**(QBO 는 여러 앱을 동시에 연결한다) — ⚠️ IMS 싱크를 지을 때 **Cin7 의 QBO 싱크를 끄는 시점**을 함께 정한다(둘이 같은 거래를 보내면 두 번 · deferred 375)
 - → [2026-11-01 · so §95] 읽기 조회(qbo-read-1 · §5) · 짝 표 · 거울 · 받기(qbo-sync-1a ~ 1c · §12) 섰다 — 여전히 **QBO 로 보내는 것 0**(GET 만 · `assertReadOnlyRequest`)
+- → [2026-11-01 밤 · so §96] **쓰기 길 섰다**(qbo-sync-2a · 2a′ · §14) — 손님 · Item 만들기(`apiWrite` POST 만 · `assertWriteAllowed`) · 첫 운영 쓰기 손님 1 명(Customer 10740) · 인보이스 · 크레딧(935 ~ 944 · 951)은 2b
 - 범위 밖(싱크 차수 몫): 이월 인보이스 · 받아 둔 돈(kind · method opening)은 보내지 않는다(341 · 786) · 다중 통화 · 캐나다 세금 · 지우기(deletes)
 
 ## 2. 표 — 칸 · 상태 (qbo-1a `20261029160000`)
@@ -58,7 +60,7 @@ qbo-1a 창구 12 + 속 함수 4 · qbo-1b +1 · qbo-1c 재발행 6(WHERE · 바�
 
 속 함수: `qbo_env_check` · `qbo_vault_put` · `qbo_vault_get` · `qbo_vault_drop`(grant 0)
 
-[2026-11-01 · qbo-sync-1a `20261101210000` · 1c `20261101230000`] 짝 · 거울 창구 9(authenticated · 안에서 `ims_is_admin` — 속 `qbo_sync_gate`) — 쓰임 · 규칙은 §12
+[2026-11-01 · qbo-sync-1a `20261101210000` · 1c `20261101230000`] 짝 · 거울 창구 9(authenticated · 안에서 ~~`ims_is_admin`~~ → [11-01 밤 · 945] 열쇠 `qbo_key_gate` — 속 `qbo_sync_gate`) — 쓰임 · 규칙은 §12
 
 | 창구 | 무엇 |
 |---|---|
@@ -71,7 +73,16 @@ qbo-1a 창구 12 + 속 함수 4 · qbo-1b +1 · qbo-1c 재발행 6(WHERE · 바�
 마이그레이션: `20261029160000` qbo-1a · `20261029190000` qbo-1b(끊김 메일 · mail_outbox.kind 에 qbo_reconnect · inv_config qbo_alert_to · qbo_mark_needs_reconnect 재발행 · qbo_last_error_set) · `20261029210000` qbo-1c(WHERE — §5 끝)
 EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 함수 + 흐름 handle) · 시험 `qbo/qbo_test.ts`(Intuit · DB 무접촉) · DB 시험 `supabase/tests/qbo_1a_check.sql` · `qbo_1b_check.sql` · `qbo_1c_check.sql`
 
-## 4. 문(권한) — 870
+## 4. 문(권한) — 870 · [2026-11-01 밤] 945
+
+- ⭐ [2026-11-01 밤 · 판정 945 · qbo-sync-2a `20261102003000`] **문이 둘로 갈렸다** — 아래 870 은 **연결류 · 원문 조회**에 그대로 · 짝 · 받기 · 보내기는 새 열쇠 **QUICKBOOKS**
+  - 열쇠 = Staff 의 perms `qbo`(쓰기) · `qbo:read`(보기) · 문 `qbo_key_gate(p_write)` = 활성 직원 + perms 글자 그대로(`mcp_gate` 꼴) · ⚠️ **admin 도 켜야 한다**(`ims_is_admin` 을 보지 않는다 · `ims_can_view` 안 씀)
+  - 열쇠 몫: 짝 화면(Settings → QuickBooks matching) · 손 짝 · Unlink · Refresh list(pull) · Match automatically · 보내기 일감 더하기 · 다시 · 건너뛰기 · **send** — 읽기 셋(`qbo_link_summary` · `qbo_link_page` · `qbo_entity_find`)은 `qbo:read` 로도 · `qbo_sync_gate` 는 몸이 `qbo_key_gate(true)` 로 바뀜(1a 창구 9 · 1c 그대로)
+  - admin 몫(870 그대로): 연결 · 끊기 · 다시 연결 · Untie · refresh · ping · **원문 조회 query · read**(933) — EF `ADMIN_ACTIONS` = qbo_admin_gate · `KEY_ACTIONS`(pull · send) = qbo_key_gate(true)
+  - `qbo_status()` 에 `caller_qbo`(write | read | null) · `caller_is_admin` 은 그대로(연결 칸) · 화면 set v14(asung-ims `67c168f` — 보기만이면 단추 숨김)
+  - 켠 사람(2026-11-02 00:59 UTC 재셈) **셋** — Caleb(admin · SQL 로 켬 — Staff 화면은 자기 행을 못 바꾼다) · Justin Kim(manager) · Jeannie Kim(supervisor) · 모두 쓰기 `qbo` · 둘 다 담당자(Caleb 의도 확인)
+  - ⚠️ 기각된 B(870 「사람마다 켜는 새 열쇠」)가 보내기에 대해서는 945 로 섰다 — 연결은 여전히 admin
+
 
 - 연결(start) · 끊기(disconnect) · 다시 연결 · 고정 회사 비우기 · 갱신(refresh) · 연결 확인(ping) = **IMS admin 역할만** — 새 열쇠 없음 · DB 가 `ims_is_admin()`(20260915141105 · 하나뿐 · 다시 만들지 않는다)으로 본다 · ping · refresh 도 admin(qbo-1b 이견 8)
   - Caleb(870 「A」) · 기각 B = 사람마다 켜는 새 열쇠(장부 쓰기 권한을 사람 단위로 나누게 되고 열쇠 · Staff · 권한 목록이 따라온다)
@@ -82,8 +93,8 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 
 ## 5. EF `qbo` — 액션 · callback · 환경
 
-- POST JSON `{action}` + 직원 세션 JWT: `status`(누구나) · `start` · `disconnect` · `refresh` · `ping`(admin) · [2026-11-01] `query` · `read` · `pull`(admin · **cron 길 불가**)
-- **읽기 조회 query · read(qbo-read-1 `cc06d5d`)** — Intuit API 호출은 `apiCall` 하나로 · **GET 만**(`assertReadOnlyRequest` — 다른 메서드는 거부) · 허용 목록 24 + Preferences · CompanyInfo(Employee 없음 · ExchangeRate 있음) · MAXRESULTS 기본 100 · 1 ~ 1000 밖은 400 · 응답 > 5 MB 413 · 429 재시도 없음 · 401 은 `withAuthRetry`(ping 과 공용 · §6) · rows 는 scrub 하지 않는다(SyncToken 보호 — scrub 의 꼴 치환이 값을 깨뜨린다) · Customer · Vendor 는 **`select *` 거부 · 연락처 · 주소 칸(PII_FIELDS 9)을 고르면 거부**(칸 이름을 적어야 한다 · `_shared/qbo.ts` PII_ENTITIES) · 단건 read 는 연락처를 벗겨 돌려준다(933) · 기록 = `qbo_call_log.detail`(값은 ? · 결과 행 없음)
+- POST JSON `{action}` + 직원 세션 JWT: `status`(누구나) · `start` · `disconnect` · `refresh` · `ping`(admin) · [2026-11-01] `query` · `read` · `pull`(admin · **cron 길 불가**) · → [2026-11-01 밤 · 945] `pull` 은 열쇠 qbo(admin 아님) · 새 `send {limit?}`(열쇠 qbo · cron 길 불가 · §14)
+- **읽기 조회 query · read(qbo-read-1 `cc06d5d`)** — Intuit API **읽기** 호출은 `apiCall` 하나로(→ [11-01 밤] 쓰기는 `apiWrite` 하나 · §14) · **GET 만**(`assertReadOnlyRequest` — 다른 메서드는 거부) · 허용 목록 24 + Preferences · CompanyInfo(Employee 없음 · ExchangeRate 있음) · MAXRESULTS 기본 100 · 1 ~ 1000 밖은 400 · 응답 > 5 MB 413 · 429 재시도 없음 · 401 은 `withAuthRetry`(ping 과 공용 · §6) · rows 는 scrub 하지 않는다(SyncToken 보호 — scrub 의 꼴 치환이 값을 깨뜨린다) · Customer · Vendor 는 **`select *` 거부 · 연락처 · 주소 칸(PII_FIELDS 9)을 고르면 거부**(칸 이름을 적어야 한다 · `_shared/qbo.ts` PII_ENTITIES) · 단건 read 는 연락처를 벗겨 돌려준다(933) · → [2026-11-01 밤 · 2a′ 이견 17] **거래 다섯(Invoice · CreditMemo · Payment · SalesReceipt · RefundReceipt)도 같은 가드** — `select *` 거부 · BillAddr · ShipAddr · BillEmail(+ Cc · Bcc) · ShipFromAddr 거부 · read 는 벗김(PII_ENTITIES 7 · PII_FIELDS 13) ⇒ ⚠️ 콘솔 조회에서 이 일곱은 칸 이름을 적는다 · 기록 = `qbo_call_log.detail`(값은 ? · 결과 행 없음)
 - **받기 pull `{entity, start}`(qbo-sync-1b `a7493de` · 1c `0e12be0`)** — 종류 7 · 한 번 = 한 쪽 1,000 · `where Active in (true, false)`(QBO query 는 기본 활성만 — TaxCode 만 조건 없음 · 실측) · Customer · Vendor 칸 목록에 연락처 없음 · ⚠️ **Item 은 `select *`** — 칸을 고르면 QBO 가 Sku 를 안 준다(sparse · 11-01 실측 · 1b 에서 product 짝 0 → 1c) · 1a 창구를 사용자 JWT 로 · detail 에 행 없음 · 화면이 start 를 넘기며 끝까지 부른다
 - **start**: admin 문 → state 32 바이트(base64url) → DB 에 sha256 → Intuit 허락 주소(scope `com.intuit.quickbooks.accounting` · redirect_uri = `<SUPABASE_URL>/functions/v1/qbo/callback`) — 화면은 **같은 탭**으로 간다
 - **callback**(GET · Intuit 이 브라우저를 보낸다) = **언제나 302 · 본문 없음 · Location 은 코드에 하나 고정** `https://ims.asung.ca/settings.html?t=qbo&qbo=connected` | `&qbo=error&why=<낱말>` — 요청 값을 Location 에 섞지 않는다(Intuit 보안 요건)
@@ -133,6 +144,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 - Intuit 에서 돌아오면 `&qbo=connected` | `&qbo=error&why=…` 를 읽어 안내
 - Help 줄(872): 「Connection problems? Contact the IMS administrator: caleb@asung.ca」 · Caleb(872 「B」) · 기각 A(화면에 길이 없어 설문 Error Handling 4 가 사실상 No)
 - [2026-11-01 · set v13 asung-ims `9e0b079`] **QuickBooks matching**(`?t=qbomatch` · admin 만) — 종류 9 요약 · Refresh list(EF pull 을 끝까지) · Match automatically(`qbo_match_auto` 묶음을 done 까지) · Review(To match · Matched · All · 검색 · 후보 단추 · Find… · Unlink) · 제품 To match 는 **후보 있는 줄만** 보인다 · QBO 에 쓰는 것 없음 — 규칙은 §12
+- [2026-11-01 밤 · set v14 asung-ims `67c168f` · 945] QuickBooks matching 문 = **열쇠 QUICKBOOKS**(`caller_qbo` write · read · ~~admin 만~~) · 보기만이면 단추 숨김 · 연결 탭(`?t=qbo`)의 단추는 admin 그대로
 - ⬜ Mail outbox 목록이 kind `qbo_reconnect` 를 글자 그대로 보인다(화면 몫 · deferred 376) · ⬜ 매뉴얼 7 장에 Settings → QuickBooks 절 없음(admin · deferred 378)
 
 ## 9. Intuit 앱 — App details · Redirect URI · 설문 · 운영 키
@@ -185,7 +197,8 @@ QBO 판     Plus(Caleb)
   - 다중 통화 · 캐나다 세금 · 지우기 → 샌드박스 시험 뒤 Intuit 에 설문 다시 알림(374)
   - 오류 시험을 실제 Intuit 거부로(설문 Error Handling 1 의 근거는 지금 자동 시험뿐)
 - 승인 유효 기한(약 101 일) 전 미리 알림(371) · MFA(373)
-- 진행(2026-11-01): 연결 ✅ · 읽기 ✅ · 짝 · 거울 · 받기 ✅ · **보내기 ⬜**(deferred 260 · 327)
+- 진행(2026-11-01): 연결 ✅ · 읽기 ✅ · 짝 · 거울 · 받기 ✅ · **보내기 ⬜**(deferred 260 · 327) → [2026-11-01 밤] 쓰기 길 · 손님 · Item 만들기 ✅(2a · 2a′ · §14) · 인보이스 · 크레딧 ⬜(2b) · 결제 · void ⬜
+- [2026-11-01 밤] 판정 거리 정리: 431 닫힘(941 — 비활성 Item 은 켜지 않는다) · 433 닫힘(북키퍼 답 · so §96-c 7) · ⚠️ **트랜스퍼 분개를 장부에 보낼지는 여전히 판정 거리**(북키퍼: In Transit 은 Inventory Asset 하위 · 재무제표 영향 없음 · TR-06396 ~ 99 분개 0) · 컷 뒤 입금 = IMS 에(434) · 카드 수수료 세금 = 회계사 확인(443)
 
 ## 12. 짝 · 받기 — `qbo_link` · `qbo_entity` (2026-11-01 · qbo-sync-1a ~ 1c · set v13 · 판정 934 · so-module §95)
 
@@ -202,7 +215,7 @@ QBO 판     Plus(Caleb)
 - **묶음 계약(qbo-sync-1c)** — `qbo_match_auto(p_kind, p_after, p_limit 5000 · 최대 20000)` → next_after · remaining · done · 부르는 쪽이 done 까지 돈다 · 까닭 = 첫 `qbo_match_auto('customer')` 가 REST 8 초 statement timeout(57014 · 다시 재면 ≈ 1 초 · 재현 안 됨 · 같은 시각 autovacuum 짐작) ⇒ 상한을 「더 빠르게」 가 아니라 묶음 크기로
 - 실호출(11-01 운영 · `qbo_link` 재셈): account 220 · tax_rule 24 · payment_term 17 · payment_method 7(+ skipped 1 credit_card) · supplier 195(absent 33) · customer 9,764(absent 27) · product 11,775(auto_sku 11,755 + auto_sku_name 20 · absent 2,941 · ambiguous 1 = LGL99950SIL — QBO Item #4153 지워짐 · 짝 짓지 않음) · charge 손 짝 2(freight → Item 4 · discount → Item 2170 · surcharge · freight_discount 남음) · service 11 남음
   - product absent 2,941 = Cin7 은 **처음 팔 때만** Item 을 만든다(안 팔린 제품은 QBO 에 없다) — 「제품 짝 1 만 4 천」 짐작이 깨진 자리(so §95-e 41)
-- 화면 = Settings → QuickBooks matching(§8) · 문 = admin(창구 안 `qbo_sync_gate`)
+- 화면 = Settings → QuickBooks matching(§8) · 문 = ~~admin~~ → [11-01 밤] 열쇠 QUICKBOOKS(창구 안 `qbo_sync_gate` → `qbo_key_gate` · §4)
 
 ## 13. QBO 실물 — 보내기를 지을 때의 바탕 (2026-11-01 · Settings 콘솔 조회 · 판정 933 범위 · Caleb 캡처 — 「11-01 실측(대화)」 · 재셈한 것은 표시)
 
@@ -217,3 +230,28 @@ QBO 판     Plus(Caleb)
 - **컷 경계(Caleb)**: 10 월까지(컷 전) 거래는 실무자가 Cin7 → QBO 로 올린다(11-02 중) · 컷 뒤는 IMS 가 보낸다 · Cin7 ↔ QBO 연결은 아직 살아 있다 · 끊는 시점 = 실무자 작업 확인 뒤(deferred 375) · 인보이스 50754 · 50780 은 QBO 에 있음(확인)
 - **살린 트럭 TR-06396 ~ 06399**(판정 896): QBO 에 그 DocNumber 의 JournalEntry 가 **하나도 없다**(날짜 조건 없이 · 11-01) ⇒ 받을 때 보낼 분개 없음 · 트랜스퍼를 장부에 보낼지는 보내기 차수의 판정 거리
 - **opening_fix 사건은 보내지 않는다**(판정 932 · ledger-design 「기초 이전 원가 바로잡기」) — 그 판매의 COGS 는 Cin7 이 이미 QBO 로 보냈다 · 가르는 열쇠 = `inv_layer_consume.line_ref like 'adj:%'` → `inv_cost_adjust.id` → kind `opening_fix`
+
+## 14. 보내기 줄 · 쓰기 길 — `qbo_job` · `apiWrite` · send (2026-11-01 밤 · qbo-sync-2-0 · 2a `20261102003000` · 2a′ `20261102030000` · 판정 935 ~ 946 · 951 · so-module §96)
+
+- **조사(qbo-sync-2-0)**: 보내기 줄 = `drive_job` 꼴 + 메일의 unknown 갈래 · ⚠️ 읽기 길 `intuitCall` 은 네트워크 · 5xx 에서 **자동 재시도** → 쓰기에 쓰면 중복 ⇒ 쓰기는 재시도 끔 + 결과를 모르면 DocNumber · 이름으로 조회
+- **문** = 열쇠 QUICKBOOKS(§4 · 945) — 일감 창구 · EF send 는 `qbo_key_gate(true)` · 몸 · claim · done 은 service_role
+- **표**(RLS · 창구로만 · ims_id text 다형 · FK 는 ims_staff · 자기 참조 blocked_by 뿐 · 거래 표 FK 0 → 컷오버 지우는 순서 영향 없음)
+  - `qbo_job` — 일감 하나 · kind(customer · item · invoice · credit · invoice_void · credit_void) · ims_kind(customer · product · charge · invoice · credit) · state(queued · blocked · sending · sent · failed · unknown · skipped) · attempts · request_id(uuid) · blocked_by · qbo_id · **qbo_name(그때 실제로 보낸 이름 · 2a′)** · sync_token · last_error · last_intuit_tid · warning · note · **열린 일감은 (realm, kind, ims_kind, ims_id) 하나**(부분 유일)
+  - `qbo_txn` — 거래 짝(invoice · credit ↔ QBO · doc_number · total_amt · total_tax · voided_at) · 표만 · 2b 가 채운다(11-02 재셈 0 행)
+  - `qbo_link.matched_by` 에 `created`(IMS 가 만든 QBO 행 · 일감 done 이 넣는다)
+  - inv_config 4 키: `qbo_send_enabled` off(⚠️ **cron 길 스위치일 뿐 — 손 send 는 이 값과 무관** · 2a 이견 16 · cron 등록은 2b) · `qbo_send_since` ''(이 날 이후 발행분만 일감 · 비면 안 쌓음 · 2b 트리거) · `qbo_send_batch` 15(1 ~ 50) · `qbo_cogs_account_code` `_58_`
+- **몸 함수**(grant 0 · claim · add 가 부른다 · 규칙이 SQL 로 시험된다)
+  - 손님 `qbo_customer_body`(936 · 946): DisplayName = `left(btrim(name),100)` · Customer · Vendor 거울과 이름 충돌이면 **실패**(자동으로 바꾸지 않는다 · Employee 는 거울에 없어 실제 쓰기의 6240 이 남는다) · CompanyName · BillAddr(기본 Billing 주소 · Country = 나라 이름 CA → Canada · US → USA · 그 밖은 그대로 + 경고) · PrimaryEmailAddr(`doc_mail_recipient` 와 같은 선) · CurrencyRef · SalesTermRef(qbo_link payment_term) · DefaultTaxCodeRef(customer.tax_rule → ref_tax_rule → qbo_link · 없으면 비움) · Taxable true · 전화 · 배송 주소 없음 · parent_id 있으면 ParentRef · Job · BillWithParent — 부모 짝이 없으면 부모 일감 먼저 + blocked
+  - Item `qbo_item_body`(937 · 941 · 943 · 944): Name = `left(btrim(name),100)` · 콜론 → '-' · gone 아닌 QBO Item 과 `lower(btrim)` 정확 비교로 같으면 끝에 ` [SKU]`(「(deleted)」 꼬리 떼지 않음 · EF 가 6240 에 한 번 더) · **같은 Sku 가 비활성뿐이면 실패 「QuickBooks item is inactive」(941 · 사람이 QBO 에서 켠 뒤 retry)** · 활성이 있으면 실패(사람 짝) · Type Service · Taxable true · IncomeAccountRef = `coalesce(product.revenue_account_code, customer_default_sale_account_code)` 의 짝 · ExpenseAccountRef = `qbo_cogs_account_code` 의 짝 · surcharge → 「Tariff Surcharge」 · `so_surcharge_account_code`(`_94_`) · **freight · discount · freight_discount 는 거부**(943 — 운임은 Item 4 Freight · 할인은 운임 줄에서 뺀다)
+- **일감 창구 8**: 열쇠 = `qbo_job_add`(customer | item · 미리 보기 · 열린 일감이 있으면 그것 · 부모 먼저 + blocked) · `qbo_job_list` · `qbo_job_retry`(failed · unknown → queued · **request_id 새로** · unknown 은 note 필수 — 「QuickBooks 에서 무엇을 봤나」) · `qbo_job_skip`(note 필수) / service_role = `qbo_job_claim`(stale sending 10 분 → unknown 먼저 · blocked → queued(부모 sent) · queued → sending · `for update skip locked` · 몸 실패는 그 일감만 failed) · `qbo_job_done`(sent + qbo_link created + qbo_entity upsert + 자식 풀기) · `qbo_job_fail` · `qbo_job_unknown(p_job, p_error, p_intuit_tid, p_name)`(2a′ · 4 인자 · 옛 서명 없음) · + `qbo_job_unknown_list()`(2a′)
+- **쓰기 길 `apiWrite`(2a′)** — API 호스트로 나가는 모든 쓰기가 여기를 지난다 · **POST 만** · `assertWriteAllowed` 허용 목록 = 만들기 customer · item · invoice · creditmemo(2b) · `operation=void` 는 invoice · creditmemo 만(2b · 2c) · **delete 없음** · `requestid` 필수(1 ~ 50 자 = `qbo_job.request_id` — Intuit 은 같은 id 면 처음 응답(실패 포함)을 되돌려 주므로 retry 마다 새로) · **자동 재시도 없음** · 몸은 기록하지 않는다(detail 은 job id 만) · 읽기 길(`apiCall` · `assertReadOnlyRequest`)은 그대로
+- **send `{limit?}`**(열쇠 · 손으로 · 기본 15 · 최대 50 · cron 없음) — ① `qbo_job_unknown_list` → 보낸 이름(DisplayName · Name)으로 **GET 조회** → 하나면 `qbo_job_done` · 0 · 둘 이상은 그대로(사람이 retry · skip) ② `qbo_job_claim` → 일감마다 `apiWrite` POST 한 번 → done | fail | unknown · 응답 = resolved · recovered_unknown · unblocked · body_failed · claimed · sent · failed · unknown · jobs
+- **첫 운영 쓰기(11-01 밤)**: `qbo_job_add` 미리 보기 → send limit 1 → QBO 화면 확인 · 손님 1 명 → **Customer 10740**(이름 · 주소 · 이메일 · 결제조건 C.B.S 맞음 · 배송 주소는 QBO 가 「청구와 같음」 으로 채움) · 재셈(11-02 00:59 UTC): qbo_job 1(sent) · qbo_link created 1 · qbo_txn 0
+- **인보이스 · 크레딧의 꼴(2b 가 짓는다 · 판정)**:
+  - CustomerRef = **매장**(`so_invoice_order.customer_id` · 크레딧 `store_customer_id` · 935) · 청구 · 배송 주소 · 손님 이메일을 싣는다(IMS 문서 값 · 발행 때 · 936)
+  - 없는 제품은 처음 팔 때 Item 을 만들고 이어서 인보이스(937) · 0 원 운임 줄도 싣는다(938) · 운임 할인은 운임 줄에서 뺀다(Item 4 · #99 음수 줄 · 943) · Surcharge = 「Tariff Surcharge」(#94 · 944)
+  - IMS 직원 메모는 보내지 않는다 · PrivateNote = `Customer Reference: <so.ref>` · CustomerMemo = `Customer Reference: <so.ref>, <매장 이름>`(939)
+  - USD 는 QBO 기본 환율(940) · 세금 = IMS 문서 값 그대로 · **QBO 가 돌려준 합계가 1 센트라도 다르면 실패**(942 · 실물 48160 — IMS 는 줄마다 반올림 10.74 · 합 한 번 셈 10.73)
+  - 그 밖 계정 charge 줄(카드 수수료 등)은 **사람 짝**(`qbo_link` charge · ims_id `'acct:_20_'` 꼴 · QBO 14735 「Credit Card Processing Fee (3%)」) · 자동 Item 없음 · 세금은 IMS 값 그대로(951 · 회계사 확인 deferred 443)
+  - ⚠️ 북키퍼에게 전한 것(Caleb 11-02): IMS 가 보낸 인보이스는 QBO 에서 고치지 않는다 · 카드 수수료도 IMS 에서 · 컷 뒤 입금은 IMS 에(434)
+- 시험: 2a 검증 48 · deno 16 · 2a′ 검증 7 · 2a 확인 47 · deno 18 · `supabase/tests/qbo_sync_2a_check.sql` · `qbo_sync_2a2_check.sql`(L2 「적용 앞 지문」 은 시험 갈래만 — 확인 갈래는 begin 앞 지문이 없어 null · so §96-e 52)

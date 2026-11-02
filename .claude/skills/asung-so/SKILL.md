@@ -481,6 +481,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 「백오더가 된 금액」 = 덩어리마다 처음 바로 못 보낸 몫 한 번(첫 백오더 예약 · 다시 주문 · 다시 백오더 · 표식 줄은 0 · 판정 487 · 491) · 분모는 SKU · 브랜드 · 공급처 거르기를 줄 단위로 따른다(판정 492)
 ⭐⭐ 손님이 뺀 수량(qty_removed) · 백오더가 났던 오더의 취소(할당 몫 포함) · 웹 자동 취소가 이어받았던 옛 줄 = 잃은 판매(판정 475 · 476 · 483)
 ⚠️ inv_available_base 는 잔고 행이 없는 제품의 행을 내지 않는다 — 부르는 쪽이 left join + coalesce 0(inner join 이면 가용 0 인 콤보 구성품이 빠져 보낼 수 있는 것처럼 보인다 · bo-2b) · 가용은 창고마다 한 번(행마다 부르면 200 행에 16 초)
+⭐⭐ [2026-11-01 밤 · 판정 948 · aone-bo-1 · so-module §96] 스토어는 so_store_of(intake, ref) 하나 → asung | aone | manual(웹 아님) — 다섯 창구(list · arrivals · ready · overview · demand)의 store 거르기 · 행 store 가 이것을 부른다 · ref 앞글자를 화면 · 새 함수에서 다시 읽지 마라
 ⭐⭐ [2026-10-21 · 판정 583 · rls-3c] so_backorder_arrivals · demand · overview = **definer + 첫 줄 sales 보기 문** — product_supplier 가 purchasing · master · cost 로 닫혀(580) invoker 면 sales 직원에게 기본 공급처 이름이 비었다 · 반환에 공급처 단가 칸을 더하지 마라(울타리가 다시 열린다)
 ```
 
@@ -492,10 +493,16 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 알림 규칙 — 줄마다 한 번(497) · 입고(po_in · 다른 창고에서 온 transfer_in) 몫 ≥ qty_open 의 절반(505 · can_fill × 100 ≥ qty_open × pct) · 입고 아닌 재고는 그 줄이 다 채워질 때만(504) · 프리오더 메일 없음(499) · 그 오더 창고 재고만(500) · 나누기는 프리오더 먼저 · 알림 받은 줄 빼고(506 · fill alert — 화면 Ready to ship now 는 screen 셈 그대로) · 나뉜 줄은 조상 기록 이어받음(509 · split_from_line_id) · 비활성 손님 안 보냄(513) · 오더 매장 연락처만(508) · 손님 스위치 customer.backorder_mail(507 · 바꾸기 manager 517)
 ⭐⭐ 셈은 하나씩 — 나누기 so_backorder_fill · 고르기 mail_backorder_pick(tick 과 preview 가 같은 함수) · 다음 회차 mail_backorder_next_slot · 지난 회차 뒤 입고 = inv_ledger.created_at(날짜 아님 · 1b 이견 3) — 다시 짜지 마라
 ⭐⭐ EF mail(drain · chat · render · 문 x-ims-cron-key · config.toml verify_jwt=false) · cron(테스트) 54 ims-mail-tick 매시 07 분(SQL 만) · 55 ims-mail-drain 1 분 · 56 ims-mail-chat 1 분(할 일 있을 때만 EF) · 비밀 GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET · 열쇠 도구 tools/gmail-oauth-ims.sh(ims@ 아니면 멈춤 · 동의 화면 Internal)
-⭐⭐ 시험 DB 안전 넷 — EF 가 보내기 직전 프로젝트 ref × inv_config.db_role 대조 · 시험이면 받는 이 = mail_redirect_to(@asung.ca) · 제목 [TEST → 원래] · 어긋나면 집지도 않는다 · guard: 시험 DB 는 돌려 보내기 없이 켜기 거부 · db_role 은 postgres 만 · 키 이름 바꾸기 거부
+⭐⭐ 시험 DB 안전 넷 — EF 가 보내기 직전 프로젝트 ref × inv_config.db_role 대조 · ~~시험이면 받는 이 = mail_redirect_to(@asung.ca) · 제목 [TEST → 원래]~~ · 어긋나면 집지도 않는다 · guard: ~~시험 DB 는 돌려 보내기 없이 켜기 거부~~ · db_role 은 postgres 만 · 키 이름 바꾸기 거부
+⚠️⚠️ [2026-11-01 밤 · 판정 947 · mail-live-1] **db_role 'test' 는 「IMS 프로젝트」 표지 — 시험이 아니다**(바꾸면 Shopify · Freightcom · 이미지 EF · 마이그레이션 가드가 멈춘다 · deferred 439) · 손님 메일의 운영은 **inv_config.mail_live**(on | off · admin)가 선언
+     시험 모드 = (시험 ref 또는 db_role test) 이고 mail_live 아님 → 받는 이 = mail_redirect_to(@asung.ca) · 제목 [TEST → 원래] / mail_live on → 손님에게 직접 · mail_redirect_to 가 있으면 그 주소로 · 제목 [REDIRECT → 원래]
+     지금(11-01 밤 Caleb): mail_live on · redirect 비움 = **손님에게 직접** · 되돌리기 = Settings → Backorder emails 의 Test mode 칸에 주소 · mail_live off 로 돌릴 때는 @asung.ca redirect 가 있어야 한다
 ⭐⭐ 비상 스위치 = inv_config mail_enabled = off(admin) — 잡은 그대로 돌아도 회차 · 발송 0(멈춘 sending 되살리기만) · 잡을 멈추는 것보다 먼저
 ⭐⭐ unknown(보냈는지 모름)은 자동으로 손대지 않는다(514) — Emails 탭에서 manager 이상(516 · mail_can_resolve)이 보냄으로 닫기 · 다시 보내기 · 취소(메모 필수 · 이력 mail_outbox_event) · mail_mark 는 시도 번호(p_attempt)가 같아야 적는다
 ⭐⭐ 회차 실패는 mail_run_error 한 줄(창고 · 날) + Chat ⚠️ 한 번(518) — cron 기록은 성공으로 남는다
+⭐⭐ [2026-11-01 밤 · 948 · 949] aone 오더의 백오더 줄은 **자동 회차 밖** — mail_backorder_pick 이 빼고 aone_lines 로 센다(Chat 「aone n 줄은 자동에서 빠짐」) · 사람이 Backorders 에서 골라 mail_backorder_send(p_line_ids, p_commit · manager · 손님 스위치를 보지 않고 경고만 · basis manual)
+     aone 웹 오더로 새로 생기는 손님은 backorder_mail false(shop_order_prepare · customer_create) · 기존 aone 만 손님 35 명 한 번 끔(ops_aone_bo_off = 되돌리기 재료) · 원래 손님이 aone 으로 처음 사도 스위치는 그대로
+⚠️ 백오더 알림은 「입고된 것」 에만 — 백오더가 생긴 순간엔 메일 없음
 ⚠️ 테스트 DB 는 메일이 켜져 있고 cron 이 돈다 — 시험은 반드시 rollback · 시험에서 mail_claim · mail_mark 를 부르지 마라(실제 큐를 잠근다) · 커밋된 queued 는 돌려 보내기 주소로 실제로 나간다
 ⚠️ 운영 전환(mail-5 · 미룬 244)은 GAS BackorderedItemEmail 트리거 지우기와 IMS 켜기를 같은 날 · 운영 비밀 · 운영 열쇠를 다시(도구 재실행)
 ```

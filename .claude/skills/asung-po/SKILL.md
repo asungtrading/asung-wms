@@ -111,6 +111,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 | Last bin 을 po_receipt_line·wms_sku_bins 에서 직접 | 원장이 오면 고칠 곳이 여럿 | **ims_last_bin() 하나 뒤에** — 속만 갈아 끼운다 · §11-i |
 | `on delete cascade` | bin 2,047개 딸려 소멸 | `no action` |
 | `AdditionalAttribute1` 로 발주처를 거른다 | 판정과 어긋난다 | Caleb 판정이 정본(`is_purchasable`) |
+| 공급처 고르기에 새 칸 · 「운송 · 관세 청구처는 false」 전제 | 칸이 둘이 된다 · 운임 · 관세 청구처가 고르기에서 사라진다 | [2026-11-01 · 판정 950] 고르기 = `is_purchasable` true 만(목록 거르기는 거래 중단도 보임 · 새 문서 고르기는 중단 아님) · 운임 · 관세 · 통관 청구처도 true · 정본 §3-b 끝 |
 | `product.name` 에 유니크 | 576종 중복 — 배치 전체 실패 | `sku` 가 자연키 · 화면은 SKU 를 함께 띄운다 |
 | ⭐ `pack_factor` 를 UOM 이름·SKU 접미사에서 읽는다 | **재고가 조용히 틀어진다**(§3-d) | 정본은 **BOM Quantity** · UOM·접미사는 검산 카운터 |
 | upsert 로 부분 갱신 · PATCH 를 서버 필터로 건너뛰기 | 400/23502 · 건너뛰는 요청도 왕복 | **PATCH** · 먼저 읽어 뺀다(asung-wms 규칙 45·46) |
