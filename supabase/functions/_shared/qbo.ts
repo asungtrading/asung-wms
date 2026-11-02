@@ -12,7 +12,8 @@
 //     query = { q } · select 로 시작 · 세미콜론 없음 · from 의 엔터티가 QUERY_ENTITIES 안 · MAXRESULTS 없으면 100 · 1000 초과는 400 · Customer · Vendor 는 select * 와 연락처 · 주소 칸 금지(933 노출 줄이기)
 //     read  = { entity, id } · 단건 GET · Preferences · CompanyInfo 는 id 없이 · Customer · Vendor 단건은 연락처 · 주소 칸을 빼고 돌려준다
 //     기록 = call_log 한 줄 + detail(entity · rows · totalCount · startPosition · maxResults · q 는 리터럴을 ? 로) · 결과 행은 담지 않는다 · 결과 행에는 scrub 을 걸지 않는다(SyncToken 이 깨진다 · 이견 3) · 응답은 들여쓰기 없는 JSON · 5 MB 초과 413
-//   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): pull { entity, start? }(admin 만 · cron 길 없음) — QBO 목록 한 쪽을 qbo_entity 에 받아 둔다 · 한 번 호출 = 한 쪽(1000 행)
+//   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): pull { entity, start? }(~~admin 만~~ → [2a 945] 열쇠 qbo · cron 길 없음) — QBO 목록 한 쪽을 qbo_entity 에 받아 둔다 · 한 번 호출 = 한 쪽(1000 행)
+//   qbo-sync-2a(2026-11-01 · 판정 945 · DB 20261102003000): 문 둘 — ADMIN_ACTIONS(start · disconnect · refresh · ping · query · read)는 qbo_admin_gate 그대로 · KEY_ACTIONS(pull · 뒤에 send · job)는 qbo_key_gate(p_write true · perms 'qbo' 글자 그대로 · admin 도 켜야 한다) · 둘 다 사용자 JWT 로 DB 가 본다 · status 응답의 caller_qbo(write | read | null)는 DB qbo_status 가 준다(EF 코드 없음)
 //     entity 7 = PULL_ENTITIES(Account · TaxCode · Term · PaymentMethod · Customer · Vendor · Item · 그 밖은 400) · 칸은 PULL_FIELDS(Customer · Vendor 는 Id · DisplayName · ParentRef · FullyQualifiedName · Active · SyncToken 만 · 933 · Item 은 * — qbo-sync-1c: 칸을 고른 조회는 Sku 를 안 돌려준다 · 11-01 실측)
 //     조회 = select <칸> from <entity> where Active in (true, false) STARTPOSITION <start> MAXRESULTS 1000 — TaxCode 만 where 없이(11-01 실측: Account · Term · PaymentMethod 는 조건 통과 · TaxCode · TaxRate 는 조건 없이 받음 · PULL_NO_ACTIVE_FILTER)
 //     start 없거나 1 = 새 run(qbo_pull_begin restart) → 조회 → qbo_entity_upsert(rows · next_start = start + 1000) → 받은 수 < 1000 이면 qbo_pull_finish(gone_at) · 창구는 전부 사용자 JWT(rpcUser · DB 가 admin 을 본다)
@@ -35,6 +36,9 @@ export const RETRY_DELAY_MS = 1_000;                                            
 export const CALL_LOG_KEEP_DAYS = 90;
 export const ACCESS_EXPIRES_DEFAULT_S = 3600;                                     // expires_in 이 없을 때만(Intuit 문서값 · 이견 5) — 응답에 있으면 그 값
 export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read", "pull"] as const;
+// ── qbo-sync-2a 판정 945 문 둘 — ADMIN_ACTIONS = qbo_admin_gate(연결 · 끊기 · 갱신 · 핑 · 원문 조회 933) · KEY_ACTIONS = qbo_key_gate(p_write true · perms 'qbo' · admin 도 켜야 한다 · 뒤에 send · job) · status 는 누구나 ──
+export const ADMIN_ACTIONS = ["start", "disconnect", "refresh", "ping", "query", "read"] as const;
+export const KEY_ACTIONS = ["pull"] as const;
 // ── qbo-sync-1b pull — 종류 7 · 칸 · 쪽 1000 · Active 조건 없이 받는 종류(TaxCode · 11-01 실측) ──
 export const PULL_ENTITIES = ["Account", "TaxCode", "Term", "PaymentMethod", "Customer", "Vendor", "Item"] as const;
 export const PULL_PAGE = 1000;
@@ -573,10 +577,10 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     if (!jwt) return json(401, { ok: false, error: "Missing Authorization" });
     if (action === "status") return await status(c, jwt);
-    let gate: { staff_id: string | null; name: string | null };
-    try { gate = await d.rpcUser("qbo_admin_gate", {}, jwt) as typeof gate; }
-    catch (e) { if (e instanceof RpcError) return json(e.status === 401 ? 401 : 403, { ok: false, error: e.status === 401 ? "Invalid session — sign in again" : e.message }); throw e; }
-    c.byStaff = gate?.staff_id ?? null;
+    try {                                                                                            // qbo-sync-2a 판정 945 — 문 둘: 연결류 · 원문 조회는 admin(qbo_admin_gate) · 짝 · 받기 · 보내기는 열쇠 qbo(qbo_key_gate(write) · admin 도 켜야 한다)
+      if ((KEY_ACTIONS as readonly string[]).includes(action)) { const sid = await d.rpcUser("qbo_key_gate", { p_write: true }, jwt); c.byStaff = typeof sid === "string" && sid ? sid : null; }
+      else { const gate = await d.rpcUser("qbo_admin_gate", {}, jwt) as { staff_id: string | null; name: string | null }; c.byStaff = gate?.staff_id ?? null; }
+    } catch (e) { if (e instanceof RpcError) return json(e.status === 401 ? 401 : 403, { ok: false, error: e.status === 401 ? "Invalid session — sign in again" : e.message }); throw e; }
     if (action === "start") {
       const env = c.env;
       clientOf(c, env);
