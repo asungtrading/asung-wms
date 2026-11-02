@@ -4964,6 +4964,8 @@ CON00156 C070303 4 · C070304 0 · 과제 125(SO-25003b · pending) 계획 C0703
 
 ## §27 재고 사건 ② 트랜스퍼 · 둘째 몫 창고 간 트랜스퍼 (2026-09-28 · 판정 64 ~ 79)
 
+→ [2026-11-02 · §97 · 판정 952 ~ 957] 트랜스퍼에도 콤보 줄 + 구성품 줄(SO 꼴) — tf-combo-1 `a4e991a` · 재고 · 원가 · 정산은 구성품 줄로만 · 받기는 구성품 줄 · 박스 바코드 한 번 = 콤보 하나
+
 → 앞 몫 §26(칸 옮기기) · 다음 = ⑥ 화면(27-h · 판정 80)
 
 ### 27-a 판정 원문 (64 ~ 80 · 묶음 셋)
@@ -6563,6 +6565,8 @@ cs-4 적재 고침(prod-5 와 한 묶음 · §41-e 92 clasp pull 먼저)
 ```
 
 ## §44 콤보(번들) — 팔 때 구성품을 뺀다 · asm-0 ~ 3 · 판정 244 ~ 250 (2026-10-05 · 회사 PC → 집 PC)
+
+→ [2026-11-02 · §97 · 판정 952 ~ 957] 트랜스퍼에도 콤보 줄 + 구성품 줄(SO 꼴) — tf-combo-1 `a4e991a` · 재고 · 원가 · 정산은 구성품 줄로만 · 받기는 구성품 줄 · 박스 바코드 한 번 = 콤보 하나
 
 ⭐ 닫힌 것: 판정 81 1단계의 「조립 · 번들」 — 조립 문서는 만들지 않는다(판정 244) · 콤보는 오더에서 콤보 줄 + 구성품 줄로 펼친다 · DB asm-1 · 2a · 2b1 · 2b2(asung-wms 4a9a9d8) · 화면 asm-3(asung-ims ad45c7e ~ ae130cf) · Caleb 화면 시험 2026-10-05 밤
 ⭐ 새 판정 244 ~ 250(아래 44-a) · 원문은 지시서 `~/asung/prompts/docs-1005h.md` 📌 절
@@ -8909,7 +8913,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
   직원 또는 service        doc_staff_or_service()                 20261019144030:563
 데이터(판은 셈하지 않는다)
   창구                     doc_data(kind, ref)                    20261019155731_doc_1b2_ship_ready.sql:681   volatile · {docs[] · groups[](ship_ready)}
-  공통 · 갈래              doc_data_common 1b1:161 · doc_data_invoice 1c:57(→ 마지막 ar-2 · 785) · doc_data_invoice_fmt 1c:95(→ 마지막 srs-1 · §79-d) · doc_data_credit 1b1:282 · doc_data_so 1c:148 · doc_data_ship_ready 1b2:664
+  공통 · 갈래              doc_data_common 1b1:161 · doc_data_invoice 1c:57(→ 마지막 ar-2 · 785) · doc_data_invoice_fmt 1c:95(→ 마지막 ~~srs-1 · §79-d~~ doc-hand-price-1 `20261102190000` · [2026-11-02] §97) · doc_data_credit 1b1:282 · doc_data_so 1c:148 · doc_data_ship_ready 1b2:664
   꼴                       doc_fmt_money · qty · pct · date(1b1:41 ~ 53) · doc_fmt_money_nz(1c:37 · 0 → "") · doc_unit_prices(1c:46 · 527 · 528) · doc_contact · doc_method_label · doc_upc
   Ship Ready 돈            so_invoice_rule_pick 1b2:41 · so_invoice_apply_plan 1b2:66 · so_tax_preview(…, p_over) 1b2:150 · so_invoice_issue 1b2:251 · so_invoice_preview 1b2:471
                            ⚠️ 발행과 미리 보기가 같은 식 — 하나만 고치지 마라(옛 발행 = 새 발행 · 미리 보기 = 발행 두 겹 대조로 섰다)
@@ -10512,7 +10516,7 @@ invoice.so_numbers       문서의 오더 SO 번호를 orders 순서(= so_number
 orders[].ship_to_repeat  불리언 — 이 문서의 앞 오더 중 배송지가 같은 것이 있으면 true · 첫 오더 false · 같음 = company · line1 · line2 · city · state_province · postal_code · country 의 lower(btrim) — contact · phone 은 안 본다
 ship_ready 메일 제목     PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc. — 미리 보기(doc_mail_send commit false)가 채워 칸에 넣고 보내기는 칸의 글 그대로 · 화면 무변
                          ⚠️ doc_mail_send 는 docs[0] 만 본다 — 인보이스가 갈려 장이 여럿이면 첫 장의 번호(화면은 PDF 가 둘 이상이면 보내기를 막는다)
-⚠️ 마지막 정의            doc_data_invoice_fmt · doc_field_catalog 는 이제 srs-1(20261027023008) — §66-d 지도의 행 번호는 옛 것
+⚠️ 마지막 정의            doc_data_invoice_fmt · doc_field_catalog 는 이제 ~~srs-1(20261027023008)~~ → fmt = doc-hand-price-1 `20261102190000`(그 앞 doc-sr-1 `20261029220000` md5 6a2fe901…) · catalog = doc-sr-1 `20261029220000`([2026-11-02] §97-e 63) — §66-d 지도의 행 번호는 옛 것
 ```
 
 ### 79-e ⚠️ 실수 · 배운 것 — 원인 · 처방
@@ -12332,4 +12336,164 @@ a2a488e so v5z3: Channel 거르기 Warehouse → Warehouse Backend — 채널 wa
 
 ```
 다음 판정 번호: 952 · 다음 deferred 번호: 444
+```
+
+## §97 2026-11-02 회사 — 트랜스퍼 콤보 · 오전 장애(Shopify 재고 대상 함수) · 픽 Complete 느림 · Shopify 가격을 IMS 값으로 · QuickBooks 인보이스 · 크레딧 노트 · 북키퍼가 골라 보내기 · 콤보는 한 조각 · 손 가격 줄 표시 — tf-combo-1 · shop-stock-perf-1 · shop-price-sync · wms-complete-perf-1 · qbo-sync-2b1 · 2b2(11-01 밤) · 2c1 · 2d1 · wms-split-combo-1 · cr-ref-fee-1 · doc-hand-price-1 · tf combo v1 · fu v1.9 · rc v2.1 · set v15 · wm v1.3 · qs v1 · nav v14 · cr v7 · so v5z4 · 판정 952 ~ 977 (회사 PC)
+
+⭐ 정한 것: **트랜스퍼에 콤보 = SO 꼴**(952 ~ 957) · **IMS 가 가격 정본**(958 · 967) · **인보이스 취소 · 크레딧의 문**(959 · 966 · 968 · 969) · **QBO 크레딧 노트의 꼴**(960 ~ 965) · **콤보의 구성품은 한 조각**(970 · 972 ~ 975) · **처음엔 북키퍼가 문서마다 보낸다**(971) · **손 가격 줄은 문서에 손 가격을 단가로 · SO 화면에 정가 대비 폭**(976 · 977)
+⭐ 원천: docs-1102 📌 A ~ E(대화 Claude · Caleb · 11-02 대화) · 이견 답(Caleb 11-02 · 1 ~ 6) · asung-wms `git log --oneline 490d4ad..HEAD` · asung-ims `git log --oneline 6e62ca1..HEAD` 원문 · 마이그레이션 머리 주석 · cron 은 「11-02 Caleb psql 실측」 · 그 밖 숫자는 「11-02 실측(대화)」 — ⚠️ Caleb 의 말 원문은 지시서에 없다(판정 표의 Caleb 칸)
+⭐ 시각: 11-01 서머타임 끝 — **토론토 = UTC − 5** · **에드먼턴 = 토론토 − 1 시간**(앨버타는 11-01 부터 서머타임 유지 · 실수 둘은 97-e 59) · 이 절의 시각은 토론토
+⭐ 정본 자리: 트랜스퍼 콤보 = 이 절 97-a · 97-b + 스킬 asung-so 4-n · asung-wms · QBO = `qbo-integration.md` 머리 · §14-a′ ~ §14-e · Shopify 재고 · 가격 = `shopify-integration.md` §3-d · §3-g 끝 · 원장 뷰 비용 = `ledger-design.md` 이식 절 「ims_inv_balance」 · cron = `supabase/ops/cron.sql` 끝 두 줄
+
+### 97-a 판정 (Caleb 원문 없음 · 뜻)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 952 | B(원문 없음) | 트랜스퍼에 콤보를 넣으면 **콤보 줄 + 딸린 구성품 줄**(SO 꼴 · `inv_transfer_line.combo_line_id` · `combo_qty`) · 재고 · 원가 · 정산은 **구성품 줄로만** |
+| 953 | (원문 없음) | **구성품이 다 있어야 콤보를 보낸다** — Confirm 은 구성품 가용으로 거부 · 픽에서 모자라면 그 콤보 0 + 뽑은 구성품 put_back(handoff 의 트랜스퍼 갈래가 자른다 · 판정 246 의 트랜스퍼 판 · 팔렛 검사가 반쪽을 막는다) |
+| 954 | (원문 없음) | 에드먼턴 받기 = **SO 픽킹과 같은 방식** — 구성품 줄에 「for 콤보」 · 박스 바코드 한 번 = 구성품마다 콤보 하나분 · **콤보 줄은 셀 수 없다** · found 가 콤보 SKU 거부 |
+| 955 | A(원문 없음) | 트랜스퍼 콤보 줄 원가 「—」 · 원가는 구성품 줄 |
+| 956 | A(원문 없음) | 같은 SKU 가 낱개 줄 · 구성품 줄로 함께 있을 수 있다(유니크 = (transfer, product, combo_line_id) nulls not distinct) |
+| 957 | A(원문 없음) | 정산(lost · return)은 **구성품 줄에서만** |
+| 958 | (원문 없음) | aone 가격의 정답 = **IMS AONE 등급** |
+| 959 | (원문 없음) | **발행 크레딧이 걸린 인보이스는 취소 거부** |
+| 960 | (원문 없음 · 이견 답) | QBO 크레딧은 **자기 IMS 인보이스가 QBO 에 간 뒤에** · 이월(Cin7 시절) · 인보이스 없는 크레딧은 기다리지 않음 · 인보이스가 skipped 이거나 일감이 없으면 **크레딧 failed + 글** |
+| 961 | (원문 없음) | 크레딧 other · restocking fee 줄은 **사람이 Item 에 짝**(951 꼴 · `acct:<code>`) |
+| 962 | (원문 없음) | QBO 크레딧 주소 · 이메일 = **크레딧 노트 PDF 규칙** · BillEmail = `doc_mail_recipient` |
+| 963 | (원문 없음) | CreditMemo void 가 거부되면 failed · 사람이 QBO 에서 |
+| 964 | (원문 없음) | 2c 는 CreditMemo 만 · 인보이스에 붙이기 · 환불은 결제 차수 |
+| 965 | (원문 없음) | since 2026-11-02 + 적용 때 한 번 채우기 |
+| 966 | (원문 없음) | **세금만 크레딧 금지** — tax 줄 자체를 받지 않는다(세금이 틀리면 전액 크레딧 + 새 인보이스 + 환불) |
+| 967 | (원문 없음) | **IMS 가 가격 정본** — 다른 상품을 한 번에 IMS 값으로(가격 담당 확인 단계 없음) |
+| 968 | (원문 없음) | **결제가 적용된 인보이스는 취소 거부** |
+| 969 | (원문 없음) | 968 의 「결제」 = **손 결제(manual)만** — auto_deposit · auto_balance 는 취소 때 void 해 손님 계정으로(옛 동작) |
+| 970 | (가)(원문 없음) | 오더는 나누되 **한 콤보의 구성품은 같은 조각 · 과제** |
+| 971 | (나)(원문 없음) | 처음에는 **북키퍼가 문서마다 확인하고 보낸다**(한 장씩 Preview → Send + Send selected) · `qbo_send_enabled` off 그대로 · 켜는 시점은 나중에 Caleb |
+| 972 | (원문 없음) | 서버(`wms_batch_create`)도 거부 |
+| 973 | (원문 없음) | 한도를 넘어도 그 콤보는 한 조각(창구는 조각 크기를 안 본다 · 한도는 화면의 일) |
+| 974 | (원문 없음) | 박스 스캔 안전망은 따로 두지 않는다 |
+| 975 | (원문 없음) | 콤보 덩이는 **첫 구성품의 동선 자리** |
+| 976 | (가)(원문 없음) | 손 가격 줄은 문서에 **손 가격을 단가로**(16.17 · 빈칸 · 194.04) — doc-hand-price-1 `f498537` 로 섰다(11-02 적용 · 확인 OK 16) · 판별 한 곳 `doc_price_cells` · 판 · 카탈로그 무변 · 크레딧 노트 제품 줄 단가 빈칸(crn-1 부터)도 함께 고침 |
+| 977 | (원문 없음) | SO 화면은 손 가격 줄 DISC 칸 아래에 「−25.1 % vs list」(보이기만 · so v5z4) |
+
+- 판정 아님 · 사실(Caleb): ① **인보이스 메일은 청구처로 간다** — 차일드 스토어 BILL TO = 본사 · 본사 SPLIT INVOICE BY STORE on · 본사 기본 연락처 · FINAL INVOICE EMAILS 는 청구처 것만 본다 ② **손 가격 줄에는 오더 할인 · 쿠폰이 안 걸린다**(542) · 줄 할인 % 를 넣으면 정가 기준으로 다시 셈해 손 가격이 사라진다 — 손 가격 위 추가 할인은 **최종 단가를 적거나 딜로** ③ Shopify 의 10 % 는 Shopify 쪽 계정 · 앱 문제였다(IMS 7 % · 경고가 잡음)
+
+### 97-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline 490d4ad..HEAD`(asung-wms · 11-01 밤 docs-1101b 뒤) 원문(80 자에서 자름 · 전문은 git) · ⚠️ 2b1 `8f1698a`(11-01 20:25)는 docs-1101b `490d4ad`(20:27) **앞**이라 이 범위에 없다 — 아래 표 첫 줄:
+
+```
+f498537 doc-hand-price-1(판정 976): 손 가격 줄은 문서에 손 가격을 단가로 — doc_price_cells(판별 한 곳
+859d72b ops(cr-ref-fee-1): 리스탁킹 피 계정 넣기 스크립트 — ref_account _<QBO Id>_ · 설정 키 · q
+c0cf4c0 qbo-sync-2d1(판정 971): 북키퍼 골라 보내기 — claim p_job_ids · need_jobs · request
+295ee4e wms-split-combo-1(판정 970 · 972 · 973): wms_batch_create 가 한 콤보 줄의 구성품이 여
+671dcad qbo-sync-2c1: 크레딧 노트 보내기(판정 959 ~ 966 · 968 · 969) — so_invoice_cancel 손
+7979c4f wms-complete-perf-1: wms_pick_line_bins_write ② 장부 수량을 키 직접 조회로(ims_inv_
+0145e8b shop-price-sync: Shopify 가격을 IMS 값으로(판정 958 · 967) — last_hash null + sh
+8d9a2f9 shop-stock-perf: shop_stock_targets 를 plpgsql 로 — pid 갈래를 product 에서 출발 
+a4e991a tf-combo-1: 트랜스퍼 콤보 줄(판정 952 ~ 957) — 1a 칸 · 유니크 nulls not distinct · 부모
+b9f5c19 qbo-sync-2b2: 인보이스 보내기(DocNumber 조회 멱등 · POST · 942 합계 대조 · 6140/6210 중복
+```
+
+`git log --oneline 6e62ca1..HEAD`(asung-ims) 원문(같이 자름):
+
+```
+97e781b so v5z4(판정 977): 손 가격 줄 DISC 칸 아래에 정가 대비 폭(−25.1 % vs list) · 보이기만 · 무상 
+0c2a6c0 cr v7(cr-ref-fee-1): 이력(참조) 크레딧 창에 Restocking fee — Charge a fee · % · F
+3659dbd qs v1 · nav v14(판정 971 · qbo-sync-2d1 c0cf4c0): 북키퍼가 골라 보내는 QuickBooks 화
+164345c wm v1.3(판정 970 · 973 · 975): 분할 미리 보기가 한 콤보의 구성품을 한 덩이로 묶어 덩이째 자름 · 한도 넘
+99dd203 set v15(판정 961 · qbo-sync-2c1 671dcad): QuickBooks matching charge 행 이름 
+4ba2701 tf combo v1 · fu v1.9 · rc v2.1(판정 952 ~ 957 · tf-combo-1 a4e991a): 트랜스퍼
+e9a38a1 wo v4f: Web Orders 의 Store 고르기에서 시험 스토어(Asung IMS test store) 뺌 · 이름표는 그
+cb3fe5e pay label v1: Customer Payments 의 + New → + Money on account(선입금 · 창 제목 
+```
+
+| 차수 | 마이그레이션 · 판 | 커밋 | 무엇 |
+|---|---|---|---|
+| qbo-sync-2b1(11-01 밤) | `20261102040000` | `8f1698a` | 인보이스 몸 · 발행 · 취소 트리거 · claim needs · done 942 대조 · `qbo_txn_of` · `qbo_entity.detail` · `qbo_txn.mismatch` — qbo-integration §14-b · ⚠️ docs-1101b 보다 2 분 먼저 커밋돼 그 절에 빠졌다 |
+| qbo-sync-2b2(11-01 밤) | EF qbo · ops cron.sql | `b9f5c19` | 인보이스 보내기(DocNumber 멱등 · POST · 942 · 6140/6210) · invoice_void · cron 61 `ims-qbo-send`(off 면 호출 0) · pull TaxCode SalesTaxRateList(세율 13) · `qbo_send_since` 2026-11-02 · deno 20 |
+| wo v4f(11-01 밤) | shopify-orders.html | asung-ims `e9a38a1` | Web Orders 의 Store 고르기에서 시험 스토어(Asung IMS test store) 뺌 · 이름표 그대로 · DB 무변 |
+| pay label v1(11-01 밤) | so-payments.html | asung-ims `cb3fe5e` | Customer Payments 의 + New → **+ Money on account**(선입금 · 창 제목 그대로) · 안내 「인보이스 결제는 Sales Invoices 에서 Take a payment」 · 동작 무변 |
+| tf-combo-1 | `20261102100000` 1a · `20261102110000` 1b | `a4e991a` | 952 ~ 957 — 1a 칸 둘 · CHECK 셋 · 부모 검사 · 유니크 nulls not distinct · line_set / remove / paste 콤보 가지 · 가용 셋에서 콤보 줄 제외 · 뷰 트랜스퍼 갈래 콤보 줄 숨김 · wms_pick_lines 박스 바코드 / 1b handoff 트랜스퍼 put_back · tf_depart · 받기 콤보 줄 거부 · tf_receipt_detail combo_barcodes · combos · tf_arrive · settle · over_decide · detail 셈 · 검증 44 + 31 |
+| tf combo v1 · fu v1.9 · rc v2.1 | transfers.html · wms-fulfillment.html · wms-receiver.html | asung-ims `4ba2701` | 콤보 줄 + 구성품 들여쓰기 · 구성품 Edit/✕ 없음 · 콤보 줄 원가 —(955) · 정산에서 콤보 줄 제외(957) · 줄 창 「구성품 가용 몇 콤보」 · 붙여넣기 콤보 단위 / Finalize 알림 못 간 콤보 · **PUT BACK**(953) / 받기 구성품 칩 · 박스 바코드 한 번 = 콤보 하나(954) |
+| shop-stock-perf-1 | `20261102120000` | `8d9a2f9` | 장애 수리 — shop_stock_targets plpgsql(97-c 1) |
+| shop-price-sync | ops `shop-price-sync.sql` | `0145e8b` | 958 · 967 — last_hash null + price_sync 큐 · cron 42 분당 20 · dry-run 기본 · aone 90 · asung 53 ok · 뺀 7(97-c 4) |
+| wms-complete-perf-1 | `20261102140000` | `7979c4f` | A — `wms_pick_line_bins_write` ② 키 직접 조회 · `p_with_ledger` · Complete 는 false(97-c 2) |
+| qbo-sync-2c1 | `20261102130000` · EF qbo | `671dcad` | 959 ~ 966 · 968 · 969 — 취소 문 · tax 줄 거부 · 크레딧 몸 · 트리거 둘 · 채우기(0) · EF creditmemo · void · 검증 22 · deno 21 — qbo-integration §14-c |
+| set v15 | settings.html | asung-ims `99dd203` | 961 — QuickBooks matching charge 행 이름 「Freight, discount & account lines」 · 크레딧 노트 계정 줄(other · restocking fee) 안내 · 동작 무변 |
+| wms-split-combo-1 | `20261102180122` | `295ee4e` | 970 · 972 · 973 — `wms_batch_create` 가 한 콤보 줄의 구성품이 여러 조각에 들면 거부(판매 · 트랜스퍼) · 검증 20/20 · SO-20839 실물 거부 글 확인 |
+| wm v1.3 | wms-manager.html | asung-ims `164345c` | 970 · 973 · 975 — 분할 미리 보기가 콤보 구성품을 한 덩이로 · 한도 넘어도 안 쪼갬 · 첫 구성품 자리 · for 콤보 꼬리표 · 대기 카드 줄 수에서 콤보 부모 줄 제외 |
+| qbo-sync-2d1 | `20261102150000` · EF qbo | `c0cf4c0` | 971 — claim p_job_ids · need_jobs · requested · preview · list 7 인자 · retry skipped · EF send job_ids · 검증 18 · deno 22 · EF 50 kB — qbo-integration §14-d |
+| qs v1 · nav v14 | qbo-send.html · ims-auth.js | asung-ims `3659dbd` | 971 — Sales → QuickBooks(목록 · Preview · Send · Send selected · Retry · Skip) |
+| cr-ref-fee-1 | ops `restock-fee-account.sql` | `859d72b` | 리스탁킹 피 계정 넣기 스크립트(서버 수리 없음 · 97-c 8) |
+| cr v7 | so-credits.html | asung-ims `0c2a6c0` | 이력(참조) 크레딧 창에 Restocking fee — Charge a fee · % · Fee account(REVENUE 만) · 원래 인보이스 날짜로 60 일 알림 |
+| so v5z4 | so.html | asung-ims `97e781b` | 977 — 손 가격 줄 DISC 칸 아래 「−25.1 % vs list」 · 무상 · 콤보 구성품 제외 · DB 무변 |
+| doc-hand-price-1 | `20261102190000` | `f498537` | 976 — `doc_price_cells`(list · discount_pct · unit · manual · is_free · 손 줄 = price_override 전수 0/0) · doc_data_invoice_fmt · doc_data_so · doc_data_credit 재발행 · 판 · 카탈로그 무변 · **크레딧 노트 제품 줄 단가 빈칸 수리**(crn-1 `20261021194405` 부터 · CR-01008 2.99) · 검증 22 × 3 · SO-20843 16.17 · 11-02 적용 · 확인 OK 16 |
+
+- 적용: 위 마이그레이션 전부 **11-02 메인 DB(Asung-IMS) 적용 · push 됨**(2b1 · 2b2 는 11-01 밤) · EF qbo 배포는 2b2 · 2c1 · 2d1 마다
+
+### 97-c 사건 · 실물 (「11-02 실측(대화)」 · cron 은 Caleb psql 실측)
+
+1. **오전 장애 — Release · 픽 줄 · Finalize timeout**
+   - 원인 넷이 겹쳤다: ① `shop_stock_targets` generic plan(건당 70 ~ 80 ms · 재고 예약 줄마다 문장 트리거) ② 큰 Shopify 오더 **AS-7389(227 줄) · AS-7393(99 줄)** 을 ims-orders-drain 이 매분 재시도(8 s timeout) ③ tf-combo 시험 · 적용 잠금(09:43 ~ 09:53) + 같은 SO 재시도의 행 잠금 ④ **연결 60 소진**(10:32 ~ 10:46)
+   - 지혈: **cron 47 · 51 · 53 잠시 끔** → shop-stock-perf-1 적용 → 두 오더 손 처리(SO-20838 · SO-20839) → cron 다시 켬 · 24 오더 created
+   - tf-combo 1a · 1b 는 **결백**(같은 입력 · 같은 시간)
+   - 수리 숫자: 호출 2.5 ms · AS-7393 11.2 s → 2.1 s · 결과 집합 16,780 행 옛 = 새 — `shopify-integration.md` §3-d 끝 · 재시도 간격 · 연결 60 = deferred 446
+2. **픽 Complete 느림(A)** — `wms_pick_line_bins_write` ② 가 `ims_inv_balance` 뷰로 110k 행 집계 → 키 직접 조회 · **40 줄 Complete 7.5 s → 145 ms** · 줄 저장 219 → ~50 ms · 1 줄 0.2 s → 49 ms · 동치 742/712 줄 차이 0 · 틀리면 경고 값만 틀린다(재고 · 픽 수량 쓰기 무관) · **B 는 오늘 밤 집**(wms-balance-perf-1 · 두 창고가 멈춘 뒤 · deferred 450)
+3. **QBO**
+   - **첫 인보이스 60000 → QBO 172335**(sent · mismatch 0 · 손님 · 줄 · 세금 · 주소 · 메모 Caleb 확인) ⇒ 짐작 「캐나다판이 TxnTaxDetail 을 받나」 = **받는다**
+   - Cin7 ↔ QBO 연결 **Caleb 이 끔**(375 조건 → 닫힘) · 북키퍼 고지
+   - 60001 실물 미리 보기: Item CB-CVT18157 짝 없음 → 보낼 때 먼저 만든다
+   - 실측 1 장 = Intuit 2 호출 3.52 s
+   - Intuit 알림 문구(⑤)는 대화 Claude 가 고침(크레딧 · 북키퍼 확인 · CreditMemo void 포함) — 보냈는지는 Caleb 확인(374 열림)
+   - cron(Caleb psql 실측): 59 ims-qbo-refresh `10 9 * * *` active · **61 ims-qbo-send `*/5 * * * *` active** · `qbo_send_enabled` off · `qbo_send_since` 2026-11-02 ⇒ 61 은 호출 0 · 북키퍼가 qbo-send.html 에서 골라 보낸다(971)
+4. **Shopify 가격** — 차이는 Cin7 시절부터: 컷오버 잇기가 Shopify 값을 확인 않고 last_hash 를 심어 매일 skipped_same_hash · aone 296 SKU(IMS 가 높음 · 중간값 +8.3 %) · asung 156 · 상품 150 개 대상(ok 143 = DGR75112 + 142 · 뺀 7) · **aone 은 Compare-at 도 IMS(= 판매가)로 덮였다 — 의도**(IMS 가 가격 정본 958 · 967 · IMS 비교가 = 판매가 · 덮이기 전 Shopify 비교가도 대부분 판매가와 같았다 · DGR75112 13.29 / 13.29 · 대화 Claude 대조 · BAB47766 · BAB47050 은 뺐다 · 새 deferred 없음) · asung 옛 compareAt = 449 · AS92310 no_price = 448
+5. **콤보 스플릿** — 갈리면 박스가 경고 없이 두 번 나간다(픽 화면은 과제 하나만 본다) · **SO-20839 의 CB-LAC80085 가 15 / 3 으로 갈릴 뻔** — 수리 뒤 진행 · 거부 글 「CB-LAC80085 on SO-20839 must stay in one split — its items are in splits 1 and 2 — nothing was saved」
+6. **원가 0** — CRO85680(Cin7 조정 ST-01358 912 개 원가 0) → GP 「—」 · 전수 일곱 갈래: transfer unknown 259 · parent_layer 233 SKU · baseline 36 · adjust_new 1 · purchase 1 · creditnote 2 · adjust_existing 1 · 조사 지시서 cost-fix-2-0 은 **Caleb 이 나중에**(deferred 451)
+7. **손님 특별가 조사(so-custprice-0 · 짓지 않음)** — Kingdom 의 옛 가격 = ONO W × 0.60 · FST W × 0.80(매번) · **손님 × 제품 % 딜로 지금 된다**(Hera · PZ · REX 선례) · 고정 가격 딜 없음 · 새 티어는 만들 길 없음 · Cin7 Custom prices 미적재 · 별도 추가 할인 줄은 so_charge 가 음수 불가라 큰 일
+8. **리스탁킹 피** — 서버는 참조 크레딧의 restocking_fee 를 이미 받는다 · 화면만 빠짐(cr v7 로 넣음) · 계정은 **북키퍼가 새로 정한다**(QBO 계정 + Item → pull → Id → `supabase/ops/restock-fee-account.sql`)
+9. **Auth** — 비밀번호 재설정이 「email rate limit exceeded」(Supabase 기본 메일) · 직원 넷에 psql 로 임시 비밀번호 → deferred 445(Auth SMTP 를 ims@asung.ca 로)
+10. **Freightcom** — 운영 토큰은 Freightcom 화면에서 스스로 만든다(Settings → API Settings) · 운영 주소 `https://external-api.freightcom.com` · 토론토만 안내 받음 → **두 계정 모두 받은 뒤 셋(BASE_URL · TOR · EDM)을 한 번에**(BASE_URL 하나를 같이 쓰므로) · 에드먼턴 요청 메일 보냄 → deferred 364 에 잇기
+
+### 97-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: **375**(Cin7 ↔ QBO 연결 끔 · 북키퍼 고지)
+- 잇기: **374**(문구 고침 · 보냈는지 Caleb 확인 전까지 열림) · **364**(Freightcom 운영 토큰 — 97-c 10)
+- 새 deferred **444 ~ 451**
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 444 | UNF18260 잔고 0 인데 레이어 6 행 | 미정 |
+| 445 | Auth SMTP 를 ims@asung.ca 로 | 미정 |
+| 446 | 실패한 Shopify 오더 재시도에 간격 · 횟수 한도 + 연결 60 소진 때 무엇이 먼저 죽나 | 미정 |
+| 447 | 새벽 헛큐 9,436 줄(shop_queue_all 의 pending 선비교) | 미정 |
+| 448 | AS92310 no_price | 미정 |
+| 449 | asung 옛 compareAt 지우기 | 미정 |
+| 450 | B — `ims_inv_balance` 호출자 10 곳(wms-balance-perf-1) | 미정 |
+| 451 | 원가 0 레이어 전수(cost-fix-2-0) | Caleb 요청 때 |
+
+### 97-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (§96-e 에 이어 56 부터)
+
+56. [운영] **메인 DB 가 운영이다** — 창고 시간에 tf-combo 시험 · 적용 잠금이 오전 장애의 한 원인이었다 ⇒ 창고 시간에는 시험 · 적용 전에 묻고 · 회차마다 begin ~ rollback **10 초 안** · 회차 사이를 띄운다
+57. [진단] **timeout 으로 끊긴 문장은 pg_stat_statements 에 안 남는다** ⇒ 범인은 Postgres 로그 · `log_lock_waits` · 함수 안 중첩 문장(`pg_stat_statements.track = all`)으로 찾는다
+58. [Claude · 재발 · 다섯 번째] **칸 이름 짐작** — `qbo_job.ims_id` 는 text · `inv_layer` 는 product_id 가 없고 sku ⇒ 칸은 먼저 본다(`\d` · information_schema)
+59. [대화 Claude] **시각 변환 실수 두 번**(UTC − 4 로 · 에드먼턴을 − 2 로) ⇒ 11-01 뒤로 토론토 = UTC − 5 · 에드먼턴 = 토론토 − 1
+60. [환경] `cp $(ls -t …*.html)` 는 **이름 앞부분이 같은 다른 파일**을 잡을 수 있다 ⇒ md5 대조를 늘 붙인다
+61. [문서] 스킬 description 여유 asung-so · asung-inv-ledger 1 자 · asung-po 13 자 ⇒ 이번엔 본문에만
+62. [docs-1101b] 같은 밤의 커밋 셋(qbo-sync-2b1 · 2b2 · asung-ims wo v4f · pay label v1)이 문서 차수 뒤 · 2 분 앞에 들어가 어디에도 안 적혔다 ⇒ 문서 차수는 「앞 문서 차수 해시..HEAD」 의 git log 를 원천으로 하고 지시서의 커밋 목록과 대조한다(이 절 97-b 가 첫 적용)
+63. [doc-hand-price-1 조사 실측] `doc_data_invoice_fmt` 의 마지막 정의가 문서에 「srs-1(20261027023008)」 로 남아 있었다 — 실물은 `20261029220000_doc_sr_1`(md5 6a2fe901…) · 그 뒤 doc-hand-price-1 `20261102190000` 이 fmt 를 다시 냈다(catalog 는 doc-sr-1 그대로) ⇒ 마지막 정의는 grep **-i** 로 · md5 로 DB 와 맞춘다(재발 · 메모리 「마지막 정의 grep 은 -i」)
+
+### 97-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §96 끝 「다음 판정 번호 952 · 다음 deferred 번호 444」 → 아래
+- §96-a 942 · qbo-integration §14 의 942 「1 센트라도 다르면 실패」 → 2b1 부터 sent + mismatch 글(qbo-integration §14-a′)
+- §27 · §44 머리 → [2026-11-02 · §97] 트랜스퍼 콤보 줄
+- §66-d 지도 · §79-d 끝 「doc_data_invoice_fmt · doc_field_catalog 마지막 정의 srs-1」 → fmt doc-hand-price-1 `20261102190000` · catalog doc-sr-1 `20261029220000`(97-e 63) · 스킬 asung-doc 같은 줄 · asung-doc §2 에 doc_price_cells 한 줄
+- deferred 닫힘 375 · 새 444 ~ 451 · 잇기 374 · 「다음 번호 444」 → 452
+- `qbo-integration.md` 머리 상태 줄 · §14-a′ ~ §14-e · `shopify-integration.md` §3-d · §3-g 끝 · `ledger-design.md` 이식 절 · `supabase/ops/cron.sql` 끝
+- 스킬 asung-so · asung-wms · asung-qbo · asung-inv-ledger · asung-workflow(본문만) · asung-doc(한 줄 정정) · asung-ops(별 레포 `~/asung/asung-ops`)
+- 매뉴얼 01 Sales · 03 Inventory · 04 WMS(en · ko)
+
+```
+다음 판정 번호: 978 · 다음 deferred 번호: 452
 ```

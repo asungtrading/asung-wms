@@ -904,3 +904,6 @@ select cron.schedule('ims-qbo-send', '*/5 * * * *', $job$
                     or (j.state = 'queued' and j.next_at <= now())
                     or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent')));
 $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] [2026-11-02 오전 · 장애 지혈 · Caleb 실행 · so-module §97-c 1] jobid 47 ims-orders-drain · 51 ims-order-drain · 53 ims-paid-drain 잠시 끔(cron.alter_job(…, active := false)) → shop-stock-perf-1 `20261102120000` 적용 → SO-20838 · SO-20839 손 처리 → 셋 다시 켬(active := true) · 24 오더 created — 원인: shop_stock_targets generic plan(호출 70 ~ 80 ms) + 큰 Shopify 오더 AS-7389 · AS-7393 를 47 이 매분 재시도 + 시험 · 적용 잠금 + 연결 60 소진(재시도 한도는 deferred 446) · ⚠️ 끄기 = 그 셋이 이 장애의 킬 스위치(오더 받기 · 오더 고치기 · 결제 상태) — 끈 동안 Shopify 오더는 IMS 에 안 들어온다(켜면 이어받는다)
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] [2026-11-02 · Caleb psql 실측] jobid 59 ims-qbo-refresh `10 9 * * *` active · 61 ims-qbo-send `*/5 * * * *` active · inv_config qbo_send_enabled off · qbo_send_since 2026-11-02 ⇒ 61 은 스위치 off 라 호출 0 — 판정 971 로 북키퍼가 qbo-send.html 에서 골라 보낸다(위 2b2 블록의 「61 예상」 = 61 확인)

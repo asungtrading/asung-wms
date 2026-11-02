@@ -97,7 +97,7 @@
 
 <a id="sales-add-lines"></a>
 ## 라인 넣기
-<!-- screen: so.html · BUILD 2026-10-31 · so v5z -->
+<!-- screen: so.html · BUILD 2026-11-02 · so v5z4 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -119,7 +119,9 @@
 
 **가격**
 - 가격을 안 적은 라인은 평소 가격을 받습니다: 가격 등급, 그리고 가장 큰 할인([할인 · 딜 · 추가 요금](#sales-discounts-deals))
-- 직접 적은 가격은 고정됩니다. 오더 할인이 그 라인에는 걸리지 않습니다.
+- 직접 적은 가격은 고정됩니다. 오더 할인과 쿠폰이 그 라인에는 걸리지 않습니다.
+- 손 가격 라인은 **Disc %** 아래에 정가와의 차이가 보입니다. 예: "−25.1% vs list" — 보이기만 합니다.
+- 손 가격 라인에 **Disc %** 를 적지 마세요 — IMS 가 정가에서 할인을 다시 셈해 손 가격이 사라집니다. 더 깎아 줄 때는 마지막 **Unit** 가격을 적거나 딜을 씁니다.
 - **Lines** 표에서 **Qty** · **Disc %** · **Unit** 을 칸에서 바꿉니다. **↺** 는 시스템 가격으로 되돌립니다. **✕** 는 라인을 지웁니다.
 - **Price from** 은 가격이 어디서 왔는지 알려 줍니다: **customer** · **deal · …** · **set discount** · **discount by hand** · **price set by hand** · **free · …**. 손으로 정한 가격 옆에는 누가 언제 정했는지 보입니다. 예: "by Staff C"
 - 수량 아래 **available** 은 이 창고에 지금 남은 수량이고, 옆에 다른 창고 수가 함께 보입니다(예 "available 3 · ED 4"). 이 창고 수가 수량보다 적으면 빨갛게 보입니다([재고 찾기](03-inventory.md#stock-availability)).
@@ -577,9 +579,10 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 3. 오더가 **Invoice cancelled** 로 보입니다. 물건은 나간 그대로입니다.
 
 **취소가 거절될 때**
-- "… payment allocation(s) applied by hand — detach them first (or issue a credit note instead)"(손으로 붙인 결제를 먼저 뗀다 · 또는 크레딧 노트)
+- "Invoice 99001 has payments — settle it with a credit note instead"(이 인보이스에 받은 결제가 있다 — 취소 대신 크레딧 노트)
+- "Invoice 99001 has credit note(s) CR-99001 — cancel those credit notes first"(발행된 크레딧 노트를 먼저 취소)
 - "… credit note allocation(s) applied by hand — detach them first"(손으로 붙인 크레딧을 먼저 뗀다)
-저절로 붙은 결제와 크레딧은 저절로 풀립니다.
+발행 때 저절로 붙은 선수금 · 받아 둔 돈은 저절로 풀려 고객 계정으로 돌아갑니다.
 
 **Reissue… — 매니저 이상**
 1. 취소된 인보이스를 열고 **Reissue…** 를 누릅니다.
@@ -612,7 +615,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 2. 금액을 확인하고 **Record payment** 를 누릅니다.
 
 **어떻게 — 고객 계정에 넣기**
-1. **Sales ▾** › **Customer Payments** 에서 **+ Record a payment** 를 누르고, 고객을 골라 결제를 적습니다.
+1. **Sales ▾** › **Customer Payments** 에서 **+ Money on account** 를 누르고, 고객을 골라 결제를 적습니다.
 2. "It attaches itself to the next invoice they get — or open it here and attach it by hand."(다음 인보이스에 저절로 붙거나, 손으로 붙인다)
 3. 손으로 붙이려면: 결제를 열고 **Attach to invoices…** → **Suggest (oldest first)**(오래된 것부터 제안) 또는 금액을 적고 → **Attach**
 
@@ -651,7 +654,8 @@ Customer A 가 계정에 $500.00 을 냅니다. 다음 인보이스 99001 은 $1
 고객은 물건을 그대로 가지고 차액만 돌려받습니다. **Price adjustment — past sale price** 에 **Qty to adjust** 와 **New unit price** 를 적습니다. "No stock moves."(재고는 움직이지 않는다) 사유는 **Price adjustment** 를 고릅니다.
 
 **재입고 수수료(Restocking fee)**
-판매한 지 60 일이 넘었으면 IMS 가 알림을 보이고 20 % 수수료를 제안합니다. 받으려면 **Charge a fee** 를 체크하고(% 를 바꿀 수 있다) **Fee account** 를 고릅니다. 저절로 붙지는 않습니다.
+판매한 지 60 일이 넘었으면 IMS 가 알림을 보이고 20 % 수수료를 제안합니다. 받으려면 **Charge a fee** 를 체크하고(% 를 바꿀 수 있다) **Fee account**(매출 계정만)를 고릅니다. 저절로 붙지는 않습니다.
+**Credit with a reference number…** 창에도 같은 **Restocking fee** 칸이 있습니다. 거기서는 적은 **Invoice date** 로 60 일을 셉니다.
 
 **출고 전에 뺀 물건**
 [팩된 오더에서 고객이 일부를 빼 달라고 할 때](#sales-ship-invoice)의 두 번째 걸음입니다.
@@ -673,9 +677,48 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 **알아 둘 것**
 - 단가와 세금은 인보이스에서 옵니다 — 적지 않습니다.
+- 세금만 크레딧할 수 없습니다: "A tax-only credit note is not allowed — credit the invoice in full and issue a corrected invoice instead". 세금이 틀렸으면 인보이스 전액을 크레딧하고, 새 인보이스를 발행하고, 차액을 환불합니다.
+- 발행된 크레딧 노트가 있는 인보이스는 취소할 수 없습니다 — 크레딧 노트를 먼저 취소합니다.
 - **Print credit note** · **Email to customer…** 는 인보이스와 같습니다([인쇄와 메일](#sales-print-email)).
 
 <!-- SCREENSHOT: sales-credits-1 · 새 크레딧 노트 창: Products 의 Return · Back to stock · 꺼진 Restocking fee -->
+
+<a id="sales-quickbooks"></a>
+## QuickBooks — 인보이스 · 크레딧 노트 보내기
+<!-- screen: qbo-send.html · BUILD 2026-11-02 · qs v1 -->
+<!-- who: accounting -->
+
+**무엇인가**
+**Sales ▾** › **QuickBooks**(QUICKBOOKS 열쇠 — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 누군가 **Send** 를 누르기 전에는 아무것도 나가지 않습니다.
+먼저 QuickBooks 가 연결되어 있어야 합니다(관리자가 **Settings** › **QuickBooks** 에서).
+
+**하나 보내는 법**
+1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
+2. 줄에서 **Preview** 를 누릅니다. QuickBooks 에 적힐 그대로 보입니다: 손님 · 줄 · 세금 · 합계 · 메모 — 그리고 "Created in QuickBooks first, in the same send"(QuickBooks 에 아직 없는 손님 · 품목을 같은 보내기에서 먼저 만든다)
+3. 맞으면 **Send to QuickBooks**(또는 줄의 **Send**)를 누릅니다.
+4. 줄이 **Sent** 로 바뀝니다.
+
+**여럿 한꺼번에**
+줄을 체크하고(또는 **Select all on this page**) **Send selected** 를 누릅니다. "Send 5 documents to QuickBooks now?" 에 OK — 한 번에 10 장씩 보냅니다.
+
+**안 나간 줄**
+- **Blocked** — 다른 것을 먼저 기다립니다. 예: 크레딧 노트는 그 인보이스가 QuickBooks 에 간 뒤에 갑니다. "Waiting:" 이 무엇을 기다리는지 알려 줍니다.
+- **Failed** — **Why · result** 를 읽고 까닭을 고친 뒤(예: **Settings** › **QuickBooks matching** 에서 계정을 QuickBooks 품목에 잇기) **Retry** 를 누릅니다. 까닭 적기 필수.
+- **Result unknown** — QuickBooks 가 받았는지 IMS 가 모릅니다. 먼저 QuickBooks 에 이미 있지 않은지 보고 **Retry**(또는 **Skip**).
+- **Skip** — "Do not send this one to QuickBooks"(보내지 않는다). 까닭 필수(예: 「QuickBooks 에 손으로 넣었다」). 건너뛴 줄은 **Retry** 로 되살릴 수 있습니다.
+
+**예**
+인보이스 99001 → **Preview** 에 CB-99001 품목을 먼저 만든다고 보임 → **Send to QuickBooks** → 줄이 **Sent**
+
+**조심할 것**
+- "Do not enter these documents in QuickBooks by hand — they would be there twice."(QuickBooks 에 손으로 넣지 마라 — 두 번 적힌다)
+- 보낸 IMS 인보이스를 QuickBooks 에서 고치지 않습니다. 카드 수수료 · 결제도 IMS 에서 넣습니다.
+- 건너뛰었거나 일감이 없는 인보이스의 크레딧 노트는 "Invoice 99001 was skipped — skip this credit note too, or retry the invoice first" · "Invoice 99001 has no QuickBooks job — send the invoice first" 로 실패합니다.
+- QuickBooks 에 이미 간 인보이스 · 크레딧 노트를 IMS 에서 취소하면 **Cancellations (void)** 줄이 생깁니다. 다른 줄처럼 보냅니다. QuickBooks 가 크레딧 노트 void 를 거절하면 그 줄은 실패 — QuickBooks 에서 직접 void 합니다.
+- "QuickBooks total differs from IMS" 는 QuickBooks 가 합계를 다르게 셈했다는 뜻입니다. 문서는 QuickBooks 에 있습니다 — 거기서 확인합니다.
+- 크레딧 노트의 재입고 수수료 등 계정 줄은 그 계정을 QuickBooks 품목에 한 번 이어야 합니다 — **Settings** › **QuickBooks matching**(**Freight, discount & account lines**)
+
+<!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks 목록(Waiting 필터) · Preview 창의 Send to QuickBooks -->
 
 <a id="sales-web-orders"></a>
 ## 웹 오더

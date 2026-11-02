@@ -256,7 +256,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 
 <a id="stock-transfers"></a>
 ## 창고 간 트랜스퍼
-<!-- screen: transfers.html · BUILD 2026-10-31 · tf ship v1 -->
+<!-- screen: transfers.html · BUILD 2026-11-02 · tf combo v1 -->
 <!-- who: office, warehouse -->
 
 **무엇인가**
@@ -272,6 +272,16 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 **맞지 않을 때 — Stock adjustments 권한 필요**
 - **덜 왔다**: **Settle in transit** 을 누릅니다. 라인마다 **Lost**(잃음) 또는 **Returned to sender**(출발 창고 bin 으로 돌아감)를 고르고 **Save settlement** 를 누릅니다.
 - **보낸 것보다 많이 왔다**: 도착 창고는 보낸 만큼만 받았습니다. **Decide** 를 누르고 **… sent more**(출발 창고가 더 보냄) 또는 **Found at …**(도착 창고에서 찾음)을 고른 뒤 **Save decision** 을 누릅니다. "These may go into the books at cost 0."
+
+**트랜스퍼에 콤보 넣기**
+콤보는 판매 오더와 같은 꼴로 들어갑니다: 콤보 라인 하나 + 그 밑의 구성품 라인.
+1. **Add line** 이나 **Paste lines** 로 콤보 SKU 를 넣습니다(콤보 SKU 는 콤보 수로 셉니다). 구성품이 그 밑에 들여 써서 나옵니다. "A combo — its items are picked and sent; the combo line holds no stock."(구성품이 픽되어 나가고 콤보 라인에는 재고가 없다)
+2. 콤보는 콤보 라인에서 바꾸거나 지웁니다 — "Change or remove the combo line above — its items follow". 구성품 라인에는 **Edit** · **✕** 가 없습니다.
+3. **Confirm** 은 콤보 하나분 구성품이 다 있어야 됩니다. 라인 창에 구성품 가용과 몇 콤보가 되는지 보입니다.
+4. 픽커가 한 콤보의 구성품을 다 찾지 못하면 그 콤보는 가지 않습니다. 뽑은 구성품은 제자리에 돌려놓습니다(Finalize 의 **PUT BACK** — [Fulfillment](04-wms.md#wms-fulfillment)).
+5. 받는 창고는 콤보가 아니라 구성품을 받습니다([PO · 트랜스퍼 받기](04-wms.md#wms-receiving)).
+- 콤보 라인에는 원가가 없습니다(「—」). 원가 · 재고 · **Settle in transit** 은 구성품 라인에서만.
+- 같은 SKU 가 낱개 라인과 콤보의 구성품으로 함께 있을 수 있습니다.
 
 **알아 둘 것**
 - 픽커가 다 찾지 못했으면 픽한 만큼만 떠납니다. 나머지는 이 트랜스퍼에서 닫힙니다 — 새 트랜스퍼를 만듭니다.

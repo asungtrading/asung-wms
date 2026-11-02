@@ -83,8 +83,11 @@ description: >
 ⭐⭐ [2026-10-26 · srs-1 · 판정 787 · 788] 인보이스 꼴 세 kind(final_invoice · ship_ready · internal_receipt)의 새 열쇠 둘
      invoice.so_numbers = 오더 SO 번호를 orders 순서(= so_number 순)대로 「, 」 로 이은 글(빈 번호 건너뜀 · 값 하나 — 메일 제목에 쓸 수 있는 SO 번호는 이것뿐 · orders.so_number 는 목록 안에만)
      orders[].ship_to_repeat = 앞 오더와 같은 배송지면 true(company · line1 · line2 · city · state_province · postal_code · country · lower(btrim) · contact · phone 은 안 본다 · 첫 오더 false)
-     그리기 한 곳 doc_data_invoice_fmt · 목록 doc_field_catalog — 마지막 정의 둘 다 srs-1(20261027023008) · 열쇠를 더할 때는 둘을 함께 + 카탈로그 ↔ 출력 열쇠 대조(srs_1_check T3 · T4 꼴)
+     그리기 한 곳 doc_data_invoice_fmt · 목록 doc_field_catalog — 마지막 정의: fmt = **doc-hand-price-1 `20261102190000`**(f498537 · 그 앞 doc-sr-1 `20261029220000` md5 6a2fe901…) · catalog = doc-sr-1 `20261029220000`(grep -i · md5 미대조) · [2026-11-02] 옛 「둘 다 srs-1(20261027023008)」 정정 · 열쇠를 더할 때는 둘을 함께 + 카탈로그 ↔ 출력 열쇠 대조(srs_1_check T3 · T4 꼴)
      ⚠️ ship_ready · internal_receipt 출력에 카탈로그 밖 orders.lines.final_sale 이 있다(bgr-1d 부터 · 무해 · deferred 344)
+⭐⭐ [2026-11-02 · 판정 976 · doc-hand-price-1 `f498537` · `20261102190000` · so-module §97] **제품 줄 단가 칸은 doc_price_cells 한 곳이 정한다** — doc_price_cells(list · discount_pct · unit · manual · is_free) · 손 가격 줄(manual ∧ discount_pct null ∧ 무상 아님 = price_override)은 list_price 열쇠 = **손 가격** · 할인 빈칸(「16.17 · (빈칸) · 194.04」) · 딜 · 손님 · 손 할인 % · Shopify 줄은 그대로 「정가 · 할인 % · 금액」 · 무상 줄은 「정가 · 빈칸 · 0.00 + FREE」
+     fmt(final_invoice · internal_receipt · ship_ready) · doc_data_so · doc_data_credit 셋이 같은 함수를 부른다 · 판 · 카탈로그 무변(열쇠 이름 · 수 그대로 · unit_price · net_unit_price 는 진짜 값)
+     ⚠️ 크레딧 노트 제품 줄 단가 빈칸 수리(crn-1 `20261021194405` 부터 list_price '' 였다 · CR-01008 2.99) — 인보이스 줄의 정가 · 할인 %(손 줄은 손 가격 · 빈칸) · 가격 조정 줄 = 개당 차액 · 빈칸 · 참조 크레딧 = 넣은 단가 · 빈칸 · 층 단가 반품 줄 = 크레딧 단가 · 빈칸
 ⭐ Due 는 찍는 순간 so_invoice_remaining — 같은 인보이스도 결제 뒤 다시 찍으면 Due 가 바뀐다 · 발행 때 종이는 doc_file(남긴 PDF)
 ⭐ 메모(Notes)는 so_invoice.note · so_credit.note — 쓰는 창구 so_invoice_note_set · so_credit_note_set(sales 쓰기 · issued 만 · 2000 자 · 빈 글 → null)
 ⭐ [2026-10-22 · crn-1 · crn-2 · so-module §70-b] credit_note — **가격 조정 줄(price_adjustment)은 제품 표에** · 수량 = qty_adjusted · 단가 = 개당 차액(unit_price_before − after) · 설명 「Price adjustment 9.49 → 7.99 — <제품명>」 · charges 로 안 간다 · 참조 크레딧의 참조 번호는 credit.invoice_number 자리에 이미 찍힌다(판 credit_note v2 무변)

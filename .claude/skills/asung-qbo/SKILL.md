@@ -30,7 +30,12 @@ description: >
             자동 짝 account 220 · tax 24 · term 17 · method 7 · supplier 195 · customer 9,764 · product 11,775 (정본 §12)
 2026-11-01 밤  쓰기 바탕 — qbo-sync-2a(열쇠 QUICKBOOKS 945 · qbo_job · qbo_txn · 손님 · Item 몸 · 일감 창구 8) · 2a′(apiWrite · send · unknown 이름 조회) · set v14
             운영 첫 쓰기: 손님 1 명 → QBO Customer 10740 (정본 §14)
-⬜ 인보이스 · 크레딧(2b) · 결제 · void — deferred 260 · 327 · 341 · 374 · 375 · 432 · 434 · 440 · 443
+~~⬜ 인보이스 · 크레딧(2b) · 결제 · void~~ →
+2026-11-01 밤  인보이스 — qbo-sync-2b1(DB 몸 · 발행 · 취소 트리거 · claim needs · qbo_txn) · 2b2(EF invoice · invoice_void · DocNumber 멱등 · cron 61 ims-qbo-send)
+2026-11-02  크레딧 노트 — qbo-sync-2c1(크레딧 몸 · 트리거 · 채우기 · IMS 문: 인보이스 취소 959 · 968 · 969 · 세금만 크레딧 금지 966)
+            북키퍼 골라 보내기 — qbo-sync-2d1(claim p_job_ids · preview · list · retry skipped · EF send job_ids) · 화면 Sales → QuickBooks(qbo-send.html · qs v1)
+            ⭐ 첫 인보이스 60000 → QBO 172335(sent · mismatch 0 · Caleb 확인) · Cin7 ↔ QBO 연결 Caleb 이 끔(375 닫힘) · 정본 §14-b ~ §14-e
+⬜ 결제(Payment) · 크레딧 붙이기 · 환불(964) · 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 432 · 434 · 440 · 443
 ```
 
 ## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 ~~— 보내기는 없음~~ → [11-01 밤] 손님 · Item 만들기 섰음 · 인보이스는 2b — 모르면 사고
@@ -120,12 +125,23 @@ description: >
 ⚠️  이름은 자동으로 바꾸지 않는다 — 손님 이름이 QBO Customer · Vendor 와 겹치면 실패 · Item 은 같은 이름이면 끝에 ` [SKU]` · 비활성 Item 만 있으면 실패(941 · 켜지 않는다)
 ⭐  몸(손님 · Item JSON)은 DB 함수(qbo_customer_body · qbo_item_body)가 만든다 — EF 에서 다시 짜지 마라(규칙이 SQL 로 시험된다)
 ⭐  2b 인보이스 판정: 손님 = 매장(935) · 주소 · 이메일 싣기(936) · 세금 IMS 값 그대로 · 합계 1 센트 달라도 실패(942) · 운임 할인은 운임 줄(943) · 그 밖 계정 charge 는 사람 짝(951)
+⭐⭐ [2026-11-02 · 판정 971] **처음에는 북키퍼가 문서마다 확인하고 보낸다** — Sales → QuickBooks(qbo-send.html) 한 장씩 Preview → Send · Send selected(10 장씩) · Retry · Skip(메모 필수) · qbo_send_enabled **off 그대로**(cron 61 은 active 지만 where 가 걸러 호출 0 · 켜는 때는 Caleb)
+     claim(p_limit, p_kinds, p_job_ids) — 고른 id 만 · requested[] 결과 · need_jobs · qbo_job_preview 는 need 일감을 **만들지 않는다**(claim 은 만든다) · QBO 호출 0 · retry 는 skipped 도(note 필수)
+⚠️⚠️ [2b1] 942 「1 센트 달라도 실패」 → **sent + qbo_txn.mismatch 글 + 일감 warning**(이미 QBO 에 섰다 · 자동 void 없음 · 사람이 본다)
+⚠️⚠️ 인보이스는 DocNumber 조회로 멱등(6140 / 6210 중복 번호 → 다시 찾아 짝) · void 는 POST operation=void(SyncToken 없으면 읽기 · 5010 → 다시 읽어 한 번)
+⚠️⚠️ 일감은 트리거가 쌓는다 — 발행(AFTER INSERT DEFERRABLE · since 전 · 이월 · 연결 없음은 조용히 · 오류는 삼켜 발행을 막지 않는다) · 취소(안 나갔으면 skipped · sending · unknown 이면 void 를 blocked · 보냈으면 void queued) · since = 2026-11-02
+⚠️⚠️ [960] 크레딧은 **자기 IMS 인보이스가 QBO 에 간 뒤** — 인보이스 일감 없음 · skipped → 크레딧 failed + 글 · 열린 일감 → blocked · 이월 인보이스 · 인보이스 없는 크레딧은 기다리지 않는다
+⚠️  [961] 크레딧 other · restocking_fee 줄 = 계정 사람 짝(acct:<code> · 951 꼴 · 없으면 failed) · [962] 주소 · 이메일 = 크레딧 노트 PDF 규칙 · [963] CreditMemo void 거부 → failed · 사람이 QBO 에서 · [964] CreditMemo 만(붙이기 · 환불은 결제 차수)
+⚠️  [2c1 · 2d1] 적용 순서 한 덩이 = 마이그레이션 → repair → EF 배포(DB 먼저 · 옛 EF 는 새 서명 기본값으로 그대로 돈다)
+✅  짐작 풀림(11-02): QBO 캐나다판은 보낸 TxnTaxDetail(TaxLine)을 **존중한다**(60000 → 172335 세금 · 합계 그대로) · 1 장 = Intuit 2 호출 · 3.52 s · 60001 미리 보기 = Item CB-CVT18157 먼저 만든다(need)
 ```
 
 ## 6. 화면 · 바깥
 
 ```
 settings.html  Settings → QuickBooks matching(?t=qbomatch · set v13 · ~~admin~~ → set v14 열쇠 QUICKBOOKS · 보기만이면 단추 숨김) — 요약 · Refresh list · Match automatically · Review · Unlink · 짝 화면은 QBO 에 쓰지 않는다(쓰기는 EF send)
+qbo-send.html  Sales → QuickBooks(qs v1 · nav v14 · 열쇠 qbo · 보기 qbo:read · 971) — 목록(상태 · 종류 · 날짜 · 찾기 · 쪽) · Preview(QBO 에 갈 몸 · 먼저 만들 손님 · Item · 막힌 이유) · Send · Send selected · Retry · Skip · 북키퍼 화면(매뉴얼 01 Sales 「QuickBooks」)
+settings.html  Settings → QuickBooks matching 의 charge 행 이름 「Freight, discount & account lines」 + 크레딧 계정 줄 안내(set v15 · 961)
 settings.html  Settings → QuickBooks(?t=qbo · set v12) — 상태(빨강 = needs_reconnect) · Connect / Reconnect(같은 탭) · Check connection · Disconnect · Untie company · Help 줄 「Connection problems? Contact the IMS administrator: caleb@asung.ca」(872)
 terms.html · privacy.html  ims.asung.ca 공개 페이지(로그인 없이 · Intuit App details 의 EULA · Privacy · 867)
 Intuit         Redirect URI = https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo/callback(Development · Production) · 설문 제출본 = 정본 §9(⚠️ 제출하면 못 고친다 · 서약하는 근거는 call_log 로 본 것만)

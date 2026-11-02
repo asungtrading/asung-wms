@@ -1878,6 +1878,7 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
     source 로 가른다 · Cin7 축은 `inv_layer_apply_credit` 그대로) · 되짚기 열쇠는 두 축 다 **오더 번호**(SO-…) · 취소 = 반대 `credit_in`(:reversal) + reason reversal 소진
   · ⭐ [2026-10-22 · crn-1 · crn-2 · so-module §70-b] **참조 크레딧(인보이스 없는 크레딧 · 판정 602 · 609)의 `credit_in` 은 원가를 되짚지 않는다** — 갈래 ① 을 건너뛰고 ② 남은 레이어 가중평균 → ③ 최근 원가 → ④ unknown · `raw.header.ref_invoice_number`(옛 cin7_invoice_number 이름은 없다) · **가격 조정 줄(price_adjustment)은 원장 0**(kind product + bin 만 원장으로 온다 · inv_post_credit 무변)
   · ⭐ [2026-10-05 · so-module §44] **콤보 크레딧의 `credit_in` 은 구성품 크레딧 줄만** — 콤보 SKU 는 원장에 한 번도 닿지 않는다(판정 244) · 콤보 크레딧 줄은 bin 이 없어 `inv_post_credit` 이 저절로 거른다 · 원가 갈래 ① 은 구성품 SKU 의 판매 소비로 되짚는다
+  · ⭐ [2026-11-02 · 판정 952 · 955 · 957 · tf-combo-1 `a4e991a` · so-module §97] **트랜스퍼 콤보 줄에도 원장 · 레이어가 없다** — 출발 · 도착 원장 · 레이어(carried 포함) · 예약 · 정산(lost · return)은 **구성품 줄로만** · 콤보 줄 qty_sent · qty_received 는 읽을 때 셈(min ⌊구성품 ÷ combo_qty⌋) · 원가 「—」 · 포스터(inv_post_transfer_depart · arrive) · 레이어 셋 · 운임은 무접촉(콤보 줄이 저절로 빠진다) · ⚠️ 구성품 없는 콤보 상품 줄(TRF-00003 #316)은 보통 줄 그대로
   · ⚠️ **`inv_layer_apply_done` 은 `inv_layer_apply` 가 만드는 임시 표다 — 보조 함수에서 `public.` 접두를 붙이지 마라**
     (2026-09-25 실사고 · ⓒ1 시험 적용 1차가 「relation public.inv_layer_apply_done does not exist」 로 멈췄다 · Cin7 보조는 접두 없이 쓴다)
 
@@ -2069,6 +2070,8 @@ DepartureDate, InTransitAccount, CostDistributionType, Reference, SkipOrder, Las
   ⭐ **[2026-09-08 Caleb 확인] 원가 0 재고 51칸은 서플라이어 프로모션 무상 재고다.** 진짜 0 이므로
   그대로 0 으로 소진한다 — **예외 처리하지 않는다.** ⚠️ 다만 [실측] `adjust_new` 28행에는 0원이
   **없다**(§3 문서별 함정 · 원가 축 실측) — 0원 칸은 기초 스냅샷 쪽이다
+  ⚠️⚠️ **[2026-11-02 · so-module §97-c 6 · deferred 451] 원가 0 레이어 전수 — 갈래 일곱**(「11-02 실측(대화)」 · 조사 지시서 cost-fix-2-0 은 Caleb 이 나중에): transfer unknown **259** · parent_layer **233 SKU** · baseline **36** · adjust_new **1** · purchase **1** · creditnote **2** · adjust_existing **1** — 계기 CRO85680(Cin7 조정 ST-01358 912 개 원가 0 → GP 「—」) ⇒ 위 「프로모션 무상 51 칸」 만으로 설명되지 않는다 · 갈래마다 원인이 다르다(cost-fix-1 의 기초 시점 이동 중 트랜스퍼는 이미 고침) · 함께 볼 것: UNF18260 잔고 0 인데 레이어 6 행(deferred 444)
+  ⚠️ [2026-11-02 · wms-complete-perf-1 · ledger-design 이식 절] **`ims_inv_balance` 를 줄마다 부르지 마라** — 키 술어가 집계 안으로 안 들어가 부를 때마다 inv_snapshot + inv_ledger 110k 행(180 ~ 320 ms) · 키 하나는 inv_snapshot(baseline 키) 합 + inv_ledger qty_delta 합을 **직접** 센다(뷰 정의 그대로 · 0.2 ms) · 남은 호출자 10 곳 = deferred 450 · ⚠️ `inv_layer` 에는 product_id 가 없다 — sku(칸은 먼저 본다 · so §97-e 58)
 - **원본 데이터 오류** — ~~`AMP41108-12` 의 `UOM="6"`(SKU 접미어와 불일치).~~ ⚠️⚠️ **[2026-09-13 정정 — 반대로 적혀 있었다]**
   `AMP41108-12` 는 **UOM 도 BOM Quantity 도 6 이고 SKU 접미사 `-12` 가 틀린 것**이다(`ProbeProductBom.gs` · IncludeBOM=true 전량 실측).
   ⭐ 세트 계수의 정본은 **BOM Quantity**(Cin7 이 재고를 실제로 빼는 수)이고 UOM 이름은 화면 표시다 — 둘이 어긋난 실물이 둘 있었다

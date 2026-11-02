@@ -279,6 +279,7 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 손으로         제품 화면 Shopify 카드 「Send stock now」(stock_push · force · 큐 없이)는 **family 단위**(ANN01001 ~ 01015 한 번에)
 실물           #1013 Shopify 취소(Restock) 19:41:56 → ANN01005 Toronto +1 → 19:42:01 큐 shopify_restock force → 19:43:06 drain ok → Toronto 0(IMS 값)
 ```
+- ⚠️ [2026-11-02 · shop-stock-perf-1 `8d9a2f9` · `20261102120000` · so-module §97-c 1] **`shop_stock_targets` 를 plpgsql 로** — SQL 함수일 때 so_reserve · inv_transfer_line 문장 트리거(shop_stock_queue_trigger → shop_stock_queue_add)가 매개변수로 부르면 generic plan 이 「(p_… is null or …)」 를 가지치기 못해 shop_listing 9,496 행을 매번 훑었다(호출 70 ~ 80 ms · 99 줄 오더 ≈ 9 s → 8 s timeout) · pid 갈래를 product 에서 출발 · OR 조인을 union 둘로(호출 2.5 ms · AS-7393 11.2 s → 2.1 s · 결과 집합 16,780 행 옛 = 새) · 재시도 간격 · 연결 60 은 deferred 446
 
 ### 3-e. 상품 정보 올리기 (판정 377 · 408 · 409 · 410 · 412 · 414)
 - 바뀌면 즉시 + 새벽 전체 맞추기 · ~~IMS 가 주인인 칸은 새벽에 IMS 값으로 되돌아간다~~ → ~~⚠️ [2026-10-10 · so-module §56-f 9 · 미룬 165 · 열림 · 판정 거리] 구현은 새벽에 되돌리지 않는다~~ → ⭐ [2026-10-10 · **판정 414** · Caleb 「A」] 새벽 맞추기(ims-shop-nightly)는 지금대로 — **IMS 쪽 바뀜을 트리거가 놓친 것을 잡는 안전망**이다 · IMS 쪽 내용이 지난번 보낸 것과 같으면 Shopify 를 읽지도 쓰지도 않는다(skipped_same_hash) · Shopify 에서 사람이 손으로 고친 값(가격 · Draft 등)은 그 상품이 IMS 에서 다음에 바뀔 때 IMS 값으로 덮인다(판정 413) · 근거 판정 373 「샤피파이에서 직접 고치는 것은 거의 없어」 · 기각: 새벽에 Shopify 를 읽어 대조 · 새벽에 hash 무시하고 전부 보냄(매일 4 천여 상품을 읽거나 쓰는 비용)
@@ -318,6 +319,7 @@ aonebeauty.com  Price AONE · Compare-at ComparedPrice CAD
 ```
 - 값 = `shop_tier_price`(so_price_for 와 같은 식 · purpose 를 가리지 않음 · ⬜ 같은 식 두 곳 — so-module 미룬 171) · 판정 408 같은 값이어도 보낸다
 - 실물: **Compare-at < Price 도 Shopify 가 경고 없이 받는다**(ANN01001 Blue/Small Price 1.59 · Compare-at 1.49 · so-module §56-d 1)
+- ⭐ [2026-11-02 · 판정 958 · 967 · shop-price-sync `0145e8b` · ops `shop-price-sync.sql` · so-module §97-c 4] **IMS 가 가격 정본** — aone 가격의 정답 = IMS AONE 등급 · 다른 상품을 한 번에 IMS 값으로(가격 담당 확인 단계 없음) · 차이는 Cin7 시절부터: 컷오버 잇기가 Shopify 값을 확인 않고 last_hash 를 심어 매일 skipped_same_hash ⇒ last_hash null + `shop_queue_add(price_sync)` · cron 42 가 분당 20 · 11-02 aone 90 · asung 53 ok · 실패 0 · 뺀 7(설명 빈 EZB69435FAM · EZB69876FAM · BS24510 / BAB47050FAM · BAB47766FAM) · aone 296 SKU(IMS 가 높음 · 중간값 +8.3 %) · asung 156 · **aone 은 Compare-at 도 IMS(= 판매가)로 덮였다 — 의도**(덮이기 전 Shopify 비교가도 대부분 판매가와 같았다 · DGR75112 13.29 / 13.29) · asung 옛 compareAt 은 deferred 449 · AS92310 no_price 는 448
 
 ### 3-h. 화면 — 상품 · family 의 Shopify 카드 (shop-2c · 판정 404 ~ 407 · 413 · 415 · 416)
 ```

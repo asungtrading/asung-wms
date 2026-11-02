@@ -29,7 +29,7 @@ WMS is the warehouse mode of IMS. Its screens are made for tablets and barcode s
 
 <a id="wms-waves"></a>
 ## Split orders into batches and waves
-<!-- screen: wms-manager.html · BUILD 2026-09-29 · wm v1.2 ; wms-picklist.js -->
+<!-- screen: wms-manager.html · BUILD 2026-11-02 · wm v1.3 ; wms-picklist.js -->
 <!-- who: manager -->
 
 **What it is**
@@ -52,6 +52,7 @@ When the office presses **Release to WMS**, the order appears on **Split & Waves
 - Filter by warehouse (**All**, TOR, EDM) or by price tier (**All tiers**).
 - Transfers between warehouses show with the tag **Transfer** and are split the same way.
 - Packing and fulfillment check every tote of a wave as its own order.
+- **Combos stay in one batch.** The items of one combo are kept together in the preview, tagged "for CB-…" ("Part of a combo — kept in one batch with its other items"). The group sits where its first item is on the walk, and it is never cut — even if it is bigger than max lines or max units. A batch that would split a combo is refused: "CB-99001 on SO-99001 must stay in one split — its items are in splits 1 and 2 — nothing was saved".
 
 <!-- SCREENSHOT: wms-waves-1 · Split with max lines and max units filled and the batch preview -->
 
@@ -171,7 +172,7 @@ If a line goes over, the screen shows "⚠ Over-scan — count the items". Count
 
 <a id="wms-fulfillment"></a>
 ## Pack into boxes and pallets (Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-10-31 · fu v1.8 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -195,6 +196,7 @@ An order appears here only when all its batches are checked on **Packing** — "
 - Pallets on a transfer are **all or nothing**: if the transfer has at least one pallet, every picked item must be on a pallet (a box goes on a pallet). Finalize refuses a transfer with items left off the pallets. A pallet may hold only this transfer's products.
 - The **🖨 Pallet list** of a transfer starts with a big label the other warehouse scans — for example **TRF-00002-P2**, with "Pallet 2 of 4" and a barcode (PLT-…). Print it and stick it on that pallet. The other warehouse receives one pallet at a time (see [Receive a PO or a transfer](#wms-receiving)).
 - Once the transfer has left, its pallets are locked — nothing can be added to or taken off them.
+- **A combo goes whole or not at all.** If one item of a combo was short, that combo is not sent. Take its picked items off the pallet first — Finalize does not go through while they are on it. After Finalize, the message lists them: "⚠ Combos not sent — one of their items was short, so the whole combo stays" and "↩ PUT BACK — take these off the cart and return them to their bins now", for example "TRF-00002: SKU-1 × 2 → bin A-01-01 (combo CB-99001 not sent)". Put them back right away.
 - On a transfer, **✓ Finalize order(s)** opens a window with **Carrier**, **Tracking (PRO) number** and **Expected arrival**. They are optional. What you type goes on every transfer on the workbench. An empty box keeps what is there now — the office may have filled it in on **Transfers**.
 
 **Good to know**
@@ -205,7 +207,7 @@ An order appears here only when all its batches are checked on **Packing** — "
 
 <a id="wms-receiving"></a>
 ## Receive a PO or a transfer
-<!-- screen: wms-receiver.html · BUILD 2026-10-31 · rc v2.0 -->
+<!-- screen: wms-receiver.html · BUILD 2026-11-02 · rc v2.1 -->
 <!-- who: warehouse, manager -->
 
 **What it is**
@@ -239,6 +241,7 @@ Only POs whose supplier invoice the office has confirmed can be received (see [R
 
 **Good to know**
 - **Hold (later)** and **Resume** work as in [Pick an order](#wms-picking).
+- **Combos on a transfer** arrive as their items. Each item line shows "for CB-…". Scan the **combo box barcode** once to count one combo of every item at once ("Part of a combo — scan the box barcode to count all 3 items at once"). The combo line itself cannot be counted.
 - **⚑** reports (wrong barcode, image) work as in picking.
 - If the office rejects an item, the line says "Rejected — take it off the shelf". Take it off and press **Removed**.
 - The office sees the same receipt on **Purchase Receipts** (see [Receipts in the office](02-purchasing.md#purch-receipts)).

@@ -192,6 +192,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  딜 읽기 = so_deal_list() · so_deal_detail(deal, limit) — detail.deal 을 그대로 되돌리면 no_change · 셈은 속 함수 so_deal_products · so_deal_customers(candidates · customer_ok 와 같음은 검증이 증명 · 337)
 ⭐  인보이스 단가 표시는 inv_config so_invoice_unit_display(both · discounted · net · master) — 실제 단가는 그릴 때 계산(판정 284 · 314)
 ⭐  [2026-10-07 · §52] 딜 대상 식 한 곳 = so_deal_products_all(딜 여럿 · so_deal_products 는 그 껍데기) · 지금 세일 = so_sale_now(오늘 · 켜짐 · 쿠폰 없는 줄 딜 · best_pct · conditional · deals[]) · 제품 목록 = product_list(화면 거르기 일곱 + p_sale_only · 서버가 거른다 — 세일 제품이 수천) · stk_availability p_sale_only + sale_pct(세트만 대상인 딜은 낱개 줄에 안 보인다)(판정 361)
+⚠️⚠️ [2026-11-02 · 판정 542 사실 · 976 `f498537` · 977 · so v5z4 `97e781b` · so-module §97-a] **손 가격 줄**(price_override) — 오더 할인 · 쿠폰이 **안 걸린다**(542) · 그 줄에 줄 할인 % 를 넣으면 **정가 기준으로 다시 셈해 손 가격이 사라진다** ⇒ 손 가격 위 추가 할인은 **최종 단가를 적거나 딜로**
+     SO 화면은 손 가격 줄 DISC 칸 아래 「−25.1 % vs list」(977 · 보이기만 · 무상 · 콤보 구성품 제외) · 문서(인보이스 · SO · Ship Ready · 크레딧 노트)는 손 가격을 단가로 · 할인 빈칸(976 · 16.17 · 빈칸 · 194.04 · doc-hand-price-1 `f498537` · doc_price_cells · asung-doc §2)
+⭐  [2026-11-02 · so-custprice-0 조사 · 짓지 않음] 손님 특별가 = **손님 × 제품 % 딜로 지금 된다**(Hera · PZ · REX 선례 · Kingdom 옛 가격 ONO W × 0.60 · FST W × 0.80) · 고정 가격 딜 없음 · 새 티어 만들 길 없음 · 별도 음수 할인 줄은 so_charge 가 음수 불가라 큰 일
 ```
 
 ## 4-d. ⭐⭐ 확정·할당(②a·②b) — 모르면 사고 (정본 §14)
@@ -256,6 +259,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-20 · 판정 531 · 539 · 540 · 549 · ch-1] packed 오더 비용 = so_charge_set · so_charge_remove 의 문 so_charge_gate(오더 행 for update · draft 는 sales · packed 는 sales + master 쓰기 둘 · 그 밖 상태 거부 · aonebeauty 스토어 오더 · 스토어를 모르는 웹 오더 거부 · asung.ca 는 보통 오더와 같게) · 계정을 안 주면 새 비용은 `_99_` Freight Sales — 화면은 계정을 늘 보낸다 · → [2026-10-29 · fc-lock-1 90b49f1 · 판정 882 · so-module §89] 「스토어 모름」 · 「aone 거부」 는 **split_from_id 사슬로**(`so_chain_shop_orders(so_id)` · 깊이 50 · invoker · 창구 안에서만) — 형제는 intake shopify 를 물려받지만 shop_order 는 원래 SO 에만 · aone 형제는 거부 · asung 형제는 보통 오더처럼(전에는 「store is unknown」 으로 막힘)
 ⭐  [2026-10-20 · 동료 피드백 13 · so v5w] so_finalize 는 처음부터 오더 배열 — 여러 packed 오더를 한 번에 보내면 위 묶음 규칙대로 인보이스가 묶인다
 ⭐  [2026-10-07 · §52] 상태 칩 색 — SO(판정 359): Draft 회색 · Confirmed 파랑 · Released/Working 보라 · Finalized 주황 · Fulfilled 초록 · Cancelled 빨강 · Shipped 는 인보이스 취소 뒤에만(칩 「Invoice cancelled」) · PO(판정 360)는 asung-po §0
+⭐⭐ [2026-11-02 · 판정 959 · 968 · 969 · qbo-sync-2c1 `671dcad` · so-module §97] **인보이스 취소(so_invoice_cancel)의 문 둘** — ① **발행(issued) 크레딧이 가리키는 인보이스는 거부**(번호 나열 · 크레딧을 먼저 취소) ② **손으로 넣은 결제(manual)가 붙어 있으면 거부**(결제를 먼저 뗀다) · auto_deposit · auto_balance(자동 선입금 · 잔액)는 **옛 동작 그대로** 취소와 함께 void → 손님 계정으로(969)
+⭐  [사실 · Caleb 11-02] 인보이스 메일은 **청구처로** — 차일드 스토어 BILL TO = 본사 · 본사 SPLIT INVOICE BY STORE on · 본사 기본 연락처 · FINAL INVOICE EMAILS 는 청구처 것만 본다
+⭐  [2026-11-02 · 971] IMS 인보이스 · 크레딧은 since 2026-11-02 이후 발행분이 QBO 일감으로 쌓이고 **북키퍼가 Sales → QuickBooks 에서 문서마다 보낸다**(asung-qbo · qbo-integration §14)
 ```
 
 ## 4-h. ⭐⭐ 결제 · 손님 잔액 · 선결제(ⓑ) — 모르면 사고 (정본 §18)
@@ -306,6 +312,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
    ⚠️ 참조 크레딧 입력 열쇠는 **ref**{invoice_number, order_number, invoice_date}(609) — 옛 cin7 열쇠는 거부
 ⭐⭐ [2026-10-26 · hcr-1 · 판정 774 · 779 · so-module §79-b] 참조 크레딧이 옛 번호로 **이력(hist_)을 보고 채운다** — 창구 hist_credit_source(p_number) · 발행 so_credit_issue 가 같은 한 곳(hist_credit_lines · hist_credit_tax)으로 다시 견준다
    so_credit.store_customer_id = **매장**(779 · 종이 · 목록 · 상세) · 돈은 customer_id = 청구처 · so_credit.warnings = 발행 때 경고 기록 · 손 입력 길은 남는다(cr v6a Enter by hand) → 4-w
+⭐⭐ [2026-11-02 · 판정 966 · qbo-sync-2c1] **세금만 크레딧 금지** — so_credit_issue 가 kind tax 줄을 받지 않는다(「A tax-only credit note is not allowed — credit the invoice in full and issue a corrected invoice instead」 · 옛 행 그대로) ⇒ 세금이 틀리면 전액 크레딧 + 새 인보이스 + 환불
+⭐  [2026-11-02 · cr-ref-fee-1 · cr v7 `0c2a6c0`] **참조(이력) 크레딧에도 Restocking fee** — 서버는 이미 받았다(수리 없음) · 화면 Charge a fee · % · Fee account(REVENUE 만 · 설정 기본 있으면 Default) · 원래 인보이스 날짜로 60 일 알림(판정 5 알림만) · QBO 로는 other · restocking_fee 줄 = 계정 사람 짝(961) · 계정은 북키퍼가 정해 `supabase/ops/restock-fee-account.sql`
+⚠️  [2026-11-02 · 959] 발행 크레딧이 걸린 인보이스는 취소 거부(4-g) — 크레딧 취소가 먼저
 ```
 
 ## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
@@ -400,6 +409,11 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      IMS SKU 를 바꾸면 Shopify SKU 도 상품 큐로 바뀐다(shop_variant_payload 의 sku) · 콤보 bin 없는 잔고(UNF18155 · UNF18259)는 deferred 422
 ⭐  [2026-10-31 · 판정 908 · cb v2 `82b847a`] Combos 화면에 **지금 만들 수 있는 콤보 수** — 목록 「Can make TO · ED」 · 상세 「Can make now」 + 구성품 표에 창고마다 가용 EA → 몇 콤보(가장 작은 것 빨강 = 막는 구성품) · 식은 위 「가용」 · Shopify 831 과 같다(DB 무변) · Stock Availability 에는 콤보가 안 나온다(deferred 421)
 ⭐  Shopify 로 보내는 콤보 재고 = 위 「가용」 과 같은 셈(위치마다 min(구성품 재고 키마다 ⌊가용 ÷ need_ea⌋) · 구성품 꺼짐 → 0 · 판정 831 · so-module §83 · asung-wms 「IMS Shopify 연동 EF」)
+⭐⭐ [2026-11-02 · 판정 952 ~ 957 · tf-combo-1 `a4e991a` · tf combo v1 · fu v1.9 · rc v2.1 · so-module §97] **트랜스퍼에도 콤보 = SO 꼴** — inv_transfer_line.combo_line_id · combo_qty · 콤보 줄 + 구성품 줄 · **재고 · 원가 · 정산은 구성품 줄로만**(콤보 줄은 원장 · 레이어 · 예약 없음 · 원가 「—」 955 · 정산 거부 957)
+     953 반쪽 없음 — Confirm 은 구성품 가용으로 거부 · 픽에서 모자라면 handoff 트랜스퍼 갈래가 그 콤보 0 + 뽑은 구성품 **put_back**(Finalize 의 PUT BACK · 팔렛에서도 내려야 Finalize 가 선다) · 콤보 줄 qty_sent · qty_received 는 셈(min ⌊구성품 ÷ combo_qty⌋)
+     954 에드먼턴 받기 = SO 픽킹 꼴 — 구성품 줄에 「for 콤보」 · 박스 바코드 한 번 = 구성품마다 콤보 하나분 · 콤보 줄은 셀 수 없다 · found 가 콤보 SKU 거부 · 956 같은 SKU 낱개 줄 + 구성품 줄 공존(유니크 (transfer, product, combo_line_id) nulls not distinct)
+     ⚠️ 구성품 없는 콤보 상품 줄(TRF-00003 #316)은 보통 줄 그대로 · 구성품 줄 직접 고치기 · 지우기 거부 · 상품 바꾸기에 콤보가 끼면 「remove the line and add it again」
+⭐⭐ [2026-11-02 · 판정 970 · 972 ~ 975 · wms-split-combo-1 `295ee4e`] **한 콤보의 구성품은 한 조각(배치 · 과제)** — wms_batch_create 가 거부(판매 · 트랜스퍼) · 한도를 넘어도 한 조각 · 덩이 자리 = 첫 구성품 · 박스 스캔 안전망 없음(asung-wms)
 ```
 
 ## 4-o. ⭐⭐ 웹 오더(Shopify ④ 오더 받기) — 모르면 사고 (정본 shopify-integration §2 · so-module §60 · 판정 430 ~ 435)

@@ -61,6 +61,13 @@ description: >
 - ⭐⭐ [2026-10-30 · 판정 887 · combo-bc-1 `d85e323` · 화면 pk v1.6 · pa v1.7 · so-module §90] **콤보 박스 바코드 한 번 = 그 콤보 하나** — `wms_pick_lines` 구성품 줄에 `combo_barcodes`(그 콤보 SKU 의 바코드 · 보통 줄 []) · 스캔이 낱개 · 세트 바코드에 없고 combo_barcodes 에 있으면 구성품 줄마다 combo_qty × pack_factor 를 한꺼번에 · 하나라도 자리가 모자라면(패커는 픽 수를 넘어도) **아무것도 안 채운다**(반쪽 콤보 없음) · 기록 `verification_method = 'scanned_combo'` · 같은 번호가 낱개 · 세트 바코드이기도 하면 낱개로 본다 · 박스 안이 비는 일은 실무 몫(Caleb)
   - ⚠️ `wms_pick_lines` 의 마지막 정의는 asm_2b1 이 아니라 **bgr-1a `20261023131028`**(대문자 `CREATE OR REPLACE FUNCTION` — 소문자 grep 이 놓친다 · 옛 정의를 복사하면 B급 칸 제외 635 · 641 이 조용히 되돌아간다) ⇒ 다음 재발행은 combo-bc-1 `20261030160000` 이 원본 · `grep -liE` + DB prosrc md5
   - 열림: 창고 검사 없음(deferred 391) · 오더 나누기로 구성품이 다른 배치에 갈리면 그 배치 줄만 채움(짐작 · deferred 398)
+- ⭐⭐ [2026-11-02 · 판정 970 · 972 ~ 975 · wms-split-combo-1 `295ee4e` · wm v1.3 `164345c` · so-module §97] **한 콤보의 구성품은 한 조각(배치 · 픽 과제)에** — 위 줄의 「갈리면」 은 짐작이 아니었다: 박스 스캔(comboScan)은 연 과제 하나의 구성품만 보고 「콤보 하나」 로 채우므로 갈리면 **실물 박스가 경고 없이 두 번 나간다** · 팩 「n of m complete」 도 반쪽을 완성으로 보인다(실물 SO-20839 CB-LAC80085 가 15 / 3 으로 갈릴 뻔)
+  - 서버: `wms_batch_create` 가 같은 combo_line_id 의 구성품이 둘 이상의 배치에 들면 거부(판매 · 트랜스퍼 · 글 「CB-LAC80085 on SO-20839 must stay in one split — its items are in splits 1 and 2 — nothing was saved」) · **크기 한도는 안 본다**(973 — 콤보 하나가 한도보다 커도 한 조각)
+  - 화면 Split 미리 보기: 콤보 구성품을 **한 덩이**로 묶어 덩이째 자른다 · 한도 넘어도 안 쪼갬 · 덩이 자리 = **첫 구성품의 동선 자리**(975) · 「for 콤보」 꼬리표 · 대기 카드 줄 수에서 콤보 부모 줄 제외
+  - 974 박스 스캔 쪽 안전망은 따로 없다 · 오더 단위 셈(wms_finalize · handoff · so_finalize 의 whole · put_back)은 갈려도 맞았다 — 고친 곳은 조각을 만드는 문 하나 · wms_wave_create 는 오더 하나 = 과제 하나라 갈 수 없다
+- ⭐⭐ [2026-11-02 · 판정 952 ~ 957 · tf-combo-1 `a4e991a` · fu v1.9 · rc v2.1 `4ba2701`] **트랜스퍼도 콤보 = SO 꼴** — 뷰 `wms_order_doc_line` 트랜스퍼 갈래도 콤보 줄을 숨기고 구성품 줄에 combo_* · `wms_pick_lines` 박스 바코드가 트랜스퍼 픽 · 팩에서도
+  - **handoff put_back(953)** — `wms_so_handoff` 트랜스퍼 갈래가 콤보마다 통째 수 = min ⌊구성품 ship ÷ combo_qty⌋ · 넘는 구성품은 put_back[{transfer_number, combo_sku, line_no, sku, bin, qty}] · combos[{target, ship, short}] · ⇒ **팔렛 검사(Σpicks)와 tf_depart 가 같은 picks 를 읽는다 — 반쪽 콤보의 구성품은 팔렛에서도 내려야 Finalize 가 선다** · Finalize 화면에 「못 간 콤보」 알림 + **PUT BACK** 목록
+  - tf_depart 는 콤보 줄 qty_sent 를 비워 둔다(읽을 때 셈) · **받기(954)**: `po_receipt_work_save_by` 가 콤보 줄 id 로 세기 거부 · tf_receipt_detail 구성품 줄에 combo_barcodes · 받기 화면 구성품 칩 · 박스 바코드 한 번 = 구성품마다 콤보 하나분 · found 가 콤보 SKU 거부 · tf_arrive · settle · over_decide 는 콤보 줄 제외 · 거부
 ⭐⭐ [2026-10-20] **WMS Stock Lookup(wms-stock.html · ws v1a · nav v8)** — 열쇠 없음(WMS 에 들어올 수 있는 직원 누구나 · WMS 열쇠가 하나도 없던 사람에게는 첫 화면이 된다) · 두 브랜치(자기 브랜치 먼저) · 스캔 값은 `stk_availability` 의 p_q 로(바코드 정확 일치) · ⚠️ **손님 이름을 그리지 않는다**(stk_reserved 가 보내도) · 금액은 원가 열쇠(`ims_can_view_cost`)가 있을 때만 `stk_value_many` · WMS 작업 표 17 은 의도된 열림(판정 569 · 창구 전환은 운영 전환 이후 별건)   (so-module §68 · 판정 569 · 571 · 575)
 - [2026-10-27 · ws v1b · v1c · so-module §81-c · 판정 808] 카드마다 **Print label**(ims-label.js) · ⚠️ `stk_availability` 는 SKU 를 쳐서 찾아도 `matched_set_*` 를 준다 — 「세트를 스캔했다」 가 아니다 · 라벨 창이 세트를 기본으로 고르는 것은 **찾은 글자 = 세트 SKU 이거나 숫자 바코드 스캔일 때만**(ws v1c · AS01282 에서 세트가 골라져 「No barcode」 였다)
 ⭐⭐ [2026-10-27] **바코드 라벨(lbl v1 · v1a · v1b · asung-ims `ims-label.js` · so-module §81-c · 판정 798 ~ 807)** — 모르면 라벨이 틀리거나 스캔이 안 된다:
@@ -1424,6 +1431,17 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - ⚠️⚠️ [2026-10-29 · wun-1 이견 10] **Undo Finalize(`wms_rollback 'finalize'`)는 오피스가 만든 빈 유닛도 지운다** — 팔렛까지 지우는 기존 동작 그대로(규칙 「Rollback Finalize 단계 모델링」) · 오피스가 유닛을 만든 오더를 되돌리면 유닛 · 치수를 다시 넣는다.
 - ⚠️ [2026-10-29 · fc-lock-1 · 90b49f1 · 판정 882 · so-module §89] **`freight_locked` 은 갈린 형제 포함** — `fc_shipment_prepare` 가 발송 SO 의 split_from_id 사슬을 위로 거슬러(`so_chain_shop_orders`) aone 스토어 Shopify 오더에 이어지면 잠근다(전에는 형제만 발송하면 Freightcom 운임이 붙었다 · 실측 SO-25259b) · asung.ca 는 473 그대로 · 화면 시험 길 없음(테스트 스토어 kind asung) — 첫 실제 aonebeauty.com 오더를 오피스가 본다
 - [2026-10-29 · fu v1.6 · asung-ims af9a94f] Fulfillment 머리 아래 **Ship to 줄**(회사 · 연락처 · 주소 · 전화 · 오더마다 · 같은 주소는 한 번 · 주소가 없으면 빨간 안내) — 화면만 · 판정 번호 없음(동료 피드백 2).
+
+## 규칙 48 — 메인 DB 는 운영이다: 장애 진단 · 지혈 · 창고 시간 시험 (⚠️ 2026-11-02 실사고 · so-module §97-c 1 · 2 · 97-e 56 · 57)
+
+**무엇이 있었나.** 11-02 오전 Release · 픽 줄 저장 · Finalize 가 timeout — 원인 넷이 겹쳤다: ① `shop_stock_targets` 가 재고 예약 줄마다 문장 트리거로 불리며 generic plan 으로 shop_listing 9,496 행을 훑음(호출 70 ~ 80 ms) ② 큰 Shopify 오더 AS-7389(227 줄) · AS-7393(99 줄)를 ims-orders-drain(cron 47)이 매분 재시도 ③ tf-combo 시험 · 적용 잠금(09:43 ~ 09:53) + 같은 SO 재시도의 행 잠금 ④ 연결 60 소진(10:32 ~ 10:46).
+
+**모르면 사고.**
+- ⚠️⚠️ **창고 시간에는 시험 · 적용 전에 묻는다** — 회차마다 begin ~ rollback **10 초 안** · 회차 사이를 띄운다(테스트 DB 시험 장치도 이제 운영 위에서 돈다 · CLAUDE.md 1 절 617)
+- ⚠️⚠️ **지혈 = cron 47 ims-orders-drain · 51 ims-order-drain · 53 ims-paid-drain 잠시 끔**(`cron.alter_job(…, active := false)`) → 수리 적용 → 막힌 오더 손 처리(SO-20838 · SO-20839) → 다시 켬(24 오더 created · 끈 동안 Shopify 오더는 IMS 에 안 들어오고 켜면 이어받는다) · 기록 `supabase/ops/cron.sql` 끝
+- ⚠️ **timeout 으로 끊긴 문장은 pg_stat_statements 에 안 남는다** — 범인은 Postgres 로그 · `log_lock_waits` · 함수 안 중첩 문장(track all)으로 찾는다 · 「같은 입력 같은 시간」 으로 무고를 가린다(tf-combo 1a · 1b 결백)
+- ⚠️ **뷰 `ims_inv_balance` 를 줄마다 부르지 마라** — 키 술어가 집계 안으로 안 들어가 부를 때마다 110k 행(180 ~ 320 ms) · 픽 Complete 40 줄 7.5 s 의 범인(`wms_pick_line_bins_write` ② · wms-complete-perf-1 `7979c4f` 로 키 직접 조회 · 145 ms · 줄 저장 219 → ~50 ms · `p_with_ledger` false = Complete) · 남은 호출자 10 곳 = deferred 450(B · 두 창고가 멈춘 뒤)
+- 열림: 실패한 Shopify 오더 재시도 간격 · 한도 · 연결 60 소진 때 무엇이 먼저 죽나 = deferred 446
 
 ## 현재 진행 상태 (2026-08-04 기준)
 

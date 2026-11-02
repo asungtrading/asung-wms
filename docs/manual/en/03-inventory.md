@@ -256,7 +256,7 @@ The same people as stock adjustments — admins, and managers or supervisors wit
 
 <a id="stock-transfers"></a>
 ## Transfers between warehouses
-<!-- screen: transfers.html · BUILD 2026-10-31 · tf ship v1 -->
+<!-- screen: transfers.html · BUILD 2026-11-02 · tf combo v1 -->
 <!-- who: office, warehouse -->
 
 **What it is**
@@ -272,6 +272,16 @@ A transfer moves stock from one warehouse to the other. It goes through the ware
 **When it does not match — needs the Stock adjustments key**
 - **Less arrived**: press **Settle in transit**. For each line choose **Lost** or **Returned to sender** (back into a bin at the from warehouse), then **Save settlement**.
 - **More arrived than was sent**: the to warehouse took only what was sent. Press **Decide** and choose **… sent more** or **Found at …**, then **Save decision**. "These may go into the books at cost 0."
+
+**Combos on a transfer**
+A combo goes on a transfer the same way as on a sales order: one combo line, with its items under it.
+1. Add the combo SKU with **Add line** or **Paste lines** (a combo SKU counts combos). Its items appear under it, indented. "A combo — its items are picked and sent; the combo line holds no stock."
+2. Change or remove the combo on its combo line — "Change or remove the combo line above — its items follow". The item lines have no **Edit** or **✕**.
+3. **Confirm** needs every item free for the whole combo. The line window shows the items' free stock and how many combos that makes.
+4. If the pickers cannot find all the items for a combo, that combo does not go. Its picked items are put back (**PUT BACK** on Finalize — see [Fulfillment](04-wms.md#wms-fulfillment)).
+5. The other warehouse receives the items, not the combo (see [Receive a PO or a transfer](04-wms.md#wms-receiving)).
+- The combo line has no cost ("—"). Cost, stock and **Settle in transit** are on the item lines only.
+- The same SKU can be on its own line and as an item of a combo.
 
 **Good to know**
 - If the pickers could not find everything, only what was picked leaves. The rest is closed on this transfer — make a new transfer for it.

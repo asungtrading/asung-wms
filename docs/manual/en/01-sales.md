@@ -97,7 +97,7 @@ When a customer orders by phone, by email or in person.
 
 <a id="sales-add-lines"></a>
 ## Add lines
-<!-- screen: so.html · BUILD 2026-10-31 · so v5z -->
+<!-- screen: so.html · BUILD 2026-11-02 · so v5z4 -->
 <!-- who: sales -->
 
 **What it is**
@@ -119,7 +119,9 @@ Lines are the products on the order. You can pick them one by one, or paste many
 
 **Prices**
 - A line without a price gets the usual price: price tier, then the best discount (see [Discounts, deals and surcharges](#sales-discounts-deals)).
-- A price you give is final. The order discount does not apply to that line.
+- A price you give is final. The order discount and coupons do not apply to that line.
+- Under **Disc %**, a line with a hand price shows how far it is from the list price, for example "−25.1% vs list". It is shown only.
+- Do not type a **Disc %** on a line with a hand price — IMS works the discount out from the list price again and your price is gone. For a further discount, type the final **Unit** price, or use a deal.
 - In the **Lines** table, change **Qty**, **Disc %** or **Unit** in the cell. **↺** puts the system price back. **✕** removes the line.
 - **Price from** tells you where the price came from: **customer**, **deal · …**, **set discount**, **discount by hand**, **price set by hand** or **free · …**. Next to a price set by hand you see who set it and when, for example "by Staff C".
 - Under the quantity, **available** shows what this warehouse has free now, and the other warehouse next to it (for example "available 3 · ED 4"). It turns red when this warehouse has less than the quantity (see [Find stock](03-inventory.md#stock-availability)).
@@ -577,9 +579,10 @@ Cancel only when the whole document is wrong. For part of it, make a credit note
 3. The orders show **Invoice cancelled**. The goods stay shipped.
 
 **When Cancel says no**
-- "… payment allocation(s) applied by hand — detach them first (or issue a credit note instead)"
+- "Invoice 99001 has payments — settle it with a credit note instead": a payment was taken on this invoice. Make a credit note instead of cancelling.
+- "Invoice 99001 has credit note(s) CR-99001 — cancel those credit notes first"
 - "… credit note allocation(s) applied by hand — detach them first"
-Payments and credits that attached themselves are released by themselves.
+Deposits and money on account that attached themselves when the invoice was issued are released by themselves and go back to the customer's account.
 
 **Reissue… — Managers and above**
 1. Open the cancelled invoice and press **Reissue…**.
@@ -612,7 +615,7 @@ A payment is money the customer gave us. IMS keeps where it went: to an invoice,
 2. Check the amount and press **Record payment**.
 
 **How — money on account**
-1. On **Sales ▾** › **Customer Payments**, press **+ Record a payment**, pick the customer and fill the payment.
+1. On **Sales ▾** › **Customer Payments**, press **+ Money on account**, pick the customer and fill the payment.
 2. "It attaches itself to the next invoice they get — or open it here and attach it by hand."
 3. To attach by hand: open the payment, press **Attach to invoices…**, press **Suggest (oldest first)** or type amounts, then **Attach**.
 
@@ -651,7 +654,8 @@ A credit note gives money back to the customer for an invoice — for goods that
 The customer keeps the goods and gets the difference back. In **Price adjustment — past sale price**, type **Qty to adjust** and **New unit price**. "No stock moves." Choose the reason **Price adjustment**.
 
 **Restocking fee**
-When the sale is more than 60 days old, IMS shows a notice and suggests a 20% fee. To charge it, tick **Charge a fee** (you can change the %) and choose the **Fee account**. It is never added by itself.
+When the sale is more than 60 days old, IMS shows a notice and suggests a 20% fee. To charge it, tick **Charge a fee** (you can change the %) and choose the **Fee account** (revenue accounts only). It is never added by itself.
+The same **Restocking fee** box is in **Credit with a reference number…** too. There the notice counts the 60 days from the **Invoice date** you type.
 
 **Goods taken off before shipping**
 This is the second step of [the customer wants to take items off a packed order](#sales-ship-invoice).
@@ -673,9 +677,48 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 
 **Good to know**
 - Unit price and tax come from the invoice — you do not type them.
+- A credit note cannot be tax only: "A tax-only credit note is not allowed — credit the invoice in full and issue a corrected invoice instead". If the tax was wrong, credit the whole invoice, issue a new one, and refund the difference.
+- An invoice with an issued credit note cannot be cancelled — cancel the credit note first.
 - **Print credit note** and **Email to customer…** work like the invoice (see [Print and email](#sales-print-email)).
 
 <!-- SCREENSHOT: sales-credits-1 · New credit note window: Products with Return and Back to stock, Restocking fee unticked -->
+
+<a id="sales-quickbooks"></a>
+## QuickBooks — send invoices and credit notes
+<!-- screen: qbo-send.html · BUILD 2026-11-02 · qs v1 -->
+<!-- who: accounting -->
+
+**What it is**
+**Sales ▾** › **QuickBooks** (QUICKBOOKS key — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Nothing is sent without someone pressing **Send**.
+QuickBooks must be connected first (an administrator does this in **Settings** › **QuickBooks**).
+
+**How — one document**
+1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
+2. Press **Preview** on a row. You see exactly what will be written: customer, lines, tax, totals, memo — and what is "Created in QuickBooks first, in the same send" (a customer or item QuickBooks does not have yet).
+3. If it looks right, press **Send to QuickBooks** (or **Send** on the row).
+4. The row turns **Sent**.
+
+**How — several at once**
+Tick the rows (or **Select all on this page**) and press **Send selected**. IMS asks "Send 5 documents to QuickBooks now?" and sends up to 10 at a time.
+
+**When a row is not sent**
+- **Blocked** — it waits for something else first, for example a credit note waits until its invoice is in QuickBooks. "Waiting:" tells you what.
+- **Failed** — read **Why · result**. Fix the cause (for example link an account to a QuickBooks item in **Settings** › **QuickBooks matching**), then press **Retry**. A reason is required.
+- **Result unknown** — IMS could not tell if QuickBooks took it. Look in QuickBooks first that it is not already there, then **Retry** (or **Skip**).
+- **Skip** — "Do not send this one to QuickBooks". A reason is required, for example "entered by hand in QuickBooks". A skipped row can be put back with **Retry**.
+
+**Example**
+Invoice 99001 → **Preview** shows the item for CB-99001 will be created first → **Send to QuickBooks** → the row shows **Sent**.
+
+**Watch out**
+- "Do not enter these documents in QuickBooks by hand — they would be there twice."
+- Do not change an IMS invoice in QuickBooks after it is sent. Card fees and payments are entered in IMS too.
+- A credit note for an invoice that was skipped or never queued fails with "Invoice 99001 was skipped — skip this credit note too, or retry the invoice first" or "Invoice 99001 has no QuickBooks job — send the invoice first".
+- Cancelling an invoice or credit note that is already in QuickBooks adds a **Cancellations (void)** row. Send it like the others. If QuickBooks refuses to void a credit note, the row fails — void it in QuickBooks yourself.
+- "QuickBooks total differs from IMS" means QuickBooks worked out a different total. The document is in QuickBooks — check it there.
+- Restocking fees and other account lines on credit notes need their account linked to a QuickBooks item once, in **Settings** › **QuickBooks matching** (**Freight, discount & account lines**).
+
+<!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks list with Waiting filter, a Preview window with Send to QuickBooks -->
 
 <a id="sales-web-orders"></a>
 ## Web orders

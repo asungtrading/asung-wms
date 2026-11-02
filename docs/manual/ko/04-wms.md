@@ -29,7 +29,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 
 <a id="wms-waves"></a>
 ## 오더를 묶음과 웨이브로 나누기
-<!-- screen: wms-manager.html · BUILD 2026-09-29 · wm v1.2 ; wms-picklist.js -->
+<!-- screen: wms-manager.html · BUILD 2026-11-02 · wm v1.3 ; wms-picklist.js -->
 <!-- who: manager -->
 
 **무엇인가**
@@ -52,6 +52,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 - 창고(**All** · TOR · EDM)나 가격 등급(**All tiers**)으로 필터합니다.
 - 창고 간 트랜스퍼는 **Transfer** 꼬리표로 나오고 같은 방법으로 나눕니다.
 - 검수와 포장은 웨이브의 토트 하나하나를 각각의 오더로 확인합니다.
+- **콤보는 한 묶음에.** 미리 보기에서 한 콤보의 구성품은 함께 묶이고 "for CB-…" 꼬리표가 붙습니다("Part of a combo — kept in one batch with its other items"). 그 덩이는 첫 구성품의 동선 자리에 서고, max lines · max units 를 넘어도 자르지 않습니다. 콤보를 가르는 묶음은 거절됩니다: "CB-99001 on SO-99001 must stay in one split — its items are in splits 1 and 2 — nothing was saved"
 
 <!-- SCREENSHOT: wms-waves-1 · Split: max lines · max units 를 적고 묶음 미리 보기 -->
 
@@ -171,7 +172,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-fulfillment"></a>
 ## 상자 · 팔레트에 담기(Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-10-31 · fu v1.8 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -195,6 +196,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 - 트랜스퍼의 팔레트는 **전부 아니면 0** 입니다: 팔레트가 하나라도 있으면 뽑은 물건이 모두 팔레트에 있어야 합니다(상자는 팔레트 위에). 팔레트 밖에 남은 물건이 있으면 Finalize 가 거부합니다. 한 팔레트에는 이 트랜스퍼의 물건만 담습니다.
 - 트랜스퍼의 **🖨 Pallet list** 는 첫 머리에 받는 창고가 스캔할 큰 라벨로 시작합니다 — 예: **TRF-00002-P2**, "Pallet 2 of 4", 바코드(PLT-…). 찍어서 그 팔레트에 붙입니다. 받는 창고는 팔레트 하나씩 받습니다([PO · 트랜스퍼 받기](#wms-receiving)).
 - 트랜스퍼가 떠난 뒤에는 팔레트가 잠깁니다 — 더 담거나 빼지 못합니다.
+- **콤보는 통째로만 갑니다.** 한 콤보의 구성품 하나가 모자라면 그 콤보는 가지 않습니다. 뽑은 구성품을 먼저 팔레트에서 내리세요 — 팔레트에 있으면 Finalize 가 되지 않습니다. Finalize 뒤 알림에 나옵니다: "⚠ Combos not sent — one of their items was short, so the whole combo stays" · "↩ PUT BACK — take these off the cart and return them to their bins now"(예: "TRF-00002: SKU-1 × 2 → bin A-01-01 (combo CB-99001 not sent)"). 바로 제자리에 돌려놓습니다.
 - 트랜스퍼에서 **✓ Finalize order(s)** 를 누르면 **Carrier**(운송사) · **Tracking (PRO) number**(운송장 번호) · **Expected arrival**(도착 예정일) 창이 뜹니다. 넣지 않아도 됩니다. 넣은 값은 작업대의 모든 트랜스퍼에 들어갑니다. 빈 칸은 지금 값을 그대로 둡니다 — 오피스가 **Transfers** 에서 먼저 넣었을 수 있습니다.
 
 **알아 둘 것**
@@ -205,7 +207,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-receiving"></a>
 ## PO · 트랜스퍼 받기
-<!-- screen: wms-receiver.html · BUILD 2026-10-31 · rc v2.0 -->
+<!-- screen: wms-receiver.html · BUILD 2026-11-02 · rc v2.1 -->
 <!-- who: warehouse, manager -->
 
 **무엇인가**
@@ -239,6 +241,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 **알아 둘 것**
 - **Hold (later)** 와 **Resume** 은 [오더 픽하기](#wms-picking)와 같습니다.
+- **트랜스퍼의 콤보**는 구성품으로 옵니다. 구성품 라인마다 "for CB-…" 가 보입니다. **콤보 박스 바코드**를 한 번 찍으면 구성품마다 콤보 하나분이 한꺼번에 세어집니다("Part of a combo — scan the box barcode to count all 3 items at once"). 콤보 라인 자체는 셀 수 없습니다.
 - **⚑** 신고(바코드 · 사진)도 픽과 같습니다.
 - 오피스가 물건을 거절하면 라인에 "Rejected — take it off the shelf"(선반에서 빼라)가 나옵니다. 빼고 **Removed** 를 누릅니다.
 - 오피스는 같은 입고를 **Purchase Receipts** 에서 봅니다([오피스 입고](02-purchasing.md#purch-receipts)).

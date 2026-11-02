@@ -3599,6 +3599,7 @@ source  cin7 27,324 · manual 1,579 · **wms 0**(CHECK 에는 있지만 쓴 적�
 마지막 사건일(`last_event_on` · `last_seen_on` = 사건 없으면 기초선 촬영일 토론토 날짜 · `event_rows`)을 붙여 낼 뿐이다 — 숫자를 다시 계산하지 않는다.
 전부 **바깥 조인** · 행 수가 `inv_balance` 와 같다(16,944 실측) · 잔고 0 · `IN_TRANSIT` · bin `''` 그대로 낸다(거르는 것은 부르는 쪽) · security_invoker.
 ⚠️ 그 뷰가 만들어진 이유가 「정의가 세 곳에 흩어져 어느 것이 맞는지 알 수 없었다」였다(`20260901163300`). **반복하지 마라.**
+⚠️ [2026-11-02 · wms-complete-perf-1 `7979c4f` · `20261102140000` · so-module §97-c 2] **이 뷰는 키 술어를 집계 안으로 못 밀어 넣는다** — product · ref_warehouse · ref_bin 을 이름으로 붙이므로 부를 때마다 inv_snapshot + inv_ledger **110k 행 HashAggregate**(한 번 180 ~ 320 ms). 줄마다 부르는 창구(`wms_pick_line_bins_write` ②)는 같은 정의(snapshot 합 + ledger qty_delta 합)를 **키로 직접** 센다(0.2 ms · 실제 칸 629 개 차이 0 · 40 줄 Complete 7.5 s → 145 ms). 정의는 여전히 `inv_balance` 하나 — 뷰를 고친 것이 아니다 · 나머지 호출자 10 곳은 deferred 450(B).
 
 ⭐ **`ims_last_bin(uuid[], uuid) → jsonb` 의 속을 원장으로 갈아 끼웠다** — 시그니처·반환 키 넷 무변 · 화면 한 줄도 안 고쳤다. 순서·후보·`received_on` 의 새 뜻은 po-module §11-i Last bin 절.
 

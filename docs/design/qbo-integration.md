@@ -6,6 +6,7 @@
 ⚠️ **연결만 한다 — IMS 에는 장부(QBO)로 거래를 보내는 코드가 없다.**(10-29 상태 · → [2026-11-01 밤] 아래 「쓰기 길이 섰다」) 연결 뒤 하는 일 = 회사 이름 읽기(CompanyInfo) + 하루 한 번 토큰 갱신 · 그 밖의 호출 0 · 싱크는 뒤 차수(§11 · deferred 260 · 327 · 341)
 ⭐ 상태 [2026-11-01 · so-module §95 · 판정 933 · 934] **연결 + 읽기 조회 · 짝 표 · 거울 · 받기(pull) — 보내기는 없음** — EF qbo 에 `query` · `read` · `pull`(GET 만 · admin · cron 불가) · 표 `qbo_entity`(거울) · `qbo_pull_state` · `qbo_link`(짝) · Settings → QuickBooks matching · QBO 로 쓰는 호출 0(위 줄의 「그 밖의 호출 0」 은 10-29 상태)
 ⭐ 상태 [2026-11-01 밤 · so-module §96 · 판정 935 ~ 946 · 951] **쓰기 길이 섰다 — 손님 · Item 만들기** — 열쇠 QUICKBOOKS(`qbo` · `qbo:read` · 945) · 보내기 일감 `qbo_job` · 쓰기 `apiWrite`(POST · 재시도 없음) · EF `send`(열쇠 · 손으로 · cron 없음) · **운영 첫 쓰기 2026-11-01 밤 손님 1 명 → QBO Customer 10740** · 인보이스 · 크레딧은 2b(위 줄의 「보내기는 없음」 은 11-01 낮 상태) · 정본 §14
+⭐ 상태 [2026-11-02 · so-module §97 · 판정 959 ~ 966 · 968 · 969 · 971] **인보이스 · 크레딧 노트 · void 가 나간다 — 북키퍼가 골라서** — 2b1 · 2b2(인보이스 · invoice_void · cron 61) · 2c1(크레딧 노트 · credit_void) · 2d1(골라 보내기) · 화면 Sales → **QuickBooks**(`qbo-send.html` · qs v1) · **첫 인보이스 60000 → QBO 172335**(sent · mismatch 0) · `qbo_send_enabled` off 그대로(cron 61 은 호출 0 · 켜는 때는 나중에 Caleb) · Cin7 ↔ QBO 연결은 Caleb 이 끔(deferred 375 닫힘) · 정본 §14-b ~ §14-e
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
@@ -245,7 +246,7 @@ QBO 판     Plus(Caleb)
   - Item `qbo_item_body`(937 · 941 · 943 · 944): Name = `left(btrim(name),100)` · 콜론 → '-' · gone 아닌 QBO Item 과 `lower(btrim)` 정확 비교로 같으면 끝에 ` [SKU]`(「(deleted)」 꼬리 떼지 않음 · EF 가 6240 에 한 번 더) · **같은 Sku 가 비활성뿐이면 실패 「QuickBooks item is inactive」(941 · 사람이 QBO 에서 켠 뒤 retry)** · 활성이 있으면 실패(사람 짝) · Type Service · Taxable true · IncomeAccountRef = `coalesce(product.revenue_account_code, customer_default_sale_account_code)` 의 짝 · ExpenseAccountRef = `qbo_cogs_account_code` 의 짝 · surcharge → 「Tariff Surcharge」 · `so_surcharge_account_code`(`_94_`) · **freight · discount · freight_discount 는 거부**(943 — 운임은 Item 4 Freight · 할인은 운임 줄에서 뺀다)
 - **일감 창구 8**: 열쇠 = `qbo_job_add`(customer | item · 미리 보기 · 열린 일감이 있으면 그것 · 부모 먼저 + blocked) · `qbo_job_list` · `qbo_job_retry`(failed · unknown → queued · **request_id 새로** · unknown 은 note 필수 — 「QuickBooks 에서 무엇을 봤나」) · `qbo_job_skip`(note 필수) / service_role = `qbo_job_claim`(stale sending 10 분 → unknown 먼저 · blocked → queued(부모 sent) · queued → sending · `for update skip locked` · 몸 실패는 그 일감만 failed) · `qbo_job_done`(sent + qbo_link created + qbo_entity upsert + 자식 풀기) · `qbo_job_fail` · `qbo_job_unknown(p_job, p_error, p_intuit_tid, p_name)`(2a′ · 4 인자 · 옛 서명 없음) · + `qbo_job_unknown_list()`(2a′)
 - **쓰기 길 `apiWrite`(2a′)** — API 호스트로 나가는 모든 쓰기가 여기를 지난다 · **POST 만** · `assertWriteAllowed` 허용 목록 = 만들기 customer · item · invoice · creditmemo(2b) · `operation=void` 는 invoice · creditmemo 만(2b · 2c) · **delete 없음** · `requestid` 필수(1 ~ 50 자 = `qbo_job.request_id` — Intuit 은 같은 id 면 처음 응답(실패 포함)을 되돌려 주므로 retry 마다 새로) · **자동 재시도 없음** · 몸은 기록하지 않는다(detail 은 job id 만) · 읽기 길(`apiCall` · `assertReadOnlyRequest`)은 그대로
-- **send `{limit?}`**(열쇠 · 손으로 · 기본 15 · 최대 50 · cron 없음) — ① `qbo_job_unknown_list` → 보낸 이름(DisplayName · Name)으로 **GET 조회** → 하나면 `qbo_job_done` · 0 · 둘 이상은 그대로(사람이 retry · skip) ② `qbo_job_claim` → 일감마다 `apiWrite` POST 한 번 → done | fail | unknown · 응답 = resolved · recovered_unknown · unblocked · body_failed · claimed · sent · failed · unknown · jobs
+- **send `{limit?}`**(열쇠 · 손으로 · 기본 15 · 최대 50 · ~~cron 없음~~ → [11-01 밤 · 2b2] cron 61 이 이 길로 부른다 · 스위치 off 면 호출 0 · §14-b · [11-02 · 2d1] `{job_ids}` 도 §14-d) — ① `qbo_job_unknown_list` → 보낸 이름(DisplayName · Name)으로 **GET 조회** → 하나면 `qbo_job_done` · 0 · 둘 이상은 그대로(사람이 retry · skip) ② `qbo_job_claim` → 일감마다 `apiWrite` POST 한 번 → done | fail | unknown · 응답 = resolved · recovered_unknown · unblocked · body_failed · claimed · sent · failed · unknown · jobs
 - **첫 운영 쓰기(11-01 밤)**: `qbo_job_add` 미리 보기 → send limit 1 → QBO 화면 확인 · 손님 1 명 → **Customer 10740**(이름 · 주소 · 이메일 · 결제조건 C.B.S 맞음 · 배송 주소는 QBO 가 「청구와 같음」 으로 채움) · 재셈(11-02 00:59 UTC): qbo_job 1(sent) · qbo_link created 1 · qbo_txn 0
 - **인보이스 · 크레딧의 꼴(2b 가 짓는다 · 판정)**:
   - CustomerRef = **매장**(`so_invoice_order.customer_id` · 크레딧 `store_customer_id` · 935) · 청구 · 배송 주소 · 손님 이메일을 싣는다(IMS 문서 값 · 발행 때 · 936)
@@ -255,3 +256,52 @@ QBO 판     Plus(Caleb)
   - 그 밖 계정 charge 줄(카드 수수료 등)은 **사람 짝**(`qbo_link` charge · ims_id `'acct:_20_'` 꼴 · QBO 14735 「Credit Card Processing Fee (3%)」) · 자동 Item 없음 · 세금은 IMS 값 그대로(951 · 회계사 확인 deferred 443)
   - ⚠️ 북키퍼에게 전한 것(Caleb 11-02): IMS 가 보낸 인보이스는 QBO 에서 고치지 않는다 · 카드 수수료도 IMS 에서 · 컷 뒤 입금은 IMS 에(434)
 - 시험: 2a 검증 48 · deno 16 · 2a′ 검증 7 · 2a 확인 47 · deno 18 · `supabase/tests/qbo_sync_2a_check.sql` · `qbo_sync_2a2_check.sql`(L2 「적용 앞 지문」 은 시험 갈래만 — 확인 갈래는 begin 앞 지문이 없어 null · so §96-e 52)
+
+### 14-a′ 바로잡기 — 942 의 「실패」(2b1 에서 바뀜)
+
+- 위 「인보이스 · 크레딧의 꼴」 의 942 「1 센트라도 다르면 **실패**」 → 2b1 부터 **sent + `qbo_txn.mismatch` 글 + 일감 warning**(이미 QBO 에 섰으므로 · **자동 void 없음** · 사람이 본다) · 첫 실물 60000 은 mismatch 0
+
+### 14-b 인보이스 — qbo-sync-2b1 · 2b2 (2026-11-01 밤 · `8f1698a` · `20261102040000` · EF `b9f5c19` · 판정 935 ~ 946 · 951 · 원천 = 마이그레이션 머리 주석 · 커밋 글)
+
+- **경계**: 2b1 = DB 가 몸 · 상태 · 거래 짝을 다 만든다 / 2b2 = EF 가 나른다(invoice POST · DocNumber 멱등 · 응답 합계 · void · cron send)
+- **표 · 칸**: `qbo_entity.detail` jsonb(TaxCode 의 SalesTaxRateList — TxnTaxDetail 의 TaxRateRef 를 DB 가 안다 · EF pull 이 TaxCode 에 SalesTaxRateList 를 더함 · 11-01 밤 pull 로 세율 13) · `qbo_txn.mismatch` text(942)
+- **몸 `qbo_invoice_body`**: CustomerRef = 매장(오더 매장이 둘 이상이면 실패 「cancel and reissue per store」) · SalesTermRef(qbo_link payment_term · 짝 없으면 실패 · 결제조건 없으면 생략 + 경고) · CurrencyRef · BillAddr(so_invoice.bill_to_* · Line1 = 이름) · ShipAddr(첫 오더 · 다르면 경고) · BillEmail(`doc_mail_recipient`(청구처) · 없으면 생략 + 경고) · PrivateNote · CustomerMemo(939 · ref 없는 오더는 so_number) · ShipDate · TrackingNum(첫 오더) · GlobalTaxCalculation TaxExcluded
+  - 줄 = so_invoice_line 순서: product → Item 짝(없으면 needs item) · Description = 이름 + 「 (list x, y% off)」 / surcharge → 「Tariff Surcharge」(needs · 944) / order_discount → charge discount(음수 · 짝 없으면 실패) / charge → service 짝 · `_99_` 는 freight · 그 밖 계정 `acct:<code>`(951) / charge_discount → 그 운임 줄 Item 음수(943) · 0 원 줄 그대로(938) · TaxCodeRef = 그 오더 세금 규칙 짝
+  - TxnTaxDetail = TotalTax(so_invoice.tax_amount) + 규칙마다 TaxLine(TaxRateRef = qbo_entity.detail · NetAmountTaxable · Amount) · detail 없으면 실패 「Refresh list」
+  - ✅ **짐작 풀림(11-02 첫 실물)**: 「QBO 캐나다판이 보낸 TaxLine(TxnTaxDetail)을 존중하나」 = **존중한다**(60000 → 172335 세금 · 합계 그대로 · mismatch 0)
+- **트리거 둘**: `so_invoice_qbo_job`(AFTER INSERT DEFERRABLE INITIALLY DEFERRED · 같은 트랜잭션 취소 · since 전 · 이월(opening) · 연결 없음은 조용히 · 오류는 삼켜 발행을 막지 않는다 → invoice 일감 queued · by_staff = issued_by) · `so_invoice_qbo_cancel`(취소 → 안 나간 일감은 skipped · sending · unknown 이면 invoice_void 를 그 일감에 blocked · 보냈으면 invoice_void queued · since 전 · 이월은 아무것도)
+- **claim(p_limit, p_kinds)**: needs 일감(손님 · 부모 손님 · Item)을 전부 쌓고 인보이스 일감은 blocked(마지막 need) · 다음 바퀴에 몸을 다시 만든다 · need 가 거부되면(941 비활성 Item · 활성 Sku 사람 짝) 인보이스 일감 failed + 까닭 · ⚠️ p_kinds 기본 {customer, item} — 2b2 EF 가 invoice · invoice_void 를 명시
+- **done(+ total_amt · total_tax)** → `qbo_txn` 넣기(unknown 을 조회로 푼 뒤에도) · 942 대조 · QBO Id 가 다른 IMS 인보이스의 짝이면 failed · void → voided_at · 읽기 창구 `qbo_txn_of(kind, ims_id)`(활성 직원 누구나 · 화면 꼬리표)
+- **EF(2b2)**: invoice = **DocNumber 조회로 멱등**(이미 있으면 그것과 짝) → POST → 942 합계 대조 · 6140 / 6210(중복 번호) → 다시 찾아 짝 · invoice_void = POST `operation=void`(SyncToken 없으면 읽기 · 5010 → 다시 읽어 한 번) · unknown 풀기에 invoice · void 갈래 · CRON_ACTIONS refresh · send · deno 20
+- **cron 61 `ims-qbo-send`** `*/5 * * * *` — `qbo_send_enabled` on · 연결 connected · 할 일이 있을 때만 EF send 를 부른다 · **11-02 실측(Caleb psql): active · 스위치 off → 호출 0** · `qbo_send_since` = **2026-11-02**(이 날 이후 발행분만 일감) · 기록 `supabase/ops/cron.sql`
+
+### 14-c 크레딧 노트 — qbo-sync-2c1 (2026-11-02 · `671dcad` · `20261102130000` · 판정 959 ~ 966 · 968 · 969)
+
+- **IMS 문 셋(보내기 전에)** — `so_invoice_cancel`: **손으로 넣은 결제(manual)** 충당이 살아 있으면 거부(968 · 969 — auto_deposit · auto_balance 는 옛 동작 그대로 취소와 함께 void → 손님 계정으로) · **issued 크레딧이 가리키는 인보이스**는 거부(959 · 번호 나열) / `so_credit_issue`: **kind tax 줄 거부**(966 · 글 「A tax-only credit note is not allowed — credit the invoice in full and issue a corrected invoice instead」 · 옛 행 그대로)
+- **몸 `qbo_credit_body`**: CustomerRef = coalesce(store_customer_id, customer_id) · 주소 = **크레딧 노트 PDF 와 같은 규칙**(인보이스 크레딧 = 그 인보이스 bill_to + 첫 오더 ship_to · 참조 크레딧 = 청구처 기본 Billing + 매장 기본 Shipping · 962) · BillEmail = `doc_mail_recipient(customer_id)` · PrivateNote = 「Credit for invoice <번호> · Customer Reference: <refs>」 · CustomerMemo = 같은 글 + 「, <매장>」
+  - 줄 = so_credit_line 순(**콤보 구성품 줄 0 원은 보내지 않는다**) · product · price_adjustment → Item 짝 · surcharge · order_discount · freight · freight_discount → 그 인보이스 줄의 charge 짝 · **other · restocking_fee → `acct:<account_code>` 사람 짝**(961 · 951 꼴 · 없으면 failed 「link account item …」 · Settings → QuickBooks matching 의 「Freight, discount & account lines」 — set v15) · tax 줄(옛 행) → 예외 · TaxLine 은 인보이스 꼴
+  - **960** — 크레딧은 자기 IMS 인보이스가 QBO 에 간 뒤에: 인보이스 일감 없음 → failed 「Invoice N has no QuickBooks job — send the invoice first」 · skipped → failed 「… was skipped — skip this credit note too, or retry the invoice first」 · 열린 일감 → 그 일감에 blocked · sent → 간다 · **since 전 · 이월 인보이스(Cin7 시절) · 인보이스 없는 크레딧은 기다리지 않는다**
+  - `qbo_credit_void_body` — 보낸 적 없음 · 이미 void 면 예외 · **963 CreditMemo void 가 QBO 에서 거부되면 failed — 사람이 QBO 에서**
+- **트리거 둘** `so_credit_qbo_job` · `so_credit_qbo_cancel`(인보이스 꼴) · **채우기 `qbo_credit_backfill()`**(965 · since 2026-11-02 이후 발행 · 일감 없는 크레딧 · 적용 때 한 번 · 11-02 채운 수 0)
+- **964** — 2c 는 CreditMemo 만 · 인보이스에 붙이기(apply) · 환불은 결제 차수
+- 짝 열쇠 961 = `qbo_ims_rows('charge')` 의 acct: 행에 크레딧 줄 계정을 더함 · done(credit → qbo_txn CreditMemo + 942 대조) · EF SEND_KINDS 6 · creditmemo POST · void · DocNumber 멱등 · 검증 22 · deno 21
+- ⚠️ 적용 순서 한 덩이: 마이그레이션 → repair → EF 배포(트리거가 먼저 서고 EF 가 옛 SEND_KINDS 면 빈 claim)
+- **리스탁킹 피**(cr-ref-fee-1 · 11-02): 서버는 참조 크레딧의 restocking_fee 를 이미 받는다(수리 없음 · 실측) · 화면 cr v7(asung-ims `0c2a6c0` · 이력(참조) 크레딧 창 Charge a fee · % · Fee account(REVENUE 만)) · **계정은 북키퍼가 새로 정한다** → QBO 계정 + Item → pull → Id → `supabase/ops/restock-fee-account.sql`(ref_account `_<QBO Id>_` · 설정 키 · qbo_link auto_code · 검산 4 · dry-run 기본 · `859d72b`)
+
+### 14-d 북키퍼가 골라 보낸다 — qbo-sync-2d1 · qs v1 (2026-11-02 · `c0cf4c0` · `20261102150000` · asung-ims `3659dbd` · 판정 971)
+
+- **971 (나)** — 처음에는 **북키퍼가 문서마다 확인하고 보낸다**(한 장씩 Preview → Send · Send selected) · `qbo_send_enabled` off 그대로 · 켜는 시점은 나중에 Caleb
+- **claim(p_limit, p_kinds, p_job_ids uuid[] default null)** — 고른 id 만(≤ 200) · 만든 need 일감을 `need_jobs` 로(손님 need 우선) · `requested[]` = id 마다 결과(not_found · not_queued · wrong_kind · not_due · locked · claimed · blocked · failed) · 옛 EF 두 인자 호출 그대로 돈다
+- **`qbo_job_preview(p_job)`**(열쇠 qbo 또는 qbo:read) — 몸 함수 여섯을 kind 로 부르고 예외를 잡는다 · **need 일감을 만들지 않는다** · needs · wait(960) · blocked_by · error · sendable · QBO 호출 0
+- **`qbo_job_list(p_state, p_kinds, p_from, p_to, p_q, p_limit, p_offset)`** — 날짜 = 일감 created_at 의 토론토 날짜 · 문서 번호 · 이름 · 통화 · 총액 · 문서 날짜 · 상태 · 막은 부모 · 정렬 unknown → failed → sending → queued(오래된 것 먼저) → blocked → 그 밖(최신) · ≤ 200 · 속 함수 `qbo_job_doc`
+- **`qbo_job_retry`** — **skipped 도** 받는다(note 필수 · 문서가 issued(void 는 cancelled)일 때만 · 같은 열쇠 열린 일감 있으면 거부)
+- **EF send `{job_ids}`** — 한도 10 · 바퀴 최대 5 · 동시 5 · 30 s · 옛 `{limit}` 그대로 · 검증 18 · deno 22 · EF 50 kB
+- **화면** Sales → **QuickBooks**(`qbo-send.html` · nav v14 · 열쇠 qbo · 보기 qbo:read) — 목록(상태 · 종류 · 날짜 · 찾기 · 쪽) · Preview(QBO 에 갈 몸 · 먼저 만들 손님 · Item · 막힌 이유) · Send · Send selected(10 장씩) · Retry · Skip(메모 필수)
+
+### 14-e 첫 실물 · 운영 (2026-11-02 · 「11-02 실측(대화)」)
+
+- **첫 인보이스 60000 → QBO 172335** — sent · mismatch 0 · 손님 · 줄 · 세금 · 주소 · 메모를 Caleb 이 QBO 화면에서 확인 ⇒ 14-b 의 짐작(TxnTaxDetail) 풀림
+- **60001 미리 보기**: Item CB-CVT18157 짝 없음 → 보낼 때 먼저 만든다(937 · need 일감)
+- 실측 1 장 = Intuit 호출 2 번 · 3.52 s
+- **Cin7 ↔ QBO 연결을 Caleb 이 끔**(deferred 375 닫힘) · 북키퍼에게 알림
+- Intuit 알림 문구(⑤ · 크레딧 · 북키퍼 확인 · CreditMemo void 포함)는 대화 Claude 가 고침 — **보냈는지는 Caleb 확인**(deferred 374 열림)
