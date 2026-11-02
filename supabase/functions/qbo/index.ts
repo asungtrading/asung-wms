@@ -15,6 +15,7 @@
 //   qbo-sync-1b(2026-11-01 · 판정 934 · DB qbo-sync-1a 20261101210000): POST {action:"pull", entity, start?}(admin 만 · cron 길 없음) — QBO 목록 한 쪽(1000 행)을 qbo_entity 에(종류 7 · Customer · Vendor 는 연락처 칸 없이 · TaxCode 는 Active 조건 없이)
 //     start 없거나 1 = 새 run(qbo_pull_begin) → GET …/query → qbo_entity_upsert → 받은 수 < 1000 이면 qbo_pull_finish(gone_at) · 창구는 사용자 JWT(rpcUser) · 응답 { received_now, received, pages, next_start, done, gone } · 부르는 쪽이 next_start 로 돈다
 //   qbo-sync-2a′ · 2b2(2026-11-01 · 판정 935 ~ 951): POST {action:"send", limit?}(열쇠 qbo · 또는 cron ims-qbo-send 의 x-ims-cron-key) — 일감 claim(customer · item · invoice · invoice_void) → Intuit 쓰기(POST customer · item · invoice · invoice?operation=void · requestid · 재시도 없음) → done · fail · unknown · 흐름은 _shared/qbo.ts send
+//   qbo-sync-2c1(2026-11-02 · 판정 959 ~ 966 · 968 · DB 20261102130000): send 가 credit · credit_void 도 나른다(SEND_KINDS 6) — POST creditmemo · creditmemo?operation=void · DocNumber 멱등은 from CreditMemo · 흐름은 _shared/qbo.ts(인보이스 길과 같은 꼴 · 엔티티 열쇠만 다름)
 //   ⚠️ 비밀: QBO_ENV · QBO_CLIENT_ID_<SANDBOX|PRODUCTION> · QBO_CLIENT_SECRET_<…> · IMS_CRON_SECRET(기존) — 값은 응답 · 기록 · 오류 · console 어디에도 안 남는다(scrub)
 //   배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
 // ============================================================

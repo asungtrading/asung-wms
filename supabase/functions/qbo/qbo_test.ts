@@ -16,7 +16,7 @@ const SB = "https://fazgmyvzzhqybtvtktyg.supabase.co";
 const DISC = { issuer: "https://oauth.platform.intuit.com/op/v1", authorization_endpoint: "https://appcenter.intuit.com/connect/oauth2", token_endpoint: "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", revocation_endpoint: "https://developer.api.intuit.com/v2/oauth2/tokens/revoke" };
 type Hit = { url: string; method: string; body: string; auth: string | null };
 type Created = { ent: string; id: string; name: string; sku: string | null; requestid: string | null };
-type Inv = { Id: string; DocNumber: string; SyncToken: number; TotalAmt: number; TotalTax: number; voided: boolean; CustomerRef: unknown };
+type Inv = { Id: string; DocNumber: string; SyncToken: number; TotalAmt: number; TotalTax: number; voided: boolean; CustomerRef: unknown; ent?: "Invoice" | "CreditMemo" };   // 2c1: ent 없으면 Invoice · 가짜 장부 하나에 둘 다
 type Intuit = { hits: Hit[]; tokenN: number; override: ((h: Hit) => Response | Error | null)[]; dupNames: Set<string>; createdN: number; created: Created[]; invoices: Map<string, Inv>; dupDoc: Set<string>; voidRefuse: Set<string>; taxOverride: Map<string, number> };   // 2b2: invoices = 가짜 장부(Id → 인보이스) · dupDoc 는 6140 · voidRefuse 는 void 400 · taxOverride 는 QBO 가 세금을 다르게 셈한 꼴(mismatch)   // 2a′: 가짜 쓰기 — dupNames 에 있으면 6240 · created 에 쌓인다(이름 조회가 찾는다)
 const jres = (status: number, body: unknown, tid = "tid-" + status) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", intuit_tid: tid } });
 function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
@@ -34,28 +34,30 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
     }
     if (url === DISC.revocation_endpoint) return jres(200, {}, "tid-rev");
     if (url.includes("/companyinfo/")) return jres(200, { CompanyInfo: { CompanyName: "Sandbox Company CA 9bca", Id: "1", SyncToken: "4", Email: { Address: "owner-ZZPII@example.invalid" } } }, "tid-ci");
-    if (h.method === "POST" && /\/v3\/company\/[^/]+\/invoice\/?\?/.test(url)) {                        // 2b2 가짜 인보이스 — 만들기 · void(operation=void · SyncToken 대조 · 거부)
+    if (h.method === "POST" && /\/v3\/company\/[^/]+\/(invoice|creditmemo)\/?\?/.test(url)) {           // 2b2 가짜 인보이스 · [2c1 creditmemo] — 만들기 · void(operation=void · SyncToken 대조 · 거부)
+      const key: "Invoice" | "CreditMemo" = /\/creditmemo\/?\?/.test(url) ? "CreditMemo" : "Invoice";
       const b = JSON.parse(h.body || "{}") as Record<string, unknown>, op = new URL(url).searchParams.get("operation");
       if (op === "void") {
         const v = it.invoices.get(String(b.Id ?? ""));
-        if (!v) return jres(400, { Fault: { Error: [{ Message: "Object Not Found", Detail: "Object Not Found : Something you're trying to use has been made inactive.", code: "610" }], type: "ValidationFault" } }, "tid-610");
+        if (!v || (v.ent ?? "Invoice") !== key) return jres(400, { Fault: { Error: [{ Message: "Object Not Found", Detail: "Object Not Found : Something you're trying to use has been made inactive.", code: "610" }], type: "ValidationFault" } }, "tid-610");
         if (it.voidRefuse.has(v.Id)) return jres(400, { Fault: { Error: [{ Message: "Business Validation Error", Detail: "You cannot void an invoice that has payments applied", code: "6000" }], type: "ValidationFault" } }, "tid-6000");
         if (String(b.SyncToken) !== String(v.SyncToken)) return jres(400, { Fault: { Error: [{ Message: "Stale Object Error", Detail: "Stale Object Error : You and someone else were working on this at the same time.", code: "5010" }], type: "ValidationFault" } }, "tid-5010");
         v.SyncToken++; v.TotalAmt = 0; v.TotalTax = 0; v.voided = true;
-        return jres(200, { Invoice: invRow(v), time: "2026-11-02T12:00:00Z" }, "tid-void-" + v.Id);
+        return jres(200, { [key]: invRow(v), time: "2026-11-02T12:00:00Z" }, "tid-void-" + v.Id);
       }
       const doc = String(b.DocNumber ?? "");
-      if (it.dupDoc.has(doc) || [...it.invoices.values()].some((v) => v.DocNumber === doc)) return jres(400, { Fault: { Error: [{ Message: "Duplicate Document Number Error", Detail: "Duplicate Document Number Error : You must specify a different number. This number has already been used.", code: "6140", element: "" }], type: "ValidationFault" } }, "tid-6140");
+      if (it.dupDoc.has(doc) || [...it.invoices.values()].some((v) => v.DocNumber === doc && (v.ent ?? "Invoice") === key)) return jres(400, { Fault: { Error: [{ Message: "Duplicate Document Number Error", Detail: "Duplicate Document Number Error : You must specify a different number. This number has already been used.", code: "6140", element: "" }], type: "ValidationFault" } }, "tid-6140");
       const lines = Array.isArray(b.Line) ? b.Line as Record<string, unknown>[] : [], sub = lines.reduce((a, l) => a + Number(l.Amount ?? 0), 0);
       const tax = it.taxOverride.get(doc) ?? Number(((b.TxnTaxDetail ?? {}) as Record<string, unknown>).TotalTax ?? 0);
       const id = String(5000 + (++it.createdN));
-      const v: Inv = { Id: id, DocNumber: doc, SyncToken: 0, TotalAmt: Math.round((sub + tax) * 100) / 100, TotalTax: tax, voided: false, CustomerRef: b.CustomerRef };
+      const v: Inv = { Id: id, DocNumber: doc, SyncToken: 0, TotalAmt: Math.round((sub + tax) * 100) / 100, TotalTax: tax, voided: false, CustomerRef: b.CustomerRef, ent: key };
       it.invoices.set(id, v);
-      return jres(200, { Invoice: invRow(v), time: "2026-11-02T12:00:00Z" }, "tid-post-" + id);
+      return jres(200, { [key]: invRow(v), time: "2026-11-02T12:00:00Z" }, "tid-post-" + id);
     }
-    if (h.method === "GET" && /\/v3\/company\/[^/]+\/invoice\/[^/?]+\?/.test(url)) {                     // 2b2 인보이스 읽기
-      const id = (/\/invoice\/([^/?]+)\?/.exec(url) ?? [])[1] ?? "", v = it.invoices.get(id);
-      return v ? jres(200, { Invoice: invRow(v), time: "2026-11-02T12:00:00Z" }, "tid-inv-" + id) : jres(404, { Fault: { Error: [{ Message: "Object Not Found", code: "610" }], type: "ValidationFault" } }, "tid-404");
+    if (h.method === "GET" && /\/v3\/company\/[^/]+\/(invoice|creditmemo)\/[^/?]+\?/.test(url)) {        // 2b2 인보이스 읽기 · [2c1 creditmemo]
+      const key: "Invoice" | "CreditMemo" = /\/creditmemo\//.test(url) ? "CreditMemo" : "Invoice";
+      const id = (/\/(?:invoice|creditmemo)\/([^/?]+)\?/.exec(url) ?? [])[1] ?? "", v = it.invoices.get(id);
+      return v && (v.ent ?? "Invoice") === key ? jres(200, { [key]: invRow(v), time: "2026-11-02T12:00:00Z" }, "tid-inv-" + id) : jres(404, { Fault: { Error: [{ Message: "Object Not Found", code: "610" }], type: "ValidationFault" } }, "tid-404");
     }
     if (h.method === "POST" && /\/v3\/company\/[^/]+\/(customer|item)\/?\?/.test(url)) {                 // 2a′ 가짜 쓰기 — Intuit 실물 꼴: 2xx 몸 = { Customer | Item: {...Id, SyncToken} } · 중복 이름 400 Fault 6240
       const ent = (/\/(customer|item)\/?\?/.exec(url) ?? [])[1] ?? "", b = JSON.parse(h.body || "{}") as Record<string, unknown>, name = String(ent === "customer" ? b.DisplayName : b.Name);
@@ -72,7 +74,7 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
       const entity = QUERY_ENTITIES.find((e) => e.toLowerCase() === ent.toLowerCase()) ?? ent;
       if (/^select\s+count\s*\(\s*\*\s*\)/i.test(q)) return jres(200, { QueryResponse: { totalCount: 1234 }, time: "2026-11-01T12:00:00Z" }, "tid-count");
       const byDoc = /\bwhere\s+DocNumber\s*=\s*'((?:[^']|'')*)'/i.exec(q);                                      // 2b2 DocNumber 조회 — 가짜 장부에서
-      if (byDoc) { const dn = byDoc[1].replace(/''/g, "'"); const rows = [...it.invoices.values()].filter((v) => v.DocNumber === dn).map((v) => ({ Id: v.Id, DocNumber: v.DocNumber, SyncToken: String(v.SyncToken), TotalAmt: v.TotalAmt })); return jres(200, { QueryResponse: rows.length ? { Invoice: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-02T12:00:00Z" }, "tid-bydoc"); }
+      if (byDoc) { const dn = byDoc[1].replace(/''/g, "'"); const rows = [...it.invoices.values()].filter((v) => v.DocNumber === dn && (v.ent ?? "Invoice") === entity).map((v) => ({ Id: v.Id, DocNumber: v.DocNumber, SyncToken: String(v.SyncToken), TotalAmt: v.TotalAmt })); return jres(200, { QueryResponse: rows.length ? { [entity]: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-02T12:00:00Z" }, "tid-bydoc"); }   // 2c1: from Invoice | CreditMemo 로 가른다
       const byName = /\bwhere\s+(DisplayName|Name)\s*=\s*'((?:[^']|'')*)'/i.exec(q);                      // 2a′ unknown 풀기 — 가짜 쓰기가 하나라도 있었으면 created 에서 그 이름(따옴표 둘 → 하나) · 없으면 옛 시험의 기본 3 행
       if (byName && it.created.length > 0) { const nm = byName[2].replace(/''/g, "'"); const rows = it.created.filter((c) => c.ent === (entity === "Customer" ? "customer" : "item") && c.name === nm).map((c) => entity === "Customer" ? { Id: c.id, DisplayName: c.name, SyncToken: "0" } : { Id: c.id, Name: c.name, Sku: c.sku, SyncToken: "0" }); return jres(200, { QueryResponse: rows.length ? { [entity]: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-01T12:00:00Z" }, "tid-byname"); }
       const max = Number((/\bmaxresults\s+(\d+)/i.exec(q) ?? [])[1] ?? 0), start = Number((/\bstartposition\s+(\d+)/i.exec(q) ?? [])[1] ?? 1);
@@ -214,15 +216,16 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
         if (!["sending", "unknown"].includes(j!.state)) refuse(`Only a job being sent, or one whose result is unknown, can be finished (this one is ${j!.state}) — nothing was saved`);
         if (!args.p_qbo_id || !args.p_qbo_name) refuse("qbo_id and qbo_name are required — nothing was saved");
         j!.state = "sent"; j!.sent_at = clock(); j!.claimed_at = null; j!.qbo_id = String(args.p_qbo_id); j!.qbo_name = String(args.p_qbo_name); if (args.p_note) { j!.attempts++; j!.last_error = (j!.last_error ? j!.last_error + " · " : "") + String(args.p_note); }
-        if (j!.kind === "invoice") {                                                                 // 2b1 invoice → qbo_txn + 942 대조(mismatch · 상태는 sent)
+        if (j!.kind === "invoice" || j!.kind === "credit") {                                         // 2b1 invoice → qbo_txn + 942 대조(mismatch · 상태는 sent) · [2c1 credit 도]
           const ta = typeof args.p_total_amt === "number" ? args.p_total_amt : null, tx = typeof args.p_total_tax === "number" ? args.p_total_tax : null, t = j!.totals ?? { total: 0, tax: 0 };
-          const mismatch = ta === null || tx === null ? `QuickBooks did not return TotalAmt / TotalTax — check invoice ${j!.doc_number} in QuickBooks` : (ta !== t.total || tx !== t.tax) ? `QuickBooks total ${ta} / tax ${tx} differs from IMS ${t.total} / ${t.tax} — check invoice ${j!.doc_number} in QuickBooks (942)` : null;
-          if ([...db.txns.entries()].some(([k, v]) => v.qbo_id === j!.qbo_id && k !== j!.ims_id)) { j!.state = "failed"; j!.sent_at = null; return { job_id: j!.id, kind: j!.kind, state: "failed", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: false, link_error: `QuickBooks Invoice #${j!.qbo_id} is already recorded for another IMS invoice — check both in QuickBooks and fix by hand`, unblocked: 0, mismatch }; }
+          const word = j!.kind === "credit" ? "credit note" : "invoice", qtype = j!.kind === "credit" ? "CreditMemo" : "Invoice";
+          const mismatch = ta === null || tx === null ? `QuickBooks did not return TotalAmt / TotalTax — check ${word} ${j!.doc_number} in QuickBooks` : (ta !== t.total || tx !== t.tax) ? `QuickBooks total ${ta} / tax ${tx} differs from IMS ${t.total} / ${t.tax} — check ${word} ${j!.doc_number} in QuickBooks (942)` : null;
+          if ([...db.txns.entries()].some(([k, v]) => v.qbo_id === j!.qbo_id && k !== j!.ims_id)) { j!.state = "failed"; j!.sent_at = null; return { job_id: j!.id, kind: j!.kind, state: "failed", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: false, link_error: `QuickBooks ${qtype} #${j!.qbo_id} is already recorded for another IMS invoice — check both in QuickBooks and fix by hand`, unblocked: 0, mismatch }; }
           db.txns.set(j!.ims_id, { qbo_id: j!.qbo_id, doc_number: j!.qbo_name, sync_token: typeof args.p_sync_token === "string" ? args.p_sync_token : null, total_amt: ta, total_tax: tx, mismatch, voided_at: null });
           if (mismatch) j!.warning = (j!.warning ? j!.warning + " · " : "") + mismatch;
           return { job_id: j!.id, kind: j!.kind, state: "sent", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: true, link_error: null, unblocked: 0, mismatch };
         }
-        if (j!.kind === "invoice_void") {                                                            // 2b1 void → qbo_txn.voided_at
+        if (j!.kind === "invoice_void" || j!.kind === "credit_void") {                               // 2b1 void → qbo_txn.voided_at · [2c1 credit_void 도]
           const t = db.txns.get(j!.ims_id);
           if (!t) { j!.state = "failed"; j!.sent_at = null; return { job_id: j!.id, kind: j!.kind, state: "failed", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: false, link_error: "voided in QuickBooks but IMS has no sent invoice on file to mark — check qbo_txn by hand", unblocked: 0, mismatch: null }; }
           t.voided_at = clock(); if (typeof args.p_sync_token === "string") t.sync_token = args.p_sync_token;
@@ -922,6 +925,7 @@ function addJob(w: World, o: Partial<Job> & { kind: string }): Job {
       : { Name: o.name ?? "Item " + n, Sku: o.sku ?? "SKU-" + n, Type: "Service", Taxable: true, IncomeAccountRef: { value: "98" }, ExpenseAccountRef: { value: "58" } }),
     qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null, doc_number: o.doc_number ?? null, totals: o.totals ?? null, warning: null };
   if (o.kind === "invoice" || o.kind === "invoice_void") { j.ims_kind = "invoice"; }
+  if (o.kind === "credit" || o.kind === "credit_void") { j.ims_kind = "credit"; }                       // 2c1
   w.db.jobs.set(j.id, j);
   return j;
 }
@@ -930,8 +934,8 @@ function writesAllowedOnly(w: World, where: string) {
   for (const h of apiHits(w)) {
     if (h.method === "GET") continue;
     const u = new URL(h.url);
-    const ent = (/\/v3\/company\/[^/]+\/(customer|item|invoice)\/?$/.exec(u.pathname) ?? [])[1] ?? null, op = u.searchParams.get("operation");
-    ok(h.method === "POST" && ent !== null && !!u.searchParams.get("requestid") && (op === null || (op === "void" && ent === "invoice")), where + ": unexpected write to Intuit: " + h.method + " " + h.url);   // 2b2: invoice · invoice?operation=void 도 허용 꼴
+    const ent = (/\/v3\/company\/[^/]+\/(customer|item|invoice|creditmemo)\/?$/.exec(u.pathname) ?? [])[1] ?? null, op = u.searchParams.get("operation");
+    ok(h.method === "POST" && ent !== null && !!u.searchParams.get("requestid") && (op === null || (op === "void" && (ent === "invoice" || ent === "creditmemo"))), where + ": unexpected write to Intuit: " + h.method + " " + h.url);   // 2b2: invoice · invoice?operation=void 도 허용 꼴 · [2c1 creditmemo]
   }
 }
 const send = (w: World, jwt: string | null = "JWT-ADMIN", extra: Record<string, unknown> = {}) => postBody(w, { action: "send", ...extra }, jwt);
@@ -1067,8 +1071,8 @@ const voidPosts = (w: World) => invoicePosts(w).filter((h) => new URL(h.url).sea
 const docQueries = (w: World) => queryHits(w).filter((h) => /DocNumber\s*=/.test(sentQuery(h) ?? ""));
 const invReads = (w: World) => apiHits(w).filter((h) => h.method === "GET" && /\/invoice\/\d+\?/.test(h.url));
 
-Deno.test("⑱ invoice send(qbo-sync-2b2) — 순수(SEND_KINDS 4 · CRON_ACTIONS refresh · send · 6140 · 6210 · 5010 · invoiceTotals · PULL_FIELDS.TaxCode 에 SalesTaxRateList · assertWriteAllowed invoice?operation=void) · claim 에 p_kinds 4 · DocNumber 멱등 조회 → POST invoice(몸 그대로 · requestid · TxnTaxDetail) → done(TotalAmt · TotalTax · DocNumber) · 합계 다르면 sent + mismatch · 이미 있으면 안 만들고 읽어서 done + note · 6140 → 다시 찾아서 done · 6140 인데 못 찾으면 failed · 다른 4xx failed · 5xx · 끊김 → unknown(DocNumber) → 다음 send 가 DocNumber 로 풀기(found → 읽어서 합계 · not_found) · 기록에 주소 · 이메일 0 · 쓰기는 허용 꼴만", async () => {
-  eq([...SEND_KINDS], ["customer", "item", "invoice", "invoice_void"], "SEND_KINDS");
+Deno.test("⑱ invoice send(qbo-sync-2b2) — 순수(SEND_KINDS 6(2c1) · CRON_ACTIONS refresh · send · 6140 · 6210 · 5010 · invoiceTotals · PULL_FIELDS.TaxCode 에 SalesTaxRateList · assertWriteAllowed invoice?operation=void) · claim 에 p_kinds 6 · DocNumber 멱등 조회 → POST invoice(몸 그대로 · requestid · TxnTaxDetail) → done(TotalAmt · TotalTax · DocNumber) · 합계 다르면 sent + mismatch · 이미 있으면 안 만들고 읽어서 done + note · 6140 → 다시 찾아서 done · 6140 인데 못 찾으면 failed · 다른 4xx failed · 5xx · 끊김 → unknown(DocNumber) → 다음 send 가 DocNumber 로 풀기(found → 읽어서 합계 · not_found) · 기록에 주소 · 이메일 0 · 쓰기는 허용 꼴만", async () => {
+  eq([...SEND_KINDS], ["customer", "item", "invoice", "invoice_void", "credit", "credit_void"], "SEND_KINDS (2c1: + credit · credit_void)");
   eq([...CRON_ACTIONS], ["refresh", "send"], "cron may send");
   eq([[...DUPLICATE_DOCNUMBER_CODES], STALE_OBJECT_CODE], [["6140", "6210"], "5010"], "fault codes");
   eq(invoiceTotals({ TotalAmt: 93.3, TxnTaxDetail: { TotalTax: 10.74 } }), { total_amt: 93.3, total_tax: 10.74 }, "totals from the Intuit row");
@@ -1079,7 +1083,7 @@ Deno.test("⑱ invoice send(qbo-sync-2b2) — 순수(SEND_KINDS 4 · CRON_ACTION
   // 1) 보통 한 장 — 멱등 조회 1(0 행) → POST 1 → done(합계 같음 · mismatch null)
   const j1 = addInv(w, "60001");
   const b1 = await body(await send(w, "JWT-MGR"));
-  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length, w.db.claimKinds.at(-1)], [1, 1, 0, 0, 0, 4, ["customer", "item", "invoice", "invoice_void"]], "claim with four kinds · one invoice sent: " + JSON.stringify(b1.jobs));
+  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length, w.db.claimKinds.at(-1)], [1, 1, 0, 0, 0, 6, ["customer", "item", "invoice", "invoice_void", "credit", "credit_void"]], "claim with six kinds · one invoice sent: " + JSON.stringify(b1.jobs));
   eq([docQueries(w).length, invoicePosts(w).length, invReads(w).length], [1, 1, 0], "one DocNumber check · one POST · no read");
   const p1 = invoicePosts(w)[0], u1 = new URL(p1.url);
   eq([u1.pathname.endsWith("/invoice"), u1.searchParams.get("requestid"), u1.searchParams.get("operation"), u1.searchParams.get("minorversion")], [true, j1.request_id, null, "75"], "POST invoice with the job request_id · no operation");
@@ -1199,4 +1203,99 @@ Deno.test("⑲ void(qbo-sync-2b2) — POST invoice?operation=void {Id, SyncToken
   eq((await postBody(w, { action: "send" }, null, { "x-ims-cron-key": "wrong" })).status, 401, "wrong cron key → 401");
   writesAllowedOnly(w, "⑲"); noLeak(w, "⑲");
   ok(!JSON.stringify({ logs: w.logs, warns: w.warns }).includes("ZZPII"), "no PII in logs");
+});
+
+// ── qbo-sync-2c1 — 크레딧 노트 시험 장치: 크레딧 일감(몸은 DB qbo_credit_body 꼴 · DocNumber CR-…) · void 일감 · 같은 가짜 장부(ent CreditMemo) ──
+const crBody = (doc: string, cust = "7190"): Record<string, unknown> => ({ DocNumber: doc, TxnDate: "2026-11-02", CustomerRef: { value: cust }, CurrencyRef: { value: "CAD" },
+  BillAddr: { Line1: "Regina ZZPII", Line2: "1 ZZPII St", City: "Toronto", CountrySubDivisionCode: "ON", PostalCode: "M1M 1M1", Country: "Canada" }, ShipAddr: { Line1: "ZZPII", Line2: "8 Ship Rd", Country: "Canada" }, BillEmail: { Address: "ap-ZZPII@example.invalid" },
+  PrivateNote: "Credit for invoice 60001 · Customer Reference: PO-1", CustomerMemo: { value: "Credit for invoice 60001 · Customer Reference: PO-1, Regina ZZPII" }, GlobalTaxCalculation: "TaxExcluded",
+  Line: [{ DetailType: "SalesItemLineDetail", LineNum: 1, Amount: 5, Description: "Widget", SalesItemLineDetail: { ItemRef: { value: "12829" }, Qty: 1, UnitPrice: 5, TaxCodeRef: { value: "6" } } },
+         { DetailType: "SalesItemLineDetail", LineNum: 2, Amount: 2, Description: "Freight", SalesItemLineDetail: { ItemRef: { value: "4" }, Qty: 1, UnitPrice: 2, TaxCodeRef: { value: "6" } } }],
+  TxnTaxDetail: { TotalTax: 0.91, TaxLine: [{ DetailType: "TaxLineDetail", Amount: 0.91, TaxLineDetail: { TaxRateRef: { value: "12" }, PercentBased: true, TaxPercent: 13, NetAmountTaxable: 7 } }] } });
+const addCr = (w: World, doc: string, extra: Partial<Job> = {}) => addJob(w, { kind: "credit", ims_id: "cr-" + doc, name: doc, doc_number: doc, totals: { total: 7.91, tax: 0.91 }, body: crBody(doc), ...extra });
+const addCrVoid = (w: World, doc: string, id: string | null, syncToken: string | null) => addJob(w, { kind: "credit_void", ims_id: "cr-" + doc, name: doc, doc_number: doc, body: id ? (syncToken !== null ? { Id: id, SyncToken: syncToken } : { Id: id }) : {} });
+const cmPosts = (w: World) => postHits(w).filter((h) => /\/creditmemo\/?\?/.test(h.url));
+const cmVoidPosts = (w: World) => cmPosts(w).filter((h) => new URL(h.url).searchParams.get("operation") === "void");
+const cmReads = (w: World) => apiHits(w).filter((h) => h.method === "GET" && /\/creditmemo\/\d+\?/.test(h.url));
+const cmDocQueries = (w: World) => queryHits(w).filter((h) => /from\s+CreditMemo\s+where\s+DocNumber\s*=/i.test(sentQuery(h) ?? ""));
+
+Deno.test("⑳ credit memo send · void(qbo-sync-2c1 · 판정 963) — POST creditmemo(몸은 DB qbo_credit_body 그대로 · DueDate 없음) · DocNumber 조회 from CreditMemo(같은 번호의 Invoice 는 세지 않는다) · 2xx done(TotalAmt · TotalTax → 942) · 이미 있으면 읽어서 done · 6140 → 다시 찾아 짝 · 5xx unknown → 다음 send 가 CreditMemo 로 풀기 · void: POST creditmemo?operation=void · SyncToken 없으면 GET creditmemo/<id> · 거부 → failed(장부 그대로) · 5xx → unknown → not_voided → 0 이면 done · writesAllowedOnly 에 creditmemo", async () => {
+  const w = world(); connect(w); w.db.keys["JWT-MGR"] = "qbo";
+  // 1) 보통 한 장 — CreditMemo DocNumber 조회 1(0 행) → POST creditmemo 1 → done(합계 같음)
+  const c1 = addCr(w, "CR-01000");
+  const b1 = await body(await send(w, "JWT-MGR"));
+  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length], [1, 1, 0, 0, 0, 6], "one credit memo sent: " + JSON.stringify(b1.jobs));
+  eq([cmDocQueries(w).length, cmPosts(w).length, cmReads(w).length, invoicePosts(w).length], [1, 1, 0, 0], "one CreditMemo DocNumber check · one POST creditmemo · no read · no invoice write");
+  const p1 = cmPosts(w)[0], u1 = new URL(p1.url);
+  eq([u1.pathname.endsWith("/creditmemo"), u1.searchParams.get("requestid"), u1.searchParams.get("operation")], [true, c1.request_id, null], "POST creditmemo with the job request_id · no operation");
+  eq(JSON.parse(p1.body), crBody("CR-01000"), "body sent as the DB built it (no DueDate · SalesTermRef · ShipDate)");
+  ok(!("DueDate" in JSON.parse(p1.body)) && !("SalesTermRef" in JSON.parse(p1.body)), "credit memo body carries no DueDate · SalesTermRef");
+  eq(sentQuery(cmDocQueries(w)[0]) ?? "", "select Id, DocNumber, SyncToken, TotalAmt from CreditMemo where DocNumber = 'CR-01000' MAXRESULTS 100", "DocNumber check query shape (CreditMemo · no PII fields)");
+  const t1 = w.db.txns.get("cr-CR-01000")!;
+  eq([c1.state, c1.qbo_id, c1.qbo_name, t1.qbo_id, t1.doc_number, t1.sync_token, t1.total_amt, t1.total_tax, t1.mismatch, w.it.invoices.get("5001")!.ent], ["sent", "5001", "CR-01000", "5001", "CR-01000", "0", 7.91, 0.91, null, "CreditMemo"], "done with DocNumber · totals · ledger row is a CreditMemo");
+  const sl = w.logs.filter((l) => l.action === "send");
+  eq([sl.length, sl[0].detail?.job_id, sl[0].detail?.qbo_id, "doc_number" in (sl[0].detail ?? {}), JSON.stringify(sl[0].detail).includes("ZZPII")], [1, c1.id, "5001", false, false], "write log detail = job · qbo id only");
+  // 2) 세금이 다르게 셈 → sent + mismatch(크레딧 글)
+  const c2 = addCr(w, "CR-01001"); w.it.taxOverride.set("CR-01001", 0.9);
+  const b2 = await body(await send(w, "JWT-MGR"));
+  const t2 = w.db.txns.get("cr-CR-01001")!;
+  eq([b2.sent, b2.mismatch, c2.state, t2.total_amt, t2.total_tax, (t2.mismatch ?? "").startsWith("QuickBooks total 7.9 / tax 0.9 differs from IMS 7.91 / 0.91 — check credit note CR-01001"), (c2.warning ?? "").includes("(942)")], [1, 1, "sent", 7.9, 0.9, true, true], "mismatch recorded · state sent: " + t2.mismatch);
+  // 3) 이미 QBO 에 있는 번호(Cin7 이 보낸 CreditMemo) → 만들지 않고 읽어서 done + note · 같은 번호의 Invoice 는 세지 않는다(CR-01003 은 Invoice 로만 있다 → 그대로 만든다)
+  w.it.invoices.set("4999", { Id: "4999", DocNumber: "CR-01002", SyncToken: 2, TotalAmt: 7.91, TotalTax: 0.91, voided: false, CustomerRef: { value: "7190" }, ent: "CreditMemo" });
+  w.it.invoices.set("4998", { Id: "4998", DocNumber: "CR-01003", SyncToken: 0, TotalAmt: 7.91, TotalTax: 0.91, voided: false, CustomerRef: null });
+  const c3 = addCr(w, "CR-01002"), c3b = addCr(w, "CR-01003"); const n3 = cmPosts(w).length;
+  const b3 = await body(await send(w, "JWT-MGR"));
+  eq([b3.sent, cmPosts(w).length - n3, cmReads(w).length, c3.state, c3.qbo_id, w.db.txns.get("cr-CR-01002")!.sync_token, (c3.last_error ?? "").includes("already in QuickBooks (DocNumber found before sending)"), c3b.state, c3b.qbo_id !== "4998"],
+     [2, 1, 1, "sent", "4999", "2", true, "sent", true], "found by number → read · recorded · Invoice with the same number ignored: " + JSON.stringify(b3.jobs));
+  // 4) 6140 — 우리 조회 뒤에 생겼다 → 다시 찾아서 done · 못 찾으면 failed(크레딧 낱말)
+  const c4 = addCr(w, "CR-01004");
+  let planted = false; w.it.override.push((h) => { if (h.method === "POST" && h.url.includes("/creditmemo") && h.body.includes("\"CR-01004\"") && !planted) { planted = true; w.it.invoices.set("4997", { Id: "4997", DocNumber: "CR-01004", SyncToken: 0, TotalAmt: 7.91, TotalTax: 0.91, voided: false, CustomerRef: null, ent: "CreditMemo" }); } return null; });
+  const b4 = await body(await send(w, "JWT-MGR")); w.it.override.length = 0;
+  eq([b4.sent, c4.state, c4.qbo_id, (c4.last_error ?? "").includes("duplicate DocNumber (6140) — the existing credit memo #4997")], [1, "sent", "4997", true], "6140 → second DocNumber check → recorded: " + c4.last_error);
+  const c4b = addCr(w, "CR-01005"); w.it.dupDoc.add("CR-01005");
+  const b4b = await body(await send(w, "JWT-MGR"));
+  eq([b4b.failed, c4b.state, (c4b.last_error ?? "").includes("code 6140"), (c4b.last_error ?? "").includes("and the credit memo could not be found by number afterwards")], [1, "failed", true, true], "6140 but nothing found → failed: " + c4b.last_error);
+  // 5) 5xx → unknown(DocNumber 를 남긴다) → 다음 send: CreditMemo 로 풀기(found · 합계) · 없으면 not_found(크레딧 글)
+  const c5 = addCr(w, "CR-01006"), c6 = addCr(w, "CR-01007");
+  w.it.override.push((h) => h.method === "POST" && h.url.includes("/creditmemo") && (h.body.includes("\"CR-01006\"") || h.body.includes("\"CR-01007\"")) ? jres(503, { Fault: { Error: [{ Message: "Service Unavailable", code: "3001" }], type: "SystemFault" } }, "tid-503") : null);
+  const b5 = await body(await send(w, "JWT-MGR")); w.it.override.length = 0;
+  eq([b5.unknown, c5.state, c5.qbo_name, c6.state], [2, "unknown", "CR-01006", "unknown"], "5xx → unknown with DocNumber");
+  w.it.invoices.set("4990", { Id: "4990", DocNumber: "CR-01006", SyncToken: 1, TotalAmt: 7.91, TotalTax: 0.91, voided: false, CustomerRef: null, ent: "CreditMemo" });
+  const b6 = await body(await send(w, "JWT-MGR"));
+  const res6 = b6.resolved as Record<string, unknown>[];
+  eq([res6.length, res6.map((x) => x.result).sort().join(","), c5.state, c5.qbo_id, w.db.txns.get("cr-CR-01006")!.total_amt, (c5.last_error ?? "").includes("found in QuickBooks by DocNumber"), c6.state, String(res6.find((x) => x.job_id === c6.id)?.message).includes("QuickBooks has no credit memo with that number")],
+     [2, "found,not_found", "sent", "4990", 7.91, true, "unknown", true], "unknown resolved by CreditMemo DocNumber: " + JSON.stringify(res6));
+  w.db.jobs.get(c6.id)!.state = "skipped";
+  // 6) void — Id · SyncToken 그대로 → POST creditmemo?operation=void · done(voided_at) · SyncToken 없으면 GET creditmemo/<id> · 5010 → -2 · 거부 → failed · 장부 그대로
+  const v1 = addCrVoid(w, "CR-01000", "5001", "0");
+  const b7 = await body(await send(w, "JWT-MGR"));
+  const vp = cmVoidPosts(w);
+  eq([b7.sent, vp.length, JSON.parse(vp[0].body), new URL(vp[0].url).searchParams.get("requestid"), v1.state, w.db.txns.get("cr-CR-01000")!.voided_at !== null, w.it.invoices.get("5001")!.voided, voidPosts(w).length], [1, 1, { Id: "5001", SyncToken: "0" }, v1.request_id, "sent", true, true, 0], "void credit memo: " + JSON.stringify(b7.jobs));
+  const v2 = addCrVoid(w, "CR-01001", "5002", null); const r0 = cmReads(w).length;
+  const b8 = await body(await send(w, "JWT-MGR"));
+  eq([b8.sent, cmReads(w).length - r0, v2.state, (v2.last_error ?? "").includes("SyncToken read from QuickBooks before voiding"), w.it.invoices.get("5002")!.voided], [1, 1, "sent", true, true], "read creditmemo first, then void");
+  w.it.invoices.get("4997")!.SyncToken = 3;
+  const v3 = addCrVoid(w, "CR-01004", "4997", "0"); const n9 = cmVoidPosts(w).length;
+  const b9 = await body(await send(w, "JWT-MGR"));
+  const p9 = cmVoidPosts(w).slice(n9);
+  eq([b9.sent, p9.length, JSON.parse(p9[1].body).SyncToken, new URL(p9[1].url).searchParams.get("requestid"), v3.state], [1, 2, "3", v3.request_id + "-2", "sent"], "stale → re-read → second try with -2");
+  w.it.voidRefuse.add("4999");
+  const v4 = addCrVoid(w, "CR-01002", "4999", "2");
+  const b10 = await body(await send(w, "JWT-MGR"));
+  eq([b10.failed, v4.state, (v4.last_error ?? "").includes("code 6000"), w.it.invoices.get("4999")!.voided, w.db.txns.get("cr-CR-01002")!.voided_at], [1, "failed", true, false, null], "refused void → failed · nothing deleted · txn not voided: " + v4.last_error);
+  // 7) void 5xx → unknown → 아직 금액 → not_voided · 0 이면 found → done
+  w.it.voidRefuse.delete("4999");
+  const v5 = addCrVoid(w, "CR-01002", "4999", "2"); w.db.jobs.get(v4.id)!.state = "skipped";
+  w.it.override.push((h) => h.method === "POST" && new URL(h.url).searchParams.get("operation") === "void" ? jres(502, {}, "tid-502") : null);
+  const b11 = await body(await send(w, "JWT-MGR")); w.it.override.length = 0;
+  eq([b11.unknown, v5.state, v5.qbo_name], [1, "unknown", "CR-01002"], "void 5xx → unknown with DocNumber");
+  const b12 = await body(await send(w, "JWT-MGR"));
+  eq([(b12.resolved as Record<string, unknown>[])[0].result, v5.state, String((b12.resolved as Record<string, unknown>[])[0].message).includes("credit memo still carries an amount")], ["not_voided", "unknown", true], "still carries an amount → not_voided");
+  const cm = w.it.invoices.get("4999")!; cm.TotalAmt = 0; cm.TotalTax = 0; cm.voided = true; cm.SyncToken = 3;
+  const b13 = await body(await send(w, "JWT-MGR"));
+  eq([(b13.resolved as Record<string, unknown>[])[0].result, v5.state, w.db.txns.get("cr-CR-01002")!.voided_at !== null, (v5.last_error ?? "").includes("credit memo is voided (amount 0)")], ["found", "sent", true, true], "amount 0 → voided → done");
+  writesAllowedOnly(w, "⑳"); noLeak(w, "⑳");
+  const allText = JSON.stringify({ logs: w.logs, warns: w.warns });
+  ok(!allText.includes("ZZPII"), "addresses · emails never reach call_log or warn");
+  ok(!allText.includes("Regina"), "customer name not in call_log");
 });
