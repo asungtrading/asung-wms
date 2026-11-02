@@ -295,3 +295,12 @@ Deno.test("⑱ mail-live-1(판정 617 · 947) — 시험 ref 라도 mail_live �
   const run = { run_id: "r", location_name: "Asung Trading Inc.", run_on: "2026-11-02", mails: 0, by_status: {}, skipped: {} };
   eq(chatText(run, [], [], testMode(CFG({ mail_live: true }), TEST_REF)), "Backorder mail — Toronto · 2026-11-02 — nothing to send.", "chat without [TEST]");
 });
+
+Deno.test("⑲ aone-bo-1(판정 948 ⑥) — Chat 요약에 aonebeauty.com 줄 수 한 줄: 0 · 없음이면 안 보임 · 보낸 날은 Sent 줄 뒤 · 0 통인 날은 nothing to send 뒤", () => {
+  const run = { run_id: "r", location_name: "Asung Trading Inc.", run_on: "2026-11-02", mails: 1, by_status: { sent: 1 }, skipped: {} };
+  const m = [{ status: "sent", customer_name: "Maple Store", lines: [{ so_number: "SO-1", sku: "A" }] }];
+  eq(chatText({ ...run, aone_lines: 2 }, m, [], false).split("\n"), ["Backorder mail — Toronto · 2026-11-02", "Sent 1 · Failed 0 · Unknown 0 · Cancelled 0", "aonebeauty.com: 2 backorder line(s) left out of the automatic run — staff send those by hand", "• Maple Store — SO-1: A"], "sent day with aone line");
+  eq(chatText({ ...run, aone_lines: 0 }, m, [], false).includes("aonebeauty"), false, "zero → no line");
+  eq(chatText(run, m, [], false).includes("aonebeauty"), false, "absent → no line");
+  eq(chatText({ ...run, mails: 0, by_status: {}, aone_lines: 3 }, [], [], false), "Backorder mail — Toronto · 2026-11-02 — nothing to send.\naonebeauty.com: 3 backorder line(s) left out of the automatic run — staff send those by hand", "nothing-to-send day with aone line");
+});

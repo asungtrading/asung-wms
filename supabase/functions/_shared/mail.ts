@@ -187,15 +187,16 @@ export function classify(o: Outcome): Mark {
 }
 
 // ── Chat 요약(판정 502 · 이메일 주소는 넣지 않는다) ──
-export type ChatRun = { run_id: string; location_name: string; run_on: string; mails: number; by_status: Record<string, number>; skipped: Record<string, number> };
+export type ChatRun = { run_id: string; location_name: string; run_on: string; mails: number; by_status: Record<string, number>; skipped: Record<string, number>; aone_lines?: number };   // aone_lines: aone-bo-1 판정 948 ⑥ — 자동에서 빠진 aonebeauty.com 줄 수(mail_run.params)
 export type ChatMail = { status: string; customer_name: string | null; lines: { so_number: string; sku: string }[] };
 const REASON_WORD: Record<string, string> = { no_email: "no email", bad_shape: "email not usable", paused: "alerts off", customer_inactive: "inactive customer" };
 export function chatText(run: ChatRun, mails: ChatMail[], skippedNames: { name: string; reason: string }[], test: boolean, max = 3500): string {
   const head = `${test ? "[TEST] " : ""}Backorder mail — ${isEdmonton(run.location_name) ? "Edmonton" : "Toronto"} · ${run.run_on}`;
   const sk = Object.entries(run.skipped).filter(([, n]) => n > 0).map(([r, n]) => `${REASON_WORD[r] ?? r} ${n}`).join(" · ");
-  if (!mails.length) return `${head} — nothing to send.${sk ? ` Not sent: ${sk}.` : ""}`;
+  const ao = (run.aone_lines ?? 0) > 0 ? `aonebeauty.com: ${run.aone_lines} backorder line(s) left out of the automatic run — staff send those by hand` : "";   // aone-bo-1 948 ⑥
+  if (!mails.length) return `${head} — nothing to send.${sk ? ` Not sent: ${sk}.` : ""}${ao ? "\n" + ao : ""}`;
   const st = (k: string) => run.by_status[k] ?? 0;
-  const out = [head, `Sent ${st("sent")} · Failed ${st("failed")} · Unknown ${st("unknown")} · Cancelled ${st("cancelled")}${sk ? ` · Not sent: ${sk}` : ""}`];
+  const out = [head, `Sent ${st("sent")} · Failed ${st("failed")} · Unknown ${st("unknown")} · Cancelled ${st("cancelled")}${sk ? ` · Not sent: ${sk}` : ""}`, ...(ao ? [ao] : [])];
   const rows = mails.map((m) => {
     const byOrder = new Map<string, string[]>();
     for (const l of m.lines) byOrder.set(l.so_number, [...(byOrder.get(l.so_number) ?? []), l.sku]);
