@@ -22,6 +22,7 @@
 //     cron 길(x-ims-cron-key)에 send 를 연다(CRON_ACTIONS refresh · send · by_staff null · limit 은 cron 몸이 inv_config qbo_send_batch 에서) — qbo_send_enabled off 면 cron SQL 의 where 가 호출 자체를 0 으로(supabase/ops/cron.sql ims-qbo-send)
 //     PULL_FIELDS.TaxCode 에 SalesTaxRateList(DB qbo_entity.detail 로 · 몸 함수의 TaxRateRef) — 적용 뒤 TaxCode Refresh list 한 번 · Intuit API 호스트로는 여전히 GET · POST …/query · POST customer · item · invoice(+ operation=void)만
 //   qbo-sync-2c1(2026-11-02 · 판정 959 ~ 966 · 968 · DB 20261102130000 · 지시서 ~/asung/prompts/qbo-sync-2c-1.md): 크레딧 노트 보내기 · void — SEND_KINDS 에 credit · credit_void · 인보이스 길과 같은 꼴을 엔티티 열쇠(entityKeyOf → creditmemo · CreditMemo · DocNumber)로 나눈다
+//   qbo-sync-2d1(2026-11-02 · 판정 971 · DB 20261102150000 · 지시서 ~/asung/prompts/qbo-sync-2d-1.md): 북키퍼가 골라 보낸다 — send { job_ids[1 … 10] }(열쇠 qbo · cron 길 없음) · 바퀴 최대 5(claim(p_job_ids = 고른 id ∪ need 일감 id) → 같은 바퀴의 일감은 동시 5 로 보냄 → 다시 claim · 잡힌 것 0 이면 끝) · 30 s 넘으면 더 잡지 않음(not_reached) · requested[] = id 마다 결과 · 크레딧은 자기 인보이스를 대신 보내지 않는다(960 · blocked + 까닭) · 옛 send { limit } 은 cron 61 · console 그대로
 //     credit: DocNumber(CR-01000 ~) 조회 멱등(from CreditMemo) → POST creditmemo(몸은 DB qbo_credit_body 그대로) → 2xx done(TotalAmt · TotalTax — DB 가 so_credit 과 942 로 견줌) · 6140 · 6210 → 다시 찾아 짝 · 5xx · 끊김 unknown → 다음 send 가 CreditMemo DocNumber 로 풀어 읽어서 done
 //     credit_void(963): POST creditmemo?operation=void {Id, SyncToken} · SyncToken 없으면 GET creditmemo/<id> · 5010 → 읽어서 -2 한 번 · Intuit 이 거부(4xx · CreditMemo void 가능 여부는 짐작 — 첫 실물에서 확인)하면 failed + 이유(북키퍼가 QBO 에서) · delete 없음 · ReceivePayment · 환불(964)은 짓지 않는다
 //   qbo-sync-2a(2026-11-01 · 판정 945 · DB 20261102003000): 문 둘 — ADMIN_ACTIONS(start · disconnect · refresh · ping · query · read)는 qbo_admin_gate 그대로 · KEY_ACTIONS(pull · 뒤에 send · job)는 qbo_key_gate(p_write true · perms 'qbo' 글자 그대로 · admin 도 켜야 한다) · 둘 다 사용자 JWT 로 DB 가 본다 · status 응답의 caller_qbo(write | read | null)는 DB qbo_status 가 준다(EF 코드 없음)
@@ -55,6 +56,7 @@ export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo"] as c
 export const VOIDABLE_ENTITIES = ["invoice", "creditmemo"] as const;
 export const REQUESTID_MAX = 50;
 export const SEND_LIMIT_DEFAULT = 15, SEND_LIMIT_MAX = 50;
+export const SEND_PICK_MAX = 10, SEND_PICK_ROUNDS = 5, SEND_PICK_BUDGET_MS = 30_000, SEND_PICK_PARALLEL = 5;   // 2d1: 고른 id 한도(화면이 나눈다) · 바퀴(인보이스 → 부모 · Item → 손님 → 인보이스 다시 = 4 + 여유 1) · 바퀴 앞 예산 · 같은 바퀴 동시 수(Intuit 동시 한도 10 의 반)
 export const DUPLICATE_NAME_CODE = "6240";                                                 // Intuit 「Duplicate Name Exists Error」 — 처리 안 됨이 분명 · Item 은 ` [SKU]` 로 한 번 더(다른 requestid · 이견 11)
 export const DUPLICATE_DOCNUMBER_CODES = ["6140", "6210"] as const;                        // 2b2 Intuit 「Duplicate Document Number Error」(6140 · 6210 둘 다 본 적이 있다 — 지시서) → DocNumber 로 다시 찾아서 있으면 그것
 export const STALE_OBJECT_CODE = "5010";                                                   // 2b2 Intuit 「Stale Object Error」 — void 의 SyncToken 이 낡았다 → 읽어서 한 번 더(requestid -2)
@@ -521,7 +523,9 @@ async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise
 //    unknown 풀기(2b2): invoice 는 DocNumber 조회 → 하나면 읽어서 합계와 함께 done · invoice_void 는 DocNumber 조회 → 읽어서 TotalAmt 0 이면(QBO 는 void 한 인보이스의 금액을 0 으로 둔다 — 짐작 · 첫 실물에서 확인) done · 아니면 not_voided(사람이 retry)
 //    credit · credit_void(2c1): 위 invoice · invoice_void 와 같은 길 — 엔티티 열쇠(creditmemo · CreditMemo · DocNumber)만 다르다(findByDocNumber · readTxn · doneTxn 이 열쇠를 받는다) ──
 type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; doc_number?: string | null; qbo_id?: string | null; body: Record<string, unknown>; warnings: string[]; totals?: Record<string, unknown> | null };
-type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; blocked_for_needs?: number; jobs: ClaimJob[] };
+type NeedJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; state: string; name: string | null; existing: boolean; for_job: string; parent_job: string | null };
+type Requested = { job_id: string; kind: string | null; state: string | null; result: string; reason: string | null };
+type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; blocked_for_needs?: number; blocked_for_invoice?: number; need_jobs?: NeedJob[]; requested?: Requested[]; jobs: ClaimJob[] };
 type UnknownRow = { job_id: string; kind: string; ims_kind: string; ims_id: string; qbo_name: string | null; sku: string | null; request_id: string; attempts: number };
 type JobOut = { job_id: string; kind: string; ims_kind: string; ims_id: string; name: string; state: string; qbo_id: string | null; error: string | null; note: string | null; linked?: boolean; link_error?: string | null; mismatch?: string | null };
 type EntityKey = { path: string; key: string; nameField: string };
@@ -681,7 +685,18 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
     catch { return { ...base, name: nameSent, state: "sending", error: msg, note }; }
   }
 }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 같은 바퀴의 일감을 동시 n 개로(2d1) — 하나가 실패 · unknown 이어도 나머지는 계속 · 결과는 일감마다(sendOne 이 자기 일감의 상태를 DB 에 적고 돌려준다 · 던지지 않는다)
+async function sendAll(c: Ctx, jobs: ClaimJob[], parallel: number): Promise<JobOut[]> {
+  const out: JobOut[] = new Array(jobs.length);
+  let next = 0;
+  const worker = async () => { while (next < jobs.length) { const i = next++; out[i] = await sendOne(c, jobs[i]); } };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(parallel, jobs.length)) }, () => worker()));
+  return out;
+}
+type PickOut = { job_id: string; kind: string | null; result: string; state: string | null; reason: string | null; qbo_id: string | null; name: string | null; error: string | null; note: string | null; mismatch: string | null; round: number };
 async function send(c: Ctx, body: Record<string, unknown>): Promise<Response> {
+  if (body.job_ids !== undefined && body.job_ids !== null) return await sendPicked(c, body);                      // 2d1 — 고른 id 만(limit 은 읽지 않는다)
   const limit = body.limit === undefined || body.limit === null || body.limit === "" ? SEND_LIMIT_DEFAULT : Number(body.limit);
   if (!(Number.isInteger(limit) && limit >= 1 && limit <= SEND_LIMIT_MAX)) throw new QboError(400, `limit must be a whole number 1 … ${SEND_LIMIT_MAX} (got ${String(body.limit)})`);
   await ensureToken(c, false);                                                                       // 연결 · env 를 먼저 본다(없으면 409 · 일감은 건드리지 않는다)
@@ -692,8 +707,58 @@ async function send(c: Ctx, body: Record<string, unknown>): Promise<Response> {
   const jobs: JobOut[] = [];
   for (const j of cl.jobs ?? []) jobs.push(await sendOne(c, j));
   const n = (st: string) => jobs.filter((x) => x.state === st).length;
-  return jsonCompact(200, { ok: true, limit, kinds: [...SEND_KINDS], resolved, recovered_unknown: cl.recovered_unknown ?? 0, unblocked: cl.unblocked ?? 0, body_failed: cl.body_failed ?? 0, blocked_for_needs: cl.blocked_for_needs ?? 0, claimed: cl.claimed ?? 0,
+  return jsonCompact(200, { ok: true, mode: "oldest", limit, kinds: [...SEND_KINDS], resolved, recovered_unknown: cl.recovered_unknown ?? 0, unblocked: cl.unblocked ?? 0, body_failed: cl.body_failed ?? 0, blocked_for_needs: cl.blocked_for_needs ?? 0, claimed: cl.claimed ?? 0,
     sent: n("sent"), failed: n("failed"), unknown: n("unknown"), mismatch: jobs.filter((x) => x.mismatch).length, jobs });
+}
+// 2d1 — 고른 일감만 · 바퀴(claim → 동시 보내기 → claim …) · need 일감(손님 · Item · 부모 손님)은 같은 호출에서 먼저 · 크레딧이 기다리는 인보이스는 대신 보내지 않는다(960 · blocked + 까닭)
+async function sendPicked(c: Ctx, body: Record<string, unknown>): Promise<Response> {
+  const raw = body.job_ids;
+  if (!Array.isArray(raw) || raw.length === 0) throw new QboError(400, `job_ids must be a list of 1 … ${SEND_PICK_MAX} job ids`);
+  const ids = [...new Set(raw.map((x) => String(x ?? "").trim().toLowerCase()))];
+  if (ids.length > SEND_PICK_MAX) throw new QboError(400, `job_ids may name at most ${SEND_PICK_MAX} jobs in one call (got ${ids.length}) — send them in smaller batches`);
+  const bad = ids.find((x) => !UUID_RE.test(x));
+  if (bad !== undefined) throw new QboError(400, `job_ids must be job ids (uuid) — got "${bad.slice(0, 40)}"`);
+  await ensureToken(c, false);
+  const unknowns = (await c.d.rpcService("qbo_job_unknown_list", {}) as UnknownRow[] | null) ?? [];
+  const resolved: Record<string, unknown>[] = [];
+  for (const u of unknowns) resolved.push(await resolveUnknown(c, u));
+  const t0 = c.d.now();
+  const selected = new Set(ids), extra = new Set<string>();                                          // extra = claim 이 만든 need 일감(손님 · Item · 부모) — 다음 바퀴에 같이 잡는다
+  const outcome = new Map<string, PickOut>();                                                        // 고른 id + need id 마다 마지막 뜻 있는 결과
+  const jobs: JobOut[] = [], needJobs: NeedJob[] = [];
+  let rounds = 0, stopped: string | null = null, claimedTotal = 0, unblockedTotal = 0;
+  const put = (id: string, o: Partial<PickOut> & { result: string }, round: number) => { const prev = outcome.get(id); outcome.set(id, { job_id: id, kind: o.kind ?? prev?.kind ?? null, state: o.state ?? prev?.state ?? null, reason: o.reason ?? null, qbo_id: o.qbo_id ?? prev?.qbo_id ?? null, name: o.name ?? prev?.name ?? null, error: o.error ?? null, note: o.note ?? null, mismatch: o.mismatch ?? null, result: o.result, round }); };
+  const terminal = (id: string) => { const r = outcome.get(id)?.result; return r === "sent" || r === "failed" || r === "unknown" || r === "not_found" || r === "wrong_kind" || r === "not_due" || (r === "not_queued" && outcome.get(id)?.state !== "blocked"); };
+  for (let r = 1; r <= SEND_PICK_ROUNDS; r++) {
+    const want = [...selected, ...extra].filter((id) => !terminal(id));
+    if (want.length === 0) break;
+    if (c.d.now() - t0 > SEND_PICK_BUDGET_MS) { stopped = "time"; break; }                            // 예산 — 바퀴 앞에서만(잡은 것은 끝까지 보낸다)
+    rounds = r;
+    const cl = (await c.d.rpcService("qbo_job_claim", { p_limit: SEND_LIMIT_MAX, p_kinds: [...SEND_KINDS], p_job_ids: want }) as ClaimResult);
+    claimedTotal += cl.claimed ?? 0; unblockedTotal += cl.unblocked ?? 0;
+    for (const nj of cl.need_jobs ?? []) {                                                              // need = 손님 · Item · 부모 손님만 같이 잡는다 · 거래 종류(크레딧이 기다리는 인보이스 · 960)는 북키퍼가 골라야 한다
+      const id = nj.job_id.toLowerCase(); needJobs.push(nj);
+      if (isTxnKind(nj.kind)) continue;
+      extra.add(id); if (!outcome.has(id)) put(id, { result: "need", kind: nj.kind, state: nj.state, name: nj.name, reason: nj.existing ? `already waiting for job ${nj.for_job}` : `created first for job ${nj.for_job}` }, r);
+    }
+    for (const q of cl.requested ?? []) {
+      const id = q.job_id.toLowerCase();
+      if (q.result === "claimed") continue;                                                          // 보낸 뒤 결과로 적는다
+      if (q.result === "not_queued" && outcome.has(id) && outcome.get(id)!.result !== "need") continue;   // 이미 뜻 있는 결과가 있으면(blocked 까닭 등) 덮지 않는다
+      put(id, { result: q.result, kind: q.kind, state: q.state, reason: q.reason, error: q.result === "failed" ? q.reason : null }, r);
+    }
+    const outs = await sendAll(c, cl.jobs ?? [], SEND_PICK_PARALLEL);
+    for (const o of outs) { jobs.push(o); put(o.job_id.toLowerCase(), { result: o.state, kind: o.kind, state: o.state, qbo_id: o.qbo_id, name: o.name, error: o.error, note: o.note, mismatch: o.mismatch ?? null, reason: null }, r); }
+    if (outs.length === 0 && (cl.unblocked ?? 0) === 0 && !(cl.need_jobs ?? []).some((nj) => !isTxnKind(nj.kind) && !terminal(nj.job_id.toLowerCase()))) break;   // 이 바퀴에 보낸 것 · 풀린 것 · 새 need 가 없다 = 다음 바퀴도 그대로(blocked 는 부모가 sent 가 돼야 풀린다)
+  }
+  const requested: PickOut[] = ids.map((id) => outcome.get(id) ?? { job_id: id, kind: null, result: "not_reached", state: null, reason: stopped === "time" ? "not started — the time budget ran out; send again" : "not started — too many rounds; send again", qbo_id: null, name: null, error: null, note: null, mismatch: null, round: 0 });
+  const needs: PickOut[] = [...extra].map((id) => outcome.get(id)!).filter(Boolean);
+  const n = (st: string) => requested.filter((x) => x.result === st).length;
+  const left = [...selected, ...extra].filter((id) => !terminal(id)).length;
+  if (!stopped && left > 0) stopped = rounds >= SEND_PICK_ROUNDS ? "rounds" : "no_progress";
+  return jsonCompact(200, { ok: true, mode: "selected", job_ids: ids, kinds: [...SEND_KINDS], rounds, parallel: SEND_PICK_PARALLEL, stopped, resolved, claimed: claimedTotal, unblocked: unblockedTotal,
+    sent: n("sent"), failed: n("failed"), unknown: n("unknown"), blocked: n("blocked"), not_sent: requested.length - n("sent") - n("failed") - n("unknown") - n("blocked"), mismatch: requested.filter((x) => x.mismatch).length,
+    requested, needs, jobs });
 }
 
 // ── callback(GET · Intuit 이 브라우저를 보낸다) — 언제나 302 · 본문 비움 · Location 은 고정 주소 + 정해진 why 낱말뿐 ──

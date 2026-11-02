@@ -3,7 +3,7 @@
 //   가짜 DB 는 20261029160000(qbo-1a) 창구의 거부 글 · 반환 키를 그대로 흉내 낸다(state 10 분 · 한 번 · realm 고정 · 임대 · 판 번호 · needs_reconnect 거부 · mark 의 mailed = connected 에서 바뀔 때만)
 //   qbo-sync-1b(2026-11-01 · 판정 934): ⑭ pull — 가짜 DB 에 qbo_pull_begin · qbo_entity_upsert · qbo_pull_finish(20261101210000 의 거부 글 · 반환 키 그대로) · 쪽 1000 은 override 로 · 기존 ⓪ ~ ⑬ 무변
 //   ⚠️ 모든 비밀 · 토큰 가짜 값에 ZZSECRET 표식 — 응답 · 기록 · warn 어디에도 그 표식이 없어야 한다(⑨ + 모든 시험 끝)
-import { ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, CRON_ACTIONS, DUPLICATE_DOCNUMBER_CODES, DUPLICATE_NAME_CODE, faultCode, invoiceTotals, SEND_KINDS, STALE_OBJECT_CODE, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
+import { ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, CRON_ACTIONS, DUPLICATE_DOCNUMBER_CODES, DUPLICATE_NAME_CODE, faultCode, invoiceTotals, SEND_KINDS, STALE_OBJECT_CODE, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, SEND_PICK_MAX, SEND_PICK_ROUNDS, SEND_PICK_BUDGET_MS, SEND_PICK_PARALLEL, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -100,7 +100,7 @@ type Conn = { env: string; realm_id: string; status: string; company_name: strin
 type Pull = { started_at: number; next_start: number; received: number; pages: number; finished_at: number | null };
 type Ent = { name: string; sku: string | null; fetched_at: number; gone_at: number | null };
 type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null>; jobs: Map<string, Job>; links: { ims_kind: string; ims_id: string; qbo_id: string; qbo_name: string; matched_by: string }[]; txns: Map<string, Txn>; claimKinds: string[][] };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945 · jobs · links = 2a′ 일감 상태기(20261102003000 · 20261102030000 의 규칙 · 거부 글 그대로)
-type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null };
+type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null; needs?: { kind: string; ims_id: string; name: string; parent?: { ims_id: string; name: string } }[]; wait_job?: string | null; blocked_by?: string | null };   // 2d1: needs(짝 없는 손님 · Item · 부모) · wait_job(960 크레딧 → 인보이스 일감) · blocked_by
 type Txn = { qbo_id: string; doc_number: string; sync_token: string | null; total_amt: number | null; total_tax: number | null; mismatch: string | null; voided_at: number | null };   // 2b2 qbo_txn 거울(20261102040000 의 942 규칙 · 글 그대로)
 const STAFF = "11111111-1111-4111-8111-111111111111";
 const STAFF_MGR = "22222222-2222-4222-8222-222222222222";
@@ -204,12 +204,42 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
       case "qbo_connection_delete": { const had = !!c; const n = db.states.size; db.conn = null; db.states.clear(); return { deleted: had, env: c?.env ?? null, vault_rows_removed: had ? 2 : 0, states_removed: n }; }
       // ── 2a′ 일감 창구(service) — 20261102003000 · 20261102030000 의 상태 규칙 · 거부 글 그대로 ──
       case "qbo_job_unknown_list": return [...db.jobs.values()].filter((j) => j.state === "unknown").map((j) => ({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, qbo_name: j.qbo_name, sku: j.ims_kind === "product" ? j.sku : null, request_id: j.request_id, attempts: j.attempts, last_error: j.last_error }));
-      case "qbo_job_claim": {
+      case "qbo_job_claim": {                                                                          // 2d1: p_job_ids(고른 id 만) · ② 부모 sent → queued · ④ needs → need 일감 + blocked(손님 우선) · wait_job → blocked · need_jobs · requested — 20261102150000 의 규칙 · 글 그대로
         let stale = 0; for (const j of db.jobs.values()) if (j.state === "sending" && j.claimed_at !== null && j.claimed_at < clock() - 600_000) { j.state = "unknown"; j.claimed_at = null; j.last_error = (j.last_error ? j.last_error + " · " : "") + "stale: still sending"; stale++; }
         const kinds = Array.isArray(args.p_kinds) ? args.p_kinds as string[] : ["customer", "item"]; db.claimKinds.push(kinds);                 // 2b1: p_kinds 기본 customer · item
-        const picked = [...db.jobs.values()].filter((j) => j.state === "queued" && kinds.includes(j.kind)).slice(0, Math.max(1, Math.min(Number(args.p_limit ?? 15), 50)));
+        const pick = Array.isArray(args.p_job_ids) ? [...new Set((args.p_job_ids as string[]).map(String))] : null;
+        if (pick !== null && pick.length === 0) refuse("job_ids must name at least one job — nothing was read");
+        if (pick !== null && pick.length > 200) refuse(`job_ids may name at most 200 jobs in one call (got ${pick.length}) — nothing was read`);
+        let unblocked = 0; for (const j of db.jobs.values()) if (j.state === "blocked" && j.blocked_by && db.jobs.get(j.blocked_by)?.state === "sent") { j.state = "queued"; j.blocked_by = j.blocked_by; unblocked++; }
+        const cand = [...db.jobs.values()].filter((j) => j.state === "queued" && kinds.includes(j.kind) && (pick === null || pick.includes(j.id)));
+        const picked = pick === null ? cand.slice(0, Math.max(1, Math.min(Number(args.p_limit ?? 15), 50))) : cand;
         for (const j of picked) { j.state = "sending"; j.claimed_at = clock(); j.attempts++; }
-        return { recovered_unknown: stale, unblocked: 0, claimed: picked.length, body_failed: 0, blocked_for_needs: 0, jobs: picked.map((j) => ({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, doc_number: j.doc_number ?? null, qbo_id: j.kind === "invoice_void" ? (j.body.Id != null ? String(j.body.Id) : null) : null, body: j.body, warnings: [], totals: j.totals ? { taxable: null, tax: j.totals.tax, total: j.totals.total } : null })) };
+        const needJobs: Record<string, unknown>[] = [], rows: Record<string, unknown>[] = []; let blockedNeeds = 0, blockedInv = 0;
+        const openOf = (kind: string, imsId: string) => [...db.jobs.values()].find((x) => x.kind === kind && x.ims_id === imsId && !["sent", "skipped"].includes(x.state));
+        const mk = (kind: string, imsId: string, name: string): Job => { const n = ++jobN; const j: Job = { id: "job-" + n, kind, ims_kind: kind === "customer" ? "customer" : "product", ims_id: imsId, state: "queued", attempts: 0, request_id: "11111111-2222-4333-8444-" + String(n).padStart(12, "0"), name, name_alt: null, sku: kind === "item" ? "SKU-" + n : null, body: kind === "customer" ? { DisplayName: name } : { Name: name, Type: "Service" }, qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null, warning: null, blocked_by: null }; db.jobs.set(j.id, j); return j; };
+        for (const j of picked) {
+          const pending = (j.needs ?? []).filter((n) => !db.links.some((l) => l.ims_id === n.ims_id));
+          if (pending.length > 0) {
+            let last: string | null = null, cust: string | null = null;
+            for (const n of pending) {
+              let nj = openOf(n.kind, n.ims_id); const existing = !!nj; let parentId: string | null = null;
+              if (!nj) { nj = mk(n.kind, n.ims_id, n.name); if (n.parent && !db.links.some((l) => l.ims_id === n.parent!.ims_id)) { let pj = openOf("customer", n.parent.ims_id); const pex = !!pj; if (!pj) pj = mk("customer", n.parent.ims_id, n.parent.name); nj.state = "blocked"; nj.blocked_by = pj.id; parentId = pj.id; needJobs.push({ job_id: pj.id, kind: "customer", ims_kind: "customer", ims_id: pj.ims_id, state: pj.state, name: null, existing: pex, for_job: nj.id, parent_job: null }); } }
+              needJobs.push({ job_id: nj.id, kind: n.kind, ims_kind: nj.ims_kind, ims_id: n.ims_id, state: nj.state, name: n.name, existing, for_job: j.id, parent_job: parentId });
+              last = nj.id; if (n.kind === "customer") cust = nj.id;
+            }
+            j.state = "blocked"; j.blocked_by = cust ?? last; j.claimed_at = null; j.warning = `waiting for ${pending.length} QuickBooks record(s) to be created first`; blockedNeeds++; continue;
+          }
+          if (j.wait_job && db.jobs.get(j.wait_job)?.state !== "sent") { j.state = "blocked"; j.blocked_by = j.wait_job; j.claimed_at = null; j.warning = `waiting for invoice ${db.jobs.get(j.wait_job)?.doc_number ?? "?"} to reach QuickBooks first`; blockedInv++; continue; }
+          rows.push({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, doc_number: j.doc_number ?? null, qbo_id: j.kind === "invoice_void" ? (j.body.Id != null ? String(j.body.Id) : null) : null, body: j.body, warnings: [], totals: j.totals ? { taxable: null, tax: j.totals.tax, total: j.totals.total } : null });
+        }
+        for (const id of pick ?? []) { const j = db.jobs.get(id); if (!j || j.state !== "blocked" || picked.some((x) => x.id === id)) continue;   // 2d1 ⑤ 되살리기 — blocked 로 남은 일감의 열린 need(부모 blocked_by + needs) 를 need_jobs 로
+          const bb = j.blocked_by ? db.jobs.get(j.blocked_by) : null; if (bb && !["sent", "skipped"].includes(bb.state)) needJobs.push({ job_id: bb.id, kind: bb.kind, ims_kind: bb.ims_kind, ims_id: bb.ims_id, state: bb.state, name: null, existing: true, for_job: j.id, parent_job: null });
+          for (const n of (j.needs ?? []).filter((n) => !db.links.some((l) => l.ims_id === n.ims_id))) { const oj = openOf(n.kind, n.ims_id); if (oj && oj.id !== j.blocked_by) needJobs.push({ job_id: oj.id, kind: n.kind, ims_kind: oj.ims_kind, ims_id: n.ims_id, state: oj.state, name: n.name, existing: true, for_job: j.id, parent_job: null }); } }
+        const requested = (pick ?? []).map((id) => { const j = db.jobs.get(id); const was = picked.some((x) => x.id === id);
+          const result = !j ? "not_found" : was ? (j.state === "sending" ? "claimed" : j.state) : j.state !== "queued" ? "not_queued" : !kinds.includes(j.kind) ? "wrong_kind" : "locked";
+          const reason = !j ? "no such job" : was ? (j.state === "blocked" ? j.warning ?? null : j.state === "failed" ? j.last_error : null) : j.state !== "queued" ? `the job is ${j.state} — not sent` + (j.state === "blocked" ? ` (${j.warning ?? "waiting for another job"})` : j.state === "failed" || j.state === "skipped" ? " — retry it first" : j.state === "unknown" ? " — retry it with a note after checking QuickBooks" : j.state === "sending" ? " (another send is working on it)" : "") : !kinds.includes(j.kind) ? `kind ${j.kind} is not sent by this worker` : "another send holds the job — try again in a moment";
+          return { job_id: id, kind: j?.kind ?? null, state: j?.state ?? null, result, reason }; });
+        return { recovered_unknown: stale, unblocked, claimed: picked.length, body_failed: 0, blocked_for_needs: blockedNeeds, blocked_for_invoice: blockedInv, picked: pick, need_jobs: needJobs, requested, jobs: rows };
       }
       case "qbo_job_done": {
         const j = db.jobs.get(String(args.p_job)); if (!j) refuse(`Job ${args.p_job} not found — nothing was saved`);
@@ -923,7 +953,7 @@ function addJob(w: World, o: Partial<Job> & { kind: string }): Job {
     name: o.name ?? (o.kind === "customer" ? "Customer " + n : "Item " + n), name_alt: o.name_alt ?? null, sku: o.sku ?? (o.kind === "item" ? "SKU-" + n : null),
     body: o.body ?? (o.kind === "customer" ? { DisplayName: o.name ?? "Customer " + n, CompanyName: o.name ?? "Customer " + n, Taxable: true, CurrencyRef: { value: "CAD" }, BillAddr: { Line1: "35 ZZPII Rd", City: "Toronto", Country: "Canada" }, PrimaryEmailAddr: { Address: "shop-ZZPII@example.invalid" } }
       : { Name: o.name ?? "Item " + n, Sku: o.sku ?? "SKU-" + n, Type: "Service", Taxable: true, IncomeAccountRef: { value: "98" }, ExpenseAccountRef: { value: "58" } }),
-    qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null, doc_number: o.doc_number ?? null, totals: o.totals ?? null, warning: null };
+    qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null, doc_number: o.doc_number ?? null, totals: o.totals ?? null, warning: null, needs: o.needs, wait_job: o.wait_job ?? null, blocked_by: null };   // 2d1 needs · wait_job
   if (o.kind === "invoice" || o.kind === "invoice_void") { j.ims_kind = "invoice"; }
   if (o.kind === "credit" || o.kind === "credit_void") { j.ims_kind = "credit"; }                       // 2c1
   w.db.jobs.set(j.id, j);
@@ -1298,4 +1328,84 @@ Deno.test("⑳ credit memo send · void(qbo-sync-2c1 · 판정 963) — POST cre
   const allText = JSON.stringify({ logs: w.logs, warns: w.warns });
   ok(!allText.includes("ZZPII"), "addresses · emails never reach call_log or warn");
   ok(!allText.includes("Regina"), "customer name not in call_log");
+});
+
+// ── qbo-sync-2d1 — 골라 보내기 장치: needs(손님 · 부모 · Item) · 960 크레딧 · 동시 5 · 예산 ──
+const pickSend = (w: World, jobIds: unknown, jwt: string | null = "JWT-ADMIN") => postBody(w, { action: "send", job_ids: jobIds }, jwt);
+function meter(w: World): { max: () => number; calls: () => number } {                                 // fetch 를 감싸 동시 호출 수를 센다(한 틱 뒤에 끝나게)
+  const orig = w.deps.fetch; let inflight = 0, max = 0, calls = 0;
+  w.deps.fetch = async (url, init) => { inflight++; calls++; max = Math.max(max, inflight); await new Promise((r) => setTimeout(r, 2)); try { return await orig(url, init); } finally { inflight--; } };
+  return { max: () => max, calls: () => calls };
+}
+Deno.test("㉑ 골라 보내기(qbo-sync-2d1 · 판정 971) — 순수(SEND_PICK_* · ACTIONS 그대로) · 거부(배열 아님 · 빈 · 11 개 · uuid 아님 → 400 · qbo:read 403) · 인보이스 하나 고르면 need(부모 · Item → 손님) 를 같은 호출에서 먼저(바퀴 4 · POST 순서) · requested 는 id 마다(sent · not_found · not_queued(sent · failed 까닭)) · 크레딧 홀로 고르면 인보이스를 대신 보내지 않고 blocked + 까닭 · 함께 고르면 인보이스 → 크레딧(바퀴 2) · 10 장 동시 5(한 장 503 · 한 장 6140 이어도 나머지 sent · 결과는 일감마다) · 30 s 예산(바퀴 앞) · 옛 send{limit} 그대로(mode oldest) · writesAllowedOnly · PII 0", async () => {
+  eq([SEND_PICK_MAX, SEND_PICK_ROUNDS, SEND_PICK_BUDGET_MS, SEND_PICK_PARALLEL], [10, 5, 30_000, 5], "2d1 constants");
+  eq([...ACTIONS].includes("send") && !([...ACTIONS] as string[]).includes("preview"), true, "preview is a DB rpc, not an EF action");
+  const w = world(); connect(w);
+  w.db.keys["JWT-MGR"] = "qbo:read";
+  eq((await pickSend(w, ["11111111-2222-4333-8444-000000000001"], "JWT-MGR")).status, 403, "qbo:read cannot send");
+  w.db.keys["JWT-MGR"] = "qbo";
+  const u = (n: number) => "11111111-2222-4333-8444-" + String(n).padStart(12, "0");
+  for (const [bad, why] of [["x", "not an array"], [[], "empty"], [Array.from({ length: 11 }, (_, i) => u(i + 1)), "11 ids"], [["job-1"], "not a uuid"]] as [unknown, string][]) {
+    const r = await pickSend(w, bad, "JWT-MGR"); eq([r.status, String((await body(r)).error).length > 10], [400, true], why + " → 400");
+  }
+  // 가짜 일감의 id 는 "job-N" 꼴이라 uuid 검사를 지나지 못한다 → 이 시험 안에서만 id 를 uuid 로 바꿔 둔다(DB 는 uuid)
+  const uid = (j: Job) => { const id = u(Number(j.id.replace("job-", ""))); w.db.jobs.delete(j.id); j.id = id; w.db.jobs.set(id, j); return id; };
+  // A — 인보이스 하나 · needs: 손님 C(부모 P) · Item I → 바퀴 1 blocked(need 3 생김) · 2 P + I(동시) · 3 C · 4 A
+  const a = addInv(w, "70001", { needs: [{ kind: "customer", ims_id: "cust-C", name: "Kid Store", parent: { ims_id: "cust-P", name: "Parent Co" } }, { kind: "item", ims_id: "prod-I", name: "Widget I" }] }); const aId = uid(a);
+  const m = meter(w);
+  const rA = await pickSend(w, [aId], "JWT-MGR"); const bA = await body(rA);
+  const req = bA.requested as Record<string, unknown>[];
+  eq([rA.status, bA.ok, bA.mode, bA.rounds, bA.stopped, bA.sent, bA.failed, bA.unknown, bA.blocked, bA.claimed, bA.parallel], [200, true, "selected", 4, null, 1, 0, 0, 0, 5, 5], "one invoice → 4 rounds · claimed 5(A twice) · sent 1: " + JSON.stringify(bA));
+  eq([req.length, req[0].job_id, req[0].result, req[0].round, req[0].qbo_id !== null, a.state, a.qbo_id !== null], [1, aId, "sent", 4, true, "sent", true], "requested = the invoice · sent in round 4");
+  const needs = bA.needs as Record<string, unknown>[];
+  eq(needs.map((x) => (x.kind as string) + ":" + x.result + ":" + x.round).sort(), ["customer:sent:2", "customer:sent:3", "item:sent:2"], "needs: parent + item round 2 · customer round 3: " + JSON.stringify(needs));
+  const order = postHits(w).map((h) => { const b = JSON.parse(h.body || "{}"); return new URL(h.url).pathname.split("/").pop() + ":" + (b.DisplayName ?? b.Name ?? b.DocNumber); });
+  eq([order.length, order.slice(0, 2).sort(), order[2], order[3]], [4, ["customer:Parent Co", "item:Widget I"], "customer:Kid Store", "invoice:70001"], "POST order: parent + item · customer · invoice: " + order.join(" "));
+  eq(w.db.links.map((l) => l.ims_id).sort(), ["cust-C", "cust-P", "prod-I"], "three links created");
+  // B — not_found · 이미 sent · failed 는 requested 에 까닭만 · 일감 무접촉
+  const f = addInv(w, "70002"); const fId = uid(f); f.state = "failed"; f.last_error = "body rejected";
+  const n0 = postHits(w).length;
+  const bB = await body(await pickSend(w, [u(999), aId, fId], "JWT-MGR"));
+  const rb = bB.requested as Record<string, unknown>[];
+  eq([bB.rounds, bB.stopped, bB.sent, bB.not_sent, postHits(w).length - n0, rb.map((x) => x.result), rb[1].state, String(rb[2].reason)], [1, null, 0, 3, 0, ["not_found", "not_queued", "not_queued"], "sent", "the job is failed — not sent — retry it first"], "nothing to do(all terminal → stopped null) · reasons per id: " + JSON.stringify(rb));
+  eq(f.state, "failed", "failed job untouched (no implicit retry)");
+  // C — 크레딧 홀로: 인보이스 B 가 queued 인데 고르지 않았다 → blocked + 까닭 · 인보이스 POST 0 · 함께 고르면 인보이스 → 크레딧 바퀴 2
+  const bi = addInv(w, "70003"); const biId = uid(bi);
+  const cr = addCr(w, "CR-70003", { wait_job: biId }); const crId = uid(cr);
+  const n1 = postHits(w).length;
+  const bC = await body(await pickSend(w, [crId], "JWT-MGR"));
+  const rc = (bC.requested as Record<string, unknown>[])[0];
+  eq([bC.rounds, bC.stopped, bC.blocked, rc.result, String(rc.reason), postHits(w).length - n1, cr.state, cr.blocked_by, bi.state], [1, "no_progress", 1, "blocked", "waiting for invoice 70003 to reach QuickBooks first", 0, "blocked", biId, "queued"], "credit alone → blocked · the invoice is not sent on its behalf: " + JSON.stringify(bC));
+  const bC2 = await body(await pickSend(w, [crId, biId], "JWT-MGR"));
+  const rc2 = bC2.requested as Record<string, unknown>[];
+  eq([bC2.rounds, bC2.sent, rc2.map((x) => x.job_id + ":" + x.result + ":" + x.round), bi.state, cr.state, postHits(w).length - n1], [2, 2, [crId + ":sent:2", biId + ":sent:1"], "sent", "sent", 2], "together: invoice round 1 → credit round 2: " + JSON.stringify(rc2));
+  // D — 10 장 동시 5 · 503 하나(unknown) · 6140 하나(dupDoc → 다시 찾아 짝) · 나머지 sent · 결과는 일감마다
+  const ten = Array.from({ length: 10 }, (_, i) => uid(addInv(w, "71" + String(i).padStart(3, "0"))));
+  w.it.override.push((h) => h.method === "POST" && h.body.includes('"DocNumber":"71003"') ? jres(503, { Fault: { Error: [{ Message: "Service Unavailable", code: "3001" }], type: "SystemFault" } }, "tid-503") : null);
+  w.it.invoices.set("4999", { Id: "4999", DocNumber: "71007", SyncToken: 0, TotalAmt: 40.68, TotalTax: 4.68, voided: false, CustomerRef: { value: "7190" } });   // 이미 있는 번호 → 조회에서 잡혀 안 만들고 짝
+  const c0 = m.calls();
+  const bD = await body(await pickSend(w, ten, "JWT-MGR"));
+  const rd = bD.requested as Record<string, unknown>[];
+  eq([bD.rounds, bD.sent, bD.unknown, bD.failed, bD.blocked, rd.length, m.max()], [1, 9, 1, 0, 0, 10, 5], "10 invoices in one round · 5 in flight at most · one unknown: " + JSON.stringify({ rounds: bD.rounds, sent: bD.sent, unknown: bD.unknown, max: m.max() }));
+  eq(rd.map((x) => x.result), ["sent", "sent", "sent", "unknown", "sent", "sent", "sent", "sent", "sent", "sent"], "result per job in the order asked: " + JSON.stringify(rd.map((x) => x.result)));
+  eq([String(rd[7].note).startsWith("already in QuickBooks (DocNumber found before sending)"), rd[7].qbo_id, String(rd[3].error).includes("HTTP 503")], [true, "4999", true], "71007 recorded from the existing row · 71003 unknown with the error");
+  eq(m.calls() - c0, 10 + 9 + 1, "10 DocNumber checks + 9 POSTs + 1 read(71007 was found → read instead of POST) = " + (m.calls() - c0) + " (read of 4999 counted too)");
+  w.it.override.length = 0;
+  // E — 예산: 첫 바퀴에서 시계가 31 s 가면 둘째 바퀴를 열지 않는다(stopped time) · 잡힌 것은 끝까지 · need 가 남은 인보이스는 blocked 그대로(다시 보내면 이어진다)
+  const slow = addInv(w, "72001"); const slowId = uid(slow);
+  const nd = addInv(w, "72002", { needs: [{ kind: "item", ims_id: "prod-Z", name: "Widget Z" }] }); const ndId = uid(nd);
+  w.it.override.push((h) => { if (h.method === "POST" && h.body.includes('"DocNumber":"72001"')) w.clock.t += 31_000; return null; });
+  const bE = await body(await pickSend(w, [slowId, ndId], "JWT-MGR"));
+  const re = bE.requested as Record<string, unknown>[];
+  eq([bE.rounds, bE.stopped, re[0].result, re[1].result, nd.state, slow.state, [...w.db.jobs.values()].some((j) => j.ims_id === "prod-Z" && j.state === "queued")], [1, "time", "sent", "blocked", "blocked", "sent", true], "budget: round 1 only · need job left queued for the next send: " + JSON.stringify(bE));
+  w.it.override.length = 0;
+  const bE2 = await body(await pickSend(w, [ndId], "JWT-MGR"));
+  eq([bE2.rounds, (bE2.requested as Record<string, unknown>[])[0].result, nd.state, (bE2.needs as Record<string, unknown>[]).map((x) => x.result)], [3, "sent", "sent", ["sent"]], "next send resumes it (round 1 finds the waiting item job · 2 sends it · 3 the invoice): " + JSON.stringify(bE2));
+  // F — 옛 길(limit) 그대로 · 동시 아님 · mode oldest
+  const old = addInv(w, "73001"); uid(old);
+  const bF = await body(await send(w, "JWT-MGR", { limit: 5 }));
+  eq([bF.mode, bF.claimed, bF.sent, bF.limit, old.state], ["oldest", 1, 1, 5, "sent"], "send { limit } unchanged: " + JSON.stringify(bF));
+  writesAllowedOnly(w, "㉑"); noLeak(w, "㉑");
+  const allText = JSON.stringify({ logs: w.logs, warns: w.warns });
+  ok(!allText.includes("ZZPII") && !allText.includes("Regina"), "addresses · emails · names never reach call_log or warn");
 });
