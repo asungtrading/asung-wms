@@ -597,7 +597,7 @@ Deposits and money on account that attached themselves when the invoice was issu
 
 <a id="sales-payments"></a>
 ## Customer payments and deposits
-<!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so-payments.html · BUILD 2026-11-03 · pay pd v1 ; so.html · BUILD 2026-11-03 · so pd v1 -->
 <!-- who: accounting, office -->
 
 **What it is**
@@ -621,6 +621,11 @@ A payment is money the customer gave us. IMS keeps where it went: to an invoice,
 
 **Example**
 Customer A pays $500.00 on account. The next invoice 99001 is $188.77. When it is issued, $188.77 attaches itself and $311.23 stays on account.
+
+**Post-dated cheques**
+- "A post-dated cheque: the date written on the cheque (up to a year ahead) · one cheque = one payment." Ten cheques for one order are ten payments, each with its own date.
+- A payment dated after today shows **post-dated**. It counts as paid as soon as it is recorded.
+- A refund's date (**Refunded on**) can only be today or earlier.
 
 **Managers and above**
 - **Refund…** (on **Customer Payments**): "A refund first pays off credit notes owed to the customer, then money on account. It cannot be more than both together." Press **Record refund**.

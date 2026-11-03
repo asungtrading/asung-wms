@@ -35,7 +35,10 @@ description: >
 2026-11-02  크레딧 노트 — qbo-sync-2c1(크레딧 몸 · 트리거 · 채우기 · IMS 문: 인보이스 취소 959 · 968 · 969 · 세금만 크레딧 금지 966)
             북키퍼 골라 보내기 — qbo-sync-2d1(claim p_job_ids · preview · list · retry skipped · EF send job_ids) · 화면 Sales → QuickBooks(qbo-send.html · qs v1)
             ⭐ 첫 인보이스 60000 → QBO 172335(sent · mismatch 0 · Caleb 확인) · Cin7 ↔ QBO 연결 Caleb 이 끔(375 닫힘) · 정본 §14-b ~ §14-e
-⬜ 결제(Payment) · 크레딧 붙이기 · 환불(964) · 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 432 · 434 · 440 · 443
+~~⬜ 결제(Payment) · 크레딧 붙이기 · 환불(964) · 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 432 · 434 · 440 · 443~~ →
+2026-11-02 밤  결제 — qbo-sync-2e-1a(paypal · 수표 #105 · 미래 결제일 991) · 1a2(Clearing - Shopify 993) · 1b(결제 일감 · 몸 · 지문 · 트리거 · 백필 · done 10 인자) · 1c(EF · void = operation=update&include=void · Balance 가드 · cron 62 기록)
+            ⚠️ **아직 켜지 않음** — qbo_send_payments_enabled off · cron 62 등록 전 · 켜는 순서 = 아래 5절 · 정본 §14-f · deferred 453
+⬜ 1d 이월 짝(452) · 크레딧 붙임 2e-2 · 환불 · 받아 둔 돈 2e-3(454) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 434 · 440 · 443 · 452 ~ 454
 ```
 
 ## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 ~~— 보내기는 없음~~ → [11-01 밤] 손님 · Item 만들기 섰음 · 인보이스는 2b — 모르면 사고
@@ -134,6 +137,14 @@ description: >
 ⚠️  [961] 크레딧 other · restocking_fee 줄 = 계정 사람 짝(acct:<code> · 951 꼴 · 없으면 failed) · [962] 주소 · 이메일 = 크레딧 노트 PDF 규칙 · [963] CreditMemo void 거부 → failed · 사람이 QBO 에서 · [964] CreditMemo 만(붙이기 · 환불은 결제 차수)
 ⚠️  [2c1 · 2d1] 적용 순서 한 덩이 = 마이그레이션 → repair → EF 배포(DB 먼저 · 옛 EF 는 새 서명 기본값으로 그대로 돈다)
 ✅  짐작 풀림(11-02): QBO 캐나다판은 보낸 TxnTaxDetail(TaxLine)을 **존중한다**(60000 → 172335 세금 · 합계 그대로) · 1 장 = Intuit 2 호출 · 3.52 s · 60001 미리 보기 = Item CB-CVT18157 먼저 만든다(need)
+⭐⭐ [2026-11-02 밤 · 판정 978 · 980 · 981 · 988 · qbo-sync-2e-1b · 1c · 정본 §14-f] **결제 하나(so_payment 한 줄) = QBO Payment 한 장** · CustomerRef = **청구처**(본사가 매장 인보이스 여럿을 수표 하나로 → 본사 Payment 한 장 · Line = 매장 인보이스 · 980) · 붙임이 바뀌면 **옛 Payment void + 통째로 다시**(update 길 없음 · 978) · IMS 에 적힌 결제는 모두 IMS 가 보낸다(981)
+     **붙은 인보이스가 모두 QBO 에 간 순간 자동**(988 · cron 62 · 스위치 **qbo_send_payments_enabled** — 결제만 · qbo_send_enabled(971 · 인보이스 · 크레딧)와 별개) · 지문 qbo_payment_fingerprint 가 같으면 아무것도 안 한다
+⚠️⚠️ Payment void 꼴 = `POST payment?operation=update&include=void` {Id, SyncToken, sparse}(invoice · creditmemo 의 operation=void 가 아니다 · assertWriteAllowed 가 payment 에만 연다) · 응답 TotalAmt 0 · Line [] · PrivateNote 「Voided - 」 · ⚠️ DepositToAccountRef 를 안 주면 QBO 가 26 으로 채운다 — 몸은 늘 계좌를 싣는다
+⚠️⚠️ (가) Balance 가드 — POST 직전 붙은 인보이스마다 GET 해 Balance < 줄 금액 · 못 읽음이면 **failed · 보내지 않는다**(QBO 에서 누가 이미 받았다) · 결제 하나 = Intuit 1 + 붙은 인보이스 수
+⚠️⚠️ 결제는 DocNumber 가 없다 — unknown 열쇠 = `qbo_job.qbo_name` **한 칸**에 「<PrivateNote>|<CustomerRef>|<TxnDate>|<TotalAmt>」(PrivateNote = 「IMS payment <uuid>」 · void 는 Payment Id) · 풀기 = 그 날 Payment 조회 → 하나 done · 0 · 둘 이상은 사람
+⚠️  PaymentMethodRef 짝이 없으면 failed — credit_card 는 QBO 수단 하나(983)를 사람이 짝지을 때까지 · 짝 뒤 failed 를 queued 로 되살리는 것은 1d(deferred 452)
+⚠️⚠️ **켜는 순서(Caleb · deferred 453)**: ① Settings 에서 credit_card QBO 수단 짝 ② Sales → QuickBooks → Payments 몇 장 Preview → Send ③ cron 62 ims-qbo-send-payments 등록(ops/cron.sql · jobid 실측) ④ qbo_send_payments_enabled on — ⚠️ 그 전에 화면 Send 를 누르지 마라(스위치는 자동만 막는다)
+⚠️  Cin7 수단 정정(so §98-c 1): 「Cin7 은 결제 수단 전부 Cash」 는 틀렸다 — 카드 · Debit · E-Transfer · EFT · Cheque 는 갈라 보냈고 Cash 는 Shopify · PayPal · 현금뿐 · 입금 계좌 = Cin7 꼴(수표 _105_ · PayPal _124_ · Shopify _1150040029_)
 ```
 
 ## 6. 화면 · 바깥
@@ -141,6 +152,7 @@ description: >
 ```
 settings.html  Settings → QuickBooks matching(?t=qbomatch · set v13 · ~~admin~~ → set v14 열쇠 QUICKBOOKS · 보기만이면 단추 숨김) — 요약 · Refresh list · Match automatically · Review · Unlink · 짝 화면은 QBO 에 쓰지 않는다(쓰기는 EF send)
 qbo-send.html  Sales → QuickBooks(qs v1 · nav v14 · 열쇠 qbo · 보기 qbo:read · 971) — 목록(상태 · 종류 · 날짜 · 찾기 · 쪽) · Preview(QBO 에 갈 몸 · 먼저 만들 손님 · Item · 막힌 이유) · Send · Send selected · Retry · Skip · 북키퍼 화면(매뉴얼 01 Sales 「QuickBooks」)
+qbo-send.html  [2026-11-02 밤 · pay screens v1 asung-ims `4d9b62a`] Payments 종류 · 결제 미리 보기(check_lines · 합계 · void) · 목록의 waiting 은 붙은 인보이스가 아직 안 간 결제(claim 때 blocked 가 된다) · settings 카드 수단 한 수단 Find…(983)
 settings.html  Settings → QuickBooks matching 의 charge 행 이름 「Freight, discount & account lines」 + 크레딧 계정 줄 안내(set v15 · 961)
 settings.html  Settings → QuickBooks(?t=qbo · set v12) — 상태(빨강 = needs_reconnect) · Connect / Reconnect(같은 탭) · Check connection · Disconnect · Untie company · Help 줄 「Connection problems? Contact the IMS administrator: caleb@asung.ca」(872)
 terms.html · privacy.html  ims.asung.ca 공개 페이지(로그인 없이 · Intuit App details 의 EULA · Privacy · 867)

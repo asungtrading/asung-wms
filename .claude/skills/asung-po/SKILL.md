@@ -254,6 +254,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
      크기 · 형식은 storage.objects 메타데이터로 DB 가 다시 본다(화면 값을 믿지 않는다) · 치우기 = po_doc_remove(is_active false · 파일은 둔다 · 드라이브는 REMOVED_ · 704)
 ⭐⭐ 바로가기(698 · 706) — 빌 확정 때 배분 PO 폴더마다 · 공급처 인보이스(po_doc.po_invoice_id) 확정 때 줄의 다른 PO 마다 · (서류, PO) 짝마다 한 번 · 트랜스퍼 몫 없음(705)
      확정은 풀 수 있다(po_charge_confirm · po_invoice_confirm 의 p_confirm=false · 결제 · 원가 반영 전) — 풀어도 바로가기는 그대로 · 다시 확정할 때 맞춘다(뺀 PO 는 REMOVED_ · 다시 넣으면 이름 되돌림)
+⭐⭐ [2026-11-02 밤 · chg duty v1 `e6cd3db` · v2 `64e7971`(asung-ims · DB 무변) · so-module §98-a 끝] **Charges 의 Kind Duty** — 칸 이름 **Duty (before tax)** · **GST on import** · Check 는 빈 GST 에 제안값을 채우지 않고 멈춘다 · Duty 빈칸 → 「Duty is required」 · **관세 0 · GST 만 있는 CBSA 청구서 = Kind Duty · Duty 0 · GST 청구서 숫자 그대로** · ⚠️ **PO 를 하나 이상 골라야 확정된다**(po_charge_confirm 「has no allocation lines」 거부 · 금액 0 줄은 받는다 · 경고 total_amount_zero 를 화면이 사람 말로)
 ⭐ 폴더 Suppliers/<공급처>/<PO 번호>/ · Suppliers/<경비처>/CHARGE-<charge_number>/(빌 원본 · 함께 올린 서류) · 빌 이름에 PO 번호 없음 · 자유 글자 번호의 / # 공백 → -
 ⚠️ po_doc · drive_shortcut · drive_job 의 FK 는 on delete no action — PO · 빌 · 공급처 인보이스를 지우려면 이 표를 먼저 비운다(컷오버 날 · deferred 332)
 ```

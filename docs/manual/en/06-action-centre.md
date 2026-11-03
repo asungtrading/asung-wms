@@ -57,7 +57,7 @@ Each row shows **Sold on**, **Order**, **Customer**, **SKU**, **Branch**, **Qty 
 
 <a id="action-unpaid"></a>
 ## Unpaid at hand-over
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-03 · ml v1.4 -->
 <!-- who: manager, accounting -->
 
 **What shows here**
@@ -71,7 +71,7 @@ Each row shows **Invoice**, **Issued** (and how many days ago), **Customer**, **
 
 **Good to know**
 - "It drops off this list once it is paid."
-- This tab always shows every branch.
+- The list and its count follow the **Branch** picker — the branch that gave out the goods. With **All branches** a **Branch** column shows. An invoice with no order in IMS (carried over) uses the customer's home branch and says **customer's branch**.
 
 <a id="action-pos"></a>
 ## POS not finished

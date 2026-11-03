@@ -184,7 +184,7 @@ At the bottom of a PO and of a charge there is a **Documents** section. Keep the
 
 <a id="purch-charges"></a>
 ## Freight, duty and other charges
-<!-- screen: charges.html · BUILD 2026-10-24 · chg docs v1 -->
+<!-- screen: charges.html · BUILD 2026-11-02 · chg duty v2 -->
 <!-- who: accounting, office -->
 
 **What it is**
@@ -201,9 +201,12 @@ A charge is a bill from someone other than the supplier — freight, duty, broke
 - "Allocated and Not allocated are before tax — only the amount before tax goes onto the cost of the goods; the tax is owed to the biller but comes back as a tax credit."
 - The filter **Not fully allocated** finds charges still to split.
 - A share is fixed when you write it. If a PO changes later, its share does not move by itself.
+- For one CBSA bill choose **Kind** **Duty**. The amounts then read **Duty (before tax)** — the duty — and **GST on import** — the GST exactly as the bill shows it.
+- A CBSA bill with GST only: **Duty (before tax)** 0 and the GST as on the bill. "Duty (before tax) is required — type 0 if the bill has no duty."
 
 **Watch out**
 - Confirm is refused until the shares add up to the charge.
+- Confirm needs at least one purchase order — even a duty bill of 0 must be added to the PO it belongs to.
 - **Spread by amount** overwrites every share, "including ones you typed".
 
 <!-- SCREENSHOT: purch-charges-1 · a charge spread over two POs with the Not allocated amount at 0 -->

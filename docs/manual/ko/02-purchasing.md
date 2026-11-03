@@ -184,7 +184,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-charges"></a>
 ## 운임 · 관세 · 그 밖의 비용
-<!-- screen: charges.html · BUILD 2026-10-24 · chg docs v1 -->
+<!-- screen: charges.html · BUILD 2026-11-02 · chg duty v2 -->
 <!-- who: accounting, office -->
 
 **무엇인가**
@@ -201,9 +201,12 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 - "Allocated and Not allocated are before tax — only the amount before tax goes onto the cost of the goods; the tax is owed to the biller but comes back as a tax credit."(나눈 몫 · 안 나눈 몫은 세금 전 · 원가에는 세금 전 금액만 · 세금은 세금 공제로 돌아온다)
 - 필터 **Not fully allocated** 로 아직 다 나누지 않은 비용을 찾습니다.
 - 몫은 적은 순간 고정됩니다. PO 가 나중에 바뀌어도 몫은 저절로 움직이지 않습니다.
+- CBSA 청구서 한 장은 **Kind** **Duty** 로 씁니다. 그러면 금액 칸이 **Duty (before tax)**(관세) · **GST on import**(청구서의 GST 그대로)로 바뀝니다.
+- GST 만 있는 CBSA 청구서: **Duty (before tax)** 0 · GST 는 청구서 숫자 그대로. "Duty (before tax) is required — type 0 if the bill has no duty."(관세가 없으면 0 을 적는다)
 
 **조심할 것**
 - 몫의 합이 비용과 맞을 때까지 Confirm 이 거절됩니다.
+- Confirm 하려면 PO 가 하나 이상 있어야 합니다 — 관세 0 청구서도 그 물건의 PO 를 넣습니다.
 - **Spread by amount** 는 모든 몫을 덮어씁니다 — "including ones you typed"(직접 적은 것까지)
 
 <!-- SCREENSHOT: purch-charges-1 · PO 둘에 나눈 비용 · Not allocated 0 -->

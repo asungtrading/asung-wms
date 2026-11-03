@@ -3294,14 +3294,15 @@ is_split   50% COD 둘 true
         「손님들이 결제하는 방식은 아주 다양해. 대표적인 것은 체크와 크레딧 카드, etransfer야. 그 외에, wire transfer, 현금, 데빗 카드도 자주 쓰이고 direct deposit도 종종 쓰여.」
         「wire transfer와 direct deposit은 두 군데 모두 다 쓰고 있어. TD CAD, BMO CAD」 · 「USD는 이따금 들어오긴 할텐데, 모두 BMO USD야」 · 「shopify는 aone만 해당하는데, 손님들은 credit card로 결제할 것이고, 그것은 모두 TD checking으로 들어가는 것을 알고 있어.」
         기본값(방법 · 브랜치 · 통화 → 계좌 · 표 so_payment_account_default · 창고 둘 × 11 = 22 · 마이그레이션 씨앗 · admin 이 고친다):
-          cheque          TOR·EDM CAD → _5_ Undeposited Funds · USD → _106_ BMO USD CHEQUING
+          cheque          TOR·EDM CAD → ~~_5_ Undeposited Funds~~ → [2026-11-02 밤 · §98 · 984] _105_ BMO CAD CHEQUING(Cin7 꼴 · 에드먼턴도) · USD → _106_ BMO USD CHEQUING
           credit_card     TOR → _1150040027_ Clearing - TD Merchant TOR · EDM → _1150040030_ Clearing - TD Merchant EDM · USD → _106_
           debit_card      TOR → _1150040027_ · EDM → _1150040030_ · USD 없음
           e_transfer      TOR·EDM → _1150040028_ Clearing - E-Transfer · USD 없음
           cash            TOR → _137_ Cash on hand TOR · EDM → _1150040031_ Cash on hand EDM · USD → _106_(Cash on hand_USD _145_ 도 고를 수 있다)
           wire            CAD → 기본값 없음 · 사람이 _104_ TD CAD CHEQUING · _105_ BMO CAD CHEQUING 중 고른다 · USD → _106_
           direct_deposit  wire 와 같다
-          shopify(AONE)   → _104_ TD CAD CHEQUING · USD 없음 · 📌 회계사 확인 거리: _1150040029_ Clearing - Shopify(수수료 뗀 입금 맞추기용일 수 있다 · 씨앗 없이 고를 수만)
+          shopify(AONE)   → ~~_104_ TD CAD CHEQUING~~ → [2026-11-02 밤 · §98 · 993] _1150040029_ Clearing - Shopify(Cin7 꼴 · 📌 아래 회계사 확인 거리 풀림) · USD 없음 · (옛) 📌 회계사 확인 거리: _1150040029_ Clearing - Shopify(수수료 뗀 입금 맞추기용일 수 있다 · 씨앗 없이 고를 수만)
+          paypal          [2026-11-02 밤 · §98 · 986 · 신설] TOR·EDM CAD → _124_ PayPal(QBO 수단 7) · USD 없음 · **받기만**(Shopify 게이트웨이 paypal · 손 입력 드롭다운에 없다) ⇒ 방법 여덟 → 아홉
         「없음」 = 기본값 없음 → 넣을 때 계좌를 요구(이견 0-9 · 거부 아님) · 나머지 활성 BANK(PayPal · MTFX · WISE · CAD Clearing · BMO CAD SAVINGS · TD USD 등)는 고를 수 있되 기본값 아님
         📌 새 사실(주문 유입 차수의 근거): asung.ca 도매 오더는 결제 없이 들어와 인보이스로 청구 · aonebeauty.com(AONE) 오더는 카드로 결제된 채 들어온다(→ method shopify · reference = Shopify 거래번호 · 대상 = 그 오더로 so_payment_order 에)
 판정 3  선결제 때 손님에게 주는 종이 = 견적서(pro forma) — 「견적서를 주는게 맞지 않을까? 그리고 총금액에 얼마가 paid됐다라는 식으로 말이야.」
@@ -3892,7 +3893,7 @@ p   issued_on(선택 · 기본 오늘 · 미래 거부) · reason 필수(custome
 ```
 ⬜ qty_credited 식      so_credit_prepare 가 so_credit_issue :1055~1056 을 복사했다 — so_credit_line_returned(so_invoice_line_id) 로 떼고 발행 창구와 함께 부른다(다르면 화면은 된다는데 창구가 거부)
 ⬜ 목록 속도            뷰가 행마다 so_*_remaining 을 부른다 — 1만 장 1~2초 짐작 · pg_trgm 없음(search_text 인덱스는 뒤)
-⬜ 뷰의 창고 칸         so_invoice_list 에 창고 칸이 없다 — Manager List 의 Unpaid 탭이 브랜치로 못 거른다(§23)
+~~⬜ 뷰의 창고 칸         so_invoice_list 에 창고 칸이 없다 — Manager List 의 Unpaid 탭이 브랜치로 못 거른다(§23)~~ → ✅ [2026-11-03 · §98 · 판정 994] so-inv-branch-1 `8915b2d`(warehouse_id · warehouse_name · warehouse_source 끝에) · ml v1.4 `19e6f40`(Unpaid 목록 · 배지가 Branch 를 따른다)
 📌 회계사 확인          리스탁킹 피 계정(so_credit_restock_fee_account_code 비어 있음 · 매니저가 고른다 · 19-g · 16-c)
 ```
 
@@ -3958,7 +3959,7 @@ Backorders     v1 → v1.3 — so_backorder_list(새 DB 창구 없음) · 분류
                v1.1 다른 창고 가용을 이름별(NaN 이었다) · v1.2 무상 줄 필터 칸 없앰 → 요약 숫자는 1 이상일 때만 · v1.3 잡힐 것이 없으면 진행을 막는다
 POS            v1 — 매장은 기기에 기억(localStorage 예외) · 손님 먼저 · 스캔 한 번 = 1개 · 결제 넷 · 거스름돈 · Finish · Park · Reopen · 메뉴에만
 Manager List   v1 — 탭 넷(Sold without stock · Unpaid at hand-over · POS not finished · Counter orders) · 배지 · 메뉴에만 · 읽기 sales · 확인만 manager
-               ⚠️ Unpaid at hand-over 는 손님 결제조건 자료가 정리될 때까지 그만큼만 정확(Net30 6,305 · 17-g 정리 거리) · ⬜ 브랜치 거르기(뷰에 창고 칸)
+               ⚠️ Unpaid at hand-over 는 손님 결제조건 자료가 정리될 때까지 그만큼만 정확(Net30 6,305 · 17-g 정리 거리) · ~~⬜ 브랜치 거르기(뷰에 창고 칸)~~ → ✅ [2026-11-03 · §98 · 994] so-inv-branch-1 · ml v1.4
 화면 시험 실물  Clore(SO-25000 · 60000 · wire 100 + cash 76.30) · JOJOJO(SO-25001 · 60001 · credit card 500 중 290.05 · CR-01000 30.14 · Available 240.09 · SO-25003/25003a 백오더 · POS) · 부족분 SO-25000 ORS10999 12 cost unknown
 ```
 ⚠️ 이 실물들 때문에 테스트 DB 의 so · so_invoice · so_credit 이 비어 있지 않다 — 시퀀스 되돌리기 가드가 안 돈다(22-d).
@@ -3981,7 +3982,7 @@ Manager List   v1 — 탭 넷(Sold without stock · Unpaid at hand-over · POS n
 ⬜ Cin7 판매 반품    Credit Notes 의 cin7{…} 갈래(창구는 있다 · 전환 전)
 ⬜ Release to WMS · 오피스 마무리 화면   ⑤ 뒤
 ⬜ POS 사진          오른쪽 판 맨 위 · 선행 = 제품 마스터 사진 칸 · Cin7 사진 파일을 우리 저장소로(마스터 쓰기 차례 · CHECKLIST 7-k)
-⬜ Manager List      Unpaid 탭 브랜치 거르기(뷰에 창고 칸 · 22-f) · 기간 고르기 · 결제조건 정리 뒤 재검
+⬜ Manager List      ~~Unpaid 탭 브랜치 거르기(뷰에 창고 칸 · 22-f)~~ → ✅ [2026-11-03 · §98 · 994] · 기간 고르기 · 결제조건 정리 뒤 재검
 ⬜ 손님 잔액 화면 · counter 칸 바꾸기 줄 · 보관용 표시 켜기/끄기 · 백오더 알림 표시
 ```
 
@@ -12290,7 +12291,7 @@ a2a488e so v5z3: Channel 거르기 Warehouse → Warehouse Backend — 채널 wa
 4. **공급처(950 · sup-buy-1)** — 재셈: 활성 Purchasable true **171** · false **55** · null **0** · 전체 null 30 은 모두 비활성 · DB 무변(칸은 2026-09-11 부터 있었다 — 조사에서 찾아 새 칸을 막았다)
 5. **운영 설정(11-01 밤 Caleb)** — Google Drive 켬(재셈 drive_enabled on · drive_since 2026-11-01 · Queue 0 은 「11-01 실측(대화)」) · mail_live on · redirect 비움 · 열쇠 qbo 셋 · 공급처 Purchasable 판정
 6. **Freightcom** — 아직 시험 토큰(운영 토큰 요청 두 번 · 답 없음 · 11-02 아침 다시 · 그동안 Freightcom 사이트에서 손으로) · 비밀값 `FREIGHTCOM_BASE_URL` · `API_KEY_TOR` · `_EDM` 만 바꾸면 된다 → deferred 364 에 잇기
-7. **북키퍼 답(11-01 문서 · deferred 433 닫음)** ① 결제 수단은 Cin7 이 전부 Cash 로 보냄 · 재무제표에 닿는 것은 Deposit To 뿐(CS 팀은 Reference · Deposit To 만 봄) ⇒ 433 ① ② 의 「현금 → TD Merchant · Clearing - Shopify」 는 수단 이름일 뿐 ② Shopify 카드 캡처 → Clearing - Shopify · 수단 Cash 그대로 무해 ③ 트랜스퍼 분개: In Transit 은 Inventory Asset 하위 · 재무제표 영향 없음(⚠️ **트랜스퍼를 장부에 보낼지는 여전히 보내기 차수의 판정 거리** — qbo-integration §11) ④ Sales Discounts 써 본 적 없음(→ 943) ⑤ Surcharge 계정 · 항목 안 씀 · 카드 수수료는 QBO 에서 인보이스를 직접 고쳐 「Credit Card Processing Fee (3%)」(Out of Scope · Bank Service Fees) — Caleb 이 11-02 「IMS 가 보낸 인보이스는 QBO 에서 고치지 말고 카드 수수료도 IMS 에서」 전함(→ 951) ⑥ 컷 뒤 입금: 북키퍼는 QBO 직접 예정이었으나 Caleb 이 11-02 「IMS 에 넣는다」 로 고쳐 전함(→ deferred 434)
+7. **북키퍼 답(11-01 문서 · deferred 433 닫음)** ① 결제 수단은 Cin7 이 전부 Cash 로 보냄(→ [2026-11-02 밤 · §98-c 1] **정정** — 카드 · Debit · E-Transfer · EFT · Cheque 는 갈라 보냈고 Cash 는 Shopify · PayPal · 현금뿐) · 재무제표에 닿는 것은 Deposit To 뿐(CS 팀은 Reference · Deposit To 만 봄) ⇒ 433 ① ② 의 「현금 → TD Merchant · Clearing - Shopify」 는 수단 이름일 뿐 ② Shopify 카드 캡처 → Clearing - Shopify · 수단 Cash 그대로 무해 ③ 트랜스퍼 분개: In Transit 은 Inventory Asset 하위 · 재무제표 영향 없음(⚠️ **트랜스퍼를 장부에 보낼지는 여전히 보내기 차수의 판정 거리** — qbo-integration §11) ④ Sales Discounts 써 본 적 없음(→ 943) ⑤ Surcharge 계정 · 항목 안 씀 · 카드 수수료는 QBO 에서 인보이스를 직접 고쳐 「Credit Card Processing Fee (3%)」(Out of Scope · Bank Service Fees) — Caleb 이 11-02 「IMS 가 보낸 인보이스는 QBO 에서 고치지 말고 카드 수수료도 IMS 에서」 전함(→ 951) ⑥ 컷 뒤 입금: 북키퍼는 QBO 직접 예정이었으나 Caleb 이 11-02 「IMS 에 넣는다」 로 고쳐 전함(→ deferred 434)
    - IMS 결제 창에는 이미 결제마다 Account(입금 계좌 · 「Default for this method and branch」) — 결제 차수가 그대로 보낸다 · 432(credit_card 1:3)는 ① 로 「수단보다 Deposit To」 가 무게 · 열림 그대로
 
 ### 96-d′ 열린 것 · 닫은 것
@@ -12496,4 +12497,141 @@ cb3fe5e pay label v1: Customer Payments 의 + New → + Money on account(선입�
 
 ```
 다음 판정 번호: 978 · 다음 deferred 번호: 452
+```
+
+## §98 2026-11-02 밤 ~ 11-03 새벽 집 — QuickBooks 결제 보내기(수단 paypal · 수표 #105 · Clearing - Shopify · 일감 · 몸 · EF) · 미래 날짜 결제 · 창고 화면 속도(장부 뷰 대신 키 잔고) · 관세 0 청구서 · 돈 안 받고 넘긴 인보이스의 브랜치 — qbo-sync-2e-1a · 1a2 · 1b · 1c · wms-balance-perf-1 · 2a · 3 · 2b · 2c · so-inv-branch-1 · chg duty v1 · v2 · bal-of v1 · pad v1 · pay screens v1 · ml v1.4 · 판정 978 ~ 994 (집 PC)
+
+⭐ 정한 것: **결제 하나 = QBO Payment 한 장 · 고치기는 void + 통째로 다시**(978) · **IMS 에 적힌 결제는 모두 IMS 가 보낸다**(981) · **붙은 인보이스가 다 QBO 에 가면 결제는 자동으로**(988 · 989 · 스위치 `qbo_send_payments_enabled`) · **입금 계좌 = Cin7 꼴**(984 수표 #105 · 986 PayPal #124 · 993 Clearing - Shopify) · **미래 날짜 결제 = 받은 돈**(979 · 991) · **브랜치 = 물건을 내준 브랜치**(994)
+⭐ 원천: 지시서 docs-1103 §2 판정 원문(대화 Claude · Caleb · 11-02 밤 대화) · asung-wms `git log --oneline 7a524da..HEAD` · asung-ims `git log --oneline 97e781b..HEAD` 원문 · 마이그레이션 머리 주석 · EF `_shared/qbo.ts` 머리 · 속도 숫자는 「11-02 밤 실측(보고 · 대화)」 — ⚠️ Caleb 의 말 원문은 지시서에 없다(판정 표의 Caleb 칸)
+⭐ 시각: 토론토(UTC − 5)
+⭐ 정본 자리: 결제 보내기 = `qbo-integration.md` 머리 상태 줄 · §5 · §13 · **§14-f** + 스킬 asung-qbo · 결제 수단 · 기본 계좌 = 이 절 98-a + §18-a 판정 2 표(고침) + 스킬 asung-so · 창고 속도 = 이 절 98-c 3 + `ledger-design.md` 이식 절 「ims_inv_balance」 · 스킬 asung-wms 규칙 48 끝 · asung-inv-ledger · 브랜치 칸 = 이 절 98-a 994 + §22 · §23 의 ⬜(→ ✅) · cron 62 = `supabase/ops/cron.sql` 끝(기록만 · 등록 전)
+
+### 98-a 판정 (Caleb 원문 없음 · 뜻 · 지시서 docs-1103 §2)
+
+| 판정 | Caleb | 뜻 |
+|---|---|---|
+| 978 | (다)(원문 없음) | **결제 하나(so_payment 한 줄) = QBO Payment 한 장** · 보낸 뒤 붙임이 바뀌면 옛 Payment void + 통째로 다시 보낸다 · update 길 없음 |
+| 979 | (원문 없음) | post-dated 수표는 **수표에 적힌 날짜로**(paid_on) · **수표 한 장 = 결제 한 줄**(한 오더에 수표 30 장 → 결제 30 줄) · 북키퍼 확인 |
+| 980 | (나)(원문 없음) | 본사가 매장 인보이스 여럿을 수표 하나로 → **본사(청구처) 이름 Payment 한 장 · Line 이 매장 인보이스** · sandbox B-4 로 섰다(Payment 183 → Invoice 182 Balance 0) · (가) 쪼개기는 짓지 않음 |
+| 981 | (가)(원문 없음) | 날짜와 상관없이 **IMS 에 적힌 결제는 모두 IMS 가 보낸다** · 북키퍼는 QBO 에서 Payment 를 만들지 않는다 |
+| 982 | (원문 없음) | 이월 인보이스는 Cin7 이 모두 QBO 에 올렸다 → 다시 보내지 않는다 · **이월에 붙은 IMS 결제는 보낸다** · 짝 = DocNumber + 매장 손님 + 금액 · 안 맞으면 결제는 기다리고 「사람이 볼 것」 · 2329611(KimC Trading · Cin7 Omni) = QBO Invoice 81417 「2329611 \| ITRA6260-1」 · Balance 6,823.87 = IMS 남은 금액 → 1d 에 사람 짝 길(deferred 452) |
+| 983 | (원문 없음) | 카드 결제는 Visa · MC · Amex 를 구분하지 않는다 · **QBO 수단 하나**(짝은 Settings 화면에서 Caleb · ~~아직 안 지음~~ → 화면은 pay screens v1 `4d9b62a` 의 한 수단 Find… · 짝은 아직 안 함 — deferred 453 ①) |
+| 984 | (원문 없음) | 수표 Deposit To = **BMO #105 바로**(토론토 · 에드먼턴 둘 다) · Cin7 꼴 — 2e-1a `f7ca811` |
+| 985 | (원문 없음) | QBO 「Automatically apply credits」 = **off**(북키퍼 확인) · 그대로 · IMS 가 크레딧 붙임을 보낸다(2e-2 · deferred 454) |
+| 986 | (원문 없음) | PayPal 결제는 **PayPal 계정(_124_ · QBO 수단 7)** · IMS method **paypal** 신설(받기만 · 손 입력 드롭다운에는 없다) — 2e-1a |
+| 987 | (원문 없음) | 환불은 오피스 현금 · 북키퍼 e-transfer **모두 IMS 에 적는다** · 북키퍼 열쇠로 가능 · QBO 꼴은 북키퍼 실물 한 장을 읽은 뒤(2e-3 · deferred 454) |
+| 988 | (원문 없음) | 결제는 **붙은 인보이스가 모두 QBO 에 간 순간 자동으로 간다**(cron 62 · 스위치 `qbo_send_payments_enabled`) · 인보이스 · 크레딧 노트는 971 그대로 북키퍼가 고른다 |
+| 989 | (원문 없음) | 크레딧 붙임 · 환불도 988 처럼 따라간다 |
+| 990 | (가)(원문 없음) | 환불 보내기(2e-3) 전 환불은 IMS + 북키퍼가 QBO 에 손으로 · 켜는 날 그 전 것은 안 보내게 표시 |
+| 991 | (가)(원문 없음) | **미래 날짜 결제도 받은 돈으로 본다**(remaining · overdue · balance 무변) · 결제 넣기 창구만 **1 년까지** 열었다 · 환불 · 이월 as_of 는 미래 거부 그대로 · QBO 는 미래 TxnDate 를 받는다(Cin7 실물 24 장) |
+| ~~992~~ → 992′ | (다′)(원문 없음) | 컷 전에 받은 post-dated 수표 **24 장(29,774.71 · Beauty Collection 5 · Hair Spray 4 · Xcentric 4 · Sweetwells 11)은 짓지 않고 오피스 알림만**(「IMS 에 적지 말 것」) · ⚠️ 정정: 원인은 「IMS 가 미래 날짜를 거부」 가 아니라 **「Cin7 이 그 sale 을 다 받은 것으로 봐 이월 대상이 아니었다 · IMS A/R 은 맞다」** · 컷 전 결제 47 장 대조 (b) 0(48974 의 0.05 는 그대로) · 98-e 67 |
+| 993 | (가)(원문 없음) | Shopify 결제 Deposit To = **Clearing - Shopify _1150040029_**(Cin7 꼴) — 2e-1a2 `da6606b` |
+| 994 | (가)(원문 없음) | 「돈 안 받고 넘긴 인보이스」 의 브랜치 = **물건을 내준 브랜치(첫 SO 창고)** · 오더 없는 인보이스는 매장 → 청구처 기본 브랜치 · 비면 null(All branches 에서만) · 칸 `warehouse_id` · `warehouse_name` · `warehouse_source`(so \| store \| bill_to \| null) · Unpaid 25 장 = 이월 24 + IMS 60005(SO-20061) 1 · 토론토 17 · 에드먼턴 8 — so-inv-branch-1 `8915b2d` · ml v1.4 `19e6f40` |
+
+- 판정 아님 · 정해진 것: **관세 0 · GST 만 있는 CBSA 청구서 = Kind Duty · Duty 0 · GST 그대로** · **PO 를 하나 이상 골라야 확정된다**(`po_charge_confirm` 「배분 줄 0 이면 거부」 · 금액 0 줄은 받는다 · 경고 `total_amount_zero`) → chg duty v1 · v2(화면 칸 이름 · 문구) · 매뉴얼 02 Purchasing 한 줄
+
+### 98-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline 7a524da..HEAD`(asung-wms · 11-02 docs-1102 뒤) 원문(80 자에서 자름 · 전문은 git) — 지시서 §1 목록 10 과 같다(빠진 것 0 · 97-e 62 대조):
+
+```
+8915b2d so-inv-branch-1(판정 994): so_invoice_list 끝에 warehouse_id · warehouse_nam
+7047a80 qbo-sync-2e-1c(판정 978 ~ 991 · 988): EF 결제 보내기 — SEND_KINDS 8 · WRITE_ENT
+df84adb wms-balance-perf-2c ②-c(deferred 450): so_sale_now p_with_deals boolean 
+6d37cea qbo-sync-2e-1b(판정 978 ~ 991 · 992′): 결제 일감 payment · payment_void · 몸(Cu
+da6606b qbo-sync-2e-1a2(판정 993): shopify CAD 기본 계좌 _104_ → _1150040029_ Clearing
+9775e67 wms-balance-perf-2b ②-b(deferred 450): stk_availability by_warehouse jso
+545d8bb wms-balance-perf-3 ③(deferred 450): wms_pick_shelf(InitPlan 상수화) · bgrad
+6107e23 wms-balance-perf-2a ②-a(deferred 450): inv_available_base bal · stk_avai
+afdd8ec wms-balance-perf-1 ①(deferred 450): ims_inv_balance_of(키 집합 잔고 · 뷰와 같은 열
+f7ca811 qbo-sync-2e-1a(판정 984 · 986 · 991): IMS 수단 paypal(받기만 · CHECK 둘 · 기본값 _1
+```
+
+`git log --oneline 97e781b..HEAD`(asung-ims) 원문(같이 자름) — 지시서 §1 목록 6 과 같다:
+
+```
+19e6f40 ml v1.4 — Action Centre Unpaid at hand-over 목록 · 배지가 Branch 를 따른다(so_inv
+4d9b62a pay screens v1 — qbo-send Payments 종류 · 결제 미리 보기(check_lines · 합계 · void
+33e141e pad v1 — stock-moves · stock-bgrade · stock-adjustments: 옛 꼴 팝업(.pobox 에
+47e7796 bal-of v1 — stock-moves · stock-bgrade · stock-adjustments: 칸 잔고를 뷰 id 거
+64e7971 chg duty v2 — Charges: Duty 칸이 비면 Duty is required 문구 · total_amount_zer
+e6cd3db chg duty v1 — Charges: Kind Duty 일 때 Duty (before tax) · GST on import 칸
+```
+
+| 차수 | 마이그레이션 · 판 | 커밋 | 무엇 |
+|---|---|---|---|
+| qbo-sync-2e-1a | `20261103020000` · ops `shopify-paypal-fix.sql` | `f7ca811` | 984 · 986 · 991 — CHECK 둘에 paypal(so_payment_method_ck · so_payment_account_default_method_ck) · 기본 계좌 cheque CAD TOR · EDM `_5_` → `_105_` · paypal CAD TOR · EDM → `_124_`(24 행) · `qbo_ims_rows` + paypal · qbo_link payment_method paypal → QBO 수단 7 · `so_payment_add` 미래 paid_on 1 년 · `shop_order_ingest` · `shop_order_process` 게이트웨이 paypal → method paypal · ops 이미 적힌 paypal 3 건(AO-17314 · AO-17327 · AO-17339 · apply) · 검증 27/27 |
+| wms-balance-perf-1 ① | `20261102230000` | `afdd8ec` | 450 — 새 `ims_inv_balance_of(p_product_ids uuid[], p_warehouse_id uuid default null)`(뷰와 같은 열 15 · 같은 정의 · 키로만) · `wms_pick_lines`(bal · sbal → kb 한 번) · `so_pick_plan` · `ims_last_bin` · `product_bom_set` 이 키 잔고 · 집합 무변(뷰 vs 함수 except 0 · 옛 = 새 11 · 적용 직전 캡처 45 건 diff 0) · 검증 39 / 확인 27 |
+| wms-balance-perf-2a ②-a | `20261103010000` | `6107e23` | 450 — `inv_available_base` bal · `stk_availability` lastev 를 뷰 대신 직접(inv_balance + product + ref_bin · inv_ledger max) · 옛 = 새 12 · 캡처 82 건 diff 0 · 검증 29 / 확인 17 |
+| wms-balance-perf-3 ③ | `20261103023000` | `545d8bb` | 450 — `wms_pick_shelf`(InitPlan 상수화) · `bgrade_stock` 본문 · 식 인덱스 둘 `inv_ledger_wh_bin_sku_idx (warehouse, coalesce(bin,''), sku)` · `inv_snapshot_key_wh_bin_sku_idx (snapshot_key, warehouse, coalesce(bin,''), sku)` · `inv_move_bin_contents` · `ref_bin_bgrade_set` 은 **본문 무변**(인덱스만으로 · 검증 E md5) · 검증 32 / 확인 17 · 캡처 diff = FP 줄 하나 |
+| wms-balance-perf-2b ②-b | `20261103030000` | `9775e67` | 450 — `stk_availability` by_warehouse jsonb 를 페이지 줄에만 · 합계 · 거르기 · 정렬 · total 전수 · 반환 열 · 값 · 순서 무변(옛 = 새 8) · 검증 20 / 확인 11 · 캡처 diff = FP 줄 하나 |
+| qbo-sync-2e-1a2 | `20261103040000` · ops `shopify-clearing-fix.sql` | `da6606b` | 993 — shopify CAD 기본 계좌 `_104_` → `_1150040029_` Clearing - Shopify · USD shopify 기본값 없음 그대로 · ops 34 건 1,569.49 apply 끝 · 검증 10/10 |
+| qbo-sync-2e-1b | `20261103050000` | `6d37cea` | 978 ~ 991 · 992′ — qbo_job kind + payment · payment_void · qbo_txn kind payment · 칸 fingerprint · source(sent \| matched) · 지문 `qbo_payment_fingerprint` · 몸 `qbo_payment_body` · `qbo_payment_void_body` · 상태 표 `qbo_payment_sync` · 트리거 둘(so_payment_alloc DEFERRED · so_payment status) · `qbo_payment_requeue`(1d) · `qbo_payment_backfill`(커밋 글 「백필 61」) · claim · done(10 인자) · preview · doc · list · retry 재발행 · `qbo_send_payments_enabled` off · 검증 33/33 |
+| wms-balance-perf-2c ②-c | `20261103060000` | `df84adb` | 450 — `so_sale_now(p_product_ids, p_on, p_with_deals boolean default true)`(옛 2 인자 **drop → create** · false 면 deals '[]') · `stk_availability` sale CTE 가 false · 호출자 4 함수 · 화면 3 곳 기본 true 무변 · 검증 24 · 캡처 14 · ⚠️ 번호는 처음 040000 → qbo 2e1a2 와 겹쳐 060000(98-e 64) |
+| qbo-sync-2e-1c | EF qbo · ops cron.sql | `7047a80` | 978 ~ 991 · 988 — SEND_KINDS 8 · WRITE_ENTITIES payment · void = `operation=update&include=void` · (가) Balance 읽기 가드 · done 10 인자(UnappliedAmt) · unknown 열쇠 · send `{kinds}` · cron 62 **기록만(등록 전)** · deno 23/23 · 11-03 새벽 배포 — qbo-integration §14-f |
+| so-inv-branch-1 | `20261103070000` | `8915b2d` | 994 — 뷰 `so_invoice_list` 끝에 `warehouse_id` · `warehouse_name` · `warehouse_source` · 옛 43 칸 · 권한 · invoker 무변 · `so_invoice_detail` 의 invoice JSON 에 키 셋이 더해진다(to_jsonb · 더하기만) · 검증 22/22 |
+| chg duty v1 · v2 | charges 화면 | asung-ims `e6cd3db` · `64e7971` | Kind Duty 일 때 **Duty (before tax) · GST on import** 칸 이름 · Check 가 빈 GST 에 제안값을 안 채우고 멈춤 · Duty 빈칸 → 「Duty is required」 · `total_amount_zero` 경고를 사람 말로 · DB 무변 |
+| bal-of v1 | stock-moves · stock-bgrade · stock-adjustments | asung-ims `47e7796` | 칸 잔고를 뷰 id 거르기 대신 rpc `ims_inv_balance_of` · 거르기 · 정렬 · limit 무변 |
+| pad v1 | 같은 셋 | asung-ims `33e141e` | 옛 꼴 팝업(.pobox 에 바로) 안쪽 여백 · 스크롤(공통 .pobox 무변) |
+| pay screens v1 | qbo-send · settings · so-payments · so-invoices · so | asung-ims `4d9b62a` | qbo-send **Payments** 종류 · 결제 미리 보기(check_lines · 합계 · void) · settings 카드 수단 한 수단 Find…(983) · 결제 날짜 칸 오늘 + 1 년 · **post-dated** 칩(979 · 991) · 환불 날짜는 오늘까지 · paypal 이름 · DB 무변 |
+| ml v1.4 | manager-list | asung-ims `19e6f40` | 994 — Action Centre Unpaid at hand-over 목록 · 배지가 Branch 를 따른다(`so_invoice_list.warehouse_id`) · All branches 일 때 Branch 칸 |
+
+- 적용: 위 마이그레이션 아홉 전부 **메인 DB(Asung-IMS) 적용 · repair**(11-02 밤 ~ 11-03 새벽 · 지시서 §1 번호 목록) · EF qbo 1c 배포 11-03 새벽 · 두 레포 `main...origin/main`(11-03 문서 차수 때 git status · 앞선 커밋 0)
+- ⚠️ cron 62 `ims-qbo-send-payments` 는 **아직 등록 전**(ops/cron.sql 에 명령만 · jobid 는 등록 뒤 실측 · deferred 453 ③)
+
+### 98-c 사실 · 실측 · 정정
+
+1. **Cin7 → QBO 결제 수단 — 정정**: ~~「Cin7 은 결제 수단을 전부 Cash 로 보냈다」(§96-c 7 ① · deferred 432 근거 칸 · 북키퍼 11-01)~~ → 실물: **카드 Visa 3 · MC 6 · Amex 9 · Debit 4 · E-Transfer 5 · EFT 12 · Cheque 2 로 갈라 보냈다** · Cash 로 간 것은 **Shopify · PayPal · 현금뿐**(지시서 docs-1103 §3 · 「11-02 밤 실측(대화)」 · 건수 단위는 지시서 그대로) ⇒ 재무제표에 닿는 것이 Deposit To 라는 북키퍼의 말은 그대로 · 수단은 983 으로 카드 하나
+2. **QBO Payment void 실물(sandbox B-6)**: `POST payment?operation=update&include=void` {Id, SyncToken, sparse} → TotalAmt 0 · Line [] · PrivateNote 「Voided - 」 머리 · 인보이스 Balance 되돌아옴 · **DepositToAccountRef 를 안 주면 QBO 가 26 으로 채운다**(그래서 몸은 늘 계좌를 싣는다) · 응답 Line 에 LineEx(txnId · txnOpenBalance · txnReferenceNumber)
+3. **창고 속도(옛 → 새 · 450 · 「11-02 밤 실측(보고)」)**: 픽 Complete 40 줄 7.5 s → 0.15 s(A `7979c4f` · §97) · 픽 과제 16 개 4,733 → 241 ms · 40 줄 과제 598 → 50 ms · so_pick_plan 324 줄 622 → 292 ms · Last bin 324 제품 2,915 → 68 ms · **재고 화면 두 창고 1,850 → 1,409(②-a) → 975(②-b) → 731 ms(②-c)** · 한 창고 949 → 515 ms · bgrade_stock 191 → 5 ms · 칸 장부 229 → 0.3 ms · 픽 선반 207 → 113 ms · so_sale_now false 357 → 126 ms
+   - 까닭(①): 뷰 `ims_inv_balance` 는 inv_balance(스냅샷 + 원장 GROUP BY) 뒤에 product · ref_warehouse · ref_bin 을 붙인다 → **id 술어가 집계 안으로 못 들어가 부를 때마다 장부 전체 집계 543 ms** ⇒ 뷰를 id 로 거르지 말고 `ims_inv_balance_of`(키 집합)
+   - 남은 것(→ deferred 455): so_sale_now false 로 바꿀 나머지 셋 · inv_move_bin_contents 제품마다 조회 · wms_pick_shelf pl · pk · so_totals_many
+4. **바뀐 함수 · 뷰의 마지막 정의**(grep -i 로 확인 · 97-e 63): `ims_inv_balance_of`(새) · `wms_pick_lines` · `so_pick_plan` · `ims_last_bin` · `product_bom_set` = `20261102230000` · `inv_available_base` = `20261103010000` · `wms_pick_shelf` · `bgrade_stock` = `20261103023000` · ⚠️ `inv_move_bin_contents` = 그대로 `20261023135121_bgr_1b` · `ref_bin_bgrade_set` = 그대로 `20261023131028_bgr_1a`(③ 은 인덱스만 · 본문 md5 무변 검증) · `stk_availability` = `20261103060000`(②-a · ②-b · ②-c 세 번) · `so_sale_now`(3 인자) = `20261103060000` · `so_payment_add` = `20261103020000` · `qbo_job_claim` · `preview` · `doc` · `list` · `retry` · `done`(10 인자) = `20261103050000` · 뷰 `so_invoice_list` = `20261103070000`(그 전 ar-2 `20261027014202`)
+5. **결제 몸 꼴(2e-1b · 머리 주석)**: CustomerRef = **청구처**(so_payment.customer_id · 980) · TxnDate = paid_on(미래 그대로 · 991) · PaymentMethodRef(짝 없으면 failed — credit_card 는 사람 짝 전까지) · DepositToAccountRef = account_code 짝 · PaymentRefNum = left(reference, 21) · PrivateNote 「IMS payment <uuid>」 · Line = 활성 붙임마다 LinkedTxn(QBO Invoice Id 는 qbo_txn 에서만 · 열린 인보이스 일감이면 기다림 · 일감 없음 · skipped · 이월 · since 전 짝 없음은 failed 글) · 일부만 붙었으면 UnappliedAmt(경고) · 지문 = md5(amount · paid_on · method · account_code · currency · 정렬한 (invoice_id, amount)) — 활성 · payment · opening 아님 · 붙임 ≥ 1 이 아니면 null(= QBO 에 없어야 한다)
+6. **992′ 정정의 실물**: post-dated 24 장은 IMS 에 이월 인보이스로 **오지 않았다** — Cin7 이 그 sale 을 다 받은 것으로 봤다 · IMS A/R 은 맞다 · 대화 Claude 의 첫 설명(「IMS 가 미래 날짜를 거부해 못 넘어왔다」)은 짐작이었다(98-e 67)
+7. **994 실측**: Unpaid at hand-over 25 장 = 이월 24 + IMS 60005(SO-20061) 1 · 토론토 17 · 에드먼턴 8 · 열린 이월 307 장 중 브랜치가 비는 장 0(머리 주석 이견 답 3) · 살아 있는 오더 여럿에 창고가 다른 인보이스 0 장(이견 답 1 · 첫 SO 는 so_number 순)
+8. **Charges**: 관세 0 · GST 만 있는 CBSA 청구서는 Kind Duty · Duty 0 · GST 그대로 · PO 를 하나 이상 골라야 확정(`po_charge_confirm` 마지막 정의 `20261020153535_rcv_1b_post_now` — 「has no allocation lines」 거부 · 금액 0 은 경고 `total_amount_zero` 로 받는다)
+
+### 98-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: **450**(창고 속도 ① ~ ③ · ②-a · ②-b · ②-c — `afdd8ec` · `6107e23` · `545d8bb` · `9775e67` · `df84adb` · 남은 것은 455) · **432**(credit_card 1:3 → 983 QBO 수단 하나 · 짝은 사람 — 453 ①)
+- deferred **337 ①**(Action Centre Unpaid 가 Branch 무시) 닫힘 — so-inv-branch-1 `8915b2d` · ml v1.4 `19e6f40` · 337 줄은 ② ~ ⑨ 로 **열림 그대로**
+- §22 · §23 의 ⬜ 「뷰에 창고 칸」 셋(Manager List Unpaid 브랜치 거르기) → ✅ · 스킬 asung-so 같은 말
+- 잇기: **341** · **434**(981 · 982 — IMS 가 결제를 모두 보낸다 · 이월에 붙은 결제는 1d 짝 뒤 · 열림 그대로)
+- 새 deferred **452 ~ 458**
+
+| 번호 | 무엇 | 때 |
+|---|---|---|
+| 452 | 2e-1d 이월 짝(match_opening · qbo_opening_match · matched · 「사람이 볼 것」 · 2329611 사람 짝 · requeue) + qbo_link_set 이 payment_method 짝을 지으면 그 수단의 failed 결제 일감을 queued 로 | 미정 |
+| 453 | 결제 켜는 순서(Caleb) ① credit_card QBO 수단 짝 ② Payments 몇 장 Preview → Send ③ cron 62 등록 · jobid 실측 ④ `qbo_send_payments_enabled` on · ⚠️ 그 전에 Send 를 누르지 말 것 | Caleb 요청 때 |
+| 454 | 2e-2 크레딧 붙임(985 · 989) · 2e-3 환불 · 받아 둔 돈(987 · 990 · 이월 받아 둔 돈 62 건 auto_balance 틈) | 미정 |
+| 455 | 창고 · 사무실 속도 남은 것(so_sale_now false 셋 · inv_move_bin_contents · wms_pick_shelf pl · pk · so_totals_many) | 미정 |
+| 456 | qbo-send 참조 없는 결제의 Document 칸이 가운뎃점으로 시작(보기만) | 미정 |
+| 457 | so-invoices 목록 Branch 거르기(뷰 warehouse_id) | 미정 |
+| 458 | Action Centre Unpaid 「Paid · credited」 가 이월 prior_settled 를 안 보임(짐작 · 50663) | 미정 |
+
+### 98-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (97-e 에 이어 64 부터)
+
+64. [환경 · 두 창] **두 창이 동시에 만들면 마이그레이션 번호가 겹친다** — ②-c 가 qbo 2e1a2 와 같은 `20261103040000` 을 잡았다(→ 060000) ⇒ 지시서 · 답에 「만들기 직전 `schema_migrations` 마지막을 보고 그 뒤로」 · 적용 전 대화 Claude 가 번호를 대조한다
+65. [검증] **캡처는 적용 직전에 새로** — 몇 시간 전 캡처는 장부가 움직여 고장 아닌 차이를 낸다 ⇒ 적용 직전 옛 캡처 · 적용 직후 새 캡처 diff(FP 줄 하나만 달라야)
+66. [대화 Claude] **긴 JSON 을 손으로 옮겨 금액을 틀렸다**(컷 전 결제 47 장 · 166709) ⇒ 긴 원본은 옮겨 적지 말고 파일로 묶어 Claude Code 가 읽게
+67. [대화 Claude · 짐작] **원인을 짐작으로 말했다**(「IMS 가 미래 날짜를 거부해 이월에 못 넘어왔다」 — 실제는 인보이스 자체가 이월 대상이 아니었다 · 992′) ⇒ 원인을 말하기 전에 그 인보이스가 IMS 에 있나 select 한 줄
+68. [대화 Claude] **화면 기대값을 짐작했다**(「blocked 로 보일 것」 → 실제 waiting · 일감은 claim 때 blocked 가 된다) ⇒ 화면 기대값은 보고의 상태 표로
+69. [환경 · 터미널] **긴 명령을 붙이면 끝이 잘린다**(`git push && git` — 셸은 앞부분을 돌리고 `git` 사용법을 찍는다) ⇒ 마지막 단계는 짧게 · 결과 줄로 확인
+70. [화면] **화면이 필터 값을 쓰기는 하는지 먼저 grep** — Unpaid 탭은 whId 를 아예 안 썼다(뷰에 칸이 생겨도 화면 한 줄이 따로 필요했다 · ml v1.4) ⇒ 「화면이 그 칸을 쓰나」 를 정하기 전에 그 화면의 필터 변수 사용처를 본다
+
+### 98-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §97 끝 「다음 판정 번호 978 · 다음 deferred 번호 452」 → 아래
+- §18-a 판정 2 표 — cheque CAD TOR · EDM `_5_` → `_105_`(984) · shopify CAD `_104_` → `_1150040029_`(993 · 「📌 회계사 확인 거리」 풀림) · paypal CAD → `_124_`(986 · 신설) · 방법 여덟 → 아홉(paypal 은 받기만)
+- §22 · §23 의 ⬜ 「뷰에 창고 칸」(3895 · 3961 · 3984 줄 근처) → ✅ 994
+- §96-c 7 ① 「결제 수단은 Cin7 이 전부 Cash 로 보냄」 → 98-c 1
+- deferred 닫힘 450 · 432 · 337 ① · 잇기 341 · 434 · 새 452 ~ 458 · 「다음 번호 452」 → 459
+- `qbo-integration.md` 머리 상태 줄 · §5(send kinds · void 꼴) · §13(수단 정정 · 입금 계좌) · §14-f(새 · 결제)
+- `ledger-design.md` 이식 절 「ims_inv_balance」 — ims_inv_balance_of 한 줄
+- 스킬 asung-qbo · asung-so · asung-wms · asung-inv-ledger · asung-po · asung-workflow(본문만 · description 무변)
+- 매뉴얼 01 Sales(결제 날짜) · 02 Purchasing(Charges Duty) · 06 Action Centre(Unpaid 브랜치) — en · ko
+
+```
+다음 판정 번호: 995 · 다음 deferred 번호: 459
 ```

@@ -1441,6 +1441,10 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - ⚠️⚠️ **지혈 = cron 47 ims-orders-drain · 51 ims-order-drain · 53 ims-paid-drain 잠시 끔**(`cron.alter_job(…, active := false)`) → 수리 적용 → 막힌 오더 손 처리(SO-20838 · SO-20839) → 다시 켬(24 오더 created · 끈 동안 Shopify 오더는 IMS 에 안 들어오고 켜면 이어받는다) · 기록 `supabase/ops/cron.sql` 끝
 - ⚠️ **timeout 으로 끊긴 문장은 pg_stat_statements 에 안 남는다** — 범인은 Postgres 로그 · `log_lock_waits` · 함수 안 중첩 문장(track all)으로 찾는다 · 「같은 입력 같은 시간」 으로 무고를 가린다(tf-combo 1a · 1b 결백)
 - ⚠️ **뷰 `ims_inv_balance` 를 줄마다 부르지 마라** — 키 술어가 집계 안으로 안 들어가 부를 때마다 110k 행(180 ~ 320 ms) · 픽 Complete 40 줄 7.5 s 의 범인(`wms_pick_line_bins_write` ② · wms-complete-perf-1 `7979c4f` 로 키 직접 조회 · 145 ms · 줄 저장 219 → ~50 ms · `p_with_ledger` false = Complete) · 남은 호출자 10 곳 = deferred 450(B · 두 창고가 멈춘 뒤)
+- ⭐⭐ [2026-11-02 밤 · wms-balance-perf-1 ① `afdd8ec` · ②-a `6107e23` · ③ `545d8bb` · ②-b `9775e67` · ②-c `df84adb` · deferred 450 닫힘 · so-module §98-c 3] **창고 화면 함수는 뷰 대신 직접 읽는다** — 키 집합 잔고 `ims_inv_balance_of(p_product_ids uuid[], p_warehouse_id uuid default null)`(뷰 `ims_inv_balance` 와 **같은 열 15 · 같은 정의** · 모르는 id · 빈 배열 · null 은 0 행) · wms_pick_lines(bal · sbal → kb 한 번) · so_pick_plan · ims_last_bin · product_bom_set · inv_available_base · stk_availability · wms_pick_shelf · bgrade_stock · 화면 stock-moves · stock-bgrade · stock-adjustments(bal-of v1) · 식 인덱스 둘 `inv_ledger_wh_bin_sku_idx` · `inv_snapshot_key_wh_bin_sku_idx`(warehouse · coalesce(bin,'') · sku)
+  - ⚠️⚠️ **뷰를 id(product_id · warehouse_id)로 거르지 마라 — 장부 전체 집계 543 ms**(id 술어는 조인 뒤 열이라 집계 안으로 못 들어간다) · 새 창구 · 화면은 `ims_inv_balance_of` 를 부른다 · 정의는 여전히 `inv_balance` 하나(뷰 · 정의 무변)
+  - 숫자(옛 → 새): 픽 과제 16 개 4,733 → 241 ms · Last bin 324 제품 2,915 → 68 ms · 재고 화면 두 창고 1,850 → 731 ms · bgrade_stock 191 → 5 ms · 칸 장부 229 → 0.3 ms · 픽 선반 207 → 113 ms · 남은 것 = deferred 455
+  - ⚠️ 검증 꼴: 집합 무변(뷰 vs 함수 except 양방향 0 · 옛 = 새) + **적용 직전에 새로 받은 캡처**와 적용 직후 diff(FP 줄 하나만 · 몇 시간 전 캡처는 장부가 움직여 고장 아닌 차이 · so §98-e 65)
 - 열림: 실패한 Shopify 오더 재시도 간격 · 한도 · 연결 60 소진 때 무엇이 먼저 죽나 = deferred 446
 
 ## 현재 진행 상태 (2026-08-04 기준)

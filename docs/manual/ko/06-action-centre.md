@@ -57,7 +57,7 @@
 
 <a id="action-unpaid"></a>
 ## Unpaid at hand-over(건넸는데 덜 받음)
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-03 · ml v1.4 -->
 <!-- who: manager, accounting -->
 
 **여기 뜨는 것**
@@ -71,7 +71,7 @@
 
 **알아 둘 것**
 - "It drops off this list once it is paid."(다 받으면 목록에서 빠진다)
-- 이 탭은 늘 모든 브랜치를 보입니다.
+- 목록과 숫자는 **Branch** 고르기를 따릅니다 — 물건을 내준 브랜치입니다. **All branches** 이면 **Branch** 칸이 나옵니다. IMS 에 오더가 없는 인보이스(이월)는 고객의 기본 브랜치이고 **customer's branch** 라고 적힙니다.
 
 <a id="action-pos"></a>
 ## POS not finished(끝내지 않은 POS)

@@ -597,7 +597,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-payments"></a>
 ## 고객 결제와 선수금
-<!-- screen: so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so-payments.html · BUILD 2026-11-03 · pay pd v1 ; so.html · BUILD 2026-11-03 · so pd v1 -->
 <!-- who: accounting, office -->
 
 **무엇인가**
@@ -621,6 +621,11 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **예**
 Customer A 가 계정에 $500.00 을 냅니다. 다음 인보이스 99001 은 $188.77 입니다. 발행될 때 $188.77 이 저절로 붙고 $311.23 은 계정에 남습니다.
+
+**날짜가 뒤인 수표(post-dated)**
+- "A post-dated cheque: the date written on the cheque (up to a year ahead) · one cheque = one payment."(수표에 적힌 날짜로 · 1 년 안 · 수표 한 장 = 결제 하나) 한 오더에 수표 열 장이면 결제 열 개 · 날짜는 장마다 따로입니다.
+- 오늘 뒤 날짜의 결제에는 **post-dated** 가 붙습니다. 적은 순간부터 받은 돈으로 셉니다.
+- 환불 날짜(**Refunded on**)는 오늘이나 그 앞만 됩니다.
 
 **매니저 이상**
 - **Refund…**(**Customer Payments** 에서): "A refund first pays off credit notes owed to the customer, then money on account. It cannot be more than both together."(먼저 고객에게 줄 크레딧, 그다음 계정의 돈에서 · 둘을 합친 것보다 많을 수 없다) **Record refund** 를 누릅니다.
