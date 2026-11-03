@@ -3,7 +3,7 @@
 //   가짜 DB 는 20261029160000(qbo-1a) 창구의 거부 글 · 반환 키를 그대로 흉내 낸다(state 10 분 · 한 번 · realm 고정 · 임대 · 판 번호 · needs_reconnect 거부 · mark 의 mailed = connected 에서 바뀔 때만)
 //   qbo-sync-1b(2026-11-01 · 판정 934): ⑭ pull — 가짜 DB 에 qbo_pull_begin · qbo_entity_upsert · qbo_pull_finish(20261101210000 의 거부 글 · 반환 키 그대로) · 쪽 1000 은 override 로 · 기존 ⓪ ~ ⑬ 무변
 //   ⚠️ 모든 비밀 · 토큰 가짜 값에 ZZSECRET 표식 — 응답 · 기록 · warn 어디에도 그 표식이 없어야 한다(⑨ + 모든 시험 끝)
-import { ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, CRON_ACTIONS, DUPLICATE_DOCNUMBER_CODES, DUPLICATE_NAME_CODE, faultCode, invoiceTotals, SEND_KINDS, STALE_OBJECT_CODE, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, SEND_PICK_MAX, SEND_PICK_ROUNDS, SEND_PICK_BUDGET_MS, SEND_PICK_PARALLEL, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
+import { kindsOf, paymentKeyOf, parsePaymentKey, PAYMENT_KINDS, UPDATE_VOID_ENTITIES, isVoidedPayment, paymentsByDateQueryText, ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, CRON_ACTIONS, DUPLICATE_DOCNUMBER_CODES, DUPLICATE_NAME_CODE, faultCode, invoiceTotals, SEND_KINDS, STALE_OBJECT_CODE, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, SEND_PICK_MAX, SEND_PICK_ROUNDS, SEND_PICK_BUDGET_MS, SEND_PICK_PARALLEL, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -16,12 +16,13 @@ const SB = "https://fazgmyvzzhqybtvtktyg.supabase.co";
 const DISC = { issuer: "https://oauth.platform.intuit.com/op/v1", authorization_endpoint: "https://appcenter.intuit.com/connect/oauth2", token_endpoint: "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", revocation_endpoint: "https://developer.api.intuit.com/v2/oauth2/tokens/revoke" };
 type Hit = { url: string; method: string; body: string; auth: string | null };
 type Created = { ent: string; id: string; name: string; sku: string | null; requestid: string | null };
-type Inv = { Id: string; DocNumber: string; SyncToken: number; TotalAmt: number; TotalTax: number; voided: boolean; CustomerRef: unknown; ent?: "Invoice" | "CreditMemo" };   // 2c1: ent 없으면 Invoice · 가짜 장부 하나에 둘 다
-type Intuit = { hits: Hit[]; tokenN: number; override: ((h: Hit) => Response | Error | null)[]; dupNames: Set<string>; createdN: number; created: Created[]; invoices: Map<string, Inv>; dupDoc: Set<string>; voidRefuse: Set<string>; taxOverride: Map<string, number> };   // 2b2: invoices = 가짜 장부(Id → 인보이스) · dupDoc 는 6140 · voidRefuse 는 void 400 · taxOverride 는 QBO 가 세금을 다르게 셈한 꼴(mismatch)   // 2a′: 가짜 쓰기 — dupNames 에 있으면 6240 · created 에 쌓인다(이름 조회가 찾는다)
+type Inv = { Id: string; DocNumber: string; SyncToken: number; TotalAmt: number; TotalTax: number; voided: boolean; CustomerRef: unknown; ent?: "Invoice" | "CreditMemo"; Balance?: number };   // 2e-1c: Balance(없으면 TotalAmt) — 결제가 줄인다
+type Pay = { Id: string; SyncToken: number; TotalAmt: number; UnappliedAmt: number; CustomerRef: unknown; TxnDate: string; PaymentRefNum: string | null; PrivateNote: string; Line: Record<string, unknown>[]; voided: boolean; DepositToAccountRef: unknown; PaymentMethodRef: unknown };   // 2e-1c 가짜 Payment(A-1 실물 꼴)   // 2c1: ent 없으면 Invoice · 가짜 장부 하나에 둘 다
+type Intuit = { hits: Hit[]; tokenN: number; override: ((h: Hit) => Response | Error | null)[]; dupNames: Set<string>; createdN: number; created: Created[]; invoices: Map<string, Inv>; dupDoc: Set<string>; voidRefuse: Set<string>; taxOverride: Map<string, number>; payments: Map<string, Pay> };   // [2e-1c payments]   // 2b2: invoices = 가짜 장부(Id → 인보이스) · dupDoc 는 6140 · voidRefuse 는 void 400 · taxOverride 는 QBO 가 세금을 다르게 셈한 꼴(mismatch)   // 2a′: 가짜 쓰기 — dupNames 에 있으면 6240 · created 에 쌓인다(이름 조회가 찾는다)
 const jres = (status: number, body: unknown, tid = "tid-" + status) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", intuit_tid: tid } });
 function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
-  const it: Intuit = { hits: [], tokenN: 0, override: [], dupNames: new Set(), createdN: 0, created: [], invoices: new Map(), dupDoc: new Set(), voidRefuse: new Set(), taxOverride: new Map() };
-  const invRow = (v: Inv) => ({ Id: v.Id, DocNumber: v.DocNumber, SyncToken: String(v.SyncToken), TotalAmt: v.TotalAmt, TxnTaxDetail: { TotalTax: v.TotalTax }, CustomerRef: v.CustomerRef, Balance: v.TotalAmt, BillAddr: { Line1: "ZZPII" }, BillEmail: { Address: "ZZPII@example.invalid" }, PrivateNote: v.voided ? "Voided" : "Customer Reference: x", domain: "QBO", sparse: false });
+  const it: Intuit = { hits: [], tokenN: 0, override: [], dupNames: new Set(), createdN: 0, created: [], invoices: new Map(), dupDoc: new Set(), voidRefuse: new Set(), taxOverride: new Map(), payments: new Map() };
+  const invRow = (v: Inv) => ({ Id: v.Id, DocNumber: v.DocNumber, SyncToken: String(v.SyncToken), TotalAmt: v.TotalAmt, TxnTaxDetail: { TotalTax: v.TotalTax }, CustomerRef: v.CustomerRef, Balance: v.Balance ?? v.TotalAmt, BillAddr: { Line1: "ZZPII" }, BillEmail: { Address: "ZZPII@example.invalid" }, PrivateNote: v.voided ? "Voided" : "Customer Reference: x", domain: "QBO", sparse: false });
   const fetch: Deps["fetch"] = async (url, init) => {
     const h: Hit = { url, method: String(init.method ?? "GET"), body: typeof init.body === "string" ? init.body : "", auth: (init.headers as Record<string, string>)?.Authorization ?? null };
     it.hits.push(h);
@@ -34,6 +35,37 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
     }
     if (url === DISC.revocation_endpoint) return jres(200, {}, "tid-rev");
     if (url.includes("/companyinfo/")) return jres(200, { CompanyInfo: { CompanyName: "Sandbox Company CA 9bca", Id: "1", SyncToken: "4", Email: { Address: "owner-ZZPII@example.invalid" } } }, "tid-ci");
+    if (h.method === "POST" && /\/v3\/company\/[^/]+\/payment\/?\?/.test(url)) {                      // 2e-1c 가짜 Payment — 만들기(Line 의 Invoice Balance 를 줄인다 · LineEx) · void(operation=update&include=void · SyncToken 대조)
+      const b = JSON.parse(h.body || "{}") as Record<string, unknown>, sp = new URL(url).searchParams, op = sp.get("operation");
+      const payRow = (p: Pay) => ({ Id: p.Id, SyncToken: String(p.SyncToken), TxnDate: p.TxnDate, TotalAmt: p.TotalAmt, UnappliedAmt: p.UnappliedAmt, CustomerRef: p.CustomerRef, PaymentRefNum: p.PaymentRefNum, PrivateNote: p.PrivateNote, DepositToAccountRef: p.DepositToAccountRef, PaymentMethodRef: p.PaymentMethodRef, CurrencyRef: { value: "CAD" }, Line: p.Line, domain: "QBO", sparse: false });
+      if (op === "update" && sp.get("include") === "void") {
+        const v = it.payments.get(String(b.Id ?? ""));
+        if (!v) return jres(400, { Fault: { Error: [{ Message: "Object Not Found", Detail: "Object Not Found : Something you're trying to use has been made inactive.", code: "610" }], type: "ValidationFault" } }, "tid-610");
+        if (it.voidRefuse.has(v.Id)) return jres(400, { Fault: { Error: [{ Message: "Business Validation Error", Detail: "You cannot void a payment that has been deposited", code: "6000" }], type: "ValidationFault" } }, "tid-6000");
+        if (String(b.SyncToken) !== String(v.SyncToken)) return jres(400, { Fault: { Error: [{ Message: "Stale Object Error", Detail: "Stale Object Error : You and someone else were working on this at the same time.", code: "5010" }], type: "ValidationFault" } }, "tid-5010");
+        for (const l of v.Line) { const inv = it.invoices.get(String(((((l.LinkedTxn ?? []) as Record<string, unknown>[])[0] ?? {}) as Record<string, unknown>).TxnId ?? "")); if (inv) inv.Balance = Math.round(((inv.Balance ?? inv.TotalAmt) + Number(l.Amount ?? 0)) * 100) / 100; }
+        v.SyncToken++; v.TotalAmt = 0; v.UnappliedAmt = 0; v.Line = []; v.voided = true; v.PrivateNote = "Voided - " + v.PrivateNote;
+        return jres(200, { Payment: payRow(v), time: "2026-11-02T12:00:00Z" }, "tid-pvoid-" + v.Id);
+      }
+      if (op !== null) return jres(400, { Fault: { Error: [{ Message: "Unsupported Operation", code: "500" }], type: "ValidationFault" } }, "tid-op");
+      const lines = Array.isArray(b.Line) ? b.Line as Record<string, unknown>[] : [], outLines: Record<string, unknown>[] = [];
+      for (const l of lines) {
+        const lt = (((l.LinkedTxn ?? []) as Record<string, unknown>[])[0] ?? {}) as Record<string, unknown>, inv = it.invoices.get(String(lt.TxnId ?? ""));
+        if (!inv || (inv.ent ?? "Invoice") !== "Invoice") return jres(400, { Fault: { Error: [{ Message: "Invalid Reference Id", Detail: "Invalid Reference Id : Invoice " + String(lt.TxnId) + " not found", code: "6240" }], type: "ValidationFault" } }, "tid-badref");
+        const bal = inv.Balance ?? inv.TotalAmt;
+        if (Number(l.Amount ?? 0) > bal + 0.004) return jres(400, { Fault: { Error: [{ Message: "Business Validation Error", Detail: "Amount applied exceeds the invoice balance", code: "6000" }], type: "ValidationFault" } }, "tid-6000");
+        inv.Balance = Math.round((bal - Number(l.Amount ?? 0)) * 100) / 100;
+        outLines.push({ Amount: Number(l.Amount ?? 0), LinkedTxn: l.LinkedTxn, LineEx: { any: [{ name: "{http://schema.intuit.com/finance/v3}NameValue", value: { Name: "txnId", Value: inv.Id } }, { value: { Name: "txnOpenBalance", Value: String(inv.Balance) } }, { value: { Name: "txnReferenceNumber", Value: inv.DocNumber } }] } });
+      }
+      const id = String(7000 + (++it.createdN)), total = Number(b.TotalAmt ?? 0), applied = outLines.reduce((a, l) => a + Number(l.Amount ?? 0), 0);
+      const v: Pay = { Id: id, SyncToken: 0, TotalAmt: total, UnappliedAmt: Math.round((total - applied) * 100) / 100, CustomerRef: b.CustomerRef, TxnDate: String(b.TxnDate ?? ""), PaymentRefNum: typeof b.PaymentRefNum === "string" ? b.PaymentRefNum : null, PrivateNote: String(b.PrivateNote ?? ""), Line: outLines, voided: false, DepositToAccountRef: b.DepositToAccountRef ?? { value: "26" }, PaymentMethodRef: b.PaymentMethodRef };
+      it.payments.set(id, v);
+      return jres(200, { Payment: payRow(v), time: "2026-11-02T12:00:00Z" }, "tid-ppost-" + id);
+    }
+    if (h.method === "GET" && /\/v3\/company\/[^/]+\/payment\/[^/?]+\?/.test(url)) {                    // 2e-1c 가짜 Payment 읽기
+      const id = (/\/payment\/([^/?]+)\?/.exec(url) ?? [])[1] ?? "", v = it.payments.get(id);
+      return v ? jres(200, { Payment: { Id: v.Id, SyncToken: String(v.SyncToken), TxnDate: v.TxnDate, TotalAmt: v.TotalAmt, UnappliedAmt: v.UnappliedAmt, CustomerRef: v.CustomerRef, PaymentRefNum: v.PaymentRefNum, PrivateNote: v.PrivateNote, Line: v.Line }, time: "2026-11-02T12:00:00Z" }, "tid-pay-" + id) : jres(404, { Fault: { Error: [{ Message: "Object Not Found", code: "610" }], type: "ValidationFault" } }, "tid-404");
+    }
     if (h.method === "POST" && /\/v3\/company\/[^/]+\/(invoice|creditmemo)\/?\?/.test(url)) {           // 2b2 가짜 인보이스 · [2c1 creditmemo] — 만들기 · void(operation=void · SyncToken 대조 · 거부)
       const key: "Invoice" | "CreditMemo" = /\/creditmemo\/?\?/.test(url) ? "CreditMemo" : "Invoice";
       const b = JSON.parse(h.body || "{}") as Record<string, unknown>, op = new URL(url).searchParams.get("operation");
@@ -73,6 +105,8 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
       const ent = (/\bfrom\s+([A-Za-z]+)/i.exec(q) ?? [])[1] ?? "";
       const entity = QUERY_ENTITIES.find((e) => e.toLowerCase() === ent.toLowerCase()) ?? ent;
       if (/^select\s+count\s*\(\s*\*\s*\)/i.test(q)) return jres(200, { QueryResponse: { totalCount: 1234 }, time: "2026-11-01T12:00:00Z" }, "tid-count");
+      const byDate = /\bfrom\s+Payment\s+where\s+TxnDate\s*=\s*'(\d{4}-\d{2}-\d{2})'/i.exec(q);                      // 2e-1c 결제 unknown 풀기 — 그 날의 Payment 전부(가짜 장부)
+      if (byDate) { const rows = [...it.payments.values()].filter((v) => v.TxnDate === byDate[1]).map((v) => ({ Id: v.Id, TotalAmt: v.TotalAmt, UnappliedAmt: v.UnappliedAmt, SyncToken: String(v.SyncToken), PrivateNote: v.PrivateNote, PaymentRefNum: v.PaymentRefNum, CustomerRef: v.CustomerRef, TxnDate: v.TxnDate })); return jres(200, { QueryResponse: rows.length ? { Payment: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-02T12:00:00Z" }, "tid-qpay"); }
       const byDoc = /\bwhere\s+DocNumber\s*=\s*'((?:[^']|'')*)'/i.exec(q);                                      // 2b2 DocNumber 조회 — 가짜 장부에서
       if (byDoc) { const dn = byDoc[1].replace(/''/g, "'"); const rows = [...it.invoices.values()].filter((v) => v.DocNumber === dn && (v.ent ?? "Invoice") === entity).map((v) => ({ Id: v.Id, DocNumber: v.DocNumber, SyncToken: String(v.SyncToken), TotalAmt: v.TotalAmt })); return jres(200, { QueryResponse: rows.length ? { [entity]: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-02T12:00:00Z" }, "tid-bydoc"); }   // 2c1: from Invoice | CreditMemo 로 가른다
       const byName = /\bwhere\s+(DisplayName|Name)\s*=\s*'((?:[^']|'')*)'/i.exec(q);                      // 2a′ unknown 풀기 — 가짜 쓰기가 하나라도 있었으면 created 에서 그 이름(따옴표 둘 → 하나) · 없으면 옛 시험의 기본 3 행
@@ -100,8 +134,8 @@ type Conn = { env: string; realm_id: string; status: string; company_name: strin
 type Pull = { started_at: number; next_start: number; received: number; pages: number; finished_at: number | null };
 type Ent = { name: string; sku: string | null; fetched_at: number; gone_at: number | null };
 type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null>; jobs: Map<string, Job>; links: { ims_kind: string; ims_id: string; qbo_id: string; qbo_name: string; matched_by: string }[]; txns: Map<string, Txn>; claimKinds: string[][] };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945 · jobs · links = 2a′ 일감 상태기(20261102003000 · 20261102030000 의 규칙 · 거부 글 그대로)
-type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null; needs?: { kind: string; ims_id: string; name: string; parent?: { ims_id: string; name: string } }[]; wait_job?: string | null; blocked_by?: string | null };   // 2d1: needs(짝 없는 손님 · Item · 부모) · wait_job(960 크레딧 → 인보이스 일감) · blocked_by
-type Txn = { qbo_id: string; doc_number: string; sync_token: string | null; total_amt: number | null; total_tax: number | null; mismatch: string | null; voided_at: number | null };   // 2b2 qbo_txn 거울(20261102040000 의 942 규칙 · 글 그대로)
+type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null; needs?: { kind: string; ims_id: string; name: string; parent?: { ims_id: string; name: string } }[]; wait_job?: string | null; blocked_by?: string | null; fingerprint?: string | null; check_lines?: { invoice_number: string; qbo_invoice_id: string; amount: number }[] | null; lookup?: Record<string, unknown> | null; pay_totals?: { amount: number; unapplied: number } | null };   // 2d1: needs · wait_job · blocked_by · [2e-1c fingerprint · check_lines · lookup · pay_totals]
+type Txn = { qbo_id: string; doc_number: string; sync_token: string | null; total_amt: number | null; total_tax: number | null; mismatch: string | null; voided_at: number | null; fingerprint?: string | null; unapplied?: number | null };   // [2e-1c fingerprint · unapplied]   // 2b2 qbo_txn 거울(20261102040000 의 942 규칙 · 글 그대로)
 const STAFF = "11111111-1111-4111-8111-111111111111";
 const STAFF_MGR = "22222222-2222-4222-8222-222222222222";
 const staffOf = (jwt: string) => jwt === "JWT-ADMIN" ? STAFF : STAFF_MGR;
@@ -230,7 +264,8 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
             j.state = "blocked"; j.blocked_by = cust ?? last; j.claimed_at = null; j.warning = `waiting for ${pending.length} QuickBooks record(s) to be created first`; blockedNeeds++; continue;
           }
           if (j.wait_job && db.jobs.get(j.wait_job)?.state !== "sent") { j.state = "blocked"; j.blocked_by = j.wait_job; j.claimed_at = null; j.warning = `waiting for invoice ${db.jobs.get(j.wait_job)?.doc_number ?? "?"} to reach QuickBooks first`; blockedInv++; continue; }
-          rows.push({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, doc_number: j.doc_number ?? null, qbo_id: j.kind === "invoice_void" ? (j.body.Id != null ? String(j.body.Id) : null) : null, body: j.body, warnings: [], totals: j.totals ? { taxable: null, tax: j.totals.tax, total: j.totals.total } : null });
+          rows.push({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, doc_number: j.doc_number ?? null, qbo_id: j.kind === "invoice_void" ? (j.body.Id != null ? String(j.body.Id) : null) : null, body: j.body, warnings: [], totals: j.totals ? { taxable: null, tax: j.totals.tax, total: j.totals.total } : null,
+            fingerprint: j.fingerprint ?? null, check_lines: j.check_lines ?? null, lookup: j.lookup ?? null });   // 2e-1c
         }
         for (const id of pick ?? []) { const j = db.jobs.get(id); if (!j || j.state !== "blocked" || picked.some((x) => x.id === id)) continue;   // 2d1 ⑤ 되살리기 — blocked 로 남은 일감의 열린 need(부모 blocked_by + needs) 를 need_jobs 로
           const bb = j.blocked_by ? db.jobs.get(j.blocked_by) : null; if (bb && !["sent", "skipped"].includes(bb.state)) needJobs.push({ job_id: bb.id, kind: bb.kind, ims_kind: bb.ims_kind, ims_id: bb.ims_id, state: bb.state, name: null, existing: true, for_job: j.id, parent_job: null });
@@ -254,6 +289,20 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
           db.txns.set(j!.ims_id, { qbo_id: j!.qbo_id, doc_number: j!.qbo_name, sync_token: typeof args.p_sync_token === "string" ? args.p_sync_token : null, total_amt: ta, total_tax: tx, mismatch, voided_at: null });
           if (mismatch) j!.warning = (j!.warning ? j!.warning + " · " : "") + mismatch;
           return { job_id: j!.id, kind: j!.kind, state: "sent", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: true, link_error: null, unblocked: 0, mismatch };
+        }
+        if (j!.kind === "payment") {                                                                 // 2e-1c payment → qbo_txn Payment + 지문 + TotalAmt · UnappliedAmt 대조(20261103050000 의 글 그대로)
+          const ta = typeof args.p_total_amt === "number" ? args.p_total_amt : null, ua = typeof args.p_unapplied_amt === "number" ? args.p_unapplied_amt : null, t = j!.pay_totals ?? { amount: 0, unapplied: 0 }, ref = j!.name;
+          const mismatch = ta === null ? `QuickBooks did not return TotalAmt — check payment ${ref} in QuickBooks` : ta !== t.amount ? `QuickBooks total ${ta} differs from IMS ${t.amount} — check payment ${ref} in QuickBooks (942)` : (ua !== null && ua !== t.unapplied) ? `QuickBooks unapplied ${ua} differs from IMS ${t.unapplied} — check payment ${ref} in QuickBooks (942)` : null;
+          if ([...db.txns.entries()].some(([k, v]) => v.qbo_id === j!.qbo_id && k !== j!.ims_id)) { j!.state = "failed"; j!.sent_at = null; return { job_id: j!.id, kind: j!.kind, state: "failed", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: false, link_error: `QuickBooks Payment #${j!.qbo_id} is already recorded for another IMS payment — check both in QuickBooks and fix by hand`, unblocked: 0, mismatch }; }
+          db.txns.set(j!.ims_id, { qbo_id: j!.qbo_id, doc_number: j!.qbo_name, sync_token: typeof args.p_sync_token === "string" ? args.p_sync_token : null, total_amt: ta, total_tax: null, mismatch, voided_at: null, fingerprint: j!.fingerprint ?? null, unapplied: ua });
+          if (mismatch) j!.warning = (j!.warning ? j!.warning + " · " : "") + mismatch;
+          return { job_id: j!.id, kind: j!.kind, state: "sent", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: true, link_error: null, unblocked: 0, mismatch, reconcile: { action: "same" } };
+        }
+        if (j!.kind === "payment_void") {                                                            // 2e-1c payment_void → voided_at
+          const t = db.txns.get(j!.ims_id);
+          if (!t) { j!.state = "failed"; j!.sent_at = null; return { job_id: j!.id, kind: j!.kind, state: "failed", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: false, link_error: "voided in QuickBooks but IMS has no sent payment on file to mark — check qbo_txn by hand", unblocked: 0, mismatch: null }; }
+          t.voided_at = clock(); if (typeof args.p_sync_token === "string") t.sync_token = args.p_sync_token;
+          return { job_id: j!.id, kind: j!.kind, state: "sent", qbo_id: j!.qbo_id, qbo_name: j!.qbo_name, linked: true, link_error: null, unblocked: 0, mismatch: null, reconcile: { action: "none" } };
         }
         if (j!.kind === "invoice_void" || j!.kind === "credit_void") {                               // 2b1 void → qbo_txn.voided_at · [2c1 credit_void 도]
           const t = db.txns.get(j!.ims_id);
@@ -956,6 +1005,7 @@ function addJob(w: World, o: Partial<Job> & { kind: string }): Job {
     qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null, doc_number: o.doc_number ?? null, totals: o.totals ?? null, warning: null, needs: o.needs, wait_job: o.wait_job ?? null, blocked_by: null };   // 2d1 needs · wait_job
   if (o.kind === "invoice" || o.kind === "invoice_void") { j.ims_kind = "invoice"; }
   if (o.kind === "credit" || o.kind === "credit_void") { j.ims_kind = "credit"; }                       // 2c1
+  if (o.kind === "payment" || o.kind === "payment_void") { j.ims_kind = "payment"; j.fingerprint = o.fingerprint ?? null; j.check_lines = o.check_lines ?? null; j.lookup = o.lookup ?? null; j.pay_totals = o.pay_totals ?? null; }   // 2e-1c
   w.db.jobs.set(j.id, j);
   return j;
 }
@@ -964,8 +1014,8 @@ function writesAllowedOnly(w: World, where: string) {
   for (const h of apiHits(w)) {
     if (h.method === "GET") continue;
     const u = new URL(h.url);
-    const ent = (/\/v3\/company\/[^/]+\/(customer|item|invoice|creditmemo)\/?$/.exec(u.pathname) ?? [])[1] ?? null, op = u.searchParams.get("operation");
-    ok(h.method === "POST" && ent !== null && !!u.searchParams.get("requestid") && (op === null || (op === "void" && (ent === "invoice" || ent === "creditmemo"))), where + ": unexpected write to Intuit: " + h.method + " " + h.url);   // 2b2: invoice · invoice?operation=void 도 허용 꼴 · [2c1 creditmemo]
+    const ent = (/\/v3\/company\/[^/]+\/(customer|item|invoice|creditmemo|payment)\/?$/.exec(u.pathname) ?? [])[1] ?? null, op = u.searchParams.get("operation"), inc = u.searchParams.get("include");
+    ok(h.method === "POST" && ent !== null && !!u.searchParams.get("requestid") && ((op === null && inc === null) || (op === "void" && (ent === "invoice" || ent === "creditmemo")) || (op === "update" && inc === "void" && ent === "payment")), where + ": unexpected write to Intuit: " + h.method + " " + h.url);   // [2e-1c payment · update&include=void]   // 2b2: invoice · invoice?operation=void 도 허용 꼴 · [2c1 creditmemo]
   }
 }
 const send = (w: World, jwt: string | null = "JWT-ADMIN", extra: Record<string, unknown> = {}) => postBody(w, { action: "send", ...extra }, jwt);
@@ -1102,7 +1152,7 @@ const docQueries = (w: World) => queryHits(w).filter((h) => /DocNumber\s*=/.test
 const invReads = (w: World) => apiHits(w).filter((h) => h.method === "GET" && /\/invoice\/\d+\?/.test(h.url));
 
 Deno.test("⑱ invoice send(qbo-sync-2b2) — 순수(SEND_KINDS 6(2c1) · CRON_ACTIONS refresh · send · 6140 · 6210 · 5010 · invoiceTotals · PULL_FIELDS.TaxCode 에 SalesTaxRateList · assertWriteAllowed invoice?operation=void) · claim 에 p_kinds 6 · DocNumber 멱등 조회 → POST invoice(몸 그대로 · requestid · TxnTaxDetail) → done(TotalAmt · TotalTax · DocNumber) · 합계 다르면 sent + mismatch · 이미 있으면 안 만들고 읽어서 done + note · 6140 → 다시 찾아서 done · 6140 인데 못 찾으면 failed · 다른 4xx failed · 5xx · 끊김 → unknown(DocNumber) → 다음 send 가 DocNumber 로 풀기(found → 읽어서 합계 · not_found) · 기록에 주소 · 이메일 0 · 쓰기는 허용 꼴만", async () => {
-  eq([...SEND_KINDS], ["customer", "item", "invoice", "invoice_void", "credit", "credit_void"], "SEND_KINDS (2c1: + credit · credit_void)");
+  eq([...SEND_KINDS], ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void"], "SEND_KINDS (2c1: + credit · credit_void · [2e-1c + payment · payment_void])");
   eq([...CRON_ACTIONS], ["refresh", "send"], "cron may send");
   eq([[...DUPLICATE_DOCNUMBER_CODES], STALE_OBJECT_CODE], [["6140", "6210"], "5010"], "fault codes");
   eq(invoiceTotals({ TotalAmt: 93.3, TxnTaxDetail: { TotalTax: 10.74 } }), { total_amt: 93.3, total_tax: 10.74 }, "totals from the Intuit row");
@@ -1113,7 +1163,7 @@ Deno.test("⑱ invoice send(qbo-sync-2b2) — 순수(SEND_KINDS 6(2c1) · CRON_A
   // 1) 보통 한 장 — 멱등 조회 1(0 행) → POST 1 → done(합계 같음 · mismatch null)
   const j1 = addInv(w, "60001");
   const b1 = await body(await send(w, "JWT-MGR"));
-  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length, w.db.claimKinds.at(-1)], [1, 1, 0, 0, 0, 6, ["customer", "item", "invoice", "invoice_void", "credit", "credit_void"]], "claim with six kinds · one invoice sent: " + JSON.stringify(b1.jobs));
+  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length, w.db.claimKinds.at(-1)], [1, 1, 0, 0, 0, 8, ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void"]], "claim with six kinds · one invoice sent: " + JSON.stringify(b1.jobs));
   eq([docQueries(w).length, invoicePosts(w).length, invReads(w).length], [1, 1, 0], "one DocNumber check · one POST · no read");
   const p1 = invoicePosts(w)[0], u1 = new URL(p1.url);
   eq([u1.pathname.endsWith("/invoice"), u1.searchParams.get("requestid"), u1.searchParams.get("operation"), u1.searchParams.get("minorversion")], [true, j1.request_id, null, "75"], "POST invoice with the job request_id · no operation");
@@ -1254,7 +1304,7 @@ Deno.test("⑳ credit memo send · void(qbo-sync-2c1 · 판정 963) — POST cre
   // 1) 보통 한 장 — CreditMemo DocNumber 조회 1(0 행) → POST creditmemo 1 → done(합계 같음)
   const c1 = addCr(w, "CR-01000");
   const b1 = await body(await send(w, "JWT-MGR"));
-  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length], [1, 1, 0, 0, 0, 6], "one credit memo sent: " + JSON.stringify(b1.jobs));
+  eq([b1.claimed, b1.sent, b1.failed, b1.unknown, b1.mismatch, (b1.kinds as string[]).length], [1, 1, 0, 0, 0, 8], "one credit memo sent: " + JSON.stringify(b1.jobs));
   eq([cmDocQueries(w).length, cmPosts(w).length, cmReads(w).length, invoicePosts(w).length], [1, 1, 0, 0], "one CreditMemo DocNumber check · one POST creditmemo · no read · no invoice write");
   const p1 = cmPosts(w)[0], u1 = new URL(p1.url);
   eq([u1.pathname.endsWith("/creditmemo"), u1.searchParams.get("requestid"), u1.searchParams.get("operation")], [true, c1.request_id, null], "POST creditmemo with the job request_id · no operation");
@@ -1408,4 +1458,142 @@ Deno.test("㉑ 골라 보내기(qbo-sync-2d1 · 판정 971) — 순수(SEND_PICK
   writesAllowedOnly(w, "㉑"); noLeak(w, "㉑");
   const allText = JSON.stringify({ logs: w.logs, warns: w.warns });
   ok(!allText.includes("ZZPII") && !allText.includes("Regina"), "addresses · emails · names never reach call_log or warn");
+});
+
+
+// ── qbo-sync-2e-1c — 결제 시험 장치: 결제 일감(몸은 DB qbo_payment_body 꼴 · check_lines · lookup · fingerprint) · void 일감 · 가짜 장부의 인보이스에 Balance ──
+const payBody = (ref: string | null, lines: { inv: string; amt: number }[], total: number, cust = "7190", note = "IMS payment 0e0e0e0e-0000-4000-8000-000000000001", date = "2026-11-02"): Record<string, unknown> => ({
+  CustomerRef: { value: cust }, TxnDate: date, TotalAmt: total, CurrencyRef: { value: "CAD" }, PaymentMethodRef: { value: "2" }, DepositToAccountRef: { value: "105" }, ...(ref ? { PaymentRefNum: ref } : {}), PrivateNote: note,
+  Line: lines.map((l) => ({ Amount: l.amt, LinkedTxn: [{ TxnId: l.inv, TxnType: "Invoice" }] })) });
+const addPay = (w: World, ref: string, lines: { inv: string; doc: string; amt: number }[], total: number, extra: Partial<Job> = {}) => {
+  const n = jobN + 1, note = "IMS payment 0e0e0e0e-0000-4000-8000-" + String(n).padStart(12, "0");
+  const applied = lines.reduce((a, l) => a + l.amt, 0);
+  return addJob(w, { kind: "payment", ims_id: "pay-" + ref, name: ref, doc_number: ref, body: payBody(ref, lines.map((l) => ({ inv: l.inv, amt: l.amt })), total, "7190", note),
+    check_lines: lines.map((l) => ({ invoice_number: l.doc, qbo_invoice_id: l.inv, amount: l.amt })), lookup: { customer_ref: "7190", txn_date: "2026-11-02", total_amt: total, private_note: note },
+    fingerprint: "fp-" + ref, pay_totals: { amount: total, unapplied: Math.round((total - applied) * 100) / 100 }, ...extra });
+};
+const addPayVoid = (w: World, ref: string, id: string | null, syncToken: string | null) => addJob(w, { kind: "payment_void", ims_id: "pay-" + ref, name: ref, doc_number: ref, body: id ? (syncToken !== null ? { Id: id, SyncToken: syncToken, sparse: true } : { Id: id, sparse: true }) : {} });
+const ledgerInv = (w: World, id: string, doc: string, total = 40.68, balance?: number) => { w.it.invoices.set(id, { Id: id, DocNumber: doc, SyncToken: 0, TotalAmt: total, TotalTax: 4.68, voided: false, CustomerRef: { value: "7190" }, Balance: balance ?? total }); };
+const payPosts = (w: World) => postHits(w).filter((h) => /\/payment\/?\?/.test(h.url));
+const payVoidPosts = (w: World) => payPosts(w).filter((h) => new URL(h.url).searchParams.get("operation") === "update" && new URL(h.url).searchParams.get("include") === "void");
+const payReads = (w: World) => apiHits(w).filter((h) => h.method === "GET" && /\/payment\/\d+\?/.test(h.url));
+const payQueries = (w: World) => queryHits(w).filter((h) => /from\s+Payment\s+where\s+TxnDate\s*=/i.test(sentQuery(h) ?? ""));
+const doneArgs = (w: World) => w.db.calls;   // 창구 호출 순서만
+
+Deno.test("㉒ 결제 보내기 · void · 자동 길(qbo-sync-2e-1c · 판정 978 ~ 991 · sandbox B-4 · B-6) — 순수(SEND_KINDS 8 · PAYMENT_KINDS · 가드 가지 넷 · 열쇠 접기/펴기 · kindsOf) · (가) Balance 가드(GET invoice → 모자라면 failed · 못 읽으면 failed · POST 0) · POST payment(몸 그대로 · requestid · done 10 인자 · txn · 장부 Balance 줄어듦) · 일부 붙음(UnappliedAmt · 대조 mismatch) · unknown(5xx → 열쇠 → TxnDate 조회 → 0 not_found · 하나 found → done · 둘 ambiguous) · void(update&include=void {Id, SyncToken, sparse} · 2xx → voided_at · Balance 되돌림 · SyncToken 없으면 GET · 5010 → -2 · 4xx failed · 5xx → unknown → 읽어서 Voided 면 done) · send {kinds}(직원 · cron · 400 셋 · job_ids 길은 무시) · 쓰기 꼴 · 누출 0", async () => {
+  // ⓪ 순수
+  eq([...SEND_KINDS], ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void"], "SEND_KINDS 8");
+  eq([[...PAYMENT_KINDS], [...UPDATE_VOID_ENTITIES]], [["payment", "payment_void"], ["payment"]], "PAYMENT_KINDS · UPDATE_VOID_ENTITIES");
+  const base = "https://sandbox-quickbooks.api.intuit.com/v3/company/9341458557490536/";
+  assertWriteAllowed("POST", base + "payment?requestid=r1&minorversion=75");
+  assertWriteAllowed("POST", base + "payment?operation=update&include=void&requestid=r1&minorversion=75");
+  for (const bad of ["payment?operation=update&requestid=r1", "payment?operation=void&requestid=r1", "payment?include=void&requestid=r1", "invoice?operation=update&include=void&requestid=r1", "payment?operation=delete&requestid=r1", "payment?minorversion=75"]) {
+    let threw = false; try { assertWriteAllowed("POST", base + bad); } catch { threw = true; } ok(threw, "refused: " + bad);
+  }
+  const key = paymentKeyOf({ customer_ref: "7190", txn_date: "2026-11-02", total_amt: 10, private_note: "IMS payment 0e0e0e0e-0000-4000-8000-000000000009" }, {});
+  eq([key, parsePaymentKey(key), parsePaymentKey("x|y|z"), parsePaymentKey("IMS payment a|7190|2026-13-99|1")], ["IMS payment 0e0e0e0e-0000-4000-8000-000000000009|7190|2026-11-02|10", { privateNote: "IMS payment 0e0e0e0e-0000-4000-8000-000000000009", customerRef: "7190", txnDate: "2026-11-02", totalAmt: 10 }, null, null], "payment key fold · unfold");
+  eq(paymentKeyOf(null, payBody("R", [], 5)), "IMS payment 0e0e0e0e-0000-4000-8000-000000000001|7190|2026-11-02|5", "key from the body when lookup is missing (old DB)");
+  eq(paymentsByDateQueryText("2026-11-02"), "select Id, TotalAmt, UnappliedAmt, SyncToken, PrivateNote, PaymentRefNum, CustomerRef, TxnDate from Payment where TxnDate = '2026-11-02' MAXRESULTS 100", "payments-by-date query (no PII fields)");
+  eq([isVoidedPayment({ TotalAmt: 0, PrivateNote: "Voided - IMS payment x" }), isVoidedPayment({ TotalAmt: 0, PrivateNote: "IMS payment x" }), isVoidedPayment({ TotalAmt: 10, PrivateNote: "Voided - x" }), isVoidedPayment(null)], [true, false, false, false], "voided = TotalAmt 0 and Voided note");
+  eq([kindsOf(undefined), kindsOf(null), kindsOf(["payment", "payment", "payment_void"])], [[...SEND_KINDS], [...SEND_KINDS], ["payment", "payment_void"]], "kindsOf: all · dedupe");
+  for (const bad of [[], "payment", ["bogus"], [""], 5]) { let threw = false; try { kindsOf(bad); } catch (e) { threw = e instanceof QboError && e.status === 400; } ok(threw, "kindsOf refuses " + JSON.stringify(bad)); }
+
+  const w = world(); connect(w); w.db.keys["JWT-MGR"] = "qbo";
+  ledgerInv(w, "5101", "60201"); ledgerInv(w, "5102", "60202", 40.68, 5); ledgerInv(w, "5103", "60203"); ledgerInv(w, "5104", "60204"); ledgerInv(w, "5105", "60205"); ledgerInv(w, "5106", "60206");
+  // ① 보통 결제 — GET invoice(Balance) 1 → POST payment 1 · 몸 그대로 · requestid · done(TotalAmt 10 · unapplied 0) · txn · 장부 Balance 30.68
+  const p1 = addPay(w, "CHQ 1", [{ inv: "5101", doc: "60201", amt: 10 }], 10);
+  const r0 = invReads(w).length;
+  const b1 = await body(await send(w, "JWT-MGR", { kinds: ["payment", "payment_void"] }));
+  const pp = payPosts(w);
+  eq([b1.sent, b1.kinds, invReads(w).length - r0, pp.length, JSON.parse(pp[0].body), new URL(pp[0].url).searchParams.get("requestid"), new URL(pp[0].url).searchParams.get("operation")], [1, ["payment", "payment_void"], 1, 1, p1.body, p1.request_id, null], "one Balance read, one POST payment with the DB body: " + JSON.stringify(b1.jobs));
+  const t1 = w.db.txns.get("pay-CHQ 1")!;
+  eq([p1.state, p1.qbo_id, t1.qbo_id, t1.doc_number, t1.total_amt, t1.unapplied, t1.total_tax, t1.fingerprint, t1.mismatch, w.it.invoices.get("5101")!.Balance, (b1.jobs as Record<string, unknown>[])[0].mismatch], ["sent", "7001", "7001", "CHQ 1", 10, 0, null, "fp-CHQ 1", null, 30.68, null], "done 10 args → txn with fingerprint · invoice balance reduced");
+  const l1 = w.logs.filter((l) => l.action === "send" && l.detail?.job_id === p1.id);
+  eq([l1.length, l1[0].detail?.qbo_id, l1[0].detail?.request_id], [1, "7001", p1.request_id], "write logged with job · qbo id · requestid");
+  // ② (가) Balance 가드 — 5102 는 Balance 5 < 15 → failed · POST 0 · 글
+  const p2 = addPay(w, "CHQ 2", [{ inv: "5102", doc: "60202", amt: 15 }], 15); const n2 = payPosts(w).length;
+  const b2 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  eq([b2.failed, payPosts(w).length - n2, p2.state, (p2.last_error ?? "").startsWith("not sent — QuickBooks already shows 35.68 paid on invoice 60202 (balance 5 < 15)"), w.it.invoices.get("5102")!.Balance], [1, 0, "failed", true, 5], "balance guard → failed, nothing written: " + p2.last_error);
+  // ③ 못 읽음(없는 인보이스 9999 · 404) → failed · POST 0
+  const p3 = addPay(w, "CHQ 3", [{ inv: "9999", doc: "60299", amt: 1 }], 1); const n3 = payPosts(w).length;
+  const b3 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  eq([b3.failed, payPosts(w).length - n3, p3.state, (p3.last_error ?? "").startsWith("not sent — could not read invoice 60299 (QuickBooks #9999) before sending")], [1, 0, "failed", true], "unreadable invoice → failed: " + p3.last_error);
+  // ④ 일부만 붙음 — 25 중 5 · UnappliedAmt 20 · IMS 가 20 이라 했으면 mismatch 없음 / IMS 가 0 이라 하면(검산 거짓) mismatch 경고 · 상태 sent
+  const p4 = addPay(w, "CHQ 4", [{ inv: "5103", doc: "60203", amt: 5 }], 25);
+  const p5 = addPay(w, "CHQ 5", [{ inv: "5104", doc: "60204", amt: 5 }], 25, { pay_totals: { amount: 25, unapplied: 0 } });
+  const b4 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  eq([b4.sent, b4.mismatch, w.db.txns.get("pay-CHQ 4")!.unapplied, w.db.txns.get("pay-CHQ 4")!.mismatch, p5.state, (w.db.txns.get("pay-CHQ 5")!.mismatch ?? "").includes("QuickBooks unapplied 20 differs from IMS 0"), (p5.warning ?? "").includes("(942)")], [2, 1, 20, null, "sent", true, true], "partial payment: UnappliedAmt 20 · mismatch only when IMS disagrees");
+  // ⑤ unknown — 5xx → unknown(qbo_name = 열쇠) → 다음 send: 그 날 조회 → 없음 not_found → 손으로 만든 셈(가짜 장부에 넣음) → found → done · 둘이면 ambiguous
+  const p6 = addPay(w, "CHQ 6", [{ inv: "5105", doc: "60205", amt: 7 }], 7);
+  w.it.override.push((h) => h.method === "POST" && /\/payment\/?\?/.test(h.url) ? jres(502, {}, "tid-502") : null);
+  const b6 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] })); w.it.override.length = 0;
+  const key6 = "IMS payment 0e0e0e0e-0000-4000-8000-" + String(Number(p6.id.slice(4))).padStart(12, "0") + "|7190|2026-11-02|7";
+  eq([b6.unknown, p6.state, p6.qbo_name], [1, "unknown", key6], "5xx → unknown with the payment key: " + p6.qbo_name);
+  const b7 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  const rs7 = b7.resolved as Record<string, unknown>[];
+  eq([rs7[0].result, p6.state, payQueries(w).length, /where TxnDate = '2026-11-02' MAXRESULTS 100/.test(sentQuery(payQueries(w)[0]) ?? "")], ["not_found", "unknown", 1, true], "not in QuickBooks yet → not_found (query by date)");
+  w.it.payments.set("7777", { Id: "7777", SyncToken: 0, TotalAmt: 7, UnappliedAmt: 0, CustomerRef: { value: "7190" }, TxnDate: "2026-11-02", PaymentRefNum: "CHQ 6", PrivateNote: key6.split("|")[0] + " · entered by hand", Line: [], voided: false, DepositToAccountRef: { value: "105" }, PaymentMethodRef: { value: "2" } });
+  w.it.payments.set("7778", { Id: "7778", SyncToken: 0, TotalAmt: 7, UnappliedAmt: 0, CustomerRef: { value: "7190" }, TxnDate: "2026-11-02", PaymentRefNum: "other", PrivateNote: "something else", Line: [], voided: false, DepositToAccountRef: { value: "105" }, PaymentMethodRef: { value: "2" } });
+  const b8 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  const rs8 = b8.resolved as Record<string, unknown>[];
+  eq([rs8[0].result, rs8[0].qbo_id, p6.state, p6.qbo_id, w.db.txns.get("pay-CHQ 6")!.qbo_id, (p6.last_error ?? "").includes("found in QuickBooks by date, customer, amount and note")], ["found", "7777", "sent", "7777", "7777", true], "found by date · customer · amount · note → done (the other row on that day is ignored)");
+  const p9 = addPay(w, "CHQ 9", [{ inv: "5106", doc: "60206", amt: 3 }], 3);
+  w.it.override.push((h) => h.method === "POST" && /\/payment\/?\?/.test(h.url) ? jres(502, {}, "tid-502") : null);
+  await body(await send(w, "JWT-MGR", { kinds: ["payment"] })); w.it.override.length = 0;
+  const key9 = String(p9.qbo_name);
+  for (const id of ["7781", "7782"]) w.it.payments.set(id, { Id: id, SyncToken: 0, TotalAmt: 3, UnappliedAmt: 0, CustomerRef: { value: "7190" }, TxnDate: "2026-11-02", PaymentRefNum: "CHQ 9", PrivateNote: key9.split("|")[0], Line: [], voided: false, DepositToAccountRef: { value: "105" }, PaymentMethodRef: { value: "2" } });
+  const b9 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  eq([(b9.resolved as Record<string, unknown>[])[0].result, (b9.resolved as Record<string, unknown>[])[0].rows, p9.state], ["ambiguous", 2, "unknown"], "two matching payments → ambiguous, job stays unknown");
+  // ⑥ void — 7001 보통(Id · SyncToken · sparse → update&include=void · done · voided_at · Balance 되돌림) · SyncToken 없음 → GET 먼저 · 5010 → -2 · 4xx failed · 5xx → unknown → 읽어서 Voided → done
+  const v1 = addPayVoid(w, "CHQ 1", "7001", "0");
+  const bv1 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  const vp = payVoidPosts(w);
+  eq([bv1.sent, vp.length, JSON.parse(vp[0].body), new URL(vp[0].url).searchParams.get("requestid"), v1.state, w.db.txns.get("pay-CHQ 1")!.voided_at !== null, w.it.payments.get("7001")!.voided, w.it.payments.get("7001")!.TotalAmt, w.it.invoices.get("5101")!.Balance], [1, 1, { Id: "7001", SyncToken: "0", sparse: true }, v1.request_id, "sent", true, true, 0, 40.68], "void via operation=update&include=void · balance restored");
+  const vl = w.logs.filter((l) => l.action === "send" && l.detail?.operation === "update");
+  eq([vl.length, vl[0].detail?.include, vl[0].detail?.job_id], [1, "void", v1.id], "void write logged with operation · include");
+  const v2 = addPayVoid(w, "CHQ 4", "7002", null); const pr0 = payReads(w).length;
+  const bv2 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  eq([bv2.sent, payReads(w).length - pr0, v2.state, (v2.last_error ?? "").includes("SyncToken read from QuickBooks before voiding"), w.it.payments.get("7002")!.voided], [1, 1, "sent", true, true], "no SyncToken → read first, then void");
+  w.it.payments.get("7003")!.SyncToken = 3;
+  const v3 = addPayVoid(w, "CHQ 5", "7003", "0"); const nv3 = payVoidPosts(w).length;
+  const bv3 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  const p3v = payVoidPosts(w).slice(nv3);
+  eq([bv3.sent, p3v.length, JSON.parse(p3v[1].body).SyncToken, new URL(p3v[1].url).searchParams.get("requestid"), v3.state, (v3.last_error ?? "").includes("stale SyncToken (5010)")], [1, 2, "3", v3.request_id + "-2", "sent", true], "stale → re-read → second try with -2");
+  w.it.voidRefuse.add("7777");
+  const v4 = addPayVoid(w, "CHQ 6", "7777", "0");
+  const bv4 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  eq([bv4.failed, v4.state, (v4.last_error ?? "").includes("code 6000"), w.it.payments.get("7777")!.voided], [1, "failed", true, false], "refused void → failed: " + v4.last_error);
+  w.it.voidRefuse.delete("7777");
+  const v5 = addJob(w, { kind: "payment_void", ims_id: "pay-CHQ 6", name: "CHQ 6", doc_number: "CHQ 6", body: { Id: "7777", SyncToken: "0", sparse: true } });
+  w.it.override.push((h) => h.method === "POST" && new URL(h.url).searchParams.get("include") === "void" ? jres(502, {}, "tid-502") : null);
+  const bv5 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] })); w.it.override.length = 0;
+  eq([bv5.unknown, v5.state, v5.qbo_name], [1, "unknown", "7777"], "void 5xx → unknown with the payment id");
+  const bv6 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  const rv6 = (bv6.resolved as Record<string, unknown>[]).find((x) => x.job_id === v5.id)!;
+  eq([rv6.result, v5.state], ["not_voided", "unknown"], "still carries an amount → not_voided");
+  const pv = w.it.payments.get("7777")!; pv.TotalAmt = 0; pv.UnappliedAmt = 0; pv.Line = []; pv.voided = true; pv.PrivateNote = "Voided - " + pv.PrivateNote; pv.SyncToken = 1;
+  const bv7 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  const rv7 = (bv7.resolved as Record<string, unknown>[]).find((x) => x.job_id === v5.id)!;
+  eq([rv7.result, v5.state, w.db.txns.get("pay-CHQ 6")!.voided_at !== null, (v5.last_error ?? "").includes("voided (amount 0)")], ["found", "sent", true, true], "Voided note + amount 0 → done");
+  const v6 = addPayVoid(w, "CHQ 7", null, null);
+  const bv8 = await body(await send(w, "JWT-MGR", { kinds: ["payment_void"] }));
+  eq([bv8.failed, v6.state, (v6.last_error ?? "").startsWith("not sent — no QuickBooks payment id")], [1, "failed", true], "void job without id → failed");
+  // ⑦ kinds — 직원 길 · cron 길 · 거부 셋 · job_ids 길은 kinds 를 안 본다 · 옛 꼴(kinds 없음)은 8 종류 전부
+  const kinds0 = w.db.claimKinds.length;
+  const bk1 = await body(await send(w, "JWT-MGR", { kinds: ["payment"] }));
+  eq([bk1.kinds, w.db.claimKinds[w.db.claimKinds.length - 1]], [["payment"], ["payment"]], "staff send with kinds → claim p_kinds");
+  const p11 = addPay(w, "CHQ 11", [{ inv: "5106", doc: "60206", amt: 2 }], 2);
+  const rc = await postBody(w, { action: "send", kinds: ["payment", "payment_void"], limit: 7 }, null, { "x-ims-cron-key": "cron-ZZSECRET-0123456789abcdef" });
+  const bc = await body(rc);
+  eq([rc.status, bc.ok, bc.kinds, bc.limit, bc.sent, p11.state, w.db.claimKinds[w.db.claimKinds.length - 1], w.logs.filter((l) => l.action === "send").at(-1)?.by_staff ?? null], [200, true, ["payment", "payment_void"], 7, 1, "sent", ["payment", "payment_void"], null], "cron 62 shape: kinds + limit · one payment sent · by_staff null");
+  for (const bad of [{ kinds: [] }, { kinds: ["bogus"] }, { kinds: "payment" }]) eq((await postBody(w, { action: "send", ...bad }, "JWT-MGR")).status, 400, "send kinds refused: " + JSON.stringify(bad));
+  const bk2 = await body(await send(w, "JWT-MGR"));
+  eq(bk2.kinds, [...SEND_KINDS], "no kinds → all 8 (old callers unchanged)");
+  const p10 = addPay(w, "CHQ 10", [{ inv: "5105", doc: "60205", amt: 1 }], 1);
+  const pid10 = "0e0e0e0e-0000-4000-8000-" + String(Number(p10.id.replace("job-", ""))).padStart(12, "0"); w.db.jobs.delete(p10.id); p10.id = pid10; w.db.jobs.set(pid10, p10);   // job_ids 길은 uuid 만 받는다
+  const bk3 = await body(await postBody(w, { action: "send", job_ids: [pid10], kinds: ["customer"] }, "JWT-MGR"));
+  eq([bk3.mode, bk3.kinds, bk3.sent, p10.state], ["selected", [...SEND_KINDS], 1, "sent"], "job_ids path ignores kinds (bookkeeper picks a payment job)");
+  ok(w.db.claimKinds.length > kinds0, "claims happened");
+  writesAllowedOnly(w, "㉒"); noLeak(w, "㉒");
+  ok(!JSON.stringify({ logs: w.logs, warns: w.warns }).includes("ZZPII"), "no PII in logs");
 });

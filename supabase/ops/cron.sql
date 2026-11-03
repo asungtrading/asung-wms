@@ -907,3 +907,25 @@ $job$);
 
 -- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] [2026-11-02 오전 · 장애 지혈 · Caleb 실행 · so-module §97-c 1] jobid 47 ims-orders-drain · 51 ims-order-drain · 53 ims-paid-drain 잠시 끔(cron.alter_job(…, active := false)) → shop-stock-perf-1 `20261102120000` 적용 → SO-20838 · SO-20839 손 처리 → 셋 다시 켬(active := true) · 24 오더 created — 원인: shop_stock_targets generic plan(호출 70 ~ 80 ms) + 큰 Shopify 오더 AS-7389 · AS-7393 를 47 이 매분 재시도 + 시험 · 적용 잠금 + 연결 60 소진(재시도 한도는 deferred 446) · ⚠️ 끄기 = 그 셋이 이 장애의 킬 스위치(오더 받기 · 오더 고치기 · 결제 상태) — 끈 동안 Shopify 오더는 IMS 에 안 들어온다(켜면 이어받는다)
 -- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] [2026-11-02 · Caleb psql 실측] jobid 59 ims-qbo-refresh `10 9 * * *` active · 61 ims-qbo-send `*/5 * * * *` active · inv_config qbo_send_enabled off · qbo_send_since 2026-11-02 ⇒ 61 은 스위치 off 라 호출 0 — 판정 971 로 북키퍼가 qbo-send.html 에서 골라 보낸다(위 2b2 블록의 「61 예상」 = 61 확인)
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-qbo-send-payments 등록 — qbo-sync-2e-1c (2026-11-02 밤 · 판정 988 · 971 · DB 2e-1b 20261103050000 · EF qbo 1c 배포 뒤에 · 지시서 ~/asung/prompts/qbo-sync-2e-1.md) — QuickBooks 결제(payment · payment_void 일감) 5 분마다 · ⚠️ 이 프로젝트가 메인(617) — 다른 프로젝트에 등록하지 마라
+--   무엇: */5 분 — inv_config qbo_send_payments_enabled = 'on'(결제만의 스위치 · qbo_send_enabled(971 · 인보이스 · 크레딧은 북키퍼가 고른다)와 별개) 이고 · 연결이 connected 이고 · 결제 일감에 할 일(queued · next_at 지남 / unknown / 부모 sent 인 blocked)이 있을 때만
+--         EF qbo 를 {"action":"send","kinds":["payment","payment_void"],"limit":<qbo_send_batch>} 로 부른다(cron 길 = x-ims-cron-key · 열쇠 문 없음 · by_staff null · kinds 는 1c 부터)
+--   ⚠️ 스위치 off(기본) 면 where 가 거르니 호출 0 — 등록은 1c 배포 뒤 지금 · 켜기(qbo_send_payments_enabled on)는 Caleb(켜는 순서: credit_card 수단 짝 → 첫 결제 몇 장 Preview → Send → on)
+--   결제 하나 = Intuit 호출 1 + 붙은 인보이스 수(Balance 읽기 (가)) · 15 개 ≈ 45 호출 ≈ 30 s 안쪽(짐작) · timeout 120 s · claim 의 10 분 임대가 다음 분 호출을 막는다 · cron 61(ims-qbo-send)이 켜지면 결제도 같이 잡는다(겹쳐도 skip locked · 971 뒤 다시 본다)
+--   열쇠: jobid 55 ims-mail-drain 의 command 에서 다시 꺼내는 꼴은 ims-qbo-send 와 같다(아래는 자리표 · 대시보드 SQL Editor 에서만)
+--   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-send-payments';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다(마지막 61 ims-qbo-send 다음 → 62 예상)
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-qbo-send-payments') order by start_time desc limit 5;  · 보낸 흔적: select action, ok, http_status, detail from public.qbo_call_log where action in ('send', 'send_check', 'send_read') and detail->>'kind' in ('payment', 'payment_void') order by called_at desc limit 20;
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-send-payments'), active := false);   · 해제: select cron.unschedule('ims-qbo-send-payments');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'qbo_send_payments_enabled';
+select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+    body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+  where exists (select 1 from public.inv_config c where c.key = 'qbo_send_payments_enabled' and c.value = 'on')
+    and exists (select 1 from public.qbo_connection c where c.status = 'connected')
+    and exists (select 1 from public.qbo_job j
+                 where j.kind in ('payment', 'payment_void')
+                   and (j.state = 'unknown'
+                     or (j.state = 'queued' and j.next_at <= now())
+                     or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
+$job$);
