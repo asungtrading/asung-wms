@@ -5,6 +5,7 @@
 ⭐ 상태 [2026-10-28] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(테스트 DB `Asung-IMS` · Freightcom 테스트 토큰 · 실호출 넷 모두 취소함 · so-module §84-c · §85-c) · **운영 = 토큰 대기**(deferred 326 · 364) → ⭐ [2026-11-03 · Caleb · so-module §99-c 8] **토론토는 운영** — FREIGHTCOM_BASE_URL = `https://external-api.freightcom.com` · FREIGHTCOM_API_KEY_TOR = 운영 토큰 · FREIGHTCOM_API_KEY_EDM **지움**(시험 토큰은 운영 주소에서 안 통하고 남기면 가짜 예약 위험 · status EDM has_key false) · 코드 무변(키는 계정별 848 · 주소는 하나) · **에드먼턴은 운영 토큰 올 때까지 Freightcom 사이트에서 손 예약**(deferred 462 · 키 없을 때 IMS 화면이 무엇을 보이는지는 안 봤다)
 ⚠️ 운영에서는 아직 **손으로** 한다 — EF `freightcom` 은 `inv_config.db_role = 'test'` 가 아니면 멈춘다(`supabase/functions/freightcom/index.ts:3`) · ~~운영 토큰 · 비밀값 · 이 가드를 푸는 날이 운영 시작이다~~ → [2026-10-29 · 판정 617 확인 · so-module §87] 이 프로젝트(Asung-IMS)가 11-01 부터 **그대로 운영**이고 db_role 은 컷오버 뒤에도 'test'(`cutover-delete.sql:16`) — 이 가드는 asung-WMS 만 막을 뿐 운영을 가르지 못한다 ⇒ **운영 시작 = 비밀값을 운영 토큰 · 운영 BASE_URL 로 바꾸는 날**(그 전까지 이 프로젝트의 예약은 테스트 토큰 · 청구 없음)
 ⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만 → [2026-11-03] 토론토는 운영 토큰이라 **IMS 의 토론토 예약 = 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · 에드먼턴은 키 없음(손 예약)
+⚠️ [2026-11-04 · so-module §100-c 7 · **deferred 464**] **토론토 예약에 픽업이 안 잡힌 실물** — SO-20846(Purolator · regular_pickup f · 요청 날짜 · 시각을 보냄) → Freightcom state `waiting-for-scheduling` · pickup_confirmation 빈칸 · 직원이 사이트에서 손 요청 · 단서 = fc-2b 주석 「pickup_details 날짜 · 시각 꼴은 짐작」(실호출로 확인한 것은 pre_scheduled 꼴뿐) · 조사 fc-pickup-0 안 씀 · 그때까지 토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청
 
 ---
 

@@ -229,6 +229,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⭐ [2026-11-03 밤] **적용 명령 판** — 대조 넷을 셸 `if` 로 묶어 어긋나면 적용 전에 멈춘다: ① 파일 md5 ② `grep -cE '^(begin|commit);'` 0 ③ 그 번호가 이미 적용 0 ④ DB 마지막 번호 < 이 번호
    if [ "$(md5sum <파일> | cut -c1-8)" = "<md5 8>" ] && [ "$(grep -cE '^(begin|commit);' <파일>)" = 0 ] && …; then psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -1 -c "set local lock_timeout = '5s'" -f <파일> && supabase migration repair --status applied <번호> --db-url "$(cat ~/.asung-testdb-url)"; else echo STOP; fi
 ⭐ [2026-11-03 밤 · so §99-c 6] **두 창 동시 시험** — 잠그는 표가 다르면 된다(mail_outbox ↔ qbo_job · qbo_txn) · 돌리기 전에 **두 방향 grep**(서로의 표 · 함수를 건드리나) + **트리거 간접 경로**(예 so_invoice `doc_mail_auto_invoice` 는 가짜 손님 `final_invoice_mail` false 라 첫 줄에서 끝)를 보고
+⭐⭐ [2026-11-04 · Caleb 「정확히 시간은 토론토 5시에 시험적용해도 돼. 에드몬튼도 그때업무가 끝나」 · so §100-a] **메인 DB 시험 · 적용 창 = 토론토 17:00 뒤**(에드먼턴 16:00 · 에드먼턴 = 토론토 − 1) — 그 전(창고 시간)에는 위 「묻고 · 10 초 안」 그대로
 ⚠️ [2026-11-03 밤 · so §99-e 80] **Supabase CLI 3.0.0**(노트북): `migration repair` 가 Yes/No 를 묻는다(기본 **No** · ← 로 Yes · 전역 `--yes` 있음 — `supabase --help` 실측) · `--db-url` 은 deprecated(v4 에서 제거 · `--remote=<url>`) · 회사 · 집 PC 는 2.x 일 수 있다(안 봤다) · repair 뒤에는 schema_migrations 를 select 로 본다(위 대조)
 ⚠️ **검증 do 블록의 변수는 전부 `v_` 접두 · 임시 표의 칸 이름과 겹치지 않게** — 같은 날 두 번(record 변수 `r` = 별칭 `r` · 변수 `v` = `t_ids.v` → 42702 「column reference is ambiguous」 · 2026-09-24 세금 ② v1) · FROM 이 없는 insert … values 는 안 걸리지만 규칙은 같다 · 블록마다 「선언 변수 ∩ 읽는 표의 칸」을 훑는다
 ⚠️ **`format('%s', boolean)` 은 `t`/`f` 를 낸다** — 출력 함수를 쓴다(`boolean::text` 는 `true`/`false`) · 기대 문자열이 `manual=false` 면 `::text` 로 캐스트해 넣는다(2026-09-24 세금 ② v2 — 여덟 chk 가 글자만 같은 MISMATCH · DB 는 맞았다)
@@ -1087,3 +1088,12 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    78 [대화 Claude · 재발 24 · 여섯째] 단추가 안 보이자 열쇠부터 짐작(set v17) · 표 이름 짐작(staff → ims_staff) ⇒ ① 열쇠 ② EF 값 ③ DOM querySelectorAll ④ 덮는 줄 grep · 칸 · 표는 information_schema 먼저
    79 [문서 차수] `--grep='^docs-'` 가 앞 차수를 못 찾음 ⇒ `--grep='docs-1'`(위 62)
    80 [환경] Supabase CLI 3.0.0 — repair 질문 · `--db-url` deprecated(§4)
+
+⚠️ **[2026-11-04 회사 — so-module §100-e 에 이어 81 부터 · 메모리 장애 · perf-rpc · 결제 켜기 · 이 스킬에는 아래 일곱을 옮김]**
+   81 [대화 Claude · 재발 59] perf-rpc-0 지시서에 「에드먼턴 = 토론토 − 2」(11-01 뒤는 − 1) — 보내기 전에 고쳤다 ⇒ 시각은 §10 줄을 보고 적는다
+   82 [대화 Claude · 채팅] 명령 안의 백틱 셋이 채팅 코드 상자를 닫아 heredoc 이 반만 복사됐다(셸이 `>` 에서 기다림) ⇒ 채팅에 주는 명령에는 백틱 셋을 글자로 쓰지 않는다(`chr(96) * 3`)
+   83 [대화 Claude · 파일] 고친 지시서를 내려받았다고 짐작하고 md5 를 줬는데 다운로드 폴더에는 원래 판 · 화면 파일은 파일 카드를 안 띄워 cp 실패 ⇒ 파일을 주는 회신에는 **늘 present_files**(파일 카드) · 옮기기 전 md5 대조는 그대로(이번에도 그것이 잡았다 · §7)
+   84 [대화 Claude · 짐작 · 68 과 같은 뿌리] 「목록의 waiting = 보낼 수 없는 결제」 라고 짐작 — 화면 코드는 queued 를 waiting 으로 그린다 ⇒ 화면 글자의 뜻은 그 화면 코드를 grep 한 뒤
+   85 [대화 Claude] Windows 탐색기 주소(`\\wsl$…`)를 터미널 명령처럼 줬다 ⇒ 터미널에는 `~/…` 경로만
+   86 [문서 차수 · 55 와 같은 뿌리] 지시서의 운영 숫자(17:3x queued 78)가 차수 때 blocked 37 · failed 7 로 갈려 있었다 — §0 다시 세기가 잡음 ⇒ 운영 숫자는 적기 직전 다시 센다
+   87 [잘 된 것] 비밀 열쇠를 화면에 꺼내지 않고 SQL 이 꺼내 끼운 cron 등록 · 배포 전 md5 대조 · 첫 실물을 사람 손으로 보낸 뒤에야 cron 을 넷으로 · 조사 차수(perf-rpc-0)의 짐작 셋을 다음 차수 §0 이 실측으로 바로잡음

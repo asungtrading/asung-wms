@@ -12577,7 +12577,7 @@ e6cd3db chg duty v1 — Charges: Kind Duty 일 때 Duty (before tax) · GST on i
 | ml v1.4 | manager-list | asung-ims `19e6f40` | 994 — Action Centre Unpaid at hand-over 목록 · 배지가 Branch 를 따른다(`so_invoice_list.warehouse_id`) · All branches 일 때 Branch 칸 |
 
 - 적용: 위 마이그레이션 아홉 전부 **메인 DB(Asung-IMS) 적용 · repair**(11-02 밤 ~ 11-03 새벽 · 지시서 §1 번호 목록) · EF qbo 1c 배포 11-03 새벽 · 두 레포 `main...origin/main`(11-03 문서 차수 때 git status · 앞선 커밋 0)
-- ⚠️ cron 62 `ims-qbo-send-payments` 는 **아직 등록 전**(ops/cron.sql 에 명령만 · jobid 는 등록 뒤 실측 · deferred 453 ③)
+- ⚠️ cron 62 `ims-qbo-send-payments` 는 **아직 등록 전**(→ [2026-11-04] 등록 · jobid 62 · kinds 넷 — §100-c 5 · ops/cron.sql 에 명령만 · jobid 는 등록 뒤 실측 · deferred 453 ③)
 
 ### 98-c 사실 · 실측 · 정정
 
@@ -12586,7 +12586,7 @@ e6cd3db chg duty v1 — Charges: Kind Duty 일 때 Duty (before tax) · GST on i
 3. **창고 속도(옛 → 새 · 450 · 「11-02 밤 실측(보고)」)**: 픽 Complete 40 줄 7.5 s → 0.15 s(A `7979c4f` · §97) · 픽 과제 16 개 4,733 → 241 ms · 40 줄 과제 598 → 50 ms · so_pick_plan 324 줄 622 → 292 ms · Last bin 324 제품 2,915 → 68 ms · **재고 화면 두 창고 1,850 → 1,409(②-a) → 975(②-b) → 731 ms(②-c)** · 한 창고 949 → 515 ms · bgrade_stock 191 → 5 ms · 칸 장부 229 → 0.3 ms · 픽 선반 207 → 113 ms · so_sale_now false 357 → 126 ms
    - 까닭(①): 뷰 `ims_inv_balance` 는 inv_balance(스냅샷 + 원장 GROUP BY) 뒤에 product · ref_warehouse · ref_bin 을 붙인다 → **id 술어가 집계 안으로 못 들어가 부를 때마다 장부 전체 집계 543 ms** ⇒ 뷰를 id 로 거르지 말고 `ims_inv_balance_of`(키 집합)
    - 남은 것(→ deferred 455): so_sale_now false 로 바꿀 나머지 셋 · inv_move_bin_contents 제품마다 조회 · wms_pick_shelf pl · pk · so_totals_many
-4. **바뀐 함수 · 뷰의 마지막 정의**(grep -i 로 확인 · 97-e 63): `ims_inv_balance_of`(새) · `wms_pick_lines` · `so_pick_plan` · `ims_last_bin` · `product_bom_set` = `20261102230000` · `inv_available_base` = `20261103010000` · `wms_pick_shelf` · `bgrade_stock` = `20261103023000` · ⚠️ `inv_move_bin_contents` = 그대로 `20261023135121_bgr_1b` · `ref_bin_bgrade_set` = 그대로 `20261023131028_bgr_1a`(③ 은 인덱스만 · 본문 md5 무변 검증) · `stk_availability` = `20261103060000`(②-a · ②-b · ②-c 세 번) · `so_sale_now`(3 인자) = `20261103060000` · `so_payment_add` = `20261103020000` · `qbo_job_claim` · `preview` · `doc` · `list` · `retry` · `done`(10 인자) = `20261103050000` · 뷰 `so_invoice_list` = `20261103070000`(그 전 ar-2 `20261027014202`)
+4. **바뀐 함수 · 뷰의 마지막 정의**(grep -i 로 확인 · 97-e 63): `ims_inv_balance_of`(새) · `wms_pick_lines` · `so_pick_plan` · `ims_last_bin` · `product_bom_set` = `20261102230000` · `inv_available_base` = `20261103010000`(→ [2026-11-04 · §100] `20261104205654` perf-rpc-1) · `wms_pick_shelf` · `bgrade_stock` = `20261103023000` · ⚠️ `inv_move_bin_contents` = 그대로 `20261023135121_bgr_1b` · `ref_bin_bgrade_set` = 그대로 `20261023131028_bgr_1a`(③ 은 인덱스만 · 본문 md5 무변 검증) · `stk_availability` = `20261103060000`(②-a · ②-b · ②-c 세 번) · `so_sale_now`(3 인자) = `20261103060000` · `so_payment_add` = `20261103020000` · `qbo_job_claim` · `preview` · `doc` · `list` · `retry` · `done`(10 인자) = `20261103050000` · 뷰 `so_invoice_list` = `20261103070000`(그 전 ar-2 `20261027014202`)
 5. **결제 몸 꼴(2e-1b · 머리 주석)**: CustomerRef = **청구처**(so_payment.customer_id · 980) · TxnDate = paid_on(미래 그대로 · 991) · PaymentMethodRef(짝 없으면 failed — credit_card 는 사람 짝 전까지) · DepositToAccountRef = account_code 짝 · PaymentRefNum = left(reference, 21) · PrivateNote 「IMS payment <uuid>」 · Line = 활성 붙임마다 LinkedTxn(QBO Invoice Id 는 qbo_txn 에서만 · 열린 인보이스 일감이면 기다림 · 일감 없음 · skipped · 이월 · since 전 짝 없음은 failed 글) · 일부만 붙었으면 UnappliedAmt(경고) · 지문 = md5(amount · paid_on · method · account_code · currency · 정렬한 (invoice_id, amount)) — 활성 · payment · opening 아님 · 붙임 ≥ 1 이 아니면 null(= QBO 에 없어야 한다)
 6. **992′ 정정의 실물**: post-dated 24 장은 IMS 에 이월 인보이스로 **오지 않았다** — Cin7 이 그 sale 을 다 받은 것으로 봤다 · IMS A/R 은 맞다 · 대화 Claude 의 첫 설명(「IMS 가 미래 날짜를 거부해 못 넘어왔다」)은 짐작이었다(98-e 67)
 7. **994 실측**: Unpaid at hand-over 25 장 = 이월 24 + IMS 60005(SO-20061) 1 · 토론토 17 · 에드먼턴 8 · 열린 이월 307 장 중 브랜치가 비는 장 0(머리 주석 이견 답 3) · 살아 있는 오더 여럿에 창고가 다른 인보이스 0 장(이견 답 1 · 첫 SO 는 so_number 순)
@@ -12733,7 +12733,7 @@ schema_migrations(테스트 = IMS 메인): `20261103174500` · `20261103200000` 
    - 시험 회차: 1 회 28 OK · MISMATCH 2 + G0(G0 = 명령에 `MIG=` 접두가 빠져 `\!` 의 head 가 빈 경로 · B2 · D1 = 기대값의 `claimed` 만 틀림 — 아래 5) · EXPECT_OK 31 은 셈 착오(시험 30) · 2 회 30/30 · 확인 1 회 29 OK 인데 expect 30(`\set EXPECT_OK` 가 갈래를 안 가림) → `\if :{?mig} 30 \else 29 \endif` · 확인 2 회 29/29
 5. **`claimed` 의 뜻(qbo_job_claim)** = ③ 「잡기」 에서 queued → sending 으로 바뀐 행 **전부**(뒤에 blocked · failed 로 간 것 포함) · 근거 원문 셋이 글자까지 같다: 2e-2-1 마이그레이션 397 행 · 2e-1b `20261103050000` 451 행 · DB pg_proc 현재본 · 2e-1b 검증 D1 도 같은 뜻 · 「blocked 는 claimed 에서 뺀다」 는 판정 · 지시서 줄 0
 6. **두 창 동시 시험(11-03 밤)**: mail-inc-1a(mail_outbox)와 2e-2-1(qbo_job · qbo_txn)을 함께 — 돌리기 전에 두 방향 grep(서로의 표 · 함수를 건드리나) + 간접 경로(so_invoice `doc_mail_auto_invoice` 트리거는 가짜 손님 `final_invoice_mail` 기본 false 라 첫 줄에서 끝)를 보고 돌렸다 · 충돌 0
-7. **cron 62 `ims-qbo-send-payments`**: 11-03 밤 현재 **등록 전** · `supabase/ops/cron.sql` 실행 블록 = **kinds 둘**(1034 · docs-1103b 에서 넷 → 둘로 고침) · 넷 판은 주석(2e-2-1b 배포 뒤 다시 등록)
+7. **cron 62 `ims-qbo-send-payments`**: 11-03 밤 현재 **등록 전**(→ [2026-11-04] 16:5x 등록 jobid 62 · 2e-2-1b 뒤 kinds 넷 — §100-c 5) · `supabase/ops/cron.sql` 실행 블록 = **kinds 둘**(1034 · docs-1103b 에서 넷 → 둘로 고침) · 넷 판은 주석(2e-2-1b 배포 뒤 다시 등록)
 8. **Freightcom 토론토만 운영 전환**(비밀값만 · 코드 무변 · 키는 계정별 848 · 주소는 하나): FREIGHTCOM_BASE_URL = `https://external-api.freightcom.com` · FREIGHTCOM_API_KEY_TOR = 운영 토큰(Caleb 이 Freightcom 프로필에서 만듦) · FREIGHTCOM_API_KEY_EDM **지움**(unset — 시험 토큰이 운영 주소에서 안 통하고, 남겨 두면 가짜 예약 위험) · status 확인(EDM has_key false) · ⚠️ **운영 예약은 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · 에드먼턴은 운영 토큰 올 때까지 Freightcom 사이트에서 손 예약(API licence 를 Freightcom 에 보내야 온다 · deferred 462) · 에드먼턴 키가 없을 때 IMS 화면이 무엇을 보이는지는 **안 봤다**
 9. **QuickBooks 매칭(11-03 회사)**: Payment methods 짝 없음 0 · Customers NOT MATCHED 39 · Suppliers 45 · Products 2,953(인계서 §1)
 
@@ -12768,4 +12768,111 @@ schema_migrations(테스트 = IMS 메인): `20261103174500` · `20261103200000` 
 
 ```
 다음 판정 번호: 1035 · 다음 deferred 번호: 463
+```
+
+## §100 2026-11-04 회사 — 메인 DB 메모리 부족 장애(MICRO → MEDIUM) · 화면 RPC 를 가볍게(perf-rpc-0 · 1) · 결제 QBO 켜짐(cron 62) · 크레딧 붙임 보내기(2e-2-1b) · Freightcom 픽업 안 잡힘 — 판정 1035 ~ 1038
+
+⭐ 원천: 지시서 docs-1104 A ~ G(대화에만 있던 것 · 대화 Claude 진단 · Caleb psql 실측) · asung-wms `git log --oneline 2112de5..HEAD` · asung-ims `git log --oneline 440abee..HEAD` 원문 · 마이그레이션 머리 주석 · 메인 DB 읽기(17:56 토론토 · begin read only)
+⚠️ 공개 레포 — 손님 상호 · 사람 이름 · 이메일은 적지 않는다(99-e 77). 장애 숫자(Observability 그래프 · 로그 줄 수)와 화면 실물(Preview · QBO 결제 번호)은 **대화 실측** — 레포 · DB 로 대조하지 못했다.
+
+### 100-a 판정
+
+| # | 갈래 | 뜻 |
+|---|---|---|
+| **1035** | (11-04 · Caleb) | 「일단 화면 넷을 가볍게 하는 것을 우리 다음 일로 정하자 … 그일 마치고, 결제 켜기로 가자」 — 다음 일 = 무거운 화면 RPC 를 가볍게(perf-rpc-0 조사 → perf-rpc-1 · 2 · 3 · 4) → 결제 QBO 켜기 · ⚠️ 같은 날 결제는 Caleb 이 먼저 켰다(100-c 5 · 1034 순서) |
+| **1036** | (11-04 · Caleb) | **크기 판정** — Caleb 「나도 급하게 메모리 등급을 내릴 마음은 없어」 · 일주일쯤 관찰에 동의 ⇒ **MEDIUM(4 GB) 유지** · 무거운 창구(deferred 465 ~ 468)를 다 고친 날부터 **일주일** 아침 봉우리 · pg_stat_statements 를 보고 크기를 정한다 · 1 GB 와 4 GB 사이 2 GB 도 후보 · 4 GB 의 committed 를 1 GB 한도에 그대로 대지 않는다(크기마다 shared_buffers 가 다르다 · 짐작) — deferred 469 |
+| **1037** | (11-04 · Caleb 「그렇게 하자」) | **perf 차수 순서** — perf-rpc-1 다음 화면 차수에서 Stock Availability · WMS Stock Lookup 을 맨 앞에 ⇒ ① **perf-rpc-2** `stk_availability` 가 검색어(p_q)로 제품을 먼저 좁힌 뒤 그 키만 inv_available_base 로(두 화면이 함께 빨라진다 · 검색어 없는 첫 목록은 창고 전체 그대로 · 465) ② **화면 차수**(대화 Claude · stock.html 줄 클릭 두 번 부르기 · so · products · stock 줄 클릭 = 목록 재조회 · transfers 수량 칸 지연 없음 · 세일 칩 묶기 · 466) ③ **perf-rpc-3**(product_list 의 so_sale_now false · so_sale_now 키 밀어넣기 · 판정 302 · 361 대조 · 467) ④ **perf-rpc-4**(so_totals_many — 비인라인 SQL 함수 여섯 set search_path RESET · so_tax_preview 합계만 갈래 · 판정 350 · 468) |
+| **1038** | (11-04 · Caleb) | 「퀵북스 작업이 우선적으로 마무리가 되어야 해」 ⇒ **QBO 줄기를 다른 IMS 일보다 먼저** · 순서: 2e-2-1b(11-04 끝 · 461 닫힘) → **1d 이월 인보이스 짝**(452) → **2e-3 받아 둔 돈 · 환불**(454) → 원가(COGS) 분개 · 공급처 Bill · 입고 분개(459) · 인보이스 자동 보내기 켜기(971 · `qbo_send_enabled`)는 Caleb |
+| — | (11-04 · Caleb) | 「정확히 시간은 토론토 5시에 시험적용해도 돼. 에드몬튼도 그때업무가 끝나」 ⇒ 메인 DB 시험 · 적용은 **토론토 17:00 뒤**(에드먼턴 16:00 · 11-01 부터 에드먼턴 = 토론토 − 1 시간 · 97-e 59) |
+
+### 100-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline 2112de5..HEAD`(asung-wms · docs-1103b 뒤 · 빠진 것 0):
+
+```
+48d5ca4 qbo-sync-2e-2-1b(판정 1009 ~ 1017 · 1034): 크레딧 붙임 0 원 Payment 보내기 — SEND_KINDS 10 · entityKeyOf 명시 가지 · 가드 Invoice Balance ∧ CreditMemo RemainingCredit · unknown 풀기 PrivateNote 완전 일치 · void 는 결제 길 · need 는 customer · item 만 · deno 24/24 · 배포 · 첫 실물 CR-01008 → 60026 · cron 62 kinds 넷
+7ff512d perf-rpc-1(판정 1035): inv_available_base bal 을 뷰 두 갈래로 — 키 갈래는 OR 없이 sku 색인 · 창고 전체 갈래는 옛 줄 그대로 · 63 키 61.7 → 9 ~ 10 ms · 전수 12,837 키 11.7 s → 0.26 s · 시험 42/42 · 확인 41/41
+```
+
+asung-ims `git log --oneline 440abee..HEAD`:
+
+```
+21d4ef9 qs apply v1(qbo-sync-2e-2-1 · 판정 1009 ~ 1017): 크레딧 붙임 종류 고르기 · 이름 둘 · 미리 보기
+```
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| perf-rpc-0 | (조사 · 쓰기 0 · 커밋 없음) | pg_stat_statements 하루치 · 함수별 까닭 · 화면 되부르기(100-c 3) · ⚠️ 짐작 셋 중 하나(「GROUP BY 순서」)는 perf-rpc-1 §0 이 실측으로 바로잡음(100-c 4) |
+| perf-rpc-1 | `7ff512d` · `20261104205654_perf_rpc_1_iab_bal_branches.sql` · 검사 `supabase/tests/perf_rpc_1_check.sql` | 1035 — inv_available_base 의 bal 을 뷰 두 갈래(UNION ALL)로 · 본문 md5 `7a1ef377b255665c05da116e58e97a31`(17:56 메인 DB 대조 같음) · 시험 42/42 · 확인 41/41 |
+| qbo-sync-2e-2-1b | `48d5ca4` · EF `qbo`(Fable) | 1009 ~ 1017 · 1034 — 크레딧 붙임 0 원 Payment 보내기 · 이견 답 1 ~ 10(qbo-integration §14-g) · deno 24/24 · 배포(Caleb · `supabase functions deploy qbo --project-ref …` · 노트북 CLI 3.0 이 Yes/No 를 묻는다) |
+| qs apply v1 | asung-ims `21d4ef9` · qbo-send.html(대화 Claude) | 종류 「Credits applied to invoices」 · 라벨 Credit applied · Undo credit applied · applyPreview |
+| cron 62 | (Caleb psql · 마이그레이션 아님 · `supabase/ops/cron.sql`) | 16:5x kinds 둘 등록 → 스위치 on → 2e-2-1b 배포 · 첫 실물 뒤 kinds 넷(같은 이름 cron.schedule = 번호 62 그대로) |
+
+### 100-c 사실 · 실측
+
+1. **11-04 오전 메인 DB 장애 — 메모리 부족**(대화 Claude 진단 · 대화 실측)
+   - 컴퓨트 **MICRO(RAM 1 GB)** · 09:32 cron 21 초 지연(전조) · **09:44 ~ 09:54 프로젝트 전체 불통**(09:52 한 분 로그 160 줄 중 522 141 · 521 11 · 503 1 · 544 1 — REST · auth · storage 모두) · cron 10 분 공백 · 10:19:08 postmaster 재시작 · **10:38:25 MEDIUM(4 GB)** 로 올림(Caleb · 시간당 $0.0822)
+   - Observability → Database: Swap 이 RAM 만큼 찼다가 0 으로 떨어짐 세 번(09:33 · 09:48 · 10:18 무렵) · Memory commitment **SEVERE** · 한도선 위 최고 2.36 GB
+   - 7 일 그래프: 10-28 ~ 11-01 committed 평평(약 1.3 GB) → 11-02 · 03 · 04 영업 시작마다 한도선을 뚫는 봉우리 · 오후에 내려옴 ⇒ **짐작**: 누수가 아니라 컷(10-30) 뒤 하루 업무량이 MICRO 를 넘었다
+   - 지운 용의자: 연결 15/60 · 잠금 대기 0 · 디스크 1.4 GB · pg_net 정상 · QBO send · PostgREST 스키마 재읽기 1 회
+   - MEDIUM 직후(10:42): CPU 48 % · RAM 53 % · 33/120 conns · shared_buffers 1 GB · work_mem 7 MB · max_connections 120
+   - ⚠️ **짐작**(perf-rpc-0 이견 9): 무거운 RPC 와 아침 봉우리의 연결은 약하다 — 잰 것은 실행 시간 · 버퍼 hit 이고 temp 0 · 봉우리는 연결 수 · 백엔드당 메모리에 더 걸려 있을 수 있다 · 효과는 고친 뒤 아침 그래프로 본다(1036 · 469)
+   - 11-02 장애(97-c 1 · timeout · 창고 시간 시험 잠금)와 **뿌리가 다르다** — 이번은 메모리(asung-ops 5-g 에 갈래로)
+2. **pg_stat_statements 설정**: `pg_stat_statements.track = top` — 함수 속 문장은 안 쌓인다(설정 무변) · stats_reset 은 재시작(10:19)
+3. **perf-rpc-0 실측 요지**(10:36 ~ 15:31 · 함수별 호출 · 합 · 평균)
+   - product_list 700 · 154 s · 220.7 ms / so_available_many 1,128 · 140 s · 123.9 ms / so_totals_many 615 · 89 s · 144.7 ms / **so_sale_now 750 · 59 s · 78.8 ms**(넷 밖 · 다섯째) / stk_availability 62 · 42 s · 678 ms · temp 는 doc_data 90,557 · doc_mail_send 68,728 이 크다(넷 아님)
+   - 첫 6 분 숫자(652 · 505 · 972 · 496 ms)는 재시작 직후 빈 캐시 — **기준선은 하루치**
+   - 까닭: so_available_many = inv_available_base 의 bal 이 창고 원장 전체 훑기(56 ms · alloc 은 4 ms 로 원인 아님) · so_totals_many = 오더마다 so_tax_preview(466 ms / 100 건 · 비인라인 함수 여섯 −80 ms · 줄 jsonb 72 → 3.4 ms · 약 300 ms 는 못 나눔) · product_list = 속 so_sale_now(null, null) = with_deals true 138 ms(false 63 ms) · so_sale_now = 제품 하나도 켜진 딜 전부를 펼친 뒤 거른다(38 ms · 딜 7 · 대상 629) · stk_availability = 두 창고 장부 전체 집계 549 ms(스냅샷 211,989 + 원장 99,595)
+   - 화면: 타이머 되부르기 0 · 줄 클릭마다 목록 전체 재조회(so · products · stock) · stock.html 줄 클릭에 stk_availability 두 번 · transfers 수량 칸 input 마다 · wms-stock 스캔마다 두 창고 전체
+4. **perf-rpc-1 실측**
+   - bal = 뷰 두 갈래(UNION ALL) — 키 갈래는 OR 없이 `and (select k.arr from skus k) is not null and b.sku = any(…)` · 창고 전체 갈래는 옛 줄 바이트 그대로 + 문 한 줄 `and (select k.arr from skus k) is null`(InitPlan 상수 · One-Time Filter 로 한쪽만) · 문 = 옛 식 arr is null(빈 배열 · 없는 pid 도 창고 전체로 — 옛 버릇 그대로) · comment 무변(안의 「1 키 ~56 ms · 전부 ~170 ms」 는 낡음 — 실측 63 키 9 ~ 10 ms · 전부 88 / 140 ms)
+   - 시험(17:15 ~ 17:21 · 3 회 + 마른 1) 42/42 · 확인 41/41(22.46 s · 지문 7a1ef377…) · G1 전수 12,837 키 토론토 11,705 → 261 ms · 에드먼턴 4,255 → 302 ms · G8 SO-21021 꼴 63 키 61.7 → 9 ~ 10 ms(shared hit 21,182 → 2,299) · null 길 +2 ms 안(무변)
+   - REST 두 겹 ②: Caleb 이 SO-20925 상세 — 「available N · TO M」 정상 · 「아주 약간의 인터벌 후에 바로 떴어」
+   - ⭐ **[2026-11-04 정정] perf-rpc-0 보고의 「GROUP BY (sku, warehouse, bin) 순서 때문」 은 틀렸다**(짐작 · 보고는 `~/asung/prompts/perf-rpc-0.md` 에만 · 레포 정본에는 그 문구가 없다) → perf-rpc-1 §0 실측: 범인은 `(… is null or sku = any(…))` 의 **OR** — 색인 조건이 못 되고 Filter 로만 · 뷰 · GROUP BY 를 두고 OR 만 빼니 sku 색인으로 내려갔다(2.378 ms) · 일반 규칙은 asung-wms 스킬 「OR 함정」
+   - 따로 볼 거리: 빈 배열 · 모르는 pid 만 넘기면 창고 전체(6,807 행)를 예약 0 으로 낸다 — inv_transfer_shortage 의 need 가 빌 때 · 화면의 빈 pids · 고칠지 판정 대기(**deferred 463**)
+5. **결제 QBO 켜짐(1034 · deferred 453 닫힘)** — 대화 실측 + 메인 DB 읽기
+   - 16:5x 확인: 스위치 둘 off · cron 59 · 61 만 · payment queued 139 · skipped 6
+   - 손 Send 1 장: VISA**7357 · 401.45 → 인보이스 60001(QBO #172375) PAID · Credit Card · Deposit to = Clearing - TD Merchant TOR · QBO 결제 #172499
+   - **cron 62 등록**(Caleb psql · 16:5x): jobid **62** `ims-qbo-send-payments` `*/5` active · key_len 64 · 열쇠는 jobname `ims-mail-drain` 의 command 에서 `substring(... 'x-ims-cron-key'', ''([^'']+)')` 로 꺼내 `format($fmt$ … %L … $fmt$, s.k)` 로 끼움(열쇠가 화면 · 대화에 안 찍힘 · `where length(s.k) = 64`) → 스위치 `qbo_send_payments_enabled` on
+   - 17:00 첫 회차 claimed 15 · sent 15 · failed 0 · unknown 0 · 17:3x 무렵 payment sent 61 · queued 78(대화)
+   - 2e-2-1b 배포 · 첫 실물 뒤 cron 62 **kinds 넷**(같은 이름 cron.schedule = 번호 62 그대로 명령만 바뀐다 · kinds_four t · key_len 64)
+   - ⭐ **메인 DB 읽기(17:56 토론토)** — `inv_config`: qbo_send_enabled **off** · qbo_send_batch 15 · qbo_send_payments_enabled **on** · qbo_send_since 2026-11-02 / `cron.job`: 59 ims-qbo-refresh `10 9 * * *` · 61 ims-qbo-send `*/5` · 62 ims-qbo-send-payments `*/5` — 셋 다 active · 62 만 credit_apply 를 담음 / `qbo_job`: payment **sent 95 · blocked 37 · failed 7 · skipped 6**(합 145 = 16:5x 의 139 + 6) · credit_apply sent 1 · failed 1 · queued 0
+     - **blocked 37** = 앞선 일감이 queued — invoice 28 · customer 9 · `qbo_send_enabled` off(971 · 북키퍼가 인보이스를 골라 보냄)라 **인보이스를 QuickBooks 에 보내기 전까지 그 결제는 Blocked 로 기다린다**
+     - **failed 7** = 모두 「Invoice N was carried over from the previous system and has no QuickBooks match yet」(48384 · 49397 · 50750 · 50754 · 50764 · 50769 · 50770) — 이월 인보이스 짝(1d · 452) 뒤 requeue
+     - credit_apply failed 1 = CR-01014 → 50763(이월 · 1016)
+     - sent 시각: 16 시 1(손 Send) · 17 시 94
+   - skipped 의 두 길(코드 확인): IMS 가 스스로(보내기 전 void · 붙임 전부 떼기 · 메모 「payment voided or fully detached …」) · 사람이 화면 Skip(메모 필수)
+6. **2e-2-1b 첫 실물**: CR-01008 → 60026 — Preview(9242 매장 · 13.52 · QBO #172453 · #172452) → Send → QBO 에 「IMS credit applied …」 Payment $0.00 Closed · 남은 $1.15 는 IMS 결제로 이미 들어가 손님 잔액 $0.00 ⇒ 1014(CustomerRef = 매장) 실물 확인 · 이견 답 1 ~ 10 은 qbo-integration §14-g
+7. **Freightcom 픽업이 안 잡힘**(deferred 464 · 조사 fc-pickup-0 안 씀): SO-20846 · Purolator · 토론토 · 11-03 15:21 Book · regular_pickup f · cutoff 14:00(IMS) → 픽업 11-04 09:30 ~ 16:30 으로 요청 · `pickup_details` {date, ready_at, ready_until, pre_scheduled_pickup false} · Freightcom state `waiting-for-scheduling` · pickup_confirmation 빈칸 · 직원이 Freightcom 사이트에서 손으로 픽업 요청
+   - 단서: fc-2b 마이그레이션 주석 「pickup_details 의 날짜 · 시각 꼴은 짐작 · 실호출로 확인한 것은 pre_scheduled 꼴뿐」 · IMS 는 예약 순간 상태만 받아 적는다(뒤에 다시 묻는 코드는 못 봤다 — 짐작)
+   - 그때까지: 토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청(창고에 알림 — Caleb)
+
+### 100-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: **453**(결제 켜는 순서 — ① ~ ④ 끝 · cron 62) · **461**(qbo-sync-2e-2-1b EF — `48d5ca4` · 배포 · 첫 실물 · kinds 넷)
+- 잇기: **452**(이월 결제 failed 7 · CR-01014) · **454**(2e-2 끝 · 2e-3 만) · **455**(겹치는 둘 → 467 · 468 · 남은 것 inv_move_bin_contents · wms_pick_shelf) · **459**(1038 순서)
+- 새 **463**(inv_available_base 빈 키 = 창고 전체 · 판정 대기) · **464**(Freightcom 픽업) · **465**(perf-rpc-2) · **466**(perf 화면 차수) · **467**(perf-rpc-3) · **468**(perf-rpc-4) · **469**(크기 판정 관찰 · 1036)
+- 다음 차례: perf 줄기(1037: 465 → 466 → 467 → 468) · QBO 줄기(1038: 1d 452 → 2e-3 454 → 459) — 둘의 앞뒤는 1038 「QBO 먼저」 · 시험 · 적용은 토론토 17:00 뒤
+
+### 100-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (99-e 에 이어 81 부터)
+
+81. [대화 Claude · 재발 59] perf-rpc-0 지시서가 「에드먼턴 = 토론토 − 2」 로 적었다(11-01 뒤는 − 1) — 보내기 전에 대화 Claude 가 고쳤다 ⇒ 시각은 asung-workflow §10 의 줄을 보고 적는다
+82. [대화 Claude · 채팅] 명령 안의 백틱 셋이 채팅 코드 상자를 닫아 heredoc 이 반만 복사됐다(셸이 `>` 에서 기다림) ⇒ 채팅에 주는 명령에는 백틱 셋을 글자로 쓰지 않는다(`chr(96) * 3`)
+83. [대화 Claude · 파일] 고친 지시서를 다운로드했다고 짐작하고 md5 를 줬는데 다운로드 폴더에는 원래 판이 있었다 · 화면 파일은 파일 카드를 안 띄워 cp 가 실패 ⇒ 파일을 주는 회신에는 **늘 present_files**(파일 카드) · 옮기기 전 md5 대조는 그대로(이번에도 그것이 잡았다)
+84. [대화 Claude · 짐작] 「목록의 waiting = 보낼 수 없는 결제」 라고 짐작 — 화면 코드는 queued 를 waiting 으로 그린다 ⇒ 화면 글자의 뜻은 그 화면 코드를 grep 한 뒤(98-e 68 과 같은 뿌리)
+85. [대화 Claude] Windows 탐색기 주소(`\\wsl$…`)를 터미널 명령처럼 줬다 ⇒ 터미널에는 `~/…` 경로만
+86. [문서 차수 · 재발 55] 지시서의 운영 숫자(17:3x queued 78)가 차수 때(17:56) blocked 37 · failed 7 · queued 0 으로 갈려 있었다 — §0 다시 세기가 잡음 ⇒ 운영 숫자는 적기 직전 다시 센다(지시서 §0 그대로)
+87. [잘 된 것] 비밀 열쇠를 화면에 꺼내지 않고 SQL 이 꺼내 끼운 cron 등록 · 배포 전 md5 대조 · 첫 실물을 사람 손으로 보낸 뒤에야 cron 을 넷으로 · 조사 차수(perf-rpc-0)의 짐작 셋을 다음 차수 §0 이 실측으로 바로잡음
+
+### 100-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §99 끝 「다음 판정 번호 1035 · 다음 deferred 번호 463」 → 아래
+- §98-b 끝 · §99-c 7 「cron 62 등록 전」 → 100-c 5(jobid 62 · kinds 넷)
+- §98-c 4 inv_available_base 마지막 정의 `20261103010000` → `20261104205654`(perf-rpc-1)
+- `qbo-integration.md` §14-f(켜짐 · 실측) · §14-g(2e-2-1b 끝 · 1038) · `deferred.md` 453 · 461 닫힘 · 452 · 454 · 455 · 459 잇기 · 새 463 ~ 469 · `freightcom-integration.md` 머리 → 464
+- `supabase/ops/cron.sql` ims-qbo-send-payments 실행 블록 kinds 둘 → **넷**(둘 판은 기록 주석)
+- 스킬 asung-qbo · asung-inv-ledger · asung-wms · asung-workflow(본문만 · description 무변) · asung-ops(asung-ops 레포 · 5-g) · 매뉴얼 en · ko 01-sales QuickBooks 절
+
+```
+다음 판정 번호: 1039 · 다음 deferred 번호: 470
 ```

@@ -37,11 +37,13 @@ description: >
             ⭐ 첫 인보이스 60000 → QBO 172335(sent · mismatch 0 · Caleb 확인) · Cin7 ↔ QBO 연결 Caleb 이 끔(375 닫힘) · 정본 §14-b ~ §14-e
 ~~⬜ 결제(Payment) · 크레딧 붙이기 · 환불(964) · 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 432 · 434 · 440 · 443~~ →
 2026-11-02 밤  결제 — qbo-sync-2e-1a(paypal · 수표 #105 · 미래 결제일 991) · 1a2(Clearing - Shopify 993) · 1b(결제 일감 · 몸 · 지문 · 트리거 · 백필 · done 10 인자) · 1c(EF · void = operation=update&include=void · Balance 가드 · cron 62 기록)
-            ⚠️ **아직 켜지 않음** — qbo_send_payments_enabled off · cron 62 등록 전 · 켜는 순서 = 아래 5절 · 정본 §14-f · deferred 453
-2026-11-03  크레딧 붙임 — qbo-sync-2e-2-1(DB · `20261103200000` · 붙임 한 줄 = 0 원 Payment 한 장 · CustomerRef = 매장 · 1009 · 1011 ~ 1017 · 정본 §14-g) · EF 는 2e-2-1b(아직) · 백필 일감 1(CR-01008 → 60026 queued)
+            ~~⚠️ **아직 켜지 않음** — qbo_send_payments_enabled off · cron 62 등록 전~~ → ✅ [2026-11-04] **켜짐** — cron 62 jobid 62 `*/5` · qbo_send_payments_enabled on · 17:00 첫 회차 sent 15 · deferred 453 닫힘 · 정본 §14-f 「켜짐」
+2026-11-03  크레딧 붙임 — qbo-sync-2e-2-1(DB · `20261103200000` · 붙임 한 줄 = 0 원 Payment 한 장 · CustomerRef = 매장 · 1009 · 1011 ~ 1017 · 정본 §14-g) · EF 는 2e-2-1b(~~아직~~ → 11-04 `48d5ca4` 아래 줄) · 백필 일감 1(CR-01008 → 60026 queued)
             QuickBooks matching set v17 — Review 뒤에도 쓰기 단추(쓰기 조건 = EF status caller_qbo === 'write' · Review 가 qm 을 새로 만든다)
-⭐⭐ [11-03 밤 · 판정 1034] 다음 = **결제 먼저 켜기**(2e-2-1b 보다 먼저 · 정본 §14-f 순서) · ⚠️⚠️ 2e-2-1b 배포 전 cron 62 kinds 는 **둘**(payment · payment_void) — 넷이면 EF kindsOf 400 · 결제도 멈춤
-⬜ 1d 이월 짝(452) · 크레딧 붙임 2e-2-1b EF(461) · 환불 · 받아 둔 돈 2e-3(454) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 434 · 440 · 443 · 452 ~ 454
+~~⭐⭐ [11-03 밤 · 판정 1034] 다음 = **결제 먼저 켜기**(2e-2-1b 보다 먼저 · 정본 §14-f 순서) · ⚠️⚠️ 2e-2-1b 배포 전 cron 62 kinds 는 **둘**(payment · payment_void) — 넷이면 EF kindsOf 400 · 결제도 멈춤~~ → 11-04 결제 켜짐 · 2e-2-1b 끝 · cron 62 kinds **넷**
+2026-11-04  크레딧 붙임 보내기 — qbo-sync-2e-2-1b(EF · `48d5ca4` · deno 24/24 · 배포 · 461 닫힘) · 첫 실물 CR-01008 → 60026(QBO 0 원 Payment Closed) · 화면 qs apply v1(asung-ims `21d4ef9` · 종류 Credits applied to invoices) · cron 62 kinds 넷 · 정본 §14-g
+⭐⭐ [11-04 · 판정 1038 · Caleb 「퀵북스 작업이 우선적으로 마무리가 되어야 해」] **QBO 줄기가 다른 IMS 일보다 먼저** — 다음 = **1d 이월 짝(452)** → 2e-3(454) → 원가 · Bill(459) · 인보이스 자동 보내기 켜기(971)는 Caleb
+⬜ 1d 이월 짝(452) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · 환불 · 받아 둔 돈 2e-3(454) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 434 · 440 · 443 · 452 ~ 454
 ```
 
 ## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 ~~— 보내기는 없음~~ → [11-01 밤] 손님 · Item 만들기 섰음 · 인보이스는 2b — 모르면 사고
@@ -122,7 +124,7 @@ description: >
 ## 5-c. ⭐⭐ 쓰기 · 보내기 일감 — 모르면 사고 (2026-11-01 밤 · 정본 §14 · 판정 935 ~ 946 · 951)
 
 ```
-⚠️⚠️ [2026-11-03 밤 · 1034] **2e-2-1b EF 배포 전 cron 62(ims-qbo-send-payments) kinds 는 둘** — credit_apply · credit_apply_void 를 넣어 등록하면 지금 EF kindsOf(_shared/qbo.ts:808-814)가 400 → 결제도 안 나간다(조용한 멈춤) · cron.sql 실행 블록 = 둘 · 넷 판은 주석(배포 뒤 다시 등록)
+~~⚠️⚠️ [2026-11-03 밤 · 1034] **2e-2-1b EF 배포 전 cron 62(ims-qbo-send-payments) kinds 는 둘** — credit_apply · credit_apply_void 를 넣어 등록하면 지금 EF kindsOf(_shared/qbo.ts:808-814)가 400 → 결제도 안 나간다(조용한 멈춤) · cron.sql 실행 블록 = 둘 · 넷 판은 주석(배포 뒤 다시 등록)~~ → [11-04] 2e-2-1b 배포 뒤 cron 62 = **kinds 넷**(cron.sql 실행 블록 = 넷 · 둘로 되돌리면 크레딧 붙임이 조용히 멈춘다)
 ⚠️⚠️ [2e-2-1b 를 만들 때] entityKeyOf 의 ELSE = invoice — SEND_KINDS 에 credit_apply 를 넣으면 **명시 가지를 함께**(안 넣으면 크레딧 붙임을 invoice 로 읽는다)
 ⭐ 크레딧 붙임(2e-2-1 · 1009 · 1011 ~ 1017) = so_credit_alloc 한 줄마다 금액 0 Payment 한 장(Line = Invoice + CreditMemo) · 떼기 = void(operation=update&include=void) · 지문 없음 · CustomerRef = 인보이스 매장(so_invoice_store · 크레딧 매장과 다르면 failed · 1010) · 스위치 qbo_send_payments_enabled(결제와 같다) · 손 Send 는 p_kinds = SEND_KINDS 8 이라 2e-2-1b 전에는 credit_apply 를 잡지 않는다
 ⭐ qbo_job_claim 의 claimed = queued → sending 으로 바뀐 행 전부(뒤에 blocked · failed 로 간 것 포함) — 검증 기대값을 셀 때(so §99-c 5)
@@ -153,6 +155,14 @@ description: >
 ⚠️⚠️ **켜는 순서(Caleb · deferred 453)**: ① Settings 에서 credit_card QBO 수단 짝 ② Sales → QuickBooks → Payments 몇 장 Preview → Send ③ cron 62 ims-qbo-send-payments 등록(ops/cron.sql · jobid 실측) ④ qbo_send_payments_enabled on — ⚠️ 그 전에 화면 Send 를 누르지 마라(스위치는 자동만 막는다)
    → [2026-11-03 밤 · 판정 1034 · Caleb 「첫 작업으로 결제를 켜자」] **2e-2-1b 보다 먼저** · 켜기 전 확인(EF 판 · 대기 결제 일감 수) → Preview → Send → QBO 잔액 확인 → cron 62 등록 **kinds 둘**(비밀값 Caleb) → 스위치 on → 첫 회차 보기 → cron.sql 에 jobid 실측 · 커밋
 ⚠️  Cin7 수단 정정(so §98-c 1): 「Cin7 은 결제 수단 전부 Cash」 는 틀렸다 — 카드 · Debit · E-Transfer · EFT · Cheque 는 갈라 보냈고 Cash 는 Shopify · PayPal · 현금뿐 · 입금 계좌 = Cin7 꼴(수표 _105_ · PayPal _124_ · Shopify _1150040029_)
+⭐⭐ [2026-11-04 · 2e-2-1b `48d5ca4` · 정본 §14-g] 크레딧 붙임 보내기 — 모르면 사고:
+   · **0 원 Payment 는 계좌 없음** — 응답에 DepositToAccountRef 가 없다(결제와 다르다 · 대조하지 마라)
+   · unknown 풀기 = PrivateNote **완전 일치**(「IMS credit applied <alloc uuid>」) + void 된 Payment 제외 — 0 원은 void 뒤에도 0 이라 includes · 접두로 고르면 옛 void 를 잡는다
+   · need(먼저 만들 것)는 **customer · item 만** — sendPicked 는 그 밖의 kind 를 need 로 건너뛰지 않는다(isNeedKind)
+   · 가드 = Invoice Balance ≥ a ∧ CreditMemo RemainingCredit ≥ a · check_lines 가 Invoice 하나 + CreditMemo 하나가 아니면 failed · void 는 결제 길(payment_void 조건에 `|| credit_apply_void`) · PAYMENT_KINDS 무변(CREDIT_APPLY_KINDS 따로)
+   · 이월 인보이스에 붙은 크레딧은 failed(1016 · 1d 뒤 requeue — 11-04 CR-01014 → 50763)
+⭐⭐ [2026-11-04 실측 · 정본 §14-f 「켜짐」] 결제가 **Blocked** = 앞선 인보이스 · 손님 일감이 아직 queued — 인보이스는 북키퍼가 골라 보내므로(971 · qbo_send_enabled off) 그 인보이스를 보내기 전까지 결제는 기다린다(부모 sent 뒤 cron 62 가 잡는다) · **Failed** 「Invoice N was carried over …」 = 이월 인보이스(1d · 452) · 17:56 payment sent 95 · blocked 37 · failed 7 · skipped 6
+⭐ cron 62 열쇠는 화면 · 대화에 꺼내지 않는다 — ims-mail-drain command 에서 SQL 로 substring → format(%L) 로 끼운다(ops/cron.sql 머리 · 11-04)
 ```
 
 ## 6. 화면 · 바깥
@@ -160,7 +170,8 @@ description: >
 ```
 settings.html  Settings → QuickBooks matching(?t=qbomatch · set v13 · ~~admin~~ → set v14 열쇠 QUICKBOOKS · 보기만이면 단추 숨김) — 요약 · Refresh list · Match automatically · Review · Unlink · 짝 화면은 QBO 에 쓰지 않는다(쓰기는 EF send)
 qbo-send.html  Sales → QuickBooks(qs v1 · nav v14 · 열쇠 qbo · 보기 qbo:read · 971) — 목록(상태 · 종류 · 날짜 · 찾기 · 쪽) · Preview(QBO 에 갈 몸 · 먼저 만들 손님 · Item · 막힌 이유) · Send · Send selected · Retry · Skip · 북키퍼 화면(매뉴얼 01 Sales 「QuickBooks」)
-qbo-send.html  [2026-11-02 밤 · pay screens v1 asung-ims `4d9b62a`] Payments 종류 · 결제 미리 보기(check_lines · 합계 · void) · 목록의 waiting 은 붙은 인보이스가 아직 안 간 결제(claim 때 blocked 가 된다) · settings 카드 수단 한 수단 Find…(983)
+qbo-send.html  [2026-11-02 밤 · pay screens v1 asung-ims `4d9b62a`] Payments 종류 · 결제 미리 보기(check_lines · 합계 · void) · ~~목록의 waiting 은 붙은 인보이스가 아직 안 간 결제(claim 때 blocked 가 된다)~~ → [2026-11-04 정정 · 화면 코드 grep] 배지 **waiting = queued**(qbo-send.html `queued: ["", "waiting"]`) · 인보이스를 기다리는 결제는 **blocked** 배지 · 거르기 「Waiting — not sent yet」 = 안 나간 것 전부(open) · settings 카드 수단 한 수단 Find…(983)
+qbo-send.html  [2026-11-04 · qs apply v1 asung-ims `21d4ef9`] 종류 「Credits applied to invoices」 · 라벨 Credit applied · Undo credit applied · applyPreview(크레딧 붙임 미리 보기)
 settings.html  Settings → QuickBooks matching 의 charge 행 이름 「Freight, discount & account lines」 + 크레딧 계정 줄 안내(set v15 · 961)
 settings.html  Settings → QuickBooks(?t=qbo · set v12) — 상태(빨강 = needs_reconnect) · Connect / Reconnect(같은 탭) · Check connection · Disconnect · Untie company · Help 줄 「Connection problems? Contact the IMS administrator: caleb@asung.ca」(872)
 terms.html · privacy.html  ims.asung.ca 공개 페이지(로그인 없이 · Intuit App details 의 EULA · Privacy · 867)

@@ -690,21 +690,28 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — send invoices and credit notes
-<!-- screen: qbo-send.html · BUILD 2026-11-02 · qs v1 -->
+<!-- screen: qbo-send.html · BUILD 2026-11-04 · qs apply v1 -->
 <!-- who: accounting -->
 
 **What it is**
-**Sales ▾** › **QuickBooks** (QUICKBOOKS key — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Nothing is sent without someone pressing **Send**.
+**Sales ▾** › **QuickBooks** (QUICKBOOKS key — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Invoices and credit notes are not sent until someone presses **Send**. Payments and credits applied to invoices go by themselves (see below).
 QuickBooks must be connected first (an administrator does this in **Settings** › **QuickBooks**).
 
 **How — one document**
-1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
+1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Payments**, **Credits applied to invoices**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
 2. Press **Preview** on a row. You see exactly what will be written: customer, lines, tax, totals, memo — and what is "Created in QuickBooks first, in the same send" (a customer or item QuickBooks does not have yet).
 3. If it looks right, press **Send to QuickBooks** (or **Send** on the row).
 4. The row turns **Sent**.
 
 **How — several at once**
 Tick the rows (or **Select all on this page**) and press **Send selected**. IMS asks "Send 5 documents to QuickBooks now?" and sends up to 10 at a time.
+
+**Payments and credits applied — they go by themselves**
+- **Payments**: every customer payment recorded in IMS (rows **Payment** and **Void payment**). IMS sends them to QuickBooks every 5 minutes on its own. **Preview** shows the date, customer, amount, method, deposit account and the invoices it pays.
+- **Credits applied to invoices**: when a credit note is applied to an invoice in IMS, IMS writes a $0.00 payment in QuickBooks that ties the credit note to that invoice (rows **Credit applied**; taking it off again makes **Undo credit applied**). These go every 5 minutes on their own too. **Preview** shows the store, the credit note, the invoice and the amount applied.
+- A payment or a credit applied waits as **Blocked** until its invoice has been sent to QuickBooks. Send the invoice and the payment follows within a few minutes.
+- A payment or a credit applied on an invoice carried over from the previous system shows **Failed** — "Invoice 99001 was carried over from the previous system and has no QuickBooks match yet". Leave it; it is sent once that invoice is matched in QuickBooks.
+- You can still **Preview**, **Send**, **Retry** or **Skip** these rows by hand. **Skip** needs a reason. IMS also skips a payment by itself when it was cancelled or fully taken off its invoices before it was sent.
 
 **When a row is not sent**
 - **Blocked** — it waits for something else first, for example a credit note waits until its invoice is in QuickBooks. "Waiting:" tells you what.
@@ -718,6 +725,7 @@ Invoice 99001 → **Preview** shows the item for CB-99001 will be created first 
 **Watch out**
 - "Do not enter these documents in QuickBooks by hand — they would be there twice."
 - Do not change an IMS invoice in QuickBooks after it is sent. Card fees and payments are entered in IMS too.
+- Do not enter payments in QuickBooks by hand, and do not apply credit notes to invoices in QuickBooks by hand. IMS sends every payment and every credit applied that is recorded in IMS — a payment typed in QuickBooks as well would be there twice.
 - A credit note for an invoice that was skipped or never queued fails with "Invoice 99001 was skipped — skip this credit note too, or retry the invoice first" or "Invoice 99001 has no QuickBooks job — send the invoice first".
 - Cancelling an invoice or credit note that is already in QuickBooks adds a **Cancellations (void)** row. Send it like the others. If QuickBooks refuses to void a credit note, the row fails — void it in QuickBooks yourself.
 - "QuickBooks total differs from IMS" means QuickBooks worked out a different total. The document is in QuickBooks — check it there.

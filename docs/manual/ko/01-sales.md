@@ -690,21 +690,28 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — 인보이스 · 크레딧 노트 보내기
-<!-- screen: qbo-send.html · BUILD 2026-11-02 · qs v1 -->
+<!-- screen: qbo-send.html · BUILD 2026-11-04 · qs apply v1 -->
 <!-- who: accounting -->
 
 **무엇인가**
-**Sales ▾** › **QuickBooks**(QUICKBOOKS 열쇠 — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 누군가 **Send** 를 누르기 전에는 아무것도 나가지 않습니다.
+**Sales ▾** › **QuickBooks**(QUICKBOOKS 열쇠 — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 인보이스 · 크레딧 노트는 누군가 **Send** 를 누르기 전에는 나가지 않습니다. 결제와 크레딧 붙임은 저절로 나갑니다(아래).
 먼저 QuickBooks 가 연결되어 있어야 합니다(관리자가 **Settings** › **QuickBooks** 에서).
 
 **하나 보내는 법**
-1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
+1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Payments**(결제) · **Credits applied to invoices**(크레딧 붙임) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
 2. 줄에서 **Preview** 를 누릅니다. QuickBooks 에 적힐 그대로 보입니다: 손님 · 줄 · 세금 · 합계 · 메모 — 그리고 "Created in QuickBooks first, in the same send"(QuickBooks 에 아직 없는 손님 · 품목을 같은 보내기에서 먼저 만든다)
 3. 맞으면 **Send to QuickBooks**(또는 줄의 **Send**)를 누릅니다.
 4. 줄이 **Sent** 로 바뀝니다.
 
 **여럿 한꺼번에**
 줄을 체크하고(또는 **Select all on this page**) **Send selected** 를 누릅니다. "Send 5 documents to QuickBooks now?" 에 OK — 한 번에 10 장씩 보냅니다.
+
+**결제 · 크레딧 붙임 — 저절로 나간다**
+- **Payments**(결제): IMS 에 적힌 손님 결제 전부(줄 이름 **Payment** · **Void payment**). IMS 가 5 분마다 스스로 QuickBooks 로 보냅니다. **Preview** 에는 날짜 · 손님 · 금액 · 수단 · 입금 계좌 · 갚는 인보이스가 보입니다.
+- **Credits applied to invoices**(크레딧 붙임): IMS 에서 크레딧 노트를 인보이스에 붙이면 IMS 가 QuickBooks 에 크레딧 노트와 그 인보이스를 잇는 $0.00 결제를 한 장 씁니다(줄 이름 **Credit applied** · 떼면 **Undo credit applied**). 이것도 5 분마다 저절로 나갑니다. **Preview** 에는 매장 · 크레딧 노트 · 인보이스 · 붙인 금액이 보입니다.
+- 결제 · 크레딧 붙임은 그 인보이스가 QuickBooks 에 가기 전까지 **Blocked** 로 기다립니다. 인보이스를 보내면 몇 분 안에 따라갑니다.
+- 이전 시스템에서 넘어온 인보이스의 결제 · 크레딧 붙임은 **Failed** 로 보입니다 — "Invoice 99001 was carried over from the previous system and has no QuickBooks match yet"(이전 시스템에서 넘어온 인보이스라 아직 QuickBooks 짝이 없다). 그대로 둡니다 — 그 인보이스의 짝을 지으면 나갑니다.
+- 이 줄들도 손으로 **Preview** · **Send** · **Retry** · **Skip** 할 수 있습니다. **Skip** 은 까닭 필수. 보내기 전에 취소됐거나 인보이스에서 모두 떼어진 결제는 IMS 가 스스로 건너뜁니다.
 
 **안 나간 줄**
 - **Blocked** — 다른 것을 먼저 기다립니다. 예: 크레딧 노트는 그 인보이스가 QuickBooks 에 간 뒤에 갑니다. "Waiting:" 이 무엇을 기다리는지 알려 줍니다.
@@ -718,6 +725,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 **조심할 것**
 - "Do not enter these documents in QuickBooks by hand — they would be there twice."(QuickBooks 에 손으로 넣지 마라 — 두 번 적힌다)
 - 보낸 IMS 인보이스를 QuickBooks 에서 고치지 않습니다. 카드 수수료 · 결제도 IMS 에서 넣습니다.
+- QuickBooks 에서 결제를 손으로 넣지 않고, 크레딧 노트를 인보이스에 손으로 붙이지도 않습니다. IMS 에 적힌 결제 · 크레딧 붙임은 IMS 가 모두 보냅니다 — QuickBooks 에도 손으로 넣으면 두 번 적힙니다.
 - 건너뛰었거나 일감이 없는 인보이스의 크레딧 노트는 "Invoice 99001 was skipped — skip this credit note too, or retry the invoice first" · "Invoice 99001 has no QuickBooks job — send the invoice first" 로 실패합니다.
 - QuickBooks 에 이미 간 인보이스 · 크레딧 노트를 IMS 에서 취소하면 **Cancellations (void)** 줄이 생깁니다. 다른 줄처럼 보냅니다. QuickBooks 가 크레딧 노트 void 를 거절하면 그 줄은 실패 — QuickBooks 에서 직접 void 합니다.
 - "QuickBooks total differs from IMS" 는 QuickBooks 가 합계를 다르게 셈했다는 뜻입니다. 문서는 QuickBooks 에 있습니다 — 거기서 확인합니다.

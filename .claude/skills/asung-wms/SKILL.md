@@ -1431,6 +1431,7 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - ⚠️⚠️ [2026-10-29 · wun-1 이견 10] **Undo Finalize(`wms_rollback 'finalize'`)는 오피스가 만든 빈 유닛도 지운다** — 팔렛까지 지우는 기존 동작 그대로(규칙 「Rollback Finalize 단계 모델링」) · 오피스가 유닛을 만든 오더를 되돌리면 유닛 · 치수를 다시 넣는다.
 - ⚠️ [2026-10-29 · fc-lock-1 · 90b49f1 · 판정 882 · so-module §89] **`freight_locked` 은 갈린 형제 포함** — `fc_shipment_prepare` 가 발송 SO 의 split_from_id 사슬을 위로 거슬러(`so_chain_shop_orders`) aone 스토어 Shopify 오더에 이어지면 잠근다(전에는 형제만 발송하면 Freightcom 운임이 붙었다 · 실측 SO-25259b) · asung.ca 는 473 그대로 · 화면 시험 길 없음(테스트 스토어 kind asung) — 첫 실제 aonebeauty.com 오더를 오피스가 본다
 - [2026-10-29 · fu v1.6 · asung-ims af9a94f] Fulfillment 머리 아래 **Ship to 줄**(회사 · 연락처 · 주소 · 전화 · 오더마다 · 같은 주소는 한 번 · 주소가 없으면 빨간 안내) — 화면만 · 판정 번호 없음(동료 피드백 2).
+- ⚠️⚠️ [2026-11-04 · so-module §100-c 7 · deferred 464] **토론토 예약에 픽업이 안 잡힐 수 있다** — SO-20846(Purolator · 정기 픽업 아님 · 날짜 · 시각 보냄) → Freightcom `waiting-for-scheduling` · pickup_confirmation 빈칸 · IMS 는 예약 순간 상태만 적는다 ⇒ 그때까지 **토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청**(원인 조사 fc-pickup-0 안 씀)
 
 ## 규칙 48 — 메인 DB 는 운영이다: 장애 진단 · 지혈 · 창고 시간 시험 (⚠️ 2026-11-02 실사고 · so-module §97-c 1 · 2 · 97-e 56 · 57)
 
@@ -1445,6 +1446,11 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
   - ⚠️⚠️ **뷰를 id(product_id · warehouse_id)로 거르지 마라 — 장부 전체 집계 543 ms**(id 술어는 조인 뒤 열이라 집계 안으로 못 들어간다) · 새 창구 · 화면은 `ims_inv_balance_of` 를 부른다 · 정의는 여전히 `inv_balance` 하나(뷰 · 정의 무변)
   - 숫자(옛 → 새): 픽 과제 16 개 4,733 → 241 ms · Last bin 324 제품 2,915 → 68 ms · 재고 화면 두 창고 1,850 → 731 ms · bgrade_stock 191 → 5 ms · 칸 장부 229 → 0.3 ms · 픽 선반 207 → 113 ms · 남은 것 = deferred 455
   - ⚠️ 검증 꼴: 집합 무변(뷰 vs 함수 except 양방향 0 · 옛 = 새) + **적용 직전에 새로 받은 캡처**와 적용 직후 diff(FP 줄 하나만 · 몇 시간 전 캡처는 장부가 움직여 고장 아닌 차이 · so §98-e 65)
+- ⭐⭐ [2026-11-04 · perf-rpc-1 `7ff512d` · `20261104205654` · 판정 1035 · so-module §100-c 4] **OR 함정 — `(x is null or col = any(arr))` 는 색인을 못 탄다**(색인 조건이 못 되고 Filter 로만 → 장부 전체 훑기) ⇒ **갈래로 나눈다**: 키 갈래 `… and (select arr) is not null and col = any(arr)` UNION ALL 전체 갈래 `… and (select arr) is null`(InitPlan 상수라 One-Time Filter 로 한쪽만 돈다)
+  - inv_available_base 의 bal 이 이 꼴(마지막 정의 `20261104205654` · 본문 md5 `7a1ef377…`) — 63 키 61.7 → 9 ~ 10 ms · 전수 12,837 키 11.7 s → 0.26 s · so_available_many(SO 상세 available · TO)가 이걸 부른다
+  - ⚠️ perf-rpc-0 의 짐작 「GROUP BY (sku, warehouse, bin) 순서 때문」 은 틀렸다 — 뷰 · GROUP BY 를 두고 OR 만 빼니 색인으로 내려갔다 ⇒ 느린 함수는 **EXPLAIN 의 Filter 줄**부터
+  - ⚠️ 빈 배열 · 모르는 pid 만 넘기면 arr is null 과 같이 **창고 전체**(6,807 행 · 예약 0)를 낸다(옛 버릇 그대로 · deferred 463 판정 대기)
+- ⭐⭐ [2026-11-04 오전 · so-module §100-c 1 · asung-ops 5-g] **두 번째 장애는 메모리** — MICRO(1 GB)에서 09:44 ~ 09:54 프로젝트 전체 불통(522 · REST · auth · storage) → MEDIUM(4 GB) · 11-02(timeout · 잠금)와 뿌리가 다르다 · 크기는 1036(무거운 창구를 고친 뒤 일주일 관찰 · deferred 469) · 메인 DB 시험 · 적용은 **토론토 17:00 뒤**(에드먼턴 16:00 · Caleb 11-04)
 - 열림: 실패한 Shopify 오더 재시도 간격 · 한도 · 연결 60 소진 때 무엇이 먼저 죽나 = deferred 446
 
 ## 현재 진행 상태 (2026-08-04 기준)
