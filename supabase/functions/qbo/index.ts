@@ -17,6 +17,7 @@
 //   qbo-sync-2a′ · 2b2(2026-11-01 · 판정 935 ~ 951): POST {action:"send", limit?}(열쇠 qbo · 또는 cron ims-qbo-send 의 x-ims-cron-key) — 일감 claim(customer · item · invoice · invoice_void) → Intuit 쓰기(POST customer · item · invoice · invoice?operation=void · requestid · 재시도 없음) → done · fail · unknown · 흐름은 _shared/qbo.ts send
 //   qbo-sync-2c1(2026-11-02 · 판정 959 ~ 966 · 968 · DB 20261102130000): send 가 credit · credit_void 도 나른다(SEND_KINDS 6) — POST creditmemo · creditmemo?operation=void · DocNumber 멱등은 from CreditMemo · 흐름은 _shared/qbo.ts(인보이스 길과 같은 꼴 · 엔티티 열쇠만 다름)
 //   qbo-sync-2e-1c(2026-11-02 밤 · 판정 978 ~ 991 · DB 2e-1b 20261103050000): send 가 payment · payment_void 도(SEND_KINDS 8) — (가) Balance 읽기 → POST payment · payment?operation=update&include=void · send {kinds} (cron 62 ims-qbo-send-payments 가 [payment, payment_void]) · 흐름은 _shared/qbo.ts
+//   qbo-sync-2e-2-1b(2026-11-04 · 판정 1009 · 1011 ~ 1016 · 1034 · DB 2e-2-1 20261103200000): send 가 credit_apply · credit_apply_void 도(SEND_KINDS 10) — 크레딧 붙임 = 0 원 Payment(가드 Invoice Balance · CreditMemo RemainingCredit → POST payment · void 는 payment?operation=update&include=void 같은 길) · 흐름은 _shared/qbo.ts · cron 62 kinds 넷은 배포 뒤(1034)
 //   ⚠️ 비밀: QBO_ENV · QBO_CLIENT_ID_<SANDBOX|PRODUCTION> · QBO_CLIENT_SECRET_<…> · IMS_CRON_SECRET(기존) — 값은 응답 · 기록 · 오류 · console 어디에도 안 남는다(scrub)
 //   배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
 // ============================================================

@@ -38,6 +38,13 @@
 //       → 다음 send 가 Id 로 읽어 TotalAmt 0 ∧ PrivateNote 「Voided」 머리면 done · 아니면 not_voided
 //     send { kinds? }(직원 · cron 둘 다 · SEND_KINDS 부분집합 · 없으면 전부) — cron 62 ims-qbo-send-payments 가 {kinds: [payment, payment_void]} 로 부른다(qbo_send_payments_enabled · supabase/ops/cron.sql 기록 · 등록은 Caleb) · job_ids 길은 kinds 를 안 본다
 //     assertWriteAllowed: payment 는 만들기 + operation=update&include=void 만 · operation=void 는 invoice · creditmemo 그대로 · delete 없음 · Intuit API 호스트로는 GET · POST …/query · POST customer · item · invoice · creditmemo · payment(+ void 꼴 둘)만
+//   qbo-sync-2e-2-1b(2026-11-04 · 판정 1009 · 1011 ~ 1016 · 1034 · DB 2e-2-1 20261103200000 · 지시서 ~/asung/prompts/qbo-sync-2e-2-1b.md · sandbox C-5″ · C-6): 크레딧 붙임 = 0 원 Payment 보내기 · void — SEND_KINDS 10(credit_apply · credit_apply_void) · CREDIT_APPLY_KINDS(PAYMENT_KINDS 무변)
+//     credit_apply: check_lines 가 Invoice 줄 하나 + CreditMemo 줄 하나가 아니면 failed → GET invoice/<id> Balance ≥ a ∧ GET creditmemo/<id> RemainingCredit ≥ a(모자라거나 못 읽으면 failed · 보내지 않는다) → POST payment(몸은 DB qbo_credit_apply_body 그대로 · TotalAmt 0 · Line Invoice + CreditMemo · 계좌 · 수단 · 참조 없음)
+//       → 2xx done(donePayment 10 인자 · TotalAmt 0 · UnappliedAmt 0 — DB 가 0 · 0 과 견줘 mismatch) · 4xx failed · 5xx · 끊김 unknown(열쇠 「IMS credit applied <uuid>|<CustomerRef>|<TxnDate>|0」 · parsePaymentKey 가 접두 둘)
+//       unknown 풀기 = 그 날 Payment 조회 → CustomerRef · TotalAmt 0 · PrivateNote 완전 일치(includes 아님 — void 된 0 원 장은 「Voided - 」 가 붙어 빠진다) · isVoidedPayment 제외 → 하나 done · 0 not_found · 둘 이상 ambiguous · DocNumber 조회 없음
+//     credit_apply_void: payment_void 길 그대로(조건 줄에 || · update&include=void · SyncToken 없으면 GET · 5010 → -2 · 풀기도 Id 로 읽어 Voided 면 done) · entityKeyOf 새 둘 = payment · Payment · nameField PrivateNote(옛 kind 무변)
+//     sendPicked need 건너뛰기(960) — TXN_KINDS 만 → customer · item 이 아니면 전부(1013 으로 void 일감에 blocked 된 붙임을 북키퍼가 홀로 고르면 그 void 를 대신 보내지 않는다 · 결제 일감은 void 에 blocked 되는 길이 없다)
+//     assertWriteAllowed · PAYMENT_KINDS · 결제 갈래 본문 무변(바뀐 줄 = 조건 셋 · parsePaymentKey 접두 · ClaimJob check_lines 타입)
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -69,8 +76,9 @@ export const SEND_PICK_MAX = 10, SEND_PICK_ROUNDS = 5, SEND_PICK_BUDGET_MS = 30_
 export const DUPLICATE_NAME_CODE = "6240";                                                 // Intuit 「Duplicate Name Exists Error」 — 처리 안 됨이 분명 · Item 은 ` [SKU]` 로 한 번 더(다른 requestid · 이견 11)
 export const DUPLICATE_DOCNUMBER_CODES = ["6140", "6210"] as const;                        // 2b2 Intuit 「Duplicate Document Number Error」(6140 · 6210 둘 다 본 적이 있다 — 지시서) → DocNumber 로 다시 찾아서 있으면 그것
 export const STALE_OBJECT_CODE = "5010";                                                   // 2b2 Intuit 「Stale Object Error」 — void 의 SyncToken 이 낡았다 → 읽어서 한 번 더(requestid -2)
-export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void"] as const;   // 2b2 · [2c1 credit · credit_void] · [2e-1c payment · payment_void] 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
+export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void", "credit_apply", "credit_apply_void"] as const;   // 2b2 · [2c1 credit · credit_void] · [2e-1c payment · payment_void] · [2e-2-1b credit_apply · credit_apply_void] 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
 export const PAYMENT_KINDS = ["payment", "payment_void"] as const;                                     // 2e-1c 결제 일감(DocNumber 없음 · 열쇠 = 날짜 · 손님 · 금액 · PrivateNote)
+export const CREDIT_APPLY_KINDS = ["credit_apply", "credit_apply_void"] as const;                      // 2e-2-1b 크레딧 붙임 = 0 원 Payment(DocNumber 없음 · 열쇠는 결제 꼴 · PrivateNote 「IMS credit applied <uuid>」)
 export const TXN_KINDS = ["invoice", "invoice_void", "credit", "credit_void"] as const;      // 2c1 거래 일감(DocNumber 멱등 · 읽기 · 합계) — 인보이스 · 크레딧이 같은 길을 엔티티 열쇠만 바꿔 쓴다
 // ── qbo-sync-1b pull — 종류 7 · 칸 · 쪽 1000 · Active 조건 없이 받는 종류(TaxCode · 11-01 실측) ──
 export const PULL_ENTITIES = ["Account", "TaxCode", "Term", "PaymentMethod", "Customer", "Vendor", "Item"] as const;
@@ -537,7 +545,7 @@ async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise
 //    unknown 풀기(2b2): invoice 는 DocNumber 조회 → 하나면 읽어서 합계와 함께 done · invoice_void 는 DocNumber 조회 → 읽어서 TotalAmt 0 이면(QBO 는 void 한 인보이스의 금액을 0 으로 둔다 — 짐작 · 첫 실물에서 확인) done · 아니면 not_voided(사람이 retry)
 //    credit · credit_void(2c1): 위 invoice · invoice_void 와 같은 길 — 엔티티 열쇠(creditmemo · CreditMemo · DocNumber)만 다르다(findByDocNumber · readTxn · doneTxn 이 열쇠를 받는다) ──
 type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; doc_number?: string | null; qbo_id?: string | null; body: Record<string, unknown>; warnings: string[]; totals?: Record<string, unknown> | null;
-  fingerprint?: string | null; check_lines?: { invoice_number: string; qbo_invoice_id: string; amount: number }[] | null; lookup?: Record<string, unknown> | null };   // 2e-1c 결제: (가) 가드 줄 · unknown 열쇠(1b claim)
+  fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null };   // 2e-1c 결제: (가) 가드 줄 · unknown 열쇠(1b claim) · [2e-2-1b txn_type Invoice | CreditMemo · credit_number · qbo_creditmemo_id — DB qbo_credit_apply_body 꼴]
 type NeedJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; state: string; name: string | null; existing: boolean; for_job: string; parent_job: string | null };
 type Requested = { job_id: string; kind: string | null; state: string | null; result: string; reason: string | null };
 type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; blocked_for_needs?: number; blocked_for_invoice?: number; need_jobs?: NeedJob[]; requested?: Requested[]; jobs: ClaimJob[] };
@@ -546,9 +554,12 @@ type JobOut = { job_id: string; kind: string; ims_kind: string; ims_id: string; 
 type EntityKey = { path: string; key: string; nameField: string };
 const entityKeyOf = (kind: string): EntityKey => kind === "customer" ? { path: "customer", key: "Customer", nameField: "DisplayName" } : kind === "item" ? { path: "item", key: "Item", nameField: "Name" }
   : kind === "credit" || kind === "credit_void" ? { path: "creditmemo", key: "CreditMemo", nameField: "DocNumber" }
+  : kind === "credit_apply" || kind === "credit_apply_void" ? { path: "payment", key: "Payment", nameField: "PrivateNote" }   // 2e-2-1b 0 원 Payment(PaymentRefNum 없음 · 이름은 PrivateNote)
   : kind === "payment" || kind === "payment_void" ? { path: "payment", key: "Payment", nameField: "PaymentRefNum" } : { path: "invoice", key: "Invoice", nameField: "DocNumber" };   // 2c1 credit → CreditMemo · [2e-1c payment → Payment]
 const isTxnKind = (kind: string): boolean => (TXN_KINDS as readonly string[]).includes(kind);
 const isPaymentKind = (kind: string): boolean => (PAYMENT_KINDS as readonly string[]).includes(kind);                            // 2e-1c
+const isCreditApplyKind = (kind: string): boolean => (CREDIT_APPLY_KINDS as readonly string[]).includes(kind);                   // 2e-2-1b
+const isNeedKind = (kind: string): boolean => kind === "customer" || kind === "item";                                           // 2e-2-1b 960: 같은 호출에서 대신 보내는 need 는 손님 · Item(· 부모 손님)뿐 — 거래 · void 는 북키퍼가 고른다
 // 2e-1c 결제 unknown 열쇠 — qbo_job.qbo_name 한 칸에 「<PrivateNote>|<CustomerRef>|<TxnDate>|<TotalAmt>」(PrivateNote = 「IMS payment <uuid>」) · void 는 QBO Payment Id 만
 export const paymentKeyOf = (lookup: Record<string, unknown> | null | undefined, body: Record<string, unknown>): string => {
   const l = lookup ?? {};
@@ -557,7 +568,7 @@ export const paymentKeyOf = (lookup: Record<string, unknown> | null | undefined,
 };
 export const parsePaymentKey = (s: string | null): { privateNote: string; customerRef: string; txnDate: string; totalAmt: number } | null => {
   const parts = String(s ?? "").split("|");
-  if (parts.length !== 4 || !parts[0].startsWith("IMS payment ") || !/^\d{4}-\d{2}-\d{2}$/.test(parts[2]) || Number.isNaN(Date.parse(parts[2] + "T00:00:00Z")) || new Date(parts[2] + "T00:00:00Z").toISOString().slice(0, 10) !== parts[2] || !Number.isFinite(Number(parts[3]))) return null;
+  if (parts.length !== 4 || !(parts[0].startsWith("IMS payment ") || parts[0].startsWith("IMS credit applied ")) || !/^\d{4}-\d{2}-\d{2}$/.test(parts[2]) || Number.isNaN(Date.parse(parts[2] + "T00:00:00Z")) || new Date(parts[2] + "T00:00:00Z").toISOString().slice(0, 10) !== parts[2] || !Number.isFinite(Number(parts[3]))) return null;
   return { privateNote: parts[0], customerRef: parts[1], txnDate: parts[2], totalAmt: Number(parts[3]) };
 };
 export const paymentsByDateQueryText = (date: string): string => `select Id, TotalAmt, UnappliedAmt, SyncToken, PrivateNote, PaymentRefNum, CustomerRef, TxnDate from Payment where TxnDate = ${sqlQuote(date)} MAXRESULTS 100`;   // PII 칸 없음(parseQuery 통과) · 하루치(실물 최대 64/일)
@@ -603,9 +614,9 @@ async function doneTxn(c: Ctx, jobId: string, row: Record<string, unknown>, doc:
 async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = { job_id: u.job_id, kind: u.kind, ims_kind: u.ims_kind, ims_id: u.ims_id };
   if (!u.qbo_name) return { ...out, result: "no_name", message: "the name that was sent is not on the job — retry it by hand after checking QuickBooks" };
-  if (isPaymentKind(u.kind)) {                                                                       // 2e-1c — 결제: 열쇠(날짜 · 손님 · 금액 · PrivateNote) · void 는 Id 로 읽어 Voided 인지
+  if (isPaymentKind(u.kind) || isCreditApplyKind(u.kind)) {                                          // 2e-1c — 결제: 열쇠(날짜 · 손님 · 금액 · PrivateNote) · void 는 Id 로 읽어 Voided 인지 · [2e-2-1b 크레딧 붙임도 이 문으로(0 원 Payment)]
     const e = entityKeyOf(u.kind);
-    if (u.kind === "payment_void") {
+    if (u.kind === "payment_void" || u.kind === "credit_apply_void") {                               // [2e-2-1b credit_apply_void 도 같은 길 — Id 로 읽어 Voided 면 done]
       const rd = await readTxn(c, u.qbo_name, u, e);
       if (rd.r.error || !rd.row) return { ...out, result: "not_found", message: `QuickBooks payment #${u.qbo_name} could not be read (${rd.r.error ?? "no row"}) — check by hand, then retry or skip the job` };
       if (!isVoidedPayment(rd.row)) return { ...out, result: "not_voided", qbo_id: String(rd.row.Id), message: "the QuickBooks payment still carries an amount — the void did not go through; retry the job by hand" };
@@ -616,6 +627,13 @@ async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unk
     if (!k) return { ...out, result: "no_name", message: "the payment key on the job is not readable — retry it by hand after checking QuickBooks" };
     const { r, rows } = await findPaymentsByDate(c, k.txnDate, u);
     if (r.error) return { ...out, result: "error", message: "the QuickBooks check failed: " + r.error };
+    if (u.kind === "credit_apply") {                                                                 // 2e-2-1b — 0 원 Payment: 손님 · TotalAmt 0 · PrivateNote 완전 일치(void 된 장은 「Voided - 」 가 붙어 빠진다) · Voided 제외 · DocNumber 조회 없음
+      const ch = rows.filter((p) => String(((p.CustomerRef ?? {}) as Record<string, unknown>).value ?? "") === k.customerRef && num(p.TotalAmt) === 0 && String(p.PrivateNote ?? "") === k.privateNote && !isVoidedPayment(p));
+      if (ch.length === 0) return { ...out, result: "not_found", message: `QuickBooks has no 0.00 payment on ${k.txnDate} for customer ${k.customerRef} with note "${k.privateNote}" — if it really is not there, retry the job by hand (Sales → QuickBooks)` };
+      if (ch.length > 1) return { ...out, result: "ambiguous", rows: ch.length, message: `QuickBooks has ${ch.length} 0.00 payments matching this credit application — pick by hand (skip the job and link, or void the extra in QuickBooks)` };
+      const d = await donePayment(c, u.job_id, ch[0], k.privateNote, r.tid, "result was unknown — found in QuickBooks by date, customer, amount 0 and note, and recorded");
+      return { ...out, result: "found", qbo_id: String(ch[0].Id), state: d?.state ?? "sent", mismatch: (d?.mismatch as string | null) ?? null };
+    }
     const hits = rows.filter((p) => String(((p.CustomerRef ?? {}) as Record<string, unknown>).value ?? "") === k.customerRef && num(p.TotalAmt) === k.totalAmt && String(p.PrivateNote ?? "").includes(k.privateNote));
     if (hits.length === 0) return { ...out, result: "not_found", message: `QuickBooks has no payment on ${k.txnDate} for customer ${k.customerRef} of ${k.totalAmt} with note "${k.privateNote}" — if it really is not there, retry the job by hand (Sales → QuickBooks)` };
     if (hits.length > 1) return { ...out, result: "ambiguous", rows: hits.length, message: `QuickBooks has ${hits.length} payments matching this one — pick by hand (skip the job and link, or void the extra in QuickBooks)` };
@@ -714,7 +732,33 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
       return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
     }
-    if (j.kind === "payment_void") {                                                                   // 2e-1c 978 · sandbox B-6 — POST payment?operation=update&include=void {Id, SyncToken, sparse} · 5010 → 읽어서 -2 · 4xx failed · 5xx unknown(qbo_name = Id)
+    if (j.kind === "credit_apply") {                                                                   // 2e-2-1b 판정 1009 · 1012 · 1016 · sandbox C-5″ — 가드 둘(Invoice Balance ≥ a · CreditMemo RemainingCredit ≥ a · 모자라거나 못 읽으면 failed · 보내지 않는다) → POST payment(0 원 · 몸 그대로) → donePayment 10 인자(TotalAmt 0 · UnappliedAmt 0) · unknown 은 결제 꼴 열쇠
+      const key = paymentKeyOf(j.lookup, j.body); nameSent = key;
+      const lines = j.check_lines ?? [], invL = lines.filter((cl) => cl.txn_type === "Invoice"), cmL = lines.filter((cl) => cl.txn_type === "CreditMemo");
+      if (lines.length !== 2 || invL.length !== 1 || cmL.length !== 1) return await fail(`not sent — the job carries ${lines.length} check line(s) instead of one invoice and one credit memo — nothing was written; retry it after checking the credit application`, null);
+      const ci = invL[0], cc = cmL[0];
+      const rdI = await readTxn(c, String(ci.qbo_invoice_id), j, entityKeyOf("invoice"));
+      if (rdI.r.error || !rdI.row) return await fail(`not sent — could not read invoice ${ci.invoice_number} (QuickBooks #${ci.qbo_invoice_id}) before sending: ${rdI.r.error ?? "no row"} — nothing was written`, rdI.r.tid);
+      const bal = num(rdI.row.Balance);
+      if (bal === null) return await fail(`not sent — invoice ${ci.invoice_number} (QuickBooks #${ci.qbo_invoice_id}) has no Balance in QuickBooks (voided?) — check by hand, then retry or skip`, rdI.r.tid);
+      if (bal + 0.004 < Number(ci.amount)) return await fail(`not sent — QuickBooks already shows ${Math.round(((num(rdI.row.TotalAmt) ?? 0) - bal) * 100) / 100} paid on invoice ${ci.invoice_number} (balance ${bal} < ${ci.amount}) — a payment or credit entered before the switch-over or in QuickBooks? check before sending, then retry or skip`, rdI.r.tid);
+      const rdC = await readTxn(c, String(cc.qbo_creditmemo_id), j, entityKeyOf("credit"));
+      if (rdC.r.error || !rdC.row) return await fail(`not sent — could not read credit memo ${cc.credit_number} (QuickBooks #${cc.qbo_creditmemo_id}) before sending: ${rdC.r.error ?? "no row"} — nothing was written`, rdC.r.tid);
+      const rem = num(rdC.row.RemainingCredit);
+      if (rem === null) return await fail(`not sent — credit memo ${cc.credit_number} (QuickBooks #${cc.qbo_creditmemo_id}) has no RemainingCredit in QuickBooks (voided?) — check by hand, then retry or skip`, rdC.r.tid);
+      if (rem + 0.004 < Number(cc.amount)) return await fail(`not sent — QuickBooks shows only ${rem} left on credit memo ${cc.credit_number} (less than ${cc.amount}) — applied in QuickBooks or before the switch-over? check before sending, then retry or skip`, rdC.r.tid);
+      const { r } = await attempt(j.body, j.request_id);
+      const cls = classifyWrite(r.status, r.networkError);
+      if (cls === "ok") {
+        const row = rowOf(r.body, e.key);
+        if (!row) return await unknown(`QuickBooks answered ${r.status} without the created Payment — checked by date, customer, amount 0 and note at the next send`, r.tid, key);
+        const d = await donePayment(c, j.job_id, row, j.name, r.tid, null);
+        return { ...base, name: j.name, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+      }
+      if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
+      return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
+    }
+    if (j.kind === "payment_void" || j.kind === "credit_apply_void") {                                // 2e-1c 978 · sandbox B-6 — POST payment?operation=update&include=void {Id, SyncToken, sparse} · 5010 → 읽어서 -2 · 4xx failed · 5xx unknown(qbo_name = Id) · [2e-2-1b credit_apply_void 는 같은 길 · 1011 · C-6]
       const id = String(j.qbo_id ?? j.body.Id ?? ""); nameSent = id;
       if (!id) return await fail("not sent — no QuickBooks payment id on the void job", null);
       let syncToken = j.body.SyncToken != null ? String(j.body.SyncToken) : null;
@@ -858,7 +902,7 @@ async function sendPicked(c: Ctx, body: Record<string, unknown>): Promise<Respon
     claimedTotal += cl.claimed ?? 0; unblockedTotal += cl.unblocked ?? 0;
     for (const nj of cl.need_jobs ?? []) {                                                              // need = 손님 · Item · 부모 손님만 같이 잡는다 · 거래 종류(크레딧이 기다리는 인보이스 · 960)는 북키퍼가 골라야 한다
       const id = nj.job_id.toLowerCase(); needJobs.push(nj);
-      if (isTxnKind(nj.kind)) continue;
+      if (!isNeedKind(nj.kind)) continue;                                                              // 2e-2-1b: 거래 · void(payment_void · credit_apply_void · 1013)도 대신 보내지 않는다
       extra.add(id); if (!outcome.has(id)) put(id, { result: "need", kind: nj.kind, state: nj.state, name: nj.name, reason: nj.existing ? `already waiting for job ${nj.for_job}` : `created first for job ${nj.for_job}` }, r);
     }
     for (const q of cl.requested ?? []) {
@@ -869,7 +913,7 @@ async function sendPicked(c: Ctx, body: Record<string, unknown>): Promise<Respon
     }
     const outs = await sendAll(c, cl.jobs ?? [], SEND_PICK_PARALLEL);
     for (const o of outs) { jobs.push(o); put(o.job_id.toLowerCase(), { result: o.state, kind: o.kind, state: o.state, qbo_id: o.qbo_id, name: o.name, error: o.error, note: o.note, mismatch: o.mismatch ?? null, reason: null }, r); }
-    if (outs.length === 0 && (cl.unblocked ?? 0) === 0 && !(cl.need_jobs ?? []).some((nj) => !isTxnKind(nj.kind) && !terminal(nj.job_id.toLowerCase()))) break;   // 이 바퀴에 보낸 것 · 풀린 것 · 새 need 가 없다 = 다음 바퀴도 그대로(blocked 는 부모가 sent 가 돼야 풀린다)
+    if (outs.length === 0 && (cl.unblocked ?? 0) === 0 && !(cl.need_jobs ?? []).some((nj) => isNeedKind(nj.kind) && !terminal(nj.job_id.toLowerCase()))) break;   // [2e-2-1b 같은 술어 — 건너뛴 need 를 「새 need」 로 세면 바퀴만 돈다]   // 이 바퀴에 보낸 것 · 풀린 것 · 새 need 가 없다 = 다음 바퀴도 그대로(blocked 는 부모가 sent 가 돼야 풀린다)
   }
   const requested: PickOut[] = ids.map((id) => outcome.get(id) ?? { job_id: id, kind: null, result: "not_reached", state: null, reason: stopped === "time" ? "not started — the time budget ran out; send again" : "not started — too many rounds; send again", qbo_id: null, name: null, error: null, note: null, mismatch: null, round: 0 });
   const needs: PickOut[] = [...extra].map((id) => outcome.get(id)!).filter(Boolean);
