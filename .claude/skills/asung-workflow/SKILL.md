@@ -194,6 +194,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
      \endif
      create function pg_temp.chk(…) …            -- 도우미는 시험 적용 뒤·첫 호출 앞
      … 검증 절 …
+     … 집계(select count · \gset · 결과 표 읽기) …      -- ⚠️ [2026-11-03 · so §99-e 72 ①] 집계는 rollback **앞** — 뒤면 임시 결과 표(t_res)가 함께 사라진다(relation "t_res" does not exist)
      rollback;
      select setval(to_regclass('public.so_number_seq'), :so_seq_last, :'so_seq_called'::boolean) where not exists (select 1 from public.so);   -- to_regclass: 시험 적용이 만든 시퀀스는 rollback 으로 사라져 있다
      실행: Claude Code  psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -v mig=supabase/migrations/<파일>.sql -f <검증>.sql 2>&1 | tee /tmp/<이름>.out
@@ -218,7 +219,17 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **cron.sql 은 운영 기록이다** — 테스트 DB 에만 등록한 잡은 `[테스트 · Asung-IMS] jobid N` 을 절 머리에 밝히고 「운영에는 등록하지 마라(함수가 없다) · 전환 때 함께」를 적는다(2026-09-24 so-backorder-sweep · 테스트 jobid 1 ≠ 운영 1 wms-poll-orders)
 ⚠️ **cron 킬 스위치는 어느 DB 에 붙었는지 먼저 본다** — 테스트 jobid 16(ims-wms-auto-hold)이 cron.sql 의 운영 잡 번호 16 과 같다(2026-09-26) · 두 DB 는 번호를 따로 매긴다
 ⭐⭐ [2026-09-30 · so-module §30-d 4 · 5] **기준값은 재생성 · 적용 전 실물에서 먼저 받는다 · 확인 갈래 마른 실행은 필수** — cogs-2 시험이 판정 119 결함을 못 잡았다(백필이 시험 안 재생성이 만든 행을 읽었다) · 결함이 있으면 마른 실행(적용 전 · `-v mig` 없음)에서 재현돼야 한다 · 확인 기대 = 마른 OK + 적용 뒤 바뀌는 것(3b · 4 · pick-bin-2 부터)
-⚠️ 시험 적용 장치의 MIG 는 **같은 셸에서 export** — 도구 셸은 호출마다 새로 뜬다(2026-09-26 ⑤-2a1 · 빈 MIG 로 두 번 헛돌았다)
+⚠️ 시험 적용 장치의 MIG 는 **같은 셸에서 export** — 도구 셸은 호출마다 새로 뜬다(2026-09-26 ⑤-2a1 · 빈 MIG 로 두 번 헛돌았다) → [2026-11-03 밤 · so §99-e 75 · 재발] 대화 Claude 가 명령을 옮겨 적다 `MIG=` 접두를 빠뜨려 G0 거짓 MISMATCH ⇒ **실행 명령은 handoff · 지시서의 것을 바이트 그대로** 옮긴다
+⭐⭐ [2026-11-03 밤 · so §99-e 74 · Caleb 「어제까지는 검증까지 몇회차에 걸쳐서 클로드 코드가 마무리하고 답을 줬는데, 오늘은 일일히 멈추네」] **「시험만」 지시도 검사 파일 결함은 Claude Code 가 고치고 다시 돌린다**
+   · 스스로 고치는 것 = **검사 파일**(기대 수 셈 · 집계 순서 · "char" 캐스팅 · 확인 갈래 감싸기 · 실행 명령 환경변수) — 회차마다 diff · 까닭 원문 · 정한 횟수(예 5) 안에서
+   · 멈추고 묻는 것 = **마이그레이션 본문** · 기대값을 바꾸는 까닭이 판정 원문과 부딪칠 때(근거 원문을 먼저 보인다 — 11-03 `claimed` 는 마이그레이션 397 행 · 2e-1b 451 행 · DB 현재본 셋을 대 보고 기대값을 고쳤다)
+   · ⚠️ 대화 Claude 는 인계서의 「시험만」 을 「파일은 고치지 마라」 로 옮기지 않는다
+⭐⭐ [2026-11-03 밤 · so §99-e 73] **적용 전 번호 대조에 「앞 차수들이 schema_migrations 에 다 있나」** — 080000(shop-disc-1)이 회사에서 적용됐는데 repair 가 빠져 있었다
+   ls supabase/migrations/<날짜>*  와  select version from supabase_migrations.schema_migrations where version >= '<날짜>000000' order by 1;  를 나란히 · 빠진 것은 DB 실물(함수 몸 grep)을 select 로 본 뒤 repair
+⭐ [2026-11-03 밤] **적용 명령 판** — 대조 넷을 셸 `if` 로 묶어 어긋나면 적용 전에 멈춘다: ① 파일 md5 ② `grep -cE '^(begin|commit);'` 0 ③ 그 번호가 이미 적용 0 ④ DB 마지막 번호 < 이 번호
+   if [ "$(md5sum <파일> | cut -c1-8)" = "<md5 8>" ] && [ "$(grep -cE '^(begin|commit);' <파일>)" = 0 ] && …; then psql "$(cat ~/.asung-testdb-url)" -v ON_ERROR_STOP=1 -1 -c "set local lock_timeout = '5s'" -f <파일> && supabase migration repair --status applied <번호> --db-url "$(cat ~/.asung-testdb-url)"; else echo STOP; fi
+⭐ [2026-11-03 밤 · so §99-c 6] **두 창 동시 시험** — 잠그는 표가 다르면 된다(mail_outbox ↔ qbo_job · qbo_txn) · 돌리기 전에 **두 방향 grep**(서로의 표 · 함수를 건드리나) + **트리거 간접 경로**(예 so_invoice `doc_mail_auto_invoice` 는 가짜 손님 `final_invoice_mail` false 라 첫 줄에서 끝)를 보고
+⚠️ [2026-11-03 밤 · so §99-e 80] **Supabase CLI 3.0.0**(노트북): `migration repair` 가 Yes/No 를 묻는다(기본 **No** · ← 로 Yes · 전역 `--yes` 있음 — `supabase --help` 실측) · `--db-url` 은 deprecated(v4 에서 제거 · `--remote=<url>`) · 회사 · 집 PC 는 2.x 일 수 있다(안 봤다) · repair 뒤에는 schema_migrations 를 select 로 본다(위 대조)
 ⚠️ **검증 do 블록의 변수는 전부 `v_` 접두 · 임시 표의 칸 이름과 겹치지 않게** — 같은 날 두 번(record 변수 `r` = 별칭 `r` · 변수 `v` = `t_ids.v` → 42702 「column reference is ambiguous」 · 2026-09-24 세금 ② v1) · FROM 이 없는 insert … values 는 안 걸리지만 규칙은 같다 · 블록마다 「선언 변수 ∩ 읽는 표의 칸」을 훑는다
 ⚠️ **`format('%s', boolean)` 은 `t`/`f` 를 낸다** — 출력 함수를 쓴다(`boolean::text` 는 `true`/`false`) · 기대 문자열이 `manual=false` 면 `::text` 로 캐스트해 넣는다(2026-09-24 세금 ② v2 — 여덟 chk 가 글자만 같은 MISMATCH · DB 는 맞았다)
 ⚠️ **CHECK 시험은 한 번에 제약 하나만 어기는 자료로 · `get stacked diagnostics … = constraint_name` 으로 이름까지 판정** — 두 제약을 함께 어기면 Postgres 가 하나만 보고하고 나머지는 한 번도 안 돈다(2026-09-24 세금 ② 「tax_rule_id 만 null」이 pair_ck 대신 manual_ck 에 걸렸는데 OK 로 읽었다)
@@ -259,7 +270,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **검사는 그 시점의 상태로** — 뒤 절이 바꿀 칸을 앞 검사가 기대하지 않게(⑤-3a 6회차)
 ⚠️ **\gset 줄 끝에 주석을 달지 마라** — psql 이 인자로 읽는다(⑤-3b 3회차) · 검증 자료의 칸 이름은 짐작하지 말고 information_schema 로 · 숫자 비교는 round()(⑤-3b 1 · 2회차)
 ⚠️ **원본의 security invoker 가 별줄이면 language 줄에 definer 를 붙이지 마라** — conflicting options(⑤-3a 1회차) · 다른 파일에서 검증 블록을 잘라 올 때 여러 줄 문장 끝을 토크나이저로(⑤-2b 1회차)
-⚠️ provolatile · prosecdef 는 "char" · boolean — || 앞에 ::text(⑤-4b)
+⚠️ provolatile · prosecdef 는 "char" · boolean — || 앞에 ::text(⑤-4b) → ⚠️⚠️ [2026-11-03 · so §99-e 71 · 하루에 셋째] shop-disc-1 · cr-store-1a · mail-inc-1a 가 같은 원인(`operator is not unique: "char" || text`) ⇒ 가드 · 착지 · 검사 파일에서 pg_proc 칸을 잇거나 비교하는 줄은 전부 `::text` · 재발행 파일은 `grep -n '^\$function\$'` 로 `;` 확인
 ⚠️ **기대 OK 수는 통과한 실행에서 받아 적는다** — 머리에 짐작으로 적은 17 이 실제 16 이었다(⑤-6a2 확인 · so-module 24-r 사고 8)
 ⚠️⚠️ **시험 안에서도 실제 행을 바꾸지 않는다** — rollback 되더라도(⑤-6a2 가 실제 worker 의 is_active 를 savepoint 에서 껐다 되돌렸다 · md5 로 증명) ⇒ 갈래는 가짜 직원 · 가짜 입고(RCV-79xxx) · savepoint 로(사고 9)
 ⚠️ **갈라진 표를 읽는 검사 · 창구는 양쪽 갈래를 각각 시험 자료로** — 운영의 한 표가 IMS 에서 둘로 갈렸으면(24-b · 실수 ↔ stock_short 신고) 한쪽만 시험하면 다른 쪽 빠짐이 안 보인다(⑤-5c1 short_no_disc → c3 · §24-q 사고 3)
@@ -322,6 +333,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
    · 실행은 set -o pipefail 판으로(| tee 가 psql 종료값을 가린다)
    · 회차마다 시퀀스 머리 값을 찍는다 — 멈춘 회차는 꼬리의 setval 에 못 간다 ⇒ 「그 위 번호 0 개」를 보고 머리 값으로 되돌리고 전후를 보고
    · 시험 전용 변수 · 행은 \if :{?mig} 안에만 · 갈래마다 다른 수는 식으로 · 확인 갈래는 적용 전에는 못 돈다 — 첫 통과는 Caleb 의 확인 실행(그래서 커밋 조건은 exit · MISMATCH) [2026-10-06 · §50-c] 확인 기대 OK = 시험 수 − 시험에서만 도는 G0(58/58 · 41/39 · 24/23)
+   · ⚠️ [2026-11-03 · so §99-e 72 ② ③ · 일곱째 재발] 「적용 전 대비 +N」 검사는 `\if :{?mig}` 안(mail-inc-1a 확인 MISMATCH 4) · **`EXPECT_OK` 도 갈래마다** — `\if :{?mig} \set EXPECT_OK 30 \else \set EXPECT_OK 29 \endif`(2e-2-1 확인 갈래 29 OK 인데 기대 30) · 기대 수는 호출 줄을 센다(`create function pg_temp.chk(` 정의 줄은 빼고)
 ⭐ [2026-10-05 · so-module §39-d 1] 판정 값(최대 · 모자람 · 가용)은 definer 창구 하나에서 — 화면이 invoker 읽기 조각을 모아 셈하면 RLS 걸린 표에서 사람마다 눈이 갈린다(mv v1 · E8) → [2026-10-06 · 두 번째 실사고 · 판정 264] so_available_many 가 invoker 라 transfer 열쇠 없는 직원에게 트랜스퍼 예약이 0(468/2/466 → 468/0/468) — 속 함수 inv_available_base 를 definer 로(so-module §46)
 ⚠️ [2026-10-05 · so-module §44-d 6 · asm-1 ~ 2b2] 콤보 차수의 검증 · 재발행 교훈
    · SQL 의 `or` 는 짧게 끊지 않는다 — `if a or b::numeric` 은 캐스트가 먼저 터진다 · 글자 검사와 캐스트는 if 를 가른다
@@ -538,7 +550,11 @@ EOF
   ⚠️ [2026-10-26 · so-module §78-e 3 · 재발] 대화 Claude 가 asung-ims 화면 묶음을 **압축 파일로 올리게** 했다 — 공개 레포다 ⇒ 위 codeload 로 직접 받는다 · Caleb 에게 올리게 하지 마라
 
 쓰기 — 대화 Claude 가 파일을 만들면 Caleb 이 내려받아 옮긴다
-  집 PC  /mnt/c/Users/yoonh/Downloads/     회사  /mnt/c/Users/chang/Downloads/
+  집 PC  /mnt/c/Users/yoonh/Downloads/     회사 · 노트북(Laptop-Caleb)  /mnt/c/Users/chang/Downloads/   ← [2026-11-03] 노트북도 Windows 사용자 chang · 회사와 같은 경로
+  ⭐ [2026-11-03 · 노트북 환경] Laptop-Caleb · WSL Ubuntu 24.04 · 사용자 caleb · 레포 ~/asung/asung-wms · ~/asung/asung-ims(⚠️ asung-ops 는 아직 없음 — 다음 세션 §0 에서 클론) · git 2.43.0 · psql 16.15 · Node v18.19.1 · Claude Code 2.1.318(네이티브) · Supabase CLI **3.0.0**(link = Asung-IMS) · Deno 2.9.8 · gh(asungtrading) · Docker 없음(EF 배포에 불필요)
+     ~/.claude/settings.json = 레포 .claude/settings.user.example.json 합침(허용 19 · model opus · psql 은 허용 목록에 없다)
+     WSL 설치 함정: `wsl --install` 이 재부팅 뒤에도 「VirtualMachinePlatform … rebooted」 를 되풀이 — 원인 = Windows Update 재부팅 대기(`…\Component Based Servicing\RebootPending` · `…\WindowsUpdate\Auto Update\RebootRequired` True) · 업데이트 재시작으로 풀림 · 그 전에 `Microsoft-Windows-Subsystem-Linux` 기능 Disabled · `hypervisorlaunchtype` 없음도 고쳤다
+     ⚠️ 테스트 DB 접속 주소(비밀번호 포함)는 문서 · 스킬 · 지시서에 옮겨 적지 않는다 — ~/.asung-testdb-url 에만(11-03 밤 대화창에 한 번 붙었다 · 바꿀지는 Caleb)
   ⚠️ [2026-10-27 · so-module §82-e 2 · §83-e 1] 경로는 **이 줄에서** — 인계서의 「집 PC = ~/Downloads」 는 틀렸고 회사 PC 에서는 옮기기 명령이 조용히 멈췄다(`find` 로 찾음)
   ⚠️ [2026-10-29 · so-module §88-e 1] **레포 경로는 `~/asung/asung-wms` · `~/asung/asung-ims`** — 대화 Claude 가 회사 PC 명령에 `~/asung-wms` 로 적어 실패 ⇒ 명령의 레포 경로는 CLAUDE.md §1 에서 복사
 ⭐ [Caleb 요청] cp 에 **옮긴 뒤 지우는 rm 까지 함께** 준다:
@@ -600,6 +616,7 @@ description ⚠️ 키워드가 트리거다 — 자르면 필요할 때 스킬�
   §0 시작 순서 — ⭐ **정본을 curl 로 직접 받아 읽게 한다**(기억·캐시로 답하지 않게)
      · ⭐ [2026-09-29] **두 레포 `git pull` 먼저 · 로컬 HEAD 원문을 붙이게** — 집 PC 에서 로컬이 옛 판인 것을 Claude Code 가 보고 막았다(so-module §29-d)
      · ⭐ [2026-10-16 · 판정 520 · so-module §65-e] **세 레포 asung-wms · asung-ims · asung-ops 모두 `git pull` · `git status --short` 빈 줄 · `git status -sb` 가 behind 면 멈춤** — asung-ops 를 08-04 그대로 두어 Claude Code 가 낡은 클론을 레포로 읽었다(docs-1016)
+       → [2026-11-03 · 노트북] Laptop-Caleb 에는 asung-ops 가 **아직 없다** — 다음 세션 §0 에서 `git clone` 부터(§7 환경 줄)
      · 「이것이 보이면 최신, 안 보이면 갱신이 커밋되지 않은 것」이라는 **판별법**을 준다
   선 것 · ⭐⭐ 어기면 되돌리기 어려운 것 · 일하는 방식(이 스킬이 대신한다) ·
   ⚠️ 그날 겪은 실수 · 지금 DB 실물(id·번호까지) · ⭐ 다음 할 일 · 밀린 것 · 환경
@@ -1048,7 +1065,7 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    58 [대화 Claude · 재발 24 · **다섯 번째**] 칸 이름 짐작 — `qbo_job.ims_id` 는 text · `inv_layer` 는 product_id 가 없고 sku ⇒ **칸은 먼저 본다**(information_schema 한 줄 · `\d`)
    59 [대화 Claude] **시각 변환 실수 두 번**(UTC − 4 로 · 에드먼턴 − 2 로) ⇒ 11-01 뒤로 토론토 UTC − 5 · 에드먼턴 = 토론토 − 1(§10 고침)
    60 [환경] `cp $(ls -t …*.html)` 는 **이름 앞부분이 같은 다른 파일**을 잡을 수 있다 ⇒ 옮기기에는 **md5 대조를 늘 붙인다**(§7)
-   62 [docs-1102] 문서 차수 바로 앞 · 뒤 몇 분에 들어간 커밋(qbo-sync-2b1 · 2b2 · wo v4f · pay label v1)이 어디에도 안 적혔다 ⇒ 문서 차수의 원천은 **「앞 문서 차수 해시..HEAD」 git log**(두 레포) — 지시서의 커밋 목록과 대조하고 빠진 것은 이견으로
+   62 [docs-1102] 문서 차수 바로 앞 · 뒤 몇 분에 들어간 커밋(qbo-sync-2b1 · 2b2 · wo v4f · pay label v1)이 어디에도 안 적혔다 ⇒ 문서 차수의 원천은 **「앞 문서 차수 해시..HEAD」 git log**(두 레포) — 지시서의 커밋 목록과 대조하고 빠진 것은 이견으로 → [2026-11-03 · so §99-e 79] 앞 문서 차수는 `git log --oneline --grep='docs-1' -5` 로 찾는다 — `--grep='^docs-'` 는 `docs(docs-…)` 로 시작하는 커밋(docs-1102 · docs-1103)을 못 찾는다
 
 ⚠️ **[2026-11-02 밤 ~ 11-03 새벽 집 — so-module §98-e 에 이어 64 부터 · 결제 보내기 · 창고 속도 · 이 스킬에는 아래 일곱을 옮김]**
    64 [환경 · 두 창] **마이그레이션 번호가 겹쳤다** — ②-c 가 qbo 2e1a2 와 같은 040000(→ 060000) ⇒ 만들기 직전 `schema_migrations` 마지막을 보고 그 뒤로 · 적용 전 대화 Claude 가 번호를 대조(§2)
@@ -1058,3 +1075,15 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    68 [대화 Claude] **화면 기대값을 짐작했다**(「blocked 로 보일 것」 → waiting · 일감은 claim 때 blocked 가 된다) ⇒ 화면 기대값은 **보고의 상태 표로**
    69 [환경 · 터미널] **긴 명령을 붙이면 끝이 잘린다**(`git push && git` — 셸은 앞부분을 돌리고 `git` 사용법을 찍는다) ⇒ 마지막 단계는 짧게 · 결과 줄로 확인
    70 [화면] **화면이 필터 값을 쓰기는 하는지 먼저 grep** — Unpaid 탭이 whId 를 안 썼다(so-inv-branch-1 뒤 ml v1.4 한 줄이 따로) ⇒ 「화면이 기대 칸을 쓰나」 를 정하기 전에 필터 변수 사용처를 본다(§2)
+
+⚠️ **[2026-11-03 회사 · 밤 노트북 — so-module §99-e 에 이어 71 부터 · 이 스킬에는 아래 열을 옮김]**
+   71 [검증 · 하루에 셋째] pg_proc "char" 칸 `||` — shop-disc-1 · cr-store-1a · mail-inc-1a ⇒ `::text` · 재발행 `$function$;` 확인(§4)
+   72 [검증 · 틀 셋] rollback 은 집계 뒤 · 「+N」 은 `\if :{?mig}` 안 · EXPECT_OK 는 갈래마다 ⇒ §4 틀 고침
+   73 [적용 · 번호] 080000 repair 빠짐 ⇒ 적용 전 대조에 앞 차수들의 schema_migrations(§4) · 빠진 까닭은 모른다(짐작: CLI 3.0 repair 질문 기본 No)
+   74 [대화 Claude] 「시험만」 을 「파일은 고치지 마라」 로 옮겨 Claude Code 가 회차마다 멈췄다 ⇒ 검사 파일은 Claude Code 가 고친다(§4)
+   75 [대화 Claude] 실행 명령에서 `MIG=` 접두 빠짐 ⇒ 바이트 그대로(§4)
+   76 [대화 Claude · 짐작] 「EF 가 모르는 kind 를 invoice 로 읽는다」 고 까닭을 적었다 → 실제는 kindsOf 400 · 결제도 멈춤 ⇒ EF 동작은 그 판의 코드를 grep 한 뒤
+   77 [대화 Claude · 공개 레포] 지시서에 손님 상호 · 사람 이름 · 이메일 ⇒ 정본 · 스킬 · 지시서에는 수로만(Caleb 11-03)
+   78 [대화 Claude · 재발 24 · 여섯째] 단추가 안 보이자 열쇠부터 짐작(set v17) · 표 이름 짐작(staff → ims_staff) ⇒ ① 열쇠 ② EF 값 ③ DOM querySelectorAll ④ 덮는 줄 grep · 칸 · 표는 information_schema 먼저
+   79 [문서 차수] `--grep='^docs-'` 가 앞 차수를 못 찾음 ⇒ `--grep='docs-1'`(위 62)
+   80 [환경] Supabase CLI 3.0.0 — repair 질문 · `--db-url` deprecated(§4)

@@ -319,6 +319,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-11-02 · 판정 966 · qbo-sync-2c1] **세금만 크레딧 금지** — so_credit_issue 가 kind tax 줄을 받지 않는다(「A tax-only credit note is not allowed — credit the invoice in full and issue a corrected invoice instead」 · 옛 행 그대로) ⇒ 세금이 틀리면 전액 크레딧 + 새 인보이스 + 환불
 ⭐  [2026-11-02 · cr-ref-fee-1 · cr v7 `0c2a6c0`] **참조(이력) 크레딧에도 Restocking fee** — 서버는 이미 받았다(수리 없음) · 화면 Charge a fee · % · Fee account(REVENUE 만 · 설정 기본 있으면 Default) · 원래 인보이스 날짜로 60 일 알림(판정 5 알림만) · QBO 로는 other · restocking_fee 줄 = 계정 사람 짝(961) · 계정은 북키퍼가 정해 `supabase/ops/restock-fee-account.sql`
 ⚠️  [2026-11-02 · 959] 발행 크레딧이 걸린 인보이스는 취소 거부(4-g) — 크레딧 취소가 먼저
+⭐⭐ [2026-11-03 · 판정 1010 · 1030 ~ 1033 · cr-store-1a `7d2b816` · so-module §99] **크레딧은 낸 매장의 인보이스에만** — 자동(auto_credit) · 손 붙이기 모두 · 예외 없음(북키퍼 「본사 아래 매장이라고 하더라도 … 해당 스토어와만」) · 열쇠 so_credit_store(credit) = coalesce(store_customer_id, customer_id) · so_invoice_store(invoice) = 이월 store_customer_id 또는 활성 오더 손님 하나(둘 이상이면 null) · so_credit_alloc_add 에 매장 문 · so_invoice_apply_plan 이 같은 열쇠로 거름(credit_skipped) · 이월 인보이스 크레딧 = 그 인보이스 매장(1031) · 매장 있는 청구처의 참조 크레딧은 매장(또는 본사 자신) 필수(1032) · 화면 · 잔액은 그 손님 자기 몫만(1033 · cr-store-2 · 화면은 cr-store-1b) · 실제로 바뀌는 곳 = 본사 다섯 아래 매장 26 · QBO 0 원 Payment CustomerRef 도 매장(1014 · asung-qbo)
 ```
 
 ## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
@@ -433,6 +434,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  브랜치 = 배송지 주 먼저(판정 430 · AB · BC · SK → Edmonton · 주가 없으면 손님 기본 · aone 늘 Toronto — [2026-10-31 · 판정 895 · aone-edm-1 · so §92-a] Edmonton 짝이 있어도(이제 재고를 두 창고 다 보낸다) `shop_order_pick_location` 의 kind = 'aone' 갈래가 Toronto · EDM 픽업은 그 위치의 창고 · 대가 = Toronto 로 온 오더의 백오더(힌트 deferred 414)) · 세금은 배송지(Shopify 배송지를 so_header_update 로 그대로) — 주가 없으면 no tax rule → draft + confirm_blocked
 ⭐  웹으로 처음 온 손님은 시스템이 만들고 바로 검토 완료(판정 432) · 첫 오더도 자동 확정 · 이메일이 손님 여럿에 있으면 needs_review → 직원이 shop_order_resolve_customer · 못 찾은 줄은 shop_order_resolve_lines
 ⚠️ 운임 — asung.ca 는 SO 운임 줄을 만들지 않는다(경고 freight_not_applied · ~~웹 결제 오더 운임~~ → custom 결제 방식 오더의 운임은 열어 둠 · → so-module §61-c) · 오더 전체 할인은 0 + 경고 order_discount_dropped
+⭐⭐ [2026-11-03 · 판정 996 · 999 · 1001 ~ 1008 · shop-disc-1 `12ba8c2` · so-module §99] **asung.ca 웹 줄 할인은 들여올 때 IMS 셈** — 앱(Wholesale All In One)이 단위 할인을 반올림해 7 % 가 6.88 % 등으로 찍히던 것 · shop_line_rule_fit(정가 · 단가 · p) = Shopify 단가 = round(정가 × (1 − p), 2) 일 때만(1001) → so_line_set_shopify_rule(service_role)로 정확히 p · 출처 shopify 그대로(1003) · 세금 대조는 고치기 전 금액(1002 · ⑥ 뒤 ⑧ 앞) · 범위 밖은 1 센트라도 Shopify 값 + 경고(1007) · 정가 다른 줄은 손대지 않고 경고(1006) · 정보 원소 web_discount_rounded(1004) · **aone 무변** · 인보이스 전 열린 오더 한 번 바로잡기(997 · 1008 · 수량 · 예약 · WMS 무접촉) — 관찰 뒤 shop-disc-2
 ```
 
 ## 4-p. ⭐⭐ SO 출고와 Shopify(⑤ 오더 상태 · ~~판정만 · 짓기 전~~ → [2026-10-13] 짓기 끝 ful-1a ~ 2c) — 모르면 사고 (정본 shopify-integration §4 · §4-h · so-module §61 · §62 · 판정 436 ~ 456)
@@ -604,7 +606,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ```
 ⭐⭐ 엔진 하나 · 입구 둘(835) — 창고 WMS Finalize 작업대(기본) · 오피스 Ship & invoice 창(창고가 못 했거나 견적이 틀렸을 때) · 같은 DB 창구 + EF freightcom · 한 발송에 살아 있는 예약은 하나
-⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) → [2026-10-29 · 617 확인 · so-module §87-d] 이 프로젝트가 11-01 부터 그대로 운영이고 db_role 은 그 뒤에도 'test' — 가드는 운영을 가르지 않는다 · **운영 시작 = 비밀값을 운영 토큰 · BASE_URL 로 바꾸는 날**(freightcom-integration 머리) · 운영 예약은 실제 청구(Net Terms)
+⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) → [2026-10-29 · 617 확인 · so-module §87-d] 이 프로젝트가 11-01 부터 그대로 운영이고 db_role 은 그 뒤에도 'test' — 가드는 운영을 가르지 않는다 · **운영 시작 = 비밀값을 운영 토큰 · BASE_URL 로 바꾸는 날**(freightcom-integration 머리) · 운영 예약은 실제 청구(Net Terms) → ⭐ [2026-11-03 · so-module §99-c 8] **토론토는 운영**(BASE_URL 운영 · TOR 운영 토큰 · 실제 청구 · 시험 때 예약을 IMS 에서 Cancel 하지 말 것) · **에드먼턴은 키 지움**(운영 토큰 대기 · Freightcom 사이트에서 손 예약 · deferred 462)
 ⭐⭐ 손님 운임(836) = round(pretax × (1 + fc_markup_pct / 100)) 센트 · pretax = base + 할증(세금 제외) · fc_markup_pct 5 · 운임 줄은 발송의 **한 SO**(charge_so_id · 837 · fc_charge_so_set)
 ⚠️⚠️ aone(손님이 Shopify 에서 운임을 결제한 웹 오더 · freight_locked)는 **운임 줄을 덮지 않는다**(836 · 844) — 견적 · 예약 · 기록만
 ⚠️⚠️ **so_finalize 는 창의 운송사 · 송장 칸을 그대로 보낸다** — DB 가 예약 때 SO 에 쓴 송장(855)을 창의 빈 칸이 덮을 수 있다 ⇒ so v5y 가 창 칸을 채운다(오피스 예약 = 모든 SO 블록 · 창고 예약 뒤 창 열기 = 빈 칸만 · 취소 = 예약 송장과 같은 칸만 비움) — 창을 다시 지을 때 이 채우기를 지우지 마라

@@ -4,7 +4,7 @@ description: >
   Asung Trading IMS 의 문서 — 문서 템플릿(판) · 인쇄 · 서버 PDF · 문서 메일. 인보이스 · 크레딧 노트 · SO · Ship Ready(PROFORMA) · Internal Receipt 를 찍거나 보내거나 판을 고칠 때 먼저 읽으세요.
   "doc_template", "doc_data", "doc_field_catalog", "자리표", "판 올리기", "Use this version",
   "Settings → Documents", "ims-doc.js", "Mustache", "인쇄", "Print invoice", "Gotenberg", "Cloud Run",
-  "doc_file", "documents 버킷", "doc-brand", "EF doc", "서명 URL", "문서 메일", "doc_mail_send",
+  "doc_file", "documents 버킷", "doc-brand", "EF doc", "서명 URL", "문서 메일", "doc_mail_send", "doc_mail_recipients", "to_more",
   "waiting_pdf", "ims-mail-pdf", "cron 57", "final_invoice_mail", "info@", "인보이스 메모", "doc_mail_skip", "so_numbers", "ship_to_repeat", "balance_due"
   가 나오면 추측하지 말고 이 스킬과 정본 so-module §66 을 확인하세요.
   ⚠️판에 meta 태그 · 스크립트 · 바깥 주소 금지(DB 가 거부) — 판 글자는 ASCII(EF 가 charset 을 끼운다),
@@ -139,6 +139,8 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
 ⭐⭐ 첨부가 없는 메일(백오더 알림)의 MIME 은 mail-2b 바이트 그대로 — _shared/mail.ts buildMime 의 첨부 갈래를 고치면 deno test ⑫(황금 문자열 · sha256 935c24c3…)가 지켜야 한다
 ⭐⭐ 자동(529) = so_invoice 의 deferrable 트리거 so_invoice_doc_mail_auto(발행이 커밋될 때) — 청구처 손님 칸이 켜져 있고 issued 일 때 한 줄
      건너뜀은 doc_mail_skip(no_email · reissue(같은 오더에 앞 인보이스) · error) — **메일 때문에 발행이 서지 않는다** · so_invoice_issue 를 고쳐 메일을 넣지 마라
+⭐⭐ [2026-11-03 · 판정 1000 · 1018 ~ 1029 · mail-inc-1a `76fa714` · so-module §99-c 3] 받는 이 여럿 — **DB 바탕만 섰다 · 손님 메일은 아직 한 주소(아래 498)** · 새 함수 doc_mail_recipients(p_kind, p_ref) = 청구처의 include in email 켜진 연락처 ∪ 문서 매장(자식)의 켜진 연락처 · 모두 To · 겹침 제거 · 상한 10 · skipped(blank · bad_shape · duplicate · cap) · 비면 청구처 498 만 · mail_outbox.to_more text[](둘째부터 · CHECK ims_mail_to_more_ok) · mail_claim 이 to_more 를 JSON 배열로 넘긴다 · 채우는 곳 0
+   ⚠️⚠️ 차수 순서 1b EF(To 에 잇기) → 1c 채우기 → 1d 화면 — **1c 가 1b 보다 먼저면 둘째 주소부터 조용히 빠진다**(deferred 460) · QBO BillEmail · 백오더 메일은 무변(1025 · 1026)
 ⭐ 받는 이 = 판정 498 고르기(doc_mail_recipient) — 기본 연락처 → 주소 모양인 다른 활성 연락처 → 없음 · 직원은 창에서 한 주소로 고칠 수 있다 · include_in_email 은 미정(미룬 249)
 ⭐ 제목 · 본문 = doc_setting 의 mail_subject · mail_body 를 doc_data 로 채움(doc_mail_fill · 스칼라 {{a.b}} 만) — 줄에 박힌다(뒤에 글을 고쳐도 이미 넣은 줄은 그대로)
    → [2026-10-26 · 판정 787] ship_ready 기본 메일 제목 「PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.」(srs-1 이 시드 원문일 때만 바꿨다) · 미리 보기(doc_mail_send commit false)가 채워 창 칸에 넣고 보내기는 칸 글 그대로

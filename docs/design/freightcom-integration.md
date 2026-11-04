@@ -2,9 +2,9 @@
 
 작성: 2026-10-28 · 집 PC · docs-1028h · 판정 677(시작) · 835 ~ 862(원문 표는 `so-module.md` §84-a · §85-a) · 선례 `shopify-integration.md`(날짜 절은 하루의 이야기 · 이 문서가 「지금 규칙」)
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 Freightcom 둘뿐이다.
-⭐ 상태 [2026-10-28] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(테스트 DB `Asung-IMS` · Freightcom 테스트 토큰 · 실호출 넷 모두 취소함 · so-module §84-c · §85-c) · **운영 = 토큰 대기**(deferred 326 · 364)
+⭐ 상태 [2026-10-28] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(테스트 DB `Asung-IMS` · Freightcom 테스트 토큰 · 실호출 넷 모두 취소함 · so-module §84-c · §85-c) · **운영 = 토큰 대기**(deferred 326 · 364) → ⭐ [2026-11-03 · Caleb · so-module §99-c 8] **토론토는 운영** — FREIGHTCOM_BASE_URL = `https://external-api.freightcom.com` · FREIGHTCOM_API_KEY_TOR = 운영 토큰 · FREIGHTCOM_API_KEY_EDM **지움**(시험 토큰은 운영 주소에서 안 통하고 남기면 가짜 예약 위험 · status EDM has_key false) · 코드 무변(키는 계정별 848 · 주소는 하나) · **에드먼턴은 운영 토큰 올 때까지 Freightcom 사이트에서 손 예약**(deferred 462 · 키 없을 때 IMS 화면이 무엇을 보이는지는 안 봤다)
 ⚠️ 운영에서는 아직 **손으로** 한다 — EF `freightcom` 은 `inv_config.db_role = 'test'` 가 아니면 멈춘다(`supabase/functions/freightcom/index.ts:3`) · ~~운영 토큰 · 비밀값 · 이 가드를 푸는 날이 운영 시작이다~~ → [2026-10-29 · 판정 617 확인 · so-module §87] 이 프로젝트(Asung-IMS)가 11-01 부터 **그대로 운영**이고 db_role 은 컷오버 뒤에도 'test'(`cutover-delete.sql:16`) — 이 가드는 asung-WMS 만 막을 뿐 운영을 가르지 못한다 ⇒ **운영 시작 = 비밀값을 운영 토큰 · 운영 BASE_URL 로 바꾸는 날**(그 전까지 이 프로젝트의 예약은 테스트 토큰 · 청구 없음)
-⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만
+⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만 → [2026-11-03] 토론토는 운영 토큰이라 **IMS 의 토론토 예약 = 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · 에드먼턴은 키 없음(손 예약)
 
 ---
 

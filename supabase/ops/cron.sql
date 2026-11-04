@@ -918,15 +918,32 @@ $job$);
 --   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-qbo-send-payments') order by start_time desc limit 5;  · 보낸 흔적: select action, ok, http_status, detail from public.qbo_call_log where action in ('send', 'send_check', 'send_read') and detail->>'kind' in ('payment', 'payment_void') order by called_at desc limit 20;
 --   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-send-payments'), active := false);   · 해제: select cron.unschedule('ims-qbo-send-payments');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'qbo_send_payments_enabled';
 --   [2026-11-03 · qbo-sync-2e-2-1 · 판정 1015] 등록 전이라 명령 글만 고쳤다 — kinds 에 credit_apply · credit_apply_void(크레딧 붙임 = 0 원 Payment · 같은 스위치 qbo_send_payments_enabled) · 등록은 2e-2-1b EF 배포 뒤 Caleb · jobid 는 등록 뒤 실측
+--   ⚠️⚠️ [2026-11-03 밤 · docs-1103b · 판정 1034] **지금(2e-2-1b EF 배포 전) 등록하는 것은 아래 실행 블록 = kinds 둘(payment · payment_void)** — 넷으로 등록하면 지금 EF 의 kindsOf(_shared/qbo.ts:808-814)가
+--     모르는 kind(credit_apply · credit_apply_void)를 400 으로 거부 → 결제도 안 나간다(조용한 멈춤 · so-module §99-a 1034 · qbo-integration §14-f)
+--   등록한 뒤: 위 「확인」 으로 jobid 를 실측해 여기에 「[날짜 · Caleb psql 실측] jobid N · kinds 둘」 줄을 적고 커밋
+--   2e-2-1b EF 배포 뒤: select cron.unschedule('ims-qbo-send-payments'); → 맨 아래 주석의 넷 판으로 다시 schedule · jobid 다시 실측
 select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
   select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
-    body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void', 'credit_apply', 'credit_apply_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+    body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
   where exists (select 1 from public.inv_config c where c.key = 'qbo_send_payments_enabled' and c.value = 'on')
     and exists (select 1 from public.qbo_connection c where c.status = 'connected')
     and exists (select 1 from public.qbo_job j
-                 where j.kind in ('payment', 'payment_void', 'credit_apply', 'credit_apply_void')
+                 where j.kind in ('payment', 'payment_void')
                    and (j.state = 'unknown'
                      or (j.state = 'queued' and j.next_at <= now())
                      or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
 $job$);
+-- ── [2e-2-1b EF 배포 뒤 다시 등록 — 그 전에는 쓰지 마라] kinds 넷 판(qbo-sync-2e-2-1 · 판정 1015) ──
+--   select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
+--     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+--       headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+--       body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void', 'credit_apply', 'credit_apply_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+--     where exists (select 1 from public.inv_config c where c.key = 'qbo_send_payments_enabled' and c.value = 'on')
+--       and exists (select 1 from public.qbo_connection c where c.status = 'connected')
+--       and exists (select 1 from public.qbo_job j
+--                    where j.kind in ('payment', 'payment_void', 'credit_apply', 'credit_apply_void')
+--                      and (j.state = 'unknown'
+--                        or (j.state = 'queued' and j.next_at <= now())
+--                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
+--   $job$);

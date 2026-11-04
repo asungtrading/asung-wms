@@ -11096,7 +11096,7 @@ ref_warehouse.freightcom_account     Asung Trading Inc. = TOR · Asung - Edmonto
 - IMS Claude 커넥터((나) · Team 플랜 커스텀 커넥터 · 각자 IMS 로그인 · 읽기 전용 도구 · 리포트는 「합계는 IMS 가 낸다」 · Caleb 이 시작 시기를 정함) → deferred **360**
 - Edmonton 출발 견적 시험(Edmonton packed 오더 + 치수 재료 필요) · Apex(`Apex`) Freightcom 이름은 실제 쓰는 날 확인 뒤 더함 → deferred **364**
 - 컷오버 2026-11-01(일)
-- ⭐⭐ 어기면 되돌리기 어려운 것(인계서 §4): ~~Staff 화면에서 「Freight booking」 을 켜지 마라~~ → st v3b 로 풀림(§85) · **Freightcom 라벨 원본 주소를 화면에 보이지 마라**(서명 없는 S3 · 라벨에 손님 주소 · IMS 사본 + 서명 URL 120 초로만) · 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰 전 실호출은 테스트 환경만
+- ⭐⭐ 어기면 되돌리기 어려운 것(인계서 §4): ~~Staff 화면에서 「Freight booking」 을 켜지 마라~~ → st v3b 로 풀림(§85) · **Freightcom 라벨 원본 주소를 화면에 보이지 마라**(서명 없는 S3 · 라벨에 손님 주소 · IMS 사본 + 서명 URL 120 초로만) · 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰 전 실호출은 테스트 환경만 → [2026-11-03 · §99-c 8] 토론토는 운영(실제 청구) · 에드먼턴은 운영 토큰 대기(Freightcom 사이트 손 예약)
 
 ### 84-e ⚠️ 실수 · 배운 것 — 원인 · 처방
 
@@ -12634,4 +12634,138 @@ e6cd3db chg duty v1 — Charges: Kind Duty 일 때 Duty (before tax) · GST on i
 
 ```
 다음 판정 번호: 995 · 다음 deferred 번호: 459
+```
+
+---
+
+## §99 2026-11-03 회사 · 밤 노트북 — asung.ca 웹 줄 할인을 IMS 셈으로 · 크레딧은 낸 매장의 인보이스에만 · 문서 메일 받는 이 여럿(DB 바탕) · 크레딧 붙임을 QBO 0 원 Payment 로(DB) · QuickBooks matching 쓰기 단추 · Freightcom 토론토 운영 · 결제 먼저 켜기 — shop-disc-1 · cr-store-1a · mail-inc-1a · qbo-sync-2e-2-1 · set v17 · 판정 995 ~ 1034 (회사 PC · 밤 노트북 Laptop-Caleb)
+
+⭐ 원천: 지시서 docs-1103b §1(대화에만 있던 것) · `~/asung/prompts/docs-1103b-todo.md`(판정 995 ~ 1033 원문 · 실측) · 인계서 `ims-handover-1103b.md` §1 · §3 · §5 · asung-wms `git log --oneline cf031af..HEAD` · asung-ims `git log --oneline 19e6f40..HEAD` 원문 · 마이그레이션 머리 주석
+⚠️ 공개 레포 — 손님 상호 · 사람 이름 · 이메일은 적지 않는다(Caleb 11-03 · 99-e 77). 메일 · 크레딧 매장 실측은 수로만.
+
+### 99-a 판정
+
+| # | 갈래 | 뜻 |
+|---|---|---|
+| 995 | (나) | 2e-2(크레딧 붙임 보내기) 전 크레딧 노트는 QBO 에 CreditMemo 로만 선다 · 북키퍼는 QBO 에서 손으로 인보이스에 붙이지 않는다 · 그동안 QBO A/R 은 크레딧만큼 크게 보인다(정상) · 켜는 날 「손으로 붙인 것」 표시 길은 짓지 않는다 · 북키퍼 알림(Caleb) |
+| — | (11-03) | credit_card QBO 수단은 **북키퍼가 고른다**(안 셋: Visa #3 · QuickBooks Payments-Credit Card #13 · QBO 에 새 수단 「Credit Card」) — 짝 결과는 다음 차수가 다시 센다(deferred 453 ①) |
+| 996 | (다) | asung.ca 웹 줄은 들여올 때 IMS 가 할인 % 로 금액을 다시 셈한다(Shopify 단가와 IMS 규칙 % 단가 차이가 반올림 범위 안일 때 · 넘으면 Shopify 값 + 경고 · aone 은 그대로 · 431 · 433 을 asung.ca 에 한해 바꿈) — 6.88 % 같은 할인 표시 · 덜 깎임(SO-20856 / 60059) · 조사 shop-disc-0 |
+| 997 | (가) | 인보이스 전 열린 asung.ca 오더는 한 번 바로잡는다(할인만 · 수량 무변 · Unconfirm 없이) · 인보이스 나간 것은 그대로 |
+| 998 | (요지 · Caleb 원문 없음) | 「Cin7 의 QBO 크레딧 노트는 Sales 와 Customer Credits 로 나뉘어 순액 0 · IMS 크레딧 노트도 같은 방식으로(Customer Credits 로 순액 0)」 — 998′ · 1009 가 거둠 |
+| 998′ | (가′) | sandbox C-1 ~ C-6 — 입금 계좌 = 부채 계정인 Payment 는 QBO 가 거부(6430) ⇒ 998 의 「Customer Credits 에서 낸 결제」 철회 · 크레딧 노트는 Cin7 꼴(Customer Credit −합계 줄 · TotalAmt 0) · 쓰기 = 「쓰기」 CreditMemo + 금액 0 Payment(void 는 operation=update&include=void 로 되돌아옴) · 이월 받아 둔 돈 쓰기도 같은 길(454) — 1009 가 IMS 크레딧에 대해 거둠 |
+| 999 | (가) | asung.ca 웹 줄 중 앱이 반올림만 한 줄(Shopify 단위 할인 = round(정가 × p, 2))은 손님이 덜 내든 더 내든 모두 IMS 셈(정확히 p · 줄 한 번 반올림) · Caleb 「덜 깎여 보이는 것도 문제, 소수점 자리로 지저분하게 보이는 것도 문제」 · 1 센트라도 다른 줄(GPR00800 · MDC41431 · MDC10837 — 앱이 단위 할인을 1 센트 더 줌)은 Shopify 값 + 경고 |
+| 1000 | (가) | 문서 메일은 청구처의 include in email 이 켜진 연락처 모두에게(새 표시 없이 있는 표시를 따른다 · 미룬 249 를 닫는 방향) · Caleb 「커스터머 정보에는 모두 include in email 에 들어가 있는데 보내지는 이메일은 대표이메일 뿐」 |
+| 1001 | — | 범위 안 = 단가 꼴(Shopify 단가 = round(정가 × (1 − p), 2)) |
+| 1002 | — | 세금 대조는 고치기 전 금액으로(⑥ → 고침 → ⑧ Confirm) |
+| 1003 | — | 고친 줄 출처 shopify 그대로(433 유지) |
+| 1004 | — | 정보 원소 `web_discount_rounded` |
+| 1005 | — | 997 셈은 받은 수량 |
+| 1006 | (나) | 정가 다른 줄은 손대지 않고 경고 |
+| 1007 | (가) | 범위 밖은 1 센트라도 경고(금액 기준) |
+| 1008 | (가) | 997 은 인보이스 전 전부(confirmed · picking · packed) · 새 속 창구(service_role) · 수량 · 예약 · WMS 무접촉 |
+| 1009 | (나) | 998 · 998′ 을 IMS 크레딧에 대해 거둔다 — IMS 크레딧 노트는 QBO 표준(A/R · 2c 무변) · 쓰기 = **붙임 한 줄마다 0 원 Payment 한 장**(Invoice + CreditMemo · sandbox C-5″) · 까닭: 북키퍼가 명세서를 손님에게 보낸다 · 「쓰기」 두 장 길은 이월 돈(2e-3)만 · 북키퍼 크레딧 노트 Send 보류 해제(995 손 붙임 금지는 그대로) |
+| 1010 | (가) | **크레딧은 낸 매장의 인보이스에만** — 자동(auto_credit) · 손 붙이기 모두 · 예외 없음 · 북키퍼 「본사 아래 매장이라고 하더라도, 크레딧은 무조건 해당 스토어와만」 · 2e-2 보다 먼저 선다 |
+| 1011 | — | 붙임 한 줄 = 0 원 Payment 한 장 · 떼기 = 그 장 void(operation=update&include=void · C-6) · 지문 없음 |
+| 1012 | — | CreditMemo · Invoice 둘 다 qbo_txn 뒤 · blocked_by 한 칸 차례로 |
+| 1013 | — | 새 0 원 Payment 만 같은 인보이스의 열린 void 일감을 기다림 · 결제 몸 무변 |
+| 1014 | — | 0 원 Payment CustomerRef = 매장(CreditMemo · Invoice 손님 · 1010 과 맞춤) |
+| 1015 | — | 스위치 `qbo_send_payments_enabled` 하나 · cron 62 kinds + 둘(→ 1034: 2e-2-1b 배포 전 등록은 둘만) |
+| 1016 | — | 이월 인보이스 붙임 = failed + 1d(452) requeue |
+| 1017 | — | 백필은 적용 때 한 번(since 뒤 · 인보이스 대상 · 활성) · 환불 대상 → 2e-3 · TxnDate = 붙임 created_at 토론토 날짜 · void 순서(N1 · N2)는 sandbox 뒤 |
+| 1018 | (가) | 받는 이 = 청구처의 켜진 연락처 ∪ 문서 매장(자식)의 켜진 연락처 · 비면 498 고르기 · 이메일 여럿인데 다 꺼진 102 명 일괄 채우기 안 함 |
+| 1019 | — | 모두 To |
+| 1020 | (가) | 켜진 것만(셀프 청구 3 곳은 직원 확인) |
+| 1021 | — | 비면 청구처 498 만 |
+| 1022 | (나) | 보내기 창 받는 이마다 체크 + 주소 더하기 · 그 한 통만 |
+| 1023 | — | 문서 넷 + 자동 최종 인보이스(백오더 무변) |
+| 1024 | — | 매장 둘 이상 = 합집합 |
+| 1025 | — | QBO 이메일 그대로 하나 |
+| 1026 | (나) | 새 함수 `doc_mail_recipients` · 옛 함수 · QBO · 백오더 무변 |
+| 1027 | — | 겹침 제거 · skipped 보임 · 상한 10 |
+| 1028 | (가) | to_address 그대로 + `to_more text[]` |
+| 1029 | (가) | redirect 한 통 · 제목에 모두 · 차수 1a DB → 1b EF → 1c 채우기 → 1d 화면(1c 가 1b 앞이면 조용한 누락) |
+| 1030 | — | 매장 열쇠 함수 둘 `so_credit_store` · `so_invoice_store` |
+| 1031 | — | 이월 인보이스 크레딧은 그 인보이스 매장 |
+| 1032 | (가) | 매장 있는 청구처의 참조 크레딧은 매장(또는 본사 자신) 필수 |
+| 1033 | (나) | 화면 · 잔액은 그 손님 자기 몫만(매장별 표 없음 · cr-store-2) · 1022′ · 1025′ · 1026′ 답대로 · Caleb 「돈만 본사에서 내는 거야 · 모든 트랜스액션은 차일드 스토어와 우리 사이 · … 본사는 본사의 크레딧만 보이면 돼」 |
+| **1034** | (11-03 밤 · Caleb) | **「첫 작업으로 결제를 켜자」 — 결제 QBO 켜기(2e-1)를 2e-2-1b 보다 먼저** · 까닭(대화 Claude 제안 · Caleb 채택): 인보이스는 QBO 로 가는데 결제가 안 가면 QBO 에서 낸 손님이 안 낸 것으로 보인다 · 북키퍼가 A/R Aging 을 보고 스테이트먼트를 손님에게 보낸다 · 붙이지 않은 CreditMemo 는 손님 합계를 이미 줄이므로 결제보다 덜 급하다 · ⚠️⚠️ **2e-2-1b 배포 전 cron 은 kinds 둘(`payment` · `payment_void`)로만 등록** — 넷으로 등록하면 지금 EF `kindsOf`(`_shared/qbo.ts:808-814`)가 모르는 kind 를 **400 으로 거부 → 결제도 안 나간다(조용한 멈춤)** · 2e-2-1b 배포 때 넷으로 다시 등록 |
+
+- 북키퍼 답(11-03): ② A/R Aging · 손님 명세서를 쓰고 손님에게 보내기도 한다 · ③ Customer Credit 줄 세금 = Zero-rated · ④ Customer Credit Clearing(1150040039) = 북키퍼 개인 조정용 임시 계정(IMS 안 씀) · ⑤ Customer Credits 거래 보고서(1,510 줄 · Sales Receipt 선수금 203 · Credit Memo 548 · Invoice 716 · 이름 없는 JE 7 +6,470.46 · 손님 79 명 0 아님 · 32 명 음수) — 선수금 · 크레딧 · 조정이 섞인 계정 · IMS 이월 6,628.40 과 자동 대조 불가 · ⑥ 크레딧은 본사 아래 매장이라도 그 스토어와만(→ 1010)
+- ⚠️ 인계서 ims-handover-1103 §4 에서 빠졌던 것(대화 Claude 실수): **원가(COGS) 분개 · 공급처 청구서(Bill) · 공급처 크레딧 · 입고 분개(Inventory / GINR) · 운임 · 관세 분개** — 모두 안 지음(qbo-integration §13 「Cin7 → QBO 가 하던 것」) · QBO 는 QuantityOnHand false 라 컷 뒤 IMS 판매 원가가 QBO 에 0 · Caleb 「이미 시작했으니 순서대로」 ⇒ 2e-2 다음 차례 → deferred **459**
+- Freightcom(11-03 · Caleb · 11-02 「둘 함께」 결정을 바꿈): **토론토만 운영 전환** — 99-c 8
+
+### 99-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline cf031af..HEAD`(asung-wms · docs-1103 뒤) — 지시서 · todo 의 목록과 같다(빠진 것 0):
+
+```
+487f678 qbo-sync-2e-2-1: 크레딧 붙임 일감(995 · 1009 · 1011 ~ 1017) — credit_apply · credit_apply_void · so_credit_alloc_qbo 트리거 · qbo_credit_alloc_sync · qbo_credit_apply_body · 재발행 일곱 · 백필 1(CR-01008 → 60026) · cron.sql ims-qbo-send-payments kinds 넷(등록 전) · 시험 30/30 · 확인 29/29
+76fa714 mail-inc-1a: 받는 이 여럿(1000 · 1018 ~ 1029) — mail_outbox.to_more · doc_mail_recipients · ims_mail_to_more_ok · mail_claim 에 to_more · 가드 "char" 캐스팅 · 시험 49/49 · 확인 45/45
+7d2b816 cr-store-1a: 크레딧은 낸 매장(손님)의 인보이스에만(1010 · 1030 ~ 1033) — so_credit_store · so_invoice_store 열쇠 · so_credit_alloc_add 매장 문 · so_invoice_apply_plan 이 같은 열쇠로 거름(credit_skipped) · … · 시험 4 회 28/28 · 확인 27/27
+12ba8c2 shop-disc-1: asung.ca 웹 줄 할인 반올림을 들여올 때 IMS 셈으로(996 · 999 · 1001 ~ 1008) — shop_line_rule_fit(단가 꼴) · so_line_set_shopify_rule(service_role · 997 바탕) · shop_order_process 재발행(asung 만 · ⑥ 세금 대조 뒤 · ⑧ 앞 · 범위 밖 금액 경고 · web_discount_rounded) · aone 무변 · 시험 4 회 39/39 · 확인 34/34
+```
+
+asung-ims `git log --oneline 19e6f40..HEAD`:
+
+```
+440abee set v17 — QuickBooks matching: Review 가 qm 을 새로 만들며 write 를 잃어 Find… · Change… · Unlink 가 사라지던 결함(set v14 부터) · write 를 이어 준다
+```
+
+| 차수 | 마이그레이션 | 무엇 |
+|---|---|---|
+| shop-disc-1 | `20261103080000` | 996 · 999 · 1001 ~ 1008 — 웹 줄 할인을 IMS 셈으로 · ⚠️ 회사에서 적용됐는데 **repair 가 빠져 있었다** → 노트북에서 DB `shop_order_process` 에 `web_discount_rounded` 규칙이 있음을 select 로 확인한 뒤 채움(99-e 73) |
+| cr-store-1a | `20261103090000` | 1010 · 1030 ~ 1033 — 매장 열쇠 · 붙이기 매장 문 · 적용 계획이 같은 열쇠로 거름(credit_skipped) · 참조 크레딧 매장 필수 · Attach 후보 매장 필터 · 실제로 바뀌는 곳 = 본사 다섯 아래 매장 26 |
+| mail-inc-1a | `20261103174500` | 1000 · 1018 ~ 1029 — DB 바탕만(99-c 3) · 시험 3 회 · 확인 2 회 |
+| qbo-sync-2e-2-1 | `20261103200000` | 995 · 1009 · 1011 ~ 1017 — 크레딧 붙임 일감 · 몸 · 트리거 · 백필(qbo-integration §14-g) · 시험 2 회 · 확인 2 회 |
+| set v17 | asung-ims `440abee` | Settings → QuickBooks matching: **Review 를 누르면 화면 상태(qm)를 새로 만들며 write 를 빼먹어 Find… · Change… · Unlink 가 모든 목록에서 사라지던 결함**(set v14 부터) · 새 qm 에 write 를 이어 준다(settings.html 1359 행) · 드러난 경위: credit_card(983) 짝을 지으려는데 Find… 가 없었다 · 열쇠는 맞았다(ims_staff.perms `["claude:read","qbo"]` · EF status caller_qbo = write) · DOM 의 data-qmfind 0 개 → 1359 행 · 지금까지 눈에 안 띈 까닭(짐작): 대부분 「Match automatically」 로 짝이 지어졌다 |
+
+schema_migrations(테스트 = IMS 메인): `20261103174500` · `20261103200000` 적용 + repair(11-03 밤 노트북) · `20261103080000` repair 채움(위).
+
+### 99-c 사실 · 실측
+
+1. **shop-disc 관찰 거리**: 새 asung.ca 오더 하루 관찰(「7%」 · web_discount_rounded · tax_mismatch 0) → shop-disc-2(열린 88 오더 · Shopify 취소가 cancel_needs_review 로 가는 것 판정) · 앱 1 센트 줄(GPR00800 · MDC41431 · MDC10837 · LOT13032)은 앱 설정 확인(Caleb)
+2. **mail-inc-0 실측(11-03)**: 활성 연락처 10,254 중 include_in_email 켜짐 959(기본 연락처 807) · 이메일 여럿인 손님 210(모두 켜짐 75 · 일부 33 · 없음 102) · 직원 손으로 켠 manual 36 · 「4 통 빠짐」 은 직원 손 주소인지 **미확인**(대화 Claude 가 단정했다가 바로잡음)
+3. **mail-inc-1a 실물(적용 뒤)**: mail_outbox 칸 27 · CHECK 16 · mail_claim 50 줄(적용 전 26 · 15 · 49) · 최종 md5 마이그레이션 `91a3e1ac…` · 검사 `905f6c5e…`
+   - ⚠️ **DB 바탕만 — 손님 메일은 아직 예전 그대로(한 주소)** · to_more 를 채우는 곳 0 · 다음 1b(EF · To 에 잇기) → 1c(채우기) → 1d(화면) · **1c 가 1b 보다 먼저면 둘째 주소부터 조용히 빠진다**(deferred 460)
+   - NOTICE(사람 할 일): 셀프 청구 3 곳 — 기본 연락처 꺼짐 · 매장 연락처 2 곳(이메일 null 1 · 꼴 아님 1) — 직원이 Customers 에서 고친다(1c 전)
+   - 시험 회차: 1 회 착지 가드 `provolatile || prosecdef::text` → `operator is not unique: "char" || text`(EXIT 3 · 같은 꼴 검사 두 곳 함께 `::text`) · 2 회 `rollback;` 이 집계 앞이라 `relation "t_res" does not exist` · 3 회 49/49(기대 「50」 은 `create function pg_temp.chk(` 정의 줄까지 센 착오) · 확인 1 회 MISMATCH 4(「적용 전 대비 +1」 검사 넷 → `\if :{?mig}`) · 확인 2 회 45/45 — 99-e 71 · 72
+4. **qbo-sync-2e-2-1 실물**: 백필 일감 **1** — CR-01008 → 60026 붙임 `21ea9038-03e7-47a9-9344-5b1c3993f911` · 일감 `512afdee-53f8-493a-988c-bb65150816a7` · queued · realm 9130352117636496 · **2e-2-1b EF 배포 전에는 안 나간다** · 최종 md5 마이그레이션 `7104b96f…` · 검사 `b002bdcc…`
+   - 시험 회차: 1 회 28 OK · MISMATCH 2 + G0(G0 = 명령에 `MIG=` 접두가 빠져 `\!` 의 head 가 빈 경로 · B2 · D1 = 기대값의 `claimed` 만 틀림 — 아래 5) · EXPECT_OK 31 은 셈 착오(시험 30) · 2 회 30/30 · 확인 1 회 29 OK 인데 expect 30(`\set EXPECT_OK` 가 갈래를 안 가림) → `\if :{?mig} 30 \else 29 \endif` · 확인 2 회 29/29
+5. **`claimed` 의 뜻(qbo_job_claim)** = ③ 「잡기」 에서 queued → sending 으로 바뀐 행 **전부**(뒤에 blocked · failed 로 간 것 포함) · 근거 원문 셋이 글자까지 같다: 2e-2-1 마이그레이션 397 행 · 2e-1b `20261103050000` 451 행 · DB pg_proc 현재본 · 2e-1b 검증 D1 도 같은 뜻 · 「blocked 는 claimed 에서 뺀다」 는 판정 · 지시서 줄 0
+6. **두 창 동시 시험(11-03 밤)**: mail-inc-1a(mail_outbox)와 2e-2-1(qbo_job · qbo_txn)을 함께 — 돌리기 전에 두 방향 grep(서로의 표 · 함수를 건드리나) + 간접 경로(so_invoice `doc_mail_auto_invoice` 트리거는 가짜 손님 `final_invoice_mail` 기본 false 라 첫 줄에서 끝)를 보고 돌렸다 · 충돌 0
+7. **cron 62 `ims-qbo-send-payments`**: 11-03 밤 현재 **등록 전** · `supabase/ops/cron.sql` 실행 블록 = **kinds 둘**(1034 · docs-1103b 에서 넷 → 둘로 고침) · 넷 판은 주석(2e-2-1b 배포 뒤 다시 등록)
+8. **Freightcom 토론토만 운영 전환**(비밀값만 · 코드 무변 · 키는 계정별 848 · 주소는 하나): FREIGHTCOM_BASE_URL = `https://external-api.freightcom.com` · FREIGHTCOM_API_KEY_TOR = 운영 토큰(Caleb 이 Freightcom 프로필에서 만듦) · FREIGHTCOM_API_KEY_EDM **지움**(unset — 시험 토큰이 운영 주소에서 안 통하고, 남겨 두면 가짜 예약 위험) · status 확인(EDM has_key false) · ⚠️ **운영 예약은 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · 에드먼턴은 운영 토큰 올 때까지 Freightcom 사이트에서 손 예약(API licence 를 Freightcom 에 보내야 온다 · deferred 462) · 에드먼턴 키가 없을 때 IMS 화면이 무엇을 보이는지는 **안 봤다**
+9. **QuickBooks 매칭(11-03 회사)**: Payment methods 짝 없음 0 · Customers NOT MATCHED 39 · Suppliers 45 · Products 2,953(인계서 §1)
+
+### 99-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: **249**(include_in_email 의 뜻 → 1000 · 1018 · 1020 — 켜진 연락처 모두에게 · 짓기는 mail-inc-1a ~ 1d · 460)
+- 잇기: **454**(2e-2 크레딧 붙임 — DB 2e-2-1 섰다 · EF 2e-2-1b 남음(461) · 2e-3 환불 · 받아 둔 돈은 그대로) · **364**(Freightcom — 토론토 운영 끝 · 에드먼턴 대기 462) · **453**(결제 켜는 순서 — 1034 로 2e-2-1b 보다 먼저 · cron kinds 둘)
+- 새 **459**(QBO 원가 · Bill · 공급처 크레딧 · 입고 · 운임 · 관세 분개 — 안 지음) · **460**(mail-inc-1b → 1c → 1d) · **461**(qbo-sync-2e-2-1b EF + 첫 CR-01008 → 60026) · **462**(Freightcom 에드먼턴 운영 토큰)
+- 다음 차례(인계서 §3 · 1034 반영): ① **결제 QBO 켜기**(qbo-integration §14-f 「켜는 순서」) ② 2e-2-1b EF ③ 원가 · Bill 줄기(459) ④ mail-inc-1b → 1c → 1d ⑤ shop-disc 관찰 → shop-disc-2 ⑥ cr-store-1b 화면 · cr-store-2
+
+### 99-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (98-e 에 이어 71 부터)
+
+71. [검증 · 재발] **pg_proc 의 "char" 칸**(provolatile · proparallel · prosecdef 와 잇기) — shop-disc-1 1 회 · cr-store-1a 2 회 · mail-inc-1a 1 회 · 같은 날 셋째(인계서 §5 에 이미 적힌 교훈) ⇒ `||` · 비교 전에 `::text` · 재발행 파일은 `grep -n '^\$function\$'` 로 `;` 확인(cr-store-1a 1 회 `$function$` 의 ; 빠짐)
+72. [검증 · 틀 셋] 같은 날 두 차수에서 셋이 다 났다 — ① `rollback;` 은 집계(select · `\gset`) **뒤**(mail-inc-1a 2 회 t_res) ② 「적용 전 대비 +N」 검사는 `\if :{?mig}` 안(mail-inc-1a 확인 1 회 · 일곱째 재발) ③ `EXPECT_OK` 는 갈래마다(2e-2-1 확인 1 회) ⇒ asung-workflow §4 틀을 고침
+73. [적용 · 번호] **20261103080000 이 repair 없이 남아 있었다**(회사 적용) ⇒ 적용 전 번호 대조에 「앞 차수들이 schema_migrations 에 다 있나」 — `ls supabase/migrations/<날짜>*` 와 `select version … where version >= '<날짜>000000'` 를 나란히 · ⚠️ 빠진 까닭은 **모른다**(짐작: 노트북의 Supabase CLI 3.0.0 은 repair 가 Yes/No 를 묻고 기본 No — `&&` 고리에서 묻는 줄에 멈췄을 수 있다 · 회사 PC 의 CLI 판은 안 봤다)
+74. [대화 Claude] **「시험만」 을 「파일은 고치지 마라」 로 옮겼다** — Claude Code 가 회차마다 멈췄다 · Caleb 「어제까지는 검증까지 몇회차에 걸쳐서 클로드 코드가 마무리하고 답을 줬는데, 오늘은 일일히 멈추네」 ⇒ 검사 파일 결함은 Claude Code 가 고치고 다시 돈다(asung-workflow §4)
+75. [대화 Claude] **실행 명령을 옮겨 적다 `MIG=` 접두를 빠뜨렸다**(handoff §3 에는 있었다) — G0 가 거짓 MISMATCH ⇒ 실행 명령은 handoff · 지시서의 것을 바이트 그대로
+76. [대화 Claude · 짐작] **까닭을 코드 확인 없이 적었다** — 1034 의 「네 종류로 등록하면 EF 가 모르는 kind 를 invoice 로 읽는다(entityKeyOf ELSE)」 → 실제 지금 EF 는 `kindsOf` 에서 400 거부 · 결제도 멈춘다(docs-1103b 이견 5 · `_shared/qbo.ts:808-814`) · entityKeyOf 위험은 2e-2-1b 를 **만들 때**(SEND_KINDS 를 넓히고 가지를 안 넣으면) ⇒ 「EF 가 X 를 받으면」 은 그 EF 판의 코드를 grep 한 뒤
+77. [대화 Claude · 공개 레포] **지시서에 손님 상호 · 사람 이름 · 이메일을 실었다**(mail-inc-1a NOTICE) — asung-wms 는 공개 레포 ⇒ 정본 · 스킬 · 지시서에는 수로만(「셀프 청구 3 곳 · 매장 연락처 2 곳」) · Caleb 11-03
+78. [대화 Claude · 짐작 · 재발 24 · **여섯째**] set v17 — 단추가 안 보이자 열쇠(perms)부터 짐작으로 말했다가 틀렸다 · 표 이름도 짐작(staff → 실제 ims_staff) ⇒ ① 열쇠(perms) ② EF 가 돌려주는 값 ③ DOM 에 단추가 있나(querySelectorAll) ④ 그 값을 덮는 줄(grep `qm = {`) 순서로 · 칸 · 표 이름은 information_schema 먼저
+79. [문서 차수 · 원천] 지시서 §0-3 의 `git log --grep='^docs-'` 가 앞 문서 차수를 못 찾았다 — docs-1102 · docs-1103 커밋 글은 `docs(docs-…)` 로 시작 · 첫 줄이 490d4ad(docs-1101b) ⇒ `--grep='docs-1'` 로 찾고 원문으로 보고(98-e 62 에 이어)
+80. [환경 · 노트북] **Supabase CLI 3.0.0** — `migration repair` 가 Yes/No 를 묻는다(기본 **No** · ← 로 Yes · 전역 `--yes` 가 있다 — `supabase --help` 실측) · `--db-url` 은 deprecated(v4 에서 제거 · `--remote=<url>`) · 회사 · 집 PC 는 2.x 일 수 있다(안 봤다)
+
+### 99-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §98 끝 「다음 판정 번호 995 · 다음 deferred 번호 459」 → 아래
+- §85 근처(11099 행) 「운영 토큰 전 실호출은 테스트 환경만」 → 99-c 8(토론토 운영 · 에드먼턴 대기)
+- `qbo-integration.md` 머리 상태 줄 · §8(set v17) · §14-f(cron kinds 1034 · 켜는 순서) · 새 §14-g(2e-2-1)
+- `freightcom-integration.md` 머리 상태 줄 둘 · `deferred.md` 249 닫힘 · 364 · 453 · 454 잇기 · 새 459 ~ 462
+- `supabase/ops/cron.sql` ims-qbo-send-payments 실행 블록 kinds 넷 → 둘(넷 판은 주석)
+- 스킬 asung-qbo(본문 · description + credit_apply) · asung-doc(본문 · description + to_more · doc_mail_recipients) · asung-so(본문만) · asung-wms(본문 한 줄) · asung-workflow(본문만)
+
+```
+다음 판정 번호: 1035 · 다음 deferred 번호: 463
 ```

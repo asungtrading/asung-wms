@@ -10,11 +10,11 @@
 
 | 상태 \ 때 | 컷오버 전 필수 | 컷오버 날 | 판정 대기 | Caleb 요청 때 | 미정 | 컷오버 뒤 | — | 합 |
 |---|---|---|---|---|---|---|---|---|
-| 열림 | 2 | 8 | 15 | 9 | 318 | 38 | 0 | 390 |
+| 열림 | 2 | 8 | 15 | 9 | 320 | 39 | 0 | 393 |
 | 모름 | 0 | 0 | 0 | 0 | 8 | 0 | 0 | 8 |
 | 닫힘(짐작) | 1 | 1 | 0 | 0 | 1 | 0 | 1 | 4 |
-| 닫힘 | 15 | 9 | 0 | 3 | 61 | 7 | 8 | 103 |
-| 합 | 18 | 18 | 15 | 12 | 388 | 45 | 9 | 505 |
+| 닫힘 | 15 | 9 | 0 | 3 | 62 | 7 | 8 | 104 |
+| 합 | 18 | 18 | 15 | 12 | 391 | 46 | 9 | 509 |
 
 > [2026-10-29 · docs-1029] 367 닫힘(617 확인) · 새 369 ~ 380(369 컷오버 전 필수 · 371 판정 대기 · 373 ~ 375 컷오버 뒤 · 나머지 미정) · ⚠️ 「합」 줄 컷오버 날 칸이 14 로 적혀 있었다 — 열림 11 + 닫힘 2 = 13(합 415 는 13 으로 맞던 수 · 칸 오기만 고침)
 > [2026-10-29 오후 · docs-1029b] 380 닫힘(판정 874) · 새 381(컷오버 뒤) · 382(미정 · 발주앱 경계 확인) · 판정 875 · 878 은 **거둠**(짓지 않음 · 879 로 지금 그대로 — 줄 없음 · so §88-a)
@@ -28,6 +28,7 @@
 > [2026-11-01 밤 · docs-1101b] 431 닫힘(판정 941) · 433 닫힘(북키퍼 답 · 트랜스퍼 보낼지는 qbo-integration §11) · 새 439 ~ 443(439 · 441 · 442 미정 · 440 · 443 컷오버 뒤) · 지시서 C ⑤ 「redirect 비우기」 는 이미 함(947) · 「Freightcom 운영 토큰」 은 364 에 잇기 · 잇기 434 · 374 · 375 · 327 · 260 · 360 · 432 · 364 · 256 · so §96-d′
 > [2026-11-02 · docs-1102] 375 닫힘(Caleb 이 Cin7 ↔ QBO 연결을 끔 · 북키퍼 고지 · IMS 첫 인보이스 60000 → QBO 172335) · 374 열림 그대로(대화 Claude 가 알림 문구를 고침 — Intuit 에 보냈는지 Caleb 확인 전까지) · 새 444 ~ 451(444 ~ 450 미정 · 451 Caleb 요청 때) · so §97-d′
 > [2026-11-03 · docs-1103] 450 닫힘(창고 속도 ① ~ ③ · ②-a ~ ②-c) · 432 닫힘(판정 983 · 카드 QBO 수단 하나) · 337 ① 닫힘(판정 994 · 337 은 ② ~ ⑨ 로 열림 그대로) · 잇기 341 · 434(981 · 982) · 새 452 ~ 458(453 Caleb 요청 때 · 나머지 미정) · so §98-d′
+> [2026-11-03 밤 · docs-1103b] 249 닫힘(판정 1000 · 1018 · 1020) · 잇기 364 · 453 · 454 · 새 459 ~ 461(미정) · 462(컷오버 뒤) · so §99-d′
 
 ## 1. ⭐ 열림 · 컷오버 전 필수 — 11-01 까지 먼저 볼 줄
 
@@ -66,7 +67,7 @@
 | 395 | 브랜드별 첫 push 때 상품 하나가 **Shopify 사진 그대로인지** 확인(asung · aone send_images false · 890) — shop-img-off-1 의 「REST 둘째 겹」 시험 대신 실물로 | 열림 | 컷오버 날 | 📌 docs-1030 E(shop-img-off-1 끝) | so §90-d · shopify-integration §3-b · §5 ㉑ | 890 |
 | 402 | 칸을 빼거나 빈 값을 보낼 때 Shopify 쪽 값이 어떻게 되나(짐작 · 문서 안 봄) — ① 원산지 「coo dropped」 상품은 Shopify 옛 값이 남는다(짐작 · 표가 나중에 그 코드를 알게 돼도 저절로 다시 안 간다 → force push) ② compareAt 없는 asung 변형 1,795(칸 안 보냄) ③ IMS 설명 빈 대상 asung 23 · aone 19(빈 descriptionHtml 이 Shopify 설명을 지울 수 있음) · 첫 push 때 본다 | 열림 | 컷오버 날 | 📌 docs-1030 A-884 · B(shop-risk-0) | so §90-a · 90-d · shopify-integration §3-e · §5 ⑳ | 884 · 408 · 412 |
 
-### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (342)
+### ③ 열림 · 판정 대기 · Caleb 요청 때 · 미정 (344)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -261,7 +262,6 @@
 | 246 | Settings 「Changed」 시각 — guard 가 화면(authenticated)에서 바꿀 때만 updated_at · updated_by 를 찍는다(psql · 마이그레이션 쓰기는 안 찍힘 · 실측 일곱 키 모두 10-16… | 열림 | 미정 | — | so:8793 (65-f) | — |
 | 247 | 기본 권한 뿌리: 새 표마다 anon · authenticated TRUNCATE(authenticated 58 · anon 25 표 · mail-1a 이견 9) | 열림 | 미정 | — | so:8794 (65-f) | — |
 | 248 | 되돌리기로 합쳐진 줄의 알림 계보(so_unconfirm 이 알림 받은 자식 수량을 부모에 더함 · mail-1b 이견 10) | 열림 | 미정 | — | so:8795 (65-f) | — |
-| 249 | include_in_email 의 뜻(5-c · 380 때) | 열림 | 미정 | — | so:8796,8954 (65-f·66-f) | — |
 | 250 | 적재 연락처 created_at 이 같아 둘째 단계 「첫」 이 사실상 id 순(mail-1b 이견 6 · 해당 손님 4 명) | 열림 | 미정 | — | so:8797 (65-f) | — |
 | 251 | asung-ops 레포의 references/registry.md · asung-bq-data-model 사본이 claude.ai 사본과 다르다(판정 519 는 SKILL.md 만 옮김) — 어느 쪽이 정본인지 Caleb 확인 뒤 … | 열림 | 미정 | — | so:8798,8799 (65-f) | 519 · 520 |
 | 252 | 화면 시험 덜 한 것: Ship Ready 인쇄 · 메일(packed 오더 필요) · SO 메일 · 크레딧 메일 · POS 인쇄 · 메모 Edit → 인쇄 Notes · Send 뒤 창 닫힘(d87f1c8 배포 뒤) — asung-… | 열림 | 미정 | — · [2026-10-25] 판매 몫(Ship Ready 인쇄 · 메일 · SO 메일 · 크레딧 메일 · 메모 → Notes · Send 뒤 닫힘) 시험 끝 · POS 인쇄만 남음 · Caleb 2026-10-25 · so §75-f | so:8945 (66-f) | — |
@@ -406,14 +406,17 @@
 | 449 | **asung 옛 compareAt 지우기** — asung 스토어에 남은 Compare-at(aone 은 IMS 값 = 판매가로 덮인 것이 의도 · 958 · 967) | 열림 | 미정 | docs-1102 D · 이견 4 답 | so §97-c 4 | 958 · 967 |
 | 451 | **원가 0 레이어 전수**(cost-fix-2-0 조사) — CRO85680(Cin7 조정 ST-01358 912 개 원가 0 → GP 「—」) · 갈래 일곱: transfer unknown 259 · parent_layer 233 SKU · baseline 36 · adjust_new 1 · purchase 1 · creditnote 2 · adjust_existing 1 | 열림 | Caleb 요청 때 | Caleb 「나중에」(docs-1102 C) | so §97-c 6 · asung-inv-ledger | — |
 | 452 | **2e-1d 이월 짝** — match_opening · qbo_opening_match · matched(qbo_txn.source) · 안 맞으면 「사람이 볼 것」 · 2329611(KimC Trading · Cin7 Omni) = QBO Invoice 81417 「2329611 \| ITRA6260-1」 Balance 6,823.87 사람 짝 · requeue(`qbo_payment_requeue`) + **qbo_link_set 이 payment_method 짝을 지으면 그 수단의 failed 결제 일감을 queued 로**(1c 답 ④) | 열림 | 미정 | docs-1103 §4 · 판정 982 | so §98-d′ · qbo-integration §14-f | 982 |
-| 453 | **결제 켜는 순서(Caleb)** — ① Settings 에서 credit_card QBO 수단 하나 짝 ② Sales → QuickBooks → Payments 몇 장 Preview → Send ③ cron 62 `ims-qbo-send-payments` 등록(`supabase/ops/cron.sql` · jobid 실측해 적기) ④ `qbo_send_payments_enabled` on · ⚠️ 그 전에는 화면의 Send 를 누르지 말 것(스위치는 자동만 막는다) | 열림 | Caleb 요청 때 | docs-1103 §4 · 판정 988 · cron.sql 머리 「켜기는 Caleb」 | so §98-d′ · qbo-integration §14-f | 983 · 988 |
-| 454 | **2e-2 크레딧 붙임**(985 · 989) · **2e-3 환불 · 받아 둔 돈**(987 · 990 · 이월 받아 둔 돈 62 건이 새 인보이스에 auto_balance 로 붙는 틈) | 열림 | 미정 | docs-1103 §4 | so §98-d′ · qbo-integration §14-f | 985 · 987 · 989 · 990 |
+| 453 | **결제 켜는 순서(Caleb)** — ① Settings 에서 credit_card QBO 수단 하나 짝 ② Sales → QuickBooks → Payments 몇 장 Preview → Send ③ cron 62 `ims-qbo-send-payments` 등록(`supabase/ops/cron.sql` · jobid 실측해 적기) ④ `qbo_send_payments_enabled` on · ⚠️ 그 전에는 화면의 Send 를 누르지 말 것(스위치는 자동만 막는다) | 열림 | Caleb 요청 때 | docs-1103 §4 · 판정 988 · cron.sql 머리 「켜기는 Caleb」 · → [2026-11-03 밤 · 판정 1034] 결제 켜기를 2e-2-1b 보다 먼저 · cron 62 kinds **둘**로 등록(qbo-integration §14-f) | so §98-d′ · qbo-integration §14-f | 983 · 988 |
+| 454 | **2e-2 크레딧 붙임**(985 · 989) · **2e-3 환불 · 받아 둔 돈**(987 · 990 · 이월 받아 둔 돈 62 건이 새 인보이스에 auto_balance 로 붙는 틈) | 열림 | 미정 | docs-1103 §4 · → [2026-11-03 · 2e-2-1 `487f678`] 크레딧 붙임 DB 섰다(0 원 Payment · 1009 · 1011 ~ 1017) · EF 는 461 · 2e-3 은 그대로 | so §98-d′ · qbo-integration §14-f | 985 · 987 · 989 · 990 |
 | 455 | **속도 남은 것** — so_sale_now false 로 바꿀 수 있는 나머지 셋(product_list · product_export · stk_value_total · 각 약 −170 ms · 사무실 화면) · inv_move_bin_contents 의 제품마다 조회(0.6 ~ 3.8 s) · wms_pick_shelf 의 pl · pk 약 100 ms · so_totals_many(197 ms × 수백 회 · 뷰 무관) | 열림 | 미정 | docs-1103 §4 · 450 닫힘 뒤 | so §98-c 3 | — |
 | 456 | qbo-send 화면 — 참조 없는 결제의 Document 칸이 「· 손님 · CAD 금액」 처럼 가운뎃점으로 시작(보기만) | 열림 | 미정 | docs-1103 §4 | so §98-d′ | — |
 | 457 | so-invoices 목록 Branch 거르기(뷰 `so_invoice_list.warehouse_id` 로 · 이름만) | 열림 | 미정 | docs-1103 §4 · 994 칸이 섰다 | so §98-d′ | 994 |
 | 458 | Action Centre Unpaid 의 「Paid · credited」 칸이 이월 먼저 받은 금액(prior_settled)을 안 보인다 — 50663 Total 70.54 · 0.00 · still owed 20.54(짐작 · 확인 거리) | 열림 | 미정 | docs-1103 §4 | so §98-d′ | 994 |
+| 459 | **QBO 원가 · 공급처 줄기** — 원가(COGS) 분개 · 공급처 청구서(Bill) · 공급처 크레딧 · 입고 분개(Inventory / GINR) · 운임 · 관세 분개 모두 안 지음 · QBO 는 QuantityOnHand false 라 컷 뒤 IMS 판매 원가가 QBO 에 0 · Caleb 「이미 시작했으니 순서대로」 ⇒ 2e-2 다음 | 열림 | 미정 | docs-1103b · 인계서 1103 §4 에서 빠졌던 것 | so §99-a · qbo-integration §13 · §14-g | — |
+| 460 | **mail-inc-1b → 1c → 1d** — 1b EF(To 에 to_more 잇기) → 1c 채우기(doc_mail_send · enqueue · auto_invoice 가 doc_mail_recipients 로) → 1d 화면(받는 이 체크 · 주소 더하기 1022) · ⚠️ 1c 가 1b 보다 먼저면 둘째 주소부터 조용히 빠진다 · 1c 전에 셀프 청구 3 곳 · 매장 연락처 2 곳 직원 확인 | 열림 | 미정 | docs-1103b | so §99-c 3 | 1000 · 1018 ~ 1029 |
+| 461 | **qbo-sync-2e-2-1b EF** — SEND_KINDS 10 · entityKeyOf credit_apply 명시 가지(ELSE = invoice) · 가드 Invoice Balance ≥ a ∧ CreditMemo RemainingCredit ≥ a · unknown 풀기 PrivateNote 접두 둘 · void · 첫 실물 CR-01008 → 60026 · cron 62 kinds 넷으로 다시 등록 | 열림 | 미정 | docs-1103b · 1034 로 결제 켜기 뒤 | qbo-integration §14-g | 1009 · 1011 ~ 1017 · 1034 |
 
-### ④ 열림 · 컷오버 뒤 (38)
+### ④ 열림 · 컷오버 뒤 (39)
 
 | 번호 | 무엇 | 상태 | 때 | 근거(때 · 상태) | 출처 | 판정 |
 |---|---|---|---|---|---|---|
@@ -435,7 +438,7 @@
 | 340 | 제품 내보내기에 옛 생성일(product.cin7_created_on) 칸을 더할지 — 「Added on」(created_at)은 Before IMS 기록에서 적재일이다(제품 09-14 · 손님 09-22 · 공급처 09-12 · 09-14 · 10-05) | 열림 | 컷오버 뒤 | Caleb 2026-10-26(767 「그렇게 가자」 — 요청 때) | so §78-a 767 · 78-f | 767 |
 | 341 | QuickBooks 연동(327 · 260)에서 이월 인보이스(so_invoice kind opening) · 받아 둔 돈(so_payment method opening)은 **보내지 않는다**(원본이 이미 QuickBooks · 786) + IMS 에서 이월 인보이스에 붙인 결제 · 크레딧은 QBO 의 기존 인보이스(옛 번호)에 붙여 보낸다 | 열림 | 컷오버 뒤 | 판정 786(Caleb 「A」) · 327 과 같은 때 · → [2026-11-01] 컷 뒤 입금을 어디에 넣나(IMS → 싱크 vs QBO 직접 · 두 번 적힘) = 434 · → [2026-11-03 · docs-1103 · so §98-a 982] 이월 인보이스는 다시 보내지 않고 이월에 붙은 IMS 결제는 보낸다 · 짝 = DocNumber + 매장 손님 + 금액(1d · 452) · 열림 그대로 | so §79-c · 79-f · 327 | 775 · 786 |
 | 359 | IMS 바코드 중복 점검 | 열림 | 컷오버 뒤 | 인계서 §7(2026-10-28 · 인계서가 359 를 이 줄로 썼으나 deferred.md 에 줄이 없었다 — docs-1028h 가 세움) | so §84-d | — |
-| 364 | Freightcom 운영으로 다시 확인할 것 — 운영 토큰(TOR · EDM — Edmonton 은 API 따로 신청) · 운영 비밀값 · EF 테스트 가드(`db_role = 'test'` · index.ts:3) 풀기 · 운송사 진짜 마감(carrier_cut_off_time — 테스트는 전부 가짜 `31-12-0000 06:42PM`) · 라벨 주소 꼴(서명 여부) · 운송사별 pickup_confirmation(FedEx 비정기 옴 · Maritime 팔렛 null — 짐작) · 처리 시간 · Purolator Freight 400 booking carrier · Edmonton 출발 견적(packed 오더 + 치수 재료) · Apex Freightcom 이름(실제 쓰는 날) | 열림 | 컷오버 뒤 | 📌 B 새 deferred 후보 · 인계서 §7 · 326 과 같은 때 · → [2026-10-29 · docs-1029] 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다) · 「EF 테스트 가드 풀기」 는 617 로 할 일이 아니다(가드는 asung-WMS 만 막는다 · freightcom-integration 머리) · → [2026-11-01 밤 · docs-1101b · so §96] 시험 토큰 그대로 — 운영 토큰 요청 두 번 · 답 없음 · 11-02 아침 다시 · 그동안 Freightcom 사이트에서 손으로 · 비밀값 FREIGHTCOM_BASE_URL · API_KEY_TOR · _EDM 만 바꾸면 된다 | so §84-d · 85-d · freightcom-integration §12 | 677 · 852 |
+| 364 | Freightcom 운영으로 다시 확인할 것 — 운영 토큰(TOR · EDM — Edmonton 은 API 따로 신청) · 운영 비밀값 · EF 테스트 가드(`db_role = 'test'` · index.ts:3) 풀기 · 운송사 진짜 마감(carrier_cut_off_time — 테스트는 전부 가짜 `31-12-0000 06:42PM`) · 라벨 주소 꼴(서명 여부) · 운송사별 pickup_confirmation(FedEx 비정기 옴 · Maritime 팔렛 null — 짐작) · 처리 시간 · Purolator Freight 400 booking carrier · Edmonton 출발 견적(packed 오더 + 치수 재료) · Apex Freightcom 이름(실제 쓰는 날) | 열림 | 컷오버 뒤 | 📌 B 새 deferred 후보 · 인계서 §7 · 326 과 같은 때 · → [2026-10-29 · docs-1029] 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다) · 「EF 테스트 가드 풀기」 는 617 로 할 일이 아니다(가드는 asung-WMS 만 막는다 · freightcom-integration 머리) · → [2026-11-01 밤 · docs-1101b · so §96] 시험 토큰 그대로 — 운영 토큰 요청 두 번 · 답 없음 · 11-02 아침 다시 · 그동안 Freightcom 사이트에서 손으로 · 비밀값 FREIGHTCOM_BASE_URL · API_KEY_TOR · _EDM 만 바꾸면 된다 · → [2026-11-03 · docs-1103b · so §99-c 8] **토론토 운영 끝**(BASE_URL 운영 · TOR 운영 토큰 · EDM 키 지움) · 에드먼턴 = 462 | so §84-d · 85-d · freightcom-integration §12 | 677 · 852 |
 | 373 | IMS 로그인 MFA — 지금 없다(Intuit 설문 「No」) · 컷오버가 자리 잡은 뒤 따로(23 명 로그인 방식이 바뀐다) | 열림 | 컷오버 뒤 | 판정 871(Caleb 「A」 · 2026-10-29) | so §87-d · qbo-integration §9 | 871 |
 | 374 | Intuit 설문 다시 알림 — 싱크에서 다중 통화 · 캐나다 세금 · 지우기(deletes)를 쓰게 되면 · IMS Claude 커넥터(360)가 QBO 데이터를 Claude 에 보이게 되면(생성형 AI 답이 바뀐다) | 열림 | 컷오버 뒤 | 설문 제출본(2026-10-29) · 327 과 같은 때 · → [2026-11-01 · so §95 · qbo-integration §9] 판정 933(QBO 읽기 데이터를 회사 주인이 Claude 로 분석) · 934(`qbo_entity` 거울 · 조회 결과 저장 예외)도 재알림 때 함께 적는다 · → [2026-11-01 밤 · docs-1101b · so §96] 재알림 거리 더함 — 945(QUICKBOOKS 열쇠 · 북키퍼 · 매니저도 쓰기) · 2a′ 쓰기 시작(손님 · Item 만들기 · 첫 쓰기 Customer 10740) · 다중 통화(940 USD 기본 환율) · 세금(942) · void(2b · 2c) — 문구 초안은 2b · → [2026-11-02 · docs-1102 · so §97-c 3] 대화 Claude 가 Intuit 알림 문구(⑤)를 고침 — 크레딧 노트(2c) · 북키퍼가 문서마다 확인하고 보냄(971) · CreditMemo void 포함 · **Intuit 에 보냈는지 Caleb 확인 전까지 열림** | so §87-d · qbo-integration §9 · §11 | 868 |
 | 381 | Ship & invoice 에서 인보이스가 둘 이상으로 갈리면(groups ≥ 2) ship_ready 미리 보기가 **같은 크레딧을 장마다 계획**한다(남은 5.00 → 장마다 5.00 = 10.00) — 발행(so_invoice_issue)은 장마다 줄어 바르다 · PROFORMA 종이만 틀린다 | 열림 | 컷오버 뒤 | 📌 docs-1029b B(doc-sr-1 이견 4 · Caleb 「컷오버 뒤」) | so §88-d · asung-doc §2 | 874 |
@@ -455,6 +458,7 @@
 | 438 | 짝 화면 **「애매만 보기」**(qbo_link_page 에 후보 있음 거르기) — 지금은 제품만 화면이 훑는다 · 손님 · 공급처가 늘면 | 열림 | 컷오버 뒤 | docs-1101 C-8 | qbo-integration §8 · §12 | 934 |
 | 440 | **QBO 손님 정보가 IMS 에서 바뀌면** QBO 에도 고칠지 — 지금은 만들 때만(qbo_customer_body · 936 · 946) | 열림 | 컷오버 뒤 | docs-1101b C ② | so §96-a 936 · qbo-integration §14 | 936 |
 | 443 | **카드 수수료(그 밖 계정 charge) 세금 — 회계사 확인** — 지금은 IMS 값 그대로(IMS 는 비용 줄에 오더 세율 · 942) · 답으로 바뀌면 so 차수에서 IMS 비용 줄 세금을 고친다 | 열림 | 컷오버 뒤 | 판정 951(2b 창 · 이견 답 덧붙임) | so §96-a 951 · qbo-integration §14 | 951 · 942 |
+| 462 | **Freightcom 에드먼턴 운영 토큰** — API licence 를 Freightcom 에 보내야 온다(Caleb · Reply all) · 오면 FREIGHTCOM_API_KEY_EDM 에 넣고 status 확인 · 그때까지 Freightcom 사이트에서 손 예약 · 키 없을 때 IMS 화면 동작은 안 봤다 | 열림 | 컷오버 뒤 | docs-1103b · 364 를 나눔 | so §99-c 8 · freightcom-integration 머리 | 848 |
 
 ### ⑤ 모름 (8)
 
@@ -469,7 +473,7 @@
 | 309 | saleCreditNoteList Total 4,714 가 실제 발행 크레딧(확정 표 9 개월 453 오더 · 원장 한 달 약 21)과 안 맞는다 · 적재는 이 목록을 안 쓴다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | — |
 | 310 | 짝 발주 1,424 행 · 짝 1,421 — 같은 PO 번호가 목록에 두 번인 것 셋(짐작) · 공급처 안 풀림 0 이라 무해로 보이나 두 행의 공급처가 같은지 안 봤다 | 모름 | 미정 | 안 봤다 | so §72-f · docs-1023h | 657 |
 
-### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (107)
+### ⑥ 닫힘 · 닫힘(짐작) — 접어 둔다 (108)
 
 <details><summary>펼치기</summary>
 
@@ -583,6 +587,7 @@
 | 375 | IMS → QuickBooks 싱크를 지을 때 **Cin7 의 QBO 싱크를 끄는 시점**을 함께 정한다 — 둘이 같은 거래를 보내면 두 번 적힌다(QBO 는 여러 앱 동시 연결) | 닫힘 | 컷오버 뒤 | Caleb 물음 「싱크되는 것은 아니지?」 답(2026-10-29) · 327 과 같은 때 · → [2026-11-01 · qbo-integration §13] Cin7 쪽 **Auto sync 꺼짐**(Sync now 로만 · 마지막 10-30 17:31) · 10 월까지는 실무자가 Cin7 → QBO 로 올린다(11-02 중) · 끊는 시점 = 그 작업 확인 뒤 · → [2026-11-01 밤 · docs-1101b · so §96] 변화 없음 · 2a′ 로 IMS 쓰기가 시작됐다(손님 · Item 만) — 인보이스(2b) 전에 끊는 시점을 정한다 · ✅ [2026-11-02 · docs-1102 · so §97-c 3] **닫힘** — Caleb 이 Cin7 ↔ QBO 연결을 끔 · 북키퍼에게 알림 · IMS 가 보낸 첫 인보이스 60000 → QBO 172335(sent · mismatch 0) | so §87-d · qbo-integration §1 · §11 | — |
 | 450 | **B — `ims_inv_balance` 뷰 호출자 10 곳**을 키 직접 조회로(wms-balance-perf-1 · wms_pick_lines · so_pick_plan · stk_* … · A 는 wms-complete-perf-1 `7979c4f`) · 두 창고가 멈춘 뒤(11-02 밤 집) | 닫힘 | 미정 | wms-complete-perf-1 머리 「무접촉 … B 안 · deferred 450」 · ✅ [2026-11-03 · docs-1103 · so §98-c 3] **닫힘** — ① `afdd8ec`(ims_inv_balance_of · wms_pick_lines · so_pick_plan · ims_last_bin · product_bom_set) · ②-a `6107e23` · ③ `545d8bb`(+ 식 인덱스 둘) · ②-b `9775e67` · ②-c `df84adb`(so_sale_now p_with_deals) · 화면 bal-of v1 asung-ims `47e7796` · 재고 화면 두 창고 1,850 → 731 ms · 픽 과제 16 개 4,733 → 241 ms · 남은 것은 455 | so §97-c 2 · ledger-design | — |
 | 432 | **credit_card 1:3** — IMS 결제 수단은 credit_card 하나 · QBO 는 Visa · Mastercard · Amex(자동 짝 skipped · 결제 차수 판정 · 입금 계좌는 셋 다 Clearing - TD Merchant) | 닫힘 | 컷오버 뒤 | docs-1101 C-2 · → [2026-11-01 밤 · docs-1101b · so §96] 북키퍼 ① — Cin7 은 결제 수단을 전부 Cash 로 보냈고 재무제표에 닿는 것은 Deposit To 뿐 ⇒ 수단 1:3 보다 입금 계좌가 무게 · 열림 그대로(결제 차수) · ✅ [2026-11-03 · docs-1103 · so §98-a 983] **닫힘** — 판정 983: 카드는 Visa · MC · Amex 를 가르지 않는다 · QBO 수단 **하나** · 짝은 Settings 에서 사람(Caleb · 켜는 순서 453 ①) · 화면 pay screens v1 `4d9b62a`(한 수단 Find…) · ⚠️ 「Cin7 은 수단을 전부 Cash 로」 는 정정(so §98-c 1 — 카드 · Debit · E-Transfer · EFT · Cheque 는 갈라 보냈다) | qbo-integration §12 · §13 | 934 · 983 |
+| 249 | include_in_email 의 뜻(5-c · 380 때) | 닫힘 | 미정 | [2026-11-03 · docs-1103b · so §99-d′] 판정 1000 · 1018 · 1020(켜진 연락처 모두에게 · 새 표시 없이 있는 표시를 따른다) · 짓기 mail-inc-1a(`76fa714`) ~ 1d(460) | so:8796,8954 (65-f·66-f) | 1000 · 1018 · 1020 |
 </details>
 
 ## 3. 메모 항목의 짝(따로 줄을 두지 않은 것)
@@ -600,7 +605,7 @@
 
 ## 4. 이 문서를 고칠 때
 
-- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ ~~341~~ ~~346~~ ~~350~~ ~~354~~ ~~358~~ ~~359~~ ~~369~~ ~~381~~ ~~383~~ ~~387~~ ~~403~~ ~~415~~ ~~421~~ ~~426~~ ~~430~~ ~~439~~ ~~444~~ ~~452~~ 459 부터([2026-11-03 · §98] 452 ~ 458 = docs-1103)([2026-11-02 · §97] 444 ~ 451 = docs-1102)([2026-11-01 밤 · §96] 439 ~ 443 = docs-1101b)([2026-11-01 · §95] 430 ~ 438 = docs-1101)([2026-10-31 밤 · §94] 426 ~ 429 = docs-1031c)([2026-10-31 저녁 · §93] 421 ~ 425 = docs-1031b)([2026-10-31 · §92] 415 ~ 420 = docs-1031 · D 4 는 414 에 덧붙임)([2026-10-30 저녁 · §91] 403 ~ 414 = docs-1030b)([2026-10-30 · §90] 387 ~ 402 = docs-1030)([2026-10-29 밤 · §89] 383 ~ 386 = docs-1029c)([2026-10-29 오후 · §88] 381 · 382 = docs-1029b)([2026-10-29 · §86 · §87] 369 ~ 380 = docs-1029)([2026-10-28 · §84 · §85] 359 ~ 368 = docs-1028h · 359 · 360 · 361 은 인계서가 예약한 번호)([2026-10-27 밤 · §82 · §83] 354 ~ 358 = docs-1027c)([2026-10-27 오후 · §81] 350 ~ 353 = docs-1027b)([2026-10-27 · §80] 346 ~ 349 = docs-1027)([2026-10-26 밤 · §79] 341 ~ 345 = docs-1026c)([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
+- 새로 미루는 일은 「때」 에 맞는 표(① ~ ⑤)의 맨 아래에 한 줄 — 때가 미정이면 「③ 미정」 표 · ① 에 넣으면 「1.」 표에도 · 번호는 ~~334~~ ~~335~~ ~~338~~ ~~339~~ ~~341~~ ~~346~~ ~~350~~ ~~354~~ ~~358~~ ~~359~~ ~~369~~ ~~381~~ ~~383~~ ~~387~~ ~~403~~ ~~415~~ ~~421~~ ~~426~~ ~~430~~ ~~439~~ ~~444~~ ~~452~~ ~~459~~ 463 부터([2026-11-03 밤 · §99] 459 ~ 462 = docs-1103b)([2026-11-03 · §98] 452 ~ 458 = docs-1103)([2026-11-02 · §97] 444 ~ 451 = docs-1102)([2026-11-01 밤 · §96] 439 ~ 443 = docs-1101b)([2026-11-01 · §95] 430 ~ 438 = docs-1101)([2026-10-31 밤 · §94] 426 ~ 429 = docs-1031c)([2026-10-31 저녁 · §93] 421 ~ 425 = docs-1031b)([2026-10-31 · §92] 415 ~ 420 = docs-1031 · D 4 는 414 에 덧붙임)([2026-10-30 저녁 · §91] 403 ~ 414 = docs-1030b)([2026-10-30 · §90] 387 ~ 402 = docs-1030)([2026-10-29 밤 · §89] 383 ~ 386 = docs-1029c)([2026-10-29 오후 · §88] 381 · 382 = docs-1029b)([2026-10-29 · §86 · §87] 369 ~ 380 = docs-1029)([2026-10-28 · §84 · §85] 359 ~ 368 = docs-1028h · 359 · 360 · 361 은 인계서가 예약한 번호)([2026-10-27 밤 · §82 · §83] 354 ~ 358 = docs-1027c)([2026-10-27 오후 · §81] 350 ~ 353 = docs-1027b)([2026-10-27 · §80] 346 ~ 349 = docs-1027)([2026-10-26 밤 · §79] 341 ~ 345 = docs-1026c)([2026-10-26 오후 · §78] 339 = 판정 759 의 나머지(cost-1 · 같은 날 닫힘) · 340 = 767 옛 생성일)([2026-10-26 · §77] 338 = 754)([2026-10-25 · §75] 334 = 판정 726)([2026-10-25 저녁 · §76] 335 = 734 · 336 = 735 · 337 = 화면 정리 후보)(291 ~ 300 = docs-1023 · 301 ~ 318 = docs-1023h · 319 ~ 327 = docs-1024 · 328 ~ 333 = docs-1024c)(so-module 마지막 번호 다음) · 정본의 -f 꼭지에는 「→ deferred.md 291」 만
 - 닫을 때는 줄을 지우지 않고 상태를 닫힘으로 · 근거 칸에 커밋 · 판정 · 절
 - 「때」를 Caleb 이 가르면 근거 칸에 「Caleb 2026-MM-DD」
 

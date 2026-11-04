@@ -6,7 +6,7 @@ description: >
   "Vault", "needs_reconnect", "invalid_grant", "QBO_ENV", "ims-qbo-refresh", "cron 59", "EF qbo", "qbo_status", "intuit_tid",
   "qbo_alert_to", "Untie company", "Reconnect", "App assessment", "redirect URI", "minorversion", "QBO 싱크", "Cin7 QBO 싱크",
   "qbo_link", "qbo_entity", "qbo_match_auto", "qbo_pull_state", "pull", "QuickBooks matching",
-  "qbo_job", "send", "apiWrite", "QUICKBOOKS 열쇠"
+  "qbo_job", "send", "apiWrite", "credit_apply", "QUICKBOOKS 열쇠"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/qbo-integration.md 를 확인하세요.
   ⚠️쓰기는 apiWrite 하나 — 자동 재시도 없음 · 모르면 unknown(인보이스는 아직),
   ⚠️토큰은 Vault 에만 — 표 · 화면 · 기록 · 응답에 싣지 마라,
@@ -38,7 +38,10 @@ description: >
 ~~⬜ 결제(Payment) · 크레딧 붙이기 · 환불(964) · 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 432 · 434 · 440 · 443~~ →
 2026-11-02 밤  결제 — qbo-sync-2e-1a(paypal · 수표 #105 · 미래 결제일 991) · 1a2(Clearing - Shopify 993) · 1b(결제 일감 · 몸 · 지문 · 트리거 · 백필 · done 10 인자) · 1c(EF · void = operation=update&include=void · Balance 가드 · cron 62 기록)
             ⚠️ **아직 켜지 않음** — qbo_send_payments_enabled off · cron 62 등록 전 · 켜는 순서 = 아래 5절 · 정본 §14-f · deferred 453
-⬜ 1d 이월 짝(452) · 크레딧 붙임 2e-2 · 환불 · 받아 둔 돈 2e-3(454) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 434 · 440 · 443 · 452 ~ 454
+2026-11-03  크레딧 붙임 — qbo-sync-2e-2-1(DB · `20261103200000` · 붙임 한 줄 = 0 원 Payment 한 장 · CustomerRef = 매장 · 1009 · 1011 ~ 1017 · 정본 §14-g) · EF 는 2e-2-1b(아직) · 백필 일감 1(CR-01008 → 60026 queued)
+            QuickBooks matching set v17 — Review 뒤에도 쓰기 단추(쓰기 조건 = EF status caller_qbo === 'write' · Review 가 qm 을 새로 만든다)
+⭐⭐ [11-03 밤 · 판정 1034] 다음 = **결제 먼저 켜기**(2e-2-1b 보다 먼저 · 정본 §14-f 순서) · ⚠️⚠️ 2e-2-1b 배포 전 cron 62 kinds 는 **둘**(payment · payment_void) — 넷이면 EF kindsOf 400 · 결제도 멈춤
+⬜ 1d 이월 짝(452) · 크레딧 붙임 2e-2-1b EF(461) · 환불 · 받아 둔 돈 2e-3(454) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 434 · 440 · 443 · 452 ~ 454
 ```
 
 ## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 ~~— 보내기는 없음~~ → [11-01 밤] 손님 · Item 만들기 섰음 · 인보이스는 2b — 모르면 사고
@@ -119,6 +122,10 @@ description: >
 ## 5-c. ⭐⭐ 쓰기 · 보내기 일감 — 모르면 사고 (2026-11-01 밤 · 정본 §14 · 판정 935 ~ 946 · 951)
 
 ```
+⚠️⚠️ [2026-11-03 밤 · 1034] **2e-2-1b EF 배포 전 cron 62(ims-qbo-send-payments) kinds 는 둘** — credit_apply · credit_apply_void 를 넣어 등록하면 지금 EF kindsOf(_shared/qbo.ts:808-814)가 400 → 결제도 안 나간다(조용한 멈춤) · cron.sql 실행 블록 = 둘 · 넷 판은 주석(배포 뒤 다시 등록)
+⚠️⚠️ [2e-2-1b 를 만들 때] entityKeyOf 의 ELSE = invoice — SEND_KINDS 에 credit_apply 를 넣으면 **명시 가지를 함께**(안 넣으면 크레딧 붙임을 invoice 로 읽는다)
+⭐ 크레딧 붙임(2e-2-1 · 1009 · 1011 ~ 1017) = so_credit_alloc 한 줄마다 금액 0 Payment 한 장(Line = Invoice + CreditMemo) · 떼기 = void(operation=update&include=void) · 지문 없음 · CustomerRef = 인보이스 매장(so_invoice_store · 크레딧 매장과 다르면 failed · 1010) · 스위치 qbo_send_payments_enabled(결제와 같다) · 손 Send 는 p_kinds = SEND_KINDS 8 이라 2e-2-1b 전에는 credit_apply 를 잡지 않는다
+⭐ qbo_job_claim 의 claimed = queued → sending 으로 바뀐 행 전부(뒤에 blocked · failed 로 간 것 포함) — 검증 기대값을 셀 때(so §99-c 5)
 ⚠️⚠️ 쓰기는 apiWrite 하나 — POST 만 · assertWriteAllowed(만들기 customer · item · invoice · creditmemo · void 는 invoice · creditmemo 만 · delete 없음) · requestid 필수
 ⚠️⚠️ 쓰기에 자동 재시도 없음 — 읽기 길(intuitCall)은 네트워크 · 5xx 재시도 → 쓰기에 쓰면 중복 · 결과를 모르면 qbo_job_unknown(보낸 이름을 남긴다)
      → 다음 send 첫머리가 그 이름(DisplayName · Name · 인보이스는 DocNumber)으로 GET 조회 · 하나면 done · 아니면 사람이 retry(note 필수) · skip
@@ -144,6 +151,7 @@ description: >
 ⚠️⚠️ 결제는 DocNumber 가 없다 — unknown 열쇠 = `qbo_job.qbo_name` **한 칸**에 「<PrivateNote>|<CustomerRef>|<TxnDate>|<TotalAmt>」(PrivateNote = 「IMS payment <uuid>」 · void 는 Payment Id) · 풀기 = 그 날 Payment 조회 → 하나 done · 0 · 둘 이상은 사람
 ⚠️  PaymentMethodRef 짝이 없으면 failed — credit_card 는 QBO 수단 하나(983)를 사람이 짝지을 때까지 · 짝 뒤 failed 를 queued 로 되살리는 것은 1d(deferred 452)
 ⚠️⚠️ **켜는 순서(Caleb · deferred 453)**: ① Settings 에서 credit_card QBO 수단 짝 ② Sales → QuickBooks → Payments 몇 장 Preview → Send ③ cron 62 ims-qbo-send-payments 등록(ops/cron.sql · jobid 실측) ④ qbo_send_payments_enabled on — ⚠️ 그 전에 화면 Send 를 누르지 마라(스위치는 자동만 막는다)
+   → [2026-11-03 밤 · 판정 1034 · Caleb 「첫 작업으로 결제를 켜자」] **2e-2-1b 보다 먼저** · 켜기 전 확인(EF 판 · 대기 결제 일감 수) → Preview → Send → QBO 잔액 확인 → cron 62 등록 **kinds 둘**(비밀값 Caleb) → 스위치 on → 첫 회차 보기 → cron.sql 에 jobid 실측 · 커밋
 ⚠️  Cin7 수단 정정(so §98-c 1): 「Cin7 은 결제 수단 전부 Cash」 는 틀렸다 — 카드 · Debit · E-Transfer · EFT · Cheque 는 갈라 보냈고 Cash 는 Shopify · PayPal · 현금뿐 · 입금 계좌 = Cin7 꼴(수표 _105_ · PayPal _124_ · Shopify _1150040029_)
 ```
 
