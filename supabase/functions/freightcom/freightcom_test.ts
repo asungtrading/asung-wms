@@ -1,5 +1,5 @@
-// deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b 견적 ① ~ ⑥ · fc-2c 예약 ⑦ ~ ⑩ · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음 · book-*.json 의 라벨 url 폴더는 MASKED)
-import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, cents, distinctCarriers, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, secretNameFor, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, type RateRequest } from "../_shared/freightcom.ts";
+// deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b 견적 ① ~ ⑥ · fc-2c 예약 ⑦ ~ ⑩ · fc-pickup-1 스케줄 ⑪ · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음 · book-*.json 의 라벨 url 폴더는 MASKED)
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, cents, distinctCarriers, FC_BOOK_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, SCHEDULE_WAIT_MS, scheduleOf, scheduleOutcome, secretNameFor, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, type RateRequest } from "../_shared/freightcom.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -166,4 +166,35 @@ Deno.test("⑩ 결제수단 · 예약 몸 — 배열 / {payment_methods} · net-
   const sent = bookBody(req, "pm2");
   eq(Object.keys(sent).sort(), ["details", "payment_method_id", "pickup_details", "service_id", "unique_id"], "body keys");
   eq((req as Record<string, unknown>).payment_method_id, undefined, "original untouched");
+});
+
+// fc-pickup-1 — ⚠️ 아래 schedule 응답은 전부 문서 스키마 짐작(실물은 아무도 못 봤다 · fixtures 폴더는 프로브 원문이라 넣지 않는다) · 첫 실호출 뒤 pickup_check.keys 로 실물 열쇠를 본다
+Deno.test("⑪ fc-pickup-1 스케줄 읽기 — status 네 값 · 감쌈 {schedule}/{pickup} · 맨몸 · 밖의 값 · 비문자열 → unknown · 확인번호 trim · 오류 글 열쇠 넷 · keys 정렬 · 시한 5 초 · 읽을 예약인가(상자 · 비정기 · 확인번호 없음) · pickup_poll 은 book 문", () => {
+  const pkg = shipmentOf(read("book-package.json"));
+  eq(scheduleOutcome({ status: "pending" }), { kind: "pending", status: "pending", confirmation: null, message: null, keys: ["status"] }, "pending bare");
+  eq(scheduleOutcome({ schedule: { status: " Done ", pickup_confirmation_number: " 123 " } }), { kind: "done", status: "done", confirmation: "123", message: null, keys: ["schedule"] }, "wrapped {schedule} · trim · lower");
+  eq(scheduleOutcome({ pickup: { status: "timed-out" } }).kind, "timed-out", "wrapped {pickup}");
+  eq(scheduleOutcome({ status: "error", message: "Carrier rejected the window" }), { kind: "error", status: "error", confirmation: null, message: "Carrier rejected the window", keys: ["message", "status"] }, "error + message · keys sorted");
+  eq(scheduleOutcome({ status: "error", errors: [{ message: "no window" }] }).message, "no window", "errors[0].message");
+  eq(scheduleOutcome({ status: "error", errors: ["plain"] }).message, "plain", "errors[0] string");
+  eq(scheduleOutcome({ status: "error", reason: "r", error_message: "e" }).message, "r", "reason before error_message");
+  eq(scheduleOutcome({ status: "Scheduled-Maybe" }), { kind: "unknown", status: "scheduled-maybe", confirmation: null, message: null, keys: ["status"] }, "outside the four → unknown kind · raw kept");
+  eq(scheduleOutcome({ status: { done: true } }).status, "unknown", "non-string status → unknown");
+  eq(scheduleOutcome(null).status, "unknown", "null body");
+  eq(scheduleOutcome([1]).keys, [], "array body → no keys");
+  eq(scheduleOutcome({ status: "done", confirmation_number: "C9" }).confirmation, "C9", "confirmation_number fallback");
+  eq(scheduleOf({ schedule: [1], status: "done" }).status, "done", "schedule that is an array is not a wrapper");
+  eq(SCHEDULE_WAIT_MS, 5_000, "wait 5 s");
+  const t0 = 1_000_000;
+  eq(shouldKeepSchedulePolling(scheduleOutcome({ status: "pending" }), t0, t0 + 4_999), true, "pending inside 5 s → keep");
+  eq(shouldKeepSchedulePolling(scheduleOutcome({ status: "pending" }), t0, t0 + 5_000), false, "pending at 5 s → stop");
+  eq(shouldKeepSchedulePolling(scheduleOutcome({ status: "done" }), t0, t0), false, "done → stop");
+  eq(shouldKeepSchedulePolling(scheduleOutcome({ status: "weird" }), t0, t0), false, "unknown → stop (save as is)");
+  eq(pickupCheckNeeded({ pre_scheduled_pickup: false, date: { year: 2026, month: 11, day: 6 } }, pkg), true, "box · not pre-scheduled · fixture has empty confirmation → read");
+  eq(pickupCheckNeeded({ pre_scheduled_pickup: true }, pkg), false, "regular pickup → no read");
+  eq(pickupCheckNeeded(null, pkg), false, "pallet (no pickup_details) → no read");
+  eq(pickupCheckNeeded(undefined, pkg), false, "missing → no read");
+  eq(pickupCheckNeeded({ pre_scheduled_pickup: false }, { ...pkg, pickup_confirmation_number: "9516500" }), false, "confirmation already in the booking answer → no read");
+  eq(pickupCheckNeeded({ pre_scheduled_pickup: "false" }, pkg), false, "string \"false\" is not false");
+  eq((FC_BOOK_ACTIONS as readonly string[]).includes("pickup_poll"), true, "pickup_poll gated with the booking actions");
 });

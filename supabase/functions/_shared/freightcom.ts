@@ -132,7 +132,38 @@ export function fcErrorSentence(action: string, status: number, body: unknown): 
 // ============================================================
 export const BOOK_WAIT_MS = 25_000;
 export const PAYMENT_CACHE_MS = 10 * 60_000;
-export const FC_BOOK_ACTIONS = ["book", "book_poll", "cancel", "label"] as const;
+export const FC_BOOK_ACTIONS = ["book", "book_poll", "cancel", "label", "pickup_poll"] as const;   // fc-pickup-1: pickup_poll = freight_booking 문(book_poll 과 같다)
+// ── fc-pickup-1 (2026-11-05 · 이견 1 ~ 12): 예약 뒤 GET /shipment/{id}/schedule — 문서(Customer API 2.11.0) status pending | timed-out | error | done + pickup_confirmation_number · 실물 꼴은 아직 아무도 못 봤다 → 파싱은 느슨하게 · 원문은 DB(fc_booking.schedule_response) · 받은 열쇠 목록(keys)을 응답에 ──
+export const SCHEDULE_WAIT_MS = 5_000;        // finishBook 안에서 pending 이면 POLL_INTERVAL_MS 마다 · 최대 5 초(≈ 4 번) — 8 건이 며칠째 그대로라 긴 기다림은 Book 응답만 늦춘다(이견 7)
+export type ScheduleOutcome = { kind: "pending" | "done" | "error" | "timed-out" | "unknown"; status: string; confirmation: string | null; message: string | null; keys: string[] };
+// {schedule:{…}} · {pickup:{…}} 감쌈 · 맨몸 — DB fc_schedule_parse 와 같은 규칙
+export function scheduleOf(body: unknown): Record<string, unknown> {
+  const b = body as Record<string, unknown> | null;
+  if (!b || typeof b !== "object" || Array.isArray(b)) return {};
+  const inner = (b.schedule && typeof b.schedule === "object" && !Array.isArray(b.schedule)) ? b.schedule : (b.pickup && typeof b.pickup === "object" && !Array.isArray(b.pickup)) ? b.pickup : b;
+  return inner as Record<string, unknown>;
+}
+export function scheduleOutcome(body: unknown): ScheduleOutcome {
+  const s = scheduleOf(body);
+  const raw = typeof s.status === "string" ? s.status.trim().toLowerCase().slice(0, 40) : "";
+  const status = raw || "unknown";
+  const kind: ScheduleOutcome["kind"] = status === "pending" || status === "done" || status === "error" || status === "timed-out" ? status : "unknown";
+  const pick = (...ks: string[]): string | null => { for (const k of ks) { const v = s[k]; if (typeof v === "string" && v.trim()) return v.trim(); } return null; };
+  const errs = Array.isArray(s.errors) ? s.errors[0] : null;
+  const message = pick("message", "error", "reason", "error_message") ?? (errs && typeof errs === "object" && typeof (errs as Record<string, unknown>).message === "string" ? String((errs as Record<string, unknown>).message) : typeof errs === "string" ? errs : null);
+  const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body as Record<string, unknown>).sort() : [];
+  return { kind, status, confirmation: pick("pickup_confirmation_number", "confirmation_number", "pickup_confirmation"), message, keys };
+}
+export function shouldKeepSchedulePolling(o: ScheduleOutcome, startedAt: number, now: number, waitMs = SCHEDULE_WAIT_MS): boolean {
+  return o.kind === "pending" && now - startedAt < waitMs;
+}
+// 예약 직후 스케줄을 읽을 예약인가 — 보낸 몸의 pickup_details.pre_scheduled_pickup === false(상자 · 비정기) 이고 예약 응답에 확인번호가 아직 없을 때만 · 팔렛(dispatch_details) · 정기(true) 는 읽지 않는다
+export function pickupCheckNeeded(pickupDetails: unknown, shipment: Record<string, unknown>): boolean {
+  const pd = pickupDetails as Record<string, unknown> | null;
+  if (!pd || typeof pd !== "object" || pd.pre_scheduled_pickup !== false) return false;
+  const conf = shipment?.pickup_confirmation_number;
+  return !(typeof conf === "string" && conf.trim() !== "");
+}
 export const paymentCacheKey = (account: string) => "payment:" + account.trim().toUpperCase();
 export type FcLabel = { size: string; format: string; url: string; padded: boolean };
 export type BookOutcome = { kind: "pending" } | { kind: "done"; shipment: Record<string, unknown> } | { kind: "failed"; error: string; body: unknown };

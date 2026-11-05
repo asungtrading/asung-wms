@@ -13,10 +13,14 @@
 //     book_poll {booking_id} — ④ 부터(DB 의 freightcom_shipment_id 로) · 이미 booked 인데 라벨이 없으면 ⑤ 만 다시
 //     cancel {shipment_id} → rpc/fc_book_cancel_prepare(사용자) → DELETE /shipment/{id} → service_role rpc/fc_book_cancel_save(cancelled_by · 몸 | p_error)
 //     label {label_id} → rpc/fc_label_get(사용자 JWT · 문) → documents 서명 URL 120 초(EF doc 선례) → {signed_url, expires_in}
+//     ⭐ fc-pickup-1(2026-11-05 · DB 20261105183506 · 이견 1 ~ 12): 예약 뒤 픽업 스케줄 다시 읽기 — Freightcom 호출은 GET 만
+//        ④ 뒤 ⑥: booked 로 저장된 뒤 보낸 몸이 상자 · 비정기(pickup_details.pre_scheduled_pickup false)이고 응답에 확인번호가 없으면 GET /shipment/{id}/schedule(action schedule_poll) 을 POLL_INTERVAL_MS 마다 · 최대 SCHEDULE_WAIT_MS(5 초) · pending 이 아니면 바로 → service_role rpc/fc_book_schedule_save(원문) · 응답 pickup_check{checked, …, keys} · 예약 응답 자체는 바꾸지 않는다(실패해도 booked)
+//        pickup_poll {booking_id} — 문 = book(freight_booking) · booked 만 · GET schedule 한 번 + GET /shipment/{id} 한 번(state 새로 · 확인번호 보조 · 이견 3) → fc_book_schedule_save(schedule, shipment) → {ok, checked:true, schedule, detail}
+//        GET 실패(404 · 5xx · 망) = DB 무변 · fc_call_log 한 줄 · 응답 {checked:false, error}(이견 2 · 「couldn't check」 글은 여기서만 · 그 밖 글은 DB fc_pickup_check) · 첫 실호출 뒤 pickup_check.keys(받은 최상위 열쇠) 로 실물 꼴 확인
 //   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · account · ok · http_status · error · by_staff · shipment_id · ms) · 라벨 받기도 한 줄(action label_fetch) · 90 일 지난 줄은 호출 끝에 지운다
 //   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.freightcom] verify_jwt=false)
 // ============================================================
-import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, distinctCarriers, FC_ACTIONS, FC_BOOK_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, PAYMENT_CACHE_MS, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shouldKeepBookPolling, shouldKeepPolling, type FcLabel, type FcService, type RateRequest } from "../_shared/freightcom.ts";
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, distinctCarriers, FC_ACTIONS, FC_BOOK_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, PAYMENT_CACHE_MS, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, SCHEDULE_WAIT_MS, scheduleOutcome, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, type FcLabel, type FcService, type RateRequest } from "../_shared/freightcom.ts";
 import { pdfPages, sha256Hex } from "../_shared/doc.ts";
 import { sleep } from "../_shared/shopify.ts";
 
@@ -41,7 +45,7 @@ async function sbWrite(method: string, path: string, body?: unknown): Promise<vo
   const r = await fetch(SB_URL() + "/rest/v1/" + path, { method, headers: sbHeaders({ Prefer: "return=minimal" }), body: body === undefined ? undefined : JSON.stringify(body) });
   if (!r.ok) throw new Error("sb " + method + " " + path.split("?")[0] + " " + r.status + ": " + (await r.text()).slice(0, 300));
 }
-// rpc 두 길 — service_role(fc_quote_pending · fc_quote_save · fc_book_pending_set · fc_book_save · fc_book_cancel_save · fc_label_add) · 사용자 JWT(prepare · for_so · book_prepare · cancel_prepare · label_get · for_shipment — DB 의 문이 그 사람을 본다) · PostgREST 오류는 사람 말(message)로
+// rpc 두 길 — service_role(fc_quote_pending · fc_quote_save · fc_book_pending_set · fc_book_save · fc_book_cancel_save · fc_label_add · fc_book_schedule_save) · 사용자 JWT(prepare · for_so · book_prepare · cancel_prepare · label_get · for_shipment — DB 의 문이 그 사람을 본다) · PostgREST 오류는 사람 말(message)로
 class RpcError extends Error { constructor(public status: number, message: string) { super(message); } }
 async function rpc(fn: string, args: Record<string, unknown>, jwt: string | null): Promise<unknown> {
   const headers: Record<string, string> = jwt ? { apikey: ANON(), Authorization: "Bearer " + jwt, "Content-Type": "application/json" } : { apikey: SERVICE(), Authorization: "Bearer " + SERVICE(), "Content-Type": "application/json" };
@@ -202,9 +206,9 @@ async function storageSign(path: string): Promise<string> {
   if (!s) throw new Error("storage sign: no signedURL in the answer");
   return s.startsWith("http") ? s : SB_URL() + "/storage/v1" + (s.startsWith("/") ? "" : "/") + s;
 }
-type Booking = { id: string; shipment_id: string; attempt: number; status: string; account: string | null; freightcom_shipment_id: string | null; labels: unknown };
+type Booking = { id: string; shipment_id: string; attempt: number; status: string; account: string | null; freightcom_shipment_id: string | null; labels: unknown; pickup_details?: unknown; pickup_confirmation?: string | null };   // fc-pickup-1: pickup_details = request->pickup_details(보낸 몸 · 팔렛은 null)
 async function loadBooking(bookingId: string): Promise<Booking | null> {
-  return (await sbGet("fc_booking?select=id,shipment_id,attempt,status,account,freightcom_shipment_id,labels&id=eq." + encodeURIComponent(bookingId) + "&limit=1"))[0] ?? null;
+  return (await sbGet("fc_booking?select=id,shipment_id,attempt,status,account,freightcom_shipment_id,labels,pickup_confirmation,pickup_details:request->pickup_details&id=eq." + encodeURIComponent(bookingId) + "&limit=1"))[0] ?? null;
 }
 // ⑤ 라벨 받기 — a6 pdf + letter pdf(세로) · Freightcom url 은 S3(Authorization 없이) · %PDF 확인 · documents/fc_label/… · fc_label_add · 실패는 warnings(예약은 그대로)
 async function fetchLabels(account: string, b: Booking, caller: Caller): Promise<{ saved: Record<string, unknown>[]; skipped: string[]; warnings: string[] }> {
@@ -231,6 +235,46 @@ async function fetchLabels(account: string, b: Booking, caller: Caller): Promise
   }
   return { saved, skipped: picked.skipped, warnings };
 }
+// ⑥ fc-pickup-1: GET /shipment/{id}/schedule(action schedule_poll) → wait 면 pending 동안 POLL_INTERVAL_MS 마다 · 최대 SCHEDULE_WAIT_MS → withShipment 면 GET /shipment/{id}(action shipment_get · state 새로) → rpc/fc_book_schedule_save
+//    GET 실패 · 저장 실패는 던지지 않고 {checked:false, error} 로 돌려준다(예약은 그대로 · fc_call_log 에는 fcCall 이 남긴다 · 조용한 실패 금지 — 응답과 console 에 글)
+type ScheduleCheck = Record<string, unknown> & { checked: boolean };
+async function checkSchedule(account: string, b: Booking, fcId: string, caller: Caller, wait: boolean, withShipment: boolean): Promise<ScheduleCheck> {
+  const started = Date.now();
+  let reads = 0;
+  try {
+    while (true) {
+      const r = await fcCall(account, "schedule_poll", "GET", "/shipment/" + encodeURIComponent(fcId) + "/schedule", undefined, caller, b.shipment_id, true);
+      reads++;
+      if (r.error) return { checked: false, reads, http_status: r.status || null, error: "Couldn't check the pickup with Freightcom — " + r.error, message: "Couldn't check the pickup with Freightcom (HTTP " + (r.status || "network") + ") — try Check pickup again or look at Freightcom" };
+      const o = scheduleOutcome(r.body);
+      if (wait && shouldKeepSchedulePolling(o, started, Date.now(), SCHEDULE_WAIT_MS)) { await sleep(POLL_INTERVAL_MS); continue; }
+      let shipment: unknown = null, shipment_error: string | null = null;
+      if (withShipment) {
+        const s = await fcCall(account, "shipment_get", "GET", "/shipment/" + encodeURIComponent(fcId), undefined, caller, b.shipment_id, true);
+        if (s.error) shipment_error = s.error; else if (typeof shipmentOf(s.body).id === "string") shipment = s.body; else shipment_error = "Freightcom shipment_get 200: answer has no shipment id";
+      }
+      const saved = await rpc("fc_book_schedule_save", { p_booking_id: b.id, p_schedule: r.body, p_shipment: shipment }, null) as Record<string, unknown>;
+      return { checked: true, reads, http_status: r.status, kind: o.kind, keys: o.keys, shipment_read: shipment !== null, shipment_error, ...saved };
+    }
+  } catch (e) {
+    const error = String((e as Error)?.message ?? e).slice(0, 400);
+    console.warn("checkSchedule failed:", b.id, error);
+    return { checked: false, reads, error: "Pickup check did not finish — " + error, message: "Couldn't record the pickup check — " + error };
+  }
+}
+async function pickupPoll(body: Record<string, unknown>, caller: Caller): Promise<Response> {
+  const bookingId = String(body.booking_id ?? "");
+  if (!bookingId) return json(400, { ok: false, error: "booking_id is required" });
+  const b = await loadBooking(bookingId);
+  if (!b) return json(404, { ok: false, error: "booking not found" });
+  const account = String(b.account ?? "").trim();
+  if (!account || !FC_KEY(account)) return json(422, { ok: false, error: noAccountSentence(null, account || "??") });
+  if (b.status !== "booked" || !b.freightcom_shipment_id) return json(422, { ok: false, error: `Booking #${b.attempt} is ${b.status} — the pickup schedule is read for booked shipments only`, booking_id: b.id, status: b.status });
+  const pickup_check = await checkSchedule(account, b, b.freightcom_shipment_id, caller, false, true);
+  const detail = await rpc("fc_booking_for_shipment", { p_shipment_id: b.shipment_id }, caller.jwt);
+  if (!pickup_check.checked) return json(502, { ok: false, checked: false, error: String(pickup_check.error ?? ""), message: pickup_check.message ?? null, booking_id: b.id, attempt: b.attempt, status: b.status, pickup_check, detail });
+  return json(200, { ok: true, checked: true, booking_id: b.id, attempt: b.attempt, status: b.status, pickup_check, detail });
+}
 // ④ GET /shipment/{id} 다시 묻기 → 저장 → 라벨
 async function finishBook(account: string, b: Booking, fcId: string, caller: Caller): Promise<Response> {
   const started = Date.now();
@@ -244,8 +288,10 @@ async function finishBook(account: string, b: Booking, fcId: string, caller: Cal
     if (o.kind === "done") {
       const saved = await rpc("fc_book_save", { p_booking_id: b.id, p_response: r.body, p_error: null }, null) as Record<string, unknown>;
       const labels = await fetchLabels(account, { ...b, status: "booked", freightcom_shipment_id: fcId, labels: o.shipment.labels }, caller);
+      // ⑥ fc-pickup-1: 상자 · 비정기 · 확인번호 없음이면 스케줄을 짧게 읽는다 — 예약 응답은 그대로(읽기 실패도 booked)
+      const pickup_check = pickupCheckNeeded(b.pickup_details, o.shipment) ? await checkSchedule(account, b, fcId, caller, true, false) : { checked: false, skipped: "no pickup request to check (regular pickup · pallet · or a confirmation number came with the booking)" };
       const detail = await rpc("fc_booking_for_shipment", { p_shipment_id: b.shipment_id }, caller.jwt);
-      return json(200, { ok: true, pending: false, booking_id: b.id, attempt: b.attempt, status: "booked", booking: saved, labels, detail });
+      return json(200, { ok: true, pending: false, booking_id: b.id, attempt: b.attempt, status: "booked", booking: saved, labels, pickup_check, detail });
     }
     if (!shouldKeepBookPolling(o, started, Date.now(), BOOK_WAIT_MS)) return json(202, { ok: true, pending: true, booking_id: b.id, attempt: b.attempt, shipment_id: b.shipment_id, freightcom_shipment_id: fcId, wait_ms: BOOK_WAIT_MS });
     await sleep(POLL_INTERVAL_MS);
@@ -260,9 +306,9 @@ async function book(body: Record<string, unknown>, caller: Caller): Promise<Resp
   if (!account || !FC_KEY(account)) return json(422, { ok: false, error: noAccountSentence(null, account || "??"), account: account || null, saved: false });
   const prep = await rpc("fc_book_prepare", { p_shipment_id: shipmentId, p_pickup: pickup, p_commit: true }, caller.jwt) as Record<string, unknown>;        // pending 행
   const bookingId = String(prep.booking_id), attempt = Number(prep.attempt ?? 0);
-  const b: Booking = { id: bookingId, shipment_id: shipmentId, attempt, status: "pending", account, freightcom_shipment_id: null, labels: null };
   const pm = await loadPaymentMethod(account, caller, shipmentId);
   const sent = bookBody(prep.request as Record<string, unknown>, pm.id);
+  const b: Booking = { id: bookingId, shipment_id: shipmentId, attempt, status: "pending", account, freightcom_shipment_id: null, labels: null, pickup_details: sent.pickup_details ?? null };
   const r = await fcCall(account, "book", "POST", "/shipment", sent, caller, shipmentId, true);
   if (r.status < 200 || r.status >= 300) {
     const error = bookErrorSentence(r.status, r.body);
@@ -327,7 +373,7 @@ Deno.serve(async (req) => {
     if (!all.includes(action)) return json(400, { ok: false, error: "action must be one of: " + all.join(", ") });
     const caller = await gate(req, action === "label" ? "label" : (FC_BOOK_ACTIONS as readonly string[]).includes(action) ? "book" : "quote");
     if (caller instanceof Response) return caller;
-    if (action === "status") return json(200, { ok: true, base_url: FC_BASE() || null, accounts: (await accountsInUse()).map((a) => ({ ...a, secret: secretNameFor(a.account) })), legacy_key_still_set: (Deno.env.get("FREIGHTCOM_API_KEY") ?? "") !== "", mode: caller.mode, wait_ms: QUOTE_WAIT_MS, book_wait_ms: BOOK_WAIT_MS });   // 값 없음 · 계정마다 유무 · 옛 이름이 남아 있으면 알린다(지우라고)
+    if (action === "status") return json(200, { ok: true, base_url: FC_BASE() || null, accounts: (await accountsInUse()).map((a) => ({ ...a, secret: secretNameFor(a.account) })), legacy_key_still_set: (Deno.env.get("FREIGHTCOM_API_KEY") ?? "") !== "", mode: caller.mode, wait_ms: QUOTE_WAIT_MS, book_wait_ms: BOOK_WAIT_MS, schedule_wait_ms: SCHEDULE_WAIT_MS });   // 값 없음 · 계정마다 유무 · 옛 이름이 남아 있으면 알린다(지우라고)
     if (action === "label") return await label(body, caller);                                           // Freightcom 호출 없음 — 저장소만
     if (!FC_BASE()) return json(500, { ok: false, error: "FREIGHTCOM_BASE_URL not configured on this project - refusing (fail-closed)" });
     if (action === "services") {                                                                       // {account} — 없으면 계정 있는 창고가 하나뿐일 때 그것
@@ -350,6 +396,7 @@ Deno.serve(async (req) => {
     }
     if (action === "book") return await book(body, caller);
     if (action === "book_poll") return await bookPoll(body, caller);
+    if (action === "pickup_poll") return await pickupPoll(body, caller);                               // fc-pickup-1 · GET 만
     if (action === "cancel") return await cancel(body, caller);
     return json(400, { ok: false, error: "unknown action" });
   } catch (e) {

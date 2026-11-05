@@ -9,6 +9,7 @@
 #              ⭐ 짐작 닫기: 비정기 픽업(ref_carrier_pickup.regular_pickup false 또는 행 없음) 상자에서 pickup_details {pre_scheduled_pickup:false, date:{year,month,day}, ready_at:{hour,minute}, ready_until:{hour,minute}} 를 Freightcom 이 받는지 — 202 뒤 200 이면 닫힘 · 400 이면 그 몸을 보고 fc-2b prepare 의 꼴을 고친다
 #          bash supabase/tests/fc_2_live.sh --cancel SO-25201               # 예약만 돼 있는 발송을 취소만
 #          bash supabase/tests/fc_2_live.sh --poll <booking_id>             # pending 으로 끝났을 때 이어 묻기
+#          bash supabase/tests/fc_2_live.sh --pickup-poll <booking_id>      # fc-pickup-1: booked 예약의 픽업 스케줄 다시 읽기(GET 만 · 청구 없음) → fc_booking.schedule_* · DB 확인
 #   환경:  SUPABASE_URL · SUPABASE_ANON_KEY 를 주면 그것을 · 없으면 asung-ims/ims-config.js 의 테스트 값 · DB 확인은 ~/.asung-testdb-url
 set -euo pipefail
 ACTION="book"; SO=""; PICKUP='{}'; CANCEL=1; POLL_ID=""
@@ -20,6 +21,7 @@ while [ $# -gt 0 ]; do
     --status) ACTION="status"; shift ;;
     --cancel) ACTION="cancel"; SO="$2"; shift 2 ;;
     --poll) ACTION="book_poll"; POLL_ID="$2"; shift 2 ;;
+    --pickup-poll) ACTION="pickup_poll"; POLL_ID="$2"; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -35,7 +37,7 @@ case "$URL" in *fazgmyvzzhqybtvtktyg*) ;; *) echo "STOP — URL is not the test 
 DBURL="$(cat "$HOME/.asung-testdb-url")"
 PSQL=(psql "$DBURL" -X -At -v ON_ERROR_STOP=1 -F ' | ')
 echo "project: $URL · action: $ACTION"
-if [ "$ACTION" != "status" ] && [ "$ACTION" != "book_poll" ] && [ -z "$SO" ]; then
+if [ "$ACTION" != "status" ] && [ "$ACTION" != "book_poll" ] && [ "$ACTION" != "pickup_poll" ] && [ -z "$SO" ]; then
   echo "── 후보(selected 발송 · 고른 줄 · 운송사 · 정기 픽업 · 마감) —"
   "${PSQL[@]}" <<'SQL'
 set default_transaction_read_only = on;
@@ -81,6 +83,17 @@ SQL
 }
 
 if [ "$ACTION" = "status" ]; then call '{"action": "status"}'; unset TOKEN LOGIN ANON; exit 0; fi
+if [ "$ACTION" = "pickup_poll" ]; then   # fc-pickup-1 · GET 둘(schedule · shipment) · 쓰기는 IMS 만
+  call "$(python3 -c 'import json,sys; print(json.dumps({"action": "pickup_poll", "booking_id": sys.argv[1]}))' "$POLL_ID")"
+  echo "── pickup_check keys(첫 실호출 꼴 확인): $(jget pickup_check.keys) · kind $(jget pickup_check.kind) · message: $(jget pickup_check.message)"
+  "${PSQL[@]}" -v bid="$POLL_ID" <<'SQL'
+set default_transaction_read_only = on;
+select 'schedule', b.attempt, b.status, b.state, b.schedule_status, left(coalesce(b.schedule_error, ''), 120) as schedule_error, b.schedule_checked_at, b.pickup_confirmation,
+       (select string_agg(k, ',' order by k) from jsonb_object_keys(coalesce(b.schedule_response, '{}'::jsonb)) k) as response_keys from public.fc_booking b where b.id = :'bid'::uuid;
+select 'calls', l.called_at, l.action, l.ok, l.http_status, left(coalesce(l.error, ''), 100) as error, l.ms from public.fc_call_log l where l.shipment_id = (select shipment_id from public.fc_booking where id = :'bid'::uuid) and l.action in ('schedule_poll', 'shipment_get') order by l.called_at desc limit 6;
+SQL
+  exit 0
+fi
 if [ "$ACTION" = "book_poll" ]; then
   call "$(python3 -c 'import json,sys; print(json.dumps({"action": "book_poll", "booking_id": sys.argv[1]}))' "$POLL_ID")"
   SID=$("${PSQL[@]}" -c "select shipment_id from public.fc_booking where id = '$POLL_ID'"); [ -n "$SID" ] && dbcheck "$SID"
