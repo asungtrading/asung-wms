@@ -52,7 +52,7 @@
 // ============================================================
 import { API_VERSION, compareLocations, getToken, isWorking, missingScopes, queueGate, readGate, scopesOf, shopifyGql, workGate, type PairRow, type ShopLocation, type StoreRow, type Warning } from "../_shared/shopify.ts";
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
-import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, newShopProductColumns, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
 import { cutPick, drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
@@ -256,7 +256,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
     }
   }
   const now = new Date().toISOString();
-  await sbUpsertByKey("shop_product", targetFilter, { store_id: store.id, family_id: target.family_id, product_id: target.product_id, shopify_product_gid: m.productGid, handle: m.handle, shopify_status: m.status, last_hash: p.hash, last_pushed_at: now, last_status: "ok", last_error: null });
+  await sbUpsertByKey("shop_product", targetFilter, { store_id: store.id, family_id: target.family_id, product_id: target.product_id, shopify_product_gid: m.productGid, handle: m.handle, shopify_status: m.status, last_hash: p.hash, last_pushed_at: now, last_status: "ok", last_error: null, ...newShopProductColumns(!!sp) });   // shop-new-1(판정 가): 행이 없어 지금 만든 상품만 origin ims · send_images · send_tags true — 기존 행의 PATCH 는 세 칸 무접촉
   for (const v of m.variants) {
     const pv = p.variants.find((x) => x.sku === v.sku); if (!pv) continue;
     await sbUpsertByKey("shop_variant", "store_id=eq." + store.id + "&product_id=eq." + pv.product_id, { store_id: store.id, product_id: pv.product_id, shopify_variant_gid: v.gid, inventory_item_gid: v.inventoryItemGid, last_hash: p.hash });

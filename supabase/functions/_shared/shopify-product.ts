@@ -100,9 +100,13 @@ export function buildProductSetInput(p: Payload, ctx: MapCtx): { identifier: { i
   if (files.length) input.files = files.map((f) => fileRef(f, ctx));                           // 판정 409: IMS 목록대로 · 판정 559(link-1b): IMS 사진 0 장이면 files 키를 보내지 않는다(목록 칸이라 [] 는 Shopify 사진을 전부 지운다) — 사진이 생기면 409 대로
   if (p.vendor) input.vendor = p.vendor;
   if (p.product_type) input.productType = p.product_type;
-  if (p.send_tags) input.tags = p.tags;                                                            // 판정 410: false 면 칸 자체를 안 보낸다
+  if (p.send_tags && p.tags.length) input.tags = p.tags;                                           // 판정 410: false 면 칸 자체를 안 보낸다 · 판정 1043(shop-new-1): IMS 태그 0 개면 tags 칸을 안 보낸다(목록 칸이라 [] 는 Shopify 태그를 전부 지운다) — DB 가 send_tags false 를 주고 여기가 두 번째 안전띠
   return { identifier: ctx.productGid ? { id: ctx.productGid } : null, input, fileCount: files.length, cooDropped };
 }
+
+// shop-new-1(판정 가 · 2026-11-06): pushOne 이 shop_product 행 없이(identifier 없이 productSet 으로 만든 뒤) 처음 쓰는 upsert(POST)에만 붙는 세 칸 — 그 밖의 upsert(PATCH)는 세 칸을 건드리지 않는다(관리자 덧씌우기를 덮지 않는다)
+export const NEW_SHOP_PRODUCT_COLUMNS = { origin: "ims", send_images: true, send_tags: true } as const;
+export function newShopProductColumns(hasRow: boolean): Record<string, unknown> { return hasRow ? {} : { ...NEW_SHOP_PRODUCT_COLUMNS }; }
 
 export function assertNoForbiddenKeys(input: Record<string, unknown>): string[] {
   const hit: string[] = [];

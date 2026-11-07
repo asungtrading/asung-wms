@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_product_test.ts — Shopify · DB 무접촉 (shop-2b ① ~ ④ · shop-img-off-1 ⑧ · _shared/shopify-product.ts · shopify-clean.ts 의 순수 함수)
-import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageUrl, matchMedia, mediaNodes, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageUrl, matchMedia, mediaNodes, NEW_SHOP_PRODUCT_COLUMNS, newShopProductColumns, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
 import { CLEAN_CONFIG, cleanHtml, FORBIDDEN_AFTER_CLEAN, forbiddenAfterClean, iframeHost, rulesClean } from "../_shared/shopify-clean.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -40,13 +40,13 @@ Deno.test("① family input — 10 variants · 2 options · Compare-at same valu
   eq(inp.variants[0].file, inp.files[0], "variant file is the same ref as in files");
   eq("id" in inp.variants[0], false, "no variant id on first push"); eq("inventoryQuantities" in inp.variants[0], false, "no quantities (③)");
 });
-Deno.test("② single — Title / Default Title · tags sent when send_tags · compare null omitted · GRAMS · hs digits · country · existing gids → identifier + variant id + media id", () => {
+Deno.test("② single — Title / Default Title · tags omitted when send_tags but IMS tags 0(판정 1043) · compare null omitted · GRAMS · hs digits · country · existing gids → identifier + variant id + media id", () => {
   const b = buildProductSetInput(single, { baseUrl: BASE, productGid: "gid://shopify/Product/9", variantGidBySku: { ANN03907: "gid://shopify/ProductVariant/77" }, mediaGidByImage: { [I(7)]: "gid://shopify/MediaImage/55" }, cleanedHtml: "" });
   const inp = b.input as any;
   eq(b.identifier, { id: "gid://shopify/Product/9" }, "identifier");
   eq(inp.productOptions, [{ name: "Title", values: [{ name: "Default Title" }] }], "single variant option");
   eq(inp.variants[0].optionValues, [{ optionName: "Title", name: "Default Title" }], "single optionValues");
-  eq(inp.tags, [], "tags sent (empty) when send_tags"); eq("compareAtPrice" in inp.variants[0], false, "compare null omitted"); eq(inp.variants[0].price, "12.49", "price rounded");
+  eq("tags" in inp, false, "tags omitted when send_tags but IMS tags 0 (1043 · shop-new-1 — was: tags [] sent, which wiped Shopify tags)"); eq("compareAtPrice" in inp.variants[0], false, "compare null omitted"); eq(inp.variants[0].price, "12.49", "price rounded");
   eq(inp.variants[0].inventoryItem, { tracked: true, measurement: { weight: { value: 323, unit: "GRAMS" } }, harmonizedSystemCode: "961511", countryCodeOfOrigin: "CN" }, "inventoryItem with hs · country");
   eq(inp.variants[0].id, "gid://shopify/ProductVariant/77", "variant id"); eq(inp.files, [{ id: "gid://shopify/MediaImage/55" }], "media by id"); eq(inp.variants[0].file, { id: "gid://shopify/MediaImage/55" }, "variant file by id");
   eq(hsDigits("9615.11"), "961511", "hs"); eq(hsDigits("12"), null, "hs too short"); eq(hsDigits(null), null, "hs null");
@@ -131,4 +131,33 @@ Deno.test("⑧ 판정 890(shop-img-off-1) — 꺼진 스토어 payload(DB 가 �
   const on: Payload = { ...fam, send_images: true };
   const b3 = buildProductSetInput(on, ctx); eq((b3.input as any).files.length, 10, "on: files 10"); eq((b3.input as any).files[0], { id: "gid://shopify/MediaImage/1" }, "on: media by id kept"); eq(b3.fileCount, 10, "on: fileCount 10");
   const legacy = buildProductSetInput(fam, ctx); eq((legacy.input as any).files.length, 10, "no send_images key (old payload) → as before");
+});
+
+Deno.test("⑨ shop-new-1(판정 1042 · 1043) — IMS 가 만드는 상품(행 없음 · DB 가 send_images · send_tags true 로 줌 · identifier null): files · tags 가 나간다 / IMS 사진 0 → files 키 없음 / IMS 태그 0 → tags 키 없음(두 번째 안전띠) / 두 번째 보내기(identifier 있음 · 표식 true)에도 나간다 / 기존 link 상품(false · false)은 둘 다 안 나간다 / 덧씌운 기존 상품(사진만 · 태그만)은 그것만 나간다 / 새 행 세 칸", () => {
+  const ctxNew = { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "<p>x</p>" };
+  const ctxOld = { ...ctxNew, productGid: "gid://shopify/Product/9", variantGidBySku: { ANN03907: "gid://shopify/ProductVariant/77" } };
+  const made: Payload = { ...single, send_images: true, send_tags: true, tags: ["AOS", "ASS", "Conditioner"] };
+  const b1 = buildProductSetInput(made, ctxNew); const i1 = b1.input as any;
+  eq(b1.identifier, null, "made: identifier null (productSet creates)"); eq(i1.files.length, 1, "made: files 1"); eq(i1.variants[0].file, i1.files[0], "made: variant file"); eq(i1.tags, ["AOS", "ASS", "Conditioner"], "made: tags out (내부 표식 태그도 · 판정 426)");
+  const noPhoto: Payload = { ...made, files: [], variants: made.variants.map((v) => ({ ...v, image_id: null })) };
+  const b2 = buildProductSetInput(noPhoto, ctxNew); const i2 = b2.input as any;
+  eq("files" in i2, false, "no photo: files key absent (559)"); eq("file" in i2.variants[0], false, "no photo: no variant file"); eq(i2.tags, ["AOS", "ASS", "Conditioner"], "no photo: tags still out");
+  const noTag: Payload = { ...made, tags: [] };                                                  // DB 는 send_tags false 를 주지만(1043) true 로 와도 여기서 막는다
+  const b3 = buildProductSetInput(noTag, ctxNew); const i3 = b3.input as any;
+  eq("tags" in i3, false, "no tag: tags key absent even with send_tags true (belt)"); eq(i3.files.length, 1, "no tag: files still out");
+  const second = buildProductSetInput(made, ctxOld); const i4 = second.input as any;
+  eq(second.identifier, { id: "gid://shopify/Product/9" }, "second send: identifier"); eq(i4.files.length, 1, "second send: files out"); eq(i4.tags.length, 3, "second send: tags out"); eq(i4.variants[0].id, "gid://shopify/ProductVariant/77", "second send: variant id kept");
+  const linked: Payload = { ...made, send_images: false, send_tags: false, files: [], variants: made.variants.map((v) => ({ ...v, image_id: null })) };   // 기존(잇기) 상품 · 스토어 스위치 꺼짐 · DB 가 주는 꼴
+  const b5 = buildProductSetInput(linked, ctxOld); const i5 = b5.input as any;
+  eq(["files" in i5, "tags" in i5, "file" in i5.variants[0]], [false, false, false], "linked: no files · no tags · no variant file");
+  const ovrImg: Payload = { ...made, send_images: true, send_tags: false };                      // 사진만 덧씌움(asung ABE10612 꼴)
+  const b6 = buildProductSetInput(ovrImg, ctxOld); const i6 = b6.input as any;
+  eq([i6.files.length, "tags" in i6], [1, false], "override images only: files out · tags not");
+  const ovrTag: Payload = { ...made, send_images: false, send_tags: true, files: [], variants: made.variants.map((v) => ({ ...v, image_id: null })) };   // 태그만 덧씌움
+  const b7 = buildProductSetInput(ovrTag, ctxOld); const i7 = b7.input as any;
+  eq(["files" in i7, i7.tags.length], [false, 3], "override tags only: tags out · files not");
+  for (const b of [b1, b2, b3, second, b5, b6, b7]) eq(assertNoForbiddenKeys(b.input), [], "forbidden none");
+  eq(newShopProductColumns(false), { origin: "ims", send_images: true, send_tags: true }, "no shop_product row → three columns on the first upsert");
+  eq(newShopProductColumns(true), {}, "row exists → nothing (PATCH leaves the three columns alone)");
+  eq(NEW_SHOP_PRODUCT_COLUMNS, { origin: "ims", send_images: true, send_tags: true }, "constant");
 });
