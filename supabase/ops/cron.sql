@@ -928,6 +928,24 @@ $job$);
 --   (기록)   모르는 kind(credit_apply · credit_apply_void)를 400 으로 거부 → 결제도 안 나간다(조용한 멈춤 · so-module §99-a 1034 · qbo-integration §14-f)
 --   (기록) 등록한 뒤: 위 「확인」 으로 jobid 를 실측해 여기에 「[날짜 · Caleb psql 실측] jobid N · kinds 둘」 줄을 적고 커밋
 --   (기록) 2e-2-1b EF 배포 뒤: select cron.unschedule('ims-qbo-send-payments'); → 맨 아래 주석의 넷 판으로 다시 schedule · jobid 다시 실측
+--   ── ⚠️⚠️ [2026-11-07 · qbo-sync-2e-3-1b · 판정 998′ · 1009 · 1034 · 이견 4 (가)] **kinds 여덟 판 — 2e-3-1b EF 배포 + 첫 실물(OC-60172-1 → 60172 두 장) 성공 뒤에만 등록한다** ──
+--   지금 DB 의 62 = 아래 실행 블록(넷) 그대로 · 이 여덟 판을 배포 전에 등록하면 지금 EF 의 kindsOf 가 opening_* 를 400 으로 거부 → 결제 · 크레딧 붙임도 멈춘다(1034 함정과 같다)
+--   바뀌는 자리 둘: body 의 kinds 와 where 의 j.kind in (…) — 한쪽만 바꾸면 opening 일감만 있을 때 호출 0(where) 또는 400(body)
+--   같은 이름 cron.schedule = 번호 62 그대로 · 명령만 바뀐다 · 열쇠는 jobname ims-mail-drain 의 command 에서 꺼내는 기존 꼴(§100-c 5) · 등록 뒤 「확인」 select 로 kinds_eight · key_len 64 를 실측해 여기에 적고 실행 블록과 자리를 바꾼다(docs 차수)
+--   select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
+--     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+--       headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+--       body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+--     where exists (select 1 from public.inv_config c where c.key = 'qbo_send_payments_enabled' and c.value = 'on')
+--       and exists (select 1 from public.qbo_connection c where c.status = 'connected')
+--       and exists (select 1 from public.qbo_job j
+--                    where j.kind in ('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void')
+--                      and (j.state = 'unknown'
+--                        or (j.state = 'queued' and j.next_at <= now())
+--                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
+--   $job$);
+--   확인(등록 뒤): select jobid, jobname, schedule, active, command like '%opening_apply_void%' as kinds_eight, (command like '%j.kind in (''payment'', ''payment_void'', ''credit_apply'', ''credit_apply_void'', ''opening_credit''%') as where_eight, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-send-payments';
+--   ── 아래 = 지금 DB 와 같은 판(넷) · 2e-3-1b 첫 실물 전까지 이것 ──
 select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
   select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
