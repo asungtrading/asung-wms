@@ -44,12 +44,12 @@ begin
   end loop;
   return v_n;
 end $$;
--- 대상 목록을 글 하나로(letter 순서 그대로 · tier 붙여서)
+-- 대상 목록을 글 하나로(⚠️ letter 순 · fc-pickup-4 덤: 같은 booked_at 가짜 행(b · j)이 uuid 순으로 갈려 Caleb 확인 실행이 14/16 이었다 — 순서 무관 비교 · 순서 자체는 P1b 의 due_n 이 본다)
 create temp table t_ids (k text primary key, v text);
 create function pg_temp.id(p_k text) returns uuid language sql as $$ select v::uuid from t_ids where k = p_k $$;
 create function pg_temp.due_list() returns text language plpgsql security definer as $$   -- plpgsql: 몸은 첫 호출 때 풀린다(sql 이면 만들 때 fc_pickup_poll_due 가 아직 없어 멈춘다 · 1 회차)
 begin                                                                                      -- ⚠️ 가짜 행만 · 한도 50 — 메인 DB 에는 실물 대상(오늘 예약 · 번호 없음)이 섞여 limit 10 이 가짜 a 를 잘랐다(5 회차 · 11-06 실물 9 건)
-  return (select coalesce(string_agg(i.k || ':' || d.tier, ' ' order by d.booked_at, d.attempt), '(none)')
+  return (select coalesce(string_agg(i.k || ':' || d.tier, ' ' order by i.k), '(none)')
             from public.fc_pickup_poll_due(50) d join t_ids i on i.v = d.booking_id::text);
 end $$;
 create function pg_temp.due_n(p_limit int) returns text language plpgsql security definer as $$   -- limit 검사용: 행 수 / booked_at 오름인가(실물 포함)
@@ -111,17 +111,17 @@ begin
   perform pg_temp.chk('P0 columns (fc_booking.schedule_done_at · fc_call_log.detail jsonb) · inv_config switch off · batch 10 · due acl service_role only · schedule_save acl · nowhere = 0 · fc_pickup_check · fc_booking_for_shipment md5 untouched',
     (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'fc_booking' and column_name = 'schedule_done_at' and data_type = 'timestamp with time zone')::text || '/' ||
     (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'fc_call_log' and column_name = 'detail' and data_type = 'jsonb')::text || '/' ||
-    (select string_agg(key || '=' || value, ',' order by key) from public.inv_config where key like 'fc_pickup_poll%') || '/' ||
+    (select string_agg(key || '=' || case when key = 'fc_pickup_poll_enabled' then 'on|off' else value end, ',' order by key) from public.inv_config where key like 'fc_pickup_poll%') || '/' ||   -- fc-pickup-4 덤: 스위치는 Caleb 이 11-06 켰다 — 값이 아니라 행이 있는지만(확인 실행이 14/16 이던 둘째 까닭)
     (select coalesce(proacl::text, '(null)') from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_pickup_poll_due') || '/' ||
     (select coalesce(proacl::text, '(null)') from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_book_schedule_save') || '/' ||
     (select sum(pg_temp.nowhere(prosrc)) from pg_proc where pronamespace = 'public'::regnamespace and proname in ('fc_book_schedule_save', 'fc_pickup_poll_due'))::text || '/' ||
     (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_pickup_check') || '/' ||
     (select md5(prosrc) from pg_proc where pronamespace = 'public'::regnamespace and proname = 'fc_booking_for_shipment'),
-    '1/1/fc_pickup_poll_batch=10,fc_pickup_poll_enabled=off/{postgres=X/postgres,service_role=X/postgres}/{postgres=X/postgres,service_role=X/postgres}/0/b3a17787b3585d37712930e9315bc300/7413429f0b0e31d04a6e926042d6e6cf');
-  -- P1 대상 — 11 건 중 넷(e · b · j · a 순 = booked_at 오름) · tier
+    '1/1/fc_pickup_poll_batch=10,fc_pickup_poll_enabled=on|off/{postgres=X/postgres,service_role=X/postgres}/{postgres=X/postgres,service_role=X/postgres}/0/b3a17787b3585d37712930e9315bc300/7413429f0b0e31d04a6e926042d6e6cf');
+  -- P1 대상 — 11 건 중 넷(a · b · e · j · letter 순 · 순서는 P1b) · tier
   perform pg_temp.as_user(v_book, 'service_role');
   perform pg_temp.chk('P1 due(10) = e(72 h · pickup tomorrow · slow) b(3 h · read 40 min ago · slow) j(3 h · no date · never read · slow) a(10 min · fast) — not c(read 5 min ago) d(window past) f(confirmed) g(regular) h(pallet) i(cancelled) k(blank Freightcom id)',
-    pg_temp.due_list(), 'e:slow b:slow j:slow a:fast');
+    pg_temp.due_list(), 'a:fast b:slow e:slow j:slow');
   v_s1 := pg_temp.due_n(50);   -- 전체(가짜 4 + 실물 n) · 실물 수는 결과 표 뒤 info 줄에
   perform pg_temp.chk('P1b limit — 1 → 1 row · 2 → 2 · 0 → default 10 → least(10, total) · 99 → default 10 → least(10, total) · 50 → total ≥ 4 · all ordered by booked_at asc',
     pg_temp.due_n(1) || '/' || pg_temp.due_n(2) || '/' || pg_temp.due_n(0) || '/' || pg_temp.due_n(99) || '/' || (v_s1::int >= 4)::text,
@@ -144,7 +144,7 @@ begin
   v_s1 := pg_temp.due_list();
   perform pg_temp.chk('P3 a: real-shape done → schedule_done_at set (= returned) · confirmation 29FBD3C23EA (schedule) · received_keys [error, pickup_confirmation_number, status] · pickup_check not_scheduled false · a leaves the due list',
     (v_t1 is not null)::text || '/' || ((p->>'schedule_done_at')::timestamptz = v_t1)::text || '/' || (p->>'pickup_confirmation') || '/' || (p->>'confirmation_source') || '/' || (p->'received_keys')::text || '/' || (p#>>'{pickup_check,not_scheduled}') || '/' || v_s1,
-    'true/true/29FBD3C23EA/schedule/["error", "pickup_confirmation_number", "status"]/false/e:slow b:slow j:slow');
+    'true/true/29FBD3C23EA/schedule/["error", "pickup_confirmation_number", "status"]/false/b:slow e:slow j:slow');
   -- P4 done 을 또 봐도 done_at 그대로(덮지 않음) · checked_at 은 새로
   p2 := public.fc_book_schedule_save(v_a, v_real);
   perform pg_temp.chk('P4 a: done again → schedule_done_at unchanged · schedule_checked_at moved forward',
@@ -160,7 +160,7 @@ begin
   select schedule_done_at into v_t1 from public.fc_booking where id = v_a;
   p := public.fc_book_schedule_save(v_a, v_real);
   perform pg_temp.chk('P5b a (fast · 10 min · checked just now) is still due every run · pending does not fill done_at · then done fills it once',
-    v_s1 || ' | ' || coalesce(v_t1::text, 'null') || ' | ' || (p->>'schedule_done_at' is not null)::text, 'e:slow j:slow a:fast | null | true');
+    v_s1 || ' | ' || coalesce(v_t1::text, 'null') || ' | ' || (p->>'schedule_done_at' is not null)::text, 'a:fast e:slow j:slow | null | true');
   -- P6 done 인데 번호 없음 → done_at 은 채워진다(이견 8) · 판정은 빨강 그대로 · slow + 방금 읽음 → 대상 아님
   p := public.fc_book_schedule_save(v_j, '{"error": "", "pickup_confirmation_number": "", "status": "done"}');
   v_s1 := pg_temp.due_list();
@@ -200,7 +200,8 @@ begin
   v_s2 := pg_temp.due_list();
   perform pg_temp.chk('P11 window follows the pickup date: d (72 h old · pickup tomorrow) now due · e (5 days old · pickup 3 days ago) not due · a broken date (month 13) falls back to the 48 h window (3 h old j → due)',
     v_s1 || ' | ' || v_s2, 'd:slow | d:slow j:slow');
-  -- P12 cron where 꼴 — exists(select 1 from fc_pickup_poll_due(1)) · 스위치 off 면 false
+  -- P12 cron where 꼴 — exists(select 1 from fc_pickup_poll_due(1)) · 스위치 off 면 false(rollback 안이라 먼저 off 로 · 실제 값과 무관 · fc-pickup-4 덤)
+  update public.inv_config set value = 'off' where key = 'fc_pickup_poll_enabled';
   v_s1 := (exists (select 1 from public.inv_config c where c.key = 'fc_pickup_poll_enabled' and c.value = 'on') and exists (select 1 from public.fc_pickup_poll_due(1)))::text;
   update public.inv_config set value = 'on' where key = 'fc_pickup_poll_enabled';
   v_s2 := (exists (select 1 from public.inv_config c where c.key = 'fc_pickup_poll_enabled' and c.value = 'on') and exists (select 1 from public.fc_pickup_poll_due(1)))::text;
