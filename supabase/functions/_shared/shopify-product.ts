@@ -5,8 +5,12 @@
 //   문서(2026-10-09 MCP): 변형 file 은 상품 files 에도 있어야 한다 · 단일 변형 상품은 옵션 Title / Default Title 자리표시(Product 문서 「implicit Title option」) · media 는 비동기(status UPLOADED → READY)
 //   판정 559(link-1b · 2026-10-20): IMS 사진 0 장이면 files 키 · 변형 file 을 넣지 않는다(Shopify 사진 무접촉 · 409 의 예외) · 사진이 생기면 409 대로
 //   판정 890(shop-img-off-1 · 2026-10-30): 스토어 send_images false 면 DB 가 사진 0 장 꼴(files [] · image_id null)로 준다 → 559 갈래 · 여기서는 payload.send_images === false 를 두 번째 안전띠로 봐 files 가 와도 안 보낸다(asung · aone 의 Shopify 전용 사진 3,264 장 보호)
-//   사진 쌓임 막기: shop_media 에 MediaImage id 가 있으면 {id} · 없으면 {originalSource, filename = <product_image_id>.<ext>, duplicateResolutionMode REPLACE}(같은 이름이면 바꿔치기 — 두 겹 안전띠)
-//   shop-2b-fix2(실물 media_matched 0): productSet 응답 시점에는 사진이 처리 중이라 image.url 이 비어 있다 → 보내기 직전에 product(id).media 를 읽어 READY + url 인 것만 줄기(= product_image id · 실물로 확인)로 짝 → shop_media → 그 뒤 input 을 만든다(PRODUCT_MEDIA_QUERY · matchMedia readyOnly) · 처리 중인 사진은 REPLACE 로 다시(쌓이지 않음 · 실물) · 줄기가 IMS 에 없는 Shopify 사진은 files 에서 빠져 지워진다(판정 409 · media_removed_unknown)
+//   사진 쌓임 막기: shop_media 에 MediaImage id 가 있으면 {id} · 없으면 {originalSource, filename, duplicateResolutionMode APPEND_UUID} — productSet 의 files 는 목록 칸이라 목록 밖 사진은 상품에서 빠진다(쌓이지 않음)
+//   shop-img-name-1(2026-11-06 · Caleb 「관리차원에서 그동안 그렇게 해오던 일」): filename = 그 사진의 상품(product_id) SKU — payload 순서대로 SKU 마다 첫 장 <SKU>.<ext> · 둘째부터 <SKU>_2 · _3 …(imageStems) · 패밀리 사진도 구성원 SKU
+//     SKU 의 [A-Za-z0-9._-] 밖 글자 구간 → "-" 하나 · 앞뒤 "-" 지움 · 비거나 SKU 를 못 찾으면 옛 꼴 <product_image_id>(skuStem)
+//     APPEND_UUID(이견 2 A): 같은 이름이 Shopify Files 에 있으면(직원이 SKU 이름으로 올린 파일) 덮지 않는다 — Shopify 가 고유값을 붙인 이름으로 받는다(REPLACE 는 남의 파일을 덮어 버려 그만 씀)
+//     짝 기준(stemMatches): url 파일 이름 줄기가 정확히 <기대 줄기> 또는 <기대 줄기>_<uuid>(APPEND_UUID 꼴 · 짐작) · 옛 uuid 줄기(<product_image_id> · <product_image_id>_…)도 계속 받는다(이미 올라간 사진은 다시 올리지 않는다) · 「포함」 비교 금지(ONO00137 이 ONO00137_2 에 맞으면 안 된다)
+//   shop-2b-fix2(실물 media_matched 0): productSet 응답 시점에는 사진이 처리 중이라 image.url 이 비어 있다 → 보내기 직전에 product(id).media 를 읽어 READY + url 인 것만 줄기(shop-img-name-1 부터 SKU 꼴 · 옛 product_image id 도)로 짝 → shop_media → 그 뒤 input 을 만든다(PRODUCT_MEDIA_QUERY · matchMedia readyOnly) · 처리 중인 사진은 URL 로 다시(목록 칸 · 쌓이지 않음) · 줄기가 IMS 에 없는 Shopify 사진은 files 에서 빠져 지워진다(판정 409 · media_removed_unknown)
 // ============================================================
 
 export const FORBIDDEN_INPUT_KEYS = ["collections", "metafields", "seo", "category", "templateSuffix", "giftCard", "giftCardTemplateSuffix", "requiresSellingPlan", "redirectNewHandle", "handle", "claimOwnership", "combinedListingRole"];
@@ -22,7 +26,7 @@ export type PayloadVariant = { product_id: string; sku: string; name: string; ba
 export type PayloadFile = { product_image_id: string; image_path: string; url: string | null; alt: string | null; product_id: string };
 export type Payload = { kind: "family" | "product"; store_code: string; family_id: string | null; product_id: string | null; title: string; description_html: string | null; vendor: string | null; product_type: string | null; tags: string[]; send_tags: boolean; status: "ACTIVE" | "ARCHIVED"; active_variants: number; options: Array<{ name: string; values: string[] }>; variants: PayloadVariant[]; files: PayloadFile[]; listing_on: boolean; blocks: string[]; hash: string; send_images?: boolean };   // send_images: shop-img-off-1(판정 890) · hash 밖 · false 면 DB 가 files [] · image_id null 을 준다 — 여기서는 두 번째 안전띠
 export type MapCtx = { baseUrl: string; productGid: string | null; variantGidBySku: Record<string, string>; mediaGidByImage: Record<string, string>; cleanedHtml: string };
-export type FileRef = { id?: string; originalSource?: string; filename?: string; contentType?: "IMAGE"; alt?: string; duplicateResolutionMode?: "REPLACE" };
+export type FileRef = { id?: string; originalSource?: string; filename?: string; contentType?: "IMAGE"; alt?: string; duplicateResolutionMode?: "APPEND_UUID" };
 
 const money = (v: number | string | null | undefined): string | null => (v === null || v === undefined || v === "" ? null : Number(v).toFixed(2));
 const ext = (path: string) => { const m = path.match(/\.([a-z0-9]+)$/i); return m ? m[1].toLowerCase() : "jpg"; };
@@ -64,16 +68,34 @@ export const countryAlpha2 = (code: string | null | undefined): string | null =>
   return a2 && SHOPIFY_COUNTRY_CODES.has(a2) ? a2 : null;
 };
 
-export function fileRef(f: PayloadFile, ctx: MapCtx): FileRef {
+// shop-img-name-1: SKU → 파일 이름 줄기 · 못 쓰는 글자 구간(붙은 "-" 포함)은 "-" 하나 · 앞뒤 "-" 지움 · 비면 null(→ 옛 uuid 꼴)
+export function skuStem(sku: string | null | undefined): string | null {
+  const s = String(sku ?? "").replace(/[^A-Za-z0-9._]*[^A-Za-z0-9._-][^A-Za-z0-9._]*/g, "-").replace(/^-+|-+$/g, "");   // 붙어 있는 "-" 도 그 구간에 넣는다(「 - 」 → "-" 하나) · 깨끗한 SKU 의 "--" 는 그대로
+  return s ? s : null;
+}
+// shop-img-name-1: product_image_id → 줄기(확장자 없음) — payload 순서대로 SKU 마다 1, 2, 3 …(DB 순서: 낱개 is_primary desc · sort_order / 패밀리 대표 · primary · sku · sort_order) · product_id 의 SKU 는 payload variants 에서
+export function imageStems(p: Pick<Payload, "variants" | "files">): Record<string, string> {
+  const skuByProduct = new Map(p.variants.map((v) => [v.product_id, v.sku]));
+  const seen = new Map<string, number>(), out: Record<string, string> = {};
+  for (const f of p.files) {
+    const stem = skuStem(skuByProduct.get(f.product_id));
+    if (!stem) { out[f.product_image_id] = f.product_image_id; continue; }
+    const key = stem.toLowerCase(), n = (seen.get(key) ?? 0) + 1; seen.set(key, n);
+    out[f.product_image_id] = n === 1 ? stem : stem + "_" + n;
+  }
+  return out;
+}
+export function fileRef(f: PayloadFile, ctx: MapCtx, stem?: string): FileRef {
   const gid = ctx.mediaGidByImage[f.product_image_id];
   if (gid) return { id: gid };
-  return { originalSource: f.url ?? imageUrl(ctx.baseUrl, f.image_path), filename: f.product_image_id + "." + ext(f.image_path), contentType: "IMAGE", alt: f.alt ?? "", duplicateResolutionMode: "REPLACE" };
+  return { originalSource: f.url ?? imageUrl(ctx.baseUrl, f.image_path), filename: (stem ?? f.product_image_id) + "." + ext(f.image_path), contentType: "IMAGE", alt: f.alt ?? "", duplicateResolutionMode: "APPEND_UUID" };
 }
 
 export function buildProductSetInput(p: Payload, ctx: MapCtx): { identifier: { id: string } | null; input: Record<string, unknown>; fileCount: number; cooDropped: Array<{ sku: string; code: string }> } {
   const cooDropped: Array<{ sku: string; code: string }> = [];                                   // 판정 884: 바꿀 수 없어 뺀 원산지 — index.ts 성공 note 에
   const files = p.send_images === false ? [] : p.files;                                           // 판정 890: 스토어가 사진을 안 보내면 두 번째 안전띠(DB 가 이미 [] 를 준다)
   const fileByImage = new Map(files.map((f) => [f.product_image_id, f]));
+  const stems = imageStems({ variants: p.variants, files });                                        // shop-img-name-1: 파일 이름 = SKU · SKU_2 …
   const productOptions = p.kind === "family" && p.options.length
     ? p.options.map((o) => ({ name: o.name, values: o.values.map((v) => ({ name: v })) }))
     : [{ name: "Title", values: [{ name: "Default Title" }] }];                                   // 단일 변형 관례(Product 문서 「implicit Title option」)
@@ -90,14 +112,14 @@ export function buildProductSetInput(p: Payload, ctx: MapCtx): { identifier: { i
     if (v.barcode) out.barcode = v.barcode;
     const cmp = money(v.compare_at_price); if (cmp !== null) out.compareAtPrice = cmp;              // null = 안 보냄 · 같은 값이어도 보냄(판정 408)
     const gid = ctx.variantGidBySku[v.sku]; if (gid) out.id = gid;
-    const f = files.length && v.image_id ? fileByImage.get(v.image_id) : undefined; if (f) out.file = fileRef(f, ctx);   // 변형 file 은 files 에도 있다(문서) · 판정 559: 사진 0 장이면 변형 file 도 없다
+    const f = files.length && v.image_id ? fileByImage.get(v.image_id) : undefined; if (f) out.file = fileRef(f, ctx, stems[f.product_image_id]);   // 변형 file 은 files 에도 있다(문서) · 판정 559: 사진 0 장이면 변형 file 도 없다
     return out;
   });
   const input: Record<string, unknown> = {
     title: p.title, descriptionHtml: ctx.cleanedHtml, status: p.status,                            // 판정 405
     productOptions, variants,
   };
-  if (files.length) input.files = files.map((f) => fileRef(f, ctx));                           // 판정 409: IMS 목록대로 · 판정 559(link-1b): IMS 사진 0 장이면 files 키를 보내지 않는다(목록 칸이라 [] 는 Shopify 사진을 전부 지운다) — 사진이 생기면 409 대로
+  if (files.length) input.files = files.map((f) => fileRef(f, ctx, stems[f.product_image_id]));                           // 판정 409: IMS 목록대로 · 판정 559(link-1b): IMS 사진 0 장이면 files 키를 보내지 않는다(목록 칸이라 [] 는 Shopify 사진을 전부 지운다) — 사진이 생기면 409 대로
   if (p.vendor) input.vendor = p.vendor;
   if (p.product_type) input.productType = p.product_type;
   if (p.send_tags && p.tags.length) input.tags = p.tags;                                           // 판정 410: false 면 칸 자체를 안 보낸다 · 판정 1043(shop-new-1): IMS 태그 0 개면 tags 칸을 안 보낸다(목록 칸이라 [] 는 Shopify 태그를 전부 지운다) — DB 가 send_tags false 를 주고 여기가 두 번째 안전띠
@@ -126,20 +148,36 @@ export function mapResponse(prod: RespProduct) {
     media: (prod.media?.nodes ?? []).map((m) => ({ gid: m.id, alt: m.alt ?? null, status: m.status ?? null, url: m.image?.url ?? null })),
   };
 }
-// 사진 id ↔ product_image: CDN url 의 파일 이름 줄기 = product_image_id(우리가 filename 을 그렇게 보냈다 · 실물 확인 2026-10-09) · readyOnly 면 status READY + url 있는 것만 · 못 맞추면 비워 둔다(REPLACE 로 다시 보낸다)
+// 사진 id ↔ product_image(shop-img-name-1): CDN url 의 파일 이름 줄기(경로 끝 · ?v= 앞 · 확장자 앞)가 정확히 기대 줄기(imageStems) 또는 그 뒤 _<uuid>(APPEND_UUID · 짐작) · 옛 uuid 줄기도 받는다 · 「포함」 비교 금지
+//   readyOnly 면 status READY + url 있는 것만 · 한 사진(gid)은 한 product_image 에만 · 못 맞추면 비워 둔다(URL 로 다시 보낸다 · 목록 칸이라 쌓이지 않는다)
 export type MediaNode = { gid: string; url: string | null; status?: string | null; alt?: string | null };
-export function matchMedia(media: MediaNode[], files: PayloadFile[], readyOnly = false): Record<string, string> {
-  const out: Record<string, string> = {};
+const UUID_TAIL = /^_(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})$/;
+export function urlStem(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let last = url.split("?")[0].split("#")[0].split("/").pop() ?? "";
+  try { last = decodeURIComponent(last); } catch { /* 그대로 */ }
+  const stem = last.replace(/\.[A-Za-z0-9]+$/, "").toLowerCase();
+  return stem || null;
+}
+export function stemMatches(urlStemLower: string | null, f: PayloadFile, expected: string | undefined): boolean {
+  if (!urlStemLower) return false;
+  const id = f.product_image_id.toLowerCase();
+  if (urlStemLower === id || urlStemLower.startsWith(id + "_")) return true;                       // (c) 옛 uuid 줄기 — uuid 는 다른 SKU 줄기와 겹치지 않는다
+  if (!expected) return false;
+  const e = expected.toLowerCase();
+  return urlStemLower === e || (urlStemLower.startsWith(e) && UUID_TAIL.test(urlStemLower.slice(e.length)));   // (b) 정확히 · 또는 _<uuid> 만 더 붙은 것
+}
+export function matchMedia(media: MediaNode[], files: PayloadFile[], readyOnly = false, stems: Record<string, string> = {}): Record<string, string> {
+  const out: Record<string, string> = {}, used = new Set<string>();
   for (const f of files) {
-    const m = media.find((x) => (!readyOnly || (x.status === "READY" && !!x.url)) && (x.url ?? "").toLowerCase().includes(f.product_image_id.toLowerCase()));
-    if (m) out[f.product_image_id] = m.gid;
+    const m = media.find((x) => !used.has(x.gid) && (!readyOnly || (x.status === "READY" && !!x.url)) && stemMatches(urlStem(x.url), f, stems[f.product_image_id]));
+    if (m) { out[f.product_image_id] = m.gid; used.add(m.gid); }
   }
   return out;
 }
-// Shopify 에 있는데 IMS 사진 목록에 줄기가 없는 것(사람이 올린 사진 · 옛 파일) — files 목록에 안 들어가 지워진다(판정 409) · 수만 돌려준다
-export function unknownMedia(media: MediaNode[], files: PayloadFile[]): number {
-  const stems = files.map((f) => f.product_image_id.toLowerCase());
-  return media.filter((x) => !stems.some((s) => (x.url ?? "").toLowerCase().includes(s))).length;
+// Shopify 에 있는데 어느 IMS 사진 줄기에도 안 맞는 것(사람이 올린 사진 · 옛 파일 · 처리 중이라 url 없는 것) — files 목록에 안 들어가 지워진다(판정 409) · 수만 돌려준다
+export function unknownMedia(media: MediaNode[], files: PayloadFile[], stems: Record<string, string> = {}): number {
+  return media.filter((x) => { const st = urlStem(x.url); return !files.some((f) => stemMatches(st, f, stems[f.product_image_id])); }).length;
 }
 export const mediaNodes = (prod: RespProduct | null | undefined): MediaNode[] => (prod?.media?.nodes ?? []).map((m) => ({ gid: m.id, alt: m.alt ?? null, status: m.status ?? null, url: m.image?.url ?? null }));
 export function userErrorsSentence(errs: Array<{ field?: string[] | null; message?: string; code?: string | null }>): string {

@@ -11,7 +11,7 @@
 //      stock_push = 직원 · 대상 하나(family_sku | sku)의 변형 전부를 force 로 바로(큐 없이 · 판정 415 결) · 위치별 결과를 돌려준다
 //   ⭐ 상품 drain(판정 424 ②): skipped_same_hash 줄은 DRAIN_MAX 20 칸에 세지 않는다 — 보낸(또는 error) 건이 20 이거나 DRAIN_TIME_MS 를 넘으면 멈춘다 · 한 회차에 읽는 열린 줄은 DRAIN_FETCH
 //   표 읽기 · 대응 표 갱신 · 큐 · call_log 는 service_role(세 표는 authenticated 직접 쓰기가 닫혀 있다) · payload 는 rpc/shop_product_payload(2a1) · 거르기는 ../_shared/shopify-clean.ts(규칙 기반 · 판정 412) · 조립은 ../_shared/shopify-product.ts
-//   ⭐ 사진 짝(fix2 · 실물 media_matched 0): 보내기 직전 product.media 를 읽어 READY + url 인 사진만 줄기(= product_image id)로 shop_media 에 짝 → 그 사진은 {id} 로 · 처리 중은 URL + REPLACE(쌓이지 않음) · 줄기가 IMS 에 없는 사진은 지워진다(판정 409 · media_removed_unknown) · 직원 push 는 응답이 처리 중이면 2 초 × 2 회 다시 읽는다 · hash 가 같으면 직전 읽기도 안 한다
+//   ⭐ 사진 짝(fix2 · 실물 media_matched 0): 보내기 직전 product.media 를 읽어 READY + url 인 사진만 줄기(= SKU · SKU_n · _<uuid> · 옛 product_image id · shop-img-name-1)로 shop_media 에 짝 → 그 사진은 {id} 로 · 처리 중은 URL + APPEND_UUID(목록 칸이라 쌓이지 않음) · 줄기가 IMS 에 없는 사진은 지워진다(판정 409 · media_removed_unknown) · 직원 push 는 응답이 처리 중이면 2 초 × 2 회 다시 읽는다 · hash 가 같으면 직전 읽기도 안 한다
 //   ⭐ 안전장치(판정 412): 거른 html 을 rpc/ims_html_forbidden 에 넣어 하나라도 걸리면 productSet 을 부르지 않는다(result error · description_forbidden_after_clean:<코드> · 직원 길 push 는 422 · drain 은 다음 건 계속) — IMS 에서 그 설명을 한 번 고쳐 저장하면 풀린다
 //   ⭐ 오더 받기(ord-1b · 판정 363 ~ 372 · 430 ~ 434 · DB ord-1a1 · 1a2 · 받은 일 표 20261011013000 · 순수 함수 ../_shared/shopify-order.ts):
 //      webhook   = 문 셋째(HMAC · 헤더 X-Shopify-Topic 이 있으면 이 길 · 문 앞에서 가른다) — 원문 바이트의 HMAC-SHA256(스토어의 client secret) 과 X-Shopify-Hmac-SHA256 상수 시간 비교 · 스토어는 X-Shopify-Shop-Domain · 몸(REST 모양)에서 오더 GID 만 → rpc/shop_order_inbox_add → 바로 200 · 검증 실패 401 · 모르는 스토어 200(기록만 · 재시도 폭주 막기)
@@ -52,7 +52,7 @@
 // ============================================================
 import { API_VERSION, compareLocations, getToken, isWorking, missingScopes, queueGate, readGate, scopesOf, shopifyGql, workGate, type PairRow, type ShopLocation, type StoreRow, type Warning } from "../_shared/shopify.ts";
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
-import { assertNoForbiddenKeys, buildProductSetInput, mapResponse, matchMedia, mediaNodes, newShopProductColumns, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, imageStems, mapResponse, matchMedia, mediaNodes, newShopProductColumns, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
 import { cutPick, drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
@@ -210,6 +210,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
   const mediaGidByImage: Record<string, string> = {};
   for (const m of mRows) mediaGidByImage[m.product_image_id] = m.shopify_file_gid;
   let costTotal = 0, matchedBefore = 0, removedUnknown = 0;
+  const stems = imageStems(p);                                                                       // shop-img-name-1: 기대 파일 이름 줄기(SKU · SKU_2 …) — 짝 기준(정확히 · _<uuid> · 옛 uuid 줄기)
   const upsertMedia = async (matched: Record<string, string>) => {
     for (const [imageId, gid] of Object.entries(matched)) {
       if (mediaGidByImage[imageId] === gid) continue;
@@ -222,11 +223,11 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
     costTotal += gm.cost.actual ?? 0;
     if (gm.ok) {
       const nodes: MediaNode[] = mediaNodes((gm.data as { product?: RespProduct | null } | null)?.product);
-      const matched = matchMedia(nodes, p.files, true);
+      const matched = matchMedia(nodes, p.files, true, stems);
       matchedBefore = Object.keys(matched).length;
-      removedUnknown = unknownMedia(nodes, p.files);
+      removedUnknown = unknownMedia(nodes, p.files, stems);
       await upsertMedia(matched);
-    } else console.warn("media pre-read failed:", gm.status, JSON.stringify(gm.errors ?? gm.raw ?? "").slice(0, 200));   // 못 읽으면 지금처럼 URL + REPLACE 로(쌓이지 않는다)
+    } else console.warn("media pre-read failed:", gm.status, JSON.stringify(gm.errors ?? gm.raw ?? "").slice(0, 200));   // 못 읽으면 URL + APPEND_UUID 로(목록 칸이라 상품에 쌓이지 않는다 · shop-img-name-1)
   }
   const built = buildProductSetInput(p, { baseUrl: SB_URL(), productGid: sp?.shopify_product_gid ?? null, variantGidBySku, mediaGidByImage, cleanedHtml: clean.html });
   const reusedIds = p.files.filter((f) => !!mediaGidByImage[f.product_image_id]).length;
@@ -243,7 +244,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
     return fail(msg, { clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash, cost: g.cost, query_cost_total: costTotal, media_matched_before: matchedBefore, media_reused_ids: reusedIds, media_removed_unknown: removedUnknown });
   }
   const m = mapResponse(data.productSet.product);
-  let matched = matchMedia(m.media, p.files, true);
+  let matched = matchMedia(m.media, p.files, true, stems);
   let rereads = 0;
   if (caller.kind === "staff" && action === "push" && p.files.some((f) => !mediaGidByImage[f.product_image_id] && !matched[f.product_image_id])) {   // 처리 중이면 짧게 다시(직원 push 만)
     while (rereads < MEDIA_REREAD_MAX) {
@@ -251,7 +252,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
       const gm = await shopifyGql(store, PRODUCT_MEDIA_QUERY, { id: m.productGid });
       costTotal += gm.cost.actual ?? 0;
       if (!gm.ok) break;
-      matched = { ...matched, ...matchMedia(mediaNodes((gm.data as { product?: RespProduct | null } | null)?.product), p.files, true) };
+      matched = { ...matched, ...matchMedia(mediaNodes((gm.data as { product?: RespProduct | null } | null)?.product), p.files, true, stems) };
       if (!p.files.some((f) => !mediaGidByImage[f.product_image_id] && !matched[f.product_image_id])) break;
     }
   }
@@ -262,7 +263,8 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
     await sbUpsertByKey("shop_variant", "store_id=eq." + store.id + "&product_id=eq." + pv.product_id, { store_id: store.id, product_id: pv.product_id, shopify_variant_gid: v.gid, inventory_item_gid: v.inventoryItemGid, last_hash: p.hash });
   }
   await upsertMedia(matched);
-  const note = [clean.removed.length ? "clean removed: " + clean.removed.slice(0, 10).join(",") : "", "media before/after/reused/unknown " + matchedBefore + "/" + Object.keys(matched).length + "/" + reusedIds + "/" + removedUnknown + (rereads ? " rereads " + rereads : ""), built.cooDropped.length ? "coo dropped: " + built.cooDropped.slice(0, 10).map((d) => d.sku + "=" + d.code).join(",") : ""].filter(Boolean).join(" · ");
+  const pending = p.send_images === false ? 0 : p.files.filter((f) => !mediaGidByImage[f.product_image_id]).length;   // shop-img-name-1 이견 5: 올렸는데 아직 처리 중이라 짝을 못 맞춘 사진 수(다음 push 의 직전 읽기가 맞춘다 · cron drain 은 다시 읽기가 없어 after 0 이 보통)
+  const note = [clean.removed.length ? "clean removed: " + clean.removed.slice(0, 10).join(",") : "", "media before/after/reused/unknown " + matchedBefore + "/" + Object.keys(matched).length + "/" + reusedIds + "/" + removedUnknown + (pending ? " pending " + pending : "") + (rereads ? " rereads " + rereads : ""), built.cooDropped.length ? "coo dropped: " + built.cooDropped.slice(0, 10).map((d) => d.sku + "=" + d.code).join(",") : ""].filter(Boolean).join(" · ");
   await recordCall({ store_id: store.id, action, ok: true, http_status: g.status, query_cost: costTotal, throttle_available: g.cost.available, error: note || null, by_staff: caller.staffId, ms: Date.now() - t0 });
   return { ok: true, result: "ok", error: null, product_gid: m.productGid, handle: m.handle, status: m.status, variants: m.variants.length, media: m.media.length, media_matched_before: matchedBefore, media_reused_ids: reusedIds, media_removed_unknown: removedUnknown, media_matched: Object.keys(matched).length, media_rereads: rereads, clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash, cost: g.cost, query_cost_total: costTotal, ms: Date.now() - t0, blocks: [] };
 }

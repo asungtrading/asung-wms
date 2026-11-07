@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_product_test.ts — Shopify · DB 무접촉 (shop-2b ① ~ ④ · shop-img-off-1 ⑧ · _shared/shopify-product.ts · shopify-clean.ts 의 순수 함수)
-import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageUrl, matchMedia, mediaNodes, NEW_SHOP_PRODUCT_COLUMNS, newShopProductColumns, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageStems, imageUrl, matchMedia, skuStem, stemMatches, urlStem, mediaNodes, NEW_SHOP_PRODUCT_COLUMNS, newShopProductColumns, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
 import { CLEAN_CONFIG, cleanHtml, FORBIDDEN_AFTER_CLEAN, forbiddenAfterClean, iframeHost, rulesClean } from "../_shared/shopify-clean.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -25,7 +25,7 @@ const single: Payload = {
   files: [{ product_image_id: I(7), image_path: P(7) + "/" + I(7) + ".png", url: null, alt: "cape", product_id: P(7) }], listing_on: true, blocks: [], hash: "h2",
 };
 
-Deno.test("① family input — 10 variants · 2 options · Compare-at same value sent · DENY kept · tags omitted (send_tags false) · weight KILOGRAMS · files 10 with REPLACE · variant file = files entry · new product → identifier null", () => {
+Deno.test("① family input — 10 variants · 2 options · Compare-at same value sent · DENY kept · tags omitted (send_tags false) · weight KILOGRAMS · files 10 named by member SKU with APPEND_UUID · variant file = files entry · new product → identifier null", () => {
   const b = buildProductSetInput(fam, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "<p>clean</p>" });
   const inp = b.input as any;
   eq(b.identifier, null, "identifier");
@@ -36,7 +36,7 @@ Deno.test("① family input — 10 variants · 2 options · Compare-at same valu
   eq("tags" in inp, false, "tags omitted (410)"); eq(inp.status, "ACTIVE", "status"); eq(inp.descriptionHtml, "<p>clean</p>", "cleaned html used"); eq(inp.vendor, "Annie", "vendor"); eq(inp.productType, "Beauty Tools & Salon Supplies", "type");
   eq(inp.variants[0].inventoryItem, { tracked: true, measurement: { weight: { value: 0.039, unit: "KILOGRAMS" } } }, "inventoryItem");
   eq(inp.variants[0].optionValues, [{ optionName: "Color", name: "Blue" }, { optionName: "Size", name: sizes[0] }], "optionValues");
-  eq(inp.files.length, 10, "files"); eq(inp.files[0], { originalSource: imageUrl(BASE, fam.files[0].image_path), filename: I(0) + ".jpg", contentType: "IMAGE", alt: "v0", duplicateResolutionMode: "REPLACE" }, "file ref by URL · REPLACE");
+  eq(inp.files.length, 10, "files"); eq(inp.files[0], { originalSource: imageUrl(BASE, fam.files[0].image_path), filename: "ANN01001.jpg", contentType: "IMAGE", alt: "v0", duplicateResolutionMode: "APPEND_UUID" }, "file ref by URL · member SKU · APPEND_UUID");
   eq(inp.variants[0].file, inp.files[0], "variant file is the same ref as in files");
   eq("id" in inp.variants[0], false, "no variant id on first push"); eq("inventoryQuantities" in inp.variants[0], false, "no quantities (③)");
 });
@@ -96,7 +96,7 @@ Deno.test("⑥ 사진 짝(fix2) — 응답 media 가 처리 중(url 없음) → 
   eq(Object.keys(m2).length, 9, "one still processing → 9");
   const b2 = buildProductSetInput(fam, { baseUrl: BASE, productGid: "gid://shopify/Product/1", variantGidBySku: {}, mediaGidByImage: m2, cleanedHtml: "" });
   const files2 = (b2.input as any).files;
-  eq(files2.filter((x: any) => x.id).length, 9, "9 by id"); eq(files2[4].originalSource !== undefined && files2[4].duplicateResolutionMode === "REPLACE", true, "the processing one goes by URL + REPLACE");
+  eq(files2.filter((x: any) => x.id).length, 9, "9 by id"); eq(files2[4].originalSource !== undefined && files2[4].duplicateResolutionMode === "APPEND_UUID" && files2[4].filename === "ANN01005.jpg", true, "the processing one goes by URL + APPEND_UUID · SKU name");
   eq(mediaNodes({ id: "g", handle: null, status: "ACTIVE", media: { nodes: [{ id: "gid://shopify/MediaImage/1", status: "READY", image: { url: "u" } }] } }), [{ gid: "gid://shopify/MediaImage/1", alt: null, status: "READY", url: "u" }], "mediaNodes shape");
   eq(PRODUCT_MEDIA_QUERY.includes("media(first: 250)") && PRODUCT_MEDIA_QUERY.includes("status image { url }"), true, "query asks status + url");
 });
@@ -160,4 +160,64 @@ Deno.test("⑨ shop-new-1(판정 1042 · 1043) — IMS 가 만드는 상품(행 
   eq(newShopProductColumns(false), { origin: "ims", send_images: true, send_tags: true }, "no shop_product row → three columns on the first upsert");
   eq(newShopProductColumns(true), {}, "row exists → nothing (PATCH leaves the three columns alone)");
   eq(NEW_SHOP_PRODUCT_COLUMNS, { origin: "ims", send_images: true, send_tags: true }, "constant");
+});
+
+Deno.test("⑩ shop-img-name-1 — 파일 이름 = SKU · SKU_2 · SKU_3(payload 순서) · 패밀리는 구성원 SKU · png · webp 유지 · 못 쓰는 글자 → - · 비면 uuid · APPEND_UUID", () => {
+  const files3 = ["a.jpg", "b.jpg", "c.jpg"].map((x, i) => ({ product_image_id: I(i), image_path: P(7) + "/" + I(i) + ".jpg", url: null, alt: "cape", product_id: P(7) }));
+  const s3 = { ...single, files: files3, variants: single.variants.map((v) => ({ ...v, image_id: I(0) })) };
+  const b3 = buildProductSetInput(s3, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }); const i3 = b3.input as any;
+  eq(i3.files.map((f: any) => f.filename), ["ANN03907.jpg", "ANN03907_2.jpg", "ANN03907_3.jpg"], "single product 3 photos");
+  eq(i3.files.every((f: any) => f.duplicateResolutionMode === "APPEND_UUID"), true, "never REPLACE");
+  eq(i3.variants[0].file.filename, "ANN03907.jpg", "variant file = same name as its files entry");
+  const fam4: Payload = { ...fam, variants: fam.variants.slice(0, 4), files: fam.files.slice(0, 4) };
+  eq((buildProductSetInput(fam4, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).input as any).files.map((f: any) => f.filename), ["ANN01001.jpg", "ANN01002.jpg", "ANN01003.jpg", "ANN01004.jpg"], "family 4 members 1 each → member SKU");
+  const famMix: Payload = { ...fam, variants: fam.variants.slice(0, 2), files: [fam.files[1], { ...fam.files[0] }, { ...fam.files[0], product_image_id: I(8), image_path: P(0) + "/" + I(8) + ".jpg" }] };
+  eq(Object.values(imageStems(famMix)), ["ANN01002", "ANN01001", "ANN01001_2"], "family: cover of another member first · numbering per SKU in payload order");
+  eq(buildProductSetInput(single, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).input.files, [{ originalSource: imageUrl(BASE, single.files[0].image_path), filename: "ANN03907.png", contentType: "IMAGE", alt: "cape", duplicateResolutionMode: "APPEND_UUID" }], "png kept");
+  const webp = { ...single, files: [{ ...single.files[0], image_path: P(7) + "/" + I(7) + ".WEBP" }] };
+  eq((buildProductSetInput(webp, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).input as any).files[0].filename, "ANN03907.webp", "webp kept (lower-case ext)");
+  eq(skuStem("ADA83721FAM - 004"), "ADA83721FAM-004", "space run → one -"); eq(skuStem("AB/CD\\EF"), "AB-CD-EF", "slashes"); eq(skuStem("  /X#Y/ "), "X-Y", "edges trimmed");
+  eq(skuStem("ONO00140"), "ONO00140", "plain"); eq(skuStem("AB--CD"), "AB--CD", "clean SKU dashes untouched"); eq(skuStem("AB -/ CD"), "AB-CD", "dashes inside a bad run fold in"); eq(skuStem("A.B_c-1"), "A.B_c-1", "allowed kept"); eq(skuStem(" / # "), null, "empty → null"); eq(skuStem(null), null, "null");
+  const bad = { ...single, variants: single.variants.map((v) => ({ ...v, sku: " / " })) };
+  eq((buildProductSetInput(bad, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).input as any).files[0].filename, I(7) + ".png", "unusable SKU → old uuid name");
+  const orphan = { ...single, files: [{ ...single.files[0], product_id: P(9) }] };
+  eq(Object.values(imageStems(orphan)), [I(7)], "image whose product is not among variants → uuid name");
+  const spaced = { ...single, variants: single.variants.map((v) => ({ ...v, sku: "ADA83721FAM - 004" })) };
+  eq((buildProductSetInput(spaced, { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" }).input as any).files[0].filename, "ADA83721FAM-004.png", "real odd SKU");
+});
+Deno.test("⑪ shop-img-name-1 짝 기준 — 정확히 SKU · SKU_n · 뒤 _<uuid> 허용 · 옛 uuid 줄기 계속 · 「포함」 금지 · 한 사진은 한 번만 · unknown", () => {
+  const cdn = (stem: string, e = "jpg") => "https://cdn.shopify.com/s/files/1/0770/0194/9367/files/" + stem + "." + e + "?v=1762460000";
+  const U = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const f0 = fam.files[0], st = { [f0.product_image_id]: "ANN01001" };
+  eq(urlStem(cdn("ANN01001_2")), "ann01001_2", "urlStem: last segment · no query · no ext · lower");
+  eq(urlStem(cdn("ADA83721FAM-004%20x", "png")), "ada83721fam-004 x", "decoded");
+  eq(stemMatches(urlStem(cdn("ANN01001")), f0, "ANN01001"), true, "(b) exact");
+  eq(stemMatches(urlStem(cdn("ann01001")), f0, "ANN01001"), true, "(b) case-insensitive");
+  eq(stemMatches(urlStem(cdn("ANN01001_" + U)), f0, "ANN01001"), true, "(b) + _<uuid> (APPEND_UUID)");
+  eq(stemMatches(urlStem(cdn("ANN01001_" + U.replace(/-/g, ""))), f0, "ANN01001"), true, "(b) + _<32 hex>");
+  eq(stemMatches(urlStem(cdn("ANN01001_2")), f0, "ANN01001"), false, "ANN01001 must not match ANN01001_2 (no 'contains')");
+  eq(stemMatches(urlStem(cdn("ANN01001_2_" + U)), f0, "ANN01001"), false, "nor ANN01001_2_<uuid>");
+  eq(stemMatches(urlStem(cdn("ANN010011")), f0, "ANN01001"), false, "nor a longer SKU");
+  eq(stemMatches(urlStem(cdn("x_ANN01001")), f0, "ANN01001"), false, "nor a prefix");
+  eq(stemMatches(urlStem(cdn("ANN01001_abc")), f0, "ANN01001"), false, "nor a non-uuid tail");
+  eq(stemMatches(urlStem(cdn("ANN01001_2")), f0, "ANN01001_2"), true, "(b) second photo");
+  eq(stemMatches(urlStem(cdn(f0.product_image_id)), f0, "ANN01001"), true, "(c) old uuid stem still matches");
+  eq(stemMatches(urlStem(cdn(f0.product_image_id + "_abc")), f0, "ANN01001"), true, "(c) old uuid stem with Shopify tail");
+  eq(stemMatches(null, f0, "ANN01001"), false, "no url");
+  const media: MediaNode[] = [
+    { gid: "g/1", status: "READY", url: cdn("ANN01001_2") },
+    { gid: "g/2", status: "READY", url: cdn("ANN01001_" + U) },
+    { gid: "g/3", status: "READY", url: cdn(fam.files[1].product_image_id) },
+    { gid: "g/4", status: "READY", url: cdn("photo-from-admin") },
+    { gid: "g/5", status: "PROCESSING", url: null },
+  ];
+  const files2 = fam.files.slice(0, 2), stems2 = { [I(0)]: "ANN01001", [I(1)]: "ANN01002" };
+  eq(matchMedia(media, files2, true, stems2), { [I(0)]: "g/2", [I(1)]: "g/3" }, "SKU+uuid one · old uuid one · ANN01001_2 not taken by ANN01001");
+  eq(unknownMedia(media, files2, stems2), 3, "ANN01001_2 (not ours here) · admin photo · processing → unknown 3");
+  const dup: Payload = { ...fam, variants: fam.variants.slice(0, 1), files: [fam.files[0], { ...fam.files[0], product_image_id: I(8) }] };
+  const ds = imageStems(dup);
+  eq(Object.values(ds), ["ANN01001", "ANN01001_2"], "two photos of one SKU");
+  eq(matchMedia([{ gid: "g/9", status: "READY", url: cdn("ANN01001") }], dup.files, true, ds), { [I(0)]: "g/9" }, "one Shopify photo → only the first IMS photo");
+  eq(matchMedia([{ gid: "g/9", status: "READY", url: cdn("ANN01001") }], [f0], true), {}, "no stems given → only old uuid rule (callers pass stems)");
+  eq(Object.keys(st).length, 1, "fixture");
 });
