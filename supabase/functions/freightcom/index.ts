@@ -1,7 +1,7 @@
 // ============================================================
 // ASUNG IMS — Edge Function: freightcom (fc-1b 견적 · fc-2c 예약 · 2026-10-28 · 판정 835 ~ 858 · DB fc-1a ~ 1b5 · fc-2a ~ 2b2 · 순수 함수 ../_shared/freightcom.ts)
 //   ⚠️ 테스트 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg) 전용 — 시작 때 inv_config.db_role = 'test' 가 아니면 멈춘다. 비밀값 FREIGHTCOM_BASE_URL(공통 · 없으면 500) + 계정마다 FREIGHTCOM_API_KEY_<계정>(fc-1b4 판정 848 · 계정 = 출발 창고 ref_warehouse.freightcom_account · 발송에 스냅샷 · 없으면 422 「연결 없음」 · 옛 FREIGHTCOM_API_KEY 로 넘어가지 않는다) — 토큰은 응답 · 기록 · 오류 문장 어디에도 안 남는다.
-//   POST JSON {action, …} · 응답 json(status) · CORS · cron 길 없음(직원 길만 · verify_jwt=false 라 문은 함수 안):
+//   POST JSON {action, …} · 응답 json(status) · CORS · 직원 길(verify_jwt=false 라 문은 함수 안) + cron 길 하나(fc-pickup-2 pickup_sweep · x-ims-cron-key · 아래 ⭐):
 //     문  Authorization: Bearer <세션 JWT> → 견적 넷(quote · quote_poll · services · status) = rpc/ims_can_write('sales') 또는 ('fulfillment') · 예약 셋(book · book_poll · cancel) = ims_can_write('freight_booking')(853 · 854) · label = 셋 중 하나 — 실제 검사는 DB 창구가 사용자 JWT 로 다시 한다
 //     quote {so_ids[], options} · quote_poll {shipment_id, request_id} · services {account?} · status — fc-1b 그대로(아래 주석 · 흐름 무접촉)
 //     book {shipment_id, pickup?{date, ready_at, ready_until}}
@@ -17,10 +17,13 @@
 //        ④ 뒤 ⑥: booked 로 저장된 뒤 보낸 몸이 상자 · 비정기(pickup_details.pre_scheduled_pickup false)이고 응답에 확인번호가 없으면 GET /shipment/{id}/schedule(action schedule_poll) 을 POLL_INTERVAL_MS 마다 · 최대 SCHEDULE_WAIT_MS(5 초) · pending 이 아니면 바로 → service_role rpc/fc_book_schedule_save(원문) · 응답 pickup_check{checked, …, keys} · 예약 응답 자체는 바꾸지 않는다(실패해도 booked)
 //        pickup_poll {booking_id} — 문 = book(freight_booking) · booked 만 · GET schedule 한 번 + GET /shipment/{id} 한 번(state 새로 · 확인번호 보조 · 이견 3) → fc_book_schedule_save(schedule, shipment) → {ok, checked:true, schedule, detail}
 //        GET 실패(404 · 5xx · 망) = DB 무변 · fc_call_log 한 줄 · 응답 {checked:false, error}(이견 2 · 「couldn't check」 글은 여기서만 · 그 밖 글은 DB fc_pickup_check) · 첫 실호출 뒤 pickup_check.keys(받은 최상위 열쇠) 로 실물 꼴 확인
-//   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · account · ok · http_status · error · by_staff · shipment_id · ms) · 라벨 받기도 한 줄(action label_fetch) · 90 일 지난 줄은 호출 끝에 지운다
+//     ⭐ fc-pickup-2(2026-11-05 · DB 20261107000000 · 이견 1 ~ 14): cron ims-fc-pickup-poll(*/5 · supabase/ops/cron.sql) → POST {action:"pickup_sweep", limit} + x-ims-cron-key == IMS_CRON_SECRET(미설정 500 fail-closed · qbo · mail 꼴 · 사람 JWT 로는 400 · 열쇠로 다른 action 은 400)
+//        스위치 inv_config fc_pickup_poll_enabled(cron SQL 의 where 가 1 차 · EF 가 2 차 · off 면 GET 0 · 요약 한 줄) → rpc/fc_pickup_poll_due(limit · 대상은 DB 한 곳 · 창 · 2 단) → 건마다 checkSchedule(wait 없음 · shipment GET 없음 · GET 하나) → fc_book_schedule_save(schedule_done_at 은 DB 가 처음 한 번)
+//        한 건 실패(GET · 저장 · 열쇠 없음)는 그 건만 failed · 회차는 계속 · 회차 끝 fc_call_log 한 줄(action pickup_sweep · shipment_id null · by_staff null · detail {enabled, limit, candidates, read, done, pending, other, failed, ms}) · 응답 {ok, …요약, items[]}
+//   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · account · ok · http_status · error · by_staff · shipment_id · ms · cron 회차의 줄은 by_staff null) · 라벨 받기도 한 줄(action label_fetch) · 90 일 지난 줄은 호출 끝에 지운다
 //   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.freightcom] verify_jwt=false)
 // ============================================================
-import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, distinctCarriers, FC_ACTIONS, FC_BOOK_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, PAYMENT_CACHE_MS, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, SCHEDULE_WAIT_MS, scheduleOutcome, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, type FcLabel, type FcService, type RateRequest } from "../_shared/freightcom.ts";
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, distinctCarriers, FC_ACTIONS, FC_BOOK_ACTIONS, FC_CRON_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, PAYMENT_CACHE_MS, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, sameSecret, SCHEDULE_WAIT_MS, scheduleOutcome, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, sweepKindOf, sweepLimitOf, sweepSummary, type FcLabel, type FcService, type RateRequest } from "../_shared/freightcom.ts";
 import { pdfPages, sha256Hex } from "../_shared/doc.ts";
 import { sleep } from "../_shared/shopify.ts";
 
@@ -58,7 +61,7 @@ async function rpc(fn: string, args: Record<string, unknown>, jwt: string | null
   }
   return text ? JSON.parse(text) : null;
 }
-type LogRow = { shipment_id: string | null; account: string | null; action: string; ok: boolean; http_status: number | null; error: string | null; by_staff: string | null; ms: number };
+type LogRow = { shipment_id: string | null; account: string | null; action: string; ok: boolean; http_status: number | null; error: string | null; by_staff: string | null; ms: number; detail?: unknown };   // fc-pickup-2: detail = 회차 요약(pickup_sweep 줄만)
 async function recordCall(row: LogRow): Promise<void> {
   try {
     await sbWrite("POST", "fc_call_log", { ...row, error: row.error ? row.error.slice(0, 400) : null });
@@ -275,6 +278,37 @@ async function pickupPoll(body: Record<string, unknown>, caller: Caller): Promis
   if (!pickup_check.checked) return json(502, { ok: false, checked: false, error: String(pickup_check.error ?? ""), message: pickup_check.message ?? null, booking_id: b.id, attempt: b.attempt, status: b.status, pickup_check, detail });
   return json(200, { ok: true, checked: true, booking_id: b.id, attempt: b.attempt, status: b.status, pickup_check, detail });
 }
+// ⭐ fc-pickup-2: cron 회차 — 스위치 → fc_pickup_poll_due → 건마다 checkSchedule(wait 없음 · shipment GET 없음) → 요약 한 줄(fc_call_log action pickup_sweep · detail) · 한 건 실패가 회차를 멈추지 않는다(checkSchedule 은 던지지 않는다)
+const CRON_CALLER: Caller = { jwt: "", staffId: null, mode: "office" };   // by_staff null = cron 표식 · checkSchedule 은 caller.jwt 를 쓰지 않는다(rpc 는 service_role)
+async function pickupSweep(body: Record<string, unknown>): Promise<Response> {
+  const t0 = Date.now();
+  const limit = sweepLimitOf(body);
+  const summaryRow = async (ok: boolean, error: string | null, detail: Record<string, unknown>) =>
+    await recordCall({ shipment_id: null, account: null, action: "pickup_sweep", ok, http_status: null, error, by_staff: null, ms: Date.now() - t0, detail: { ...detail, ms: Date.now() - t0 } });
+  let enabled = false;
+  try { enabled = String((await sbGet("inv_config?select=value&key=eq.fc_pickup_poll_enabled"))[0]?.value ?? "").trim().toLowerCase() === "on"; }
+  catch (e) { const error = "inv_config read failed: " + String((e as Error)?.message ?? e).slice(0, 200); await summaryRow(false, error, { enabled: null, limit, candidates: 0 }); return json(502, { ok: false, error }); }
+  if (!enabled) {
+    const skipped = "switch off — inv_config fc_pickup_poll_enabled is not 'on' (nothing read)";
+    await summaryRow(true, null, { enabled: false, limit, candidates: 0, read: 0, done: 0, pending: 0, other: 0, failed: 0, skipped });
+    return json(200, { ok: true, enabled: false, limit, candidates: 0, read: 0, done: 0, pending: 0, other: 0, failed: 0, skipped, items: [] });
+  }
+  let due: Record<string, unknown>[];
+  try { due = (await rpc("fc_pickup_poll_due", { p_limit: limit }, null) as Record<string, unknown>[]) ?? []; }
+  catch (e) { const error = "fc_pickup_poll_due failed: " + String((e as Error)?.message ?? e).slice(0, 200); await summaryRow(false, error, { enabled: true, limit, candidates: null }); return json(502, { ok: false, error }); }
+  const items: Record<string, unknown>[] = [];
+  for (const d of due) {
+    const account = String(d.account ?? "").trim(), fcId = String(d.freightcom_shipment_id ?? "");
+    const b: Booking = { id: String(d.booking_id), shipment_id: String(d.shipment_id), attempt: Number(d.attempt), status: "booked", account, freightcom_shipment_id: fcId, labels: null };
+    const check: ScheduleCheck = !account || !FC_KEY(account) ? { checked: false, error: noAccountSentence(null, account || "??") } : await checkSchedule(account, b, fcId, CRON_CALLER, false, false);
+    const kind = sweepKindOf(check);
+    items.push({ booking_id: b.id, attempt: b.attempt, account: account || null, tier: d.tier ?? null, minutes_since_booked: d.minutes_since_booked ?? null, kind, schedule_status: check.schedule_status ?? null, pickup_confirmation: check.pickup_confirmation ?? null, schedule_done_at: check.schedule_done_at ?? null, error: check.error ?? null });
+  }
+  const s = sweepSummary(items as { kind: ReturnType<typeof sweepKindOf> }[]);
+  const detail = { enabled: true, limit, candidates: due.length, ...s };
+  await summaryRow(s.failed === 0, s.failed === 0 ? null : s.failed + " of " + due.length + " pickup checks failed — see the schedule_poll rows just before this one", detail);
+  return json(200, { ok: true, ...detail, ms: Date.now() - t0, items });
+}
 // ④ GET /shipment/{id} 다시 묻기 → 저장 → 라벨
 async function finishBook(account: string, b: Booking, fcId: string, caller: Caller): Promise<Response> {
   const started = Date.now();
@@ -369,6 +403,15 @@ Deno.serve(async (req) => {
     if (dbRole !== "test") return json(500, { ok: false, error: "inv_config.db_role is " + String(dbRole ?? "missing") + " - this function runs on the test project only (Asung-IMS) - refusing" });
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const action = String(body?.action ?? "");
+    const cronKey = req.headers.get("x-ims-cron-key");
+    if (cronKey !== null) {                                                                          // ⭐ fc-pickup-2 cron 길 — 열쇠만 · pickup_sweep 만 · by_staff 없음(qbo · mail 꼴) · 사람 JWT 길은 아래 그대로
+      const secret = Deno.env.get("IMS_CRON_SECRET") ?? "";
+      if (!secret) return json(500, { ok: false, error: "IMS_CRON_SECRET not configured - refusing (fail-closed)" });
+      if (!cronKey || !sameSecret(cronKey, secret)) return json(401, { ok: false, error: "unauthorized" });
+      if (!(FC_CRON_ACTIONS as readonly string[]).includes(action)) return json(400, { ok: false, error: "cron may only call: " + FC_CRON_ACTIONS.join(", ") });
+      if (!FC_BASE()) return json(500, { ok: false, error: "FREIGHTCOM_BASE_URL not configured on this project - refusing (fail-closed)" });
+      return await pickupSweep(body);
+    }
     const all = [...FC_ACTIONS, ...FC_BOOK_ACTIONS] as readonly string[];
     if (!all.includes(action)) return json(400, { ok: false, error: "action must be one of: " + all.join(", ") });
     const caller = await gate(req, action === "label" ? "label" : (FC_BOOK_ACTIONS as readonly string[]).includes(action) ? "book" : "quote");

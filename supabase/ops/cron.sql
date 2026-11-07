@@ -953,3 +953,22 @@ $job$);
 --                        or (j.state = 'queued' and j.next_at <= now())
 --                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
 --   $job$);
+
+-- [테스트 · Asung-IMS · fazgmyvzzhqybtvtktyg] ims-fc-pickup-poll 등록 — fc-pickup-2 (2026-11-05 · 판정 1041(짐작) · DB 20261107000000 · EF freightcom fc-pickup-2 배포 뒤에 · 지시서 ~/asung/prompts/fc-pickup-2.md) — 확인번호 없는 Freightcom 예약을 5 분마다 스스로 다시 읽는다(GET /shipment/{id}/schedule 만 · 청구 없음) · ⚠️ 이 프로젝트가 메인(617) — 다른 프로젝트에 등록하지 마라
+--   무엇: */5 분 — inv_config fc_pickup_poll_enabled = 'on' 이고 · 대상이 하나라도 있을 때만(fc_pickup_poll_due(1) · booked · 상자 · 비정기 · 확인번호 없음 · 창 = greatest(예약 + 48 h, 픽업 날 + 2 일 토론토) · 2 단 = 예약 2 시간 안 회차마다 · 그 뒤 마지막 읽기에서 30 분)
+--         EF freightcom 을 {"action":"pickup_sweep","limit":<fc_pickup_poll_batch · 없으면 10>} 로 부른다(cron 길 = x-ims-cron-key · 사람 JWT 길과 갈라서 · by_staff null) · 저장은 fc_book_schedule_save(schedule_done_at 은 처음 한 번) · 회차 요약 = fc_call_log action pickup_sweep · detail
+--   ⚠️ 스위치 off(기본) 면 where 가 거르니 호출 0 — 등록은 EF 배포 뒤 지금 · 켜기(fc_pickup_poll_enabled on)는 Caleb
+--   한 건 GET 3 ~ 7 s · 10 건 ≈ 70 s 안쪽 · timeout 120 s · cron 이 돌 때 사람이 Check pickup 을 눌러도 같은 저장 창구(for update · 덮지 않음)라 안전
+--   열쇠: jobid 55 ims-mail-drain 의 command 에서 다시 꺼내는 꼴은 ims-qbo-send-payments(62) 와 같다 — substring(command from 'x-ims-cron-key'', ''([^'']+)') → format($fmt$ … %L … $fmt$, s.k) · where length(s.k) = 64(아래는 자리표 · 대시보드 SQL Editor 에서만)
+--   확인: select jobid, jobname, schedule, active, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-fc-pickup-poll';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다(마지막 62 ims-qbo-send-payments 다음 → 63 예상)
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-fc-pickup-poll') order by start_time desc limit 5;
+--   회차 흔적: select called_at, ok, error, detail from public.fc_call_log where action = 'pickup_sweep' order by called_at desc limit 10;   · 읽은 건: select called_at, shipment_id, ok, http_status, ms from public.fc_call_log where action = 'schedule_poll' and by_staff is null order by called_at desc limit 20;
+--   걸린 시간: select b.attempt, b.booked_at, b.schedule_done_at, round(extract(epoch from (b.schedule_done_at - b.booked_at)) / 60) as minutes_to_done, b.pickup_confirmation from public.fc_booking b where b.schedule_done_at is not null order by b.booked_at desc limit 20;
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-fc-pickup-poll'), active := false);   · 해제: select cron.unschedule('ims-fc-pickup-poll');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'fc_pickup_poll_enabled';
+select cron.schedule('ims-fc-pickup-poll', '*/5 * * * *', $job$
+  select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/freightcom',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+    body := jsonb_build_object('action', 'pickup_sweep', 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'fc_pickup_poll_batch'), 10)), timeout_milliseconds := 120000)
+  where exists (select 1 from public.inv_config c where c.key = 'fc_pickup_poll_enabled' and c.value = 'on')
+    and exists (select 1 from public.fc_pickup_poll_due(1));
+$job$);

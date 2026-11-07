@@ -1,5 +1,5 @@
-// deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b 견적 ① ~ ⑥ · fc-2c 예약 ⑦ ~ ⑩ · fc-pickup-1 스케줄 ⑪ · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음 · book-*.json 의 라벨 url 폴더는 MASKED)
-import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, cents, distinctCarriers, FC_BOOK_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, SCHEDULE_WAIT_MS, scheduleOf, scheduleOutcome, secretNameFor, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, type RateRequest } from "../_shared/freightcom.ts";
+// deno test --allow-read supabase/functions/freightcom/freightcom_test.ts — Freightcom · DB · 네트워크 무접촉 (fc-1b 견적 ① ~ ⑥ · fc-2c 예약 ⑦ ~ ⑩ · fc-pickup-1 스케줄 ⑪ · fc-pickup-2 cron 길 ⑫ · _shared/freightcom.ts 의 순수 함수 · fixtures = 2026-10-28 Caleb PC 프로브 원문 · 토큰 없음 · book-*.json 의 라벨 url 폴더는 MASKED)
+import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, cents, distinctCarriers, FC_BOOK_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, QUOTE_WAIT_MS, rateBody, rateLines, rateStatus, requestIdOf, SCHEDULE_WAIT_MS, scheduleOf, scheduleOutcome, secretNameFor, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, sweepKindOf, sweepLimitOf, sweepSummary, FC_CRON_ACTIONS, sameSecret, SWEEP_LIMIT_DEFAULT, SWEEP_LIMIT_MAX, type RateRequest } from "../_shared/freightcom.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -197,4 +197,25 @@ Deno.test("⑪ fc-pickup-1 스케줄 읽기 — status 네 값 · 감쌈 {schedu
   eq(pickupCheckNeeded({ pre_scheduled_pickup: false }, { ...pkg, pickup_confirmation_number: "9516500" }), false, "confirmation already in the booking answer → no read");
   eq(pickupCheckNeeded({ pre_scheduled_pickup: "false" }, pkg), false, "string \"false\" is not false");
   eq((FC_BOOK_ACTIONS as readonly string[]).includes("pickup_poll"), true, "pickup_poll gated with the booking actions");
+});
+
+// fc-pickup-2 — cron 길의 순수 부분(index.ts 의 pickupSweep · serve 분기는 Deno.serve 라 여기서 못 돌린다) · 가짜 응답은 11-05 실물 꼴 {error, pickup_confirmation_number, status} 맨몸 그대로
+Deno.test("⑫ fc-pickup-2 cron 길 — action 목록 갈라섬 · limit(1 ~ 50 · 밖 · 글자 · 없음 → 10) · sameSecret · 결과 분류(failed · done · pending · other) · 회차 요약 셈 · 실물 꼴 schedule 응답", () => {
+  eq([...FC_CRON_ACTIONS], ["pickup_sweep"], "cron may only call pickup_sweep");
+  eq((FC_BOOK_ACTIONS as readonly string[]).includes("pickup_sweep"), false, "pickup_sweep is not a person action (JWT path → 400)");
+  eq((FC_CRON_ACTIONS as readonly string[]).includes("pickup_poll"), false, "pickup_poll is not a cron action (key path → 400)");
+  eq([SWEEP_LIMIT_DEFAULT, SWEEP_LIMIT_MAX], [10, 50], "limit bounds");
+  eq([sweepLimitOf({ limit: 3 }), sweepLimitOf({ limit: "7" }), sweepLimitOf({ limit: 50 }), sweepLimitOf({ limit: 51 }), sweepLimitOf({ limit: 0 }), sweepLimitOf({ limit: 2.5 }), sweepLimitOf({ limit: "x" }), sweepLimitOf({}), sweepLimitOf(null)], [3, 7, 50, 10, 10, 10, 10, 10, 10], "limit parsing");
+  eq([sameSecret("abc", "abc"), sameSecret("abc", "abd"), sameSecret("abc", "abcd"), sameSecret("", ""), sameSecret("", "a")], [true, false, false, true, false], "sameSecret");
+  const real = { error: "", pickup_confirmation_number: "29FBD3C23EA", status: "done" };                 // 11-05 실물 꼴(맨몸 · 열쇠 셋)
+  eq(scheduleOutcome(real), { kind: "done", status: "done", confirmation: "29FBD3C23EA", message: null, keys: ["error", "pickup_confirmation_number", "status"] }, "real shape → done · empty error is not a message");
+  eq(scheduleOutcome({ error: "", pickup_confirmation_number: "", status: "pending" }).kind, "pending", "real shape pending");
+  eq(sweepKindOf({ checked: false, error: "Couldn't check" }), "failed", "GET failed → failed");
+  eq(sweepKindOf({ checked: true, schedule_status: "done" }), "done", "saved done");
+  eq(sweepKindOf({ checked: true, schedule_status: "pending" }), "pending", "saved pending");
+  eq(sweepKindOf({ checked: true, schedule_status: "timed-out" }), "other", "saved timed-out → other");
+  eq(sweepKindOf({ checked: true, schedule_status: "unknown" }), "other", "saved unknown → other");
+  eq(sweepKindOf({ checked: true }), "other", "saved without status → other (never silently done)");
+  eq(sweepSummary([{ kind: "done" }, { kind: "pending" }, { kind: "failed" }, { kind: "done" }, { kind: "other" }]), { read: 4, done: 2, pending: 1, other: 1, failed: 1 }, "summary · read excludes failed");
+  eq(sweepSummary([]), { read: 0, done: 0, pending: 0, other: 0, failed: 0 }, "empty run");
 });

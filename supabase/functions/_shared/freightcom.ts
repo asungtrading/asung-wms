@@ -237,3 +237,33 @@ export function cancelOutcome(status: number, body: unknown): { ok: boolean; err
   const hint = status === 403 ? " — Freightcom refuses: the shipment is not booked there (a failed attempt) or belongs to another account" : "";
   return { ok: false, error: `Freightcom cancel ${status}${hint}: ${(typeof body === "string" ? body : JSON.stringify(body ?? "")).slice(0, 300)}` };
 }
+
+// ── fc-pickup-2 (2026-11-05 · 이견 1 ~ 14): cron 길 — 확인번호 없는 예약을 5 분마다 스스로 다시 읽는다(action pickup_sweep · 문 x-ims-cron-key == IMS_CRON_SECRET · 사람 JWT 길과 갈라서 · GET 만) ──
+//    대상은 DB 한 곳(fc_pickup_poll_due · booked · 상자 · 비정기 · 확인번호 없음 · 창 · 2 단) · 저장은 fc_book_schedule_save 그대로 · 회차 요약은 fc_call_log 한 줄(action pickup_sweep · detail)
+export const FC_CRON_ACTIONS = ["pickup_sweep"] as const;
+export const SWEEP_LIMIT_DEFAULT = 10;        // 한 회차 최대 건수 — cron 몸이 inv_config fc_pickup_poll_batch 를 읽어 limit 으로 넘긴다(GET 3 ~ 7 s · timeout 120 s 안 · 이견 5)
+export const SWEEP_LIMIT_MAX = 50;
+export function sweepLimitOf(body: unknown): number {
+  const v = (body as Record<string, unknown> | null)?.limit;
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= SWEEP_LIMIT_MAX ? n : SWEEP_LIMIT_DEFAULT;
+}
+// 길이 말고는 시간이 같다(qbo · mail 의 sameSecret 과 같은 꼴 — Edge Runtime 의 crypto.subtle.timingSafeEqual 유무에 기대지 않는다)
+export function sameSecret(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
+// 한 건의 결과 분류 — failed(GET · 저장 실패 · 열쇠 없음 · DB 무변) · done · pending · other(error · timed-out · unknown — 저장은 됐다)
+export type SweepKind = "done" | "pending" | "other" | "failed";
+export function sweepKindOf(check: { checked: boolean; schedule_status?: unknown; [k: string]: unknown }): SweepKind {
+  if (!check.checked) return "failed";
+  const s = typeof check.schedule_status === "string" ? check.schedule_status : "";
+  return s === "done" ? "done" : s === "pending" ? "pending" : "other";
+}
+export function sweepSummary(items: { kind: SweepKind }[]): { read: number; done: number; pending: number; other: number; failed: number } {
+  const s = { read: 0, done: 0, pending: 0, other: 0, failed: 0 };
+  for (const i of items) { s[i.kind]++; if (i.kind !== "failed") s.read++; }
+  return s;
+}
