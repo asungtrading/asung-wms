@@ -1,4 +1,4 @@
-// deno test supabase/functions/ims-mcp/mcp_test.ts — Supabase(auth · rest) 무접촉(가짜 fetch) · mcp-2 M1 ~ M15 · mcp-1b M16(도구 ⑥ sales_summary)
+// deno test supabase/functions/ims-mcp/mcp_test.ts — Supabase(auth · rest) 무접촉(가짜 fetch) · mcp-2 M1 ~ M15 · mcp-1b M16(도구 ⑥ sales_summary) · mcp-cap-1 M17(⑥ offset · limit 500 · 설명 글)
 import { ARGS_MAX_CHARS, clipArgs, handle, metadataDoc, TOOLS, validateArgs, type Deps } from "../_shared/mcp.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -140,17 +140,34 @@ Deno.test("M16 mcp-1b sales_summary — 목록 여섯째 · enum · required · 
   const { d, f } = mk({ rpc: (fn) => new Response(JSON.stringify(fn === "mcp_sales" ? { period: { from: "2026-09-01", to: "2026-09-30" }, group: "brand", rows: [{ key: "ORS", sales: 1, credits: 0, net: 1, qty: 1, qty_credited: 0 }], totals: { sales: 1, credits: 0, net: 1, qty: 1, qty_credited: 0 } } : { found: true }), { status: 200 }) });
   const t = (await (await handle(post(rpcReq(1, "tools/list")), d)).json()).result.tools;
   const s = t[5]; eq(s.name, "sales_summary", "name"); eq(s.annotations, { readOnlyHint: true }, "readOnly"); eq(s.inputSchema.required, ["from", "to", "group"], "required");
-  eq(s.inputSchema.properties.group.enum, ["brand", "customer", "month", "sku", "supplier"], "enum"); eq([s.inputSchema.properties.limit.minimum, s.inputSchema.properties.limit.maximum], [1, 200], "limit 1 ~ 200");
+  eq(s.inputSchema.properties.group.enum, ["brand", "customer", "month", "sku", "supplier"], "enum"); eq([s.inputSchema.properties.limit.minimum, s.inputSchema.properties.limit.maximum], [1, 500], "limit 1 ~ 500");
   ok(s.description.includes("Totals are computed by IMS") && s.description.includes("Does not return addresses"), "description");
   const a = (await (await handle(post(rpcReq(2, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand" } })), d)).json());
   eq(a.result.isError, false, "ok"); eq(JSON.parse(a.result.content[0].text).rows[0].key, "ORS", "content = rpc JSON");
-  const c = f.calls.find((x) => x.url.endsWith("/rpc/mcp_sales"))!; eq(JSON.parse(String(c.init.body)), { p_from: "2026-09-01", p_to: "2026-09-30", p_group: "brand", p_brand: null, p_customer: null, p_sku: null, p_supplier: null, p_limit: 50 }, "arg map 기본");
-  const b = (await (await handle(post(rpcReq(3, "tools/call", { name: "sales_summary", arguments: { from: "2026-01-01", to: "2026-10-31", group: "sku", brand: "Clore", customer: "Rex", sku: "ORS1", supplier: "Kim", limit: 200 } })), d)).json()); eq(b.result.isError, false, "ok 2");
-  eq(JSON.parse(String(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales"))[1].init.body)), { p_from: "2026-01-01", p_to: "2026-10-31", p_group: "sku", p_brand: "Clore", p_customer: "Rex", p_sku: "ORS1", p_supplier: "Kim", p_limit: 200 }, "arg map 전부");
+  const c = f.calls.find((x) => x.url.endsWith("/rpc/mcp_sales"))!; eq(JSON.parse(String(c.init.body)), { p_from: "2026-09-01", p_to: "2026-09-30", p_group: "brand", p_brand: null, p_customer: null, p_sku: null, p_supplier: null, p_limit: 50, p_offset: 0 }, "arg map 기본");
+  const b = (await (await handle(post(rpcReq(3, "tools/call", { name: "sales_summary", arguments: { from: "2026-01-01", to: "2026-10-31", group: "sku", brand: "Clore", customer: "Rex", sku: "ORS1", supplier: "Kim", limit: 500, offset: 120 } })), d)).json()); eq(b.result.isError, false, "ok 2");
+  eq(JSON.parse(String(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales"))[1].init.body)), { p_from: "2026-01-01", p_to: "2026-10-31", p_group: "sku", p_brand: "Clore", p_customer: "Rex", p_sku: "ORS1", p_supplier: "Kim", p_limit: 500, p_offset: 120 }, "arg map 전부");
   eq((await (await handle(post(rpcReq(4, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", group: "brand" } })), d)).json()).error.message, "Invalid arguments: arguments.to is required", "to 빠짐");
   eq((await (await handle(post(rpcReq(5, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "week" } })), d)).json()).error.code, -32602, "enum 밖");
-  eq((await (await handle(post(rpcReq(6, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand", limit: 201 } })), d)).json()).error.message, "Invalid arguments: arguments.limit must be at most 200", "limit 201");
+  eq((await (await handle(post(rpcReq(6, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand", limit: 501 } })), d)).json()).error.message, "Invalid arguments: arguments.limit must be at most 500", "limit 501");
   eq((await (await handle(post(rpcReq(7, "tools/call", { name: "sales_summary", arguments: { from: "2026-09-01", to: "2026-09-30", group: "brand", warehouse: "x" } })), d)).json()).error.code, -32602, "모르는 열쇠");
   eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_tool + ":" + x.p_error_code), ["ok:sales_summary:null", "ok:sales_summary:null", "error:sales_summary:invalid_params", "error:sales_summary:invalid_params", "error:sales_summary:invalid_params", "error:sales_summary:invalid_params"], "logs");
   eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 2, "rpc 2");
+});
+Deno.test("M17 mcp-cap-1 sales_summary offset — 스키마(integer · 최소 0 · 최대 없음) · 기본 0 · RPC 인자 p_offset · 음수 · 문자 · 소수 → -32602 · 설명 글의 핵심 낱말 · 기록", async () => {
+  const { d, f } = mk({ rpc: (fn) => new Response(JSON.stringify(fn === "mcp_sales" ? { rows: [], page: { offset: 500, limit: 500, shown: 0, total_rows: 7, next_offset: null }, totals: { net: 1 } } : {}), { status: 200 }) });
+  const t = (await (await handle(post(rpcReq(1, "tools/list")), d)).json()).result.tools;
+  const o = t[5].inputSchema.properties.offset; eq([o.type, o.minimum, o.maximum], ["integer", 0, undefined], "offset schema"); eq(t[5].inputSchema.properties.limit.maximum, 500, "limit max 500");
+  for (const w of ["at most 500 rows", "next_offset is not null", "offset = next_offset", "one page at a time", "never pages in parallel", "use totals once", "rows_truncated counts the rows not on this page", "instead of splitting by brand", "Does not return addresses"]) ok(t[5].description.includes(w), "description: " + w);
+  const a = (await (await handle(post(rpcReq(2, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", offset: 500, limit: 500 } })), d)).json());
+  eq(a.result.isError, false, "ok"); eq(JSON.parse(a.result.content[0].text).page.next_offset, null, "content = rpc JSON(자르지 않는다)");
+  eq(JSON.parse(String(f.calls.find((x) => x.url.endsWith("/rpc/mcp_sales"))!.init.body)), { p_from: "2026-10-01", p_to: "2026-10-31", p_group: "sku", p_brand: null, p_customer: null, p_sku: null, p_supplier: null, p_limit: 500, p_offset: 500 }, "arg map offset");
+  const b = (await (await handle(post(rpcReq(3, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", offset: 0 } })), d)).json()); eq(b.result.isError, false, "offset 0 ok");
+  eq(JSON.parse(String(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales"))[1].init.body)).p_offset, 0, "offset 0 그대로(?? 가 0 을 지우지 않는다)");
+  eq((await (await handle(post(rpcReq(4, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", offset: -1 } })), d)).json()).error.message, "Invalid arguments: arguments.offset must be at least 0", "offset -1");
+  eq((await (await handle(post(rpcReq(5, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", offset: "3" } })), d)).json()).error.message, "Invalid arguments: arguments.offset must be integer", "offset 문자");
+  eq((await (await handle(post(rpcReq(6, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", offset: 1.5 } })), d)).json()).error.message, "Invalid arguments: arguments.offset must be integer", "offset 소수");
+  eq((await (await handle(post(rpcReq(7, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", limit: 500, offset: 100000 } })), d)).json()).result.isError, false, "큰 offset 은 EF 가 막지 않는다(DB 가 빈 쪽)");
+  eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_error_code), ["ok:null", "ok:null", "error:invalid_params", "error:invalid_params", "error:invalid_params", "ok:null"], "logs");
+  eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 3, "rpc 3");
 });
