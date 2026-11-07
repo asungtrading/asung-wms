@@ -4,8 +4,9 @@
 ⚠️ 말하는 틀 — IMS 는 Cin7 없이 돈다(ims-principles 원칙 1). 이 설계의 주어는 IMS 와 Freightcom 둘뿐이다.
 ⭐ 상태 [2026-10-28] **테스트 환경 견적 · 예약 · 라벨 · 취소 끝**(테스트 DB `Asung-IMS` · Freightcom 테스트 토큰 · 실호출 넷 모두 취소함 · so-module §84-c · §85-c) · **운영 = 토큰 대기**(deferred 326 · 364) → ⭐ [2026-11-03 · Caleb · so-module §99-c 8] **토론토는 운영** — FREIGHTCOM_BASE_URL = `https://external-api.freightcom.com` · FREIGHTCOM_API_KEY_TOR = 운영 토큰 · FREIGHTCOM_API_KEY_EDM **지움**(시험 토큰은 운영 주소에서 안 통하고 남기면 가짜 예약 위험 · status EDM has_key false) · 코드 무변(키는 계정별 848 · 주소는 하나) · **에드먼턴은 운영 토큰 올 때까지 Freightcom 사이트에서 손 예약**(deferred 462 · 키 없을 때 IMS 화면이 무엇을 보이는지는 안 봤다)
 ⚠️ 운영에서는 아직 **손으로** 한다 — EF `freightcom` 은 `inv_config.db_role = 'test'` 가 아니면 멈춘다(`supabase/functions/freightcom/index.ts:3`) · ~~운영 토큰 · 비밀값 · 이 가드를 푸는 날이 운영 시작이다~~ → [2026-10-29 · 판정 617 확인 · so-module §87] 이 프로젝트(Asung-IMS)가 11-01 부터 **그대로 운영**이고 db_role 은 컷오버 뒤에도 'test'(`cutover-delete.sql:16`) — 이 가드는 asung-WMS 만 막을 뿐 운영을 가르지 못한다 ⇒ **운영 시작 = 비밀값을 운영 토큰 · 운영 BASE_URL 로 바꾸는 날**(그 전까지 이 프로젝트의 예약은 테스트 토큰 · 청구 없음)
-⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만 → [2026-11-03] 토론토는 운영 토큰이라 **IMS 의 토론토 예약 = 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · 에드먼턴은 키 없음(손 예약)
+⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만 → [2026-11-03] 토론토는 운영 토큰이라 **IMS 의 토론토 예약 = 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · ~~에드먼턴은 키 없음(손 예약)~~ → [2026-11-05] 에드먼턴도 운영 토큰(462 닫힘) — **IMS 의 에드먼턴 예약 = 실제 청구**
 ⚠️ [2026-11-04 · so-module §100-c 7 · **deferred 464**] **토론토 예약에 픽업이 안 잡힌 실물** — SO-20846(Purolator · regular_pickup f · 요청 날짜 · 시각을 보냄) → Freightcom state `waiting-for-scheduling` · pickup_confirmation 빈칸 · 직원이 사이트에서 손 요청 · 단서 = fc-2b 주석 「pickup_details 날짜 · 시각 꼴은 짐작」(실호출로 확인한 것은 pre_scheduled 꼴뿐) · 조사 fc-pickup-0 안 씀 · 그때까지 토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청
+⭐ [2026-11-05 ~ 06 · so-module §101 · **deferred 464 닫힘** · 462 닫힘] **픽업이 잡히게** — 원인은 **H2(픽업 몸에 연락처 없음)**: 11-06 비정기 상자 9 건 schedule error(UPS 「Missing or invalid ContactName」 7 · Purolator 「Sender Name is a mandatory field」 2) → fc-pickup-3 이 contact_name · contact_phone_number 를 싣는다(1049) · 예약 뒤 IMS 가 픽업 상태를 **다시 읽고**(fc-pickup-1) **5 분마다 스스로 읽는다**(fc-pickup-2 · cron 64 · 1041) · 출고 뒤에도 Action Centre 「Pickups not scheduled」(fc-pickup-4 · 1050) · reference_codes · 주말 → 월요일(1040 · 1048) — 아래 §7 · §8-b · ⚠️ 「fc-2b 꼴 짐작」 단서는 **낡았다**(FedEx · Canpar 가 같은 꼴을 받는다) · **에드먼턴 운영 토큰** `FREIGHTCOM_API_KEY_EDM` 넣음(11-05 · Caleb · `ref_warehouse.freightcom_account` TOR · EDM) ⇒ 에드먼턴 예약도 IMS 에서 = 실제 청구
 
 ---
 
@@ -99,6 +100,9 @@
 - **정기 픽업**(852 · `ref_carrier_pickup.regular_pickup`) 이 있는 상자 발송 = `pre_scheduled_pickup: true`(시각 없음)
 - 그 밖 상자 = `pickup_details {pre_scheduled_pickup:false, date:{year,month,day}, ready_at:{hour,minute}, ready_until:{hour,minute}}`(회사 실호출 FedEx 로 확인) · 팔렛(LTL) = `dispatch_details` 같은 꼴(집 실호출 Maritime 으로 확인)
 - 기본 창: 오늘이면 지금 + 1 분 ~ `closes_at` · 다음 날이면 **09:00 ~ `closes_at`** · 화면이 날짜 · Ready from · until 을 넣으면 그 값(비우면 DB 규칙)
+- ⭐ [2026-11-06 · fc-pickup-3 `5d6cec3` · `20261107012000` · 판정 1049] 비정기 상자의 pickup_details 에 **`contact_name`** = `ref_warehouse.contact_name`(btrim) · **`contact_phone_number: {number}`** = fc_phone(창고 phone · 특수문자 없이 10 자리) — origin 과 같은 출처 · 비거나 10 자리가 아니면 **예약 거부**(Settings → Warehouses → Edit 의 Contact · Phone) · `pickup_location` 은 보내지 않는다(출처 칸 없음 · 문서 설명 없음) · 정기 픽업(`{pre_scheduled_pickup:true}`) · 팔렛(dispatch_details)은 바이트 그대로 · 문서 근거: Customer API 2.11.0 PickupDetails
+- ⭐ [판정 1048 · Caleb 11-06] **토론토 · 에드먼턴 모두 토 · 일 출고 안 함** — 자동 픽업 날(ship_date · 오늘 · 마감 지남 · 문 닫힘의 +1)이 토 · 일이면 다음 **월요일** + 경고 `weekend:<날>` · 직원이 적은 날(p_pickup.date)이 주말이면 거부 · 공휴일은 아직 안 본다 ⇒ 금요일 늦은 Book → 월요일 픽업
+- ⭐ [판정 1040] **`details.reference_codes`** = [운임 SO(charge_so_id · fc_charge_so_set 으로 옮긴 것 포함), 같은 발송의 나머지 SO(created_at · so_number 순)] · 원소당 SO 번호 하나 · 견적 details 의 값은 덮는다 · 운임 SO 가 발송의 live SO 에 없으면 created_at 순 + 경고 `charge_so_missing` · 개수 · 길이 한도는 문서에 없다(라벨 Reference 에 어떻게 찍히나는 첫 실물 · deferred 485)
 - **마감**: Freightcom `carrier_cut_off_time` 이 진짜면 그것 먼저(cutoff_source freightcom) · 아니면 `ref_carrier_pickup.cutoff`(ims) · 없으면 모른다 — ⚠️ 테스트 환경은 전부 가짜 `31-12-0000 06:42PM`(연도 0000 → null) · 운영에서 다시(364)
 - 마감 지남 → 다음 날 + 경고 `past_cutoff:` · 창고 문 닫힘(지금 ≥ closes_at) → 다음 날 + 경고 `closed:` — 경고는 응답의 `prepare_warnings` 에만(DB 칸 없음 · 화면이 「— 」 뒤 글을 칸에 남긴다 · 새로 고치면 사라짐)
 - 지난 운송사는 「마감 지남」 · 미리 고르기에서 뺀다(고를 수는 있다)
@@ -117,6 +121,20 @@
 - 시간: 실측 12 ~ 17 s — IMS 몫 2 ~ 3 s · **Freightcom 이 운송사와 처리하는 몫 약 13 s**(book_poll 202 × 8 → 9 번째 200) · 줄이지 않고 진행 칸으로 보인다(861)
 - **진행 칸**(861): 시계로 짐작하지 않고 2 초마다 `fc_booking_for_shipment` 로 DB 의 실제 흔적을 읽는다 — ① IMS 검사(pending 행 없음) ② Freightcom 에 보냄(pending · Freightcom id 없음) ③ Freightcom 이 받음 · 운송사 확정 기다림(id 있음) ④ booked · 라벨 저장 중
 - 실패(예: 테스트의 Purolator Freight `400 booking carrier`)도 failed 행으로 남는다
+
+## 8-b. 픽업 다시 읽기 · 자동 · Action Centre — 1041 · 1050 (2026-11-05 ~ 06 · fc-pickup-1 · 2 · 4 · so-module §101)
+
+- **왜**: 예약 순간 Freightcom 은 픽업을 따로 잡는다 — IMS 가 그 순간 상태만 적으면 「안 잡힘」 을 아무도 모른다(464 · SO-20846)
+- **1041 ① 다시 읽기 · 알리기**(fc-pickup-1 `9971dbf` · `20261105183506`): fc_booking 칸 넷 — `schedule_status`(원문 lower · 40 자 · CHECK 없음) · `schedule_error` · `schedule_checked_at`(마지막 성공 읽기) · `schedule_response` / 파서 `fc_schedule_parse` 하나 / 저장 `fc_book_schedule_save`(service_role · booked 만 · 확인번호는 비었을 때만 채움 · 다르면 경고) / 판정 `fc_pickup_check(b)` — needed = booked ∧ 비정기 상자(pre_scheduled_pickup false) · **not_scheduled** = needed ∧ 번호 없음 ∧ (error · timed-out ∨ 모르는 값 ∨ 읽은 적 없음 ∨ 예약 뒤 **15 분** ∨ done 인데 번호 없음) · pending = 15 분 안 pending · 영어 한 줄은 DB 한 곳 / `fc_booking_for_shipment.current.pickup_check` · EF `pickup_poll {booking_id}`(GET `/shipment/{id}/schedule` 만 · 청구 없음 · GET 실패면 DB 무변)
+- **schedule 응답 꼴** = `{error, pickup_confirmation_number, status}` **맨몸**(실물 11-06)
+- **1041 ② 자동**(fc-pickup-2 `7447121` · `20261107000000`): 스위치 `inv_config.fc_pickup_poll_enabled`(**on** · 11-06 Caleb) · `fc_pickup_poll_batch` 10 / `fc_booking.schedule_done_at`(done 을 처음 본 시각 · 덮지 않음) / `fc_call_log.detail`(회차 요약 · action pickup_sweep) / 대상 한 곳 `fc_pickup_poll_due(p_limit)` — needed ∧ 번호 없음 ∧ Freightcom id 있음 · **창** = now() < greatest(booked_at + 48 h, 픽업 날 + 2 일 00:00 America/Toronto) · **2 단** = 예약 뒤 2 시간 안은 회차마다 · 그 뒤 마지막 성공 읽기에서 30 분 / cron **jobid 64** `ims-fc-pickup-poll` `*/5` → EF `pickup_sweep`(`supabase/ops/cron.sql`)
+  - 첫 자동 회차(11-06 20:40) read 9 · done 8
+  - ⚠️ 창의 「토론토 00:00」 은 에드먼턴(America/Regina · §7) 예약에도 같다(1 시간 차 · deferred 477)
+  - ⚠️ 15 분 빨강은 그대로 — done_at 이 20 건 쌓이면 걸린 시간을 보고 다시(deferred 474)
+- **화면 상태 줄**(asung-ims `ad8e85c` · so pk v1 · fu v1.10): 예약됨 칸에 ✓ Pickup scheduled — confirmation … / ⚠ Pickup NOT scheduled — <DB 글> · 「Schedule the pickup on the Freightcom site, then press Check pickup」 / ⏳ 잡는 중 · Check pickup = `pickup_poll` · ⚠️ 예약됨 칸은 Ship & invoice · WMS Finalize 단계에만 — **출고 뒤 사라진다**
+- **1050 Action Centre**(fc-pickup-4 `fda40c7` · `20261107020808` · ml v1.5 `d20c047`): `fc_pickup_attention_list(p_warehouse_id)` — 대상 = booked ∧ 현재 시도 ∧ fc_pickup_check.not_scheduled(판정은 그 함수 하나) · 창 = poll_due 와 **같은 식**(⚠️ 둘을 같이 고친다 · 「목록에 있다 = cron 이 아직 읽는다」) · 창고 두 겹(p_warehouse_id ∧ ims_can_warehouse) · 정렬 픽업 날 → booked_at · 탭 「**Pickups not scheduled**」(여섯째) · 「확인함」 칸 없음(deferred 473) · 배지 = `ims_action_counts.pickups`(1051) · 실물 2 건
+- ⚠️ `fc_book_cancel_save` 가 예약 응답(response)을 취소 응답으로 덮는다 — 그대로(deferred 475)
+- ⚠️ 11-05 의 「10 건 done」 으로 fc-pickup-1 · 2 가 「원인 H1(Freightcom 이 늦게 스케줄)」 이라 적었으나 다음 날 error 9 건이 **H2** 를 보였다 — 그 10 건은 직원 손 요청이었을 공산(짐작 · so §101-c 5)
 
 ## 9. 라벨 — 851 · 858
 
@@ -146,8 +164,8 @@
 
 ## 12. 운영으로 가는 조건 (deferred 326 · 364)
 
-- Freightcom 운영 토큰(TOR · EDM — Edmonton 은 API 를 따로 신청)
+- ~~Freightcom 운영 토큰(TOR · EDM — Edmonton 은 API 를 따로 신청)~~ → [2026-11-03] TOR · [2026-11-05] EDM 운영 토큰(deferred 462 닫힘 · so §101-b)
 - ~~EF 비밀값을 운영 프로젝트에 · EF 의 테스트 전용 가드(`db_role = 'test'`) 풀기~~ → [2026-10-29 · 617 확인] 같은 프로젝트(Asung-IMS)의 비밀값 `FREIGHTCOM_API_KEY_TOR` · `_EDM` · `FREIGHTCOM_BASE_URL` 을 운영 값으로 바꾼다 · 가드는 그대로(운영을 가르지 않는다 — 머리 줄) · 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다 · deferred 326 · 364)
-- 다시 볼 것: 운송사 진짜 마감 · 라벨 원본 주소의 서명 여부 · 운송사별 pickup_confirmation(FedEx 비정기 픽업은 옴 · Maritime 팔렛은 null — 짐작) · 처리 시간 · Purolator Freight 400 · Edmonton 출발 견적 · Apex Freightcom 이름(실제 쓰는 날)
+- 다시 볼 것: 운송사 진짜 마감 · 라벨 원본 주소의 서명 여부 · 운송사별 pickup_confirmation(FedEx 비정기 픽업은 옴 · Maritime 팔렛은 null — 짐작) → [2026-11-06] 비정기 상자 픽업은 연락처가 있어야 잡힌다(H2 · 1049) · 확인번호는 예약 뒤 다시 읽어 받는다(§8-b) · 처리 시간 · Purolator Freight 400 · Edmonton 출발 견적 · Apex Freightcom 이름(실제 쓰는 날)
 - closes_at · 정기 픽업 · 마감 실제 값(창고 담당자) — **컷오버 전 필수**(deferred 369 · 남김 표라 컷오버 지우기에 안 지워진다)
 - 원본 라벨 주소가 닿는 곳 닫기(362)

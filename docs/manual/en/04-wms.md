@@ -172,7 +172,7 @@ If a line goes over, the screen shows "⚠ Over-scan — count the items". Count
 
 <a id="wms-fulfillment"></a>
 ## Pack into boxes and pallets (Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; 2026-11-06 · fu v1.10 (pickup line) ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -202,6 +202,9 @@ An order appears here only when all its batches are checked on **Packing** — "
 **Good to know**
 - **Delete** on a unit returns its products to unassigned.
 - "A box can only go on a pallet."
+- **Freightcom pickup** (an order booked with Freightcom before Finalize): the booked box shows the pickup. "✓ Pickup scheduled — confirmation …" is done. "⚠ Pickup NOT scheduled" — schedule the pickup on the Freightcom site, then press **Check pickup**. "⏳" means Freightcom is still scheduling it. IMS also checks again every few minutes.
+- No pickups on Saturday or Sunday — a pickup that would fall on a weekend moves to Monday, and a weekend date you type is refused.
+- The warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouses** › **Edit**, or the booking is refused.
 
 <!-- SCREENSHOT: wms-fulfillment-1 · Fulfillment board with a pallet, a nested box and Unassigned products -->
 
@@ -377,4 +380,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 A transfer has no **Finalized**. When the warehouse finalizes it, it goes straight to **In transit**.
 The office words for the same steps: see [What each status means](03-inventory.md#stock-statuses).
 
-<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->
+<!-- rulings: 1041, 1048, 1049, 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->

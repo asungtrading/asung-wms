@@ -12876,3 +12876,140 @@ asung-ims `git log --oneline 440abee..HEAD`:
 ```
 다음 판정 번호: 1039 · 다음 deferred 번호: 470
 ```
+
+## §101 2026-11-05 ~ 11-06 — 이월 인보이스 QBO 짝(1d-1 · 1d-2) · Freightcom 픽업이 잡히게(다시 읽기 · 자동 · 연락처 · 주말 · Action Centre) · Action Centre 숫자 배지 · IMS 가 만든 상품의 사진 · 태그 · 사진 이름 = SKU · QBO 송장 31 자 — fc-pickup-1 ~ 4 · qbo-sync-2e-1d-1 · 1d-2 · shop-new-1 · shop-img-name-1 · qbo-trk-1 · ac-count-1 · so pk v1 · fu v1.10 · ml v1.5 · nav v15 · 판정 1039 ~ 1055
+
+⭐ 원천: 지시서 docs-1106 A ~ D(대화에만 있던 것 · 대화 Claude 진단 · Caleb psql · 화면 실측) · asung-wms `git log 9971dbf~1..4ccfdca` 원문 · 마이그레이션 머리 주석 · asung-ims `ad8e85c` · `d20c047` · 메인 DB 읽기(22:03 토론토 · begin read only)
+⚠️ 공개 레포 — 손님 상호 · 사람 이름은 적지 않는다(99-e 77) — 중복 레코드 손님은 「손님 A」 · 하위 손님이 아닌 본사 그룹은 「본사 그룹 하나(매장 8)」 · QBO 번호 · SO 번호 · 인보이스 번호는 적는다
+⚠️ **판정 번호를 코드가 먼저 붙였다** — 1039 · 1040 · 1041 · 1042 · 1043 은 마이그레이션 · EF · 화면에 이미 있다(이 절이 그 뜻을 원문으로 박는다) · fc-pickup-3 머리의 「1041 주말 · 1042 연락처」 는 **틀린 번호**(→ 1048 · 1049 · 101-f)
+
+### 101-a 판정
+
+| # | 갈래 | 뜻 |
+|---|---|---|
+| **1039** | (11-05 · Caleb 「A」 · 1d-1) | 결제 수단 짝(`qbo_link_set` payment_method)이 서면 **그 수단의 failed 결제 일감을 queued 로**(`qbo_payment_method_requeue` · 남은 이월 장이 있는 결제는 건너뛴다) · ⚠️ 손님 짝은 되살리지 않는다(101-c 3 · deferred 472) |
+| **1040** | (11-06 · Caleb 「니가 제안한 순서로 짓자」) | Freightcom `details.reference_codes` = [운임 SO(charge_so_id), 같은 발송의 나머지 SO(created_at · so_number 순)] · 원소당 SO 번호 하나 · 견적 details 의 값은 덮는다 · 운임 SO 가 발송의 live SO 에 없으면 created_at 순 + 경고 charge_so_missing · fc-ref-1 은 fc-pickup-3 에 합침 |
+| **1041** | (11-05 · Caleb 「A」 · fc-pickup-1 방향 포함) | **확인번호 없는 예약을 IMS 가 스스로 다시 읽는다** — ① 먼저(fc-pickup-1) 사이트에서 원인을 미리 보지 않고 **「다시 읽기 · 알리기」** 부터(GET 만 · 원인을 IMS 에 적게) ② 자동(fc-pickup-2) 2 단 = 예약 뒤 2 시간 안은 5 분마다 · 그 뒤 30 분마다 · 창 = greatest(예약 + 48 h, 픽업 날 + 2 일 00:00 토론토) · cron 64 · 스위치 `fc_pickup_poll_enabled` ③ 「안 잡힘」 15 분 빨강 규칙 유지(done_at 이 20 건 쌓이면 다시 · deferred 474) · 화면 픽업 상태 줄(so pk v1 · fu v1.10)이 이 번호를 쓴다 |
+| **1042** | (11-06 · Caleb 「일단 A는 해야 할 것 같아」) | **IMS 가 새로 만든 상품만** Shopify 에 사진 · 태그를 보낸다(행 없음 → 실효값 둘 다 true · origin ims) · 기존(잇기) 상품은 스토어 스위치 그대로(asung · aone send_images · send_tags false) · 관리자 덧씌우기 = (스토어, 대상)마다 켬 · 끔 · null(스토어를 따름) · `shop_product_send_override` · 내부 표식 태그(ASS · AOS · NoSale · DISC · 케이스)는 **426 그대로 보낸다**(B15 · 새 번호 없음) |
+| **1043** | (11-06 · Caleb 「A」) | IMS 태그 0 개면 tags 칸을 **보내지 않는다**(559 의 태그판 · 목록 칸이라 [] 는 Shopify 태그를 전부 지운다 · DB + EF 두 겹) |
+| **1044** | (11-05 · Caleb 「짝을 짓는 사람은 우리 북키퍼도 할 수 있게 해줘」) | 이월 인보이스 짝 창구의 문 = **열쇠 QUICKBOOKS**(qbo_key_gate · admin 도 열쇠 · 945) · EF action 은 KEY_ACTIONS |
+| **1045** | (11-05 · Caleb · 1d-1 이견 답) | 풀기(`qbo_opening_unmatch`) = source matched 행 **삭제**(sent 행은 절대 아님 · 보낸 것이 있으면 거부 · 흔적은 qbo_opening_review) · 결제 되살림은 **남은 이월 장 0 일 때만** · 풀 때 그 인보이스의 queued · blocked 일감은 failed 로 · 목록은 definer 창구 |
+| **1046** | (11-05 · Caleb 「A」 · 1d-2) | 사람 짝 전에 **peek**(먼저 보여 주고 확인 · ack) · QBO 번호가 다른 장을 찾는 **opening_search** |
+| **1047** | (11-05 · Caleb) | 「잇기만 하고 보내지 않기」 선택지는 **만들지 않는다** — 약속 둘로 막는다: ① QBO 에 이미 기록한 결제는 IMS 에 또 기록하지 않는다(24 장 선일자 수표) ② 컷 뒤 새 결제는 IMS 에만(북키퍼가 QBO 에 직접 넣지 않는다 · 981) ⇒ deferred 434 닫힘 |
+| **1048** | (11-06 · Caleb) | **토론토 · 에드먼턴 모두 토 · 일 출고 안 함** — 자동 픽업 날(ship_date · 오늘 · 마감 지남 · 문 닫힘의 +1)이 주말이면 다음 월요일 + 경고 `weekend:<날>` · 직원이 적은 픽업 날이 주말이면 거부 · 공휴일은 범위 밖 |
+| **1049** | (11-06 · 원인 H2) | 비정기 상자 픽업 몸(pickup_details)에 **contact_name · contact_phone_number{number}** = 창고 Contact · Phone(origin 과 같은 출처) · 비거나 10 자리가 아니면 **Book 거부**(Settings → Warehouses → Edit) · pickup_location 은 안 보냄 · 정기 픽업 · 팔렛 몸은 바이트 그대로 |
+| **1050** | (11-06 · Caleb 「A」) | Action Centre 에 「**Pickups not scheduled**」 목록(예약됨 칸은 출고 뒤 사라진다) · 창 = 자동 다시 읽기와 같은 식 · 「확인함」 표시는 **만들지 않음**(월요일 실사용 뒤 · deferred 473) |
+| **1051** | (11-06 · Caleb 「그렇게 가자」) | 바깥 메뉴 「Action Centre」 에 할 일 숫자 배지 — DB 함수 하나(`ims_action_counts`) · sessionStorage 2 분 · All branches 합(total · 0 이면 숨김) · 탭 배지도 같은 함수(규칙이 둘로 갈리지 않게) |
+| **1052** | (11-06 · Caleb 「관리차원에서 그동안 그렇게 해오던 일」 · 「A」) | Shopify 사진 파일 이름 = **SKU · SKU_2 · SKU_3 …** · Shopify Files 에 같은 이름이 있으면 **APPEND_UUID**(덮지 않는다 · REPLACE 는 남의 파일을 덮어 그만 씀) |
+| **1053** | (11-06 · Caleb) | Shopify 의 중복 사진(IMS 사진과 내용이 같은 것)은 지워져도 된다 · 패밀리 첫 사진이 색상 사진이어도 된다 |
+| **1054** | (11-06 · Caleb 「A로 하자」) | QBO 인보이스 **TrackingNum = 첫 오더의 첫 송장번호(31 자)** · 전체 송장은 **CustomerMemo** 둘째 줄 「Tracking: …」(오더 여럿이면 SO 별 · 1,000 자 자르기) · PrivateNote 무변 · 송장 하나인 인보이스 몸은 바이트 그대로 |
+| **1055** | (11-06 · Caleb) | 시험 시간 — **QBO · Shopify 표만 잠그는 차수는 업무 중 조건부**(lock_timeout 2 s · 한 번 10 초 · 1 분 간격) · **fc 표(창고 예약 화면)를 잠그는 차수는 토론토 17:00 뒤**(100-a 「—」 행을 좁힘) |
+| — | (11-06 · Caleb 「그런 상품 없어」) | 패밀리 구성원은 낱개로 Shopify 에 따로 못 보낸다(이미 막힘 · family_member_goes_with_family) · 콤보 구성품은 따로 된다 — **지금 규칙 유지**(새 규칙 아님) |
+
+### 101-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline 9971dbf~1..4ccfdca`(asung-wms · 빠진 것 0):
+
+```
+4ccfdca shop-img-name-1: Shopify 로 올리는 사진 이름 = SKU · SKU_2 …(APPEND_UUID · 덮어쓰기 없음) · 짝 = gid / 줄기 정확히 SKU(_n)(_<uuid>) / 옛 uuid · skuStem 정리 · 기록 pending n · deno 71/71 · 배포
+f47c609 ac-count-1: ims_action_counts — Action Centre 숫자 다섯(short · unpaid · pos · new_customers · pickups) + total 한 번에 · 탭 원천과 같은 셈 · unpaid any(array) 꼴 · 적용 20261107023342 · 확인 16/16
+e059e73 qbo-trk-1: QBO 인보이스 TrackingNum = 첫 오더 첫 번호(31 자) · 전체 송장은 CustomerMemo 둘째 줄 Tracking(오더 여럿이면 SO 별 · 1,000 자 자르기) · PrivateNote 무변 · 송장 하나 인보이스 몸 바이트 동일 · 적용 20261107021000 · 확인 14/14
+fda40c7 fc-pickup-4: Action Centre 용 fc_pickup_attention_list — 판정은 fc_pickup_check · 창 = poll_due 와 같은 식 · 창고 두 겹(p_warehouse_id · ims_can_warehouse) · 적용 20261107020808 · 확인 13/13 · 실물 2 건 · 덤: fc_pickup_2_check 순서 무관 비교 · 스위치 on 반영 16/16
+5d6cec3 fc-pickup-3: 픽업 요청에 contact_name · contact_phone_number(창고 Contact · Phone · 비면 Book 거부 · 원인 H2) · reference_codes = [운임 SO, 나머지](판정 1040 · fc-ref-1 합침) · 주말 픽업 → 월요일(직원 입력 토 · 일 거부 · 토론토 · 에드먼턴 주말 출고 없음) · 적용 20261107012000 · 확인 16/16 · md5 857e3baf
+7447121 fc-pickup-2: 확인번호 없는 Freightcom 예약 자동 다시 읽기(판정 1041) — fc_pickup_poll_due · 2 단(2 시간 안 5 분 · 뒤 30 분) · schedule_done_at · fc_call_log.detail · EF cron 길 pickup_sweep · 적용 20261107000000(번호 20261105232000 에서 옮김) · 시험 16/16 · 확인 14/16(b · j 순서만 다름 · 시험 비교 결함) · 배포 · cron jobid 64 · 스위치 off
+6285098 shop-new-1: 상품 단위 사진 · 태그 보내기 — IMS 가 만든 상품 자동(origin ims) · 관리자 덧씌우기 shop_product_send_override · 태그 0 개면 안 보냄(1043) · 적용 20261106232039 · 확인 40/40 · 전수 9,496 hash 무변 · 배포
+9b32168 qbo-sync-2e-1d-2: 이월 인보이스 짝 EF — KEY_ACTIONS opening_candidates · opening_read(peek · ack) · opening_search · 묶음 150(실측 262 ms) · 배포 · 첫 자동 짝 310 장 중 299 · 사람 짝 9(QBO 금액 = IMS total − prior_settled · ack) · deno 25/25
+bbfcfdb qbo-sync-2e-1d-1: 이월 인보이스 QBO 짝 DB — qbo_txn matched · qbo_opening_review · 창구 넷(열쇠 QUICKBOOKS) · requeue 남은 장 0 일 때만 · 수단 짝 되살리기(1039) · 적용 20261105184613 · 확인 28/28
+9971dbf fc-pickup-1: 예약 뒤 픽업 상태 다시 읽기 — fc_booking schedule 칸 넷 · fc_book_schedule_save · fc_pickup_check · pickup_poll · 적용 20261105183506 · 확인 21/21 · 배포 · 실측 10 건 전부 done(원인 H1 · Freightcom 이 늦게 스케줄)
+```
+
+asung-ims:
+
+```
+d20c047 ml v1.5 · nav v15: Action Centre 여섯째 탭 Pickups not scheduled(fc_pickup_attention_list · Check pickup) · 배지 다섯 ims_action_counts 한 번(없으면 옛 길) · 바깥 메뉴 Action Centre 배지(total · sessionStorage 2 분 · 0 이면 숨김)
+ad8e85c so pk v1 · fu v1.10: 예약됨 칸 픽업 상태 줄(pickup_check — 잡힘 · 거절 · 잡는 중) + Check pickup(pickup_poll) · fc-pickup-1 ~ 3 · 판정 1041
+```
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| fc-pickup-1 | `9971dbf` · `20261105183506_fc_pickup_1_schedule_read.sql` · EF freightcom | 1041 ① — fc_booking 칸 넷(schedule_status · schedule_error · schedule_checked_at · schedule_response) · 파서 fc_schedule_parse · fc_book_schedule_save(service_role) · fc_pickup_check(needed · not_scheduled · pending · 영어 한 줄) · fc_booking_for_shipment 재발행(current.pickup_check) · EF pickup_poll(GET 만) · 확인 21/21 · ⚠️ 커밋 글 「원인 H1」 은 틀렸다(101-c 5 · 101-f) |
+| qbo-sync-2e-1d-1 | `bbfcfdb` · `20261105184613_qbo_sync_2e1d_1_opening_match.sql` | 1039 · 1044 · 1045 — qbo_txn match_how · match_snapshot · 새 표 qbo_opening_review · 창구 넷(qbo_opening_candidates · match · unmatch · 목록) · qbo_payment_requeue_one(남은 장 0 일 때만) · qbo_link_set 재발행(수단 짝 되살리기) · 확인 28/28 |
+| qbo-sync-2e-1d-2 | `9b32168` · EF qbo | 1046 — KEY_ACTIONS opening_candidates · opening_read(peek · ack) · opening_search · 묶음 150(262 ms) · deno 25/25 · 배포 · 첫 자동 짝(101-c 1) |
+| shop-new-1 | `6285098` · `20261106232039_shop_new_1_send_override.sql` · EF shopify | 1042 · 1043 — shop_product 칸 셋(send_images · send_tags · origin) · shop_product_payload 재발행(실효값) · 창구 shop_product_send_override(관리자) · EF 가 만든 상품 upsert 에만 origin ims · 확인 40/40 · 전수 9,496 hash 무변 |
+| fc-pickup-2 | `7447121` · `20261107000000_fc_pickup_2_auto_poll.sql` · EF freightcom · cron 64 | 1041 ② — 스위치 fc_pickup_poll_enabled · fc_pickup_poll_batch(10) · schedule_done_at · fc_call_log.detail · fc_pickup_poll_due(대상 한 곳) · EF pickup_sweep · **번호를 20261105232000 → 20261107000000 으로 옮김**(shop-new-1 `20261106232039` 이 먼저 적용돼 순서 조건에 막혔다) · 시험 16/16 · 확인 14/16(순서만 · 검사 결함 → fc-pickup-4 가 고쳐 16/16) · cron **jobid 64** `ims-fc-pickup-poll` `*/5` · 스위치 on(11-06 · Caleb) |
+| fc-pickup-3 | `5d6cec3` · `20261107012000_fc_pickup_3_pickup_contact_refs.sql` | 1040 · 1048 · 1049 — fc_book_prepare 재발행 하나(원본 20261028223000 바이트 + 더한 줄) · md5 857e3baf · 확인 16/16 · ⚠️ 머리 번호 틀림(101-f) |
+| so pk v1 · fu v1.10 | asung-ims `ad8e85c` · so.html · wms-fulfillment.html(대화 Claude) | 예약됨 칸 픽업 상태 줄 — ✓ Pickup scheduled · ⚠ Pickup NOT scheduled · ⏳ 잡는 중 · Check pickup |
+| fc-pickup-4 | `fda40c7` · `20261107020808_fc_pickup_4_attention_list.sql` | 1050 — fc_pickup_attention_list(판정은 fc_pickup_check 하나 · 창 = poll_due 와 같은 식 · 창고 두 겹) · 확인 13/13 · 실물 2 건 |
+| qbo-trk-1 | `e059e73` · `20261107021000_qbo_trk_1_tracking_memo.sql` | 1054 — qbo_invoice_body 재발행 하나 · 확인 14/14 |
+| ac-count-1 | `f47c609` · `20261107023342_ac_count_1_action_counts.sql` | 1051 — ims_action_counts(p_warehouse_id) → {short · unpaid · pos · new_customers · pickups · total · at} · 탭 원천 창구를 그대로 부른다 · 문 ims_can_view('sales') · 확인 16/16 |
+| ml v1.5 · nav v15 | asung-ims `d20c047` · manager-list.html · ims-auth.js | 1050 · 1051 — 여섯째 탭 · 배지 다섯을 한 번에 · 바깥 메뉴 배지 |
+| shop-img-name-1 | `4ccfdca` · EF shopify(`_shared/shopify-product.ts` · `shopify/index.ts`) | 1052 — 파일 이름 = SKU · SKU_n · APPEND_UUID · 짝 = gid / 줄기 정확히 SKU(_n)(_<uuid>) / 옛 uuid · 기록 pending n · deno 71/71 · 배포 |
+
+- 비밀값: 에드먼턴 Freightcom 운영 토큰 `FREIGHTCOM_API_KEY_EDM`(11-05 · Caleb · supabase secrets) · `ref_warehouse.freightcom_account` TOR · EDM ⇒ deferred 462 닫힘
+- 마이그레이션 · 배포는 모두 운영 메인 Asung-IMS(fazgmyvzzhqybtvtktyg)
+
+### 101-c 사실 · 실측
+
+1. **이월 인보이스 짝(1d-2 첫 실물)** — 310 장 중 **자동 299 · 사람 짝 9 · 남음 2**
+   - 사람 짝 9 = QBO TotalAmt = IMS total − prior_settled(Cin7 이 몇 달러 정산을 결제가 아니라 **금액에서 빼** 넘겼다) — 49558 · 49979 · 50171 · 50315 · 50364 · 50383 · 50387 · 50411 · 50599 · peek → ack(1046)
+   - 남음 2 = 2329611(not_found) · 47938(잔액 2 센트) → deferred 471
+   - 결제 sent 132 → 198 · 크레딧 붙임 sent 1 → 8(대화 실측)
+   - 메인 DB 읽기(22:03 토론토): qbo_txn matched **auto 299 · manual 9** / qbo_job payment **sent 204 · blocked 48 · failed 1 · skipped 11** · credit_apply sent 8 · blocked 3 · invoice sent 189 · queued 48 — 대화 숫자(198)와 갈린 것은 그 뒤 회차(86 · 운영 숫자는 적기 직전 셈)
+2. **QBO 하위 손님** — 본사 결제가 매장 인보이스에 붙으려면 QBO 에서 매장이 **BillWithParent 하위 손님**이어야 한다 · 「IMS 부모 · 자식 ≠ QBO 하위 손님」 그룹은 **본사 그룹 하나(매장 8)** — CHQ #15033 failed 「TxnID Cannot Be Linked : 160028」 · 월요일 북키퍼가 QBO 에서 묶고 Retry(deferred 482)
+3. 손님 짝을 지어도 failed 결제는 **자동으로 안 되살아난다**(1039 는 수단만) — Retry 가 필요하다(deferred 472)
+4. **IMS 손님 중복** — 같은 이름 둘(손님 A · Cin7 09-22 · 직원 11-04) · 이메일 · 전화 · 우편번호 겹침 0 · 새 레코드를 QBO #4556 에 이음(결제 blocked · 미전송) · 월요일 실무자 확인(deferred 481) · 컷 뒤 새 손님 69 명 전부 source manual
+   - ⚠️ `customer` 표에 email 칸이 **없다**(연락처는 `customer_contact`) — `row_to_json(c)->>'email'` 비교는 빈값끼리 「같다」 로 나온다(대화 Claude 실수 · 101-e 89)
+5. **Freightcom 픽업 — 원인은 H2(픽업 몸에 연락처 없음)**
+   - 11-06 토론토 비정기 상자 9 건 예약 직후 schedule **error** — UPS 「Missing or invalid ContactName」 7 · Purolator 「Sender Name is a mandatory field」 2 → fc-pickup-3(1049)
+   - 11-05 의 「10 건 done」 은 **직원이 사이트에서 손으로 요청했을 공산**(짐작) — fc-pickup-1 · 2 머리 · 커밋의 「원인 H1(Freightcom 이 늦게 스케줄)」 은 이 실물로 뒤집혔다
+   - fc-2b 「pickup_details 꼴 짐작」 단서는 **낡았다** — FedEx · Canpar 가 같은 꼴을 받는다
+   - schedule 응답 꼴 = `{error, pickup_confirmation_number, status}` **맨몸**
+   - 첫 자동 회차(20:40) read 9 · done 8
+   - ⚠️ `fc_book_cancel_save` 가 예약 응답을 **취소 응답으로 덮는** 결함 — 그대로(deferred 475)
+   - 예약됨 칸(상태 줄 · Check pickup)은 Ship & invoice · WMS Finalize 단계에만 그려진다 — **출고 뒤 사라진다**(→ 1050)
+   - 메인 DB 읽기(22:03): 최근 3 일 booked 의 schedule_status done 17 · error 1 · 빈칸 2
+6. **QBO 인보이스 송장 31 자** — 다상자 Freightcom 예약 SO 9 건이 tracking_number 를 「, 」 로 이어 38 ~ 218 자 · QBO TrackingNum 한도 31 자 → 실패 6 장(60202 · 60203 · 60226 · 60231 · 60235 · 60236) → qbo-trk-1 → Retry 는 **queued(대기)로 돌아갈 뿐** · 인보이스 자동 보내기가 꺼져 있어(971 · qbo_send_enabled off) **Send 를 눌러야 나간다** · 6 장 sent
+7. **Shopify**
+   - 실제 스토어 shop_product 9,502 **전부 잇기 출신** · IMS 가 만든 상품 0(22:03 다시 셈: origin ims 0 · 덧씌움 1)
+   - 컷 뒤 신제품 28(낱개 21 · 세트 7) — 사진 · 태그 0(→ 1042)
+   - ONO00140FAM(asung) 시험: 9 → 4 장(중복 4 쌍 md5 같음 · 대표 사진 1 장만 진짜 Shopify 전용) · **덧씌우기 켠 채 둠**(1053)
+   - drain 기록 `after 0` = 「올린 직후 처리 중」 — 결함 아님 · 기록에 pending n(shop-img-name-1)
+   - APPEND_UUID 가 붙이는 꼴은 **아직 짐작**(짝 기준 `_<uuid>`) — FON01308 첫 실물로(deferred 480)
+8. **Action Centre 숫자 실측**: All 9(short 1 · unpaid 6 · pickups 2) · 토론토 4 · 에드먼턴 5 · 서버 계산 20 ~ 30 ms
+9. **운영 DB 문장 왕복 0.2 ~ 0.35 초**(노트북 · 출장지) — 사슬 검사는 10 초를 못 지킨다(최대 110 초) ⇒ **가짜 행 직접 + DO 블록**(asung-workflow §4) · 측정 SQL 에 세션 statement_timeout 을 두면 pg_sleep 대기가 잘린다
+10. ⚠️ **`supabase functions deploy` 는 반드시 `--project-ref fazgmyvzzhqybtvtktyg`** — 붙이지 않으면 폴더에 linked 된 옛 프로젝트(asung-WMS)로 갈 수 있다(shop-img-name-1 이 경고)
+11. ⚠️ EF 배포는 `_shared` 의 **지금 작업 트리 파일**을 함께 올린다(freightcom 배포가 `_shared/shopify.ts` · `doc.ts` 도 올림) — 다른 창이 공유 파일을 고치는 중이면 배포를 미룬다
+12. **동시 창 충돌 다섯** — 같은 함수 재발행 · 마이그레이션 번호 순서(fc-pickup-2) · `_shared` + EF 배포 · `git add .` · 시험 잠금 — Caleb 「충돌 위험은 꼭 알려줘」
+13. 브라우저 콘솔 명령을 터미널에 붙이는 일이 세 번 — 명령 앞에 **[콘솔] · [터미널]** 표지
+14. cron(22:03 읽기): 59 ims-qbo-refresh · 60 ims-mcp-log-purge · 61 ims-qbo-send · 62 ims-qbo-send-payments · **64 ims-fc-pickup-poll `*/5`** — 모두 active · 63 은 없다 · inv_config fc_pickup_poll_enabled **on** · fc_pickup_poll_batch 10
+
+### 101-d′ 열린 것 · 닫은 것
+
+- deferred **닫힘**: **452**(1d 이월 짝 — 1d-1 · 1d-2 · 남은 두 장은 471) · **464**(Freightcom 픽업 — fc-pickup-1 ~ 4 · 원인 H2) · **462**(에드먼턴 운영 토큰 11-05) · **434**(컷 뒤 입금 — 1047)
+- 잇기: **387**(Shopify 전용 사진 가져오기 · md5 로 중복 거르기) · **394**(send_tags — 새 상품은 1042 로 풀림 · 기존 상품은 꺼진 채) · **388**(스토어 칸 · 덧씌우기 화면은 478) · **341**(1047 약속) · **454**(2e-3 — 1038 순서 다음)
+- 새 **470** ~ **485**(deferred 「③ 미정」 · 월요일 줄은 그 표 맨 아래)
+- **월요일(11-09) 실무 — 열림**: 손님 A 같은 사람인지(481) · 본사 그룹 하위 손님 → CHQ #15033 Retry(482) · 북키퍼 송장 안내(483) · FON01308 신제품(484) · 첫 IMS Book 예약(485)
+- 다음 차례: QBO 줄기(1038: 2e-3 454 → 459) · perf 줄기(465 → 466 → 467 → 468)
+
+### 101-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (100-e 에 이어 88 부터)
+
+88. [Claude Code · 번호] 판정 번호를 차수 코드가 먼저 붙이며 1041 · 1042 가 두 뜻으로 겹쳤다(fc-pickup-2 · 화면 = 자동 다시 읽기 / fc-pickup-3 = 주말 · 연락처 / shop-new-1 = IMS 가 만든 상품) ⇒ 차수 코드에 판정 번호를 붙일 때는 정본의 「다음 판정 번호」 와 그날 다른 창이 쓴 번호를 grep 한 뒤 · 아니면 「판정 가 · 나」 꼴로 두고 문서 차수가 번호를 준다
+89. [대화 Claude · 짐작] `customer` 표에 없는 email 칸을 row_to_json 으로 비교해 「같다」 로 읽었다 ⇒ 칸 비교 전에 `\d 표` 또는 information_schema 로 칸이 있는지 본다(null = null 로 「같다」 가 나오는 꼴)
+90. [Claude Code · 짐작 → 실물] fc-pickup-1 이 「10 건 done = 원인 H1」 로 닫았다 — 다음 날 자동 회차의 error 9 건이 H2 를 보였다 ⇒ 「done」 은 누가 잡았는지 모른다(사람 손 요청도 done) · 원인은 IMS 가 혼자 만든 실물로 가른다
+91. [동시 창] 마이그레이션 번호 순서 · `_shared` 배포 · 같은 함수 재발행 · `git add .` · 시험 잠금 다섯이 한 주에 다 나왔다 ⇒ 지시서 §0 에 「동시 창 충돌」 칸 · deploy 는 `--project-ref` · 커밋은 파일 이름 하나씩(asung-workflow §11)
+92. [대화 Claude · 채팅] 브라우저 콘솔 명령과 터미널 명령을 같은 꼴로 줘 세 번 엇붙었다 ⇒ 명령마다 **[콘솔] · [터미널]** 머리
+93. [잘 된 것] 픽업 원인을 사이트에서 짐작하지 않고 IMS 가 「다시 읽기 · 알리기」 를 먼저 짓게 해(1041 ①) 다음 날 실물이 원인을 스스로 보였다 · 전수 hash 무변(9,496)으로 shop-new-1 이 기존 상품을 다시 보내지 않음을 증명
+
+### 101-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §100 끝 「다음 판정 번호 1039 · 다음 deferred 번호 470」 → 아래
+- `20261107012000_fc_pickup_3_pickup_contact_refs.sql` 머리 ①「1042 비정기 상자 … contact」 → **1049** · ③「1041 픽업 날 주말」 → **1048** · 「판정 1040 ~ 1042」 → 1040 · 1048 · 1049 — 적용된 파일이라 고치지 않는다(이 줄이 정정)
+- `20261105183506` · `20261107000000` 머리 · 커밋 `9971dbf` · `7447121` 의 「원인 H1 · 몸 고치기는 필요 없다」 → **H2**(101-c 5) · `20261107000000` 머리 「판정 1041(짐작)」 → 1041 확정
+- §100-c 7 · freightcom-integration 머리 「fc-2b 꼴 짐작」 단서 → 낡음(101-c 5)
+- `supabase/ops/cron.sql` ims-fc-pickup-poll 「63 예상」 → **64**(실측 주석 더함)
+- `qbo-integration.md` §14-h(이월 짝) · §14-i(송장 31 자) · §14-g 끝 순서 · `freightcom-integration.md` 머리 · §7 · §8-b(새) · §12 · `shopify-integration.md` §3-b · §3-e · §6 · `deferred.md` 452 · 464 · 462 · 434 닫힘(452 의 손님 상호 → 「손님(Cin7 Omni)」) · 387 · 394 · 388 · 341 잇기 · 새 470 ~ 485
+- 스킬 asung-qbo · asung-wms · asung-so · asung-workflow(본문만 · description 무변) · asung-ops(asung-ops 레포) · 매뉴얼 en · ko 01-sales · 04-wms · 06-action-centre
+
+```
+다음 판정 번호: 1056 · 다음 deferred 번호: 486
+```

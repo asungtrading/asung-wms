@@ -1,6 +1,6 @@
 # 6. Action Centre
 
-<!-- sections 1-6 written (manual-6) · one section per tab, in the order of the tabs -->
+<!-- sections 1-7 written (manual-6 · docs-1106 added Pickups not scheduled) · one section per tab, in the order of the tabs -->
 <!-- out of this chapter: the work itself stays in its own chapter — sales orders and customers -> chapter 1 · stock adjustments -> chapter 3 · POS -> chapter 5 -->
 
 <a id="action-start"></a>
@@ -9,7 +9,7 @@
 <!-- who: manager, sales -->
 
 **What it is**
-The **Action Centre** collects things a manager should look at: sales that went out without stock in the books, unpaid pay-now invoices, POS sales not finished, counter orders and new customers. It shows them; the work is done on the usual screens.
+The **Action Centre** collects things a manager should look at: sales that went out without stock in the books, unpaid pay-now invoices, POS sales not finished, counter orders, new customers and Freightcom pickups that are not scheduled. It shows them; the work is done on the usual screens.
 
 **Who**
 Everyone who works on sales orders can open it. Managers and above: **Mark checked…** on **Sold without stock**.
@@ -20,6 +20,7 @@ Managers open it once a day.
 **How**
 1. In IMS mode, press **Action Centre** on the menu (between **Inventory ▾** and **Settings ▾**).
 2. Press a tab. The red number on a tab is how many are waiting.
+   The **Action Centre** item on the menu also shows a red number: everything waiting in all branches. It is hidden when nothing waits and refreshes every 2 minutes.
 3. **All branches** chooses one branch.
 4. Click an order, invoice or customer to open it on its own screen.
 
@@ -29,6 +30,7 @@ Managers open it once a day.
 - [POS not finished](#action-pos)
 - [Counter orders](#action-counter)
 - [New customers to review](#action-new-customers)
+- [Pickups not scheduled](#action-pickups)
 
 <!-- SCREENSHOT: action-start-1 · Action Centre with the five tabs and their badges -->
 
@@ -130,4 +132,29 @@ Each row shows **Customer**, **City**, **Created** (when and who), **Terms now**
 
 <!-- SCREENSHOT: action-new-customers-1 · New customers to review with Terms now and Open -->
 
-<!-- rulings: 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735 -->
+
+<a id="action-pickups"></a>
+## Pickups not scheduled
+<!-- screen: manager-list.html · BUILD 2026-11-06 · ml v1.5 -->
+<!-- who: manager, sales -->
+
+**What shows here**
+Freightcom bookings made in IMS where the carrier pickup is not confirmed. A pickup can be refused after the order has shipped, and the order screens no longer show it then — this tab is where you see it.
+
+Each row shows **Pickup** (date and ready times), **Orders**, **Customer**, **Carrier**, **What Freightcom says**, **Booked**, **Last checked** and **Tracking**.
+
+**How**
+1. Read **What Freightcom says** — for example the carrier refused the pickup.
+2. Schedule the pickup on the Freightcom site.
+3. Press **Check pickup**. IMS reads the pickup again from Freightcom (nothing is charged) and shows the result.
+
+**Good to know**
+- "IMS also checks again every few minutes, and a booking drops off this list once the pickup is confirmed (or 2 days after the pickup date)."
+- "Every Freightcom pickup is scheduled." means there is nothing to do.
+- Nobody marks a row as checked — a row leaves when the pickup is confirmed.
+- No pickups on Saturday or Sunday. A booking made late on Friday is picked up on Monday.
+- A warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouses** › **Edit**, or IMS will not book — carriers refuse a pickup without them.
+
+<!-- SCREENSHOT: action-pickups-1 · Pickups not scheduled with What Freightcom says and Check pickup -->
+
+<!-- rulings: 1040, 1041, 1048, 1049, 1050, 1051, 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735 -->

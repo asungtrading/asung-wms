@@ -1,6 +1,6 @@
 # 6. Action Centre(할 일 모음)
 
-<!-- sections 1-6 written (manual-6) · one section per tab, in the order of the tabs -->
+<!-- sections 1-7 written (manual-6 · docs-1106 added Pickups not scheduled) · one section per tab, in the order of the tabs -->
 <!-- out of this chapter: the work itself stays in its own chapter — sales orders and customers -> chapter 1 · stock adjustments -> chapter 3 · POS -> chapter 5 -->
 
 <a id="action-start"></a>
@@ -9,7 +9,7 @@
 <!-- who: manager, sales -->
 
 **무엇인가**
-**Action Centre** 는 매니저가 볼 것을 모읍니다: 장부에 재고 없이 나간 판매, 덜 받은 즉시 결제 인보이스, 끝내지 않은 POS 판매, counter 오더, 새 고객. 보여 주기만 하고, 일은 원래 화면에서 합니다.
+**Action Centre** 는 매니저가 볼 것을 모읍니다: 장부에 재고 없이 나간 판매, 덜 받은 즉시 결제 인보이스, 끝내지 않은 POS 판매, counter 오더, 새 고객, 잡히지 않은 Freightcom 픽업. 보여 주기만 하고, 일은 원래 화면에서 합니다.
 
 **누가**
 판매 오더를 다루는 사람은 모두 엽니다. 매니저 이상: **Sold without stock** 의 **Mark checked…**
@@ -20,6 +20,7 @@
 **어떻게**
 1. IMS 모드의 메뉴에서 **Action Centre** 를 누릅니다(**Inventory ▾** 와 **Settings ▾** 사이).
 2. 탭을 누릅니다. 탭의 빨간 숫자가 기다리는 건수입니다.
+   메뉴의 **Action Centre** 에도 빨간 숫자가 붙습니다: 모든 브랜치에서 기다리는 것의 합입니다. 기다리는 것이 없으면 숨고, 2 분마다 새로 셉니다.
 3. **All branches** 에서 브랜치 하나를 고릅니다.
 4. 오더 · 인보이스 · 고객을 누르면 원래 화면에서 열립니다.
 
@@ -29,6 +30,7 @@
 - [POS not finished](#action-pos)(끝내지 않은 POS)
 - [Counter orders](#action-counter)(counter 오더)
 - [New customers to review](#action-new-customers)(확인할 새 고객)
+- [Pickups not scheduled](#action-pickups)(잡히지 않은 픽업)
 
 <!-- SCREENSHOT: action-start-1 · 탭 다섯과 배지가 있는 Action Centre -->
 
@@ -130,4 +132,29 @@ IMS 에서 만들었고 매니저가 아직 확인하지 않은 고객입니다.
 
 <!-- SCREENSHOT: action-new-customers-1 · Terms now 와 Open 이 있는 New customers to review -->
 
-<!-- rulings: 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735 -->
+
+<a id="action-pickups"></a>
+## Pickups not scheduled(잡히지 않은 픽업)
+<!-- screen: manager-list.html · BUILD 2026-11-06 · ml v1.5 -->
+<!-- who: manager, sales -->
+
+**여기 뜨는 것**
+IMS 에서 예약한 Freightcom 발송 가운데 운송사 픽업이 확인되지 않은 것입니다. 픽업은 오더가 출고된 뒤에 거절될 수도 있고, 그때는 오더 화면에 더는 보이지 않습니다 — 그것을 보는 곳이 이 탭입니다.
+
+줄마다 **Pickup**(날짜 · 준비 시각) · **Orders** · **Customer** · **Carrier** · **What Freightcom says**(Freightcom 이 말하는 것) · **Booked** · **Last checked**(마지막 확인) · **Tracking** 이 나옵니다.
+
+**어떻게**
+1. **What Freightcom says** 를 읽습니다 — 예: 운송사가 픽업을 거절했다.
+2. Freightcom 사이트에서 픽업을 잡습니다.
+3. **Check pickup** 을 누릅니다. IMS 가 Freightcom 에서 픽업을 다시 읽어(요금 없음) 결과를 보여 줍니다.
+
+**알아 둘 것**
+- "IMS also checks again every few minutes, and a booking drops off this list once the pickup is confirmed (or 2 days after the pickup date)."(IMS 도 몇 분마다 다시 확인하고, 픽업이 확인되면(또는 픽업 날 2 일 뒤) 목록에서 빠진다)
+- "Every Freightcom pickup is scheduled." 는 할 일이 없다는 뜻입니다.
+- 줄을 「확인함」 으로 표시하는 단추는 없습니다 — 픽업이 확인되면 빠집니다.
+- 토 · 일에는 픽업이 없습니다. 금요일 늦게 예약하면 월요일에 가져갑니다.
+- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 예약됩니다(**Settings** › **Warehouses** › **Edit**). 없으면 IMS 가 예약을 막습니다 — 운송사가 연락처 없는 픽업을 거절하기 때문입니다.
+
+<!-- SCREENSHOT: action-pickups-1 · What Freightcom says 와 Check pickup 이 있는 Pickups not scheduled -->
+
+<!-- rulings: 1040, 1041, 1048, 1049, 1050, 1051, 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735 -->

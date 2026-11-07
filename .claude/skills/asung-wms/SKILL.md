@@ -442,6 +442,13 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⚠️⚠️ [2026-10-30 저녁 · **판정 894** · stock-drain-fix-1 `e2d585d` · so-module §91] **id 목록을 URL `in.()` 에 붙일 때는 처음부터 덩이로** — `shop_stock_sent` 읽기는 `SENT_CHUNK = 100` 개씩 나눠 읽고 합친다(`_shared/shopify-stock.ts` · deno test ⑦ · 한 덩이 URL 8 KB 아래) · 500 uuid 한 URL ≈ 18 KB 는 PostgREST 요청이 「error sending request」 로 죽는다 — Go live 직후 19:00 ~ 19:41 매분 500 줄이 실패했고 테스트 스토어(listing 5)에서는 안 드러났다 · ⚠️ 그 읽기는 payload try 밖이라 최상위 catch 가 500 만 돌려주고 `shop_call_log` 에 0 줄 → cron 은 succeeded 로 40 분 조용(deferred 405) · 큐 · 회차 크기만큼 커지는 `in.()` 은 전부 같은 함정(GAS 쪽 선례 url-1 · 글자 수 1,500)
 - ⚠️⚠️ [2026-10-30 저녁 · so-module §91-c · reload §P-2 13b] **Go live 창의 시각 칸(orders_from)을 반드시 채운다 — 비우면 「지금」 으로 저장된다**(10-30 18:57 로 저장돼 컷 17:34 와 어긋남 → cron 42 ~ 53 을 켜기 전에 SQL 로 `orders_polled_at` · `orders_cut_at` 을 17:34(UTC 21:34)로 바로잡음 · 화면에서 막기는 deferred 407) · 실물: asung · aone Go live **18:57** · 첫 poll 19:00 asung added 9 · skipped_cut 1 / aone added 4 · skipped_cut 2(컷 전 fulfill 오더 — 889 가 막음) · 첫 force 뒤 남은 오류는 `no_inventory_item`(Shopify 에 아직 없는 변형 · 패밀리 일부 asung 133 · aone 111)뿐
 - ⚠️⚠️ [2026-10-30 · shop-risk-0] **send_tags 를 켜면 이어진 상품 전부 다시 보내기**(스토어 트리거 · asung 5,044 · aone 약 4,379 · 약 8 시간 짐작 · 555 와 충돌) — 켤지 결정 대기(deferred 394) · 원산지는 두 글자(판정 884 · shop-coo-1 `902937e` · 모르는 코드는 그 칸만 빼고 「coo dropped」)
+- ⭐⭐ [2026-11-06 · **판정 1042 · 1043** · shop-new-1 `6285098` · so-module §101] **사진 · 태그 보내기는 상품 단위 실효값** — shop_product.send_images · send_tags(null = 스토어를 따름) · **행 없음 = 둘 다 true**(= IMS 가 새로 만드는 상품 · origin ims) · 행 있음 = coalesce(행, 스토어) · 기존 잇기 9,502 행은 null → 스토어 값(asung · aone false) 그대로(전수 hash 무변)
+  - ⚠️⚠️ shop_product_payload 를 고칠 때 「행 없음 = true」 를 지키고 hash 를 다시 재라 — `shop_link_apply` 는 행을 insert 한 뒤 hash 를 심어 잇기를 오염시키지 않는다 · 덧씌움은 hash 안 칸(image_id · 'send_tags')으로만 drain 을 깨운다
+  - ⚠️⚠️ **태그 0 개면 tags 칸을 보내지 않는다**(1043 · 목록 칸이라 [] 는 Shopify 태그 전부 삭제) — DB(send_tags false) + EF `if (p.send_tags && p.tags.length)` 두 겹 · 하나만 남기지 마라
+  - 덧씌우기 = `shop_product_send_override(store, family, product, images, tags, queue)` — 관리자만 · 행 없으면 거부 · 화면 칸 아직(deferred 478)
+- ⭐⭐ [2026-11-06 · **판정 1052** · shop-img-name-1 `4ccfdca`] **Shopify 사진 파일 이름 = SKU · SKU_2 …** · 같은 이름이 Files 에 있으면 `duplicateResolutionMode APPEND_UUID`(덮지 않는다 · **REPLACE 금지** — 직원이 SKU 이름으로 올린 남의 파일을 덮는다)
+  - ⚠️⚠️ 짝 기준 = gid(shop_media) → CDN 줄기가 **정확히** SKU(_n) 또는 그 뒤 `_<uuid>` 만 → 옛 `<product_image id>` 줄기 · 「포함」 · 「startsWith(SKU)」 로 넓히지 마라(SKU 가 다른 SKU 의 앞머리 · ABC1 ↔ ABC10) · `_<uuid>` 꼴은 짐작(deferred 480)
+  - drain 기록 `after 0` 은 결함 아님(올린 직후 처리 중) — **pending n** 을 본다 · 다음 push 의 직전 읽기가 맞춘다
 - ⭐⭐ **콤보 재고**(판정 831 · shop-combo-1 `18ce4f0` · so-module §83): `shop_stock_payload` 의 콤보 갈래 = 위치마다 min(구성품 재고 키마다 ⌊inv_available_base ÷ need_ea⌋) — SO 화면 가용과 같은 셈 · 구성품 하나라도 꺼지면(is_active · sellable) 0 · Release 한 콤보는 낱개 갈래 · `shop_stock_queue_add` 가 구성품 → 그 콤보로 펼친다 · **product_bom 트리거 셋**(콤보 정의 · Release → 그 콤보 force) ⇒ 재고 트리거 **16** · ⚠️ 새 바깥 연동은 「콤보 · 세트 · 꺼진 상품」 세 갈래를 짓기 전에 grep(Shopify 쪽 함수가 product_bom 을 몰라 콤보가 늘 0 으로 나갈 뻔)
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)
@@ -1431,7 +1438,18 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - ⚠️⚠️ [2026-10-29 · wun-1 이견 10] **Undo Finalize(`wms_rollback 'finalize'`)는 오피스가 만든 빈 유닛도 지운다** — 팔렛까지 지우는 기존 동작 그대로(규칙 「Rollback Finalize 단계 모델링」) · 오피스가 유닛을 만든 오더를 되돌리면 유닛 · 치수를 다시 넣는다.
 - ⚠️ [2026-10-29 · fc-lock-1 · 90b49f1 · 판정 882 · so-module §89] **`freight_locked` 은 갈린 형제 포함** — `fc_shipment_prepare` 가 발송 SO 의 split_from_id 사슬을 위로 거슬러(`so_chain_shop_orders`) aone 스토어 Shopify 오더에 이어지면 잠근다(전에는 형제만 발송하면 Freightcom 운임이 붙었다 · 실측 SO-25259b) · asung.ca 는 473 그대로 · 화면 시험 길 없음(테스트 스토어 kind asung) — 첫 실제 aonebeauty.com 오더를 오피스가 본다
 - [2026-10-29 · fu v1.6 · asung-ims af9a94f] Fulfillment 머리 아래 **Ship to 줄**(회사 · 연락처 · 주소 · 전화 · 오더마다 · 같은 주소는 한 번 · 주소가 없으면 빨간 안내) — 화면만 · 판정 번호 없음(동료 피드백 2).
-- ⚠️⚠️ [2026-11-04 · so-module §100-c 7 · deferred 464] **토론토 예약에 픽업이 안 잡힐 수 있다** — SO-20846(Purolator · 정기 픽업 아님 · 날짜 · 시각 보냄) → Freightcom `waiting-for-scheduling` · pickup_confirmation 빈칸 · IMS 는 예약 순간 상태만 적는다 ⇒ 그때까지 **토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청**(원인 조사 fc-pickup-0 안 씀)
+- ⚠️⚠️ [2026-11-04 · so-module §100-c 7 · deferred 464] **토론토 예약에 픽업이 안 잡힐 수 있다** — SO-20846(Purolator · 정기 픽업 아님 · 날짜 · 시각 보냄) → Freightcom `waiting-for-scheduling` · pickup_confirmation 빈칸 · IMS 는 예약 순간 상태만 적는다 ⇒ 그때까지 **토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청**(원인 조사 fc-pickup-0 안 씀) → [2026-11-06] **풀림 — 원인 H2 · 아래 줄**(464 닫힘)
+
+- ⭐⭐ [2026-11-05 ~ 06 · fc-pickup-1 ~ 4 · 판정 1040 · 1041 · 1048 ~ 1050 · so-module §101 · freightcom-integration §7 · §8-b · **464 닫힘**] **픽업이 잡히게 — 모르면 사고:**
+  - ⚠️⚠️ 원인은 **H2 — 비정기 상자 pickup_details 에 연락처가 없었다**(UPS 「Missing or invalid ContactName」 · Purolator 「Sender Name is a mandatory field」) → `fc_book_prepare` 가 **contact_name · contact_phone_number{number}** = 창고 Contact · Phone 을 싣고 **비거나 10 자리가 아니면 Book 거부**(Settings → Warehouses → Edit) · pickup_location 은 안 보냄 · 정기 · 팔렛 몸은 바이트 그대로
+  - ⚠️⚠️ **「done」 은 누가 잡았는지 모른다** — 11-05 의 done 10 건(「H1 = Freightcom 이 늦게 잡는다」 로 읽음)은 직원 손 요청이었을 공산 · 원인은 IMS 혼자 만든 실물로 가른다
+  - 토 · 일 출고 없음(토론토 · 에드먼턴 · 1048) — 자동 픽업 날이 주말이면 월요일 + 경고 `weekend:` · 직원 입력 주말은 거부 · 공휴일은 아직
+  - `details.reference_codes` = [운임 SO, 나머지 created_at 순](1040)
+  - 다시 읽기: EF `pickup_poll {booking_id}`(GET `/shipment/{id}/schedule` · 청구 없음) → `fc_book_schedule_save`(service_role) · 응답 꼴 `{error, pickup_confirmation_number, status}` 맨몸 · 판정은 **`fc_pickup_check` 하나**(needed · not_scheduled · pending · 글) — 화면 · 목록에서 다시 짜지 마라
+  - 자동(1041): cron **64** `ims-fc-pickup-poll` `*/5` → EF `pickup_sweep` · 스위치 `fc_pickup_poll_enabled` **on** · 대상 = `fc_pickup_poll_due` 한 곳 · 2 단(2 시간 안 5 분 · 뒤 30 분) · ⚠️ 창 식은 `fc_pickup_attention_list` 와 **같이** 고친다(「목록에 있다 = cron 이 아직 읽는다」)
+  - 예약됨 칸 상태 줄(so pk v1 · fu v1.10)은 **출고 뒤 사라진다** → 출고 뒤 거절은 Action Centre 「Pickups not scheduled」(1050 · asung-so)
+  - ⚠️ `fc_book_cancel_save` 가 예약 응답을 취소 응답으로 덮는다(deferred 475) · 에드먼턴 운영 토큰 있음(11-05 · 462 닫힘) — 에드먼턴 IMS 예약 = 실제 청구
+  - ⚠️⚠️ EF freightcom · shopify 배포 = `supabase functions deploy <name> --project-ref fazgmyvzzhqybtvtktyg`(**빼면 linked 옛 asung-WMS 로 갈 수 있다**) · 배포는 `_shared` 의 **지금 작업 트리**를 함께 올린다 — 다른 창이 `_shared` 를 고치는 중이면 미룬다
 
 ## 규칙 48 — 메인 DB 는 운영이다: 장애 진단 · 지혈 · 창고 시간 시험 (⚠️ 2026-11-02 실사고 · so-module §97-c 1 · 2 · 97-e 56 · 57)
 

@@ -448,7 +448,7 @@ On a **Finalized** order, a person who works on sales orders **and** has the mas
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) -->
 <!-- who: office -->
 
 **What it is**
@@ -486,6 +486,7 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 - **Put back to the shelf**: a combo ships whole or not at all. If a combo cannot go complete, the list shows the extra components to put back in their bins.
 - Payments already taken for an order attach themselves to its invoice.
 - If something in the window changes after **Preview**, press **Preview** again.
+- **Freightcom pickup**: when the order was booked with Freightcom, the booked box shows the pickup. "✓ Pickup scheduled — confirmation …" is done. "⚠ Pickup NOT scheduled" — schedule the pickup on the Freightcom site, then press **Check pickup**. "⏳" means Freightcom is still scheduling it. The box is gone after the order ships — then look in [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups).
 
 **Watch out — the customer wants to take items off a packed order**
 1. Ship & invoice the order as usual. The invoice shows the packed quantity.
@@ -728,6 +729,9 @@ Invoice 99001 → **Preview** shows the item for CB-99001 will be created first 
 - Do not enter payments in QuickBooks by hand, and do not apply credit notes to invoices in QuickBooks by hand. IMS sends every payment and every credit applied that is recorded in IMS — a payment typed in QuickBooks as well would be there twice.
 - A credit note for an invoice that was skipped or never queued fails with "Invoice 99001 was skipped — skip this credit note too, or retry the invoice first" or "Invoice 99001 has no QuickBooks job — send the invoice first".
 - Cancelling an invoice or credit note that is already in QuickBooks adds a **Cancellations (void)** row. Send it like the others. If QuickBooks refuses to void a credit note, the row fails — void it in QuickBooks yourself.
+- Several tracking numbers on one invoice: QuickBooks takes only 31 characters in the tracking box. IMS puts the first tracking number there and all of them in the invoice message as "Tracking: …" (one line per order). The customer sees this message.
+- After you fix a failed invoice and press **Retry**, it goes back to **Queued** — press **Send** to send it.
+- A payment from a head office on a store's invoice fails with "TxnID Cannot Be Linked" when the store is not a sub-customer of the head office in QuickBooks (Bill with parent). Set the sub-customer in QuickBooks, then **Retry**.
 - "QuickBooks total differs from IMS" means QuickBooks worked out a different total. The document is in QuickBooks — check it there.
 - Restocking fees and other account lines on credit notes need their account linked to a QuickBooks item once, in **Settings** › **QuickBooks matching** (**Freight, discount & account lines**).
 
@@ -867,4 +871,4 @@ Most sales screens can download a spreadsheet (CSV).
 - The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
+<!-- rulings: 1041, 1050, 1054, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->

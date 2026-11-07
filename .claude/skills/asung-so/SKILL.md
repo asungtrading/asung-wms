@@ -363,6 +363,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-10-22 · stkx-1 · 판정 628] stk_availability 한도 500 → **20000** · 내보내기는 **stk_availability_export**(같은 거르기 · limit 없음) → jsonb 한 행 {total, row_count, truncated, rows[]}(PostgREST Max rows 1000 은 집합 반환 RPC 에도 걸린다) · by_warehouse[] 에 bgrade(B급 수량 · 1a)
 ⭐  [2026-10-22 · 판정 625 · so gp v1] SO 줄 GP — 원가 = 지금 평균(stk_value_many · 오더 창고 → 없으면 전 창고) · 원가 열쇠가 있을 때만 · 손님 문서에 없음 · 매출 = 줄 합(손 줄 아닌 줄에 오더 할인 %) · surcharge · 운임 제외
 ⭐  [2026-10-29 · 판정 877 · so v5y4] Ship to… 저장된 주소 고르기 — 배송 손님(default_ship_to_customer_id → 없으면 오더 손님)의 켜진 Shipping · Business 주소 · 기본 먼저 · Company = 그 손님 이름 · Contact · Phone = 기본 연락처 · 아홉 칸을 채울 뿐 고칠 수 있다(화면만 · 새 창구 없음)
+⭐⭐ [2026-11-06 · 판정 1050 · 1051 · ac-count-1 `f47c609` · fc-pickup-4 `fda40c7` · ml v1.5 · nav v15 · so §101] **Action Centre(manager-list.html) 탭 여섯** — Sold without stock · Unpaid at hand-over · POS not finished · Counter orders · New customers to review · **Pickups not scheduled**(fc_pickup_attention_list · Check pickup = EF freightcom pickup_poll · 「확인함」 없음 deferred 473)
+   ⚠️⚠️ 숫자는 **`ims_action_counts(p_warehouse_id)` 하나** → {short · unpaid · pos · new_customers · pickups · total · at} — 탭 배지와 바깥 메뉴 배지(ims-auth.js · All branches 합 total · sessionStorage 2 분 · 0 이면 숨김)가 **같은 함수** · 탭 하나를 더하거나 셈을 바꾸면 이 함수도(규칙이 둘로 갈린다)
+   ⚠️  셈은 탭 원천 창구를 그대로 부른다(so_stock_short_list · so_invoice_list 즉시 결제 · so_pos_open_list · customer_review_list · fc_pickup_attention_list) — 다시 짜지 마라 · 첫 문 ims_can_view('sales') · pickups 만 창고 두 겹 · 실측 All 9 · 서버 20 ~ 30 ms
 ```
 
 ## 4-l. ⭐⭐ 관세 부가 요금(surcharge) — 모르면 사고 (정본 so-module §37)
@@ -616,6 +619,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️  주소 배송 조건(주거지 · 테일게이트 · 인사이드 840)은 customer_update(sales)만 굳힌다 · 창고 기억은 address_review(845 · 오피스가 닫는다) · 테일게이트 · 인사이드는 팔렛만(850) · Billing 주소엔 칸 없음(849)
 ⚠️  운송사 짝 = ref_carrier_fc_name(847) · 짝 없는 견적 줄은 고를 수 없다 · 피할 운송사(843)는 흐림 · 픽업 · 마감 · 창고 시간대(852 · 857 · Edmonton = America/Regina) · Carrier pickups 는 Settings 만(860)
 ⭐  [2026-10-29 · wun-1 · 판정 881] 오피스가 Ship & invoice 에서 유닛을 더하고 뺀다 — `wms_unit_add` · `wms_unit_remove`(sales · Working · Finalized · 섞임 · 예약 중 거부 · 바뀌면 다시 견적) · 규칙의 정본은 asung-wms 규칙 47
+⭐⭐ [2026-11-06 · fc-pickup-1 ~ 4 · 판정 1040 · 1041 · 1048 ~ 1050 · so §101] 예약됨 칸 픽업 상태 줄(so pk v1 — ✓ scheduled · ⚠ NOT scheduled · ⏳ · Check pickup) · 판정은 DB fc_pickup_check 하나 · **출고 뒤 칸이 사라진다 → Action Centre Pickups not scheduled**(4-k) · 창고 Contact · Phone 이 비면 Book 거부(픽업 몸 연락처 · 원인 H2) · 토 · 일 → 월요일 · 자세히는 asung-wms 규칙 47
 ```
 
 ## 4-y. ⭐⭐ IMS Claude 커넥터(읽기 도구 여섯) — 모르면 사고 (2026-10-31 ~ 11-01 · 정본 so-module §95 · 판정 917 ~ 931)

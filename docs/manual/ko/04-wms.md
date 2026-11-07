@@ -172,7 +172,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-fulfillment"></a>
 ## 상자 · 팔레트에 담기(Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; 2026-11-06 · fu v1.10 (pickup line) ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -202,6 +202,9 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 **알아 둘 것**
 - 짐의 **Delete** 는 그 제품을 안 담은 쪽으로 돌려놓습니다.
 - "A box can only go on a pallet."(상자는 팔레트 위에만)
+- **Freightcom 픽업**(Finalize 전에 Freightcom 으로 예약한 오더): 예약됨 칸에 픽업이 나옵니다. "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. IMS 도 몇 분마다 다시 확인합니다.
+- 토 · 일에는 픽업이 없습니다 — 주말에 걸리는 픽업은 월요일로 옮겨지고, 주말 날짜를 적으면 거부됩니다.
+- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 합니다(**Settings** › **Warehouses** › **Edit**). 없으면 예약이 거부됩니다.
 
 <!-- SCREENSHOT: wms-fulfillment-1 · Fulfillment 보드: 팔레트 · 얹은 상자 · Unassigned products -->
 
@@ -377,4 +380,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 트랜스퍼에는 **Finalized** 가 없습니다. 창고가 Finalize 하면 곧장 **In transit** 이 됩니다.
 오피스 화면의 말은 [상태의 뜻](03-inventory.md#stock-statuses)을 봅니다.
 
-<!-- rulings: 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->
+<!-- rulings: 1041, 1048, 1049, 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->

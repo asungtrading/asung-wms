@@ -10,6 +10,7 @@
 ⭐ 상태 [2026-11-03 새벽 · so-module §98 · 판정 978 ~ 993] **결제(Payment) 보내기가 섰다 — 아직 켜지 않음** — 2e-1a(paypal · 수표 #105 · 미래 결제일) · 2e-1a2(Clearing - Shopify) · 2e-1b(결제 일감 · 몸 · 지문 · 트리거 · 백필) · 2e-1c(EF · void = operation=update&include=void · Balance 가드) · `qbo_send_payments_enabled` off · cron 62 등록 전 · 켜는 순서는 §14-f(deferred 453) · 정본 §14-f
 ⭐ 상태 [2026-11-03 밤 · so-module §99 · 판정 995 · 1009 ~ 1017 · 1034] **크레딧 붙임 일감(0 원 Payment)이 DB 에 섰다 — EF 는 아직(2e-2-1b)** · §14-g · ⚠️ 다음 할 일 = **결제 먼저 켜기**(1034 · §14-f 「켜는 순서」) · 2e-2-1b 배포 전 cron 62 kinds 는 **둘**
 ⭐ 상태 [2026-11-04 · so-module §100 · 판정 1034 · 1038] **결제 · 크레딧 붙임이 자동으로 나간다** — cron 62 `ims-qbo-send-payments`(jobid 62 · `*/5` · kinds 넷) · `qbo_send_payments_enabled` on · 2e-2-1b `48d5ca4` 배포 · 인보이스 · 크레딧 노트는 여전히 북키퍼가 골라서(`qbo_send_enabled` off · 971) · 다음 = 1d 이월 짝(452) → 2e-3(454) → 원가 · Bill(459) · §14-f 「켜짐」 · §14-g 「2e-2-1b」
+⭐ 상태 [2026-11-06 · so-module §101 · 판정 1039 · 1044 ~ 1047 · 1054] **이월 인보이스 짝 끝**(1d-1 · 1d-2 · 310 장 중 자동 299 · 사람 9 · 남음 2 · §14-h · deferred 452 닫힘) · **인보이스 송장 31 자**(qbo-trk-1 · §14-i) · 결제는 QBO 하위 손님(BillWithParent) 묶음이 있어야 본사 결제가 매장 인보이스에 붙는다 · 다음 = 2e-3(454)
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
@@ -333,7 +334,7 @@ QBO 판     Plus(Caleb)
   - 순서(1034): 켜기 전 확인(EF 판 · 대기 결제 일감 수) → 몇 장 Preview → Send → QBO 에서 잔액 확인 → cron 62 등록 **kinds 둘**(비밀값 Caleb) → 스위치 `qbo_send_payments_enabled` on → 첫 회차 보기 → cron.sql 에 「지금 등록 = 둘 · jobid 실측」 적고 커밋
   - ⭐ 손 Send 는 `qbo_job_claim(p_kinds = SEND_KINDS 8, p_job_ids)` 로 잡는다(`_shared/qbo.ts:857`) → 2e-2-1b 전에 credit_apply 일감을 골라도 **잡히지 않는다**(코드 읽음 · 실행은 안 봤다) · 같은 스위치가 크레딧 붙임도 연다(1015) — 2e-2-1b 배포 전에는 cron kinds 로 갈린다
 - **화면**(pay screens v1 asung-ims `4d9b62a`): qbo-send 의 Payments 종류 · 결제 미리 보기(check_lines · 합계 · void) · settings 카드 수단 한 수단으로 Find…(983) · 결제 날짜 오늘 + 1 년 · post-dated 칩 · 환불 날짜는 오늘까지 · ⚠️ 일감은 claim 때 blocked 가 된다 — 보내기 전 붙은 인보이스가 안 갔으면 목록에는 waiting(so §98-e 68)
-- **안 지은 것**: 1d 이월 짝(452) · 2e-2 크레딧 붙임 · 2e-3 환불 · 받아 둔 돈(454) → [2026-11-04] 2e-2 끝(§14-g) · 남은 것 1d(452) · 2e-3(454)
+- **안 지은 것**: 1d 이월 짝(452) · 2e-2 크레딧 붙임 · 2e-3 환불 · 받아 둔 돈(454) → [2026-11-04] 2e-2 끝(§14-g) · 남은 것 1d(452) · 2e-3(454) → [2026-11-06] 1d 끝(§14-h) · 남은 것 2e-3(454)
 - ⭐ **켜짐 — [2026-11-04 · so-module §100-c 5 · deferred 453 닫힘]** (대화 실측 + 메인 DB 읽기)
   - 켠 순서(1034 그대로): 16:5x 확인(스위치 둘 off · cron 59 · 61 만 · payment queued 139 · skipped 6) → 손 Send 1 장(VISA · 401.45 → 인보이스 60001(QBO #172375) PAID · Credit Card · Deposit to = Clearing - TD Merchant TOR · QBO 결제 #172499) → **cron 62 등록 kinds 둘**(Caleb psql · jobid **62** · `*/5` · active · key_len 64) → 스위치 `qbo_send_payments_enabled` **on** → 17:00 첫 회차 claimed 15 · sent 15 · failed 0 · unknown 0 → 2e-2-1b 배포 · 첫 실물(§14-g) → cron 62 **kinds 넷**(같은 이름 cron.schedule = 번호 62 그대로 명령만 바뀐다 · kinds_four t · key_len 64)
   - ⭐ 열쇠는 화면 · 대화에 안 찍힌다 — jobname `ims-mail-drain` 의 command 에서 `substring(… 'x-ims-cron-key'', ''([^'']+)')` 로 꺼내 `format($fmt$ … %L … $fmt$, s.k)` 로 끼움 · `where length(s.k) = 64`(`supabase/ops/cron.sql` 실행 블록)
@@ -358,5 +359,31 @@ QBO 판     Plus(Caleb)
   - 이견 답 1 ~ 10: ① (a) payment_void 조건 둘에 `|| credit_apply_void` ② `CREDIT_APPLY_KINDS` + `isCreditApplyKind`(PAYMENT_KINDS 무변) ③ check_lines 가 Invoice 하나 + CreditMemo 하나가 아니면 failed ④ unknown 풀기는 PrivateNote **완전 일치** + isVoidedPayment 제외(0 원은 void 뒤에도 0 이라 includes 면 옛 void 를 잡는다) ⑤ sendPicked 의 need 건너뛰기를 「customer · item 이 아니면 전부」(isNeedKind) ⑥ nameField = PrivateNote ⑦ 가짜 Intuit 넷(RemainingCredit · CreditMemo LinkedTxn · 0 원 응답 계좌 없음 · done 가지) ⑧ 스킬에 「0 원 Payment 는 계좌 없음」 ⑨ 넷 뒤 첫 회차 failed 1 = CR-01014 → 50763(이월 인보이스 · 1016) ⑩ parsePaymentKey 접두 `IMS credit applied `
   - 화면 qs apply v1(asung-ims `21d4ef9`): 종류 「Credits applied to invoices」 · 라벨 Credit applied · Undo credit applied · applyPreview
   - **첫 실물** CR-01008 → 60026: Preview(9242 매장 · 13.52 · QBO #172453 · #172452) → Send → QBO 에 「IMS credit applied …」 Payment $0.00 Closed · 남은 $1.15 는 IMS 결제로 이미 들어가 손님 잔액 $0.00 ⇒ 1014(CustomerRef = 매장) 실물 확인 → 그 뒤 cron 62 kinds 넷
-- ⭐ **순서(판정 1038 · Caleb 「퀵북스 작업이 우선적으로 마무리가 되어야 해」)**: QBO 줄기를 다른 IMS 일보다 먼저 — 2e-2-1b(끝) → **1d 이월 인보이스 짝**(452) → **2e-3 받아 둔 돈 · 환불**(454) → 원가(COGS) 분개 · 공급처 Bill · 입고 분개(459) · 인보이스 자동 보내기 켜기(971 · `qbo_send_enabled`)는 Caleb
+- ⭐ **순서(판정 1038 · Caleb 「퀵북스 작업이 우선적으로 마무리가 되어야 해」)**: QBO 줄기를 다른 IMS 일보다 먼저 — 2e-2-1b(끝) → ~~**1d 이월 인보이스 짝**(452)~~ → [2026-11-06] 1d 끝(§14-h · 452 닫힘) → **2e-3 받아 둔 돈 · 환불**(454) → 원가(COGS) 분개 · 공급처 Bill · 입고 분개(459) · 인보이스 자동 보내기 켜기(971 · `qbo_send_enabled`)는 Caleb
 - **그 다음(Caleb 「순서대로」 · deferred 459)**: 원가(COGS) 분개 · 공급처 청구서(Bill) · 공급처 크레딧 · 입고 분개(Inventory / GINR) · 운임 · 관세 분개 — 안 지음 · QBO 는 QuantityOnHand false 라 컷 뒤 IMS 판매 원가가 QBO 에 0
+
+### 14-h 이월 인보이스 짝 — qbo-sync-2e-1d-1 · 1d-2 (2026-11-05 ~ 06 · `bbfcfdb` · `20261105184613` · EF qbo `9b32168` · 판정 1039 · 1044 ~ 1047 · so-module §101 · deferred 452 닫힘)
+
+- **왜**: 이월 인보이스(so_invoice kind opening · 원본이 이미 QuickBooks · 341 · 786)에 컷 뒤 IMS 결제 · 크레딧 붙임이 걸리면 QBO 의 그 인보이스를 알아야 보낸다 — 짝 없으면 failed 「Invoice N was carried over from the previous system and has no QuickBooks match yet」(§14-f)
+- **판정**: **1044** 창구 문 = 열쇠 QUICKBOOKS(북키퍼도 · admin 도 열쇠 · 945) · EF action 은 KEY_ACTIONS / **1045** 풀기 = source matched 행 **삭제**(sent 행 아님 · 보낸 것 있으면 거부 · 흔적 qbo_opening_review) · 결제 되살림은 남은 이월 장 0 일 때만 · 풀 때 queued · blocked 는 failed 로 · 목록은 definer 창구 / **1046** 사람 짝 전에 peek(ack) · opening_search / **1047** 「잇기만 하고 보내지 않기」 없음 — 약속 둘: QBO 에 이미 기록한 결제는 IMS 에 또 기록하지 않는다(24 장 선일자 수표) · 컷 뒤 새 결제는 IMS 에만 / **1039** 수단 짝이 서면 그 수단의 failed 결제를 queued 로
+- **표**: qbo_txn + `match_how`(auto | manual · source matched 일 때만) · `match_snapshot`(짝 당시 QBO 행 일곱 칸 — Id · DocNumber · TotalAmt · Balance · CustomerRef · SyncToken · TxnDate) / 새 표 `qbo_opening_review`(이월 인보이스마다 마지막 검사 — reason · warning · 본 QBO 행 · 풀림)
+- **자동 짝 다섯 조건**(`qbo_opening_check`): DocNumber 완전 일치 ∧ 한 장뿐 ∧ CustomerRef ∈ {매장 짝 · 청구처 짝 · 그 둘의 qbo_entity.parent_id} ∧ TotalAmt = total ∧ Balance = total − prior_settled − IMS 가 이미 보낸 붙임 합
+- **창구**(열쇠 QUICKBOOKS): `qbo_opening_candidates`(물은 번호 + QBO 행 → 자동 짝 · 못 지으면 review 에 까닭 · 멱등) · `qbo_opening_match`(사람 짝 · 경고는 p_ack) · `qbo_opening_unmatch`(1045) · 목록 / 속: qbo_opening_slim · check · record · remaining · `qbo_payment_requeue_one`(남은 장 0 일 때만 · 아니면 failed 그대로 · 글 「N carried-over invoice(s) …」) · `qbo_payment_method_requeue`(1039 · `qbo_link_set` 재발행)
+- **EF**(1d-2): `opening_candidates {invoice_numbers?, batch?}`(qbo_opening_list 의 match none 번호 → 묶음 150 마다 `select … from Invoice where DocNumber in (…)` · 실측 262 ms) · `opening_read {qbo_id, invoice_id, ack?, peek?}`(GET invoice/<Id> · peek 면 행만 · 쓰기 0) · `opening_search {doc_like}`(3 ~ 30 자 · DocNumber like · MAXRESULTS 20 · 번호가 다른 장 — 「2329611 \| ITRA6260-1」 꼴)
+- **첫 실물**(11-06 · 대화): 310 장 중 **자동 299 · 사람 짝 9 · 남음 2**
+  - 사람 짝 9 = QBO TotalAmt = IMS total − prior_settled(Cin7 이 몇 달러 정산을 결제가 아니라 금액에서 빼 넘겼다) — 49558 · 49979 · 50171 · 50315 · 50364 · 50383 · 50387 · 50411 · 50599 · peek → ack
+  - 남음 2: 2329611 not_found · 47938 잔액 2 센트(deferred 471)
+  - 결제 sent 132 → 198 · 크레딧 붙임 1 → 8 / 메인 DB 22:03: matched auto 299 · manual 9 · payment sent 204 · blocked 48 · failed 1 · skipped 11
+- ⚠️ **손님 짝은 failed 결제를 되살리지 않는다**(1039 는 수단만) — 손님 짝을 지은 뒤 Retry(deferred 472)
+- ⭐ **QBO 하위 손님** — 본사가 낸 결제가 매장 인보이스에 붙으려면 QBO 에서 매장이 본사의 **BillWithParent 하위 손님**이어야 한다(IMS 의 parent_id 와 따로) · 「IMS 부모 · 자식 ≠ QBO 하위 손님」 은 본사 그룹 하나(매장 8) — CHQ #15033 failed 「TxnID Cannot Be Linked : 160028」 · 북키퍼가 QBO 에서 묶고 Retry(deferred 482)
+- 손님 중복 레코드 하나(손님 A · 새 레코드를 QBO #4556 에 이음 · 결제 blocked · deferred 481)
+- **안 지은 것**: 1d-3 화면(Settings → QuickBooks → Opening invoices · deferred 470) — 지금은 EF 호출(Caleb 콘솔)
+- **다음**: 2e-3 받아 둔 돈 · 환불(454) → 459
+
+### 14-i 인보이스 송장 31 자 — qbo-trk-1 (2026-11-06 · `e059e73` · `20261107021000` · 판정 1054 · so-module §101)
+
+- **실물**: 다상자 Freightcom 예약 SO 9 건이 tracking_number 를 「, 」 로 이어 38 ~ 218 자 — QBO TrackingNum 한도 **31 자**를 넘어 인보이스 6 장 failed(60202 · 60203 · 60226 · 60231 · 60235 · 60236)
+- **1054**: `qbo_invoice_body` 재발행 하나 — TrackingNum = **첫 오더의 첫 송장번호**(넘으면 31 자 + 경고) · 전체 송장은 **CustomerMemo 둘째 줄 「Tracking: …」**(오더 여럿이면 SO 별 · 1,000 자 자르기) · PrivateNote 무변 · 송장 하나인 인보이스 몸은 바이트 그대로 · 확인 14/14
+- ⚠️ CustomerMemo 는 **손님에게도 보인다**(QBO 인보이스 메모 · 북키퍼 안내 deferred 483)
+- ⚠️ 고친 뒤 **Retry 는 queued(대기)로 돌아갈 뿐** — 인보이스 자동 보내기가 꺼져 있어(971 · qbo_send_enabled off) Send 를 눌러야 나간다 · 6 장 sent
+- 검사 `supabase/tests/qbo_sync_2b1_check.sql` 이 TrackingNum 옛 꼴을 단언하는지 확인 거리(deferred 476)

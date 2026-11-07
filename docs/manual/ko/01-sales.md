@@ -448,7 +448,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice(출고 + 인보이스)
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) -->
 <!-- who: office -->
 
 **무엇인가**
@@ -486,6 +486,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 - **Put back to the shelf**(선반에 돌려놓기): 콤보는 통째로 나가거나 안 나갑니다. 콤보가 다 갖춰지지 않으면 남는 구성품을 bin 에 돌려놓으라는 목록이 나옵니다.
 - 오더에 이미 받은 결제는 그 인보이스에 저절로 붙습니다.
 - **Preview** 뒤에 창의 무엇을 바꾸면 **Preview** 를 다시 누릅니다.
+- **Freightcom 픽업**: Freightcom 으로 예약한 오더는 예약됨 칸에 픽업이 나옵니다. "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. 출고하면 이 칸은 사라집니다 — 그 뒤에는 [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups) 에서 봅니다.
 
 **조심할 것 — 팩된 오더에서 고객이 일부를 빼 달라고 할 때**
 1. 오더를 평소대로 Ship & invoice 합니다. 인보이스에는 팩된 수량 그대로 실립니다.
@@ -728,6 +729,9 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - QuickBooks 에서 결제를 손으로 넣지 않고, 크레딧 노트를 인보이스에 손으로 붙이지도 않습니다. IMS 에 적힌 결제 · 크레딧 붙임은 IMS 가 모두 보냅니다 — QuickBooks 에도 손으로 넣으면 두 번 적힙니다.
 - 건너뛰었거나 일감이 없는 인보이스의 크레딧 노트는 "Invoice 99001 was skipped — skip this credit note too, or retry the invoice first" · "Invoice 99001 has no QuickBooks job — send the invoice first" 로 실패합니다.
 - QuickBooks 에 이미 간 인보이스 · 크레딧 노트를 IMS 에서 취소하면 **Cancellations (void)** 줄이 생깁니다. 다른 줄처럼 보냅니다. QuickBooks 가 크레딧 노트 void 를 거절하면 그 줄은 실패 — QuickBooks 에서 직접 void 합니다.
+- 인보이스 한 장에 송장 번호가 여럿이면: QuickBooks 의 송장 칸은 31 자뿐입니다. IMS 는 첫 송장 번호를 그 칸에, 전부는 인보이스 메시지에 "Tracking: …" 로 넣습니다(오더마다 한 줄). 이 메시지는 고객에게도 보입니다.
+- 실패한 인보이스를 고치고 **Retry** 를 누르면 **Queued**(대기)로 돌아갈 뿐입니다 — **Send** 를 눌러야 나갑니다.
+- 본사가 낸 결제를 매장 인보이스에 붙일 때, QuickBooks 에서 그 매장이 본사의 하위 고객(Bill with parent)이 아니면 "TxnID Cannot Be Linked" 로 실패합니다. QuickBooks 에서 하위 고객으로 묶은 뒤 **Retry** 합니다.
 - "QuickBooks total differs from IMS" 는 QuickBooks 가 합계를 다르게 셈했다는 뜻입니다. 문서는 QuickBooks 에 있습니다 — 거기서 확인합니다.
 - 크레딧 노트의 재입고 수수료 등 계정 줄은 그 계정을 QuickBooks 품목에 한 번 이어야 합니다 — **Settings** › **QuickBooks matching**(**Freight, discount & account lines**)
 
@@ -867,4 +871,4 @@ Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 �
 - GP(매출 이익) 칸은 `cost` 권한이 있는 사람의 **↓ Lines CSV** 에만 나옵니다.
 - 이 파일은 내부용입니다. 고객에게는 인쇄 문서를 보냅니다([인쇄와 메일](#sales-print-email)).
 
-<!-- rulings: 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
+<!-- rulings: 1041, 1050, 1054, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->

@@ -19,6 +19,7 @@
 
 ⭐ [2026-10-31 · so-module §92] **aonebeauty.com 에 Edmonton 재고도 보낸다 · 오더는 늘 Toronto**(판정 895 · aone-edm-1 `17b8d7d` · Aonebeauty EDM ↔ Asung - Edmonton 짝 더함 · diff 7,543 줄 · `shop_order_pick_location` kind 갈래 · 아래 §1 · §1-a · §2-c · §3-c) · 427 · deferred 188 의 「짝 Toronto 하나」 는 바뀜 · 대가 = Toronto 로 온 오더의 백오더(힌트 deferred 414) · 다음 판정 번호 899
 ⭐ [2026-10-31 저녁 · so-module §93] **두 스토어 웹훅 구독**(판정 909 · ORDERS_CREATE · UPDATED · CANCELLED · 15 분 poll 과 함께 · §2-a) · **send_tags 지금 안 켬**(판정 905 · 태그 쓰임 본 뒤 한 스토어씩 · §5 ⑯) · 콤보 CB- 27 — IMS SKU 를 바꾸면 Shopify SKU 도(판정 906 · §3-b) · 다음 판정 번호 **910**
+⭐ [2026-11-06 · so-module §101] **IMS 가 새로 만든 상품만 사진 · 태그를 보낸다 · 관리자 덧씌우기**(판정 1042 · 1043 · shop-new-1 `6285098` · `20261106232039` · 아래 §3-e) · **Shopify 로 올리는 사진 이름 = SKU · SKU_2 …**(판정 1052 · shop-img-name-1 `4ccfdca` · APPEND_UUID · 아래 §3-b) · 중복 사진은 지워져도 된다(1053)
 ---
 
 ## 1. 스토어 (판정 362)
@@ -219,6 +220,13 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - ⚠️ [2026-10-31 · 판정 906 · so-module §93-c 4] **IMS SKU 를 바꾸면 Shopify SKU 도 바뀐다** — `shop_variant_payload` 에 `sku` 가 들어 있어 상품 큐가 두 스토어 변형 SKU 를 고친다 · 바꾼 순간 ~ 큐가 고칠 때까지(몇 분) 옛 SKU 로 들어온 웹 오더 줄은 sku_not_found(`shop_order_prepare` 가 SKU 글자로 맞춤) · 콤보 CB- 27 이 이 길로 갔다 · sku_locked(원장 기록) 12 는 바뀌지 않는다 — 새 콤보로 옮길 때 Shopify 이음을 어떻게 옮길지는 deferred 423
 - [2026-10-30 · 조사 shop-photo-0 · 읽기만 · 890 의 근거] 첫 push 때 그 상품의 Shopify media **전부** 지워지고 IMS 파일을 새로 올린다(짝 0) · 같은 그림 asung 15,976(중복 4,817) · aone 12,702(중복 3,385) · **Shopify 전용(그림 손실) asung 1,849 장 · 971 상품 · aone 1,415 장 · 751 상품**(`…fam` 패밀리 표지 419 · 394 — Cin7 패밀리 첨부일 수 있고 IMS 는 제품 단위라 자리 없음 · pricebreak 370 · 108 · 옛 GUID 345 · 260 · 색상 코드 131 · 117) · Cin7 → IMS 사진 가져오기 빈 곳은 skip 23 뿐 · 구성원 primary 사진 없는 변형 asung 218 · aone 179
 - 사진 짝: Shopify 에 올릴 때 파일 이름 = `<product_image id>.<확장자>` → Shopify CDN 주소의 **파일 이름 줄기 = product_image id** · **보내기 직전에 Shopify 상품 media 를 읽어** READY + url 인 것만 줄기로 짝(shop_media) → 짝이 있으면 `{id}` 만 보낸다 · 처리 중이거나 짝이 없으면 originalSource + `duplicateResolutionMode REPLACE`(같은 이름이면 바꿔치기 — 쌓이지 않는다 · 실물) · 직원 push 는 2 초 × 2 다시 읽기 · hash 가 같으면 직전 읽기도 없다
+- ⭐⭐ [2026-11-06 · **판정 1052** · shop-img-name-1 `4ccfdca` · EF shopify · so-module §101] **파일 이름 = SKU · SKU_2 · SKU_3 …**(Caleb 「관리차원에서 그동안 그렇게 해오던 일」) — 위 「`<product_image id>`」 꼴을 바꿈
+  - 순서: payload 순서대로 SKU 마다 1, 2, 3 …(낱개 is_primary desc · sort_order / 패밀리 대표 · primary · sku · sort_order) · SKU 의 `[A-Za-z0-9._-]` 밖 글자 구간 → 「-」 하나 · 앞뒤 「-」 지움 · 비면 옛 꼴 `<product_image id>`
+  - 같은 이름이 Shopify Files 에 있으면(직원이 SKU 이름으로 올린 파일) **`duplicateResolutionMode APPEND_UUID`** — 덮지 않는다(Caleb 「A」 · 옛 REPLACE 는 남의 파일을 덮어 그만 씀) · productSet 의 files 는 목록 칸이라 목록 밖 사진은 상품에서 빠진다(쌓이지 않음)
+  - **짝 기준**(stemMatches): shop_media 에 MediaImage id 가 있으면 `{id}` · CDN 파일 이름 줄기가 **정확히** 기대 줄기(SKU · SKU_n) **또는** 그 뒤 `_<uuid>` 만 더 붙은 것 · 옛 uuid 줄기(`<product_image id>` · `<product_image id>_…`)도 계속 받는다(이미 올라간 사진은 다시 안 올림) · 「포함」 비교는 쓰지 않는다(SKU 가 다른 SKU 의 앞머리일 수 있다)
+  - ⚠️ APPEND_UUID 가 실제로 붙이는 꼴(`_<uuid>`)은 **짐작** — FON01308 첫 실물로 확인(deferred 480)
+  - drain 기록의 `after 0` = 「올린 직후 처리 중」(결함 아님) → 기록에 **pending n**(올렸는데 아직 처리 중이라 짝을 못 맞춘 사진 수 · 다음 push 의 직전 읽기가 맞춘다)
+- ⭐ [**판정 1053** · Caleb 11-06] Shopify 의 중복 사진(IMS 사진과 내용이 같은 것)은 지워져도 된다 · 패밀리 첫 사진이 색상 사진이어도 된다 — 실물 ONO00140FAM(asung · 덧씌우기 켬 · 그대로 둠): 9 → 4 장(중복 4 쌍 md5 같음 · 대표 사진 1 장만 진짜 Shopify 전용) ⇒ Shopify 전용 사진 가져오기(387)는 **md5 로 중복을 거른 뒤**
 - alt = IMS `product.name`(payload files[].alt) — Shopify 에서 `<상품명> - <옵션 값>` 꼴로 보이는 것은 IMS 상품 이름이 그 꼴이라서 · ⚠️ 이미 짝지은 사진은 `{id}` 만 보내므로 이름을 고쳐도 Shopify alt 는 따라가지 않는다(so-module 미룬 168)
 
 ### 3-c. 보냄 · 퍼블리시 (판정 375)
@@ -292,6 +300,18 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - 판정 412 설명 거르기 → 3-f
 - ⭐ [2026-10-29 밤 · **판정 884** · shop-coo-1 `902937e` · so-module §90] **원산지(countryCodeOfOrigin) = 두 글자** — `_shared/shopify-product.ts` countryAlpha2 가 세 글자 코드를 ISO 표로 바꾸고(XKX → XK) Shopify CountryCode 에 있는 것만 보낸다 · Shopify 에 없는 ISO = AQ AS FM GU MH MP PR PW VI · Shopify 에만 = AC AN TA XK ZZ(ZZ 는 뺌) · 모르는 코드는 **그 칸만 빼고** 보내고 성공 글에 「coo dropped: SKU=code」 · 저장 값 product.country_of_origin_code 는 세 글자 그대로 · 오류는 last_hash 를 안 써서 다시 시도 · 원산지 있는 상품 996
   - 대가: 칸을 빼고 성공한 상품은 표가 그 코드를 알게 돼도 저절로 다시 안 간다(「coo dropped」 를 보고 force push) · 칸을 빼면 Shopify 의 옛 값이 남는다(짐작 · 문서 안 봄 · deferred 402)
+- ⭐⭐ [2026-11-06 · **판정 1042 · 1043** · shop-new-1 `6285098` · `20261106232039` · so-module §101] **상품 단위 사진 · 태그 보내기**
+  - 왜: asung · aone 은 스토어 스위치(send_images · send_tags false · 890 · 410)로 Shopify 전용 사진 · 태그를 지킨다 — 그런데 IMS 가 새로 만든 상품(컷 뒤 신제품 · 잇기 짝 없음)은 지킬 것이 없고 사진 · 태그가 IMS 에만 있다(실물: 컷 뒤 신제품 28 · 낱개 21 · 세트 7 — 사진 · 태그 0)
+  - shop_product 칸 셋: `send_images` · `send_tags`(boolean · **null = 스토어를 따름** · true 보냄 · false 스토어가 켜도 안 보냄) · `origin`(link | ims · 감사용 · 기존 9,502 행 link)
+  - `shop_product_payload` **실효값** — (스토어, 대상)의 shop_product 행이 **없음 → 둘 다 true**(= 지금 IMS 가 만드는 상품 · 1042) · 있음 → coalesce(행, 스토어) · 아래 몸(files · image_id · send_tags)은 그대로 · shop_variant_payload 는 p_s 로 실효값을 받는다
+  - **1043** IMS 태그 0 개면 send_tags false — tags 칸을 안 보낸다(목록 칸이라 [] 는 Shopify 태그를 전부 지운다 · 559 의 태그판 · EF `if (p.send_tags && p.tags.length)` 두 겹)
+  - 내부 표식 태그(ASS · AOS · NoSale · DISC · 케이스)는 **426 그대로 보낸다**(1042 에 묶음)
+  - hash: 덧씌움 null 인 기존 행은 실효값 = 스토어 값 → **전수 9,496 행 hash 무변**(nightly 재전송 0) · 사진 덧씌움은 변형 image_id · 태그 덧씌움은 'send_tags'(둘 다 hash 안)로 drain 이 보낸다 · `shop_link_apply` 는 행을 insert 한 뒤 hash 를 심어 「행 없음 = true」 가 잇기를 오염시키지 않는다
+  - 창구 **`shop_product_send_override(p_store_code, p_family_id, p_product_id, p_images, p_tags, p_queue)`** — 관리자(ims_require_admin) · 행 없음 → 거부(새 상품은 자동) · 두 칸을 그대로 쓴다(null = 스토어를 따름) · p_queue 면 큐 · 화면 칸은 아직(Products · deferred 478) · 지금 덧씌움 1(ONO00140FAM)
+  - EF shopify pushOne: 행이 없어 productSet 으로 **만든 뒤의 upsert 에만** origin ims · send_images · send_tags true · 그 밖 PATCH 는 세 칸 무접촉
+  - 직원 규칙(IMS 가 만든 · 덧씌운 상품의 사진 · 태그는 IMS Products 에서만 고친다)은 매뉴얼 몫(deferred 479)
+  - 패밀리 구성원은 낱개로 따로 못 보낸다(family_member_goes_with_family · 콤보 구성품은 된다) — 지금 규칙 유지(so §101-a 「—」)
+  - 기존(잇기) 상품의 태그 보내기는 그대로 결정 대기(394)
 - ⚠️ [2026-10-30 · shop-risk-0] **send_tags 를 켜면 이어진 상품 전부 다시 보내기**(스토어 트리거 · asung 5,044 · aone 약 4,379 · 1 분 20 건 → 약 8 시간 짐작) — 판정 555(사람이 브랜드 · 묶음 단위로 나눠 보낸다)와 충돌 · 컷오버 밤에 켜지 않는 쪽으로 기울어 있다 · **결정 대기**(deferred 394)
 - ⚠️ [2026-10-30 · shop-risk-0 · 짐작] 비교가가 없는 asung 변형 1,795 는 compareAtPrice 칸을 안 보낸다(Shopify 옛 값이 남는지 모름) · IMS 설명이 빈 대상 asung 23 · aone 19 — 빈 descriptionHtml 이 Shopify 설명을 지울 수 있다(deferred 402)
 - 큐 = `shop_push_queue`(대상마다 열린 줄 하나 · `shop_queue_add` 한 곳) · 큐 트리거 `*_shop_queue` 16(product · product_family · product_price · product_image · product_tag · product_barcode · ref_brand · ref_category · AFTER STATEMENT) · ⚠️ reason 은 「그 대상의 첫 트리거」 — 이름 + 가격이 함께 바뀌면 product 만 남는다(진단할 때 reason 만 믿지 않는다)
@@ -534,6 +554,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-30 · so-module §90 · docs-1030] 상태 줄 · §1-b 컷오버 순서의 send_tags → 결정 대기(394) · §2-a 컷 전 웹 오더(판정 889 · 814 대체) · 웹훅 구독 0 · §3-b 사진 보내기 끔(판정 890 · 409 · 560 멈춤) · shop-photo-0 요지 · §3-e 원산지(판정 884) · send_tags 전부 다시 보내기 · 비교가 · 빈 설명 · §5 ⑯ ~ ㉑ · §7 store_live · send_tags · 171 줄
 - [2026-10-31 · so-module §92 · docs-1031] 상태 줄 · §1 실제 스토어 표 aone 짝 둘 · §1-a 「위치 짝 하나」 → 둘(895 · 대가) · §2-c aone 갈래 · 픽업 · §3-c 판정 427 줄 · §7 Aonebeauty EDM 할 일 뒤집힘
 - [2026-10-31 저녁 · so-module §93 · docs-1031b] 상태 줄 · §2-a 웹훅 구독 0 → 구독함(909 · 401 닫힘) · §3-b IMS SKU 를 바꾸면 Shopify SKU 도(906 · payload sku) · §5 ⑯(905 지금 안 켬) · ⑲ 닫힘
+- [2026-11-06 · so-module §101 · docs-1106] 상태 줄 · §3-b 사진 이름 SKU · APPEND_UUID · 짝 기준 · pending n(1052) · 중복 사진(1053) · §3-e 상품 단위 덧씌우기 · 태그 0(1042 · 1043)
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 
