@@ -45,6 +45,7 @@
 //     credit_apply_void: payment_void 길 그대로(조건 줄에 || · update&include=void · SyncToken 없으면 GET · 5010 → -2 · 풀기도 Id 로 읽어 Voided 면 done) · entityKeyOf 새 둘 = payment · Payment · nameField PrivateNote(옛 kind 무변)
 //     sendPicked need 건너뛰기(960) — TXN_KINDS 만 → customer · item 이 아니면 전부(1013 으로 void 일감에 blocked 된 붙임을 북키퍼가 홀로 고르면 그 void 를 대신 보내지 않는다 · 결제 일감은 void 에 blocked 되는 길이 없다)
 //     assertWriteAllowed · PAYMENT_KINDS · 결제 갈래 본문 무변(바뀐 줄 = 조건 셋 · parsePaymentKey 접두 · ClaimJob check_lines 타입)
+//   qbo-sync-2e-1d-2(2026-11-06 · deferred 452 · DB 1d-1 20261105184613): KEY_ACTIONS 에 opening_candidates · opening_read · opening_search — 이월 인보이스 QBO 짝 · 읽기만(apiCall) · 창구 qbo_opening_list · qbo_opening_candidates · qbo_opening_match 는 사용자 JWT · 흐름은 handle 바로 위 블록
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -62,10 +63,10 @@ export const LEASE_WAIT_MS = 15_000, LEASE_POLL_MS = 1_500;                     
 export const RETRY_DELAY_MS = 1_000;                                              // 네트워크 · 5xx 만 1 회
 export const CALL_LOG_KEEP_DAYS = 90;
 export const ACCESS_EXPIRES_DEFAULT_S = 3600;                                     // expires_in 이 없을 때만(Intuit 문서값 · 이견 5) — 응답에 있으면 그 값
-export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read", "pull", "send"] as const;
+export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "query", "read", "pull", "send", "opening_candidates", "opening_read", "opening_search"] as const;   // [2e-1d-2 opening_*]
 // ── qbo-sync-2a 판정 945 문 둘 — ADMIN_ACTIONS = qbo_admin_gate(연결 · 끊기 · 갱신 · 핑 · 원문 조회 933) · KEY_ACTIONS = qbo_key_gate(p_write true · perms 'qbo' · admin 도 켜야 한다 · 뒤에 send · job) · status 는 누구나 ──
 export const ADMIN_ACTIONS = ["start", "disconnect", "refresh", "ping", "query", "read"] as const;
-export const KEY_ACTIONS = ["pull", "send"] as const;
+export const KEY_ACTIONS = ["pull", "send", "opening_candidates", "opening_read", "opening_search"] as const;   // [2e-1d-2 이월 짝 셋 — 북키퍼(열쇠 qbo)도 · ADMIN 아님]
 // ── qbo-sync-2a′ 쓰기 길 — apiWrite 하나 · POST 만 · 만들기 customer · item · invoice · creditmemo(2b) · operation=void 는 invoice · creditmemo 만(2b · 2c) · operation=delete 없음 · requestid 필수(1 ~ 50 자 · Intuit 이 같은 id 면 처음 응답) · 자동 재시도 없음(retry false · 결과를 모르면 unknown → 다음 send 가 이름으로 조회) ──
 export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo", "payment"] as const;      // [2e-1c payment]
 export const VOIDABLE_ENTITIES = ["invoice", "creditmemo"] as const;                                    // operation=void
@@ -1014,6 +1015,115 @@ async function status(c: Ctx, jwt: string): Promise<Response> {
     discovery: c.d.discovery.state(c.d.now()), redirect_uri: redirectUriOf(c.d.env("SUPABASE_URL") ?? ""), settings_url: SETTINGS_URL, minorversion: MINOR_VERSION,
   });
 }
+// ── qbo-sync-2e-1d-2(2026-11-06 · deferred 452 · DB 1d-1 20261105184613 · 지시서 ~/asung/prompts/qbo-sync-2e-1d-2.md · 이견 답 1 · 2 · 4 · 5 · 6 A · 7 ~ 16) — 이월 인보이스 QBO 짝 · 읽기만(apiCall · QBO 에 쓰지 않는다) · 창구는 사용자 JWT(rpcUser · service_role 없음) · 열쇠 qbo(KEY_ACTIONS · 북키퍼도)
+//    opening_candidates { invoice_numbers?, batch? } — qbo_opening_list(JWT) 의 match none 번호(화면이 준 번호는 교집합만 · 나머지 ignored) → 묶음마다 select … from Invoice where DocNumber in (…) MAXRESULTS 1000 → 일곱 칸으로 줄여 qbo_opening_candidates(p_doc_numbers, p_rows)
+//      묶음 실패(intuit_failed · too_many_rows(행 ≥ 1000 — 덜 준 것일 수 있어 RPC 안 부름) · db_failed(기록 한 줄 ok=false http_status null)) 는 그 묶음만 · 다음 묶음은 간다 · 예산 60 s 넘으면 남은 번호 not_run · 응답은 늘 200 · batches_failed 로 본다 · 멱등(다시 돌리면 된다)
+//    opening_read { qbo_id, invoice_id, ack?, peek? } — GET invoice/<Id> → 일곱 칸(CustomerRef 는 {value} 객체 — DB qbo_opening_slim 이 ->'CustomerRef'->>'value' 로 읽는다) → peek 면 행만(쓰기 0) · 아니면 qbo_opening_match(JWT) · 경고 + ack 없음은 DB 거부 글 그대로 422 · Fault 610 · 404 는 404
+//    opening_search { doc_like } — 글자 · 숫자 · 공백 · - 3 ~ 30 자 → DocNumber like '%…%' MAXRESULTS 20 → 줄인 행(not_found 장의 사람 짝 — 「2329611 | ITRA6260-1」 꼴)
+//    응답 · 기록 어디에도 손님 이름 · 주소 · 이메일 없음(CustomerRef.name · BillAddr · Line · CustomerMemo 는 줄이기에서 빠진다 · 기록 q 는 리터럴 → ?) ──
+export const OPENING_FIELDS = "Id, SyncToken, DocNumber, TxnDate, TotalAmt, Balance, CustomerRef";
+export const OPENING_BATCH_DEFAULT = 150, OPENING_BATCH_MAX = 150;                                  // 이견 2 · 3: 상한은 QUERY_MAX_CHARS 2000(머리 ≈ 120 자 + 7 자리 번호 11 자 × 150 ≈ 1,770) · 기본값 = 상한 — IMS 메인 실측(2026-11-06 · begin → rollback · 꾸민 행 전부 짝 = 가장 무거운 길): 50 장 58 ms · 100 장 108 ms · 150 장 262 ms(빈 rows 는 15 · 21 · 34 ms) — REST 8 s 의 1/30 · 310 장 = 묶음 3 · Intuit IN 150 개가 거부되면 그 묶음만 실패 · 몸의 batch 로 줄인다(이견 16)
+export const OPENING_BUDGET_MS = 60_000;                                                            // 이견 10: 묶음 시작 전 예산 · 남은 번호는 not_run
+export const OPENING_SEARCH_MAX = 20, OPENING_SEARCH_RE = /^[A-Za-z0-9 -]{3,30}$/;                   // 이견 6 A
+export const OPENING_REASONS = ["not_found", "many", "unlinked", "customer", "total", "balance", "docnumber", "taken"] as const;   // qbo_opening_review.reason(DB) — 응답 reasons 의 열쇠
+export const openingQueryText = (numbers: readonly string[]): string => `select ${OPENING_FIELDS} from Invoice where DocNumber in (${numbers.map((n) => sqlQuote(n)).join(", ")}) MAXRESULTS ${MAXRESULTS_MAX}`;
+export const openingSearchQueryText = (like: string): string => `select ${OPENING_FIELDS} from Invoice where DocNumber like ${sqlQuote("%" + like + "%")} MAXRESULTS ${OPENING_SEARCH_MAX}`;
+export type OpeningRow = { Id: string; SyncToken: string | null; DocNumber: string | null; TxnDate: string | null; TotalAmt: number | null; Balance: number | null; CustomerRef: { value: string | null } };
+export function openingSlim(raw: unknown): OpeningRow | null {                                     // 일곱 칸만 · 그 밖(Line · BillAddr · BillEmail · CustomerMemo · CustomerRef.name …)은 버린다
+  const r = raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
+  if (!r || r.Id == null || String(r.Id).trim() === "") return null;
+  const str = (v: unknown): string | null => (v == null ? null : String(v).trim() || null);
+  const cr = r.CustomerRef && typeof r.CustomerRef === "object" ? (r.CustomerRef as Record<string, unknown>).value : null;
+  return { Id: String(r.Id).trim(), SyncToken: str(r.SyncToken), DocNumber: str(r.DocNumber), TxnDate: str(r.TxnDate), TotalAmt: num(r.TotalAmt), Balance: num(r.Balance), CustomerRef: { value: str(cr) } };
+}
+type OpeningBatch = { batch: number; numbers: number; status: "ok" | "intuit_failed" | "too_many_rows" | "db_failed"; intuit_tid: string | null; error: string | null; qbo_rows: number; matched: number; taken: number; already: number; review_changed: number; review_same: number; unknown_numbers: number };
+const cnt = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+async function openingCandidates(c: Ctx, body: Record<string, unknown>, jwt: string): Promise<Response> {
+  const batch = body.batch === undefined || body.batch === null || body.batch === "" ? OPENING_BATCH_DEFAULT : Number(body.batch);
+  if (!(Number.isInteger(batch) && batch >= 1 && batch <= OPENING_BATCH_MAX)) throw new QboError(400, `batch must be a whole number 1 … ${OPENING_BATCH_MAX} (invoice numbers per QuickBooks query · default ${OPENING_BATCH_DEFAULT})`);
+  let only: Set<string> | null = null;
+  if (body.invoice_numbers !== undefined && body.invoice_numbers !== null) {
+    const a = body.invoice_numbers;
+    if (!Array.isArray(a) || a.length === 0 || !a.every((x) => typeof x === "string" && x.trim())) throw new QboError(400, "invoice_numbers must be a non-empty array of IMS invoice numbers (strings) — or leave it out to check every unmatched carried-over invoice");
+    only = new Set((a as string[]).map((x) => x.trim()));
+  }
+  const list = await c.d.rpcUser("qbo_opening_list", {}, jwt) as { rows?: { invoice_number?: unknown; match?: unknown }[] } | null;   // 이견 1: 번호는 DB 에서 · 이름(store_name · bill_to_name)은 여기서 버린다
+  const open: string[] = [];
+  for (const x of Array.isArray(list?.rows) ? list!.rows! : []) { const n = String(x?.invoice_number ?? "").trim(); if (n && x?.match === "none" && !open.includes(n)) open.push(n); }
+  const asked = only ? open.filter((n) => only!.has(n)) : open;
+  const ignored = only ? [...only].filter((n) => !open.includes(n)) : [];
+  const t0 = c.d.now();
+  const batches: OpeningBatch[] = [], rows: unknown[] = [], missing: string[] = [];
+  const reasons: Record<string, number> = Object.fromEntries(OPENING_REASONS.map((k) => [k, 0]));
+  let notRun = 0, numbersFailed = 0;
+  for (let i = 0; i < asked.length; i += batch) {
+    const nums = asked.slice(i, i + batch), n = Math.floor(i / batch) + 1;
+    if (c.d.now() - t0 > OPENING_BUDGET_MS) { notRun += nums.length; continue; }
+    const p = parseQuery(openingQueryText(nums));
+    const qrowsOf = (r: IntuitResult): unknown[] => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return Array.isArray(qr.Invoice) ? qr.Invoice as unknown[] : []; };
+    const detailOf = (r: IntuitResult): Record<string, unknown> => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return { batch: n, numbers: nums.length, rows: qrowsOf(r).length, totalCount: typeof qr.totalCount === "number" ? qr.totalCount : null, q: queryForLog(p.text), bytes: r.bytes }; };
+    const { h, r } = await withAuthRetry(c, (x) => apiCall(c, "opening_candidates", x, `/v3/company/${encodeURIComponent(x.realm)}/query`, { query: p.text }, detailOf));
+    const b: OpeningBatch = { batch: n, numbers: nums.length, status: "ok", intuit_tid: r.tid, error: null, qbo_rows: 0, matched: 0, taken: 0, already: 0, review_changed: 0, review_same: 0, unknown_numbers: 0 };
+    batches.push(b);
+    if (r.error || r.bytes > RESPONSE_MAX_BYTES) { b.status = "intuit_failed"; b.error = readFailure("opening_candidates", r).message; numbersFailed += nums.length; continue; }
+    const qrows = qrowsOf(r);
+    b.qbo_rows = qrows.length;
+    if (qrows.length >= p.maxResults) {                                                            // 이견 9: 쪽이 찼다 — 안 온 번호를 「QBO 에 없음」 으로 적게 된다 · RPC 안 부름
+      b.status = "too_many_rows"; b.error = `QuickBooks returned ${qrows.length} invoices for ${nums.length} numbers — the page is full, so numbers it did not return cannot be told from missing ones — call again with a smaller batch`; numbersFailed += nums.length; continue;
+    }
+    const slim = qrows.map(openingSlim).filter((x): x is OpeningRow => x !== null);
+    const seen = new Set(slim.map((x) => x.DocNumber));
+    let res: Record<string, unknown>;
+    try { res = await c.d.rpcUser("qbo_opening_candidates", { p_doc_numbers: nums, p_rows: slim }, jwt) as Record<string, unknown>; }
+    catch (e) {
+      if (!(e instanceof RpcError) || e.status === 401) throw e;
+      b.status = "db_failed"; b.error = e.message; numbersFailed += nums.length;                      // 이견 7: company_name 선례 — DB 실패도 기록 한 줄(http_status null)
+      await c.d.log({ env: c.env, realm_id: h.realm, action: "opening_candidates", ok: false, http_status: null, intuit_tid: null, error: e.message.slice(0, 400), by_staff: c.byStaff, ms: 0, detail: { batch: n, numbers: nums.length, rows: slim.length, db: true } });
+      continue;
+    }
+    for (const x of nums) if (!seen.has(x)) missing.push(x);
+    b.matched = cnt(res?.matched); b.taken = cnt(res?.taken); b.already = cnt(res?.already); b.review_changed = cnt(res?.review_changed); b.review_same = cnt(res?.review_same); b.unknown_numbers = cnt(res?.unknown_numbers);
+    for (const x of Array.isArray(res?.rows) ? res.rows as Record<string, unknown>[] : []) {
+      rows.push(x);
+      const k = x?.result === "taken" ? "taken" : x?.result === "review" && typeof x.reason === "string" ? x.reason : null;
+      if (k) reasons[k] = (reasons[k] ?? 0) + 1;
+    }
+  }
+  const sum = (k: keyof OpeningBatch): number => batches.reduce((a, b) => a + (typeof b[k] === "number" ? b[k] as number : 0), 0);
+  const failed = batches.filter((b) => b.status !== "ok").length;
+  return jsonCompact(200, { ok: true, asked: asked.length, open: open.length, ignored, not_run: notRun, batch, batches,
+    totals: { batches: batches.length, batches_failed: failed, numbers_failed: numbersFailed, qbo_rows: sum("qbo_rows"), qbo_missing: missing.length, matched: sum("matched"), taken: sum("taken"), already: sum("already"), review_changed: sum("review_changed"), review_same: sum("review_same"), unknown_numbers: sum("unknown_numbers") },
+    reasons, missing_numbers: missing, rows, ms: c.d.now() - t0 });
+}
+async function openingRead(c: Ctx, body: Record<string, unknown>, jwt: string): Promise<Response> {
+  const peek = body.peek === true;
+  const qboId = String(body.qbo_id ?? "").trim();
+  if (!/^[0-9]{1,20}$/.test(qboId)) throw new QboError(400, "qbo_id must be a number (the QuickBooks Id of the Invoice)");
+  const invoiceId = String(body.invoice_id ?? "").trim();
+  if (!peek && !UUID_RE.test(invoiceId)) throw new QboError(400, "invoice_id must be the IMS invoice id (uuid) — or pass peek: true to only read the QuickBooks invoice");
+  if (body.ack !== undefined && body.ack !== null && typeof body.ack !== "boolean") throw new QboError(400, "ack must be true or false");
+  const detailOf = (r: IntuitResult): Record<string, unknown> => ({ entity: "Invoice", id: qboId, rows: rowOf(r.body, "Invoice") ? 1 : 0, peek, bytes: r.bytes });
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "opening_read", h, readPath("Invoice", h.realm, qboId), {}, detailOf));
+  if (r.error && r.bytes <= RESPONSE_MAX_BYTES && (faultCode(r.body) === "610" || r.status === 404)) throw new QboError(404, `QuickBooks has no Invoice #${qboId} — check the Id`);   // 이견 11
+  if (r.error || r.bytes > RESPONSE_MAX_BYTES) throw readFailure("opening_read", r);
+  const row = openingSlim(rowOf(r.body, "Invoice"));
+  if (!row) throw new QboError(502, `QuickBooks answered without an Invoice row for #${qboId}`);
+  if (peek) return jsonCompact(200, { ok: true, peek: true, qbo_id: qboId, row, intuit_tid: r.tid });                  // 이견 5: 쓰기 0
+  const res = await c.d.rpcUser("qbo_opening_match", { p_invoice_id: invoiceId, p_qbo_id: qboId, p_row: row, p_ack: body.ack === true }, jwt) as Record<string, unknown>;   // DB 거부(경고 + ack 없음 · 이미 섬 · 남이 쥠)는 RpcError → handle 이 422 + 글 그대로
+  return jsonCompact(200, { ok: true, peek: false, qbo_id: qboId, invoice_id: invoiceId, row, intuit_tid: r.tid, ...(res && typeof res === "object" ? res : {}) });
+}
+async function openingSearch(c: Ctx, body: Record<string, unknown>): Promise<Response> {
+  const like = String(body.doc_like ?? "").trim();
+  if (!OPENING_SEARCH_RE.test(like)) throw new QboError(400, "doc_like must be 3 … 30 letters, digits, spaces or dashes — part of the QuickBooks invoice number");
+  const p = parseQuery(openingSearchQueryText(like));
+  const qrowsOf = (r: IntuitResult): unknown[] => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return Array.isArray(qr.Invoice) ? qr.Invoice as unknown[] : []; };
+  const detailOf = (r: IntuitResult): Record<string, unknown> => ({ entity: "Invoice", rows: qrowsOf(r).length, q: queryForLog(p.text), bytes: r.bytes });
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "opening_search", h, `/v3/company/${encodeURIComponent(h.realm)}/query`, { query: p.text }, detailOf));
+  if (r.error || r.bytes > RESPONSE_MAX_BYTES) throw readFailure("opening_search", r);
+  const rows = qrowsOf(r).map(openingSlim).filter((x): x is OpeningRow => x !== null);
+  return jsonCompact(200, { ok: true, doc_like: like, rows, count: rows.length, more: rows.length >= OPENING_SEARCH_MAX, intuit_tid: r.tid });
+}
+
 export async function handle(req: Request, d: Deps): Promise<Response> {
   const c: Ctx = { d, secrets: [], env: cfgOf(d).qboEnv, byStaff: null };
   for (const e of ENVS) { const n = secretNames(e); const s = (d.env(n.secret) ?? "").trim(); if (s) c.secrets.push(s); }
@@ -1058,6 +1168,9 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (action === "read") return await read(c, body);
     if (action === "pull") return await pull(c, body, jwt);
     if (action === "send") return await send(c, body);
+    if (action === "opening_candidates") return await openingCandidates(c, body, jwt);                 // 2e-1d-2 — 창구는 그 사람 JWT
+    if (action === "opening_read") return await openingRead(c, body, jwt);
+    if (action === "opening_search") return await openingSearch(c, body);
     return json(400, { ok: false, error: "unknown action" });
   } catch (e) {
     if (e instanceof QboError) return json(e.status, { ok: false, error: sc(c, e.message) });

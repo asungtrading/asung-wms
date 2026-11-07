@@ -18,6 +18,7 @@
 //   qbo-sync-2c1(2026-11-02 · 판정 959 ~ 966 · 968 · DB 20261102130000): send 가 credit · credit_void 도 나른다(SEND_KINDS 6) — POST creditmemo · creditmemo?operation=void · DocNumber 멱등은 from CreditMemo · 흐름은 _shared/qbo.ts(인보이스 길과 같은 꼴 · 엔티티 열쇠만 다름)
 //   qbo-sync-2e-1c(2026-11-02 밤 · 판정 978 ~ 991 · DB 2e-1b 20261103050000): send 가 payment · payment_void 도(SEND_KINDS 8) — (가) Balance 읽기 → POST payment · payment?operation=update&include=void · send {kinds} (cron 62 ims-qbo-send-payments 가 [payment, payment_void]) · 흐름은 _shared/qbo.ts
 //   qbo-sync-2e-2-1b(2026-11-04 · 판정 1009 · 1011 ~ 1016 · 1034 · DB 2e-2-1 20261103200000): send 가 credit_apply · credit_apply_void 도(SEND_KINDS 10) — 크레딧 붙임 = 0 원 Payment(가드 Invoice Balance · CreditMemo RemainingCredit → POST payment · void 는 payment?operation=update&include=void 같은 길) · 흐름은 _shared/qbo.ts · cron 62 kinds 넷은 배포 뒤(1034)
+//   qbo-sync-2e-1d-2(2026-11-06 · deferred 452 · DB 1d-1 20261105184613): POST {action:"opening_candidates", invoice_numbers?, batch?} · {action:"opening_read", qbo_id, invoice_id, ack?, peek?} · {action:"opening_search", doc_like}(열쇠 qbo · 북키퍼도 · cron 길 없음) — 이월 인보이스 QBO 짝 · QBO 는 읽기만 · 창구(qbo_opening_list · qbo_opening_candidates · qbo_opening_match)는 그 사람 JWT · 흐름은 _shared/qbo.ts
 //   ⚠️ 비밀: QBO_ENV · QBO_CLIENT_ID_<SANDBOX|PRODUCTION> · QBO_CLIENT_SECRET_<…> · IMS_CRON_SECRET(기존) — 값은 응답 · 기록 · 오류 · console 어디에도 안 남는다(scrub)
 //   배포: supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtktyg
 // ============================================================

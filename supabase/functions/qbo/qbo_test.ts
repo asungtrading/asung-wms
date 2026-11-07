@@ -4,7 +4,8 @@
 //   qbo-sync-1b(2026-11-01 · 판정 934): ⑭ pull — 가짜 DB 에 qbo_pull_begin · qbo_entity_upsert · qbo_pull_finish(20261101210000 의 거부 글 · 반환 키 그대로) · 쪽 1000 은 override 로 · 기존 ⓪ ~ ⑬ 무변
 //   ⚠️ 모든 비밀 · 토큰 가짜 값에 ZZSECRET 표식 — 응답 · 기록 · warn 어디에도 그 표식이 없어야 한다(⑨ + 모든 시험 끝)
 //   qbo-sync-2e-2-1b(2026-11-04 · 판정 1009 · 1011 ~ 1016 · sandbox C-5″ · C-6): ㉓ 크레딧 붙임(0 원 Payment) · void — 가짜 Intuit: CreditMemo 읽기에 Balance 와 RemainingCredit 둘 다 · POST payment 가 CreditMemo LinkedTxn 을 받아 RemainingCredit 를 줄인다(void 는 되돌림) · TotalAmt 0 응답엔 DepositToAccountRef 없음 · 가짜 DB done 에 credit_apply · credit_apply_void(20261103200000 의 글 그대로) · SEND_KINDS 단언 셋 8 → 10(⑱ · ⑳ · ㉒ — 2c1 · 2e-1c 때와 같은 갱신 · 결제 시험 본문 무변)
-import { kindsOf, paymentKeyOf, parsePaymentKey, PAYMENT_KINDS, CREDIT_APPLY_KINDS, UPDATE_VOID_ENTITIES, isVoidedPayment, paymentsByDateQueryText, ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, CRON_ACTIONS, DUPLICATE_DOCNUMBER_CODES, DUPLICATE_NAME_CODE, faultCode, invoiceTotals, SEND_KINDS, STALE_OBJECT_CODE, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, SEND_PICK_MAX, SEND_PICK_ROUNDS, SEND_PICK_BUDGET_MS, SEND_PICK_PARALLEL, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
+//   qbo-sync-2e-1d-2(2026-11-06 · deferred 452 · DB 1d-1 20261105184613): ㉔ 이월 인보이스 짝 — opening_candidates · opening_read(peek) · opening_search — 가짜 DB 에 qbo_opening_list · qbo_opening_candidates · qbo_opening_match(20261105184613 의 거부 글 · 반환 키 꼴 · 일곱 칸 밖 칸이 오면 거부해 EF 의 줄이기를 증명) · 가짜 Intuit query 에 DocNumber in (…) · like · 기존 ⓪ ~ ㉓ 무변
+import { OPENING_BATCH_DEFAULT, OPENING_BATCH_MAX, OPENING_BUDGET_MS, OPENING_SEARCH_MAX, OPENING_REASONS, openingSlim, openingQueryText, openingSearchQueryText, kindsOf, paymentKeyOf, parsePaymentKey, PAYMENT_KINDS, CREDIT_APPLY_KINDS, UPDATE_VOID_ENTITIES, isVoidedPayment, paymentsByDateQueryText, ACCESS_EXPIRES_DEFAULT_S, ACTIONS, ADMIN_ACTIONS, assertReadOnlyRequest, assertWriteAllowed, authorizeUrl, classifyWrite, CRON_ACTIONS, DUPLICATE_DOCNUMBER_CODES, DUPLICATE_NAME_CODE, faultCode, invoiceTotals, SEND_KINDS, STALE_OBJECT_CODE, KEY_ACTIONS, PII_ENTITIES, REQUESTID_MAX, SEND_LIMIT_MAX, SEND_PICK_MAX, SEND_PICK_ROUNDS, SEND_PICK_BUDGET_MS, SEND_PICK_PARALLEL, sqlQuote, WRITE_ENTITIES, MAXRESULTS_MAX, parseQuery, QboError, queryForLog, QUERY_ENTITIES, RESPONSE_MAX_BYTES, stripPii, callbackLocation, PII_FIELDS, PULL_ENTITIES, PULL_FIELDS, PULL_NO_ACTIVE_FILTER, PULL_PAGE, pullQueryText, type CallbackWhy, DISCOVERY_TTL_MS, DiscoveryCache, handle, intuitErrorText, isCallbackPath, isRetryable, needsReconnect, newStateRaw, parseDiscovery, parseTokenResponse, redirectUriOf, RpcError, scrub, SETTINGS_URL, sha256Hex, type Deps, type LogRow } from "../_shared/qbo.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -116,6 +117,11 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
       if (/^select\s+count\s*\(\s*\*\s*\)/i.test(q)) return jres(200, { QueryResponse: { totalCount: 1234 }, time: "2026-11-01T12:00:00Z" }, "tid-count");
       const byDate = /\bfrom\s+Payment\s+where\s+TxnDate\s*=\s*'(\d{4}-\d{2}-\d{2})'/i.exec(q);                      // 2e-1c 결제 unknown 풀기 — 그 날의 Payment 전부(가짜 장부)
       if (byDate) { const rows = [...it.payments.values()].filter((v) => v.TxnDate === byDate[1]).map((v) => ({ Id: v.Id, TotalAmt: v.TotalAmt, UnappliedAmt: v.UnappliedAmt, SyncToken: String(v.SyncToken), PrivateNote: v.PrivateNote, PaymentRefNum: v.PaymentRefNum, CustomerRef: v.CustomerRef, TxnDate: v.TxnDate })); return jres(200, { QueryResponse: rows.length ? { Payment: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-02T12:00:00Z" }, "tid-qpay"); }
+      const openRow = (v: Inv) => ({ Id: v.Id, SyncToken: String(v.SyncToken), DocNumber: v.DocNumber, TxnDate: "2026-10-15", TotalAmt: v.TotalAmt, Balance: v.Balance ?? v.TotalAmt, CustomerRef: v.CustomerRef ?? { value: "7190", name: "ZZPII Customer" } });   // 2e-1d-2 ② 실물 꼴(CustomerRef 에 name 이 온다)
+      const byIn = /\bfrom\s+Invoice\s+where\s+DocNumber\s+in\s*\(([^)]*)\)/i.exec(q);                                   // 2e-1d-2 opening_candidates — 가짜 장부의 Invoice 중 번호 집합 안
+      if (byIn) { const set = new Set([...byIn[1].matchAll(/'((?:[^']|'')*)'/g)].map((m) => m[1].replace(/''/g, "'"))); const rows = [...it.invoices.values()].filter((v) => (v.ent ?? "Invoice") === "Invoice" && set.has(v.DocNumber)).map(openRow); return jres(200, { QueryResponse: rows.length ? { Invoice: rows, startPosition: 1, maxResults: rows.length, totalCount: rows.length } : {}, time: "2026-11-06T12:00:00Z" }, "tid-qin"); }
+      const byLike = /\bfrom\s+Invoice\s+where\s+DocNumber\s+like\s+'((?:[^']|'')*)'/i.exec(q);                             // 2e-1d-2 opening_search
+      if (byLike) { const pat = byLike[1].replace(/''/g, "'").replace(/^%/, "").replace(/%$/, ""); const rows = [...it.invoices.values()].filter((v) => (v.ent ?? "Invoice") === "Invoice" && v.DocNumber.includes(pat)).map(openRow); return jres(200, { QueryResponse: rows.length ? { Invoice: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-06T12:00:00Z" }, "tid-qlike"); }
       const byDoc = /\bwhere\s+DocNumber\s*=\s*'((?:[^']|'')*)'/i.exec(q);                                      // 2b2 DocNumber 조회 — 가짜 장부에서
       if (byDoc) { const dn = byDoc[1].replace(/''/g, "'"); const rows = [...it.invoices.values()].filter((v) => v.DocNumber === dn && (v.ent ?? "Invoice") === entity).map((v) => ({ Id: v.Id, DocNumber: v.DocNumber, SyncToken: String(v.SyncToken), TotalAmt: v.TotalAmt })); return jres(200, { QueryResponse: rows.length ? { [entity]: rows, startPosition: 1, maxResults: rows.length } : {}, time: "2026-11-02T12:00:00Z" }, "tid-bydoc"); }   // 2c1: from Invoice | CreditMemo 로 가른다
       const byName = /\bwhere\s+(DisplayName|Name)\s*=\s*'((?:[^']|'')*)'/i.exec(q);                      // 2a′ unknown 풀기 — 가짜 쓰기가 하나라도 있었으면 created 에서 그 이름(따옴표 둘 → 하나) · 없으면 옛 시험의 기본 3 행
@@ -142,14 +148,16 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
 type Conn = { env: string; realm_id: string; status: string; company_name: string | null; token_version: number; access_exp: number; refresh_exp: number | null; refresh: string; access: string; lease_until: number | null; last_error: string | null; connected_by: string };
 type Pull = { started_at: number; next_start: number; received: number; pages: number; finished_at: number | null };
 type Ent = { name: string; sku: string | null; fetched_at: number; gone_at: number | null };
-type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null>; jobs: Map<string, Job>; links: { ims_kind: string; ims_id: string; qbo_id: string; qbo_name: string; matched_by: string }[]; txns: Map<string, Txn>; claimKinds: string[][] };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945 · jobs · links = 2a′ 일감 상태기(20261102003000 · 20261102030000 의 규칙 · 거부 글 그대로)
+type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null>; jobs: Map<string, Job>; links: { ims_kind: string; ims_id: string; qbo_id: string; qbo_name: string; matched_by: string }[]; txns: Map<string, Txn>; claimKinds: string[][]; opening: Opening };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945 · jobs · links = 2a′ 일감 상태기(20261102003000 · 20261102030000 의 규칙 · 거부 글 그대로)
 type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null; needs?: { kind: string; ims_id: string; name: string; parent?: { ims_id: string; name: string } }[]; wait_job?: string | null; blocked_by?: string | null; fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null; pay_totals?: { amount: number; unapplied: number } | null };   // 2d1: needs · wait_job · blocked_by · [2e-1c fingerprint · check_lines · lookup · pay_totals] · [2e-2-1b check_lines 에 txn_type · credit_number · qbo_creditmemo_id]
+type OpeningInv = { invoice_id: string; invoice_number: string; match: "none" | "auto" | "manual"; reason: string | null; warning: string | null; warn: string | null };   // 2e-1d-2 가짜 이월 인보이스(warn = 사람 짝 때 DB 검사가 낼 경고 글)
+type Opening = { list: OpeningInv[]; held: Map<string, string>; cands: { numbers: string[]; rows: Record<string, unknown>[] }[]; matches: { invoice_id: string; qbo_id: string; row: Record<string, unknown>; ack: boolean }[]; failCall: number | null };
 type Txn = { qbo_id: string; doc_number: string; sync_token: string | null; total_amt: number | null; total_tax: number | null; mismatch: string | null; voided_at: number | null; fingerprint?: string | null; unapplied?: number | null };   // [2e-1c fingerprint · unapplied]   // 2b2 qbo_txn 거울(20261102040000 의 942 규칙 · 글 그대로)
 const STAFF = "11111111-1111-4111-8111-111111111111";
 const STAFF_MGR = "22222222-2222-4222-8222-222222222222";
 const staffOf = (jwt: string) => jwt === "JWT-ADMIN" ? STAFF : STAFF_MGR;
 function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcService: Deps["rpcService"] } {
-  const db: Db = { conn: null, states: new Map(), pin: { sandbox: null, production: null }, calls: [], mails: 0, saveFails: false, staleOnSave: false, lastErrors: [], versionBumpOnSleep: false, pulls: new Map(), ents: new Map(), keys: { "JWT-ADMIN": "qbo", "JWT-MGR": null }, jobs: new Map(), links: [], txns: new Map(), claimKinds: [] };   // 2a: admin 도 열쇠를 켜야 한다 — 기본 가짜 admin 은 켜 둔다
+  const db: Db = { conn: null, states: new Map(), pin: { sandbox: null, production: null }, calls: [], mails: 0, saveFails: false, staleOnSave: false, lastErrors: [], versionBumpOnSleep: false, pulls: new Map(), ents: new Map(), keys: { "JWT-ADMIN": "qbo", "JWT-MGR": null }, jobs: new Map(), links: [], txns: new Map(), claimKinds: [], opening: { list: [], held: new Map(), cands: [], matches: [], failCall: null } };   // 2a: admin 도 열쇠를 켜야 한다 — 기본 가짜 admin 은 켜 둔다
   const refuse = (msg: string) => { throw new RpcError(400, msg); };
   const keyOf = (jwt: string) => db.keys[jwt] === "qbo" ? "write" : db.keys[jwt] === "qbo:read" ? "read" : null;
   const rpcUser: Deps["rpcUser"] = async (fn, args, jwt) => {
@@ -159,6 +167,64 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
     // qbo-sync-2a 945 — 열쇠 문(20261102003000 의 거부 글 그대로): qbo_key_gate · 1a 짝 · 받기 창구(qbo_sync_gate = qbo_key_gate(true)) · 그 밖은 admin 만
     const KEY_FNS = ["qbo_key_gate", "qbo_pull_begin", "qbo_entity_upsert", "qbo_pull_finish"];
     if (fn === "qbo_key_gate") { const write = args.p_write !== false; if (db.keys[jwt] === "qbo" || (!write && db.keys[jwt] === "qbo:read")) return staffOf(jwt); refuse(`Your account does not have the 'qbo'${write ? " (write)" : ""} permission — ask an admin to switch it on in Staff — nothing was changed`); }
+    // 2e-1d-2 창구 셋(20261105184613 의 거부 글 · 반환 키 꼴) — list 는 qbo_key_gate(false) · candidates · match 는 qbo_key_gate(true)
+    if (fn === "qbo_opening_list") {
+      if (db.keys[jwt] !== "qbo" && db.keys[jwt] !== "qbo:read") refuse("Your account does not have the 'qbo' permission — ask an admin to switch it on in Staff — nothing was changed");
+      const rows = db.opening.list.map((x) => ({ invoice_id: x.invoice_id, invoice_number: x.invoice_number, match: x.match, store_name: "ZZPII Store " + x.invoice_number, bill_to_name: "ZZPII Bill-to", reason: x.reason, warning: x.warning, candidates: [] }));
+      return { realm_id: db.conn?.realm_id ?? null, summary: { invoices: rows.length, unmatched: rows.filter((r) => r.match === "none").length }, rows };
+    }
+    if (fn === "qbo_opening_candidates" || fn === "qbo_opening_match") {
+      if (db.keys[jwt] !== "qbo") refuse("Your account does not have the 'qbo' (write) permission — ask an admin to switch it on in Staff — nothing was changed");
+      const SEVEN = ["Id", "SyncToken", "DocNumber", "TxnDate", "TotalAmt", "Balance", "CustomerRef"];
+      const checkRow = (r: Record<string, unknown>) => {                                           // EF 의 줄이기 증명 — 일곱 칸 밖 · CustomerRef 가 {value} 객체가 아니면 거부
+        const extra = Object.keys(r).filter((k) => !SEVEN.includes(k));
+        if (extra.length) refuse("test fake: row carries fields beyond the seven: " + extra.join(","));
+        const cr = r.CustomerRef as Record<string, unknown> | null;
+        if (!cr || typeof cr !== "object" || Object.keys(cr).some((k) => k !== "value")) refuse("test fake: CustomerRef must be an object with value only");
+      };
+      if (fn === "qbo_opening_candidates") {
+        const nums = (args.p_doc_numbers ?? []) as string[], rows = (args.p_rows ?? []) as Record<string, unknown>[];
+        if (!Array.isArray(rows)) refuse("rows must be a JSON array of QuickBooks Invoice rows");
+        for (const r of rows) checkRow(r);
+        db.opening.cands.push({ numbers: nums, rows });
+        if (db.opening.failCall === db.opening.cands.length) refuse("canceling statement due to statement timeout");
+        if (nums.length === 0) return { checked: 0, matched: 0, taken: 0, already: 0, review_changed: 0, review_same: 0, unknown_numbers: 0, rows: [] };
+        const out: Record<string, unknown>[] = []; let matched = 0, taken = 0, already = 0, changed = 0, same = 0, unknown = 0;
+        for (const n of [...nums].sort()) {
+          const inv = db.opening.list.find((x) => x.invoice_number === n);
+          if (!inv) { unknown++; continue; }
+          if (inv.match !== "none") { already++; out.push({ invoice_number: n, result: "already", qbo_id: db.opening.held.get(n) ?? null, match_how: inv.match }); continue; }
+          const hits = rows.filter((r) => String(r.DocNumber ?? "").trim() === n);
+          if (hits.length === 1 && ![...db.opening.held.values()].includes(String(hits[0].Id))) { inv.match = "auto"; inv.reason = null; db.opening.held.set(n, String(hits[0].Id)); matched++; out.push({ result: "matched", invoice_id: inv.invoice_id, invoice_number: n, qbo_id: String(hits[0].Id), txn_id: "txn-" + n, match_how: "auto", requeue_touched: 0 }); continue; }
+          let reason: string, warning: string;
+          if (hits.length === 1) { reason = "taken"; warning = `QuickBooks invoice #${hits[0].Id} is already matched to IMS invoice ${[...db.opening.held.entries()].find((e) => e[1] === String(hits[0].Id))?.[0]} — unmatch that one first`; taken++; }
+          else if (hits.length === 0) { reason = "not_found"; warning = `no QuickBooks invoice is numbered ${n}`; }
+          else { reason = "many"; warning = `QuickBooks has ${hits.length} invoices numbered ${n} — pick one by hand`; }
+          if (reason === "taken") { inv.reason = reason; inv.warning = warning; out.push({ result: "taken", invoice_id: inv.invoice_id, invoice_number: n, qbo_id: String(hits[0].Id), holder: "x" }); continue; }
+          if (inv.reason === reason && inv.warning === warning) same++; else { inv.reason = reason; inv.warning = warning; changed++; }
+          out.push({ invoice_number: n, invoice_id: inv.invoice_id, result: "review", reason, warning, candidates: hits.length });
+        }
+        return { checked: matched + taken + already + changed + same, matched, taken, already, review_changed: changed, review_same: same, unknown_numbers: unknown, rows: out };
+      }
+      const qid = String(args.p_qbo_id ?? "").trim(), row = args.p_row as Record<string, unknown> | null, ack = args.p_ack === true;
+      if (!qid) refuse("Pick the QuickBooks invoice to match — nothing was saved");
+      if (!row || typeof row !== "object") refuse("row must be the QuickBooks Invoice row read by id — nothing was saved");
+      checkRow(row!);
+      if (String(row!.Id ?? "").trim() !== qid) refuse(`The row given is QuickBooks Invoice #${row!.Id ?? "?"} — not #${qid} — read it again`);
+      const inv = db.opening.list.find((x) => x.invoice_id === String(args.p_invoice_id));
+      if (!inv) refuse(`No IMS invoice ${args.p_invoice_id} — nothing was matched`);
+      if (inv!.match !== "none") refuse(`Invoice ${inv!.invoice_number} is already matched to QuickBooks Invoice #${db.opening.held.get(inv!.invoice_number)} — unmatch it first — nothing was saved`);
+      const holder = [...db.opening.held.entries()].find((e) => e[1] === qid);
+      if (holder) refuse(`QuickBooks Invoice #${qid} is already matched to IMS invoice ${holder[0]} — unmatch that one first — nothing was saved`);
+      const warns: string[] = [];
+      if (String(row!.DocNumber ?? "") !== inv!.invoice_number) warns.push(`QuickBooks invoice #${qid} is numbered "${row!.DocNumber ?? ""}", not ${inv!.invoice_number}`);
+      if (inv!.warn) warns.push(inv!.warn);
+      const warning = warns.length ? warns.join(" · ") : null;
+      if (warning && !ack) refuse(`QuickBooks Invoice #${qid} does not look like IMS invoice ${inv!.invoice_number}: ${warning} — confirm to match it anyway — nothing was saved`);
+      db.opening.matches.push({ invoice_id: inv!.invoice_id, qbo_id: qid, row: row!, ack });
+      inv!.match = "manual"; inv!.reason = null; inv!.warning = warning; db.opening.held.set(inv!.invoice_number, qid);
+      return { result: "matched", invoice_id: inv!.invoice_id, invoice_number: inv!.invoice_number, qbo_id: qid, txn_id: "txn-" + inv!.invoice_number, match_how: "manual", requeue_touched: 0, acked: warning !== null, warning };
+    }
     if (KEY_FNS.includes(fn) && db.keys[jwt] !== "qbo") refuse("Your account does not have the 'qbo' (write) permission — ask an admin to switch it on in Staff — nothing was changed");
     if (!KEY_FNS.includes(fn) && jwt !== "JWT-ADMIN") refuse("Only an admin can connect, disconnect or reconnect QuickBooks — nothing was changed");
     if (fn === "qbo_admin_gate") return { staff_id: STAFF, name: "QBX Admin" };
@@ -1770,4 +1836,174 @@ Deno.test("㉓ 크레딧 붙임 = 0 원 Payment 보내기 · void(qbo-sync-2e-2-
   eq([bp.mode, rq.result, a17.state, a17.blocked_by, vq.state, payVoidPosts(w).length - nvq, (bp.needs as unknown[]).length, bp.stopped], ["selected", "blocked", "blocked", vq.id, "queued", 0, 0, "no_progress"], "picked credit application waits for the void; the void is not sent on its behalf: " + JSON.stringify(rq));
   writesAllowedOnly(w, "㉓"); noLeak(w, "㉓");
   ok(!JSON.stringify({ logs: w.logs, warns: w.warns }).includes("ZZPII"), "no PII in logs");
+});
+
+// ── qbo-sync-2e-1d-2(2026-11-06 · deferred 452 · DB 1d-1 20261105184613) — 이월 인보이스 짝 시험 장치: 가짜 QBO 장부에 이월 인보이스(CustomerRef 에 name · GET 은 BillAddr · BillEmail 이 그대로 온다) · 가짜 DB 의 이월 목록 ──
+let openN = 0;
+const ledgerOpen = (w: World, doc: string, extra: Partial<Inv> = {}): Inv => { const id = String(8000 + (++openN)); const v: Inv = { Id: id, DocNumber: doc, SyncToken: 2, TotalAmt: 113, TotalTax: 13, voided: false, CustomerRef: { value: "7190", name: "ZZPII Customer" }, Balance: 113, ...extra }; w.it.invoices.set(id, v); return v; };
+const imsOpen = (w: World, doc: string, match: OpeningInv["match"] = "none", warn: string | null = null): OpeningInv => { const x: OpeningInv = { invoice_id: "1d1d1d1d-0000-4000-8000-" + doc.padStart(12, "0"), invoice_number: doc, match, reason: null, warning: null, warn }; w.db.opening.list.push(x); return x; };
+const openQueries = (w: World) => queryHits(w).filter((h) => /DocNumber\s+in\s*\(/i.test(sentQuery(h) ?? ""));
+const numsOf = (h: Hit): string[] => [...(sentQuery(h) ?? "").matchAll(/'((?:[^']|'')*)'/g)].map((m) => m[1]);
+const openReads = (w: World) => apiHits(w).filter((h) => h.method === "GET" && /\/invoice\/\d+\?/.test(h.url));
+const cands = (w: World, jwt: string | null = "JWT-MGR", extra: Record<string, unknown> = {}) => postBody(w, { action: "opening_candidates", ...extra }, jwt);
+const SEVEN_KEYS = ["Id", "SyncToken", "DocNumber", "TxnDate", "TotalAmt", "Balance", "CustomerRef"];
+function noPii(w: World, texts: string[], where: string) {
+  const all = JSON.stringify({ logs: w.logs, warns: w.warns, texts });
+  ok(!all.includes("ZZPII"), where + ": customer name · address · email leaked: " + all.slice(all.indexOf("ZZPII") - 120, all.indexOf("ZZPII") + 60));
+}
+
+Deno.test("㉔ 이월 인보이스 짝(qbo-sync-2e-1d-2 · deferred 452) — 순수(ACTIONS · KEY_ACTIONS 셋 · 묶음 상수 · 조회 글 parseQuery 통과 · openingSlim 일곱 칸 · CustomerRef {value}) · 문(열쇠 없음 403 · qbo:read 403 · 열쇠 없는 admin 403 · cron 400 · 세션 없음 401 · 거부 전 Intuit · 목록 0) · 번호 5 · QBO 행 5 → 조회 1 · RPC 1(p_doc_numbers 5 · p_rows 5 · 일곱 칸 · name 없음) · 짝 선 장은 안 묻는다 · invoice_numbers 교집합(꾸민 번호 ignored) · 250 → 묶음 수 · ∪ = 250 · batch 60 · 한도 밖 400 · QBO 503 한 묶음만 실패 · DB 실패 한 묶음만(기록 ok=false http_status null) · 쪽 가득 too_many_rows(RPC 0) · 예산 not_run · QBO 에 없는 번호(2329611 꼴) → p_rows 에 없음 · p_doc_numbers 에 있음 · not_found · opening_read(peek 쓰기 0 · 줄인 행 · 경고 + ack 없음 → DB 글 그대로 422 · ack → matched · 610 → 404 · 입력 400) · opening_search(입력 400 · like · 줄인 행) · 기록 detail(q 리터럴 → ? · 결과 행 없음) · API 호스트에 GET 만 · 이름 · 주소 · 이메일 · 토큰 0", async () => {
+  // ⓪ 순수
+  eq([...ACTIONS].sort(), ["status", ...ADMIN_ACTIONS, ...KEY_ACTIONS].sort(), "ACTIONS = status + ADMIN + KEY");
+  ok((KEY_ACTIONS as readonly string[]).includes("opening_candidates") && (KEY_ACTIONS as readonly string[]).includes("opening_read") && (KEY_ACTIONS as readonly string[]).includes("opening_search") && !(ADMIN_ACTIONS as readonly string[]).some((a) => a.startsWith("opening_")), "opening_* are key actions, not admin");
+  ok(OPENING_BATCH_DEFAULT >= 1 && OPENING_BATCH_DEFAULT <= OPENING_BATCH_MAX && OPENING_BATCH_MAX <= 150, "batch default within max ≤ 150");
+  const worst = Array.from({ length: OPENING_BATCH_MAX }, (_, i) => String(2000000 + i));                 // 7 자리 150 개 — 2000 자 한도 안
+  const pw = parseQuery(openingQueryText(worst));
+  eq([pw.entity, pw.maxResults, openingQueryText(worst).length <= 2000], ["Invoice", MAXRESULTS_MAX, true], "worst-case batch query passes parseQuery: " + openingQueryText(worst).length + " chars");
+  eq(openingQueryText(["50763", "O'1"]), "select Id, SyncToken, DocNumber, TxnDate, TotalAmt, Balance, CustomerRef from Invoice where DocNumber in ('50763', 'O''1') MAXRESULTS 1000", "query text · quotes doubled");
+  eq(parseQuery(openingSearchQueryText("ITRA6260")).maxResults, OPENING_SEARCH_MAX, "search text passes parseQuery");
+  eq(openingSlim({ Id: 7, SyncToken: 3, DocNumber: " 50763 ", TxnDate: "2026-10-15", TotalAmt: "113.00", Balance: 113, CustomerRef: { value: "7190", name: "ZZPII" }, BillAddr: { Line1: "ZZPII" }, Line: [{ Description: "ZZPII" }], CustomerMemo: { value: "ZZPII" } }),
+    { Id: "7", SyncToken: "3", DocNumber: "50763", TxnDate: "2026-10-15", TotalAmt: 113, Balance: 113, CustomerRef: { value: "7190" } }, "openingSlim: seven fields · CustomerRef {value} only · numbers as numbers");
+  eq([openingSlim(null), openingSlim({ DocNumber: "x" }), openingSlim({ Id: "1" })], [null, null, { Id: "1", SyncToken: null, DocNumber: null, TxnDate: null, TotalAmt: null, Balance: null, CustomerRef: { value: null } }], "openingSlim: no Id → null · missing fields → null");
+  eq([...OPENING_REASONS], ["not_found", "many", "unlinked", "customer", "total", "balance", "docnumber", "taken"], "reason keys = DB review reasons");
+  // ① 문 — 열쇠 없는 manager · qbo:read · 열쇠 없는 admin · cron · 세션 없음 · Intuit 0 · 목록 0
+  const w = world(); connect(w);
+  w.db.keys["JWT-MGR"] = null;
+  for (const a of ["opening_candidates", "opening_read", "opening_search"]) {
+    const r = await postBody(w, { action: a, qbo_id: "8001", invoice_id: "1d1d1d1d-0000-4000-8000-000000050763", doc_like: "50763" }, "JWT-MGR");
+    eq([a, r.status, String((await body(r)).error)], [a, 403, "Your account does not have the 'qbo' (write) permission — ask an admin to switch it on in Staff — nothing was changed"], "no key → 403: " + a);
+  }
+  w.db.keys["JWT-MGR"] = "qbo:read";
+  const rr = await cands(w);
+  eq([rr.status, String((await body(rr)).error).includes("'qbo' (write)")], [403, true], "qbo:read → 403");
+  w.db.keys["JWT-ADMIN"] = null;
+  eq((await cands(w, "JWT-ADMIN")).status, 403, "admin without the key → 403 (945)");
+  w.db.keys["JWT-ADMIN"] = "qbo";
+  const rc = await cands(w, null, { "x-ims-cron-key": "cron-ZZSECRET-0123456789abcdef" });
+  eq((await postBody(w, { action: "opening_candidates" }, null, { "x-ims-cron-key": "cron-ZZSECRET-0123456789abcdef" })).status, 400, "cron path → 400"); void rc;
+  eq((await cands(w, "JWT-BAD")).status, 401, "unknown session → 401");
+  eq([apiHits(w).length, w.db.calls.filter((x) => x.startsWith("user:qbo_opening")).length], [0, 0], "refused: no Intuit call · no opening RPC");
+  // ② 번호 5 · QBO 행 5 → 조회 1 · RPC 1 · 일곱 칸 · 짝 선 장(auto)은 안 묻는다
+  w.db.keys["JWT-MGR"] = "qbo";
+  for (const d of ["50763", "50764", "50765", "50766", "50767"]) { ledgerOpen(w, d); imsOpen(w, d); }
+  imsOpen(w, "50700", "auto"); w.db.opening.held.set("50700", "7999");                                  // 이미 선 장
+  const r2 = await cands(w);
+  const t2 = await r2.text(), b2 = JSON.parse(t2) as Record<string, unknown>;
+  const tot2 = b2.totals as Record<string, number>;
+  eq([r2.status, b2.ok, b2.asked, b2.open, b2.ignored, b2.not_run, b2.batch, (b2.batches as unknown[]).length, tot2.batches_failed, tot2.matched, tot2.qbo_rows, tot2.qbo_missing, (b2.rows as unknown[]).length], [200, true, 5, 5, [], 0, OPENING_BATCH_DEFAULT, 1, 0, 5, 5, 0, 5], "five numbers · one batch · five matched: " + t2);
+  eq(openQueries(w).length, 1, "one QuickBooks query");
+  eq(numsOf(openQueries(w)[0]).sort(), ["50763", "50764", "50765", "50766", "50767"], "the matched invoice 50700 was not asked");
+  ok((sentQuery(openQueries(w)[0]) ?? "").startsWith("select Id, SyncToken, DocNumber, TxnDate, TotalAmt, Balance, CustomerRef from Invoice where DocNumber in ('"), "query fields · in (…)");
+  eq(w.db.opening.cands.length, 1, "one RPC");
+  const c1 = w.db.opening.cands[0];
+  eq([c1.numbers.length, c1.rows.length, c1.rows.every((r) => Object.keys(r).sort().join() === [...SEVEN_KEYS].sort().join()), c1.rows.every((r) => Object.keys(r.CustomerRef as object).join() === "value")], [5, 5, true, true], "p_doc_numbers 5 · p_rows 5 · seven fields · CustomerRef {value}");
+  eq(w.db.opening.list.filter((x) => x.match === "auto").length, 6, "five newly matched + the earlier one");
+  ok(!t2.includes("\n"), "compact JSON");
+  const l2 = w.logs.filter((l) => l.action === "opening_candidates");
+  eq([l2.length, l2[0].ok, l2[0].http_status, l2[0].by_staff, l2[0].detail?.batch, l2[0].detail?.numbers, l2[0].detail?.rows, l2[0].detail?.totalCount], [1, true, 200, STAFF_MGR, 1, 5, 5, 5], "log row per batch: " + JSON.stringify(l2[0]));
+  eq(l2[0].detail?.q, "select Id, SyncToken, DocNumber, TxnDate, TotalAmt, Balance, CustomerRef from Invoice where DocNumber in (?, ?, ?, ?, ?) MAXRESULTS 1000", "log q: literals → ?");
+  ok(!JSON.stringify(l2).includes("50763"), "log carries no invoice numbers · no rows");
+  // 다시 돌리면 already · 변화 0
+  const b2b = await body(await cands(w));
+  eq([(b2b.totals as Record<string, number>).already, (b2b.totals as Record<string, number>).matched, b2b.asked], [0, 0, 0], "second run: nothing open → asked 0 · no query");
+  eq(openQueries(w).length, 1, "no new QuickBooks query when nothing is open");
+  // ③ invoice_numbers 교집합 — 꾸민 번호 · 이미 선 장은 ignored · 빈 배열 400
+  ledgerOpen(w, "50768"); imsOpen(w, "50768"); imsOpen(w, "50769");
+  const b3 = await body(await cands(w, "JWT-MGR", { invoice_numbers: ["50768", "99999999", "50700"] }));
+  eq([b3.asked, b3.ignored, (b3.totals as Record<string, number>).matched, numsOf(openQueries(w).at(-1)!)], [1, ["99999999", "50700"], 1, ["50768"]], "only the open number is asked; fabricated · matched numbers are ignored");
+  eq((await postBody(w, { action: "opening_candidates", invoice_numbers: [] }, "JWT-MGR")).status, 400, "empty invoice_numbers → 400");
+  eq((await postBody(w, { action: "opening_candidates", invoice_numbers: [5] }, "JWT-MGR")).status, 400, "non-string invoice_numbers → 400");
+  // ④ QBO 에 없는 번호(2329611 꼴: QBO DocNumber 가 「2329611 | ITRA6260-1」) → p_rows 에 없음 · p_doc_numbers 에 있음 · not_found · missing_numbers
+  ledgerOpen(w, "2329611 | ITRA6260-1"); imsOpen(w, "2329611");
+  const b4 = await body(await cands(w));
+  const c4 = w.db.opening.cands.at(-1)!;
+  eq([b4.asked, c4.numbers, c4.rows.length, (b4.totals as Record<string, number>).qbo_missing, b4.missing_numbers, (b4.reasons as Record<string, number>).not_found, (b4.totals as Record<string, number>).review_changed, ((b4.rows as Record<string, unknown>[])[0] ?? {}).reason], [2, ["50769", "2329611"], 0, 2, ["50769", "2329611"], 2, 2, "not_found"], "not in QuickBooks → asked but no row · review not_found: " + JSON.stringify(b4));
+  const b4b = await body(await cands(w));
+  eq([(b4b.totals as Record<string, number>).review_same, (b4b.totals as Record<string, number>).review_changed], [2, 0], "same result again → review_same (idempotent)");
+  // ⑤ 250 번호 → 묶음 수 · ∪ = 250 · batch 60 → 5 묶음 · 한도 밖 400
+  const w5 = world(); connect(w5); w5.db.keys["JWT-MGR"] = "qbo";
+  const all250: string[] = [];
+  for (let i = 0; i < 250; i++) { const d = String(40000 + i); all250.push(d); ledgerOpen(w5, d); imsOpen(w5, d); }
+  const b5 = await body(await cands(w5));
+  const nb = Math.ceil(250 / OPENING_BATCH_DEFAULT);
+  const union = new Set(openQueries(w5).flatMap(numsOf));
+  eq([b5.asked, (b5.batches as unknown[]).length, openQueries(w5).length, w5.db.opening.cands.length, union.size, (b5.totals as Record<string, number>).matched, (b5.totals as Record<string, number>).batches_failed], [250, nb, nb, nb, 250, 250, 0], "250 numbers → " + nb + " batches · union 250 · all matched");
+  ok(openQueries(w5).every((h) => numsOf(h).length <= OPENING_BATCH_DEFAULT), "every batch ≤ default");
+  eq(w5.db.opening.cands.map((c) => c.numbers.length).reduce((a, b) => a + b, 0), 250, "RPC numbers sum 250");
+  for (const x of w5.db.opening.list) x.match = "none"; w5.db.opening.held.clear();
+  const b5b = await body(await cands(w5, "JWT-MGR", { batch: 60 }));
+  eq([b5b.batch, (b5b.batches as unknown[]).length, (b5b.batches as Record<string, number>[]).map((b) => b.numbers)], [60, 5, [60, 60, 60, 60, 10]], "batch 60 → 5 batches");
+  for (const bad of [0, 151, 1.5, "x"]) eq((await postBody(w5, { action: "opening_candidates", batch: bad }, "JWT-MGR")).status, 400, "batch out of range → 400: " + bad);
+  // ⑥ QBO 503 한 묶음(재시도 1 뒤 실패) → 그 묶음만 intuit_failed · 나머지 진행 · DB 실패 한 묶음 → db_failed + 기록 ok=false http_status null
+  for (const x of w5.db.opening.list) x.match = "none"; w5.db.opening.held.clear(); w5.db.opening.cands = [];
+  let hit = 0;
+  w5.it.override.push((h) => /DocNumber\s+in/i.test(sentQuery(h) ?? "") && ++hit >= 2 && hit <= 3 ? jres(503, { Fault: { Error: [{ Message: "Service Unavailable", code: "503" }], type: "SystemFault" } }, "tid-503") : null);   // 2 번째 묶음의 두 시도(첫 + 재시도)
+  w5.db.opening.failCall = 3;                                                                        // 3 번째 RPC(= 4 번째 묶음 · 2 번째 묶음은 RPC 를 안 부른다)
+  const b6 = await body(await cands(w5, "JWT-MGR", { batch: 60 }));
+  const bs6 = b6.batches as Record<string, unknown>[];
+  eq([bs6.map((b) => b.status), (b6.totals as Record<string, number>).batches_failed, (b6.totals as Record<string, number>).numbers_failed, (b6.totals as Record<string, number>).matched, w5.db.opening.cands.length], [["ok", "intuit_failed", "ok", "db_failed", "ok"], 2, 120, 130, 4], "one Intuit failure · one DB failure · the rest matched: " + JSON.stringify(bs6));
+  ok(String(bs6[1].error).startsWith("QuickBooks opening_candidates failed — HTTP 503"), "intuit error text: " + bs6[1].error);
+  eq(String(bs6[3].error), "canceling statement due to statement timeout", "db error text as-is");
+  const l6 = w5.logs.filter((l) => l.action === "opening_candidates" && !l.ok);
+  eq([l6.length, l6[0].http_status, l6[1].http_status, l6[1].error, l6[1].by_staff, l6[1].detail?.db, l6[1].detail?.batch], [2, 503, null, "canceling statement due to statement timeout", STAFF_MGR, true, 4], "two failed log rows: Intuit 503 · DB (http_status null): " + JSON.stringify(l6));
+  w5.it.override.pop(); w5.db.opening.failCall = null;
+  // ⑦ 쪽 가득(행 ≥ 1000) → too_many_rows · RPC 0 · 예산 넘김 → not_run
+  const w7 = world(); connect(w7); w7.db.keys["JWT-MGR"] = "qbo";
+  for (let i = 0; i < 3; i++) { ledgerOpen(w7, String(41000 + i)); imsOpen(w7, String(41000 + i)); }
+  w7.it.override.push((h) => /DocNumber\s+in/i.test(sentQuery(h) ?? "") ? jres(200, { QueryResponse: { Invoice: Array.from({ length: 1000 }, (_, i) => ({ Id: String(90000 + i), DocNumber: "41000", SyncToken: "0", TotalAmt: 1, Balance: 1, CustomerRef: { value: "1", name: "ZZPII" } })), startPosition: 1, maxResults: 1000 } }, "tid-full") : null);
+  const b7 = await body(await cands(w7));
+  eq([(b7.batches as Record<string, unknown>[])[0].status, w7.db.opening.cands.length, (b7.totals as Record<string, number>).batches_failed], ["too_many_rows", 0, 1], "full page → too_many_rows · RPC not called: " + JSON.stringify(b7.batches));
+  w7.it.override.pop();
+  w7.it.override.push((h) => { if (/DocNumber\s+in/i.test(sentQuery(h) ?? "")) w7.clock.t += OPENING_BUDGET_MS + 1000; return null; });
+  const b7b = await body(await cands(w7, "JWT-MGR", { batch: 2 }));
+  eq([(b7b.batches as unknown[]).length, b7b.not_run, (b7b.totals as Record<string, number>).matched], [1, 1, 2], "budget exceeded after batch 1 → the rest not_run");
+  w7.it.override.pop();
+  // ⑧ opening_read — 입력 400 · peek(쓰기 0 · 줄인 행 · BillAddr · name 없음) · 경고 + ack 없음 → DB 글 그대로 422 · ack → matched · 다른 장이 쥔 Id 거부 · 610 → 404
+  const w8 = world(); connect(w8); w8.db.keys["JWT-MGR"] = "qbo";
+  const q1 = ledgerOpen(w8, "2329611 | ITRA6260-1"); const i1 = imsOpen(w8, "2329611");
+  const q2 = ledgerOpen(w8, "50780"); const i2 = imsOpen(w8, "50780", "none", "QuickBooks balance 0 differs from what IMS expects (113)");
+  eq((await postBody(w8, { action: "opening_read", qbo_id: "abc", invoice_id: i1.invoice_id }, "JWT-MGR")).status, 400, "qbo_id not a number → 400");
+  eq((await postBody(w8, { action: "opening_read", qbo_id: q1.Id, invoice_id: "nope" }, "JWT-MGR")).status, 400, "invoice_id not a uuid → 400");
+  eq((await postBody(w8, { action: "opening_read", qbo_id: q1.Id, invoice_id: i1.invoice_id, ack: "yes" }, "JWT-MGR")).status, 400, "ack not boolean → 400");
+  eq(openReads(w8).length, 0, "no Intuit call for refused input");
+  const rp = await postBody(w8, { action: "opening_read", qbo_id: q1.Id, peek: true }, "JWT-MGR");
+  const tp = await rp.text(), bp = JSON.parse(tp) as Record<string, unknown>;
+  eq([rp.status, bp.ok, bp.peek, bp.qbo_id, Object.keys(bp.row as object).sort(), (bp.row as Record<string, unknown>).DocNumber, ((bp.row as Record<string, unknown>).CustomerRef as Record<string, unknown>), bp.intuit_tid, w8.db.opening.matches.length], [200, true, true, q1.Id, [...SEVEN_KEYS].sort(), "2329611 | ITRA6260-1", { value: "7190" }, "tid-inv-" + q1.Id, 0], "peek: slim row · no write: " + tp);
+  ok(!tp.includes("ZZPII") && !tp.includes("BillAddr"), "peek response has no address · email · name");
+  eq([w8.logs.at(-1)!.action, w8.logs.at(-1)!.detail?.entity, w8.logs.at(-1)!.detail?.id, w8.logs.at(-1)!.detail?.rows, w8.logs.at(-1)!.detail?.peek], ["opening_read", "Invoice", q1.Id, 1, true], "read log row");
+  const rm = await postBody(w8, { action: "opening_read", qbo_id: q1.Id, invoice_id: i1.invoice_id }, "JWT-MGR");
+  const bm = await body(rm);
+  eq([rm.status, bm.ok, bm.error, w8.db.opening.matches.length], [422, false, `QuickBooks Invoice #${q1.Id} does not look like IMS invoice 2329611: QuickBooks invoice #${q1.Id} is numbered "2329611 | ITRA6260-1", not 2329611 — confirm to match it anyway — nothing was saved`, 0], "warning without ack → DB refusal text as-is (422)");
+  const rm2 = await postBody(w8, { action: "opening_read", qbo_id: q1.Id, invoice_id: i1.invoice_id, ack: true }, "JWT-MGR");
+  const tm2 = await rm2.text(), bm2 = JSON.parse(tm2) as Record<string, unknown>;
+  eq([rm2.status, bm2.ok, bm2.result, bm2.match_how, bm2.acked, bm2.qbo_id, bm2.invoice_id, i1.match, w8.db.opening.matches.length, Object.keys(w8.db.opening.matches[0].row).sort()], [200, true, "matched", "manual", true, q1.Id, i1.invoice_id, "manual", 1, [...SEVEN_KEYS].sort()], "ack → matched manual · RPC got the slim row: " + tm2);
+  ok(!tm2.includes("ZZPII"), "match response has no name");
+  const rm3 = await postBody(w8, { action: "opening_read", qbo_id: q1.Id, invoice_id: i2.invoice_id, ack: true }, "JWT-MGR");
+  eq([rm3.status, String((await body(rm3)).error)], [422, `QuickBooks Invoice #${q1.Id} is already matched to IMS invoice 2329611 — unmatch that one first — nothing was saved`], "Id held by another IMS invoice → refused as-is");
+  const rm4 = await postBody(w8, { action: "opening_read", qbo_id: q2.Id, invoice_id: i2.invoice_id }, "JWT-MGR");
+  eq([rm4.status, String((await body(rm4)).error).includes("QuickBooks balance 0 differs")], [422, true], "DB warning (balance) without ack → refused");
+  const rm5 = await body(await postBody(w8, { action: "opening_read", qbo_id: q2.Id, invoice_id: i2.invoice_id, ack: true }, "JWT-MGR"));
+  eq([rm5.result, rm5.acked, String(rm5.warning).includes("balance 0 differs")], ["matched", true, true], "ack → matched with the warning kept");
+  const r404 = await postBody(w8, { action: "opening_read", qbo_id: "99999", peek: true }, "JWT-MGR");
+  eq([r404.status, String((await body(r404)).error)], [404, "QuickBooks has no Invoice #99999 — check the Id"], "Fault 610 → 404");
+  eq([w8.logs.at(-1)!.ok, w8.logs.at(-1)!.http_status, w8.logs.at(-1)!.detail?.rows], [false, 404, 0], "failed read logged");
+  let deny8 = 1;
+  w8.it.override.push((h) => /\/invoice\/\d+\?/.test(h.url) && deny8-- > 0 ? jres(401, { Fault: { Error: [{ Message: "AuthenticationFailed", code: "3200" }], type: "AUTHENTICATION" } }, "tid-401") : null);
+  const v8 = w8.db.conn!.token_version;
+  const r401 = await postBody(w8, { action: "opening_read", qbo_id: q2.Id, peek: true }, "JWT-MGR");
+  eq([r401.status, w8.db.conn!.token_version], [200, v8 + 1], "401 once → refresh → again (withAuthRetry)");
+  w8.it.override.pop();
+  // ⑨ opening_search — 입력 400 · like · 줄인 행 · 기록 q
+  for (const bad of ["ab", "x".repeat(31), "50%", "O'1", "a;b", "", undefined]) eq((await postBody(w8, { action: "opening_search", doc_like: bad }, "JWT-MGR")).status, 400, "doc_like refused: " + JSON.stringify(bad));
+  const rs = await postBody(w8, { action: "opening_search", doc_like: "ITRA6260" }, "JWT-MGR");
+  const ts = await rs.text(), bs = JSON.parse(ts) as Record<string, unknown>;
+  eq([rs.status, bs.ok, bs.doc_like, bs.count, bs.more, ((bs.rows as Record<string, unknown>[])[0]).Id, ((bs.rows as Record<string, unknown>[])[0]).DocNumber, Object.keys((bs.rows as Record<string, unknown>[])[0]).sort()], [200, true, "ITRA6260", 1, false, q1.Id, "2329611 | ITRA6260-1", [...SEVEN_KEYS].sort()], "search by part of the number: " + ts);
+  ok(!ts.includes("ZZPII"), "search response has no name");
+  eq(sentQuery(w8.it.hits.at(-1)!), "select Id, SyncToken, DocNumber, TxnDate, TotalAmt, Balance, CustomerRef from Invoice where DocNumber like '%ITRA6260%' MAXRESULTS 20", "like query text");
+  eq([w8.logs.at(-1)!.action, w8.logs.at(-1)!.detail?.q, w8.logs.at(-1)!.detail?.rows], ["opening_search", "select Id, SyncToken, DocNumber, TxnDate, TotalAmt, Balance, CustomerRef from Invoice where DocNumber like ? MAXRESULTS 20", 1], "search log: literal → ?");
+  const bs0 = await body(await postBody(w8, { action: "opening_search", doc_like: "nothing here" }, "JWT-MGR"));
+  eq([bs0.count, bs0.rows], [0, []], "no hit → empty rows");
+  // ⑩ 읽기만 · 누출 0
+  for (const x of [w, w5, w7, w8]) { readOnlyOnly(x, "㉔"); noLeak(x, "㉔"); noPii(x, [], "㉔"); }
+  ok(apiHits(w8).every((h) => h.method === "GET") && apiHits(w5).every((h) => h.method === "GET"), "opening_* never POSTs to the API host (token refresh is the OAuth host)");
 });
