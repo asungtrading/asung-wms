@@ -1,5 +1,5 @@
-// deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩ · mail-4c ⑪ · doc-3b ⑫ ~ ⑯(문서 메일 · MIME 무변 황금 · PDF 단계) · qbo-1b ⑰(payload 알림 qbo_reconnect)
-import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, isPlainKind, renderPlain, mailbox, pdfStep, projectRef, PROD_REF, render, safety, sha256Hex, TEST_REF, testMode, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
+// deno test supabase/functions/mail/mail_test.ts — Google · DB 무접촉(가짜) · mail-2b ① ~ ⑩ · mail-4c ⑪ · doc-3b ⑫ ~ ⑯(문서 메일 · MIME 무변 황금 · PDF 단계) · qbo-1b ⑰(payload 알림 qbo_reconnect) · mail-live-1 ⑱ · aone-bo-1 ⑲ · mail-inc-1b ⑳(doc 갈래 황금) · ㉑(받는 이 여럿)
+import { addressFor, base64url, buildMime, chatText, classify, drain, encodeWord, errorChatText, isDocKind, isPlainKind, renderPlain, mailbox, MAX_RECIPIENTS, pdfStep, projectRef, PROD_REF, recipients, render, safety, sha256Hex, TEST_REF, testMode, type Attachment, type AttachmentRead, type ClaimedMail, type Deps, type DocBody, type Line, type MailConfig, type Mark, type Outcome, type PdfDeps, type PdfJob } from "../_shared/mail.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -303,4 +303,93 @@ Deno.test("⑲ aone-bo-1(판정 948 ⑥) — Chat 요약에 aonebeauty.com 줄 �
   eq(chatText({ ...run, aone_lines: 0 }, m, [], false).includes("aonebeauty"), false, "zero → no line");
   eq(chatText(run, m, [], false).includes("aonebeauty"), false, "absent → no line");
   eq(chatText({ ...run, mails: 0, by_status: {}, aone_lines: 3 }, [], [], false), "Backorder mail — Toronto · 2026-11-02 — nothing to send.\naonebeauty.com: 3 backorder line(s) left out of the automatic run — staff send those by hand", "nothing-to-send day with aone line");
+});
+
+// ── mail-inc-1b(2026-11-07 · 판정 1019 · 1027 · 1028 · 1029) — 받는 이 여럿: to_more 를 To 에 · 황금 둘(⑫ 백오더 · ⑳ 문서) 세 꼴(없음 · [] · null) 무변 ──
+const rawOf = (b64url: string) => decodeB64(b64url.replace(/-/g, "+").replace(/_/g, "/"));
+// 바꾸기 전 판(b9b14d6 시점 · to_more 가 생기기 전)의 drain doc 갈래가 만든 바이트 전체 — 2026-11-07 deno 2.9.8 실측 sha256 55b9fd7d…feb25 · 1182 자. 바뀌면 문서 메일 MIME 이 바뀐 것이다.
+const GOLDEN20_RAW = "From: \"Asung Trading\" <info@asung.ca>\r\nTo: ops@asung.ca\r\nReply-To: info@asung.ca\r\nSubject: =?UTF-8?B?W1RFU1Qg4oaSIGQxQGV4YW1wbGUuaW52YWxpZF0gRklOQUwgSU5WT0lDRSA2MDAwOSAtIEFzdW5nIFRyYWRpbmcgSW5jLg==?=\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"B\"\r\n\r\n--B\r\nContent-Type: multipart/alternative; boundary=\"B-alt\"\r\n\r\n--B-alt\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nRGVhciBDdXN0b21lciwNCg0KUGxlYXNlIGZpbmQgYXR0YWNoZWQgeW91ciBmaW5hbCBpbnZvaWNl\r\nIDYwMDA5Lg==\r\n--B-alt\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nPCFkb2N0eXBlIGh0bWw+PGh0bWw+PGJvZHkgc3R5bGU9ImZvbnQtZmFtaWx5OkFyaWFsLHNhbnMt\r\nc2VyaWY7Zm9udC1zaXplOjE0cHgiPjxwcmUgc3R5bGU9ImZvbnQtZmFtaWx5OkFyaWFsLHNhbnMt\r\nc2VyaWY7Zm9udC1zaXplOjE0cHg7d2hpdGUtc3BhY2U6cHJlLXdyYXAiPkRlYXIgQ3VzdG9tZXIs\r\nDQoNClBsZWFzZSBmaW5kIGF0dGFjaGVkIHlvdXIgZmluYWwgaW52b2ljZSA2MDAwOS48L3ByZT48\r\nL2JvZHk+PC9odG1sPg==\r\n--B-alt--\r\n--B\r\nContent-Type: application/pdf; name=\"60009-t1-20261019T181014Z.pdf\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"60009-t1-20261019T181014Z.pdf\"\r\n\r\nJVBERi0xLjQKJSBkb2MtM2IgZmFrZSBwZGYgw6kKJSVFT0YK\r\n--B--\r\n";
+const GOLDEN20_SHA = "55b9fd7d273c76b79a6ef50f87e36befb53a6504736cdb5faf4c805b4a1feb25";
+const GOLDEN_BO_SHA = "f38103f0e52fe0f70614dc9e25dba018f52c1af37bd6bf3a0343c2dd0ed77bad";   // 같은 시점 · drain 백오더 갈래(mail("a") · 시험 모드 · boundary B) 의 raw sha256 · 7166 자
+const DOC_BODY = "Dear Customer,\n\nPlease find attached your final invoice 60009.";
+Deno.test("⑳ MIME 무변(문서 메일) — drain doc 갈래의 raw 전체가 바꾸기 전 황금과 바이트가 같다 · to_more 없음 · [] · null 세 꼴 모두 · 백오더 갈래 raw 도 세 꼴 같고 sha 가 바꾸기 전과 같다", async () => {
+  const docRaws: string[] = [], boRaws: string[] = [];
+  for (const more of [undefined, [], null] as const) {
+    const dm = { ...docMail("d1"), ...(more === undefined ? {} : { to_more: more }) } as ClaimedMail;
+    const f = docDeps({ mails: [dm], docs: { d1: { body_text: DOC_BODY, attachments: [ATT()] } } });
+    eq((await drain(f.d, opt)).counts, { sent: 1, failed: 0, retry: 0, unknown: 0 }, "doc sent (" + String(more) + ")");
+    docRaws.push(rawOf(f.sent[0]));
+    const bm = { ...mail("a"), ...(more === undefined ? {} : { to_more: more }) } as ClaimedMail;
+    const g = fakeDeps({ mails: [bm] });
+    eq((await drain(g.d, opt)).counts, { sent: 1, failed: 0, retry: 0, unknown: 0 }, "backorder sent (" + String(more) + ")");
+    boRaws.push(rawOf(g.sent[0]));
+  }
+  eq(docRaws[0], GOLDEN20_RAW, "doc golden bytes (to_more absent)");
+  eq(docRaws[1], GOLDEN20_RAW, "doc golden bytes (to_more [])");
+  eq(docRaws[2], GOLDEN20_RAW, "doc golden bytes (to_more null)");
+  eq(await sha256Hex(new TextEncoder().encode(docRaws[0])), GOLDEN20_SHA, "doc golden sha256");
+  eq(docRaws[0].length, 1182, "doc golden length");
+  ok(boRaws[0] === boRaws[1] && boRaws[1] === boRaws[2], "backorder raw identical across the three shapes");
+  eq(await sha256Hex(new TextEncoder().encode(boRaws[0])), GOLDEN_BO_SHA, "backorder raw sha256 = before the change");
+  eq(boRaws[0].length, 7166, "backorder raw length");
+});
+Deno.test("㉑ 받는 이 여럿 — recipients: 1 · 9(합 10) · 10(합 11 failed) · 겹침(대소문자) 한 번 · 주입 CR LF · 꼴 아님 · < > · 배열 아님 · to_address 도 검사 / drain: 운영 To 모두(`, `) · rendered.to_address 첫 주소 · redirect 한 통 · 제목 [TEST|REDIRECT → 모두] · redirect ∈ to_more 면 failed · 아무것도 안 보냄", async () => {
+  const to = "a@example.invalid";
+  const more = (n: number) => Array.from({ length: n }, (_, i) => `m${i + 1}@example.invalid`);
+  eq(recipients({ to_address: to }), { ok: true, all: [to], more: [] }, "no to_more");
+  eq(recipients({ to_address: to, to_more: null }), { ok: true, all: [to], more: [] }, "null");
+  eq(recipients({ to_address: to, to_more: ["B@example.invalid"] }), { ok: true, all: [to, "B@example.invalid"], more: ["B@example.invalid"] }, "one more · case kept");
+  eq(recipients({ to_address: to, to_more: more(9) }).ok, true, "9 more = 10 ok");
+  eq(MAX_RECIPIENTS, 10, "cap 10");
+  eq(recipients({ to_address: to, to_more: more(10) }), { ok: false, error: "11 recipients — the limit is 10 — the row was not sent" }, "10 more = 11 failed");
+  eq(recipients({ to_address: to, to_more: ["A@EXAMPLE.invalid", "b@x.ca", " B@X.CA "] }), { ok: true, all: [to, "b@x.ca"], more: ["b@x.ca"] }, "duplicates (case · spaces) once · to_address dup dropped");
+  eq(recipients({ to_address: to, to_more: ["b@x.ca", "z@y.ca\r\nBcc: evil@example.invalid"] }), { ok: false, error: "recipient 3 of 3 is not a usable address — the row was not sent" }, "header injection → failed · no address in the error");
+  for (const bad of ["no-at", "a@b", "a b@x.ca", "a,b@x.ca", "a@x.ca;", "a<b@x.ca", "x>@y.ca", "\"q\"@x.ca", "a(b)@x.ca", "a:b@x.ca", "a\\b@x.ca", "", "   "]) {
+    const r = recipients({ to_address: to, to_more: [bad] });
+    eq(r.ok ? "ok" : r.error, "recipient 2 of 2 is not a usable address — the row was not sent", "bad shape: " + JSON.stringify(bad));
+  }
+  eq(recipients({ to_address: "a<b@x.ca", to_more: [] }).ok, false, "to_address checked too (1st)");
+  eq((recipients({ to_address: "a<b@x.ca", to_more: ["b@x.ca"] }) as { error: string }).error, "recipient 1 of 2 is not a usable address — the row was not sent", "to_address is recipient 1");
+  eq((recipients({ to_address: to, to_more: "b@x.ca" }) as { error: string }).error, "to_more is not a list — the row was not sent", "string instead of array");
+  eq((recipients({ to_address: to, to_more: [42] }) as { error: string }).error, "recipient 2 of 2 is not a usable address — the row was not sent", "non-string element");
+  // drain · 운영(live · redirect 없음): To 에 모두 · rendered.to_address 는 첫 주소(mail_mark 가 to_address 칸에 덮는다 · 쉼표 금지) · original_to null · 제목 표지 없음
+  const live = fakeDeps({ cfg: CFG({ mail_live: true, redirect_to: null }), mails: [{ ...mail("a"), to_more: ["b@example.invalid", "C@example.invalid"] }] });
+  eq((await drain(live.d, opt)).counts, { sent: 1, failed: 0, retry: 0, unknown: 0 }, "live sent");
+  ok(rawOf(live.sent[0]).includes("\r\nTo: a@example.invalid, b@example.invalid, C@example.invalid\r\n"), "live To header = all three");
+  const rdl = live.marks[0].rendered as { to_address: string; original_to: string | null; subject: string };
+  eq([rdl.to_address, rdl.original_to, rdl.subject.includes("→")], ["a@example.invalid", null, false], "live rendered: first address only · no marker");
+  // drain · 시험 모드(redirect ops@): 한 통 · To = ops · 제목 [TEST → a, b, c] · rendered to = ops · original_to = 첫 주소
+  const test = fakeDeps({ mails: [{ ...mail("a"), to_more: ["b@example.invalid", "c@example.invalid"] }] });
+  eq((await drain(test.d, opt)).counts, { sent: 1, failed: 0, retry: 0, unknown: 0 }, "test sent once");
+  const rawT = rawOf(test.sent[0]);
+  ok(rawT.includes("\r\nTo: ops@asung.ca\r\n") && !rawT.includes("b@example.invalid\r\n"), "test: one mail to redirect only");
+  const rdt = test.marks[0].rendered as { to_address: string; original_to: string; subject: string };
+  eq([rdt.to_address, rdt.original_to, rdt.subject.startsWith("[TEST → a@example.invalid, b@example.invalid, c@example.invalid] ")], ["ops@asung.ca", "a@example.invalid", true], "test: subject lists all · rendered to = redirect · original_to = first");
+  // drain · 운영 + redirect: [REDIRECT → 모두]
+  const red = fakeDeps({ cfg: CFG({ mail_live: true }), mails: [{ ...mail("a"), to_more: ["b@example.invalid"] }] });
+  eq((await drain(red.d, opt)).counts, { sent: 1, failed: 0, retry: 0, unknown: 0 }, "live redirect sent once");
+  const rdr = red.marks[0].rendered as { to_address: string; subject: string };
+  eq([rdr.to_address, rdr.subject.startsWith("[REDIRECT → a@example.invalid, b@example.invalid] ")], ["ops@asung.ca", true], "REDIRECT lists all");
+  // 제목(이견 4): 표지의 → 때문에 늘 encoded-word 한 덩이(접지 않는다 · 전과 같다) · 10 주소라도 그 줄이 998 자 아래 · 풀면 10 번째까지 다 있다
+  const ten = fakeDeps({ cfg: CFG({ mail_live: true }), mails: [{ ...mail("a"), to_more: more(9) }] });
+  eq((await drain(ten.d, opt)).counts.sent, 1, "ten recipients sent");
+  const subjLine = rawOf(ten.sent[0]).split("\r\n").find((l) => l.startsWith("Subject: "))!;
+  const decoded = decodeB64(subjLine.slice("Subject: =?UTF-8?B?".length, -2));
+  ok(subjLine.length < 998 && subjLine.startsWith("Subject: =?UTF-8?B?") && subjLine.endsWith("?=") && !subjLine.includes("\r\n"), "subject = one encoded-word line under 998");
+  ok(decoded.startsWith("[REDIRECT → a@example.invalid, m1@example.invalid, ") && decoded.includes(", m9@example.invalid] "), "decoded subject lists all ten");
+  // drain · 틀린 줄은 failed · 아무것도 안 보냄 · loadDoc 도 안 부른다(검사가 그리기 · Storage 앞)
+  const bad = fakeDeps({ cfg: CFG({ mail_live: true, redirect_to: null }), mails: [
+    { ...mail("a"), to_more: more(10) }, { ...mail("b"), to_more: ["x@y.ca\r\nBcc: z@example.invalid"] }, { ...mail("c"), to_more: "d@example.invalid" }, { ...docMail("d"), to_more: ["<e@example.invalid>"] }] });
+  eq((await drain(bad.d, { ...opt, batch: 4 })).counts, { sent: 0, failed: 4, retry: 0, unknown: 0 }, "all failed");
+  eq(bad.marks.map((x) => [x.id, x.m.result, x.m.error]), [
+    ["a", "failed", "11 recipients — the limit is 10 — the row was not sent"], ["b", "failed", "recipient 2 of 2 is not a usable address — the row was not sent"],
+    ["c", "failed", "to_more is not a list — the row was not sent"], ["d", "failed", "recipient 2 of 2 is not a usable address — the row was not sent"]], "errors · no address in them");
+  ok(bad.sent.length === 0 && !bad.marks.some((x) => JSON.stringify(x).includes("example.invalid\\r")), "nothing sent · injected text not recorded");
+  // 이견 2: redirect ∈ to_more → failed(대소문자 무시) · redirect = to_address 는 전처럼 보낸다
+  const clash = fakeDeps({ cfg: CFG({ mail_live: true }), mails: [{ ...mail("a"), to_more: ["OPS@asung.ca"] }, { ...mail("ops", 1), to_address: "ops@asung.ca", to_more: ["b@example.invalid"] }] });
+  eq((await drain(clash.d, opt)).counts, { sent: 1, failed: 1, retry: 0, unknown: 0 }, "one failed one sent");
+  eq(clash.marks.map((x) => [x.id, x.m.result, x.m.error]), [["a", "failed", "redirect address is also a recipient (to_more) — the row was not sent"], ["ops", "sent", null]], "clash named · to_address = redirect still fine");
+  // addressFor 옛 꼴(all 없음)은 전과 같다
+  const s1 = safety(CFG(), TEST_REF) as { ok: true; test: boolean; redirect: string | null };
+  eq(addressFor(mail("a"), s1, "S"), { to: "ops@asung.ca", original_to: "a@example.invalid", subject: "[TEST → a@example.invalid] S" }, "addressFor default unchanged");
 });

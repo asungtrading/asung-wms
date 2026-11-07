@@ -3,6 +3,9 @@
 //   doc-3b(2026-10-19 · 판정 529 · 530): 문서 메일(kind doc_*) — 제목 · 본문은 줄에 · PDF 는 attachments + Storage · MIME 은 첨부가 있을 때만 multipart/mixed(없으면 mail-2b 바이트 그대로 · 시험 ⑫) · PDF 단계 pdfStep
 //   안전(mail-1a 이견 1 · 11): 프로젝트 ref 와 inv_config.db_role 이 같은 쪽을 가리켜야 하고 · 시험이면 mail_redirect_to(@asung.ca)로 돌려 보낸다 · 아니면 보내지 않는다
 //   mail-live-1(2026-11-01 · 판정 617 · 947): Asung-IMS(TEST_REF)가 11-01 부터 운영인데 db_role 'test' 는 「IMS 프로젝트」 표지로 남는다 — 손님 메일의 운영은 inv_config.mail_live 가 선언한다(testMode) · on 이면 운영 갈래(redirect 가 있으면 [REDIRECT →] · 없으면 손님에게) · ref ↔ db_role 어긋남 검사는 그대로
+//   mail-inc-1b(2026-11-07 · 판정 1019 · 1027 · 1028 · 1029): 받는 이 여럿 — mail_claim 의 to_more(JSON 배열 · 둘째부터)를 To 에 잇는다(모두 To · Cc 아님) · 주소 다시 검사(DB regex + <>"()\: 거부 · 머리 주입 막기) · 겹침은 한 번 · 상한 10(to_address 포함) · 어기면 그 줄 failed(주소는 last_error 에 싣지 않는다)
+//     redirect · 시험 모드는 한 통만 redirect 로 · 제목 [TEST|REDIRECT → 모두] · rendered.to_address 는 첫 주소(redirect 면 redirect) — mail_mark 가 to_address 칸에 덮으므로 이어 붙인 글을 넘기지 않는다(이견 1) · redirect 가 to_more 안에 있으면 failed(이견 2 · DB CHECK 가 mail_mark 를 막아 unknown 이 된다)
+//     to_more 가 없음 · [] · null 이면 MIME 은 한 바이트도 안 바뀐다(시험 ⑫ · ⑳ 황금)
 
 export const TEST_REF = "fazgmyvzzhqybtvtktyg";   // Asung-IMS(테스트)
 export const PROD_REF = "gftpcnkxbdjzzfvzwcfl";   // asung-WMS(운영)
@@ -10,7 +13,7 @@ export const PROD_REF = "gftpcnkxbdjzzfvzwcfl";   // asung-WMS(운영)
 export type MailConfig = { enabled: boolean; redirect_to: string | null; db_role: string | null; mail_live: boolean };   // mail_live: 판정 947 운영 선언(inv_config.mail_live = on)
 export type Line = { so_number: string; line_no: number; sku: string; product_name: string | null; qty_open: number; can_fill_units: number; available_units: number | null; basis?: string; is_combo?: boolean };
 export type Payload = { customer_name?: string | null; location_name?: string | null; lines?: Line[]; subject?: string | null; body_text?: string | null };   // subject · body_text = qbo-1b PLAIN_KINDS(payload 에 글이 든 알림)
-export type ClaimedMail = { id: string; kind: string; from_address: string; from_name: string | null; reply_to: string | null; to_address: string; payload: Payload; attempt: number; subject?: string | null };
+export type ClaimedMail = { id: string; kind: string; from_address: string; from_name: string | null; reply_to: string | null; to_address: string; payload: Payload; attempt: number; subject?: string | null; to_more?: unknown };   // to_more: mail-inc-1b — mail_claim 이 주는 JSON 배열(둘째 받는 이부터 · 없음 · [] · null = 없음) · 꼴은 recipients 가 검사한다
 export type Rendered = { subject: string; body_text: string; body_html: string };
 // doc-3b(2026-10-19 · 3a 계약): 문서 메일(kind doc_*)은 제목 · 본문이 줄에 박혀 있고(doc_mail_send · doc_setting 글) 첨부는 mail_outbox.attachments — PDF 바이트는 Storage documents/<path>
 export type Attachment = { doc_file_id: string; path: string; filename: string; bytes: number; sha256: string };
@@ -26,6 +29,24 @@ export function projectRef(supabaseUrl: string): string | null {
   return m ? m[1] : null;
 }
 const ONE_ADDRESS = /^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/;   // ims_mail_address_ok 와 같은 모양
+// ── 받는 이(mail-inc-1b · 판정 1019 · 1027) — to_address + to_more 를 한 목록으로 · DB 보다 엄격(이견 3): DB regex 에 더해 < > " ( ) \ : 를 거부(머리 파싱을 흔드는 글자 · Gmail 도 400) · 겹침(대소문자 무시)은 처음 것만 · 상한 10 ──
+const HEADER_UNSAFE = /[<>"()\\:]/;
+export const MAX_RECIPIENTS = 10;
+export function recipients(m: { to_address: string; to_more?: unknown }): { ok: true; all: string[]; more: string[] } | { ok: false; error: string } {
+  const raw = m.to_more ?? [];
+  if (!Array.isArray(raw)) return { ok: false, error: "to_more is not a list — the row was not sent" };
+  const list = [m.to_address, ...raw], all: string[] = [], seen = new Set<string>();
+  for (let i = 0; i < list.length; i++) {
+    const a = list[i];
+    const t = typeof a === "string" ? a.trim() : "";
+    if (!t || !ONE_ADDRESS.test(t) || HEADER_UNSAFE.test(t)) return { ok: false, error: `recipient ${i + 1} of ${list.length} is not a usable address — the row was not sent` };   // 주소는 싣지 않는다
+    const k = t.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k); all.push(t);
+  }
+  if (all.length > MAX_RECIPIENTS) return { ok: false, error: `${all.length} recipients — the limit is ${MAX_RECIPIENTS} — the row was not sent` };
+  return { ok: true, all, more: all.slice(1) };
+}
 // 시험 모드(판정 947) = 시험 ref 또는 db_role test 이고 · 운영 선언(mail_live)이 없을 때 — 돌려 보내기 강제 · 제목 [TEST →] · Chat [TEST]
 export function testMode(cfg: MailConfig, ref: string | null): boolean { return (ref !== PROD_REF || cfg.db_role === "test") && !cfg.mail_live; }
 export function safety(cfg: MailConfig, ref: string | null): Safety {
@@ -41,10 +62,11 @@ export function safety(cfg: MailConfig, ref: string | null): Safety {
   if (r && !ONE_ADDRESS.test(r)) return { ok: false, reason: "no_redirect", detail: "mail_redirect_to is not one address" };
   return { ok: true, test: false, redirect: r || null };
 }
-// 돌려 보내기: 받는 이 · 제목 앞 표지 · original_to
-export function addressFor(mail: ClaimedMail, s: Safety & { ok: true }, subject: string): { to: string; original_to: string | null; subject: string } {
-  if (!s.redirect) return { to: mail.to_address, original_to: null, subject };
-  return { to: s.redirect, original_to: mail.to_address, subject: `[${s.test ? "TEST" : "REDIRECT"} → ${mail.to_address}] ${subject}` };
+// 돌려 보내기: 받는 이 · 제목 앞 표지 · original_to — all = recipients().all(mail-inc-1b · 기본은 to_address 하나) · 운영은 To 에 모두(`, `) · redirect 면 한 통 · 제목에 모두(1029)
+//   ⚠️ to 는 머리에 넣는 글이다 — mail_mark 의 rendered.to_address 에는 넣지 마라(쉼표가 CHECK 에 걸린다) · 거기엔 s.redirect ?? mail.to_address
+export function addressFor(mail: ClaimedMail, s: Safety & { ok: true }, subject: string, all: string[] = [mail.to_address]): { to: string; original_to: string | null; subject: string } {
+  if (!s.redirect) return { to: all.join(", "), original_to: null, subject };
+  return { to: s.redirect, original_to: mail.to_address, subject: `[${s.test ? "TEST" : "REDIRECT"} → ${all.join(", ")}] ${subject}` };
 }
 
 // ── 그리기(backorder_ready) ──
@@ -265,6 +287,11 @@ export async function drain(d: Deps, o: { batch: number; budgetMs: number; bound
     for (const m of c.mails) {
       if (!s.ok) { await d.mark(m.id, m.attempt, { result: "retry", provider_message_id: null, error: `safety: ${s.detail}` }, null); counts.retry++; continue; }   // 집은 뒤 설정이 바뀜 — 보내지 않는다
       if (tokenBroken) { await d.mark(m.id, m.attempt, { result: "retry", provider_message_id: null, error: tokenBroken }, null); counts.retry++; continue; }   // 열쇠가 없으면 이 묶음은 보내지 않고 다음에
+      const rc = recipients(m);                                                                                                                                 // mail-inc-1b: 받는 이 검사 — 그리기 · Storage 읽기 전에
+      if (!rc.ok) { await d.mark(m.id, m.attempt, { result: "failed", provider_message_id: null, error: rc.error }, null); counts.failed++; continue; }
+      if (s.redirect && rc.more.some((x) => x.toLowerCase() === s.redirect!.toLowerCase())) {                                                                   // 이견 2: redirect 가 to_more 안에 있으면 mail_mark 가 CHECK(to_address ≠ to_more)에 걸려 unknown 이 된다 — 보내지 않는다
+        await d.mark(m.id, m.attempt, { result: "failed", provider_message_id: null, error: "redirect address is also a recipient (to_more) — the row was not sent" }, null); counts.failed++; continue;
+      }
       let r: Rendered, files: MimeFile[] | undefined;
       if (isDocKind(m.kind)) {                                                                                                                             // doc-3b: 문서 메일 — 줄의 글 + Storage 의 PDF
         const mat = await docMaterial(d, m);
@@ -274,8 +301,8 @@ export async function drain(d: Deps, o: { batch: number; budgetMs: number; bound
         try { r = render(m.kind, m.payload); }
         catch (e) { await d.mark(m.id, m.attempt, { result: "failed", provider_message_id: null, error: String(e).slice(0, 500) }, null); counts.failed++; continue; }
       }
-      const a = addressFor(m, s, r.subject);
-      const rendered = { subject: a.subject, body_text: r.body_text, body_html: r.body_html, to_address: a.to, original_to: a.original_to };
+      const a = addressFor(m, s, r.subject, rc.all);
+      const rendered = { subject: a.subject, body_text: r.body_text, body_html: r.body_html, to_address: s.redirect ?? m.to_address, original_to: a.original_to };   // 이견 1: 첫 주소만(to_more 는 줄에 남는다 · 받는 이 수 = 1 + cardinality(to_more))
       let outcome: Outcome;
       try { tok ??= await d.token(); outcome = await d.send(tok, base64url(buildMime({ from_name: m.from_name, from_address: m.from_address, to: a.to, reply_to: m.reply_to, subject: a.subject, text: r.body_text, html: r.body_html, boundary: o.boundary(), attachments: files }))); }
       catch (e) { outcome = { kind: "token", message: String((e as Error)?.message ?? e) }; }

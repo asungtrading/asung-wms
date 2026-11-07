@@ -4,10 +4,11 @@
 //                            doc-3b: kind doc_* 는 줄의 제목 · 본문 + attachments 의 PDF(Storage documents · sha256 대조) → multipart/mixed
 //        {"action": "pdf"}    doc-3b: doc_mail_pdf_claim → EF doc(render · reason send · x-ims-cron-key) → doc_mail_attach(→ queued) · 실패는 doc_mail_pdf_failed — 보내지 않는다(그 뒤는 drain)
 //        {"action": "chat"}   mail_run_error_chat_due → 회차 실패 한 줄(판정 518 · mail-4c) → mail_run_error_chat_mark · mail_run_chat_due → 회차마다 요약 글 → Chat 웹훅 → mail_run_chat_mark
-//        {"action": "render", "id": "<mail id>"}  보내지 않고 그린 결과만(같은 안전 검사의 받는 이 · 제목 · doc_* 는 첨부 목록도)
+//        {"action": "render", "id": "<mail id>"}  보내지 않고 그린 결과만(같은 안전 검사의 받는 이 · 제목 · doc_* 는 첨부 목록도 · mail-inc-1b: to 는 drain 과 같은 식(모두 · redirect 면 redirect) + to_more · recipients_error)
+//   mail-inc-1b(2026-11-07 · 판정 1019 · 1027 ~ 1029): 받는 이 여럿 — _shared/mail.ts recipients · addressFor(all) · drain 이 to_more 를 To 에 잇는다(머리말은 그 파일에)
 //   비밀: GMAIL_OAUTH_CLIENT_ID · GMAIL_OAUTH_CLIENT_SECRET · GMAIL_REFRESH_TOKEN_IMS(tools/gmail-oauth-ims.sh 가 넣는다) · IMS_CHAT_WEBHOOK_BACKORDER · IMS_CRON_SECRET(EF doc 을 부를 때도 같은 열쇠)
 //   ⚠️ 비밀 값은 로그 · 응답 · DB 어디에도 남기지 않는다(오류는 Google 의 error 코드 · 설명만)
-import { chatText, drain, errorChatText, isDocKind, pdfStep, projectRef, render, safety, addressFor, testMode, type Attachment, type AttachmentRead, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type DocBody, type MailConfig, type Outcome, type PdfJob, type PdfRender } from "../_shared/mail.ts";
+import { chatText, drain, errorChatText, isDocKind, pdfStep, projectRef, recipients, render, safety, addressFor, testMode, type Attachment, type AttachmentRead, type ChatError, type ChatMail, type ChatRun, type ClaimedMail, type DocBody, type MailConfig, type Outcome, type PdfJob, type PdfRender } from "../_shared/mail.ts";
 
 const SB_URL = () => Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -156,14 +157,16 @@ async function doChat(): Promise<Response> {
 
 async function doRender(id: string): Promise<Response> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json(400, { ok: false, error: "id must be a mail id" });
-  const row = (await sbGet(`mail_outbox?select=id,kind,status,from_address,from_name,reply_to,to_address,payload,attempts,subject,body_text,attachments&id=eq.${id}`))[0];
+  const row = (await sbGet(`mail_outbox?select=id,kind,status,from_address,from_name,reply_to,to_address,to_more,payload,attempts,subject,body_text,attachments&id=eq.${id}`))[0];
   if (!row) return json(404, { ok: false, error: "mail not found" });
   const s = safety(await readConfig(), projectRef(SB_URL()));
   const r = render(row.kind, row.payload, row);                                                      // doc_* 는 줄의 제목 · 본문
   const mail = { ...row, attempt: row.attempts } as ClaimedMail;
-  const a = s.ok ? addressFor(mail, s, r.subject) : { to: row.to_address, original_to: null, subject: r.subject };
-  return json(200, { ok: true, status: row.status, would_send: s.ok, safety: s.ok ? (s.test ? "test-redirect" : (s.redirect ? "redirect" : "live")) : s.reason,
-    from: { name: row.from_name, address: row.from_address }, reply_to: row.reply_to, to: a.to, original_to: a.original_to, subject: a.subject, body_text: r.body_text, body_html: r.body_html,
+  const rc = recipients(mail);                                                                        // mail-inc-1b: drain 과 같은 검사 · 틀리면 to 는 첫 주소만 보이고 recipients_error 에 까닭(drain 은 그 줄을 failed 로 둔다)
+  const a = s.ok ? addressFor(mail, s, r.subject, rc.ok ? rc.all : undefined) : { to: row.to_address, original_to: null, subject: r.subject };
+  return json(200, { ok: true, status: row.status, would_send: s.ok && rc.ok, safety: s.ok ? (s.test ? "test-redirect" : (s.redirect ? "redirect" : "live")) : s.reason,
+    from: { name: row.from_name, address: row.from_address }, reply_to: row.reply_to, to: a.to, to_more: Array.isArray(row.to_more) ? row.to_more : [], recipients_error: rc.ok ? null : rc.error,
+    original_to: a.original_to, subject: a.subject, body_text: r.body_text, body_html: r.body_html,
     attachments: isDocKind(row.kind) ? (row.attachments ?? []) : undefined });
 }
 
