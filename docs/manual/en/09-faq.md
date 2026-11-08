@@ -195,4 +195,14 @@ Press **Load the latest version** and make your change again (see [Discount rule
 ### How do I change a coupon's last day?
 Void it and issue a new one (see [Coupons](07-settings.md#set-coupons)).
 
-<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740, 742 -->
+<a id="faq-claude"></a>
+## Claude (IMS connector)
+<!-- screen: none -->
+<!-- who: all -->
+
+### Claude says IMS is busy. What do I do?
+At most 3 sales summaries run at once across all staff. When all 3 are in use, IMS tells Claude:
+"IMS is busy with other sales reports right now (at most 3 sales summaries run at once across all staff). Wait about 10 seconds and call sales_summary again — one call at a time, waiting for each result — and page with offset instead of splitting by brand or supplier."
+Claude usually waits and tries again by itself. To get a big report in one go, ask for it all at once — for example "sales by brand for October" — not one brand at a time. If Claude still cannot page through the results, start a **new chat**: an old chat keeps the tools as they were when it began.
+
+<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740, 742, 1064, 1105, 1109 -->

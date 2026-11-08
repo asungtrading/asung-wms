@@ -526,7 +526,7 @@ QBO 판     Plus(Caleb)
 ### 15-h 하루 원가 장 — 설계 (2026-11-08 밤 · qbo-sync-3-2-0 조사 · 판정 1092 ~ 1103 · 1090 구현 규칙 · so-module §105 · 짓기 전)
 
 - **원천**: 보고 `~/asung/prompts/qbo-sync-3-2-0-report.md`(256 행 · md5 8 `e49b3929` · Opus · DB 읽기만 · QBO · EF · git 쓰기 0) ② · ④ 절 · 운영 QBO 콘솔 C1 · C3 · C4 · C5 · 판정 원문은 so-module **§105-a** 가 정본(이 절은 요지)
-- **상태**: 설계 끝 · **짓기 전** — 다음 차수 3-2(DB)
+- **상태**: 설계 끝 · **짓기 전** — 다음 차수 3-2(DB) → [2026-11-09] 3-2a **적용**(§15-i) · 다음 3-2b
 
 **① 22 칸 — 원가 사건 종류의 정본은 DB 제약이다**(레이어 origin 8 · 소진 reason 8 · 얹기 kind 6) · 하루 장은 칸마다 「보냄 · 안 보냄 · 보류 · 막음」 · **제약이 넓어져 표에 없는 칸이 생기면 장을 막고 알린다** · 출고 취소는 레이어 표에 되돌리는 길이 없다(reversal 소진을 쓰는 함수는 `so_credit_cancel` 하나 — 크레딧 노트 취소) · 분할 SO · put_back 은 원가 사건 종류가 아니다
 
@@ -580,8 +580,52 @@ QBO 판     Plus(Caleb)
 - 재고 조정 한 건(들어옴 · 나감 절대값 합)이 문턱을 넘으면 「보류」 — 사람이 「보냄 / 안 보냄」 고르기 전에는 안 나감 · 문턱 = inv_config 값(처음 **1,000** · 바꾸기는 마이그레이션 · 572) · write-off 를 가르는 칸은 503 차수(1099)
 
 **⑦ 밀린 장 · 실측 · 콘솔**
-- 밀린 장 **12** — 10-31 조정 둘(TOR 240.93 · EDM 80.15) · 11-02 ~ 06 × 두 창고 · 한 장 최대 열쇠 56(토론토 11-06) · 11-07 · 08 사건 0 · 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 한 SO 가 여러 날 · 창고에 걸친 것 0
+- 밀린 장 **12** — 10-31 조정 둘(TOR 240.93 · EDM 80.15) · 11-02 ~ 06 × 두 창고 · 한 장 최대 열쇠 ~~56~~(토론토 11-06) [2026-11-09 정정 · §15-i] 56 은 사건 열쇠 · 보낼 열쇠 **54** + 보류 2(CR-01025 restock + 취소 상계 0 · RCV-00117 · 00121 보류) · 11-07 · 08 사건 0 · 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 한 SO 가 여러 날 · 창고에 걸친 것 0
 - **C1** SO-18513 Cin7 JE 줄 = 차 #58 / 대 #59 · dept 없음 · class 없음 · **Entity Customer** · detail 칸 PostingType · Entity · AccountRef(→ 1102 · 1103) / **C3** Department 1 행 「Edmonton」(active · 인보이스도 안 씀) / **C4** Preferences 조회는 EF 가 거부(400 · 읽기 허용 종류 밖 — 열 필요 없음) → Caleb QBO 화면: **회계연도 시작 9 월 · Close the books 켜짐 · 마감일 2026-08-31**(경고 + 비밀번호로 고치기 허용) ⇒ 10 월 날짜(10-28 · 10-31)로 보낼 수 있다 / **C5** JournalEntry DocNumber `COGS-%` = 0(겹침 없음)
 - **월 검산(1086)** 뷰 `qbo_cost_month(월, 창고)`: IMS 재고 금액 움직임(출처 경계 · 트랜스퍼 복사 carried 제외) = 보낸 줄의 #59 · #1150040007 합 + **보류 칸**(입고 · price_adjust · settlement_discount · 문턱 조정) + 제외 칸(opening_fix · 살린 트럭 · Cin7 출처) + 반올림 센트 + 안 보낸 날 · 판매 원가 쪽은 「IMS 판매 원가(sale − restock + reversal + cost_late 판매 몫) = 보낸 #58 합」 · QBO 쪽은 첫 판에 사람이 기간 보고서와 맞댄다 · 503(출발점)은 섞지 않는다
 
-**⑧ 짓기 순서** — 3-2 DB(표 둘 · 기대값 · 장 만들기 · claim/done/fail/unknown · 미리 보기 · 월 뷰 · 시험 = 126,715.43 · 장 12 · 열쇠 56 재현 · 1 센트 차액 · 모르는 칸 예외 · 살린 트럭 · opening_fix 0 · 약 700 ~ 900 행 짐작) → 3-3 EF + sandbox(JE 몸 검사 · DocNumber 멱등 · unknown 풀기 · 줄 60 · 음수 → 뒤집기 · 같은 DocNumber 두 번 — 줄 상한 · DocNumber 21 자 상한은 짐작 · sandbox 에서 확인) → 3-4 화면(대화 Claude · Sales → QuickBooks 에 Cost days) → 공급처 · 비용 Bill · 입고(보류 칸 풀기 · 1080 · 1089 · 1096) → BillPayment(1081) → 밀린 것 · 켜기(1083)
+**⑧ 짓기 순서** — 3-2 DB(표 둘 · 기대값 · 장 만들기 · claim/done/fail/unknown · 미리 보기 · 월 뷰 · 시험 = 126,715.43 · 장 12 · 열쇠 ~~56~~ → 보낼 54 · 보류 2(§15-i) 재현 · 1 센트 차액 · 모르는 칸 예외 · 살린 트럭 · opening_fix 0 · 약 700 ~ 900 행 짐작) → 3-3 EF + sandbox(JE 몸 검사 · DocNumber 멱등 · unknown 풀기 · 줄 60 · 음수 → 뒤집기 · 같은 DocNumber 두 번 — 줄 상한 · DocNumber 21 자 상한은 짐작 · sandbox 에서 확인) → 3-4 화면(대화 Claude · Sales → QuickBooks 에 Cost days) → 공급처 · 비용 Bill · 입고(보류 칸 풀기 · 1080 · 1089 · 1096) → BillPayment(1081) → 밀린 것 · 켜기(1083)
+
+### 15-i qbo-sync-3-2a 결과 — 표 셋 · 키 셋 · 함수 15 · 시험 44/44 · 적용 20261108170000 (2026-11-08 밤 짓기 · 11-09 적용 · so-module §106)
+
+- ⚠️ **상태**: **적용 20261108170000 · 확인 44/44(fail 0 · rolled_back_clean t) · 커밋 0228bd0 · cron 미등록(3-2b 때 · cron.sql 은 3-2b 와 함께)** · 스위치 `qbo_send_cost_enabled` off · 장은 아직 하나도 만들지 않았다(첫 장 = 3-2b 적용 때)
+- **원천**: 마이그레이션 `20261108170000_qbo_sync_3_2a_cost_sheet_db.sql`(688 행 · md5 8 `a1f55439` · 머리 주석이 설계 요지) · 시험 `supabase/tests/qbo_sync_3_2a_check.sql`(205 행 · `d0105cc2`) · 지시서 `~/asung/prompts/qbo-sync-3-2.md` · 판정 원문 so-module §104-a · §105-a
+- **나눔**: 3-2a = 표 · 키 · 상수 · 기대값(22 칸) · 장 셈(차액) · 장 만들기(장 행만) · 만들기 due(cron 몸) · 미리 보기 · 장 목록 · 보류 결정 · 월 검산 · grant / **3-2b** = `qbo_job` kind `cost_day` · 몸(JE JSON) · claim / done / fail / unknown / retry · 차례(wait_job) · 재생성 hold · release · resolve(1101) / 3-3 EF + sandbox / 3-4 화면(대화 Claude)
+
+**① 만든 것**
+- 표 셋(RLS + grant 0 · 창구만 · PK uuid · 거래 표 FK 0 · sent → sheet 만 cascade): `qbo_cost_sheet`(realm · 날 · 창고 TOR | EDM · kind day | rebuild · doc_number `^COGS-[0-9]{8}-(TOR|EDM)(-R)?$` · state · hold_reason · job_id · qbo_id · **epoch** · built_keys · built_lines · built_hold_keys · built_debit_cents · 유니크 (realm, 날, 창고, kind) · (realm, doc_number)) · `qbo_cost_sent`(장 · 창고 · 열쇠 종류 SO · CR · ADJ · TRF · CHG · RCV · CADJ · FG · 열쇠 · 짝 · 센트 — 원가 줄 id 없음) · `qbo_cost_hold`(문턱 조정의 보냄 / 안 보냄)
+- inv_config 키 셋: `qbo_send_cost_enabled`(off) · `qbo_cost_adjust_hold_over`(1000 · 1099) · `qbo_cost_since`(2026-10-31 · 날짜 바닥)
+- 함수 15: 열 = `qbo_cost_expected` · `qbo_cost_sheet_calc` · `qbo_cost_sheet_build` · `qbo_cost_sheet_build_due`(cron 몸) · `qbo_cost_build_now` · `qbo_cost_preview` · `qbo_cost_sheet_list` · `qbo_cost_hold_decide` · `qbo_cost_hold_list` · `qbo_cost_month` / 상수 넷(이견 14 · inv_config 가 아니라 함수 — 판이 남는다) = `qbo_cost_wh_code` · `qbo_cost_wh_name` · `qbo_cost_excluded_docs` · `qbo_cost_charge_account` / 도우미 하나 = `qbo_cost_layer_wh`
+- cron(⬜2): `supabase/ops/cron.sql` 블록 `ims-qbo-cost-build`(`0 8 * * *` UTC · `select public.qbo_cost_sheet_build_due()`) — **등록 안 함**(3-2b 적용 때 · 3-2b 전 장이 규칙과 어긋날 여지 없게) · 보내기 cron 은 3-3 뒤
+
+**② 구현 규칙 — 3-2 이견 답(판정 번호 없음 · 1090 처럼 뜻 무변)**
+
+| # | 규칙 | 자리 |
+|---|---|---|
+| ⬜1 | 재생성 세대 epoch = `min(inv_layer_consume.id)` 를 장에 적는다(`inv_layer_apply` 가 소진 표를 지우고 다시 넣으므로 반드시 커진다) | 3-2a 적음 · 비교 · hold · release 는 3-2b |
+| ⬜2 | 만들기는 cron 만 · 손 등록(`0 8 * * *` UTC) · 밀린 장을 창고마다 차례로 전부 만든다 | 3-2a(몸) · 등록은 3-2b 때 |
+| 1 | 3-2a / 3-2b 로 나눈다 | — |
+| 2 | 살린 트럭 TR-06396 ~ 06399 은 **문서 전체**(두 다리) 제외 + 날짜 바닥 `qbo_cost_since` 10-31 | 3-2a |
+| 3 | 손님 없는 SO 7 개 → needs | 3-2b(claim) |
+| 4 | `qbo_cost_sheet_resolve(in_qbo | not_in_qbo)`(1101) | 3-2b |
+| 5 | 창고마다 차례 = wait_job | 3-2b |
+| 6 | 문턱 조정의 보냄 / 안 보냄 = hold 표(`qbo_cost_hold`) · 입고 · 원가 조정 보류는 결정을 받지 않는다(Bill · BillPayment 차수가 연다) | 3-2a |
+| 7 | 열쇠마다 **부호 있는 한 짝**(acct_a < acct_b 코드 순 · 양수 = 차 a / 대 b) — restock(+)과 취소 reversal(−)이 같은 CR 열쇠에서 상계 | 3-2a |
+| 8 | 「그 창고 #59 만 장마다 순액 한 줄 · 나머지 계정은 열쇠 줄」(1097 의 구현) | 3-2a(미리 보기 줄 모양) |
+| 9 | 앞에 아직 안 보낸 장 P 가 있으면 기대(≤ D) − 기대(≤ P)(만들 때 셈) · 보낸 몫 줄(`qbo_cost_sent`)은 claim 때 | 셈 3-2a · claim 3-2b |
+| 10 | 시험은 문턱 100 으로 보류 길을 돈다(시험 H1) · 새 표 PK uuid(시퀀스 없음 · 마이그레이션 머리의 「이견 10」) | 3-2a |
+| 11 | 10-31 조정은 들어옴 · 나감 양방향을 함께 센다(시험 E10: TOR adjust_out 240.93 · 레이어 118.11 · EDM 80.15 · 47.37 · 순 EDM −32.79) | 3-2a |
+| 12 | 월 검산 = 뷰가 아니라 함수 `qbo_cost_month` | 3-2a |
+| 13 | 재생성 장 = kind `rebuild` · ims_id `|rebuild` · DocNumber 꼬리 `-R` | 3-2a(칸 · 제약) · 만들기 3-2b |
+| 14 | 상수는 함수(위 넷) | 3-2a |
+| 15 | Entity 는 열쇠가 아니다(1103 · 인보이스 손님 = `so_invoice_order.customer_id` · CR = `coalesce(store_customer_id, customer_id)`) | 3-2a |
+| 16 | 모르는 칸(제약이 넓어짐) · 창고 모름 · `lost`(512)는 막음 — block 이 하나라도 있으면 그 창고 장을 만들지 않고 예외(문서 번호 · 칸을 글에) | 3-2a |
+
+**③ 실측(시험 44/44 · 두 번 — 두 번째는 mcp-conc-1 160000 적용 뒤 · 확인 44/44 · 시퀀스 무변)**
+- 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 밀린 장 12 · 모두 차대 일치 · EDM 10-31 32.79
+- 토론토 11-06 = **보낼 열쇠 54 · 보류 열쇠 2**(시험 B3 원문 「56 = SO 46 + ADJ 4 + CR 4 + RCV 1 + TRF 1 · RCV-00121 은 보류 · CR-01025 는 restock + 취소 상계 0 → 보낼 열쇠 54 · 보류 열쇠 2 = RCV-00117 · 00121 누적」) · 11-02 TOR SO 49 — §15-h ⑦ 의 56 은 사건 열쇠(틀린 셈 아님 · 세는 것이 다르다)
+- 기대값 함수 35 s → **0.95 s**(두 번 참조된 CTE 를 materialized) · inv_layer 계열 무접촉(색인도 안 더함 · occurred_on 거르기 seq scan 85k 행 · 호출당 0.1 s 안쪽)
+
+**④ 3-2b 에서 볼 것**
+- 손님 없는 SO 7 개의 손님 일감이 `qbo_send_enabled`(off)에 막혀 원가 장이 영원히 못 서는 길(대화 Claude)
+- cron `ims-qbo-cost-build` 등록 · 첫 장 만들기는 3-2b 적용과 함께 · `supabase/ops/cron.sql` 도 그때 커밋

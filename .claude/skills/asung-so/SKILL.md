@@ -636,8 +636,13 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⚠️⚠️ 문 = mcp_gate — 활성 직원 + perms ? 'claude' | 'claude:read'(글자 그대로 · admin 도 켜야) · 호출마다 본다(끄면 다음 질문부터 거절 · 921)
 ⚠️⚠️ 결과에 손님 연락처 · 자유 메모를 싣지 마라(허용 목록으로 골라 담는다 · 923) · 원가 · GP 는 원가 열쇠 + mcp_sales 에서만(919 · PO 도구도 매입 단가 없음)
 ⚠️  mcp_sales = hist_ + IMS 판매 · 제품 줄만(925) · 크레딧은 낸 달(926) · GP 는 2026-08-21 부터(928) · 본사 묶음(929) · 공급처 = 지금 기본 공급처(930)
-⚠️  931 — 원가 열쇠가 있는 다른 직원에게 Claude 열쇠를 켜기 전에 다시 판정(deferred 435) · 동료로 넓히기 전 436
+~~⚠️  931 — 원가 열쇠가 있는 다른 직원에게 Claude 열쇠를 켜기 전에 다시 판정(deferred 435)~~ → [11-07] 435 닫힘 — 1063(Claude 열쇠 9 명 · 원가 보이는 사람 8 그대로) · 동료로 넓히기 전 436 은 열림
 ⭐  호출 기록 mcp_call_log = 입력값만(결과 없음) · 1 년 · cron 60 ims-mcp-log-purge · OAuth client 는 Claude 하나 손 등록 · DCR 꺼짐(922)
+⚠️⚠️ [2026-11-07 · 1064] sales_summary 는 쪽 넘기기(p_offset · limit 500 · next_offset) — claude.ai 는 대화를 시작할 때의 도구 꼴을 기억한다 ⇒ 커넥터 인자를 바꾸면 동료에게 「**새 대화에서**」
+⚠️⚠️ [2026-11-08 · mcp-conc-1 · 판정 1104 ~ 1110 · 정본 so-module §106] 판매 집계 mcp_sales 는 **직원 전체 동시 3**(자리표 pg_try_advisory_xact_lock · `c_slots` 함수 상수 — 바꾸기는 마이그레이션 · 1110)
+     다 차면 DB 는 **기다리지 않고 즉시 PT429**(DB 안에서 기다리면 직원 화면과 같은 연결 묶음을 쥔다 · 1109) → EF 가 0.3 · 0.6 · 1.2 s 재시도 → 끝까지 busy 면 Claude 에 BUSY_TEXT(하나씩 · offset 으로)
+     기록 = outcome error · error_code busy(1107) · 직원당 자리 없음(1106 · 관찰 deferred 514) · 묶는 도구는 sales_summary 하나(1108 · find_order · backorders 가 늘면 같은 자리표 꼴로)
+     ⇒ 큰 분석은 「브랜드마다 따로」 가 아니라 「**한 번에 · 브랜드별(group brand)**」 — 거르기는 다 모은 뒤에 걸려 브랜드 하나 ≈ 전체 한 번(perf-mcp-0 · 513)
 ```
 
 ## 5. 이 스킬을 갱신할 때

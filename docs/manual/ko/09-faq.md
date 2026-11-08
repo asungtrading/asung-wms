@@ -195,4 +195,15 @@ Finish 뒤에는 POS 에서 판매를 바꿀 수 없습니다. 반품은 크레�
 ### 쿠폰의 마지막 날을 바꾸려면?
 Void 하고 새로 발행합니다([쿠폰](07-settings.md#set-coupons)).
 
-<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740, 742 -->
+<a id="faq-claude"></a>
+## Claude(IMS 커넥터)
+<!-- screen: none -->
+<!-- who: all -->
+
+### Claude 가 IMS is busy 라고 해요. 어떻게 하나요?
+판매 집계는 직원 전체를 합쳐 한 번에 3 개까지만 돕니다. 3 자리가 다 차면 IMS 가 Claude 에게 이렇게 알립니다:
+"IMS is busy with other sales reports right now (at most 3 sales summaries run at once across all staff). Wait about 10 seconds and call sales_summary again — one call at a time, waiting for each result — and page with offset instead of splitting by brand or supplier."
+(지금 다른 판매 리포트로 바쁘다 · 10 초쯤 기다렸다가 하나씩 다시 부르고, 브랜드 · 공급처로 쪼개지 말고 offset 으로 쪽을 넘겨라)
+보통은 Claude 가 스스로 기다렸다 다시 합니다. 큰 리포트는 브랜드마다 따로 묻지 말고 한 번에 묻습니다 — 예: 「10 월 브랜드별 매출」. 그래도 Claude 가 다음 쪽을 못 넘기면 **새 대화**를 엽니다: 옛 대화는 대화를 시작할 때의 도구 모양을 그대로 씁니다.
+
+<!-- rulings: 42, 709, 713, 714, 715, 719, 723, 725, 732, 736, 737, 739, 740, 742, 1064, 1105, 1109 -->

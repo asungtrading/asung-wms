@@ -38,14 +38,14 @@
 
 <a id="stock-products"></a>
 ## 제품 찾기 · 고치기
-<!-- screen: products.html · BUILD 2026-10-31 · pr v5l -->
+<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 -->
 <!-- who: office, manager -->
 
 **무엇인가**
 **Products**(**Inventory ▾** › **Products**)에 모든 제품이 있습니다: 이름 · 브랜드 · 분류 · 단위 · 가격 · 공급처 · 바코드 · 세트 · 패밀리 · 사진 · 태그
 
 **제품 찾는 법**
-1. **Products** 를 열고 **Search SKU or name** 에 적습니다.
+1. **Products** 를 열고 **Search SKU, name or barcode** 에 적습니다. "A barcode must match in full — scan it or paste the whole number. A case barcode finds its single (Singles) or the case (Sets)."(바코드는 통째로 맞아야 한다 — 스캔하거나 숫자 전체를 붙여 넣는다. 케이스 바코드는 Singles 에서 그 낱개를, Sets 에서 케이스를 찾는다) SKU · 이름은 일부만 적어도 됩니다.
 2. **Singles** 는 낱개 제품, **Sets only** 는 케이스 · 팩만 보여 줍니다. **Active only** 는 체크된 채 시작합니다.
 3. 제품을 누릅니다. 오른쪽에 카드가 열립니다: 판매 등급별 가격 · **Suppliers** · **Barcodes** · **Sets of this product** · **Family** · **Photos** · **Tags**
 
@@ -340,4 +340,4 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 - [재고 찾기](#stock-availability)의 **↓ CSV** 는 필터에 맞는 제품을 모두 내려받습니다.
 - **Product Sheet** 는 반대 방향입니다: 엑셀에서 표로 붙여 넣습니다([Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908, 1111 -->

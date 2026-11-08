@@ -49,6 +49,7 @@ description: >
 2026-11-07  이월 받아 둔 돈 붙임 — qbo-sync-2e-3-1(DB `33c8cdf` · 붙임 한 줄 = CreditMemo OC-<인보이스>-<n> + 0 원 Payment · kind 넷 opening_credit · opening_credit_void · opening_apply · opening_apply_void · CustomerRef = 돈의 주인) · 1b(EF `26e019a` · SEND_KINDS 14 · deno 26/26) · 첫 실물 60172 · **cron 62 kinds 여덟**(05:40 UTC) · 정본 §14-j · 아래 5-e
             ⭐ 60189 — 가드가 중복을 막음 → 북키퍼 손 분개(JE) 삭제 → Retry → sent(판정 1060 · 1061) · 환불 2e-3-2 는 남음(454 부분 · 1056 ~ 1058) · so-module §102
 2026-11-08  환불(크레딧 노트 몫) — qbo-sync-2e-3-2-1(DB `e8babe9` · 환불 한 줄 = Purchase 한 장 + 0 원 Payment · kind 넷 refund*) · 1b(EF `84afde4` · SEND_KINDS 18) · 1b2(`8b12366` · 잇기 경고 = 직전 값) · cron 62 kinds 열둘 · 첫 실물 172912 ~ 172915 · 454 · 495 닫힘 · 정본 §14-k · 아래 5-f · so-module §103
+2026-11-09  하루 원가 장 DB 앞 절반 — qbo-sync-3-2a(`0228bd0` · **적용 20261108170000 · 확인 44/44** · 표 셋 qbo_cost_sheet · _sent · _hold · 키 셋 · 함수 15) · **cron 미등록 · 첫 장은 3-2b 적용 때** · 정본 §15-i · 아래 5-g · so-module §106
 ⬜ ~~1d 이월 짝(452)~~(11-06 끝) · 1d-3 화면(470) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · ~~받아 둔 돈 2e-3-1(454)~~(11-07 끝) · ~~**환불 2e-3-2**(454 남은 몫)~~(11-08 크레딧 노트 몫 끝 · 남은 몫 = 환불을 결제에 매기 500) · ~~qbo-send opening 이름표(495)~~(qs refund v1) · USD A/R 데이터(499) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 440 · 443 · 454 · 486 · 493 · 495 · 496
 ```
 
@@ -227,7 +228,7 @@ description: >
 ~~⚠️  USD 손님 셋의 A/R 계정이 `_61_`(CAD) — USD 환불은 failed(통화 ≠ 기본 통화 · deferred 499)~~ → [2026-11-08 밤 · 3-1] A/R 은 `_212_` 로 바로잡음(499 닫힘) · ⚠️ USD 환불 failed 는 그대로 — 블록이 so_payment 통화를 본다(511 · §5-g)
 ```
 
-## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · 짓기 전 (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
+## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · 다음 3-2b (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
 
 ```
 ⭐⭐ 상품 공급처 Bill · 그 결제(BillPayment)는 **IMS 가 보낸다**(1080 · 1081) — 북키퍼는 운영 비용 Bill 만 QBO 에서 · 컷 전 Bill 결제는 QBO 에서(913) · 밀린 IMS 인보이스 7 장 · 결제 4 건은 싱크가 서면 원래 날짜로
@@ -243,7 +244,10 @@ description: >
      막기 = 지연 제약 트리거 `supplier_account_currency_ck` · `customer_account_currency_ck`(창구 · 적재 · 손 SQL 모두) + 창구 넷 block `currency_account_mismatch` · 기본 키 통화별(`supplier_default_account_payable_code_cad` · `_usd` · `customer_default_ar_account_code_cad` · `_usd` · KRW 키 없음) · 499 닫힘
      ⚠️ 조정 계정은 **`inv_adjust_account(adj)` 하나만 읽는다**(빈칸 = `inv_adjust_default_account_code` `_1150040010_` · 1087) — account_code 를 직접 읽어 기본값을 따로 짜지 마라
      ⚠️ qbo_refund_block 은 so_payment 통화를 본다 — 499 를 고쳐도 USD 환불 failed 그대로(511)
-⭐⭐ [2026-11-08 밤 · 3-2-0 · 판정 1092 ~ 1103 · 정본 §15-h] **하루 원가 장 설계 끝 · 짓기 전(다음 3-2 DB)**
+⭐⭐ [2026-11-08 밤 · 3-2-0 · 판정 1092 ~ 1103 · 정본 §15-h] **하루 원가 장 설계 끝** ~~· 짓기 전(다음 3-2 DB)~~ → 아래 3-2a 줄
+✅ [2026-11-09 · qbo-sync-3-2a `0228bd0` · 정본 §15-i] **적용 20261108170000 · 확인 44/44 · cron 미등록(3-2b 때 · cron.sql 은 3-2b 와 함께)** · 스위치 `qbo_send_cost_enabled` off · 장 0 장
+     ⚠️ 장 만들기는 `qbo_cost_sheet_build_due`(cron 몸) · 미리 보기 `qbo_cost_preview` 로만 — 새 표 셋은 RLS + grant 0(창구만) · 일감 · claim · 재생성 hold · resolve 는 3-2b · 3-2b 전에 cron 을 등록하지 마라(장이 3-2b 규칙과 어긋난다)
+     ⚠️ 열쇠마다 **부호 있는 한 짝**(restock + 취소가 같은 CR 에서 상계) · 「그 창고 #59 만 순액 한 줄」 · 상수(창고 코드 · 제외 문서 · 비용 종류 → 계정)는 inv_config 가 아니라 함수 · 「한 장 최대 열쇠」 는 보낼 54 + 보류 2(56 은 사건 열쇠)
 ⚠️⚠️ **트랜스퍼는 소진 줄로만 센다** — carried 얹기의 occurred_on 은 원래 얹힌 날(트랜스퍼가 옮겨 적어도 옛 날짜)이라 날짜로 세면 값이 옛 날짜 · 다른 창고로 샌다 · 트랜스퍼 복사 carried 는 세지 않는다
 ⚠️⚠️ **경계는 날짜가 아니라 출처** — `inv_ledger.source='ims'` 문서의 사건 + IMS 비용 문서(charge_number)의 얹기 · 늦은 원가 − 제외 목록(opening_fix 가족 · 살린 트럭 TR-06396 ~ 06399 도착 · 1090 구현 규칙)
 ⚠️⚠️ **모르는 원가 칸이면 장을 막는다** — 정본은 DB 제약 22 칸(origin 8 · reason 8 · kind 6) · 제약이 넓어지면 막고 알린다 · `lost` 는 막음(512) · 입고 · price_adjust · settlement_discount 는 보류(Bill 차수)

@@ -38,14 +38,14 @@
 
 <a id="stock-products"></a>
 ## Find and change a product
-<!-- screen: products.html · BUILD 2026-10-31 · pr v5l -->
+<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 -->
 <!-- who: office, manager -->
 
 **What it is**
 **Products** (**Inventory ▾** › **Products**) holds every product: name, brand, category, unit, prices, suppliers, barcodes, sets, family, photos and tags.
 
 **How to find a product**
-1. Open **Products** and type in **Search SKU or name**.
+1. Open **Products** and type in **Search SKU, name or barcode**. "A barcode must match in full — scan it or paste the whole number. A case barcode finds its single (Singles) or the case (Sets)." A SKU or name can be part of the word.
 2. **Singles** shows single products; **Sets only** shows cases and packs. **Active only** starts ticked.
 3. Click a product. Its cards open on the right: prices for each sale tier, **Suppliers**, **Barcodes**, **Sets of this product**, **Family**, **Photos** and **Tags**.
 
@@ -340,4 +340,4 @@ The warehouse screens use their own words for the same steps — see [Warehouse 
 - **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.
 - **Product Sheet** works the other way: paste from Excel into the table (see [Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908, 1111 -->

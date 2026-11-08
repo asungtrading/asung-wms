@@ -7434,7 +7434,7 @@ line_no_targets  화면이 그 줄에 대상을 하나도 안 보냈을 때만(�
 - fr-2: 인보이스 줄 kind charge_discount(운임 줄 바로 뒤 · 계정 키 · 설명 「Freight discount 50%」) · 머리 · 오더 charges_discount_amount · taxable CHECK 둘 · so_invoice_list 뷰 열 · fr-1 발행 가드 지움 · 크레딧 가드 넣음
 - fr-3: 크레딧 줄 kind freight_discount(자동) · 머리 freight_discount_amount · 끝수 = 매번 least(round(x × 비율, 2), 남은 할인) · 마지막은 남은 할인 전부 · 순액 한도 · ⭐ 「남은 할인 > 이번 운임」 거부(시험이 잡은 창구 결함 — 옛 모양 크레딧 뒤 음수 순액)
 - 가드 표: fr-1 발행 가드(so_invoice_order BEFORE INSERT) → fr-2 가 지움 · fr-2 크레딧 가드(so_credit_line BEFORE INSERT) → fr-3 가 지움 · 지금 남은 임시 가드 0
-- sale-1: 딜 대상 식 한 곳 so_deal_products_all(so_deal_products 는 껍데기 · 16 딜 같음) · so_sale_now · stk_availability p_sale_only + sale_pct · sale_conditional(세트만 대상인 딜은 낱개 재고 줄에 안 보인다) · product_list(Products 목록 거르기 일곱 + 세일만) · 비용 306 제품 41 ms
+- sale-1: 딜 대상 식 한 곳 so_deal_products_all(so_deal_products 는 껍데기 · 16 딜 같음) · so_sale_now · stk_availability p_sale_only + sale_pct · sale_conditional(세트만 대상인 딜은 낱개 재고 줄에 안 보인다) · product_list(Products 목록 거르기 일곱 + 세일만) · 비용 306 제품 41 ms → [2026-11-09 · §106] product_list 검색어 p_q 는 활성 바코드 통째로도 맞는다(1111 · pbc-1 `70b5496`)
 
 ### 52-c 화면 (asung-ims · git log 원문)
 
@@ -10344,7 +10344,7 @@ Manual 단추      IMS 머리(Change Password 앞 · nav v11) · WMS ☰ Menu �
 
 ```
 새 창구 (authenticated 가 부르는 것 · 파일 주석이 정본)
-  내보내기                 export_columns(kind) · product_export(7 거르기 + p_columns) · customer_export(…, p_columns) · supplier_export(…, p_columns)   exp-1 · definer · {kind, total, row_count, truncated, columns, rows}
+  내보내기                 export_columns(kind) · product_export(7 거르기 + p_columns) · customer_export(…, p_columns) · supplier_export(…, p_columns)   exp-1 · definer · {kind, total, row_count, truncated, columns, rows}   → [§106] p_q 에 바코드 통째로(1111 · pbc-1)
   공급처 단가              product_supplier_costs(p_product_ids, p_supplier_id, p_stats)   cost-1a · definer · 유일한 단가 읽기 길 · 열쇠 없으면 빈 결과
   연체                     so_customer_overdue(p_customer_id)   ovd-1 · {bill_to_name, bill_to_differs, count, oldest_days, invoices[], available[] …}
                            shop_order_overdue_warning(p_customer_id) — shop_order_process 안에서만(웹 오더 경고 customer_overdue)
@@ -13423,7 +13423,7 @@ asung-ops  (없음)
    - **원가 사건 종류의 정본 = DB 제약 22 칸**: 레이어 origin 8(baseline · purchase · transfer · adjust_new · adjust_existing · assembly · creditnote · sale_shortfall) · 소진 reason 8(sale · transfer · adjust_out · assembly_in · reversal · lost · cost_late · cost_moved) · 얹기 kind 6(landed · transfer_freight · carried · price_adjust · settlement_discount · opening_fix) — 하루 장은 22 칸마다 「보냄 · 안 보냄 · 보류 · 막음」 · **제약이 넓어져 모르는 칸이 생기면 장을 막는다** · 출고 취소는 레이어 표에 되돌리는 길이 없다(reversal 은 크레딧 노트 취소뿐) · `lost` 는 뜻 판정 전이라 **막음**(deferred 512)
    - **트랜스퍼는 소진 줄로만 센다** — carried 얹기 줄의 occurred_on 은 원래 얹힌 날(08-22 ~ 10-27 · 보고 S2)이라 날짜로 세면 값이 옛 날짜 · 다른 창고로 샌다 · 보존 검산: 소진 = 자식 바탕 + carried(차이 ≤ 0.0001)
    - 재생성 실측: 컷 뒤 1 번(10-31 12:08 · `supabase/ops/layer-fix-1-regen.sql` · 레이어 22,797 · 소진 78,398 · 얹기 9,859) · `inv_layer_apply` 를 부르는 함수 · cron 0 · 레이어 표를 지우는 함수는 `inv_layer_apply` · `inv_layer_seed_baseline` 둘 · update 하는 함수 0 · 재생성은 금액도 바꾼다
-   - 밀린 장 **12**(10-31 조정 둘 · 11-02 ~ 06 × 두 창고) · 한 장 최대 열쇠 56(토론토 11-06) · 11-07 · 08 사건 0 · 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 반올림: SO 별 반올림 합 − 합 반올림 = ±0.01(10 장 중 7)
+   - 밀린 장 **12**(10-31 조정 둘 · 11-02 ~ 06 × 두 창고) · 한 장 최대 열쇠 56(토론토 11-06)(→ [2026-11-09 정정 · so §106-f] 56 = 사건 열쇠 · 3-2a 실측 보낼 열쇠 **54** + 보류 2 · CR-01025 상계 0) · 11-07 · 08 사건 0 · 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 반올림: SO 별 반올림 합 − 합 반올림 = ±0.01(10 장 중 7)
    - **507 닫힘**: 하루 장의 landed 날짜 = IMS 가 얹은 날(`cost_add.occurred_on` = `po_charge_alloc.posted_on`) · Cin7 의 「입고 전 얹기」 를 따라 하지 않는다 · 506 은 IMS 꼴에 안 걸린다(1083 의 10-30 맞대기 시험에만)
    - 설계 요지(짓기 3-2 의 바탕): 표 `qbo_cost_sheet` · `qbo_cost_sent` · 기대값 함수 `qbo_cost_expected(p_until)` · 일감 kind `cost_day` · ims_id `'YYYY-MM-DD|TOR'` · `qbo_txn.qbo_type` 에 JournalEntry · EF `assertWriteAllowed` 에 journalentry **만들기만** · DocNumber `COGS-YYYYMMDD-TOR`(17 자) · 월 검산 뷰 `qbo_cost_month` · 차수 3-2 DB(약 700 ~ 900 행 짐작) → 3-3 EF + sandbox → 3-4 화면(대화 Claude)
 5. **운영 QBO 콘솔(11-08 밤 · 읽기)** — **C1** SO-18513 JE 줄 = 차 #58 / 대 #59 · dept 없음 · class 없음 · **Entity Customer** · detail 칸 PostingType · Entity · AccountRef / **C3** Department 1 행 「Edmonton」(active) / **C4** Preferences 조회는 EF 가 거부(400 · 읽기 허용 종류 밖 — 열 필요 없음) → Caleb QBO 화면: **회계연도 시작 9 월 · Close the books 켜짐 · 마감일 2026-08-31**(경고 + 비밀번호로 고치기 허용) ⇒ 10 월 날짜(10-28 · 10-31)로 보낼 수 있다 / **C5** JournalEntry DocNumber `COGS-%` = 0(겹침 없음)
@@ -13456,4 +13456,112 @@ asung-ops  (없음)
 
 ```
 다음 판정 번호: 1104 · 다음 deferred 번호: 513
+```
+
+## §106 2026-11-08(일) 밤 ~ 11-09 — 커넥터 판매 집계 동시 3(mcp-conc-0 · 1) · POS statement timeout 결론(perf-pos-0) · Products 바코드 검색(pbc-1) · qbo-sync-3-2a(하루 원가 장 DB · 11-09 적용) — 판정 1104 ~ 1111 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1109(md5 8 `4a4484b8` · 「대화에만 있는 것」 A ~ E) · 조사 보고 `~/asung/prompts/perf-pos-0-report.md`(256 행 · md5 8 `cc99dbe8`) · `~/asung/prompts/mcp-conc-0-report.md`(253 행 · `e0bde0b9`) — 숫자는 지시서 📌 와 보고 원문 그대로(이 차수는 DB 접속 0) · Supabase 로그 CSV 둘(Caleb 내려받음 · 대화 Claude 판독) · 세 레포 HEAD asung-wms `0228bd0` · asung-ims `e2125e1` · asung-ops `23b672a`
+⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다(직원은 「동료」 · 「한 직원」 · 직원 id 앞 8 자도 적지 않는다) · 브랜드는 SKU 접두로(AJA)
+⚠️ 상태 = mcp-conc-1 **적용 · 배포**(`20261108160000` · EF ims-mcp) · pbc-1 **적용**(`20261108165000` · 화면 pr bc v1) · qbo-sync-3-2a **적용 20261108170000 · 확인 44/44(fail 0 · rolled_back_clean t) · 커밋 0228bd0 · cron 미등록(3-2b 때 · cron.sql 은 3-2b 와 함께)** · 정본 = 커넥터는 이 절(⬜ 새 문서는 deferred 519) · 3-2a 는 qbo-integration **§15-i**
+
+### 106-a 판정 (지시서 A 표 그대로 · Caleb 원문 칸은 바이트 그대로)
+
+| 판정 | Caleb 원문 | 뜻 |
+|---|---|---|
+| 1104 | 「좋아 니 제안대로 가를 먼저하고, 다는 조사로 이어서 하자」 | 커넥터 무거운 조회의 동시 실행을 묶는다(가) · 판매 집계를 가볍게(다)는 조사 perf-mcp-0 |
+| 1105 | 「나」 | 판매 집계(`mcp_sales`) 동시 **3**(직원 전체) · 동시 ≤ 4 timeout 0.2 % · 9 ~ 16 은 80 % · 처리량 동시 ≈ 3 에서 분당 ≈ 60 포화 · 화면이 느려지면 2 로 |
+| 1106 | 「가」 | 직원당 자리 제한 없음 · 11-09 부터 busy 를 보고 다시 |
+| 1107 | 「가」 | 「자리 없음」 = 호출 기록 outcome `error` · error_code `busy` · 표 무변 |
+| 1108 | 「가」 | 판매 집계만 묶음 · backorders 는 늘면 같은 자리에 |
+| 1109 | 「가」 | DB 는 즉시 PT429 · EF 가 0.3 · 0.6 · 1.2 s 재시도 · 끝까지 busy 면 Claude 에 「하나씩 · offset 으로」 · 근거 DB 안 기다림은 직원 화면 연결 묶음을 쥔다 · 기각 DB 안 기다리기(대화 Claude 원안) |
+| 1110 | 「가」 | 자리 수 3 = 함수 상수 · 바꾸기는 마이그레이션 |
+| 1111 | 「니 안대로 하자」 | Products 검색(넓은 · 좁은 · Export)에 바코드 — **통째로 맞을 때만**(활성) · SKU · 이름은 일부 일치 그대로 · 케이스 바코드: Singles → 부모 낱개 · Sets → 케이스 · All → 둘 · 동료 요청 |
+
+- 1104 ~ 1110 의 짓기 = mcp-conc-1(`43680cb`) · 「다」(판매 집계를 가볍게)는 조사 **perf-mcp-0**(deferred 513 · 아직)
+- 1106 의 「11-09 부터 busy 를 보고 다시」 = deferred 514(쿼리 원문 그 줄)
+- 1111 의 정본 자리 = 이 절(po-module 에 제품 검색 규칙 절이 없다 — grep `product_list` · `product_export` 는 so-module 7437 · 10347 · deferred 455 · 467 뿐) · 그 두 줄에 → 화살표(106-f)
+
+### 106-b 차수 · 커밋
+
+`git log --oneline 928bc61..HEAD`(asung-wms) · `git log --oneline 950fe22..HEAD`(asung-ims) · `23b672a..HEAD`(asung-ops) — 원문:
+
+```
+asung-wms  0228bd0 qbo-sync-3-2a: 하루 원가 장 DB — 표 셋(qbo_cost_sheet · _sent · _hold) · inv_config 키 셋(qbo_send_cost_enabled off · hold_over 1000 · since 10-31) · 함수 15 · cron 미등록(3-2b 때) · 시험 44/44 · 적용 20261108170000 · 확인 44/44
+asung-wms  70b5496 pbc-1: Products 검색에 바코드(판정 1111) — product_list · product_export 의 p_q 가 활성 바코드와 통째로 같으면 맞음 · 케이스 바코드는 Singles 에서 부모 낱개 · Sets 에서 케이스 · 일부 일치 없음 · hashed SubPlan · product_barcode_barcode_idx · 시험 23/23 · 적용 20261108165000
+asung-wms  43680cb mcp-conc-1: 커넥터 판매 집계 동시 3 자리(판정 1104 ~ 1110) — mcp_sales 에 pg_try_advisory_xact_lock 자리표 3 칸 · 다 차면 즉시 PT429 · EF 0.3 · 0.6 · 1.2 s 재시도 · 끝까지 busy 면 Claude 에 하나씩 · offset 안내 · 기록 error/busy · 버전 mcp-conc-1 · 시험 16/16 · EF 20/20 · 적용 20261108160000 · 배포 ims-mcp
+asung-ims  e2125e1 pr bc v1: Products 검색 칸 안내 글 「Search SKU, name or barcode」 + title (판정 1111 · pbc-1)
+asung-ops  (없음)
+```
+
+- 지시서 📌 와 대조: 빠진 것 0 · 남는 것 = `0228bd0`(지시서 뒤 Caleb 이 3-2a 를 커밋 · 푸시 — B-5 의 「미커밋 셋」 중 마이그레이션 · 시험 둘은 이 커밋 · 작업 트리에 남은 3-2a 몫은 `supabase/ops/cron.sql` 하나)
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| perf-pos-0 | — (조사 · DB 읽기만 · 보고 파일 하나 · 로그 CSV 둘은 Caleb) | POS statement timeout 결론(106-c 1) |
+| mcp-conc-0 | — (조사 · Opus · DB 읽기만 · 보고 파일 하나) | 커넥터 폭주의 모양 · 동시 수 vs timeout · 안(106-c 2) → 판정 1105 ~ 1110 |
+| mcp-conc-1 | asung-wms `43680cb` · `20261108160000_mcp_conc_1_sales_slots.sql`(282 행) · EF `ims-mcp`(`_shared/mcp.ts` · 버전 mcp-conc-1) | 자리표 3 · PT429 · EF 재시도 · 시험 16/16 · deno 20/20 · 적용 · 배포(106-c 3) |
+| pbc-1 | asung-wms `70b5496` · `20261108165000_pbc_1_product_search_barcode.sql`(213 행) · 화면 asung-ims `e2125e1` pr bc v1(대화 Claude) | Products 검색에 바코드 통째로 · 시험 23/23 · 적용(106-c 4) |
+| qbo-sync-3-2a | asung-wms `0228bd0` · `20261108170000_qbo_sync_3_2a_cost_sheet_db.sql`(688 행 · md5 8 `a1f55439`) · 시험 `supabase/tests/qbo_sync_3_2a_check.sql`(205 행 · `d0105cc2`) · `supabase/ops/cron.sql`(미커밋 · 3-2b 와 함께) | 하루 원가 장 DB 앞 절반 · 시험 44/44 · **적용 11-09 업무 전(Caleb · 160000 → 165000 → 170000 차례)** · 확인 44/44(106-c 5 · qbo-integration §15-i) |
+| docs-1109 | (이 차수 · 커밋은 Caleb) | 정본 · deferred · 스킬 so · qbo · po · workflow 본문 · 매뉴얼 en · ko 03 · 09 |
+
+### 106-c 사실 · 실측
+
+1. **perf-pos-0 — POS 「canceling statement due to statement timeout」 결론**(조사 · 보고 ④ · Supabase 로그 CSV 둘)
+   - POS `so_line_add` 실패 3 건 = **11-02 10:27:15 · 14:57:27 · 14:57:42**(토론토) — §100 의 11-02 DB 전체 멈춤(10:25 ~ 10:46 · 14:58)과 같은 시각
+   - **11-04 MICRO → MEDIUM 증설(§100 · 1036) 뒤 0** ⇒ 이미 해결 · POS 셈 자체는 수십 ms(줄 36 판매도 · 11-04 뒤 성공한 so_line_add 최대 0.23 s) · `so_sale_now`(467)는 스캔 길에 없다 — 보고 원문 「467 · 468 은 POS 와 무관 — 앞당기지 않는다」
+   - 남은 것: 빠른 연속 스캔 때 같은 SKU 수량 하나가 사라질 수 있는 **화면 결함**(보고 ③-7 코드 짐작 · 재현 안 함) — 안 P4 화면 스캔 줄 세우기(대화 Claude) · P6 DB `so_line_add` 증분 · `for update`(P4 로 충분한지 본 뒤) → deferred 517
+2. **커넥터 폭주**(로그 + mcp-conc-0 ②)
+   - statement timeout 대부분이 `mcp_sales` — 11-05 13:13 ~ 13:17 한 직원 286 회(브랜드 163 · 57014 128) · 11-05 하루 판매 집계 4,549 회 · 11-06 09:12 ~ 09:22 · 11:03
+   - 원인 = 200 줄 한도를 피해 브랜드 · 공급처로 쪼갠 **동시 호출** · 판매 집계는 거르기를 **다 모은 뒤에** 건다(브랜드 163 번 = 전체 163 번 → perf-mcp-0 첫 대상 · 513)
+   - 동시 수 vs timeout(mcp-conc-0 ②-3 · 시작 시각 = called_at − ms): 동시 1 · 2 · 3 ~ 4 = 호출 3,103 중 57014 6(0.2 %) · 5 ~ 8 = 2,012 중 44 · 9 ~ 16 = 152 중 122(80 %) · 혼자 1.3 ~ 2.5 s · CPU 묶인 일(2 코어)이라 3 개 넘게 겹치면 서로 늦춘다
+3. **mcp-conc-1**(`43680cb` · 적용 `20261108160000` · EF 배포)
+   - `mcp_sales` 의 인자 검사 · 이름 풀기 뒤 · 무거운 집계 앞에 `pg_try_advisory_xact_lock(hashtext('mcp_sales:slot:'||n))` n = 1 · 2 · 3(기다림 0 · `c_slots constant int := 3` — 1110) · 다 차면 `raise … errcode PT429`(PostgREST → HTTP 429 · 4 ms) · 잠금은 RPC 한 번 끝에 저절로 풀림(57014 · abort · 끊김에도 · 읽기 전용 트랜잭션에서도 잡힌다)
+   - EF `_shared/mcp.ts`: `BUSY_RETRY_MS = [300, 600, 1200]` · `busyRetry` 도구 = sales_summary 하나(1108) · 끝까지 busy 면 isError + `BUSY_TEXT` · 기록(924)은 마지막 결과 한 줄 — outcome `error` · error_code `busy` · ms 는 재시도 포함(1107) · 묶지 않는 도구가 429 를 내면 재시도 없이 busy 한 줄
+   - `BUSY_TEXT` 원문: "IMS is busy with other sales reports right now (at most 3 sales summaries run at once across all staff). Wait about 10 seconds and call sales_summary again — one call at a time, waiting for each result — and page with offset instead of splitting by brand or supplier."
+   - 순서: DB 먼저 · EF 나중이어도 안전(옛 EF 는 PT429 를 「could not run」 으로 돌려줄 뿐) · 확인 16/16 · deno 20/20
+   - 첫 실물(11-08 밤 · Caleb 질문 「10 월 브랜드별 매출」): **판매 집계 2 회 · 최대 1,295 ms · busy 0 · 57014 0**(mcp-cap-1 쪽 넘기기 효과 · 1064)
+4. **pbc-1**(`70b5496` · 적용 `20261108165000` · 화면 asung-ims `e2125e1` pr bc v1)
+   - `product_list`(invoker) · `product_export`(definer)의 `p_q` = SKU · 이름 ilike %q%(그대로) **또는** `p.id in (활성 바코드 = btrim(q) 인 product_id ∪ 그 제품이 세트면 parent_product_id)` → `p_kind` 가 거른다 — 'single' = 낱개(부모) · 'set' = 세트 · 'all' = 둘 · 낱개 바코드는 그 낱개만(세트는 따라오지 않는다)
+   - 색인 `product_barcode_barcode_idx` · hashed SubPlan 한 번(9 버퍼) · 검색어 없으면 안 돈다(첫 화면 무변) · 시그니처 · 반환 꼴 · acl · comment 무변 · 시험 23/23
+   - 화면 pr bc v1: 검색 칸 두 곳(넓은 `wq` · 좁은 `q`) placeholder 「Search SKU, name or barcode」 · title "A barcode must match in full — scan it or paste the whole number. A case barcode finds its single (Singles) or the case (Sets)." · Export 는 같은 p_q
+   - ⚠️ 화면 확인(Products 에 `696399120131` → NIM12013 · `10071409543228` → Singles MNT54322 · Sets MNT54322-6)은 **Caleb 아직**
+   - pbc-1 이견 6(데이터 · 범위 밖): 가운데 띄어쓰기 든 바코드 27 줄(그 글자 그대로만 맞는다) · `#N/A` 1 줄 · 활성 바코드를 두 제품이 공유 5 쌍 이상 → deferred 516
+   - pbc-1 이견 7: 같은 검색 규칙의 다른 창구 — `stk_availability`(Stock 화면) · `product_combo_list` 둘에 바코드를 넣을지 다음 판정 → deferred 515
+5. **qbo-sync-3-2a**(`0228bd0` · **적용 20261108170000 · 확인 44/44 · fail 0 · rolled_back_clean t** · Caleb · 11-09 토론토 업무 전 · schema_migrations 끝 160000 · 165000 · 170000) — 자세히 qbo-integration **§15-i**
+   - 표 셋 `qbo_cost_sheet` · `qbo_cost_sent` · `qbo_cost_hold` · inv_config 키 셋 `qbo_send_cost_enabled`(off) · `qbo_cost_adjust_hold_over`(1000) · `qbo_cost_since`(2026-10-31) · 함수 15
+   - 시험 44/44(두 번 · 두 번째는 160000 적용 뒤) · 시퀀스 무변 · 264 SO · 126,715.43 · 밀린 장 12 · 모두 차대 일치 · 토론토 11-06 장 = **보낼 열쇠 54 · 보류 열쇠 2**(3-2-0 의 56 = 사건 열쇠 · CR-01025 restock + 취소 상계 0 · RCV 두 장 보류 — 106-f) · EDM 10-31 32.79 · 기대값 함수 35 s → 0.95 s(materialized CTE)
+   - **cron 등록 · 첫 장 만들기는 3-2b 적용 때**(대화 Claude 권고 · 3-2b 전 장이 규칙과 어긋날 여지 없게) · cron.sql 블록 ims-qbo-cost-build 는 작업 트리에 미커밋(3-2b 와 함께)
+   - 3-2b 에서 볼 것(대화 Claude): 손님 없는 SO 7 개의 손님 일감이 `qbo_send_enabled`(off)에 막혀 원가 장이 영원히 못 서는 길
+6. **그 밖(11-08 밤)**
+   - 커넥터 답에서 나온 원가 거리: AJA(491 의 그 브랜드) GP 9 월 −11.4 % · 10 월 −10.9 %(판매가 < 원가인지 원가가 틀렸는지 → 491 잇기) · GP ≈ 100 % 브랜드 셋(원가 누락 짐작 · 이름은 대화에만 → deferred 518 · 브랜드 셋 · 이름은 Caleb 에게)
+   - 동료에게 전할 것(Caleb 이 전한다 · 기록만): POS 문구는 11-04 증설로 해결 · 큰 분석은 「브랜드마다 따로」 대신 「한 번에 · 브랜드별」 로 · **새 대화에서**(1064) · Ship & invoice 뒤 팩킹 리스트는 WMS Admin → Finalized → 「Include shipped & invoiced」(§105-c 3) · Products 검색은 바코드 통째로 — 매뉴얼 09-faq 에 커넥터 문답 하나(이 차수)
+   - 공개 레포 상호 규칙: 「MTFX」 는 계정과목의 계좌 이름이라 가리지 않는다(po-module · ledger-design · so-module 3306 에 이미 있음)
+   - 환경: 인터넷 끊김 두 번(docs-1108b 회신 중 · pbc-1 · 3-2a 시험 중) · 운영 DB 「idle in transaction」 잔재 0 확인
+
+### 106-d′ 열린 것 · 닫은 것
+
+- **닫힘**: **508**(POS statement timeout = 11-02 DB 전체 멈춤 · 11-04 증설 뒤 0 · 467 무관)
+- **잇기**: 459(3-2a 적용 · 다음 3-2b) · 491(AJA 9 · 10 월 GP 음수) · 492(find_order 대량 — 1108 「늘면 같은 자리에」) · 469(POS timeout 11-04 뒤 0 을 관찰 지표로)
+- 새 **513** ~ **519**: 513 perf-mcp-0 · 514 커넥터 busy 관찰 · 515 바코드 검색을 Stock · 콤보에도(판정 대기) · 516 바코드 데이터 정리 · 517 POS 빠른 연속 스캔 수량 사라짐 · 518 GP ≈ 100 % 브랜드 셋 · 519 `docs/design/mcp-connector.md` 열기(§95-c 1 의 조건 — 1063 으로 채워짐)
+- 다음 차례: **qbo-sync-3-2b**(일감 · 몸 · claim · 재생성 hold · resolve — 같은 레포 다른 창) · Caleb 화면 확인 pbc-1(106-c 4) · 11-09 부터 busy 보기(514)
+
+### 106-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (105-e 에 이어 123 부터)
+
+123. [로그 도구] Supabase 로그는 새 **Unified logs**(Beta) — 옛 Logs Explorer 문법(BigQuery)은 안 맞는다 · 오른쪽 SQL Editor 칸은 **DB 에** 돈다(로그 아님) ⇒ 필터(기간 · Level · Pathname)로 걸러 CSV 내려받기(500 줄에서 잘림 — 창을 좁혀 여러 번)
+124. [한도를 피하는 사용자] 200 줄 한도가 「브랜드 163 번 동시 호출」 을 낳았다 ⇒ 한도를 둘 때는 **「피하려는 사용자(또는 Claude)가 무엇을 할까」** 까지 본다 · 쪽 넘기기(1064)가 효과를 냈다(첫 실물 2 회 · busy 0)
+125. [잘 된 것] 느린 원인을 「POS 함수」 로 짐작하지 않고 실패 시각을 DB 전체 멈춤 시각과 맞댔다 — 467 을 앞당기지 않았다
+126. [두 번 참조된 CTE] 3-2a 기대값 함수 35 s → 0.95 s — 두 번 참조된 CTE 는 materialized(asung-workflow §4 같은 뿌리)
+127. [회신 끊김 · 121 의 실행 예] 끊긴 3-2a 시험을 md5 · 행 수로 이어 갔고, 운영 DB `idle in transaction` 잔재 0 을 확인했다
+
+### 106-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §105 끝 「다음 판정 번호 1104 · 다음 deferred 번호 513」 → 아래
+- §105-c 4 · qbo-integration §15-h ⑦ · ⑧ 「한 장 최대 열쇠 56(토론토 11-06)」 → 56 은 3-2-0 의 **사건 열쇠**(SO 46 + ADJ 4 + CR 4 + RCV 1 + TRF 1) · 3-2a 실측 = **보낼 열쇠 54 + 보류 열쇠 2**(CR-01025 restock + 취소 상계 0 · RCV-00117 · 00121 보류) — 틀린 셈이 아니라 세는 것이 다르다 · 3-2a 마이그레이션 머리 19 행 「열쇠 56」 은 적용 · 커밋된 파일이라 그대로
+- so-module 7437(sale-1 product_list 거르기 일곱) · 10347(exp-1 product_export) → p_q 에 바코드 통째로(1111 · pbc-1)
+- `deferred.md` 508 → 닫힘
+- §95-c 1 「도구가 늘거나 동료에게 넓히면 그때 `docs/design/mcp-connector.md`」 → 조건은 1063 으로 채워짐 · 열기는 deferred 519
+- 스킬 asung-so 4-y 「931 — … 다시 판정(deferred 435)」 → 435 는 1063 으로 닫힘(스킬 줄 고침)
+
+```
+다음 판정 번호: 1112 · 다음 deferred 번호: 520
 ```

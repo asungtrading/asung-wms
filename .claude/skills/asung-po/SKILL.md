@@ -189,6 +189,8 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐⭐ 세트 더하기(pset-1 · 판정 585 ~ 589 · po-module 「세트 더하기」): product_set_add(p_parent_id, p_sets, p_commit, p_ack) · master · 세트 규칙은 도우미 둘(product_set_check · product_set_insert)을 product_create_core 와 함께 쓴다 — 한쪽만 고치지 마라
 ⚠️⚠️ 세트 sellable = **false 명시**(판정 586 · 291) — 칸을 안 보내면 칸 기본 true 가 들어간다(트리거는 명시 null 에만) · 꺼진 같은 계수 세트는 set_sku_inactive_exists(Edit 에서 켜라 · 587) · 단종 · 판매 안 함 낱개는 경고(588) · 고정가는 Edit 에서만(set_prices_not_here · 589)
 ⚠️  product_create 시험 재료에는 공급처 · 판매가 · 바코드(경고 sku_prefix · supplier_missing · price_missing · barcode_missing 가 ack 없이는 저장을 막는다)
+⭐  [2026-11-08 · pbc-1 · 판정 1111 · 정본 so-module §106] Products 검색(넓은 · 좁은 · Export = product_list · product_export 의 p_q)은 SKU · 이름 일부 일치 **또는 활성 바코드 통째로** — 바코드 일부 일치는 하지 않는다
+     케이스(세트) 바코드: Singles → 그 낱개(부모) · Sets → 케이스 · All → 둘 · 낱개 바코드는 그 낱개만 · Stock(stk_availability) · 콤보(product_combo_list)는 아직 바코드 없음(판정 대기 515)
 ```
 
 ## 4-d. ⭐⭐ 매입 세금 · 할인 원가 — 모르면 사고 (2026-10-08 · 정본 po-module §11-e 끝 · §11-f · §11-g 「세금」 · 「크레딧 원가」 · §11-h · §11-i 「핀」 · §12-c · §13-j · 판정 383 ~ 400 · so-module §53 · §54)
