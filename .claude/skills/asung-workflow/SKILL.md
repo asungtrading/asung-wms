@@ -544,6 +544,7 @@ EOF
 ⚠️ [2026-10-14 · bo v4 → v4a · so-module §64-e 15] **IMS 화면은 110% 확대로 쓴다** — 미디어 쿼리 폭을 정할 때 노트북 폭에서 실제로 걸리는지 본다(1100px 기준이 안 걸려 좁은 창에서 안 쌓였다 → 1400)
 ⚠️ [2026-10-14 · bo v4 → v4a] **공통 `.card h3` 는 대문자 · 고정폭 · 밑줄이다** — 카드 안의 제목(오른쪽 머리 등)은 `div` 로(대문자로 그려졌다)
 ⚠️ [2026-10-29 · so-module §87-e 5] **Caleb 에게 주는 브라우저 콘솔 도우미 이름은 그 화면의 최상위 let/const 를 grep 한 뒤** — `q` 로 지었다가 settings.html 의 `let … q=""` 와 겹쳐 「q is not a function」 · 대문자 이름(QBO · FC)으로
+⚠️ [2026-11-08 저녁 · so-module §104-e 115 · 116] **Caleb 에게 콘솔 조회를 줄 때** — ① `(async () => { … })();` 로 감싼다(Settings 콘솔에 `q` · `r` 이 이미 선언돼 「Identifier 'q' has already been declared」) ② 「🚫 · Ctrl+L 로 콘솔을 비우고 마지막 결과만 붙여 주세요」 를 함께(콘솔 기록 통째가 매번 붙었다) ③ 응답 꼴은 **count 한 줄로 먼저** 보고 큰 조회를 꾸린다 · EF qbo query 의 `more` 는 믿지 말고 행 수로 끝(qbo-integration §15-f)
 ```
 
 ---

@@ -124,7 +124,10 @@ description: >
 ⚠️  Customer · Vendor 는 select * 거부 · 연락처 · 주소 칸 거부 · 거울 qbo_entity 에 연락처 · 금액 칸을 더하지 마라(판정 933 · 934)
 ⭐  Intuit 의 응답 rows 는 scrub 하지 않는다(SyncToken 이 깨진다) — 토큰 scrub 은 오류 · 기록 글에만
 ⭐  IMS `_N_` 계정의 N = QBO Account.Id · COGS = #58(짐작 _100_ 은 틀렸다) · QBO 재고 추적 꺼짐(QuantityOnHand false — 원가는 분개로만)
-⭐  보내기 때 opening_fix 원가 사건은 제외(판정 932 · Cin7 이 이미 COGS 를 보냈다)
+⭐  보내기 때 opening_fix 원가 사건은 제외(판정 932 · Cin7 이 이미 COGS 를 보냈다) → [11-08 · 3-0 이견 4] 경계 = 「원가 사건이 컷 뒤 IMS 에서 생겼나」 · opening_fix 는 그 예외 하나
+⚠️⚠️ [11-08 실측 · 정본 §15-f] EF query 응답 = { ok, entity, rows, count, totalCount, startPosition, maxResults, more, intuit_tid } · count(*) 는 totalCount
+     **select * 는 MAXRESULTS 200 을 적어도 10 행만** · 쪽은 STARTPOSITION · **more 는 마지막 쪽에서도 true — 끝은 행 수 < 10 으로**(deferred 504) · Bill 응답에 VendorAddr 가 실린다(505)
+⚠️  [11-08] Settings 콘솔에는 q · r 이 이미 선언돼 있다 — 콘솔 조회는 `(async () => { … })();` 로 감싼다 · 응답 꼴은 count 한 줄로 먼저 · 결과는 🚫 · Ctrl+L 로 비운 뒤 마지막 것만
 ```
 
 ## 5-c. ⭐⭐ 쓰기 · 보내기 일감 — 모르면 사고 (2026-11-01 밤 · 정본 §14 · 판정 935 ~ 946 · 951)
@@ -222,6 +225,20 @@ description: >
 ⭐  EF SEND_KINDS **18** · assertWriteAllowed purchase 몸 검사(만들기 · void 꼴만 · 다른 엔티티는 deferred 501) · **cron 62 kinds 열둘**(11-08 · 실행 블록 = DB 글자 그대로 · 열쇠는 그 job 자신의 command 에서)
 ⭐  화면 qbo-send(qs refund v1 · v1a): 종류 Refunds · Carried-over money · 「Refund linked to credit」 은 Refund 먼저 또는 둘을 함께 보낸다(blocked 사슬)
 ⚠️  USD 손님 셋의 A/R 계정이 `_61_`(CAD) — USD 환불은 failed(통화 ≠ 기본 통화 · deferred 499)
+```
+
+## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · 짓기 전 (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
+
+```
+⭐⭐ 상품 공급처 Bill · 그 결제(BillPayment)는 **IMS 가 보낸다**(1080 · 1081) — 북키퍼는 운영 비용 Bill 만 QBO 에서 · 컷 전 Bill 결제는 QBO 에서(913) · 밀린 IMS 인보이스 7 장 · 결제 4 건은 싱크가 서면 원래 날짜로
+⭐⭐ 판매 원가 = **하루 · 창고마다 JE 한 장 + SO 마다 줄**(차 #58 / 대 #59 · 줄 설명 SO 번호 · 1082) · 늦은 변동은 다음 장에 그 SO 줄 · 밀린 몫은 11-02 부터 그날 날짜로(1083)
+     cost_late 팔린 몫 → #58 · 남은 몫 → #59(1084) · 창고 간 트랜스퍼는 하루 장에 In Transit #1150040007 ↔ #59(빈 이동은 안 보냄 · 1085) · 조정 계정 빈칸 = 기본 #1150040010(1087)
+     비용 Bill: 관세 #134(세금 없음) · 수입 GST = #125 줄(세금 코드 아님 · 원가 아님) · 통관 #135 · 운임 #136(1089) · 관세 「금액 0 · 세금만」 은 정상 꼴
+⚠️⚠️ **출발점은 맞추지 않는다 — 움직임만**(1086) · 월 검산 = 그달 #59 움직임 = 그달 IMS 재고 금액 움직임 · 잔액 차이 약 150 만은 알려진 차이 · **오래된 재고 write-off 를 일반 조정으로 보내지 마라**(QBO 에서 두 번 빠진다 · 503)
+⚠️⚠️ **살린 트럭 TR-06396 ~ 06399 도착은 보내지 마라**(출발 분개가 QBO 에 없다 · 보내면 In Transit −15,159 · 1085)
+⚠️⚠️ **10-30 판매 원가는 이미 QBO 에 있다**(Cin7 · JE 81 장 · 토론토 17:33 · 1083) — 밀린 몫 경계는 11-02 · cost-fix-1(opening_fix · carried)은 보내지 마라 · 조정은 10-31 부터(1090)
+⚠️  CAD 공급처 11 곳 A/P 가 `_109_`(USD) · 기본값도 `_109_` 하나 — 3-1 에서 통화별 기본 + 저장 거부(1088 · 손님 A/R 499 와 같이)
+⚠️  API 는 손익 계정(#58) 잔액을 0 으로 준다 — 원가 검산은 기간 보고서로 · #59 잔액은 하위(In Transit · GRNI · GINR) 제외 값과 포함 값이 따로
 ```
 
 ## 6. 화면 · 바깥
