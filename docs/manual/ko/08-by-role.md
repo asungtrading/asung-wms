@@ -94,6 +94,7 @@
 - 고객 결제 · 선수금 넣기 → [고객 결제와 선수금](01-sales.md#sales-payments)
 - 크레딧 노트 (발행은 매니저 이상) → [크레딧 노트](01-sales.md#sales-credits)
 - 웹 오더 다루기 → [웹 오더](01-sales.md#sales-web-orders)
+- 웹 오더 고치기(줄이기는 IMS · 더하기는 새 웹 오더) → [웹 오더 고치기](01-sales.md#sales-web-order-changes)
 - 판매 CSV 내려받기 → [CSV 내려받기](01-sales.md#sales-csv)
 - 제품 · 고객 · 공급처를 고른 칸으로 내보내기 → [검색 · 필터 · 페이지 · CSV](00-getting-started.md#start-search-filter)
 

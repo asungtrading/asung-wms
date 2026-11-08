@@ -734,6 +734,9 @@ Invoice 99001 → **Preview** shows the item for CB-99001 will be created first 
 - A payment from a head office on a store's invoice fails with "TxnID Cannot Be Linked" when the store is not a sub-customer of the head office in QuickBooks (Bill with parent). Set the sub-customer in QuickBooks, then **Retry**.
 - "QuickBooks total differs from IMS" means QuickBooks worked out a different total. The document is in QuickBooks — check it there.
 - Restocking fees and other account lines on credit notes need their account linked to a QuickBooks item once, in **Settings** › **QuickBooks matching** (**Freight, discount & account lines**).
+- Credit a customer had on account before go-live (carried-over credit) that pays a new invoice is sent to QuickBooks by IMS: a credit memo "OC-99001-1" plus a $0.00 payment. Do not enter a journal entry for it by hand. If one was entered, **Delete** it in QuickBooks (not Reverse), check the invoice balance, then press **Retry** on the IMS row and write what you did in the note.
+- Refunds are recorded in IMS only. Do not enter them in QuickBooks by hand. (Sending refunds to QuickBooks is not built yet.)
+- When QuickBooks and IMS disagree, compare the customer's balance first: the customer's open balance in QuickBooks should equal **Available** in IMS. Then look at the transaction list and the audit history in QuickBooks.
 
 <!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks list with Waiting filter, a Preview window with Send to QuickBooks -->
 
@@ -785,6 +788,38 @@ A web order's sales order has the tag **Shopify** and a card with the Shopify de
 - A web order created before the shop went live in IMS does not come in by itself — not even when it is later paid, refunded or edited.
 - To bring one in, add the tag `ims-import` to the order in Shopify **after** go-live. It comes in at the next 15-minute check. A tag added before go-live is not seen — remove it and add it again.
 - Do not make that order again by hand in IMS. Once it is in, you may remove the tag; the order keeps following Shopify as usual.
+
+<a id="sales-web-order-changes"></a>
+## Changing a web order
+<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; shopify-orders.html · BUILD 2026-10-26 · wo v4e -->
+<!-- who: office, sales -->
+
+**What it is**
+As a rule a web order is not changed: it is cancelled and placed again, or the customer places a second order. When a change is needed anyway, these are the rules. The short version: make it smaller in IMS; for more, a new web order.
+
+**Changes made in Shopify do not come down**
+- Once the sales order exists, a change made in Shopify (a line added, a quantity changed, a line taken off) does not reach IMS. The sales order stays as it was and the web order shows "Changed in Shopify after the sales order was made". Make the change on the sales order instead.
+- The one exception is a cancellation in Shopify. When nothing on the sales order was touched and it is still a draft or confirmed, IMS cancels it by itself. Otherwise you get "Cancelled in Shopify — check the sales order" and cancel it yourself.
+
+**Making the order smaller — do it in IMS**
+- Lower the quantity or take the line off the sales order. When the order is closed, IMS takes it off the Shopify order too. Shopify sends the customer no e-mail for this.
+- Once staff changed the sales order, a later cancellation in Shopify is no longer automatic. Check the sales order yourself.
+
+**Adding to the order — a new web order, then Merge**
+- Raising a quantity in IMS does not raise it in Shopify. Shopify ships at most what the customer ordered there; the rest is shipped by IMS only.
+- A product added in IMS does not go into the Shopify order and is not part of the Shopify shipment.
+- When the customer wants more, ask for a new web order. IMS makes a new sales order from it. If both orders are for the same customer and both are still open, **Merge** them ([Divide or merge orders](#sales-divide-merge)). Shipping still follows each original Shopify order.
+
+**After Release**
+- An order already released to the warehouse is taken back with **Recall** first ([Take an order back](#sales-undo)). Recall is refused while the order is being picked, on hold or on backorder.
+- Recall, change, Release again changes IMS only. Shopify follows the rules above.
+
+**Example**
+Customer A ordered 10 of SKU-99001 on the web shop and now wants 6. Open SO-99001, set the line to 6, and ship. The Shopify order drops to 6 when the order closes. Customer A then wants 2 more of SKU-99002: a new web order comes in as SO-99002; if SO-99001 is still open, merge the two.
+
+**Watch out**
+- Do not add the extra items to the original sales order by hand. They would ship from IMS without being in the Shopify order.
+- The Shopify discount stays on the web lines; a quantity change keeps the same discount.
 
 <a id="sales-cancel"></a>
 ## Cancel an order
@@ -871,4 +906,4 @@ Most sales screens can download a spreadsheet (CSV).
 - The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 1041, 1050, 1054, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 436, 437, 438, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
+<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->

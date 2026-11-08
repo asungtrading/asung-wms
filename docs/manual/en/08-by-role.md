@@ -94,6 +94,7 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Record customer payments and deposits → [Customer payments and deposits](01-sales.md#sales-payments)
 - Credit notes (managers and above issue them) → [Credit notes](01-sales.md#sales-credits)
 - Handle web orders → [Web orders](01-sales.md#sales-web-orders)
+- Change a web order (smaller in IMS · more = new web order) → [Changing a web order](01-sales.md#sales-web-order-changes)
 - Download sales CSVs → [CSV downloads](01-sales.md#sales-csv)
 - Export products, customers or suppliers with the columns you pick → [Search, filters, pages and CSV](00-getting-started.md#start-search-filter)
 

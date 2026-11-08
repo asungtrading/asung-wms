@@ -9051,7 +9051,7 @@ cron(테스트)                  57 ims-mail-pdf(1 분 · mail_enabled on 이고
 | ImsRefLoad v2 | asung-wms 7c91f06 · GAS | Cin7 에 새로 생긴 것만 · IMS 행 · 이름 무접촉 · ⚠️ v1 은 IMS 행을 Cin7 것으로 바꾸고 끈 것을 다시 켠다 — v2 만 돌린다 |
 | od-1 | asung-wms d7f42d7(20261020010711) | so_line_manual · 손 줄 오더 할인 0 · 문턱은 모든 줄 · 문서 net unit · 크레딧 · 마스터 이름 잠금 IM538 · 확인 OK 42 · 대가: 이미 발행된 인보이스의 손 줄 크레딧은 오더 할인 몫 0(테스트 DB 1 건 · 운영 영향 없음) |
 | so v5t10 · rc v1.8 · pos v1.10 | asung-ims d5f4f88 · c81d0ae · 66664cb | Net unit · PO Complete 안내 · POS 수량 · 크레딧 칩 |
-| ln-1 | asung-wms 0c5886e(20261020123910) | so_lines_paste 가격(묶기 열쇠 제품+가격 · bad_price · free_price · set_price_refused · priced) · so_lines_clear · so_line.price_set_by/at(+ split · merge 복사) · 확인 OK 18 · [사실 · `20261020123910_ln_1_paste_price_lines_clear_price_set_by.sql` 머리 주석 31 · 1176 ~ 1178 행 · comment on column so_line.price_set_by] price_set_by/at 은 사람이 단가 · 할인 % 를 줄 때만 찍고 다시 견적(↺)이면 비운다 — updated_by 는 ims_touch 가 덮으므로 「누가 정했나」로 읽지 않는다 · so_lines_clear 는 intake shopify 오더를 거부하고 운임(so_charge) · 쿠폰(coupon_id)은 남긴다 |
+| ln-1 | asung-wms 0c5886e(20261020123910) | **→ §102 · 10-20 ~ 11-07 나간 오더 GP 가 틀렸음(so-detail-keys-1 — 이 차수가 so_detail 의 한 줄 안 `--` 주석으로 키 넷을 먹었다)** · so_lines_paste 가격(묶기 열쇠 제품+가격 · bad_price · free_price · set_price_refused · priced) · so_lines_clear · so_line.price_set_by/at(+ split · merge 복사) · 확인 OK 18 · [사실 · `20261020123910_ln_1_paste_price_lines_clear_price_set_by.sql` 머리 주석 31 · 1176 ~ 1178 행 · comment on column so_line.price_set_by] price_set_by/at 은 사람이 단가 · 할인 % 를 줄 때만 찍고 다시 견적(↺)이면 비운다 — updated_by 는 ims_touch 가 덮으므로 「누가 정했나」로 읽지 않는다 · so_lines_clear 는 intake shopify 오더를 거부하고 운임(so_charge) · 쿠폰(coupon_id)은 남긴다 |
 | mrg-1 | asung-wms ff5b49e(20261020130409) | 판정 548 · 확인 OK 14 |
 | ch-1 | asung-wms 01c5b1b(20261020134522) | so_charge_gate · packed 비용 · 반환 status · 확인 OK 12 · [사실 · `20261020134522_ch_1_packed_charges.sql` 머리 주석 31 행 · comment on function so_charge_gate] so_charge_gate 는 오더 행을 for update 로 잡는다(so_finalize 도 같은 행을 잡아 겹치면 뒤쪽이 상태를 다시 본다) · so_charge_set 에 계정을 안 주면 새 비용은 `_99_` Freight Sales(재발행 원본 `20261007171939_fr_1_freight_discount.sql` 바이트) — 화면은 계정을 늘 보낸다(v5w1) |
 | rcv-0 | (조사 · Opus · 쓰기 0) | 먼저 반영 조사 — 원가는 인보이스 단가 · 같은 입고 두 번 반영은 세 겹이 막는다 · 확정 문이 둘 |
@@ -9506,7 +9506,7 @@ rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → 
 | 622 | 「A」 | PO-02040 · PO-02002a 의 열린 short 는 **그대로** — 70-f 288 앞 절반 닫힘(뒤 절반 = 273 그대로) |
 | 623 | (대기) | Data API 「Automatically expose new tables」 스위치가 **켜져 있다**(Caleb 캡처) + 70-f 287 ③(함수 기본 권한 anon=X) → grt-2 를 컷오버 **전(A)** · **뒤(B)**? · 대화 Claude 안 B · ⚠️ 스위치를 손대지 말 것(기본 권한이 어떻게 바뀌는지 안 봤다) · 같은 캡처: 노출 스키마 = graphql_public · public 만(wms_legacy · reload_backup 노출 안 됨) ⇒ 287 ① 「알고 둔다」로 닫힘 · Max rows 1000 |
 | 624 | 「A」 | PO 에 붙인 가격 = 그 줄의 **단가(할인 전)** · PO 문서 할인은 위에서 걸린다(SO 532 · 542 와 다름) · 비우면 Fixed → Latest → 0 · 0 받음 · 음수 · 숫자 아님 = bad_price · product_supplier 무변 · 공급처 연결이 없어도 붙인 값을 쓴다(pln-1 df5088a) |
-| 625 | 「A」 | SO 줄 **GP** 의 원가 = 지금 평균(stk_value_many · 오더 창고 → 없으면 전 창고) · 원가 열쇠가 있을 때만 보인다 · 손님 문서에 없다 · 매출 = 줄 합(손 줄 아닌 줄에 오더 할인 %) · surcharge · 운임 제외(so gp v1 de35e72) ⇒ 67a-5 닫힘 |
+| 625 | 「A」 | SO 줄 **GP** 의 원가 = 지금 평균(stk_value_many · 오더 창고 → 없으면 전 창고) · 원가 열쇠가 있을 때만 보인다 · 손님 문서에 없다 · 매출 = 줄 합(손 줄 아닌 줄에 오더 할인 %) · surcharge · 운임 제외(so gp v1 de35e72) ⇒ 67a-5 닫힘 · **→ §102 · 10-20 ~ 11-07 나간 오더 GP 가 틀렸음(so-detail-keys-1 · shipped_total 키가 빠져 매출 0)** |
 | 626 | 「A」 | 컷오버 **전**에: 입고 완료(오피스 확정 · 먼저 반영)가 product_supplier 의 **Latest(cost) · last_supplied** 를 고친다 · Fixed 는 무변(lat-1 107fba0 · po_receipt_latest_apply) |
 | 627 | 「A」 | Latest 에 넣는 값 = 확정 인보이스 줄의 **할인 전** 단가(다음 PO 에 할인이 두 번 걸리지 않게) · 실측: Cin7 Latest 가 IMS 인보이스 줄 69 중 할인 전 56 · 할인 뒤 0 과 맞았다 |
 | 628 | (정리 · Caleb 「모양과 내용이 별로」) | 내보내기 — **Stock Availability = 화면 그대로**(지금 거르기 · 모든 쪽 · 화면 칸 · 원가 칸은 원가 열쇠가 있을 때만 · stkx-1 83f28ad: stk_availability 한도 20000 + stk_availability_export 한 행 jsonb) · **Products** = 칸 고르기 창(다음 · 판정 652 부터) · **PO** = 나중 · **SO** = 각 탭 목록 + 문서 하나 둘 다 · ⭐ 문서 하나의 CSV 는 **한 표**(한 줄 = 줄 하나 · 문서 · 오더 칸 되풀이 · 끝에 합계) **+ Barcode** — 구역 나눈 판은 버림 · Stock CSV 의 Bin = 칸 이름만 · 바코드 · SKU 는 `="…"`(엑셀 지수 · 앞 0 방지 · so csv v3 · asung-ims 10cb043 · bfa5417) |
@@ -9544,7 +9544,7 @@ rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → 
 | pur-1c | asung-wms eb0d186 | pur_stock() — Reorder Planner 재고 한 번에(sku · product_id · tor/edm qoh · alloc · oo · it · avail + warehouses[]) · stk_availability 와 같은 집합 · 숫자(7,992 SKU · 0 diff) · 0.86 s(16 쪽 134 s 대신) | OK 7 |
 | def-0 | (문서) | deferred.md 초안 — 미룬 것 한 장(337 줄) | — |
 | pln-1 | df5088a | po_lines_paste 셋째 열 price(624) · bad_price | OK 7 |
-| so gp v1 | asung-ims de35e72 | SO Lines GP(625) | — |
+| so gp v1 | asung-ims de35e72 | SO Lines GP(625) · **→ §102 · 10-20 ~ 11-07 나간 오더 GP 가 틀렸음(so-detail-keys-1)** | — |
 | lat-1 | 107fba0 | 입고 완료 → product_supplier Latest(cost · last_supplied) · po_receipt_latest_apply(626 · 627 A) · Fixed 무변 · 연결 없음 · 무상 · 더 새 공급 · 통화 다름은 건너뜀 | OK 5(머리글 「6」 은 틀림 · 71-e) |
 | stkx-1 | 83f28ad | stk_availability 한도 500 → 20000 + stk_availability_export(jsonb 한 행 — PostgREST Max rows 1000 을 피함 · 한 번 약 3 s · 500 씩 16 쪽 141 s 대신 · 628) | OK 6 |
 | 화면 10-22 오후 | asung-ims 10cb043 · bfa5417 · 0927524 | csv v1 ~ v3(628) · inv printed v2(621) | — |
@@ -13010,6 +13010,161 @@ ad8e85c so pk v1 · fu v1.10: 예약됨 칸 픽업 상태 줄(pickup_check — �
 - `qbo-integration.md` §14-h(이월 짝) · §14-i(송장 31 자) · §14-g 끝 순서 · `freightcom-integration.md` 머리 · §7 · §8-b(새) · §12 · `shopify-integration.md` §3-b · §3-e · §6 · `deferred.md` 452 · 464 · 462 · 434 닫힘(452 의 손님 상호 → 「손님(Cin7 Omni)」) · 387 · 394 · 388 · 341 잇기 · 새 470 ~ 485
 - 스킬 asung-qbo · asung-wms · asung-so · asung-workflow(본문만 · description 무변) · asung-ops(asung-ops 레포) · 매뉴얼 en · ko 01-sales · 04-wms · 06-action-centre
 
+
+## §102 2026-11-07 — 이월 받아 둔 돈 붙임 QBO(2e-3-1 · 1b) · 메일 받는 이 여럿(mail-inc-1b · 1c) · 커넥터 쪽 넘기기(mcp-cap-1) · so_detail 줄 키 넷(so-detail-keys-1) · 인보이스 60189 정리 · 웹 오더 고치기 확인 · so csv v4 — 판정 1056 ~ 1064
+
+⭐ 원천: 인계서 `ims-handover-1107b.md`(md5 `0add8e57` · §2 오늘 · 부록 A = `ims-handover-1107` §2 원문 · §6 둘) · asung-wms `git log b9b14d6..HEAD` 원문 · asung-ims `d20c047..HEAD` · 마이그레이션 머리 주석 · 메인 DB 읽기(11-07 19:15 토론토 · begin read only) · 지시서 docs-1107
+⚠️ 공개 레포 — 손님 상호 · 사람 이름은 적지 않는다(99-e 77) — 60189 의 손님은 「손님 B(에드먼턴 매장 · customer `57c5…`)」 · 북키퍼 · 동료 둘 · 직원 · QBO Id · 인보이스 · SO · 계정 번호는 적는다
+⚠️ 두 세션(11-07 새벽 회사 PC = 1107 · 11-07 낮 노트북 = 1107b)을 한 절로 · 인계서의 「짐작 1056 ~ 1062」 는 번호 그대로 이 절이 확정한다(다시 매김 0 · 1059 · 1062 는 판정이 아니라 **사실**) · 1063 · 1064 는 번호 없던 결정에 이 절이 준 번호(Caleb 11-08 「둘 다 번호」)
+
+### 102-a 판정
+
+| # | 갈래 | 뜻 |
+|---|---|---|
+| **1056** | (11-07 · Caleb 확인 · 2e-3 환불 · 부록 A 「고침」) | 「이미 QBO 에 있는 환불」 = **결제일(paid_on)이 컷(10-30) 전** → 안 보냄 · 컷 뒤 → 보냄(조사 2e-3-0 의 권고 created_at 기준은 **기각** — CR-01011 · 01012 가 빠진다) · 실물 = 환불 10 건 중 컷 전 결제일 8 건(2,310.30 · 모두 이월 손님)은 QBO 에 이미 있다 · CR-01011 · 01012 환불 2 건(219.79 · 11-04 · e-transfer · 참조 Interac 번호)은 QBO 에 없다(102-c 3) · **CR-01011 · 01012 환불 = (가) 2e-3-2 가 보낸다**(Caleb) — 그때까지 QBO 에 그 손님 크레딧 219.79 열림 |
+| **1057** | (11-07 · 부록 A) | 받아 둔 돈 환불의 QBO 꼴 = **Expense(Purchase)** · Payment account = 입금했던 정산 계좌 · 줄 Category **Customer Credits**(`_1150040009_`) + Customer · Out of Scope(판정 987 의 북키퍼 실물 = 08-17 181.93 Expense) |
+| **1058** | (11-07 · 부록 A · 981 의 환불판) | 북키퍼는 **환불도 QBO 에 손으로 넣지 않는다** — 환불을 IMS 에 적고 QBO 에는 일부러 안 넣는다(IMS 가 보내기를 기다린다 · Caleb 「그가 적었다면 돈은 나간 거야」) · **→ 1061**(이월 돈 손 분개가 실제로 있었다 · 102-c 2) |
+| **1059** | (사실 · 11-07 낮 · QBO 실물 → 102-c 2) | Cin7 이월 돈(과입금 · 보증금)의 QBO 꼴 = **Sales Receipt**(Item Customer Credit → 1150040009) — 2e-3-1 전제(이월 돈은 AR 아닌 Customer Credits 계정 · OC CreditMemo 가 AR 로 옮긴다)의 실물 근거 · 판정 아님 |
+| **1060** | (11-07 낮 · Caleb 이 그렇게 했고 말함) | 북키퍼가 이월 돈을 손 분개로 먼저 정리한 것이 보이면 = **QBO 에서 분개 Delete → 인보이스 잔액 확인 → IMS Retry**(IMS 가 기록 주인) · Delete 지 Reverse 가 아니다(Reverse 는 반대 분개를 더해 AR 에 받을 돈을 새로 만든다) · OC void 길 (나)는 **기각** — IMS 가 모르는 TEST 분개가 기록으로 남는다 |
+| **1061** | (11-07 낮 · Caleb 「있다면 다 지우게 할게」) | **1058 의 예외가 실제로 있었다** — 이월 돈 손 분개(Journal Entry TEST10312026 · 102-c 2) ⇒ 북키퍼에게 「이월 크레딧 분개를 손으로 넣지 말 것(IMS 가 보낸다)」 전달 · 10/30 뒤 손 분개는 있으면 지운다(deferred 496) |
+| **1062** | (사실 · 11-07 낮 · QBO Audit · ims_staff 읽기) | QBO 의 북키퍼 사용자 이름이 IMS 직원 표(ims_staff)의 북키퍼 이름과 **다르다**(11-08 읽기: QBO 쪽 이름은 ims_staff 에 없음 · role manager 의 북키퍼 1) · **같은 사람인지는 짐작** — 확인은 Caleb · 이름은 공개 레포에 적지 않는다 |
+| **1063** | (11-07 · Caleb 「그대로 가자」 · 번호는 이 절) | Claude 열쇠 9 명 · 원가(GP) 보이는 사람 8(cost · cost:read · 한 명만 없음) **그대로** — 931 의 「GP 는 원가 검증 중에도 Caleb 한 명」 전제는 이 줄이 고친다 ⇒ deferred 435 닫힘 |
+| **1064** | (11-07 · mcp-cap-1 `fdef753` 이 코드로 박음 · 번호는 이 절) | 커넥터 sales_summary **쪽 넘기기** — `p_offset` · limit **500** · `page{offset, limit, shown, total_rows, next_offset}` · **rows_truncated = 이 쪽에 안 보인 줄 전부(앞 + 뒤 · 925 항등식 모든 쪽)** · 끝 넘으면 빈 쪽 · customer 이름 uuid · accounts 한 번 조인 · 도구 설명 글 「**next_offset 이 null 이 아니면 이어 불러라** · 동시 금지」 · 1b 검사 V5 는 기록으로(적용 뒤 MISMATCH 1 정상) · ⚠️ claude.ai 는 대화를 시작할 때의 도구 꼴을 기억한다(옛 대화 = 최대 200 · offset 없음 · 새 대화는 다시 연결 없이 offset 을 쓴다 — mcp_call_log offset 200 · 4750) ⇒ 커넥터 인자를 바꾸면 동료에게 「**새 대화에서**」 만 |
+| — | (11-07 · Caleb · 2e-3-1 이견 답) | Claude Code 가 더한 CustomerMemo 「Credit on account applied to invoice N」 — **그대로 둠**(손님 명세서에 보인다 · 새 번호 없음) |
+| — | (11-07 · Caleb) | 메일 1d 화면은 **나중**(doc_mail_multi 를 켜고 며칠 써 본 뒤) · 동료용 이메일 실무 지침서는 1c 를 켜고 첫 메일을 확인한 뒤(영 · 한 · 매뉴얼 01 Sales 메일 절과 맞춤 · 1d 뒤 「보내기 창」 절만 고침) · D-2 선결제 공백(붙임 0 받은 돈은 인보이스가 나기 전까지 QBO 에 없음 · 지금 0 건)은 deferred 로만(493) |
+| — | (11-07 · Caleb 「기억해줘」) | 커넥터 나중 순서: ① 판매 도구에 정렬 · 상위 N · 조건 거르기 → ② 전체 표를 CSV · 엑셀 파일로 만들어 링크로 돌려주는 도구 — 동료는 둘 다 원함(deferred 494) |
+
+### 102-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline b9b14d6..HEAD`(asung-wms · 앞 문서 차수 docs-1106 `b9b14d6` 다음 · 인계서 1107 §1 다섯 + 1107b §1 하나와 같다 · 빠진 것 0):
+
 ```
-다음 판정 번호: 1056 · 다음 deferred 번호: 486
+b7e6c44 fix(so-detail-keys-1): so_detail 줄 객체에서 주석에 먹힌 키 넷 되살림 — no_price · free · shipped_total · removed(ln-1 0c5886e 10-20 부터 한 줄 안 -- 주석이 뒤 키를 먹음 · bgr-1c 가 이어받음) · DB prosrc 에서 옮겨 그 한 줄을 둘로 나눔(diff 그 줄뿐) · md5 9f4e87f6 → e56a3ce9 · 머리 · acl · comment 무변 · 적용 20261107143714 · 시험 9/9(읽기만 · 실제 행 무변) · REST 확인 · 영향: 나간 오더 줄 TOTAL · GP · Lines CSV · so · pos 의 no price 표시
+26e019a feat(qbo-sync-2e-3-1b): 이월 받아 둔 돈의 붙임을 QuickBooks 로 — EF qbo SEND_KINDS 14(opening_credit · opening_credit_void · opening_apply · opening_apply_void) · 새 갈래 0(credit · credit_void · credit_apply · payment_void 길에 조건 여덟) · entityKeyOf 명시 가지 넷 · OPENING_CREDIT_KINDS · OPENING_APPLY_KINDS(TXN_KINDS · CREDIT_APPLY_KINDS 무변) · parsePaymentKey 접두 「IMS opening credit applied 」 · 시험 ㉕ · deno 26/26 · cron.sql 여덟 판은 주석 블록(실행 블록 넷 그대로 · 1034)
+fdef753 feat(mcp-cap-1): 커넥터 sales_summary 쪽 넘기기 — mcp_sales p_offset · limit 500 · page{offset, limit, shown, total_rows, next_offset} · rows_truncated = 이 쪽에 안 보인 줄 전부(앞 + 뒤 · 925 항등식 모든 쪽) · drop → create(시그니처 · 한 벌 확인) · 이견 3 customer 이름 uuid · accounts 한 번 조인 · EF 설명 글 「next_offset 이 null 이 아니면 차례로 · 동시 금지」 · 적용 20261107051447 · 확인 19/19 · deno 17/17 · 실측 customer 1 개월 전 1.5 ~ 1.8 s → 후 1.1 ~ 2.0 s
+33c8cdf qbo-sync-2e-3-1: 이월 받아 둔 돈의 붙임 = QBO 두 장(「쓰기」 CreditMemo OC-<인보이스>-<n> + 0 원 Payment) — kind 넷 · qbo_txn ims_kind 둘 · 트리거 가지(새 트리거 0) · CustomerRef 돈의 주인(매장 다르면 failed · QBO 하위 손님이면 경고) · Item = qbo_link charge acct:<계정> · 세금 2c 꼴 · 백필 10 → 20 · requeue · link_set · ims_rows · credit_apply 1013 · claim · preview · doc · list · retry · done 재발행 · 시험 34/34 · 확인 33/33 · 잠금 9.1 s
+3b7b7f2 feat(mail-inc-1c): 문서 메일 받는 이 여럿 — 메일을 만들 때 to_more 를 채운다(판정 1018 ~ 1029 · 529)
+34fe1f9 feat(mail-inc-1b): EF mail 이 to_more 를 To 에 싣는다 — 판정 1019 · 1027 · 1028 · 1029
+```
+
+asung-ims(`d20c047..HEAD` · 하나):
+
+```
+0b10e58 so csv v4: 목록 위 ↓ Lines CSV — 거른 오더 전부의 줄(so_detail · 500 오더 상한 · Order total 칸 · GP 없음) · DB 무변
+```
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| mail-inc-1b | `34fe1f9` · EF mail(`_shared/mail.ts`) | 1019 · 1027 ~ 1029 — EF 가 to_more 를 To 에 싣는다 · rendered.to_address = 첫 주소(mail_mark 가 덮는다 · 받는 이 수 = 1 + cardinality(to_more)) · **redirect ∈ to_more 면 failed** · EF 검사 = DB regex + `<>"()\:` · 제목 안 자름 · EF render 도 to_more · 황금 ⑳(바꾸기 전 판 b9b14d6 · sha 55b9fd7d…) · 배포 |
+| mail-inc-1c | `3b7b7f2` · `20261107044600_mail_inc_1c_fill_recipients.sql` | 1018 ~ 1029 · 529 — 문서 메일 줄 넣는 곳 = doc_mail_enqueue 하나(부르는 곳 send · auto_invoice) · enqueue 옛 9 인자 drop → 11 인자 · doc_mail_send 시그니처 그대로 · **p_to = 쉼표 · 세미콜론 목록**(미리 보기 to = 전체 「, 」 · 직원이 칸에서 지우거나 더한 그대로 · 대화 Claude 안 (나)+(다) 거둠) · 화면 ims-doc.js 받는 칸 type=search · regex 없음 → 고칠 것 없음 · **키 `doc_mail_multi`**(ims_mail_config_keys 밖 · psql 로만 · 없거나 off 면 옛 길 · 11-08 읽기: 키 없음 = off) · payload.recipients(source flags \| fallback_498 \| typed · skipped · list) |
+| qbo-sync-2e-3-1 | `33c8cdf` · `20261107044131_qbo_sync_2e3_1_opening_credit_jobs.sql` | 이월 받아 둔 돈의 붙임 = QBO 두 장(「쓰기」 CreditMemo `OC-<인보이스>-<n>` + 0 원 Payment) · kind 넷(opening_credit · opening_credit_void · opening_apply · opening_apply_void) · qbo_txn ims_kind 둘(opening_credit ↔ CreditMemo · opening_alloc ↔ Payment) · 트리거 = qbo_job_on_payment_alloc 본문 재발행(새 트리거 0 · so_payment_alloc 잠금 0) · **CustomerRef = 돈의 주인 · 인보이스 매장과 다르면 failed**(QBO 하위 손님이면 경고) · DocNumber `OC-<인보이스>-<n>` · 세금 2c 꼴(Out of Scope 4 + TaxLine 0) · Item = qbo_link charge `acct:<결제 계정>` · 기다림 = 인보이스 → credit → apply · qbo_credit_apply_body 1013 에 opening_apply_void · requeue 넓힘 · retry 넷 · done 대조 · 백필 10 → 20 · 시험 34/34 · 확인 33/33 · 잠금 9.1 s · 이견 답 18(부록 A) |
+| mcp-cap-1 | `fdef753` · `20261107051447_mcp_cap_1_sales_paging.sql` · EF ims-mcp | 1064 — mcp_sales p_offset · drop → create(시그니처 · 한 벌 확인) · 확인 19/19 · deno 17/17 · 배포 · 실측 customer 1 개월 전 1.5 ~ 1.8 s → 후 1.1 ~ 2.0 s |
+| qbo-sync-2e-3-1b | `26e019a` · EF qbo(`_shared/qbo.ts` · `qbo/index.ts`) | SEND_KINDS **14** · 새 갈래 0(credit · credit_void · credit_apply · payment_void 길에 조건 여덟) · entityKeyOf 명시 가지 넷 · OPENING_CREDIT_KINDS · OPENING_APPLY_KINDS(TXN_KINDS · CREDIT_APPLY_KINDS 무변) · parsePaymentKey 접두 「IMS opening credit applied 」 · 시험 ㉕ · deno 26/26 · 배포 · **첫 실물 두 호출**(손으로 · 05:36 ~ 05:38 UTC · OC-60172-1 → 60172 두 장) → cron 62 kinds **여덟**(05:40 UTC 첫 회차 · 102-c 7) · cron.sql 은 「여덟 판은 주석 블록 · 실행 블록 넷」 으로 커밋됐다 → 이 차수가 자리를 바꿈(102-f) |
+| so csv v4 | asung-ims `0b10e58` · so.html(대화 Claude) | 목록 위 ↓ Lines CSV — 거른 오더 전부의 줄(so_detail · 500 오더 상한 · Order total 칸 · GP 없음) · DB 무변 · ⚠️ so-detail-keys-1 전(11-07 낮 전)에 받은 CSV 는 나간 오더 줄 금액이 비어 있었다(102-c 1) |
+| so-detail-keys-1 | `b7e6c44` · `20261107143714_so_detail_keys_1.sql` · 지시서 `so-detail-keys-1.md`(md5 8 `8df5b1dc` · Fable) | so_detail 줄 객체 키 넷(`no_price` · `free` · `shipped_total` · `removed`) 되살림 · DB prosrc 에서 옮겨 그 한 줄을 둘로(diff 그 줄뿐) · md5 `9f4e87f6` → `e56a3ce9`(len 10967 → 11029) · 머리 · invoker · stable · search_path · acl · comment 무변 · 시험 9/9(읽기만 · 실제 행 무변) · REST 확인(콘솔 `AS91581 6.6 false false false true`) · 화면 확인(SO-20918 GP 455.20 · 37.9 %) |
+| 60189 정리(DB · 코드 무변) | — | QBO 테스트 분개 삭제(Caleb) → IMS Retry → opening_apply **sent · QBO Payment 172911** · 인보이스 60189 PAID(2 payments) · 손님 B Open Balance **−14.46 = IMS 14.46**(102-c 2) |
+
+- 조사 차수(코드 없음): qbo-sync-2e-3-0(Opus · 11-06 밤 · 102-c 3) · mcp-cap-0(102-c 5)
+- 마이그레이션 · 배포는 모두 운영 메인 Asung-IMS(fazgmyvzzhqybtvtktyg)
+
+### 102-c 사실 · 실측
+
+1. **so_detail 줄 키 넷(so-detail-keys-1)**
+   - 원인: **ln-1(`0c5886e` · 10-20 · `20261020123910` 391 행)** 이 so_detail 의 jsonb_build_object 를 한 줄로 이으며 `'total', …,   -- ln-1 판정 546(…)` 뒤 같은 줄에 `'no_price' … 'removed',` 가 붙었다 → `--` 가 줄 끝까지 주석이라 네 키가 **오류 없이** 빠졌다 · bgr-1c(`20261023141448` 665 행)가 이어받음 · 그 뒤 so_detail 정의 없음 · **18 일**
+   - 영향: 나간 오더(basis shipped)의 줄 TOTAL 「—」 · GP = 0 − 원가(10-22 so gp v1 부터 한 번도 맞은 적 없음) · 상세 · 목록 ↓ Lines CSV 의 줄 금액 빈칸 · so.html 3479 · **pos.html 743** 의 「no price」 꼬리표 · ⚠️ 돈 쪽 무관(인보이스 · doc_data · QBO · 위쪽 합계 · so_totals_many)
+   - 고침: DB prosrc 에서 옮겨 그 한 줄을 `'no_price'` 앞에서 둘로(주석 끝 공백 하나 지움) · diff 그 줄뿐 · 머리 · invoker · stable · search_path · acl · comment 무변 · 지난 오더도 바로 정상(계산값 · 백필 없음)
+   - B 훑기: DB public 함수 「`--` 뒤 같은 줄에 코드」 = so_detail 하나(넓게 34 줄 · 24 함수는 주석 글 안 인용 · 영향 0) · 마이그레이션 같은 꼴 2(ln-1 · bgr-1c 의 그 줄) · `free` · `removed` 를 so_detail 키로 읽는 곳 0 · so_detail 결과를 받는 DB 함수 = mcp_order 하나(네 키 안 고름)
+   - 이견 2(받음): shipped 기준 `totals.lines_total` = so_tax_preview 의 줄 Σ round(qty_shipped × unit_price, 2) = Σ`shipped_total`(구성품 줄은 CHECK 로 unit_price 0)
+   - **이견 3(기각)**: 시험 C 절이 실제 초안 SO-20906 줄 unit_price 를 begin 안에서 잠시 null 로 → 「시험 안에서도 실제 행을 바꾸지 않는다(rollback 되더라도)」 위반 · 빼고 9/9 · 근거로 든 선례 **ac_count_1 A8 도 같은 위반 → 회수 대상**(deferred 488)
+   - 생성기 함정(실측): prosrc 는 `\n` 으로 **시작**한다(as $function$ 바로 뒤) · `psql -At` 는 끝에 `\n` 하나 더 · 착지 do 가 len 11030 을 잡았다
+   - 동료: **11-07 에 받은 Lines CSV 는 다시 받으라** 전하기(나간 오더 줄 금액이 비어 있었다 · deferred 498)
+   - KIM & C 제품 GP 98 ~ 99 %(원가 개당 0.01)는 **Caleb 이 알고 있음 · 문제 아님** — 조사 거리 아님
+2. **인보이스 60189 · 손님 B(에드먼턴 매장 · customer `57c53339-…`)** — 가드가 막은 중복 · 북키퍼 손 분개 · 삭제 → Retry
+   - 실패: opening_apply(job `357d7474-…` · ims_id = so_payment_alloc `b14b49b5-…` 13.47 auto_balance 11-04 19:01) 「QuickBooks already shows 1330.01 paid on invoice 60189(balance 0 < 13.47)」 — **가드(보내기 직전 QBO 다시 읽기)가 중복을 막았다**
+   - IMS 실물: 인보이스 60189(QBO 172610 · 1330.01 · 11-05 sent) · 붙임 둘 = 이월 13.47(opening · note 「Credit for sale SO-17758」 · 계정 `_1150040009_`) + e-transfer 1331.00 중 1316.54(manual · 직원 11-04 19:04) · 남은 돈 14.46 · Payment 172671 sent(UnappliedAmt 14.46 · mismatch null · warning 「CAD 14.46 not applied …」)
+   - Cin7 실물: SO-17758 · 인보이스 50154 · 고객 크레딧 = **e-transfer 과입금 13.47**(계정 `_1150040028_` Clearing - E-Transfer · 참조 「Overpaid」 · 10/16) — 크레딧 노트가 아니다
+   - QBO 실물(= **1059**): 10/15 **Sales Receipt** CA4zmF8H 「Deposit made by SO-17758」(+ 같은 번호 Payment) = 과입금이 **Customer Credits(1150040009)** 에 있었다 → **2e-3-1 의 전제(이월 돈은 AR 아닌 Customer Credits 계정 · OC CreditMemo 가 AR 로 옮긴다)는 이 건에서 맞았다**
+   - 원인: **Journal Entry TEST10312026**(10/31 · 차 Customer Credits 13.47 / 대 A/R 13.47 · 손님 B) — QBO Audit 「Edited by <북키퍼 QBO 사용자>」(토론토 11-05 16:39 ~ 16:50 · 11-06 17:31 · 17:43 · 사이사이 Indirect edit by System) · 그 크레딧을 결제 C1AuQND3YMgR 안에서 써 인보이스를 1330.01 로 · 그 뒤 OC-60189-1(172901 · 11-07 05:40 UTC · cron 62 첫 회차)이 같은 13.47 을 또 옮겨 QBO Open Balance −27.93(IMS 14.46)
+     - Caleb 「자동으로 처리가 되어야 할 것이 정리가 안 되니 JE 로 상쇄시켜 보려 했다는 게 합리적인 추측」 · 「아마 테스트하느라」
+     - ⚠️ 대화 Claude 의 「QBO Automatically apply credits 가 붙였다」 짐작은 **기각** — 정본 판정 985 = off 그대로 · 붙임은 북키퍼 편집(Indirect edit by System)
+   - 정리(11-07 · Caleb · = **1060**): QBO 에서 분개 **Delete**(Reverse 아님) → 인보이스 60189 Balance due 13.47 · 결제는 1316.54 로 저절로 → qbo-send Retry(메모 「Bookkeeper test JE TEST10312026 … deleted … re-apply OC-60189-1」) → cron 62 16:00 UTC → opening_apply **sent 172911**(attempts 2) → PAID · 2 payments · Open Balance −14.46 = IMS 14.46
+   - **1062**(사실): QBO Audit 의 북키퍼 사용자 이름은 ims_staff 의 북키퍼 이름과 다르다 — 같은 사람인지 짐작(102-a)
+   - ⚠️ sent 일감에도 옛 `last_error` 가 남는다(화면 · 쿼리에 옛 실패 글 · 11-08 읽기 sent 489 중 37 — credit 2 · credit_apply 4 · invoice 7 · opening_apply 1 · payment 22 · payment_void 1) — 비울지 기록으로 둘지 판정 대기(deferred 486)
+   - 남은 확인(Caleb · 북키퍼 · deferred 496): QBO Audit log(User = 북키퍼 · 10/30 ~ · Transactions)에서 다른 Journal Entry — ① 붙이기 성공한 6 건의 손님(열린 분개면 QBO 크레딧이 조용히 두 배) ② 대기 3 건(인보이스 60257 · 60258 · 60282)의 손님(인보이스를 보내기 전에 분개 삭제)
+   - ⭐ **두 장부 대조의 기준 = 손님 잔액(QBO Open Balance = IMS Available)** — 구성이 달라도 잔액이 같은지부터
+3. **2e-3 받아 둔 돈 · 환불 — 조사 실물(부록 A)**
+   - 조사 qbo-sync-2e-3-0(Opus · 11-06 밤): 이월 받아 둔 돈 **62 줄** · 6,628.40 · 계정 `_1150040009_`(「62 건」 은 줄 수) · 컷 뒤 인보이스에 붙은 것 10 건 · 83.92 · 모두 auto_balance(paid_on 순이라 이월분이 먼저 쓰임 · 남은 4,234.18 · 손님 47) · 그중 7 장(68.24)은 QBO 에 인보이스만 가 손님이 안 낸 것으로 보였다 · 붙임 0 받은 돈 0 · 일부 붙임 3 건 UnappliedAmt 로 IMS = QBO
+   - 환불 10 건 = 컷 전 결제일 8 건(2,310.30 · 모두 이월 손님) + CR-01011 · 01012 환불 2 건(219.79 · 11-04 · e-transfer · 참조 Interac 번호)
+   - **Caleb 확인(11-07)**: 컷 전 결제일 8 건은 **QBO 에 이미 있다** — Expense(Purchase) · Payment account = 입금했던 정산 계좌 · 줄 Category Customer Credits + Customer · Out of Scope(→ 1057) / CR-01011 · 01012 환불은 **QBO 에 없다**(CreditMemo 172491 · 172490 RemainingCredit = 금액 · SyncToken 0 · 11-04 뒤 그 금액 Purchase 0 · 화면 검색 0)
+   - 북키퍼 = IMS role manager 인 직원 한 명 — 환불을 IMS 에 적고 QBO 에는 일부러 안 넣는다(→ 1058)
+   - QBO 실물: Item **5624 「Customer Credit」**(Service · Income `1150040009` Customer Credits · Cin7 이 쓰던 것) · Account Id = IMS `_N_` 의 N
+   - D-2 선결제 공백(붙임 0 받은 돈은 인보이스가 나기 전까지 QBO 에 없음 · 지금 0 건) → deferred 493
+   - 2e-3-2 의 첫 수(인계서 §4-1): qbo-sync-2e-3-2-0 조사 — ⓐ 크레딧 노트 환불의 QBO 꼴을 sandbox 에서(조사 D-3 안 A · Purchase/Check + 0 원 Payment 로 CreditMemo 잇기 · Purchase 는 새 쓰기 엔티티) ⓑ 결제일(paid_on) 컷 뒤 대상 쿼리(1056)와 컷 전 8 건 「손으로 들어감」 표시 자리 ⓒ 989 「따라간다」 실측 ⓓ **60189 교훈 — 보내기 전 「QBO 에 북키퍼 손 기록이 이미 있나」 확인 길**
+4. **문서 메일 받는 이 여럿(mail-inc · 460)** — 켜지면 인보이스 237 장 중 **42 장(청구처 16)** 이 둘 이상에게 · 하루 13 통 중 다섯에 하나꼴 · 11-08 읽기 `doc_mail_multi` 키 없음(= off · 옛 길) · 켜기는 월요일 연락처 정리 뒤(deferred 497)
+5. **IMS Claude 커넥터(mcp-cap)**
+   - 조사 mcp-cap-0: 200 = sales_summary 의 EF + DB 상한 · 잘림 표시 · 합계는 이미 맞음 · 실사용 5 일 5,263 호출(Claude 가 브랜드 · 공급처 · 손님으로 쪼개 기계적으로 · 1 분 최대 81) · 57014 timeout 172(동시 부하) · find_order 3,150 호출(deferred 492)
+   - 판정 → 1064 · claude.ai 실물(11-07): 옛 대화는 옛 도구 꼴을 기억(최대 200 · offset 없음) · 새 대화는 다시 연결 없이 offset 을 쓴다(mcp_call_log offset 200 · 4750) ⇒ 동료에게 「새 대화에서」 만(deferred 498)
+   - Claude 열쇠 9 명 · 원가(GP) 보이는 사람 8 → 1063
+   - 새 대화 Claude 의 10 월 SKU 답에서 상위 200 안 GP 음수(AJA69615 −39.8 · AJA69312 −21.3 · AJA69812 −18.3 · AJA65612 −4.7 · KUZ77036 −16.5) → 조사 거리(deferred 491 · 커넥터 mcp_sales 길 · so_detail 고침과 무관)
+6. **Shopify 오더 고치기 — 확인(새 판정 없음)** · Caleb 질문에 정본 `shopify-integration.md` **2-j(434) · 4-e(441) · 4-f(442) · 4-h(fulfill_cut)** 로 답함 · 매뉴얼 · 직원 안내 거리(01 Sales 「웹 오더 고치기」)
+   - 원칙(2-j · Caleb): 「오더 변경은 원칙적으로 불가 · 캔슬하고 다시 넣거나 추가오더」
+   - **SO 가 생긴 뒤 Shopify 에서 고친 것(추가 · 수량 · 빼기)은 IMS 로 안 내려온다** — SO 무접촉 + 경고 updated_after_so 「Changed in Shopify after the sales order was made」 · 예외는 취소(SO 안 바뀜 ∧ draft | confirmed 면 자동 취소 · 아니면 cancel_needs_review)
+   - IMS 에서 고치면: **줄이기 · 빼기** → 닫히는 순간 Shopify 오더에서 지움(441 · orderEdit · 손님 메일 없음) / **같은 SKU 늘리기** → Shopify 안 늘어남 · 발송은 Shopify 남은 수량까지 + fulfill_cut / **새 제품** → Shopify 오더에 안 들어감 · 발송 짝(계보)에 없음 / 직원이 고친 SO 는 그 뒤 Shopify 취소가 자동 아님(434)
+   - Release 뒤 = **Recall** 로 되돌림(picking · 보류 · 백오더면 막힘) · Recall → 고침 → 다시 Release 는 IMS 만 바뀜 · Shopify 는 위 규칙 그대로
+   - 손님이 더 원하면 = **새 Shopify 오더 → 새 SO → 같은 손님 · 둘 다 열렸으면 Merge**(발송은 원래 Shopify 오더마다 · 442)
+7. **cron 62 · 운영 숫자(메인 DB 읽기 11-07 19:15 토론토 = 옮기기 직전 다시 셈 · 규칙 55 · 86)**
+   - cron 62 `ims-qbo-send-payments`: jobid 62 · `*/5` · active · **kinds_eight t · where_eight t** · key_len 64 — 2e-3-1b 첫 실물 두 호출(05:36 ~ 05:38 UTC) 뒤 **05:40 UTC 회차부터 여덟**(job_run_details 05:40 「1 row」) · 같은 이름 cron.schedule = 번호 62 그대로 · 레포 cron.sql 실행 블록은 넷이었다 → 이 차수가 DB 실물(여덟)에 맞춤 · 다른 cron 번호 무변(59 · 60 · 61 · 62 · 64 모두 active · 63 없음)
+   - inv_config: qbo_send_enabled **off** · qbo_send_payments_enabled **on** · qbo_send_batch 15 · doc_mail_multi 없음
+   - opening_*: opening_credit sent 7 · blocked 3 / opening_apply sent 7 · blocked 3 · failed 0(인계서 끝 실측과 같다)
+   - qbo_job 전체: blocked 57 · failed 1 · queued 58 · sent 489 · skipped 15 / 결제 식구(payment · payment_void · credit_apply · credit_apply_void · opening_*): payment sent 204 · blocked 48 · failed 1 · skipped 11 · payment_void sent 8 · skipped 2 · credit_apply sent 8 · blocked 3
+   - failed 1 = payment 「HTTP 400 ValidationFault code 620: TxnID Cannot Be Linked : 160028」 = CHQ #15033(deferred 482 · 월요일)
+   - so 행 **490**(created_at ≥ 10-30 도 490) — 인계서 1107b 「지금 471」(11-07 낮) · 이 차수 §0 첫 셈(11-08 아침 UTC) 487 · 옮기기 직전 490 ⇒ 하루 사이 움직인 것 · 어느 것도 틀린 수가 아니다
+8. **그 밖**
+   - so.html 넓은 목록: 손님 C 로 거르니 SO-20908a 하나만 → Clear 뒤 같은 조건이면 3 개(SO-21002 · SO-20908 · SO-20908a · DB 와 같음) — 안쪽에 남은 거르기 값(넓은 · 좁은 목록 상태 거르기 동기화?) 짐작 · **한 번뿐 · 재현되면 순서를 받아 고친다**(deferred 487)
+   - IMS 의 SO 표는 컷 뒤 오더만 · 컷 전은 hist_
+   - QBO Audit history 보는 곳: 거래 화면 아래 More → Audit history · 회사 전체 = 톱니바퀴 → Audit log(Filter User · Date · Events) · 분개 삭제 = 분개 화면 아래 More → Delete
+   - 본사 그룹 CHQ #15033 failed(ValidationFault 620)는 **월요일 북키퍼 전달 사항에 이미 있음**(482 · 새 줄 없음)
+   - **EF 배포는 그 EF 가 import 하는 `_shared` 파일만 올린다**(ims-mcp 배포 때 qbo.ts 미커밋이 있었지만 mcp.ts 만 올라감) — §101-c 11 · 101-e 91 ③ 의 「_shared 지금 작업 트리 전체」 는 틀렸다(102-f) · 위험은 두 창이 **같은 EF 가 쓰는 파일**을 고칠 때
+   - `so_payment.created_by` = **ims_staff.id**(ims_staff 에 user_id 없음 · auth_user_id)
+   - CLI 3.0: `--project-ref` · `--db-url` 은 4 판에서 `--remote` 로(경고만 · 지금은 그대로 됨)
+   - 1107 인계서의 「asung-so 기대 md5 `829f3341…` · claude.ai 가 옛 판」 은 **틀렸다** — 레포 판 본문 md5 `fbfd3d0c61b5` = claude.ai 판(11-07 실측) · 레포 어디에도 그 숫자 없음(grep 0 · 고칠 줄 없음)
+
+### 102-d′ 열린 것 · 닫은 것
+
+- **닫힘**: 인보이스 60189(sent 172911 · 잔액 = IMS) · so_detail 줄 키 넷(so-detail-keys-1) · deferred **435**(1063) · 2e-3-1 · 1b(이월 받아 둔 돈 **붙임**은 나간다 — 454 는 2e-3-2 환불 몫이 남아 「부분」) · mail-inc-1b · 1c(460 은 1d 화면이 남아 「부분」) · 커넥터 200 상한(1064)
+- 잇기: **341**(이월 돈 붙임 OC 두 장 · 1047 약속 그대로) · **483**(북키퍼 안내에 「이월 크레딧 손 분개 금지 · 1061」 더함) · **482**(failed 1 그대로)
+- 새 **486** ~ **495**(deferred ③ · 486 판정 대기 · 494 Caleb 요청 때 · 나머지 미정) · **월요일(11-09) 실무 496 ~ 498**(선례 481 ~ 485)
+- **월요일(11-09) 실무 — 열림**: 북키퍼 QBO Audit log(6 + 3) · 손 분개 금지 전달 · 인보이스 60257 · 60258 · 60282 보내기 전 알림(496) · 연락처 정리 → doc_mail_multi 켜기 → 첫 실물(497) · 동료 Lines CSV 다시 받기 · 커넥터 「새 대화에서」 안내(498) · 1107 §3 의 다섯 · 481 ~ 485 그대로
+- 다음 차례(1038 · QuickBooks 먼저): **2e-3-2 환불**(454 남은 몫 · 첫 수 = qbo-sync-2e-3-2-0 조사) → qbo-send 화면 opening 이름표(495) → 459 · 470 · 471 · 971(Caleb) → 메일 1d(켜고 며칠 뒤) → 커넥터 ① ②(494) → perf-rpc-2 ~ 4(1037)
+
+### 102-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (101-e 에 이어 94 부터 · 1107 §6 여섯 + 1107b §6 다섯 + 셋)
+
+94. [지시서 · 짐작 넷] 2e-3-1 · mail-inc 지시서의 짐작 넷이 다 이견으로 잡혔다 — 「두 장 길 = JournalEntry」(→ 998′ CreditMemo) · 「62 건 = 붙임」(→ 줄) · 「창에서 첫 주소 같으면 목록」(→ 보이는 것 ≠ 가는 것 · p_to 목록) · 「mail_mark 덮어쓰기 · 겹침 CHECK」 미확인(→ 보냈는데 unknown 될 뻔) ⇒ 지시서의 짐작은 「짐작」 표지를 달고 §0 이견에 맡긴다 · 받는 쪽이 실물로 가른다
+95. [재발행 원본] 재발행 몸은 **DB prosrc** 에서 옮긴다 — 파일 인쇄본에서 옮기다 다른 줄 둘(744 · 745)을 놓칠 뻔(mail-inc-1c) ⇒ 몸의 원본은 늘 DB(md5 를 적고 대조)
+96. [재발행 · 시그니처] 시그니처를 바꾸는 재발행은 drop → create → grant · **한 벌 세기**(REST 이름 호출이 300 ambiguous) ⇒ 바꾼 뒤 같은 이름 함수 수를 센다
+97. [칸 이름 짐작 · 재발] ims_staff.user_id 를 짐작(실제 auth_user_id) ⇒ `\d` 먼저(89 와 같은 뿌리) · `to_jsonb(s)::text like` 로 칸 이름 없이 찾는 꼴이 쓸모 있었다
+98. [커넥터 · claude.ai] claude.ai 는 대화를 시작할 때의 도구 꼴을 기억한다 — 커넥터 인자를 바꾸면 옛 대화는 옛 꼴 ⇒ 동료에게 「**새 대화에서**」(1064)
+99. [화면 안내] 화면 이름표 ≠ 종류 이름(Settings 의 charge = 「Freight, discount & account lines」) ⇒ 화면 안내는 화면 글자로(84 와 같은 뿌리)
+100. [조용한 실패 · 18 일] 한 줄 jsonb_build_object 안의 `--` 주석이 뒤 키 넷을 먹어도 함수는 돌고 화면은 「—」 — 시험에 「응답에 키가 있다」 단언이 없어 18 일 ⇒ **긴 한 줄 안에 `--` 주석 금지**(재발행 생성기가 줄을 합치면 뒤 코드가 조용히 사라진다) · 창구 시험은 응답 키를 단언한다 · 조용한 실패는 오류가 아니라 「빈 값」으로 온다
+101. [화면 디버깅 순서] 화면이 이상하면 **화면 코드가 읽는 키 → 창구(so_detail) 응답 → prosrc** 순으로 내려가면 빨리 잡힌다(raw so.html 을 받아 grep)
+102. [QBO · 짐작 기각] QBO 와 IMS 가 어긋나자 「Automatically apply credits 가 붙였다」 는 그럴듯한 짐작을 냈다 — 판정 985(off)와 Audit history 실물(북키퍼 편집 · Indirect edit by System)이 기각 ⇒ **QBO 거래 목록 · Audit history 를 먼저** 본다 · 정본에 이미 있는 판정(985)을 먼저 grep
+103. [대조 기준] 두 장부 대조의 기준은 **손님 잔액(QBO Open Balance = IMS Available)** — 구성이 달라도 잔액이 같은지부터(60189 는 −27.93 ≠ 14.46 이 단서였다)
+104. [잘 된 것] 가드(보내기 직전 QBO 다시 읽기)가 실제로 중복 쓰기를 막았다 — 「모르면 안 보낸다」 가 맞았다 · 첫 실물을 사람 손으로 보낸 뒤에야 cron 을 여덟으로
+105. [시험 · 실제 행] 시험 C 절이 실제 초안 SO-20906 의 줄을 begin 안에서 잠시 바꿨다(기각 · 빼고 9/9) — 근거로 든 ac_count_1 A8 도 같은 위반 ⇒ **시험 안에서도 실제 행을 바꾸지 않는다(rollback 되더라도)** · 가짜 행을 만든다 · A8 은 회수(deferred 488)
+106. [재발행 생성기 · 바이트] prosrc 는 `\n` 으로 **시작**한다(as $function$ 바로 뒤) · `psql -At` 는 끝에 `\n` 하나 더 ⇒ 착지 do 의 길이 단언은 이 둘을 셈한 값(11030 = 11029 + 1)으로 · md5 는 prosrc 그대로
+
+### 102-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §101 끝 「다음 판정 번호 1056 · 다음 deferred 번호 486」 → 아래
+- 102-a **1058** 행에 「→ 1061」(이 차수가 처음 적는 번호라 옛 줄이 없다 · 행 자체에)
+- 1107 인계서의 「asung-so 기대 md5 `829f3341…`」 → 틀림(102-c 8) · 레포 grep 0 — 고칠 줄 없음
+- **so gp v1 · ln-1 를 적은 줄** — §67-c 차수 표 ln-1 행 · §71-a 판정 625 · §71-b 차수 표 so gp v1 행 · 스킬 asung-so 4-k 「판정 625 · so gp v1」 줄에 「→ §102 · 10-20 ~ 11-07 나간 오더 GP 가 틀렸음(so-detail-keys-1)」
+- **§101-c 11 · §101-e 91 ③** 「EF 배포는 `_shared` 의 지금 작업 트리 파일을 함께 올린다」 → **그 EF 가 import 하는 `_shared` 파일만**(102-c 8) · 스킬 asung-workflow §11 91 ③ · asung-wms 규칙 47 줄도 고침 · 처방(같은 EF 가 쓰는 파일을 고치는 창이 있으면 미룬다)은 그대로
+- 판정 **931** 의 「GP 는 원가 검증 중에도 Caleb 한 명」 → 1063(열쇠 9 · 원가 8 그대로) · deferred 435 닫힘
+- `supabase/ops/cron.sql` ims-qbo-send-payments **실행 블록 넷 → 여덟**(DB 실물 · 11-07 05:40 UTC) · 넷 판은 (기록) 주석 · 「아래 실행 블록 = kinds 넷」 머리 셋 정정 · 2e-3-1b 커밋 글 「실행 블록 넷 그대로 · 1034」 는 그날 상태
+- `qbo-integration.md` 상태 줄 [11-07] · §14 머리 14-j · **§14-j**(새) · `deferred.md` 486 ~ 498 · 454 · 460 부분 · 341 · 482 · 483 잇기 · 435 닫힘 · §4 번호 줄
+- 스킬 asung-qbo(본문 + description ⚠️ 한 줄) · asung-so(본문만 · description 여유 1 자) · asung-workflow · asung-doc · asung-wms(본문) · asung-ops(asung-ops 레포 지도 cron 62 kinds 여덟) · 매뉴얼 en · ko 01-sales(웹 오더 고치기 소절 `sales-web-order-changes` · QuickBooks 조심할 것 셋 · rulings 꼬리) · 08-by-role(링크 한 줄)
+
+```
+다음 판정 번호: 1065 · 다음 deferred 번호: 499
 ```

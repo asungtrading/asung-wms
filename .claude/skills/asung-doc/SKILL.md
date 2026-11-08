@@ -141,6 +141,10 @@ Gotenberg 실물  GCP asung-ims-mail · northamerica-northeast2 · 서비스 got
      건너뜀은 doc_mail_skip(no_email · reissue(같은 오더에 앞 인보이스) · error) — **메일 때문에 발행이 서지 않는다** · so_invoice_issue 를 고쳐 메일을 넣지 마라
 ⭐⭐ [2026-11-03 · 판정 1000 · 1018 ~ 1029 · mail-inc-1a `76fa714` · so-module §99-c 3] 받는 이 여럿 — **DB 바탕만 섰다 · 손님 메일은 아직 한 주소(아래 498)** · 새 함수 doc_mail_recipients(p_kind, p_ref) = 청구처의 include in email 켜진 연락처 ∪ 문서 매장(자식)의 켜진 연락처 · 모두 To · 겹침 제거 · 상한 10 · skipped(blank · bad_shape · duplicate · cap) · 비면 청구처 498 만 · mail_outbox.to_more text[](둘째부터 · CHECK ims_mail_to_more_ok) · mail_claim 이 to_more 를 JSON 배열로 넘긴다 · 채우는 곳 0
    ⚠️⚠️ 차수 순서 1b EF(To 에 잇기) → 1c 채우기 → 1d 화면 — **1c 가 1b 보다 먼저면 둘째 주소부터 조용히 빠진다**(deferred 460) · QBO BillEmail · 백오더 메일은 무변(1025 · 1026)
+⭐⭐ [2026-11-07 · mail-inc-1b `34fe1f9` · 1c `3b7b7f2` · `20261107044600` · so-module §102-b · 부록 A B] **1b · 1c 끝 — 아직 꺼짐(키 `doc_mail_multi` 없음 = off · 옛 길 한 주소)** · 켜기는 월요일 연락처 정리 뒤(deferred 497 · 1d 화면은 켜고 며칠 뒤)
+   · 1b EF: To = 첫 주소 + to_more(rendered.to_address = 첫 주소 · mail_mark 가 덮는다 · 받는 이 수 = 1 + cardinality(to_more)) · **redirect ∈ to_more 면 failed** · EF 검사 = DB regex + `<>"()\:` · 제목 안 자름 · render 도 to_more · 황금 ⑳(바꾸기 전 판 b9b14d6 · sha 55b9fd7d…)
+   · 1c DB: 문서 메일 줄을 넣는 곳은 **doc_mail_enqueue 하나**(부르는 곳 send · auto_invoice) · 옛 9 인자 drop → 11 인자 · doc_mail_send 시그니처 그대로 · **p_to = 쉼표 · 세미콜론 목록**(미리 보기 to = 전체 「, 」 · 직원이 칸에서 지우거나 더한 그대로 간다 — 보이는 것 = 가는 것) · ims-doc.js 받는 칸은 type=search · regex 없음 → 화면 고칠 것 없음 · payload.recipients(source flags | fallback_498 | typed · skipped · list)
+   · 켜면: 인보이스 237 장 중 42 장(청구처 16)이 둘 이상에게 · 하루 13 통 중 다섯에 하나꼴 · 키는 ims_mail_config_keys 밖 — **psql 로만**(없거나 off 면 옛 길)
 ⭐ 받는 이 = 판정 498 고르기(doc_mail_recipient) — 기본 연락처 → 주소 모양인 다른 활성 연락처 → 없음 · 직원은 창에서 한 주소로 고칠 수 있다 · include_in_email 은 미정(미룬 249)
 ⭐ 제목 · 본문 = doc_setting 의 mail_subject · mail_body 를 doc_data 로 채움(doc_mail_fill · 스칼라 {{a.b}} 만) — 줄에 박힌다(뒤에 글을 고쳐도 이미 넣은 줄은 그대로)
    → [2026-10-26 · 판정 787] ship_ready 기본 메일 제목 「PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.」(srs-1 이 시드 원문일 때만 바꿨다) · 미리 보기(doc_mail_send commit false)가 채워 창 칸에 넣고 보내기는 칸 글 그대로
