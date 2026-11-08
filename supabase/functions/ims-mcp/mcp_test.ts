@@ -1,5 +1,5 @@
-// deno test supabase/functions/ims-mcp/mcp_test.ts — Supabase(auth · rest) 무접촉(가짜 fetch) · mcp-2 M1 ~ M15 · mcp-1b M16(도구 ⑥ sales_summary) · mcp-cap-1 M17(⑥ offset · limit 500 · 설명 글)
-import { ARGS_MAX_CHARS, clipArgs, handle, metadataDoc, TOOLS, validateArgs, type Deps } from "../_shared/mcp.ts";
+// deno test supabase/functions/ims-mcp/mcp_test.ts — Supabase(auth · rest) 무접촉(가짜 fetch) · mcp-2 M1 ~ M15 · mcp-1b M16(도구 ⑥ sales_summary) · mcp-cap-1 M17(⑥ offset · limit 500 · 설명 글) · mcp-conc-1 M18 ~ M20(⑥ busy 재시도 · 가짜 sleep)
+import { ARGS_MAX_CHARS, BUSY_RETRY_MS, BUSY_TEXT, clipArgs, handle, metadataDoc, SERVER_INFO, TOOLS, validateArgs, type Deps } from "../_shared/mcp.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
   const a = JSON.stringify(actual), b = JSON.stringify(expected);
@@ -11,11 +11,11 @@ const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/\+/g, "-").replace(
 const TOKEN = "hh." + b64({ sub: "u-1", role: "authenticated", client_id: "claude-1", aud: "authenticated" }) + ".sig";
 const EP = SB + "/functions/v1/ims-mcp";
 type Call = { url: string; init: RequestInit };
-type Fake = { calls: Call[]; warns: string[]; logs: unknown[]; rpc: (fn: string, body: unknown) => Response | Promise<Response>; auth: (token: string) => Response; logFail?: boolean };
+type Fake = { calls: Call[]; warns: string[]; logs: unknown[]; sleeps: number[]; clock: number; rpc: (fn: string, body: unknown) => Response | Promise<Response>; auth: (token: string) => Response; logFail?: boolean };
 function mk(over: Partial<Fake> = {}): { d: Deps; f: Fake } {
-  const f: Fake = { calls: [], warns: [], logs: [], auth: (t) => t === TOKEN ? new Response(JSON.stringify({ id: "u-1" }), { status: 200 }) : new Response("{}", { status: 401 }),
+  const f: Fake = { calls: [], warns: [], logs: [], sleeps: [], clock: 1000, auth: (t) => t === TOKEN ? new Response(JSON.stringify({ id: "u-1" }), { status: 200 }) : new Response("{}", { status: 401 }),
     rpc: () => new Response(JSON.stringify({ found: true, so_number: "SO-25001" }), { status: 200 }), ...over };
-  const d: Deps = { env: (n) => ({ SUPABASE_URL: SB, SUPABASE_ANON_KEY: ANON, SUPABASE_SERVICE_ROLE_KEY: SVC } as Record<string, string>)[n], now: () => 1000, warn: (m) => f.warns.push(m),
+  const d: Deps = { env: (n) => ({ SUPABASE_URL: SB, SUPABASE_ANON_KEY: ANON, SUPABASE_SERVICE_ROLE_KEY: SVC } as Record<string, string>)[n], now: () => f.clock, warn: (m) => f.warns.push(m), sleep: async (ms) => { f.sleeps.push(ms); f.clock += ms; },   // 가짜 sleep: 기다리지 않고 시계만 민다(ms 가 재시도를 품는지 본다)
     fetch: async (url, init) => {
       f.calls.push({ url, init });
       if (url === SB + "/auth/v1/user") return f.auth(String((init.headers as Record<string, string>).Authorization).replace("Bearer ", ""));
@@ -170,4 +170,34 @@ Deno.test("M17 mcp-cap-1 sales_summary offset — 스키마(integer · 최소 0 
   eq((await (await handle(post(rpcReq(7, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku", limit: 500, offset: 100000 } })), d)).json()).result.isError, false, "큰 offset 은 EF 가 막지 않는다(DB 가 빈 쪽)");
   eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_error_code), ["ok:null", "ok:null", "error:invalid_params", "error:invalid_params", "error:invalid_params", "ok:null"], "logs");
   eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 3, "rpc 3");
+});
+Deno.test("M18 mcp-conc-1 busy — 세 번 다 PT429/429 → 네 번 부름 · sleep 300 · 600 · 1200 · isError + BUSY_TEXT · 기록 error/busy · ms 는 재시도 포함(2100) · 버전 mcp-conc-1", async () => {
+  const busy = () => new Response(JSON.stringify({ code: "PT429", message: "IMS is busy: 3 sales summaries are already running across all staff — try again in a few seconds, one at a time — nothing was read", details: null, hint: null }), { status: 429 });
+  const { d, f } = mk({ rpc: () => busy() });
+  const a = (await (await handle(post(rpcReq(1, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "brand" } })), d)).json());
+  eq(a.result.isError, true, "isError"); eq(a.result.content[0].text, BUSY_TEXT, "BUSY_TEXT 그대로"); eq(a.error, undefined, "JSON-RPC 오류 아님");
+  for (const w of ["busy", "one call at a time", "offset", "instead of splitting by brand"]) ok(BUSY_TEXT.includes(w), "BUSY_TEXT: " + w);
+  eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 4, "rpc 4(처음 + 재시도 3)"); eq(f.sleeps, [300, 600, 1200], "sleep 간격"); eq([...BUSY_RETRY_MS], [300, 600, 1200], "상수");
+  const l = f.logs as Array<Record<string, unknown>>; eq(l.length, 1, "기록 한 줄");
+  eq([l[0].p_outcome, l[0].p_error_code, l[0].p_tool, l[0].p_ms, l[0].p_result_bytes], ["error", "busy", "sales_summary", 2100, null], "기록 error/busy · ms 2100"); eq(l[0].p_error_message, BUSY_TEXT.slice(0, 200), "error_message 200 자");
+  eq(SERVER_INFO.version, "mcp-conc-1", "version");
+  const i = (await (await handle(post(rpcReq(2, "initialize", { protocolVersion: "2025-06-18" })), d)).json()).result; eq(i.serverInfo.version, "mcp-conc-1", "initialize 가 버전을 낸다");
+});
+Deno.test("M19 mcp-conc-1 busy 뒤 성공 — 둘째에 ok → content = rpc JSON · sleep [300] · 기록 ok · ms 300 · 몸 code 만 PT429(HTTP 500)여도 busy 로 본다 · 바로 ok 면 sleep 0", async () => {
+  let n = 0;
+  const { d, f } = mk({ rpc: (fn) => { if (fn !== "mcp_sales") return new Response("{}", { status: 200 }); n++; return n === 1 ? new Response(JSON.stringify({ code: "PT429", message: "IMS is busy" }), { status: 500 }) : new Response(JSON.stringify({ rows: [{ key: "ORS", net: 1 }], page: { offset: 0 } }), { status: 200 }); } });
+  const a = (await (await handle(post(rpcReq(1, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "brand" } })), d)).json());
+  eq(a.result.isError, false, "ok"); eq(JSON.parse(a.result.content[0].text).rows[0].key, "ORS", "content = rpc JSON"); eq(f.sleeps, [300], "sleep 한 번");
+  const l = f.logs as Array<Record<string, unknown>>; eq([l[0].p_outcome, l[0].p_error_code, l[0].p_ms, l[0].p_result_bytes], ["ok", null, 300, JSON.stringify({ rows: [{ key: "ORS", net: 1 }], page: { offset: 0 } }).length], "기록 ok · ms 300");
+  const b = (await (await handle(post(rpcReq(2, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "sku" } })), d)).json()); eq(b.result.isError, false, "바로 ok");
+  eq(f.sleeps, [300], "sleep 안 늘었다"); eq((f.logs[1] as Record<string, unknown>).p_ms, 0, "ms 0");
+});
+Deno.test("M20 mcp-conc-1 묶지 않는 도구(1108) — find_order 가 429 를 내면 재시도 없이 busy 한 줄(rpc 1 · sleep 0) · 57014 · 42501 은 전과 같다(재시도 없음)", async () => {
+  const { d, f } = mk({ rpc: (fn) => fn === "mcp_order" ? new Response(JSON.stringify({ code: "PT429", message: "busy" }), { status: 429 }) : fn === "mcp_sales" ? new Response(JSON.stringify({ code: "57014", message: "canceling statement due to statement timeout" }), { status: 500 }) : new Response(JSON.stringify({ code: "42501", message: "permission denied" }), { status: 403 }) });
+  const a = (await (await handle(post(rpcReq(1, "tools/call", { name: "find_order", arguments: { so_number: "1" } })), d)).json()); eq(a.result.isError, true, "isError"); eq(a.result.content[0].text, BUSY_TEXT, "busy 글");
+  eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_order")).length, 1, "rpc 1"); eq(f.sleeps, [], "sleep 0");
+  const b = (await (await handle(post(rpcReq(2, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "brand" } })), d)).json()); ok(b.result.content[0].text.startsWith("IMS could not run this tool (57014)"), b.result.content[0].text);
+  const c = (await (await handle(post(rpcReq(3, "tools/call", { name: "stock", arguments: { query: "x" } })), d)).json()); ok(c.result.content[0].text.startsWith("IMS refused this call"), c.result.content[0].text);
+  eq(f.calls.filter((x) => /rpc\/mcp_(sales|stock)$/.test(x.url)).length, 2, "sales · stock 각 1 — 재시도 없음"); eq(f.sleeps, [], "sleep 0");
+  eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_error_code + ":" + x.p_ms), ["error:busy:0", "error:57014:0", "refused:42501:0"], "logs");
 });

@@ -4,6 +4,7 @@
 //   ⚠️ 이 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)가 메인(617) · 배포: supabase functions deploy ims-mcp --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.ims-mcp] verify_jwt=false — 게이트웨이 401 에는 WWW-Authenticate 를 못 붙인다)
 //   길: GET …/ims-mcp/.well-known/oauth-protected-resource(인증 없음 · RFC 9728 문서) · POST …/ims-mcp(JSON-RPC 한 건 · Bearer 토큰 → /auth/v1/user 로 확인 · 도구는 rpc/mcp_* 를 그 토큰으로) · 그 밖 405
 //   기록: tools/call 마다 mcp_log_add(service_role · 924) · 비밀: 없음(SUPABASE_* 자동 주입만) · 토큰은 응답 · 기록 · console 어디에도 안 남는다
+//   mcp-conc-1(2026-11-08 · 판정 1105 ~ 1110 · DB 20261108160000): sales_summary 가 busy(PT429) 면 _shared/mcp.ts 가 0.3 · 0.6 · 1.2 s 재시도 — 여기는 deps.sleep 주입만
 // ============================================================
 import { handle, type Deps } from "../_shared/mcp.ts";
 
@@ -12,6 +13,7 @@ const deps: Deps = {
   fetch: (url, init) => fetch(url, init),
   now: () => Date.now(),
   warn: (msg) => console.warn("[ims-mcp] " + msg.slice(0, 500)),
+  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
 };
 
 Deno.serve(async (req) => {

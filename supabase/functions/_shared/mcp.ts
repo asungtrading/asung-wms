@@ -1,5 +1,6 @@
 // ============================================================
-// ASUNG IMS — _shared/mcp.ts: Claude 커넥터 MCP 서버의 순수 처리 (mcp-2 · 2026-11-01 · 판정 917 ~ 924 · DB mcp-1a 20261031233700 · mcp-2 20261101000546 · mcp-1b 20261101014251 도구 ⑥ sales_summary · mcp-cap-1 2026-11-07 ⑥ 에 offset · limit 500 — DB 20261107051447)
+// ASUNG IMS — _shared/mcp.ts: Claude 커넥터 MCP 서버의 순수 처리 (mcp-2 · 2026-11-01 · 판정 917 ~ 924 · DB mcp-1a 20261031233700 · mcp-2 20261101000546 · mcp-1b 20261101014251 도구 ⑥ sales_summary · mcp-cap-1 2026-11-07 ⑥ 에 offset · limit 500 — DB 20261107051447 · mcp-conc-1 2026-11-08 ⑥ busy 재시도 — DB 20261108160000 자리 3)
+//   mcp-conc-1(판정 1105 ~ 1110): DB mcp_sales 는 자리 3 칸(직원 전체) · 다 차면 기다리지 않고 즉시 PT429(HTTP 429 · 몸 code "PT429") · 이 EF 가 0.3 · 0.6 · 1.2 s 기다렸다 다시(최대 3 번 · busyRetry 도구만 = sales_summary) · 그래도 busy 면 isError + BUSY_TEXT(하나씩 · offset 으로) · 기록(924)은 마지막 결과 한 줄 — outcome error · error_code busy · ms 는 재시도 포함(1107)
 //   EF ims-mcp/index.ts 가 Deno.serve + deps 주입만 · 시험 ims-mcp/mcp_test.ts 가 fetch 를 가짜로(qbo · freightcom 꼴)
 //   규격: modelcontextprotocol.io 2025-06-18 — Streamable HTTP(POST 한 건 · 배열(batch) 없음 · 알림 · 응답은 202 빈 몸 · GET 은 SSE 없으면 405 · DELETE 405 MAY · Mcp-Session-Id 는 MAY → 안 낸다 · MCP-Protocol-Version 머리가 지원 밖이면 400)
 //         인증: 토큰 없음 · 무효 → HTTP 401 + WWW-Authenticate: Bearer resource_metadata="<보호 자원 문서>"(RFC 9728) · 문서는 GET …/ims-mcp/.well-known/oauth-protected-resource(인증 없이)
@@ -10,15 +11,18 @@
 // ============================================================
 export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26"] as const;
 export const DEFAULT_PROTOCOL = "2025-06-18";
-export const SERVER_INFO = { name: "asung-ims", title: "Asung IMS", version: "mcp-1b" };
+export const SERVER_INFO = { name: "asung-ims", title: "Asung IMS", version: "mcp-conc-1" };
 export const INSTRUCTIONS = "Asung IMS, read only. Amounts are CAD. Warehouses: Asung Trading Inc. (Toronto) and Asung - Edmonton. Anything not in a result is not available through this connector — check the IMS screens.";
 export const RPC_TIMEOUT_MS = 9_000;
 export const ARGS_MAX_CHARS = 2_048;
 export const ERROR_MESSAGE_MAX = 200;
 export const FUNCTION_PATH = "/functions/v1/ims-mcp";
+export const BUSY_RETRY_MS = [300, 600, 1200] as const;                                              // mcp-conc-1(1109): busy(PT429) 면 이만큼 기다렸다 다시 — 최대 3 번 · DB 연결은 쥐지 않는다
+export const BUSY_TEXT = "IMS is busy with other sales reports right now (at most 3 sales summaries run at once across all staff). Wait about 10 seconds and call sales_summary again — one call at a time, waiting for each result — and page with offset instead of splitting by brand or supplier.";
+const isBusy = (status: number, code: string) => status === 429 || code === "PT429";                   // PostgREST: raise … errcode PT429 → HTTP 429 · 몸 code "PT429"
 
 type Schema = { type: string | string[]; properties?: Record<string, Schema>; required?: string[]; additionalProperties?: boolean; enum?: unknown[]; minimum?: number; maximum?: number; description?: string };
-export type ToolDef = { name: string; title: string; description: string; inputSchema: Schema; annotations: { readOnlyHint: true }; rpc: string; args: (a: Record<string, unknown>) => Record<string, unknown> };
+export type ToolDef = { name: string; title: string; description: string; inputSchema: Schema; annotations: { readOnlyHint: true }; rpc: string; args: (a: Record<string, unknown>) => Record<string, unknown>; busyRetry?: true };   // busyRetry: DB 자리표가 있는 도구만(mcp-conc-1 · 1108 — sales_summary)
 const NO_CONTACT = " Does not return addresses, phone numbers, emails, notes or costs.";
 // ⭐ 도구 목록은 이 배열 하나 — mcp-1b 가 ⑥ sales_summary(mcp_sales) 를 더했다(2026-11-01)
 export const TOOLS: ToolDef[] = [
@@ -49,7 +53,7 @@ export const TOOLS: ToolDef[] = [
       sku: { type: "string", description: "SKU (exact or partial)" }, supplier: { type: "string", description: "Supplier name (full or partial); uses each product's default supplier" },
       limit: { type: "integer", minimum: 1, maximum: 500, description: "Rows to return in this page (default 50, max 500); rows not on this page are summarized in rows_truncated" },
       offset: { type: "integer", minimum: 0, description: "Rows to skip (default 0); pass next_offset from the previous page to continue" } }, required: ["from", "to", "group"], additionalProperties: false },
-    annotations: { readOnlyHint: true }, rpc: "mcp_sales", args: (a) => ({ p_from: a.from, p_to: a.to, p_group: a.group, p_brand: a.brand ?? null, p_customer: a.customer ?? null, p_sku: a.sku ?? null, p_supplier: a.supplier ?? null, p_limit: a.limit ?? 50, p_offset: a.offset ?? 0 }) },
+    annotations: { readOnlyHint: true }, rpc: "mcp_sales", busyRetry: true, args: (a) => ({ p_from: a.from, p_to: a.to, p_group: a.group, p_brand: a.brand ?? null, p_customer: a.customer ?? null, p_sku: a.sku ?? null, p_supplier: a.supplier ?? null, p_limit: a.limit ?? 50, p_offset: a.offset ?? 0 }) },
 ];
 
 export type Deps = {
@@ -57,6 +61,7 @@ export type Deps = {
   fetch: (url: string, init: RequestInit) => Promise<Response>;                                      // Supabase 만(auth · rest)
   now: () => number;
   warn: (msg: string) => void;                                                                       // 토큰 없는 글만 온다
+  sleep: (ms: number) => Promise<void>;                                                              // mcp-conc-1: busy 재시도 사이 기다림(시험은 가짜)
 };
 export type LogRow = { p_auth_user_id: string | null; p_client_id: string | null; p_tool: string; p_args: unknown; p_ms: number; p_outcome: "ok" | "refused" | "error"; p_error_code: string | null; p_error_message: string | null; p_result_bytes: number | null };
 
@@ -150,16 +155,22 @@ async function callTool(d: Deps, who: Who, id: unknown, params: Record<string, u
   }
   let outcome: LogRow["p_outcome"] = "error", code: string | null = null, msg: string | null = null, text = "";
   try {
-    const r = await d.fetch(sbUrl(d) + "/rest/v1/rpc/" + tool.rpc, { method: "POST", headers: { apikey: d.env("SUPABASE_ANON_KEY") ?? "", Authorization: "Bearer " + who.token, "Content-Type": "application/json" }, body: JSON.stringify(tool.args(args)), signal: AbortSignal.timeout(RPC_TIMEOUT_MS) });
-    const body = await r.text();
-    if (r.ok) { outcome = "ok"; text = body; }
-    else {
+    // mcp-conc-1(1109): busy(PT429 / 429) 면 busyRetry 도구만 0.3 · 0.6 · 1.2 s 기다렸다 다시(최대 3 번 · 회차마다 9 초 abort) · 그래도 busy 면 BUSY_TEXT · 기록은 마지막 결과 한 줄(ms 는 재시도 포함)
+    for (let attempt = 0; ; attempt++) {
+      const r = await d.fetch(sbUrl(d) + "/rest/v1/rpc/" + tool.rpc, { method: "POST", headers: { apikey: d.env("SUPABASE_ANON_KEY") ?? "", Authorization: "Bearer " + who.token, "Content-Type": "application/json" }, body: JSON.stringify(tool.args(args)), signal: AbortSignal.timeout(RPC_TIMEOUT_MS) });
+      const body = await r.text();
+      if (r.ok) { outcome = "ok"; text = body; code = null; msg = null; break; }                       // 재시도 뒤 ok 면 앞 회차의 busy code · msg 를 지운다(기록은 마지막 결과 한 줄)
       let j: { code?: unknown; message?: unknown } = {};
       try { j = JSON.parse(body); } catch { /* 글자 그대로 */ }
       code = String(j.code ?? r.status); msg = String(j.message ?? body.slice(0, 200));
+      if (isBusy(r.status, code)) {
+        if (tool.busyRetry && attempt < BUSY_RETRY_MS.length) { await d.sleep(BUSY_RETRY_MS[attempt]); continue; }
+        outcome = "error"; code = "busy"; msg = BUSY_TEXT; break;
+      }
       outcome = code === "42501" || code === "P0001" ? "refused" : "error";
       if (code === "42501") msg = "IMS refused this call: " + msg + " — the Claude connector role is not active for this login (connector not switched on, or this OAuth client is not registered) — ask an admin";
       else if (outcome === "error") msg = "IMS could not run this tool (" + code + "): " + msg;
+      break;
     }
   } catch (e) {
     const aborted = (e as Error)?.name === "TimeoutError" || (e as Error)?.name === "AbortError";
