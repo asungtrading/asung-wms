@@ -52,7 +52,7 @@
 //     assertWriteAllowed · isNeedKind 무변(이미 허용 · 이미 「customer · item 이 아니면 전부」) · cron 62 kinds 8 은 배포 + 첫 실물 뒤(1034 · supabase/ops/cron.sql 주석 블록) · cron 61 은 kinds 없이 전부를 부르므로 qbo_send_enabled 는 그대로 off
 //   qbo-sync-2e-3-2-1b(2026-11-08 · 판정 1056 ~ 1058 · ⓖ-1 ~ ⓖ-8 · DB 2e-3-2-1 20261108075221 · 지시서 ~/asung/prompts/qbo-sync-2e-3-2-1b.md · §0 이견 1 ~ 11 Caleb 답): 환불(so_payment kind refund)의 크레딧 노트 몫 = QBO 두 장 — SEND_KINDS 18(refund · refund_void · refund_apply · refund_apply_void · ims_id = 환불 하나)
 //     refund = Purchase(Expense) 만들기(새 갈래 · 몸은 DB qbo_refund_body 그대로 · DocNumber 멱등 없음) — 보내기 전 가드 셋: ① CreditMemo 마다 GET → RemainingCredit ≥ 몫 ② 손 기록 찾기 = Purchase · JournalEntry · RefundReceipt 를 TxnDate = paid_on ± 7 일로 받아(서버는 TxnDate 만 거른다 · sandbox 2-e · 1000 행이면 STARTPOSITION 최대 5 쪽) EF 가 손님(EntityRef · 줄 CustomerRef · JE 줄 Entity) · 금액 · Voided 아님 · 「IMS refund 」 머리 아님(이견 3 — 다른 IMS 환불은 손 기록이 아니다)으로 거른다 → 하나라도 있으면 failed(1060 꼴 · 사람이 QBO 에서 지우고 Retry · 맞으면 Skip) ③ POST purchase → doneTxn(TotalAmt · TxnTaxDetail.TotalTax — DB 가 크레딧 몫 합 ∧ 0 과 견줌) · unknown 열쇠는 결제 꼴 「IMS refund <uuid>|<EntityRef>|<TxnDate>|<TotalAmt>」
-//     refund_apply = 0 원 Payment(새 갈래 · check_lines = Expense 하나 + CreditMemo 하나 이상 · Expense 줄 LinkedTxn TxnType "Expense") — 가드: GET purchase/<id>(있음 · Voided 아님 · PrivateNote = 「IMS refund <uuid>」 · TotalAmt ≥ Expense 줄 — Purchase 에 Balance 칸이 없어 열린 금액은 못 읽는다(이견 2) · 넘치면 QBO 6000 → failed) ∧ CreditMemo 마다 RemainingCredit ≥ 몫 → POST payment → donePayment(TotalAmt 0 · UnappliedAmt 0 — DB 가 견줌) · 응답 LineEx txnOpenBalance 는 note 에(DB done 에 받을 인자가 없다 · 0 이 아니면 note 경고)
+//     refund_apply = 0 원 Payment(새 갈래 · check_lines = Expense 하나 + CreditMemo 하나 이상 · Expense 줄 LinkedTxn TxnType "Expense") — 가드: GET purchase/<id>(있음 · Voided 아님 · PrivateNote = 「IMS refund <uuid>」 · TotalAmt ≥ Expense 줄 — Purchase 에 Balance 칸이 없어 열린 금액은 못 읽는다(이견 2) · 넘치면 QBO 6000 → failed) ∧ CreditMemo 마다 RemainingCredit ≥ 몫 → POST payment → donePayment(TotalAmt 0 · UnappliedAmt 0 — DB 가 견줌) · 응답 LineEx txnOpenBalance 는 note 에(DB done 에 받을 인자가 없다 · [1b2] 그 값은 잇기 **직전** 열린 금액 — openBalanceNote: after = before − Amount · Expense 줄 |after| > 0.004 · CreditMemo 줄 after < −0.004 면 경고)
 //     refund_apply_void = payment_void 길(payment?operation=update&include=void · 조건에 ||) · 풀기는 Id 로 읽어 Voided 면 done
 //     refund_void = Purchase Full update void 꼴(sandbox 2-d · Delete 없음 · operation 없음 = 만들기와 같은 POST …/purchase) — GET purchase/<id> → 이미 Voided 면 done(다시 보내지 않음) · LinkedTxn 에 Payment 가 남아 있으면 failed(이견 4 · 0 원 Payment 를 먼저 void) · 읽은 줄 0 개면 failed → 몸 = DB 머리 + Id + 읽은 SyncToken + 읽은 Line 전부 Amount 0(Id · LineNum · detail 그대로) + PrivateNote 「Voided - IMS refund <uuid>」 → POST → 5010 이면 다시 읽어 requestid -2 한 번 → done 조건(이견 1) = 2xx ∧ TotalAmt 0 ∧ 「Voided - 」 머리 · status 가 있고 Voided 가 아니면 failed · status 없으면 done + note
 //     assertWriteAllowed(method, url, body?) — WRITE_ENTITIES + purchase · purchase 는 몸으로 가른다(이견 7): Id 없음 = 만들기 · Id 있음 = void 꼴(SyncToken · Line 비지 않음 · 모든 줄 Amount === 0 · PrivateNote 「Voided - 」 · sparse 아님)일 때만 · purchase?operation=… · include= 는 기존 가지가 거부 · 다른 엔티티의 몸은 이 차수에 보지 않는다(넓히는 안 · 크기는 보고에)
@@ -658,6 +658,17 @@ const txnWord = (e: EntityKey): string => e.key === "CreditMemo" ? "credit memo"
 const createdIdOf = (body: unknown, key: string): string | null => { const row = (body as Record<string, unknown>)?.[key] as Record<string, unknown> | undefined; return row && row.Id != null ? String(row.Id) : null; };
 const rowOf = (body: unknown, key: string): Record<string, unknown> | null => { const row = (body as Record<string, unknown>)?.[key]; return row && typeof row === "object" && (row as Record<string, unknown>).Id != null ? row as Record<string, unknown> : null; };
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
+export const openBalanceNote = (row: Record<string, unknown>): { note: string | null; warn: boolean } => {                           // 2e-3-2-1b2 이견 3 (나) — Payment 응답의 txnOpenBalance 는 잇기 **직전** 열린 금액(sandbox P3 잇기 · 걸음 25 → 26) · 줄마다 after = before − Line.Amount · Expense 줄은 |after| > 0.004 면 경고(남음 left · 모자람 short) · CreditMemo 줄은 after < −0.004 만(남는 크레딧은 정상 · 부분 사용)
+  const lines = Array.isArray(row.Line) ? row.Line as Record<string, unknown>[] : [], parts: string[] = [], warns: string[] = [];
+  for (const l of lines) {
+    const ob = txnOpenBalances({ Line: [l] })[0], before = ob.open === null ? null : num(ob.open), amt = num(l.Amount) ?? 0;
+    const after = before === null ? null : Math.round((before - amt) * 100) / 100;
+    parts.push(`${ob.type} #${ob.id} ${ob.open ?? "?"} → ${after === null ? "?" : after} after`);
+    if (after !== null && (ob.type === "CreditMemo" ? after < -0.004 : Math.abs(after) > 0.004)) warns.push(`${ob.type} #${ob.id} ${Math.abs(after)} ${after > 0 ? "left" : "short"}`);
+  }
+  if (!parts.length) return { note: null, warn: false };
+  return { note: `QuickBooks open balance before linking: ${parts.join(" · ")}` + (warns.length ? ` — ${warns.join(" · ")}, check the refund in QuickBooks` : ""), warn: warns.length > 0 };
+};
 export const invoiceTotals = (row: Record<string, unknown> | null): { total_amt: number | null; total_tax: number | null } =>
   ({ total_amt: num(row?.TotalAmt), total_tax: num(((row?.TxnTaxDetail ?? {}) as Record<string, unknown>).TotalTax) });
 const docNumberQueryText = (doc: string, key = "Invoice"): string => `select Id, DocNumber, SyncToken, TotalAmt from ${key} where DocNumber = ${sqlQuote(doc)}`;   // PII 칸 없음(parseQuery 통과) · [2c1] CreditMemo 도
@@ -946,7 +957,7 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
       return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
     }
-    if (j.kind === "refund_apply") {                                                                   // 2e-3-2-1b ⓖ-6 · 이견 2 · sandbox 2-a · 걸음 25 — 0 원 Payment(Expense 줄 + CreditMemo 줄마다 · 몸은 DB qbo_refund_apply_body 그대로): 가드 = GET purchase(있음 · Voided 아님 · 이 환불의 메모 · TotalAmt ≥ Expense 줄) ∧ CreditMemo 마다 RemainingCredit ≥ 몫 → POST payment → donePayment(TotalAmt 0 · UnappliedAmt 0 · txnOpenBalance 는 note 에)
+    if (j.kind === "refund_apply") {                                                                   // 2e-3-2-1b ⓖ-6 · 이견 2 · sandbox 2-a · 걸음 25 — 0 원 Payment(Expense 줄 + CreditMemo 줄마다 · 몸은 DB qbo_refund_apply_body 그대로): 가드 = GET purchase(있음 · Voided 아님 · 이 환불의 메모 · TotalAmt ≥ Expense 줄) ∧ CreditMemo 마다 RemainingCredit ≥ 몫 → POST payment → donePayment(TotalAmt 0 · UnappliedAmt 0 · [1b2] openBalanceNote — txnOpenBalance 는 잇기 직전 값 · after = before − Amount 로 경고)
       const key = paymentKeyOf(j.lookup, j.body); nameSent = key;
       const lines = j.check_lines ?? [], exL = lines.filter((cl) => cl.txn_type === "Expense"), cmL = lines.filter((cl) => cl.txn_type === "CreditMemo");
       if (exL.length !== 1 || cmL.length === 0 || lines.length !== exL.length + cmL.length) return await fail(`not sent — the job carries ${lines.length} check line(s) instead of one expense and at least one credit memo — nothing was written; retry it after checking the refund`, null);
@@ -971,8 +982,7 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       if (cls === "ok") {
         const row = rowOf(r.body, e.key);
         if (!row) return await unknown(`QuickBooks answered ${r.status} without the created Payment — checked by date, customer, amount 0 and note at the next send`, r.tid, key);
-        const ob = txnOpenBalances(row), open = ob.filter((x) => x.open !== null && (num(x.open) ?? 0) !== 0);
-        note = ob.length ? `QuickBooks open balance after linking: ${ob.map((x) => `${x.type} #${x.id} ${x.open ?? "?"}`).join(" · ")}` + (open.length ? " — not all 0, check the refund in QuickBooks" : "") : null;
+        note = openBalanceNote(row).note;                                                                  // [1b2] 잇기 직전 값 → after 계산 · 경고는 도우미가
         const d = await donePayment(c, j.job_id, row, j.name, r.tid, note);
         return { ...base, name: j.name, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), note, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
       }
