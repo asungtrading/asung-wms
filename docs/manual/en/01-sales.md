@@ -691,7 +691,7 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — send invoices and credit notes
-<!-- screen: qbo-send.html · BUILD 2026-11-04 · qs apply v1 -->
+<!-- screen: qbo-send.html · BUILD 2026-11-08 · qs refund v1a -->
 <!-- who: accounting -->
 
 **What it is**
@@ -699,7 +699,7 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 QuickBooks must be connected first (an administrator does this in **Settings** › **QuickBooks**).
 
 **How — one document**
-1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Payments**, **Credits applied to invoices**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
+1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Payments**, **Credits applied to invoices**, **Carried-over money (before the cut-over)**, **Refunds**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
 2. Press **Preview** on a row. You see exactly what will be written: customer, lines, tax, totals, memo — and what is "Created in QuickBooks first, in the same send" (a customer or item QuickBooks does not have yet).
 3. If it looks right, press **Send to QuickBooks** (or **Send** on the row).
 4. The row turns **Sent**.
@@ -713,6 +713,14 @@ Tick the rows (or **Select all on this page**) and press **Send selected**. IMS 
 - A payment or a credit applied waits as **Blocked** until its invoice has been sent to QuickBooks. Send the invoice and the payment follows within a few minutes.
 - A payment or a credit applied on an invoice carried over from the previous system shows **Failed** — "Invoice 99001 was carried over from the previous system and has no QuickBooks match yet". Leave it; it is sent once that invoice is matched in QuickBooks.
 - You can still **Preview**, **Send**, **Retry** or **Skip** these rows by hand. **Skip** needs a reason. IMS also skips a payment by itself when it was cancelled or fully taken off its invoices before it was sent.
+
+**Refunds — they go by themselves too**
+- A refund that pays out a credit note goes to QuickBooks as two rows: **Refund** (an expense paid from the account the money left, with a line on Accounts Receivable for the customer) and **Refund linked to credit** (a $0.00 payment that ties the refund to the credit note). They go every 5 minutes on their own. "It goes only after its Refund is in QuickBooks — send the Refund first, or pick both together."
+- Cancelling the refund in IMS makes **Undo refund link** and **Void refund**: "Voids the 0.00 linking payment first — the credit note opens again." Then IMS reads the refund in QuickBooks and sets every line to 0.00.
+- A refund that also pays out money on account (not only credit notes) shows **Failed** and is not sent, not even in part. Sending those is not built yet — leave the row.
+- Refunds paid before go-live (10/30) are already in QuickBooks and have no row. If one of them is cancelled in IMS, the **Void refund** row fails — void it in QuickBooks yourself, then **Skip** the row.
+- A refund recorded late for a payment from before go-live fails with "check QuickBooks, then Retry or Skip".
+- **Carried-over money (before the cut-over)** shows the rows for money a customer paid before go-live that IMS applies to a new invoice (see below).
 
 **When a row is not sent**
 - **Blocked** — it waits for something else first, for example a credit note waits until its invoice is in QuickBooks. "Waiting:" tells you what.
@@ -735,7 +743,7 @@ Invoice 99001 → **Preview** shows the item for CB-99001 will be created first 
 - "QuickBooks total differs from IMS" means QuickBooks worked out a different total. The document is in QuickBooks — check it there.
 - Restocking fees and other account lines on credit notes need their account linked to a QuickBooks item once, in **Settings** › **QuickBooks matching** (**Freight, discount & account lines**).
 - Credit a customer had on account before go-live (carried-over credit) that pays a new invoice is sent to QuickBooks by IMS: a credit memo "OC-99001-1" plus a $0.00 payment. Do not enter a journal entry for it by hand. If one was entered, **Delete** it in QuickBooks (not Reverse), check the invoice balance, then press **Retry** on the IMS row and write what you did in the note.
-- Refunds are recorded in IMS only. Do not enter them in QuickBooks by hand. (Sending refunds to QuickBooks is not built yet.)
+- Refunds are recorded in IMS only. Do not enter them in QuickBooks by hand. IMS sends the part that pays out credit notes (see **Refunds** above). A refund from money on account fails and waits — tell the admin.
 - When QuickBooks and IMS disagree, compare the customer's balance first: the customer's open balance in QuickBooks should equal **Available** in IMS. Then look at the transaction list and the audit history in QuickBooks.
 
 <!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks list with Waiting filter, a Preview window with Send to QuickBooks -->
@@ -864,7 +872,7 @@ The badge is the coloured label on an order. The filter is the **Status** list o
 | Fulfilled (green) | Fulfilled | Done. |
 | Cancelled (red) | Cancelled | Closed without shipping. A merged order shows "merged". |
 
-Other filters: **Open** (everything not finished), **Draft — reprice suggested**, **Waiting for pickup**, **All**.
+Other filters: **Open** (everything not finished), **Working** (the warehouse has started picking), **Draft — reprice suggested**, **Waiting for pickup**, **All**.
 
 **Customer** — type part of a name in **Customer — pick one** and pick the customer from the list. The list then shows only that customer's orders, together with the other filters. **↓ CSV** follows it too.
 
@@ -880,6 +888,11 @@ Other filters: **Open** (everything not finished), **Draft — reprice suggested
 **Days to fulfil**
 A fulfilled order shows how long it took from the day it was made to the day it was fulfilled: **same day** (green), 1 to 3 days (amber), more than 3 days (red).
 
+**Quantity totals**
+- On an order, the **Lines** heading shows the number of lines and the **Qty** total. When there are set lines (×N), the total in single units follows: "Set lines (×N) counted in single units". After shipping it also shows **Out**. Combo parts are not counted twice — the combo line counts the sets.
+- In the **Ship & invoice** preview, the first row under the heading is **Total · N lines** with **Ordered**, **Ships** and **Short**.
+- Printed documents (sales order, Ship Ready, invoice, delivery receipt) show a total row under the product table: the quantity total, and the single-unit total when it differs. An invoice with several orders also shows a total for each order. Credit notes do not.
+
 <a id="sales-csv"></a>
 ## CSV downloads
 <!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-25 · cr v5a ; so-backorders.html · BUILD 2026-10-25 · bo cf words v1 -->
@@ -890,7 +903,7 @@ Most sales screens can download a spreadsheet (CSV).
 
 | Screen | Wide list | One document |
 |---|---|---|
-| Sales Orders | **↓ CSV** | **↓ Lines CSV** |
+| Sales Orders | **↓ CSV ▾** › **Orders** · **Lines** | **↓ Lines CSV** |
 | Sales Invoices | **↓ CSV** · **↓ Lines CSV** | **↓ Invoice CSV** |
 | Customer Payments | **↓ CSV** | **↓ Payment CSV** |
 | Credit Notes | **↓ CSV** | **↓ Credit CSV** |
@@ -904,6 +917,7 @@ Most sales screens can download a spreadsheet (CSV).
 **Good to know**
 - Barcodes and SKUs open in Excel as text, exactly as they are — long numbers do not turn into 1.23E+12 and leading zeros stay.
 - The GP columns (gross profit) appear in **↓ Lines CSV** only for people with the `cost` key.
+- On **Sales Orders**, one button **↓ CSV ▾** gives both: **Orders** (one row per order) and **Lines** (one row per order line — up to 500 orders). The **Status** column says what the badge on screen says — a confirmed order shows **Backorder**, **Pre-order**, **On hold** or **Backorder ended** when it has that tag.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
+<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->

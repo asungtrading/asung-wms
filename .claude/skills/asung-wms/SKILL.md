@@ -1468,6 +1468,8 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
   - inv_available_base 의 bal 이 이 꼴(마지막 정의 `20261104205654` · 본문 md5 `7a1ef377…`) — 63 키 61.7 → 9 ~ 10 ms · 전수 12,837 키 11.7 s → 0.26 s · so_available_many(SO 상세 available · TO)가 이걸 부른다
   - ⚠️ perf-rpc-0 의 짐작 「GROUP BY (sku, warehouse, bin) 순서 때문」 은 틀렸다 — 뷰 · GROUP BY 를 두고 OR 만 빼니 색인으로 내려갔다 ⇒ 느린 함수는 **EXPLAIN 의 Filter 줄**부터
   - ⚠️ 빈 배열 · 모르는 pid 만 넘기면 arr is null 과 같이 **창고 전체**(6,807 행 · 예약 0)를 낸다(옛 버릇 그대로 · deferred 463 판정 대기)
+  - ⭐⭐ [2026-11-08 · perf-bo-1 `62e331a` · `20261108075000` · 판정 1076 · so-module §103-c 5] **줄마다 부르는 SET 붙은 SQL 함수 안의 OR 은 곱이 된다** — `set search_path` 가 붙은 SQL 함수는 인라인되지 않아 **일반 계획**(값을 모르고 짠 계획)으로 돈다 → `(p_sku is null or g.sku = p_sku)` 가 색인 조건이 못 돼 호출마다 입고 후보 21 k 행 훑기 · inv_receipt_events **32.6 → 0.16 ms**(키 갈래 `p_sku is not null and g.sku = p_sku` UNION ALL 전체 갈래 `… and p_sku is null`) · so_backorder_fill 이 열린 백오더 줄마다(417) 부르니 Ready to ship now 5/5 timeout → 114 ms · search_path 는 그대로 두었다(빼면 인라인되어 호출자 넷의 계획이 바뀐다)
+    ⇒ 느린 화면은 「한 번에 얼마」 가 아니라 **호출 수 × 한 번** 으로 본다 · ⚠️ pg_stat_statements 는 취소된(timeout) 문장을 안 쌓는다 — 통계에 없다고 범인이 아닌 게 아니다
 - ⭐⭐ [2026-11-04 오전 · so-module §100-c 1 · asung-ops 5-g] **두 번째 장애는 메모리** — MICRO(1 GB)에서 09:44 ~ 09:54 프로젝트 전체 불통(522 · REST · auth · storage) → MEDIUM(4 GB) · 11-02(timeout · 잠금)와 뿌리가 다르다 · 크기는 1036(무거운 창구를 고친 뒤 일주일 관찰 · deferred 469) · 메인 DB 시험 · 적용은 **토론토 17:00 뒤**(에드먼턴 16:00 · Caleb 11-04)
 - 열림: 실패한 Shopify 오더 재시도 간격 · 한도 · 연결 60 소진 때 무엇이 먼저 죽나 = deferred 446
 

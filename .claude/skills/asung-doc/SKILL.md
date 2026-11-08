@@ -49,6 +49,7 @@ description: >
 ⭐⭐ 판은 셈하지 않는다 — 돈 · 날짜 · 수량 · 퍼센트는 doc_data 가 글자로 준다(doc_fmt_money · qty · pct · date · 날짜 꼴 키 doc_date_format = DDMONYYYY)
 ⭐⭐ 「0 이면 빈칸」 — Mustache 는 "0.00" 글자를 「있음」 으로 읽어 {{#due}} 줄을 그린다 ⇒ 0 인 돈은 doc_data 가 "" 로(doc_fmt_money_nz) · 판에서 0 을 거르려 하지 마라
      빈칸 대상: due · deposit · credit · balance_forward · paid · SO prepaid · net 단가(오더 할인이 없으면) — 크레딧 노트는 그대로
+     [2026-11-08 · doc-qty-1 · 1078] 같은 결: totals.qty_total_ea(· orders[].qty_total_ea) = 줄 수량 합과 **같으면 ""**(세트 줄이 없으면 EA 합은 빈칸 · 판에서 거르지 마라)
 ⭐⭐ [2026-10-28 · doc-cr-1 · 864] **예외 하나 — `totals.balance_due` 는 늘 글자(0 이면 "0.00")** · `credits[]`(no · number · date · reference = 원 인보이스 번호 · amount) · `totals.credits`(0 이면 "") — final_invoice · internal_receipt(~~ship_ready 는 balance_due 만~~ → [2026-10-29 · doc-sr-1 · 874] **ship_ready 도 credits[] · totals.credits** — 미리 보기 계획의 auto_credit 단계에서 · reference = 원 인보이스 번호 · balance_due = 미리 보기의 남을 몫) · 옛 열쇠(due_amount · credit_applied · deposit_applied · balance_forward)는 그대로 · 불변식 total − Σpayments − Σcredits = balance_due
      v9 · ~~ir v4~~ ir v5 · [874] ship_ready v6/v7 = Payments 아래 Credits 표 · Total → Payments → Credits → Balance due · 옛 세 줄(Deposit applied · Credit applied · Previous balance) 뺌 · ~~⚠️ ship_ready v4 는 계획 줄 그대로 — PROFORMA 이중 표시는 안 봤다(deferred 380)~~ → 380 닫힘(874 · 이중 셈은 값에 없었다) · 판 안 `data-due="{{totals.due_amount}}"` 는 필수 자리표 채우기(지우면 Check 거부)
      이미 나간 종이 · 메일 PDF · 보관 PDF 는 그대로 — 새 판은 다시 Print · Email 할 때부터
@@ -58,6 +59,7 @@ description: >
      → [2026-10-26 · 판정 788 · so-module §79-d] final_invoice **v7** · ship_ready **v3** · internal_receipt **v3**(Caleb 올림 · Ship To 블록을 `{{#orders}}{{^ship_to_repeat}}<div class="sto">…</div>{{/ship_to_repeat}}{{/orders}}` 로 · 점선은 CSS `.sto + .sto` 라 숨긴 블록과 함께 사라진다)
      → [2026-10-28 · 판정 864 · doc-cr-1 · so-module §86-b] final_invoice **v9** · internal_receipt ~~**v4**~~ **v5** · ship_ready ~~**v4**~~ **v5**(Caleb 올림 · Use this version · [2026-10-29] DB 는 v5 — 정본이 v4 로 잘못 적었다 · doc-sr-1 이견 1)
      → [2026-10-29 · 판정 874 · doc-sr-1 · so-module §88] ship_ready **v6**(INVOICE 와 같은 꼴) → **v7 = v6 과 같은 내용**(Caleb 이 한 번 더 올림) = 쓰는 판 ⇒ 판 번호는 적기 전에 DB(doc_template_active)로 — ⚠️ **v8 은 v7 그대로의 복사**(꺼낸 원본 파일을 올림 · 무해) ⇒ 꺼낸 판 파일 = `tpl-<kind>.html`(참고용 — **올리지 마라**) · 새 판 = `<kind>-v<N>.html`
+     → [2026-11-08 · 판정 1078 · doc-qty-1 · so-module §103-b] 쓰는 판(DB doc_template_active 11-08 읽기) = sales_order **v3** · ship_ready **v8** · final_invoice **v10** · internal_receipt **v6** · credit_note v2 그대로(Caleb 올림 · Use this version 11-08 04:13 ~ 04:16 토론토) — 제품 표 아래 합계 줄(tfoot · 장마다 되풀이 안 함) · 합계표 맨 위 줄 · IR 은 오더 머리 + Total quantity 줄
 ```
 
 ### 판 고치는 순서 (대화 Claude ↔ Caleb)
@@ -84,6 +86,9 @@ description: >
      invoice.so_numbers = 오더 SO 번호를 orders 순서(= so_number 순)대로 「, 」 로 이은 글(빈 번호 건너뜀 · 값 하나 — 메일 제목에 쓸 수 있는 SO 번호는 이것뿐 · orders.so_number 는 목록 안에만)
      orders[].ship_to_repeat = 앞 오더와 같은 배송지면 true(company · line1 · line2 · city · state_province · postal_code · country · lower(btrim) · contact · phone 은 안 본다 · 첫 오더 false)
      그리기 한 곳 doc_data_invoice_fmt · 목록 doc_field_catalog — 마지막 정의: fmt = **doc-hand-price-1 `20261102190000`**(f498537 · 그 앞 doc-sr-1 `20261029220000` md5 6a2fe901…) · catalog = doc-sr-1 `20261029220000`(grep -i · md5 미대조) · [2026-11-02] 옛 「둘 다 srs-1(20261027023008)」 정정 · 열쇠를 더할 때는 둘을 함께 + 카탈로그 ↔ 출력 열쇠 대조(srs_1_check T3 · T4 꼴)
+     → [2026-11-08 · doc-qty-1 `829471b` · `20261108140000` · 1078] **마지막 정의 = doc-qty-1** — doc_data_invoice_fmt · doc_data_so · doc_field_catalog · doc_data_invoice · so_invoice_preview 다섯(DB prosrc 원본 md5 8: fmt e2e64dfe · so 9b669a0e · catalog 7b8e242a · doc_data_invoice 5fcac178 · so_invoice_preview 6a36efcb 에 줄을 더함)
+       ⭐⭐ 수량 합계 식은 **doc_qty_totals 한 곳**(원천 줄 배열 → line_count · qty_total · qty_total_ea) — 부르는 곳 fmt(세 kind) · doc_data_so · 열쇠 totals.* × kind 넷 + 인보이스 꼴은 orders[].* · credit_note 는 없음 · invoice.total_qty 무변
+       pack_factor 적재 둘(doc_data_invoice ← so_invoice_line.pack_factor · so_invoice_preview ← so_tax_preview) · ⚠️ so_invoice_issue 는 so_invoice_preview 를 **부르지 않는다**(실측 — 「미리 보기 = 발행」 대조는 여전히 두 겹) · 콤보 구성품 줄은 원천에 없어 「보이는 줄 = 센 줄」
      ⚠️ ship_ready · internal_receipt 출력에 카탈로그 밖 orders.lines.final_sale 이 있다(bgr-1d 부터 · 무해 · deferred 344)
 ⭐⭐ [2026-11-02 · 판정 976 · doc-hand-price-1 `f498537` · `20261102190000` · so-module §97] **제품 줄 단가 칸은 doc_price_cells 한 곳이 정한다** — doc_price_cells(list · discount_pct · unit · manual · is_free) · 손 가격 줄(manual ∧ discount_pct null ∧ 무상 아님 = price_override)은 list_price 열쇠 = **손 가격** · 할인 빈칸(「16.17 · (빈칸) · 194.04」) · 딜 · 손님 · 손 할인 % · Shopify 줄은 그대로 「정가 · 할인 % · 금액」 · 무상 줄은 「정가 · 빈칸 · 0.00 + FREE」
      fmt(final_invoice · internal_receipt · ship_ready) · doc_data_so · doc_data_credit 셋이 같은 함수를 부른다 · 판 · 카탈로그 무변(열쇠 이름 · 수 그대로 · unit_price · net_unit_price 는 진짜 값)

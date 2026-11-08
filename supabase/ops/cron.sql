@@ -921,7 +921,10 @@ $job$);
 --     → 2e-2-1b EF 배포(48d5ca4) · 첫 실물 CR-01008 → 60026 뒤 **kinds 넷**으로 다시 schedule(같은 이름 cron.schedule = 번호 62 그대로 · 명령만 바뀐다 · kinds_four t · key_len 64) → [2026-11-07 05:40 UTC] 2e-3-1b 뒤 **kinds 여덟**으로 한 번 더(아래 ⭐⭐ 줄)
 --     열쇠는 jobname ims-mail-drain 의 command 에서 SQL 로 꺼내 끼웠다 — substring(command from 'x-ims-cron-key'', ''([^'']+)') → format($fmt$ … %L … $fmt$, s.k) · where length(s.k) = 64(열쇠가 화면 · 대화에 안 찍힘)
 --     [2026-11-04 17:56 · docs-1104 대조] DB cron 62 command(열쇠 가림) = 그날의 실행 블록(넷)과 글자까지 같았다 → [2026-11-07] 넷 판은 아래 (기록) 주석으로
---   ⚠️⚠️ ~~**아래 실행 블록 = kinds 넷(지금 DB 와 같은 판)**~~ → [2026-11-07 · docs-1107] **아래 실행 블록 = kinds 여덟(지금 DB 와 같은 판)** — 다시 등록할 때 아래 (기록) 주석의 둘 · 넷 판으로 되돌리지 마라: 크레딧 붙임(credit_apply · credit_apply_void) · 이월 돈 붙임(opening_*)이 조용히 멈춘다
+--   ⚠️⚠️ ~~**아래 실행 블록 = kinds 넷(지금 DB 와 같은 판)**~~ → ~~[2026-11-07 · docs-1107] **아래 실행 블록 = kinds 여덟(지금 DB 와 같은 판)**~~ → [2026-11-08 · docs-1108] **아래 실행 블록 = kinds 열둘(지금 DB 와 같은 판)** — 다시 등록할 때 아래 (기록) 주석의 둘 · 넷 · 여덟 판으로 되돌리지 마라: 크레딧 붙임(credit_apply · credit_apply_void) · 이월 돈 붙임(opening_*) · 환불(refund_*)이 조용히 멈춘다
+--   ⭐⭐ [2026-11-08 · Caleb · so-module §103-c · qbo-integration §14-k · docs-1108] **jobid 62 그대로 · kinds 열둘**(+ refund · refund_void · refund_apply · refund_apply_void) — 2e-3-2-1b EF 배포(`84afde4`) + 첫 실물 손 Send 넷(CR-01011 → Purchase 172912 · Payment 172913 / CR-01012 → 172914 · 172915) 뒤 같은 이름 cron.schedule(명령만 바뀜) · 열쇠는 그 job(62) 자신의 command 에서 꺼내 format(%L) · 확인 11-08 04:35 ~ 04:50 토론토 회차 succeeded
+--     바뀌는 자리 둘(body kinds · where j.kind in) 모두 열둘 · 11-08 docs-1108 읽기에서 DB command = 아래 실행 블록(열쇠 가림) 글자 같음
+--   확인(열둘): select jobid, jobname, schedule, active, command like '%refund_apply_void%' as kinds_twelve, (command like '%j.kind in (''payment'', ''payment_void'', ''credit_apply'', ''credit_apply_void'', ''opening_credit'', ''opening_credit_void'', ''opening_apply'', ''opening_apply_void'', ''refund''%') as where_twelve, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-send-payments';  → 62 · t · t · 64
 --   ⭐⭐ [2026-11-07 05:40 UTC · Caleb 실측 · so-module §102-c 7 · qbo-integration §14-j · docs-1107] **jobid 62 그대로 · kinds 여덟** — 2e-3-1b EF 배포 + 첫 실물 두 호출(손으로 · 05:36 ~ 05:38 UTC · OC-60172-1 → 60172) 뒤 같은 이름 cron.schedule(명령만 바뀜) · 05:40 UTC 회차부터 여덟 · 11-07 19:15 토론토 읽기 kinds_eight t · where_eight t · key_len 64 · active · */5 — 아래 실행 블록과 글자까지 같다(열쇠 가림)
 --   ── 기록(11-03 · 등록 전 안내 — 지난 일 · 그대로 따르지 마라) ──
 --   (기록) [2026-11-03 · qbo-sync-2e-2-1 · 판정 1015] 등록 전이라 명령 글만 고쳤다 — kinds 에 credit_apply · credit_apply_void(크레딧 붙임 = 0 원 Payment · 같은 스위치 qbo_send_payments_enabled) · 등록은 2e-2-1b EF 배포 뒤 Caleb · jobid 는 등록 뒤 실측
@@ -947,19 +950,31 @@ $job$);
 --                        or (j.state = 'queued' and j.next_at <= now())
 --                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
 --   $job$);
---   ── 아래 = 지금 DB 와 같은 판(여덟) · 2e-3-1b 첫 실물 뒤(11-07 05:40 UTC) 부터 ──
+--   ── (기록) 아래 = 11-07 05:40 UTC ~ 11-08 의 판(여덟) · 2e-3-2-1b 첫 실물(손 Send 넷) 전까지 이것이었다 — 그대로 따르지 마라(refund_* 가 안 나간다) ──
+--   select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
+--     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+--       headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+--       body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+--     where exists (select 1 from public.inv_config c where c.key = 'qbo_send_payments_enabled' and c.value = 'on')
+--       and exists (select 1 from public.qbo_connection c where c.status = 'connected')
+--       and exists (select 1 from public.qbo_job j
+--                    where j.kind in ('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void')
+--                      and (j.state = 'unknown'
+--                        or (j.state = 'queued' and j.next_at <= now())
+--                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
+--   $job$);
+--   ── 아래 = 지금 DB 와 같은 판(열둘) · 2e-3-2-1b 배포 + 첫 실물 뒤(11-08 04:35 ~ 04:50 토론토 확인) 부터 · DB cron.job command 글자 그대로(열쇠만 자리표 · 줄바꿈 · 공백 포함 · docs-1108 이 옮김) ──
 select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
   select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
-    body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+    body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void', 'refund', 'refund_void', 'refund_apply', 'refund_apply_void'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
   where exists (select 1 from public.inv_config c where c.key = 'qbo_send_payments_enabled' and c.value = 'on')
     and exists (select 1 from public.qbo_connection c where c.status = 'connected')
     and exists (select 1 from public.qbo_job j
-                 where j.kind in ('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void')
-                   and (j.state = 'unknown'
-                     or (j.state = 'queued' and j.next_at <= now())
+                 where j.kind in ('payment', 'payment_void', 'credit_apply', 'credit_apply_void', 'opening_credit', 'opening_credit_void', 'opening_apply', 'opening_apply_void', 'refund', 'refund_void', 'refund_apply', 'refund_apply_void')
+                   and (j.state = 'unknown' or (j.state = 'queued' and j.next_at <= now())
                      or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
-$job$);
+  $job$);
 -- ── [기록 · 11-03 밤 ~ 11-04 16:5x 의 kinds 둘 판 — 2e-2-1b 배포 전에만 쓰던 것 · 다시 쓰지 마라] ──
 --   select cron.schedule('ims-qbo-send-payments', '*/5 * * * *', $job$
 --     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',

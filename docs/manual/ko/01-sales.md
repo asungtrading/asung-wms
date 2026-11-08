@@ -691,7 +691,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — 인보이스 · 크레딧 노트 보내기
-<!-- screen: qbo-send.html · BUILD 2026-11-04 · qs apply v1 -->
+<!-- screen: qbo-send.html · BUILD 2026-11-08 · qs refund v1a -->
 <!-- who: accounting -->
 
 **무엇인가**
@@ -699,7 +699,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 먼저 QuickBooks 가 연결되어 있어야 합니다(관리자가 **Settings** › **QuickBooks** 에서).
 
 **하나 보내는 법**
-1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Payments**(결제) · **Credits applied to invoices**(크레딧 붙임) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
+1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Payments**(결제) · **Credits applied to invoices**(크레딧 붙임) · **Carried-over money (before the cut-over)**(이월 돈) · **Refunds**(환불) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
 2. 줄에서 **Preview** 를 누릅니다. QuickBooks 에 적힐 그대로 보입니다: 손님 · 줄 · 세금 · 합계 · 메모 — 그리고 "Created in QuickBooks first, in the same send"(QuickBooks 에 아직 없는 손님 · 품목을 같은 보내기에서 먼저 만든다)
 3. 맞으면 **Send to QuickBooks**(또는 줄의 **Send**)를 누릅니다.
 4. 줄이 **Sent** 로 바뀝니다.
@@ -713,6 +713,14 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - 결제 · 크레딧 붙임은 그 인보이스가 QuickBooks 에 가기 전까지 **Blocked** 로 기다립니다. 인보이스를 보내면 몇 분 안에 따라갑니다.
 - 이전 시스템에서 넘어온 인보이스의 결제 · 크레딧 붙임은 **Failed** 로 보입니다 — "Invoice 99001 was carried over from the previous system and has no QuickBooks match yet"(이전 시스템에서 넘어온 인보이스라 아직 QuickBooks 짝이 없다). 그대로 둡니다 — 그 인보이스의 짝을 지으면 나갑니다.
 - 이 줄들도 손으로 **Preview** · **Send** · **Retry** · **Skip** 할 수 있습니다. **Skip** 은 까닭 필수. 보내기 전에 취소됐거나 인보이스에서 모두 떼어진 결제는 IMS 가 스스로 건너뜁니다.
+
+**환불 — 이것도 저절로 나간다**
+- 크레딧 노트를 돈으로 돌려준 환불은 QuickBooks 에 두 줄로 갑니다: **Refund**(돈이 나간 계좌에서 낸 지출 · 손님 몫은 매출채권(A/R) 줄) 와 **Refund linked to credit**(그 환불과 크레딧 노트를 잇는 $0.00 결제). 5 분마다 저절로 나갑니다. "It goes only after its Refund is in QuickBooks — send the Refund first, or pick both together."(Refund 가 먼저 · 또는 둘을 함께)
+- IMS 에서 환불을 취소하면 **Undo refund link** 와 **Void refund** 가 생깁니다: "Voids the 0.00 linking payment first — the credit note opens again."(잇는 0.00 결제를 먼저 void · 크레딧 노트가 다시 열린다) 그 뒤 IMS 가 QuickBooks 의 환불을 읽어 모든 줄을 0.00 으로 만듭니다.
+- 받아 둔 돈(크레딧 노트가 아닌 계정의 돈)까지 돌려준 환불은 **Failed** 로 보이고 일부도 보내지 않습니다. 그 보내기는 아직 없습니다 — 줄을 그대로 둡니다.
+- IMS 로 넘어오기 전(10/30) 결제의 환불은 이미 QuickBooks 에 있어 줄이 없습니다. 그중 하나를 IMS 에서 취소하면 **Void refund** 줄이 실패합니다 — QuickBooks 에서 직접 void 하고 줄은 **Skip** 합니다.
+- 넘어오기 전 결제의 환불을 늦게 적으면 "check QuickBooks, then Retry or Skip"(QuickBooks 를 보고 Retry 또는 Skip)으로 실패합니다.
+- **Carried-over money (before the cut-over)** 는 손님이 넘어오기 전에 낸 돈을 IMS 가 새 인보이스에 붙인 줄입니다(아래).
 
 **안 나간 줄**
 - **Blocked** — 다른 것을 먼저 기다립니다. 예: 크레딧 노트는 그 인보이스가 QuickBooks 에 간 뒤에 갑니다. "Waiting:" 이 무엇을 기다리는지 알려 줍니다.
@@ -735,7 +743,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - "QuickBooks total differs from IMS" 는 QuickBooks 가 합계를 다르게 셈했다는 뜻입니다. 문서는 QuickBooks 에 있습니다 — 거기서 확인합니다.
 - 크레딧 노트의 재입고 수수료 등 계정 줄은 그 계정을 QuickBooks 품목에 한 번 이어야 합니다 — **Settings** › **QuickBooks matching**(**Freight, discount & account lines**)
 - 고객이 IMS 로 넘어오기 전부터 갖고 있던 크레딧(이월 크레딧)이 새 인보이스를 갚으면 IMS 가 QuickBooks 로 보냅니다: 크레딧 메모 "OC-99001-1" 과 $0.00 결제 한 쌍입니다. 이것을 분개(Journal Entry)로 손으로 넣지 않습니다. 이미 넣었다면 QuickBooks 에서 그 분개를 **Delete**(Reverse 아님)하고, 인보이스 잔액을 확인한 뒤, IMS 줄에서 **Retry** 를 누르고 메모에 한 일을 적습니다.
-- 환불은 IMS 에만 적습니다. QuickBooks 에 손으로 넣지 않습니다. (환불을 QuickBooks 로 보내는 기능은 아직 없습니다.)
+- 환불은 IMS 에만 적습니다. QuickBooks 에 손으로 넣지 않습니다. 크레딧 노트를 갚는 몫은 IMS 가 보냅니다(위 **환불**). 받아 둔 돈에서 나간 환불은 실패하고 기다립니다 — 관리자에게 알립니다.
 - QuickBooks 와 IMS 가 어긋나면 고객 잔액부터 맞춰 봅니다: QuickBooks 의 고객 미결 잔액(open balance)이 IMS 의 **Available** 과 같아야 합니다. 그 다음 QuickBooks 의 거래 목록과 audit history 를 봅니다.
 
 <!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks 목록(Waiting 필터) · Preview 창의 Send to QuickBooks -->
@@ -864,7 +872,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 | Fulfilled(초록) | Fulfilled | 끝 |
 | Cancelled(빨강) | Cancelled | 나가지 않고 닫혔다 · 합쳐진 오더는 "merged" |
 
-다른 필터: **Open**(끝나지 않은 것 전부) · **Draft — reprice suggested** · **Waiting for pickup** · **All**
+다른 필터: **Open**(끝나지 않은 것 전부) · **Working**(창고가 픽을 시작함) · **Draft — reprice suggested** · **Waiting for pickup** · **All**
 
 **Customer** — **Customer — pick one** 칸에 이름 일부를 적고 목록에서 고객을 고릅니다. 그 고객의 오더만 남고, 다른 필터와 함께 걸립니다. **↓ CSV** 도 그대로 따릅니다.
 
@@ -880,6 +888,11 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 **끝나기까지 걸린 날**
 Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 보입니다: **same day**(초록) · 1~3 일(호박색) · 3 일 넘음(빨강)
 
+**수량 합계**
+- 오더의 **Lines** 머리에 줄 수와 **Qty** 합이 보입니다. 세트 줄(×N)이 있으면 낱개 합이 뒤에 붙습니다: "Set lines (×N) counted in single units"(세트 줄을 낱개로 셈). 나간 뒤에는 **Out** 도 보입니다. 콤보 구성품은 두 번 세지 않습니다 — 콤보 줄이 세트 수를 셉니다.
+- **Ship & invoice** 미리 보기의 머리 아래 첫 줄이 **Total · N lines** 입니다(**Ordered** · **Ships** · **Short**).
+- 인쇄 문서(판매 오더 · Ship Ready · 인보이스 · 배송 영수증)는 제품 표 아래에 합계 줄이 있습니다: 수량 합 · 다르면 낱개 합. 오더가 여럿인 인보이스는 오더마다도 합이 나옵니다. 크레딧 노트에는 없습니다.
+
 <a id="sales-csv"></a>
 ## CSV 내려받기
 <!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 ; so-payments.html · BUILD 2026-10-22 · pay csv v2 ; so-credits.html · BUILD 2026-10-25 · cr v5a ; so-backorders.html · BUILD 2026-10-25 · bo cf words v1 -->
@@ -890,7 +903,7 @@ Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 �
 
 | 화면 | 넓은 목록 | 문서 하나 |
 |---|---|---|
-| Sales Orders | **↓ CSV** | **↓ Lines CSV** |
+| Sales Orders | **↓ CSV ▾** › **Orders** · **Lines** | **↓ Lines CSV** |
 | Sales Invoices | **↓ CSV** · **↓ Lines CSV** | **↓ Invoice CSV** |
 | Customer Payments | **↓ CSV** | **↓ Payment CSV** |
 | Credit Notes | **↓ CSV** | **↓ Credit CSV** |
@@ -904,6 +917,7 @@ Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 �
 **알아 둘 것**
 - 바코드와 SKU 는 엑셀에서 글자 그대로 열립니다 — 긴 숫자가 1.23E+12 로 바뀌지 않고 앞의 0 도 남습니다.
 - GP(매출 이익) 칸은 `cost` 권한이 있는 사람의 **↓ Lines CSV** 에만 나옵니다.
+- **Sales Orders** 는 단추 하나 **↓ CSV ▾** 에서 둘을 고릅니다: **Orders**(오더마다 한 줄) · **Lines**(오더 줄마다 한 줄 — 500 오더까지). **Status** 칸은 화면 칩과 같은 글입니다 — 확정 오더에 그 꼬리표가 있으면 **Backorder** · **Pre-order** · **On hold** · **Backorder ended**.
 - 이 파일은 내부용입니다. 고객에게는 인쇄 문서를 보냅니다([인쇄와 메일](#sales-print-email)).
 
-<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
+<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->

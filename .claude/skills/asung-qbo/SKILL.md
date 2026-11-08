@@ -48,7 +48,8 @@ description: >
             송장 31 자 — qbo-trk-1(`e059e73` · TrackingNum 첫 송장 · 전체는 CustomerMemo 1054) · 정본 §14-h · §14-i · 아래 5-d
 2026-11-07  이월 받아 둔 돈 붙임 — qbo-sync-2e-3-1(DB `33c8cdf` · 붙임 한 줄 = CreditMemo OC-<인보이스>-<n> + 0 원 Payment · kind 넷 opening_credit · opening_credit_void · opening_apply · opening_apply_void · CustomerRef = 돈의 주인) · 1b(EF `26e019a` · SEND_KINDS 14 · deno 26/26) · 첫 실물 60172 · **cron 62 kinds 여덟**(05:40 UTC) · 정본 §14-j · 아래 5-e
             ⭐ 60189 — 가드가 중복을 막음 → 북키퍼 손 분개(JE) 삭제 → Retry → sent(판정 1060 · 1061) · 환불 2e-3-2 는 남음(454 부분 · 1056 ~ 1058) · so-module §102
-⬜ ~~1d 이월 짝(452)~~(11-06 끝) · 1d-3 화면(470) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · ~~받아 둔 돈 2e-3-1(454)~~(11-07 끝) · **환불 2e-3-2**(454 남은 몫 · 첫 수 qbo-sync-2e-3-2-0 조사) · qbo-send opening 이름표(495) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 440 · 443 · 454 · 486 · 493 · 495 · 496
+2026-11-08  환불(크레딧 노트 몫) — qbo-sync-2e-3-2-1(DB `e8babe9` · 환불 한 줄 = Purchase 한 장 + 0 원 Payment · kind 넷 refund*) · 1b(EF `84afde4` · SEND_KINDS 18) · 1b2(`8b12366` · 잇기 경고 = 직전 값) · cron 62 kinds 열둘 · 첫 실물 172912 ~ 172915 · 454 · 495 닫힘 · 정본 §14-k · 아래 5-f · so-module §103
+⬜ ~~1d 이월 짝(452)~~(11-06 끝) · 1d-3 화면(470) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · ~~받아 둔 돈 2e-3-1(454)~~(11-07 끝) · ~~**환불 2e-3-2**(454 남은 몫)~~(11-08 크레딧 노트 몫 끝 · 남은 몫 = 환불을 결제에 매기 500) · ~~qbo-send opening 이름표(495)~~(qs refund v1) · USD A/R 데이터(499) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 440 · 443 · 454 · 486 · 493 · 495 · 496
 ```
 
 ## 1. ⭐⭐ ~~연결만 · 싱크 없음~~ → 연결 + 읽기 조회 · 짝 표 · 거울 · 받기 ~~— 보내기는 없음~~ → [11-01 밤] 손님 · Item 만들기 섰음 · 인보이스는 2b — 모르면 사고
@@ -197,14 +198,30 @@ description: >
      ⇒ 컷 뒤 인보이스에 붙은 이월 돈 한 줄 = QBO **두 장**: 「쓰기」 CreditMemo **OC-<인보이스>-<n>**(Item = qbo_link charge acct:<결제 계정> · Customer Credits → AR) + **0 원 Payment**(CreditMemo 를 인보이스에 잇는다 · PrivateNote 접두 「IMS opening credit applied 」)
 ⭐⭐ 일감 kind 넷 opening_credit · opening_credit_void · opening_apply · opening_apply_void — 기다림 = 인보이스 → credit → apply(blocked 사슬) · qbo_txn ims_kind 둘(opening_credit ↔ CreditMemo · opening_alloc ↔ Payment) · 트리거는 qbo_job_on_payment_alloc 본문(새 트리거 0)
 ⚠️⚠️ **CustomerRef = 돈의 주인** — 인보이스 매장과 다르면 failed(QBO 하위 손님이면 경고) · 2e-2 의 「CustomerRef = 매장」(1014) 과 다르다
-⚠️⚠️ EF SEND_KINDS **14** · 새 갈래 0(credit · credit_void · credit_apply · payment_void 길에 조건 여덟) · entityKeyOf 명시 가지 넷 · **cron 62 kinds 여덟**(11-07 05:40 UTC · jobid 62 그대로 · ops/cron.sql 실행 블록 = DB) — 둘 · 넷 판으로 되돌리면 opening_* 가 조용히 멈춘다
+⚠️⚠️ EF SEND_KINDS **14** · 새 갈래 0(credit · credit_void · credit_apply · payment_void 길에 조건 여덟) · entityKeyOf 명시 가지 넷 · **cron 62 kinds 여덟**(11-07 05:40 UTC · jobid 62 그대로 · ops/cron.sql 실행 블록 = DB) — 둘 · 넷 판으로 되돌리면 opening_* 가 조용히 멈춘다 → [2026-11-08] SEND_KINDS **18** · cron 62 kinds **열둘**(아래 5-f)
 ⭐⭐ 가드 둘 = ① 보내기 직전 QBO 다시 읽기(Invoice Balance ≥ a · CreditMemo RemainingCredit ≥ a · 아니면 failed 「QuickBooks already shows … paid on invoice N」) ② 모르면 unknown(apiWrite 재시도 없음) — 60189 에서 ① 이 실제로 중복 쓰기를 막았다
 ⚠️⚠️ **1060** 북키퍼가 이월 돈을 손 분개(Journal Entry · Customer Credits ↔ A/R)로 먼저 정리한 것이 보이면 = QBO 에서 분개 **Delete**(Reverse 아님 — Reverse 는 AR 에 받을 돈을 새로 만든다) → 인보이스 잔액 확인 → IMS **Retry**(IMS 가 기록 주인) · OC CreditMemo 를 void 하는 길은 기각(IMS 가 모르는 분개가 기록으로 남는다)
 ⚠️⚠️ **1061** 북키퍼는 이월 크레딧 분개를 손으로 넣지 않는다(981 · 1058 의 예외가 실제로 있었다 = 60189) — 10/30 뒤 손 분개는 지운다 · 붙임 성공 6 건 · 대기 3 건(60257 · 60258 · 60282)의 Audit log 확인(deferred 496)
 ⭐⭐ **QBO 와 IMS 대조의 기준 = 손님 잔액(QBO Open Balance = IMS Available)** — 구성이 달라도 잔액이 같은지부터 · 어긋나면 QBO 거래 목록 · Audit history(거래 화면 More → Audit history · 회사 전체 톱니바퀴 → Audit log)를 **먼저** · 「Automatically apply credits」 짐작은 기각(985 off)
 ⚠️  QBO 북키퍼 사용자 이름은 ims_staff 의 북키퍼 이름과 다르다(1062 · 같은 사람인지 짐작 · 공개 레포라 이름은 안 적는다 · Audit log Filter User 로 찾는다)
 ⚠️  sent 일감에도 옛 last_error 가 남는다(sent 489 중 37 · deferred 486) — 화면 · 쿼리의 옛 실패 글을 지금 상태로 읽지 마라 · qbo-send 화면은 opening 넷 이름표가 아직 원래 이름(495)
-⭐  환불 2e-3-2 는 아직(454 남은 몫): 1056 보내기 기준 = 결제일(paid_on) 컷(10-30) 뒤만 · 1057 QBO 꼴 = Expense · 정산 계좌 · 줄 Customer Credits + 손님 · 1058 북키퍼는 환불도 손으로 안 넣는다 · 보내기 전 「QBO 에 손 기록이 이미 있나」 확인 길을 함께
+~~환불 2e-3-2 는 아직(454 남은 몫): 1056 보내기 기준 = 결제일(paid_on) 컷(10-30) 뒤만 · 1057 QBO 꼴 = Expense · 정산 계좌 · 줄 Customer Credits + 손님 · 1058 북키퍼는 환불도 손으로 안 넣는다 · 보내기 전 「QBO 에 손 기록이 이미 있나」 확인 길을 함께~~ → [2026-11-08] 크레딧 노트 몫은 나간다 — 아래 5-f(1065 가 1057 을 바꿈 · 크레딧 몫 = A/R 줄)
+```
+
+## 5-f. ⭐⭐ 환불(크레딧 노트 몫) — 모르면 사고 (2026-11-08 · 정본 §14-k · so-module §103 · 판정 1065 ~ 1075)
+
+```
+⭐⭐ 환불 한 줄 = QBO **Purchase(Expense) 한 장** + **0 원 Payment 한 장**(Purchase 와 CreditMemo 들을 잇는다 · LinkedTxn TxnType "Expense") — 1065 · 1071
+     줄: 크레딧 노트 몫 = **A/R** 줄 + CustomerRef(손님 잔액 +a → CreditMemo 로 상쇄) · 이월 돈 몫 = Customer Credits 줄(지금은 안 짓는다) · 세금 = Out of Scope (Purchase) 짝(운영 4 · 1073)
+     kind 넷 refund · refund_void · refund_apply · refund_apply_void — 열쇠는 모두 so_payment.id 하나 · 트리거 so_payment_refund_qbo(AFTER INSERT · deferred) + status 가지
+⚠️⚠️ **보내는 것은 크레딧 노트 몫만** — refund_from_account > 0(받아 둔 돈 몫)이면 환불 **통째로 failed**(반쪽 금지 · 1067) · 환불된 이월 결제를 쓰는 opening 붙임도 failed(1066) · 둘 다 「환불을 결제에 매기」(deferred 500) 전까지
+⚠️⚠️ **컷 = paid_on 고정 date '2026-10-30'**(1068) — qbo_send_since(발행 기준) · created_at 재사용 금지 · 컷 전 8 건(2,310.30)은 QBO 에 이미 있어 일감 없음 · 그걸 IMS 에서 void 하면 refund_void failed 알림(Retry 거부 → Skip · 1070) · 11-08 뒤 created ∧ 컷 전 paid_on → failed 「check QuickBooks, then Retry or Skip」(1069)
+⚠️⚠️ **void 순서** = 잇는 Payment void 먼저 → Purchase 다시 읽어 SyncToken → **Full update**(모든 줄 0 + PrivateNote 「Voided - 」 · Purchase 는 Void 메뉴 · Delete 없음 · 금액 0 만으로는 Voided 아님) · 읽은 Purchase 에 LinkedTxn Payment 가 남아 있으면 failed(1072 · 1074)
+⚠️  잇기 · 풀기가 Purchase · CreditMemo 의 SyncToken 을 올린다 — 쓰기 전에 다시 읽어라(5010) · Purchase query 는 TxnDate 만(EntityRef · PrivateNote 4001) ⇒ 손 기록 가드는 TxnDate ±7 일을 읽고 EF 가 거른다
+⚠️⚠️ **Purchase 의 열린 금액은 Purchase 에서 못 읽는다** — Payment 응답의 **txnOpenBalance = 잇기 직전** 값 ⇒ after = txnOpenBalance − Amount · Expense 줄 |after| > 0.004 경고 · CreditMemo 줄은 모자람만(1075 · 1b2) · 시험 가짜도 「직전」 값을 줘라(1b 가짜가 뒤 값을 줘서 거짓 경고 「not all 0」 이 시험을 지났다 · 172913 · 172915)
+⭐  EF SEND_KINDS **18** · assertWriteAllowed purchase 몸 검사(만들기 · void 꼴만 · 다른 엔티티는 deferred 501) · **cron 62 kinds 열둘**(11-08 · 실행 블록 = DB 글자 그대로 · 열쇠는 그 job 자신의 command 에서)
+⭐  화면 qbo-send(qs refund v1 · v1a): 종류 Refunds · Carried-over money · 「Refund linked to credit」 은 Refund 먼저 또는 둘을 함께 보낸다(blocked 사슬)
+⚠️  USD 손님 셋의 A/R 계정이 `_61_`(CAD) — USD 환불은 failed(통화 ≠ 기본 통화 · deferred 499)
 ```
 
 ## 6. 화면 · 바깥
@@ -214,6 +231,7 @@ settings.html  Settings → QuickBooks matching(?t=qbomatch · set v13 · ~~admi
 qbo-send.html  Sales → QuickBooks(qs v1 · nav v14 · 열쇠 qbo · 보기 qbo:read · 971) — 목록(상태 · 종류 · 날짜 · 찾기 · 쪽) · Preview(QBO 에 갈 몸 · 먼저 만들 손님 · Item · 막힌 이유) · Send · Send selected · Retry · Skip · 북키퍼 화면(매뉴얼 01 Sales 「QuickBooks」)
 qbo-send.html  [2026-11-02 밤 · pay screens v1 asung-ims `4d9b62a`] Payments 종류 · 결제 미리 보기(check_lines · 합계 · void) · ~~목록의 waiting 은 붙은 인보이스가 아직 안 간 결제(claim 때 blocked 가 된다)~~ → [2026-11-04 정정 · 화면 코드 grep] 배지 **waiting = queued**(qbo-send.html `queued: ["", "waiting"]`) · 인보이스를 기다리는 결제는 **blocked** 배지 · 거르기 「Waiting — not sent yet」 = 안 나간 것 전부(open) · settings 카드 수단 한 수단 Find…(983)
 qbo-send.html  [2026-11-04 · qs apply v1 asung-ims `21d4ef9`] 종류 「Credits applied to invoices」 · 라벨 Credit applied · Undo credit applied · applyPreview(크레딧 붙임 미리 보기)
+qbo-send.html  [2026-11-08 · qs refund v1 asung-ims `0922a44` · v1a `7082d84`] 종류 Carried-over money(opening 넷) · Refunds(refund 넷) · 이름표 여덟 · 미리 보기(Purchase · 0 원 Payment · void 몸) · deferred 495 닫힘
 settings.html  Settings → QuickBooks matching 의 charge 행 이름 「Freight, discount & account lines」 + 크레딧 계정 줄 안내(set v15 · 961)
 settings.html  Settings → QuickBooks(?t=qbo · set v12) — 상태(빨강 = needs_reconnect) · Connect / Reconnect(같은 탭) · Check connection · Disconnect · Untie company · Help 줄 「Connection problems? Contact the IMS administrator: caleb@asung.ca」(872)
 terms.html · privacy.html  ims.asung.ca 공개 페이지(로그인 없이 · Intuit App details 의 EULA · Privacy · 867)

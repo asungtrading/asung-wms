@@ -8613,7 +8613,7 @@ Backorders 탭 재구성(464 · 465 · 미룬 220) · 백오더 입고 알림 �
   속                    so_demand_line(line_id)                20261014234811_bo_1a_demand_flag.sql:93
                         so_demand_so_excluded(so_id)           20261014234811_bo_1a_demand_flag.sql:74   (확정 되돌린 오더 · 도로 붙은 형제)
 Insights ① ② ③          so_backorder_overview(p_filters)       20261015024520_bo_2b_ready_fixes.sql:281   (demand 를 부른다)
-입고 정의(하나)          inv_receipt_events(sku, wh, from, to)  20261015015435_bo_2_arrivals_waiting.sql:36   (overview · arrivals 가 쓴다 · so_backorder_list 는 아직 제 식 — 미룬 238)
+입고 정의(하나)          inv_receipt_events(sku, wh, from, to)  20261015015435_bo_2_arrivals_waiting.sql:36 → [2026-11-08 · perf-bo-1 · §103] 20261108075000_perf_bo_1_ire_sku_branches.sql:19(sku 두 갈래 · 1076)   (overview · arrivals · [2026-11-08 바로잡음] so_backorder_fill · mail_backorder_pick 도 쓴다 · so_backorder_list 는 아직 제 식 — 미룬 238)
 Arrivals 왼쪽            so_backorder_arrivals(p_filters)       20261015024520_bo_2b_ready_fixes.sql:35
 Arrivals 오른쪽          so_backorder_waiting(product, wh)      20261015015435_bo_2_arrivals_waiting.sql:256
 Ready to ship now        so_backorder_ready(p_filters)          20261015024520_bo_2b_ready_fixes.sql:161
@@ -8759,7 +8759,7 @@ mail_run_error       4a(+4c Chat 칸)  창고 · 날의 tick 실패 한 줄(atte
 설정 키 · 검사           ims_mail_config_keys · _problem          20261016123721_mail_1a_base.sql:152 · :162   guard 가 부른다
 설정 문지기              inv_config_guard()                       20261016123721_mail_1a_base.sql:257          메일 키 admin/master · db_role postgres 만 · 이름 바꾸기 거부 · 시험 DB 켜기 규칙
 알림 받은 줄(509)        mail_backorder_line_notified(line)       20261016131325_mail_1b_backorder_pick.sql:43   속
-나누기 셈(하나)          so_backorder_fill(location, mode)         20261016131325_mail_1b_backorder_pick.sql:57   속 · definer · screen = 화면 · alert = 506
+나누기 셈(하나)          so_backorder_fill(location, mode)         20261016131325_mail_1b_backorder_pick.sql:57   속 · definer · screen = 화면 · alert = 506 · [2026-11-08] 속 inv_receipt_events 가 perf-bo-1 로 빨라짐(fill 무변 · §103)
 Ready to ship now        so_backorder_ready(p_filters)            20261016131325_mail_1b_backorder_pick.sql:301  definer + sales · 셈은 fill(screen) · 출력 bo-2b 그대로
 지난 회차                mail_backorder_since(location, now)      20261016131325_mail_1b_backorder_pick.sql:119  속 · 마지막 started_at · 없으면 일정상 앞 시각
 고르기(하나)             mail_backorder_pick(location, now)       20261016131325_mail_1b_backorder_pick.sql:150  속 · definer · basis · 받는 이 · reason 다섯
@@ -13021,8 +13021,8 @@ ad8e85c so pk v1 · fu v1.10: 예약됨 칸 픽업 상태 줄(pickup_check — �
 
 | # | 갈래 | 뜻 |
 |---|---|---|
-| **1056** | (11-07 · Caleb 확인 · 2e-3 환불 · 부록 A 「고침」) | 「이미 QBO 에 있는 환불」 = **결제일(paid_on)이 컷(10-30) 전** → 안 보냄 · 컷 뒤 → 보냄(조사 2e-3-0 의 권고 created_at 기준은 **기각** — CR-01011 · 01012 가 빠진다) · 실물 = 환불 10 건 중 컷 전 결제일 8 건(2,310.30 · 모두 이월 손님)은 QBO 에 이미 있다 · CR-01011 · 01012 환불 2 건(219.79 · 11-04 · e-transfer · 참조 Interac 번호)은 QBO 에 없다(102-c 3) · **CR-01011 · 01012 환불 = (가) 2e-3-2 가 보낸다**(Caleb) — 그때까지 QBO 에 그 손님 크레딧 219.79 열림 |
-| **1057** | (11-07 · 부록 A) | 받아 둔 돈 환불의 QBO 꼴 = **Expense(Purchase)** · Payment account = 입금했던 정산 계좌 · 줄 Category **Customer Credits**(`_1150040009_`) + Customer · Out of Scope(판정 987 의 북키퍼 실물 = 08-17 181.93 Expense) |
+| **1056** | (11-07 · Caleb 확인 · 2e-3 환불 · 부록 A 「고침」) | 「이미 QBO 에 있는 환불」 = **결제일(paid_on)이 컷(10-30) 전** → 안 보냄 · 컷 뒤 → 보냄(조사 2e-3-0 의 권고 created_at 기준은 **기각** — CR-01011 · 01012 가 빠진다) · 실물 = 환불 10 건 중 컷 전 결제일 8 건(2,310.30 · 모두 이월 손님)은 QBO 에 이미 있다 · CR-01011 · 01012 환불 2 건(219.79 · 11-04 · e-transfer · 참조 Interac 번호)은 QBO 에 없다(102-c 3) · **CR-01011 · 01012 환불 = (가) 2e-3-2 가 보낸다**(Caleb) — 그때까지 QBO 에 그 손님 크레딧 219.79 열림 **→ 1068**(컷 = paid_on 고정 date '2026-10-30' · qbo_send_since · created_at 재사용 금지 · §103) |
+| **1057** | (11-07 · 부록 A) | 받아 둔 돈 환불의 QBO 꼴 = **Expense(Purchase)** · Payment account = 입금했던 정산 계좌 · 줄 Category **Customer Credits**(`_1150040009_`) + Customer · Out of Scope(판정 987 의 북키퍼 실물 = 08-17 181.93 Expense) **→ 1065**(크레딧 노트 몫 = A/R 줄 · 이월 돈 몫만 Customer Credits · 환불 한 줄 = Purchase 한 장 · §103) |
 | **1058** | (11-07 · 부록 A · 981 의 환불판) | 북키퍼는 **환불도 QBO 에 손으로 넣지 않는다** — 환불을 IMS 에 적고 QBO 에는 일부러 안 넣는다(IMS 가 보내기를 기다린다 · Caleb 「그가 적었다면 돈은 나간 거야」) · **→ 1061**(이월 돈 손 분개가 실제로 있었다 · 102-c 2) |
 | **1059** | (사실 · 11-07 낮 · QBO 실물 → 102-c 2) | Cin7 이월 돈(과입금 · 보증금)의 QBO 꼴 = **Sales Receipt**(Item Customer Credit → 1150040009) — 2e-3-1 전제(이월 돈은 AR 아닌 Customer Credits 계정 · OC CreditMemo 가 AR 로 옮긴다)의 실물 근거 · 판정 아님 |
 | **1060** | (11-07 낮 · Caleb 이 그렇게 했고 말함) | 북키퍼가 이월 돈을 손 분개로 먼저 정리한 것이 보이면 = **QBO 에서 분개 Delete → 인보이스 잔액 확인 → IMS Retry**(IMS 가 기록 주인) · Delete 지 Reverse 가 아니다(Reverse 는 반대 분개를 더해 AR 에 받을 돈을 새로 만든다) · OC void 길 (나)는 **기각** — IMS 가 모르는 TEST 분개가 기록으로 남는다 |
@@ -13167,4 +13167,118 @@ asung-ims(`d20c047..HEAD` · 하나):
 
 ```
 다음 판정 번호: 1065 · 다음 deferred 번호: 499
+```
+
+## §103 2026-11-08(일 · 휴일) — 환불 QBO(크레딧 노트 몫 · 2e-3-2-0 조사 · 2e-3-2-1 · 1b · 1b2 · 첫 실물 넷) · cron 62 kinds 열둘 · Backorders Ready 느림(perf-bo-1 · OR 함정) · 문서 수량 합계(doc-qty-1 · 판 넷) · SO 수량 합 · Working · so csv v5 · qs refund v1 · v1a — 판정 1065 ~ 1079 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1108(md5 8 `6d6d22ec` · 「대화에만 있는 것」 A ~ F) · 인계서 `ims-handover-1108.md`(md5 8 `31789876`) · asung-wms `git log a9b5803..HEAD` 원문 · asung-ims `0b10e58..HEAD` · 마이그레이션 머리 주석 · sandbox 기록 `qbo-sync-2e-3-2-0-sandbox.md`(md5 8 `f6c91ee7`) · `…-sandbox-2.md`(`6e8bb4c9`) — 요지만 · 메인 DB 읽기(11-08 05:04 토론토 · begin read only)
+⚠️ 공개 레포 — 손님 상호 · 사람 이름 · 이메일 · realm 은 적지 않는다(Caleb 11-08 「(가)」) · QBO Id · 번호 · uuid 앞 8 은 적는다
+⚠️ 이견 20 의 「휴일 메인 DB 시험 승인」 은 이 차수만의 승인이라 번호 없는 「—」 행(docs-1108 이견 1) · ⓖ-1 ~ ⓖ-8 은 하나씩 번호
+
+### 103-a 판정
+
+| # | 갈래 | 뜻 |
+|---|---|---|
+| **1065** | (11-08 · 2e-3-2-0 이견 답 · Caleb) | **환불 한 줄 = QBO Purchase(Expense) 한 장** — 줄 여럿 · 크레딧 노트 몫 = **A/R** 줄(+ CustomerRef · 열린 금액이 생겨 CreditMemo 를 0 원 Payment 로 잇는다) · 이월 돈 몫 = **Customer Credits** 줄 · 트리거는 환불 행 하나에(INSERT deferred + status 가지) · **첫 짓기 = 크레딧 노트 몫만**(나머지 → 1066 · 1067 · deferred 500) · sandbox 는 Caleb 이 대화 Claude 안내로 API Explorer 에서 한 걸음씩(「스텝 바이 스텝으로 너의 가이드에 따라서」) · **1057 을 바꾼다**(1057 = 줄 Customer Credits 하나 → 크레딧 몫은 A/R) |
+| **1066** | (ⓖ-1 · (다) + (가) 따로) | 환불된 이월 결제가 so_payment_remaining 으로는 전액 남아 보이는 틈 — 이번은 **QBO 가드**: 이월 붙임(opening_*)이 환불된 돈을 쓰면 failed(qbo_opening_refunded_block) · 「환불을 결제에 매기」 는 따로 차수(deferred 500) |
+| **1067** | (ⓖ-2 · (가)) | 받아 둔 돈 몫은 **이월 돈 먼저**(따로 차수에서 씀 · 500) · 지금은 `so_payment_list.refund_from_account > 0` 인 환불은 **통째로 failed**(크레딧 몫만 반쪽 보내지 않는다 · qbo_refund_block) |
+| **1068** | (ⓖ-3 · (가) · 1056 의 구체화) | 1056 컷 = **paid_on 고정 date '2026-10-30'** — qbo_send_since(인보이스 발행 기준 · 2026-11-02) · created_at 재사용 금지 |
+| **1069** | (ⓖ-4 · (나)) | 적용일(date '2026-11-08') 뒤 created ∧ paid_on < 컷 인 환불 → failed 「check QuickBooks, then Retry or Skip」(손으로 늦게 적은 컷 전 환불이 QBO 에 이미 있을 수 있다) |
+| **1070** | (ⓖ-5 · (가)) | 컷 전 8 건(2,310.30)은 **일감 없음**(QBO 에 이미 있음 · 1056) + 그 환불을 IMS 에서 void 하면 refund_void **failed 알림**(Retry 거부 → Skip · QBO 는 사람이) |
+| **1071** | (ⓖ-6 · (가)) | 0 원 Payment 는 **환불 하나에 한 장**(CreditMemo 여럿을 한 장에) · kind 넷(refund · refund_void · refund_apply · refund_apply_void)이 **so_payment.id 하나**를 열쇠로 |
+| **1072** | (ⓖ-7 · (가)) | Purchase 되돌리기 = 잇는 Payment **void 먼저** → Purchase 다시 읽어 SyncToken → **Full update**(모든 줄 금액 0 + PrivateNote 「Voided - 」) · Delete 없음(설문 374 유지) |
+| **1073** | (ⓖ-8 · (가)) | Purchase 줄 세금 = 세금 규칙 **Out of Scope (Purchase)** 의 qbo_link 짝(운영 TaxCode 4 · sandbox 6) · 번호를 박지 않는다 · 짝 없으면 failed → 짝이 서면 qbo_refund_requeue |
+| — | (2e-3-2-1 이견 20 · (가) · 이 차수만) | 휴일 메인 DB 시험 한 회차 ≈ 26 s 승인(정각 직후 · 왕복 0.31 s) — 판정 아님 · 선례는 asung-workflow §4 |
+| **1074** | (1b 이견 4) | refund_void 전에 읽은 Purchase 에 **LinkedTxn Payment 가 남아 있으면 failed**(잇는 Payment void 가 먼저 · 1072) |
+| **1075** | (1b2 이견 3 · (나)) | 잇기 결과 경고 = after = **txnOpenBalance − Amount**(txnOpenBalance 는 잇기 **직전** 열린 금액) · Expense 줄 \|after\| > 0.004 면 경고(남음 · 모자람 「short」) · CreditMemo 줄은 모자람만 |
+| **1076** | (perf-bo 안 A · Caleb) | inv_receipt_events 의 sku 조건을 **두 갈래**(키 갈래 sku 색인 · 전체 갈래 옛 줄)로 · fill 무변 · Ready to ship now 에 **Try again 단추는 안 붙인다**(Caleb 「붙이지 말자」) |
+| **1077** | (직원 요청 · so qty) | SO 상세 **Lines 머리에 수량 합**(Qty · EA · Out) · Ship & invoice 미리 보기 **Total 줄** · 상태 거르기 **Working**(picking) |
+| **1078** | (문서 수량 합계 · (다)) | 문서에 줄 수량 합 + EA 합 **둘 다**(같으면 EA "") · credit_note 제외 · invoice.total_qty 무변 · 인보이스 꼴은 **오더마다도**(orders[]) |
+| **1079** | (so csv v5) | CSV Status = **화면 칩**(Backorder · Pre-order · On hold · Backorder ended) · 거르기 줄 한 줄(CSV 단추 하나 ▾) |
+
+### 103-b 차수 · 커밋 (git log 원문)
+
+`git log --oneline a9b5803..HEAD`(asung-wms · 앞 문서 차수 docs-1107 `a9b5803` 다음 · 빠진 것 0):
+
+```
+8b12366 qbo-sync-2e-3-2-1b2: refund_apply 거짓 경고 고침 — txnOpenBalance 는 잇기 직전 열린 금액 · openBalanceNote(Expense 남음 · 모자람 경고 · CreditMemo 모자람만) · 가짜 Intuit 직전 값 · 시험 27/27 · 쓰기 길 · DB 무변
+84afde4 qbo-sync-2e-3-2-1b: 환불 EF — SEND_KINDS 18 · purchase 몸 검사(만들기 · void 꼴만) · 가드(크레딧 · 손 기록 ±7일) · refund_void Full update · unknown 풀기 · 시험 27/27 · 손 Send CR-01011(172912 · 172913) · CR-01012(172914 · 172915) 확인
+829471b doc-qty-1: 문서 수량 합계 열쇠(totals · orders[] — line_count · qty_total · qty_total_ea) · doc_qty_totals 식 한 곳 · pack_factor 적재 둘 · 카탈로그 · 시험 14/14 · 확인 9/9
+e8babe9 qbo-sync-2e-3-2-1: 환불 QBO 일감(refund · refund_void · refund_apply · refund_apply_void) · Purchase + 0 원 Payment 몸 · 컷 2026-10-30(paid_on) · ⓖ-1 이월 가드 · 백필 2 건 · 시험 35/35 · 확인 35/35
+62e331a perf-bo-1: inv_receipt_events sku 조건 두 갈래(키 갈래 sku 색인) — Backorders Ready to ship now 5/5 timeout → 114 ms · fill 무변 · 시험 26/26 · 확인 24/24
+```
+
+asung-ims(`0b10e58..HEAD` · 넷 · 대화 Claude):
+
+```
+7082d84 qs refund v1a: Refund linked to credit 설명 — Refund 먼저 또는 둘을 함께(1b 이견 11)
+0922a44 qs refund v1: QuickBooks 화면 종류 Carried-over money · Refunds · 이름표 여덟 · 환불 · 이월 붙임 미리 보기(Purchase · 0 원 Payment · void 몸)
+031b1d2 so qty v1: 상세 Lines 머리 수량 합(Qty · EA · Out) · Ship & invoice 미리 보기 Total 줄 · 상태 거르기 Working
+a0e6c14 so csv v5: CSV Status = 화면 칩(Backorder · Pre-order · On hold · Backorder ended) · 줄 CSV Status 글 · 거르기 줄 한 줄(폭 · 검색칸 채움 · CSV 단추 하나 ▾)
+```
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| qbo-sync-2e-3-2-0 | — (조사 · Opus · 보고 `qbo-sync-2e-3-2-0-report.md`) + sandbox 두 회(Caleb · API Explorer · 대화 Claude 안내) | 크레딧 노트 환불의 QBO 꼴 실측(103-c 1) → 1065 ~ 1073 |
+| perf-bo-1 | `62e331a` · `20261108075000_perf_bo_1_ire_sku_branches.sql` | 1076 — inv_receipt_events 키 갈래 UNION ALL 전체 갈래(옛 줄 바이트 그대로 + `and p_sku is null`) · 새 md5 8 `8b0bb614`(옛 `56ecce6e`) · 시그니처 · search_path · acl · comment 무변 · 호출자 넷 무접촉 · Ready 5/5 timeout → 114 ms · 시험 26/26 · 확인 24/24 · 번호는 다른 창(2e-3-2-1)보다 앞으로 지시서가 박음 |
+| qbo-sync-2e-3-2-1 | `e8babe9` · `20261108075221_qbo_sync_2e3_2_1_refund_jobs.sql`(md5 8 `12474d2f`) | 1065 ~ 1073 — qbo_job kind 넷 · ims_kind refund · 몸 넷(qbo_refund_body · apply_body · apply_void_body · void_body) · 도우미(qbo_refund_from_account · qbo_opening_refunded_block · qbo_refund_block · purchase_head · credit_lines · label) · qbo_refund_sync · 트리거 so_payment_refund_qbo(AFTER INSERT · deferrable) + qbo_job_on_payment_status 가지 · 백필 2 건(CR-01011 · 01012) · requeue · 재발행(claim · preview · doc · list · retry · done · link_set …) · 시험 35/35 · 확인 35/35 |
+| doc-qty-1 | `829471b` · `20261108140000_doc_qty_1_totals.sql`(md5 8 `c66002d4`) | 1078 — 새 doc_qty_totals(식 한 곳) · totals.line_count · qty_total · qty_total_ea × kind 넷(sales_order · ship_ready · final_invoice · internal_receipt) + orders[] · pack_factor 적재 둘(doc_data_invoice · so_invoice_preview) · 카탈로그 · 시험 14/14 · 확인 9/9 · **so_invoice_issue 는 so_invoice_preview 를 부르지 않는다**(실측) · 시험 재료 SO-20996 |
+| qbo-sync-2e-3-2-1b | `84afde4` · EF qbo(`_shared/qbo.ts` · `qbo/index.ts`) | SEND_KINDS **18** · purchase 몸 검사(assertWriteAllowed — 만들기 · void 꼴만) · 가드(크레딧 RemainingCredit · 손 기록 ±7 일 TxnDate 범위) · refund_void = 다시 읽기 → Full update(1072 · 1074) · unknown 풀기 · 시험 27/27 · 배포 · 첫 실물 손 Send 넷 |
+| qbo-sync-2e-3-2-1b2 | `8b12366` · EF qbo | 1075 — openBalanceNote · 가짜 Intuit 이 직전 값을 준다 · 시험 27/27 · 배포 · DB 무변 |
+| so csv v5 | asung-ims `a0e6c14` · so.html(md5 8 `3b813e86`) | 1079 |
+| so qty v1 | asung-ims `031b1d2` · so.html(md5 8 `2e360a11`) | 1077 |
+| qs refund v1 · v1a | asung-ims `0922a44`(qbo-send.html md5 8 `d872e3e5`) · `7082d84`(md5 8 `74f6f31b`) | deferred 495 닫힘 — 종류 Carried-over money · Refunds · 이름표 여덟 · 환불 · 이월 붙임 미리 보기 · v1a = 「Refund linked to credit」 설명(Refund 먼저 또는 둘을 함께 · 1b 이견 11) |
+| 문서 판 넷(Caleb 올림 · Use this version · 11-08 04:13 ~ 04:16 토론토) | DB doc_template | sales_order **v3** · ship_ready **v8** · final_invoice **v10** · internal_receipt **v6**(credit_note v2 그대로) — 제품 표 아래 합계 줄(tfoot · 장마다 되풀이 안 함) · 합계표 맨 위 줄 · IR 은 오더 머리 + Total quantity 줄 |
+
+### 103-c 사실 · 실측
+
+1. **sandbox 실측(2e-3-2-0 · 요지 — 원문은 sandbox 기록 둘)**
+   - Purchase(PaymentType Cash · 줄 AccountBasedExpense **A/R** + CustomerRef) = 손님 잔액 **+a**(열린 금액이 생긴다) · **Customer Credits** 줄은 손님 잔액 무변 · 섞인 한 장의 열린 금액 = **A/R 줄 합**
+   - 0 원 Payment 의 LinkedTxn TxnType = **"Expense"**(Purchase 쪽) · CreditMemo 여럿을 한 장에 이을 수 있다
+   - 잇기 · 풀기가 Purchase · CreditMemo 의 **SyncToken 을 올린다**(안 읽고 쓰면 5010)
+   - Purchase 에는 Void 메뉴가 없다 · Full update 금액 0 + PrivateNote 「Voided - 」 = status **Voided**(금액 0 만으로는 Voided 아님)
+   - Purchase query 는 **TxnDate 만** 거른다(EntityRef · PrivateNote 로 거르면 4001)
+   - Payment 응답의 txnOpenBalance = **잇기 직전** 열린 금액(뒤 값 아님 → 1075)
+   - CreditMemo 몸 GlobalTaxCalculation NotApplicable → QBO 가 TaxExcluded 로 둔다
+2. **환불 첫 실물(11-08 · Caleb 손 Send 넷)** — CR-01011 → Purchase **172912** · Payment **172913** / CR-01012 → Purchase **172914** · Payment **172915** · CreditMemo 172491 · 172490 RemainingCredit 0 · 손님(QBO Customer 10505) Balance 0 · Paid from `1150040028` = 「Clearing - E-Transfer」(Bank · CAD)
+   - 172913 · 172915 의 결과 글 「after linking … not all 0」 = **거짓 경고 · 실제 0** → 1b2 로 고침(옛 결과 글은 DB 무접촉 · 그대로 남음)
+   - 둘째 건은 Caleb 이 직접 했고 북키퍼에게 말로 설명하기로
+   - 운영 QBO 콘솔(11-08): CR-01011 · 01012 손님에 11-03 뒤 손 기록 0 · Payment 는 `CustomerRef =` 서버 거르기가 된다
+   - DB 읽기(11-08 05:04 토론토): refund sent 2(172912 · 172914) · refund_apply sent 2(172913 · 172915) · 결제 식구 payment sent 204 · blocked 48 · failed 1 · skipped 11 · credit_apply sent 8 · blocked 3 · opening_credit · opening_apply 각 sent 7 · blocked 3
+3. **cron 62 = kinds 열둘**(11-08 · jobid 62 그대로 · + refund · refund_void · refund_apply · refund_apply_void) — 열쇠는 그 job 자신의 command 에서 꺼내 format(%L) · 확인 **11-08 04:35 ~ 04:50 토론토** 회차 succeeded · docs-1108 읽기 kinds_twelve t · where_twelve t · key_len 64 · `supabase/ops/cron.sql` 실행 블록을 DB command 글자 그대로(열쇠만 자리표) 열둘로 · 여덟 판은 (기록)
+4. **USD 손님 셋**의 ar_account_code 가 `_61_`(A/R CAD) — 그때까지 USD 환불은 failed(통화 ≠ 기본 통화) · deferred 499
+5. **perf-bo-0 · 1** — 증상: Backorders · Arrivals 「Ready to ship now」 기본 거르기 5/5 statement timeout(직원 8 s) · 까닭: so_backorder_fill(screen) 이 열린 백오더 줄마다(417) inv_receipt_events 를 부르고 그 함수는 **SET 붙은 SQL 함수(인라인 안 됨 · 일반 계획)** 라 `(p_sku is null or g.sku = p_sku)` 의 OR 가 색인 조건이 못 된다 → 호출마다 21 k 행 훑기 **32.6 ms → 갈래 0.16 ms**(asung-wms 「OR 함정」) · 메일 회차(cron 54) 9.7 s(11-05)도 같은 fill 이라 함께 빨라짐 · **pg_stat_statements 는 취소된 문장을 안 쌓는다**(timeout 난 화면 호출이 통계에 없다) · inv_receipt_events comment 「overview · arrivals 가 쓴다」 는 낡음(deferred 502)
+6. **doc-qty-1** — 콤보 구성품 줄은 원천(so_proforma · so_invoice_preview · so_invoice_line)에 없어 「보이는 줄 = 센 줄」 · 오더 여럿 인보이스 22 장 실재(오더마다 열쇠의 까닭)
+7. **휴일**(창고 · 에드먼턴 일 안 함) — 메인 DB 시험을 낮에(이견 20 · 「—」 행)
+
+### 103-d′ 열린 것 · 닫은 것
+
+- **닫힘**: deferred **454**(2e-3-2 크레딧 노트 몫 환불 나감 · 남은 몫 → 500) · **495**(qs refund v1) · Backorders Ready timeout(perf-bo-1)
+- 새 **499** ~ **502**(③ 미정): 499 USD 손님 A/R 계정 · 500 환불을 결제에 매기 · 501 assertWriteAllowed 몸 검사 모든 엔티티 · 502 inv_receipt_events comment
+- 월요일(11-09) 실무 496 ~ 498 그대로 · + 북키퍼에게 CR-01012 환불을 말로 설명(Caleb)
+- 다음 차례(1038 · QuickBooks 먼저): 459(원가 · 공급처 줄기) · 470 · 471 · 971(Caleb) → 500(환불을 결제에 매기) · 499(USD 데이터) → 메일 1d → 커넥터 ① ②(494) → perf-rpc-2 ~ 4(1037)
+
+### 103-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (102-e 에 이어 107 부터)
+
+107. [칸 이름 짐작 · 재발 셋째] 대화 Claude 가 칸 이름 짐작으로 조회를 줬다 — `product.is_combo` · `product_bom.product_id` · `doc_template_get->>'body'` ⇒ 표 정의를 먼저 보는 조회(`\d` · information_schema)로 바꿈 · 89 · 97 과 같은 뿌리
+108. [절 번호 짐작] 지시서에 「so-module §100 의 판정 490 ~ 492」 라고 적었다(§64 가 맞다) ⇒ 판정 번호의 절은 grep 으로 확인해 적는다
+109. [바깥 도구 짐작] 2e-3-2-0 지시서가 「로컬 sandbox 스크립트」 를 짐작(실제는 Caleb 이 API Explorer 에서 한 걸음씩) ⇒ 사람 손이 하는 일은 그 사람의 도구로 묻고 적는다
+110. [말투] 대화 Claude 가 Caleb 에게 영어로 답한 적이 한 번(터치패드) ⇒ 말투 규칙 = 존댓말 한국어(asung-workflow §10)
+111. [해시 자리] 지시서 docs-1108 이 asung-ims **커밋 해시 자리에 파일 md5** 를 적었다(so csv v5 `3b813e86` · so qty v1 `2e360a11` — 커밋은 `a0e6c14` · `031b1d2`) ⇒ 커밋은 git log 원문에서 · md5 는 「md5」 표지를 달아 따로
+112. [시험 가짜 · 뜻] 1b 의 가짜 Intuit 이 txnOpenBalance 를 잇기 **뒤** 값으로 줘서 거짓 경고 「not all 0」 이 시험을 통과했다 → 첫 실물 172913 · 172915 에서 드러남 → 1b2 ⇒ **시험 가짜는 sandbox 실측의 뜻대로**(값의 뜻 = 직전 · 뒤까지 적힌 실측을 가짜의 원천으로)
+113. [OR 함정 · 줄마다 부르는 함수] SET 붙은 SQL 함수 안의 `(x is null or col = x)` 는 일반 계획에서 색인을 못 탄다 — 줄마다 부르면 곱(32.6 ms × 420) ⇒ 갈래로 나눈다(perf-rpc-1 꼴) · 느린 화면 원인 찾기에서 pg_stat_statements 는 취소 문장을 안 쌓는다
+
+### 103-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §102 끝 「다음 판정 번호 1065 · 다음 deferred 번호 499」 → 아래
+- 102-a **1057** 행에 「→ 1065」(크레딧 노트 몫은 A/R 줄) · **1056** 행에 「→ 1068」(컷 = paid_on 고정 date '2026-10-30')
+- §64-d 함수 지도 「입고 정의(하나) inv_receipt_events」 줄 → 마지막 정의 perf-bo-1 · 쓰는 곳 정정 · §65-d 「나누기 셈 so_backorder_fill」 줄에 꼬리
+- `qbo-integration.md` 상태 줄 [11-08] · §14 머리 14-k · §14-j 의 1057 요지 → 1065 · 「다음」 줄 · **§14-k**(새)
+- `deferred.md` 454 · 495 닫힘 · 새 499 ~ 502 · §4 번호 줄
+- `supabase/ops/cron.sql` ims-qbo-send-payments 실행 블록 **여덟 → 열둘**(DB command 글자 그대로) · 여덟 판은 (기록)
+- 스킬 asung-qbo §5-e 끝 「환불 2e-3-2 는 아직」 → §5-f(본문만 · description 무변 · 1024 자) · asung-doc §1 판 번호 · §2 마지막 정의 · asung-wms 「OR 함정」 · asung-workflow §4 · asung-ops 지도 cron 62 kinds 열둘(asung-ops 레포)
+- 매뉴얼 en · ko 01-sales 「Sending refunds to QuickBooks is not built yet」 → 크레딧 노트 몫은 IMS 가 보낸다 · Sales Orders(Lines 합 · Working · CSV ▾) · Ship & invoice Total 줄 · 문서 합계 줄 · QuickBooks 종류 Refunds · Carried-over money
+
+```
+다음 판정 번호: 1080 · 다음 deferred 번호: 503
 ```
