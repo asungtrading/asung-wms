@@ -1008,3 +1008,15 @@ select cron.schedule('ims-fc-pickup-poll', '*/5 * * * *', $job$
   where exists (select 1 from public.inv_config c where c.key = 'fc_pickup_poll_enabled' and c.value = 'on')
     and exists (select 1 from public.fc_pickup_poll_due(1));
 $job$);
+
+-- [운영 메인 · Asung-IMS · fazgmyvzzhqybtvtktyg] jobid 67 · 2026-11-09 등록(Caleb) · 장 행만 · 일감은 qbo_cost_queue_due(3-3 이 잇는다) — ims-qbo-cost-build 등록 — qbo-sync-3-2a (2026-11-08 밤 · 판정 1098 · ⬜2 답 · DB 20261108170000 적용 뒤에 · 지시서 ~/asung/prompts/qbo-sync-3-2.md) — 하루 원가 장 **만들기만**(SQL · EF 없음 · 열쇠 없음) · ⚠️ 이 프로젝트가 메인(617) — 다른 프로젝트에 등록하지 마라
+--   무엇: 매일 08:00 UTC(토론토 03:00 EST · 04:00 EDT · 선례 ims-qbo-refresh 10 9) select public.qbo_cost_sheet_build_due() — 창고(TOR · EDM)마다 (마지막 장 날 + 1 · 없으면 inv_config qbo_cost_since) ~ 어제(토론토)의 장 행을 만든다(qbo_cost_sheet state pending · 일감 · 줄 · 보내기는 3-2b · 3-3)
+--         막힌 칸(모르는 원가 칸 · lost · 창고 모름)이 있는 날은 예외 → 그 창고는 거기서 멈추고 return_message 의 errors 에 글 · 다음 회차가 다시 본다 · 연결 없으면 skipped
+--   ⚠️ 스위치 qbo_send_cost_enabled(off) 와 무관하게 돈다 — DB 만 쓴다(QBO 호출 0) · 보내기 cron(3-3)은 따로 · cron 62(결제)와 묶지 않는다(1098)
+--   한 날 · 창고 셈 ≈ 0.1 ~ 0.3 s(기대값 함수 = 소진 85k 행 seq scan) · 밀린 12 장 첫 회차 ≈ 10 s 안쪽 · 손으로 지금: select public.qbo_cost_sheet_build_due();  (postgres) 또는 화면 · RPC qbo_cost_build_now()(열쇠 qbo)
+--   확인: select jobid, jobname, schedule, active from cron.job where jobname = 'ims-qbo-cost-build';  → ✅ [2026-11-09 실측 · Caleb 등록] jobid 67 · active t · command 「 select public.qbo_cost_sheet_build_due(); 」(앞뒤 공백 하나 · 아래 실행 블록 글자와 같음 · 3-2b 때 대조) — 65 · 66 예상은 빗나갔다(실측이 정본)
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-qbo-cost-build') order by start_time desc limit 5;
+--   만든 장: select sheet_date, wh, state, doc_number, built_keys, built_lines, built_hold_keys, built_debit_cents, epoch from public.qbo_cost_sheet order by sheet_date, wh;
+--   [3-2b · 20261108224000] 일감은 이 cron 이 세우지 않는다 — 사람 창구 qbo_cost_queue_due()(열쇠 qbo · 날짜 순) · cron · build 에 잇는 것은 3-3(kinds [cost_day, customer]) · EF SEND_KINDS 에 cost_day 가 없어 cron 61 · 62 는 cost_day 를 집지 못한다
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-cost-build'), active := false);   · 해제: select cron.unschedule('ims-qbo-cost-build');
+select cron.schedule('ims-qbo-cost-build', '0 8 * * *', $job$ select public.qbo_cost_sheet_build_due(); $job$);
