@@ -391,6 +391,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      깊이 하나 · 자기 참조 금지는 트리거 customer_parent_guard + CHECK 셋(창구 · 적재 · 손 SQL 모두) · 부모를 비우거나 바꾸면 옛 부모를 가리키던 청구처는 null(트리거 · 창구는 bill_to_reset_with_parent ack) ·
      Add store · Detach · 부모 바꾸기는 자식에 대한 customer_update 한 호출 · 청구는 부모 + 배송은 자기(null) 조합은 된다(판정 255)
 ⭐⭐ [2026-10-29 · cdc-1 · 판정 876 · so-module §88] 손님 기본 운송사 = `customer_default_carrier_set`(sales · 켜진 운송사 carrier · pickup · delivery · id 와 글자 칸(표 이름)을 함께 · null = 둘 다 비움 · 옛 id 가 맞아야) · customer_export 운송사 칸 = id 의 표 이름(없으면 옛 글자) · 판정 451(적재 규칙)은 그대로 — ⚠️ 비운 손님에 손님 적재가 Cin7 글자를 다시 쓸 수 있다(그래서 기본 운송사는 손님 적재 뒤에) · customer_update 는 아직 글자 default_carrier 를 받는다(화면은 안 보냄)
+⭐⭐ [2026-11-08 밤 · qbo-sync-3-1 `b7bb430` · 판정 1088 · 1091 · deferred 499 닫힘 · qbo-integration §15-g] **A/R 계정 통화 = 손님 통화** — 지연 제약 트리거 `customer_account_currency_ck`(창구 · 적재 · 손 SQL 모두 · 통화 · 계정 null 이면 통과) · 창구 block `currency_account_mismatch` · 새 손님 기본 A/R = 통화별 키 `customer_default_ar_account_code_cad` `_61_` · `_usd` `_212_`(옛 키는 폴백) · USD 손님 셋은 `_212_` 로 바로잡음 · 화면 cs v8c 는 통화를 바꾸면 그 통화 계정이 하나뿐일 때 계정을 맞춘다
 ```
 
 ## 4-n. ⭐⭐ 콤보(번들) — 모르면 사고 (정본 so-module §44 · 판정 244 ~ 250)

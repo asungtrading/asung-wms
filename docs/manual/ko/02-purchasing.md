@@ -20,6 +20,7 @@
 **공급처 더하는 법**
 1. **+ New supplier** 를 누릅니다.
 2. **Name \*** 과 아는 조건을 적습니다: **Currency** · **Payment term** · **Tax rule** · **Account payable** · **Type**
+   **Account payable** 의 통화는 공급처 통화와 같아야 합니다 — 계정 목록에 계정 통화가 보입니다(예: ` · USD`). **Currency** 를 바꾸면 그 통화 계정이 하나뿐일 때 계정이 함께 바뀌고, 아니면 직접 고릅니다. 통화가 다르면 저장되지 않습니다.
 3. 주소와 연락처를 넣습니다.
 4. **Create** 를 누릅니다.
 

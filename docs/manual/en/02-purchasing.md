@@ -20,6 +20,7 @@
 **How to add a supplier**
 1. Press **+ New supplier**.
 2. Fill in **Name \*** and the terms you know: **Currency**, **Payment term**, **Tax rule**, **Account payable**, **Type**.
+   The **Account payable** must be in the supplier's currency — the account list shows each account's currency (for example ` · USD`). When you change **Currency**, the account changes with it if there is only one account in that currency; otherwise pick one yourself. A mismatch is not saved.
 3. Add the address and a contact.
 4. Press **Create**.
 

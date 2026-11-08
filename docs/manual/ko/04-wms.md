@@ -350,7 +350,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 **다른 탭**
 - **Status** — 진행 중인 오더와 **Live now**: 누가 어떤 묶음을 쥐고 있나. **Release** 는 자리를 비운 사람의 묶음을 한 것은 남긴 채 기다리는 목록으로 돌려놓습니다.
 - **Discrepancy** — 작업자별 실수(short pick · over-pick …). **✓ Resolved** 로 닫습니다.
-- **Finalized** — Finalize 된 오더의 패킹리스트를 다시 냅니다: **🖨 Print** · **⬇ PDF** · **⬇ CSV**
+- **Finalized** — Finalize 된 오더의 패킹리스트를 다시 냅니다: **🖨 Print** · **⬇ PDF** · **⬇ CSV** · 목록은 오피스를 기다리는 오더만 보입니다. 이미 Ship & invoice 된 오더의 패킹리스트를 다시 내려면 **Include shipped & invoiced** 를 켭니다 — 그 오더에는 **Fulfilled** 또는 **Shipped** 꼬리표가 붙습니다.
 - **Health** — 늘 맞아야 하는 검사. "a red card means the rule broke and needs review" — IMS 관리자에게 알립니다.
 - **Stats** — **Today** · **This week** · **This month** · **All** 의 묶음 · 시간 · 실수
 - **Trace** — 누가 언제 어디서 그 오더를 다뤘나

@@ -350,7 +350,7 @@ The window says whether the PO "stays open" for more or "closes on confirm".
 **The other tabs**
 - **Status** — orders in progress and **Live now**: who holds which batch. **Release** returns a batch whose holder is away to the waiting pool, progress kept.
 - **Discrepancy** — mistakes by worker (short pick, over-pick …). **✓ Resolved** closes one.
-- **Finalized** — reprint a finalized order's packing list: **🖨 Print**, **⬇ PDF**, **⬇ CSV**.
+- **Finalized** — reprint a finalized order's packing list: **🖨 Print**, **⬇ PDF**, **⬇ CSV**. The list shows orders still waiting for the office. To reprint the packing list of an order that was already shipped and invoiced, turn on **Include shipped & invoiced** — those orders show a **Fulfilled** or **Shipped** tag.
 - **Health** — checks that must always hold. "a red card means the rule broke and needs review" — tell the IMS administrator.
 - **Stats** — batches, times and mistakes for **Today**, **This week**, **This month** or **All**.
 - **Trace** — who worked on an order, when and where.

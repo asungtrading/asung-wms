@@ -13360,3 +13360,100 @@ a0e6c14 so csv v5: CSV Status = 화면 칩(Backorder · Pre-order · On hold · 
 ```
 다음 판정 번호: 1091 · 다음 deferred 번호: 508
 ```
+
+## §105 2026-11-08(일) 밤 — qbo-sync-3-1(계정 통화) · WMS Finalized 재출력 · qbo-sync-3-2-0(하루 원가 장 설계) · 판정 1091 ~ 1103 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1108c(md5 8 `46ae4930` · 「대화에만 있는 것」 A ~ E) · 조사 보고 `~/asung/prompts/qbo-sync-3-2-0-report.md`(md5 8 `e49b3929` · 256 행 · 31,937 B · ② · ④ 절 숫자는 보고 원문 그대로 — 이 차수는 DB 접속 0) · 운영 QBO 콘솔 C1 · C3 · C4 · C5(Caleb 실행 · 대화 Claude 판독) · 세 레포 HEAD asung-wms `b7bb430` · asung-ims `950fe22` · asung-ops `23b672a`(docs-1108b `b8e6bdf` 뒤 지시서 밖 커밋 0)
+⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다(북키퍼는 「북키퍼」 · 동료는 「동료」 · 시험 손님은 「USD 시험 손님」) · QBO Id · 문서 번호 · 계정 번호 · 금액은 적는다
+⚠️ 상태 = 3-1 **짓기 끝 · 적용**(`20261108150000`) · 하루 원가 장은 **설계 끝 · 짓기 전**(다음 3-2 DB) · 정본 qbo-integration **§15-g** · **§15-h**
+
+### 105-a 판정 (지시서 A 표 그대로 · Caleb 원문 칸은 바이트 그대로)
+
+| 판정 | Caleb 원문 | 뜻 |
+|---|---|---|
+| 1091 | 「지금 보니까, 정본을 뒤집더라도 ㄱ으로 해야 할 것 같은 생각이 드네」 | `ref_account.currency_code` 를 더한다(null = 본사 통화 CAD) · 채움 `_109_` USD · `_212_` USD · `_203_` KRW · 공급처 A/P · 손님 A/R 막기 = 「계정 통화 = 상대 통화」 · **po-module 3369(결제 계좌 통화 칸 기각)를 A/P · A/R 통제 계정에 한해 뒤집음** · 은행 · 결제 계좌의 통화를 채우고 쓸지는 1081(공급처 결제) 차수에서 · 기각 안 (ㄴ): 칸 없이 통화별 기본 키로 막기(통화당 A/P · A/R 하나뿐이라는 전제) |
+| 1092 | 「3」 | 하루 원가 장의 「이미 보낸 몫」 = 문서 번호 · 계정 짝마다 보낸 **센트 합**(원가 줄 id 를 담지 않음 → 재생성에 견딤) · 다음 장 = 지금 셈 − 보낸 합의 **차액** · 늦게 적은 과거 사건 · 다른 날 SO 를 가리키는 늦은 원가 · 크레딧 취소도 같은 규칙으로 다음 장에 그 문서 번호 줄 · 미리 보기에 열쇠마다 「이번 셈 · 보낸 합 · 차액 · 처음 보낸 날」 · 기각: (1) id 워터마크 · (2) 사건마다 표식 |
+| 1093 | 「다」 | 원가 재생성(`inv_layer_apply`)을 하면 하루 장 보내기가 **멈춘다** · 사람이 확인하고 풀면 재생성 차액을 계정 짝당 한 줄 「IMS cost rebuild」 로 묶은 한 장 · SO 별 내역은 IMS 화면 · 평소 작은 차액은 1092 대로 SO 줄 · 근거: 컷 뒤 재생성 1 번(10-31 12:08 · 사람이 ops 스크립트)뿐 |
+| 1094 | 「가」 | 재고 없이 판 것(레이어 origin `sale_shortfall`) = 「장부에 없던 재고가 나타남」 → 차 #59 / 대 재고 조정 기본 계정(#1150040010 · `inv_adjust_default_account_code`) · 판매 원가 줄은 그대로 · 실물 SO-21090 6.33(에드먼턴) |
+| 1095 | 「가」 | 늦은 원가(cost_late) 중 조정으로 나간 몫(items reason adjust_out · lost)은 그 조정의 계정(`inv_adjust_account()` · 기본 #1150040010) · 판매 몫만 #58(1084) · 열쇠 = items 의 doc_number · share |
+| 1096 | 「나」 · 「우리는 인보이스가 없으면 po를 wms에서 내려보낼 수가 없게 설계하지 않았나?」 | 입고는 하루 장에서 계산만 · 「보류」(월 검산에 보류 칸) · 공급처 Bill 차수(1080)에서 함께 연다 · 짝 계정 = **GINR #1150040012 하나**(판정 88: 확정 인보이스 없이 입고 불가 · po-disc-2-0 실측 입고 9/9 가 인보이스 뒤) · GRNI #1150040011 은 IMS 가 쓰지 않는다(잔액 −42,062.28 = Cin7 시절 찌꺼기 · 503 과 함께) · Bill 차수에서 확인: Off-invoice 「청구로 받음(accepted_billed)」 몫의 짝 |
+| 1097 | 「나」 | 줄 = 열쇠(SO · CR · ADJ · TRF …)마다 뜻 있는 쪽 한 줄 + 짝 계정은 장마다 계정당 한 줄로 모음(합 = **줄마다 반올림한 값의 합** · 실측 ±0.01) · 줄 설명 = 문서 번호(+ 차액 꼬리) · **손님 이름 글자는 싣지 않음** · 한 장 약 60 줄 |
+| 1098 | 「가」 | 새 스위치 `qbo_send_cost_enabled`(처음 off) · 장 **만들기** = SQL cron 매일 토론토 03:00 쯤 전날 몫 · 처음 몇 주 화면 미리 보기 → 손 Send(971 꼴) · 익숙해지면 자동 · cron 62(결제)와 묶지 않음 · 밀린 장도 같은 미리 보기로 · 창고마다 차례 · failed · unknown 이면 그 창고의 뒤 장 멈춤 |
+| 1099 | 「가」 | 재고 조정 한 건의 금액(들어옴 · 나감 절대값 합)이 문턱을 넘으면 하루 장에서 「보류」 — 사람이 「보냄 / 안 보냄」 고르기 전에는 안 나감 · 문턱 = inv_config 값(처음 **1,000** · 바꾸기는 마이그레이션 · 572) · write-off 를 가르는 칸은 503 차수 |
+| 1100 | 「나」 | 트랜스퍼 운임(얹기 kind `transfer_freight`)의 짝 = 그 비용 문서의 종류(1089 와 같은 규칙 · 운임 #136 · 통관 #135 · 관세 #134) · 모르면 #136 · 받는 레이어가 운송 중이면 차 In Transit #1150040007 · 실제 문서 꼴은 짓기 때 확인(컷 뒤 실물 0) |
+| 1101 | 「가」 | QBO 에 같은 하루 장이 두 장 서면 사람이 QBO 에서 하나 지우고 IMS 일감은 skip(사유) · IMS 는 JournalEntry 를 만들기만(지우기 · void 길 없음 · 374 · 1060 원칙) · unknown 은 DocNumber 조회로 먼저 |
+| 1102 | 「나」 | 하루 장은 QBO Location(DepartmentRef)을 싣지 않는다 · 창고는 장을 창고마다 따로 보내는 것과 DocNumber(`COGS-YYYYMMDD-TOR` · `-EDM`)로 · 금액 무영향(에드먼턴 원가는 에드먼턴 레이어 원가 그대로) · 근거: Cin7 원가 JE 에 dept 없음(콘솔 C1) · QBO Location 은 「Edmonton」 하나뿐이고 인보이스도 안 씀 · Caleb 물음 「트랜스퍼로 에드몬튼 원가는 다르게 잡힐텐데, 그것을 무효화시키는 것은 아니지?」 → 아니다(금액은 IMS 레이어 · Location 은 꼬리표뿐) |
+| 1103 | 「1103 가」 | SO 원가 줄(#58 쪽)에 그 인보이스의 QBO 손님(청구처)을 **Entity** 로 건다 · 반품 restock(CR) 줄은 그 크레딧 노트의 손님 · #59 모음 줄에는 안 검 · 손님 번호는 인보이스 보내기의 짝(qbo_link) 그대로 · 근거: Cin7 원가 JE 도 Entity = Customer(콘솔 C1) · QBO 「손님별 손익」 이 끊기지 않게 · 1097(이름 글자 안 실음)과 다르지 않다 — 번호는 QBO 안에서 이름 변경을 따라간다 |
+
+- 1090 의 **구현 규칙**(판정 아님 · 3-2-0 이견 4 · 뜻 무변): 경계를 날짜가 아니라 **출처**로 — 「`inv_ledger.source='ims'` 인 문서의 사건 + IMS 비용 문서(charge_number)의 얹기 · 늦은 원가 − 제외 목록(opening_fix 가족 · 살린 트럭 TR-06396 ~ 06399 도착)」
+- 1091 의 뒤집음: po-module §11-h(3369 행 「결제 계좌 — ref_account 를 고치지 않았다」)의 통화 칸 기각은 **A/P · A/R 통제 계정에 한해** 뒤집힌다 · 은행 · 결제 계좌의 통화는 그대로(1081 차수)
+
+### 105-b 차수 · 커밋
+
+`git log --oneline b8e6bdf..HEAD`(asung-wms) · 같은 때 뒤 asung-ims · asung-ops(11-08 밤 fetch 뒤) — 원문:
+
+```
+asung-wms  b7bb430 qbo-sync-3-1: 계정 통화 · 데이터 바로잡기 — ref_account.currency_code(판정 1091 · po-module 3369 뒤집음) · CAD 공급처 11 곳 A/P _109_ → _62_(1088) · USD 손님 셋 A/R _61_ → _212_(deferred 499) · 통화별 기본 키 넷 · 막기 = 지연 제약 트리거 둘 + 창구 넷 warn → block · 조정 기본 계정 _1150040010_ + inv_adjust_account(1087 · 1090) · 시험 41/41 · 적용 20261108150000
+asung-ims  950fe22 wa v1.18a: Finalized 는 기다리는 오더만이 기본 · 「Include shipped & invoiced」 를 켤 때만 Ship & invoice 된 오더를 보여 팩킹 리스트 재출력 (Caleb 「빠지는 것은 당연하지만 프린트가 막히는게 걸림돌」)
+asung-ims  ffad24d wa v1.18: WMS Admin Finalized 에 Ship & invoice 뒤 오더(fulfilled · shipped)도 남긴다 — 기간 안 · 최근 500 · Fulfilled/Shipped 꼬리표 · 팩킹 리스트 재출력 그대로 (동료 요청)
+asung-ims  bd3d396 sup v4a · cs v8c · set v17a: 계정 통화 표시 · 통화를 바꾸면 그 통화 계정으로(하나뿐일 때) · Reference Book Account 에 Currency 칸 (qbo-sync-3-1 · 판정 1088 · 1091)
+asung-ops  (없음)
+```
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| qbo-sync-3-1 | asung-wms `b7bb430` · `20261108150000_qbo_sync_3_1_account_currency.sql`(1,423 행 · md5 `99ea7918…`) · 시험 `supabase/tests/qbo_sync_3_1_check.sql`(207 행 · `4f742f57…`) | 계정 통화 · 데이터 바로잡기 · 막기(105-c 1) · 시험 41/41 · 적용 뒤 확인 41/41 · `rolled_back_clean` · 확인 앞뒤 시퀀스 무변 |
+| 화면 3-1 | asung-ims `bd3d396`(대화 Claude) | sup v4a · cs v8c · set v17a(105-c 2) |
+| WMS Finalized | asung-ims `ffad24d` wa v1.18 → `950fe22` wa v1.18a(대화 Claude · DB 무변) | 105-c 3 |
+| qbo-sync-3-2-0 | — (조사 · Opus · DB 읽기만 · QBO · EF · git 쓰기 0 · 보고 파일 하나) | 하루 원가 장 설계 · 22 칸 · 판정 거리 J1 ~ J11 → 1092 ~ 1103(105-c 4) |
+| 콘솔 C1 · C3 · C4 · C5 | — (운영 QBO · Settings → QuickBooks 콘솔 · 읽기만 · Caleb 실행 · 대화 Claude 판독) | 105-c 5 → 1102 · 1103 · 마감일 |
+| docs-1108c | (이 차수 · 커밋은 Caleb) | 정본 · deferred · 스킬 qbo · po · so · inv-ledger · wms · workflow 본문 · 매뉴얼 en · ko 02 · 04 |
+
+### 105-c 사실 · 실측
+
+1. **qbo-sync-3-1(짓기 첫 차수 · 끝)** — ① `ref_account.currency_code`(1091 · CHECK 세 글자 · FK 없음 — KRW 가 ref_currency 에 없다 · 채움 `_109_` USD · `_212_` USD · `_203_` KRW · null = 본사 통화 CAD) ② inv_config 키 다섯 — `inv_adjust_default_account_code` = `_1150040010_` · `supplier_default_account_payable_code_cad` `_62_` · `_usd` `_109_` · `customer_default_ar_account_code_cad` `_61_` · `_usd` `_212_` · 옛 키 둘 값 무변 폴백 · 572 거부 목록에 자동 ③ 도우미 `ims_account_currency(account_id)` · `ims_account_currency_msg(…)` ④ 데이터: CAD 공급처 11 곳 A/P `_109_` → `_62_` · USD 손님 셋 A/R `_61_` → `_212_`(deferred 499 · USD 시험 손님 하나 포함) · touch 트리거를 잠시 꺼 updated_by 보존 ⑤ 막기 = **지연 제약 트리거** `supplier_account_currency_ck` · `customer_account_currency_ck`(deferrable initially deferred · 발화 때 행을 다시 읽음 · 통화 · 계정 null 이면 통과) ⑥ `inv_adjust_account(adj)` → (account_id · account_code · is_default) — 확정 41 건에 값 안 씀 ⑦ 창구 넷(supplier_create · update · customer_create · update) 글자 추론 warn → block `currency_account_mismatch` · supplier_create 는 통화 블록을 계정 블록 앞으로
+   - 실측 덧: ref_currency = CAD · USD 둘(KRW 없음 → KRW 기본 키 안 만듦) · USD 공급처 184 곳 모두 `_109_` · qbo_entity Account detail 에 CurrencyRef 없음(거울로 통화를 알 수 없었다) · `qbo_refund_block` 은 so_payment 통화를 보므로 499 를 고쳐도 USD 환불 failed 그대로(블록 무변)
+   - REST 두 겹 ②(Caleb 화면 · 11-08 밤): CAD 공급처 하나 — 통화만 USD 로 저장 → 거부 글(빠져나오는 길 포함) · USD + `_109_` 함께 → 통과 · 되돌림 / USD 시험 손님 — A/R `_212_` 보임 · 통화만 CAD → 같은 꼴 거부
+2. **화면 3-1**(asung-ims `bd3d396`) — **sup v4a** · **cs v8c**: 계정 고르기 글에 계정 통화(` · USD`) · 통화를 바꾸면 같은 account_type 의 그 통화 계정이 **하나뿐일 때** 계정을 자동으로 바꾸고 한 줄 알림(여럿 · 없음이면 알림만) · 본사 통화 = 화면 상수 CAD(빈 currency_code) / **set v17a**: Reference Book → Account 에 Currency 칸 · 안내 글 · Caleb 확인 「잘 반영이 된것 같아」
+3. **WMS Admin Finalized 재출력**(동료 요청 · DB 무변) — 요청(Caleb 전달): 「IMS에서 Ship & Invoice를 해서 완벽하게 Fulfill이 된 오더는 WMS >> Admin >> Finalized에서 사라집니다. IMS에서 인보이스 후 Packing List를 뽑는 경우가 있습니다. Fulfill된 오더도 WMS Finalized에서 기록이 남을 수 있도록 수정 요청 드립니다.」 · Caleb 「이전처럼 계속 기록이 남아 있었으면 하는게 우리 동료의 요청이야」
+   - 원인: wms-admin.html `loadPacking` 이 so status `packed` 만 읽는다 · 팩킹 리스트 데이터(팔렛 · 박스 · 팩)는 Ship & invoice 뒤에도 남는다(so_finalize 는 지우지 않음 · 재출력 경로는 상태를 안 봄)
+   - `ffad24d` **wa v1.18**: Finalized 에 기간 안의 fulfilled · shipped 를 섞음 → Caleb 「사실 finalized에서 ship & invoice로 전진했으니 빠지는 것은 당연하지만 팩킹리스트는 프린트가 막히는게 걸림돌이야」 → `950fe22` **wa v1.18a**: Finalized 는 기다리는 오더(packed)만이 기본 · 「**Include shipped & invoiced**」 를 켤 때만 기간(packed_at) 안 닫힌 오더를 읽어 Fulfilled / Shipped 꼬리표 · 최근 500 · 총수 count-head 캡션 · 닫힌 오더는 팩 줄 임베드 없이(실제 팩 수 괄호 생략) · 목록이 비어도 스위치는 보임 · 트랜스퍼(도착하면 빠짐)는 그대로 · Caleb 화면 확인(꼬리표 · Print 됨)
+   - 같은 화면의 When 칸은 브라우저 시간대를 따른다(출장 중 노트북에서만 어긋나 보임) — 고치지 않음 · 기록만
+4. **qbo-sync-3-2-0(하루 원가 장 설계 조사 · 보고 ② · ④)** — 자세히 qbo-integration §15-h
+   - **원가 사건 종류의 정본 = DB 제약 22 칸**: 레이어 origin 8(baseline · purchase · transfer · adjust_new · adjust_existing · assembly · creditnote · sale_shortfall) · 소진 reason 8(sale · transfer · adjust_out · assembly_in · reversal · lost · cost_late · cost_moved) · 얹기 kind 6(landed · transfer_freight · carried · price_adjust · settlement_discount · opening_fix) — 하루 장은 22 칸마다 「보냄 · 안 보냄 · 보류 · 막음」 · **제약이 넓어져 모르는 칸이 생기면 장을 막는다** · 출고 취소는 레이어 표에 되돌리는 길이 없다(reversal 은 크레딧 노트 취소뿐) · `lost` 는 뜻 판정 전이라 **막음**(deferred 512)
+   - **트랜스퍼는 소진 줄로만 센다** — carried 얹기 줄의 occurred_on 은 원래 얹힌 날(08-22 ~ 10-27 · 보고 S2)이라 날짜로 세면 값이 옛 날짜 · 다른 창고로 샌다 · 보존 검산: 소진 = 자식 바탕 + carried(차이 ≤ 0.0001)
+   - 재생성 실측: 컷 뒤 1 번(10-31 12:08 · `supabase/ops/layer-fix-1-regen.sql` · 레이어 22,797 · 소진 78,398 · 얹기 9,859) · `inv_layer_apply` 를 부르는 함수 · cron 0 · 레이어 표를 지우는 함수는 `inv_layer_apply` · `inv_layer_seed_baseline` 둘 · update 하는 함수 0 · 재생성은 금액도 바꾼다
+   - 밀린 장 **12**(10-31 조정 둘 · 11-02 ~ 06 × 두 창고) · 한 장 최대 열쇠 56(토론토 11-06) · 11-07 · 08 사건 0 · 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 반올림: SO 별 반올림 합 − 합 반올림 = ±0.01(10 장 중 7)
+   - **507 닫힘**: 하루 장의 landed 날짜 = IMS 가 얹은 날(`cost_add.occurred_on` = `po_charge_alloc.posted_on`) · Cin7 의 「입고 전 얹기」 를 따라 하지 않는다 · 506 은 IMS 꼴에 안 걸린다(1083 의 10-30 맞대기 시험에만)
+   - 설계 요지(짓기 3-2 의 바탕): 표 `qbo_cost_sheet` · `qbo_cost_sent` · 기대값 함수 `qbo_cost_expected(p_until)` · 일감 kind `cost_day` · ims_id `'YYYY-MM-DD|TOR'` · `qbo_txn.qbo_type` 에 JournalEntry · EF `assertWriteAllowed` 에 journalentry **만들기만** · DocNumber `COGS-YYYYMMDD-TOR`(17 자) · 월 검산 뷰 `qbo_cost_month` · 차수 3-2 DB(약 700 ~ 900 행 짐작) → 3-3 EF + sandbox → 3-4 화면(대화 Claude)
+5. **운영 QBO 콘솔(11-08 밤 · 읽기)** — **C1** SO-18513 JE 줄 = 차 #58 / 대 #59 · dept 없음 · class 없음 · **Entity Customer** · detail 칸 PostingType · Entity · AccountRef / **C3** Department 1 행 「Edmonton」(active) / **C4** Preferences 조회는 EF 가 거부(400 · 읽기 허용 종류 밖 — 열 필요 없음) → Caleb QBO 화면: **회계연도 시작 9 월 · Close the books 켜짐 · 마감일 2026-08-31**(경고 + 비밀번호로 고치기 허용) ⇒ 10 월 날짜(10-28 · 10-31)로 보낼 수 있다 / **C5** JournalEntry DocNumber `COGS-%` = 0(겹침 없음)
+6. **그 밖** — Caleb(11-08 밤 · 결제 계좌): 「실제 돈이 들어 있는 돈의 원천이야. 그런데 돈이 나간 곳이 다르다면 그것은 mtfx도 포함을 시킨 모양이야. 뭐가 됐든 돈의 3군데에서 나가지만, 퀵북의 입장에서는 다른 곳이 추가가 되었을 수도 있어」 — QBO USD 수표 #138 의 정체는 1081 차수에서 · POS 스캔 「canceling statement due to statement timeout」(동료 신고 · 가끔 · 시각 · 줄 수 모름) — perf-pos-0 조사 진행 중(보고 대기 · deferred 508) · 정본에 POS 느림 기록 없음
+
+### 105-d′ 열린 것 · 닫은 것
+
+- **닫힘**: **499**(3-1 `b7bb430` · USD 손님 셋 A/R `_212_` · 통화별 기본 키 · 트리거) · **507**(3-2-0 · 하루 장의 landed 날짜 = IMS 가 얹은 날)
+- **잇기**: 459(3-1 끝 · 3-2-0 끝 · 다음 3-2 DB) · 503(1099 문턱 보류 · 회계연도 9 ~ 8 월 · 마감 2026-08-31 — 「결산 때」 = 회계사 일정)
+- 새 **508** ~ **512**: 508 POS 스캔 statement timeout · 509 조정 계정을 고를 길 없음 · 510 적재 재실행 때 CAD 공급처 11 행 거부 · 511 `qbo_refund_purchase_head` 폴백이 통화별 키가 아님 · 512 소진 reason `lost` 의 뜻(판정 대기)
+- 다음 차례: **qbo-sync-3-2**(하루 원가 장 DB)
+
+### 105-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (104-e 에 이어 118 부터)
+
+118. [기본값 짐작] 대화 Claude 의 3-1 지시서가 KRW `_203_` 기본 키를 짐작으로 넣었다(ref_currency 에 KRW 없음 — 3-1 이 실측으로 막음) ⇒ 기본값 · 통화 목록은 **ref_currency 실측 뒤**에 적는다
+119. [Cin7 꼴부터 봄] 3-2-0 이 입고의 짝을 「GINR / GRNI — Bill 이 먼저냐에 달렸다」 로 열어 두었다 — IMS 는 판정 88 로 늘 인보이스 먼저(Caleb 이 짚음 · 1096) ⇒ **Cin7 꼴을 옮기기 전에 IMS 의 규칙(판정)부터 grep**
+120. [목록의 뜻을 흐림] 대화 Claude 의 wa v1.18 이 Finalized(기다리는 오더)에 닫힌 오더를 섞었다 → Caleb 이 짚어 v1.18a ⇒ 「막힌 기능을 푼다」 와 「목록의 뜻을 바꾼다」 를 가른다 · 기본은 뜻을 지키고 켜기로
+121. [회신 중 끊김] docs-1108b 회신 중 네트워크가 끊겼다 — 파일마다 md5 · 행 수를 앞 회신 AFTER 와 맞대 「어디까지 됐나」 를 가르고, 남은 일만 다시 줌(① 은 이미 끝나 있었다) ⇒ 끊긴 차수는 **md5 · 행 수 맞대기**로 이어 간다
+122. [잘 된 것] 3-1 시험이 확인 앞뒤 pg_sequences diff 로 「시퀀스 무변」 을 보였다 · 3-2-0 이 제약 22 칸으로 「빠짐없이」 의 정본을 세웠다 · carried 날짜 함정을 보존 검산으로 잡았다
+
+### 105-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §104 끝 「다음 판정 번호 1091 · 다음 deferred 번호 508」 → 아래
+- `po-module.md` 3369 행(결제 계좌 통화 칸 기각) → 1091 로 A/P · A/R 통제 계정에 한해 뒤집음 · 67 행 `ref_account` 칸 12 → 13 · 3926 행 회사 기본값 줄에 키 다섯
+- `deferred.md` 507 → 닫힘 · 499 → 닫힘
+- 104-a **1083** 「11-02 부터」 — 104-f 에서 이미 판매 원가로 좁힘(1090) · 이 차수 확인만(고칠 것 없음)
+- `qbo-integration.md` §15-b 「deferred 507」 · §15-e 「AST261028 10 월 마감 여부」 · 「landed 를 하루 장의 어느 날짜로(507)」 → §15-h(마감일 2026-08-31 · 507 닫힘) · §14-k qbo_refund_block 줄 → 499 를 고쳐도 failed 그대로
+- 3-2-0 보고 ① 7 「입고의 대 계정은 하나로 안 정해진다(GINR / GRNI)」 → 1096(GINR 하나 · GRNI 는 IMS 가 쓰지 않음)
+- 3-2-0 보고 ① 3 「carried occurred_on 08-22 ~ 11-01」 ↔ 같은 보고 S2 표 「08-22 ~ 10-27」 — 이 절은 S2 표 값(10-27)을 쓴다
+
+```
+다음 판정 번호: 1104 · 다음 deferred 번호: 513
+```
