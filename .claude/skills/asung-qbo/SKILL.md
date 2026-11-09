@@ -1,12 +1,13 @@
 ---
 name: asung-qbo
 description: >
-  Asung Trading IMS 와 QuickBooks Online(QBO) 연결 — OAuth 연결 · 끊기 · 다시 연결 · 토큰 갱신 · 끊김 메일 · Settings → QuickBooks · Intuit 앱 · 설문을 다루거나 QBO 싱크를 지을 때 먼저 읽으세요.
-  "QuickBooks", "QBO", "퀵북", "QuickBooks 연결", "Intuit", "realm", "realmId", "qbo_connection", "qbo_oauth_state", "qbo_call_log",
+  Asung Trading IMS 와 QuickBooks Online(QBO) 연결 — OAuth 연결 · 끊기 · 토큰 갱신 · 끊김 메일 · Settings → QuickBooks · Intuit 앱 · 설문을 다루거나 QBO 싱크를 지을 때 먼저 읽으세요.
+  "QuickBooks", "QBO", "퀵북", "Intuit", "realm", "qbo_connection", "qbo_oauth_state", "qbo_call_log",
   "Vault", "needs_reconnect", "invalid_grant", "QBO_ENV", "ims-qbo-refresh", "cron 59", "EF qbo", "qbo_status", "intuit_tid",
-  "qbo_alert_to", "Untie company", "Reconnect", "App assessment", "redirect URI", "minorversion", "QBO 싱크", "Cin7 QBO 싱크",
+  "qbo_alert_to", "Untie company", "Reconnect", "App assessment", "redirect URI", "minorversion", "QBO 싱크",
   "qbo_link", "qbo_entity", "qbo_match_auto", "qbo_pull_state", "pull", "QuickBooks matching",
-  "qbo_job", "send", "apiWrite", "credit_apply", "QUICKBOOKS 열쇠"
+  "qbo_job", "send", "apiWrite", "credit_apply", "QUICKBOOKS 열쇠",
+  "Bill", "VendorCredit", "BillPayment", "GINR"
   가 나오면 추측하지 말고 이 스킬과 정본 docs/design/qbo-integration.md 를 확인하세요.
   ⚠️쓰기는 apiWrite 하나 — 자동 재시도 없음 · 모르면 unknown(인보이스는 아직),
   ⚠️토큰은 Vault 에만 — 표 · 화면 · 기록 · 응답에 싣지 마라,
@@ -51,6 +52,7 @@ description: >
 2026-11-08  환불(크레딧 노트 몫) — qbo-sync-2e-3-2-1(DB `e8babe9` · 환불 한 줄 = Purchase 한 장 + 0 원 Payment · kind 넷 refund*) · 1b(EF `84afde4` · SEND_KINDS 18) · 1b2(`8b12366` · 잇기 경고 = 직전 값) · cron 62 kinds 열둘 · 첫 실물 172912 ~ 172915 · 454 · 495 닫힘 · 정본 §14-k · 아래 5-f · so-module §103
 2026-11-09  하루 원가 장 DB 앞 절반 — qbo-sync-3-2a(`0228bd0` · **적용 20261108170000 · 확인 44/44** · 표 셋 qbo_cost_sheet · _sent · _hold · 키 셋 · 함수 15) · **cron 미등록 · 첫 장은 3-2b 적용 때** · 정본 §15-i · 아래 5-g · so-module §106
 2026-11-09  하루 원가 장 뒤 절반 · EF · 화면 — qbo-sync-3-2b(`2fbed9d` · **적용 20261108224000 · 확인 60/60** · kind cost_day · claim 때 줄 고정 · 차례 · 재생성 hold · resolve) · cron **67** ims-qbo-cost-build · 3-3(`232dec7` · EF 배포 · JournalEntry · 가드 · 1112) · 3-4 화면 qs cost v1a · 장 0 · 보내기 cron 미등록 · 정본 §15-j · §15-k · 다음 = **공급처 쪽(qbo-sync-4-0 조사)**
+2026-11-09  공급처 쪽 시작 — 4-0 조사(DB 읽기만 · 보고 레포 밖) · 4-1 운영 콘솔(GET 만 · #138 = 계좌 Id 138 MTFX USD) · 4-2a sandbox(Bill 199 ~ 205 · Vendor 69 · 70) · **판정 1115 ~ 1130 · 짓기 전** · 원가 장 12 장 built · 보낸 장 0 · 다음 = **4-3 DB Bill · VendorCredit(11 월 안 · 1120)** · 정본 §15-l · 아래 5-g · so-module §108
 ⬜ ~~1d 이월 짝(452)~~(11-06 끝) · 1d-3 화면(470) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · ~~받아 둔 돈 2e-3-1(454)~~(11-07 끝) · ~~**환불 2e-3-2**(454 남은 몫)~~(11-08 크레딧 노트 몫 끝 · 남은 몫 = 환불을 결제에 매기 500) · ~~qbo-send opening 이름표(495)~~(qs refund v1) · USD A/R 데이터(499) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 440 · 443 · 454 · 486 · 493 · 495 · 496
 ```
 
@@ -232,7 +234,7 @@ description: >
 ~~⚠️  USD 손님 셋의 A/R 계정이 `_61_`(CAD) — USD 환불은 failed(통화 ≠ 기본 통화 · deferred 499)~~ → [2026-11-08 밤 · 3-1] A/R 은 `_212_` 로 바로잡음(499 닫힘) · ⚠️ USD 환불 failed 는 그대로 — 블록이 so_payment 통화를 본다(511 · §5-g)
 ```
 
-## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · ~~다음 3-2b~~ → 3-2b · 3-3 · 3-4 끝(11-09) · 다음 공급처(4-0) (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
+## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · ~~다음 3-2b~~ → 3-2b · 3-3 · 3-4 끝(11-09) · ~~다음 공급처(4-0)~~ → 공급처 판정 끝 · 다음 4-3(11-09) (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
 
 ```
 ⭐⭐ 상품 공급처 Bill · 그 결제(BillPayment)는 **IMS 가 보낸다**(1080 · 1081) — 북키퍼는 운영 비용 Bill 만 QBO 에서 · 컷 전 Bill 결제는 QBO 에서(913) · 밀린 IMS 인보이스 7 장 · 결제 4 건은 싱크가 서면 원래 날짜로
@@ -243,7 +245,7 @@ description: >
 ⚠️⚠️ **살린 트럭 TR-06396 ~ 06399 도착은 보내지 마라**(출발 분개가 QBO 에 없다 · 보내면 In Transit −15,159 · 1085)
 ⚠️⚠️ **10-30 판매 원가는 이미 QBO 에 있다**(Cin7 · JE 81 장 · 토론토 17:33 · 1083) — 밀린 몫 경계는 11-02 · cost-fix-1(opening_fix · carried)은 보내지 마라 · 조정은 10-31 부터(1090)
 ~~⚠️  CAD 공급처 11 곳 A/P 가 `_109_`(USD) · 기본값도 `_109_` 하나 — 3-1 에서 통화별 기본 + 저장 거부(1088 · 손님 A/R 499 와 같이)~~ → 아래 ✅ 줄(3-1 끝)
-⚠️  API 는 손익 계정(#58) 잔액을 0 으로 준다 — 원가 검산은 기간 보고서로 · #59 잔액은 하위(In Transit · GRNI · GINR) 제외 값과 포함 값이 따로
+⚠️  API 는 손익 계정(#58) 잔액을 0 으로 준다 — 원가 검산은 기간 보고서로 · #59 잔액은 하위(In Transit · GRNI · GINR) 제외 값과 포함 값이 따로 → 월 검산 QBO 쪽은 **하위 제외**(포함 값에는 안 받은 Bill 의 GINR 이 섞인다 · deferred 533)
 ✅ [2026-11-08 밤 · qbo-sync-3-1 `b7bb430` · 정본 §15-g] **계정 통화 = 상대 통화**(1091) — `ref_account.currency_code`(null = CAD · A/P · A/R 통제 계정만 · `_109_` · `_212_` USD · `_203_` KRW · FK 없음)
      막기 = 지연 제약 트리거 `supplier_account_currency_ck` · `customer_account_currency_ck`(창구 · 적재 · 손 SQL 모두) + 창구 넷 block `currency_account_mismatch` · 기본 키 통화별(`supplier_default_account_payable_code_cad` · `_usd` · `customer_default_ar_account_code_cad` · `_usd` · KRW 키 없음) · 499 닫힘
      ⚠️ 조정 계정은 **`inv_adjust_account(adj)` 하나만 읽는다**(빈칸 = `inv_adjust_default_account_code` `_1150040010_` · 1087) — account_code 를 직접 읽어 기본값을 따로 짜지 마라
@@ -264,6 +266,17 @@ description: >
 ⚠️⚠️ **1112 — 자동 done 은 금액이 같을 때만** · QBO 에 같은 DocNumber JE 1 행이면 GET 해서 Debit 합 = 일감 차변(claim 때 고정)일 때만 done · 다르면 unknown 그대로 · 2 행 ambiguous · 열쇠 = qbo_name `<DocNumber>|<차변 센트>`(EF 만 · 센트 없으면 자동 없음) · cron 62 의 풀기가 kind 를 안 가려 cost_day unknown 도 이 규칙으로 푼다
 ⚠️  줄 고정은 **claim 때**(qbo_cost_sent) · 창고마다 차례(앞 장이 sent · empty · void 가 아니면 wait) · 재생성 감지면 realm 의 미보낸 장 전부 hold → rebuild_preview · release(`COGS-<날>-TOR-R`) · unknown 장은 `qbo_cost_sheet_resolve(in_qbo | not_in_qbo)` · 손님 짝 없는 SO 가 든 장은 그 손님이 QBO 에 생길 때까지 기다린다(Caleb)
 ⚠️  인보이스 자동 보내기(qbo_send_enabled)는 **당분간 off**(Caleb 11-08) · 다음 줄기 = 공급처 쪽(qbo-sync-4-0 조사 · 1080 · 1081 · 1089 · 1096)
+⭐⭐ [2026-11-09 · 판정 1115 ~ 1130 · 정본 §15-l · so-module §108] **공급처 쪽 판정 끝 · 짓기 전**(다음 4-3 DB Bill · VendorCredit · 11 월 안)
+⚠️⚠️ **Bill · VendorCredit · BillPayment 는 #59 · #58 을 건드리지 않는다**(1115) — Bill = 차 GINR `_1150040012_` / 대 A/P · 재고 · 판매 원가 계정은 하루 원가 장만 · 할인 · 가격 크레딧도 VC 는 A/P ↔ GINR, #59 · #58 은 원가 장 CADJ(1121 · 「할인」 = 둘 다: 가격 크레딧(credit_reason price_difference → price_adjust) = **4-3** VendorCredit 문서 · 조기 결제 할인(discount_taken → settlement_discount) = **4-5** 결제 저장 때 VendorCredit + BillPayment 에 붙임)
+⚠️⚠️ Bill 몸에 **반드시** — `APAccountRef`(공급처 A/P · USD = 운영 #109 · 빼면 QBO 가 제 기본 USD A/P 를 고른다 — sandbox 는 스스로 만들었다) · `DueDate`(po_invoice.due_date · 빼면 TxnDate) · `TxnTaxDetail`(IMS 세금 — QBO 는 보낸 세금을 그대로 받고 다시 셈하지 않는다) · USD `ExchangeRate` = po_invoice.exchange_rate(비면 막음 · 1118) · 줄 = 인보이스 줄마다 · 인보이스 할인 = 음수 줄(1116 · 1117)
+⚠️⚠️ **DocNumber 최대 21 자**(25 자 → 2050 「Max:21」) — 넘으면 앞 21 자 + 전체 번호는 PrivateNote(1130)
+⚠️⚠️ **QBO 는 같은 Vendor 같은 DocNumber Bill 을 막지 않는다**(sandbox 203) ⇒ 보내기 직전 조회 가드 필수 · unknown 자동 done = 같은 Vendor + DocNumber + 합계(Bill 통화 센트) **한 장**일 때만(1127) · done 대조는 USD TotalAmt(응답에 HomeTotalAmt 없음)
+⚠️⚠️ **Bill 에는 void 가 없다**(Create · Delete · Query · Read · Full update) — IMS 취소 = 일감을 「QuickBooks 에서 손으로 지워 주세요」 로 멈춤 → 북키퍼 삭제 → Skip · **API delete 쓰지 마라**(1126) · IMS 결제 삭제 = BillPayment void(1125 · sandbox E-13 미확인)
+⚠️⚠️ **새 kind 를 SEND_KINDS 에 넣으면 cron 61 기본에 저절로 들어간다**(`DEFAULT_SEND_KINDS = SEND_KINDS − cost_day`) — 공급처 kind 도 DEFAULT 에서 뺀다 · `entityKeyOf` ELSE = invoice · `qbo_job_pair_ck` ELSE = ims_kind ⇒ 새 kind 는 명시 가지
+⚠️⚠️ **ims_kind `invoice · credit · payment · charge` 는 SO 쪽 것** — 공급처는 다른 이름(4-3 이 정함 · 안 `po_invoice · po_charge · po_payment`)
+⚠️  Vendor 가 없으면 IMS 가 만든다(1128 · DisplayName + CurrencyRef 만 · A/P 안 실음 · 같은 이름 있으면 failed — 자동 개명 금지) · 결제 하나 = 공급처 하나(1124) · USD 결제 환율 = 그 돈을 산 날 MTFX 환율 필수(1123) · 결제 통화 ≠ 계좌 통화면 거부(1122)
+⚠️  입고 보류는 공급처 차수가 서면 무조건 풀고 **입고 날짜 장**에(1119 · 1120) — **TOR 원가 장은 11-04 까지만 먼저 보내라**(11-05 · 11-06 에 RCV 두 줄) · 원가 보내기 cron(522)은 4-3 뒤 · Bill HomeBalance = 합계 × 환율이라 IMS 입고 원가(줄마다 반올림)와 센트 차 = 정상
+⚠️  「#138」 은 수표 번호가 아니라 **계좌 Id 138 MTFX USD**
 ```
 
 ## 6. 화면 · 바깥
@@ -286,5 +299,6 @@ EF 배포        supabase functions deploy qbo --project-ref fazgmyvzzhqybtvtkty
 
 - 새 사실은 **정본 `qbo-integration.md` 에 먼저**, 여기에는 「모르면 사고가 나는 것」만 한 줄 · 실측 숫자 · 오늘 상태는 정본에.
 - `description` 은 1024자(pre-commit `scripts/check-skill-desc.sh`) — 싱크 차수에서 키워드가 늘면 이 스킬에(asung-so · asung-inv-ledger 는 여유 1 자 · 2026-10-29).
+  - [2026-11-09 · docs-1109d] 1024(여유 0) → 「Bill」 · 「VendorCredit」 · 「BillPayment」 · 「GINR」 를 넣으며 중복어를 뺐다: 「QuickBooks 연결」(QuickBooks) · 「Cin7 QBO 싱크」(QBO 싱크 · Cin7 근거 금지 원칙) · 「realmId」(realm) · 산문 「다시 연결」(Reconnect) → **1020(여유 4)** · 다음 키워드는 또 압축이 필요하다
 - SKILL.md 하나뿐 — zip 의 references/ 는 0 이 맞다.
 - 옛 문장은 `~~취소선~~ + [정정 날짜]`.

@@ -205,7 +205,7 @@ QBO 판     Plus(Caleb)
   - 이월 인보이스 · 받아 둔 돈(kind · method opening)은 보내지 않는다 · IMS 에서 이월 인보이스에 붙인 결제 · 크레딧은 QBO 의 기존 인보이스(옛 번호)에 붙인다(341 · 786)
   - ~~짝 칸(손님 · 품목 · `ref_tax_rule.qbo_id` — 지금은 자리만 · so-module §16)~~ → [2026-11-01] 짝은 `qbo_link`(§12 · `ref_tax_rule.qbo_id` 는 쓰지 않는다) · realm 고정이 그 전제(§7)
   - [2026-11-01] 보내기 차수의 판정 거리 — 비활성만 있는 Item 다시 켜기(431) · credit_card 1:3(432) · 북키퍼 넷(433) · 컷 뒤 입금 자리(434) · opening_fix 사건 제외(§13 끝) · 트랜스퍼 분개를 보낼지(433)
-  - 다중 통화 · 캐나다 세금 · 지우기 → 샌드박스 시험 뒤 Intuit 에 설문 다시 알림(374)
+  - 다중 통화 · 캐나다 세금 · 지우기 → 샌드박스 시험 뒤 Intuit 에 설문 다시 알림(374) → [2026-11-09 · §15-l] 공급처 쪽 거리 더함(매입 세금 코드 · Bill 환율 1118 · Vendor 만들기 1128 · Bill delete 는 쓰지 않음 1126)
   - 오류 시험을 실제 Intuit 거부로(설문 Error Handling 1 의 근거는 지금 자동 시험뿐)
 - 승인 유효 기한(약 101 일 · → [2026-11-09] 갱신으로 밀린다 · 「갱신이 멈췄을 때」) 전 미리 알림(371) · MFA(373)
 - 진행(2026-11-01): 연결 ✅ · 읽기 ✅ · 짝 · 거울 · 받기 ✅ · **보내기 ⬜**(deferred 260 · 327) → [2026-11-01 밤] 쓰기 길 · 손님 · Item 만들기 ✅(2a · 2a′ · §14) · 인보이스 · 크레딧 ⬜(2b) · 결제 · void ⬜
@@ -433,7 +433,8 @@ QBO 판     Plus(Caleb)
 
 ## 15. 원가 · 공급처 줄기 — 판정과 Cin7 꼴 (2026-11-08 저녁 · qbo-sync-3-0 · 판정 1080 ~ 1090 · so-module §104 · deferred 459)
 
-- **상태**: 판정 끝 · **짓기 전** — QBO 로 원가 · 공급처 거래를 보내는 코드는 아직 0 · 이 절은 짓기의 바탕
+- **상태**: 판정 끝 · **짓기 전** — QBO 로 원가 · 공급처 거래를 보내는 코드는 아직 0 · 이 절은 짓기의 바탕 → [2026-11-09] 하루 원가 장 짓기 끝(§15-i ~ §15-k · 보낸 장 0) · **공급처 쪽 판정 끝(1115 ~ 1130) · 4-0 조사 · 4-1 콘솔 · 4-2a sandbox 끝 · 짓기 전**(§15-l · so-module §108)
+- **다음**(2026-11-09 · Caleb 「좋아」): **4-3 DB Bill · VendorCredit(11 월 안 · 1120)** → 4-4 EF + 화면 + 첫 실물 손 Send → 4-2b sandbox → 4-5 결제 → 4-6 켜기 · 북키퍼 안내 · 정본(§15-l ⑤)
 - **원천**: 조사 qbo-sync-3-0(Opus · DB 읽기만 · QBO 쓰기 0 · 보고 `~/asung/prompts/qbo-sync-3-0-report.md` 296 행 · md5 8 `21e85439`) + 운영 QBO 콘솔 실측 **M1 ~ M10**(11-08 저녁 · Settings 콘솔 · 읽기만 · 운영 realm · Caleb 실행 · 대화 Claude 판독 · 걸음 11) · 판정 원문 표는 so-module **§104-a** 가 정본(이 절은 요지)
 - ⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다(북키퍼는 「북키퍼」) · QBO Id · 문서 번호 · 계정 번호 · 금액은 적는다
 
@@ -442,7 +443,7 @@ QBO 판     Plus(Caleb)
 | 판정 | 요지 |
 |---|---|
 | 1080 | 상품 공급처 Bill 은 **IMS 가 보낸다** · 북키퍼는 컷 뒤 상품 Bill 을 손으로 넣지 않고 기다린다 · 운영 비용 Bill 은 지금처럼 북키퍼가 QBO 에서 · 밀린 IMS 공급처 인보이스 7 장(USD 108,794.98 · CAD 1,073.50)은 싱크가 서면 보낸다 ⇒ 3-0 의 안 (다)(원가 · 재고 합계 + 공급처 문서는 문서마다) · 손 Bill 짝 맞추기 차수 없음 |
-| 1081 | 공급처 결제는 **Bill 이 태어난 곳에서** — 컷 전 Bill(Cin7 이 보낸 것)은 북키퍼가 QBO 에서(913 그대로) · IMS Bill 은 IMS 에서 결제하고 IMS 가 **BillPayment** 를 보낸다 · 밀린 IMS 결제 4 건(USD 72,881.34 · CAD 1,073.50)은 Bill 과 함께 · 짓기 때 IMS 결제에 「어느 계좌에서 나갔나」(#104 CAD 수표 · #138 USD 수표 · #132 카드) · 북키퍼에게 「IMS Bill 은 IMS 에서 결제」 전달 · §13 「Bill payment 받음」 은 컷 전 Bill 에만 |
+| 1081 | 공급처 결제는 **Bill 이 태어난 곳에서** — 컷 전 Bill(Cin7 이 보낸 것)은 북키퍼가 QBO 에서(913 그대로) · IMS Bill 은 IMS 에서 결제하고 IMS 가 **BillPayment** 를 보낸다 · 밀린 IMS 결제 4 건(USD 72,881.34 · CAD 1,073.50)은 Bill 과 함께 · 짓기 때 IMS 결제에 「어느 계좌에서 나갔나」(#104 CAD 수표 · ~~#138 USD 수표~~ → [11-09 · §15-l ②] #138 = 계좌 Id 138 MTFX USD(수표 번호 아님) · #132 카드) · 북키퍼에게 「IMS Bill 은 IMS 에서 결제」 전달 · §13 「Bill payment 받음」 은 컷 전 Bill 에만 |
 | 1082 | 판매 원가 = **하루 · 창고마다 JournalEntry 한 장**, 그 안에 **SO 마다 줄**(차 #58 / 대 #59 · 줄 설명에 SO 번호) · 늦게 생긴 변동은 보낸 장을 고치지 않고 **다음 장에 그 SO 번호 줄**로 |
 | 1083 | 밀린 판매 원가는 1082 꼴로 **11-02 부터 날마다 그날 날짜로**(따로 코드 없음) · 10-30 몫은 Cin7 이 이미 보냄(M6) · 밀린 Bill 7 장 · 결제 4 건도 문서마다 원래 날짜로 · 짓기 시험에 「10-30 Cin7 SO 78 장 ↔ QBO JE 하나씩 맞대기」 |
 | 1084 | 팔린 뒤 확정된 운임 · 관세 · 통관(cost_late)의 **팔린 몫 → #58**(하루 장에 그 SO 번호 줄 · 차 #58 / 대 해당 COS 계정) · 남은 몫 → #59 ⇒ QBO #58 = IMS 판매 원가 · #59 움직임 = IMS 재고 금액 움직임 |
@@ -478,7 +479,7 @@ QBO 판     Plus(Caleb)
 - **M1** JournalEntry TxnDate 10-01 ~ 10-29 count **1,538**(10 월 Cin7 SO 1,190 → SO 마다 한 장 꼴 확정)
 - **M2** IMS 공급처 인보이스 7 장 번호(`AST261028` · `V137500-IN` · `1801158180` · `RIH2026000000` · `2026-02394` · `Order #8884650` · `484908, 484909`)로 Bill 조회 = **0** ⇒ IMS 가 보내도 두 번이 아니다(AST261028 의 invoice_date 10-28 포함)
 - **M3** Bill CreateTime ≥ 2026-10-30T19:00:00-04:00 첫 쪽 10 장(10 행 캡 · 전체 수는 안 셈): 모두 CAD · A/P #62 · 줄 계정 24 · 80 · 183 · 182 · 78 · 36(운영 비용) · GINR 0 · IMS 공급처 Vendor(7170 · 5835 · 108 · 7640 · 3646 · 7204 · 315) 0 · 합 8,844.42 · 만든 시각이 근무 시간에 흩어짐(손 입력) ⇒ 북키퍼는 운영 비용 Bill 만 넣는다
-- **M4** BillPayment 같은 조건 count **15** — 모두 QBO 에 있는 Bill 에 붙음(대부분 컷 전 Bill Id 162446 ~ 171793) · USD 셋(20,310.48 · 10,640.10 · 43,517.84 · #138 수표) · CAD 34,155.26(Bill 12 장 · Vendor 6078 의 10 월 Bill 한꺼번에) · 나머지는 컷 뒤 운영 비용 Bill(172391 · 172320 · 172321 · 172358 등)의 결제 · 지급 수단 Check #104 / #138 · CreditCard #132 · **IMS po_payment 4 건과 겹침 0**
+- **M4** BillPayment 같은 조건 count **15** — 모두 QBO 에 있는 Bill 에 붙음(대부분 컷 전 Bill Id 162446 ~ 171793) · USD 셋(20,310.48 · 10,640.10 · 43,517.84 · ~~#138 수표~~ → [11-09 · §15-l ②] 계좌 Id 138 MTFX USD) · CAD 34,155.26(Bill 12 장 · Vendor 6078 의 10 월 Bill 한꺼번에) · 나머지는 컷 뒤 운영 비용 Bill(172391 · 172320 · 172321 · 172358 등)의 결제 · 지급 수단 Check #104 / #138 · CreditCard #132 · **IMS po_payment 4 건과 겹침 0**
 - **M5** Purchase TxnDate ≥ 10-30 count **45**(CAD 43 · 251,941.84 / USD 2 · 13.56 · 7.00) · IMS 금액 · Vendor 와 겹침 0 ⇒ IMS 공급처 결제 4 건은 QBO 어디에도 없다
 - **M6** JournalEntry TxnDate = 10-30 count **81** · SO-18513 · SO-18622 · SO-18639 · SO-18607 · SO-18004 다섯 모두 있음(차 #58 / 대 #59 · 예 SO-18513 60,655.00) · CreateTime 14:32:59 ~ 14:33:04 −07:00 = **토론토 17:33**(§13 마지막 Sync 17:31) ⇒ 10-30 판매 원가는 Cin7 이 보냈다(1083 경계 11-02) · 81 ≥ IMS 원장 10-30 SO 78 — 17:31 ~ 18:00 SO 가 빠졌을 가능성은 낮다(짐작 · 짓기 시험에서 하나씩 맞댄다)
 - **M7** 잔액 = §13 「QBO 재고 잔액」 줄 · ⚠️ API 는 손익 계정(#58) 잔액을 0 으로 준다 — 원가 검산은 기간 보고서로
@@ -583,7 +584,7 @@ QBO 판     Plus(Caleb)
 **⑦ 밀린 장 · 실측 · 콘솔**
 - 밀린 장 **12** — 10-31 조정 둘(TOR 240.93 · EDM 80.15) · 11-02 ~ 06 × 두 창고 · 한 장 최대 열쇠 ~~56~~(토론토 11-06) [2026-11-09 정정 · §15-i] 56 은 사건 열쇠 · 보낼 열쇠 **54** + 보류 2(CR-01025 restock + 취소 상계 0 · RCV-00117 · 00121 보류) · 11-07 · 08 사건 0 · 11-02 ~ 06 판매 원가 264 SO · 126,715.43 · 한 SO 가 여러 날 · 창고에 걸친 것 0
 - **C1** SO-18513 Cin7 JE 줄 = 차 #58 / 대 #59 · dept 없음 · class 없음 · **Entity Customer** · detail 칸 PostingType · Entity · AccountRef(→ 1102 · 1103) / **C3** Department 1 행 「Edmonton」(active · 인보이스도 안 씀) / **C4** Preferences 조회는 EF 가 거부(400 · 읽기 허용 종류 밖 — 열 필요 없음) → Caleb QBO 화면: **회계연도 시작 9 월 · Close the books 켜짐 · 마감일 2026-08-31**(경고 + 비밀번호로 고치기 허용) ⇒ 10 월 날짜(10-28 · 10-31)로 보낼 수 있다 / **C5** JournalEntry DocNumber `COGS-%` = 0(겹침 없음)
-- **월 검산(1086)** 뷰 `qbo_cost_month(월, 창고)`: IMS 재고 금액 움직임(출처 경계 · 트랜스퍼 복사 carried 제외) = 보낸 줄의 #59 · #1150040007 합 + **보류 칸**(입고 · price_adjust · settlement_discount · 문턱 조정) + 제외 칸(opening_fix · 살린 트럭 · Cin7 출처) + 반올림 센트 + 안 보낸 날 · 판매 원가 쪽은 「IMS 판매 원가(sale − restock + reversal + cost_late 판매 몫) = 보낸 #58 합」 · QBO 쪽은 첫 판에 사람이 기간 보고서와 맞댄다 · 503(출발점)은 섞지 않는다
+- **월 검산(1086)** 뷰 `qbo_cost_month(월, 창고)`: IMS 재고 금액 움직임(출처 경계 · 트랜스퍼 복사 carried 제외) = 보낸 줄의 #59 · #1150040007 합 + **보류 칸**(입고 · price_adjust · settlement_discount · 문턱 조정) + 제외 칸(opening_fix · 살린 트럭 · Cin7 출처) + 반올림 센트 + 안 보낸 날 · 판매 원가 쪽은 「IMS 판매 원가(sale − restock + reversal + cost_late 판매 몫) = 보낸 #58 합」 · QBO 쪽은 첫 판에 사람이 기간 보고서와 맞댄다 → [2026-11-09 · deferred 533] QBO 쪽 #59 는 **하위 제외** 값으로(GINR · In Transit 이 #59 하위 — 하위 포함 값에는 안 받은 Bill 금액이 섞인다 · In Transit 은 #1150040007 로 따로) · 503(출발점)은 섞지 않는다
 
 **⑧ 짓기 순서** — 3-2 DB(표 둘 · 기대값 · 장 만들기 · claim/done/fail/unknown · 미리 보기 · 월 뷰 · 시험 = 126,715.43 · 장 12 · 열쇠 ~~56~~ → 보낼 54 · 보류 2(§15-i) 재현 · 1 센트 차액 · 모르는 칸 예외 · 살린 트럭 · opening_fix 0 · 약 700 ~ 900 행 짐작) → 3-3 EF + sandbox(JE 몸 검사 · DocNumber 멱등 · unknown 풀기 · 줄 60 · 음수 → 뒤집기 · 같은 DocNumber 두 번 — 줄 상한 · DocNumber 21 자 상한은 짐작 · sandbox 에서 확인) → [2026-11-09 · §15-j · §15-k] 3-2b · 3-3 · 3-4 끝 · sandbox: 19 자 통과 · 같은 DocNumber 두 번 받음(멱등은 IMS 가드) · TotalAmt 0 · 줄 상한 · 21 자는 첫 실물(deferred 525) → 3-4 화면(대화 Claude · Sales → QuickBooks 에 Cost days) → 공급처 · 비용 Bill · 입고(보류 칸 풀기 · 1080 · 1089 · 1096) → BillPayment(1081) → 밀린 것 · 켜기(1083)
 
@@ -704,11 +705,92 @@ QBO 판     Plus(Caleb)
 **③ 화면 — 3-4(asung-ims · 대화 Claude)**
 - `a0693ee` qs cost v1 · set v17b: Sales → QuickBooks 종류 「Cost of goods — daily journal」 · Cost days 카드 — 장 목록(Date · Warehouse · Number · Status · Keys · Lines · Debits · QuickBooks · Note) · 장 미리 보기(By document · Held back on this day · Left out on purpose) · **Queue**(그 창고 첫 built 장에만) · Queue all ready sheets · Build sheets now · Held back(문턱 조정 Send / Never / Undo · 입고 · 공급처 원가는 Bill 차수) · 「Cost days are on hold」 → Review the rebuild → Release(메모 필수) · unknown 장 Resolve(in_qbo + JE Id | not_in_qbo) · 일감 미리 보기에 JournalEntry 줄(차 · 대 · 계정 · 손님) · Settings → QuickBooks 안내 글 둘(보내는 것 · 승인 기한은 갱신으로 밀린다)
 - `65244a8` qs cost v1a: Cost days 칸을 목록 카드 안 거르기 줄 바로 아래로(Caleb 「이 상태에서는 다른 것을 선택할 옵션이 안보이네」 → 「이제는 잘 보여」) · 동작 무변
-- 보류 칸 실물: RCV-00117 −950.00 · RCV-00121 −12,039.53(acct_a = GINR 기준 부호라 음수 · 방향 글 deferred 523)
+- 보류 칸 실물: RCV-00117 −950.00 · RCV-00121 −12,039.53(acct_a = GINR 기준 부호라 음수 · 방향 글 deferred 523) · 셈은 맞다(least/greatest · 3-2a 388 ~ 389 행 · 4-0 보고 C-1 — 523 은 표시만)
 - 매뉴얼: 01-sales `sales-quickbooks-cost`(en · ko)
 
 **④ 첫 실물 순서(deferred 525)**
 - 장 만들기 = cron 67(토론토 03:00 · 전날까지) 또는 Build sheets now
-- 창고마다 **10-31 부터 차례로**: Queue(또는 Queue all ready sheets) → 목록의 Cost day 줄 Preview → Send · 앞 장이 sent · empty · void 가 아니면 뒤 장은 기다린다
+- 창고마다 **10-31 부터 차례로**: Queue(또는 Queue all ready sheets) → 목록의 Cost day 줄 Preview → Send · 앞 장이 sent · empty · void 가 아니면 뒤 장은 기다린다 → [2026-11-09 · 판정 1120 · §15-l] **TOR 은 11-04 까지만** 먼저 — 11-05 · 11-06 TOR 장에 입고 보류(RCV-00117 · RCV-00121)가 걸려 4-3 이 서서 보류가 풀린 뒤 · EDM 은 차례대로 다 · 4-3 은 11 월 안(늦으면 「푸는 날 장」 으로 바꾸는 길)
 - 볼 것: QBO JE 줄 상한(한 장 약 60 줄 · sandbox 미확인) · DocNumber 21 자(`-R` 19 자는 통과) · done 의 Debit 합 · Entity · 손님 짝 없는 SO 7 이 든 11-06 장(손 Send 가 손님을 먼저 만든다)
 - 그 뒤 원가 보내기 cron(522) · 그 다음 **공급처 쪽**(qbo-sync-4-0 조사부터 · 1080 · 1081 · 1089 · 1096 · Caleb 11-08 저녁 「공급처 쪽을 우선 작업을 시작하자」)
+
+### 15-l 공급처 Bill · VendorCredit · BillPayment — 판정 · 실측 (2026-11-09 · qbo-sync-4-0 조사 · 4-1 운영 콘솔 · 4-2a sandbox · 판정 1115 ~ 1130 · so-module §108 · 짓기 전)
+
+- **상태**: 판정 끝 · **짓기 전** — 공급처 쪽 QBO 쓰기 코드 0 · 운영 QBO 쓰기 0(4-1 은 GET 만) · sandbox 쓰기만(4-2a)
+- **원천**: 조사 보고 `~/asung/scratch/qbo-sync-4-0-report.md`(레포 밖 · 371 행 · md5 8 `b37c9369` · ⚠️ 판정 **전** 안 — 판정이 다른 곳은 so-module §108-a 가 맞다) + 4-1 운영 콘솔(Settings 콘솔 · EF query · GET 만 · Caleb 실행 · 대화 Claude 판독) + 4-2a Canada sandbox(Caleb API Explorer) · 판정 원문 표는 so-module **§108-a** 가 정본(이 절은 요지)
+- ⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다 · QBO Id · 문서 번호 · 계정 번호 · 금액은 적는다
+
+**① 판정 요지 (1115 ~ 1130 · 원문 so-module §108-a)**
+
+| 판정 | 요지 |
+|---|---|
+| 1115 | Bill · VendorCredit · BillPayment 는 #59 · #58 무접촉 — Bill = 차 GINR `_1150040012_` / 대 A/P · 재고 · 판매 원가는 하루 원가 장만 |
+| 1116 | Bill 줄 = IMS 인보이스 줄마다(설명 SKU · 수량 · 단가) |
+| 1117 | 인보이스 할인 = 음수 줄 따로(계정 GINR) |
+| 1118 | USD Bill 환율 = `po_invoice.exchange_rate` 를 박는다(940 과 반대) · 비면 막음 |
+| 1119 | 입고 보류(1096)는 공급처 차수가 서면 **무조건** 푼다 |
+| 1120 | 풀린 입고는 **입고 날짜 장**에 — TOR 원가 장은 11-04 까지만 먼저 · 11-05 부터는 4-3 뒤 · EDM 은 다 · 4-3 은 **11 월 안**(늦으면 「푸는 날 장」) |
+| 1121 | 할인 · 가격 크레딧 = VendorCredit(차 A/P / 대 GINR) + 원가 장 CADJ(차 GINR / 대 #59 · #58) · not_received 크레딧은 VC 만 · 「할인」 = 둘 다(판정 때 함께 정함) — 조기 결제 할인(`po_payment.discount_taken` → settlement_discount) · 가격 크레딧(po_invoice doc_kind credit · credit_reason price_difference → price_adjust) · 걸리는 차수: 가격 크레딧 = 4-3(VendorCredit 문서) · 조기 결제 할인 = 4-5(결제 저장 때 VendorCredit + BillPayment 에 붙임) |
+| 1122 | USD 은행 계좌 `ref_account.currency_code` 채움 · 결제 통화 ≠ 계좌 통화면 거부 |
+| 1123 | USD 결제 환율 = 그 돈을 산 날의 MTFX 환율(필수) · 결제 날짜 = 실제 보낸 날 · 저장된 USD 결제 3 건은 보내기 전에 채움 · 전제(짐작): 매주 USD 사기는 북키퍼가 QBO 에 따로 |
+| 1124 | 결제 하나 = 공급처 하나 · 섞이면 거부 |
+| 1125 | IMS 결제 삭제 → BillPayment void 일감(E-13 이 안 되면 다시) |
+| 1126 | IMS 인보이스 취소 → 일감 「QuickBooks 에서 손으로 지워 주세요」 → 북키퍼 삭제 → Skip · **API delete 안 씀** · 복원 = 새 Bill |
+| 1127 | unknown Bill 자동 done = 같은 Vendor + DocNumber + 합계(Bill 통화 센트) **한 장**일 때만 |
+| 1128 | QBO 에 없는 공급처는 IMS 가 Vendor 를 만든다(DisplayName + CurrencyRef 만 · A/P 안 실음 · 같은 이름 있으면 failed · 자동 개명 없음) |
+| 1129 | 비용 문서 Bill 은 **확정 때**(배분과 무관) · 차 #134 · #135 · #136 / 대 A/P |
+| 1130 | 공급처 인보이스 번호 > 21 자면 DocNumber 앞 21 자 · 전체는 PrivateNote |
+
+**② 4-1 운영 QBO 콘솔 실측 (2026-11-09 토론토 03:5x ~ 04:3x · Settings 콘솔 · EF query · GET 만)**
+
+| # | 본 것 | 결과 |
+|---|---|---|
+| R1 | 열린 Bill(Balance > 0) | CAD 18 장 39,406.42 · USD 6 장 72,190.36 · 공급처 20 곳 · 가장 오래된 2026-09-01 — 모두 Cin7 이 컷 전에 보낸 Bill(IMS 인보이스는 QBO 에 없다 · M2) · 913 대로 북키퍼 몫 |
+| R2 | BillPayment | 전체 5,722 · TxnDate ≥ 11-01 = **17 장** · IMS 결제 4 건(1,073.50 · 14,555.10 · 33,366.24 · 24,960.00)과 같은 금액 **0** · USD 셋(20,310.48 · 10,640.10 · 43,517.84)은 M4 그대로 · 운임 공급처 Vendor 3563 에 11-06 Check 929.73(IMS draft 운임 2 장과 금액 다름 · 컷 전 Bill 결제로 짐작) · ⚠️ EF query: `PayType` 은 BillPayment 의 고를 수 있는 칸이 아니다(4001 「Property PayType not found」) — `select *` 로는 온다 |
+| R3 | Vendor 열 곳(7170 · 5835 · 108 · 7640 · 3646 · 7204 · 315 · 3563 · 6078 · 409) | 통화 USD 7 · CAD 3 = IMS 와 같다 · APAccountRef 모두 없음(기본) · 모두 활성 |
+| R4 | 계좌 | 104 TD CAD CHEQUING CAD · 106 BMO USD CHEQUING **USD** · 122 MTFX CAD CAD · 138 MTFX USD **USD** · 132 BMO Mastercard 1552 CAD(Credit Card) ⇒ **「QBO 수표 #138」 = 계좌 Id 138 MTFX USD(수표 번호 아님) — 확정** · 「MTFX」 = 환전 업체 계좌 이름 · IMS 는 `_106_` · `_138_` 통화 null(= CAD 뜻) → 1122 |
+
+**③ 4-2a sandbox 실측 (Canada sandbox realm 9341458557490536 · 2026-11-09 01:16 ~ 01:37 PST · Caleb API Explorer)**
+
+- Preferences: MultiCurrencyEnabled true · HomeCurrency CAD · `WarnDuplicateBillNumber` false(sandbox — 운영 값은 안 봤다)
+- sandbox 번호(운영과 다르다): CAD A/P 31 · USD A/P 없음 → 첫 USD Bill 때 QBO 가 97 「Accounts Payable (A/P) - USD」 를 **스스로 만들었다** · 자산 16 Prepaid(GINR 대역) · 세금 코드 Zero-rated 3 · Out of Scope 6 · HST ON 5(매입 세율 11) · Exempt 2 · GST 단독 코드 없음
+- 만든 것: Vendor 69(USD) · 70(CAD) · Bill 199(E-1) · 200(E-2) · 201(E-4 100 줄) · 202(E-4 250 줄) · 203(E-5 같은 번호) · 204(E-6 21 자) · 205(E-15)
+
+| # | 시험 | 결과 ⇒ 짓기 규칙 |
+|---|---|---|
+| E-1 | USD Bill `ExchangeRate 1.4` | 그대로 · Balance 100 · HomeBalance 140 · 응답에 HomeTotalAmt 없음(HomeBalance 만) ⇒ done 대조는 USD TotalAmt(1127) · ⇒ Bill 마다 **`APAccountRef`(공급처 A/P 코드 · USD 면 운영 #109) 반드시** — 안 실으면 QBO 가 제 기본 USD A/P 를 고른다 |
+| E-2 | 음수 줄 | −0.50 받음(TotalAmt 99.5 · HomeBalance 139.3) → 1117 |
+| E-3 | 반올림 | HomeBalance = **합계 × 환율**(100 줄 × 0.33 × 1.4 = 46.2 · 줄마다 반올림이면 46.00) ⇒ IMS 입고 원가(줄마다 반올림 · 예 RCV-00121 12,039.53)와 Bill(8,599.66 × 1.4 = 12,039.52)이 **센트 단위로** 다를 수 있다 → GINR 센트 찌꺼기는 정상(북키퍼 안내 4-6) |
+| E-4 | 줄 수 | 100 줄 · 250 줄 모두 받음 → 1116 |
+| E-5 | 같은 Vendor 같은 DocNumber | 또 선다(203) ⇒ 보내기 직전 가드 필수 · 조회 `select Id, DocNumber, TotalAmt, VendorRef from Bill where DocNumber = '…' and VendorRef = '…'`(두 장 다 잡힘 · 1127) |
+| — | DueDate | 몸에서 빼면 QBO 가 TxnDate 로 채운다 ⇒ **`DueDate`(po_invoice.due_date) 반드시** |
+| E-6 | DocNumber 길이 | 최대 21 자(25 자 → 2050 「Max:21」) · `#` · 쉼표 · 공백은 그대로 → 1130 |
+| E-7 | Bill void | Intuit 문서의 Bill 작업 = Create · Delete · Query · Read · Full update — void 없음 → 1126 |
+| E-14 | (시험 안 함) | 운영에 그 꼴 Bill 이 이미 있다(M10 · #125 한 줄 · 세금 코드 4) |
+| E-15 | `TxnTaxDetail` 11.69(셈하면 11.70) | **11.69 그대로**(Bill 205 · TotalAmt 101.69) ⇒ QBO 는 보낸 세금을 존중 · Bill 마다 IMS 세금을 싣는다 · 다시 셈해 잡아 주지 않으니 IMS 세금이 맞아야 한다 |
+
+- 남은 sandbox = **4-2b**(4-5 결제 차수 앞): E-8 VendorCredit + BillPayment 에 붙이기 · E-9 BillPayment Check · USD 계좌 · 다른 환율 → 환차손익 줄 · E-10 USD 결제를 CAD 계좌로 · E-11 CreditCard · E-12 부분 결제 · Bill 둘 · E-13 BillPayment void
+
+**④ 4-0 조사 결론 (보고 `b37c9369` 에서 판정 뒤에도 그대로 선 것)**
+
+- 공급처 크레딧 = `po_invoice.doc_kind='credit'`(별도 표 없음) · 지금 0 장
+- 컷 전 생성 0(po_invoice · po_charge · po_payment 모두) ⇒ 「IMS 결제가 컷 전 Bill 에 붙어 두 번」 은 구조상 불가 · **deferred 428 닫힘**(913 + 1081 + 이 실측)
+- 공급처 10 곳(인보이스 7 + 비용 3) 모두 qbo_link supplier → Vendor 있음 · 짝 없는 활성 공급처 46
+- 보류 칸 부호(RCV 음수) = GINR 기준 부호 · 셈은 맞다(least/greatest · 3-2a 388 ~ 389 행) · deferred 523 이 그 할 일(§15-k ③ 보류 칸 실물 줄)
+- ⚠️ 이름 충돌: ims_kind `invoice · credit · payment · charge` 는 SO 쪽이 쓴다(`qbo_link.ims_kind 'charge'` 6 행 = SO 부대 Item) → 공급처는 다른 이름(4-3 이 정한다 · 안: kind `bill · bill_void · vendor_credit · vendor_credit_void · bill_payment · bill_payment_void` · ims_kind `po_invoice · po_charge · po_payment`)
+- ⚠️ `DEFAULT_SEND_KINDS = SEND_KINDS − cost_day`(qbo.ts 103) — 새 kind 를 SEND_KINDS 에 넣으면 cron 61 기본에 저절로 들어간다 ⇒ 공급처 kind 도 DEFAULT 에서 뺀다(cost_day 꼴)
+- ⚠️ `entityKeyOf` ELSE = invoice · `qbo_job_pair_ck` ELSE = ims_kind — 새 kind 는 명시 가지 필수
+- 화면: Sales → QuickBooks 와 같은 화면에 「Supplier bills」 · 「Supplier payments」 종류(4-0 안 · 화면 차수 때 대화 Claude 가 정한다)
+
+**⑤ 차수 계획 (Caleb 「좋아」 · 11-09)**
+
+4-0 조사(끝) → 4-1 콘솔(끝) → 4-2a sandbox(끝) → **4-3 DB Bill · VendorCredit**(일감 kind · 몸 함수 · 확정/취소/복원 트리거 · 입고 보류 풀기 · 은행 계좌 통화 막기 · Vendor 몸 · **11 월 안** · 1120) → 4-4 EF Bill · VendorCredit + 화면 + 첫 실물 손 Send(Bill 7 장 · 원가 장 RCV 두 줄 · 비용 Bill) → 4-2b sandbox → 4-5 결제 DB + EF + 화면 → 4-6 켜기 · 북키퍼 안내 · 정본
+
+- 4-3 에서 볼 것(so-module §108-d′): accepted_billed 짝(1096 이 남김) · ~~1121 「할인」 의 뜻~~(정함 — 가격 크레딧 4-3 · 조기 결제 할인 4-5) · USD 은행 계좌 수 · KRW 기본 A/P 키 · 저장된 USD 결제 3 건 환율(4-5)
+
+**⑥ 하루 원가 장 상태 · 북키퍼 안내 거리 (11-09)**
+
+- cron 67 첫 실행 11-09 03:00 토론토 succeeded(22 s) · 장 12 built(10-31 · 11-02 ~ 11-06 · 두 창고) · **보낸 장 0** · 10-31 TOR = ADJ-00011 한 줄 122.82(차 #1150040010 / 대 #59) · 11-02 TOR = 문서 53 + #59 한 줄 = 줄 54(화면 목록 KEYS 53 · LINES 53)
+- 첫 실물(525): **TOR 은 11-04 까지 · EDM 은 다**(1120) · 원가 보내기 cron(522)은 4-3 뒤
+- 곁가지 deferred 528 ~ 533(DEBITS 칸 · built 시각 · 원가 0.01 ~ 0.06 SO 줄 · Vendor 거울 detail · PO-02009 RCV-00082 draft · 월 검산 #59 하위 제외)
+- **북키퍼 안내**(4-6): ① IMS 가 보낸 Bill 의 결제는 **IMS 에서** 적는다 — QBO 에서 직접 결제하면 IMS 는 미지급으로 남는다(1081 · Vendor 3563 사례) ② GINR 센트 찌꺼기는 정상(E-3) ③ 취소된 Bill 은 QBO 에서 손으로 지우고 Skip(1126)
