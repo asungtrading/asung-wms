@@ -1020,3 +1020,26 @@ $job$);
 --   [3-2b · 20261108224000] 일감은 이 cron 이 세우지 않는다 — 사람 창구 qbo_cost_queue_due()(열쇠 qbo · 날짜 순) · cron · build 에 잇는 것은 3-3(kinds [cost_day, customer]) · EF SEND_KINDS 에 cost_day 가 없어 cron 61 · 62 는 cost_day 를 집지 못한다
 --   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-cost-build'), active := false);   · 해제: select cron.unschedule('ims-qbo-cost-build');
 select cron.schedule('ims-qbo-cost-build', '0 8 * * *', $job$ select public.qbo_cost_sheet_build_due(); $job$);
+
+-- [운영 메인 · Asung-IMS · fazgmyvzzhqybtvtktyg] ⚠️ 등록 전 · 판 — ims-qbo-cost-send(이름 안) — qbo-sync-3-3 (2026-11-09 · 판정 1098 · 1112 · ⬜7 · EF qbo 3-3 배포 뒤 · 지시서 ~/asung/prompts/qbo-sync-3-3.md) — 하루 원가 장(cost_day) + 그 need 손님(customer)을 QuickBooks 로 5 분마다 · ⚠️ 이 차수는 등록하지 않는다(1098 처음 몇 주는 화면 손 Send · 익숙해지면 Caleb 이 등록)
+--   무엇: */5 분 — inv_config qbo_send_cost_enabled = 'on'(3-2a 키 · 처음 off) 이고 · 연결이 connected 이고 · cost_day · customer 일감에 할 일(queued · next_at 지남 / unknown / 부모 sent 인 blocked)이 있을 때만 EF qbo 를 {"action":"send","kinds":["cost_day","customer"],"limit":<qbo_send_batch>} 로 부른다(cron 길 = x-ims-cron-key · by_staff null)
+--   ⚠️ kinds 의 customer 는 「원가 장의 need 손님」 만이 아니다 — 큐에 있는 **모든** customer 일감(인보이스 need 로 선 것 포함)을 이 cron 이 보낸다(3-3 이견 7) · 손님 만들기는 되돌리기 쉬운 쓰기지만 스위치 qbo_send_cost_enabled 의 뜻이 「원가만」 이 아니게 된다 — 등록 때 Caleb 이 [cost_day] 만으로 할지 정한다([cost_day] 만이면 need 손님은 화면 손 Send 가 같이 보낸다 · 3-2b ⬜6 ①)
+--   왜 kinds 를 명시하나: EF 3-3 의 kindsOf(없음) = DEFAULT_SEND_KINDS 18(cost_day 뺌) — cron 61(ims-qbo-send · kinds 없음)은 qbo_send_enabled 를 켜도 원가 장을 집지 않는다 · cron 62(열둘)도 · 원가 장은 kinds 에 cost_day 를 적은 호출과 화면 손 Send(job_ids · 19)만
+--   ⚠️ cron 61 의 where 는 kind 를 안 거른다(위 2b2 블록) — qbo_send_enabled 를 켜면 cost_day 가 queued 인 동안 5 분마다 EF 를 부르고 EF 는 claimed 0 으로 돌아온다(빈 호출 · 해 없음 · 고치는 것은 cron 차수)
+--   일감 만들기(qbo_cost_queue_due)는 열쇠 창구(qbo_key_gate · 사람 JWT)라 cron 이 못 부른다 — 자동으로 일감을 세우는 곳은 3-2b 가 0 으로 두었다(사람 창구만) · cron 67(장 행) 뒤에 잇는 길은 다음 차수(SQL 창구를 service 로 열거나 EF 에 action 을 두거나)
+--   한 장 = Intuit 호출 2(DocNumber 조회 · POST) · 풀기는 조회 1 + 읽기 1 · need 손님은 호출 셋에 걸쳐 풀린다(① blocked + 손님 일감 ② 손님 ③ 장) · timeout 120 s
+--   열쇠: jobid 62 ims-qbo-send-payments 의 command 에서 꺼내는 꼴 그대로 — substring(command from 'x-ims-cron-key'', ''([^'']+)') → format($fmt$ … %L … $fmt$, s.k) · where length(s.k) = 64(아래는 자리표 · 대시보드 SQL Editor 에서만)
+--   확인(등록 뒤): select jobid, jobname, schedule, active, command like '%cost_day%' as kinds_cost, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-qbo-cost-send';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다(마지막 67 ims-qbo-cost-build 다음 → 68 예상 · 65 · 66 이 빗나간 전례 — 실측이 정본)
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-qbo-cost-send') order by start_time desc limit 5;  · 보낸 흔적: select action, ok, http_status, detail from public.qbo_call_log where action in ('send', 'send_check', 'send_read') and detail->>'kind' = 'cost_day' order by called_at desc limit 20;
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-qbo-cost-send'), active := false);   · 해제: select cron.unschedule('ims-qbo-cost-send');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'qbo_send_cost_enabled';
+--   select cron.schedule('ims-qbo-cost-send', '*/5 * * * *', $job$
+--     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/qbo',
+--       headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+--       body := jsonb_build_object('action', 'send', 'kinds', jsonb_build_array('cost_day', 'customer'), 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'qbo_send_batch'), 15)), timeout_milliseconds := 120000)
+--     where exists (select 1 from public.inv_config c where c.key = 'qbo_send_cost_enabled' and c.value = 'on')
+--       and exists (select 1 from public.qbo_connection c where c.status = 'connected')
+--       and exists (select 1 from public.qbo_job j
+--                    where j.kind in ('cost_day', 'customer')
+--                      and (j.state = 'unknown' or (j.state = 'queued' and j.next_at <= now())
+--                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
+--   $job$);

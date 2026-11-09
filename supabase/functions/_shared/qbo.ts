@@ -58,6 +58,15 @@
 //     assertWriteAllowed(method, url, body?) — WRITE_ENTITIES + purchase · purchase 는 몸으로 가른다(이견 7): Id 없음 = 만들기 · Id 있음 = void 꼴(SyncToken · Line 비지 않음 · 모든 줄 Amount === 0 · PrivateNote 「Voided - 」 · sparse 아님)일 때만 · purchase?operation=… · include= 는 기존 가지가 거부 · 다른 엔티티의 몸은 이 차수에 보지 않는다(넓히는 안 · 크기는 보고에)
 //     entityKeyOf 명시 가지 넷(refund 둘 → purchase · Purchase · PrivateNote / refund_apply 둘 → payment · Payment · PrivateNote) · REFUND_KINDS · REFUND_APPLY_KINDS 새로(TXN_KINDS · CREDIT_APPLY_KINDS · PAYMENT_KINDS · OPENING_* · isNeedKind 무변) · parsePaymentKey 접두 넷째 「IMS refund 」 · 조회 행은 기록하지 않는다(detail 은 rows · q 만)
 //     ⚠️ 순서(1034 · 1055): 이 EF 배포 → 첫 실물 손 Send 2 건(화면 qbo-send · refund 와 refund_apply 를 함께 고르거나 refund 부터 — sendPicked 는 거래 kind 를 need 로 대신 보내지 않는다) → 그 뒤 cron 62 kinds 여덟 → 열둘(EF 전에 cron 을 늘리면 kindsOf 400 → 결제도 멈춘다)
+//   qbo-sync-3-3(2026-11-09 · 판정 1092 ~ 1103 · 1112 · DB 3-2a 20261108170000 · 3-2b 20261108224000 · 지시서 ~/asung/prompts/qbo-sync-3-3.md · §0 이견 1 ~ 10 · ⬜1 ~ ⬜8 Caleb 답 · sandbox ② S1 ~ S3): 하루 원가 장(kind cost_day · ims_kind cost_sheet · ims_id 「YYYY-MM-DD|TOR[|rebuild]」)을 JournalEntry 로 — SEND_KINDS 19
+//     kind 목록(⬜1 · 이견 3-3 ③): SEND_KINDS 19 · DEFAULT_SEND_KINDS 18(cost_day 뺌) = kindsOf(undefined | null) — cron 61(kinds 없음)은 qbo_send_enabled 를 켜도 원가 장을 집지 않는다 · kinds 에 명시(cron 길 [cost_day, customer] · 등록은 뒤 차수)할 때만 · sendPicked(화면 손 Send · job_ids)는 19(1098 처음 몇 주 손 Send)
+//     엔티티 열쇠(⬜2): entityKeyOf cost_day → journalentry · JournalEntry · DocNumber(명시 가지) · WRITE_ENTITIES + journalentry · assertWriteAllowed: journalentry 는 만들기만(몸에 Id 가 있으면 거부 · operation · include 는 기존 가지가 거부 · 지우기 · void · update 길 없음 — 374 · 1060 · 1101) · txnWord "journal entry" · TXN_KINDS 무변(cost_day 는 전용 가지 — 1 행의 뜻이 인보이스와 다르다)
+//     보내기(⬜3 · ⬜4 · 이견 1): findByDocNumber(JournalEntry) → 조회 실패 failed(보내지 않음 · 행 삭제 + Retry 가 다시 셈) · 1 행 이상 **unknown**(POST 0 · p_name = 열쇠 · 글 「already has JournalEntry … resolve in_qbo / remove it there, then resolve not_in_qbo」 — failed 로 두면 resolve(unknown 만 받음)가 막히고 Skip 은 void → 뒤 장이 그 몫을 또 담는다) · 0 행 → POST journalentry(몸 = DB qbo_cost_day_body 그대로 · requestid)
+//       → 2xx doneJournal: p_total_amt = **응답 Line 중 PostingType Debit 의 Amount 센트 합**(S1 실측 TotalAmt 0 · HomeTotalAmt 0 — 응답 TotalAmt 를 넘기면 모든 장에 거짓 경고 · DB qbo_job_done cost_day 가지는 round(p_total_amt*100) ↔ 지문 앞 칸을 견준다 · DB 무변 · 정본은 다음 문서 차수) · p_total_tax null · Line 없으면 null → DB 가 「did not return TotalAmt」 경고(sent) · 6140 · 6210 · 5xx · 끊김 · 몸 없음 → unknown(열쇠)
+//     unknown 열쇠(1112 · (가)): qbo_name = 「<DocNumber>|<차변 센트>」(costDayKeyOf · parseCostDayKey · 결제 paymentKeyOf 꼴 · 차변 센트 = ClaimJob.fingerprint 앞 칸 = claim 때 고정 · qbo_job_unknown_list 에 지문이 없어 열쇠에 싣는다 · DocNumber 제약에 | 가 없어 쪼개기 안전) · done · resolve 가 DocNumber 로 되돌린다 · unknown 동안 화면에 이 꼴이 보인다(결제 unknown 과 같음)
+//     unknown 풀기(⬜5 · 1112): 쪼개기(qbo_name null = stale sending 이면 ims_id 로 DocNumber 만 · 센트 없음) → DocNumber 조회 → 0 not_found(그대로 · retry 또는 resolve not_in_qbo) · 2+ ambiguous(그대로 · QBO 에서 하나 지우고 resolve in_qbo) · 1 → GET journalentry/<Id>(Line 은 읽기로 — S3 의 「select 에 Line 이 따라온다」 에 기대지 않는다) → Debit 합(센트) = 열쇠 센트일 때만 done · 다르면 그대로 + 글 「has debits … but this cost day expects … — not recorded」 · 센트 없으면 그대로 + 글 「expected debit is not on the job」 · 조회 행은 기록하지 않는다(detail 은 rows · q 뿐 · S3 손님 이름)
+//     ⚠️ 풀기는 kind 를 가리지 않고 모든 send 호출 앞에서 돈다(이견 3) — cron 62(5 분)가 cost_day unknown 도 qbo_send_cost_enabled 와 무관하게 조회 · (금액 같으면) done 한다 · 쓰기 0 · 인보이스 unknown 과 같다
+//     needs(⬜6): DB 몸이 Entity 짝 없는 손님을 needs 로 → claim ④ 가 customer 일감 + blocked → sendPicked 는 isNeedKind(customer) 로 같은 호출에서 손님 먼저(바퀴 3) · cron 길 [cost_day, customer] 는 호출 셋에 걸쳐(⚠️ customer 는 큐의 모든 손님 일감 — 이견 7 · cron.sql 주석 블록) · 원가 cron 은 이 차수에 등록하지 않는다(⬜7 · 주석 블록만) · 줄 상한 · DocNumber 21 자는 첫 실물로(⬜8 · DB 제약 17 · 19 자 · S1 19 자 됨)
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -80,7 +89,7 @@ export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "que
 export const ADMIN_ACTIONS = ["start", "disconnect", "refresh", "ping", "query", "read"] as const;
 export const KEY_ACTIONS = ["pull", "send", "opening_candidates", "opening_read", "opening_search"] as const;   // [2e-1d-2 이월 짝 셋 — 북키퍼(열쇠 qbo)도 · ADMIN 아님]
 // ── qbo-sync-2a′ 쓰기 길 — apiWrite 하나 · POST 만 · 만들기 customer · item · invoice · creditmemo(2b) · operation=void 는 invoice · creditmemo 만(2b · 2c) · operation=delete 없음 · requestid 필수(1 ~ 50 자 · Intuit 이 같은 id 면 처음 응답) · 자동 재시도 없음(retry false · 결과를 모르면 unknown → 다음 send 가 이름으로 조회) ──
-export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo", "payment", "purchase"] as const;      // [2e-1c payment] · [2e-3-2-1b purchase — 만들기 + Full update void 꼴만(몸 검사)]
+export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo", "payment", "purchase", "journalentry"] as const;      // [3-3 journalentry — 만들기만(몸에 Id 없음)] · [2e-1c payment] · [2e-3-2-1b purchase — 만들기 + Full update void 꼴만(몸 검사)]
 export const VOIDABLE_ENTITIES = ["invoice", "creditmemo"] as const;                                    // operation=void
 export const UPDATE_VOID_ENTITIES = ["payment"] as const;                                              // 2e-1c: Payment 의 void = operation=update&include=void(sandbox B-6 실물) · 그 밖 update 는 없다
 export const REQUESTID_MAX = 50;
@@ -89,7 +98,10 @@ export const SEND_PICK_MAX = 10, SEND_PICK_ROUNDS = 5, SEND_PICK_BUDGET_MS = 30_
 export const DUPLICATE_NAME_CODE = "6240";                                                 // Intuit 「Duplicate Name Exists Error」 — 처리 안 됨이 분명 · Item 은 ` [SKU]` 로 한 번 더(다른 requestid · 이견 11)
 export const DUPLICATE_DOCNUMBER_CODES = ["6140", "6210"] as const;                        // 2b2 Intuit 「Duplicate Document Number Error」(6140 · 6210 둘 다 본 적이 있다 — 지시서) → DocNumber 로 다시 찾아서 있으면 그것
 export const STALE_OBJECT_CODE = "5010";                                                   // 2b2 Intuit 「Stale Object Error」 — void 의 SyncToken 이 낡았다 → 읽어서 한 번 더(requestid -2)
-export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void", "credit_apply", "credit_apply_void", "opening_credit", "opening_credit_void", "opening_apply", "opening_apply_void", "refund", "refund_void", "refund_apply", "refund_apply_void"] as const;   // [2e-3-2-1b refund · refund_void · refund_apply · refund_apply_void] · 2b2 · [2c1 credit · credit_void] · [2e-1c payment · payment_void] · [2e-2-1b credit_apply · credit_apply_void] · [2e-3-1b opening_credit · opening_credit_void · opening_apply · opening_apply_void] 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
+export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void", "credit_apply", "credit_apply_void", "opening_credit", "opening_credit_void", "opening_apply", "opening_apply_void", "refund", "refund_void", "refund_apply", "refund_apply_void", "cost_day"] as const;   // [3-3 cost_day — 19 · 하루 원가 장 JournalEntry] · [2e-3-2-1b refund · refund_void · refund_apply · refund_apply_void] · 2b2 · [2c1 credit · credit_void] · [2e-1c payment · payment_void] · [2e-2-1b credit_apply · credit_apply_void] · [2e-3-1b opening_credit · opening_credit_void · opening_apply · opening_apply_void] 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
+export const COST_DAY_KINDS = ["cost_day"] as const;                                                    // 3-3 하루 원가 장(ims_kind cost_sheet · ims_id 「YYYY-MM-DD|TOR[|rebuild]」 · DocNumber COGS-YYYYMMDD-TOR(-R) · 열쇠 「<DocNumber>|<차변 센트>」)
+export const DEFAULT_SEND_KINDS = SEND_KINDS.filter((k) => !(COST_DAY_KINDS as readonly string[]).includes(k)) as readonly string[];   // 3-3 ⬜1: kinds 없는 send(cron 61 · console)의 기본 18 — cost_day 는 kinds 에 명시할 때만(qbo_send_enabled 를 켜도 원가 장이 자동으로 나가지 않는다 · 1098) · sendPicked 는 SEND_KINDS 19
+export const COST_DAY_DOC_RE = /^COGS-\d{8}-(TOR|EDM)(-R)?$/;                                            // 3-3 DB qbo_cost_sheet.doc_number 제약과 같은 꼴(17 · 19 자 · | 없음 → 열쇠 쪼개기 안전)
 export const PAYMENT_KINDS = ["payment", "payment_void"] as const;                                     // 2e-1c 결제 일감(DocNumber 없음 · 열쇠 = 날짜 · 손님 · 금액 · PrivateNote)
 export const CREDIT_APPLY_KINDS = ["credit_apply", "credit_apply_void"] as const;                      // 2e-2-1b 크레딧 붙임 = 0 원 Payment(DocNumber 없음 · 열쇠는 결제 꼴 · PrivateNote 「IMS credit applied <uuid>」)
 export const TXN_KINDS = ["invoice", "invoice_void", "credit", "credit_void"] as const;      // 2c1 거래 일감(DocNumber 멱등 · 읽기 · 합계) — 인보이스 · 크레딧이 같은 길을 엔티티 열쇠만 바꿔 쓴다
@@ -282,6 +294,10 @@ export function assertWriteAllowed(method: string, url: string, body?: unknown):
       const why = purchaseVoidBodyProblem(b);
       if (why !== null) throw new QboError(500, `refusing POST ${path} with Id ${String(b.Id).slice(0, 20)} — the only update ever sent to a purchase is the void shape (every line Amount 0 · PrivateNote "${VOIDED_NOTE_PREFIX}…" · SyncToken · not sparse): ${why}`);
     }
+  }
+  if (mm[1] === "journalentry") {                                                                    // 3-3 ⬜2 · 이견 9: JournalEntry 는 만들기만 — 몸에 Id 가 있으면(update · void 꼴) 거부 · 지우기 길 없음(374 · 1060 · 1101 — 같은 장이 둘이면 사람이 QBO 에서 지운다)
+    const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    if (b.Id !== undefined && b.Id !== null) throw new QboError(500, `refusing POST ${path} with Id ${String(b.Id).slice(0, 20)} — a journal entry is only ever created, never updated, voided or deleted from here`);
   }
   const rid = u.searchParams.get("requestid") ?? "";
   if (!rid || rid.length > REQUESTID_MAX) throw new QboError(500, `refusing POST ${path} without a requestid (1 … ${REQUESTID_MAX} characters) — every write carries the job request_id`);
@@ -595,13 +611,42 @@ const entityKeyOf = (kind: string): EntityKey => kind === "customer" ? { path: "
   : kind === "credit_apply" || kind === "credit_apply_void" || kind === "opening_apply" || kind === "opening_apply_void" ? { path: "payment", key: "Payment", nameField: "PrivateNote" }   // 2e-2-1b 0 원 Payment(PaymentRefNum 없음 · 이름은 PrivateNote) · [2e-3-1b opening_apply 둘]
   : kind === "refund" || kind === "refund_void" ? { path: "purchase", key: "Purchase", nameField: "PrivateNote" }                                              // [2e-3-2-1b 환불 = Purchase(Expense) · 이름은 PrivateNote — ELSE(invoice)로 떨어지면 Purchase 를 Invoice 로 읽는다]
   : kind === "refund_apply" || kind === "refund_apply_void" ? { path: "payment", key: "Payment", nameField: "PrivateNote" }                                        // [2e-3-2-1b 환불을 잇는 0 원 Payment]
+  : kind === "cost_day" ? { path: "journalentry", key: "JournalEntry", nameField: "DocNumber" }                                                                     // [3-3 하루 원가 장 = JournalEntry · 명시 가지 — ELSE(invoice)로 떨어지면 JournalEntry 를 Invoice 로 읽는다]
   : kind === "payment" || kind === "payment_void" ? { path: "payment", key: "Payment", nameField: "PaymentRefNum" } : { path: "invoice", key: "Invoice", nameField: "DocNumber" };   // 2c1 credit → CreditMemo · [2e-1c payment → Payment]
 const isTxnKind = (kind: string): boolean => (TXN_KINDS as readonly string[]).includes(kind) || (OPENING_CREDIT_KINDS as readonly string[]).includes(kind);   // [2e-3-1b 합집합 — TXN_KINDS 무변]
 const isPaymentKind = (kind: string): boolean => (PAYMENT_KINDS as readonly string[]).includes(kind);                            // 2e-1c
 const isCreditApplyKind = (kind: string): boolean => (CREDIT_APPLY_KINDS as readonly string[]).includes(kind) || (OPENING_APPLY_KINDS as readonly string[]).includes(kind);   // 2e-2-1b · [2e-3-1b 합집합 — CREDIT_APPLY_KINDS 무변]
 const isRefundKind = (kind: string): boolean => (REFUND_KINDS as readonly string[]).includes(kind);                              // 2e-3-2-1b Purchase 둘
 const isRefundApplyKind = (kind: string): boolean => (REFUND_APPLY_KINDS as readonly string[]).includes(kind);                   // 2e-3-2-1b 0 원 Payment 둘(결제 꼴 열쇠 · void 는 Id)
+const isCostDayKind = (kind: string): boolean => (COST_DAY_KINDS as readonly string[]).includes(kind);                           // 3-3 하루 원가 장
 const isNeedKind = (kind: string): boolean => kind === "customer" || kind === "item";                                           // 2e-2-1b 960: 같은 호출에서 대신 보내는 need 는 손님 · Item(· 부모 손님)뿐 — 거래 · void 는 북키퍼가 고른다
+// 3-3 하루 원가 장 — 순수: Debit 합(센트) · unknown 열쇠 「<DocNumber>|<차변 센트>」 · ims_id → DocNumber(stale sending 이라 열쇠가 없을 때 조회만)
+export const journalDebitCents = (row: Record<string, unknown> | null): number | null => {                 // 응답 · 읽은 JournalEntry 의 Line 중 PostingType Debit 의 Amount 를 센트 정수로 더한다 · Line 이 없으면 null(S1: TotalAmt 는 0 으로 온다 — 쓰지 않는다)
+  if (!row || !Array.isArray(row.Line)) return null;
+  let cents = 0;
+  for (const l of row.Line as Record<string, unknown>[]) {
+    const d = ((l?.JournalEntryLineDetail ?? {}) as Record<string, unknown>);
+    if (String(d.PostingType ?? "") !== "Debit") continue;
+    const a = num(l?.Amount); if (a === null) continue;
+    cents += Math.round(a * 100);
+  }
+  return cents;
+};
+export const fingerprintDebitCents = (fingerprint: string | null | undefined): number | null => {          // DB 지문 「<차변 센트>|<줄 md5>」(claim 때 고정)의 앞 칸
+  const m = /^(\d+)\|/.exec(String(fingerprint ?? ""));
+  return m ? Number(m[1]) : null;
+};
+export const costDayKeyOf = (doc: string, cents: number | null): string => cents === null ? doc : `${doc}|${cents}`;   // 1112 (가): 보내려던 차변을 열쇠에 싣는다(qbo_job_unknown_list 에 지문이 없다) · 결제 paymentKeyOf 꼴
+export const parseCostDayKey = (s: string | null | undefined): { doc: string; cents: number | null } | null => {
+  const parts = String(s ?? "").split("|");
+  if (parts.length < 1 || parts.length > 2 || !COST_DAY_DOC_RE.test(parts[0])) return null;
+  if (parts.length === 1) return { doc: parts[0], cents: null };
+  return /^\d+$/.test(parts[1]) ? { doc: parts[0], cents: Number(parts[1]) } : null;
+};
+export const costDayDocOfImsId = (imsId: string | null | undefined): string | null => {                 // 「YYYY-MM-DD|TOR[|rebuild]」 → COGS-YYYYMMDD-TOR[-R](DB qbo_cost_sheet_ims_id 의 역) · 꼴이 아니면 null
+  const m = /^(\d{4})-(\d{2})-(\d{2})\|(TOR|EDM)(\|rebuild)?$/.exec(String(imsId ?? ""));
+  return m ? `COGS-${m[1]}${m[2]}${m[3]}-${m[4]}${m[5] ? "-R" : ""}` : null;
+};
 // 2e-1c 결제 unknown 열쇠 — qbo_job.qbo_name 한 칸에 「<PrivateNote>|<CustomerRef>|<TxnDate>|<TotalAmt>」(PrivateNote = 「IMS payment <uuid>」) · void 는 QBO Payment Id 만
 export const paymentKeyOf = (lookup: Record<string, unknown> | null | undefined, body: Record<string, unknown>): string => {
   const l = lookup ?? {};
@@ -654,7 +699,7 @@ export const txnOpenBalances = (row: Record<string, unknown>): { type: string; i
     const hit = any.map((x) => (x?.value ?? {}) as Record<string, unknown>).find((v) => String(v.Name ?? "") === "txnOpenBalance");
     return { type: String(lt.TxnType ?? "?"), id: String(lt.TxnId ?? "?"), open: hit && hit.Value != null ? String(hit.Value) : null };
   });
-const txnWord = (e: EntityKey): string => e.key === "CreditMemo" ? "credit memo" : e.key === "Purchase" ? "expense" : "invoice";                           // 사람 글의 낱말(failed · note)
+const txnWord = (e: EntityKey): string => e.key === "CreditMemo" ? "credit memo" : e.key === "Purchase" ? "expense" : e.key === "JournalEntry" ? "journal entry" : "invoice";   // 사람 글의 낱말(failed · note) · [3-3 journal entry]
 const createdIdOf = (body: unknown, key: string): string | null => { const row = (body as Record<string, unknown>)?.[key] as Record<string, unknown> | undefined; return row && row.Id != null ? String(row.Id) : null; };
 const rowOf = (body: unknown, key: string): Record<string, unknown> | null => { const row = (body as Record<string, unknown>)?.[key]; return row && typeof row === "object" && (row as Record<string, unknown>).Id != null ? row as Record<string, unknown> : null; };
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -727,8 +772,30 @@ async function doneTxn(c: Ctx, jobId: string, row: Record<string, unknown>, doc:
   const t = invoiceTotals(row);
   return await c.d.rpcService("qbo_job_done", { p_job: jobId, p_qbo_id: String(row.Id), p_qbo_name: String(row.DocNumber ?? doc), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: tid, p_note: note, p_sku: null, p_total_amt: t.total_amt, p_total_tax: t.total_tax }) as Record<string, unknown>;
 }
+// 3-3 하루 원가 장 done — p_total_amt = Debit 합(센트 → 금액 · S1 TotalAmt 0 이라 응답 합계를 쓰지 않는다) · p_total_tax null · DB 가 round(*100) ↔ 지문 앞 칸을 견줘 mismatch · qbo_name 은 DocNumber 로(열쇠 꼴을 되돌린다)
+async function doneJournal(c: Ctx, jobId: string, row: Record<string, unknown>, doc: string, tid: string | null, note: string | null): Promise<Record<string, unknown>> {
+  const cents = journalDebitCents(row);
+  return await c.d.rpcService("qbo_job_done", { p_job: jobId, p_qbo_id: String(row.Id), p_qbo_name: String(row.DocNumber ?? doc), p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: tid, p_note: note, p_sku: null, p_total_amt: cents === null ? null : cents / 100, p_total_tax: null }) as Record<string, unknown>;
+}
 async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = { job_id: u.job_id, kind: u.kind, ims_kind: u.ims_kind, ims_id: u.ims_id };
+  if (isCostDayKind(u.kind)) {                                                                         // 3-3 ⬜5 · 판정 1112 — 열쇠 「<DocNumber>|<차변 센트>」(qbo_name) · 없으면(stale sending) ims_id 로 DocNumber 만 → 조회 → 0 · 2+ 그대로 · 1 → 읽어서 Debit 합 = 열쇠 센트일 때만 done · 다르면 그대로 + 글 · 센트 없으면 그대로 + 글(금액을 못 견주면 자동 없음)
+    const e = entityKeyOf(u.kind), word = txnWord(e);
+    const k = parseCostDayKey(u.qbo_name) ?? (u.qbo_name ? null : (() => { const d = costDayDocOfImsId(u.ims_id); return d ? { doc: d, cents: null } : null; })());
+    if (!k) return { ...out, result: "no_name", message: "the cost day key on the job is not readable — check QuickBooks by hand, then resolve the cost day as in_qbo or not_in_qbo" };
+    const { r, rows } = await findByDocNumber(c, k.doc, u, e);
+    if (r.error) return { ...out, result: "check_failed", error: r.error };
+    if (rows.length === 0) return { ...out, result: "not_found", message: `QuickBooks has no ${word} with number ${k.doc} — if it really is not there, retry the job by hand or resolve the cost day as not_in_qbo (Cost days)` };
+    if (rows.length > 1) return { ...out, result: "ambiguous", count: rows.length, message: `QuickBooks has ${rows.length} ${word}s with number ${k.doc} (#${rows.map((x) => String(x.Id)).join(", #")}) — remove the extra in QuickBooks, then resolve the cost day as in_qbo with the one left` };
+    const rd = await readTxn(c, String(rows[0].Id), u, e);
+    if (rd.r.error || !rd.row) return { ...out, result: "check_failed", error: rd.r.error ?? `${word} could not be read` };
+    const id = String(rd.row.Id), got = journalDebitCents(rd.row);
+    if (k.cents === null) return { ...out, result: "needs_hand", qbo_id: id, message: `QuickBooks has ${word} #${id} with number ${k.doc} but the expected debit is not on the job — check it in QuickBooks, then resolve the cost day as in_qbo (with #${id}) or not_in_qbo by hand` };
+    if (got === null) return { ...out, result: "needs_hand", qbo_id: id, message: `QuickBooks ${word} #${id} with number ${k.doc} came back without lines — check it in QuickBooks, then resolve the cost day as in_qbo (with #${id}) or not_in_qbo by hand` };
+    if (got !== k.cents) return { ...out, result: "amount_differs", qbo_id: id, qbo_debit: got / 100, expected_debit: k.cents / 100, message: `QuickBooks JournalEntry #${id} with DocNumber ${k.doc} has debits ${(got / 100).toFixed(2)} but this cost day expects ${(k.cents / 100).toFixed(2)} — not recorded. Check it in QuickBooks: if it is right, resolve in_qbo with that Id; if not, remove it there, then resolve not_in_qbo` };
+    const d = await doneJournal(c, u.job_id, rd.row, k.doc, rd.r.tid, "result was unknown — found in QuickBooks by DocNumber with the same debits and recorded");
+    return { ...out, result: "found", qbo_id: id, state: d?.state ?? null, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+  }
   if (!u.qbo_name) return { ...out, result: "no_name", message: "the name that was sent is not on the job — retry it by hand after checking QuickBooks" };
   if (isPaymentKind(u.kind) || isCreditApplyKind(u.kind) || isRefundApplyKind(u.kind)) {           // [2e-3-2-1b refund_apply 둘도 — 0 원 Payment]                                          // 2e-1c — 결제: 열쇠(날짜 · 손님 · 금액 · PrivateNote) · void 는 Id 로 읽어 Voided 인지 · [2e-2-1b 크레딧 붙임도 이 문으로(0 원 Payment)] · [2e-3-1b opening_apply 둘도]
     const e = entityKeyOf(u.kind);
@@ -810,6 +877,24 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
   const unknown = async (err: string, tid: string | null, nameSent: string): Promise<JobOut> => { await c.d.rpcService("qbo_job_unknown", { p_job: j.job_id, p_error: err, p_intuit_tid: tid, p_name: nameSent }); return { ...base, name: nameSent, state: "unknown", error: err }; };
   let nameSent = j.name, note: string | null = null;
   try {
+    if (isCostDayKind(j.kind)) {                                                                       // 3-3 ⬜3 · ⬜4 · 이견 1 · 판정 1112 — 하루 원가 장: DocNumber 조회(0 행만 보낸다 · 1 행 이상은 unknown + 글 · 조회 실패는 failed) → POST journalentry(몸 = DB qbo_cost_day_body 그대로) → doneJournal(Debit 합) · 6140 · 6210 · 5xx · 끊김 · 몸 없음 → unknown(열쇠 「<doc>|<센트>」)
+      const word = txnWord(e);
+      const doc = String(j.doc_number ?? j.name), cents = fingerprintDebitCents(j.fingerprint), key = costDayKeyOf(doc, cents); nameSent = key;
+      const pre = await findByDocNumber(c, doc, j, e);
+      if (pre.r.error) return await fail("not sent — the DocNumber check failed before sending: " + pre.r.error, pre.r.tid);
+      if (pre.rows.length >= 1) return await unknown(`not sent — QuickBooks already has ${word} #${pre.rows.map((x) => String(x.Id)).join(", #")} with DocNumber ${doc} — if it is this cost day, resolve it as in_qbo with that Id; if not, remove it in QuickBooks, then resolve not_in_qbo`, pre.r.tid, key);
+      const { r } = await attempt(j.body, j.request_id);
+      const cls = classifyWrite(r.status, r.networkError);
+      if (cls === "fail" && (DUPLICATE_DOCNUMBER_CODES as readonly string[]).includes(faultCode(r.body) ?? "")) return await unknown(`QuickBooks answered duplicate DocNumber (${faultCode(r.body)}) after the check found none — checked by number at the next send`, r.tid, key);   // 짐작 밖(S2: QBO 는 JE 번호 중복을 막지 않는다) — 와도 다음 풀기가 1112 로 견준다
+      if (cls === "ok") {
+        const row = rowOf(r.body, e.key);
+        if (!row) return await unknown(`QuickBooks answered ${r.status} without the created ${e.key} — checked by number at the next send`, r.tid, key);
+        const d = await doneJournal(c, j.job_id, row, doc, r.tid, null);
+        return { ...base, name: doc, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+      }
+      if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
+      return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
+    }
     if (j.kind === "invoice" || j.kind === "credit" || j.kind === "opening_credit") {                   // 2b2 · [2c1 credit] · [2e-3-1b opening_credit — 「쓰기」 CreditMemo · 몸은 DB qbo_opening_credit_body 그대로] — 멱등: DocNumber 가 이미 있으면 만들지 않는다
       const word = txnWord(e);
       const doc = String(j.doc_number ?? j.name); nameSent = doc;
@@ -1097,9 +1182,9 @@ async function sendAll(c: Ctx, jobs: ClaimJob[], parallel: number): Promise<JobO
   return out;
 }
 type PickOut = { job_id: string; kind: string | null; result: string; state: string | null; reason: string | null; qbo_id: string | null; name: string | null; error: string | null; note: string | null; mismatch: string | null; round: number };
-// 2e-1c send { kinds } — SEND_KINDS 의 부분집합(중복 접음) · 없으면 전부 · 빈 배열 · 배열 아님 · 모르는 값은 400
+// 2e-1c send { kinds } — SEND_KINDS 의 부분집합(중복 접음) · 없으면 DEFAULT_SEND_KINDS(3-3: cost_day 뺀 18 — cron 61 · console 의 옛 호출) · 빈 배열 · 배열 아님 · 모르는 값은 400
 export function kindsOf(raw: unknown): string[] {
-  if (raw === undefined || raw === null) return [...SEND_KINDS];
+  if (raw === undefined || raw === null) return [...DEFAULT_SEND_KINDS];
   if (!Array.isArray(raw) || raw.length === 0) throw new QboError(400, `kinds must be a non-empty list among ${SEND_KINDS.join(", ")}`);
   const out = [...new Set(raw.map((x) => String(x ?? "").trim()))];
   const bad = out.find((k) => !(SEND_KINDS as readonly string[]).includes(k));
@@ -1110,7 +1195,7 @@ async function send(c: Ctx, body: Record<string, unknown>): Promise<Response> {
   if (body.job_ids !== undefined && body.job_ids !== null) return await sendPicked(c, body);                      // 2d1 — 고른 id 만(limit 은 읽지 않는다)
   const limit = body.limit === undefined || body.limit === null || body.limit === "" ? SEND_LIMIT_DEFAULT : Number(body.limit);
   if (!(Number.isInteger(limit) && limit >= 1 && limit <= SEND_LIMIT_MAX)) throw new QboError(400, `limit must be a whole number 1 … ${SEND_LIMIT_MAX} (got ${String(body.limit)})`);
-  const kinds = kindsOf(body.kinds);                                                                 // 2e-1c: 없으면 SEND_KINDS 전부(옛 동작) · cron 62 는 [payment, payment_void]
+  const kinds = kindsOf(body.kinds);                                                                 // 2e-1c: 없으면 DEFAULT_SEND_KINDS(옛 동작 · [3-3] cost_day 는 명시할 때만) · cron 62 는 열둘
   await ensureToken(c, false);                                                                       // 연결 · env 를 먼저 본다(없으면 409 · 일감은 건드리지 않는다)
   const unknowns = (await c.d.rpcService("qbo_job_unknown_list", {}) as UnknownRow[] | null) ?? [];
   const resolved: Record<string, unknown>[] = [];
