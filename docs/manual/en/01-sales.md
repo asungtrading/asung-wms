@@ -717,7 +717,7 @@ Tick the rows (or **Select all on this page**) and press **Send selected**. IMS 
 **Refunds — they go by themselves too**
 - A refund that pays out a credit note goes to QuickBooks as two rows: **Refund** (an expense paid from the account the money left, with a line on Accounts Receivable for the customer) and **Refund linked to credit** (a $0.00 payment that ties the refund to the credit note). They go every 5 minutes on their own. "It goes only after its Refund is in QuickBooks — send the Refund first, or pick both together."
 - Cancelling the refund in IMS makes **Undo refund link** and **Void refund**: "Voids the 0.00 linking payment first — the credit note opens again." Then IMS reads the refund in QuickBooks and sets every line to 0.00.
-- A refund that also pays out money on account (not only credit notes) shows **Failed** and is not sent, not even in part. Sending those is not built yet — leave the row.
+- A refund that also pays out money on account (not only credit notes) shows **Failed** and is not sent, not even in part. IMS will not send these (they are rare, for example giving back an overpayment): enter the refund in QuickBooks by hand, then **Skip** the row with the note "entered by hand in QuickBooks".
 - Refunds paid before go-live (10/30) are already in QuickBooks and have no row. If one of them is cancelled in IMS, the **Void refund** row fails — void it in QuickBooks yourself, then **Skip** the row.
 - A refund recorded late for a payment from before go-live fails with "check QuickBooks, then Retry or Skip".
 - **Carried-over money (before the cut-over)** shows the rows for money a customer paid before go-live that IMS applies to a new invoice (see below).
@@ -743,10 +743,43 @@ Invoice 99001 → **Preview** shows the item for CB-99001 will be created first 
 - "QuickBooks total differs from IMS" means QuickBooks worked out a different total. The document is in QuickBooks — check it there.
 - Restocking fees and other account lines on credit notes need their account linked to a QuickBooks item once, in **Settings** › **QuickBooks matching** (**Freight, discount & account lines**).
 - Credit a customer had on account before go-live (carried-over credit) that pays a new invoice is sent to QuickBooks by IMS: a credit memo "OC-99001-1" plus a $0.00 payment. Do not enter a journal entry for it by hand. If one was entered, **Delete** it in QuickBooks (not Reverse), check the invoice balance, then press **Retry** on the IMS row and write what you did in the note.
-- Refunds are recorded in IMS only. Do not enter them in QuickBooks by hand. IMS sends the part that pays out credit notes (see **Refunds** above). A refund from money on account fails and waits — tell the admin.
+- Refunds are recorded in IMS only. Do not enter them in QuickBooks by hand. IMS sends the part that pays out credit notes (see **Refunds** above). A refund from money on account fails and is not sent: enter it in QuickBooks by hand, then **Skip** the IMS row with the note "entered by hand in QuickBooks".
 - When QuickBooks and IMS disagree, compare the customer's balance first: the customer's open balance in QuickBooks should equal **Available** in IMS. Then look at the transaction list and the audit history in QuickBooks.
 
 <!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks list with Waiting filter, a Preview window with Send to QuickBooks -->
+
+<a id="sales-quickbooks-cost"></a>
+## QuickBooks — cost of goods (daily journal)
+<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs cost v1a -->
+<!-- who: accounting -->
+
+**What it is**
+In **Sales ▾** › **QuickBooks**, the type **Cost of goods — daily journal** shows the **Cost days** card. "One journal entry per warehouse per day: cost of goods sold (#58) against inventory (#59), one line per sales order, adjustment, credit or transfer." IMS builds the sheets every night at 03:00 (Toronto). For now you queue and send them by hand, oldest first — "a sheet waits until the one before it is in QuickBooks." The sheet number looks like COGS-20261102-TOR.
+
+**How — send a cost day**
+1. Pick the type **Cost of goods — daily journal**. The **Cost days** card opens under the filters.
+2. In **Sheets**, press **Preview** on a sheet. You see the journal lines (account, customer, debit, credit), **By document** (counted now, sent before, this sheet), **Held back on this day** and **Left out on purpose**. "The lines are fixed again at the moment it is sent — anything recorded later goes on the next sheet."
+3. Press **Queue** on the oldest sheet of a warehouse (only that sheet has the button), or **Queue all ready sheets** to queue every built sheet, oldest first.
+4. In the list below, the row **Cost day** appears. Press **Preview**, then **Send**. The sheet turns **sent** and shows the QuickBooks number.
+5. **Build sheets now** builds missing sheets up to yesterday at once (the nightly run does this too).
+
+**Held back**
+- An inventory adjustment over the limit ("Adjustment limit: … per adjustment") is not sent until you decide: **Send** (it goes on the next cost day) or **Never** (for example a write-off the accountant handles at year-end). A reason is required. **Undo** removes the decision.
+- Receipts and supplier cost changes are held too — "they open with the supplier bill round — nothing to do here."
+
+**When a sheet is not sent**
+- **on hold** — "Cost days are on hold." The cost layers were rebuilt after some sheets were prepared. Nothing more is sent until it is checked and released (**Review the rebuild** → **Release**). Ask the IMS administrator.
+- **result unknown** — IMS sent the sheet but did not hear back. IMS first looks in QuickBooks itself: if there is one journal entry with the same number and the same debits, the sheet is marked sent. If the amounts differ, it stays **result unknown** and says so. Then press **Resolve**: "It is in QuickBooks — journal entry Id …" or "It is not in QuickBooks — send it again". Say what you checked.
+- **failed** — read the note, for example "queue the earlier sheet first".
+- A cost day waits as **Blocked** when one of its sales orders has a customer that is not in QuickBooks yet. Pressing **Send** on the cost day creates that customer first.
+- **empty** — nothing to send for that day.
+
+**Watch out**
+- Do not enter cost-of-goods journal entries in QuickBooks by hand — they would be there twice. QuickBooks accepts the same journal number twice, so IMS checks before it sends.
+- Do not delete or change a cost-day journal entry in QuickBooks. If two entries with the same number are there, keep one, then **Resolve** the sheet in IMS.
+- "Opening-cost corrections and the trucks carried over from before the cut-over are never sent."
+
+<!-- SCREENSHOT: sales-quickbooks-cost-1 · Cost days card with Sheets, Queue and Held back; Cost day preview window -->
 
 <a id="sales-web-orders"></a>
 ## Web orders

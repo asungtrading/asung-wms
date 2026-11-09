@@ -717,7 +717,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 **환불 — 이것도 저절로 나간다**
 - 크레딧 노트를 돈으로 돌려준 환불은 QuickBooks 에 두 줄로 갑니다: **Refund**(돈이 나간 계좌에서 낸 지출 · 손님 몫은 매출채권(A/R) 줄) 와 **Refund linked to credit**(그 환불과 크레딧 노트를 잇는 $0.00 결제). 5 분마다 저절로 나갑니다. "It goes only after its Refund is in QuickBooks — send the Refund first, or pick both together."(Refund 가 먼저 · 또는 둘을 함께)
 - IMS 에서 환불을 취소하면 **Undo refund link** 와 **Void refund** 가 생깁니다: "Voids the 0.00 linking payment first — the credit note opens again."(잇는 0.00 결제를 먼저 void · 크레딧 노트가 다시 열린다) 그 뒤 IMS 가 QuickBooks 의 환불을 읽어 모든 줄을 0.00 으로 만듭니다.
-- 받아 둔 돈(크레딧 노트가 아닌 계정의 돈)까지 돌려준 환불은 **Failed** 로 보이고 일부도 보내지 않습니다. 그 보내기는 아직 없습니다 — 줄을 그대로 둡니다.
+- 받아 둔 돈(크레딧 노트가 아닌 계정의 돈)까지 돌려준 환불은 **Failed** 로 보이고 일부도 보내지 않습니다. IMS 는 이것을 보내지 않습니다(드뭅니다 — 예: 더 낸 돈 돌려주기): QuickBooks 에 손으로 넣고, 그 줄은 메모 「QuickBooks 에 손으로 넣음」 으로 **Skip** 합니다.
 - IMS 로 넘어오기 전(10/30) 결제의 환불은 이미 QuickBooks 에 있어 줄이 없습니다. 그중 하나를 IMS 에서 취소하면 **Void refund** 줄이 실패합니다 — QuickBooks 에서 직접 void 하고 줄은 **Skip** 합니다.
 - 넘어오기 전 결제의 환불을 늦게 적으면 "check QuickBooks, then Retry or Skip"(QuickBooks 를 보고 Retry 또는 Skip)으로 실패합니다.
 - **Carried-over money (before the cut-over)** 는 손님이 넘어오기 전에 낸 돈을 IMS 가 새 인보이스에 붙인 줄입니다(아래).
@@ -743,10 +743,43 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - "QuickBooks total differs from IMS" 는 QuickBooks 가 합계를 다르게 셈했다는 뜻입니다. 문서는 QuickBooks 에 있습니다 — 거기서 확인합니다.
 - 크레딧 노트의 재입고 수수료 등 계정 줄은 그 계정을 QuickBooks 품목에 한 번 이어야 합니다 — **Settings** › **QuickBooks matching**(**Freight, discount & account lines**)
 - 고객이 IMS 로 넘어오기 전부터 갖고 있던 크레딧(이월 크레딧)이 새 인보이스를 갚으면 IMS 가 QuickBooks 로 보냅니다: 크레딧 메모 "OC-99001-1" 과 $0.00 결제 한 쌍입니다. 이것을 분개(Journal Entry)로 손으로 넣지 않습니다. 이미 넣었다면 QuickBooks 에서 그 분개를 **Delete**(Reverse 아님)하고, 인보이스 잔액을 확인한 뒤, IMS 줄에서 **Retry** 를 누르고 메모에 한 일을 적습니다.
-- 환불은 IMS 에만 적습니다. QuickBooks 에 손으로 넣지 않습니다. 크레딧 노트를 갚는 몫은 IMS 가 보냅니다(위 **환불**). 받아 둔 돈에서 나간 환불은 실패하고 기다립니다 — 관리자에게 알립니다.
+- 환불은 IMS 에만 적습니다. QuickBooks 에 손으로 넣지 않습니다. 크레딧 노트를 갚는 몫은 IMS 가 보냅니다(위 **환불**). 받아 둔 돈에서 나간 환불은 실패하고 보내지 않습니다: QuickBooks 에 손으로 넣고, IMS 줄은 메모 「QuickBooks 에 손으로 넣음」 으로 **Skip** 합니다.
 - QuickBooks 와 IMS 가 어긋나면 고객 잔액부터 맞춰 봅니다: QuickBooks 의 고객 미결 잔액(open balance)이 IMS 의 **Available** 과 같아야 합니다. 그 다음 QuickBooks 의 거래 목록과 audit history 를 봅니다.
 
 <!-- SCREENSHOT: sales-quickbooks-1 · QuickBooks 목록(Waiting 필터) · Preview 창의 Send to QuickBooks -->
+
+<a id="sales-quickbooks-cost"></a>
+## QuickBooks — 판매 원가(하루 분개)
+<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs cost v1a -->
+<!-- who: accounting -->
+
+**무엇인가**
+**Sales ▾** › **QuickBooks** 에서 종류 **Cost of goods — daily journal** 을 고르면 **Cost days** 카드가 보입니다. "One journal entry per warehouse per day: cost of goods sold (#58) against inventory (#59), one line per sales order, adjustment, credit or transfer."(창고마다 하루 한 장의 분개 — 판매 원가 #58 ↔ 재고 #59 · SO · 조정 · 크레딧 · 트랜스퍼마다 한 줄) IMS 가 매일 밤 03:00(토론토)에 장을 만듭니다. 지금은 사람이 오래된 것부터 손으로 대기열에 넣고 보냅니다 — "a sheet waits until the one before it is in QuickBooks."(앞 장이 QuickBooks 에 가야 다음 장이 간다) 장 번호는 COGS-20261102-TOR 꼴입니다.
+
+**하루 원가 장 보내는 법**
+1. 종류 **Cost of goods — daily journal** 을 고릅니다. 거르기 줄 아래에 **Cost days** 카드가 열립니다.
+2. **Sheets** 에서 장의 **Preview** 를 누릅니다. 분개 줄(계정 · 손님 · 차변 · 대변) · **By document**(지금 셈 · 앞서 보낸 몫 · 이번 장) · **Held back on this day** · **Left out on purpose** 가 보입니다. "The lines are fixed again at the moment it is sent — anything recorded later goes on the next sheet."(줄은 보내는 순간 다시 정해진다 — 그 뒤에 적힌 것은 다음 장에)
+3. 창고의 가장 오래된 장에서 **Queue** 를 누릅니다(그 장에만 단추가 있습니다). 또는 **Queue all ready sheets** 로 만들어진 장 전부를 오래된 것부터 넣습니다.
+4. 아래 목록에 **Cost day** 줄이 생깁니다. **Preview** → **Send**. 장이 **sent** 로 바뀌고 QuickBooks 번호가 보입니다.
+5. **Build sheets now** 는 어제까지 빠진 장을 바로 만듭니다(밤 실행도 같은 일을 합니다).
+
+**보류(Held back)**
+- 문턱("Adjustment limit: … per adjustment")을 넘는 재고 조정은 정할 때까지 안 나갑니다: **Send**(다음 원가 장에 실림) · **Never**(예: 회계사가 연말에 처리하는 write-off). 까닭 필수. **Undo** 는 결정을 지웁니다.
+- 입고 · 공급처 원가 변동도 보류입니다 — "they open with the supplier bill round — nothing to do here."(공급처 청구서 차례에 열린다 — 여기서 할 일 없음)
+
+**안 나간 장**
+- **on hold** — "Cost days are on hold." 장을 만든 뒤 원가 레이어가 다시 만들어졌습니다. 확인하고 풀기(**Review the rebuild** → **Release**) 전에는 더 나가지 않습니다. IMS 관리자에게 알립니다.
+- **result unknown** — IMS 가 보냈지만 답을 못 받았습니다. IMS 가 먼저 QuickBooks 를 찾아봅니다: 같은 번호 · 같은 차변 합의 분개가 하나 있으면 sent 로 적습니다. 금액이 다르면 **result unknown** 그대로 두고 그렇다고 적습니다. 그때 **Resolve**: "It is in QuickBooks — journal entry Id …"(QuickBooks 에 있다 — 분개 Id) 또는 "It is not in QuickBooks — send it again"(없다 — 다시 보냄). 무엇을 확인했는지 적습니다.
+- **failed** — 메모를 읽습니다. 예: "queue the earlier sheet first"(앞 장을 먼저 넣어라).
+- 장 안의 SO 손님이 아직 QuickBooks 에 없으면 원가 장은 **Blocked** 로 기다립니다. 원가 장에서 **Send** 를 누르면 그 손님을 먼저 만듭니다.
+- **empty** — 그날 보낼 것이 없습니다.
+
+**조심할 것**
+- 판매 원가 분개를 QuickBooks 에 손으로 넣지 않습니다 — 두 번 적힙니다. QuickBooks 는 같은 분개 번호를 두 번 받으므로 IMS 가 보내기 전에 찾아봅니다.
+- 원가 장 분개를 QuickBooks 에서 지우거나 고치지 않습니다. 같은 번호가 둘 서 있으면 하나만 남기고 IMS 에서 그 장을 **Resolve** 합니다.
+- "Opening-cost corrections and the trucks carried over from before the cut-over are never sent."(기초 원가 바로잡기 · 넘어오기 전 트럭은 보내지 않는다)
+
+<!-- SCREENSHOT: sales-quickbooks-cost-1 · Cost days 카드(Sheets · Queue · Held back) · Cost day 미리 보기 창 -->
 
 <a id="sales-web-orders"></a>
 ## 웹 오더

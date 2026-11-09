@@ -210,6 +210,7 @@ from inv_snapshot_runs order by ran_at desc limit 5;
 📌 `null_bin_nonzero` [실측 09-13] **6건** — bin 없는데 수량 있음: `AS91459`(EDM 10) · `AS91457`(EDM 20) · `ABE16004`(EDM 3) · `UNF18155`(EDM 1) · `EBI03960`(TOR 8) · `AIA03588`(TOR 6). `dropped_zero_nobin` 과 달리 **버리지 않고 기록만 남는다**(수량이 0 이 아니라서). ⬜ ⑧ bin 대조에서 어떻게 취급되는지 미확인(`bin=''` 로 들어갈 텐데 Cin7 쪽과 어떻게 맞추는지) — 별건.
   → [2026-10-31 · 판정 907 · so-module §93-c 5] **컷오버 뒤 실제 창고에 bin 없는 잔고 넷**(0 아님): UNF18155(콤보) EDM 1 · AIA03588 TOR 6(기초 6 · 움직임 0) · EBI03960 TOR 6(기초 8 · 10-26 −2) · UNF18259(콤보) TOR 2(기초 0 · 사건 7 · 마지막 10-09) — 앞의 셋은 위 09-13 여섯에 이미 있었다 · AS91459 · AS91457 · ABE16004 는 그 뒤 빠짐(까닭 모름)
   ⚠️⚠️ **조정 창구 `inv_adjust_line_set` 은 활성 bin 이 반드시 있어야 한다**(id 나 이름 · 없으면 거부) · **꺼진 제품도 거부** ⇒ bin 없는 잔고는 화면 · 창구로 못 고친다 → 월요일 실사(실제 bin) 결과로 ops 차수(adj-893 꼴 manual 원장 쌍 「bin 없음 −수량 · 그 bin +수량」 · 콤보는 0 또는 구성품) · deferred 422
+  → ✅ [2026-11-09 · 판정 1113 · inv-count-1 `77e6882` · so-module §107-c 5 · 7] 넷을 실사(11-03 토론토) 칸에 붙임 — manual 원장 짝 MANUAL-907-BIN(**두 다리 같은 event_type `adjust_existing`** · 재생성 순액 0 · transfer 꼴 금지 · occurred_on = `ims_today()` · raw count_on) · 콤보 되돌리기 · 칸 옮기기는 화면 ⇒ **지금 실제 창고의 칸 없는 잔고는 EDM EZB70340 −1 하나**(11-05 SO-21090 칸 없는 판매) · `ims_inv_balance` 칸 없음 777 행 중 776 은 IN_TRANSIT(가상 창고 · 칸이 원래 없다 — 대상 아님) · 칸 없는 판매를 막기 · 쉽게 처리하기는 조사 먼저(deferred 526)
 정본 `docs/sessions/2026-09-13-list-total-axis.md`.
 ⚠️ `ok=false` 이면 그 회차는 한 행도 안 썼다 — **그날 대조는 옛 스냅샷을 상대로 돈다.**
 

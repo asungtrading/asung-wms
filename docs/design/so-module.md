@@ -13531,7 +13531,7 @@ asung-ops  (없음)
    - 표 셋 `qbo_cost_sheet` · `qbo_cost_sent` · `qbo_cost_hold` · inv_config 키 셋 `qbo_send_cost_enabled`(off) · `qbo_cost_adjust_hold_over`(1000) · `qbo_cost_since`(2026-10-31) · 함수 15
    - 시험 44/44(두 번 · 두 번째는 160000 적용 뒤) · 시퀀스 무변 · 264 SO · 126,715.43 · 밀린 장 12 · 모두 차대 일치 · 토론토 11-06 장 = **보낼 열쇠 54 · 보류 열쇠 2**(3-2-0 의 56 = 사건 열쇠 · CR-01025 restock + 취소 상계 0 · RCV 두 장 보류 — 106-f) · EDM 10-31 32.79 · 기대값 함수 35 s → 0.95 s(materialized CTE)
    - **cron 등록 · 첫 장 만들기는 3-2b 적용 때**(대화 Claude 권고 · 3-2b 전 장이 규칙과 어긋날 여지 없게) · cron.sql 블록 ims-qbo-cost-build 는 작업 트리에 미커밋(3-2b 와 함께)
-   - 3-2b 에서 볼 것(대화 Claude): 손님 없는 SO 7 개의 손님 일감이 `qbo_send_enabled`(off)에 막혀 원가 장이 영원히 못 서는 길
+   - 3-2b 에서 볼 것(대화 Claude): 손님 없는 SO 7 개의 손님 일감이 `qbo_send_enabled`(off)에 막혀 원가 장이 영원히 못 서는 길 → [2026-11-09 · §107-a · qbo-integration §15-j ⬜6] 그 손님이 QBO 에 만들어질 때까지 **기다린다**(Caleb) · 손 Send(isNeedKind)가 손님 일감을 함께 보낸다
 6. **그 밖(11-08 밤)**
    - 커넥터 답에서 나온 원가 거리: AJA(491 의 그 브랜드) GP 9 월 −11.4 % · 10 월 −10.9 %(판매가 < 원가인지 원가가 틀렸는지 → 491 잇기) · GP ≈ 100 % 브랜드 셋(원가 누락 짐작 · 이름은 대화에만 → deferred 518 · 브랜드 셋 · 이름은 Caleb 에게)
    - 동료에게 전할 것(Caleb 이 전한다 · 기록만): POS 문구는 11-04 증설로 해결 · 큰 분석은 「브랜드마다 따로」 대신 「한 번에 · 브랜드별」 로 · **새 대화에서**(1064) · Ship & invoice 뒤 팩킹 리스트는 WMS Admin → Finalized → 「Include shipped & invoiced」(§105-c 3) · Products 검색은 바코드 통째로 — 매뉴얼 09-faq 에 커넥터 문답 하나(이 차수)
@@ -13543,7 +13543,7 @@ asung-ops  (없음)
 - **닫힘**: **508**(POS statement timeout = 11-02 DB 전체 멈춤 · 11-04 증설 뒤 0 · 467 무관)
 - **잇기**: 459(3-2a 적용 · 다음 3-2b) · 491(AJA 9 · 10 월 GP 음수) · 492(find_order 대량 — 1108 「늘면 같은 자리에」) · 469(POS timeout 11-04 뒤 0 을 관찰 지표로)
 - 새 **513** ~ **519**: 513 perf-mcp-0 · 514 커넥터 busy 관찰 · 515 바코드 검색을 Stock · 콤보에도(판정 대기) · 516 바코드 데이터 정리 · 517 POS 빠른 연속 스캔 수량 사라짐 · 518 GP ≈ 100 % 브랜드 셋 · 519 `docs/design/mcp-connector.md` 열기(§95-c 1 의 조건 — 1063 으로 채워짐)
-- 다음 차례: **qbo-sync-3-2b**(일감 · 몸 · claim · 재생성 hold · resolve — 같은 레포 다른 창) · Caleb 화면 확인 pbc-1(106-c 4) · 11-09 부터 busy 보기(514)
+- 다음 차례: **qbo-sync-3-2b**(일감 · 몸 · claim · 재생성 hold · resolve — 같은 레포 다른 창) · Caleb 화면 확인 pbc-1(106-c 4) · 11-09 부터 busy 보기(514) → [2026-11-09 · §107] 3-2b 적용 · 3-3 배포 · 3-4 화면 끝 · 다음 = 공급처 쪽(qbo-sync-4-0)
 
 ### 106-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (105-e 에 이어 123 부터)
 
@@ -13564,4 +13564,124 @@ asung-ops  (없음)
 
 ```
 다음 판정 번호: 1112 · 다음 deferred 번호: 520
+```
+
+## §107 2026-11-09 — 하루 원가 장 3-2b · 3-3 · 3-4(적용 · 배포 · 화면 · cron 67) · sandbox JournalEntry · 판정 1112 ~ 1114 · QuickBooks 승인 기한 정정 · Shopify 사진 조사(shop-photo-dup-0) · 실사(11-03) · inv-count-0 · 1 · 칸 없는 판매 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1109c(「대화에만 있는 것」 A · B) · 원천 파일 `~/asung/prompts/docs-1109c-sources.md`(155 행 · S1 ~ S11 · 회신 원문 · 실측 원문 — 숫자 · 이름 · md5 는 여기서 옮겼다) · §0 답(Caleb · 이견 1 ~ 7 · ⬜1 ~ ⬜5 · 결정 넷 · 대화에만 있는 것 셋 더) · 세 레포 HEAD asung-wms `77e6882` · asung-ims `65244a8` · asung-ops `23b672a` · 이 차수는 DB · 화면 · git 쓰기 0
+⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다(직원은 「동료」) · 브랜드는 SKU 접두로
+⚠️ 상태 = qbo-sync-3-2b **적용 20261108224000 · 확인 60/60** · cron **67** 등록 · 3-3 EF **배포** · 3-4 화면 qs cost v1a · 하루 원가 장 **장 0 장 · 보낸 장 0**(첫 실물 = deferred 525) · 원가 보내기 cron 미등록(522) · inv-count-1 **적용 · 확인 17/17** · 정본 = 원가 장은 qbo-integration **§15-j · §15-k** · 사진 조사는 shopify-integration §3-b
+
+### 107-a 판정 (지시서 A · §0 답 그대로 · Caleb 원문 칸은 바이트 그대로)
+
+| 판정 | Caleb 원문 | 뜻 |
+|---|---|---|
+| 1112 | 「나도 금액이 맞을때만 자동이 맞다고 생각해」 | QuickBooks 에 같은 DocNumber 의 JournalEntry 가 1 행 있을 때(보내기 직전 가드 적중 뒤 풀기 · POST 끊김 unknown 의 풀기) 그 장의 Debit 합(센트)이 이 일감이 보내려던 차변(claim 때 고정)과 **같을 때만** 자동 done · 다르면 unknown 그대로 + 글(「… has debits X but this cost day expects Y — not recorded …」) · 0 행 not_found · 2 행 이상 ambiguous(1101) · 금액을 못 견주면(qbo_name 에 센트 없음) 자동 없음 · 구현 = qbo_name `<DocNumber>\|<차변 센트>`(결제 paymentKeyOf 선례 · EF 만 · DB 무변) · 근거: Retry 로 다시 셈한 장이 QuickBooks 의 옛 장과 금액이 다르면 자동 done 은 두 장부를 경고 한 줄로 조용히 갈라놓는다(대화 Claude) · 기각: (가) 1 행이면 자동 done(인보이스 선례) · (나) 늘 사람(resolve) |
+| 1113 | 「가」 | 칸 없는 잔고 넷(AIA03588 · EBI03960 · UNF18259 · UNF18155)만 ops 원장 짝(inv-count-1 · MANUAL-907-BIN)으로 실사 칸에 붙이고, 칸 옮기기 · 콤보 되돌리기 · 수량 조정은 실무자가 화면으로 · 근거: 조정 · 이동 창구는 활성 bin 필수(907) · 기각: (나) 조정 화면이 「칸 없음」 줄을 고르게 고치기(지금 넷뿐 · 같은 일이 되풀이되면 그때) · (다) 그대로 두기 — ⚠️ 그 뒤 Caleb 이 칸 없는 판매가 되풀이되는 것을 막고 쉽게 처리하자고 했다(107-c 7) → (나)는 「조사 뒤 다시」(deferred 526) |
+| 1114 | 「받아둔 돈을 크레딧 노트없이 돌려주는 경우? 거의 없어. 아니 없다고 봐야 하지 않을까? 혹 손님이 오버페이를 하고 그 돈을 돌려달라고 하는 경우가 아니라면 말이야.」 | 받아 둔 돈(이월 · 컷 뒤 결제)을 크레딧 노트 없이 돌려준 환불(오버페이 환불)과 USD 환불은 **짓지 않는다** · 생기면 IMS 는 보내지 않고 failed(1066 · 1067 · `qbo_refund_block` 그대로) · 북키퍼가 QBO 에 손으로 넣고 IMS 줄은 Skip(메모 「QuickBooks 에 손으로 넣음」) · 자주 생기면 그때 짓는다 · deferred 500 · 511 열림 그대로 · 북키퍼 안내서에 이미 반영(11-08) · 원문 11-08 저녁 |
+
+- 1112 의 짓기 = qbo-sync-3-3(`232dec7`) · 판정 전 멈춤: `qbo_job_unknown_list()` 반환(job_id · kind · ims_kind · ims_id · qbo_name · sku · request_id · attempts · last_error)에 지문 · 합계가 없고 EF 가 일감 행을 읽는 다른 창구가 없어 「금액 대조」 가 기댈 칸이 없었다 → 안 (가) qbo_name 열쇠(EF 만) · (나) unknown_list 에 fingerprint(3-2c 마이그레이션 · deferred 521) — Caleb 승인 (가)
+- 1113 의 짓기 = inv-count-1(`77e6882`) · 판정 907 → ✅(107-c 5)
+- 3-2b 의 ⬜ · 이견 답 · 3-3 의 ⬜ 는 판정 번호 없는 「구현 규칙」 — qbo-integration §15-j ② · §15-k(1090 · §15-i ② 와 같은 꼴) · ⬜6 의 Caleb 답(「QBO 손님 짝이 없는 SO 가 든 장은 그 손님이 QBO 에 만들어질 때까지 기다린다(뒤 장도 차례로) · Entity 없이 보내면 손님별 손익에서 영영 빠진다」)도 구현 규칙 칸
+
+### 107-b 차수 · 커밋
+
+`git log --oneline 99ee6af..HEAD`(asung-wms) · `git log --oneline e2125e1..HEAD`(asung-ims) · `23b672a..HEAD`(asung-ops) — 원문(머리 80 자):
+
+```
+asung-wms  77e6882 inv-count-1: bin 없는 잔고 넷을 실사(11-03)로 찾은 칸에 — AIA03588 TOR Z010101 6 · EBI03960 TOR F020502 6 · …
+asung-wms  232dec7 qbo-sync-3-3: EF qbo 하루 원가 장(kind cost_day) = JournalEntry — SEND_KINDS 19 · DEFAULT_SEND_KINDS 18 · …
+asung-wms  2fbed9d qbo-sync-3-2b: 하루 원가 장 DB 뒤 절반 — qbo_job kind cost_day · ims_kind cost_sheet · 몸 qbo_cost_day_body · …
+asung-ims  65244a8 qs cost v1a: Cost days 칸을 목록 카드 안 거르기 줄 바로 아래로 — 종류 고르기가 화면 밖으로 밀리지 않게 · …
+asung-ims  a0693ee qs cost v1 · set v17b: Sales → QuickBooks 에 원가 장(cost_day) 종류 · Cost days 카드 · … · Settings QuickBooks 안내 글 둘
+asung-ops  (없음)
+```
+
+| 차수 | 커밋 · 파일 | 무엇 |
+|---|---|---|
+| qbo-sync-3-2b | asung-wms `2fbed9d` · `20261108224000_qbo_sync_3_2b_cost_day_jobs.sql`(984 행 · 새로 쓰거나 바꾼 줄 347 · md5 8 `82c6c430`) · 시험 `supabase/tests/qbo_sync_3_2b_check.sql`(414 행 · `7e204a33`) · `supabase/ops/cron.sql`(3-2a 블록 함께) | 일감 cost_day · 몸 · claim 때 줄 고정 · 차례 · 재생성 hold · resolve · 시험 60/60 · **적용 · 확인 60/60** · cron 67(107-c 1 · qbo-integration §15-j) |
+| sandbox JE | — (Caleb · Intuit API Explorer · Sandbox Company CA) | JournalEntry 실측 셋(107-c 1 · §15-k ①) |
+| qbo-sync-3-3 | asung-wms `232dec7` · EF `_shared/qbo.ts`(1514 행 · `313847a2`) · `qbo/qbo_test.ts`(2836 · `e9552f56`) · `qbo/index.ts`(71 · `a6305698`) · `supabase/ops/cron.sql`(1045 · `74aac8c6`) | EF cost_day · 가드 · 1112 · deno 28/28 · **배포 11-09**(§15-k) |
+| qbo-sync-3-4 | asung-ims `a0693ee` qs cost v1 · set v17b → `65244a8` qs cost v1a(대화 Claude) | Sales → QuickBooks 「Cost of goods — daily journal」 · Cost days 카드 · Settings 안내 둘(§15-k ④) |
+| shop-photo-dup-0 | — (조사 · 읽기만 · 디스크에 안 씀 · 결과 `~/asung/scratch/spd/compare.out`) | Shopify 전용 사진의 진짜 수(107-c 6 · shopify-integration §3-b) |
+| inv-count-0 | — (조사 · 읽기만) | 실사(11-03) 결과 판독 · 길 셋(107-c 5) → 1113 |
+| inv-count-1 | asung-wms `77e6882` · `supabase/ops/inv-count-1-bin-attach.sql`(256 행 · md5 8 `59fe0c04`) | 칸 없는 잔고 넷을 실사 칸에 · 시험 17/17 · **적용 · 확인 17/17**(107-c 5) |
+| docs-1109c | (이 차수 · 커밋은 Caleb) | 정본 · qbo-integration · shopify-integration · deferred · 스킬 qbo · workflow · inv-ledger 본문 · 매뉴얼 en · ko 01 |
+
+- 대조: 지시서 · 원천 S1 ~ S11 과 빠진 것 0 · asung-ops 0(cron 67 줄을 asung-ops 지도에 더하는 일은 이 차수 밖 — 107-d′)
+
+### 107-c 사실 · 실측
+
+1. **하루 원가 장 3-2b · 3-3 · 3-4**(자세히 qbo-integration §15-j · §15-k)
+   - 3-2a 적용(Caleb · 11-09 업무 전 · applied 0 · last 20261108165000 → `psql -1 -f` → repair applied · schema_migrations 끝 160000 · 165000 · 170000 · 확인 44/44 · 커밋 `0228bd0` — §106-c 5 의 그 적용) · 콘솔 `qbo_cost_preview('2026-11-02','TOR')`: balanced true · sheet null · keys 54(ADJ 3 · CR 1 · SO 49 · TRF 1) · je_lines 55 · 차 = 대 1519323 센트 · epoch_now 11642829
+   - 3-2b 적용(applied 0 · last 170000 → APPLY_OK → repair → 확인 60 · 0 · 60 · 60 · t) · cron **67** `ims-qbo-cost-build`(`0 8 * * *` UTC · `select public.qbo_cost_sheet_build_due();` · active t) — 첫 등록 가드가 상수 `1/0` 함정에 걸려 DO 블록으로 고쳐 등록(107-e 128)
+   - REST 둘째 겹(콘솔): `qbo_job_list(cost_day)` rows [] · counts sent 493 · failed 1 · queued 58 · blocked 57 · skipped 15 / `qbo_cost_sheet_list` rows [] · since 2026-10-31 · send_enabled off / `qbo_cost_rebuild_preview` held []
+   - sandbox JE(Caleb): DocNumber 19 자 통과 · Entity Customer 그대로 · **TotalAmt 0** · **같은 DocNumber 를 다시 받는다**(중복을 막는 것은 IMS 가드뿐) · query 에 Line 이 따라온다
+   - 3-3 EF 배포(노트북 08:30:30 · Target Asung-IMS production · 올라간 파일 `index.ts` · `_shared/qbo.ts`) · 뒤 cron 62 00:35 UTC succeeded 「0 rows」 · Settings Check connection → Connected 「QuickBooks answered — Asung Trading Inc.」
+   - 3-4 화면 qs cost v1 → v1a(Caleb 「이 상태에서는 다른 것을 선택할 옵션이 안보이네」 → 「이제는 잘 보여」) · 보류 칸에 RCV-00117 −950.00 · RCV-00121 −12,039.53(acct_a = GINR 기준 부호 · 방향 글은 deferred 523)
+2. **QuickBooks 승인 기한 정정** — `qbo_connection`(11-09 실측): refresh_expires_at **2027-02-17T09:10:02Z** · last_refresh_at 2026-11-09T00:38:29Z · connected_at 2026-10-29T15:48:43Z · access_expires_at 2026-11-09T01:38:29Z
+   - 옛 기한 2027-02-07 15:48(= 연결 + 101 일 · deferred 370 · 396)에서 **밀렸다** · 마지막 갱신 + 100 일(02-17 00:38)과는 8.5 시간 어긋나고, 11-08 09:10:02Z + 101 일과 맞는다 — 09:10 UTC 는 cron 59 `ims-qbo-refresh` 시각
+   - ⇒ 「**갱신 토큰이 바뀌는 갱신 때 그 시각 + 약 101 일로 밀린다 · cron 59 가 돌면 고정된 Reconnect 날짜는 없다 · 지금 기한은 Settings 의 날짜**」(짐작 — 매 갱신이 토큰을 바꾸는지는 qbo_call_log 로 아직 안 봄 · 10-30 의 「안 밀림」 은 그 갱신이 토큰을 바꾸지 않은 것으로 짐작) · deferred 396 닫힘(짐작) · 371 은 「갱신이 멈췄을 때」 의 미리 알림 · Settings 안내 글(set v17b)은 이미 「승인 기한은 갱신마다 밀린다」
+3. **원가 장 사실(막지 않음 · 3-3)** — 풀기는 kind 를 안 가려 cron 62 가 cost_day unknown 도 조회 · 금액 같으면 done(쓰기 0 · 적기만) · cron 61 WHERE 는 kind 를 안 거른다(`qbo_send_enabled` 를 켜면 cost_day queued 동안 빈 호출 · 520) · 원가 cron kinds 의 customer 는 큐의 **모든** customer 일감을 보낸다(등록 때 Caleb · 522) · unknown 동안 화면에 `COGS-…|센트` 꼴(521)
+   - **인보이스 자동 보내기는 당분간 켜지 않는다**(Caleb 11-08 저녁 「인보이스 자동 켜기는 당분간 안할 예정이야」) — 971 의 `qbo_send_enabled` off 유지(판정 아님 · 사실) ⇒ 520 은 지금 해 없음 · 손님 짝 없는 SO 의 손님 일감도 북키퍼 손 Send · 원가 장 손 Send(isNeedKind)로 나간다
+4. **3-2b 조사 Q1 ~ Q4**(운영 메인 · db_role test · max(version) 20261108170000 · §15-j ③)
+   - Q2: 11-02 TOR 열쇠 54 = SO 49 + ADJ 3 + CR 1 + TRF 1 — ADJ-00011(10-31 사건 · 122.82)이 든 것은 실 DB 에 10-31 장이 없어 baseline none → 셈이 10-31 부터 누적이라서 · 3-2a 시험 B 는 10-31 장을 먼저 만들어 11-02 TOR 열쇠 53 · je_lines 54 · 지시서의 「52」 는 근거 없음(정본에는 그 수가 없다 — grep 0 · 정정 없음)
+   - Q3: 손님은 있는데 qbo_link 없는 SO **7**(모두 11-06 · EDM SO-21053 · SO-21060 · SO-21089 · TOR SO-21067 · SO-21088 · SO-21104 · SO-21105) · 일곱 손님 모두 customer 일감 queued(11-06 인보이스 claim 의 needs · 인보이스 queued 48 과 함께 북키퍼가 아직 안 고름) · entity_customer_id null 인 EDM SO 102 는 opening_fix 로 excluded(무관)
+5. **실사(2026-11-03 토론토) · inv-count-0 · inv-count-1** — deferred 418 · 422 닫힘
+   - ⚠️ 실사일 = **11-03(토론토)**(Caleb 11-08 저녁 「토론토 시간으로 11월 3일이야」) — 대화에서 「11-09 실사」 라 부른 것은 노트북 날짜 착오(107-e 131)
+   - 결과(동료가 셈): EDM BBE64996 EU040201 0 = 0 · ORS11030 ED020201 9 = 9 · AS92087 EC030102 + ED030103 IMS 13(두 칸 합) → 실물 0 / 13 · KAN64261 EU060404 6 = 6 · UNF18155(옛 콤보) 칸 없음 1 → EU050402 1 / TOR WEL04712 A090703 0 = 0 · BBE64996 C090004 0 = 0 · ANN05017 A060403 0 = 0 · AIA03588 칸 없음 6 → Z010101 6 · EBI03960 칸 없음 6 → F020502(합 20 · Caleb 「ebi03960은 실제 20개가 맞아」) · UNF18259(옛 콤보) 칸 없음 2 → E030803 · 「Combo 11」 = 구성품 UNF18046 72 · UNF18047 72 · UNF18048 68 · UNF18049 6 → Caleb 「66개가 맞아. 토론토에 60개, 에드몬튼에 6개」 · 음수 bin 둘(PAL04170 · PRO00124)은 결과에 없음(지금도 음수)
+   - inv-count-0(읽기만): EBI03960 차이 0(F020502 14 + 칸 없음 6 = 20) · **ORS11030 문제 아님** — 목록 뒤 11-04 SO-20918 −8 · 11-05 TR-06398 +36 → 지금 ED020201 37 · 실사(11-03)에는 9 = 9(107-e 132) · 칸 옮기기 셋(AS92087 EDM EC030102 → ED030103 13 · PRO00124 EDM EB010302 → EB010304 3 · PAL04170 TOR C011201 → C110201 10)은 **화면**(inv_move 조건 확인: 제품 활성 · 세트 아님 · 두 칸 활성 · 출발 칸 원장 ≥ 수량 · 열린 픽 계획 0) · IMS 에 조립 · 분해 창구 없음(함수 0) → 콤보 되돌리기는 화면 ADJ(TOR 순액 0 · EDM 1.22 → 조정 계정 · 1,000 미만 보류 안 걸림 · 콤보를 manual 로 빼지 마라 — 레이어 ≠ 원장) · UNF18259 구성품 TOR 되돌린 뒤 UNF18048 −2 · UNF18049 −12 · 열린 오더 SO-21142(picking) · SO-21187a(confirmed)는 실사 비교에 영향 없음(재고는 Ship 에 빠진다)
+   - inv-count-1(`77e6882` · 적용 · 확인 OK 17 · MISMATCH 0 · 재생성 흉내 layers 0 · rows 0): MANUAL-907-BIN · doc_type adjustment · manual · 두 다리 같은 event_type `adjust_existing`(재생성 `inv_layer_apply_adjust` 가 (doc, sku, 창고, event_type) 순액 → 0 · 레이어 · 원가 · 하루 원가 장 무변) · transfer 꼴 금지(`inv_layer_apply` 의 bin_move 지나침은 source ims ∧ raw.kind bin_move 일 때만) · occurred_on = `ims_today()`(2026-11-08) · raw count_on 2026-11-03 · 넷 = AIA03588 TOR Z010101 6 · EBI03960 TOR F020502 6 · UNF18259 TOR E030803 2 · UNF18155 EDM EU050402 1 · 시험 5 회차(1 Shopify 큐 6 줄 = listing 있는 제품 3 × live 스토어 2 · 검사식 ≤ 4 → 고침 · 2 23.6 s · 3 문장 65 → 25 · 10.7 s · 4 문장 16 · 9.1 s · 17/17 · 5 적용 → 확인 한 트랜잭션)
+   - 새로 안 것: 문장당 왕복 ≈ 0.3 s(select 1 도) → 「시험 10 초 = 문장 ≤ 25」(107-e 133) · inv_ledger insert 의 Shopify 큐 줄 = listing 있는 제품 × live 스토어(지금 2) · `inv_layer_apply_adjust` 를 부르려면 `inv_layer_apply_reset_done()` 먼저(temp 표) · `ims_inv_balance` 는 뷰 · sku_locked 칸은 없다(`product_sku_lock` 트리거뿐)
+   - 화면으로 할 일(동료 · 안내 Word 셋 — 107-c 10): 칸 옮기기 셋 · 콤보 되돌리기 두 장(TOR UNF18259 −2 · UNF18046 +12 · UNF18047 +12 · UNF18048 +10 · UNF18049 없음 / EDM UNF18155 −1 · UNF18130 ~ 18135 각 +4 · Add or take · Count difference · 단가 비움) · EZB70340 세기 → deferred 527
+6. **shop-photo-dup-0**(조사 · 읽기만 · 자세히 shopify-integration §3-b)
+   - shop-photo-0(10-30)의 「Shopify 전용」 은 파일 이름 줄기로 가른 수 · **통파일 md5 는 하나도 안 맞는다** — Shopify CDN 이 Exif · eXIf 를 깎는다(실물 세 쌍 14 바이트 작음) · **메타 뺀 그림 바이트 md5**(JPEG APPn · COM 제외 · PNG IHDR · PLTE · tRNS · IDAT)로 맞댐 · ⚠️ `Accept: image/avif,image/webp` 를 보내면 CDN 이 형식을 바꿔 준다(Accept 없이 받는다)
+   - 결과: 후보 3,348 · 같음 1,273 · 같은 크기 · 다른 md5 1,169 · 다름(진짜 전용) 899 · 못 받음 1 · 못 셈 6 ⇒ **진짜 전용 899 ~ 2,068**(같은 크기 칸은 다른 그림이 많을 수 있다 · 짐작) · 그중 FAM 표지 634 · 받은 것 Shopify 3,367 / 3,368 장 · IMS 4,625 / 4,625
+   - Caleb(11-09): 「패밀리 표지 사진을 대표베리언트로 대체하는 방법이 있지만, 패밀리 특성에 맞는 사진으로 넣은 경우도 있어. 그것을 구분할 수 있나?」 → 다음 조사 shop-photo-dup-1(지각 해시 · 아직 안 함 · Caleb 「일단 문서 작업을 마무리」 · deferred 524)
+7. **칸 없는 판매**(11-08 저녁 · Caleb · `ims_inv_balance` qty <> 0 · bin 없음 전수)
+   - 777 행 중 776 = **IN_TRANSIT**(가상 창고 · 칸이 원래 없다 · 트럭 몫 양수 + 기초 경계 음수 — asung-inv-ledger 「IN_TRANSIT 잔고는 영구히 음수가 있다」) → 대상 아님 · 실제 창고는 **EDM EZB70340 −1** 하나(2026-11-05 · SO-21090 · sale_out · source ims · 판정 1094 의 실물 그 오더 · Action Centre Sold without stock 「NOT CHECKED YET — 1」 · cost layer_recent_other_wh) · 09-13 의 셋(AS91459 · AS91457 · ABE16004)은 지금 0
+   - Caleb: 「스탁이 틀어져서 발생한 일로 보여」 · 「이런일이 발생할때마다 내가 일일이 수정해주는 것은 너무 비효율적이야. 칸없음 판매가 가능하면 발생하지 않게 해야겠고, 설사 발생하더라도 실무자들이 쉽게 처리할 수 있게 만들어야 하지 않을까?」 · 「조사 지시서는 문서 정리를 다하고 다음 새로운 대화에서 시작하자」 → deferred 526
+   - ⚠️ 지금 Sold without stock 안내 「fix the stock the usual way」 는 칸 없는 −1 을 못 지운다(칸만 맞추면 합계가 1 틀림) — EZB70340 은 동료가 센 뒤 원장 짝(칸 없음 +1 · 그 칸 −1) → 화면 Set this bin to · Found → Mark checked(527)
+8. **이월 인보이스 2 장**(deferred 471) — Caleb 「이월인보이스는 일단 내가 인지하고 있으니 보류하고」 → 보류(Caleb 인지 · 열림 그대로)
+9. **다음 줄기** — Caleb 「공급처 쪽을 우선 작업을 시작하자. 나머지 소소한 손님사이드의 일들은 지금 당장은 급한것은 없어 보여.」 → 107-d′
+10. **오늘 만든 안내 파일**(정본 대상 아님 · 기록만) — Claude Doc 「QuickBooks 연동 안내 — 북키퍼용」(토론토 월요일 아침 전달 전 한 번 더 고친다 · 승인 기한 줄 · 1114 는 이미 반영) · Word 셋 `1103-count-followup.docx` · `1103-combo-unbuild-guide.docx` · `EZB70340-sold-without-stock.docx`
+
+### 107-d′ 열린 것 · 닫은 것
+
+- **닫힘**: deferred **418**(실사 11-03 결과 · ORS11030 문제 아님) · **422**(inv-count-1 `77e6882` · 1113) · **396**(짐작 — 고정 날짜 Reconnect 없음 · 107-c 2)
+- **잇기**: 370(정정 · 밀린다) · 371(「갱신이 멈췄을 때」) · 387(진짜 전용 899 ~ 2,068 · 메타 뺀 md5) · 459(3-2b · 3-3 · 3-4 끝 · 다음 공급처) · 471(보류 · Caleb 인지) · 500 · 511(1114 — 드묾 · 손으로 + Skip) · 501(journalentry 몸 Id 거부를 더함 · 범위 좁아짐) · 514(busy — 아직 안 봄)
+- 새 **520** ~ **527**: 520 cron 61 WHERE kind · 521 unknown_list fingerprint · 522 원가 보내기 cron 등록 · customer 범위(판정 대기) · 523 보류 칸 부호 → 방향 글 · 524 shop-photo-dup-1 · 525 원가 장 첫 실물 · 526 칸 없는 판매 막기 · 쉽게(조사 먼저 · 다음 새 대화) · 527 실사 뒤 화면 일 결과 확인
+- 판정 907 → ✅(inv-count-1) · 판정 1113 의 (나)는 526 조사 뒤 다시
+- ⬜ asung-ops 지도에 cron 67 `ims-qbo-cost-build` 한 줄(이 차수는 asung-ops 무접촉 — 23b672a 꼴로 다음 문서 차수)
+- **다음 차례 = 공급처 쪽**(qbo-sync-4-0 조사부터 · 1080 · 1081 · 1089 · 1096 — Caleb 11-08 저녁) · 그 사이 원가 장 첫 실물(525 · 북키퍼 · Caleb) · 칸 없는 판매 조사(526 · 다음 새 대화) · 동료 화면 일 결과(527)
+
+### 107-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (106-e 에 이어 128 부터)
+
+128. [상수 1/0 · 운영 cron 등록] `select case when exists(…) then (1/0)::text else 'new' end` 가 잡이 없는데도 division by zero — PostgreSQL 은 IMMUTABLE 상수 부분식을 **계획 단계**에서 미리 셈한다(문서 §9.18.1 CASE 의 Note 원문 「a constant 1/0 subexpression will usually result in a division-by-zero failure at planning time, even if it's within a CASE arm that would never be entered at run time」 · §4.2.14) · 갈래 조건이 상수냐와 상관없다 ⇒ 실패 갈래는 DO 블록 + raise 또는 `1/(case when … then 0 else 1 end)`(나눗수가 상수가 아닌 꼴) · asung-workflow §11 24 의 「`(1/0)::text`」 를 바로잡음
+129. [지시서 안 → 풀 길 닫힘] 3-3 지시서 안 「가드 1 행 이상 → failed」 — resolve 는 unknown 만 받고 failed 는 트리거가 보낸 몫 행을 지워 사람이 풀 길이 닫힌다(3-3 이견 1) ⇒ 실패 갈래로 보내는 안은 **그 갈래에서 빠져나오는 창구가 있는지** 먼저 본다
+130. [안 쓰인 칸 · 1112 멈춤] 「금액이 같을 때만 done」 판정이 기댈 지문 칸이 unknown 목록 창구에 없었다 — Claude Code 가 짓기 전에 멈추고 물었다(잘 된 것) ⇒ 판정이 칸에 기대면 **그 칸이 그 길(EF 가 읽는 창구)에 실제로 오는지** 코드로 먼저
+131. [날짜 착오] 실사를 「11-09 실사」 로 불렀다 — 노트북 날짜(출장지)였고 실사일은 11-03 토론토 ⇒ 실사 · 사건 날짜는 **토론토 날짜로 묻고** 적는다 · 원장 raw 에 그 날짜가 남는다(count_on)
+132. [그날 값] ORS11030 「IMS 9 → 지금 37」 을 차이로 볼 뻔 — 목록의 IMS 값은 실사 그날 값 ⇒ 지금 값과 맞대기 전에 **그 사이 사건**(판매 · 트랜스퍼)을 본다
+133. [시험 시간] 문장당 왕복 ≈ 0.3 s(select 1 도 · 노트북 → ca-central-1) — 문장 65 개 시험이 23.6 s · 25 개로 줄여 10 초 안 ⇒ 운영 메인 시험 10 초 = **문장 ≤ 25**(asung-workflow §4)
+134. [화면 배치] Cost days 카드를 맨 위에 두자 종류 고르기가 화면 밖으로 밀렸다(qs cost v1 → v1a) ⇒ 새 카드는 고르기 · 거르기 줄을 밀어내지 않는 자리에
+135. [마지막 정의 grep] `qbo_job_claim\(` 이 「claim (」 공백 꼴을 못 잡아 옛 정의(20261107044131)를 가리켰다 — `<이름>\s*\(` 로 다시 찾아 20261108075221 · 파일 몸 md5 = DB prosrc md5 로 대조
+136. [한 번 본 것을 「확인」] 10-30 갱신 한 번을 보고 「갱신 토큰은 안 밀린다 · 확인」(370) — 11-09 에 밀린 값 ⇒ 한 번 본 동작은 「그 갱신에서는」 으로 적고 다음 실측 때 다시 본다
+137. [md5 의 뜻] 1053 의 「md5 같음」 은 Shopify 사진끼리였고, Shopify ↔ IMS 는 통파일 md5 로 하나도 안 맞았다(CDN 이 메타를 깎음) ⇒ 바이트 대조는 **무엇과 무엇을** · 어떤 바이트로 셌는지 함께 적는다
+138. [번호 혼선] so-module 판정 418 · 422 ≠ deferred 418 · 422 ⇒ 그 번호대는 「deferred 422」 처럼 붙여 쓴다
+139. [잘 된 것] sandbox 를 Caleb 이 API Explorer 로 한 걸음씩(TotalAmt 0 · DocNumber 중복 허용을 짓기 전에 잡음 — done 대조를 Debit 합으로 · 가드가 유일한 중복 막이) · 확인 갈래를 cron 등록 전에 돌림 · 콤보를 manual 로 빼지 않고 화면 ADJ 로(레이어 = 원장 유지)
+
+### 107-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §106 끝 「다음 판정 번호 1112 · 다음 deferred 번호 520」 → 아래
+- §106-c 5 「3-2b 에서 볼 것 — 손님 없는 SO 7 개 … 영원히 못 서는 길」 · §106-d′ 「다음 차례 qbo-sync-3-2b」 → 화살표(3-2b ⬜6 · 기다림 · 손 Send 로 나간다)
+- 승인 기한 「연결 + 101 일 · 갱신해도 안 밀린다」 → 107-c 2: qbo-integration §6 · §10 · deferred 370 · 371 · 396 · reload-procedure 614 · asung-qbo §3 · asung-workflow §11 의 두 줄(화살표) · so-module 의 옛 날짜 절 다섯(11324 · 11340 · 11354 · 11597 · 11623)과 deferred §0 의 docs-1030 줄은 그날 기록이라 그대로
+- qbo-integration §15-h ⑥ 「두 장 서면 … skip」 · ⑧ 「DocNumber 멱등 · 21 자 상한은 짐작」 · §15-i 상태 · ④ → §15-j · §15-k
+- shopify-integration §3-b 의 shop-photo-0 「Shopify 전용 1,849 · 1,415」 · 판정 1053 「md5 로 중복을 거른 뒤」 · deferred 387 → 107-c 6(메타 뺀 md5 · 진짜 전용 899 ~ 2,068)
+- asung-workflow §11 24 「확인 줄의 실패 갈래는 `(1/0)::text`」 → 107-e 128
+- asung-inv-ledger `null_bin_nonzero` 907 줄 → 넷 붙임 끝 · 실제 창고 칸 없음은 EZB70340 −1 하나(107-c 7)
+- 매뉴얼 01-sales QuickBooks 「A refund from money on account fails and waits — tell the admin」 → 1114(QuickBooks 에 손으로 + Skip)
+- deferred §0 「합 565」(docs-1109) → 표의 실제 행 수는 566(오기)
+
+```
+다음 판정 번호: 1115 · 다음 deferred 번호: 528
 ```

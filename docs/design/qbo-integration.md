@@ -133,7 +133,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 - **끊김 메일(869)**: connected → needs_reconnect 로 **바뀌는 순간 한 번**(for update 행에서 봄 — EF 둘이 같이 찍어도 한 번 · 이미 needs_reconnect 면 0) · 받는 사람 `inv_config.qbo_alert_to` = caleb@asung.ca 한 사람(주소 하나) · 보내는 주소 = mail_doc_from(info@) · 메일 insert 는 서브트랜잭션(실패해도 표시는 남는다) · 주소가 비었거나 틀리면 메일만 건너뜀 · 그리기 = EF mail 의 plain kind(payload 의 subject · body_text)
   - Caleb(869 「A」) · 기각 B = info@(받는 사람이 다시 연결할 수 없다) · admin 이 늘면 받는 사람을 넓힌다 · 바꾸기는 지금 마이그레이션(화면 칸은 뒤)
   - ⬜ 실물 시험 아직(샌드박스에서 QuickBooks → Apps 로 끊은 뒤 refresh → mail_outbox 한 줄 · 한 번만 · 운영에서는 하지 않는다 · deferred 377)
-- 수명(실측 2026-10-29 · §10): 접근 토큰 1 시간 · **갱신 토큰 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음**(~~짐작 — 하루 뒤 cron 으로 확인 · deferred 370~~ → ✅ [2026-10-30 · so-module §90-d′] 확인 — 10-30 05:10(토론토) 첫 운영 갱신 ok 200 뒤에도 refresh_expires_at = 2027-02-07 15:48 UTC 그대로 · deferred 370 닫힘) ⇒ ~~100 일쯤마다 Reconnect 가 필요할 수 있다~~ → **2027-02-07 15:48 UTC 전에 Reconnect 가 필요하다**(deferred 396) · 미리 알림은 판정 전(deferred 371)
+- 수명(실측 2026-10-29 · §10): 접근 토큰 1 시간 · **갱신 토큰 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음**(~~짐작 — 하루 뒤 cron 으로 확인 · deferred 370~~ → ✅ [2026-10-30 · so-module §90-d′] 확인 — 10-30 05:10(토론토) 첫 운영 갱신 ok 200 뒤에도 refresh_expires_at = 2027-02-07 15:48 UTC 그대로 · deferred 370 닫힘) ⇒ ~~100 일쯤마다 Reconnect 가 필요할 수 있다~~ → ~~**2027-02-07 15:48 UTC 전에 Reconnect 가 필요하다**(deferred 396)~~ · 미리 알림은 판정 전(deferred 371) → [2026-11-09 정정 · so-module §107-c 2] 11-09 실측 refresh_expires_at **2027-02-17 09:10:02Z** — 밀렸다 · 갱신 토큰이 바뀌는 갱신 때 그 시각 + 약 101 일로 밀린다(짐작 · 09:10 = cron 59 시각) · cron 59 가 돌면 고정된 Reconnect 날짜는 없다 · 지금 기한은 Settings 의 날짜 · 396 닫힘(짐작) · 371 은 「갱신이 멈췄을 때」
 
 ## 7. 끊기 · 다시 연결 · realm 고정 · Untie
 
@@ -183,6 +183,7 @@ EF: `supabase/functions/qbo/index.ts`(Deps 실물) + `../_shared/qbo.ts`(순수 
 샌드박스   10:52 연결(Sandbox Company CA 9bca · realm 9341458557490536) · company_name null(→ qbo-1c safeupdate)
            11:04 refresh v2 · 11:05 disconnect(revoked · deleted · vault 2 · state 1) · 11:06 다시 연결 · 회사 이름 바로 · Settings Check connection OK
 갱신 토큰   만료 = 연결 시각 + 101 일 · 갱신해도 밀리지 않음(10:52 연결 → 2027-02-07 14:52 UTC · refresh 뒤에도 초까지 같음 · 다시 연결하면 새 101 일)
+            → [2026-11-09 정정 · so-module §107-c 2] 갱신 토큰이 바뀌는 갱신 때 + 약 101 일로 밀린다(짐작 · 11-09 실측 2027-02-17 09:10:02Z)
            [2026-10-30] 운영 연결(11:48 EDT)의 만료 = 2027-02-07 15:48 UTC — 10-30 05:10 첫 운영 cron 갱신(ok 200) 뒤에도 그대로 ⇒ 「밀리지 않는다」 확인(deferred 370 닫힘 · Reconnect 할 일 396)
            ~~하루 뒤 바뀌는지는 cron 뒤에 확인 — 「밀리지 않는다」 는 짐작(deferred 370)~~ → 확인됨(위 줄)
 접근 토큰   1 시간
@@ -206,7 +207,7 @@ QBO 판     Plus(Caleb)
   - [2026-11-01] 보내기 차수의 판정 거리 — 비활성만 있는 Item 다시 켜기(431) · credit_card 1:3(432) · 북키퍼 넷(433) · 컷 뒤 입금 자리(434) · opening_fix 사건 제외(§13 끝) · 트랜스퍼 분개를 보낼지(433)
   - 다중 통화 · 캐나다 세금 · 지우기 → 샌드박스 시험 뒤 Intuit 에 설문 다시 알림(374)
   - 오류 시험을 실제 Intuit 거부로(설문 Error Handling 1 의 근거는 지금 자동 시험뿐)
-- 승인 유효 기한(약 101 일) 전 미리 알림(371) · MFA(373)
+- 승인 유효 기한(약 101 일 · → [2026-11-09] 갱신으로 밀린다 · 「갱신이 멈췄을 때」) 전 미리 알림(371) · MFA(373)
 - 진행(2026-11-01): 연결 ✅ · 읽기 ✅ · 짝 · 거울 · 받기 ✅ · **보내기 ⬜**(deferred 260 · 327) → [2026-11-01 밤] 쓰기 길 · 손님 · Item 만들기 ✅(2a · 2a′ · §14) · 인보이스 · 크레딧 ⬜(2b) · 결제 · void ⬜
 - [2026-11-01 밤] 판정 거리 정리: 431 닫힘(941 — 비활성 Item 은 켜지 않는다) · 433 닫힘(북키퍼 답 · so §96-c 7) · ⚠️ **트랜스퍼 분개를 장부에 보낼지는 여전히 판정 거리**(북키퍼: In Transit 은 Inventory Asset 하위 · 재무제표 영향 없음 · TR-06396 ~ 99 분개 0) · 컷 뒤 입금 = IMS 에(434) · 카드 수수료 세금 = 회계사 확인(443)
 
@@ -243,7 +244,7 @@ QBO 판     Plus(Caleb)
 - **opening_fix 사건은 보내지 않는다**(판정 932 · ledger-design 「기초 이전 원가 바로잡기」) — 그 판매의 COGS 는 Cin7 이 이미 QBO 로 보냈다 · 가르는 열쇠 = `inv_layer_consume.line_ref like 'adj:%'` → `inv_cost_adjust.id` → kind `opening_fix` → [2026-11-08 · 3-0 이견 4] 보낼 원가의 경계는 「원가 사건이 컷 뒤 IMS 에서 생겼나」 · opening_fix 는 그 예외 하나 · 10-30 Cin7 몫은 이미 QBO 에(17:33 · M6) · cost-fix-1 의 carried 도 보내지 않는다(1090)
 - **QBO 재고 잔액(2026-11-08 · M7)** — Account CurrentBalance(부호 = 차변 + / 대변 −): #62 A/P −35,954.56 · #109 A/P USD −62,398.26 · #58 0(⚠️ API 는 손익 계정 잔액을 0 으로 준다 — 원가 검산은 기간 보고서로) · **#59 1,464,935.89**(하위 포함 1,422,924.05) · #1150040007 In Transit −412.06 · #1150040011 GRNI −42,062.28(→ [2026-11-08 밤 · 1096] IMS 는 GRNI 를 쓰지 않는다 — Cin7 시절 찌꺼기 · 입고 짝은 GINR 하나 · §15-h) · #1150040012 GINR 462.50 — 셋은 #59 의 **하위 계정**(1,464,935.89 − 42,011.84 = 1,422,924.05) · IMS 재고 금액과 약 150 만 차이 = 알려진 차이(1086 · deferred 503)
 
-## 14. 보내기 줄 · 쓰기 길 — `qbo_job` · `apiWrite` · send (→ [2026-11-03] 결제 §14-f · [2026-11-07] 이월 받아 둔 돈 붙임 §14-j · [2026-11-08] 환불 §14-k · 2026-11-01 밤 · qbo-sync-2-0 · 2a `20261102003000` · 2a′ `20261102030000` · 판정 935 ~ 946 · 951 · so-module §96)
+## 14. 보내기 줄 · 쓰기 길 — `qbo_job` · `apiWrite` · send (→ [2026-11-03] 결제 §14-f · [2026-11-07] 이월 받아 둔 돈 붙임 §14-j · [2026-11-08] 환불 §14-k · [2026-11-09] 하루 원가 장 cost_day §15-j · §15-k · 2026-11-01 밤 · qbo-sync-2-0 · 2a `20261102003000` · 2a′ `20261102030000` · 판정 935 ~ 946 · 951 · so-module §96)
 
 - **조사(qbo-sync-2-0)**: 보내기 줄 = `drive_job` 꼴 + 메일의 unknown 갈래 · ⚠️ 읽기 길 `intuitCall` 은 네트워크 · 5xx 에서 **자동 재시도** → 쓰기에 쓰면 중복 ⇒ 쓰기는 재시도 끔 + 결과를 모르면 DocNumber · 이름으로 조회
 - **문** = 열쇠 QUICKBOOKS(§4 · 945) — 일감 창구 · EF send 는 `qbo_key_gate(true)` · 몸 · claim · done 은 service_role
@@ -526,7 +527,7 @@ QBO 판     Plus(Caleb)
 ### 15-h 하루 원가 장 — 설계 (2026-11-08 밤 · qbo-sync-3-2-0 조사 · 판정 1092 ~ 1103 · 1090 구현 규칙 · so-module §105 · 짓기 전)
 
 - **원천**: 보고 `~/asung/prompts/qbo-sync-3-2-0-report.md`(256 행 · md5 8 `e49b3929` · Opus · DB 읽기만 · QBO · EF · git 쓰기 0) ② · ④ 절 · 운영 QBO 콘솔 C1 · C3 · C4 · C5 · 판정 원문은 so-module **§105-a** 가 정본(이 절은 요지)
-- **상태**: 설계 끝 · **짓기 전** — 다음 차수 3-2(DB) → [2026-11-09] 3-2a **적용**(§15-i) · 다음 3-2b
+- **상태**: 설계 끝 · **짓기 전** — 다음 차수 3-2(DB) → [2026-11-09] 3-2a **적용**(§15-i) · 다음 3-2b → [2026-11-09] 3-2b · 3-3 · 3-4 끝(§15-j · §15-k) · 다음 공급처 쪽(4-0)
 
 **① 22 칸 — 원가 사건 종류의 정본은 DB 제약이다**(레이어 origin 8 · 소진 reason 8 · 얹기 kind 6) · 하루 장은 칸마다 「보냄 · 안 보냄 · 보류 · 막음」 · **제약이 넓어져 표에 없는 칸이 생기면 장을 막고 알린다** · 출고 취소는 레이어 표에 되돌리는 길이 없다(reversal 소진을 쓰는 함수는 `so_credit_cancel` 하나 — 크레딧 노트 취소) · 분할 SO · put_back 은 원가 사건 종류가 아니다
 
@@ -576,7 +577,7 @@ QBO 판     Plus(Caleb)
 **⑥ 보내기(1098 · 1099 · 1101)**
 - 새 스위치 `qbo_send_cost_enabled`(처음 off) · 장 **만들기** = SQL cron 매일 토론토 03:00 쯤 전날 몫 · 처음 몇 주 화면 미리 보기 → 손 Send(971 꼴) · 익숙해지면 자동 · cron 62(결제)와 묶지 않음 · 밀린 장도 같은 미리 보기로
 - 창고마다 차례 — 그 창고의 앞 장이 sent 일 때만 다음 장 · failed · unknown 이면 그 창고의 뒤 장 멈춤(안 막으면 보낸 합이 틀려 두 번 보낸다)
-- 일감 kind `cost_day` · ims_id `'YYYY-MM-DD|TOR'` · `qbo_txn.qbo_type` 에 JournalEntry · EF `assertWriteAllowed` 에 journalentry **만들기만**(지우기 · void 길 없음 · 374 · 1060 원칙) · QBO 에 같은 장이 두 장 서면 사람이 QBO 에서 하나 지우고 IMS 일감은 skip(사유) · unknown 은 DocNumber 조회로 먼저(1101)
+- 일감 kind `cost_day` · ims_id `'YYYY-MM-DD|TOR'` · `qbo_txn.qbo_type` 에 JournalEntry · EF `assertWriteAllowed` 에 journalentry **만들기만**(지우기 · void 길 없음 · 374 · 1060 원칙) · QBO 에 같은 장이 두 장 서면 사람이 QBO 에서 하나 지우고 IMS 일감은 skip(사유) · unknown 은 DocNumber 조회로 먼저(1101) → [2026-11-09 · §15-j ⬜5 · §15-k] `qbo_cost_sheet_resolve(in_qbo | not_in_qbo)` · QBO 는 JE DocNumber 중복을 **막지 않는다**(sandbox S2) — 막는 것은 보내기 직전 가드뿐 · 1 행 자동 done 은 Debit 합이 같을 때만(1112)
 - 재고 조정 한 건(들어옴 · 나감 절대값 합)이 문턱을 넘으면 「보류」 — 사람이 「보냄 / 안 보냄」 고르기 전에는 안 나감 · 문턱 = inv_config 값(처음 **1,000** · 바꾸기는 마이그레이션 · 572) · write-off 를 가르는 칸은 503 차수(1099)
 
 **⑦ 밀린 장 · 실측 · 콘솔**
@@ -584,11 +585,11 @@ QBO 판     Plus(Caleb)
 - **C1** SO-18513 Cin7 JE 줄 = 차 #58 / 대 #59 · dept 없음 · class 없음 · **Entity Customer** · detail 칸 PostingType · Entity · AccountRef(→ 1102 · 1103) / **C3** Department 1 행 「Edmonton」(active · 인보이스도 안 씀) / **C4** Preferences 조회는 EF 가 거부(400 · 읽기 허용 종류 밖 — 열 필요 없음) → Caleb QBO 화면: **회계연도 시작 9 월 · Close the books 켜짐 · 마감일 2026-08-31**(경고 + 비밀번호로 고치기 허용) ⇒ 10 월 날짜(10-28 · 10-31)로 보낼 수 있다 / **C5** JournalEntry DocNumber `COGS-%` = 0(겹침 없음)
 - **월 검산(1086)** 뷰 `qbo_cost_month(월, 창고)`: IMS 재고 금액 움직임(출처 경계 · 트랜스퍼 복사 carried 제외) = 보낸 줄의 #59 · #1150040007 합 + **보류 칸**(입고 · price_adjust · settlement_discount · 문턱 조정) + 제외 칸(opening_fix · 살린 트럭 · Cin7 출처) + 반올림 센트 + 안 보낸 날 · 판매 원가 쪽은 「IMS 판매 원가(sale − restock + reversal + cost_late 판매 몫) = 보낸 #58 합」 · QBO 쪽은 첫 판에 사람이 기간 보고서와 맞댄다 · 503(출발점)은 섞지 않는다
 
-**⑧ 짓기 순서** — 3-2 DB(표 둘 · 기대값 · 장 만들기 · claim/done/fail/unknown · 미리 보기 · 월 뷰 · 시험 = 126,715.43 · 장 12 · 열쇠 ~~56~~ → 보낼 54 · 보류 2(§15-i) 재현 · 1 센트 차액 · 모르는 칸 예외 · 살린 트럭 · opening_fix 0 · 약 700 ~ 900 행 짐작) → 3-3 EF + sandbox(JE 몸 검사 · DocNumber 멱등 · unknown 풀기 · 줄 60 · 음수 → 뒤집기 · 같은 DocNumber 두 번 — 줄 상한 · DocNumber 21 자 상한은 짐작 · sandbox 에서 확인) → 3-4 화면(대화 Claude · Sales → QuickBooks 에 Cost days) → 공급처 · 비용 Bill · 입고(보류 칸 풀기 · 1080 · 1089 · 1096) → BillPayment(1081) → 밀린 것 · 켜기(1083)
+**⑧ 짓기 순서** — 3-2 DB(표 둘 · 기대값 · 장 만들기 · claim/done/fail/unknown · 미리 보기 · 월 뷰 · 시험 = 126,715.43 · 장 12 · 열쇠 ~~56~~ → 보낼 54 · 보류 2(§15-i) 재현 · 1 센트 차액 · 모르는 칸 예외 · 살린 트럭 · opening_fix 0 · 약 700 ~ 900 행 짐작) → 3-3 EF + sandbox(JE 몸 검사 · DocNumber 멱등 · unknown 풀기 · 줄 60 · 음수 → 뒤집기 · 같은 DocNumber 두 번 — 줄 상한 · DocNumber 21 자 상한은 짐작 · sandbox 에서 확인) → [2026-11-09 · §15-j · §15-k] 3-2b · 3-3 · 3-4 끝 · sandbox: 19 자 통과 · 같은 DocNumber 두 번 받음(멱등은 IMS 가드) · TotalAmt 0 · 줄 상한 · 21 자는 첫 실물(deferred 525) → 3-4 화면(대화 Claude · Sales → QuickBooks 에 Cost days) → 공급처 · 비용 Bill · 입고(보류 칸 풀기 · 1080 · 1089 · 1096) → BillPayment(1081) → 밀린 것 · 켜기(1083)
 
 ### 15-i qbo-sync-3-2a 결과 — 표 셋 · 키 셋 · 함수 15 · 시험 44/44 · 적용 20261108170000 (2026-11-08 밤 짓기 · 11-09 적용 · so-module §106)
 
-- ⚠️ **상태**: **적용 20261108170000 · 확인 44/44(fail 0 · rolled_back_clean t) · 커밋 0228bd0 · cron 미등록(3-2b 때 · cron.sql 은 3-2b 와 함께)** · 스위치 `qbo_send_cost_enabled` off · 장은 아직 하나도 만들지 않았다(첫 장 = 3-2b 적용 때)
+- ⚠️ **상태**: **적용 20261108170000 · 확인 44/44(fail 0 · rolled_back_clean t) · 커밋 0228bd0 · cron 미등록(3-2b 때 · cron.sql 은 3-2b 와 함께)** · 스위치 `qbo_send_cost_enabled` off · 장은 아직 하나도 만들지 않았다(첫 장 = 3-2b 적용 때) → [2026-11-09 · §15-j] cron 67 등록 · 장 0(콘솔)
 - **원천**: 마이그레이션 `20261108170000_qbo_sync_3_2a_cost_sheet_db.sql`(688 행 · md5 8 `a1f55439` · 머리 주석이 설계 요지) · 시험 `supabase/tests/qbo_sync_3_2a_check.sql`(205 행 · `d0105cc2`) · 지시서 `~/asung/prompts/qbo-sync-3-2.md` · 판정 원문 so-module §104-a · §105-a
 - **나눔**: 3-2a = 표 · 키 · 상수 · 기대값(22 칸) · 장 셈(차액) · 장 만들기(장 행만) · 만들기 due(cron 몸) · 미리 보기 · 장 목록 · 보류 결정 · 월 검산 · grant / **3-2b** = `qbo_job` kind `cost_day` · 몸(JE JSON) · claim / done / fail / unknown / retry · 차례(wait_job) · 재생성 hold · release · resolve(1101) / 3-3 EF + sandbox / 3-4 화면(대화 Claude)
 
@@ -627,5 +628,87 @@ QBO 판     Plus(Caleb)
 - 기대값 함수 35 s → **0.95 s**(두 번 참조된 CTE 를 materialized) · inv_layer 계열 무접촉(색인도 안 더함 · occurred_on 거르기 seq scan 85k 행 · 호출당 0.1 s 안쪽)
 
 **④ 3-2b 에서 볼 것**
-- 손님 없는 SO 7 개의 손님 일감이 `qbo_send_enabled`(off)에 막혀 원가 장이 영원히 못 서는 길(대화 Claude)
-- cron `ims-qbo-cost-build` 등록 · 첫 장 만들기는 3-2b 적용과 함께 · `supabase/ops/cron.sql` 도 그때 커밋
+- 손님 없는 SO 7 개의 손님 일감이 `qbo_send_enabled`(off)에 막혀 원가 장이 영원히 못 서는 길(대화 Claude) → [§15-j ⬜6] 기다린다(Caleb) · 손 Send 가 손님 일감을 함께 보낸다
+- cron `ims-qbo-cost-build` 등록 · 첫 장 만들기는 3-2b 적용과 함께 · `supabase/ops/cron.sql` 도 그때 커밋 → [§15-j] jobid 67 · `2fbed9d`
+
+### 15-j qbo-sync-3-2b 결과 — 일감 cost_day · 몸 · claim 때 줄 고정 · 차례 · 재생성 hold · resolve · 적용 20261108224000 · cron 67 (2026-11-09 · so-module §107)
+
+- ⚠️ **상태**: **적용 20261108224000 · 확인 60/60(fail 0 · rolled_back_clean t) · 커밋 2fbed9d** · cron **67** `ims-qbo-cost-build`(`0 8 * * *` UTC = 토론토 03:00 · `select public.qbo_cost_sheet_build_due();` · 장 행만 만든다) · 스위치 `qbo_send_cost_enabled` off · **자동 일감 0**(사람 창구 queue 만) · 11-09 콘솔: 장 0 · cost_day 일감 0 · rebuild held []
+- **원천**: 마이그레이션 `20261108224000_qbo_sync_3_2b_cost_day_jobs.sql`(984 행 · 새로 쓰거나 바꾼 줄 347 · md5 `82c6c43007392b6215a337f7c53728c4`) · 시험 `supabase/tests/qbo_sync_3_2b_check.sql`(414 행 · `7e204a33eab031d316ec6ab534151d15`) · 회신 원문 `~/asung/prompts/docs-1109c-sources.md` S1 · S2 · S6
+
+**① 만든 것(마이그레이션 차례)**
+- ⓪ 가드 → ① `qbo_cost_sheet_ims_id` · `qbo_cost_sheet_id_for_job` → ② 몸 `qbo_cost_day_body`(JE JSON · stable · 「그 창고 #59 순액 한 줄」 · SO · CR 줄 Entity = 1103 · DepartmentRef 없음) → ③ `qbo_cost_sheet_queue_one` · `qbo_cost_sheet_queue` · `qbo_cost_queue_due`(사람 창구 · 날짜 순) → ④ 트리거 `qbo_job_cost_sheet_sync`(qbo_job AFTER UPDATE OF state → 장 state) → ⑤ `qbo_cost_hold_all` · `qbo_cost_rebuild_calc` · `qbo_cost_rebuild_preview` · `qbo_cost_rebuild_release` → ⑥ `qbo_cost_sheet_resolve` → ⑦ 재발행 여섯 → ⑧ CHECK(qbo_job kind **19** · ims_kind + cost_sheet · qbo_txn kind + cost_sheet · type + JournalEntry) · grant
+- 재발행 여섯(원본 → 새 md5 8): claim `de6a6fec` → `f108aaa1`(kinds 19 · ② 부모 skipped 도 푼다(cost_day 만) · 재생성 감지 → hold_all + failed · 줄 0 → 장 empty + 일감 skipped · 성공 뒤 `qbo_cost_sent` insert) · done `bfde1f10` → `79674624`(cost_day 가지 · qbo_txn JournalEntry · 응답 금액 ↔ 지문 차변 대조) · retry `004924bc` → `263592d5`(hold · sent · 뒤 장 · skipped rebuild 거부 · skipped day 는 note 필수) · list `d72b4c8e` → `9f357ea4` · preview `07c73ffd` → `edfed63a` · doc `4291e46d` → `ddc7cff5` · fail · skip · unknown · unknown_list 무변
+- 본뜬 원본(마지막 정의): claim · done · retry · list · preview · doc = `20261108075221` · fail · skip = `20261102003000` · unknown · unknown_list = `20261102030000` · 열 개 모두 파일 몸 md5 = DB prosrc md5 · ⚠️ `<이름>\(` grep 은 「claim (」 공백 꼴을 못 잡아 `20261107044131` 을 가리킨다 — `\s*\(` 로
+- 컷오버: 새 표 0 · 거래 표 FK 0
+
+**② 구현 규칙 — 3-2b ⬜ · 이견 답(판정 번호 없음 · 1090 처럼 뜻 무변)**
+
+| # | 규칙 |
+|---|---|
+| ⬜1 | 장 하나 = 일감 하나 — kind `cost_day` · ims_kind `cost_sheet` · ims_id `'YYYY-MM-DD\|TOR'`(재생성 장 `'…\|rebuild'`) |
+| ⬜2 | 줄 고정 = **claim 때** `qbo_cost_sent` 행(몸 `qbo_cost_day_body` stable) · done 은 다시 셈하지 않고 장 sent + qbo_txn JournalEntry · fail 은 그 행 삭제 · unknown 은 행 유지 |
+| ⬜3 | 차례 = 같은 창고 앞 장이 sent · empty · void 가 아니면 wait_job · 앞 장 일감이 없으면 failed 「queue the earlier sheet first」 · skip = 장 void + 보낸 몫 행 삭제 · claim ② 는 cost_day 에 한해 부모 skipped 도 푼다 |
+| ⬜4 | 재생성 = claim 때 `min(inv_layer_consume.id)` > 장의 epoch 면 realm 의 미보낸 장 **전부** hold · 일감 failed · `qbo_cost_rebuild_preview` · `qbo_cost_rebuild_release`(TxnDate = 풀어 준 날 · `COGS-<날>-TOR-R`) |
+| ⬜5 | `qbo_cost_sheet_resolve(in_qbo \| not_in_qbo)`(1101) — QBO 에 하나 남김 = in_qbo · 하나도 안 남김 = skip(이견 3 의 skip 읽기) · 화면은 in_qbo(JE Id 필수) · not_in_qbo(다시 보냄) |
+| ⬜6 | Entity 짝 없음(손님이 QBO 에 없는 SO) = needs → blocked · **Caleb: 그 손님이 QBO 에 만들어질 때까지 기다린다(뒤 장도 차례로) · Entity 없이 보내면 손님별 손익에서 영영 빠진다** · 빠져나오는 길 셋: 손 Send(isNeedKind 가 손님 일감을 함께) · 원가 cron kinds [cost_day, customer](deferred 522) · 그 인보이스가 먼저 나감 |
+| ⬜7 | 자동 일감 0 — 사람 창구 `qbo_cost_sheet_queue` · `qbo_cost_queue_due` 만(cron 67 은 장 행만) |
+| ⬜8 | 한 파일 |
+| 이견 2 | 장 state = qbo_job `AFTER UPDATE OF state` 트리거 하나 · 재발행 여섯 |
+| 이견 4 | 줄 0 = 장 empty · 일감 skipped(note 자동) |
+| 이견 5 | hold 의 일감 = failed |
+| 이견 6 | qbo_txn 제약 셋 넓힘 · 거래 표 FK 0 |
+| 이견 7 | 계정 Ref = `qbo_account_ref` · 여덟 계정 짝 8/8 · JE 몸 DepartmentRef 없음(1102) |
+| 이견 8 | `supabase/ops/cron.sql` = 3-2a 블록 + 한 줄 |
+| 이견 9 · 10 | 시험 10 초(잠금 구간) · 시험 S8 은 가짜 재료 |
+
+**③ 조사 Q1 ~ Q4(3-2b §0 · 운영 메인 · db_role test · max(version) 20261108170000)**
+- Q1 장 0 · cost_day 일감 0(kind CHECK 18 종에 없었다) · sent · hold 0 · cron 59 · 61(*/5 active) · 62(*/5 active) · cost-build 미등록 · cfg `qbo_send_enabled` off · `qbo_send_payments_enabled` on · `qbo_send_cost_enabled` off · `qbo_cost_since` 2026-10-31 · hold_over 1000
+- Q2 `qbo_cost_sheet_calc('2026-11-02','TOR')` 54 행(0.47 s) = SO 49(SO-20008 ~ SO-20898 · 전부 #58/#59 · 손님 번호 있음) + ADJ 3(ADJ-00011 12282 센트 · 10-31 사건 · baseline none ← 실 DB 에 10-31 장이 없어 셈이 10-31 부터 누적 · ADJ-00015 −1584 · ADJ-00016 1584) + CR 1(CR-01008 −336) + TRF 1(TRF-00003 1115038) · 3-2a 시험 B 는 10-31 장을 먼저 만들어 11-02 TOR 열쇠 53 · je_lines 54 · 늦게 적힌 사건 없음 · 「52」 는 근거 없는 수(정본에 없음 · 정정 없음)
+- Q3 손님은 있는데 qbo_link 없는 SO **7**(모두 11-06 · EDM 3 · TOR 4 · 일곱 손님 모두 customer 일감 queued — 11-06 인보이스 claim 의 needs · 인보이스 queued 48 과 함께 북키퍼가 아직 안 고름) · entity_customer_id null 인 EDM SO 102 는 opening_fix 로 excluded(무관)
+- Q4 claim kinds: EF `send()` → `kindsOf(body.kinds)` → 없으면 (3-3 전) SEND_KINDS 18 · `qbo_job_claim` 에 p_kinds 를 늘 넘긴다 · sendPicked 도 고정 · cron 61 command 에 kinds 없음 · cron 62 kinds 열둘 + where 도 열둘 ⇒ 둘 다 cost_day 를 못 집는다 → 3-3 에서 DEFAULT_SEND_KINDS(§15-k)
+
+**④ 시험 · 적용 실측**
+- 시험 5 회차: 1 S8 done 「queued 는 못 끝낸다」(시험 결함) · 2 50/57(S1e · S3h · S8a · S8c 「done 이 자식을 푼다」 · S5b 괄호 · G1 · G4) · 3 54/60(EDM 01-07 일감이 S5 hold 에 realm 전체로 — 설계대로) · 4 60/60 · 5 EXPECT_OK 60 · 마이그레이션 본문은 1 회차 뒤 무변 · begin ~ rollback 22.1 s(그중 `\i` 38 문장 × 왕복 ≈ 0.3 s ≈ 13.3 s · 적용 뒤 ~ rollback 8.8 s · 표 잠금은 파일 끝에서 시작 · 잠금 ≈ 10 s)
+- 3-2a 적용 뒤 콘솔 `qbo_cost_preview('2026-11-02','TOR')`: balanced true · sheet null · keys 54 · je_lines 55 · 차 = 대 1519323 센트 · epoch_now 11642829
+- 적용(Caleb · 11-09): applied 0 · last 170000 → APPLY_OK → repair applied → 확인 60 · 0 · 60 · 60 · t · ⚠️ 확인 갈래는 **cron 등록 전에**(시험 S5 절의 hold_all 이 realm 의 pending 장을 스친다)
+- cron 67 등록: 첫 가드 `select case when exists(…) then (1/0)::text else 'new' end` 가 잡이 없는데도 division by zero — 상수 1/0 은 계획 단계에서 셈한다(PostgreSQL 문서 §9.18.1 · §4.2.14 · so-module §107-e 128) → DO 블록 가드로 고쳐 등록 · jobid 67 · active t
+- REST 둘째 겹(콘솔): `qbo_job_list(cost_day)` rows [] · counts sent 493 · failed 1 · queued 58 · blocked 57 · skipped 15 / `qbo_cost_sheet_list` rows [] · since 2026-10-31 · send_enabled off / `qbo_cost_rebuild_preview` held []
+
+### 15-k qbo-sync-3-3 · 3-4 결과 — EF cost_day = JournalEntry · sandbox 실측 · 판정 1112 · 화면 Cost days · 첫 실물 순서 (2026-11-09 · so-module §107)
+
+- ⚠️ **상태**: 커밋 `232dec7` · EF `qbo` **배포 11-09**(Target Asung-IMS production · 올라간 파일 `index.ts` · `_shared/qbo.ts`) · 배포 뒤 cron 62 00:35 UTC succeeded 「0 rows」 · Settings Check connection → Connected · **원가 보내기 cron 미등록**(cron.sql 주석 블록만 · deferred 522) · 장 0 · 보낸 장 0(첫 실물 = deferred 525)
+- **원천**: `_shared/qbo.ts`(1514 행 · md5 `313847a28f31c9f6d381d9dc2499759f`) · `qbo/qbo_test.ts`(2836 · `e9552f566bcf6b9f72199ebbf1a43a56`) · `qbo/index.ts`(71 · `a63056981dab00f3062c56e68e912ad4`) · `supabase/ops/cron.sql`(1045 · `74aac8c6deea7f7f23d5f1afa583d814`) · diff 4 files 289+ 16− · 회신 원문 S3 · S4 · S5
+
+**① sandbox 실측(11-09 · Caleb · Intuit API Explorer · Sandbox Company CA · 대화 Claude 안내)**
+- 계정 Cost of Goods Sold Id 84 · Inventory Asset Id 85 · 손님 Id 61
+- S1 POST journalentry `{DocNumber "COGS-20261102-TOR-R"(19 자) · TxnDate "2026-11-02" · Line[ Debit 12.34 · Description "SO-20008" · AccountRef 84 · Entity{Type Customer · EntityRef 61} / Credit 12.34 · AccountRef 85 ]}` → Id 197 · SyncToken "0" · DocNumber 그대로 · Entity 그대로(응답에 EntityRef.name) · TxnTaxDetail {} · CurrencyRef CAD · ExchangeRate 1 · ⚠️ **TotalAmt 0 · HomeTotalAmt 0**
+- S2 같은 DocNumber 다시 → Id 198 — ⚠️ **QBO 는 JournalEntry DocNumber 중복을 막지 않는다** ⇒ 중복을 막는 것은 IMS 의 보내기 직전 가드뿐
+- S3 `select Id, DocNumber, … from JournalEntry where DocNumber = 'COGS-20261102-TOR-R'` → totalCount 2(198 · 197) · 고른 칸에 없는 **Line 이 따라온다**(Entity name 포함)
+
+**② EF `_shared/qbo.ts`(3-3 ⬜ · 이견 답 · 판정 1112)**
+- `SEND_KINDS` **19** · `DEFAULT_SEND_KINDS` **18**(kinds 없음 = cost_day 뺌 ⇒ cron 61 은 원가 장을 못 집는다) · sendPicked(손 Send) `p_kinds [...SEND_KINDS]` 19 · `COST_DAY_KINDS` · `COST_DAY_DOC_RE`
+- `WRITE_ENTITIES` + journalentry · `assertWriteAllowed`: journalentry 는 **만들기만**(지우기 · void 길 없음 · 1101) · operation 없는 몸에 Id 가 있으면 거부(purchase 에 이어 둘째 · deferred 501 범위 좁아짐)
+- `entityKeyOf` cost_day 명시(journalentry / JournalEntry / DocNumber) · `isTxnKind` 에 넣지 않음 · `txnWord` 「journal entry」
+- **가드**: 보내기 직전 DocNumber 조회 — 0 행 → POST · 조회 실패 → failed · 1 행 이상 → **unknown**(`qbo_job_unknown` · 글에서 「then Retry」 뺌) — 지시서 안 「failed」 는 failed 가 트리거로 보낸 몫 행을 지워 resolve 길이 닫혀 바꿈(3-3 이견 1)
+- **done**: `p_total_amt` = 응답 TotalAmt(JE 는 0 · S1) 대신 **Debit 줄 합**(`journalDebitCents` · DB 무변) · 2xx 에 Line 이 없으면 null → mismatch 경고 + sent · 응답 TotalAmt 를 넘기는 cost_day 줄 0(grep)
+- **unknown 열쇠**: `qbo_name` = `<DocNumber>|<차변 센트>`(`costDayKeyOf` · 결제 paymentKeyOf 선례 · EF 만) · qbo_name null(stale sending → unknown)이면 ims_id 로 DocNumber(`costDayDocOfImsId`) · 센트 없음 → 자동 없음(사람 resolve)
+- **풀기(`resolveUnknown` cost_day · 1112)**: 0 행 not_found · 1 행 → `GET journalentry/<Id>` 로 Line → **Debit 합 = 열쇠 센트일 때만 done** · 다르면 unknown 그대로 + 글 「… has debits X but this cost day expects Y — not recorded …」 · 2 행 이상 ambiguous(1101)
+- 순수 함수 다섯 `journalDebitCents` · `fingerprintDebitCents` · `costDayKeyOf` · `parseCostDayKey` · `costDayDocOfImsId` · `doneJournal` · `sendOne` cost_day · `kindsOf` 기본 = DEFAULT
+- grep 근거(회신): journalentry 닿는 줄 92 · 298 · 614 · DEFAULT_SEND_KINDS 103 · 1187 · sendPicked 1234
+- 사실(막지 않음): 풀기는 kind 를 안 가려 **cron 62 가 cost_day unknown 도 조회** · 금액 같으면 done(쓰기 0 · 적기만) · cron 61 WHERE 는 kind 를 안 거른다(deferred 520 · `qbo_send_enabled` off 유지 — Caleb 11-08 「인보이스 자동 켜기는 당분간 안할 예정이야」) · unknown 동안 화면에 `COGS-…|센트` 꼴(깨끗한 판 = unknown_list fingerprint · deferred 521)
+- 3-3 ⬜(받음): 1 SEND 19 · DEFAULT 18 · sendPicked 19 / 2 entityKeyOf · WRITE_ENTITIES / 3 (가) Debit 합 / 4 가드 0 · 실패 · 1+ / 5 풀기 0 · 1 · 2+ / 6 needs 코드로 확인 · 그대로 됨 / 7 원가 cron 등록 안 함 · 주석 블록 / 8 줄 상한 · 21 자는 첫 실물로
+- 시험: deno `28 passed | 0 failed`(355 ms · 기준선 27 → ㉗ 하나) · deno check 통과 · 회차 넷(옛 단언 18 → 19 · await 빠짐 · T3(f) Line [] 재료 · 가짜 JE Id 충돌 → 10001 ~ — 전부 시험 재료 · EF 무변) · 바뀐 옛 단언 줄 1379 · 1709 · 1722 · 1815 · 1842 · 2169 · 2394 ~ 2395 · 가짜 Intuit JournalEntry 장부(it.journals)
+- `supabase/ops/cron.sql`: 67 블록 아래 「등록 전 · 판」 주석 블록 `ims-qbo-cost-send`(kinds [cost_day, customer] · ⚠️ customer 는 큐의 **모든** customer 일감을 보낸다 — 등록 때 Caleb · 522)
+
+**③ 화면 — 3-4(asung-ims · 대화 Claude)**
+- `a0693ee` qs cost v1 · set v17b: Sales → QuickBooks 종류 「Cost of goods — daily journal」 · Cost days 카드 — 장 목록(Date · Warehouse · Number · Status · Keys · Lines · Debits · QuickBooks · Note) · 장 미리 보기(By document · Held back on this day · Left out on purpose) · **Queue**(그 창고 첫 built 장에만) · Queue all ready sheets · Build sheets now · Held back(문턱 조정 Send / Never / Undo · 입고 · 공급처 원가는 Bill 차수) · 「Cost days are on hold」 → Review the rebuild → Release(메모 필수) · unknown 장 Resolve(in_qbo + JE Id | not_in_qbo) · 일감 미리 보기에 JournalEntry 줄(차 · 대 · 계정 · 손님) · Settings → QuickBooks 안내 글 둘(보내는 것 · 승인 기한은 갱신으로 밀린다)
+- `65244a8` qs cost v1a: Cost days 칸을 목록 카드 안 거르기 줄 바로 아래로(Caleb 「이 상태에서는 다른 것을 선택할 옵션이 안보이네」 → 「이제는 잘 보여」) · 동작 무변
+- 보류 칸 실물: RCV-00117 −950.00 · RCV-00121 −12,039.53(acct_a = GINR 기준 부호라 음수 · 방향 글 deferred 523)
+- 매뉴얼: 01-sales `sales-quickbooks-cost`(en · ko)
+
+**④ 첫 실물 순서(deferred 525)**
+- 장 만들기 = cron 67(토론토 03:00 · 전날까지) 또는 Build sheets now
+- 창고마다 **10-31 부터 차례로**: Queue(또는 Queue all ready sheets) → 목록의 Cost day 줄 Preview → Send · 앞 장이 sent · empty · void 가 아니면 뒤 장은 기다린다
+- 볼 것: QBO JE 줄 상한(한 장 약 60 줄 · sandbox 미확인) · DocNumber 21 자(`-R` 19 자는 통과) · done 의 Debit 합 · Entity · 손님 짝 없는 SO 7 이 든 11-06 장(손 Send 가 손님을 먼저 만든다)
+- 그 뒤 원가 보내기 cron(522) · 그 다음 **공급처 쪽**(qbo-sync-4-0 조사부터 · 1080 · 1081 · 1089 · 1096 · Caleb 11-08 저녁 「공급처 쪽을 우선 작업을 시작하자」)

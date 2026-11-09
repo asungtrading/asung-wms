@@ -50,6 +50,7 @@ description: >
             ⭐ 60189 — 가드가 중복을 막음 → 북키퍼 손 분개(JE) 삭제 → Retry → sent(판정 1060 · 1061) · 환불 2e-3-2 는 남음(454 부분 · 1056 ~ 1058) · so-module §102
 2026-11-08  환불(크레딧 노트 몫) — qbo-sync-2e-3-2-1(DB `e8babe9` · 환불 한 줄 = Purchase 한 장 + 0 원 Payment · kind 넷 refund*) · 1b(EF `84afde4` · SEND_KINDS 18) · 1b2(`8b12366` · 잇기 경고 = 직전 값) · cron 62 kinds 열둘 · 첫 실물 172912 ~ 172915 · 454 · 495 닫힘 · 정본 §14-k · 아래 5-f · so-module §103
 2026-11-09  하루 원가 장 DB 앞 절반 — qbo-sync-3-2a(`0228bd0` · **적용 20261108170000 · 확인 44/44** · 표 셋 qbo_cost_sheet · _sent · _hold · 키 셋 · 함수 15) · **cron 미등록 · 첫 장은 3-2b 적용 때** · 정본 §15-i · 아래 5-g · so-module §106
+2026-11-09  하루 원가 장 뒤 절반 · EF · 화면 — qbo-sync-3-2b(`2fbed9d` · **적용 20261108224000 · 확인 60/60** · kind cost_day · claim 때 줄 고정 · 차례 · 재생성 hold · resolve) · cron **67** ims-qbo-cost-build · 3-3(`232dec7` · EF 배포 · JournalEntry · 가드 · 1112) · 3-4 화면 qs cost v1a · 장 0 · 보내기 cron 미등록 · 정본 §15-j · §15-k · 다음 = **공급처 쪽(qbo-sync-4-0 조사)**
 ⬜ ~~1d 이월 짝(452)~~(11-06 끝) · 1d-3 화면(470) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · ~~받아 둔 돈 2e-3-1(454)~~(11-07 끝) · ~~**환불 2e-3-2**(454 남은 몫)~~(11-08 크레딧 노트 몫 끝 · 남은 몫 = 환불을 결제에 매기 500) · ~~qbo-send opening 이름표(495)~~(qs refund v1) · USD A/R 데이터(499) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 440 · 443 · 454 · 486 · 493 · 495 · 496
 ```
 
@@ -88,7 +89,9 @@ description: >
 ⭐⭐ API 401 ≠ 끊김 — 접근 토큰(1 시간) 만료도 401 · 강제 갱신 한 번 뒤 다시 · 그래도 401 일 때만 needs_reconnect
 ⭐⭐ invalid_grant → qbo_mark_needs_reconnect · 다시 시도 안 함 · DB 가 connected → needs_reconnect 로 **바뀌는 순간 한 번** mail_outbox(kind qbo_reconnect) → inv_config.qbo_alert_to(caleb@asung.ca · 869)
 ⭐  cron jobid 59 ims-qbo-refresh · 10 9 * * *(09:10 UTC) · connected 일 때만 · 접근 토큰은 부를 때 5 분 안이면 먼저 갱신
-⚠️  갱신 토큰 만료 = 연결 + 101 일 · 갱신해도 안 밀린다(실측 · 10-30 첫 운영 cron 갱신 뒤에도 그대로 — 확인됨 · deferred 370 닫힘) ⇒ **운영 연결은 2027-02-07 15:48 UTC 전에 Reconnect**(deferred 396) · 그 뒤로도 101 일마다
+~~갱신 토큰 만료 = 연결 + 101 일 · 갱신해도 안 밀린다(실측 · 10-30 첫 운영 cron 갱신 뒤에도 그대로 — 확인됨 · deferred 370 닫힘) ⇒ **운영 연결은 2027-02-07 15:48 UTC 전에 Reconnect**(deferred 396) · 그 뒤로도 101 일마다~~
+⚠️  [2026-11-09 정정 · 정본 §6 · so-module §107-c 2] 갱신 토큰 만료는 **밀린다** — 갱신 토큰이 바뀌는 갱신 때 그 시각 + 약 101 일(짐작 · 11-09 실측 2027-02-17 09:10:02Z = cron 59 09:10 UTC 갱신 + 101 일)
+     ⇒ cron 59 가 돌면 고정된 Reconnect 날짜는 없다 · 지금 기한은 Settings 의 날짜 · ⚠️ cron 59 를 끄거나 갱신이 실패하면 그 기한에 끊긴다(미리 알림 deferred 371) · 396 닫힘(짐작)
 ```
 
 ## 4. ⭐⭐ 환경 · realm — 모르면 사고
@@ -225,10 +228,11 @@ description: >
 ⚠️⚠️ **Purchase 의 열린 금액은 Purchase 에서 못 읽는다** — Payment 응답의 **txnOpenBalance = 잇기 직전** 값 ⇒ after = txnOpenBalance − Amount · Expense 줄 |after| > 0.004 경고 · CreditMemo 줄은 모자람만(1075 · 1b2) · 시험 가짜도 「직전」 값을 줘라(1b 가짜가 뒤 값을 줘서 거짓 경고 「not all 0」 이 시험을 지났다 · 172913 · 172915)
 ⭐  EF SEND_KINDS **18** · assertWriteAllowed purchase 몸 검사(만들기 · void 꼴만 · 다른 엔티티는 deferred 501) · **cron 62 kinds 열둘**(11-08 · 실행 블록 = DB 글자 그대로 · 열쇠는 그 job 자신의 command 에서)
 ⭐  화면 qbo-send(qs refund v1 · v1a): 종류 Refunds · Carried-over money · 「Refund linked to credit」 은 Refund 먼저 또는 둘을 함께 보낸다(blocked 사슬)
+⭐  [2026-11-09 · 판정 1114] 받아 둔 돈을 크레딧 노트 없이 돌려준 환불(오버페이) · USD 환불은 **짓지 않는다**(드묾) — 생기면 IMS failed 그대로 · 북키퍼가 QBO 에 손으로 + IMS 줄 Skip(「QuickBooks 에 손으로 넣음」) · deferred 500 · 511 열림
 ~~⚠️  USD 손님 셋의 A/R 계정이 `_61_`(CAD) — USD 환불은 failed(통화 ≠ 기본 통화 · deferred 499)~~ → [2026-11-08 밤 · 3-1] A/R 은 `_212_` 로 바로잡음(499 닫힘) · ⚠️ USD 환불 failed 는 그대로 — 블록이 so_payment 통화를 본다(511 · §5-g)
 ```
 
-## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · 다음 3-2b (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
+## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · ~~다음 3-2b~~ → 3-2b · 3-3 · 3-4 끝(11-09) · 다음 공급처(4-0) (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
 
 ```
 ⭐⭐ 상품 공급처 Bill · 그 결제(BillPayment)는 **IMS 가 보낸다**(1080 · 1081) — 북키퍼는 운영 비용 Bill 만 QBO 에서 · 컷 전 Bill 결제는 QBO 에서(913) · 밀린 IMS 인보이스 7 장 · 결제 4 건은 싱크가 서면 원래 날짜로
@@ -253,6 +257,13 @@ description: >
 ⚠️⚠️ **모르는 원가 칸이면 장을 막는다** — 정본은 DB 제약 22 칸(origin 8 · reason 8 · kind 6) · 제약이 넓어지면 막고 알린다 · `lost` 는 막음(512) · 입고 · price_adjust · settlement_discount 는 보류(Bill 차수)
      판정 요지: 보낸 몫 = 문서 번호 · 계정 짝마다 **센트 합**(원가 줄 id 없음) · 다음 장 = 지금 셈 − 보낸 합의 차액(1092) · 재생성(`inv_layer_apply`)이면 보내기 멈춤 → 사람이 풀면 「IMS cost rebuild」 한 장(1093) · sale_shortfall = 차 #59 / 대 #1150040010(1094) · 늦은 원가 조정 몫 = 그 조정 계정(1095) · 입고는 보류 · 짝 GINR 하나 · GRNI 는 IMS 가 안 씀(1096 · 판정 88) · 줄 = 열쇠마다 한 줄 + 짝 계정 모음(합 = 줄 반올림 합) · 손님 이름 글자 안 실음(1097) · `qbo_send_cost_enabled` off · SQL cron 03:00 전날 몫 · 처음엔 손 Send · 창고마다 차례 · failed · unknown 이면 뒤 장 멈춤(1098) · 조정 한 건 문턱 1,000 넘으면 보류(1099) · transfer_freight 짝 = 비용 문서 종류 · 모르면 #136(1100) · 두 장 서면 QBO 에서 지우고 IMS skip · JE 는 만들기만(1101) · Location 안 실음 · DocNumber `COGS-YYYYMMDD-TOR` · `-EDM`(1102) · SO 줄 Entity = 인보이스 손님 · CR 줄 = 크레딧 노트 손님 · #59 모음 줄은 안 검(1103)
      QBO 마감일 2026-08-31(회계연도 9 월 시작) — 10 월 날짜로 보낼 수 있다 · landed 날짜 = IMS 가 얹은 날(507 닫힘)
+✅ [2026-11-09 · 3-2b `2fbed9d` · 3-3 `232dec7` · 정본 §15-j · §15-k] **하루 원가 장 = 일감 kind `cost_day`(ims_kind cost_sheet · ims_id 'YYYY-MM-DD|TOR') · QBO JournalEntry** · 적용 · EF 배포 · cron 67(장 행만) · 장 0
+⚠️⚠️ **원가 장을 cron 61 · 62 에 섞지 마라** — EF `DEFAULT_SEND_KINDS` 18(kinds 없음 = cost_day 뺌) · 손 Send(sendPicked)만 19 · 원가 보내기 cron 은 주석 블록뿐(kinds [cost_day, customer] — customer 는 큐의 **모든** 손님 일감을 보낸다 · 등록은 Caleb · deferred 522)
+⚠️⚠️ **journalentry 는 만들기만** — `assertWriteAllowed` 가 지우기 · void · 몸에 Id 있는 POST 를 막는다 · QBO 는 JE DocNumber **중복을 막지 않는다**(sandbox) ⇒ 막는 것은 보내기 직전 DocNumber 조회 가드뿐 — 0 행 POST · 조회 실패 failed · 1 행 이상 **unknown**(failed 로 보내면 트리거가 보낸 몫 행을 지워 resolve 길이 닫힌다)
+⚠️⚠️ **JE 응답 TotalAmt 는 0** — done 금액은 Debit 줄 합(journalDebitCents) · TotalAmt 로 대조하지 마라
+⚠️⚠️ **1112 — 자동 done 은 금액이 같을 때만** · QBO 에 같은 DocNumber JE 1 행이면 GET 해서 Debit 합 = 일감 차변(claim 때 고정)일 때만 done · 다르면 unknown 그대로 · 2 행 ambiguous · 열쇠 = qbo_name `<DocNumber>|<차변 센트>`(EF 만 · 센트 없으면 자동 없음) · cron 62 의 풀기가 kind 를 안 가려 cost_day unknown 도 이 규칙으로 푼다
+⚠️  줄 고정은 **claim 때**(qbo_cost_sent) · 창고마다 차례(앞 장이 sent · empty · void 가 아니면 wait) · 재생성 감지면 realm 의 미보낸 장 전부 hold → rebuild_preview · release(`COGS-<날>-TOR-R`) · unknown 장은 `qbo_cost_sheet_resolve(in_qbo | not_in_qbo)` · 손님 짝 없는 SO 가 든 장은 그 손님이 QBO 에 생길 때까지 기다린다(Caleb)
+⚠️  인보이스 자동 보내기(qbo_send_enabled)는 **당분간 off**(Caleb 11-08) · 다음 줄기 = 공급처 쪽(qbo-sync-4-0 조사 · 1080 · 1081 · 1089 · 1096)
 ```
 
 ## 6. 화면 · 바깥
@@ -263,6 +274,7 @@ qbo-send.html  Sales → QuickBooks(qs v1 · nav v14 · 열쇠 qbo · 보기 qbo
 qbo-send.html  [2026-11-02 밤 · pay screens v1 asung-ims `4d9b62a`] Payments 종류 · 결제 미리 보기(check_lines · 합계 · void) · ~~목록의 waiting 은 붙은 인보이스가 아직 안 간 결제(claim 때 blocked 가 된다)~~ → [2026-11-04 정정 · 화면 코드 grep] 배지 **waiting = queued**(qbo-send.html `queued: ["", "waiting"]`) · 인보이스를 기다리는 결제는 **blocked** 배지 · 거르기 「Waiting — not sent yet」 = 안 나간 것 전부(open) · settings 카드 수단 한 수단 Find…(983)
 qbo-send.html  [2026-11-04 · qs apply v1 asung-ims `21d4ef9`] 종류 「Credits applied to invoices」 · 라벨 Credit applied · Undo credit applied · applyPreview(크레딧 붙임 미리 보기)
 qbo-send.html  [2026-11-08 · qs refund v1 asung-ims `0922a44` · v1a `7082d84`] 종류 Carried-over money(opening 넷) · Refunds(refund 넷) · 이름표 여덟 · 미리 보기(Purchase · 0 원 Payment · void 몸) · deferred 495 닫힘
+qbo-send.html  [2026-11-09 · qs cost v1 `a0693ee` · v1a `65244a8`] 종류 「Cost of goods — daily journal」 · Cost days 카드(장 목록 · Preview · Queue 는 그 창고 첫 built 장에만 · Queue all ready sheets · Build sheets now · Held back Send / Never · Review the rebuild → Release · Resolve) · 매뉴얼 01 `sales-quickbooks-cost`
 settings.html  Settings → QuickBooks matching 의 charge 행 이름 「Freight, discount & account lines」 + 크레딧 계정 줄 안내(set v15 · 961)
 settings.html  Settings → QuickBooks(?t=qbo · set v12) — 상태(빨강 = needs_reconnect) · Connect / Reconnect(같은 탭) · Check connection · Disconnect · Untie company · Help 줄 「Connection problems? Contact the IMS administrator: caleb@asung.ca」(872)
 terms.html · privacy.html  ims.asung.ca 공개 페이지(로그인 없이 · Intuit App details 의 EULA · Privacy · 867)
