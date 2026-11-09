@@ -53,6 +53,8 @@ description: >
 2026-11-09  하루 원가 장 DB 앞 절반 — qbo-sync-3-2a(`0228bd0` · **적용 20261108170000 · 확인 44/44** · 표 셋 qbo_cost_sheet · _sent · _hold · 키 셋 · 함수 15) · **cron 미등록 · 첫 장은 3-2b 적용 때** · 정본 §15-i · 아래 5-g · so-module §106
 2026-11-09  하루 원가 장 뒤 절반 · EF · 화면 — qbo-sync-3-2b(`2fbed9d` · **적용 20261108224000 · 확인 60/60** · kind cost_day · claim 때 줄 고정 · 차례 · 재생성 hold · resolve) · cron **67** ims-qbo-cost-build · 3-3(`232dec7` · EF 배포 · JournalEntry · 가드 · 1112) · 3-4 화면 qs cost v1a · 장 0 · 보내기 cron 미등록 · 정본 §15-j · §15-k · 다음 = **공급처 쪽(qbo-sync-4-0 조사)**
 2026-11-09  공급처 쪽 시작 — 4-0 조사(DB 읽기만 · 보고 레포 밖) · 4-1 운영 콘솔(GET 만 · #138 = 계좌 Id 138 MTFX USD) · 4-2a sandbox(Bill 199 ~ 205 · Vendor 69 · 70) · **판정 1115 ~ 1130 · 짓기 전** · 원가 장 12 장 built · 보낸 장 0 · 다음 = **4-3 DB Bill · VendorCredit(11 월 안 · 1120)** · 정본 §15-l · 아래 5-g · so-module §108
+2026-11-09 오후  공급처 Bill 짓기 · 운영 첫 송신 — 4-3a · 4-3b(`32f2f3e` · 적용 20261109103000 · 20261109104000 · 확인 56/56 · 16/16 · USD 계좌 여섯) · 4-4(`b879381` · EF v22 · Vendor · Bill · VendorCredit) · 3-3b(`f1fb21b` · EF v23 · JE 가드 TotalAmt 뺌)
+            ⭐ **운영 sent — 공급처 Bill 7 장 · 하루 원가 장 12 장**(Caleb 손 Send) · 4-2b sandbox(1123 · 1125 확정) · 판정 1131 · **매일 원가 장 · 새 공급처 Bill 은 북키퍼가 Queue/Preview → Send**(자동은 나중에 Caleb) · 다음 = **4-5 결제** · 정본 §15-m · so-module §109
 ⬜ ~~1d 이월 짝(452)~~(11-06 끝) · 1d-3 화면(470) · ~~크레딧 붙임 2e-2-1b EF(461)~~ · ~~받아 둔 돈 2e-3-1(454)~~(11-07 끝) · ~~**환불 2e-3-2**(454 남은 몫)~~(11-08 크레딧 노트 몫 끝 · 남은 몫 = 환불을 결제에 매기 500) · ~~qbo-send opening 이름표(495)~~(qs refund v1) · USD A/R 데이터(499) · 원가 · Bill 줄기(459) · 인보이스 스위치 켜기(971 · Caleb) — deferred 260 · 327 · 341 · 374 · 440 · 443 · 454 · 486 · 493 · 495 · 496
 ```
 
@@ -234,7 +236,7 @@ description: >
 ~~⚠️  USD 손님 셋의 A/R 계정이 `_61_`(CAD) — USD 환불은 failed(통화 ≠ 기본 통화 · deferred 499)~~ → [2026-11-08 밤 · 3-1] A/R 은 `_212_` 로 바로잡음(499 닫힘) · ⚠️ USD 환불 failed 는 그대로 — 블록이 so_payment 통화를 본다(511 · §5-g)
 ```
 
-## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · ~~다음 3-2b~~ → 3-2b · 3-3 · 3-4 끝(11-09) · ~~다음 공급처(4-0)~~ → 공급처 판정 끝 · 다음 4-3(11-09) (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
+## 5-g. ⭐⭐ 원가 · 공급처 줄기(459) — 판정 끝 · ~~짓기 전~~ → 3-2a 적용(11-09) · ~~다음 3-2b~~ → 3-2b · 3-3 · 3-4 끝(11-09) · ~~다음 공급처(4-0)~~ → 공급처 판정 끝 · ~~다음 4-3~~ → 4-3 · 4-4 · 첫 송신 끝 · 다음 4-5(11-09) (2026-11-08 저녁 · 정본 §15 · so-module §104 · 판정 1080 ~ 1090)
 
 ```
 ⭐⭐ 상품 공급처 Bill · 그 결제(BillPayment)는 **IMS 가 보낸다**(1080 · 1081) — 북키퍼는 운영 비용 Bill 만 QBO 에서 · 컷 전 Bill 결제는 QBO 에서(913) · 밀린 IMS 인보이스 7 장 · 결제 4 건은 싱크가 서면 원래 날짜로
@@ -266,7 +268,7 @@ description: >
 ⚠️⚠️ **1112 — 자동 done 은 금액이 같을 때만** · QBO 에 같은 DocNumber JE 1 행이면 GET 해서 Debit 합 = 일감 차변(claim 때 고정)일 때만 done · 다르면 unknown 그대로 · 2 행 ambiguous · 열쇠 = qbo_name `<DocNumber>|<차변 센트>`(EF 만 · 센트 없으면 자동 없음) · cron 62 의 풀기가 kind 를 안 가려 cost_day unknown 도 이 규칙으로 푼다
 ⚠️  줄 고정은 **claim 때**(qbo_cost_sent) · 창고마다 차례(앞 장이 sent · empty · void 가 아니면 wait) · 재생성 감지면 realm 의 미보낸 장 전부 hold → rebuild_preview · release(`COGS-<날>-TOR-R`) · unknown 장은 `qbo_cost_sheet_resolve(in_qbo | not_in_qbo)` · 손님 짝 없는 SO 가 든 장은 그 손님이 QBO 에 생길 때까지 기다린다(Caleb)
 ⚠️  인보이스 자동 보내기(qbo_send_enabled)는 **당분간 off**(Caleb 11-08) · 다음 줄기 = 공급처 쪽(qbo-sync-4-0 조사 · 1080 · 1081 · 1089 · 1096)
-⭐⭐ [2026-11-09 · 판정 1115 ~ 1130 · 정본 §15-l · so-module §108] **공급처 쪽 판정 끝 · 짓기 전**(다음 4-3 DB Bill · VendorCredit · 11 월 안)
+⭐⭐ [2026-11-09 · 판정 1115 ~ 1130 · 정본 §15-l · so-module §108] **공급처 쪽 판정 끝 · 짓기 전**(다음 4-3 DB Bill · VendorCredit · 11 월 안) → [11-09 오후] 4-3 · 4-4 지음 · 운영 sent(아래 ✅ 줄)
 ⚠️⚠️ **Bill · VendorCredit · BillPayment 는 #59 · #58 을 건드리지 않는다**(1115) — Bill = 차 GINR `_1150040012_` / 대 A/P · 재고 · 판매 원가 계정은 하루 원가 장만 · 할인 · 가격 크레딧도 VC 는 A/P ↔ GINR, #59 · #58 은 원가 장 CADJ(1121 · 「할인」 = 둘 다: 가격 크레딧(credit_reason price_difference → price_adjust) = **4-3** VendorCredit 문서 · 조기 결제 할인(discount_taken → settlement_discount) = **4-5** 결제 저장 때 VendorCredit + BillPayment 에 붙임)
 ⚠️⚠️ Bill 몸에 **반드시** — `APAccountRef`(공급처 A/P · USD = 운영 #109 · 빼면 QBO 가 제 기본 USD A/P 를 고른다 — sandbox 는 스스로 만들었다) · `DueDate`(po_invoice.due_date · 빼면 TxnDate) · `TxnTaxDetail`(IMS 세금 — QBO 는 보낸 세금을 그대로 받고 다시 셈하지 않는다) · USD `ExchangeRate` = po_invoice.exchange_rate(비면 막음 · 1118) · 줄 = 인보이스 줄마다 · 인보이스 할인 = 음수 줄(1116 · 1117)
 ⚠️⚠️ **DocNumber 최대 21 자**(25 자 → 2050 「Max:21」) — 넘으면 앞 21 자 + 전체 번호는 PrivateNote(1130)
@@ -277,6 +279,11 @@ description: >
 ⚠️  Vendor 가 없으면 IMS 가 만든다(1128 · DisplayName + CurrencyRef 만 · A/P 안 실음 · 같은 이름 있으면 failed — 자동 개명 금지) · 결제 하나 = 공급처 하나(1124) · USD 결제 환율 = 그 돈을 산 날 MTFX 환율 필수(1123) · 결제 통화 ≠ 계좌 통화면 거부(1122)
 ⚠️  입고 보류는 공급처 차수가 서면 무조건 풀고 **입고 날짜 장**에(1119 · 1120) — **TOR 원가 장은 11-04 까지만 먼저 보내라**(11-05 · 11-06 에 RCV 두 줄) · 원가 보내기 cron(522)은 4-3 뒤 · Bill HomeBalance = 합계 × 환율이라 IMS 입고 원가(줄마다 반올림)와 센트 차 = 정상
 ⚠️  「#138」 은 수표 번호가 아니라 **계좌 Id 138 MTFX USD**
+✅ [2026-11-09 오후 · 4-3 `32f2f3e` · 4-4 `b879381` · 3-3b `f1fb21b` · 정본 §15-m · so-module §109] **Bill 7 장 · 원가 장 12 장 운영 sent** · BillPayment 0(4-5) · 자동 없음 — 북키퍼가 매일 손 Send
+⚠️⚠️ **QBO query 에서 고를 수 없는 칸(4001 「Property X not found for Entity Y」)** — JournalEntry `TotalAmt`(3-3b · 첫 원가 장이 가드에서 failed · QBO 쓰기 0 → JE 가드 = `select Id, DocNumber`) · BillPayment `PayType` · Bill `HomeBalance`(GET 에는 옴) · 코드 `QUERY_UNSELECTABLE` 은 지금 앞 둘 — **셋째는 4-5 에서 더한다** · 가드 조회에 새 칸을 넣기 전에 이 표부터
+⚠️  공급처 kind 셋(vendor · bill · vendor_credit)은 DEFAULT_SEND_KINDS 밖(cron 61 에 안 섞임) · `bill_delete_manual` 은 EF 가 집지 않는다(사람 삭제 → Skip) · 매입 세율이 거울에 없으면 Bill 몸이 막힌다 → Settings → QuickBooks matching → Refresh list(tax codes)
+⚠️  기한 빈 공급처 인보이스 = DueDate 인보이스 날짜 + 경고(1131 · `qbo_bill_body`) → QBO 에 Overdue 로 보인다 · IMS 는 보낸 Bill 을 고치지 않는다 · 보낸 Bill 은 4-5 전까지 QBO 에 미지급 — 북키퍼가 QBO 에서 결제하면 두 번(1081)
+⚠️⚠️ **4-5 BillPayment 규칙(4-2b sandbox)** — 외화 결제는 **`CurrencyRef` 반드시**(`ExchangeRate` 만이면 2410 「Currency is missing」) · 환율은 그대로 받고 환차손익은 QBO 가 셈(1123) · 결제 줄 = 붙임마다(부분 · Bill 둘 됨) · **PayType 은 IMS 계좌 종류로**(카드 = `CreditCard` + `CreditCardPayment.CCAccountRef`) · 수표는 **`PrintStatus NotSet` 반드시**(기본 NeedToPrint) · void = 「Void a billpayment」 몸 `{Id, SyncToken, sparse:true}`(응답 TotalAmt 0 · Line [] · PrivateNote 「Voided - 」 · Bill 다시 열림 · 1125 확정) · **Bill 의 LinkedTxn 이름(`BillPaymentCheck`)으로 결제 종류를 가르지 마라**(카드 결제도 그 이름) · E-8(VC 붙이기)은 미확인 — 할인 있는 결제는 막고 사람에게(짐작 · deferred 538)
 ```
 
 ## 6. 화면 · 바깥

@@ -1160,3 +1160,11 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
 ⚠️ **[2026-11-09 — so-module §108-e 에 이어 120 부터 · 공급처 QuickBooks 4-0 · 4-1 · 4-2a · 이 스킬에는 아래 둘을 옮김]**
    120 [대화 Claude · sandbox 안내] API Explorer 걸음마다 **작업 이름을 그대로**(「Create a bill」 · 「Query」) — 조회 문장이 만들기 칸으로(2010) · 만들기가 Update 로(2020 「Id missing」) 두 번 헛돌았다
    121 [QBO query 칸] 엔티티마다 고를 수 없는 칸이 있다(BillPayment `PayType` · 4001) — 콘솔 조회가 400 이면 `r.error.context.json()` 으로 까닭 글부터 꺼낸다
+
+⚠️ **[2026-11-09 오후 — so-module §109-e(143 ~ 148)를 옮김 · 이 스킬 번호 122 부터 · 공급처 Bill 4-3 · 4-4 적용 · 출장지 네트워크]**
+   122 [psql · 출장 네트워크] 모든 psql 에 `PGCONNECT_TIMEOUT=10`(Caleb 지시 11-09) — 없으면 DNS · 연결 단계에서 무한 대기하고 Ctrl+C 도 안 먹는다(창을 닫아야 함)
+   123 [적용 명령] 여러 줄 `if … fi` 적용 판은 붙여 넣기가 잘려 셸이 멈출 수 있다 ⇒ 대화 Claude 가 **스크립트 파일**(md5 대조 · 단계마다 `==` 줄 · 연결 10 초 제한)로 준다
+   124 [WSL DNS] 출장지에서 WSL 이 `EAI_AGAIN` · `could not resolve host` 면 `/etc/resolv.conf` 앞에 `nameserver 1.1.1.1` · `8.8.8.8` 을 끼운다(재부팅 · `wsl --shutdown` 이면 원래대로 · 다시 끼움) — IPv6 는 이 네트워크에서 연결 안 됨
+   125 [검사 파일] 「기준 + N」 증감 단언은 `\if :{?mig}` 시험 갈래 / 확인 갈래(이미 적용 · + 0)를 나눠 쓴다(4-3b F1)
+   126 [plpgsql] `v_b->'k'::text` 는 캐스트가 먼저 묶인다 ⇒ `(v_b->'k')::text`(4-3a 1 · 2 회차)
+   127 [화면 확인] 확인 명령의 `grep … -A1` 은 표 구분선까지만 보여 숫자 줄을 놓친다 ⇒ `tail -N` 또는 `-A2`
