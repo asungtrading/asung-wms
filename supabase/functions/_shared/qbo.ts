@@ -87,6 +87,13 @@
 //     unknown 열쇠(이견 9): qbo_name = 「<표지>|<VendorRef>|<TxnDate>|<센트>」(billPaymentKeyOf · parseBillPaymentKey — parsePaymentKey 와 따로 · 손님 결제 가지가 공급처 열쇠를 받지 않게) · void 는 QBO BillPayment Id · 풀기(1134): 같은 조회 → 표지 장이 꼭 1 이고 공급처 · 센트 같으면 done · 0 not_found · 표지는 있는데 다르면 amount_differs 그대로 · 2+ ambiguous · qbo_name null(stale sending)은 no_name
 //     bill_payment_void(이견 8): 손님 payment_void 길 그대로(POST billpayment?operation=update&include=void {Id, SyncToken, sparse} · SyncToken 없으면 읽기 · 5010 → 읽어서 -2 · 4xx failed · 5xx unknown(qbo_name = Id)) · 풀기 = Id 로 읽어 TotalAmt 0 ∧ 「Voided - 」 머리면 done(cron 62 풀기가 kind 를 안 가린다)
 //     PULL_FIELDS.Account = *(이견 2 답 · AccountType · CurrencyRef 를 칸으로 골라 본 적이 없다 — Item 처럼 통째로 받고 DB qbo_entity_upsert(4-5a)가 detail 에 그 둘만 담는다 · 1133 거울) — 배포 뒤 Settings → QuickBooks matching → Refresh list(accounts) 한 번 · QUERY_UNSELECTABLE + Bill HomeBalance(4-2b 실측 · GET 에는 온다)
+//   qbo-sync-4-7b(2026-11-10 · 판정 1150 「가」 · 1143 ~ 1149 · DB 4-7a 20261110034500 · 4-7b 20261110040718 · 지시서 ~/asung/prompts/qbo-sync-4-7b.md · §0 이견 1 ~ 12 Caleb 답 · sandbox E-8): 조기 결제 할인 결제 = BillPayment 에 VendorCredit 줄 · 결제 Send 한 번이 자기 할인 VC 를 먼저
+//     1150(이견 1 안 B · 2): DB 결제 몸이 안 간 할인 VC 를 needs 로 → claim ④ 가 그 일감(kind vendor_credit · ims_kind po_discount)을 need_jobs 로 → sendPicked 가 isNeedJob 으로 같은 호출에서 먼저(바퀴 3: 결제 blocked → VC → 결제) — 대신 보내는 것은 po_discount 이고 기다리는 일감이 bill_payment 일 때만(일반 공급처 크레딧 po_credit · Bill 은 북키퍼가 고른다 960)
+//       실패 갈래(이견 3): VC sent · 결제 failed → 결제 글 끝에 「vendor credit #N … stays open in QuickBooks until this payment goes through」(Retry 는 같은 VC Id 를 다시 쓴다 1146) · VC unknown → 결제 blocked + 「press Send again」(다음 send 가 맨 앞에서 푼다) · VC failed → 결제 blocked + 그 글(VC 일감 Retry → 결제 Send)
+//     결제 가지(이견 5): check_lines 를 txn_type 으로 가른다(Bill · VendorCredit 뿐 · Bill 하나 이상 · id = qbo_txn_id ?? qbo_bill_id) · Σ Bill − Σ VC = 낸 돈(센트) 아니면 failed · Bill 잔액 가드 그대로 · **VC Balance 가드**(GET vendorcredit/<id> · 못 읽음 · VendorRef 다름 · 통화 다름 · Balance 없음 · Balance < 붙일 할인 → failed · 출구 둘 1081 꼴) → POST
+//     assertWriteAllowed(이견 6): billpayment 만들기 몸의 Line 을 조인다 — 줄마다 LinkedTxn 하나 · TxnId 있음 · TxnType Bill | VendorCredit · Bill 줄 하나 이상(billPaymentLineProblem)
+//     할인 VC 가드 · 풀기(이견 7): ims_kind po_discount 면 DocNumber + VendorRef + 센트가 맞는 1 행이어도 읽은 장의 PrivateNote 가 「IMS early-payment discount <ims_id>」 로 시작해야 done — 아니면 unknown + 글(같은 날 · 같은 인보이스 · 같은 금액의 다른 결제 할인 · 출구 = QBO 에서 그 장의 번호를 바꾸고 Retry) · 풀기는 note_differs 그대로
+//     void(이견 8): 무변 — {Id, SyncToken, sparse} · VC 줄이 있던 결제도 같은 꼴(E-8) · 다시 보낼 때 다시 열린 VC 가 다른 데 붙었으면 VC Balance 가드가 잡는다
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -330,6 +337,8 @@ export function assertWriteAllowed(method: string, url: string, body?: unknown):
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>, hasId = b.Id !== undefined && b.Id !== null;
     if (op === null) {
       if (hasId) throw new QboError(500, `refusing POST ${path} with Id ${String(b.Id).slice(0, 20)} — a bill payment is only created, or voided with operation=update&include=void; it is never updated from here`);
+      const why = billPaymentLineProblem(b);                                                           // 4-7b 이견 6: 줄마다 LinkedTxn 하나 · TxnId · TxnType Bill | VendorCredit · Bill 줄 하나 이상
+      if (why !== null) throw new QboError(500, `refusing POST ${path} — a bill payment line links exactly one bill or vendor credit, and at least one bill: ${why}`);
     } else {
       const extra = Object.keys(b).filter((k) => !["Id", "SyncToken", "sparse"].includes(k));
       if (!hasId || b.SyncToken === undefined || b.SyncToken === null || String(b.SyncToken).trim() === "" || b.sparse !== true || extra.length > 0)
@@ -636,7 +645,7 @@ async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise
 //    unknown 풀기(2b2): invoice 는 DocNumber 조회 → 하나면 읽어서 합계와 함께 done · invoice_void 는 DocNumber 조회 → 읽어서 TotalAmt 0 이면(QBO 는 void 한 인보이스의 금액을 0 으로 둔다 — 짐작 · 첫 실물에서 확인) done · 아니면 not_voided(사람이 retry)
 //    credit · credit_void(2c1): 위 invoice · invoice_void 와 같은 길 — 엔티티 열쇠(creditmemo · CreditMemo · DocNumber)만 다르다(findByDocNumber · readTxn · doneTxn 이 열쇠를 받는다) ──
 type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; doc_number?: string | null; qbo_id?: string | null; body: Record<string, unknown>; warnings: string[]; totals?: Record<string, unknown> | null;
-  fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; refund?: string; qbo_purchase_id?: string; doc_number?: string; qbo_bill_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null };   // [4-5b doc_number · qbo_bill_id — DB qbo_bill_payment_body 꼴]   // [2e-3-2-1b txn_type Expense · refund · qbo_purchase_id — DB qbo_refund_apply_body 꼴]   // 2e-1c 결제: (가) 가드 줄 · unknown 열쇠(1b claim) · [2e-2-1b txn_type Invoice | CreditMemo · credit_number · qbo_creditmemo_id — DB qbo_credit_apply_body 꼴]
+  fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; refund?: string; qbo_purchase_id?: string; doc_number?: string; qbo_bill_id?: string; qbo_txn_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null };   // [4-5b doc_number · qbo_bill_id — DB qbo_bill_payment_body 꼴]   // [2e-3-2-1b txn_type Expense · refund · qbo_purchase_id — DB qbo_refund_apply_body 꼴]   // 2e-1c 결제: (가) 가드 줄 · unknown 열쇠(1b claim) · [2e-2-1b txn_type Invoice | CreditMemo · credit_number · qbo_creditmemo_id — DB qbo_credit_apply_body 꼴]
 type NeedJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; state: string; name: string | null; existing: boolean; for_job: string; parent_job: string | null };
 type Requested = { job_id: string; kind: string | null; state: string | null; result: string; reason: string | null };
 type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; blocked_for_needs?: number; blocked_for_invoice?: number; need_jobs?: NeedJob[]; requested?: Requested[]; jobs: ClaimJob[] };
@@ -662,6 +671,27 @@ const isRefundApplyKind = (kind: string): boolean => (REFUND_APPLY_KINDS as read
 const isCostDayKind = (kind: string): boolean => (COST_DAY_KINDS as readonly string[]).includes(kind);                           // 3-3 하루 원가 장
 const isSupplierTxnKind = (kind: string): boolean => (SUPPLIER_TXN_KINDS as readonly string[]).includes(kind);                   // 4-4 Bill · VendorCredit(전용 가지 — isTxnKind 에 넣지 않는다 · 가드가 VendorRef 까지 본다)
 const isNeedKind = (kind: string): boolean => kind === "customer" || kind === "item" || kind === "vendor";                      // 2e-2-1b 960: 같은 호출에서 대신 보내는 need 는 손님 · Item(· 부모 손님) · [4-4 공급처 Vendor(1128)] — 거래 · void 는 북키퍼가 고른다
+// 4-7b 판정 1150 · 이견 2 · 7 — 순수: 할인 VendorCredit 일감(kind vendor_credit + ims_kind po_discount) · 같은 호출에서 대신 보내는 need(손님 · Item · Vendor 는 그대로 · 할인 VC 는 기다리는 일감이 bill_payment 일 때만) · 표지 「IMS early-payment discount <붙임 id>」(DB qbo_discount_credit_body 의 PrivateNote 머리)
+export const DISCOUNT_CREDIT_NOTE_PREFIX = "IMS early-payment discount ";
+export const isDiscountCreditJob = (j: { kind: string; ims_kind?: string | null }): boolean => j.kind === "vendor_credit" && j.ims_kind === "po_discount";
+export const isNeedJob = (nj: { kind: string; ims_kind?: string | null }, forKind: string | null | undefined): boolean => isNeedKind(nj.kind) || (isDiscountCreditJob(nj) && forKind === "bill_payment");
+export const discountCreditNoteMatches = (note: unknown, imsId: string): boolean => { const n = String(note ?? ""), m = DISCOUNT_CREDIT_NOTE_PREFIX + imsId; return imsId !== "" && (n === m || n.startsWith(m + " ")); };
+// 4-7b 이견 6 — 순수: BillPayment 만들기 몸의 Line 검사 — null 이면 보낼 꼴 · 글이면 왜 아닌가(assertWriteAllowed · 시험이 같이 쓴다)
+export const BILL_PAYMENT_LINKED_TYPES = ["Bill", "VendorCredit"] as const;
+export const billPaymentLineProblem = (body: unknown): string | null => {
+  const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>, lines = b.Line;
+  if (!Array.isArray(lines) || lines.length === 0) return "no Line";
+  let bills = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const lt = lines[i] && typeof lines[i] === "object" ? (lines[i] as Record<string, unknown>).LinkedTxn : null;
+    if (!Array.isArray(lt) || lt.length !== 1) return `line ${i + 1} must carry exactly one LinkedTxn`;
+    const x = (lt[0] && typeof lt[0] === "object" ? lt[0] : {}) as Record<string, unknown>, ty = String(x.TxnType ?? "");
+    if (String(x.TxnId ?? "").trim() === "") return `line ${i + 1} has no TxnId`;
+    if (!(BILL_PAYMENT_LINKED_TYPES as readonly string[]).includes(ty)) return `line ${i + 1} links a ${ty.slice(0, 30) || "?"} — only Bill and VendorCredit`;
+    if (ty === "Bill") bills++;
+  }
+  return bills === 0 ? "no Bill line" : null;
+};
 const isBillPaymentKind = (kind: string): boolean => (BILL_PAYMENT_KINDS as readonly string[]).includes(kind);                  // 4-5b 공급처 결제 둘(전용 가지 — isPaymentKind 에 넣지 않는다 · 열쇠 · 가드가 다르다)
 // 4-5b 공급처 결제 BillPayment — 순수: unknown 열쇠 「<표지>|<VendorRef>|<TxnDate>|<센트>」(표지에 | 없음 — uuid) · 표지 맞춤(같거나 표지 + 「 · full reference: 」 머리 · 이견 4) · Voided 판정 · 그 날 조회 글 · 표지 장 고르기(1134)
 export const billPaymentKeyOf = (note: string, vendorRef: string, date: string, cents: number | null): string => [note, vendorRef, date, cents === null ? "" : String(cents)].join("|");
@@ -909,6 +939,7 @@ async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unk
     if (k.cents === null) return { ...out, result: "needs_hand", qbo_id: id, message: `QuickBooks has ${word} #${id} with number ${k.doc} for vendor #${k.vendorRef} but the expected total is not on the job — check it in QuickBooks, then retry the job with a note or skip it` };
     if (got === null) return { ...out, result: "needs_hand", qbo_id: id, message: `QuickBooks ${word} #${id} with number ${k.doc} for vendor #${k.vendorRef} came back without TotalAmt — check it in QuickBooks, then retry the job with a note or skip it` };
     if (got !== k.cents) return { ...out, result: "amount_differs", qbo_id: id, qbo_total: got / 100, expected_total: k.cents / 100, message: `QuickBooks ${word} #${id} with number ${k.doc} for vendor #${k.vendorRef} totals ${(got / 100).toFixed(2)} but this job expects ${(k.cents / 100).toFixed(2)} — not recorded (1127). Check it in QuickBooks: if it is this document, fix whichever side is wrong, then retry the job with a note; if it is another document, change its number there, then retry` };
+    if (isDiscountCreditJob(u) && !discountCreditNoteMatches(rd.row.PrivateNote, u.ims_id)) return { ...out, result: "note_differs", qbo_id: id, message: `QuickBooks ${word} #${id} with number ${k.doc} for vendor #${k.vendorRef} has the same total but does not carry the IMS note of this early-payment discount — not recorded (1150). If it is the discount credit of another payment on the same invoice and day, change its number in QuickBooks (for example add -1), then retry this job with a note; or skip this job` };   // 4-7b 이견 7
     const d = await doneTxn(c, u.job_id, rd.row, k.doc, rd.r.tid, `result was unknown — found in QuickBooks by vendor, number and total (${word} #${id}) and recorded`);
     return { ...out, result: "found", qbo_id: id, state: d?.state ?? null, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
   }
@@ -1046,6 +1077,8 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
         const id = String(pre.rows[0].Id), rd = await readTxn(c, id, j, e);
         if (rd.r.error || !rd.row) return await fail(`not sent — QuickBooks already has ${word} #${id} with number ${doc} for vendor #${vendorRef} but it could not be read: ${rd.r.error ?? "no row"} — nothing was written`, rd.r.tid);
         const got = billTotalCents(rd.row);
+        if (cents !== null && got !== null && got === cents && isDiscountCreditJob(j) && !discountCreditNoteMatches(rd.row.PrivateNote, j.ims_id))   // 4-7b 이견 7: 같은 날 · 같은 인보이스 · 같은 금액의 다른 결제 할인 — 표지가 다르면 얹지 않는다
+          return await unknown(`not sent — QuickBooks already has ${word} #${id} with number ${doc} for vendor #${vendorRef} and the same total, but it does not carry the IMS note of this early-payment discount — not recorded (1150). It is probably the discount credit of another payment on the same invoice and day: change its number in QuickBooks (for example add -1), then retry this job with a note; or skip this job`, rd.r.tid, key);
         if (cents !== null && got !== null && got === cents) {
           note = `already in QuickBooks (${word} #${id} — same vendor, number and total found before sending) — recorded, not created again`;
           const d = await doneTxn(c, j.job_id, rd.row, doc, rd.r.tid, note);
@@ -1108,8 +1141,15 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       const doneName = String(j.doc_number ?? j.name), key = billPaymentKeyOf(marker, vendorRef, date, cents); nameSent = key;
       if (!vendorRef) return await fail(`not sent — the job carries no QuickBooks vendor for supplier payment ${doneName} — nothing was written; link or create the supplier's QuickBooks vendor first, then retry`, null);
       if (cents === null || parseBillPaymentKey(key) === null) return await fail(`not sent — the job carries no usable lookup key (note, vendor, date, amount) for supplier payment ${doneName} — nothing was written; retry it`, null);
-      const lines = j.check_lines ?? [];
-      if (lines.length === 0 || lines.some((cl) => !cl.qbo_bill_id)) return await fail(`not sent — the job carries no QuickBooks bill to pay for supplier payment ${doneName} — nothing was written; retry it after checking the payment in IMS`, null);
+      const lines = j.check_lines ?? [];                                                                   // 4-7b 이견 5: txn_type 으로 가른다(없으면 qbo_bill_id 가 있는 줄 = Bill · 4-5a 꼴) · id = qbo_txn_id ?? qbo_bill_id
+      const typeOf = (cl: { txn_type?: string; qbo_bill_id?: string }): string => cl.txn_type ?? (cl.qbo_bill_id ? "Bill" : ""), idOf = (cl: { qbo_txn_id?: string; qbo_bill_id?: string }): string => String(cl.qbo_txn_id ?? cl.qbo_bill_id ?? "").trim();
+      const billL = lines.filter((cl) => typeOf(cl) === "Bill"), vcL = lines.filter((cl) => typeOf(cl) === "VendorCredit");
+      if (billL.length === 0 || billL.some((cl) => !idOf(cl))) return await fail(`not sent — the job carries no QuickBooks bill to pay for supplier payment ${doneName} — nothing was written; retry it after checking the payment in IMS`, null);
+      if (billL.length + vcL.length !== lines.length || vcL.some((cl) => !idOf(cl))) return await fail(`not sent — the job carries a line that is neither a QuickBooks bill nor a vendor credit (or a vendor credit without its QuickBooks id) for supplier payment ${doneName} — nothing was written; retry it after checking the payment in IMS`, null);
+      const c100 = (v: unknown): number => Math.round(Number(v) * 100), billC = billL.reduce((s, cl) => s + c100(cl.amount), 0), vcC = vcL.reduce((s, cl) => s + c100(cl.amount), 0);
+      if (!Number.isFinite(billC - vcC) || billC - vcC !== cents) return await fail(`not sent — the lines of supplier payment ${doneName} (bills ${(billC / 100).toFixed(2)} − discount credits ${(vcC / 100).toFixed(2)}) do not add up to the amount paid ${(cents / 100).toFixed(2)} ${cur} — nothing was written; retry it after checking the payment in IMS`, null);
+      const vcIds = [...new Set(vcL.map(idOf))];                                                           // 이견 3: 할인 VC 는 이미 QBO 에 서 있다 — 결제가 실패하면 안 붙은 채 열려 있다는 것을 글 끝에
+      const vcTail = vcIds.length === 0 ? "" : ` · the early-payment discount vendor credit${vcIds.length > 1 ? "s" : ""} (QuickBooks #${vcIds.join(", #")}) ${vcIds.length > 1 ? "are" : "is"} already in QuickBooks and stay${vcIds.length > 1 ? "" : "s"} open there until this payment goes through`;
       const pre = await findBillPaymentsByDate(c, date, j);
       if (pre.r.error) return await fail("not sent — the QuickBooks check for an existing bill payment failed before sending: " + pre.r.error, pre.r.tid);
       if (pre.rows.length >= MAXRESULTS_MAX) return await fail(`not sent — QuickBooks has ${pre.rows.length} or more bill payments on ${date} — too many to check for a duplicate here; nothing was written`, pre.r.tid);
@@ -1123,13 +1163,26 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       if (marked.length > 1) return await unknown(`not sent — QuickBooks already has ${marked.length} bill payments on ${date} carrying the note of this payment (#${marked.map((x) => String(x.Id)).join(", #")}) — void the extra in QuickBooks by hand, then retry the job with a note; or skip it`, pre.r.tid, key);
       if (marked.length === 1) return await unknown(`not sent — QuickBooks bill payment #${String(marked[0].Id)} on ${date} already carries the note of this payment but its vendor or amount differs (QuickBooks ${((billPaymentCents(marked[0]) ?? 0) / 100).toFixed(2)} ${cur} · this job expects ${(cents / 100).toFixed(2)} ${cur}) — not recorded (1134). Check it in QuickBooks: void it there if it is wrong, then retry the job with a note; or skip the job`, pre.r.tid, key);
       const billKey = entityKeyOf("bill"), want = new Map<string, { doc: string; amt: number }>();
-      for (const cl of lines) { const id = String(cl.qbo_bill_id), w = want.get(id) ?? { doc: String(cl.doc_number ?? id), amt: 0 }; w.amt = Math.round((w.amt + Number(cl.amount)) * 100) / 100; want.set(id, w); }
+      for (const cl of billL) { const id = idOf(cl), w = want.get(id) ?? { doc: String(cl.doc_number ?? id), amt: 0 }; w.amt = Math.round((w.amt + Number(cl.amount)) * 100) / 100; want.set(id, w); }
       for (const [id, w] of want) {
         const rd = await readTxn(c, id, j, billKey);
-        if (rd.r.error || !rd.row) return await fail(`not sent — could not read bill ${w.doc} (QuickBooks #${id}) before sending: ${rd.r.error ?? "no row"} — nothing was written`, rd.r.tid);
+        if (rd.r.error || !rd.row) return await fail(`not sent — could not read bill ${w.doc} (QuickBooks #${id}) before sending: ${rd.r.error ?? "no row"} — nothing was written` + vcTail, rd.r.tid);
         const bal = num(rd.row.Balance);
-        if (bal === null) return await fail(`not sent — bill ${w.doc} (QuickBooks #${id}) has no Balance in QuickBooks — check by hand, then retry or skip`, rd.r.tid);
-        if (bal + 0.004 < w.amt) return await fail(`not sent — QuickBooks shows only ${bal} ${cur} open on bill ${w.doc} (QuickBooks #${id}) but this payment applies ${w.amt} — nothing was written. If a payment for this bill was entered in QuickBooks by hand, delete it there and press Retry; or, to keep that QuickBooks payment, press Skip on this job in IMS (1081)`, rd.r.tid);
+        if (bal === null) return await fail(`not sent — bill ${w.doc} (QuickBooks #${id}) has no Balance in QuickBooks — check by hand, then retry or skip` + vcTail, rd.r.tid);
+        if (bal + 0.004 < w.amt) return await fail(`not sent — QuickBooks shows only ${bal} ${cur} open on bill ${w.doc} (QuickBooks #${id}) but this payment applies ${w.amt} — nothing was written. If a payment for this bill was entered in QuickBooks by hand, delete it there and press Retry; or, to keep that QuickBooks payment, press Skip on this job in IMS (1081)` + vcTail, rd.r.tid);
+      }
+      // 4-7b 이견 5 — VC Balance 가드(둘째 겹 · E-8: API 로 만든 VC 는 저절로 붙지 않았지만 사람이 QBO 에서 다른 Bill 에 붙였을 수 있다 · void 뒤 다시 열린 VC 도): GET vendorcredit/<id> · 공급처 · 통화 · Balance ≥ 이 결제가 붙이는 할인
+      const vcKey = entityKeyOf("vendor_credit"), wantVc = new Map<string, { doc: string; amt: number }>();
+      for (const cl of vcL) { const id = idOf(cl), w = wantVc.get(id) ?? { doc: String(cl.doc_number ?? id), amt: 0 }; w.amt = Math.round((w.amt + Number(cl.amount)) * 100) / 100; wantVc.set(id, w); }
+      for (const [id, w] of wantVc) {
+        const rd = await readTxn(c, id, j, vcKey);
+        if (rd.r.error || !rd.row) return await fail(`not sent — could not read the early-payment discount vendor credit ${w.doc} (QuickBooks #${id}) before sending: ${rd.r.error ?? "no row"} — nothing was written`, rd.r.tid);
+        const vRef = String(((rd.row.VendorRef ?? {}) as Record<string, unknown>).value ?? ""), vCur = String(((rd.row.CurrencyRef ?? {}) as Record<string, unknown>).value ?? "");
+        if (vRef !== vendorRef) return await fail(`not sent — vendor credit ${w.doc} (QuickBooks #${id}) belongs to vendor #${vRef || "?"}, not to the vendor of this payment (#${vendorRef}) — nothing was written; check it in QuickBooks, then retry or skip`, rd.r.tid);
+        if (vCur !== "" && cur !== "" && vCur !== cur) return await fail(`not sent — vendor credit ${w.doc} (QuickBooks #${id}) is in ${vCur} but this payment is in ${cur} — nothing was written; check it in QuickBooks, then retry or skip`, rd.r.tid);
+        const bal = num(rd.row.Balance);
+        if (bal === null) return await fail(`not sent — the early-payment discount vendor credit ${w.doc} (QuickBooks #${id}) has no Balance in QuickBooks — check by hand, then retry or skip`, rd.r.tid);
+        if (bal + 0.004 < w.amt) return await fail(`not sent — QuickBooks shows only ${bal} ${cur} open on the early-payment discount vendor credit ${w.doc} (QuickBooks #${id}) but this payment applies ${w.amt} — nothing was written. If that credit was applied to another bill in QuickBooks, unapply it there and press Retry; otherwise change the discount on this payment in IMS (1081)`, rd.r.tid);
       }
       const { r } = await attempt(j.body, j.request_id);
       const cls = classifyWrite(r.status, r.networkError);
@@ -1139,7 +1192,7 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
         const d = await doneBillPayment(c, j.job_id, row, doneName, r.tid, null, cur);
         return { ...base, name: doneName, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
       }
-      if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
+      if (cls === "fail") return await fail((r.error ?? ("HTTP " + r.status)) + vcTail, r.tid);
       return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
     }
     if (j.kind === "payment") {                                                                        // 2e-1c — (가) Balance 가드(check_lines 마다 GET invoice/<id>) → POST payment → done 10 인자 · unknown 은 열쇠를 남긴다
@@ -1434,6 +1487,8 @@ async function sendPicked(c: Ctx, body: Record<string, unknown>): Promise<Respon
   const selected = new Set(ids), extra = new Set<string>();                                          // extra = claim 이 만든 need 일감(손님 · Item · 부모) — 다음 바퀴에 같이 잡는다
   const outcome = new Map<string, PickOut>();                                                        // 고른 id + need id 마다 마지막 뜻 있는 결과
   const jobs: JobOut[] = [], needJobs: NeedJob[] = [];
+  const kindById = new Map<string, string>(), vcFor = new Map<string, string>();                    // 4-7b 1150: 고른 · need 일감의 kind(requested 가 준다) · 할인 VC need → 그것을 기다리는 결제 일감
+  const forKindOf = (nj: NeedJob): string | null => kindById.get(String(nj.for_job ?? "").toLowerCase()) ?? null;
   let rounds = 0, stopped: string | null = null, claimedTotal = 0, unblockedTotal = 0;
   const put = (id: string, o: Partial<PickOut> & { result: string }, round: number) => { const prev = outcome.get(id); outcome.set(id, { job_id: id, kind: o.kind ?? prev?.kind ?? null, state: o.state ?? prev?.state ?? null, reason: o.reason ?? null, qbo_id: o.qbo_id ?? prev?.qbo_id ?? null, name: o.name ?? prev?.name ?? null, error: o.error ?? null, note: o.note ?? null, mismatch: o.mismatch ?? null, result: o.result, round }); };
   const terminal = (id: string) => { const r = outcome.get(id)?.result; return r === "sent" || r === "failed" || r === "unknown" || r === "not_found" || r === "wrong_kind" || r === "not_due" || (r === "not_queued" && outcome.get(id)?.state !== "blocked"); };
@@ -1444,10 +1499,12 @@ async function sendPicked(c: Ctx, body: Record<string, unknown>): Promise<Respon
     rounds = r;
     const cl = (await c.d.rpcService("qbo_job_claim", { p_limit: SEND_LIMIT_MAX, p_kinds: [...SEND_KINDS], p_job_ids: want }) as ClaimResult);
     claimedTotal += cl.claimed ?? 0; unblockedTotal += cl.unblocked ?? 0;
-    for (const nj of cl.need_jobs ?? []) {                                                              // need = 손님 · Item · 부모 손님만 같이 잡는다 · 거래 종류(크레딧이 기다리는 인보이스 · 960)는 북키퍼가 골라야 한다
+    for (const q of cl.requested ?? []) if (q.kind) kindById.set(q.job_id.toLowerCase(), q.kind);
+    for (const nj of cl.need_jobs ?? []) {                                                              // need = 손님 · Item · 부모 손님만 같이 잡는다 · 거래 종류(크레딧이 기다리는 인보이스 · 960)는 북키퍼가 골라야 한다 · [4-7b 1150: 결제가 기다리는 자기 할인 VC 는 같이]
       const id = nj.job_id.toLowerCase(); needJobs.push(nj);
-      if (!isNeedKind(nj.kind)) continue;                                                              // 2e-2-1b: 거래 · void(payment_void · credit_apply_void · 1013)도 대신 보내지 않는다
-      extra.add(id); if (!outcome.has(id)) put(id, { result: "need", kind: nj.kind, state: nj.state, name: nj.name, reason: nj.existing ? `already waiting for job ${nj.for_job}` : `created first for job ${nj.for_job}` }, r);
+      if (!isNeedJob(nj, forKindOf(nj))) continue;                                                     // 2e-2-1b: 거래 · void(payment_void · credit_apply_void · 1013)도 대신 보내지 않는다 · [4-7b 일반 공급처 크레딧 po_credit · Bill 도]
+      const disc = isDiscountCreditJob(nj); if (disc) vcFor.set(id, String(nj.for_job).toLowerCase());
+      extra.add(id); if (!outcome.has(id)) put(id, { result: "need", kind: nj.kind, state: nj.state, name: nj.name, reason: disc ? `sent first, in the same send, for supplier payment job ${nj.for_job}` : nj.existing ? `already waiting for job ${nj.for_job}` : `created first for job ${nj.for_job}` }, r);
     }
     for (const q of cl.requested ?? []) {
       const id = q.job_id.toLowerCase();
@@ -1457,8 +1514,18 @@ async function sendPicked(c: Ctx, body: Record<string, unknown>): Promise<Respon
     }
     const outs = await sendAll(c, cl.jobs ?? [], SEND_PICK_PARALLEL);
     for (const o of outs) { jobs.push(o); put(o.job_id.toLowerCase(), { result: o.state, kind: o.kind, state: o.state, qbo_id: o.qbo_id, name: o.name, error: o.error, note: o.note, mismatch: o.mismatch ?? null, reason: null }, r); }
-    if (outs.length === 0 && (cl.unblocked ?? 0) === 0 && !(cl.need_jobs ?? []).some((nj) => isNeedKind(nj.kind) && !terminal(nj.job_id.toLowerCase()))) break;   // [2e-2-1b 같은 술어 — 건너뛴 need 를 「새 need」 로 세면 바퀴만 돈다]   // 이 바퀴에 보낸 것 · 풀린 것 · 새 need 가 없다 = 다음 바퀴도 그대로(blocked 는 부모가 sent 가 돼야 풀린다)
+    if (outs.length === 0 && (cl.unblocked ?? 0) === 0 && !(cl.need_jobs ?? []).some((nj) => isNeedJob(nj, forKindOf(nj)) && !terminal(nj.job_id.toLowerCase()))) break;   // [2e-2-1b 같은 술어 — 건너뛴 need 를 「새 need」 로 세면 바퀴만 돈다]   // 이 바퀴에 보낸 것 · 풀린 것 · 새 need 가 없다 = 다음 바퀴도 그대로(blocked 는 부모가 sent 가 돼야 풀린다)
   }
+  const vcWhy = new Map<string, string[]>();                                                          // 4-7b 이견 3: 할인 VC 가 안 나가 결제가 남았으면 결제 쪽에 까닭 · 출구를 적는다
+  for (const [vc, pay] of vcFor) {
+    const o = outcome.get(vc), pr = outcome.get(pay)?.result;
+    if (!o || o.result === "sent" || pr === "sent" || pr === "failed" || pr === "unknown") continue;
+    const why = o.result === "unknown" ? "its early-payment discount vendor credit was sent but the result is unknown — press Send again: it is looked up in QuickBooks first, then this payment goes"
+      : o.result === "failed" ? `its early-payment discount vendor credit was not sent (${o.error ?? o.reason ?? "failed"}) — fix that, press Retry on the vendor credit job, then send this payment again`
+      : `waiting for its early-payment discount vendor credit (job ${vc} is ${o.state ?? o.result}${o.reason ? " — " + o.reason : ""})`;
+    vcWhy.set(pay, [...(vcWhy.get(pay) ?? []), why]);
+  }
+  for (const [pay, whys] of vcWhy) { const po = outcome.get(pay); if (po) po.reason = whys.join(" · "); }
   const requested: PickOut[] = ids.map((id) => outcome.get(id) ?? { job_id: id, kind: null, result: "not_reached", state: null, reason: stopped === "time" ? "not started — the time budget ran out; send again" : "not started — too many rounds; send again", qbo_id: null, name: null, error: null, note: null, mismatch: null, round: 0 });
   const needs: PickOut[] = [...extra].map((id) => outcome.get(id)!).filter(Boolean);
   const n = (st: string) => requested.filter((x) => x.result === st).length;

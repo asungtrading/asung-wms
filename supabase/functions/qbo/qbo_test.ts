@@ -17,6 +17,10 @@ import { REFUND_KINDS, REFUND_APPLY_KINDS, REFUND_GUARD_DAYS, REFUND_GUARD_PAGES
 import { DEFAULT_SEND_KINDS, COST_DAY_KINDS, COST_DAY_DOC_RE, journalDebitCents, fingerprintDebitCents, costDayKeyOf, parseCostDayKey, costDayDocOfImsId } from "../_shared/qbo.ts";   // 3-3
 import { SUPPLIER_KINDS, SUPPLIER_TXN_KINDS, CREATE_ONLY_ENTITIES, billKeyOf, parseBillKey, fingerprintTotalCents, billGuardQueryText, billTotalCents } from "../_shared/qbo.ts";   // 4-4
 import { QUERY_UNSELECTABLE, docNumberQueryText } from "../_shared/qbo.ts";   // 3-3b
+//   qbo-sync-4-7b(2026-11-10 · 판정 1150 · DB 4-7a 20261110034500 · 4-7b 20261110040718 · §0 이견 1 ~ 12 · sandbox E-8): ㉛ 할인 결제 = BillPayment 에 VendorCredit 줄 · 결제 Send 가 할인 VC 를 먼저
+//     가짜 Intuit: VendorCredit 읽기 응답에 Balance(E-8 실측: VC 211 Balance 0 · void 뒤 2) · BillPayment 만들기가 VendorCredit 줄을 받아 VC Balance 를 줄인다(E-8) · void 는 Bill · VC 둘 다 다시 연다(E-8) · ⚠️ VC 잔액 넘김의 QBO 답(6000)은 짐작
+//     가짜 DB(20261110040718 꼴): claim ② 할인 VC 부모 skipped → 결제 queued · needs 의 vendor_credit = 그 붙임의 qbo_txn 이 없을 때만 · 열린 일감을 찾아 돌려주기만(없으면 결제 failed + 몸의 글) · VC 가 섰으면 결제 몸 · check_lines 에 VendorCredit 줄(실제 claim ④ 가 몸을 다시 만드는 꼴) · raise(몸 거부) 흉내
+import { DISCOUNT_CREDIT_NOTE_PREFIX, BILL_PAYMENT_LINKED_TYPES, isDiscountCreditJob, isNeedJob, discountCreditNoteMatches, billPaymentLineProblem } from "../_shared/qbo.ts";   // 4-7b
 import { BILL_PAYMENT_KINDS, BILL_PAYMENT_NOTE_PREFIX, billPaymentKeyOf, parseBillPaymentKey, billPaymentNoteMatches, isVoidedBillPayment, billPaymentCents, billPaymentsByDateQueryText, billPaymentMatches } from "../_shared/qbo.ts";   // 4-5b
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -97,7 +101,7 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
       it.payments.set(id, v);
       return jres(200, { Payment: payRow(v), time: "2026-11-02T12:00:00Z" }, "tid-ppost-" + id);
     }
-    const bilRow = (v: Bil): Record<string, unknown> => ({ Id: v.Id, SyncToken: String(v.SyncToken), DocNumber: v.DocNumber, TxnDate: v.TxnDate, ...(v.ent === "Bill" ? { DueDate: v.DueDate, Balance: v.Balance ?? v.TotalAmt, HomeBalance: Math.round((v.Balance ?? v.TotalAmt) * v.ExchangeRate * 100) / 100 } : {}), VendorRef: { value: v.VendorRef, name: "ZZPII Vendor Name" }, APAccountRef: v.APAccountRef, CurrencyRef: v.CurrencyRef, ExchangeRate: v.ExchangeRate, TotalAmt: v.TotalAmt, TxnTaxDetail: v.TxnTaxDetail, GlobalTaxCalculation: "TaxExcluded", PrivateNote: v.PrivateNote, Line: v.Line, domain: "QBO", sparse: false });   // 4-4 E-1 Bill 199 응답 꼴(HomeTotalAmt 없음 · HomeBalance 만 · VendorRef 에 name) · VendorCredit 은 짐작(E-8)
+    const bilRow = (v: Bil): Record<string, unknown> => ({ Id: v.Id, SyncToken: String(v.SyncToken), DocNumber: v.DocNumber, TxnDate: v.TxnDate, ...(v.ent === "Bill" ? { DueDate: v.DueDate, Balance: v.Balance ?? v.TotalAmt, HomeBalance: Math.round((v.Balance ?? v.TotalAmt) * v.ExchangeRate * 100) / 100 } : { Balance: v.Balance ?? v.TotalAmt }), VendorRef: { value: v.VendorRef, name: "ZZPII Vendor Name" }, APAccountRef: v.APAccountRef, CurrencyRef: v.CurrencyRef, ExchangeRate: v.ExchangeRate, TotalAmt: v.TotalAmt, TxnTaxDetail: v.TxnTaxDetail, GlobalTaxCalculation: "TaxExcluded", PrivateNote: v.PrivateNote, Line: v.Line, domain: "QBO", sparse: false });   // 4-4 E-1 Bill 199 응답 꼴(HomeTotalAmt 없음 · HomeBalance 만 · VendorRef 에 name) · VendorCredit 은 짐작(E-8)
     const purRow = (p: Pur, withStatus = true) => ({ Id: p.Id, SyncToken: String(p.SyncToken), TxnDate: p.TxnDate, TotalAmt: p.TotalAmt, PaymentType: p.PaymentType, AccountRef: p.AccountRef, EntityRef: p.EntityRef, PrivateNote: p.PrivateNote, DocNumber: p.DocNumber, CurrencyRef: { value: "CAD" }, GlobalTaxCalculation: "NotApplicable", Line: p.Line, ...(p.LinkedTxn.length ? { LinkedTxn: p.LinkedTxn } : {}), ...(withStatus && p.status ? { status: p.status } : {}), domain: "QBO", sparse: false });   // 2e-3-2-1b 가짜 Purchase 꼴(sandbox P1 · 조회 select 에는 status 칸이 안 나온다)
     if (h.method === "POST" && /\/v3\/company\/[^/]+\/purchase\/?\?/.test(url)) {                      // 2e-3-2-1b 가짜 Purchase — 만들기(Id 없음) · Full update(Id · SyncToken 대조 · 5010 · 줄 Amount · PrivateNote 그대로 받음 · 금액 0 ∧ 「Voided - 」 = status Voided) · operation 은 어느 것도 없다
       const b = JSON.parse(h.body || "{}") as Record<string, unknown>, op = new URL(url).searchParams.get("operation");
@@ -171,7 +175,7 @@ function intuitFake(): { it: Intuit; fetch: Deps["fetch"] } {
       const need = new Map<string, number>();
       for (const l of lines) {
         const lt = ((((l.LinkedTxn ?? []) as Record<string, unknown>[])[0] ?? {}) as Record<string, unknown>), bl = it.bills.get(String(lt.TxnId ?? ""));
-        if (lt.TxnType !== "Bill" || !bl || bl.ent !== "Bill") return jres(400, { Fault: { Error: [{ Message: "Invalid Reference Id", Detail: "Invalid Reference Id : Bill " + String(lt.TxnId) + " not found", code: "2500" }], type: "ValidationFault" } }, "tid-badref");
+        if ((lt.TxnType !== "Bill" && lt.TxnType !== "VendorCredit") || !bl || bl.ent !== lt.TxnType) return jres(400, { Fault: { Error: [{ Message: "Invalid Reference Id", Detail: "Invalid Reference Id : Bill " + String(lt.TxnId) + " not found", code: "2500" }], type: "ValidationFault" } }, "tid-badref");
         need.set(bl.Id, Math.round(((need.get(bl.Id) ?? 0) + l.Amount) * 100) / 100);
       }
       for (const [bid, amt] of need) { const bl = it.bills.get(bid)!; if (amt > (bl.Balance ?? bl.TotalAmt) + 0.004) return jres(400, { Fault: { Error: [{ Message: "Business Validation Error", Detail: "Amount applied exceeds the bill open balance", code: "6000" }], type: "ValidationFault" } }, "tid-6000"); }
@@ -289,7 +293,7 @@ type Conn = { env: string; realm_id: string; status: string; company_name: strin
 type Pull = { started_at: number; next_start: number; received: number; pages: number; finished_at: number | null };
 type Ent = { name: string; sku: string | null; fetched_at: number; gone_at: number | null; detail?: Record<string, unknown> | null };   // [4-4 detail — TaxCode 의 SalesTaxRateList 펼침 + PurchaseTaxRateList 키(20261109103000 qbo_entity_upsert 병합 꼴)]
 type Db = { conn: Conn | null; states: Map<string, { staff_id: string; env: string; created_at: number; used_at: number | null }>; pin: Record<string, string | null>; calls: string[]; mails: number; saveFails: boolean; staleOnSave: boolean; lastErrors: string[]; versionBumpOnSleep: boolean; pulls: Map<string, Pull>; ents: Map<string, Map<string, Ent>>; keys: Record<string, string | null>; jobs: Map<string, Job>; links: { ims_kind: string; ims_id: string; qbo_id: string; qbo_name: string; matched_by: string }[]; txns: Map<string, Txn>; claimKinds: string[][]; opening: Opening };   // keys = JWT → perms 열쇠('qbo' · 'qbo:read' · null) · qbo-sync-2a 945 · jobs · links = 2a′ 일감 상태기(20261102003000 · 20261102030000 의 규칙 · 거부 글 그대로)
-type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null; needs?: { kind: string; ims_id: string; name: string; parent?: { ims_id: string; name: string } }[]; wait_job?: string | null; blocked_by?: string | null; fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; refund?: string; qbo_purchase_id?: string; doc_number?: string; qbo_bill_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null; pay_totals?: { amount: number; unapplied: number } | null };   // [2e-3-2-1b txn_type Expense · refund · qbo_purchase_id]   // 2d1: needs · wait_job · blocked_by · [2e-1c fingerprint · check_lines · lookup · pay_totals] · [2e-2-1b check_lines 에 txn_type · credit_number · qbo_creditmemo_id]
+type Job = { id: string; kind: string; ims_kind: string; ims_id: string; state: string; attempts: number; request_id: string; name: string; name_alt: string | null; sku: string | null; body: Record<string, unknown>; qbo_id: string | null; qbo_name: string | null; last_error: string | null; claimed_at: number | null; sent_at: number | null; doc_number?: string | null; totals?: { total: number; tax: number } | null; warning?: string | null; needs?: { kind: string; ims_id: string; name: string; parent?: { ims_id: string; name: string } }[]; wait_job?: string | null; blocked_by?: string | null; fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; refund?: string; qbo_purchase_id?: string; doc_number?: string; qbo_bill_id?: string; qbo_txn_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null; pay_totals?: { amount: number; unapplied: number } | null; raise?: string | null; vc?: { ims_id: string; doc: string; amt: number }[] };   // [2e-3-2-1b txn_type Expense · refund · qbo_purchase_id]   // 2d1: needs · wait_job · blocked_by · [2e-1c fingerprint · check_lines · lookup · pay_totals] · [2e-2-1b check_lines 에 txn_type · credit_number · qbo_creditmemo_id]
 type OpeningInv = { invoice_id: string; invoice_number: string; match: "none" | "auto" | "manual"; reason: string | null; warning: string | null; warn: string | null };   // 2e-1d-2 가짜 이월 인보이스(warn = 사람 짝 때 DB 검사가 낼 경고 글)
 type Opening = { list: OpeningInv[]; held: Map<string, string>; cands: { numbers: string[]; rows: Record<string, unknown>[] }[]; matches: { invoice_id: string; qbo_id: string; row: Record<string, unknown>; ack: boolean }[]; failCall: number | null };
 type Txn = { qbo_id: string; doc_number: string; sync_token: string | null; total_amt: number | null; total_tax: number | null; mismatch: string | null; voided_at: number | null; fingerprint?: string | null; unapplied?: number | null };   // [2e-1c fingerprint · unapplied]   // 2b2 qbo_txn 거울(20261102040000 의 942 규칙 · 글 그대로)
@@ -461,15 +465,23 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
         const pick = Array.isArray(args.p_job_ids) ? [...new Set((args.p_job_ids as string[]).map(String))] : null;
         if (pick !== null && pick.length === 0) refuse("job_ids must name at least one job — nothing was read");
         if (pick !== null && pick.length > 200) refuse(`job_ids may name at most 200 jobs in one call (got ${pick.length}) — nothing was read`);
-        let unblocked = 0; for (const j of db.jobs.values()) if (j.state === "blocked" && j.blocked_by && db.jobs.get(j.blocked_by)?.state === "sent") { j.state = "queued"; j.blocked_by = j.blocked_by; unblocked++; }
+        let unblocked = 0; for (const j of db.jobs.values()) if (j.state === "blocked" && j.blocked_by && (db.jobs.get(j.blocked_by)?.state === "sent" || (j.kind === "bill_payment" && db.jobs.get(j.blocked_by)?.kind === "vendor_credit" && db.jobs.get(j.blocked_by)?.ims_kind === "po_discount" && db.jobs.get(j.blocked_by)?.state === "skipped"))) { j.state = "queued"; j.blocked_by = j.blocked_by; unblocked++; }   // [4-7b ② 할인 VC 부모 skipped → 결제 queued(몸이 raise)]
         const cand = [...db.jobs.values()].filter((j) => j.state === "queued" && kinds.includes(j.kind) && (pick === null || pick.includes(j.id)));
         const picked = pick === null ? cand.slice(0, Math.max(1, Math.min(Number(args.p_limit ?? 15), 50))) : cand;
         for (const j of picked) { j.state = "sending"; j.claimed_at = clock(); j.attempts++; }
         const needJobs: Record<string, unknown>[] = [], rows: Record<string, unknown>[] = []; let blockedNeeds = 0, blockedInv = 0;
         const openOf = (kind: string, imsId: string) => [...db.jobs.values()].find((x) => x.kind === kind && x.ims_id === imsId && !["sent", "skipped"].includes(x.state));
         const mk = (kind: string, imsId: string, name: string): Job => { const n = ++jobN; const j: Job = { id: "job-" + n, kind, ims_kind: kind === "customer" ? "customer" : kind === "vendor" ? "supplier" : "product", ims_id: imsId, state: "queued", attempts: 0, request_id: "11111111-2222-4333-8444-" + String(n).padStart(12, "0"), name, name_alt: null, sku: kind === "item" ? "SKU-" + n : null, body: kind === "customer" ? { DisplayName: name } : kind === "vendor" ? { DisplayName: name, CurrencyRef: { value: "USD" } } : { Name: name, Type: "Service" }, qbo_id: null, qbo_name: null, last_error: null, claimed_at: null, sent_at: null, warning: null, blocked_by: null }; db.jobs.set(j.id, j); return j; };   // [4-4 vendor need — qbo_job_open_or_add('vendor') · 몸 = qbo_vendor_body(DisplayName + CurrencyRef · 1128)]
+        let bodyFailed = 0;
+        const vcOnFile = (imsId: string) => { const x = db.txns.get(imsId); return !!x && x.voided_at === null; };
+        const needPending = (n: { kind: string; ims_id: string }) => n.kind === "vendor_credit" ? !vcOnFile(n.ims_id) : !db.links.some((l) => l.ims_id === n.ims_id);   // 4-7b: 할인 VC need = 그 붙임의 qbo_txn(po_discount)이 아직 없을 때
         for (const j of picked) {
-          const pending = (j.needs ?? []).filter((n) => !db.links.some((l) => l.ims_id === n.ims_id));
+          if (j.raise) { j.state = "failed"; j.claimed_at = null; j.last_error = j.raise; bodyFailed++; continue; }   // 몸이 거부(raise) → 그 일감만 failed
+          const pending = (j.needs ?? []).filter(needPending);
+          const lostVc = pending.find((n) => n.kind === "vendor_credit" && !openOf(n.kind, n.ims_id));       // 4-7b: 열린 할인 VC 일감이 없다 — 몸(skipped) · qbo_job_open_or_add(없음)의 글로 결제 failed
+          if (lostVc) { const sk = [...db.jobs.values()].some((x) => x.kind === "vendor_credit" && x.ims_id === lostVc.ims_id && x.state === "skipped");
+            j.state = "failed"; j.claimed_at = null; bodyFailed++;
+            j.last_error = sk ? `The vendor credit job for the early-payment discount of invoice ${j.vc?.find((v) => v.ims_id === lostVc.ims_id)?.doc ?? "?"} was skipped — retry that job first, or enter this payment in QuickBooks by hand and press Skip on this job — nothing was sent` : "The early-payment discount vendor credit has no open QuickBooks job — press Retry on the supplier payment job and it is queued — nothing was saved"; continue; }
           if (pending.length > 0) {
             let last: string | null = null, cust: string | null = null;
             for (const n of pending) {
@@ -485,17 +497,21 @@ function dbFake(clock: () => number): { db: Db; rpcUser: Deps["rpcUser"]; rpcSer
             const nv = (j.needs ?? []).find((n) => n.kind === "vendor"), lk = nv ? db.links.find((l) => l.ims_kind === "supplier" && l.ims_id === nv.ims_id) : undefined;
             if (lk) { j.body = { ...j.body, VendorRef: { value: lk.qbo_id } }; j.lookup = { ...(j.lookup ?? {}), vendor_ref: lk.qbo_id }; }
           }
-          rows.push({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, doc_number: j.doc_number ?? null, qbo_id: j.kind === "invoice_void" ? (j.body.Id != null ? String(j.body.Id) : null) : null, body: j.body, warnings: [], totals: j.totals ? { taxable: null, tax: j.totals.tax, total: j.totals.total } : null,
-            fingerprint: j.fingerprint ?? null, check_lines: j.check_lines ?? null, lookup: j.lookup ?? null });   // 2e-1c
+          let rowBody = j.body, rowChecks = j.check_lines ?? null;                                        // 4-7b: 선 할인 VC 마다 결제 몸 · check_lines 에 VendorCredit 줄(qbo_bill_payment_body 4-7a 꼴 · VC 줄에는 qbo_bill_id 없음)
+          if (j.kind === "bill_payment" && j.vc?.length) { const on = j.vc.filter((v) => vcOnFile(v.ims_id)).map((v) => ({ v, x: db.txns.get(v.ims_id)! }));
+            rowBody = { ...j.body, Line: [...(j.body.Line as Record<string, unknown>[]), ...on.map(({ v, x }) => ({ Amount: v.amt, LinkedTxn: [{ TxnId: x.qbo_id, TxnType: "VendorCredit" }] }))] };
+            rowChecks = [...(j.check_lines ?? []), ...on.map(({ v, x }) => ({ txn_type: "VendorCredit", doc_number: x.doc_number ?? v.doc, qbo_txn_id: x.qbo_id, amount: v.amt }))]; }
+          rows.push({ job_id: j.id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, attempt: j.attempts, request_id: j.request_id, name: j.name, name_alt: j.name_alt, sku: j.sku, doc_number: j.doc_number ?? null, qbo_id: j.kind === "invoice_void" ? (j.body.Id != null ? String(j.body.Id) : null) : null, body: rowBody, warnings: [], totals: j.totals ? { taxable: null, tax: j.totals.tax, total: j.totals.total } : null,
+            fingerprint: j.fingerprint ?? null, check_lines: rowChecks, lookup: j.lookup ?? null });   // 2e-1c
         }
         for (const id of pick ?? []) { const j = db.jobs.get(id); if (!j || j.state !== "blocked" || picked.some((x) => x.id === id)) continue;   // 2d1 ⑤ 되살리기 — blocked 로 남은 일감의 열린 need(부모 blocked_by + needs) 를 need_jobs 로
           const bb = j.blocked_by ? db.jobs.get(j.blocked_by) : null; if (bb && !["sent", "skipped"].includes(bb.state)) needJobs.push({ job_id: bb.id, kind: bb.kind, ims_kind: bb.ims_kind, ims_id: bb.ims_id, state: bb.state, name: null, existing: true, for_job: j.id, parent_job: null });
-          for (const n of (j.needs ?? []).filter((n) => !db.links.some((l) => l.ims_id === n.ims_id))) { const oj = openOf(n.kind, n.ims_id); if (oj && oj.id !== j.blocked_by) needJobs.push({ job_id: oj.id, kind: n.kind, ims_kind: oj.ims_kind, ims_id: n.ims_id, state: oj.state, name: n.name, existing: true, for_job: j.id, parent_job: null }); } }
+          for (const n of (j.needs ?? []).filter(needPending)) { const oj = openOf(n.kind, n.ims_id); if (oj && oj.id !== j.blocked_by) needJobs.push({ job_id: oj.id, kind: n.kind, ims_kind: oj.ims_kind, ims_id: n.ims_id, state: oj.state, name: n.name, existing: true, for_job: j.id, parent_job: null }); } }
         const requested = (pick ?? []).map((id) => { const j = db.jobs.get(id); const was = picked.some((x) => x.id === id);
           const result = !j ? "not_found" : was ? (j.state === "sending" ? "claimed" : j.state) : j.state !== "queued" ? "not_queued" : !kinds.includes(j.kind) ? "wrong_kind" : "locked";
           const reason = !j ? "no such job" : was ? (j.state === "blocked" ? j.warning ?? null : j.state === "failed" ? j.last_error : null) : j.state !== "queued" ? `the job is ${j.state} — not sent` + (j.state === "blocked" ? ` (${j.warning ?? "waiting for another job"})` : j.state === "failed" || j.state === "skipped" ? " — retry it first" : j.state === "unknown" ? " — retry it with a note after checking QuickBooks" : j.state === "sending" ? " (another send is working on it)" : "") : !kinds.includes(j.kind) ? `kind ${j.kind} is not sent by this worker` : "another send holds the job — try again in a moment";
           return { job_id: id, kind: j?.kind ?? null, state: j?.state ?? null, result, reason }; });
-        return { recovered_unknown: stale, unblocked, claimed: picked.length, body_failed: 0, blocked_for_needs: blockedNeeds, blocked_for_invoice: blockedInv, picked: pick, need_jobs: needJobs, requested, jobs: rows };
+        return { recovered_unknown: stale, unblocked, claimed: picked.length, body_failed: bodyFailed, blocked_for_needs: blockedNeeds, blocked_for_invoice: blockedInv, picked: pick, need_jobs: needJobs, requested, jobs: rows };
       }
       case "qbo_job_done": {
         const j = db.jobs.get(String(args.p_job)); if (!j) refuse(`Job ${args.p_job} not found — nothing was saved`);
@@ -1356,7 +1372,7 @@ const send = (w: World, jwt: string | null = "JWT-ADMIN", extra: Record<string, 
 
 Deno.test("⑯ 쓰기 순수(qbo-sync-2a′) — assertWriteAllowed(POST customer · item · invoice · creditmemo + requestid · operation=void 는 invoice · creditmemo 만 · delete · PUT · DELETE · billpayment(vendor 는 4-4 부터 만들기 허용) · requestid 없음 · 51 자 거부) · classifyWrite · faultCode · sqlQuote · PII 가드 확장(Invoice · CreditMemo · Payment · SalesReceipt · RefundReceipt: select * 400 · BillEmail · ShipFromAddr 400 · read 는 벗김 · DocNumber 등은 그대로)", () => {
   const base = "https://quickbooks.api.intuit.com/v3/company/123";
-  for (const e of WRITE_ENTITIES) assertWriteAllowed("POST", `${base}/${e}?requestid=r1&minorversion=75`);
+  for (const e of WRITE_ENTITIES) assertWriteAllowed("POST", `${base}/${e}?requestid=r1&minorversion=75`, e === "billpayment" ? { Line: [{ Amount: 1, LinkedTxn: [{ TxnId: "1", TxnType: "Bill" }] }] } : undefined);   // [4-7b billpayment 만들기는 Bill 줄 하나 이상]
   assertWriteAllowed("POST", `${base}/invoice?operation=void&requestid=r1`); assertWriteAllowed("POST", `${base}/creditmemo?operation=void&requestid=r1`);
   const refused = (m: string, u: string, why: string) => { let msg = ""; try { assertWriteAllowed(m, u); } catch (e) { msg = (e as Error).message; } ok(msg.startsWith("refusing"), why + " should be refused: " + (msg || "(allowed)")); return msg; };
   ok(refused("POST", `${base}/customer?operation=void&requestid=r1`, "void customer").includes("only operation=void on invoice, creditmemo"), "void only on invoice · creditmemo");
@@ -3245,7 +3261,7 @@ Deno.test("㉚ 공급처 결제 = BillPayment 보내기 · void(qbo-sync-4-5b ·
   eq([kindsOf(undefined).some((k) => k.startsWith("bill_payment")), kindsOf(["bill_payment", "bill_payment_void", "bill_payment"]), kindsOf(TWELVE).length, kindsOf(TWELVE).some((k) => k.startsWith("bill_payment"))], [false, ["bill_payment", "bill_payment_void"], 12, false], "kindsOf: the two only when named · cron 62's twelve do not carry them");
   const base = "https://quickbooks.api.intuit.com/v3/company/9341";
   const wr = (url: string, b?: unknown): string => { try { assertWriteAllowed("POST", url, b); return "(allowed)"; } catch (e) { return String((e as Error).message); } };
-  eq([wr(`${base}/billpayment?requestid=r1`, { TxnDate: "2026-11-09", Line: [] }), wr(`${base}/billpayment?operation=update&include=void&requestid=r1`, { Id: "209", SyncToken: "0", sparse: true }), wr(`${base}/payment?operation=update&include=void&requestid=r1`), wr(`${base}/payment?operation=update&include=void&requestid=r1`, { Id: "1", SyncToken: "0", sparse: true })],
+  eq([wr(`${base}/billpayment?requestid=r1`, { TxnDate: "2026-11-09", Line: [{ Amount: 1, LinkedTxn: [{ TxnId: "1", TxnType: "Bill" }] }] }), wr(`${base}/billpayment?operation=update&include=void&requestid=r1`, { Id: "209", SyncToken: "0", sparse: true }), wr(`${base}/payment?operation=update&include=void&requestid=r1`), wr(`${base}/payment?operation=update&include=void&requestid=r1`, { Id: "1", SyncToken: "0", sparse: true })],
      ["(allowed)", "(allowed)", "(allowed)", "(allowed)"], "assertWriteAllowed: bill payment create · void shape allowed · customer payment void unchanged");
   ok(wr(`${base}/billpayment?requestid=r1`, { Id: "209", SyncToken: "0", TotalAmt: 1 }).includes("a bill payment is only created, or voided with operation=update&include=void"), "bill payment with Id and no operation (full update) refused");
   for (const [b, why] of [[{ Id: "209", sparse: true }, "no SyncToken"], [{ Id: "209", SyncToken: "0", sparse: false }, "sparse false"], [{ Id: "209", SyncToken: "0" }, "no sparse"], [{ SyncToken: "0", sparse: true }, "no Id"], [{ Id: "209", SyncToken: "0", sparse: true, Line: [] }, "extra Line"], [undefined, "no body"]] as [unknown, string][])
@@ -3426,4 +3442,185 @@ Deno.test("㉚ 공급처 결제 = BillPayment 보내기 · void(qbo-sync-4-5b ·
   const hb = await postBody(wp, { action: "query", q: "select Id, HomeBalance from Bill MAXRESULTS 5" });
   eq([hb.status, String((await body(hb)).error).endsWith("code 4001: Invalid query — QueryValidationError: Property HomeBalance not found for Entity Bill"), (await postBody(wp, { action: "query", q: "select Id, Balance from Bill MAXRESULTS 5" })).status], [400, true, 200], "T8 fake Intuit refuses HomeBalance on Bill (4-2b) · Balance passes");
   noLeak(wp, "㉚ pull");
+});
+
+// ── 4-7b 조기 결제 할인 재료 — 할인 VC 몸은 DB qbo_discount_credit_body(4-7a) · 결제 몸 · check_lines 는 qbo_bill_payment_body(4-7a · 4-7b) 꼴 · 값은 sandbox E-8(Bill 100 · VC 2 · 결제 98)과 운영 첫 실물 꼴(CAD · 할인 한 줄) ──
+const dcUuid = (n: number) => "47b47b47-0000-4000-8000-" + String(n).padStart(12, "0");
+const dcDoc = (inv: string) => "D261109-" + inv;
+const dcNote = (n: number, inv: string) => `${DISCOUNT_CREDIT_NOTE_PREFIX}${dcUuid(n)} · invoice ${inv} · paid 2026-11-09`;
+const cadBill = (b: Bil): Bil => { b.CurrencyRef = { value: "CAD" }; b.ExchangeRate = 1; return b; };
+const addDisc = (w: World, n: number, vendor: string, inv: string, amt: number): Job => {            // 할인 VendorCredit 일감(kind vendor_credit · ims_kind po_discount · ims_id = 붙임 id · 지문 「<센트>|CAD」)
+  const j = addBill(w, dcDoc(inv), vendor, [sbLine(1, amt)], { credit: true, cur: "CAD" }, { ims_kind: "po_discount", ims_id: dcUuid(n) });
+  j.body = { ...j.body, TxnDate: "2026-11-09", PrivateNote: dcNote(n, inv) }; return j;
+};
+type DcLine = { n: number; inv: string; amt: number };
+const addDiscBp = (w: World, n: number, vendor: string, bills: BpLine[], discs: DcLine[], extra: Partial<Job> = {}): Job => {   // 할인 결제 — 몸의 Bill 줄 + (선 VC 마다 가짜 claim 이 VendorCredit 줄) · TotalAmt = 낸 돈 · needs = 안 간 할인 VC
+  const paid = Math.round((bpTotal(bills) - discs.reduce((a, d) => a + d.amt, 0)) * 100) / 100;
+  const j = addBp(w, n, vendor, bills, { cur: "CAD" }, { needs: discs.map((d) => ({ kind: "vendor_credit", ims_id: dcUuid(d.n), name: `Discount credit ${dcDoc(d.inv)} · ${d.amt} CAD` })), ...extra });
+  j.body = { ...j.body, TotalAmt: paid }; j.lookup = { ...(j.lookup ?? {}), total_amt: paid, total_cents: Math.round(paid * 100) }; j.pay_totals = { amount: paid, unapplied: 0 };
+  if (!extra.check_lines) j.check_lines = bills.map((l) => ({ txn_type: "Bill", doc_number: l.doc, qbo_bill_id: l.bill, qbo_txn_id: l.bill, amount: l.amt }));
+  j.vc = discs.map((d) => ({ ims_id: dcUuid(d.n), doc: d.inv, amt: d.amt })); return j;
+};
+const haveVc = (w: World, n: number, id: string, vendor: string, inv: string, amt: number): Bil => {   // 이미 QBO 에 선 할인 VC(qbo_txn po_discount + 장부) — 결제 몸이 그 Id 를 다시 쓴다(1146)
+  const v = cadBill(plantBill(w, "VendorCredit", dcDoc(inv), vendor, amt, id)); v.PrivateNote = dcNote(n, inv);
+  w.db.txns.set(dcUuid(n), { qbo_id: id, doc_number: dcDoc(inv), sync_token: "0", total_amt: amt, total_tax: 0, mismatch: null, voided_at: null, fingerprint: `${Math.round(amt * 100)}|CAD` }); return v;
+};
+const vcOnlyReads = (w: World) => apiHits(w).filter((h) => h.method === "GET" && /\/vendorcredit\/\d+\?/.test(h.url));
+const bpLines = (h: Hit) => ((JSON.parse(h.body) as Record<string, unknown>).Line as Record<string, unknown>[]).map((l) => [l.Amount, ((l.LinkedTxn as Record<string, unknown>[])[0]).TxnId, ((l.LinkedTxn as Record<string, unknown>[])[0]).TxnType]);
+
+Deno.test("㉛ 조기 결제 할인 결제 = BillPayment 에 VendorCredit 줄 · 결제 Send 가 할인 VC 를 먼저(qbo-sync-4-7b · 판정 1150 「가」 · 1143 ~ 1149 · sandbox E-8 · §0 이견 1 ~ 12) — 순수(isDiscountCreditJob · isNeedJob · 표지 맞춤 · billPaymentLineProblem · assertWriteAllowed 줄 조임) · T1 결제 하나 고르면 VC 먼저 → 결제(바퀴 3 · POST 순서 · 줄 Bill + VendorCredit · TotalAmt 낸 돈 · 둘 다 Balance 0) · T2 할인 둘 · T3 대신 보내지 않는 것 셋(일반 크레딧 po_credit · Bill · 결제가 아닌 일감이 기다리는 할인 VC) · T4 실패 갈래(VC sent + 결제 failed 글 끝 · VC unknown → Send again → 풀고 결제까지 · VC 몸 거부 · VC Skip → 결제 failed + 출구) · T5 VC Balance 가드(모자람 출구 둘 · 못 읽음 · 공급처 · 통화 · Balance 없음 · 꼭 맞음 sent) · T6 check_lines 꼴(다른 txn_type · id 없는 VC · 합 안 맞음) · T7 할인 VC 표지(다른 결제의 같은 번호 → unknown → note_differs → 번호 바꾸면 sent · 자기 표지 done · po_credit 무변 · unknown found) · T8 void(Bill · VC 다시 열림) → 다시 보내기(같은 VC · 다른 데 붙었으면 가드) · T9 할인 없는 결제 회귀 · 쓰기 꼴 · 누출 0", async () => {
+  // ── 순수 ──
+  eq([isDiscountCreditJob({ kind: "vendor_credit", ims_kind: "po_discount" }), isDiscountCreditJob({ kind: "vendor_credit", ims_kind: "po_credit" }), isDiscountCreditJob({ kind: "bill", ims_kind: "po_discount" }), isDiscountCreditJob({ kind: "vendor_credit" })], [true, false, false, false], "discount credit job = vendor_credit + po_discount only");
+  eq([isNeedJob({ kind: "customer" }, null), isNeedJob({ kind: "item" }, "invoice"), isNeedJob({ kind: "vendor" }, "bill"), isNeedJob({ kind: "vendor_credit", ims_kind: "po_discount" }, "bill_payment"), isNeedJob({ kind: "vendor_credit", ims_kind: "po_discount" }, "bill"), isNeedJob({ kind: "vendor_credit", ims_kind: "po_discount" }, null),
+      isNeedJob({ kind: "vendor_credit", ims_kind: "po_credit" }, "bill_payment"), isNeedJob({ kind: "bill", ims_kind: "po_invoice" }, "bill_payment"), isNeedJob({ kind: "invoice", ims_kind: "invoice" }, "credit"), isNeedJob({ kind: "payment_void" }, "payment")],
+     [true, true, true, true, false, false, false, false, false, false], "need sent in the same call: customer · item · vendor as before · the discount credit only for a waiting bill_payment (1150) — never a plain vendor credit, a bill, an invoice or a void");
+  const m7 = DISCOUNT_CREDIT_NOTE_PREFIX + dcUuid(7);
+  eq([DISCOUNT_CREDIT_NOTE_PREFIX, discountCreditNoteMatches(m7, dcUuid(7)), discountCreditNoteMatches(dcNote(7, "2223170"), dcUuid(7)), discountCreditNoteMatches(dcNote(8, "2223170"), dcUuid(7)), discountCreditNoteMatches(m7 + "x", dcUuid(7)), discountCreditNoteMatches("hand", dcUuid(7)), discountCreditNoteMatches(undefined, dcUuid(7)), discountCreditNoteMatches(DISCOUNT_CREDIT_NOTE_PREFIX, "")],
+     ["IMS early-payment discount ", true, true, false, false, false, false, false], "note match: the marker itself or the marker and its tail — another alloc id, a hand note, nothing → false");
+  const L = (ty: string, id: unknown = "9", amt = 1) => ({ Amount: amt, LinkedTxn: [{ TxnId: id, TxnType: ty }] });
+  eq([[...BILL_PAYMENT_LINKED_TYPES], billPaymentLineProblem({ Line: [L("Bill"), L("VendorCredit")] }), billPaymentLineProblem({ Line: [L("Bill")] }), billPaymentLineProblem({ Line: [] }), billPaymentLineProblem({}), billPaymentLineProblem({ Line: [L("VendorCredit")] }), billPaymentLineProblem({ Line: [L("Bill"), L("Invoice")] }),
+      billPaymentLineProblem({ Line: [L("Bill"), L("CreditMemo")] }), billPaymentLineProblem({ Line: [L("Bill", "")] }), billPaymentLineProblem({ Line: [L("Bill"), { Amount: 1, LinkedTxn: [{ TxnId: "1", TxnType: "Bill" }, { TxnId: "2", TxnType: "VendorCredit" }] }] }), billPaymentLineProblem({ Line: [L("Bill"), { Amount: 1 }] }), billPaymentLineProblem({ Line: [L("Bill"), L("")] })],
+     [["Bill", "VendorCredit"], null, null, "no Line", "no Line", "no Bill line", "line 2 links a Invoice — only Bill and VendorCredit", "line 2 links a CreditMemo — only Bill and VendorCredit", "line 1 has no TxnId", "line 2 must carry exactly one LinkedTxn", "line 2 must carry exactly one LinkedTxn", "line 2 links a ? — only Bill and VendorCredit"], "bill payment lines: one LinkedTxn each · a TxnId · Bill or VendorCredit only · at least one Bill (이견 6)");
+  const base = "https://quickbooks.api.intuit.com/v3/company/9341";
+  const wr = (url: string, b?: unknown): string => { try { assertWriteAllowed("POST", url, b); return "(allowed)"; } catch (e) { return String((e as Error).message); } };
+  eq([wr(`${base}/billpayment?requestid=r1`, { TotalAmt: 98, Line: [L("Bill", "210", 100), L("VendorCredit", "211", 2)] }), wr(`${base}/billpayment?operation=update&include=void&requestid=r1`, { Id: "212", SyncToken: "0", sparse: true })], ["(allowed)", "(allowed)"], "assertWriteAllowed: a Bill line + a VendorCredit line is allowed (E-8) · the void shape is unchanged");
+  for (const [b, why] of [[{ Line: [L("Bill"), L("JournalEntry")] }, "JournalEntry line"], [{ Line: [L("Bill"), L("Invoice")] }, "Invoice line"], [{ Line: [L("VendorCredit")] }, "vendor credit only"], [{ Line: [] }, "no lines"], [{}, "no Line"], [undefined, "no body"], [{ Line: [L("Bill", null)] }, "no TxnId"]] as [unknown, string][])
+    ok(wr(`${base}/billpayment?requestid=r1`, b).includes("a bill payment line links exactly one bill or vendor credit, and at least one bill"), "bill payment create refused: " + why);
+
+  const w = world(); connect(w); w.db.keys["JWT-MGR"] = "qbo";
+  const one = async (kinds: string[]) => await body(await send(w, "JWT-MGR", { kinds }));
+  const pick = async (ids: string[]) => await body(await pickSend(w, ids, "JWT-MGR"));
+  const rq0 = (b: Record<string, unknown>) => (b.requested as Record<string, unknown>[])[0], nds = (b: Record<string, unknown>) => b.needs as Record<string, unknown>[];
+  // T1 — 1150: 결제 하나만 고른다 → 바퀴 1 결제 blocked(need = 자기 할인 VC) → 바퀴 2 VC(가드 0 행 → POST vendorcredit) → 바퀴 3 결제(VC GET 가드 → POST billpayment · 줄 Bill 20 + VendorCredit 0.4 · TotalAmt 19.6) · E-8: Bill · VC 둘 다 Balance 0
+  const b701 = cadBill(plantBill(w, "Bill", "2223170", "3646", 20, "701"));
+  const d1 = addDisc(w, 1, "3646", "2223170", 0.4), p1 = addDiscBp(w, 31, "3646", [{ bill: "701", doc: "2223170", amt: 20 }], [{ n: 1, inv: "2223170", amt: 0.4 }]); const idP1 = uid44(w, p1);
+  const k1 = await pick([idP1]);
+  const vcP1 = vcPosts(w).at(-1)!, bpP1 = bpPosts(w).at(-1)!, vc1 = w.it.bills.get(String(d1.qbo_id))!, hitsPost = postHits(w);
+  eq([k1.rounds, k1.stopped, rq0(k1).result, nds(k1).length, nds(k1)[0].kind, nds(k1)[0].result, nds(k1)[0].job_id, d1.state, p1.state, vcPosts(w).length, bpPosts(w).length, hitsPost.indexOf(vcP1) < hitsPost.indexOf(bpP1)],
+     [3, null, "sent", 1, "vendor_credit", "sent", d1.id, "sent", "sent", 1, 1, true], "T1 one Send on the payment: the discount vendor credit goes first in the same call, then the payment (1150): " + JSON.stringify({ rq: k1.requested, needs: k1.needs }));
+  const s1 = JSON.parse(bpP1.body) as Record<string, unknown>;
+  eq([bpLines(bpP1), s1.TotalAmt, "Id" in s1, (JSON.parse(vcP1.body) as Record<string, unknown>).PrivateNote, (JSON.parse(vcP1.body) as Record<string, unknown>).DocNumber, b701.Balance, vc1.Balance, vcOnlyReads(w).length, new URL(vcOnlyReads(w)[0].url).pathname.endsWith("/vendorcredit/" + vc1.Id), w.db.txns.get(p1.ims_id)!.total_amt, w.db.txns.get(d1.ims_id)!.qbo_id],
+     [[[20, "701", "Bill"], [0.4, vc1.Id, "VendorCredit"]], 19.6, false, dcNote(1, "2223170"), "D261109-2223170", 0, 0, 1, true, 19.6, vc1.Id], "T1 body: Bill line 20 + VendorCredit line 0.4 (the id QuickBooks gave the credit) · TotalAmt = money paid (E-8) · both balances 0 · the credit was read once before the write (guard)");
+  // T2 — 할인 인보이스 둘인 결제: need 둘이 한 바퀴에 나가고(동시) 결제가 이어진다 · 줄 넷
+  const b702 = cadBill(plantBill(w, "Bill", "2223171", "3646", 20, "702")), b703 = cadBill(plantBill(w, "Bill", "2223172", "3646", 30, "703"));
+  const d2 = addDisc(w, 2, "3646", "2223171", 0.4), d3 = addDisc(w, 3, "3646", "2223172", 0.6);
+  const p2 = addDiscBp(w, 32, "3646", [{ bill: "702", doc: "2223171", amt: 20 }, { bill: "703", doc: "2223172", amt: 30 }], [{ n: 2, inv: "2223171", amt: 0.4 }, { n: 3, inv: "2223172", amt: 0.6 }]); const idP2 = uid44(w, p2);
+  const nv2 = vcPosts(w).length, k2 = await pick([idP2]), s2 = JSON.parse(bpPosts(w).at(-1)!.body) as Record<string, unknown>;
+  eq([k2.rounds, rq0(k2).result, nds(k2).map((x) => x.result).sort(), vcPosts(w).length - nv2, (s2.Line as unknown[]).length, s2.TotalAmt, bpLines(bpPosts(w).at(-1)!).filter((l) => l[2] === "VendorCredit").map((l) => l[0]).sort(), b702.Balance, b703.Balance, d2.state, d3.state],
+     [3, "sent", ["sent", "sent"], 2, 4, 49, [0.4, 0.6], 0, 0, "sent", "sent"], "T2 two discounted invoices in one payment: both credits first (one round), then the payment with four lines · TotalAmt 49");
+  // T3 — 대신 보내지 않는 것(이견 2 · 960): ⓐ 일반 공급처 크레딧(po_credit)을 기다리는 결제 ⓑ Bill 을 기다리는 결제 ⓒ 결제가 아닌 일감이 기다리는 할인 VC — 두 번 골라도(둘째 호출은 claim ⑤ 가 need_jobs 로 돌려준다) 그대로
+  plantBill(w, "Bill", "X-704", "3646", 10, "704");
+  const cr3 = addBill(w, "CR-9003", "3646", [sbLine(1, 5)], { credit: true, cur: "CAD" }), bl3 = addBill(w, "INV-9003", "3646", [sbLine(1, 7)], { cur: "CAD" }), d4 = addDisc(w, 4, "3646", "2223174", 0.2);
+  const p3a = addBp(w, 33, "3646", [{ bill: "704", doc: "X-704", amt: 10 }], { cur: "CAD" }, { wait_job: cr3.id }), p3b = addBp(w, 34, "3646", [{ bill: "704", doc: "X-704", amt: 10 }], { cur: "CAD", date: "2026-11-08" }, { wait_job: bl3.id });
+  const bl3c = addBill(w, "INV-9004", "3646", [sbLine(1, 9)], { cur: "CAD" }, { wait_job: d4.id });
+  const id3a = uid44(w, p3a), id3b = uid44(w, p3b), id3c = uid44(w, bl3c), nv3 = vcPosts(w).length, nb3 = billPosts(w).length, np3 = bpPosts(w).length;
+  await pick([id3a, id3b, id3c]); const k3 = await pick([id3a, id3b, id3c]);
+  eq([k3.stopped, (k3.requested as Record<string, unknown>[]).map((x) => x.result), nds(k3).length, cr3.state, bl3.state, d4.state, p3a.state, p3b.state, bl3c.state, vcPosts(w).length - nv3, billPosts(w).length - nb3, bpPosts(w).length - np3],
+     ["no_progress", ["not_queued", "not_queued", "not_queued"], 0, "queued", "queued", "queued", "blocked", "blocked", "blocked", 0, 0, 0], "T3 a plain vendor credit, a bill, and a discount credit awaited by something that is not a bill payment are never sent on the picker's behalf: " + JSON.stringify(k3.needs));
+  for (const x of [cr3, bl3, d4, p3a, p3b, bl3c]) x.state = "skipped";
+  // T4a — VC 는 나갔는데 결제가 실패(Bill 잔액 모자람): VC sent · 결제 failed · 글 끝에 「안 붙은 VC 가 열려 있다」 · 고친 뒤 Retry → 같은 VC Id 를 다시 쓴다(새 VC 0 · 1146)
+  const b705 = cadBill(plantBill(w, "Bill", "2223175", "3646", 20, "705")); b705.Balance = 5;
+  const d5 = addDisc(w, 5, "3646", "2223175", 0.4), p5 = addDiscBp(w, 35, "3646", [{ bill: "705", doc: "2223175", amt: 20 }], [{ n: 5, inv: "2223175", amt: 0.4 }]); const idP5 = uid44(w, p5);
+  const np5 = bpPosts(w).length, k5 = await pick([idP5]), vc5 = w.it.bills.get(String(d5.qbo_id))!;
+  eq([rq0(k5).result, nds(k5)[0].result, d5.state, p5.state, bpPosts(w).length - np5, vc5.Balance ?? vc5.TotalAmt, p5.last_error],
+     ["failed", "sent", "sent", "failed", 0, 0.4, `not sent — QuickBooks shows only 5 CAD open on bill 2223175 (QuickBooks #705) but this payment applies 20 — nothing was written. If a payment for this bill was entered in QuickBooks by hand, delete it there and press Retry; or, to keep that QuickBooks payment, press Skip on this job in IMS (1081) · the early-payment discount vendor credit (QuickBooks #${vc5.Id}) is already in QuickBooks and stays open there until this payment goes through`],
+     "T4a credit sent, payment failed: the payment says the credit stays open in QuickBooks: " + p5.last_error);
+  b705.Balance = 20; p5.state = "queued"; const nv5 = vcPosts(w).length, k5b = await pick([idP5]);
+  eq([k5b.rounds, rq0(k5b).result, vcPosts(w).length - nv5, bpLines(bpPosts(w).at(-1)!), vc5.Balance, b705.Balance], [1, "sent", 0, [[20, "705", "Bill"], [0.4, vc5.Id, "VendorCredit"]], 0, 0], "T4a retry: the same vendor credit id is used again — no second credit (1146)");
+  // T4b — VC unknown(POST 5xx): 결제 blocked + 「press Send again」 · 다음 Send 가 맨 앞에서 VC 를 풀고(표지 · 센트 일치) 같은 호출에서 결제까지
+  const b706 = cadBill(plantBill(w, "Bill", "2223176", "3646", 20, "706"));
+  const d6 = addDisc(w, 6, "3646", "2223176", 0.4), p6 = addDiscBp(w, 36, "3646", [{ bill: "706", doc: "2223176", amt: 20 }], [{ n: 6, inv: "2223176", amt: 0.4 }]); const idP6 = uid44(w, p6);
+  w.it.override.push((h) => h.method === "POST" && /\/vendorcredit\/?\?/.test(h.url) && h.body.includes(dcUuid(6)) ? jres(503, { Fault: { Error: [{ Message: "Service Unavailable", code: "3001" }], type: "SystemFault" } }, "tid-503") : null);
+  const np6 = bpPosts(w).length, k6 = await pick([idP6]);
+  eq([rq0(k6).result, rq0(k6).reason, nds(k6)[0].result, k6.stopped, d6.state, d6.qbo_name, p6.state, bpPosts(w).length - np6],
+     ["blocked", "its early-payment discount vendor credit was sent but the result is unknown — press Send again: it is looked up in QuickBooks first, then this payment goes", "unknown", "no_progress", "unknown", "D261109-2223176|3646|40", "blocked", 0], "T4b credit unknown → the payment stays blocked and says to press Send again");
+  const vc6 = cadBill(plantBill(w, "VendorCredit", "D261109-2223176", "3646", 0.4, "806")); vc6.PrivateNote = dcNote(6, "2223176");
+  const k6b = await pick([idP6]);
+  eq([(k6b.resolved as Record<string, unknown>[]).find((x) => x.job_id === d6.id)?.result, k6b.rounds, rq0(k6b).result, d6.state, d6.qbo_id, bpLines(bpPosts(w).at(-1)!), vc6.Balance, b706.Balance], ["found", 1, "sent", "sent", "806", [[20, "706", "Bill"], [0.4, "806", "VendorCredit"]], 0, 0], "T4b Send again: the credit is found in QuickBooks first (number · vendor · total · IMS note), then the payment goes in the same call");
+  // T4c — VC 몸이 막음(raise): VC failed + 그 글 · 결제 blocked + 까닭 · 출구(VC Retry → 결제 Send)
+  cadBill(plantBill(w, "Bill", "2223177", "3646", 20, "707"));
+  const d7 = addDisc(w, 7, "3646", "2223177", 0.4), p7 = addDiscBp(w, 37, "3646", [{ bill: "707", doc: "2223177", amt: 20 }], [{ n: 7, inv: "2223177", amt: 0.4 }]); const idP7 = uid44(w, p7);
+  d7.raise = "Invoice 2223177 has no tax rule — set the tax rule on the invoice and retry — nothing was sent";
+  const nv7 = vcPosts(w).length, k7 = await pick([idP7]);
+  eq([rq0(k7).result, rq0(k7).reason, nds(k7)[0].result, nds(k7)[0].error, d7.state, p7.state, vcPosts(w).length - nv7, k7.stopped],
+     ["blocked", "its early-payment discount vendor credit was not sent (Invoice 2223177 has no tax rule — set the tax rule on the invoice and retry — nothing was sent) — fix that, press Retry on the vendor credit job, then send this payment again", "failed", d7.raise, "failed", "blocked", 0, "no_progress"], "T4c credit refused by its body → the payment stays blocked and names the reason and the way out");
+  d7.raise = null; d7.state = "queued"; const k7b = await pick([idP7]);
+  eq([rq0(k7b).result, d7.state, p7.state], ["sent", "sent", "sent"], "T4c after the credit job is retried, one Send on the payment sends both");
+  // T4d — 사람이 할인 VC 일감을 Skip(이견 4 · DB 4-7b ②): 결제가 풀려 몸이 raise → failed + 출구 글(영구 blocked 아님)
+  cadBill(plantBill(w, "Bill", "2223178", "3646", 20, "708"));
+  const d8 = addDisc(w, 8, "3646", "2223178", 0.4), p8 = addDiscBp(w, 38, "3646", [{ bill: "708", doc: "2223178", amt: 20 }], [{ n: 8, inv: "2223178", amt: 0.4 }]); const idP8 = uid44(w, p8);
+  p8.state = "blocked"; p8.blocked_by = d8.id; d8.state = "skipped";
+  const np8 = bpPosts(w).length, k8 = await pick([idP8]);
+  eq([rq0(k8).result, p8.state, bpPosts(w).length - np8, String(rq0(k8).error).includes("was skipped — retry that job first, or enter this payment in QuickBooks by hand and press Skip on this job")], ["failed", "failed", 0, true], "T4d skipped credit job → the payment fails with the way out instead of waiting forever: " + p8.last_error);
+
+  // T5 — VC Balance 가드(이견 5 · 둘째 겹): 선 VC(qbo_txn 있음) · 결제 claim 몸에 VendorCredit 줄 → GET vendorcredit/<id> → 모자람 · 못 읽음 · 공급처 · 통화 · Balance 없음 → failed(POST 0) · 꼭 맞으면 sent
+  const g = async (n: number, vcId: string, inv: string, tweak: (v: Bil) => void) => { cadBill(plantBill(w, "Bill", inv, "3646", 20, "b" + vcId)); const v = haveVc(w, n, vcId, "3646", inv, 0.4); tweak(v);
+    const j = addDiscBp(w, 40 + n, "3646", [{ bill: "b" + vcId, doc: inv, amt: 20 }], [{ n, inv, amt: 0.4 }]); const np = bpPosts(w).length; await one(["bill_payment"]); return { j, v, posts: bpPosts(w).length - np }; };
+  const g1 = await g(11, "811", "2223180", (v) => { v.Balance = 0.1; });
+  eq([g1.j.state, g1.posts, g1.j.last_error], ["failed", 0, "not sent — QuickBooks shows only 0.1 CAD open on the early-payment discount vendor credit D261109-2223180 (QuickBooks #811) but this payment applies 0.4 — nothing was written. If that credit was applied to another bill in QuickBooks, unapply it there and press Retry; otherwise change the discount on this payment in IMS (1081)"], "T5a vendor credit balance short → failed with the two ways out: " + g1.j.last_error);
+  w.it.override.push((h) => h.method === "GET" && /\/vendorcredit\/812\?/.test(h.url) ? jres(503, {}, "tid-503") : null);
+  const g2 = await g(12, "812", "2223181", () => {});
+  eq([g2.j.state, g2.posts, (g2.j.last_error ?? "").startsWith("not sent — could not read the early-payment discount vendor credit D261109-2223181 (QuickBooks #812) before sending: ")], ["failed", 0, true], "T5b vendor credit unreadable → failed: " + g2.j.last_error);
+  const g3 = await g(13, "813", "2223182", (v) => { v.VendorRef = "9999"; });
+  eq([g3.j.state, g3.posts, g3.j.last_error], ["failed", 0, "not sent — vendor credit D261109-2223182 (QuickBooks #813) belongs to vendor #9999, not to the vendor of this payment (#3646) — nothing was written; check it in QuickBooks, then retry or skip"], "T5c another vendor's credit → failed");
+  const g4 = await g(14, "814", "2223183", (v) => { v.CurrencyRef = { value: "USD" }; });
+  eq([g4.j.state, g4.posts, g4.j.last_error], ["failed", 0, "not sent — vendor credit D261109-2223183 (QuickBooks #814) is in USD but this payment is in CAD — nothing was written; check it in QuickBooks, then retry or skip"], "T5d another currency → failed");
+  w.it.override.push((h) => h.method === "GET" && /\/vendorcredit\/815\?/.test(h.url) ? jres(200, { VendorCredit: { Id: "815", SyncToken: "0", VendorRef: { value: "3646" }, CurrencyRef: { value: "CAD" }, TotalAmt: 0.4 }, time: "2026-11-09T12:00:00Z" }, "tid-nobal") : null);
+  const g5 = await g(15, "815", "2223184", () => {});
+  eq([g5.j.state, g5.posts, g5.j.last_error], ["failed", 0, "not sent — the early-payment discount vendor credit D261109-2223184 (QuickBooks #815) has no Balance in QuickBooks — check by hand, then retry or skip"], "T5e no Balance on the credit → failed");
+  const nr6 = vcOnlyReads(w).length, g6 = await g(16, "816", "2223185", () => {});
+  eq([g6.j.state, g6.posts, vcOnlyReads(w).length - nr6, g6.v.Balance, bpLines(bpPosts(w).at(-1)!)], ["sent", 1, 1, 0, [[20, "b816", "Bill"], [0.4, "816", "VendorCredit"]]], "T5f balance exactly the discount → sent after one read of the credit");
+  // T6 — check_lines 꼴: 다른 txn_type · QBO id 없는 VC 줄 · 합이 낸 돈과 다름 → failed(조회 · 쓰기 0)
+  cadBill(plantBill(w, "Bill", "2223186", "3646", 20, "717"));
+  const nq6 = bpQueries(w).length, np6t = bpPosts(w).length;
+  const t6a = addDiscBp(w, 60, "3646", [{ bill: "717", doc: "2223186", amt: 20 }], [], { check_lines: [{ txn_type: "Bill", doc_number: "2223186", qbo_bill_id: "717", qbo_txn_id: "717", amount: 20 }, { txn_type: "Invoice", doc_number: "60001", qbo_txn_id: "5", amount: 1 }] });
+  const t6b = addDiscBp(w, 61, "3646", [{ bill: "717", doc: "2223186", amt: 20 }], [], { check_lines: [{ txn_type: "Bill", doc_number: "2223186", qbo_bill_id: "717", qbo_txn_id: "717", amount: 20 }, { txn_type: "VendorCredit", doc_number: "D-x", amount: 0.4 }] });
+  const t6c = addDiscBp(w, 62, "3646", [{ bill: "717", doc: "2223186", amt: 20 }], [{ n: 62, inv: "2223186", amt: 0.4 }], { needs: [] });   // 몸은 19.6 인데 check_lines 는 Bill 20 뿐(VC 줄 빠짐)
+  await one(["bill_payment"]);
+  eq([t6a.state, (t6a.last_error ?? "").includes("neither a QuickBooks bill nor a vendor credit"), t6b.state, (t6b.last_error ?? "").includes("or a vendor credit without its QuickBooks id"), t6c.state, t6c.last_error, bpQueries(w).length - nq6, bpPosts(w).length - np6t],
+     ["failed", true, "failed", true, "failed", "not sent — the lines of supplier payment Supplier payment 2026-11-09 20 (bills 20.00 − discount credits 0.00) do not add up to the amount paid 19.60 CAD — nothing was written; retry it after checking the payment in IMS", 0, 0], "T6 check lines: another type · a credit without id · lines that do not add up → failed before any call");
+
+  // T7a — 할인 VC 가드(이견 7): QBO 에 같은 번호 · 공급처 · 금액의 VC 가 있지만 표지가 다른 붙임(같은 날 · 같은 인보이스 · 같은 금액의 다른 결제 할인) → 얹지 않고 unknown + 글 → 풀기 note_differs 그대로 → QBO 에서 번호를 바꾸고 Retry → 새로 만든다
+  const o20 = cadBill(plantBill(w, "VendorCredit", "D261109-2223190", "3646", 0.4, "820")); o20.PrivateNote = dcNote(21, "2223190");
+  const d20 = addDisc(w, 20, "3646", "2223190", 0.4); const nv20 = vcPosts(w).length, dn20 = doneCalls(w);
+  await one(["vendor_credit"]);
+  eq([d20.state, d20.qbo_name, vcPosts(w).length - nv20, doneCalls(w) - dn20, d20.last_error], ["unknown", "D261109-2223190|3646|40", 0, 0, "not sent — QuickBooks already has vendor credit #820 with number D261109-2223190 for vendor #3646 and the same total, but it does not carry the IMS note of this early-payment discount — not recorded (1150). It is probably the discount credit of another payment on the same invoice and day: change its number in QuickBooks (for example add -1), then retry this job with a note; or skip this job"], "T7a same number · vendor · total but another discount's note → not recorded, unknown: " + d20.last_error);
+  const x20 = ((await one(["vendor_credit"])).resolved as Record<string, unknown>[]).find((x) => x.job_id === d20.id)!;
+  eq([x20.result, x20.qbo_id, d20.state, doneCalls(w) - dn20, vcPosts(w).length - nv20], ["note_differs", "820", "unknown", 0, 0], "T7a resolve: the note differs → stays unknown, nothing recorded");
+  o20.DocNumber = "D261109-2223190-1"; d20.state = "queued"; await one(["vendor_credit"]);
+  eq([d20.state, vcPosts(w).length - nv20, d20.qbo_id !== "820", w.it.bills.get(String(d20.qbo_id))!.PrivateNote], ["sent", 1, true, dcNote(20, "2223190")], "T7a after the other credit's number is changed in QuickBooks, retry creates this one");
+  // T7b — 자기 표지의 VC 가 이미 있다(앞 시도) → 만들지 않고 done + note
+  const o22 = cadBill(plantBill(w, "VendorCredit", "D261109-2223192", "3646", 0.4, "822")); o22.PrivateNote = dcNote(22, "2223192");
+  const d22 = addDisc(w, 22, "3646", "2223192", 0.4); const nv22 = vcPosts(w).length, r22 = await one(["vendor_credit"]);
+  eq([d22.state, d22.qbo_id, vcPosts(w).length - nv22, (r22.jobs as Record<string, unknown>[])[0].note], ["sent", "822", 0, "already in QuickBooks (vendor credit #822 — same vendor, number and total found before sending) — recorded, not created again"], "T7b the credit of this very discount is already there → recorded, not created again");
+  // T7c — 일반 공급처 크레딧(po_credit)은 표지를 보지 않는다(4-4 그대로)
+  plantBill(w, "VendorCredit", "CR-9001", "7170", 50, "823");
+  const c23 = addBill(w, "CR-9001", "7170", [sbLine(1, 50)], { credit: true }); const nv23 = vcPosts(w).length; await one(["vendor_credit"]);
+  eq([c23.ims_kind, c23.state, c23.qbo_id, vcPosts(w).length - nv23], ["po_credit", "sent", "823", 0], "T7c a plain supplier credit with a hand note is still recorded by number · vendor · total (4-4 unchanged)");
+  // T7d — 할인 VC unknown → 풀기: 표지 · 센트 일치 하나 → found
+  const d24 = addDisc(w, 24, "3646", "2223194", 0.4);
+  w.it.override.push((h) => h.method === "POST" && /\/vendorcredit\/?\?/.test(h.url) && h.body.includes(dcUuid(24)) ? jres(503, {}, "tid-503") : null);
+  await one(["vendor_credit"]);
+  const o24 = cadBill(plantBill(w, "VendorCredit", "D261109-2223194", "3646", 0.4, "824")); o24.PrivateNote = dcNote(24, "2223194");
+  const x24 = ((await one(["vendor_credit"])).resolved as Record<string, unknown>[]).find((x) => x.job_id === d24.id)!;
+  eq([x24.result, d24.state, d24.qbo_id], ["found", "sent", "824"], "T7d unknown discount credit with its own note → found and recorded");
+
+  // T8 — void(이견 8 · E-8): 꼴 그대로 {Id, SyncToken, sparse} · Bill 20 · VC 0.4 로 다시 열림 → 다시 보내기: 같은 VC Id · 그 사이 VC 가 QBO 에서 다른 데 붙었으면 가드가 잡는다
+  const v1 = addBpVoid(w, 31, String(p1.qbo_id), "0"); const r8 = await one(["bill_payment_void"]), pv8 = bpVoidPosts(w).at(-1)!;
+  eq([r8.sent, v1.state, JSON.parse(pv8.body), b701.Balance, vc1.Balance], [1, "sent", { Id: p1.qbo_id, SyncToken: "0", sparse: true }, 20, 0.4], "T8 void: the three-field shape, no lines — the bill and the vendor credit are open again (E-8)");
+  vc1.Balance = 0;                                                                                       // 북키퍼가 QBO 에서 그 VC 를 다른 Bill 에 붙였다
+  const p9 = addDiscBp(w, 39, "3646", [{ bill: "701", doc: "2223170", amt: 20 }], [{ n: 1, inv: "2223170", amt: 0.4 }]); const np9 = bpPosts(w).length, nv9 = vcPosts(w).length; await one(["bill_payment"]);
+  eq([p9.state, bpPosts(w).length - np9, (p9.last_error ?? "").startsWith(`not sent — QuickBooks shows only 0 CAD open on the early-payment discount vendor credit D261109-2223170 (QuickBooks #${vc1.Id}) but this payment applies 0.4`)], ["failed", 0, true], "T8 resend after void: the reopened credit was applied elsewhere → the balance guard stops it: " + p9.last_error);
+  vc1.Balance = 0.4; p9.state = "queued"; await one(["bill_payment"]);
+  eq([p9.state, vcPosts(w).length - nv9, bpLines(bpPosts(w).at(-1)!), vc1.Balance, b701.Balance], ["sent", 0, [[20, "701", "Bill"], [0.4, vc1.Id, "VendorCredit"]], 0, 0], "T8 resend: the same vendor credit id again, no new credit (1146)");
+  // T9 — 할인 없는 결제 회귀: 고르면 바퀴 1 · VC 읽기 · 쓰기 0 · 4-5a 꼴 check_lines(txn_type 없음)도 그대로
+  cadBill(plantBill(w, "Bill", "X-730", "3646", 12, "730"));
+  const p10 = addBp(w, 70, "3646", [{ bill: "730", doc: "X-730", amt: 12 }], { cur: "CAD" }); const id10 = uid44(w, p10), nr10 = vcOnlyReads(w).length, nv10 = vcPosts(w).length, k10 = await pick([id10]);
+  eq([k10.rounds, rq0(k10).result, nds(k10).length, vcOnlyReads(w).length - nr10, vcPosts(w).length - nv10, bpLines(bpPosts(w).at(-1)!), p10.check_lines?.[0].txn_type ?? null], [1, "sent", 0, 0, 0, [[12, "730", "Bill"]], null], "T9 a payment without a discount goes as before (4-5b): one round · no vendor credit call");
+
+  writesAllowedOnly(w, "㉛");
+  ok(bpPosts(w).filter((h) => new URL(h.url).searchParams.get("operation") === null).every((h) => billPaymentLineProblem(JSON.parse(h.body)) === null), "every bill payment create carries Bill / VendorCredit lines only, one link each");
+  ok(w.logs.filter((l) => l.action === "send_check").every((l) => !String(l.detail?.q ?? "").includes("'")), "send_check logs carry masked queries only");
+  ok(!JSON.stringify(w.logs).includes("ZZPII"), "㉛ no vendor name in call_log");
+  noLeak(w, "㉛");
 });
