@@ -140,7 +140,7 @@ PO(구매 오더)는 공급처 하나에 주문하는 것입니다. **Draft**(�
 
 **어떻게**
 1. PO 를 열고 **Create an invoice** 를 누릅니다.
-2. **Number**("as printed on the document" — 문서에 찍힌 번호 · 예: 99001) · **Document date** · **Due date** · **Printed total**(인쇄된 합계 · 모르면 비움)을 적습니다.
+2. **Number**("as printed on the document" — 문서에 찍힌 번호 · 예: 99001) · **Document date** · **Due date** · **Printed total**(인쇄된 합계 · 모르면 비움)을 적습니다. **Due date**(지급 기한)는 결제 조건에서 채워집니다(문서 날짜 + 조건의 날 수). 인보이스에 다른 날짜가 있을 때만 고칩니다 — 적은 날짜를 IMS 가 지킵니다.
 3. 라인마다 **On this invoice** 가 **Left to bill**(남은 청구 수량)로 시작합니다. 인보이스가 청구한 수량으로 바꿉니다. **Check** 뒤 **Create** 를 누릅니다.
 4. 인보이스가 **Purchase Invoices & Credits** 에 초안으로 열립니다. **Add a line** · **Add a discount** · **Add lines from a PO** 를 쓸 수 있습니다.
 5. **Confirm** 을 누르고 OK 를 누릅니다.
@@ -156,7 +156,10 @@ PO(구매 오더)는 공급처 하나에 주문하는 것입니다. **Draft**(�
 
 **알아 둘 것**
 - **Reopen** 은 확정된 인보이스를 초안으로 돌립니다. "Quantities that confirming split off go back onto their original order."(확정 때 나뉜 수량은 원래 오더로 돌아간다)
-- 창고가 그 인보이스로 받기 시작하면 **Reopen** · **Cancel** 이 회색입니다: "The warehouse has received against this invoice — correct it with a credit note"([공급처 크레딧](#purch-credits))
+- 결제 조건에 조기 결제 할인이 있으면 할인이 열려 있는 동안 지급 기한 옆 칩이 보입니다. 예: "Pay by 2026-11-19 → save 142.71 · 10 days left"(이 날까지 내면 142.71 절약 · 10 일 남음). 3 일 이하면 주황입니다. 지급 기한은 따로입니다 — 전액을 내야 하는 날입니다.
+- **Confirm** 은 다음 때 경고하지만 막지 않습니다: "There is no due date and the payment term gives none — QuickBooks will use the document date as the due date."(기한도 조건도 없음 — QuickBooks 는 문서 날짜를 기한으로 씀) · "The due date differs from the payment term (document date + the term's net days). Check it is the date the money is owed — not the early-pay discount date."(기한이 조건과 다름 — 할인 기한이 아니라 돈을 낼 날인지 확인)
+- **Cancel invoice…** 는 인보이스를 취소합니다 — 화면을 나가는 단추가 아닙니다. 나갈 때는 목록으로 갑니다. 확정 인보이스를 고치려면 **Reopen** → 고침 → 다시 **Confirm** 입니다.
+- 창고가 그 인보이스로 받기 시작하면 **Reopen** · **Cancel invoice…** 가 회색입니다: "The warehouse has received against this invoice — correct it with a credit note"([공급처 크레딧](#purch-credits))
 - 라인을 **billed here but settled elsewhere**(여기 청구됐지만 다른 데서 정산)로 표시할 수 있습니다 — 예: 인보이스에 실렸지만 따로 내는 운임
 - 창고 쪽: [PO · 트랜스퍼 받기](04-wms.md#wms-receiving)
 
@@ -283,6 +286,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 **할인**
 - **Adjust discount** 는 결제 안 문서 하나의 할인을 바꿉니다.
 - **Settle with discount** 는 "takes what is still owed as discount, when the supplier let it go"(공급처가 봐줬을 때 남은 금액을 할인으로 처리)
+- 조기 결제 할인이 있는 결제는 **Send** 한 번으로 QuickBooks 에 갑니다: 할인이 먼저 공급처 크레딧으로, 그다음 결제([QuickBooks](01-sales.md#sales-quickbooks))
 
 **조심할 것**
 - 결제에는 취소 상태가 없습니다. **Delete** 가 "the only way to undo one"(되돌리는 유일한 길)이고 — "everything it settled goes back to being owed"(정산한 것은 다시 줄 돈이 된다)

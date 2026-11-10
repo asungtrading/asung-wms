@@ -107,8 +107,9 @@ Lines are the products on the order. You can pick them one by one, or paste many
 1. On a draft, press **Add lines**.
 2. Type a SKU, product name or barcode. Click the products you want. They move to the list below.
 3. Type the **Qty** for each one.
-4. For a free line, choose a reason in **Free?** (**sample**, **promotion**, **replacement** or **other**). **other** needs a **Note**.
-5. Press **Check** to see what will happen, then **Add lines**.
+4. For a free line, choose a reason in **Free?** (**sample**, **promotion**, **replacement** or **other**). **other** needs **Reason (internal) — required**. It is not printed.
+5. To tell the customer something about a line, type it in **Note to customer**. It is printed on the order and the invoice.
+6. Press **Check** to see what will happen, then **Add lines**.
 - Managers and above: tick **Include sets (cases · packs)** to see case and pack SKUs. Without it, sell a case as its single SKU × the number in the case.
 
 **How — paste from a spreadsheet**
@@ -116,6 +117,13 @@ Lines are the products on the order. You can pick them one by one, or paste many
 2. Paste one product per row: SKU, quantity and, if you want, a price. Columns copied from a spreadsheet work as they are. If you type commas between columns, write prices without thousands commas (1250.00, not 1,250.00).
 3. Press **Check**. Each row gets a **Verdict**: **ok**, **merged into the existing line**, **not found**, **inactive product**, **no price — confirming is blocked until it gets one**, and so on.
 4. Fix the rows that are not ok, press **Check** again, then **Add lines**.
+
+**How — a note to the customer on a line**
+1. On the order, press **+ note** on the line (or **✎ note** to change one).
+2. IMS asks: "Note to the customer — printed on the order and invoice (one line, up to 500 characters). Leave it empty to remove the note." Type it and press OK.
+3. The note shows under the product with ✉. A note for staff shows as "Internal:" and is not printed.
+- This works on orders from Shopify too, and after the order is confirmed or invoiced. It does not work on a cancelled order or on the parts of a combo.
+- An invoice prints the note as it is when the invoice is printed.
 
 **Prices**
 - A line without a price gets the usual price: price tier, then the best discount (see [Discounts, deals and surcharges](#sales-discounts-deals)).
@@ -726,7 +734,9 @@ Tick the rows (or **Select all on this page**) and press **Send selected**. IMS 
 - The kinds **Supplier bills and credits** (rows **Supplier**, **Supplier bill**, **Supplier credit**, **Delete bill by hand**) and **Supplier payments** (rows **Supplier payment**, **Void supplier payment**) hold what IMS sends for suppliers. None of them go by themselves — press **Preview**, then **Send**.
 - **Preview** of a supplier payment shows the supplier, how it was paid, the account the money left, whether a cheque is printed, the A/P account, the amount, the exchange rate and the bills it pays. QuickBooks accounts, suppliers and A/P show as QuickBooks numbers (#).
 - A supplier payment in USD needs its exchange rate first (CAD per 1 USD — the MTFX rate of the day the money was bought). Type it on the payment in **Purchasing ▾** › **Supplier Payments** (see [Pay suppliers](02-purchasing.md#purch-payments)); the row is sent again after that. Do not copy the bill's rate: the bill keeps the invoice rate and QuickBooks books the difference as exchange gain or loss.
-- A payment IMS cannot copy to QuickBooks as it is fails with "Enter this payment in QuickBooks by hand, then press Skip on this job": an early-payment discount, a supplier credit on the invoice, or lines that do not add up to the payment. Fix it in IMS, or enter it in QuickBooks by hand and **Skip** the row.
+- A payment with an early-payment discount goes in one **Send**: the discount is created in QuickBooks first as a supplier credit (row **Early-pay discount credit**) and applied in the same payment. The payment **Preview** shows it as a **discount credit** line ("created first, in the same send") and the totals **Bills**, **Early-pay discount** and **Paid**.
+- A payment IMS cannot copy to QuickBooks as it is fails with "Enter this payment in QuickBooks by hand, then press Skip on this job": a discount with a tax part, a discount on an invoice that has tax, a discount on a charge, a supplier credit on the invoice (draft or confirmed), lines that do not add up to the payment, or a document from before the QuickBooks start date. Fix it in IMS, or enter it in QuickBooks by hand and **Skip** the row.
+- If a discount already in QuickBooks is changed or removed in IMS, a row **Delete discount credit by hand** appears. Delete that supplier credit in QuickBooks, then press **Skip** on the row.
 - If the bill was already paid by hand in QuickBooks, sending fails: "QuickBooks shows only … open on bill …". Delete the hand payment in QuickBooks and press **Retry**, or keep it and **Skip** the IMS row.
 - An account with no type or currency on file fails with "Settings → QuickBooks matching → Refresh list (accounts), then retry".
 - **Bank feed (bookkeeper)**: do not categorise the bank line first. Send the payment from IMS. When the bank line's match turns into the **Bill Payment**, press **Match** (several at once: **Batch actions** › **Accept Selected**). If QuickBooks offers the open **Bill** as the match, do not press it — that makes a second payment. Do not use a bank rule that adds to the books automatically.
@@ -950,6 +960,8 @@ Most sales screens can download a spreadsheet (CSV).
 | Customer Payments | **↓ CSV** | **↓ Payment CSV** |
 | Credit Notes | **↓ CSV** | **↓ Credit CSV** |
 | Backorders | **↓ CSV** | — |
+
+- The sales order lines CSVs have the columns **Customer note** (printed) and **Internal comment** (not printed).
 
 **How**
 1. Set the filters and search on the wide list.

@@ -515,7 +515,10 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ## 4-s. ⭐⭐ IMS 메일 · 백오더 입고 알림 — 모르면 사고 (정본 so-module §65 · 판정 493 ~ 519)
 
 ```
-⭐⭐ so_line 칸에 알림 · 표식을 쓰지 마라 — ims_touch 가 updated_at 을 바꿔 so_unconfirm 형제 검사가 그 오더의 확정 되돌리기를 막는다 → 작은 표(mail_backorder_line · so_demand_flag · 판정 478 · mail-1a 이견 11) · so_line.backorder_notified_at 은 쓰지 않는다(comment 만)
+⭐⭐ so_line 칸에 알림 · 표식을 쓰지 마라 — ims_touch 가 updated_at 을 바꿔 so_unconfirm 형제 검사가 그 오더의 확정 되돌리기를 막는다 → 작은 표(mail_backorder_line · so_demand_flag · 판정 478 · mail-1a 이견 11) · so_line.backorder_notified_at 은 쓰지 않는다(comment 만) → [2026-11-10 · 판정 1151 · so-line-note-1] 손님용 줄 메모도 같은 꼴 — 따로 표 `so_line_note`
+⭐⭐ [2026-11-10 · 판정 1151 · so-line-note-1 `beaad9b` · so-module §111-g] **손님용 줄 메모 = `so_line_note`**(so_line_id pk · cascade · 1 ~ 500 자) — 쓰기는 `so_line_note_set` 하나(빈칸 = 지움 · 한 줄로 굳힘 · cancelled · 합쳐진 오더 · 콤보 구성품 거부 · 웹 오더 · 인보이스 뒤 허용) · so · so_line updated_at 무변(434 자동 취소 · so_unconfirm 판단 보호) · 읽기 `so_detail.customer_note`
+⚠️⚠️ **so_line.comments 는 사내 글**(무상 other 까닭 · CHECK so_line_free_other_ck) — 문서 줄 comment 원천은 손님 메모 · comments 를 문서 · 손님 메일에 싣지 마라(마른 실행이 「INTERNAL-ONLY」 노출을 재현)
+⚠️  메모를 옮기는 창구 — so_split(따라감) · so_merge(다르면 「 / 」 로 잇기 · 500 자 넘으면 거부) · so_unconfirm(형제 메모 옮김) · so_lines_paste(값 줄 note) · ⚠️ so_combo_children_insert 는 comments 를 복사하지 않음 · so_line_bgrade_set 이 줄을 합치며 지우면 메모가 cascade 로 사라짐(556) · **merged 는 so.status 가 아니다**(cancelled + closed_reason merged)
 ⭐⭐ 화면 창구가 닫힌 속 함수 · 표를 품으면 invoker 는 42501 — 실행 안 되는 갈래여도 이름만 있으면 → definer + 첫 줄 ims_can_view('sales')(so_backorder_ready · so_backorder_list · mail_backorder_preview · so_backorder_notice_state · mail_* 화면 창구 · mail-1b 이견 1)
 ⭐⭐ 알림 규칙 — 줄마다 한 번(497) · 입고(po_in · 다른 창고에서 온 transfer_in) 몫 ≥ qty_open 의 절반(505 · can_fill × 100 ≥ qty_open × pct) · 입고 아닌 재고는 그 줄이 다 채워질 때만(504) · 프리오더 메일 없음(499) · 그 오더 창고 재고만(500) · 나누기는 프리오더 먼저 · 알림 받은 줄 빼고(506 · fill alert — 화면 Ready to ship now 는 screen 셈 그대로) · 나뉜 줄은 조상 기록 이어받음(509 · split_from_line_id) · 비활성 손님 안 보냄(513) · 오더 매장 연락처만(508) · 손님 스위치 customer.backorder_mail(507 · 바꾸기 manager 517)
 ⭐⭐ 셈은 하나씩 — 나누기 so_backorder_fill · 고르기 mail_backorder_pick(tick 과 preview 가 같은 함수) · 다음 회차 mail_backorder_next_slot · 지난 회차 뒤 입고 = inv_ledger.created_at(날짜 아님 · 1b 이견 3) — 다시 짜지 마라

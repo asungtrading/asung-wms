@@ -16,6 +16,7 @@
 ⭐ 상태 [2026-11-08 저녁 · so-module §104 · 판정 1080 ~ 1090] **원가 · 공급처 줄기(459) 판정 끝 · 짓기 전** — 상품 Bill · 결제는 IMS 가 보낸다(1080 · 1081) · 판매 원가 = 하루 · 창고마다 JE + SO 줄(1082) · 출발점은 맞추지 않고 움직임만(1086) · §15
 ⭐ 상태 [2026-11-08 밤 · so-module §105 · 판정 1091 ~ 1103] **3-1 끝 · 하루 원가 장 설계 끝(3-2-0) · 짓기 전** — 계정 통화 `ref_account.currency_code` · 공급처 A/P · 손님 A/R 통화 막기(지연 제약 트리거 둘 · 1091 · deferred 499 닫힘) · 조정 기본 계정 `inv_adjust_account()`(1087) · 하루 장 = 22 칸 표 · 보낸 몫 = 센트 합 + 차액(1092) · 입고는 보류(1096) · Location 없음 · Entity = 손님(1102 · 1103) · 다음 = 3-2 DB · §15-g · §15-h
 ⭐ 상태 [2026-11-09 · so-module §106 · §107 · §109 · §110 · 판정 1104 ~ 1138] **하루 원가 장 · 공급처 Bill · 공급처 결제가 운영에서 나간다 — 모두 북키퍼 손 Send** — 원가 장(cost_day · JournalEntry) 12 장 sent · cron 67 은 장 행만(§15-j · §15-k) · 공급처 Bill 7 장 sent(4-3 · 4-4 · §15-m) · 공급처 결제 BillPayment 첫 실물 **173092**(4-5a · 4-5b · 4-5c · §15-n) · USD 결제 3 건은 환율 대기 · SEND_KINDS **24** · 공급처 kind 는 cron 61 · 62 밖 · 은행 피드 Match 는 북키퍼 · 다음 = USD 3 건 → 4-6(켜기 · 정본) · E-8(538)
+⭐ 상태 [2026-11-10 · so-module §111 · 판정 1143 ~ 1150] **조기 결제 할인이 있는 공급처 결제도 나갈 수 있다 — 손 Send** — 할인 = VendorCredit(kind `vendor_credit` · ims_kind `po_discount`)을 결제의 같은 Send 에서 먼저 · BillPayment 에 Bill 줄 + VC 줄 · TotalAmt = 낸 돈(E-8 · 4-7a · 4-7b · 4-7c) · 막는 것 여섯(세금 몫 · 세금 있는 인보이스 · 청구서 할인 · 붙은 크레딧 · 금액 ≠ 붙임 합 · 시작일 전) · 공급처 인보이스 지급 기한 자동(1144) · 손님 결제 void 뒤 영구 blocked 고침(qbo-pay-fix-1 · 173093) · 할인 받은 결제 실물 0 · §15-o
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
@@ -879,7 +880,7 @@ QBO 판     Plus(Caleb)
 
 | 판정 | 요지 |
 |---|---|
-| 1132 | QBO 에 그대로 옮길 수 없는 결제 = ① 조기 결제 할인 ② 붙임 문서에 크레딧 붙음 ③ 결제 금액 ≠ 붙임 합 → **몸이 막고 사람에게**(QBO 에 손으로 → IMS Skip) · IMS 에서 고쳐 벗어나면 다시(① ③ 은 지문이 바뀌어 저절로 · ② 는 Retry) · E-8(538)이 서면 다시 연다 |
+| 1132 | QBO 에 그대로 옮길 수 없는 결제 = ① 조기 결제 할인 ② 붙임 문서에 크레딧 붙음 ③ 결제 금액 ≠ 붙임 합 → **몸이 막고 사람에게**(QBO 에 손으로 → IMS Skip) · IMS 에서 고쳐 벗어나면 다시(① ③ 은 지문이 바뀌어 저절로 · ② 는 Retry) · E-8(538)이 서면 다시 연다 → [2026-11-10 · §15-o] ① 할인은 4-7 로 보낸다(세금 몫 · 세금 있는 인보이스 · 청구서 할인은 그대로 막음 1145) · ② 는 그대로 막음(초안 포함 1147) |
 | 1133 | PayType = IMS 계좌 종류(BANK → `Check` + `CheckPayment {PrintStatus NotSet, BankAccountRef}` · CREDITCARD → `CreditCard` + `CreditCardPayment.CCAccountRef`) · QBO 계좌 거울의 AccountType · 통화와 대조 · 다르거나 거울 값 없으면 막음(Refresh list 안내) |
 | 1134 | unknown 자동 done = TxnDate + VendorRef + 금액(센트) + PrivateNote 표지 「IMS supplier payment <po_payment.id>」 가 모두 맞는 BillPayment **한 장**일 때만 · 0 · 2+ = 사람 |
 
@@ -901,7 +902,7 @@ QBO 판     Plus(Caleb)
 | 취소 순서 | 붙임 DELETE 트리거가 OLD 문서 id 를 void 일감 note 에 남기고 `qbo_job_on_po_doc_status` 가 그 문서의 열린 `bill_payment_void` 를 blocked_by 로 ⇒ **`bill_delete_manual` 은 결제 void 뒤** · ⚠️ 가장 오래된 열린 void 하나만 기다린다(deferred 541) |
 | since | since 전 문서에 붙는 결제 = raise · 백필 `{"seen": 4, "queued": 4, "realm_id": "…6496"}` → `bill_payment|queued|4`(EF 는 4-5b 전 이 kind 를 안 보냄) |
 | 재발행 | 더한 66 · 바뀐 7 · 빠진 0 — claim(wait_job 꼴) · done · preview · retry · doc · list(po_payment 라벨) · po_doc_status · alloc_guard · po_payment_create · alloc_set · qbo_entity_upsert |
-| 시험이 잡은 결함 | 지문이 QBO 와 같아져 void 를 거둘 때 그 void 뒤 다시 보내기 일감이 skipped 부모에 영구 blocked → sync ① void 거둘 때 뒤 bill_payment 도 skipped ② 새 void 서면 blocked 일감도 그 뒤로 · ⚠️ **손님 `qbo_payment_sync` 에 같은 결함 남음**(무접촉 · deferred 540) |
+| 시험이 잡은 결함 | 지문이 QBO 와 같아져 void 를 거둘 때 그 void 뒤 다시 보내기 일감이 skipped 부모에 영구 blocked → sync ① void 거둘 때 뒤 bill_payment 도 skipped ② 새 void 서면 blocked 일감도 그 뒤로 · ⚠️ **손님 `qbo_payment_sync` 에 같은 결함 남음**(무접촉 · deferred 540) → [2026-11-10 · §15-o ①] 손님 쪽 고침(qbo-pay-fix-1 · 540 닫힘) |
 
 - 적용 직후 둘째 겹(화면): CAD 1 건 「QuickBooks account #104 (IMS _104_) has no account type or currency on file yet — Settings → QuickBooks matching → Refresh list (accounts), then retry (1133)」 · USD 3 건 「… is in USD but has no exchange rate — enter the MTFX rate of the day the money was bought (1123) …」 — 설계대로
 
@@ -954,4 +955,62 @@ QBO 판     Plus(Caleb)
 
 **⑨ 다음**
 
-USD 3 건(북키퍼 환율 → Send) → 4-6(켜기 · 정본) · E-8 sandbox → 할인 결제 짓기(538 · 첫 후보 2223170 할인 기한 **11-19**) · 1131 나(536) · 화면 거리 534 · 542 · 543 · 곁가지 deferred 539 ~ 547
+USD 3 건(북키퍼 환율 → Send) → 4-6(켜기 · 정본) · E-8 sandbox → 할인 결제 짓기(538 · 첫 후보 2223170 할인 기한 **11-19**) · 1131 나(536) · 화면 거리 534 · 542 · 543 · 곁가지 deferred 539 ~ 547 → [2026-11-10 · §15-o] E-8 · 할인 결제 끝 · 536 은 1144 로 닫힘 · 다음 = §15-o ⑧
+
+### 15-o qbo-pay-fix-1 · E-8 · 4-7a · 4-7b · 4-7c — 조기 결제 할인 공급처 결제 · 지급 기한 자동 (2026-11-09 밤 ~ 11-10 · asung-wms `3f0a7a8` · `573b6af` · `222e96c` · asung-ims `e340db4` · 판정 1143 ~ 1150 · so-module §111)
+
+- **상태**: 할인 있는 공급처 결제가 QuickBooks 로 **갈 수 있다**(손 Send · 공급처 kind 는 cron 61 · 62 밖 그대로) · 할인 받은 결제 실물 0 · 첫 후보 2223170(할인 기한 11-19) · USD 할인 결제 sandbox 는 아직(deferred 554)
+- **원천**: 지시서 docs-1110a · `~/asung/prompts/docs-1110a-sources.md`(S2 ~ S7 · S10) · 마이그레이션 · 커밋 글 원문 · 판정 원문 표는 so-module **§111-a**
+- ⚠️ 공개 레포 — 공급처 상호 · 사람 이름은 적지 않는다 · 운영 realm `…6496`
+
+**① qbo-pay-fix-1 — 손님 결제 (`3f0a7a8` · `20261110023000` · deferred 540 닫힘)**
+
+- 손님 `qbo_payment_sync` 에 4-5a 의 두 고침을 넣었다 — ① void 를 거둘 때 그 뒤 다시 보내기 일감도 skipped ② 새 void 가 서면 blocked 일감도 그 뒤로(blocked_by) · 둘이 없으면 **QBO Payment 는 void · 다시 보내기는 영구 blocked**
+- 운영 1 건 풀림: 결제 161.34(e_transfer · 11-04) · QBO Payment 172656 이 11-06 void(붙임 더함 → 뗌 → 다른 인보이스에 붙임) → 적용 때 한 행 풀기(released 1) → **QBO Payment 173093** sent · 172656 은 void 그대로
+- 같은 꼴 다른 sync 셋(크레딧 붙임 · 이월 붙임 · 환불) 없음 · ⚠️ 인접 꼴 — **부모를 skipped 로 닫을 때 뒤 blocked 일감을 안 본다**(`qbo_job_skip` · `qbo_job_on_invoice_cancel` · `on_credit_cancel` · `on_po_doc_status` · 모든 kind · 운영 0 · 11-10) → deferred 548 · 할인 VC → 결제만 4-7b 가 풀었다(④)
+
+**② E-8 sandbox (11-09 밤 · Caleb · API Explorer · 실측 so-module §111-c 1)**
+
+- BillPayment Line 에 `[Bill 210 100, VendorCredit 211 2]` · TotalAmt 98 → 받아 줌 · 둘 다 Balance 0 · void → Line [] · BankAccountRef 빠짐 · Bill 과 VC 가 **함께** 다시 열림
+- ⇒ 할인 결제 몸 = Bill 줄(`alloc.amount` = 할인 포함 갚은 몫) + VC 줄(`discount_amount`) · TotalAmt = 낸 돈 · void 하면 VC 가 다시 열려 같은 할인이면 다시 쓴다(1146)
+- 「Automatically apply bill payments」(운영 · sandbox On)는 API VC 를 열린 Bill 에 붙이지 않는다(VC 211 이 Bill 210 에 저절로 안 붙음) ⇒ 화면 입력에만 작동 · On 그대로(4-7a 이견 4)
+
+**③ 4-7a DB (`573b6af` · 적용 `20261110034500` · 시험 41/41 · 확인 41/41 · 마른 실행 FAIL 18)**
+
+| | |
+|---|---|
+| 할인 VC 일감 | kind `vendor_credit` + ims_kind **`po_discount`** · ims_id = `po_payment_alloc.id`(1143) · 새 함수 `qbo_discount_credit_body` · `qbo_discount_credit_sync` · 자기 Bill 뒤 wait · VC 일감 skipped → 결제 raise |
+| VC 몸 | DocNumber `D<결제일 yymmdd>-<인보이스>`(21 자) · PrivateNote `IMS early-payment discount <alloc id>` · 한 줄 → GINR · 환율 = **인보이스 환율**(1148) |
+| 결제 몸 | `check_lines` 원소 `{txn_type, qbo_txn_id, …}` — Bill 줄 + VendorCredit 줄 · TotalAmt = 낸 돈 |
+| 막힘(사람에게) | 머리 「Enter this payment in QuickBooks by hand, then press Skip on this job」 + 까닭 · ① 할인 세금 몫(1145 · 「or change it to a before-tax discount in IMS」) ② 세금 있는 인보이스의 할인(4-7a 이견 2) ③ 청구서(charge) 할인(VC 계정 미정 · 이견 1) ④ 인보이스에 붙은 크레딧 — **초안 포함**(1132 ② · 1147 · 「or cancel that credit in IMS, then press Retry」) ⑤ 붙임 합 ≠ 결제 금액(1132 ③) ⑥ QuickBooks 시작일 전 문서 · (+ 상품 아닌 줄에 걸친 할인 — 보낼 수 있는 Bill 에서 늘 0) |
+| 바뀜 | 할인 A → B → A 되돌림(qbo-pay-fix-1 꼴) · VC sending/unknown 중 할인 변경 · done 뒤 맞추기 · 할인이 바뀌거나 없어지면 `bill_delete_manual`(po_discount · 「delete QuickBooks vendor credit #… by hand, then press Skip」 · 1146 · 1126) |
+| 원가 장 | `settlement_discount` → send(보류 글 「opens with the supplier payment round」 지움 · 1149) · 지금 보류 열쇠 0 |
+| 지급 기한(1144) | `po_invoice` BEFORE INSERT/UPDATE 트리거(인보이스 · draft) → `po_invoice_due_auto`(실행권 0) = 문서 날짜 + net_days · 칸 **`due_date_manual`**(사람 값 지킴) · 기존 10 장 값 무변 · 조건과 다른 장만 표지 true(484908, 484909 한 장) · 확정 경고 `due_date_missing` · `due_date_differs_from_term`(막지 않음) |
+| 재발행 | claim 2 곳 · preview · done · retry · doc · list · `qbo_job_on_po_payment` · `qbo_bill_payment_body` · `qbo_cost_expected` · `po_invoice_confirm` · − 줄은 모두 그 자리 고침 |
+| 시험 안 본 것 | 청구서 할인 시나리오 · 원가 장 실제 실행 · 확정 경고 실제 호출 |
+
+**④ 4-7b DB + EF (`222e96c` · 적용 `20261110040718` · 시험 23/23 · 확인 23/23 · deno 32/32 · 변이 16 모두 잡힘)**
+
+| | |
+|---|---|
+| needs 길 | 「먼저 만들기」 = claim 이 needs 를 `qbo_job_open_or_add` 로 세우고 본 일감 blocked → EF sendPicked 바퀴 · ⚠️ open_or_add 는 customer · item · vendor 만 받았다 → 4-7a 의 wait 꼴은 이 길을 안 탐(「blocked · no_progress」) ⇒ 4-7b 가 `vendor_credit` 가지(열린 po_discount 일감을 **찾아 돌려주기만**)를 더함 |
+| DB 재발행 셋 | `qbo_bill_payment_body`(안 간 할인 VC 를 needs 로 · Bill 안 갔으면 Bill 만 wait) · `qbo_job_open_or_add` · `qbo_job_claim`(② Skip 된 할인 VC 를 기다리던 결제 풀기 · 4-7b 이견 4) |
+| EF 순서(1150) | 할인 VC need 를 같은 호출에서 먼저(ims_kind po_discount · 기다리는 일감이 bill_payment 일 때만 · 바퀴 3 · 할인 둘이어도 3) |
+| EF 검사 | `check_lines` txn_type 가르기 · Σ Bill − Σ VC = 낸 돈 · **VC Balance 가드**(못 읽음 · 공급처 다름 · 통화 다름 · 모자람 → failed · 응답에 CurrencyRef 없으면 통화는 지나감 — deferred 554) · 실패 글 꼬리 「vendor credit #N is already in QuickBooks and stays open there until this payment goes through」 |
+| Line 조임 | `billPaymentLineProblem` — 줄마다 LinkedTxn 하나 · TxnId · TxnType Bill \| VendorCredit · Bill 줄 하나 이상(4-7b 이견 6 · 빈 Line billpayment 거부 → 기존 시험 단언 둘 고침) |
+| VC 표지 | PrivateNote 표지로 가드 · unknown 풀기 `note_differs`(4-7b 이견 7) · void 무변 |
+| EF | `_shared/qbo.ts` md5 `8fedf424` · 1792 행 |
+| 넘긴 것 | USD 할인 결제 sandbox(걸음 1 ~ 6 · Caleb · 아직 · deferred 554) |
+
+**⑤ 4-7c 화면 (asung-ims `e340db4` · 대화 Claude)**
+
+- invoices.html inv disc v3: 지급 기한 옆 할인 칩 「Pay by … → save … · N days left」(3 일 이하 주황) · 기한 출처 「from the payment term」 / 「set by hand」 · 목록 Due 칸 칩 · 확정 경고 두 코드 사람 말 · 「Cancel invoice…」 — ⚠️ 출처 · 목록 칩은 창구에 칸이 없어 **안 보인다**(deferred 555)
+- qbo-send.html qs sup v3: 「Early-pay discount credit」 · 「Delete discount credit by hand」 · 결제 미리 보기 「discount credit」 칩 · 「created first, in the same send」 · 합계 Bills · Early-pay discount · Paid
+
+**⑥ 남은 막힘 · 거리** — 548 Skip 일반 · 549 크레딧 붙은 결제(「0 원 BillPayment 붙임」 sandbox) · 550 할인 세금 몫 · 세금 있는 인보이스(회계사) · 551 청구서 할인 VC 계정 · 552 결제 Skip 뒤 안 붙은 할인 VC · 553 할인 VC DocNumber 겹침(같은 날 · 같은 인보이스 · 두 결제) · 554 USD sandbox + VC 통화 가드 · 555 화면 칸
+
+**⑦ 북키퍼 안내** — 쉬운 말판 rev 53(할인 칩 · 할인 결제 Send 한 번 · 「Cancel invoice…」 는 나가기 아님) · 상세판(계정 지도 · 분개 표 · 대사 · 판정 색인) — so-module §111-c 10 · 11
+
+**⑧ 다음**
+
+2223170 Bill Send → 11-19 안에 할인 결제(첫 실물) · USD 할인 sandbox(554) · USD 3 건 환율(§15-n) · 4-6(켜기 · 정본)

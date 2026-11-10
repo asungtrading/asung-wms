@@ -107,8 +107,9 @@
 1. 초안에서 **Add lines** 를 누릅니다.
 2. SKU · 제품 이름 · 바코드를 적습니다. 원하는 제품을 누르면 아래 목록으로 옮겨집니다.
 3. 제품마다 **Qty**(수량)를 적습니다.
-4. 무상 라인은 **Free?** 에서 까닭을 고릅니다(**sample** · **promotion** · **replacement** · **other**). **other** 는 **Note** 가 필요합니다.
-5. **Check** 로 결과를 미리 보고 **Add lines** 를 누릅니다.
+4. 무상 라인은 **Free?** 에서 까닭을 고릅니다(**sample** · **promotion** · **replacement** · **other**). **other** 는 **Reason (internal) — required**(사내 까닭)를 적어야 합니다. 인쇄되지 않습니다.
+5. 그 라인에 대해 고객에게 할 말이 있으면 **Note to customer** 에 적습니다. 오더와 인보이스에 찍힙니다.
+6. **Check** 로 결과를 미리 보고 **Add lines** 를 누릅니다.
 - 매니저 이상: **Include sets (cases · packs)** 를 체크하면 케이스 · 팩 SKU 가 보입니다. 없으면 케이스는 낱개 SKU × 케이스 안 개수로 팝니다.
 
 **어떻게 — 스프레드시트에서 붙여 넣기**
@@ -116,6 +117,13 @@
 2. 한 줄에 제품 하나씩 붙여 넣습니다: SKU, 수량, 원하면 가격. 스프레드시트에서 복사한 칸은 그대로 됩니다. 칸 사이를 쉼표로 적으면 가격에 천 단위 쉼표를 쓰지 않습니다(1250.00 · 1,250.00 아님).
 3. **Check** 를 누릅니다. 줄마다 **Verdict**(판정)가 나옵니다: **ok** · **merged into the existing line**(있는 라인에 합침) · **not found** · **inactive product** · **no price — confirming is blocked until it gets one**(가격이 없어 확정이 막힘) 등
 4. ok 가 아닌 줄을 고치고 **Check** 를 다시 누른 뒤 **Add lines** 를 누릅니다.
+
+**어떻게 — 라인에 고객 메모 달기**
+1. 오더에서 그 라인의 **+ note** 를 누릅니다(고칠 때는 **✎ note**).
+2. "Note to the customer — printed on the order and invoice (one line, up to 500 characters). Leave it empty to remove the note."(고객 메모 — 오더와 인보이스에 찍힘 · 한 줄 · 500 자까지 · 비우면 지움) 에 적고 OK 를 누릅니다.
+3. 메모는 제품 아래 ✉ 와 함께 보입니다. 직원용 메모는 "Internal:" 로 보이고 인쇄되지 않습니다.
+- Shopify 에서 온 오더에도, 확정 · 인보이스 뒤에도 됩니다. 취소된 오더와 콤보 구성품에는 안 됩니다.
+- 인보이스는 인쇄하는 때의 메모를 찍습니다.
 
 **가격**
 - 가격을 안 적은 라인은 평소 가격을 받습니다: 가격 등급, 그리고 가장 큰 할인([할인 · 딜 · 추가 요금](#sales-discounts-deals))
@@ -726,7 +734,9 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - 종류 **Supplier bills and credits**(공급처 Bill · 크레딧 — 줄 **Supplier** · **Supplier bill** · **Supplier credit** · **Delete bill by hand**)와 **Supplier payments**(공급처 결제 — 줄 **Supplier payment** · **Void supplier payment**)에 IMS 가 공급처 쪽으로 보낼 것이 있습니다. 어느 것도 저절로 나가지 않습니다 — **Preview** 뒤 **Send** 를 누릅니다.
 - 공급처 결제 **Preview** 는 공급처 · 결제 방식 · 돈이 나간 계좌 · 수표 인쇄 여부 · A/P 계정 · 금액 · 환율 · 갚는 Bill 을 보입니다. QuickBooks 계좌 · 공급처 · A/P 는 QuickBooks 번호(#)로 보입니다.
 - USD 공급처 결제는 환율이 먼저 있어야 합니다(CAD per 1 USD — 그 돈을 산 날의 MTFX 환율). **Purchasing ▾** › **Supplier Payments** 의 그 결제에 적으면([공급처 결제](02-purchasing.md#purch-payments)) 줄이 다시 나갈 수 있게 됩니다. Bill 의 환율을 베끼지 않습니다: Bill 은 인보이스 환율 그대로이고 차이는 QuickBooks 가 환차손익으로 적습니다.
-- QuickBooks 에 그대로 옮길 수 없는 결제는 "Enter this payment in QuickBooks by hand, then press Skip on this job"(QuickBooks 에 손으로 적고 이 줄을 Skip)으로 실패합니다: 조기 결제 할인 · 인보이스에 붙은 공급처 크레딧 · 붙인 금액 합이 결제와 다름. IMS 에서 고치거나, QuickBooks 에 손으로 적고 그 줄을 **Skip** 합니다.
+- 조기 결제 할인이 있는 결제는 **Send** 한 번으로 나갑니다: 할인이 먼저 QuickBooks 에 공급처 크레딧(줄 **Early-pay discount credit**)으로 만들어지고 같은 결제에 붙습니다. 결제 **Preview** 에는 **discount credit** 줄("created first, in the same send" · 같은 보내기에서 먼저 만들어짐)과 합계 **Bills** · **Early-pay discount** · **Paid** 가 보입니다.
+- QuickBooks 에 그대로 옮길 수 없는 결제는 "Enter this payment in QuickBooks by hand, then press Skip on this job"(QuickBooks 에 손으로 적고 이 줄을 Skip)으로 실패합니다: 세금 몫이 있는 할인 · 세금 있는 인보이스의 할인 · 비용 청구서(charge)의 할인 · 인보이스에 붙은 공급처 크레딧(초안 포함) · 붙인 금액 합이 결제와 다름 · QuickBooks 시작일 전 문서. IMS 에서 고치거나, QuickBooks 에 손으로 적고 그 줄을 **Skip** 합니다.
+- 이미 QuickBooks 에 간 할인을 IMS 에서 바꾸거나 지우면 **Delete discount credit by hand** 줄이 생깁니다. QuickBooks 에서 그 공급처 크레딧을 지운 뒤 그 줄의 **Skip** 을 누릅니다.
 - 그 Bill 을 QuickBooks 에서 이미 손으로 결제했으면 "QuickBooks shows only … open on bill …"(Bill 에 남은 돈이 모자람)으로 실패합니다. QuickBooks 의 손 결제를 지우고 **Retry** 하거나, 그것을 두고 IMS 줄을 **Skip** 합니다.
 - 종류 · 통화가 아직 없는 계좌는 "Settings → QuickBooks matching → Refresh list (accounts), then retry" 로 실패합니다.
 - **은행 피드(북키퍼)**: 은행 줄을 먼저 분류하지 않습니다. IMS 에서 결제를 보냅니다. 은행 줄의 짝이 **Bill Payment** 로 바뀌면 **Match** 를 누릅니다(여럿은 **Batch actions** › **Accept Selected**). QuickBooks 가 열린 **Bill** 을 짝으로 내밀면 누르지 않습니다 — 결제가 하나 더 생깁니다. 자동으로 장부에 더하는 은행 규칙은 쓰지 않습니다.
@@ -950,6 +960,8 @@ Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 �
 | Customer Payments | **↓ CSV** | **↓ Payment CSV** |
 | Credit Notes | **↓ CSV** | **↓ Credit CSV** |
 | Backorders | **↓ CSV** | — |
+
+- 판매 오더 라인 CSV 에는 **Customer note**(인쇄되는 고객 메모)와 **Internal comment**(인쇄 안 됨) 칸이 있습니다.
 
 **어떻게**
 1. 넓은 목록에서 필터와 검색을 맞춥니다.

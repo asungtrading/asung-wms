@@ -2398,7 +2398,7 @@ customer.price_tier · so.price_tier 옆 FK 칸(그대로 ⬜ · 11-f)
               비활성 제품 거부(되묻지 않는다) · 넣는 순간 굳힌다 sku · product_name · unit(ref_unit.name → 없으면 uom_name) · pack_factor(없으면 1 = 낱개) · list_price · discount_pct · unit_price · tax_rule 은 오더(손님) 값(짐작 — 인보이스 차수가 product.sale_tax_rule 을 볼지 판단)
               초안의 줄은 가격표가 바뀌어도 따라가지 않는다 · 다시 가격 매기기 창구는 만들지 않는다(필요해지면)
 ⬜6 손님 바꾸기 줄·운임이 하나라도 있으면 거부 'Remove all lines and charges before changing the customer — nothing was saved' · 바꿀 때 so_copy_customer 를 다시(so_create 와 공유)
-⬜7 other       CHECK so_line_free_other_ck (free_reason is distinct from 'other' or comments is not null) · null 규칙: reason null → 통과 · sample → 통과 · other+null → 위반 · 빈 문자열은 창구가 nullif(trim()) 로 막는다
+⬜7 other       CHECK so_line_free_other_ck (free_reason is distinct from 'other' or comments is not null) · null 규칙: reason null → 통과 · sample → 통과 · other+null → 위반 · 빈 문자열은 창구가 nullif(trim()) 로 막는다 → [2026-11-10 · §111-g · 판정 1151] comments 는 사내 글 — 손님용 줄 메모는 따로 표 `so_line_note` · 문서 줄 comment 원천도 그것(사내 comments 는 문서에서 빠짐)
 ⬜8 시험 신원   가짜 직원 둘을 시험 트랜잭션 안에서만(insert 뒤 rollback · ims_staff.auth_user_id 에 FK 없음 20260915141105 · 테스트 DB 에 남기지 않는다 — 운영으로 올라간다)
               A manager perms ["sales"] · B manager perms [] · email 은 시험 전용(test-a@example.invalid) · ⚠️ sub null 은 「로그인 안 됨」이지 「sales 없음」이 아니다 — 9-f · 11-e 의 한계를 이번에 넘었다
 ```
@@ -8884,7 +8884,7 @@ Send             누르면 창을 바로 닫는다(Caleb 「send를 누르고 �
 판(쓰는 판 · 테스트 DB 실측)  final_invoice v5 · internal_receipt v2 · sales_order v2 · ship_ready v2 · credit_note v2(→ [2026-10-26 · 판정 788 · §79-d] final_invoice v7 · ship_ready v3 · internal_receipt v3) — 판 파일은 레포 밖(Caleb 다운로드) · DB doc_template 이 정본
 회사 글                       doc_company_name · doc_hst · doc_website · doc_terms · doc_branches(토론토 · 에드먼튼 18418 105 Ave. NW, Edmonton AB T5S 0N7 · +1 (780) 752-7678 · info@)
                               · doc_logo_path(doc-brand 버킷에 올림) · doc_date_format DDMONYYYY · doc_public_base_url(테스트 = 테스트 프로젝트 주소 · 운영 값은 66-f)
-문서 글(doc_setting)          kind × (title · mail_subject · mail_body · show_upc · show_comment · show_charge_code) — final_invoice 제목 「INVOICE」 · 메일 제목 「FINAL INVOICE {{invoice.number}} - Asung Trading Inc.」
+문서 글(doc_setting)          kind × (title · mail_subject · mail_body · show_upc · show_comment · show_charge_code) — final_invoice 제목 「INVOICE」 · 메일 제목 「FINAL INVOICE {{invoice.number}} - Asung Trading Inc.」 → [2026-11-10 · §111-g] show_comment 가 찍는 줄 글 = 손님 메모(`so_line_note`) · 사내 comments 아님
                               · ship_ready 제목 PROFORMA · 메일 제목 「PROFORMA INVOICE - Asung Trading Inc.」(→ [2026-10-26 · 판정 787 · §79-d] 「PROFORMA INVOICE {{invoice.so_numbers}} - Asung Trading Inc.」) · internal_receipt 메일 글 빈칸(메일 없음)
 Gotenberg                     GCP 프로젝트 asung-ims-mail · northamerica-northeast2 · 서비스 gotenberg · 판 gotenberg-00001-q5k
                               · https://gotenberg-926704977469.northamerica-northeast2.run.app · 이미지 docker.io/gotenberg/gotenberg:8
@@ -13636,7 +13636,7 @@ asung-ops  (없음)
    - 화면으로 할 일(동료 · 안내 Word 셋 — 107-c 10): 칸 옮기기 셋 · 콤보 되돌리기 두 장(TOR UNF18259 −2 · UNF18046 +12 · UNF18047 +12 · UNF18048 +10 · UNF18049 없음 / EDM UNF18155 −1 · UNF18130 ~ 18135 각 +4 · Add or take · Count difference · 단가 비움) · EZB70340 세기 → deferred 527
 6. **shop-photo-dup-0**(조사 · 읽기만 · 자세히 shopify-integration §3-b)
    - shop-photo-0(10-30)의 「Shopify 전용」 은 파일 이름 줄기로 가른 수 · **통파일 md5 는 하나도 안 맞는다** — Shopify CDN 이 Exif · eXIf 를 깎는다(실물 세 쌍 14 바이트 작음) · **메타 뺀 그림 바이트 md5**(JPEG APPn · COM 제외 · PNG IHDR · PLTE · tRNS · IDAT)로 맞댐 · ⚠️ `Accept: image/avif,image/webp` 를 보내면 CDN 이 형식을 바꿔 준다(Accept 없이 받는다)
-   - 결과: 후보 3,348 · 같음 1,273 · 같은 크기 · 다른 md5 1,169 · 다름(진짜 전용) 899 · 못 받음 1 · 못 셈 6 ⇒ **진짜 전용 899 ~ 2,068**(같은 크기 칸은 다른 그림이 많을 수 있다 · 짐작) · 그중 FAM 표지 634 · 받은 것 Shopify 3,367 / 3,368 장 · IMS 4,625 / 4,625
+   - 결과: 후보 3,348 · 같음 1,273 · 같은 크기 · 다른 md5 1,169 · 다름(진짜 전용) 899 · 못 받음 1 · 못 셈 6 ⇒ **진짜 전용 899 ~ 2,068**(같은 크기 칸은 다른 그림이 많을 수 있다 · 짐작) · 그중 FAM 표지 634 · 받은 것 Shopify 3,367 / 3,368 장 · IMS 4,625 / 4,625 → [2026-11-10 · §111-c 8] shop-photo-dup-1 픽셀 비교 — 진짜 전용 **1,550**(그중 FAM 표지 805) · 판정 1139 ~ 1141
    - Caleb(11-09): 「패밀리 표지 사진을 대표베리언트로 대체하는 방법이 있지만, 패밀리 특성에 맞는 사진으로 넣은 경우도 있어. 그것을 구분할 수 있나?」 → 다음 조사 shop-photo-dup-1(지각 해시 · 아직 안 함 · Caleb 「일단 문서 작업을 마무리」 · deferred 524)
 7. **칸 없는 판매**(11-08 저녁 · Caleb · `ims_inv_balance` qty <> 0 · bin 없음 전수)
    - 777 행 중 776 = **IN_TRANSIT**(가상 창고 · 칸이 원래 없다 · 트럭 몫 양수 + 기초 경계 음수 — asung-inv-ledger 「IN_TRANSIT 잔고는 영구히 음수가 있다」) → 대상 아님 · 실제 창고는 **EDM EZB70340 −1** 하나(2026-11-05 · SO-21090 · sale_out · source ims · 판정 1094 의 실물 그 오더 · Action Centre Sold without stock 「NOT CHECKED YET — 1」 · cost layer_recent_other_wh) · 09-13 의 셋(AS91459 · AS91457 · ABE16004)은 지금 0
@@ -13886,7 +13886,7 @@ asung-ops  (없음)
 8. **두 환율**: Bill = IMS 인보이스 환율(재고 원가도) · 결제 = 산 날의 MTFX 환율 · 차이는 QBO 가 환차손익 · 예 AST261028 33,366.24 USD × 1.397 = 46,612.64 CAD · × 1.404312 = 46,856.61 CAD → 243.97 환차손 · IMS 재고 원가 무변 · **결제 환율을 Bill 환율에 맞추지 말 것**
 9. **qbo-send 목록 statement timeout 한 번**(All · Supplier payments) — 곧바로 확인: 열린 트랜잭션 · 잠금 0(실시간 복제 연결만) · 새로 고침 뒤 정상 · 원인 모름(관찰 · deferred 546)
 10. **북키퍼 안내서**(Claude Doc 「QuickBooks 연동 안내 — 북키퍼용」 rev 49 · 대화 Claude 고침): 메뉴 길 열한 곳 → Integrations › QuickBooks · 공급처 Bill 찾기 「종류 Supplier bills and credits」 · 「공급처 결제 보내기와 은행 피드 맞추기 — Match 는 북키퍼님 몫」(피드 먼저 분류 금지 · Preview → Send · 짝 Bill Payment 로 바뀌면 Match(Batch) · 은행 규칙 자동 추가 금지 · USD 는 결제에 환율 넣고 Send · 컷 뒤 IMS Bill 의 송금은 QBO 에 손으로 적지 말 것 — 손 송금은 컷 전 Bill 만) · 「환율은 두 개」 · 표 「IMS 에 적은 공급처 결제 4 건」 → CAD 1 sent(173092) · USD 3 환율 대기
-11. **shop-photo-dup-1**(조사 · 쓰기 0 · ⬜ 회신 전 — 진행 중 사실만 · deferred 524): venv(pillow 13.0.0 · imagehash 4.3.2 · numpy 2.5.4) · 내려받기 4,390 s · 실패 0 · 404 1 · ⭐ 지난 결과의 「다름(진짜 전용) 899」 는 그림이 다르다는 뜻이 아니라 **가로 × 세로가 같은 IMS 후보가 없다**는 뜻(899 중 788 장은 비율이 같은 IMS 후보 있음 · FAM 634 중 578 · 2048² 587 장 · IMS 기본 1024²) ⇒ 범위 B 를 같음을 뺀 전부(2,075)로 넓힘 · 빠진 변형 aone 187(활성 사진 15 · 리스팅 112) · asung 213(4 · 133) · **IMS 패밀리 웹 대표 사진 칸이 지정된 패밀리 2 개뿐** · D 짝 30 쌍 중 20 = 같은 사진을 여러 SKU 가 함께 씀 · 10 = 작은 라벨만 다름 ⇒ pHash + 색으로는 「거의 같음」 확정 불가 → 픽셀 비교 단계 · 결과 표 · 문턱 · review.html 은 다음 문서 차수
+11. **shop-photo-dup-1**(조사 · 쓰기 0 · ⬜ 회신 전 — 진행 중 사실만 · deferred 524): venv(pillow 13.0.0 · imagehash 4.3.2 · numpy 2.5.4) · 내려받기 4,390 s · 실패 0 · 404 1 · ⭐ 지난 결과의 「다름(진짜 전용) 899」 는 그림이 다르다는 뜻이 아니라 **가로 × 세로가 같은 IMS 후보가 없다**는 뜻(899 중 788 장은 비율이 같은 IMS 후보 있음 · FAM 634 중 578 · 2048² 587 장 · IMS 기본 1024²) ⇒ 범위 B 를 같음을 뺀 전부(2,075)로 넓힘 · 빠진 변형 aone 187(활성 사진 15 · 리스팅 112) · asung 213(4 · 133) · **IMS 패밀리 웹 대표 사진 칸이 지정된 패밀리 2 개뿐** · D 짝 30 쌍 중 20 = 같은 사진을 여러 SKU 가 함께 씀 · 10 = 작은 라벨만 다름 ⇒ pHash + 색으로는 「거의 같음」 확정 불가 → 픽셀 비교 단계 · 결과 표 · 문턱 · review.html 은 다음 문서 차수 → [2026-11-10 · §111-c 8] 결과(픽셀 비교 · 진짜 전용 1,550 · FAM 표지 805) · 판정 1139 ~ 1141 · 524 닫힘
 
 ### 110-d 화면 (asung-ims · 대화 Claude 가 씀 · 커밋 Caleb)
 
@@ -13909,7 +13909,7 @@ asung-ops  (없음)
 - **잇기**: 459(4-5a · 4-5b · 4-5c 끝 · 첫 BillPayment 173092 · 다음 USD 3 건 환율 → 4-6) · 139(1135 Kind 잠금 섰음 · status 직접 PATCH 우회 남음) · 534(보낸 줄 미리 보기 글 · qs sup v2 주석 번호) · 538(1132 로 막음 · 첫 후보 2223170 · 할인 기한 11-19) · 524(shop-photo-dup-1 진행 중 사실) · 332(근거 칸에 → 539 만 · 닫힘 그대로)
 - 새 **539** ~ **547**(미정): 539 서류 붙은 미확정 문서 삭제 · 540 손님 `qbo_payment_sync` 의 blocked 방치 · 541 `bill_delete_manual` 은 가장 오래된 열린 void 하나만 기다림 · 542 미리 보기 QBO 참조 이름 · 543 charges 경고 코드 원문 · 544 비활성 「1%20 Net30」 을 쓰는 활성 공급처 · 545 폰 폭 화면별 핵심 손질 · Manual 둘째 줄(nav v18b 가 1 차) · 546 qbo_job_list statement timeout(관찰) · 547 11-03 · 11-05 손 송금 셋이 컷 뒤 IMS 인보이스인지
 - MTFX USD Transfer 미기록 · ER 이 그날 환율로 보임 = 북키퍼 실무 · IMS 밖 — deferred 줄 없이 110-c 7 · qbo-integration §15-n 사실로만(Caleb · docs-1109f 이견 6)
-- **다음**: USD 3 건 — 북키퍼가 결제에 MTFX 환율을 넣고 Send(Caleb 전달) · 4-6(켜기 · 정본) · E-8 sandbox → 할인 결제 짓기(538 · 2223170 할인 기한 **11-19**) · 539 판정((나-1) / (나-2)) · 폰 확인 뒤 545 · 1131 나(536)
+- **다음**: USD 3 건 — 북키퍼가 결제에 MTFX 환율을 넣고 Send(Caleb 전달) · 4-6(켜기 · 정본) · E-8 sandbox → 할인 결제 짓기(538 · 2223170 할인 기한 **11-19**) · 539 판정((나-1) / (나-2)) · 폰 확인 뒤 545 · 1131 나(536) → [2026-11-10 · §111] E-8 · 할인 결제 짓기 끝(4-7a · 4-7b · 4-7c · 538 닫힘) · 1131 나(536)는 1144 자동 + 경고로 닫힘 · 남은 다음 = §111-d′
 
 ### 110-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (109-e 에 이어 149 부터 · asung-workflow 128 ~ 137 과 같은 것)
 
@@ -13924,7 +13924,7 @@ asung-ops  (없음)
 157. [공통 js 예외](workflow 136) 메뉴 · 머리 줄(ims-auth.js)은 nav v6 부터 대화 Claude 가 고쳐 왔다 — 표 · 머리 모양만일 때 · 가짜 화면(jsdom)으로 실제 머리 HTML 을 넣어 시험(nav v17 · v18)
 158. [JS 문자열 속 CSS escape](workflow 137 · nav v18 `2d8689f`) CSS 코드값 `\25BE` 를 JS 문자열(`'…content:"\25BE"…'`)에 넣으면 JS 가 `\25` 를 8 진 escape 로 먹어 화면에 「BE」 · 「B8」 이 보인다 — jsdom 시험은 동작(접힘 · 토글)만 봐서 통과 ⇒ JS 문자열 안에는 CSS escape 를 넣지 말고 **글자 그대로**(▾ ▸) · 가짜 화면 시험은 동작만이 아니라 넣는 CSS 문자열을 eval 로 꺼내 본다(nav v18b)
 
-- ⚠️ 4-5a 시험이 잡은 **실제 결함**(회차 4 ~ 6): 지문이 QBO 와 같아져 void 를 거둘 때 그 void 뒤 다시 보내기 일감이 skipped 부모에 영구 blocked → sync 에 ① void 거둘 때 뒤 bill_payment 도 skipped ② 새 void 서면 blocked 일감도 그 뒤로 · ⚠️ **손님 `qbo_payment_sync` 에도 같은 결함**(이 차수 무접촉 · deferred 540)
+- ⚠️ 4-5a 시험이 잡은 **실제 결함**(회차 4 ~ 6): 지문이 QBO 와 같아져 void 를 거둘 때 그 void 뒤 다시 보내기 일감이 skipped 부모에 영구 blocked → sync 에 ① void 거둘 때 뒤 bill_payment 도 skipped ② 새 void 서면 blocked 일감도 그 뒤로 · ⚠️ **손님 `qbo_payment_sync` 에도 같은 결함**(이 차수 무접촉 · deferred 540) → [2026-11-10 · §111] 손님 쪽 고침(qbo-pay-fix-1 `3f0a7a8` · 운영 1 건 풀림 → QBO 173093 · 540 닫힘)
 
 ### 110-f 옛 줄 정정(→ · 이 절을 가리킨다)
 
@@ -13936,4 +13936,127 @@ asung-ops  (없음)
 
 ```
 다음 판정 번호: 1139 · 다음 deferred 번호: 548
+```
+
+## §111 2026-11-09 밤 ~ 11-10 — 조기 결제 할인 공급처 결제(E-8 · 4-7a · 4-7b · 4-7c) · 지급 기한 자동(1144) · 손님 결제 blocked 고침(qbo-pay-fix-1) · SO 손님용 줄 메모(so_line_note) · Shopify 사진 조사 결과(shop-photo-dup-1) · 판정 1139 ~ 1151 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1110a + `~/asung/prompts/docs-1110a-sources.md`(S1 ~ S13 · 대화에만 있던 것) + Caleb 회신(이견 1 ~ 6 · 사진 조사 원문 · 북키퍼 상세판 · 대화에만) · 원천 대조 asung-wms `75e73e7..HEAD` = `3f0a7a8` · `573b6af` · `222e96c` · `beaad9b`(넷) · asung-ims `309261b..HEAD` = `e340db4` · `bcf47ad`(둘) · 이 차수(docs-1110a)는 DB · 화면 · EF · git 쓰기 0
+⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다(§110 머리 규칙 그대로 · 사진 정리 = 「디자이너」 · 회계 = 「북키퍼」) · 운영 realm 은 `…6496` · 문서 번호 · QBO Id · 금액은 적는다 · Claude Doc ID 는 적지 않는다
+⚠️ 상태 = 조기 결제 할인이 있는 공급처 결제가 **QuickBooks 로 갈 수 있다**(할인 VendorCredit 을 같은 Send 에서 먼저 → BillPayment 에 Bill 줄 + VC 줄 · 1143 · 1150) · 아직 할인 받은 결제 0 건 · 첫 후보 2223170(할인 기한 11-19) · 공급처 인보이스 지급 기한은 결제 조건에서 **자동**(1144) · 손님 결제 「void 뒤 영구 blocked」 고침 + 운영 1 건 풀림(QBO 173093) · SO 줄에 손님용 메모(인쇄됨 · 1151) · 정본 = qbo-integration **§15-o**
+
+§110 의 다음(E-8 → 할인 결제)을 하루에 끝냈다: E-8 sandbox(Caleb · API Explorer) → 판정 1143 ~ 1150 → 4-7a DB → 4-7b DB + EF → 4-7c 화면. 그 사이 손님 쪽에 같은 결함(540)을 고쳤고(qbo-pay-fix-1), 동료 요청으로 SO 줄 메모를 따로 표로 지었고(1151), 사진 조사 결과로 가져오기 방향을 정했다(1139 ~ 1141).
+
+### 111-a 판정 (원천 S1 · Caleb 원문 칸은 바이트 그대로)
+
+| 판정 | Caleb | 정한 것 | 단서 · 근거 · 기각 |
+|---|---|---|---|
+| 1139 | 「가」 | Shopify 전용 **패밀리 표지 805 장(444 패밀리)** — IMS 에 패밀리 사진 자리를 만들고 모두 가져와 패밀리 웹 대표 사진으로 | 기각: 나(첫 변형 사진으로 갈음 — 묶음 사진 잃음) · 다(사람이 고름 — 444 줄) |
+| 1140 | 「가」 | 패밀리 표지가 아닌 Shopify 전용 사진(약 480 장)도 모두 가져옴 — 변형에 지정된 사진 → 그 변형(제품) 추가 사진 · 패밀리 상품의 미지정 사진 → 패밀리 사진 자리(추가) · 낱개 상품 → 그 제품 · Shopify 순서를 IMS 사진 뒤에 지킴 | 「약 480」 = 상품 안 중복을 뺀 1,289 − FAM 표지 805 |
+| 1141 | 처음 「가」(80 줄 보고 고름) → 「일단 전부 킵하는걸로 할게, 아마도 패키지가 바뀌면서 추가된 사진들로 보여. 일단 킵하고 우리 디자이너에게 ims에서 삭제할 수 있도록 킵한 제품의 리스트를 전달」 | 애매한 214 장 **모두 가져옴** · 가져온 뒤 디자이너가 목록(unclear-keep.csv · .html)을 보고 IMS 에서 필요 없는 것을 지움 | 목록 = 214 장 → 84 장(111-c 8) |
+| 1142 | 「가」 | 2223170 지급 기한을 12-09(Net30)로 | 길(S4 순서): Reopen → Cancel(Caleb 이 나가기로 알고 누름 · 취소됨) → Restore(draft — confirmed_at 이 Reopen 으로 지워져서) → 12-09 → Confirm(Caleb 22:06 토론토) · 교훈 162 |
+| 1143 | 「가」 | 할인 VendorCredit 은 **따로 일감**(kind `vendor_credit` + ims_kind `po_discount`) · 결제가 그 뒤 | 기각: EF 가 VC → BillPayment 한 번에(실패하면 고아 VC) |
+| 1144 | 「가」 + 「결제 조건대로 자동으로 채우고, 디스카운트를 받을 수 있는 날짜가 있으면 그것이 도드라져 보이게」 | 공급처 인보이스 지급 기한 = 문서 날짜 + net_days **자동**(사람 값 지킴 · `due_date_manual`) · 확정 때 다르면 **경고(막지 않음)** · 할인 기한 강조(화면) | Caleb 「원래는 텀에 맞게 기한이 제시되었는데, 누군가 날짜를 수정한거지?」 → 예(짐작 · 감사 기록 없음) · 막지 않는 까닭 = 484908, 484909(C.O.D · 11-17)처럼 조건과 달라도 맞는 사람 값이 있다(교훈 161) |
+| 1145 | 「가」 | 할인 세금 몫(`discount_tax_part` > 0)이 있으면 결제 몸이 막고 사람에게 · 회계사에게 「조기 결제 할인을 받으면 매입 GST/HST(ITC)를 줄여야 하는가」 | 4-7a 이견 2 로 **세금 있는 인보이스의 pre_tax 할인**도 같은 문에서 막음 · deferred 550 |
+| 1146 | 「가」 | 할인 결제 고침 · 지움 → BillPayment void · 같은 할인이면 열린 VC 를 다시 씀 · 할인이 바뀌거나 없어지면 `bill_delete_manual`(po_discount) — 사람이 QBO 에서 지우고 Skip | API delete 금지(1126) |
+| 1147 | 「다」 | 인보이스에 크레딧이 붙은 결제(1132 ②)는 이번에도 막음(**초안 크레딧 포함**) | 「0 원 BillPayment 붙임」 은 sandbox 확인 뒤(deferred 549) |
+| 1148 | 「가」 | USD 할인 VC 환율 = 인보이스(Bill) 환율(GINR 0) | 예 1,000 USD @1.40 · 할인 20 · 결제 980 @1.38 → 환차 19.60(현금 몫만) |
+| 1149 | 「가」 | 원가 장 `settlement_discount` CADJ 를 4-7 이 서면 무조건 send | 1119 꼴 · VC 가 늦으면 GINR 이 신호 |
+| 1150 | 「가」 | 할인 결제는 **결제의 Send 한 번** — 할인 VC 가 같은 보내기에서 먼저(손님 인보이스의 「Created in QuickBooks first, in the same send」 꼴) | 기각: VC 먼저 Send → 결제 Send |
+| 1151 | 「나」 | 손님용 SO 줄 메모는 **따로 표(`so_line_note`)** — so_line 을 건드리지 않아 434(Shopify 취소 → 자동 취소 · changed_in_ims) · so_unconfirm 판단 보호 | 기각: 가(so_line 칸 — 메모 하나로 434 확인 알림 · Unconfirm 막힘) · Caleb 「손님에게 보여주기 위한 것」 「우리 오더의 대부분은 샤피파이에서 내려와 — 그렇게 내려온 오더의 라인 아이템의 노트는 추가할 방법이 없어」 「어차피 새로 지어야 하는거면, 수정과 삭제 기능을 추가하는것도 병행」 |
+
+- **4-7a 이견 답**: 1 청구서 할인 막음 · 2 세금 있는 인보이스 할인 막음 · 3 빈 기한 경고만(`due_date_missing`) · 4 운영 QBO 「Automatically apply bill payments」 = **On**(sandbox 도 On) — E-8 에서 API VC 211 은 열린 Bill 210 에 저절로 안 붙음 ⇒ 화면 입력에만 작동 · On 그대로(교훈 167)
+- **4-7b 이견 답**: 1 안 B(DB 둘 + EF) · 4 Skip 된 할인 VC 를 기다리는 결제 풀기 · 6 billpayment Line 조임 · 7 할인 VC PrivateNote 표지
+- **so-line-note-1 이견 답**: 5 Unconfirm 형제 메모 옮김 · 7 합칠 때 다르면 「 / 」 로 잇기 · 500 자 넘으면 거부 · 10 시험의 SO 번호 하나 건너뜀 받아들임 · 3 · 15 화면 칸 둘(Note to customer · Reason (internal)) · `customer_note` · CSV Customer note · Internal comment
+
+### 111-b 차수 · 커밋 (git log 원문에서)
+
+| 커밋 | 레포 | 차수 | 적용 · 배포 | 확인 |
+|---|---|---|---|---|
+| — | — | E-8 sandbox(Caleb · API Explorer · 11-09 밤) | — | 111-c 1 |
+| `3f0a7a8` | asung-wms | qbo-pay-fix-1 손님 `qbo_payment_sync` | `20261110023000` | 마른 실행 OK 11 · FAIL 11(결함 재현) · 시험 22/22 · 확인 22/22 · 회차 7 |
+| — | — | qbo-sync-4-7-0 조사 · 지급 기한 보탬 조사(쓰기 0) | — | 111-c 3 · 4 |
+| `573b6af` | asung-wms | qbo-sync-4-7a DB(할인 VC · 결제 몸 · 지급 기한 자동) | `20261110034500` | 시험 41/41 · 마른 실행 OK 7 · FAIL 18 · 확인 41/41 · 적용 11 ~ 13 초 잠금(qbo_job · qbo_txn · po_invoice) |
+| `222e96c` | asung-wms | qbo-sync-4-7b DB + EF(needs 길 · VC 가드) | `20261110040718` + EF 배포 | 마른 실행 OK 12 · FAIL 11 · 시험 23/23 · 확인 23/23 · deno 32/32 · 변이 16 모두 FAILED |
+| `e340db4` | asung-ims | 4-7c 화면 — inv disc v3(invoices.html) + qs sup v3(qbo-send.html) | 화면 | Caleb 확인(2223170 칩 · 단추) |
+| — | — | so-line-note-0 조사(쓰기 0) | — | 111-g |
+| `beaad9b` | asung-wms | so-line-note-1 DB | `20261110041823` | 마른 실행 OK 2 · FAIL 22(사내 글 「INTERNAL-ONLY」 가 문서에 찍힘 재현) · 시험 25/25 · 확인 24/24 · SO 번호 21260 · 21261 건너뜀 |
+| `bcf47ad` | asung-ims | so note v1(so.html) | 화면 | — |
+| — | — | shop-photo-dup-1 결과 · 디자이너 목록(쓰기 0 · scratch 만) | — | 111-c 8 |
+
+- 마이그레이션 md5(파일 전체 · 행): `20261110023000` `f5b77ca33da518c104af01ab99aaa808`(170 행) · `20261110034500` `9fbcec3fd2d9935df54b19e601b66c44`(1694 행) · `20261110040718` `27666648d350e8a27da1d9c4c27e4868`(384 행) · `20261110041823` `ee4b330444477258ed2777ebe1961332`(1402 행)
+- **qbo-pay-fix-1**: 손님 `qbo_payment_sync`(옛 md5 `9efb5d9f` · 82 줄)에 4-5a 의 두 고침이 없었다 — ① void 를 거둘 때 뒤 다시 보내기 일감을 그대로 둠 ② 새 void 가 서도 blocked 일감을 옮기지 않음 · 둘이 겹치면 **QBO Payment 는 void 되고 다시 보내기는 영구 blocked** · 재발행 두 곳(더한 3 · 바꾼 1 · 새 md5 `12492822`) + 운영 한 행 풀기(조건 다섯 · NOTICE released 1) · 같은 꼴 다른 함수 셋(`qbo_credit_alloc_sync` · `qbo_opening_alloc_sync` · `qbo_refund_sync`) 없음 · 인접 꼴(부모를 Skip · 취소로 닫을 때 뒤 일감을 안 봄) → deferred 548
+- **4-7a** · **4-7b** 구현 규칙 전문 = qbo-integration §15-o
+
+### 111-c 사실 · 실측 (요약 · 전문 = qbo-integration §15-o)
+
+1. **E-8 sandbox**(11-09 밤 · Caleb · API Explorer · Canada · realm 9341458557490536): Bill 210(100 · APAccountRef 31 · TaxCodeRef NON) · VendorCredit 211(2.00) · BillPayment 212(Check · BankAccountRef 38 · PrintStatus NotSet · TotalAmt 98 · Line [Bill 210 100, VendorCredit 211 2]) 받아 줌 → 둘 다 Balance 0(Bill LinkedTxn `BillPaymentCheck` · VC LinkedTxn `BillPayment`) → Void {Id 212, SyncToken 0, sparse} → TotalAmt 0 · Line [] · 「Voided - 」 · **BankAccountRef 빠짐** → Bill 100 · VC 2 함께 다시 열림 ⇒ 할인 결제 = Bill 줄(할인 포함 갚은 몫) + VC 줄(할인) · TotalAmt = 낸 돈
+2. **qbo-pay-fix-1 운영 1 건**: 결제 `15e70a27…`(e_transfer 161.34 · 11-04) · 일감 `a5bd4e28…` · 흐름 11-06 19:30 붙임 더함 → 19:33 뗌(V1 skipped) → 20:57 다른 인보이스에 붙임(V2) → 21:00 V2 sent · QBO Payment 172656 void ⇒ 다시 보내기 영구 blocked → 적용 뒤 일감 sent · **QBO Payment 173093** · qbo_voided f · fp_same t · 172656 은 void 그대로
+3. **4-7-0 조사**(쓰기 0): 할인 꼴 alloc.amount = 할인 포함 갚은 몫 · discount_amount = 할인 · Σ충당 = amount + Σ할인 ⇒ Bill 줄 = alloc.amount · VC 줄 = 할인 · TotalAmt = 낸 돈(E-8 과 1:1) · `po_invoice_discount_parts(2223170, 142.71)` → `pre_tax|7135.32|7135.32|0.00|0|142.71|0|0.00` · discount_tax_part 를 읽는 곳 0 · other_part 는 보낼 수 있는 Bill 에서 늘 0 · 원가 장 CADJ 보류 글 「opens with the supplier payment round (4-5 · 1121)」 낡음 · settlement_discount 0 건 · 크레딧: credit_for_invoice_id 는 create 때만 · 크레딧 하나 = 인보이스 하나 통째로 · unpaid 는 draft 크레딧도 뺌(1132 ② 는 confirmed 만 → 4-7a 가 맞춤) · 결제가 크레딧을 쓴 기록 없음 ⇒ ② 는 E-8 꼴로 풀면 안 됨
+4. **지급 기한 보탬 조사**(쓰기 0): DB 는 자동 셈 없었음(`po_invoice_create` 는 p_due_date 그대로 · 할인 기한만 discount_days 로 셈) · 화면 po.html(po due v1)이 net_days 로 제안 · dueTouched 면 사람 값 · invoices.html 은 draft · 빈칸일 때 「Use <날짜>」 · 2223170 의 11-19 = **사람이 넣음(짐작 · 감사 표 없음)** — 그 날짜는 할인 기한과 같다 · ⭐ 같은 꼴 선례: P&G 1030266656 `due_date 10-21 → 11-07`(「할인 기한을 넣어 둔 값이었다」 · po-module §11-h 「조기 결제 할인 — 실물」) — 사람이 할인 기한을 지급 기한 칸에 넣은 두 번째 일 · 컷 뒤 인보이스 10 장 중 할인 조건 1 장(2223170) · 484908, 484909(C.O.D · due 11-17 · 13 일 · QBO 173050 · 입고 0 — 도착 예상일일 수 있음) · confirmed 인보이스 기한은 DB 가 막지 않음(RLS `ims_can_write('purchasing')`) · 화면이 draft 에서만 칸을 연다 · 길 = Reopen → 고침 → Confirm(Reopen 막힘: 결제 · 입고 · 닫힌 PO)
+5. **2223170**: CAD 7,135.32 · 세금 0(Zero-rated) · 2%10 Net30 · 할인 142.71 · Vendor 579 · A/P `_62_` · PO-02003 입고 0 · 지금 기한 12-09 · 할인 기한 11-19 · Bill 일감 queued(북키퍼 Send) · 화면 할인 칩 확인(Caleb)
+6. **4-7a (B) 지급 기한 적용 뒤**: 기존 10 장 값 무변 · 조건과 다른 장만 `due_date_manual` true → **484908, 484909 한 장**
+7. **운영 사실(11-10)**: 지금 할인 받은 결제 0 · 크레딧 문서 0 · 열린 할인 조건 인보이스 2223170 하나 · 운영 · sandbox QBO 「Automatically apply bill payments」 On · 손님 쪽 「Automatically apply credits」 운영 Off · sandbox On
+8. **shop-photo-dup-1 결과**(쓰기 0 · scratch 만 · 정본 shopify-integration §3-b): 방법이 바뀜 — D(같은 상품 다른 SKU 의 IMS 짝)가 오염(30 쌍 중 20 = 같은 사진을 여러 SKU 가 공유 · 10 = 라벨만 다름) ⇒ pHash + 색으로 「같음」 판정 불가 → **픽셀 비교**(256² · 차이 > 40 인 픽셀 비율) · CDN 맞춤 짝 200: p50 0.22 · p99 7.13 · max 7.89 % · 라벨만 다른 D 0.3 ~ 1.9 %(라벨 차이는 못 가름) · 규칙 same ≤ 8 % · different pHash ≥ 21 또는 모든 후보 > 20 %(20 은 짐작) · unclear 그 밖 · **A**(FAM 표지 815): same 9(5 패밀리) · different **805**(444 패밀리 · 두 스토어에 같은 그림을 하나로 센 서로 다른 그림 443) · 404 1 · **B**(3,348 · A 를 품음): same 1,578 · different **1,550**(그중 FAM 표지 805 = A) · unclear 214 · not computed 6 · 상품 안 중복을 빼면 1,289(asung 672 · aone 617 · 스토어 겹침 하나로 719) · 내려받기 4,390 s · Shopify 2,275 요청(404 1) · IMS 3,848 장 · 픽셀 비교 2,482 s · review.html(탭 A 36 줄 · A-same 8 줄 · B 80 줄)
+9. **디자이너 목록**(1141): unclear-keep.csv(85 줄) · .html(55 SKU 절) — 214 장 → 84 장(md5 + 패밀리로 묶음 · pHash 묶음은 6 패밀리에서 다른 그림을 합쳐서 버림) · 붙는 곳 55: 변형 지정 7 SKU/7 장 · 패밀리 미지정 35/60 · aone 미확인 4/8 · 낱개 9/9 · ⚠️ **10-30 스냅샷에 변형 ↔ 사진 연결이 없다** → 가져오기 도구는 Shopify 에서 다시 읽어야(변형 연결은 Shopify 연결 도구로 읽기 전용 GraphQL `ProductVariant.media` · asung 만 로그인 · aone 은 도구를 aone 으로 바꾸는 걸음 · 공개 product JSON 은 429)
+10. **북키퍼 안내서**(Claude Doc · 쉬운 말판 rev 53): Caleb 「판정에 근거해서 업무를 어떻게 해야하는지 숙지하는게 목표 · 어카운팅을 모르는 사람도 읽으면 이해할 수 있는 쉬운 구어체」 → 통째로 다시 씀(rev 52 · 용어 표 · 큰 원칙 셋 · 하루 일과 · 손님 쪽 · 원가 장 · 공급처 쪽(지급 기한 자동 · 할인 칩 · 은행 피드 Match · USD 환율 두 개 · 할인 결제 Send 한 번) · 사람이 손으로 해야 하는 경우 · 하지 말 것(「Cancel invoice…」 는 나가기 아님) · 남은 것) · 옛 틀린 줄 바로잡음(「지급 기한이 비어 Bill 기한이 인보이스 날짜로 간다」 · 「미리 보기 창이 손님 꼴」)
+11. **북키퍼 상세판**(Claude Doc 「QuickBooks 연동 실무 안내 — 북키퍼 상세판」 · 11-10 · 대화 Claude): 계정 지도 · 보내기 장치 규칙 · 손님 / 원가 장 / 공급처 분개 표 · 사람 처리 절차 · 대사(일 · 주 · 월) · 한계 · 판정 색인
+
+### 111-d 화면 (asung-ims · 대화 Claude 가 씀 · 커밋 Caleb)
+
+| 커밋 | 파일 · 판 | 내용 |
+|---|---|---|
+| `e340db4` | invoices.html · inv disc v3 | 지급 기한 옆 할인 칩(「Pay by 2026-11-19 → save 142.71 · 10 days left」 · 3 일 이하 주황) · 기한 출처(「· from the payment term」 / 「· set by hand」) · 목록 Due 칸 할인 칩 · 확정 경고 `due_date_missing` · `due_date_differs_from_term` 사람 말 · Cancel 단추 이름 「Cancel invoice…」 / 「Cancel credit note…」(1144 · 교훈 162) |
+| `e340db4` | qbo-send.html · qs sup v3 | 이름표 `vendor_credit` + `po_discount` = 「Early-pay discount credit」 · `bill_delete_manual` + `po_discount` = 「Delete discount credit by hand」 · 결제 미리 보기 줄 txn_type(「discount credit」 칩 · 「created first, in the same send」) · 합계 Bills · Early-pay discount · Paid · 미리 보기 Send 단추는 sendable 이 아니라 p.error 로 정함(잠기지 않음) |
+| `bcf47ad` | so.html · so note v1 | 상세 줄 ✉ 손님 메모 · 「Internal:」 사내 메모 · 줄마다 「+ note」 / 「✎ note」(prompt · `so_line_note_set` · 빈칸 = 지움 · 취소 오더 · 콤보 구성품 · sales 쓰기 없음 제외) · Add a line 「Note to customer」(모든 줄 · `so_lines_paste` note) · 「Reason (internal) — required」(무상 other 만) · VERDICT bad_note · CSV Customer note · Internal comment |
+
+- ⚠️ inv disc v3 의 **기한 출처 · 목록 할인 칩은 안 보인다** — `po_invoice_detail` 이 칸을 골라 보내 `due_date_manual` 이 없고 목록 뷰에 `early_discount_until` 이 없다(짐작) · 화면은 칸이 없으면 조용히 비움 → deferred 555 · 교훈 165
+- 앞 판 qs sup v2(`e745754`) 주석의 deferred 번호(534 · 536) 어긋남은 §110-d 그대로 — qs sup v3 가 고쳤는지는 원천에 없다
+
+### 111-d′ 열린 것 · 닫은 것 · 다음
+
+- **닫힘**: deferred **536**(1144 — 자동 + 경고로 다른 길 · 출처 표시는 555) · **538**(E-8 · 4-7a · 4-7b · 4-7c · USD sandbox 는 554) · **540**(qbo-pay-fix-1 `3f0a7a8` · QBO 173093) · **524**(shop-photo-dup-1 끝 · 디자이너 목록)
+- **잇기**: 387(1139 ~ 1141 로 방향 섬 · 가져오기 길 ① ~ ⑤ · 열림 그대로)
+- 545 는 새 사실 없음(열림 그대로 · 잇지 않음)
+- 새 **548** ~ **560**(미정): 548 Skip 일반 — 부모를 skipped 로 닫을 때 뒤 blocked 일감 · 549 크레딧 붙은 인보이스 결제(1147) · 550 할인 세금 몫 · 세금 있는 인보이스 할인(1145 · 회계사) · 551 청구서 할인 VC 계정 · 552 결제 Skip 뒤 안 붙은 할인 VC · 553 할인 VC DocNumber 겹침 · 554 USD 할인 결제 sandbox(+ VC 통화 가드) · 555 detail 의 due_date_manual · 목록의 early_discount_until · 556 B급 지정이 손님 메모를 cascade 로 지움 · 557 「Cancel」 단추 이름(다른 화면) · 558 Shopify 줄 속성 · 「PO Number」 · 559 Ship Ready show_comment(Caleb) · 560 so note 입력 창 → 줄 안 입력칸
+- **사진 가져오기 길**(387 · 판정 뒤 · 대화 Claude 안): ① DB 패밀리 사진 자리(`product_image.family_id` XOR `product_id` · `web_image_id` · `shop_listing_set` 가드 · `shop_product_payload` 순서 · 패밀리 화면) ② 가져오기 도구(Shopify 변형 연결 다시 읽기 · 원본 내려받기 · SKU 이름 · 1140 규칙 · 순서 · dry run → 몇 상품 → 전부 · 같은 사진 건너뜀) ③ same 5 패밀리는 웹 대표 지정만 ④ 디자이너 정리 ⑤ 미리 보기 확인 뒤 `send_images` 켜기(대기열 · 속도 제한)
+- **다음**: 2223170 — 북키퍼가 Bill Send → 11-19 안에 할인 받고 결제(첫 할인 결제 실물) · USD 할인 sandbox(554 · Caleb) · USD 3 건 환율(§110 그대로) · 4-6(켜기 · 정본) · 사진 가져오기 ①(387) · Ship Ready show_comment(559 · Caleb)
+
+### 111-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (110-e 에 이어 159 부터 · asung-workflow 138 ~ 146 과 같은 것)
+
+159. [조사 · 읽기 전용](workflow 138) `PGOPTIONS='-c default_transaction_read_only=on'` 은 풀러가 버린다(show → off 실측) — 접속 시작 인자로 건 「읽기 전용 강제」 가 없었다(쓰기 0 은 다행) ⇒ 첫 문장 `set session characteristics as transaction read only;` + `show transaction_read_only` 를 회신에 · 풀러는 세션 모드(port 5432)라 SQL 문장으로 건 `set` 은 세션 안에서 유지될 것(짐작 · 미실측) — 그래도 `show` 로 보인다
+160. [대화 Claude · 짐작](workflow 139) 2223170 기한 11-19 를 「IMS 가 할인 기간으로 잘못 셈」 이라 짐작 → 틀림(사람이 넣음 · 화면은 net_days 제안) ⇒ 원인은 조사로 · 같은 꼴 선례(P&G 10-21)가 정본에 있었다 — 짐작 전에 정본 grep
+161. [대화 Claude · 짐작](workflow 140) 484908 C.O.D 기한 11-17 을 「11-04 여야」 라 안내서에 적음 → 입고 0 · 도착 예상일일 수 있음 ⇒ 결제조건만으로 사람 값을 틀렸다 하지 마라(1144 가 막지 않고 경고만 하는 까닭)
+162. [UX](workflow 141) 「Cancel」 단추를 나가기로 알고 눌러 확정 인보이스가 취소됨(확인 창도 「나갈까요」 로 읽힘) ⇒ 파괴 단추 이름에 대상(「Cancel invoice…」) · 나가기는 「‹ All …」 · 다른 화면은 557
+163. [시험 · 운영 DB](workflow 142) 창구 · claim 은 가짜 일감 id 로만(id 없이 부르면 운영 queued 일감을 sending 으로 — rollback 돼도) · 발행 창구로 가짜 인보이스를 만들면 시퀀스가 안 돌아와 **실제 인보이스 번호에 구멍** → 표에 직접 · SO 번호 건너뜀은 받아들임(21260 · 21261)
+164. [동시 창 · 마이그레이션](workflow 143) 두 Fable 창이 번호를 겹칠 수 있다 — 만들기 직전 schema_migrations 마지막과 로컬 미추적 가장 큰 번호 둘 다보다 뒤 · 적용은 번호 순 · 커밋은 파일 이름으로
+165. [새 칸 · 화면](workflow 144) 상세 창구가 칸을 골라 보내는 꼴이면 새 칸(`due_date_manual`)이 화면에 안 온다 · 화면은 조용히 비움 ⇒ 새 칸을 만들 때 그 칸을 읽는 창구(detail · list)까지 같은 차수에(555)
+166. [잘 된 것](workflow 145) 4-7b 변이 16 · 마른 실행이 결함 재현(사내 글 문서 노출 · 할인 VC 없음 · 영구 blocked) — 모든 Fable 차수에 계속
+167. [QBO 설정](workflow 146) 「Automatically apply bill payments」 는 화면 입력에만 · API VC 는 안 붙음(E-8 실측 + 설정 대조) — 설정을 끄기 전에 sandbox 에서 같은 값으로 실측
+
+- qbo-pay-fix-1 교훈(원천 S2): 시험의 claim 은 일감 id 로만(163) · 이 DB 문장 왕복 ≈ 0.3 초(도우미는 begin 앞) · 일감 꼴 비교는 `collate "C"`
+
+### 111-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §110 끝 「다음 판정 번호 1139 · 다음 deferred 번호 548」 → 아래
+- §110-d′ 「다음」 의 E-8 · 1131 나(536) · 110-e 끝 「손님 `qbo_payment_sync` 에도 같은 결함(540)」 · 110-c 11 사진 → 이 절(→ 화살표)
+- §12-c ⬜7 other(사내 까닭 = comments) · §66-c 문서 글 show_comment → 111-g
+- qbo-integration 머리 상태 · §15-n ① 1132 「E-8(538)이 서면 다시 연다」 · ② 540 · ⑨ 다음 → §15-o
+- po-module §11-g due_date 두 줄(「사람이 넣는다」) · §11-h ⬜ HST 줄 → [2026-11-10] · §11-h 「조기 결제 할인 — 실물」 아래 → [2026-11-10] QuickBooks 할인 결제
+- shopify-integration §3-b 「진짜 전용 899 ~ 2,068」 · md5 거르기 · shop-photo-dup-1 「아직 안 함」 → 1,550 · 픽셀 비교 · 1139 ~ 1141
+
+### 111-g SO 손님용 줄 메모 — `so_line_note` (판정 1151 · so-line-note-0 · 1 · so note v1)
+
+**조사(so-line-note-0 · 쓰기 0)**: so_line 7,418 줄 · comments 0 · 무상 0 · **줄 메모는 이미 판(SO v3 · Final invoice v10 · Ship Ready v8 · Credit note v2)에 찍히게 되어 있었다**(show_comment SO · 인보이스 · 크레딧 노트 true · Ship Ready · Internal Receipt false) · CHECK `so_line_free_other_ck` 가 사내 까닭을 comments 에 강제 ⇒ comments 를 문서에 찍으면 사내 글이 손님에게 간다 · Add a line 값 줄 Note 는 버려졌다(`so_lines_paste` null) · `so_line_update` 는 draft 만 · 웹 오더 draft 0 · `ims_touch` → 434 · so_unconfirm 판단 · QBO · Shopify · WMS 에는 줄 메모 안 감 · Shopify customAttributes 안 가져옴 · 오더 속성 PO Number(2 건)는 v_po 목록에 없음(짐작 · 558)
+
+| | |
+|---|---|
+| 표 | `so_line_note`(so_line_id pk · on delete cascade · note 1 ~ 500 자 · RLS 읽기 true · 쓰기는 창구만) — so · so_line 의 updated_at 무변(434 · unconfirm 보호 · 스킬 asung-so 「so_line 칸에 알림 · 표식을 쓰지 마라」 와 같은 꼴) |
+| 함수 넷 | `so_line_note_clean`(한 줄로 굳힘) · `_join` · `_put`(실행권 0) · `so_line_note_set`(쓰기 · 고치기 · 빈칸 = 지움 · 500 자 · cancelled · 합쳐진 오더 · 콤보 구성품 거부 · 웹 오더 · 인보이스 뒤 허용) |
+| 재발행 여덟 | `so_split`(메모 따라감) · `so_merge`(다르면 「 / 」 로 잇기 · 넘으면 거부) · `so_unconfirm`(형제 메모 옮김) · `so_lines_paste`(값 줄 메모 저장) · `doc_data_so` · `doc_data_invoice` · `so_invoice_preview` · `so_detail`(`customer_note`) |
+| 문서 | 문서 줄 comment 원천 = **손님 메모** · 사내 comments 는 문서에서 빠짐 · 인보이스는 찍는 때의 메모를 읽는다 |
+| 함정 | `so.status` 에 merged 없음(합쳐짐 = cancelled + closed_reason merged) · `so_combo_children_insert` 는 comments 를 복사하지 않음 · B급 지정(`so_line_bgrade_set`)이 줄을 합치며 지우면 메모가 cascade 로 사라짐(draft 만 · 556) |
+| 화면 | so note v1(111-d) · Ship Ready show_comment 는 Caleb 이 Settings → Documents 에서(559) |
+
+```
+다음 판정 번호: 1152 · 다음 deferred 번호: 561
 ```

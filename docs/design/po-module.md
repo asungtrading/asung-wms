@@ -3189,7 +3189,7 @@ is_payable     ⭐⭐ 운임을 빼고 내는 실무를 닫는 칸 — 미지급
 total_amount   ⭐ 인보이스에 찍힌 값(정본) · 줄 합 × 할인 체인은 계산값 ⇒ **대조값**이다(두 곳에 적는 것이 아니다) · 다르면 입력 오류·반올림
                [실측 · Caleb 2026-09-16 · SQL] 처음 근거 없이 2,451.44 를 넣자 차이 −253.90 이 드러났다 · 바로 넣으면 2,010.54 + 187 = 2,197.54 = 찍힌 총액(차이 0.00)
 유니크          ~~(supplier_id, invoice_number)~~ → [2026-09-16 ③차] **(supplier_id, doc_kind, invoice_number)** — 공급처가 다르면 같은 번호가 있을 수 있어 전역은 틀리고, 안 걸면 같은 인보이스를 두 번 넣는 것이 조용히 지나간다(「총액은 한 번만」). 종류를 넣은 이유는 아래 크레딧 소절
-due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 로 계산해야 하지만 **34행이 전부 비어 있다**(§10-k) · 채워지면 화면이 제안
+due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 로 계산해야 하지만 **34행이 전부 비어 있다**(§10-k) · 채워지면 화면이 제안 → [2026-11-10 · 판정 1144 · qbo-sync-4-7a · so-module §111] **자동** — 트리거(인보이스 · draft)가 문서 날짜 + net_days 로 채운다(`po_invoice_due_auto`) · 사람이 다르게 넣으면 `due_date_manual` true 로 지킨다 · 확정 때 경고 `due_date_missing` · `due_date_differs_from_term`(막지 않음 — 조건과 달라도 맞는 사람 값이 있다 · 484908, 484909 C.O.D) · ⚠️ 사람이 **할인 기한**을 지급 기한 칸에 넣은 일이 둘(아래 P&G 10-21 · 2223170 11-19)
 상태           draft · confirmed · cancelled — 「결제됨」은 상태가 아니라 진행도(충당 합)
 ⬜ 파일 업로드 칸은 두지 않았다 — Supabase Storage 결정 미결(§10-k)
 ```
@@ -3261,7 +3261,7 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
 ```
 만드는 자리  [Caleb] PO 상세 「Create an invoice」 → 그 PO 의 라인이 채워진 초안 → **인보이스 전용 화면**(invoices.html)이 열린다 — 거기서 고치고 · 줄을 빼고 · 다른 PO 의 줄을 더한다(인보이스 하나가 발주 둘에 걸친다 · 위)
              ⚠️ 크레딧은 **PO 에서 만들지 않는다** — 인보이스 화면에서 만든다. 그 인보이스가 무엇을 얼마나 청구했는지 알아야 채울 수 있다(po.html 의 Kind 는 Invoice 하나 · asung-ims ccb58a1)
-머리         공급처·통화·환율·결제조건은 **PO 에서**(그날 값 · 공급처를 다시 읽으면 「PO 만든 뒤 바뀐 마스터」가 섞인다) · due_date 는 사람이(34행 비어 있음 §10-k)
+머리         공급처·통화·환율·결제조건은 **PO 에서**(그날 값 · 공급처를 다시 읽으면 「PO 만든 뒤 바뀐 마스터」가 섞인다) · due_date 는 사람이(34행 비어 있음 §10-k) → [2026-11-10 · 1144] due_date 는 결제 조건에서 자동(위 칸 줄)
              크레딧 머리의 원천 셋: credit_for 인보이스 → p_po_id → p_supplier_id(조정 크레딧 · 줄 비움)
 ⭐⭐ 줄        **미청구 수량**으로 복사한다(po_uninvoiced_lines) — 주문 수량도 입고 수량도 아니다
              ① 입고 수량은 「인보이스가 대체로 먼저 온다」(11-i)라 0 인 경우가 많다  ② 주문 수량은 **둘째 인보이스에서 이중 청구**가 된다(한 PO 에 여러 장 — 실물 PO-01010 · §3-b ③)
@@ -3318,7 +3318,7 @@ total_amount  주석 정정 — 「크레딧성 음수 인보이스(짐작)」 �
 원가 사건   price_difference 줄마다 하나(kind price_adjust · target po_line · source_type po_credit · source_id = 크레딧 줄 · source_number = 크레딧 번호) · 몫 = round(qty × 단가 × 크레딧 자신의 체인, 2) · 세금 전
             환율 = 그 PO 줄의 핀 환율(레이어 수량 가중 · 섞이면 credit_fx_mixed · 핀 없으면 po_invoice_line_cost 출처 + credit_fx_unpinned) · 받은 수량보다 많으면 경고 price_credit_qty_above_received(입고 전 가격 크레딧은 정상 — pending → ⓖ)
             곧바로 얹기 · 판정 399 거부면 크레딧 확정 전체가 안 된다
-되돌림      다시 열기(po_invoice_confirm false) · 취소(po_doc_cancel)가 사건을 먼저 되돌린다 · 복구(cancel false → confirmed)는 다시 만든다 · 두 창구 definer · 결제가 쓴 크레딧의 거부는 그대로(그 검사 뒤에 되돌림)
+되돌림      다시 열기(po_invoice_confirm false) · 취소(po_doc_cancel)가 사건을 먼저 되돌린다 · 복구(cancel false → confirmed)는 다시 만든다 · 두 창구 definer · 결제가 쓴 크레딧의 거부는 그대로(그 검사 뒤에 되돌림) → [2026-11-10 · inv disc v3 · so-module §111-e 162] 화면 취소 단추 이름 = 「Cancel invoice…」 / 「Cancel credit note…」(「Cancel」 을 나가기로 알고 눌러 확정 인보이스가 취소된 일 · 2223170)
 읽기        po_invoice_detail lines[] credit_reason · credit_reason_suggested · credit_not_received_left · credit_spans_both · credit_cost_events[] · 경고 credit_reason_missing · credit_line_spans_both
 ⚠️          크레딧에는 인보이스 할인 체인을 복사하지 않는다(미룬 138) — 원가 몫은 크레딧 자신의 체인만 · 입고 전 가격 크레딧의 CAD 가 뒤 핀 환율과 몇 센트 어긋날 수 있다(미룬 154)
 ```
@@ -3332,7 +3332,7 @@ total_amount  주석 정정 — 「크레딧성 음수 인보이스(짐작)」 �
    그 돈이 어느 계정으로 어떻게 분개되는지는 **QBO 의 일**이다(§3-b 구별선).
    ⇒ QBO 연동의 이음새가 **여기**다(로드맵 「재고 원장 → PO+원가 → SO → QBO」 · `ims-principles.md` §1-a).
       ⚠️ [검토 Claude 정정] 지시서의 「정본이 『PO 모듈부터 병행 트랙』이라 했다」는 문구는 이 문서·상위 문서 어디에도 없다(grep) — 인용으로 적지 않는다.
-⬜ 조기결제 할인의 HST 매입세액 처리는 **회계사 확인**(§3-b ② 미결 — 우리가 판단할 사안이 아니다).
+⬜ 조기결제 할인의 HST 매입세액 처리는 **회계사 확인**(§3-b ② 미결 — 우리가 판단할 사안이 아니다). → [2026-11-10 · 판정 1145] QuickBooks 로는 세금 몫 있는 할인 · 세금 있는 인보이스의 할인을 보내지 않고 사람에게(회계사 물음 「조기 결제 할인을 받으면 매입 GST/HST(ITC)를 줄여야 하는가」 · deferred 550)
    [실물 E.T Browne INV 2142773] 실제로 덜 낸 돈 226.81 인데 Cin7 장부는 256.30 을 깎았다.
    ⇒ 금액과 할인액을 기록해 두면 회계사가 정한 뒤에 얹을 수 있다.
 ⬜ KRW 송금의 환차손익(§7)도 결제가 IMS 에 서면 여기서 다시 올라온다. → [2026-09-16] `po_payment.currency_id · exchange_rate · amount` 칸만 두었다 — **계산은 QBO 때**(§7 Caleb 판정). 칸이 없으면 그때 소급이 안 된다. ⬜ 유지. → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 환차손익은 QBO 가 셈한다 — Bill = 인보이스 환율 · BillPayment = 결제 환율(산 날 MTFX · 판정 1123) · 차이를 QBO 가 환차손익으로(4-2b E-9 · 첫 USD 실물 전)
@@ -3406,6 +3406,15 @@ Adjust      po_payment_alloc_discount_set(alloc, discount, commit, basis) — �
             ⚠️ 되돌림은 그 순간의 소비로 나뉜다 — 할인 뒤 더 팔린 다음 되돌리면 재고 ↔ 매출원가 사이 몇 달러(시험 347.20 vs 350 · 합계는 맞다 · 미룬 151)
 실물        P&G 1030266656: 조건 2.1 · pre_tax · 2026-10-21 · due_date 10-21 → 11-07(Net30 · 할인 기한을 넣어 둔 값이었다) · 보류 사건 13 · Σ −952.08(PO-02045 입고 때 저절로)
             CBSA 10039192310530(EFT-20260916-02 · 50.95): 보류 사건 둘 −39.00(PO-02002a) · −11.95(PO-02001a) — landed 자체가 레이어에 없다 → landed 백필 ⑯ 과 함께(미룬 153)
+```
+
+→ [2026-11-10 · 판정 1143 ~ 1150 · qbo-sync-4-7a `573b6af` · 4-7b `222e96c` · so-module §111 · qbo-integration §15-o] **QuickBooks 할인 결제**
+```
+꼴          할인 = QBO VendorCredit(kind vendor_credit · ims_kind po_discount · 따로 일감 1143) · 결제 = BillPayment 에 Bill 줄(충당 amount = 할인 포함 갚은 몫) + VC 줄(discount_amount) · TotalAmt = 낸 돈(E-8 sandbox 실측)
+보내기      결제의 Send 한 번 — 할인 VC 가 같은 보내기에서 먼저(1150) · VC 환율 = 인보이스 환율(1148 · 환차는 현금 몫만)
+막음        세금 몫 있는 할인 · 세금 있는 인보이스의 할인(1145) · 청구서 할인(VC 계정 미정) · 크레딧이 붙은 인보이스(초안 포함 · 1147) · 붙임 합 ≠ 결제 금액 · 시작일 전 문서 → 사람이 QBO 에 손으로 → Skip
+고침 · 지움  BillPayment void · 같은 할인이면 열린 VC 다시 씀 · 할인이 바뀌거나 없어지면 bill_delete_manual(사람이 QBO 에서 지우고 Skip · API delete 금지 · 1146)
+원가        settlement_discount 원가 장 CADJ 를 send(1149) — 원가를 낮추는 일(판정 390)은 위 그대로
 ```
 
 ### 11-i. ⭐⭐ 입고

@@ -70,6 +70,7 @@ description: >
 ④ **Save**(새 판 · 아직 안 씀) → **Use this version**(쓰는 판으로)
 ⑤ 인쇄 · PDF 로 한 장 확인 — 이상하면 옛 판을 다시 Use
 ⚠️ 글(제목 · 메일 제목 · 메일 글 · 켜고 끄기 show_upc · show_comment · show_charge_code)은 판이 아니다 — Settings 의 칸에서 직원이 고친다(master · doc_setting_set)
+⚠️ [2026-11-10 · 판정 1151 · so-line-note-1 · so-module §111-g] 줄 comment(show_comment)의 원천 = **손님 메모 `so_line_note`** — so_line.comments(사내 글)는 doc_data_so · doc_data_invoice · so_invoice_preview 에서 빠진다 · 인보이스는 찍는 때의 메모를 읽는다(인보이스 뒤 고친 메모도 다시 찍으면 나온다) · Ship Ready show_comment 는 false(켤지는 Caleb · 559)
 ```
 
 ## 2. ⭐⭐ 데이터 창구 doc_data — 모르면 사고

@@ -243,6 +243,7 @@ Caleb         git · 배포 · **실제 적용·repair** · 운영 SQL · 파일
 ⚠️ **BEFORE 트리거(문지기)는 CHECK 보다 먼저 막는다** — CHECK 만 시험하려면 `session_replication_role = replica` 로 문지기를 끄고, 그때도 다른 CHECK(closed_at 짝 등)를 함께 어기지 않는 자료로(2026-09-24 ⓑ2 T8a · invoiced 로 바꾸며 closed_at 을 남겨 so_closed_at_ck 가 먼저 걸렸다)
 ⭐ [2026-09-30 · so-module §31-d 2] **소급 시험의 옛 판은 고정 커밋으로 읽는다** — `HEAD` 로 적으면 커밋 전에는 맞고 커밋 뒤에는 새 판 자신이 되어 늘 실패한다(판정 128 · `git show d543404:…`) · 시험은 커밋 뒤에 한 번 더 돌린다
 ⭐ [2026-09-30 · §31-d 3] **조회를 주기 전에 비용을 잰다** — 자기 조인 · 상관 서브쿼리 × 큰 표(제품 1만 8천 `upper(sku)` 자기 조인이 statement timeout)는 group by 한 번 훑기로 · 독립 조회는 한 트랜잭션에 넣지 않는다(세션 `default_transaction_read_only = on`)
+⚠️⚠️ [2026-11-10 · so-module §111-e 159 · 아래 138] **읽기 전용 psql 틀** — `PGOPTIONS` 의 `default_transaction_read_only` 는 풀러가 버린다(실측 off) ⇒ heredoc 첫 문장 `set session characteristics as transaction read only;` → `show transaction_read_only;`(on 을 회신에) → 조회 · 위 「세션 default_transaction_read_only = on」 도 접속 인자가 아니라 SQL 문장으로 걸고 show 로 확인한다
 ⚠️ **번호 시퀀스는 pg_sequences 가 아니라 시퀀스를 직접 읽는다** — pg_sequences.last_value 는 미리 당긴 값을 보이고 is_called 를 `last_value is not null` 로 짐작하면 틀린다 ⇒ `select last_value, is_called from public.<seq>` · 시험 적용이 만드는 시퀀스만 `to_regclass` + `\if` 로 가른다(2026-09-25 ⓒ1 2차 — setval 이 25001·60001 로 밀렸고 Claude Code 가 기준값으로 되돌렸다 · 전후 원문을 보고에)
    ⭐ **죽은 회차가 번호를 당겼으면 되돌리기 전후 원문(last_value · is_called)을 그대로 보고에 붙인다** — 요약하지 마라(2026-09-25 ④a3 · ④b 부터 규칙 · ④a2 보고에는 빠져 있었다) · 되돌리기는 `where not exists (select 1 from public.so)` 처럼 **표가 비어 있을 때만**
 ⚠️ **시험 적용이 만든 객체를 참조하는 문장은 `\if :{?mig}` 로 가른다** — rollback 뒤 그 표·시퀀스는 없어 파싱에서 죽는다(`relation "public.so_credit" does not exist` · 2026-09-25 ⓒ1 2차 끝 setval) · 확인 실행(-v mig 없음)에서는 반대로 있어야 한다 — 두 갈래를 다 적는다
@@ -1181,3 +1182,14 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    135 [Claude Code 끊김] 「API Error: Connection lost」 뒤 상태 확인 꼴 — 열린 트랜잭션 · 30 초 넘은 트랜잭션 · 네 표 Exclusive 잠금 · max(version) · git status · 파일 ls — 그대로 붙여 이어 달리기(4-5a)
    136 [공통 js 예외] 메뉴 · 머리 줄(ims-auth.js)은 nav v6 부터 대화 Claude 가 고쳐 왔다 — 표 · 머리 모양만일 때 · 가짜 화면(jsdom)으로 실제 머리 HTML 을 넣어 시험(§1 예외 줄)
    137 [JS 문자열 속 CSS escape · nav v18 `2d8689f`] CSS 코드값 `\25BE` 를 JS 문자열에 넣으면 `\25` 가 8 진 escape 로 먹혀 캐럿 자리에 「BE」 · 「B8」 이 보였다(jsdom 시험은 동작만 봐서 통과) ⇒ JS 문자열 안에 CSS escape 를 넣지 말고 **글자 그대로**(▾ ▸) · 가짜 화면 시험은 동작만이 아니라 넣는 CSS 문자열을 eval 로 꺼내 본다(nav v18b `309261b`)
+
+⚠️ **[2026-11-10 — so-module §111-e(159 ~ 167)를 옮김 · 이 스킬 번호 138 부터 · 할인 결제 4-7 · 지급 기한 · 손님 줄 메모]**
+   138 [조사 · 읽기 전용] `PGOPTIONS='-c default_transaction_read_only=on'` 은 풀러가 버린다(show → off 실측) — 접속 시작 인자로 건 「읽기 전용 강제」 는 없었다 ⇒ 읽기 조사는 첫 문장 `set session characteristics as transaction read only;` + `show transaction_read_only` 를 회신에(아래 「읽기 전용 psql 틀」) · SQL 문장 `set` 은 세션 모드 풀러(5432)에서 유지될 것(짐작) — 그래도 show 로 보인다
+   139 [대화 Claude · 짐작] 2223170 기한 11-19 를 「IMS 가 할인 기간으로 잘못 셈」 이라 짐작 → 틀림(사람이 넣음) ⇒ 원인은 조사로 · 같은 꼴 선례(P&G 10-21 · po-module §11-h)가 정본에 있었다 — 짐작 전에 정본 grep
+   140 [대화 Claude · 짐작] C.O.D 기한 11-17 을 「11-04 여야」 라 안내서에 적음 → 입고 0 · 도착 예상일일 수 있음 ⇒ 결제조건만으로 사람 값을 틀렸다 하지 마라(1144 가 막지 않고 경고만 하는 까닭)
+   141 [UX] 「Cancel」 단추를 나가기로 알고 눌러 확정 인보이스가 취소됨 ⇒ 파괴 단추 이름에 대상(「Cancel invoice…」) · 나가기는 「‹ All …」 · 화면을 쓸 때 다른 화면도(deferred 557)
+   142 [시험 · 운영 DB] 창구 · claim 은 **가짜 일감 id 로만**(id 없이 부르면 운영 queued 일감을 sending 으로 — rollback 돼도) · 발행 창구로 가짜 인보이스를 만들면 시퀀스가 안 돌아와 실제 인보이스 번호에 구멍 → 표에 직접 · SO 번호 건너뜀은 받아들임
+   143 [동시 창 · 마이그레이션] 두 Fable 창이 번호를 겹칠 수 있다 — 만들기 직전 schema_migrations 마지막과 로컬 미추적 가장 큰 번호 둘 다보다 뒤 · 적용은 번호 순 · 커밋은 파일 이름으로
+   144 [새 칸 · 화면] 상세 창구가 칸을 골라 보내면 새 칸이 화면에 안 온다(화면은 조용히 비움 · due_date_manual) ⇒ 새 칸을 만들 때 그 칸을 읽는 창구(detail · list)까지 같은 차수에
+   145 [잘 된 것] 4-7b 변이 16 · 마른 실행이 결함 재현(사내 글 문서 노출 · 할인 VC 없음 · 영구 blocked) — 모든 Fable 차수에 계속
+   146 [QBO 설정] 「Automatically apply bill payments」 는 화면 입력에만 · API VC 는 안 붙음(E-8) — 설정을 끄기 전에 sandbox 에서 같은 값으로 실측

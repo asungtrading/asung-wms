@@ -140,7 +140,7 @@ When the supplier's invoice arrives, you enter it against the PO. Confirming it 
 
 **How**
 1. Open the PO and press **Create an invoice**.
-2. Type the **Number** "as printed on the document" (for example 99001), the **Document date**, the **Due date** and the **Printed total** (leave it blank if not known yet).
+2. Type the **Number** "as printed on the document" (for example 99001), the **Document date**, the **Due date** and the **Printed total** (leave it blank if not known yet). The **Due date** comes from the payment term (document date + the term's days). Change it only when the invoice gives another date — IMS keeps the date you type.
 3. For each line, **On this invoice** starts with what is **Left to bill**. Change it to what the invoice bills. Press **Check**, then **Create**.
 4. The invoice opens on **Purchase Invoices & Credits** as a draft. You can **Add a line**, **Add a discount** or **Add lines from a PO**.
 5. Press **Confirm** and OK.
@@ -156,7 +156,10 @@ If the **Printed total** is empty, or does not match our calculation, IMS says s
 
 **Good to know**
 - **Reopen** takes a confirmed invoice back to draft. "Quantities that confirming split off go back onto their original order."
-- Once the warehouse has received against the invoice, **Reopen** and **Cancel** are grey: "The warehouse has received against this invoice — correct it with a credit note" (see [Supplier credits](#purch-credits)).
+- When the payment term has an early-pay discount, a chip next to the due date shows it while it is open, for example "Pay by 2026-11-19 → save 142.71 · 10 days left". It turns orange at 3 days or less. The due date is separate: it is when the full amount is owed.
+- Confirm warns, but does not stop you, when "There is no due date and the payment term gives none — QuickBooks will use the document date as the due date." or "The due date differs from the payment term (document date + the term's net days). Check it is the date the money is owed — not the early-pay discount date."
+- **Cancel invoice…** cancels the invoice — it is not a way out of the screen. To leave, use the list. To change a confirmed invoice: **Reopen**, change it, **Confirm** again.
+- Once the warehouse has received against the invoice, **Reopen** and **Cancel invoice…** are grey: "The warehouse has received against this invoice — correct it with a credit note" (see [Supplier credits](#purch-credits)).
 - A line can be marked **billed here but settled elsewhere** — for example freight on the invoice that is paid separately.
 - The warehouse side: [Receive a PO or a transfer](04-wms.md#wms-receiving).
 
@@ -283,6 +286,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 **Discounts**
 - **Adjust discount** changes the discount on one document of a payment.
 - **Settle with discount** "takes what is still owed as discount, when the supplier let it go".
+- A payment with an early-pay discount goes to QuickBooks in one **Send**: the discount as a supplier credit first, then the payment (see [QuickBooks](01-sales.md#sales-quickbooks)).
 
 **Watch out**
 - A payment has no cancelled state. **Delete** is "the only way to undo one" — "everything it settled goes back to being owed".

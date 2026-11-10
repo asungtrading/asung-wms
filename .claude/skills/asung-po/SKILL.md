@@ -211,6 +211,9 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️⚠️ 결제 저장 · 할인 고치기 · 충당 떼기 · 결제 지우기가 원가 사건을 함께 만들고 되돌린다 — 충당을 직접 지우거나 사건을 손으로 넣지 마라 · 판정 399(할인 > 레이어 원가)면 저장 전체가 거부된다
 ⚠️  Adjust discount 는 낸 돈 고정 · 충당이 움직인다 — 다 갚은 문서의 할인은 올릴 수 없다(미지급 초과) · 비용 청구서 할인은 landed 가 레이어에 없으면 pending(held)
 ⭐⭐ 크레딧 goods 줄은 확정 전에 credit_reason(Not received = 원가 무변 / Price difference = 원가를 낮춘다 · 판정 400) — 걸치는 줄은 확정 거부(줄을 나눈다) · 원가 몫은 크레딧 자신의 체인만 · 환율은 핀
+⭐⭐ [2026-11-10 · 판정 1144 · 4-7a `573b6af` · so-module §111 · po-module §11-g 칸 줄 →] **공급처 인보이스 지급 기한은 자동** — 트리거(인보이스 · draft) → `po_invoice_due_auto`(실행권 0) = 문서 날짜 + net_days · 사람이 다르게 넣으면 `due_date_manual` true(사람 값 지킴) · 확정 경고 `due_date_missing` · `due_date_differs_from_term` — **막지 마라**(C.O.D 처럼 조건과 달라도 맞는 값이 있다) · ⚠️ 사람이 할인 기한을 지급 기한 칸에 넣은 일이 둘(P&G 10-21 · 2223170 11-19) — 할인 기한은 early_discount_until
+⚠️⚠️ [2026-11-10 · 1143 ~ 1150 · qbo-integration §15-o] 조기 결제 할인은 QuickBooks 에 **VendorCredit(ims_kind po_discount · 환율 = 인보이스 1148)** + BillPayment(Bill 줄 + VC 줄) — 세금 몫 · 세금 있는 인보이스 · 청구서 할인 · 크레딧 붙은 인보이스(초안 포함)는 결제 몸이 막는다 · 할인을 바꾸면 VC 를 사람이 QBO 에서 지운다(1146)
+⚠️  [2026-11-10 · inv disc v3] 확정 인보이스 「Cancel invoice…」 는 나가기가 아니다(2223170 이 그렇게 취소됐다 · Restore 는 draft 로 돌아온다 — confirmed_at 은 Reopen 이 지운다) · 기한 고치기 길 = Reopen → 고침 → Confirm
 ```
 
 ## 4-e. ⭐⭐ 입고 먼저 반영 · 크레딧 남은 차이 — 모르면 사고 (2026-10-20 · 판정 550 ~ 554 · 정본 so-module §67 · po-module §11-i · §11-g)
