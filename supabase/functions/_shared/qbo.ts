@@ -77,6 +77,16 @@
 //     unknown 열쇠: qbo_name = 「<DocNumber>|<VendorRef>|<센트>」(billKeyOf · parseBillKey 는 오른쪽부터 쪼갠다 — 공급처 번호에 | 가 올 수 있다 · 이견 2 · 센트 없으면 빈 칸) · 풀기(resolveUnknown): 가드 조회 → 0 not_found · 2+ ambiguous · 1 → GET → 센트 같을 때만 done(1127) · 다르면 amount_differs 그대로 + 글 · 센트 없음 · TotalAmt 없음 → needs_hand · qbo_name null(stale sending → unknown)은 no_name(ims_id 가 uuid 라 DocNumber 를 못 만든다 · 이견 4 · 사람이 note 와 Retry)
 //     ⚠️ 풀기는 kind 를 안 가린다 — cron 62(5 분)가 Bill unknown 도 조회 · 센트 같으면 done(쓰기 0 · 3-3 과 같은 사실 · 이견 5)
 //     PULL_FIELDS.TaxCode + PurchaseTaxRateList(DB qbo_entity_upsert 4-3a 가 detail 에 병합 · qbo_purchase_tax 가 TaxRateDetail[0].TaxRateRef.value 를 읽는다 · §15-l ③ 꼴) — 배포 뒤 Settings → QuickBooks matching → Refresh list(tax codes) 한 번 → HST Bill 의 TaxLine 이 선다(USD 여섯은 세금 0 이라 Refresh 전에도 간다)
+//   qbo-sync-4-5b(2026-11-10 · 판정 1122 ~ 1125 · 1132 ~ 1134 · DB 4-5a 20261109230000 · 지시서 ~/asung/prompts/qbo-sync-4-5b.md · §0 이견 1 ~ 12 Caleb 답 · sandbox 4-2b E-9 · E-11 ~ E-13 = 정본 qbo-integration §15-m ⑥): 공급처 결제 = BillPayment 보내기 · void — SEND_KINDS 24(bill_payment · bill_payment_void · ims_kind po_payment · ims_id = po_payment.id)
+//     kind 목록: SUPPLIER_KINDS 5(둘 더함) → DEFAULT_SEND_KINDS 18 그대로(cron 61 · 62 무변 — 62 의 kinds 열둘에도 없다) · 손 Send(sendPicked)와 kinds 명시만 · BILL_PAYMENT_KINDS 새로(PAYMENT_KINDS · SUPPLIER_TXN_KINDS 무변)
+//     엔티티 열쇠: entityKeyOf 명시 가지(둘 → billpayment · BillPayment · PrivateNote — ELSE(invoice)로 떨어지면 BillPayment 를 Invoice 로 읽는다) · WRITE_ENTITIES + billpayment · UPDATE_VOID_ENTITIES + billpayment
+//     assertWriteAllowed(이견 10): billpayment 는 몸으로도 가른다 — operation 없는 POST 에 Id 가 있으면 거부(Full update 길 없음) · operation=update&include=void 는 몸이 {Id, SyncToken, sparse:true} 뿐일 때만(이견 1 답 · 주소는 손님 Payment void 꼴 · 4-2b 에서 같은 몸으로 209 를 void — 주소는 첫 실물에서 확인 · 틀리면 4xx 쓰기 0) · payment 쪽은 무변
+//     bill_payment: ① 같은 날 BillPayment 조회(이견 2 답 = 안전한 꼴: select * · where TxnDate 만 — PayType 은 고를 수 없다(QUERY_UNSELECTABLE) · VendorRef 조건은 미실측이라 EF 가 거른다) → 표지(「IMS supplier payment <uuid>」 · 21 자 넘는 reference 는 뒤에 「 · full reference: …」 · 이견 4) 붙은 안 지워진 장: 0 → 다음 걸음 · 꼭 1 장이고 공급처 · 센트까지 같으면 만들지 않고 done + 「already in QuickBooks」(이견 7 답 · 1134) · 그 밖(표지는 같은데 공급처 · 금액이 다르거나 2 장 이상) → unknown(보내지 않는다 · 사람) · 조회 실패 · 1000 행 → failed
+//       ② Bill 잔액 가드(이견 3 답 · 1081): check_lines 의 Bill 마다 GET bill/<id> · Balance < 이 결제가 붙이는 금액이면 failed(출구 둘: QuickBooks 의 손 결제를 지우고 Retry · 그 결제를 남기려면 IMS 에서 Skip) · 못 읽음 · Balance 없음도 failed ③ POST billpayment(몸 = DB qbo_bill_payment_body 그대로 — PayType · CheckPayment.PrintStatus NotSet | CreditCardPayment.CCAccountRef · CurrencyRef · ExchangeRate · Line = 붙임마다)
+//       done(이견 5 · 6): qbo_job_done 10 인자 그대로 — p_qbo_name = doc_number(reference 21 자) 없으면 name(void 몸의 이름표가 qbo_txn.doc_number 를 읽는다) · p_total_amt = 응답 TotalAmt(DB 가 po_payment.amount 와 대조 · 942 꼴) · p_unapplied_amt null · 응답 CurrencyRef 가 보낸 통화와 다르면 p_note 에 글(done 에 통화 칸이 없다) · 4xx failed · 5xx · 끊김 · 몸 없음 unknown
+//     unknown 열쇠(이견 9): qbo_name = 「<표지>|<VendorRef>|<TxnDate>|<센트>」(billPaymentKeyOf · parseBillPaymentKey — parsePaymentKey 와 따로 · 손님 결제 가지가 공급처 열쇠를 받지 않게) · void 는 QBO BillPayment Id · 풀기(1134): 같은 조회 → 표지 장이 꼭 1 이고 공급처 · 센트 같으면 done · 0 not_found · 표지는 있는데 다르면 amount_differs 그대로 · 2+ ambiguous · qbo_name null(stale sending)은 no_name
+//     bill_payment_void(이견 8): 손님 payment_void 길 그대로(POST billpayment?operation=update&include=void {Id, SyncToken, sparse} · SyncToken 없으면 읽기 · 5010 → 읽어서 -2 · 4xx failed · 5xx unknown(qbo_name = Id)) · 풀기 = Id 로 읽어 TotalAmt 0 ∧ 「Voided - 」 머리면 done(cron 62 풀기가 kind 를 안 가린다)
+//     PULL_FIELDS.Account = *(이견 2 답 · AccountType · CurrencyRef 를 칸으로 골라 본 적이 없다 — Item 처럼 통째로 받고 DB qbo_entity_upsert(4-5a)가 detail 에 그 둘만 담는다 · 1133 거울) — 배포 뒤 Settings → QuickBooks matching → Refresh list(accounts) 한 번 · QUERY_UNSELECTABLE + Bill HomeBalance(4-2b 실측 · GET 에는 온다)
 // ============================================================
 
 export type Env = "sandbox" | "production";
@@ -99,19 +109,22 @@ export const ACTIONS = ["status", "start", "disconnect", "refresh", "ping", "que
 export const ADMIN_ACTIONS = ["start", "disconnect", "refresh", "ping", "query", "read"] as const;
 export const KEY_ACTIONS = ["pull", "send", "opening_candidates", "opening_read", "opening_search"] as const;   // [2e-1d-2 이월 짝 셋 — 북키퍼(열쇠 qbo)도 · ADMIN 아님]
 // ── qbo-sync-2a′ 쓰기 길 — apiWrite 하나 · POST 만 · 만들기 customer · item · invoice · creditmemo(2b) · operation=void 는 invoice · creditmemo 만(2b · 2c) · operation=delete 없음 · requestid 필수(1 ~ 50 자 · Intuit 이 같은 id 면 처음 응답) · 자동 재시도 없음(retry false · 결과를 모르면 unknown → 다음 send 가 이름으로 조회) ──
-export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo", "payment", "purchase", "journalentry", "vendor", "bill", "vendorcredit"] as const;      // [4-4 vendor · bill · vendorcredit — 만들기만(1126 · 1128)] · [3-3 journalentry — 만들기만(몸에 Id 없음)] · [2e-1c payment] · [2e-3-2-1b purchase — 만들기 + Full update void 꼴만(몸 검사)]
+export const WRITE_ENTITIES = ["customer", "item", "invoice", "creditmemo", "payment", "purchase", "journalentry", "vendor", "bill", "vendorcredit", "billpayment"] as const;      // [4-5b billpayment — 만들기 + operation=update&include=void 만(몸 검사 · 1125)] · [4-4 vendor · bill · vendorcredit — 만들기만(1126 · 1128)] · [3-3 journalentry — 만들기만(몸에 Id 없음)] · [2e-1c payment] · [2e-3-2-1b purchase — 만들기 + Full update void 꼴만(몸 검사)]
 export const CREATE_ONLY_ENTITIES = ["journalentry", "vendor", "bill", "vendorcredit"] as const;                                       // 4-4: operation 없는 POST 에 몸 Id 가 있으면 거부(Full update 꼴) — 지우기 · void · update 길 없음(3-3 journalentry 에 공급처 셋을 더함 · E-7 Bill 에는 void 가 없다)
 export const VOIDABLE_ENTITIES = ["invoice", "creditmemo"] as const;                                    // operation=void
-export const UPDATE_VOID_ENTITIES = ["payment"] as const;                                              // 2e-1c: Payment 의 void = operation=update&include=void(sandbox B-6 실물) · 그 밖 update 는 없다
+export const UPDATE_VOID_ENTITIES = ["payment", "billpayment"] as const;                                              // 2e-1c: Payment 의 void = operation=update&include=void(sandbox B-6 실물) · 그 밖 update 는 없다
 export const REQUESTID_MAX = 50;
 export const SEND_LIMIT_DEFAULT = 15, SEND_LIMIT_MAX = 50;
 export const SEND_PICK_MAX = 10, SEND_PICK_ROUNDS = 5, SEND_PICK_BUDGET_MS = 30_000, SEND_PICK_PARALLEL = 5;   // 2d1: 고른 id 한도(화면이 나눈다) · 바퀴(인보이스 → 부모 · Item → 손님 → 인보이스 다시 = 4 + 여유 1) · 바퀴 앞 예산 · 같은 바퀴 동시 수(Intuit 동시 한도 10 의 반)
 export const DUPLICATE_NAME_CODE = "6240";                                                 // Intuit 「Duplicate Name Exists Error」 — 처리 안 됨이 분명 · Item 은 ` [SKU]` 로 한 번 더(다른 requestid · 이견 11)
 export const DUPLICATE_DOCNUMBER_CODES = ["6140", "6210"] as const;                        // 2b2 Intuit 「Duplicate Document Number Error」(6140 · 6210 둘 다 본 적이 있다 — 지시서) → DocNumber 로 다시 찾아서 있으면 그것
 export const STALE_OBJECT_CODE = "5010";                                                   // 2b2 Intuit 「Stale Object Error」 — void 의 SyncToken 이 낡았다 → 읽어서 한 번 더(requestid -2)
-export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void", "credit_apply", "credit_apply_void", "opening_credit", "opening_credit_void", "opening_apply", "opening_apply_void", "refund", "refund_void", "refund_apply", "refund_apply_void", "cost_day", "vendor", "bill", "vendor_credit"] as const;   // [4-4 vendor · bill · vendor_credit — 22 · bill_delete_manual 은 없다(1126 · 사람 일)] · [3-3 cost_day — 19 · 하루 원가 장 JournalEntry] · [2e-3-2-1b refund · refund_void · refund_apply · refund_apply_void] · 2b2 · [2c1 credit · credit_void] · [2e-1c payment · payment_void] · [2e-2-1b credit_apply · credit_apply_void] · [2e-3-1b opening_credit · opening_credit_void · opening_apply · opening_apply_void] 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
+export const SEND_KINDS = ["customer", "item", "invoice", "invoice_void", "credit", "credit_void", "payment", "payment_void", "credit_apply", "credit_apply_void", "opening_credit", "opening_credit_void", "opening_apply", "opening_apply_void", "refund", "refund_void", "refund_apply", "refund_apply_void", "cost_day", "vendor", "bill", "vendor_credit", "bill_payment", "bill_payment_void"] as const;   // [4-5b bill_payment · bill_payment_void — 24 · 공급처 결제 BillPayment(1124 · 1125)] · [4-4 vendor · bill · vendor_credit — 22 · bill_delete_manual 은 없다(1126 · 사람 일)] · [3-3 cost_day — 19 · 하루 원가 장 JournalEntry] · [2e-3-2-1b refund · refund_void · refund_apply · refund_apply_void] · 2b2 · [2c1 credit · credit_void] · [2e-1c payment · payment_void] · [2e-2-1b credit_apply · credit_apply_void] · [2e-3-1b opening_credit · opening_credit_void · opening_apply · opening_apply_void] 이 EF 가 보낼 줄 아는 일감 종류(claim p_kinds · DB 기본값은 customer · item)
 export const COST_DAY_KINDS = ["cost_day"] as const;                                                    // 3-3 하루 원가 장(ims_kind cost_sheet · ims_id 「YYYY-MM-DD|TOR[|rebuild]」 · DocNumber COGS-YYYYMMDD-TOR(-R) · 열쇠 「<DocNumber>|<차변 센트>」)
-export const SUPPLIER_KINDS = ["vendor", "bill", "vendor_credit"] as const;                                                     // 4-4 공급처 쪽(ims_kind supplier · po_invoice | po_charge · po_credit) — DEFAULT 에서 뺀다(cron 61 기본에 저절로 들어가는 함정 · §15-l ④)
+export const SUPPLIER_KINDS = ["vendor", "bill", "vendor_credit", "bill_payment", "bill_payment_void"] as const;   // [4-5b 결제 둘도 — cron 61 · 62 에 섞이지 않는다]                                                       // 4-4 공급처 쪽(ims_kind supplier · po_invoice | po_charge · po_credit) — DEFAULT 에서 뺀다(cron 61 기본에 저절로 들어가는 함정 · §15-l ④)
+export const BILL_PAYMENT_KINDS = ["bill_payment", "bill_payment_void"] as const;                                              // 4-5b 공급처 결제 = BillPayment(DocNumber 는 reference 가 있을 때만 · 열쇠 = 표지 · 공급처 · 날짜 · 센트)
+export const BILL_PAYMENT_NOTE_PREFIX = "IMS supplier payment ", BILL_PAYMENT_FULL_REF_SEP = " · full reference: ";          // DB qbo_bill_payment_body 의 PrivateNote 꼴(1134 표지 + 21 자 넘는 reference 꼬리)
+export const BILL_PAYMENT_NOTE_RE = /^IMS supplier payment [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const SUPPLIER_TXN_KINDS = ["bill", "vendor_credit"] as const;                                                            // 4-4 거래 둘(DocNumber + VendorRef 가드 · 지문 「<총액 센트>|<통화>」 · 열쇠 「<DocNumber>|<VendorRef>|<센트>」)
 export const DEFAULT_SEND_KINDS = SEND_KINDS.filter((k) => !(COST_DAY_KINDS as readonly string[]).includes(k) && !(SUPPLIER_KINDS as readonly string[]).includes(k)) as readonly string[];   // 3-3 ⬜1 · [4-4 공급처 셋도 뺀다]: kinds 없는 send(cron 61 · console)의 기본 18 — cost_day · vendor · bill · vendor_credit 는 kinds 에 명시하거나 job_ids 로 고를 때만(qbo_send_enabled 를 켜도 자동으로 나가지 않는다 · 1098) · sendPicked 는 SEND_KINDS 22
 export const COST_DAY_DOC_RE = /^COGS-\d{8}-(TOR|EDM)(-R)?$/;                                            // 3-3 DB qbo_cost_sheet.doc_number 제약과 같은 꼴(17 · 19 자 · | 없음 → 열쇠 쪼개기 안전)
@@ -129,7 +142,7 @@ export const VOIDED_NOTE_PREFIX = "Voided - ";                                  
 export const PULL_ENTITIES = ["Account", "TaxCode", "Term", "PaymentMethod", "Customer", "Vendor", "Item"] as const;
 export const PULL_PAGE = 1000;
 export const PULL_FIELDS: Record<string, string> = {
-  Account: "Id, Name, FullyQualifiedName, ParentRef, Active, SyncToken",
+  Account: "*",                                                                                      // [4-5b 판정 1133 · 이견 2] AccountType · CurrencyRef 가 거울 detail 로(DB qbo_entity_upsert 4-5a 가 그 둘만 담는다) — 칸으로 골라 본 적이 없어 Item 처럼 통째로(계정은 연락처 칸이 없다 · 운영 238 행)
   TaxCode: "Id, Name, Active, SyncToken, SalesTaxRateList, PurchaseTaxRateList",                 // 2b2: TaxRateRef 를 DB 가 안다(qbo_entity.detail · qbo_invoice_body 의 TxnTaxDetail) · [4-4 PurchaseTaxRateList — Bill TaxLine 의 매입 세율(qbo_purchase_tax · DB 4-3a 가 detail 에 병합) · Refresh list(tax codes) 한 번]
   Term: "Id, Name, Active, SyncToken",
   PaymentMethod: "Id, Name, Active, SyncToken",
@@ -312,6 +325,16 @@ export function assertWriteAllowed(method: string, url: string, body?: unknown):
     const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
     const word = mm[1] === "journalentry" ? "journal entry" : mm[1] === "vendorcredit" ? "vendor credit" : mm[1];
     if (b.Id !== undefined && b.Id !== null) throw new QboError(500, `refusing POST ${path} with Id ${String(b.Id).slice(0, 20)} — a ${word} is only ever created, never updated, voided or deleted from here`);
+  }
+  if (mm[1] === "billpayment") {                                                                     // 4-5b 이견 10: BillPayment 는 만들기(몸에 Id 없음)와 void(operation=update&include=void · 몸 = Id · SyncToken · sparse true 뿐)만 — operation 없는 POST 에 Id 가 있으면 Full update 라 거부 · void 꼴에 다른 칸이 실리면 거부
+    const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>, hasId = b.Id !== undefined && b.Id !== null;
+    if (op === null) {
+      if (hasId) throw new QboError(500, `refusing POST ${path} with Id ${String(b.Id).slice(0, 20)} — a bill payment is only created, or voided with operation=update&include=void; it is never updated from here`);
+    } else {
+      const extra = Object.keys(b).filter((k) => !["Id", "SyncToken", "sparse"].includes(k));
+      if (!hasId || b.SyncToken === undefined || b.SyncToken === null || String(b.SyncToken).trim() === "" || b.sparse !== true || extra.length > 0)
+        throw new QboError(500, `refusing POST ${path}?operation=update&include=void — the void of a bill payment carries Id, SyncToken and sparse true only${extra.length ? " (got " + extra.slice(0, 5).join(", ") + ")" : ""}`);
+    }
   }
   const rid = u.searchParams.get("requestid") ?? "";
   if (!rid || rid.length > REQUESTID_MAX) throw new QboError(500, `refusing POST ${path} without a requestid (1 … ${REQUESTID_MAX} characters) — every write carries the job request_id`);
@@ -613,7 +636,7 @@ async function pull(c: Ctx, body: Record<string, unknown>, jwt: string): Promise
 //    unknown 풀기(2b2): invoice 는 DocNumber 조회 → 하나면 읽어서 합계와 함께 done · invoice_void 는 DocNumber 조회 → 읽어서 TotalAmt 0 이면(QBO 는 void 한 인보이스의 금액을 0 으로 둔다 — 짐작 · 첫 실물에서 확인) done · 아니면 not_voided(사람이 retry)
 //    credit · credit_void(2c1): 위 invoice · invoice_void 와 같은 길 — 엔티티 열쇠(creditmemo · CreditMemo · DocNumber)만 다르다(findByDocNumber · readTxn · doneTxn 이 열쇠를 받는다) ──
 type ClaimJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; attempt: number; request_id: string; name: string; name_alt: string | null; sku: string | null; doc_number?: string | null; qbo_id?: string | null; body: Record<string, unknown>; warnings: string[]; totals?: Record<string, unknown> | null;
-  fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; refund?: string; qbo_purchase_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null };   // [2e-3-2-1b txn_type Expense · refund · qbo_purchase_id — DB qbo_refund_apply_body 꼴]   // 2e-1c 결제: (가) 가드 줄 · unknown 열쇠(1b claim) · [2e-2-1b txn_type Invoice | CreditMemo · credit_number · qbo_creditmemo_id — DB qbo_credit_apply_body 꼴]
+  fingerprint?: string | null; check_lines?: { txn_type?: string; invoice_number?: string; qbo_invoice_id?: string; credit_number?: string; qbo_creditmemo_id?: string; refund?: string; qbo_purchase_id?: string; doc_number?: string; qbo_bill_id?: string; amount: number }[] | null; lookup?: Record<string, unknown> | null };   // [4-5b doc_number · qbo_bill_id — DB qbo_bill_payment_body 꼴]   // [2e-3-2-1b txn_type Expense · refund · qbo_purchase_id — DB qbo_refund_apply_body 꼴]   // 2e-1c 결제: (가) 가드 줄 · unknown 열쇠(1b claim) · [2e-2-1b txn_type Invoice | CreditMemo · credit_number · qbo_creditmemo_id — DB qbo_credit_apply_body 꼴]
 type NeedJob = { job_id: string; kind: string; ims_kind: string; ims_id: string; state: string; name: string | null; existing: boolean; for_job: string; parent_job: string | null };
 type Requested = { job_id: string; kind: string | null; state: string | null; result: string; reason: string | null };
 type ClaimResult = { recovered_unknown: number; unblocked: number; claimed: number; body_failed: number; blocked_for_needs?: number; blocked_for_invoice?: number; need_jobs?: NeedJob[]; requested?: Requested[]; jobs: ClaimJob[] };
@@ -629,6 +652,7 @@ const entityKeyOf = (kind: string): EntityKey => kind === "customer" ? { path: "
   : kind === "vendor" ? { path: "vendor", key: "Vendor", nameField: "DisplayName" }                                                                                 // [4-4 공급처 Vendor(1128) · 손님 꼴 — unknown 풀기는 DisplayName 조회]
   : kind === "bill" ? { path: "bill", key: "Bill", nameField: "DocNumber" }                                                                                         // [4-4 공급처 인보이스 · 비용 문서 = Bill(1115 · 1129) · 명시 가지 — ELSE(invoice)로 떨어지면 Bill 을 Invoice 로 읽는다]
   : kind === "vendor_credit" ? { path: "vendorcredit", key: "VendorCredit", nameField: "DocNumber" }                                                                // [4-4 공급처 크레딧 = VendorCredit(1121)]
+  : kind === "bill_payment" || kind === "bill_payment_void" ? { path: "billpayment", key: "BillPayment", nameField: "PrivateNote" }                                 // [4-5b 공급처 결제 = BillPayment · 명시 가지 — ELSE(invoice)로 떨어지면 BillPayment 를 Invoice 로 읽는다]
   : kind === "payment" || kind === "payment_void" ? { path: "payment", key: "Payment", nameField: "PaymentRefNum" } : { path: "invoice", key: "Invoice", nameField: "DocNumber" };   // 2c1 credit → CreditMemo · [2e-1c payment → Payment]
 const isTxnKind = (kind: string): boolean => (TXN_KINDS as readonly string[]).includes(kind) || (OPENING_CREDIT_KINDS as readonly string[]).includes(kind);   // [2e-3-1b 합집합 — TXN_KINDS 무변]
 const isPaymentKind = (kind: string): boolean => (PAYMENT_KINDS as readonly string[]).includes(kind);                            // 2e-1c
@@ -638,6 +662,23 @@ const isRefundApplyKind = (kind: string): boolean => (REFUND_APPLY_KINDS as read
 const isCostDayKind = (kind: string): boolean => (COST_DAY_KINDS as readonly string[]).includes(kind);                           // 3-3 하루 원가 장
 const isSupplierTxnKind = (kind: string): boolean => (SUPPLIER_TXN_KINDS as readonly string[]).includes(kind);                   // 4-4 Bill · VendorCredit(전용 가지 — isTxnKind 에 넣지 않는다 · 가드가 VendorRef 까지 본다)
 const isNeedKind = (kind: string): boolean => kind === "customer" || kind === "item" || kind === "vendor";                      // 2e-2-1b 960: 같은 호출에서 대신 보내는 need 는 손님 · Item(· 부모 손님) · [4-4 공급처 Vendor(1128)] — 거래 · void 는 북키퍼가 고른다
+const isBillPaymentKind = (kind: string): boolean => (BILL_PAYMENT_KINDS as readonly string[]).includes(kind);                  // 4-5b 공급처 결제 둘(전용 가지 — isPaymentKind 에 넣지 않는다 · 열쇠 · 가드가 다르다)
+// 4-5b 공급처 결제 BillPayment — 순수: unknown 열쇠 「<표지>|<VendorRef>|<TxnDate>|<센트>」(표지에 | 없음 — uuid) · 표지 맞춤(같거나 표지 + 「 · full reference: 」 머리 · 이견 4) · Voided 판정 · 그 날 조회 글 · 표지 장 고르기(1134)
+export const billPaymentKeyOf = (note: string, vendorRef: string, date: string, cents: number | null): string => [note, vendorRef, date, cents === null ? "" : String(cents)].join("|");
+export const parseBillPaymentKey = (s: string | null | undefined): { privateNote: string; vendorRef: string; txnDate: string; cents: number | null } | null => {
+  const parts = String(s ?? "").split("|");
+  if (parts.length !== 4 || !BILL_PAYMENT_NOTE_RE.test(parts[0]) || !/^\d+$/.test(parts[1]) || !/^\d{4}-\d{2}-\d{2}$/.test(parts[2]) || Number.isNaN(Date.parse(parts[2] + "T00:00:00Z")) || new Date(parts[2] + "T00:00:00Z").toISOString().slice(0, 10) !== parts[2] || !(parts[3] === "" || /^-?\d+$/.test(parts[3]))) return null;
+  return { privateNote: parts[0], vendorRef: parts[1], txnDate: parts[2], cents: parts[3] === "" ? null : Number(parts[3]) };
+};
+export const billPaymentNoteMatches = (note: unknown, marker: string): boolean => { const n = String(note ?? ""); return marker !== "" && (n === marker || n.startsWith(marker + BILL_PAYMENT_FULL_REF_SEP)); };
+export const isVoidedBillPayment = (row: Record<string, unknown> | null): boolean => !!row && (num(row.TotalAmt) ?? -1) === 0 && String(row.PrivateNote ?? "").startsWith(VOIDED_NOTE_PREFIX);   // 4-2b E-13: TotalAmt 0 · Line [] · PrivateNote 「Voided - …」
+export const billPaymentCents = (row: Record<string, unknown> | null): number | null => { const a = num(row?.TotalAmt); return a === null ? null : Math.round(a * 100); };   // 결제 통화 금액(짐작 · 이견 12 — 첫 실물에서 본다)
+export const billPaymentsByDateQueryText = (date: string): string => `select * from BillPayment where TxnDate = ${sqlQuote(date)} MAXRESULTS ${MAXRESULTS_MAX}`;   // 이견 2 답: select *(PayType 은 고를 수 없다 · BillPayment 는 PII 엔티티가 아니다) · 조건은 TxnDate 만 — VendorRef · 표지 · 센트는 EF 가 거른다 · 행은 기록하지 않는다
+export const billPaymentMatches = (rows: Record<string, unknown>[], k: { privateNote: string; vendorRef: string; cents: number | null }): { marked: Record<string, unknown>[]; full: Record<string, unknown>[] } => {
+  const marked = rows.filter((p) => !isVoidedBillPayment(p) && billPaymentNoteMatches(p.PrivateNote, k.privateNote));      // 이 IMS 결제의 표지가 붙은 살아 있는 장
+  const full = marked.filter((p) => String(((p.VendorRef ?? {}) as Record<string, unknown>).value ?? "") === k.vendorRef && k.cents !== null && billPaymentCents(p) === k.cents);   // 1134: 공급처 · 금액(센트)까지(날짜는 조회가 걸렀다)
+  return { marked, full };
+};
 // 4-4 공급처 Bill · VendorCredit — 순수: unknown 열쇠 「<DocNumber>|<VendorRef>|<센트>」(결제 paymentKeyOf · 원가 costDayKeyOf 꼴) · 오른쪽부터 쪼갠다(공급처 번호에 | 가 올 수 있다 — E-6: # · 쉼표 · 공백이 그대로 간다) · 지문 「<총액 센트>|<통화>」 앞 칸 · 가드 조회 글 · 응답 TotalAmt 센트
 export const billKeyOf = (doc: string, vendorRef: string, cents: number | null): string => `${doc}|${vendorRef}|${cents === null ? "" : cents}`;
 export const parseBillKey = (s: string | null | undefined): { doc: string; vendorRef: string; cents: number | null } | null => {
@@ -732,7 +773,7 @@ export const txnOpenBalances = (row: Record<string, unknown>): { type: string; i
     const hit = any.map((x) => (x?.value ?? {}) as Record<string, unknown>).find((v) => String(v.Name ?? "") === "txnOpenBalance");
     return { type: String(lt.TxnType ?? "?"), id: String(lt.TxnId ?? "?"), open: hit && hit.Value != null ? String(hit.Value) : null };
   });
-const txnWord = (e: EntityKey): string => e.key === "CreditMemo" ? "credit memo" : e.key === "Purchase" ? "expense" : e.key === "JournalEntry" ? "journal entry" : e.key === "Bill" ? "bill" : e.key === "VendorCredit" ? "vendor credit" : "invoice";   // 사람 글의 낱말(failed · note) · [3-3 journal entry] · [4-4 bill · vendor credit]
+const txnWord = (e: EntityKey): string => e.key === "CreditMemo" ? "credit memo" : e.key === "Purchase" ? "expense" : e.key === "JournalEntry" ? "journal entry" : e.key === "Bill" ? "bill" : e.key === "VendorCredit" ? "vendor credit" : e.key === "BillPayment" ? "bill payment" : "invoice";   // 사람 글의 낱말(failed · note) · [3-3 journal entry] · [4-4 bill · vendor credit]
 const createdIdOf = (body: unknown, key: string): string | null => { const row = (body as Record<string, unknown>)?.[key] as Record<string, unknown> | undefined; return row && row.Id != null ? String(row.Id) : null; };
 const rowOf = (body: unknown, key: string): Record<string, unknown> | null => { const row = (body as Record<string, unknown>)?.[key]; return row && typeof row === "object" && (row as Record<string, unknown>).Id != null ? row as Record<string, unknown> : null; };
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -749,7 +790,7 @@ export const openBalanceNote = (row: Record<string, unknown>): { note: string | 
 };
 export const invoiceTotals = (row: Record<string, unknown> | null): { total_amt: number | null; total_tax: number | null } =>
   ({ total_amt: num(row?.TotalAmt), total_tax: num(((row?.TxnTaxDetail ?? {}) as Record<string, unknown>).TotalTax) });
-export const QUERY_UNSELECTABLE: Record<string, readonly string[]> = { JournalEntry: ["TotalAmt"], BillPayment: ["PayType"] };   // 3-3b 실측 4001 「Invalid query — QueryValidationError: Property X not found for Entity Y」 — JournalEntry TotalAmt(운영 11-09 첫 cost_day 손 Send COGS-20261031-TOR) · BillPayment PayType(4-1 운영 콘솔 11-09) · select * 로는 온다 · 조회 문장에 적지 마라(가짜 Intuit 도 거부한다)
+export const QUERY_UNSELECTABLE: Record<string, readonly string[]> = { JournalEntry: ["TotalAmt"], BillPayment: ["PayType"], Bill: ["HomeBalance"] };   // [4-5b Bill HomeBalance — 4-2b sandbox 실측 · GET 에는 온다]   // 3-3b 실측 4001 「Invalid query — QueryValidationError: Property X not found for Entity Y」 — JournalEntry TotalAmt(운영 11-09 첫 cost_day 손 Send COGS-20261031-TOR) · BillPayment PayType(4-1 운영 콘솔 11-09) · select * 로는 온다 · 조회 문장에 적지 마라(가짜 Intuit 도 거부한다)
 export const docNumberQueryText = (doc: string, key = "Invoice"): string => `select Id, DocNumber${key === "JournalEntry" ? "" : ", SyncToken, TotalAmt"} from ${key} where DocNumber = ${sqlQuote(doc)}`;   // PII 칸 없음(parseQuery 통과) · [2c1] CreditMemo 도 · [3-3b] JournalEntry 는 Id · DocNumber 만(TotalAmt 4001 · SyncToken 도 안 쓴다 — 금액 · SyncToken 은 1 행이면 GET(readTxn) 응답의 Line · SyncToken 으로)
 const jobDetail = (j: { job_id: string; kind: string; ims_kind: string; ims_id: string }, extra: Record<string, unknown> = {}): Record<string, unknown> => ({ job_id: j.job_id, kind: j.kind, ims_kind: j.ims_kind, ims_id: j.ims_id, ...extra });
 // DocNumber 로 찾기(send_check · GET …/query) — rows(0 · 1 · n) · 실패면 error
@@ -782,6 +823,14 @@ async function findPaymentsByDate(c: Ctx, date: string, j: { job_id: string; kin
   const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
   return { r, rows: r.error ? [] : Array.isArray(qr.Payment) ? qr.Payment as Record<string, unknown>[] : [] };
 }
+// 4-5b 그 날의 BillPayment 전부(send_check · select * · TxnDate 만) — 보내기 전 가드와 unknown 풀기가 표지 · 공급처 · 센트로 고른다 · 행은 기록하지 않는다(detail 은 rows · q 뿐)
+async function findBillPaymentsByDate(c: Ctx, date: string, j: { job_id: string; kind: string; ims_kind: string; ims_id: string }): Promise<{ r: IntuitResult; rows: Record<string, unknown>[] }> {
+  const p = parseQuery(billPaymentsByDateQueryText(date));
+  const detailOf = (r: IntuitResult): Record<string, unknown> => { const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>; return jobDetail(j, { rows: Array.isArray(qr.BillPayment) ? (qr.BillPayment as unknown[]).length : 0, q: queryForLog(p.text) }); };
+  const { r } = await withAuthRetry(c, (h) => apiCall(c, "send_check", h, `/v3/company/${encodeURIComponent(h.realm)}/query`, { query: p.text }, detailOf));
+  const qr = ((r.body as Record<string, unknown>)?.QueryResponse ?? {}) as Record<string, unknown>;
+  return { r, rows: r.error ? [] : Array.isArray(qr.BillPayment) ? qr.BillPayment as Record<string, unknown>[] : [] };
+}
 // 2e-3-2-1b 그 날의 Purchase 전부(send_check) — unknown 풀기가 PrivateNote 완전 일치 · 손님 · Voided 아님으로 고른다
 async function findPurchasesByDate(c: Ctx, date: string, j: { job_id: string; kind: string; ims_kind: string; ims_id: string }): Promise<{ r: IntuitResult; rows: Record<string, unknown>[] }> {
   const p = parseQuery(purchasesByDateQueryText(date));
@@ -805,6 +854,13 @@ async function findByDateRange(c: Ctx, entity: string, from: string, to: string,
     start += MAXRESULTS_MAX;
   }
   return { r: last!, rows, pages, truncated: true };
+}
+// 4-5b 공급처 결제 done — 10 인자 그대로(p_total_amt = 응답 TotalAmt · DB 가 po_payment.amount 와 견준다 · p_unapplied_amt 없음) · 응답 통화가 보낸 통화와 다르면 note 에 글(done 에 통화 칸이 없다 · 이견 6)
+async function doneBillPayment(c: Ctx, jobId: string, row: Record<string, unknown>, name: string, tid: string | null, note: string | null, sentCur: string): Promise<Record<string, unknown>> {
+  const got = String(((row.CurrencyRef ?? {}) as Record<string, unknown>).value ?? "");
+  const curNote = sentCur && got && got.toUpperCase() !== sentCur.toUpperCase() ? `QuickBooks recorded this bill payment in ${got} while IMS sent ${sentCur} — check it in QuickBooks` : null;
+  const n = [note, curNote].filter((x) => !!x).join(" · ") || null;
+  return await c.d.rpcService("qbo_job_done", { p_job: jobId, p_qbo_id: String(row.Id), p_qbo_name: name, p_sync_token: row.SyncToken != null ? String(row.SyncToken) : null, p_intuit_tid: tid, p_note: n, p_sku: null, p_total_amt: num(row.TotalAmt), p_total_tax: null, p_unapplied_amt: null }) as Record<string, unknown>;
 }
 // 2e-1c 결제 done — 10 인자(p_unapplied_amt · DB 가 amount · amount − Σ붙임 과 견준다 · total_tax 는 null)
 async function donePayment(c: Ctx, jobId: string, row: Record<string, unknown>, name: string, tid: string | null, note: string | null): Promise<Record<string, unknown>> {
@@ -855,6 +911,28 @@ async function resolveUnknown(c: Ctx, u: UnknownRow): Promise<Record<string, unk
     if (got !== k.cents) return { ...out, result: "amount_differs", qbo_id: id, qbo_total: got / 100, expected_total: k.cents / 100, message: `QuickBooks ${word} #${id} with number ${k.doc} for vendor #${k.vendorRef} totals ${(got / 100).toFixed(2)} but this job expects ${(k.cents / 100).toFixed(2)} — not recorded (1127). Check it in QuickBooks: if it is this document, fix whichever side is wrong, then retry the job with a note; if it is another document, change its number there, then retry` };
     const d = await doneTxn(c, u.job_id, rd.row, k.doc, rd.r.tid, `result was unknown — found in QuickBooks by vendor, number and total (${word} #${id}) and recorded`);
     return { ...out, result: "found", qbo_id: id, state: d?.state ?? null, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+  }
+  if (isBillPaymentKind(u.kind)) {                                                                     // 4-5b 판정 1134 · 이견 8 · 9 — bill_payment: 열쇠 「<표지>|<VendorRef>|<TxnDate>|<센트>」 → 그 날 BillPayment 조회 → 표지 장이 꼭 1 이고 공급처 · 센트 같으면 done · 0 not_found · 표지는 있는데 다르면 그대로 + 글 · 2+ ambiguous / bill_payment_void: Id 로 읽어 금액 0 ∧ 「Voided - 」 면 done
+    const e = entityKeyOf(u.kind);
+    if (u.kind === "bill_payment_void") {
+      const rd = await readTxn(c, u.qbo_name, u, e);
+      if (rd.r.error || !rd.row) return { ...out, result: "not_found", message: `QuickBooks bill payment #${u.qbo_name} could not be read (${rd.r.error ?? "no row"}) — check by hand, then retry or skip the job` };
+      if (!isVoidedBillPayment(rd.row)) return { ...out, result: "not_voided", qbo_id: String(rd.row.Id), message: "the QuickBooks bill payment still carries an amount or lacks the Voided note — the void did not go through; retry the job by hand" };
+      const d = await c.d.rpcService("qbo_job_done", { p_job: u.job_id, p_qbo_id: String(rd.row.Id), p_qbo_name: String(rd.row.DocNumber ?? ("bill payment " + String(rd.row.Id))), p_sync_token: rd.row.SyncToken != null ? String(rd.row.SyncToken) : null, p_intuit_tid: rd.r.tid, p_note: "result was unknown — the QuickBooks bill payment is voided (amount 0 · Voided note)", p_sku: null }) as Record<string, unknown>;
+      return { ...out, result: "found", qbo_id: String(rd.row.Id), state: d?.state ?? "sent" };
+    }
+    const k = parseBillPaymentKey(u.qbo_name);
+    if (!k) return { ...out, result: "no_name", message: "the bill payment key on the job is not readable — check QuickBooks by hand, then retry the job with a note or skip it" };
+    if (k.cents === null) return { ...out, result: "needs_hand", message: "the expected amount is not on the job — check QuickBooks by hand, then retry the job with a note or skip it" };
+    const { r, rows } = await findBillPaymentsByDate(c, k.txnDate, u);
+    if (r.error) return { ...out, result: "check_failed", error: r.error };
+    if (rows.length >= MAXRESULTS_MAX) return { ...out, result: "check_failed", error: `QuickBooks has ${rows.length} or more bill payments on ${k.txnDate} — too many to check here; check by hand, then retry the job with a note or skip it` };
+    const { marked, full } = billPaymentMatches(rows, k);
+    if (marked.length === 0) return { ...out, result: "not_found", message: `QuickBooks has no bill payment on ${k.txnDate} with note "${k.privateNote}" — if it really is not there, retry the job by hand (Sales → QuickBooks)` };
+    if (marked.length > 1) return { ...out, result: "ambiguous", rows: marked.length, message: `QuickBooks has ${marked.length} bill payments on ${k.txnDate} with note "${k.privateNote}" (#${marked.map((x) => String(x.Id)).join(", #")}) — void the extra in QuickBooks by hand, then retry the job with a note; or skip it` };
+    if (full.length !== 1) return { ...out, result: "amount_differs", qbo_id: String(marked[0].Id), qbo_total: (billPaymentCents(marked[0]) ?? 0) / 100, expected_total: k.cents / 100, message: `QuickBooks bill payment #${String(marked[0].Id)} carries the note of this payment but its vendor or amount differs (QuickBooks ${((billPaymentCents(marked[0]) ?? 0) / 100).toFixed(2)} for vendor #${String(((marked[0].VendorRef ?? {}) as Record<string, unknown>).value ?? "?")} · this job expects ${(k.cents / 100).toFixed(2)} for vendor #${k.vendorRef}) — not recorded (1134). Check it in QuickBooks: void it there if it is wrong, then retry the job with a note; or skip the job` };
+    const d = await doneBillPayment(c, u.job_id, full[0], String(full[0].DocNumber ?? k.privateNote), r.tid, "result was unknown — found in QuickBooks by date, vendor, amount and note, and recorded", "");
+    return { ...out, result: "found", qbo_id: String(full[0].Id), state: d?.state ?? "sent", mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
   }
   if (isPaymentKind(u.kind) || isCreditApplyKind(u.kind) || isRefundApplyKind(u.kind)) {           // [2e-3-2-1b refund_apply 둘도 — 0 원 Payment]                                          // 2e-1c — 결제: 열쇠(날짜 · 손님 · 금액 · PrivateNote) · void 는 Id 로 읽어 Voided 인지 · [2e-2-1b 크레딧 붙임도 이 문으로(0 원 Payment)] · [2e-3-1b opening_apply 둘도]
     const e = entityKeyOf(u.kind);
@@ -1023,6 +1101,47 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
       return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, doc);
     }
+    if (j.kind === "bill_payment") {                                                                   // 4-5b 판정 1123 ~ 1125 · 1132 ~ 1134 · 이견 2 ~ 7 — ① 같은 날 BillPayment 조회(표지 장 0 → 계속 · 꼭 1 이고 공급처 · 센트 같음 → done + note · 그 밖 → unknown · 조회 실패 failed) ② Bill 잔액 가드(GET bill/<id> · Balance < 붙이는 금액 → failed · 1081) ③ POST billpayment(몸 = DB 그대로) → done · 4xx failed · 5xx · 끊김 · 몸 없음 unknown(열쇠)
+      const l = j.lookup ?? {}, marker = String(l.private_note ?? ""), date = String(l.txn_date ?? j.body.TxnDate ?? ""), cur = String(l.currency ?? ((j.body.CurrencyRef ?? {}) as Record<string, unknown>).value ?? "");
+      const vendorRef = String(((j.body.VendorRef ?? {}) as Record<string, unknown>).value ?? l.vendor_ref ?? "");
+      const lc = l.total_cents, cents = lc !== null && lc !== undefined && String(lc) !== "" && Number.isInteger(Number(lc)) ? Number(lc) : null;
+      const doneName = String(j.doc_number ?? j.name), key = billPaymentKeyOf(marker, vendorRef, date, cents); nameSent = key;
+      if (!vendorRef) return await fail(`not sent — the job carries no QuickBooks vendor for supplier payment ${doneName} — nothing was written; link or create the supplier's QuickBooks vendor first, then retry`, null);
+      if (cents === null || parseBillPaymentKey(key) === null) return await fail(`not sent — the job carries no usable lookup key (note, vendor, date, amount) for supplier payment ${doneName} — nothing was written; retry it`, null);
+      const lines = j.check_lines ?? [];
+      if (lines.length === 0 || lines.some((cl) => !cl.qbo_bill_id)) return await fail(`not sent — the job carries no QuickBooks bill to pay for supplier payment ${doneName} — nothing was written; retry it after checking the payment in IMS`, null);
+      const pre = await findBillPaymentsByDate(c, date, j);
+      if (pre.r.error) return await fail("not sent — the QuickBooks check for an existing bill payment failed before sending: " + pre.r.error, pre.r.tid);
+      if (pre.rows.length >= MAXRESULTS_MAX) return await fail(`not sent — QuickBooks has ${pre.rows.length} or more bill payments on ${date} — too many to check for a duplicate here; nothing was written`, pre.r.tid);
+      const { marked, full } = billPaymentMatches(pre.rows, { privateNote: marker, vendorRef, cents });
+      if (marked.length === 1 && full.length === 1) {
+        const id = String(full[0].Id);
+        note = `already in QuickBooks (bill payment #${id} — same date, vendor, amount and IMS note found before sending) — recorded, not created again`;
+        const d = await doneBillPayment(c, j.job_id, full[0], doneName, pre.r.tid, note, cur);
+        return { ...base, name: doneName, state: String(d?.state ?? "sent"), qbo_id: id, note, mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+      }
+      if (marked.length > 1) return await unknown(`not sent — QuickBooks already has ${marked.length} bill payments on ${date} carrying the note of this payment (#${marked.map((x) => String(x.Id)).join(", #")}) — void the extra in QuickBooks by hand, then retry the job with a note; or skip it`, pre.r.tid, key);
+      if (marked.length === 1) return await unknown(`not sent — QuickBooks bill payment #${String(marked[0].Id)} on ${date} already carries the note of this payment but its vendor or amount differs (QuickBooks ${((billPaymentCents(marked[0]) ?? 0) / 100).toFixed(2)} ${cur} · this job expects ${(cents / 100).toFixed(2)} ${cur}) — not recorded (1134). Check it in QuickBooks: void it there if it is wrong, then retry the job with a note; or skip the job`, pre.r.tid, key);
+      const billKey = entityKeyOf("bill"), want = new Map<string, { doc: string; amt: number }>();
+      for (const cl of lines) { const id = String(cl.qbo_bill_id), w = want.get(id) ?? { doc: String(cl.doc_number ?? id), amt: 0 }; w.amt = Math.round((w.amt + Number(cl.amount)) * 100) / 100; want.set(id, w); }
+      for (const [id, w] of want) {
+        const rd = await readTxn(c, id, j, billKey);
+        if (rd.r.error || !rd.row) return await fail(`not sent — could not read bill ${w.doc} (QuickBooks #${id}) before sending: ${rd.r.error ?? "no row"} — nothing was written`, rd.r.tid);
+        const bal = num(rd.row.Balance);
+        if (bal === null) return await fail(`not sent — bill ${w.doc} (QuickBooks #${id}) has no Balance in QuickBooks — check by hand, then retry or skip`, rd.r.tid);
+        if (bal + 0.004 < w.amt) return await fail(`not sent — QuickBooks shows only ${bal} ${cur} open on bill ${w.doc} (QuickBooks #${id}) but this payment applies ${w.amt} — nothing was written. If a payment for this bill was entered in QuickBooks by hand, delete it there and press Retry; or, to keep that QuickBooks payment, press Skip on this job in IMS (1081)`, rd.r.tid);
+      }
+      const { r } = await attempt(j.body, j.request_id);
+      const cls = classifyWrite(r.status, r.networkError);
+      if (cls === "ok") {
+        const row = rowOf(r.body, e.key);
+        if (!row) return await unknown(`QuickBooks answered ${r.status} without the created BillPayment — checked by date, vendor, amount and note at the next send`, r.tid, key);
+        const d = await doneBillPayment(c, j.job_id, row, doneName, r.tid, null, cur);
+        return { ...base, name: doneName, state: String(d?.state ?? "sent"), qbo_id: String(row.Id), mismatch: (d?.mismatch as string | null) ?? null, link_error: (d?.link_error as string | null) ?? null };
+      }
+      if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
+      return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
+    }
     if (j.kind === "payment") {                                                                        // 2e-1c — (가) Balance 가드(check_lines 마다 GET invoice/<id>) → POST payment → done 10 인자 · unknown 은 열쇠를 남긴다
       const key = paymentKeyOf(j.lookup, j.body); nameSent = key;
       const inv = entityKeyOf("invoice");
@@ -1070,7 +1189,7 @@ async function sendOne(c: Ctx, j: ClaimJob): Promise<JobOut> {
       if (cls === "fail") return await fail(r.error ?? ("HTTP " + r.status), r.tid);
       return await unknown(r.error ?? ("no answer (HTTP " + r.status + ")"), r.tid, key);
     }
-    if (j.kind === "payment_void" || j.kind === "credit_apply_void" || j.kind === "opening_apply_void" || j.kind === "refund_apply_void") {   // [2e-3-2-1b refund_apply_void — ⓖ-7 Purchase void 보다 먼저(DB 사슬)]   // 2e-1c 978 · sandbox B-6 · [2e-3-1b opening_apply_void 도 같은 길] — POST payment?operation=update&include=void {Id, SyncToken, sparse} · 5010 → 읽어서 -2 · 4xx failed · 5xx unknown(qbo_name = Id) · [2e-2-1b credit_apply_void 는 같은 길 · 1011 · C-6]
+    if (j.kind === "payment_void" || j.kind === "credit_apply_void" || j.kind === "opening_apply_void" || j.kind === "refund_apply_void" || j.kind === "bill_payment_void") {   // [4-5b bill_payment_void — e = billpayment · 같은 꼴(operation=update&include=void · {Id, SyncToken, sparse}) · 1125]   // [2e-3-2-1b refund_apply_void — ⓖ-7 Purchase void 보다 먼저(DB 사슬)]   // 2e-1c 978 · sandbox B-6 · [2e-3-1b opening_apply_void 도 같은 길] — POST payment?operation=update&include=void {Id, SyncToken, sparse} · 5010 → 읽어서 -2 · 4xx failed · 5xx unknown(qbo_name = Id) · [2e-2-1b credit_apply_void 는 같은 길 · 1011 · C-6]
       const id = String(j.qbo_id ?? j.body.Id ?? ""); nameSent = id;
       if (!id) return await fail("not sent — no QuickBooks payment id on the void job", null);
       let syncToken = j.body.SyncToken != null ? String(j.body.SyncToken) : null;
