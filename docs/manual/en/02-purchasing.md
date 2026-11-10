@@ -185,7 +185,7 @@ At the bottom of a PO and of a charge there is a **Documents** section. Keep the
 
 <a id="purch-charges"></a>
 ## Freight, duty and other charges
-<!-- screen: charges.html · BUILD 2026-11-02 · chg duty v2 -->
+<!-- screen: charges.html · BUILD 2026-11-09 · chg kind v1 -->
 <!-- who: accounting, office -->
 
 **What it is**
@@ -204,6 +204,7 @@ A charge is a bill from someone other than the supplier — freight, duty, broke
 - A share is fixed when you write it. If a PO changes later, its share does not move by itself.
 - For one CBSA bill choose **Kind** **Duty**. The amounts then read **Duty (before tax)** — the duty — and **GST on import** — the GST exactly as the bill shows it.
 - A CBSA bill with GST only: **Duty (before tax)** 0 and the GST as on the bill. "Duty (before tax) is required — type 0 if the bill has no duty."
+- **Kind** can be changed on a draft charge only — pick it in the detail. Otherwise IMS says "Kind can only be changed on a draft charge — Reopen it, change Kind, then confirm again", "This charge is cancelled — Restore it first, then change Kind", or, once its cost is on stock, "Kind cannot be changed; to correct it, enter an offsetting charge".
 
 **Watch out**
 - Confirm is refused until the shares add up to the charge.
@@ -264,7 +265,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 
 <a id="purch-payments"></a>
 ## Pay suppliers
-<!-- screen: payments.html · BUILD 2026-10-22 · pay gone v1 -->
+<!-- screen: payments.html · BUILD 2026-11-09 · pay rate v1 -->
 <!-- who: accounting -->
 
 **What it is**
@@ -277,6 +278,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 4. Check each line's amount and discount. **Paid** is the lines minus the discounts unless you type it.
 5. Press **Pay selected**. "Which account did the money leave from?" — choose the **From account** and type the **Reference** (wire ref, cheque number, card).
 6. If IMS warns before paying — for example "an early-pay discount was available but not taken" — read it and press OK to pay anyway.
+7. For a USD payment, **To pay** also shows **Exchange rate** — "CAD per 1 USD — MTFX rate of the day the money was bought". If you leave it empty IMS asks once; you can type it later on the payment's detail (**Exchange rate**, CAD per 1 USD). Until it is there the payment shows "needed before this payment can go to QuickBooks".
 
 **Discounts**
 - **Adjust discount** changes the discount on one document of a payment.
@@ -285,6 +287,8 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 **Watch out**
 - A payment has no cancelled state. **Delete** is "the only way to undo one" — "everything it settled goes back to being owed".
 - **✕** on a line takes that document off the payment: "What it was owed goes back to being owed."
+- One payment pays one supplier. Documents of two suppliers need two payments.
+- A payment already sent to QuickBooks is voided there when you delete it or change its date, account, amount, rate, reference or documents — IMS then sends it again (see [QuickBooks](01-sales.md#sales-quickbooks)).
 
 <!-- SCREENSHOT: purch-payments-1 · To pay with two invoices picked and a green discount -->
 
@@ -313,6 +317,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 - **Cancel**: "It stays on the list with a cancelled tag and drops out of the money." **Restore** brings it back.
 - **Delete** — an invoice never confirmed: "The number becomes free for this supplier again." A credit note cannot be deleted.
 - After the warehouse has received against an invoice, it cannot be reopened or cancelled — use a credit note.
+- A draft charge, PO or invoice that has a document (PDF) added cannot be deleted for now, even after you remove the document — **Cancel** it instead. A cancelled charge's number cannot be used again for the same biller.
 
 **Payments**
 - **Delete** only — see [Pay suppliers](#purch-payments).

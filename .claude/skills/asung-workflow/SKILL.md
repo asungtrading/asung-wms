@@ -32,6 +32,7 @@ description: >
 대화 Claude   설계 판단 · ⭐ 화면 파일(HTML)을 **통째로** 쓴다 · Claude Code 용 지시서를 **파일로** 쓴다  → 모델 · 대화에만 있는 것은 §3 뼈대 맨 위(2026-09-26)
 Claude Code   레포 파일 수정(마이그레이션 · 설계 문서 · 공통 js/css · Edge Function)
               ⭐ 예외 [2026-10-28 · 판정 862 · Caleb 「A」 · so-module §85] 공통 css(ims-ui.css)를 **대화 Claude 가 썼다** — 한 규칙 · 검증은 눈으로일 때만 · 공통 js 는 그대로 Claude Code
+              ⭐ 예외 [2026-11-09 · so-module §110 · 아래 136] **공통 js 중 `ims-auth.js`(메뉴 · 머리 줄 · 폰 폭 모양)는 nav v6 부터 대화 Claude 가 고쳐 왔다** — 표(items) · 머리 · 모양만일 때 · 가짜 화면(jsdom)에 실제 머리 HTML 을 넣어 시험 · 넣는 CSS 문자열도 꺼내 본다(137) · 그 밖의 공통 js(ims-ui.js 등)는 그대로 Claude Code
               ⚠️ 공통 css 를 바꾸면 화면 시험 전에 `https://ims.asung.ca/ims-ui.css` 를 직접 열어 새 글이 보이는지부터 · Ctrl + Shift + R(42 곳이 ?v= 없이 연결 · 브라우저가 옛 css 를 붙잡는다)
               ⚠️ 반드시 「검토 후 이의 제기」 먼저 — 「그대로 만들어라」가 아니다
               ⚠️ 화면 html 은 안 고친다(지시서가 명시적으로 허락할 때만 · 예: <style> 블록만)
@@ -523,7 +524,7 @@ EOF
 ⚠️ [2026-10-09 · §55-d 5] **「바뀐 것 없음」 비교는 같은 길로 만든 두 값끼리** — ims-desc.js 첫 판이 거른 편집 글을 원문과 비교해 POWR 몫만큼 늘 달랐고, 손대지 않은 Save 가 설명을 IMS 소유로 바꿨다(desc v1a · 기준 = 편집 창이 열린 직후의 글)
 ⭐ 파일을 낼 때 **바이트 수를 함께 말한다**
 ⭐ **오피스 화면(so.html · receiving.html …)은 대화 Claude 가 쓴다** — Claude Code 는 조사(창구 · 반환 · 판정 거리)와 CHECKLIST · 문서만 · 검증 = 정적 검사 + Caleb 화면 시험 + 시험 뒤 확인 쿼리 · ⚠️ 되돌릴 수 없는 실행(so_finalize 커밋 · 원장 · 인보이스 번호)은 시험 순서의 **맨 마지막** · 재료를 소진한다(오피스 판 so v2.5 → v3 → SO-25003 · §24-s)
-⭐ [2026-09-30 · lay-1 · so-module §32] **IMS 헤더는 공통 js 가 그린다** — 화면의 `<header>` 는 `.brand` · `#buildTag` · `.sp` · `#who` · `button[title="Main menu"]` · `#logoutBtn` 모양을 지킨다(공통 js 가 .brand 자리에 로고 · 모드 · 윗줄 펼침을 넣고 ☰ 를 감춘다)
+⭐ [2026-09-30 · lay-1 · so-module §32] **IMS 헤더는 공통 js 가 그린다** — 화면의 `<header>` 는 `.brand` · `#buildTag` · `.sp` · `#who` · `button[title="Main menu"]` · `#logoutBtn` 모양을 지킨다(공통 js 가 .brand 자리에 로고 · 모드 · 윗줄 펼침을 넣고 ☰ 를 감춘다) → [2026-11-09 · nav v17 · 판정 1137] 화면은 같은 id 를 그대로 지킨다 — IMS 화면에서는 공통 js 가 `#who` · `#imsPwBtn` · `#logoutBtn` · `#buildTag` · `.ims-authtag` 를 오른쪽 「이름 · 역할 ▾」 펼침 안으로 **옮긴다**(새로 만들지 않아 화면이 건 onclick 그대로 · 모양 `<style id="imsHdrFitCss">`) · [nav v18b · 1138] 폰 폭(≤ 760px) 문서 화면 모양은 `<style id="imsMobileCss">` — 화면의 `.wrap` · `.list` · `#detail` · `#wide` · `#wrapBox` · `loadList` · `window.showWide` · `#backWide` · `data-act="toglist"` 이름을 바꾸면 폰 화면이 깨진다
    · 새 화면은 `<html lang="en" data-ims-mode="ims|wms|pos">` 를 첫 줄에(첫 그림부터 110% · 번쩍임 없음)
    · 메뉴 · 갈래 · 탭 · 순서는 `ims-auth.js` items **한 곳** — 빈 링크 금지 · 아직 없는 화면은 주석 자리(판정 162) · 줄 순서가 모드의 첫 화면을 정한다(판정 163 · 173)
    · ⚠️ 마우스 · 터치 동작(:hover · pointer) · 높이(100vh · --ims-tabs-h)는 jsdom 이 못 본다 — **화면 시험 항목으로** 넣는다(lay-1b 실사고 · §32-d 3)
@@ -1168,3 +1169,15 @@ SQL 을 줄 때는 대상 프로젝트를 밝힌다 — [운영 · asung-WMS] �
    125 [검사 파일] 「기준 + N」 증감 단언은 `\if :{?mig}` 시험 갈래 / 확인 갈래(이미 적용 · + 0)를 나눠 쓴다(4-3b F1)
    126 [plpgsql] `v_b->'k'::text` 는 캐스트가 먼저 묶인다 ⇒ `(v_b->'k')::text`(4-3a 1 · 2 회차)
    127 [화면 확인] 확인 명령의 `grep … -A1` 은 표 구분선까지만 보여 숫자 줄을 놓친다 ⇒ `tail -N` 또는 `-A2`
+
+⚠️ **[2026-11-09 밤 — so-module §110-e(149 ~ 158)를 옮김 · 이 스킬 번호 128 부터 · 공급처 결제 4-5 · 청구서 Kind · 메뉴 · 머리 · 폰 폭]**
+   128 [대화 Claude · 짐작 · 68 · 89 · 97 · 107 과 같은 뿌리] 몸의 BankAccountRef 104 를 「BMO CAD Chequing」 으로 짐작해 「계좌가 틀렸다 · IMS 에서 고쳐라」 고 말함 — 실제 TD CAD CHEQUING(IMS 화면이 처음부터 TD) ⇒ QBO 번호의 뜻은 IMS 계좌 · 짝을 select 로 본 뒤 말한다
+   129 [대화 Claude] 인계서 · 정본에 없던 줄기(사진 비교)를 지난 대화에서 찾지 않고 같은 조사(shop-photo-1-0)를 다시 씀 — Caleb 「어제 우리가 샤피파이 사진을 다 다운로드 받은것도 기억하지?」 ⇒ Caleb 이 「미결」 이라 부르는 일은 conversation_search 로 지난 대화부터
+   130 [다운로드 폴더] 같은 이름 파일이 있으면 브라우저가 「 (1)」 로 저장 → 정확한 이름으로 md5 를 보는 명령이 조용히 STOP ⇒ 옮기기 · 커밋 명령은 늘 `F=$(md5sum <이름>*.<확장자> | grep '^<md5>' | head -1 | cut -c35-)` 꼴
+   131 [적용 스크립트 · 재발 127] `tail -14` 가 확인 검증의 OK 수 줄을 잘랐다 ⇒ `grep -A2 'ok | fail'` 로 뽑고 커밋 명령에 「50 · 0 일 때만」 을 묶는다
+   132 [커밋 글] 두 파일을 한 명령에 묶었다가 하나가 앞서 커밋돼 커밋 글이 실제 파일과 어긋남(asung-ims `937730d`) ⇒ 묶는 커밋 글은 실제로 들어간 파일 기준 · 아니면 따로
+   133 [잘 된 것] chg-fix-1 「마른 실행」(트리거 없이 결함 재현 FAIL 10) · 4-5b 변이 넷 — 첫 통과가 빠르면 시험이 결함을 잡는지 확인
+   134 [QBO 첫 실물 · 돈] 보내기 전에 사람에게 둘을 묻는다 — 실제로 돈이 나간 계좌 · 은행 피드에서 그 출금이 이미 분류됐는지(가드는 「Bill 에 붙인 손 결제」 만 잡는다) · QBO 가 열린 Bill 을 짝으로 내밀면 누르지 않는다(QBO 가 결제를 따로 만든다)
+   135 [Claude Code 끊김] 「API Error: Connection lost」 뒤 상태 확인 꼴 — 열린 트랜잭션 · 30 초 넘은 트랜잭션 · 네 표 Exclusive 잠금 · max(version) · git status · 파일 ls — 그대로 붙여 이어 달리기(4-5a)
+   136 [공통 js 예외] 메뉴 · 머리 줄(ims-auth.js)은 nav v6 부터 대화 Claude 가 고쳐 왔다 — 표 · 머리 모양만일 때 · 가짜 화면(jsdom)으로 실제 머리 HTML 을 넣어 시험(§1 예외 줄)
+   137 [JS 문자열 속 CSS escape · nav v18 `2d8689f`] CSS 코드값 `\25BE` 를 JS 문자열에 넣으면 `\25` 가 8 진 escape 로 먹혀 캐럿 자리에 「BE」 · 「B8」 이 보였다(jsdom 시험은 동작만 봐서 통과) ⇒ JS 문자열 안에 CSS escape 를 넣지 말고 **글자 그대로**(▾ ▸) · 가짜 화면 시험은 동작만이 아니라 넣는 CSS 문자열을 eval 로 꺼내 본다(nav v18b `309261b`)

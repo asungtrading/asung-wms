@@ -691,15 +691,15 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — 인보이스 · 크레딧 노트 보내기
-<!-- screen: qbo-send.html · BUILD 2026-11-08 · qs refund v1a -->
+<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs sup v2 -->
 <!-- who: accounting -->
 
 **무엇인가**
-**Sales ▾** › **QuickBooks**(QUICKBOOKS 열쇠 — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 인보이스 · 크레딧 노트는 누군가 **Send** 를 누르기 전에는 나가지 않습니다. 결제와 크레딧 붙임은 저절로 나갑니다(아래).
+**Integrations ▾** › **QuickBooks**(QUICKBOOKS 열쇠 — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 인보이스 · 크레딧 노트는 누군가 **Send** 를 누르기 전에는 나가지 않습니다. 결제와 크레딧 붙임은 저절로 나갑니다(아래).
 먼저 QuickBooks 가 연결되어 있어야 합니다(관리자가 **Settings** › **QuickBooks** 에서).
 
 **하나 보내는 법**
-1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Payments**(결제) · **Credits applied to invoices**(크레딧 붙임) · **Carried-over money (before the cut-over)**(이월 돈) · **Refunds**(환불) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
+1. 필터를 고릅니다: 상태(**Waiting — not sent yet**(아직 안 보냄) · **Queued** · **Blocked** · **Failed** · **Result unknown** · **Sent** · **Skipped** · **All**), 종류(**Invoices and credit notes** · **Invoices only** · **Credit notes only** · **Cancellations (void)**(취소) · **Payments**(결제) · **Credits applied to invoices**(크레딧 붙임) · **Carried-over money (before the cut-over)**(이월 돈) · **Refunds**(환불) · **Cost of goods — daily journal**(하루 원가 장) · **Supplier bills and credits**(공급처 Bill · 크레딧) · **Supplier payments**(공급처 결제) · **Customers and items** · **Everything**), 날짜. "Invoice · credit number · customer" 로 찾습니다.
 2. 줄에서 **Preview** 를 누릅니다. QuickBooks 에 적힐 그대로 보입니다: 손님 · 줄 · 세금 · 합계 · 메모 — 그리고 "Created in QuickBooks first, in the same send"(QuickBooks 에 아직 없는 손님 · 품목을 같은 보내기에서 먼저 만든다)
 3. 맞으면 **Send to QuickBooks**(또는 줄의 **Send**)를 누릅니다.
 4. 줄이 **Sent** 로 바뀝니다.
@@ -721,6 +721,15 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - IMS 로 넘어오기 전(10/30) 결제의 환불은 이미 QuickBooks 에 있어 줄이 없습니다. 그중 하나를 IMS 에서 취소하면 **Void refund** 줄이 실패합니다 — QuickBooks 에서 직접 void 하고 줄은 **Skip** 합니다.
 - 넘어오기 전 결제의 환불을 늦게 적으면 "check QuickBooks, then Retry or Skip"(QuickBooks 를 보고 Retry 또는 Skip)으로 실패합니다.
 - **Carried-over money (before the cut-over)** 는 손님이 넘어오기 전에 낸 돈을 IMS 가 새 인보이스에 붙인 줄입니다(아래).
+
+**공급처 Bill · 크레딧 · 결제**
+- 종류 **Supplier bills and credits**(공급처 Bill · 크레딧 — 줄 **Supplier** · **Supplier bill** · **Supplier credit** · **Delete bill by hand**)와 **Supplier payments**(공급처 결제 — 줄 **Supplier payment** · **Void supplier payment**)에 IMS 가 공급처 쪽으로 보낼 것이 있습니다. 어느 것도 저절로 나가지 않습니다 — **Preview** 뒤 **Send** 를 누릅니다.
+- 공급처 결제 **Preview** 는 공급처 · 결제 방식 · 돈이 나간 계좌 · 수표 인쇄 여부 · A/P 계정 · 금액 · 환율 · 갚는 Bill 을 보입니다. QuickBooks 계좌 · 공급처 · A/P 는 QuickBooks 번호(#)로 보입니다.
+- USD 공급처 결제는 환율이 먼저 있어야 합니다(CAD per 1 USD — 그 돈을 산 날의 MTFX 환율). **Purchasing ▾** › **Supplier Payments** 의 그 결제에 적으면([공급처 결제](02-purchasing.md#purch-payments)) 줄이 다시 나갈 수 있게 됩니다. Bill 의 환율을 베끼지 않습니다: Bill 은 인보이스 환율 그대로이고 차이는 QuickBooks 가 환차손익으로 적습니다.
+- QuickBooks 에 그대로 옮길 수 없는 결제는 "Enter this payment in QuickBooks by hand, then press Skip on this job"(QuickBooks 에 손으로 적고 이 줄을 Skip)으로 실패합니다: 조기 결제 할인 · 인보이스에 붙은 공급처 크레딧 · 붙인 금액 합이 결제와 다름. IMS 에서 고치거나, QuickBooks 에 손으로 적고 그 줄을 **Skip** 합니다.
+- 그 Bill 을 QuickBooks 에서 이미 손으로 결제했으면 "QuickBooks shows only … open on bill …"(Bill 에 남은 돈이 모자람)으로 실패합니다. QuickBooks 의 손 결제를 지우고 **Retry** 하거나, 그것을 두고 IMS 줄을 **Skip** 합니다.
+- 종류 · 통화가 아직 없는 계좌는 "Settings → QuickBooks matching → Refresh list (accounts), then retry" 로 실패합니다.
+- **은행 피드(북키퍼)**: 은행 줄을 먼저 분류하지 않습니다. IMS 에서 결제를 보냅니다. 은행 줄의 짝이 **Bill Payment** 로 바뀌면 **Match** 를 누릅니다(여럿은 **Batch actions** › **Accept Selected**). QuickBooks 가 열린 **Bill** 을 짝으로 내밀면 누르지 않습니다 — 결제가 하나 더 생깁니다. 자동으로 장부에 더하는 은행 규칙은 쓰지 않습니다.
 
 **안 나간 줄**
 - **Blocked** — 다른 것을 먼저 기다립니다. 예: 크레딧 노트는 그 인보이스가 QuickBooks 에 간 뒤에 갑니다. "Waiting:" 이 무엇을 기다리는지 알려 줍니다.
@@ -754,7 +763,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 <!-- who: accounting -->
 
 **무엇인가**
-**Sales ▾** › **QuickBooks** 에서 종류 **Cost of goods — daily journal** 을 고르면 **Cost days** 카드가 보입니다. "One journal entry per warehouse per day: cost of goods sold (#58) against inventory (#59), one line per sales order, adjustment, credit or transfer."(창고마다 하루 한 장의 분개 — 판매 원가 #58 ↔ 재고 #59 · SO · 조정 · 크레딧 · 트랜스퍼마다 한 줄) IMS 가 매일 밤 03:00(토론토)에 장을 만듭니다. 지금은 사람이 오래된 것부터 손으로 대기열에 넣고 보냅니다 — "a sheet waits until the one before it is in QuickBooks."(앞 장이 QuickBooks 에 가야 다음 장이 간다) 장 번호는 COGS-20261102-TOR 꼴입니다.
+**Integrations ▾** › **QuickBooks** 에서 종류 **Cost of goods — daily journal** 을 고르면 **Cost days** 카드가 보입니다. "One journal entry per warehouse per day: cost of goods sold (#58) against inventory (#59), one line per sales order, adjustment, credit or transfer."(창고마다 하루 한 장의 분개 — 판매 원가 #58 ↔ 재고 #59 · SO · 조정 · 크레딧 · 트랜스퍼마다 한 줄) IMS 가 매일 밤 03:00(토론토)에 장을 만듭니다. 지금은 사람이 오래된 것부터 손으로 대기열에 넣고 보냅니다 — "a sheet waits until the one before it is in QuickBooks."(앞 장이 QuickBooks 에 가야 다음 장이 간다) 장 번호는 COGS-20261102-TOR 꼴입니다.
 
 **하루 원가 장 보내는 법**
 1. 종류 **Cost of goods — daily journal** 을 고릅니다. 거르기 줄 아래에 **Cost days** 카드가 열립니다.

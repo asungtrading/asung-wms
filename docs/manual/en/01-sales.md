@@ -691,15 +691,15 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — send invoices and credit notes
-<!-- screen: qbo-send.html · BUILD 2026-11-08 · qs refund v1a -->
+<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs sup v2 -->
 <!-- who: accounting -->
 
 **What it is**
-**Sales ▾** › **QuickBooks** (QUICKBOOKS key — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Invoices and credit notes are not sent until someone presses **Send**. Payments and credits applied to invoices go by themselves (see below).
+**Integrations ▾** › **QuickBooks** (QUICKBOOKS key — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Invoices and credit notes are not sent until someone presses **Send**. Payments and credits applied to invoices go by themselves (see below).
 QuickBooks must be connected first (an administrator does this in **Settings** › **QuickBooks**).
 
 **How — one document**
-1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Payments**, **Credits applied to invoices**, **Carried-over money (before the cut-over)**, **Refunds**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
+1. Pick the filters: the status (**Waiting — not sent yet**, **Queued**, **Blocked**, **Failed**, **Result unknown**, **Sent**, **Skipped**, **All**), the kind (**Invoices and credit notes**, **Invoices only**, **Credit notes only**, **Cancellations (void)**, **Payments**, **Credits applied to invoices**, **Carried-over money (before the cut-over)**, **Refunds**, **Cost of goods — daily journal**, **Supplier bills and credits**, **Supplier payments**, **Customers and items**, **Everything**), and dates. Search by "Invoice · credit number · customer".
 2. Press **Preview** on a row. You see exactly what will be written: customer, lines, tax, totals, memo — and what is "Created in QuickBooks first, in the same send" (a customer or item QuickBooks does not have yet).
 3. If it looks right, press **Send to QuickBooks** (or **Send** on the row).
 4. The row turns **Sent**.
@@ -721,6 +721,15 @@ Tick the rows (or **Select all on this page**) and press **Send selected**. IMS 
 - Refunds paid before go-live (10/30) are already in QuickBooks and have no row. If one of them is cancelled in IMS, the **Void refund** row fails — void it in QuickBooks yourself, then **Skip** the row.
 - A refund recorded late for a payment from before go-live fails with "check QuickBooks, then Retry or Skip".
 - **Carried-over money (before the cut-over)** shows the rows for money a customer paid before go-live that IMS applies to a new invoice (see below).
+
+**Supplier bills, credits and payments**
+- The kinds **Supplier bills and credits** (rows **Supplier**, **Supplier bill**, **Supplier credit**, **Delete bill by hand**) and **Supplier payments** (rows **Supplier payment**, **Void supplier payment**) hold what IMS sends for suppliers. None of them go by themselves — press **Preview**, then **Send**.
+- **Preview** of a supplier payment shows the supplier, how it was paid, the account the money left, whether a cheque is printed, the A/P account, the amount, the exchange rate and the bills it pays. QuickBooks accounts, suppliers and A/P show as QuickBooks numbers (#).
+- A supplier payment in USD needs its exchange rate first (CAD per 1 USD — the MTFX rate of the day the money was bought). Type it on the payment in **Purchasing ▾** › **Supplier Payments** (see [Pay suppliers](02-purchasing.md#purch-payments)); the row is sent again after that. Do not copy the bill's rate: the bill keeps the invoice rate and QuickBooks books the difference as exchange gain or loss.
+- A payment IMS cannot copy to QuickBooks as it is fails with "Enter this payment in QuickBooks by hand, then press Skip on this job": an early-payment discount, a supplier credit on the invoice, or lines that do not add up to the payment. Fix it in IMS, or enter it in QuickBooks by hand and **Skip** the row.
+- If the bill was already paid by hand in QuickBooks, sending fails: "QuickBooks shows only … open on bill …". Delete the hand payment in QuickBooks and press **Retry**, or keep it and **Skip** the IMS row.
+- An account with no type or currency on file fails with "Settings → QuickBooks matching → Refresh list (accounts), then retry".
+- **Bank feed (bookkeeper)**: do not categorise the bank line first. Send the payment from IMS. When the bank line's match turns into the **Bill Payment**, press **Match** (several at once: **Batch actions** › **Accept Selected**). If QuickBooks offers the open **Bill** as the match, do not press it — that makes a second payment. Do not use a bank rule that adds to the books automatically.
 
 **When a row is not sent**
 - **Blocked** — it waits for something else first, for example a credit note waits until its invoice is in QuickBooks. "Waiting:" tells you what.
@@ -754,7 +763,7 @@ Invoice 99001 → **Preview** shows the item for CB-99001 will be created first 
 <!-- who: accounting -->
 
 **What it is**
-In **Sales ▾** › **QuickBooks**, the type **Cost of goods — daily journal** shows the **Cost days** card. "One journal entry per warehouse per day: cost of goods sold (#58) against inventory (#59), one line per sales order, adjustment, credit or transfer." IMS builds the sheets every night at 03:00 (Toronto). For now you queue and send them by hand, oldest first — "a sheet waits until the one before it is in QuickBooks." The sheet number looks like COGS-20261102-TOR.
+In **Integrations ▾** › **QuickBooks**, the type **Cost of goods — daily journal** shows the **Cost days** card. "One journal entry per warehouse per day: cost of goods sold (#58) against inventory (#59), one line per sales order, adjustment, credit or transfer." IMS builds the sheets every night at 03:00 (Toronto). For now you queue and send them by hand, oldest first — "a sheet waits until the one before it is in QuickBooks." The sheet number looks like COGS-20261102-TOR.
 
 **How — send a cost day**
 1. Pick the type **Cost of goods — daily journal**. The **Cost days** card opens under the filters.

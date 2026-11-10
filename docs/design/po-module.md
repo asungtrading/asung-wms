@@ -3122,7 +3122,7 @@ Source 열    supplier_discount_id 가 「따라온 줄」(from supplier)과 「
 비례 규칙     한 곳 — po_charge_alloc_propose(만들기와 spread 가 같이 쓴다 · 규칙이 두 곳이면 갈린다) · 기준은 발주의 **라인 금액 합(할인 전 · po_list.subtotal 과 같은 식 sum(round(qty_ea×unit_price,2)))**
              줄 = round(총액×기준/합, 2) · 잔돈(총액 − 줄 합)은 기준이 가장 큰 발주 · 동점은 발주번호 순 · 기준이 전부 0 이면 균등 + warnings no_base_amount
 읽기          뷰 po_charge_list(po_invoice_list 와 같은 모양 · po_numbers 로 발주 번호 검색 · 배분 없는 청구서도 보인다) · RPC po_charge_detail(allocs[] 에 base_amount · other_charges — 사람이 배분을 고치는 판단의 재료)
-취소·삭제     po_doc_cancel / po_doc_delete 의 p_target 'charge'(§11-b) · cancelled_by 신설 · 취소는 결제 있으면 거부 · 배분은 경고만 · 삭제는 confirmed_at null 만 · allocs_deleted
+취소·삭제     po_doc_cancel / po_doc_delete 의 p_target 'charge'(§11-b) · cancelled_by 신설 · 취소는 결제 있으면 거부 · 배분은 경고만 · 삭제는 confirmed_at null 만 · allocs_deleted → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] **Kind 는 draft 에서만**(판정 1135 · 트리거 `po_charge_kind_lock` · definer · cancelled → Restore 안내 · landed 있음 → 상쇄 청구서 안내 · confirmed → Reopen 안내 · P0001 · 화면 chg kind v1) · ⚠️ **서류(po_doc)가 붙으면 삭제가 FK(`po_doc_po_charge_id_fkey`)로 막힌다** — `po_doc_remove` 는 is_active false 로 행을 남기고 rename 일감을 더하므로 서류를 빼도 그대로 · Cancel 은 되지만 유니크 (supplier_id, charge_number) 가 status 를 안 가려 같은 번호를 다시 못 넣는다 · FK 오류 원문이 그대로 보인다(PO · 공급처 인보이스 · 트랜스퍼 운임도 같은 FK) — deferred 539
 ```
 ⭐⭐ **[실물 2026-09-17 · Caleb SQL] 박아 둔 배분이 발주 금액 변화를 안 따라오는 실례가 나왔다.** CBSA 2,547.37 의 배분 597.49 / 1,949.88 은 2026-09-16 정오 기준값(PO-02002 소계 7,985.00 · 그때 discount_factor 1.000000)에서 나왔고,
 그 뒤 PO-02002 라인이 +25.40 되어 지금 기준은 8,010.40 이다 ⇒ 지금 비례로는 596.04 / 1,951.33(차이 1.45). **다시 계산하지 않는다 — 설계대로다.** spread 를 사람이 누를 때만 596.04 / 1,951.33 이 된다. §13-b 2868행의 「소계 7,985.00」은 그날 실물이지 오기가 아니다(§13-b 덧붙임 · §13-a 경위).
@@ -3150,7 +3150,7 @@ tax_rule_id    제안 재료(+ 원문 짝 · 짝 트리거 po_tax_rule_pair) · 
 낼 돈          po_charge_money.unpaid = total_amount + tax_amount − paid · total_with_tax · 결제 대상 검사(po_payment_target_check)와 결제 상세의 비용 doc_total = total_with_tax
 원가           배분(po_charge_alloc 합 = total_amount) · landed(inv_layer_post_charge = 배분 줄 × 환율) **세금 전만** — 무접촉 · 증명 W2 관세 1,000 + GST 87.50 → landed 1,000
 트랜스퍼 운임   같은 표 · tf_charge_create(p_tax_amount · p_tax_rule) · tf_charge_update(열쇠 tax_amount · tax_rule · tax_rule_id) · 도착 순간 얹히는 원가도 세금 전
-고치기         PO 비용 머리는 charges.html 이 PostgREST 로 직접 쓴다(창구 없음 · tax_amount 도 같은 길) · 확정 뒤 잠금은 total_amount 와 같은 선(없음 · 미룬 139)
+고치기         PO 비용 머리는 charges.html 이 PostgREST 로 직접 쓴다(창구 없음 · tax_amount 도 같은 길) · 확정 뒤 잠금은 total_amount 와 같은 선(없음 · 미룬 139) → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] Kind 만 DB 가 잠근다(1135 · draft 밖 거부) · 나머지 머리 칸 잠금과 status 직접 PATCH 우회는 그대로 미룬 139
 ⬜             비용 청구서에 받은 결제 할인도 landed 를 낮춘다(판정 393 · 실물 CBSA 50.95 · po-disc-4)
 ```
 
@@ -3335,7 +3335,7 @@ total_amount  주석 정정 — 「크레딧성 음수 인보이스(짐작)」 �
 ⬜ 조기결제 할인의 HST 매입세액 처리는 **회계사 확인**(§3-b ② 미결 — 우리가 판단할 사안이 아니다).
    [실물 E.T Browne INV 2142773] 실제로 덜 낸 돈 226.81 인데 Cin7 장부는 256.30 을 깎았다.
    ⇒ 금액과 할인액을 기록해 두면 회계사가 정한 뒤에 얹을 수 있다.
-⬜ KRW 송금의 환차손익(§7)도 결제가 IMS 에 서면 여기서 다시 올라온다. → [2026-09-16] `po_payment.currency_id · exchange_rate · amount` 칸만 두었다 — **계산은 QBO 때**(§7 Caleb 판정). 칸이 없으면 그때 소급이 안 된다. ⬜ 유지.
+⬜ KRW 송금의 환차손익(§7)도 결제가 IMS 에 서면 여기서 다시 올라온다. → [2026-09-16] `po_payment.currency_id · exchange_rate · amount` 칸만 두었다 — **계산은 QBO 때**(§7 Caleb 판정). 칸이 없으면 그때 소급이 안 된다. ⬜ 유지. → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 환차손익은 QBO 가 셈한다 — Bill = 인보이스 환율 · BillPayment = 결제 환율(산 날 MTFX · 판정 1123) · 차이를 QBO 가 환차손익으로(4-2b E-9 · 첫 USD 실물 전)
 ```
 → **표(2026-09-16 · §13)** `po_payment`(사실) · `po_payment_alloc`(어느 청구서에 얼마).
 ```
@@ -3346,7 +3346,7 @@ total_amount  주석 정정 — 「크레딧성 음수 인보이스(짐작)」 �
                실무의 「PO(입고된 쉽먼트) 단위로 묶어 낸다」(Caleb 실측)는 화면이 돕는다 — 저장은 청구서별 충당 금액. 근거: 갚을 돈을 만든 것은 인보이스 · PO 를 가리키면 어느 인보이스가 결제됐는지 모른다 · 인보이스 하나가 PO 둘에 걸친다
 discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 돈)만으로는 **덜 낸 것과 할인 받은 것이 구별되지 않는다**([실물] 부분 결제 Avlon 「50% COD & 50% Net30」 §7). 사람이 「이 200 은 할인이다」를 선언해야 문서가 닫힌다
                검산: 충당 합 = 낸 돈 + discount_taken. [실측 · Caleb 2026-09-16 · SQL] WIRE USD 2,010.54 → AMP-778812 · EFT CAD 2,496.42 + 할인 50.95(2%) → CBSA 2,547.37 — 둘 다 0.00
-상태 없음      결제는 사실이다 — 잘못 넣었으면 지운다(DELETE 열림) · 상쇄 규칙은 QBO 이음새 때
+상태 없음      결제는 사실이다 — 잘못 넣었으면 지운다(DELETE 열림) · 상쇄 규칙은 QBO 이음새 때 → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 상쇄 규칙 = IMS 결제를 지우면 BillPayment void 일감(판정 1125) · 보낸 뒤 날짜 · 계좌 · 금액 · 붙임이 바뀌면 지문이 바뀌어 void + 다시
 결제 계정      ⭐⭐ [Caleb 실측 2026-09-16] Cin7 의 결제는 **은행과 직접 연결되어 있지 않다.** IMS 도 은행 연동이 필요 없다.
                흐름: QBO 가 계정과목을 만든다 → Cin7 으로 내려온다 → 결제할 때 그중 하나를 **지정만** 한다 → fund 매칭은 QBO 가 한다 ⇒ 위 「IMS 는 사실만 · 분개는 QBO」와 정확히 맞는다
                📌 Cin7 Omni 시절에는 e-transfer/카드/현금/수표 구분만 했고 전부 QBO 에서 처리했다
@@ -3358,21 +3358,21 @@ discount_taken ⭐ 조기결제로 덜 낸 금액 — 계산(충당 합 − 낸 
 → **쓰기(2026-09-17 · `20260917190000` 880행 · 커밋 db36acd · 화면 `payments.html` 신설 · 검토 이견 1~14 전부 받음)**
 ```
 ⭐ 통화를 정하는 것은 **공급처**다   [Caleb 실측] Cin7 에서 공급처마다 통화가 정해져 있고 우리는 그것을 지킨다 — 공급처 기본 통화가 USD 면 USD 로 낸다
-             ⚠️ KRW 송금은 결제 단계의 문제가 아니다 — **그런 공급처는 인보이스를 CAD 로 환산해 만든다**(Caleb). 시스템이 보는 것은 CAD 문서를 CAD 로 갚는 것뿐 ⇒ exchange_rate 칸은 두되 이번에 쓰지 않는다(insert 안 함)
+             ⚠️ KRW 송금은 결제 단계의 문제가 아니다 — **그런 공급처는 인보이스를 CAD 로 환산해 만든다**(Caleb). 시스템이 보는 것은 CAD 문서를 CAD 로 갚는 것뿐 ⇒ exchange_rate 칸은 두되 이번에 쓰지 않는다(insert 안 함) → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 외화(USD) 결제는 **환율 필수**(판정 1123 · 그 돈을 산 날의 MTFX 환율 · CAD per 1 USD) · `po_payment_create(…, p_exchange_rate)` · 머리 칸 PostgREST · 화면 payments.html pay rate v1(상세 · To pay 창 Exchange rate) · CHECK > 0 · 비면 QuickBooks 로 안 간다(몸이 막음)
 ⭐⭐ 한 결제 = 한 통화   대상 문서 전부의 통화 = 결제 통화 — **뒷단이 검사**한다(공급처로 좁혀도 · 손으로 만든 문서가 다를 수 있고 anon key 가 공개다). 거부 문장에 문서 번호와 통화를 이름으로(「Charge FX-TEST-1 is CAD but the payment is USD — one payment, one currency …」)
              실무에서 섞이는 자리는 **운송** — 제품 인보이스는 CAD 인데 운송 비용 문서가 USD 로 올 수 있다 · [실물] PO-02001a 하나에 결제가 둘(WIRE USD → 인보이스 · EFT CAD → 관세)
 ⭐ 확정된 문서에만 붙는다   인보이스·비용 status='confirmed' 만 — 확정 = 「장부에 받아들였다」이고 그때 미지급이 생긴다(§11-g). ⚠️ po_invoice_money.unpaid 는 status 를 안 봐 **초안에도 미지급이 계산된다** — 막지 않으면 초안에 결제가 붙는다 · cancelled 도 거부
 ⭐ 부분 결제는 정상   [실물] Avlon 50% COD & 50% Net30 · 막는 둘: **문서 미지급 초과** · **Σ충당 ≠ amount + discount_taken**(표 주석의 검산 · 저장 전 거부 · gap 을 문장에). 비용 배분(unallocated)과 성격이 같다 — 양쪽 다 우리 숫자
 ⭐ discount_taken 은 사람이 선언   계산(충당 합 − 낸 돈)만으로는 「덜 낸 것」과 「할인 받은 것」이 구별되지 않는다 · [실측 2026-09-17] 5566 USD 586.92 중 286.92 를 낼 때 250 + 할인 36.92 로 선언하면 통과 · HST 매입세액은 회계사 미결(금액만 기록)
-⭐ 한 결제 = 한 공급처는 **강제하지 않는다**   경고 mixed_supplier 만(검토 이견 1 ⓑ · Caleb) — 비용 문서의 공급처는 경비처(CBSA·BBE)라 「Ampro 인보이스 + CBSA 관세를 한 송금」 실무가 있는지 모른다(짐작). 강제하면 그 실물을 못 넣고 실제 위험(통화 섞임)은 통화 검사가 잡는다 · po_payment 에 공급처 칸은 없다(p_supplier_id 는 화면의 축 · 선택)
-⭐ 상태 없음   결제는 사실이다 — 잘못 넣었으면 **지운다**(po_doc_delete 'payment' · confirmed_at 검사 없음 · 충당 CASCADE · allocs_deleted · 그 문서들의 미지급이 되살아난다) · po_doc_cancel 'payment' 는 **거부**(「A payment has no cancelled state — delete it instead」 · 조용히 통과시키지 않는다)
+⭐ 한 결제 = 한 공급처는 **강제하지 않는다**   경고 mixed_supplier 만(검토 이견 1 ⓑ · Caleb) — 비용 문서의 공급처는 경비처(CBSA·BBE)라 「Ampro 인보이스 + CBSA 관세를 한 송금」 실무가 있는지 모른다(짐작). 강제하면 그 실물을 못 넣고 실제 위험(통화 섞임)은 통화 검사가 잡는다 · po_payment 에 공급처 칸은 없다(p_supplier_id 는 화면의 축 · 선택) → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] **강제한다**(판정 1124 · 4-5a) — po_payment_create · po_payment_alloc_set 이 공급처 둘 이상을 거부 · 붙임 줄의 문서를 직접 UPDATE 로 바꾸는 것도 거부(「remove the line and add the document again」)
+⭐ 상태 없음   결제는 사실이다 — 잘못 넣었으면 **지운다**(po_doc_delete 'payment' · confirmed_at 검사 없음 · 충당 CASCADE · allocs_deleted · 그 문서들의 미지급이 되살아난다) · po_doc_cancel 'payment' 는 **거부**(「A payment has no cancelled state — delete it instead」 · 조용히 통과시키지 않는다) → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 지우면 QuickBooks 에서는 void(1125 · bill_payment_void 일감) · 그 문서를 취소하려면 붙임이 먼저 떨어져야 하고 bill_delete_manual 은 void 뒤(qbo-integration §15-n ②)
 ⭐ 결제 계좌 — ❌ **ref_account 를 고치지 않았다**   ⚠️ 계좌에 통화 칸을 붙이자는 안이 한 번 섰다가 [Caleb] 「통화는 공급처에서 이미 정해져 내려온다. 계좌에 또 적으면 같은 사실이 두 곳에 있고 언젠가 어긋난다」로 기각됐다 → [2026-11-08 · 판정 1091] A/P · A/R 통제 계정에 한해 뒤집음 — ref_account.currency_code · 결제 계좌는 그대로(1081 차수) · so-module §105 · qbo-integration §15-g
-             ⇒ account_id nullable · 통화 검사 없음 · 안 고르면 경고 account_missing 만 · 화면이 **검색으로** 고른다(코드·이름 · 「CHEQUING」) · for_payments 를 후보 필터로 쓰지 않는 이유는 위 문장 그대로 · 계좌 코드 하드코딩 없음
-             ⚠️ [Caleb 실측 2026-09-17] 카드·Wise 도 쓰지만 **결국 모든 돈은 세 계좌(_104_ TD CAD · _105_ BMO CAD · _106_ BMO USD)에서 나간다** ⇒ 계좌는 셋만 · 수단은 reference 에 적는다(카드 대금 정산은 분개 영역 — QBO 의 일)
+             ⇒ account_id nullable · 통화 검사 없음 · 안 고르면 경고 account_missing 만 · 화면이 **검색으로** 고른다(코드·이름 · 「CHEQUING」) · for_payments 를 후보 필터로 쓰지 않는 이유는 위 문장 그대로 · 계좌 코드 하드코딩 없음 → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 통화 검사 있음 — 결제 통화 ≠ 계좌 통화면 거부(판정 1122 · 트리거 po_payment_account_currency_ck · USD 계좌 여섯) · QuickBooks 로 보낼 때 계좌 종류(BANK · CREDITCARD)가 PayType 을 정하고 QBO 거울과 대조(1133)
+             ⚠️ [Caleb 실측 2026-09-17] 카드·Wise 도 쓰지만 **결국 모든 돈은 세 계좌(_104_ TD CAD · _105_ BMO CAD · _106_ BMO USD)에서 나간다** ⇒ 계좌는 셋만 · 수단은 reference 에 적는다(카드 대금 정산은 분개 영역 — QBO 의 일) → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 운영 ref_account 는 BANK 21 · CREDITCARD 7 · USD 계좌 여섯(_106_ · _138_ MTFX USD · _141_ · _144_ · _145_ · _204_) — 「셋만」 은 그날의 실무 말 · 실제 결제는 _138_ MTFX USD 등에서도 나간다
 ❌ 크레딧을 결제에 쓰는 길은 이번에 없다   위 「안 붙은 크레딧만 이 길」이 190000 의 p_targets(kind invoice | charge)에 빠졌다 — 지시서의 누락(대화 Claude). 검산 부호가 뒤집혀(Σ인보이스 + Σ비용 = amount + discount_taken + Σ크레딧) 섞을 수 없어 **거부**한다(「… is a credit note — a later step」) · 조용히 통과시키지 않는다 · §13-f
 검사 한 곳   po_payment_target_check(존재 · 종류 · confirmed · 통화 · 초과 — 고치는 줄의 금액은 미지급에 되돌려 놓고) — 만들기(po_payment_create · 미리 보기 두 단계 · amount 없으면 미지급 전액 제안)와 충당 편집(po_payment_alloc_set 은 있으면 고치고 없으면 더한다 · unique (payment, invoice)·(payment, charge) 가 축 · _delete)이 같이 쓴다
 읽기          뷰 po_payment_list(alloc_sum · balanced = Σ충당 = amount + discount · doc_numbers · supplier_names · 충당 없는 결제도 보인다) · RPC po_payment_detail(allocs[] 에 doc_total · doc_paid_total · doc_unpaid — 부분 결제가 정상이라 「지금 얼마 남았나」를 보고 정한다)
-머리 칸        paid_on · amount · discount_taken · account_id · reference · note 는 화면이 PostgREST 로 쓴다 — 결제는 상태가 없어 잠금 지점이 없다. gap 은 목록 balanced · 상세가 보여 준다 · ⚠️ currency_id 는 충당이 있으면 **화면이 잠근다**(대화 Claude) → ⚠️ [2026-10-08 밤 · po-disc-4a1] amount · discount_taken 은 문지기가 직접 쓰기를 막는다(아래 「조기 결제 할인 — 실물」)
+머리 칸        paid_on · amount · discount_taken · account_id · reference · note 는 화면이 PostgREST 로 쓴다 — 결제는 상태가 없어 잠금 지점이 없다. gap 은 목록 balanced · 상세가 보여 준다 · ⚠️ currency_id 는 충당이 있으면 **화면이 잠근다**(대화 Claude) → ⚠️ [2026-10-08 밤 · po-disc-4a1] amount · discount_taken 은 문지기가 직접 쓰기를 막는다(아래 「조기 결제 할인 — 실물」) → [2026-11-09 밤 · so-module §110 · qbo-integration §15-n] 머리 칸 exchange_rate 도 PostgREST(pay rate v1) · paid_on · account_id · reference 를 고치면 보낸 결제는 지문이 바뀌어 void + 다시(1125)
 ```
 
 ⭐ [2026-10-08 · 판정 389 · 390 · 391 · 393 · 395 · so-module §53] **조기 결제 할인 — 결제에서**

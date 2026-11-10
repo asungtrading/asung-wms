@@ -43,7 +43,7 @@ A sales order, the stock it takes, the invoice and the payment are all in IMS, a
 You sign in with your company email and a password. Your manager or the IMS administrator makes your account first. You cannot make one yourself.
 
 **When**
-The first time you open IMS on a computer or tablet. After that IMS remembers you on that device until you press **Sign Out**.
+The first time you open IMS on a computer or tablet. After that IMS remembers you on that device until you press **Sign Out** (under your name at the top right).
 
 **How**
 1. Open IMS in your web browser. You see the **Sign In** card with the Asung logo.
@@ -61,7 +61,7 @@ The first time you open IMS on a computer or tablet. After that IMS remembers yo
 6. IMS says "Password changed. Opening…" and takes you to your first screen.
 
 **Change your password**
-1. Press **Change Password** at the top right of any IMS screen.
+1. On any IMS screen, press your name at the top right ("name · role ▾"), then **Change Password**.
 2. Type the new password in **New password** and again in **Confirm new password**. It must be at least 6 characters.
 3. Press **Change**. IMS says "Password changed successfully."
 
@@ -77,7 +77,7 @@ The first time you open IMS on a computer or tablet. After that IMS remembers yo
 
 **Watch out**
 - Some screens sign you out if you have no key for them. This happens most when someone sends you a link to a screen. Sign in again — your own screens are still there.
-- On a shared tablet, press **Sign Out** when you finish. The next person then signs in as themselves.
+- On a shared tablet, press **Sign Out** when you finish (in IMS mode it is under your name at the top right). The next person then signs in as themselves.
 
 <!-- SCREENSHOT: start-sign-in-1 · the Sign In card (logo, Email, Password, Sign In, Forgot your password?) -->
 
@@ -107,7 +107,7 @@ IMS has three modes. Each mode is a set of screens for one kind of work.
 
 <a id="start-menu"></a>
 ## The menu
-<!-- screen: ims-auth.js · BUILD nav v10 -->
+<!-- screen: ims-auth.js · BUILD nav v18b -->
 <!-- who: all -->
 
 **What it is**
@@ -119,14 +119,18 @@ In IMS mode, the menu runs along the top of the screen. Each word opens a list o
 | **Sales ▾** | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾** | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | One screen — no list opens (see [Action Centre](06-action-centre.md#action-start)) |
-| **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check (see [Settings](07-settings.md#set-start)) |
+| **Integrations ▾** | QuickBooks (see [QuickBooks](01-sales.md#sales-quickbooks)) · Shopify Stores (see [Settings](07-settings.md#set-start)) |
+| **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · System Check (see [Settings](07-settings.md#set-start)) |
 
 **How**
 1. Press a menu word, for example **Sales ▾**.
 2. Press the screen you want, for example **Sales Orders**.
 
 **The tab row**
-On the document screens of **Purchasing** and **Sales**, a second row of tabs sits under the menu. The tabs are the other document screens of the same menu. Use them to move sideways — for example from **Sales Orders** to **Sales Invoices** — in one click.
+On the document screens of **Purchasing** and **Sales**, a second row of tabs sits under the menu. The tabs are the other document screens of the same menu. Use them to move sideways — for example from **Sales Orders** to **Sales Invoices** — in one click. On a narrow screen the tabs wrap onto a second line.
+
+**Your name at the top right**
+In IMS mode, your name and role sit at the top right ("name · role ▾"). Press it for **Change Password**, **Sign Out** and the build of the screen.
 
 **Why some menus or screens are missing**
 You only see the screens you have a key for. A menu word appears only when you have at least one screen in it. This is normal — it is not an error. See [Roles and keys](#start-roles-keys).
@@ -157,6 +161,7 @@ Many screens — for example **Sales Orders**, **Sales Invoices**, **Customer Pa
 - Links between screens open the right one directly. For example, an order's invoice number opens that invoice on **Sales Invoices**.
 - If a link opens "That sales order is gone — it was deleted, or the link is old.", the link is out of date. Go back to the list and search again.
 - Some screens have only one list and no detail split, for example **Backorders** and **Web Orders**. Each chapter shows how its screens work.
+- On a phone, a document screen opens with the short list only. Tap a row and its detail fills the screen; press **‹ Back to list** to go back. The first card is open; tap a card title with ▸ to open the rest. A wide list on a phone shows each row as a card.
 
 <!-- SCREENSHOT: start-list-detail-1 · Sales Orders split view: narrow list on the left, an order on the right, ☰ List and ‹ All orders marked -->
 

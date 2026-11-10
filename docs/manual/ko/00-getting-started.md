@@ -45,7 +45,7 @@ IMS 는 Asung 이 직접 만든 시스템입니다. 판매 · 구매 · 재고 �
 회사 이메일과 비밀번호로 들어갑니다. 계정은 매니저나 IMS 관리자가 먼저 만들어 줍니다. 스스로 만들 수는 없습니다.
 
 **언제**
-컴퓨터나 태블릿에서 IMS 를 처음 열 때입니다. 그 뒤에는 **Sign Out**(로그아웃)을 누르기 전까지 그 기기가 기억합니다.
+컴퓨터나 태블릿에서 IMS 를 처음 열 때입니다. 그 뒤에는 **Sign Out**(로그아웃 · 오른쪽 위 내 이름 아래)을 누르기 전까지 그 기기가 기억합니다.
 
 **어떻게**
 1. 웹 브라우저로 IMS 를 엽니다. Asung 로고가 있는 **Sign In** 카드가 보입니다.
@@ -63,7 +63,7 @@ IMS 는 Asung 이 직접 만든 시스템입니다. 판매 · 구매 · 재고 �
 6. "Password changed. Opening…" 이 나오고 내 첫 화면으로 갑니다.
 
 **비밀번호 바꾸기**
-1. 어느 IMS 화면이든 오른쪽 위의 **Change Password** 를 누릅니다.
+1. 어느 IMS 화면이든 오른쪽 위의 내 이름("이름 · 역할 ▾")을 누르고 **Change Password** 를 누릅니다.
 2. **New password** 와 **Confirm new password** 에 새 비밀번호를 두 번 적습니다. 6 글자 이상이어야 합니다.
 3. **Change** 를 누릅니다. "Password changed successfully." 가 나옵니다.
 
@@ -79,7 +79,7 @@ IMS 는 Asung 이 직접 만든 시스템입니다. 판매 · 구매 · 재고 �
 
 **조심할 것**
 - 권한이 없는 화면을 열면 로그아웃되는 화면이 있습니다. 누가 보내 준 링크를 열 때 자주 생깁니다. 다시 로그인하면 내 화면은 그대로 있습니다.
-- 여럿이 쓰는 태블릿에서는 일이 끝나면 **Sign Out** 을 누릅니다. 다음 사람이 자기 이름으로 들어올 수 있습니다.
+- 여럿이 쓰는 태블릿에서는 일이 끝나면 **Sign Out** 을 누릅니다(IMS 모드에서는 오른쪽 위 내 이름 아래). 다음 사람이 자기 이름으로 들어올 수 있습니다.
 
 <!-- SCREENSHOT: start-sign-in-1 · Sign In 카드(로고 · Email · Password · Sign In · Forgot your password?) -->
 
@@ -109,7 +109,7 @@ IMS 에는 모드가 셋 있습니다. 모드마다 한 가지 일을 위한 화
 
 <a id="start-menu"></a>
 ## 메뉴
-<!-- screen: ims-auth.js · BUILD nav v10 -->
+<!-- screen: ims-auth.js · BUILD nav v18b -->
 <!-- who: all -->
 
 **무엇인가**
@@ -121,14 +121,18 @@ IMS 모드에서는 메뉴가 화면 맨 위에 한 줄로 있습니다. 단어�
 | **Sales ▾**(판매) | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾**(재고) | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | 화면 하나 — 펼쳐지지 않고 바로 열린다([Action Centre](06-action-centre.md#action-start)) |
-| **Settings ▾**(설정) | Settings · Surcharge Groups · Staff · Discount Rules · Shopify Stores · System Check([설정](07-settings.md#set-start)) |
+| **Integrations ▾**(연동) | QuickBooks([QuickBooks](01-sales.md#sales-quickbooks)) · Shopify Stores([설정](07-settings.md#set-start)) |
+| **Settings ▾**(설정) | Settings · Surcharge Groups · Staff · Discount Rules · System Check([설정](07-settings.md#set-start)) |
 
 **어떻게**
 1. 메뉴 단어를 누릅니다. 예: **Sales ▾**
 2. 원하는 화면을 누릅니다. 예: **Sales Orders**
 
 **탭 줄**
-**Purchasing** 과 **Sales** 의 문서 화면에서는 메뉴 아래에 탭이 한 줄 더 있습니다. 같은 메뉴의 다른 문서 화면들입니다. 옆 화면으로 한 번에 건너갈 때 씁니다 — 예: **Sales Orders** 에서 **Sales Invoices** 로.
+**Purchasing** 과 **Sales** 의 문서 화면에서는 메뉴 아래에 탭이 한 줄 더 있습니다. 같은 메뉴의 다른 문서 화면들입니다. 옆 화면으로 한 번에 건너갈 때 씁니다 — 예: **Sales Orders** 에서 **Sales Invoices** 로. 좁은 화면에서는 탭이 둘째 줄로 내려갑니다.
+
+**오른쪽 위의 내 이름**
+IMS 모드에서는 오른쪽 위에 내 이름과 역할("이름 · 역할 ▾")이 있습니다. 누르면 **Change Password** · **Sign Out** · 화면 빌드 표시가 나옵니다.
 
 **메뉴나 화면이 안 보이는 까닭**
 권한이 있는 화면만 보입니다. 메뉴 단어는 그 안에 내가 볼 수 있는 화면이 하나라도 있을 때만 섭니다. 고장이 아니라 정상입니다 — [역할과 권한](#start-roles-keys).
@@ -159,6 +163,7 @@ WMS 화면에서는 **☰ Menu** 맨 끝에 **Manual** 이 있습니다.
 - 화면 사이의 링크는 바로 그것을 엽니다. 예: 오더에 있는 인보이스 번호를 누르면 **Sales Invoices** 에서 그 인보이스가 열립니다.
 - 링크를 열었는데 "That sales order is gone — it was deleted, or the link is old."(지워졌거나 오래된 링크)가 나오면, 목록으로 돌아가 다시 찾습니다.
 - **Backorders** · **Web Orders** 처럼 목록 하나뿐이고 나뉘지 않는 화면도 있습니다. 화면마다의 모양은 각 장에서 설명합니다.
+- 폰에서는 문서 화면이 짧은 목록만으로 열립니다. 줄을 누르면 상세가 화면을 채우고, **‹ Back to list** 로 목록에 돌아갑니다. 첫 카드는 펼쳐져 있고, ▸ 가 붙은 카드 제목을 누르면 나머지가 펼쳐집니다. 넓은 목록은 폰에서 줄마다 카드로 보입니다.
 
 <!-- SCREENSHOT: start-list-detail-1 · Sales Orders 나뉜 모양: 왼쪽 좁은 목록 · 오른쪽 오더 하나 · ☰ List 와 ‹ All orders 표시 -->
 

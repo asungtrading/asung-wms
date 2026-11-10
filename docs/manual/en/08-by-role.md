@@ -133,7 +133,7 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 <!-- screen: none -->
 <!-- who: accounting -->
 
-Accounting work is in IMS mode, under **Sales ▾** and **Purchasing ▾**.
+Accounting work is in IMS mode, under **Sales ▾**, **Purchasing ▾** and **Integrations ▾** (QuickBooks).
 Everyone also uses the work in [How to use this chapter](#role-start).
 
 ### Sales

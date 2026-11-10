@@ -185,7 +185,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-charges"></a>
 ## 운임 · 관세 · 그 밖의 비용
-<!-- screen: charges.html · BUILD 2026-11-02 · chg duty v2 -->
+<!-- screen: charges.html · BUILD 2026-11-09 · chg kind v1 -->
 <!-- who: accounting, office -->
 
 **무엇인가**
@@ -204,6 +204,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 - 몫은 적은 순간 고정됩니다. PO 가 나중에 바뀌어도 몫은 저절로 움직이지 않습니다.
 - CBSA 청구서 한 장은 **Kind** **Duty** 로 씁니다. 그러면 금액 칸이 **Duty (before tax)**(관세) · **GST on import**(청구서의 GST 그대로)로 바뀝니다.
 - GST 만 있는 CBSA 청구서: **Duty (before tax)** 0 · GST 는 청구서 숫자 그대로. "Duty (before tax) is required — type 0 if the bill has no duty."(관세가 없으면 0 을 적는다)
+- **Kind** 는 초안(draft) 비용에서만 바꿀 수 있습니다 — 상세에서 고릅니다. 아니면 "Kind can only be changed on a draft charge — Reopen it, change Kind, then confirm again"(초안에서만 · Reopen 뒤 바꾸고 다시 확정) · "This charge is cancelled — Restore it first, then change Kind"(취소된 비용 · Restore 먼저) · 원가에 얹힌 뒤에는 "Kind cannot be changed; to correct it, enter an offsetting charge"(상쇄 비용으로 바로잡는다)가 나옵니다.
 
 **조심할 것**
 - 몫의 합이 비용과 맞을 때까지 Confirm 이 거절됩니다.
@@ -264,7 +265,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-payments"></a>
 ## 공급처 결제
-<!-- screen: payments.html · BUILD 2026-10-22 · pay gone v1 -->
+<!-- screen: payments.html · BUILD 2026-11-09 · pay rate v1 -->
 <!-- who: accounting -->
 
 **무엇인가**
@@ -277,6 +278,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 4. 라인마다 금액과 할인을 확인합니다. **Paid** 는 직접 적지 않으면 라인 합에서 할인을 뺀 값입니다.
 5. **Pay selected** 를 누릅니다. "Which account did the money leave from?"(어느 계좌에서 나갔나) — **From account** 를 고르고 **Reference**(송금 번호 · 수표 번호 · 카드)를 적습니다.
 6. IMS 가 내기 전에 알리면 — 예: "an early-pay discount was available but not taken"(조기 결제 할인을 받을 수 있었는데 안 받았다) — 읽고 OK 로 그대로 냅니다.
+7. USD 결제면 **To pay** 에 **Exchange rate** 도 나옵니다 — "CAD per 1 USD — MTFX rate of the day the money was bought"(그 돈을 산 날의 MTFX 환율). 비워 두면 IMS 가 한 번 묻고, 나중에 결제 상세의 **Exchange rate**(CAD per 1 USD)에 적어도 됩니다. 적기 전까지 결제에 "needed before this payment can go to QuickBooks"(QuickBooks 로 가려면 필요)가 보입니다.
 
 **할인**
 - **Adjust discount** 는 결제 안 문서 하나의 할인을 바꿉니다.
@@ -285,6 +287,8 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 **조심할 것**
 - 결제에는 취소 상태가 없습니다. **Delete** 가 "the only way to undo one"(되돌리는 유일한 길)이고 — "everything it settled goes back to being owed"(정산한 것은 다시 줄 돈이 된다)
 - 라인의 **✕** 는 그 문서를 결제에서 뗍니다: "What it was owed goes back to being owed."
+- 결제 하나는 공급처 하나를 갚습니다. 두 공급처의 문서는 결제 둘로 나눕니다.
+- QuickBooks 로 이미 간 결제를 지우거나 날짜 · 계좌 · 금액 · 환율 · Reference · 문서를 바꾸면 QuickBooks 에서는 void 되고 IMS 가 다시 보냅니다([QuickBooks](01-sales.md#sales-quickbooks)).
 
 <!-- SCREENSHOT: purch-payments-1 · To pay: 인보이스 둘을 고르고 초록 할인 -->
 
@@ -312,6 +316,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 **인보이스 · 크레딧 · 비용**
 - **Cancel**: "It stays on the list with a cancelled tag and drops out of the money."(취소 표시로 남고 돈에서 빠진다) **Restore** 로 되살립니다.
 - **Delete** — 한 번도 확정하지 않은 인보이스: "The number becomes free for this supplier again."(그 번호를 이 공급처에 다시 쓸 수 있다) 크레딧 노트는 지울 수 없습니다.
+- 서류(PDF)를 올린 초안 비용 · PO · 인보이스는 지금은 서류를 빼도 지울 수 없습니다 — 대신 **Cancel** 합니다. 취소한 비용의 번호는 같은 청구처에 다시 쓸 수 없습니다.
 - 창고가 그 인보이스로 받기 시작한 뒤에는 다시 열거나 취소할 수 없습니다 — 크레딧 노트를 씁니다.
 
 **결제**

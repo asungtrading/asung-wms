@@ -351,7 +351,7 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 <!-- who: admin, manager -->
 
 **무엇인가**
-**Shopify Stores**(**Settings ▾** › **Shopify Stores**)는 IMS 를 웹 가게마다 잇습니다: 어느 가격을 보이나, 어느 창고가 재고를 보내나, 어느 제품이 이어져 있나.
+**Shopify Stores**(**Integrations ▾** › **Shopify Stores**)는 IMS 를 웹 가게마다 잇습니다: 어느 가격을 보이나, 어느 창고가 재고를 보내나, 어느 제품이 이어져 있나.
 
 **누가**
 - `shopify` 권한 read: 보기만

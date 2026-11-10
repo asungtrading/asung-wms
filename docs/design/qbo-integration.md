@@ -15,6 +15,7 @@
 ⭐ 상태 [2026-11-08 · so-module §103 · 판정 1065 ~ 1076] **환불(크레딧 노트 몫)이 나간다** — 환불 한 줄 = Purchase(Expense) 한 장 + 0 원 Payment(CreditMemo 를 잇는다) · SEND_KINDS **18** · cron 62 kinds **열둘** · 첫 실물 CR-01011 → 172912 · 172913 / CR-01012 → 172914 · 172915 · 받아 둔 돈 몫 · 이월 몫 환불은 failed(1067 · deferred 500) · §14-k
 ⭐ 상태 [2026-11-08 저녁 · so-module §104 · 판정 1080 ~ 1090] **원가 · 공급처 줄기(459) 판정 끝 · 짓기 전** — 상품 Bill · 결제는 IMS 가 보낸다(1080 · 1081) · 판매 원가 = 하루 · 창고마다 JE + SO 줄(1082) · 출발점은 맞추지 않고 움직임만(1086) · §15
 ⭐ 상태 [2026-11-08 밤 · so-module §105 · 판정 1091 ~ 1103] **3-1 끝 · 하루 원가 장 설계 끝(3-2-0) · 짓기 전** — 계정 통화 `ref_account.currency_code` · 공급처 A/P · 손님 A/R 통화 막기(지연 제약 트리거 둘 · 1091 · deferred 499 닫힘) · 조정 기본 계정 `inv_adjust_account()`(1087) · 하루 장 = 22 칸 표 · 보낸 몫 = 센트 합 + 차액(1092) · 입고는 보류(1096) · Location 없음 · Entity = 손님(1102 · 1103) · 다음 = 3-2 DB · §15-g · §15-h
+⭐ 상태 [2026-11-09 · so-module §106 · §107 · §109 · §110 · 판정 1104 ~ 1138] **하루 원가 장 · 공급처 Bill · 공급처 결제가 운영에서 나간다 — 모두 북키퍼 손 Send** — 원가 장(cost_day · JournalEntry) 12 장 sent · cron 67 은 장 행만(§15-j · §15-k) · 공급처 Bill 7 장 sent(4-3 · 4-4 · §15-m) · 공급처 결제 BillPayment 첫 실물 **173092**(4-5a · 4-5b · 4-5c · §15-n) · USD 결제 3 건은 환율 대기 · SEND_KINDS **24** · 공급처 kind 는 cron 61 · 62 밖 · 은행 피드 Match 는 북키퍼 · 다음 = USD 3 건 → 4-6(켜기 · 정본) · E-8(538)
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
@@ -777,10 +778,10 @@ QBO 판     Plus(Caleb)
 - 컷 전 생성 0(po_invoice · po_charge · po_payment 모두) ⇒ 「IMS 결제가 컷 전 Bill 에 붙어 두 번」 은 구조상 불가 · **deferred 428 닫힘**(913 + 1081 + 이 실측)
 - 공급처 10 곳(인보이스 7 + 비용 3) 모두 qbo_link supplier → Vendor 있음 · 짝 없는 활성 공급처 46
 - 보류 칸 부호(RCV 음수) = GINR 기준 부호 · 셈은 맞다(least/greatest · 3-2a 388 ~ 389 행) · deferred 523 이 그 할 일(§15-k ③ 보류 칸 실물 줄)
-- ⚠️ 이름 충돌: ims_kind `invoice · credit · payment · charge` 는 SO 쪽이 쓴다(`qbo_link.ims_kind 'charge'` 6 행 = SO 부대 Item) → 공급처는 다른 이름(4-3 이 정한다 · 안: kind `bill · bill_void · vendor_credit · vendor_credit_void · bill_payment · bill_payment_void` · ims_kind `po_invoice · po_charge · po_payment`)
+- ⚠️ 이름 충돌: ims_kind `invoice · credit · payment · charge` 는 SO 쪽이 쓴다(`qbo_link.ims_kind 'charge'` 6 행 = SO 부대 Item) → 공급처는 다른 이름(4-3 이 정한다 · 안: kind `bill · bill_void · vendor_credit · vendor_credit_void · bill_payment · bill_payment_void` · ims_kind `po_invoice · po_charge · po_payment`) → [실제 · 4-3a · 4-5a] kind `vendor · bill · vendor_credit · bill_delete_manual`(Bill 에 void 가 없어 bill_void · vendor_credit_void 는 없다 · 1126) · `bill_payment · bill_payment_void` · ims_kind `supplier · po_invoice · po_credit · po_charge · po_payment`(§15-m ② · §15-n)
 - ⚠️ `DEFAULT_SEND_KINDS = SEND_KINDS − cost_day`(qbo.ts 103) — 새 kind 를 SEND_KINDS 에 넣으면 cron 61 기본에 저절로 들어간다 ⇒ 공급처 kind 도 DEFAULT 에서 뺀다(cost_day 꼴)
 - ⚠️ `entityKeyOf` ELSE = invoice · `qbo_job_pair_ck` ELSE = ims_kind — 새 kind 는 명시 가지 필수
-- 화면: Sales → QuickBooks 와 같은 화면에 「Supplier bills」 · 「Supplier payments」 종류(4-0 안 · 화면 차수 때 대화 Claude 가 정한다)
+- 화면: Sales → QuickBooks 와 같은 화면에 「Supplier bills」 · 「Supplier payments」 종류(4-0 안 · 화면 차수 때 대화 Claude 가 정한다) → [2026-11-09 밤] 같은 화면 qbo-send.html 의 종류 「Supplier bills and credits」 · 「Supplier payments」(qs sup v1 · v2) · 메뉴 길은 **Integrations › QuickBooks**(판정 1136 · nav v16) · §15-n
 
 **⑤ 차수 계획 (Caleb 「좋아」 · 11-09)**
 
@@ -797,7 +798,7 @@ QBO 판     Plus(Caleb)
 
 ### 15-m 4-3 · 4-4 · 3-3b · 운영 첫 송신 · 4-2b — 공급처 Bill · VendorCredit 이 나간다 (2026-11-09 · asung-wms `32f2f3e` · `b879381` · `f1fb21b` · 판정 1131 · so-module §109)
 
-- **상태**: 공급처 Bill · VendorCredit **운영에서 보냄**(Bill 7 장 sent · VendorCredit 0 · 비용 Bill 0 — 모두 draft) · 하루 원가 장 **12 장 sent** · 공급처 결제(BillPayment)는 4-5 전 · 자동 보내기 없음 — **매일 원가 장 · 새 공급처 Bill 은 북키퍼가 Queue/Preview → Send**(Caleb 「ㄱ」 · 자동은 나중에 Caleb · deferred 522) · 북키퍼 안내서(Claude Doc)는 고쳤고 전달은 Caleb 이 직접
+- **상태**: 공급처 Bill · VendorCredit **운영에서 보냄**(Bill 7 장 sent · VendorCredit 0 · 비용 Bill 0 — 모두 draft) · 하루 원가 장 **12 장 sent** · 공급처 결제(BillPayment)는 4-5 전(→ [11-09 밤] 4-5 끝 · 첫 173092 sent · §15-n) · 자동 보내기 없음 — **매일 원가 장 · 새 공급처 Bill 은 북키퍼가 Queue/Preview → Send**(Caleb 「ㄱ」 · 자동은 나중에 Caleb · deferred 522) · 북키퍼 안내서(Claude Doc)는 고쳤고 전달은 Caleb 이 직접
 - **원천**: 지시서 docs-1109e(대화 · 운영 미리 보기 응답 · QBO 화면 · sandbox API Explorer 실측) · 커밋 글 원문 · 판정 원문 표는 so-module **§109-a**
 - ⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다
 
@@ -856,14 +857,101 @@ QBO 판     Plus(Caleb)
 | 인쇄 | 수표 기본 `PrintStatus NeedToPrint` · `NotSet` 받음 | 수표는 `NotSet` 반드시 |
 | E-13 | void 됨(BillPayment 작업 「Void a billpayment」 · 몸 `{Id, SyncToken, sparse:true}`) · 응답 TotalAmt 0 · Line [] · PrivateNote 앞 「Voided - 」 · Bill 202 Balance 82.5 로 다시 열림 | 1125 단서 풀림 · 확정 |
 | Bill 쪽 이름 | 카드 결제 208 도 Bill 의 LinkedTxn 에 `BillPaymentCheck` 로 보임 | Bill 쪽 이름으로 결제 종류를 가르지 마라 |
-| 조회 칸 | Bill `HomeBalance` 조회 불가(4001) — 읽기(GET)에는 옴 | `QUERY_UNSELECTABLE` 에 셋째(4-5 에서 · 지금 코드는 둘) |
+| 조회 칸 | Bill `HomeBalance` 조회 불가(4001) — 읽기(GET)에는 옴 | `QUERY_UNSELECTABLE` 에 셋째(4-5 에서 · 지금 코드는 둘) → [4-5b `16412bc`] 셋째 더함(`qbo.ts` 793) |
 | E-10 | 안 함 — IMS 가 저장 때 막음(1122 · 4-3b) | — |
-| E-8 | 미룸 — 조기 결제 할인 실물 0 | 4-5 에서 할인 있는 결제는 막고 사람에게(짐작 · 4-5 판정 거리 · deferred 538) |
+| E-8 | 미룸 — 조기 결제 할인 실물 0 | 4-5 에서 할인 있는 결제는 막고 사람에게(짐작 · 4-5 판정 거리 · deferred 538) → [11-09 밤] 판정 **1132** 로 확정 — 할인 · 크레딧 붙음 · 금액 ≠ 붙임 합은 몸이 막는다(§15-n) |
 
 - 「조회 불가 칸」 실측 셋: JournalEntry `TotalAmt`(3-3b) · BillPayment `PayType`(4-1 R2) · Bill `HomeBalance`(4-2b)
 
 **⑦ 다음**
 
-4-5 결제 DB + EF + 화면(판정 1123 · 1124 · 1125 · ⑥ 규칙 · 밀린 IMS 결제 4 건 — USD 3 건은 환율 칸을 채운 뒤) → 4-6(켜기 · 정본) · 화면 차수(qbo-send 공급처 꼴 535 · 보낸 장 미리 보기 534) · 1131 나(536)
+4-5 결제 DB + EF + 화면(판정 1123 · 1124 · 1125 · ⑥ 규칙 · 밀린 IMS 결제 4 건 — USD 3 건은 환율 칸을 채운 뒤) → 4-6(켜기 · 정본) · 화면 차수(qbo-send 공급처 꼴 535 · 보낸 장 미리 보기 534) · 1131 나(536) → [11-09 밤] 4-5 · 535 끝 · 남은 다음 = §15-n ⑨
 
 - 곁가지 deferred 534 ~ 538 · 잇기 459 · 522 · 528
+
+### 15-n 4-5a · 4-5b · 4-5c — 공급처 결제(BillPayment)가 나간다 · 첫 실물 173092 · 은행 피드 · 두 환율 (2026-11-09 밤 · asung-wms `a9cb5ce` · `16412bc` · asung-ims `697dd2e` · `53edc22` · `e745754` · 판정 1132 ~ 1134 · so-module §110)
+
+- **상태**: 공급처 결제 **운영에서 보냄** — 밀린 IMS 결제 4 건 중 CAD 1 건 → QBO **173092** sent · USD 3 건은 환율이 비어 몸이 막음(북키퍼가 MTFX 환율을 넣고 Send — Caleb) · 공급처 kind 는 cron 61 · 62 **밖** — 손 Send 만 · 은행 피드 Match 는 북키퍼(Caleb)
+- **원천**: 지시서 docs-1109f · `~/asung/prompts/docs-1109f-sources.md`(S1 · S2 · S5 · S6 · S8 · S9) · 커밋 글 원문 · 마이그레이션 · EF 머리 주석 · 판정 원문 표는 so-module **§110-a**
+- ⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름은 적지 않는다 · 운영 realm 은 `…6496`
+
+**① 판정 요지 (원문 so-module §110-a)**
+
+| 판정 | 요지 |
+|---|---|
+| 1132 | QBO 에 그대로 옮길 수 없는 결제 = ① 조기 결제 할인 ② 붙임 문서에 크레딧 붙음 ③ 결제 금액 ≠ 붙임 합 → **몸이 막고 사람에게**(QBO 에 손으로 → IMS Skip) · IMS 에서 고쳐 벗어나면 다시(① ③ 은 지문이 바뀌어 저절로 · ② 는 Retry) · E-8(538)이 서면 다시 연다 |
+| 1133 | PayType = IMS 계좌 종류(BANK → `Check` + `CheckPayment {PrintStatus NotSet, BankAccountRef}` · CREDITCARD → `CreditCard` + `CreditCardPayment.CCAccountRef`) · QBO 계좌 거울의 AccountType · 통화와 대조 · 다르거나 거울 값 없으면 막음(Refresh list 안내) |
+| 1134 | unknown 자동 done = TxnDate + VendorRef + 금액(센트) + PrivateNote 표지 「IMS supplier payment <po_payment.id>」 가 모두 맞는 BillPayment **한 장**일 때만 · 0 · 2+ = 사람 |
+
+- 앞 판정 그대로 이 차수가 지은 것: 1122(결제 통화 ≠ 계좌 통화 거부 · 4-3b 트리거) · 1123(USD 결제 환율 = 산 날 MTFX · 필수) · 1124(결제 하나 = 공급처 하나 · **이제 강제**) · 1125(IMS 결제 삭제 → void 일감) · 1130(DocNumber 21 자 + PrivateNote 전체)
+
+**② 4-5a DB (`a9cb5ce` · 적용 `20261109230000` · 시험 51/51 · 확인 50/50)**
+
+| | |
+|---|---|
+| 이름 | kind `bill_payment` · `bill_payment_void` · ims_kind `po_payment` · ims_id = `po_payment.id` — ⚠️ **`payment` 를 쓰지 마라**: cron 62(`ims-qbo-send-payments` · `qbo_send_payments_enabled` on)의 kinds 에 `payment` · `payment_void` 가 있어 공급처 결제가 5 분마다 저절로 나간다(4-5-0) |
+| CHECK 일곱 | qbo_job 셋(kind · ims_kind · pair 명시 가지) · qbo_txn 셋(type BillPayment · pair) · `po_payment_exchange_rate_ck`(> 0) |
+| 새 함수 | 지문 · 몸 `qbo_bill_payment_body` · void 몸 · sync(`p_payment_id, p_by, p_detached`) · 표 트리거 함수 `qbo_job_on_po_payment` · 백필 `qbo_bill_payment_backfill` |
+| 표 트리거 둘 | po_payment · po_payment_alloc — deferred constraint trigger FOR EACH ROW(한 트랜잭션의 결제 + 붙임을 끝에 한 번 맞춘다) |
+| 몸 검사 순서 | 1124(공급처 둘 이상) → 1132 ① ② ③ → 환율(1123) → 계좌 종류(1133) → 거울(1133) · 모두 raise(사람 글 · 「— nothing was sent」) · 1132 글 머리 = 「Enter this payment in QuickBooks by hand, then press Skip on this job」 |
+| 지문 | 붙임 0 = 지문 null(보낼 것 없음) · 지문이 바뀌면 보낸 결제는 void + 다시(손님 `qbo_payment_sync` 꼴) · 날짜 · 계좌 · 금액 · 붙임을 직접 고쳐도 같은 길 |
+| 1124 강제 | `po_payment_create` · `po_payment_alloc_set` 거부 + 붙임 대상(문서) **직접 UPDATE 거부**(「The document on this payment line is not changed here — remove the line and add the document again」) |
+| 환율 입력 | `po_payment_create(…, p_exchange_rate)`(맨 뒤 · 기본 null · drop/create · 11 인자) · 머리 칸 `exchange_rate` 는 PostgREST 로 고친다(pay rate v1) |
+| 거울 | `qbo_entity_upsert` Account 가지 — detail 에 `AccountType` · `CurrencyRef` 만 · 열쇠 `detail->>'AccountType'` · `detail->'CurrencyRef'->>'value'` |
+| 취소 순서 | 붙임 DELETE 트리거가 OLD 문서 id 를 void 일감 note 에 남기고 `qbo_job_on_po_doc_status` 가 그 문서의 열린 `bill_payment_void` 를 blocked_by 로 ⇒ **`bill_delete_manual` 은 결제 void 뒤** · ⚠️ 가장 오래된 열린 void 하나만 기다린다(deferred 541) |
+| since | since 전 문서에 붙는 결제 = raise · 백필 `{"seen": 4, "queued": 4, "realm_id": "…6496"}` → `bill_payment|queued|4`(EF 는 4-5b 전 이 kind 를 안 보냄) |
+| 재발행 | 더한 66 · 바뀐 7 · 빠진 0 — claim(wait_job 꼴) · done · preview · retry · doc · list(po_payment 라벨) · po_doc_status · alloc_guard · po_payment_create · alloc_set · qbo_entity_upsert |
+| 시험이 잡은 결함 | 지문이 QBO 와 같아져 void 를 거둘 때 그 void 뒤 다시 보내기 일감이 skipped 부모에 영구 blocked → sync ① void 거둘 때 뒤 bill_payment 도 skipped ② 새 void 서면 blocked 일감도 그 뒤로 · ⚠️ **손님 `qbo_payment_sync` 에 같은 결함 남음**(무접촉 · deferred 540) |
+
+- 적용 직후 둘째 겹(화면): CAD 1 건 「QuickBooks account #104 (IMS _104_) has no account type or currency on file yet — Settings → QuickBooks matching → Refresh list (accounts), then retry (1133)」 · USD 3 건 「… is in USD but has no exchange rate — enter the MTFX rate of the day the money was bought (1123) …」 — 설계대로
+
+**③ 4-5b EF (`16412bc` · deno 31/31 · 변이 넷 잡힘 · 배포 Caleb)**
+
+| | |
+|---|---|
+| 보내기 목록 | SEND_KINDS **24** · `SUPPLIER_KINDS` + `bill_payment` · `bill_payment_void` — DEFAULT 밖(cron 61 · 62 에 안 섞인다 · 손 Send 만) |
+| 만들기 | POST billpayment · `assertWriteAllowed` 가 billpayment 몸을 검사 |
+| void 주소 | `POST billpayment?operation=update&include=void` · 몸 `{Id, SyncToken, sparse:true}`(손님 Payment void 와 같은 꼴 · 4-2b sandbox 209 · 2 차 자료 같은 주소 · Intuit 원문은 JS 라 못 읽음 · 틀리면 4xx 쓰기 0) |
+| 가드 ① 조회 | `select * from BillPayment where TxnDate = '<d>' MAXRESULTS 1000`(`PayType` 은 고를 수 없다 · VendorRef 조건은 미실측 → 공급처 · 표지 · 센트는 EF 가 거른다) · 1000 이상이면 failed |
+| 가드 ② 결과 | 표지 장 0 → 계속 · 표지 · 공급처 · 센트 같은 1 장 → 바로 done 「already in QuickBooks (bill payment #… — same date, vendor, amount and IMS note found before sending) — recorded, not created again」 · 표지 같고 공급처 · 금액 다른 살아 있는 장 1 = **unknown**(두 장 방지 · 답 밖 더함) · 표지 2+ = unknown · 표지 일치 = 표지 그대로 또는 「표지 · full reference:」 로 시작 |
+| Bill 잔액 가드 | POST 직전 붙임마다 GET bill/<id> · Balance < 붙일 금액이면 **failed** — 글에 출구 둘(QuickBooks 의 손 결제를 지우고 Retry · 그 손 결제를 남기려면 IMS 에서 Skip) · 1081 · 「Bill 에 붙인 손 결제」 만 잡는다(은행 피드에서 따로 분류된 출금은 못 잡는다) |
+| 열쇠 | `billPaymentKeyOf` · `parseBillPaymentKey`(손님 열쇠와 따로) · 재료는 몸 lookup(DB 가 주고 EF 가 조립) · 풀기(cron 62 의 unknown 풀기)는 1134 · void unknown 풀기 = Id GET · TotalAmt 0 + PrivateNote 「Voided - 」 머리면 done |
+| done | `p_qbo_name` = doc_number ?? name · 통화 다름은 `p_note` 경고 |
+| 조회 불가 칸 | `QUERY_UNSELECTABLE` = JournalEntry `TotalAmt` · BillPayment `PayType` · Bill `HomeBalance`(셋째 · `qbo.ts` 793) |
+| 거울 | `PULL_FIELDS.Account` = `*`(1133 · AccountType · CurrencyRef) — 배포 뒤 Settings → QuickBooks matching → Refresh list(accounts) → 「QuickBooks Account list read — 238 records」 · 238 모두 type · currency 있음 |
+| 변이 넷 | 잔액 가드 끔 · 이미 있음 done 끔 · SUPPLIER_KINDS 에서 뺌 · void 조건 뺌 — 모두 FAILED → 되돌려 31/31 |
+
+**④ 4-5c 화면 (asung-ims · 대화 Claude)**
+
+- payments.html pay rate v1(`697dd2e`): 외화 결제 상세 **Exchange rate**(「CAD per 1 USD」 · saveHead · 0 이하 막음 · 비면 「needed before this payment can go to QuickBooks」) · To pay 창 **Exchange rate**(USD 문서면 나타남 · 자리 글 「CAD per 1 USD — MTFX rate of the day the money was bought」 · `p_exchange_rate` · 비우면 한 번 묻고 저장) · 경고 `exchange_rate_missing`
+- qbo-send.html qs sup v1(`53edc22`) · v2(`e745754`): 종류 「Supplier bills and credits」 · 「Supplier payments」 · 이름표 Supplier · Supplier bill · Supplier credit · Delete bill by hand · Supplier payment · Void supplier payment · 공급처 미리 보기(공급처 · 결제 방식 · 낸 계좌 · 수표 인쇄 · A/P · 금액 · 환율 · CAD 환산 · 붙는 Bill) · QBO 참조는 번호(#)만(이름은 deferred 542)
+- 메뉴 길 = **Integrations › QuickBooks**(판정 1136 · nav v16)
+
+**⑤ 첫 실물 (2026-11-09 토론토 저녁 · Caleb 손 Send)**
+
+| | |
+|---|---|
+| IMS 결제 | e-Transfer `C1ACHPfyTpkZ` · CAD 1,073.50 · 11-04 · 계좌 `_104_` TD CAD CHEQUING(BANK) |
+| 미리 보기 몸 | VendorRef 7204 · PayType Check · `CheckPayment {PrintStatus NotSet, BankAccountRef 104}` · APAccountRef 62 · CurrencyRef CAD · TotalAmt 1073.5 · Line LinkedTxn 173051 Bill · DocNumber 「e-Transfer C1ACHPfyTp」(21 자) · PrivateNote 「IMS supplier payment 6c178695-69de-419d-9ea4-9622ebe09ae1 · full reference: e-Transfer C1ACHPfyTpkZ」 · sendable · needs [] |
+| 거울 짝 | `_104_` TD CAD CHEQUING BANK ↔ QBO 104 Bank CAD(detail 에 Name 없음) |
+| 결과 | sent · **QBO 173092** · Bill Payment no. e-Transfer C1ACHPfyTp · TD CAD CHEQUING · Print later 꺼짐 · Bill Order #8884650 Paid · 잔액 0 · 화면 waiting 94 → 93 · sent 630 → 631 |
+
+- 목록이 한 번 「canceling statement due to statement timeout」(All · Supplier payments) — 열린 트랜잭션 · 잠금 0 · 새로 고침 뒤 정상 · 원인 모름(deferred 546)
+
+**⑥ 은행 피드 · Match (북키퍼 몫 · Caleb)**
+
+- TD 피드: 보내기 전 11/04 「SEND E-TFR *pkZ」 1,073.50 For review · 「1 match found · Bill」 — QBO 가 열린 **Bill** 을 짝으로 내민다 · **누르지 않는다**(QBO 가 결제를 따로 만들어 IMS 결제와 두 번) → IMS 가 보낸 뒤 짝이 「Bill Payment e-Transfer C1ACHPfyTp」 로 바뀜 → 그때 북키퍼가 Match
+- 순서: 피드를 먼저 분류하지 않는다 → IMS Preview → Send → 짝이 Bill Payment 로 바뀌면 Match(여러 줄 Batch actions › Accept Selected) · 은행 규칙 「Automatically add to books」 금지(새 거래를 만들어 두 번) · QBO 자동 매칭은 QBO Payroll · Payments 거래에만(Intuit 도움말)
+- **MTFX 는 QuickBooks 은행 피드에 연결 안 됨**(Caleb) → USD 결제는 Match 단계 없음
+
+**⑦ 두 환율 · MTFX 장부 (북키퍼 실무 · IMS 밖 — deferred 줄 없음 · docs-1109f 이견 6)**
+
+- Bill 환율 = IMS 인보이스 환율(재고 원가도 이것) · 결제 환율 = 그 돈을 산 날의 MTFX 환율(1123) · 차이 = QBO 가 셈하는 환차손익 · 예 AST261028 33,366.24 USD × 1.397 = 46,612.64 CAD · × 1.404312 = 46,856.61 CAD → 243.97 환차손 · IMS 재고 원가 무변 · **결제 환율을 Bill 환율에 맞추지 마라**
+- MTFX USD 장부(10/16 ~ 11/05): 북키퍼가 MTFX 송금을 「Bill Payment (Cheque) · WIRE」 로 손으로 적고 설명에 ER(10/16 1.42708 · 1.424031 · 10/23 1.410309 · 10/27 ~ 28 1.407932 · 11/03 1.401212 · 11/05 1.404312) · USD 사기 Transfer 가 10/21 뒤 없음 · MTFX USD 잔액 음수 · 11-04 출금 없음 → 밀린 USD 셋(14,555.10 · 33,366.24 · 24,960.00)은 QBO 에 없다(두 번 걱정 없음)
+- 11-03 손 송금 둘 · 11-05 하나가 IMS(컷 뒤) 인보이스의 송금인지는 안 봤다 — 맞다면 1081 위반(QBO 손 결제 + 나중 IMS 결제 = 두 번) · deferred 547
+
+**⑧ 북키퍼 안내서** (Claude Doc rev 49 · Caleb 전달): 메뉴 길 Integrations › QuickBooks · 「공급처 결제 보내기와 은행 피드 맞추기 — Match 는 북키퍼님 몫」 · 「환율은 두 개」 · 표 「IMS 에 적은 공급처 결제 4 건」(CAD 1 sent 173092 · USD 3 환율 대기) — so-module §110-c 10
+
+**⑨ 다음**
+
+USD 3 건(북키퍼 환율 → Send) → 4-6(켜기 · 정본) · E-8 sandbox → 할인 결제 짓기(538 · 첫 후보 2223170 할인 기한 **11-19**) · 1131 나(536) · 화면 거리 534 · 542 · 543 · 곁가지 deferred 539 ~ 547

@@ -206,6 +206,8 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⚠️⚠️ 입고 뒤 PO 환율 · 인보이스 단가 · PO 할인을 고쳐도 원가는 안 움직인다(판정 394) — 바뀐 몫은 사건으로만: 가격 크레딧(credit_reason) · Apply FX difference(po_fx_cost_apply) · 재생성이 맞춰 주리라 기대하지 마라
 ⚠️  판정 398 — 돈 안 낸 줄(is_payable false · 단가 0)로 온 물건 원가 0 · 섞이면 평균 · 가격 이력(latest price)은 무변
 ⭐⭐ 결제 할인의 정본 = po_payment_alloc.discount_amount(충당마다) · po_payment.discount_taken 은 Σ 트리거 — Paid · Discount taken · 충당 금액 · 할인을 PostgREST 로 고치지 마라(문지기가 거부) · 창구로: po_payment_create · po_payment_alloc_set · po_payment_alloc_discount_set
+⭐⭐ [2026-11-09 밤 · 4-5a `a9cb5ce` · so-module §110 · po-module §11-h →] **결제 하나 = 공급처 하나 — 이제 강제**(1124 · create · alloc_set 거부) · 붙임 줄의 문서(po_invoice_id · po_charge_id)를 직접 UPDATE 로 바꾸지 마라(트리거 거부 · 줄을 지우고 다시 더한다) · 외화 결제는 `exchange_rate`(CAD per 1 USD · 산 날 MTFX · 1123) 필수 — `po_payment_create(…, p_exchange_rate)` 또는 머리 칸 · 비면 QuickBooks 로 안 간다 · 결제를 고치거나 지우면 보낸 BillPayment 는 void + 다시(1125 · qbo-integration §15-n)
+⚠️⚠️ [2026-11-09 밤 · chg-fix-1 `a84bc06` · 판정 1135] **청구서 Kind 는 draft 에서만** — 트리거 `po_charge_kind_lock`(definer · P0001): cancelled → Restore 먼저 · landed 있음 → 상쇄 청구서 · confirmed → Reopen 뒤 · Kind 를 바꾸면 원가 장 대변 계정(`qbo_cost_charge_account(kind)`)과 보낸 Bill 계정이 갈라진다 · ⚠️ status 를 직접 PATCH 해 draft 로 돌리는 우회는 landed 안전망만 막는다(deferred 139)
 ⚠️⚠️ 결제 저장 · 할인 고치기 · 충당 떼기 · 결제 지우기가 원가 사건을 함께 만들고 되돌린다 — 충당을 직접 지우거나 사건을 손으로 넣지 마라 · 판정 399(할인 > 레이어 원가)면 저장 전체가 거부된다
 ⚠️  Adjust discount 는 낸 돈 고정 · 충당이 움직인다 — 다 갚은 문서의 할인은 올릴 수 없다(미지급 초과) · 비용 청구서 할인은 landed 가 레이어에 없으면 pending(held)
 ⭐⭐ 크레딧 goods 줄은 확정 전에 credit_reason(Not received = 원가 무변 / Price difference = 원가를 낮춘다 · 판정 400) — 걸치는 줄은 확정 거부(줄을 나눈다) · 원가 몫은 크레딧 자신의 체인만 · 환율은 핀
@@ -260,6 +262,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ⭐⭐ [2026-11-02 밤 · chg duty v1 `e6cd3db` · v2 `64e7971`(asung-ims · DB 무변) · so-module §98-a 끝] **Charges 의 Kind Duty** — 칸 이름 **Duty (before tax)** · **GST on import** · Check 는 빈 GST 에 제안값을 채우지 않고 멈춘다 · Duty 빈칸 → 「Duty is required」 · **관세 0 · GST 만 있는 CBSA 청구서 = Kind Duty · Duty 0 · GST 청구서 숫자 그대로** · ⚠️ **PO 를 하나 이상 골라야 확정된다**(po_charge_confirm 「has no allocation lines」 거부 · 금액 0 줄은 받는다 · 경고 total_amount_zero 를 화면이 사람 말로)
 ⭐ 폴더 Suppliers/<공급처>/<PO 번호>/ · Suppliers/<경비처>/CHARGE-<charge_number>/(빌 원본 · 함께 올린 서류) · 빌 이름에 PO 번호 없음 · 자유 글자 번호의 / # 공백 → -
 ⚠️ po_doc · drive_shortcut · drive_job 의 FK 는 on delete no action — PO · 빌 · 공급처 인보이스를 지우려면 이 표를 먼저 비운다(컷오버 날 · deferred 332)
+   → [2026-11-09 밤 · chg-fix-0 · so-module §110-c 2] **운영에서도 같다** — po_doc_remove 는 is_active false 로 행을 **남긴다** ⇒ 서류를 빼도 PO · 청구서 · 공급처 인보이스 · 트랜스퍼 운임 삭제가 FK 로 막힌다(오류 원문이 사람에게 그대로) · Cancel 은 되지만 청구서 번호 유니크 (supplier_id, charge_number) 가 status 를 안 가려 같은 번호를 다시 못 넣는다 · 고치는 길은 deferred 539(판정 전)
 ```
 
 ⭐ [2026-10-25 · 판정 733 · so-module §76] PO 를 공급처에 보내는 길 = po.html 상세 **↓ PO CSV**(po csv v1 · asung-ims 6eefa2b) — 확정 PO 만 · 머리 + 라인 · SKU · 바코드는 ="…"(엑셀 글자) · 내부 메모 없음 · 읽기만 · 메일은 사람이 붙여 보낸다

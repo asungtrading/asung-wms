@@ -133,7 +133,7 @@
 <!-- screen: none -->
 <!-- who: accounting -->
 
-회계 일은 IMS 모드의 **Sales ▾** · **Purchasing ▾** 에서 합니다.
+회계 일은 IMS 모드의 **Sales ▾** · **Purchasing ▾** · **Integrations ▾**(QuickBooks)에서 합니다.
 모두가 쓰는 일은 [이 장을 쓰는 법](#role-start)에 있습니다.
 
 ### 판매

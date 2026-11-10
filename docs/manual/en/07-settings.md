@@ -351,7 +351,7 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 <!-- who: admin, manager -->
 
 **What it is**
-**Shopify Stores** (**Settings ▾** › **Shopify Stores**) connects IMS to each web shop: which prices it shows, which warehouse sends its stock, and which products are linked.
+**Shopify Stores** (**Integrations ▾** › **Shopify Stores**) connects IMS to each web shop: which prices it shows, which warehouse sends its stock, and which products are linked.
 
 **Who**
 - The `shopify` key at read: look only.

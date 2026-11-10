@@ -13763,7 +13763,7 @@ asung-ops  (없음)
 
 ⭐ 원천: 지시서 docs-1109e(「대화에만 있는 것」 ① ~ ⑦ · 2026-11-09 토론토 오전 ~ 오후) · 원천 대조 asung-wms `46f6075..HEAD` = `32f2f3e` · `b879381` · `f1fb21b`(셋 · 대화 Claude 가 아는 것과 같다) · asung-ims `65244a8..HEAD` = 0 · 이 차수(docs-1109e)는 DB · 화면 · EF · git 쓰기 0
 ⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름 · 이메일은 적지 않는다 · QBO Id · 문서 번호 · 계정 번호 · 금액은 적는다
-⚠️ 상태 = 공급처 Bill · VendorCredit **운영에서 보냄**(Bill 7 장 sent) · 하루 원가 장 **12 장 sent** · 공급처 결제(BillPayment)는 **4-5 전 · 보낸 것 0** · 자동 보내기 없음 — 매일 원가 장 · 새 공급처 Bill 은 **북키퍼가 Queue/Preview → Send**(Caleb 「ㄱ」) · 정본 = qbo-integration **§15-m**
+⚠️ 상태 = 공급처 Bill · VendorCredit **운영에서 보냄**(Bill 7 장 sent) · 하루 원가 장 **12 장 sent** · 공급처 결제(BillPayment)는 **4-5 전 · 보낸 것 0** · 자동 보내기 없음 — 매일 원가 장 · 새 공급처 Bill 은 **북키퍼가 Queue/Preview → Send**(Caleb 「ㄱ」) · 정본 = qbo-integration **§15-m** → [2026-11-09 밤 · §110] 4-5a · 4-5b · 4-5c 끝 · 첫 공급처 결제 **QBO 173092 sent** · USD 3 건은 환율 대기
 
 §108 의 차수 계획대로 4-3(DB) → 4-4(EF) → 첫 실물 손 Send → 4-2b sandbox 를 하루에 끝냈다. 첫 원가 장 손 Send 가 보내기 전 가드에서 4001 로 멈춰(QBO 쓰기 0) 3-3b 로 고친 뒤 Retry. 남은 것은 결제(4-5)와 켜기 · 정본(4-6).
 
@@ -13797,17 +13797,17 @@ asung-ops  (없음)
 5. **날짜 검산**(QBO JE 열어 봄): 11-05 TOR 에 RCV-00117 950.00 · 11-06 TOR 에 RCV-00121 12,039.53 — **1120 대로 제 날짜** · 입고 줄 계정 = QBO 이름 「Inventory Asset:Stock in Trans…」(Id 1150040012 = GINR) · GINR 센트: RCV-00121 JE 대 12,039.53 vs Bill 1801158180 차 8,599.66 × 1.4 = 12,039.52 → 0.01 남음(E-3 예상 그대로)
 6. Queue 는 창고마다 바로 다음 장 하나만(설계 · 1098) — 두 창고를 나란히 한 바퀴 두 장씩
 7. **4-2b sandbox**(Canada · realm 9341458557490536 · 11-09 13:20 ~ 13:35 PST — sandbox 표시 시각 · Caleb API Explorer): USD 은행 98 · USD 카드 99 · BillPayment 206(E-9) · 207(E-12) · 208(E-11) · 209(E-13 void) ⇒ 1123 확정(환율 그대로 · 환차이익은 QBO 가 셈) · 1125 단서 풀림 · 확정(BillPayment void 됨) · 4-5 규칙: `CurrencyRef` 반드시 · 결제 줄 = 붙임마다 · PayType 은 계좌 종류로 · 수표는 `PrintStatus NotSet` · Bill 쪽 LinkedTxn 이름(BillPaymentCheck)으로 결제 종류를 가르지 마라 · Bill `HomeBalance` 조회 불가 · E-10 안 함(1122 가 막음) · E-8 미룸(deferred 538)
-8. 「조회 불가 칸」 실측 셋: JournalEntry `TotalAmt`(3-3b) · BillPayment `PayType`(4-1) · Bill `HomeBalance`(4-2b) — 코드 `QUERY_UNSELECTABLE` 에는 앞 둘만(`qbo.ts` 752 행) · 셋째는 4-5 에서
+8. 「조회 불가 칸」 실측 셋: JournalEntry `TotalAmt`(3-3b) · BillPayment `PayType`(4-1) · Bill `HomeBalance`(4-2b) — 코드 `QUERY_UNSELECTABLE` 에는 앞 둘만(`qbo.ts` 752 행) · 셋째는 4-5 에서 → [11-09 밤 · 4-5b `16412bc`] 셋째 더함(§110-b)
 
 ### 109-d′ 열린 것 · 닫은 것 · 다음
 
 - **닫힘**: deferred **525**(하루 원가 장 첫 실물 — 12 장 sent · 1120 대로 TOR 11-05 · 11-06 장에 RCV 두 줄 제 날짜)
 - **잇기**: 459(4-3 · 4-4 · 3-3b · 첫 송신 · 4-2b 끝 · 다음 4-5) · 522(1120 의 「4-3 전 등록 금지」 풀림 · 지금은 북키퍼 손 Send · 켜기는 Caleb) · 528(DEBITS 칸 — 북키퍼가 매일 보는 칸이 됨)
 - 새 **534** ~ **538**: 534 보낸 원가 장의 Preview 가 「지금 보낸다면」 으로 다시 셈 · 535 qbo-send 공급처 꼴 · 536 1131 「나」(확정 때 지급 기한 필수) · 537 공급처 결제 조건 ↔ QBO Term 짝 · 538 E-8(VendorCredit 을 BillPayment 에)
-- **§108-d′ 「4-3 에서 볼 것」 정리**: ① accepted_billed 짝 — 4-3 마이그레이션 grep 0 · **아직 답 없음**(4-5 또는 실물 때) · ③ USD 계좌 수 → 여섯(109-c 1) · ④ KRW 기본 A/P 키 — 4-3 grep 0 · 첫 KRW 공급처 때 그대로 · ⑤ 저장된 USD 결제 3 건 환율 → 4-5
-- ⚠️ **북키퍼 주의(짐작)**: 보낸 Bill 7 장은 QBO 에 미지급 · AST261028 은 「Overdue」 로 서 있다 — IMS 결제 4 건(USD 3 · CAD 1)은 4-5 가 보낸다 · 그 전에 북키퍼가 QBO 에서 결제하면 두 번이 된다(1081) · 고친 북키퍼 안내서(Claude Doc · Caleb 전달)에 이 줄이 있는지는 이 차수가 못 봤다
+- **§108-d′ 「4-3 에서 볼 것」 정리**: ① accepted_billed 짝 — 4-3 마이그레이션 grep 0 · **아직 답 없음**(4-5 또는 실물 때) · ③ USD 계좌 수 → 여섯(109-c 1) · ④ KRW 기본 A/P 키 — 4-3 grep 0 · 첫 KRW 공급처 때 그대로 · ⑤ 저장된 USD 결제 3 건 환율 → 4-5 → [11-09 밤 · §110] 입력 길 섰다(4-5a p_exchange_rate · pay rate v1) · 값은 북키퍼가 넣는다(Caleb) · 아직 3 건 모두 비어 막힘
+- ⚠️ **북키퍼 주의(짐작)**: 보낸 Bill 7 장은 QBO 에 미지급 · AST261028 은 「Overdue」 로 서 있다 — IMS 결제 4 건(USD 3 · CAD 1)은 4-5 가 보낸다 · 그 전에 북키퍼가 QBO 에서 결제하면 두 번이 된다(1081) · 고친 북키퍼 안내서(Claude Doc · Caleb 전달)에 이 줄이 있는지는 이 차수가 못 봤다 → [11-09 밤 · §110-c] 안내서 rev 49 에 있다(「컷 뒤 IMS Bill 의 송금은 QBO 에 손으로 적지 말 것」)
 - **운영 방식**(Caleb 「ㄱ」 · 11-09): 매일 원가 장 · 새 공급처 Bill 은 북키퍼가 Queue/Preview → Send · 자동(원가 cron 522 · 공급처 kind 를 cron 에)은 나중에 Caleb 이 켬
-- **다음**(지시서 ⑧ 그대로): 4-5 결제 DB + EF + 화면(판정 1123 · 1124 · 1125 · 4-2b 규칙 · 밀린 IMS 결제 4 건 — USD 3 건은 환율 칸을 채운 뒤) → 4-6(켜기 · 정본) · 화면 차수(qbo-send 공급처 꼴 · 보낸 장 미리 보기) · 1131 나
+- **다음**(지시서 ⑧ 그대로): 4-5 결제 DB + EF + 화면(판정 1123 · 1124 · 1125 · 4-2b 규칙 · 밀린 IMS 결제 4 건 — USD 3 건은 환율 칸을 채운 뒤) → 4-6(켜기 · 정본) · 화면 차수(qbo-send 공급처 꼴 · 보낸 장 미리 보기) · 1131 나 → [11-09 밤 · §110] 4-5 · 공급처 꼴(qs sup v1 · v2) 끝 · 남은 다음 = §110-d′
 
 ### 109-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (108-e 에 이어 143 부터 · asung-workflow 122 ~ 127 과 같은 것)
 
@@ -13827,4 +13827,113 @@ asung-ops  (없음)
 
 ```
 다음 판정 번호: 1132 · 다음 deferred 번호: 539
+```
+
+## §110 2026-11-09 오후 ~ 밤 — 공급처 결제(4-5a · 4-5b · 4-5c) · **첫 BillPayment 173092** · 청구서 Kind 잠금(chg-fix-0 · 1) · 메뉴 Integrations · 머리 이름 펼침 · 폰 폭 문서 화면 · 판정 1132 ~ 1138 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1109f + `~/asung/prompts/docs-1109f-sources.md`(S1 ~ S13 · 대화에만 있던 것) + Caleb 회신(판정 1138 · 대화에만) · 원천 대조 asung-wms `ba7910b..HEAD` = `a84bc06` · `a9cb5ce` · `16412bc`(셋) · asung-ims `65244a8..HEAD` = `c6c9f8d` · `53edc22` · `937730d` · `e31a1b5` · `697dd2e` · `e745754` · `2d8689f` · `309261b`(여덟) · 이 차수(docs-1109f)는 DB · 화면 · EF · git 쓰기 0
+⚠️ 공개 레포 — 공급처 · 손님 상호 · 사람 이름 · 이메일은 적지 않는다(결제를 입력한 사람 = 「입력한 직원」 · 회계 = 「북키퍼」) · 운영 realm 은 `…6496` 으로 가린다 · QBO Id · 문서 번호 · 계정 번호 · 금액은 적는다
+⚠️ 상태 = 공급처 결제(BillPayment) **운영에서 보냄**(CAD 1 건 → QBO **173092** sent) · USD 3 건은 **환율이 비어 막힘**(북키퍼가 MTFX 환율을 넣고 Send · Caleb) · 공급처 kind 는 모두 cron 61 · 62 **밖** — 손 Send 만 · 은행 피드 **Match 는 북키퍼**(Caleb 「match를 누르는 것은 북키퍼에게 일임할게」) · 정본 = qbo-integration **§15-n**
+
+§109 의 다음(4-5)을 한 저녁에 끝냈다: 판정 1132 ~ 1134 → 4-5a DB(적용) → 4-5b EF(배포) → 4-5c 화면(환율 칸) → 밀린 CAD 결제 한 건 손 Send. 그 사이 동료 리포트(청구서 17038)로 청구서 Kind 를 DB 가 지키게 했고(1135), 메뉴 · 머리 · 폰 폭 화면을 공통 js 로 손봤다(1136 ~ 1138).
+
+### 110-a 판정 (원천 S1 · 1138 은 Caleb 회신 · Caleb 원문 칸은 바이트 그대로)
+
+| 판정 | Caleb | 정한 것 | 단서 · 근거 · 기각 |
+|---|---|---|---|
+| 1132 | 「가」 | QuickBooks 에 그대로 옮길 수 없는 공급처 결제 = ① 조기 결제 할인 있음 ② 붙임 문서에 크레딧 붙음 ③ 결제 금액 ≠ 붙임 합 → **몸이 막고 사람에게**(QBO 에 손으로 → IMS Skip) · IMS 에서 고쳐 벗어나면 다시 보낼 수 있다(① · ③ 은 지문 · ② 는 Retry) | 기각: 나(낸 돈만 보내고 경고 — A/P 가 틀림) · 다(E-8 먼저 — 늦음) · 크기: 할인 조건 활성 공급처 9 곳 · 90 일 안 거래 1 곳 · 첫 후보 인보이스 2223170(2%10 Net30 · 미지급 7,135.32 · 할인 기한 11-19) · Caleb 「약 10 곳」 · E-8 = deferred 538 |
+| 1133 | 「2」 | 결제 PayType = **IMS 계좌 종류**(BANK → Check + `PrintStatus NotSet` · CREDITCARD → CreditCard + `CCAccountRef`) + **QBO 계좌 거울의 AccountType · 통화와 대조해 다르면 막음** · 거울 값 없음 = 막음(Refresh list 안내) | 거울 열쇠 `detail->>'AccountType'` · `detail->'CurrencyRef'->>'value'`(4-5a 가 `qbo_entity_upsert` Account 가지로 담음) |
+| 1134 | 「가」 | unknown 자동 done = TxnDate + VendorRef + 금액(센트) + PrivateNote 표지 「IMS supplier payment <po_payment.id>」 가 **모두 맞는 BillPayment 하나뿐일 때만** · 0 · 2+ = 사람 | 표지 일치 = 표지 그대로 또는 「표지 · full reference:」 로 시작(4-5b) |
+| 1135 | 「a」 | 청구서 Kind 는 **DB 트리거**로 지킨다 — draft 가 아니면 Kind 변경 거부 · 화면은 draft 에서만 Kind 고르기 · 머리 칸 전체 잠금은 deferred 139 | 기각: (b) po_charge_update 창구(화면 saveHead 전부 바꿈 · 17038 늦게 풀림) |
+| 1136 | 「가」 + Caleb 안 | 맨 위 메뉴 **Integrations**(Caleb 「인테그레이션을 따로 뽑으면 어떨까 해」) — QuickBooks(Sales 에서) · Shopify Stores(Settings 에서) · Web Orders 는 Sales 그대로(오더 받는 일) · Freightcom 은 자기 화면이 생기면 | 기각: 나(Web Orders 까지 옮김) · 연결 화면 Settings → QuickBooks(settings.html 탭)는 그대로 |
+| 1137 | 「가」 | 머리 줄 한 줄 — 이름 펼침(「이름 · 역할 ▾」 → Change Password · Sign Out · 빌드 표시) · 펼침 메뉴 오른쪽 맞춤 · 탭 줄 줄바꿈 · 화면 본문(넓은 표)은 범위 조사 뒤(→ 1138) | Caleb 「change password가 자주 쓰는 메뉴도 아닌데, 옮기거나 감추는것도 방법」 · 「모바일… 적어도 볼 수 있는것들이 짤려서 보지 못하는 일은 없었으면 해」 |
+| 1138 | 「가」 | 폰 폭(`max-width 760px` · IMS 화면만) 문서 화면: 목록 + 상세 화면(`.wrap` · `.list` · `#detail` · 13 화면)은 처음엔 목록만 · 줄을 누르면 상세만 화면 가득 + 「‹ Back to list」(SO 의 `data-act="toglist"` 도 목록으로) · 상세 첫 카드(머리) 펼침 · 둘째 카드부터 첫 자식 h3 에 ▸ 캐럿 접힘 · 카드 안 넓은 표 `overflow-x` · 넓은 목록 ↔ 상세 화면(9)도 접힘 · 표 밀기(→ v18b 에서 카드 줄로) · 모양은 ims-auth.js 가 넣는 `<style id="imsMobileCss">` 한 곳(ims-ui.css · 화면 무변) · 데스크톱 무변 · **덧붙임**(Caleb 「모바일에서는 전체목록을 볼 필요는 없을것 같아 … 어느 메뉴든」 · 최종 판 nav v18b `309261b`): 간단 목록이 있는 화면(12)은 폰에서 넓은 목록을 건너뛰고 간단 목록으로 · 넓은 목록뿐인 화면(9)은 표를 카드 줄로(머리 줄 감춤 · 첫 칸 굵게 · 칸은 감추지 않음) | Caleb 「모바일 에서는 오더 상세에서 왼쪽에 있는 simplified 메뉴만 보이면 좋을 것 같아 … 클릭해서 들어가면, 그 안에 있는 정보들이 캐럿으로 볼 수 있으면 좋겠어. 이것은 세일즈뿐 아니라 다른 곳들도 마찬가지야. 모든 정보들이 다 보일 필요는 없어. 핵심정보만 보여도 돼」 · 기각: 나(화면마다 모바일 판) · 대가: 핵심 = 첫 카드로 통일(아쉬운 화면은 그 화면만 나중에 · deferred 545) |
+
+- 그 밖 Caleb(11-09): 「match를 누르는 것은 북키퍼에게 일임할게」(은행 피드 Match) · USD 결제 환율은 「북키퍼가 알아. 북키퍼에게 환율넣고, 퀵북으로 보내라고 할게」
+
+### 110-b 차수 · 커밋 (git log 원문에서)
+
+| 커밋 | 레포 | 차수 | 적용 · 배포 | 확인 |
+|---|---|---|---|---|
+| — | — | qbo-sync-4-5-0 조사(쓰기 0) | — | 대화 Claude 짐작 셋 모두 틀림(아래 110-c 1) |
+| — | — | chg-fix-0 조사(쓰기 0 · 청구서 17038 동료 리포트) | — | 110-c 2 |
+| `a84bc06` | asung-wms | chg-fix-1 트리거 `po_charge_kind_lock` | `20261109223500`(Caleb · `apply-chg-fix-1.sh` · repair --yes) | 시험 1 회차 17/17 · 마른 실행 OK 7 · FAIL 10(결함 재현) · 확인 17/17 |
+| `c6c9f8d` | asung-ims | chg kind v1(charges.html) | 화면 | Caleb 이 17038 Kind → Brokerage |
+| `a9cb5ce` | asung-wms | qbo-sync-4-5a DB | `20261109230000`(Caleb · `apply-4-5a.sh`) | 시험 10 회차 51/51 · 확인 50/50 · 백필 `{"seen": 4, "queued": 4, "realm_id": "…6496"}` |
+| `53edc22` | asung-ims | qs sup v1(종류 고르기 둘 · KIND_LABEL 여섯) | 화면 | — |
+| `937730d` | asung-ims | nav v16(Integrations · 1136) | 화면 | ⚠️ 커밋 글에 「qs sup v1」 이 섞였지만 파일은 ims-auth.js 하나(110-e 153) |
+| `16412bc` | asung-wms | qbo-sync-4-5b EF | 배포 Caleb(Target Asung-IMS production · index.ts · `_shared/qbo.ts` · 판 번호 · 시각은 원천에 없음) | deno 31/31 · 변이 넷 모두 FAILED → 되돌려 31/31 |
+| `e31a1b5` | asung-ims | nav v17(이름 펼침 · 1137) | 화면 | Caleb: 노트북 한 줄 · 개발자 도구를 열면(좁은 폭) Manual 이 둘째 줄 |
+| `697dd2e` | asung-ims | pay rate v1 = **4-5c**(payments.html 환율 칸) | 화면 | — |
+| `e745754` | asung-ims | qs sup v2(공급처 미리 보기) | 화면 | Caleb 확인(110-d) |
+| `2d8689f` | asung-ims | nav v18(폰 폭 문서 화면 · 1138) | 화면 | 가짜 화면(jsdom) 시험 — 처음 목록 · 줄 누르면 상세 · 머리 펼침 · h3 카드 접힘 · 캐럿 토글 · Back · ⚠️ 결함: 캐럿 자리에 「BE」 · 「B8」 이 보였다(110-e 158) |
+| `309261b` | asung-ims | **nav v18b**(최종 판 · 1138 덧붙임) | 화면 | 폰에서 넓은 목록 건너뜀 · 넓은 목록뿐인 화면은 카드 줄 · 캐럿 ▾ ▸ 글자 그대로 · v18a 는 커밋 안 됨 · Caleb 폰 확인은 뒤(545) |
+
+- **chg-fix-1**: 트리거 `po_charge_kind_lock`(BEFORE UPDATE OF kind · security **definer** · `search_path public, pg_temp` — invoker 면 원가 열쇠 없는 직원에게 landed 조회가 0 행으로 보여 안전망이 조용히 꺼진다) · `new.kind is distinct from old.kind` 일 때 · P0001 · 문장 셋(cancelled → 「This charge is cancelled — Restore it first, then change Kind — nothing was saved」 · landed 있음(draft · confirmed 둘 다 · `kind='landed' and doc_number = old.charge_number`) → 「This charge is already on stock cost (N layer row(s)) — Kind cannot be changed; to correct it, enter an offsetting charge — nothing was saved」 · confirmed → 「Kind can only be changed on a draft charge — Reopen it, change Kind, then confirm again — nothing was saved」) · 한계(머리 주석): status 를 직접 PATCH 해 draft 로 바꾼 뒤 kind 를 바꾸는 우회는 landed 안전망만 막는다(deferred 139) · 마이그레이션 md5 `096a1697a9d39eea22ea9dc44ba9c987`(9038 B · 97 행) · 시험 `supabase/tests/chg_fix_1_check.sql` md5 `9377cb31916ee27be78859c697603056`(14477 B · 135 행) · 가짜 행 INSERT(qbo · 원장 무접촉) · 적용 전 DB 마지막 `20261109104000`
+- **4-5a**: kind `bill_payment` · `bill_payment_void` · ims_kind `po_payment`(⚠️ `payment` 은 손님 쪽 · cron 62 함정 110-c 1) · CHECK 일곱(qbo_job 셋 · qbo_txn 셋 — type BillPayment · pair 명시 · `po_payment_exchange_rate_ck` > 0) · 새 함수 여섯(지문 · 몸 · void 몸 · sync(p_payment_id, p_by, p_detached) · `qbo_job_on_po_payment` · 백필) · 표 트리거 둘(po_payment · po_payment_alloc · deferred constraint FOR EACH ROW) · 1124 강제(create · alloc_set · 붙임 대상 직접 변경 거부) · `po_payment_create` 에 `p_exchange_rate`(맨 뒤 · 기본 null · drop/create · 11 인자) · 재발행 diff 더한 66 · 바뀐 7 · 빠진 0(claim · done · preview · retry · doc · list · po_doc_status · alloc_guard · po_payment_create · alloc_set · `qbo_entity_upsert` Account 가지) · `bill_delete_manual` 은 그 문서의 열린 `bill_payment_void` 뒤(blocked_by) · 새로 쓴 줄 384 · 마이그레이션 1464 행 176761 B md5 `5e20db1cb9b9a030731c8e2a3925fb5c` · 시험 477 행 70369 B `cb3a2acc0b9b3b5ee74623a1b0383bda` · begin ~ rollback 24 s · 적용 전 번호 `20261109223500` 확인 · 열린 트랜잭션 0
+- **4-5b**: SEND_KINDS **24** · `SUPPLIER_KINDS` + bill_payment · bill_payment_void(DEFAULT 밖 = cron 61 · 62 밖 · 손 Send 만) · void 주소 `POST billpayment?operation=update&include=void` · 몸 `{Id, SyncToken, sparse:true}` · 가드 `select * from BillPayment where TxnDate = '<d>' MAXRESULTS 1000`(공급처 · 표지 · 센트는 EF) · **Bill 잔액 가드**(POST 직전 붙임마다 Bill GET · Balance 모자라면 failed · 글에 출구 둘 · 1081) · 가드 1 행 = 바로 done 「already in QuickBooks (bill payment #…)」 · 표지 같고 공급처 · 금액 다른 살아 있는 장 = unknown(답 밖 더함 · 받음) · `QUERY_UNSELECTABLE` 셋째 Bill `HomeBalance` · `PULL_FIELDS.Account` `*` · `_shared/qbo.ts` 1725 행 227377 B `4a0f7c98109db13a4d40f9ee5f1eeb9e` · `qbo/qbo_test.ts` 3429 행 507014 B `a94e294f3b72a76cc7562693a83d2d99` · diff 444+ 30−
+- 4-5a 중 네트워크 끊김 1 번(Claude Code 응답 중) → 상태 확인(열린 트랜잭션 0 · 잠금 0 · max(version) 223500 · 파일 둘 미추적) → 이어서(110-e 156)
+
+### 110-c 사실 · 실측 (요약 · 전문 = qbo-integration §15-n)
+
+1. **4-5-0 조사**(쓰기 0): 대화 Claude 짐작 셋 모두 틀림 — ① `po_payment.exchange_rate` **칸 있음**(4 건 null · 입력 길 없음 · `po_payment_create` 인자 없음 · 화면 칸 없음) ② `ref_account.account_type` 이 BANK 21 · CREDITCARD 7 로 **가른다** ③ 결제 지우기 길 둘(`po_doc_delete('payment')` · 직접 DELETE) · 붙임 지우기 길 둘(`po_payment_alloc_delete` · 직접 DELETE) · `po_doc_cancel('payment')` 거부 · authenticated 가 po_payment · po_payment_alloc 모든 칸 직접 UPDATE · DELETE 가능(문지기는 amount · discount 만) · 1124 미강제였다 · ⚠️ **cron 62 함정**: cron 62 kinds 에 `payment` · `payment_void` · `qbo_send_payments_enabled` on ⇒ 공급처에 `payment` 를 쓰면 5 분마다 자동으로 나간다 → 새 이름 필수 · 밀린 4 건 = 모두 1 결제 1 문서 · 할인 0 · Bill sent · CAD 1(`_104_` BANK) · USD 3(`_138_` BANK USD · 환율 null) · 보탬: 조기 할인 조건 활성 공급처 9(1%30 Net31 3 · 2%10 Net30 2 · 1%20 Net30 1 · 2.1%13 Net30 1 · 2%19 Net30 1 · 2%30 Net31 1) · 90 일 안 1 · ⚠️ 「1%20 Net30」 은 ref_payment_term 비활성인데 활성 공급처 1 곳이 씀(deferred 544) · 공급처 결제조건 id · 이름 259 곳 모두 일치
+2. **chg-fix-0 조사**(쓰기 0 · 청구서 17038 = po_charge draft · freight · CAD 91.25 + 11.86 · 서류 po_doc 활성 2 · drive_job done 2 · alloc 0 · 결제 0 · qbo 0): Kind 는 **DB 가 막지 않았다**(charges.html 칩만) — 원가 얹힌 청구서도 API 로 kind 변경 가능 → 원가 장 대변(`qbo_cost_charge_account(pc.kind)`) · 보낸 Bill 계정이 갈라짐 ⇒ 1135 · kind 에만 딸린 칸 없음 · 선례 `tf_charge_update`(draft 만) · **삭제**: 화면 Delete → `po_doc_delete('charge')` 는 po_doc · drive_* 를 안 본다 · **`po_doc_remove` 는 `is_active false` 로 행을 남기고 rename 일감을 더한다** → 서류를 빼도 같은 FK(`po_doc_po_charge_id_fkey`)로 삭제가 막힌다 · Cancel 은 되지만 유니크 `(supplier_id, charge_number)` 가 status 를 안 가려 같은 번호를 다시 못 넣는다 · PO · 공급처 인보이스 · 트랜스퍼 운임도 같은 FK · 지금 서류 붙은 미확정 문서 = 청구서 8 · 서류 11 · FK 오류 원문이 그대로 보이는 삭제 호출 5 곳 ⇒ deferred 539
+3. **4-5a REST 둘째 겹**(Caleb 화면 · 적용 직후): CAD 1 건 「QuickBooks account #104 (IMS _104_) has no account type or currency on file yet — Settings → QuickBooks matching → Refresh list (accounts), then retry (1133)」 · USD 3 건 「Supplier payment WIRE is in USD but has no exchange rate — enter the MTFX rate of the day the money was bought (1123) on the payment and it is sent again (1118)」 — 둘 다 설계대로 막힘
+4. **4-5b 배포 뒤** Refresh list(accounts) → 「QuickBooks Account list read — 238 records」 · 거울 accounts 238 · has_type 238 · has_currency 238
+5. **첫 공급처 결제**(11-09 토론토 저녁 · Caleb 손 Send): e-Transfer `C1ACHPfyTpkZ`(1,073.50 CAD · 11-04 · IMS 계좌 `_104_` **TD CAD CHEQUING** · 입력한 직원) · Preview: VendorRef 7204 · PayType Check · `CheckPayment {PrintStatus NotSet, BankAccountRef 104}` · APAccountRef 62 · CurrencyRef CAD · TotalAmt 1073.5 · Line LinkedTxn 173051 Bill · DocNumber 「e-Transfer C1ACHPfyTp」(21 자 · 1130) · PrivateNote 「IMS supplier payment 6c178695-69de-419d-9ea4-9622ebe09ae1 · full reference: e-Transfer C1ACHPfyTpkZ」 · sendable · needs [] → Send → **sent · QBO 173092** · QBO: Bill Payment no. e-Transfer C1ACHPfyTp · TD CAD CHEQUING · Print later 꺼짐 · Bill Order #8884650 Paid · 잔액 0 · 화면 waiting 94 → 93 · sent 630 → 631
+6. **은행 피드**(TD): 보내기 전 11/04 「SEND E-TFR *pkZ」 1,073.50 For review · 「1 match found · Bill」(QBO 가 열린 Bill 을 짝으로 내밈 — 누르지 않음) → 보낸 뒤 짝이 「Bill Payment e-Transfer C1ACHPfyTp」 로 바뀜 · Match 는 북키퍼(Caleb) · QBO 자동 매칭은 QBO Payroll · Payments 거래에만(Intuit 도움말) · 여러 줄은 Batch actions › Accept Selected · 은행 규칙 「Automatically add to books」 금지(새 거래를 만들어 두 번)
+7. **MTFX**: QuickBooks 은행 피드에 **연결 안 됨**(Caleb) → USD 결제는 Match 단계 없음 · MTFX USD 장부(10/16 ~ 11/05)는 북키퍼가 송금을 「Bill Payment (Cheque) · WIRE」 로 손으로 적고 설명에 ER(10/16 1.42708 · 1.424031 · 10/23 1.410309 · 10/27 ~ 28 1.407932 · 11/03 1.401212 · 11/05 1.404312) · USD 사기 Transfer 는 10/21 뒤 없음 · MTFX USD 잔액 음수 · ⇒ 밀린 USD 셋(14,555.10 · 33,366.24 · 24,960.00)은 QBO 에 없다 · 11-03 손 송금 둘 · 11-05 하나가 IMS(컷 뒤) 인보이스인지는 안 봤다(deferred 547)
+8. **두 환율**: Bill = IMS 인보이스 환율(재고 원가도) · 결제 = 산 날의 MTFX 환율 · 차이는 QBO 가 환차손익 · 예 AST261028 33,366.24 USD × 1.397 = 46,612.64 CAD · × 1.404312 = 46,856.61 CAD → 243.97 환차손 · IMS 재고 원가 무변 · **결제 환율을 Bill 환율에 맞추지 말 것**
+9. **qbo-send 목록 statement timeout 한 번**(All · Supplier payments) — 곧바로 확인: 열린 트랜잭션 · 잠금 0(실시간 복제 연결만) · 새로 고침 뒤 정상 · 원인 모름(관찰 · deferred 546)
+10. **북키퍼 안내서**(Claude Doc 「QuickBooks 연동 안내 — 북키퍼용」 rev 49 · 대화 Claude 고침): 메뉴 길 열한 곳 → Integrations › QuickBooks · 공급처 Bill 찾기 「종류 Supplier bills and credits」 · 「공급처 결제 보내기와 은행 피드 맞추기 — Match 는 북키퍼님 몫」(피드 먼저 분류 금지 · Preview → Send · 짝 Bill Payment 로 바뀌면 Match(Batch) · 은행 규칙 자동 추가 금지 · USD 는 결제에 환율 넣고 Send · 컷 뒤 IMS Bill 의 송금은 QBO 에 손으로 적지 말 것 — 손 송금은 컷 전 Bill 만) · 「환율은 두 개」 · 표 「IMS 에 적은 공급처 결제 4 건」 → CAD 1 sent(173092) · USD 3 환율 대기
+11. **shop-photo-dup-1**(조사 · 쓰기 0 · ⬜ 회신 전 — 진행 중 사실만 · deferred 524): venv(pillow 13.0.0 · imagehash 4.3.2 · numpy 2.5.4) · 내려받기 4,390 s · 실패 0 · 404 1 · ⭐ 지난 결과의 「다름(진짜 전용) 899」 는 그림이 다르다는 뜻이 아니라 **가로 × 세로가 같은 IMS 후보가 없다**는 뜻(899 중 788 장은 비율이 같은 IMS 후보 있음 · FAM 634 중 578 · 2048² 587 장 · IMS 기본 1024²) ⇒ 범위 B 를 같음을 뺀 전부(2,075)로 넓힘 · 빠진 변형 aone 187(활성 사진 15 · 리스팅 112) · asung 213(4 · 133) · **IMS 패밀리 웹 대표 사진 칸이 지정된 패밀리 2 개뿐** · D 짝 30 쌍 중 20 = 같은 사진을 여러 SKU 가 함께 씀 · 10 = 작은 라벨만 다름 ⇒ pHash + 색으로는 「거의 같음」 확정 불가 → 픽셀 비교 단계 · 결과 표 · 문턱 · review.html 은 다음 문서 차수
+
+### 110-d 화면 (asung-ims · 대화 Claude 가 씀 · 커밋 Caleb)
+
+| 커밋 | 파일 · 판 | 내용 |
+|---|---|---|
+| `c6c9f8d` | charges.html · chg kind v1 | 초안 청구서 상세 Kind 고르기(KIND_OPTS 넷 · saveHead) · 머리 주석 「Kind 는 트리거가 잠근다」 |
+| `53edc22` | qbo-send.html · qs sup v1 | 종류 「Supplier bills and credits」(vendor · bill · vendor_credit · bill_delete_manual) · 「Supplier payments」(bill_payment · bill_payment_void) · KIND_LABEL 여섯(Supplier · Supplier bill · Supplier credit · Delete bill by hand · Supplier payment · Void supplier payment) · Caleb 「kind로도 필터링이 되는 기능이 필요할 것 같아」 |
+| `937730d` | ims-auth.js · nav v16 | 맨 위 Integrations(1136 · Action Centre 뒤 · Settings 앞) · QuickBooks · Shopify Stores 탭 줄 · 열쇠 그대로 |
+| `e31a1b5` | ims-auth.js · nav v17 | 이름 펼침(1137 · IMS 화면만 · `#who` · `#imsPwBtn` · `#logoutBtn` · `#buildTag` · `.ims-authtag` 를 **옮김** — 화면이 건 onclick 그대로) · 펼침 메뉴 오른쪽 맞춤(fitDrop) · 탭 줄 flex-wrap · 모양은 `<style id="imsHdrFitCss">` 한 곳(ims-ui.css 무변) |
+| `697dd2e` | payments.html · pay rate v1(4-5c) | 외화 결제 상세 Exchange rate(CAD per 1 USD · saveHead · 0 이하 막음 · 비면 「needed before this payment can go to QuickBooks」) · To pay 창 Exchange rate(USD 문서면 · `p_exchange_rate` · 비우면 한 번 묻고 저장) · PAY_WARN exchange_rate_missing |
+| `e745754` | qbo-send.html · qs sup v2 | 공급처 미리 보기 supPreview(Supplier payment · Bill · Supplier credit · void · 손 지우기 안내 · 줄은 어느 *LineDetail 이든 계정 · 품목 · 세금 코드) · 목록 머리 「Customer · supplier」 · Caleb 확인: 결제(#7204 · #104 · print no · #62 · Order #8884650 → #173051) · Bill(484908, 484909 · #315 · A/P #109 · USD 1.397 · 줄 account #1150040012 · 세금 코드 2) |
+| `2d8689f` · `309261b` | ims-auth.js · nav v18 → **v18b** | 1138 — 폰 폭 문서 화면(110-a) · `html.ims-m-det` · 「‹ Back to list」(`#imsMBack`) · `<style id="imsMobileCss">` · v18 은 CSS 코드값 `\25BE` 를 JS 문자열에 넣어 `\25` 가 8 진 escape 로 먹혀 「BE」 · 「B8」 이 보였다 → v18b 는 ▾ ▸ 글자 그대로 · v18b 덧붙임: 간단 목록이 있는 화면(`#wide` + `#wrapBox` + `loadList` · 12)은 폰에서 넓은 목록을 건너뜀(`window.showWide` 를 감싸 간단 목록으로 · `#backWide` 감춤) · 넓은 목록뿐인 화면(`#wide` 표 · 9)은 표를 카드 줄로(thead 감춤 · 첫 칸 굵게 · 칸 감추지 않음) |
+
+- ⚠️ qs sup v2 의 코드 주석(`qbo-send.html` 137 · 369)은 「deferred 534 · 535 · 536」 · 「(deferred 534)」 를 가리키지만 이 화면이 한 일은 **535**(공급처 꼴)뿐 — 534(보낸 원가 장 미리 보기)와 536(확정 때 지급 기한 필수)은 그대로 열림 · 주석 번호 정정은 다음 화면 차수
+- 남은 화면 거리: 보낸 줄 미리 보기 글(534) · QBO 참조가 번호만(542) · charges 경고 코드 원문(543) · 폰 폭 화면별 핵심 손질 · Manual 둘째 줄(545)
+
+### 110-d′ 열린 것 · 닫은 것 · 다음
+
+- **닫힘**: deferred **535**(qbo-send 공급처 꼴 — qs sup v1 · v2 · 메뉴 자리 nav v16 · 남은 둘은 542 로)
+- **잇기**: 459(4-5a · 4-5b · 4-5c 끝 · 첫 BillPayment 173092 · 다음 USD 3 건 환율 → 4-6) · 139(1135 Kind 잠금 섰음 · status 직접 PATCH 우회 남음) · 534(보낸 줄 미리 보기 글 · qs sup v2 주석 번호) · 538(1132 로 막음 · 첫 후보 2223170 · 할인 기한 11-19) · 524(shop-photo-dup-1 진행 중 사실) · 332(근거 칸에 → 539 만 · 닫힘 그대로)
+- 새 **539** ~ **547**(미정): 539 서류 붙은 미확정 문서 삭제 · 540 손님 `qbo_payment_sync` 의 blocked 방치 · 541 `bill_delete_manual` 은 가장 오래된 열린 void 하나만 기다림 · 542 미리 보기 QBO 참조 이름 · 543 charges 경고 코드 원문 · 544 비활성 「1%20 Net30」 을 쓰는 활성 공급처 · 545 폰 폭 화면별 핵심 손질 · Manual 둘째 줄(nav v18b 가 1 차) · 546 qbo_job_list statement timeout(관찰) · 547 11-03 · 11-05 손 송금 셋이 컷 뒤 IMS 인보이스인지
+- MTFX USD Transfer 미기록 · ER 이 그날 환율로 보임 = 북키퍼 실무 · IMS 밖 — deferred 줄 없이 110-c 7 · qbo-integration §15-n 사실로만(Caleb · docs-1109f 이견 6)
+- **다음**: USD 3 건 — 북키퍼가 결제에 MTFX 환율을 넣고 Send(Caleb 전달) · 4-6(켜기 · 정본) · E-8 sandbox → 할인 결제 짓기(538 · 2223170 할인 기한 **11-19**) · 539 판정((나-1) / (나-2)) · 폰 확인 뒤 545 · 1131 나(536)
+
+### 110-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (109-e 에 이어 149 부터 · asung-workflow 128 ~ 137 과 같은 것)
+
+149. [대화 Claude · 짐작](workflow 128 · 68 · 89 · 97 · 107 과 같은 뿌리) 몸의 BankAccountRef 104 를 「BMO CAD Chequing」 으로 짐작해 「계좌가 틀렸다 · IMS 에서 고쳐라」 고 말함 — 실제 TD CAD CHEQUING(IMS 화면이 처음부터 TD) ⇒ QBO 번호의 뜻은 IMS 계좌 · 짝을 select 로 본 뒤 말한다
+150. [대화 Claude](workflow 129) 인계서 · 정본에 없던 줄기(사진 비교)를 지난 대화에서 찾지 않고 같은 조사(shop-photo-1-0)를 다시 씀 — Caleb 「어제 우리가 샤피파이 사진을 다 다운로드 받은것도 기억하지?」 ⇒ Caleb 이 「미결」 이라 부르는 일은 conversation_search 로 지난 대화부터
+151. [다운로드 폴더](workflow 130) 같은 이름 파일이 있으면 브라우저가 「 (1)」 로 저장 → 정확한 이름으로 md5 를 보는 명령이 조용히 STOP ⇒ 옮기기 · 커밋 명령은 늘 `F=$(md5sum <이름>*.<확장자> | grep '^<md5>' | head -1 | cut -c35-)` 꼴
+152. [적용 스크립트 · 재발 127](workflow 131) `tail -14` 가 확인 검증의 OK 수 줄을 잘랐다 ⇒ `grep -A2 'ok | fail'` 로 뽑고 커밋 명령에 「50 · 0 일 때만」 을 묶는다
+153. [커밋 글](workflow 132) 두 파일을 한 명령에 묶었다가 하나가 앞서 커밋돼 커밋 글이 실제 파일과 어긋남(`937730d`) ⇒ 묶는 커밋 글은 실제로 들어간 파일 기준 · 아니면 따로
+154. [잘 된 것](workflow 133) chg-fix-1 「마른 실행」(트리거 없이 결함 재현 FAIL 10) · 4-5b 변이 넷 — 첫 통과가 빠르면 시험이 결함을 잡는지 확인
+155. [QBO 첫 실물 · 돈](workflow 134) 보내기 전에 사람에게 둘을 묻는다 — 실제로 돈이 나간 계좌 · 은행 피드에서 그 출금이 이미 분류됐는지(가드는 「Bill 에 붙인 손 결제」 만 잡는다) · QBO 가 열린 Bill 을 짝으로 내밀면 누르지 않는다(QBO 가 결제를 따로 만든다)
+156. [Claude Code 끊김](workflow 135) 「API Error: Connection lost」 뒤 상태 확인 꼴 — 열린 트랜잭션 · 30 초 넘은 트랜잭션 · 네 표 Exclusive 잠금 · max(version) · git status · 파일 ls — 그대로 붙여 이어 달리기(4-5a)
+157. [공통 js 예외](workflow 136) 메뉴 · 머리 줄(ims-auth.js)은 nav v6 부터 대화 Claude 가 고쳐 왔다 — 표 · 머리 모양만일 때 · 가짜 화면(jsdom)으로 실제 머리 HTML 을 넣어 시험(nav v17 · v18)
+158. [JS 문자열 속 CSS escape](workflow 137 · nav v18 `2d8689f`) CSS 코드값 `\25BE` 를 JS 문자열(`'…content:"\25BE"…'`)에 넣으면 JS 가 `\25` 를 8 진 escape 로 먹어 화면에 「BE」 · 「B8」 이 보인다 — jsdom 시험은 동작(접힘 · 토글)만 봐서 통과 ⇒ JS 문자열 안에는 CSS escape 를 넣지 말고 **글자 그대로**(▾ ▸) · 가짜 화면 시험은 동작만이 아니라 넣는 CSS 문자열을 eval 로 꺼내 본다(nav v18b)
+
+- ⚠️ 4-5a 시험이 잡은 **실제 결함**(회차 4 ~ 6): 지문이 QBO 와 같아져 void 를 거둘 때 그 void 뒤 다시 보내기 일감이 skipped 부모에 영구 blocked → sync 에 ① void 거둘 때 뒤 bill_payment 도 skipped ② 새 void 서면 blocked 일감도 그 뒤로 · ⚠️ **손님 `qbo_payment_sync` 에도 같은 결함**(이 차수 무접촉 · deferred 540)
+
+### 110-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §109 끝 「다음 판정 번호 1132 · 다음 deferred 번호 539」 → 아래
+- §109 머리 상태 · 109-c 8 「셋째는 4-5 에서」 · 109-d′ ⑤ · 「북키퍼 주의(짐작)」 · 「다음」 → 이 절(→ 화살표)
+- qbo-integration §15-l ④ 이름 안 · 화면 자리 · §15-m 상태 · ⑥ E-8 · ⑦ 다음 → §15-n
+- po-module §11-h 옛 문장(환율 칸 · 1124 · 상쇄 규칙 · 계좌 통화 · 계좌 셋 · KRW 환차손익) · §11-f 「취소·삭제」 · 「고치기」 → 그 자리 → [2026-11-09 밤]
+- 매뉴얼 메뉴 길 「Sales ▾ › QuickBooks」 · 「Settings ▾ › Shopify Stores」 · 「Change Password at the top right」 → Integrations ▾ · 이름 펼침(docs-1109f)
+
+```
+다음 판정 번호: 1139 · 다음 deferred 번호: 548
 ```
