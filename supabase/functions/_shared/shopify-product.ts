@@ -7,6 +7,7 @@
 //   판정 890(shop-img-off-1 · 2026-10-30): 스토어 send_images false 면 DB 가 사진 0 장 꼴(files [] · image_id null)로 준다 → 559 갈래 · 여기서는 payload.send_images === false 를 두 번째 안전띠로 봐 files 가 와도 안 보낸다(asung · aone 의 Shopify 전용 사진 3,264 장 보호)
 //   사진 쌓임 막기: shop_media 에 MediaImage id 가 있으면 {id} · 없으면 {originalSource, filename, duplicateResolutionMode APPEND_UUID} — productSet 의 files 는 목록 칸이라 목록 밖 사진은 상품에서 빠진다(쌓이지 않음)
 //   shop-img-name-1(2026-11-06 · Caleb 「관리차원에서 그동안 그렇게 해오던 일」): filename = 그 사진의 상품(product_id) SKU — payload 순서대로 SKU 마다 첫 장 <SKU>.<ext> · 둘째부터 <SKU>_2 · _3 …(imageStems) · 패밀리 사진도 구성원 SKU
+//     shop-photo-imp-1(2026-11-11 · 판정 1179): 패밀리 사진(file.sku = 패밀리 SKU · product_id null)은 패밀리 SKU 줄기 — <패밀리 SKU> · <패밀리 SKU>_2 …(구성원 SKU 와 따로 센다) · file.sku 가 없으면 예전대로 구성원 SKU
 //     SKU 의 [A-Za-z0-9._-] 밖 글자 구간 → "-" 하나 · 앞뒤 "-" 지움 · 비거나 SKU 를 못 찾으면 옛 꼴 <product_image_id>(skuStem)
 //     APPEND_UUID(이견 2 A): 같은 이름이 Shopify Files 에 있으면(직원이 SKU 이름으로 올린 파일) 덮지 않는다 — Shopify 가 고유값을 붙인 이름으로 받는다(REPLACE 는 남의 파일을 덮어 버려 그만 씀)
 //     짝 기준(stemMatches): url 파일 이름 줄기가 정확히 <기대 줄기> 또는 <기대 줄기>_<uuid>(APPEND_UUID 꼴 · 짐작) · 옛 uuid 줄기(<product_image_id> · <product_image_id>_…)도 계속 받는다(이미 올라간 사진은 다시 올리지 않는다) · 「포함」 비교 금지(ONO00137 이 ONO00137_2 에 맞으면 안 된다)
@@ -23,7 +24,7 @@ export const PRODUCT_SET_MUTATION = `mutation ImsProductSet($identifier: Product
     userErrors { field message code } } }`;
 
 export type PayloadVariant = { product_id: string; sku: string; name: string; barcode: string | null; price: number | string | null; compare_at_price: number | string | null; option_values: Array<{ name: string; value: string | null }>; inventory_policy: "CONTINUE" | "DENY"; is_active: boolean; sellable: boolean; image_id: string | null; weight: { value: number; unit: string } | null; hs_code: string | null; country_code: string | null };
-export type PayloadFile = { product_image_id: string; image_path: string; url: string | null; alt: string | null; product_id: string };
+export type PayloadFile = { product_image_id: string; image_path: string; url: string | null; alt: string | null; product_id: string | null; family_id?: string | null; sku?: string | null };   // shop-photo-imp-1(판정 1179): 패밀리 사진은 product_id null · family_id · sku(패밀리 SKU) — 구성원 사진은 예전 꼴 그대로(열쇠 다섯)
 export type Payload = { kind: "family" | "product"; store_code: string; family_id: string | null; product_id: string | null; title: string; description_html: string | null; vendor: string | null; product_type: string | null; tags: string[]; send_tags: boolean; status: "ACTIVE" | "ARCHIVED"; active_variants: number; options: Array<{ name: string; values: string[] }>; variants: PayloadVariant[]; files: PayloadFile[]; listing_on: boolean; blocks: string[]; hash: string; send_images?: boolean };   // send_images: shop-img-off-1(판정 890) · hash 밖 · false 면 DB 가 files [] · image_id null 을 준다 — 여기서는 두 번째 안전띠
 export type MapCtx = { baseUrl: string; productGid: string | null; variantGidBySku: Record<string, string>; mediaGidByImage: Record<string, string>; cleanedHtml: string };
 export type FileRef = { id?: string; originalSource?: string; filename?: string; contentType?: "IMAGE"; alt?: string; duplicateResolutionMode?: "APPEND_UUID" };
@@ -78,7 +79,7 @@ export function imageStems(p: Pick<Payload, "variants" | "files">): Record<strin
   const skuByProduct = new Map(p.variants.map((v) => [v.product_id, v.sku]));
   const seen = new Map<string, number>(), out: Record<string, string> = {};
   for (const f of p.files) {
-    const stem = skuStem(skuByProduct.get(f.product_id));
+    const stem = skuStem(f.sku ?? (f.product_id ? skuByProduct.get(f.product_id) : null));           // shop-photo-imp-1: 패밀리 사진은 payload 가 실은 패밀리 SKU
     if (!stem) { out[f.product_image_id] = f.product_image_id; continue; }
     const key = stem.toLowerCase(), n = (seen.get(key) ?? 0) + 1; seen.set(key, n);
     out[f.product_image_id] = n === 1 ? stem : stem + "_" + n;

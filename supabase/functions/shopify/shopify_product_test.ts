@@ -221,3 +221,33 @@ Deno.test("⑪ shop-img-name-1 짝 기준 — 정확히 SKU · SKU_n · 뒤 _<uu
   eq(matchMedia([{ gid: "g/9", status: "READY", url: cdn("ANN01001") }], [f0], true), {}, "no stems given → only old uuid rule (callers pass stems)");
   eq(Object.keys(st).length, 1, "fixture");
 });
+
+Deno.test("⑫ shop-photo-imp-1(판정 1179) — 패밀리 사진 줄기 = 패밀리 SKU · _2 …(구성원 SKU 와 따로 센다) · 구성원 줄기 무변 · 옛 uuid 줄기 짝 무변 · 짝이 있으면 {id}", () => {
+  const F = "f0000000-0000-0000-0000-000000000000", ctx = { baseUrl: BASE, productGid: null, variantGidBySku: {}, mediaGidByImage: {}, cleanedHtml: "" };
+  const ff = (i: number) => ({ product_image_id: I(i), image_path: F + "/" + I(i) + (i === 21 ? ".png" : ".jpg"), url: null, alt: "ANNIE Snap-On Rollers", product_id: null, family_id: F, sku: "ANN01000FAM" });
+  const mem: Payload = { ...fam, variants: fam.variants.slice(0, 3), files: [...fam.files.slice(0, 3), { ...fam.files[0], product_image_id: I(8), image_path: P(0) + "/" + I(8) + ".jpg" }] };
+  const withFam: Payload = { ...mem, files: [ff(20), ...mem.files, ff(21), ff(22)] };                    // DB 순서: 표지(패밀리 사진) → 변형 대표 → 구성원 나머지 → 패밀리 사진
+  const st = imageStems(withFam), before = imageStems(mem);
+  eq([st[I(20)], st[I(21)], st[I(22)]], ["ANN01000FAM", "ANN01000FAM_2", "ANN01000FAM_3"], "family photos → family SKU stem, numbered in payload order");
+  eq(mem.files.map((f) => st[f.product_image_id]), mem.files.map((f) => before[f.product_image_id]), "member stems are the same with and without family photos");
+  eq(mem.files.map((f) => before[f.product_image_id]), ["ANN01001", "ANN01002", "ANN01003", "ANN01001_2"], "member stems as before");
+  const inp = buildProductSetInput(withFam, ctx).input as any;
+  eq(inp.files.map((f: any) => f.filename), ["ANN01000FAM.jpg", "ANN01001.jpg", "ANN01002.jpg", "ANN01003.jpg", "ANN01001_2.jpg", "ANN01000FAM_2.png", "ANN01000FAM_3.jpg"], "productSet files keep the payload order · names");
+  eq(inp.files[0].originalSource, imageUrl(BASE, F + "/" + I(20) + ".jpg"), "family photo source = family folder path");
+  eq(inp.variants.map((v: any) => v.file?.filename), ["ANN01001.jpg", "ANN01002.jpg", "ANN01003.jpg"], "variant files untouched by family photos");
+  eq(JSON.stringify(buildProductSetInput(mem, ctx).input), JSON.stringify(buildProductSetInput({ ...mem, files: mem.files.map((f) => ({ ...f })) }, ctx).input), "member-only payload builds the same input as before");
+  eq(Object.values(imageStems({ ...withFam, files: [{ ...ff(20), sku: " / " }] })), [I(20)], "unusable family SKU → old uuid name");
+  eq(Object.values(imageStems({ ...withFam, files: [{ ...ff(20), sku: undefined }] })), [I(20)], "family photo without sku (old DB) → old uuid name, no crash");
+  const media: MediaNode[] = [
+    { gid: "gid://shopify/MediaImage/1", url: "https://cdn.shopify.com/s/files/1/0/files/ANN01000FAM.jpg?v=1", status: "READY" },
+    { gid: "gid://shopify/MediaImage/2", url: "https://cdn.shopify.com/s/files/1/0/files/ANN01000FAM_2_0a1b2c3d-0000-4000-8000-000000000000.png?v=1", status: "READY" },
+    { gid: "gid://shopify/MediaImage/3", url: "https://cdn.shopify.com/s/files/1/0/files/" + I(22) + ".jpg?v=1", status: "READY" },
+    { gid: "gid://shopify/MediaImage/4", url: "https://cdn.shopify.com/s/files/1/0/files/ANN01001.jpg?v=1", status: "READY" },
+    { gid: "gid://shopify/MediaImage/5", url: "https://cdn.shopify.com/s/files/1/0/files/" + I(1) + ".jpg?v=1", status: "READY" },
+  ];
+  const m = matchMedia(media, withFam.files, true, st);
+  eq([m[I(20)], m[I(21)], m[I(22)], m[I(0)], m[I(1)]], ["gid://shopify/MediaImage/1", "gid://shopify/MediaImage/2", "gid://shopify/MediaImage/3", "gid://shopify/MediaImage/4", "gid://shopify/MediaImage/5"], "pairing: exact family stem · _<uuid> · old uuid stem (family + member)");
+  eq(unknownMedia(media, withFam.files, st), 0, "nothing unknown");
+  const reuse = buildProductSetInput(withFam, { ...ctx, mediaGidByImage: m }).input as any;
+  eq(reuse.files[0], { id: "gid://shopify/MediaImage/1" }, "paired family photo is sent by id only");
+});
