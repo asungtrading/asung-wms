@@ -1450,6 +1450,10 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
   - 자동(1041): cron **64** `ims-fc-pickup-poll` `*/5` → EF `pickup_sweep` · 스위치 `fc_pickup_poll_enabled` **on** · 대상 = `fc_pickup_poll_due` 한 곳 · 2 단(2 시간 안 5 분 · 뒤 30 분) · ⚠️ 창 식은 `fc_pickup_attention_list` 와 **같이** 고친다(「목록에 있다 = cron 이 아직 읽는다」)
   - 예약됨 칸 상태 줄(so pk v1 · fu v1.10)은 **출고 뒤 사라진다** → 출고 뒤 거절은 Action Centre 「Pickups not scheduled」(1050 · asung-so)
   - ⚠️ `fc_book_cancel_save` 가 예약 응답을 취소 응답으로 덮는다(deferred 475) · 에드먼턴 운영 토큰 있음(11-05 · 462 닫힘) — 에드먼턴 IMS 예약 = 실제 청구
+- ⭐⭐ [2026-11-11 · fc-track-2 · 판정 1158 ~ 1160 · fu v1.11 `af9c53d` · freightcom-integration §8-c] **예약 칸 배송 상태 한 줄**(🚚 · ✓ Delivered · 예외 노랑) + **Check status**(EF `track_poll` · GET · 청구 없음 · 문 `fc_track_gate` = sales ∨ fulfillment ∨ freight_booking + 그 창고) · 자동 = cron **68** `ims-fc-track-poll`(`fc_track_poll_enabled` on · batch 10)
+  - ⚠️⚠️ **Freightcom 에서 취소된 예약**은 IMS 에 booked 로 남는다 → 「Cancelled on Freightcom」 띠 · 픽업 경고 · Action Centre 밖(1158) · 사람이 **Mark cancelled in IMS**(`fc_book_mark_cancelled` · freight_booking + 그 창고 · Freightcom 호출 없음 · 1159)
+  - 보드 = Integrations › Freightcom(fcb v1 · 1167) · ⚠️ fc_ 표 11 개 모두 닫힘 — 화면은 `fc_board` · `fc_board_detail` 창구로만(1168)
+- [2026-11-11 · rc v2.2 `60274e1`] 받는 화면 바코드 지도는 **100 개 묶음 질문** — 324 줄 트랜스퍼(RCV-00124)에서 긴 `.in(...)` 주소가 「Bad Request」(300 OK · 324 400) · 다른 WMS 화면 점검은 deferred 579(짐작)
   - ⚠️⚠️ EF freightcom · shopify 배포 = `supabase functions deploy <name> --project-ref fazgmyvzzhqybtvtktyg`(**빼면 linked 옛 asung-WMS 로 갈 수 있다**) · 배포는 ~~`_shared` 의 지금 작업 트리~~ → [2026-11-07 정정 · so §102-c 8] **그 EF 가 import 하는 `_shared` 파일만**(지금 작업 트리 판) 함께 올린다 — 다른 창이 같은 EF 가 쓰는 `_shared` 파일을 고치는 중이면 미룬다
 
 ## 규칙 48 — 메인 DB 는 운영이다: 장애 진단 · 지혈 · 창고 시간 시험 (⚠️ 2026-11-02 실사고 · so-module §97-c 1 · 2 · 97-e 56 · 57)

@@ -119,7 +119,7 @@ In IMS mode, the menu runs along the top of the screen. Each word opens a list o
 | **Sales ▾** | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
 | **Inventory ▾** | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | One screen — no list opens (see [Action Centre](06-action-centre.md#action-start)) |
-| **Integrations ▾** | QuickBooks (see [QuickBooks](01-sales.md#sales-quickbooks)) · Shopify Stores (see [Settings](07-settings.md#set-start)) |
+| **Integrations ▾** | QuickBooks (see [QuickBooks](01-sales.md#sales-quickbooks)) · Shopify Stores (see [Settings](07-settings.md#set-start)) · Freightcom (see [Freightcom — shipment board](01-sales.md#sales-freightcom)) |
 | **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · System Check (see [Settings](07-settings.md#set-start)) |
 
 **How**

@@ -117,6 +117,28 @@ The item now shows "B-grade · bin … · Final sale — no return, no refund".
 **Watch out**
 - More than the books show asks first: "The books have only … B-grade in bin …. Sell … anyway?" If you sell, the bin goes below 0 — tell whoever counts it.
 
+<a id="pos-final-sale"></a>
+## Sell final-sale items (no barcode)
+<!-- screen: pos.html · BUILD 2026-11-11 · pos fs v1 ; so.html · so fs v1 -->
+<!-- who: sales -->
+
+**What it is**
+Very old stock without a barcode is sold as one service line, **FINAL SALE ITEM - No Return or Exchange**. You type what it is and the price each time. It is not counted as stock.
+
+**How**
+1. Press **Final sale…** ("Old stock without a barcode — type what it is and the price (no return or exchange)").
+2. Type what it is (for example "old wig" — it shows on the invoice), the quantity and the unit price. The price cannot be 0.
+3. The line goes to the final-sale table under the cart. **✎** changes it, **✕** removes it.
+4. Take the payment and finish as usual. A sale with only final-sale lines can be finished too.
+
+**Counter orders**
+On a counter order in **Sales**, use **Final sale item** in the same way.
+
+**Watch out**
+- Final sale: no return, no exchange. A credit note for it asks "Final sale — … Issue anyway?" first.
+- Not on warehouse orders — only POS, counter and service orders.
+- No discount, deal or coupon on this line.
+
 <a id="pos-pay"></a>
 ## Take the payment
 <!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->

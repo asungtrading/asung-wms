@@ -307,6 +307,10 @@ description: >
 ⚠️⚠️ **할인 고침 · 지움**(1146) — BillPayment void · 같은 할인이면 열린 VC 다시 씀 · 바뀌거나 없어지면 `bill_delete_manual`(po_discount · 사람이 QBO 에서 지우고 Skip) · VC 를 API 로 지우지 마라(1126)
 ⚠️⚠️ **Skip 일반 함정** — 부모를 skipped 로 닫을 때 뒤 blocked 일감을 안 본다(`qbo_job_skip` · `on_invoice_cancel` · `on_credit_cancel` · `on_po_doc_status` · 548) · 풀린 것은 할인 VC → 결제(claim ②)와 void 거둠(4-5a · qbo-pay-fix-1)뿐 — 새 blocked_by 를 만들면 부모 skipped 길을 함께 짓는다
 ⚠️  QBO 「Automatically apply bill payments」(운영 On)는 화면 입력에만 — API VC 는 열린 Bill 에 안 붙는다(E-8) · 설정을 끄기 전에 sandbox 실측
+✅ [2026-11-11 · qbo-hide-1 `363970b` · 판정 1152 · 정본 §15-p] **Skip 한 일감 숨기기** — `qbo_job.hidden_at · hidden_by`(CHECK skipped 만) · `qbo_job_hide(p_jobs uuid[], p_hide)` 전부 아니면 0(blocked-waiting skipped · 중복 · 다른 realm · 500 초과 거부) · `qbo_job_list` p_state `hidden` · counts.hidden · **Retry 가 숨김을 푼다** · 트리거 `qbo_job_touch_hidden` — 숨김만 바뀌면 updated_at · updated_by 보존
+⚠️⚠️ [2026-11-11 · qbo-list-perf-1 `2194110` · 561] **목록에서 무거운 함수는 한 쪽의 행에만 · 행마다 한 번** — 옆 서브쿼리 `(select qbo_job_doc(…) as doc)` 는 펴져서 d.doc 을 읽는 칸마다 다시 돈다 ⇒ `offset 0`(All 9.9 s → 0.11 s) · 찾기는 아직 일감 수에 비례(`id::text = p_ims_id` 통째 훑기 · 566) · 정렬 동률(567)
+⚠️⚠️ [2026-11-11 · qbo-dname-1 `7573009` · 판정 1153] **손님 QBO 이름 = Display name 우선** — 자동 짝 열쇠 `coalesce(nullif(btrim(display_name), ''), name)` · DisplayName = Display name · CompanyName = name · 콜론 · 탭 · 줄바꿈 거부 · customer 6240 에 할 일 안내(앞) + 「QuickBooks answered: …」(뒤) · Vendor 6240 은 아직(570)
+⚠️⚠️ **같은 이름 = 같은 사람이 아니다** — 이메일 · 전화 · 주소가 실제로 같을 때만 matching 으로 잇는다 · 빈 이메일끼리는 같음이 아니다(11-06 A 건: 새 손님이 QBO #4556 에 잘못 이어져 인보이스 60247 · 결제 AO-17358 이 옛 손님으로 감 · 정본 §15-p ④) · 다른 사람이면 Display name → Retry
 ```
 
 ## 6. 화면 · 바깥

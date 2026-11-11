@@ -117,6 +117,28 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 **조심할 것**
 - 장부보다 많으면 먼저 묻습니다: "The books have only … B-grade in bin …. Sell … anyway?"(장부에는 B급이 …개뿐 — 그래도 팔까) 팔면 그 bin 이 0 아래로 내려갑니다 — 세는 사람에게 알립니다.
 
+<a id="pos-final-sale"></a>
+## 떨이(final sale) 팔기 — 바코드 없는 물건
+<!-- screen: pos.html · BUILD 2026-11-11 · pos fs v1 ; so.html · so fs v1 -->
+<!-- who: sales -->
+
+**무엇인가**
+바코드가 없는 아주 오래된 물건은 서비스 한 줄 **FINAL SALE ITEM - No Return or Exchange** 로 팝니다. 무엇인지와 가격을 매번 적습니다. 재고로 세지 않습니다.
+
+**어떻게**
+1. **Final sale…** 을 누릅니다("Old stock without a barcode — type what it is and the price (no return or exchange)").
+2. 무엇인지(예: "old wig" — 인보이스에 찍힘) · 수량 · 단가를 적습니다. 단가는 0 일 수 없습니다.
+3. 줄은 장바구니 아래 떨이 표에 들어갑니다. **✎** 는 고치기, **✕** 는 빼기.
+4. 평소처럼 결제하고 끝냅니다. 떨이 줄만 있는 판매도 끝낼 수 있습니다.
+
+**카운터 오더**
+**Sales** 의 카운터 오더에서는 **Final sale item** 을 같은 방법으로 씁니다.
+
+**조심할 것**
+- 최종 판매입니다: 반품 · 교환 없음. 이 줄의 크레딧 노트는 먼저 "Final sale — … Issue anyway?"(그래도 발행할까)를 묻습니다.
+- 창고(warehouse) 오더에는 못 씁니다 — POS · 카운터 · 서비스 오더만.
+- 이 줄에는 할인 · 딜 · 쿠폰이 붙지 않습니다.
+
 <a id="pos-pay"></a>
 ## 결제 받기
 <!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->

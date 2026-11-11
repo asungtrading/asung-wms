@@ -3569,7 +3569,7 @@ POS·counter 는 실물을 손에 쥔 길   = Confirm 이 재고 수치를 보�
         Finish 는 **막지 않는다** — 남은 몫은 그 인보이스의 미수(결제조건 기한) · 화면은 하나(손님용·계산원용을 가르지 않는다) · 대가: COD 손님이 덜 내고 나가도 막지 않는다(미수로 남아 찾을 수는 있다)
 판정 6  권한 — 「좋아 그렇게 가자」 · POS 의 Confirm · 다시 열기 · Finish = **ims_require_write('sales') 만**(역할 문 없음 · R5 의 예외 · §17 판정 8 so_finalize 선례) · counter 는 정본대로 **manager 이상**(6-b · 6-h)
         근거: manager 가 확정을 쥐는 이유(재고를 보고 나누기·보류·백오더 판단)가 POS 에는 없다 · 실물을 스캔해야 줄이 선다 · 모든 판매가 인보이스로 남는다
-판정 7  「재고 없이 나갔다」 — 「맞아」(admin Discrepancy 모양) · 새로 적는 곳을 만들지 않는다 — 원장의 판매 부족분 레이어(origin_type sale_shortfall · doc_number = so_number · §15)를 **읽는 목록** + 매니저의 「확인함」 기록(누가 · 언제 · 메모) 표 하나
+판정 7  「재고 없이 나갔다」 — 「맞아」(admin Discrepancy 모양) · 새로 적는 곳을 만들지 않는다 — 원장의 판매 부족분 레이어(origin_type sale_shortfall · doc_number = so_number · §15)를 **읽는 목록** + 매니저의 「확인함」 기록(누가 · 언제 · 메모) 표 하나 → [2026-11-11 · §112-g] 칸 없는 판매 · 유령 원가(nb-0 · deferred 526 · 527)
         화면(뒤 차례) = 운영 WMS admin 의 Discrepancy 탭 모양(배지 · 미해결 전량 · 해결은 기간 · Resolve) · 길(pos·counter·warehouse)과 무관하게 전부 ⇒ asung-inv-ledger ⑲ 의 「SO 쪽 표와 맞아야 한다」 대조가 필요 없어진다(같은 기록 하나)
 판정 8  관리 화면 나누기 — 「그 기준으로 가자」 · 「그 일을 바로잡는 곳이 어디냐」: 창고 작업(사람·픽·팩·되돌리기)은 WMS · 장부·마스터·돈은 IMS · 이번 차수는 **읽기 창구만** 이 기준으로 IMS 쪽에
         근거(Caleb 동의): POS·counter 는 WMS 를 거치지 않는다 — WMS 에 목록을 두면 WMS 없이 도는 매장에서 볼 곳이 없다
@@ -9252,7 +9252,7 @@ Shopify live · 재고 콤보(shop-live-1 · shop-combo-1 · §82 · §83)
 | 587 | 「A」 | 같은 계수의 세트가 꺼진 채 있으면 막고 「Edit 에서 다시 켜라」 + Open 링크 |
 | 588 | 「A」 | 단종 · 판매 안 함 낱개에 세트 더하기 = 경고 → 확인(막지 않음) |
 | 589 | 「A」 | 세트 고정가는 Edit 에서만(Add set 창 = New product 세트 줄과 같은 칸) |
-| 590 | 「B」(Amazon prep service · 「서비스만 따로 끊어」) | 서비스 오더 = 상품 줄 없이 비용 줄(수량 × 단가 · 서비스 목록)만 · WMS 없이 보통 인보이스로 따로 · 같은 번호 · 판 · 메일 · 돈 흐름(기각 A: 재고 안 세는 서비스 상품 종류) |
+| 590 | 「B」(Amazon prep service · 「서비스만 따로 끊어」) | 서비스 오더 = 상품 줄 없이 비용 줄(수량 × 단가 · 서비스 목록)만 · WMS 없이 보통 인보이스로 따로 · 같은 번호 · 판 · 메일 · 돈 흐름(기각 A: 재고 안 세는 서비스 상품 종류) → [2026-11-11 · 판정 1161 · §112-h] 바코드 없는 떨이는 이 서비스 목록의 `FINAL-SALE` 한 줄 · 기각 A 는 그대로 기각 |
 | 591 | 「그 두방식으로 진행하자」 | HS code = 숫자만 저장 · 꼴은 화면 · 원산지 = 표준 나라 목록(ISO 코드)에서 고르기 · 적재도 같은 정리 함수를 지난다 |
 | 592 | 「급한 것은 아니니 cin7에서 재적재를 한 후에 하는게 나을 수 있겠어. 제대로 정리가 되어야 하지 않을가?」 | 591 은 마지막 재적재 무렵에 · 컷오버 준비 목록의 재적재 옆 |
 | 593 | 「A」 | 서비스 줄의 세금 = 오더 세율(서비스 목록에 세금 칸 없음) |
@@ -9510,7 +9510,7 @@ rls-1 → rls-2 → stk-av-1 → rls-3a → 3b → 3c → pset-1 → svc-1a → 
 | 626 | 「A」 | 컷오버 **전**에: 입고 완료(오피스 확정 · 먼저 반영)가 product_supplier 의 **Latest(cost) · last_supplied** 를 고친다 · Fixed 는 무변(lat-1 107fba0 · po_receipt_latest_apply) |
 | 627 | 「A」 | Latest 에 넣는 값 = 확정 인보이스 줄의 **할인 전** 단가(다음 PO 에 할인이 두 번 걸리지 않게) · 실측: Cin7 Latest 가 IMS 인보이스 줄 69 중 할인 전 56 · 할인 뒤 0 과 맞았다 |
 | 628 | (정리 · Caleb 「모양과 내용이 별로」) | 내보내기 — **Stock Availability = 화면 그대로**(지금 거르기 · 모든 쪽 · 화면 칸 · 원가 칸은 원가 열쇠가 있을 때만 · stkx-1 83f28ad: stk_availability 한도 20000 + stk_availability_export 한 행 jsonb) · **Products** = 칸 고르기 창(다음 · 판정 652 부터) · **PO** = 나중 · **SO** = 각 탭 목록 + 문서 하나 둘 다 · ⭐ 문서 하나의 CSV 는 **한 표**(한 줄 = 줄 하나 · 문서 · 오더 칸 되풀이 · 끝에 합계) **+ Barcode** — 구역 나눈 판은 버림 · Stock CSV 의 Bin = 칸 이름만 · 바코드 · SKU 는 `="…"`(엑셀 지수 · 앞 0 방지 · so csv v3 · asung-ims 10cb043 · bfa5417) |
-| 629 | 「A」(「당장에 컷오버하고 손님들에게 판매를 해야 하는데, 그것을 판매할 길을 뚫어놔야」) | B급 칸을 **컷오버 전**에 세운다(67a-12 「컷오버 뒤」를 당김) · Cin7 의 ZZZ 가격대 코드는 IMS 재고로 옮기지 않는다(테스트 DB 실측 0 행 — 적재가 Type=Stock 만 받는다) · 컷오버 날 B급 칸의 실물을 원래 SKU 별로 세어 조정으로 넣는다 · 계기(Caleb): 「특별 인벤토리로 판매하는 것이 아니라, 원래 인벤토리로 그대로 판매를 했으면 해 … 특정 로케이션에 그런 제품들을 모아놓고, 라벨을 붙이거나 … 원래 인벤토리에서는 빠지는 방식」 |
+| 629 | 「A」(「당장에 컷오버하고 손님들에게 판매를 해야 하는데, 그것을 판매할 길을 뚫어놔야」) | B급 칸을 **컷오버 전**에 세운다(67a-12 「컷오버 뒤」를 당김) · Cin7 의 ZZZ 가격대 코드는 IMS 재고로 옮기지 않는다(테스트 DB 실측 0 행 — 적재가 Type=Stock 만 받는다) · 컷오버 날 B급 칸의 실물을 원래 SKU 별로 세어 조정으로 넣는다 · 계기(Caleb): 「특별 인벤토리로 판매하는 것이 아니라, 원래 인벤토리로 그대로 판매를 했으면 해 … 특정 로케이션에 그런 제품들을 모아놓고, 라벨을 붙이거나 … 원래 인벤토리에서는 빠지는 방식」 → [2026-11-11 · 판정 1161 · §112-h] 바코드 없는 오래된 물건에 한해 서비스 줄 `FINAL-SALE` 로 바뀜(B급 칸은 파손 포장품 그대로) |
 | 630 | 「B」 | B급 값은 **B급 칸에 넣을 때** 정한다(값 또는 %) |
 | 631 | 「A」 | % 는 그 자리에서 **값 하나로** 남긴다(누가 사든 그 값) |
 | 632 | 「A」 | % 의 기준 = 그 SKU 의 **Wholesale 티어 낱개 값** |
@@ -9613,7 +9613,7 @@ so:8983 · 9074    67-a 5 「GP 칸 짓기는 미룸」                         
 so:8990 · 9074    67-a 12 「파손품을 같은 SKU 로 — 컷오버 뒤」           → 629(컷오버 전) · bgr-1a ~ 1e
 po:2989 · 3216 · 4035  「그 갱신은 만든 적이 없다」 · 「⬜ latest·fixed 갱신을 IMS 가 맡는다」 → ✅ Latest 는 lat-1(626 · 627) · Fixed 는 ⬜(607 · pur-3)
 deferred 67a-12 · 67a-5 · §3 「파손품」 줄                              → 닫힘(§71)
-안 고친 것        ledger-design 2997(Cin7 의 Non-inventory 껍데기 SKU · 사실 기록 그대로 맞다) · deferred M-①(비재고 품목을 IMS 가 만들 수 있나 — B급 칸과 다른 물음)
+안 고친 것        ledger-design 2997(Cin7 의 Non-inventory 껍데기 SKU · 사실 기록 그대로 맞다) · deferred M-①(비재고 품목을 IMS 가 만들 수 있나 — B급 칸과 다른 물음) → [2026-11-11 · 판정 1161 · §112-h] M-① 닫힘 — IMS 비재고 판매 = ref_service 줄(FINAL-SALE)
 ```
 
 ### 71-e ⚠️ 실수 · 배운 것 — 원인 · 처방
@@ -13577,7 +13577,7 @@ asung-ops  (없음)
 | 판정 | Caleb 원문 | 뜻 |
 |---|---|---|
 | 1112 | 「나도 금액이 맞을때만 자동이 맞다고 생각해」 | QuickBooks 에 같은 DocNumber 의 JournalEntry 가 1 행 있을 때(보내기 직전 가드 적중 뒤 풀기 · POST 끊김 unknown 의 풀기) 그 장의 Debit 합(센트)이 이 일감이 보내려던 차변(claim 때 고정)과 **같을 때만** 자동 done · 다르면 unknown 그대로 + 글(「… has debits X but this cost day expects Y — not recorded …」) · 0 행 not_found · 2 행 이상 ambiguous(1101) · 금액을 못 견주면(qbo_name 에 센트 없음) 자동 없음 · 구현 = qbo_name `<DocNumber>\|<차변 센트>`(결제 paymentKeyOf 선례 · EF 만 · DB 무변) · 근거: Retry 로 다시 셈한 장이 QuickBooks 의 옛 장과 금액이 다르면 자동 done 은 두 장부를 경고 한 줄로 조용히 갈라놓는다(대화 Claude) · 기각: (가) 1 행이면 자동 done(인보이스 선례) · (나) 늘 사람(resolve) |
-| 1113 | 「가」 | 칸 없는 잔고 넷(AIA03588 · EBI03960 · UNF18259 · UNF18155)만 ops 원장 짝(inv-count-1 · MANUAL-907-BIN)으로 실사 칸에 붙이고, 칸 옮기기 · 콤보 되돌리기 · 수량 조정은 실무자가 화면으로 · 근거: 조정 · 이동 창구는 활성 bin 필수(907) · 기각: (나) 조정 화면이 「칸 없음」 줄을 고르게 고치기(지금 넷뿐 · 같은 일이 되풀이되면 그때) · (다) 그대로 두기 — ⚠️ 그 뒤 Caleb 이 칸 없는 판매가 되풀이되는 것을 막고 쉽게 처리하자고 했다(107-c 7) → (나)는 「조사 뒤 다시」(deferred 526) |
+| 1113 | 「가」 | 칸 없는 잔고 넷(AIA03588 · EBI03960 · UNF18259 · UNF18155)만 ops 원장 짝(inv-count-1 · MANUAL-907-BIN)으로 실사 칸에 붙이고, 칸 옮기기 · 콤보 되돌리기 · 수량 조정은 실무자가 화면으로 · 근거: 조정 · 이동 창구는 활성 bin 필수(907) · 기각: (나) 조정 화면이 「칸 없음」 줄을 고르게 고치기(지금 넷뿐 · 같은 일이 되풀이되면 그때) · (다) 그대로 두기 — ⚠️ 그 뒤 Caleb 이 칸 없는 판매가 되풀이되는 것을 막고 쉽게 처리하자고 했다(107-c 7) → (나)는 「조사 뒤 다시」(deferred 526) → [2026-11-11 · nb-0 · §112-g 4] (나) 의 「되풀이되면 그때」 조건이 찼다(526 이어 쓰기) |
 | 1114 | 「받아둔 돈을 크레딧 노트없이 돌려주는 경우? 거의 없어. 아니 없다고 봐야 하지 않을까? 혹 손님이 오버페이를 하고 그 돈을 돌려달라고 하는 경우가 아니라면 말이야.」 | 받아 둔 돈(이월 · 컷 뒤 결제)을 크레딧 노트 없이 돌려준 환불(오버페이 환불)과 USD 환불은 **짓지 않는다** · 생기면 IMS 는 보내지 않고 failed(1066 · 1067 · `qbo_refund_block` 그대로) · 북키퍼가 QBO 에 손으로 넣고 IMS 줄은 Skip(메모 「QuickBooks 에 손으로 넣음」) · 자주 생기면 그때 짓는다 · deferred 500 · 511 열림 그대로 · 북키퍼 안내서에 이미 반영(11-08) · 원문 11-08 저녁 |
 
 - 1112 의 짓기 = qbo-sync-3-3(`232dec7`) · 판정 전 멈춤: `qbo_job_unknown_list()` 반환(job_id · kind · ims_kind · ims_id · qbo_name · sku · request_id · attempts · last_error)에 지문 · 합계가 없고 EF 가 일감 행을 읽는 다른 창구가 없어 「금액 대조」 가 기댈 칸이 없었다 → 안 (가) qbo_name 열쇠(EF 만) · (나) unknown_list 에 fingerprint(3-2c 마이그레이션 · deferred 521) — Caleb 승인 (가)
@@ -14009,7 +14009,7 @@ asung-ops  (없음)
 | `e340db4` | qbo-send.html · qs sup v3 | 이름표 `vendor_credit` + `po_discount` = 「Early-pay discount credit」 · `bill_delete_manual` + `po_discount` = 「Delete discount credit by hand」 · 결제 미리 보기 줄 txn_type(「discount credit」 칩 · 「created first, in the same send」) · 합계 Bills · Early-pay discount · Paid · 미리 보기 Send 단추는 sendable 이 아니라 p.error 로 정함(잠기지 않음) |
 | `bcf47ad` | so.html · so note v1 | 상세 줄 ✉ 손님 메모 · 「Internal:」 사내 메모 · 줄마다 「+ note」 / 「✎ note」(prompt · `so_line_note_set` · 빈칸 = 지움 · 취소 오더 · 콤보 구성품 · sales 쓰기 없음 제외) · Add a line 「Note to customer」(모든 줄 · `so_lines_paste` note) · 「Reason (internal) — required」(무상 other 만) · VERDICT bad_note · CSV Customer note · Internal comment |
 
-- ⚠️ inv disc v3 의 **기한 출처 · 목록 할인 칩은 안 보인다** — `po_invoice_detail` 이 칸을 골라 보내 `due_date_manual` 이 없고 목록 뷰에 `early_discount_until` 이 없다(짐작) · 화면은 칸이 없으면 조용히 비움 → deferred 555 · 교훈 165
+- ⚠️ inv disc v3 의 **기한 출처 · 목록 할인 칩은 안 보인다** — `po_invoice_detail` 이 칸을 골라 보내 `due_date_manual` 이 없고 목록 뷰에 `early_discount_until` 이 없다(짐작) · 화면은 칸이 없으면 조용히 비움 → deferred 555 · 교훈 165 → [2026-11-11 · po-due-1 `7eb3a52` · §112-c 9] 목록 뷰 `early_discount_until` 은 **이미 있었다**(짐작 틀림) · detail 에 `due_date_manual` 더함 · 555 닫힘
 - 앞 판 qs sup v2(`e745754`) 주석의 deferred 번호(534 · 536) 어긋남은 §110-d 그대로 — qs sup v3 가 고쳤는지는 원천에 없다
 
 ### 111-d′ 열린 것 · 닫은 것 · 다음
@@ -14017,7 +14017,7 @@ asung-ops  (없음)
 - **닫힘**: deferred **536**(1144 — 자동 + 경고로 다른 길 · 출처 표시는 555) · **538**(E-8 · 4-7a · 4-7b · 4-7c · USD sandbox 는 554) · **540**(qbo-pay-fix-1 `3f0a7a8` · QBO 173093) · **524**(shop-photo-dup-1 끝 · 디자이너 목록)
 - **잇기**: 387(1139 ~ 1141 로 방향 섬 · 가져오기 길 ① ~ ⑤ · 열림 그대로)
 - 545 는 새 사실 없음(열림 그대로 · 잇지 않음)
-- 새 **548** ~ **560**(미정): 548 Skip 일반 — 부모를 skipped 로 닫을 때 뒤 blocked 일감 · 549 크레딧 붙은 인보이스 결제(1147) · 550 할인 세금 몫 · 세금 있는 인보이스 할인(1145 · 회계사) · 551 청구서 할인 VC 계정 · 552 결제 Skip 뒤 안 붙은 할인 VC · 553 할인 VC DocNumber 겹침 · 554 USD 할인 결제 sandbox(+ VC 통화 가드) · 555 detail 의 due_date_manual · 목록의 early_discount_until · 556 B급 지정이 손님 메모를 cascade 로 지움 · 557 「Cancel」 단추 이름(다른 화면) · 558 Shopify 줄 속성 · 「PO Number」 · 559 Ship Ready show_comment(Caleb) · 560 so note 입력 창 → 줄 안 입력칸
+- 새 **548** ~ **560**(미정): 548 Skip 일반 — 부모를 skipped 로 닫을 때 뒤 blocked 일감 · 549 크레딧 붙은 인보이스 결제(1147) · 550 할인 세금 몫 · 세금 있는 인보이스 할인(1145 · 회계사) · 551 청구서 할인 VC 계정 · 552 결제 Skip 뒤 안 붙은 할인 VC · 553 할인 VC DocNumber 겹침 · 554 USD 할인 결제 sandbox(+ VC 통화 가드) · 555 detail 의 due_date_manual · 목록의 early_discount_until(→ [2026-11-11] 닫힘 · §112) · 556 B급 지정이 손님 메모를 cascade 로 지움 · 557 「Cancel」 단추 이름(다른 화면) · 558 Shopify 줄 속성 · 「PO Number」 · 559 Ship Ready show_comment(Caleb) · 560 so note 입력 창 → 줄 안 입력칸
 - **사진 가져오기 길**(387 · 판정 뒤 · 대화 Claude 안): ① DB 패밀리 사진 자리(`product_image.family_id` XOR `product_id` · `web_image_id` · `shop_listing_set` 가드 · `shop_product_payload` 순서 · 패밀리 화면) ② 가져오기 도구(Shopify 변형 연결 다시 읽기 · 원본 내려받기 · SKU 이름 · 1140 규칙 · 순서 · dry run → 몇 상품 → 전부 · 같은 사진 건너뜀) ③ same 5 패밀리는 웹 대표 지정만 ④ 디자이너 정리 ⑤ 미리 보기 확인 뒤 `send_images` 켜기(대기열 · 속도 제한)
 - **다음**: 2223170 — 북키퍼가 Bill Send → 11-19 안에 할인 받고 결제(첫 할인 결제 실물) · USD 할인 sandbox(554 · Caleb) · USD 3 건 환율(§110 그대로) · 4-6(켜기 · 정본) · 사진 가져오기 ①(387) · Ship Ready show_comment(559 · Caleb)
 
@@ -14058,5 +14058,139 @@ asung-ops  (없음)
 | 화면 | so note v1(111-d) · Ship Ready show_comment 는 Caleb 이 Settings → Documents 에서(559) |
 
 ```
-다음 판정 번호: 1152 · 다음 deferred 번호: 561
+다음 판정 번호: 1152 · 다음 deferred 번호: 561   → [2026-11-11] §112 끝(561 ~ 569 는 대화가 매긴 번호)
+```
+
+## §112 2026-11-10 밤 ~ 11-11 새벽 — QuickBooks 숨기기 · 목록 속도 · 손님 표시 이름(qbo-hide-1 · qbo-list-perf-1 · qbo-dname-1) · Freightcom 쉽먼트 상태 · 청구 · 보드(fc-track-0 ~ 4) · FINAL SALE 떨이(fsale-0 · 1 · 2) · 지급 기한 출처(po-due-1) · 칸 없음 · 유령 원가 조사(nb-0) · 판정 1152 ~ 1168 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1111a(📌 A ~ H) + Caleb 회신(이견 1 ~ 10 · 11-11) · 원천 대조 asung-wms `b4ed97d..HEAD` = `363970b` · `2194110` · `7573009` · `586ca9f` · `decb0fb` · `d3e7e51` · `7eb3a52` · `06e597c`(여덟) · asung-ims `bcf47ad..HEAD` = `60274e1` · `35dd5e9` · `2a36a7d` · `f10887b` · `af9c53d` · `a8a2fd2` · `6e4690c`(일곱) · 이 차수(docs-1111a)는 DB · 화면 · EF · cron · git 쓰기 0
+⚠️ 공개 레포 — 손님 · 직원 · 북키퍼 이름은 적지 않는다(§110 머리 규칙 · docs-1111a 이견 4) · 같은 이름 사건은 「같은 이름 손님 둘(A 건)」 · 「같은 꼴 다른 손님(B 건)」 · 문서 번호 · QBO Id · uuid 앞 8 자 · 금액은 적는다
+⚠️ 상태 = QuickBooks Skip 일감을 **숨길 수 있고**(1152) · 보내기 목록 All · Sent 가 **0.1 초**(561 닫힘) · 손님 QBO 이름 = **Display name 우선**(1153) / Freightcom 예약의 **상태 · 추적을 IMS 가 스스로 읽고**(cron 68 · 1160) · **청구 · 남은 한도를 읽고**(cron 69 · 1163 ~ 1166) · **보드 Integrations › Freightcom**(1167 · 1168 · fc_ 표 11 개 모두 닫힘) / 바코드 없는 떨이 = 서비스 줄 **FINAL-SALE**(1161 · 1162) / 지급 기한 출처가 화면에 보임(555 닫힘) / 칸 없음 · 유령 원가는 **조사만**(nb-0 · 짓기는 nb-1 ~ 5 · 새 대화) · 정본 = qbo-integration **§15-p** · freightcom-integration **§8-c · 8-d · 8-e**
+
+밤사이 QuickBooks 보내기 화면의 불편 셋(Skip 이 쌓임 · All 시간 초과 · 같은 이름 실패)을 고치고, Caleb 의 요구(「쉽먼트 상태를 한눈에」)로 Freightcom 을 조사 → 읽기 → 청구 → 보드까지 하루에 세웠다. 그 사이 떨이 판매 방식을 정했고(1161 · 1162), Action Centre 「Sold without stock」 두 건에서 칸 없음 · 유령 원가를 찾았다(nb-0 · 112-g).
+
+### 112-a 판정 (원천 docs-1111a 📌 · Caleb 원문 칸은 바이트 그대로 · 원문이 📌 에 없는 것은 「—」)
+
+| 판정 | Caleb | 정한 것 | 단서 · 근거 · 기각 |
+|---|---|---|---|
+| 1152 | — | Skip 한 QuickBooks 일감을 **골라 숨긴다** — `qbo_job.hidden_at · hidden_by`(CHECK: skipped 만) · Retry 가 숨김을 푼다 | 트리거 `qbo_job_touch_hidden`(숨김만 바뀌면 updated_at · updated_by 보존 · skipped 를 벗어나거나 hidden 을 세울 때만) · `qbo_job_hide(p_jobs uuid[], p_hide)` 전부 아니면 0 · qbo-integration §15-p ① |
+| 1153 | 보충 여섯(Caleb 2026-11-10) | 손님 QBO 이름 — ① 자동 짝의 손님 열쇠 = `coalesce(nullif(btrim(display_name), ''), name)` ② DisplayName = Display name 우선 · CompanyName = name 그대로 ③ `qbo_job_fail` 재발행 — customer 의 6240 에 할 일 안내(앞) + 「QuickBooks answered: …」(뒤) · Vendor 6240 은 범위 밖 ④ 충돌 글 두 문장 그대로 ⑤ 별칭이 QBO 표시 이름이 되는 것을 받아들인다 · 법인명은 CompanyName ⑥ 콜론 · 탭 · 줄바꿈이 든 이름은 몸이 거부 · 「Display name 을 고치고 Retry」 | ⬜3 Walk-in Customer (Edmonton) 은 사람 몫(손대지 않음) · Vendor 6240 → deferred 570 |
+| 1154 | — | Freightcom inspect 는 admin 만(`ims_is_admin()`) | fc-track-1 · EF 배포 |
+| 1155 | — | inspect 응답에서 http 로 시작하는 문자열 값 전부 · 카드 칸 셋(credit_card_number · credit_card_auth · credit_card_reference) 지움 | 라벨 원본 주소 노출 방지(362 의 결) |
+| 1156 | — | inspect 로그는 메타만(몸 0 · 오류 「Freightcom inspect_<what> failed (HTTP n)」) | |
+| 1157 | — | timeout 20 s 는 새 길에만(예약 · 견적 · 취소 · 픽업 길은 바이트 그대로) | balance 는 net-terms → prepaid → 422 |
+| 1158 | ⬜ 승인(11-10) | Freightcom 에서 취소된 예약은 **픽업 경고 · cron 64 · Action Centre 밖** | `fc_pickup_check` · `fc_pickup_poll_due` 재발행 · `fc_pickup_attention_list` 바이트 그대로 |
+| 1159 | ⬜ 승인(11-10) | 「Freightcom 취소 인정」 창구 `fc_book_mark_cancelled` — Freightcom 호출 없음 · SO 칸은 856 처럼 예약 때 값과 같을 때만 되돌림 · 발송 selected · response 안 덮음 | `cancel_source`(ims · freightcom) · `cancel_note` |
+| 1160 | ⬜ 승인(11-10) | 상태 · 추적 **자동 읽기**(새 cron 68 · 끝 상태에서 멈춤 · 사람 길 track_poll) | 주기: 처음 먼저 → 3 시간 · out for delivery 1 시간 · 예약 뒤 30 일 멈춤 · 이견 아홉(112-c 6) |
+| 1161 | (정정 · fsale-0 이견 1 · 2) | 바코드 없는 오래된 떨이 물건은 **서비스 목록(`ref_service`)의 `FINAL-SALE` 한 줄**(비용 줄 qty × unit_price) · 가격은 팔 때마다 손으로 · 원가 0 · 매출만 · 남은 장부 가치는 회계사와 한 번에 손실 처리(IMS 밖) · **판정 629(원래 SKU + B급 칸)는 바코드 없는 오래된 물건에 한해 이것으로 바뀜** | 기각: 대화 Claude 의 처음 안 「비재고 상품 칸」 — **판정 590 의 기각 A 를 다시 연 것이라 버림** · deferred M-① 닫기(IMS 비재고 판매 = ref_service 줄) |
+| 1162 | 「좋아 그대로 가자」 | ① 서비스 한 줄 ② counter · POS · service 오더만 · warehouse 막음 ③ 매번 손 단가 · 0 원 막음 ④ 떨이 줄만 있는 counter · POS 도 확정 ⑤ 크레딧은 「Final sale — Issue anyway?」 경고 ⑥ 매출 계정 = 일반 상품 매출(`_98_` Sales Account · 상품 인보이스 줄 6,089/6,089) | fsale-1 · fsale-2 |
+| 1163 | ⬜ 승인(11-10) | 쉽먼트별 **견적 대비 청구** · 추가 요금(이름은 Freightcom 원문) | `fc_charge_check` · 세전 합계 · 오차 100 ¢ |
+| 1164 | ⬜ 승인(11-10) · 한도 「에드몬튼은 리밋이 2000불이야」 | 계정별 남은 한도 · 한도(설정 `fc_credit_limit_TOR` 5000 · `fc_credit_limit_EDM` 2000) · 결제할 인보이스 · 청구 전 합계 | 남은 한도는 Freightcom 값이 정본 · 사용 = 한도 − 남은 한도 |
+| 1165 | ⬜ 승인(11-10) | 결제는 **사람이 Freightcom 사이트에서** · IMS 는 보여 주기만 · 결제 API 안 부름 | Caleb 「수시로 freightcom에 들어가서 결제해야 할 인보이스를 선택하고 등록해놓은 크레딧 카드로 결제하고 있어.」 |
+| 1166 | ⬜ 승인(11-10) | 돈 표는 **처음부터 닫음** | fc_document · fc_document_line · fc_balance |
+| 1167 | — | 보드 = **Integrations › Freightcom** · 상태 문 = sales 보기 ∨ fulfillment 보기 ∨ freight_booking 쓰기 ∨ 돈 문 · **돈 문 = freight_booking ∨ purchasing 쓰기**(purchasing:read 는 돈 못 봄) · 창고 경계 | Caleb(fc-track-0) 「그것은 인테그레이션내에 있으면 좋겠어.」 |
+| 1168 | — | 보드는 **창구로만** · 열린 fc_ 표 7 개 닫음(화면 직접 읽기 0) → **fc_ 표 11 개 모두 닫힘** | deferred 362 · 564 닫힘 |
+
+- 판정 뜻 바뀜: **629** 는 바코드 없는 오래된 물건에 한해 1161 로(B급 칸은 파손 포장품 그대로) · **590 기각 A**(재고 안 세는 서비스 상품 종류)는 그대로 기각 — 1161 은 590 의 서비스 목록 위에 선다
+
+### 112-b 차수 · 커밋 (git log 원문에서)
+
+| 커밋 | 레포 | 차수 | 적용 · 배포 | 확인 |
+|---|---|---|---|---|
+| `363970b` | asung-wms | qbo-hide-1 숨기기 | `20261111003341` | 확인 OK 34 |
+| `2194110` | asung-wms | qbo-list-perf-1 목록 한 쪽에만 · 행마다 한 번 | `20261111010639` | 확인 OK 16 · 옛 · 새 반환 667 경우 다름 0 |
+| `7573009` | asung-wms | qbo-dname-1 Display name 우선 | `20261111013522` | 확인 OK 29 |
+| — | — | fc-track-0 조사(회신만) | — | 112-c 4 · 5 |
+| `586ca9f` | asung-wms | fc-track-1(EF inspect) · fc-track-2(상태 · 추적 · Freightcom 취소 인정) | EF 배포 · `20261111020326` · cron **68** | 확인 OK 40 |
+| `decb0fb` | asung-wms | fsale-1 FINAL-SALE 서비스 줄 | `20261111023718` | 확인 OK 15 |
+| `d3e7e51` | asung-wms | fc-track-3 청구 문서 · 줄 · 잔액 · EF finance_sweep · finance_poll | EF 배포 · `20261111034018` · cron **69** | 확인 OK 33 |
+| `7eb3a52` | asung-wms | po-due-1 `po_invoice_detail` 머리 `due_date_manual` | `20261111041118` | 확인 OK 15 |
+| `06e597c` | asung-wms | fc-track-4 보드 창구 · fc_ 표 닫기 | `20261111042906` | 확인 OK 27 |
+| — | — | nb-0 조사(읽기 전용 · 11-10 23:50 토론토) | — | 112-g |
+
+- 마이그레이션 md5(파일 전체 · 행): `20261111003341` `974b33c1568e30e892cdeefcd5b02500`(144) · `20261111010639` `e8ca9fcd2819ff48b63847ab79c05c58`(92) · `20261111013522` `14932eda640f02acd00ba7020146f5ed`(192) · `20261111020326` `b534a73fa4d854cba257e6879c9cec49`(458) · `20261111023718` `fecca30b457454f472727963bb6126d0`(1363) · `20261111034018` `c5c284ceaa2b2c2b3b7c6cc1e0e55cc7`(497) · `20261111041118` `eefd5b43a7372adf87debd33145b6f1e`(194) · `20261111042906` `2676e4334d09ac645fda1fad73395951`(297)
+- cron **68** `ims-fc-track-poll` `7,22,37,52 * * * *` · 스위치 `fc_track_poll_enabled` on · batch 10 / cron **69** `ims-fc-finance-poll` `43 11,15,19,23 * * *` · 스위치 `fc_finance_poll_enabled` on — 지도는 `supabase/ops/cron.sql`(이 차수는 무접촉)
+- 구현 규칙 전문 = qbo-integration §15-p · freightcom-integration §8-c ~ 8-e · FINAL-SALE 은 112-h
+
+### 112-c 사실 · 실측
+
+1. **qbo-list-perf-1 원인(실측)**: 옆 서브쿼리 `(select qbo_job_doc(…) as doc)` 가 펴져서 d.doc 을 읽는 칸마다 함수가 다시 불렸다(참조 1 번 1,255 ms → 4 번 4,067 ms → `offset 0` 이면 4 번도 1,235 ms) · 고침 = 한 쪽의 행에만 + 행마다 한 번(`offset 0`) · All 9,940 → 114 ms · Sent 11,268 → 89 ms · 찾기(All + 문서 번호 앞 세 글자) 4,380 → 922 ms · 이름 3,427 → 913 ms — 일감 수에 비례(약 1 ms/건 · deferred 566)
+2. **qbo-dname-1 실측**: Display name 빈 활성 손님 **9,867 명**(qbo-dname-1 실측) 옛 ↔ 새 비교 — 몸이 만들어지던 28 명 바이트 그대로 / 고객 Display name 실측(11-10 · 대화): 활성 **9,876** · display_name 채운 10 · 그중 다른 이름 9 · 다르고 QBO 미연결 1(`85822d5a-bd7b-4985-8364-b2bfecebe8c3` · 「Walk-in Customer (Edmonton)」 · display 「Edmonton POS」) — 사람 몫 · ⚠️ 9,876 − 10 = 9,866 ≠ 9,867 — 차이 1 은 **실측 시각 다름(짐작)**
+3. **같은 이름 손님 둘(A 건)**(11-06 · 손 정리 중 · 북키퍼 안내 보냄 11-11): 같은 이름 · 다른 사람(이메일 · 전화 다름) · 새 손님 `2981b4bf…`(11-04 aonebeauty)가 11-06 대화 Claude 권고로 QBO #4556(옛 손님)에 잘못 이어져 인보이스 60247(QBO 172927) · 결제 AO-17358(QBO 172928)이 #4556 으로 갔다 · 대화 Claude 의 「같은 사람」 판단은 **빈 이메일끼리 비교한 잘못** · 정리 = QBO 새 손님(구분 이름) → IMS matching 바로잡기 + Display name → QBO 두 장 옮기기 / **같은 꼴 다른 손님(B 건)** 인보이스 1 장이 같은 꼴로 멈춤(Retry 하면 새 글)
+4. **북키퍼의 이월 환불 16 건**(환불 8 + 환불 붙임 8 · Net Terms): QBO 잔액 확인 뒤 Skip(사유 「already refunded in QuickBooks before IMS」) → 숨기기(1152 의 첫 쓰임)
+5. **fc-track-0 요구**(Caleb 11-10 원문): 「지금 freightcom을 통해 쉽먼트를 북킹한 것들의 리스트 뷰가 없어. 쉽먼트 상태를 한눈에 볼 수 있으면 좋겠어. 쉽먼트들이 픽업됐는지, 인트렌짓중인지, 딜리버리가 되었는지, 추가적으로 발생한 상황은 없는지도 말이야. 경우에 따라 어떤 쉽먼트는 freightcom측에서 추가 비용을 부가하기도 해. 예를 들어 손님은 요청하지 않았는데, 나중에 inside delivery fee가 부가되어 오는 경우도 있어. 그리고 실제로 freightcom의 크레딧 리밋이 있어서 중간중간 결제 해줘야 하기때문에, 북킹된 총 쉽먼트의 비용도 보이면 좋겠어. 가능하다면 말이야. 아무튼 북킹된 쉽먼트의 상태를 볼 수 있는 화면이 섰으면 좋게고, 그것은 인테그레이션내에 있으면 좋겠어.」 · Caleb 사실: 「인보이스는 여러 쉽먼트를 묶어서 오는 걸로 알고 있어.」 · 「수시로 freightcom에 들어가서 결제해야 할 인보이스를 선택하고 등록해놓은 크레딧 카드로 결제하고 있어.」 · 한도 TOR 5,000 · EDM 2,000(「에드몬튼은 리밋이 2000불이야」)
+6. **Freightcom 스펙 · 실물**(전문 = freightcom-integration §8-c): 스펙 OpenAPI 2.11.0(md5 `afdb4a5dd8f843ba4339eaec62e42bb4`) · state enum 일곱 · 웹훅 없음 · rate limit 글 없음 · 돈은 최소 단위 문자열 / 스펙 밖 실물(11-10 inspect): `waiting-for-scheduling`(booked 53 중 11) · `bolnumber` · 청구 줄마다 `shipment_id` · 「Out For Delivery」 · 지연은 in-transit + message · when 나노초 9 자리 · message 끝 공백 · `invoices-for-*` 빈 배열 · 청구 문서는 예약하는 순간 생긴다 · fc-track-2 이견 아홉 받음(cancel_source · cancel_note · track_done_at · at not null · message btrim · fc_track_gate · track.ts · 90 s 상한 · fc_state_kind 한 곳 · 추적번호 · SO 칸 무변 · 칸 이름 place) · 첫 자동 회차(03:07 UTC 11-11) read 10 · changed 10 · failed 0
+7. **fc-track-3 실물**(11-11 04:07 UTC): **billed 53 · cancelled_billed 2 · extra 0** · TOR 남은 756.78(사용 4,243.22) · **EDM 남은 82.90(사용 1,917.10)** · unbilled 늘 0 · cancelled_billed = TOR **49195614**(SO-20945 · 33.83 · IMS 취소 11-05) · TOR **49250480**(SO-21106 · 256.75 · 취소 11-06 · 같은 발송을 49253023 으로 다시 예약 · 둘 다 청구) → Caleb 이 Freightcom 에 문의(other-charge-1 뜻도 · deferred 573)
+8. **fc-track-4**: 「묶음에 안 묶인 합」 은 사용액과 안 맞아(TOR 59 % · EDM 20 %) 넣지 않음 · 「다음 결제로 풀릴 금액」 은 넣지 않음(Caleb · deferred 569)
+9. **po-due-1**(deferred 555 닫힘): `po_invoice_detail` 머리에 `due_date_manual` 한 줄 · 목록 뷰 `early_discount_until` 은 **이미 있었다**(`20261009011457_po_disc_4a1.sql` 부터 · §111-d 의 「목록 뷰에 없다(짐작)」 는 틀렸음 — 정정) · 실물: 2223170 = false(12-09 = 11-09 + 2%10 Net30 의 30 일 — 대화 Claude 지시서의 「true」 는 틀린 짐작 · 교훈 172) · 484908, 484909 = true(C.O.D · 11-17) · 화면 확인(Caleb): 「· from the payment term」 · 「· set by hand」
+10. **Action Centre 「Pickups not scheduled」**(11-10): Purolator SO-21022/21094(1474f64f · TOR · FC 취소 · SO tracking 은 IMS 밖 번호 520864056723) · UPS SO-21245/21249(EDM · 픽업 거절 「closing time less than minimum window」) → fc-track-2 의 1158 · 1159 로 풀림
+11. **오늘 아침 화면 차수**(DB 무변 · 112-d): rc v2.2(에드먼턴 트랜스퍼 바코드) · fam v6(패밀리 이름 고치기)
+
+### 112-d 화면 (asung-ims · 대화 Claude 가 씀 · 커밋 Caleb)
+
+| 커밋 | 파일 · 판 | 내용 |
+|---|---|---|
+| `60274e1` | wms-receiver.html(받는 화면) · rc v2.2 | 바코드 지도를 100 개 묶음 질문으로 — 큰 트랜스퍼(RCV-00124 · 324 줄)에서 주소 길이 한도로 「Barcode lookup failed: Bad Request」 · 스캔 전부 안 됨(콘솔 실측 300 OK · 324 400) · 바코드 1,000 행 캡도 함께 피함 · DB 무변 · 같은 꼴 점검은 deferred 579 |
+| `35dd5e9` | families.html · fam v6 | 패밀리 머리 고치기 — 상세 머리 Edit family…(master) · 이름 · 브랜드 · 카테고리 · 단위 · 옵션 이름(이름만) · 메모 · Active · `product_update` family_head_set · 바뀐 칸만 · 검사 → 경고 확인 → 저장 · DB 무변(판정 210 뒤 일) |
+| `2a36a7d` | qbo-send.html · qs v4 hide | 상태 「Hidden — skipped and put away」 · Skipped 보기 체크 → Hide selected · Hidden 보기 → Unhide selected · 줄마다 Hide / Unhide · 숫자 줄 hidden · Show hidden (n) 늘 · 숨긴 줄에 누가 언제(1152) |
+| `f10887b` | customers.html · cs v8d | Display name 칸 아래 「Also used as this customer's name in QuickBooks, so customers may see it …」(1153) |
+| `af9c53d` | so.html · so fct v1 · wms-fulfillment.html · fu v1.11 | 예약 칸 배송 상태 한 줄(🚚 · ✓ Delivered · 예외 노랑) · Check status(track_poll) · 「Cancelled on Freightcom」 띠 · Mark cancelled in IMS · SO 상세 Carrier 아래 한 줄(출고된 오더 포함)(1158 ~ 1160) |
+| `a8a2fd2` | pos.html · so.html · so-credits.html — fsale-2 | pos fs v1(Final sale… 단추 · 무엇 · 수량 · 단가 · 떨이 표 ✎ ✕ · 떨이만 Confirm) · so fs v1(counter 초안 Final sale item · Add a service 매번-단가 빈칸) · cr v7a(크레딧 경고 FINAL SALE item 글)(1161 · 1162) · ⚠️ 📌 은 fsale-1 화면으로 불렀으나 커밋 이름은 **fsale-2**(git log 대로) |
+| `6e4690c` | freightcom.html · fcb v1 · ims-auth.js · nav v19 | 보드(Integrations › Freightcom) — 계정 칸(남은 한도 · 사용 막대 · 결제할 인보이스) · 탭 All · On the way · Needs a look · Delivered · Cancelled · 목록 · 상세(추적 이벤트 · 견적 대비 청구 · Check status · Mark cancelled in IMS) · 메뉴 열쇠 null(창구가 거부)(1167 · 1168) |
+
+- ⚠️ invoices.html 의 초록 띠가 위 줄 「from the payment term」 아랫부분을 살짝 덮음(화면 · 작음 · deferred 574)
+
+### 112-d′ 열린 것 · 닫은 것 · 다음
+
+- **닫힘**: deferred **555**(po-due-1 `7eb3a52`) · **561**(qbo-list-perf-1 `2194110`) · **562**(묶음 인보이스 쪼개기 — 줄의 shipment_id 로 풀림 · fc-track-3) · **563**(한도 설정 — inv_config `fc_credit_limit_TOR` · `_EDM`) · **564** · **362**(fc-track-4 `06e597c` · fc_ 표 11 개 닫힘) · **M-①**(IMS 비재고 판매 = ref_service 줄 · 1161)
+- **새로 적음**(대화에서 번호만 매기고 deferred.md 에 없던 것 · docs-1111a 이견 1 · 2 · 3): 561 ~ 569 — 561 · 562 · 563 · 564 닫힘 · 565 열림(IMS 밖 손 예약) · 566 qbo_job_doc 통째 훑기 · 567 목록 정렬 동률 · 568 po_invoice_detail 읽기 문 · 569 모든 shipment-order-details 줄 읽기(565 를 가리킴)
+- **새** 570 ~ 579(미정): 570 Vendor 6240 안내 · 571 unknown 이름 조회 동명(짐작) · 572 track 굶음 · 573 IMS 취소가 청구를 안 지움(짐작) · 574 invoices 초록 띠 · 575 AS91437-BLK · 576 `ims_ledger_unlinked` 1 → 15 · 577 비용 표 빈 글 · 578 master REST ref_service · 579 WMS 화면 `.in(...)` 점검
+- **잇기**: **526**(nb-0 사실 · 유령 원가 · 1113(나) 조건 참 · 112-g — 새 줄 없이) · **527**(EZB70340 짝이 아직 · 112-g) · **368**(매뉴얼 Freightcom — 보드 · 배송 상태는 이 차수에 들어감 · 예약 장은 아직 · **부분**) · 475(취소 응답 덮기 — fc_booking_rate 가 고른 견적 줄로 비켜 감)
+- **다음**: nb-1 ~ nb-5(새 대화 · 112-g 제안) · 같은 이름 A 건 손 정리 · B 건 Retry · 49195614 · 49250480 Freightcom 답(573) · QBO Item 8794 짝(북키퍼 · 첫 떨이 판매 전)
+
+### 112-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (111-e 에 이어 168 부터 · asung-workflow 147 ~ 155 와 같은 것)
+
+168. [Claude Code · qbo-list-perf-1](workflow 147) 옆 서브쿼리 `(select f(…) as x)` 는 펴져서 x 를 읽는 칸마다 f 가 다시 돈다(참조 1 번 1,255 ms → 4 번 4,067 ms) ⇒ `offset 0` 으로 막는다(4 번도 1,235 ms) · 무거운 함수는 한 쪽의 행에만
+169. [대화 Claude](workflow 148) 콘솔 도우미 `fc` 는 마지막 결과 하나만 `fcOut` 에 담는다 ⇒ 여러 번 부를 땐 「부르기 → copy → 붙이기」 를 하나씩
+170. [대화 Claude](workflow 149) psql 결과가 길면 보기 창(END)이 열려 다음 표가 사라진다 ⇒ `-X -P pager=off`
+171. [대화 Claude](workflow 150) 확인 갈래의 요약 줄을 `grep -E 'OK [0-9]+|…' | tail -n` 으로 자르면 잘린다 ⇒ `grep -nE '^OK [0-9]+|FAIL'`(127 · 131 의 재발)
+172. [대화 Claude · 짐작](workflow 151) 지시서에 「실물 값」 을 짐작으로 적었다(2223170 = true · 실제 false) ⇒ 실측하지 않은 값은 「짐작」 으로 적거나 비워라
+173. [대화 Claude · 짐작](workflow 152) 「예약 뒤 청구 전 합계」 를 설계했지만 Freightcom 은 예약 순간 청구 문서를 만든다(unbilled 늘 0) ⇒ 스펙 밖 꼴은 실물 한 번을 먼저 본다
+174. [Claude Code 의 회신](workflow 153) 「아직 미적용」 같은 상태 진술은 회신을 쓴 때의 것이다(fsale-1 회신의 「fc-track-2 미적용」 은 이미 적용된 뒤였다) ⇒ 적용 전 DB 마지막 번호를 다시 보라
+175. [대화 Claude](workflow 154) 재고 없이 판 뒤 + 조정의 단가 칸 권고 — nb-1 이 서기 전에는 「유령 가치가 생긴다」 를 먼저 말하라(112-g)
+176. [대화 Claude · 11-06](workflow 155) 같은 이름 손님을 빈 이메일끼리 비교해 같은 사람으로 봤다(112-c 3) ⇒ 이메일 · 전화 · 주소가 실제로 같을 때만 · 빈 칸끼리는 「같음」 이 아니다
+
+### 112-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §111 끝 「다음 판정 번호 1152 · 다음 deferred 번호 561」 → 아래(561 ~ 569 는 대화가 매긴 번호 · 이 절이 deferred.md 에 적음)
+- §111-d ⚠️ 「목록 뷰에 `early_discount_until` 이 없다(짐작)」 → 틀렸음(112-c 9) · §111-d′ 555 → 닫힘
+- §20 판정 7(「재고 없이 나갔다」) · 판정 1113 (나) → 112-g
+- §69 판정 590 · §71 판정 629 → 1161(바코드 없는 오래된 떨이)
+- qbo-integration 머리 상태 → §15-p · freightcom-integration 머리 상태 · §2 · §3 · §11 → §8-c ~ 8-e · po-module 555 줄 → 112-c 9 · ledger-design 「기준선 sku 1」 → deferred 576
+
+### 112-g 칸 없음 · 유령 원가 — nb-0 조사(읽기 전용) · deferred 526 · 527 잇기 · ⚠️ 판정 아님
+
+1. **계기**(Caleb 11-10 밤): Action Centre 「Sold without stock」 SO-21211(ORS21020 · EDM · short 1) · SO-21090(EZB70340 · EDM · pos · checked 직원 11-09 「STOCK TAKE 1」) · 「두 제품 모두 해당 브랜치에 더이상 재고가 없는 것으로 확인됐어.」 · ORS21020 은 ADJ-00134(11-10 · Set this bin to 0 · 단가 5.564 넣음)로 고침 · EZB70340 은 EA010404 +1 · (no bin) −1 · 조정 화면이 칸 없음을 못 골라(「Pick a bin.」) 그대로 둠 · Caleb 「이부분은 정리가 필요해 보여. 그리고 빈없이 판매가 되는 구멍도 막아야 하지 않을까?」 · 「mark checked 할때 바로 정리되는게 가장 깔끔해 보여.」
+2. **nb-0 사실**(11-10 23:50 토론토 · 읽기 전용): 지점 칸 없음 ≠ 0 은 **EDM EZB70340 −1 하나** · 칸 없이 나간 판매는 컷오버 뒤 **SO-21090 1 줄** · 재고 없이 팔면 보통 **첫 후보 칸이 음수**(§20 판정 1 · so_pick_plan) · 칸 없음이 생기는 건 ⓐ 그 창고에 그 SKU 의 활성 칸 행이 없을 때 ⓑ counter 화면 bin 칸을 비울 때 · 후보 칸 없는 활성 낱개 제품 EDM 1,893 · TOR 784(짐작 상한) · `inv_adjust_line_set` 이 칸 없음을 **DB 에서** 거부 · `inv_adjust_line.bin_id · bin` NOT NULL · Mark checked(`so_stock_short_confirm`)는 기록만 · 권한: Mark checked = manager + sales ∨ receiving / 조정 = stock_adjust + 그 창고
+3. **유령 원가(사실)**: 재고 없이 판 뒤 + 조정 = 수량 0 인데 가치 — `inv_layer_post_sale` 이 sale_shortfall 레이어를 세우고 그 자리에서 소진 → `inv_layer_post_adjust` 가 + 조정마다 새 레이어(adjust_new · layer_avg · unknown 0)를 무조건 세운다 · 실물 **EZB70340 EDM $5.26**(3975371 adjust_new 1 @5.264) · **ORS21020 EDM $5.56**(ADJ-00134 adjust_new 1 @5.564) — 합 $10.82 · 이 둘뿐 · 대화 Claude 가 ORS21020 조정에 「최근 원가를 넣으라」 고 권했다(비웠어도 0 원 유령 수량이 남았을 것 — 장치의 빈틈 · 교훈 175)
+4. **nb-0 이견 받음**: 이 일은 **deferred 526(열림 · 11-08)과 527** 의 몫 — 새 deferred 를 만들지 않고 526 을 이어 쓴다 · 판정 1113(나) 「조정 화면이 칸 없음 줄을 고르게」 의 「되풀이되면 그때」 조건이 찼다 · IN_TRANSIT 칸 없음 776 행(음수 241 · 합 −2,189)은 범위 밖(가상 창고 · 음수는 따로 볼 거리 · 짐작)
+5. **제안**(대화 Claude 권고 · ⚠️ 판정 아님 — Caleb 이 새 대화에서 정한다): nb-1 원가 메우기 규칙(모든 조정) → nb-2 확인 칸(막기) → nb-3 Count & check 창구 → nb-4 화면 → nb-5 지금 쌓인 두 건 정리 + QBO 원가 장 확인 · Count & check 권한 안 = stock_adjust + 그 창고 + manager
+
+### 112-h FINAL SALE 떨이 — fsale-0 · 1 · 2 (판정 1161 · 1162 · deferred M-① 닫힘)
+
+**요구**(Caleb 11-10 원문): 「아주 옛날에 들여와서 거의 버려야할 정도의 제품들이 있어. 이것들을 cin7에서는 가격대별로 sku를 만들어서 떨이로 판매했었는데, ims에서는 어떻게 하는게 좋을까? 물건값을 싸게 파니까 여전히 손님들이 사고 있어.」 → 「cin7에는 zzz로 시작하는 sku 코드를 운영했었어 … 이 제품들은 바코드도 없어 … 없애는 제품들을 위해 그만한 시간과 노력을 들일 필요가 있나 싶어」 → 「cin7에서는 final sale non inventory item하나만 만들어놓고, 가격은 그때그때 넣어서 팔았다고 해. 가격은 뭐 대동소이해서 굳이 구별할 필요가 없었다고 해」(옛 원천의 줄: `FINAL-SALE	FINAL SALE ITEM - No Return or Exchange	Other		Non Inventory`)
+
+| | |
+|---|---|
+| 칸 | `ref_service.final_sale` · `price_each_time` |
+| 가드 | `so_charge_set`(채널 counter · POS · service 만 · 손 단가 · 0 원 거부 · 할인 거부 · 서비스 바꾸기 거부) · `so_confirm_precheck`(떨이만 = 상품 줄 0 + final_sale 줄 ≥ 1 일 때만 확정 허용) |
+| POS | `so_pos_complete` 상품 줄 0 갈래 — 픽 · so_ship · 원장 없이 shipped → 발행 |
+| 크레딧 | `so_credit_issue` · `so_credit_prepare` 경고 `final_sale:<이름>` → 화면 「Final sale — … Issue anyway?」 |
+| 읽기 | `mcp_sales` other.final_sale · `so_detail.charges[]` final_sale · price_each_time |
+| QBO | Item **8794** 「FINAL SALE ITEM - No Return or Exchange」 active — 짝은 사람이 matching 에서(첫 판매 전 · 북키퍼에 부탁함) |
+| 화면 | pos fs v1 · so fs v1 · cr v7a(asung-ims `a8a2fd2` · fsale-2) · Caleb 「final sale은 잘 작동해」 |
+| 남은 것 | 575 AS91437-BLK `cin7_type` Non Inventory · 576 unlinked 1 → 15 · 577 final_invoice 판 비용 표 빈 글 · 표 제목 · 578 master REST |
+
+```
+다음 판정 번호: 1169 · 다음 deferred 번호: 580
 ```

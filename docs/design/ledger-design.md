@@ -3586,6 +3586,7 @@ source  cin7 27,324 · manual 1,579 · **wms 0**(CHECK 에는 있지만 쓴 적�
   ① **별칭 표** — SKU 를 고칠 때 옛 이름을 남긴다. ⬜ **아직 안 만들었다**(실제로 고칠 일이 생길 때).
   ② ⭐ **점검** — 뷰 `ims_ledger_unlinked`(kind = `sku`·`warehouse`·`bin` · 칸 warehouse · name · balance_rows · qty_sum · last_seen_on)가 매일 센다.
      ⭐ **기준선 sku 1(`FINAL-SALE`) · warehouse 0 · bin 0.** 이 숫자가 늘면 누가 이름을 고친 것이다.
+     → [2026-11-11 · so-module §112-h · deferred 576] 지금 **sku 15**(FINAL-SALE + LAC79351 ~ 79364 · 10-15 · qty 0) — 원인을 아직 안 봤으니 기준선 값은 그대로 둔다 · FINAL-SALE 은 판정 1161 로 서비스 목록(`ref_service`)의 한 줄이 됐다(원장 이름과 무관)
      아침 점검 한 줄: `select kind, count(*) from ims_ledger_unlinked group by 1 order by 1;` → 기대 `sku 1` 한 줄만.
      (bin 축은 창고가 이어진 행만 · `''` 제외 · 창고가 안 이어진 것은 warehouse 로 이미 셌다 — 두 번 세지 않는다)
 

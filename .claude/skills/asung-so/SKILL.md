@@ -540,6 +540,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ## 4-t. ⭐⭐ 서비스 오더 — 모르면 사고 (정본 so-module §69 · 6-b · 판정 590 · 593 ~ 597)
 
+⭐⭐ [2026-11-11 · fsale-1 `decb0fb` · 판정 1161 · 1162 · so-module §112-h] **FINAL SALE 떨이 = 서비스 줄 `FINAL-SALE`** — 바코드 없는 오래된 물건 · 원가 0 · 매출만(`_98_` Sales Account) · ref_service.final_sale · price_each_time · counter · POS · service 오더만(warehouse 거부) · 매번 손 단가(0 원 · 할인 · 서비스 바꾸기 거부) · 떨이 줄만 있는 counter · POS 도 확정(`so_confirm_precheck`) · `so_pos_complete` 상품 줄 0 갈래(픽 · so_ship · 원장 없이) · 크레딧은 경고 `final_sale:<이름>`(막지 않음) · QBO Item 8794 짝은 사람이
+⚠️⚠️ **비재고 상품 칸을 만들지 마라** — 590 기각 A · 1161 이 다시 닫음(deferred M-① 닫힘) · 629(B급 칸)는 파손 포장품 그대로
 ```
 ⭐⭐ 서비스 오더 = channel service(so_channel_ck 넷째) · 상품 줄 없이 비용 줄(so_charge 수량 × 단가)만 · WMS 없음 · 같은 SO 번호 줄 · intake manual · 창고(브랜치) = 손님 기본(594)
 ⭐⭐ 서비스 목록 ref_service(이름 · 단가 · 매출 계정 기본 _153_ · 세금 칸 없음 — 세금 = 오더 세율 · 593) · 쓰기 = master(정책) · 줄은 so_charge_set(p_qty, p_unit_price, p_service_id) — 목록 단가와 다르면 price_set_by(596) · amount = round(qty × 단가)(짝 CHECK · 금액으로 못 고친다)
@@ -614,6 +616,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ## 4-x. ⭐⭐ Freightcom 견적 · 예약(Ship & invoice Freight) — 모르면 사고 (2026-10-28 · 정본 docs/design/freightcom-integration.md · so-module §84 · §85 · 판정 835 ~ 862)
 
+⭐⭐ [2026-11-11 · fc-track-1 ~ 4 · 판정 1154 ~ 1168 · freightcom-integration §8-c ~ 8-e] **예약 뒤** — 상태 · 추적 자동 읽기(cron 68 · 끝 상태에서 멈춤 · 사람 길 Check status = track_poll) · Freightcom 에서 취소된 예약은 픽업 경고 밖 + 「Mark cancelled in IMS」(`fc_book_mark_cancelled` · 호출 없음 · 1159) · 청구 · 남은 한도(cron 69 · 결제는 사람이 Freightcom 사이트에서 · 1165) · 보드 Integrations › Freightcom(`fc_board` · `fc_board_detail` · 돈 문 = freight_booking ∨ purchasing 쓰기)
+⚠️⚠️ **fc_ 표 11 개 모두 닫힘**(1166 · 1168) — 화면은 창구로만 읽는다 · 새 fc_ 표도 처음부터 닫는다 · state 뜻은 `fc_state_kind` 한 곳 · 청구 문서는 예약 순간 생긴다 · `invoices-for-*` 는 빈 배열(쓰지 마라)
 ```
 ⭐⭐ 엔진 하나 · 입구 둘(835) — 창고 WMS Finalize 작업대(기본) · 오피스 Ship & invoice 창(창고가 못 했거나 견적이 틀렸을 때) · 같은 DB 창구 + EF freightcom · 한 발송에 살아 있는 예약은 하나
 ⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) → [2026-10-29 · 617 확인 · so-module §87-d] 이 프로젝트가 11-01 부터 그대로 운영이고 db_role 은 그 뒤에도 'test' — 가드는 운영을 가르지 않는다 · **운영 시작 = 비밀값을 운영 토큰 · BASE_URL 로 바꾸는 날**(freightcom-integration 머리) · 운영 예약은 실제 청구(Net Terms) → ⭐ [2026-11-03 · so-module §99-c 8] **토론토는 운영**(BASE_URL 운영 · TOR 운영 토큰 · 실제 청구 · 시험 때 예약을 IMS 에서 Cancel 하지 말 것) · **에드먼턴은 키 지움**(운영 토큰 대기 · Freightcom 사이트에서 손 예약 · deferred 462)

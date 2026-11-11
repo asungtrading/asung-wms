@@ -911,6 +911,7 @@ cron·트리거가 없어 **아무것도 자동으로 돌지 않는다**(실측:
 select kind, count(*) from ims_ledger_unlinked group by 1 order by 1;
 ```
 ⭐ **기준선(2026-09-19): `sku 1` 한 줄만**(`FINAL-SALE` — 제품이 아니라 판매 표식 · 2행 · 순액 0). warehouse 0 · bin 0 은 행이 안 나온다.
+  → [2026-11-11 · so-module §112-h · deferred 576] 지금 **sku 15**(FINAL-SALE + LAC79351 ~ 79364 · 10-15 · qty 0) — 원인 안 봄 · 기준선 값은 그대로(화살표만) · FINAL-SALE 은 판정 1161 로 서비스 목록의 줄이 됐다(원장 이름과 무관)
 · 늘면 **누가 이름을 고친 것**이다(SKU 의 공백·자릿수 수정은 실제로 있었다 · Caleb) →
   `select * from ims_ledger_unlinked order by kind, warehouse, name;` 로 이름을 보고 마스터를 되돌리거나 별칭 표(⬜ 미구현)로 잇는다.
 · ⚠️ bin 은 `(warehouse_id, name)` 으로 잇는다 — 이름이 같아도 창고가 다르면 끊긴 것이다.
@@ -984,6 +985,7 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
    매니저의 「확인함」만 `so_stock_short_check` 에 따로 앉는다 — ⚠️⚠️ **열쇠는 레이어 id 가 아니라 `(doc_number, sku, warehouse)`**(재생성이 id 를 바꾼다 · 실측 494928 → 504446 뒤에도 확인 기록이 같은 줄에 붙어 있었다) · 확인 권한 = manager 이상 + (sales ∨ receiving) 열쇠 · 되돌리기 없음(메모로 고친다).
 ⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠가 **둘 다** 있는 로그인으로** — 안쪽 원가 창구(inv_layer_post_receipt · inv_layer_post_charge)가 둘을 요구해 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 검증 2회차).  → ⭐ [2026-09-26] receipt 레이어의 문이 빠졌다(판정 31) · inv_layer_apply · inv_layer_seed_baseline 은 authenticated 회수 — psql(소유자)로만
 ⬜ **원가 모르는(`unknown`) 판매 부족분의 원가를 나중에 어떻게 채우나** — 재고 사건 차수의 판정 거리 · 첫 실물 SO-25000 ORS10999 12(테스트 DB · 화면 시험) · Manager List(asung-ims `manager-list.html`)의 Sold without stock 탭이 「cost unknown」으로 보인다(so-module.md §23).
+⚠️⚠️ [2026-11-11 · nb-0 · so-module §112-g · deferred 526] **유령 원가** — 재고 없이 판 뒤(sale_shortfall 이 세우고 바로 소진) **+ 조정**을 하면 `inv_layer_post_adjust` 가 + 조정마다 새 레이어(adjust_new · layer_avg · unknown 0)를 무조건 세운다 ⇒ 수량 0 인데 가치 · 실물 EZB70340 EDM $5.26 · ORS21020 EDM $5.56(합 $10.82 · 이 둘뿐) · 단가를 비워도 0 원 유령 수량이 남는다 · 고침은 nb-1(원가 메우기 규칙 · 제안 · Caleb 이 정함) — 그 전에 + 조정 단가를 권하지 마라
 📌 ⑰(`skipped_by_event`)은 무변 — `sale_out` 은 여전히 세지 않는다 · ⑥(원가 누락)은 Cin7 축이라 무관.
 
 ### 📌 어긋남의 원인을 모를 때

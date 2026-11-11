@@ -7,6 +7,7 @@
 ⚠️ 예약은 운영에서 **실제 청구**(Net Terms) — 운영 토큰을 받기 전까지 실호출은 테스트 환경만 → [2026-11-03] 토론토는 운영 토큰이라 **IMS 의 토론토 예약 = 실제 청구** · 시험 때 예약을 IMS 에서 Cancel 하지 말 것 · ~~에드먼턴은 키 없음(손 예약)~~ → [2026-11-05] 에드먼턴도 운영 토큰(462 닫힘) — **IMS 의 에드먼턴 예약 = 실제 청구**
 ⚠️ [2026-11-04 · so-module §100-c 7 · **deferred 464**] **토론토 예약에 픽업이 안 잡힌 실물** — SO-20846(Purolator · regular_pickup f · 요청 날짜 · 시각을 보냄) → Freightcom state `waiting-for-scheduling` · pickup_confirmation 빈칸 · 직원이 사이트에서 손 요청 · 단서 = fc-2b 주석 「pickup_details 날짜 · 시각 꼴은 짐작」(실호출로 확인한 것은 pre_scheduled 꼴뿐) · 조사 fc-pickup-0 안 씀 · 그때까지 토론토 Book 뒤 Freightcom 사이트에서 픽업 확인 · 없으면 손 요청
 ⭐ [2026-11-05 ~ 06 · so-module §101 · **deferred 464 닫힘** · 462 닫힘] **픽업이 잡히게** — 원인은 **H2(픽업 몸에 연락처 없음)**: 11-06 비정기 상자 9 건 schedule error(UPS 「Missing or invalid ContactName」 7 · Purolator 「Sender Name is a mandatory field」 2) → fc-pickup-3 이 contact_name · contact_phone_number 를 싣는다(1049) · 예약 뒤 IMS 가 픽업 상태를 **다시 읽고**(fc-pickup-1) **5 분마다 스스로 읽는다**(fc-pickup-2 · cron 64 · 1041) · 출고 뒤에도 Action Centre 「Pickups not scheduled」(fc-pickup-4 · 1050) · reference_codes · 주말 → 월요일(1040 · 1048) — 아래 §7 · §8-b · ⚠️ 「fc-2b 꼴 짐작」 단서는 **낡았다**(FedEx · Canpar 가 같은 꼴을 받는다) · **에드먼턴 운영 토큰** `FREIGHTCOM_API_KEY_EDM` 넣음(11-05 · Caleb · `ref_warehouse.freightcom_account` TOR · EDM) ⇒ 에드먼턴 예약도 IMS 에서 = 실제 청구
+⭐ [2026-11-11 · so-module §112 · 판정 1154 ~ 1168] **예약 뒤를 IMS 가 본다** — 상태 · 추적을 스스로 읽고(cron 68 `ims-fc-track-poll` · 1160) · Freightcom 에서 취소된 예약을 알아보고 인정하고(1158 · 1159) · 청구 문서 · 남은 한도를 읽고(cron 69 `ims-fc-finance-poll` · 1163 ~ 1166 · 결제는 사람이 Freightcom 사이트에서) · 보드 **Integrations › Freightcom**(fcb v1 · 1167) · **fc_ 표 11 개 모두 닫힘 — 화면은 창구로만**(1168 · deferred 362 · 564 닫힘) · §8-c ~ 8-e
 
 ---
 
@@ -35,12 +36,18 @@
 | `ref_carrier_fc_name` | 운송사 한 줄의 Freightcom 이름 여럿(847 · name_norm 유니크) | K |
 | `ref_carrier_pickup` | 운송사 × 창고 정기 픽업 · 마감(852) | K |
 | `customer_carrier_avoid` | 손님마다 피할 운송사(843) | K |
+| `fc_track_event` | 추적 이벤트(상태 · 이벤트뿐 — 주소 · 돈 없음 · at not null · 유니크(booking_id, at, type, md5(message)) · message = btrim 값 · 원문 raw · 칸 이름 `place`) — fc-track-2 · 처음부터 닫음 | D |
+| `fc_document` | Freightcom 청구 문서 머리(열쇠 = Freightcom document id · raw 없음 · payments 는 [{type, amount_cents}] 만) — fc-track-3 · 처음부터 닫음(1166) | D |
+| `fc_document_line` | 청구 문서 줄(PK document_id + line_id · 줄의 shipment_id = fc_booking.freightcom_shipment_id) — 1166 | D |
+| `fc_balance` | 계정 잔액 이력(90 일) — 1166 | D |
 
 칸: `ref_warehouse` + phone · email · contact_name(출발지) · `freightcom_account`(848) · `timezone`(857) · `closes_at`(852) · `customer_address` + residential · tailgate_required · threshold_delivery(839 · 840) · `inv_config.fc_markup_pct` = 5(836)
+칸 [2026-11-11 · fc-track-2] `fc_booking` + state_checked_at · delivered_at · track_last · track_done_at(끝 상태 + 이벤트 함께 저장 때만) · cancel_source(ims | freightcom) · cancel_note(500 자) · `inv_config` + fc_track_poll_enabled · fc_track_poll_batch(10) · fc_finance_poll_enabled · fc_finance_doc_batch(25) · fc_credit_limit_TOR(5000) · fc_credit_limit_EDM(2000) · ⚠️ [2026-11-11 · 1168] **표 11 개 모두 닫힘**(RLS 정책 0 · anon · authenticated 권한 0 · service_role 은 그대로)
 
 상태:
 - 발송 `draft → quoted → selected → booked` · `cancelled`(다른 SO 묶음으로 갈아 끼울 때 superseded_by) · 예약 취소 = `booked → selected`(856)
 - 예약 시도 `pending → booked | failed` · `booked → cancelled` · 10 분 넘은 pending 은 다음 prepare 가 failed 로 비켜 둔다(abandoned)
+- [2026-11-11 · fc-track-2] Freightcom 쪽 상태 = `fc_booking.state`(lower 원문 · CHECK 없음) · 뜻은 `fc_state_kind(state)` 한 곳 → cancelled | delivered | open · Freightcom 에서 취소된 예약 = `booked` 그대로 + fc_state_kind cancelled → 사람이 「Mark cancelled in IMS」(1159) → `booked → cancelled` · 발송 selected · cancel_source freightcom
 - unique_id = 발송 id · 2 차부터 `<발송 id>-<attempt>`(같은 시도를 두 번 보내도 Freightcom 이 하나만 세운다)
 
 ## 3. 창구 — DB 가 검사 · 기록 · EF 는 나른다
@@ -60,9 +67,15 @@
 | `fc_book_cancel_prepare` · `fc_book_cancel_save` | freight_booking · EF | 856 · 855 되돌림 |
 | `fc_label_add` · `fc_label_get` | EF · 읽기 | 858 |
 | `fc_booking_for_shipment` | 읽기 | 현재 시도 · 이력 · 라벨 행 · can_book |
+| `fc_track_due` · `fc_track_save` | EF(service_role) | [2026-11-11 · 1160] 읽을 예약(한 곳) · 상태 · 이벤트 저장(§8-c) |
+| `fc_track_gate` | sales ∨ fulfillment ∨ freight_booking(쓰기) + 그 창고 | 사람 길 track_poll 의 문(Check status) |
+| `fc_book_mark_cancelled` | freight_booking + 그 창고(`fc_book_gate`) | [1159] Freightcom 취소 인정 — 호출 없음 |
+| `fc_finance_docs_save` · `fc_finance_lines_save` · `fc_finance_balance_save` · `fc_finance_lines_due` | EF(service_role) | [1163 ~ 1166] 청구 문서 · 줄 · 잔액(§8-d) |
+| `fc_finance_gate` | freight_booking ∨ purchasing + 그 계정을 쓰는 창고 | 사람 길 finance_poll 의 문 |
+| `fc_board` · `fc_board_detail` | 상태 문 · 돈 문(1167) | [1168] 보드 — 화면이 fc_ 를 읽는 유일한 길(§8-e) |
 
-속 함수: `fc_gate`(견적 문) · `fc_book_gate`(예약 문) · `fc_hm` · `fc_ymd` · `fc_cutoff_parse` · `fc_past_cutoff` · `fc_cutoff_eval`
-마이그레이션: `20261028162209` fc-1a ~ `20261028233000` fc-2b2(아홉) · EF `supabase/functions/freightcom/index.ts` + `../_shared/freightcom.ts`
+속 함수: `fc_gate`(견적 문) · `fc_book_gate`(예약 문) · `fc_hm` · `fc_ymd` · `fc_cutoff_parse` · `fc_past_cutoff` · `fc_cutoff_eval` · [2026-11-11] `fc_state_kind` · `fc_ts`(나노초 → 마이크로초) · `fc_booking_rate`(견적 정본 = 예약 응답 rate · 없으면 고른 견적 줄) · `fc_charge_check` · `fc_finance_account_summary` · `fc_doc_cents`
+마이그레이션: `20261028162209` fc-1a ~ `20261028233000` fc-2b2(아홉) · EF `supabase/functions/freightcom/index.ts` + `../_shared/freightcom.ts` · [2026-11-11] `20261111020326` fc-track-2 · `20261111034018` fc-track-3 · `20261111042906` fc-track-4 · EF 새 파일 track.ts(inspect 꼴) · inspect · finance(fc-track-1 · 3)
 
 ## 4. 문(권한) — 853 · 854 · 859
 
@@ -71,6 +84,7 @@
 - `freight_booking` 은 Staff 화면 두 방(WMS · IMS) 모두에(859 · `ims_perm_catalog` 의 `rooms ["wms","ims"]` · staff.html st v3b 가 둘 중 하나만 체크해도 남긴다)
 - `freight_booking` 의 read 는 아무것도 주지 않는다(EF · DB 문은 write 만 본다) — deferred 366
 - 운송사 × 창고 픽업 표는 화면에서 **Settings 에만**(Carrier pickups · master · 860) — DB 창구는 fulfillment + 그 창고도 받는다
+- [2026-11-11 · 1154 · 1167] inspect = admin 만 · 보드 상태 문 = sales 보기 ∨ fulfillment 보기 ∨ freight_booking 쓰기 ∨ 돈 문 · **돈 문 = freight_booking ∨ purchasing 쓰기**(purchasing:read 는 돈 못 봄) · Check status = sales ∨ fulfillment ∨ freight_booking(쓰기) + 그 창고 · Mark cancelled = freight_booking + 그 창고(§8-c ~ 8-e)
 
 ## 5. 견적 규칙
 
@@ -136,13 +150,51 @@
 - ⚠️ `fc_book_cancel_save` 가 예약 응답(response)을 취소 응답으로 덮는다 — 그대로(deferred 475)
 - ⚠️ 11-05 의 「10 건 done」 으로 fc-pickup-1 · 2 가 「원인 H1(Freightcom 이 늦게 스케줄)」 이라 적었으나 다음 날 error 9 건이 **H2** 를 보였다 — 그 10 건은 직원 손 요청이었을 공산(짐작 · so §101-c 5)
 
+## 8-c. 예약 뒤 상태 · 추적 — 1154 ~ 1160 (2026-11-10 밤 ~ 11-11 · fc-track-0 · 1 · 2 · asung-wms `586ca9f` · so-module §112)
+
+- **왜**(Caleb 11-10 · 원문 전문 = so-module §112-c 5): 「쉽먼트들이 픽업됐는지, 인트렌짓중인지, 딜리버리가 되었는지, 추가적으로 발생한 상황은 없는지도 말이야.」 — `fc_booking.state` 는 예약 순간 값 그대로였다(booked 53 중 40 · cron 64 는 schedule 만 읽는다)
+- **스펙 사실**(fc-track-0 · OpenAPI 2.11.0 · md5 `afdb4a5dd8f843ba4339eaec62e42bb4`): state enum draft · waiting-for-transit · in-transit · delivered · exception · missing · cancelled · **웹훅 없음** · rate limit 글 없음 · 돈은 최소 단위 문자열
+- **스펙 밖 실물**(11-10 inspect): state `waiting-for-scheduling`(booked 53 중 11) · 응답 키 `bolnumber` · 청구 줄마다 **`shipment_id`** · 추적 이벤트에서 「Out For Delivery」 · 지연은 type 이 아니라 **in-transit + message** · when 나노초 9 자리 · message 끝 공백 · `invoices-for-transaction-number` · `invoices-for-shipment-id` 는 **빈 배열**(쓰지 마라)
+- **inspect**(fc-track-1 · EF 배포 · 저장 0 · GET 6): **1154** admin 만(`ims_is_admin()`) · **1155** 응답에서 http 로 시작하는 문자열 값 전부 · 카드 칸 셋(credit_card_number · credit_card_auth · credit_card_reference) 지움 · **1156** 로그는 메타만(몸 0 · 오류 「Freightcom inspect_<what> failed (HTTP n)」) · **1157** timeout 20 s 는 새 길에만(예약 · 견적 · 취소 · 픽업 길은 바이트 그대로) · balance 는 net-terms → prepaid → 422
+- **1160 자동 읽기**(fc-track-2 · `20261111020326` · 확인 OK 40): cron **68** `ims-fc-track-poll` `7,22,37,52 * * * *` · 스위치 `fc_track_poll_enabled` **on** · batch 10 · EF track_sweep(회차 90 s 상한) · 사람 길 track_poll(Check status · 문 `fc_track_gate`)
+  - 대상 한 곳 `fc_track_due`: booked ∧ Freightcom id ∧ track_done_at null ∧ 예약 뒤 30 일 안 ∧ (읽은 적 없음 ∨ 마지막 성공 읽기에서 3 시간 · out for delivery 면 1 시간) — 처음 먼저
+  - `fc_track_save`: 응답 id ≠ 예약의 Freightcom id 면 거부 · 이벤트 중복 무시 · track_done_at 은 **끝 상태 + 이벤트를 함께 저장할 때만** · pickup_confirmation · bol_number 는 비었을 때만 · 추적번호 · SO 칸 무변(다르면 경고만)
+  - 뜻은 `fc_state_kind` 한 곳(cancelled | delivered | open) — 실물로 본 값은 cancelled · delivered 뿐 · canceled · cancel% 는 **짐작** · 모르는 값은 open(계속 읽는다)
+  - 첫 자동 회차(03:07 UTC 11-11) read 10 · changed 10 · failed 0
+- **1158** Freightcom 에서 취소된 예약은 픽업 경고 · cron 64 · Action Centre 밖 / **1159** 「Freightcom 취소 인정」 `fc_book_mark_cancelled`(§10)
+- 이견 아홉 받음(fc-track-2): cancel_source · cancel_note · track_done_at · at not null · message btrim · fc_track_gate · 새 파일 track.ts(inspect 꼴) · 90 s 상한 · fc_state_kind 한 곳 · 추적번호 · SO 칸 무변 · 칸 이름 `place`
+- ⚠️ 읽은 적 없는 예약이 계속 실패하면 줄 앞을 차지한다(굶음 · deferred 572)
+- ⭐ 실물로 풀린 것: Action Centre 「Pickups not scheduled」(11-10) Purolator SO-21022/21094(FC 취소) · UPS SO-21245/21249(픽업 거절 「closing time less than minimum window」) → 1158 · 1159
+
+## 8-d. 청구 · 남은 한도 — 1163 ~ 1166 (2026-11-11 · fc-track-3 · asung-wms `d3e7e51` · `20261111034018` · 확인 OK 33)
+
+- **Caleb 사실**: 「인보이스는 여러 쉽먼트를 묶어서 오는 걸로 알고 있어.」 · 「수시로 freightcom에 들어가서 결제해야 할 인보이스를 선택하고 등록해놓은 크레딧 카드로 결제하고 있어.」 · 한도 **TOR 5,000 · EDM 2,000**(「에드몬튼은 리밋이 2000불이야」)
+- **청구 문서 실물**: `shipment-order-details`(번호 = transaction_number · **예약하는 순간 생긴다** · 같은 번호가 날짜를 달리해 여러 번 · 금액이 바뀌는 것 있음 — 49250480 11-06 174.39 → 11-10 256.75 · `other-charge-1` 72.88 추가) · `net-terms-invoice`(묶음 · 줄마다 shipment_id · due = date + 30 · 카드 결제로 owing 0)
+- **1163** 쉽먼트별 견적 대비 청구 · 추가 요금(이름은 Freightcom 원문) — `fc_charge_check` state none | unread | billed | extra | less | cancelled_billed | unknown · **세전 합계 · 오차 100 ¢** · extra_lines 는 설명용 · 견적 정본 = 예약 응답 response.rate(없으면 고른 견적 줄 · 475) · 판 = 그 쉽먼트 줄이 든 shipment-order-details 중 날짜가 가장 늦은 것(「최근 판 = 전체 재진술」 은 **짐작**)
+- **1164** 계정별 남은 한도(Freightcom 값이 정본) · 한도(설정 `fc_credit_limit_TOR` 5000 · `fc_credit_limit_EDM` 2000 · 달러) · 사용 = 한도 − 남은 한도 · 결제할 인보이스(owing > 0 — 실물은 전부 0 이라 꼴은 짐작) · 청구 전 합계
+- **1165** 결제는 사람이 Freightcom 사이트에서 · IMS 는 보여 주기만 · 결제 API 안 부름 / **1166** 돈 표(fc_document · fc_document_line · fc_balance)는 처음부터 닫음
+- 잇는 열쇠 = 줄의 shipment_id = `fc_booking.freightcom_shipment_id`(deferred 562 묶음 쪼개기는 이것으로 풀림) · 창은 오늘 − 35 일
+- cron **69** `ims-fc-finance-poll` `43 11,15,19,23 * * *` · 스위치 `fc_finance_poll_enabled` **on** · EF finance_sweep · 사람 길 finance_poll(GET 만 · 결제 없음 · 문 `fc_finance_gate`)
+- **실물**(11-11 04:07 UTC): **billed 53 · cancelled_billed 2 · extra 0** · TOR 남은 756.78(사용 4,243.22) · **EDM 남은 82.90(사용 1,917.10)** · unbilled 늘 0(청구 문서는 예약 순간 생긴다) · cancelled_billed = TOR **49195614**(SO-20945 · 33.83 · IMS 취소 11-05) · TOR **49250480**(SO-21106 · 256.75 · 취소 11-06 · 같은 발송을 49253023 으로 다시 예약 · 둘 다 청구) → Caleb 이 Freightcom 에 문의(other-charge-1 뜻도)
+- ⚠️ IMS 취소(DELETE)가 Freightcom 청구를 지우지 않는 것으로 보임(**짐작** · Freightcom 답 대기 · deferred 573)
+
+## 8-e. 보드 — Integrations › Freightcom · 1167 · 1168 (2026-11-11 · fc-track-4 · asung-wms `06e597c` · `20261111042906` · 확인 OK 27 · 화면 fcb v1 `6e4690c`)
+
+- **1167 문**: 보드 = Integrations › Freightcom · **상태 문** = sales 보기 ∨ fulfillment 보기 ∨ freight_booking 쓰기 ∨ 돈 문 · **돈 문 = freight_booking ∨ purchasing 쓰기**(purchasing:read 는 돈 못 봄) · 창고 경계(ims_can_warehouse) · 메뉴 열쇠 null(창구가 거부)
+- **1168 창구로만**: 열린 fc_ 표 7 개(fc_booking · fc_call_log · fc_label · fc_quote · fc_quote_rate · fc_shipment · fc_shipment_so) select 정책 drop + anon · authenticated 권한 0 → **fc_ 표 11 개 모두 닫힘**(조사 11-10: 화면 · ims-*.js · ims-mcp · GAS 의 직접 읽기 0) · deferred **362 · 564 닫힘**
+- `fc_board(p_from, p_to, p_warehouse_id, p_view, p_q, p_limit, p_offset)` — 창 = 예약일(토론토) from ~ to(기본 오늘 − 30 일 ~ 오늘) ∨ 배송이 안 끝난 것 · booked · cancelled 만 · q = SO 번호 · 손님 이름 · 운송장 · 거래 번호 · view = all | moving | problems | delivered | cancelled · 돈 칸은 돈 문 통과자에게만 · ⚠️ request · response · labels · schedule_response 는 싣지 않는다
+- `fc_board_detail(p_booking_id)` — 행 · 이벤트(최신 먼저) · money(돈 문만: charge · documents · lines)
+- **늦음** = 픽업일(없으면 예약일) + transit 영업일 · 주말 건너뜀 · 공휴일 안 셈 · 오늘 > expected + 1 일(**짐작**) · **exception** = fc_state_kind 가 모르는 state(**짐작** · 실물 0)
+- 넣지 않은 것: 「묶음에 안 묶인 합」(사용액과 안 맞음 — TOR 59 % · EDM 20 %) · 「다음 결제로 풀릴 금액」(모든 shipment-order-details 줄을 읽어야 · deferred **569**) · IMS 밖 예약(deferred **565**)
+- 화면 freightcom.html `fcb v1`: 계정 칸(남은 한도 · 사용 막대 · 결제할 인보이스 · 「Pay on the Freightcom site.」) · 탭 All · On the way · Needs a look · Delivered · Cancelled · 목록(상태 · 예상 · 운임 · 표지 Late · Exception · Cancelled on Freightcom · Pickup not scheduled · Extra charge · Billed after cancel) · 상세(추적 이벤트 · 견적 대비 청구 · Check status · Mark cancelled in IMS)
+
 ## 9. 라벨 — 851 · 858
 
 - 상자 = **4 × 6(A6 PDF)** 기본 · Letter 고름 · 팔렛 = Letter(BOL 포함 짐작) · **팔렛 라벨을 IMS 가 따로 만들지 않는다**(Caleb · 팔렛마다 라벨 불필요)
 - EF 가 Freightcom 의 labels[] 에서 a6 pdf(padded 아님) + letter pdf(세로)만 받아 `%PDF` 확인 → 비공개 버킷 `documents/fc_label/<발송>-<시도>-<size>.pdf` → `fc_label_add` · zpl 은 받지 않는다
 - 화면은 EF `label {label_id}` → `fc_label_get`(문) → **서명 URL 120 초**로만 연다
 - ⚠️⚠️ **Freightcom 라벨 원본 주소를 화면에 보이지 마라** — 테스트의 S3 주소에 서명이 없다(주소만 알면 열리는 꼴 · 라벨에 손님 주소) · 운영에서 서명 여부를 다시 본다(364)
-  - ⚠️ 지금 원본 주소가 닿는 곳(docs-1028h 조사 · 레포 근거 · 실호출 확인 없음): `fc_booking_for_shipment` 의 current(`to_jsonb(b) - 'request' - 'response'` → labels 남음) · `fc_label_get` 반환(`to_jsonb(v_l)` → source_url) · **표 직접 읽기** — `fc_booking` · `fc_label` 은 RLS select `using (true)` + authenticated select(response · labels · source_url) ⇒ 화면이 안 그리는 것에 기대는 꼴 · deferred 362
+  - ⚠️ 지금 원본 주소가 닿는 곳(docs-1028h 조사 · 레포 근거 · 실호출 확인 없음): `fc_booking_for_shipment` 의 current(`to_jsonb(b) - 'request' - 'response'` → labels 남음) · `fc_label_get` 반환(`to_jsonb(v_l)` → source_url) · **표 직접 읽기** — `fc_booking` · `fc_label` 은 RLS select `using (true)` + authenticated select(response · labels · source_url) ⇒ 화면이 안 그리는 것에 기대는 꼴 · deferred 362 → [2026-11-11 · fc-track-4 · 1168] ③ 표 직접 읽기는 닫힘(fc_ 표 11 개 · 362 닫힘) · 보드 창구는 labels 를 싣지 않는다
 - 실측: 상자 3 개 → 추적 3 · 라벨 꼴마다 3 페이지 / 팔렛 3 개 → 추적 1 · Letter 1 페이지(회사 프로브)
 
 ## 10. 취소 — 855 · 856
@@ -150,6 +202,7 @@
 - `fc_book_cancel_prepare`(freight_booking + 창고 · booked 만 · SO 가 shipped 면 거부) → `DELETE /shipment/{id}` → `fc_book_cancel_save`
 - 발송은 **selected 로**(고른 줄 그대로) — 견적이 유효하면 바로 다시 예약(856)
 - SO 칸은 예약 때 쓴 값과 **아직 같을 때만** 그 전 값으로(그 사이 사람이 바꾼 칸은 둔다 · orders_kept)
+- [2026-11-11 · 1158 · 1159] **Freightcom 쪽에서 취소된 예약**(사이트 손 취소 등)은 IMS 가 상태를 읽어 「Cancelled on Freightcom」 으로 보이고 픽업 경고 · cron 64 · Action Centre 에서 뺀다 · 사람이 Mark cancelled in IMS(`fc_book_mark_cancelled` · Freightcom 호출 없음 · SO 칸 856 되돌림 · response 안 덮음) · ⚠️ IMS 취소(DELETE)가 Freightcom 청구를 지우지 않는 것으로 보임(**짐작** · Freightcom 답 대기 · deferred 573 · §8-d)
 
 ## 11. 화면 (asung-ims · 대화 Claude)
 
@@ -160,7 +213,8 @@
 - Settings(set v10 ~ v11a): Warehouse Edit(연락처 · Freightcom 계정 · 시간대 · Closes at) · Carriers(Freightcom names) · Shipping quotes(markup % · 창고 연결) · **Carrier pickups**(`?t=pickup`)
 - 손님(cs v7 · v7a): 주소 배송 조건 · 기본 운송사 · 피할 운송사
 - Staff(st v3b): 열쇠의 방 = `rooms`
-- ⬜ 매뉴얼에 아직 없다(deferred 368)
+- [2026-11-11] so.html `so fct v1` · wms-fulfillment.html `fu v1.11`(`af9c53d`): 예약 칸 배송 상태 한 줄(🚚 · ✓ Delivered · 예외 노랑) · Check status · 「Cancelled on Freightcom」 띠 · Mark cancelled in IMS · SO 상세 Carrier 아래 한 줄(출고된 오더 포함) / **freightcom.html `fcb v1` · ims-auth.js `nav v19`**(`6e4690c`): 보드(§8-e)
+- ⬜ 매뉴얼에 아직 없다(deferred 368) → [2026-11-11 · docs-1111a] 보드 · 예약 칸 배송 상태 · Check status · Mark cancelled 는 매뉴얼 01-sales `sales-freightcom` 에 들어감 · 예약 장 자체는 아직(368 부분)
 
 ## 12. 운영으로 가는 조건 (deferred 326 · 364)
 
@@ -168,4 +222,4 @@
 - ~~EF 비밀값을 운영 프로젝트에 · EF 의 테스트 전용 가드(`db_role = 'test'`) 풀기~~ → [2026-10-29 · 617 확인] 같은 프로젝트(Asung-IMS)의 비밀값 `FREIGHTCOM_API_KEY_TOR` · `_EDM` · `FREIGHTCOM_BASE_URL` 을 운영 값으로 바꾼다 · 가드는 그대로(운영을 가르지 않는다 — 머리 줄) · 운영 토큰 요청 메일 2026-10-29(보냈는지 못 봤다 · deferred 326 · 364)
 - 다시 볼 것: 운송사 진짜 마감 · 라벨 원본 주소의 서명 여부 · 운송사별 pickup_confirmation(FedEx 비정기 픽업은 옴 · Maritime 팔렛은 null — 짐작) → [2026-11-06] 비정기 상자 픽업은 연락처가 있어야 잡힌다(H2 · 1049) · 확인번호는 예약 뒤 다시 읽어 받는다(§8-b) · 처리 시간 · Purolator Freight 400 · Edmonton 출발 견적 · Apex Freightcom 이름(실제 쓰는 날)
 - closes_at · 정기 픽업 · 마감 실제 값(창고 담당자) — **컷오버 전 필수**(deferred 369 · 남김 표라 컷오버 지우기에 안 지워진다)
-- 원본 라벨 주소가 닿는 곳 닫기(362)
+- ~~원본 라벨 주소가 닿는 곳 닫기(362)~~ → [2026-11-11 · fc-track-4 `06e597c` · 1168] 닫힘(§8-e)

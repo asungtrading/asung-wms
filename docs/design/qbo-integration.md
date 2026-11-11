@@ -17,6 +17,7 @@
 ⭐ 상태 [2026-11-08 밤 · so-module §105 · 판정 1091 ~ 1103] **3-1 끝 · 하루 원가 장 설계 끝(3-2-0) · 짓기 전** — 계정 통화 `ref_account.currency_code` · 공급처 A/P · 손님 A/R 통화 막기(지연 제약 트리거 둘 · 1091 · deferred 499 닫힘) · 조정 기본 계정 `inv_adjust_account()`(1087) · 하루 장 = 22 칸 표 · 보낸 몫 = 센트 합 + 차액(1092) · 입고는 보류(1096) · Location 없음 · Entity = 손님(1102 · 1103) · 다음 = 3-2 DB · §15-g · §15-h
 ⭐ 상태 [2026-11-09 · so-module §106 · §107 · §109 · §110 · 판정 1104 ~ 1138] **하루 원가 장 · 공급처 Bill · 공급처 결제가 운영에서 나간다 — 모두 북키퍼 손 Send** — 원가 장(cost_day · JournalEntry) 12 장 sent · cron 67 은 장 행만(§15-j · §15-k) · 공급처 Bill 7 장 sent(4-3 · 4-4 · §15-m) · 공급처 결제 BillPayment 첫 실물 **173092**(4-5a · 4-5b · 4-5c · §15-n) · USD 결제 3 건은 환율 대기 · SEND_KINDS **24** · 공급처 kind 는 cron 61 · 62 밖 · 은행 피드 Match 는 북키퍼 · 다음 = USD 3 건 → 4-6(켜기 · 정본) · E-8(538)
 ⭐ 상태 [2026-11-10 · so-module §111 · 판정 1143 ~ 1150] **조기 결제 할인이 있는 공급처 결제도 나갈 수 있다 — 손 Send** — 할인 = VendorCredit(kind `vendor_credit` · ims_kind `po_discount`)을 결제의 같은 Send 에서 먼저 · BillPayment 에 Bill 줄 + VC 줄 · TotalAmt = 낸 돈(E-8 · 4-7a · 4-7b · 4-7c) · 막는 것 여섯(세금 몫 · 세금 있는 인보이스 · 청구서 할인 · 붙은 크레딧 · 금액 ≠ 붙임 합 · 시작일 전) · 공급처 인보이스 지급 기한 자동(1144) · 손님 결제 void 뒤 영구 blocked 고침(qbo-pay-fix-1 · 173093) · 할인 받은 결제 실물 0 · §15-o
+⭐ 상태 [2026-11-11 · so-module §112 · 판정 1152 · 1153] **보내기 화면 고침 셋** — Skip 한 일감을 골라 **숨김**(`qbo_job_hide` · Hidden 보기 · Retry 가 풂) · 목록 All · Sent **9.9 · 11.3 초 → 0.1 초**(qbo-list-perf-1 · deferred 561 닫힘) · 손님 QBO 이름 = **Display name 우선** · CompanyName = name · 같은 이름 6240 에 할 일 안내(qbo-dname-1) · §15-p
 ⚠️ 토큰은 **Vault** 에만 — 표 · 화면 · 기록 · EF 응답 어디에도 토큰이 없다(처리방침의 약속 · 867)
 
 ---
@@ -307,7 +308,7 @@ QBO 판     Plus(Caleb)
 - **971 (나)** — 처음에는 **북키퍼가 문서마다 확인하고 보낸다**(한 장씩 Preview → Send · Send selected) · `qbo_send_enabled` off 그대로 · 켜는 시점은 나중에 Caleb
 - **claim(p_limit, p_kinds, p_job_ids uuid[] default null)** — 고른 id 만(≤ 200) · 만든 need 일감을 `need_jobs` 로(손님 need 우선) · `requested[]` = id 마다 결과(not_found · not_queued · wrong_kind · not_due · locked · claimed · blocked · failed) · 옛 EF 두 인자 호출 그대로 돈다
 - **`qbo_job_preview(p_job)`**(열쇠 qbo 또는 qbo:read) — 몸 함수 여섯을 kind 로 부르고 예외를 잡는다 · **need 일감을 만들지 않는다** · needs · wait(960) · blocked_by · error · sendable · QBO 호출 0
-- **`qbo_job_list(p_state, p_kinds, p_from, p_to, p_q, p_limit, p_offset)`** — 날짜 = 일감 created_at 의 토론토 날짜 · 문서 번호 · 이름 · 통화 · 총액 · 문서 날짜 · 상태 · 막은 부모 · 정렬 unknown → failed → sending → queued(오래된 것 먼저) → blocked → 그 밖(최신) · ≤ 200 · 속 함수 `qbo_job_doc`
+- **`qbo_job_list(p_state, p_kinds, p_from, p_to, p_q, p_limit, p_offset)`** — 날짜 = 일감 created_at 의 토론토 날짜 · 문서 번호 · 이름 · 통화 · 총액 · 문서 날짜 · 상태 · 막은 부모 · 정렬 unknown → failed → sending → queued(오래된 것 먼저) → blocked → 그 밖(최신) · ≤ 200 · 속 함수 `qbo_job_doc` → [2026-11-11 · §15-p] p_state `hidden` · counts.hidden · 줄 hidden_at · hidden_by_name(1152) · 한 쪽의 행에만 · 행마다 한 번(`offset 0` · 561)
 - **`qbo_job_retry`** — **skipped 도** 받는다(note 필수 · 문서가 issued(void 는 cancelled)일 때만 · 같은 열쇠 열린 일감 있으면 거부)
 - **EF send `{job_ids}`** — 한도 10 · 바퀴 최대 5 · 동시 5 · 30 s · 옛 `{limit}` 그대로 · 검증 18 · deno 22 · EF 50 kB
 - **화면** Sales → **QuickBooks**(`qbo-send.html` · nav v14 · 열쇠 qbo · 보기 qbo:read) — 목록(상태 · 종류 · 날짜 · 찾기 · 쪽) · Preview(QBO 에 갈 몸 · 먼저 만들 손님 · Item · 막힌 이유) · Send · Send selected(10 장씩) · Retry · Skip(메모 필수)
@@ -1004,7 +1005,7 @@ USD 3 건(북키퍼 환율 → Send) → 4-6(켜기 · 정본) · E-8 sandbox �
 
 **⑤ 4-7c 화면 (asung-ims `e340db4` · 대화 Claude)**
 
-- invoices.html inv disc v3: 지급 기한 옆 할인 칩 「Pay by … → save … · N days left」(3 일 이하 주황) · 기한 출처 「from the payment term」 / 「set by hand」 · 목록 Due 칸 칩 · 확정 경고 두 코드 사람 말 · 「Cancel invoice…」 — ⚠️ 출처 · 목록 칩은 창구에 칸이 없어 **안 보인다**(deferred 555)
+- invoices.html inv disc v3: 지급 기한 옆 할인 칩 「Pay by … → save … · N days left」(3 일 이하 주황) · 기한 출처 「from the payment term」 / 「set by hand」 · 목록 Due 칸 칩 · 확정 경고 두 코드 사람 말 · 「Cancel invoice…」 — ⚠️ 출처 · 목록 칩은 창구에 칸이 없어 **안 보인다**(deferred 555) → [2026-11-11 · po-due-1 `7eb3a52` · so-module §112-c 9] 보인다 — 목록 뷰 칸은 이미 있었고 detail 에 `due_date_manual` 을 더함 · 555 닫힘
 - qbo-send.html qs sup v3: 「Early-pay discount credit」 · 「Delete discount credit by hand」 · 결제 미리 보기 「discount credit」 칩 · 「created first, in the same send」 · 합계 Bills · Early-pay discount · Paid
 
 **⑥ 남은 막힘 · 거리** — 548 Skip 일반 · 549 크레딧 붙은 결제(「0 원 BillPayment 붙임」 sandbox) · 550 할인 세금 몫 · 세금 있는 인보이스(회계사) · 551 청구서 할인 VC 계정 · 552 결제 Skip 뒤 안 붙은 할인 VC · 553 할인 VC DocNumber 겹침(같은 날 · 같은 인보이스 · 두 결제) · 554 USD sandbox + VC 통화 가드 · 555 화면 칸
@@ -1014,3 +1015,43 @@ USD 3 건(북키퍼 환율 → Send) → 4-6(켜기 · 정본) · E-8 sandbox �
 **⑧ 다음**
 
 2223170 Bill Send → 11-19 안에 할인 결제(첫 실물) · USD 할인 sandbox(554) · USD 3 건 환율(§15-n) · 4-6(켜기 · 정본)
+
+
+### 15-p qbo-hide-1 · qbo-list-perf-1 · qbo-dname-1 — 숨기기 · 목록 속도 · 손님 표시 이름 (2026-11-10 밤 ~ 11-11 · asung-wms `363970b` · `2194110` · `7573009` · asung-ims `2a36a7d` · `f10887b` · 판정 1152 · 1153 · so-module §112)
+
+**① 숨기기 — qbo-hide-1**(`363970b` · `20261111003341` · 확인 OK 34 · 판정 1152)
+
+- 칸 `qbo_job.hidden_at · hidden_by`(CHECK: skipped 만) · 트리거 `qbo_job_touch_hidden` — 숨김만 바뀌면 updated_at · updated_by 보존 · skipped 를 벗어나거나 hidden 을 세울 때만
+- 창구 `qbo_job_hide(p_jobs uuid[], p_hide)`(authenticated · **전부 아니면 0** · blocked-waiting skipped · 중복 · 다른 realm · 500 초과 거부) · 거부 글 예 「Only skipped jobs can be hidden — % of the % picked jobs are not skipped — nothing was changed」
+- `qbo_job_list` 에 `p_state 'hidden'` · `counts.hidden` · 줄 `hidden_at · hidden_by_name` · **Retry 가 숨김을 푼다**
+- 화면 qbo-send.html `qs v4 hide`(asung-ims `2a36a7d`) — 상태 「Hidden — skipped and put away」 · Skipped 보기 체크 → Hide selected · Hidden 보기 → Unhide selected · 줄마다 Hide / Unhide · Show hidden (n)
+- 첫 쓰임: 북키퍼의 이월 환불 16 건(환불 8 + 환불 붙임 8 · Net Terms) — QBO 잔액 확인 뒤 Skip(사유 「already refunded in QuickBooks before IMS」) → 숨기기
+
+**② 목록 속도 — qbo-list-perf-1**(`2194110` · `20261111010639` · 확인 OK 16 · **deferred 561 닫힘**)
+
+- 원인(실측): 옆 서브쿼리 `(select qbo_job_doc(…) as doc)` 가 펴져서 d.doc 을 읽는 칸마다 함수가 다시 불렸다(참조 1 번 1,255 ms → 4 번 4,067 ms → `offset 0` 이면 4 번도 1,235 ms)
+- 고침 = 한 쪽의 행에만 + 행마다 한 번(`offset 0`) · All 9,940 → 114 ms · Sent 11,268 → 89 ms · 옛 · 새 반환 667 경우 다름 0
+- 남은 것: 찾기(All + 문서 번호 앞 세 글자) 4,380 → 922 ms · 이름 3,427 → 913 ms — 일감 수에 비례(약 1 ms/건) · 원인 = `qbo_job_doc` 의 `id::text = p_ims_id` 통째 훑기(부르는 함수 8 개 · 별도 차수 권함 · deferred **566**) · 목록 정렬 동률 가르기(id · 지금 created_at 같은 일감 0 · 판정 필요 · deferred **567**)
+
+**③ 손님 표시 이름 — qbo-dname-1**(`7573009` · `20261111013522` · 확인 OK 29 · 판정 1153 + 보충 여섯 · Caleb 2026-11-10)
+
+1. 자동 짝의 손님 열쇠 = `coalesce(nullif(btrim(display_name), ''), name)`
+2. DisplayName = Display name 우선 · CompanyName = name 그대로
+3. `qbo_job_fail` 재발행 — customer 의 6240 에 할 일 안내(앞) + 「QuickBooks answered: …」(뒤) · Vendor 6240 은 범위 밖(deferred **570**)
+4. 충돌 글 두 문장 그대로 — 「QuickBooks already has a customer, supplier or employee named "%s" — if it is the same customer, link them under Settings → QuickBooks matching; if it is a different person, give IMS customer "%s" a Display name in Customers, then Retry — nothing was sent」 · 「The Display name "%s" is also taken in QuickBooks — change the Display name of IMS customer "%s" in Customers, then Retry — nothing was sent」
+5. 별칭이 QBO 표시 이름이 되는 것을 받아들인다 · 법인명은 CompanyName
+6. 콜론 · 탭 · 줄바꿈이 든 이름은 몸이 거부 · 「Display name 을 고치고 Retry」 · ⬜3 Walk-in Customer (Edmonton) 은 사람 몫(손대지 않음)
+
+- 실측: Display name 빈 활성 손님 9,867 명 옛 ↔ 새 비교 — 몸이 만들어지던 28 명 바이트 그대로 · 11-10 대화 실측(활성 9,876 · 채운 10)과 차이 1 은 실측 시각 다름(짐작 · so-module §112-c 2)
+- 화면 customers.html `cs v8d`(asung-ims `f10887b`): Display name 칸 아래 「Also used as this customer's name in QuickBooks, so customers may see it …」
+- 남은 것: unknown 이름 조회가 남의 동명 레코드에 이어질 좁은 창(**짐작** · deferred **571**)
+
+**④ 같은 이름 사건 — 사람 처리**(so-module §112-c 3)
+
+- **같은 이름 손님 둘(A 건)**: 다른 사람(이메일 · 전화 다름) · 새 손님 `2981b4bf…` 가 11-06 대화 Claude 권고로 QBO #4556(옛 손님)에 잘못 이어져 인보이스 60247(QBO 172927) · 결제 AO-17358(QBO 172928)이 #4556 으로 갔다 · 정리 = QBO 새 손님(구분 이름) → IMS matching 바로잡기 + Display name → QBO 두 장 옮기기(손 정리 중 · 북키퍼 안내 11-11)
+- **같은 꼴 다른 손님(B 건)**: 인보이스 1 장이 같은 꼴로 멈춤 — Display name 을 준 뒤 Retry 하면 새 글
+- ⚠️ 규칙: **이름만 같다고 잇지 마라** — 이메일 · 전화 · 주소가 실제로 같을 때만(빈 칸끼리는 같음이 아니다 · so-module 교훈 176)
+
+**⑤ 다음**
+
+A 건 손 정리 · B 건 Retry · QBO Item 8794(FINAL SALE ITEM) 짝 — 북키퍼가 matching 에서 첫 떨이 판매 전(so-module §112-h) · 566 · 567 · 570 · 571

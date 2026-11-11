@@ -54,6 +54,7 @@
 - **On account**(받아 둔 돈)는 고객이 이미 냈지만 어느 인보이스에도 안 붙은 돈입니다: 더 낸 돈(오버페이), 미리 낸 돈(선결제), IMS 이전부터 받아 둔 돈(IMS 이전의 크레딧 · 반품 크레딧 포함). **Credit** 은 IMS 에서 발행한 크레딧 노트 중 아직 안 쓴 몫입니다. 둘 다 다음 인보이스가 발행될 때 저절로 붙습니다.
 - 고객 상세의 **Balance** 카드는 통화마다 **Open invoices** · **Open A/R** · **Overdue** · **Credit owed** · **Money on account** · **Held for orders** · **Available to use**(받아 둔 돈 + 크레딧 − 오더에 잡아 둔 돈)와 기한 지난 인보이스를 보여 줍니다. 기한 지난 인보이스가 있으면 머리에 칩이 보입니다. 다른 고객에게 청구되는 고객은 그렇게 적혀 있습니다 — 잔액은 그쪽에 있습니다.
 - 통화가 섞여 있으면 목록은 숫자를 그대로 더합니다 — 환산하지 않습니다.
+- **Display name**(표시 이름)은 QuickBooks 의 고객 이름으로도 쓰입니다 — QuickBooks 가 보내는 문서에서 고객이 볼 수 있습니다. 비어 있으면 이름(Name)을 씁니다. 화면 글: "Also used as this customer's name in QuickBooks, so customers may see it. If QuickBooks already has another customer with the same name, put a different name here (e.g. add the city), then Retry the send."(QuickBooks 에 같은 이름의 다른 고객이 있으면 여기에 다른 이름을 — 예: 도시를 붙여 — 넣고 다시 보낸다) 콜론 · 탭 · 줄바꿈은 넣지 마세요 — QuickBooks 가 거부합니다.
 
 **조심할 것**
 - **Bill to** 를 바꾸면 새 오더만 따라갑니다. "Orders already created keep the bill-to they were made with."(이미 만든 오더는 그대로)
@@ -456,7 +457,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice(출고 + 인보이스)
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) ; 2026-11-11 · so fct v1 (status line) -->
 <!-- who: office -->
 
 **무엇인가**
@@ -495,6 +496,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 - 오더에 이미 받은 결제는 그 인보이스에 저절로 붙습니다.
 - **Preview** 뒤에 창의 무엇을 바꾸면 **Preview** 를 다시 누릅니다.
 - **Freightcom 픽업**: Freightcom 으로 예약한 오더는 예약됨 칸에 픽업이 나옵니다. "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. 출고하면 이 칸은 사라집니다 — 그 뒤에는 [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups) 에서 봅니다.
+- **Freightcom 배송 상태**: 예약됨 칸(그리고 오더의 **Carrier** 아래 — 출고 뒤에도)에 한 줄이 나옵니다 — 가는 중 🚚 · "✓ Delivered"(배송됨) · 노란 문제 줄. IMS 가 스스로 읽고, **Check status** 는 지금 Freightcom 에 묻습니다(요금 없음). Freightcom 사이트에서 취소된 예약이면 빨간 띠 "Cancelled on Freightcom" 이 나옵니다 — **Mark cancelled in IMS**(freight booking 열쇠)를 눌러 IMS 에서도 예약을 닫습니다. Freightcom 은 부르지 않습니다. 모든 예약은 [Freightcom — 쉽먼트 보드](#sales-freightcom).
 
 **조심할 것 — 팩된 오더에서 고객이 일부를 빼 달라고 할 때**
 1. 오더를 평소대로 Ship & invoice 합니다. 인보이스에는 팩된 수량 그대로 실립니다.
@@ -699,7 +701,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — 인보이스 · 크레딧 노트 보내기
-<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs sup v2 -->
+<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs sup v2 ; 2026-11-10 · qs v4 hide -->
 <!-- who: accounting -->
 
 **무엇인가**
@@ -741,11 +743,18 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - 종류 · 통화가 아직 없는 계좌는 "Settings → QuickBooks matching → Refresh list (accounts), then retry" 로 실패합니다.
 - **은행 피드(북키퍼)**: 은행 줄을 먼저 분류하지 않습니다. IMS 에서 결제를 보냅니다. 은행 줄의 짝이 **Bill Payment** 로 바뀌면 **Match** 를 누릅니다(여럿은 **Batch actions** › **Accept Selected**). QuickBooks 가 열린 **Bill** 을 짝으로 내밀면 누르지 않습니다 — 결제가 하나 더 생깁니다. 자동으로 장부에 더하는 은행 규칙은 쓰지 않습니다.
 
+**Skip 한 줄 숨기기**
+- 일부러 Skip 한 줄(예: IMS 이전에 QuickBooks 에 이미 넣은 환불)은 목록을 차지하지 않게 치워 둘 수 있습니다.
+- 상태를 **Skipped** 로 고르고, 줄을 체크하고 **Hide selected** 를 누릅니다(한 줄은 그 줄의 **Hide**). 줄은 **Hidden — skipped and put away**(Skip 하고 치워 둠)가 됩니다. Skip 한 줄만 숨길 수 있습니다.
+- **Show hidden (n)** 이 **Hidden** 목록을 엽니다. 거기서 줄을 체크하고 **Unhide selected**(한 줄은 **Unhide**). 숨긴 줄에는 누가 언제 숨겼는지 나옵니다.
+- 숨긴 줄에서 **Retry** 를 누르면 숨김도 풀립니다.
+
 **안 나간 줄**
 - **Blocked** — 다른 것을 먼저 기다립니다. 예: 크레딧 노트는 그 인보이스가 QuickBooks 에 간 뒤에 갑니다. "Waiting:" 이 무엇을 기다리는지 알려 줍니다.
 - **Failed** — **Why · result** 를 읽고 까닭을 고친 뒤(예: **Settings** › **QuickBooks matching** 에서 계정을 QuickBooks 품목에 잇기) **Retry** 를 누릅니다. 까닭 적기 필수.
 - **Result unknown** — QuickBooks 가 받았는지 IMS 가 모릅니다. 먼저 QuickBooks 에 이미 있지 않은지 보고 **Retry**(또는 **Skip**).
 - **Skip** — "Do not send this one to QuickBooks"(보내지 않는다). 까닭 필수(예: 「QuickBooks 에 손으로 넣었다」). 건너뛴 줄은 **Retry** 로 되살릴 수 있습니다.
+- **QuickBooks 에 같은 이름** — 고객 보내기가 "QuickBooks already has a customer, supplier or employee named … — if it is the same customer, link them under Settings → QuickBooks matching; if it is a different person, give IMS customer … a Display name in Customers, then Retry" 로 실패합니다. (A) 같은 사람이면: **Settings** › **QuickBooks matching** 에서 잇습니다. (B) 다른 사람이면: IMS 고객에 **Display name** 을 주고(예: 도시를 붙임) **Retry**. 이름만 같다고 잇지 마세요 — 이메일 · 전화 · 주소가 정말 같은지 봅니다(빈 이메일 둘은 「같음」 이 아닙니다).
 
 **예**
 인보이스 99001 → **Preview** 에 CB-99001 품목을 먼저 만든다고 보임 → **Send to QuickBooks** → 줄이 **Sent**
@@ -799,6 +808,37 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - "Opening-cost corrections and the trucks carried over from before the cut-over are never sent."(기초 원가 바로잡기 · 넘어오기 전 트럭은 보내지 않는다)
 
 <!-- SCREENSHOT: sales-quickbooks-cost-1 · Cost days 카드(Sheets · Queue · Held back) · Cost day 미리 보기 창 -->
+
+<a id="sales-freightcom"></a>
+## Freightcom — 쉽먼트 보드
+<!-- screen: freightcom.html · BUILD 2026-11-11 · fcb v1 -->
+<!-- who: office, warehouse, accounting -->
+
+**무엇인가**
+**Integrations ▾** › **Freightcom** 은 IMS 에서 Freightcom 으로 예약한 모든 쉽먼트를 보여 줍니다: 픽업됨 · 가는 중 · 배송됨 · 문제 — 그리고 돈을 볼 수 있는 직원에게는 Freightcom 이 청구한 금액과 남은 한도.
+
+**누가 무엇을 보나**
+- 목록: 판매나 풀필먼트를 볼 수 있거나 운임 예약을 할 수 있는 직원. 자기가 일하는 창고만.
+- 금액 · 청구 · 한도: freight booking 열쇠 또는 purchasing(쓰기)이 있는 직원. purchasing 보기만으로는 돈이 안 보입니다.
+
+**어떻게**
+1. 위에 Freightcom 계정마다(토론토 · 에드먼턴) 한도 중 남은 금액 · 쓴 금액 · 아직 낼 인보이스가 나옵니다. "Pay on the Freightcom site."(결제는 Freightcom 사이트에서) — IMS 는 보여 주기만 하고, 결제는 Freightcom 사이트에서 등록한 카드로 합니다.
+2. 탭을 고릅니다: **All** · **On the way**(가는 중) · **Needs a look**(볼 것) · **Delivered** · **Cancelled**. 오더 번호 · 고객 · 운송장 · 거래 번호로 찾습니다. 아직 가는 중인 쉽먼트는 날짜와 상관없이 늘 나옵니다.
+3. 줄을 누르면 열립니다: 추적 기록(최신 먼저) · 견적 대비 청구 · **Check status** · 필요하면 **Mark cancelled in IMS**.
+
+**줄의 표시**
+- **Late**(늦음) — 예상일 다음 날까지 배송되지 않음(픽업일 + 운송사 영업일 · 주말은 건너뜀 — 공휴일은 세지 않음).
+- **Exception** — Freightcom 이 IMS 가 모르는 상태를 줌.
+- **Cancelled on Freightcom** — Freightcom 사이트에서 취소됨. 누군가 **Mark cancelled in IMS** 를 누를 때까지 IMS 에는 예약됨으로 남습니다.
+- **Pickup not scheduled** — [Ship & invoice](#sales-ship-invoice) 를 봅니다.
+- **Extra charge**(추가 요금) — Freightcom 이 견적보다 더 청구함(세전 · 예: 아무도 요청하지 않은 inside delivery 요금). 요금 이름은 Freightcom 의 것 그대로입니다.
+- **Billed after cancel**(취소 뒤 청구) — "Cancelled in IMS, but Freightcom billed it — ask Freightcom for a credit."(IMS 에서 취소했는데 Freightcom 이 청구함 — Freightcom 에 크레딧을 요청)
+
+**알아 둘 것**
+- IMS 는 쉽먼트마다 상태를 3 시간마다 스스로 읽고(배송 출발이면 1 시간마다), 쉽먼트가 끝나거나 예약 뒤 30 일이 지나면 멈춥니다. 청구 · 한도는 하루 네 번 읽습니다.
+- Freightcom 사이트에서 손으로 한 예약은 이 목록에 없습니다.
+
+<!-- SCREENSHOT: sales-freightcom-1 · Freightcom board with the account cards and the Needs a look tab -->
 
 <a id="sales-web-orders"></a>
 ## 웹 오더

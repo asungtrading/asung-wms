@@ -54,6 +54,7 @@ Before a new order, when a customer calls with a change, or when a new customer 
 - **On account** is money the customer already paid that is not attached to an invoice: an overpayment, a prepayment, or money kept for the customer from before IMS (this includes credits and return credits from before IMS). **Credit** is credit notes issued in IMS that are not used yet. Both attach themselves when the next invoice is issued.
 - The **Balance** card on a customer shows, per currency, **Open invoices**, **Open A/R**, **Overdue**, **Credit owed**, **Money on account**, **Held for orders** and **Available to use** (money on account + credit owed − held for orders), and the overdue invoices. A chip at the top shows when invoices are past due. A customer billed to another customer says so — the balance is kept there.
 - When currencies are mixed, the list adds the numbers as they are — it does not convert them.
+- **Display name** is also the customer's name in QuickBooks, so customers may see it on what QuickBooks sends. When it is empty, the name is used. The screen says: "Also used as this customer's name in QuickBooks, so customers may see it. If QuickBooks already has another customer with the same name, put a different name here (e.g. add the city), then Retry the send." Do not use a colon, a tab or a line break in it — QuickBooks refuses the name.
 
 **Watch out**
 - Changing **Bill to** changes new orders only. "Orders already created keep the bill-to they were made with."
@@ -456,7 +457,7 @@ On a **Finalized** order, a person who works on sales orders **and** has the mas
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) -->
+<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) ; 2026-11-11 · so fct v1 (status line) -->
 <!-- who: office -->
 
 **What it is**
@@ -495,6 +496,7 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 - Payments already taken for an order attach themselves to its invoice.
 - If something in the window changes after **Preview**, press **Preview** again.
 - **Freightcom pickup**: when the order was booked with Freightcom, the booked box shows the pickup. "✓ Pickup scheduled — confirmation …" is done. "⚠ Pickup NOT scheduled" — schedule the pickup on the Freightcom site, then press **Check pickup**. "⏳" means Freightcom is still scheduling it. The box is gone after the order ships — then look in [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups).
+- **Freightcom delivery status**: the booked box (and the order, under **Carrier**, also after it shipped) shows one line — on the way 🚚, "✓ Delivered", or a yellow problem line. IMS reads it by itself; **Check status** asks Freightcom now (no charge). If the booking was cancelled on the Freightcom site, a red band "Cancelled on Freightcom" shows — press **Mark cancelled in IMS** (freight booking key) to close the booking in IMS; it does not call Freightcom. All bookings: [Freightcom — shipment board](#sales-freightcom).
 
 **Watch out — the customer wants to take items off a packed order**
 1. Ship & invoice the order as usual. The invoice shows the packed quantity.
@@ -699,7 +701,7 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 
 <a id="sales-quickbooks"></a>
 ## QuickBooks — send invoices and credit notes
-<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs sup v2 -->
+<!-- screen: qbo-send.html · BUILD 2026-11-09 · qs sup v2 ; 2026-11-10 · qs v4 hide -->
 <!-- who: accounting -->
 
 **What it is**
@@ -741,11 +743,18 @@ Tick the rows (or **Select all on this page**) and press **Send selected**. IMS 
 - An account with no type or currency on file fails with "Settings → QuickBooks matching → Refresh list (accounts), then retry".
 - **Bank feed (bookkeeper)**: do not categorise the bank line first. Send the payment from IMS. When the bank line's match turns into the **Bill Payment**, press **Match** (several at once: **Batch actions** › **Accept Selected**). If QuickBooks offers the open **Bill** as the match, do not press it — that makes a second payment. Do not use a bank rule that adds to the books automatically.
 
+**Hide skipped rows**
+- Rows you skipped on purpose (for example refunds already entered in QuickBooks before IMS) can be put away so they do not crowd the list.
+- Choose the status **Skipped**, tick the rows and press **Hide selected** (or **Hide** on one row). They become **Hidden — skipped and put away**. Only skipped rows can be hidden.
+- **Show hidden (n)** opens the **Hidden** list. There, tick rows and press **Unhide selected** (or **Unhide** on one row). Each hidden row shows who hid it and when.
+- **Retry** on a hidden row un-hides it as well.
+
 **When a row is not sent**
 - **Blocked** — it waits for something else first, for example a credit note waits until its invoice is in QuickBooks. "Waiting:" tells you what.
 - **Failed** — read **Why · result**. Fix the cause (for example link an account to a QuickBooks item in **Settings** › **QuickBooks matching**), then press **Retry**. A reason is required.
 - **Result unknown** — IMS could not tell if QuickBooks took it. Look in QuickBooks first that it is not already there, then **Retry** (or **Skip**).
 - **Skip** — "Do not send this one to QuickBooks". A reason is required, for example "entered by hand in QuickBooks". A skipped row can be put back with **Retry**.
+- **Same name in QuickBooks** — a customer send fails with "QuickBooks already has a customer, supplier or employee named … — if it is the same customer, link them under Settings → QuickBooks matching; if it is a different person, give IMS customer … a Display name in Customers, then Retry". (A) Same person: link them in **Settings** › **QuickBooks matching**. (B) A different person: give the IMS customer a **Display name** (for example add the city), then **Retry**. Do not link two customers only because the names match — check that the email, phone or address is really the same (two empty emails are not "the same").
 
 **Example**
 Invoice 99001 → **Preview** shows the item for CB-99001 will be created first → **Send to QuickBooks** → the row shows **Sent**.
@@ -799,6 +808,37 @@ In **Integrations ▾** › **QuickBooks**, the type **Cost of goods — daily j
 - "Opening-cost corrections and the trucks carried over from before the cut-over are never sent."
 
 <!-- SCREENSHOT: sales-quickbooks-cost-1 · Cost days card with Sheets, Queue and Held back; Cost day preview window -->
+
+<a id="sales-freightcom"></a>
+## Freightcom — shipment board
+<!-- screen: freightcom.html · BUILD 2026-11-11 · fcb v1 -->
+<!-- who: office, warehouse, accounting -->
+
+**What it is**
+**Integrations ▾** › **Freightcom** lists every shipment booked with Freightcom from IMS: picked up, on the way, delivered, problems, and — for staff allowed to see money — what Freightcom billed and how much credit is left.
+
+**Who sees what**
+- The list: staff who can see sales or fulfillment, or who can book freight. Only the warehouses you work in.
+- Amounts, billing and credit: staff with the freight booking key or purchasing (write). Purchasing view-only does not see money.
+
+**How**
+1. At the top, each Freightcom account (Toronto, Edmonton) shows the credit left of its limit, how much is used, and the invoices still to pay. "Pay on the Freightcom site." — IMS only shows it; payment is made on the Freightcom site with the card on file.
+2. Pick a tab: **All**, **On the way**, **Needs a look**, **Delivered**, **Cancelled**. Search by order number, customer, tracking or transaction number. Shipments still on the way are always listed, whatever the dates.
+3. Click a row to open it: tracking events (newest first), the quote against what Freightcom billed, **Check status** and, when needed, **Mark cancelled in IMS**.
+
+**Marks on a row**
+- **Late** — not delivered a day after the expected date (pickup day + the carrier's transit days, weekends skipped — public holidays are not counted).
+- **Exception** — Freightcom gave a status IMS does not know.
+- **Cancelled on Freightcom** — cancelled on the Freightcom site; IMS still shows it booked until someone presses **Mark cancelled in IMS**.
+- **Pickup not scheduled** — see [Ship & invoice](#sales-ship-invoice).
+- **Extra charge** — Freightcom billed more than the quote, before tax (for example an inside delivery fee nobody asked for). The charge names are Freightcom's own.
+- **Billed after cancel** — "Cancelled in IMS, but Freightcom billed it — ask Freightcom for a credit."
+
+**Good to know**
+- IMS reads each shipment's status by itself every 3 hours (every hour when it is out for delivery) and stops when a shipment is finished, or 30 days after booking. Billing and credit are read four times a day.
+- Shipments booked by hand on the Freightcom site are not in this list.
+
+<!-- SCREENSHOT: sales-freightcom-1 · Freightcom board with the account cards and the Needs a look tab -->
 
 <a id="sales-web-orders"></a>
 ## Web orders
