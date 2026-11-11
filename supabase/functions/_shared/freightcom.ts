@@ -240,7 +240,7 @@ export function cancelOutcome(status: number, body: unknown): { ok: boolean; err
 
 // ── fc-pickup-2 (2026-11-05 · 이견 1 ~ 14): cron 길 — 확인번호 없는 예약을 5 분마다 스스로 다시 읽는다(action pickup_sweep · 문 x-ims-cron-key == IMS_CRON_SECRET · 사람 JWT 길과 갈라서 · GET 만) ──
 //    대상은 DB 한 곳(fc_pickup_poll_due · booked · 상자 · 비정기 · 확인번호 없음 · 창 · 2 단) · 저장은 fc_book_schedule_save 그대로 · 회차 요약은 fc_call_log 한 줄(action pickup_sweep · detail)
-export const FC_CRON_ACTIONS = ["pickup_sweep"] as const;
+export const FC_CRON_ACTIONS = ["pickup_sweep", "track_sweep"] as const;   // fc-track-2: track_sweep = 상태 · 추적 이벤트 다시 읽기(cron ims-fc-track-poll · 처리 몸은 freightcom/track.ts)
 export const SWEEP_LIMIT_DEFAULT = 10;        // 한 회차 최대 건수 — cron 몸이 inv_config fc_pickup_poll_batch 를 읽어 limit 으로 넘긴다(GET 3 ~ 7 s · timeout 120 s 안 · 이견 5)
 export const SWEEP_LIMIT_MAX = 50;
 export function sweepLimitOf(body: unknown): number {

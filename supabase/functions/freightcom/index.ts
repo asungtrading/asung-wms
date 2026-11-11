@@ -20,11 +20,16 @@
 //     ⭐ fc-pickup-2(2026-11-05 · DB 20261107000000 · 이견 1 ~ 14): cron ims-fc-pickup-poll(*/5 · supabase/ops/cron.sql) → POST {action:"pickup_sweep", limit} + x-ims-cron-key == IMS_CRON_SECRET(미설정 500 fail-closed · qbo · mail 꼴 · 사람 JWT 로는 400 · 열쇠로 다른 action 은 400)
 //        스위치 inv_config fc_pickup_poll_enabled(cron SQL 의 where 가 1 차 · EF 가 2 차 · off 면 GET 0 · 요약 한 줄) → rpc/fc_pickup_poll_due(limit · 대상은 DB 한 곳 · 창 · 2 단) → 건마다 checkSchedule(wait 없음 · shipment GET 없음 · GET 하나) → fc_book_schedule_save(schedule_done_at 은 DB 가 처음 한 번)
 //        한 건 실패(GET · 저장 · 열쇠 없음)는 그 건만 failed · 회차는 계속 · 회차 끝 fc_call_log 한 줄(action pickup_sweep · shipment_id null · by_staff null · detail {enabled, limit, candidates, read, done, pending, other, failed, ms}) · 응답 {ok, …요약, items[]}
+//     ⭐ fc-track-2(2026-11-10 · DB 20261111020326 · 판정 1158 ~ 1160 · 처리 몸은 ./track.ts): 쉽먼트 상태 · 추적 이벤트 다시 읽기 — GET /shipment/{id} + GET /shipment/{id}/tracking-events 만 · 이 둘에만 20 s 시간 한도 · 로그는 메타만
+//        cron ims-fc-track-poll → POST {action:"track_sweep", limit} + x-ims-cron-key(pickup_sweep 과 같은 문) · 스위치 inv_config fc_track_poll_enabled(off 면 GET 0) → rpc/fc_track_due → 건마다 GET 둘 → rpc/fc_track_save · 회차 90 s 상한(stopped_early) · 요약 한 줄(action track_sweep · detail)
+//        track_poll {booking_id} — 사람 길 · 문은 DB rpc/fc_track_gate(사용자 JWT · sales ∨ fulfillment ∨ freight_booking + 그 창고 · booked 만) → 같은 GET 둘 → 저장 → {ok, checked, track{state, track_last, delivered_at, events_added …}, detail} · FC_*_ACTIONS(_shared)에 넣지 않는다(inspect 처럼 문이 따로)
 //   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · account · ok · http_status · error · by_staff · shipment_id · ms · cron 회차의 줄은 by_staff null) · 라벨 받기도 한 줄(action label_fetch) · 90 일 지난 줄은 호출 끝에 지운다
 //   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.freightcom] verify_jwt=false)
 // ============================================================
 import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, distinctCarriers, FC_ACTIONS, FC_BOOK_ACTIONS, FC_CRON_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, PAYMENT_CACHE_MS, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, sameSecret, SCHEDULE_WAIT_MS, scheduleOutcome, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, sweepKindOf, sweepLimitOf, sweepSummary, type FcLabel, type FcService, type RateRequest } from "../_shared/freightcom.ts";
 import { pdfPages, sha256Hex } from "../_shared/doc.ts";
+import { type InspectBooking, runInspect } from "./inspect.ts";   // fc-track-1: action inspect(GET 만 · admin 만 · 저장 0 · 주소 · 카드 칸 지움)
+import { type GateResult, runTrackPoll, runTrackSweep, type TrackDeps, type TrackTarget } from "./track.ts";   // fc-track-2: action track_sweep(cron) · track_poll(사람) — GET 둘 · 저장은 rpc/fc_track_save
 import { sleep } from "../_shared/shopify.ts";
 
 const CALL_LOG_KEEP_DAYS = 90;
@@ -394,6 +399,81 @@ async function label(body: Record<string, unknown>, caller: Caller): Promise<Res
   return json(200, { ok: true, label_id: l.id, booking_id: l.booking_id, size: l.size, padded: l.padded, path: l.path, bytes: l.bytes, pages: l.pages, signed_url: await storageSign(String(l.path)), expires_in: SIGN_SECONDS });
 }
 
+// ⭐ fc-track-1: inspect 잇기 — 문(rpc/ims_is_admin · 사용자 JWT) · 예약 읽기(service_role · 발송의 계정) · 로그 메타 한 줄(by_staff) · 처리 몸은 ./inspect.ts
+async function inspectAction(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  let staffId: string | null = null;
+  const r = await runInspect(jwt, body, {
+    isAdmin: async () => {
+      const a = await fetch(SB_URL() + "/rest/v1/rpc/ims_is_admin", { method: "POST", headers: { apikey: ANON(), Authorization: "Bearer " + jwt, "Content-Type": "application/json" }, body: "{}" });
+      if (a.status === 401) return "invalid";
+      if (!a.ok) throw new Error("Permission check failed (ims_is_admin): " + (await a.text()).slice(0, 200));
+      const ok = (await a.json()) === true;
+      if (ok) {
+        try {
+          const u = await fetch(SB_URL() + "/auth/v1/user", { headers: { apikey: ANON(), Authorization: "Bearer " + jwt } });
+          const uid = u.ok ? String((await u.json())?.id ?? "") : "";
+          if (uid) staffId = (await sbGet("ims_staff?select=id&auth_user_id=eq." + uid + "&limit=1"))[0]?.id ?? null;
+        } catch (e) { console.warn("by_staff lookup failed:", String(e).slice(0, 200)); }
+      }
+      return ok;
+    },
+    loadBooking: async (id: string): Promise<InspectBooking | null> => {
+      const b = (await sbGet("fc_booking?select=id,shipment_id,status,account,freightcom_shipment_id,transaction_number&id=eq." + encodeURIComponent(id) + "&limit=1"))[0];
+      if (!b) return null;
+      const f = (await sbGet("fc_shipment?select=freightcom_account&id=eq." + encodeURIComponent(b.shipment_id) + "&limit=1"))[0];
+      return { ...b, shipment_account: f?.freightcom_account ?? null };
+    },
+    apiKey: FC_KEY,
+    base: FC_BASE(),
+    fetchFn: fetch,
+    log: async (row) => await recordCall({ ...row, by_staff: staffId }),
+    noAccountSentence: (account: string) => noAccountSentence(null, account),
+  });
+  return json(r.status, r.payload);
+}
+
+// ⭐ fc-track-2: track_sweep · track_poll 잇기 — deps(가져오기 · 계정 열쇠 · 로그 메타 한 줄 · 저장 rpc)를 만들어 ./track.ts 를 부른다 · 문은 DB(fc_track_gate · 사용자 JWT) · cron 줄은 by_staff null
+const trackDeps = (staff: () => string | null): TrackDeps => ({
+  fetchFn: fetch,
+  base: FC_BASE(),
+  apiKey: FC_KEY,
+  log: async (row) => await recordCall({ ...row, by_staff: staff() }),
+  save: async (bookingId, shipment, events) => await rpc("fc_track_save", { p_booking_id: bookingId, p_shipment: shipment, p_events: events }, null) as Record<string, unknown>,
+  noAccountSentence: (account: string) => noAccountSentence(null, account),
+});
+async function trackSweepAction(body: Record<string, unknown>): Promise<Response> {
+  const r = await runTrackSweep(body, {
+    ...trackDeps(() => null),
+    enabled: async () => String((await sbGet("inv_config?select=value&key=eq.fc_track_poll_enabled"))[0]?.value ?? "").trim().toLowerCase() === "on",
+    due: async (limit: number) => ((await rpc("fc_track_due", { p_limit: limit }, null)) as TrackTarget[]) ?? [],
+  });
+  return json(r.status, r.payload);
+}
+async function trackPollAction(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  let staffId: string | null = null;
+  const r = await runTrackPoll(jwt, body, {
+    ...trackDeps(() => staffId),
+    gate: async (bookingId: string): Promise<GateResult> => {
+      try {
+        const row = await rpc("fc_track_gate", { p_booking_id: bookingId }, jwt) as Record<string, unknown>;
+        try {
+          const u = await fetch(SB_URL() + "/auth/v1/user", { headers: { apikey: ANON(), Authorization: "Bearer " + jwt } });
+          const uid = u.ok ? String((await u.json())?.id ?? "") : "";
+          if (uid) staffId = (await sbGet("ims_staff?select=id&auth_user_id=eq." + uid + "&limit=1"))[0]?.id ?? null;
+        } catch (e) { console.warn("by_staff lookup failed:", String(e).slice(0, 200)); }
+        return { ok: true, row };
+      } catch (e) {
+        if (e instanceof RpcError) return { ok: false, status: e.status, error: e.message };
+        throw e;
+      }
+    },
+    detail: async (shipmentId: string) => await rpc("fc_booking_for_shipment", { p_shipment_id: shipmentId }, jwt),
+  });
+  return json(r.status, r.payload);
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -404,14 +484,16 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const action = String(body?.action ?? "");
     const cronKey = req.headers.get("x-ims-cron-key");
-    if (cronKey !== null) {                                                                          // ⭐ fc-pickup-2 cron 길 — 열쇠만 · pickup_sweep 만 · by_staff 없음(qbo · mail 꼴) · 사람 JWT 길은 아래 그대로
+    if (cronKey !== null) {                                                                          // ⭐ fc-pickup-2 cron 길 — 열쇠만 · FC_CRON_ACTIONS 만(pickup_sweep · fc-track-2 track_sweep) · by_staff 없음(qbo · mail 꼴) · 사람 JWT 길은 아래 그대로
       const secret = Deno.env.get("IMS_CRON_SECRET") ?? "";
       if (!secret) return json(500, { ok: false, error: "IMS_CRON_SECRET not configured - refusing (fail-closed)" });
       if (!cronKey || !sameSecret(cronKey, secret)) return json(401, { ok: false, error: "unauthorized" });
       if (!(FC_CRON_ACTIONS as readonly string[]).includes(action)) return json(400, { ok: false, error: "cron may only call: " + FC_CRON_ACTIONS.join(", ") });
       if (!FC_BASE()) return json(500, { ok: false, error: "FREIGHTCOM_BASE_URL not configured on this project - refusing (fail-closed)" });
-      return await pickupSweep(body);
+      return action === "track_sweep" ? await trackSweepAction(body) : await pickupSweep(body);   // fc-track-2: cron 갈래 둘 — pickup_sweep 은 그대로
     }
+    if (action === "inspect") return await inspectAction(req, body);                                  // fc-track-1 · 문은 inspectAction 안(admin 만) · FC_*_ACTIONS(_shared)에 넣지 않는다
+    if (action === "track_poll") return await trackPollAction(req, body);                              // fc-track-2 · 문은 DB fc_track_gate(사용자 JWT) · GET 만
     const all = [...FC_ACTIONS, ...FC_BOOK_ACTIONS] as readonly string[];
     if (!all.includes(action)) return json(400, { ok: false, error: "action must be one of: " + all.join(", ") });
     const caller = await gate(req, action === "label" ? "label" : (FC_BOOK_ACTIONS as readonly string[]).includes(action) ? "book" : "quote");

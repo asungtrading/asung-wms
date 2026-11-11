@@ -1043,3 +1043,23 @@ select cron.schedule('ims-qbo-cost-build', '0 8 * * *', $job$ select public.qbo_
 --                      and (j.state = 'unknown' or (j.state = 'queued' and j.next_at <= now())
 --                        or (j.state = 'blocked' and exists (select 1 from public.qbo_job p where p.id = j.blocked_by and p.state = 'sent'))));
 --   $job$);
+
+-- [운영 메인 · Asung-IMS · fazgmyvzzhqybtvtktyg] ⚠️ 등록 전 · 판 — ims-fc-track-poll — fc-track-2 (2026-11-10 밤 · 판정 1160 · DB 20261111020326 적용 + EF freightcom fc-track-2 배포 뒤에 · 지시서 ~/asung/prompts/fc-track-2.md) — 살아 있는 Freightcom 예약의 상태 · 추적 이벤트를 스스로 다시 읽는다
+--   무엇: 매시 7 · 22 · 37 · 52 분(cron 64 ims-fc-pickup-poll 의 */5 와 겹치지 않게) — inv_config fc_track_poll_enabled = 'on' 이고 · 대상이 하나라도 있을 때만(fc_track_due(1) · booked · Freightcom id · track_done_at null · 예약 뒤 30 일 안 · 읽은 적 없음 ∨ 마지막 성공 읽기에서 3 시간 · out for delivery 면 1 시간)
+--         EF freightcom 을 {"action":"track_sweep","limit":<fc_track_poll_batch · 없으면 10>} 로 부른다(cron 길 = x-ims-cron-key · by_staff null) · 건마다 GET /shipment/{id} + GET /shipment/{id}/tracking-events(청구 없음 · 호출마다 20 s 한도) → fc_track_save · 회차 요약 = fc_call_log action track_sweep 한 줄(detail)
+--   ⚠️ 스위치 off(기본) 면 where 가 거르니 호출 0 — 순서: 적용 · 배포 → 스위치 off 로 등록 → 손으로 한 회차(아래) → 켜기(fc_track_poll_enabled on)는 Caleb
+--   회차 상한: EF 가 90 s 뒤에는 새 건을 시작하지 않는다(stopped_early · left — 남은 건은 다음 회차) · timeout 120 s · 첫 소화: 읽은 적 없는 booked ≈ 53 건 → batch 10 × 15 분 = 80 분쯤
+--   끝: 끝 상태(delivered · cancelled)와 이벤트를 함께 저장하면 track_done_at 이 찍혀 대상에서 빠진다 · 사람이 누르는 길(track_poll)은 계속 된다
+--   열쇠: jobid 64 ims-fc-pickup-poll 의 command 에서 꺼내는 꼴 그대로 — substring(command from 'x-ims-cron-key'', ''([^'']+)') → format($fmt$ … %L … $fmt$, s.k) · where length(s.k) = 64(아래는 자리표 · 대시보드 SQL Editor 에서만 · 창이 Asung-IMS 인지 다시 본다)
+--   확인(등록 뒤): select jobid, jobname, schedule, active, command like '%track_sweep%' as track, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-fc-track-poll';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-fc-track-poll') order by start_time desc limit 5;
+--   회차 흔적: select called_at, ok, error, detail from public.fc_call_log where action = 'track_sweep' order by called_at desc limit 10;   · 읽은 건: select called_at, shipment_id, action, ok, http_status, ms from public.fc_call_log where action in ('track_shipment', 'track_events') and by_staff is null order by called_at desc limit 40;
+--   남은 대상: select count(*) from public.fc_track_due(50);  (service_role · postgres)   · 상태 분포: select state, count(*), count(track_done_at) as done from public.fc_booking where status = 'booked' group by 1 order by 2 desc;
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-fc-track-poll'), active := false);   · 해제: select cron.unschedule('ims-fc-track-poll');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'fc_track_poll_enabled';
+--   select cron.schedule('ims-fc-track-poll', '7,22,37,52 * * * *', $job$
+--     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/freightcom',
+--       headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+--       body := jsonb_build_object('action', 'track_sweep', 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'fc_track_poll_batch'), 10)), timeout_milliseconds := 120000)
+--     where exists (select 1 from public.inv_config c where c.key = 'fc_track_poll_enabled' and c.value = 'on')
+--       and exists (select 1 from public.fc_track_due(1));
+--   $job$);
