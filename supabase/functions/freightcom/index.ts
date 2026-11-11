@@ -22,6 +22,9 @@
 //        한 건 실패(GET · 저장 · 열쇠 없음)는 그 건만 failed · 회차는 계속 · 회차 끝 fc_call_log 한 줄(action pickup_sweep · shipment_id null · by_staff null · detail {enabled, limit, candidates, read, done, pending, other, failed, ms}) · 응답 {ok, …요약, items[]}
 //     ⭐ fc-track-2(2026-11-10 · DB 20261111020326 · 판정 1158 ~ 1160 · 처리 몸은 ./track.ts): 쉽먼트 상태 · 추적 이벤트 다시 읽기 — GET /shipment/{id} + GET /shipment/{id}/tracking-events 만 · 이 둘에만 20 s 시간 한도 · 로그는 메타만
 //        cron ims-fc-track-poll → POST {action:"track_sweep", limit} + x-ims-cron-key(pickup_sweep 과 같은 문) · 스위치 inv_config fc_track_poll_enabled(off 면 GET 0) → rpc/fc_track_due → 건마다 GET 둘 → rpc/fc_track_save · 회차 90 s 상한(stopped_early) · 요약 한 줄(action track_sweep · detail)
+//     ⭐ fc-track-3(2026-11-10 · DB 20261111034018 · 판정 1163 ~ 1166): cron ims-fc-finance-poll → POST {action:"finance_sweep", limit} + x-ims-cron-key · 스위치 inv_config fc_finance_poll_enabled(off 면 GET 0) → 계정마다 GET /finance/documents → rpc/fc_finance_docs_save →
+//        GET payment-methods · available-balances → rpc/fc_finance_balance_save → 문서마다 GET /finance/document/{id} → rpc/fc_finance_lines_save · 회차 90 s 상한 · 요약 한 줄(action finance_sweep · detail 은 개수만 — 금액 없음) · 결제 · reload 는 부르지 않는다(1165)
+//        finance_poll {account} — 사람 길 · 문은 DB rpc/fc_finance_gate(사용자 JWT · freight_booking ∨ purchasing + 그 계정의 창고) → 같은 걸음(줄 읽기 5) → {ok, checked, finance{개수}} · 처리 몸은 ./finance.ts
 //        track_poll {booking_id} — 사람 길 · 문은 DB rpc/fc_track_gate(사용자 JWT · sales ∨ fulfillment ∨ freight_booking + 그 창고 · booked 만) → 같은 GET 둘 → 저장 → {ok, checked, track{state, track_last, delivered_at, events_added …}, detail} · FC_*_ACTIONS(_shared)에 넣지 않는다(inspect 처럼 문이 따로)
 //   Freightcom 호출 한 번 = fc_call_log 한 줄(service_role REST · action · account · ok · http_status · error · by_staff · shipment_id · ms · cron 회차의 줄은 by_staff null) · 라벨 받기도 한 줄(action label_fetch) · 90 일 지난 줄은 호출 끝에 지운다
 //   배포: supabase functions deploy freightcom --project-ref fazgmyvzzhqybtvtktyg (config.toml [functions.freightcom] verify_jwt=false)
@@ -29,6 +32,7 @@
 import { ACCOUNT_RE, apiKeyFor, attachFreightClass, BOOK_WAIT_MS, bookBody, bookErrorSentence, bookOutcome, cancelOutcome, distinctCarriers, FC_ACTIONS, FC_BOOK_ACTIONS, FC_CRON_ACTIONS, fcErrorSentence, freightClassOf, freightcomIdOf, isPdf, labelPath, noAccountSentence, palletBoxes, parseServices, PAYMENT_CACHE_MS, paymentCacheKey, paymentMethodOf, pickLabels, pickServices, pickupCheckNeeded, POLL_INTERVAL_MS, QUOTE_WAIT_MS, rateBody, rateStatus, requestIdOf, sameSecret, SCHEDULE_WAIT_MS, scheduleOutcome, secretNameFor, SERVICES_CACHE_MS, servicesCacheKey, shipmentOf, shouldKeepBookPolling, shouldKeepPolling, shouldKeepSchedulePolling, sweepKindOf, sweepLimitOf, sweepSummary, type FcLabel, type FcService, type RateRequest } from "../_shared/freightcom.ts";
 import { pdfPages, sha256Hex } from "../_shared/doc.ts";
 import { type InspectBooking, runInspect } from "./inspect.ts";   // fc-track-1: action inspect(GET 만 · admin 만 · 저장 0 · 주소 · 카드 칸 지움)
+import { type FinanceDeps, runFinancePoll, runFinanceSweep } from "./finance.ts";   // fc-track-3: action finance_sweep(cron) · finance_poll(사람) — GET 넷 · 저장은 rpc/fc_finance_*_save
 import { type GateResult, runTrackPoll, runTrackSweep, type TrackDeps, type TrackTarget } from "./track.ts";   // fc-track-2: action track_sweep(cron) · track_poll(사람) — GET 둘 · 저장은 rpc/fc_track_save
 import { sleep } from "../_shared/shopify.ts";
 
@@ -474,6 +478,48 @@ async function trackPollAction(req: Request, body: Record<string, unknown>): Pro
   return json(r.status, r.payload);
 }
 
+// ⭐ fc-track-3: finance_sweep · finance_poll 잇기 — deps(가져오기 · 계정 열쇠 · 로그 메타 한 줄 · 저장 rpc 셋)를 만들어 ./finance.ts 를 부른다 · 문은 DB(fc_finance_gate · 사용자 JWT) · cron 줄은 by_staff null · 계정 = Freightcom 계정이 적힌 창고 중 열쇠가 있는 것
+const financeDeps = (staff: () => string | null): FinanceDeps => ({
+  fetchFn: fetch,
+  base: FC_BASE(),
+  apiKey: FC_KEY,
+  log: async (row) => await recordCall({ ...row, by_staff: staff() }),
+  docsSave: async (account, docs, limit) => await rpc("fc_finance_docs_save", { p_account: account, p_docs: docs, p_limit: limit }, null) as Record<string, unknown>,
+  linesSave: async (account, doc) => await rpc("fc_finance_lines_save", { p_account: account, p_doc: doc }, null) as Record<string, unknown>,
+  balanceSave: async (account, methodType, balance) => await rpc("fc_finance_balance_save", { p_account: account, p_method_type: methodType, p_balance: balance }, null) as Record<string, unknown>,
+  noAccountSentence: (account: string) => noAccountSentence(null, account),
+});
+async function financeSweepAction(body: Record<string, unknown>): Promise<Response> {
+  const r = await runFinanceSweep(body, {
+    ...financeDeps(() => null),
+    enabled: async () => String((await sbGet("inv_config?select=value&key=eq.fc_finance_poll_enabled"))[0]?.value ?? "").trim().toLowerCase() === "on",
+    accounts: async () => [...new Set((await accountsInUse()).filter((a) => a.has_key).map((a) => a.account))].sort(),
+  });
+  return json(r.status, r.payload);
+}
+async function financePollAction(req: Request, body: Record<string, unknown>): Promise<Response> {
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  let staffId: string | null = null;
+  const r = await runFinancePoll(jwt, body, {
+    ...financeDeps(() => staffId),
+    gate: async (account: string): Promise<GateResult> => {
+      try {
+        const row = await rpc("fc_finance_gate", { p_account: account }, jwt) as Record<string, unknown>;
+        try {
+          const u = await fetch(SB_URL() + "/auth/v1/user", { headers: { apikey: ANON(), Authorization: "Bearer " + jwt } });
+          const uid = u.ok ? String((await u.json())?.id ?? "") : "";
+          if (uid) staffId = (await sbGet("ims_staff?select=id&auth_user_id=eq." + uid + "&limit=1"))[0]?.id ?? null;
+        } catch (e) { console.warn("by_staff lookup failed:", String(e).slice(0, 200)); }
+        return { ok: true, row };
+      } catch (e) {
+        if (e instanceof RpcError) return { ok: false, status: e.status, error: e.message };
+        throw e;
+      }
+    },
+  });
+  return json(r.status, r.payload);
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -490,9 +536,10 @@ Deno.serve(async (req) => {
       if (!cronKey || !sameSecret(cronKey, secret)) return json(401, { ok: false, error: "unauthorized" });
       if (!(FC_CRON_ACTIONS as readonly string[]).includes(action)) return json(400, { ok: false, error: "cron may only call: " + FC_CRON_ACTIONS.join(", ") });
       if (!FC_BASE()) return json(500, { ok: false, error: "FREIGHTCOM_BASE_URL not configured on this project - refusing (fail-closed)" });
-      return action === "track_sweep" ? await trackSweepAction(body) : await pickupSweep(body);   // fc-track-2: cron 갈래 둘 — pickup_sweep 은 그대로
+      return action === "finance_sweep" ? await financeSweepAction(body) : action === "track_sweep" ? await trackSweepAction(body) : await pickupSweep(body);   // fc-track-2 · 3: cron 갈래 셋 — pickup_sweep 은 그대로
     }
     if (action === "inspect") return await inspectAction(req, body);                                  // fc-track-1 · 문은 inspectAction 안(admin 만) · FC_*_ACTIONS(_shared)에 넣지 않는다
+    if (action === "finance_poll") return await financePollAction(req, body);                          // fc-track-3 · 문은 DB fc_finance_gate(사용자 JWT) · GET 만 · 결제 없음
     if (action === "track_poll") return await trackPollAction(req, body);                              // fc-track-2 · 문은 DB fc_track_gate(사용자 JWT) · GET 만
     const all = [...FC_ACTIONS, ...FC_BOOK_ACTIONS] as readonly string[];
     if (!all.includes(action)) return json(400, { ok: false, error: "action must be one of: " + all.join(", ") });

@@ -225,7 +225,7 @@ Deno.test("⑪ track_poll — 문이 준 계정 · Freightcom id 로 GET 둘 →
 });
 
 Deno.test("⑫ 길 가르기 — track_sweep 은 cron 길에만 · track_poll 은 FC_*_ACTIONS 밖(문이 DB fc_track_gate) · pickup_sweep 은 그대로", () => {
-  eq([...FC_CRON_ACTIONS], ["pickup_sweep", "track_sweep"], "cron actions");
+  eq([...FC_CRON_ACTIONS], ["pickup_sweep", "track_sweep", "finance_sweep"], "cron actions (fc-track-3 added finance_sweep)");
   const person = [...FC_ACTIONS, ...FC_BOOK_ACTIONS] as readonly string[];
   eq([person.includes("track_sweep"), person.includes("track_poll"), (FC_CRON_ACTIONS as readonly string[]).includes("track_poll")], [false, false, false], "track_sweep is not a person action · track_poll is routed before the FC_*_ACTIONS gate · not a cron action");
 });

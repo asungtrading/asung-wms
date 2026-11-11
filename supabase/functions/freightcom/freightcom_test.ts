@@ -201,7 +201,7 @@ Deno.test("⑪ fc-pickup-1 스케줄 읽기 — status 네 값 · 감쌈 {schedu
 
 // fc-pickup-2 — cron 길의 순수 부분(index.ts 의 pickupSweep · serve 분기는 Deno.serve 라 여기서 못 돌린다) · 가짜 응답은 11-05 실물 꼴 {error, pickup_confirmation_number, status} 맨몸 그대로
 Deno.test("⑫ fc-pickup-2 cron 길 — action 목록 갈라섬 · limit(1 ~ 50 · 밖 · 글자 · 없음 → 10) · sameSecret · 결과 분류(failed · done · pending · other) · 회차 요약 셈 · 실물 꼴 schedule 응답", () => {
-  eq([...FC_CRON_ACTIONS], ["pickup_sweep", "track_sweep"], "cron may only call pickup_sweep and track_sweep (fc-track-2)");
+  eq([...FC_CRON_ACTIONS], ["pickup_sweep", "track_sweep", "finance_sweep"], "cron may only call pickup_sweep, track_sweep (fc-track-2) and finance_sweep (fc-track-3)");
   eq((FC_BOOK_ACTIONS as readonly string[]).includes("pickup_sweep"), false, "pickup_sweep is not a person action (JWT path → 400)");
   eq((FC_CRON_ACTIONS as readonly string[]).includes("pickup_poll"), false, "pickup_poll is not a cron action (key path → 400)");
   eq([SWEEP_LIMIT_DEFAULT, SWEEP_LIMIT_MAX], [10, 50], "limit bounds");

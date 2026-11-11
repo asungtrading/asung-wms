@@ -1063,3 +1063,23 @@ select cron.schedule('ims-qbo-cost-build', '0 8 * * *', $job$ select public.qbo_
 --     where exists (select 1 from public.inv_config c where c.key = 'fc_track_poll_enabled' and c.value = 'on')
 --       and exists (select 1 from public.fc_track_due(1));
 --   $job$);
+
+-- [운영 메인 · Asung-IMS · fazgmyvzzhqybtvtktyg] ⚠️ 등록 전 · 판 — ims-fc-finance-poll — fc-track-3 (2026-11-10 밤 · 판정 1163 ~ 1166 · DB 20261111034018 적용 + EF freightcom fc-track-3 배포 뒤에 · 지시서 ~/asung/prompts/fc-track-3.md) — Freightcom 청구 문서 · 남은 한도를 스스로 읽는다(읽기만 · 결제 없음 · 1165)
+--   무엇: 하루 네 번 — UTC 11:43 · 15:43 · 19:43 · 23:43(= 토론토 겨울 06:43 · 10:43 · 14:43 · 18:43 · 여름에는 한 시간 뒤 · 분 43 은 cron 64 의 */5 · cron 68 의 7,22,37,52 와 겹치지 않는다) — inv_config fc_finance_poll_enabled = 'on' 일 때만
+--         EF freightcom 을 {"action":"finance_sweep","limit":<fc_finance_doc_batch · 없으면 25>} 로 부른다(cron 길 = x-ims-cron-key · by_staff null) · 계정마다(Freightcom 계정이 적힌 활성 창고 중 열쇠가 있는 것 — TOR · EDM)
+--         GET /finance/documents(오늘 − 35 일 ~ 오늘) → fc_finance_docs_save → GET payment-methods · available-balances → fc_finance_balance_save → 줄을 읽을 문서마다 GET /finance/document/{id} → fc_finance_lines_save · 호출마다 20 s 한도
+--   호출 수(짐작 셈): 평시 한 회차 = 계정 둘 × 3 + 줄 0 ~ 25 · 하루 약 50 · 첫날 백필 = IMS 예약의 판 + 지난 35 일 묶음 인보이스 약 180 건을 batch 25 로 나눠 읽는다(손 회차를 여러 번 돌려도 된다)
+--   ⚠️ 스위치 off(기본) 면 where 가 거르니 호출 0 — 순서: 적용 · 배포 → 스위치 off 로 등록 → 손으로 한 회차(아래) → 켜기(fc_finance_poll_enabled on)는 Caleb
+--   회차 상한: EF 가 90 s 뒤에는 새 문서 · 새 계정을 시작하지 않는다(stopped_early · lines_left — 남은 것은 다음 회차) · timeout 120 s · 한 계정 실패는 그 계정만 failed
+--   열쇠: jobid 64 ims-fc-pickup-poll 의 command 에서 꺼내는 꼴 그대로 — substring(command from 'x-ims-cron-key'', ''([^'']+)') → format($fmt$ … %L … $fmt$, s.k) · where length(s.k) = 64(아래는 자리표 · 대시보드 SQL Editor 에서만 · 창이 Asung-IMS 인지 다시 본다)
+--   확인(등록 뒤): select jobid, jobname, schedule, active, command like '%finance_sweep%' as finance, length(substring(command from 'x-ims-cron-key'', ''([^'']+)')) as key_len from cron.job where jobname = 'ims-fc-finance-poll';  → key_len 64 · jobid 는 등록 뒤 실측해 여기에 적는다
+--   최근 실행: select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'ims-fc-finance-poll') order by start_time desc limit 5;
+--   회차 흔적(개수만 — 금액은 로그에 없다): select called_at, ok, error, detail from public.fc_call_log where action = 'finance_sweep' order by called_at desc limit 10;   · 읽은 호출: select called_at, account, action, ok, http_status, ms from public.fc_call_log where action like 'finance\_%' and action <> 'finance_sweep' order by called_at desc limit 40;
+--   쌓인 것(postgres): select account, type, count(*), count(lines_fetched_at) as with_lines, max(doc_date) from public.fc_document group by 1, 2 order by 1, 2;   · 남은 줄 읽기: select count(*) from public.fc_finance_lines_due('TOR', 100);   · 요약: select jsonb_pretty(public.fc_finance_account_summary('TOR'));
+--   킬 스위치: select cron.alter_job((select jobid from cron.job where jobname = 'ims-fc-finance-poll'), active := false);   · 해제: select cron.unschedule('ims-fc-finance-poll');   · 부드러운 멈춤 = update public.inv_config set value = 'off' where key = 'fc_finance_poll_enabled';
+--   select cron.schedule('ims-fc-finance-poll', '43 11,15,19,23 * * *', $job$
+--     select net.http_post(url := 'https://fazgmyvzzhqybtvtktyg.supabase.co/functions/v1/freightcom',
+--       headers := jsonb_build_object('Content-Type', 'application/json', 'x-ims-cron-key', '<IMS_CRON_SECRET 실제 값으로 교체 — 이 파일에 커밋 금지>', 'x-region', 'ca-central-1'),
+--       body := jsonb_build_object('action', 'finance_sweep', 'limit', coalesce((select nullif(btrim(c.value), '')::int from public.inv_config c where c.key = 'fc_finance_doc_batch'), 25)), timeout_milliseconds := 120000)
+--     where exists (select 1 from public.inv_config c where c.key = 'fc_finance_poll_enabled' and c.value = 'on');
+--   $job$);
