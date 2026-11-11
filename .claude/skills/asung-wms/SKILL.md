@@ -332,6 +332,7 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 
 - **edmonton bin = `E`+zone문자 체계**(`isEdmontonCode=/^E[A-Z]/`). zone = bin[1] (E 다음 글자). 예: `EU020303`→U, `EZ010101`→Z, `ED020101`→D.
 - **toronto bin = zone이 첫 글자**.
+- ⚠️ [2026-11-11 · nb-2 · deferred 585] **`UNASSIGNED`(지점마다 하나 · 칸 없는 pos · counter 판매의 확인 칸)는 이 파싱에서 EDM 존 U 로 읽힌다** — DB `wms_pick_lines` · `wms-manager.html` zoneOf · `wms-receiver.html` zoneOfBin · bayOfBin(asung-ims) · `asung-wms/receiver.html` · `ims-label.js` zoneOf(「Other」 · 라벨 목록에 뜸) · 판정 1174 로 픽리스트 계획에는 안 나오지만 픽커가 손으로 고르면 나온다(그것도 안 막음 · deferred 583)
 - 동선 순서는 `wms_zone_sequence`(WarehouseMap `toronto.zpos`/`edmonton.zpos` 좌표 기반 초안). 사용자가 UPDATE로 zone별 조정. 좌표(center_x/y)도 저장돼 나중 경로 최적화·시각화 확장 가능.
 - 좌표 기준 초안 순서 — toronto: D-C-A-Z-B-E-G-J-H-R-F-W-K / edmonton: F-E-D-C-B-A-U-Z-G-I.
 

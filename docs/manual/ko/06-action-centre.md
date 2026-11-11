@@ -36,7 +36,7 @@
 
 <a id="action-sold-short"></a>
 ## Sold without stock(재고 없이 나감)
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 ; 2026-11-11 · ml v1.6 (Count & check) -->
 <!-- who: manager -->
 
 **여기 뜨는 것**
@@ -47,14 +47,26 @@
 
 줄마다 **Sold on** · **Order** · **Customer** · **SKU** · **Branch** · **Qty short**(모자란 수량) · **Cost** 가 나옵니다(IMS 에 원가가 없으면 **cost unknown**).
 
-**어떻게**
-1. 오더 번호를 누릅니다. **Sales Orders** 에서 그 오더가 열립니다 — POS 판매도 같습니다.
-2. 선반을 셉니다. 재고는 평소대로 재고 조정으로 고칩니다([재고 조정](03-inventory.md#stock-adjustments)).
-3. 매니저 이상: **Mark checked…** 를 누르고 찾은 것을 적습니다("counted, fixed, reason" — 셌다 · 고쳤다 · 까닭).
+확인 안 된 줄마다 단추가 둘 있습니다(매니저 이상):
+- **Count & check…**(세고 확인) — "count the shelf, type what you found, and IMS fixes the stock and checks every open line of that SKU in one go"(선반을 세어 적으면 IMS 가 재고를 고치고 그 SKU 의 열린 줄을 한 번에 확인한다). 그 브랜치의 Stock adjustments 권한이 필요합니다.
+- **Mark checked…**(확인함) — "the books are already right — it only records that you looked and does not change stock."(장부가 이미 맞다 — 봤다는 기록만 남기고 재고는 안 바꾼다)
+
+**어떻게 — Count & check**
+1. 판매를 보려면 오더 번호를 누릅니다. **Sales Orders** 에서 그 오더가 열립니다 — POS 판매도 같습니다.
+2. **Count & check…** 를 누릅니다. 창에 그 브랜치의 그 SKU bin 마다 **Book**(장부) · **Picked, not shipped**(픽했지만 안 나감) · **Shelf should be**(선반에 있어야 할 수)가 나옵니다.
+3. 선반을 세어 **You counted** 에 적습니다. "must count — below zero"(0 아래 — 꼭 센다) 표시가 있는 bin 은 꼭 적어야 합니다. 다른 선반에서 찾았으면 bin 을 적고 **+ add bin** 을 누릅니다. **Note** 는 적지 않아도 됩니다.
+4. **Preview** 를 누르고 바뀔 것을 읽습니다. 센 수를 바꾸면 **Preview** 를 다시 누릅니다.
+5. **Count & check** 를 누릅니다. IMS 가 재고 조정 하나를 만들고 확정한 뒤 열린 줄을 확인합니다. "It cannot be undone — a mistake is fixed with a new adjustment."(되돌릴 수 없다 — 실수는 새 조정으로) 센 수가 장부와 같으면 재고는 안 바뀌고 확인만 됩니다.
+
+**어떻게 — Mark checked**
+1. 선반을 셉니다. 장부가 맞으면 **Mark checked…** 를 누르고 찾은 것을 적습니다("counted, fixed, reason" — 셌다 · 고쳤다 · 까닭).
 
 **알아 둘 것**
-- "Checking does not change stock."(확인은 재고를 바꾸지 않는다) 재고를 먼저 고치고 확인합니다.
-- 재고 조정에는 Stock adjustments 권한이 필요합니다. 없으면 가진 사람에게 부탁합니다.
+- **Count & check** 로 재고가 바뀌었으면 확인된 줄에 조정 번호(ADJ-…)가 나옵니다.
+- 그 브랜치의 Stock adjustments 권한이 없으면 창에 "You can see this but not change stock here — that needs the Stock adjustments key for …"(볼 수는 있지만 재고는 못 바꾼다) 가 나옵니다. 장부가 맞으면 **Mark checked** 를 쓰고, 아니면 권한 있는 사람에게 부탁합니다.
+- bin **UNASSIGNED** "(no shelf yet)"(아직 선반 없음)는 그 브랜치에 bin 이 없는 제품을 POS · counter 로 팔 때 빠지는 자리입니다. 여기서 세어 실제 bin 으로 옮깁니다.
+- bin 없는 옛 줄은 보이기만 합니다: "is fixed separately — not by this count"(따로 고친다 — 이 셈으로는 아님)
+- "Someone else just checked this line."(다른 사람이 방금 확인했다) — 창을 닫고 목록을 다시 엽니다.
 - 창고의 **Not enough stock** 과는 다릅니다. 그것은 픽커가 물건을 찾지 못한 것입니다([WMS Admin](04-wms.md#wms-admin)).
 
 <a id="action-unpaid"></a>
@@ -157,4 +169,4 @@ IMS 에서 예약한 Freightcom 발송 가운데 운송사 픽업이 확인되�
 
 <!-- SCREENSHOT: action-pickups-1 · What Freightcom says 와 Check pickup 이 있는 Pickups not scheduled -->
 
-<!-- rulings: 1040, 1041, 1048, 1049, 1050, 1051, 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735 -->
+<!-- rulings: 1040, 1041, 1048, 1049, 1050, 1051, 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 1172, 1173, 1176 -->

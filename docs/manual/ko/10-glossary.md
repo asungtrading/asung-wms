@@ -103,6 +103,7 @@
 | cancelled (transfer) | 취소됨. | [상태의 뜻](03-inventory.md#stock-statuses) |
 | Combo | 서로 다른 제품으로 된 SKU 하나 — 재고는 구성품이 가진다. | [새 제품 · 세트 · 콤보 만들기](03-inventory.md#stock-new-product) |
 | confirmed (transfer) | 보내는 창고의 재고가 잡혀 있다. | [상태의 뜻](03-inventory.md#stock-statuses) |
+| Count & check | 재고 없이 나간 판매의 선반을 센다 — IMS 가 재고를 고치고 열린 줄을 한 번에 확인한다. | [Sold without stock(재고 없이 나감)](06-action-centre.md#action-sold-short) |
 | draft (transfer) | 쓰는 중. | [상태의 뜻](03-inventory.md#stock-statuses) |
 | Draft · Confirmed (adjustments, bin moves) | 쓰는 중 · 확정됨. | [상태의 뜻](03-inventory.md#stock-statuses) |
 | Family | 한 물건의 변형인 제품들. | [패밀리](03-inventory.md#stock-families) |
@@ -120,6 +121,7 @@
 | Settle in transit | 도착하지 않은 것을 닫는다: Lost 또는 Returned to sender. | [창고 간 트랜스퍼](03-inventory.md#stock-transfers) |
 | Transfer | 재고를 한 창고에서 다른 창고로 옮긴다. | [창고 간 트랜스퍼](03-inventory.md#stock-transfers) |
 | Transfer res. | 다른 브랜치로 갈 트랜스퍼에 잡아 둔 것. | [재고 찾기(Stock Availability)](03-inventory.md#stock-availability) |
+| UNASSIGNED | 아직 선반이 없는 bin — 브랜치마다 하나. 그 브랜치에 bin 이 없는 제품의 POS · counter 판매가 여기서 빠진다. | [재고 조정](03-inventory.md#stock-adjustments) |
 | Zero stock | 재고 · 확보 · 주문이 모두 없는 제품도 보인다. | [재고 찾기(Stock Availability)](03-inventory.md#stock-availability) |
 
 <a id="gloss-warehouse"></a>
@@ -190,4 +192,4 @@
 | Surcharge group | 관세처럼 어떤 제품에 낱개마다 붙는 요금. | [Surcharge 그룹](07-settings.md#set-surcharge) |
 | Use this version | 그 양식 버전을 인쇄용으로 쓴다. | [문서](07-settings.md#set-documents) |
 
-<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740, 742 -->
+<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740, 742, 1173, 1176 -->

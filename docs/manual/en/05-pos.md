@@ -54,6 +54,7 @@ IMS does not sell without a customer account. Make the account first: press **IM
 - A combo shows its parts in small rows under it.
 - If an item you scan is also sold as part of a combo, a chip shows "Also sold as combo …" with **Use combo**. **Use combo** adds one combo and takes the same items off the sale — as many as go into one combo, newest lines first. Free lines and B-grade lines are not touched. It is only a suggestion; nothing changes until you press it.
 - More than the warehouse has asks first: "Only … available in this store's warehouse (on hand minus what other orders hold). Sell … anyway?"
+- A product with no bin in this store's warehouse still sells. It comes off the bin **UNASSIGNED**; a manager counts it later in [Action Centre › Sold without stock](06-action-centre.md#action-sold-short).
 
 **Watch out**
 - "No tax rule — pick one before Confirm." Choose the **Tax rule** that shows under the warning.
@@ -235,4 +236,4 @@ On **Sales Orders** a POS sale has the tag **POS**. The badges are the same as f
 **Closing the day**
 Counting the cash and closing the card terminal happen outside IMS. To check the day's payments: on **Sales ▾** › **Customer Payments**, choose the method (**All methods** lists them), set both dates to the day, and press **↓ CSV** (see [Customer payments and deposits](01-sales.md#sales-payments)).
 
-<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773 -->
+<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773, 1172, 1174, 1175 -->

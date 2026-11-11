@@ -3557,7 +3557,7 @@ POS·counter 는 실물을 손에 쥔 길   = Confirm 이 재고 수치를 보�
 
 ```
 판정 1  칸 — 「지금 재고 있는 칸에서 자동으로 빼자」 · 한 칸이 모자라면 다음 칸으로 나눈다(so_ship 은 한 줄을 여러 칸으로 받는다)
-        기각: 매장 진열대를 칸 하나로(채울 때마다 칸 이동 기록 · 빠뜨리면 음수가 매일 쌓인다) · 칸 없이 ''(칸 수량이 영영 안 준다 · 아침 점검 ⑧ bin 대조가 쓸모를 잃는다)
+        기각: 매장 진열대를 칸 하나로(채울 때마다 칸 이동 기록 · 빠뜨리면 음수가 매일 쌓인다) · 칸 없이 ''(칸 수량이 영영 안 준다 · 아침 점검 ⑧ bin 대조가 쓸모를 잃는다) → [2026-11-11 · §113] 후보 칸이 없으면 pos · counter 는 UNASSIGNED(→ §113 · 1174 · 1175)
 판정 2  보관용 표시 — 「평시에는 칸 하나를 쓰다가 스탁이 많이 와서 칸 하나를 더 써야 할 경우 해당 sku별로 보관용이라고 따로 표시할 수 있으면 좋을것 같아」 · 「1번이 맞아 보여」
         ⇒ 표시는 칸이 아니라 **SKU × 칸 짝**에 붙는다(같은 칸이 A 에게는 보관용 · B 에게는 평소 칸) · 값은 「보관용」 하나 · 표시가 없으면 평소 칸 · 순서만 바꾸고 막지 않는다 · 칸이 비어도 표시는 남는다
         기각: 칸 전체에 표시(한 칸이 제품마다 역할이 다른 것을 못 담는다) · 제품마다 「주 픽 칸」(수천 개를 미리 · 옮길 때마다 고쳐야) · 「주 픽」·「보관용」 두 값(표시 없음이 무엇인지 · 규칙이 는다)
@@ -3569,7 +3569,7 @@ POS·counter 는 실물을 손에 쥔 길   = Confirm 이 재고 수치를 보�
         Finish 는 **막지 않는다** — 남은 몫은 그 인보이스의 미수(결제조건 기한) · 화면은 하나(손님용·계산원용을 가르지 않는다) · 대가: COD 손님이 덜 내고 나가도 막지 않는다(미수로 남아 찾을 수는 있다)
 판정 6  권한 — 「좋아 그렇게 가자」 · POS 의 Confirm · 다시 열기 · Finish = **ims_require_write('sales') 만**(역할 문 없음 · R5 의 예외 · §17 판정 8 so_finalize 선례) · counter 는 정본대로 **manager 이상**(6-b · 6-h)
         근거: manager 가 확정을 쥐는 이유(재고를 보고 나누기·보류·백오더 판단)가 POS 에는 없다 · 실물을 스캔해야 줄이 선다 · 모든 판매가 인보이스로 남는다
-판정 7  「재고 없이 나갔다」 — 「맞아」(admin Discrepancy 모양) · 새로 적는 곳을 만들지 않는다 — 원장의 판매 부족분 레이어(origin_type sale_shortfall · doc_number = so_number · §15)를 **읽는 목록** + 매니저의 「확인함」 기록(누가 · 언제 · 메모) 표 하나 → [2026-11-11 · §112-g] 칸 없는 판매 · 유령 원가(nb-0 · deferred 526 · 527)
+판정 7  「재고 없이 나갔다」 — 「맞아」(admin Discrepancy 모양) · 새로 적는 곳을 만들지 않는다 — 원장의 판매 부족분 레이어(origin_type sale_shortfall · doc_number = so_number · §15)를 **읽는 목록** + 매니저의 「확인함」 기록(누가 · 언제 · 메모) 표 하나 → [2026-11-11 · §112-g] 칸 없는 판매 · 유령 원가(nb-0 · deferred 526 · 527) → §113 Count & check
         화면(뒤 차례) = 운영 WMS admin 의 Discrepancy 탭 모양(배지 · 미해결 전량 · 해결은 기간 · Resolve) · 길(pos·counter·warehouse)과 무관하게 전부 ⇒ asung-inv-ledger ⑲ 의 「SO 쪽 표와 맞아야 한다」 대조가 필요 없어진다(같은 기록 하나)
 판정 8  관리 화면 나누기 — 「그 기준으로 가자」 · 「그 일을 바로잡는 곳이 어디냐」: 창고 작업(사람·픽·팩·되돌리기)은 WMS · 장부·마스터·돈은 IMS · 이번 차수는 **읽기 창구만** 이 기준으로 IMS 쪽에
         근거(Caleb 동의): POS·counter 는 WMS 를 거치지 않는다 — WMS 에 목록을 두면 WMS 없이 도는 매장에서 볼 곳이 없다
@@ -13577,7 +13577,7 @@ asung-ops  (없음)
 | 판정 | Caleb 원문 | 뜻 |
 |---|---|---|
 | 1112 | 「나도 금액이 맞을때만 자동이 맞다고 생각해」 | QuickBooks 에 같은 DocNumber 의 JournalEntry 가 1 행 있을 때(보내기 직전 가드 적중 뒤 풀기 · POST 끊김 unknown 의 풀기) 그 장의 Debit 합(센트)이 이 일감이 보내려던 차변(claim 때 고정)과 **같을 때만** 자동 done · 다르면 unknown 그대로 + 글(「… has debits X but this cost day expects Y — not recorded …」) · 0 행 not_found · 2 행 이상 ambiguous(1101) · 금액을 못 견주면(qbo_name 에 센트 없음) 자동 없음 · 구현 = qbo_name `<DocNumber>\|<차변 센트>`(결제 paymentKeyOf 선례 · EF 만 · DB 무변) · 근거: Retry 로 다시 셈한 장이 QuickBooks 의 옛 장과 금액이 다르면 자동 done 은 두 장부를 경고 한 줄로 조용히 갈라놓는다(대화 Claude) · 기각: (가) 1 행이면 자동 done(인보이스 선례) · (나) 늘 사람(resolve) |
-| 1113 | 「가」 | 칸 없는 잔고 넷(AIA03588 · EBI03960 · UNF18259 · UNF18155)만 ops 원장 짝(inv-count-1 · MANUAL-907-BIN)으로 실사 칸에 붙이고, 칸 옮기기 · 콤보 되돌리기 · 수량 조정은 실무자가 화면으로 · 근거: 조정 · 이동 창구는 활성 bin 필수(907) · 기각: (나) 조정 화면이 「칸 없음」 줄을 고르게 고치기(지금 넷뿐 · 같은 일이 되풀이되면 그때) · (다) 그대로 두기 — ⚠️ 그 뒤 Caleb 이 칸 없는 판매가 되풀이되는 것을 막고 쉽게 처리하자고 했다(107-c 7) → (나)는 「조사 뒤 다시」(deferred 526) → [2026-11-11 · nb-0 · §112-g 4] (나) 의 「되풀이되면 그때」 조건이 찼다(526 이어 쓰기) |
+| 1113 | 「가」 | 칸 없는 잔고 넷(AIA03588 · EBI03960 · UNF18259 · UNF18155)만 ops 원장 짝(inv-count-1 · MANUAL-907-BIN)으로 실사 칸에 붙이고, 칸 옮기기 · 콤보 되돌리기 · 수량 조정은 실무자가 화면으로 · 근거: 조정 · 이동 창구는 활성 bin 필수(907) · 기각: (나) 조정 화면이 「칸 없음」 줄을 고르게 고치기(지금 넷뿐 · 같은 일이 되풀이되면 그때) · (다) 그대로 두기 — ⚠️ 그 뒤 Caleb 이 칸 없는 판매가 되풀이되는 것을 막고 쉽게 처리하자고 했다(107-c 7) → (나)는 「조사 뒤 다시」(deferred 526) → [2026-11-11 · nb-0 · §112-g 4] (나) 의 「되풀이되면 그때」 조건이 찼다(526 이어 쓰기) → (나)는 §113 으로 다른 길로 풀림(칸 없음은 UNASSIGNED 로 생기지 않게 · 옛 한 행은 nb-5) |
 | 1114 | 「받아둔 돈을 크레딧 노트없이 돌려주는 경우? 거의 없어. 아니 없다고 봐야 하지 않을까? 혹 손님이 오버페이를 하고 그 돈을 돌려달라고 하는 경우가 아니라면 말이야.」 | 받아 둔 돈(이월 · 컷 뒤 결제)을 크레딧 노트 없이 돌려준 환불(오버페이 환불)과 USD 환불은 **짓지 않는다** · 생기면 IMS 는 보내지 않고 failed(1066 · 1067 · `qbo_refund_block` 그대로) · 북키퍼가 QBO 에 손으로 넣고 IMS 줄은 Skip(메모 「QuickBooks 에 손으로 넣음」) · 자주 생기면 그때 짓는다 · deferred 500 · 511 열림 그대로 · 북키퍼 안내서에 이미 반영(11-08) · 원문 11-08 저녁 |
 
 - 1112 의 짓기 = qbo-sync-3-3(`232dec7`) · 판정 전 멈춤: `qbo_job_unknown_list()` 반환(job_id · kind · ims_kind · ims_id · qbo_name · sku · request_id · attempts · last_error)에 지문 · 합계가 없고 EF 가 일감 행을 읽는 다른 창구가 없어 「금액 대조」 가 기댈 칸이 없었다 → 안 (가) qbo_name 열쇠(EF 만) · (나) unknown_list 에 fingerprint(3-2c 마이그레이션 · deferred 521) — Caleb 승인 (가)
@@ -14157,7 +14157,7 @@ asung-ops  (없음)
 172. [대화 Claude · 짐작](workflow 151) 지시서에 「실물 값」 을 짐작으로 적었다(2223170 = true · 실제 false) ⇒ 실측하지 않은 값은 「짐작」 으로 적거나 비워라
 173. [대화 Claude · 짐작](workflow 152) 「예약 뒤 청구 전 합계」 를 설계했지만 Freightcom 은 예약 순간 청구 문서를 만든다(unbilled 늘 0) ⇒ 스펙 밖 꼴은 실물 한 번을 먼저 본다
 174. [Claude Code 의 회신](workflow 153) 「아직 미적용」 같은 상태 진술은 회신을 쓴 때의 것이다(fsale-1 회신의 「fc-track-2 미적용」 은 이미 적용된 뒤였다) ⇒ 적용 전 DB 마지막 번호를 다시 보라
-175. [대화 Claude](workflow 154) 재고 없이 판 뒤 + 조정의 단가 칸 권고 — nb-1 이 서기 전에는 「유령 가치가 생긴다」 를 먼저 말하라(112-g)
+175. [대화 Claude](workflow 154) 재고 없이 판 뒤 + 조정의 단가 칸 권고 — nb-1 이 서기 전에는 「유령 가치가 생긴다」 를 먼저 말하라(112-g) → [2026-11-11 낮] nb-1 섰음 — + 조정이 메운다(§113)
 176. [대화 Claude · 11-06](workflow 155) 같은 이름 손님을 빈 이메일끼리 비교해 같은 사람으로 봤다(112-c 3) ⇒ 이메일 · 전화 · 주소가 실제로 같을 때만 · 빈 칸끼리는 「같음」 이 아니다
 
 ### 112-f 옛 줄 정정(→ · 이 절을 가리킨다)
@@ -14168,13 +14168,13 @@ asung-ops  (없음)
 - §69 판정 590 · §71 판정 629 → 1161(바코드 없는 오래된 떨이)
 - qbo-integration 머리 상태 → §15-p · freightcom-integration 머리 상태 · §2 · §3 · §11 → §8-c ~ 8-e · po-module 555 줄 → 112-c 9 · ledger-design 「기준선 sku 1」 → deferred 576
 
-### 112-g 칸 없음 · 유령 원가 — nb-0 조사(읽기 전용) · deferred 526 · 527 잇기 · ⚠️ 판정 아님
+### 112-g 칸 없음 · 유령 원가 — nb-0 조사(읽기 전용) · deferred 526 · 527 잇기 · ⚠️ 판정 아님 → 판정 1169 ~ 1178(§113)
 
 1. **계기**(Caleb 11-10 밤): Action Centre 「Sold without stock」 SO-21211(ORS21020 · EDM · short 1) · SO-21090(EZB70340 · EDM · pos · checked 직원 11-09 「STOCK TAKE 1」) · 「두 제품 모두 해당 브랜치에 더이상 재고가 없는 것으로 확인됐어.」 · ORS21020 은 ADJ-00134(11-10 · Set this bin to 0 · 단가 5.564 넣음)로 고침 · EZB70340 은 EA010404 +1 · (no bin) −1 · 조정 화면이 칸 없음을 못 골라(「Pick a bin.」) 그대로 둠 · Caleb 「이부분은 정리가 필요해 보여. 그리고 빈없이 판매가 되는 구멍도 막아야 하지 않을까?」 · 「mark checked 할때 바로 정리되는게 가장 깔끔해 보여.」
 2. **nb-0 사실**(11-10 23:50 토론토 · 읽기 전용): 지점 칸 없음 ≠ 0 은 **EDM EZB70340 −1 하나** · 칸 없이 나간 판매는 컷오버 뒤 **SO-21090 1 줄** · 재고 없이 팔면 보통 **첫 후보 칸이 음수**(§20 판정 1 · so_pick_plan) · 칸 없음이 생기는 건 ⓐ 그 창고에 그 SKU 의 활성 칸 행이 없을 때 ⓑ counter 화면 bin 칸을 비울 때 · 후보 칸 없는 활성 낱개 제품 EDM 1,893 · TOR 784(짐작 상한) · `inv_adjust_line_set` 이 칸 없음을 **DB 에서** 거부 · `inv_adjust_line.bin_id · bin` NOT NULL · Mark checked(`so_stock_short_confirm`)는 기록만 · 권한: Mark checked = manager + sales ∨ receiving / 조정 = stock_adjust + 그 창고
-3. **유령 원가(사실)**: 재고 없이 판 뒤 + 조정 = 수량 0 인데 가치 — `inv_layer_post_sale` 이 sale_shortfall 레이어를 세우고 그 자리에서 소진 → `inv_layer_post_adjust` 가 + 조정마다 새 레이어(adjust_new · layer_avg · unknown 0)를 무조건 세운다 · 실물 **EZB70340 EDM $5.26**(3975371 adjust_new 1 @5.264) · **ORS21020 EDM $5.56**(ADJ-00134 adjust_new 1 @5.564) — 합 $10.82 · 이 둘뿐 · 대화 Claude 가 ORS21020 조정에 「최근 원가를 넣으라」 고 권했다(비웠어도 0 원 유령 수량이 남았을 것 — 장치의 빈틈 · 교훈 175)
-4. **nb-0 이견 받음**: 이 일은 **deferred 526(열림 · 11-08)과 527** 의 몫 — 새 deferred 를 만들지 않고 526 을 이어 쓴다 · 판정 1113(나) 「조정 화면이 칸 없음 줄을 고르게」 의 「되풀이되면 그때」 조건이 찼다 · IN_TRANSIT 칸 없음 776 행(음수 241 · 합 −2,189)은 범위 밖(가상 창고 · 음수는 따로 볼 거리 · 짐작)
-5. **제안**(대화 Claude 권고 · ⚠️ 판정 아님 — Caleb 이 새 대화에서 정한다): nb-1 원가 메우기 규칙(모든 조정) → nb-2 확인 칸(막기) → nb-3 Count & check 창구 → nb-4 화면 → nb-5 지금 쌓인 두 건 정리 + QBO 원가 장 확인 · Count & check 권한 안 = stock_adjust + 그 창고 + manager
+3. **유령 원가(사실)**: 재고 없이 판 뒤 + 조정 = 수량 0 인데 가치 — `inv_layer_post_sale` 이 sale_shortfall 레이어를 세우고 그 자리에서 소진 → `inv_layer_post_adjust` 가 + 조정마다 새 레이어(adjust_new · layer_avg · unknown 0)를 무조건 세운다 · 실물 **EZB70340 EDM $5.26**(ADJ-00101(레이어 3975371) adjust_new 1 @5.264) · **ORS21020 EDM $5.56**(ADJ-00134 adjust_new 1 @5.564) — 합 $10.82 · 이 둘뿐 · 대화 Claude 가 ORS21020 조정에 「최근 원가를 넣으라」 고 권했다(비웠어도 0 원 유령 수량이 남았을 것 — 장치의 빈틈 · 교훈 175)
+4. **nb-0 이견 받음**: 이 일은 **deferred 526(열림 · 11-08)과 527** 의 몫 — 새 deferred 를 만들지 않고 526 을 이어 쓴다 · 판정 1113(나) 「조정 화면이 칸 없음 줄을 고르게」 의 「되풀이되면 그때」 조건이 찼다 · IN_TRANSIT 칸 없음 776 행(음수 241 · 합 ~~−2,189~~ → **+2,221** · §113-c 6)은 범위 밖(가상 창고 · 음수는 따로 볼 거리 · 짐작)
+5. **제안**(대화 Claude 권고 · ⚠️ 판정 아님 → 판정 1169 ~ 1178(§113) — Caleb 이 새 대화에서 정한다): nb-1 원가 메우기 규칙(모든 조정) → nb-2 확인 칸(막기) → nb-3 Count & check 창구 → nb-4 화면 → nb-5 지금 쌓인 두 건 정리 + QBO 원가 장 확인 · Count & check 권한 안 = stock_adjust + 그 창고 + manager
 
 ### 112-h FINAL SALE 떨이 — fsale-0 · 1 · 2 (판정 1161 · 1162 · deferred M-① 닫힘)
 
@@ -14193,4 +14193,94 @@ asung-ops  (없음)
 
 ```
 다음 판정 번호: 1169 · 다음 deferred 번호: 580
+```
+
+## §113 2026-11-11 낮 — 칸 없음 · 유령 원가 고침(nb-1 ~ nb-5) · + 조정 원가 메우기 · 확인 칸 UNASSIGNED · Count & check · 유령 두 건 정리 · 판정 1169 ~ 1178 (노트북 · 출장 중)
+
+⭐ 원천: 지시서 docs-1111b(📌 A ~ F) + Caleb 회신(이견 1 ~ 6 · 11-11) · 원천 대조 asung-wms `0f1afd8` · `a92e43e` · `6526ce4` · `4f66800`(넷) · asung-ims `8272e3f` · `08761c6` · `d5df5d5`(셋) · 이 차수(docs-1111b)는 DB · 화면 · EF · cron · git 쓰기 0(테스트 DB 읽기 전용 대조 한 번 — 113-c 9)
+⚠️ 공개 레포 — 손님 · 직원 이름은 적지 않는다(§110 머리 규칙) · 문서 번호 · 레이어 id · 금액은 적는다
+⚠️ 상태 = + 조정이 **재고 없이 판 몫을 먼저 메우고**(새 레이어 없음 · 1170) · 단가를 비운 + 조정은 **판매 부족분과 같은 원가 순서**(1171) / 그 지점에 칸이 없는 SKU 를 pos · counter 로 팔면 **UNASSIGNED** 에서(1172 ~ 1175) · counter 빈 bin 거부 / Action Centre 「Sold without stock」 에 **Count & check**(1176) / 쌓인 유령 두 건 정리 끝(nb-5 · 1178) · deferred **526 닫힘** · 527 **부분**
+
+§112-g 의 조사(nb-0)를 받아 Caleb 이 다섯 차수를 순서대로 정했고(1169), 하루 낮에 DB 셋 · 화면 둘 · ops 하나로 끝냈다. 판정 1113(나) 「조정 화면이 칸 없음 줄을 고르게」 는 이 nb 로 **다른 길로 풀렸다** — 칸 없음은 UNASSIGNED 로 아예 생기지 않게 하고, 옛 한 행은 nb-5 가 지웠다.
+
+### 113-a 판정 (원천 docs-1111b 📌 A · Caleb 원문 칸은 바이트 그대로)
+
+| 판정 | Caleb | 정한 것 | 단서 · 근거 · 기각 |
+|---|---|---|---|
+| 1169 | 「순서대로 진행하자」 · 병행을 묻자 nb-2 를 nb-1 과 같이 | nb 를 다섯으로: nb-1 원가 메우기 → nb-2 칸 없는 판매 막기 → nb-3 Count & check 창구 → nb-4 화면(대화 Claude) → nb-5 쌓인 두 건 정리 | §112-g 5 의 제안이 판정이 됨 |
+| 1170 | 「가」 | 메우기 규칙은 **모든 + 조정**(조정 화면 · Count & check 모두) | 기각 (나) Count & check 에서 생긴 조정만 — 쌓인 두 건이 둘 다 일반 조정 화면에서 생김 |
+| 1171 | 「가」 | 단가를 비운 + 조정(메우고 남는 몫)의 원가 = **판매 부족분과 같은 순서**: 이 지점 남은 평균 → 이 지점 최근 → 다른 지점 최근 → 최근 발주 단가 → 0(unknown) · 사람이 단가를 넣으면 그 값 | 기각 (나) 지금 그대로(이 지점 평균 → 0 — 0 원 수량이 팔리면 원가 0 · 이익 부풀림 · QBO 원가 장 0) · 계기 Caleb 원문(11-11 새벽) 「nb-0 조사하면 나눈 차수에 unit cost를 쉽게 넣을 수 있게 검색한 sku의 평균 코스트를 안내해 주면 좋을 것 같애 … 동료들이 코스트를 모르는데, 그것을 찾아서 넣을 것 같지가 않아.」 · 「최근 발주 단가」 = 코드의 `po_price_history`(확정 인보이스 가격 · CAD · 화면 「last purchase price」 · docs-1111b 이견 4) |
+| 1172 | 「가로 하자」 | 그 지점에 활성 칸이 하나도 없는 SKU 를 팔면 「칸 없음」 대신 지점마다 둔 **확인 칸**에서 잡는다(음수 가능 · 판매는 막지 않음) | 기각 (나) 판매를 막기 — 계산대에서 손님이 기다리는 중에 POS · counter 가 멈춤 · counter 빈 bin 은 두 안 공통으로 거부 |
+| 1173 | 「unassigned로 가자」(앞서 「다른 동료들도 직관적으로 알 수 있는 이름이 좋을 것 같아」) | 확인 칸 이름 **`UNASSIGNED`**(두 지점 같은 이름) | 기각 `TO-LOCATE`(낯섦) · `NO-BIN`(말이 꼬임) · `CHECK` |
+| 1174 | 「가」 · 「실제로 warehouse를 타는 오더는 이게 발생하기 어렵지?」 | UNASSIGNED 대체는 **채널 pos · counter 에만** · 창고 오더 · 트랜스퍼는 그대로(진짜 칸 필수) | nb-2 이견 1: 창고 오더는 `wms_pick_line_bins.bin_id NOT NULL` · `wms_pick_line_bins_write` 「no bins given and no planned bins to fall back on」 로 이미 DB 가 칸을 강제(대화 Claude 답 「어렵다가 아니라 DB 가 막아 생길 수 없다 · 화면 쪽 동작은 짐작」) · 기각 (나) 창고 오더에도 — 픽커가 칸 없이 끝내고 EDM 존 U 로 읽힘 |
+| 1175 | 「가」 | UNASSIGNED 는 **모든 채널에서 후보 칸이 아니다** · 활성 후보 칸이 하나도 없을 때만 대체 칸 · 진짜 칸 행이 생기면(0 이어도) 진짜 칸이 먼저 | 대가: UNASSIGNED 에 + 가 있어도 판매가 자동으로 거기서 빼지 않음 · 기각 (나) 지금 순서(last_seen_on desc 로 UNASSIGNED 가 진짜 칸을 제침) |
+| 1176 | 「가」 | **Count & check(재고를 바꾸는 쪽) = stock_adjust 열쇠 + 그 창고 + 매니저 이상**(실제 문 `inv_adjust_require` = ims_can_adjust — admin · 열쇠 켠 supervisor · manager) · 열쇠 없는 매니저는 Mark checked(「장부가 맞다」)만 | 기각 (나) 지금 Mark checked 권한(매니저 + sales ∨ receiving)으로 재고까지 · Caleb 원문(11-10 밤) 「mark checked 할때 바로 정리되는게 가장 깔끔해 보여.」 |
+| 1177 | 「가」 · 이어 「그러면 비워두면 알아서 채운다는 문구도 있어야 하지 않을까?」 | 원가 미리 보기는 **저장한 줄**의 Cost 칸에(`inv_adjust_eval` 이 저장된 줄만 읽고 최근 원가 함수는 직원이 못 부름) · Unit cost 안내 「Leave it empty — the right cost is filled in for you.」 | 기각 (나) 고르는 순간 미리 보기(읽기 창구 하나 더 · Fable 차수) |
+| 1178 | 「나」 | 쌓인 두 건은 **ops 정리 스크립트 하나**로 | 기각 (가) 화면 조정 셋 + 칸 없음 행만 ops — 「실물 1 이 나타남」 가짜 조정이 남고 일이 넷 |
+
+- 판정 뜻 바뀜: **1113(나)** 「조정 화면이 칸 없음 줄을 고르게」 → 이 nb 로 다른 길로 풀림(칸 없음은 UNASSIGNED 로 생기지 않게 · 옛 한 행은 nb-5) · **§20 판정 1**(칸 없이 '' 기각)은 pos · counter 에 한해 UNASSIGNED 로 이어짐(1174 · 1175) · **§20 판정 7**(「재고 없이 나갔다」 = 읽는 목록 + 확인 기록)에 Count & check(1176)가 더해짐 — 확인 기록 표는 그대로 · `adjust_number` 칸만 더함
+
+### 113-b 차수 · 커밋 (Caleb 실행 원문에서)
+
+| 차수 | 레포 · 커밋 · 버전 | 확인 |
+|---|---|---|
+| nb-1 | asung-wms `0f1afd8` · `20261111064623_nb_1_adjust_fill_cost_order.sql` · 시험 `supabase/tests/nb_1_check.sql` | 적용 · 확인 OK 24 · 마른 실행 A FAIL(결함 재현) · 변이 셋(메움 끔 FAIL 11 · 순서 바꿈 4 · hint 무시 2) |
+| nb-2 | asung-wms `a92e43e` · `20261111065910_nb_2_unassigned_bin_counter_bin_required.sql` | 시험 17 · 확인 OK 16 · 변이 둘(후보에 넣음 FAIL 3 · 채널 조건 뺌 3) |
+| nb-3 | asung-wms `6526ce4` · `20261111071400_nb_3_stock_short_count_check.sql` | 시험 · 확인 OK 22 · 마른 FAIL 21 · 변이 둘(확인만 FAIL 10 · 매니저만 3) |
+| nb-4a | asung-ims `8272e3f`(adj nb v1 · so nb v1) · `08761c6`(adj nb v1a) | 화면 Caleb 확인: counter Hand over 빈 bin 거부(SO-21324 · 시험 뒤 취소) |
+| nb-4b | asung-ims `d5df5d5`(ml v1.6) | 콘솔 `openCount("EZB70340","Asung - Edmonton")` 로 창 확인 · Preview → DB 「There is no unchecked sold-without-stock line …」 거부(무변) |
+| nb-5 | asung-wms `4f66800` · `supabase/ops/nb-5-ghost-cleanup.sql` · `supabase/tests/nb_5_check.sql` | 적용 OK 11 · 확인(-v check=1) OK 10 · 조정 문서 ADJ-NB5-EZB70340 · ADJ-NB5-ORS21020(줄 0 · 메모 · BY 빈칸) |
+
+- cron 새로 0 · EF 무변.
+
+### 113-c 사실 · 실측 (회신 원문에서)
+
+1. **nb-1**: f = max(0, 그 SKU × 창고 레이어 남은 수량 − 장부 수량) — 창고 단위 · 메운 몫은 레이어를 세우지 않고 원장 `raw.cost.fill_qty` · 재생성은 hint 그대로(옛 행 = 0) · 새 함수 `inv_layer_recent_cost`(authenticated 없음) · `inv_adjust_eval` drop → create(칸 넷 fill_qty · layer_qty · layer_unit_cost · cost_from · 금액은 ims_can_view_cost) · 같은 SKU × 창고 advisory lock · 하루 원가 장은 메움 몫에 아무것도 안 씀(판정 1094 가 판매 때 적음) · 지점 15,404 키 중 레이어 > 장부 = 2(유령 둘 뿐) · ⚠️ 대화 Claude 짐작 「입고도 유령을 만든다」 기각(nb-1 이견 1 — 장부 9 · 레이어 10 은 실물 가치가 맞고 차이는 아직 안 메운 부족분) · `inv_adjust_eval` 의 마지막 정의는 `20261021131845_rls_3b_cost_read_gate.sql`(대문자 CREATE — 지시서의 cogs_2 는 틀림) · 1171 의 원가 순서 = `inv_layer_recent_cost` ① 이 창고 마지막 레이어 → ② 다른 창고 마지막 레이어 → ③ 확정 인보이스 가격(`po_price_history` · CAD) → ④ unknown 0(앞에 이 창고 남은 평균) · sale_shortfall 레이어는 원천에서 뺀다(마이그레이션 주석)
+2. **nb-2**: UNASSIGNED 칸 판매 창고 둘(Asung Trading Inc. · Asung - Edmonton · source manual · zone null · is_staging false) · 트리거 `ref_bin_unassigned_guard`(끄기 · B급 · 지우기 거부 · 이름은 `ref_bin_name_lock` 이 이미) · so_pick_plan 반환 from 'unassigned' · 경고 `unassigned_bin:<SKU>` · `so_counter_ship` 빈 bin 거부 「Pick a bin for line N (SKU) — nothing was saved」(미리 보기 · 실행) · 「칸 없음」 을 낼 살아 있는 길은 `so_ship → inv_post_sale` 하나(R4 표) · 후보 칸 = 원장 잔고 행(제품 기본 칸 아님)
+3. **nb-3**: `so_stock_short_count_view(p_sku, p_warehouse)`(문 sales 보기 · can_count · bins[] kind bin|unassigned|no_bin · shorts[] · seen) · `so_stock_short_count(p_sku, p_warehouse, p_counts, p_seen, p_note, p_commit)` — 조정 만들기 → 줄(mode set · reason count) → 확정 + 그 SKU × 창고의 확인 안 된 줄 모두 확인 · 바뀔 줄 0 이면 확인만(문서 · 번호 없음) · 미리 보기는 번호 없는 임시 머리(PREVIEW-…) 를 세웠다 되돌림 · 확인 안 된 줄이 없으면 거부(조정 화면의 뒷문이 안 되게) · 음수 칸은 반드시 셈 · `so_stock_short_check.adjust_number`(FK) · source 'count' · `so_stock_short_list` 칸 둘(adjust_number · check_source) · 동시 확인은 23505(화면이 사람 말로)
+4. **nb-5**: 꼴 = SKU 마다 IMS 조정 머리 1(줄 없음 · source ims) + 원장 짝(+ 다리 fill hint · − 다리 FIFO 가 유령 레이어 소진) — EZB70340 은 + 를 옛 칸 없음에 · − 를 EA010404 에 / ORS21020 은 ED020203 ± · MANUAL 문서는 못 씀(재생성이 manual 짝을 순액 0 으로 접어 fill hint 를 안 읽음 · 원가 장 범위는 ims 문서 · 계정은 inv_adjust 머리) · SKU 마다 문서 둘(한 문서면 센트 반올림 1 센트 어긋남) · 번호 고정 · 원가 장(11-11 EDM): _1150040010_ 차 526 + 556 · _59_ 대 −1,082 센트 · ADJ-00134(+556)는 11-10 EDM 장으로 나가 서로 지워짐 · EZB70340 유령의 문서는 **ADJ-00101**(§112-g 3 의 「3975371」 은 레이어 id) · ORS21020 유령 레이어 id 3975634 · 남는 틈: 적용한 날 적용 뒤 같은 SKU 트랜스퍼가 EDM 에 도착하면 재생성에서 단가 차이(짐작 · deferred 582 에 잇기)
+5. **인보이스 번호 구멍(nb-2 시험 사고)**: 첫 마른 실행의 counter 실행이 발행까지 가 `so_invoice_number_seq` 60404 → 60405(rollback 돼도 시퀀스는 안 돌아옴) · Caleb 이 11-11 되돌림: 「60404 있음 · 60405 없음 · last_value 60405」 조건으로 setval 60404(첫 시도는 「숫자 인보이스 전체 최대」 조건이라 2329611 이 섞여 아무것도 안 함) · 시험 파일은 트랜잭션 안에서 `so_invoice_next_number` 를 거부 몸으로 덮는 막이
+6. **IN_TRANSIT 정정**: §112-g 4 의 「합 −2,189」 은 잔고 뷰로 **+2,221**(776 행 · 음수 241 은 일치) — nb-2 조사 원문
+7. **FINAL SALE 곁가지**(Caleb 질문 · 확인한 답): Settings 서비스 목록에 새 항목을 더하면 **Service 오더에서만** 팔 수 있다 · POS 「Final sale」 은 final_sale 표지 서비스 하나만(`fsLoad` limit 1) · counter 는 「Final sale item」 단추만 · 새 서비스에는 final_sale · price_each_time 이 안 붙음(Settings 가 안 보내는 칸) · 상품 줄 없이 일반 서비스만인 POS · counter 오더는 확정 불가
+8. **조정 화면 adj nb v1a**: 공통 `.pobox`(flex 세로 · max-height 86vh)에서 긴 안내 글이 Product · Bin 목록을 납작하게 누름 → 이 화면 `.pobox > * { flex-shrink: 0 }`
+9. **지점 「레이어 = 장부」 대조 — nb-5 뒤 실측**(docs-1111b · 테스트 DB Asung-IMS · 읽기 전용 · begin → select → rollback · 2026-11-11 16:22 현지(+08) = 03:22 토론토): 키 **15,406** · 레이어 > 장부 **0** · 레이어 < 장부 **0** — 기대(0)와 같음 · 쿼리 원문은 asung-inv-ledger 「유령 원가」 줄 · ⚠️ nb-1 의 15,404 와 키 2 차이는 실측 시각 다름(짐작 · 원인 안 봄)
+
+### 113-d 화면 (asung-ims · 대화 Claude 가 씀 · 커밋 Caleb)
+
+| 커밋 | 파일 · 판 | 내용 |
+|---|---|---|
+| `8272e3f` · `08761c6` | stock-adjustments.html · adj nb v1 → v1a | 초안 줄 Cost 칸 「Goes in at $x — <출처>」(원가 열쇠 없으면 「Cost: <갈래>」) · 메움 「n fills stock sold without stock — no new cost」 · Unit cost 안내 「Leave it empty — the right cost is filled in for you. Only type a cost if you know the real one. Save the line to see the cost and where it came from.」(순서는 마우스 글) · 확정 창에 메움 줄 · 원가 0 경고 글 새 순서 · UNASSIGNED 「(no shelf yet)」 · v1a = `.pobox > * { flex-shrink: 0 }`(113-c 8)(1170 · 1171 · 1177) |
+| `8272e3f` | so.html · so nb v1 | counter Hand over 빈 bin 화면 거부 · UNASSIGNED 칸 노란 테두리 · From 「no shelf yet」 · 경고 글 unassigned_bin · no_bins(1172 ~ 1175) |
+| `d5df5d5` | manager-list.html · ml v1.6 | Sold without stock 확인 안 된 줄에 Count & check…(Preview 뒤에만 실행 · 음수 칸 필수 · + add bin · 옛 칸 없음 행 보이기만 · 열쇠 없으면 안내) + Mark checked…(그대로) · 확인된 줄에 ADJ 번호(1176) |
+
+### 113-d′ 열린 것 · 닫은 것 · 다음
+
+- **닫힘**: deferred **526**(nb-1 ~ 5 · 판정 1169 ~ 1178)
+- **부분**: deferred **527** — EZB70340 몫만 nb-5 로 닫힘 · 칸 옮기기 셋(AS92087 · PRO00124 · PAL04170)과 콤보 되돌리기 두 장의 결과 확인은 열림 그대로(Caleb 도 끝났는지 모름 · docs-1111b 이견 2)
+- **새** 580 ~ 586(미정): 580 최근 원가 식 세 곳 · 581 원장 `raw.cost` 가 원가 열쇠 없이 보임 · 582 같은 날 − · + 줄 재생성 vs 실시간(+ nb-5 이견 5) · 583 WMS 손 UNASSIGNED 고르기 · 584 `ims_last_bin` 이 UNASSIGNED 를 내놓을 수 있음 · 585 칸 이름 첫 글자로 존을 읽는 곳 · 586 매뉴얼 `01-sales` 1,017 행 나누기(docs-1111b 이견 1)
+- **그대로 열림**: §112-g 4 「IN_TRANSIT … 음수는 따로 볼 거리」(숫자만 정정 — 113-c 6)
+- **다음**: 527 의 남은 확인(칸 옮기기 셋 · 콤보 두 장) · 580 ~ 585 는 Caleb 이 가른다
+
+### 113-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (112-e 에 이어 177 부터 · asung-workflow 156 ~ 164 와 같은 것)
+
+177. [대화 Claude · 지시서 · 마지막 정의](workflow 156) `grep 'function public\.'`(소문자)가 대문자 `CREATE FUNCTION` 판(rls_3b)을 놓쳐 nb-1 지시서가 `inv_adjust_eval` 의 옛 정의를 가리킴 ⇒ 마지막 정의 grep 은 **`grep -i`**(재발 · 교훈 119 의 공백 꼴과 같은 뿌리)
+178. [대화 Claude · 짐작 · 68 · 89 · 128 과 같은 뿌리](workflow 157) 「재고 없이 판 뒤 입고도 유령을 만든다」 · nb-5 안 「붙이는 짝 뒤 −1」(그대로면 −1) — 둘 다 Claude Code 가 바로잡음 ⇒ 수량이 오가는 안은 표로 전 · 후를 셈한 뒤 적는다
+179. [대화 Claude · 지시서 · 「지금 막는 것」](workflow 158) nb-2 지시서가 창고 오더에도 UNASSIGNED 를 넣으라 함 — 창고 오더는 이미 DB 가 진짜 칸을 강제 ⇒ 새 대체 · 예외를 넣기 전에 그 길에 **지금 무엇이 막고 있는지**를 조사 항목으로(교훈 51 · 88-e 2 의 결)
+180. [시험 · 시퀀스 · 교훈 142 재발](workflow 159) 마른 실행(적용 전)에서는 새 거부가 아직 없어 실행 갈래가 **발행까지** 갔다 — 인보이스 번호 60405 소모 ⇒ 실행 갈래를 시험하는 파일은 처음부터 발행 창구 막이(`so_invoice_next_number` 를 트랜잭션 안에서 거부 몸으로) · 마른 실행에도 같은 막이
+181. [되돌리기 조건](workflow 160) 시퀀스 되돌리기를 「숫자 인보이스 전체 최대 = 60404」 로 걸었다가 옛 숫자 번호(2329611)가 섞여 아무것도 안 함(안전하게 실패) ⇒ 조건은 **「그 번호가 있고 다음 번호가 없고 시퀀스가 그 값」** 으로
+182. [지시서 · 조건 바꾸기](workflow 161) nb-3 를 병행시키려 「4행 대신 …」 을 붙일 말로 줬는데 창이 지시서 원래 줄(「없으면 멈춰라」)을 따라 멈춤 ⇒ 지시서 파일의 조건을 바꿀 때는 붙일 말 첫머리에 **「지시서 N 행을 이렇게 바꾼다」** 를 박거나 파일을 고친다 · 병행 차수의 시험은 앞 차수 파일을 `\i` 했다가 **앞 차수가 적용되면 즉시 알린다**(머리 원본 md5 가드에 걸린다)
+183. [화면 · 공통 CSS](workflow 162) 공통 `.pobox` 는 flex 세로 + max-height — 안내 글을 늘리면 형제 목록이 줄어든다 ⇒ 팝업에 글을 늘릴 때 `.pobox > * { flex-shrink: 0 }`(또는 `.pbody`) 를 함께
+184. [잘 된 것](workflow 163) 실물 줄이 없는 화면은 **콘솔에서 창 함수를 직접 부르고 DB 거부로 안전을 확인**(ml v1.6 `openCount`) · 마른 실행 + 변이가 다섯 차수 모두에서 결함을 재현
+185. [재생성 · 원장](workflow 164) manual 축 조정 짝은 재생성에서 (문서, SKU, 창고, event_type) 순액으로 접혀 0 — fill hint 는 ims 축만 읽는다(nb-5 이견 2) ⇒ 재생성 재현이 필요한 정리는 **IMS 조정 문서(source ims)** 로
+
+### 113-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §112 끝 「다음 판정 번호: 1169 · 다음 deferred 번호: 580」 → 아래(580 ~ 586 = docs-1111b)
+- §112-g 3 「3975371 adjust_new」 → ADJ-00101(레이어 3975371) · §112-g 4 IN_TRANSIT 합 −2,189 → +2,221(113-c 6) · §112-g 5 「⚠️ 판정 아님」 → 판정 1169 ~ 1178(113-a)
+- §20 판정 1 → 후보 칸이 없으면 pos · counter 는 UNASSIGNED(1174 · 1175) · §20 판정 7 → Count & check(1176)
+- 판정 1113(§107-a) (나) → 다른 길로 풀림(113-a)
+- deferred 526 → 닫힘 · 527 → 부분(113-d′)
+
+```
+다음 판정 번호: 1179 · 다음 deferred 번호: 587
 ```

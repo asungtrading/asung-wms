@@ -103,6 +103,7 @@ Words are written as the screens show them. Where two screens use different word
 | cancelled (transfer) | Cancelled. | [What each status means](03-inventory.md#stock-statuses) |
 | Combo | One SKU made of different products; the components hold the stock. | [Add a new product, sets and combos](03-inventory.md#stock-new-product) |
 | confirmed (transfer) | Stock at the from warehouse is held for it. | [What each status means](03-inventory.md#stock-statuses) |
+| Count & check | Count the shelf for a sale that sold without stock; IMS fixes the stock and checks the open lines in one go. | [Sold without stock](06-action-centre.md#action-sold-short) |
 | draft (transfer) | Being written. | [What each status means](03-inventory.md#stock-statuses) |
 | Draft · Confirmed (adjustments, bin moves) | Being written · confirmed. | [What each status means](03-inventory.md#stock-statuses) |
 | Family | Products that are variants of one thing. | [Families](03-inventory.md#stock-families) |
@@ -120,6 +121,7 @@ Words are written as the screens show them. Where two screens use different word
 | Settle in transit | Closes what did not arrive: Lost or Returned to sender. | [Transfers between warehouses](03-inventory.md#stock-transfers) |
 | Transfer | Moves stock from one warehouse to the other. | [Transfers between warehouses](03-inventory.md#stock-transfers) |
 | Transfer res. | Held for transfers to the other branch. | [Find stock (Stock Availability)](03-inventory.md#stock-availability) |
+| UNASSIGNED | The bin with no shelf yet — one per branch. POS and counter sales of a product with no bin in that branch come off it. | [Stock adjustments](03-inventory.md#stock-adjustments) |
 | Zero stock | Also shows products with nothing on hand, allocated or on order. | [Find stock (Stock Availability)](03-inventory.md#stock-availability) |
 
 <a id="gloss-warehouse"></a>
@@ -190,4 +192,4 @@ Words are written as the screens show them. Where two screens use different word
 | Surcharge group | A charge per unit on certain products, such as a tariff. | [Surcharge groups](07-settings.md#set-surcharge) |
 | Use this version | Makes a layout version the one that prints. | [Documents](07-settings.md#set-documents) |
 
-<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740, 742 -->
+<!-- rulings: 709, 713, 714, 715, 718, 720, 721, 723, 724, 725, 732, 739, 740, 742, 1173, 1176 -->

@@ -211,6 +211,7 @@ from inv_snapshot_runs order by ran_at desc limit 5;
   → [2026-10-31 · 판정 907 · so-module §93-c 5] **컷오버 뒤 실제 창고에 bin 없는 잔고 넷**(0 아님): UNF18155(콤보) EDM 1 · AIA03588 TOR 6(기초 6 · 움직임 0) · EBI03960 TOR 6(기초 8 · 10-26 −2) · UNF18259(콤보) TOR 2(기초 0 · 사건 7 · 마지막 10-09) — 앞의 셋은 위 09-13 여섯에 이미 있었다 · AS91459 · AS91457 · ABE16004 는 그 뒤 빠짐(까닭 모름)
   ⚠️⚠️ **조정 창구 `inv_adjust_line_set` 은 활성 bin 이 반드시 있어야 한다**(id 나 이름 · 없으면 거부) · **꺼진 제품도 거부** ⇒ bin 없는 잔고는 화면 · 창구로 못 고친다 → 월요일 실사(실제 bin) 결과로 ops 차수(adj-893 꼴 manual 원장 쌍 「bin 없음 −수량 · 그 bin +수량」 · 콤보는 0 또는 구성품) · deferred 422
   → ✅ [2026-11-09 · 판정 1113 · inv-count-1 `77e6882` · so-module §107-c 5 · 7] 넷을 실사(11-03 토론토) 칸에 붙임 — manual 원장 짝 MANUAL-907-BIN(**두 다리 같은 event_type `adjust_existing`** · 재생성 순액 0 · transfer 꼴 금지 · occurred_on = `ims_today()` · raw count_on) · 콤보 되돌리기 · 칸 옮기기는 화면 ⇒ **지금 실제 창고의 칸 없는 잔고는 EDM EZB70340 −1 하나**(11-05 SO-21090 칸 없는 판매) · `ims_inv_balance` 칸 없음 777 행 중 776 은 IN_TRANSIT(가상 창고 · 칸이 원래 없다 — 대상 아님) · 칸 없는 판매를 막기 · 쉽게 처리하기는 조사 먼저(deferred 526)
+  → [2026-11-11 낮 · nb-2 · 판정 1172 ~ 1175 · so-module §113] **새 칸 없음이 생기지 않게** — 지점마다 확인 칸 **`UNASSIGNED`**(판매 창고 둘 · 끄기 · B급 · 지우기 거부 트리거 `ref_bin_unassigned_guard`) · 그 지점에 활성 후보 칸이 없는 SKU 의 pos · counter 판매는 UNASSIGNED 에서(음수 가능) · 창고 오더 · 트랜스퍼는 그대로 · UNASSIGNED 는 어느 길에서도 후보 칸이 아니다 ⇒ ⚠️ UNASSIGNED ≠ 0 은 「칸 없음」 이 아니라 **진짜 칸 이름이 있는 잔고**(null_bin_nonzero 에 안 잡힌다) — 정리는 Action Centre Count & check · 칸 없음 −1(EZB70340 EDM)은 nb-5 가 지웠다
 정본 `docs/sessions/2026-09-13-list-total-axis.md`.
 ⚠️ `ok=false` 이면 그 회차는 한 행도 안 썼다 — **그날 대조는 옛 스냅샷을 상대로 돈다.**
 
@@ -985,7 +986,52 @@ from inv_layer where origin_type = 'sale_shortfall' and received_on >= current_d
    매니저의 「확인함」만 `so_stock_short_check` 에 따로 앉는다 — ⚠️⚠️ **열쇠는 레이어 id 가 아니라 `(doc_number, sku, warehouse)`**(재생성이 id 를 바꾼다 · 실측 494928 → 504446 뒤에도 확인 기록이 같은 줄에 붙어 있었다) · 확인 권한 = manager 이상 + (sales ∨ receiving) 열쇠 · 되돌리기 없음(메모로 고친다).
 ⚠️ **재생성(`inv_layer_apply()`) 시험은 `receiving` + `purchasing` 열쇠가 **둘 다** 있는 로그인으로** — 안쪽 원가 창구(inv_layer_post_receipt · inv_layer_post_charge)가 둘을 요구해 하나만 있으면 「nothing was rebuilt」로 멈춘다(2026-09-25 ④a3 검증 2회차).  → ⭐ [2026-09-26] receipt 레이어의 문이 빠졌다(판정 31) · inv_layer_apply · inv_layer_seed_baseline 은 authenticated 회수 — psql(소유자)로만
 ⬜ **원가 모르는(`unknown`) 판매 부족분의 원가를 나중에 어떻게 채우나** — 재고 사건 차수의 판정 거리 · 첫 실물 SO-25000 ORS10999 12(테스트 DB · 화면 시험) · Manager List(asung-ims `manager-list.html`)의 Sold without stock 탭이 「cost unknown」으로 보인다(so-module.md §23).
-⚠️⚠️ [2026-11-11 · nb-0 · so-module §112-g · deferred 526] **유령 원가** — 재고 없이 판 뒤(sale_shortfall 이 세우고 바로 소진) **+ 조정**을 하면 `inv_layer_post_adjust` 가 + 조정마다 새 레이어(adjust_new · layer_avg · unknown 0)를 무조건 세운다 ⇒ 수량 0 인데 가치 · 실물 EZB70340 EDM $5.26 · ORS21020 EDM $5.56(합 $10.82 · 이 둘뿐) · 단가를 비워도 0 원 유령 수량이 남는다 · 고침은 nb-1(원가 메우기 규칙 · 제안 · Caleb 이 정함) — 그 전에 + 조정 단가를 권하지 마라
+⚠️⚠️ [2026-11-11 · nb-0 · so-module §112-g · deferred 526] **유령 원가** — 재고 없이 판 뒤(sale_shortfall 이 세우고 바로 소진) **+ 조정**을 하면 `inv_layer_post_adjust` 가 + 조정마다 새 레이어(adjust_new · layer_avg · unknown 0)를 무조건 세운다 ⇒ 수량 0 인데 가치 · 실물 EZB70340 EDM $5.26 · ORS21020 EDM $5.56(합 $10.82 · 이 둘뿐) · 단가를 비워도 0 원 유령 수량이 남는다 · 고침은 nb-1(원가 메우기 규칙 · 제안 · Caleb 이 정함) — ~~그 전에 + 조정 단가를 권하지 마라~~ → ✅ [2026-11-11 낮 · nb-1 ~ nb-5 · so-module §113 · 판정 1169 ~ 1178 · deferred 526 닫힘] **해제** — 지금은 + 조정이 유령을 만들지 않는다(아래 넷)
+   · ⭐ **메우기(판정 1170 · 모든 + 조정 — 조정 화면 · Count & check 모두)**: f = max(0, 그 SKU × 창고 레이어 남은 수량 − 장부 수량)(창고 단위 · 칸 · 칸 없음은 합친다) · + 조정의 min(q, f) 는 레이어를 세우지 않고 메운다(재고 없이 판 몫은 판매 때 원가를 잡았다) · 원장 `raw.cost.fill_qty` · 재생성은 hint 그대로(옛 행 = fill 0 = 레이어를 다시 세운다) · 같은 SKU × 창고 advisory lock · 하루 원가 장은 메움 몫에 아무것도 안 씀(판정 1094 가 판매 때 적음)
+   · ⭐ **단가를 비운 + 조정(메우고 남는 몫)의 원가 순서(판정 1171 · 판매 부족분과 같은 순서)**: 이 창고 남은 레이어 가중평균 → `inv_layer_recent_cost`(① 이 창고 마지막 레이어 → ② 다른 창고 마지막 레이어 → ③ 확정 인보이스 가격 `po_price_history` · CAD → ④ unknown 0) · 단가를 넣으면 manual · `inv_layer_recent_cost(sku, warehouse)` = 한 줄(unit_cost · cost_source · step · source) · sale_shortfall 레이어는 원천에서 뺀다 · **authenticated 없음**(부르는 곳 `inv_layer_post_adjust` · `inv_adjust_eval` — 둘 다 definer) · ⚠️ 같은 식이 `inv_layer_post_sale` · `inv_layer_post_credit` 안에도 따로 있다(deferred 580) · `inv_adjust_eval` 칸 넷 fill_qty · layer_qty · layer_unit_cost · cost_from(금액은 ims_can_view_cost)
+   · ⚠️⚠️ **manual 축 조정 짝은 재생성에서 (문서, SKU, 창고, event_type) 순액으로 접혀 0 — fill hint 는 ims 축만 읽는다** ⇒ 재생성 재현이 필요한 정리는 **IMS 조정 문서(source ims · inv_adjust 머리)** 로(nb-5 이견 2 · `supabase/ops/nb-5-ghost-cleanup.sql` — SKU 마다 문서 하나 · 줄 0 · + 다리 fill hint · − 다리 FIFO 가 유령 레이어 소진)
+   · ⭐ **지점 「레이어 = 장부」 대조**(아침 점검 거리 · 기대 0 — 0 이 아니면 재고 없이 팔고 아직 + 조정 전이거나 유령) [실측 2026-11-11 16:22 현지(+08) = 03:22 토론토 · 테스트 DB · nb-5 뒤 · 6 초] 원문:
+```sql
+set session characteristics as transaction read only;
+show transaction_read_only;
+begin;
+show transaction_read_only;
+set local statement_timeout = '120s';
+-- 지점(실제 창고 둘) SKU × 창고마다 레이어 남은 수량 vs 장부 수량 — 레이어 > 장부 = 메울 몫(재고 없이 팔고 아직 + 조정 전) 또는 유령
+with lay as (
+  select y.sku, y.warehouse, sum(v.remaining_qty) as layer_qty
+  from inv_layer y cross join lateral inv_layer_value(y.id) v
+  where y.warehouse in ('Asung Trading Inc.', 'Asung - Edmonton')
+  group by 1, 2
+), led as (
+  select b.sku, b.warehouse, sum(b.qty) as ledger_qty
+  from inv_balance b
+  where b.warehouse in ('Asung Trading Inc.', 'Asung - Edmonton')
+  group by 1, 2
+), k as (
+  select coalesce(l.sku, d.sku) as sku, coalesce(l.warehouse, d.warehouse) as warehouse,
+         coalesce(l.layer_qty, 0) as layer_qty, coalesce(d.ledger_qty, 0) as ledger_qty
+  from lay l full join led d on d.sku = l.sku and d.warehouse = l.warehouse
+)
+select count(*) as keys,
+       count(*) filter (where layer_qty > ledger_qty) as layer_gt_ledger,
+       count(*) filter (where layer_qty < ledger_qty) as layer_lt_ledger,
+       coalesce(sum(layer_qty - ledger_qty) filter (where layer_qty > ledger_qty), 0) as gt_qty
+from k;
+rollback;
+```
+```
+ transaction_read_only 
+-----------------------
+ on
+(1 row)
+
+ keys  | layer_gt_ledger | layer_lt_ledger | gt_qty 
+-------+-----------------+-----------------+--------
+ 15406 |               0 |               0 |      0
+(1 row)
+```
+     ⇒ layer_gt_ledger > 0 이면 그 키를 펼쳐(`… from k where layer_qty > ledger_qty`) Action Centre 「Sold without stock」 의 확인 안 된 줄과 맞춰 본다 · ⚠️ nb-1 실측(적용 전)은 15,404 키 중 2(유령 둘) — 키 2 차이는 실측 시각 다름(짐작)
 📌 ⑰(`skipped_by_event`)은 무변 — `sale_out` 은 여전히 세지 않는다 · ⑥(원가 누락)은 Cin7 축이라 무관.
 
 ### 📌 어긋남의 원인을 모를 때

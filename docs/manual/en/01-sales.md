@@ -489,6 +489,8 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 1. On a confirmed counter order, press **Hand over — ship and invoice…**.
 2. The window shows each line, the bin it comes from and the totals: **Invoice total**, **Paid for this order**, **Credit / balance used**, **Amount due**.
 3. Press **Ship and invoice**. "Nothing blocks the hand-over — whatever is not paid stays as an unpaid invoice."
+- Every line needs a bin. An empty bin stops the hand-over: "Pick a bin for line N (SKU) — type the bin it is taken from, or UNASSIGNED if it has no shelf yet."
+- A product with no bin in this branch comes off **UNASSIGNED** (yellow box, From "no shelf yet"). Count it later in [Action Centre › Sold without stock](06-action-centre.md#action-sold-short).
 
 **Good to know**
 - Packed less than ordered: "the rest goes to a backorder order" (see [When an item is short](04-wms.md#wms-pick-short)).
@@ -1014,4 +1016,4 @@ Most sales screens can download a spreadsheet (CSV).
 - On **Sales Orders**, one button **↓ CSV ▾** gives both: **Orders** (one row per order) and **Lines** (one row per order line — up to 500 orders). The **Status** column says what the badge on screen says — a confirmed order shows **Backorder**, **Pre-order**, **On hold** or **Backorder ended** when it has that tag.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901 -->
+<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901, 1172, 1174 -->

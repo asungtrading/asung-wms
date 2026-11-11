@@ -202,7 +202,7 @@ Each store has a row on the product's Shopify card.
 
 <a id="stock-adjustments"></a>
 ## Stock adjustments
-<!-- screen: stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 -->
+<!-- screen: stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 ; 2026-11-11 · adj nb v1a (cost cell, unit cost hint, UNASSIGNED) -->
 <!-- who: manager -->
 
 **What it is**
@@ -217,7 +217,7 @@ Admins, and managers or supervisors with the Stock adjustments key switched on. 
 3. **What to do**:
    - **Shelf holds** — type what is on the shelf; IMS works out the change.
    - **Add (+) or take (−)** — type the change itself.
-4. Choose the **Reason**: **Found — more than the books**, **Lost / missing**, **Damaged / thrown out**, **Count difference** or **Other (note needed)**. Give a **Unit cost** when you add stock and know it.
+4. Choose the **Reason**: **Found — more than the books**, **Lost / missing**, **Damaged / thrown out**, **Count difference** or **Other (note needed)**. When you add stock, leave **Unit cost** empty: "Leave it empty — the right cost is filled in for you. Only type a cost if you know the real one."
 5. Add more lines, then press **Confirm**.
 
 **Example**
@@ -225,7 +225,11 @@ The book says 43 of DEMO-001 in a bin. The shelf has 40. Choose **Shelf holds** 
 
 **Good to know**
 - From a "Not enough stock" report, **Adjust stock** on WMS Admin opens an adjustment already filled from where it was picked (see [WMS Admin](04-wms.md#wms-admin)).
-- Adding stock with no known cost warns "These go into the books at cost 0".
+- After you save a line that adds stock, its **Cost** cell shows the cost it goes in at and where that came from — for example "Goes in at $5.26 — last cost here". Without the cost key you see only where it comes from ("Cost: …").
+- An empty **Unit cost** takes, in this order: the average cost of this SKU still in this warehouse → the last cost here → the last cost in the other warehouse → the last purchase price.
+- If this SKU was sold here without stock, the units you add first fill that: "fills stock sold without stock — no new cost". This happens whether or not you type a unit cost.
+- If no cost can be found anywhere, the line shows "cost unknown — goes in at 0", and **Confirm** warns "These go into the books at cost 0".
+- The bin **UNASSIGNED** "(no shelf yet)" is not a shelf. Each branch has one. A POS or counter sale of a product with no bin in that branch takes the stock from UNASSIGNED, so it can go below zero. Find where the goods really sit and fix it from [Action Centre › Sold without stock](06-action-centre.md#action-sold-short) with **Count & check**.
 - **Delete draft** removes an adjustment that is not confirmed.
 
 **Watch out**
@@ -340,4 +344,4 @@ The warehouse screens use their own words for the same steps — see [Warehouse 
 - **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.
 - **Product Sheet** works the other way: paste from Excel into the table (see [Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908, 1111 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908, 1111, 1170, 1171, 1172, 1173, 1177 -->

@@ -202,7 +202,7 @@
 
 <a id="stock-adjustments"></a>
 ## 재고 조정
-<!-- screen: stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 -->
+<!-- screen: stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 ; 2026-11-11 · adj nb v1a (cost cell, unit cost hint, UNASSIGNED) -->
 <!-- who: manager -->
 
 **무엇인가**
@@ -217,7 +217,7 @@ admin, 그리고 Stock adjustments 권한이 켜진 manager · supervisor. 화�
 3. **What to do**(할 일):
    - **Shelf holds** — 선반에 있는 수를 적습니다. IMS 가 바뀔 양을 셉니다.
    - **Add (+) or take (−)** — 바뀔 양 자체를 적습니다.
-4. **Reason**(까닭)을 고릅니다: **Found — more than the books** · **Lost / missing** · **Damaged / thrown out** · **Count difference** · **Other (note needed)**. 재고를 늘리는데 원가를 알면 **Unit cost** 를 적습니다.
+4. **Reason**(까닭)을 고릅니다: **Found — more than the books** · **Lost / missing** · **Damaged / thrown out** · **Count difference** · **Other (note needed)**. 재고를 늘릴 때 **Unit cost** 는 비워 둡니다: "Leave it empty — the right cost is filled in for you. Only type a cost if you know the real one."(비워 두면 맞는 원가가 채워진다 · 진짜 원가를 알 때만 적는다)
 5. 라인을 더 넣고 **Confirm** 을 누릅니다.
 
 **예**
@@ -225,7 +225,11 @@ admin, 그리고 Stock adjustments 권한이 켜진 manager · supervisor. 화�
 
 **알아 둘 것**
 - "Not enough stock" 보고에서 시작하면, WMS Admin 의 **Adjust stock** 이 픽한 자리로 채운 조정을 엽니다([WMS Admin](04-wms.md#wms-admin)).
-- 원가를 모르는 채 재고를 늘리면 "These go into the books at cost 0"(원가 0 으로 장부에 들어간다) 경고가 나옵니다.
+- 재고를 늘리는 라인을 저장하면 **Cost** 칸에 들어갈 원가와 그 출처가 나옵니다 — 예: "Goes in at $5.26 — last cost here"(이 창고 마지막 원가). 원가 열쇠가 없으면 출처만 보입니다("Cost: …").
+- **Unit cost** 를 비우면 이 순서로 정합니다: 이 창고에 남은 이 SKU 의 평균 원가 → 이 창고 마지막 원가 → 다른 창고 마지막 원가 → 마지막 매입 가격
+- 이 SKU 를 이 창고에서 재고 없이 판 적이 있으면, 늘리는 수량이 먼저 그 몫을 메웁니다: "fills stock sold without stock — no new cost"(재고 없이 판 몫을 메운다 — 새 원가 없음). 단가를 적어도 같습니다.
+- 어디에서도 원가를 못 찾으면 라인에 "cost unknown — goes in at 0" 이 나오고, **Confirm** 에서 "These go into the books at cost 0"(원가 0 으로 장부에 들어간다) 경고가 나옵니다.
+- bin **UNASSIGNED** "(no shelf yet)"(아직 선반 없음)는 선반이 아닙니다. 브랜치마다 하나 있습니다. 그 브랜치에 bin 이 없는 제품을 POS · counter 로 팔면 UNASSIGNED 에서 빠지므로 0 아래로 갈 수 있습니다. 물건이 실제로 있는 자리를 찾아 [Action Centre › Sold without stock](06-action-centre.md#action-sold-short) 의 **Count & check** 로 고칩니다.
 - **Delete draft** 는 확정하지 않은 조정을 지웁니다.
 
 **조심할 것**
@@ -340,4 +344,4 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 - [재고 찾기](#stock-availability)의 **↓ CSV** 는 필터에 맞는 제품을 모두 내려받습니다.
 - **Product Sheet** 는 반대 방향입니다: 엑셀에서 표로 붙여 넣습니다([Product Sheet](#stock-sheet)).
 
-<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908, 1111 -->
+<!-- rulings: 49, 50, 53, 83, 145, 176, 194, 200, 202, 204, 205, 206, 209, 210, 247, 257, 258, 885, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 567, 578, 629, 631, 632, 637, 638, 642, 644, 645, 646, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 735, 759, 762, 763, 899, 908, 1111, 1170, 1171, 1172, 1173, 1177 -->

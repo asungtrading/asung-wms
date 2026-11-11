@@ -36,7 +36,7 @@ Managers open it once a day.
 
 <a id="action-sold-short"></a>
 ## Sold without stock
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 ; 2026-11-11 · ml v1.6 (Count & check) -->
 <!-- who: manager -->
 
 **What shows here**
@@ -47,14 +47,26 @@ Sales that sold more than the books showed in that branch. "These sold more than
 
 Each row shows **Sold on**, **Order**, **Customer**, **SKU**, **Branch**, **Qty short** and **Cost** (**cost unknown** when IMS has no cost for it).
 
-**How**
-1. Click the order number. The order opens on **Sales Orders** — this includes POS sales.
-2. Count the shelf. Fix the stock the usual way with a stock adjustment (see [Stock adjustments](03-inventory.md#stock-adjustments)).
-3. Managers and above: press **Mark checked…** and write what you found ("counted, fixed, reason").
+Each open row has two buttons (managers and above):
+- **Count & check…** — "count the shelf, type what you found, and IMS fixes the stock and checks every open line of that SKU in one go". It needs the Stock adjustments key for that branch.
+- **Mark checked…** — "the books are already right — it only records that you looked and does not change stock."
+
+**How — Count & check**
+1. Click the order number if you want to see the sale. The order opens on **Sales Orders** — this includes POS sales.
+2. Press **Count & check…**. The window shows each bin of that SKU in that branch: **Book**, **Picked, not shipped** and **Shelf should be**.
+3. Count the shelf and type it in **You counted**. A bin marked "must count — below zero" needs a count. Found it on another shelf? Type the bin and press **+ add bin**. **Note** is optional.
+4. Press **Preview**. Read what will change. If you change a count, press **Preview** again.
+5. Press **Count & check**. IMS makes and confirms one stock adjustment, then checks the open lines. "It cannot be undone — a mistake is fixed with a new adjustment." If your count matches the book, nothing changes and the lines are only checked.
+
+**How — Mark checked**
+1. Count the shelf. If the books are right, press **Mark checked…** and write what you found ("counted, fixed, reason").
 
 **Good to know**
-- "Checking does not change stock." Fix the stock first, then mark it checked.
-- A stock adjustment needs the Stock adjustments key. If you do not have it, ask someone who does.
+- A checked row shows the adjustment number (ADJ-…) when **Count & check** changed stock.
+- No Stock adjustments key for that branch: the window says "You can see this but not change stock here — that needs the Stock adjustments key for …". Use **Mark checked** if the books are right; otherwise ask someone with the key.
+- The bin **UNASSIGNED** "(no shelf yet)" is where POS and counter sales take a product that has no bin in that branch. Count it here and put it on its real bin.
+- An old row without a bin is shown but "is fixed separately — not by this count".
+- "Someone else just checked this line." — close the window and reload the list.
 - This is not the same as **Not enough stock** in the warehouse. That one is a picker who could not find the goods (see [WMS Admin](04-wms.md#wms-admin)).
 
 <a id="action-unpaid"></a>
@@ -157,4 +169,4 @@ Each row shows **Pickup** (date and ready times), **Orders**, **Customer**, **Ca
 
 <!-- SCREENSHOT: action-pickups-1 · Pickups not scheduled with What Freightcom says and Check pickup -->
 
-<!-- rulings: 1040, 1041, 1048, 1049, 1050, 1051, 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735 -->
+<!-- rulings: 1040, 1041, 1048, 1049, 1050, 1051, 152, 165, 240, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 1172, 1173, 1176 -->
