@@ -14284,3 +14284,101 @@ asung-ops  (없음)
 ```
 다음 판정 번호: 1179 · 다음 deferred 번호: 587
 ```
+
+## §114 2026-11-11 오후 ~ 밤 — 공급처 인보이스 charge · other 줄 QBO(qbo-bill-charge-1) · 공급처 세금 묶음 소계 한 번(po-tax-once-1) · Shopify 전용 사진 가져오기 자리 · 계획 · 실행 도구(shop-photo-imp-1 · 2a · 2b-1 · 2b-2) · SO-21312 창고 바꾸기 사고 · 판정 1179 ~ 1198 (노트북)
+
+⭐ 원천: 지시서 docs-1111c(📌) + Caleb 이견 답(1 ~ 10 · 11-11) · 원천 대조 asung-wms `361613d` · `df5f577` · `51fa21c` · `f1bb925` · `5d73c1e` · `5a46458`(여섯) · asung-ims `7bb585e` · `a9b5d08` · `7106d24` · `4ddb0ac`(넷) · 이 차수(docs-1111c)는 DB · 화면 · git 쓰기 0 · 문서만
+⚠️ 공개 레포 — 손님 · 직원 · 공급처 이름은 적지 않는다(§110 머리 규칙) · 문서 번호 · 금액은 적는다
+⚠️ 상태 = 공급처 인보이스의 charge · other 줄이 설정 계정으로 Bill 에 실리고 돈 안 내는 줄은 빠진다(첫 실물 15335 → QBO 173348) · 공급처 세금은 묶음 소계에 한 번 / Shopify 전용 사진 가져오기는 **자리 · 계획 · EF 가 섰고 아직 부르지 않았다**(실행 · 화면 · 디자이너 정리 · send_images 남음 · deferred 387)
+
+### 114-a 판정 (원천 docs-1111c 📌 · Caleb 원문 말은 이 차수의 원천에 없다 — 뜻만)
+
+| 판정 | 정한 것 | 차수 · 근거 |
+|---|---|---|
+| 1179 | 패밀리 사진 자리 = `product_image.family_id`(제품 XOR 패밀리) | imp-1 |
+| 1180 | 변형 하나뿐인 패밀리 상품의 사진(65) → 그 변형 | 2a |
+| 1181 | 패밀리 미지정 사진 + 파일 이름이 변형 SKU(`SKU` · `SKU_` · `SKU-` · 더 긴 SKU) → 그 변형 | 2a |
+| 1182 | 가져오기 = IMS EF 새 모드 + DB 창구 · 실행 날 Shopify 다시 읽기 | 기각: 노트북 스크립트 |
+| 1183 | same 짝도 스토어마다 shop_media 에 심는다 | 2a · 2b-2 |
+| 1184 | gif 3 · 5 MB 넘음 1 은 건너뛰고 디자이너 목록 | 2a |
+| 1185 | 순서 imp-1 → imp-2(2a · 2b) → 화면 → 실행 → 디자이너 정리 → 미리 보기 → send_images | — |
+| 1186 | 패밀리 사진 쓰기는 새 창구 `family_image_update`(product_update 무접촉) | imp-1 |
+| 1187 | 웹 대표인 패밀리 사진을 끄면 경고(family_web_image_off) + web_image_id 비움 | imp-1 |
+| 1188 | payload 표지는 web_image_id 가 켜진 후보일 때만 · 아니면 기본값 | imp-1 |
+| 1189 | 공급처 인보이스 charge 줄 계정 = Settings › QuickBooks matching 설정 줄 · 기본 `_95_` Purchase Non Stock - COS | qbc1 |
+| 1190 | other 줄도 따로 한 줄(기본 `_95_`) | qbc1 |
+| 1191 | is_payable false 줄은 QBO Bill 에서 뺀다(QBO 미지급 = IMS 미지급) | qbc1 |
+| 1192 | 1 센트 차이는 qbc1 에 끼우지 않고 따로 판정 | → 1193 |
+| 1193 | 공급처 쪽 세금(po_tax_group · invoice · po · credit)은 세금 규칙 묶음 소계에 한 번 · SO 무접촉 · PO-02051 −0.12 · PO-02050 +0.01 을 알고 감 | po-tax-once-1 |
+| 1194 | 공급처 인보이스 화면은 줄 Tax 칸을 빼고 묶음 · 머리에만 | inv tax v4 |
+| 1195 | 사진 dry run 은 send_images 켜진 listing 마다 Shopify 에서 달라질 것을 보이고 Caleb 이 실행을 정한다 | 2a · 2b-1 |
+| 1196 | 1181 의 변형 맞추기는 꺼진 구성원도 포함(106 · 패밀리에 남음 109) | 2a |
+| 1197 | 켜진 대표 없는 제품은 첫 가져온 사진을 대표(57 곳 · 모두 꺼진 제품) | 2a |
+| 1198 | 가져오기 때 web_image_id 가 비어 있는 패밀리는 가져온 FAM 표지를 웹 대표로(1139 그대로 · 표지 둘이면 계획 순서 앞 · BAB46708FAM = 줄 173) | 2b-1 |
+
+- 정본: 사진 = shopify-integration §3-b(⭐⭐ 사진 가져오기 묶음) · QBO = qbo-integration §12 끝 · §15-q · 세금 = po-module 세금 「식」 줄
+
+### 114-b 차수 · 커밋
+
+| 차수 | 레포 · 커밋 · 마이그레이션 | 확인 |
+|---|---|---|
+| qbo-bill-charge-1 | asung-wms `361613d` · `20261111220003` · tests/qbo_bill_charge_1_check.sql | 적용 OK 28 · 확인 OK 26 |
+| shop-photo-imp-1 | asung-wms `df5f577` · `20261111222252` · EF shopify 배포 | 시험 OK 23 · 변이 셋 · deno 15 |
+| po-tax-once-1 | asung-wms `51fa21c` · `20261111222857` | 시험 OK 23 · 확인 OK 22 · 변이 둘 FAIL |
+| shop-photo-imp-2a | asung-wms `f1bb925` · `20261112041229` · 계획 적재(plan_load.sql md5 954d0db1 · 레포 밖) | 적재 뒤 확인 OK 18 |
+| shop-photo-imp-2b-1 | asung-wms `5d73c1e` · `20261112044938` · EF shopify 배포 | 시험 OK 15 · 마른 FAIL 9 · 2a 회귀 OK 18 · 변이 셋 FAIL · deno 73 · 변이 둘 FAIL |
+| shop-photo-imp-2b-2 | asung-wms `5a46458` · EF shop-photo-import 배포(DB 변경 0 · **아직 부르지 않음**) | deno 92 · 변이 넷 FAIL · 실제 호출 0 |
+| cs v8e | asung-ims `7bb585e` · `a9b5d08`(빈 커밋 · Pages startup_failure 다시 배포) | 아래 114-c 3 |
+| set v18 | asung-ims `7106d24` — Settings › QuickBooks matching 아래 Supplier invoice lines | — |
+| inv tax v4 | asung-ims `4ddb0ac` — 공급처 인보이스 줄 Tax 칸 뺌 · Tax by rule 한 줄 | — |
+
+- 마이그레이션 이름의 날짜는 노트북 시계(토론토보다 13 시간 앞 · 교훈 189) — 모두 11-11 토론토의 일
+- cron 새로 0 · EF 새로 하나(shop-photo-import · cron 없음 · verify_jwt false)
+
+### 114-c 사고 · 운영 처리 (판정 아님 · 기록)
+
+1. **SO-21312 / 21312a**(aone AO-17436 · 메모 EDM SHIP): 11-11 09:20 토론토 웨이브 → 픽 → 09:51 롤백 · 나누기 되돌림 → 10:42 두 오더를 각각 Change warehouse → Edmonton(형제 안 합쳐짐 · 판정 879 의 길은 Unconfirm)
+   - 21312a 는 09:07 「백오더 진행」 기록(so_backorder_close proceeded 두 줄)이 남은 채 09:53 어떤 동작이 할당을 풀고 다시 backorder 로 → Proceed 가 「already has an active ledger entry」 로 거부
+   - Caleb 이 SQL 로 그 두 줄만 reopened(가드 · 2 줄 단언) → Proceed 성공 → 두 오더 Edmonton WMS(16:17)
+   - 실물은 토론토 같은 칸에 되돌림(스캔 불필요 · 장부는 Ship 때만 빠짐) · Unconfirm 은 「Split order … changed after the split」 로 거부 · Merge 는 열린 백오더 줄 거부(484)
+   - 원인 길(짐작 Reallocate — so_reallocate · so_change_location · so_confirm 에 reopen 줄 없음 확인)과 같은 어긋남 전수 = deferred 587 · 다른 창고 Release 경고 = 588
+2. **인보이스 15335**: qbc1 → 1 센트 → po-tax-once-1 → Retry → Send → QBO Bill no. 15335 · txnId 173348 · 8 번 줄 Purchase Non Stock - COS · HST 215.05 · 합계 1,869.25(11-11 23:12 토론토 · qbo-integration §15-q)
+3. **cs v8e**: 손님 Display name 사례 예방 안내(Display name 을 바꿔 Retry) 뒤 「수정이 안 된다」 — v8d 안내 글이 `.cf`(가로 flex) 셋째 칸이 되어 입력을 0 너비로 눌렀음 → 입력 칸 + 안내 글을 세로 한 칸으로 · 고친 뒤 GitHub Pages 가 `startup_failure` 로 배포 안 됨 → 빈 커밋으로 다시(교훈 186 · 187)
+4. **사진 수 정정**(imp-0 조사 · 11-11): 11-10 의 1,289 · 719 묶음은 md5 열쇠보다 적게 센 하한(imp-0 이견 1) → md5 1,447 · 822 · 1140 「약 480」 → 377(md5) · 356(pHash) · 1139 그림 443 → 445 장(444 패밀리 · 표지 둘 BAB46708FAM) — 정본 shopify-integration §3-b
+5. **계획 적재 실물**(2a): 822 = 패밀리 554 · 제품 268 · 건너뜀 4 · same 1,468 + dup 110 · 가져오기 1,442 + dup 317 / 2b-1 dry: ONO00140FAM 새 표지 1 번 · 웹 대표 새로 444 / 첫 묶음 계획 줄 id 37 · 88 · 85 · 38 · 42 · 111 · 86 · 173 · 174 · 310 따로
+
+### 114-d 화면 (asung-ims · 대화 Claude 가 씀 · 커밋 Caleb)
+
+| 커밋 | 파일 · 판 | 내용 |
+|---|---|---|
+| `7bb585e` · `a9b5d08` | customers.html · cs v8e | 손님 편집 Display name 입력 칸이 안내 글에 눌려 0 너비 → 세로 한 칸 |
+| `7106d24` | settings.html · set v18 | QuickBooks matching 아래 **Supplier invoice lines** — charge · other 줄의 QBO 계정 둘(1189 · 1190) |
+| `4ddb0ac` | invoices.html · inv tax v4 | 공급처 인보이스 줄 Tax 칸 뺌 · 머리 아래 규칙별 **Tax by rule** 한 줄(1194) |
+
+### 114-d′ 열린 것 · 닫은 것 · 다음
+
+- **잇기**: deferred **387** — 「②-a 섰음(2a · 2b-1 · 2b-2)」 · 실행 · 화면 · 디자이너 정리 · send_images 남음 · 열림 그대로
+- **새** 587 ~ 600(591 · 593 판정 대기 · 나머지 미정): 587 SO-21312a 원인 길 + 전수 · 588 EDM SHIP 메모 오더 다른 창고 경고 · 589 체인 할인 + 묶음 둘 1 센트 틈 · 590 USD Bill charge 줄 실측 · 591 꺼진 구성원 사진이 payload files 에 · 592 gone 짝의 dup · 593 stem_clash · 594 gid `in.()` 꼴 · 595 사진 100 장 쪽 넘기기 · 596 failed 파일 정리 · 597 read_errors 다시 읽기 · 598 shop_link_plan 사진 수 · 599 ims-shop.js:312 · 600 2b-2 짐작 넷
+- **다음**: 사진 가져오기 화면(families.html) → 실행(selftest · check 첫 묶음에서 600 확인) → 디자이너 정리 → 미리 보기 → send_images(591 판정 먼저)
+
+### 114-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (113-e 에 이어 186 부터 · asung-workflow 165 ~ 168 은 넷만)
+
+186. [배포 · Pages](workflow 165) 푸시 뒤 **서버 판을 curl 로** 확인한다(`curl -s "https://ims.asung.ca/<화면>?nocache=$(date +%s)" | grep -o '<BUILD> = "[^"]*"'`) — Pages 가 `startup_failure` 로 조용히 실패한다 ⇒ 다시는 빈 커밋 · 같은 실패면 Actions 결과 원문
+187. [화면 · flex 칸](workflow 162 재발) 화면에 안내 글을 붙이면 **그 칸이 실제로 써지는지** 본다(가짜 화면 · 캡처) — flex 칸에 셋째 자식을 넣으면 입력이 눌린다
+188. [지시서 · 크기](workflow 166) **만들기 전에 크기를 어림**하고 넘으면 나누는 안을 낸다 — 2a 는 만든 뒤 1,073 을 셈 → 2b 는 앞에서 어림 · 나눔
+189. [시각](workflow 167) 시각은 `TZ=America/Toronto date` 원문으로 — 노트북 시계 · 파일 시각은 토론토보다 앞(13 시간) · 대화 Claude 도 날짜를 틀렸다
+190. [막이 풀기] 일부러 막아 둔 「미정」 거부를 풀 때 **그 아래 다음 거부**(diff 대조)까지 같이 본다 — 15335 가 두 번 막혔다
+191. [막이 풀기 · join] 거부 줄만 지우면 **inner join 이 그 줄을 조용히 뺀다**(charge 줄은 po_line_id null) ⇒ 막이를 풀 때는 루프의 join 을 본다
+192. [마이그레이션 번호](workflow 168) 같은 DB 를 여러 창이 쓰면 **적용 직전 번호를 다시 대조**한다(imp-1 이 qbc1 뒤로 이름을 바꿈) ⇒ 스크립트에 「이 번호 없음 · 마지막이 더 앞」 검사
+193. [SO · 창고 바꾸기] Change warehouse 는 백오더 형제를 합치지 않는다 ⇒ 브랜치를 바꿀 때는 본 오더 Unconfirm(879) · 손댄 형제는 Unconfirm 도 거부
+
+### 114-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §113 끝 「다음 판정 번호: 1179 · 다음 deferred 번호: 587」 → 아래(587 ~ 600 = docs-1111c)
+- shopify-integration §3-b 「사진은 hash 밖」 → send_images false 일 때만 · 그림 443 → 445 · 1,289 하한 → md5 1,447 · 822 · 1140 「약 480」 → 377 · 356
+- po-module 세금 「식」 줄의 「묶음 세금 = Σ줄 세금 − round(할인 × rate, 2)」 · 손풀이 3.54 / 30.68 → 1193 · 3.53 / 30.67
+- asung-po 스킬 「매입 세금은 줄마다 반올림」 → 묶음 소계에 한 번(1193)
+
+```
+다음 판정 번호: 1199 · 다음 deferred 번호: 601
+```

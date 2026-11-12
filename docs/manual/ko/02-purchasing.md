@@ -161,6 +161,8 @@ PO(구매 오더)는 공급처 하나에 주문하는 것입니다. **Draft**(�
 - **Cancel invoice…** 는 인보이스를 취소합니다 — 화면을 나가는 단추가 아닙니다. 나갈 때는 목록으로 갑니다. 확정 인보이스를 고치려면 **Reopen** → 고침 → 다시 **Confirm** 입니다.
 - 창고가 그 인보이스로 받기 시작하면 **Reopen** · **Cancel invoice…** 가 회색입니다: "The warehouse has received against this invoice — correct it with a credit note"([공급처 크레딧](#purch-credits))
 - 라인을 **billed here but settled elsewhere**(여기 청구됐지만 다른 데서 정산)로 표시할 수 있습니다 — 예: 인보이스에 실렸지만 따로 내는 운임
+- **Tax by rule** — 인보이스 줄에는 Tax 칸이 없습니다. 세금은 세금 규칙마다 할인 뒤 소계에 한 번 매기고(공급처 인보이스가 찍는 모양과 같다) 머리 아래 한 줄로 보입니다.
+- 인보이스가 QuickBooks Bill 로 갈 때 charge · other 줄은 [QuickBooks matching — 공급처 인보이스 줄](07-settings.md#set-qbo-supplier-lines)에서 정한 계정으로 가고, 다른 데서 정산하는 줄(not payable)은 빠집니다.
 - 창고 쪽: [PO · 트랜스퍼 받기](04-wms.md#wms-receiving)
 
 <!-- SCREENSHOT: purch-invoice-1 · Confirm 뒤 글: PO-99001 은 청구분을 갖고 나머지는 PO-99001a 로 -->

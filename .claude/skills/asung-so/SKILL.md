@@ -222,6 +222,8 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ 이어받기는 새 오더를 「확정할 때」(출하 때 아님) — 같은 손님·같은 제품 · 가족 밖 · 브랜치 무관 · 가장 오래된 줄부터 · 나머지는 더 원하지 않음 · 유상 줄만 센다 · 무상 줄 백오더는 대상에서도 뺀다   (판정 3·4·5·8·13·15)
 ⭐⭐ 오더는 만료로만 닫힌다(뒤처리로는 안 닫는다) — 90일(inv_config so_backorder_expire_days) · 유상 줄만 expired · 무상 줄(우리가 줄 것)은 만료도 이어받기도 안 되고 proceed·cancel 로만 끝난다 · 무상 줄이 남으면 오더도 안 닫힌다   (판정 11·16)
 ⭐⭐ 다시 열기(so_unconfirm · so_cancel p_reopen_superseded true)는 대상 백오더 오더가 confirmed 일 때만 — 만료·취소 뒤엔 거부(그 되돌리기·취소도 함께 거부) · so_cancel 은 이어받은 줄이 있으면 p_reopen_superseded 를 사람이 고른다(null 이면 거부)   (판정 10·11)
+⚠️⚠️ [2026-11-11 · SO-21312a · so-module §114-c 1 · 교훈 193] **Change warehouse 는 백오더 형제를 합치지 않는다** — 브랜치를 바꿀 때는 본 오더 Unconfirm(판정 879) · 손댄 형제는 Unconfirm 도 거부(「Split order … changed after the split」) · Merge 는 열린 백오더 줄 거부(484)
+⚠️⚠️ **close proceeded 가 활성인 채 줄이 다시 backorder 로 가면 Proceed 가 「already has an active ledger entry」 로 거부** — 장부 reopen 없이 되돌리는 길이 있다(짐작 Reallocate · deferred 587 · 원인 · 전수 미정) · 11-11 은 Caleb 이 SQL 로 그 두 줄만 reopened(가드 · 2 줄 단언) 뒤 Proceed — 창구 없이 손으로 하지 말고 Caleb 에게
 ⭐⭐ sweep 은 cron(postgres)만 부른다(authenticated 42501) · 만료 기간은 supervisor 이상만(inv_config_guard · 잠긴 키 목록 ims_config_locked_keys · 값은 양의 정수)   (판정 14) · 설정 저장은 ims_config_set(허용 21 · 거부 20 · p_old · so-module §68 · 판정 572 ~ 574)
 ⭐  「입고됨」 = 백오더 뒤 그 창고에 po_in 또는 다른 창고에서 온 transfer_in(출발 줄 있고 출발 ≠ 도착 · IN_TRANSIT 제외) · 조정·반품·조립·출발 줄 없는 도착은 아니다 · notified_state unknown_pre_ims 는 「안 보냄」이 아니다(GAS 가 Cin7 에서 보낸다)   (판정 6·7 · 이견 8)
 ⚠️  CHECK 를 넓히면 함수 본문의 같은 값 목록도 훑어라(so_split 실사고 ③a′) · 쓰기 창구를 FROM 의 lateral 에서 부르지 마라(③a 검증 v1) · 시험은 order_date 를 과거로(시간은 못 바꾼다) · cron.sql 의 이 잡은 테스트 DB jobid 1(운영엔 함수 없음)

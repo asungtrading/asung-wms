@@ -161,6 +161,8 @@ If the **Printed total** is empty, or does not match our calculation, IMS says s
 - **Cancel invoice…** cancels the invoice — it is not a way out of the screen. To leave, use the list. To change a confirmed invoice: **Reopen**, change it, **Confirm** again.
 - Once the warehouse has received against the invoice, **Reopen** and **Cancel invoice…** are grey: "The warehouse has received against this invoice — correct it with a credit note" (see [Supplier credits](#purch-credits)).
 - A line can be marked **billed here but settled elsewhere** — for example freight on the invoice that is paid separately.
+- **Tax by rule** — the invoice lines have no Tax column. Tax is worked out once per tax rule on that rule's subtotal after the discount, the way supplier invoices print it, and shown in one line under the header.
+- When the invoice goes to QuickBooks as a Bill, charge and other lines go to the accounts set in [QuickBooks matching — Supplier invoice lines](07-settings.md#set-qbo-supplier-lines), and lines settled elsewhere (not payable) are left out.
 - The warehouse side: [Receive a PO or a transfer](04-wms.md#wms-receiving).
 
 <!-- SCREENSHOT: purch-invoice-1 · the message after Confirm: PO-99001 keeps what is billed, the rest moved to PO-99001a -->

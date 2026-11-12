@@ -20,6 +20,7 @@
 | **Surcharge Groups** | the `master` key | admins only |
 | **Staff** | the `staff` key | the `staff` key at write, for people below your role |
 | **Discount Rules** | the `master` key | the `master` key at write |
+| **Settings** — QuickBooks matching › Supplier invoice lines | the QUICKBOOKS key | the QUICKBOOKS key at write |
 | **Shopify Stores** | the `shopify` key | the `shopify` key at write — check, link and push · admins add, change and pair stores |
 | **System Check** | no key | — it only shows |
 
@@ -32,6 +33,7 @@ For the keys themselves, see [Roles and keys](00-getting-started.md#start-roles-
 - [Surcharge groups](#set-surcharge)
 - [Documents](#set-documents) · [Backorder emails](#set-mail) · [Google Drive](#set-drive)
 - [Shopify stores](#set-shopify)
+- [QuickBooks matching — Supplier invoice lines](#set-qbo-supplier-lines)
 - [System Check](#set-system-check)
 
 <a id="set-staff"></a>
@@ -384,6 +386,32 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 - Products are switched on for a store on the product's Shopify card (see [Descriptions, photos, tags and the web shop](03-inventory.md#stock-descriptions)).
 
 <!-- SCREENSHOT: set-shopify-1 · a store with Location pairs and Push linked products -->
+
+<a id="set-qbo-supplier-lines"></a>
+## QuickBooks matching — Supplier invoice lines
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: accounting, admin -->
+
+**What it is**
+**Settings** › **QuickBooks matching** › **Supplier invoice lines** sets "The QuickBooks account for the lines of a supplier invoice that are not products, used when IMS sends the invoice as a Bill." There are two:
+- **Charge lines** — "Freight or handling the supplier puts on its own invoice. Booked as a cost straight away — it does not change product cost. Carrier and customs bills stay under Purchasing → Charges."
+- **Other lines** — "Lines on a supplier invoice that are neither products nor charges."
+
+Both start on **_95_ Purchase Non Stock - COS**. "Product lines always go to Goods invoiced not received."
+
+**Who**
+- The QUICKBOOKS key at read: look only ("Only staff with the QuickBooks (write) key can change these.").
+- The QUICKBOOKS key at write: change and **Save**.
+
+**How**
+1. Open **Settings** › **QuickBooks matching** and find **Supplier invoice lines**.
+2. Choose an account for **Charge lines** or **Other lines** and press **Save**. "Saved — charge lines now go to …". Under each line you see who changed it last, or "Not changed yet".
+
+**Good to know**
+- Only cost of goods sold and expense accounts that are switched on and linked to QuickBooks are in the list. An account already chosen that no longer qualifies shows "(current · not allowed)".
+- "The tax on these lines is sent with them, so it is claimed back as usual."
+- "Lines marked not payable are left out of the Bill." QuickBooks then owes the same as IMS (see [Record the supplier's invoice](02-purchasing.md#purch-invoice)).
+- A change counts for Bills sent from then on. Bills already sent are not sent again.
 
 <a id="set-system-check"></a>
 ## System Check

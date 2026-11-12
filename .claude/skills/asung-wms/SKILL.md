@@ -451,6 +451,12 @@ Cin7 UOM: 재고는 대부분 **낱개(base=EA)**로 추적, 판매단위는 제
 - ⭐⭐ [2026-11-06 · **판정 1052** · shop-img-name-1 `4ccfdca`] **Shopify 사진 파일 이름 = SKU · SKU_2 …** · 같은 이름이 Files 에 있으면 `duplicateResolutionMode APPEND_UUID`(덮지 않는다 · **REPLACE 금지** — 직원이 SKU 이름으로 올린 남의 파일을 덮는다)
   - ⚠️⚠️ 짝 기준 = gid(shop_media) → CDN 줄기가 **정확히** SKU(_n) 또는 그 뒤 `_<uuid>` 만 → 옛 `<product_image id>` 줄기 · 「포함」 · 「startsWith(SKU)」 로 넓히지 마라(SKU 가 다른 SKU 의 앞머리 · ABC1 ↔ ABC10) · `_<uuid>` 꼴은 짐작(deferred 480)
   - drain 기록 `after 0` 은 결함 아님(올린 직후 처리 중) — **pending n** 을 본다 · 다음 push 의 직전 읽기가 맞춘다
+- ⭐⭐ [2026-11-11 · **판정 1179 ~ 1188 · 1195 ~ 1198** · shop-photo-imp-1 `df5f577` · 2a `f1bb925` · 2b-1 `5d73c1e` · 2b-2 `5a46458` · 정본 shopify-integration §3-b · so-module §114] **Shopify 전용 사진 가져오기 — 자리 · 계획 · EF 섰음 · 아직 부르지 않음**
+  - 패밀리 사진 = `product_image.family_id`(**제품 XOR 패밀리** · 패밀리 사진은 대표 아님 · 폴더 = 주인 id · 출처 shopify) · 쓰기는 **`family_image_update`**(op family_image_add · _off · _order · 문 master) — ⚠️ product_update 로 패밀리 사진을 쓰지 마라(1186) · 웹 대표를 끄면 경고 family_web_image_off 뒤 web_image_id 비움(1187)
+  - 표 셋 `shop_photo_plan` · `shop_photo_pair` · `shop_photo_run` — 쓰기는 창구만(`shop_photo_plan_load` psql · EF 창구 여섯 · 사진 행 + shop_media 짝 + 웹 대표(1198)는 `shop_photo_apply_` 한 몸) · dry run `shop_photo_dry()`(저장 0 · 1195)
+  - ⚠️⚠️ 짝 가드(2b-1 · `_shared/shopify-product.ts` matchMedia): **짝 있는 사진은 그 gid 로만** · payload 밖 사진의 gid 는 줄기 맞추기에서 뺀다 · 사라진 짝은 그 push 에서 풀린다 — 줄기 맞추기를 넓히면 가져온 사진이 남의 사진과 짝지어진다
+  - EF `shop-photo-import` 모드 selftest · check · pairs · move(옵션 only · owners · retry_failed · restart · 202 + 결과 shop_photo_run · cron 없음) · 「모르면 안 쓴다」(다시 읽어 확인 안 된 줄은 안 옮김) · `config.toml` verify_jwt false
+  - 배포 **[테스트 · Asung-IMS = IMS 메인]**: `supabase functions deploy shop-photo-import --project-ref fazgmyvzzhqybtvtktyg` — ⚠️ `--linked` 금지(운영 asung-WMS 로 간다)
 - ⭐⭐ **콤보 재고**(판정 831 · shop-combo-1 `18ce4f0` · so-module §83): `shop_stock_payload` 의 콤보 갈래 = 위치마다 min(구성품 재고 키마다 ⌊inv_available_base ÷ need_ea⌋) — SO 화면 가용과 같은 셈 · 구성품 하나라도 꺼지면(is_active · sellable) 0 · Release 한 콤보는 낱개 갈래 · `shop_stock_queue_add` 가 구성품 → 그 콤보로 펼친다 · **product_bom 트리거 셋**(콤보 정의 · Release → 그 콤보 force) ⇒ 재고 트리거 **16** · ⚠️ 새 바깥 연동은 「콤보 · 세트 · 꺼진 상품」 세 갈래를 짓기 전에 grep(Shopify 쪽 함수가 product_bom 을 몰라 콤보가 늘 0 으로 나갈 뻔)
 
 ## 규칙 8 — 인증 & RLS (⚠️ 2026-07-19 도입)

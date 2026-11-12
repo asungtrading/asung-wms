@@ -213,7 +213,7 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
 - ⭐ 실물 [2026-10-09 · shop-2a1 · shop-2b] 「웹 대표 사진」 = `product_family.web_image_id`(→ product_image · 구성원 사진만 · 쓰기 shop_listing_set op family_web_image_set) · 사진 순서 web_image_id → 변형 대표 → 나머지
 - ⭐ 사진은 **IMS 사진 목록으로 Shopify 를 맞춘다**(판정 409) — 목록에 없는 Shopify 사진(사람이 올린 것 · 옛 파일)은 지워진다(media_removed_unknown) → [2026-10-30 · 판정 890] **asung · aone 은 사진을 보내지 않는다**(아래)
 - ⭐⭐ [2026-10-30 · **판정 890** · shop-img-off-1 `1268bd1` · `20261030192911` · so-module §90] 스토어마다 **`shop_store.send_images`**(기본 true) — false 면 payload 의 files [] · 변형 image_id null(판정 559 꼴) · EF 가 files 키 · 변형 file 을 안 보낸다(안전띠) ⇒ Shopify 사진이 그대로 · 값 · 재고 · 제목 · 설명 · 상태 · 태그는 평소대로
-  - **asung · aone = false**(10-30) · 시험 스토어 true · 사진은 hash 밖(사진만 바뀐 일 → skipped_same_hash) · false → true 로 켜는 순간 스토어 트리거가 켜진 listing 전부를 상품 큐에(사진이 그때 나간다) · 끄기는 줄 0 · 바꾸기 = SQL(화면 칸 · 뷰 칸 · 새 스토어 기본값은 deferred 388)
+  - **asung · aone = false**(10-30) · 시험 스토어 true · 사진은 hash 밖(사진만 바뀐 일 → skipped_same_hash) → [2026-11-11 · docs-1111c] **send_images false 일 때만**(files [] 라 사진이 hash 에 안 든다) · true 면 files 가 payload 안이라 사진이 바뀌면 hash 가 바뀐다(imp-1 은 구성원 file 객체를 그대로 두어 패밀리 사진 없는 대상의 hash 를 지켰다 · 아래 ⭐ 사진 가져오기) · false → true 로 켜는 순간 스토어 트리거가 켜진 listing 전부를 상품 큐에(사진이 그때 나간다) · 끄기는 줄 0 · 바꾸기 = SQL(화면 칸 · 뷰 칸 · 새 스토어 기본값은 deferred 388)
   - ⚠️ Apply links **전에** 적용해야 했다(nightly 가 전부 다시 안 보내게) — 10-30 Apply 전에 적용함
   - ⇒ 판정 409 · 560(Cin7 이 올린 사진을 IMS 사진으로 다시 올림)은 두 스토어에서 **멈춤** · 다시 켜는 것은 Shopify 전용 사진을 IMS 로 가져온 뒤(deferred 387)
   - 확인 거리: 브랜드별 첫 push 때 상품 하나가 Shopify 사진 그대로인지(deferred 395 · REST 둘째 겹 대신)
@@ -237,10 +237,27 @@ Shopify(사람)  Collections · 메타필드 · SEO · Shopify Category · Theme
   - Caleb(11-09): 「패밀리 표지 사진을 대표베리언트로 대체하는 방법이 있지만, 패밀리 특성에 맞는 사진으로 넣은 경우도 있어. 그것을 구분할 수 있나?」 → 다음 조사 **shop-photo-dup-1**(지각 해시로 FAM 표지를 그 패밀리 베리언트 사진과 맞대 「거의 같음 · 확실히 다름 · 애매」 · 애매만 확인 페이지 · 아직 안 함 · deferred 524) · 가져오기 자리 설계는 387 → [2026-11-10] shop-photo-dup-1 끝(아래 · deferred 524 닫힘)
 - ⭐ [2026-11-10 · 조사 shop-photo-dup-1 · 쓰기 0 · scratch 만 · so-module §111-c 8 · 9] **사진 비교 결과 · 판정 1139 ~ 1141**
   - 방법: D(같은 상품 다른 SKU 의 IMS 짝)가 오염 — 30 쌍 중 20 = 같은 사진을 여러 SKU 가 공유 · 10 = 라벨만 다름 ⇒ pHash + 색으로 「같음」 판정 불가 → **픽셀 비교**(256² · 차이 > 40 인 픽셀 비율) · CDN 맞춤 짝 200 p99 7.13 % · max 7.89 % · 라벨만 다른 짝 0.3 ~ 1.9 %(라벨 차이는 못 가름) · same ≤ 8 % · different = pHash ≥ 21 또는 모든 후보 > 20 %(20 은 짐작) · unclear 그 밖
-  - A(FAM 표지 815): same 9(5 패밀리 — 웹 대표 지정만) · different **805**(444 패밀리 · 두 스토어에 같은 그림을 하나로 센 서로 다른 그림 443) · 404 1
-  - B(3,348 · A 를 품음): same 1,578 · different **1,550**(그중 FAM 표지 805 = A) · unclear 214 · not computed 6 · 상품 안 중복을 빼면 1,289(asung 672 · aone 617) ⇒ **진짜 전용 1,550**(옛 「899 ~ 2,068」 을 대신함)
-  - 판정 **1139** FAM 표지 805 장 → IMS 패밀리 사진 자리 · 패밀리 웹 대표 · **1140** 그 밖 전용(약 480 = 1,289 − 805) → 변형 지정 사진은 그 변형 · 패밀리 미지정은 패밀리 자리 · 낱개는 그 제품 · Shopify 순서를 IMS 사진 뒤에 · **1141** unclear 214 장 모두 가져오고 디자이너가 목록(84 장 · 55 곳)을 보고 IMS 에서 지움
+  - A(FAM 표지 815): same 9(5 패밀리 — 웹 대표 지정만) · different **805**(444 패밀리 · 두 스토어에 같은 그림을 하나로 센 서로 다른 그림 443) · 404 1 → [2026-11-11 · docs-1111c] 그림 443 → **445 장**(444 패밀리 · 표지 둘인 패밀리 하나 = BAB46708FAM · 판정 1198 · 2b-1 실물 「웹 대표 새로 444」)
+  - B(3,348 · A 를 품음): same 1,578 · different **1,550**(그중 FAM 표지 805 = A) · unclear 214 · not computed 6 · 상품 안 중복을 빼면 1,289(asung 672 · aone 617) → [2026-11-11 · docs-1111c] 11-10 의 1,289 · 719 묶음은 md5 열쇠보다 적게 센 하한(imp-0 이견 1) → **md5 1,447 · 822**(imp-0 · 11-11) ⇒ **진짜 전용 1,550**(옛 「899 ~ 2,068」 을 대신함)
+  - 판정 **1139** FAM 표지 805 장 → IMS 패밀리 사진 자리 · 패밀리 웹 대표 · **1140** 그 밖 전용(약 480 = 1,289 − 805 → [2026-11-11] **377**(md5) · **356**(pHash) · imp-0 · 11-11) → 변형 지정 사진은 그 변형 · 패밀리 미지정은 패밀리 자리 · 낱개는 그 제품 · Shopify 순서를 IMS 사진 뒤에 · **1141** unclear 214 장 모두 가져오고 디자이너가 목록(84 장 · 55 곳)을 보고 IMS 에서 지움
   - ⚠️ 10-30 스냅샷에 변형 ↔ 사진 연결이 없다 → 가져오기 도구는 Shopify 에서 다시 읽는다(`ProductVariant.media`) · IMS 패밀리 웹 대표 사진이 지정된 패밀리 2 개뿐 · 가져오기 길 ① ~ ⑤ = deferred 387 · so-module §111-d′
+- ⭐⭐ [2026-11-11 오후 ~ 밤 · **판정 1179 ~ 1188 · 1195 ~ 1198** · shop-photo-imp-1 `df5f577` · 2a `f1bb925` · 2b-1 `5d73c1e` · 2b-2 `5a46458` · so-module §114 · deferred 387 ②-a] **Shopify 전용 사진 가져오기 — 자리 · 계획 · 실행 도구가 섰다(아직 부르지 않음)**
+  - 순서(1185): imp-1 → imp-2(2a · 2b) → 화면 → 실행 → 디자이너 정리 → 미리 보기 → send_images 켜기 · 가져오기 = IMS EF 새 모드 + DB 창구 · 실행 날 Shopify 를 다시 읽는다(1182 · 노트북 스크립트 기각)
+  - **imp-1 패밀리 사진 자리**(`20261111222252`): `product_image.family_id`(FK product_family) · **제품 XOR 패밀리**(1179) · CHECK 넷(주인 하나 · 패밀리 사진은 대표 아님 · 저장소 폴더 = 주인 id · 출처에 shopify) · 저장소 정책 product_images_insert · update 의 폴더 첫 칸 = product.id 또는 product_family.id · 패밀리의 표지는 web_image_id 하나(is_primary 는 늘 false)
+  - 쓰기 = 새 창구 **`family_image_update`**(op family_image_add · family_image_off · family_image_order · 대상 family_sku · 문 master · 1186) — product_update 무접촉 · 웹 대표인 패밀리 사진을 끄면 경고 `family_web_image_off`(ack) → 끄기 + web_image_id 비움(같은 트랜잭션 · 1187) · `shop_listing_set` 의 family_web_image_set 이 그 패밀리의 켜진 패밀리 사진도 받는다
+  - payload(`shop_product_payload`): 표지는 web_image_id 가 **켜진 후보**(구성원의 켜진 사진 · 이 패밀리의 켜진 패밀리 사진)일 때만 · 아니면 기본값(구성원 켜진 대표 중 SKU 순 첫 장 · 1188) · files 순서 표지 → 변형 대표 → 구성원 나머지 → 패밀리 사진(sort_order) · 구성원 file 객체는 예전 그대로(hash 보존) · 패밀리 사진 file 만 product_id null · family_id · sku(패밀리 SKU) · 큐 트리거에 product_image 갈래(product_id → 제품 · family_id → 패밀리) · EF 는 패밀리 사진을 패밀리 SKU 줄기로 이름 짓는다
+  - **2a 계획 · 창구**(`20261112041229`): 표 셋 `shop_photo_plan`(가져올 사진 한 줄씩) · `shop_photo_pair`(Shopify media ↔ 계획 줄 또는 IMS 사진) · `shop_photo_run`(적재 · 회차 기록) — RLS 켬 · 정책 없음 · service_role select 뿐 · `shop_photo_plan_load(p_plan, p_replace)`(postgres · psql · 갈 곳 · 건너뜀 · dup 을 DB 가 셈해 expect 와 다르면 통째로 거부 · 두 번 적재 거부) · EF 창구 여섯(verify_mark · claim · done · fail · pair_mark · run_add) · 사진 행(source shopify)과 shop_media 짝은 `shop_photo_apply_` 한 몸 · 한 트랜잭션(큐가 깨운 push 가 짝 없는 사진을 새로 올리지 않게)
+  - 갈 곳: 변형이 하나뿐인 패밀리 상품의 사진 → 그 변형(1180 · 「하나」 = 켜진 구성원 정확히 하나) · 패밀리 미지정 사진의 파일 이름이 구성원 SKU(`SKU` · `SKU_…` · `SKU-…` · 겹치면 더 긴 SKU · **꺼진 구성원 포함** 1196)면 그 제품 · 없으면 패밀리 자리(1181) · gif · 5 MB 넘음은 건너뛰고 디자이너 목록(1184) · same 짝도 스토어마다 shop_media 에(1183 · 한 스토어 · 한 IMS 사진에 Shopify 사진이 여럿이면 하나만 · 나머지 dup) · 켜진 대표 없는 제품은 첫 가져온 사진이 대표(1197 · 57 곳 · 모두 꺼진 제품)
+  - 경로 꼴 = `<주인 id>/shopify-<열쇠 md5>.<확장자>`(IMS 내부 이름 · Shopify 로 올리는 이름 SKU · SKU_n(1052)과 무관 · 결정적이라 두 번 써도 한 줄) · 순서(1140) = 그 주인의 지금 max(sort_order · 꺼진 줄 포함) 뒤에 계획 순서(표지 먼저 → Shopify 순서)
+  - **dry run** `shop_photo_dry()`(저장 0 · 1195): 실제 쓰기 몸(shop_photo_apply_)을 되돌아가는 블록에서 돌려 send_images 켜진 listing 마다 Shopify 로 갈 files 가 어떻게 달라지는지 · 실행은 Caleb 이 정한다
+  - 실물 적재(계획 자료는 레포 밖 · plan_load.sql md5 954d0db1): 계획 822 줄 = 패밀리 554 · 제품 268 · 건너뜀 4 · same 1,468 + dup 110 · 가져오기 1,442 + dup 317 · 적재 뒤 확인 OK 18
+  - **2b-1**(`20261112044938` · EF shopify): `shop_photo_apply_` 끝에 한 문장 — web_image_id 가 **null** 인 패밀리만 가져온 FAM 표지를 웹 대표로(1198 · 1139 그대로 · 표지 둘이면 계획 순서 앞 = BAB46708FAM 줄 173 · 앞 표지가 실패하고 뒤가 먼저 오면 뒤가 대표 · 사람이 지정한 패밀리는 무접촉) · dry 에 `web_cover_new{count, families}` · changed 줄마다 `cover_set` · 실물 dry: ONO00140FAM 새 표지 1 번 · 웹 대표 새로 444
+  - 2b-1 짝 가드(`_shared/shopify-product.ts` matchMedia): **짝 있는 사진은 그 gid 로만** · payload 밖 사진의 gid 는 줄기 맞추기에서 뺀다 · 사라진 짝은 그 push 에서 풀린다(livePairs) · pairBeforePush · unknownMedia 고침 · pushOne 세 곳(done · claim · payload)
+  - **2b-2 EF `shop-photo-import`**(DB 변경 0 · cron 없음 · `config.toml` verify_jwt false · 문 = shopify EF 와 같은 두 길(cron 키 · 직원 세션 → ims_can_write('shopify'))): 모드 넷 — `selftest`(바깥 호출 0 · 런타임 md5 · 형식 판별) · `check`(상품 10 개씩 다시 읽기 · 사라짐 · url 바뀜 · 1180 변형 수 · extra · stem_clash 목록만) · `pairs`(짝 확인 → 못 찾은 상품은 적지 않고 목록 · same 짝은 shop_media 에) · `move`(claim → CDN → 크기 · md5 · 형식 대조 → 저장소 → shop_photo_done · 실패 fail · 0.3 ~ 0.5 초 간격) · 옵션 only · owners · retry_failed · restart · 202 + waitUntil · 결과는 shop_photo_run
+  - ⚠️ **「모르면 안 쓴다」** — 다시 읽어 확인 안 된 줄은 옮기지 않는다 · Shopify 에는 읽기만 · 이어 달리기(check · pairs 는 직전 회차 자리 뒤부터 · move 는 claim 이 남은 줄) · 시간 가드 330 초 · 사람이 「남은 0」 까지 다시 부른다
+  - 배포: `supabase functions deploy shop-photo-import --project-ref fazgmyvzzhqybtvtktyg` **[테스트 · Asung-IMS = IMS 메인]** — `--linked` 는 운영(asung-WMS)이라 금지
+  - 첫 묶음(실행 날 only 로 먼저): 계획 줄 id 37 · 88 · 85 · 38 · 42 · 111 · 86 · 173 · 174 · 310 은 따로
+  - 남은 짐작 · 거리: deferred 591 ~ 600(꺼진 구성원 사진 · gone dup · stem_clash · gid `in.()` · 100 장 쪽 넘기기 · failed 파일 · read_errors · shop_link_plan 사진 수 · ims-shop.js:312 · 2b-2 짐작 넷)
 - alt = IMS `product.name`(payload files[].alt) — Shopify 에서 `<상품명> - <옵션 값>` 꼴로 보이는 것은 IMS 상품 이름이 그 꼴이라서 · ⚠️ 이미 짝지은 사진은 `{id}` 만 보내므로 이름을 고쳐도 Shopify alt 는 따라가지 않는다(so-module 미룬 168)
 
 ### 3-c. 보냄 · 퍼블리시 (판정 375)
@@ -569,6 +586,7 @@ Process waiting   「Process waiting now」 = 받은 오더(Waiting)를 SO 로 �
 - [2026-10-31 · so-module §92 · docs-1031] 상태 줄 · §1 실제 스토어 표 aone 짝 둘 · §1-a 「위치 짝 하나」 → 둘(895 · 대가) · §2-c aone 갈래 · 픽업 · §3-c 판정 427 줄 · §7 Aonebeauty EDM 할 일 뒤집힘
 - [2026-10-31 저녁 · so-module §93 · docs-1031b] 상태 줄 · §2-a 웹훅 구독 0 → 구독함(909 · 401 닫힘) · §3-b IMS SKU 를 바꾸면 Shopify SKU 도(906 · payload sku) · §5 ⑯(905 지금 안 켬) · ⑲ 닫힘
 - [2026-11-06 · so-module §101 · docs-1106] 상태 줄 · §3-b 사진 이름 SKU · APPEND_UUID · 짝 기준 · pending n(1052) · 중복 사진(1053) · §3-e 상품 단위 덧씌우기 · 태그 0(1042 · 1043)
+- [2026-11-11 밤 · so-module §114 · docs-1111c] §3-b 「사진은 hash 밖」 → send_images false 일 때만 · 그림 443 → 445 · 1,289 하한 → md5 1,447 · 822 · 1140 「약 480」 → 377 · 356(imp-0) · 사진 가져오기 묶음(판정 1179 ~ 1188 · 1195 ~ 1198 · imp-1 · 2a · 2b-1 · 2b-2 · deferred 591 ~ 600)
 
 ## 7. 할 일 — 사람 몫 (리마인드)
 

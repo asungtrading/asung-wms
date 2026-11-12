@@ -3295,10 +3295,16 @@ due_date       사람이 넣는다 — invoice_date + ref_payment_term.net_days 
 출처          공급처 규칙(supplier.tax_rule 원문) → PO 머리(po_create 가 이름 → id · 못 풀면 null + 경고 tax_rule_unknown:<원문> · 막지 않는다) → 인보이스 머리(po_invoice_create · 원천 순서 credit_for 인보이스 → PO → 공급처)
               줄은 머리를 따른다(tax_rule_id null) · 특별한 줄만 줄에서(po_line_update · po_invoice_line_add/update 열쇠 tax_rule · tax_rule_id · "" = 머리로) · 인보이스 줄은 PO 줄의 예외 규칙을 물려받는다
 칸            po · po_line · po_invoice · po_invoice_line 에 tax_rule_id + 원문 tax_rule(짝 CHECK *_tax_rule_pair_ck) · ⭐ 짝 트리거 po_tax_rule_pair — id 가 오면 이름 · 이름이 오면 id · purchase · 활성만(아니면 거부) · 바뀐 쪽만 본다 · 화면은 PostgREST 로 이름이나 id 를 쓰면 된다
-식            ⭐ 한 곳 = 뷰 po_tax_group(규칙 묶음마다) · 줄 세금 = so_tax_amount(round(qty×단가,2), rate_pct) — **SO 와 같은 함수 · 줄마다 반올림**(판정 384)
-              문서 할인 체인은 「할인 줄」 — 묶음 할인 = goods − round(goods × factor, 2) · 묶음 세금 = Σ줄 세금 − round(할인 × rate, 2)(goods 에만 체인 · other/charge 줄은 체인 없이 줄마다)
-              ⚠️ 세금 전 돈은 그대로 문서 전체에 한 번 round(goods_sum × factor, 2) + other_sum — 묶음이 둘이면 Σ묶음 taxable 과 1센트 갈릴 수 있다(세금만 묶음으로)
-              손풀이: 10.05 × 3줄 13% → 3.93 · 체인 10% → 27.14 · 할인 3.01 · 세금 3.93 − 0.39 = 3.54 · 낼 돈 30.68
+식            ⭐ 한 곳 = 뷰 po_tax_group(규칙 묶음마다) · ~~줄 세금 = so_tax_amount(round(qty×단가,2), rate_pct) — **SO 와 같은 함수 · 줄마다 반올림**(판정 384)~~
+              → [2026-11-11 · **판정 1193** · po-tax-once-1 `51fa21c` · `20261111222857`] **묶음 소계에 한 번** — tax_amount = so_tax_amount(taxable_amount, rate_pct) · payable_tax = so_tax_amount(payable_taxable, rate_pct)
+              (소계 = 체인 할인을 뺀 goods + other · 한 번 반올림 · SO 와 같은 함수를 소계에 쓴다 · 손님 판매 세금은 무접촉 · 인보이스 · 크레딧 · PO 모두 같은 뷰)
+              세 칸: **tax_amount**(정본 · 위 식) · **lines_tax** · **discount_tax**(참고값 — 줄마다 셈했을 때의 값 · tax_amount 는 더 이상 이 둘의 차가 아니다)
+              문서 할인 체인은 「할인 줄」 — 묶음 할인 = goods − round(goods × factor, 2)(goods 에만 체인 · other/charge 줄은 체인 없이) · ~~묶음 세금 = Σ줄 세금 − round(할인 × rate, 2)~~(옛 식)
+              ⚠️ 줄마다 반올림하는 공급처의 인보이스는 찍힌 합계와 차이(diff)로 멈춘다(조용히 틀리지 않는다) · 실물 셋: 인보이스 15335 +0.01(찍힌 합계와 차이 0) · PO-02050 +0.01 · PO-02051 −0.12(알고 감)
+              화면(판정 1194 · asung-ims inv tax v4 `4ddb0ac`): 공급처 인보이스 줄 Tax 칸 없음 · 머리 아래 규칙별 「Tax by rule」 한 줄 — 종이 인보이스와 같은 모양
+              ⚠️ 세금 전 돈은 그대로 문서 전체에 한 번 round(goods_sum × factor, 2) + other_sum — 묶음이 둘이면 Σ묶음 taxable 과 1센트 갈릴 수 있다(세금만 묶음으로) → [1193 뒤에도 그대로 · deferred 589]
+              손풀이: ~~10.05 × 3줄 13% → 3.93 · 체인 10% → 27.14 · 할인 3.01 · 세금 3.93 − 0.39 = 3.54 · 낼 돈 30.68~~
+                      → [1193] 10.05 × 3줄 = 30.15 · 체인 10% → 소계 27.14 · 할인 3.01 · 세금 round(27.14 × 13%) = round(3.5282) = **3.53** · 낼 돈 **30.67**(lines_tax 3.93 · discount_tax 0.39 는 참고값)
 낼 돈        po_invoice_money.computed_total = 세금 전 + 세금(찍힌 total_amount 의 대조값 · 다르면 total_differs_from_lines · 판정 386) · payable_net = payable 줄 + 그 세금 = 낼 돈 · 크레딧 뺄 돈도 세금 포함
               옛 값은 뒤 칸 taxable_amount(옛 computed_total) · payable_taxable(옛 payable_net) · 결제 창구는 뷰 값을 받는다(식 무변)
 통화 · 계정   세금은 문서 통화 · 환산 없음 · 계정은 쓰지 않는다(분개는 QBO 때 · ref_tax_rule.account_id 는 표시만)
@@ -4078,7 +4084,7 @@ CHECKLIST    asung-ims fc718d9(7-a 다시 씀 · 7-b 신설 · §0 아홉 · §0
 ```
 칸     po.tax_rule_id · po_line.tax_rule_id · po_invoice.tax_rule + tax_rule_id · po_invoice_line.tax_rule + tax_rule_id · po_charge.tax_amount · tax_rule_id · tax_rule(전부 FK + 원문 짝 CHECK · 트리거 po_tax_rule_pair)
        po_receipt.discount_factor(입고 확정 순간의 PO 할인 계수 · 재생성의 재료 · null = 아직 레이어 안 세움 / 트랜스퍼 입고)
-뷰     po_tax_group(세금 식 한 곳 · doc_kind po|invoice · 규칙 묶음) · po_invoice_money(+ taxable_amount · tax_amount · payable_taxable · payable_tax · tax_rule_id · tax_rule · rate_pct · tax_rule_groups · tax_rule_missing · 27 칸)
+뷰     po_tax_group(세금 식 한 곳 · doc_kind po|invoice · 규칙 묶음 · [2026-11-11 · 1193] 세금 = 묶음 소계에 한 번 · lines_tax · discount_tax 는 참고값 · 칸 18 개 그대로) · po_invoice_money(+ taxable_amount · tax_amount · payable_taxable · payable_tax · tax_rule_id · tax_rule · rate_pct · tax_rule_groups · tax_rule_missing · 27 칸)
        po_charge_money(unpaid 세금 포함 · + tax_amount · total_with_tax · tax_rule_id · tax_rule · rate_pct · tax_suggested · 13 칸) · po_list(+ tax_rule_id · tax_rule · tax_amount · total_with_tax · 42 칸) · po_invoice_list(+4) · po_charge_list(+4 · 28 칸)
 함수   po_discount_factor(po_id)(PO 할인 체인 한 곳) · inv_layer_post_receipt(@2026-10-08.2 · 단가 × 계수 × 환율) · 재발행 po_detail · po_invoice_detail · po_create · po_invoice_create · po_line_update · po_invoice_line_add/update · po_invoice_add_po_lines · po_charge_create · tf_charge_create(인자 둘 · drop + create) · tf_charge_update · po_charge_confirm · tf_charge_confirm · po_charge_detail · po_payment_target_check · po_payment_detail · inv_transfer_detail
 ── [2026-10-08 밤 · 집 PC · po-disc-2 ~ 5b · so-module §54] 공급처 할인 → 재고 원가 ② ~ ⑤ ──

@@ -230,6 +230,8 @@ QBO 판     Plus(Caleb)
 - 실호출(11-01 운영 · `qbo_link` 재셈): account 220 · tax_rule 24 · payment_term 17 · payment_method 7(+ skipped 1 credit_card) · supplier 195(absent 33) · customer 9,764(absent 27) · product 11,775(auto_sku 11,755 + auto_sku_name 20 · absent 2,941 · ambiguous 1 = LGL99950SIL — QBO Item #4153 지워짐 · 짝 짓지 않음) · charge 손 짝 2(freight → Item 4 · discount → Item 2170 · surcharge · freight_discount 남음) · service 11 남음
   - product absent 2,941 = Cin7 은 **처음 팔 때만** Item 을 만든다(안 팔린 제품은 QBO 에 없다) — 「제품 짝 1 만 4 천」 짐작이 깨진 자리(so §95-e 41)
 - 화면 = Settings → QuickBooks matching(§8) · 문 = ~~admin~~ → [11-01 밤] 열쇠 QUICKBOOKS(창구 안 `qbo_sync_gate` → `qbo_key_gate` · §4)
+- [2026-11-11 · qbo-bill-charge-1 `361613d` · 판정 1189 · 1190 · §15-q] **공급처 인보이스 줄 계정 두 줄**(짝이 아니라 설정) — `inv_config` 키 `qbo_supplier_line_charge_account_code` · `qbo_supplier_line_other_account_code`(값 = IMS 계정 코드 · 기본 둘 다 `_95_` Purchase Non Stock - COS · QBO id 는 계정 짝으로 푼다 — realm 이 바뀌어도 설정은 그대로)
+  - 창구 `qbo_supplier_line_accounts()`(읽기 · `qbo_key_gate(false)`) · `qbo_supplier_line_account_set(kind, code, old)`(쓰기 · `qbo_key_gate(true)` · 열쇠 QUICKBOOKS) · 고를 목록 = 켜짐 ∧ QBO 짝 ∧ 종류 COSTOFGOODSSOLD · EXPENSE · ⚠️ `ims_config_set` 이 아니다(그 창구는 두 키를 거부 · 판정 572) · 화면 Settings › QuickBooks matching 「Supplier invoice lines」(set v18 `7106d24`)
 
 ## 13. QBO 실물 — 보내기를 지을 때의 바탕 (2026-11-01 · Settings 콘솔 조회 · 판정 933 범위 · Caleb 캡처 — 「11-01 실측(대화)」 · 재셈한 것은 표시)
 
@@ -870,6 +872,7 @@ QBO 판     Plus(Caleb)
 4-5 결제 DB + EF + 화면(판정 1123 · 1124 · 1125 · ⑥ 규칙 · 밀린 IMS 결제 4 건 — USD 3 건은 환율 칸을 채운 뒤) → 4-6(켜기 · 정본) · 화면 차수(qbo-send 공급처 꼴 535 · 보낸 장 미리 보기 534) · 1131 나(536) → [11-09 밤] 4-5 · 535 끝 · 남은 다음 = §15-n ⑨
 
 - 곁가지 deferred 534 ~ 538 · 잇기 459 · 522 · 528
+- → [2026-11-11 · docs-1111c] 공급처 인보이스의 charge · other 줄 · 돈 안 내는 줄이 Bill 에 어떻게 실리는지는 **§15-q**(판정 1189 ~ 1193)
 
 ### 15-n 4-5a · 4-5b · 4-5c — 공급처 결제(BillPayment)가 나간다 · 첫 실물 173092 · 은행 피드 · 두 환율 (2026-11-09 밤 · asung-wms `a9cb5ce` · `16412bc` · asung-ims `697dd2e` · `53edc22` · `e745754` · 판정 1132 ~ 1134 · so-module §110)
 
@@ -1055,3 +1058,24 @@ USD 3 건(북키퍼 환율 → Send) → 4-6(켜기 · 정본) · E-8 sandbox �
 **⑤ 다음**
 
 A 건 손 정리 · B 건 Retry · QBO Item 8794(FINAL SALE ITEM) 짝 — 북키퍼가 matching 에서 첫 떨이 판매 전(so-module §112-h) · 566 · 567 · 570 · 571
+
+### 15-q qbo-bill-charge-1 · po-tax-once-1 — 공급처 인보이스의 charge · other 줄 · 돈 안 내는 줄 · 세금 한 번 (2026-11-11 · asung-wms `361613d` · `51fa21c` · asung-ims `7106d24` · `4ddb0ac` · 판정 1189 ~ 1194 · so-module §114)
+
+⭐ 상태: 공급처 인보이스의 **charge · other 줄도 Bill 에 실린다**(설정 계정) · **돈 안 내는 줄은 Bill 에서 빠진다** · 세금은 규칙 묶음 소계에 한 번 — 첫 실물 인보이스 15335 → QBO Bill txnId 173348(11-11 23:12 토론토)
+
+| 판정 | 정한 것 |
+|---|---|
+| 1189 | charge 줄(공급처가 상품 인보이스 안에 넣은 운임 등) 계정 = Settings › QuickBooks matching 설정 줄 · 기본 `_95_` Purchase Non Stock - COS(§12 끝) |
+| 1190 | other 줄도 따로 한 줄(기본 `_95_`) |
+| 1191 | `is_payable` false 줄은 QBO Bill · VendorCredit 에서 뺀다 — 줄 · 할인 줄 · 세금 묶음 · 합계 · 지문 · lookup 모두 낼 돈 기준 ⇒ **QBO 미지급 = IMS 미지급** |
+| 1192 | 찍힌 합계 대조(diff ≠ 0 막음)는 그대로 — 1 센트 차이는 qbc1 에 끼우지 않고 따로 판정(→ 1193) |
+| 1193 | 공급처 쪽 세금(po_tax_group · 인보이스 · 크레딧 · PO)은 **세금 규칙 묶음 소계에 한 번**(po-module 세금 식) · SO 무접촉 |
+| 1194 | 공급처 인보이스 화면은 줄 Tax 칸을 빼고 묶음(머리 아래 「Tax by rule」 한 줄) |
+
+- **Bill 몸**(`qbo_bill_body` 재발행 · 원본 4-3a `20261109103000`): 줄 = 낼 줄마다 line_no 순 · `po_invoice_line` 에서 po_line · po · product 를 **left join**(charge · other 줄은 po_line_id null — inner join 이면 조용히 빠진다 · so-module 교훈 191) · goods 는 GINR(1115) · charge · other 는 설정 계정 · Description = 줄 글 · `TaxCodeRef` = **coalesce(줄 규칙, 머리 규칙)** · 할인 · 세금 묶음은 `po_tax_group.payable_*` · 합계는 `po_invoice_money.payable_net`
+- 낼 줄이 하나도 없으면 거부(「has no payable lines — nothing is owed on it」) · 빠진 줄이 있으면 경고(「n line(s) marked not payable — left out of QuickBooks」)
+- 무변: 원가 레이어(goods 만) · Landed(po_charge · `qbo_charge_bill_body`) · 하루 원가 장 · BillPayment · 할인 VC · 손님 matching · EF · cron · 이미 보낸 Bill 은 다시 보내지 않는다
+- ⚠️ 옛 정본에 「goods 아닌 줄 · not payable 을 막는다」 는 글은 없었다 — 이 절은 정정이 아니라 **더함**
+- **1193 뒤 실물 15335**: qbc1 적용 → 1 센트(줄마다 반올림 세금 ≠ 찍힌 합계) → po-tax-once-1 → Retry → Send → QBO Bill no. 15335 · **txnId 173348** · 8 번 줄 Purchase Non Stock - COS · HST 215.05 · 합계 1,869.25 · 같은 적용으로 PO-02050 +0.01 · PO-02051 −0.12(알고 감) · 보낸 Bill 9 장 지문 무변
+- ⚠️ 막이를 풀 때 그 아래 다음 거부까지 본다 — 15335 는 두 번 막혔다(so-module 교훈 190)
+- 열린 것: deferred 589(체인 할인 + 묶음 둘의 세금 전 1 센트 틈) · 590(USD 공급처 Bill 의 charge 줄 실측 — 비용 계정이 외화 Bill 에 실리는지)

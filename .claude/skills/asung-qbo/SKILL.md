@@ -311,6 +311,9 @@ description: >
 ⚠️⚠️ [2026-11-11 · qbo-list-perf-1 `2194110` · 561] **목록에서 무거운 함수는 한 쪽의 행에만 · 행마다 한 번** — 옆 서브쿼리 `(select qbo_job_doc(…) as doc)` 는 펴져서 d.doc 을 읽는 칸마다 다시 돈다 ⇒ `offset 0`(All 9.9 s → 0.11 s) · 찾기는 아직 일감 수에 비례(`id::text = p_ims_id` 통째 훑기 · 566) · 정렬 동률(567)
 ⚠️⚠️ [2026-11-11 · qbo-dname-1 `7573009` · 판정 1153] **손님 QBO 이름 = Display name 우선** — 자동 짝 열쇠 `coalesce(nullif(btrim(display_name), ''), name)` · DisplayName = Display name · CompanyName = name · 콜론 · 탭 · 줄바꿈 거부 · customer 6240 에 할 일 안내(앞) + 「QuickBooks answered: …」(뒤) · Vendor 6240 은 아직(570)
 ⚠️⚠️ **같은 이름 = 같은 사람이 아니다** — 이메일 · 전화 · 주소가 실제로 같을 때만 matching 으로 잇는다 · 빈 이메일끼리는 같음이 아니다(11-06 A 건: 새 손님이 QBO #4556 에 잘못 이어져 인보이스 60247 · 결제 AO-17358 이 옛 손님으로 감 · 정본 §15-p ④) · 다른 사람이면 Display name → Retry
+✅ [2026-11-11 · qbo-bill-charge-1 `361613d` · 판정 1189 ~ 1192 · 정본 §12 끝 · §15-q] **공급처 인보이스 charge · other 줄 = 설정 계정**(inv_config `qbo_supplier_line_charge_account_code` · `_other_` · 기본 `_95_` Purchase Non Stock - COS) · 바꾸기는 창구 `qbo_supplier_line_account_set`(열쇠 QUICKBOOKS · COGS · EXPENSE 만) — ⚠️ `ims_config_set` 이 아니다(두 키를 거부)
+⚠️⚠️ **안 낼 줄(is_payable false)은 Bill · VendorCredit 에서 뺀다**(1191 · 줄 · 할인 · 세금 · 합계 · 지문 모두 낼 돈 기준 ⇒ QBO 미지급 = IMS 미지급) · Bill 몸의 줄 루프는 **left join**(charge · other 는 po_line_id null — inner join 이면 조용히 빠진다) · TaxCodeRef = coalesce(줄 규칙, 머리 규칙)
+⭐  세금은 묶음 소계에 한 번(1193 · po-tax-once-1) — 첫 실물 15335 → Bill 173348 · USD 공급처 charge 줄은 아직 실측 없음(deferred 590)
 ```
 
 ## 6. 화면 · 바깥

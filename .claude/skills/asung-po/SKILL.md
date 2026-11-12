@@ -196,7 +196,7 @@ CHECK     이름은 <표>_source_ck 로 통일 · 인라인 무명 CHECK 금지
 ## 4-d. ⭐⭐ 매입 세금 · 할인 원가 — 모르면 사고 (2026-10-08 · 정본 po-module §11-e 끝 · §11-f · §11-g 「세금」 · 「크레딧 원가」 · §11-h · §11-i 「핀」 · §12-c · §13-j · 판정 383 ~ 400 · so-module §53 · §54)
 
 ```
-⭐⭐ 매입 세금은 줄마다 반올림(SO 와 같은 so_tax_amount) · 문서 할인 체인은 「할인 줄」 한 번 · 식 한 곳 = 뷰 po_tax_group — 화면 · 창구에서 다시 짜지 마라
+⭐⭐ ~~매입 세금은 줄마다 반올림~~ → [2026-11-11 · 판정 1193 · po-tax-once-1 `51fa21c`] **매입 세금은 세금 규칙 묶음 소계에 한 번**(tax_amount = so_tax_amount(소계, rate) · lines_tax · discount_tax 는 참고값 · 인보이스 · 크레딧 · PO 모두) · 문서 할인 체인은 「할인 줄」 한 번 · 식 한 곳 = 뷰 po_tax_group — 화면 · 창구에서 다시 짜지 마라 · 화면은 줄 Tax 칸 없이 「Tax by rule」(1194) · SO 세금은 무접촉 · 정본 po-module 세금 「식」
 ⭐⭐ 매입 세금은 원가에 안 간다 — 입고 · off-PO · over · landed 창구에 세금을 넣지 마라 · 낼 돈 = 세금 전 + 세금(po_invoice_money.payable_net · po_charge_money.unpaid)
 ⭐  규칙은 FK + 원문 짝(po · po_line · po_invoice · po_invoice_line · po_charge) — 트리거 po_tax_rule_pair 가 채운다(purchase · 활성만) · 줄 null = 머리
 ⚠️⚠️ po_charge.total_amount = **세금 전** · tax_amount = 청구서에 찍힌 세금(비율로 만들지 마라 — 수입 GST) · 배분 합 = total_amount · 안 보내면 0 + 경고(제안값은 반환만)

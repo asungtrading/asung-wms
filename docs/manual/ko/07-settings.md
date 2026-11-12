@@ -20,6 +20,7 @@
 | **Surcharge Groups** | `master` 권한 | admin 만 |
 | **Staff** | `staff` 권한 | `staff` 권한 write · 나보다 낮은 역할의 사람만 |
 | **Discount Rules** | `master` 권한 | `master` 권한 write |
+| **Settings** — QuickBooks matching › Supplier invoice lines | QUICKBOOKS 권한 | QUICKBOOKS 권한 write |
 | **Shopify Stores** | `shopify` 권한 | `shopify` 권한 write — 연결 확인 · 잇기 · 보내기 · 가게 더하기 · 고치기 · 짝 맞추기는 admin |
 | **System Check** | 권한 없이 | — 보여 주기만 한다 |
 
@@ -32,6 +33,7 @@
 - [Surcharge 그룹](#set-surcharge)
 - [문서](#set-documents) · [백오더 메일](#set-mail) · [Google Drive](#set-drive)
 - [Shopify 가게](#set-shopify)
+- [QuickBooks matching — 공급처 인보이스 줄](#set-qbo-supplier-lines)
 - [System Check](#set-system-check)
 
 <a id="set-staff"></a>
@@ -384,6 +386,32 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 - 제품을 가게에 켜는 것은 제품의 Shopify 카드에서 합니다([설명 · 사진 · 태그 · 웹 숍](03-inventory.md#stock-descriptions)).
 
 <!-- SCREENSHOT: set-shopify-1 · Location pairs 와 Push linked products 가 보이는 가게 -->
+
+<a id="set-qbo-supplier-lines"></a>
+## QuickBooks matching — 공급처 인보이스 줄
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: accounting, admin -->
+
+**무엇인가**
+**Settings** › **QuickBooks matching** › **Supplier invoice lines** 는 IMS 가 공급처 인보이스를 Bill 로 보낼 때 **상품이 아닌 줄**이 갈 QuickBooks 계정을 정합니다. 둘입니다:
+- **Charge lines** — 공급처가 자기 인보이스에 넣은 운임 · 취급비. 바로 비용으로 잡히고 상품 원가는 바꾸지 않습니다. 운송사 · 통관 청구서는 그대로 **Purchasing → Charges** 에서.
+- **Other lines** — 상품도 charge 도 아닌 공급처 인보이스 줄.
+
+둘 다 처음 값은 **_95_ Purchase Non Stock - COS** 입니다. 상품 줄은 늘 Goods invoiced not received 로 갑니다.
+
+**누가**
+- QUICKBOOKS 권한 read: 보기만("Only staff with the QuickBooks (write) key can change these.")
+- QUICKBOOKS 권한 write: 바꾸고 **Save**
+
+**어떻게**
+1. **Settings** › **QuickBooks matching** 을 열고 **Supplier invoice lines** 를 찾습니다.
+2. **Charge lines** 또는 **Other lines** 의 계정을 고르고 **Save** 를 누릅니다. "Saved — charge lines now go to …"(이제 그 계정으로 간다). 줄 아래에 마지막으로 바꾼 사람 · 때가 보입니다(없으면 "Not changed yet").
+
+**알아 둘 것**
+- 목록에는 켜져 있고 QuickBooks 에 짝지은 매출원가 · 비용 계정만 나옵니다. 이미 골라 둔 계정이 조건에서 벗어나면 "(current · not allowed)" 로 보입니다.
+- 이 줄의 세금은 줄과 함께 보내므로 평소처럼 돌려받습니다.
+- **not payable** 로 표시한 줄은 Bill 에서 빠집니다 — QuickBooks 의 미지급이 IMS 와 같아집니다([공급처 인보이스 넣기](02-purchasing.md#purch-invoice)).
+- 바꾼 값은 그 뒤에 보내는 Bill 부터입니다. 이미 보낸 Bill 은 다시 보내지 않습니다.
 
 <a id="set-system-check"></a>
 ## System Check
