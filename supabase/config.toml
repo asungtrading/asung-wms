@@ -565,3 +565,12 @@ enabled = true
 #     게이트웨이의 401 에는 그 머리를 못 붙인다(mcp-0 조사) — 문은 함수 안(GET /auth/v1/user 로 토큰 확인 · 도구는 rpc/mcp_* 를 그 토큰으로 · 권한 거절은 401 이 아니라 tools/call isError). 비밀값 없음(SUPABASE_* 자동 주입만).
 verify_jwt = false
 entrypoint = "./functions/ims-mcp/index.ts"
+
+[functions.shop-photo-import]
+enabled = true
+# shop-photo-imp-2b-2 (2026-11-12 · 판정 1182 · 1183 · 1185 · 1198 · DB 2a 20261112041229 · 2b-1 20261112044938) — Shopify 에만 있던 사진을 IMS 로 가져오는 EF(mode selftest · check · pairs · move).
+#   ⚠️ 이 프로젝트(Asung-IMS · fazgmyvzzhqybtvtktyg)가 메인(617). 배포: supabase functions deploy shop-photo-import --project-ref fazgmyvzzhqybtvtktyg
+#   verify_jwt=false 는 shopify 와 같은 까닭(문은 함수 안 두 길 — x-ims-cron-key · 세션 JWT → rpc/ims_can_write('shopify')) · cron 등록 없음(사람이 부른다) · 새 비밀 없음(IMS_CRON_SECRET · 스토어 토큰은 기존).
+#   Shopify 에는 읽기만 · 쓰기는 IMS 저장소 product-images 와 2a 창구(service_role) · 결과는 응답이 아니라 shop_photo_run 에(202 + waitUntil · 시간 가드 330 초).
+verify_jwt = false
+entrypoint = "./functions/shop-photo-import/index.ts"
