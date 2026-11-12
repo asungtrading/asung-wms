@@ -52,7 +52,7 @@
 // ============================================================
 import { API_VERSION, compareLocations, getToken, isWorking, missingScopes, queueGate, readGate, scopesOf, shopifyGql, workGate, type PairRow, type ShopLocation, type StoreRow, type Warning } from "../_shared/shopify.ts";
 import { cleanHtml, forbiddenAfterClean, FORBIDDEN_AFTER_CLEAN } from "../_shared/shopify-clean.ts";
-import { assertNoForbiddenKeys, buildProductSetInput, imageStems, mapResponse, matchMedia, mediaNodes, newShopProductColumns, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, unknownMedia, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, imageStems, mapResponse, matchMedia, mediaNodes, newShopProductColumns, pairBeforePush, PRODUCT_MEDIA_QUERY, PRODUCT_SET_MUTATION, userErrorsSentence, type MediaNode, type Payload, type RespProduct } from "../_shared/shopify-product.ts";
 import { sleep } from "../_shared/shopify.ts";
 import { cutPick, drainNext, drainStop, findStoreByDomain, gidInFilter, INBOX_FETCH, isOrderTopic, maxUpdatedAt, missingSubscriptions, ORDER_BY_NAME_QUERY, ORDER_READ_QUERY, ORDER_TOPICS, orderGidFromWebhook, orderRef, ORDERS_DRAIN_MS, ORDERS_SINCE_QUERY, POLL_PAGES_MAX, pollPick, pollQuery, pollSince, redactionReport, sweepPick, verifyWebhookHmac, WEBHOOK_LIST_QUERY, WEBHOOK_SUBSCRIBE_MUTATION, webhookHead, webhookUri, type KnownOrder, type ReceivedRow, type SubNode } from "../_shared/shopify-order.ts";
 import { secretNames } from "../_shared/shopify.ts";
@@ -64,6 +64,7 @@ import { activateKeyParts, activeLevels, chunk, countsToward, DRAIN_TIME_MS, dra
 
 const CALL_LOG_KEEP_DAYS = 90;
 const DRAIN_MAX = 20;                                                                              // 보낸(ok · error) 건의 칸 — skipped_same_hash 는 세지 않는다(판정 424 ②)
+const MEDIA_GID_CHUNK = 40;                                               // shop-photo-imp-2b-1: shop_media 를 gid 로 읽는 in.() 한 번의 수(URL 길이 · 판정 894 꼴)
 const DRAIN_FETCH = 200;                                                                           // 한 회차에 읽는 열린 상품 줄(건너뛸 줄이 많아도 20 건은 보내게)
 const DRAIN_MIN_AVAILABLE = 500;
 const MEDIA_REREAD_MAX = 2;                                                                        // 직원 push 만 · 응답 사진이 처리 중이면 2 초 뒤 다시 읽기(최대 2 회) · drain 은 안 한다(회차 시간 · 다음 push 의 직전 읽기가 잡는다)
@@ -209,7 +210,8 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
   const mRows = p.files.length ? await sbGet("shop_media?select=product_image_id,shopify_file_gid&store_id=eq." + store.id + "&product_image_id=in.(" + p.files.map((f) => f.product_image_id).join(",") + ")") : [];
   const mediaGidByImage: Record<string, string> = {};
   for (const m of mRows) mediaGidByImage[m.product_image_id] = m.shopify_file_gid;
-  let costTotal = 0, matchedBefore = 0, removedUnknown = 0;
+  let costTotal = 0, matchedBefore = 0, removedUnknown = 0, staleN = 0;
+  let takenGids: string[] = [];                                                                      // shop-photo-imp-2b-1: 이 payload 밖 사진에 묶인 gid(줄기가 맞아도 안 가져간다)
   const stems = imageStems(p);                                                                       // shop-img-name-1: 기대 파일 이름 줄기(SKU · SKU_2 …) — 짝 기준(정확히 · _<uuid> · 옛 uuid 줄기)
   const upsertMedia = async (matched: Record<string, string>) => {
     for (const [imageId, gid] of Object.entries(matched)) {
@@ -223,10 +225,16 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
     costTotal += gm.cost.actual ?? 0;
     if (gm.ok) {
       const nodes: MediaNode[] = mediaNodes((gm.data as { product?: RespProduct | null } | null)?.product);
-      const matched = matchMedia(nodes, p.files, true, stems);
-      matchedBefore = Object.keys(matched).length;
-      removedUnknown = unknownMedia(nodes, p.files, stems);
-      await upsertMedia(matched);
+      // shop-photo-imp-2b-1 짝 가드: 그 상품 media 의 gid 에 걸린 shop_media 행(이 payload 밖 사진의 짝 포함)을 읽고 → 사라진 짝 풀기 → 짝 없는 사진만 줄기로 맞춘다 · 못 읽으면 payload 사진의 짝만으로(경고)
+      let foreign: Array<{ product_image_id: string; shopify_file_gid: string }> = [];
+      try { foreign = (await Promise.all(chunk(nodes.map((n) => n.gid), MEDIA_GID_CHUNK).map((part) => sbGet("shop_media?select=product_image_id,shopify_file_gid&store_id=eq." + store.id + "&shopify_file_gid=in.(" + encodeURIComponent(part.map((g) => '"' + g + '"').join(",")) + ")")))).flat(); }
+      catch (e) { console.warn("shop_media by gid read failed:", String(e).slice(0, 200)); }
+      const pb = pairBeforePush(nodes, p.files, stems, mediaGidByImage, foreign);
+      for (const imageId of pb.stale) delete mediaGidByImage[imageId];                                // 풀기: Shopify 에서 사라진 짝은 이 push 에서 짝 없음(URL 로 다시 · 새 짝이 맞으면 upsertMedia 가 그 행을 고친다)
+      takenGids = pb.takenGids; staleN = pb.stale.length;
+      matchedBefore = Object.keys(pb.matched).length;
+      removedUnknown = pb.removedUnknown;
+      await upsertMedia(pb.matched);
     } else console.warn("media pre-read failed:", gm.status, JSON.stringify(gm.errors ?? gm.raw ?? "").slice(0, 200));   // 못 읽으면 URL + APPEND_UUID 로(목록 칸이라 상품에 쌓이지 않는다 · shop-img-name-1)
   }
   const built = buildProductSetInput(p, { baseUrl: SB_URL(), productGid: sp?.shopify_product_gid ?? null, variantGidBySku, mediaGidByImage, cleanedHtml: clean.html });
@@ -244,7 +252,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
     return fail(msg, { clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash, cost: g.cost, query_cost_total: costTotal, media_matched_before: matchedBefore, media_reused_ids: reusedIds, media_removed_unknown: removedUnknown });
   }
   const m = mapResponse(data.productSet.product);
-  let matched = matchMedia(m.media, p.files, true, stems);
+  let matched = matchMedia(m.media, p.files, true, stems, mediaGidByImage, takenGids);            // shop-photo-imp-2b-1: 짝 있는 사진 · 그 gid 는 뺀다
   let rereads = 0;
   if (caller.kind === "staff" && action === "push" && p.files.some((f) => !mediaGidByImage[f.product_image_id] && !matched[f.product_image_id])) {   // 처리 중이면 짧게 다시(직원 push 만)
     while (rereads < MEDIA_REREAD_MAX) {
@@ -252,7 +260,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
       const gm = await shopifyGql(store, PRODUCT_MEDIA_QUERY, { id: m.productGid });
       costTotal += gm.cost.actual ?? 0;
       if (!gm.ok) break;
-      matched = { ...matched, ...matchMedia(mediaNodes((gm.data as { product?: RespProduct | null } | null)?.product), p.files, true, stems) };
+      matched = { ...matched, ...matchMedia(mediaNodes((gm.data as { product?: RespProduct | null } | null)?.product), p.files, true, stems, { ...mediaGidByImage, ...matched }, takenGids) };
       if (!p.files.some((f) => !mediaGidByImage[f.product_image_id] && !matched[f.product_image_id])) break;
     }
   }
@@ -264,7 +272,7 @@ async function pushOne(store: StoreRow, target: Target, caller: Caller, force: b
   }
   await upsertMedia(matched);
   const pending = p.send_images === false ? 0 : p.files.filter((f) => !mediaGidByImage[f.product_image_id]).length;   // shop-img-name-1 이견 5: 올렸는데 아직 처리 중이라 짝을 못 맞춘 사진 수(다음 push 의 직전 읽기가 맞춘다 · cron drain 은 다시 읽기가 없어 after 0 이 보통)
-  const note = [clean.removed.length ? "clean removed: " + clean.removed.slice(0, 10).join(",") : "", "media before/after/reused/unknown " + matchedBefore + "/" + Object.keys(matched).length + "/" + reusedIds + "/" + removedUnknown + (pending ? " pending " + pending : "") + (rereads ? " rereads " + rereads : ""), built.cooDropped.length ? "coo dropped: " + built.cooDropped.slice(0, 10).map((d) => d.sku + "=" + d.code).join(",") : ""].filter(Boolean).join(" · ");
+  const note = [clean.removed.length ? "clean removed: " + clean.removed.slice(0, 10).join(",") : "", "media before/after/reused/unknown " + matchedBefore + "/" + Object.keys(matched).length + "/" + reusedIds + "/" + removedUnknown + (pending ? " pending " + pending : "") + (staleN ? " stale " + staleN : "") + (rereads ? " rereads " + rereads : ""), built.cooDropped.length ? "coo dropped: " + built.cooDropped.slice(0, 10).map((d) => d.sku + "=" + d.code).join(",") : ""].filter(Boolean).join(" · ");
   await recordCall({ store_id: store.id, action, ok: true, http_status: g.status, query_cost: costTotal, throttle_available: g.cost.available, error: note || null, by_staff: caller.staffId, ms: Date.now() - t0 });
   return { ok: true, result: "ok", error: null, product_gid: m.productGid, handle: m.handle, status: m.status, variants: m.variants.length, media: m.media.length, media_matched_before: matchedBefore, media_reused_ids: reusedIds, media_removed_unknown: removedUnknown, media_matched: Object.keys(matched).length, media_rereads: rereads, clean: { engine: clean.engine, removed: clean.removed }, hash: p.hash, cost: g.cost, query_cost_total: costTotal, ms: Date.now() - t0, blocks: [] };
 }

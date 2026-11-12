@@ -12,6 +12,10 @@
 //     APPEND_UUID(이견 2 A): 같은 이름이 Shopify Files 에 있으면(직원이 SKU 이름으로 올린 파일) 덮지 않는다 — Shopify 가 고유값을 붙인 이름으로 받는다(REPLACE 는 남의 파일을 덮어 버려 그만 씀)
 //     짝 기준(stemMatches): url 파일 이름 줄기가 정확히 <기대 줄기> 또는 <기대 줄기>_<uuid>(APPEND_UUID 꼴 · 짐작) · 옛 uuid 줄기(<product_image_id> · <product_image_id>_…)도 계속 받는다(이미 올라간 사진은 다시 올리지 않는다) · 「포함」 비교 금지(ONO00137 이 ONO00137_2 에 맞으면 안 된다)
 //   shop-2b-fix2(실물 media_matched 0): productSet 응답 시점에는 사진이 처리 중이라 image.url 이 비어 있다 → 보내기 직전에 product(id).media 를 읽어 READY + url 인 것만 줄기(shop-img-name-1 부터 SKU 꼴 · 옛 product_image id 도)로 짝 → shop_media → 그 뒤 input 을 만든다(PRODUCT_MEDIA_QUERY · matchMedia readyOnly) · 처리 중인 사진은 URL 로 다시(목록 칸 · 쌓이지 않음) · 줄기가 IMS 에 없는 Shopify 사진은 files 에서 빠져 지워진다(판정 409 · media_removed_unknown)
+//   shop-photo-imp-2b-1(2026-11-12 · 2a 이견 7 · 2b 이견 2 ~ 4): 짝 가드 — 이미 shop_media 짝이 있는 IMS 사진은 줄기 맞추기에서 빼고 그 gid 도 다른 사진이 못 가져간다(matchMedia 의 paired · takenGids)
+//     가져온 Shopify 전용 사진의 짝(shop_photo_apply_ · pair_mark 가 심는다)은 파일 이름이 IMS 줄기와 달라, 가드가 없으면 다른 줄기와 엇갈려 틀린 짝을 쓰거나 uk (store, gid) 에 걸린다
+//     풀기(livePairs): 직전 읽기가 성공했는데 짝 gid 가 그 상품 media 에 없으면(Shopify 에서 지워짐) 그 push 에서는 짝 없음 — URL 로 다시 올리고 새 짝이 맞으면 행을 고친다(없으면 {id: 사라진 gid} 로 영영 거부된다)
+//     takenGids: 이 payload 밖의 IMS 사진(꺼진 사진 등)에 묶인 gid — 줄기가 맞아도 가져가지 않는다 · unknownMedia 는 짝으로 남는 gid(keptGids)를 「지워질 사진」 으로 세지 않는다
 // ============================================================
 
 export const FORBIDDEN_INPUT_KEYS = ["collections", "metafields", "seo", "category", "templateSuffix", "giftCard", "giftCardTemplateSuffix", "requiresSellingPlan", "redirectNewHandle", "handle", "claimOwnership", "combinedListingRole"];
@@ -168,17 +172,38 @@ export function stemMatches(urlStemLower: string | null, f: PayloadFile, expecte
   const e = expected.toLowerCase();
   return urlStemLower === e || (urlStemLower.startsWith(e) && UUID_TAIL.test(urlStemLower.slice(e.length)));   // (b) 정확히 · 또는 _<uuid> 만 더 붙은 것
 }
-export function matchMedia(media: MediaNode[], files: PayloadFile[], readyOnly = false, stems: Record<string, string> = {}): Record<string, string> {
-  const out: Record<string, string> = {}, used = new Set<string>();
+//   shop-photo-imp-2b-1: paired(product_image_id → gid · 이미 있는 짝)의 사진은 건너뛰고 그 gid 와 takenGids(payload 밖 사진의 짝)는 처음부터 쓴 것으로 친다 — 둘 다 비면 예전과 같다
+export function matchMedia(media: MediaNode[], files: PayloadFile[], readyOnly = false, stems: Record<string, string> = {}, paired: Record<string, string> = {}, takenGids: Iterable<string> = []): Record<string, string> {
+  const out: Record<string, string> = {}, used = new Set<string>([...Object.values(paired), ...takenGids]);
   for (const f of files) {
+    if (paired[f.product_image_id]) continue;
     const m = media.find((x) => !used.has(x.gid) && (!readyOnly || (x.status === "READY" && !!x.url)) && stemMatches(urlStem(x.url), f, stems[f.product_image_id]));
     if (m) { out[f.product_image_id] = m.gid; used.add(m.gid); }
   }
   return out;
 }
 // Shopify 에 있는데 어느 IMS 사진 줄기에도 안 맞는 것(사람이 올린 사진 · 옛 파일 · 처리 중이라 url 없는 것) — files 목록에 안 들어가 지워진다(판정 409) · 수만 돌려준다
-export function unknownMedia(media: MediaNode[], files: PayloadFile[], stems: Record<string, string> = {}): number {
-  return media.filter((x) => { const st = urlStem(x.url); return !files.some((f) => stemMatches(st, f, stems[f.product_image_id])); }).length;
+//   shop-photo-imp-2b-1: keptGids(이 payload 사진의 짝 gid — {id} 로 나가 상품에 남는다)는 세지 않는다
+export function unknownMedia(media: MediaNode[], files: PayloadFile[], stems: Record<string, string> = {}, keptGids: Iterable<string> = []): number {
+  const kept = new Set<string>(keptGids);
+  return media.filter((x) => { if (kept.has(x.gid)) return false; const st = urlStem(x.url); return !files.some((f) => stemMatches(st, f, stems[f.product_image_id])); }).length;
+}
+// shop-photo-imp-2b-1 풀기: 짝 gid 가 지금 그 상품 media 에 있는 것만 live · 없는 것은 stale(그 push 에서는 짝 없음) — 직전 읽기가 성공했을 때만 부른다(못 읽었으면 짝을 그대로 믿는다)
+export function livePairs(paired: Record<string, string>, media: MediaNode[]): { live: Record<string, string>; stale: string[] } {
+  const on = new Set(media.map((m) => m.gid)), live: Record<string, string> = {}, stale: string[] = [];
+  for (const [imageId, gid] of Object.entries(paired)) { if (on.has(gid)) live[imageId] = gid; else stale.push(imageId); }
+  return { live, stale };
+}
+// shop-photo-imp-2b-1: 보내기 직전 짝 맞추기 한 몸(pushOne 이 직전 읽기 성공 뒤에 부른다) — 풀기 → 가드 건 줄기 맞추기 → 지워질 사진 수
+//   foreign = 그 상품 media 의 gid 로 찾은 shop_media 행 전부(이 payload 밖 사진의 것은 takenGids 가 된다) · 반환 paired = live + 새로 맞춘 것(buildProductSetInput 의 mediaGidByImage)
+export function pairBeforePush(media: MediaNode[], files: PayloadFile[], stems: Record<string, string>, paired: Record<string, string>, foreign: Array<{ product_image_id: string; shopify_file_gid: string }> = []) {
+  const mine = new Set(files.map((f) => f.product_image_id));
+  const { live, stale } = livePairs(paired, media);
+  const takenGids = foreign.filter((r) => !mine.has(r.product_image_id)).map((r) => r.shopify_file_gid);
+  const matched = matchMedia(media, files, true, stems, live, takenGids);
+  const after = { ...live, ...matched };
+  const taken = new Set(takenGids);                                                                 // payload 밖 사진의 짝은 이름 줄기가 맞아도 목록에 안 들어가 지워진다 — 지워질 수에 센다
+  return { live, stale, takenGids, matched, paired: after, removedUnknown: unknownMedia(media.filter((x) => !taken.has(x.gid)), files, stems, Object.values(after)) + media.filter((x) => taken.has(x.gid)).length };
 }
 export const mediaNodes = (prod: RespProduct | null | undefined): MediaNode[] => (prod?.media?.nodes ?? []).map((m) => ({ gid: m.id, alt: m.alt ?? null, status: m.status ?? null, url: m.image?.url ?? null }));
 export function userErrorsSentence(errs: Array<{ field?: string[] | null; message?: string; code?: string | null }>): string {

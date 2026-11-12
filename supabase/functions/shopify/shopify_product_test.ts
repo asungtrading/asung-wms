@@ -1,5 +1,5 @@
 // deno test supabase/functions/shopify/shopify_product_test.ts — Shopify · DB 무접촉 (shop-2b ① ~ ④ · shop-img-off-1 ⑧ · _shared/shopify-product.ts · shopify-clean.ts 의 순수 함수)
-import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageStems, imageUrl, matchMedia, skuStem, stemMatches, urlStem, mediaNodes, NEW_SHOP_PRODUCT_COLUMNS, newShopProductColumns, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
+import { assertNoForbiddenKeys, buildProductSetInput, countryAlpha2, hsDigits, ISO_ALPHA3_TO_2, SHOPIFY_COUNTRY_CODES, imageStems, imageUrl, livePairs, matchMedia, pairBeforePush, skuStem, stemMatches, urlStem, mediaNodes, NEW_SHOP_PRODUCT_COLUMNS, newShopProductColumns, PRODUCT_MEDIA_QUERY, unknownMedia, userErrorsSentence, type MediaNode, type Payload } from "../_shared/shopify-product.ts";
 import { CLEAN_CONFIG, cleanHtml, FORBIDDEN_AFTER_CLEAN, forbiddenAfterClean, iframeHost, rulesClean } from "../_shared/shopify-clean.ts";
 
 function eq(actual: unknown, expected: unknown, msg: string) {
@@ -250,4 +250,39 @@ Deno.test("⑫ shop-photo-imp-1(판정 1179) — 패밀리 사진 줄기 = 패�
   eq(unknownMedia(media, withFam.files, st), 0, "nothing unknown");
   const reuse = buildProductSetInput(withFam, { ...ctx, mediaGidByImage: m }).input as any;
   eq(reuse.files[0], { id: "gid://shopify/MediaImage/1" }, "paired family photo is sent by id only");
+});
+
+Deno.test("⑬ shop-photo-imp-2b-1 — 짝 가드: 짝 있는 사진 · 그 gid 는 줄기 맞추기에서 빠진다 · payload 밖 사진의 gid 도 · 사라진 짝은 풀린다 · 짝으로 남는 사진은 unknown 이 아니다 · 짝이 없으면 예전과 같다", () => {
+  const cdn = (stem: string) => "https://cdn.shopify.com/s/files/1/0/files/" + stem + ".jpg?v=1";
+  const f0 = fam.files[0], f8 = { ...fam.files[0], product_image_id: I(8) };                           // 같은 SKU 의 사진 둘 — 줄기 ANN01001 · ANN01001_2
+  const p2: Payload = { ...fam, variants: fam.variants.slice(0, 1), files: [f0, f8] }, st = imageStems(p2);
+  eq([st[I(0)], st[I(8)]], ["ANN01001", "ANN01001_2"], "fixture stems");
+  // Shopify 쪽 이름은 IMS 순서와 엇갈려 있다(직원이 올린 이름 · 판정 1052): f0 의 그림 = ANN01001_2.jpg(g/A · 심은 짝) · ANN01001.jpg(g/B)는 짝 없는 다른 그림
+  const media: MediaNode[] = [{ gid: "g/A", status: "READY", url: cdn("ANN01001_2") }, { gid: "g/B", status: "READY", url: cdn("ANN01001") }, { gid: "g/C", status: "READY", url: cdn("IMG_4471") }];
+  eq(matchMedia(media, p2.files, true, st), { [I(0)]: "g/B", [I(8)]: "g/A" }, "without the guard both photos cross over by file name (the defect)");
+  eq(matchMedia(media, p2.files, true, st, { [I(0)]: "g/A" }), {}, "guard: the paired photo is left alone and its gid is not given to ANN01001_2");
+  eq(matchMedia(media, p2.files, true, st, {}, ["g/B"]), { [I(8)]: "g/A" }, "takenGids: a gid paired to a photo outside this payload is not taken");
+  eq(unknownMedia(media, p2.files, st), 1, "old count: only the admin photo");
+  eq(unknownMedia([{ gid: "g/K", status: "READY", url: cdn("IMG_9") }, ...media], p2.files, st, ["g/K"]), 1, "keptGids: a seeded pair with a Shopify-only file name is not counted as going away");
+  // 풀기
+  eq(livePairs({ [I(0)]: "g/A", [I(8)]: "g/gone" }, media), { live: { [I(0)]: "g/A" }, stale: [I(8)] }, "a pair whose gid is not on the product any more is stale");
+  eq(livePairs({}, media), { live: {}, stale: [] }, "no pairs");
+  // 한 몸: f0 은 심은 짝(g/S · 이름 IMG_1) · f8 의 짝은 사라졌다(g/gone) · g/T 는 꺼진 IMS 사진(payload 밖 I(5))의 짝인데 이름이 ANN01001_2 · g/N 은 새로 올라온 ANN01001_2_<uuid>
+  const U = "0a1b2c3d-0000-4000-8000-000000000000";
+  const m2: MediaNode[] = [{ gid: "g/S", status: "READY", url: cdn("IMG_1") }, { gid: "g/T", status: "READY", url: cdn("ANN01001_2") }, { gid: "g/N", status: "READY", url: cdn("ANN01001_2_" + U) }, { gid: "g/X", status: "READY", url: cdn("IMG_2") }];
+  const foreign = [{ product_image_id: I(0), shopify_file_gid: "g/S" }, { product_image_id: I(5), shopify_file_gid: "g/T" }];
+  const pb = pairBeforePush(m2, p2.files, st, { [I(0)]: "g/S", [I(8)]: "g/gone" }, foreign);
+  eq(pb.stale, [I(8)], "stale pair released for this push");
+  eq(pb.takenGids, ["g/T"], "only the row of a photo outside the payload is foreign");
+  eq(pb.matched, { [I(8)]: "g/N" }, "the released photo is re-paired by stem — not with the foreign g/T");
+  eq(pb.paired, { [I(0)]: "g/S", [I(8)]: "g/N" }, "pairs to send by id");
+  eq(pb.removedUnknown, 2, "going away: g/T (the switched-off photo) and g/X — not the seeded g/S");
+  const noNew = pairBeforePush(m2.filter((x) => x.gid !== "g/N"), p2.files, st, { [I(0)]: "g/S", [I(8)]: "g/gone" }, foreign);
+  eq([noNew.matched, noNew.paired], [{}, { [I(0)]: "g/S" }], "released and nothing to pair → sent by URL again (no {id: gone gid})");
+  const ctx = { baseUrl: BASE, productGid: "gid://shopify/Product/1", variantGidBySku: {}, cleanedHtml: "" };
+  const inp = buildProductSetInput(p2, { ...ctx, mediaGidByImage: noNew.paired }).input as any;
+  eq([inp.files[0], inp.files[1].filename, "id" in inp.files[1]], [{ id: "g/S" }, "ANN01001_2.jpg", false], "productSet: seeded pair by id · released photo by URL");
+  // 짝이 하나도 없는 listing 은 예전과 같다
+  const old = matchMedia(m2, p2.files, true, st), same = pairBeforePush(m2, p2.files, st, {}, []);
+  eq([same.matched, same.stale, same.takenGids, same.removedUnknown], [old, [], [], unknownMedia(m2, p2.files, st)], "no pairs → same result as before the guard");
 });
