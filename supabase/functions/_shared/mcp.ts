@@ -8,11 +8,14 @@
 //   토큰: GET /auth/v1/user(apikey ANON + 그 토큰)가 유효하다고 한 뒤에만 같은 토큰의 payload(client_id · sub)를 읽는다 · 도구는 POST /rest/v1/rpc/mcp_*(apikey ANON · Authorization = 받은 토큰 그대로 · service_role 금지 · 9 초 abort)
 //   기록(924): tools/call 마다 끝에서 mcp_log_add 를 service_role 로 · 입력값은 2 KB(넘으면 {_truncated, chars, head}) · 결과 내용은 적지 않는다(바이트 수만) · 기록 실패는 삼키고 warn
 //   ⚠️ 토큰은 로그 · 기록 · 응답 · 오류 글 어디에도 싣지 않는다
+//   mcp-more-1(2026-11-13 · 판정 1211 · DB 20261113021500): 도구 ⑦ manual_search · ⑧ manual_read — DB 를 읽지 않는 도구(ToolDef.run) · rpc 는 문 mcp_manual_gate 뿐(사용자 토큰 · 거절 · 기록은 여섯 도구와 같은 줄) · 문이 ok 일 때만 run 이 GitHub main 의 docs/manual 을 읽는다(./mcp-manual.ts)
+//     못 읽으면 isError + MANUAL_UNAVAILABLE · 기록 error / manual_unavailable(다른 도구 무영향) · Deps.fetch 가 이 두 도구에서만 Supabase 밖(raw.githubusercontent.com)을 부른다
 // ============================================================
+import { ManualUnavailable, runManualRead, runManualSearch } from "./mcp-manual.ts";
 export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26"] as const;
 export const DEFAULT_PROTOCOL = "2025-06-18";
-export const SERVER_INFO = { name: "asung-ims", title: "Asung IMS", version: "mcp-conc-1" };
-export const INSTRUCTIONS = "Asung IMS, read only. Amounts are CAD. Warehouses: Asung Trading Inc. (Toronto) and Asung - Edmonton. Anything not in a result is not available through this connector — check the IMS screens.";
+export const SERVER_INFO = { name: "asung-ims", title: "Asung IMS", version: "mcp-more-1" };
+export const INSTRUCTIONS = "Asung IMS, read only. Amounts are CAD. Warehouses: Asung Trading Inc. (Toronto) and Asung - Edmonton. Anything not in a result is not available through this connector — check the IMS screens. For how-to questions about using the IMS screens (how do I…, where is…, what does this button or status mean) call manual_search and then manual_read; the other tools are for live data.";
 export const RPC_TIMEOUT_MS = 9_000;
 export const ARGS_MAX_CHARS = 2_048;
 export const ERROR_MESSAGE_MAX = 200;
@@ -22,7 +25,7 @@ export const BUSY_TEXT = "IMS is busy with other sales reports right now (at mos
 const isBusy = (status: number, code: string) => status === 429 || code === "PT429";                   // PostgREST: raise … errcode PT429 → HTTP 429 · 몸 code "PT429"
 
 type Schema = { type: string | string[]; properties?: Record<string, Schema>; required?: string[]; additionalProperties?: boolean; enum?: unknown[]; minimum?: number; maximum?: number; description?: string };
-export type ToolDef = { name: string; title: string; description: string; inputSchema: Schema; annotations: { readOnlyHint: true }; rpc: string; args: (a: Record<string, unknown>) => Record<string, unknown>; busyRetry?: true };   // busyRetry: DB 자리표가 있는 도구만(mcp-conc-1 · 1108 — sales_summary)
+export type ToolDef = { name: string; title: string; description: string; inputSchema: Schema; annotations: { readOnlyHint: true }; rpc: string; args: (a: Record<string, unknown>) => Record<string, unknown>; busyRetry?: true; run?: (a: Record<string, unknown>, d: Deps) => Promise<string> };   // busyRetry: DB 자리표가 있는 도구만(mcp-conc-1 · 1108 — sales_summary)
 const NO_CONTACT = " Does not return addresses, phone numbers, emails, notes or costs.";
 // ⭐ 도구 목록은 이 배열 하나 — mcp-1b 가 ⑥ sales_summary(mcp_sales) 를 더했다(2026-11-01)
 export const TOOLS: ToolDef[] = [
@@ -54,11 +57,18 @@ export const TOOLS: ToolDef[] = [
       limit: { type: "integer", minimum: 1, maximum: 500, description: "Rows to return in this page (default 50, max 500); rows not on this page are summarized in rows_truncated" },
       offset: { type: "integer", minimum: 0, description: "Rows to skip (default 0); pass next_offset from the previous page to continue" } }, required: ["from", "to", "group"], additionalProperties: false },
     annotations: { readOnlyHint: true }, rpc: "mcp_sales", busyRetry: true, args: (a) => ({ p_from: a.from, p_to: a.to, p_group: a.group, p_brand: a.brand ?? null, p_customer: a.customer ?? null, p_sku: a.sku ?? null, p_supplier: a.supplier ?? null, p_limit: a.limit ?? 50, p_offset: a.offset ?? 0 }) },
+  // ⑦ ⑧ mcp-more-1(판정 1211): 매뉴얼 — rpc 는 문(mcp_manual_gate · 인자 없음)뿐 · 결과는 run 이 GitHub main 의 원고에서(./mcp-manual.ts) · 연락처 꼬리(NO_CONTACT)는 붙이지 않는다(데이터 도구가 아니다)
+  { name: "manual_search", title: "Search the IMS manual", description: "Search the IMS user manual for how to do something on the IMS screens — 'how do I…', 'where do I…', 'what does this button or status mean', 'why can't I…'. Returns up to 8 matching sections: anchor, chapter, title, who does the task, a short excerpt and a link to the IMS help page. Then call manual_read with the anchor to get the full steps before you answer. Search with a few keywords from the question (for example 'change ship-to finalized order'), in the manual language you chose. If nothing matches you get the table of contents to pick from. This is the manual, not live data — for a specific order, stock, customer, purchase order or sales figures use the other tools.",
+    inputSchema: { type: "object", properties: { query: { type: "string", description: "Keywords from the question, e.g. 'change ship-to finalized order'" }, lang: { type: "string", enum: ["en", "ko"], description: "Manual language: en (default — the IMS screens are in English) or ko (Korean). Use ko when the person writes in Korean, with Korean keywords." } }, required: ["query"], additionalProperties: false },
+    annotations: { readOnlyHint: true }, rpc: "mcp_manual_gate", args: () => ({}), run: (a, d) => runManualSearch(a, d) },
+  { name: "manual_read", title: "Read an IMS manual section", description: "Read one section of the IMS user manual by its anchor (from manual_search, or from a link inside another section, e.g. sales-change-ship-to): the full text in Markdown, who does the task, and a link to the same section on the IMS help page that you can give to the person. Answer from this text and keep the screen and button names as written; if IMS seems to behave differently from the manual, say so instead of guessing. An unknown anchor returns similar anchors.",
+    inputSchema: { type: "object", properties: { anchor: { type: "string", description: "Section anchor, e.g. sales-change-ship-to" }, lang: { type: "string", enum: ["en", "ko"], description: "Manual language: en (default) or ko (Korean) — anchors are the same in both" } }, required: ["anchor"], additionalProperties: false },
+    annotations: { readOnlyHint: true }, rpc: "mcp_manual_gate", args: () => ({}), run: (a, d) => runManualRead(a, d) },
 ];
 
 export type Deps = {
   env: (name: string) => string | undefined;                                                         // SUPABASE_URL · SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY
-  fetch: (url: string, init: RequestInit) => Promise<Response>;                                      // Supabase 만(auth · rest)
+  fetch: (url: string, init: RequestInit) => Promise<Response>;                                      // Supabase(auth · rest) + 매뉴얼 도구만 raw.githubusercontent.com(mcp-more-1)
   now: () => number;
   warn: (msg: string) => void;                                                                       // 토큰 없는 글만 온다
   sleep: (ms: number) => Promise<void>;                                                              // mcp-conc-1: busy 재시도 사이 기다림(시험은 가짜)
@@ -159,6 +169,14 @@ async function callTool(d: Deps, who: Who, id: unknown, params: Record<string, u
     for (let attempt = 0; ; attempt++) {
       const r = await d.fetch(sbUrl(d) + "/rest/v1/rpc/" + tool.rpc, { method: "POST", headers: { apikey: d.env("SUPABASE_ANON_KEY") ?? "", Authorization: "Bearer " + who.token, "Content-Type": "application/json" }, body: JSON.stringify(tool.args(args)), signal: AbortSignal.timeout(RPC_TIMEOUT_MS) });
       const body = await r.text();
+      if (r.ok && tool.run) {                                                                          // mcp-more-1: 문(rpc)을 지난 뒤에만 DB 밖 내용을 읽는다 · 못 읽으면 그 도구만 오류(직원이 읽을 한 문장 · 자세한 까닭은 warn)
+        try { text = await tool.run(args, d); outcome = "ok"; code = null; msg = null; }
+        catch (e) {
+          outcome = "error"; code = e instanceof ManualUnavailable ? e.code : "tool_failed"; msg = e instanceof ManualUnavailable ? e.message : "IMS could not run this tool: " + String((e as Error)?.message ?? e).slice(0, 120);
+          d.warn(tool.name + " failed: " + (e instanceof ManualUnavailable ? e.detail : String((e as Error)?.message ?? e)).slice(0, 200));
+        }
+        break;
+      }
       if (r.ok) { outcome = "ok"; text = body; code = null; msg = null; break; }                       // 재시도 뒤 ok 면 앞 회차의 busy code · msg 를 지운다(기록은 마지막 결과 한 줄)
       let j: { code?: unknown; message?: unknown } = {};
       try { j = JSON.parse(body); } catch { /* 글자 그대로 */ }

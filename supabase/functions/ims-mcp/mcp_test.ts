@@ -82,8 +82,8 @@ Deno.test("M8 ping → {} · 모르는 메서드 → -32601 · jsonrpc 아님 �
 Deno.test("M9 tools/list — 여섯(mcp-1b 가 sales_summary 를 더함) · readOnlyHint · rpc · args 열쇠가 새지 않는다 · 배열 하나(TOOLS)", async () => {
   const { d } = mk();
   const t = (await (await handle(post(rpcReq(1, "tools/list")), d)).json()).result.tools;
-  eq(t.map((x: { name: string }) => x.name), ["find_order", "stock", "customer_summary", "po_status", "backorders", "sales_summary"], "names");
-  eq(TOOLS.length, 6, "TOOLS 6");
+  eq(t.map((x: { name: string }) => x.name), ["find_order", "stock", "customer_summary", "po_status", "backorders", "sales_summary", "manual_search", "manual_read"], "names");   // mcp-more-1: 매뉴얼 도구 둘(시험은 ./manual_test.ts)
+  eq(TOOLS.length, 8, "TOOLS 8");
   for (const x of t) { eq(x.annotations, { readOnlyHint: true }, x.name + " annotations"); ok(!("rpc" in x) && !("args" in x), x.name + " 내부 열쇠 없음"); eq(x.inputSchema.type, "object", x.name + " schema"); }
 });
 Deno.test("M10 모르는 도구 · 인자 틀림 → JSON-RPC -32602 · 기록 error(unknown_tool · invalid_params) · rpc 호출 0", async () => {
@@ -171,7 +171,7 @@ Deno.test("M17 mcp-cap-1 sales_summary offset — 스키마(integer · 최소 0 
   eq((f.logs as Array<Record<string, unknown>>).map((x) => x.p_outcome + ":" + x.p_error_code), ["ok:null", "ok:null", "error:invalid_params", "error:invalid_params", "error:invalid_params", "ok:null"], "logs");
   eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 3, "rpc 3");
 });
-Deno.test("M18 mcp-conc-1 busy — 세 번 다 PT429/429 → 네 번 부름 · sleep 300 · 600 · 1200 · isError + BUSY_TEXT · 기록 error/busy · ms 는 재시도 포함(2100) · 버전 mcp-conc-1", async () => {
+Deno.test("M18 mcp-conc-1 busy — 세 번 다 PT429/429 → 네 번 부름 · sleep 300 · 600 · 1200 · isError + BUSY_TEXT · 기록 error/busy · ms 는 재시도 포함(2100) · 버전(지금 mcp-more-1)", async () => {
   const busy = () => new Response(JSON.stringify({ code: "PT429", message: "IMS is busy: 3 sales summaries are already running across all staff — try again in a few seconds, one at a time — nothing was read", details: null, hint: null }), { status: 429 });
   const { d, f } = mk({ rpc: () => busy() });
   const a = (await (await handle(post(rpcReq(1, "tools/call", { name: "sales_summary", arguments: { from: "2026-10-01", to: "2026-10-31", group: "brand" } })), d)).json());
@@ -180,8 +180,8 @@ Deno.test("M18 mcp-conc-1 busy — 세 번 다 PT429/429 → 네 번 부름 · s
   eq(f.calls.filter((x) => x.url.endsWith("/rpc/mcp_sales")).length, 4, "rpc 4(처음 + 재시도 3)"); eq(f.sleeps, [300, 600, 1200], "sleep 간격"); eq([...BUSY_RETRY_MS], [300, 600, 1200], "상수");
   const l = f.logs as Array<Record<string, unknown>>; eq(l.length, 1, "기록 한 줄");
   eq([l[0].p_outcome, l[0].p_error_code, l[0].p_tool, l[0].p_ms, l[0].p_result_bytes], ["error", "busy", "sales_summary", 2100, null], "기록 error/busy · ms 2100"); eq(l[0].p_error_message, BUSY_TEXT.slice(0, 200), "error_message 200 자");
-  eq(SERVER_INFO.version, "mcp-conc-1", "version");
-  const i = (await (await handle(post(rpcReq(2, "initialize", { protocolVersion: "2025-06-18" })), d)).json()).result; eq(i.serverInfo.version, "mcp-conc-1", "initialize 가 버전을 낸다");
+  eq(SERVER_INFO.version, "mcp-more-1", "version");
+  const i = (await (await handle(post(rpcReq(2, "initialize", { protocolVersion: "2025-06-18" })), d)).json()).result; eq(i.serverInfo.version, "mcp-more-1", "initialize 가 버전을 낸다");
 });
 Deno.test("M19 mcp-conc-1 busy 뒤 성공 — 둘째에 ok → content = rpc JSON · sleep [300] · 기록 ok · ms 300 · 몸 code 만 PT429(HTTP 500)여도 busy 로 본다 · 바로 ok 면 sleep 0", async () => {
   let n = 0;
