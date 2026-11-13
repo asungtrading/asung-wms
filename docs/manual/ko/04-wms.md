@@ -217,7 +217,7 @@ IMS 가 Freightcom 에서 운임을 받아 오고, 고른 운송사를 예약하
 **누가 하나**
 - **기본은 창고** — **Fulfillment** 에서 **✓ Finalize order(s)** 전에: 견적 · 예약 · 라벨 인쇄
 - **오피스** — **Ship & invoice** 에서: 창고가 예약하지 못했을 때, 견적이 틀렸을 때, 배송지가 바뀌었을 때([팩된 오더의 배송지 바꾸기](01-sales.md#sales-change-ship-to))
-- 견적 받기 · 요율 고르기: sales · 창고 직원. **Book**(예약) · **Cancel booking**(예약 취소): **Freight booking** 열쇠가 있는 직원만(supervisor · admin 은 늘 있음). 없으면: "Booking needs the 'Freight booking' permission — ask a supervisor"(supervisor 에게 부탁)
+- 견적 받기 · 요율 고르기: sales · 창고 직원. **Book**(예약) · **Cancel booking**(예약 취소): **Freight booking** 권한이 있는 직원만(supervisor · admin 은 늘 있음). 없으면: "Booking needs the 'Freight booking' permission — ask a supervisor"(supervisor 에게 부탁)
 - **라벨은 예약한 사람이 붙입니다.** 오피스가 예약했으면 오피스가 라벨을 들고 창고에 갑니다.
 
 **어떻게 — 견적**
@@ -238,14 +238,14 @@ IMS 가 Freightcom 에서 운임을 받아 오고, 고른 운송사를 예약하
 2. "Labels are not saved yet."(라벨이 아직 저장되지 않음) — **Get labels** 를 누릅니다.
 3. 나가기 전에 짐에 라벨을 붙입니다.
 
-**예약 취소 — Freight booking 열쇠**
+**예약 취소 — Freight booking 권한**
 1. **Cancel booking** 을 누르고 확인합니다. "The carrier and tracking number come off the orders (unless someone changed them). The picked rate stays, so you can book again."(오더의 운송사 · 송장 번호가 빠진다 · 고른 요율은 남아 다시 예약할 수 있다)
 2. "Changing the ship-to? Cancel first, then change it — the old quote is dropped and you quote again. If the boxes are already labelled: after booking again, print the new label and replace the old one."(배송지를 바꾸려면 먼저 취소 · 옛 견적은 없어지고 다시 견적 · 라벨을 이미 붙였으면 다시 예약한 뒤 새 라벨로 바꿔 붙인다)
 
 **픽업과 배송 상태**
 - "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. IMS 도 몇 분마다 다시 확인합니다. 출고한 뒤에는 [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups) 에서 봅니다.
 - 상태 줄: 가는 중 🚚 · "✓ Delivered"(배송됨) · 노란 문제 줄. IMS 가 스스로 읽습니다. **Check status** 는 지금 Freightcom 에 묻습니다(요금 없음).
-- 빨간 띠 "✕ Cancelled on Freightcom": Freightcom 사이트에서 예약이 취소됐습니다. **Mark cancelled in IMS**(Freight booking 열쇠)를 눌러 IMS 에서도 닫습니다 — "Nothing is sent to Freightcom."(Freightcom 에는 아무것도 보내지 않는다) 그 뒤 다시 예약할 수 있습니다.
+- 빨간 띠 "✕ Cancelled on Freightcom": Freightcom 사이트에서 예약이 취소됐습니다. **Mark cancelled in IMS**(Freight booking 권한)를 눌러 IMS 에서도 닫습니다 — "Nothing is sent to Freightcom."(Freightcom 에는 아무것도 보내지 않는다) 그 뒤 다시 예약할 수 있습니다.
 - 모든 예약: [Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom)
 
 **오피스 — Ship & invoice 창에만 있는 것**

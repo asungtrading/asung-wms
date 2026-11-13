@@ -539,7 +539,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **어떻게**
 1. **Finalized** 오더를 열고 **Ship & invoice…** 를 누릅니다.
-2. Freightcom 예약이 있으면 먼저 취소합니다: **Freight** 에서 **Cancel booking** 을 누릅니다(Freight booking 열쇠 — 없으면 열쇠가 있는 사람에게 부탁). 그 전에는 **Change ship-to…** 가 "Cancel the Freightcom booking first."(먼저 Freightcom 예약을 취소하라)라고 합니다.
+2. Freightcom 예약이 있으면 먼저 취소합니다: **Freight** 에서 **Cancel booking** 을 누릅니다(Freight booking 권한 — 없으면 권한이 있는 사람에게 부탁). 그 전에는 **Change ship-to…** 가 "Cancel the Freightcom booking first."(먼저 Freightcom 예약을 취소하라)라고 합니다.
 3. **Ship to** 줄에서 **Change ship-to…** 를 누릅니다.
 4. **Saved address**(저장된 주소)를 고르거나, 칸에 새 주소를 적습니다.
 5. **Change these orders too**(이 오더들도 함께 바꾸기)에 같은 주소로 가는 다른 Finalized 오더가 나옵니다 — 이 창에서 체크한 오더나, 이 운임 견적을 함께 쓰는 오더. 미리 체크돼 있습니다. 보통 그대로 둡니다.
@@ -879,7 +879,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 **누가 무엇을 보나**
 - 목록: 판매나 풀필먼트를 볼 수 있거나 운임 예약을 할 수 있는 직원. 자기가 일하는 창고만.
-- 금액 · 청구 · 한도: freight booking 열쇠 또는 purchasing(쓰기)이 있는 직원. purchasing 보기만으로는 돈이 안 보입니다.
+- 금액 · 청구 · 한도: freight booking 권한 또는 purchasing(쓰기)이 있는 직원. purchasing 보기만으로는 돈이 안 보입니다.
 
 **어떻게**
 1. 위에 Freightcom 계정마다(토론토 · 에드먼턴) 한도 중 남은 금액 · 쓴 금액 · 아직 낼 인보이스가 나옵니다. "Pay on the Freightcom site."(결제는 Freightcom 사이트에서) — IMS 는 보여 주기만 하고, 결제는 Freightcom 사이트에서 등록한 카드로 합니다.
@@ -943,11 +943,6 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 **조심할 것**
 - 웹 오더 자체는 여기서 고치지 않습니다. 판매 오더에서 고칩니다.
 - 라인에는 Shopify 할인이 그대로 남습니다.
-
-**IMS 로 넘어오기 전의 웹 오더**
-- 스토어가 IMS 로 넘어오기(go-live) 전에 만들어진 웹 오더는 저절로 들어오지 않습니다 — 나중에 결제 · 환불 · 수정이 있어도 마찬가지입니다.
-- 들여오려면 go-live **뒤에** Shopify 에서 그 오더에 `ims-import` 태그를 답니다. 다음 15 분 확인 때 들어옵니다. go-live 전에 단 태그는 보이지 않습니다 — 지웠다가 다시 답니다.
-- 그 오더를 IMS 에서 손으로 다시 만들지 않습니다. 들어온 뒤에는 태그를 지워도 됩니다. 오더는 평소대로 Shopify 를 따라갑니다.
 
 <a id="sales-web-order-changes"></a>
 ## 웹 오더 고치기

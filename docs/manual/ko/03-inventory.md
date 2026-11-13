@@ -265,7 +265,7 @@ admin, 그리고 Stock adjustments 권한이 켜진 manager · supervisor. 화�
 
 **알아 둘 것**
 - "Not enough stock" 보고에서 시작하면, WMS Admin 의 **Adjust stock** 이 픽한 자리로 채운 조정을 엽니다([WMS Admin](04-wms.md#wms-admin)).
-- 재고를 늘리는 라인을 저장하면 **Cost** 칸에 들어갈 원가와 그 출처가 나옵니다 — 예: "Goes in at $5.26 — last cost here"(이 창고 마지막 원가). 원가 열쇠가 없으면 출처만 보입니다("Cost: …").
+- 재고를 늘리는 라인을 저장하면 **Cost** 칸에 들어갈 원가와 그 출처가 나옵니다 — 예: "Goes in at $5.26 — last cost here"(이 창고 마지막 원가). 원가 권한이 없으면 출처만 보입니다("Cost: …").
 - **Unit cost** 를 비우면 이 순서로 정합니다: 이 창고에 남은 이 SKU 의 평균 원가 → 이 창고 마지막 원가 → 다른 창고 마지막 원가 → 마지막 매입 가격
 - 이 SKU 를 이 창고에서 재고 없이 판 적이 있으면, 늘리는 수량이 먼저 그 몫을 메웁니다: "fills stock sold without stock — no new cost"(재고 없이 판 몫을 메운다 — 새 원가 없음). 단가를 적어도 같습니다.
 - 어디에서도 원가를 못 찾으면 라인에 "cost unknown — goes in at 0" 이 나오고, **Confirm** 에서 "These go into the books at cost 0"(원가 0 으로 장부에 들어간다) 경고가 나옵니다.

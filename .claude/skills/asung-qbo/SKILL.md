@@ -165,6 +165,9 @@ description: >
 ⚠️⚠️ 일감은 트리거가 쌓는다 — 발행(AFTER INSERT DEFERRABLE · since 전 · 이월 · 연결 없음은 조용히 · 오류는 삼켜 발행을 막지 않는다) · 취소(안 나갔으면 skipped · sending · unknown 이면 void 를 blocked · 보냈으면 void queued) · since = 2026-11-02
 ⚠️⚠️ [960] 크레딧은 **자기 IMS 인보이스가 QBO 에 간 뒤** — 인보이스 일감 없음 · skipped → 크레딧 failed + 글 · 열린 일감 → blocked · 이월 인보이스 · 인보이스 없는 크레딧은 기다리지 않는다
 ⚠️  [961] 크레딧 other · restocking_fee 줄 = 계정 사람 짝(acct:<code> · 951 꼴 · 없으면 failed) · [962] 주소 · 이메일 = 크레딧 노트 PDF 규칙 · [963] CreditMemo void 거부 → failed · 사람이 QBO 에서 · [964] CreditMemo 만(붙이기 · 환불은 결제 차수)
+⚠️⚠️ [2026-11-12 · cn-spons-0 · 정본 §14 · so-module §115-c] **acct: 짝 자리는 그 계정이 처음 쓰인 뒤에야 matching 에 나타난다** — 미리 짝 지을 수 없다
+     ⇒ 새 계정 첫 문서 = 발행 → Send 멈춤(failed 「link account item …」) → Settings › QuickBooks matching 에서 짝 → Retry
+     스폰서십 · 굿윌 크레딧 = 참조 크레딧 + Other adjustment 줄 `_1150040036_` → acct:_1150040036_ ↔ Item 13944 · 비재고 상품 금지(590 · 1161) · 번호는 CR- 그대로(손 번호 금지 — DocNumber 멱등이 옛 · Void 와 짝지을 수 있다) · 세금 코드 · Item 13944 Income account 북키퍼 대기(deferred 606)
 ⚠️  [2c1 · 2d1] 적용 순서 한 덩이 = 마이그레이션 → repair → EF 배포(DB 먼저 · 옛 EF 는 새 서명 기본값으로 그대로 돈다)
 ✅  짐작 풀림(11-02): QBO 캐나다판은 보낸 TxnTaxDetail(TaxLine)을 **존중한다**(60000 → 172335 세금 · 합계 그대로) · 1 장 = Intuit 2 호출 · 3.52 s · 60001 미리 보기 = Item CB-CVT18157 먼저 만든다(need)
 ⭐⭐ [2026-11-02 밤 · 판정 978 · 980 · 981 · 988 · qbo-sync-2e-1b · 1c · 정본 §14-f] **결제 하나(so_payment 한 줄) = QBO Payment 한 장** · CustomerRef = **청구처**(본사가 매장 인보이스 여럿을 수표 하나로 → 본사 Payment 한 장 · Line = 매장 인보이스 · 980) · 붙임이 바뀌면 **옛 Payment void + 통째로 다시**(update 길 없음 · 978) · IMS 에 적힌 결제는 모두 IMS 가 보낸다(981)

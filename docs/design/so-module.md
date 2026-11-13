@@ -3067,6 +3067,8 @@ so_deal_best current_date 폴백(다음 재발행 때 ims_today) · 알림을 IM
  so_tax_set_manual(so, staff, name) — 활성 sale 규칙 이름만 · manual=true · 줄·운임까지 · 부르는 곳은 so_copy_customer(create · 손님 바꾸기) · so_header_update(ship_to 나라·주 열쇠 · tax_rule 열쇠)
 ```
 
+- → [2026-11-12 · so-shipto-1 `20261113001115` · 판정 1200 · 1210 · §115] `so_tax_refresh` 는 이제 **껍데기**다 — 몸은 속 함수 `so_tax_refresh_at(…, p_status)`(draft · packed) 로 옮겼고 `so_tax_refresh` 는 서명 · 기본값 · 권한 · 동작 그대로 draft 로 부르는 한 줄 · packed 는 배송지 바꾸기 창구 `so_ship_to_change` 만 부른다 ⇒ 세금 몸을 고칠 때는 `so_tax_refresh_at` 의 마지막 정의를 grep
+
 ### 16-e ⭐ 훑기 표 — so.tax_rule · so_line.tax_rule · so_charge.tax_rule 을 쓰거나 읽는 자리 (마지막 정의 기준 · 2026-09-24)
 
 | 자리 | 하는 일 | 세금 ② |
@@ -12170,6 +12172,8 @@ ec3901e mcp-2: IMS Claude 커넥터 EF ims-mcp(원격 MCP · Streamable HTTP 202
 5. **제품 이름 잘림(Caleb 11-01 · 손으로 고칠 일 · 사실만)** — Cin7 안에서 잘린 채 저장된 이름이 QBO · IMS 양쪽으로 넘어왔다(QBO 도 같은 글자 · QBO 칼날 100 자보다 짧다) · 체계적 칼날 없음(길이 분포에 60 · 100 몰림 없음) · 고칠 것 13: 잘림 ONA70011-6 · ONA70013-12 · ONA70021 · ONA70021-6 · ONA70023 · ONA70023-12 · ONA70031 · ONA70031-6 · ONA70033 · ONA70033-12 · TIL13476 · 오타 FAN04307 · FAN04307-6(「((10oz)」) · RON02377-36(「(Red」) · 세트는 낱개 이름 + 「 - N」 · ⚠️ 5 개(ONA70011-6 · 70021-6 · 70023-12 · 70031-6 · 70033-12)는 QBO 이름 짝(SKU 중복)이 이미 지어졌으니 IMS 이름을 바꿔도 짝은 안 흔들린다(짝은 QBO Id 로 붙든다) · 이 5 = 잘림 목록 ∩ SKU 중복(95-c 4 의 「옛 Item 쪽 5」 와 다른 집합 — 실측 11-01: ONA70011-6 은 짝이 새 Item #12874 · ONA80041-6 은 잘림 목록 밖 · 짝 #4509 옛 쪽)
    - ⚠️ 위 목록은 지시서 원문 그대로 — 「고칠 것 13」 과 나열 14 개(오타 셋 포함)가 어긋난다 · RON02377-36 이 오타 갈래인지는 Caleb 확인
 
+- → [2026-11-12 · mcp-more-1 `19cc125` · `20261113021500` · 판정 1211 · §115] **도구 여덟** — 위 여섯 + ⑦ `manual_search` · ⑧ `manual_read`(매뉴얼) · 문 `mcp_gate(p_screen)` 은 화면 열쇠도 본다(**null 이면 Claude 열쇠만** — 매뉴얼 문 `mcp_manual_gate()` 가 `mcp_gate(null)` 하나) · **DB 밖 내용 도구** = `ToolDef.run`(EF) — rpc(문)를 지난 뒤에만 run · GitHub main 의 `docs/manual` 원고(help.html 과 같은 곳) · 캐시 5 분(인스턴스 · 언어마다 · 실패는 담지 않음 ⇒ push 뒤 최대 ≈ 10 분) · 실패는 **그 도구만** 오류(다른 일곱 무관) · 기록 `mcp_call_log` 은 여섯 도구와 같은 줄
+
 ### 95-d′ 열린 것 · 닫은 것
 
 - deferred **닫힘**: 없음 · 360 은 커넥터가 섰지만 열림 그대로(남은 일 435 · 436 · 닫을지는 Caleb)
@@ -14381,4 +14385,98 @@ asung-ops  (없음)
 
 ```
 다음 판정 번호: 1199 · 다음 deferred 번호: 601
+```
+
+## §115 2026-11-12 저녁 ~ 밤 — Finalized 오더 배송지 바꾸기(so-shipto-0 · 1 · so shipto v1) · 스폰서십 크레딧 조사(cn-spons-0) · 매뉴얼 맞추기(manual-audit-0 · manual-fix-1 ~ 3) · 커넥터 매뉴얼 도구(mcp-more-0 · 1) — 판정 1199 ~ 1214
+
+⭐ 원천: 지시서 docs-1112(📌 · 대화 Claude 11-12 밤) · 원천 대조 asung-wms `8737fbf` · `2eafa73` · `4546ee9` · `34d98b2` · `19cc125`(다섯) · asung-ims `09882dc` · `28022b6` · `e4b4783`
+⚠️ 공개 레포 — 손님 · 직원 이름은 적지 않는다(직원 id 앞자리도 — 「열쇠 없던 두 직원」)
+⚠️ 상태 = packed(Finalized) 오더의 배송지를 Ship & invoice 창에서 바꿀 수 있다(세금 · 운임 발송 따라감) · 커넥터 도구 여덟(매뉴얼 둘 더함 · Caleb 이 Claude 채팅에서 다시 연결 뒤 실물 확인) · 매뉴얼 앵커 258 · 스폰서십 크레딧은 새로 지은 것 없이 지금 길로
+
+### 115-a 판정 (Caleb 2026-11-12 · 원문은 이 차수의 원천에 없다 — 뜻만)
+
+| 판정 | 정한 것 | 차수 · 근거 |
+|---|---|---|
+| 1199 | (→ **1206 이 대체**) 처음 안: Draft ~ Finalized 에서 바꾼다 | so-shipto-0 |
+| 1200 | 다른 주로도 바꿀 수 있다 · 세금은 새 배송지 기준으로 다시 고른다 — 배경: asung.ca 의 아마존 셀러 손님 · 보낼 창고가 마지막에 정해짐 · asung.ca 오더는 결제 없이 내려온다 | so-shipto-1 |
+| 1201 | 살아 있는 예약(booked · pending)이면 거부 「Cancel the Freightcom booking first」 · 주소가 바뀌면 그 SO 들이 든 live 발송을 **통째로 cancelled(`ship_to_changed`)** — 견적만 비우면 다시 예약이 옛 주소로 간다(fc_book_prepare 가 견적 때 굳힌 목적지를 보냄) | so-shipto-1 · freightcom §10 |
+| 1202 | 라벨은 **예약한 사람 몫** · 오피스가 다시 예약하면 오피스가 새 라벨을 뽑아 바꿔 붙인다 · 취소 확인 창에 안내 한 줄 · 확인 칸 없음(취소된 라벨은 픽업 스캔에서 걸린다) · WMS 무접촉 | so shipto v1 |
+| 1203 | 문 = sales 이상 | so-shipto-1 |
+| 1204 | 새 주소는 주소록에서 고르거나 새로 적고 주소록에 추가(배송 조건 셋 · 회사 · 연락처 · 전화) | so-shipto-1 |
+| 1205 | 주(나라)가 바뀌는 변경을 막는 것은 **aone 오더만**(PAID · AUTHORIZED) · 디파짓 붙은 오더는 허락(차액은 손님 계정으로) | so-shipto-1 |
+| 1206 | 바꾸는 자리 = **Ship & invoice 창 · packed 만** · Draft 는 지금 길 그대로(so_header_update) · confirmed ~ picking 은 길 없음 · 바꾸는 것은 **오더 주소**(인보이스만 바꾸는 안은 기각 — 견적 · 예약 · 세금이 SO 주소를 읽는다) | so-shipto-1 |
+| 1207 | 주소록에 **추가만** · 기본 배송지 승격 없음 | so-shipto-1 |
+| 1208 | freight_booking 열쇠가 없던 두 직원에게 열쇠를 준다(권한 화면 · Caleb 손) | 운영 |
+| 1209 | 함께 바꾸기 = 옛 주소가 같은 오더(창에 고른 오더 + 같은 운임 견적의 오더) 기본 체크 · 하나만도 허락(경고 `shipment_siblings_cut`) · 갈린 오더는 각자 창 · 인보이스도 따로 · 유닛을 나눠 가지면 거부 · 「주소가 다르면 인보이스도 따로」 는 **이 경우만**(일반 묶음 규칙은 그대로 — 청구처 · 통화) | so-shipto-1 · so shipto v1 |
+| 1210 | 세금 규칙이 바뀌면 늘 `tax_changed` + 「If a Ship Ready was already sent, send it again」 | so-shipto-1 |
+| 1211 | 매뉴얼 도구는 EF 가 **GitHub main 원고**를 읽는다(help.html 과 같은 곳 · 5 분 캐시 · 화면 주소 칸) · 문 `mcp_manual_gate`(mcp_gate 를 지난 뒤에만 읽음) · 조직 스킬 ims-manual 은 만들지 않는다 · Admins and bookkeeping 절도 가리지 않는다 | mcp-more-1 |
+| 1212 | 문제 보기(more-2)에 cron 실패를 넣되 **일 이름 · 성공/실패 · 시각만**(명령 · 오류 원문 금지) | 계획 · deferred 605 |
+| 1213 | 오류는 원문 대신 **종류 · 코드 + 쉬운 설명(할 일)** · 모르는 오류는 「기타 · 화면에서 확인」 | 계획 · deferred 605 |
+| 1214 | 운임은 **상태만**(예약 · 픽업 · 배송 · 운송사) Claude 권한자 모두에게 · 청구 · 한도 같은 돈은 커넥터로 보내지 않는다 | 계획 · deferred 605 |
+
+- **커넥터 방침(Caleb)**: 새 커넥터는 만들지 않는다 · 지금 Asung IMS 커넥터 안에서 · **질문마다 전용 도구(A)** · Supabase 를 동료 Claude 에 직접(read-only 포함) 열지 않는다(919 · 923 · 셈법 함정 · 부하)
+- **매뉴얼 지도 8 답(manual-audit-0)**: ① Freightcom 예약은 기본 창고 · 오피스는 창고가 못 했을 때 · 틀렸을 때 · 주소가 바뀌었을 때 · 예약 · 취소는 freight_booking · 견적 · 고르기는 sales · 창고 · 라벨은 예약한 사람 ② QuickBooks 절은 관리자 · 회계 담당용 ③ Go live 는 관리자용 짧게 · 함부로 누르지 마세요 ④ ~ ⑦ 코드 · 화면 그대로 ⑧ 라벨 방향은 컴퓨터마다 · 매뉴얼은 **지금 쓰는 사용 방법만**(컷오버 때 일은 넣지 않는다 — Caleb · 그래서 이 차수에서 01 Web orders 의 `ims-import` 태그 문장을 뺐다)
+
+### 115-b 차수 · 커밋
+
+| 차수 | 레포 · 커밋 · 마이그레이션 | 확인 · 요지 |
+|---|---|---|
+| so-shipto-0 | — (조사 · Opus) | 확정 뒤 배송지 바꾸는 길 없음 · 세금은 배송지 주 · 예약 취소 뒤 selected 발송이 옛 목적지를 쥔다 |
+| so-shipto-1 | asung-wms `8737fbf` · `20261113001115` · tests/so_shipto_1_check.sql | 창구 `so_ship_to_change` · 속 함수 `so_tax_refresh_at`(`so_tax_refresh` 는 껍데기 · §16 줄) · 기록 표 `so_ship_to_log`(닫힘 — RLS on · 정책 0 · 권한 0 · 읽기 창구 없음) · 시험 42 OK · 변이 12 FAIL |
+| so shipto v1 | asung-ims `09882dc` | Ship & invoice 창 Ship to 줄 + **Change ship-to…** · 함께 바꾸기 · 주소록 추가 · 예약 있으면 먼저 취소 · 취소 확인 글(1202) |
+| cn-spons-0 | — (조사) | 동료 요청 6 개 중 5 개는 지금 된다(115-c) |
+| manual-audit-0 | — (조사 · `~/asung/scratch/manual-audit-0.md` · 레포 밖) | 매뉴얼 지도 · 8 답(115-a) |
+| manual-fix-1 | asung-wms `2eafa73` | Sales · WMS · 새 절 `wms-freightcom` · `sales-change-ship-to` |
+| manual-fix-2 | asung-wms `4546ee9` | Settings 새 절 다섯 · POS · 시작 · 재고 · 앵커 258 |
+| pos cxpay v1 | asung-ims `28022b6` | POS 결제 줄 「Cancel」 → 「Cancel payment…」 |
+| ss v5b · set v18a | asung-ims `e4b4783` | Go live 안내에서 옛 시스템 문장 뺌 · Edit warehouse 주소 글(보이기만 · 옮기면 관리자에게) |
+| manual-fix-3 | asung-wms `34d98b2` | 08 링크 13 · FAQ 7 · 용어 15 · 맞음* 49 대조(고침 10) · README BUILD 한 줄 |
+| mcp-more-0 | — (조사 · `~/asung/scratch/mcp-more-0.md` · 레포 밖) | 커넥터 넓히기 조사 → 1211 ~ 1214 · 방침 |
+| mcp-more-1 | asung-wms `19cc125` · `20261113021500` · EF ims-mcp | 도구 ⑦ `manual_search` · ⑧ `manual_read` · 문 `mcp_manual_gate()` · DB 27 OK · deno 31 · 변이 FAIL · Caleb 이 Claude 채팅에서 실물 확인(**다시 연결 뒤** 작동) |
+| docs-1112 | 이 차수(문서만) | §115 · deferred 601 ~ 606 · 스킬 넷 본문 · 매뉴얼 낱말(권한 · 에드먼턴 · ims-import) |
+
+- 마이그레이션 이름의 날짜는 노트북 시계(토론토보다 앞 · 교훈 189) — 모두 11-12 토론토의 일
+- cron 새로 0 · 새 표 하나(`so_ship_to_log`) · EF 새로 0(ims-mcp 다시 배포)
+
+### 115-c 스폰서십 크레딧(cn-spons-0 · 동료 요청) — 새로 지은 것 없음
+
+- 비재고 「상품」 은 만들지 않는다(590 · 1161 그대로) · 스폰서십 · 굿윌 크레딧 = **참조 크레딧 + Other adjustment 줄 · 계정 `_1150040036_` Sponsorship Discounts** · 재고 · 원가 0 · 참조 번호 필수(숫자만은 피함 · 예 `YES2026-REX`) · 세금 규칙은 크레딧 하나에 하나(Exempt / Zero-rated 는 북키퍼 확인 대기 — deferred 606)
+- QBO: 크레딧 줄은 ItemRef 만 · other 줄은 `qbo_link(charge, 'acct:<code>')` · ⚠️ **`acct:` 짝 자리는 그 계정이 처음 쓰인 뒤에야 matching 에 나타난다** → 발행 → Send 멈춤 → Settings › QuickBooks matching 에서 `acct:_1150040036_` ↔ Item 13944 → Retry(qbo-integration §14 같은 줄)
+- GP: `mcp_sales` 는 크레딧 other 줄을 이미 GP 밖 `other_credits` 로 · 스폰서십만 따로 보이기는 미룸
+- 번호: IMS `CR-` 번호 그대로 · **손 번호 금지**(DocNumber 멱등 조회가 QBO 의 옛 · Void 문서와 잘못 짝지을 수 있다)
+- 1010 그대로: 크레딧은 낸 매장 인보이스에만 · **결제(수표)에는 매장 문이 없다** — 부모 이름 수표 한 장을 지점 인보이스 여럿에 나눠 붙일 수 있다 · 크레딧을 붙인 인보이스를 그 수표 묶음에 넣을 것 · `auto_credit` 이 다음 발행 때 자동으로 가져가므로 원하는 인보이스에 바로 Attach
+
+### 115-d 짓는 자리 · 지우는 순서 · 커넥터 (사실)
+
+- **세금(§16)**: `so_tax_refresh` 는 껍데기 · 몸은 `so_tax_refresh_at(…, p_status)` — §16 에 → 줄
+- **커넥터(§95)**: 도구 여덟 · `mcp_gate(p_screen)` 은 화면 열쇠도 본다(null 이면 Claude 열쇠만) · DB 밖 내용 도구 `ToolDef.run`(문을 지난 뒤에만 · 캐시 5 분 · 실패는 그 도구만) — §95 에 → 줄 · ⚠️ 원고는 **push 해야** 커넥터 · help.html 둘 다 바뀐다(캐시 포함 최대 ≈ 10 분)
+- **Freightcom(freightcom-integration §10)**: `cancel_reason` `ship_to_changed` · 끊긴 발송의 예약 이력은 보드에만
+- ⚠️ **거래 지우기 순서**: `so_ship_to_log` 는 `so` 를 FK(so_id · restrict)로 문다 → 거래 지우기에서 **so 보다 먼저**(truncate 한 문장이면 목록에 함께 — 판정 746 「빠지면 오류로 멈춤」) · `changed_by` → ims_staff 는 직원을 지우지 않으므로 무관 · ⚠️ `supabase/ops/cutover-delete.sql` 의 표 목록에는 **아직 없다**(이 차수는 문서만 · 그 파일을 다시 쓸 때 더한다)
+
+### 115-d′ 열린 것 · 닫은 것 · 다음
+
+- 닫힘: 없음
+- **새 601 ~ 606**(604 판정 대기 · 나머지 미정 · 모두 ③): 601 `inv_transfer_line_combo_parent_check()` PUBLIC EXECUTE · 602 `sales_summary` busy · timeout 7 일 2,019 건 · 603 매뉴얼 옛 BUILD 32 절 깊은 대조 · 604 개발 스킬이 조직 스킬이면 동료 Claude 에 걸림 · 605 커넥터 more-2 · more-3(1212 ~ 1214) · 606 스폰서십 세금 코드 · Item 13944 Income account
+- **다음**: 602 조사(Caleb — 바로 다음 차수) · 1208 열쇠 둘(Caleb 손 · 권한 화면)
+
+### 115-e ⚠️ 실수 · 배운 것 — 원인 · 처방 (114-e 에 이어 194 부터 · asung-workflow 169 ~ 175)
+
+194. [판정 묻기](workflow 169) 판정을 묻기 전에 **그 동작이 실제로 어떻게 묶여 있는지 스킬로 먼저** — Ship & invoice 는 출고 + 발행이 한 트랜잭션이라 「출고 전」 과 「발행 전」 이 같은 순간인데 둘로 나눠 물었다(Caleb 이 짚음)
+195. [잘 된 것 · 범위] 「주소가 다르면 인보이스도 따로」 같은 답은 **범위(이 경우만 / 모든 오더)** 를 되물어 큰 공사를 막았다(1209)
+196. [동료 요청](교훈 51 재확인) 조사로 「지금 되는 길」 먼저 — cn-spons-0 이 6 개 중 5 개가 이미 된다고 찾음
+197. [표 칸 이름](workflow 170) 대화 Claude 가 칸 이름을 짐작했다(`mcp_call_log.created_at` · 실제 `called_at`) ⇒ 처음 보는 표는 `select *` 또는 information_schema 로
+198. [지시서 · git](workflow 171) 「git 을 건드리지 마라」 가 시작 전 확인의 `git pull` 과 부딪쳐 Claude Code 가 pull 을 건너뜀 ⇒ 허락할 git 은 지시서에 **명시**
+199. [진행 기록](workflow 172) 「다 만든 뒤 파일에」 로 읽혀 연결 끊김에 전부 잃음 ⇒ 「만드는 대로 조금씩 파일에 · 진행 기록」 — 그 뒤 차수 모두 잘 됨
+200. [보조 에이전트](workflow 173) Claude Code 의 dynamic workflow(보조 에이전트 동시) 제안은 거절 — 사용 한도(다른 창과 공유) · 판정 고르기 · 양이 작음
+201. [커넥터 시험](workflow 174) 새 도구 시험은 **다시 연결 + Project 밖 새 대화** — 옛 대화는 옛 도구 목록을 쥐고, Project 대화는 개발 스킬이 섞인다(→ deferred 604)
+202. [매뉴얼 대조](workflow 175) 화면 BUILD 주석과 원고 절 BUILD 를 맞대는 점검이 파일 날짜보다 낫다(manual-audit-0 이견 2)
+
+### 115-f 옛 줄 정정(→ · 이 절을 가리킨다)
+
+- §114 끝 「다음 판정 번호: 1199 · 다음 deferred 번호: 601」 → 아래(1199 ~ 1214 · 601 ~ 606 = docs-1112)
+- §16 `so_tax_refresh` 줄 · §95 도구 여섯 → 각 절에 → 줄(115-d)
+- asung-so 스킬 4-y 「읽기 도구 여섯」 → 여덟(본문)
+
+```
+다음 판정 번호: 1215 · 다음 deferred 번호: 607
 ```

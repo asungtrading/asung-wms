@@ -1438,6 +1438,7 @@ GAS 프로브 1회 + Caleb 의 Cin7 조작 1회로 확정된다(SO-14516 실측�
 - ⚠️⚠️ **Freightcom 라벨 원본 URL 을 그리지 마라** — `fc_booking_for_shipment` 의 `current.labels[].url` 은 서명 없는 S3(짐작 · 손님 주소). 라벨은 EF `label {label_id}` → 서명 URL 120 초로만. 원본은 `fc_label_get` · 표 직접 읽기로도 닿는다(deferred 362).
 - ⚠️ **진행 칸은 시계가 아니라 DB 흔적** — 2 초마다 `fc_booking_for_shipment`(① pending 행 없음 ② pending · Freightcom id 없음 ③ id 있음 · 운송사 확정 기다림 ④ booked · 라벨 저장). 약 13 초는 Freightcom 몫이라 줄이지 않는다(861). 25 초를 넘으면 Check again(`book_poll {booking_id}`).
 - ⚠️ 예약 · 취소 = **freight_booking** 열쇠 + 그 창고(853 · admin · supervisor 는 늘). 견적 · 고르기는 fulfillment + 창고. 열쇠는 Staff 두 방(WMS · IMS) 모두에(859 · `rooms`).
+  - ⭐ [2026-11-12 · 판정 1202 · 1208 · so-module §115] 예약은 **창고가 기본** · 오피스는 창고가 못 했을 때 · 틀렸을 때 · 주소가 바뀌었을 때 다시 예약한다 · **라벨은 예약한 사람 몫** — 오피스가 다시 예약하면 오피스가 새 라벨을 뽑아 바꿔 붙인다(취소 확인 창 안내 한 줄 · 확인 칸 없음 · 취소된 라벨은 픽업 스캔에서 걸린다) · WMS 화면 무접촉 · 배송지가 바뀌면 발송이 `ship_to_changed` 로 끊긴다(asung-so 4-x)
 - ⚠️ 경고(`prepare_warnings` — `closed:` 문 닫힘 · `past_cutoff:` 마감 지남 → 픽업 다음 날)는 **DB 칸이 없다** — 화면이 칸에 남기고 새로 고치면 사라진다.
 - 픽업: 정기 픽업 상자는 시각 칸 없음(pre_scheduled) · 그 밖 날짜 · Ready from · until(비우면 DB 규칙 — 오늘이면 지금 + 1 분 ~ closes_at · 다음 날이면 09:00 ~ closes_at · 창고 시간대 857 · Edmonton = America/Regina). 정기 픽업 · 마감 표는 **Settings → Carrier pickups 에만**(860 · master).
 - 라벨: 상자 4 × 6(A6) 기본 + Letter instead · 팔렛 Letter · 팔렛 라벨을 따로 만들지 않는다(851). 테일게이트 · 인사이드는 팔렛만(850) · 창고의 「기억」 은 주소에 안 쓰고 오피스 확인 표시(845).

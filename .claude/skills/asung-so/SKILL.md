@@ -322,6 +322,9 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐  [2026-11-02 · cr-ref-fee-1 · cr v7 `0c2a6c0`] **참조(이력) 크레딧에도 Restocking fee** — 서버는 이미 받았다(수리 없음) · 화면 Charge a fee · % · Fee account(REVENUE 만 · 설정 기본 있으면 Default) · 원래 인보이스 날짜로 60 일 알림(판정 5 알림만) · QBO 로는 other · restocking_fee 줄 = 계정 사람 짝(961) · 계정은 북키퍼가 정해 `supabase/ops/restock-fee-account.sql`
 ⚠️  [2026-11-02 · 959] 발행 크레딧이 걸린 인보이스는 취소 거부(4-g) — 크레딧 취소가 먼저
 ⭐⭐ [2026-11-03 · 판정 1010 · 1030 ~ 1033 · cr-store-1a `7d2b816` · so-module §99] **크레딧은 낸 매장의 인보이스에만** — 자동(auto_credit) · 손 붙이기 모두 · 예외 없음(북키퍼 「본사 아래 매장이라고 하더라도 … 해당 스토어와만」) · 열쇠 so_credit_store(credit) = coalesce(store_customer_id, customer_id) · so_invoice_store(invoice) = 이월 store_customer_id 또는 활성 오더 손님 하나(둘 이상이면 null) · so_credit_alloc_add 에 매장 문 · so_invoice_apply_plan 이 같은 열쇠로 거름(credit_skipped) · 이월 인보이스 크레딧 = 그 인보이스 매장(1031) · 매장 있는 청구처의 참조 크레딧은 매장(또는 본사 자신) 필수(1032) · 화면 · 잔액은 그 손님 자기 몫만(1033 · cr-store-2 · 화면은 cr-store-1b) · 실제로 바뀌는 곳 = 본사 다섯 아래 매장 26 · QBO 0 원 Payment CustomerRef 도 매장(1014 · asung-qbo)
+⭐  [2026-11-12 · cn-spons-0 · so-module §115-c] **스폰서십 · 굿윌 크레딧 = 참조 크레딧 + Other adjustment 줄**(계정 `_1150040036_` Sponsorship Discounts · 재고 · 원가 0) — 비재고 「상품」 을 만들지 마라(590 · 1161)
+     참조 번호 필수(숫자만은 피함) · 세금 규칙은 크레딧 하나에 하나(Exempt / Zero-rated 는 북키퍼 대기 · deferred 606) · 번호는 IMS CR- 그대로(손 번호 금지 — QBO DocNumber 멱등이 옛 · Void 문서와 짝지을 수 있다)
+     ⚠️ 그 계정의 첫 크레딧은 QBO Send 가 멈춘다 — acct: 짝 자리는 처음 쓰인 뒤에야 matching 에 생긴다(asung-qbo) · 수표 한 장을 지점 인보이스 여럿에 나눠 붙일 수 있다(결제엔 매장 문 없음 · 1010) — 크레딧 붙인 인보이스를 그 묶음에
 ```
 
 ## 4-j. ⭐⭐ POS · counter · 오더 병합(④) — 모르면 사고 (정본 §20 · §21)
@@ -625,6 +628,10 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 
 ⭐⭐ [2026-11-11 · fc-track-1 ~ 4 · 판정 1154 ~ 1168 · freightcom-integration §8-c ~ 8-e] **예약 뒤** — 상태 · 추적 자동 읽기(cron 68 · 끝 상태에서 멈춤 · 사람 길 Check status = track_poll) · Freightcom 에서 취소된 예약은 픽업 경고 밖 + 「Mark cancelled in IMS」(`fc_book_mark_cancelled` · 호출 없음 · 1159) · 청구 · 남은 한도(cron 69 · 결제는 사람이 Freightcom 사이트에서 · 1165) · 보드 Integrations › Freightcom(`fc_board` · `fc_board_detail` · 돈 문 = freight_booking ∨ purchasing 쓰기)
 ⚠️⚠️ **fc_ 표 11 개 모두 닫힘**(1166 · 1168) — 화면은 창구로만 읽는다 · 새 fc_ 표도 처음부터 닫는다 · state 뜻은 `fc_state_kind` 한 곳 · 청구 문서는 예약 순간 생긴다 · `invoices-for-*` 는 빈 배열(쓰지 마라)
+⭐⭐ [2026-11-12 · so-shipto-1 `8737fbf` · so shipto v1 · 판정 1200 ~ 1210 · so-module §115] **Finalized(packed) 오더 배송지 바꾸기** — 창구 `so_ship_to_change`(sales · Ship & invoice 창 **Change ship-to…**) · packed 만(Draft 는 so_header_update 그대로 · confirmed ~ picking 은 길 없음) · 바꾸는 것은 **오더 주소**(인보이스만 바꾸지 않는다 — 견적 · 예약 · 세금이 SO 주소를 읽는다)
+⚠️⚠️ 살아 있는 예약(booked · pending)이면 거부 「Cancel the Freightcom booking first」 · 주소가 바뀌면 그 SO 들의 live 발송을 통째로 cancelled(`ship_to_changed`) — 취소 뒤 selected 발송은 **옛 목적지를 쥔다**(견적만 비우면 다시 예약이 옛 주소로)
+⚠️  다른 주 허락 + 세금 다시(1200 · 늘 tax_changed + 「send Ship Ready again」 1210) · 주(나라) 변경 거부는 **aone(PAID · AUTHORIZED)만**(1205) · 주소록에 추가만 · 기본 승격 없음(1207) · 함께 바꾸기 = 옛 주소가 같은 오더 기본 체크 · 하나만 허락(shipment_siblings_cut) · 유닛을 나눠 가지면 거부(1209) · 「주소가 다르면 인보이스 따로」 는 이 경우만
+⚠️  세금 몸은 `so_tax_refresh_at(…, p_status)` — `so_tax_refresh` 는 껍데기(draft) · 기록 표 `so_ship_to_log` 닫힘(창구로만 · 읽기 창구 없음) · 거래 지우기에서 so 보다 먼저
 ```
 ⭐⭐ 엔진 하나 · 입구 둘(835) — 창고 WMS Finalize 작업대(기본) · 오피스 Ship & invoice 창(창고가 못 했거나 견적이 틀렸을 때) · 같은 DB 창구 + EF freightcom · 한 발송에 살아 있는 예약은 하나
 ⚠️  지금은 **테스트 환경만** — EF 는 db_role = 'test' 가 아니면 멈춘다 · 운영은 토큰 대기(deferred 326 · 364) → [2026-10-29 · 617 확인 · so-module §87-d] 이 프로젝트가 11-01 부터 그대로 운영이고 db_role 은 그 뒤에도 'test' — 가드는 운영을 가르지 않는다 · **운영 시작 = 비밀값을 운영 토큰 · BASE_URL 로 바꾸는 날**(freightcom-integration 머리) · 운영 예약은 실제 청구(Net Terms) → ⭐ [2026-11-03 · so-module §99-c 8] **토론토는 운영**(BASE_URL 운영 · TOR 운영 토큰 · 실제 청구 · 시험 때 예약을 IMS 에서 Cancel 하지 말 것) · **에드먼턴은 키 지움**(운영 토큰 대기 · Freightcom 사이트에서 손 예약 · deferred 462)
@@ -640,7 +647,7 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
 ⭐⭐ [2026-11-06 · fc-pickup-1 ~ 4 · 판정 1040 · 1041 · 1048 ~ 1050 · so §101] 예약됨 칸 픽업 상태 줄(so pk v1 — ✓ scheduled · ⚠ NOT scheduled · ⏳ · Check pickup) · 판정은 DB fc_pickup_check 하나 · **출고 뒤 칸이 사라진다 → Action Centre Pickups not scheduled**(4-k) · 창고 Contact · Phone 이 비면 Book 거부(픽업 몸 연락처 · 원인 H2) · 토 · 일 → 월요일 · 자세히는 asung-wms 규칙 47
 ```
 
-## 4-y. ⭐⭐ IMS Claude 커넥터(읽기 도구 여섯) — 모르면 사고 (2026-10-31 ~ 11-01 · 정본 so-module §95 · 판정 917 ~ 931)
+## 4-y. ⭐⭐ IMS Claude 커넥터(읽기 도구 여섯 → [11-12] 여덟) — 모르면 사고 (2026-10-31 ~ 11-01 · 정본 so-module §95 · 판정 917 ~ 931)
 
 ```
 ⭐  Claude(claude.ai Team 조직 커넥터 「Asung IMS」) → EF ims-mcp(원격 MCP · 무상태) → 도구 창구 mcp_order · mcp_stock · mcp_customer · mcp_po · mcp_backorders · mcp_sales
@@ -657,6 +664,12 @@ so v2.5(b693d8c) · v3(f73b980) — 판정 17 글자 표는 so.html 안 하나(S
      다 차면 DB 는 **기다리지 않고 즉시 PT429**(DB 안에서 기다리면 직원 화면과 같은 연결 묶음을 쥔다 · 1109) → EF 가 0.3 · 0.6 · 1.2 s 재시도 → 끝까지 busy 면 Claude 에 BUSY_TEXT(하나씩 · offset 으로)
      기록 = outcome error · error_code busy(1107) · 직원당 자리 없음(1106 · 관찰 deferred 514) · 묶는 도구는 sales_summary 하나(1108 · find_order · backorders 가 늘면 같은 자리표 꼴로)
      ⇒ 큰 분석은 「브랜드마다 따로」 가 아니라 「**한 번에 · 브랜드별(group brand)**」 — 거르기는 다 모은 뒤에 걸려 브랜드 하나 ≈ 전체 한 번(perf-mcp-0 · 513)
+⭐⭐ [2026-11-12 · mcp-more-1 `19cc125` · 판정 1211 · so-module §115] 도구 **여덟** — ⑦ manual_search · ⑧ manual_read(매뉴얼) · **DB 밖 내용 도구** = ToolDef.run(EF)
+     rpc(문)를 지난 뒤에만 run · 문 mcp_manual_gate() = mcp_gate(null) 하나(mcp_gate(p_screen) 은 화면 열쇠도 본다 · null 이면 Claude 열쇠만) · 원고 = GitHub main docs/manual(help.html 과 같은 곳)
+     캐시 5 분(실패는 담지 않음) ⇒ **원고는 push 해야 커넥터 · 화면 둘 다 바뀐다**(최대 ≈ 10 분) · run 실패는 그 도구만 오류 · 기록은 여섯과 같은 줄
+⚠️⚠️ [2026-11-12 · 커넥터 방침 · 판정 1212 ~ 1214] 새 커넥터는 만들지 않는다 — 지금 Asung IMS 커넥터 안에서 **질문마다 전용 도구** · Supabase 를 동료 Claude 에 직접(read-only 포함) 열지 않는다(919 · 923)
+     계획(deferred 605): more-2 문제 보기 — cron 실패는 일 이름 · 성공/실패 · 시각만(1212) · 오류는 원문 대신 종류 · 코드 + 쉬운 설명 · 모르면 「기타 · 화면에서 확인」(1213)
+     more-3 데이터 도구 — 운임은 상태만(예약 · 픽업 · 배송 · 운송사 · 1214) · 청구 · 한도 같은 돈은 보내지 않는다 · EF 배포를 묶어 다시 연결 횟수를 줄인다
 ```
 
 ## 5. 이 스킬을 갱신할 때

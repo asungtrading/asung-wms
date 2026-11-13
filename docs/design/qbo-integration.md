@@ -302,6 +302,8 @@ QBO 판     Plus(Caleb)
 - **트리거 둘** `so_credit_qbo_job` · `so_credit_qbo_cancel`(인보이스 꼴) · **채우기 `qbo_credit_backfill()`**(965 · since 2026-11-02 이후 발행 · 일감 없는 크레딧 · 적용 때 한 번 · 11-02 채운 수 0)
 - **964** — 2c 는 CreditMemo 만 · 인보이스에 붙이기(apply) · 환불은 결제 차수
 - 짝 열쇠 961 = `qbo_ims_rows('charge')` 의 acct: 행에 크레딧 줄 계정을 더함 · done(credit → qbo_txn CreditMemo + 942 대조) · EF SEND_KINDS 6 · creditmemo POST · void · DocNumber 멱등 · 검증 22 · deno 21
+- [2026-11-12 · cn-spons-0 · so-module §115-c] ⚠️ **`acct:` 짝 자리는 그 계정이 처음 쓰인 뒤에야 matching 에 나타난다** — 새 계정을 쓰는 첫 크레딧(또는 인보이스)은 발행 → Send 가 failed 「link account item …」 로 멈춤 → Settings › QuickBooks matching 「Freight, discount & account lines」 에서 짝 → Retry · 미리 짝 지을 자리는 없다
+  - **스폰서십 · 굿윌 크레딧 꼴** = 참조 크레딧 + Other adjustment 줄 · 계정 `_1150040036_` Sponsorship Discounts → `acct:_1150040036_` ↔ QBO Item 13944 · 재고 · 원가 0 · 비재고 「상품」 은 만들지 않는다(590 · 1161) · 세금 규칙은 크레딧 하나에 하나(Exempt / Zero-rated · Item 13944 Income account 는 북키퍼 확인 대기 — deferred 606) · 번호는 IMS `CR-` 그대로(손 번호 금지 — DocNumber 멱등 조회가 QBO 의 옛 · Void 문서와 잘못 짝지을 수 있다)
 - ⚠️ 적용 순서 한 덩이: 마이그레이션 → repair → EF 배포(트리거가 먼저 서고 EF 가 옛 SEND_KINDS 면 빈 claim)
 - **리스탁킹 피**(cr-ref-fee-1 · 11-02): 서버는 참조 크레딧의 restocking_fee 를 이미 받는다(수리 없음 · 실측) · 화면 cr v7(asung-ims `0c2a6c0` · 이력(참조) 크레딧 창 Charge a fee · % · Fee account(REVENUE 만)) · **계정은 북키퍼가 새로 정한다** → QBO 계정 + Item → pull → Id → `supabase/ops/restock-fee-account.sql`(ref_account `_<QBO Id>_` · 설정 키 · qbo_link auto_code · 검산 4 · dry-run 기본 · `859d72b`)
 

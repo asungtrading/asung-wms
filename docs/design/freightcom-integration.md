@@ -203,6 +203,7 @@
 - 발송은 **selected 로**(고른 줄 그대로) — 견적이 유효하면 바로 다시 예약(856)
 - SO 칸은 예약 때 쓴 값과 **아직 같을 때만** 그 전 값으로(그 사이 사람이 바꾼 칸은 둔다 · orders_kept)
 - [2026-11-11 · 1158 · 1159] **Freightcom 쪽에서 취소된 예약**(사이트 손 취소 등)은 IMS 가 상태를 읽어 「Cancelled on Freightcom」 으로 보이고 픽업 경고 · cron 64 · Action Centre 에서 뺀다 · 사람이 Mark cancelled in IMS(`fc_book_mark_cancelled` · Freightcom 호출 없음 · SO 칸 856 되돌림 · response 안 덮음) · ⚠️ IMS 취소(DELETE)가 Freightcom 청구를 지우지 않는 것으로 보임(**짐작** · Freightcom 답 대기 · deferred 573 · §8-d)
+- [2026-11-12 · so-shipto-1 `8737fbf` · 판정 1201 · 1202 · so-module §115] **배송지가 바뀌면 발송을 끊는다** — 예약 취소 뒤 발송은 selected 로 남아 **견적 때 굳힌 옛 목적지를 그대로 쥔다**(fc_book_prepare 가 그것을 보낸다) ⇒ `so_ship_to_change` 는 살아 있는 예약(booked · pending)이면 거부(「Cancel the Freightcom booking first」) · 주소가 바뀌면 그 SO 들이 든 live 발송을 통째로 `status = 'cancelled'` · `cancel_reason = 'ship_to_changed'`(견적만 비우면 다시 예약이 옛 주소로 간다) · 끊긴 발송의 예약 이력은 **보드에만** 남는다 · 라벨은 예약한 사람 몫 — 오피스가 다시 예약하면 오피스가 새 라벨을 뽑아 바꿔 붙인다(취소 확인 창 안내 한 줄 · 확인 칸 없음 · 취소된 라벨은 픽업 스캔에서 걸린다 · WMS 무접촉)
 
 ## 11. 화면 (asung-ims · 대화 Claude)
 
