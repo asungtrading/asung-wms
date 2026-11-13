@@ -330,7 +330,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 
 <a id="purch-statuses"></a>
 ## What each status means
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; invoices.html · BUILD 2026-10-22 · inv printed v2 ; charges.html · BUILD 2026-10-24 · chg docs v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; invoices.html · BUILD 2026-10-22 · inv printed v2 ; charges.html · BUILD 2026-10-24 · chg docs v1 -->
 <!-- who: all -->
 
 **Purchase orders**
@@ -345,6 +345,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 | Cancelled | Cancelled. |
 
 - A PO split off another shows "split from PO-…".
+- An orange **Backorder** chip: "Split off from another PO and still waiting — no confirmed invoice yet". The status filter **Backorder** lists them.
 - The payment filter: **Unpaid**, **Partly paid**, **Paid**.
 
 **Invoices, credits, charges and receipts**
@@ -360,4 +361,4 @@ Filters: invoices — **Invoices**, **Credits**, **Unpaid only**, **Credit due o
 - On **Reorder Planner**: **↓ CSV** (the order list or all products, for one supplier or all), **↓ Dead Stock CSV** and **↓ Forecast CSV**.
 - SKUs and barcodes open in Excel as text.
 
-<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735, 759, 765 -->
+<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735, 759, 765, 481, 776 -->

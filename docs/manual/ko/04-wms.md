@@ -172,7 +172,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-fulfillment"></a>
 ## 상자 · 팔레트에 담기(Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; 2026-11-06 · fu v1.10 (pickup line) ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-10 · fu v1.11 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -187,7 +187,8 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 3. 제품을 짐에 넣습니다: "Drag, tap, or scan products into a pallet or box."(끌거나 누르거나 스캔한다) 먼저 팔레트나 상자를 눌러 넣을 곳으로 정합니다.
 4. 스캔은 두 가지입니다: **Scan qty**(한 번에 하나) 또는 **Move all**(한 번 스캔으로 아직 안 담은 그 제품을 전부). **↩ Undo last scan** 은 마지막 스캔을 되돌립니다.
 5. **Unassigned products**(안 담은 제품)가 다 비면 인쇄합니다: **🖨 Box list** · **🖨 Pallet list** · 매장별 **🖨 List** · **🖨 All stores (at once)**
-6. **✓ Finalize order(s)** 를 누르고 확인합니다. "Finalized orders leave the fulfillment board." 이제 오피스가 **Ship & invoice** 를 합니다([Ship & invoice](01-sales.md#sales-ship-invoice)).
+6. 운송사로 보내는 판매 오더면, 보드 아래 **Freight** 칸에서 운임을 견적 · 예약하고, 운송사 라벨을 인쇄해 붙입니다 — [Freightcom — 견적 · 예약 · 라벨](#wms-freightcom). 픽업과 우리 배달은 견적이 필요 없습니다.
+7. **✓ Finalize order(s)** 를 누르고 확인합니다. 확인 글에 운임이 나옵니다 — 예: "Freight: BOOKED …"(예약됨) · "Freight: no quote — the office arranges it"(견적 없음 · 오피스가 정한다). "Finalized orders leave the fulfillment board." 이제 오피스가 **Ship & invoice** 를 합니다([Ship & invoice](01-sales.md#sales-ship-invoice)).
 
 **트랜스퍼**([창고 간 트랜스퍼](03-inventory.md#stock-transfers))
 - 판매 오더와 트랜스퍼는 함께 작업할 수 없습니다: "A sale and a transfer cannot be on the same workbench — finish or clear one first"
@@ -202,11 +203,69 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 **알아 둘 것**
 - 짐의 **Delete** 는 그 제품을 안 담은 쪽으로 돌려놓습니다.
 - "A box can only go on a pallet."(상자는 팔레트 위에만)
-- **Freightcom 픽업**(Finalize 전에 Freightcom 으로 예약한 오더): 예약됨 칸에 픽업이 나옵니다. "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. IMS 도 몇 분마다 다시 확인합니다.
-- 토 · 일에는 픽업이 없습니다 — 주말에 걸리는 픽업은 월요일로 옮겨지고, 주말 날짜를 적으면 거부됩니다.
-- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 합니다(**Settings** › **Warehouses** › **Edit**). 없으면 예약이 거부됩니다.
 
 <!-- SCREENSHOT: wms-fulfillment-1 · Fulfillment 보드: 팔레트 · 얹은 상자 · Unassigned products -->
+
+<a id="wms-freightcom"></a>
+## Freightcom — 견적 · 예약 · 라벨
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-10 · fu v1.11 ; so.html · BUILD 2026-11-12 · so shipto v1 -->
+<!-- who: warehouse, office -->
+
+**무엇인가**
+IMS 가 Freightcom 에서 운임을 받아 오고, 고른 운송사를 예약하고, 운송사 라벨을 저장합니다. 같은 **Freight** 칸이 두 곳에 있습니다: 창고의 **Fulfillment**, 오피스의 **Ship & invoice** 창
+
+**누가 하나**
+- **기본은 창고** — **Fulfillment** 에서 **✓ Finalize order(s)** 전에: 견적 · 예약 · 라벨 인쇄
+- **오피스** — **Ship & invoice** 에서: 창고가 예약하지 못했을 때, 견적이 틀렸을 때, 배송지가 바뀌었을 때([팩된 오더의 배송지 바꾸기](01-sales.md#sales-change-ship-to))
+- 견적 받기 · 요율 고르기: sales · 창고 직원. **Book**(예약) · **Cancel booking**(예약 취소): **Freight booking** 열쇠가 있는 직원만(supervisor · admin 은 늘 있음). 없으면: "Booking needs the 'Freight booking' permission — ask a supervisor"(supervisor 에게 부탁)
+- **라벨은 예약한 사람이 붙입니다.** 오피스가 예약했으면 오피스가 라벨을 들고 창고에 갑니다.
+
+**어떻게 — 견적**
+1. 팔레트 · 상자마다 **L** · **W** · **H** · **Weight** 가 있어야 합니다. "N unit(s) without dimensions or weight — fill them in above before quoting"(크기 · 무게 없는 짐 · 위에서 채운다)
+2. 옵션을 봅니다: **Residential**(가정집), 팔레트면 **Tailgate**(리프트 게이트) · **Inside delivery**(안까지 배달). 고객 주소의 값으로 시작합니다. 다음에도 쓰려면 **Remember for this address** 를 체크합니다(창고에서 체크하면 오피스에 확인 요청이 갑니다).
+3. **Get freight quotes** 를 누릅니다. "Freightcom is still working on the quote…" 면 잠시 뒤 **Check again** 을 누릅니다.
+4. 요율 표에 **Carrier** · **Service** · **Days** · **Our cost**(우리 비용) · **Customer freight**(인보이스에 실리는 운임)가 나옵니다. 가장 싼 것 — 또는 고객의 기본 운송사 — 이 먼저 골라져 있습니다. 회색 줄은 못 고릅니다: "customer avoids this carrier"(고객이 피하는 운송사) · "not on the carrier list"(운송사 목록에 없음)
+5. 요율을 고르고 **Use this rate** 를 누릅니다.
+
+**어떻게 — 예약**
+1. 요율 아래에서 **Pickup date** · **Ready from** · **until** 을 정합니다. 비우면 = 오늘(마감이 지났거나 창고가 닫혔으면 내일), 지금부터, 창고 문 닫을 때까지. 정기 픽업은 시각이 필요 없습니다.
+2. **Book shipment** 를 누르고 확인합니다: "This is a real Freightcom booking — Asung is billed (Net Terms) unless it is cancelled."(진짜 예약이다 · 취소하지 않으면 Asung 에 청구된다)
+3. 페이지에서 기다립니다. "Freightcom usually takes 10 – 20 seconds · keep this page open"(보통 10 ~ 20 초 · 페이지를 열어 둔다) 아직 진행 중이면 **Check again** 을 누릅니다.
+4. 칸이 초록이 됩니다: "✓ Booked with Freightcom — …" · **Tracking** · **BOL** · **Pickup**
+
+**어떻게 — 라벨**
+1. 상자: **🖨 Print 4 × 6 label**(또는 **Letter instead**). 팔레트: **🖨 Print label (Letter)**
+2. "Labels are not saved yet."(라벨이 아직 저장되지 않음) — **Get labels** 를 누릅니다.
+3. 나가기 전에 짐에 라벨을 붙입니다.
+
+**예약 취소 — Freight booking 열쇠**
+1. **Cancel booking** 을 누르고 확인합니다. "The carrier and tracking number come off the orders (unless someone changed them). The picked rate stays, so you can book again."(오더의 운송사 · 송장 번호가 빠진다 · 고른 요율은 남아 다시 예약할 수 있다)
+2. "Changing the ship-to? Cancel first, then change it — the old quote is dropped and you quote again. If the boxes are already labelled: after booking again, print the new label and replace the old one."(배송지를 바꾸려면 먼저 취소 · 옛 견적은 없어지고 다시 견적 · 라벨을 이미 붙였으면 다시 예약한 뒤 새 라벨로 바꿔 붙인다)
+
+**픽업과 배송 상태**
+- "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. IMS 도 몇 분마다 다시 확인합니다. 출고한 뒤에는 [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups) 에서 봅니다.
+- 상태 줄: 가는 중 🚚 · "✓ Delivered"(배송됨) · 노란 문제 줄. IMS 가 스스로 읽습니다. **Check status** 는 지금 Freightcom 에 묻습니다(요금 없음).
+- 빨간 띠 "✕ Cancelled on Freightcom": Freightcom 사이트에서 예약이 취소됐습니다. **Mark cancelled in IMS**(Freight booking 열쇠)를 눌러 IMS 에서도 닫습니다 — "Nothing is sent to Freightcom."(Freightcom 에는 아무것도 보내지 않는다) 그 뒤 다시 예약할 수 있습니다.
+- 모든 예약: [Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom)
+
+**오피스 — Ship & invoice 창에만 있는 것**
+- **Edit sizes and weights**(크기 · 무게 고치기) · **Add boxes or pallets**(짐 더하기): 창고가 못 했을 때 짐을 고칩니다. 그 뒤 다시 견적합니다.
+- **Fill from the picked rate** 는 고른 요율의 운송사와 고객 운임을 오더에 넣습니다. **Fill carrier · tracking** 은 예약된 운송사와 송장 번호를 넣습니다.
+- 한 발송에 오더가 여럿이면 **Freight goes on** 에서 운임을 실을 오더 하나를 고릅니다.
+- 머리에 누가 견적했는지(**warehouse** · **office**)와, 예약 뒤에는 누가 언제 예약했는지가 나옵니다.
+- **Remember the delivery options for this address?**(이 주소의 배송 옵션을 기억할까?) — **Add as a new ship-to address**(새 배송지로 더하기) · **Make it the default ship-to**(기본 배송지로) · **This time only**(이번만)
+
+**알아 둘 것**
+- **Freightcom TOR** · **Freightcom EDM** 꼬리표는 어느 계정을 쓰는지 보여 줍니다. 창고에서 정해집니다.
+- 토 · 일에는 픽업이 없습니다 — 주말에 걸리는 픽업은 월요일로 옮겨지고, 주말 날짜를 적으면 거부됩니다.
+- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 합니다(**Settings** › **Warehouses** › **Edit**). 없으면 예약이 거부됩니다.
+- 고객이 결제 때 배송비를 낸 웹 오더: "the cheapest quote is used, the invoice freight stays as paid"(가장 싼 견적을 쓰고 · 인보이스 운임은 낸 그대로)
+
+**조심할 것**
+- 예약 뒤에 짐이 바뀌면: "cancel the booking, then quote and book again"(예약을 취소하고 다시 견적 · 예약)
+- 견적 뒤에 작업대의 오더가 바뀌면: "get quotes again"(다시 견적)
+
+<!-- SCREENSHOT: wms-freightcom-1 · Freight 칸: 요율 표 · 고른 요율 · 예약 줄 -->
 
 <a id="wms-receiving"></a>
 ## PO · 트랜스퍼 받기
@@ -304,7 +363,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-stock-lookup"></a>
 ## 재고 찾아보기
-<!-- screen: wms-stock.html · BUILD 2026-10-20 · ws v1a -->
+<!-- screen: wms-stock.html · BUILD 2026-10-27 · ws v1c ; ims-label.js · lbl v1b -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -314,6 +373,12 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 1. 바코드를 스캔하거나 SKU · 이름을 적습니다.
 2. 브랜치마다 bin, **Available**(가용) · **Allocated to sales orders**(판매 오더에 확보) · **Held for transfers out**(나갈 트랜스퍼에 묶임)이 보입니다. 누르면 어느 오더 · 트랜스퍼가 잡고 있는지 나옵니다.
 3. **Recent movements** 를 누르면 들어오고 나간 것이 보입니다.
+
+**바코드 라벨 인쇄**
+1. 제품의 **Print label** 을 누릅니다.
+2. **Barcode**(여럿이면) · **Label size**(라벨 크기) · **Print on the label**(라벨에 찍을 것: **SKU** · **Barcode** · **Barcode number** · **Name** · **Brand**) · **Copies**(장 수)를 고르고 **Print** 를 누릅니다.
+3. 컴퓨터에서 처음 찍을 때: 인쇄 창에서 라벨 프린터를 고르고, 용지 = 같은 라벨 번호, 여백 **None**, 배율 100%, 머리글 · 바닥글을 끕니다. 라벨이 옆으로 눕거나 작게 나오면 **Rotate 90° for this printer**(이 프린터는 90° 돌리기)를 체크합니다.
+- 화면은 이 컴퓨터에서 마지막으로 고른 크기 · 항목과 돌린 방향을 기억합니다. 다른 컴퓨터에서는 처음 한 번 다시 맞춰 주세요.
 
 **알아 둘 것**
 - **Value**(금액) 줄은 `cost` 권한이 있는 사람에게만 보입니다.
@@ -380,4 +445,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 트랜스퍼에는 **Finalized** 가 없습니다. 창고가 Finalize 하면 곧장 **In transit** 이 됩니다.
 오피스 화면의 말은 [상태의 뜻](03-inventory.md#stock-statuses)을 봅니다.
 
-<!-- rulings: 1041, 1048, 1049, 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->
+<!-- rulings: 835, 843, 850, 851, 852, 853, 854, 855, 856, 1158, 1159, 1160, 1201, 1202, 1041, 1048, 1049, 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->

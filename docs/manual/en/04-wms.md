@@ -172,7 +172,7 @@ If a line goes over, the screen shows "⚠ Over-scan — count the items". Count
 
 <a id="wms-fulfillment"></a>
 ## Pack into boxes and pallets (Fulfillment)
-<!-- screen: wms-fulfillment.html · BUILD 2026-11-02 · fu v1.9 ; 2026-11-06 · fu v1.10 (pickup line) ; wms-packing.js -->
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-10 · fu v1.11 ; wms-packing.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -187,7 +187,8 @@ An order appears here only when all its batches are checked on **Packing** — "
 3. Put products into a unit: "Drag, tap, or scan products into a pallet or box." Tap a pallet or box first to make it the target.
 4. Scanning works in two ways: **Scan qty** (one scan, one unit) or **Move all** (one scan moves all of that product still unassigned). **↩ Undo last scan** takes the last one back.
 5. When nothing is left under **Unassigned products**, print: **🖨 Box list**, **🖨 Pallet list**, a store's **🖨 List**, or **🖨 All stores (at once)**.
-6. Press **✓ Finalize order(s)** and confirm. "Finalized orders leave the fulfillment board." The office now does **Ship & invoice** (see [Ship & invoice](01-sales.md#sales-ship-invoice)).
+6. For a sales order that ships by carrier, quote and book the freight in the **Freight** box under the board, print the carrier label and put it on — see [Freightcom — quote, book and label](#wms-freightcom). Pickup and our own delivery need no quote.
+7. Press **✓ Finalize order(s)** and confirm. The confirm message shows the freight — for example "Freight: BOOKED …", or "Freight: no quote — the office arranges it". "Finalized orders leave the fulfillment board." The office now does **Ship & invoice** (see [Ship & invoice](01-sales.md#sales-ship-invoice)).
 
 **Transfers** (see [Transfers between warehouses](03-inventory.md#stock-transfers))
 - A sale and a transfer cannot be worked together: "A sale and a transfer cannot be on the same workbench — finish or clear one first".
@@ -202,11 +203,69 @@ An order appears here only when all its batches are checked on **Packing** — "
 **Good to know**
 - **Delete** on a unit returns its products to unassigned.
 - "A box can only go on a pallet."
-- **Freightcom pickup** (an order booked with Freightcom before Finalize): the booked box shows the pickup. "✓ Pickup scheduled — confirmation …" is done. "⚠ Pickup NOT scheduled" — schedule the pickup on the Freightcom site, then press **Check pickup**. "⏳" means Freightcom is still scheduling it. IMS also checks again every few minutes.
-- No pickups on Saturday or Sunday — a pickup that would fall on a weekend moves to Monday, and a weekend date you type is refused.
-- The warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouses** › **Edit**, or the booking is refused.
 
 <!-- SCREENSHOT: wms-fulfillment-1 · Fulfillment board with a pallet, a nested box and Unassigned products -->
+
+<a id="wms-freightcom"></a>
+## Freightcom — quote, book and label
+<!-- screen: wms-fulfillment.html · BUILD 2026-11-10 · fu v1.11 ; so.html · BUILD 2026-11-12 · so shipto v1 -->
+<!-- who: warehouse, office -->
+
+**What it is**
+IMS gets freight prices from Freightcom, books the carrier you pick, and saves the carrier label. The same **Freight** box is in two places: **Fulfillment** in the warehouse and the **Ship & invoice** window in the office.
+
+**Who does it**
+- **The warehouse, as a rule** — on **Fulfillment**, before **✓ Finalize order(s)**: quote, book, print the label.
+- **The office** — at **Ship & invoice**, when the warehouse could not book, when the quote was wrong, or when the ship-to changed ([Change the ship-to of a packed order](01-sales.md#sales-change-ship-to)).
+- Getting quotes and picking a rate: sales and warehouse staff. **Book** and **Cancel booking**: only staff with the **Freight booking** key (supervisors and admins always have it). Without it: "Booking needs the 'Freight booking' permission — ask a supervisor".
+- **Whoever books puts the label on.** If the office books, the office takes the label to the warehouse.
+
+**How — quote**
+1. Every pallet and box needs **L**, **W**, **H** and **Weight**. "N unit(s) without dimensions or weight — fill them in above before quoting".
+2. Check the options: **Residential**, and for pallets **Tailgate** and **Inside delivery**. They start from the customer's address. Tick **Remember for this address** to keep them for next time (from the warehouse, this goes to the office to confirm).
+3. Press **Get freight quotes**. "Freightcom is still working on the quote…" — press **Check again** in a moment.
+4. The rates list **Carrier**, **Service**, **Days**, **Our cost** and **Customer freight** (what goes on the invoice). The cheapest is picked first — or the customer's default carrier. Grey rows cannot be picked: "customer avoids this carrier", or "not on the carrier list".
+5. Pick a rate and press **Use this rate**.
+
+**How — book**
+1. Under the rate, set **Pickup date**, **Ready from** and **until**. Blank = today (tomorrow if the cutoff has passed or the warehouse is closed), ready from now, until the warehouse closes. A regular pickup needs no times.
+2. Press **Book shipment** and confirm: "This is a real Freightcom booking — Asung is billed (Net Terms) unless it is cancelled."
+3. Wait on the page. "Freightcom usually takes 10 – 20 seconds · keep this page open". If it is still working, press **Check again**.
+4. The box turns green: "✓ Booked with Freightcom — …", with **Tracking**, **BOL** and **Pickup**.
+
+**How — label**
+1. Boxes: press **🖨 Print 4 × 6 label** (or **Letter instead**). Pallets: press **🖨 Print label (Letter)**.
+2. "Labels are not saved yet." — press **Get labels**.
+3. Put the label on the shipment before it goes.
+
+**Cancel a booking — Freight booking key**
+1. Press **Cancel booking** and confirm. "The carrier and tracking number come off the orders (unless someone changed them). The picked rate stays, so you can book again."
+2. "Changing the ship-to? Cancel first, then change it — the old quote is dropped and you quote again. If the boxes are already labelled: after booking again, print the new label and replace the old one."
+
+**Pickup and delivery status**
+- "✓ Pickup scheduled — confirmation …" is done. "⚠ Pickup NOT scheduled" — schedule the pickup on the Freightcom site, then press **Check pickup**. "⏳" means Freightcom is still scheduling it. IMS also checks again every few minutes. After the order ships, see [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups).
+- The status line shows on the way 🚚, "✓ Delivered", or a yellow problem line. IMS reads it by itself. **Check status** asks Freightcom now (no charge).
+- A red band "✕ Cancelled on Freightcom": the booking was cancelled on the Freightcom site. Press **Mark cancelled in IMS** (Freight booking key) to close it in IMS — "Nothing is sent to Freightcom." Then you can book again.
+- Every booking: [Freightcom — shipment board](01-sales.md#sales-freightcom).
+
+**At the office — more in the Ship & invoice window**
+- **Edit sizes and weights** and **Add boxes or pallets** fix the units when the warehouse could not. Then quote again.
+- **Fill from the picked rate** puts the carrier and the customer freight into the order. **Fill carrier · tracking** puts in the booked carrier and tracking number.
+- Several orders in one shipment: **Freight goes on** picks the one order that carries the freight charge.
+- The heading shows who quoted (**warehouse** or **office**) and, once booked, who booked and when.
+- **Remember the delivery options for this address?** — **Add as a new ship-to address**, **Make it the default ship-to** or **This time only**.
+
+**Good to know**
+- The tag **Freightcom TOR** or **Freightcom EDM** shows which account is used. It comes from the warehouse.
+- No pickups on Saturday or Sunday — a pickup that would fall on a weekend moves to Monday, and a weekend date you type is refused.
+- The warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouses** › **Edit**, or the booking is refused.
+- A web order whose customer paid shipping at checkout: "the cheapest quote is used, the invoice freight stays as paid".
+
+**Watch out**
+- Boxes or pallets changed after booking: "cancel the booking, then quote and book again".
+- Orders on the workbench changed after the quote: "get quotes again".
+
+<!-- SCREENSHOT: wms-freightcom-1 · Freight box with the rate list, one rate picked and the Book row -->
 
 <a id="wms-receiving"></a>
 ## Receive a PO or a transfer
@@ -304,7 +363,7 @@ The window says whether the PO "stays open" for more or "closes on confirm".
 
 <a id="wms-stock-lookup"></a>
 ## Look up stock
-<!-- screen: wms-stock.html · BUILD 2026-10-20 · ws v1a -->
+<!-- screen: wms-stock.html · BUILD 2026-10-27 · ws v1c ; ims-label.js · lbl v1b -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -314,6 +373,12 @@ The window says whether the PO "stays open" for more or "closes on confirm".
 1. Scan a barcode, or type a SKU or name.
 2. For each branch you see the bins, **Available**, **Allocated to sales orders** and **Held for transfers out**. Tap them to see which order or transfer holds the stock.
 3. Press **Recent movements** to see what came in and went out.
+
+**Print a barcode label**
+1. Press **Print label** on the product.
+2. Pick the **Barcode** (if there are several), the **Label size**, what to **Print on the label** (**SKU**, **Barcode**, **Barcode number**, **Name**, **Brand**) and **Copies**, then press **Print**.
+3. The first time on a computer: in the print window pick the label printer, paper = the same label number, margins **None**, scale 100%, headers and footers off. If labels come out sideways or shrunk, tick **Rotate 90° for this printer**.
+- The screen remembers the last size, the fields and the turn on this computer. On another computer, set them once again.
 
 **Good to know**
 - The **Value** line shows only for people with the `cost` key.
@@ -380,4 +445,4 @@ Confirmed · Released to WMS · Working · **In transit** · **Receiving** · **
 A transfer has no **Finalized**. When the warehouse finalizes it, it goes straight to **In transit**.
 The office words for the same steps: see [What each status means](03-inventory.md#stock-statuses).
 
-<!-- rulings: 1041, 1048, 1049, 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->
+<!-- rulings: 835, 843, 850, 851, 852, 853, 854, 855, 856, 1158, 1159, 1160, 1201, 1202, 1041, 1048, 1049, 17, 20, 21, 25, 72, 74, 83, 84, 88, 224, 567, 578, 600, 887, 709, 713, 714, 715, 719, 720, 723, 725, 728, 731, 899 -->

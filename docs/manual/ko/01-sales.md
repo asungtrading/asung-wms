@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## 고객 찾기 · 더하기
-<!-- screen: customers.html · BUILD 2026-10-31 · cs v8b -->
+<!-- screen: customers.html · BUILD 2026-11-12 · cs v8e -->
 <!-- who: sales, office -->
 
 **무엇인가**
@@ -35,6 +35,9 @@
 **고객 고치는 법**
 1. 고객을 열고 **Edit** 를 누르면 이름 · 메모 · 세금 번호 · 기본 창고를 바꿀 수 있습니다.
 2. **Addresses** · **Contacts** 에서 **+ Add** 를 누르거나, 줄의 **Edit** · **Make default**(기본으로) · **Remove** 를 누릅니다.
+3. 배송 · 사업장 주소에는 **Delivery to**(**Auto** · **Business** · **Home (residential)**) · **Tailgate (no loading dock)**(리프트 게이트) · **Inside delivery**(안까지 배달)를 정합니다. "These go into freight quotes for this address automatically. Staff can still change them on a quote."(이 주소의 운임 견적에 저절로 들어간다 · 견적 때 직원이 바꿀 수 있다)
+4. **Default carrier** › **Change**: "New orders for this customer start with this carrier. Freight quotes pick this carrier's cheapest rate first."(새 오더는 이 운송사로 시작 · 운임 견적은 이 운송사의 가장 싼 요율을 먼저 고른다)
+5. **Carriers to avoid** › **Change**: 이 고객이 원하지 않는 운송사를 체크합니다. "Their freight quotes are greyed out and cannot be picked — in the warehouse and at Ship & invoice."(그 운송사 견적은 회색 · 고를 수 없다 — 창고에서도 Ship & invoice 에서도)
 
 **master 권한이 있는 사람**
 - 새 고객은 기본 조건으로 시작합니다: Wholesale · 0% · C.B.S · CAD. master 권한이 있는 사람이 **Edit** 에서 바꿉니다(가격 등급 · 할인 · 결제 조건 · 통화 · 계정).
@@ -62,7 +65,7 @@
 
 <a id="sales-new-order"></a>
 ## 새 판매 오더
-<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -87,7 +90,8 @@
 **초안 윗부분**
 "Tax, price tier, discount and addresses are copied from the customer. You can change them on the draft."(세금 · 가격 등급 · 할인 · 주소는 고객에게서 복사되고, 초안에서 바꿀 수 있다)
 - **Warehouse** · **Order date** · **Required by** · **Reference**(고객의 PO 번호) · **Payment term** · **Price tier** · **Customer discount %** · **Order discount %** · **Coupon** · **Carrier** · **Tax rule** · **Comments** · **Shipping notes** — 값을 누르면 바꿀 수 있습니다.
-- **Ship to…** 는 이 오더의 배송 주소만 바꿉니다.
+- **Ship to…** 는 이 오더의 배송 주소만 바꿉니다. **Saved address** 에 고객의 주소가 나옵니다 — 하나를 고르면 칸이 채워지고, 필요한 것을 고친 뒤 **Save** 를 누릅니다.
+- 창고가 Finalize 한 뒤에는 Ship & invoice 창에서 배송지를 바꿉니다 — [팩된 오더의 배송지 바꾸기](#sales-change-ship-to)
 - **Tax rule** 은 **Auto — from ship-to province**(배송지 주에서 자동)로 시작합니다.
 
 **조심할 것**
@@ -294,7 +298,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-undo"></a>
 ## 오더 되돌리기
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, office, manager -->
 
 **무엇인가**
@@ -308,6 +312,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 **Delete draft**
 1. 초안에서 **Delete draft** 를 누릅니다.
 2. "Delete draft SO-99001? It has never been confirmed, so it disappears — the number is not reused." 에 OK 를 누릅니다.
+- 한 번도 확정하지 않은 초안만 지울 수 있습니다. 한 번 확정했다가 Unconfirm 으로 돌아온 초안에는 **Delete draft** 가 없습니다 — 매니저가 **Cancel order…** 로 취소해 기록에 남깁니다([오더 취소](#sales-cancel)).
 
 **Unconfirm — manager 이상**
 - manager 는 Staff 에서 그 사람에게 Location 을 체크한 창고의 오더만 풀 수 있습니다(체크가 없으면 모든 창고). supervisor · admin 은 모든 오더를 풀 수 있습니다.
@@ -377,13 +382,14 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-backorders"></a>
 ## 백오더
-<!-- screen: so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
+<!-- screen: so-backorders.html · BUILD 2026-11-01 · bo store v1 -->
 <!-- who: sales, office -->
 
 **무엇인가**
 백오더는 고객이 주문했지만 확정 때 확보하지 못한 것입니다. 재고가 들어올 때까지 따로 오더(예: SO-99001a)로 기다립니다. 프리오더도 같은 방식으로 기다립니다.
 창고에서 모자란 몫도 백오더가 됩니다 — [물건이 모자랄 때](04-wms.md#wms-pick-short)
 **Sales ▾** › **Backorders** 에는 탭이 넷 있습니다: **Arrivals**(처음 열림) · **Insights** · **All backorders** · **Emails**
+**Arrivals** · **Insights** · **All backorders** 에는 스토어 필터가 있습니다: **All stores** · **Warehouse Backend**(IMS 에서 만든 오더) · **Web — asung.ca** · **Web — aonebeauty.com**
 
 **Arrivals(입고)**
 - 맨 위 **Ready to ship now** 는 지금 재고로 보낼 수 있는 백오더입니다.
@@ -397,6 +403,13 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **All backorders(모든 백오더)**
 모든 백오더 · 프리오더 라인입니다. **Open** · **Ended (backorders)** · **All**, 고객 · 공급처 · 브랜드 · SKU · **Arrived since** · 날짜로 필터합니다. **↓ CSV** 는 필터에 맞는 것을 내려받습니다.
+
+**Send backorder notice(백오더 알림 보내기) — 매니저 이상**
+백오더 물건을 보낼 수 있다는 메일을 손으로 고객에게 보냅니다. "Orders from aonebeauty.com are not emailed automatically"(aonebeauty.com 오더는 자동 메일이 안 나간다) — 그 오더는 이것으로 보냅니다.
+1. **All backorders** 에서 열린 백오더 라인을 체크합니다.
+2. **Send backorder notice…** 를 누릅니다. 나갈 메일과, 안 나갈 고객 · 라인이 까닭과 함께 나옵니다(예: "already emailed"(이미 보냄) · "no stock to fill it yet"(아직 채울 재고 없음)).
+3. **Send N emails** 를 누릅니다. 백오더 메일을 꺼 둔 고객이 있으면 먼저 묻습니다 — 좋다고 하면 그래도 보냅니다.
+- "Each line is emailed once — after this, the automatic runs leave these lines alone."(라인마다 한 번만 · 그 뒤 자동 메일은 이 라인을 건드리지 않는다)
 
 **Insights(분석)**
 백오더로 잃는 금액(**Lost sales**)과 자꾸 모자라는 SKU 를 보여 줍니다. SKU 를 누르면 그 오더들이 보입니다.
@@ -457,23 +470,25 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice(출고 + 인보이스)
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) ; 2026-11-11 · so fct v1 (status line) -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office -->
 
 **무엇인가**
 창고가 오더를 끝내면 상태가 **Finalized** 가 됩니다. 그러면 오피스가 **Ship & invoice** 를 누릅니다: 물건이 장부에서 빠지고 인보이스가 발행됩니다. 한 번에 일어납니다.
 
 **언제**
-**Finalized** 오더를 보낼 준비가 되면 바로 — 운임 견적과 운송사가 정해졌을 때.
+**Finalized** 오더를 보낼 준비가 되면 바로. 보통은 창고가 Finalize 때 Freightcom 견적 · 예약을 이미 해 두었습니다 — 그러면 창이 예약과 함께 열립니다.
 
 **어떻게 — 오더 하나**
 1. **Finalized** 오더를 열고 **Ship & invoice…** 를 누릅니다.
-2. 맨 위 **What the warehouse packed** 에 팔레트 · 박스마다 크기와 무게가 나옵니다 — 운임 견적에 씁니다([상자 · 팔레트에 담기](04-wms.md#wms-fulfillment)). "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."(크기 없는 짐 · 창고에 먼저 묻는다)
-3. 운임: 오더에 이미 있는 비용의 금액을 실제 운임으로 바꾸거나, **Freight amount** 에 새 라인 금액을 적습니다. 비우면 운임 라인이 없습니다.
-4. **Carrier**(운송사)를 고르고 **Tracking number**(송장 번호)를 적습니다(박스가 여럿이면 쉼표로 나눔). 필요하면 **Shipping notes** 도 적습니다.
-5. **Preview** 를 누릅니다. **What will happen** 을 읽습니다: 라인마다 **Ordered** · **Ships** · **Short**, 비용, 인보이스
-6. **Ship & invoice** 를 누르고 확인합니다. 여기서는 되돌릴 수 없습니다.
-7. 결과에 **Invoice** · **Amount due** · **Still owed** 와 **Print invoice** · **Email invoice…** 단추가 나옵니다.
+2. 맨 위 **What the warehouse packed** 에 팔레트 · 박스마다 크기와 무게가 나옵니다. "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."(크기 없는 짐 · 창고에 먼저 묻는다)
+3. 그 아래 **Ship to** 에 배송 주소가 나옵니다. 틀렸으면 다른 일보다 먼저 [팩된 오더의 배송지 바꾸기](#sales-change-ship-to)
+4. **Freight** 에 Freightcom 견적과 예약이 나옵니다. 창고가 예약했으면 창이 열릴 때 운송사 · 송장 번호 · 운임이 채워집니다. 예약이 없거나 견적이 틀렸으면 여기서 견적 · 예약합니다 — [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)
+5. 오더의 운임 라인 금액을 확인하거나, **Freight amount** 에 새 라인 금액을 적습니다. 비우면 운임 라인이 없습니다.
+6. **Carrier**(운송사)와 **Tracking number**(송장 번호)를 확인합니다(박스가 여럿이면 쉼표로 나눔). 필요하면 **Shipping notes** 도 적습니다.
+7. **Preview** 를 누릅니다. **What will happen** 을 읽습니다: 라인마다 **Ordered** · **Ships** · **Short**, 비용, 인보이스
+8. **Ship & invoice** 를 누르고 확인합니다. 여기서는 되돌릴 수 없습니다.
+9. 결과에 **Invoice** · **Amount due** · **Still owed** 와 **Print invoice** · **Email invoice…** 단추가 나옵니다.
 
 **여러 오더를 인보이스 한 장으로**
 1. 같은 창에서 **Other packed orders for …** 를 엽니다 — 같은 청구처 · 같은 통화의 **Finalized** 오더(30 개까지)
@@ -497,8 +512,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 - **Put back to the shelf**(선반에 돌려놓기): 콤보는 통째로 나가거나 안 나갑니다. 콤보가 다 갖춰지지 않으면 남는 구성품을 bin 에 돌려놓으라는 목록이 나옵니다.
 - 오더에 이미 받은 결제는 그 인보이스에 저절로 붙습니다.
 - **Preview** 뒤에 창의 무엇을 바꾸면 **Preview** 를 다시 누릅니다.
-- **Freightcom 픽업**: Freightcom 으로 예약한 오더는 예약됨 칸에 픽업이 나옵니다. "✓ Pickup scheduled — confirmation …" 은 끝난 것입니다. "⚠ Pickup NOT scheduled" 면 Freightcom 사이트에서 픽업을 잡고 **Check pickup** 을 누릅니다. "⏳" 는 Freightcom 이 아직 잡는 중이라는 뜻입니다. 출고하면 이 칸은 사라집니다 — 그 뒤에는 [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups) 에서 봅니다.
-- **Freightcom 배송 상태**: 예약됨 칸(그리고 오더의 **Carrier** 아래 — 출고 뒤에도)에 한 줄이 나옵니다 — 가는 중 🚚 · "✓ Delivered"(배송됨) · 노란 문제 줄. IMS 가 스스로 읽고, **Check status** 는 지금 Freightcom 에 묻습니다(요금 없음). Freightcom 사이트에서 취소된 예약이면 빨간 띠 "Cancelled on Freightcom" 이 나옵니다 — **Mark cancelled in IMS**(freight booking 열쇠)를 눌러 IMS 에서도 예약을 닫습니다. Freightcom 은 부르지 않습니다. 모든 예약은 [Freightcom — 쉽먼트 보드](#sales-freightcom).
+- **Freight** 칸에는 Freightcom 픽업과 배송 상태도 나옵니다 — [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom). 출고한 뒤에도 오더의 **Carrier** 아래에 배송 상태가 나옵니다. 모든 예약은 [Freightcom — 쉽먼트 보드](#sales-freightcom).
 
 **조심할 것 — 팩된 오더에서 고객이 일부를 빼 달라고 할 때**
 1. 오더를 평소대로 Ship & invoice 합니다. 인보이스에는 팩된 수량 그대로 실립니다.
@@ -508,6 +522,45 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 - 고객의 **Final invoice emails** 가 자동이면 인보이스가 먼저 메일로 나갑니다. 고객에게 미리 알립니다.
 
 <!-- SCREENSHOT: sales-ship-invoice-1 · Ship & invoice 창: 운임 · 운송사 · 송장 · "Other packed orders for …" 펼친 모습 -->
+
+<a id="sales-change-ship-to"></a>
+## 팩된 오더의 배송지 바꾸기
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
+<!-- who: office -->
+
+**무엇인가**
+창고가 Finalize 한 뒤에 고객이 새 배송 주소를 주면, 오피스가 **Ship & invoice** 창에서 주소를 바꾸고, 운임을 다시 견적 · 예약하고, 박스의 라벨을 갈아 붙입니다.
+
+**언제 바꿀 수 있나**
+- **Draft**: 오더 화면의 **Ship to…** 로([새 판매 오더](#sales-new-order))
+- **Confirmed** · **Released to WMS** · **Working**: 여기서는 못 바꿉니다 — 창고가 Finalize 할 때까지 기다립니다.
+- **Finalized**: 여기, **Ship & invoice** 창에서
+- **Ship & invoice** 뒤: 더는 못 바꿉니다. "… the ship-to can no longer be changed"
+
+**어떻게**
+1. **Finalized** 오더를 열고 **Ship & invoice…** 를 누릅니다.
+2. Freightcom 예약이 있으면 먼저 취소합니다: **Freight** 에서 **Cancel booking** 을 누릅니다(Freight booking 열쇠 — 없으면 열쇠가 있는 사람에게 부탁). 그 전에는 **Change ship-to…** 가 "Cancel the Freightcom booking first."(먼저 Freightcom 예약을 취소하라)라고 합니다.
+3. **Ship to** 줄에서 **Change ship-to…** 를 누릅니다.
+4. **Saved address**(저장된 주소)를 고르거나, 칸에 새 주소를 적습니다.
+5. **Change these orders too**(이 오더들도 함께 바꾸기)에 같은 주소로 가는 다른 Finalized 오더가 나옵니다 — 이 창에서 체크한 오더나, 이 운임 견적을 함께 쓰는 오더. 미리 체크돼 있습니다. 보통 그대로 둡니다.
+6. 새 주소면 **Add this address to the customer's saved addresses**(고객 주소록에 더하기)가 체크돼 있습니다(저장된 주소를 고르면 저절로 풀림). 알면 **Residential** · **Tailgate** · **Inside delivery** 도 정합니다.
+7. **Save the new ship-to** 를 누릅니다. "✓ Ship-to changed on …" 과 경고가 나옵니다.
+8. **Freight** 에서 **Get freight quotes** 를 누르고, 요율을 고르고, **Book** 합니다 — [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)
+9. 새 라벨을 인쇄합니다. 직접 창고에 가서 박스의 옛 라벨을 떼고 새 라벨을 붙입니다. 취소된 라벨은 픽업 때 운송사가 스캔하면 걸립니다.
+10. **Preview** 뒤 **Ship & invoice** 를 누릅니다.
+
+**예**
+Customer A 의 SO-99001 이 Finalized 이고 Toronto 로 예약돼 있습니다. Customer A 가 Calgary 로 보내 달라고 합니다. 예약을 취소하고, 배송지를 바꾸고, 다시 견적 · 예약하고, 새 라벨을 인쇄해 옛 라벨과 바꿔 붙인 뒤 Ship & invoice 합니다. 세금은 Ontario 에서 Alberta 로 저절로 바뀝니다.
+
+**알아 둘 것**
+- 주 · 나라가 바뀌면 세금 규칙을 다시 고릅니다: "The tax rule changed with the new ship-to … — the order totals follow the new rule. If a Ship Ready was already sent, send it again."(새 배송지로 세금 규칙이 바뀌었다 · 합계도 따라간다 · Ship Ready 를 이미 보냈으면 다시 보낸다)
+- 새 주소는 고객 주소록에 하나 더 들어갈 뿐입니다 — "the customer's default ship-to does not change."(고객의 기본 배송지는 안 바뀐다) 기본은 고객 화면에서 바꿉니다([고객 찾기 · 더하기](#sales-customers)).
+- **Change these orders too** 에서 체크를 푼 오더는 옛 주소 그대로입니다. "⚠ Taken off this invoice (old ship-to): … — ship it from its own Ship & invoice window."(이번 인보이스에서 빠짐 · 자기 Ship & invoice 창에서 보낸다) 인보이스도 따로 나갑니다.
+- Shopify 쪽 오더의 주소는 바뀌지 않습니다.
+
+**조심할 것**
+- aonebeauty.com 웹 오더는 Shopify 에서 결제했습니다. 같은 주 안에서는 바꿀 수 있지만, 다른 주 · 나라로는 못 바꿉니다: "… was paid in Shopify … — its ship-to cannot move to another province or country"
+- 주소를 바꾸면 운임 견적이 없어집니다 — "quote again after saving."(저장한 뒤 다시 견적)
 
 <a id="sales-pickup"></a>
 ## 픽업 오더와 추적번호
@@ -574,7 +627,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-invoices"></a>
 ## 판매 인보이스
-<!-- screen: so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
+<!-- screen: so-invoices.html · BUILD 2026-11-03 · inv pd v1 -->
 <!-- who: office, accounting -->
 
 **무엇인가**
@@ -582,7 +635,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **인보이스 찾는 법**
 1. "Invoice · customer · SO number · reference" 로 검색합니다.
-2. 상태로 필터합니다: **Open — still owed**(미수) · **Overdue**(연체) · **Open with no due date**(기한 없는 미수) · **Paid in full**(완납) · **Cancelled** · **All** — 그리고 발행일
+2. 상태로 필터합니다: **Open — still owed**(미수) · **Overdue**(연체) · **Open with no due date**(기한 없는 미수) · **Paid in full**(완납) · **Cancelled** · **Carried over (before IMS)**(IMS 이전에서 넘어옴) · **All** — 그리고 발행일
 3. 인보이스를 누릅니다. **Bill to** · **Issued** · **Due** · **Currency** · **Orders**(누르면 그 오더가 열림), 라인, **Payments** · **Credits applied** · **Emails** 가 보입니다.
 
 **Cancel invoice… — 매니저 이상**
@@ -604,6 +657,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 **알아 둘 것**
 - "⚠ No due date — the order had no payment term. It is not counted as overdue."(결제 조건이 없던 오더 · 연체로 세지 않는다)
+- **IMS 이전의 인보이스**에는 **before IMS** 꼬리표가 붙습니다. IMS 를 시작할 때 고객이 아직 갚지 않은 돈입니다. 라인이 있는 원래 인보이스는 QuickBooks 에 있습니다. 여기서는 인쇄 · 메일 · 취소를 못 합니다. 결제와 크레딧 노트는 평소대로 붙고, **Paid before IMS** 에 그 전에 정리된 돈이 나옵니다. 반품은 **Credit with a reference number…** 로 합니다([크레딧 노트](#sales-credits)).
 - **↓ CSV** 는 필터에 맞는 인보이스를, **↓ Lines CSV** 는 그 라인을 한 라인 한 행으로 내려받습니다.
 
 <!-- SCREENSHOT: sales-invoices-1 · 인보이스 상세: Orders · Payments · Credits applied · Emails -->
@@ -651,10 +705,11 @@ Customer A 가 계정에 $500.00 을 냅니다. 다음 인보이스 99001 은 $1
 **알아 둘 것**
 - **Customer Payments** 필터: **Active** · **Not attached — money on account**(안 붙은 계정의 돈) · **Held for orders** · **Refunds** · **Voided** · **All**
 - 결제에는 바꿀 상태가 없습니다. 잘못된 결제는 고치지 않고 Void 합니다.
+- IMS 이전부터 고객이 맡겨 둔 돈은 수단이 **Carried over (before IMS)** 로 나옵니다. 손으로 만들 수 없고 **Void payment…** 도 없습니다.
 
 <a id="sales-credits"></a>
 ## 크레딧 노트
-<!-- screen: so-credits.html · BUILD 2026-10-25 · cr v5a -->
+<!-- screen: so-credits.html · BUILD 2026-11-10 · cr v7a -->
 <!-- who: accounting, office -->
 
 **무엇인가**
@@ -682,7 +737,10 @@ Customer A 가 계정에 $500.00 을 냅니다. 다음 인보이스 99001 은 $1
 3. **Reason**: **Other** · **Note**: 「출고 전에 고객이 뺐다」
 
 **IMS 인보이스가 없는 판매**
-IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a reference number…** 를 누릅니다. **Customer** 를 고르고 **Reference number**(종이 인보이스의 번호 · 필수) · **Invoice date**, 제품마다 **Unit price paid**(낸 단가)를 적습니다.
+IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a reference number…** 를 누릅니다.
+1. **Old invoice** 아래 **Invoice number** 에 종이 인보이스의 번호를 적고 **Find** 를 누릅니다. "Find fills the lines, prices and tax from the sales history before IMS."(IMS 이전 판매 이력에서 라인 · 가격 · 세금을 채운다) 번호가 옛 오더 여럿에 있으면 하나를 고릅니다.
+2. 이력에 없으면 IMS 가 그렇게 알려 줍니다 — 또는 **Enter by hand** 를 누릅니다. **Customer** 를 고르고 **Reference number**(종이 인보이스의 번호 · 필수) · **Invoice date**, 제품마다 **Unit price paid**(낸 단가)를 적습니다.
+3. ⚠ 줄이 있으면 읽습니다 — 예: "Taxed at the old invoice's rate …"(옛 인보이스의 세율로) · "returning … but only … left on the old invoice"(옛 인보이스에 남은 것보다 많이 돌려받음)
 
 **크레딧 쓰기**
 - 크레딧은 고객의 다음 인보이스가 발행될 때 저절로 붙습니다.
@@ -813,7 +871,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-freightcom"></a>
 ## Freightcom — 쉽먼트 보드
-<!-- screen: freightcom.html · BUILD 2026-11-11 · fcb v1 -->
+<!-- screen: freightcom.html · BUILD 2026-11-10 · fcb v1 -->
 <!-- who: office, warehouse, accounting -->
 
 **무엇인가**
@@ -925,14 +983,14 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-cancel"></a>
 ## 오더 취소
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, manager -->
 
 **무엇인가**
-취소는 확정 오더를 아주 닫습니다. 초안은 취소하지 않고 **Delete draft** 를 씁니다([오더 되돌리기](#sales-undo)).
+취소는 오더를 아주 닫고 기록에 남깁니다. 확정 오더, 또는 한 번 확정된 적이 있는 초안에 씁니다. 한 번도 확정하지 않은 초안은 취소하지 않고 **Delete draft** 를 씁니다([오더 되돌리기](#sales-undo)).
 
 **어떻게 — 매니저 이상**
-1. IMS 안에 있는 확정 오더에서 **Cancel order…** 를 누릅니다.
+1. IMS 안에 있는 확정 오더 — 또는 한 번 확정된 적이 있는 초안 — 에서 **Cancel order…** 를 누릅니다.
 2. **Reason**(까닭 · 필수)을 적고 **Check** 를 누릅니다.
 3. 결과를 읽습니다: "Orders that will be cancelled (split-off orders go with it)"(나뉜 오더도 함께 취소) — 예: SO-99001 과 SO-99001a 가 함께
 4. 이 오더가 예전 오더의 백오더를 이어받았다면 **Reopen** 이나 **Keep closed** 를 고릅니다. 꼭 하나를 골라야 합니다.
@@ -1016,4 +1074,4 @@ Fulfilled 오더에는 만든 날부터 Fulfilled 된 날까지 걸린 날이 �
 - **Sales Orders** 는 단추 하나 **↓ CSV ▾** 에서 둘을 고릅니다: **Orders**(오더마다 한 줄) · **Lines**(오더 줄마다 한 줄 — 500 오더까지). **Status** 칸은 화면 칩과 같은 글입니다 — 확정 오더에 그 꼬리표가 있으면 **Backorder** · **Pre-order** · **On hold** · **Backorder ended**.
 - 이 파일은 내부용입니다. 고객에게는 인쇄 문서를 보냅니다([인쇄와 메일](#sales-print-email)).
 
-<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901, 1172, 1174 -->
+<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 1200, 1201, 1202, 1203, 1204, 1205, 1206, 1207, 1208, 1209, 1210, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 843, 865, 866, 876, 877, 889, 900, 901, 948, 949, 1172, 1174 -->

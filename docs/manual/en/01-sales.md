@@ -5,7 +5,7 @@
 
 <a id="sales-customers"></a>
 ## Find or add a customer
-<!-- screen: customers.html · BUILD 2026-10-31 · cs v8b -->
+<!-- screen: customers.html · BUILD 2026-11-12 · cs v8e -->
 <!-- who: sales, office -->
 
 **What it is**
@@ -35,6 +35,9 @@ Before a new order, when a customer calls with a change, or when a new customer 
 **How to change a customer**
 1. Open the customer and press **Edit** to change the name, notes, tax number or default warehouse.
 2. In **Addresses** or **Contacts**, press **+ Add**, **Edit**, **Make default** or **Remove** on a row.
+3. On a shipping or business address, set **Delivery to** (**Auto**, **Business** or **Home (residential)**), **Tailgate (no loading dock)** and **Inside delivery**. "These go into freight quotes for this address automatically. Staff can still change them on a quote."
+4. **Default carrier** › **Change**: "New orders for this customer start with this carrier. Freight quotes pick this carrier's cheapest rate first."
+5. **Carriers to avoid** › **Change**: tick the carriers this customer does not want. "Their freight quotes are greyed out and cannot be picked — in the warehouse and at Ship & invoice."
 
 **Needs the master key**
 - New customers start with the standard terms: Wholesale · 0% · C.B.S · CAD. A person with the master key changes them in **Edit** (price tier, discount, payment term, currency, accounts).
@@ -62,7 +65,7 @@ Before a new order, when a customer calls with a change, or when a new customer 
 
 <a id="sales-new-order"></a>
 ## Start a new sales order
-<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; ims-overdue.js · BUILD 2026-10-26 · overdue v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -87,7 +90,8 @@ When a customer orders by phone, by email or in person.
 **The top of the draft**
 "Tax, price tier, discount and addresses are copied from the customer. You can change them on the draft."
 - **Warehouse**, **Order date**, **Required by**, **Reference** (the customer's PO number), **Payment term**, **Price tier**, **Customer discount %**, **Order discount %**, **Coupon**, **Carrier**, **Tax rule**, **Comments** and **Shipping notes** — click a value to change it.
-- **Ship to…** changes the delivery address for this order only.
+- **Ship to…** changes the delivery address for this order only. **Saved address** lists the customer's addresses — pick one to fill the fields, change anything you need, then press **Save**.
+- After the warehouse finalizes the order, the ship-to is changed in the Ship & invoice window instead — see [Change the ship-to of a packed order](#sales-change-ship-to).
 - **Tax rule** starts as **Auto — from ship-to province**.
 
 **Watch out**
@@ -294,7 +298,7 @@ A hold releases the order's reserved stock for other orders and keeps the order 
 
 <a id="sales-undo"></a>
 ## Take an order back
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, office, manager -->
 
 **What it is**
@@ -308,6 +312,7 @@ Each step can be taken back one step at a time: from the warehouse to **Confirme
 **Delete draft**
 1. On a draft, press **Delete draft**.
 2. IMS asks: "Delete draft SO-99001? It has never been confirmed, so it disappears — the number is not reused." Press OK.
+- Only a draft that was never confirmed can be deleted. A draft that was confirmed once and then unconfirmed has no **Delete draft** — a manager presses **Cancel order…** instead, so the order stays on record (see [Cancel an order](#sales-cancel)).
 
 **Unconfirm — Managers and above**
 - A manager can unconfirm only orders of the locations ticked for them in Staff (no location ticked = every location). Supervisors and admins can unconfirm any order.
@@ -377,13 +382,14 @@ What a merge does:
 
 <a id="sales-backorders"></a>
 ## Backorders
-<!-- screen: so-backorders.html · BUILD 2026-10-22 · bo csv v1 -->
+<!-- screen: so-backorders.html · BUILD 2026-11-01 · bo store v1 -->
 <!-- who: sales, office -->
 
 **What it is**
 A backorder is what a customer ordered but we could not reserve when the order was confirmed. It waits in its own order (for example SO-99001a) until the stock comes in. A pre-order waits the same way.
 Shortages found in the warehouse become backorders too — see [When an item is short](04-wms.md#wms-pick-short).
 **Sales ▾** › **Backorders** has four tabs: **Arrivals** (opens first), **Insights**, **All backorders** and **Emails**.
+**Arrivals**, **Insights** and **All backorders** have a store filter: **All stores**, **Warehouse Backend** (orders made in IMS), **Web — asung.ca**, **Web — aonebeauty.com**.
 
 **Arrivals**
 - **Ready to ship now** at the top lists backorders that can ship from stock right now.
@@ -397,6 +403,13 @@ Shortages found in the warehouse become backorders too — see [When an item is 
 
 **All backorders**
 Every backorder and pre-order line. Filter by **Open**, **Ended (backorders)** or **All**, by customer, supplier, brand, SKU, **Arrived since** and dates. **↓ CSV** downloads what the filters show.
+
+**Send backorder notice — Managers and above**
+Emails the customer by hand that backordered items can ship. "Orders from aonebeauty.com are not emailed automatically" — use this for them.
+1. On **All backorders**, tick the open backorder lines.
+2. Press **Send backorder notice…**. The window lists the emails that will go out, and the customers or lines that will not, with the reason (for example "already emailed" or "no stock to fill it yet").
+3. Press **Send N emails**. A customer with backorder emails switched off is asked about first — the notice is sent anyway if you agree.
+- "Each line is emailed once — after this, the automatic runs leave these lines alone."
 
 **Insights**
 How much we lose to backorders (**Lost sales**) and which SKUs keep missing. Click a SKU to see its orders.
@@ -457,23 +470,25 @@ On a **Finalized** order, a person who works on sales orders **and** has the mas
 
 <a id="sales-ship-invoice"></a>
 ## Ship & invoice
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; 2026-11-06 · so pk v1 (pickup line) ; 2026-11-11 · so fct v1 (status line) -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office -->
 
 **What it is**
 When the warehouse finishes an order, its status is **Finalized**. The office then presses **Ship & invoice**: the goods leave the books and the invoice is issued, in one step.
 
 **When**
-As soon as a **Finalized** order is ready to go — freight quoted, carrier chosen.
+As soon as a **Finalized** order is ready to go. Usually the warehouse has already quoted and booked Freightcom at Finalize — the window then opens with the booking.
 
 **How — one order**
 1. Open the **Finalized** order and press **Ship & invoice…**.
-2. At the top, **What the warehouse packed** lists each pallet or box with size and weight — use it for the freight quote (see [Fulfillment](04-wms.md#wms-fulfillment)). "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."
-3. Freight: change the amount of a charge already on the order to the real freight, or type **Freight amount** for a new line. Empty means no freight line.
-4. Choose the **Carrier** and type the **Tracking number** (several boxes: separate with commas). Add **Shipping notes** if needed.
-5. Press **Preview**. Read **What will happen**: for each line **Ordered**, **Ships** and **Short**, the charges, and the invoice.
-6. Press **Ship & invoice** and confirm. This cannot be undone here.
-7. The result shows **Invoice**, **Amount due** and **Still owed**, with **Print invoice** and **Email invoice…** buttons.
+2. At the top, **What the warehouse packed** lists each pallet or box with size and weight. "⚠ … unit(s) have no dimensions — ask the warehouse before quoting freight."
+3. Under it, **Ship to** shows the delivery address. If it is wrong, see [Change the ship-to of a packed order](#sales-change-ship-to) before anything else.
+4. **Freight** shows the Freightcom quote and booking. If the warehouse booked it, the carrier, tracking number and freight are filled in when the window opens. If not — or the quote is wrong — quote and book here: see [Freightcom — quote, book and label](04-wms.md#wms-freightcom).
+5. Check the freight amount on the order's charge line, or type **Freight amount** for a new line. Empty means no freight line.
+6. Check the **Carrier** and **Tracking number** (several boxes: separate with commas). Add **Shipping notes** if needed.
+7. Press **Preview**. Read **What will happen**: for each line **Ordered**, **Ships** and **Short**, the charges, and the invoice.
+8. Press **Ship & invoice** and confirm. This cannot be undone here.
+9. The result shows **Invoice**, **Amount due** and **Still owed**, with **Print invoice** and **Email invoice…** buttons.
 
 **Several orders on one invoice**
 1. In the same window, open **Other packed orders for …** — finalized orders of the same bill-to and currency (up to 30).
@@ -497,8 +512,7 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 - **Put back to the shelf**: a combo ships whole or not at all. If a combo cannot go complete, the list shows the extra components to put back in their bins.
 - Payments already taken for an order attach themselves to its invoice.
 - If something in the window changes after **Preview**, press **Preview** again.
-- **Freightcom pickup**: when the order was booked with Freightcom, the booked box shows the pickup. "✓ Pickup scheduled — confirmation …" is done. "⚠ Pickup NOT scheduled" — schedule the pickup on the Freightcom site, then press **Check pickup**. "⏳" means Freightcom is still scheduling it. The box is gone after the order ships — then look in [Action Centre › Pickups not scheduled](06-action-centre.md#action-pickups).
-- **Freightcom delivery status**: the booked box (and the order, under **Carrier**, also after it shipped) shows one line — on the way 🚚, "✓ Delivered", or a yellow problem line. IMS reads it by itself; **Check status** asks Freightcom now (no charge). If the booking was cancelled on the Freightcom site, a red band "Cancelled on Freightcom" shows — press **Mark cancelled in IMS** (freight booking key) to close the booking in IMS; it does not call Freightcom. All bookings: [Freightcom — shipment board](#sales-freightcom).
+- The Freight box also shows the Freightcom pickup and delivery status — see [Freightcom — quote, book and label](04-wms.md#wms-freightcom). After the order ships, the order still shows the delivery status under **Carrier**. All bookings: [Freightcom — shipment board](#sales-freightcom).
 
 **Watch out — the customer wants to take items off a packed order**
 1. Ship & invoice the order as usual. The invoice shows the packed quantity.
@@ -508,6 +522,45 @@ As soon as a **Finalized** order is ready to go — freight quoted, carrier chos
 - If the customer's **Final invoice emails** is automatic, the invoice is emailed first. Tell the customer in advance.
 
 <!-- SCREENSHOT: sales-ship-invoice-1 · Ship & invoice window with freight, carrier, tracking and "Other packed orders for …" open -->
+
+<a id="sales-change-ship-to"></a>
+## Change the ship-to of a packed order
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
+<!-- who: office -->
+
+**What it is**
+When the customer gives a new delivery address after the warehouse finalized the order, the office changes it in the **Ship & invoice** window, quotes and books the freight again, and replaces the label on the boxes.
+
+**When you can change it**
+- **Draft**: on the order itself, with **Ship to…** (see [Start a new sales order](#sales-new-order)).
+- **Confirmed**, **Released to WMS**, **Working**: not here — wait until the warehouse finalizes the order.
+- **Finalized**: here, in the **Ship & invoice** window.
+- After **Ship & invoice**: no longer. "… the ship-to can no longer be changed".
+
+**How**
+1. Open the **Finalized** order and press **Ship & invoice…**.
+2. If the order is booked with Freightcom, cancel the booking first: in **Freight**, press **Cancel booking** (Freight booking key — if you do not have it, ask someone who does). Until then **Change ship-to…** says "Cancel the Freightcom booking first."
+3. On the **Ship to** line, press **Change ship-to…**.
+4. Pick a **Saved address**, or type the new address in the fields.
+5. **Change these orders too** lists the other finalized orders going to the same address — ticked in this window, or sharing this freight quote. They are ticked already. Usually leave them ticked.
+6. **Add this address to the customer's saved addresses** is ticked for a new address (it unticks itself when you pick a saved one). Set **Residential**, **Tailgate** and **Inside delivery** for it if you know them.
+7. Press **Save the new ship-to**. IMS shows "✓ Ship-to changed on …" and any warnings.
+8. In **Freight**, press **Get freight quotes**, pick a rate, and **Book** — see [Freightcom — quote, book and label](04-wms.md#wms-freightcom).
+9. Print the new label. Take it to the warehouse yourself, take the old label off the boxes and put the new one on. A cancelled label is caught when the carrier scans it at pickup.
+10. Press **Preview**, then **Ship & invoice**.
+
+**Example**
+SO-99001 for Customer A is finalized and booked to Toronto. Customer A now wants it delivered to Calgary. Cancel the booking, change the ship-to, quote and book again, print the new label and replace the old one, then Ship & invoice. The tax changes from Ontario to Alberta by itself.
+
+**Good to know**
+- A new province or country picks the tax rule again: "The tax rule changed with the new ship-to … — the order totals follow the new rule. If a Ship Ready was already sent, send it again."
+- The new address is added to the customer's addresses as an extra one — "the customer's default ship-to does not change." Change the default on the customer ([Find or add a customer](#sales-customers)).
+- An order you untick in **Change these orders too** keeps the old address. "⚠ Taken off this invoice (old ship-to): … — ship it from its own Ship & invoice window." It gets its own invoice.
+- The address on the Shopify order does not change.
+
+**Watch out**
+- A web order from aonebeauty.com was paid in Shopify. Its ship-to can change within the same province, but not to another province or country: "… was paid in Shopify … — its ship-to cannot move to another province or country".
+- The freight quote is dropped when the address changes — "quote again after saving."
 
 <a id="sales-pickup"></a>
 ## Pickup orders and tracking
@@ -574,7 +627,7 @@ When a customer's **Final invoice emails** is **automatic** (see [Find or add a 
 
 <a id="sales-invoices"></a>
 ## Sales invoices
-<!-- screen: so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
+<!-- screen: so-invoices.html · BUILD 2026-11-03 · inv pd v1 -->
 <!-- who: office, accounting -->
 
 **What it is**
@@ -582,7 +635,7 @@ When a customer's **Final invoice emails** is **automatic** (see [Find or add a 
 
 **How to find an invoice**
 1. Search by "Invoice · customer · SO number · reference".
-2. Filter by state: **Open — still owed**, **Overdue**, **Open with no due date**, **Paid in full**, **Cancelled**, **All** — and by issue date.
+2. Filter by state: **Open — still owed**, **Overdue**, **Open with no due date**, **Paid in full**, **Cancelled**, **Carried over (before IMS)**, **All** — and by issue date.
 3. Click an invoice. You see **Bill to**, **Issued**, **Due**, **Currency**, **Orders** (click one to open it), the lines, **Payments**, **Credits applied** and **Emails**.
 
 **Cancel invoice… — Managers and above**
@@ -604,6 +657,7 @@ Deposits and money on account that attached themselves when the invoice was issu
 
 **Good to know**
 - "⚠ No due date — the order had no payment term. It is not counted as overdue."
+- **Invoices from before IMS** carry the tag **before IMS**. They hold what the customer still owed when IMS started. The original invoice with its lines is in QuickBooks. It cannot be printed, emailed or cancelled here. Payments and credit notes attach to it as usual, and **Paid before IMS** shows what was settled before. For a return, use **Credit with a reference number…** (see [Credit notes](#sales-credits)).
 - **↓ CSV** downloads the invoices that match the filters. **↓ Lines CSV** downloads their lines, one row per line.
 
 <!-- SCREENSHOT: sales-invoices-1 · an invoice's detail with Orders, Payments, Credits applied and Emails -->
@@ -651,10 +705,11 @@ On the **Sales Orders** list each invoiced order shows **unpaid**, **partly paid
 **Good to know**
 - The **Customer Payments** filter: **Active**, **Not attached — money on account**, **Held for orders**, **Refunds**, **Voided**, **All**.
 - A payment has no status to change. A wrong payment is voided, not edited.
+- Money the customer had with us before IMS shows with the method **Carried over (before IMS)**. It cannot be entered by hand and has no **Void payment…**.
 
 <a id="sales-credits"></a>
 ## Credit notes
-<!-- screen: so-credits.html · BUILD 2026-10-25 · cr v5a -->
+<!-- screen: so-credits.html · BUILD 2026-11-10 · cr v7a -->
 <!-- who: accounting, office -->
 
 **What it is**
@@ -682,7 +737,10 @@ This is the second step of [the customer wants to take items off a packed order]
 3. **Reason**: **Other** · **Note**: "Removed by the customer before shipping".
 
 **A sale with no IMS invoice**
-For an invoice from before IMS, press **Credit with a reference number…** in the new credit window. Pick the **Customer** and type the **Reference number** (the invoice number on the paper — required), **Invoice date**, and for each product the **Unit price paid**.
+For an invoice from before IMS, press **Credit with a reference number…** in the new credit window.
+1. Under **Old invoice**, type the **Invoice number** from the paper and press **Find**. "Find fills the lines, prices and tax from the sales history before IMS." If the number is on more than one old order, pick one.
+2. Not in the history? IMS says so — or press **Enter by hand**. Pick the **Customer** and type the **Reference number** (the invoice number on the paper — required), **Invoice date**, and for each product the **Unit price paid**.
+3. Read any ⚠ line — for example "Taxed at the old invoice's rate …" or "returning … but only … left on the old invoice".
 
 **Using the credit**
 - Credits attach themselves to the customer's next invoice when it is issued.
@@ -813,7 +871,7 @@ In **Integrations ▾** › **QuickBooks**, the type **Cost of goods — daily j
 
 <a id="sales-freightcom"></a>
 ## Freightcom — shipment board
-<!-- screen: freightcom.html · BUILD 2026-11-11 · fcb v1 -->
+<!-- screen: freightcom.html · BUILD 2026-11-10 · fcb v1 -->
 <!-- who: office, warehouse, accounting -->
 
 **What it is**
@@ -925,14 +983,14 @@ Customer A ordered 10 of SKU-99001 on the web shop and now wants 6. Open SO-9900
 
 <a id="sales-cancel"></a>
 ## Cancel an order
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, manager -->
 
 **What it is**
-Cancelling closes a confirmed order for good. A draft is not cancelled — use **Delete draft** (see [Take an order back](#sales-undo)).
+Cancelling closes an order for good and keeps it on record. It is for a confirmed order, or a draft that was confirmed once before. A draft that was never confirmed is not cancelled — use **Delete draft** (see [Take an order back](#sales-undo)).
 
 **How — Managers and above**
-1. On a confirmed order still in IMS, press **Cancel order…**.
+1. On a confirmed order still in IMS — or a draft that was confirmed before — press **Cancel order…**.
 2. Type the **Reason** (required) and press **Check**.
 3. Read the result: "Orders that will be cancelled (split-off orders go with it)". For example SO-99001 and SO-99001a go together.
 4. If the order had taken over backorders from older orders, choose **Reopen** or **Keep closed**. You must choose one.
@@ -1016,4 +1074,4 @@ Most sales screens can download a spreadsheet (CSV).
 - On **Sales Orders**, one button **↓ CSV ▾** gives both: **Orders** (one row per order) and **Lines** (one row per order line — up to 500 orders). The **Status** column says what the badge on screen says — a confirmed order shows **Backorder**, **Pre-order**, **On hold** or **Backorder ended** when it has that tag.
 - These files are for internal use. Send customers the printed documents (see [Print and email](#sales-print-email)).
 
-<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 889, 900, 901, 1172, 1174 -->
+<!-- rulings: 1041, 1050, 1054, 1056, 1058, 1060, 1061, 1065, 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1074, 1077, 1078, 1079, 1200, 1201, 1202, 1203, 1204, 1205, 1206, 1207, 1208, 1209, 1210, 245, 246, 277, 282, 283, 284, 298, 311, 312, 321, 322, 324, 329, 349, 357, 433, 434, 436, 437, 438, 441, 442, 443, 449, 452, 455, 467, 469, 473, 484, 488, 489, 490, 507, 514, 516, 517, 526, 529, 532, 540, 541, 545, 546, 549, 590, 602, 609, 610, 612, 628, 709, 713, 714, 715, 719, 720, 723, 724, 725, 726, 727, 729, 761, 762, 768, 769, 770, 771, 843, 865, 866, 876, 877, 889, 900, 901, 948, 949, 1172, 1174 -->

@@ -330,7 +330,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-statuses"></a>
 ## 상태의 뜻
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; invoices.html · BUILD 2026-10-22 · inv printed v2 ; charges.html · BUILD 2026-10-24 · chg docs v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; invoices.html · BUILD 2026-10-22 · inv printed v2 ; charges.html · BUILD 2026-10-24 · chg docs v1 -->
 <!-- who: all -->
 
 **PO**
@@ -345,6 +345,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 | Cancelled | 취소 |
 
 - 다른 PO 에서 나뉜 PO 에는 "split from PO-…" 가 보입니다.
+- 주황 **Backorder** 칩: "Split off from another PO and still waiting — no confirmed invoice yet"(다른 PO 에서 나뉘어 아직 기다리는 중 · 확정된 인보이스 없음). 상태 필터 **Backorder** 로 모아 봅니다.
 - 결제 필터: **Unpaid** · **Partly paid** · **Paid**
 
 **인보이스 · 크레딧 · 비용 · 입고**
@@ -360,4 +361,4 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 - **Reorder Planner** 의 **↓ CSV**(주문 목록 · 전체 제품 — 공급처 하나 또는 전체) · **↓ Dead Stock CSV** · **↓ Forecast CSV**
 - 엑셀에서 SKU 와 바코드는 글자 그대로 열립니다.
 
-<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735, 759, 765 -->
+<!-- rulings: 88, 92, 99, 389, 391, 396, 400, 550, 606, 607, 616, 621, 691, 692, 697, 704, 707, 709, 711, 713, 714, 715, 719, 720, 723, 725, 732, 733, 734, 735, 759, 765, 481, 776 -->
