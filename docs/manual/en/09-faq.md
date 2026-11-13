@@ -24,8 +24,8 @@ No. A person above you changes them on **Staff** (see [Roles and keys](00-gettin
 ### Why is my CSV shorter than I expected?
 CSV follows your filters. Check the filters first (see [Search, filters, pages and CSV](00-getting-started.md#start-search-filter)).
 
-### Why are times two hours off in Edmonton?
-IMS shows Toronto time. After 22:00 in Edmonton it is already the next day in Toronto (see [Dates and times](00-getting-started.md#start-dates-times)).
+### Why are times off by an hour or two in Edmonton?
+IMS shows Toronto time. Edmonton is 1 hour behind Toronto in winter and 2 hours behind in summer. Late in the evening in Edmonton it is already the next day in Toronto (see [Dates and times](00-getting-started.md#start-dates-times)).
 
 ### What do I send when something goes wrong?
 The screen name and both build tags, the number you were working on, what you did and what happened, and a screenshot of **System Check** (see [Getting help](00-getting-started.md#start-getting-help)).
@@ -58,6 +58,12 @@ Ship & invoice as usual, then a manager makes a credit note for what was taken o
 
 ### An issued invoice has the wrong price. How do I fix it?
 If only the price was too high, make a credit note with the reason **Price adjustment** — the customer keeps the goods. If the whole invoice is wrong, managers and above **Cancel invoice…** and **Reissue…** (see [Credit notes](01-sales.md#sales-credits) and [Sales invoices](01-sales.md#sales-invoices)).
+
+### Who books Freightcom — the warehouse or the office?
+The warehouse, as a rule, on **Fulfillment** before it finalizes. The office books at **Ship & invoice** when the warehouse could not, when the quote was wrong, or when the ship-to changed. **Book** and **Cancel booking** need the **Freight booking** key. Whoever books puts the label on (see [Freightcom — quote, book and label](04-wms.md#wms-freightcom)).
+
+### The customer gave a new address after the warehouse finalized. What do I do?
+Change it in the **Ship & invoice** window, then quote and book the freight again and replace the label (see [Change the ship-to of a packed order](01-sales.md#sales-change-ship-to)).
 
 ### Why is a new customer on the Action Centre?
 Customers made by sales start on the default terms; a manager reviews them (see [New customers to review](06-action-centre.md#action-new-customers)).
@@ -137,6 +143,9 @@ After **Complete**, only a manager can reopen it (see [Put away](04-wms.md#wms-p
 ### When do received goods count in stock?
 Only after the receipt is confirmed — on the receiving screen or **WMS Admin** by managers and above with the receiving-confirm key, or on **Purchase Receipts** in the office (see [Put away](04-wms.md#wms-putaway) and [Receipts in the office](02-purchasing.md#purch-receipts)).
 
+### Why was the Freightcom booking refused?
+The warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouse** › **Edit**. Booking also needs the **Freight booking** key (see [Freightcom — quote, book and label](04-wms.md#wms-freightcom)).
+
 ### Why can't I move stock between bins?
 It needs the Bin moves key, switched on person by person. Ask a manager (see [Move stock between bins](04-wms.md#wms-bin-moves)).
 
@@ -163,6 +172,9 @@ After Finish the sale cannot be changed at the POS. A return is a credit note. B
 ### The customer cannot pay it all now. Can I still finish?
 Yes. Finish does not stop you; what is still owed stays on the invoice (see [Finish and print the invoice](05-pos.md#pos-finish)).
 
+### I recorded a payment wrong. How do I fix it?
+Before **Finish**, press **Cancel payment…** on that payment in **Payments**, then record the right one. It stays on record as cancelled, with your name. After **Finish**, ask a manager (see [Take the payment](05-pos.md#pos-pay)).
+
 ### I left a sale unfinished. Where is it?
 In **Parked and open at this store**. One not finished by the end of the day also shows on the Action Centre (see [Park a sale and pick it up again](05-pos.md#pos-park) and [POS not finished](06-action-centre.md#action-pos)).
 
@@ -182,6 +194,15 @@ You can only edit people below your own role, and not yourself (see [Staff](07-s
 
 ### How do I remove a staff member?
 There is no delete. Untick **Active** (see [Staff](07-settings.md#set-staff)).
+
+### Can I change a warehouse's address?
+No. **Edit** on **Warehouse** shows the address only. Freightcom pickups use it — if a warehouse moves, tell an admin (see [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master)).
+
+### Who connects QuickBooks?
+Only an admin connects, reconnects or disconnects it. Everyone who opens **Settings** sees whether it is connected (see [QuickBooks — the connection](07-settings.md#set-qbo-connect)).
+
+### Should I press Go live or Stop live on a Shopify store?
+No. The web shops are already live. Press them only when the IMS administrator asks you to (see [Shopify stores](07-settings.md#set-shopify)).
 
 ### A staff member forgot their password.
 See [Signing in, screens and keys](#faq-sign-in).

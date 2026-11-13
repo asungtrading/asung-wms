@@ -42,7 +42,7 @@
 
 <a id="purch-reorder"></a>
 ## 무엇을 주문할지 정하기(Reorder Planner)
-<!-- screen: purchasing.html · BUILD 2026-10-22 · pur v1c -->
+<!-- screen: purchasing.html · BUILD 2026-10-26 · pur v1d -->
 <!-- who: office -->
 
 **무엇인가**
@@ -74,7 +74,7 @@
 - 왼쪽 **보정 Override**(adjustments) — 공급처의 **계절보정**(season) · **트렌드**(trend)를 직접 적습니다. 비우면 자동값을 씁니다. **Override 초기화**(Reset overrides)는 지웁니다.
 
 **알아 둘 것**
-- 초안은 "재고 · 회계에 영향 없음" 입니다. 확정은 **Purchase Orders** 에서 합니다.
+- 초안은 재고 · 회계에 영향이 없습니다 — 묻는 창에 "초안이라 재고 · 회계에 영향 없음" 이라고 나옵니다. 확정은 **Purchase Orders** 에서 합니다.
 - **↓ CSV** 는 주문 목록이나 전체 제품을 공급처 하나 또는 전체로 내려받습니다.
 - master 권한이 필요한 것: 제품의 공급처 고정 단가(💲) 바꾸기
 
@@ -82,7 +82,7 @@
 
 <a id="purch-new-po"></a>
 ## PO 시작하기
-<!-- screen: po.html · BUILD 2026-10-26 · po cost v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -109,7 +109,7 @@ PO(구매 오더)는 공급처 하나에 주문하는 것입니다. **Draft**(�
 
 <a id="purch-confirm"></a>
 ## PO 확정하고 보내기
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -169,7 +169,7 @@ PO(구매 오더)는 공급처 하나에 주문하는 것입니다. **Draft**(�
 
 <a id="purch-documents"></a>
 ## 공급처 서류 올리기
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; charges.html · BUILD 2026-10-24 · chg docs v1 ; ims-podocs.js · BUILD 2026-10-24 · podocs v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; charges.html · BUILD 2026-11-09 · chg kind v1 ; ims-podocs.js · BUILD 2026-10-24 · podocs v1 -->
 <!-- who: office, accounting -->
 
 **무엇인가**
@@ -177,7 +177,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 **어떻게**
 1. **Upload a document** 를 누릅니다.
-2. 종류를 고릅니다: **Supplier invoice** · **BOL** · **Certificate of Origin** · **Packing list** · **B3 / CAD** · **Other**("Other needs a short description" — Other 는 짧은 설명이 필요)
+2. **Kind** 를 고릅니다: **Invoice** · **BOL** · **Certificate of Origin** · **Packing list** · **B3 / CAD** · **Other**("Other needs a short description" — Other 는 짧은 설명이 필요). PO 에서 **Invoice** 를 고르면 **Supplier invoice** 칸이 나옵니다 — 그 PO 의 공급처 인보이스 가운데 어느 것인지 고르거나 **— not linked —** 로 둡니다.
 3. 있으면 **Document date** 와 **Document number** 를 적습니다. "The date and number go into the file name in Drive."(날짜와 번호가 드라이브 파일 이름에 들어간다)
 4. 파일을 고르고 — "PDF, JPEG or PNG · up to 10 MB" — **Upload** 를 누릅니다.
 
@@ -220,7 +220,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-receipts"></a>
 ## 오피스 입고
-<!-- screen: receiving.html · BUILD 2026-10-22 · rcv latest v1 -->
+<!-- screen: receiving.html · BUILD 2026-11-01 · rcv sup v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -245,23 +245,25 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 **알아 둘 것**
 - **Split** 은 행의 일부를 두 번째 bin 으로 옮깁니다. 합계는 그대로입니다.
-- **Reopen** 은 정리한 차이를 다시 엽니다.
+- **Reopen** 은 정리한 모자람 줄을 다시 엽니다. 물건이 재고로 들어간 차이(주문보다 많음 · 받아들인 덤)는 다시 열 수 없습니다 — "in stock — cannot be reopened" 가 보입니다.
 - **Delete** 는 초안 입고와 거기서 센 것을 지웁니다. "The purchase order is untouched."(PO 는 그대로)
 
 <!-- SCREENSHOT: purch-receipts-1 · 모자란 라인이 있는 입고와 Settle 고르기 -->
 
 <a id="purch-credits"></a>
 ## 공급처 크레딧
-<!-- screen: invoices.html · BUILD 2026-10-22 · inv printed v2 -->
+<!-- screen: invoices.html · BUILD 2026-11-11 · inv tax v4 -->
 <!-- who: accounting, office -->
 
 **무엇인가**
 공급처 크레딧 노트는 우리가 줄 돈을 줄입니다 — 오지 않은 물건이나 틀린 가격
 
 **어떻게**
-1. 공급처 인보이스를 열고 **Create a credit note** 를 누릅니다. "The draft arrives already filled with the gap between what was billed and what actually arrived."(초안에 청구된 것과 실제 온 것의 차이가 채워져 온다)
-2. 라인을 확인하고 까닭을 고릅니다: **Not received** · **Price difference**
-3. 공급처의 크레딧 번호와 **Credit date** 를 적고 **Confirm** 을 누릅니다.
+1. 공급처 인보이스를 열고 **Create a credit note** 를 누릅니다. "Lines start at the difference between what this invoice billed and what actually arrived."(줄은 이 인보이스가 청구한 것과 실제 온 것의 차이로 시작한다)
+2. 창에서 **Credit date** 와, 알면 **Printed total** 을 적습니다. **Number** 는 "assigned when created"(만들 때 매김)입니다. **Check** 를 누르고 **Create** 를 누릅니다.
+3. 새 초안에서 라인을 확인하고 까닭을 고릅니다: **Not received** · **Price difference**
+4. **Confirm** 을 누릅니다.
+- 공급처가 자기 크레딧 노트를 보내오면 그 번호를 **Supplier ref** 에 적습니다.
 
 **알아 둘 것**
 - 확정한 크레딧은 재고 원가를 바꿀 수 있습니다. IMS 가 얼마인지("Stock cost changed on … lines"), 무엇이 물건 도착을 기다리는지 알려 줍니다.
@@ -300,7 +302,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-undo"></a>
 ## 취소 · 되살리기 · 지우기
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; invoices.html · BUILD 2026-10-22 · inv printed v2 ; charges.html · BUILD 2026-10-24 · chg docs v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; invoices.html · BUILD 2026-11-11 · inv tax v4 ; charges.html · BUILD 2026-11-09 · chg kind v1 -->
 <!-- who: office -->
 
 **PO**
@@ -354,7 +356,7 @@ PO 와 비용 빌 맨 아래에 **Documents** 구역이 있습니다. 공급처 
 
 <a id="purch-csv"></a>
 ## CSV 내려받기
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; purchasing.html · BUILD 2026-10-22 · pur v1c -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; purchasing.html · BUILD 2026-10-26 · pur v1d -->
 <!-- who: office, accounting -->
 
 - 확정한 PO 의 **↓ PO CSV** — 공급처에 보내는 파일([PO 확정하고 보내기](#purch-confirm))

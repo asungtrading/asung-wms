@@ -5,14 +5,14 @@
 
 <a id="pos-start"></a>
 ## Start the POS
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 ; ims-auth.js · BUILD nav v10 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 ; ims-auth.js · BUILD nav v19 -->
 <!-- who: sales -->
 
 **What it is**
 **POS** is the counter screen. You sell to a customer who is standing at the counter, take the payment and hand the goods over. Every POS sale is a sales order on a customer account.
 
 **Who**
-Everyone who works on sales orders. There is no extra key for the POS and no step only for managers.
+Everyone who works on sales orders. There is no extra key for the POS. Only one step is for managers and above: **Cancel sale…** (see [Park a sale and pick it up again](#pos-park)).
 
 **How**
 1. Press **POS** next to the Asung logo (see [Modes: IMS, WMS and POS](00-getting-started.md#start-modes)).
@@ -65,7 +65,7 @@ IMS does not sell without a customer account. Make the account first: press **IM
 
 <a id="pos-prices"></a>
 ## Prices, discounts and coupons
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -96,7 +96,7 @@ The **COUPON** box shows only when the customer has a coupon they can use, or a 
 
 <a id="pos-bgrade"></a>
 ## Sell B-grade
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -142,7 +142,7 @@ On a counter order in **Sales**, use **Final sale item** in the same way.
 
 <a id="pos-pay"></a>
 ## Take the payment
-<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -164,6 +164,15 @@ Type **Cash given** to see the change. "Record the amount kept, not the cash han
 **The payments list**
 Each payment shows under **Payments** on the right: the method, the amount, the reference, when it was recorded and by whom. The top line counts the payments and gives the total. A cancelled payment is crossed out, with who cancelled it, when and why.
 
+**Cancel a payment entered by mistake**
+Use it when a payment was recorded wrong — the wrong amount, the wrong method, or recorded twice.
+1. In **Payments**, press **Cancel payment…** on that payment. (The window-closing **Cancel** elsewhere on the screen is a different button.)
+2. IMS asks: "Cancel the payment … ? It stays on record as cancelled, with your name. Then record the right amount again." Type a reason if you like (it is optional) and press OK.
+3. The payment is crossed out and shows **Cancelled by** you, with the time and the reason.
+4. Record the right payment again (steps 3 – 5 above).
+- **Cancel payment…** shows only before **Finish**, and only on a payment that belongs to this one sale. Anyone who records POS payments can use it.
+- After **Finish**, or for a payment that also paid other invoices, a manager fixes it on **Sales ▾** › **Customer Payments** (see [Customer payments and deposits](01-sales.md#sales-payments)).
+
 **Good to know**
 - Money on account and open credit notes pay the sale by themselves. The right side shows **Credit / on account**.
 - After **Confirm**, the scan box says "Confirmed — Reopen to add or change items". To add or change items, press **Reopen to change items** — "Payments already taken stay on it."
@@ -172,7 +181,7 @@ Each payment shows under **Payments** on the right: the method, the amount, the 
 
 <a id="pos-finish"></a>
 ## Finish and print the invoice
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 ; ims-doc.js -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 ; ims-doc.js -->
 <!-- who: sales -->
 
 **What it is**

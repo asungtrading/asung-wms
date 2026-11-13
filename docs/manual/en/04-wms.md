@@ -4,7 +4,7 @@
 
 <a id="wms-start"></a>
 ## Get into WMS
-<!-- screen: ims-auth.js · BUILD nav v12 -->
+<!-- screen: ims-auth.js · BUILD nav v19 -->
 <!-- who: warehouse, manager -->
 
 **What it is**
@@ -58,7 +58,7 @@ When the office presses **Release to WMS**, the order appears on **Split & Waves
 
 <a id="wms-picking"></a>
 ## Pick an order
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; combo box scan BUILD 2026-10-30 · pk v1.6 -->
+<!-- screen: wms-picker.html · BUILD 2026-10-30 · pk v1.6 -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -101,7 +101,7 @@ Each one goes to [WMS Admin](#wms-admin). You keep picking.
 
 <a id="wms-pick-short"></a>
 ## When an item is short
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; wms-confirm-modal.js -->
+<!-- screen: wms-picker.html · BUILD 2026-10-30 · pk v1.6 ; wms-confirm-modal.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -138,7 +138,7 @@ SO-99001-1 needs 30 of product X. The shelf has 18. Pick 18, press **⚠ Not eno
 
 <a id="wms-packing"></a>
 ## Check a picked order (Packing)
-<!-- screen: wms-packer.html · BUILD 2026-10-20 · pa v1.6b ; combo box scan BUILD 2026-10-30 · pa v1.7 ; wms-confirm-modal.js -->
+<!-- screen: wms-packer.html · BUILD 2026-10-30 · pa v1.7 ; wms-confirm-modal.js -->
 <!-- who: warehouse -->
 
 **What it is**
@@ -258,7 +258,7 @@ IMS gets freight prices from Freightcom, books the carrier you pick, and saves t
 **Good to know**
 - The tag **Freightcom TOR** or **Freightcom EDM** shows which account is used. It comes from the warehouse.
 - No pickups on Saturday or Sunday — a pickup that would fall on a weekend moves to Monday, and a weekend date you type is refused.
-- The warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouses** › **Edit**, or the booking is refused.
+- The warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouse** › **Edit**, or the booking is refused.
 - A web order whose customer paid shipping at checkout: "the cheapest quote is used, the invoice freight stays as paid".
 
 **Watch out**
@@ -315,7 +315,7 @@ Only POs whose supplier invoice the office has confirmed can be received (see [R
 
 <a id="wms-putaway"></a>
 ## Put away
-<!-- screen: wms-receiver.html · BUILD 2026-10-21 · rc v1.9 ; wms-admin.html · BUILD 2026-10-05 · wa v1.17 -->
+<!-- screen: wms-receiver.html · BUILD 2026-11-11 · rc v2.2 ; wms-admin.html · BUILD 2026-11-08 · wa v1.18a -->
 <!-- who: warehouse, manager -->
 
 **What it is**
@@ -424,7 +424,7 @@ The window says whether the PO "stays open" for more or "closes on confirm".
 
 <a id="wms-statuses"></a>
 ## Warehouse statuses
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; wms-fulfillment.html · BUILD 2026-10-01 · fu v1.3 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: wms-picker.html · BUILD 2026-10-30 · pk v1.6 ; wms-packer.html · BUILD 2026-10-30 · pa v1.7 ; wms-admin.html · BUILD 2026-11-08 · wa v1.18a ; so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: all -->
 
 **Sales orders**

@@ -36,7 +36,7 @@ A sales order, the stock it takes, the invoice and the payment are all in IMS, a
 
 <a id="start-sign-in"></a>
 ## Sign in
-<!-- screen: index.html · BUILD 2026-09-30 · door v1 ; ims-auth.js · BUILD nav v10 -->
+<!-- screen: index.html · BUILD 2026-09-30 · door v1 ; ims-auth.js · BUILD nav v19 -->
 <!-- who: all -->
 
 **What it is**
@@ -83,7 +83,7 @@ The first time you open IMS on a computer or tablet. After that IMS remembers yo
 
 <a id="start-modes"></a>
 ## Modes: IMS, WMS and POS
-<!-- screen: ims-auth.js · BUILD nav v10 ; dashboard.html · BUILD 2026-09-30 · db v1 -->
+<!-- screen: ims-auth.js · BUILD nav v19 ; dashboard.html · BUILD 2026-09-30 · db v1 -->
 <!-- who: all -->
 
 **What it is**
@@ -167,14 +167,14 @@ Many screens — for example **Sales Orders**, **Sales Invoices**, **Customer Pa
 
 <a id="start-search-filter"></a>
 ## Search, filters, pages and CSV
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 ; ims-export.js · BUILD 2026-10-26 · export v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; ims-export.js · BUILD 2026-10-27 · export v2 -->
 <!-- who: all -->
 
 **What it is**
 Every wide list has a bar on top. The bar has a search box, filters, a **Clear** button and often a **↓ CSV** button.
 
 **How to search**
-1. Click the search box. The grey words in it tell you what it searches. On **Sales Orders** that is "SO number · invoice number · customer · reference".
+1. Click the search box. The grey words in it tell you what it searches. On **Sales Orders** it searches the SO number, the invoice number, the customer and the reference.
 2. Type part of what you look for, for example `99001` or part of a customer name.
 3. Stop typing. The list updates by itself after a moment.
 
@@ -190,7 +190,7 @@ Every wide list has a bar on top. The bar has a search box, filters, a **Clear**
 
 **↓ CSV**
 1. Set the filters and the search the way you want.
-2. Press **↓ CSV** on the wide list.
+2. Press **↓ CSV** on the wide list. On **Sales Orders** the button is **↓ CSV ▾** — choose **Orders** (one row per order) or **Lines** (one row per order line, up to 500 orders).
 3. A spreadsheet file downloads. It has every row that matches your filters — all pages, not only the one on screen.
 
 **↓ Export… — pick the columns**
@@ -274,8 +274,8 @@ IMS keeps time in Toronto time. Every time you see — "made at", "changed at", 
 "Today" in IMS is today in Toronto. An invoice issued today gets Toronto's date.
 
 **For Edmonton staff**
-- Edmonton is 2 hours behind Toronto. A time IMS shows as 15:00 is 13:00 in Edmonton.
-- After 22:00 in Edmonton, it is already the next day in Toronto. Work done then gets the next day's date. Keep this in mind for late invoices and late receipts.
+- Edmonton keeps the same clock all year (from November 1, 2026). Toronto moves its clock in spring and fall. So Edmonton is **1 hour** behind Toronto in winter and **2 hours** behind in summer. In winter, a time IMS shows as 15:00 is 14:00 in Edmonton; in summer it is 13:00.
+- Late in the evening in Edmonton (after 23:00 in winter, after 22:00 in summer) it is already the next day in Toronto. Work done then gets the next day's date. Keep this in mind for late invoices and late receipts.
 
 **Plain dates**
 A date without a time (for example a due date or an order date) is just a date. It does not move with the time zone.

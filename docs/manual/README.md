@@ -28,6 +28,7 @@ Every section starts with an anchor line, then the heading, then two hidden comm
 - Anchor form: `area-task`, lower-case ASCII words joined by `-` (for example `start-sign-in`, `sales-ship-invoice`).
 - English and Korean use **the same anchors in the same order**. Anchors are never made from the heading — the Korean heading would give a different anchor.
 - `screen:` names the screen file(s) and the `*_BUILD` text the section was written against. Several screens are joined with ` ; `. A section that covers no single screen says `screen: none`.
+- When you change a section's text, set its `screen:` BUILD to the screen's current build too — and only then. An old BUILD then means the section has not been checked against the newer screen.
 - `who:` uses only these words: `manager`, `admin`, `accounting`, `office`, `sales`, `warehouse`, `all`. Screen role names (worker, supervisor) are not used here.
 - Screenshots that are still to be taken are marked `<!-- SCREENSHOT: <anchor>-<n> · what to capture -->`.
 - Each file ends with `<!-- rulings: … -->` — the ruling numbers the chapter relies on.

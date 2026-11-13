@@ -89,7 +89,7 @@ Each row shows **Invoice**, **Issued** (and how many days ago), **Customer**, **
 
 <a id="action-pos"></a>
 ## POS not finished
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager, sales -->
 
 **What shows here**
@@ -108,7 +108,7 @@ Each row shows **Sale**, **Customer**, **Branch**, **Confirmed** (when and who),
 
 <a id="action-counter"></a>
 ## Counter orders
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager -->
 
 **What shows here**
@@ -125,7 +125,7 @@ Each row shows **Order**, **Status**, **Ordered**, **Customer**, **Branch** and 
 
 <a id="action-new-customers"></a>
 ## New customers to review
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager -->
 
 **What shows here**
@@ -147,7 +147,7 @@ Each row shows **Customer**, **City**, **Created** (when and who), **Terms now**
 
 <a id="action-pickups"></a>
 ## Pickups not scheduled
-<!-- screen: manager-list.html · BUILD 2026-11-06 · ml v1.5 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager, sales -->
 
 **What shows here**
@@ -165,7 +165,7 @@ Each row shows **Pickup** (date and ready times), **Orders**, **Customer**, **Ca
 - "Every Freightcom pickup is scheduled." means there is nothing to do.
 - Nobody marks a row as checked — a row leaves when the pickup is confirmed.
 - No pickups on Saturday or Sunday. A booking made late on Friday is picked up on Monday.
-- A warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouses** › **Edit**, or IMS will not book — carriers refuse a pickup without them.
+- A warehouse needs a **Contact** and a **Phone** (10 digits) in **Settings** › **Warehouse** › **Edit**, or IMS will not book — carriers refuse a pickup without them.
 
 <!-- SCREENSHOT: action-pickups-1 · Pickups not scheduled with What Freightcom says and Check pickup -->
 

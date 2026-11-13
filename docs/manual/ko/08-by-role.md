@@ -61,12 +61,14 @@
 - B급 팔기 → [B급 팔기](05-pos.md#pos-bgrade)
 - 결제 받기 → [결제 받기](05-pos.md#pos-pay)
 - 끝내고 인보이스 인쇄 → [끝내고 인보이스 인쇄하기](05-pos.md#pos-finish)
+- 바코드 없는 물건을 떨이(final sale)로 팔기 → [떨이(final sale) 팔기 — 바코드 없는 물건](05-pos.md#pos-final-sale)
 - 판매를 잠시 두고 다시 잡기 → [판매를 잠시 두고 다시 잡기](05-pos.md#pos-park)
 - 그날 계산대 결제 맞춰 보기 → [상태의 뜻](05-pos.md#pos-statuses)
 
 ### Action Centre
 - Action Centre 열기 → [Action Centre 란](06-action-centre.md#action-start)
 - 끝내지 않은 POS 판매 찾기 → [POS not finished(끝내지 않은 POS)](06-action-centre.md#action-pos)
+- 아직 잡히지 않은 Freightcom 픽업 찾기 → [Pickups not scheduled(잡히지 않은 픽업)](06-action-centre.md#action-pickups)
 
 **권한**: `sales` 권한([역할과 권한](00-getting-started.md#start-roles-keys))
 
@@ -88,6 +90,9 @@
 - 운임 · 그 밖의 비용 넣기 → [운임과 그 밖의 비용](01-sales.md#sales-charges)
 - 포장 뒤 비용 넣기 (master 권한 필요) → [운임과 그 밖의 비용](01-sales.md#sales-charges)
 - 출고하고 인보이스 → [Ship & invoice(출고 + 인보이스)](01-sales.md#sales-ship-invoice)
+- Freightcom 견적 · 예약 (창고가 못 했거나 견적이 틀렸을 때 · 예약은 `freight_booking` 권한 필요) → [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)
+- 창고가 Finalize 한 뒤 배송지 바꾸기 → [팩된 오더의 배송지 바꾸기](01-sales.md#sales-change-ship-to)
+- Freightcom 쉽먼트 따라가기 → [Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom)
 - 픽업 오더 · 추적번호 → [픽업 오더와 추적번호](01-sales.md#sales-pickup)
 - 문서 인쇄 · 메일 → [인쇄와 메일](01-sales.md#sales-print-email)
 - 판매 인보이스 찾기 → [판매 인보이스](01-sales.md#sales-invoices)
@@ -120,13 +125,14 @@
 - **Inventory ▾** › **Combos** 에서 콤보 만들기 · 고치기 · 풀기 (master 권한 필요) → [새 제품 · 세트 · 콤보 만들기](03-inventory.md#stock-new-product)
 - 패밀리 만들기 · 고치기 (master 권한 필요) → [패밀리](03-inventory.md#stock-families)
 - 여러 제품을 한꺼번에 고치기 (master 권한 필요) → [여러 제품을 한꺼번에 고치기(Product Sheet)](03-inventory.md#stock-sheet)
+- 제품 · bin 바코드 라벨 찍기 → [바코드 라벨 찍기](03-inventory.md#stock-labels)
 - 제품 설명 쓰기 → [설명 · 사진 · 태그 · 웹 숍](03-inventory.md#stock-descriptions)
 - 사진 · 태그 · 바코드 고치기 (master 권한 필요) → [설명 · 사진 · 태그 · 웹 숍](03-inventory.md#stock-descriptions)
 - 다른 창고로 재고 보내기 → [창고 간 트랜스퍼](03-inventory.md#stock-transfers)
 - 오피스에서 bin 사이 옮기기 → [오피스의 bin 이동](03-inventory.md#stock-bin-moves)
 - 재고 CSV 내려받기 → [CSV 내려받기](03-inventory.md#stock-csv)
 
-**권한**: 영역마다 권한 — `sales` · `purchasing` · `receiving` · `transfer` · `master`([역할과 권한](00-getting-started.md#start-roles-keys))
+**권한**: 영역마다 권한 — `sales` · `purchasing` · `receiving` · `transfer` · `master`, Freightcom 예약에는 `freight_booking`([역할과 권한](00-getting-started.md#start-roles-keys))
 
 <a id="role-accounting"></a>
 ## 회계
@@ -157,7 +163,17 @@
 ### Action Centre
 - 덜 받은 즉시 결제 인보이스 찾기 → [Unpaid at hand-over(건넸는데 덜 받음)](06-action-centre.md#action-unpaid)
 
-**권한**: `sales` · `purchasing` 권한([역할과 권한](00-getting-started.md#start-roles-keys))
+### QuickBooks
+- 인보이스 · 크레딧 노트 · 결제를 QuickBooks 로 보내기 → [QuickBooks — 인보이스 · 크레딧 노트 보내기](01-sales.md#sales-quickbooks)
+- 하루 판매 원가 보내기 → [QuickBooks — 판매 원가(하루 분개)](01-sales.md#sales-quickbooks-cost)
+- IMS 계정 · 세금 규칙 · 고객 · 공급처 · 제품을 QuickBooks 와 짝짓기 → [QuickBooks matching(짝짓기)](07-settings.md#set-qbo-matching)
+- 공급처 인보이스 줄의 계정 고르기 → [QuickBooks matching — 공급처 인보이스 줄](07-settings.md#set-qbo-supplier-lines)
+- QuickBooks 가 이어져 있는지 보기 → [QuickBooks — 연결](07-settings.md#set-qbo-connect)
+
+### 운임
+- Freightcom 쉽먼트와 청구 금액 보기 → [Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom)
+
+**권한**: `sales` · `purchasing` 권한, QuickBooks 권한(`qbo`)([역할과 권한](00-getting-started.md#start-roles-keys))
 
 <a id="role-warehouse"></a>
 ## 창고
@@ -173,17 +189,20 @@
 - 물건이 모자랄 때 → [물건이 모자랄 때](04-wms.md#wms-pick-short)
 - 뽑은 오더 검수 → [뽑은 오더 검수(Packing)](04-wms.md#wms-packing)
 - 상자 · 팔레트에 담기 → [상자 · 팔레트에 담기(Fulfillment)](04-wms.md#wms-fulfillment)
+- Freightcom 견적 · 예약 · 라벨 찍기 (예약은 `freight_booking` 권한 필요) → [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)
 - PO · 트랜스퍼 받기 → [PO · 트랜스퍼 받기](04-wms.md#wms-receiving)
 - 풋어웨이 → [풋어웨이(제자리에 넣기)](04-wms.md#wms-putaway)
 - bin 사이 재고 옮기기 → [bin 사이 재고 옮기기](04-wms.md#wms-bin-moves)
 - 재고 찾아보기 → [재고 찾아보기](04-wms.md#wms-stock-lookup)
+- 제품 · bin 바코드 라벨 찍기 → [바코드 라벨 찍기](03-inventory.md#stock-labels)
 
 ### 재고와 판매
 - 창고 간 트랜스퍼 살피기 → [창고 간 트랜스퍼](03-inventory.md#stock-transfers)
 - 오피스에서 만든 bin 이동 → [오피스의 bin 이동](03-inventory.md#stock-bin-moves)
 - 픽업 오더 건네기 → [픽업 오더와 추적번호](01-sales.md#sales-pickup)
+- Freightcom 쉽먼트 따라가기 → [Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom)
 
-**권한**: 창고 권한 — `picking` · `packing` · `fulfillment` · `wms_receiving` · `stock_move`([역할과 권한](00-getting-started.md#start-roles-keys))
+**권한**: 창고 권한 — `picking` · `packing` · `fulfillment` · `wms_receiving` · `stock_move`, Freightcom 예약에는 `freight_booking`([역할과 권한](00-getting-started.md#start-roles-keys))
 
 <a id="role-manager"></a>
 ## 매니저
@@ -231,11 +250,14 @@
 - 끝내지 않은 POS 판매 찾기 → [POS not finished(끝내지 않은 POS)](06-action-centre.md#action-pos)
 - counter 오더 훑어보기 → [Counter orders(counter 오더)](06-action-centre.md#action-counter)
 - 새 고객 확인 → [New customers to review(확인할 새 고객)](06-action-centre.md#action-new-customers)
+- 아직 잡히지 않은 Freightcom 픽업 찾기 → [Pickups not scheduled(잡히지 않은 픽업)](06-action-centre.md#action-pickups)
 
 ### 설정
 - Settings 에서 누가 무엇을 바꾸나 보기 → [Settings 에 있는 것](07-settings.md#set-start)
 - 직원 더하기 · 고치기 → [직원(Staff)](07-settings.md#set-staff)
 - 목록 관리: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스 → [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master)
+- Freightcom 견적에 붙는 고객 마크업 정하기 → [운임 견적(Shipping quotes)](07-settings.md#set-shipping-quotes)
+- 픽업 오는 운송사와 마감 시각 정하기 → [운송사 픽업(Carrier pickups)](07-settings.md#set-carrier-pickups)
 - 딜 · 오더 할인 만들기 → [할인 규칙과 딜](07-settings.md#set-deals)
 - 쿠폰 발행 · 무효 → [쿠폰](07-settings.md#set-coupons)
 - Shopify 가게 연결 확인 · 제품 잇기 · 보내기 → [Shopify 가게](07-settings.md#set-shopify)
@@ -258,6 +280,7 @@ admin 은 매니저의 일도 합니다 — [매니저](#role-manager)를 봅니
 - 백오더 메일 설정 → [백오더 메일(Backorder emails)](07-settings.md#set-mail)
 - Google Drive 설정 → [Google Drive](07-settings.md#set-drive)
 - Shopify 가게 더하기 · 위치 짝 맞추기 → [Shopify 가게](07-settings.md#set-shopify)
+- QuickBooks 연결 · 확인 · 끊기 → [QuickBooks — 연결](07-settings.md#set-qbo-connect)
 
 **권한**: admin 역할([역할과 권한](00-getting-started.md#start-roles-keys))
 

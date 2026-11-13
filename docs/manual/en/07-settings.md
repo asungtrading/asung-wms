@@ -86,7 +86,7 @@ The new person signs in and sets their own password with **Change Password** (se
 
 <a id="set-master"></a>
 ## Lists: brands, units, payment terms, bins, carriers, services
-<!-- screen: settings.html · BUILD 2026-11-11 · set v18 ; ims-label.js · lbl v1b -->
+<!-- screen: settings.html · BUILD 2026-11-12 · set v18a ; ims-label.js · lbl v1b -->
 <!-- who: manager, admin -->
 
 **What it is**
@@ -112,7 +112,7 @@ The new person signs in and sets their own password with **Change Password** (se
 | **Carrier** | "Picked at Ship & invoice — the kind decides email and tracking" | add · edit |
 | **Service** | "Billed on service orders as quantity × unit price — tax follows the order" | add · edit |
 
-Currency and Account are look only. Warehouses cannot be added here, and a warehouse's name and address are not changed here. Tax rules are picked on customers and orders, not kept here. If one of these needs to change, ask the IMS administrator.
+Currency and Account are look only. Warehouses cannot be added here, and a warehouse's name and address are not changed here — **Edit** shows the address only: "The address is shown here only. Freightcom pickups use it — if a warehouse moves, tell an admin." Tax rules are picked on customers and orders, not kept here. If one of these needs to change, ask the IMS administrator.
 
 **How — add to a list**
 1. Open the list and press **+ Add** (for example **+ Add brand**).
@@ -282,7 +282,7 @@ A line with **Discount (%)** 30, **Minimum** **At least** 6 each, **Applies to**
 
 <a id="set-coupons"></a>
 ## Coupons
-<!-- screen: discount-rules.html · BUILD dr v3a -->
+<!-- screen: discount-rules.html · BUILD dr v4 -->
 <!-- who: manager, admin -->
 
 **What it is**
@@ -339,7 +339,7 @@ On the product, press **Edit** and choose the **Surcharge group** (see [Find and
 
 <a id="set-documents"></a>
 ## Documents
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c ; ims-doc.js -->
+<!-- screen: settings.html · BUILD 2026-11-12 · set v18a ; ims-doc.js -->
 <!-- who: admin -->
 
 **What it is**
@@ -403,7 +403,7 @@ Each setting shows who can change it: "Only an admin can change this." or "Only 
 
 <a id="set-drive"></a>
 ## Google Drive
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c -->
+<!-- screen: settings.html · BUILD 2026-11-12 · set v18a -->
 <!-- who: admin -->
 
 **What it is**
@@ -429,7 +429,7 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 
 <a id="set-shopify"></a>
 ## Shopify stores
-<!-- screen: shopify-stores.html · BUILD 2026-10-27 · ss v5a -->
+<!-- screen: shopify-stores.html · BUILD 2026-11-12 · ss v5b -->
 <!-- who: admin, manager -->
 
 **What it is**
@@ -445,7 +445,7 @@ The web shops are already live. Do not press **Stop live…** or **Go live…** 
 - **Live**: "IMS sends products and stock, takes orders and updates them in Shopify."
 - **Not live**: "IMS only reads this store (Check connection · Link existing products) — nothing is written to Shopify and no orders are taken". A new store starts not live.
 - **Stop live…**: "IMS stops writing to this store and stops taking its orders. Waiting product updates stay in the queue and go out when it is live again." Nothing changes in Shopify itself.
-- **Go live…**: "From now on IMS writes to the real store: it sends stock for every product with send on (right away, as IMS has it now), sends product changes, takes new web orders and updates them in Shopify." It asks **Read orders from** — the date and time to take orders from. "Before going live: IMS stock is loaded and right · locations are paired (Check connection shows no warnings) · products are linked."
+- **Go live…**: "From now on IMS writes to the real store: it sends stock for every product with send on (right away, as IMS has it now), sends product changes, takes new web orders and updates them in Shopify." It asks **Read orders from** — the date and time to take orders from, in Toronto time. "Web orders placed before this time are not brought into IMS — handle any of those by hand in Shopify." "Before going live: IMS stock is loaded and right · locations are paired (Check connection shows no warnings) · products are linked."
 - Both ask **Check** first, then **Stop live** or **Go live**.
 - **Turn off** stops all sync with the store and also stops it being live. After **Turn on** it stays not live until **Go live…**.
 
@@ -588,7 +588,7 @@ Both start on **_95_ Purchase Non Stock - COS**. "Product lines always go to Goo
 
 <a id="set-system-check"></a>
 ## System Check
-<!-- screen: system-check.html · BUILD 2026-10-24 · sc v2 -->
+<!-- screen: system-check.html · BUILD 2026-10-26 · sc v2a -->
 <!-- who: all -->
 
 **What it is**

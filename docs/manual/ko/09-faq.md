@@ -24,8 +24,8 @@
 ### CSV 가 왜 생각보다 짧나요?
 CSV 는 필터를 따릅니다. 필터부터 확인합니다([검색 · 필터 · 페이지 · CSV](00-getting-started.md#start-search-filter)).
 
-### 에드먼턴에서는 시각이 왜 2시간 다른가요?
-IMS 는 토론토 시각으로 보입니다. 에드먼턴 22:00 이 지나면 토론토는 이미 다음 날입니다([날짜와 시각](00-getting-started.md#start-dates-times)).
+### 에드먼턴에서는 시각이 왜 한두 시간 다른가요?
+IMS 는 토론토 시각으로 보입니다. 에드먼턴은 토론토보다 겨울에 1 시간, 여름에 2 시간 늦습니다. 에드먼턴 밤 늦게는 토론토가 이미 다음 날입니다([날짜와 시각](00-getting-started.md#start-dates-times)).
 
 ### 문제가 생기면 무엇을 보내나요?
 화면 이름과 build 표시 둘, 다루던 번호, 무엇을 했고 무엇이 일어났는지, 그리고 **System Check** 캡처([도움 받기](00-getting-started.md#start-getting-help)).
@@ -58,6 +58,12 @@ charge 로는 안 됩니다 — "A charge cannot be negative — money back is a
 
 ### 발행한 인보이스의 가격이 틀렸어요.
 가격만 높았으면 사유 **Price adjustment** 로 크레딧 노트를 만듭니다 — 고객은 물건을 그대로 가집니다. 인보이스 전체가 틀렸으면 매니저 이상이 **Cancel invoice…** 와 **Reissue…** 를 합니다([크레딧 노트](01-sales.md#sales-credits) · [판매 인보이스](01-sales.md#sales-invoices)).
+
+### Freightcom 예약은 창고가 하나요, 오피스가 하나요?
+보통은 창고가 **Fulfillment** 에서 Finalize 전에 합니다. 창고가 못 했거나 견적이 틀렸을 때, 배송지가 바뀌었을 때는 오피스가 **Ship & invoice** 에서 합니다. **Book** · **Cancel booking** 은 **Freight booking** 권한이 있어야 합니다. 라벨은 예약한 사람이 붙입니다([Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)).
+
+### 창고가 Finalize 한 뒤 고객이 새 주소를 줬어요.
+**Ship & invoice** 창에서 바꾸고, 운임을 다시 견적 · 예약하고, 라벨을 바꿔 붙입니다([팩된 오더의 배송지 바꾸기](01-sales.md#sales-change-ship-to)).
 
 ### 새 고객이 왜 Action Centre 에 뜨나요?
 sales 가 만든 고객은 기본 조건으로 시작하고, 매니저가 확인합니다([New customers to review(확인할 새 고객)](06-action-centre.md#action-new-customers)).
@@ -137,6 +143,9 @@ Stock adjustments 권한이 있는 사람이 **Settle in transit** 를 누르고
 ### 받은 물건은 언제 재고가 되나요?
 입고를 확정한 뒤에만 됩니다 — 리시빙 화면이나 **WMS Admin** 에서 입고 확정 권한이 있는 매니저 이상이, 또는 오피스의 **Purchase Receipts** 에서([풋어웨이(제자리에 넣기)](04-wms.md#wms-putaway) · [오피스 입고](02-purchasing.md#purch-receipts)).
 
+### Freightcom 예약이 왜 거절되나요?
+창고에 **Contact** 와 **Phone**(10 자리)이 있어야 합니다(**Settings** › **Warehouse** › **Edit**). 예약에는 **Freight booking** 권한도 있어야 합니다([Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)).
+
 ### bin 사이로 왜 못 옮기나요?
 Bin moves 권한이 필요하고, 사람마다 켭니다. 매니저에게 부탁합니다([bin 사이 재고 옮기기](04-wms.md#wms-bin-moves)).
 
@@ -163,6 +172,9 @@ Finish 뒤에는 POS 에서 판매를 바꿀 수 없습니다. 반품은 크레�
 ### 고객이 다 못 내요. 그래도 끝낼 수 있나요?
 네. Finish 는 막지 않고, 남은 돈은 인보이스에 남습니다([끝내고 인보이스 인쇄하기](05-pos.md#pos-finish)).
 
+### 결제를 잘못 적었어요. 어떻게 고치나요?
+**Finish** 전이면 **Payments** 에서 그 결제의 **Cancel payment…** 를 누르고 맞는 결제를 다시 적습니다. 취소로 기록에 남고 내 이름이 붙습니다. **Finish** 뒤라면 매니저에게 말합니다([결제 받기](05-pos.md#pos-pay)).
+
 ### 끝내지 않은 판매는 어디 있나요?
 **Parked and open at this store** 에 있습니다. 그날 끝내지 못한 것은 Action Centre 에도 나옵니다([판매를 잠시 두고 다시 잡기](05-pos.md#pos-park) · [POS not finished(끝내지 않은 POS)](06-action-centre.md#action-pos)).
 
@@ -182,6 +194,15 @@ Finish 뒤에는 POS 에서 판매를 바꿀 수 없습니다. 반품은 크레�
 
 ### 직원을 지우려면?
 지우기는 없습니다. **Active** 를 끕니다([직원(Staff)](07-settings.md#set-staff)).
+
+### 창고 주소를 바꿀 수 있나요?
+아니요. **Warehouse** 의 **Edit** 는 주소를 보여 주기만 합니다. Freightcom 픽업이 이 주소를 씁니다 — 창고가 옮기면 관리자에게 말합니다([목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master)).
+
+### QuickBooks 는 누가 연결하나요?
+관리자(admin)만 연결 · 다시 연결 · 끊기를 합니다. **Settings** 를 여는 사람은 모두 연결 상태를 봅니다([QuickBooks — 연결](07-settings.md#set-qbo-connect)).
+
+### Shopify 가게의 Go live · Stop live 를 눌러도 되나요?
+아니요. 웹 숍은 이미 live 입니다. IMS 관리자가 부탁할 때만 누릅니다([Shopify 가게](07-settings.md#set-shopify)).
 
 ### 직원이 비밀번호를 잊었어요.
 [로그인 · 화면 · 권한](#faq-sign-in) 를 봅니다.

@@ -14,11 +14,13 @@ Words are written as the screens show them. Where two screens use different word
 | admin | The highest of the four roles. Works in every branch. | [Roles and keys](00-getting-started.md#start-roles-keys) |
 | before IMS | A row that came from before IMS. | [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master) |
 | Branch | Toronto or Edmonton. A worker or manager may work in only some branches. | [Roles and keys](00-getting-started.md#start-roles-keys) |
-| Build tag | The small grey text next to the logo — the version of the screen. | [The build tag](00-getting-started.md#start-build-tag) |
+| Build tag | The small grey text that shows the version of the screen — under your name in IMS, next to the logo in WMS and POS. | [The build tag](00-getting-started.md#start-build-tag) |
 | CSV | A spreadsheet file. It follows your filters. | [Search, filters, pages and CSV](00-getting-started.md#start-search-filter) |
 | IMS · WMS · POS (modes) | The three modes — office work, warehouse work, the counter. | [Modes: IMS, WMS and POS](00-getting-started.md#start-modes) |
 | Key (none · read · write) | Opens one area of IMS: none = no screens, read = look only, write = work in them. | [Roles and keys](00-getting-started.md#start-roles-keys) |
 | Key names (sales, master …) | The list of keys is in Roles and keys. | [Roles and keys](00-getting-started.md#start-roles-keys) |
+| Freight booking (`freight_booking`) | The key to book, cancel and re-book Freightcom shipments. Supervisors and admins always have it. | [Roles and keys](00-getting-started.md#start-roles-keys) |
+| QuickBooks key (`qbo`) | The key for QuickBooks matching, list refresh and the send queue. Switched on person by person. | [Roles and keys](00-getting-started.md#start-roles-keys) |
 | manager | The role above worker. Some buttons work only for a manager or higher. | [Roles and keys](00-getting-started.md#start-roles-keys) |
 | supervisor | The role above manager. Works in every branch. | [Roles and keys](00-getting-started.md#start-roles-keys) |
 | Toronto time | IMS keeps time in Toronto time; today is today in Toronto. | [Dates and times](00-getting-started.md#start-dates-times) |
@@ -33,7 +35,10 @@ Words are written as the screens show them. Where two screens use different word
 |---|---|---|
 | Backordered | Nothing could be reserved. The line moves to a backorder order. | [Confirm an order](01-sales.md#sales-confirm) |
 | Bill to | The customer the invoices go to. | [Find or add a customer](01-sales.md#sales-customers) |
+| Book shipment | Books the picked Freightcom rate — a real booking that Asung is billed for unless it is cancelled (Freight booking key). | [Freightcom — quote, book and label](04-wms.md#wms-freightcom) |
+| Cancel booking | Cancels a Freightcom booking; the picked rate stays so you can book again (Freight booking key). | [Freightcom — quote, book and label](04-wms.md#wms-freightcom) |
 | Cancelled | Closed without shipping. A merged order shows "merged". | [What each status means](01-sales.md#sales-statuses) |
+| Change ship-to… | Changes the delivery address of a finalized order in the Ship & invoice window. | [Change the ship-to of a packed order](01-sales.md#sales-change-ship-to) |
 | Confirmed | Confirmed — next: release to the warehouse. | [What each status means](01-sales.md#sales-statuses) |
 | Counter | Handed over at the counter; made by managers and above. | [Start a new sales order](01-sales.md#sales-new-order) |
 | Credit note | Gives money back to the customer against an invoice. | [Credit notes](01-sales.md#sales-credits) |
@@ -42,6 +47,7 @@ Words are written as the screens show them. Where two screens use different word
 | Expired | 90 days after the original order date, nobody proceeded it. | [Backorders](01-sales.md#sales-backorders) |
 | Finalized (badge) / Finalized — waiting for the office (filter) | Ready — the office must Ship & invoice. | [What each status means](01-sales.md#sales-statuses) |
 | Fulfilled | Done. | [What each status means](01-sales.md#sales-statuses) |
+| Get freight quotes | Asks Freightcom for rates for the packed boxes and pallets. | [Freightcom — quote, book and label](04-wms.md#wms-freightcom) |
 | Held for orders | A deposit kept for an order until its invoice comes. | [Customer payments and deposits](01-sales.md#sales-payments) |
 | Hold | Releases the order's reserved stock for other orders and keeps the order waiting — the whole order, never one line. | [Send an order to the warehouse](01-sales.md#sales-release) |
 | Invoice | One invoice can hold several orders of the same bill-to. | [Sales invoices](01-sales.md#sales-invoices) |
@@ -53,6 +59,7 @@ Words are written as the screens show them. Where two screens use different word
 | POS (tag) | A sale made at the POS. | [What each status means](05-pos.md#pos-statuses) |
 | Preorder | The line moves to a pre-order order. It waits until it is proceeded or cancelled. | [Confirm an order](01-sales.md#sales-confirm) |
 | Proceed | Reserve backordered stock that is here now (managers and above). | [Backorders](01-sales.md#sales-backorders) |
+| Remember for this address | Keeps the delivery options (Residential, Tailgate, Inside delivery) for the customer's address. | [Freightcom — quote, book and label](04-wms.md#wms-freightcom) |
 | Recall from WMS | Takes an order back from the warehouse. | [Take an order back](01-sales.md#sales-undo) |
 | Release to WMS | Sends a confirmed order to the warehouse. | [Send an order to the warehouse](01-sales.md#sales-release) |
 | Released to WMS (badge) / With warehouse (filter) | Sent to the warehouse — waiting for the warehouse manager. | [What each status means](01-sales.md#sales-statuses) |
@@ -137,11 +144,13 @@ Words are written as the screens show them. Where two screens use different word
 | Discrepancy | WMS Admin tab of mistakes by worker; ✓ Resolved closes one. | [WMS Admin](04-wms.md#wms-admin) |
 | Finalized | Warehouse done — the office's turn for Ship & invoice. | [Warehouse statuses](04-wms.md#wms-statuses) |
 | Fulfillment | Packs into boxes and pallets. | [Pack into boxes and pallets (Fulfillment)](04-wms.md#wms-fulfillment) |
+| Freightcom (board) | **Integrations ▾** › **Freightcom** — every shipment booked with Freightcom from IMS, and its status. | [Freightcom — shipment board](01-sales.md#sales-freightcom) |
 | Hold (later) | Saves your progress and returns the batch to the waiting list. | [Pick an order](04-wms.md#wms-picking) |
 | I scanned twice | The count is right; you scanned one twice. Not counted as anyone's mistake. | [Check a picked order (Packing)](04-wms.md#wms-packing) |
 | Not enough stock | Declares that the shelf really is short. | [When an item is short](04-wms.md#wms-pick-short) |
 | off-invoice | More arrived than the invoice — put away; the office decides. | [Receive a PO or a transfer](04-wms.md#wms-receiving) |
 | Packing | Checks a picked order. | [Check a picked order (Packing)](04-wms.md#wms-packing) |
+| Print label | Prints a barcode label for a product or a bin. Each computer remembers its own label size, fields and turn. | [Print barcode labels](03-inventory.md#stock-labels) |
 | pick list | The paper for a batch; its barcode opens that batch. | [Get into WMS](04-wms.md#wms-start) |
 | Put away | Places received goods into bins. | [Put away](04-wms.md#wms-putaway) |
 | Released to WMS | Waiting on Split & Waves. | [Warehouse statuses](04-wms.md#wms-statuses) |
@@ -159,8 +168,11 @@ Words are written as the screens show them. Where two screens use different word
 | Term (on screen) | Meaning | See |
 |---|---|---|
 | B-grade | → [Stock and products](#gloss-stock) | [B-grade stock](03-inventory.md#stock-bgrade) |
+| Cancel payment… | Cancels a payment recorded by mistake, before Finish. It stays on record as cancelled. | [Take the payment](05-pos.md#pos-pay) |
+| Cancel sale… | Cancels a confirmed or reopened sale (managers and above). | [Park a sale and pick it up again](05-pos.md#pos-park) |
 | confirmed (POS) | The amount is fixed and the items are held. | [What each status means](05-pos.md#pos-statuses) |
 | draft (POS) | You are scanning. Items, prices and coupons can change. | [What each status means](05-pos.md#pos-statuses) |
+| draft — reopened | Confirmed once, then reopened to change items. It cannot be deleted — a manager cancels it. | [What each status means](05-pos.md#pos-statuses) |
 | Final sale | B-grade — no return, no refund. | [Sell B-grade](05-pos.md#pos-bgrade) |
 | Finish | Hands the goods over and issues the invoice in one step. | [Finish and print the invoice](05-pos.md#pos-finish) |
 | fulfilled (POS) | Finished — goods handed over, invoice issued. | [What each status means](05-pos.md#pos-statuses) |
@@ -178,15 +190,19 @@ Words are written as the screens show them. Where two screens use different word
 |---|---|---|
 | Amount tiers | The order totals and % of an order discount. | [Discount rules and deals](07-settings.md#set-deals) |
 | Carrier | Picked at Ship & invoice — the kind decides email and tracking. | [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master) |
+| Carrier pickups | Per warehouse — which carriers come on a regular run, and the cutoff for a same-day pickup. | [Carrier pickups](07-settings.md#set-carrier-pickups) |
 | Coupon | A code for one customer on one order discount; used once. | [Coupons](07-settings.md#set-coupons) |
 | Coupon required | Only orders with a coupon code get this order discount. | [Discount rules and deals](07-settings.md#set-deals) |
 | Deal | A line discount or an order discount on Discount Rules. | [Discount rules and deals](07-settings.md#set-deals) |
+| Go live · Stop live | Starts or stops IMS writing to a Shopify store and taking its orders (admins only — press only when the IMS administrator asks). | [Shopify stores](07-settings.md#set-shopify) |
 | Layout | How a document looks; one version is in use. | [Documents](07-settings.md#set-documents) |
 | Line discount | A % off certain products. | [Discount rules and deals](07-settings.md#set-deals) |
 | Order discount | A % off the whole order from a set amount. | [Discount rules and deals](07-settings.md#set-deals) |
 | Payment Term | Net days to the due date, and any early-payment discount. | [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master) |
+| QuickBooks matching | Which QuickBooks record each IMS account, tax rule, customer, supplier and product belongs to. | [QuickBooks matching](07-settings.md#set-qbo-matching) |
 | Price tier | Where a line's usual price comes from, before the best discount. | [Add lines](01-sales.md#sales-add-lines) |
 | Service (list) | Billed on service orders as quantity × unit price. | [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master) |
+| Shipping quotes | The customer markup on Freightcom quotes, and the Freightcom connection of each warehouse. | [Shipping quotes](07-settings.md#set-shipping-quotes) |
 | Staging | A staging spot (dock, receiving area), not a shelf. | [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master) |
 | Start date (Google Drive) | Documents from this date get a kept copy for Drive. | [Google Drive](07-settings.md#set-drive) |
 | Surcharge group | A charge per unit on certain products, such as a tariff. | [Surcharge groups](07-settings.md#set-surcharge) |

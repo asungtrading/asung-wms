@@ -14,11 +14,13 @@
 | admin | 네 역할 중 가장 높다. 모든 브랜치에서 일한다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
 | before IMS | IMS 이전부터 있던 줄. | [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master) |
 | Branch | 토론토 또는 에드먼턴. worker · manager 는 일부 브랜치에서만 일할 수 있다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
-| Build tag | 로고 옆 작은 회색 글 — 그 화면의 버전. | [build 표시](00-getting-started.md#start-build-tag) |
+| Build tag | 그 화면의 버전을 알려 주는 작은 회색 글 — IMS 에서는 내 이름 아래, WMS · POS 에서는 로고 옆. | [build 표시](00-getting-started.md#start-build-tag) |
 | CSV | 스프레드시트 파일. 필터를 따른다. | [검색 · 필터 · 페이지 · CSV](00-getting-started.md#start-search-filter) |
 | IMS · WMS · POS (modes) | 세 모드 — 오피스 일 · 창고 일 · 계산대. | [모드: IMS · WMS · POS](00-getting-started.md#start-modes) |
 | Key (none · read · write) | IMS 의 한 영역을 여는 권한: none 은 화면 없음 · read 는 보기만 · write 는 일하기. | [역할과 권한](00-getting-started.md#start-roles-keys) |
 | Key names (sales, master …) | 권한 이름 목록은 역할과 권한에 있다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
+| Freight booking (`freight_booking`) | Freightcom 예약 · 취소 · 다시 예약 권한. supervisor · admin 은 늘 가진다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
+| QuickBooks 권한 (`qbo`) | QuickBooks matching · 목록 새로 읽기 · 보내기 큐 권한. 사람마다 켠다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
 | manager | worker 위의 역할. 어떤 단추는 매니저 이상만 된다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
 | supervisor | manager 위의 역할. 모든 브랜치에서 일한다. | [역할과 권한](00-getting-started.md#start-roles-keys) |
 | Toronto time | IMS 는 토론토 시각을 쓴다 — 오늘은 토론토의 오늘. | [날짜와 시각](00-getting-started.md#start-dates-times) |
@@ -33,7 +35,10 @@
 |---|---|---|
 | Backordered | 아무것도 확보하지 못함. 라인이 백오더 오더로 간다. | [오더 확정](01-sales.md#sales-confirm) |
 | Bill to | 인보이스를 받는 고객. | [고객 찾기 · 더하기](01-sales.md#sales-customers) |
+| Book shipment | 고른 Freightcom 요율로 예약 — 실제 예약이라 취소하지 않으면 Asung 에 청구된다(Freight booking 권한). | [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom) |
+| Cancel booking | Freightcom 예약 취소 — 고른 요율은 남아 다시 예약할 수 있다(Freight booking 권한). | [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom) |
 | Cancelled | 출고 없이 닫힘. 합친 오더에는 "merged". | [상태의 뜻](01-sales.md#sales-statuses) |
+| Change ship-to… | Finalize 된 오더의 배송지를 Ship & invoice 창에서 바꾼다. | [팩된 오더의 배송지 바꾸기](01-sales.md#sales-change-ship-to) |
 | Confirmed | 확정됨 — 다음은 창고로 보내기. | [상태의 뜻](01-sales.md#sales-statuses) |
 | Counter | 계산대에서 건네는 오더 — 매니저 이상이 만든다. | [새 판매 오더](01-sales.md#sales-new-order) |
 | Credit note | 인보이스에 대해 고객에게 돈을 돌려준다. | [크레딧 노트](01-sales.md#sales-credits) |
@@ -42,6 +47,7 @@
 | Expired | 처음 오더 날짜에서 90일 동안 아무도 진행하지 않았다. | [백오더](01-sales.md#sales-backorders) |
 | Finalized (badge) / Finalized — waiting for the office (filter) | 준비됨 — 오피스가 Ship & invoice 를 해야 한다. | [상태의 뜻](01-sales.md#sales-statuses) |
 | Fulfilled | 끝남. | [상태의 뜻](01-sales.md#sales-statuses) |
+| Get freight quotes | 포장된 상자 · 팔레트의 운임을 Freightcom 에 묻는다. | [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom) |
 | Held for orders | 인보이스가 나올 때까지 오더에 잡아 둔 선수금. | [고객 결제와 선수금](01-sales.md#sales-payments) |
 | Hold | 오더의 확보 재고를 다른 오더에 풀고 오더를 기다리게 한다 — 오더 전체만, 라인 하나는 안 된다. | [창고로 보내기](01-sales.md#sales-release) |
 | Invoice | 같은 청구처의 오더 여럿이 한 인보이스에 들 수 있다. | [판매 인보이스](01-sales.md#sales-invoices) |
@@ -53,6 +59,7 @@
 | POS (tag) | POS 에서 한 판매. | [상태의 뜻](05-pos.md#pos-statuses) |
 | Preorder | 라인이 선주문 오더로 간다. 진행하거나 취소할 때까지 기다린다. | [오더 확정](01-sales.md#sales-confirm) |
 | Proceed | 지금 있는 백오더 재고를 확보한다(매니저 이상). | [백오더](01-sales.md#sales-backorders) |
+| Remember for this address | 배송 옵션(Residential · Tailgate · Inside delivery)을 고객 주소에 기억한다. | [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom) |
 | Recall from WMS | 창고에서 오더를 되돌려 받는다. | [오더 되돌리기](01-sales.md#sales-undo) |
 | Release to WMS | 확정된 오더를 창고로 보낸다. | [창고로 보내기](01-sales.md#sales-release) |
 | Released to WMS (badge) / With warehouse (filter) | 창고로 보냄 — 창고 매니저를 기다림. | [상태의 뜻](01-sales.md#sales-statuses) |
@@ -137,11 +144,13 @@
 | Discrepancy | 작업자별 실수를 보이는 WMS Admin 탭 — ✓ Resolved 로 닫는다. | [WMS Admin](04-wms.md#wms-admin) |
 | Finalized | 창고 끝 — 오피스가 Ship & invoice 할 차례. | [상태의 뜻(창고)](04-wms.md#wms-statuses) |
 | Fulfillment | 상자 · 팔레트에 담는다. | [상자 · 팔레트에 담기(Fulfillment)](04-wms.md#wms-fulfillment) |
+| Freightcom (보드) | **Integrations ▾** › **Freightcom** — IMS 에서 Freightcom 으로 예약한 모든 쉽먼트와 그 상태. | [Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom) |
 | Hold (later) | 진행을 저장하고 batch 를 대기 목록으로 돌린다. | [오더 픽하기](04-wms.md#wms-picking) |
 | I scanned twice | 수량은 맞고 한 개를 두 번 찍었다 — 누구의 실수로도 세지 않는다. | [뽑은 오더 검수(Packing)](04-wms.md#wms-packing) |
 | Not enough stock | 선반에 정말 모자란다고 알린다. | [물건이 모자랄 때](04-wms.md#wms-pick-short) |
 | off-invoice | 인보이스보다 많이 옴 — 넣어 두고 오피스가 정한다. | [PO · 트랜스퍼 받기](04-wms.md#wms-receiving) |
 | Packing | 뽑은 오더를 검수한다. | [뽑은 오더 검수(Packing)](04-wms.md#wms-packing) |
+| Print label | 제품이나 bin 의 바코드 라벨을 찍는다. 라벨 크기 · 칸 · 방향은 컴퓨터마다 기억한다. | [바코드 라벨 찍기](03-inventory.md#stock-labels) |
 | pick list | batch 의 종이 — 바코드로 그 batch 를 연다. | [WMS 에 들어가기](04-wms.md#wms-start) |
 | Put away | 받은 물건을 bin 에 넣는다. | [풋어웨이(제자리에 넣기)](04-wms.md#wms-putaway) |
 | Released to WMS | Split & Waves 를 기다림. | [상태의 뜻(창고)](04-wms.md#wms-statuses) |
@@ -159,8 +168,11 @@
 | 화면 글자 | 뜻 | 자세히 |
 |---|---|---|
 | B-grade | → [재고 · 제품](#gloss-stock) | [B급 재고](03-inventory.md#stock-bgrade) |
+| Cancel payment… | Finish 전에 잘못 적은 결제를 취소한다. 취소로 기록에 남는다. | [결제 받기](05-pos.md#pos-pay) |
+| Cancel sale… | 확정했거나 다시 연 판매를 취소한다(매니저 이상). | [판매를 잠시 두고 다시 잡기](05-pos.md#pos-park) |
 | confirmed (POS) | 금액이 정해지고 물건이 확보됨. | [상태의 뜻](05-pos.md#pos-statuses) |
 | draft (POS) | 스캔하는 중. 물건 · 가격 · 쿠폰을 바꿀 수 있다. | [상태의 뜻](05-pos.md#pos-statuses) |
+| draft — reopened | 한 번 확정했다가 물건을 바꾸려고 다시 연 판매. 지울 수 없고 매니저가 취소한다. | [상태의 뜻](05-pos.md#pos-statuses) |
 | Final sale | B급 — 반품 · 환불 없음. | [B급 팔기](05-pos.md#pos-bgrade) |
 | Finish | 물건을 건네고 인보이스를 한 번에 발행. | [끝내고 인보이스 인쇄하기](05-pos.md#pos-finish) |
 | fulfilled (POS) | 끝남 — 물건을 건넸고 인보이스 발행. | [상태의 뜻](05-pos.md#pos-statuses) |
@@ -178,15 +190,19 @@
 |---|---|---|
 | Amount tiers | 오더 할인의 합계 단계와 %. | [할인 규칙과 딜](07-settings.md#set-deals) |
 | Carrier | Ship & invoice 에서 고른다 — 종류가 메일 · 송장을 정한다. | [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master) |
+| Carrier pickups | 창고마다 — 정기로 오는 운송사와 당일 픽업 마감 시각. | [운송사 픽업(Carrier pickups)](07-settings.md#set-carrier-pickups) |
 | Coupon | 한 오더 할인에 대해 한 고객에게 주는 코드 — 한 번만. | [쿠폰](07-settings.md#set-coupons) |
 | Coupon required | 쿠폰 코드가 있는 오더만 이 할인을 받는다. | [할인 규칙과 딜](07-settings.md#set-deals) |
 | Deal | Discount Rules 의 라인 할인 또는 오더 할인. | [할인 규칙과 딜](07-settings.md#set-deals) |
+| Go live · Stop live | IMS 가 Shopify 가게에 쓰고 오더를 받는 것을 켜고 끈다(관리자만 — IMS 관리자가 부탁할 때만). | [Shopify 가게](07-settings.md#set-shopify) |
 | Layout | 문서 모양 — 한 버전을 쓴다. | [문서](07-settings.md#set-documents) |
 | Line discount | 어떤 제품에 몇 % 할인. | [할인 규칙과 딜](07-settings.md#set-deals) |
 | Order discount | 정한 금액부터 오더 전체에 몇 % 할인. | [할인 규칙과 딜](07-settings.md#set-deals) |
 | Payment Term | 기한까지 날 수와 조기 결제 할인. | [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master) |
+| QuickBooks matching | IMS 계정 · 세금 규칙 · 고객 · 공급처 · 제품이 QuickBooks 의 어느 것과 짝인지. | [QuickBooks matching(짝짓기)](07-settings.md#set-qbo-matching) |
 | Price tier | 라인의 보통 가격이 나오는 곳 — 그다음 가장 좋은 할인. | [라인 넣기](01-sales.md#sales-add-lines) |
 | Service (list) | 서비스 오더에 수량 × 단가로 청구. | [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master) |
+| Shipping quotes | Freightcom 견적의 고객 마크업과 창고마다 Freightcom 연결. | [운임 견적(Shipping quotes)](07-settings.md#set-shipping-quotes) |
 | Staging | 선반이 아닌 도크 · 받는 자리. | [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](07-settings.md#set-master) |
 | Start date (Google Drive) | 이 날짜부터의 문서는 Drive 용 사본이 남는다. | [Google Drive](07-settings.md#set-drive) |
 | Surcharge group | 관세처럼 어떤 제품에 낱개마다 붙는 요금. | [Surcharge 그룹](07-settings.md#set-surcharge) |

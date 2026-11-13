@@ -4,7 +4,7 @@
 
 <a id="stock-availability"></a>
 ## Find stock (Stock Availability)
-<!-- screen: stock.html · BUILD 2026-10-25 · stk filt v1a -->
+<!-- screen: stock.html · BUILD 2026-11-01 · stk sup v1 -->
 <!-- who: all -->
 
 **What it is**
@@ -52,7 +52,7 @@
 **How to change a product — needs the master key**
 1. Press **Edit**. "Change several fields, then save once."
 2. Change what you need — name, brand, category, unit, prices, suppliers, barcodes.
-3. Press **Check & save**. IMS checks first:
+3. Press **Save**. IMS checks first:
    - "Not saved — fix these first" lists what must change.
    - Warnings can be read and passed with **Save anyway**.
 
@@ -211,7 +211,7 @@ Without the `cost` key the bar says "Price formulas work from supplier costs, so
 
 <a id="stock-descriptions"></a>
 ## Descriptions, photos, tags and the web shop
-<!-- screen: products.html · BUILD pr v5f ; ims-desc.js ; ims-shop.js ; families.html · BUILD fam v5c -->
+<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 ; ims-desc.js ; ims-shop.js ; families.html · BUILD fam v6 -->
 <!-- who: office, manager -->
 
 **Description**
@@ -228,7 +228,7 @@ The description is what the web shop shows for the product. It is written and ke
 2. **Upload photos** adds photos. **Make primary** chooses the main one. "This set has no photo of its own — the single's primary photo is shown."
 3. Tags: "Tags are case-sensitive — pick from the list to keep one spelling. ✕ takes a tag off when you save."
 4. Barcodes: add one in **Add a barcode**. "A new barcode can be made primary after saving."
-5. Press **Check & save**. "Save checks every change on this page — prices, suppliers, barcodes and tags included."
+5. Press **Save**. "Save checks every change on this page — prices, suppliers, barcodes and tags included."
 
 **The web shop (Shopify card)** — managers and above (Shopify key)
 Each store has a row on the product's Shopify card.
@@ -279,7 +279,7 @@ The book says 43 of DEMO-001 in a bin. The shelf has 40. Choose **Shelf holds** 
 
 <a id="stock-bgrade"></a>
 ## B-grade stock
-<!-- screen: stock-bgrade.html · BUILD 2026-10-23 · bgr v1 -->
+<!-- screen: stock-bgrade.html · BUILD 2026-11-02 · bgr pad v1 -->
 <!-- who: manager -->
 
 **What it is**
@@ -337,7 +337,7 @@ A combo goes on a transfer the same way as on a sales order: one combo line, wit
 
 <a id="stock-bin-moves"></a>
 ## Bin moves in the office
-<!-- screen: stock-moves.html · BUILD 2026-09-28 · sm v1 -->
+<!-- screen: stock-moves.html · BUILD 2026-11-02 · sm pad v1 -->
 <!-- who: office, warehouse -->
 
 **What it is**
@@ -355,7 +355,7 @@ A combo goes on a transfer the same way as on a sales order: one combo line, wit
 
 <a id="stock-statuses"></a>
 ## What each status means
-<!-- screen: transfers.html · BUILD 2026-10-21 · tf cost v1 ; stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 -->
+<!-- screen: transfers.html · BUILD 2026-11-02 · tf combo v1 ; stock-adjustments.html · BUILD 2026-11-11 · adj nb v1a ; stock-moves.html · BUILD 2026-11-02 · sm pad v1 -->
 <!-- who: all -->
 
 **Transfers** (office screen)
@@ -378,7 +378,7 @@ The warehouse screens use their own words for the same steps — see [Warehouse 
 
 <a id="stock-csv"></a>
 ## CSV downloads
-<!-- screen: stock.html · BUILD 2026-10-25 · stk filt v1a -->
+<!-- screen: stock.html · BUILD 2026-11-01 · stk sup v1 -->
 <!-- who: office, accounting -->
 
 - **↓ CSV** on [Stock Availability](#stock-availability) downloads every product that matches the filters.

@@ -86,7 +86,7 @@
 
 <a id="set-master"></a>
 ## 목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스
-<!-- screen: settings.html · BUILD 2026-11-11 · set v18 ; ims-label.js · lbl v1b -->
+<!-- screen: settings.html · BUILD 2026-11-12 · set v18a ; ims-label.js · lbl v1b -->
 <!-- who: manager, admin -->
 
 **무엇인가**
@@ -112,7 +112,7 @@
 | **Carrier** | "Picked at Ship & invoice — the kind decides email and tracking"(Ship & invoice 에서 고른다 — 종류가 메일 · 송장을 정한다) | 더하기 · 고치기 |
 | **Service** | "Billed on service orders as quantity × unit price — tax follows the order"(서비스 오더에 수량 × 단가로 · 세금은 오더를 따른다) | 더하기 · 고치기 |
 
-Currency · Account 는 보기만 합니다. 창고는 여기서 더하지 않고, 창고 이름 · 주소도 여기서 바꾸지 않습니다. 세금 규칙은 고객 · 오더에서 고르기만 하고 여기에 없습니다. 이것들을 바꿀 일이 생기면 IMS 관리자에게 말합니다.
+Currency · Account 는 보기만 합니다. 창고는 여기서 더하지 않고, 창고 이름 · 주소도 여기서 바꾸지 않습니다 — **Edit** 는 주소를 보여 주기만 합니다: "The address is shown here only. Freightcom pickups use it — if a warehouse moves, tell an admin."(주소는 보이기만 · Freightcom 픽업이 쓴다 · 창고가 옮기면 관리자에게) 세금 규칙은 고객 · 오더에서 고르기만 하고 여기에 없습니다. 이것들을 바꿀 일이 생기면 IMS 관리자에게 말합니다.
 
 **어떻게 — 목록에 더하기**
 1. 목록을 열고 **+ Add** 를 누릅니다(예: **+ Add brand**).
@@ -282,7 +282,7 @@ Currency · Account 는 보기만 합니다. 창고는 여기서 더하지 않�
 
 <a id="set-coupons"></a>
 ## 쿠폰
-<!-- screen: discount-rules.html · BUILD dr v3a -->
+<!-- screen: discount-rules.html · BUILD dr v4 -->
 <!-- who: manager, admin -->
 
 **무엇인가**
@@ -339,7 +339,7 @@ Surcharge 그룹은 어떤 제품에 낱개마다 붙는 추가 요금입니다 
 
 <a id="set-documents"></a>
 ## 문서
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c ; ims-doc.js -->
+<!-- screen: settings.html · BUILD 2026-11-12 · set v18a ; ims-doc.js -->
 <!-- who: admin -->
 
 **무엇인가**
@@ -403,7 +403,7 @@ Surcharge 그룹은 어떤 제품에 낱개마다 붙는 추가 요금입니다 
 
 <a id="set-drive"></a>
 ## Google Drive
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c -->
+<!-- screen: settings.html · BUILD 2026-11-12 · set v18a -->
 <!-- who: admin -->
 
 **무엇인가**
@@ -429,7 +429,7 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 
 <a id="set-shopify"></a>
 ## Shopify 가게
-<!-- screen: shopify-stores.html · BUILD 2026-10-27 · ss v5a -->
+<!-- screen: shopify-stores.html · BUILD 2026-11-12 · ss v5b -->
 <!-- who: admin, manager -->
 
 **무엇인가**
@@ -445,7 +445,7 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 - **Live**: "IMS sends products and stock, takes orders and updates them in Shopify."(IMS 가 제품 · 재고를 보내고, 오더를 받고, Shopify 에서 오더를 갱신한다)
 - **Not live**: "IMS only reads this store (Check connection · Link existing products) — nothing is written to Shopify and no orders are taken"(IMS 는 읽기만 · Shopify 에 아무것도 쓰지 않고 오더도 받지 않는다). 새 가게는 Not live 로 시작합니다.
 - **Stop live…**: "IMS stops writing to this store and stops taking its orders. Waiting product updates stay in the queue and go out when it is live again."(쓰기와 오더 받기를 멈춘다 · 기다리던 제품 갱신은 줄에 남았다가 다시 Live 가 되면 나간다) Shopify 자체는 바뀌지 않습니다.
-- **Go live…**: "From now on IMS writes to the real store: it sends stock for every product with send on (right away, as IMS has it now), sends product changes, takes new web orders and updates them in Shopify."(지금부터 실제 가게에 쓴다 — 보내기가 켜진 제품의 재고를 지금 IMS 값으로 바로 보내고, 제품 변경을 보내고, 새 웹 오더를 받고 갱신한다) **Read orders from** — 오더를 받기 시작할 날짜 · 시각을 묻습니다. "Before going live: IMS stock is loaded and right · locations are paired (Check connection shows no warnings) · products are linked."(먼저: IMS 재고가 맞다 · 위치 짝이 있다 · 제품이 이어져 있다)
+- **Go live…**: "From now on IMS writes to the real store: it sends stock for every product with send on (right away, as IMS has it now), sends product changes, takes new web orders and updates them in Shopify."(지금부터 실제 가게에 쓴다 — 보내기가 켜진 제품의 재고를 지금 IMS 값으로 바로 보내고, 제품 변경을 보내고, 새 웹 오더를 받고 갱신한다) **Read orders from** — 오더를 받기 시작할 날짜 · 시각을 토론토 시각으로 묻습니다. "Web orders placed before this time are not brought into IMS — handle any of those by hand in Shopify."(이 시각 전에 들어온 웹 오더는 IMS 로 오지 않는다 — Shopify 에서 손으로 처리) "Before going live: IMS stock is loaded and right · locations are paired (Check connection shows no warnings) · products are linked."(먼저: IMS 재고가 맞다 · 위치 짝이 있다 · 제품이 이어져 있다)
 - 둘 다 **Check** 를 먼저 누르고, 그다음 **Stop live** 또는 **Go live** 를 누릅니다.
 - **Turn off** 는 그 가게와 주고받기를 모두 멈추고 Live 도 끕니다. **Turn on** 뒤에도 **Go live…** 를 누르기 전까지 Not live 입니다.
 
@@ -588,7 +588,7 @@ QuickBooks 가 연결을 받지 않게 되면 IMS 가 IMS 관리자에게 메일
 
 <a id="set-system-check"></a>
 ## System Check
-<!-- screen: system-check.html · BUILD 2026-10-24 · sc v2 -->
+<!-- screen: system-check.html · BUILD 2026-10-26 · sc v2a -->
 <!-- who: all -->
 
 **무엇인가**

@@ -89,7 +89,7 @@
 
 <a id="action-pos"></a>
 ## POS not finished(끝내지 않은 POS)
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager, sales -->
 
 **여기 뜨는 것**
@@ -108,7 +108,7 @@
 
 <a id="action-counter"></a>
 ## Counter orders(counter 오더)
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager -->
 
 **여기 뜨는 것**
@@ -125,7 +125,7 @@
 
 <a id="action-new-customers"></a>
 ## New customers to review(확인할 새 고객)
-<!-- screen: manager-list.html · BUILD 2026-10-25 · ml v1.3 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager -->
 
 **여기 뜨는 것**
@@ -147,7 +147,7 @@ IMS 에서 만들었고 매니저가 아직 확인하지 않은 고객입니다.
 
 <a id="action-pickups"></a>
 ## Pickups not scheduled(잡히지 않은 픽업)
-<!-- screen: manager-list.html · BUILD 2026-11-06 · ml v1.5 -->
+<!-- screen: manager-list.html · BUILD 2026-11-11 · ml v1.6 -->
 <!-- who: manager, sales -->
 
 **여기 뜨는 것**
@@ -165,7 +165,7 @@ IMS 에서 예약한 Freightcom 발송 가운데 운송사 픽업이 확인되�
 - "Every Freightcom pickup is scheduled." 는 할 일이 없다는 뜻입니다.
 - 줄을 「확인함」 으로 표시하는 단추는 없습니다 — 픽업이 확인되면 빠집니다.
 - 토 · 일에는 픽업이 없습니다. 금요일 늦게 예약하면 월요일에 가져갑니다.
-- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 예약됩니다(**Settings** › **Warehouses** › **Edit**). 없으면 IMS 가 예약을 막습니다 — 운송사가 연락처 없는 픽업을 거절하기 때문입니다.
+- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 예약됩니다(**Settings** › **Warehouse** › **Edit**). 없으면 IMS 가 예약을 막습니다 — 운송사가 연락처 없는 픽업을 거절하기 때문입니다.
 
 <!-- SCREENSHOT: action-pickups-1 · What Freightcom says 와 Check pickup 이 있는 Pickups not scheduled -->
 

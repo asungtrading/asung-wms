@@ -153,7 +153,7 @@
 
 <a id="sales-discounts-deals"></a>
 ## 할인 · 딜 · 추가 요금
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -189,7 +189,7 @@ Customer A 의 고객 할인은 10% 입니다. 딜이 제품 X 에 15% 를 줍�
 
 <a id="sales-coupons"></a>
 ## 쿠폰 쓰기
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -269,7 +269,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-release"></a>
 ## 창고로 보내기
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, office -->
 
 **무엇인가**
@@ -341,7 +341,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-divide-merge"></a>
 ## 오더 나누기 · 합치기
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, office -->
 
 **나누기(Divide) — 매니저 이상**
@@ -439,7 +439,7 @@ Customer A 의 SO-99001 이 제품 X 를 30 주문했습니다. 창고에 남은
 
 <a id="sales-charges"></a>
 ## 운임과 그 밖의 비용
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -564,7 +564,7 @@ Customer A 의 SO-99001 이 Finalized 이고 Toronto 로 예약돼 있습니다.
 
 <a id="sales-pickup"></a>
 ## 픽업 오더와 추적번호
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office, warehouse -->
 
 **무엇인가**
@@ -588,7 +588,7 @@ Customer A 의 SO-99001 이 Finalized 이고 Toronto 로 예약돼 있습니다.
 
 <a id="sales-print-email"></a>
 ## 인쇄와 메일
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; so-invoices.html · BUILD 2026-11-03 · inv pd v1 ; ims-doc.js ; customers.html · BUILD 2026-11-12 · cs v8e -->
 <!-- who: office -->
 
 **무엇인가**
@@ -765,7 +765,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 <!-- who: accounting -->
 
 **무엇인가**
-**Integrations ▾** › **QuickBooks**(QUICKBOOKS 열쇠 — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 인보이스 · 크레딧 노트는 누군가 **Send** 를 누르기 전에는 나가지 않습니다. 결제와 크레딧 붙임은 저절로 나갑니다(아래).
+**Integrations ▾** › **QuickBooks**(QuickBooks 권한(`qbo`) — 보기만이면 **Preview** 만 · 보내지 못함)는 북키퍼가 IMS 인보이스와 크레딧 노트를 QuickBooks 로 보내는 곳입니다. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks."(IMS 에서 발행한 문서는 보낼 때까지 여기서 기다린다) 2026-11-02 부터 발행한 문서가 저절로 여기에 옵니다. 인보이스 · 크레딧 노트는 누군가 **Send** 를 누르기 전에는 나가지 않습니다. 결제와 크레딧 붙임은 저절로 나갑니다(아래).
 먼저 QuickBooks 가 연결되어 있어야 합니다(관리자가 **Settings** › **QuickBooks** 에서).
 
 **하나 보내는 법**
@@ -902,7 +902,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-web-orders"></a>
 ## 웹 오더
-<!-- screen: shopify-orders.html · BUILD 2026-10-26 · wo v4e ; so.html · BUILD 2026-10-26 · so ovd v1 -->
+<!-- screen: shopify-orders.html · BUILD 2026-11-01 · wo v4f ; so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office -->
 
 **무엇인가**
@@ -923,7 +923,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 2. 고객: 맞는 고객을 누르거나, **Pick the customer…** / **Another customer…** 로 찾습니다. "The next orders from this Shopify customer will go to this customer by themselves."(이 Shopify 고객의 다음 오더는 저절로 이 고객으로 간다)
 3. 라인: "Type the right SKU, or tick leave out. The order is made without left-out lines."(맞는 SKU 를 적거나 leave out 을 체크 · 뺀 라인 없이 만든다) **Save line choices** 를 누릅니다.
 4. 오더가 **Waiting** 으로 돌아가고, 1 분 안에 판매 오더가 만들어집니다.
-- 매니저 이상: **Process waiting now** 를 누르면 기다리지 않고 바로 합니다.
+- `shopify` 권한을 write 로 가진 매니저 이상: **Process waiting now** 를 누르면 기다리지 않고 바로 합니다.
 
 **경고**
 웹 오더나 그 판매 오더에 경고가 붙을 수 있습니다. 경고 글이 할 일을 말합니다. 끝나면 **Mark checked** 를 누릅니다. **Reopen** 은 다시 엽니다. 자주 보는 것:
@@ -951,7 +951,7 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 
 <a id="sales-web-order-changes"></a>
 ## 웹 오더 고치기
-<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; shopify-orders.html · BUILD 2026-10-26 · wo v4e -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; shopify-orders.html · BUILD 2026-11-01 · wo v4f -->
 <!-- who: office, sales -->
 
 **무엇인가**
@@ -971,8 +971,8 @@ IMS 이전의 인보이스라면 새 크레딧 창에서 **Credit with a referen
 - 고객이 더 원하면 새 웹 오더를 넣어 달라고 합니다. IMS 가 새 판매 오더를 만듭니다. 두 오더가 같은 고객이고 둘 다 열려 있으면 **Merge** 합니다([오더 나누기 · 합치기](#sales-divide-merge)). 발송은 원래 Shopify 오더마다 따로 갑니다.
 
 **Release 뒤**
-- 이미 창고로 보낸 오더는 먼저 **Recall** 로 되돌립니다([오더 되돌리기](#sales-undo)). 픽킹 중 · 보류 · 백오더 상태면 Recall 이 거절됩니다.
-- Recall → 고치기 → 다시 Release 는 IMS 만 바뀝니다. Shopify 는 위 규칙 그대로입니다.
+- 이미 창고로 보낸 오더는 먼저 **Recall from WMS** 로 되돌립니다([오더 되돌리기](#sales-undo)). 창고가 픽킹 중이면 단추가 회색입니다 — 창고 매니저에게 먼저 돌려 달라고 합니다.
+- Recall from WMS → 고치기 → 다시 Release to WMS 는 IMS 만 바뀝니다. Shopify 는 위 규칙 그대로입니다.
 
 **예**
 고객 A 가 웹 스토어에서 SKU-99001 을 10 개 주문했다가 6 개로 줄이고 싶어 합니다. SO-99001 을 열어 라인을 6 으로 고치고 출고합니다. 오더가 닫히면 Shopify 오더도 6 이 됩니다. 고객 A 가 SKU-99002 를 2 개 더 원하면: 새 웹 오더가 SO-99002 로 들어오고, SO-99001 이 아직 열려 있으면 둘을 합칩니다.

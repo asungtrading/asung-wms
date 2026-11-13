@@ -42,7 +42,7 @@
 
 <a id="purch-reorder"></a>
 ## Decide what to order (Reorder Planner)
-<!-- screen: purchasing.html · BUILD 2026-10-22 · pur v1c -->
+<!-- screen: purchasing.html · BUILD 2026-10-26 · pur v1d -->
 <!-- who: office -->
 
 **What it is**
@@ -74,7 +74,7 @@ Sales before 2026-11-01 are read from the company's sales history. If you see "�
 - **보정 Override** (adjustments) on the left — type your own **계절보정** (season) or **트렌드** (trend) for the supplier. Empty uses the automatic value. **Override 초기화** (Reset overrides) clears them.
 
 **Good to know**
-- A draft "has no effect on stock or accounts". You confirm it on **Purchase Orders**.
+- A draft has no effect on stock or accounts — the question window says "초안이라 재고 · 회계에 영향 없음". You confirm it on **Purchase Orders**.
 - **↓ CSV** downloads the order list or all products, for one supplier or all.
 - Needs the master key: changing a product's fixed supplier price (💲).
 
@@ -82,7 +82,7 @@ Sales before 2026-11-01 are read from the company's sales history. If you see "�
 
 <a id="purch-new-po"></a>
 ## Start a PO
-<!-- screen: po.html · BUILD 2026-10-26 · po cost v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -109,7 +109,7 @@ A purchase order (PO) is what we order from one supplier. It starts as a **Draft
 
 <a id="purch-confirm"></a>
 ## Confirm a PO and send it
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -169,7 +169,7 @@ If the **Printed total** is empty, or does not match our calculation, IMS says s
 
 <a id="purch-documents"></a>
 ## Upload the supplier's documents
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; charges.html · BUILD 2026-10-24 · chg docs v1 ; ims-podocs.js · BUILD 2026-10-24 · podocs v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; charges.html · BUILD 2026-11-09 · chg kind v1 ; ims-podocs.js · BUILD 2026-10-24 · podocs v1 -->
 <!-- who: office, accounting -->
 
 **What it is**
@@ -177,7 +177,7 @@ At the bottom of a PO and of a charge there is a **Documents** section. Keep the
 
 **How**
 1. Press **Upload a document**.
-2. Choose the kind: **Supplier invoice**, **BOL**, **Certificate of Origin**, **Packing list**, **B3 / CAD** or **Other** ("Other needs a short description").
+2. Choose the **Kind**: **Invoice**, **BOL**, **Certificate of Origin**, **Packing list**, **B3 / CAD** or **Other** ("Other needs a short description"). On a PO, **Invoice** also shows **Supplier invoice** — pick which of the PO's supplier invoices it is, or leave it **— not linked —**.
 3. Type the **Document date** and **Document number** if there is one. "The date and number go into the file name in Drive."
 4. Choose the file — "PDF, JPEG or PNG · up to 10 MB" — and press **Upload**.
 
@@ -220,7 +220,7 @@ A charge is a bill from someone other than the supplier — freight, duty, broke
 
 <a id="purch-receipts"></a>
 ## Receipts in the office
-<!-- screen: receiving.html · BUILD 2026-10-22 · rcv latest v1 -->
+<!-- screen: receiving.html · BUILD 2026-11-01 · rcv sup v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -245,23 +245,25 @@ A charge is a bill from someone other than the supplier — freight, duty, broke
 
 **Good to know**
 - **Split** moves part of a row to a second bin. The total does not change.
-- **Reopen** opens a settled difference again.
+- **Reopen** opens a settled short line again. A difference whose goods went into stock (more than ordered, or an accepted extra) cannot be reopened — it shows "in stock — cannot be reopened".
 - **Delete** removes a draft receipt and what was counted on it. "The purchase order is untouched."
 
 <!-- SCREENSHOT: purch-receipts-1 · a receipt with a short line and the Settle choices -->
 
 <a id="purch-credits"></a>
 ## Supplier credits
-<!-- screen: invoices.html · BUILD 2026-10-22 · inv printed v2 -->
+<!-- screen: invoices.html · BUILD 2026-11-11 · inv tax v4 -->
 <!-- who: accounting, office -->
 
 **What it is**
 A supplier credit note lowers what we owe — for goods that did not come or a price that was wrong.
 
 **How**
-1. Open the supplier's invoice and press **Create a credit note**. "The draft arrives already filled with the gap between what was billed and what actually arrived."
-2. Check each line and choose the reason: **Not received** or **Price difference**.
-3. Type the supplier's credit number and **Credit date**, then press **Confirm**.
+1. Open the supplier's invoice and press **Create a credit note**. "Lines start at the difference between what this invoice billed and what actually arrived."
+2. In the window, set the **Credit date** and, if you know it, the **Printed total**. The **Number** is "assigned when created". Press **Check**, then **Create**.
+3. On the new draft, check each line and choose the reason: **Not received** or **Price difference**.
+4. Press **Confirm**.
+- When the supplier sends their own credit note, type its number in **Supplier ref**.
 
 **Good to know**
 - A confirmed credit can change the cost of the stock. IMS says how much ("Stock cost changed on … lines"), and what waits for the goods to arrive.
@@ -300,7 +302,7 @@ A supplier credit note lowers what we owe — for goods that did not come or a p
 
 <a id="purch-undo"></a>
 ## Cancel, restore or delete
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; invoices.html · BUILD 2026-10-22 · inv printed v2 ; charges.html · BUILD 2026-10-24 · chg docs v1 -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; invoices.html · BUILD 2026-11-11 · inv tax v4 ; charges.html · BUILD 2026-11-09 · chg kind v1 -->
 <!-- who: office -->
 
 **Purchase orders**
@@ -354,7 +356,7 @@ Filters: invoices — **Invoices**, **Credits**, **Unpaid only**, **Credit due o
 
 <a id="purch-csv"></a>
 ## CSV downloads
-<!-- screen: po.html · BUILD 2026-10-25 · po csv v1 ; purchasing.html · BUILD 2026-10-22 · pur v1c -->
+<!-- screen: po.html · BUILD 2026-11-01 · po sup v1 ; purchasing.html · BUILD 2026-10-26 · pur v1d -->
 <!-- who: office, accounting -->
 
 - **↓ PO CSV** on a confirmed PO — the file you send to the supplier (see [Confirm a PO and send it](#purch-confirm)).

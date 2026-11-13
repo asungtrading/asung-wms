@@ -153,7 +153,7 @@ On a **Service** draft, press **Add a service**. Choose the **Service**, type **
 
 <a id="sales-discounts-deals"></a>
 ## Discounts, deals and surcharges
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -189,7 +189,7 @@ A surcharge (for example a US tariff) is charged per unit on top of the price an
 
 <a id="sales-coupons"></a>
 ## Use a coupon
-<!-- screen: so.html · BUILD 2026-10-22 · so csv v3 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -269,7 +269,7 @@ SO-99001 for Customer A asks for 30 of product X. The warehouse has 18 free.
 
 <a id="sales-release"></a>
 ## Send an order to the warehouse
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, office -->
 
 **What it is**
@@ -341,7 +341,7 @@ Press **Reopen as draft**. "Reserved stock is released."
 
 <a id="sales-divide-merge"></a>
 ## Divide or merge orders
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: sales, office -->
 
 **Divide — Managers and above**
@@ -439,7 +439,7 @@ Arrival emails to customers, one run per branch on each scheduled morning. **Onl
 
 <a id="sales-charges"></a>
 ## Shipping fees and other charges
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -564,7 +564,7 @@ SO-99001 for Customer A is finalized and booked to Toronto. Customer A now wants
 
 <a id="sales-pickup"></a>
 ## Pickup orders and tracking
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office, warehouse -->
 
 **What it is**
@@ -588,7 +588,7 @@ An order shipped with the carrier **Pickup** waits for the customer. Its tag is 
 
 <a id="sales-print-email"></a>
 ## Print and email
-<!-- screen: so.html · BUILD 2026-10-25 · so cf words v1 ; so-invoices.html · BUILD 2026-10-22 · inv csv v5 -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; so-invoices.html · BUILD 2026-11-03 · inv pd v1 ; ims-doc.js ; customers.html · BUILD 2026-11-12 · cs v8e -->
 <!-- who: office -->
 
 **What it is**
@@ -765,7 +765,7 @@ For an invoice from before IMS, press **Credit with a reference number…** in t
 <!-- who: accounting -->
 
 **What it is**
-**Integrations ▾** › **QuickBooks** (QUICKBOOKS key — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Invoices and credit notes are not sent until someone presses **Send**. Payments and credits applied to invoices go by themselves (see below).
+**Integrations ▾** › **QuickBooks** (the QuickBooks key (`qbo`) — view-only staff can open **Preview** but not send) is where the bookkeeper sends IMS invoices and credit notes to QuickBooks. "Invoices and credit notes issued in IMS wait here until you send them to QuickBooks." Documents issued from 2026-11-02 on come here by themselves. Invoices and credit notes are not sent until someone presses **Send**. Payments and credits applied to invoices go by themselves (see below).
 QuickBooks must be connected first (an administrator does this in **Settings** › **QuickBooks**).
 
 **How — one document**
@@ -902,7 +902,7 @@ In **Integrations ▾** › **QuickBooks**, the type **Cost of goods — daily j
 
 <a id="sales-web-orders"></a>
 ## Web orders
-<!-- screen: shopify-orders.html · BUILD 2026-10-26 · wo v4e ; so.html · BUILD 2026-10-26 · so ovd v1 -->
+<!-- screen: shopify-orders.html · BUILD 2026-11-01 · wo v4f ; so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: office -->
 
 **What it is**
@@ -923,7 +923,7 @@ Orders from the web shop come in by themselves. Within a minute IMS makes a sale
 2. Customer: press the right customer, or **Pick the customer…** / **Another customer…** to search. "The next orders from this Shopify customer will go to this customer by themselves."
 3. Lines: "Type the right SKU, or tick leave out. The order is made without left-out lines." Press **Save line choices**.
 4. The order goes back to **Waiting**, and the sales order is made within a minute.
-- Managers and above: **Process waiting now** does it at once instead of waiting.
+- Managers and above with the `shopify` key at write: **Process waiting now** does it at once instead of waiting.
 
 **Warnings**
 A web order or its sales order can carry warnings. The warning says what to do. When it is done, press **Mark checked**. **Reopen** opens it again. Ones you will often see:
@@ -951,7 +951,7 @@ A web order's sales order has the tag **Shopify** and a card with the Shopify de
 
 <a id="sales-web-order-changes"></a>
 ## Changing a web order
-<!-- screen: so.html · BUILD 2026-10-26 · so ovd v1 ; shopify-orders.html · BUILD 2026-10-26 · wo v4e -->
+<!-- screen: so.html · BUILD 2026-11-12 · so shipto v1 ; shopify-orders.html · BUILD 2026-11-01 · wo v4f -->
 <!-- who: office, sales -->
 
 **What it is**
@@ -971,8 +971,8 @@ As a rule a web order is not changed: it is cancelled and placed again, or the c
 - When the customer wants more, ask for a new web order. IMS makes a new sales order from it. If both orders are for the same customer and both are still open, **Merge** them ([Divide or merge orders](#sales-divide-merge)). Shipping still follows each original Shopify order.
 
 **After Release**
-- An order already released to the warehouse is taken back with **Recall** first ([Take an order back](#sales-undo)). Recall is refused while the order is being picked, on hold or on backorder.
-- Recall, change, Release again changes IMS only. Shopify follows the rules above.
+- An order already released to the warehouse is taken back with **Recall from WMS** first ([Take an order back](#sales-undo)). While the warehouse is picking it, the button is grey — ask the warehouse manager to send it back first.
+- Recall from WMS, change, Release to WMS again changes IMS only. Shopify follows the rules above.
 
 **Example**
 Customer A ordered 10 of SKU-99001 on the web shop and now wants 6. Open SO-99001, set the line to 6, and ship. The Shopify order drops to 6 when the order closes. Customer A then wants 2 more of SKU-99002: a new web order comes in as SO-99002; if SO-99001 is still open, merge the two.

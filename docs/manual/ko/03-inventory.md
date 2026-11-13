@@ -4,7 +4,7 @@
 
 <a id="stock-availability"></a>
 ## 재고 찾기(Stock Availability)
-<!-- screen: stock.html · BUILD 2026-10-25 · stk filt v1a -->
+<!-- screen: stock.html · BUILD 2026-11-01 · stk sup v1 -->
 <!-- who: all -->
 
 **무엇인가**
@@ -52,7 +52,7 @@
 **제품 고치는 법 — master 권한 필요**
 1. **Edit** 를 누릅니다. "Change several fields, then save once."(여러 칸을 고치고 한 번에 저장)
 2. 필요한 것을 바꿉니다 — 이름 · 브랜드 · 분류 · 단위 · 가격 · 공급처 · 바코드
-3. **Check & save** 를 누릅니다. IMS 가 먼저 검사합니다:
+3. **Save** 를 누릅니다. IMS 가 먼저 검사합니다:
    - "Not saved — fix these first" 에 고쳐야 할 것이 나옵니다.
    - 경고는 읽고 **Save anyway** 로 넘길 수 있습니다.
 
@@ -211,7 +211,7 @@ IMS 는 라벨 프린터로 바코드 라벨을 찍습니다 — 물건 · 선�
 
 <a id="stock-descriptions"></a>
 ## 설명 · 사진 · 태그 · 웹 숍
-<!-- screen: products.html · BUILD pr v5f ; ims-desc.js ; ims-shop.js ; families.html · BUILD fam v5c -->
+<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 ; ims-desc.js ; ims-shop.js ; families.html · BUILD fam v6 -->
 <!-- who: office, manager -->
 
 **설명**
@@ -228,7 +228,7 @@ IMS 는 라벨 프린터로 바코드 라벨을 찍습니다 — 물건 · 선�
 2. **Upload photos** 로 사진을 더합니다. **Make primary** 로 대표 사진을 정합니다. "This set has no photo of its own — the single's primary photo is shown."(세트에 자기 사진이 없으면 낱개 대표 사진이 보인다)
 3. 태그: "Tags are case-sensitive — pick from the list to keep one spelling. ✕ takes a tag off when you save."(대소문자를 가린다 · 목록에서 골라 철자를 하나로 · ✕ 는 저장할 때 뗀다)
 4. 바코드: **Add a barcode** 에 더합니다. "A new barcode can be made primary after saving."(새 바코드는 저장 뒤 대표로 정할 수 있다)
-5. **Check & save** 를 누릅니다. "Save checks every change on this page — prices, suppliers, barcodes and tags included."
+5. **Save** 를 누릅니다. "Save checks every change on this page — prices, suppliers, barcodes and tags included."
 
 **웹 숍(Shopify 카드)** — 매니저 이상(Shopify 권한)
 제품의 Shopify 카드에 스토어마다 한 줄이 있습니다.
@@ -279,7 +279,7 @@ admin, 그리고 Stock adjustments 권한이 켜진 manager · supervisor. 화�
 
 <a id="stock-bgrade"></a>
 ## B급 재고
-<!-- screen: stock-bgrade.html · BUILD 2026-10-23 · bgr v1 -->
+<!-- screen: stock-bgrade.html · BUILD 2026-11-02 · bgr pad v1 -->
 <!-- who: manager -->
 
 **무엇인가**
@@ -337,7 +337,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 
 <a id="stock-bin-moves"></a>
 ## 오피스의 bin 이동
-<!-- screen: stock-moves.html · BUILD 2026-09-28 · sm v1 -->
+<!-- screen: stock-moves.html · BUILD 2026-11-02 · sm pad v1 -->
 <!-- who: office, warehouse -->
 
 **무엇인가**
@@ -355,7 +355,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 
 <a id="stock-statuses"></a>
 ## 상태의 뜻
-<!-- screen: transfers.html · BUILD 2026-10-21 · tf cost v1 ; stock-adjustments.html · BUILD 2026-10-01 · adj thumb v1 -->
+<!-- screen: transfers.html · BUILD 2026-11-02 · tf combo v1 ; stock-adjustments.html · BUILD 2026-11-11 · adj nb v1a ; stock-moves.html · BUILD 2026-11-02 · sm pad v1 -->
 <!-- who: all -->
 
 **트랜스퍼**(오피스 화면)
@@ -378,7 +378,7 @@ B급 재고는 포장이 상한 물건을 같은 SKU 로 B급 bin 에 둔 것입
 
 <a id="stock-csv"></a>
 ## CSV 내려받기
-<!-- screen: stock.html · BUILD 2026-10-25 · stk filt v1a -->
+<!-- screen: stock.html · BUILD 2026-11-01 · stk sup v1 -->
 <!-- who: office, accounting -->
 
 - [재고 찾기](#stock-availability)의 **↓ CSV** 는 필터에 맞는 제품을 모두 내려받습니다.

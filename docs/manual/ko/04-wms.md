@@ -4,7 +4,7 @@
 
 <a id="wms-start"></a>
 ## WMS 에 들어가기
-<!-- screen: ims-auth.js · BUILD nav v12 -->
+<!-- screen: ims-auth.js · BUILD nav v19 -->
 <!-- who: warehouse, manager -->
 
 **무엇인가**
@@ -58,7 +58,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 
 <a id="wms-picking"></a>
 ## 오더 픽하기
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; combo box scan BUILD 2026-10-30 · pk v1.6 -->
+<!-- screen: wms-picker.html · BUILD 2026-10-30 · pk v1.6 -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -101,7 +101,7 @@ WMS 는 IMS 의 창고 모드입니다. 화면이 태블릿과 바코드 스캐�
 
 <a id="wms-pick-short"></a>
 ## 물건이 모자랄 때
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; wms-confirm-modal.js -->
+<!-- screen: wms-picker.html · BUILD 2026-10-30 · pk v1.6 ; wms-confirm-modal.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -138,7 +138,7 @@ SO-99001-1 에 제품 X 가 30 필요합니다. 선반에는 18 이 있습니다
 
 <a id="wms-packing"></a>
 ## 뽑은 오더 검수(Packing)
-<!-- screen: wms-packer.html · BUILD 2026-10-20 · pa v1.6b ; combo box scan BUILD 2026-10-30 · pa v1.7 ; wms-confirm-modal.js -->
+<!-- screen: wms-packer.html · BUILD 2026-10-30 · pa v1.7 ; wms-confirm-modal.js -->
 <!-- who: warehouse -->
 
 **무엇인가**
@@ -258,7 +258,7 @@ IMS 가 Freightcom 에서 운임을 받아 오고, 고른 운송사를 예약하
 **알아 둘 것**
 - **Freightcom TOR** · **Freightcom EDM** 꼬리표는 어느 계정을 쓰는지 보여 줍니다. 창고에서 정해집니다.
 - 토 · 일에는 픽업이 없습니다 — 주말에 걸리는 픽업은 월요일로 옮겨지고, 주말 날짜를 적으면 거부됩니다.
-- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 합니다(**Settings** › **Warehouses** › **Edit**). 없으면 예약이 거부됩니다.
+- 창고에 **Contact** 와 **Phone**(10 자리)이 있어야 합니다(**Settings** › **Warehouse** › **Edit**). 없으면 예약이 거부됩니다.
 - 고객이 결제 때 배송비를 낸 웹 오더: "the cheapest quote is used, the invoice freight stays as paid"(가장 싼 견적을 쓰고 · 인보이스 운임은 낸 그대로)
 
 **조심할 것**
@@ -315,7 +315,7 @@ IMS 가 Freightcom 에서 운임을 받아 오고, 고른 운송사를 예약하
 
 <a id="wms-putaway"></a>
 ## 풋어웨이(제자리에 넣기)
-<!-- screen: wms-receiver.html · BUILD 2026-10-21 · rc v1.9 ; wms-admin.html · BUILD 2026-10-05 · wa v1.17 -->
+<!-- screen: wms-receiver.html · BUILD 2026-11-11 · rc v2.2 ; wms-admin.html · BUILD 2026-11-08 · wa v1.18a -->
 <!-- who: warehouse, manager -->
 
 **무엇인가**
@@ -424,7 +424,7 @@ IMS 가 Freightcom 에서 운임을 받아 오고, 고른 운송사를 예약하
 
 <a id="wms-statuses"></a>
 ## 상태의 뜻(창고)
-<!-- screen: wms-picker.html · BUILD 2026-10-20 · pk v1.5b ; wms-fulfillment.html · BUILD 2026-10-01 · fu v1.3 ; so.html · BUILD 2026-10-25 · so cf words v1 -->
+<!-- screen: wms-picker.html · BUILD 2026-10-30 · pk v1.6 ; wms-packer.html · BUILD 2026-10-30 · pa v1.7 ; wms-admin.html · BUILD 2026-11-08 · wa v1.18a ; so.html · BUILD 2026-11-12 · so shipto v1 -->
 <!-- who: all -->
 
 **판매 오더**

@@ -61,12 +61,14 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Sell B-grade → [Sell B-grade](05-pos.md#pos-bgrade)
 - Take the payment → [Take the payment](05-pos.md#pos-pay)
 - Finish and print the invoice → [Finish and print the invoice](05-pos.md#pos-finish)
+- Sell an item with no barcode as a final sale → [Sell final-sale items (no barcode)](05-pos.md#pos-final-sale)
 - Park a sale and pick it up again → [Park a sale and pick it up again](05-pos.md#pos-park)
 - Check the day's counter payments → [What each status means](05-pos.md#pos-statuses)
 
 ### Action Centre
 - Open the Action Centre → [What the Action Centre is](06-action-centre.md#action-start)
 - Find POS sales not finished → [POS not finished](06-action-centre.md#action-pos)
+- Find Freightcom pickups not scheduled yet → [Pickups not scheduled](06-action-centre.md#action-pickups)
 
 **Keys**: the `sales` key (see [Roles and keys](00-getting-started.md#start-roles-keys)).
 
@@ -88,6 +90,9 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Add shipping fees and other charges → [Shipping fees and other charges](01-sales.md#sales-charges)
 - Add a charge after packing (needs the master key) → [Shipping fees and other charges](01-sales.md#sales-charges)
 - Ship and invoice → [Ship & invoice](01-sales.md#sales-ship-invoice)
+- Quote and book Freightcom when the warehouse could not, or the quote was wrong (booking needs the `freight_booking` key) → [Freightcom — quote, book and label](04-wms.md#wms-freightcom)
+- Change the delivery address after the warehouse finalized → [Change the ship-to of a packed order](01-sales.md#sales-change-ship-to)
+- Follow Freightcom shipments → [Freightcom — shipment board](01-sales.md#sales-freightcom)
 - Handle pickup orders and tracking numbers → [Pickup orders and tracking](01-sales.md#sales-pickup)
 - Print or email documents → [Print and email](01-sales.md#sales-print-email)
 - Find sales invoices → [Sales invoices](01-sales.md#sales-invoices)
@@ -120,13 +125,14 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Make, change or release a combo on **Inventory ▾** › **Combos** (needs the master key) → [Add a new product, sets and combos](03-inventory.md#stock-new-product)
 - Make or change a family (needs the master key) → [Families](03-inventory.md#stock-families)
 - Change many products at once (needs the master key) → [Change many products at once (Product Sheet)](03-inventory.md#stock-sheet)
+- Print product or bin barcode labels → [Print barcode labels](03-inventory.md#stock-labels)
 - Write a product description → [Descriptions, photos, tags and the web shop](03-inventory.md#stock-descriptions)
 - Change photos, tags and barcodes (needs the master key) → [Descriptions, photos, tags and the web shop](03-inventory.md#stock-descriptions)
 - Move stock to the other warehouse → [Transfers between warehouses](03-inventory.md#stock-transfers)
 - Move stock between bins in the office → [Bin moves in the office](03-inventory.md#stock-bin-moves)
 - Download inventory CSVs → [CSV downloads](03-inventory.md#stock-csv)
 
-**Keys**: the keys for each area — `sales`, `purchasing`, `receiving`, `transfer`, `master` (see [Roles and keys](00-getting-started.md#start-roles-keys)).
+**Keys**: the keys for each area — `sales`, `purchasing`, `receiving`, `transfer`, `master`, and `freight_booking` to book Freightcom (see [Roles and keys](00-getting-started.md#start-roles-keys)).
 
 <a id="role-accounting"></a>
 ## Accounting
@@ -157,7 +163,17 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 ### Action Centre
 - Find unpaid pay-now invoices → [Unpaid at hand-over](06-action-centre.md#action-unpaid)
 
-**Keys**: the `sales` and `purchasing` keys (see [Roles and keys](00-getting-started.md#start-roles-keys)).
+### QuickBooks
+- Send invoices, credit notes and payments to QuickBooks → [QuickBooks — send invoices and credit notes](01-sales.md#sales-quickbooks)
+- Send the daily cost of goods → [QuickBooks — cost of goods (daily journal)](01-sales.md#sales-quickbooks-cost)
+- Match IMS accounts, tax rules, customers, suppliers and products to QuickBooks → [QuickBooks matching](07-settings.md#set-qbo-matching)
+- Choose the accounts for supplier invoice lines → [QuickBooks matching — Supplier invoice lines](07-settings.md#set-qbo-supplier-lines)
+- See whether QuickBooks is connected → [QuickBooks — the connection](07-settings.md#set-qbo-connect)
+
+### Freight
+- Check Freightcom shipments and their charges → [Freightcom — shipment board](01-sales.md#sales-freightcom)
+
+**Keys**: the `sales` and `purchasing` keys, and the QuickBooks key (`qbo`) (see [Roles and keys](00-getting-started.md#start-roles-keys)).
 
 <a id="role-warehouse"></a>
 ## Warehouse
@@ -173,17 +189,20 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - When an item is short → [When an item is short](04-wms.md#wms-pick-short)
 - Check a picked order → [Check a picked order (Packing)](04-wms.md#wms-packing)
 - Pack into boxes and pallets → [Pack into boxes and pallets (Fulfillment)](04-wms.md#wms-fulfillment)
+- Quote, book and print the Freightcom label (booking needs the `freight_booking` key) → [Freightcom — quote, book and label](04-wms.md#wms-freightcom)
 - Receive a PO or a transfer → [Receive a PO or a transfer](04-wms.md#wms-receiving)
 - Put away → [Put away](04-wms.md#wms-putaway)
 - Move stock between bins → [Move stock between bins](04-wms.md#wms-bin-moves)
 - Look up stock → [Look up stock](04-wms.md#wms-stock-lookup)
+- Print product or bin barcode labels → [Print barcode labels](03-inventory.md#stock-labels)
 
 ### Inventory and sales
 - Follow a transfer between warehouses → [Transfers between warehouses](03-inventory.md#stock-transfers)
 - Bin moves made in the office → [Bin moves in the office](03-inventory.md#stock-bin-moves)
 - Hand over pickup orders → [Pickup orders and tracking](01-sales.md#sales-pickup)
+- Follow Freightcom shipments → [Freightcom — shipment board](01-sales.md#sales-freightcom)
 
-**Keys**: the warehouse keys — `picking`, `packing`, `fulfillment`, `wms_receiving`, `stock_move` (see [Roles and keys](00-getting-started.md#start-roles-keys)).
+**Keys**: the warehouse keys — `picking`, `packing`, `fulfillment`, `wms_receiving`, `stock_move`, and `freight_booking` to book Freightcom (see [Roles and keys](00-getting-started.md#start-roles-keys)).
 
 <a id="role-manager"></a>
 ## Managers
@@ -231,11 +250,14 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Find POS sales not finished → [POS not finished](06-action-centre.md#action-pos)
 - Look through counter orders → [Counter orders](06-action-centre.md#action-counter)
 - Review new customers → [New customers to review](06-action-centre.md#action-new-customers)
+- Find Freightcom pickups not scheduled yet → [Pickups not scheduled](06-action-centre.md#action-pickups)
 
 ### Settings
 - See who can change what in Settings → [What is in Settings](07-settings.md#set-start)
 - Add or change staff → [Staff](07-settings.md#set-staff)
 - Keep the lists: brands, units, payment terms, bins, carriers, services → [Lists: brands, units, payment terms, bins, carriers, services](07-settings.md#set-master)
+- Set the customer markup on Freightcom quotes → [Shipping quotes](07-settings.md#set-shipping-quotes)
+- Set which carriers come for pickups, and their cutoffs → [Carrier pickups](07-settings.md#set-carrier-pickups)
 - Make deals and order discounts → [Discount rules and deals](07-settings.md#set-deals)
 - Issue or void coupons → [Coupons](07-settings.md#set-coupons)
 - Check a Shopify store, link and push products → [Shopify stores](07-settings.md#set-shopify)
@@ -258,6 +280,7 @@ Everyone also uses the work in [How to use this chapter](#role-start).
 - Set up backorder emails → [Backorder emails](07-settings.md#set-mail)
 - Set up Google Drive → [Google Drive](07-settings.md#set-drive)
 - Add a Shopify store and pair its locations → [Shopify stores](07-settings.md#set-shopify)
+- Connect, check or disconnect QuickBooks → [QuickBooks — the connection](07-settings.md#set-qbo-connect)
 
 **Keys**: the admin role (see [Roles and keys](00-getting-started.md#start-roles-keys)).
 

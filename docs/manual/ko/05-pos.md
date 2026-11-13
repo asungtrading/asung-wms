@@ -5,14 +5,14 @@
 
 <a id="pos-start"></a>
 ## POS 시작하기
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 ; ims-auth.js · BUILD nav v10 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 ; ims-auth.js · BUILD nav v19 -->
 <!-- who: sales -->
 
 **무엇인가**
 **POS** 는 계산대 화면입니다. 계산대 앞에 선 고객에게 팔고, 결제를 받고, 물건을 건넵니다. POS 판매는 모두 고객 계정에 달린 판매 오더입니다.
 
 **누가**
-판매 오더를 다루는 사람 모두. POS 만의 권한은 따로 없고, 매니저만 하는 걸음도 없습니다.
+판매 오더를 다루는 사람 모두. POS 만의 권한은 따로 없습니다. 매니저 이상만 하는 걸음은 하나 — **Cancel sale…** 입니다([판매를 잠시 두고 다시 잡기](#pos-park)).
 
 **어떻게**
 1. Asung 로고 옆의 **POS** 를 누릅니다([모드: IMS · WMS · POS](00-getting-started.md#start-modes)).
@@ -65,7 +65,7 @@ IMS 는 고객 계정 없이 팔지 않습니다. 계정을 먼저 만듭니다:
 
 <a id="pos-prices"></a>
 ## 가격 · 할인 · 쿠폰
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -96,7 +96,7 @@ DEMO-001 의 정가가 10.00 입니다. **Price each** 에 8.50 을 적으면 8.
 
 <a id="pos-bgrade"></a>
 ## B급 팔기
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -142,7 +142,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 <a id="pos-pay"></a>
 ## 결제 받기
-<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -164,6 +164,15 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 **결제 목록**
 결제마다 오른쪽 **Payments** 아래에 나옵니다: 방법 · 금액 · 참조 번호 · 언제 · 누가 적었나. 맨 윗줄에 결제 수와 합계가 있습니다. 취소된 결제는 줄이 그어지고, 누가 · 언제 · 왜 취소했는지가 보입니다.
 
+**잘못 적은 결제 취소하기**
+금액 · 방법을 잘못 적었거나 두 번 적었을 때 씁니다.
+1. **Payments** 에서 그 결제의 **Cancel payment…** 를 누릅니다. (화면 다른 곳에서 창을 닫는 **Cancel** 과는 다른 단추입니다.)
+2. IMS 가 묻습니다: "Cancel the payment … ? It stays on record as cancelled, with your name. Then record the right amount again."(취소로 기록에 남고 내 이름이 붙는다 · 그다음 맞는 금액을 다시 적는다) 사유는 적어도 되고 안 적어도 됩니다. OK 를 누릅니다.
+3. 결제에 줄이 그어지고 **Cancelled by** 내 이름 · 시각 · 사유가 보입니다.
+4. 맞는 결제를 다시 적습니다(위 3 ~ 5).
+- **Cancel payment…** 는 **Finish** 전에만, 이 판매 하나에만 붙은 결제에만 보입니다. POS 결제를 적는 사람이면 누구나 쓸 수 있습니다.
+- **Finish** 뒤이거나 다른 인보이스까지 낸 결제는 매니저가 **Sales ▾** › **Customer Payments** 에서 고칩니다([고객 결제와 선수금](01-sales.md#sales-payments)).
+
 **알아 둘 것**
 - 받아 둔 돈(money on account)과 열린 크레딧 노트는 저절로 이 판매를 냅니다. 오른쪽에 **Credit / on account** 로 나옵니다.
 - **Confirm** 뒤에는 스캔 칸이 "Confirmed — Reopen to add or change items"(확정됨 — 물건을 바꾸려면 Reopen)라고 합니다. 바꾸려면 **Reopen to change items** 를 누릅니다 — "Payments already taken stay on it."(이미 받은 결제는 그대로 남는다)
@@ -172,7 +181,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 <a id="pos-finish"></a>
 ## 끝내고 인보이스 인쇄하기
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 ; ims-doc.js -->
+<!-- screen: pos.html · BUILD 2026-11-12 · pos cxpay v1 ; ims-doc.js -->
 <!-- who: sales -->
 
 **무엇인가**
