@@ -5,22 +5,24 @@
 
 <a id="set-start"></a>
 ## Settings 에 있는 것
-<!-- screen: ims-auth.js · BUILD nav v13 ; system-check.html · BUILD 2026-10-24 · sc v2 -->
+<!-- screen: ims-auth.js · BUILD nav v19 ; settings.html · BUILD 2026-11-11 · set v18 ; system-check.html · BUILD 2026-10-24 · sc v2 -->
 <!-- who: manager, admin -->
 
 **무엇인가**
-**Settings ▾** 에는 IMS 의 다른 곳이 쓰는 목록과 스위치가 있습니다: 직원 · 브랜드 · bin · 운송사 · 딜 · 문서 양식 · 웹 가게. 대부분은 보기만 하고, 몇 사람만 바꿉니다.
+**Settings ▾** 에는 IMS 의 다른 곳이 쓰는 목록과 스위치가 있습니다: 직원 · 브랜드 · bin · 운송사 · 창고 · 딜 · 문서 양식 · 운임 견적 · QuickBooks 연결. 웹 가게는 **Integrations ▾** › **Shopify Stores** 에 있습니다. 대부분은 보기만 하고, 몇 사람만 바꿉니다.
 
 **누가 무엇을 바꾸나**
 
 | 화면 | 보려면 | 바꾸려면 |
 |---|---|---|
-| **Settings** — 목록 | `master` 권한 | `master` 권한 write |
+| **Settings** — 목록(**Warehouse** 포함) | `master` 권한 | `master` 권한 write |
+| **Settings** — Shipping quotes · Carrier pickups | `master` 권한 | `master` 권한 write |
 | **Settings** — Backorder emails · Documents · Google Drive | `master` 권한 | 부분마다 다름 — 그 절을 본다 |
+| **Settings** — QuickBooks | `master` 권한 | admin 만 |
 | **Surcharge Groups** | `master` 권한 | admin 만 |
 | **Staff** | `staff` 권한 | `staff` 권한 write · 나보다 낮은 역할의 사람만 |
 | **Discount Rules** | `master` 권한 | `master` 권한 write |
-| **Settings** — QuickBooks matching › Supplier invoice lines | QUICKBOOKS 권한 | QUICKBOOKS 권한 write |
+| **Settings** — QuickBooks matching(Supplier invoice lines 포함) | `master` 권한과 QuickBooks 권한(`qbo`) | QuickBooks 권한 write |
 | **Shopify Stores** | `shopify` 권한 | `shopify` 권한 write — 연결 확인 · 잇기 · 보내기 · 가게 더하기 · 고치기 · 짝 맞추기는 admin |
 | **System Check** | 권한 없이 | — 보여 주기만 한다 |
 
@@ -29,16 +31,17 @@
 **절**
 - [직원](#set-staff)
 - [목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스](#set-master)
+- [운임 견적](#set-shipping-quotes) · [운송사 픽업](#set-carrier-pickups)
 - [할인 규칙과 딜](#set-deals) · [쿠폰](#set-coupons)
 - [Surcharge 그룹](#set-surcharge)
 - [문서](#set-documents) · [백오더 메일](#set-mail) · [Google Drive](#set-drive)
 - [Shopify 가게](#set-shopify)
-- [QuickBooks matching — 공급처 인보이스 줄](#set-qbo-supplier-lines)
+- [QuickBooks — 연결](#set-qbo-connect) · [QuickBooks matching](#set-qbo-matching) · [QuickBooks matching — 공급처 인보이스 줄](#set-qbo-supplier-lines)
 - [System Check](#set-system-check)
 
 <a id="set-staff"></a>
 ## 직원(Staff)
-<!-- screen: staff.html · BUILD 2026-10-20 · st v3a -->
+<!-- screen: staff.html · BUILD 2026-10-29 · st v3c -->
 <!-- who: manager, admin -->
 
 **무엇인가**
@@ -66,6 +69,7 @@
 3. **Access** — 권한:
    - **WMS** · **IMS** 중 하나나 둘을 체크하면 그 모드의 권한이 보입니다. "With none ticked every screen shows."(아무것도 체크하지 않으면 모든 화면이 보인다)
    - 권한마다 **none** · **read** · **write** 를 고릅니다.
+   - 두 모드가 함께 쓰는 권한(예: `freight_booking`)은 WMS 아래에도 IMS 아래에도 보입니다. 같은 권한 하나입니다.
 4. **Location** — 브랜치. 이 사람이 일하는 브랜치를 체크합니다. "None ticked = every warehouse."(체크가 없으면 모든 창고) manager · worker 에게만 효과가 있습니다. supervisor · admin 은 모든 브랜치에서 일합니다.
 5. **Save** 를 누릅니다. **Revert** 는 바꾼 것을 버립니다.
 
@@ -82,7 +86,7 @@
 
 <a id="set-master"></a>
 ## 목록: 브랜드 · 단위 · 결제 조건 · bin · 운송사 · 서비스
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c -->
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 ; ims-label.js · lbl v1b -->
 <!-- who: manager, admin -->
 
 **무엇인가**
@@ -102,13 +106,13 @@
 | **Unit** | 단위 | 더하기 · 끄기 · 켜기 |
 | **Currency** | 통화 | 보기만 |
 | **Payment Term** | 고객 · 공급처의 결제 조건 | 더하기 · 끄기 · 켜기 |
-| **Account** | 계정(코드로) | 보기만 |
-| **Warehouse** | 브랜치 | 보기만 |
-| **Bin** | 브랜치마다 선반 자리 — "Thousands of bins — search for the one you need"(bin 이 수천 개 — 찾아서 쓴다) | 더하기 · 끄기 · 켜기 · B급 표시 |
+| **Account** | 계정(코드로). **Currency** 는 "is set only on foreign-currency payable and receivable accounts — empty means CAD"(외화 미지급 · 미수 계정에만 있다 — 비면 CAD) | 보기만 |
+| **Warehouse** | 브랜치 — "the shipping contact and Freightcom account are used for freight quotes"(출고 연락처와 Freightcom 계정을 운임 견적에 쓴다) | 출고 연락처 · Freightcom 계정 · 시간대 · 닫는 시각 고치기 |
+| **Bin** | 브랜치마다 선반 자리 — "Thousands of bins — search for the one you need"(bin 이 수천 개 — 찾아서 쓴다) | 더하기 · 끄기 · 켜기 · B급 표시 · 라벨 인쇄 |
 | **Carrier** | "Picked at Ship & invoice — the kind decides email and tracking"(Ship & invoice 에서 고른다 — 종류가 메일 · 송장을 정한다) | 더하기 · 고치기 |
 | **Service** | "Billed on service orders as quantity × unit price — tax follows the order"(서비스 오더에 수량 × 단가로 · 세금은 오더를 따른다) | 더하기 · 고치기 |
 
-Currency · Account · Warehouse 는 보기만 합니다. 세금 규칙은 고객 · 오더에서 고르기만 하고 여기에 없습니다. 이것들을 바꿀 일이 생기면 IMS 관리자에게 말합니다.
+Currency · Account 는 보기만 합니다. 창고는 여기서 더하지 않고, 창고 이름 · 주소도 여기서 바꾸지 않습니다. 세금 규칙은 고객 · 오더에서 고르기만 하고 여기에 없습니다. 이것들을 바꿀 일이 생기면 IMS 관리자에게 말합니다.
 
 **어떻게 — 목록에 더하기**
 1. 목록을 열고 **+ Add** 를 누릅니다(예: **+ Add brand**).
@@ -135,12 +139,23 @@ Currency · Account · Warehouse 는 보기만 합니다. 세금 규칙은 고�
 - **Warehouse** 를 고르고 **Name** 을 적습니다 — "use the spelling on the shelf label"(선반 라벨의 철자대로)
 - **Staging** — "A staging spot (dock, receiving area), not a shelf"(선반이 아니라 도크 · 받는 자리)
 - **Mark B-grade** 는 B급 bin 으로 만듭니다. "The bin must be empty in the books first."(먼저 장부에서 비어 있어야 한다) **Unmark B-grade** 는 보통 bin 으로 되돌립니다 — B급 재고를 먼저 옮깁니다([B급 재고](03-inventory.md#stock-bgrade)).
+- **Print labels…** 는 bin 여러 개의 바코드 라벨을 한 번에 찍습니다([바코드 라벨 찍기](03-inventory.md#stock-labels)).
+
+**Warehouse**
+운임 견적 · 예약이 이 값을 씁니다. 창고 줄의 **Edit** 를 누릅니다(꺼진 창고에는 없음).
+1. **Contact** · **Phone** · **Email** — "Sent to the carrier as the ship-from contact on freight quotes and bookings. A quote is refused without a 10-digit phone."(견적 · 예약 때 보내는 쪽 연락처로 운송사에 간다 · 10 자리 전화가 없으면 견적이 거부된다)
+2. **Freightcom account** — 영문 · 숫자 2 ~ 10 자(예: TOR). "Quotes from this warehouse use the Freightcom account with this key. Empty = no Freightcom quotes from this warehouse."(이 창고의 견적은 이 이름의 Freightcom 계정으로 · 비면 이 창고에서 견적 없음) 바꾸기 전에 IMS 가 묻습니다.
+3. **Time zone** — "Pickup times and carrier cutoffs at this warehouse are in this time zone."(이 창고의 픽업 시각 · 운송사 마감은 이 시간대로) Edmonton 은 **America/Regina** 를 씁니다. 바꾸기 전에 IMS 가 묻습니다.
+4. **Closes at** — 창고 문 닫는 시각(24 시간). "A booking made after this moves the pickup to the next day, and a pickup window ends here."(이 뒤에 한 예약은 픽업이 다음 날로 · 픽업 시간대는 여기서 끝난다)
+5. **Save** 를 누릅니다.
+- 주소는 보이기만 하고 여기서 고치지 않습니다.
 
 **Carrier**
 1. **+ Add carrier** 를 누르거나, 줄의 **Edit** 를 누릅니다.
 2. **Kind**: **Carrier — tracking number · shipping email**(운송사 — 송장 번호 · 출고 메일) · **Pickup — customer collects**(고객이 가져감) · **Delivery — our truck**(우리 트럭). "The kind cannot change — it decides what old orders did."(종류는 바꿀 수 없다 — 지난 오더가 그것으로 처리됐다)
 3. 운송사면: **Shopify name**("exactly as in Shopify's carrier list" — Shopify 운송사 목록과 똑같이) · **Tracking link**("{number} is replaced by each tracking number" — {number} 자리에 송장 번호가 들어간다)
-4. **Active** 를 끄면 "not offered at Ship & invoice (old orders keep the name)"(Ship & invoice 에 나오지 않는다 · 지난 오더는 이름을 그대로 가진다). **Save** 를 누릅니다.
+4. 운송사면: **Freightcom names** — "The carrier name as Freightcom sends it in quotes — one carrier can have several (case and spaces do not matter). A quote from a carrier with no name here cannot be picked. Each name belongs to one carrier only."(Freightcom 이 견적에 보내는 운송사 이름 · 한 운송사에 여럿 가능 · 대소문자 · 빈칸 무관 · 여기 이름이 없는 운송사의 견적은 고를 수 없다 · 이름 하나는 운송사 하나에만) 한 줄에 하나씩 적거나, 아래 칸에 이름 일부를 치고 **Add** 를 누릅니다.
+5. **Active** 를 끄면 "not offered at Ship & invoice (old orders keep the name)"(Ship & invoice 에 나오지 않는다 · 지난 오더는 이름을 그대로 가진다). **Save** 를 누릅니다.
 
 **Service**
 1. **+ Add service** 를 누르거나, 줄의 **Edit** 를 누릅니다.
@@ -150,9 +165,67 @@ Currency · Account · Warehouse 는 보기만 합니다. 세금 규칙은 고�
 
 <!-- SCREENSHOT: set-master-1 · 왼쪽 목록과 Payment Term 이 열린 Settings -->
 
+<a id="set-shipping-quotes"></a>
+## 운임 견적(Shipping quotes)
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: manager, admin -->
+
+**무엇인가**
+**Settings** › **Shipping quotes** 는 Freightcom 운임 견적의 두 가지를 정합니다: 손님에게 붙이는 마크업, 그리고 어느 창고가 견적을 낼 수 있나. 견적 · 예약 자체는 [Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)에 있습니다.
+
+**누가**
+**Settings** 를 여는 사람은 모두 봅니다. 마크업은 `master` 권한 write 가 바꿉니다. 아니면 "Only staff with master rights can change this."(master 쓰기 권한만 바꾼다)
+
+**손님 마크업(Customer markup)**
+- "The freight line on the invoice = the Freightcom price before tax × (1 + this %), rounded to the cent. The customer's tax is added once on top."(인보이스 운임 줄 = 세전 Freightcom 가격 × (1 + 이 %) · 센트로 반올림 · 손님 세금은 그 위에 한 번)
+- 바꾸려면 % 를 적고(0 ~ 100 · 소수 둘째 자리까지) **Save** 를 누릅니다. IMS 가 먼저 묻습니다: "New quotes use it. Quotes already made keep their numbers."(새 견적부터 · 이미 낸 견적은 그대로)
+- "Web orders already paid at checkout keep the freight the customer paid."(결제 때 운임을 이미 낸 웹 오더는 그 운임 그대로)
+
+**창고(Warehouses)**
+켜진 창고마다 Freightcom 계정과 상태가 보입니다:
+- **connected** — 이 창고에서 견적을 낼 수 있습니다.
+- **no key on the server yet** — 그 계정의 열쇠가 서버에 아직 없습니다. IMS 관리자에게 말합니다.
+- **no Freightcom account** — 이 창고에서는 견적이 없습니다.
+- **no phone — quotes are refused** — 전화가 없어 견적이 거부됩니다.
+- **status not available to you** — 내 권한으로는 연결 상태를 못 읽습니다.
+
+계정 · 전화 · 연락처는 **Warehouse** 에서 적습니다([목록](#set-master)).
+
+**알아 둘 것**
+- "Freightcom TEST environment — prices are not real."(Freightcom 시험 환경 — 가격이 진짜가 아니다)는 IMS 가 Freightcom 시험 쪽에 이어져 있을 때 보입니다.
+
+<a id="set-carrier-pickups"></a>
+## 운송사 픽업(Carrier pickups)
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: manager, admin -->
+
+**무엇인가**
+**Settings** › **Carrier pickups** 는 창고마다 "which carriers come on a regular run, and the cutoff for a same-day pickup"(어느 운송사가 정기로 오나 · 당일 픽업 마감은 몇 시인가)을 적어 둡니다. 운임 예약이 이것을 씁니다.
+
+**누가**
+**Settings** 를 여는 사람은 모두 봅니다. `master` 권한 write 가 바꿉니다. "Ask the warehouse lead for these."(값은 창고 책임자에게 묻는다)
+
+**보이는 것**
+켜진 창고마다 표 하나 — 그 창고의 시간대와 닫는 시각("closes …", 없으면 **not set**). **Change under Warehouse** 는 창고 목록을 엽니다. 운송사 하나가 한 줄입니다.
+- **Regular pickup** — "the carrier already comes to this warehouse on its usual run, so a box booking just joins that run (no pickup time is sent). Not ticked — each booking asks the carrier to come, from the ready time until the warehouse closes. Pallets always ask for a pickup."(운송사가 원래 정기로 오므로 박스 예약은 그 길에 붙는다 · 픽업 시각을 보내지 않음 · 체크 안 함 = 예약마다 준비 시각부터 문 닫을 때까지 와 달라고 한다 · 팔렛은 늘 픽업을 부른다)
+- **Cutoff** — "after this time (warehouse time) a booking made today is picked up the next day, and the carrier shows as "past cutoff" in the quotes. Empty = no cutoff known. When Freightcom sends the carrier's real cutoff, that comes first."(창고 시각으로 이 뒤에 한 오늘 예약은 다음 날 픽업 · 견적에 "past cutoff" 로 보인다 · 비면 마감 모름 · Freightcom 이 진짜 마감을 주면 그것이 먼저)
+- **Note** — 예: "driver around 3 pm". **Updated** 에 마지막으로 바꾼 사람 · 날짜가 보입니다.
+
+**어떻게**
+1. **regular pickup** 을 체크하고, **Cutoff**(16:30 같은 시각)와 **Note** 를 적습니다.
+2. 그 줄의 **Save** 를 누릅니다.
+3. **Clear** 는 그 줄을 **not set** 으로 되돌립니다 — "no regular pickup, no cutoff"(정기 픽업 없음 · 마감 없음). IMS 가 먼저 묻습니다.
+
+**알아 둘 것**
+- "A carrier left as "not set" has no regular pickup and no cutoff."(not set 인 운송사는 정기 픽업도 마감도 없다)
+- 마감이 창고 닫는 시각보다 늦으면 빨간 "after closing" 이 보입니다. 마감을 고치거나 **Warehouse** 에서 닫는 시각을 고칩니다.
+- 종류가 **Carrier** 인 켜진 운송사만 나옵니다. **Carrier** 에서 더합니다([목록](#set-master)).
+
+<!-- SCREENSHOT: set-carrier-pickups-1 · 운송사 · Regular pickup · Cutoff · Note 가 보이는 창고 하나 -->
+
 <a id="set-deals"></a>
 ## 할인 규칙과 딜
-<!-- screen: discount-rules.html · BUILD dr v3a -->
+<!-- screen: discount-rules.html · BUILD dr v4 ; ims-export.js · export v2 -->
 <!-- who: manager, admin -->
 
 **무엇인가**
@@ -195,6 +268,12 @@ Currency · Account · Warehouse 는 보기만 합니다. 세금 규칙은 고�
 - 고객 규칙: "Same kind = any of them · different kinds = all of them · a "Not" rule always wins."(같은 종류는 하나만 맞으면 · 다른 종류는 모두 맞아야 · Not 은 늘 이긴다)
 - **Open orders using it** 은 이 딜이 닿는 열린 오더 수입니다. 바꾸면 그 초안들이 **Reprice** 를 권합니다([할인 · 딜 · 추가 요금](01-sales.md#sales-discounts-deals)).
 - 딜은 지울 수 없습니다. 끕니다.
+- 딜의 **Products** 목록에서 세트는 접혀 있습니다. **▸ sets** 를 누르면 보입니다: "Sets get the same deal as their single (a set line counts its singles)"(세트는 낱개와 같은 딜을 받는다 · 세트 줄은 낱개로 센다)
+
+**딜 내보내기**
+- 넓은 목록의 **↓ Export rules…** 는 "one row for each discount line of the deals on this list now"(지금 목록에 있는 딜의 할인 줄마다 한 줄), **↓ Export products…** 는 "one row for each active product the deals on this list reach today"(그 딜이 오늘 닿는 켜진 제품마다 한 줄)입니다. 둘 다 지금 걸어 둔 거르기를 따릅니다.
+- 딜 하나에서 **↓ Rule CSV…** 는 그 딜을 적힌 그대로, **↓ Products CSV…** 는 오늘 닿는 켜진 제품 전부를 받습니다(라인 할인만).
+- 칸은 [↓ Export…](00-getting-started.md#start-search-filter)처럼 고릅니다.
 
 **조심할 것**
 - 내가 연 뒤에 다른 사람이 저장했으면 아무것도 저장되지 않습니다. **Load the latest version** 을 누르고 다시 바꿉니다.
@@ -300,7 +379,7 @@ Surcharge 그룹은 어떤 제품에 낱개마다 붙는 추가 요금입니다 
 
 <a id="set-mail"></a>
 ## 백오더 메일(Backorder emails)
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c -->
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
 <!-- who: admin -->
 
 **무엇인가**
@@ -311,11 +390,12 @@ Surcharge 그룹은 어떤 제품에 낱개마다 붙는 추가 요금입니다 
 
 **어떻게**
 1. **Emails** — **Turn on** · **Turn off**. 켜짐: "Runs start on the scheduled mornings and emails go out."(정한 아침마다 돌고 메일이 나간다) 꺼짐: "Emails that are already waiting stay waiting until this is on."(기다리는 메일은 켤 때까지 기다린다)
-2. **Test mode — send every email to** — 여기에 주소가 있으면 모든 메일이 고객 대신 그 주소로 갑니다. 실제 고객에게 보내려면 비웁니다.
-3. **Sent from** — 고객이 보는 보낸 주소. 회사 메일함에 "Send mail as" 주소로 설정돼 있어야 합니다.
-4. **Sender name** · **Replies go to**("Empty = replies go to the "sent from" address" — 비면 답장은 보낸 주소로)
-5. **Schedule** — 브랜치마다 **Send for this branch** 와 요일 · 시각 · 시간대를 고르고 **Save schedule** 을 누릅니다.
-6. **Part of a line that came in** — 백오더 수량의 몇 % 가 들어와야 메일을 보낼지. **Save** 를 누릅니다.
+2. **Customer mail is live** — **Live**: "This database sends real customer mail."(실제 고객에게 메일을 보낸다) **Not live**: "every email must go to the Test mode address below (an @asung.ca address)."(모든 메일이 아래 Test mode 주소로 가야 한다 · @asung.ca 주소) **Make live** · **Make not live** 로 바꿉니다.
+3. **Test mode — send every email to** — "every email — invoices, credit notes, orders and backorder emails — goes to it instead of the customer, and the customer's address goes in the subject."(인보이스 · 크레딧 노트 · 오더 · 백오더 메일 모두 고객 대신 이 주소로 · 고객 주소는 제목에) 실제 고객에게 보내려면 비웁니다. "It can be empty only while customer mail is live."(Customer mail 이 Live 일 때만 비울 수 있다)
+4. **Sent from** — 고객이 보는 보낸 주소. 회사 메일함에 "Send mail as" 주소로 설정돼 있어야 합니다.
+5. **Sender name** · **Replies go to**("Empty = replies go to the "sent from" address" — 비면 답장은 보낸 주소로)
+6. **Schedule** — 브랜치마다 **Send for this branch** 와 요일 · 시각 · 시간대를 고르고 **Save schedule** 을 누릅니다.
+7. **Part of a line that came in** — 백오더 수량의 몇 % 가 들어와야 메일을 보낼지. **Save** 를 누릅니다.
 
 **알아 둘 것**
 - "Each branch runs once on each checked morning at that hour in its own time."(브랜치마다 고른 아침, 그 시각에 한 번) "Holidays are not skipped."(공휴일도 건너뛰지 않는다)
@@ -349,7 +429,7 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 
 <a id="set-shopify"></a>
 ## Shopify 가게
-<!-- screen: shopify-stores.html · BUILD 2026-10-20 · ss v3a -->
+<!-- screen: shopify-stores.html · BUILD 2026-10-27 · ss v5a -->
 <!-- who: admin, manager -->
 
 **무엇인가**
@@ -358,7 +438,16 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 **누가**
 - `shopify` 권한 read: 보기만
 - `shopify` 권한 write: **Check connection**, 제품 잇기와 보내기
-- admin: **New store** · **Edit** · **Turn off** / **Turn on** · 위치 짝 맞추기
+- admin: **New store** · **Edit** · **Turn off** / **Turn on** · **Go live…** / **Stop live…** · 위치 짝 맞추기
+
+**Live — admin 만**
+웹 가게는 이미 Live 로 돌고 있습니다. IMS 관리자가 말하지 않으면 **Stop live…** · **Go live…** 를 누르지 마세요.
+- **Live**: "IMS sends products and stock, takes orders and updates them in Shopify."(IMS 가 제품 · 재고를 보내고, 오더를 받고, Shopify 에서 오더를 갱신한다)
+- **Not live**: "IMS only reads this store (Check connection · Link existing products) — nothing is written to Shopify and no orders are taken"(IMS 는 읽기만 · Shopify 에 아무것도 쓰지 않고 오더도 받지 않는다). 새 가게는 Not live 로 시작합니다.
+- **Stop live…**: "IMS stops writing to this store and stops taking its orders. Waiting product updates stay in the queue and go out when it is live again."(쓰기와 오더 받기를 멈춘다 · 기다리던 제품 갱신은 줄에 남았다가 다시 Live 가 되면 나간다) Shopify 자체는 바뀌지 않습니다.
+- **Go live…**: "From now on IMS writes to the real store: it sends stock for every product with send on (right away, as IMS has it now), sends product changes, takes new web orders and updates them in Shopify."(지금부터 실제 가게에 쓴다 — 보내기가 켜진 제품의 재고를 지금 IMS 값으로 바로 보내고, 제품 변경을 보내고, 새 웹 오더를 받고 갱신한다) **Read orders from** — 오더를 받기 시작할 날짜 · 시각을 묻습니다. "Before going live: IMS stock is loaded and right · locations are paired (Check connection shows no warnings) · products are linked."(먼저: IMS 재고가 맞다 · 위치 짝이 있다 · 제품이 이어져 있다)
+- 둘 다 **Check** 를 먼저 누르고, 그다음 **Stop live** 또는 **Go live** 를 누릅니다.
+- **Turn off** 는 그 가게와 주고받기를 모두 멈추고 Live 도 끕니다. **Turn on** 뒤에도 **Go live…** 를 누르기 전까지 Not live 입니다.
 
 **어떻게 — 가게(admin)**
 1. **New store** 를 누릅니다. **Code**("It cannot be changed later" — 나중에 못 바꾼다) · **Label** · **Shopify address** · **Price tier** · **Compare-at tier** 를 넣습니다.
@@ -374,18 +463,102 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 **어떻게 — 있는 제품 잇기(첫 보내기 전 한 번)**
 1. **Link existing products** 에서 **Read products from Shopify** 를 누릅니다. "It only reads Shopify, nothing is changed there."(Shopify 를 읽기만 한다 — 거기서는 아무것도 바뀌지 않는다)
 2. **Plan** 을 누릅니다. **Show lines** 는 Shopify 제품마다 결정을 보이고, **Download CSV** 는 전부를 받습니다.
-3. **Apply links** 를 누릅니다. "Stock is sent right away."(재고는 바로 보낸다) 제품 정보는 아직 보내지 않습니다.
+3. **Apply links** 를 누릅니다. Live 가게면 "Stock is sent right away"(재고는 바로 보낸다), Not live 가게면 재고는 **Go live…** 때 한 번에 나갑니다. 제품 정보는 아직 보내지 않습니다.
+   - "It goes 500 at a time … Keep this window open. If it stops, press Apply links again and it carries on from where it stopped."(500 개씩 간다 · 창을 열어 둔다 · 멈추면 Apply links 를 다시 누르면 멈춘 곳부터 잇는다) **Stop** 은 지금 묶음을 마치고 멈춥니다.
+   - 막힌 줄은 까닭이 보입니다. 예: "several Shopify products point to one IMS item — make them one product in Shopify, then read again"(Shopify 제품 여럿이 IMS 하나를 가리킨다 — Shopify 에서 하나로 합치고 다시 읽는다). **Show lines** 에 겹치는 다른 Shopify 제품이 나오고, CSV 에도 있습니다.
 
 **어떻게 — 제품 정보 보내기**
 1. **Push linked products** 에서 **Show what is left** 를 누릅니다. 브랜드마다 남은 제품 수가 나옵니다.
 2. 브랜드 하나의 **Send…** 를 누릅니다. Shopify 에서 몇 개를 확인합니다.
-3. 맞으면 **Send all left (n)…** 를 누릅니다.
+3. 맞으면 **Send all left (n)…** 를 누릅니다. Not live 가게에서는 **Send…** 가 흐립니다 — "sending starts only after Go live"(보내기는 Go live 뒤부터).
 - "Sending pushes IMS product details (title, description, price, photos, tags, variants) to Shopify."(IMS 제품 정보 — 제목 · 설명 · 가격 · 사진 · 태그 · 옵션 — 를 보낸다) 몇 분에 걸쳐 Shopify 에 닿습니다.
 
 **알아 둘 것**
 - 제품을 가게에 켜는 것은 제품의 Shopify 카드에서 합니다([설명 · 사진 · 태그 · 웹 숍](03-inventory.md#stock-descriptions)).
 
 <!-- SCREENSHOT: set-shopify-1 · Location pairs 와 Push linked products 가 보이는 가게 -->
+
+<a id="set-qbo-connect"></a>
+## QuickBooks — 연결
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: admin, accounting -->
+
+**관리자 · 회계 담당용.** 대부분의 직원은 이 페이지를 쓸 일이 없습니다.
+
+**무엇인가**
+**Settings** › **QuickBooks** 는 IMS 와 QuickBooks Online 회사의 연결입니다. **Connected** 로 보이는 동안 IMS 가 인보이스 · 크레딧 노트 · 입금 · 크레딧 붙임 · 환불을 QuickBooks 로 보냅니다([QuickBooks](01-sales.md#sales-quickbooks)).
+
+**누가**
+**Settings** 를 여는 사람은 모두 상태를 봅니다. 연결 · 다시 연결 · 확인 · 끊기는 admin 만 합니다: "Only an IMS admin can connect or disconnect."(IMS admin 만 연결 · 끊기를 한다)
+
+**메일이 왔을 때 — "[IMS] QuickBooks connection needs attention"**
+QuickBooks 가 연결을 받지 않게 되면 IMS 가 IMS 관리자에게 메일을 한 번 보냅니다: "QuickBooks stopped accepting the IMS connection … Nothing is sent to QuickBooks until it is reconnected."(QuickBooks 가 연결을 받지 않는다 · 다시 연결할 때까지 아무것도 보내지 않는다) 페이지에는 **Reconnect needed** 와 **Last problem** 이 보입니다.
+1. admin 이 **Settings** › **QuickBooks** 를 열고 **Reconnect** 를 누릅니다.
+2. QuickBooks 회사의 관리자로 로그인하고 허락합니다. 이 페이지로 돌아옵니다.
+3. "Just now: Connected to QuickBooks." 가 뜨고 상태가 **Connected** 가 됩니다.
+다른 글이 뜨면 — 예: "The connect link expired or was already used. Press Connect again."(링크가 만료됐거나 이미 썼다 · Connect 를 다시 누른다) — 그 글대로 합니다.
+
+**페이지에 보이는 것**
+- **Company** — QuickBooks 회사 이름 · ID · **Production** 또는 **Sandbox (test company)**(시험 회사)
+- **Connected by** — 누가 언제 연결했나
+- **Approval good until** — "Each daily renewal moves it about 100 days ahead, so nothing needs doing while renewals work — press Reconnect only if the connection drops."(매일 갱신할 때마다 약 100 일 뒤로 밀린다 · 갱신이 도는 동안 할 일 없음 · 연결이 끊겼을 때만 Reconnect)
+- **Check connection**(admin)은 지금 QuickBooks 에 물어봅니다: "QuickBooks answered — …"
+
+**끊기(Disconnect) — 보내기가 모두 멈춘다**
+**Disconnect** 는 IMS 를 QuickBooks 회사에서 로그아웃시킵니다. "Nothing can be sent to the books until someone connects again."(누가 다시 연결할 때까지 장부로 아무것도 못 보낸다) 문제를 고치려고 누르지 마세요 — **Reconnect** 를 씁니다.
+
+**조심할 것**
+- "The IMS stays tied to the first QuickBooks company it connects to, so records never point at the wrong books."(IMS 는 처음 연결한 QuickBooks 회사에 묶인다 — 기록이 다른 장부를 가리키지 않게) 다른 회사로 연결하면 거부됩니다: "That is a different QuickBooks company from the one this IMS is tied to. Nothing was saved." **Untie company** 는 회사 자체가 정말 바뀌었을 때만 씁니다.
+
+<a id="set-qbo-matching"></a>
+## QuickBooks matching(짝짓기)
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: accounting, admin -->
+
+**관리자 · 회계 담당용.**
+
+**무엇인가**
+**Settings** › **QuickBooks matching** 은 "each IMS record that will later go to QuickBooks … to one QuickBooks record — automatically by account number, name or SKU, or by hand. Once tied, the tie holds even if a name changes later. Nothing is sent to QuickBooks from this page."(나중에 QuickBooks 로 갈 IMS 기록을 QuickBooks 기록 하나에 묶는다 — 계정 번호 · 이름 · SKU 로 자동으로, 또는 손으로 · 한 번 묶이면 이름이 바뀌어도 그대로 · 이 페이지에서는 QuickBooks 로 아무것도 보내지 않는다)
+
+**누가**
+- QuickBooks 권한(`qbo`)이 있어야 합니다: "This page needs the QuickBooks key. Ask an admin to switch it on for you in Staff."
+- read 는 보기만, write 는 **Refresh list** · **Match automatically** · **Find…** · **Change…** · **Unlink** 를 합니다.
+- QuickBooks 가 먼저 연결돼 있어야 합니다([QuickBooks — 연결](#set-qbo-connect)).
+
+**무엇을 짝짓나**
+종류마다 한 줄 — **IMS active** · **Matched** · **Not matched** · **In QuickBooks** · **List from QuickBooks**(마지막으로 읽은 때):
+
+| Records | QuickBooks 쪽 | 어떻게 |
+|---|---|---|
+| **Accounts** | Account | 계정 번호로 |
+| **Tax rules** | TaxCode | 이름으로 — 판매 · 구매 규칙이 QuickBooks 세금 코드 하나를 함께 쓴다 |
+| **Payment terms** | Term | 이름으로 |
+| **Payment methods** | PaymentMethod | 정해진 목록 — 카드 결제는 QuickBooks 방법 하나로, **Find…** 로 고른다 |
+| **Customers** | Customer | 이름으로 |
+| **Suppliers** | Vendor | 이름으로 |
+| **Products** | Item | SKU 로 |
+| **Freight, discount & account lines** | Item | 손으로 — Freight · Order discount · Surcharge · Freight discount · 계정 줄 |
+| **Services** | Item | 손으로 |
+
+**어떻게 — 새 기록 짝짓기**
+1. 그 줄의 **Refresh list** 로 QuickBooks 의 최신 목록을 읽습니다.
+2. **Match automatically** 를 누릅니다. "… matched now · … with no QuickBooks record · … need a choice"(지금 짝지음 · QuickBooks 에 없음 · 골라야 함)
+3. **Review** 를 누릅니다. **To match** 에 남은 것이 나옵니다. 맞는 QuickBooks 기록 단추를 누르거나, **Find…** 로 이름 · SKU · ID 로 찾아 **Match** 를 누릅니다.
+- **Matched** · **All** 은 나머지를 보입니다. **Change…** 는 다른 기록으로 바꾸고, **Unlink** 는 짝을 풉니다 — "Nothing changes in QuickBooks."(QuickBooks 는 바뀌지 않는다)
+- "A record already tied to another IMS record cannot be picked until that one is unlinked."(다른 IMS 기록에 묶인 것은 그쪽을 풀기 전에는 못 고른다)
+
+**보내기가 "… has no QuickBooks item" 으로 멈추면**
+**Integrations ▾** › **QuickBooks** 에서 보내기가 실패합니다. 예: "IMS freight has no QuickBooks item — link "freight" to the Freight item under Settings → QuickBooks matching — nothing was sent"
+1. **Settings** › **QuickBooks matching** 을 열고 **Freight, discount & account lines**(또는 **Services**)의 **Review** 를 누릅니다.
+2. 메시지가 말한 줄을 찾아 **Find…** 를 누르고, QuickBooks 품목을 골라 **Match** 를 누릅니다.
+3. **Integrations ▾** › **QuickBooks** 로 돌아가 실패한 줄의 **Retry** 를 누릅니다([QuickBooks](01-sales.md#sales-quickbooks)).
+- 계정 줄은 `acct:` 뒤에 계정 코드로 보입니다 — 메시지와 같은 글입니다. 그 계정이 한 번 쓰인 뒤에야 목록에 나타납니다 — 판매 오더의 charge 줄, 크레딧 노트의 other · restocking fee 줄, 또는 IMS 이전부터 이월된 미리 받은 돈. 그 전에는 짝지을 것이 없습니다.
+
+**알아 둘 것**
+- **Products**: "To match" 에는 같은 SKU 의 QuickBooks 품목이 있는 제품만 나옵니다. 나머지는 "were never sold, so QuickBooks does not have them yet. The IMS will create them when they are first sent. Nothing to do for those."(팔린 적이 없어 QuickBooks 에 아직 없다 · 처음 보낼 때 IMS 가 만든다 · 할 일 없음) **Show them anyway** 로 볼 수 있습니다.
+- "Card payments go to QuickBooks under one method — Visa, Mastercard and Amex are not told apart."(카드 결제는 QuickBooks 에 방법 하나로 간다 — Visa · Mastercard · Amex 를 가르지 않는다)
+
+<!-- SCREENSHOT: set-qbo-matching-1 · Refresh list · Match automatically · Review 가 있는 종류 표 -->
 
 <a id="set-qbo-supplier-lines"></a>
 ## QuickBooks matching — 공급처 인보이스 줄
@@ -400,8 +573,8 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 둘 다 처음 값은 **_95_ Purchase Non Stock - COS** 입니다. 상품 줄은 늘 Goods invoiced not received 로 갑니다.
 
 **누가**
-- QUICKBOOKS 권한 read: 보기만("Only staff with the QuickBooks (write) key can change these.")
-- QUICKBOOKS 권한 write: 바꾸고 **Save**
+- QuickBooks 권한(`qbo`) read: 보기만("Only staff with the QuickBooks (write) key can change these.")
+- QuickBooks 권한 write: 바꾸고 **Save**
 
 **어떻게**
 1. **Settings** › **QuickBooks matching** 을 열고 **Supplier invoice lines** 를 찾습니다.
@@ -437,4 +610,4 @@ admin 만 바꿉니다. 다른 사람에게는 "Only an admin can change this." 
 2. 페이지 전체를 캡처합니다.
 3. 질문과 함께 보냅니다([도움 받기](00-getting-started.md#start-getting-help)).
 
-<!-- rulings: 150, 151, 166, 231, 232, 283, 330, 331, 332, 343, 493, 518, 521, 526, 534, 538, 555, 563, 564, 636, 668, 687, 692, 707, 708, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 738, 764 -->
+<!-- rulings: 150, 151, 166, 231, 232, 283, 330, 331, 332, 343, 493, 518, 521, 526, 534, 538, 555, 563, 564, 636, 668, 687, 692, 707, 708, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 738, 764, 777, 790, 791, 792, 811, 814, 815, 816, 830, 836, 847, 848, 852, 857, 859, 867, 868, 869, 870, 871, 872, 934, 945, 951, 961, 983, 1136 -->

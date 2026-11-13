@@ -5,22 +5,24 @@
 
 <a id="set-start"></a>
 ## What is in Settings
-<!-- screen: ims-auth.js · BUILD nav v13 ; system-check.html · BUILD 2026-10-24 · sc v2 -->
+<!-- screen: ims-auth.js · BUILD nav v19 ; settings.html · BUILD 2026-11-11 · set v18 ; system-check.html · BUILD 2026-10-24 · sc v2 -->
 <!-- who: manager, admin -->
 
 **What it is**
-**Settings ▾** holds the lists and switches the rest of IMS uses: staff, brands, bins, carriers, deals, document layouts and the web shops. Most people only look; a few can change.
+**Settings ▾** holds the lists and switches the rest of IMS uses: staff, brands, bins, carriers, warehouses, deals, document layouts, freight quotes and the QuickBooks connection. The web shops are under **Integrations ▾** › **Shopify Stores**. Most people only look; a few can change.
 
 **Who can change what**
 
 | Screen | You see it with | You can change it with |
 |---|---|---|
-| **Settings** — lists | the `master` key | the `master` key at write |
+| **Settings** — lists, including **Warehouse** | the `master` key | the `master` key at write |
+| **Settings** — Shipping quotes · Carrier pickups | the `master` key | the `master` key at write |
 | **Settings** — Backorder emails · Documents · Google Drive | the `master` key | different for each part — see its section |
+| **Settings** — QuickBooks | the `master` key | admins only |
 | **Surcharge Groups** | the `master` key | admins only |
 | **Staff** | the `staff` key | the `staff` key at write, for people below your role |
 | **Discount Rules** | the `master` key | the `master` key at write |
-| **Settings** — QuickBooks matching › Supplier invoice lines | the QUICKBOOKS key | the QUICKBOOKS key at write |
+| **Settings** — QuickBooks matching, with Supplier invoice lines | the `master` key and the QuickBooks key (`qbo`) | the QuickBooks key at write |
 | **Shopify Stores** | the `shopify` key | the `shopify` key at write — check, link and push · admins add, change and pair stores |
 | **System Check** | no key | — it only shows |
 
@@ -29,16 +31,17 @@ For the keys themselves, see [Roles and keys](00-getting-started.md#start-roles-
 **The sections**
 - [Staff](#set-staff)
 - [Lists: brands, units, payment terms, bins, carriers, services](#set-master)
+- [Shipping quotes](#set-shipping-quotes) · [Carrier pickups](#set-carrier-pickups)
 - [Discount rules and deals](#set-deals) · [Coupons](#set-coupons)
 - [Surcharge groups](#set-surcharge)
 - [Documents](#set-documents) · [Backorder emails](#set-mail) · [Google Drive](#set-drive)
 - [Shopify stores](#set-shopify)
-- [QuickBooks matching — Supplier invoice lines](#set-qbo-supplier-lines)
+- [QuickBooks — the connection](#set-qbo-connect) · [QuickBooks matching](#set-qbo-matching) · [QuickBooks matching — Supplier invoice lines](#set-qbo-supplier-lines)
 - [System Check](#set-system-check)
 
 <a id="set-staff"></a>
 ## Staff
-<!-- screen: staff.html · BUILD 2026-10-20 · st v3a -->
+<!-- screen: staff.html · BUILD 2026-10-29 · st v3c -->
 <!-- who: manager, admin -->
 
 **What it is**
@@ -66,6 +69,7 @@ The new person signs in and sets their own password with **Change Password** (se
 3. **Access** — the keys:
    - Tick **WMS**, **IMS** or both to show that mode's keys. "With none ticked every screen shows."
    - For each key choose **none**, **read** or **write**.
+   - A key used in both modes, such as `freight_booking`, shows under WMS and under IMS. It is one key.
 4. **Location** — the branches. Tick the branches this person works in. "None ticked = every warehouse." It counts only for a manager or worker; a supervisor or admin works in every branch.
 5. Press **Save**. **Revert** drops the changes.
 
@@ -82,7 +86,7 @@ The new person signs in and sets their own password with **Change Password** (se
 
 <a id="set-master"></a>
 ## Lists: brands, units, payment terms, bins, carriers, services
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c -->
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 ; ims-label.js · lbl v1b -->
 <!-- who: manager, admin -->
 
 **What it is**
@@ -102,13 +106,13 @@ The new person signs in and sets their own password with **Change Password** (se
 | **Unit** | Units of measure | add · switch off and on |
 | **Currency** | Currencies | look only |
 | **Payment Term** | Customer and supplier payment terms | add · switch off and on |
-| **Account** | Accounts, by code | look only |
-| **Warehouse** | Branches | look only |
-| **Bin** | Shelf places in each branch — "Thousands of bins — search for the one you need" | add · switch off and on · mark B-grade |
+| **Account** | Accounts, by code. **Currency** "is set only on foreign-currency payable and receivable accounts — empty means CAD" | look only |
+| **Warehouse** | Branches — "the shipping contact and Freightcom account are used for freight quotes" | edit the shipping contact, Freightcom account, time zone and closing time |
+| **Bin** | Shelf places in each branch — "Thousands of bins — search for the one you need" | add · switch off and on · mark B-grade · print labels |
 | **Carrier** | "Picked at Ship & invoice — the kind decides email and tracking" | add · edit |
 | **Service** | "Billed on service orders as quantity × unit price — tax follows the order" | add · edit |
 
-Currency, Account and Warehouse are look only. Tax rules are picked on customers and orders, not kept here. If one of these needs to change, ask the IMS administrator.
+Currency and Account are look only. Warehouses cannot be added here, and a warehouse's name and address are not changed here. Tax rules are picked on customers and orders, not kept here. If one of these needs to change, ask the IMS administrator.
 
 **How — add to a list**
 1. Open the list and press **+ Add** (for example **+ Add brand**).
@@ -135,12 +139,23 @@ Names cannot be changed. To rename, switch the old one off and add a new one.
 - Choose the **Warehouse**, then the **Name** — "use the spelling on the shelf label".
 - **Staging** — "A staging spot (dock, receiving area), not a shelf".
 - **Mark B-grade** makes it a B-grade bin. "The bin must be empty in the books first." **Unmark B-grade** makes it a regular bin again — move its B-grade stock out first (see [B-grade stock](03-inventory.md#stock-bgrade)).
+- **Print labels…** prints barcode labels for many bins at once (see [Print barcode labels](03-inventory.md#stock-labels)).
+
+**Warehouse**
+Freight quotes and bookings use these. Press **Edit** on a warehouse (a switched-off warehouse has none).
+1. **Contact**, **Phone** and **Email** — "Sent to the carrier as the ship-from contact on freight quotes and bookings. A quote is refused without a 10-digit phone."
+2. **Freightcom account** — 2 – 10 letters or digits, for example TOR. "Quotes from this warehouse use the Freightcom account with this key. Empty = no Freightcom quotes from this warehouse." IMS asks before it changes.
+3. **Time zone** — "Pickup times and carrier cutoffs at this warehouse are in this time zone." Edmonton uses **America/Regina**. IMS asks before it changes.
+4. **Closes at** — when the warehouse closes (24-hour). "A booking made after this moves the pickup to the next day, and a pickup window ends here."
+5. Press **Save**.
+- The address is shown, not edited here.
 
 **Carrier**
 1. Press **+ Add carrier**, or **Edit** on a row.
 2. **Kind**: **Carrier — tracking number · shipping email**, **Pickup — customer collects** or **Delivery — our truck**. "The kind cannot change — it decides what old orders did."
 3. For a carrier: **Shopify name** ("exactly as in Shopify's carrier list") and **Tracking link** ("{number} is replaced by each tracking number").
-4. **Active** off = "not offered at Ship & invoice (old orders keep the name)". Press **Save**.
+4. For a carrier: **Freightcom names** — "The carrier name as Freightcom sends it in quotes — one carrier can have several (case and spaces do not matter). A quote from a carrier with no name here cannot be picked. Each name belongs to one carrier only." Type one per line, or type part of a name in the box under it and press **Add**.
+5. **Active** off = "not offered at Ship & invoice (old orders keep the name)". Press **Save**.
 
 **Service**
 1. Press **+ Add service**, or **Edit** on a row.
@@ -150,9 +165,67 @@ Names cannot be changed. To rename, switch the old one off and add a new one.
 
 <!-- SCREENSHOT: set-master-1 · Settings with the lists on the left and Payment Term open -->
 
+<a id="set-shipping-quotes"></a>
+## Shipping quotes
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: manager, admin -->
+
+**What it is**
+**Settings** › **Shipping quotes** sets two things for Freightcom freight quotes: the customer markup, and which warehouses can quote. Quoting and booking themselves are in [Freightcom — quote, book and label](04-wms.md#wms-freightcom).
+
+**Who**
+Everyone who opens **Settings** sees it. The `master` key at write changes the markup. Others see "Only staff with master rights can change this."
+
+**Customer markup**
+- "The freight line on the invoice = the Freightcom price before tax × (1 + this %), rounded to the cent. The customer's tax is added once on top."
+- To change it, type the % (0 – 100, up to two decimals) and press **Save**. IMS asks first: "New quotes use it. Quotes already made keep their numbers."
+- "Web orders already paid at checkout keep the freight the customer paid."
+
+**Warehouses**
+Each active warehouse shows its Freightcom account and:
+- **connected** — quotes can be made from it.
+- **no key on the server yet** — the account needs its key on the server. Ask the IMS administrator.
+- **no Freightcom account** — no quotes from this warehouse.
+- **no phone — quotes are refused**.
+- **status not available to you** — your keys cannot read the connection.
+
+The account, phone and contact are set under **Warehouse** (see [Lists](#set-master)).
+
+**Good to know**
+- "Freightcom TEST environment — prices are not real." shows when IMS is set to Freightcom's test system.
+
+<a id="set-carrier-pickups"></a>
+## Carrier pickups
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: manager, admin -->
+
+**What it is**
+**Settings** › **Carrier pickups** says, for each warehouse, "which carriers come on a regular run, and the cutoff for a same-day pickup". Freight bookings use it.
+
+**Who**
+Everyone who opens **Settings** sees it. The `master` key at write changes it. "Ask the warehouse lead for these."
+
+**What you see**
+One table for each active warehouse, with its time zone and closing time ("closes …", or **not set**). **Change under Warehouse** opens the warehouse list. Each carrier is one row.
+- **Regular pickup** — "the carrier already comes to this warehouse on its usual run, so a box booking just joins that run (no pickup time is sent). Not ticked — each booking asks the carrier to come, from the ready time until the warehouse closes. Pallets always ask for a pickup."
+- **Cutoff** — "after this time (warehouse time) a booking made today is picked up the next day, and the carrier shows as "past cutoff" in the quotes. Empty = no cutoff known. When Freightcom sends the carrier's real cutoff, that comes first."
+- **Note** — for example "driver around 3 pm". **Updated** shows who changed it last and when.
+
+**How**
+1. Tick **regular pickup**, type the **Cutoff** (a time like 16:30) and a **Note**.
+2. Press **Save** on that row.
+3. **Clear** puts the row back to **not set** — "no regular pickup, no cutoff". IMS asks first.
+
+**Good to know**
+- "A carrier left as "not set" has no regular pickup and no cutoff."
+- A cutoff after the warehouse's closing time shows red "after closing". Change the cutoff, or the closing time under **Warehouse**.
+- Only active carriers of the kind **Carrier** are listed. Add them under **Carrier** (see [Lists](#set-master)).
+
+<!-- SCREENSHOT: set-carrier-pickups-1 · one warehouse with carriers, Regular pickup, Cutoff and Note -->
+
 <a id="set-deals"></a>
 ## Discount rules and deals
-<!-- screen: discount-rules.html · BUILD dr v3a -->
+<!-- screen: discount-rules.html · BUILD dr v4 ; ims-export.js · export v2 -->
 <!-- who: manager, admin -->
 
 **What it is**
@@ -195,6 +268,12 @@ A line with **Discount (%)** 30, **Minimum** **At least** 6 each, **Applies to**
 - Customer rules: "Same kind = any of them · different kinds = all of them · a "Not" rule always wins."
 - **Open orders using it** shows how many open orders the deal touches. After a change, those drafts suggest **Reprice** (see [Discounts, deals and surcharges](01-sales.md#sales-discounts-deals)).
 - A deal cannot be deleted. Switch it off.
+- On a deal's **Products** list, sets are folded. Press **▸ sets** to show them: "Sets get the same deal as their single (a set line counts its singles)".
+
+**Export the deals**
+- On the wide list, **↓ Export rules…** gives "one row for each discount line of the deals on this list now", and **↓ Export products…** "one row for each active product the deals on this list reach today". Both follow the filters you have set.
+- On one deal, **↓ Rule CSV…** gives that deal as written, and **↓ Products CSV…** every active product it reaches today (line discounts only).
+- You pick the columns, as in [↓ Export…](00-getting-started.md#start-search-filter).
 
 **Watch out**
 - If someone else saved the deal after you opened it, nothing is saved. Press **Load the latest version** and make your change again.
@@ -300,7 +379,7 @@ To go back to an older layout, press **Use this version** on the older version. 
 
 <a id="set-mail"></a>
 ## Backorder emails
-<!-- screen: settings.html · BUILD 2026-10-25 · set v8c -->
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
 <!-- who: admin -->
 
 **What it is**
@@ -311,11 +390,12 @@ Each setting shows who can change it: "Only an admin can change this." or "Only 
 
 **How**
 1. **Emails** — **Turn on** or **Turn off**. On: "Runs start on the scheduled mornings and emails go out." Off: "Emails that are already waiting stay waiting until this is on."
-2. **Test mode — send every email to** — an address here gets every email instead of the customer. Leave it empty for real customers.
-3. **Sent from** — the address customers see. It must be set up as a "Send mail as" address in the company mailbox.
-4. **Sender name** and **Replies go to** ("Empty = replies go to the "sent from" address").
-5. **Schedule** — for each branch tick **Send for this branch**, the days, the hour and the time zone. Press **Save schedule**.
-6. **Part of a line that came in** — the % of the backordered quantity that must arrive before the customer gets an email. Press **Save**.
+2. **Customer mail is live** — **Live**: "This database sends real customer mail." **Not live**: "every email must go to the Test mode address below (an @asung.ca address)." **Make live** and **Make not live** switch it.
+3. **Test mode — send every email to** — "every email — invoices, credit notes, orders and backorder emails — goes to it instead of the customer, and the customer's address goes in the subject." Leave it empty for real customers. "It can be empty only while customer mail is live."
+4. **Sent from** — the address customers see. It must be set up as a "Send mail as" address in the company mailbox.
+5. **Sender name** and **Replies go to** ("Empty = replies go to the "sent from" address").
+6. **Schedule** — for each branch tick **Send for this branch**, the days, the hour and the time zone. Press **Save schedule**.
+7. **Part of a line that came in** — the % of the backordered quantity that must arrive before the customer gets an email. Press **Save**.
 
 **Good to know**
 - "Each branch runs once on each checked morning at that hour in its own time." "Holidays are not skipped."
@@ -349,7 +429,7 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 
 <a id="set-shopify"></a>
 ## Shopify stores
-<!-- screen: shopify-stores.html · BUILD 2026-10-20 · ss v3a -->
+<!-- screen: shopify-stores.html · BUILD 2026-10-27 · ss v5a -->
 <!-- who: admin, manager -->
 
 **What it is**
@@ -358,7 +438,16 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 **Who**
 - The `shopify` key at read: look only.
 - The `shopify` key at write: **Check connection**, link products and push them.
-- Admins: **New store**, **Edit**, **Turn off** / **Turn on**, and pairing locations.
+- Admins: **New store**, **Edit**, **Turn off** / **Turn on**, **Go live…** / **Stop live…**, and pairing locations.
+
+**Live — admins only**
+The web shops are already live. Do not press **Stop live…** or **Go live…** unless the IMS administrator asks you to.
+- **Live**: "IMS sends products and stock, takes orders and updates them in Shopify."
+- **Not live**: "IMS only reads this store (Check connection · Link existing products) — nothing is written to Shopify and no orders are taken". A new store starts not live.
+- **Stop live…**: "IMS stops writing to this store and stops taking its orders. Waiting product updates stay in the queue and go out when it is live again." Nothing changes in Shopify itself.
+- **Go live…**: "From now on IMS writes to the real store: it sends stock for every product with send on (right away, as IMS has it now), sends product changes, takes new web orders and updates them in Shopify." It asks **Read orders from** — the date and time to take orders from. "Before going live: IMS stock is loaded and right · locations are paired (Check connection shows no warnings) · products are linked."
+- Both ask **Check** first, then **Stop live** or **Go live**.
+- **Turn off** stops all sync with the store and also stops it being live. After **Turn on** it stays not live until **Go live…**.
 
 **How — a store (admins)**
 1. Press **New store**. Give the **Code** ("It cannot be changed later"), the **Label**, the **Shopify address**, the **Price tier** and **Compare-at tier**.
@@ -374,18 +463,102 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 **How — link existing products (once, before the first push)**
 1. Under **Link existing products**, press **Read products from Shopify**. "It only reads Shopify, nothing is changed there."
 2. Press **Plan**. **Show lines** shows each Shopify product and the decision; **Download CSV** gives all of them.
-3. Press **Apply links**. "Stock is sent right away." Product details are not sent yet.
+3. Press **Apply links**. On a live store "Stock is sent right away"; on a store that is not live, stock goes out once at **Go live…**. Product details are not sent yet.
+   - "It goes 500 at a time … Keep this window open. If it stops, press Apply links again and it carries on from where it stopped." **Stop** stops after the batch it is on.
+   - A blocked line shows why. For example "several Shopify products point to one IMS item — make them one product in Shopify, then read again"; **Show lines** names the other Shopify products, and the CSV has them too.
 
 **How — push product details**
 1. Under **Push linked products**, press **Show what is left**. It lists brands and how many products are left.
 2. Press **Send…** on a brand. Check a few in Shopify.
-3. When they look right, press **Send all left (n)…**.
+3. When they look right, press **Send all left (n)…**. On a store that is not live, **Send…** is greyed out — "sending starts only after Go live".
 - "Sending pushes IMS product details (title, description, price, photos, tags, variants) to Shopify." They reach Shopify over the next minutes.
 
 **Good to know**
 - Products are switched on for a store on the product's Shopify card (see [Descriptions, photos, tags and the web shop](03-inventory.md#stock-descriptions)).
 
 <!-- SCREENSHOT: set-shopify-1 · a store with Location pairs and Push linked products -->
+
+<a id="set-qbo-connect"></a>
+## QuickBooks — the connection
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: admin, accounting -->
+
+**Admins and bookkeeping.** Most staff never need this page.
+
+**What it is**
+**Settings** › **QuickBooks** is the IMS connection to the QuickBooks Online company. While it shows **Connected**, IMS sends invoices, credit notes, payments, credits applied and refunds to QuickBooks (see [QuickBooks](01-sales.md#sales-quickbooks)).
+
+**Who**
+Everyone who opens **Settings** sees the state. Only an admin connects, reconnects, checks or disconnects: "Only an IMS admin can connect or disconnect."
+
+**When the email comes — "[IMS] QuickBooks connection needs attention"**
+When QuickBooks stops accepting the connection, IMS emails the IMS administrator once: "QuickBooks stopped accepting the IMS connection … Nothing is sent to QuickBooks until it is reconnected." The page then shows **Reconnect needed** and the **Last problem**.
+1. An admin opens **Settings** › **QuickBooks** and presses **Reconnect**.
+2. Sign in as an admin of the QuickBooks company and approve. You come back to the page.
+3. "Just now: Connected to QuickBooks." The state shows **Connected**.
+If it says something else — for example "The connect link expired or was already used. Press Connect again." — do what it says.
+
+**What the page shows**
+- **Company** — the QuickBooks company name, its ID, and **Production** or **Sandbox (test company)**.
+- **Connected by** — who connected and when.
+- **Approval good until** — "Each daily renewal moves it about 100 days ahead, so nothing needs doing while renewals work — press Reconnect only if the connection drops."
+- **Check connection** (admins) asks QuickBooks now: "QuickBooks answered — …".
+
+**Disconnect — stops all sending**
+**Disconnect** signs IMS out of the QuickBooks company. "Nothing can be sent to the books until someone connects again." Do not press it to fix a problem — use **Reconnect**.
+
+**Watch out**
+- "The IMS stays tied to the first QuickBooks company it connects to, so records never point at the wrong books." Connecting to a different company is refused: "That is a different QuickBooks company from the one this IMS is tied to. Nothing was saved." **Untie company** is only for when the company itself really changed.
+
+<a id="set-qbo-matching"></a>
+## QuickBooks matching
+<!-- screen: settings.html · BUILD 2026-11-11 · set v18 -->
+<!-- who: accounting, admin -->
+
+**Admins and bookkeeping.**
+
+**What it is**
+**Settings** › **QuickBooks matching** ties "each IMS record that will later go to QuickBooks … to one QuickBooks record — automatically by account number, name or SKU, or by hand. Once tied, the tie holds even if a name changes later. Nothing is sent to QuickBooks from this page."
+
+**Who**
+- It needs the QuickBooks key (`qbo`): "This page needs the QuickBooks key. Ask an admin to switch it on for you in Staff."
+- At read you look only. At write you can **Refresh list**, **Match automatically**, **Find…**, **Change…** and **Unlink**.
+- QuickBooks must be connected first (see [QuickBooks — the connection](#set-qbo-connect)).
+
+**What is matched**
+One row for each kind, with **IMS active**, **Matched**, **Not matched**, **In QuickBooks** and when the **List from QuickBooks** was last read:
+
+| Records | Matched to QuickBooks | How |
+|---|---|---|
+| **Accounts** | Account | by account number |
+| **Tax rules** | TaxCode | by name — sale and purchase rules share one QuickBooks tax code |
+| **Payment terms** | Term | by name |
+| **Payment methods** | PaymentMethod | fixed list — card payments use one QuickBooks method, pick it with **Find…** |
+| **Customers** | Customer | by name |
+| **Suppliers** | Vendor | by name |
+| **Products** | Item | by SKU |
+| **Freight, discount & account lines** | Item | by hand — Freight, Order discount, Surcharge, Freight discount, and account lines |
+| **Services** | Item | by hand |
+
+**How — match new records**
+1. On the row, press **Refresh list** to read the latest list from QuickBooks.
+2. Press **Match automatically**. "… matched now · … with no QuickBooks record · … need a choice".
+3. Press **Review**. **To match** lists what is left. Press the QuickBooks record it belongs to, or **Find…** to search QuickBooks by name, SKU or ID and press **Match**.
+- **Matched** and **All** show the rest. **Change…** picks another record, **Unlink** removes the tie — "Nothing changes in QuickBooks."
+- "A record already tied to another IMS record cannot be picked until that one is unlinked."
+
+**When a send stops with "… has no QuickBooks item"**
+A send on **Integrations ▾** › **QuickBooks** fails, for example "IMS freight has no QuickBooks item — link "freight" to the Freight item under Settings → QuickBooks matching — nothing was sent".
+1. Open **Settings** › **QuickBooks matching** and press **Review** on **Freight, discount & account lines** (or **Services**).
+2. Find the row the message names and press **Find…**. Pick the QuickBooks item and press **Match**.
+3. Go back to **Integrations ▾** › **QuickBooks** and press **Retry** on the failed row (see [QuickBooks](01-sales.md#sales-quickbooks)).
+- An account line shows as `acct:` followed by the account code — the same as in the message. It appears in the list only after that account has been used once — on a sales order charge, on a credit note's other or restocking-fee line, or for money on account carried over from before IMS. Until then there is nothing to match.
+
+**Good to know**
+- **Products**: "To match" shows only products that QuickBooks has an item for with the same SKU. The rest "were never sold, so QuickBooks does not have them yet. The IMS will create them when they are first sent. Nothing to do for those." **Show them anyway** lists them.
+- "Card payments go to QuickBooks under one method — Visa, Mastercard and Amex are not told apart."
+
+<!-- SCREENSHOT: set-qbo-matching-1 · the kinds table with Refresh list, Match automatically and Review -->
 
 <a id="set-qbo-supplier-lines"></a>
 ## QuickBooks matching — Supplier invoice lines
@@ -400,8 +573,8 @@ Shows how many files of each kind went, how many are waiting, and a **Failed** l
 Both start on **_95_ Purchase Non Stock - COS**. "Product lines always go to Goods invoiced not received."
 
 **Who**
-- The QUICKBOOKS key at read: look only ("Only staff with the QuickBooks (write) key can change these.").
-- The QUICKBOOKS key at write: change and **Save**.
+- The QuickBooks key (`qbo`) at read: look only ("Only staff with the QuickBooks (write) key can change these.").
+- The QuickBooks key at write: change and **Save**.
 
 **How**
 1. Open **Settings** › **QuickBooks matching** and find **Supplier invoice lines**.
@@ -437,4 +610,4 @@ When a screen or button is missing, or IMS does not open as it should.
 2. Take a screenshot of the whole page.
 3. Send it with your question (see [Getting help](00-getting-started.md#start-getting-help)).
 
-<!-- rulings: 150, 151, 166, 231, 232, 283, 330, 331, 332, 343, 493, 518, 521, 526, 534, 538, 555, 563, 564, 636, 668, 687, 692, 707, 708, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 738, 764 -->
+<!-- rulings: 150, 151, 166, 231, 232, 283, 330, 331, 332, 343, 493, 518, 521, 526, 534, 538, 555, 563, 564, 636, 668, 687, 692, 707, 708, 709, 713, 714, 715, 719, 720, 721, 722, 723, 725, 732, 738, 764, 777, 790, 791, 792, 811, 814, 815, 816, 830, 836, 847, 848, 852, 857, 859, 867, 868, 869, 870, 871, 872, 934, 945, 951, 961, 983, 1136 -->

@@ -38,7 +38,7 @@
 
 <a id="stock-products"></a>
 ## Find and change a product
-<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 -->
+<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 ; ims-label.js · lbl v1b -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -64,8 +64,43 @@
 - Products are never hidden — inactive products can still be found.
 - The kind list starts on **Singles**, so sets do not show in the search. To find a set, choose **Sets only** (or **All**).
 - To change many products at once, use [Product Sheet](#stock-sheet).
+- **Print label** on the product prints a barcode label for it (see [Print barcode labels](#stock-labels)).
 - **↓ Export…** on the wide list downloads the products that match the filters, with the columns you pick — see [↓ Export…](00-getting-started.md#start-search-filter).
 - Supplier costs (**Fixed cost**, **Latest cost**) show only to people with the `cost` key. Without it the cost boxes are not on the product, in **Edit** or in **+ New product**.
+
+<a id="stock-labels"></a>
+## Print barcode labels
+<!-- screen: ims-label.js · lbl v1b ; products.html · BUILD 2026-11-08 · pr bc v1 ; settings.html · BUILD 2026-11-11 · set v18 ; wms-stock.html · BUILD 2026-10-27 · ws v1c -->
+<!-- who: office, warehouse -->
+
+**What it is**
+IMS prints barcode labels on a label printer — product labels for the goods and the shelf, and bin labels for the shelves.
+- **Product label**: press **Print label** on a product in **Products**, or in **Stock Lookup** in the warehouse (see [Look up stock](04-wms.md#wms-stock-lookup)).
+- **Bin labels**: in **Settings**, open **Bin** and press **Print labels…** (see [Lists](07-settings.md#set-master)).
+
+**How — a product label**
+1. Press **Print label**. If the product has sets, pick the one to print under **Product**.
+2. If it has several barcodes, pick the **Barcode**.
+3. Pick the **Label size**, what to **Print on the label** (**SKU**, **Barcode**, **Barcode number**, **Name**, **Brand**) and **Copies**.
+4. Check the picture on the right, then press **Print**.
+
+**How — bin labels**
+1. Press **Print labels…** on the **Bin** list. The window is **Print bin labels**.
+2. Pick the **Warehouse**.
+3. Under **Which bins**, narrow it down: a zone (**All zones** = every zone), **Name contains**, and **From** and **To** (for example A010101 to A010520). The screen counts how many active bins match.
+4. Pick the **Label size**, what to **Print on the label** (**Barcode**, **Bin name**, **Warehouse**) and **Copies of each bin**. Press **Print**.
+
+**The first time on a computer**
+In the print window pick the label printer, paper = the same label number, margins **None**, scale 100%, headers and footers off. If labels come out sideways or shrunk, tick **Rotate 90° for this printer**.
+The screen remembers the last size, the fields and the turn on this computer. On another computer, set them once again.
+
+**Watch out**
+- A product with no barcode shows "no barcode".
+- "This barcode is on … products — scanning it in the warehouse may be refused. Fix it in Products."
+- A small label can make the barcode too thin or too short to scan, or cut the text. The window warns — turn off a line or use a bigger label.
+- 4 × 6 labels need the 4-inch label printer.
+
+<!-- SCREENSHOT: stock-labels-1 · the Print label window with size, fields and the picture -->
 
 <a id="stock-new-product"></a>
 ## Add a new product, sets and combos
@@ -114,7 +149,7 @@ Which one to use: if the bundle is sold by scanning its own case or pack barcode
 
 <a id="stock-families"></a>
 ## Families
-<!-- screen: families.html · BUILD fam v5c -->
+<!-- screen: families.html · BUILD fam v6 -->
 <!-- who: office, manager -->
 
 **What it is**
@@ -129,6 +164,11 @@ A family groups products that are variants of one thing — the same item in dif
 - **New family (new SKUs)**: opens the New family window on **Products** — for SKUs that do not exist yet, made together with the family.
 - **Add member…** adds a product to a family. Set its option values (for example Color = Red) and press **Check and add**.
 - **Remove** takes a product out of the family.
+- **Edit family…** changes the family itself: **Name**, **Brand**, **Category**, **Unit**, the option names (for example Color → Shade), **Note** and **Active**. Press **Check and save**.
+  - "Brand, category and unit: variants that still carry the family's old value follow it — variants with their own value stay as they are."
+  - Option names can be renamed here. Adding or removing an option is not done here.
+  - "If this family is linked to Shopify, its name, brand, category and option names go to the Shopify product with the next send."
+  - "Turning a family off does not turn its variants off."
 
 **Watch out**
 - "A SKU already in another family moves out of it into this one — you will be asked to confirm. If that old family is on Shopify, the SKU drops from that Shopify product until this new family is listed."

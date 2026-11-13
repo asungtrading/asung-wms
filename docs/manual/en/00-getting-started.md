@@ -107,7 +107,7 @@ IMS has three modes. Each mode is a set of screens for one kind of work.
 
 <a id="start-menu"></a>
 ## The menu
-<!-- screen: ims-auth.js · BUILD nav v18b -->
+<!-- screen: ims-auth.js · BUILD nav v19 -->
 <!-- who: all -->
 
 **What it is**
@@ -117,7 +117,7 @@ In IMS mode, the menu runs along the top of the screen. Each word opens a list o
 |---|---|
 | **Purchasing ▾** | Purchase Orders · Purchase Invoices & Credits · Charges · Supplier Payments · Purchase Receipts · Suppliers · Reorder Planner |
 | **Sales ▾** | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
-| **Inventory ▾** | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
+| **Inventory ▾** | Stock Availability · Products · Product Sheet · Families · Combos · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | One screen — no list opens (see [Action Centre](06-action-centre.md#action-start)) |
 | **Integrations ▾** | QuickBooks (see [QuickBooks](01-sales.md#sales-quickbooks)) · Shopify Stores (see [Settings](07-settings.md#set-start)) · Freightcom (see [Freightcom — shipment board](01-sales.md#sales-freightcom)) |
 | **Settings ▾** | Settings · Surcharge Groups · Staff · Discount Rules · System Check (see [Settings](07-settings.md#set-start)) |
@@ -210,7 +210,7 @@ Every wide list has a bar on top. The bar has a search box, filters, a **Clear**
 
 <a id="start-roles-keys"></a>
 ## Roles and keys
-<!-- screen: staff.html · BUILD 2026-10-20 · st v3a ; stock.html · BUILD 2026-10-23 · stk filt v1 -->
+<!-- screen: staff.html · BUILD 2026-10-29 · st v3c ; stock.html · BUILD 2026-10-23 · stk filt v1 -->
 <!-- who: all -->
 
 **What it is**
@@ -242,8 +242,14 @@ The keys, with the words the **Staff** screen shows:
 | `transfer` | Transfers — warehouse to warehouse |
 | `cost` | Inventory cost — stock value, layer values, unit costs |
 | `picking` · `packing` · `fulfillment` · `wms_receiving` · `stock_move` | The warehouse screens of the same names |
+| `freight_booking` | Freight booking — book, cancel and re-book Freightcom shipments (see [Freightcom — quote, book and label](04-wms.md#wms-freightcom)) |
+| `qbo` | QuickBooks — matching, list refresh, send queue (see [QuickBooks matching](07-settings.md#set-qbo-matching)) |
+| `claude` | Claude connector — ask Claude about orders, stock, customers, POs and backorders (read only) |
 
 Some keys are for managers and above only: `shopify`, `wms_manage`, `wms_receiving_confirm`, `stock_adjust`. The `doc_template` key (document layouts) is for supervisors and admins. Several keys are off for everyone until a manager switches them on for a person.
+- Supervisors and admins always have `freight_booking`. Everyone else gets it person by person.
+- `qbo` and `claude` are switched on person by person — for admins and supervisors too.
+- A key used in both modes, such as `freight_booking`, shows under **WMS** and under **IMS** on the **Staff** screen. It is the same key.
 
 **Examples**
 - A person without the `cost` key does not see the **Value** column on **Stock Availability**. The column is simply not there (see [Find stock](03-inventory.md#stock-availability)).
@@ -276,27 +282,31 @@ A date without a time (for example a due date or an order date) is just a date. 
 
 <a id="start-build-tag"></a>
 ## The build tag
-<!-- screen: ims-auth.js · BUILD nav v10 -->
+<!-- screen: ims-auth.js · BUILD nav v19 -->
 <!-- who: all -->
 
 **What it is**
-At the top of each screen, next to the logo, there is small grey text. It is the **build tag** — the version of that screen.
+The **build tag** is small grey text that tells which version of a screen you are using.
 There are two tags:
 - The screen's own tag, for example `2026-10-22 · so csv v3`.
-- The menu's tag, for example `nav v10`.
+- The menu's tag, for example `nav v19`.
+
+**Where it is**
+- **IMS screens**: press your name at the top right ("name · role ▾"). The two tags are at the bottom of the list, under **Change Password** and **Sign Out**.
+- **WMS and POS screens**: at the top of the screen, next to the logo.
 
 **When**
 Whenever you report a problem.
 
 **How**
-1. Look at the small grey text at the top.
-2. Copy both tags into your message, or take a screenshot of the whole screen with the top showing.
+1. Find the two tags (see above).
+2. Copy both tags into your message, or take a screenshot with the tags showing.
 3. Add what you pressed, what you expected and what happened.
 
 **Why**
 The tags tell us exactly which version you were using. A problem report with the tags is much faster to fix.
 
-<!-- SCREENSHOT: start-build-tag-1 · the top bar of one screen with both build tags marked -->
+<!-- SCREENSHOT: start-build-tag-1 · the name list open on an IMS screen with both build tags marked -->
 
 <a id="start-getting-help"></a>
 ## Getting help
@@ -328,4 +338,4 @@ This manual describes how IMS works. If IMS does something different from what t
 - A screenshot of **System Check** (see [System Check](07-settings.md#set-system-check)).
 - What you pressed, what you expected, and what happened instead.
 
-<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731, 759, 760, 761, 762, 763, 765 -->
+<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731, 759, 760, 761, 762, 763, 765, 859, 945, 1137 -->

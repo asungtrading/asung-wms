@@ -142,7 +142,7 @@ On a counter order in **Sales**, use **Final sale item** in the same way.
 
 <a id="pos-pay"></a>
 ## Take the payment
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -160,6 +160,9 @@ On a counter order in **Sales**, use **Final sale item** in the same way.
 
 **Cash**
 Type **Cash given** to see the change. "Record the amount kept, not the cash handed over (change is not recorded)."
+
+**The payments list**
+Each payment shows under **Payments** on the right: the method, the amount, the reference, when it was recorded and by whom. The top line counts the payments and gives the total. A cancelled payment is crossed out, with who cancelled it, when and why.
 
 **Good to know**
 - Money on account and open credit notes pay the sale by themselves. The right side shows **Credit / on account**.
@@ -193,7 +196,7 @@ Type **Cash given** to see the change. "Record the amount kept, not the cash han
 
 <a id="pos-park"></a>
 ## Park a sale and pick it up again
-<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 -->
+<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
 <!-- who: sales -->
 
 **What it is**
@@ -209,7 +212,16 @@ A draft that was never confirmed can be deleted — for example a sale started b
 1. On the open draft press **Delete draft** at the top, or press **✕** on its row in **Parked and open at this store** (it does not open the sale).
 2. IMS asks "Delete draft …? It has never been confirmed, so it disappears — the number is not reused." Press **OK**.
 - A confirmed sale has no **Delete draft** and no **✕**. If IMS refuses, it says why.
+- A sale that was confirmed once and then reopened has no **Delete draft** and no **✕** either. It shows as "draft — reopened (was confirmed · cancel, not delete)", and the number at the top reads "· reopened". A manager cancels it instead (below).
 - **Delete draft** on **Sales Orders** does the same thing.
+
+**Cancel a sale — manager**
+A confirmed sale, or a sale that was confirmed once and reopened, is cancelled — not deleted. A manager or higher sees **Cancel sale…** at the top.
+1. Open the sale and press **Cancel sale…**.
+2. Type the **Reason** — it is required. Press **Check**.
+3. If the sale took over backorder lines from earlier orders, choose **Reopen** or **Keep closed** for them.
+4. Press **Cancel the sale**. "The sale stays on record as cancelled (who, when, reason). Reserved stock is released. Payments taken stay on the customer's balance for a later invoice."
+- The sale leaves the list: "… is cancelled — it stays on record in Sales Orders."
 
 **Good to know**
 - Drafts you have started show here too, as "draft — scanning".
@@ -220,7 +232,7 @@ A draft that was never confirmed can be deleted — for example a sale started b
 
 <a id="pos-statuses"></a>
 ## What each status means
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
 <!-- who: all -->
 
 The sale number at the top shows its status, for example "SO-99001 · draft".
@@ -228,12 +240,14 @@ The sale number at the top shows its status, for example "SO-99001 · draft".
 | Status | Meaning |
 |---|---|
 | draft | You are scanning. Items, prices and coupons can change. |
+| draft — reopened | It was confirmed once, then reopened to change items. It cannot be deleted — a manager cancels it with **Cancel sale…**. |
 | confirmed | The amount is fixed and the items are held. Take payments, then **Finish**. **Reopen to change items** goes back to draft. |
 | fulfilled | Finished — the goods are handed over and the invoice is issued. |
+| cancelled | Cancelled by a manager. It leaves the POS list and stays on record in **Sales Orders**. |
 
 On **Sales Orders** a POS sale has the tag **POS**. The badges are the same as for other orders — see [What each status means](01-sales.md#sales-statuses).
 
 **Closing the day**
 Counting the cash and closing the card terminal happen outside IMS. To check the day's payments: on **Sales ▾** › **Customer Payments**, choose the method (**All methods** lists them), set both dates to the day, and press **↓ CSV** (see [Customer payments and deposits](01-sales.md#sales-payments)).
 
-<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773, 1172, 1174, 1175 -->
+<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773, 1172, 1174, 1175, 863, 865, 866 -->

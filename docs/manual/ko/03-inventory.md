@@ -38,7 +38,7 @@
 
 <a id="stock-products"></a>
 ## 제품 찾기 · 고치기
-<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 -->
+<!-- screen: products.html · BUILD 2026-11-08 · pr bc v1 ; ims-label.js · lbl v1b -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -64,8 +64,43 @@
 - 제품은 감추지 않습니다 — 꺼진 제품도 찾을 수 있습니다.
 - 종류 목록은 **Singles** 로 시작하므로 세트는 검색에 나오지 않습니다. 세트를 찾을 때는 **Sets only**(또는 **All**)를 고릅니다.
 - 여러 제품을 한꺼번에 고치려면 [Product Sheet](#stock-sheet)를 씁니다.
+- 제품의 **Print label** 은 그 제품의 바코드 라벨을 찍습니다([바코드 라벨 찍기](#stock-labels)).
 - 넓은 목록의 **↓ Export…** 는 필터에 맞는 제품을 내가 고른 칸으로 내려받습니다 — [↓ Export…](00-getting-started.md#start-search-filter).
 - 공급처 단가(**Fixed cost** · **Latest cost**)는 `cost` 권한이 있는 사람에게만 보입니다. 권한이 없으면 제품 상세 · **Edit** · **+ New product** 에 단가 칸이 없습니다.
+
+<a id="stock-labels"></a>
+## 바코드 라벨 찍기
+<!-- screen: ims-label.js · lbl v1b ; products.html · BUILD 2026-11-08 · pr bc v1 ; settings.html · BUILD 2026-11-11 · set v18 ; wms-stock.html · BUILD 2026-10-27 · ws v1c -->
+<!-- who: office, warehouse -->
+
+**무엇인가**
+IMS 는 라벨 프린터로 바코드 라벨을 찍습니다 — 물건 · 선반에 붙이는 제품 라벨과, 선반 자리의 bin 라벨.
+- **제품 라벨**: **Products** 에서 제품의 **Print label**, 또는 창고의 **Stock Lookup** 에서([재고 찾아보기](04-wms.md#wms-stock-lookup)).
+- **bin 라벨**: **Settings** 에서 **Bin** 을 열고 **Print labels…**([목록](07-settings.md#set-master)).
+
+**어떻게 — 제품 라벨**
+1. **Print label** 을 누릅니다. 세트가 있는 제품이면 **Product** 에서 찍을 것을 고릅니다.
+2. 바코드가 여럿이면 **Barcode** 를 고릅니다.
+3. **Label size**(라벨 크기) · **Print on the label**(라벨에 찍을 것: **SKU** · **Barcode** · **Barcode number** · **Name** · **Brand**) · **Copies**(장 수)를 고릅니다.
+4. 오른쪽 그림을 확인하고 **Print** 를 누릅니다.
+
+**어떻게 — bin 라벨**
+1. **Bin** 목록의 **Print labels…** 를 누릅니다. 창 이름은 **Print bin labels** 입니다.
+2. **Warehouse** 를 고릅니다.
+3. **Which bins** 에서 좁힙니다: 구역(**All zones** = 모든 구역) · **Name contains**(이름에 든 글자) · **From** 과 **To**(예: A010101 부터 A010520 까지). 맞는 켜진 bin 수가 보입니다.
+4. **Label size** · **Print on the label**(**Barcode** · **Bin name** · **Warehouse**) · **Copies of each bin**(bin 마다 장 수)을 고르고 **Print** 를 누릅니다.
+
+**컴퓨터에서 처음 찍을 때**
+인쇄 창에서 라벨 프린터를 고르고, 용지 = 같은 라벨 번호, 여백 **None**, 배율 100%, 머리글 · 바닥글을 끕니다. 라벨이 옆으로 눕거나 작게 나오면 **Rotate 90° for this printer**(이 프린터는 90° 돌리기)를 체크합니다.
+화면은 이 컴퓨터에서 마지막으로 고른 크기 · 항목과 돌린 방향을 기억합니다. 다른 컴퓨터에서는 처음 한 번 다시 맞춰 주세요.
+
+**조심할 것**
+- 바코드가 없는 제품은 "no barcode" 로 보입니다.
+- "This barcode is on … products — scanning it in the warehouse may be refused. Fix it in Products."(이 바코드가 제품 여럿에 걸려 있다 — 창고 스캔이 거부될 수 있다 · Products 에서 고친다)
+- 라벨이 작으면 바코드가 너무 가늘거나 짧아 안 읽히거나 글이 잘릴 수 있습니다. 창이 알려 줍니다 — 줄을 하나 끄거나 더 큰 라벨을 씁니다.
+- 4 × 6 라벨은 4 인치 라벨 프린터가 있어야 합니다.
+
+<!-- SCREENSHOT: stock-labels-1 · 크기 · 항목 · 그림이 보이는 Print label 창 -->
 
 <a id="stock-new-product"></a>
 ## 새 제품 · 세트 · 콤보 만들기
@@ -114,7 +149,7 @@
 
 <a id="stock-families"></a>
 ## 패밀리
-<!-- screen: families.html · BUILD fam v5c -->
+<!-- screen: families.html · BUILD fam v6 -->
 <!-- who: office, manager -->
 
 **무엇인가**
@@ -129,6 +164,11 @@
 - **New family (new SKUs)**(새 SKU 로 새 패밀리): Products 화면의 New family 창을 엽니다 — 아직 없는 SKU 를 패밀리와 함께 만듭니다.
 - **Add member…** 는 패밀리에 제품을 더합니다. 옵션 값(예: Color = Red)을 정하고 **Check and add** 를 누릅니다.
 - **Remove** 는 제품을 패밀리에서 뺍니다.
+- **Edit family…** 는 패밀리 자체를 고칩니다: **Name** · **Brand** · **Category** · **Unit** · 옵션 이름(예: Color → Shade) · **Note** · **Active**. **Check and save** 를 누릅니다.
+  - "Brand, category and unit: variants that still carry the family's old value follow it — variants with their own value stay as they are."(브랜드 · 분류 · 단위: 패밀리의 옛 값을 그대로 가진 변형은 따라 바뀌고, 자기 값을 가진 변형은 그대로)
+  - 옵션 이름은 여기서 바꿀 수 있습니다. 옵션을 더하거나 빼는 것은 여기서 하지 않습니다.
+  - "If this family is linked to Shopify, its name, brand, category and option names go to the Shopify product with the next send."(Shopify 에 이어진 패밀리면 다음 보내기 때 이름 · 브랜드 · 분류 · 옵션 이름이 Shopify 상품으로 간다)
+  - "Turning a family off does not turn its variants off."(패밀리를 꺼도 변형은 꺼지지 않는다)
 
 **조심할 것**
 - "A SKU already in another family moves out of it into this one — you will be asked to confirm. If that old family is on Shopify, the SKU drops from that Shopify product until this new family is listed."(다른 패밀리에 있던 SKU 는 이 패밀리로 옮겨진다 · 그 패밀리가 Shopify 에 있으면 새 패밀리가 올라갈 때까지 그 제품에서 빠진다)

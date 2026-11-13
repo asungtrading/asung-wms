@@ -109,7 +109,7 @@ IMS 에는 모드가 셋 있습니다. 모드마다 한 가지 일을 위한 화
 
 <a id="start-menu"></a>
 ## 메뉴
-<!-- screen: ims-auth.js · BUILD nav v18b -->
+<!-- screen: ims-auth.js · BUILD nav v19 -->
 <!-- who: all -->
 
 **무엇인가**
@@ -119,7 +119,7 @@ IMS 모드에서는 메뉴가 화면 맨 위에 한 줄로 있습니다. 단어�
 |---|---|
 | **Purchasing ▾**(구매) | Purchase Orders · Purchase Invoices & Credits · Charges · Supplier Payments · Purchase Receipts · Suppliers · Reorder Planner |
 | **Sales ▾**(판매) | Sales Orders · Web Orders · Sales Invoices · Customer Payments · Credit Notes · Backorders · Customers |
-| **Inventory ▾**(재고) | Stock Availability · Products · Product Sheet · Families · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
+| **Inventory ▾**(재고) | Stock Availability · Products · Product Sheet · Families · Combos · Stock Adjustments · B-grade Stock · Transfers · Bin Moves (office) |
 | **Action Centre** | 화면 하나 — 펼쳐지지 않고 바로 열린다([Action Centre](06-action-centre.md#action-start)) |
 | **Integrations ▾**(연동) | QuickBooks([QuickBooks](01-sales.md#sales-quickbooks)) · Shopify Stores([설정](07-settings.md#set-start)) · Freightcom([Freightcom — 쉽먼트 보드](01-sales.md#sales-freightcom)) |
 | **Settings ▾**(설정) | Settings · Surcharge Groups · Staff · Discount Rules · System Check([설정](07-settings.md#set-start)) |
@@ -212,7 +212,7 @@ WMS 화면에서는 **☰ Menu** 맨 끝에 **Manual** 이 있습니다.
 
 <a id="start-roles-keys"></a>
 ## 역할과 권한
-<!-- screen: staff.html · BUILD 2026-10-20 · st v3a ; stock.html · BUILD 2026-10-23 · stk filt v1 -->
+<!-- screen: staff.html · BUILD 2026-10-29 · st v3c ; stock.html · BUILD 2026-10-23 · stk filt v1 -->
 <!-- who: all -->
 
 **무엇인가**
@@ -244,8 +244,14 @@ IMS 에서 무엇을 보고 할 수 있는지는 둘이 정합니다: **역할**
 | `transfer` | Transfers — warehouse to warehouse — 창고 간 이동 |
 | `cost` | Inventory cost — stock value, layer values, unit costs — 재고 원가 |
 | `picking` · `packing` · `fulfillment` · `wms_receiving` · `stock_move` | 같은 이름의 창고 화면 |
+| `freight_booking` | Freight booking — Freightcom 운송 예약 · 취소 · 다시 예약([Freightcom — 견적 · 예약 · 라벨](04-wms.md#wms-freightcom)) |
+| `qbo` | QuickBooks — 짝짓기 · 목록 새로 읽기 · 보내기 줄([QuickBooks matching](07-settings.md#set-qbo-matching)) |
+| `claude` | Claude 커넥터 — Claude 에게 오더 · 재고 · 손님 · PO · 백오더를 묻는다(읽기만) |
 
 매니저 이상만 받을 수 있는 권한이 있습니다: `shopify` · `wms_manage` · `wms_receiving_confirm` · `stock_adjust`. `doc_template`(문서 양식) 권한은 supervisor 와 admin 몫입니다. 몇몇 권한은 매니저가 그 사람에게 켜 주기 전까지 누구에게나 꺼져 있습니다.
+- `freight_booking` 은 supervisor · admin 이 늘 가집니다. 다른 사람은 한 사람씩 켭니다.
+- `qbo` 와 `claude` 는 한 사람씩 켭니다 — admin · supervisor 도 켜야 합니다.
+- 두 모드가 함께 쓰는 권한(예: `freight_booking`)은 **Staff** 화면에서 **WMS** 아래에도 **IMS** 아래에도 보입니다. 같은 권한입니다.
 
 **예**
 - `cost` 권한이 없는 사람은 **Stock Availability** 에 **Value**(원가 금액) 칸이 보이지 않습니다. 칸이 아예 없습니다([재고 찾기](03-inventory.md#stock-availability)).
@@ -278,27 +284,31 @@ IMS 의 「오늘」은 토론토의 오늘입니다. 오늘 발행한 인보이
 
 <a id="start-build-tag"></a>
 ## build 표시
-<!-- screen: ims-auth.js · BUILD nav v10 -->
+<!-- screen: ims-auth.js · BUILD nav v19 -->
 <!-- who: all -->
 
 **무엇인가**
-화면마다 위쪽 로고 옆에 작은 회색 글이 있습니다. 그 화면의 버전을 알려 주는 **build 표시**입니다.
+**build 표시**는 지금 쓰는 화면의 버전을 알려 주는 작은 회색 글입니다.
 둘이 있습니다.
 - 화면 자신의 표시. 예: `2026-10-22 · so csv v3`
-- 메뉴의 표시. 예: `nav v10`
+- 메뉴의 표시. 예: `nav v19`
+
+**어디에 있나**
+- **IMS 화면**: 오른쪽 위 내 이름("이름 · 역할 ▾")을 누릅니다. 펼친 목록 맨 아래, **Change Password** · **Sign Out** 밑에 두 표시가 있습니다.
+- **WMS · POS 화면**: 화면 위쪽 로고 옆에 있습니다.
 
 **언제**
 문제를 알릴 때마다.
 
 **어떻게**
-1. 위쪽의 작은 회색 글을 봅니다.
-2. 두 표시를 모두 메시지에 적거나, 위쪽이 나오게 화면 전체를 찍습니다.
+1. 두 표시를 찾습니다(위).
+2. 두 표시를 모두 메시지에 적거나, 표시가 보이게 화면을 찍습니다.
 3. 무엇을 눌렀는지, 무엇을 기대했는지, 무엇이 일어났는지를 덧붙입니다.
 
 **왜**
 build 표시가 있으면 어느 버전을 쓰고 있었는지 바로 압니다. 표시가 붙은 알림은 훨씬 빨리 고쳐집니다.
 
-<!-- SCREENSHOT: start-build-tag-1 · 한 화면의 윗줄 · build 표시 두 개 -->
+<!-- SCREENSHOT: start-build-tag-1 · IMS 화면에서 이름 목록을 펼친 모습 · build 표시 두 개 -->
 
 <a id="start-getting-help"></a>
 ## 도움 받기
@@ -330,4 +340,4 @@ build 표시가 있으면 어느 버전을 쓰고 있었는지 바로 압니다.
 - **System Check** 화면 캡처([System Check](07-settings.md#set-system-check))
 - 무엇을 눌렀는지, 무엇을 기대했는지, 대신 무엇이 일어났는지
 
-<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731, 759, 760, 761, 762, 763, 765 -->
+<!-- rulings: 149, 153, 158, 160, 163, 169, 242, 567, 578, 709, 710, 712, 713, 714, 715, 725, 731, 759, 760, 761, 762, 763, 765, 859, 945, 1137 -->

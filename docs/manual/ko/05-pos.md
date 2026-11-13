@@ -142,7 +142,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 <a id="pos-pay"></a>
 ## 결제 받기
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -160,6 +160,9 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 **현금**
 **Cash given**(받은 현금)을 적으면 거스름돈이 보입니다. "Record the amount kept, not the cash handed over (change is not recorded)."(받은 돈이 아니라 남긴 금액을 적는다 — 거스름돈은 적지 않는다)
+
+**결제 목록**
+결제마다 오른쪽 **Payments** 아래에 나옵니다: 방법 · 금액 · 참조 번호 · 언제 · 누가 적었나. 맨 윗줄에 결제 수와 합계가 있습니다. 취소된 결제는 줄이 그어지고, 누가 · 언제 · 왜 취소했는지가 보입니다.
 
 **알아 둘 것**
 - 받아 둔 돈(money on account)과 열린 크레딧 노트는 저절로 이 판매를 냅니다. 오른쪽에 **Credit / on account** 로 나옵니다.
@@ -193,7 +196,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 <a id="pos-park"></a>
 ## 판매를 잠시 두고 다시 잡기
-<!-- screen: pos.html · BUILD 2026-10-26 · pos v1.14 -->
+<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
 <!-- who: sales -->
 
 **무엇인가**
@@ -209,7 +212,16 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 1. 열린 초안의 위쪽 **Delete draft** 를 누르거나, **Parked and open at this store** 의 그 줄 **✕** 를 누릅니다(판매를 열지 않습니다).
 2. "Delete draft …? It has never been confirmed, so it disappears — the number is not reused."(확정한 적이 없어 사라진다 — 번호는 다시 쓰지 않는다)를 묻습니다. **OK** 를 누릅니다.
 - 확정된 판매에는 **Delete draft** 도 **✕** 도 없습니다. IMS 가 거절하면 까닭을 알려 줍니다.
+- 한 번 확정했다가 다시 연 판매에도 **Delete draft** · **✕** 가 없습니다. 목록에는 "draft — reopened (was confirmed · cancel, not delete)"(초안 — 다시 엶 · 확정된 적 있음 · 지우지 말고 취소)로, 위쪽 번호 옆에는 "· reopened" 로 나옵니다. 매니저가 취소합니다(아래).
 - **Sales Orders** 의 **Delete draft** 와 같은 일입니다.
+
+**판매 취소 — 매니저**
+확정된 판매, 또는 한 번 확정했다가 다시 연 판매는 지우지 않고 취소합니다. 매니저 이상에게 위쪽 **Cancel sale…** 이 보입니다.
+1. 판매를 열고 **Cancel sale…** 을 누릅니다.
+2. **Reason**(사유)을 적습니다 — 꼭 적어야 합니다. **Check** 를 누릅니다.
+3. 이 판매가 지난 오더의 백오더 줄을 넘겨받았으면, 그 줄을 **Reopen**(다시 열기) 할지 **Keep closed**(닫아 두기) 할지 고릅니다.
+4. **Cancel the sale** 을 누릅니다. "The sale stays on record as cancelled (who, when, reason). Reserved stock is released. Payments taken stay on the customer's balance for a later invoice."(판매는 취소된 채 기록에 남는다 · 누가 · 언제 · 사유 · 확보한 재고는 풀린다 · 받은 결제는 손님 잔액에 남아 다음 인보이스에 쓴다)
+- 판매가 목록에서 빠집니다: "… is cancelled — it stays on record in Sales Orders."(취소됨 — Sales Orders 에 기록이 남는다)
 
 **알아 둘 것**
 - 시작한 초안도 여기에 "draft — scanning"(초안 — 스캔 중)으로 나옵니다.
@@ -220,7 +232,7 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 
 <a id="pos-statuses"></a>
 ## 상태의 뜻
-<!-- screen: pos.html · BUILD 2026-10-23 · pos v1.12 -->
+<!-- screen: pos.html · BUILD 2026-11-10 · pos fs v1 -->
 <!-- who: all -->
 
 위의 판매 번호 옆에 상태가 나옵니다. 예: "SO-99001 · draft"
@@ -228,12 +240,14 @@ B급은 포장이 상한 같은 제품입니다. B급 bin 에 자기 가격을 �
 | 상태 | 뜻 |
 |---|---|
 | draft | 스캔하는 중. 물건 · 가격 · 쿠폰을 바꿀 수 있습니다. |
+| draft — reopened | 한 번 확정했다가 물건을 바꾸려고 다시 연 판매. 지울 수 없습니다 — 매니저가 **Cancel sale…** 로 취소합니다. |
 | confirmed | 금액이 정해지고 물건이 확보됨. 결제를 받고 **Finish**. **Reopen to change items** 는 draft 로 되돌립니다. |
 | fulfilled | 끝남 — 물건을 건넸고 인보이스가 발행됨 |
+| cancelled | 매니저가 취소함. POS 목록에서 빠지고 **Sales Orders** 에 기록이 남습니다. |
 
 **Sales Orders** 에서 POS 판매에는 **POS** 꼬리표가 붙습니다. 배지는 다른 오더와 같습니다 — [상태의 뜻](01-sales.md#sales-statuses)
 
 **하루 마감**
 현금 세기와 카드 단말기 마감은 IMS 밖에서 합니다. 그날 받은 결제를 맞춰 보려면: **Sales ▾** › **Customer Payments** 에서 결제 방법을 고르고(**All methods** 에 목록이 있다), 두 날짜를 그날로 맞춘 뒤 **↓ CSV** 를 누릅니다([고객 결제와 선수금](01-sales.md#sales-payments)).
 
-<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773, 1172, 1174, 1175 -->
+<!-- rulings: 159, 225, 283, 546, 547, 629, 886, 633, 634, 635, 640, 644, 647, 648, 709, 713, 714, 715, 719, 720, 723, 725, 732, 735, 736, 737, 769, 773, 1172, 1174, 1175, 863, 865, 866 -->
